@@ -5,10 +5,11 @@ use JWTAuth;
 use Browser;
 use Tymon\JWTAuth\Exceptions\JWTException;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Auth;
 
 use Illuminate\Http\Request;
 //use Request;
-use Auth;
+//use Auth;
 use Hash;
 use DB;
 use Carbon\Carbon;
@@ -107,18 +108,22 @@ class LoginController extends Controller {
 		$this->datos_entorno_direccion();
 		try {
 			// attempt to verify the credentials and create a token for the user
-			if (! $token = app('auth')->attempt($credentials)) {
+			if (! $token = auth()->attempt($credentials)) {
 				
 				$maquina = 'Intento login>> Entorno: '.$this->entorno.', Dirección: '.$this->direccion.', plataforma: '.Browser::browserEngine().', platfamilia: '.Browser::platformFamily().', device_fami: '.Browser::deviceFamily().', device_model: '.Browser::deviceModel();
-				$consulta 	= 'INSERT INTO bitacoras (descripcion, affected_person_name, affected_element_type, created_at) 
-					VALUES (?, ?, "intento_login", ?)';
+				$consulta 	= 'INSERT INTO bitacoras (descripcion, affected_person_name, affected_element_type, created_at, created_by) 
+					VALUES (?, ?, "intento_login", ?, 0)';
 				DB::insert($consulta, [$maquina, $request->input('username'), $now]);
 				
 				return response()->json(['error' => 'invalid_credentials'], 400);
 			}
-
+			//$newToken = auth()->refresh();
+			Log::info($token);
+			//$token = $newToken;
 		} catch (JWTException $e) {
 			return response()->json(['error' => 'could_not_create_token'], 500);
+		} catch (Exception $e) {
+			return response()->json(['error' => 'error creando token'], 500);
 		}
 
 		
