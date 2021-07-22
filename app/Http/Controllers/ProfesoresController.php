@@ -251,25 +251,25 @@ class ProfesoresController extends Controller {
 		}
 
 
-		if (Request::has('ciudad_nac')) {
+		if (Request::has('ciudad_nac') && Request::input('ciudad_nac') != null) {
 			Request::merge( ['ciudad_nac' => Request::input('ciudad_nac')['id'] ? Request::input('ciudad_nac')['id'] : null ] );
 		}else{
 			Request::merge(array('ciudad_nac' => null) );
 		}
 
-		if (Request::input('ciudad_doc')) {
+		if (Request::input('ciudad_doc') && Request::input('ciudad_doc') != null) {
 			Request::merge( ['ciudad_doc' => Request::input('ciudad_doc')['id'] ? Request::input('ciudad_doc')['id'] : null ] );
 		}else{
 			Request::merge(array('ciudad_doc' => null) );
 		}
 
-		if (Request::input('tipo_doc')) {
+		if (Request::input('tipo_doc') && Request::input('tipo_doc') != null) {
 			Request::merge( ['tipo_doc' => Request::input('tipo_doc')['id'] ? Request::input('tipo_doc')['id'] : null ] );
 		}else{
 			Request::merge(array('tipo_doc' => null) );
 		}
 
-		if (Request::input('foto')) {
+		if (Request::input('foto') && Request::input('foto') != null) {
 			Request::merge( ['foto_id' => Request::input('foto')['id'] ? Request::input('foto')['id'] : null ] );
 		}else{
 			Request::merge(array('foto_id' => null) );

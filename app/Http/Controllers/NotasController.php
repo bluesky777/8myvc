@@ -339,8 +339,8 @@ class NotasController extends Controller {
 		$grupo_id 		= Request::input('grupo_id');
 		$subunidad 		= Request::input('subunidad');
 		$asignatura_id 	= Request::input('asignatura_id');
-		$sub_id 		= $subunidad["id"];
-		$nota_default 	= $subunidad["nota_default"];
+		$sub_id 		= $subunidad ? $subunidad["id"] : null;
+		$nota_default 	= $subunidad ? $subunidad["nota_default"] : null;
 		$now 			= Carbon::now('America/Bogota');
 
 

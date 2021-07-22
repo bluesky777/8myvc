@@ -39,7 +39,7 @@ class GruposController extends Controller {
 
 
 		$consulta = 'SELECT * from tipos_documentos t where t.deleted_at is null';
-		$res['tipos_doc'] = DB::select($consulta, [':year_id'=>$user->year_id] );
+		$res['tipos_doc'] = DB::select($consulta);
 
 
 		// Todos los Paises
