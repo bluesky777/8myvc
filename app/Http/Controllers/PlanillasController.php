@@ -309,7 +309,7 @@ class PlanillasController extends Controller {
 					a.fecha_nac, a.ciudad_nac, c1.departamento as departamento_nac_nombre, c1.ciudad as ciudad_nac_nombre, a.tipo_doc, t1.tipo as tipo_doc_name, a.documento, a.ciudad_doc, 
 					a.tipo_sangre, a.eps, CONCAT(a.telefono, " / ", a.celular) as telefonos, 
 					a.direccion, a.barrio, a.estrato, a.ciudad_resid, a.religion, a.email, a.facebook, a.created_by, a.updated_by,
-					a.pazysalvo, a.deuda, m.grupo_id, a.is_urbana, IF(a.is_urbana, "Urbano", "Rural") as es_urbana,
+					a.pazysalvo, a.presencial, a.deuda, m.grupo_id, a.is_urbana, IF(a.is_urbana, "Urbano", "Rural") as es_urbana,
 					t1.tipo as tipo_doc, t1.abrev as tipo_doc_abrev,
 					u.imagen_id, IFNULL(i.nombre, IF(a.sexo="F","default_female.png", "default_male.png")) as imagen_nombre, 
 					u.username, u.is_superuser, u.is_active,

@@ -54,7 +54,7 @@ class InformesController extends Controller {
 		$consulta = 'SELECT * 
 				from images i where i.deleted_at is null and i.publica=true';
 
-		$imagenes = DB::select($consulta, [':user_id'=>$user->user_id] );
+		$imagenes = DB::select($consulta, [] );
 		
 		$periodos_desactualizados = $this->grupos_desactualizados($user);
 		if (count($periodos_desactualizados)>0) {
