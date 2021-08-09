@@ -13,6 +13,7 @@ use Request;
 use DB;
 use App;
 use \Log;
+use App\Models\Periodo;
 
 class User extends Authenticatable implements JWTSubject
 {
