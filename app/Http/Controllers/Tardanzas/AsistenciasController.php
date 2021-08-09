@@ -58,7 +58,7 @@ class AsistenciasController extends Controller {
                 $alumno->userData = $userData;
 
                 // Ausencias
-                $cons_aus = "SELECT  a.id, a.asignatura_id, a.alumno_id, a.periodo_id, a.cantidad_ausencia, a.cantidad_tardanza, a.entrada, a.fecha_hora, a.uploaded, a.created_by, a.tipo 
+                $cons_aus = "SELECT  a.id, a.asignatura_id, a.alumno_id, a.periodo_id, a.cantidad_ausencia, a.cantidad_tardanza, a.entrada, a.fecha_hora, a.uploaded, a.created_by, a.created_at, a.tipo 
 							FROM ausencias a
                             inner join periodos p on p.id=a.periodo_id and p.id=:per_id
                             WHERE a.tipo='ausencia' and a.entrada=1 and a.alumno_id=:alumno_id and a.deleted_at is null;";
@@ -68,7 +68,7 @@ class AsistenciasController extends Controller {
 
                 
                 // Tardanzas
-                $cons_tar = "SELECT  a.id, a.asignatura_id, a.alumno_id, a.periodo_id, a.cantidad_ausencia, a.cantidad_tardanza, a.entrada, a.fecha_hora, a.uploaded, a.created_by, a.tipo 
+                $cons_tar = "SELECT  a.id, a.asignatura_id, a.alumno_id, a.periodo_id, a.cantidad_ausencia, a.cantidad_tardanza, a.entrada, a.fecha_hora, a.uploaded, a.created_by, a.created_at, a.tipo 
 							FROM ausencias a
                             inner join periodos p on p.id=a.periodo_id and p.id=:per_id
                             WHERE a.tipo='tardanza' and a.entrada=1 and a.alumno_id=:alumno_id and a.deleted_at is null;";
@@ -79,7 +79,7 @@ class AsistenciasController extends Controller {
 
 				// Ausencias a clase
 				$cons_aus_clase = "SELECT  a.id, a.asignatura_id, a.alumno_id, a.periodo_id, a.cantidad_ausencia, a.cantidad_tardanza, 
-										a.entrada, a.fecha_hora, a.uploaded, a.created_by, a.tipo,
+										a.entrada, a.fecha_hora, a.uploaded, a.created_by, a.created_at, a.tipo,
 										m.materia, m.alias, asg.orden as asignatura_orden
 									FROM ausencias a
 									inner join periodos p on p.id=a.periodo_id and p.id=:per_id
@@ -92,7 +92,7 @@ class AsistenciasController extends Controller {
 
 				// Tardanzas a clase
 				$cons_tar_clase = "SELECT  a.id, a.asignatura_id, a.alumno_id, a.periodo_id, a.cantidad_ausencia, a.cantidad_tardanza,
-										a.entrada, a.fecha_hora, a.uploaded, a.created_by, a.tipo,
+										a.entrada, a.fecha_hora, a.uploaded, a.created_by, a.created_at, a.tipo,
 										m.materia, m.alias, asg.orden as asignatura_orden
 									FROM ausencias a
 									inner join periodos p on p.id=a.periodo_id and p.id=:per_id
