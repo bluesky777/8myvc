@@ -224,3 +224,6 @@ public/images/zoom.png
 
 
 docker-compose/mysql/micolev1*
+app/.DS_Store
+app/Http/Controllers/.DS_Store
+app/Http/.DS_Store

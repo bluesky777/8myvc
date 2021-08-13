@@ -121,6 +121,7 @@ AdvancedRoute::controller('certificados-estudio', 'CertificadosEstudioController
 
 AdvancedRoute::controller('password', 'RemindersController');
 
+AdvancedRoute::controller('asistencias-app', 'AppMobile\AsistenciasAppController');
 
 AdvancedRoute::controller('tardanzas/login', 'Tardanzas\TLoginController');
 AdvancedRoute::controller('tardanzas/subir', 'Tardanzas\TSubirController');

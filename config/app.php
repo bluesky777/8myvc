@@ -244,7 +244,6 @@ return [
         'JWTFactory' => Tymon\JWTAuthFacades\JWTFactory::class,
         */
         'Browser' => \hisorange\BrowserDetect\Facade::class,
-        'Excel' => Maatwebsite\Excel\Facades\Excel::class,
         'Image' => Intervention\Image\Facades\Image::class,
         'Excel' => Maatwebsite\Excel\Facades\Excel::class,
     ],

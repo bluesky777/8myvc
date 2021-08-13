@@ -15,7 +15,7 @@
         "laravel/tinker": "^2.5",
         "lesichkovm/laravel-advanced-route": "^1.8",
         "maatwebsite/excel": "^3.1",
-        "tymon/jwt-auth": "^1.0"
+        "tymon/jwt-auth": "^1.0.2"
     },
     "require-dev": {
         "facade/ignition": "^2.5",

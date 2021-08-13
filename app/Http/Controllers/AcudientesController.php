@@ -18,6 +18,7 @@ use App\Models\DefinicionComportamiento;
 use App\Http\Controllers\Alumnos\OperacionesAlumnos;
 use App\Models\Year;
 use App\Models\Matricula;
+use \Log;
 
 
 use App\Http\Controllers\Alumnos\GuardarAlumno; // para guardar datos de acudiente. No quiero crear otro archivo
@@ -335,10 +336,10 @@ where id in (
 			$acudiente->nombres		=	Request::input('nombres');
 			$acudiente->apellidos	=	Request::input('apellidos');
 			$acudiente->sexo		=	Request::input('sexo');
-			$acudiente->tipo_doc	=	Request::input('tipo_doc')['id'];
+			$acudiente->tipo_doc	=	Request::has('tipo_doc') ? Request::input('tipo_doc')['id'] : null;
 			$acudiente->documento	=	Request::input('documento');
-			$acudiente->ciudad_doc	=	Request::input('ciudad_doc')['id'];
-			$acudiente->ciudad_nac	=	Request::input('ciudad_nac')['id'];
+			$acudiente->ciudad_doc	=	Request::has('ciudad_doc') ? Request::input('ciudad_doc')['id'] : null;
+			$acudiente->ciudad_nac	=	Request::has('ciudad_nac') ? Request::input('ciudad_nac')['id'] : null;
 			$acudiente->fecha_nac	=	$fecha_nac;
 			$acudiente->telefono	=	Request::input('telefono');
 			$acudiente->celular		=	Request::input('celular');

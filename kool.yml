@@ -5,16 +5,18 @@ scripts:
   node-setup:
   - kool run npm install
   - kool run npm run dev
-  npm: kool docker kooldev/node:14 npm
-  npx: kool docker kooldev/node:14 npx
+  #npm: kool docker kooldev/node:14 npm
+  #npx: kool docker kooldev/node:14 npx
   phpunit: kool exec app php ./bin/phpunit
   reset:
   - kool run composer install
   - kool run artisan migrate:fresh --seed
-  - kool run node-setup
+  #- kool run node-setup
   setup:
   - cp .env.example .env
   - kool start
   - kool run composer install
   - kool run artisan key:generate
-  - kool run node-setup
+  #- kool run node-setup
+  # composer require tymon/jwt-auth:^1.0.2 # Esto por si acaso, pero no es de aquí. Nunca descomentar.
+  - kool run artisan jwt:secret
