@@ -62,7 +62,8 @@ class ChangeAskedController extends Controller {
 			
 			# Historial de sesiones
 			$historial = DB::select('SELECT h.*, count(b.id) as cant_cambios FROM historiales h  
-								left join bitacoras b  on b.historial_id=h.id and h.user_id=?
+								left join bitacoras b  on b.historial_id=h.id 
+								where h.user_id=?
 								group by h.id
 								order by h.created_at desc 
 								limit 50', [ $user->user_id ]);
@@ -135,7 +136,8 @@ class ChangeAskedController extends Controller {
 			
 			# Historial de sesiones
 			$historial = DB::select('SELECT h.*, count(b.id) as cant_cambios FROM historiales h  
-								left join bitacoras b  on b.historial_id=h.id and h.user_id=?
+								left join bitacoras b  on b.historial_id=h.id  
+								where h.user_id=?
 								group by h.id
 								order by h.created_at desc 
 								limit 50', [ $user->user_id ]);
