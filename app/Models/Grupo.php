@@ -47,20 +47,45 @@ class Grupo extends Model {
 						order by a.apellidos, a.nombres';
 		}else{
 			// Consulta incluyendo los matriculados y retirados.
-			$consulta = 'SELECT m.id as matricula_id, m.alumno_id, a.no_matricula, a.nombres, a.apellidos, a.sexo, a.user_id, a.nee, a.nee_descripcion, 
+			// $consulta = 'SELECT m.id as matricula_id, m.alumno_id, a.no_matricula, a.nombres, a.apellidos, a.sexo, a.user_id, a.nee, a.nee_descripcion, 
+			// 				a.fecha_nac, a.ciudad_nac, a.celular, a.direccion, a.religion, t.tipo as tipo_doc, t.abrev as tipo_doc_abrev, a.documento, a.no_matricula, 
+			// 				m.grupo_id, m.estado, m.nuevo, m.repitente, m.promovido, m.promedio, m.cant_asign_perdidas, m.cant_areas_perdidas,
+			// 				u.imagen_id, IFNULL(i.nombre, IF(a.sexo="F","default_female.png", "default_male.png")) as imagen_nombre, 
+			// 				a.foto_id, IFNULL(i2.nombre, IF(a.sexo="F","default_female.png", "default_male.png")) as foto_nombre,
+			// 				m.fecha_retiro as fecha_retiro 
+			// 			FROM alumnos a 
+			// 			inner join matriculas m on a.id=m.alumno_id and m.grupo_id=? and m.deleted_at is null 
+			// 			left join users u on a.user_id=u.id and u.deleted_at is null
+			// 			left join tipos_documentos t on a.tipo_doc=t.id and t.deleted_at is null
+			// 			left join images i on i.id=u.imagen_id and i.deleted_at is null
+			// 			left join images i2 on i2.id=a.foto_id and i2.deleted_at is null
+			// 			where a.deleted_at is null and m.deleted_at is null
+			// 			order by a.apellidos, a.nombres';
+
+
+			$sql_condicion = '';
+			$canti_retirados = count($con_retirados);
+
+			for ($i=0; $i < $canti_retirados; $i++) { 
+				$sql_condicion .= ' or m.id="'.$con_retirados[$i]['matricula_id'].'"';
+			}
+
+			// Prueba para excluir retirados pero incluir a los actuales solicitados
+			$consulta = 'SELECT m.id as matricula_id, m.alumno_id, a.no_matricula, a.nombres, a.apellidos, a.sexo, a.user_id, a.nee, a.nee_descripcion,
 							a.fecha_nac, a.ciudad_nac, a.celular, a.direccion, a.religion, t.tipo as tipo_doc, t.abrev as tipo_doc_abrev, a.documento, a.no_matricula, 
-							m.grupo_id, m.estado, m.nuevo, m.repitente, m.promovido, m.promedio, m.cant_asign_perdidas, m.cant_areas_perdidas,
+							m.grupo_id, m.estado, m.nuevo, m.repitente, username, m.promovido, m.promedio, m.cant_asign_perdidas, m.cant_areas_perdidas,
 							u.imagen_id, IFNULL(i.nombre, IF(a.sexo="F","default_female.png", "default_male.png")) as imagen_nombre, 
-							a.foto_id, IFNULL(i2.nombre, IF(a.sexo="F","default_female.png", "default_male.png")) as foto_nombre,
-							m.fecha_retiro as fecha_retiro 
+							a.foto_id, IFNULL(i2.nombre, IF(a.sexo="F","default_female.png", "default_male.png")) as foto_nombre
 						FROM alumnos a 
-						inner join matriculas m on a.id=m.alumno_id and m.grupo_id=? and m.deleted_at is null 
+						inner join matriculas m on a.id=m.alumno_id and m.grupo_id=? and ((m.estado="MATR" or m.estado="ASIS" or m.estado="PREM") '.$sql_condicion.' ) and m.deleted_at is null
 						left join users u on a.user_id=u.id and u.deleted_at is null
 						left join tipos_documentos t on a.tipo_doc=t.id and t.deleted_at is null
 						left join images i on i.id=u.imagen_id and i.deleted_at is null
 						left join images i2 on i2.id=a.foto_id and i2.deleted_at is null
 						where a.deleted_at is null and m.deleted_at is null
 						order by a.apellidos, a.nombres';
+
+
 		}
 
 		$alumnos = DB::select($consulta, [$grupo_id]);
