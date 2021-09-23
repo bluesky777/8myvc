@@ -81,69 +81,74 @@ class Matricula extends Model {
 
 
 
-	public static function matricularUno($alumno_id, $grupo_id, $year_id=false, $user_id=null)
+	public static function matricularUno($alumno_id, $grupo_id, $year_id=false, $user_id=null, $crear_matri=false)
 	{
 		if (!$year_id) {
 			$year = Year::where('actual', true)->first();
 			$year_id = $year->id;
 		}
-		
-		// Traigo matriculas del alumno este año aunque estén borradas
-		$consulta = 'SELECT m.id, m.alumno_id, m.grupo_id, m.estado, g.year_id 
-			FROM matriculas m 
-			inner join grupos g 
-				on m.alumno_id = :alumno_id and g.year_id = :year_id and m.grupo_id=g.id';
 
-		$matriculas = DB::select($consulta, ['alumno_id'=>$alumno_id, 'year_id'=>$year_id]);
 		$matricula = false;
 
-		// Busco entre las que están borradas para activar alguna y borrar las demás
-		for ($i=0; $i < count($matriculas); $i++) { 
+		if (!$crear_matri) {
 
-			$matri = Matricula::onlyTrashed()->where('id', $matriculas[$i]->id)->first();
+			// Traigo matriculas del alumno este año aunque estén borradas
+			$consulta = 'SELECT m.id, m.alumno_id, m.grupo_id, m.estado, g.year_id 
+				FROM matriculas m 
+				inner join grupos g 
+					on m.alumno_id = :alumno_id and g.year_id = :year_id and m.grupo_id=g.id';
 
-			if ($matri) {
-				if ($matricula) { // Si ya he encontrado en un elemento anterior una matrícula identica, es porque ya la he activado, no debo activar más. Por el contrario, debo borrarlas
-					$matri->deleted_by		= $user_id;
-					$matri->save();
-					$matri->delete();
-				}else{
-					$matri->estado 			= 'MATR'; // Matriculado, Asistente o Retirado , Prem, Form
-					$matri->fecha_retiro 	= null;
-					$matri->grupo_id 		= $grupo_id;
-					$matri->updated_by		= $user_id;
-					$matri->save();
-					$matri->restore();
-					$matricula=$matri;
-				}
-			}
-		}
-		
-		Log::info('count($matriculas) > 0 && $matricula' . count($matriculas) .' - '. $matricula);
-		//Cuando estoy pasando de un grupo a otro, la matricula a modificar no necesariamente está en papelera así que:
-		if ( count($matriculas) > 0 && $matricula == false ) {
-			Log::info('Encuentra más de una matrícula: '.count($matriculas));
+			$matriculas = DB::select($consulta, ['alumno_id'=>$alumno_id, 'year_id'=>$year_id]);
+			
+
+			// Busco entre las que están borradas para activar alguna y borrar las demás
 			for ($i=0; $i < count($matriculas); $i++) { 
 
-				$matri = Matricula::where('id', $matriculas[$i]->id)->first();
-				
+				$matri = Matricula::onlyTrashed()->where('id', $matriculas[$i]->id)->first();
+
 				if ($matri) {
 					if ($matricula) { // Si ya he encontrado en un elemento anterior una matrícula identica, es porque ya la he activado, no debo activar más. Por el contrario, debo borrarlas
 						$matri->deleted_by		= $user_id;
 						$matri->save();
 						$matri->delete();
 					}else{
-						$matri->estado 			= 'MATR'; // Matriculado, Asistente o Retirado
+						$matri->estado 			= 'MATR'; // Matriculado, Asistente o Retirado , Prem, Form
 						$matri->fecha_retiro 	= null;
 						$matri->grupo_id 		= $grupo_id;
 						$matri->updated_by		= $user_id;
 						$matri->save();
+						$matri->restore();
 						$matricula=$matri;
 					}
 				}
 			}
-		}
+			
+			Log::info('count($matriculas) > 0 && $matricula' . count($matriculas) .' - '. $matricula);
+			//Cuando estoy pasando de un grupo a otro, la matricula a modificar no necesariamente está en papelera así que:
+			if ( count($matriculas) > 0 && $matricula == false ) {
+				Log::info('Encuentra más de una matrícula: '.count($matriculas));
+				for ($i=0; $i < count($matriculas); $i++) { 
+
+					$matri = Matricula::where('id', $matriculas[$i]->id)->first();
+					
+					if ($matri) {
+						if ($matricula) { // Si ya he encontrado en un elemento anterior una matrícula identica, es porque ya la he activado, no debo activar más. Por el contrario, debo borrarlas
+							$matri->deleted_by		= $user_id;
+							$matri->save();
+							$matri->delete();
+						}else{
+							$matri->estado 			= 'MATR'; // Matriculado, Asistente o Retirado
+							$matri->fecha_retiro 	= null;
+							$matri->grupo_id 		= $grupo_id;
+							$matri->updated_by		= $user_id;
+							$matri->save();
+							$matricula=$matri;
+						}
+					}
+				}
+			}
 		
+		} // if !$crear_matri
 		
 		try {
 			if (!$matricula) {

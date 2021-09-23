@@ -54,6 +54,8 @@ class MatriculasController extends Controller {
 			$alumno_id 		= Request::input('alumno_id');
 			$grupo_id 		= Request::input('grupo_id');
 			$year_id 		= Request::input('year_id');
+			$crear_matri 	= Request::input('crear_matri');
+			Log::info('$crear_matri ' . $crear_matri);
 
 			$consulta = 'SELECT m.id, m.alumno_id, m.grupo_id, m.estado, g.year_id 
 				FROM matriculas m 
@@ -62,11 +64,11 @@ class MatriculasController extends Controller {
 
 			$matriculas = DB::select($consulta, ['alumno_id'=>$alumno_id, 'year_id'=>$year_id, 'grupo_id'=>$grupo_id]);
 
-			if (count($matriculas) > 0) {
+			if (count($matriculas) > 0 && !$crear_matri) {
 				return 'Ya matriculado';
 			}
 
-			return Matricula::matricularUno($alumno_id, $grupo_id, $year_id, $this->user->user_id);
+			return Matricula::matricularUno($alumno_id, $grupo_id, $year_id, $this->user->user_id, $crear_matri);
 		} else {
 			return abort('400', 'No tiene permisos para editar');
 		}
