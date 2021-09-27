@@ -215,7 +215,7 @@ class LoginController extends Controller {
 		$username 		= '';
 
 		$consulta 	= 'INSERT INTO password_reminders(email, token, created_at) VALUES(?,?,?)';
-		DB::insert($consulta, [ $destinatario, $numero, $now ])[0];
+		DB::insert($consulta, [ $destinatario, $numero, $now ]);
 
 
 		$consulta 	= 'SELECT * FROM users WHERE email = ? and deleted_at is null and is_active=1';
