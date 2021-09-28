@@ -26,6 +26,7 @@ AdvancedRoute::controller('login', 'LoginController');
 
 AdvancedRoute::controller('alumnos', 'AlumnosController');
 AdvancedRoute::controller('importar', 'Alumnos\ImportarController');
+AdvancedRoute::controller('folios', 'Alumnos\FoliosController');
 AdvancedRoute::controller('acudientes', 'AcudientesController');
 AdvancedRoute::controller('buscar', 'BuscarController');
 AdvancedRoute::controller('paises', 'PaisesController');

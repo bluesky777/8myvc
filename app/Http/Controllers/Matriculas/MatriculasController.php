@@ -22,13 +22,18 @@ class MatriculasController extends Controller {
 	public function __construct()
 	{
 		$this->user = User::fromToken();
-		if ($this->user->tipo == 'Acudiente' || $this->user->tipo == 'Alumno') {
-			if(Request::path() != 'matriculas/prematricular'){
+		try {
+			if ($this->user->tipo == 'Acudiente' || $this->user->tipo == 'Alumno') {
+				if(Request::path() != 'matriculas/prematricular'){
+					return 'No tienes permiso';
+				}
+			}else if($this->user->is_superuser){
 				return 'No tienes permiso';
 			}
-		}else if($this->user->is_superuser){
-			return 'No tienes permiso';
+		} catch (\Throwable $th) {
+			return 'Error de tipo';
 		}
+		
 	}
 	
 

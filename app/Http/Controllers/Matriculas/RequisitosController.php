@@ -22,9 +22,14 @@ class RequisitosController extends Controller {
 	public function __construct()
 	{
 		$this->user = User::fromToken();
-		if( ! $this->user->is_superuser){
-			return 'No tienes permiso';
+		try {
+			if( ! $this->user->is_superuser){
+				return 'No tienes permiso';
+			}
+		} catch (\Throwable $th) {
+			return 'Error';
 		}
+		
 	}
 	
 

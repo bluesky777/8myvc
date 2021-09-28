@@ -41,7 +41,11 @@ class Boletines3Controller extends Controller {
 	public function __construct()
 	{
 		$this->user = User::fromToken();
-		$this->escalas_val = DB::select('SELECT * FROM escalas_de_valoracion WHERE year_id=? AND deleted_at is null', [$this->user->year_id]);
+		try {
+			$this->escalas_val = DB::select('SELECT * FROM escalas_de_valoracion WHERE year_id=? AND deleted_at is null', [$this->user->year_id]);
+		} catch (\Throwable $th) {
+			//throw $th;
+		}
 	}
 	
 

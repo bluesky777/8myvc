@@ -43,81 +43,86 @@ class BoletinesController extends Controller {
 	public function __construct()
 	{
 		$this->user 		= User::fromToken();
-		$this->escalas_val 	= DB::select('SELECT * FROM escalas_de_valoracion WHERE year_id=? AND deleted_at is null', [$this->user->year_id]);
+		try {
+			$this->escalas_val 	= DB::select('SELECT * FROM escalas_de_valoracion WHERE year_id=? AND deleted_at is null', [$this->user->year_id]);
 		
 		
-		$this->now 	= Carbon::now('America/Bogota');
-		$consulta 		= 'SELECT * FROM historiales WHERE user_id=? and deleted_at is null order by id desc limit 1 ';
-		$this->hist 	= DB::select($consulta, [$this->user->user_id])[0];
+			$this->now 	= Carbon::now('America/Bogota');
+			$consulta 		= 'SELECT * FROM historiales WHERE user_id=? and deleted_at is null order by id desc limit 1 ';
+			$this->hist 	= DB::select($consulta, [$this->user->user_id])[0];
 
-		
-		$requested_alumnos 		= Request::input('requested_alumnos');
-		
-		if($this->user->tipo == 'Alumno'){
-			/*
-			$consulta 	= 'INSERT INTO bitacoras (created_by, historial_id, affected_person_type, affected_element_type, created_at) 
-				VALUES (?, ?, "Al", "AlumnoVerBoletin", ?)';
+			
+			$requested_alumnos 		= Request::input('requested_alumnos');
+			
+			if($this->user->tipo == 'Alumno'){
+				/*
+				$consulta 	= 'INSERT INTO bitacoras (created_by, historial_id, affected_person_type, affected_element_type, created_at) 
+					VALUES (?, ?, "Al", "AlumnoVerBoletin", ?)';
 
-			DB::insert($consulta, [$this->user->user_id, $this->hist->id, $this->now]);
+				DB::insert($consulta, [$this->user->user_id, $this->hist->id, $this->now]);
 
-			return abort(400, 'Eres alumno');
-			*/
-			if (count($requested_alumnos) > 1) {
-				return abort(400, 'Pedis más de lo que debes');
+				return abort(400, 'Eres alumno');
+				*/
+				if (count($requested_alumnos) > 1) {
+					return abort(400, 'Pedis más de lo que debes');
+				}
+				
+				$alumno = $requested_alumnos[0];
+				
+				if ((int)$alumno['alumno_id'] != $this->user->persona_id){
+					return abort(400, 'No puedes ver el de otros');
+				};
 			}
 			
-			$alumno = $requested_alumnos[0];
 			
-			if ((int)$alumno['alumno_id'] != $this->user->persona_id){
-				return abort(400, 'No puedes ver el de otros');
-			};
-		}
-		
-		
-		if($this->user->tipo == 'Acudiente'){
-			
-			
-			if (count($requested_alumnos) > 1) {
+			if($this->user->tipo == 'Acudiente'){
 				
-				$consulta 	= 'INSERT INTO bitacoras (created_by, historial_id, affected_user_id, affected_person_type, affected_element_type, created_at) 
-					VALUES (?, ?, ?, "Al", "AcudienteVerVariosBoletines", ?)';
-
-				DB::insert($consulta, [$this->user->user_id, $this->hist->id, $requested_alumnos[0]['alumno_id'], $this->now]);
-
-				return abort(400, 'Pedis más de lo que debes');
-			}
-			
-			$alumno = $requested_alumnos[0];
-			
-			$consulta 		= 'SELECT * FROM parentescos WHERE alumno_id=? and acudiente_id=? and deleted_at is null';
-			$parentesco 	= DB::select($consulta, [$alumno['alumno_id'], $this->user->persona_id]);
-			
-			
-			if (count($parentesco) == 0) {
 				
-				$consulta 	= 'INSERT INTO bitacoras (created_by, historial_id, affected_user_id, affected_person_type, affected_element_type, created_at) 
-					VALUES (?, ?, ?, "Al", "AcudienteVerBoletin", ?)';
-
-				DB::insert($consulta, [$this->user->user_id, $this->hist->id, $alumno['alumno_id'], $this->now]);
-
-				return abort(400, 'No es acudiente de este alumno. Lo siento.');
-			}else{
-				
-				$consulta 		= 'SELECT pazysalvo FROM alumnos WHERE id=? and deleted_at is null';
-				$alumno 		= DB::select($consulta, [ $alumno['alumno_id'] ])[0];
-				
-				if(!$alumno->pazysalvo){
+				if (count($requested_alumnos) > 1) {
 					
 					$consulta 	= 'INSERT INTO bitacoras (created_by, historial_id, affected_user_id, affected_person_type, affected_element_type, created_at) 
-						VALUES (?, ?, ?, "Al", "AcudienteVerBoletinSinPagar", ?)';
+						VALUES (?, ?, ?, "Al", "AcudienteVerVariosBoletines", ?)';
+
+					DB::insert($consulta, [$this->user->user_id, $this->hist->id, $requested_alumnos[0]['alumno_id'], $this->now]);
+
+					return abort(400, 'Pedis más de lo que debes');
+				}
+				
+				$alumno = $requested_alumnos[0];
+				
+				$consulta 		= 'SELECT * FROM parentescos WHERE alumno_id=? and acudiente_id=? and deleted_at is null';
+				$parentesco 	= DB::select($consulta, [$alumno['alumno_id'], $this->user->persona_id]);
+				
+				
+				if (count($parentesco) == 0) {
+					
+					$consulta 	= 'INSERT INTO bitacoras (created_by, historial_id, affected_user_id, affected_person_type, affected_element_type, created_at) 
+						VALUES (?, ?, ?, "Al", "AcudienteVerBoletin", ?)';
 
 					DB::insert($consulta, [$this->user->user_id, $this->hist->id, $alumno['alumno_id'], $this->now]);
 
-					return abort(400, 'No está a paz y salvo. Lo siento.');
+					return abort(400, 'No es acudiente de este alumno. Lo siento.');
+				}else{
+					
+					$consulta 		= 'SELECT pazysalvo FROM alumnos WHERE id=? and deleted_at is null';
+					$alumno 		= DB::select($consulta, [ $alumno['alumno_id'] ])[0];
+					
+					if(!$alumno->pazysalvo){
+						
+						$consulta 	= 'INSERT INTO bitacoras (created_by, historial_id, affected_user_id, affected_person_type, affected_element_type, created_at) 
+							VALUES (?, ?, ?, "Al", "AcudienteVerBoletinSinPagar", ?)';
+
+						DB::insert($consulta, [$this->user->user_id, $this->hist->id, $alumno['alumno_id'], $this->now]);
+
+						return abort(400, 'No está a paz y salvo. Lo siento.');
+					}
 				}
+				
 			}
-			
+		} catch (\Throwable $th) {
+			return 'Error';
 		}
+		
 	}
 	
 

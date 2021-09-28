@@ -41,7 +41,11 @@ class Boletines2Controller extends Controller {
 	public function __construct()
 	{
 		$this->user = User::fromToken();
-		$this->escalas_val = DB::select('SELECT * FROM escalas_de_valoracion WHERE year_id=? AND deleted_at is null', [$this->user->year_id]);
+		try {
+			$this->escalas_val = DB::select('SELECT * FROM escalas_de_valoracion WHERE year_id=? AND deleted_at is null', [$this->user->year_id]);
+		} catch (\Throwable $th) {
+			return 'Error';
+		}
 		/*
 		$this->nota_max = DB::select('SELECT id, desempenio, porc_inicial, porc_final FROM escalas_de_valoracion 
 					where deleted_at is null and year_id=? order by orden desc limit 1', [$this->user->year_id])[0];
