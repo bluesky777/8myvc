@@ -303,6 +303,7 @@ class AlumnosController extends Controller {
 				if ($grupo_id){
 					$matricula = new Matricula;
 					$matricula->alumno_id		=	$alumno->id;
+					$matricula->nro_folio		=	$this->user->year . '-' . $alumno->id;
 					$matricula->grupo_id		=	$grupo_id;
 					$matricula->nuevo			=	Request::input('nuevo');
 					$matricula->repitente		=	Request::input('repitente');

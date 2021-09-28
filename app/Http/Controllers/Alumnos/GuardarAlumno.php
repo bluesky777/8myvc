@@ -57,6 +57,7 @@ class GuardarAlumno {
 			case 'efectuar_una':
 			case 'promovido':
 			case 'descripcion_efectuada':
+			case 'nro_folio':
 			
 				$consulta 	= 'SELECT a.id, a.user_id, g.id as grupo_id, g.titular_id, m.id as matricula_id 
 									FROM alumnos a

@@ -82,6 +82,7 @@ class MatriculasController extends Controller {
 			
 			$matri 				= Matricula::findOrFail($matricula_id);
 			$matri->estado 		= 'MATR';
+			if ($matri->nro_folio == null) $matri->nro_folio = $this->user->year . '-' . $matri->alumno_id;
 			$matri->updated_by 	= $this->user->user_id;
 			
 			$matri->save();
@@ -459,6 +460,22 @@ class MatriculasController extends Controller {
 			$year_id 		= Request::input('year_id', $this->user->year_id);
 			$now 			= Carbon::now('America/Bogota');
 			$anio_sig 		= intval(Request::input('anio_sig', 1));
+			
+			
+			// Traigo el año por el grupo
+			$consulta = 'SELECT g.id, g.year_id 
+				FROM grupos g 
+				WHERE g.id=:grupo_id and g.deleted_at is null';
+
+			$grupo = DB::select($consulta, ['grupo_id'=>$grupo_id]);
+
+			if (count($grupo) > 0) {
+				$grupo 		= $grupo[0];
+				$year_id 	= $grupo->year_id;
+			}else{
+				return abort('400', 'Asigne grupo que corresponda a algún año creado.');
+			}
+
 			
 			
 			// Traigo matriculas del alumno este año aunque estén borradas

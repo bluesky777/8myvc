@@ -19,7 +19,7 @@ class Matricula extends Model {
 	protected $softDelete = true;
 
 
-	public static $consulta_asistentes_o_matriculados = 'SELECT m.id as matricula_id, m.alumno_id, a.no_matricula, a.nombres, a.apellidos, a.sexo, a.user_id, a.egresado,
+	public static $consulta_asistentes_o_matriculados = 'SELECT m.id as matricula_id, m.alumno_id, m.nro_folio, a.no_matricula, a.nombres, a.apellidos, a.sexo, a.user_id, a.egresado,
 							a.fecha_nac, a.ciudad_nac, c1.ciudad as ciudad_nac_nombre, a.tipo_doc, a.documento, a.ciudad_doc, c2.ciudad as ciudad_doc_nombre, a.tipo_sangre, a.eps, a.telefono, a.celular, 
 							a.direccion, a.barrio, a.estrato, a.ciudad_resid, c3.ciudad as ciudad_resid_nombre, a.religion, a.email, a.facebook, a.created_by, a.updated_by,
 							a.pazysalvo, a.presencial, m.promovido, a.deuda, m.grupo_id, m.prematriculado, 
@@ -41,7 +41,7 @@ class Matricula extends Model {
 
 
 
-	public static $consulta_asistentes_o_matriculados_simat = 'SELECT m.id as matricula_id, m.alumno_id, a.no_matricula, a.nombres, a.apellidos, a.sexo, a.user_id, a.egresado,
+	public static $consulta_asistentes_o_matriculados_simat = 'SELECT m.id as matricula_id, m.alumno_id, m.nro_folio, a.no_matricula, a.nombres, a.apellidos, a.sexo, a.user_id, a.egresado,
 							a.fecha_nac, a.ciudad_nac, c1.departamento as departamento_nac_nombre, c1.ciudad as ciudad_nac_nombre, a.tipo_doc, t1.tipo as tipo_doc_name, a.documento, a.ciudad_doc, 
 							c2.ciudad as ciudad_doc_nombre, c2.departamento as departamento_doc_nombre, a.tipo_sangre, a.eps, a.telefono, a.celular, 
 							a.direccion, a.barrio, a.is_urbana, a.estrato, a.ciudad_resid, c3.ciudad as ciudad_resid_nombre, c3.departamento as departamento_resid_nombre, a.religion, a.email, a.facebook, a.created_by, a.updated_by,
@@ -86,6 +86,8 @@ class Matricula extends Model {
 		if (!$year_id) {
 			$year = Year::where('actual', true)->first();
 			$year_id = $year->id;
+		}else{
+			$year = Year::find($year_id);
 		}
 
 		$matricula = false;
@@ -107,6 +109,7 @@ class Matricula extends Model {
 				$matri = Matricula::onlyTrashed()->where('id', $matriculas[$i]->id)->first();
 
 				if ($matri) {
+					if ($matricula->nro_folio == null) $matricula->nro_folio = $year->year . '-' . $alumno_id;
 					if ($matricula) { // Si ya he encontrado en un elemento anterior una matrícula identica, es porque ya la he activado, no debo activar más. Por el contrario, debo borrarlas
 						$matri->deleted_by		= $user_id;
 						$matri->save();
@@ -126,12 +129,12 @@ class Matricula extends Model {
 			Log::info('count($matriculas) > 0 && $matricula' . count($matriculas) .' - '. $matricula);
 			//Cuando estoy pasando de un grupo a otro, la matricula a modificar no necesariamente está en papelera así que:
 			if ( count($matriculas) > 0 && $matricula == false ) {
-				Log::info('Encuentra más de una matrícula: '.count($matriculas));
+
 				for ($i=0; $i < count($matriculas); $i++) { 
 
 					$matri = Matricula::where('id', $matriculas[$i]->id)->first();
-					
 					if ($matri) {
+						if ($matri->nro_folio == null) $matri->nro_folio = $year->year . '-' . $alumno_id;
 						if ($matricula) { // Si ya he encontrado en un elemento anterior una matrícula identica, es porque ya la he activado, no debo activar más. Por el contrario, debo borrarlas
 							$matri->deleted_by		= $user_id;
 							$matri->save();
@@ -153,6 +156,7 @@ class Matricula extends Model {
 		try {
 			if (!$matricula) {
 				$matricula = new Matricula;
+				$matricula->nro_folio 	= $year->year . '-' . $alumno_id;
 				$matricula->alumno_id 	= $alumno_id;
 				$matricula->grupo_id	= $grupo_id;
 				$matricula->estado 		= 'MATR';
@@ -175,6 +179,7 @@ class Matricula extends Model {
 			// se supone que esto nunca va a ocurrir, ya que eliminé todas las matrículas 
 			// excepto la que concordara con el grupo, poniéndola en estado=MATR
 			$matricula 				= Matricula::where('alumno_id', $alumno_id)->where('grupo_id', $grupo_id)->first();
+			if ($matricula->nro_folio == null) $matricula->nro_folio = $year->year . '-' . $alumno_id;
 			$matricula->estado 		= 'MATR';
 			$matricula->updated_by	= $user_id;
 			$matricula->save();
