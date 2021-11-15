@@ -94,7 +94,7 @@ class NotaComportamiento extends Model {
 	
 	public static function todas_year($alumno_id, $year_id){
 		
-		$consulta 	= 'SELECT n.nota as nota_comportamiento, p.numero FROM periodos p 
+		$consulta 	= 'SELECT n.nota as nota_comportamiento, n.id, p.numero FROM periodos p 
 			LEFT JOIN nota_comportamiento n ON p.id=n.periodo_id AND n.alumno_id=:alumno_id AND p.deleted_at is null
 			WHERE n.deleted_at is null AND p.year_id=:year_id';
 		$notas 		= DB::select($consulta, [ ':alumno_id' =>$alumno_id, ':year_id' =>$year_id ]);

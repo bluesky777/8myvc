@@ -402,6 +402,30 @@ class BolfinalesController extends Controller {
 		if ($escala) {
 			$alumno->nota_comportamiento_year_desempenio = $escala->desempenio;
 		}
+
+		// Frases comportamiento
+		for ($i=0, $canti = count($alumno->notas_comportamiento); $i < $canti; $i++) { 
+			$nota = $alumno->notas_comportamiento[$i];
+
+			$consulta = 'SELECT * FROM (
+							SELECT d.id as definicion_id, d.comportamiento_id, d.frase_id, 
+								f.frase, f.tipo_frase, f.year_id
+							FROM definiciones_comportamiento d
+							inner join frases f on d.frase_id=f.id and d.deleted_at is null 
+							where d.comportamiento_id=:comportamiento1_id and f.deleted_at is null
+						union
+							select d2.id as definicion_id, d2.comportamiento_id, d2.frase_id, 
+								d2.frase, null as tipo_frase, null as year_id
+							from definiciones_comportamiento d2 where d2.deleted_at is null and d2.frase is not null                  
+							and d2.comportamiento_id=:comportamiento2_id 
+							
+						) defi';
+
+			$definiciones = DB::select($consulta, ['comportamiento1_id' => $nota->id, 'comportamiento2_id' => $nota->id]);
+			
+			$nota->definiciones = $definiciones;
+
+		}
 		
 		// Agrupamos por áreas
 		$areas = Area::agrupar_asignaturas($grupo_id, $alumno->asignaturas, $this->escalas_val);		
