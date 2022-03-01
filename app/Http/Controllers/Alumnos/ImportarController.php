@@ -22,132 +22,270 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Alumnos\ImporterFixer;
 
 
+use Maatwebsite\Excel\Concerns\WithMultipleSheets;
+use Illuminate\Support\Collection;
+use Maatwebsite\Excel\Concerns\ToCollection;
+use Maatwebsite\Excel\Concerns\ToArray;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Events\BeforeSheet;
+use Maatwebsite\Excel\Concerns\WithHeadingRow;
+
+class AlumnoSheetImport implements ToCollection, WithHeadingRow
+{
+    public function collection(Collection $rows)
+    {
+		Log::info($rows);
+		return $rows;
+        foreach ($rows as $row) 
+        {
+            User::create([
+                'name' => $row[0],
+            ]);
+        }
+    }
+    public function headingRow(): int
+    {
+        return 2;
+    }
+}
+class AlumnosImport implements WithMultipleSheets 
+{
+   
+    public function sheets(): array
+    {
+        return [
+            new AlumnoSheetImport()
+        ];
+    }
+}
+class ExcelUtils implements ToArray, WithHeadingRow, WithEvents
+{
+    public $sheetNames;
+    public $sheetData;
+    public $year;
+    public $fixer;
+
+    public function __construct($year, $fixer){
+        $this->sheetNames = [];
+    	$this->sheetData = [];
+    	$this->year = $year;
+    	$this->fixer = $fixer;
+    }
+    public function array(array $array)
+    {
+        $sheetName = $this->sheetNames[count($this->sheetNames)-1];
+        $this->sheetData[$sheetName] = $array;
+        $now 		= Carbon::now('America/Bogota');
+        $abrev 		= $sheetName;
+        
+        $consulta 	= 'SELECT g.id, g.abrev, g.year_id FROM grupos g inner join years y on y.id=g.year_id WHERE g.abrev=? and g.deleted_at is null and y.deleted_at is null and y.year=?;';
+		$grupo 		= DB::select($consulta, [$abrev, $this->year])[0];
+		$results    = $array;
+		
+		for ($f=0; $f < count($results); $f++) { 
+						
+			$alumno 	= $results[$f];
+			$res 		= $this->fixer->verificar($alumno, $this->year);
+			$alumno["ciudad_docu_acud1"] = $res['ciudad_id_A1'];
+			$alumno["ciudad_docu_acud2"] = $res['ciudad_id_A2'];
+
+			if ($alumno["id"]) {
+				$consulta 	= 'UPDATE alumnos SET no_matricula=?, nombres=?, apellidos=?, sexo=?, fecha_nac=?, 
+					tipo_doc=?, documento=?, no_matricula=?, direccion=?, barrio=?, telefono=?, celular=?, estrato=?, 
+					tipo_sangre=?, eps=?, religion=?, updated_at=?'.$res['consulta'].' WHERE id=?';
+					
+
+				DB::update($consulta, [$alumno["no_matricula"], $alumno["primer_nombre"].' '.$alumno["segundo_nombre"], $alumno["primer_apellido"].' '.$alumno["segundo_apellido"], $alumno["sexo"], $alumno["fecha_de_nacim"], 
+						$alumno["tipo_doc"], $alumno["nro_de_documento"], $alumno["numero_matricula"], $alumno["direccion_residencia"], $alumno["barrio"], $alumno["telefono"], $alumno["celular"], $alumno["estrato"], 
+						$alumno["rh"], $alumno["eps"], $alumno["religion"], $now, $alumno["id"]])[0];
+				
+						
+				DB::update('UPDATE matriculas m INNER JOIN grupos g ON g.id=m.grupo_id and g.year_id=? and g.deleted_at is null SET m.nuevo=?, m.estado=?, m.updated_at=? WHERE m.alumno_id=? and m.deleted_at is null', [$grupo->year_id, $alumno["es_nuevo"], $alumno["estado_matricula"], $now, $alumno["id"]]);
+				
+				//No eliminar!!
+				Debugging::pin('Alum_id: ' . $alumno["id"], 'Grupo: ' . $abrev, 'Grupo_id: ' . $grupo->id) ;
+				
+				
+				// Acudiente 1
+				$this->modificar_acudiente1($alumno, $now, $res['consultaA1']);
+
+				// Acudiente 2
+				$this->modificar_acudiente2($alumno, $now, $res['consultaA2']);
+
+
+			}else{
+				
+				$alumno_row = $alumno;
+				Log::info("primer_nombre " . $alumno_row["primer_nombre"]);
+				if ($alumno_row["primer_nombre"]) {
+					$alumno = new Alumno;
+					$alumno->nombres    			= $alumno_row["primer_nombre"].' '.$alumno_row["segundo_nombre"];
+					$alumno->apellidos  			= $alumno_row["primer_apellido"].' '.$alumno_row["segundo_apellido"];
+					$alumno->sexo       			= $alumno_row["sexo"] ? $alumno_row["sexo"] : 'M';
+					$alumno->tipo_doc   			= $alumno_row["tipo_doc"];
+					$alumno->documento  			= $alumno_row["nro_de_documento"];
+					$alumno->no_matricula 			= $alumno_row["numero_matricula"];
+					$alumno->direccion 				= $alumno_row["direccion_residencia"];
+					$alumno->barrio 				= $alumno_row["barrio"];
+					$alumno->fecha_nac 				= $alumno_row["fecha_de_nacim"];
+					$alumno->telefono 				= $alumno_row["telefono"];
+					$alumno->celular 				= $alumno_row["celular"];
+					$alumno->estrato 				= $alumno_row["estrato"];
+					$alumno->eps 					= $alumno_row["eps"];
+					$alumno->tipo_sangre 			= $alumno_row["rh"];
+					$alumno->religion 				= $alumno_row["religion"];
+					$alumno->save();
+					
+					$alumno_row["id"] = $alumno->id;
+					
+					$opera = new OperacionesAlumnos();
+					
+					$usuario = new User;
+					$usuario->username		=	$opera->username_no_repetido($alumno->nombres);
+					$usuario->password		=	Hash::make('123456');
+					$usuario->sexo			=	$alumno_row["sexo"] ? $alumno_row["sexo"] : 'M';
+					$usuario->is_superuser	=	false;
+					$usuario->periodo_id	=	1; // Verificar que haya un periodo cod 1
+					$usuario->is_active		=	true;
+					$usuario->tipo			=	'Alumno';
+					$usuario->save();
+
+					
+					$role = Role::where('name', 'Alumno')->get();
+					//$usuario->attachRole($role[0]);
+					$usuario->roles()->attach($role[0]['id']);
+
+					$alumno->user_id = $usuario->id;
+					$alumno->save();
+
+
+					$matricula = new Matricula;
+					$matricula->alumno_id		=	$alumno->id;
+					$matricula->grupo_id		=	$grupo->id;
+					$matricula->estado			=	"MATR";
+					$matricula->fecha_matricula = 	$now;
+					$matricula->save();
+
+
+					// Acudiente 1
+					$this->modificar_acudiente1($alumno_row, $now, $res['consultaA1']);
+	
+					// Acudiente 2
+					$this->modificar_acudiente2($alumno_row, $now, $res['consultaA2']);
+	
+				
+				}
+			
+			}
+			
+		}
+    }
+    public function registerEvents(): array
+    {
+        return [
+			BeforeSheet::class => function (BeforeSheet $event) {
+				$this->sheetNames[] = $event->getSheet()->getDelegate()->getTitle();
+			}
+		];
+    }
+	public function chunkSize(): int
+    {
+        return 100;
+    }
+	public function getSheetNames() {
+        return $this->sheetNames;
+    }
+    public function headingRow(): int
+    {
+        return 2;
+    }
+
+	private function modificar_acudiente1(&$alumno, $now, $consulta){
+		
+		$alumno["sexo_acud1"] = ((is_null($alumno["sexo_acud1"]) || $alumno["sexo_acud1"] == '') ? 'M' : $alumno["sexo_acud1"]);
+		
+		
+		if($alumno["id_acud1"] > 0 && (!(is_null($alumno["nombres_acud1"]) || $alumno["nombres_acud1"] == ''))){
+							
+			// Si tiene código y tiene nombre escrito, sólo quiere modificarlo
+			DB::update('UPDATE acudientes SET nombres=?, apellidos=?, sexo=?, tipo_doc=?, documento=?, is_acudiente=?, telefono=?, celular=?, ocupacion=?, direccion=?, email=?, updated_at=?'.$consulta.' WHERE id=?', 
+				[$alumno["nombres_acud1"], $alumno["apellidos_acud1"], $alumno["sexo_acud1"], $alumno["tipo_docu_acud1_id"], $alumno["documento_acud1"], ($alumno["is_acudiente1"]?$alumno["is_acudiente1"]:1), 
+				$alumno["telefono_acud1"], $alumno["celular_acud1"], $alumno["ocupacion_acud1"], $alumno["direccion_acud1"], $alumno["email_acud1"], $now, $alumno["id_acud1"] ]);
+				
+			DB::update('UPDATE parentescos p INNER JOIN acudientes a ON a.id=p.acudiente_id and p.alumno_id=? and p.acudiente_id=? and p.deleted_at is null and a.deleted_at is null 
+				SET p.parentesco=?, p.observaciones=?, p.updated_at=?', [ $alumno["id"], $alumno["id_acud1"], $alumno["parentesco_acud1"], $alumno["observaciones_acud1"], $now ]);
+				
+		
+		}else if($alumno["id_acud1"] > 0 && (is_null($alumno["nombres_acud1"]) || $alumno["nombres_acud1"] == '')){
+			
+			// Si tiene código y NO tiene nombre escrito, quiere añadirlo como nuevo acudiente de este alumno, NO modificarlo
+			DB::insert('INSERT INTO parentescos(acudiente_id, alumno_id, parentesco, observaciones, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?)', [ $alumno["id_acud1"], $alumno["id"], $alumno["parentesco_acud1"], $alumno["observaciones_acud1"], $now, $now ]);
+		
+		}else{
+			if (!(is_null($alumno["nombres_acud1"]) || $alumno["nombres_acud1"] == '')) {
+				DB::insert('INSERT INTO acudientes(nombres, apellidos, sexo, tipo_doc, documento, is_acudiente, telefono, celular, ocupacion, direccion, email, created_at, updated_at, ciudad_doc) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 
+					[$alumno["nombres_acud1"], $alumno["apellidos_acud1"], $alumno["sexo_acud1"], $alumno["tipo_docu_acud1_id"], $alumno["documento_acud1"], ($alumno["is_acudiente1"]?$alumno["is_acudiente1"]:1), 
+					$alumno["telefono_acud1"], $alumno["celular_acud1"], $alumno["ocupacion_acud1"], $alumno["direccion_acud1"], $alumno["email_acud1"], $now, $now, $alumno["ciudad_docu_acud1"]]);
+					
+				$last_id = DB::getPdo()->lastInsertId();
+				DB::insert('INSERT INTO parentescos(acudiente_id, alumno_id, parentesco, observaciones, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?)', [ $last_id, $alumno["id"], $alumno["parentesco_acud1"], $alumno["observaciones_acud1"], $now, $now ]);
+			}
+		}
+	}
+
+
+	private function modificar_acudiente2(&$alumno, $now, $consulta){
+		
+		$alumno["sexo_acud2"] = ((is_null($alumno["sexo_acud2"]) || $alumno["sexo_acud2"] == '') ? 'M' : $alumno["sexo_acud2"]);
+		
+		if($alumno["id_acud2"] > 0 && (!(is_null($alumno["nombres_acud2"]) || $alumno["nombres_acud2"] == ''))){
+							
+			// Si tiene código y tiene nombre escrito, sólo quiere modificarlo
+			DB::update('UPDATE acudientes SET nombres=?, apellidos=?, sexo=?, tipo_doc=?, documento=?, is_acudiente=?, telefono=?, celular=?, ocupacion=?, direccion=?, email=?, updated_at=?'.$consulta.' WHERE id=?', 
+				[$alumno["nombres_acud2"], $alumno["apellidos_acud2"], $alumno["sexo_acud2"], $alumno["tipo_docu_acud2_id"], $alumno["documento_acud2"], ($alumno["is_acudiente2"]?$alumno["is_acudiente2"]:1), 
+				$alumno["telefono_acud2"], $alumno["celular_acud2"], $alumno["ocupacion_acud2"], $alumno["direccion_acud2"], $alumno["email_acud2"], $now, $alumno["id_acud2"] ]);
+				
+			DB::update('UPDATE parentescos p INNER JOIN acudientes a ON a.id=p.acudiente_id and p.alumno_id=? and p.acudiente_id=? and p.deleted_at is null and a.deleted_at is null 
+				SET p.parentesco=?, p.observaciones=?, p.updated_at=?', [ $alumno["id"], $alumno["id_acud2"], $alumno["parentesco_acud2"], $alumno["observaciones_acud2"], $now ]);
+				
+		
+		}else if($alumno["id_acud2"] > 0 && (is_null($alumno["nombres_acud2"]) || $alumno["nombres_acud2"] == '')){
+			
+			// Si tiene código y NO tiene nombre escrito, quiere añadirlo como nuevo acudiente de este alumno, NO modificarlo
+			DB::insert('INSERT INTO parentescos(acudiente_id, alumno_id, parentesco, observaciones, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?)', [ $alumno["id_acud2"], $alumno["id"], $alumno["parentesco_acud2"], $alumno["observaciones_acud2"], $now, $now ]);
+		
+		}else{
+			if (!(is_null($alumno["nombres_acud2"]) || $alumno["nombres_acud2"] == '')) {
+				DB::insert('INSERT INTO acudientes(nombres, apellidos, sexo, tipo_doc, documento, is_acudiente, telefono, celular, ocupacion, direccion, email, created_at, updated_at, ciudad_doc) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 
+					[$alumno["nombres_acud2"], $alumno["apellidos_acud2"], $alumno["sexo_acud2"], $alumno["tipo_docu_acud2_id"], $alumno["documento_acud2"], ($alumno["is_acudiente2"]?$alumno["is_acudiente2"]:1), 
+					$alumno["telefono_acud2"], $alumno["celular_acud2"], $alumno["ocupacion_acud2"], $alumno["direccion_acud2"], $alumno["email_acud2"], $now, $now, $alumno["ciudad_docu_acud2"]]);
+				
+				$last_id = DB::getPdo()->lastInsertId();
+				DB::insert('INSERT INTO parentescos(acudiente_id, alumno_id, parentesco, observaciones, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?)', [$last_id, $alumno["id"], $alumno["parentesco_acud2"], $alumno["observaciones_acud2"], $now, $now ]);
+			}
+		}
+	}
+
+}
+
 class ImportarController extends Controller {
 
 	public function postAlgo($year)
 	{
 		if(Request::hasFile('file')){
-			$path = Request::file('file')->getRealPath();
-			
-			$rr = Excel::import($path, function($reader) use ($year){
-				
-				$now 		= Carbon::now('America/Bogota');
-				$results 	= $reader->all();
-				$fixer 		= new ImporterFixer();
-				
-				for ($i=0; $i < count($results); $i++) { 
-					
-					
-					$abrev 		= $results[$i]->getTitle();
-					Debugging::pin('$abrev', $abrev);
-					
-					$consulta 	= 'SELECT g.id, g.abrev, g.year_id FROM grupos g inner join years y on y.id=g.year_id WHERE g.abrev=? and g.deleted_at is null and y.deleted_at is null and y.year=?;';
-					$grupo 		= DB::select($consulta, [$abrev, $year]);
-					
-					$grupo 		= DB::select($consulta, [$abrev, $year])[0];
-					
-					for ($f=0; $f < count($results[$i]); $f++) { 
-						
-						$alumno 	= $results[$i][$f];
-						$res 		= $fixer->verificar($alumno, $year);
-						$alumno->ciudad_docu_acud1 = $res['ciudad_id_A1'];
-						$alumno->ciudad_docu_acud2 = $res['ciudad_id_A2'];
+		    $fixer 		= new ImporterFixer();
+			$Import 	= new ExcelUtils($year, $fixer);
+			Excel::import($Import, request()->file('file'));
+			$data = [];
+			// Return an import object for every sheet
+			foreach ($Import->getSheetNames() as $index => $sheetName) {
+				$data[$index] = new AlumnosImport();
+			}
 
-						if ($alumno->id) {
-							$consulta 	= 'UPDATE alumnos SET no_matricula=?, nombres=?, apellidos=?, sexo=?, fecha_nac=?, 
-								tipo_doc=?, documento=?, no_matricula=?, direccion=?, barrio=?, telefono=?, celular=?, estrato=?, 
-								tipo_sangre=?, eps=?, religion=?, updated_at=?'.$res['consulta'].' WHERE id=?';
-								
-		
-							DB::update($consulta, [$alumno->no_matricula, $alumno->primer_nombre.' '.$alumno->segundo_nombre, $alumno->primer_apellido.' '.$alumno->segundo_apellido, $alumno->sexo, $alumno->fecha_de_nacim, 
-									$alumno->tipo_doc, $alumno->nro_de_documento, $alumno->numero_matricula, $alumno->direccion_residencia, $alumno->barrio, $alumno->telefono, $alumno->celular, $alumno->estrato, 
-									$alumno->rh, $alumno->eps, $alumno->religion, $now, $alumno->id])[0];
-							
-									
-							DB::update('UPDATE matriculas m INNER JOIN grupos g ON g.id=m.grupo_id and g.year_id=? and g.deleted_at is null SET m.nuevo=?, m.estado=?, m.updated_at=? WHERE m.alumno_id=? and m.deleted_at is null', [$grupo->year_id, $alumno->es_nuevo, $alumno->estado_matricula, $now, $alumno->id]);
-							
-							//No eliminar!!
-							Debugging::pin('Alum_id: ' . $alumno->id, 'Grupo: ' . $abrev, 'Grupo_id: ' . $grupo->id) ;
-							
-							
-							// Acudiente 1
-							$this->modificar_acudiente1($alumno, $now, $res['consultaA1']);
-			
-							// Acudiente 2
-							$this->modificar_acudiente2($alumno, $now, $res['consultaA2']);
-			
-			
-						}else{
-							
-							$alumno_row = $results[$i][$f];
-							
-							if ($alumno_row->primer_nombre) {
-								$alumno = new Alumno;
-								$alumno->nombres    			= $alumno_row->primer_nombre.' '.$alumno_row->segundo_nombre;
-								$alumno->apellidos  			= $alumno_row->primer_apellido.' '.$alumno_row->segundo_apellido;
-								$alumno->sexo       			= $alumno_row->sexo ? $alumno_row->sexo : 'M';
-								$alumno->tipo_doc   			= $alumno_row->tipo_doc;
-								$alumno->documento  			= $alumno_row->nro_de_documento;
-								$alumno->no_matricula 			= $alumno_row->numero_matricula;
-								$alumno->direccion 				= $alumno_row->direccion_residencia;
-								$alumno->barrio 				= $alumno_row->barrio;
-								$alumno->fecha_nac 				= $alumno_row->fecha_de_nacim;
-								$alumno->telefono 				= $alumno_row->telefono;
-								$alumno->celular 				= $alumno_row->celular;
-								$alumno->estrato 				= $alumno_row->estrato;
-								$alumno->eps 					= $alumno_row->eps;
-								$alumno->tipo_sangre 			= $alumno_row->rh;
-								$alumno->religion 				= $alumno_row->religion;
-								$alumno->save();
-								
-								$alumno_row->id = $alumno->id;
-								
-								$opera = new OperacionesAlumnos();
-								
-								$usuario = new User;
-								$usuario->username		=	$opera->username_no_repetido($alumno->nombres);
-								$usuario->password		=	Hash::make('123456');
-								$usuario->sexo			=	$alumno_row->sexo ? $alumno_row->sexo : 'M';
-								$usuario->is_superuser	=	false;
-								$usuario->periodo_id	=	1; // Verificar que haya un periodo cod 1
-								$usuario->is_active		=	true;
-								$usuario->tipo			=	'Alumno';
-								$usuario->save();
-
-								
-								$role = Role::where('name', 'Alumno')->get();
-								$usuario->attachRole($role[0]);
-
-								$alumno->user_id = $usuario->id;
-								$alumno->save();
-
-
-								$matricula = new Matricula;
-								$matricula->alumno_id		=	$alumno->id;
-								$matricula->grupo_id		=	$grupo->id;
-								$matricula->estado			=	"MATR";
-								$matricula->fecha_matricula = 	$now;
-								$matricula->save();
-
-
-								// Acudiente 1
-								$this->modificar_acudiente1($alumno_row, $now, $res['consultaA1']);
-				
-								// Acudiente 2
-								$this->modificar_acudiente2($alumno_row, $now, $res['consultaA2']);
-				
-							
-							}
-						
-						}
-						
-					}
-					
-				}
-				
-			});
+			return dd($Import);
+			return 'Importados.';
 		}
-		return (array)$rr;
+		return "No se encontró archivo.";
 	}
 
 	
@@ -317,10 +455,10 @@ class ImportarController extends Controller {
 						
 						
 						// Acudiente 1
-						$this->modificar_acudiente1($alumno, $now, $res['consultaA1']);
+						//$this->modificar_acudiente1($alumno, $now, $res['consultaA1']);
 		
 						// Acudiente 2
-						$this->modificar_acudiente2($alumno, $now, $res['consultaA2']);
+						//$this->modificar_acudiente2($alumno, $now, $res['consultaA2']);
 		
 		
 					}
@@ -333,75 +471,6 @@ class ImportarController extends Controller {
 		
 		return (array)$rr;
 	}
-	
-	
-	private function modificar_acudiente1(&$alumno, $now, $consulta){
-		
-		$alumno->sexo_acud1 = ((is_null($alumno->sexo_acud1) || $alumno->sexo_acud1 == '') ? 'M' : $alumno->sexo_acud1);
-		
-		
-		if($alumno->id_acud1 > 0 && (!(is_null($alumno->nombres_acud1) || $alumno->nombres_acud1 == ''))){
-							
-			// Si tiene código y tiene nombre escrito, sólo quiere modificarlo
-			DB::update('UPDATE acudientes SET nombres=?, apellidos=?, sexo=?, tipo_doc=?, documento=?, is_acudiente=?, telefono=?, celular=?, ocupacion=?, direccion=?, email=?, updated_at=?'.$consulta.' WHERE id=?', 
-				[$alumno->nombres_acud1, $alumno->apellidos_acud1, $alumno->sexo_acud1, $alumno->tipo_docu_acud1_id, $alumno->documento_acud1, ($alumno->is_acudiente1?$alumno->is_acudiente1:1), 
-				$alumno->telefono_acud1, $alumno->celular_acud1, $alumno->ocupacion_acud1, $alumno->direccion_acud1, $alumno->email_acud1, $now, $alumno->id_acud1 ]);
-				
-			DB::update('UPDATE parentescos p INNER JOIN acudientes a ON a.id=p.acudiente_id and p.alumno_id=? and p.acudiente_id=? and p.deleted_at is null and a.deleted_at is null 
-				SET p.parentesco=?, p.observaciones=?, p.updated_at=?', [ $alumno->id, $alumno->id_acud1, $alumno->parentesco_acud1, $alumno->observaciones_acud1, $now ]);
-				
-		
-		}else if($alumno->id_acud1 > 0 && (is_null($alumno->nombres_acud1) || $alumno->nombres_acud1 == '')){
-			
-			// Si tiene código y NO tiene nombre escrito, quiere añadirlo como nuevo acudiente de este alumno, NO modificarlo
-			DB::insert('INSERT INTO parentescos(acudiente_id, alumno_id, parentesco, observaciones, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?)', [ $alumno->id_acud1, $alumno->id, $alumno->parentesco_acud1, $alumno->observaciones_acud1, $now, $now ]);
-		
-		}else{
-			if (!(is_null($alumno->nombres_acud1) || $alumno->nombres_acud1 == '')) {
-				DB::insert('INSERT INTO acudientes(nombres, apellidos, sexo, tipo_doc, documento, is_acudiente, telefono, celular, ocupacion, direccion, email, created_at, updated_at, ciudad_doc) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 
-					[$alumno->nombres_acud1, $alumno->apellidos_acud1, $alumno->sexo_acud1, $alumno->tipo_docu_acud1_id, $alumno->documento_acud1, ($alumno->is_acudiente1?$alumno->is_acudiente1:1), 
-					$alumno->telefono_acud1, $alumno->celular_acud1, $alumno->ocupacion_acud1, $alumno->direccion_acud1, $alumno->email_acud1, $now, $now, $alumno->ciudad_docu_acud1]);
-					
-				$last_id = DB::getPdo()->lastInsertId();
-				DB::insert('INSERT INTO parentescos(acudiente_id, alumno_id, parentesco, observaciones, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?)', [ $last_id, $alumno->id, $alumno->parentesco_acud1, $alumno->observaciones_acud1, $now, $now ]);
-			}
-		}
-	}
-
-
-	private function modificar_acudiente2(&$alumno, $now, $consulta){
-		
-		$alumno->sexo_acud2 = ((is_null($alumno->sexo_acud2) || $alumno->sexo_acud2 == '') ? 'M' : $alumno->sexo_acud2);
-		
-		if($alumno->id_acud2 > 0 && (!(is_null($alumno->nombres_acud2) || $alumno->nombres_acud2 == ''))){
-							
-			// Si tiene código y tiene nombre escrito, sólo quiere modificarlo
-			DB::update('UPDATE acudientes SET nombres=?, apellidos=?, sexo=?, tipo_doc=?, documento=?, is_acudiente=?, telefono=?, celular=?, ocupacion=?, direccion=?, email=?, updated_at=?'.$consulta.' WHERE id=?', 
-				[$alumno->nombres_acud2, $alumno->apellidos_acud2, $alumno->sexo_acud2, $alumno->tipo_docu_acud2_id, $alumno->documento_acud2, ($alumno->is_acudiente2?$alumno->is_acudiente2:1), 
-				$alumno->telefono_acud2, $alumno->celular_acud2, $alumno->ocupacion_acud2, $alumno->direccion_acud2, $alumno->email_acud2, $now, $alumno->id_acud2 ]);
-				
-			DB::update('UPDATE parentescos p INNER JOIN acudientes a ON a.id=p.acudiente_id and p.alumno_id=? and p.acudiente_id=? and p.deleted_at is null and a.deleted_at is null 
-				SET p.parentesco=?, p.observaciones=?, p.updated_at=?', [ $alumno->id, $alumno->id_acud2, $alumno->parentesco_acud2, $alumno->observaciones_acud2, $now ]);
-				
-		
-		}else if($alumno->id_acud2 > 0 && (is_null($alumno->nombres_acud2) || $alumno->nombres_acud2 == '')){
-			
-			// Si tiene código y NO tiene nombre escrito, quiere añadirlo como nuevo acudiente de este alumno, NO modificarlo
-			DB::insert('INSERT INTO parentescos(acudiente_id, alumno_id, parentesco, observaciones, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?)', [ $alumno->id_acud2, $alumno->id, $alumno->parentesco_acud2, $alumno->observaciones_acud2, $now, $now ]);
-		
-		}else{
-			if (!(is_null($alumno->nombres_acud2) || $alumno->nombres_acud2 == '')) {
-				DB::insert('INSERT INTO acudientes(nombres, apellidos, sexo, tipo_doc, documento, is_acudiente, telefono, celular, ocupacion, direccion, email, created_at, updated_at, ciudad_doc) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 
-					[$alumno->nombres_acud2, $alumno->apellidos_acud2, $alumno->sexo_acud2, $alumno->tipo_docu_acud2_id, $alumno->documento_acud2, ($alumno->is_acudiente2?$alumno->is_acudiente2:1), 
-					$alumno->telefono_acud2, $alumno->celular_acud2, $alumno->ocupacion_acud2, $alumno->direccion_acud2, $alumno->email_acud2, $now, $now, $alumno->ciudad_docu_acud2]);
-				
-				$last_id = DB::getPdo()->lastInsertId();
-				DB::insert('INSERT INTO parentescos(acudiente_id, alumno_id, parentesco, observaciones, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?)', [$last_id, $alumno->id, $alumno->parentesco_acud2, $alumno->observaciones_acud2, $now, $now ]);
-			}
-		}
-	}
-
-
 	
 }
 
