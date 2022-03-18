@@ -355,6 +355,16 @@ class PerfilesController extends Controller {
 		
 	}
 
+	// Borrar estooooooo 1234
+	// public function getResetPassword()
+	// {
+	// 	$password = 
+	// 	$user = User::findOrFail(1);
+	// 	$user->password = Hash::make("1234");
+	// 	$user->save();
+	// 	return 'Password cambiado';
+	// }
+
 	public function putResetPassword($id)
 	{
 		$user = User::fromToken();

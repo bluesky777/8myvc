@@ -336,9 +336,9 @@ class YearsController extends Controller {
 
 			DB::insert($consulta, [ $bit_by, $bit_hist, 'YEAR CONFIGURACION', Request::input('id'), $now, (string) $year ]);
 			
-			$consulta 	= 'SELECT * FROM bitacoras order by id desc limit 1';
-			$his 		= DB::select($consulta, [$user->user_id]);
-			return $his;
+			// $consulta 	= 'SELECT * FROM bitacoras order by id desc limit 1';
+			// $his 		= DB::select($consulta, [$user->user_id]);
+			// return $his;
 
 			return $year;
 		} catch (Exception $e) {
