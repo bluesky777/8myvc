@@ -205,19 +205,15 @@ class ExcelUtils implements ToArray, WithHeadingRow, WithEvents
 		
 		
 		if($alumno["id_acud1"] > 0 && (!(is_null($alumno["nombres_acud1"]) || $alumno["nombres_acud1"] == ''))){
-			try {
-				// Si tiene código y tiene nombre escrito, sólo quiere modificarlo
-				DB::update('UPDATE acudientes SET nombres=?, apellidos=?, sexo=?, tipo_doc=?, documento=?, is_acudiente=?, telefono=?, celular=?, ocupacion=?, direccion=?, email=?, updated_at=?'.$consulta.' WHERE id=?', 
-					[$alumno["nombres_acud1"], $alumno["apellidos_acud1"], $alumno["sexo_acud1"], $alumno["tipo_docu_acud1"], $alumno["documento_acud1"], ($alumno["is_acudiente1"]?$alumno["is_acudiente1"]:1), 
-					$alumno["telefono_acud1"], $alumno["celular_acud1"], $alumno["ocupacion_acud1"], $alumno["direccion_acud1"], $alumno["email_acud1"], $now, $alumno["id_acud1"] ]);
-					
-				DB::update('UPDATE parentescos p INNER JOIN acudientes a ON a.id=p.acudiente_id and p.alumno_id=? and p.acudiente_id=? and p.deleted_at is null and a.deleted_at is null 
-					SET p.parentesco=?, p.observaciones=?, p.updated_at=?', [ $alumno["id"], $alumno["id_acud1"], $alumno["parentesco_acud1"], $alumno["observaciones_acud1"], $now ]);
-
-			} catch (\Throwable $th) {
-				Log::info('ERROR: ' . $alumno['id']);
-				Log::info(array_keys($alumno));
-			}
+							
+			// Si tiene código y tiene nombre escrito, sólo quiere modificarlo
+			DB::update('UPDATE acudientes SET nombres=?, apellidos=?, sexo=?, tipo_doc=?, documento=?, is_acudiente=?, telefono=?, celular=?, ocupacion=?, direccion=?, email=?, updated_at=?'.$consulta.' WHERE id=?', 
+				[$alumno["nombres_acud1"], $alumno["apellidos_acud1"], $alumno["sexo_acud1"], $alumno["tipo_docu_acud1"], $alumno["documento_acud1"], ($alumno["is_acudiente1"]?$alumno["is_acudiente1"]:1), 
+				$alumno["telefono_acud1"], $alumno["celular_acud1"], $alumno["ocupacion_acud1"], $alumno["direccion_acud1"], $alumno["email_acud1"], $now, $alumno["id_acud1"] ]);
+				
+			DB::update('UPDATE parentescos p INNER JOIN acudientes a ON a.id=p.acudiente_id and p.alumno_id=? and p.acudiente_id=? and p.deleted_at is null and a.deleted_at is null 
+				SET p.parentesco=?, p.observaciones=?, p.updated_at=?', [ $alumno["id"], $alumno["id_acud1"], $alumno["parentesco_acud1"], $alumno["observaciones_acud1"], $now ]);
+				
 		
 		}else if($alumno["id_acud1"] > 0 && (is_null($alumno["nombres_acud1"]) || $alumno["nombres_acud1"] == '')){
 			
