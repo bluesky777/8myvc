@@ -263,11 +263,15 @@ class ProfesoresController extends Controller {
 			Request::merge(array('ciudad_doc' => null) );
 		}
 
-		if (Request::input('tipo_doc') && Request::input('tipo_doc') != null) {
+	if (Request::input('tipo_doc') && Request::input('tipo_doc') != null) {
+		if (is_array(Request::input('tipo_doc'))) {
 			Request::merge( ['tipo_doc' => Request::input('tipo_doc')['id'] ? Request::input('tipo_doc')['id'] : null ] );
-		}else{
-			Request::merge(array('tipo_doc' => null) );
+		} else {
+			Request::merge( ['tipo_doc' => Request::input('tipo_doc') ] );
 		}
+	}else{
+		Request::merge(array('tipo_doc' => null) );
+	}
 
 		if (Request::input('foto') && Request::input('foto') != null) {
 			Request::merge( ['foto_id' => Request::input('foto')['id'] ? Request::input('foto')['id'] : null ] );
