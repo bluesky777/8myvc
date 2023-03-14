@@ -307,7 +307,8 @@ class PlanillasController extends Controller {
 			
 			$consulta = 'SELECT m.id as matricula_id, m.alumno_id, a.no_matricula, a.nombres, a.apellidos, a.sexo, a.user_id, a.egresado,
 					a.fecha_nac, a.ciudad_nac, c1.departamento as departamento_nac_nombre, c1.ciudad as ciudad_nac_nombre, a.tipo_doc, t1.tipo as tipo_doc_name, a.documento, a.ciudad_doc, 
-					a.tipo_sangre, a.eps, CONCAT(a.telefono, " / ", a.celular) as telefonos, 
+					a.tipo_sangre, a.eps, 
+					CONCAT(COALESCE(a.telefono, ""), " / ", COALESCE(a.celular, "")) as telefonos, 
 					a.direccion, a.barrio, a.estrato, a.ciudad_resid, a.religion, a.email, a.facebook, a.created_by, a.updated_by,
 					a.pazysalvo, a.presencial, a.deuda, m.grupo_id, a.is_urbana, IF(a.is_urbana, "Urbano", "Rural") as es_urbana,
 					t1.tipo as tipo_doc, t1.abrev as tipo_doc_abrev,
