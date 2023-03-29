@@ -136,23 +136,18 @@ class Boletines2Controller extends Controller {
 			$alumno->puesto = Nota::puestoAlumno($alumno->promedio, $alumnos);
 			
 			if ($requested_alumnos == '') {
-
 				array_push($response_alumnos, $alumno);
-
 			}else{
-
 				foreach ($requested_alumnos as $req_alumno) {
-					
 					if ($req_alumno['alumno_id'] == $alumno->alumno_id) {
 						array_push($response_alumnos, $alumno);
 					}
 				}
 			}
-			
-
 		}
+		$escalas_val 				= DB::select('SELECT * FROM escalas_de_valoracion WHERE year_id=? AND deleted_at is null', [$user->year_id]);
 
-		return array($grupo, $year, $response_alumnos);
+		return array($grupo, $year, $response_alumnos, $escalas_val);
 	}
 
 	public function allNotasAlumno(&$alumno, $grupo_id, $periodo_id, $comport_and_frases=false, $show_fortaleza_bol=0)
