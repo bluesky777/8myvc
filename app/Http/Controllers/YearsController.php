@@ -308,6 +308,7 @@ class YearsController extends Controller {
 			$year->celular			=	Request::input('celular');
 			$year->website			=	Request::input('website');
 			$year->website_myvc		=	Request::input('website_myvc');
+			$year->msg_when_students_blocked		=	Request::input('msg_when_students_blocked');
 			
 			$year->unidad_displayname		=	Request::input('unidad_displayname');
 			$year->unidades_displayname		=	Request::input('unidades_displayname');
