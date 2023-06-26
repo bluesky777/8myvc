@@ -265,8 +265,9 @@ class BoletinesController extends Controller {
 			
 
 		}
+		$escalas_val 				= DB::select('SELECT * FROM escalas_de_valoracion WHERE year_id=? AND deleted_at is null', [$user->year_id]);
 
-		return array($grupo, $year, $response_alumnos);
+		return array($grupo, $year, $response_alumnos, $escalas_val);
 	}
 
 
