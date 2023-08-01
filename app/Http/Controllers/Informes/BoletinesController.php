@@ -171,7 +171,7 @@ class BoletinesController extends Controller {
 					WHERE (nf.manual is null or nf.manual=0) and (nf.recuperada is null or nf.recuperada=0) and nf.periodo_id=? and nf.alumno_id=?', 
 					[ $grupo_id, $this->user->periodo_id, $alumno['alumno_id'] ]);
 
-			$consulta = 'SELECT nt.alumno_id, asi.id as asignatura_id, nt.periodo_id, cast(sum(nt.ValorNota) as decimal(4,0)) as nota_asignatura
+			$consulta = 'SELECT nt.alumno_id, asi.id as asignatura_id, nt.periodo_id, cast(sum(nt.ValorNota) as decimal(4,1)) as nota_asignatura
 				FROM asignaturas asi 
 				inner join 
 					(select u.asignatura_id, n.alumno_id, u.periodo_id, sum( ((u.porcentaje/100)*((s.porcentaje/100)*n.nota)) ) ValorNota
