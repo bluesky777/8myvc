@@ -56,5 +56,26 @@ class Role extends Model
 
 	}
 
+	public static function getUserRoles($user_id) {
+		$consulta = 'SELECT ru.role_id, r.name FROM users u 
+			INNER JOIN role_user ru ON ru.user_id = u.id
+			INNER JOIN roles r ON r.id = ru.role_id and r.deleted_at is null
+			WHERE u.id = :user_id';
+		$roles = DB::select($consulta, array(
+			':user_id'		=> $user_id,
+		));
+		return $roles;
+	}
 
+	public static function isCoorDisciplinario($user_id) {
+		$roles = Role::getUserRoles($user_id);
+		$isCoorDisciplinario = false;
+		for ($i=0; $i < count($roles); $i++) { 
+			if ($roles[$i]->name == 'Coord disciplinario') {
+				$isCoorDisciplinario = true;
+				break;
+			}
+		}
+		return $isCoorDisciplinario;
+	}
 }

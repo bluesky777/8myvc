@@ -13,7 +13,7 @@ class RolesController extends Controller {
 
 	public function getIndex()
 	{
-		$roles = Role::with('perms')->get();
+		$roles = Role::allConPermisos();
 		return $roles;
 
 	}
@@ -40,16 +40,28 @@ class RolesController extends Controller {
 		$rol = Role::find($role_id);
 		$user = User::find(Request::input('user_id'));
 
-		if ($user->hasRole($rol->name)) {
-			abort(400, 'Usuario ya tiene ese role.');
-		}else{
-			$user->attachRole($rol);
-			$user->save();
+		$roles = Role::getUserRoles($user->id);
+
+		$found = false;
+		for ($i=0; $i < count($roles); $i++) { 
+			if ($roles[$i]->role_id == $role_id) {
+				$found = true;
+				break;
+			}
 		}
 		
-
+		if ($found) {
+			abort(400, 'Usuario ya tiene ese role.');
+		}else{
+			$consulta = 'INSERT INTO role_user(user_id, role_id) 
+				VALUES(:user_id, :role_id)';
+			$roles = DB::select($consulta, array(
+				':user_id'		=> $user->id,
+				':role_id'		=> $rol->id,
+			));
+		}
+		
 		return $user;
-
 	}
 
 	public function putRemoveroletouser($role_id)
@@ -58,15 +70,20 @@ class RolesController extends Controller {
 		$rol = Role::find($role_id);
 		$user = User::find(Request::input('user_id'));
 
-		if (!$user->hasRole($rol->name)) {
-			abort(400, 'Usuario no tiene ese role para eliminar.');
-		}else{
-			$user->detachRole($rol);
-			$user->save();
-		}
+		// if (!$user->hasRole($rol->name)) {
+		// 	abort(400, 'Usuario no tiene ese role para eliminar.');
+		// }else{
+		// 	$user->detachRole($rol);
+		// 	$user->save();
+		// }
 
-		return $user;
+		$consulta = 'DELETE FROM role_user WHERE user_id=:user_id AND role_id=:role_id';
+		$roles = DB::delete($consulta, array(
+			':user_id'		=> $user->id,
+			':role_id'		=> $rol->id,
+		));
 
+		return $roles;
 	}
 
 	public function putRemovepermission($id)
@@ -76,6 +93,5 @@ class RolesController extends Controller {
 		return $res;
 
 	}
-
 
 }

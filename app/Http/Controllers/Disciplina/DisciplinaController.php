@@ -182,7 +182,7 @@ class DisciplinaController extends Controller {
 		$testigos    			= Request::input('testigos');
 		$descargo    			= Request::input('descargo');
 		$tipo_situacion 		= Request::input('tipo_situacion');
-		$profesor_id 			= Request::input('profesor')['profesor_id'];
+		$profesor_id 			= Request::input('profesor') ? Request::input('profesor')['profesor_id'] : null;
 		$fecha_hora_aprox 		= Request::input('fecha_hora_aprox');
 		$deriva_de_tardanzas 	= Request::input('deriva_de_tardanzas', 0);
 		$dependencias 			= Request::input('dependencias');
@@ -288,7 +288,6 @@ class DisciplinaController extends Controller {
 			profesor_id=?, fecha_hora_aprox=?, testigos=?, descargo=?, updated_by=?, updated_at=? WHERE id=?';
 		
 		$datos 		= [ $descripcion, $tipo_situacion, $profesor, $fecha_hora_aprox, $testigos, $descargo, $user->user_id, $now, $proceso_id ];
-		
 		DB::update($consulta, $datos);
 		
 		// Modificamos los procesos que llevaron a esta falta
@@ -309,17 +308,11 @@ class DisciplinaController extends Controller {
 			
 		}
 		
-		
 		$alumno 	= DB::select($this->consulta_alumno, [$alumno_id])[0];
-
 		$this->datosAlumno($alumno, $year_id);
-		
-		
+
 		return (array)$alumno;
 	}
-	
-	
-	
 	
 	public function putQuitarOrdinal()
 	{
@@ -328,7 +321,6 @@ class DisciplinaController extends Controller {
 		$proceso_id     	= Request::input('proceso_id');
 		$ordinal_id     	= Request::input('id');
 		
-		
 		$consulta 	= 'UPDATE dis_proceso_ordinales SET deleted_at=?, deleted_by=? WHERE proceso_id=? and ordinal_id=?'; 
 		$datos 		= [ $now, $user->user_id, $proceso_id, $ordinal_id ];
 		
@@ -336,16 +328,13 @@ class DisciplinaController extends Controller {
 		
 		return 'Quitado';
 	}
-	
-	
-	
+
 	public function postAsignarOrdinal()
 	{
 		$user 	        	= User::fromToken();
 		$now 				= Carbon::now('America/Bogota');
 		$proceso_id     	= Request::input('proceso_id');
 		$ordinal_id     	= Request::input('id');
-		
 		
 		$consulta 	= 'INSERT INTO dis_proceso_ordinales(ordinal_id, proceso_id, added_by, created_at, updated_at) VALUES(?,?,?,?,?)'; 
 		$datos 		= [ $ordinal_id, $proceso_id, $user->user_id, $now, $now ];
@@ -357,10 +346,7 @@ class DisciplinaController extends Controller {
 		
 		return (array)$ordinal;
 	}
-	
-	
-	
-	
+
 	public function putDestroy()
 	{
 		$user 	        	= User::fromToken();

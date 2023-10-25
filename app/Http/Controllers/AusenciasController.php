@@ -10,6 +10,7 @@ use App\Models\Alumno;
 use App\Models\Grupo;
 use App\Models\Ausencia;
 use App\Models\Asignatura;
+use App\Models\Role;
 use Carbon\Carbon;
 
 
@@ -120,9 +121,6 @@ class AusenciasController extends Controller {
 		return $aus;
 	}
 
-
-
-
 	public function putGuardarCambiosAusencia()
 	{
 		$user = User::fromToken();
@@ -134,9 +132,12 @@ class AusenciasController extends Controller {
 			return $dato;
 		}
 		*/
-		User::pueden_editar_notas($user);
-		
+		$isCoorDisciplinario = Role::isCoorDisciplinario($user->user_id);
 
+		if (!$isCoorDisciplinario) {
+			User::pueden_editar_notas($user);
+		}
+		
 		$aus = Ausencia::findOrFail(Request::input('ausencia_id'));
 		$aus->fecha_hora		= Request::input('fecha_hora', null);
 		$aus->updated_by		= $user->user_id;
@@ -145,9 +146,6 @@ class AusenciasController extends Controller {
 		return $aus;
 	}
 
-
-
-
 	public function putCambiarTipoAusencia()
 	{
 		$user = User::fromToken();
@@ -155,8 +153,6 @@ class AusenciasController extends Controller {
 		
 		$aus = Ausencia::findOrFail(Request::input('ausencia_id'));
 		
-		
-
 		if (Request::input('new_tipo') == 'tardanza') {
 			$aus->tipo					= 'tardanza';
 			$aus->cantidad_tardanza		= $aus->cantidad_ausencia;
@@ -172,13 +168,14 @@ class AusenciasController extends Controller {
 		return $aus;
 	}
 
-
-
-
 	public function deleteDestroy($id)
 	{
 		$user = User::fromToken();
-		User::pueden_editar_notas($user);
+		$isCoorDisciplinario = Role::isCoorDisciplinario($user->user_id);
+
+		if (!$isCoorDisciplinario) {
+			User::pueden_editar_notas($user);
+		}
 		
 		$aus = Ausencia::findOrFail($id);
 		$aus->delete();
