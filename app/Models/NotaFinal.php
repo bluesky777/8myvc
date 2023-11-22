@@ -129,7 +129,7 @@ class NotaFinal extends Model {
         
         for ($i=0; $i < $cant_alum; $i++) { 
             
-            $alumnos[$i]->promedio_automatico = round(($alumnos[$i]->def_materia_auto_1 + $alumnos[$i]->def_materia_auto_2 + $alumnos[$i]->def_materia_auto_3 + $alumnos[$i]->def_materia_auto_4) / 4, 1);
+            $alumnos[$i]->promedio_automatico = round(($alumnos[$i]->nota_final_per1 + $alumnos[$i]->nota_final_per2 + $alumnos[$i]->nota_final_per3 + $alumnos[$i]->nota_final_per4) / 4, 0);
             
             if($alumnos[$i]->nfinal1_desactualizada && $alumnos[$i]->updated_at_def_1){
                 $per_desact['per1'] = true;

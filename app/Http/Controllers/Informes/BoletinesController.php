@@ -405,7 +405,7 @@ class BoletinesController extends Controller {
 			if(count($periodos)>0){
 				
 				if ($this->user->si_recupera_materia_recup_indicador){
-					if ($periodos[0]->definitiva_year < $this->user->nota_minima_aceptada && $periodos[0]->cant_perdidas_year > 0) {
+					if (number_format($periodos[0]->definitiva_year) < $this->user->nota_minima_aceptada && $periodos[0]->cant_perdidas_year > 0) {
 						$asignatura->detalle_periodos = $periodos[0];
 						
 						$alumno->notas_perdidas_year += $periodos[0]->cant_perdidas_year;
@@ -472,7 +472,7 @@ class BoletinesController extends Controller {
 				if(count($periodos)>0){
 					
 					if ($year_ant->si_recupera_materia_recup_indicador){
-						if ($periodos[0]->definitiva_year < $year_ant->nota_minima_aceptada && $periodos[0]->cant_perdidas_year > 0) {
+						if (number_format($periodos[0]->definitiva_year) < $year_ant->nota_minima_aceptada && $periodos[0]->cant_perdidas_year > 0) {
 							$asignatura->detalle_periodos = $periodos[0];
 							
 							$alumno->yp_notas_perdidas_year += $periodos[0]->cant_perdidas_year;
