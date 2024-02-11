@@ -104,7 +104,6 @@ AdvancedRoute::controller('myimages', 'Perfiles\ImagesController');
 AdvancedRoute::controller('images-users', 'Perfiles\ImagesUsuariosController');
 AdvancedRoute::controller('/publicaciones', 'Perfiles\PublicacionesController');
 AdvancedRoute::controller('calendario', 'Perfiles\CalendarioController');
-
 AdvancedRoute::controller('editnota', 'EditnotaController');
 
 AdvancedRoute::controller('votaciones', 'VtVotacionesController');
@@ -115,7 +114,6 @@ AdvancedRoute::controller('votos', 'VtVotosController');
 
 AdvancedRoute::controller('planillas', 'PlanillasController');
 AdvancedRoute::controller('actas-evaluacion', 'Informes\ActasEvaluacionController');
-
 AdvancedRoute::controller('certificados-estudio', 'CertificadosEstudioController');
 
 
@@ -132,3 +130,6 @@ AdvancedRoute::controller('preguntas', 'Actividades\PreguntasController');
 AdvancedRoute::controller('opciones', 'Actividades\OpcionesController');
 AdvancedRoute::controller('respuestas', 'Actividades\RespuestasController');
 
+AdvancedRoute::controller('piars-grupos', 'Piars\PiarsGruposController');
+AdvancedRoute::controller('piars-alumnos', 'Piars\PiarsAlumnosController');
+AdvancedRoute::controller('piars-asignaturas', 'Piars\PiarsAsignaturasController');
