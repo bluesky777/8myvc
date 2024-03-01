@@ -33,30 +33,17 @@ class PiarsAlumnosController extends Controller {
 	public function postDocument(Request $request)
 	{
 		$request->validate([
-			'file64' => 'required',
-			'fileName' => 'required',
-		]);
-		$file = base64_decode($request->input('file64'));
-		$fileName = $request->input('fileName');
-
-		file_put_contents(public_path('uploads/' . $fileName), $file);
-
-		return response()->json([
-			'message' => 'File uploaded successfully!',
-			'filename' => $fileName,
+			'file' => 'required',
+			'alumno_id' => 'required',
 		]);
 
-		UploadDocuments::save_document($this->user);
+		$fullPath = UploadDocuments::save_document($this->user);
+		$alumno_id = $request->alumno_id;
 
-		$alumnos = DB::select('SELECT a.id, a.nombres, a.apellidos, a.sexo, m.estado,
-						a.foto_id, IFNULL(i.nombre, IF(a.sexo="F","default_female.png", "default_male.png")) as foto_nombre, 
-						m.estado  
-					FROM alumnos a
-					INNER JOIN matriculas m ON m.alumno_id=a.id and m.deleted_at is null and (m.estado="ASIS" or m.estado="MATR")
-					LEFT JOIN images i on i.id=a.foto_id and i.deleted_at is null
-					WHERE a.deleted_at is null and m.grupo_id=?'
-					, [$id]);
+		$consulta = 'UPDATE piars_alumnos SET documento1=? WHERE alumno_id=?';
 
-		return ['alumnos' => $alumnos];
+		$document = DB::update($consulta, [$fullPath, $alumno_id]);
+
+		return ['document' => $document];
 	}
 }

@@ -3,12 +3,13 @@
 use Request;
 use DB;
 use File;
+use App\Models\ImageModel;
 
 class UploadDocuments {
   public static function save_document($user)
 	{
 		$folderName = 'user_'.$user->user_id;
-		$folder = 'documents/'.$folderName;
+		$folder = 'uploads/'.$folderName;
 
 		if (!File::exists($folder)) {
 			File::makeDirectory($folder, $mode = 0777, true, true);
@@ -16,7 +17,6 @@ class UploadDocuments {
 
 		$file = Request::file("file");
 
-		//separamos el nombre de la img y la extensión
 		$fileNameSplitted = explode(".", $file->getClientOriginalName());
 		$fullFileName = $file->getClientOriginalName();
 
@@ -29,12 +29,8 @@ class UploadDocuments {
 		//guardamos la imagen con otro nombre ej foto(1).jpg || foto(2).jpg etc
 		$file->move($folder, $fullFileName);
 
-		$newImg 						= new ImageModel;
-		$newImg->nombre 		= $folderName.'/'.$fullFileName;
-		$newImg->user_id 		= $user->user_id;
-		$newImg->created_by = $user->user_id;
-		$newImg->save();
+		$fullPath 		= $folderName. '/'.$fullFileName;
 
-		return $newImg;
+		return $fullPath;
 	}
 }
