@@ -35,8 +35,7 @@ class PiarsAsignaturasController extends Controller {
 				order by g.orden, a.orden, m.materia, m.alias, a.id';
 
 			$asignaturas = DB::select(DB::raw($consulta), [
-				':year_id' => $year_id,
-				':profesor_id' => $profesor_id,
+				':year_id' => $this->user->year_id,
 			]);
 
 		}
