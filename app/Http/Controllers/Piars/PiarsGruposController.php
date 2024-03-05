@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 
 use App\User;
 use App\Http\Controllers\Piars\Utils\PiarsGrupoUtils;
+use App\Http\Controllers\Piars\Utils\PiarsAlumnoUtils;
 use Carbon\Carbon;
+use App\Models\Profesor;
 
 class PiarsGruposController extends Controller {
 	public $user;
@@ -19,6 +21,24 @@ class PiarsGruposController extends Controller {
 		}
 	}
 
+	public function getGrupos()
+	{
+		$user = User::fromToken();
+
+		$consulta = 'SELECT g.id, g.nombre, g.abrev, g.orden, gra.orden as orden_grado, g.grado_id, g.year_id, g.titular_id, g.cupo, 
+						p.nombres as nombres_titular, p.apellidos as apellidos_titular, p.titulo, g.caritas, 
+						g.created_at, g.updated_at, gra.nombre as nombre_grado
+					FROM grupos g
+					INNER JOIN grados gra on gra.id=g.grado_id and g.year_id=:year_id
+					LEFT JOIN profesores p on p.id=g.titular_id
+					WHERE g.deleted_at is null
+					ORDER BY g.orden';
+
+		$grados = DB::select($consulta, [':year_id'=>$user->year_id] );
+
+		return $grados;
+	}
+
 	public function getContextoDeGrupo($grupo_id)
 	{
 		$consulta = 'SELECT pg.id, pg.grupo_id, pg.titular_id, pg.year_id, pg.caracterizacion_grupo, pg.updated_at, pg.updated_by  
@@ -29,14 +49,21 @@ class PiarsGruposController extends Controller {
 		$piars = DB::select($consulta, [$grupo_id]);
 
     $piarsGrupoUtils = new PiarsGrupoUtils();
-		$alumnos = $piarsGrupoUtils->getAlumnosDeGrupo($grupo_id);
+    $piarsAlumnosUtils = new PiarsAlumnoUtils();
+		$alumnos = $piarsAlumnosUtils->getAlumnosDeGrupo($grupo_id);
 
 		if (count($piars) == 0) {
       $piarsGrupoUtils->createContextoGrupo($grupo_id);
       $piars = DB::select($consulta, [$grupo_id]);
 		}
 
-		$alumnos_piar = $piarsGrupoUtils->getAlumnosPiar($grupo_id, $this->user->user_id);
+		$alumnos_piar = $piarsAlumnosUtils->getAlumnosPiar($grupo_id, $this->user->user_id);
+		
+		if ($this->user->is_superuser) {
+			$piarsAlumnosUtils->getAcudientes($alumnos_piar);
+		} else {
+			$piarsAlumnosUtils->acudientes = [];
+		}
 
     return [
 			'data' => [
