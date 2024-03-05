@@ -22,7 +22,7 @@ class PiarsAsignaturasController extends Controller {
 
 			$asignaturas = Profesor::asignaturas($this->user->year_id, $this->user->persona_id);
 
-		} else if (in_array('User', $this->user->tipo)) {
+		} else if (in_array($this->user->tipo, ['Usuario'])) {
 
 			$consulta = 'SELECT a.id as asignatura_id, a.grupo_id, a.profesor_id, a.creditos, a.orden,
 					m.materia, m.alias as alias_materia, g.nombre as nombre_grupo, g.abrev as abrev_grupo, g.titular_id, g.caritas,
