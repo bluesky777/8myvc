@@ -50,6 +50,7 @@ class PiarsAlumnoUtils {
 				WHERE a.nee=1 and a.deleted_at is null and m.grupo_id=?';
 
 			$alumnos = DB::select($consulta, [$grupo_id]);
+			$now = Carbon::now('America/Bogota');
 
 			foreach ($alumnos as $key => $alumno) {
 				$consulta_insert = 'INSERT INTO piars_alumnos(alumno_id, year_id, created_at, updated_by)
