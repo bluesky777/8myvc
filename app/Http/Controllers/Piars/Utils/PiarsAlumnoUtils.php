@@ -33,7 +33,7 @@ class PiarsAlumnoUtils {
 	public function getAlumnosPiar($grupo_id, $user_id)
 	{
 		$consulta_piar = 'SELECT pa.id, pa.alumno_id, pa.year_id, pa.contexto_sociofamiliar, pa.acta_de_acuerdo, pa.documento1,
-				pa.apoyo_ajustes_razonables, pa.documento2, pa.history, pa.created_at, pa.updated_at, pa.updated_by
+				pa.documento2, pa.history, pa.created_at, pa.updated_at, pa.updated_by
 			FROM piars_alumnos pa
 			INNER JOIN matriculas m ON m.alumno_id=pa.alumno_id and m.deleted_at is null and (m.estado="ASIS" or m.estado="MATR")
 			INNER JOIN alumnos a ON m.alumno_id=a.id and a.deleted_at is null

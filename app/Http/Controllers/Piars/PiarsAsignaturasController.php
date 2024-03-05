@@ -43,10 +43,36 @@ class PiarsAsignaturasController extends Controller {
 
 		$piarsAsignaturasUtils = new PiarsAsignaturasUtils;
 
-		foreach($asignaturas as $asignatura) {
-			$asignaturas['piar_asignatura'] = $piarsAsignaturasUtils->getCreatePiarAsignatura($asignatura->asignatura_id, $alumno_id);
+		for ($i=0; $i < count($asignaturas); $i++) { 
+			$asignaturas[$i]->piar_asignatura = $piarsAsignaturasUtils->getCreatePiarAsignatura($asignaturas[$i]->asignatura_id, $alumno_id);
 		}
 
 		return $asignaturas;
+	}
+
+	public function putField()
+	{
+		$now = Carbon::now('America/Bogota');
+
+		$id = Request::input('id');
+		$field = Request::input('field');
+		$text = Request::input('text');
+		$updated_at = $now;
+		$updated_by = $this->user->user_id;
+
+		// campos seguros para evitar ataques sql injection
+		$validFields = ['apoyo_razonable', 'seguimientos'];
+		if (!in_array($field, $validFields)) {
+			return response()->json(['error' => 'Invalid'], 400);
+		}
+
+		$consulta = "UPDATE piars_asignaturas 
+			SET $field=?, updated_at=?, updated_by=?
+			WHERE id=?";
+		$piars = DB::update($consulta, [
+			$text, $updated_at, $updated_by, $id,  
+		]);
+
+    return ['piars' => $piars];
 	}
 }

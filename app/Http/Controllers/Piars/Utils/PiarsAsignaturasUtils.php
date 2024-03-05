@@ -45,6 +45,6 @@ class PiarsAsignaturasUtils {
       $asignatura = DB::select($consulta, [$asignatura_id, $alumno_id]);
     }
 
-		return $asignatura;
+		return $asignatura[0];
 	}
 }
