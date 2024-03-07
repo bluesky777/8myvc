@@ -37,6 +37,14 @@ class PiarsAlumnosController extends Controller {
 			'alumno_id' => 'required',
 		]);
 
+		$field = $request->documentField;
+
+		// campos seguros para evitar ataques sql injection
+		$validFields = ['documento1', 'documento2'];
+		if (!in_array($field, $validFields)) {
+			return response()->json(['error' => 'Invalid'], 400);
+		}
+
 		$now 				= Carbon::now('America/Bogota');
 		$fullPath 	= UploadDocuments::save_document($this->user);
 		$alumno_id 	= $request->alumno_id;
@@ -47,6 +55,7 @@ class PiarsAlumnosController extends Controller {
 		if (count($alumno_piar) > 0) {
 			$record = [
 				['documento1' => $alumno_piar[0]->documento1],
+				['documento2' => $alumno_piar[0]->documento2],
 				['updated_at' => $now],
 				['updated_by' => $this->user->user_id],
 				['updated_by_name' => $this->user->nombres],
@@ -56,7 +65,7 @@ class PiarsAlumnosController extends Controller {
 			array_push($arr, $record);
 			$arr = json_encode($arr);
 
-			$consulta = 'UPDATE piars_alumnos SET documento1=?, history=? WHERE alumno_id=? AND year_id=?';
+			$consulta = "UPDATE piars_alumnos SET $field=?, history=? WHERE alumno_id=? AND year_id=?";
 			$document = DB::update($consulta, [$fullPath, $arr, $alumno_id, $this->user->year_id]);
 		}
 		return ['document' => $document];

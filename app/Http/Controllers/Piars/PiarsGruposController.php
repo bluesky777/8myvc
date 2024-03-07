@@ -104,7 +104,7 @@ class PiarsGruposController extends Controller {
 		$updated_by = $this->user->user_id;
 
 		// campos seguros para evitar ataques sql injection
-		$validFields = ['contexto_sociofamiliar', 'acta_de_acuerdo'];
+		$validFields = ['valoracion_pedagogica', 'ajustes_generales'];
 		if (!in_array($field, $validFields)) {
 			return response()->json(['error' => 'Invalid'], 400);
 		}
