@@ -32,6 +32,9 @@ class PiarsAlumnosController extends Controller {
 
 	public function postDocument(Request $request)
 	{
+		if ($this->user->tipo != 'Usuario') {
+			response()->json(['error' => 'Unknownthorized'], 400);
+		}
 		$request->validate([
 			'file' => 'required',
 			'alumno_id' => 'required',
@@ -62,8 +65,14 @@ class PiarsAlumnosController extends Controller {
 			];
 
 			$arr = json_decode($alumno_piar[0]->history);
-			array_push($arr, $record);
-			$arr = json_encode($arr);
+			$newArra = [];
+			try {
+				array_push($arr, $record);
+				$newArra = $arr;
+			} catch (\Throwable $th) {
+				// nothing
+			}
+			$arr = json_encode($newArra);
 
 			$consulta = "UPDATE piars_alumnos SET $field=?, history=? WHERE alumno_id=? AND year_id=?";
 			$document = DB::update($consulta, [$fullPath, $arr, $alumno_id, $this->user->year_id]);

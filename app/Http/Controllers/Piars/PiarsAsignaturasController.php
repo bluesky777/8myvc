@@ -17,7 +17,7 @@ class PiarsAsignaturasController extends Controller {
 		$this->user = User::fromToken();
 	}
 
-	public function getAsignaturas($alumno_id) {
+	public function getAsignaturas($grupo_id, $alumno_id) {
 		if ($this->user->tipo === 'Profesor') {
 
 			$asignaturas = Profesor::asignaturas($this->user->year_id, $this->user->persona_id);
@@ -25,17 +25,17 @@ class PiarsAsignaturasController extends Controller {
 		} else if (in_array($this->user->tipo, ['Usuario'])) {
 
 			$consulta = 'SELECT a.id as asignatura_id, a.grupo_id, a.profesor_id, a.creditos, a.orden,
-					m.materia, m.alias as alias_materia, g.nombre as nombre_grupo, g.abrev as abrev_grupo, g.titular_id, g.caritas,
+					m.materia, m.alias as alias_materia, g.nombre as nombre_grupo, g.abrev as abrev_grupo, g.titular_id,
 					gr.nivel_educativo_id
 				FROM asignaturas a
 				inner join materias m on m.id=a.materia_id and m.deleted_at is null
-				inner join grupos g on g.id=a.grupo_id and g.year_id=:year_id and g.deleted_at is null
+				inner join grupos g on g.id=a.grupo_id and g.deleted_at is null
 				inner join grados gr on gr.id=g.grado_id and gr.deleted_at is null 
-				where a.deleted_at is null
+				where g.id=:grupo_id and a.deleted_at is null
 				order by g.orden, a.orden, m.materia, m.alias, a.id';
 
 			$asignaturas = DB::select(DB::raw($consulta), [
-				':year_id' => $this->user->year_id,
+				':grupo_id' => $grupo_id,
 			]);
 
 		}
