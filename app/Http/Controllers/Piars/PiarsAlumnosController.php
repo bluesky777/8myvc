@@ -32,7 +32,7 @@ class PiarsAlumnosController extends Controller {
 
 	public function postDocument(Request $request)
 	{
-		if ($this->user->tipo != 'Usuario') {
+		if ($this->user->tipo != 'Usuario' && $this->user->tipo != 'Profesor') {
 			response()->json(['error' => 'Unknownthorized'], 400);
 		}
 		$request->validate([
@@ -57,11 +57,11 @@ class PiarsAlumnosController extends Controller {
 
 		if (count($alumno_piar) > 0) {
 			$record = [
-				['documento1' => $alumno_piar[0]->documento1],
-				['documento2' => $alumno_piar[0]->documento2],
-				['updated_at' => $now],
-				['updated_by' => $this->user->user_id],
-				['updated_by_name' => $this->user->nombres],
+				'documento1' => $alumno_piar[0]->documento1,
+				'documento2' => $alumno_piar[0]->documento2,
+				'updated_at' => $now,
+				'updated_by' => $this->user->user_id,
+				'updated_by_name' => $this->user->nombres . ' - ' . $this->user->username,
 			];
 
 			$arr = json_decode($alumno_piar[0]->history);
