@@ -9,6 +9,7 @@ use App\Http\Controllers\Piars\Utils\PiarsGrupoUtils;
 use App\Http\Controllers\Piars\Utils\PiarsAlumnoUtils;
 use Carbon\Carbon;
 use App\Models\Profesor;
+use App\Models\Grupo;
 
 class PiarsGruposController extends Controller {
 	public $user;
@@ -26,11 +27,15 @@ class PiarsGruposController extends Controller {
 		$user = User::fromToken();
 
 		$consulta = 'SELECT g.id, g.nombre, g.abrev, g.orden, gra.orden as orden_grado, g.grado_id, g.year_id, g.titular_id, g.cupo, 
-						p.nombres as nombres_titular, p.apellidos as apellidos_titular, p.titulo, g.caritas, 
-						g.created_at, g.updated_at, gra.nombre as nombre_grado
+						p.nombres as nombres_titular, p.apellidos as apellidos_titular, 
+						g.created_at, g.updated_at, gra.nombre as nombre_grado,
+						p.foto_id, IFNULL(i.nombre, IF(p.sexo="F","default_female.png", "default_male.png")) as foto_nombre,
+						p.firma_id, i2.nombre as firma_titular_nombre
 					FROM grupos g
 					INNER JOIN grados gra on gra.id=g.grado_id and g.year_id=:year_id
-					LEFT JOIN profesores p on p.id=g.titular_id
+					LEFT JOIN profesores p on p.id=g.titular_id and p.deleted_at is null
+					left join images i on p.foto_id=i.id and i.deleted_at is null
+					left join images i2 on p.firma_id=i2.id and i.deleted_at is null
 					WHERE g.deleted_at is null
 					ORDER BY g.orden';
 
@@ -47,6 +52,8 @@ class PiarsGruposController extends Controller {
 			WHERE pg.grupo_id=?';
 
 		$piars = DB::select($consulta, [$grupo_id]);
+
+		$grupo = Grupo::datos($grupo_id);
 
     $piarsGrupoUtils = new PiarsGrupoUtils();
     $piarsAlumnosUtils = new PiarsAlumnoUtils();
@@ -70,6 +77,7 @@ class PiarsGruposController extends Controller {
 				'familiarContext' => $piars,
 				'alumnos' => $alumnos,
 				'alumnos_piar' => $alumnos_piar,
+				'grupo' => $grupo,
 			]
 		];
 	}
@@ -88,32 +96,6 @@ class PiarsGruposController extends Controller {
 			WHERE id=?';
 		$piars = DB::update($consulta, [
 			$caracterizacion_grupo, $updated_at, $updated_by, $id,  
-		]);
-
-    return ['piars' => $piars];
-	}
-
-	public function putField()
-	{
-		$now = Carbon::now('America/Bogota');
-
-		$id = Request::input('id');
-		$field = Request::input('field');
-		$text = Request::input('text');
-		$updated_at = $now;
-		$updated_by = $this->user->user_id;
-
-		// campos seguros para evitar ataques sql injection
-		$validFields = ['valoracion_pedagogica', 'ajustes_generales'];
-		if (!in_array($field, $validFields)) {
-			return response()->json(['error' => 'Invalid'], 400);
-		}
-
-		$consulta = "UPDATE piars_alumnos 
-			SET $field=?, updated_at=?, updated_by=?
-			WHERE id=?";
-		$piars = DB::update($consulta, [
-			$text, $updated_at, $updated_by, $id,  
 		]);
 
     return ['piars' => $piars];

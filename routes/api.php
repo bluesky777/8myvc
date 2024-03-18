@@ -130,6 +130,7 @@ AdvancedRoute::controller('preguntas', 'Actividades\PreguntasController');
 AdvancedRoute::controller('opciones', 'Actividades\OpcionesController');
 AdvancedRoute::controller('respuestas', 'Actividades\RespuestasController');
 
+AdvancedRoute::controller('piars-config', 'Piars\PiarsConfigController');
 AdvancedRoute::controller('piars-grupos', 'Piars\PiarsGruposController');
 AdvancedRoute::controller('piars-alumnos', 'Piars\PiarsAlumnosController');
 AdvancedRoute::controller('piars-asignaturas', 'Piars\PiarsAsignaturasController');

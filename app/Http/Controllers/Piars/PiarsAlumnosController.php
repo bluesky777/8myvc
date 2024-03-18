@@ -1,6 +1,6 @@
 <?php namespace App\Http\Controllers\Piars;
 
-use Illuminate\Http\Request;
+use Request;
 use DB;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Piars\Utils\UploadDocuments;
@@ -78,5 +78,31 @@ class PiarsAlumnosController extends Controller {
 			$document = DB::update($consulta, [$fullPath, $arr, $alumno_id, $this->user->year_id]);
 		}
 		return ['document' => $document];
+	}
+
+	public function putField()
+	{
+		$now = Carbon::now('America/Bogota');
+
+		$id = Request::input('id');
+		$field = Request::input('field');
+		$text = Request::input('text');
+		$updated_at = $now;
+		$updated_by = $this->user->user_id;
+
+		// campos seguros para evitar ataques sql injection
+		$validFields = ['valoracion_pedagogica', 'ajustes_generales', 'reporte'];
+		if (!in_array($field, $validFields)) {
+			return response()->json(['error' => 'Invalid'], 400);
+		}
+
+		$consulta = "UPDATE piars_alumnos 
+			SET $field=?, updated_at=?, updated_by=?
+			WHERE id=?";
+		$piars = DB::update($consulta, [
+			$text, $updated_at, $updated_by, $id,  
+		]);
+
+    return ['piars' => $piars];
 	}
 }
