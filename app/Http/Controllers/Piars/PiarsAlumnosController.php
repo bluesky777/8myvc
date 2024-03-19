@@ -7,6 +7,8 @@ use App\Http\Controllers\Piars\Utils\UploadDocuments;
 
 use App\User;
 use Carbon\Carbon;
+use File;
+use \Log;
 
 class PiarsAlumnosController extends Controller {
 	public $user;
@@ -30,17 +32,17 @@ class PiarsAlumnosController extends Controller {
 		return ['alumnos' => $alumnos];
 	}
 
-	public function postDocument(Request $request)
+	public function postDocument()
 	{
 		if ($this->user->tipo != 'Usuario' && $this->user->tipo != 'Profesor') {
 			response()->json(['error' => 'Unknownthorized'], 400);
 		}
-		$request->validate([
+		Request::validate([
 			'file' => 'required',
 			'alumno_id' => 'required',
 		]);
 
-		$field = $request->documentField;
+		$field = Request::input('documentField');
 
 		// campos seguros para evitar ataques sql injection
 		$validFields = ['documento1', 'documento2'];
@@ -50,10 +52,10 @@ class PiarsAlumnosController extends Controller {
 
 		$now 				= Carbon::now('America/Bogota');
 		$fullPath 	= UploadDocuments::save_document($this->user);
-		$alumno_id 	= $request->alumno_id;
+		$alumno_id 	= Request::input('alumno_id');
 
 		$consulta = 'SELECT * FROM piars_alumnos WHERE alumno_id=? AND year_id=?';
-		$alumno_piar = DB::select($consulta, [$request->alumno_id, $this->user->year_id]);
+		$alumno_piar = DB::select($consulta, [$alumno_id, $this->user->year_id]);
 
 		if (count($alumno_piar) > 0) {
 			$record = [
@@ -104,5 +106,70 @@ class PiarsAlumnosController extends Controller {
 		]);
 
     return ['piars' => $piars];
+	}
+
+	public function deleteDocument($alumno_id)
+	{
+		if ($this->user->tipo != 'Usuario' && $this->user->tipo != 'Profesor') {
+			response()->json(['error' => 'Unknownthorized'], 400);
+		}
+
+		$now 				= Carbon::now('America/Bogota');
+		$field 			= Request::input('file_name');
+
+		$consulta = 'SELECT * FROM piars_alumnos WHERE alumno_id=? AND year_id=?';
+		$alumno_piar = DB::select($consulta, [$alumno_id, $this->user->year_id]);
+		
+		// campos seguros para evitar ataques sql injection
+		$validFields = ['documento1', 'documento2'];
+		if (!in_array($field, $validFields)) {
+			return response()->json(['error' => 'Invalid'], 400);
+		}
+
+		if (count($alumno_piar) > 0) {
+			$documentValue1 = $alumno_piar[0]->documento1;
+			$documentValue2 = $alumno_piar[0]->documento2;
+			$fileToDelete = '';
+
+			if ($field == 'documento1') {
+				$fileToDelete = $documentValue1;
+				$documentValue1 = null;
+			}
+
+			if ($field == 'documento2') {
+				$fileToDelete = $documentValue2;
+				$documentValue2 = null;
+			}
+
+			$record = [
+				'documento1' => $documentValue1,
+				'documento2' => $documentValue2,
+				'updated_at' => $now,
+				'updated_by' => $this->user->user_id,
+				'updated_by_name' => $this->user->nombres . ' - ' . $this->user->username,
+			];
+
+			$arr = json_decode($alumno_piar[0]->history);
+			$newArra = [];
+			try {
+				array_push($arr, $record);
+				$newArra = $arr;
+			} catch (\Throwable $th) {
+				// nothing
+			}
+			$arr = json_encode($newArra);
+
+			$consulta = "UPDATE piars_alumnos SET $field=null, history=? WHERE alumno_id=? AND year_id=?";
+			$document = DB::update($consulta, [$arr, $alumno_id, $this->user->year_id]);
+
+			$filename 	= 'uploads/'.$fileToDelete;
+		
+			if (File::exists($filename)) {
+				File::delete($filename);
+			}else{
+				Log::info($imagen_id . ' -- Al parecer NO existe archivo: ' . $filename);
+			}
+		}
+		return ['document' => $document];
 	}
 }
