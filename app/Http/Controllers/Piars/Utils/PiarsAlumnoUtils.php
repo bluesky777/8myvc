@@ -20,7 +20,8 @@ class PiarsAlumnoUtils {
 	{
 		$consulta = 'SELECT a.id, a.nombres, a.apellidos, a.sexo, m.estado,
 				a.foto_id, IFNULL(i.nombre, IF(a.sexo="F","default_female.png", "default_male.png")) as foto_nombre, 
-				m.estado, a.nee, a.telefono, a.celular, a.direccion, g.year_id
+				m.estado, a.nee, a.telefono, a.celular, a.direccion, g.year_id,
+				a.nee_descripcion
 			FROM alumnos a
 			INNER JOIN matriculas m ON m.alumno_id=a.id and m.deleted_at is null and (m.estado="ASIS" or m.estado="MATR")
 			INNER JOIN grupos g ON g.id=m.grupo_id and g.deleted_at is null
