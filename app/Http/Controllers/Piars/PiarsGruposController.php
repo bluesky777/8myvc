@@ -64,7 +64,7 @@ class PiarsGruposController extends Controller {
       $piars = DB::select($consulta, [$grupo_id]);
 		}
 
-		$alumnos_piar = $piarsAlumnosUtils->getAlumnosPiar($grupo_id, $this->user->user_id);
+		$alumnos_piar = $piarsAlumnosUtils->getAlumnosPiar($grupo_id, $this->user->user_id, $alumnos);
 		
 		if ($this->user->is_superuser) {
 			$piarsAlumnosUtils->getAcudientes($alumnos_piar);
