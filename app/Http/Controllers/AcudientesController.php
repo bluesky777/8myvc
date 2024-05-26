@@ -368,7 +368,7 @@ where id in (
 
 			$usuario = new User;
 			$usuario->username		=	$uname;
-			$usuario->password		=	Hash::make(Request::input('password', '1234'));
+			$usuario->password		=	Hash::make(Request::input('password', '123456'));
 			$usuario->email			=	Request::input('email2');
 			$usuario->periodo_id	=	1;
 			$usuario->sexo			=	'M';

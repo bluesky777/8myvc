@@ -104,7 +104,7 @@ class UsersController extends Controller {
 			$username = 'usuario'.rand(100, 9999);
 			
 			$consulta = 'INSERT INTO users(username, password, sexo, is_superuser, tipo, is_active, periodo_id, created_by, created_at) 
-				VALUES("'.$username.'", "'.Hash::make('123').'", "M", 1, "Usuario", 1, 1, ?, "'.$now.'")';
+				VALUES("'.$username.'", "'.Hash::make('123456').'", "M", 1, "Usuario", 1, 1, ?, "'.$now.'")';
 				
 			DB::insert($consulta, [$user->user_id]);
 			
@@ -143,7 +143,7 @@ class UsersController extends Controller {
 			$username = 'psicologo'.rand(100, 9999);
 			
 			$consulta = 'INSERT INTO users(username, password, sexo, is_superuser, tipo, is_active, periodo_id, created_by, created_at) 
-				VALUES("'.$username.'", "'.Hash::make('123').'", "M", 0, "Usuario", 1, 1, ?, "'.$now.'")';
+				VALUES("'.$username.'", "'.Hash::make('123456').'", "M", 0, "Usuario", 1, 1, ?, "'.$now.'")';
 				
 			DB::insert($consulta, [$user->user_id]);
 			
@@ -182,7 +182,7 @@ class UsersController extends Controller {
 			$username = 'enfermero'.rand(100, 9999);
 			
 			$consulta = 'INSERT INTO users(username, password, sexo, is_superuser, tipo, is_active, periodo_id, created_by, created_at) 
-				VALUES("'.$username.'", "'.Hash::make('123').'", "M", 0, "Usuario", 1, 1, ?, "'.$now.'")';
+				VALUES("'.$username.'", "'.Hash::make('123456').'", "M", 0, "Usuario", 1, 1, ?, "'.$now.'")';
 				
 			DB::insert($consulta, [$user->user_id]);
 			

@@ -78,4 +78,20 @@ class Role extends Model
 		}
 		return $isCoorDisciplinario;
 	}
+
+	public static function isSecretario($user_id) {
+		return Role::hasRole($user_id, 'Secretario');
+	}
+
+	public static function hasRole($user_id, $role) {
+		$roles = Role::getUserRoles($user_id);
+		$isRole = false;
+		for ($i=0; $i < count($roles); $i++) { 
+			if ($roles[$i]->name == $role) {
+				$isRole = true;
+				break;
+			}
+		}
+		return $isRole;
+	}
 }
