@@ -330,21 +330,25 @@ where id in (
 
 	public function postCrear()
 	{
-		$fecha_nac = Carbon::parse(Request::input('fecha_matricula'));
+		$fecha_nac = null;
+		if (Request::input('fecha_nac')) {
+			$fecha_nac = Carbon::parse(Request::input('fecha_nac'));
+		}
+
 		try {
 			$acudiente = new Acudiente;
-			$acudiente->nombres		=	Request::input('nombres');
-			$acudiente->apellidos	=	Request::input('apellidos');
-			$acudiente->sexo		=	Request::input('sexo');
-			$acudiente->tipo_doc	=	Request::has('tipo_doc') ? Request::input('tipo_doc')['id'] : null;
-			$acudiente->documento	=	Request::input('documento');
+			$acudiente->nombres			=	Request::input('nombres');
+			$acudiente->apellidos		=	Request::input('apellidos');
+			$acudiente->sexo				=	Request::input('sexo');
+			$acudiente->tipo_doc		=	Request::has('tipo_doc') ? Request::input('tipo_doc')['id'] : null;
+			$acudiente->documento		=	Request::input('documento');
 			$acudiente->ciudad_doc	=	Request::has('ciudad_doc') ? Request::input('ciudad_doc')['id'] : null;
 			$acudiente->ciudad_nac	=	Request::has('ciudad_nac') ? Request::input('ciudad_nac')['id'] : null;
-			$acudiente->fecha_nac	=	$fecha_nac;
-			$acudiente->telefono	=	Request::input('telefono');
-			$acudiente->celular		=	Request::input('celular');
-			$acudiente->ocupacion	=	Request::input('ocupacion');
-			$acudiente->email		=	Request::input('email');
+			$acudiente->fecha_nac		=	$fecha_nac;
+			$acudiente->telefono		=	Request::input('telefono');
+			$acudiente->celular			=	Request::input('celular');
+			$acudiente->ocupacion		=	Request::input('ocupacion');
+			$acudiente->email				=	Request::input('email');
 
 			$acudiente->save();
 
@@ -352,7 +356,7 @@ where id in (
 			$parentesco->acudiente_id		=	$acudiente->id;
 			$parentesco->alumno_id			=	Request::input('alumno_id');
 			$parentesco->parentesco			=	Request::input('parentesco')['parentesco'];
-			$parentesco->observaciones		=	Request::input('observaciones');
+			$parentesco->observaciones	=	Request::input('observaciones');
 			$parentesco->created_by			=	$this->user->user_id;
 			$parentesco->save();
 
@@ -369,10 +373,10 @@ where id in (
 			$usuario = new User;
 			$usuario->username		=	$uname;
 			$usuario->password		=	Hash::make(Request::input('password', '123456'));
-			$usuario->email			=	Request::input('email2');
+			$usuario->email				=	Request::input('email2');
 			$usuario->periodo_id	=	1;
-			$usuario->sexo			=	'M';
-			$usuario->tipo			=	'Acudiente';
+			$usuario->sexo				=	'M';
+			$usuario->tipo				=	'Acudiente';
 			$usuario->created_by	=	$this->user->user_id;
 			$usuario->save();
 
@@ -396,22 +400,27 @@ where id in (
 	
 	public function postCrearUsuario()
 	{
-		$acu 		= Request::input('acudiente');
+		$acu 				= Request::input('acudiente');
 		
-		$opera 		= new OperacionesAlumnos();
+		$opera 			= new OperacionesAlumnos();
 		$username 	= $opera->username_no_repetido($acu['nombres']);
 		
-		$usu 				= new User;
-		$usu->password 		= Hash::make('123456');
-		$usu->username 		= $username;
-		$usu->sexo 			= $acu['sexo'];
+		$usu 								= new User;
+		$usu->password 			= Hash::make('123456');
+		$usu->username 			= $username;
+		$usu->sexo 					= $acu['sexo'];
 		$usu->is_superuser 	= 0;
-		$usu->tipo 			= 'Acudiente';
-		$usu->periodo_id 	= 1;
-		$usu->created_by 	= $this->user->user_id;
+		$usu->tipo 					= 'Acudiente';
+		$usu->periodo_id 		= 1;
+		$usu->created_by 		= $this->user->user_id;
 		$usu->save();
-		
-		DB::update('UPDATE acudientes SET user_id=? WHERE id=?', [$usu->id, $acu['id']]);
+
+		DB::update('UPDATE acudientes SET user_id=?, updated_by=?, updated_at=? WHERE id=?', [
+			$usu->id,
+			$this->user->user_id,
+			Carbon::now('America/Bogota'),
+			$acu['id'],
+		]);
 		
 		return $usu;
 	}
@@ -453,17 +462,18 @@ where id in (
 
 	public function putSeleccionarParentesco()
 	{
-		if ( Request::has('parentesco_acudiente_cambiar_id') ) {
+		if (Request::has('parentesco_acudiente_cambiar_id')) {
 			$parentesco = Parentesco::findOrFail(Request::input('parentesco_acudiente_cambiar_id'));
+			$parentesco->updated_by		=	$this->user->user_id;
 		}else{
 			$parentesco = new Parentesco;
+			$parentesco->created_by		=	$this->user->user_id;
 		}
 		
 		$parentesco->acudiente_id		=	Request::input('acudiente_id');
 		$parentesco->alumno_id			=	Request::input('alumno_id');
 		$parentesco->parentesco			=	Request::input('parentesco');
-		$parentesco->observaciones		=	Request::input('observaciones');
-		$parentesco->created_by			=	$this->user->user_id;
+		$parentesco->observaciones	=	Request::input('observaciones');
 		$parentesco->save();
 
 		$acudiente = DB::select($this->consulta_pariente, [ $parentesco->id ]);
@@ -476,6 +486,9 @@ where id in (
 	{
 		$acudiente = Acudiente::findOrFail($id);
 		$acudiente->delete();
+
+		$consulta = 'UPDATE parentescos SET deleted_by=?, deleted_at=? WHERE acudiente_id = ?;';
+		DB::update($consulta, [ $this->user->user_id, Carbon::now('America/Bogota'), $id ]);	
 
 		return $acudiente;
 	}
