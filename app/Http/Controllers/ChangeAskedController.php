@@ -190,6 +190,14 @@ class ChangeAskedController extends Controller {
 		
 		
 		}elseif ($user->tipo == 'Alumno') {
+			$consulta 	= 'SELECT d.* FROM dis_libro_rojo d 
+				WHERE alumno_id=? and d.year_id=? and d.deleted_at is null';
+
+			$libro 	= DB::select($consulta, [ $user->persona_id, $user->year_id ]);
+
+			if (count($libro) > 0) {
+				$libro = $libro[0];
+			}
 
 			$ausencias 			= Ausencia::deAlumnoYear($user->persona_id, $user->year_id);
 			
@@ -286,7 +294,6 @@ class ChangeAskedController extends Controller {
 				}
 
 				array_push($alumnos, $prematricula);
-
 				
 				// Grupos próximo año
 				$consulta = 'SELECT g.id, g.nombre, g.abrev, g.orden, g.grado_id, g.year_id, g.titular_id, g.created_at, g.updated_at
@@ -298,12 +305,12 @@ class ChangeAskedController extends Controller {
 					
 			}
 
-			
-			return [  'alumnos' => $alumnos, 'ausencias_periodo'=>$ausencias, 'situaciones'=> $situaciones, 'comportamiento'=>$comportamiento, 'uniformes'=>$uniformes, 'profes_actuales' => $profes_actuales,
-				'publicaciones' => $publicaciones, 'eventos' => $eventos, 'grados_sig' => $grados_sig ];
-		
-		
-
+			return [
+				'alumnos' => $alumnos, 'ausencias_periodo'=>$ausencias, 'situaciones'=> $situaciones,
+				'comportamiento'=>$comportamiento, 'uniformes'=>$uniformes, 'profes_actuales' => $profes_actuales,
+				'publicaciones' => $publicaciones, 'eventos' => $eventos, 'grados_sig' => $grados_sig,
+				'libro' => $libro,
+			];
 
 			
 		}elseif ($user->tipo == 'Acudiente') {
@@ -327,13 +334,21 @@ class ChangeAskedController extends Controller {
 							order by g.orden, a.apellidos, a.nombres';
 							
 			$alumnos 	= DB::select($consulta, [ $user->persona_id, $user->year_id ]);	
-			
 
 			for ($i=0; $i < count($alumnos); $i++) { 
-				
 				$alumnos[$i]->comportamiento 		= NotaComportamiento::notas_comportamiento_year($alumnos[$i]->alumno_id, $user->year_id);
 				$alumnos[$i]->situaciones 			= Disciplina::situaciones_year($alumnos[$i]->alumno_id, $user->year_id, $user->periodo_id);
 				$alumnos[$i]->ausencias_periodo 	= Ausencia::deAlumnoYear($alumnos[$i]->alumno_id, $user->year_id);
+				
+				$consulta 	= 'SELECT d.* FROM dis_libro_rojo d 
+					WHERE alumno_id=? and d.year_id=? and d.deleted_at is null';
+
+				$libro 	= DB::select($consulta, [ $alumnos[$i]->alumno_id, $user->year_id ]);
+
+				if (count($libro) > 0) {
+					$libro = $libro[0];
+				}
+				$alumnos[$i]->libro 	= $libro;
 				
 
 				// Uniformes
@@ -396,10 +411,7 @@ class ChangeAskedController extends Controller {
 							$alumnos[$i]->next_year = $matri_next[0];
 						}
 					}
-
 				}
-				
-
 			}
 
 			$grados_sig = [];
