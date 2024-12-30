@@ -28,18 +28,39 @@ class NotaComportamiento extends Model {
 	}
 
 
-	public static function nota_comportamiento($alumno_id, $periodo_id){
+	public static function nota_comportamiento($alumno_id, $periodo_id, $year_id, $escalas_val) {
 		
 		$consulta = 'SELECT * FROM nota_comportamiento n WHERE n.alumno_id=:alumno_id and n.periodo_id=:periodo_id and n.deleted_at is null';
 		$nota = DB::select($consulta, [
 										':alumno_id'	=>$alumno_id, 
 										':periodo_id'	=>$periodo_id
 									]);
-		
+
 		if(count($nota) > 0){
-			return $nota[0];
+			$nota = $nota[0];
+
+			$nota->notas_finales 		= DB::select(
+				'SELECT n.id, n.nota, n.periodo_id, p.numero, n.familiar_nota, n.familiar_ausencias
+					FROM nota_comportamiento n
+					INNER JOIN periodos p ON p.id=n.periodo_id and p.year_id=? and p.deleted_at is null 
+					WHERE n.alumno_id=? and n.periodo_id<=? and n.deleted_at is null order by p.numero asc',
+				[$year_id, $alumno_id, $periodo_id],
+			);
+
+			$cant_n = count($nota->notas_finales);
+			$sum_notas = 0;
+
+			for ($h=0; $h < $cant_n; $h++) {
+				$sum_notas = $nota->notas_finales[$h]->nota + $sum_notas;
+			}
+			
+			$nota->nota_definitiva_anio 	= round($sum_notas / $cant_n);
+			$des = EscalaDeValoracion::valoracion($nota->nota_definitiva_anio, $escalas_val);
+			$nota->desempenio = $des->desempenio;		
+			
+			return $nota;
 		}else{
-			return [];
+			return [ "notas_finales" => [] ];
 		}
 
 		 

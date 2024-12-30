@@ -48,6 +48,7 @@ class AcudientesController extends Controller {
 	{
 		
 		$user = $this->user;
+		$escalas_val = DB::select('SELECT * FROM escalas_de_valoracion WHERE year_id=? AND deleted_at is null', [$user->year_id]);
 		
 		$consulta 		= 'SELECT distinct(a.id) as alumno_id, a.no_matricula, a.nombres, a.apellidos, a.sexo, a.user_id, 
 							a.fecha_nac, a.tipo_doc, a.documento, a.tipo_sangre, a.eps, a.telefono, a.celular, 
@@ -73,7 +74,7 @@ class AcudientesController extends Controller {
 
 			$ausencias 			= Ausencia::totalDeAlumno($alumnos[$i]->alumno_id, $user->periodo_id);
 
-			$comportamiento 	= NotaComportamiento::nota_comportamiento($alumnos[$i]->alumno_id, $user->periodo_id);
+			$comportamiento 	= NotaComportamiento::nota_comportamiento($alumnos[$i]->alumno_id, $user->periodo_id, $user->year_id, $escalas_val);
 			if ($comportamiento) {
 			$comportamiento->definiciones = DefinicionComportamiento::frases($comportamiento->id);
 		}

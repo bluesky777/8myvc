@@ -239,7 +239,7 @@ class Boletines2Controller extends Controller {
 		// COMPORTAMIENTO Y SUS FRASES
 		if ($comport_and_frases) {
 			
-			$comportamiento = NotaComportamiento::nota_comportamiento($alumno->alumno_id, $periodo_id);
+			$comportamiento = NotaComportamiento::nota_comportamiento($alumno->alumno_id, $periodo_id, $this->user->year_id, $this->escalas_val);
 
 			$alumno->comportamiento = $comportamiento;
 			$definiciones = [];

@@ -39,23 +39,23 @@ class YearsController extends Controller {
 	{
 		$user = User::fromToken();
 
-		$consulta 	= 'SELECT * FROM years WHERE deleted_at is null';
-		$years 		= DB::select($consulta);
+		$consulta = 'SELECT * FROM years WHERE deleted_at is null';
+		$years    = DB::select($consulta);
 
 
 		foreach ($years as $year) {
-			$consulta 			= 'SELECT * FROM periodos WHERE year_id=? and deleted_at is null';
-			$year->periodos 	= DB::select($consulta, [$year->id]);
+			$consulta       = 'SELECT * FROM periodos WHERE year_id=? and deleted_at is null';
+			$year->periodos = DB::select($consulta, [$year->id]);
 
-			$consulta 		= 'SELECT * FROM escalas_de_valoracion WHERE year_id=? and deleted_at is null order by orden asc';
-			$year->escalas 	= DB::select($consulta, [$year->id]);
+			$consulta      = 'SELECT * FROM escalas_de_valoracion WHERE year_id=? and deleted_at is null order by orden asc';
+			$year->escalas = DB::select($consulta, [$year->id]);
 		}
 
-		$consulta 	= 'SELECT * FROM config_certificados';
-		$certif 	= DB::select($consulta);
+		$consulta = 'SELECT * FROM config_certificados';
+		$certif   = DB::select($consulta);
 
-		$consulta 	= 'SELECT * FROM images WHERE user_id=? and publica=true';
-		$imagenes 	= DB::select($consulta, [$user->user_id]);
+		$consulta = 'SELECT * FROM images WHERE user_id=? and publica=true';
+		$imagenes = DB::select($consulta, [$user->user_id]);
 
 
 
@@ -72,28 +72,28 @@ class YearsController extends Controller {
 
 		$year = new Year;
 
-		$year->year						=	Request::input('year');
-		$year->nombre_colegio			=	Request::input('nombre_colegio');
-		$year->abrev_colegio			=	Request::input('abrev_colegio');
-		$year->nota_minima_aceptada		=	Request::input('nota_minima_aceptada');
-		$year->resolucion				=	Request::input('resolucion');
-		$year->codigo_dane				=	Request::input('codigo_dane');
-		$year->encabezado_certificado	=	Request::input('encabezado_certificado');
-		//$year->frase_final_certificado	=	Request::input('frase_final_certificado');
-		$year->actual					=	Request::input('actual');
-		$year->telefono					=	Request::input('telefono');
-		$year->celular					=	Request::input('celular');
+		$year->year                   = Request::input('year');
+		$year->nombre_colegio         = Request::input('nombre_colegio');
+		$year->abrev_colegio          = Request::input('abrev_colegio');
+		$year->nota_minima_aceptada   = Request::input('nota_minima_aceptada');
+		$year->resolucion             = Request::input('resolucion');
+		$year->codigo_dane            = Request::input('codigo_dane');
+		$year->encabezado_certificado = Request::input('encabezado_certificado');
+
+		$year->actual   = Request::input('actual');
+		$year->telefono = Request::input('telefono');
+		$year->celular  = Request::input('celular');
 		
-		$year->unidad_displayname		=	Request::input('unidad_displayname');
-		$year->unidades_displayname		=	Request::input('unidades_displayname');
-		$year->genero_unidad			=	Request::input('genero_unidad');
-		$year->subunidad_displayname	=	Request::input('subunidad_displayname');
-		$year->subunidades_displayname	=	Request::input('subunidades_displayname');
-		$year->genero_subunidad			=	Request::input('genero_subunidad');
+		$year->unidad_displayname      = Request::input('unidad_displayname');
+		$year->unidades_displayname    = Request::input('unidades_displayname');
+		$year->genero_unidad           = Request::input('genero_unidad');
+		$year->subunidad_displayname   = Request::input('subunidad_displayname');
+		$year->subunidades_displayname = Request::input('subunidades_displayname');
+		$year->genero_subunidad        = Request::input('genero_subunidad');
 		
-		$year->website					=	Request::input('website');
-		$year->website_myvc				=	Request::input('website_myvc');
-		$year->alumnos_can_see_notas	=	Request::input('alumnos_can_see_notas');
+		$year->website               = Request::input('website');
+		$year->website_myvc          = Request::input('website_myvc');
+		$year->alumnos_can_see_notas = Request::input('alumnos_can_see_notas');
 
 		$year->save();
 
@@ -104,9 +104,9 @@ class YearsController extends Controller {
 			Year::where('actual', true)->update(['actual'=>false]);
 		}
 
-		$year 				= Year::find($year_id_nuevo);
+		$year 						= Year::find($year_id_nuevo);
 		$year->actual 		= true;
-		$year->created_by 	= $user->user_id;
+		$year->created_by = $user->user_id;
 		$year->save();
 
 		
@@ -124,24 +124,25 @@ class YearsController extends Controller {
 		if ($pasado) {
 
 
-			$year->ciudad_id						=	$pasado->ciudad_id;
-			$year->logo_id							=	$pasado->logo_id;
-			$year->rector_id						=	$pasado->rector_id;
-			$year->secretario_id					=	$pasado->secretario_id;
-			$year->tesorero_id						=	$pasado->tesorero_id;
-			$year->coordinador_academico_id			=	$pasado->coordinador_academico_id;
-			$year->coordinador_disciplinario_id		=	$pasado->coordinador_disciplinario_id;
-			$year->capellan_id						=	$pasado->capellan_id;
-			$year->psicorientador_id 				=	$pasado->psicorientador_id;
-			$year->config_certificado_estudio_id 		=	$pasado->config_certificado_estudio_id;
-			$year->cant_areas_pierde_year 			=	$pasado->cant_areas_pierde_year;
-			$year->cant_asignatura_pierde_year 		=	$pasado->cant_asignatura_pierde_year;
-			$year->contador_certificados 			=	$pasado->contador_certificados;
-			$year->contador_folios 					=	$pasado->contador_folios;
-			$year->nota_minima_aceptada				=	$pasado->nota_minima_aceptada;
-			$year->resolucion						=	$pasado->resolucion;
-			$year->codigo_dane						=	$pasado->codigo_dane;
-			$year->encabezado_certificado			=	$pasado->encabezado_certificado;
+			$year->ciudad_id                     = $pasado->ciudad_id;
+			$year->logo_id                       = $pasado->logo_id;
+			$year->rector_id                     = $pasado->rector_id;
+			$year->secretario_id                 = $pasado->secretario_id;
+			$year->tesorero_id                   = $pasado->tesorero_id;
+			$year->coordinador_academico_id      = $pasado->coordinador_academico_id;
+			$year->coordinador_disciplinario_id  = $pasado->coordinador_disciplinario_id;
+			$year->capellan_id                   = $pasado->capellan_id;
+			$year->psicorientador_id             = $pasado->psicorientador_id;
+			$year->config_certificado_estudio_id = $pasado->config_certificado_estudio_id;
+			$year->cant_areas_pierde_year        = $pasado->cant_areas_pierde_year;
+			$year->cant_asignatura_pierde_year   = $pasado->cant_asignatura_pierde_year;
+			$year->contador_certificados         = $pasado->contador_certificados;
+			$year->contador_folios               = $pasado->contador_folios;
+			$year->nota_minima_aceptada          = $pasado->nota_minima_aceptada;
+			$year->resolucion                    = $pasado->resolucion;
+			$year->codigo_dane                   = $pasado->codigo_dane;
+			$year->encabezado_certificado        = $pasado->encabezado_certificado;
+			$year->compromiso_familiar_label     = $pasado->compromiso_familiar_label;
 
 			$year->save();
 			
@@ -149,16 +150,16 @@ class YearsController extends Controller {
 			$escalas_ant = EscalaDeValoracion::where('year_id', $pasado->id)->get();
 
 			foreach ($escalas_ant as $key => $escalas) {
-				$newEsc = new EscalaDeValoracion;
-				$newEsc->desempenio 	= $escalas->desempenio;
-				$newEsc->valoracion 	= $escalas->valoracion;
-				$newEsc->porc_inicial 	= $escalas->porc_inicial;
-				$newEsc->porc_final 	= $escalas->porc_final;
-				$newEsc->descripcion 	= $escalas->descripcion;
-				$newEsc->orden 			= $escalas->orden;
-				$newEsc->perdido 		= $escalas->perdido;
-				$newEsc->year_id 		= $year->id;
-				$newEsc->icono_infantil = $escalas->icono_infantil;
+				$newEsc                    = new EscalaDeValoracion;
+				$newEsc->desempenio        = $escalas->desempenio;
+				$newEsc->valoracion        = $escalas->valoracion;
+				$newEsc->porc_inicial      = $escalas->porc_inicial;
+				$newEsc->porc_final        = $escalas->porc_final;
+				$newEsc->descripcion       = $escalas->descripcion;
+				$newEsc->orden             = $escalas->orden;
+				$newEsc->perdido           = $escalas->perdido;
+				$newEsc->year_id           = $year->id;
+				$newEsc->icono_infantil    = $escalas->icono_infantil;
 				$newEsc->icono_adolescente = $escalas->icono_adolescente;
 				$newEsc->save();
 			}
@@ -293,33 +294,36 @@ class YearsController extends Controller {
 		$year = Year::findOrFail(Request::input('id'));
 		
 		try {
-			$year->nombre_colegio	=	Request::input('nombre_colegio');
-			$year->abrev_colegio	=	Request::input('abrev_colegio');
-			$year->year				=	Request::input('year');
-			$year->rector_id		=	Request::input('rector_id');
-			$year->secretario_id	=	Request::input('secretario_id');
-			$year->tesorero_id		=	Request::input('tesorero_id');
-			$year->resolucion		=	Request::input('resolucion');
-			$year->codigo_dane		=	Request::input('codigo_dane');
-			#$year->encabezado_certificado=	Request::input('encabezado_certificado');
-			#$year->frase_final_certificado=	Request::input('frase_final_certificado');
-			#$year->actual			=	Request::input('actual');
-			$year->telefono			=	Request::input('telefono');
-			$year->celular			=	Request::input('celular');
-			$year->website			=	Request::input('website');
-			$year->website_myvc		=	Request::input('website_myvc');
-			$year->msg_when_students_blocked		=	Request::input('msg_when_students_blocked');
-			
-			$year->unidad_displayname		=	Request::input('unidad_displayname');
-			$year->unidades_displayname		=	Request::input('unidades_displayname');
-			$year->genero_unidad			=	Request::input('genero_unidad');
-			
-			$year->subunidad_displayname	=	Request::input('subunidad_displayname');
-			$year->subunidades_displayname	=	Request::input('subunidades_displayname');
-			$year->genero_subunidad			=	Request::input('genero_subunidad');
-			
-			$year->alumnos_can_see_notas	=	Request::input('alumnos_can_see_notas');
-			$year->updated_by				=	$user->user_id;
+			$compromiso_familiar = null;
+
+			if (Request::has('compromiso_familiar_label')) {
+				if (Request::input('compromiso_familiar_label') != '' && Request::input('compromiso_familiar_label') != null) {
+					$compromiso_familiar = Request::input('compromiso_familiar_label');
+				}
+			}
+
+			$year->nombre_colegio            = Request::input('nombre_colegio');
+			$year->abrev_colegio             = Request::input('abrev_colegio');
+			$year->year                      = Request::input('year');
+			$year->rector_id                 = Request::input('rector_id');
+			$year->secretario_id             = Request::input('secretario_id');
+			$year->tesorero_id               = Request::input('tesorero_id');
+			$year->resolucion                = Request::input('resolucion');
+			$year->codigo_dane               = Request::input('codigo_dane');
+			$year->telefono                  = Request::input('telefono');
+			$year->celular                   = Request::input('celular');
+			$year->website                   = Request::input('website');
+			$year->website_myvc              = Request::input('website_myvc');
+			$year->msg_when_students_blocked = Request::input('msg_when_students_blocked');
+			$year->unidad_displayname        = Request::input('unidad_displayname');
+			$year->unidades_displayname      = Request::input('unidades_displayname');
+			$year->genero_unidad             = Request::input('genero_unidad');
+			$year->subunidad_displayname     = Request::input('subunidad_displayname');
+			$year->subunidades_displayname   = Request::input('subunidades_displayname');
+			$year->genero_subunidad          = Request::input('genero_subunidad');
+			$year->alumnos_can_see_notas     = Request::input('alumnos_can_see_notas');
+			$year->compromiso_familiar_label = $compromiso_familiar;
+			$year->updated_by                = $user->user_id;
 
 			$year->save();
 			
@@ -329,17 +333,11 @@ class YearsController extends Controller {
 
 			$bit_by 	= $user->user_id;
 			$bit_hist 	= $his->history_id;
-			//$bit_old 	= $VALOR; 				
-			//$bit_new 	= Request::input('VALOR'); 	
-			
+
 			$consulta 	= 'INSERT INTO bitacoras (created_by, historial_id, affected_element_type, affected_element_id, created_at, affected_element_new_value_string) 
 					VALUES (?,?,?,?,?,?)';
 
 			DB::insert($consulta, [ $bit_by, $bit_hist, 'YEAR CONFIGURACION', Request::input('id'), $now, (string) $year ]);
-			
-			// $consulta 	= 'SELECT * FROM bitacoras order by id desc limit 1';
-			// $his 		= DB::select($consulta, [$user->user_id]);
-			// return $his;
 
 			return $year;
 		} catch (Exception $e) {

@@ -159,7 +159,17 @@ class NotaComportamientoController extends Controller {
 
 		$nota = NotaComportamiento::findOrFail($id);
 
-		$nota->nota = Request::input('nota');
+		if (Request::has('nota')) {
+			$nota->nota = Request::input('nota');
+		}
+
+		if (Request::has('familiar_nota')) {
+			$nota->familiar_nota = Request::input('familiar_nota');
+		}
+
+		if (Request::has('familiar_ausencias')) {
+			$nota->familiar_ausencias = Request::input('familiar_ausencias');
+		}
 
 		$nota->save();
 		$nota = NotaComportamiento::findOrFail($id);
