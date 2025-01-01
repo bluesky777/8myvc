@@ -51,12 +51,18 @@ class NotaComportamiento extends Model {
 			$sum_notas = 0;
 
 			for ($h=0; $h < $cant_n; $h++) {
-				$sum_notas = $nota->notas_finales[$h]->nota + $sum_notas;
+				if (is_numeric($nota->notas_finales[$h]->familiar_nota)) {
+					$sum_notas = $nota->notas_finales[$h]->familiar_nota + $sum_notas;
+				}
+				$des = EscalaDeValoracion::valoracion($nota->notas_finales[$h]->familiar_nota, $escalas_val);
+				$nota->notas_finales[$h]->familiar_desempenio = $des->desempenio;		
+				$desh = EscalaDeValoracion::valoracion($nota->notas_finales[$h]->nota, $escalas_val);
+				$nota->notas_finales[$h]->desempenio = $desh->desempenio;		
 			}
 			
-			$nota->nota_definitiva_anio 	= round($sum_notas / $cant_n);
-			$des = EscalaDeValoracion::valoracion($nota->nota_definitiva_anio, $escalas_val);
-			$nota->desempenio = $des->desempenio;		
+			$nota->familiar_nota_definitiva_anio 	= round($sum_notas / $cant_n);
+			$des = EscalaDeValoracion::valoracion($nota->familiar_nota_definitiva_anio, $escalas_val);
+			$nota->familiar_desempenio_definitiva_anio = $des->desempenio;		
 			
 			return $nota;
 		}else{

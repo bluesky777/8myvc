@@ -151,7 +151,8 @@ class PuestosController extends Controller {
             )p ON p.asignatura_id=r.asignatura_id 
             order by ar.orden, m.orden, a.orden';
 
-
+    public $consulta_notas_comportamiento_periodo = 'SELECT *
+            FROM nota_comportamiento WHERE alumno_id=? and periodo_id=? and deleted_at is null;';
 
 
 
@@ -165,7 +166,6 @@ class PuestosController extends Controller {
 		$grupo_id = Request::input('grupo_id');
 		$periodo_a_calcular = Request::input('periodo_a_calcular', 4);
 
-
 		$alumnos_response = [];
 
 		$grupo			= Grupo::datos($grupo_id);
@@ -174,6 +174,13 @@ class PuestosController extends Controller {
 
 		foreach ($alumnos as $keyAlum => $alumno) {
 			$alumno->notas_asig = $this->definitivas_year_alumno($alumno->alumno_id, $grupo_id, $user, $periodo_a_calcular);
+
+            $consulta = "SELECT AVG(c.nota) as comportamiento_prom 
+                FROM nota_comportamiento c
+                INNER JOIN periodos p ON p.id=c.periodo_id and p.numero<=?
+                WHERE p.deleted_at is null and c.alumno_id=? and p.year_id=?;";
+            $resComportamientoProm = DB::select($consulta, [$periodo_a_calcular, $alumno->alumno_id, $user->year_id]);
+            $alumno->comportamiento_prom = count($resComportamientoProm) > 0 ? $resComportamientoProm[0]->comportamiento_prom : 0;
 
 			$sumatoria_asignaturas_year = 0;
 			$perdidos_year = 0;
@@ -236,7 +243,6 @@ class PuestosController extends Controller {
 		
 		
 		return $notas;
-
     }
     
     
@@ -259,6 +265,8 @@ class PuestosController extends Controller {
             $consulta   = $this->consulta_notas_finales_periodo;
             
 			$alumno->asignaturas = DB::select($consulta, [ ':gr_id' => $grupo_id, ':alu_id' => $alumno->alumno_id, ':num_periodo' => $user->numero_periodo, ':year_id' => $user->year_id, ':min' => $user->nota_minima_aceptada, ':alu_id2' => $alumno->alumno_id, ':num_periodo2' => $user->numero_periodo, ':year_id2' => $user->year_id ]);
+			$comportamiento = DB::select($this->consulta_notas_comportamiento_periodo, [$alumno->alumno_id, $user->periodo_id]);
+			$alumno->comportamiento = count($comportamiento) > 0 ? $comportamiento[0] : [];
 
 			$sumatoria_asignaturas = 0;
 			$perdidos_year = 0;
@@ -286,16 +294,6 @@ class PuestosController extends Controller {
 			array_push($alumnos_response, $alumno);
 		}
 
-
-
 		return ['grupo' => $grupo, 'year' => $year, 'alumnos' => $alumnos_response];
-
-
 	}
-
-
-    
-    
-
-
 }
