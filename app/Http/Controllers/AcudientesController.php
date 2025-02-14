@@ -331,7 +331,7 @@ where id in (
 
 	public function postCrear()
 	{
-		if(!($user->is_superuser || $user->tipo == 'Profesor' || $user->tipo == 'Secretario')){
+		if(!($this->user->is_superuser || $this->user->tipo == 'Profesor' || $this->user->tipo == 'Secretario')){
 			return App::abort(400, 'No tienes permiso.');
 		}
 
@@ -438,7 +438,7 @@ where id in (
 	 *************************************************************/
 	public function putGuardarValor()
 	{
-		if(!($user->is_superuser || $user->tipo == 'Profesor' || $user->tipo == 'Secretario')){
+		if(!($this->user->is_superuser || $this->user->tipo == 'Profesor' || $this->user->tipo == 'Secretario')){
 			return App::abort(400, 'No tienes permiso.');
 		}
 
@@ -493,7 +493,7 @@ where id in (
 
 	public function deleteDestroy($id)
 	{
-		if(!($user->is_superuser || $user->tipo == 'Secretario')){
+		if(!($this->user->is_superuser || $this->user->tipo == 'Secretario')){
 			return App::abort(400, 'No tienes permiso.');
 		}
 
