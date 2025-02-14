@@ -331,6 +331,10 @@ where id in (
 
 	public function postCrear()
 	{
+		if(!($user->is_superuser || $user->tipo == 'Profesor' || $user->tipo == 'Secretario')){
+			return App::abort(400, 'No tienes permiso.');
+		}
+
 		$fecha_nac = null;
 		if (Request::input('fecha_nac')) {
 			$fecha_nac = Carbon::parse(Request::input('fecha_nac'));
@@ -434,6 +438,10 @@ where id in (
 	 *************************************************************/
 	public function putGuardarValor()
 	{
+		if(!($user->is_superuser || $user->tipo == 'Profesor' || $user->tipo == 'Secretario')){
+			return App::abort(400, 'No tienes permiso.');
+		}
+
 		$guardarAlumno = new GuardarAlumno();
 
 		return $guardarAlumno->valorAcudiente(
@@ -485,6 +493,10 @@ where id in (
 
 	public function deleteDestroy($id)
 	{
+		if(!($user->is_superuser || $user->tipo == 'Secretario')){
+			return App::abort(400, 'No tienes permiso.');
+		}
+
 		$acudiente = Acudiente::findOrFail($id);
 		$acudiente->delete();
 
