@@ -247,9 +247,12 @@ class Boletines2Controller extends Controller {
 			$alumno->encabezado_comportamiento = $this->encabezado_comportamiento_boletin($alumno->comportamiento, $this->user->nota_minima_aceptada, $this->user->mostrar_nota_comport_boletin, $alumno->sexo);
 			
 			if ($comportamiento) {
-				
-				$definiciones = DefinicionComportamiento::frases($comportamiento->id);
-				$alumno->comportamiento->definiciones = $definiciones;
+				try {
+					$definiciones = DefinicionComportamiento::frases($comportamiento->id);
+					$alumno->comportamiento->definiciones = $definiciones;
+				} catch (\Throwable $th) {
+					$alumno->comportamiento['definiciones'] = $definiciones;
+				}
 			}
 
 
@@ -463,15 +466,16 @@ class Boletines2Controller extends Controller {
 			$escala = '';
 			
 			if ( $mostrar_nota_comport ) {
-				$la_nota = $nota->nota;
+				try {
+					$la_nota = $nota->nota;
+
+					if (EscalaDeValoracion::valoracion($la_nota, $this->escalas_val)) {
+						$escala = EscalaDeValoracion::valoracion($la_nota, $this->escalas_val)->desempenio;
+					}
+				} catch (\Throwable $th) {}
+
 				if ($la_nota < $nota_minima_aceptada) {
 					$clase = ' nota-perdida-bold ';
-				}
-				
-				$escala = '';
-				
-				if (EscalaDeValoracion::valoracion($la_nota, $this->escalas_val)) {
-					$escala = EscalaDeValoracion::valoracion($la_nota, $this->escalas_val)->desempenio;
 				}
 			}
 			
