@@ -219,6 +219,8 @@ class PuestosController extends Controller {
 
 	public function definitivas_year_alumno($alumno_id, $grupo_id, $user, $numero_periodo=4)
 	{
+        $notas = [];
+
         if ($numero_periodo == 1) {
             
             $consulta   = $this->consulta_notas_finales_alumno1;
