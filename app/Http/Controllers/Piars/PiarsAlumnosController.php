@@ -117,8 +117,8 @@ class PiarsAlumnosController extends Controller {
 		$now 				= Carbon::now('America/Bogota');
 		$field 			= Request::input('file_name');
 
-		$consulta = 'SELECT * FROM piars_alumnos WHERE alumno_id=? AND year_id=?';
-		$alumno_piar = DB::select($consulta, [$alumno_id, $this->user->year_id]);
+		$consulta = 'SELECT * FROM piars_alumnos WHERE alumno_id=?';
+		$alumno_piar = DB::select($consulta, [$alumno_id]);
 		
 		// campos seguros para evitar ataques sql injection
 		$validFields = ['documento1', 'documento2'];
@@ -159,8 +159,8 @@ class PiarsAlumnosController extends Controller {
 			}
 			$arr = json_encode($newArra);
 
-			$consulta = "UPDATE piars_alumnos SET $field=null, history=? WHERE alumno_id=? AND year_id=?";
-			$document = DB::update($consulta, [$arr, $alumno_id, $this->user->year_id]);
+			$consulta = "UPDATE piars_alumnos SET $field=null, history=? WHERE alumno_id=?";
+			$document = DB::update($consulta, [$arr, $alumno_id]);
 
 			$filename 	= 'uploads/'.$fileToDelete;
 		

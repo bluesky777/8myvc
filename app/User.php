@@ -65,15 +65,15 @@ class User extends Authenticatable implements JWTSubject
 		try
 		{
 			if ($already_parsed) {
-
+				
 				$token = $already_parsed;
 				$userTemp = JWTAuth::toUser($token);
-
+				
 			}else{
-
-				try{
+				
+				try {
 					$token = JWTAuth::parseToken();
-				}catch(JWTException $e){
+				} catch(JWTException $e){
 					// No haremos nada, continuaremos verificando datos.
 				}	
 				
@@ -82,7 +82,7 @@ class User extends Authenticatable implements JWTSubject
 						// Lleva aquí y ocurre un error cuando se ha demorado mucho en mover la página.
 						$userTemp = $token->authenticate();
 					}else {
-						return response()->json(['error' => 'No existe Token'], 401);
+						abort(401, 'No existe Token');
 					}
 				} catch (JWTException $e) {
 					Log::info($e);
