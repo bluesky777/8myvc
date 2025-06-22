@@ -3,7 +3,6 @@
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-
 use App\Models\Grupo;
 use App\Models\Nota;
 use App\Models\Periodo;
@@ -12,11 +11,10 @@ use App\Models\Unidad;
 use App\Models\Subunidad;
 use App\Models\Asignatura;
 use App\Models\Debugging;
-
 use \stdClass;
 use DB;
 use Carbon\Carbon;
-
+use \Log;
 
 class Nota extends Model {
 	protected $fillable = [];
@@ -46,21 +44,22 @@ class Nota extends Model {
 		$now 		= Carbon::now('America/Bogota');
 
 		foreach ($alumnos as $alumno) {
-			/*
-			$notVerif = DB::select('SELECT * from notas WHERE subunidad_id=? and alumno_id=? and deleted_at is null', [$subunidad->id, $alumno->alumno_id]);
-
-			if (count($notVerif) == 0) {
-				DB::insert('INSERT INTO notas(subunidad_id, alumno_id, nota, created_by, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?)', [$subunidad->id, $alumno->alumno_id, $subunidad->nota_default, $user_id, $now, $now]);
-			}
-			*/
 			$consulta = "INSERT INTO notas(subunidad_id, alumno_id, nota, created_by, created_at, updated_at) 
-						SELECT * FROM 
-						(SELECT '.$subunidad->id.' as subunidad_id, '.$alumno->alumno_id.' as alumno_id, '.$subunidad->nota_default.' as nota, '.$user_id.' as created_by, '.$now.' as created_at, '.$now.' as updated_at) AS tmp
-							WHERE NOT EXISTS (
-								SELECT * from notas WHERE subunidad_id=? and alumno_id=? and deleted_at is null
-							) LIMIT 1";
-							
-			DB::insert($consulta, [ $subunidad->id, $alumno->alumno_id ]);
+				SELECT ?, ?, ?, ?, ?, ? FROM dual
+				WHERE NOT EXISTS (
+					SELECT 1 FROM notas WHERE subunidad_id=? AND alumno_id=? AND deleted_at IS NULL
+				) LIMIT 1";
+
+			DB::insert($consulta, [
+				$subunidad->id,
+				$alumno->alumno_id,
+				$subunidad->nota_default,
+				$user_id,
+				$now,
+				$now,
+				$subunidad->id,
+				$alumno->alumno_id,
+			]);
 		}
 
 		return;
@@ -115,28 +114,31 @@ class Nota extends Model {
 			return false;
 		}
 		
-		$periodos 	= DB::select('SELECT * FROM periodos WHERE year_id=? and deleted_at is null', [ $year_id ]); 
-
+		$escalas_val 	= DB::select('SELECT * FROM escalas_de_valoracion WHERE year_id=? AND deleted_at is null', [$year_id]);
+		$periodos 		= DB::select('SELECT * FROM periodos WHERE year_id=? and deleted_at is null', [ $year_id ]); 
 
 		foreach ($periodos as $keyPer => $periodo) {
-			Nota::alumnoPeriodoDetalle($periodo, $alumno->grupo_id, $alumno_id, $year_id, $profesor_id);
-
+			Nota::alumnoPeriodoDetalle($periodo, $alumno->grupo_id, $alumno_id, $year_id, $profesor_id, $escalas_val);
 		}
 
 		$alumno->periodos = $periodos;
 
 		return $alumno;
-
 	}
 	
 	
 	// Sólo UN periodo
-	public static function alumnoPeriodoDetalle(&$periodo, $grupo_id, $alumno_id, $year_id, $profesor_id=''){
+	public static function alumnoPeriodoDetalle(&$periodo, $grupo_id, $alumno_id, $year_id, $profesor_id='', $escalas_val_param=null) {
+		$escalas_val = [];
+
+		if ($escalas_val_param) {
+			$escalas_val 	= $escalas_val_param;
+		} else {
+			$escalas_val 	= DB::select('SELECT * FROM escalas_de_valoracion WHERE year_id=? AND deleted_at is null', [$year_id]);
+		}
 		
 		$asignaturas = Grupo::detailed_materias_notafinal($alumno_id, $grupo_id, $periodo->id, $year_id);
 		$sumatoria_asignaturas_per = 0;
-		
-		//Debugging::pin( count($asignaturas));
 		
 		foreach ($asignaturas as $keyAsig => $asignatura) {
 			
@@ -151,8 +153,14 @@ class Nota extends Model {
 					
 					for ($j=0; $j < count($unidad->subunidades); $j++) { 
 						$nota = DB::select('SELECT * FROM notas n WHERE n.deleted_at is null and n.subunidad_id=? and n.alumno_id=?', [$unidad->subunidades[$j]->subunidad_id, $alumno_id]);
-						if (count($nota)>0) {
+						
+						if (count($nota) > 0) {
 							$unidad->subunidades[$j]->nota = $nota[0];
+							$des = EscalaDeValoracion::valoracion($unidad->subunidades[$j]->nota->nota, $escalas_val);
+		
+							if ($des) {
+								$unidad->subunidades[$j]->nota->desempenio = $des->desempenio;
+							}
 						}
 						
 					}
@@ -179,9 +187,6 @@ class Nota extends Model {
 				$asignatura->total_tardanzas = $cantTar;
 				
 			}
-			
-			
-
 		}
 		
 		$cant_asi = count($asignaturas);

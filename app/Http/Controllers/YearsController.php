@@ -458,11 +458,27 @@ class YearsController extends Controller {
 		$year->year_pasado_en_bol = $can;
 		$year->save();
 
-		if ($can) { return 'Ahora se mostrarán las deudas del año pasado en el boletín.';
-		}else{ return 'Ahora NO se mostrarán las deudas del año pasado en el boletín';}
+		if ($can) { return 'Ahora se mostrarán indicadores perdidos del año pasado en el boletín.';
+		}else{ return 'Ahora NO se mostrarán indicadores perdidos del año pasado en el boletín';}
 		
 	}
 
+	public function putToggleSoloValorativas(){
+		$user = User::fromToken();
+
+		$year_id 	= 	Request::input('year_id');
+		$can 		= 	(boolean) Request::input('can');
+
+		$year = Year::findOrFail($year_id);
+		$year->solo_escalas_valorativas = $can;
+		$year->save();
+
+		if ($can) {
+			return 'Ahora se mostrarán SOLO cualitativo.';
+		} else {
+			return 'Ahora se mostrarán cantitativo (números de las notas).';
+		}
+	}
 
 	public function putToggleCambiarValor(){
 		$user 		= User::fromToken();
