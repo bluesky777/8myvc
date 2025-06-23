@@ -1,9 +1,7 @@
 <?php namespace App\Http\Controllers\Informes;
 
 use App\Http\Controllers\Controller;
-
 use App\Http\Controllers\Informes\CalcPerdidasDefinitivas;
-
 use Request;
 use DB;
 use Hash;
@@ -29,32 +27,31 @@ use App\Models\Area;
 use App\Models\Debugging;
 use App\Models\Disciplina;
 use \Log;
-
 use Carbon\Carbon;
 
 
 class BoletinesController extends Controller {
-	
 	public $user;
 	public $escalas_val;
 	public $hist;
 	public $now;
+	public $year;
 	
 	public function __construct()
 	{
 		$this->user 		= User::fromToken();
+		$this->year			= Year::datos($this->user->year_id);
+
 		try {
 			$this->escalas_val 	= DB::select('SELECT * FROM escalas_de_valoracion WHERE year_id=? AND deleted_at is null', [$this->user->year_id]);
-		
-		
-			$this->now 	= Carbon::now('America/Bogota');
+			$this->now 		= Carbon::now('America/Bogota');
 			$consulta 		= 'SELECT * FROM historiales WHERE user_id=? and deleted_at is null order by id desc limit 1 ';
 			$this->hist 	= DB::select($consulta, [$this->user->user_id])[0];
 
 			
 			$requested_alumnos 		= Request::input('requested_alumnos');
 			
-			if($this->user->tipo == 'Alumno'){
+			if ($this->user->tipo == 'Alumno') {
 				/*
 				$consulta 	= 'INSERT INTO bitacoras (created_by, historial_id, affected_person_type, affected_element_type, created_at) 
 					VALUES (?, ?, "Al", "AlumnoVerBoletin", ?)';
@@ -73,11 +70,9 @@ class BoletinesController extends Controller {
 					return abort(400, 'No puedes ver el de otros');
 				};
 			}
-			
-			
+
 			if($this->user->tipo == 'Acudiente'){
-				
-				
+
 				if (count($requested_alumnos) > 1) {
 					
 					$consulta 	= 'INSERT INTO bitacoras (created_by, historial_id, affected_user_id, affected_person_type, affected_element_type, created_at) 
@@ -89,10 +84,9 @@ class BoletinesController extends Controller {
 				}
 				
 				$alumno = $requested_alumnos[0];
-				
+
 				$consulta 		= 'SELECT * FROM parentescos WHERE alumno_id=? and acudiente_id=? and deleted_at is null';
 				$parentesco 	= DB::select($consulta, [$alumno['alumno_id'], $this->user->persona_id]);
-				
 				
 				if (count($parentesco) == 0) {
 					
@@ -103,12 +97,10 @@ class BoletinesController extends Controller {
 
 					return abort(400, 'No es acudiente de este alumno. Lo siento.');
 				}else{
-					
 					$consulta 		= 'SELECT pazysalvo FROM alumnos WHERE id=? and deleted_at is null';
 					$alumno 		= DB::select($consulta, [ $alumno['alumno_id'] ])[0];
 					
-					if(!$alumno->pazysalvo){
-						
+					if (!$alumno->pazysalvo) {
 						$consulta 	= 'INSERT INTO bitacoras (created_by, historial_id, affected_user_id, affected_person_type, affected_element_type, created_at) 
 							VALUES (?, ?, ?, "Al", "AcudienteVerBoletinSinPagar", ?)';
 
@@ -117,7 +109,6 @@ class BoletinesController extends Controller {
 						return abort(400, 'No está a paz y salvo. Lo siento.');
 					}
 				}
-				
 			}
 		} catch (\Throwable $th) {
 			return 'Error';
@@ -132,7 +123,6 @@ class BoletinesController extends Controller {
 		$boletines = $this->detailedNotasGrupo($grupo_id, $this->user, '', $periodo_a_calcular);
 
 		return $boletines;
-
 	}
 
 	public function getDetailedNotasYear($grupo_id, $periodo_a_calcular=10)
@@ -150,9 +140,7 @@ class BoletinesController extends Controller {
 			array_push($alumnos_response, $alumno);
 		}
 
-
 		return array($grupo, $year, $alumnos_response);
-
 	}
 
 
@@ -160,9 +148,8 @@ class BoletinesController extends Controller {
 	{
 		$periodo_a_calcular 	= Request::input('periodo_a_calcular', 10);
 		$requested_alumnos 		= Request::input('requested_alumnos', '');
-		
+
 		if (count($requested_alumnos) == 1) {
-			
 			$alumno 	= $requested_alumnos[0];
 			$now 		= Carbon::now('America/Bogota');
 			
@@ -188,8 +175,7 @@ class BoletinesController extends Controller {
 			$defi_autos = DB::select($consulta, [ ':periodo_id'=>$this->user->periodo_id, ':alumno_id'=>$alumno['alumno_id'], ':grupo_id'=>$grupo_id, ':grupo_id2'=>$grupo_id ]);
 			$cant_def = count($defi_autos);
 					
-			for ($i=0; $i < $cant_def; $i++) { 
-
+			for ($i=0; $i < $cant_def; $i++) {
 				$consulta = 'INSERT INTO notas_finales(alumno_id, asignatura_id, periodo_id, periodo, nota, recuperada, manual, updated_by, created_at, updated_at) 
 							SELECT * FROM (SELECT '.$defi_autos[$i]->alumno_id.' as alumno_id, '.$defi_autos[$i]->asignatura_id.' as asignatura_id, '.$defi_autos[$i]->periodo_id.' as periodo_id, '.$this->user->numero_periodo.' as periodo, '.$defi_autos[$i]->nota_asignatura.' as nota_asignatura, 0 as recuperada, 0 as manual, '.$this->user->user_id.' as crea, "'.$now.'" as fecha, "'.$now.'" as fecha2) AS tmp
 							WHERE NOT EXISTS (
@@ -197,36 +183,26 @@ class BoletinesController extends Controller {
 							) LIMIT 1';
 
 				DB::select($consulta);
-
 			}
-			// CIERRO CALCULAMOS
-
-
 		}
 
 		$boletines = $this->detailedNotasGrupo($grupo_id, $this->user, $requested_alumnos, $periodo_a_calcular);
 		return $boletines;
-
-
 	}
 
 	public function detailedNotasGrupo($grupo_id, &$user, $requested_alumnos='', $periodo_a_calcular=10)
 	{
-		
 		$grupo			= Grupo::datos($grupo_id);
 		$year			= Year::datos($user->year_id);
 		$alumnos		= Grupo::alumnos($grupo_id, $requested_alumnos);
 
 		$year->periodos = Periodo::hastaPeriodoN($user->year_id, $periodo_a_calcular);
 		$year->periodo = $this->user->numero_periodo;
-		
 		$grupo->cantidad_alumnos = count($alumnos);
-
 		$response_alumnos = [];
 		
 
 		foreach ($alumnos as $alumno) {
-
 			// Todas las materias con sus unidades y subunides
 			$this->allNotasAlumno($alumno, $grupo_id, $user->periodo_id, true);
 			
@@ -234,16 +210,12 @@ class BoletinesController extends Controller {
 			
 			if (isset($this->user->year_pasado_en_bol)) {
 				if ($this->user->year_pasado_en_bol){
-					
 					if (!$alumno->nuevo && !$alumno->repitente) {
 						$this->datosYearPasado($alumno, $grupo_id, $user->year_id);
 					}
-					
 				}
-				
 			}
 		}
-
 
 		foreach ($alumnos as $alumno) {
 			
@@ -262,8 +234,6 @@ class BoletinesController extends Controller {
 					}
 				}
 			}
-			
-
 		}
 		$escalas_val 				= DB::select('SELECT * FROM escalas_de_valoracion WHERE year_id=? AND deleted_at is null', [$user->year_id]);
 
@@ -273,8 +243,6 @@ class BoletinesController extends Controller {
 
 	public function allNotasAlumno(&$alumno, $grupo_id, $periodo_id, $comport_and_frases=false)
 	{
-
-
 		$asignaturas			= Grupo::detailed_materias_notafinal($alumno->alumno_id, $grupo_id, $periodo_id, $this->user->year_id);
 		$ausencias_total		= Ausencia::totalDeAlumno($alumno->alumno_id, $periodo_id);
 		$asignaturas_perdidas 	= [];
@@ -296,14 +264,28 @@ class BoletinesController extends Controller {
 			for ($h=0; $h < $cant_n; $h++) { 
 				$asignaturas[$i]->nota_faltante = $asignaturas[$i]->notas_finales[$h]->nota + $asignaturas[$i]->nota_faltante;
 			}
+
+			for ($h=0; $h < $cant_n_o; $h++) { 
+				$des = EscalaDeValoracion::valoracion($asignaturas[$i]->notas_finales[$h]->nota, $this->escalas_val);
+				
+				if ($des) {
+					$asignaturas[$i]->notas_finales[$h]->desempenio = $des->desempenio;
+				} 
+			}
 			
 			if ($cant_n_o > 3) {
 				$asignaturas[$i]->nota_definitiva_anio 	= round(($asignaturas[$i]->nota_faltante + $asignaturas[$i]->notas_finales[$cant_n_o-1]->nota) / $this->user->numero_periodo);
-			}else{
+			} else {
 				$asignaturas[$i]->nota_definitiva_anio 	= round($asignaturas[$i]->nota_faltante / $this->user->numero_periodo);
 			}
-			$asignaturas[$i]->nota_faltante 		= $this->user->nota_minima_aceptada*4 - $asignaturas[$i]->nota_faltante;
-			
+
+			$des = EscalaDeValoracion::valoracion($asignaturas[$i]->nota_definitiva_anio, $this->escalas_val);
+			if ($des) {
+				$asignaturas[$i]->nota_definitiva_anio_desempenio = $des->desempenio;
+			}
+
+			$asignaturas[$i]->nota_faltante 		    = $this->user->nota_minima_aceptada * 4 - $asignaturas[$i]->nota_faltante;
+
 
 			// UNIDADES
 			$asignaturas[$i]->unidades = Unidad::deAsignaturaCalculada($alumno->alumno_id, $asignaturas[$i]->asignatura_id, $periodo_id);
@@ -316,10 +298,8 @@ class BoletinesController extends Controller {
 				$asignaturas[$i]->ausencias		= Ausencia::deAlumno($asignaturas[$i]->asignatura_id, $alumno->alumno_id, $periodo_id);
 				$asignaturas[$i]->frases		= FraseAsignatura::deAlumno($asignaturas[$i]->asignatura_id, $alumno->alumno_id, $periodo_id);
 			}
-			
 
 			$sumatoria_asignaturas += $asignaturas[$i]->nota_asignatura; // Para sacar promedio del periodo
-
 
 			// SUMAR AUSENCIAS Y TARDANZAS
 			if ($comport_and_frases) {
@@ -331,7 +311,6 @@ class BoletinesController extends Controller {
 					}elseif ($ausencia->tipo == "ausencia") {
 						$cantAus += (int)$ausencia->cantidad_ausencia;
 					}
-					
 				}
 
 				$asignaturas[$i]->total_ausencias = $cantAus;
@@ -340,7 +319,6 @@ class BoletinesController extends Controller {
 		}
 
 		$alumno->asignaturas = $asignaturas;
-
 
 		if (count($alumno->asignaturas) == 0) {
 			$alumno->promedio = 0;
@@ -353,18 +331,17 @@ class BoletinesController extends Controller {
 		if ($des) {
 			$alumno->promedio_desempenio = $des->desempenio;
 		} 
-			
-
 
 		// COMPORTAMIENTO Y SUS FRASES
 		if ($comport_and_frases) {
-			
 			$comportamiento = NotaComportamiento::nota_comportamiento($alumno->alumno_id, $periodo_id, $this->user->year_id, $this->escalas_val);
 
 			$alumno->comportamiento = $comportamiento;
 			$definiciones = [];
 			
-			$alumno->encabezado_comportamiento = $this->encabezado_comportamiento_boletin($alumno->comportamiento, $this->user->nota_minima_aceptada, $this->user->mostrar_nota_comport_boletin, $alumno->sexo);
+			$alumno->encabezado_comportamiento = $this->encabezado_comportamiento_boletin(
+				$alumno->comportamiento, $this->user->nota_minima_aceptada, $this->user->mostrar_nota_comport_boletin, $alumno->sexo,
+			);
 			
 			if ($comportamiento) {
 				try {
@@ -373,21 +350,12 @@ class BoletinesController extends Controller {
 				} catch (\Throwable $th) {
 					$alumno->comportamiento['definiciones'] = $definiciones;
 				}
-				
 			}
-
-
 		}
-		
-		
+
 		// DISCPLINA
 		$alumno->situaciones = Disciplina::situaciones_year($alumno->alumno_id, $this->user->year_id, $periodo_id);
-		
 
-		// Agrupamos por áreas
-		//$alumno->areas = Area::agrupar_asignaturas($grupo_id, $asignaturas);
-		
-		
 		return $alumno;
 	}
 
@@ -403,25 +371,29 @@ class BoletinesController extends Controller {
 		$alumno->notas_perdidas_per4 = 0;
 
 		foreach ($alumno->asignaturas as $keyAsig => $asignatura) {
-			
 			$calcPerdidas = new CalcPerdidasDefinitivas();
 			$periodos = $calcPerdidas->hastaPeriodoConDefinitivas($alumno->alumno_id, $asignatura->asignatura_id, $grupo_id, $periodo_a_calcular);
-			if(count($periodos)>0){
+
+			if (count($periodos)>0) {
 				
-				if ($this->user->si_recupera_materia_recup_indicador){
+				if ($this->user->si_recupera_materia_recup_indicador) {
 					if (number_format($periodos[0]->definitiva_year) < $this->user->nota_minima_aceptada && $periodos[0]->cant_perdidas_year > 0) {
 						$asignatura->detalle_periodos = $periodos[0];
-						
+						$des = EscalaDeValoracion::valoracion($asignatura->detalle_periodos->definitiva_year, $this->escalas_val);
+
+						if ($des) {
+							$asignatura->detalle_periodos->definitiva_year_desempenio = $des->desempenio;
+						} 
+
 						$alumno->notas_perdidas_year += $periodos[0]->cant_perdidas_year;
 						$alumno->notas_perdidas_per1 += $periodos[0]->cant_perdidas_1;
 						if(isset($periodos[0]->cant_perdidas_2)) $alumno->notas_perdidas_per2 += $periodos[0]->cant_perdidas_2;
 						if(isset($periodos[0]->cant_perdidas_3)) $alumno->notas_perdidas_per3 += $periodos[0]->cant_perdidas_3;
 						if(isset($periodos[0]->cant_perdidas_4)) $alumno->notas_perdidas_per4 += $periodos[0]->cant_perdidas_4;
-						
+
 						array_push($alumno->asignaturas_perdidas, $asignatura);
 					}
-					
-				}else{
+				} else {
 					if ($periodos[0]->cant_perdidas_year > 0) {
 						$asignatura->detalle_periodos = $periodos[0];
 						
@@ -434,21 +406,17 @@ class BoletinesController extends Controller {
 						array_push($alumno->asignaturas_perdidas, $asignatura);
 					}
 				}
-				
-			} 
-
+			}
 		}
 
 		return $alumno;
-
 	}
-
 
 
 	public function datosYearPasado(&$alumno, $grupo_id, $year_id)
 	{
 		$year_ant_num 	= $this->user->year - 1;
-		
+
 		$consulta 		= 'SELECT y.year, y.id as year_id, g.id as grupo_id, si_recupera_materia_recup_indicador, nota_minima_aceptada
 						FROM years y
 						INNER JOIN grupos g ON g.year_id=y.id and g.deleted_at is null
@@ -461,7 +429,7 @@ class BoletinesController extends Controller {
 			//Debugging::pin('Mas de cero');
 			$year_ant 				= $year_ant[0];
 			$asignaturas			= Grupo::detailed_materias($year_ant->grupo_id);
-			
+
 			$alumno->asignaturas_year_pasado = [];
 			$alumno->yp_notas_perdidas_year = 0;
 			$alumno->yp_notas_perdidas_per1 = 0;
@@ -470,14 +438,19 @@ class BoletinesController extends Controller {
 			$alumno->yp_notas_perdidas_per4 = 0;
 
 			foreach ($asignaturas as $keyAsig => $asignatura) {
-				
 				$calcPerdidas = new CalcPerdidasDefinitivas();
 				$periodos = $calcPerdidas->hastaPeriodoConDefinitivas($alumno->alumno_id, $asignatura->asignatura_id, $grupo_id, 4);
+
 				if(count($periodos)>0){
 					
 					if ($year_ant->si_recupera_materia_recup_indicador){
 						if (number_format($periodos[0]->definitiva_year) < $year_ant->nota_minima_aceptada && $periodos[0]->cant_perdidas_year > 0) {
 							$asignatura->detalle_periodos = $periodos[0];
+							$des = EscalaDeValoracion::valoracion($asignatura->detalle_periodos->definitiva_year, $this->escalas_val);
+				
+							if ($des) {
+								$asignatura->detalle_periodos->definitiva_year_desempenio = $des->desempenio;
+							} 
 							
 							$alumno->yp_notas_perdidas_year += $periodos[0]->cant_perdidas_year;
 							$alumno->yp_notas_perdidas_per1 += $periodos[0]->cant_perdidas_1;
@@ -487,7 +460,6 @@ class BoletinesController extends Controller {
 							
 							array_push($alumno->asignaturas_year_pasado, $asignatura);
 						}
-						
 					}else{
 						if ($periodos[0]->cant_perdidas_year > 0) {
 							$asignatura->detalle_periodos = $periodos[0];
@@ -501,13 +473,8 @@ class BoletinesController extends Controller {
 							array_push($alumno->asignaturas_year_pasado, $asignatura);
 						}
 					}
-						
-					
-				} 
-				
+				}
 			}
-
-			
 		}
 		
 		return $alumno;
@@ -530,8 +497,6 @@ class BoletinesController extends Controller {
 
 	public function asignaturasPerdidasDeAlumnoPorPeriodo($alumno_id, $grupo_id, $periodo_id)
 	{
-
-
 		$asignaturas	= Grupo::detailed_materias($grupo_id);
 
 		foreach ($asignaturas as $keyAsig => $asignatura) {
@@ -550,23 +515,19 @@ class BoletinesController extends Controller {
 			}
 		}
 
-
 		return $asignaturas;
 	}
-
-
 	
 	
 	private function encabezado_comportamiento_boletin($nota, $nota_minima_aceptada, $mostrar_nota_comport, $sexo){
-		
 		$icono 		= '';
-		
+
 		if ($sexo == 'F') {
 			$icono = 'fa-male';
-		}else{
+		} else {
 			$icono = 'fa-female';
 		}
-		
+
 		if ($nota) {
 			$clase 		= '';
 			$la_nota 	= '';
@@ -580,16 +541,16 @@ class BoletinesController extends Controller {
 						$escala = EscalaDeValoracion::valoracion($la_nota, $this->escalas_val)->desempenio;
 					}
 				} catch (\Throwable $th) {}
-				
+
 				if ($la_nota < $nota_minima_aceptada) {
 					$clase = ' nota-perdida-bold ';
 				}
-				
-				
+				// Log::debug($this->year);
+				if ($this->year->solo_escalas_valorativas) {
+					$la_nota = '';
+				}
 			}
-			
-			
-			
+
 			$res = '<div class="row comportamiento-head">
 						<div class="col-lg-10 col-xs-10 comportamiento-title"><i style="padding-right: 5px;" class="fa '.$icono.'"></i>  Comportamiento</div>
 						<div style="padding: 0px; text-align: center;" class="col-lg-1 col-xs-1 comportamiento-desempenio ">'.$escala.'</div>
