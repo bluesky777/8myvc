@@ -267,7 +267,6 @@ class BoletinesController extends Controller {
 
 			for ($h=0; $h < $cant_n_o; $h++) { 
 				$des = EscalaDeValoracion::valoracion($asignaturas[$i]->notas_finales[$h]->nota, $this->escalas_val);
-				
 				if ($des) {
 					$asignaturas[$i]->notas_finales[$h]->desempenio = $des->desempenio;
 				} 
@@ -545,7 +544,7 @@ class BoletinesController extends Controller {
 				if ($la_nota < $nota_minima_aceptada) {
 					$clase = ' nota-perdida-bold ';
 				}
-				// Log::debug($this->year);
+
 				if ($this->year->solo_escalas_valorativas) {
 					$la_nota = '';
 				}
@@ -564,6 +563,4 @@ class BoletinesController extends Controller {
 		}
 		return $res;
 	}
-	
-
 }

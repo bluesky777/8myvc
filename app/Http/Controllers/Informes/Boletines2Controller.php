@@ -1,9 +1,7 @@
 <?php namespace App\Http\Controllers\Informes;
 
 use App\Http\Controllers\Controller;
-
 use App\Http\Controllers\Informes\CalcPerdidasDefinitivas;
-
 use Request;
 use DB;
 use Hash;
@@ -37,10 +35,11 @@ class Boletines2Controller extends Controller {
 	public $user;
 	public $escalas_val;
 	public $nota_max;
-	
+	public $year;
 	public function __construct()
 	{
 		$this->user = User::fromToken();
+		$this->year			= Year::datos($this->user->year_id);
 		try {
 			$this->escalas_val = DB::select('SELECT * FROM escalas_de_valoracion WHERE year_id=? AND deleted_at is null', [$this->user->year_id]);
 		} catch (\Throwable $th) {
@@ -56,15 +55,11 @@ class Boletines2Controller extends Controller {
 
 	public function putDetailedNotasGroup($grupo_id)
 	{
-		
-
 		$periodo_a_calcular = Request::input('periodo_a_calcular', 10);
 
 		$boletines = $this->detailedNotasGrupo($grupo_id, $this->user, '', $periodo_a_calcular);
 
 		return $boletines;
-
-
 	}
 
 	public function getDetailedNotasYear($grupo_id, $periodo_a_calcular=10)
@@ -82,9 +77,7 @@ class Boletines2Controller extends Controller {
 			array_push($alumnos_response, $alumno);
 		}
 
-
 		return array($grupo, $year, $alumnos_response);
-
 	}
 
 
@@ -95,13 +88,10 @@ class Boletines2Controller extends Controller {
 
 		$boletines = $this->detailedNotasGrupo($grupo_id, $this->user, $requested_alumnos, $periodo_a_calcular);
 		return $boletines;
-
-
 	}
 
 	public function detailedNotasGrupo($grupo_id, &$user, $requested_alumnos='', $periodo_a_calcular=10)
 	{
-		
 		$grupo			= Grupo::datos($grupo_id);
 		$year			= Year::datos($user->year_id);
 		$alumnos		= Grupo::alumnos($grupo_id, $requested_alumnos);
@@ -130,7 +120,6 @@ class Boletines2Controller extends Controller {
 			}
 		}
 
-
 		foreach ($alumnos as $alumno) {
 			
 			$alumno->puesto = Nota::puestoAlumno($alumno->promedio, $alumnos);
@@ -152,8 +141,6 @@ class Boletines2Controller extends Controller {
 
 	public function allNotasAlumno(&$alumno, $grupo_id, $periodo_id, $comport_and_frases=false, $show_fortaleza_bol=0)
 	{
-
-
 		$asignaturas			= Grupo::detailed_materias_notafinal($alumno->alumno_id, $grupo_id, $periodo_id, $this->user->year_id);
 		$ausencias_total		= Ausencia::totalDeAlumno($alumno->alumno_id, $periodo_id);
 		$asignaturas_perdidas 	= [];
@@ -175,14 +162,25 @@ class Boletines2Controller extends Controller {
 			for ($h=0; $h < $cant_n; $h++) { 
 				$asignaturas[$i]->nota_faltante = $asignaturas[$i]->notas_finales[$h]->nota + $asignaturas[$i]->nota_faltante;
 			}
+
+			for ($h=0; $h < $cant_n_o; $h++) { 
+				$des = EscalaDeValoracion::valoracion($asignaturas[$i]->notas_finales[$h]->nota, $this->escalas_val);
+				if ($des) {
+					$asignaturas[$i]->notas_finales[$h]->desempenio = $des->desempenio;
+				} 
+			}
 			
 			if ($cant_n_o > 3) {
 				$asignaturas[$i]->nota_definitiva_anio 	= round(($asignaturas[$i]->nota_faltante + $asignaturas[$i]->notas_finales[$cant_n_o-1]->nota) / $this->user->numero_periodo);
-			}else{
+			} else {
 				$asignaturas[$i]->nota_definitiva_anio 	= round($asignaturas[$i]->nota_faltante / $this->user->numero_periodo);
 			}
 			$asignaturas[$i]->nota_faltante 		= $this->user->nota_minima_aceptada*4 - $asignaturas[$i]->nota_faltante;
 			
+			$des = EscalaDeValoracion::valoracion($asignaturas[$i]->nota_definitiva_anio, $this->escalas_val);
+			if ($des) {
+				$asignaturas[$i]->nota_definitiva_anio_desempenio = $des->desempenio;
+			}
 
 			// UNIDADES
 			if ($show_fortaleza_bol == 0) {
@@ -221,20 +219,17 @@ class Boletines2Controller extends Controller {
 
 		$alumno->asignaturas = $asignaturas;
 
-
 		if (count($alumno->asignaturas) == 0) {
 			$alumno->promedio = 0;
 		} else {
 			$alumno->promedio = $sumatoria_asignaturas / count($alumno->asignaturas);
 		}
 		
-		
 		$des = EscalaDeValoracion::valoracion($alumno->promedio, $this->escalas_val);
 		
 		if ($des) {
 			$alumno->promedio_desempenio = $des->desempenio;
-		} 
-
+		}
 
 		// COMPORTAMIENTO Y SUS FRASES
 		if ($comport_and_frases) {
@@ -254,19 +249,13 @@ class Boletines2Controller extends Controller {
 					$alumno->comportamiento['definiciones'] = $definiciones;
 				}
 			}
-
-
 		}
-		
 		
 		// DISCPLINA
 		$alumno->situaciones = Disciplina::situaciones_year($alumno->alumno_id, $this->user->year_id, $periodo_id);
-		
 
-		
 		// Agrupamos por áreas
 		$alumno->areas = Area::agrupar_asignaturas($grupo_id, $asignaturas, $this->escalas_val);
-		
 
 		return $alumno;
 	}
@@ -291,6 +280,11 @@ class Boletines2Controller extends Controller {
 				if ($this->user->si_recupera_materia_recup_indicador){
 					if ($periodos[0]->definitiva_year < $this->user->nota_minima_aceptada && $periodos[0]->cant_perdidas_year > 0) {
 						$asignatura->detalle_periodos = $periodos[0];
+						$des = EscalaDeValoracion::valoracion($asignatura->detalle_periodos->definitiva_year, $this->escalas_val);
+
+						if ($des) {
+							$asignatura->detalle_periodos->definitiva_year_desempenio = $des->desempenio;
+						} 
 						
 						$alumno->notas_perdidas_year += $periodos[0]->cant_perdidas_year;
 						$alumno->notas_perdidas_per1 += $periodos[0]->cant_perdidas_1;
@@ -320,9 +314,7 @@ class Boletines2Controller extends Controller {
 		}
 
 		return $alumno;
-
 	}
-
 
 
 	public function datosYearPasado(&$alumno, $grupo_id, $year_id)
@@ -359,6 +351,11 @@ class Boletines2Controller extends Controller {
 						if ($periodos[0]->definitiva_year < $year_ant->nota_minima_aceptada && $periodos[0]->cant_perdidas_year > 0) {
 							$asignatura->detalle_periodos = $periodos[0];
 							
+							$des = EscalaDeValoracion::valoracion($asignatura->detalle_periodos->definitiva_year, $this->escalas_val);
+							if ($des) {
+								$asignatura->detalle_periodos->definitiva_year_desempenio = $des->desempenio;
+							}
+
 							$alumno->yp_notas_perdidas_year += $periodos[0]->cant_perdidas_year;
 							$alumno->yp_notas_perdidas_per1 += $periodos[0]->cant_perdidas_1;
 							$alumno->yp_notas_perdidas_per2 += $periodos[0]->cant_perdidas_2;
@@ -368,7 +365,7 @@ class Boletines2Controller extends Controller {
 							array_push($alumno->asignaturas_year_pasado, $asignatura);
 						}
 						
-					}else{
+					} else {
 						if ($periodos[0]->cant_perdidas_year > 0) {
 							$asignatura->detalle_periodos = $periodos[0];
 							
@@ -381,13 +378,8 @@ class Boletines2Controller extends Controller {
 							array_push($alumno->asignaturas_year_pasado, $asignatura);
 						}
 					}
-						
-					
-				} 
-				
+				}
 			}
-
-			
 		}
 		
 		return $alumno;
@@ -398,20 +390,10 @@ class Boletines2Controller extends Controller {
 	{
 		$perdidos = new IndicadoresPerdidos();
 		$perdidos->de_asignaturas_por_periodos($alumno->alumno_id, $grupo_id, $periodos);
-		/*
-		foreach ($periodos as $key => $periodo) {
-			$periodo->asignaturas = $this->asignaturasPerdidasDeAlumnoPorPeriodo($alumno->alumno_id, $grupo_id, $periodo->id);
-
-			if (count($periodo->asignaturas)==0) {
-				unset($periodos[$key]);
-			}
-		}*/
 	}
 
 	public function asignaturasPerdidasDeAlumnoPorPeriodo($alumno_id, $grupo_id, $periodo_id)
 	{
-
-
 		$asignaturas	= Grupo::detailed_materias($grupo_id);
 
 		foreach ($asignaturas as $keyAsig => $asignatura) {
@@ -430,7 +412,6 @@ class Boletines2Controller extends Controller {
 			}
 		}
 
-
 		return $asignaturas;
 	}
 
@@ -441,22 +422,21 @@ class Boletines2Controller extends Controller {
 		
 		if ($alumno) {
 			$alumno->delete();
-		}else{
+		} else {
 			return abort(400, 'Alumno no existe o está en Papelera.');
 		}
 		return $alumno;
-	
 	}	
 
 	
 	
-	private function encabezado_comportamiento_boletin($nota, $nota_minima_aceptada, $mostrar_nota_comport, $sexo){
-		
+	private function encabezado_comportamiento_boletin($nota, $nota_minima_aceptada, $mostrar_nota_comport, $sexo)
+	{
 		$icono 		= '';
 		
 		if ($sexo == 'F') {
 			$icono = 'fa-male';
-		}else{
+		} else {
 			$icono = 'fa-female';
 		}
 		
@@ -477,6 +457,10 @@ class Boletines2Controller extends Controller {
 				if ($la_nota < $nota_minima_aceptada) {
 					$clase = ' nota-perdida-bold ';
 				}
+
+				if ($this->year->solo_escalas_valorativas) {
+					$la_nota = '';
+				}
 			}
 			
 			
@@ -487,13 +471,11 @@ class Boletines2Controller extends Controller {
 						<div class="col-lg-1 col-xs-1 comportamiento-nota '. $clase .'">'.$la_nota.'</div>
 					</div>';
 			
-		}else{
+		} else {
 			$res = '<div class="row comportamiento-head">
 						<div class="col-lg-10 col-xs-10 comportamiento-title"><i style="padding-right: 5px;" class="fa '.$icono.'"></i>  Comportamiento</div>
 					</div>';
 		}
 		return $res;
 	}
-	
-
 }

@@ -18,7 +18,6 @@ use Carbon\Carbon;
 
 class YearsController extends Controller {
 
-
 	public function getIndex()
 	{
 		$user = User::fromToken();
@@ -64,7 +63,6 @@ class YearsController extends Controller {
 		return $result;
 	}
 
-	
 
 	public function postStore()
 	{
@@ -98,32 +96,24 @@ class YearsController extends Controller {
 		$year->save();
 
 		$year_id_nuevo = $year->id;
-		
 
 		if ($year->actual) {
 			Year::where('actual', true)->update(['actual'=>false]);
 		}
 
-		$year 						= Year::find($year_id_nuevo);
+		$year 				= Year::find($year_id_nuevo);
 		$year->actual 		= true;
-		$year->created_by = $user->user_id;
+		$year->created_by 	= $user->user_id;
 		$year->save();
 
-		
 		// Creamos un periodo
 		DB::insert('INSERT INTO periodos(numero, actual, year_id) VALUES(1, 1, ?)', [$year->id]);
-
-
 
 		// NECESITARÉ MUCHO DEL AÑO ANTERIOR
 		$year_ante = $year->year - 1;
 		$pasado = Year::where('year', $year_ante)->first();
 
-
-
 		if ($pasado) {
-
-
 			$year->ciudad_id                     = $pasado->ciudad_id;
 			$year->logo_id                       = $pasado->logo_id;
 			$year->rector_id                     = $pasado->rector_id;
@@ -143,6 +133,18 @@ class YearsController extends Controller {
 			$year->codigo_dane                   = $pasado->codigo_dane;
 			$year->encabezado_certificado        = $pasado->encabezado_certificado;
 			$year->compromiso_familiar_label     = $pasado->compromiso_familiar_label;
+			$year->mensaje_aprobo_con_pendientes = $pasado->mensaje_aprobo_con_pendientes;
+			$year->minu_hora_clase     		 	 = $pasado->minu_hora_clase;
+			$year->mostrar_nota_comport_boletin  = $pasado->mostrar_nota_comport_boletin;
+			$year->mostrar_puesto_boletin  		 = $pasado->mostrar_puesto_boletin;
+			$year->msg_when_students_blocked  	 = $pasado->msg_when_students_blocked;
+			$year->profes_can_edit_alumnos  	 = $pasado->profes_can_edit_alumnos;
+			$year->puestos_alfabeticamente  	 = $pasado->puestos_alfabeticamente;
+			$year->show_fortaleza_bol  	 		 = $pasado->show_fortaleza_bol;
+			$year->show_subasignaturas_en_finales = $pasado->show_subasignaturas_en_finales;
+			$year->si_recupera_materia_recup_indicador = $pasado->si_recupera_materia_recup_indicador;
+			$year->solo_escalas_valorativas 	 = $pasado->solo_escalas_valorativas;
+			$year->year_pasado_en_bol 			 = $pasado->year_pasado_en_bol;
 
 			$year->save();
 			
@@ -164,7 +166,6 @@ class YearsController extends Controller {
 				$newEsc->save();
 			}
 
-
 			/// COPIAREMOS LAS FRASES
 			$frases_ant = Frase::where('year_id', $pasado->id)->get();
 
@@ -176,8 +177,6 @@ class YearsController extends Controller {
 				$newFra->save();
 			}
 
-
-
 			/// COPIAREMOS LAS UNIDADES POR DEFECTO
 			$unidades_ant = DB::select('SELECT * FROM unidades_por_defecto WHERE year_id=? AND deleted_at is null;', [$pasado->id]);
 
@@ -185,8 +184,6 @@ class YearsController extends Controller {
 				DB::insert('INSERT INTO unidades_por_defecto(definicion, porcentaje, year_id, obligatoria, orden, created_by) VALUES(?,?,?,?,?,?)', 
 					[$unidad->definicion, $unidad->porcentaje, $year->id, $unidad->obligatoria, $unidad->orden, $unidad->created_by]);
 			}
-
-
 
 			/// COPIAREMOS LAS CONFIGURACIONES DE DISCIPLINA Y ORDINALES
 			$dis_configuraciones = DB::select('SELECT * FROM dis_configuraciones WHERE year_id=? AND deleted_at is null;', [$pasado->id]);
@@ -208,9 +205,6 @@ class YearsController extends Controller {
 				}
 			}
 			
-
-
-			
 			/// AHORA COPIAMOS LOS GRUPOS Y ASIGNATURAS DEL AÑO PASADO AL NUEVO AÑO.
 			$grupos_ant = Grupo::where('year_id', $pasado->id)->get();
 			
@@ -227,7 +221,6 @@ class YearsController extends Controller {
 				$newGr->caritas 		= $grupo->caritas;
 				$newGr->save();
 
-
 				$asigs_ant = Asignatura::where('grupo_id', $grupo->id)->get();
 				
 				for ($i=0; $i < count($asigs_ant); $i++) { 
@@ -238,28 +231,18 @@ class YearsController extends Controller {
 					$newAsig->orden 		= $asigs_ant[$i]->orden;
 					$newAsig->save();
 				}
-				
 				$grupo->asigs_ant = $asigs_ant;
 			}
 			$year->grupos_ant = $grupos_ant;
 		}
-		
-
-
 		return $year;
-		
 	}
-
-
 
 
 	public function putUseractive($year_id)
 	{
 		$user = User::fromToken();
-
 		$usuario = User::findOrFail($user->user_id);
-
-
 		$peri = Periodo::where('year_id', $year_id)->where('numero', $user->numero_periodo)->first();
 
 		if ($peri) {
@@ -275,8 +258,6 @@ class YearsController extends Controller {
 			}
 			
 		}
-
-		
 
 		$usuario->save();
 
@@ -345,28 +326,23 @@ class YearsController extends Controller {
 		}
 	}
 
-	
-
 	public function putSetActual(){
 		$user = User::fromToken();
 
 		$year_id 	= 	Request::input('year_id');
 		$actual 	= 	(boolean) Request::input('can');
-		
-		
+
 		if ($actual) {
 			Year::where('actual', true)->update(['actual'=>false]);
 		}
-		
+
 		$year = Year::findOrFail($year_id);
 		$year->actual = true;
 		$year->save();
 
 		if ($actual) { return 'Ahora es año actual.';
-		}else{ return 'Ahora NO es año actual';}
-		
+		} else { return 'Ahora NO es año actual';}
 	}
-
 
 	public function putAlumnosCanSeeNotas(){
 		$user = User::fromToken();
@@ -379,8 +355,7 @@ class YearsController extends Controller {
 		$year->save();
 
 		if ($can) { return 'Ahora pueden ver sus notas.';
-		}else{ return 'Ahora NO pueden ver sus notas';}
-		
+		} else { return 'Ahora NO pueden ver sus notas';}
 	}
 
 
@@ -395,10 +370,8 @@ class YearsController extends Controller {
 		$year->save();
 
 		if ($can) { return 'Ahora docentes pueden editar alumnos.';
-		}else{ return 'Ahora docentes NO pueden editar alumnos';}
-		
+		} else { return 'Ahora docentes NO pueden editar alumnos';}
 	}
-
 
 	public function putToggleMostrarPuestosEnBoletin(){
 		$user = User::fromToken();
@@ -426,8 +399,7 @@ class YearsController extends Controller {
 		$year->save();
 
 		if ($can) { return 'Ahora se mostrará la nota de comportamiento en el boletín.';
-		}else{ return 'Ahora NO se mostrarán la nota de comportamiento en el boletín';}
-		
+		} else { return 'Ahora NO se mostrarán la nota de comportamiento en el boletín';}
 	}
 
 
@@ -488,17 +460,15 @@ class YearsController extends Controller {
 		$valor 		= 	Request::input('valor');
 		$campo 		= 	Request::input('campo');
 
-		
 		$consulta 	= 'UPDATE years SET '.$campo.'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:year_id';
 		\Log::info($consulta);
 		$datos 		= [ ':valor' => $valor, ':modificador' => $user->user_id, ':fecha' => $now, ':year_id' => $year_id ];
 		$res = DB::update($consulta, $datos);
-		
+
 		if($res)
 			return 'Guardado';
 		else
 			return 'No guardado';
-
 	}
 
 
@@ -513,10 +483,8 @@ class YearsController extends Controller {
 		$year->save();
 
 		if ($can) { return 'Ahora se ignorarán las notas perdidas si gana la materia.';
-		}else{ return 'Ahora NO se ignorarán las notas perdidas si gana la materia';}
-		
+		} else { return 'Ahora NO se ignorarán las notas perdidas si gana la materia';}
 	}
-
 
 	public function deleteDelete($id)
 	{
@@ -527,8 +495,6 @@ class YearsController extends Controller {
 
 		return $year;
 	}
-
-
 
 	public function deleteDestroy($id)
 	{
@@ -546,7 +512,7 @@ class YearsController extends Controller {
 
 		if ($year) {
 			$year->restore();
-		}else{
+		} else {
 			return abort(400, 'Año no encontrado en la Papelera.');
 		}
 		return $year;
@@ -556,12 +522,6 @@ class YearsController extends Controller {
 	public function getTrashed()
 	{
 		$years = Year::onlyTrashed()->get();
-
 		return $years;
 	}
-
-
-
 }
-
-
