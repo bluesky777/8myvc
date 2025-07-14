@@ -26,7 +26,7 @@ class EscalaDeValoracion extends Model {
 				return $escala_val;
 			}
 		}
-		return [];
+		return '';
 	}
 	
 	
