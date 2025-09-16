@@ -145,6 +145,7 @@ class YearsController extends Controller {
 			$year->si_recupera_materia_recup_indicador = $pasado->si_recupera_materia_recup_indicador;
 			$year->solo_escalas_valorativas 	 = $pasado->solo_escalas_valorativas;
 			$year->year_pasado_en_bol 			 = $pasado->year_pasado_en_bol;
+			$year->titulo_rector 				 = $pasado->titulo_rector;
 
 			$year->save();
 			

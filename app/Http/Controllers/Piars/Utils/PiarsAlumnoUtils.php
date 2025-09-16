@@ -88,4 +88,49 @@ class PiarsAlumnoUtils {
 			]);
 		}
 	}
+
+	public function getMatriculas($alumnos_piar) {
+		for ($i=0; $i < count($alumnos_piar); $i++) {
+			$alumnos_piar[$i]->matriculas = [];
+			$consulta_matriculas = 'SELECT m.id as matricula_id, m.grupo_id, m.estado, g.abrev, g.nombre, g.titular_id,
+				y.year, y.id as year_id
+				FROM matriculas m
+				INNER JOIN grupos g ON g.id=m.grupo_id and g.deleted_at is null
+				INNER JOIN years y ON y.id=g.year_id and y.deleted_at is null
+				WHERE m.alumno_id=? and m.deleted_at is null;';
+
+			$alumnos_piar[$i]->matriculas = DB::select($consulta_matriculas, [
+				$alumnos_piar[$i]->alumno_id,
+			]);
+
+			for ($j=0; $j < count($alumnos_piar[$i]->matriculas); $j++) {
+				$consulta_acta = 'SELECT a.id as acta_id, a.documento, a.history
+					FROM piars_actas_acuerdo a
+					WHERE a.alumno_id=? and a.year_id=?;';
+
+				$acta = DB::select($consulta_acta, [
+					$alumnos_piar[$i]->alumno_id,
+					$alumnos_piar[$i]->matriculas[$j]->year_id,
+				]);
+
+				if (count($acta) == 0) {
+					// TODO: agregar history inicial
+					$consulta_insert = 'INSERT INTO piars_actas_acuerdo(alumno_id, year_id)
+						VALUES(:alumno_id, :year_id)';
+
+					DB::insert($consulta_insert, [
+						':alumno_id' => $alumnos_piar[$i]->alumno_id,
+						':year_id' => $alumnos_piar[$i]->matriculas[$j]->year_id,
+					]);
+				}
+
+				$acta = DB::select($consulta_acta, [
+					$alumnos_piar[$i]->alumno_id,
+					$alumnos_piar[$i]->matriculas[$j]->year_id,
+				]);
+
+				$alumnos_piar[$i]->matriculas[$j]->acta = (count($acta) > 0) ? $acta[0] : null;
+			}
+		}
+	}
 }

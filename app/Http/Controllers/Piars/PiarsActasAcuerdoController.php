@@ -10,7 +10,7 @@ use Carbon\Carbon;
 use File;
 use \Log;
 
-class PiarsAlumnosController extends Controller {
+class PiarsActasAcuerdoController extends Controller {
 	public $user;
 
 	public function __construct()
@@ -18,7 +18,7 @@ class PiarsAlumnosController extends Controller {
 		$this->user = User::fromToken();
 	}
 
-	public function getAlumnos($grupo_id)
+	public function getMatriculas($grupo_id)
 	{
 		$alumnos = DB::select('SELECT a.id, a.nombres, a.apellidos, a.sexo, m.estado,
 						a.foto_id, IFNULL(i.nombre, IF(a.sexo="F","default_female.png", "default_male.png")) as foto_nombre, 

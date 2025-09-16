@@ -55,13 +55,13 @@ class PiarsGruposController extends Controller {
 
 		$grupo = Grupo::datos($grupo_id);
 
-    $piarsGrupoUtils = new PiarsGrupoUtils();
-    $piarsAlumnosUtils = new PiarsAlumnoUtils();
+		$piarsGrupoUtils = new PiarsGrupoUtils();
+		$piarsAlumnosUtils = new PiarsAlumnoUtils();
 		$alumnos = $piarsAlumnosUtils->getAlumnosDeGrupo($grupo_id);
 
 		if (count($piars) == 0) {
-      $piarsGrupoUtils->createContextoGrupo($grupo_id);
-      $piars = DB::select($consulta, [$grupo_id]);
+			$piarsGrupoUtils->createContextoGrupo($grupo_id);
+			$piars = DB::select($consulta, [$grupo_id]);
 		}
 
 		$alumnos_piar = $piarsAlumnosUtils->getAlumnosPiar($grupo_id, $this->user->user_id, $alumnos);
@@ -72,7 +72,9 @@ class PiarsGruposController extends Controller {
 			$piarsAlumnosUtils->acudientes = [];
 		}
 
-    return [
+		$piarsAlumnosUtils->getMatriculas($alumnos_piar);
+
+		return [
 			'data' => [
 				'familiarContext' => $piars,
 				'alumnos' => $alumnos,
