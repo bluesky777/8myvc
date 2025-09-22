@@ -43,32 +43,24 @@ class PiarsActasAcuerdoController extends Controller {
 			'year_id' => 'required',
 		]);
 
-		$field = Request::input('documentField');
-
-		// campos seguros para evitar ataques sql injection
-		$validFields = ['documento1', 'documento2'];
-
-		if (!in_array($field, $validFields)) {
-			return response()->json(['error' => 'Invalid'], 400);
-		}
-
 		$now 		= Carbon::now('America/Bogota');
 		$fullPath 	= UploadDocuments::save_document($this->user);
 		$alumno_id 	= Request::input('alumno_id');
+		$year_id 	= Request::input('year_id');
 
-		$consulta 		= 'SELECT * FROM piars_alumnos WHERE alumno_id=?';
-		$alumno_piar 	= DB::select($consulta, [$alumno_id]);
+		$consulta 		= 'SELECT * FROM piars_actas_acuerdo WHERE alumno_id=? and year_id=?';
+		$actas 	= DB::select($consulta, [$alumno_id, $year_id]);
+		$document = '';
 
-		if (count($alumno_piar) > 0) {
+		if (count($actas) > 0) {
 			$record = [
-				'documento1' => $alumno_piar[0]->documento1,
-				'documento2' => $alumno_piar[0]->documento2,
+				'documento' => $actas[0]->documento,
 				'updated_at' => $now,
 				'updated_by' => $this->user->user_id,
 				'updated_by_name' => $this->user->nombres . ' - ' . $this->user->username,
 			];
 
-			$arr = json_decode($alumno_piar[0]->history);
+			$arr = json_decode($actas[0]->history);
 			$newArra = [];
 			try {
 				array_push($arr, $record);
@@ -78,36 +70,35 @@ class PiarsActasAcuerdoController extends Controller {
 			}
 			$arr = json_encode($newArra);
 
-			$consulta = "UPDATE piars_alumnos SET $field=?, history=? WHERE alumno_id=?";
-			$document = DB::update($consulta, [$fullPath, $arr, $alumno_id]);
+			$consulta = "UPDATE piars_actas_acuerdo SET documento=?, history=? WHERE alumno_id=? and year_id=?";
+			$document = DB::update($consulta, [$fullPath, $arr, $alumno_id, $year_id]);
+		} else {
+			$consulta_insert = 'INSERT INTO piars_actas_acuerdo(alumno_id, year_id, documento, history)
+				VALUES(:alumno_id, :year_id, :documento, :history)';
+
+			$record = [
+				'documento' => $fullPath,
+				'created_at' => $now,
+				'updated_by' => $this->user->user_id,
+				'updated_by_name' => $this->user->nombres . ' - ' . $this->user->username,
+			];
+
+			$arr = [];
+			try {
+				array_push($arr, $record);
+			} catch (\Throwable $th) {
+				// nothing
+			}
+			$arr = json_encode($arr);
+
+			DB::insert($consulta_insert, [
+				':alumno_id' => $alumno_id,
+				':year_id' => $year_id,
+				':documento' => $fullPath,
+				':history' => $arr,
+			]);
 		}
 		return ['document' => $document];
-	}
-
-	public function putField()
-	{
-		$now = Carbon::now('America/Bogota');
-
-		$id = Request::input('id');
-		$field = Request::input('field');
-		$text = Request::input('text');
-		$updated_at = $now;
-		$updated_by = $this->user->user_id;
-
-		// campos seguros para evitar ataques sql injection
-		$validFields = ['valoracion_pedagogica', 'ajustes_generales', 'reporte'];
-		if (!in_array($field, $validFields)) {
-			return response()->json(['error' => 'Invalid'], 400);
-		}
-
-		$consulta = "UPDATE piars_alumnos 
-			SET $field=?, updated_at=?, updated_by=?
-			WHERE id=?";
-		$piars = DB::update($consulta, [
-			$text, $updated_at, $updated_by, $id,  
-		]);
-
-    return ['piars' => $piars];
 	}
 
 	public function deleteDocument($alumno_id)
@@ -117,35 +108,17 @@ class PiarsActasAcuerdoController extends Controller {
 		}
 
 		$now 				= Carbon::now('America/Bogota');
-		$field 			= Request::input('file_name');
+		$year_id 			= Request::input('yearId');
 
-		$consulta = 'SELECT * FROM piars_alumnos WHERE alumno_id=?';
-		$alumno_piar = DB::select($consulta, [$alumno_id]);
-		
-		// campos seguros para evitar ataques sql injection
-		$validFields = ['documento1', 'documento2'];
-		if (!in_array($field, $validFields)) {
-			return response()->json(['error' => 'Invalid'], 400);
-		}
+		$consulta = 'SELECT * FROM piars_actas_acuerdo WHERE alumno_id=? and year_id=?';
+		$alumno_piar = DB::select($consulta, [$alumno_id, $year_id]);
 
 		if (count($alumno_piar) > 0) {
-			$documentValue1 = $alumno_piar[0]->documento1;
-			$documentValue2 = $alumno_piar[0]->documento2;
-			$fileToDelete = '';
-
-			if ($field == 'documento1') {
-				$fileToDelete = $documentValue1;
-				$documentValue1 = null;
-			}
-
-			if ($field == 'documento2') {
-				$fileToDelete = $documentValue2;
-				$documentValue2 = null;
-			}
+			$documentValue = $alumno_piar[0]->documento;
+			$fileToDelete = $documentValue;
 
 			$record = [
-				'documento1' => $documentValue1,
-				'documento2' => $documentValue2,
+				'documento' => $documentValue,
 				'updated_at' => $now,
 				'updated_by' => $this->user->user_id,
 				'updated_by_name' => $this->user->nombres . ' - ' . $this->user->username,
@@ -161,8 +134,8 @@ class PiarsActasAcuerdoController extends Controller {
 			}
 			$arr = json_encode($newArra);
 
-			$consulta = "UPDATE piars_alumnos SET $field=null, history=? WHERE alumno_id=?";
-			$document = DB::update($consulta, [$arr, $alumno_id]);
+			$consulta = "UPDATE piars_actas_acuerdo SET documento=null, history=? WHERE alumno_id=? and year_id=?";
+			$document = DB::update($consulta, [$arr, $alumno_id, $year_id]);
 
 			$filename 	= 'uploads/'.$fileToDelete;
 		
