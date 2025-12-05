@@ -40,7 +40,6 @@ class PiarsAlumnosController extends Controller {
 		Request::validate([
 			'file' => 'required',
 			'alumno_id' => 'required',
-			'year_id' => 'required',
 		]);
 
 		$field = Request::input('documentField');
@@ -169,7 +168,7 @@ class PiarsAlumnosController extends Controller {
 			if (File::exists($filename)) {
 				File::delete($filename);
 			}else{
-				Log::info($imagen_id . ' -- Al parecer NO existe archivo: ' . $filename);
+				Log::info($filename . ' -- Al parecer NO existe archivo: ' . $filename);
 			}
 		}
 		return ['document' => $document];
