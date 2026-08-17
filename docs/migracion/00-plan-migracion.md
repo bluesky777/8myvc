@@ -1,0 +1,488 @@
+# Plan de migración — 8myvc (Laravel 8 → actual)
+
+> Rama: `chore/migracion-laravel-12`
+> Documentos hermanos: [01-plan-seguridad.md](01-plan-seguridad.md) · [02-plan-rendimiento.md](02-plan-rendimiento.md)
+> Evidencia generada: [rutas-actuales.csv](rutas-actuales.csv) (538 rutas) · [`tools/route-inventory.php`](../../tools/route-inventory.php)
+
+---
+
+## 0. Resumen ejecutivo
+
+El proyecto **no es difícil de migrar por el framework**, es difícil por tres cosas concretas:
+
+1. **No hay red de seguridad.** 0 tests reales, y `php artisan route:list` **está roto hoy** (los constructores llaman `User::fromToken()`, que hace `abort(401)` sin token). Sin poder ni listar rutas, "que no se dañe nada" no es verificable — es una esperanza.
+2. **El esquema real de la BD no existe en el repo.** 90 tablas vivas contra 3 archivos de migración. La tabla `migrations` tiene 47 filas. La estructura solo existe en producción.
+3. **La autenticación está hecha a mano y es opcional.** No hay middleware `auth` en ninguna ruta; cada controlador decide si autentica. 35 controladores nunca lo hacen — entre ellos `RolesController` y `PermissionsController`, que están ruteados y permiten **asignarse roles y permisos sin token**.
+
+La buena noticia: el código casi no usa superficie del framework. 990 llamadas a `DB::select/insert/update`, cero jobs, cero events, cero listeners, cero broadcasting, 2 usos de validación. **Los breaking changes de Laravel 9→13 casi no lo tocan.** El riesgo real está en los paquetes, no en el framework.
+
+**Orden recomendado (no negociable en su secuencia):**
+
+| # | Fase | Qué desbloquea | Esfuerzo |
+|---|---|---|---|
+| 0 | Red de seguridad (tests de contrato + baseline de BD + CI) | Todo lo demás | 4–6 días |
+| 1 | Eliminar `AdvancedRoute` (sin tocar el framework) | Rutas cacheables, `route:list` funcional | 1–2 días |
+| 2 | Organizar rutas + middleware `auth` real | Cierra el agujero de roles/permisos | 2–3 días |
+| 3 | Reemplazar `tymon/jwt-auth` (back + front + Flutter) | Desbloquea el salto de framework | 4–6 días |
+| 4 | Salto 8 → 12 (o 13) | El objetivo | 3–5 días |
+| 5 | Migraciones al día contra la BD real | Entornos reproducibles | 2–3 días |
+| 6 | Modelos y limpieza (gradual, opcional) | Mantenibilidad | continuo |
+
+Total realista para las fases 0–5: **~4 semanas de trabajo enfocado.**
+
+---
+
+## 1. Radiografía (todo medido, nada asumido)
+
+| Cosa | Dato |
+|---|---|
+| Framework | `laravel/framework` v8.83.29 (soporte de seguridad terminado en enero 2023) |
+| PHP | `kooldev/php:8.0-nginx` en Docker · PHP 8.2.28 en el CLI local |
+| Archivos PHP en `app/` | 197 · **32.477 LOC** |
+| Controladores | 129 (el más grande: `ChangeAskedController` con 1.087 líneas) |
+| Rutas | **96** `AdvancedRoute::controller()` → **538 rutas** generadas implícitamente |
+| Archivos de rutas | 1 (`routes/api.php`, 137 líneas) |
+| Llamadas SQL crudas | **990** (`DB::select` / `insert` / `update` / `delete` / `statement`) |
+| Modelos Eloquent | 47 definidos, usados marginalmente |
+| Llamadas a `User::fromToken()` | **336** |
+| Validación (`validate()` / `Validator::make`) | **2** en todo el proyecto |
+| FormRequests | 1 |
+| Tests reales | **0** (solo los 2 stubs de `laravel new`) |
+| Migraciones | **3 archivos** vs **90 tablas** vivas vs **47 filas** en `migrations` |
+| Tablas más grandes | `notas` 1.163.307 · `notas_finales` 127.810 · `ausencias` 52.118 · `subunidades` 37.197 |
+| Jobs / Events / Listeners | ninguno · `QUEUE_CONNECTION=sync` |
+| `php artisan route:list` | **falla** (`No existe Token`, `app/User.php:85`) |
+
+### Los tres hallazgos que definen el plan
+
+**A. `AdvancedRoute` registra cada ruta DOS veces.**
+En [`AdvancedRoute.php:73`](../../vendor/lesichkovm/laravel-advanced-route/src/AdvancedRoute.php#L73) hace `Route::$httpMethod(...)` y en la línea 79 la vuelve a registrar solo para ponerle nombre. La tabla de rutas real tiene **~1.076 entradas en vez de 538**. Es puro peso muerto en cada arranque.
+
+**B. La sustitución de `AdvancedRoute` es 100% mecánica y verificable.**
+Ya generé el inventario completo por reflexión: **538 rutas, 0 colisiones de verbo+URI, 0 controladores irresolubles, 0 métodos heredados de clase padre**. Eso significa que el reemplazo se puede generar por script y comparar 1:1 contra el original. Riesgo ≈ 0 si se hace en un paso aislado.
+
+**C. Los constructores autentican, y eso rompe el framework.**
+```php
+// app/Http/Controllers/AlumnosController.php:36
+public function __construct()
+{
+    $this->user = User::fromToken();   // abort(401) si no hay token
+}
+```
+Laravel instancia el controlador para leer su middleware. Por eso `route:list` explota, por eso `route:cache` no se puede usar, y por eso cualquier comando de artisan que toque rutas falla. **Esto se arregla en la Fase 2 y es prerrequisito del caché de rutas.**
+
+---
+
+## 2. Decisiones de arquitectura
+
+### 2.1 Framework objetivo: Laravel 12 (verificar si 13 ya es estable)
+
+No tuve red para consultar Packagist, así que lo primero al ejecutar es:
+
+```bash
+composer show laravel/framework --all | head -3
+```
+
+- **Recomendación: Laravel 12 + PHP 8.3.** Es el objetivo seguro: todos los paquetes que sobreviven ya lo declaran (`maatwebsite/excel` soporta `^12.0`, `laravel/tinker` también).
+- Si Laravel 13 ya es estable **y** el fork de JWT y `hisorange/browser-detect` lo soportan, apunta directo a 13. No hay razón para quedarse corto — el trabajo es el mismo.
+- **PHP 8.3** sobre 8.4 por conservadurismo: `intervention/image` v2 y `hisorange/browser-detect` v4 no están mantenidos activamente y 8.4 endurece deprecaciones (métodos implícitamente nullable). Subir a 8.4 después, aparte.
+
+### 2.2 Estrategia: actualización in-place, un major a la vez
+
+Descarté "esqueleto nuevo + copiar `app/`" aunque sea tentador (la config es 99% stock). Razón: el reestructurado del esqueleto de Laravel 11 (`bootstrap/app.php`, sin `Http/Kernel`, sin `Console/Kernel`) mezcla dos tipos de cambio en un solo commit, y sin tests no se puede saber cuál rompió qué.
+
+**In-place, un major por commit, con la suite de contrato verde en cada salto.** Cada salto es principalmente `composer.json` + retoques mínimos, porque el código apenas usa el framework.
+
+El reestructurado a esqueleto slim (L11) se hace como **su propio commit**, después de llegar a L11 funcionando con el esqueleto viejo (Laravel 11 sigue arrancando con `Http/Kernel.php`; el esqueleto nuevo es opcional).
+
+### 2.3 Reemplazo de `AdvancedRoute`: rutas explícitas generadas, sin renombrar métodos
+
+Tres opciones evaluadas:
+
+| Opción | Veredicto |
+|---|---|
+| Reimplementar `AdvancedRoute` dentro del repo | ❌ El objetivo es quitarlo, no mudarlo |
+| Generar 538 `Route::get(...)` explícitas **conservando** los nombres de método (`getIndex`, `putGuardarValor`) | ✅ **Elegida.** Diff verificable línea a línea, cero cambio de comportamiento |
+| Generar rutas explícitas **y** renombrar métodos a `index`/`store`/`update` | ❌ para la Fase 1. Mezcla el cambio mecánico con uno semántico de 538 puntos |
+
+El renombrado de métodos (`getIndex` → `index`) es deseable pero va **después**, por dominio, controlador por controlador, cuando ya haya tests. Es cosmético; el sistema funciona igual.
+
+Además hay que convertir la sintaxis de acción en string, que deja de existir en Laravel 9:
+
+```php
+// antes (rompe en L9+ al quitarse el $namespace del RouteServiceProvider)
+Route::resource('tiposdocumento', 'TipoDocumentoController');
+
+// después
+Route::resource('tiposdocumento', TipoDocumentoController::class);
+```
+
+### 2.4 Autenticación: Sanctum con tokens Bearer
+
+`tymon/jwt-auth` está instalado como **`dev-develop`** (con `minimum-stability: dev` en el `composer.json`) y solo declara soporte hasta Laravel 9. **Es el bloqueante duro del salto de framework.**
+
+| Opción | Pro | Contra |
+|---|---|---|
+| `php-open-source-saver/jwt-auth` (fork mantenido) | Cambio mínimo, sigue siendo JWT stateless | Sigue sin logout real sin blacklist en caché; arrastra el diseño actual |
+| **Laravel Sanctum, tokens personales** | First-party, **logout real** (`$token->delete()`), `expires_at` nativo, un solo `SELECT` indexado por request | Invalida las sesiones vivas una vez (todos re-loguean) |
+| Sanctum SPA con cookie httpOnly | Lo más seguro (inmune a robo por XSS) | La app Flutter (`myvc_flutter`) y la app móvil no encajan bien con cookies |
+
+**Elegida: Sanctum con tokens Bearer**, un solo mecanismo para web, móvil y `Tardanzas`. Resuelve exactamente lo que pediste:
+
+- **Logout que sí funciona:** hoy `LoginController::putLogout` solo hace un `UPDATE historiales SET logout_at`. El token JWT sigue siendo válido 24 horas después de "cerrar sesión". Con Sanctum, se borra la fila y el token muere en el acto.
+- **Refresh:** hoy no existe. El token dura 24 h (`JWT_TTL=1440`) y al expirar el usuario simplemente sale expulsado. Con Sanctum: access token corto (30–60 min) + refresh token largo con rotación.
+
+**Endpoints nuevos:**
+
+```
+POST   /api/auth/login      → { access_token, refresh_token, expires_in, user }
+POST   /api/auth/refresh    → rota el refresh token, emite access token nuevo
+POST   /api/auth/logout     → borra el token actual
+POST   /api/auth/logout-all → borra todos los tokens del usuario
+GET    /api/auth/me         → el contexto de usuario (lo que hoy devuelve POST /api/login)
+```
+
+**Compatibilidad durante la transición — clave para no romper nada:**
+
+`User::fromToken()` se llama en 336 sitios. No se tocan los 336. Se convierte en un *shim* que delega en el contexto ya resuelto por el middleware:
+
+```php
+// app/User.php — durante la transición
+public static function fromToken($already_parsed = false, $request = false)
+{
+    return app(AuthenticatedUserContext::class)->get();   // ya resuelto, cacheado, 0 queries extra
+}
+```
+
+Los 336 call sites siguen compilando y devolviendo el mismo objeto. Se van eliminando después, sin prisa. **Esto convierte el cambio de auth de "336 ediciones" a "1 edición".**
+
+### 2.5 Rutas: por dominio, en carpeta
+
+`routes/api.php` (137 líneas) se parte siguiendo las carpetas que ya existen en `app/Http/Controllers/`:
+
+```
+routes/
+├── api.php                 # solo requires + grupos de middleware
+└── api/
+    ├── auth.php            # público: login, refresh, password reset
+    ├── academico.php       # notas, asignaturas, areas, materias, unidades, subunidades, escalas
+    ├── alumnos.php         # alumnos, acudientes, folios, importar, matriculas, prematriculas
+    ├── informes.php        # 18 controladores de Informes/ + boletines + certificados
+    ├── disciplina.php      # comportamiento, ordinales, disciplina, ausencias
+    ├── piars.php           # 5 controladores de Piars/
+    ├── perfiles.php        # perfiles, imágenes, publicaciones, calendario
+    ├── votaciones.php      # vt_*
+    ├── actividades.php     # actividades, preguntas, opciones, respuestas
+    ├── tardanzas.php       # tardanzas/login, tardanzas/subir, asistencias
+    ├── movil.php           # AppMobile/*
+    └── admin.php           # roles, permissions, users, years, periodos, config
+```
+
+Con la estructura de grupos:
+
+```php
+// routes/api.php
+Route::middleware('guest.api')->group(base_path('routes/api/auth.php'));
+
+Route::middleware(['auth:sanctum', 'user.context'])->group(function () {
+    foreach (glob(base_path('routes/api/*.php')) as $file) {
+        if (! str_ends_with($file, 'auth.php')) require $file;
+    }
+});
+```
+
+**El default pasa a ser "autenticado".** Lo público es la excepción explícita y se lee en un solo archivo. Ese solo cambio cierra el agujero de `roles` y `permissions`.
+
+---
+
+## 3. Fases en detalle
+
+### Fase 0 — Red de seguridad · 4–6 días · **BLOQUEANTE**
+
+Nada de lo demás se toca antes de esto. Es lo que convierte "espero que no se rompa" en "sé que no se rompió".
+
+**0.1 Baseline del esquema real de la BD**
+
+La BD viva es la única fuente de verdad. Congélala en el repo:
+
+```bash
+# Estructura sin datos, desde la BD real
+docker exec 8myvc-database-1 mysqldump -uroot -p"$DB_PASSWORD" \
+  --no-data --routines --skip-add-drop-table --skip-comments \
+  simonbolivar > database/schema/mysql-schema.sql
+```
+
+Laravel carga `database/schema/mysql-schema.sql` automáticamente en `migrate` cuando existe (squashed schema). A partir de ahí:
+
+- Las 3 migraciones actuales se archivan en `database/migrations/legacy/` (no se ejecutan).
+- Toda tabla nueva o cambio de columna, de aquí en adelante, va en una migración normal.
+- El desfase (47 filas vs 3 archivos) deja de importar: la baseline reemplaza la historia.
+
+Complemento: instalar `kitloong/laravel-migrations-generator` para producir migraciones legibles por tabla y guardarlas como **documentación** en `docs/db/` (no para ejecutarlas). Sirve para entender los 90 esquemas sin abrir MySQL.
+
+**0.2 Tests de contrato (lo más importante del plan)**
+
+No tests unitarios. **Tests de caracterización**: golpean los endpoints reales contra una BD sembrada y guardan snapshots de la respuesta JSON. Su único trabajo es gritar cuando una respuesta cambia.
+
+Cobertura mínima, priorizada por lo que más duele si se rompe:
+
+| Prioridad | Qué | Endpoints aprox. |
+|---|---|---|
+| P0 | Login, `/api/login` (contexto de usuario) por cada `tipo` (Alumno / Profesor / Acudiente / Usuario) | 6 |
+| P0 | Notas: listar, guardar, definitivas por periodo | ~15 |
+| P0 | **Excel**: importar alumnos, exportar acudientes, deudores, SIMAT, listado docentes | 7 |
+| P0 | **Imágenes**: subir, recortar, rotar, foto de perfil | 6 |
+| P1 | Boletines / bolfinales / observador / actas (los Blade que generan PDF-HTML) | ~12 |
+| P1 | Matrículas, prematrículas, grupos, promovidos | ~15 |
+| P2 | El resto, por muestreo (1 GET por controlador) | ~100 |
+
+Para los binarios (Excel, imágenes) el snapshot no es del byte-stream: es **hash del contenido normalizado** (para XLSX: número de hojas + headers + N filas + checksum de celdas; para imágenes: dimensiones + tipo MIME + tamaño ±5%). Comparar bytes crudos daría falsos positivos por metadatos de fecha.
+
+**0.3 Entorno reproducible**
+
+- Fijar un dump de datos anonimizado y pequeño para los tests (`database/dumps/test-seed.sql`), no la BD de producción.
+- `phpunit.xml` con conexión `mysql_testing` apuntando a una BD separada.
+
+**0.4 CI mínimo (GitHub Actions)**
+
+```yaml
+# .github/workflows/ci.yml
+- composer install
+- php artisan route:list          # debe funcionar → detecta regresiones de rutas
+- php tools/route-inventory.php   # el conteo debe seguir dando 538 hasta la Fase 1
+- php artisan test
+- ./vendor/bin/pint --test
+- ./vendor/bin/phpstan analyse --level=0
+```
+
+PHPStan en **nivel 0** al principio. Con 990 queries crudas y `stdClass` volando por todos lados, nivel 5 daría 4.000 errores y nadie lo miraría. Nivel 0 atrapa lo que importa hoy: métodos y clases inexistentes.
+
+---
+
+### Fase 1 — Quitar `AdvancedRoute` · 1–2 días
+
+**Todavía en Laravel 8.** Un cambio, aislado, verificable.
+
+1. Ejecutar `php tools/route-inventory.php docs/migracion/rutas-actuales.csv` → ya hecho, **538 rutas**.
+2. Extender el script para que emita PHP en vez de CSV (`--emit`), agrupado por controlador y respetando el orden de AdvancedRoute (rutas sin `{param}` primero — es lo que evita que `puestos/{id}` tape a `puestos/detailed`).
+3. Reemplazar el contenido de `routes/api.php` por la salida generada.
+4. **Verificar:** volver a correr el inventario contra la tabla real de Laravel y hacer `diff`. Verbo + URI + acción deben coincidir en las 538. Ahora `route:list` sirve para esto (una vez arreglada la Fase 2; antes, comparar contra el CSV).
+5. `composer remove lesichkovm/laravel-advanced-route`.
+
+**Nombres de ruta:** AdvancedRoute generaba nombres tipo `alumnos.get.index`. Hay que revisar si algo los usa (`route('...')`) antes de descartarlos:
+
+```bash
+grep -rn "route(" app/ resources/ --include="*.php" | grep -v "Route::"
+```
+
+Si no se usan (muy probable — es una API pura consumida por AngularJS con URLs literales), se omiten.
+
+**Bonus gratis:** desaparece el doble registro de rutas del punto 1.A. La tabla pasa de ~1.076 a 538 entradas.
+
+---
+
+### Fase 2 — Rutas organizadas + middleware de auth real · 2–3 días
+
+1. Partir el archivo generado en `routes/api/*.php` según §2.5.
+2. Crear el middleware `EnsureUserContext` que resuelve el usuario **una vez por request** y lo mete en el contenedor.
+3. **Sacar `User::fromToken()` de los constructores.** Los 33 constructores pasan de:
+   ```php
+   public function __construct() { $this->user = User::fromToken(); }
+   ```
+   a que `$this->user` se resuelva perezosamente desde el contexto. Esto es lo que arregla `route:list` y habilita `route:cache`.
+4. Aplicar `auth` a todo por defecto; mover a un grupo público solo: `login/*`, `password/*`, `tardanzas/login`, y lo que el inventario demuestre que se consume sin token.
+5. **Auditar los 35 controladores sin autenticación** (lista completa en el [plan de seguridad](01-plan-seguridad.md)) y decidir uno por uno: ¿público a propósito, o agujero?
+
+> ⚠️ Riesgo real: si algún endpoint hoy se consume sin token desde el front y le pones `auth`, se rompe. Mitigación: antes de aplicar el middleware, correr una semana con un middleware que **solo registra** (`Log::info`) qué rutas llegan sin token. Eso da la lista exacta de lo que de verdad es público.
+
+---
+
+### Fase 3 — Reemplazo de autenticación · 4–6 días
+
+**Backend (2–3 días)**
+
+1. `composer require laravel/sanctum`, publicar migración de `personal_access_tokens`.
+2. `config/auth.php`: guard `api` de `jwt` a `sanctum`. Quitar `'hash' => false`.
+3. Nuevo `App\Http\Controllers\Auth\AuthController` con los 5 endpoints de §2.4.
+4. `App\Services\AuthenticatedUserContext`: encapsula la consulta monstruo de `User::fromToken()` (el `switch` de 4 ramas con joins de 40 columnas) y la cachea por `user_id + periodo_id`.
+5. `User::fromToken()` → shim que delega (§2.4). **Los 336 call sites no se tocan.**
+6. Mantener `LoginController::postCredentials` y `postIndex` como alias de los nuevos, devolviendo la **misma forma de respuesta** (`{ el_token, cambia_anio }`), para poder desplegar el back antes que el front.
+7. `composer remove tymon/jwt-auth`, quitar `"minimum-stability": "dev"` del `composer.json`.
+
+**Frontend `myvc_front` (2 días)**
+
+Archivos a tocar (AngularJS 1.8, ya migrado a Vite — el `MIGRATION.md` de ese repo está muy bien hecho):
+
+| Archivo | Cambio |
+|---|---|
+| [`app/scripts/services/AuthService.js`](../../../myvc_front/app/scripts/services/AuthService.js) | `login_credentials` guarda ambos tokens; `logout` llama `POST ::auth/logout` y **espera la respuesta** antes de limpiar (hoy es fire-and-forget y por eso "no funciona"); `login_from_token` → `GET ::auth/me` |
+| Nuevo `app/scripts/services/TokenInterceptor.js` | Interceptor `$http`: en `401`, intenta `POST ::auth/refresh` una sola vez, reencola la request original, y si falla manda a `login`. Hoy no existe nada de esto |
+| [`app/scripts/main/Configuracion.js:14-19`](../../../myvc_front/app/scripts/main/Configuracion.js#L14) | Quitar la config CSRF heredada de Django (`csrftoken` / `X-CSRFToken`) — no la usa nadie en un backend Laravel con Bearer |
+| `app/scripts/login/LogoutCtrl.js` | Que espere la promesa del logout |
+
+**Detalle del bug de logout que describiste**, para que quede escrito:
+
+```js
+// AuthService.js:199 — hoy
+authService.logout = function(){
+  const login = $http.put('::login/logout', {user_id: ...}).then(...);  // ← no se espera
+  Perfil.deleteUser();
+  authService.borrarToken();          // ← borra el token del navegador
+  return $state.transitionTo('login');
+};
+```
+El backend solo escribe `logout_at` en `historiales`. El JWT **sigue siendo válido 24 horas**. Si alguien copió ese token (o quedó en el `localStorage` de un equipo compartido), sigue entrando. Cerrar sesión hoy es cosmético.
+
+**App Flutter / móvil (1 día, verificar)**
+
+`myvc_flutter` existe al lado, y en el back hay `AppMobile/LoginAppController` y `Tardanzas/TLoginController`. Hay que inventariar cómo autentican antes de tocar nada, y desplegar el back con ambos mecanismos activos durante una ventana de transición.
+
+---
+
+### Fase 4 — Salto de framework 8 → 12 · 3–5 días
+
+Un major por commit, con la suite de contrato verde en cada uno.
+
+**Tabla de dependencias (verificado leyendo cada `vendor/*/composer.json`):**
+
+| Paquete | Hoy | Soporta | Acción | Riesgo |
+|---|---|---|---|---|
+| `maatwebsite/excel` | 3.1.64 | `illuminate/support: …^11.0\|^12.0` | **Nada.** Ya soporta L12 | 🟢 nulo |
+| `phpoffice/phpspreadsheet` | 1.29.10 | — | Actualizar a 2.x/3.x **aparte**, no en este plan | 🟢 nulo |
+| `laravel/tinker` | 2.x | hasta `^12.0` | Nada | 🟢 nulo |
+| `intervention/image` | 2.7.2 | solo `php >=5.4` | **Quedarse en v2.** v3 es una reescritura (`Image::make`→`ImageManager::read`, `fit`→`cover`, sin facade) | 🟡 bajo |
+| `hisorange/browser-detect` | 4.5.4 | `php ^8.0` | Subir a v5, o **reemplazar**: solo se usa para llenar `historiales` en el login | 🟡 bajo |
+| `fruitcake/laravel-cors` | 2.2.0 | hasta `^9.0` | **Eliminar.** Laravel 9+ trae `Illuminate\Http\Middleware\HandleCors` nativo | 🟢 trivial |
+| `fideloper/proxy` | 4.4.2 | hasta `^9.0` | **Eliminar.** Reemplazado por `Illuminate\Http\Middleware\TrustProxies` nativo | 🟢 trivial |
+| `facade/ignition` | 2.x | abandonado | → `spatie/laravel-ignition` (o nada; es solo dev) | 🟢 trivial |
+| `tymon/jwt-auth` | **`dev-develop`** | hasta `^9` | **Eliminado en Fase 3** | 🔴 bloqueante |
+| `lesichkovm/laravel-advanced-route` | 1.8 | — | **Eliminado en Fase 1** | 🟢 resuelto |
+| `laravel/sail` | 1.x | — | Decidir junto con Docker (§4) | — |
+| `nunomaduro/collision` | 5.x | — | Subir con el framework | 🟢 trivial |
+
+**Cambios de código previstos (pocos, porque el código apenas usa el framework):**
+
+- `App\User` → `App\Models\User` (Laravel 8 ya lo esperaba ahí; sigue en la raíz). 336 referencias, pero es un `use` — búsqueda y reemplazo.
+- `$this->namespace` en `RouteServiceProvider` desaparece en L9 → resuelto en Fase 1 al usar `Controller::class`.
+- Los facades con alias de raíz (`use Request;`, `use DB;`, `use Image;`, `use File;`, `use Hash;`) siguen funcionando en L12 vía `config/app.php` aliases. **No hay que tocarlos** — pero conviene migrarlos a `Illuminate\Support\Facades\*` con Rector, aparte.
+- `Illuminate\Support\Facades\Input` — verificar; ya no existe. Aparece comentado en `LoginController.php:11`, y hay un uso vivo en `LoginController.php:53` dentro de un `catch` (`Input::all()`) que **explotaría** si ese catch se llegara a ejecutar. Es un bug latente hoy.
+- L11: reestructurado a esqueleto slim (`bootstrap/app.php`) como **commit aparte y opcional**. Laravel 11 y 12 arrancan perfectamente con `app/Http/Kernel.php`. Hazlo solo si quieres el esqueleto moderno; no es requisito.
+
+**Herramienta:** Rector con `LevelSetList::UP_TO_PHP_83` + los sets de Laravel. Correrlo **por carpeta**, revisando cada diff. No de golpe sobre 32k líneas.
+
+---
+
+### Fase 5 — Migraciones al día · 2–3 días
+
+Ya sembrado en la Fase 0. Aquí se cierra:
+
+1. La baseline `database/schema/mysql-schema.sql` es la verdad.
+2. `docs/db/` con las 90 tablas documentadas (generadas, luego revisadas a mano).
+3. Detectar y **documentar** las divergencias entre la BD real y lo que el código asume. Ejemplo del historial reciente de commits: `fix: corregir columna del contador de certificados (years.id, no year_id)` — eso es exactamente el síntoma de no tener el esquema versionado.
+4. Regla de aquí en adelante: **ningún cambio de esquema a mano en phpMyAdmin.** Migración o no existe.
+5. Verificación: `php artisan migrate:fresh --seed` en limpio debe producir una BD sobre la que la suite de contrato pasa.
+
+---
+
+### Fase 6 — Modelos, limpieza y calidad · continuo
+
+**No es un big-bang.** Con 990 queries crudas, reescribirlas todas a Eloquent sería meses de trabajo y meses de bugs nuevos, sin ganancia funcional. Enfoque:
+
+- **Modelos:** completar los que faltan de las 90 tablas, pero solo cuando se toque esa área. Los 47 que hay ya cubren el núcleo.
+- **Queries crudas:** convertir **solo** las que aparezcan en el perfilado como lentas (ver [plan de rendimiento](02-plan-rendimiento.md)). Una query cruda parametrizada no es un bug; es solo verbosa.
+- **Duplicación:** hay candidatos obvios a consolidar —
+  - `BolfinalesController` existe **dos veces** (`app/Http/Controllers/BolfinalesController.php` y `Informes/BolfinalesController.php`)
+  - `Boletines`, `Boletines2`, `Boletines3` (566 + 481 + 479 líneas, casi seguro variantes copiadas)
+  - `ComportamientoController` existe en la raíz y en `Disciplina/`
+  - `ImporterFixer`, modelo `Debugging` (9.553 filas en producción)
+  - `Informes/PuestosAnualesController` — ruta comentada, código vivo
+- **Herramientas:** Pint (formato), Larastan (subir de nivel 0 a 3 gradualmente), Rector.
+- **Validación:** hoy hay **2** validaciones en todo el proyecto. Cada endpoint que se toque estrena su FormRequest. No se hace de golpe.
+
+---
+
+## 4. Sobre kool y Docker
+
+**Respuesta corta: kool no está mal, pero la imagen sí.**
+
+kool 3.4.0 es un envoltorio delgado sobre `docker compose`. `kool run artisan` es literalmente `docker compose exec app php artisan`. Funciona, y tu `kool.yml` es razonable. Su único costo real es una herramienta más que instalar y un proyecto con comunidad pequeña (riesgo de bus-factor, no de corrección).
+
+Lo que **sí** hay que cambiar:
+
+| Cosa | Hoy | Problema |
+|---|---|---|
+| Imagen PHP | `kooldev/php:8.0-nginx` | PHP 8.0 lleva sin soporte de seguridad desde nov 2023 |
+| `version: "3.7"` en `docker-compose.yml` | presente | Obsoleto — Docker ya lo avisa en cada comando |
+| Puerto MySQL | `${KOOL_DATABASE_PORT:-3307}:3307` | El contenedor escucha en 3306, no 3307. El mapeo está mal aunque funcione por el default de la variable |
+
+**Recomendación, por orden de esfuerzo:**
+
+1. **Mínimo (recomendado ahora):** quedarse con kool, cambiar la imagen a PHP 8.3, quitar `version:`, arreglar el puerto. 1 hora. No está en el camino crítico de la migración.
+2. **Estándar hoy:** `laravel/sail` — ya está en tus `require-dev`. Es el docker-compose oficial de Laravel, con `sail up`, `sail artisan`, etc. Es lo que cualquier dev de Laravel espera encontrar.
+3. **Producción moderna:** **FrankenPHP** (`dunglas/frankenphp`) con Laravel Octane. Es la historia oficial de rendimiento de Laravel hoy: un binario, sin nginx+fpm, worker mode. Eso sí — Octane mantiene la app en memoria entre requests, y este código tiene estado estático (`User::$nota_minima_aceptada`, `User::$images`, `User::$intentoLogueoPorActive`) que **se filtraría entre usuarios**. Es una mina antipersona con el código actual. Solo después de la Fase 6.
+
+**Mi recomendación concreta: opción 1 ahora, evaluar Sail en la Fase 4, FrankenPHP/Octane nunca antes de limpiar el estado estático.**
+
+---
+
+## 5. Lo que NO se toca
+
+Explícitamente fuera de alcance, para proteger lo que ya funciona:
+
+| Área | Por qué |
+|---|---|
+| **Excel** (`maatwebsite/excel` 3.1.64) | Ya soporta L12. Los 6 exports y 2 importers no se tocan. Solo se les hacen tests de contrato |
+| **Imágenes** (`intervention/image` v2) | v2 funciona en L12. La v3 es reescritura completa. Migración separada, después |
+| **Vistas Blade de informes** (`observador`, `simat`, `deudores`, `boletines`…) | Blade no cambia entre L8 y L12. Cero riesgo |
+| **Lógica de negocio** (cálculo de notas, definitivas, puestos, PIAR) | Intocable. Es el corazón del sistema y no hay quien lo especifique |
+| **Nombres de métodos de controlador** (`getIndex`, `putGuardarValor`) | Se conservan en las fases 1–4. Renombrar es cosmético y arriesgado sin tests |
+| **Las 990 queries crudas** | Se convierten solo donde el perfilado lo justifique |
+
+---
+
+## 6. Riesgos y mitigación
+
+| Riesgo | Prob. | Impacto | Mitigación |
+|---|---|---|---|
+| Un endpoint público hoy se rompe al ponerle `auth` | **Alta** | Alto | Middleware de solo-registro durante una semana antes de aplicar (Fase 2) |
+| Cambio de auth invalida sesiones vivas | Certeza | Medio | Desplegar en horario de baja carga + aviso. Es de una vez |
+| La app Flutter deja de autenticar | Media | Alto | Inventariar `myvc_flutter` **antes** de la Fase 3; ventana con ambos mecanismos activos |
+| El esquema real difiere de lo que el código asume, y sale en producción | **Alta** | Medio | Fase 0.1 congela el esquema; los tests de contrato corren contra él |
+| Un export de Excel cambia sutilmente (formato de celda, orden de columnas) | Media | Alto | Tests de contrato con hash de contenido normalizado, no de bytes |
+| Rector reescribe algo que rompe lógica de negocio | Media | Alto | Correr por carpeta, revisar cada diff, nunca en bloque |
+| El desfase de migraciones esconde columnas que solo existen en producción | Media | Medio | Dump del esquema **desde producción**, no desde el docker local |
+
+---
+
+## 7. Recomendaciones adicionales
+
+Cosas que no pediste pero que valen mucho más de lo que cuestan:
+
+1. **Un `CLAUDE.md` / `CONTRIBUTING.md`** con las convenciones que salgan de esta migración. El próximo junior necesita saber que las rutas van en `routes/api/`, que el esquema se cambia con migraciones, y que `fromToken` está deprecado.
+2. **Rate limiting real.** Hoy es `Limit::perMinute(60)` global para todo — incluido `/api/login`. 60 intentos de contraseña por minuto es una invitación a fuerza bruta (ver plan de seguridad).
+3. **`QUEUE_CONNECTION=sync`.** Los imports de Excel y los boletines corren en el request HTTP. Un import grande = timeout. Mover a cola `database` es media tarde de trabajo y elimina una clase entera de incidentes.
+4. **Logs estructurados.** `Log::info($token)` en `LoginController.php:121` **escribe el token JWT en el log**. Eso es una credencial en texto plano en disco. Hay que barrer todos los `Log::` antes de producción.
+5. **Sentry o similar.** Con 0 tests y 0 observabilidad, los bugs los reporta el usuario por WhatsApp. Es lo más barato que puedes añadir.
+6. **Borrar `myvc_front_2` y `myvc_dist` del flujo de trabajo** o documentar qué son. Tres copias del frontend al lado es una fuente garantizada de "arreglé el bug y volvió".
+
+---
+
+## 8. Qué hacer mañana
+
+En orden, sin saltarse pasos:
+
+```bash
+# 1. Confirmar el objetivo de framework
+composer show laravel/framework --all | head -3
+
+# 2. Congelar el esquema real (desde PRODUCCIÓN, no desde el docker local)
+mysqldump --no-data --routines --skip-comments <prod> > database/schema/mysql-schema.sql
+
+# 3. Confirmar que el inventario de rutas es reproducible
+php tools/route-inventory.php docs/migracion/rutas-actuales.csv   # → 538, 0 colisiones
+
+# 4. Escribir los 6 tests P0 de login (uno por tipo de usuario)
+#    Ese es el commit que arranca de verdad la migración.
+```
+
+**Lo primero que quiero que leas después de esto:** [01-plan-seguridad.md](01-plan-seguridad.md). Hay dos hallazgos que no pueden esperar a la migración.
