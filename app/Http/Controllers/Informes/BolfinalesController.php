@@ -87,7 +87,15 @@ class BolfinalesController extends Controller {
 				// $contador->id, solo la columna del WHERE estaba mal: el UPDATE lanzaba
 				// "Unknown column 'year_id'" y devolvia 500. Solo se notaba en el
 				// "Certificado periodos", porque es el unico que manda aumentar_contador.
-				DB::update('UPDATE years SET contador_certificados=? WHERE id=?', [$contador->contador_certificados+1, $contador->id]);
+				//
+				// El cast a int no es cosmetico. years.contador_certificados es VARCHAR y en
+				// varios clientes vale '' (cadena vacia), que YearsController copia de un year
+				// al siguiente al crearlo, asi que se propaga desde el primer year. Desde PHP 8
+				// ('' + 1) lanza TypeError: Unsupported operand types, no un warning, de modo
+				// que el endpoint devolvia 500 antes incluso de ejecutar el UPDATE -- el array
+				// de argumentos se evalua primero. (int)'' es 0, asi que el contador arranca
+				// en 1 donde estaba vacio, y (int)'12' sigue siendo 12 donde ya tenia valor.
+				DB::update('UPDATE years SET contador_certificados=? WHERE id=?', [(int)$contador->contador_certificados+1, $contador->id]);
 			}
 		}
 		
