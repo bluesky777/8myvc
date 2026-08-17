@@ -83,7 +83,11 @@ class BolfinalesController extends Controller {
 		if (Request::has('aumentar_contador')) {
 			if (Request::input('aumentar_contador') == true) {
 				$contador = DB::select('SELECT id, contador_certificados FROM years WHERE deleted_at is null and actual=1')[0];
-				DB::update('UPDATE years SET contador_certificados=? WHERE year_id=?', [$contador->contador_certificados+1, $contador->id]);
+				// La tabla years tiene la PK en `id`, no en `year_id`. El parametro ya era
+				// $contador->id, solo la columna del WHERE estaba mal: el UPDATE lanzaba
+				// "Unknown column 'year_id'" y devolvia 500. Solo se notaba en el
+				// "Certificado periodos", porque es el unico que manda aumentar_contador.
+				DB::update('UPDATE years SET contador_certificados=? WHERE id=?', [$contador->contador_certificados+1, $contador->id]);
 			}
 		}
 		
