@@ -103,31 +103,50 @@ class NotaComportamiento extends Model {
 	}
 
 
-	public static function nota_promedio_year($alumno_id, $year_id){
-		
+	// $periodo_a_calcular limita el promedio a los periodos con numero <= ese valor, para
+	// el "Certificado periodos". Si viene null se promedian todos los periodos del year,
+	// que es el comportamiento del "Certificado final".
+	public static function nota_promedio_year($alumno_id, $year_id, $periodo_a_calcular = null){
+
 		$consulta 	= 'SELECT avg(n.nota) as nota_comportamiento_year FROM nota_comportamiento n INNER JOIN periodos p ON p.id=n.periodo_id AND p.deleted_at is null AND p.year_id=:year_id
 			WHERE n.alumno_id=:alumno_id and n.deleted_at is null';
-		$nota 		= DB::select($consulta, [ ':year_id' =>$year_id, ':alumno_id' =>$alumno_id ]);
-		
+		$params 	= [ ':year_id' =>$year_id, ':alumno_id' =>$alumno_id ];
+
+		if ($periodo_a_calcular) {
+			$consulta .= ' AND p.numero <= :periodo_a_calcular';
+			$params[':periodo_a_calcular'] = $periodo_a_calcular;
+		}
+
+		$nota 		= DB::select($consulta, $params);
+
 		if(count($nota) > 0){
 			return (int)$nota[0]->nota_comportamiento_year;
 		}else{
 			return 0;
 		}
 
-		 
+
 	}
 	
 	
-	public static function todas_year($alumno_id, $year_id){
-		
-		$consulta 	= 'SELECT n.nota as nota_comportamiento, n.id, p.numero FROM periodos p 
+	// Ver la nota en nota_promedio_year: $periodo_a_calcular recorta la lista a los
+	// periodos con numero <= ese valor.
+	public static function todas_year($alumno_id, $year_id, $periodo_a_calcular = null){
+
+		$consulta 	= 'SELECT n.nota as nota_comportamiento, n.id, p.numero FROM periodos p
 			LEFT JOIN nota_comportamiento n ON p.id=n.periodo_id AND n.alumno_id=:alumno_id AND p.deleted_at is null
 			WHERE n.deleted_at is null AND p.year_id=:year_id';
-		$notas 		= DB::select($consulta, [ ':alumno_id' =>$alumno_id, ':year_id' =>$year_id ]);
-		
+		$params 	= [ ':alumno_id' =>$alumno_id, ':year_id' =>$year_id ];
+
+		if ($periodo_a_calcular) {
+			$consulta .= ' AND p.numero <= :periodo_a_calcular';
+			$params[':periodo_a_calcular'] = $periodo_a_calcular;
+		}
+
+		$notas 		= DB::select($consulta, $params);
+
 		return $notas;
-		 
+
 	}
 
 }

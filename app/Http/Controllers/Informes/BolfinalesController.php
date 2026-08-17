@@ -395,8 +395,12 @@ class BolfinalesController extends Controller {
 
 
 		// Nota promedio de comportamiento
-		$alumno->nota_comportamiento_year 	= NotaComportamiento::nota_promedio_year($alumno->alumno_id, $year_id);
-		$alumno->notas_comportamiento 		= NotaComportamiento::todas_year($alumno->alumno_id, $year_id);
+		// $per_calcular ya llega a este metodo; pasarlo limita el comportamiento a los
+		// periodos con numero <= el elegido, igual que ya se hacia con year->periodos,
+		// las definitivas y periodos_con_perdidas. Sin esto el "Certificado periodos"
+		// mostraba los 4 periodos y promediaba sobre todo el year.
+		$alumno->nota_comportamiento_year 	= NotaComportamiento::nota_promedio_year($alumno->alumno_id, $year_id, $per_calcular);
+		$alumno->notas_comportamiento 		= NotaComportamiento::todas_year($alumno->alumno_id, $year_id, $per_calcular);
 		
 		$escala = $this->valoracion($alumno->nota_comportamiento_year);
 		if ($escala) {
