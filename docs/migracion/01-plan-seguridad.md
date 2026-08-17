@@ -367,7 +367,9 @@ Y bloqueo progresivo tras N fallos. La tabla `bitacoras` ya registra los intento
 
 `dev-develop` significa "lo que estuviera en la rama `develop` de GitHub el día que corriste `composer update`". No es una versión; es un puntero móvil sin firmar. Si esa cuenta de GitHub se compromete, tu próximo `composer update` instala lo que el atacante quiera. Y `minimum-stability: dev` abre esa puerta para **todas** las dependencias.
 
-**Arreglo:** se resuelve solo en la Fase 3 al eliminar `tymon/jwt-auth`. Quitar también `"minimum-stability": "dev"`. Añadir `composer audit` al CI.
+**Agravante:** `tymon/jwt-auth` está muerto. Su última versión estable no pasa de Laravel 9, y por eso estás clavado en una rama de desarrollo. El fork mantenido, `php-open-source-saver/jwt-auth` **2.9.2** (2026-05-07), sí soporta Laravel 12 y 13 — si por lo que fuera decides no ir a Sanctum, ese fork es la salida mínima y **elimina este hallazgo igual**.
+
+**Arreglo:** se resuelve solo en la Fase 3 al eliminar `tymon/jwt-auth` (→ Sanctum 4.3.3, o el fork). Quitar también `"minimum-stability": "dev"`. Añadir `composer audit` al CI — con `dev-develop` instalado hoy, `composer audit` ni siquiera puede decirte si tienes un CVE.
 
 ---
 

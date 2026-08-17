@@ -251,7 +251,7 @@ Sin esto, "está lento" no es accionable. Con esto, cada endpoint reporta su con
 | 8 | Colapsar el N+1 de permisos | 1 h | 🟠 N-1 consultas | Fase 3 |
 | 9 | Cachear el contexto de usuario | 1 d | 🟠 3 consultas → 0 | Fase 3 |
 | 10 | Redis como caché y sesión | 2 h | 🟠 variable | paso 9 |
-| 11 | PHP 8.0 → 8.3 | incluido en Fase 4 | 🟡 10–20 % | Fase 4 |
+| 11 | PHP 8.0 → **8.4** | incluido en Fase 4 | 🟡 10–20 % | Fase 4 |
 | 12 | Índices según el `EXPLAIN` | variable | 🟡 puntual, potencialmente enorme | paso 3 |
 | 13 | Colas para importadores e informes | 2–3 d | 🟡 elimina timeouts | Fase 6 |
 

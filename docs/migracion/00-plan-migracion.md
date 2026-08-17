@@ -1,6 +1,6 @@
-# Plan de migración — 8myvc (Laravel 8 → actual)
+# Plan de migración — 8myvc (Laravel 8 → Laravel 13)
 
-> Rama: `chore/migracion-laravel-12`
+> Rama: `chore/migracion-laravel-13`
 > Documentos hermanos: [01-plan-seguridad.md](01-plan-seguridad.md) · [02-plan-rendimiento.md](02-plan-rendimiento.md)
 > Evidencia generada: [rutas-actuales.csv](rutas-actuales.csv) (538 rutas) · [`tools/route-inventory.php`](../../tools/route-inventory.php)
 
@@ -24,7 +24,7 @@ La buena noticia: el código casi no usa superficie del framework. 990 llamadas 
 | 1 | Eliminar `AdvancedRoute` (sin tocar el framework) | Rutas cacheables, `route:list` funcional | 1–2 días |
 | 2 | Organizar rutas + middleware `auth` real | Cierra el agujero de roles/permisos | 2–3 días |
 | 3 | Reemplazar `tymon/jwt-auth` (back + front + Flutter) | Desbloquea el salto de framework | 4–6 días |
-| 4 | Salto 8 → 12 (o 13) | El objetivo | 3–5 días |
+| 4 | Salto 8 → 13 (cinco majors) | El objetivo | 4–6 días |
 | 5 | Migraciones al día contra la BD real | Entornos reproducibles | 2–3 días |
 | 6 | Modelos y limpieza (gradual, opcional) | Mantenibilidad | continuo |
 
@@ -75,17 +75,32 @@ Laravel instancia el controlador para leer su middleware. Por eso `route:list` e
 
 ## 2. Decisiones de arquitectura
 
-### 2.1 Framework objetivo: Laravel 12 (verificar si 13 ya es estable)
+### 2.1 Framework objetivo: **Laravel 13 + PHP 8.4**
 
-No tuve red para consultar Packagist, así que lo primero al ejecutar es:
+Verificado contra Packagist y la política de versiones oficial el 2026-08-17:
 
-```bash
-composer show laravel/framework --all | head -3
-```
+| Versión | Publicada | Bug fixes hasta | Seguridad hasta | PHP |
+|---|---|---|---|---|
+| Laravel 8 (**actual**) | 2020-09-08 | — | **terminado en enero 2023** | 7.3–8.1 |
+| Laravel 11 | 2024-03-12 | 2025-09-03 | **terminado 2026-03-12** | 8.2–8.4 |
+| Laravel 12 | 2025-02-24 | **2026-08-13 ← hace 4 días** | 2027-02-24 | 8.2–8.5 |
+| **Laravel 13** | 2026-03-17 | **Q3 2027** | **2028-03-17** | **8.3–8.5** |
 
-- **Recomendación: Laravel 12 + PHP 8.3.** Es el objetivo seguro: todos los paquetes que sobreviven ya lo declaran (`maatwebsite/excel` soporta `^12.0`, `laravel/tinker` también).
-- Si Laravel 13 ya es estable **y** el fork de JWT y `hisorange/browser-detect` lo soportan, apunta directo a 13. No hay razón para quedarse corto — el trabajo es el mismo.
-- **PHP 8.3** sobre 8.4 por conservadurismo: `intervention/image` v2 y `hisorange/browser-detect` v4 no están mantenidos activamente y 8.4 endurece deprecaciones (métodos implícitamente nullable). Subir a 8.4 después, aparte.
+Última estable: **`laravel/framework` v13.25.0** (2026-08-11).
+
+**Laravel 12 dejó de recibir correcciones de bugs el 13 de agosto de 2026** — cuatro días antes de escribir esto. Migrar a 12 sería aterrizar en una versión que ya solo recibe parches de seguridad. **El objetivo es 13.**
+
+**PHP 8.4**, no 8.3. Verificado en endoflife.date:
+
+| PHP | Soporte activo hasta | Seguridad hasta |
+|---|---|---|
+| 8.3 | **terminado 2025-12-31** | 2027-12-31 |
+| **8.4** | **2026-12-31** | **2028-12-31** |
+| 8.5 | 2027-12-31 | 2029-12-31 |
+
+PHP 8.3 ya está en modo solo-seguridad. **8.4** es la versión con soporte activo y la que tienes instalada por Homebrew (8.4.6). PHP 8.5 es opción si quieres estirar el horizonte, pero 8.4 tiene mejor cobertura de paquetes hoy.
+
+**El camino son cinco majors: 8 → 9 → 10 → 11 → 12 → 13.** Suena peor de lo que es: como el código apenas usa superficie del framework, la mayoría de los saltos son solo `composer.json`.
 
 ### 2.2 Estrategia: actualización in-place, un major a la vez
 
@@ -121,11 +136,15 @@ Route::resource('tiposdocumento', TipoDocumentoController::class);
 
 `tymon/jwt-auth` está instalado como **`dev-develop`** (con `minimum-stability: dev` en el `composer.json`) y solo declara soporte hasta Laravel 9. **Es el bloqueante duro del salto de framework.**
 
-| Opción | Pro | Contra |
-|---|---|---|
-| `php-open-source-saver/jwt-auth` (fork mantenido) | Cambio mínimo, sigue siendo JWT stateless | Sigue sin logout real sin blacklist en caché; arrastra el diseño actual |
-| **Laravel Sanctum, tokens personales** | First-party, **logout real** (`$token->delete()`), `expires_at` nativo, un solo `SELECT` indexado por request | Invalida las sesiones vivas una vez (todos re-loguean) |
-| Sanctum SPA con cookie httpOnly | Lo más seguro (inmune a robo por XSS) | La app Flutter (`myvc_flutter`) y la app móvil no encajan bien con cookies |
+| Opción | Versión verificada | Pro | Contra |
+|---|---|---|---|
+| `php-open-source-saver/jwt-auth` (fork mantenido) | **2.9.2** (2026-05-07), soporta `illuminate ^12\|^13` | Cambio mínimo — es un reemplazo casi directo de `tymon`. Sigue siendo JWT stateless (0 consultas para validar) | El logout real exige blacklist en caché (Redis). Arrastra el diseño actual. Refresh manual |
+| **Laravel Sanctum, tokens personales** | **4.3.3** (2026-06-23), soporta `illuminate ^11\|^12\|^13` | First-party, **logout real** (`$token->delete()`), `expires_at` nativo, un solo `SELECT` indexado por request | Invalida las sesiones vivas una vez (todos re-loguean) |
+| Sanctum SPA con cookie httpOnly | idem | Lo más seguro (inmune a robo por XSS) | La app Flutter (`myvc_flutter`) y la app móvil no encajan bien con cookies |
+
+> El fork de JWT **sí** es una opción viable hoy (no lo era con `tymon`, que se quedó en Laravel 9). Si el objetivo fuera solo desbloquear el salto de framework con el mínimo cambio posible, sería la respuesta correcta: `composer remove tymon/jwt-auth && composer require php-open-source-saver/jwt-auth` y poco más.
+>
+> Elijo Sanctum igual porque **pediste dos cosas que el fork no te da de regalo**: logout que de verdad invalide el token, y refresh. Con el fork tendrías que construir la blacklist y la rotación a mano. Con Sanctum vienen puestas.
 
 **Elegida: Sanctum con tokens Bearer**, un solo mecanismo para web, móvil y `Tardanzas`. Resuelve exactamente lo que pediste:
 
@@ -339,36 +358,75 @@ El backend solo escribe `logout_at` en `historiales`. El JWT **sigue siendo vál
 
 ---
 
-### Fase 4 — Salto de framework 8 → 12 · 3–5 días
+### Fase 4 — Salto de framework 8 → 13 · 4–6 días
 
-Un major por commit, con la suite de contrato verde en cada uno.
+Un major por commit (8→9→10→11→12→13), con la suite de contrato verde en cada uno.
 
-**Tabla de dependencias (verificado leyendo cada `vendor/*/composer.json`):**
+**Tabla de dependencias — versiones y restricciones consultadas en Packagist el 2026-08-17:**
 
-| Paquete | Hoy | Soporta | Acción | Riesgo |
-|---|---|---|---|---|
-| `maatwebsite/excel` | 3.1.64 | `illuminate/support: …^11.0\|^12.0` | **Nada.** Ya soporta L12 | 🟢 nulo |
-| `phpoffice/phpspreadsheet` | 1.29.10 | — | Actualizar a 2.x/3.x **aparte**, no en este plan | 🟢 nulo |
-| `laravel/tinker` | 2.x | hasta `^12.0` | Nada | 🟢 nulo |
-| `intervention/image` | 2.7.2 | solo `php >=5.4` | **Quedarse en v2.** v3 es una reescritura (`Image::make`→`ImageManager::read`, `fit`→`cover`, sin facade) | 🟡 bajo |
-| `hisorange/browser-detect` | 4.5.4 | `php ^8.0` | Subir a v5, o **reemplazar**: solo se usa para llenar `historiales` en el login | 🟡 bajo |
-| `fruitcake/laravel-cors` | 2.2.0 | hasta `^9.0` | **Eliminar.** Laravel 9+ trae `Illuminate\Http\Middleware\HandleCors` nativo | 🟢 trivial |
-| `fideloper/proxy` | 4.4.2 | hasta `^9.0` | **Eliminar.** Reemplazado por `Illuminate\Http\Middleware\TrustProxies` nativo | 🟢 trivial |
-| `facade/ignition` | 2.x | abandonado | → `spatie/laravel-ignition` (o nada; es solo dev) | 🟢 trivial |
-| `tymon/jwt-auth` | **`dev-develop`** | hasta `^9` | **Eliminado en Fase 3** | 🔴 bloqueante |
-| `lesichkovm/laravel-advanced-route` | 1.8 | — | **Eliminado en Fase 1** | 🟢 resuelto |
-| `laravel/sail` | 1.x | — | Decidir junto con Docker (§4) | — |
-| `nunomaduro/collision` | 5.x | — | Subir con el framework | 🟢 trivial |
+| Paquete | Hoy | Última estable | ¿Soporta L13? | Acción | Riesgo |
+|---|---|---|---|---|---|
+| `maatwebsite/excel` | 3.1.64 | 3.1.70 · **4.0.0** (2026-08-13) | ✅ **3.1.70 declara `^13.0`** | **Subir dentro de 3.1.x.** Nada más | 🟢 nulo |
+| `phpoffice/phpspreadsheet` | 1.29.10 | 5.9.0 | (indirecta) | **Dejarla en 1.30.x.** Excel 3.1.70 la pinea ahí | 🟢 nulo |
+| `laravel/tinker` | 2.x | 3.0.2 | ✅ `^13.0` | Subir | 🟢 trivial |
+| `intervention/image` | 2.7.2 (**2022**) | 4.2.1 + `intervention/image-laravel` 4.1.1 | ⚠️ v2 instala, pero lleva 4 años sin release | **Migrar a v4.** Solo hay 3 `Image::make()` | 🟡 bajo |
+| `hisorange/browser-detect` | 4.5.4 | 5.0.3 (**2024-02**) | ✅ solo pide `php ^8.1` | Subir a v5, o **eliminarlo** (solo llena `historiales`) | 🟡 bajo |
+| `fruitcake/laravel-cors` | 2.2.0 | — | ❌ hasta `^9` | **Eliminar.** L9+ trae `Illuminate\Http\Middleware\HandleCors` | 🟢 trivial |
+| `fideloper/proxy` | 4.4.2 | — | ❌ hasta `^9` | **Eliminar.** Reemplazado por `TrustProxies` nativo | 🟢 trivial |
+| `facade/ignition` | 2.x | abandonado | ❌ | → `spatie/laravel-ignition` 2.12.0 (`^13`) | 🟢 trivial |
+| `tymon/jwt-auth` | **`dev-develop`** | — | ❌ hasta `^9` | **Eliminado en Fase 3** → Sanctum 4.3.3 | 🔴 bloqueante |
+| `lesichkovm/laravel-advanced-route` | 1.8 | — | — | **Eliminado en Fase 1** | 🟢 resuelto |
+| `nunomaduro/collision` | 5.x | 8.9.5 | ✅ | Subir con el framework | 🟢 trivial |
+| `laravel/sail` | 1.x | 1.66.0 | ✅ `^13.0` | Decidir junto con Docker (§4) | — |
+| `larastan/larastan` | — | 3.10.0 | ✅ `^13` | Añadir en Fase 0 | 🟢 nuevo |
+| `kitloong/laravel-migrations-generator` | — | 7.4.0 | ✅ `^13.0` | Añadir en Fase 0 | 🟢 nuevo |
+
+**Tres hallazgos que cambian el plan respecto al primer borrador:**
+
+**Excel es un no-problema, confirmado.** `maatwebsite/excel` **3.1.70** (publicada el 2026-08-13) declara `illuminate/support: …^12.0||^13.0`. Basta con subir dentro de la 3.1.x. Existe una **4.0.0** publicada el mismo día, pero exige `phpspreadsheet ^5.8` — es decir, arrastra el salto de PhpSpreadsheet 1.x → 5.x, cuatro majors de cambios en el formato de celdas y estilos. **No la toques en esta migración.** Los 6 exports y 2 importers se quedan como están.
+
+**Intervention Image sí entra al alcance, y es más fácil de lo que parecía.** Lo probé de verdad, con PHP 8.4.6:
+
+```
+$ php8.4 -r 'require "vendor/autoload.php"; $m = new Intervention\Image\ImageManager(["driver"=>"gd"]);
+             $img = $m->canvas(400,300,"#336699"); $img->fit(200); $img->encode("png"); ...'
+
+intervention/image v2 en PHP 8.4: FUNCIONA -> 200x200, 615 bytes
+```
+
+**v2.7.2 funciona en PHP 8.4** — pero escupe **16 avisos de deprecación** (parámetros implícitamente nullable). Son E_DEPRECATED, silenciables, pero inundarían los logs. Y la versión es de **mayo de 2022**: cuatro años sin mantenimiento.
+
+La buena noticia es la superficie real de uso — **3 llamadas a `Image::make()` en total**:
+
+| Archivo | Línea | Uso |
+|---|---|---|
+| [`Perfiles/ImagesController.php`](../../app/Http/Controllers/Perfiles/ImagesController.php#L121) | 121–126 | `Image::make(...)->orientate()`, `->fit(200)`, `->save()` |
+| [`Perfiles/ImagesUsuariosController.php`](../../app/Http/Controllers/Perfiles/ImagesUsuariosController.php#L48) | 48 | `Image::make(...)->rotate(-90)` |
+| [`Perfiles/ImagesUsuariosController.php`](../../app/Http/Controllers/Perfiles/ImagesUsuariosController.php#L64) | 64–68 | `Image::make(...)`, `->rotate(90)`, `->save()` |
+
+Con `intervention/image` **4.2.1** + el puente oficial **`intervention/image-laravel` 4.1.1** (que restituye la facade `Image`), la traducción es:
+
+| v2 | v4 |
+|---|---|
+| `Image::make($ruta)` | `Image::read($ruta)` |
+| `->orientate()` | automático al leer (o `->orient()`) |
+| `->fit(200)` | `->cover(200, 200)` |
+| `->rotate(-90)` | `->rotate(-90)` (igual) |
+| `->save()` | `->save()` (igual) |
+
+**Es una hora de trabajo, no un proyecto.** Hazlo dentro de la Fase 4 y quítate de encima una dependencia muerta.
+
+**`hisorange/browser-detect` instala, pero está estancado.** La 5.0.3 es de **febrero de 2024** y solo pide `php ^8.1`, sin restricción de `illuminate` — así que entra en L13 sin quejarse. Pero arrastra 5 dependencias de parseo de user-agent para llenar 8 columnas de la tabla `historiales` en el login. Yo lo **eliminaría** y usaría `matomo/device-detector` directamente (que ya es dependencia suya) o simplemente guardaría el user-agent crudo. Decisión tuya; no bloquea nada.
 
 **Cambios de código previstos (pocos, porque el código apenas usa el framework):**
 
 - `App\User` → `App\Models\User` (Laravel 8 ya lo esperaba ahí; sigue en la raíz). 336 referencias, pero es un `use` — búsqueda y reemplazo.
 - `$this->namespace` en `RouteServiceProvider` desaparece en L9 → resuelto en Fase 1 al usar `Controller::class`.
-- Los facades con alias de raíz (`use Request;`, `use DB;`, `use Image;`, `use File;`, `use Hash;`) siguen funcionando en L12 vía `config/app.php` aliases. **No hay que tocarlos** — pero conviene migrarlos a `Illuminate\Support\Facades\*` con Rector, aparte.
+- Los facades con alias de raíz (`use Request;`, `use DB;`, `use Image;`, `use File;`, `use Hash;`) siguen funcionando en L13 vía `config/app.php` aliases. **No hay que tocarlos** — pero conviene migrarlos a `Illuminate\Support\Facades\*` con Rector, aparte.
 - `Illuminate\Support\Facades\Input` — verificar; ya no existe. Aparece comentado en `LoginController.php:11`, y hay un uso vivo en `LoginController.php:53` dentro de un `catch` (`Input::all()`) que **explotaría** si ese catch se llegara a ejecutar. Es un bug latente hoy.
 - L11: reestructurado a esqueleto slim (`bootstrap/app.php`) como **commit aparte y opcional**. Laravel 11 y 12 arrancan perfectamente con `app/Http/Kernel.php`. Hazlo solo si quieres el esqueleto moderno; no es requisito.
 
-**Herramienta:** Rector con `LevelSetList::UP_TO_PHP_83` + los sets de Laravel. Correrlo **por carpeta**, revisando cada diff. No de golpe sobre 32k líneas.
+**Herramienta:** Rector con `LevelSetList::UP_TO_PHP_84` + los sets de Laravel. Correrlo **por carpeta**, revisando cada diff. No de golpe sobre 32k líneas.
 
 ---
 
@@ -417,7 +475,7 @@ Lo que **sí** hay que cambiar:
 
 **Recomendación, por orden de esfuerzo:**
 
-1. **Mínimo (recomendado ahora):** quedarse con kool, cambiar la imagen a PHP 8.3, quitar `version:`, arreglar el puerto. 1 hora. No está en el camino crítico de la migración.
+1. **Mínimo (recomendado ahora):** quedarse con kool, cambiar la imagen a PHP 8.4, quitar `version:`, arreglar el puerto. 1 hora. No está en el camino crítico de la migración.
 2. **Estándar hoy:** `laravel/sail` — ya está en tus `require-dev`. Es el docker-compose oficial de Laravel, con `sail up`, `sail artisan`, etc. Es lo que cualquier dev de Laravel espera encontrar.
 3. **Producción moderna:** **FrankenPHP** (`dunglas/frankenphp`) con Laravel Octane. Es la historia oficial de rendimiento de Laravel hoy: un binario, sin nginx+fpm, worker mode. Eso sí — Octane mantiene la app en memoria entre requests, y este código tiene estado estático (`User::$nota_minima_aceptada`, `User::$images`, `User::$intentoLogueoPorActive`) que **se filtraría entre usuarios**. Es una mina antipersona con el código actual. Solo después de la Fase 6.
 
@@ -431,9 +489,9 @@ Explícitamente fuera de alcance, para proteger lo que ya funciona:
 
 | Área | Por qué |
 |---|---|
-| **Excel** (`maatwebsite/excel` 3.1.64) | Ya soporta L12. Los 6 exports y 2 importers no se tocan. Solo se les hacen tests de contrato |
-| **Imágenes** (`intervention/image` v2) | v2 funciona en L12. La v3 es reescritura completa. Migración separada, después |
-| **Vistas Blade de informes** (`observador`, `simat`, `deudores`, `boletines`…) | Blade no cambia entre L8 y L12. Cero riesgo |
+| **Excel** (`maatwebsite/excel` → 3.1.70) | Verificado: 3.1.70 declara `^13.0`. Los 6 exports y 2 importers no se tocan. **No subir a 4.0** (arrastra PhpSpreadsheet 1.x→5.x) |
+| ~~**Imágenes** (`intervention/image` v2)~~ | **Corregido: sí entra al alcance.** Son solo 3 `Image::make()`; v2 es de 2022 y deprecada en PHP 8.4. Ver Fase 4 |
+| **Vistas Blade de informes** (`observador`, `simat`, `deudores`, `boletines`…) | Blade no cambia de forma incompatible entre L8 y L13. Riesgo mínimo |
 | **Lógica de negocio** (cálculo de notas, definitivas, puestos, PIAR) | Intocable. Es el corazón del sistema y no hay quien lo especifique |
 | **Nombres de métodos de controlador** (`getIndex`, `putGuardarValor`) | Se conservan en las fases 1–4. Renombrar es cosmético y arriesgado sin tests |
 | **Las 990 queries crudas** | Se convierten solo donde el perfilado lo justifique |
@@ -472,8 +530,8 @@ Cosas que no pediste pero que valen mucho más de lo que cuestan:
 En orden, sin saltarse pasos:
 
 ```bash
-# 1. Confirmar el objetivo de framework
-composer show laravel/framework --all | head -3
+# 1. El objetivo ya está confirmado: Laravel 13.25.0 + PHP 8.4
+#    (Laravel 12 salió de soporte de bugs el 2026-08-13)
 
 # 2. Congelar el esquema real (desde PRODUCCIÓN, no desde el docker local)
 mysqldump --no-data --routines --skip-comments <prod> > database/schema/mysql-schema.sql
