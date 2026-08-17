@@ -282,7 +282,6 @@ class ImportarController extends Controller {
 				$data[$index] = new AlumnosImport();
 			}
 
-			return dd($Import);
 			return 'Importados.';
 		}
 		return "No se encontró archivo.";
