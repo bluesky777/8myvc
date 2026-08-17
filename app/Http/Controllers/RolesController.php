@@ -10,15 +10,40 @@ use App\Models\Permission;
 
 class RolesController extends Controller {
 
+	/**
+	 * Estas rutas no tenían ninguna verificación: cualquiera sin token podía
+	 * llamar a addroletouser y asignarse el rol que quisiera. Se exige token
+	 * para leer y, además, el permiso can_edit_usuarios para escribir, que es
+	 * el mismo que el frontend usa para dar acceso a la pantalla de usuarios.
+	 */
+	private function exigirAdminUsuarios()
+	{
+		$user = User::fromToken();
+
+		if ($user->is_superuser) {
+			return $user;
+		}
+
+		if (!is_array($user->perms) || !in_array('can_edit_usuarios', $user->perms)) {
+			abort(403, 'No tienes permiso para administrar roles.');
+		}
+
+		return $user;
+	}
+
 
 	public function getIndex()
 	{
+		User::fromToken();
+
 		$roles = Role::allConPermisos();
 		return $roles;
 
 	}
 	public function getRolesconpermisos()
 	{
+		User::fromToken();
+
 		$roles = Role::allConPermisos();
 		return $roles;
 
@@ -26,6 +51,8 @@ class RolesController extends Controller {
 
 	public function putAddpermission($id)
 	{
+		$this->exigirAdminUsuarios();
+
 		$rol = Role::find($id);
 		$per = Permission::find(Request::input('permission_id'));
 
@@ -37,6 +64,8 @@ class RolesController extends Controller {
 
 	public function putAddroletouser($role_id)
 	{
+		$this->exigirAdminUsuarios();
+
 		$rol = Role::find($role_id);
 		$user = User::find(Request::input('user_id'));
 
@@ -66,6 +95,7 @@ class RolesController extends Controller {
 
 	public function putRemoveroletouser($role_id)
 	{
+		$this->exigirAdminUsuarios();
 
 		$rol = Role::find($role_id);
 		$user = User::find(Request::input('user_id'));
@@ -88,6 +118,12 @@ class RolesController extends Controller {
 
 	public function putRemovepermission($id)
 	{
+		$this->exigirAdminUsuarios();
+
+		// OJO: esta línea está rota desde antes de este cambio. La facade Input
+		// no existe desde Laravel 6, así que aquí revienta con "class not found".
+		// El botón "quitar permiso" de la pantalla de roles no funciona hoy.
+		// No lo arreglo aquí para no mezclar un cambio funcional con el de seguridad.
 		//$rol = Role::find($id)->permissions()->detach(Input::get('permission_id'));
 		$res = DB::delete('delete from permission_role where permission_id = ? AND role_id = ? ', array(Input::get('permission_id'), $id));
 		return $res;

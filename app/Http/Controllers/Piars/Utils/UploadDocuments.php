@@ -4,6 +4,7 @@ use Request;
 use DB;
 use File;
 use App\Models\ImageModel;
+use App\Support\SafeUpload;
 
 class UploadDocuments {
   public static function save_document($user)
@@ -12,21 +13,15 @@ class UploadDocuments {
 		$folder = 'uploads/'.$folderName;
 
 		if (!File::exists($folder)) {
-			File::makeDirectory($folder, $mode = 0777, true, true);
+			File::makeDirectory($folder, $mode = 0755, true, true);
 		}
 
 		$file = Request::file("file");
 
-		$fileNameSplitted = explode(".", $file->getClientOriginalName());
-		$fullFileName = $file->getClientOriginalName();
+		// Valida la extensión contra la lista blanca y resuelve colisiones
+		// (foto.pdf, foto(1).pdf, foto(2).pdf…) igual que antes.
+		$fullFileName = SafeUpload::nombreDisponible($file, $folder, SafeUpload::EXTENSIONES_DOCUMENTO);
 
-		//mientras el nombre exista iteramos y aumentamos i
-		$i = 0;
-		while(file_exists($folder.'/'. $fullFileName)){
-			$i++;
-			$fullFileName = $fileNameSplitted[0]."(".$i.")".".".$fileNameSplitted[1];              
-		}
-		//guardamos la imagen con otro nombre ej foto(1).jpg || foto(2).jpg etc
 		$file->move($folder, $fullFileName);
 
 		$fullPath 		= $folderName. '/'.$fullFileName;

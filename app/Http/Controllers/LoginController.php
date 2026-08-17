@@ -118,7 +118,6 @@ class LoginController extends Controller {
 				return response()->json(['error' => 'invalid_credentials'], 400);
 			}
 			//$newToken = auth()->refresh();
-			Log::info($token);
 			//$token = $newToken;
 		} catch (JWTException $e) {
 			return response()->json(['error' => 'could_not_create_token'], 500);
@@ -331,28 +330,38 @@ class LoginController extends Controller {
 		$hora 			= Carbon::now('America/Bogota')->subHour(); 
 
 		$numero 		= $request->input('numero');
-		$pass1 			= Hash::make($request->input('password1'));
 		$username 		= $request->input('username');
+
+		// El front ya valida la longitud, pero eso es una comodidad, no una defensa:
+		// a este endpoint se puede llamar directamente.
+		if (strlen((string) $request->input('password1')) < 4) {
+			abort(400, 'La contraseña debe tener al menos 4 caracteres.');
+		}
+
+		$pass1 			= Hash::make($request->input('password1'));
 	
 
 
-		$consulta 	= 'SELECT * FROM password_reminders WHERE token=? and created_at > ?';
+		$consulta 	= 'SELECT email FROM password_reminders WHERE token=? and created_at > ?';
 		$reminder 	= DB::select($consulta, [ $numero, $hora ]);
 
-		if (count($reminder) > 0) {
-			$reminder = $reminder[0];
-
-			$consulta 	= 'UPDATE users SET password=? WHERE username = ?';
-			DB::update($consulta, [ $pass1, $username ]);
-
-
-			$consulta 	= 'DELETE FROM password_reminders WHERE token=?';
-			DB::delete($consulta, [ $numero ]);
-
-
-		} else {
+		if (count($reminder) == 0) {
 			return 'Token inválido';
 		}
+
+		// El token manda: la contraseña solo puede cambiarse en la cuenta cuyo correo
+		// recibió el enlace. Antes se confiaba en el username que enviaba el cliente,
+		// así que un token pedido para el correo propio servía para tomar cualquier
+		// cuenta, superusuarios incluidos.
+		$consulta 	= 'UPDATE users SET password=? WHERE username=? and email=? and deleted_at is null';
+		$cambiados 	= DB::update($consulta, [ $pass1, $username, $reminder[0]->email ]);
+
+		if ($cambiados === 0) {
+			return 'Token inválido';
+		}
+
+		$consulta 	= 'DELETE FROM password_reminders WHERE token=?';
+		DB::delete($consulta, [ $numero ]);
 		
 
 
