@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        # La misma versión y el mismo sql_mode que el docker de desarrollo. El
+        # código legacy tiene consultas que un sql_mode estricto rechaza
+        # (GROUP BY incompletos, sobre todo), así que si el CI fuera estricto
+        # fallaría por algo que en producción funciona.
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: rootpass
+          MYSQL_DATABASE: simonbolivar_testing
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -prootpass"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Preparar PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          # 8.0 es lo que corre en producción (verificado en el servidor:
+          # PHP 8.0.30 bajo LiteSpeed). El CI prueba lo que se despliega, no
+          # lo que nos gustaría desplegar. Sube a 8.4 con la Fase 4.
+          php-version: '8.0'
+          extensions: mbstring, pdo_mysql, zip, gd, bcmath, sodium
+          coverage: none
+
+      - name: Cache de composer
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('composer.lock') }}
+
+      - name: Instalar dependencias
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Preparar entorno
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          # Sin esto el login devuelve 500 con 'Secret is not set'. No basta
+          # con APP_KEY: tymon/jwt-auth firma con su propia clave.
+          php artisan jwt:secret --force
+
+      # Barato y atrapa el error más tonto de todos: un fichero que no compila.
+      - name: Comprobar sintaxis
+        run: |
+          find app routes config database tests tools -name '*.php' -print0 \
+            | xargs -0 -n1 -P4 php -l > /dev/null
+
+      - name: Configurar sql_mode
+        run: |
+          mysql -h 127.0.0.1 -uroot -prootpass \
+            -e "SET GLOBAL sql_mode=''; SET GLOBAL innodb_strict_mode=OFF;"
+
+      - name: Construir la base de tests
+        env:
+          # Vacío: aquí se habla con MySQL directamente, sin docker exec de por medio.
+          MYSQL_EXEC: ''
+          DB_TEST_HOST: 127.0.0.1
+          DB_TEST_PORT: 3306
+          DB_USERNAME: root
+          DB_PASSWORD: rootpass
+          DB_TEST_DATABASE: simonbolivar_testing
+        run: tools/construir-bd-test.sh
+
+      - name: Tests
+        env:
+          DB_TEST_HOST: 127.0.0.1
+          DB_TEST_PORT: 3306
+          DB_TEST_USERNAME: root
+          DB_TEST_PASSWORD: rootpass
+          DB_TEST_DATABASE: simonbolivar_testing
+        run: php artisan test
+
+      # La semilla se regenera desde la base real, no desde el repo, así que en
+      # CI no se puede regenerar. Lo que sí se comprueba es que carga y que las
+      # claves foráneas cierran — eso lo hace el paso anterior al construir.
+      - name: Comprobar que el esquema congelado reconstruye la base
+        env:
+          MYSQL_PWD: rootpass
+        run: |
+          mysql -h 127.0.0.1 -uroot -e "DROP DATABASE IF EXISTS baseline_check; CREATE DATABASE baseline_check;"
+          mysql -h 127.0.0.1 -uroot baseline_check < database/schema/mysql-schema.sql
+          tablas=$(mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='baseline_check';")
+          echo "Tablas reconstruidas: $tablas"
+          [ "$tablas" -eq 90 ] || { echo "Se esperaban 90 tablas, hay $tablas"; exit 1; }

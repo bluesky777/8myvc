@@ -220,6 +220,14 @@ Route::middleware(['auth:sanctum', 'user.context'])->group(function () {
 
 Nada de lo demás se toca antes de esto. Es lo que convierte "espero que no se rompa" en "sé que no se rompió".
 
+> **Estado (18 ago 2026).** Hecho: 0.1 baseline del esquema, 0.3 entorno
+> reproducible, 0.4 CI, y de 0.2 los tests P0 de login (los 6) más el contrato
+> de enrutado. Pendiente de 0.2: notas (~15), Excel (7), imágenes (6), y las
+> prioridades P1 y P2. Cómo se usa todo esto: [03-tests.md](03-tests.md).
+>
+> La Fase 1 se hizo antes que esta, saltándose el orden del plan. Las rutas
+> quedaron cubiertas a posteriori por el test de enrutado.
+
 **0.1 Baseline del esquema real de la BD**
 
 La BD viva es la única fuente de verdad. Congélala en el repo:
@@ -526,6 +534,10 @@ Cosas que no pediste pero que valen mucho más de lo que cuestan:
 ---
 
 ## 8. Qué hacer mañana
+
+> **Desactualizado.** Los cuatro puntos de abajo están hechos, salvo ampliar los
+> tests de contrato más allá del login. El estado real está en la nota de la
+> Fase 0.
 
 En orden, sin saltarse pasos:
 
