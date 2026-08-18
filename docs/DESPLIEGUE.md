@@ -18,17 +18,61 @@ Hay **dos alojamientos compartidos con cPanel**. A cada colegio o cliente se le 
 
 Y **su propia base de datos**, separada de la de los demás.
 
-No hay código compartido entre colegios: **cada uno tiene su propia copia real de
-`app/`**, no un symlink a un proyecto común. Circulaba la creencia contraria (un
-proyecto llamado `coal` compartido vía symlink) y es **falsa**.
+### Qué está copiado y qué está compartido por symlink
 
-> **La consecuencia que más se olvida: un arreglo fusionado NO está desplegado.**
-> Llega a cada colegio por su propio despliegue. Un agujero cerrado en `main` sigue
-> abierto en todos los colegios que aún no han recibido el código. "Arreglado" y
-> "desplegado en el colegio X" son cosas distintas.
+**Aquí no basta con "cada colegio tiene lo suyo": hay una parte compartida y una
+copiada, y se comportan al revés.** Confirmado por Joseth el 18 ago 2026.
 
-Por lo mismo, cualquier cambio de configuración —`MAIL_*`, `CORS_ALLOWED_ORIGINS`,
-`FRONTEND_URL`— hay que hacerlo **en el `.env` de cada colegio**, uno por uno.
+| | Cómo está | Un cambio llega a… |
+|---|---|---|
+| `app/`, `routes/`, `config/`, `.env` | **Copia real en cada colegio** | …solo al colegio donde se despliega |
+| `vendor/` | **Una sola carpeta real**; los demás colegios la apuntan con **symlink** | …**todos los colegios a la vez** |
+
+Lo que era falso era la creencia de que `app/` también se compartía por symlink
+—un proyecto llamado `coal` común a todos—. `app/` es copia real. `vendor/` no.
+
+> **Consecuencia 1, la que más se olvida: un arreglo fusionado NO está
+> desplegado.** Llega a cada colegio por su propio despliegue. Un agujero cerrado
+> en `main` sigue abierto en todos los colegios que aún no han recibido el código.
+> "Arreglado" y "desplegado en el colegio X" son cosas distintas.
+
+> **Consecuencia 2, la contraria y menos evidente: un `composer` cambia todos los
+> colegios de golpe.** No hay despliegue gradual posible para las dependencias.
+> El que corra `composer install` o `composer update` sobre la carpeta real está
+> tocando la producción de todos los colegios en ese instante, incluidos los que
+> siguen con código de `app/` de hace meses.
+
+**Las dos juntas son el riesgo real:** `vendor/` avanza para todos a la vez
+mientras `app/` avanza colegio a colegio, así que existe siempre la combinación
+"dependencias nuevas + código viejo". Cualquier cambio de dependencia tiene que
+ser compatible con **el `app/` más antiguo que haya desplegado en algún colegio**,
+y nadie lleva ese inventario.
+
+Por lo mismo que `app/` es copia, cualquier cambio de configuración —`MAIL_*`,
+`CORS_ALLOWED_ORIGINS`, `FRONTEND_URL`— hay que hacerlo **en el `.env` de cada
+colegio**, uno por uno.
+
+#### Lo que hay que confirmar antes de la Fase 4
+
+Esto no es un detalle de despliegue: **decide cómo se puede hacer el salto de
+Laravel 8 a 13.** Con `vendor/` compartido, subir el framework lo sube para todos
+los colegios en el mismo instante, mientras que el `app/` adaptado llega colegio
+a colegio. Eso no se puede escalonar: o se rompen los colegios que aún no tienen
+el código nuevo, o hay que desplegar los 3 a la vez y sin marcha atrás por
+colegio.
+
+La salida limpia es **dejar de compartir `vendor/` antes de la Fase 4**: darle a
+cada colegio su propia carpeta real, y con eso el salto de framework se despliega
+como todo lo demás, uno por uno y con vuelta atrás por colegio.
+
+Falta comprobar en el servidor, y conviene hacerlo antes de planificar la Fase 4:
+
+- Si hay **algo más** compartido por symlink además de `vendor/` (`storage/`,
+  `public/`, `bootstrap/cache/`). `bootstrap/cache/` importa especialmente ahora:
+  ahí es donde caen `route:cache` y `config:cache`, y si estuviera compartida
+  un colegio serviría las rutas de otro.
+- **En cuál de los dos alojamientos** está la carpeta real, y qué colegios
+  cuelgan de ella. Son dos hosts, así que como mínimo hay dos vendor reales.
 
 ### Tres clientes, no uno
 

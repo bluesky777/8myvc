@@ -398,6 +398,27 @@ El backend solo escribe `logout_at` en `historiales`. El JWT **sigue siendo vál
 
 Un major por commit (8→9→10→11→12→13), con la suite de contrato verde en cada uno.
 
+> **⚠️ Bloqueante de despliegue, no de código: `vendor/` está compartido entre
+> colegios por symlink.** Hay una carpeta real y los demás colegios la apuntan
+> (Joseth, 18 ago 2026; ver [`docs/DESPLIEGUE.md`](../DESPLIEGUE.md)). `app/` sí
+> es copia real en cada uno.
+>
+> O sea que **subir el framework lo sube para todos los colegios en el mismo
+> instante**, mientras que el `app/` adaptado llega colegio a colegio. Esta fase
+> no se puede escalonar como las demás: o se rompen los colegios que aún no
+> tienen el código nuevo, o hay que desplegar todos a la vez y sin marcha atrás
+> por colegio.
+>
+> **Antes de empezar la Fase 4 hay que dejar de compartir `vendor/`**: una
+> carpeta real por colegio. Con eso el salto se despliega como todo lo demás —
+> uno por uno, y se puede volver atrás en el que falle. Sin eso, esta fase es un
+> big-bang de los tres clientes a la vez, que es justo lo que el plan evita en
+> todas las demás.
+>
+> Falta confirmar si hay algo más compartido (`storage/`, `bootstrap/cache/`).
+> `bootstrap/cache/` importa desde la Fase 2: es donde caen `route:cache` y
+> `config:cache`, y compartida serviría las rutas de un colegio en otro.
+
 **Tabla de dependencias — versiones y restricciones consultadas en Packagist el 2026-08-17:**
 
 | Paquete | Hoy | Última estable | ¿Soporta L13? | Acción | Riesgo |

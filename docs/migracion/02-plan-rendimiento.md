@@ -129,7 +129,13 @@ Symfony\Component\HttpKernel\Exception\HttpException: No existe Token
 
 Laravel instancia el controlador para leer su middleware; el constructor llama a `User::fromToken()`; sin token hace `abort(401)`. **El diseño de autenticar en el constructor bloquea las dos optimizaciones más baratas del framework.**
 
-**Arreglo:** hecho. Falta el despliegue:
+**Arreglo:** hecho. Falta el despliegue, y antes hay que comprobar una cosa:
+`bootstrap/cache/` es donde caen las dos cachés, y en producción **hay carpetas
+compartidas entre colegios por symlink** —`vendor/` seguro, el resto sin
+confirmar—. Si `bootstrap/cache/` estuviera compartida, un colegio serviría las
+rutas de otro sin ningún síntoma. Ver [`docs/DESPLIEGUE.md`](../DESPLIEGUE.md).
+
+
 
 ```bash
 php artisan config:cache
