@@ -11,6 +11,12 @@
         <testsuite name="Feature">
             <directory suffix="Test.php">./tests/Feature</directory>
         </testsuite>
+        <!-- Tests de contrato: necesitan la base construida con
+             tools/construir-bd-test.sh. Van en su propia suite para poder
+             correr las otras sin base de datos. -->
+        <testsuite name="Contrato">
+            <directory suffix="Test.php">./tests/Contrato</directory>
+        </testsuite>
     </testsuites>
     <coverage processUncoveredFiles="true">
         <include>
