@@ -13,8 +13,11 @@ npm-debug.log
 yarn-error.log
 /docker
 
+# composer.lock NO se ignora, a propósito. Estuvo ignorado desde 2021 y el
+# resultado fue que cada colegio se quedó con las dependencias del día que se
+# instaló: en agosto de 2026, 9 de 16 seguían con un Laravel de 2021 que no
+# arranca en PHP 8.1 ni superior. Ver DESPLIEGUE.md.
 composer.phar
-composer.lock
 nohup.out
 .DS_Store
 Thumbs.db

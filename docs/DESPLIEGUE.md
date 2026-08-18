@@ -26,21 +26,45 @@ copiada, y se comportan al revés.** Confirmado por Joseth el 18 ago 2026.
 | | Cómo está | Un cambio llega a… |
 |---|---|---|
 | `app/`, `routes/`, `config/`, `.env` | **Copia real en cada colegio** | …solo al colegio donde se despliega |
-| `vendor/` | **Una sola carpeta real**; los demás colegios la apuntan con **symlink** | …**todos los colegios a la vez** |
+| `vendor/` | **Depende del colegio.** 5 apuntan por symlink a `/home/micolev1/laravel_compartido`; los otros 11 tienen carpeta propia | …a los 5 del symlink de golpe. A los demás, solo si se les toca uno por uno |
 
 Lo que era falso era la creencia de que `app/` también se compartía por symlink
-—un proyecto llamado `coal` común a todos—. `app/` es copia real. `vendor/` no.
+—un proyecto llamado `coal` común a todos—. `app/` es copia real.
+
+Y de `vendor/` resultó ser falso lo contrario: **no hay una sola carpeta real, hay
+doce**, y la mayoría de los colegios no usa la compartida.
+
+#### Inventario real de `vendor/`, 18 ago 2026
+
+Sacado del servidor, no supuesto. Los 16 colegios tienen el mismo commit de `app/`
+—`8b5a060`—, y aun así:
+
+| Estado de `vendor/` | Cuántos | Colegios |
+|---|---|---|
+| Symlink a `/home/micolev1/laravel_compartido`, al día | 5 | `coal`, `colbosque`, `comad-san-andres`, `eal`, `maranathaarauca` |
+| Carpeta propia, al día | 2 | `amiguitosdejesus`, `semillitasdedios` |
+| **Carpeta propia, congelada en 2021** | **9** | `bethelexplora`, `cads-itagui`, `casb-medellin`, `caz-zaragoza`, `coabsaravena`, `coljordan`, `fortul`, `inseaq`, `instival` |
+
+`instival` además **no es un repositorio git**, así que no recibe `git pull`: es el
+único colegio que sigue sin la PR #6.
+
+**Cómo se descubrió.** Al pasar el servidor a PHP 8.5, esos 9 colegios empezaron a
+devolver `Return type of Illuminate\Support\Collection::offsetExists($key) should
+either be compatible with…` en cada petición, y desde el arranque. Es un Laravel
+anterior a los parches de compatibilidad con PHP 8.1 de finales de 2021: **no
+arranca en 8.1 ni en nada posterior**. Nadie lo sabía porque en PHP 8.0 funcionaban.
 
 > **Consecuencia 1, la que más se olvida: un arreglo fusionado NO está
 > desplegado.** Llega a cada colegio por su propio despliegue. Un agujero cerrado
 > en `main` sigue abierto en todos los colegios que aún no han recibido el código.
 > "Arreglado" y "desplegado en el colegio X" son cosas distintas.
 
-> **Consecuencia 2, la contraria y menos evidente: un `composer` cambia todos los
-> colegios de golpe.** No hay despliegue gradual posible para las dependencias.
-> El que corra `composer install` o `composer update` sobre la carpeta real está
-> tocando la producción de todos los colegios en ese instante, incluidos los que
-> siguen con código de `app/` de hace meses.
+> **Consecuencia 2, la contraria y menos evidente: un `composer` sobre la carpeta
+> compartida cambia a cinco colegios de golpe.** El que corra `composer install` o
+> `composer update` sobre `/home/micolev1/laravel_compartido` está tocando la
+> producción de esos cinco en ese instante, incluidos los que sigan con código de
+> `app/` de hace meses. Sobre una carpeta propia solo afecta a su colegio — y por eso
+> mismo las carpetas propias se quedan atrás sin que nadie se entere.
 
 **Las dos juntas son el riesgo real:** `vendor/` avanza para todos a la vez
 mientras `app/` avanza colegio a colegio, así que existe siempre la combinación
@@ -71,8 +95,16 @@ Falta comprobar en el servidor, y conviene hacerlo antes de planificar la Fase 4
   `public/`, `bootstrap/cache/`). `bootstrap/cache/` importa especialmente ahora:
   ahí es donde caen `route:cache` y `config:cache`, y si estuviera compartida
   un colegio serviría las rutas de otro.
-- **En cuál de los dos alojamientos** está la carpeta real, y qué colegios
-  cuelgan de ella. Son dos hosts, así que como mínimo hay dos vendor reales.
+- ~~**En cuál de los dos alojamientos** está la carpeta real, y qué colegios cuelgan
+  de ella.~~ **Contestado el 18 ago 2026**: en el host de `micolev1` la compartida es
+  `/home/micolev1/laravel_compartido` y solo cuelgan 5 colegios; los otros 11 tienen
+  la suya. Ver el inventario de arriba. Falta hacer lo mismo en el segundo host.
+
+**El matiz que cambió el inventario:** 11 de 16 colegios ya tienen carpeta propia, así
+que "dejar de compartir `vendor/`" está hecho en dos tercios… pero de la peor manera,
+porque 9 de esas carpetas llevan cinco años sin tocarse. Dejar de compartir no basta:
+hay que **igualarlas primero**, y que exista forma de comprobar que siguen iguales.
+Para eso se versiona `composer.lock`, más abajo.
 
 ### Cuatro clientes, no uno
 
@@ -162,6 +194,91 @@ Eso acorta la ventana, pero **no la elimina**: entre que una PR se fusiona y lle
 cada subdominio hay un despliegue de por medio, y son varios. Sigue siendo cierto que
 *fusionado* no es *desplegado*, y sigue haciendo falta desplegar el backend antes que
 el front en cada colegio.
+
+### Inventario: qué código y qué dependencias tiene cada colegio
+
+Dos comandos para pegar tal cual en el servidor. El primero da commit, estado de
+`vendor/` y si es carpeta propia o symlink:
+
+```bash
+for d in /home/micolev1/*/8myvc; do
+  printf '%-28s ' "$(basename $(dirname $d))"
+  printf '%-10s ' "$(git -C "$d" log --oneline -1 --format=%h)"
+  grep -q 'ReturnTypeWillChange' "$d/vendor/laravel/framework/src/Illuminate/Collections/Collection.php" 2>/dev/null \
+    && printf 'vendor OK    ' || printf 'vendor VIEJO '
+  [ -L "$d/vendor" ] && printf 'symlink -> %s\n' "$(readlink "$d/vendor")" || printf 'vendor real\n'
+done
+```
+
+`ReturnTypeWillChange` vale de marcador porque es el atributo que Laravel añadió a
+finales de 2021 para poder correr en PHP 8.1. Si no está, ese `vendor/` es anterior.
+
+El segundo arranca cada aplicación y le pide la versión, así que es **inventario y
+prueba de arranque a la vez**: si un `vendor/` está roto, revienta justo ahí.
+
+```bash
+for d in /home/micolev1/*/8myvc; do
+  printf '%-30s ' "$(basename $(dirname $d))"
+  ( cd "$d" && php artisan --version 2>&1 | head -1 )
+done
+```
+
+Lo esperado es que los 16 digan `Laravel Framework 8.83.29`, que es lo que fija
+`composer.lock` y lo único que prueba el CI.
+
+### `composer.lock` va versionado desde ahora
+
+Estuvo en `.gitignore` desde 2021. La consecuencia no se vio hasta agosto de 2026:
+**sin lock en el repositorio no existe ninguna fuente de verdad sobre qué versiones
+debe tener un colegio**, y `git pull` no puede ni corregir la deriva ni detectarla,
+porque `vendor/` también está ignorado —eso con razón—.
+
+El resultado fueron 9 de 16 colegios congelados en un Laravel de 2021 sin que nadie
+lo supiera, hasta que un cambio de versión de PHP los tumbó a todos a la vez.
+
+Un detalle que lo confirma: `.github/workflows/ci.yml` ya cacheaba por
+`hashFiles('composer.lock')`. Como el fichero no estaba en el repo, esa clave era
+constante y `composer install` resolvía sin lock. Versionarlo arregla también eso.
+
+#### Cómo igualar un colegio que se quedó atrás
+
+`vendor/` es portable: `vendor/composer` resuelve todo con `$vendorDir =
+dirname(__DIR__)` y no guarda ni una ruta absoluta. Se puede copiar de un colegio
+sano a uno atrasado **sin ejecutar `composer` en el servidor**.
+
+Con respaldo y vuelta atrás, de uno en uno:
+
+```bash
+d=/home/micolev1/COLEGIO.micolevirtual.com/8myvc
+cp -a /home/micolev1/laravel_compartido "$d/vendor.nuevo"
+mv "$d/vendor" "$d/vendor.viejo"
+mv "$d/vendor.nuevo" "$d/vendor"
+( cd "$d" && php artisan config:clear && php artisan --version )
+# si algo va mal:
+#   mv "$d/vendor" "$d/vendor.malo" && mv "$d/vendor.viejo" "$d/vendor"
+```
+
+Son **70 MB por colegio**; los 9 atrasados suman unos 630 MB. Mirar la cuota antes.
+
+**Copia real y no symlink, a propósito:** da el mismo resultado pero no aumenta el
+número de colegios atados a la carpeta compartida, que es justo lo que hay que
+deshacer antes de la Fase 4.
+
+**Comprobar uno y entrar de verdad a la aplicación antes de seguir con el resto.**
+Esos colegios llevan corriendo código nuevo sobre un framework de 2021, combinación
+que no prueba nadie; igualar el `vendor/` los devuelve a lo que sí está probado, pero
+el cambio hay que verlo funcionar.
+
+#### Si `composer install` es inevitable
+
+Comprobar primero si ese `vendor/` es un symlink:
+
+```bash
+readlink -f /home/micolev1/COLEGIO.micolevirtual.com/8myvc/vendor
+```
+
+Si apunta a `/home/micolev1/laravel_compartido`, ese `composer install` **toca la
+producción de los cinco colegios que cuelgan de ahí**, no solo el que tienes delante.
 
 ---
 
