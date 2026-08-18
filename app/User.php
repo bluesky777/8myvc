@@ -56,7 +56,50 @@ class User extends Authenticatable implements JWTSubject
 
 
     
+	/**
+	 * El contexto del usuario de la petición en curso.
+	 *
+	 * Resolverlo cuesta de 5 a 8 consultas: el usuario, el periodo, la consulta
+	 * de 40 columnas con seis JOIN del switch de cuatro ramas, los roles, y una
+	 * más por cada rol. Se hacía entero en cada llamada, y hay peticiones que
+	 * llaman varias veces: el middleware auth.token una, el controlador otra al
+	 * leer $this->user, y algunos métodos otra más por su cuenta.
+	 *
+	 * La memoria va en la propia petición, no en una estática: una estática
+	 * sobreviviría entre peticiones dentro del mismo proceso y en los tests le
+	 * daría a la segunda el usuario de la primera. El objeto Request es único
+	 * por petición tanto en producción como en los tests.
+	 *
+	 * No se memoriza cuando se pide resolver un token concreto ($already_parsed),
+	 * porque entonces no se está preguntando por el usuario de la petición.
+	 */
+	private const CONTEXTO = 'usuario.contexto';
+
 	public static function fromToken($already_parsed=false, $request = false)
+	{
+		if ($already_parsed !== false) {
+			return self::resolverContexto($already_parsed, $request);
+		}
+
+		$peticion = Request::instance();
+
+		if ($peticion->attributes->has(self::CONTEXTO)) {
+			return $peticion->attributes->get(self::CONTEXTO);
+		}
+
+		$usuario = self::resolverContexto(false, $request);
+
+		// null no se guarda: significa que la resolución no llegó a terminar
+		// —el caso del periodo de otro año, más abajo— y la siguiente llamada
+		// tiene que volver a intentarlo.
+		if ($usuario !== null) {
+			$peticion->attributes->set(self::CONTEXTO, $usuario);
+		}
+
+		return $usuario;
+	}
+
+	private static function resolverContexto($already_parsed=false, $request = false)
 	{
 		$userTemp = [];
 		$usuario = [];
@@ -250,8 +293,15 @@ class User extends Authenticatable implements JWTSubject
 							
 							$consulta = 'UPDATE users SET periodo_id=? WHERE id=?';
 							$periodos = DB::select($consulta, [ $periodos[0]->id, $userTemp->id ]);
-							USER::fromToken($already_parsed);
-							return;
+
+							// Con el periodo ya arreglado, volver a resolver.
+							// Antes se llamaba y se tiraba el resultado: quien
+							// entraba en esta rama recibía null. Un alumno con
+							// el periodo de otro año veía un 200 con el cuerpo
+							// vacío al entrar, y al segundo intento funcionaba
+							// —porque el UPDATE de arriba ya había corregido el
+							// periodo—, así que parecía cosa de una vez.
+							return self::resolverContexto($already_parsed, $request);
 						}else{
 							abort(400, 'user_inactivo_por_falta_periodos');
 						}
