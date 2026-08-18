@@ -4,16 +4,11 @@ use Request;
 use DB;
 use App\Http\Controllers\Controller;
 
-use App\User;
 use Carbon\Carbon;
+use App\Http\Controllers\Concerns\ResuelveElUsuario;
 
 class PiarsGrupoUtils {
-	public $user;
-
-	public function __construct()
-	{
-		$this->user = User::fromToken();
-	}
+	use ResuelveElUsuario;
 
 	public function createContextoGrupo($grupo_id)
 	{

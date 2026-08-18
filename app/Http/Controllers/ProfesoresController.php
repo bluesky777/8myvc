@@ -11,17 +11,11 @@ use App\Models\Role;
 use App\Models\Year;
 use Hash;
 use Carbon\Carbon;
+use App\Http\Controllers\Concerns\ResuelveElUsuario;
 
 
 class ProfesoresController extends Controller {
-
-	public $user;
-
-	public function __construct()
-	{
-		$this->user = User::fromToken();
-	}
-
+	use ResuelveElUsuario;
 
 	public function getIndex()
 	{

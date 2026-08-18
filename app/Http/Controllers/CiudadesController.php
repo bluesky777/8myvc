@@ -3,22 +3,13 @@
 use Request;
 use DB;
 
-use App\User;
 use App\Models\Ciudad;
 use App\Models\Pais;
+use App\Http\Controllers\Concerns\ResuelveElUsuario;
 
 
 class CiudadesController extends Controller {
-
-
-	public $user;
-	
-	public function __construct()
-	{
-		$this->user = User::fromToken();
-	}
-
-		
+	use ResuelveElUsuario;
 
 	public function getIndex()
 	{

@@ -19,13 +19,15 @@ use App\Http\Controllers\Alumnos\OperacionesAlumnos;
 use App\Models\Year;
 use App\Models\Matricula;
 use \Log;
+use App\Http\Controllers\Concerns\ResuelveElUsuario;
 
 
 use App\Http\Controllers\Alumnos\GuardarAlumno; // para guardar datos de acudiente. No quiero crear otro archivo
 
 
 class AcudientesController extends Controller {
-	
+	use ResuelveElUsuario;
+
 	public $consulta_pariente = 'SELECT ac.id, ac.nombres, ac.apellidos, ac.sexo, ac.fecha_nac, ac.ciudad_nac, ac.telefono, pa.parentesco, pa.id as parentesco_id, ac.user_id, 
 							ac.celular, ac.ocupacion, ac.email, ac.barrio, ac.direccion, ac.tipo_doc, ac.documento, ac.created_by, ac.updated_by, ac.created_at, ac.updated_at, 
 							ac.foto_id, IFNULL(i.nombre, IF(ac.sexo="F","default_female.png", "default_male.png")) as foto_nombre, 
@@ -35,12 +37,7 @@ class AcudientesController extends Controller {
 						left join users u on ac.user_id=u.id and u.deleted_at is null
 						left join images i on i.id=ac.foto_id and i.deleted_at is null
 						WHERE pa.id=? and pa.deleted_at is null';
-	public $user;
 	
-	public function __construct()
-	{
-		$this->user = User::fromToken();
-	}
 	
 	
 

@@ -8,16 +8,11 @@ use App\Models\Year;
 use App\Models\Periodo;
 use App\Models\Grupo;
 
-use App\User;
 use Carbon\Carbon;
+use App\Http\Controllers\Concerns\ResuelveElUsuario;
 
 class PiarsConfigController extends Controller {
-	public $user;
-
-	public function __construct()
-	{
-		$this->user = User::fromToken();
-	}
+	use ResuelveElUsuario;
 
 	public function getIndex()
 	{

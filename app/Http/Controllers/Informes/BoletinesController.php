@@ -6,7 +6,6 @@ use Request;
 use DB;
 use Hash;
 
-use App\User;
 use App\Models\Grupo;
 use App\Models\Periodo;
 use App\Models\Year;
@@ -28,93 +27,48 @@ use App\Models\Debugging;
 use App\Models\Disciplina;
 use \Log;
 use Carbon\Carbon;
+use App\Http\Controllers\Concerns\ResuelveElUsuario;
 
 
 class BoletinesController extends Controller {
-	public $user;
-	public $escalas_val;
-	public $hist;
-	public $now;
-	public $year;
-	
-	public function __construct()
+	use ResuelveElUsuario;
+
+	/**
+	 * Estas dos las llenaba el constructor. Las llena ahora la primera lectura.
+	 *
+	 * Un constructor que consulta la base obliga a resolver al usuario antes de
+	 * saber si la petición lo necesita, y eso es lo que rompía `route:list`. Ver
+	 * App\Http\Controllers\Concerns\ResuelveElUsuario.
+	 *
+	 * La consulta iba dentro de un try/catch que se tragaba cualquier error y
+	 * dejaba la propiedad en null. El boletín salía entonces con los desempeños
+	 * en blanco en vez de fallar, que es peor: un informe mudo se imprime y se
+	 * entrega. Ahora el error sube.
+	 */
+	private $escalas_val;
+	private $year;
+
+	private function escalasVal()
 	{
-		$this->user 		= User::fromToken();
-		$this->year			= Year::datos($this->user->year_id);
-
-		try {
-			$this->escalas_val 	= DB::select('SELECT * FROM escalas_de_valoracion WHERE year_id=? AND deleted_at is null', [$this->user->year_id]);
-			$this->now 		= Carbon::now('America/Bogota');
-			$consulta 		= 'SELECT * FROM historiales WHERE user_id=? and deleted_at is null order by id desc limit 1 ';
-			$this->hist 	= DB::select($consulta, [$this->user->user_id])[0];
-
-			
-			$requested_alumnos 		= Request::input('requested_alumnos');
-			
-			if ($this->user->tipo == 'Alumno') {
-				/*
-				$consulta 	= 'INSERT INTO bitacoras (created_by, historial_id, affected_person_type, affected_element_type, created_at) 
-					VALUES (?, ?, "Al", "AlumnoVerBoletin", ?)';
-
-				DB::insert($consulta, [$this->user->user_id, $this->hist->id, $this->now]);
-
-				return abort(400, 'Eres alumno');
-				*/
-				if (count($requested_alumnos) > 1) {
-					return abort(400, 'Pedis más de lo que debes');
-				}
-				
-				$alumno = $requested_alumnos[0];
-				
-				if ((int)$alumno['alumno_id'] != $this->user->persona_id){
-					return abort(400, 'No puedes ver el de otros');
-				};
-			}
-
-			if($this->user->tipo == 'Acudiente'){
-
-				if (count($requested_alumnos) > 1) {
-					
-					$consulta 	= 'INSERT INTO bitacoras (created_by, historial_id, affected_user_id, affected_person_type, affected_element_type, created_at) 
-						VALUES (?, ?, ?, "Al", "AcudienteVerVariosBoletines", ?)';
-
-					DB::insert($consulta, [$this->user->user_id, $this->hist->id, $requested_alumnos[0]['alumno_id'], $this->now]);
-
-					return abort(400, 'Pedis más de lo que debes');
-				}
-				
-				$alumno = $requested_alumnos[0];
-
-				$consulta 		= 'SELECT * FROM parentescos WHERE alumno_id=? and acudiente_id=? and deleted_at is null';
-				$parentesco 	= DB::select($consulta, [$alumno['alumno_id'], $this->user->persona_id]);
-				
-				if (count($parentesco) == 0) {
-					
-					$consulta 	= 'INSERT INTO bitacoras (created_by, historial_id, affected_user_id, affected_person_type, affected_element_type, created_at) 
-						VALUES (?, ?, ?, "Al", "AcudienteVerBoletin", ?)';
-
-					DB::insert($consulta, [$this->user->user_id, $this->hist->id, $alumno['alumno_id'], $this->now]);
-
-					return abort(400, 'No es acudiente de este alumno. Lo siento.');
-				}else{
-					$consulta 		= 'SELECT pazysalvo FROM alumnos WHERE id=? and deleted_at is null';
-					$alumno 		= DB::select($consulta, [ $alumno['alumno_id'] ])[0];
-					
-					if (!$alumno->pazysalvo) {
-						$consulta 	= 'INSERT INTO bitacoras (created_by, historial_id, affected_user_id, affected_person_type, affected_element_type, created_at) 
-							VALUES (?, ?, ?, "Al", "AcudienteVerBoletinSinPagar", ?)';
-
-						DB::insert($consulta, [$this->user->user_id, $this->hist->id, $alumno['alumno_id'], $this->now]);
-
-						return abort(400, 'No está a paz y salvo. Lo siento.');
-					}
-				}
-			}
-		} catch (\Throwable $th) {
-			return 'Error';
+		if ($this->escalas_val === null) {
+			$this->escalas_val = DB::select(
+				'SELECT * FROM escalas_de_valoracion WHERE year_id=? AND deleted_at is null',
+				[$this->user->year_id]
+			);
 		}
-		
+
+		return $this->escalas_val;
 	}
+
+	private function year()
+	{
+		if ($this->year === null) {
+			$this->year = Year::datos($this->user->year_id);
+		}
+
+		return $this->year;
+	}
+
 	
 
 	public function putDetailedNotasGroup($grupo_id)
@@ -266,7 +220,7 @@ class BoletinesController extends Controller {
 			}
 
 			for ($h=0; $h < $cant_n_o; $h++) { 
-				$des = EscalaDeValoracion::valoracion($asignaturas[$i]->notas_finales[$h]->nota, $this->escalas_val);
+				$des = EscalaDeValoracion::valoracion($asignaturas[$i]->notas_finales[$h]->nota, $this->escalasVal());
 				if ($des) {
 					$asignaturas[$i]->notas_finales[$h]->desempenio = $des->desempenio;
 				} 
@@ -278,7 +232,7 @@ class BoletinesController extends Controller {
 				$asignaturas[$i]->nota_definitiva_anio 	= round($asignaturas[$i]->nota_faltante / $this->user->numero_periodo);
 			}
 
-			$des = EscalaDeValoracion::valoracion($asignaturas[$i]->nota_definitiva_anio, $this->escalas_val);
+			$des = EscalaDeValoracion::valoracion($asignaturas[$i]->nota_definitiva_anio, $this->escalasVal());
 			if ($des) {
 				$asignaturas[$i]->nota_definitiva_anio_desempenio = $des->desempenio;
 			}
@@ -325,7 +279,7 @@ class BoletinesController extends Controller {
 			$alumno->promedio = $sumatoria_asignaturas / count($alumno->asignaturas);
 		}
 		
-		$des = EscalaDeValoracion::valoracion($alumno->promedio, $this->escalas_val);
+		$des = EscalaDeValoracion::valoracion($alumno->promedio, $this->escalasVal());
 		
 		if ($des) {
 			$alumno->promedio_desempenio = $des->desempenio;
@@ -333,7 +287,7 @@ class BoletinesController extends Controller {
 
 		// COMPORTAMIENTO Y SUS FRASES
 		if ($comport_and_frases) {
-			$comportamiento = NotaComportamiento::nota_comportamiento($alumno->alumno_id, $periodo_id, $this->user->year_id, $this->escalas_val);
+			$comportamiento = NotaComportamiento::nota_comportamiento($alumno->alumno_id, $periodo_id, $this->user->year_id, $this->escalasVal());
 
 			$alumno->comportamiento = $comportamiento;
 			$definiciones = [];
@@ -378,7 +332,7 @@ class BoletinesController extends Controller {
 				if ($this->user->si_recupera_materia_recup_indicador) {
 					if (number_format($periodos[0]->definitiva_year) < $this->user->nota_minima_aceptada && $periodos[0]->cant_perdidas_year > 0) {
 						$asignatura->detalle_periodos = $periodos[0];
-						$des = EscalaDeValoracion::valoracion($asignatura->detalle_periodos->definitiva_year, $this->escalas_val);
+						$des = EscalaDeValoracion::valoracion($asignatura->detalle_periodos->definitiva_year, $this->escalasVal());
 
 						if ($des) {
 							$asignatura->detalle_periodos->definitiva_year_desempenio = $des->desempenio;
@@ -445,7 +399,7 @@ class BoletinesController extends Controller {
 					if ($year_ant->si_recupera_materia_recup_indicador){
 						if (number_format($periodos[0]->definitiva_year) < $year_ant->nota_minima_aceptada && $periodos[0]->cant_perdidas_year > 0) {
 							$asignatura->detalle_periodos = $periodos[0];
-							$des = EscalaDeValoracion::valoracion($asignatura->detalle_periodos->definitiva_year, $this->escalas_val);
+							$des = EscalaDeValoracion::valoracion($asignatura->detalle_periodos->definitiva_year, $this->escalasVal());
 				
 							if ($des) {
 								$asignatura->detalle_periodos->definitiva_year_desempenio = $des->desempenio;
@@ -536,8 +490,8 @@ class BoletinesController extends Controller {
 				try {
 					$la_nota = $nota->nota;
 
-					if (EscalaDeValoracion::valoracion($la_nota, $this->escalas_val)) {
-						$escala = EscalaDeValoracion::valoracion($la_nota, $this->escalas_val)->desempenio;
+					if (EscalaDeValoracion::valoracion($la_nota, $this->escalasVal())) {
+						$escala = EscalaDeValoracion::valoracion($la_nota, $this->escalasVal())->desempenio;
 					}
 				} catch (\Throwable $th) {}
 
@@ -545,7 +499,7 @@ class BoletinesController extends Controller {
 					$clase = ' nota-perdida-bold ';
 				}
 
-				if ($this->year->solo_escalas_valorativas) {
+				if ($this->year()->solo_escalas_valorativas) {
 					$la_nota = '';
 				}
 			}

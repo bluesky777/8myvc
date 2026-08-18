@@ -8,7 +8,6 @@ use Request;
 use DB;
 use Hash;
 
-use App\User;
 use App\Models\Grupo;
 use App\Models\Periodo;
 use App\Models\Year;
@@ -31,22 +30,38 @@ use App\Models\Disciplina;
 use \Log;
 
 use Carbon\Carbon;
+use App\Http\Controllers\Concerns\ResuelveElUsuario;
 
 
 class Boletines3Controller extends Controller {
-	
-	public $user;
-	public $escalas_val;
-	
-	public function __construct()
+	use ResuelveElUsuario;
+
+	/**
+	 * Esto lo llenaba el constructor. Lo llena ahora la primera lectura.
+	 *
+	 * Un constructor que consulta la base obliga a resolver al usuario antes de
+	 * saber si la petición lo necesita, y eso es lo que rompía `route:list`. Ver
+	 * App\Http\Controllers\Concerns\ResuelveElUsuario.
+	 *
+	 * La consulta iba dentro de un try/catch con el cuerpo comentado, que se
+	 * tragaba cualquier error y dejaba la propiedad en null. El boletín salía
+	 * entonces con los desempeños en blanco en vez de fallar, que es peor: un
+	 * informe mudo se imprime y se entrega. Ahora el error sube.
+	 */
+	private $escalas_val;
+
+	private function escalasVal()
 	{
-		$this->user = User::fromToken();
-		try {
-			$this->escalas_val = DB::select('SELECT * FROM escalas_de_valoracion WHERE year_id=? AND deleted_at is null', [$this->user->year_id]);
-		} catch (\Throwable $th) {
-			//throw $th;
+		if ($this->escalas_val === null) {
+			$this->escalas_val = DB::select(
+				'SELECT * FROM escalas_de_valoracion WHERE year_id=? AND deleted_at is null',
+				[$this->user->year_id]
+			);
 		}
+
+		return $this->escalas_val;
 	}
+
 	
 
 	public function putDetailedNotasGroup($grupo_id)
@@ -212,7 +227,7 @@ class Boletines3Controller extends Controller {
 			$alumno->promedio = $sumatoria_asignaturas / count($alumno->asignaturas);
 		}
 		
-		$des = EscalaDeValoracion::valoracion($alumno->promedio, $this->escalas_val);
+		$des = EscalaDeValoracion::valoracion($alumno->promedio, $this->escalasVal());
 		
 		if ($des) {
 			$alumno->promedio_desempenio = $des->desempenio;
@@ -222,7 +237,7 @@ class Boletines3Controller extends Controller {
 		// COMPORTAMIENTO Y SUS FRASES
 		if ($comport_and_frases) {
 			
-			$comportamiento = NotaComportamiento::nota_comportamiento($alumno->alumno_id, $periodo_id, $this->user->year_id, $this->escalas_val);
+			$comportamiento = NotaComportamiento::nota_comportamiento($alumno->alumno_id, $periodo_id, $this->user->year_id, $this->escalasVal());
 
 			$alumno->comportamiento = $comportamiento;
 			$definiciones = [];
@@ -250,7 +265,7 @@ class Boletines3Controller extends Controller {
 		
 		
 		// Agrupamos por áreas
-		$alumno->areas = Area::agrupar_asignaturas_periodos($grupo_id, $asignaturas, $this->escalas_val, $num_periodo);
+		$alumno->areas = Area::agrupar_asignaturas_periodos($grupo_id, $asignaturas, $this->escalasVal(), $num_periodo);
 
 		return $alumno;
 	}
@@ -452,7 +467,7 @@ class Boletines3Controller extends Controller {
 			if ( $mostrar_nota_comport ) {
 				try {
 					$la_nota = $nota->nota;
-					$escala = EscalaDeValoracion::valoracion($la_nota, $this->escalas_val)->desempenio;
+					$escala = EscalaDeValoracion::valoracion($la_nota, $this->escalasVal())->desempenio;
 				} catch (\Throwable $th) {}
 
 				if ($la_nota < $nota_minima_aceptada) {

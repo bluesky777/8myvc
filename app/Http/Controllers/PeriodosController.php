@@ -10,17 +10,11 @@ use App\Models\Unidad;
 use App\Models\Subunidad;
 use App\Models\Nota;
 use \stdClass;
+use App\Http\Controllers\Concerns\ResuelveElUsuario;
 
 
 class PeriodosController extends Controller {
-
-	public $user;
-	
-	public function __construct()
-	{
-		$this->user = User::fromToken();
-	}
-	
+	use ResuelveElUsuario;
 
 	public function getIndex()
 	{
