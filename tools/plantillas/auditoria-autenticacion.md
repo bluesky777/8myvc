@@ -95,7 +95,11 @@ endpoints muertos. Se pueden borrar sin tocar nada más.
 
 ## 4. Rutas registradas cuyo método no existe — {{ROTAS}}
 
-`TipoDocumentoController` está registrado como recurso pero no implementa estos
-métodos. Hoy revientan si alguien las llama.
+Rutas cuyo controlador no implementa el método. Revientan con 500 si alguien las
+llama.
+
+> Las tres que había —`tiposdocumento/create`, `tiposdocumento/{id}` y
+> `tiposdocumento/{id}/edit`, del andamiaje de recurso de Laravel— se
+> eliminaron el 18 ago 2026, comprobado antes que devolvían 500.
 
 {{T_ROTAS}}

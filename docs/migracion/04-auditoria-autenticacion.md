@@ -45,8 +45,8 @@ auditoría.
 | No lo resuelven y **escriben** en la base | **5** |
 | No lo resuelven, solo leen | **40** |
 | Método vacío: la ruta existe, el método no hace nada | 10 |
-| Ruta registrada cuyo método no existe | 3 |
-| **Total** | **554** |
+| Ruta registrada cuyo método no existe | 0 |
+| **Total** | **551** |
 
 ---
 
@@ -157,14 +157,14 @@ endpoints muertos. Se pueden borrar sin tocar nada más.
 
 ---
 
-## 4. Rutas registradas cuyo método no existe — 3
+## 4. Rutas registradas cuyo método no existe — 0
 
-`TipoDocumentoController` está registrado como recurso pero no implementa estos
-métodos. Hoy revientan si alguien las llama.
+Rutas cuyo controlador no implementa el método. Revientan con 500 si alguien las
+llama.
 
-| ✔ | Verbo | Ruta | Controlador · método |
-|---|---|---|---|
-| ☐ | `GET` | `api/tiposdocumento/create` | TipoDocumentoController::create |
-| ☐ | `GET` | `api/tiposdocumento/{tiposdocumento}` | TipoDocumentoController::show |
-| ☐ | `GET` | `api/tiposdocumento/{tiposdocumento}/edit` | TipoDocumentoController::edit |
+> Las tres que había —`tiposdocumento/create`, `tiposdocumento/{id}` y
+> `tiposdocumento/{id}/edit`, del andamiaje de recurso de Laravel— se
+> eliminaron el 18 ago 2026, comprobado antes que devolvían 500.
+
+_Ninguna._
 

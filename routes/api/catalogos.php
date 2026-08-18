@@ -37,10 +37,7 @@ Route::get('ciudades/por-departamento/{departamento}', [CiudadesController::clas
 
 // TipoDocumentoController
 Route::get('tiposdocumento', [TipoDocumentoController::class, 'index']);
-Route::get('tiposdocumento/create', [TipoDocumentoController::class, 'create']);
 Route::post('tiposdocumento', [TipoDocumentoController::class, 'store'])->middleware('auth.token');
-Route::get('tiposdocumento/{tiposdocumento}', [TipoDocumentoController::class, 'show']);
-Route::get('tiposdocumento/{tiposdocumento}/edit', [TipoDocumentoController::class, 'edit']);
 Route::put('tiposdocumento/{tiposdocumento}', [TipoDocumentoController::class, 'update'])->middleware('auth.token');
 Route::patch('tiposdocumento/{tiposdocumento}', [TipoDocumentoController::class, 'update'])->middleware('auth.token');
 Route::delete('tiposdocumento/{tiposdocumento}', [TipoDocumentoController::class, 'destroy'])->middleware('auth.token');

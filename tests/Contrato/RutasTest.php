@@ -8,7 +8,7 @@ use Tests\TestCase;
 /**
  * Contrato de enrutado.
  *
- * La Fase 1 cambió `AdvancedRoute` por 554 rutas explícitas escritas a mano en
+ * La Fase 1 cambió `AdvancedRoute` por rutas explícitas escritas a mano en
  * routes/api/. Nada impide que un merge desordenado borre una, o que alguien
  * mueva una ruta con `{id}` por encima de una literal y la tape.
  *
