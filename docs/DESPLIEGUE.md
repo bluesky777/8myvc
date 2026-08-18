@@ -7,47 +7,63 @@ no perderlas entre PRs.
 
 ## Del PR #3 (seguridad — 4 críticos)
 
-### 1. ⚠️ Revisar `MAIL_*` en el `.env` de cada colegio — PENDIENTE
+### 1. Poner el correo en `sendmail` — PENDIENTE
 
-**Es el único cambio del PR que puede romper algo que hoy funciona.**
+**Decidido: se configura `sendmail` sin auditar el `.env` de cada colegio.**
+`sendmail` reproduce el camino que usaba la función `mail()`, así que es el valor
+que menos probablemente cambie el comportamiento.
 
-El reseteo de contraseña pasó de la función `mail()` de PHP al Mail de Laravel:
+**En el `.env` de cada colegio:**
 
-| | Antes | Después |
-|---|---|---|
-| Transporte | `mail()` → sendmail del sistema | Mail de Laravel → lo que diga `MAIL_MAILER` |
-| Si falla | **Silencio.** Devolvía `Enviado` aunque no saliera nada | Lanza excepción → 500 con el motivo en `Log::error` |
-
-Si en el servidor el correo salía por el sendmail del sistema y las `MAIL_*` del `.env`
-no están bien puestas, el reseteo pasaría de fallar callado a devolver 500.
-
-**Comprobar en cada colegio antes o justo después de desplegar:**
-
-```bash
-grep -E '^MAIL_' .env
+```env
+MAIL_MAILER=sendmail
+MAIL_FROM_ADDRESS=josethmaster@lalvirtual.com
+MAIL_FROM_NAME="MiColegioVirtual"
 ```
 
-- Si hay un SMTP real configurado y alcanzable → no hay que hacer nada.
-- Si está con los valores de plantilla (`MAIL_HOST=mailhog`, `MAIL_FROM_ADDRESS=null`)
-  → poner `MAIL_MAILER=sendmail`, que reproduce el comportamiento anterior.
+Las dos de `FROM` **no son opcionales**. El código viejo llevaba el remitente
+incrustado a mano en las cabeceras del `mail()`:
 
-**Prueba después de desplegar**, con un correo real que exista en `users`:
-
-```bash
-curl -s -X POST https://<colegio>/api/login/ver-pass \
-  -H "Content-Type: application/json" \
-  -d '{"email":"<correo real>","ruta":"https://<colegio>/myvc_front/"}'
+```php
+$headers .= "From: MiColegioVirtual <josethmaster@lalvirtual.com>\r\n";
 ```
 
-`Enviado` = bien. Un 500 = revisar `storage/logs/laravel.log`, la causa está en un
-`Log::error` con el mensaje de la excepción.
+Ahora sale de la configuración. Si están vacías, Laravel **rechaza el envío antes
+de intentarlo** y el reseteo devuelve 500. Los valores de arriba son exactamente
+los que enviaba el código anterior, así que el correo sale igual que siempre.
 
-**Alternativa si molesta**, para eliminar el riesgo sin revisar nada: cambiar el
-`abort(500, ...)` de `LoginController::postVerPass` por un `return 'Enviado'`. Deja
-el arreglo de seguridad (ya no hay inyección de cabeceras) y recupera el fallo
-silencioso de antes. Es una línea. No se hizo porque el fallo silencioso es en sí
-mismo un problema: llevaba años diciendo a la gente "verifica tu correo" sin haber
-enviado nada.
+**Comprobar en 30 segundos, sin provocar un reseteo real:**
+
+```bash
+php artisan correo:probar tu-correo@ejemplo.com
+```
+
+Imprime el transporte, si el binario de sendmail existe, el `sendmail_path` que
+usa PHP y el remitente configurado. Si falla, dice cuál de los tres es.
+
+**Por qué `sendmail` a secas debería bastar:** `config/mail.php` toma por defecto
+el mismo `sendmail_path` del `php.ini` que usaba la función `mail()`. Es decir,
+mismo binario y mismos argumentos que antes.
+
+Importa porque el valor por defecto de Laravel **no** coincide: trae
+`/usr/sbin/sendmail -bs`, que habla SMTP por la entrada estándar, y muchos
+servidores tienen un binario que solo entiende `-t -i`. Comprobado en el
+contenedor de este proyecto: con `-bs` falla con *"Expected response code 220 but
+got an empty response"*, y su `sendmail_path` es `-t -i`.
+
+Si aun así hiciera falta forzarlo, `MAIL_SENDMAIL_PATH` lo sobrescribe.
+
+**Dato de la comprobación local, por si ayuda a interpretar un fallo:** en el
+contenedor de desarrollo `mail()` **ya devolvía `false`** — `sendmail` es un
+enlace a `busybox` y no hay ningún MTA. El código viejo ignoraba ese `false` y
+respondía `Enviado` igual. O sea que en cualquier entorno donde el reseteo
+"funcionara" sin enviar nada, esto lo va a destapar. Eso no es una regresión: es
+el fallo haciéndose visible.
+
+**Qué pasa si esto se olvida:** el reseteo devuelve 500 en vez de fallar en
+silencio. A menos de un reseteo al día históricamente, la ventana de exposición
+es pequeña, y la causa queda en `storage/logs/laravel.log` en un `Log::error`.
+El token no se queda colgado: se borra al fallar el envío.
 
 ### 2. Definir `CORS_ALLOWED_ORIGINS` — PENDIENTE
 
