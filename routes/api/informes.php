@@ -69,21 +69,27 @@ Route::put('notas-perdidas/todos', [NotasPerdidasController::class, 'putTodos'])
 Route::get('notas-perdidas/show-profesor/{profesor_id}', [NotasPerdidasController::class, 'getShowProfesor']);
 
 // BoletinesController
-Route::put('boletines/detailed-notas-group/{grupo_id}', [BoletinesController::class, 'putDetailedNotasGroup']);
-Route::get('boletines/detailed-notas-year/{grupo_id}/{periodo_a_calcular?}', [BoletinesController::class, 'getDetailedNotasYear']);
-Route::put('boletines/detailed-notas/{grupo_id}', [BoletinesController::class, 'putDetailedNotas']);
+//
+// Los tres controladores de boletines son copias con distinta maqueta y sirven
+// el mismo dato. `boletin.propio` impide que un alumno pida el de otro y que un
+// acudiente pida el de quien no es su acudido. Estaba escrito en el constructor
+// del primero y no se ejecutaba nunca; los otros dos ni lo tenían. Ver
+// App\Http\Middleware\ExigirBoletinPropio.
+Route::put('boletines/detailed-notas-group/{grupo_id}', [BoletinesController::class, 'putDetailedNotasGroup'])->middleware('boletin.propio');
+Route::get('boletines/detailed-notas-year/{grupo_id}/{periodo_a_calcular?}', [BoletinesController::class, 'getDetailedNotasYear'])->middleware('boletin.propio');
+Route::put('boletines/detailed-notas/{grupo_id}', [BoletinesController::class, 'putDetailedNotas'])->middleware('boletin.propio');
 
 // Boletines2Controller
-Route::delete('boletines2/destroy/{id}', [Boletines2Controller::class, 'deleteDestroy']);
-Route::put('boletines2/detailed-notas-group/{grupo_id}', [Boletines2Controller::class, 'putDetailedNotasGroup']);
-Route::get('boletines2/detailed-notas-year/{grupo_id}/{periodo_a_calcular?}', [Boletines2Controller::class, 'getDetailedNotasYear']);
-Route::put('boletines2/detailed-notas/{grupo_id}', [Boletines2Controller::class, 'putDetailedNotas']);
+Route::delete('boletines2/destroy/{id}', [Boletines2Controller::class, 'deleteDestroy'])->middleware('auth.personal');
+Route::put('boletines2/detailed-notas-group/{grupo_id}', [Boletines2Controller::class, 'putDetailedNotasGroup'])->middleware('boletin.propio');
+Route::get('boletines2/detailed-notas-year/{grupo_id}/{periodo_a_calcular?}', [Boletines2Controller::class, 'getDetailedNotasYear'])->middleware('boletin.propio');
+Route::put('boletines2/detailed-notas/{grupo_id}', [Boletines2Controller::class, 'putDetailedNotas'])->middleware('boletin.propio');
 
 // Boletines3Controller
-Route::delete('boletines3/destroy/{id}', [Boletines3Controller::class, 'deleteDestroy']);
-Route::put('boletines3/detailed-notas-group/{grupo_id}', [Boletines3Controller::class, 'putDetailedNotasGroup']);
-Route::get('boletines3/detailed-notas-year/{grupo_id}/{periodo_a_calcular?}', [Boletines3Controller::class, 'getDetailedNotasYear']);
-Route::put('boletines3/detailed-notas/{grupo_id}', [Boletines3Controller::class, 'putDetailedNotas']);
+Route::delete('boletines3/destroy/{id}', [Boletines3Controller::class, 'deleteDestroy'])->middleware('auth.personal');
+Route::put('boletines3/detailed-notas-group/{grupo_id}', [Boletines3Controller::class, 'putDetailedNotasGroup'])->middleware('boletin.propio');
+Route::get('boletines3/detailed-notas-year/{grupo_id}/{periodo_a_calcular?}', [Boletines3Controller::class, 'getDetailedNotasYear'])->middleware('boletin.propio');
+Route::put('boletines3/detailed-notas/{grupo_id}', [Boletines3Controller::class, 'putDetailedNotas'])->middleware('boletin.propio');
 
 // SimatController
 Route::get('simat', [SimatController::class, 'getIndex']);

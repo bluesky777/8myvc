@@ -109,6 +109,9 @@ Route::put('periodos/update/{id}', [PeriodosController::class, 'putUpdate']);
 Route::put('periodos/useractive/{periodo_id}', [PeriodosController::class, 'putUseractive']);
 
 // PiarsGruposController
-Route::put('piars-grupos/contexto-de-grupo', [PiarsGruposController::class, 'putContextoDeGrupo']);
-Route::get('piars-grupos/grupos', [PiarsGruposController::class, 'getGrupos']);
-Route::get('piars-grupos/contexto-de-grupo/{grupo_id}', [PiarsGruposController::class, 'getContextoDeGrupo']);
+//
+// El constructor comprobaba `!$user->is_superuser && !$user->tipo == 'Profesor'`,
+// que PHP agrupa como `(!$tipo) == 'Profesor'` y nunca es cierto.
+Route::put('piars-grupos/contexto-de-grupo', [PiarsGruposController::class, 'putContextoDeGrupo'])->middleware('auth.personal');
+Route::get('piars-grupos/grupos', [PiarsGruposController::class, 'getGrupos'])->middleware('auth.personal');
+Route::get('piars-grupos/contexto-de-grupo/{grupo_id}', [PiarsGruposController::class, 'getContextoDeGrupo'])->middleware('auth.personal');

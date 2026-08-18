@@ -55,6 +55,10 @@ class Kernel extends HttpKernel
     protected $routeMiddleware = [
         // Exige token válido. Ver docs/migracion/04-auditoria-autenticacion.md.
         'auth.token' => \App\Http\Middleware\ExigirAutenticacion::class,
+        // Autorización, no autenticación: quién puede hacer qué con el token que
+        // ya presentó. Ver docs/migracion/06-autorizacion.md.
+        'auth.personal'  => \App\Http\Middleware\ExigirPersonal::class,
+        'boletin.propio' => \App\Http\Middleware\ExigirBoletinPropio::class,
         'auth' => \App\Http\Middleware\Authenticate::class,
         'auth.basic' => \Illuminate\Auth\Middleware\AuthenticateWithBasicAuth::class,
         'cache.headers' => \Illuminate\Http\Middleware\SetCacheHeaders::class,
