@@ -4,6 +4,7 @@ use Request;
 use DB;
 
 use App\User;
+use App\Support\Autoriza;
 use App\Models\Nota;
 use App\Models\Periodo;
 use App\Models\Subunidad;
@@ -430,6 +431,16 @@ class EditnotaController extends Controller {
 
 	public function deleteForcedelete($id)
 	{
+		// Este método no tenía NINGUNA autenticación: el constructor está vacío y
+		// aquí no se llamaba a fromToken. Hoy es inerte por accidente, porque falta
+		// el use de App\Models\Alumno y revienta con "class not found" antes de
+		// borrar. Basta que alguien añada ese import en una limpieza para que se
+		// convierta en un borrado de alumnos sin token. Se cierra ahora.
+		$user = User::fromToken();
+
+		Autoriza::exigir(Autoriza::puedeBorrarAlumnos($user),
+			'No tienes permiso para eliminar alumnos definitivamente.');
+
 		$alumno = Alumno::onlyTrashed()->findOrFail($id);
 		
 		if ($alumno) {

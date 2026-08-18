@@ -6,6 +6,7 @@ use Request;
 
 use App\User;
 use App\Models\Profesor;
+use App\Support\Autoriza;
 use App\Models\Role;
 use App\Models\Year;
 use Hash;
@@ -424,6 +425,12 @@ class ProfesoresController extends Controller {
 
 	public function deleteForcedelete($id)
 	{
+		// Autenticado por el constructor, pero sin ninguna autorización: cualquier
+		// usuario con token podía borrar un profesor definitivamente, y con él
+		// 31 tablas en cascada.
+		Autoriza::exigir(Autoriza::esAdministrativo($this->user),
+			'No tienes permiso para eliminar profesores definitivamente.');
+
 		$profesor = Profesor::onlyTrashed()->findOrFail($id);
 		
 		if ($profesor) {

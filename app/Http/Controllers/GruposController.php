@@ -9,7 +9,7 @@ use App\Models\Year;
 use App\Models\Grado;
 use App\Models\Profesor;
 use App\Models\Grupo;
-use App\Models\Role;
+use App\Support\Autoriza;
 use App\Models\Matricula;
 use App\Models\Acudiente;
 use App\Models\Periodo;
@@ -680,9 +680,8 @@ class GruposController extends Controller {
 		//
 		// Se aplica el criterio de alumnos/forcedelete sin la rama de profesor:
 		// borrar un grupo definitivamente no es tarea docente.
-		if (!$user->is_superuser && !Role::isSecretario($user->user_id)) {
-			abort(403, 'No tienes permiso para eliminar grupos definitivamente.');
-		}
+		Autoriza::exigir(Autoriza::esAdministrativo($user),
+			'No tienes permiso para eliminar grupos definitivamente.');
 
 		$grupo = Grupo::onlyTrashed()->findOrFail($id);
 		
