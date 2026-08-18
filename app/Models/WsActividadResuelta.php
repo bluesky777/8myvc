@@ -82,7 +82,7 @@ class WsActividadResuelta extends Model {
 			$actividad_res->promedio 		= $promedio;
 			$actividad_res->cantidad_pregs 	= $cantidad_pregs;
 			$actividad_res->correctas 		= $correctas;
-			$actividad_res->tiempo 			= (integer)$tiempo;
+			$actividad_res->tiempo 			= (int)$tiempo;
 
 			$alumnos[$i]->actividad_res 	= $actividad_res;
 

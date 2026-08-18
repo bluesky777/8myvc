@@ -332,7 +332,7 @@ class YearsController extends Controller {
 		$user = User::fromToken();
 
 		$year_id 	= 	Request::input('year_id');
-		$actual 	= 	(boolean) Request::input('can');
+		$actual 	= 	(bool) Request::input('can');
 
 		if ($actual) {
 			Year::where('actual', true)->update(['actual'=>false]);
@@ -350,7 +350,7 @@ class YearsController extends Controller {
 		$user = User::fromToken();
 
 		$year_id 	= 	Request::input('year_id');
-		$can 		= 	(boolean) Request::input('can');
+		$can 		= 	(bool) Request::input('can');
 
 		$year = Year::findOrFail($year_id);
 		$year->alumnos_can_see_notas = $can;
@@ -365,7 +365,7 @@ class YearsController extends Controller {
 		$user = User::fromToken();
 
 		$year_id 	= 	Request::input('year_id');
-		$can 		= 	(boolean) Request::input('can');
+		$can 		= 	(bool) Request::input('can');
 
 		$year = Year::findOrFail($year_id);
 		$year->profes_can_edit_alumnos = $can;
@@ -379,7 +379,7 @@ class YearsController extends Controller {
 		$user = User::fromToken();
 
 		$year_id 	= 	Request::input('year_id');
-		$can 		= 	(boolean) Request::input('can');
+		$can 		= 	(bool) Request::input('can');
 
 		$year = Year::findOrFail($year_id);
 		$year->mostrar_puesto_boletin = $can;
@@ -394,7 +394,7 @@ class YearsController extends Controller {
 		$user = User::fromToken();
 
 		$year_id 	= 	Request::input('year_id');
-		$can 		= 	(boolean) Request::input('can');
+		$can 		= 	(bool) Request::input('can');
 
 		$year = Year::findOrFail($year_id);
 		$year->mostrar_nota_comport_boletin = $can;
@@ -410,7 +410,7 @@ class YearsController extends Controller {
 		$user = User::fromToken();
 
 		$year_id 	= 	Request::input('year_id');
-		$can 		= 	(boolean) Request::input('can');
+		$can 		= 	(bool) Request::input('can');
 
 		$year = Year::findOrFail($year_id);
 		$year->show_materias_todas = $can;
@@ -426,7 +426,7 @@ class YearsController extends Controller {
 		$user = User::fromToken();
 
 		$year_id 	= 	Request::input('year_id');
-		$can 		= 	(boolean) Request::input('can');
+		$can 		= 	(bool) Request::input('can');
 
 		$year = Year::findOrFail($year_id);
 		$year->year_pasado_en_bol = $can;
@@ -441,7 +441,7 @@ class YearsController extends Controller {
 		$user = User::fromToken();
 
 		$year_id 	= 	Request::input('year_id');
-		$can 		= 	(boolean) Request::input('can');
+		$can 		= 	(bool) Request::input('can');
 
 		$year = Year::findOrFail($year_id);
 		$year->solo_escalas_valorativas = $can;
@@ -478,7 +478,7 @@ class YearsController extends Controller {
 		$user = User::fromToken();
 
 		$year_id 	= 	Request::input('year_id');
-		$can 		= 	(boolean) Request::input('can');
+		$can 		= 	(bool) Request::input('can');
 
 		$year = Year::findOrFail($year_id);
 		$year->si_recupera_materia_recup_indicador = $can;

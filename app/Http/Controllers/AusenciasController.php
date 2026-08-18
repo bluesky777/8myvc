@@ -40,7 +40,7 @@ class AusenciasController extends Controller {
 
 			foreach ($ausencias as $ausencia) {
 				$ausencia->mes = date('n', strtotime($ausencia->fecha_hora)) - 1;
-				$ausencia->dia = (integer)(date('j', strtotime($ausencia->fecha_hora))) ;
+				$ausencia->dia = (int)(date('j', strtotime($ausencia->fecha_hora))) ;
 			}
 			
 			$alumno->ausencias = $ausencias;
