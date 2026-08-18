@@ -12,6 +12,7 @@
 #
 # Variables (con sus valores por defecto para el docker de desarrollo):
 #   DB_TEST_DATABASE=simonbolivar_testing
+#   DB_TEST_HOST, DB_TEST_PORT                     (solo si no es el host por defecto)
 #   MYSQL_EXEC="docker exec -i 8myvc-database-1"   (vacío para hablar con MySQL directamente)
 
 set -euo pipefail
@@ -45,7 +46,13 @@ case "$DB_TEST_DATABASE" in
         ;;
 esac
 
-mysql_cmd() { $MYSQL_EXEC mysql -u"$DB_USERNAME" -p"$DB_PASSWORD" "$@" 2>/dev/null; }
+# Host y puerto solo se pasan si están definidos: dentro del contenedor de
+# desarrollo el cliente ya habla con el MySQL local y añadir -h lo rompería.
+CONEXION=""
+[ -n "${DB_TEST_HOST:-}" ] && CONEXION="$CONEXION -h $DB_TEST_HOST"
+[ -n "${DB_TEST_PORT:-}" ] && CONEXION="$CONEXION -P $DB_TEST_PORT"
+
+mysql_cmd() { $MYSQL_EXEC mysql $CONEXION -u"$DB_USERNAME" -p"$DB_PASSWORD" "$@" 2>/dev/null; }
 
 echo "Reconstruyendo '$DB_TEST_DATABASE'..."
 
