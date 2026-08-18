@@ -118,6 +118,21 @@ los `destroy` de `boletines2` y `boletines3`.
 Esto **no sustituye** a las comprobaciones por método: varias rutas de matrículas
 exigen además `profes_can_edit_alumnos` o superusuario, y lo siguen exigiendo.
 
+### Lo que hay que confirmar con `myvc_front` antes de desplegar
+
+La pantalla de boletines de `myvc_front` está pensada para el personal: se elige
+un grupo y luego, o se piden **todos** los boletines del grupo —sin
+`requested_alumnos`— o se seleccionan alumnos concretos, que es lo que pone la
+cookie. Con la guarda puesta, un alumno o un acudiente que llegue por el primer
+camino recibe **403** donde antes recibía el grupo entero.
+
+Eso es exactamente lo que se quería cerrar. Pero hace falta confirmar **cómo
+llega hoy un alumno o un acudiente a su propio boletín**: si la pantalla les
+obliga a seleccionarse de la lista, no cambia nada para ellos; si les deja pulsar
+"ver boletines del grupo", ese botón deja de funcionarles y hay que ocultárselo.
+
+La app Flutter no entra: de sus seis llamadas, ninguna es de boletines.
+
 ### Los códigos
 
 `403`, no el `400` del código viejo. Nadie recibía esas respuestas hasta hoy —las
