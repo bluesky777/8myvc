@@ -53,3 +53,8 @@ public/images.zip
 docker-compose/mysql/micolev1*
 
 public/uploads
+
+# Permisos locales de Claude Code: llevan rutas absolutas de la máquina de cada
+# uno y permisos de otros repos. `settings.json` sí se comparte si algún día
+# hace falta; este no.
+.claude/settings.local.json
