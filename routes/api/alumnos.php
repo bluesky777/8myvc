@@ -1,0 +1,138 @@
+<?php
+
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\AcudientesController;
+use App\Http\Controllers\AlumnosController;
+use App\Http\Controllers\Alumnos\FoliosController;
+use App\Http\Controllers\Alumnos\ImportarController;
+use App\Http\Controllers\BuscarController;
+use App\Http\Controllers\CarteraController;
+use App\Http\Controllers\DetallesController;
+use App\Http\Controllers\Informes\NotasActualesAlumnosController;
+use App\Http\Controllers\Matriculas\EnfermeriaController;
+use App\Http\Controllers\Matriculas\MatriculasController;
+use App\Http\Controllers\Matriculas\PrematriculasController;
+use App\Http\Controllers\Matriculas\RequisitosController;
+use App\Http\Controllers\Piars\PiarsAlumnosController;
+use App\Http\Controllers\PromovidosController;
+
+/*
+|--------------------------------------------------------------------------
+| Rutas: alumnos
+|--------------------------------------------------------------------------
+|
+| Generado por tools/route-emit.php a partir de la tabla de rutas que
+| AdvancedRoute registraba. El orden es el de registro y es significativo:
+| las rutas sin parámetros van antes que las que llevan {param} para que no
+| queden tapadas. No reordenar sin comprobar con tools/route-table-dump.php.
+|
+*/
+
+// AlumnosController
+Route::get('alumnos', [AlumnosController::class, 'getIndex']);
+Route::put('alumnos/cambiar-claves', [AlumnosController::class, 'putCambiarClaves']);
+Route::put('alumnos/documento-check', [AlumnosController::class, 'putDocumentoCheck']);
+Route::put('alumnos/eps-check', [AlumnosController::class, 'putEpsCheck']);
+Route::put('alumnos/guardar-valor', [AlumnosController::class, 'putGuardarValor']);
+Route::put('alumnos/guardar-valor-varios', [AlumnosController::class, 'putGuardarValorVarios']);
+Route::put('alumnos/personas-check', [AlumnosController::class, 'putPersonasCheck']);
+Route::put('alumnos/show', [AlumnosController::class, 'putShow']);
+Route::get('alumnos/sin-matriculas', [AlumnosController::class, 'getSinMatriculas']);
+Route::post('alumnos/store', [AlumnosController::class, 'postStore']);
+Route::get('alumnos/trashed', [AlumnosController::class, 'getTrashed']);
+Route::put('alumnos/years-con-notas', [AlumnosController::class, 'putYearsConNotas']);
+Route::put('alumnos/de-grupo/{grupo_id}', [AlumnosController::class, 'putDeGrupo']);
+Route::delete('alumnos/destroy/{id}', [AlumnosController::class, 'deleteDestroy']);
+Route::delete('alumnos/forcedelete/{id}', [AlumnosController::class, 'deleteForcedelete']);
+Route::put('alumnos/restore/{id}', [AlumnosController::class, 'putRestore']);
+Route::put('alumnos/update/{id}', [AlumnosController::class, 'putUpdate']);
+
+// ImportarController
+Route::get('importar', [ImportarController::class, 'getIndex']);
+Route::post('importar/cartera', [ImportarController::class, 'postCartera']);
+Route::post('importar/algo/{year}', [ImportarController::class, 'postAlgo']);
+Route::get('importar/modificar/{year}', [ImportarController::class, 'getModificar']);
+
+// FoliosController
+Route::get('folios/iniciar', [FoliosController::class, 'getIniciar']);
+
+// AcudientesController
+Route::put('acudientes/buscar', [AcudientesController::class, 'putBuscar']);
+Route::post('acudientes/crear', [AcudientesController::class, 'postCrear']);
+Route::post('acudientes/crear-usuario', [AcudientesController::class, 'postCrearUsuario']);
+Route::put('acudientes/datos', [AcudientesController::class, 'putDatos']);
+Route::put('acudientes/de-persona', [AcudientesController::class, 'putDePersona']);
+Route::put('acudientes/guardar-valor', [AcudientesController::class, 'putGuardarValor']);
+Route::put('acudientes/mis-acudidos', [AcudientesController::class, 'putMisAcudidos']);
+Route::put('acudientes/no-asignados', [AcudientesController::class, 'putNoAsignados']);
+Route::put('acudientes/ocupaciones-check', [AcudientesController::class, 'putOcupacionesCheck']);
+Route::put('acudientes/planillas-ausencias', [AcudientesController::class, 'putPlanillasAusencias']);
+Route::put('acudientes/quitar-parentesco-alumno', [AcudientesController::class, 'putQuitarParentescoAlumno']);
+Route::put('acudientes/seleccionar-parentesco', [AcudientesController::class, 'putSeleccionarParentesco']);
+Route::put('acudientes/ultimos', [AcudientesController::class, 'putUltimos']);
+Route::delete('acudientes/destroy/{id}', [AcudientesController::class, 'deleteDestroy']);
+
+// BuscarController
+Route::put('buscar/por-apellido', [BuscarController::class, 'putPorApellido']);
+Route::put('buscar/por-nombre', [BuscarController::class, 'putPorNombre']);
+
+// MatriculasController
+Route::put('matriculas/alumnos-con-grado-anterior', [MatriculasController::class, 'putAlumnosConGradoAnterior']);
+Route::put('matriculas/alumnos-grado-anterior', [MatriculasController::class, 'putAlumnosGradoAnterior']);
+Route::put('matriculas/cambiar-fecha-matricula', [MatriculasController::class, 'putCambiarFechaMatricula']);
+Route::put('matriculas/cambiar-fecha-retiro', [MatriculasController::class, 'putCambiarFechaRetiro']);
+Route::put('matriculas/desertar', [MatriculasController::class, 'putDesertar']);
+Route::post('matriculas/matricular-en', [MatriculasController::class, 'postMatricularEn']);
+Route::post('matriculas/matricularuno', [MatriculasController::class, 'postMatricularuno']);
+Route::put('matriculas/prematricular', [MatriculasController::class, 'putPrematricular']);
+Route::put('matriculas/quitar-prematricula', [MatriculasController::class, 'putQuitarPrematricula']);
+Route::put('matriculas/re-matricularuno', [MatriculasController::class, 'putReMatricularuno']);
+Route::put('matriculas/retirar', [MatriculasController::class, 'putRetirar']);
+Route::put('matriculas/set-asistente', [MatriculasController::class, 'putSetAsistente']);
+Route::put('matriculas/set-new-asistente', [MatriculasController::class, 'putSetNewAsistente']);
+Route::put('matriculas/set-promovido', [MatriculasController::class, 'putSetPromovido']);
+Route::put('matriculas/toggle-nuevo', [MatriculasController::class, 'putToggleNuevo']);
+Route::delete('matriculas/destroy/{id}', [MatriculasController::class, 'deleteDestroy']);
+
+// EnfermeriaController
+Route::post('enfermeria/crear-suceso', [EnfermeriaController::class, 'postCrearSuceso']);
+Route::put('enfermeria/datos', [EnfermeriaController::class, 'putDatos']);
+Route::put('enfermeria/guardar-valor', [EnfermeriaController::class, 'putGuardarValor']);
+Route::put('enfermeria/guardar-valor-suceso', [EnfermeriaController::class, 'putGuardarValorSuceso']);
+Route::delete('enfermeria/destroy/{id}', [EnfermeriaController::class, 'deleteDestroy']);
+
+// PrematriculasController
+Route::put('prematriculas/alumnos-con-grado-anterior', [PrematriculasController::class, 'putAlumnosConGradoAnterior']);
+Route::put('prematriculas/alumnos-grado-anterior', [PrematriculasController::class, 'putAlumnosGradoAnterior']);
+Route::put('prematriculas/llevo-formulario', [PrematriculasController::class, 'putLlevoFormulario']);
+
+// RequisitosController
+Route::put('requisitos', [RequisitosController::class, 'putIndex']);
+Route::post('requisitos/alumno', [RequisitosController::class, 'postAlumno']);
+Route::put('requisitos/listado-observaciones', [RequisitosController::class, 'putListadoObservaciones']);
+Route::post('requisitos/store', [RequisitosController::class, 'postStore']);
+Route::put('requisitos/update', [RequisitosController::class, 'putUpdate']);
+Route::delete('requisitos/destroy/{id}', [RequisitosController::class, 'deleteDestroy']);
+
+// CarteraController
+Route::put('cartera/alumnos', [CarteraController::class, 'putAlumnos']);
+Route::get('cartera/exportar-solo-deudores', [CarteraController::class, 'getExportarSoloDeudores']);
+Route::put('cartera/solo-deudores', [CarteraController::class, 'putSoloDeudores']);
+
+// DetallesController
+Route::put('detalles/alumno', [DetallesController::class, 'putAlumno']);
+Route::put('detalles/eliminar-matricula-destroy', [DetallesController::class, 'putEliminarMatriculaDestroy']);
+Route::put('detalles/eliminar-notas-periodo', [DetallesController::class, 'putEliminarNotasPeriodo']);
+Route::put('detalles/grupos-periodos', [DetallesController::class, 'putGruposPeriodos']);
+
+// NotasActualesAlumnosController
+Route::put('notas-actuales-alumnos/{grupo_id}', [NotasActualesAlumnosController::class, 'putIndex']);
+
+// PromovidosController
+Route::put('promovidos/calcular-grupo', [PromovidosController::class, 'putCalcularGrupo']);
+
+// PiarsAlumnosController
+Route::post('piars-alumnos/document', [PiarsAlumnosController::class, 'postDocument']);
+Route::put('piars-alumnos/field', [PiarsAlumnosController::class, 'putField']);
+Route::get('piars-alumnos/alumnos/{grupo_id}', [PiarsAlumnosController::class, 'getAlumnos']);
+Route::delete('piars-alumnos/document/{alumno_id}', [PiarsAlumnosController::class, 'deleteDocument']);

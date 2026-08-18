@@ -1,0 +1,41 @@
+<?php
+
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\AplicacionDescargas\InicioController;
+use App\Http\Controllers\AppMobile\AsistenciasAppController;
+use App\Http\Controllers\Tardanzas\AsistenciasController;
+use App\Http\Controllers\Tardanzas\TSubirController;
+
+/*
+|--------------------------------------------------------------------------
+| Rutas: tardanzas
+|--------------------------------------------------------------------------
+|
+| Generado por tools/route-emit.php a partir de la tabla de rutas que
+| AdvancedRoute registraba. El orden es el de registro y es significativo:
+| las rutas sin parámetros van antes que las que llevan {param} para que no
+| queden tapadas. No reordenar sin comprobar con tools/route-table-dump.php.
+|
+*/
+
+// AsistenciasController
+Route::post('asistencias', [AsistenciasController::class, 'postIndex']);
+Route::get('asistencias/datos-solo-alumnos', [AsistenciasController::class, 'getDatosSoloAlumnos']);
+Route::put('asistencias/detailed', [AsistenciasController::class, 'putDetailed']);
+Route::put('asistencias/eliminar-ausencia', [AsistenciasController::class, 'putEliminarAusencia']);
+Route::put('asistencias/poner-ausencia', [AsistenciasController::class, 'putPonerAusencia']);
+
+// InicioController
+Route::put('aplicacion-descargas/detailed', [InicioController::class, 'putDetailed']);
+
+// AsistenciasAppController
+Route::post('asistencias-app', [AsistenciasAppController::class, 'postIndex']);
+Route::get('asistencias-app/datos-solo-alumnos', [AsistenciasAppController::class, 'getDatosSoloAlumnos']);
+Route::put('asistencias-app/detailed', [AsistenciasAppController::class, 'putDetailed']);
+Route::put('asistencias-app/eliminar-ausencia', [AsistenciasAppController::class, 'putEliminarAusencia']);
+Route::put('asistencias-app/poner-ausencia', [AsistenciasAppController::class, 'putPonerAusencia']);
+
+// TSubirController
+Route::post('tardanzas/subir', [TSubirController::class, 'postIndex']);
+Route::put('tardanzas/subir/eliminar-ausencia', [TSubirController::class, 'putEliminarAusencia']);
+Route::put('tardanzas/subir/poner-ausencia', [TSubirController::class, 'putPonerAusencia']);
