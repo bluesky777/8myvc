@@ -6,6 +6,7 @@ use Browser;
 use Tymon\JWTAuth\Exceptions\JWTException;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
 
 use Illuminate\Http\Request;
 //use Request;
@@ -20,6 +21,7 @@ use App\Models\VtVotacion;
 use App\Models\Periodo;
 use App\Models\Year;
 use App\Models\Role;
+use App\Mail\ResetPassword;
 use \Log;
 
 
@@ -106,9 +108,25 @@ class LoginController extends Controller {
 		];
 
 		$this->datos_entorno_direccion();
+
+		// El limitador global era de 60/min para toda la API, o sea 86.400 intentos
+		// de contraseña al día por IP. Este es específico del par IP+usuario, para
+		// que un atacante no pueda probar contra muchas cuentas desde una IP ni
+		// contra una cuenta desde muchas.
+		$claveLimite = 'login:' . sha1($this->direccion . '|' . $credentials['username']);
+
+		if (RateLimiter::tooManyAttempts($claveLimite, 5)) {
+			return response()->json([
+				'error' => 'too_many_attempts',
+				'segundos' => RateLimiter::availableIn($claveLimite),
+			], 429);
+		}
+
 		try {
 			// attempt to verify the credentials and create a token for the user
 			if (! $token = auth()->attempt($credentials)) {
+
+				RateLimiter::hit($claveLimite, 900);
 				
 				$maquina = 'Intento login>> Entorno: '.$this->entorno.', Dirección: '.$this->direccion.', plataforma: '.Browser::browserEngine().', platfamilia: '.Browser::platformFamily().', device_fami: '.Browser::deviceFamily().', device_model: '.Browser::deviceModel();
 				$consulta 	= 'INSERT INTO bitacoras (descripcion, affected_person_name, affected_element_type, created_at, created_by) 
@@ -117,6 +135,7 @@ class LoginController extends Controller {
 				
 				return response()->json(['error' => 'invalid_credentials'], 400);
 			}
+			RateLimiter::clear($claveLimite);
 			//$newToken = auth()->refresh();
 			//$token = $newToken;
 		} catch (JWTException $e) {
@@ -208,14 +227,20 @@ class LoginController extends Controller {
 	public function postVerPass(Request $request){
 		$now 			= Carbon::now('America/Bogota');
 		$hora 			= Carbon::now('America/Bogota')->subHour(); 
-		$destinatario 	= $request->input('email');
-		$numero 		= rand(100000, 9999999999999999);
+		$destinatario 	= (string) $request->input('email');
+
+		if (!filter_var($destinatario, FILTER_VALIDATE_EMAIL)) {
+			abort(400, 'Correo inválido.');
+		}
+
+		// Se resuelve antes de tocar la BD para no dejar un token huérfano si falla.
+		$ruta_base 	= $this->ruta_frontend_segura($request);
+		// rand() no es criptográficamente seguro y el token se guardaba en claro.
+		// Ahora se genera con el CSPRNG y en la tabla solo queda su hash, así que
+		// un volcado de la BD no permite resetear nada.
+		$numero 		= bin2hex(random_bytes(32));
 		
 		$username 		= '';
-
-		$consulta 	= 'INSERT INTO password_reminders(email, token, created_at) VALUES(?,?,?)';
-		DB::insert($consulta, [ $destinatario, $numero, $now ]);
-
 
 		$consulta 	= 'SELECT * FROM users WHERE email = ? and deleted_at is null and is_active=1';
 		$persona 	= DB::select($consulta, [ $destinatario ]);
@@ -257,65 +282,32 @@ class LoginController extends Controller {
 
 		}
 
-		$ruta 		= $request->input('ruta') . '#!/reset-password/'.$numero.'/'.$username;
+		// Se purga lo caducado y los tokens previos de este correo: solo puede haber
+		// uno vigente a la vez. Antes la tabla no se limpiaba nunca (1.620 filas
+		// acumuladas desde 2018, ninguna vigente).
+		DB::delete('DELETE FROM password_reminders WHERE created_at <= ? OR email = ?', [ $hora, $destinatario ]);
 
-        $asunto = "Ver contraseña Mi Colegio Virtual";
-        $cuerpo = '
-        <style>
-			/* Shrink Wrap Layout Pattern CSS */
-			@media only screen and (max-width: 599px) {
-				td[class="hero"] img {
-					width: 100%;
-					height: auto !important;
-				}
-				td[class="pattern"] td{
-					width: 100%;
-				}
-			}
-		</style>
+		$consulta 	= 'INSERT INTO password_reminders(email, token, created_at) VALUES(?,?,?)';
+		DB::insert($consulta, [ $destinatario, hash('sha256', $numero), $now ]);
 
-		<table cellpadding="0" cellspacing="0">
-			<tr>
-				<td class="pattern" width="600">
-					<table cellpadding="0" cellspacing="0">
-						<tr>
-							<td class="hero">
-								<img src="https://lalvirtual.edu.co/up/images/Logo_MyVc_Header.gif" alt="Mi Colegio Virtual" style="display: block; border: 0;" />
-							</td>
-						</tr>
-						<tr>
-							<td align="left" style="font-family: arial,sans-serif; color: #333;">
-								<h1>My Virtual College</h1>
-							</td>
-						</tr>
-						<tr>
-							<td align="left" style="font-family: arial,sans-serif; font-size: 14px; line-height: 20px !important; color: #666; padding-bottom: 20px;">
-								Has solicitado resetear tu contraseña. Si es así, presiona botón de abajo. De lo contrario, puedes ignorar este mensaje. Este link sólo será válido durante una hora. Tu usuario es <b>'.$username.'</b>
-							</td>
-						</tr>
-						<tr>
-							<td align="left">
-								<a href="'.$ruta.'"><img src="http://placehold.it/200x50/333&text=Resetear" alt="Resetear" style="display: block; border: 0;" /></a>
-							</td>
-						</tr>
-					</table>
-				</td>
-			</tr>
-		</table>
-        ';
-        
-        //para el envío en formato HTML
-        $headers = "MIME-Version: 1.0\r\n";
-        $headers .= "Content-type: text/html; charset=utf-8\r\n";
+		$ruta 		= $ruta_base . '#!/reset-password/'.$numero.'/'.$username;
 
-        //dirección del remitente
-        
-        $headers .= "From: MiColegioVirtual <josethmaster@lalvirtual.com>\r\n";
+		// mail() con cabeceras construidas a mano permitía inyección a través del
+		// destinatario. Ahora va por el Mail de Laravel.
+		//
+		// OJO: mail() usaba el sendmail del sistema y fallaba en SILENCIO; esta ruta
+		// devolvía 'Enviado' aunque no saliera nada. Mail sí lanza excepción, así que
+		// el .env de producción tiene que tener MAIL_* correcto. Si allí funcionaba
+		// por sendmail, MAIL_MAILER=sendmail reproduce el comportamiento anterior.
+		try {
+			Mail::to($destinatario)->send(new ResetPassword($username, $ruta));
+		} catch (\Throwable $e) {
+			// Si el correo no sale, el token no debe quedarse vivo una hora.
+			DB::delete('DELETE FROM password_reminders WHERE email = ?', [ $destinatario ]);
+			Log::error('Fallo enviando el correo de reseteo a ' . $destinatario . ': ' . $e->getMessage());
 
-        //ruta del mensaje desde origen a destino
-        $headers .= "Return-path: josethmaster@lalvirtual.com\r\n";
-
-		mail($destinatario,$asunto,$cuerpo,$headers);
+			abort(500, 'No se pudo enviar el correo. Inténtalo más tarde.');
+		}
 		
 		
 		
@@ -343,7 +335,7 @@ class LoginController extends Controller {
 
 
 		$consulta 	= 'SELECT email FROM password_reminders WHERE token=? and created_at > ?';
-		$reminder 	= DB::select($consulta, [ $numero, $hora ]);
+		$reminder 	= DB::select($consulta, [ hash('sha256', (string) $numero), $hora ]);
 
 		if (count($reminder) == 0) {
 			return 'Token inválido';
@@ -361,7 +353,7 @@ class LoginController extends Controller {
 		}
 
 		$consulta 	= 'DELETE FROM password_reminders WHERE token=?';
-		DB::delete($consulta, [ $numero ]);
+		DB::delete($consulta, [ hash('sha256', (string) $numero) ]);
 		
 
 
@@ -443,13 +435,18 @@ class LoginController extends Controller {
 			if (!is_object($periodo_actual)) {
 				$periodo_actual = Periodo::where('year_id', $yearactual->id)->first();
 				$periodo_actual->actual 	= true;
-				$periodo_actual->updated_by = $this->user->user_id;
+				$periodo_actual->updated_by = 0; // endpoint público: no hay usuario autenticado
 				$periodo_actual->save();
 			}
 
+			// Antes era Hash::make('123456') para todas las cuentas creadas por este
+			// endpoint, que además es público: con adivinar el patrón del username se
+			// entraba. Ahora es aleatoria y se devuelve para poder entregarla.
+			$password_inicial = self::password_legible();
+
 			$usuario = new User;
 			$usuario->username		=	$alumno->nombres . rand(99, 999);
-			$usuario->password		=	Hash::make('123456');
+			$usuario->password		=	Hash::make($password_inicial);
 			$usuario->sexo			=	$sexo;
 			$usuario->is_superuser	=	false;
 			$usuario->periodo_id	=	$periodo_actual->id;
@@ -465,7 +462,8 @@ class LoginController extends Controller {
 			DB::update('UPDATE alumnos SET user_id=? WHERE id=?', [ $usuario->id, $alumno->id ]);
 
 
-			return [ 'estado' => 'Alumno y Prematricula creados' ];
+			return [ 'estado' => 'Alumno y Prematricula creados. Usuario: ' . $usuario->username
+				. ' - Contraseña: ' . $password_inicial . ' (anótala, no se vuelve a mostrar)' ];
 		}
 		
 
@@ -476,6 +474,24 @@ class LoginController extends Controller {
 
 
 
+
+
+	/**
+	 * Contraseña aleatoria que un padre pueda teclear sin equivocarse:
+	 * sin caracteres ambiguos (l/1/I, O/0) y sin símbolos.
+	 */
+	private static function password_legible($largo = 10)
+	{
+		$alfabeto = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+		$max = strlen($alfabeto) - 1;
+		$password = '';
+
+		for ($i = 0; $i < $largo; $i++) {
+			$password .= $alfabeto[random_int(0, $max)];
+		}
+
+		return $password;
+	}
 
 
 	function default_image_id($sexo)
@@ -496,6 +512,35 @@ class LoginController extends Controller {
 	}
 	
 	
+	/**
+	 * Base del enlace de reseteo que se envía por correo.
+	 *
+	 * Antes se usaba tal cual lo que mandara el cliente en 'ruta', así que un
+	 * atacante podía pedir un reseteo para la víctima con ruta a su propio sitio:
+	 * el correo salía legítimo, desde este dominio, con el token dentro de una URL
+	 * que apuntaba a él.
+	 *
+	 * El frontend se sirve del mismo host que la API, así que exigir que coincidan
+	 * cierra el agujero sin necesidad de configurar nada.
+	 */
+	private function ruta_frontend_segura(Request $request)
+	{
+		$enviada = (string) $request->input('ruta');
+
+		if ($enviada !== '' && parse_url($enviada, PHP_URL_HOST) === $request->getHost()) {
+			return $enviada;
+		}
+
+		$configurada = config('app.frontend_url');
+
+		if ($configurada) {
+			return rtrim($configurada, '/') . '/';
+		}
+
+		abort(400, 'Ruta de retorno no permitida.');
+	}
+
+
 	private function datos_entorno_direccion(){
 		if (Browser::isMobile()) {
 			$this->entorno 	= 'Mobile';
