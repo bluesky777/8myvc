@@ -118,6 +118,13 @@ los `destroy` de `boletines2` y `boletines3`.
 Esto **no sustituye** a las comprobaciones por método: varias rutas de matrículas
 exigen además `profes_can_edit_alumnos` o superusuario, y lo siguen exigiendo.
 
+**Comprobado contra el cliente que de verdad usa `piars-grupos/*`:** no es
+`myvc_front`, que no llama a ninguna ruta `piars-*`, sino **`myvc_front_2`**, la
+aplicación Angular que cubre el PIAR y se publica en la carpeta `plus` de cada
+colegio. Es para el personal —comprueba `tipo === 'Profesor'` contra el titular
+del grupo antes de dejar editar— y manda `Authorization: Bearer` en todas sus
+llamadas, así que ni el guard por defecto ni `auth.personal` le cambian nada.
+
 ### Cómo llega un alumno a su boletín, y por qué el guard no le estorba
 
 Comprobado en `myvc_front`, no supuesto. Alumno y acudiente **no** pasan por la

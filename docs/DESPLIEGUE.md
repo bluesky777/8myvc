@@ -74,13 +74,33 @@ Falta comprobar en el servidor, y conviene hacerlo antes de planificar la Fase 4
 - **En cuál de los dos alojamientos** está la carpeta real, y qué colegios
   cuelgan de ella. Son dos hosts, así que como mínimo hay dos vendor reales.
 
-### Tres clientes, no uno
+### Cuatro clientes, no uno
 
 | Cliente | Qué es | Despliegue | ¿Comparte host con la API? |
 |---|---|---|---|
 | **`myvc_front`** | Web, AngularJS 1.8 + Vite | Uno por colegio, en la carpeta `up` de su subdominio | **Sí**, siempre |
+| **`myvc_front_2`** | Web, **Angular 17** · solo la funcionalidad de **PIAR** | Uno por colegio, en la carpeta `plus` de su subdominio | **Sí**, siempre |
 | **`myvc_flutter`** | App móvil y web, Flutter | **Una sola para todos los colegios** | **No** |
 | `8myvc` | Esta API | Uno por colegio, carpeta `8myvc` | — |
+
+**`myvc_front_2` es fácil de olvidar** porque no se parece a los otros: es una
+aplicación aparte, en Angular moderno, que cubre **una sola funcionalidad** —el
+Plan Individual de Ajustes Razonables— y se publica en `plus/` junto a `up/`. La
+intención a futuro es **absorber su funcionalidad en el proyecto principal cuando
+`myvc_front` se migre a Angular** (Joseth, 18 ago 2026); hasta entonces son dos
+front distintos sobre la misma API.
+
+Consume **catorce rutas**, todas de `piars-*` salvo `grupos`, `years` y `login`.
+Manda `Authorization: Bearer` en todas por un interceptor
+(`core/interceptors/auth.interceptor.ts`), igual que `myvc_front`. Es para el
+**personal**: comprueba `tipo === 'Profesor'` contra el titular del grupo
+(`core/services/profile.service.ts`).
+
+> Sus scripts de build nombran **seis subdominios** —`casb`, `coab`, `cads`,
+> `coljordan`, `lal` y `coal`—, cada uno con su `--base-href`. Es el inventario
+> de colegios más concreto que hay escrito en algún repo, y de paso aclara de
+> dónde salía la confusión del proyecto "coal compartido": **`coal` es un
+> colegio**, no un proyecto común.
 
 La app Flutter es la que rompe la intuición: **no se despliega por colegio**. Es una
 sola aplicación, y **en la pantalla de login el usuario elige el servidor de su
@@ -104,9 +124,12 @@ origen web en absoluto.
    `FRONTEND_URL` en cada `.env`, o una excepción para clientes sin origen web.
 
 2. **Cualquier cambio que rompa el contrato del front** hay que coordinarlo **por
-   colegio**, no una vez: el front web se publica colegio a colegio, pero la app
+   colegio**, no una vez: los dos front web se publican colegio a colegio, pero la app
    Flutter se actualiza para todos a la vez. Un cambio que rompa a la app Flutter rompe
    a todos los colegios de golpe.
+
+   Y son **dos** front web, no uno: un cambio en las rutas `piars-*` no lo nota
+   `myvc_front` —no las usa— sino `myvc_front_2`, que se publica aparte.
 
 3. **Orden de despliegue.** Cuando un cambio del backend habilita algo que el front
    necesita, en cada colegio va **primero el backend**. Al revés queda roto.

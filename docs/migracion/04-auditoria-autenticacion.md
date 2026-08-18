@@ -270,12 +270,13 @@ la tabla y responder igual— y es el que hay que mantener verde.
 ## 6. Quién consume esta API
 
 Resumen; **la explicación completa de la topología está en
-[`docs/DESPLIEGUE.md`](../DESPLIEGUE.md)**. Tres clientes, y **no todos comparten
-host con la API**.
+[`docs/DESPLIEGUE.md`](../DESPLIEGUE.md)**. Cuatro clientes, y **no todos
+comparten host con la API**.
 
 | Cliente | Despliegue | Origen |
 |---|---|---|
 | `myvc_front` (AngularJS) | Por colegio, en el subdominio del colegio (carpeta `up`) | Mismo host que la API |
+| `myvc_front_2` (Angular 17, solo PIAR) | Por colegio, carpeta `plus` | Mismo host que la API |
 | App **Flutter** (`myvc_flutter`, móvil y web) | **Una sola app para todos**; el usuario elige el servidor de su colegio al entrar | **Distinto host**, o ninguno en la build nativa |
 | `8myvc` (esta API) | Por colegio, carpeta `8myvc`, con su propia base de datos | — |
 
@@ -315,6 +316,17 @@ seis ya resolvían al usuario por su cuenta, así que el PR #7 no la toca:
 
 Su única superficie pre-login es `login/credentials`, ya incluida en la
 sección 5.
+
+### Superficie de `myvc_front_2`
+
+El segundo front web, en Angular 17, cubre solo el PIAR y se publica en la
+carpeta `plus` de cada colegio. Llama a **catorce** rutas: once de `piars-*` más
+`GET grupos`, `GET years` y `POST login`. Todas llevan `Authorization: Bearer`
+por un interceptor, así que el guard por defecto no le afecta.
+
+Dos de ellas —`piars-grupos/contexto-de-grupo`, en sus dos verbos— llevan además
+`auth.personal`. No le estorba: la aplicación es para el personal y comprueba
+`tipo === 'Profesor'` contra el titular del grupo antes de dejar editar.
 
 > **Y una séptima llamada que no es de esta API.** Antes de elegir colegio y antes
 > de cualquier login, la app pide el directorio de colegios a
