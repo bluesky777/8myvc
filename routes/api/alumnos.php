@@ -48,13 +48,13 @@ Route::put('alumnos/restore/{id}', [AlumnosController::class, 'putRestore']);
 Route::put('alumnos/update/{id}', [AlumnosController::class, 'putUpdate']);
 
 // ImportarController
-Route::get('importar', [ImportarController::class, 'getIndex']);
-Route::post('importar/cartera', [ImportarController::class, 'postCartera']);
+Route::get('importar', [ImportarController::class, 'getIndex'])->middleware('auth.token');
+Route::post('importar/cartera', [ImportarController::class, 'postCartera'])->middleware('auth.token');
 Route::post('importar/algo/{year}', [ImportarController::class, 'postAlgo']);
-Route::get('importar/modificar/{year}', [ImportarController::class, 'getModificar']);
+Route::get('importar/modificar/{year}', [ImportarController::class, 'getModificar'])->middleware('auth.token');
 
 // FoliosController
-Route::get('folios/iniciar', [FoliosController::class, 'getIniciar']);
+Route::get('folios/iniciar', [FoliosController::class, 'getIniciar'])->middleware('auth.token');
 
 // AcudientesController
 Route::put('acudientes/buscar', [AcudientesController::class, 'putBuscar']);

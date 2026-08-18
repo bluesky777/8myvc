@@ -24,9 +24,9 @@ use App\Http\Controllers\Informes\PlanillasAusenciasController;
 
 // DefinicionesComportamientoController
 Route::get('definiciones_comportamiento', [DefinicionesComportamientoController::class, 'getIndex']);
-Route::post('definiciones_comportamiento/store', [DefinicionesComportamientoController::class, 'postStore']);
-Route::post('definiciones_comportamiento/store-escrita', [DefinicionesComportamientoController::class, 'postStoreEscrita']);
-Route::delete('definiciones_comportamiento/destroy/{id}', [DefinicionesComportamientoController::class, 'deleteDestroy']);
+Route::post('definiciones_comportamiento/store', [DefinicionesComportamientoController::class, 'postStore'])->middleware('auth.token');
+Route::post('definiciones_comportamiento/store-escrita', [DefinicionesComportamientoController::class, 'postStoreEscrita'])->middleware('auth.token');
+Route::delete('definiciones_comportamiento/destroy/{id}', [DefinicionesComportamientoController::class, 'deleteDestroy'])->middleware('auth.token');
 
 // ComportamientoController
 Route::get('comportamiento', [ComportamientoController::class, 'getIndex']);

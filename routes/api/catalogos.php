@@ -20,7 +20,7 @@ use App\Http\Controllers\TipoDocumentoController;
 
 // PaisesController
 Route::get('paises', [PaisesController::class, 'getIndex']);
-Route::post('paises/store', [PaisesController::class, 'postStore']);
+Route::post('paises/store', [PaisesController::class, 'postStore'])->middleware('auth.token');
 
 // CiudadesController
 Route::get('ciudades', [CiudadesController::class, 'getIndex']);
@@ -38,19 +38,19 @@ Route::get('ciudades/por-departamento/{departamento}', [CiudadesController::clas
 // TipoDocumentoController
 Route::get('tiposdocumento', [TipoDocumentoController::class, 'index']);
 Route::get('tiposdocumento/create', [TipoDocumentoController::class, 'create']);
-Route::post('tiposdocumento', [TipoDocumentoController::class, 'store']);
+Route::post('tiposdocumento', [TipoDocumentoController::class, 'store'])->middleware('auth.token');
 Route::get('tiposdocumento/{tiposdocumento}', [TipoDocumentoController::class, 'show']);
 Route::get('tiposdocumento/{tiposdocumento}/edit', [TipoDocumentoController::class, 'edit']);
-Route::put('tiposdocumento/{tiposdocumento}', [TipoDocumentoController::class, 'update']);
-Route::patch('tiposdocumento/{tiposdocumento}', [TipoDocumentoController::class, 'update']);
-Route::delete('tiposdocumento/{tiposdocumento}', [TipoDocumentoController::class, 'destroy']);
+Route::put('tiposdocumento/{tiposdocumento}', [TipoDocumentoController::class, 'update'])->middleware('auth.token');
+Route::patch('tiposdocumento/{tiposdocumento}', [TipoDocumentoController::class, 'update'])->middleware('auth.token');
+Route::delete('tiposdocumento/{tiposdocumento}', [TipoDocumentoController::class, 'destroy'])->middleware('auth.token');
 
 // EstadosCivilesController
 Route::get('estados_civiles', [EstadosCivilesController::class, 'index']);
 Route::get('estados_civiles/create', [EstadosCivilesController::class, 'create']);
-Route::post('estados_civiles', [EstadosCivilesController::class, 'store']);
+Route::post('estados_civiles', [EstadosCivilesController::class, 'store'])->middleware('auth.token');
 Route::get('estados_civiles/{estados_civile}', [EstadosCivilesController::class, 'show']);
 Route::get('estados_civiles/{estados_civile}/edit', [EstadosCivilesController::class, 'edit']);
-Route::put('estados_civiles/{estados_civile}', [EstadosCivilesController::class, 'update']);
-Route::patch('estados_civiles/{estados_civile}', [EstadosCivilesController::class, 'update']);
-Route::delete('estados_civiles/{estados_civile}', [EstadosCivilesController::class, 'destroy']);
+Route::put('estados_civiles/{estados_civile}', [EstadosCivilesController::class, 'update'])->middleware('auth.token');
+Route::patch('estados_civiles/{estados_civile}', [EstadosCivilesController::class, 'update'])->middleware('auth.token');
+Route::delete('estados_civiles/{estados_civile}', [EstadosCivilesController::class, 'destroy'])->middleware('auth.token');

@@ -25,7 +25,7 @@ Route::post('actividades/crear', [ActividadesController::class, 'postCrear']);
 Route::put('actividades/datos', [ActividadesController::class, 'putDatos']);
 Route::put('actividades/edicion', [ActividadesController::class, 'putEdicion']);
 Route::put('actividades/guardar', [ActividadesController::class, 'putGuardar']);
-Route::put('actividades/insert-grupo-compartido', [ActividadesController::class, 'putInsertGrupoCompartido']);
+Route::put('actividades/insert-grupo-compartido', [ActividadesController::class, 'putInsertGrupoCompartido'])->middleware('auth.token');
 Route::put('actividades/para-acudientes-toggle', [ActividadesController::class, 'putParaAcudientesToggle']);
 Route::put('actividades/para-alumnos-toggle', [ActividadesController::class, 'putParaAlumnosToggle']);
 Route::put('actividades/para-profesores-toggle', [ActividadesController::class, 'putParaProfesoresToggle']);

@@ -28,13 +28,13 @@ Route::get('perfiles/trashed', [PerfilesController::class, 'getTrashed']);
 Route::get('perfiles/usernames', [PerfilesController::class, 'getUsernames']);
 Route::get('perfiles/usuariosall', [PerfilesController::class, 'getUsuariosall']);
 Route::put('perfiles/cambiaremailrestore/{id}', [PerfilesController::class, 'putCambiaremailrestore']);
-Route::put('perfiles/cambiarfirmaunprofe/{profeelegido}', [PerfilesController::class, 'putCambiarfirmaunprofe']);
-Route::put('perfiles/cambiarimgunalumno/{alumnoelegido}', [PerfilesController::class, 'putCambiarimgunalumno']);
-Route::put('perfiles/cambiarimgunprofe/{profeelegido}', [PerfilesController::class, 'putCambiarimgunprofe']);
-Route::put('perfiles/cambiarimgunusuario/{usuarioelegido}', [PerfilesController::class, 'putCambiarimgunusuario']);
+Route::put('perfiles/cambiarfirmaunprofe/{profeelegido}', [PerfilesController::class, 'putCambiarfirmaunprofe'])->middleware('auth.token');
+Route::put('perfiles/cambiarimgunalumno/{alumnoelegido}', [PerfilesController::class, 'putCambiarimgunalumno'])->middleware('auth.token');
+Route::put('perfiles/cambiarimgunprofe/{profeelegido}', [PerfilesController::class, 'putCambiarimgunprofe'])->middleware('auth.token');
+Route::put('perfiles/cambiarimgunusuario/{usuarioelegido}', [PerfilesController::class, 'putCambiarimgunusuario'])->middleware('auth.token');
 Route::put('perfiles/cambiarpassword/{id}', [PerfilesController::class, 'putCambiarpassword']);
 Route::get('perfiles/comprobarusername/{username}', [PerfilesController::class, 'getComprobarusername']);
-Route::delete('perfiles/destroy/{id}', [PerfilesController::class, 'deleteDestroy']);
+Route::delete('perfiles/destroy/{id}', [PerfilesController::class, 'deleteDestroy'])->middleware('auth.token');
 Route::delete('perfiles/forcedelete/{id}', [PerfilesController::class, 'deleteForcedelete']);
 Route::put('perfiles/guardar-username/{id}', [PerfilesController::class, 'putGuardarUsername']);
 Route::put('perfiles/reset-password/{id}', [PerfilesController::class, 'putResetPassword']);
@@ -63,9 +63,9 @@ Route::put('images-users/cambiar-foto-un-usuario/{user_id}', [ImagesUsuariosCont
 Route::put('images-users/cambiar-imagen-oficial/{user_id}', [ImagesUsuariosController::class, 'putCambiarImagenOficial']);
 Route::put('images-users/cambiar-imagen-perfil/{user_id}', [ImagesUsuariosController::class, 'putCambiarImagenPerfil']);
 Route::put('images-users/cambiar-imagen-un-usuario/{user_id}', [ImagesUsuariosController::class, 'putCambiarImagenUnUsuario']);
-Route::delete('images-users/destroy/{id}', [ImagesUsuariosController::class, 'deleteDestroy']);
-Route::put('images-users/rotar-imagen-izquierda/{imagen_id}', [ImagesUsuariosController::class, 'putRotarImagenIzquierda']);
-Route::put('images-users/rotarimagen/{imagen_id}', [ImagesUsuariosController::class, 'putRotarimagen']);
+Route::delete('images-users/destroy/{id}', [ImagesUsuariosController::class, 'deleteDestroy'])->middleware('auth.token');
+Route::put('images-users/rotar-imagen-izquierda/{imagen_id}', [ImagesUsuariosController::class, 'putRotarImagenIzquierda'])->middleware('auth.token');
+Route::put('images-users/rotarimagen/{imagen_id}', [ImagesUsuariosController::class, 'putRotarimagen'])->middleware('auth.token');
 
 // PublicacionesController
 Route::put('publicaciones/borrar-comentario', [PublicacionesController::class, 'putBorrarComentario']);

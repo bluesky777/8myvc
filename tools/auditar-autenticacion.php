@@ -262,6 +262,22 @@ foreach (Route::getRoutes() as $ruta) {
             continue;
         }
 
+        // Middleware de ruta. Desde que existe `auth.token`, una ruta puede
+        // estar protegida sin que su método haga nada: el guard corre antes.
+        // `middleware()` y no `gatherMiddleware()`: el segundo instancia el
+        // controlador para leer su middleware, y eso dispara los `fromToken()`
+        // de los constructores — el mismo motivo por el que route:list falla.
+        $conGuard = array_intersect(
+            $ruta->middleware(),
+            ['auth.token', 'auth', \App\Http\Middleware\ExigirAutenticacion::class]
+        );
+
+        if ($conGuard !== []) {
+            $resultados[] = [$verbo, $ruta->uri(), $clase, $metodo, 'SÍ',
+                             'middleware ' . implode(', ', $conGuard), ''];
+            continue;
+        }
+
         if ($ctrl['constructorAutentica']) {
             $resultados[] = [$verbo, $ruta->uri(), $clase, $metodo, 'SÍ', 'constructor', ''];
             continue;
@@ -295,6 +311,65 @@ if (in_array('--csv', $argv, true)) {
         $fila[2] = str_replace('App\\Http\\Controllers\\', '', $fila[2]);
         fputcsv($fh, $fila);
     }
+    exit(0);
+}
+
+if (in_array('--md', $argv, true)) {
+    $sin    = array_values(array_filter($resultados, fn ($r) => $r[4] === 'NO'));
+    $con    = array_filter($resultados, fn ($r) => $r[4] === 'SÍ');
+    $vacios = array_values(array_filter($resultados, fn ($r) => $r[4] === 'VACÍO'));
+    $rotas  = array_values(array_filter($resultados, fn ($r) => ! in_array($r[4], ['SÍ', 'NO', 'VACÍO'], true)));
+
+    $publica = fn ($u) => str_starts_with($u, 'api/login')
+        || str_starts_with($u, 'api/password')
+        || $u === 'api/tardanzas/login';
+
+    $escriben = array_values(array_filter($sin, fn ($r) => str_starts_with($r[6], 'ESCRIBE')));
+    $leen     = array_values(array_filter($sin, fn ($r) => $r[6] === 'lectura'));
+
+    $escPub = array_values(array_filter($escriben, fn ($r) => $publica($r[1])));
+    $escRev = array_values(array_filter($escriben, fn ($r) => ! $publica($r[1])));
+    $leePub = array_values(array_filter($leen, fn ($r) => $publica($r[1])));
+    $leeRev = array_values(array_filter($leen, fn ($r) => ! $publica($r[1])));
+
+    $tabla = function (array $rs, bool $ops = false): string {
+        if ($rs === []) {
+            return "_Ninguna._\n";
+        }
+
+        usort($rs, fn ($a, $b) => [$a[2], $a[1]] <=> [$b[2], $b[1]]);
+
+        $out = '| ✔ | Verbo | Ruta | Controlador · método |' . ($ops ? ' Escribe |' : '') . "\n";
+        $out .= '|---|---|---|---|' . ($ops ? '---|' : '') . "\n";
+
+        foreach ($rs as $r) {
+            $ctrl = str_replace('App\\Http\\Controllers\\', '', $r[2]);
+            $out .= sprintf('| ☐ | `%s` | `%s` | %s::%s |', $r[0], $r[1], $ctrl, $r[3]);
+            $out .= $ops ? ' ' . str_replace('ESCRIBE: ', '', $r[6]) . " |\n" : "\n";
+        }
+
+        return $out;
+    };
+
+    $plantilla = __DIR__ . '/plantillas/auditoria-autenticacion.md';
+
+    echo strtr(file_get_contents($plantilla), [
+        '{{TOTAL}}'        => count($resultados),
+        '{{CON}}'          => count($con),
+        '{{ESCRIBEN}}'     => count($escriben),
+        '{{LEEN}}'         => count($leen),
+        '{{VACIOS}}'       => count($vacios),
+        '{{ROTAS}}'        => count($rotas),
+        '{{N_ESC_REV}}'    => count($escRev),
+        '{{N_LEE_REV}}'    => count($leeRev),
+        '{{T_ESC_REV}}'    => $tabla($escRev, true),
+        '{{T_ESC_PUB}}'    => $tabla($escPub, true),
+        '{{T_LEE_REV}}'    => $tabla($leeRev),
+        '{{T_LEE_PUB}}'    => $tabla($leePub),
+        '{{T_VACIOS}}'     => $tabla($vacios),
+        '{{T_ROTAS}}'      => $tabla($rotas),
+    ]);
+
     exit(0);
 }
 

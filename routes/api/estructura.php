@@ -24,17 +24,17 @@ use App\Http\Controllers\YearsController;
 
 // NivelesEducativosController
 Route::get('niveles_educativos', [NivelesEducativosController::class, 'getIndex']);
-Route::post('niveles_educativos/store', [NivelesEducativosController::class, 'postStore']);
-Route::delete('niveles_educativos/destroy/{id}', [NivelesEducativosController::class, 'deleteDestroy']);
+Route::post('niveles_educativos/store', [NivelesEducativosController::class, 'postStore'])->middleware('auth.token');
+Route::delete('niveles_educativos/destroy/{id}', [NivelesEducativosController::class, 'deleteDestroy'])->middleware('auth.token');
 Route::get('niveles_educativos/show/{id}', [NivelesEducativosController::class, 'getShow']);
-Route::put('niveles_educativos/update/{id}', [NivelesEducativosController::class, 'putUpdate']);
+Route::put('niveles_educativos/update/{id}', [NivelesEducativosController::class, 'putUpdate'])->middleware('auth.token');
 
 // GradosController
 Route::get('grados', [GradosController::class, 'getIndex']);
 Route::post('grados/store', [GradosController::class, 'postStore']);
-Route::delete('grados/destroy/{id}', [GradosController::class, 'deleteDestroy']);
+Route::delete('grados/destroy/{id}', [GradosController::class, 'deleteDestroy'])->middleware('auth.token');
 Route::get('grados/show/{id}', [GradosController::class, 'getShow']);
-Route::put('grados/update/{id}', [GradosController::class, 'putUpdate']);
+Route::put('grados/update/{id}', [GradosController::class, 'putUpdate'])->middleware('auth.token');
 
 // GruposController
 Route::get('grupos', [GruposController::class, 'getIndex']);
@@ -91,7 +91,7 @@ Route::put('years/toggle-solo-valorativas', [YearsController::class, 'putToggleS
 Route::get('years/trashed', [YearsController::class, 'getTrashed']);
 Route::delete('years/delete/{id}', [YearsController::class, 'deleteDelete']);
 Route::delete('years/destroy/{id}', [YearsController::class, 'deleteDestroy']);
-Route::put('years/restore/{id}', [YearsController::class, 'putRestore']);
+Route::put('years/restore/{id}', [YearsController::class, 'putRestore'])->middleware('auth.token');
 Route::put('years/useractive/{year_id}', [YearsController::class, 'putUseractive']);
 
 // PeriodosController

@@ -1,10 +1,10 @@
 # Auditoría de autenticación — qué rutas no resuelven al usuario
 
-**Generado por `tools/auditar-autenticacion.php`.** Para regenerarlo:
+**GENERADO. No editar a mano.** Se regenera con:
 
 ```bash
-docker exec 8myvc-app-1 php tools/auditar-autenticacion.php
-docker exec 8myvc-app-1 php tools/auditar-autenticacion.php --csv > /tmp/auditoria.csv
+docker exec 8myvc-app-1 php tools/auditar-autenticacion.php --md \
+  > docs/migracion/04-auditoria-autenticacion.md
 ```
 
 ## Por qué esta lista y no una semana de registro
@@ -12,14 +12,15 @@ docker exec 8myvc-app-1 php tools/auditar-autenticacion.php --csv > /tmp/auditor
 El plan proponía desplegar un middleware que registrara durante una semana qué
 rutas llegan sin token. No sirve: hay semanas en que los colegios no usan el
 sistema, así que la ausencia de registros no distingue "nadie llama a esta ruta"
-de "nadie usó el sistema esa semana". Esto se determina leyendo el código, que
-no depende de que alguien entre.
+de "nadie usó el sistema esa semana". Esto se determina leyendo el código, que no
+depende de que alguien entre.
 
 ## Cómo se determinó
 
-El proyecto no tiene middleware de autenticación: cada método se defiende solo
-llamando a `User::fromToken()`, que aborta con 401 si no hay token, si expiró o
-si es inválido (`app/User.php:85-99`). Llamarlo **es** una comprobación.
+Al principio este proyecto no tenía middleware de autenticación: cada método se
+defendía solo llamando a `User::fromToken()`, que aborta con 401 si no hay token,
+si expiró o si es inválido (`app/User.php:85-99`). Llamarlo **es** una
+comprobación.
 
 Se recorren las rutas reales del router y se analiza el cuerpo de cada método con
 el analizador sintáctico —no con `grep`, que contaría un `fromToken` escrito
@@ -27,19 +28,21 @@ dentro de un comentario—. Se siguen además las llamadas a métodos auxiliares
 la propia clase: el PR #3 puso las guardas en `$this->exigirAdminUsuarios()`, y
 mirando solo el cuerpo directo salían como desprotegidas.
 
-Cuenta como resuelto: `User::fromToken()`, `JWTAuth::*`, `Auth::*`, `auth()` o
-`$this->user` (resuelto en el constructor), directo o vía auxiliar.
+Cuenta como resuelto: el middleware `auth.token`, o una llamada a
+`User::fromToken()`, `JWTAuth::*`, `Auth::*`, `auth()` o `$this->user` (resuelto
+en el constructor), directa o vía auxiliar.
 
-**Lo que esto NO dice:** que las 438 que sí resuelven al usuario estén bien.
-Resolver al usuario prueba que hay token válido, no que ese usuario tenga permiso
-para lo que va a hacer. Un alumno con token es un usuario autenticado.
+**Lo que esto NO dice:** que las que sí resuelven al usuario estén bien.
+Resolverlo prueba que hay token válido, no que ese usuario tenga permiso para lo
+que va a hacer. Un alumno con token es un usuario autenticado. Eso es otra
+auditoría.
 
 ## Resumen
 
 | | Rutas |
 |---|---|
-| Resuelven al usuario | **438** |
-| No lo resuelven y **escriben** en la base | **63** |
+| Resuelven al usuario | **496** |
+| No lo resuelven y **escriben** en la base | **5** |
 | No lo resuelven, solo leen | **40** |
 | Método vacío: la ruta existe, el método no hace nada | 10 |
 | Ruta registrada cuyo método no existe | 3 |
@@ -47,79 +50,23 @@ para lo que va a hacer. Un alumno con token es un usuario autenticado.
 
 ---
 
-## 1. Escriben en la base sin resolver al usuario — 58 a revisar
+## 1. Escriben en la base sin resolver al usuario — 0 a revisar
 
-Lo urgente. Cada una permite modificar datos de un colegio sin presentar token.
+Lo urgente: permiten modificar datos de un colegio sin presentar token.
 
-**Marca la casilla si es un error y necesita el guard.**
+> **Las 58 que había aquí están cerradas** con el middleware `auth.token`
+> (Joseth las confirmó todas como error el 18 ago 2026). `tests/Contrato/AutenticacionTest.php`
+> comprueba que responden 401 sin token y que no rechazan a un usuario legítimo.
 
-| ✔ | Verbo | Ruta | Controlador · método | Escribe |
-|---|---|---|---|---|
-| ☐ | `PUT` | `api/actividades/insert-grupo-compartido` | Actividades\ActividadesController::putInsertGrupoCompartido | ->save() |
-| ☐ | `GET` | `api/folios/iniciar` | Alumnos\FoliosController::getIniciar | DB::update |
-| ☐ | `GET` | `api/importar` | Alumnos\ImportarController::getIndex | ->save() |
-| ☐ | `POST` | `api/importar/cartera` | Alumnos\ImportarController::postCartera | DB::update |
-| ☐ | `GET` | `api/importar/modificar/{year}` | Alumnos\ImportarController::getModificar | DB::update |
-| ☐ | `PUT` | `api/asistencias-app/eliminar-ausencia` | AppMobile\AsistenciasAppController::putEliminarAusencia | ->save(), ->delete() |
-| ☐ | `PUT` | `api/asistencias-app/poner-ausencia` | AppMobile\AsistenciasAppController::putPonerAusencia | DB::insert |
-| ☐ | `POST` | `api/areas` | AreasController::postIndex | ->save() |
-| ☐ | `DELETE` | `api/areas/destroy/{id}` | AreasController::deleteDestroy | ->delete() |
-| ☐ | `PUT` | `api/areas/update/{id}` | AreasController::putUpdate | ->save() |
-| ☐ | `POST` | `api/asignaturas` | AsignaturasController::postIndex | ->save() |
-| ☐ | `DELETE` | `api/asignaturas/destroy/{id}` | AsignaturasController::deleteDestroy | ->delete() |
-| ☐ | `PUT` | `api/asignaturas/update/{id}` | AsignaturasController::putUpdate | ->save() |
-| ☐ | `DELETE` | `api/definiciones_comportamiento/destroy/{id}` | DefinicionesComportamientoController::deleteDestroy | ->delete() |
-| ☐ | `POST` | `api/definiciones_comportamiento/store` | DefinicionesComportamientoController::postStore | ->save() |
-| ☐ | `POST` | `api/definiciones_comportamiento/store-escrita` | DefinicionesComportamientoController::postStoreEscrita | ->save() |
-| ☐ | `DELETE` | `api/editnota/destroy/{id}` | EditnotaController::deleteDestroy | ->delete() |
-| ☐ | `PUT` | `api/editnota/restore/{id}` | EditnotaController::putRestore | ->restore() |
-| ☐ | `POST` | `api/estados_civiles` | EstadosCivilesController::store | EstadoCivil::create |
-| ☐ | `PUT` | `api/estados_civiles/{estados_civile}` | EstadosCivilesController::update | ->save() |
-| ☐ | `PATCH` | `api/estados_civiles/{estados_civile}` | EstadosCivilesController::update | ->save() |
-| ☐ | `DELETE` | `api/estados_civiles/{estados_civile}` | EstadosCivilesController::destroy | ->delete() |
-| ☐ | `DELETE` | `api/grados/destroy/{id}` | GradosController::deleteDestroy | ->delete() |
-| ☐ | `PUT` | `api/grados/update/{id}` | GradosController::putUpdate | ->save() |
-| ☐ | `PUT` | `api/bolfinales/cambiar-contador-certificados` | Informes\BolfinalesController::putCambiarContadorCertificados | DB::update |
-| ☐ | `PUT` | `api/bolfinales/cambiar-contador-folios` | Informes\BolfinalesController::putCambiarContadorFolios | DB::update |
-| ☐ | `DELETE` | `api/materias/destroy/{id}` | MateriasController::deleteDestroy | ->delete() |
-| ☐ | `PUT` | `api/materias/update-orden` | MateriasController::putUpdateOrden | ->save() |
-| ☐ | `PUT` | `api/materias/update/{id}` | MateriasController::putUpdate | ->save() |
-| ☐ | `DELETE` | `api/niveles_educativos/destroy/{id}` | NivelesEducativosController::deleteDestroy | ->delete() |
-| ☐ | `POST` | `api/niveles_educativos/store` | NivelesEducativosController::postStore | ->save() |
-| ☐ | `PUT` | `api/niveles_educativos/update/{id}` | NivelesEducativosController::putUpdate | ->save() |
-| ☐ | `DELETE` | `api/nota_comportamiento/destroy/{id}` | NotaComportamientoController::deleteDestroy | ->delete() |
-| ☐ | `POST` | `api/paises/store` | PaisesController::postStore | DB::insert |
-| ☐ | `DELETE` | `api/images-users/destroy/{id}` | Perfiles\ImagesUsuariosController::deleteDestroy | File::delete, ->delete(), ->save() |
-| ☐ | `PUT` | `api/images-users/rotar-imagen-izquierda/{imagen_id}` | Perfiles\ImagesUsuariosController::putRotarImagenIzquierda | ->save() |
-| ☐ | `PUT` | `api/images-users/rotarimagen/{imagen_id}` | Perfiles\ImagesUsuariosController::putRotarimagen | ->save() |
-| ☐ | `PUT` | `api/perfiles/cambiarfirmaunprofe/{profeelegido}` | Perfiles\PerfilesController::putCambiarfirmaunprofe | ->save() |
-| ☐ | `PUT` | `api/perfiles/cambiarimgunalumno/{alumnoelegido}` | Perfiles\PerfilesController::putCambiarimgunalumno | ->save() |
-| ☐ | `PUT` | `api/perfiles/cambiarimgunprofe/{profeelegido}` | Perfiles\PerfilesController::putCambiarimgunprofe | ->save() |
-| ☐ | `PUT` | `api/perfiles/cambiarimgunusuario/{usuarioelegido}` | Perfiles\PerfilesController::putCambiarimgunusuario | ->save() |
-| ☐ | `DELETE` | `api/perfiles/destroy/{id}` | Perfiles\PerfilesController::deleteDestroy | ->delete() |
-| ☐ | `PUT` | `api/asistencias/eliminar-ausencia` | Tardanzas\AsistenciasController::putEliminarAusencia | ->save(), ->delete() |
-| ☐ | `PUT` | `api/asistencias/poner-ausencia` | Tardanzas\AsistenciasController::putPonerAusencia | DB::insert |
-| ☐ | `POST` | `api/tiposdocumento` | TipoDocumentoController::store | ->save() |
-| ☐ | `PUT` | `api/tiposdocumento/{tiposdocumento}` | TipoDocumentoController::update | ->save() |
-| ☐ | `PATCH` | `api/tiposdocumento/{tiposdocumento}` | TipoDocumentoController::update | ->save() |
-| ☐ | `DELETE` | `api/tiposdocumento/{tiposdocumento}` | TipoDocumentoController::destroy | ->delete() |
-| ☐ | `DELETE` | `api/aspiraciones/destroy/{id}` | VtAspiracionesController::deleteDestroy | ->delete() |
-| ☐ | `POST` | `api/aspiraciones/store` | VtAspiracionesController::postStore | ->save() |
-| ☐ | `PUT` | `api/aspiraciones/update` | VtAspiracionesController::putUpdate | ->save() |
-| ☐ | `DELETE` | `api/candidatos/destroy/{id}` | VtCandidatosController::deleteDestroy | ->delete() |
-| ☐ | `DELETE` | `api/participantes/destroy/{id}` | VtParticipantesController::deleteDestroy | ->delete() |
-| ☐ | `DELETE` | `api/votaciones/destroy/{id}` | VtVotacionesController::deleteDestroy | ->delete() |
-| ☐ | `PUT` | `api/votaciones/update/{id}` | VtVotacionesController::putUpdate | ->save() |
-| ☐ | `DELETE` | `api/votos/destroy/{id}` | VtVotosController::deleteDestroy | ->delete() |
-| ☐ | `PUT` | `api/votos/update/{id}` | VtVotosController::putUpdate | ->save() |
-| ☐ | `PUT` | `api/years/restore/{id}` | YearsController::putRestore | ->restore() |
+_Ninguna._
+
 
 ### Públicas a propósito (escriben, pero son el flujo de entrada)
 
 De `login/*` y `password/*`, que el plan ya lista como públicas. No pueden llevar
-guard —son justo lo que se usa sin token—, pero conviene mirar `putLogout`: recibe
-el `user_id` por parámetro, así que hoy cualquiera puede cerrar la sesión de
-cualquiera.
+guard —son justo lo que se usa sin token—, pero conviene mirar `putLogout`:
+recibe el `user_id` por parámetro, así que hoy cualquiera puede cerrar la sesión
+de cualquiera.
 
 | ✔ | Verbo | Ruta | Controlador · método | Escribe |
 |---|---|---|---|---|
@@ -129,12 +76,13 @@ cualquiera.
 | ☐ | `POST` | `api/login/ver-pass` | LoginController::postVerPass | DB::delete, DB::insert |
 | ☐ | `POST` | `api/password/reset` | RemindersController::postReset | ->save() |
 
+
 ---
 
 ## 2. Solo leen, sin resolver al usuario — 37 a revisar
 
 Menos grave que escribir, pero varias exponen datos de menores a cualquiera que
-sepa la URL.
+sepa la URL. **Pendiente de confirmar una por una.**
 
 | ✔ | Verbo | Ruta | Controlador · método |
 |---|---|---|---|
@@ -176,6 +124,7 @@ sepa la URL.
 | ☐ | `GET` | `api/votos` | VtVotosController::getIndex |
 | ☐ | `GET` | `api/years/trashed` | YearsController::getTrashed |
 
+
 ### Públicas a propósito (lectura)
 
 | ✔ | Verbo | Ruta | Controlador · método |
@@ -183,6 +132,7 @@ sepa la URL.
 | ☐ | `GET` | `api/password/remind` | RemindersController::getRemind |
 | ☐ | `POST` | `api/password/remind` | RemindersController::postRemind |
 | ☐ | `GET` | `api/password/reset/{token?}` | RemindersController::getReset |
+
 
 ---
 
@@ -204,15 +154,17 @@ endpoints muertos. Se pueden borrar sin tocar nada más.
 | ☐ | `GET` | `api/permissions/show/{id}` | PermissionsController::getShow |
 | ☐ | `PUT` | `api/permissions/update/{id}` | PermissionsController::putUpdate |
 
+
 ---
 
 ## 4. Rutas registradas cuyo método no existe — 3
 
 `TipoDocumentoController` está registrado como recurso pero no implementa estos
-tres métodos. Hoy revientan si alguien las llama.
+métodos. Hoy revientan si alguien las llama.
 
 | ✔ | Verbo | Ruta | Controlador · método |
 |---|---|---|---|
 | ☐ | `GET` | `api/tiposdocumento/create` | TipoDocumentoController::create |
 | ☐ | `GET` | `api/tiposdocumento/{tiposdocumento}` | TipoDocumentoController::show |
 | ☐ | `GET` | `api/tiposdocumento/{tiposdocumento}/edit` | TipoDocumentoController::edit |
+
