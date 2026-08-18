@@ -170,9 +170,19 @@ ejecutan sin sesión:
   2024 sigue llamando por `GET`. Cerrarlo le rompería la pantalla de login sin
   dar síntoma en ningún sitio hasta que alguien de ese colegio se queje.
 
-  > **Condición para cerrarlo:** confirmar que todos los colegios están en un
-  > front posterior a `c09718e` (marzo 2024). Es pregunta para Joseth, no
-  > deducible del código.
+  > **Se queda abierto, y ya no por precaución: porque cerrarlo no protege nada.**
+  > Joseth confirmó (18 ago 2026) que todos los colegios se actualizan con las
+  > últimas PRs, así que la condición que faltaba se cumple. Pero al ir a
+  > cerrarlo apareció el dato que decide: **`getUltimas()` y `putUltimas()`
+  > devolvían exactamente lo mismo** — 21 líneas duplicadas palabra por palabra.
+  >
+  > O sea que proteger el `GET` deja el mismo dato saliendo por el `PUT`, que
+  > tiene que seguir público. Se cambia riesgo por nada.
+  >
+  > Lo que sí se hizo es **deduplicarlas**: `getUltimas()` ahora delega en
+  > `putUltimas()`. Con dos copias, quien tocara una dejaría a los colegios del
+  > otro verbo con una respuesta distinta —y siendo esto lo que alimenta la
+  > prematrícula, sin forma de notarlo hasta que un padre no pudiera matricular.
 - **`login/reset-password`** se llama desde el enlace del correo: el usuario no ha
   iniciado sesión —no puede, ha olvidado la contraseña— y el token del reseteo
   viaja en la URL, no en la cabecera. Si se protege, la recuperación queda rota de

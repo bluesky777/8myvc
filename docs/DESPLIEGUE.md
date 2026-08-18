@@ -88,22 +88,13 @@ afectado: cada colegio tiene el suyo en su propio subdominio.
 No hay inventario en el repo. La única fuente fiable es mirar el subdominio del colegio
 directamente.
 
-**Esto no es una molestia menor: bloquea decisiones concretas.** Hoy hay al menos una
-esperando respuesta.
+**Joseth confirma (18 ago 2026) que todos los colegios se actualizan siempre con las
+últimas PRs.** No hay colegios que se queden atrás a propósito.
 
-> **¿Están todos los colegios en un front posterior a marzo de 2024?**
->
-> `GET api/publicaciones/ultimas` sigue abierta sin token porque fue el verbo real del
-> front entre `c116e3f` (2018-10-12) y `c09718e` (2024-03-05). Un colegio con un front
-> anterior a esa fecha la llama por `GET` hoy, y cerrarla le rompería la pantalla de
-> login **sin síntoma en ningún sitio** hasta que alguien de ese colegio se queje.
->
-> Si la respuesta es que sí, se cierra y la superficie sin autenticar baja de 7 rutas a 6.
-
----
-
-Cosas que hay que hacer **en el servidor**, no en el código. Se acumulan aquí para
-no perderlas entre PRs.
+Eso acorta la ventana, pero **no la elimina**: entre que una PR se fusiona y llega a
+cada subdominio hay un despliegue de por medio, y son varios. Sigue siendo cierto que
+*fusionado* no es *desplegado*, y sigue haciendo falta desplegar el backend antes que
+el front en cada colegio.
 
 ---
 

@@ -309,4 +309,26 @@ class RutasPreLoginTest extends CasoDeContrato
         $this->assertSame([], $sirven,
             "Estas rutas responden a quien no presenta token:\n  " . implode("\n  ", $sirven));
     }
+
+    /**
+     * Los dos verbos de `publicaciones/ultimas` devuelven lo mismo.
+     *
+     * Eran 21 líneas duplicadas palabra por palabra. Importa más de lo que
+     * parece: esta respuesta alimenta el formulario público de prematrícula
+     * —el desplegable de grupos sale de `year.grados_sig`—, así que si las dos
+     * copias divergieran, los colegios con un front viejo (que llama por GET)
+     * verían un formulario distinto, sin que nada fallara.
+     */
+    public function test_los_dos_verbos_de_ultimas_devuelven_lo_mismo(): void
+    {
+        $get = $this->getJson('/api/publicaciones/ultimas');
+        $put = $this->putJson('/api/publicaciones/ultimas');
+
+        $get->assertStatus(200);
+        $put->assertStatus(200);
+
+        $this->assertSame($put->json(), $get->json(),
+            'El GET y el PUT de publicaciones/ultimas ya no devuelven lo mismo. ' .
+            'Los colegios con un front anterior a marzo de 2024 llaman por GET.');
+    }
 }
