@@ -42,11 +42,11 @@ auditoría.
 | | Rutas |
 |---|---|
 | Resuelven al usuario | **496** |
-| No lo resuelven y **escriben** en la base | **5** |
+| No lo resuelven y **escriben** en la base | **6** |
 | No lo resuelven, solo leen | **40** |
 | Método vacío: la ruta existe, el método no hace nada | 10 |
 | Ruta registrada cuyo método no existe | 0 |
-| **Total** | **551** |
+| **Total** | **552** |
 
 ---
 
@@ -72,8 +72,9 @@ de cualquiera.
 |---|---|---|---|---|
 | ☐ | `PUT` | `api/login/crear-prematricula` | LoginController::putCrearPrematricula | DB::update, DB::insert, ->save() |
 | ☐ | `PUT` | `api/login/logout` | LoginController::putLogout | DB::update |
+| ☐ | `POST` | `api/login/recuperar-clave` | LoginController::postRecuperarClave | DB::delete, DB::insert |
 | ☐ | `PUT` | `api/login/reset-password` | LoginController::putResetPassword | DB::update, DB::delete |
-| ☐ | `POST` | `api/login/ver-pass` | LoginController::postVerPass | DB::delete, DB::insert |
+| ☐ | `POST` | `api/login/ver-pass` | LoginController::postRecuperarClave | DB::delete, DB::insert |
 | ☐ | `POST` | `api/password/reset` | RemindersController::postReset | ->save() |
 
 

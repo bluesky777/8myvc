@@ -23,7 +23,15 @@ Route::put('login/crear-prematricula', [LoginController::class, 'putCrearPrematr
 Route::post('login/credentials', [LoginController::class, 'postCredentials']);
 Route::put('login/logout', [LoginController::class, 'putLogout']);
 Route::put('login/reset-password', [LoginController::class, 'putResetPassword']);
-Route::post('login/ver-pass', [LoginController::class, 'postVerPass']);
+Route::post('login/recuperar-clave', [LoginController::class, 'postRecuperarClave']);
+// Alias de la anterior. La ruta se llamaba 'login/ver-pass' y el nombre engañaba:
+// no muestra ninguna contraseña, manda el correo de reseteo.
+//
+// Se mantiene para poder desplegar el backend antes que el frontend — cada
+// colegio publica su front por separado, así que durante un tiempo convivirán
+// versiones que llaman a una y a otra. Se borra cuando el front de TODOS los
+// colegios use ya 'login/recuperar-clave'. Anotado en docs/DESPLIEGUE.md.
+Route::post('login/ver-pass', [LoginController::class, 'postRecuperarClave']);
 
 // RemindersController
 Route::get('password/remind', [RemindersController::class, 'getRemind']);

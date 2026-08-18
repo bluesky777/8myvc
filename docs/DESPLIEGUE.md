@@ -136,6 +136,42 @@ Avisar a la sesión/persona que lleve `myvc_front` cuando cada colegio esté lis
 
 ---
 
+## Del PR #7 (auditoría de autenticación)
+
+### 1. Avisar al frontend ANTES de desplegar — 58 rutas pasan a exigir token
+
+Este PR sí cambia el comportamiento. 58 rutas que hoy responden sin token pasan
+a devolver **401**. Si el front de un colegio llama a alguna sin mandar el token,
+deja de funcionar en cuanto se despliegue el backend allí.
+
+La lista está en `docs/migracion/04-auditoria-autenticacion.md`. Hay tests que
+comprueban que un usuario con sesión válida pasa, pero **no** pueden comprobar
+que el front mande siempre el token.
+
+### 2. `login/ver-pass` se renombra a `login/recuperar-clave` — alias temporal
+
+El nombre viejo engañaba: no muestra ninguna contraseña, manda el correo de
+reseteo. **Las dos rutas funcionan**, apuntan al mismo método, así que el
+backend se puede desplegar antes que el front.
+
+**El alias se borra cuando el front de TODOS los colegios use la ruta nueva.**
+Como cada colegio publica su front por separado, hay que confirmarlo colegio a
+colegio, no una vez. `tests/Contrato/RecuperarClaveTest.php` falla el día que se
+borre, como recordatorio de que hay que comprobarlo.
+
+### 3. El reseteo ya no dice si un correo existe — cambia lo que ve el usuario
+
+Antes devolvía `'No existe'` para un correo no registrado y `'Enviado'` para uno
+registrado, y con eso cualquiera podía averiguar qué correos están dados de alta
+en el colegio probándolos uno a uno. **Ahora devuelve `'Enviado'` en ambos
+casos.**
+
+Si el front muestra un mensaje distinto según la respuesta, hay que cambiarlo:
+ya no puede decir "ese correo no está registrado". Lo correcto es un mensaje
+neutro del tipo *"Si el correo está registrado, te llegará un enlace"*.
+
+---
+
 ## Nota general sobre despliegues
 
 Cada colegio tiene su **propia copia real** de `app/` — no hay symlink a un código

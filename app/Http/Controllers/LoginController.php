@@ -224,7 +224,15 @@ class LoginController extends Controller {
 
 
 
-	public function postVerPass(Request $request){
+	/**
+	 * Envía el correo con el enlace para restablecer la contraseña.
+	 *
+	 * Se llamaba `postVerPass` y la ruta `login/ver-pass`. El nombre engañaba:
+	 * no muestra ninguna contraseña — genera un token de un solo uso, guarda su
+	 * hash y manda el enlace por correo. La ruta vieja sigue existiendo como
+	 * alias mientras el frontend de cada colegio se actualiza.
+	 */
+	public function postRecuperarClave(Request $request){
 		$now 			= Carbon::now('America/Bogota');
 		$hora 			= Carbon::now('America/Bogota')->subHour(); 
 		$destinatario 	= (string) $request->input('email');
@@ -273,7 +281,16 @@ class LoginController extends Controller {
 						$persona 	= $persona[0];
 						$username 	= $persona->username;
 					}else{
-						return 'No existe';
+
+						// Antes esto devolvía 'No existe', y con eso cualquiera podía
+						// averiguar si un correo está registrado en el colegio probando
+						// uno a uno. Ahora la respuesta es la misma exista o no: quien
+						// pregunta no aprende nada que no supiera.
+						//
+						// No se crea token ni se manda correo — no hay a quién.
+						Log::info('Reseteo pedido para un correo que no está registrado.');
+
+						return 'Enviado';
 					}
 
 				}
