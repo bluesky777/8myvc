@@ -76,6 +76,18 @@ de cualquiera.
 Menos grave que escribir, pero varias exponen datos de menores a cualquiera que
 sepa la URL. **Pendiente de confirmar una por una.**
 
+> **No todas pueden llevar guard.** La sesión de `myvc_front` avisó (18 ago 2026)
+> de que **`publicaciones/ultimas` la llama la propia pantalla de login**, con el
+> usuario todavía sin autenticar. Si se protege, no se rompe una función suelta:
+> se rompe la pantalla de entrada.
+>
+> Comprobado que hoy responde 200 sin token y que no lleva guard. **Debe seguir
+> pública.**
+>
+> La lección vale para el resto de la lista: antes de proteger cualquiera de
+> estas 37 hay que preguntar al front si la llama antes del login. Es lo que
+> este análisis no puede saber leyendo el backend.
+
 {{T_LEE_REV}}
 
 ### Públicas a propósito (lectura)
