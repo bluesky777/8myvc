@@ -85,17 +85,9 @@ de cualquiera.
 Menos grave que escribir, pero varias exponen datos de menores a cualquiera que
 sepa la URL. **Pendiente de confirmar una por una.**
 
-> **No todas pueden llevar guard.** La sesión de `myvc_front` avisó (18 ago 2026)
-> de que **`publicaciones/ultimas` la llama la propia pantalla de login**, con el
-> usuario todavía sin autenticar. Si se protege, no se rompe una función suelta:
-> se rompe la pantalla de entrada.
->
-> Comprobado que hoy responde 200 sin token y que no lleva guard. **Debe seguir
-> pública.**
->
-> La lección vale para el resto de la lista: antes de proteger cualquiera de
-> estas 37 hay que preguntar al front si la llama antes del login. Es lo que
-> este análisis no puede saber leyendo el backend.
+> **No todas pueden llevar guard.** Ver más abajo el inventario de rutas
+> pre-login: `publicaciones/ultimas` está en esta lista de 37 y **no puede
+> protegerse**.
 
 | ✔ | Verbo | Ruta | Controlador · método |
 |---|---|---|---|
@@ -181,3 +173,40 @@ llama.
 
 _Ninguna._
 
+
+---
+
+## 5. Rutas que el frontend llama SIN sesión
+
+**Ninguna de estas puede exigir token, aunque escriba.** Inventario levantado por
+la sesión de `myvc_front` (18 ago 2026) recorriendo los cuatro estados que viven
+fuera del área autenticada —`main`, `login`, `reset-password` y `logout`— y
+`AuthService`. Todo lo demás cuelga de `panel`, que sí resuelve la sesión.
+
+| Verbo | Ruta | Quién la llama |
+|---|---|---|
+| `PUT` | `api/login/crear-prematricula` | `LoginCtrl` — alta de prematrícula desde la pantalla pública |
+| `PUT` | `api/publicaciones/ultimas` | `LoginCtrl` — las noticias que se pintan en el propio login |
+| `POST` | `api/login/recuperar-clave` | `LoginCtrl` (y su alias `ver-pass`) |
+| `PUT` | `api/login/reset-password` | `ResetPasswordCtrl` |
+| `POST` | `api/login` | `AuthService` |
+| `POST` | `api/login/credentials` | `AuthService` |
+| `PUT` | `api/login/logout` | `AuthService` |
+
+**Esto es lo que la auditoría no puede saber leyendo el backend.** Dos de ellas
+escriben datos de una persona y parecen "de usuario", pero por definición se
+ejecutan sin sesión:
+
+- **`publicaciones/ultimas`** pinta las noticias dentro de la pantalla de login.
+  Está entre las 37 de la sección 2, así que es la que más fácil se protege por
+  descuido. El front la llama con `PUT` aunque solo lee.
+- **`login/reset-password`** se llama desde el enlace del correo: el usuario no ha
+  iniciado sesión —no puede, ha olvidado la contraseña— y el token del reseteo
+  viaja en la URL, no en la cabecera. Si se protege, la recuperación queda rota de
+  punta a punta y el usuario no tiene forma de salir de ahí.
+
+`tests/Contrato/RutasPreLoginTest.php` comprueba que ninguna lleva guard y que
+ninguna responde 401 sin token.
+
+**Regla:** antes de proteger cualquiera de las 37 de la sección 2, preguntar al
+front si la llama algo antes del login.

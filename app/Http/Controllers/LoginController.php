@@ -211,12 +211,36 @@ class LoginController extends Controller {
 
 
 
+	/**
+	 * Marca la hora de salida en el historial.
+	 *
+	 * Se deja a propósito SIN guard de autenticación y sin resolver al usuario:
+	 * cerrar sesión con el token ya caducado tiene que funcionar. Si devolviera
+	 * 401, el frontend no podría limpiar su estado y el usuario se quedaría
+	 * atrapado en una sesión que ya no vale.
+	 *
+	 * Es idempotente: si no hay historial que cerrar, no pasa nada.
+	 *
+	 * PENDIENTE (Fase 3): el `user_id` llega en la petición, así que hoy
+	 * cualquiera puede cerrar la sesión de cualquiera sabiendo un id. Arreglarlo
+	 * bien pide sacarlo del token cuando lo haya y tolerar que no lo haya, y eso
+	 * toca hacerlo al cambiar a Sanctum.
+	 */
 	public function putLogout(Request $request){
 		$now 		= Carbon::now('America/Bogota');
 
 		$consulta 	= 'UPDATE historiales SET logout_at=? where user_id=? and deleted_at is null order by id desc limit 1';
-		DB::update($consulta, [ $now, $request->input('user_id') ])[0];
-		
+
+		// Antes esto acababa en `[0]`. DB::update() devuelve un entero —las filas
+		// afectadas—, y aplicarle un índice reventaba: "Trying to access array
+		// offset on value of type int". O sea que logout devolvía 500 SIEMPRE,
+		// también con un user_id válido.
+		//
+		// Estaba así desde el import de 2021 y pasó desapercibido porque hasta
+		// PHP 7.3 indexar un entero devolvía null en silencio. Desde 7.4 es un
+		// warning, y Laravel los convierte en excepción.
+		DB::update($consulta, [ $now, $request->input('user_id') ]);
+
 		return 'Deslogueado';
 	}
 
