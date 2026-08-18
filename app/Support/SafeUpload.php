@@ -38,7 +38,7 @@ class SafeUpload
     public static function nombreDisponible(?UploadedFile $file, string $carpeta, array $permitidas): string
     {
         if (! $file || ! $file->isValid()) {
-            abort(400, 'No se recibió un archivo válido.');
+            abort(422, 'No se recibió un archivo válido.');
         }
 
         $extension = self::extensionSegura($file, $permitidas);
@@ -82,14 +82,14 @@ class SafeUpload
         $declarada = strtolower($file->getClientOriginalExtension());
 
         if (! in_array($declarada, $permitidas, true) || in_array($declarada, self::PROHIBIDAS, true)) {
-            abort(400, 'Tipo de archivo no permitido: .' . $declarada);
+            abort(422, 'Tipo de archivo no permitido: .' . $declarada);
         }
 
         // extension() deduce del MIME real; devuelve '' si no reconoce el contenido.
         $real = strtolower((string) $file->extension());
 
         if ($real !== '' && in_array($real, self::PROHIBIDAS, true)) {
-            abort(400, 'El contenido del archivo no corresponde a su extensión.');
+            abort(422, 'El contenido del archivo no corresponde a su extensión.');
         }
 
         return $declarada;

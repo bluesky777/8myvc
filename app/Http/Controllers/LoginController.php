@@ -230,7 +230,7 @@ class LoginController extends Controller {
 		$destinatario 	= (string) $request->input('email');
 
 		if (!filter_var($destinatario, FILTER_VALIDATE_EMAIL)) {
-			abort(400, 'Correo inválido.');
+			abort(422, 'Correo inválido.');
 		}
 
 		// Se resuelve antes de tocar la BD para no dejar un token huérfano si falla.
@@ -327,7 +327,7 @@ class LoginController extends Controller {
 		// El front ya valida la longitud, pero eso es una comodidad, no una defensa:
 		// a este endpoint se puede llamar directamente.
 		if (strlen((string) $request->input('password1')) < 4) {
-			abort(400, 'La contraseña debe tener al menos 4 caracteres.');
+			abort(422, 'La contraseña debe tener al menos 4 caracteres.');
 		}
 
 		$pass1 			= Hash::make($request->input('password1'));
@@ -537,7 +537,7 @@ class LoginController extends Controller {
 			return rtrim($configurada, '/') . '/';
 		}
 
-		abort(400, 'Ruta de retorno no permitida.');
+		abort(422, 'Ruta de retorno no permitida.');
 	}
 
 
