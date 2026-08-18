@@ -67,6 +67,22 @@ origen web en absoluto.
 3. **Orden de despliegue.** Cuando un cambio del backend habilita algo que el front
    necesita, en cada colegio va **primero el backend**. Al revés queda roto.
 
+### Un punto único de fallo fuera de este repo
+
+Antes de elegir colegio —y por tanto antes de cualquier login—, la app Flutter pide
+el directorio de colegios a:
+
+```
+POST https://micolevirtual.com/app/listado_colegios.php
+```
+
+Es un PHP suelto en un host central: no es Laravel, no está en ningún backend por
+colegio, y no aparece en ninguna auditoría de rutas de este repo.
+
+**Si ese fichero se cae, la app móvil no arranca en ningún colegio**, porque no
+puede ni ofrecer la lista de servidores donde elegir. El front web no se ve
+afectado: cada colegio tiene el suyo en su propio subdominio.
+
 ### Cómo comprobar qué hay desplegado en un colegio
 
 No hay inventario en el repo. La única fuente fiable es mirar el subdominio del colegio

@@ -44,10 +44,7 @@ Route::delete('tiposdocumento/{tiposdocumento}', [TipoDocumentoController::class
 
 // EstadosCivilesController
 Route::get('estados_civiles', [EstadosCivilesController::class, 'index'])->middleware('auth.token');
-Route::get('estados_civiles/create', [EstadosCivilesController::class, 'create']);
 Route::post('estados_civiles', [EstadosCivilesController::class, 'store'])->middleware('auth.token');
-Route::get('estados_civiles/{estados_civile}', [EstadosCivilesController::class, 'show']);
-Route::get('estados_civiles/{estados_civile}/edit', [EstadosCivilesController::class, 'edit']);
 Route::put('estados_civiles/{estados_civile}', [EstadosCivilesController::class, 'update'])->middleware('auth.token');
 Route::patch('estados_civiles/{estados_civile}', [EstadosCivilesController::class, 'update'])->middleware('auth.token');
 Route::delete('estados_civiles/{estados_civile}', [EstadosCivilesController::class, 'destroy'])->middleware('auth.token');

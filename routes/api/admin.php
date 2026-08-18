@@ -41,9 +41,7 @@ Route::put('uniformes/eliminar', [UniformesController::class, 'putEliminar']);
 Route::put('uniformes/guardar-cambios', [UniformesController::class, 'putGuardarCambios']);
 
 // BitacorasController
-Route::post('bitacoras/store', [BitacorasController::class, 'postStore']);
 Route::delete('bitacoras/destroy/{id}', [BitacorasController::class, 'deleteDestroy']);
-Route::put('bitacoras/update/{id}', [BitacorasController::class, 'putUpdate']);
 Route::get('bitacoras/{user_id?}', [BitacorasController::class, 'getIndex']);
 
 // RolesController
@@ -56,10 +54,6 @@ Route::put('roles/removeroletouser/{role_id}', [RolesController::class, 'putRemo
 
 // PermissionsController
 Route::get('permissions', [PermissionsController::class, 'getIndex']);
-Route::post('permissions', [PermissionsController::class, 'postIndex']);
-Route::delete('permissions/destroy/{id}', [PermissionsController::class, 'deleteDestroy']);
-Route::get('permissions/show/{id}', [PermissionsController::class, 'getShow']);
-Route::put('permissions/update/{id}', [PermissionsController::class, 'putUpdate']);
 
 // EventosController
 Route::get('eventos', [EventosController::class, 'getIndex']);

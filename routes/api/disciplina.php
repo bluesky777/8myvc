@@ -50,7 +50,6 @@ Route::put('ChangesAskedAssignment/solicitar-materia', [ChangeAskedAssignmentCon
 Route::put('ChangesAskedAssignment/ver-detalles', [ChangeAskedAssignmentController::class, 'putVerDetalles']);
 
 // AusenciasController
-Route::get('ausencias', [AusenciasController::class, 'getIndex']);
 Route::post('ausencias/agregar-ausencia', [AusenciasController::class, 'postAgregarAusencia']);
 Route::post('ausencias/agregar-tardanza', [AusenciasController::class, 'postAgregarTardanza']);
 Route::put('ausencias/cambiar-tipo-ausencia', [AusenciasController::class, 'putCambiarTipoAusencia']);

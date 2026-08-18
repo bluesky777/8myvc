@@ -93,7 +93,27 @@ de cualquiera.
 ## 3. Métodos vacíos — {{VACIOS}}
 
 La ruta está registrada pero el método no hace nada. No son agujeros: son
-endpoints muertos. Se pueden borrar sin tocar nada más.
+endpoints muertos.
+
+> **Las 10 que había se borraron el 18 ago 2026**, tras confirmar la sesión de
+> `myvc_front` que ni el front web ni la app Flutter llaman a ninguna, y tras
+> comprobarlo por segunda vez leyendo los dos repos.
+>
+> La que más dudas daba era `GET ausencias`: un listado vacío no se nota, el
+> usuario vería "no hay ausencias" en vez de un error. Resultó que el front nunca
+> la pide a secas — todas sus llamadas llevan segmento, y el listado real sale de
+> `ausencias/detailed/{id}`.
+>
+> **Los métodos vacíos siguen en sus controladores**, solo se quitaron las rutas.
+> Borrarlos es limpieza aparte.
+
+> **Cabo suelto de `estados_civiles`.** El front **no llama a ese recurso de
+> ninguna forma**: la lista está escrita a mano en `ProfesoresNewCtrl:14` y
+> `ProfesoresEditCtrl:16` (`Soltero`, `Casado`, `Divorciado`, `Viudo`).
+> Se borraron sus 3 rutas vacías, pero las otras 5 —`index`, `store`, `update`
+> (PUT y PATCH) y `destroy`— siguen ahí y **tampoco tienen cliente**. El recurso
+> entero se podría borrar; queda pendiente de decisión porque esas cinco sí
+> funcionan.
 
 {{T_VACIOS}}
 
@@ -187,12 +207,28 @@ contraseña**. Esa función solo existe en el front web, que sí comparte host.
 
 ### Superficie de la app Flutter
 
-Llama a cinco rutas. Todas menos el login mandan `Authorization: Bearer`.
-Comprobado que **ninguna llevaba guard nuevo y las cinco ya resolvían al usuario
-por su cuenta**, así que el PR #7 no la toca:
+Llama a **seis** rutas de esta API. Todas menos el login mandan
+`Authorization: Bearer`. Comprobado que ninguna llevaba guard nuevo y que las
+seis ya resolvían al usuario por su cuenta, así que el PR #7 no la toca:
 
-`POST login/credentials` (sin token, es el login) · `POST login` ·
-`GET grupos` · `PUT asistencias/detailed` · `POST ausencias/store`
+| | |
+|---|---|
+| `POST login/credentials` | **sin token** — es el login |
+| `POST login` | con token |
+| `GET grupos` | con token |
+| `PUT asistencias/detailed` | con token |
+| `POST ausencias/store` | con token |
+| `DELETE ausencias/destroy/{id}` | con token |
 
 Su única superficie pre-login es `login/credentials`, ya incluida en la
 sección 5.
+
+> **Y una séptima llamada que no es de esta API.** Antes de elegir colegio y antes
+> de cualquier login, la app pide el directorio de colegios a
+> `POST https://micolevirtual.com/app/listado_colegios.php` — un PHP suelto en un
+> host central, fuera de Laravel y fuera del despliegue por colegio.
+>
+> **Es un punto único de fallo que ninguna auditoría de rutas ve:** si ese fichero
+> se cae, la app móvil no arranca en **ningún** colegio, porque no puede ni ofrecer
+> la lista de servidores. Queda anotado aquí porque no tiene otro sitio donde
+> constar.
