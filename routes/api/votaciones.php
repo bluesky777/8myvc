@@ -31,9 +31,9 @@ Route::put('votaciones/set-permiso-ver-results', [VtVotacionesController::class,
 Route::put('votaciones/set-votan-acudientes', [VtVotacionesController::class, 'putSetVotanAcudientes']);
 Route::put('votaciones/set-votan-profes', [VtVotacionesController::class, 'putSetVotanProfes']);
 Route::post('votaciones/store', [VtVotacionesController::class, 'postStore']);
-Route::get('votaciones/unsignedsusers', [VtVotacionesController::class, 'getUnsignedsusers']);
+Route::get('votaciones/unsignedsusers', [VtVotacionesController::class, 'getUnsignedsusers'])->middleware('auth.token');
 Route::delete('votaciones/destroy/{id}', [VtVotacionesController::class, 'deleteDestroy'])->middleware('auth.token');
-Route::get('votaciones/show/{id}', [VtVotacionesController::class, 'getShow']);
+Route::get('votaciones/show/{id}', [VtVotacionesController::class, 'getShow'])->middleware('auth.token');
 Route::put('votaciones/update/{id}', [VtVotacionesController::class, 'putUpdate'])->middleware('auth.token');
 
 // VtAspiracionesController
@@ -59,7 +59,7 @@ Route::post('candidatos/store', [VtCandidatosController::class, 'postStore']);
 Route::delete('candidatos/destroy/{id}', [VtCandidatosController::class, 'deleteDestroy'])->middleware('auth.token');
 
 // VtVotosController
-Route::get('votos', [VtVotosController::class, 'getIndex']);
+Route::get('votos', [VtVotosController::class, 'getIndex'])->middleware('auth.token');
 Route::put('votos/show', [VtVotosController::class, 'putShow']);
 Route::post('votos/store', [VtVotosController::class, 'postStore']);
 Route::delete('votos/destroy/{id}', [VtVotosController::class, 'deleteDestroy'])->middleware('auth.token');

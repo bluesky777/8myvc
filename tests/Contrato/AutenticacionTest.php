@@ -2,6 +2,7 @@
 
 namespace Tests\Contrato;
 
+use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\Route;
 
 /**
@@ -17,8 +18,15 @@ use Illuminate\Support\Facades\Route;
  */
 class AutenticacionTest extends CasoDeContrato
 {
-    /** Cuántas rutas debe haber con guard. Si cambia a propósito, actualiza el número. */
-    private const RUTAS_CON_GUARD = 58;
+    /**
+     * Cuántas rutas debe haber con guard. Si cambia a propósito, actualiza el
+     * número y regenera la auditoría.
+     *
+     * 58 que escribían + 35 de solo lectura. Las 2 de `publicaciones/ultimas`
+     * se quedan fuera a propósito: las llama la pantalla de login. Ver
+     * tests/Contrato/RutasPreLoginTest.php.
+     */
+    private const RUTAS_CON_GUARD = 93;
 
     /** @return array<int, array{0: string, 1: string}> */
     private function rutasConGuard(): array
@@ -59,13 +67,22 @@ class AutenticacionTest extends CasoDeContrato
 
     public function test_sin_token_todas_responden_401(): void
     {
+        // La API lleva un limitador global de 60 peticiones por minuto
+        // (`throttle:api`). Este test recorre las 93 rutas de una tacada, así que
+        // a partir de la 60 recibiría 429 en vez de 401 y estaríamos comprobando
+        // el limitador, no el guard.
+        $this->withoutMiddleware(ThrottleRequests::class);
+
         $fallos = [];
 
         foreach ($this->rutasConGuard() as [$verbo, $uri]) {
+            // getStatusCode() y no status(): varias de estas rutas devuelven un
+            // fichero (BinaryFileResponse, los exportadores a Excel), y ese tipo
+            // de respuesta no tiene status().
             $r = $this->json($verbo, $uri);
 
-            if ($r->status() !== 401) {
-                $fallos[] = sprintf('%-7s %-52s devolvió %d', $verbo, $uri, $r->status());
+            if ($r->getStatusCode() !== 401) {
+                $fallos[] = sprintf('%-7s %-52s devolvió %d', $verbo, $uri, $r->getStatusCode());
             }
         }
 
@@ -76,6 +93,12 @@ class AutenticacionTest extends CasoDeContrato
 
     public function test_con_token_valido_el_guard_deja_pasar(): void
     {
+        // La API lleva un limitador global de 60 peticiones por minuto
+        // (`throttle:api`). Este test recorre las 93 rutas de una tacada, así que
+        // a partir de la 60 recibiría 429 en vez de 401 y estaríamos comprobando
+        // el limitador, no el guard.
+        $this->withoutMiddleware(ThrottleRequests::class);
+
         $usuario = $this->usuarioDeTipo('Usuario');
         $token   = $this->tokenDe($usuario->username);
 
@@ -87,7 +110,7 @@ class AutenticacionTest extends CasoDeContrato
             // Con token válido puede pasar cualquier cosa —faltan parámetros, el
             // id 1 no existe, el usuario no tiene permiso— menos un 401. Un 401
             // aquí significaría que el guard rechaza a un usuario legítimo.
-            if ($r->status() === 401) {
+            if ($r->getStatusCode() === 401) {
                 $rechazadas[] = sprintf('%-7s %s', $verbo, $uri);
             }
         }

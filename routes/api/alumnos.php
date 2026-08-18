@@ -50,7 +50,7 @@ Route::put('alumnos/update/{id}', [AlumnosController::class, 'putUpdate']);
 // ImportarController
 Route::get('importar', [ImportarController::class, 'getIndex'])->middleware('auth.token');
 Route::post('importar/cartera', [ImportarController::class, 'postCartera'])->middleware('auth.token');
-Route::post('importar/algo/{year}', [ImportarController::class, 'postAlgo']);
+Route::post('importar/algo/{year}', [ImportarController::class, 'postAlgo'])->middleware('auth.token');
 Route::get('importar/modificar/{year}', [ImportarController::class, 'getModificar'])->middleware('auth.token');
 
 // FoliosController
@@ -115,9 +115,9 @@ Route::put('requisitos/update', [RequisitosController::class, 'putUpdate']);
 Route::delete('requisitos/destroy/{id}', [RequisitosController::class, 'deleteDestroy']);
 
 // CarteraController
-Route::put('cartera/alumnos', [CarteraController::class, 'putAlumnos']);
+Route::put('cartera/alumnos', [CarteraController::class, 'putAlumnos'])->middleware('auth.token');
 Route::get('cartera/exportar-solo-deudores', [CarteraController::class, 'getExportarSoloDeudores']);
-Route::put('cartera/solo-deudores', [CarteraController::class, 'putSoloDeudores']);
+Route::put('cartera/solo-deudores', [CarteraController::class, 'putSoloDeudores'])->middleware('auth.token');
 
 // DetallesController
 Route::put('detalles/alumno', [DetallesController::class, 'putAlumno']);

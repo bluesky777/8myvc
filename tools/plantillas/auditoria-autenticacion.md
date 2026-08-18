@@ -73,12 +73,14 @@ de cualquiera.
 
 ## 2. Solo leen, sin resolver al usuario — {{N_LEE_REV}} a revisar
 
-Menos grave que escribir, pero varias exponen datos de menores a cualquiera que
-sepa la URL. **Pendiente de confirmar una por una.**
-
-> **No todas pueden llevar guard.** Ver más abajo el inventario de rutas
-> pre-login: `publicaciones/ultimas` está en esta lista de 37 y **no puede
-> protegerse**.
+> **Las 35 que había aquí están cerradas** (Joseth las confirmó el 18 ago 2026).
+> Varias exponían datos de menores a cualquiera que supiera la URL:
+> `perfiles/usuariosall`, `users/export`, `acudientes-export/acudientes`, `simat`,
+> `observador`.
+>
+> **Se dejaron fuera a propósito las 2 de `publicaciones/ultimas`** (GET y PUT):
+> las llama la pantalla de login, con el usuario aún sin autenticar. Ver la
+> sección 5.
 
 {{T_LEE_REV}}
 
@@ -144,3 +146,48 @@ ninguna responde 401 sin token.
 
 **Regla:** antes de proteger cualquiera de las 37 de la sección 2, preguntar al
 front si la llama algo antes del login.
+
+---
+
+## 6. Quién consume esta API
+
+Resumen; **la explicación completa de la topología está en
+[`docs/DESPLIEGUE.md`](../DESPLIEGUE.md)**. Tres clientes, y **no todos comparten
+host con la API**.
+
+| Cliente | Despliegue | Origen |
+|---|---|---|
+| `myvc_front` (AngularJS) | Por colegio, en el subdominio del colegio (carpeta `up`) | Mismo host que la API |
+| App **Flutter** (`myvc_flutter`, móvil y web) | **Una sola app para todos**; el usuario elige el servidor de su colegio al entrar | **Distinto host**, o ninguno en la build nativa |
+| `8myvc` (esta API) | Por colegio, carpeta `8myvc`, con su propia base de datos | — |
+
+Cada colegio es un subdominio con carpeta propia en uno de los dos *shared
+hosting* con cPanel, y dentro va todo desde cero. Confirmado por Joseth el
+18 ago 2026.
+
+### Qué significa para la comprobación de host de `recuperar-clave`
+
+`ruta_frontend_segura()` exige que el host del parámetro `ruta` coincida con el
+de la petición (guarda del PR #3, contra recibir un correo legítimo con el token
+apuntando al sitio de un atacante).
+
+**Hoy no afecta a nadie**, y el motivo correcto no es que todos compartan host
+—la app Flutter no lo hace—, sino que **la app Flutter no tiene recuperación de
+contraseña**. Esa función solo existe en el front web, que sí comparte host.
+
+> **Si algún día se añade "olvidé mi contraseña" a la app Flutter**, la
+> comprobación la rechazará con 422 en todos los colegios: una app nativa no
+> tiene `location.origin`. Haría falta `FRONTEND_URL` en el `.env` de cada
+> colegio, o una excepción pensada para clientes sin origen web.
+
+### Superficie de la app Flutter
+
+Llama a cinco rutas. Todas menos el login mandan `Authorization: Bearer`.
+Comprobado que **ninguna llevaba guard nuevo y las cinco ya resolvían al usuario
+por su cuenta**, así que el PR #7 no la toca:
+
+`POST login/credentials` (sin token, es el login) · `POST login` ·
+`GET grupos` · `PUT asistencias/detailed` · `POST ausencias/store`
+
+Su única superficie pre-login es `login/credentials`, ya incluida en la
+sección 5.

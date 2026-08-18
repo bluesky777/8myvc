@@ -25,8 +25,8 @@ use App\Http\Controllers\UsersController;
 Route::post('users/crear-administrador', [UsersController::class, 'postCrearAdministrador']);
 Route::post('users/crear-enfermero', [UsersController::class, 'postCrearEnfermero']);
 Route::post('users/crear-psicologo', [UsersController::class, 'postCrearPsicologo']);
-Route::get('users/export', [UsersController::class, 'getExport']);
-Route::put('users/usernames-check', [UsersController::class, 'putUsernamesCheck']);
+Route::get('users/export', [UsersController::class, 'getExport'])->middleware('auth.token');
+Route::put('users/usernames-check', [UsersController::class, 'putUsernamesCheck'])->middleware('auth.token');
 
 // CambiarUsuariosController
 Route::put('cambiar-usuarios/poner-documento-como-username-acudientes', [CambiarUsuariosController::class, 'putPonerDocumentoComoUsernameAcudientes']);

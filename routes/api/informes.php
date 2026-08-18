@@ -86,19 +86,19 @@ Route::get('boletines3/detailed-notas-year/{grupo_id}/{periodo_a_calcular?}', [B
 Route::put('boletines3/detailed-notas/{grupo_id}', [Boletines3Controller::class, 'putDetailedNotas']);
 
 // SimatController
-Route::get('simat', [SimatController::class, 'getIndex']);
+Route::get('simat', [SimatController::class, 'getIndex'])->middleware('auth.token');
 Route::get('simat/alumnos', [SimatController::class, 'getAlumnos']);
 Route::get('simat/alumnos-exportar', [SimatController::class, 'getAlumnosExportar']);
 
 // AcudientesExportController
-Route::get('acudientes-export/acudientes', [AcudientesExportController::class, 'getAcudientes']);
+Route::get('acudientes-export/acudientes', [AcudientesExportController::class, 'getAcudientes'])->middleware('auth.token');
 
 // ExcelListadoDocentesController
-Route::get('excel-docentes', [ExcelListadoDocentesController::class, 'getIndex']);
+Route::get('excel-docentes', [ExcelListadoDocentesController::class, 'getIndex'])->middleware('auth.token');
 Route::get('excel-docentes/docentes/{year}/{year_id}', [ExcelListadoDocentesController::class, 'getDocentes']);
 
 // ObservadorController
-Route::get('observador', [ObservadorController::class, 'getIndex']);
+Route::get('observador', [ObservadorController::class, 'getIndex'])->middleware('auth.token');
 Route::get('observador/vertical-todos', [ObservadorController::class, 'getVerticalTodos']);
 Route::get('observador/vertical/{grupo_id}/{tamanio}', [ObservadorController::class, 'getVertical']);
 

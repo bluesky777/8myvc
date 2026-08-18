@@ -1,5 +1,79 @@
 # Pendientes de despliegue
 
+## Topología: cómo está montado esto
+
+**Léelo antes de tocar nada.** Casi todas las decisiones de despliegue de este
+proyecto se explican por aquí, y es lo que más caro sale suponer mal.
+
+### Un colegio = un subdominio con todo dentro
+
+Hay **dos alojamientos compartidos con cPanel**. A cada colegio o cliente se le crea
+**un subdominio con su carpeta**, y ahí dentro va todo desde cero:
+
+```
+<colegio>.dominio/
+├── 8myvc/          el backend (este repo)
+└── up/             el frontend web (myvc_front, renombrado)
+```
+
+Y **su propia base de datos**, separada de la de los demás.
+
+No hay código compartido entre colegios: **cada uno tiene su propia copia real de
+`app/`**, no un symlink a un proyecto común. Circulaba la creencia contraria (un
+proyecto llamado `coal` compartido vía symlink) y es **falsa**.
+
+> **La consecuencia que más se olvida: un arreglo fusionado NO está desplegado.**
+> Llega a cada colegio por su propio despliegue. Un agujero cerrado en `main` sigue
+> abierto en todos los colegios que aún no han recibido el código. "Arreglado" y
+> "desplegado en el colegio X" son cosas distintas.
+
+Por lo mismo, cualquier cambio de configuración —`MAIL_*`, `CORS_ALLOWED_ORIGINS`,
+`FRONTEND_URL`— hay que hacerlo **en el `.env` de cada colegio**, uno por uno.
+
+### Tres clientes, no uno
+
+| Cliente | Qué es | Despliegue | ¿Comparte host con la API? |
+|---|---|---|---|
+| **`myvc_front`** | Web, AngularJS 1.8 + Vite | Uno por colegio, en la carpeta `up` de su subdominio | **Sí**, siempre |
+| **`myvc_flutter`** | App móvil y web, Flutter | **Una sola para todos los colegios** | **No** |
+| `8myvc` | Esta API | Uno por colegio, carpeta `8myvc` | — |
+
+La app Flutter es la que rompe la intuición: **no se despliega por colegio**. Es una
+sola aplicación, y **en la pantalla de login el usuario elige el servidor de su
+colegio**; a partir de ahí todo apunta a esa URI. Construye la base así
+(`lib/Http/Server.dart`):
+
+```dart
+Server.urlApi = '$servidor/8myvc/public/api';
+```
+
+O sea que su origen **no** es el subdominio del colegio, y en la build nativa no tiene
+origen web en absoluto.
+
+### Por qué esto importa para el código
+
+1. **Guardas que comparan el origen.** `ruta_frontend_segura()` exige que el host del
+   parámetro `ruta` coincida con el de la petición. Hoy no molesta a nadie, pero **no
+   porque todos compartan host** —la app Flutter no lo hace—, sino porque **la app
+   Flutter no tiene recuperación de contraseña**, y esa es la única función que usa esa
+   comprobación. Si algún día se le añade, dará 422 en todos los colegios y hará falta
+   `FRONTEND_URL` en cada `.env`, o una excepción para clientes sin origen web.
+
+2. **Cualquier cambio que rompa el contrato del front** hay que coordinarlo **por
+   colegio**, no una vez: el front web se publica colegio a colegio, pero la app
+   Flutter se actualiza para todos a la vez. Un cambio que rompa a la app Flutter rompe
+   a todos los colegios de golpe.
+
+3. **Orden de despliegue.** Cuando un cambio del backend habilita algo que el front
+   necesita, en cada colegio va **primero el backend**. Al revés queda roto.
+
+### Cómo comprobar qué hay desplegado en un colegio
+
+No hay inventario en el repo. La única fuente fiable es mirar el subdominio del colegio
+directamente.
+
+---
+
 Cosas que hay que hacer **en el servidor**, no en el código. Se acumulan aquí para
 no perderlas entre PRs.
 
@@ -171,13 +245,3 @@ ya no puede decir "ese correo no está registrado". Lo correcto es un mensaje
 neutro del tipo *"Si el correo está registrado, te llegará un enlace"*.
 
 ---
-
-## Nota general sobre despliegues
-
-Cada colegio tiene su **propia copia real** de `app/` — no hay symlink a un código
-común. Circulaba la creencia contraria (un proyecto compartido llamado `coal`) y es
-falsa.
-
-Implicación: **un arreglo fusionado no está desplegado.** Llega a cada colegio por su
-propio despliegue, así que un agujero cerrado en `main` sigue abierto en cualquier
-colegio que aún no haya recibido el código.

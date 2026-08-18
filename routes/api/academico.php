@@ -30,7 +30,7 @@ use App\Http\Controllers\UnidadesController;
 */
 
 // AreasController
-Route::get('areas', [AreasController::class, 'getIndex']);
+Route::get('areas', [AreasController::class, 'getIndex'])->middleware('auth.token');
 Route::post('areas', [AreasController::class, 'postIndex'])->middleware('auth.token');
 Route::put('areas/update-orden', [AreasController::class, 'putUpdateOrden']);
 Route::delete('areas/destroy/{id}', [AreasController::class, 'deleteDestroy'])->middleware('auth.token');
@@ -48,7 +48,7 @@ Route::get('asignaturas', [AsignaturasController::class, 'getIndex']);
 Route::post('asignaturas', [AsignaturasController::class, 'postIndex'])->middleware('auth.token');
 Route::post('asignaturas/copiar', [AsignaturasController::class, 'postCopiar']);
 Route::put('asignaturas/datos-asignaturas', [AsignaturasController::class, 'putDatosAsignaturas']);
-Route::put('asignaturas/detalle-asignatura', [AsignaturasController::class, 'putDetalleAsignatura']);
+Route::put('asignaturas/detalle-asignatura', [AsignaturasController::class, 'putDetalleAsignatura'])->middleware('auth.token');
 Route::get('asignaturas/listasignaturas-alone', [AsignaturasController::class, 'getListasignaturasAlone']);
 Route::get('asignaturas/papelera', [AsignaturasController::class, 'getPapelera']);
 Route::put('asignaturas/restaurar', [AsignaturasController::class, 'putRestaurar']);
@@ -95,7 +95,7 @@ Route::put('notas/update/{id}', [NotasController::class, 'putUpdate']);
 // NotaComportamientoController
 Route::get('nota_comportamiento', [NotaComportamientoController::class, 'getIndex']);
 Route::put('nota_comportamiento/crear', [NotaComportamientoController::class, 'putCrear']);
-Route::put('nota_comportamiento/frases-check', [NotaComportamientoController::class, 'putFrasesCheck']);
+Route::put('nota_comportamiento/frases-check', [NotaComportamientoController::class, 'putFrasesCheck'])->middleware('auth.token');
 Route::put('nota_comportamiento/guardar-libro', [NotaComportamientoController::class, 'putGuardarLibro']);
 Route::post('nota_comportamiento/store', [NotaComportamientoController::class, 'postStore']);
 Route::delete('nota_comportamiento/destroy/{id}', [NotaComportamientoController::class, 'deleteDestroy'])->middleware('auth.token');

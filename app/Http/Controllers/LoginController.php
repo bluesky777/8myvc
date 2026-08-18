@@ -221,27 +221,78 @@ class LoginController extends Controller {
 	 *
 	 * Es idempotente: si no hay historial que cerrar, no pasa nada.
 	 *
-	 * PENDIENTE (Fase 3): el `user_id` llega en la petición, así que hoy
-	 * cualquiera puede cerrar la sesión de cualquiera sabiendo un id. Arreglarlo
-	 * bien pide sacarlo del token cuando lo haya y tolerar que no lo haya, y eso
-	 * toca hacerlo al cambiar a Sanctum.
+	 * El usuario sale del TOKEN, no del cuerpo de la petición. Antes llegaba como
+	 * `user_id`, así que cualquiera podía falsificar el cierre de sesión de otro
+	 * sabiendo su id — no lo echaba del sistema, pero corrompía el historial de
+	 * accesos, que es justo lo que se mira cuando hay que reconstruir qué pasó.
+	 *
+	 * La sesión de myvc_front confirmó (18 ago 2026) que la cabecera Authorization
+	 * viaja en esta llamada: AngularJS copia las cabeceras por defecto de forma
+	 * síncrona al construir la petición (angular.js:13053), antes de que el propio
+	 * `logout()` borre el default. O sea que el token está aquí aunque el front lo
+	 * borre acto seguido.
 	 */
-	public function putLogout(Request $request){
+	public function putLogout(){
 		$now 		= Carbon::now('America/Bogota');
 
-		$consulta 	= 'UPDATE historiales SET logout_at=? where user_id=? and deleted_at is null order by id desc limit 1';
+		// Nada de esta petición se lee salvo el token: ni siquiera se recibe el
+		// Request. El `user_id` que mandaba el frontend se ignora, y por eso el
+		// parámetro ya no está.
+		$userId = $this->usuarioDelTokenAunqueCaducado();
 
-		// Antes esto acababa en `[0]`. DB::update() devuelve un entero —las filas
-		// afectadas—, y aplicarle un índice reventaba: "Trying to access array
-		// offset on value of type int". O sea que logout devolvía 500 SIEMPRE,
-		// también con un user_id válido.
-		//
-		// Estaba así desde el import de 2021 y pasó desapercibido porque hasta
-		// PHP 7.3 indexar un entero devolvía null en silencio. Desde 7.4 es un
-		// warning, y Laravel los convierte en excepción.
-		DB::update($consulta, [ $now, $request->input('user_id') ]);
+		// Sin token identificable no hay sesión que registrar. Se responde igual:
+		// el front tiene que poder limpiar su estado pase lo que pase aquí.
+		if ($userId !== null) {
+			$consulta = 'UPDATE historiales SET logout_at=? where user_id=? and deleted_at is null order by id desc limit 1';
+
+			// Antes esto acababa en `[0]`. DB::update() devuelve un entero —las
+			// filas afectadas—, y aplicarle un índice reventaba: "Trying to
+			// access array offset on value of type int". O sea que el logout
+			// devolvía 500 SIEMPRE, también con un user_id válido.
+			//
+			// Estaba así desde el import de 2021 y pasó desapercibido porque
+			// hasta PHP 7.3 indexar un entero devolvía null en silencio. Desde
+			// 7.4 es un warning, y Laravel los convierte en excepción: se rompió
+			// solo al subir de versión, sin que nadie tocara el fichero.
+			DB::update($consulta, [ $now, $userId ]);
+		}
 
 		return 'Deslogueado';
+	}
+
+
+	/**
+	 * El id del usuario que hay dentro del token, aunque el token haya expirado.
+	 *
+	 * Cerrar sesión con el token caducado tiene que funcionar — es el caso normal
+	 * de quien vuelve al día siguiente—, así que no sirve `User::fromToken()`,
+	 * que aborta con 401 al expirar.
+	 *
+	 * Se decodifica por el proveedor directamente: **comprueba la firma** pero no
+	 * valida la expiración. Un token inventado no pasa; uno legítimo y vencido sí.
+	 *
+	 * No se usa `setRefreshFlow()` del manager, que haría lo mismo, porque es un
+	 * interruptor con estado sobre una instancia compartida: en producción cada
+	 * petición es un proceso nuevo y daría igual, pero en la misma tanda de tests
+	 * el contenedor persiste y se filtraría a los demás.
+	 */
+	private function usuarioDelTokenAunqueCaducado(): ?int
+	{
+		try {
+			$token = JWTAuth::getToken();
+
+			if (! $token) {
+				return null;
+			}
+
+			$claims = JWTAuth::manager()->getJWTProvider()->decode($token->get());
+
+			return isset($claims['sub']) ? (int) $claims['sub'] : null;
+
+		} catch (\Throwable $e) {
+			// Firma inválida, basura, o formato que no se reconoce.
+			return null;
+		}
 	}
 
 

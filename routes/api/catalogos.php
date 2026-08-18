@@ -19,7 +19,7 @@ use App\Http\Controllers\TipoDocumentoController;
 */
 
 // PaisesController
-Route::get('paises', [PaisesController::class, 'getIndex']);
+Route::get('paises', [PaisesController::class, 'getIndex'])->middleware('auth.token');
 Route::post('paises/store', [PaisesController::class, 'postStore'])->middleware('auth.token');
 
 // CiudadesController
@@ -36,14 +36,14 @@ Route::get('ciudades/paisdeciudad/{ciudad_id}', [CiudadesController::class, 'get
 Route::get('ciudades/por-departamento/{departamento}', [CiudadesController::class, 'getPorDepartamento']);
 
 // TipoDocumentoController
-Route::get('tiposdocumento', [TipoDocumentoController::class, 'index']);
+Route::get('tiposdocumento', [TipoDocumentoController::class, 'index'])->middleware('auth.token');
 Route::post('tiposdocumento', [TipoDocumentoController::class, 'store'])->middleware('auth.token');
 Route::put('tiposdocumento/{tiposdocumento}', [TipoDocumentoController::class, 'update'])->middleware('auth.token');
 Route::patch('tiposdocumento/{tiposdocumento}', [TipoDocumentoController::class, 'update'])->middleware('auth.token');
 Route::delete('tiposdocumento/{tiposdocumento}', [TipoDocumentoController::class, 'destroy'])->middleware('auth.token');
 
 // EstadosCivilesController
-Route::get('estados_civiles', [EstadosCivilesController::class, 'index']);
+Route::get('estados_civiles', [EstadosCivilesController::class, 'index'])->middleware('auth.token');
 Route::get('estados_civiles/create', [EstadosCivilesController::class, 'create']);
 Route::post('estados_civiles', [EstadosCivilesController::class, 'store'])->middleware('auth.token');
 Route::get('estados_civiles/{estados_civile}', [EstadosCivilesController::class, 'show']);
