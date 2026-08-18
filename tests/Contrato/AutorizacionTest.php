@@ -116,6 +116,46 @@ class AutorizacionTest extends CasoDeContrato
     }
 
     /**
+     * boletines3 sale aunque un área no tenga asignaturas en el grupo.
+     *
+     * `Area::agrupar_asignaturas_periodos()` dividía la suma de notas entre el
+     * número de asignaturas del área sin comprobar que hubiera alguna. Un área
+     * creada en el año pero sin asignaturas en ese grupo dejaba `$found` en 0 y
+     * el informe respondía **500 "Division by zero"** — no esa área: el grupo
+     * entero. Ahora esa área sale con la nota y el desempeño en blanco.
+     *
+     * La semilla tiene un área así, que es como apareció.
+     */
+    public function test_boletines3_sale_con_un_area_sin_asignaturas(): void
+    {
+        [$token, $mio] = $this->alumnoYCompanero();
+
+        $r = $this->pedir($token, 'boletines3', $mio->grupo_id,
+            ['alumno_id' => $mio->alumno_id, 'grupo_id' => $mio->grupo_id]);
+
+        $r->assertStatus(200);
+
+        $vacias = [];
+
+        foreach ($r->json('2') as $alumno) {
+            foreach ($alumno['areas'] ?? [] as $area) {
+                if (($area['cant'] ?? null) === 0) {
+                    $vacias[] = $area;
+                }
+            }
+        }
+
+        $this->assertNotEmpty($vacias,
+            "La semilla ya no tiene ningún área sin asignaturas, así que este test\n" .
+            'no comprueba nada. Regenérala o construye el caso a mano.');
+
+        foreach ($vacias as $area) {
+            $this->assertSame('', $area['per1_nota'], 'Un área sin asignaturas trajo nota.');
+            $this->assertSame('', $area['desempenio_per1']);
+        }
+    }
+
+    /**
      * Sin lista concreta se está pidiendo el grupo entero, que es lo que hace
      * `detailed-notas-year`. Un alumno no puede.
      *
