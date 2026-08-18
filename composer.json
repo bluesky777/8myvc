@@ -13,7 +13,6 @@
         "intervention/image": "^2.5",
         "laravel/framework": "^8.40",
         "laravel/tinker": "^2.5",
-        "lesichkovm/laravel-advanced-route": "^1.8",
         "maatwebsite/excel": "^3.1",
         "tymon/jwt-auth": "^1.0.2"
     },

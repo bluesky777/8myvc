@@ -26,7 +26,12 @@ class RouteServiceProvider extends ServiceProvider
      *
      * @var string|null
      */
-    protected $namespace = 'App\\Http\\Controllers';
+    /*
+     * Sin $namespace: las rutas usan [Controlador::class, 'metodo'] en vez de
+     * strings 'Controlador@metodo'. Con el prefijo activo, Laravel antepondría
+     * el namespace a una cadena que ya lo lleva. Además la sintaxis de string
+     * desaparece en Laravel 9.
+     */
 
     /**
      * Define your route model bindings, pattern filters, etc.
@@ -40,11 +45,9 @@ class RouteServiceProvider extends ServiceProvider
         $this->routes(function () {
             Route::prefix('api')
                 ->middleware('api')
-                ->namespace($this->namespace)
                 ->group(base_path('routes/api.php'));
 
             Route::middleware('web')
-                ->namespace($this->namespace)
                 ->group(base_path('routes/web.php'));
         });
     }

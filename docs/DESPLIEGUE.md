@@ -41,17 +41,37 @@ php artisan correo:probar tu-correo@ejemplo.com
 Imprime el transporte, si el binario de sendmail existe, el `sendmail_path` que
 usa PHP y el remitente configurado. Si falla, dice cuál de los tres es.
 
-**Por qué `sendmail` a secas debería bastar:** `config/mail.php` toma por defecto
-el mismo `sendmail_path` del `php.ini` que usaba la función `mail()`. Es decir,
-mismo binario y mismos argumentos que antes.
+**VERIFICADO EN EL SERVIDOR (17 ago 2026).** Ya no es una hipótesis. Medido con
+un script temporal en el docroot, bajo el SAPI real:
 
-Importa porque el valor por defecto de Laravel **no** coincide: trae
-`/usr/sbin/sendmail -bs`, que habla SMTP por la entrada estándar, y muchos
-servidores tienen un binario que solo entiende `-t -i`. Comprobado en el
-contenedor de este proyecto: con `-bs` falla con *"Expected response code 220 but
-got an empty response"*, y su `sendmail_path` es `-t -i`.
+| | |
+|---|---|
+| SAPI web | `litespeed` |
+| PHP | 8.0.30, `php.ini` en `/opt/alt/php80/etc/php.ini` |
+| `sendmail_path` | `/usr/sbin/sendmail -t -i` |
+| binario | existe, ejecutable, no es enlace |
+| `mail()` | disponible, `disable_functions` vacío |
 
-Si aun así hiciera falta forzarlo, `MAIL_SENDMAIL_PATH` lo sobrescribe.
+**Web y CLI cargan el mismo `php.ini`**, comprobado por separado. Tres
+consecuencias:
+
+1. **`MAIL_SENDMAIL_PATH` se deja vacío.** El valor por defecto de
+   `config/mail.php` resuelve a `/usr/sbin/sendmail -t -i` en ambos contextos.
+2. **`config:cache` es seguro.** No hay divergencia CLI/web que congelar mal.
+   Si algún día dejaran de coincidir, habría que fijar `MAIL_SENDMAIL_PATH`
+   explícitamente antes de cachear.
+3. **`correo:probar` es fiable.** Lo que reporta en la terminal es lo que hará
+   el reseteo real por web.
+
+Este servidor es exactamente el caso que motivó el cambio: el valor por defecto
+de Laravel (`-bs`) habría fallado aquí con *"Expected response code 220 but got
+an empty response"*. Leer el `php.ini` da el mismo invocador que usaba `mail()`.
+
+Estado completo del entorno en `PHP-BASELINE.md`.
+
+**Confirmar que salió de verdad:** cPanel → *Rastreo de entrega*. `correo:probar`
+solo garantiza que Exim aceptó el mensaje, no que llegara. Ahí se vería un
+problema de SPF con `lalvirtual.com`.
 
 **Dato de la comprobación local, por si ayuda a interpretar un fallo:** en el
 contenedor de desarrollo `mail()` **ya devolvía `false`** — `sendmail` es un
@@ -64,6 +84,30 @@ el fallo haciéndose visible.
 silencio. A menos de un reseteo al día históricamente, la ventana de exposición
 es pequeña, y la causa queda en `storage/logs/laravel.log` en un `Log::error`.
 El token no se queda colgado: se borra al fallar el envío.
+
+### 1b. OPcache está activa desde ahora — afecta a CÓMO se despliega
+
+Se activó `opcache` el 17 ago 2026 (estaba apagada; Laravel recompilaba cada
+archivo en cada request). Es una mejora grande, pero **cambia el despliegue**:
+copiar ficheros ya no basta necesariamente, porque PHP puede seguir sirviendo el
+bytecode viejo.
+
+Comprobar el modo antes del primer despliegue:
+
+```bash
+php -i | grep -E "opcache.(enable|validate_timestamps|revalidate_freq)"
+```
+
+- `opcache.validate_timestamps = 1` (lo habitual): PHP releé los ficheros
+  cambiados cada `revalidate_freq` segundos. No hay que hacer nada.
+- `opcache.validate_timestamps = 0`: **el código nuevo no se aplica nunca** hasta
+  reiniciar. Con LiteSpeed, cPanel → *Restart PHP*, o `killall lsphp`.
+
+Si tras desplegar el arreglo de correo el comportamiento sigue siendo el viejo,
+esto es lo primero que hay que mirar — no el `.env`.
+
+Se activó también `sodium`, que faltaba: `lcobucci/jwt` la declara requisito
+duro y `composer install` habría fallado el chequeo de plataforma.
 
 ### 2. Definir `CORS_ALLOWED_ORIGINS` — PENDIENTE
 
