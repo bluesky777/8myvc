@@ -88,8 +88,18 @@ $ANONIMAS = [
     'antecedentes' => ['observaciones', 'vac_cual', 'patol_cual', 'fami_cual'],
 ];
 
-/* Contraseña de todos los usuarios sembrados. bcrypt de 'test-1234'. */
-const HASH_TEST = '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi';
+/*
+ * Contraseña de todos los usuarios sembrados: 'test-1234'.
+ *
+ * El hash va fijo, no generado, para que dos ejecuciones del script den el
+ * mismo fichero: bcrypt lleva sal aleatoria, y generarlo aquí haría que
+ * cambiaran 2.351 líneas del diff en cada regeneración.
+ *
+ * Para cambiar la contraseña:
+ *   php -r 'echo password_hash("la-nueva", PASSWORD_BCRYPT, ["cost" => 10]);'
+ * y actualiza también CLAVE en tests/Contrato/CasoDeContrato.php.
+ */
+const HASH_TEST = '$2y$10$DH20aweU/E6X8p/zaVSKROI9AFxQbbqYqrcACkje.kxY6hbEDLsr.';
 
 $NOMBRES   = ['Ana', 'Luis', 'Carmen', 'Jorge', 'Marta', 'Pedro', 'Sofia', 'Diego',
               'Elena', 'Raul', 'Clara', 'Hugo', 'Irene', 'Mateo', 'Nadia', 'Oscar'];
@@ -252,6 +262,38 @@ function revisarFuga(array $palabrasPii, string $tabla, string $columna, $valor,
 // Resolución de la rebanada. El orden importa: cada paso usa el anterior.
 // ---------------------------------------------------------------------------
 
+/**
+ * Orden determinista para el volcado.
+ *
+ * Sin ORDER BY, MySQL devuelve las filas en el orden que le conviene, y no
+ * tiene por qué ser el mismo dos veces. Eso hacía que regenerar la semilla
+ * produjera un diff de 2.354 líneas sin que cambiara un solo dato, y con eso
+ * el fichero deja de ser revisable.
+ *
+ * Se ordena por la clave primaria; si la tabla no tiene (role_user es
+ * user_id + role_id sin PK declarada), por todas sus columnas.
+ */
+function ordenEstable(string $tabla): string
+{
+    $pk = DB::select(
+        "SELECT column_name c FROM information_schema.key_column_usage
+         WHERE table_schema = DATABASE() AND table_name = ? AND constraint_name = 'PRIMARY'
+         ORDER BY ordinal_position",
+        [$tabla]
+    );
+
+    if ($pk === []) {
+        $pk = DB::select(
+            "SELECT column_name c FROM information_schema.columns
+             WHERE table_schema = DATABASE() AND table_name = ?
+             ORDER BY ordinal_position",
+            [$tabla]
+        );
+    }
+
+    return implode(', ', array_map(fn ($f) => '`' . $f->c . '`', $pk));
+}
+
 function ids(string $sql, array $bind = []): array
 {
     return array_map(fn ($f) => $f->id, DB::select($sql, $bind));
@@ -380,7 +422,7 @@ foreach ($tablas as $tabla) {
     }
 
     $where = $RECORTES[$tabla] ?? '1=1';
-    $filas = DB::select("SELECT * FROM `{$tabla}` WHERE {$where}");
+    $filas = DB::select("SELECT * FROM `{$tabla}` WHERE {$where} ORDER BY " . ordenEstable($tabla));
 
     fwrite($fh, "TRUNCATE TABLE `{$tabla}`;\n");
 
