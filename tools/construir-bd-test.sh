@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 #
 # Reconstruye la base de datos de tests desde cero:
-#   esquema real congelado + semilla anonimizada.
+#   esquema real congelado + seed anonimizado.
 #
 # Se corre una vez antes de la tanda de tests, no una vez por test. Los tests
 # usan DatabaseTransactions: cada uno abre una transacción y la deshace al
-# terminar, así que la semilla sobrevive intacta a toda la tanda.
+# terminar, así que el seed sobrevive intacto a toda la tanda.
 #
 # Uso:
 #   tools/construir-bd-test.sh
@@ -30,9 +30,9 @@ fi
 MYSQL_EXEC="${MYSQL_EXEC-docker exec -i 8myvc-database-1}"
 
 ESQUEMA="database/schema/mysql-schema.sql"
-SEMILLA="database/dumps/test-seed.sql"
+SEED="database/dumps/test-seed.sql"
 
-for f in "$ESQUEMA" "$SEMILLA"; do
+for f in "$ESQUEMA" "$SEED"; do
     [ -f "$f" ] || { echo "Falta $f" >&2; exit 1; }
 done
 
@@ -63,8 +63,8 @@ mysql_cmd -e "DROP DATABASE IF EXISTS \`$DB_TEST_DATABASE\`;
 echo "  esquema:  $ESQUEMA"
 mysql_cmd "$DB_TEST_DATABASE" < "$ESQUEMA"
 
-echo "  semilla:  $SEMILLA"
-mysql_cmd "$DB_TEST_DATABASE" < "$SEMILLA"
+echo "  seed:     $SEED"
+mysql_cmd "$DB_TEST_DATABASE" < "$SEED"
 
 tablas=$(mysql_cmd -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$DB_TEST_DATABASE';")
 users=$(mysql_cmd -N -e "SELECT COUNT(*) FROM \`$DB_TEST_DATABASE\`.users;")

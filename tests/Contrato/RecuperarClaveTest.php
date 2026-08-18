@@ -29,7 +29,7 @@ class RecuperarClaveTest extends CasoDeContrato
             ->orderBy('id')
             ->first();
 
-        $this->assertNotNull($usuario, 'La semilla no tiene ningún usuario activo con correo.');
+        $this->assertNotNull($usuario, 'El seed no tiene ningún usuario activo con correo.');
 
         // 'ruta' es la base del enlace del correo, y el endpoint exige que su
         // host coincida con el de la petición — si no, aborta con 422 antes de

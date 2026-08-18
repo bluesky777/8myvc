@@ -48,7 +48,7 @@ class PublicacionesController extends Controller {
     /**
      * Alias de putUltimas(). MISMA respuesta, otro verbo.
      *
-     * No es andamiaje: el `GET` fue el verbo real del frontend durante cinco
+     * No es scaffolding: el `GET` fue el verbo real del frontend durante cinco
      * años y medio —de c116e3f (2018-10-12) a c09718e (2024-03-05), en
      * myvc_front—, así que cualquier colegio con un front de esa época sigue
      * llamando por aquí.

@@ -9,9 +9,9 @@ use Illuminate\Support\Facades\Route;
  * Quién puede hacer qué, una vez presentado un token válido.
  *
  * Tener token prueba que eres alguien, no que puedas ver lo que pides. Este
- * archivo cubre las cuatro guardas de autorización que existían escritas en el
+ * archivo cubre los cuatro guards de autorización que existían escritos en el
  * código y **no se ejecutaban ninguna**. No hizo falta deducirlo: se comprobó
- * golpeando los endpoints con un token de alumno de la semilla.
+ * golpeando los endpoints con un token de alumno del seed.
  *
  * Ver docs/migracion/06-autorizacion.md.
  */
@@ -81,7 +81,7 @@ class AutorizacionTest extends CasoDeContrato
             ['alumno_id' => $mio->alumno_id, 'grupo_id' => $mio->grupo_id]);
 
         $this->assertNotSame(403, $r->getStatusCode(),
-            'La guarda rechaza a un alumno pidiendo su propio boletín.');
+            'El guard rechaza a un alumno pidiendo su propio boletín.');
     }
 
     /**
@@ -124,7 +124,7 @@ class AutorizacionTest extends CasoDeContrato
      * el informe respondía **500 "Division by zero"** — no esa área: el grupo
      * entero. Ahora esa área sale con la nota y el desempeño en blanco.
      *
-     * La semilla tiene un área así, que es como apareció.
+     * El seed tiene un área así, que es como apareció.
      */
     public function test_boletines3_sale_con_un_area_sin_asignaturas(): void
     {
@@ -146,7 +146,7 @@ class AutorizacionTest extends CasoDeContrato
         }
 
         $this->assertNotEmpty($vacias,
-            "La semilla ya no tiene ningún área sin asignaturas, así que este test\n" .
+            "El seed ya no tiene ningún área sin asignaturas, así que este test\n" .
             'no comprueba nada. Regenérala o construye el caso a mano.');
 
         foreach ($vacias as $area) {
@@ -173,7 +173,7 @@ class AutorizacionTest extends CasoDeContrato
             ['Authorization' => 'Bearer ' . $token])->assertStatus(403);
     }
 
-    /** Un profesor sigue viendo el grupo entero: la guarda no le aplica. */
+    /** Un profesor sigue viendo el grupo entero: el guard no le aplica. */
     public function test_un_profesor_sigue_viendo_el_grupo_entero(): void
     {
         $profesor = $this->usuarioDeTipo('Profesor');
@@ -182,7 +182,7 @@ class AutorizacionTest extends CasoDeContrato
         $r = $this->pedir($this->tokenDe($profesor->username), 'boletines', $mio->grupo_id, null);
 
         $this->assertNotSame(403, $r->getStatusCode(),
-            'La guarda de boletín propio está rechazando al personal del colegio.');
+            'El guard de boletín propio está rechazando al personal del colegio.');
     }
 
     private function acudienteConAcudido(): array
@@ -196,7 +196,7 @@ class AutorizacionTest extends CasoDeContrato
             WHERE u.tipo = "Acudiente" AND u.is_active = 1 AND u.deleted_at IS NULL
             ORDER BY u.id LIMIT 1');
 
-        $this->assertNotEmpty($fila, 'La semilla no tiene ningún acudiente con parentesco y matrícula.');
+        $this->assertNotEmpty($fila, 'El seed no tiene ningún acudiente con parentesco y matrícula.');
 
         return [$this->tokenDe($fila[0]->username), $fila[0]];
     }
@@ -225,7 +225,7 @@ class AutorizacionTest extends CasoDeContrato
             ['alumno_id' => $suyo->alumno_id, 'matricula_id' => $suyo->matricula_id]);
 
         $this->assertNotSame(403, $r->getStatusCode(),
-            'La guarda rechaza a un acudiente pidiendo el boletín de su acudido.');
+            'El guard rechaza a un acudiente pidiendo el boletín de su acudido.');
     }
 
     /**
@@ -282,14 +282,14 @@ class AutorizacionTest extends CasoDeContrato
 
         $this->assertNotSame(403,
             $this->putJson('/api/certificados-persona', ['alumno_id' => $mio->alumno_id], $cab)->getStatusCode(),
-            'La guarda rechaza a un alumno pidiendo sus propias matrículas.');
+            'El guard rechaza a un alumno pidiendo sus propias matrículas.');
     }
 
     /**
      * `requisitos` y `piars-grupos` los podía usar cualquiera con token.
      *
      * Un alumno llegaba a `DELETE api/requisitos/destroy/{id}` y recibía 200
-     * "Eliminado". El único intento de guarda era un `return 'No tienes
+     * "Eliminado". El único intento de guard era un `return 'No tienes
      * permiso';` dentro de un constructor, que no detiene nada.
      */
     public function test_un_alumno_no_entra_en_lo_del_personal(): void
@@ -310,7 +310,7 @@ class AutorizacionTest extends CasoDeContrato
             WHERE u.tipo = "Usuario" AND u.is_superuser = 0 AND u.is_active = 1
               AND u.deleted_at IS NULL ORDER BY u.id LIMIT 1');
 
-        $this->assertNotEmpty($fila, 'La semilla no tiene ningún Usuario sin superusuario.');
+        $this->assertNotEmpty($fila, 'El seed no tiene ningún Usuario sin superusuario.');
 
         $cab = ['Authorization' => 'Bearer ' . $this->tokenDe($fila[0]->username)];
 
@@ -319,13 +319,13 @@ class AutorizacionTest extends CasoDeContrato
     }
 
     /**
-     * Qué rutas llevan cada guarda de autorización.
+     * Qué rutas llevan cada guard de autorización.
      *
      * Sin esto, quitar un `->middleware(...)` de una ruta no rompería nada: los
      * tests de arriba solo miran las rutas que nombran, y el agujero original
      * era precisamente que la copia de al lado no tenía la comprobación.
      */
-    public function test_las_guardas_estan_en_las_rutas_que_deben(): void
+    public function test_los_guards_estan_en_las_rutas_que_deben(): void
     {
         $esperado = [
             'auth.personal' => [
@@ -363,11 +363,11 @@ class AutorizacionTest extends CasoDeContrato
             ],
         ];
 
-        foreach ($esperado as $guarda => $rutas) {
+        foreach ($esperado as $guard => $rutas) {
             $reales = [];
 
             foreach (Route::getRoutes() as $ruta) {
-                if (! in_array($guarda, $ruta->middleware(), true)) {
+                if (! in_array($guard, $ruta->middleware(), true)) {
                     continue;
                 }
 
@@ -378,7 +378,7 @@ class AutorizacionTest extends CasoDeContrato
 
             sort($reales);
 
-            $this->assertSame($rutas, $reales, "Cambió la lista de rutas con '{$guarda}'.");
+            $this->assertSame($rutas, $reales, "Cambió la lista de rutas con '{$guard}'.");
         }
     }
 }

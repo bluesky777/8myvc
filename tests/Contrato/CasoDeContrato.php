@@ -12,20 +12,20 @@ use Tests\TestCase;
  * de un endpoint no ha cambiado. Su único trabajo es gritar cuando la migración
  * altera algo que el frontend está leyendo.
  *
- * Por eso comparan contra una instantánea guardada en disco, no contra valores
+ * Por eso comparan contra un snapshot guardado en disco, no contra valores
  * escritos a mano: escribir a mano lo que devuelven 538 rutas es inviable, y una
- * instantánea generada del comportamiento actual describe lo que hay hoy, que es
+ * snapshot generado del comportamiento actual describe lo que hay hoy, que es
  * justo lo que no debe cambiar.
  *
  * La base de datos NO se reconstruye entre tests: cada uno corre dentro de una
- * transacción que se deshace al terminar. La semilla se carga una vez con
+ * transacción que se deshace al terminar. El seed se carga una vez con
  * tools/construir-bd-test.sh.
  */
 abstract class CasoDeContrato extends TestCase
 {
     use DatabaseTransactions;
 
-    /** Contraseña de todos los usuarios de la semilla. */
+    /** Contraseña de todos los usuarios del seed. */
     protected const CLAVE = 'test-1234';
 
     protected function setUp(): void
@@ -62,7 +62,7 @@ abstract class CasoDeContrato extends TestCase
     }
 
     /**
-     * Un usuario de la semilla del tipo pedido, que el contexto pueda resolver.
+     * Un usuario del seed del tipo pedido, que el contexto pueda resolver.
      *
      * No vale cualquier usuario del tipo. `User::fromToken()` resuelve el
      * contexto con un `switch` de cuatro ramas, y cada rama exige cosas
@@ -71,12 +71,12 @@ abstract class CasoDeContrato extends TestCase
      * año que el grupo. Si falta cualquiera de esas piezas la consulta no
      * devuelve filas y el endpoint responde 400.
      *
-     * La semilla copia `users` entera pero solo un grupo de alumnos, así que la
+     * El seed copia `users` entera pero solo un grupo de alumnos, así que la
      * mayoría de los usuarios de tipo Alumno no tienen ficha. Elegir "el
      * primero del tipo" da uno de esos.
      *
      * Se ordena por id para que sea el mismo en cada ejecución: si cada corrida
-     * eligiera otro usuario, la instantánea no compararía nada.
+     * eligiera otro usuario, el snapshot no compararía nada.
      */
     protected function usuarioDeTipo(string $tipo): object
     {
@@ -110,8 +110,8 @@ abstract class CasoDeContrato extends TestCase
 
         $this->assertNotEmpty(
             $filas,
-            "La semilla no tiene ningún usuario de tipo '{$tipo}' con el contexto completo.\n" .
-            "Regenérala con: php tools/generar-semilla-test.php"
+            "El seed no tiene ningún usuario de tipo '{$tipo}' con el contexto completo.\n" .
+            "Regenérala con: php tools/generar-seed-test.php"
         );
 
         return $filas[0];
@@ -144,22 +144,22 @@ abstract class CasoDeContrato extends TestCase
     }
 
     /**
-     * Compara contra la instantánea guardada, o la crea si no existe.
+     * Compara contra el snapshot guardado, o lo crea si no existe.
      *
-     * Al crearla imprime un aviso: una instantánea recién creada no ha
+     * Al crearla imprime un aviso: un snapshot recién creado no ha
      * verificado nada todavía, solo ha registrado el comportamiento de hoy.
      * Hay que leerla antes de fiarse de ella.
      */
     protected function compararConInstantanea(string $nombre, array $real): void
     {
-        $ruta = __DIR__ . '/Instantaneas/' . $nombre . '.json';
+        $ruta = __DIR__ . '/Snapshots/' . $nombre . '.json';
 
         $json = json_encode($real, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
         if (! file_exists($ruta)) {
             file_put_contents($ruta, $json . "\n");
 
-            fwrite(STDERR, "\n  ↳ instantánea creada: {$nombre}.json (revísala antes de fiarte)\n");
+            fwrite(STDERR, "\n  ↳ snapshot creado: {$nombre}.json (revísalo antes de fiarte)\n");
 
             $this->addToAssertionCount(1);
 
@@ -171,8 +171,8 @@ abstract class CasoDeContrato extends TestCase
         $this->assertSame(
             $esperado,
             $real,
-            "La respuesta de '{$nombre}' cambió respecto a la instantánea.\n" .
-            "Si el cambio es intencionado, borra tests/Contrato/Instantaneas/{$nombre}.json y vuelve a correr."
+            "La respuesta de '{$nombre}' cambió respecto al snapshot.\n" .
+            "Si el cambio es intencionado, borra tests/Contrato/Snapshots/{$nombre}.json y vuelve a correr."
         );
     }
 
@@ -180,7 +180,7 @@ abstract class CasoDeContrato extends TestCase
      * Reduce una respuesta a su FORMA: qué claves tiene y de qué tipo es cada
      * valor, descartando los valores concretos.
      *
-     * Es lo que hace que la instantánea sirva. Guardar los valores haría que el
+     * Es lo que hace que el snapshot sirva. Guardar los valores haría que el
      * test fallara porque cambió una fecha o porque el id autoincremental avanzó;
      * lo que el frontend consume es la forma, y es lo que no puede cambiar.
      */

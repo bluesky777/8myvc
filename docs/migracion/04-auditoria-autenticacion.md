@@ -33,9 +33,9 @@ rutas quedaron abiertas sin que nadie hubiera tocado el archivo de rutas. El
 guard por defecto quita esa clase entera de agujero.
 
 Se recorren las rutas reales del router y se analiza el cuerpo de cada método con
-el analizador sintáctico —no con `grep`, que contaría un `fromToken` escrito
+el parser —no con `grep`, que contaría un `fromToken` escrito
 dentro de un comentario—. Se siguen además las llamadas a métodos auxiliares de
-la propia clase: el PR #3 puso las guardas en `$this->exigirAdminUsuarios()`, y
+la propia clase: el PR #3 puso los guards en `$this->exigirAdminUsuarios()`, y
 mirando solo el cuerpo directo salían como desprotegidas.
 
 Cuenta como resuelto: el middleware `auth.token` **no excluido en esa ruta**, o
@@ -46,7 +46,7 @@ una llamada a `User::fromToken()`, `JWTAuth::*`, `Auth::*`, `auth()` o
 Resolverlo prueba que hay token válido, no que ese usuario tenga permiso para lo
 que va a hacer. Un alumno con token es un usuario autenticado.
 
-Esa otra auditoría ya empezó, y encontró cuatro guardas escritas que no se
+Esa otra auditoría ya empezó, y encontró cuatro guards escritos que no se
 ejecutaban nunca: [06-autorizacion.md](06-autorizacion.md).
 
 ## Resumen
@@ -150,7 +150,7 @@ Rutas cuyo controlador no implementa el método. Revientan con 500 si alguien la
 llama.
 
 > Las tres que había —`tiposdocumento/create`, `tiposdocumento/{id}` y
-> `tiposdocumento/{id}/edit`, del andamiaje de recurso de Laravel— se
+> `tiposdocumento/{id}/edit`, del scaffolding de resource de Laravel— se
 > eliminaron el 18 ago 2026, comprobado antes que devolvían 500.
 
 _Ninguna._
@@ -286,7 +286,7 @@ hosting* con cPanel, y dentro va todo desde cero. Confirmado por Joseth el
 ### Qué significa para la comprobación de host de `recuperar-clave`
 
 `ruta_frontend_segura()` exige que el host del parámetro `ruta` coincida con el
-de la petición (guarda del PR #3, contra recibir un correo legítimo con el token
+de la petición (guard del PR #3, contra recibir un correo legítimo con el token
 apuntando al sitio de un atacante).
 
 **Hoy no afecta a nadie**, y el motivo correcto no es que todos compartan host

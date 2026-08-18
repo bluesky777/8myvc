@@ -15,7 +15,7 @@
  * es. Ese mecanismo sigue vivo debajo del guard.
  *
  * Esto recorre las rutas reales del router y, para cada una, mira el cuerpo del
- * método con el analizador sintáctico (no con grep: un `fromToken` dentro de un
+ * método con el parser (no con grep: un `fromToken` dentro de un
  * comentario o de una cadena no protege nada).
  *
  * Uso:
@@ -96,7 +96,7 @@ function autenticaEn(NodeFinder $finder, $nodos): array
 /**
  * Señales de autenticación del método, siguiendo lo que llama.
  *
- * No basta con mirar el cuerpo: el PR de seguridad metió guardas en métodos
+ * No basta con mirar el cuerpo: el PR de seguridad metió guards en métodos
  * auxiliares —`$this->exigirAdminUsuarios()` llama a `User::fromToken()` y
  * además exige el permiso— y mirando solo el cuerpo directo salían como
  * desprotegidos. Se siguen las llamadas a `$this->loQueSea()` dentro de la

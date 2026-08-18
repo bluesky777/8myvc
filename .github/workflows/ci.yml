@@ -88,7 +88,7 @@ jobs:
           DB_TEST_DATABASE: simonbolivar_testing
         run: php artisan test
 
-      # La semilla se regenera desde la base real, no desde el repo, así que en
+      # El seed se regenera desde la base real, no desde el repo, así que en
       # CI no se puede regenerar. Lo que sí se comprueba es que carga y que las
       # claves foráneas cierran — eso lo hace el paso anterior al construir.
       - name: Comprobar que el esquema congelado reconstruye la base

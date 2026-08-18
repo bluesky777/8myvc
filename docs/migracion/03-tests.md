@@ -17,7 +17,7 @@ docker exec 8myvc-app-1 php artisan test --testsuite=Contrato   # solo los de co
 
 La base **no** se reconstruye entre tests: cada test corre dentro de una
 transacción que se deshace al terminar. Solo hace falta reconstruirla si cambia
-el esquema o la semilla.
+el esquema o el seed.
 
 ## Las tres piezas
 
@@ -25,11 +25,11 @@ el esquema o la semilla.
 |---|---|
 | `database/schema/mysql-schema.sql` | El esquema real congelado. 90 tablas. |
 | `database/dumps/test-seed.sql` | Los datos: rebanada anonimizada, 46 tablas, ~15.800 filas. |
-| `tests/Contrato/Instantaneas/*.json` | La forma esperada de cada respuesta. |
+| `tests/Contrato/Snapshots/*.json` | La forma esperada de cada respuesta. |
 
-Contraseña de todos los usuarios de la semilla: `test-1234`.
+Contraseña de todos los usuarios del seed: `test-1234`.
 
-## Cómo funcionan las instantáneas
+## Cómo funcionan los snapshots
 
 Se guarda la **forma** de la respuesta —qué claves trae y de qué tipo es cada
 valor—, no los valores.
@@ -41,8 +41,8 @@ valor—, no los valores.
 Guardar los valores haría fallar el test porque avanzó un id o cambió una fecha.
 Lo que el frontend consume es la forma, y es lo que no puede cambiar.
 
-**La primera vez que un test corre, su instantánea no existe y se crea sola.**
-El test avisa por STDERR. Una instantánea recién creada no ha verificado nada:
+**La primera vez que un test corre, su snapshot no existe y se crea solo.**
+El test avisa por STDERR. Un snapshot recién creado no ha verificado nada:
 solo ha registrado el comportamiento de hoy. Hay que leerla antes de fiarse.
 
 **Cuando un test falla porque la forma cambió**, hay dos casos:
@@ -51,12 +51,12 @@ solo ha registrado el comportamiento de hoy. Hay que leerla antes de fiarse.
 2. *Sí lo era* → borra el `.json` y vuelve a correr. El diff del fichero
    regenerado es lo que hay que enseñar a quien lleve `myvc_front`.
 
-## Regenerar la semilla
+## Regenerar el seed
 
 Se genera desde la base real, así que solo se puede hacer en local:
 
 ```bash
-docker exec 8myvc-app-1 php tools/generar-semilla-test.php [year_id] [grupo_id]
+docker exec 8myvc-app-1 php tools/generar-seed-test.php [year_id] [grupo_id]
 ```
 
 Por defecto se ancla en el año 8 (2025) y el grupo 98 (Cuarto, 68 alumnos).
@@ -106,7 +106,7 @@ class MiTest extends CasoDeContrato
 ```
 
 `usuarioDeTipo()` no devuelve "el primer usuario del tipo": devuelve uno cuyo
-contexto la semilla pueda resolver de verdad. Un Alumno necesita ficha,
+contexto el seed pueda resolver de verdad. Un Alumno necesita ficha,
 matrícula en estado MATR/ASIS/PREM, grupo, y que su periodo sea del mismo año
 que el grupo. Sin las cuatro cosas, el endpoint responde 400.
 

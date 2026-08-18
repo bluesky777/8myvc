@@ -51,7 +51,7 @@ cualquiera de los dos por separado, aparece el otro.
 
 ---
 
-## 2. `RemindersController` — andamiaje de Laravel 4, sin cliente
+## 2. `RemindersController` — scaffolding de Laravel 4, sin cliente
 
 > **Rutas borradas el 18 ago 2026.** El controlador sigue en el repo; quitarlo es
 > limpieza aparte. Lo de abajo es cómo estaba.
@@ -88,7 +88,7 @@ mano en `ProfesoresNewCtrl:14` y `ProfesoresEditCtrl:16` (`Soltero`, `Casado`,
 Además `store` y `update` usan `Input::`, así que **responderían 500** si alguien
 las llamara. Solo `index` y `destroy` funcionarían.
 
-Tenía 8 rutas: 3 de andamiaje vacío y 5 con código. Ninguna tenía cliente.
+Tenía 8 rutas: 3 de scaffolding vacío y 5 con código. Ninguna tenía cliente.
 
 ---
 
@@ -159,7 +159,7 @@ llaman casi todos los informes.
 el año pero no tiene asignaturas en el grupo, `$found` es 0 y el informe responde
 **500 "Division by zero"** (`app/Models/Area.php:154`).
 
-Pasa con los datos de la semilla de tests, así que puede pasar en un colegio.
+Pasa con los datos del seed de tests, así que puede pasar en un colegio.
 **No se ha arreglado**: decidir qué debe mostrar un área sin asignaturas —cero,
 en blanco, o no salir— es una decisión del colegio, no mecánica.
 
@@ -173,7 +173,7 @@ No es urgente —código muerto no hace daño— pero sí es una trampa: quien a
 un boletín final en el archivo equivocado no verá ningún efecto, y no tendrá
 forma de saber por qué. Igual que pasó con `getUltimas`/`putUltimas`.
 
-### Cuatro guardas de autorización que no se ejecutaban
+### Cuatro guards de autorización que no se ejecutaban
 
 Están en [06-autorizacion.md](06-autorizacion.md), porque son un agujero de
 seguridad y no solo código muerto. Comparten la forma de esta lista: llevaban
@@ -185,7 +185,7 @@ años a la vista, el sistema respondía 200 y nadie miró.
 
 Todos los casos de esta lista comparten forma: **algo dejó de funcionar, o nunca
 funcionó, y el sistema siguió respondiendo lo bastante bien como para que nadie
-mirara.** Unos se rompieron al cambiar de versión de PHP; otros —las guardas de
+mirara.** Unos se rompieron al cambiar de versión de PHP; otros —los guards de
 la sección 5— nacieron rotos y devolvían 200 con datos, que es la forma más
 difícil de notar.
 

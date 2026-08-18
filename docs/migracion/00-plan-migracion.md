@@ -333,8 +333,8 @@ Si no se usan (muy probable — es una API pura consumida por AngularJS con URLs
 > distingue "nadie llama a esta ruta" de "nadie entró esa semana". La lista real
 > la dio la sesión de `myvc_front` leyendo el frontend.
 >
-> Salió además una auditoría que el plan no preveía: cuatro guardas de
-> autorización escritas que no se ejecutaban nunca. Está en
+> Salió además una auditoría que el plan no preveía: cuatro guards de
+> autorización escritos que no se ejecutaban nunca. Está en
 > [06-autorizacion.md](06-autorizacion.md), con el paso siguiente sobre roles y
 > permisos.
 

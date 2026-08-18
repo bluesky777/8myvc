@@ -37,7 +37,7 @@ class RutasPreLoginTest extends CasoDeContrato
     private const PRE_LOGIN = [
         ['PUT',  'login/crear-prematricula'],
         ['PUT',  'publicaciones/ultimas'],
-        // El GET no es andamiaje: fue el verbo REAL del front durante cinco años
+        // El GET no es scaffolding: fue el verbo REAL del front durante cinco años
         // y medio. En myvc_front, c116e3f (2018-10-12) lo introdujo con
         // `$http.get`, y no pasó a PUT hasta c09718e (2024-03-05).
         //
@@ -268,7 +268,7 @@ class RutasPreLoginTest extends CasoDeContrato
      * —middleware, `User::fromToken()` en el método, o en el constructor—: lo
      * que se afirma aquí es el resultado, no el mecanismo.
      *
-     * Antes no se podía escribir: `password/*` (andamiaje de Laravel 4) y
+     * Antes no se podía escribir: `password/*` (scaffolding de Laravel 4) y
      * `estados_civiles` (sin cliente) ensuciaban la cuenta. Al borrarlos, la
      * superficie sin autenticar quedó siendo exactamente la lista de arriba.
      *

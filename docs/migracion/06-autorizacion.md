@@ -8,10 +8,10 @@ Un alumno con token es un usuario autenticado. Nada más.
 
 ---
 
-## 1. Las cuatro guardas que estaban escritas y no se ejecutaban
+## 1. Los cuatro guards que estaban escritos y no se ejecutaban
 
 No se dedujo leyendo el código: se comprobó golpeando los endpoints con un token
-de alumno de la semilla de tests, el 18 ago 2026.
+de alumno del seed de tests, el 18 ago 2026.
 
 | Con token de Alumno | Respondía |
 |---|---|
@@ -30,7 +30,7 @@ Cuatro formas distintas del mismo descuido, y ninguna se parece a las otras:
 enteras. Y el `return` de un constructor no detiene nada.
 
 Se buscó esta forma —un `abort()` dentro de un `try` con catch de `\Throwable` o
-`\Exception`— en todo `app/` con el analizador sintáctico: solo pasaba aquí.
+`\Exception`— en todo `app/` con el parser: solo pasaba aquí.
 
 ### `return` dentro de un constructor
 
@@ -74,7 +74,7 @@ nada.
 
 Arreglar solo el primero habría dejado dos puertas abiertas al mismo sitio. Es el
 mismo error que se corrigió con `getUltimas`/`putUltimas`, y la razón por la que
-la guarda vive ahora en un middleware y no en un método.
+el guard vive ahora en un middleware y no en un método.
 
 ---
 
@@ -118,7 +118,7 @@ los `destroy` de `boletines2` y `boletines3`.
 Esto **no sustituye** a las comprobaciones por método: varias rutas de matrículas
 exigen además `profes_can_edit_alumnos` o superusuario, y lo siguen exigiendo.
 
-### Cómo llega un alumno a su boletín, y por qué la guarda no le estorba
+### Cómo llega un alumno a su boletín, y por qué el guard no le estorba
 
 Comprobado en `myvc_front`, no supuesto. Alumno y acudiente **no** pasan por la
 pantalla del personal: tienen la suya, el estado `panel.boletin_acudiente`, y
@@ -133,7 +133,7 @@ $cookies.putObject('requested_alumno', [{ alumno_id: alumno.alumno_id, grupo_id:
 
 y el estado llama a `PUT boletines/detailed-notas/{grupo_id}` con ese array. O
 sea que **siempre mandan `requested_alumnos` con un solo `alumno_id`**, que es
-exactamente lo que la guarda pide. No hay regresión para ellos.
+exactamente lo que el guard pide. No hay regresión para ellos.
 
 Dos consecuencias que cambian lo que parecía:
 
@@ -155,12 +155,12 @@ La app Flutter no entra: de sus seis llamadas, ninguna es de boletines.
 ### Los códigos
 
 `403`, no el `400` del código viejo. Nadie recibía esas respuestas hasta hoy —las
-guardas no se ejecutaban—, así que no hay contrato que conservar, y el
+guards no se ejecutaban—, así que no hay contrato que conservar, y el
 interceptor de `myvc_front` trata igual a las dos: emite `event:auth-forbidden`,
 que nadie escucha, y rechaza la promesa. El `401` sigue reservado para "no hay
 token", que es el único que hace que el front pida login otra vez.
 
-`tests/Contrato/AutorizacionTest.php` cubre las dos guardas, incluida la lista
+`tests/Contrato/AutorizacionTest.php` cubre los dos guards, incluida la lista
 exacta de rutas que las llevan: quitar un `->middleware(...)` de una ruta rompe un
 test, que era justo lo que faltaba cuando la copia de al lado no tenía la
 comprobación.
@@ -175,7 +175,7 @@ Esto cubre una familia de endpoints: los que sirven el informe de una persona.
 - **`observador`, `puestos`, `actas-evaluacion`, `notas-perdidas`, `simat`,
   `excel-docentes`, `acudientes-export`** — informes de grupo o de colegio. Hoy
   cualquiera con token los alcanza. Ninguno acepta `requested_alumnos`, así que
-  no entran en la guarda de arriba; hace falta decidir a quién se abren.
+  no entran en el guard de arriba; hace falta decidir a quién se abren.
 - **Las notas.** Guardar y modificar notas es lo más sensible que hace el sistema
   y su autorización vive repartida en condiciones por método
   (`profes_pueden_editar_notas`, `profes_can_edit_alumnos`).
@@ -188,7 +188,7 @@ Esto cubre una familia de endpoints: los que sirven el informe de una persona.
 
 ## 4. Paso siguiente: rehacer la estructura de roles y permisos
 
-**Esto es lo que hay que arreglar antes de seguir poniendo guardas una a una**, y
+**Esto es lo que hay que arreglar antes de seguir poniendo guards uno a uno**, y
 lo pidió Joseth explícitamente: que sea limpia y fácil de aplicar a endpoints
 nuevos.
 
@@ -204,7 +204,7 @@ condición aparece catorce veces seguidas en `MatriculasController`:
 if (($this->user->tipo == 'Profesor' && $this->user->profes_can_edit_alumnos) || $this->user->is_superuser) {
 ```
 
-Copiar y pegar una condición es precisamente cómo aparecieron las cuatro guardas
+Copiar y pegar una condición es precisamente cómo aparecieron los cuatro guards
 muertas de la sección 1: cuando la regla vive en 138 sitios, nadie comprueba que
 los 138 la digan bien.
 
