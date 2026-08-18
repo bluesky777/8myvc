@@ -19,6 +19,12 @@ La base **no** se reconstruye entre tests: cada test corre dentro de una
 transacción que se deshace al terminar. Solo hace falta reconstruirla si cambia
 el esquema o el seed.
 
+> **Si alguna vez ejecutas `php artisan config:cache` en local, bórralo antes de
+> correr los tests** (`php artisan config:clear`). El config cacheado congela el
+> `.env`, así que `phpunit.xml` deja de poder apuntar a la base de tests. No hay
+> daño —`CasoDeContrato` aborta al ver que la base no acaba en `_testing`— pero
+> el mensaje despista. Con `route:cache` no pasa: la suite pasa entera.
+
 ## Las tres piezas
 
 | Fichero | Qué es |

@@ -231,17 +231,37 @@ Avisar a la sesión/persona que lleve `myvc_front` cuando cada colegio esté lis
 
 ## Del PR #7 (auditoría de autenticación)
 
-### 1. Avisar al frontend ANTES de desplegar — 58 rutas pasan a exigir token
+### 1. Toda la API pasa a exigir token, menos quince rutas
 
-Este PR sí cambia el comportamiento. 58 rutas que hoy responden sin token pasan
-a devolver **401**. Si el front de un colegio llama a alguna sin mandar el token,
-deja de funcionar en cuanto se despliegue el backend allí.
+Este PR sí cambia el comportamiento. El guard `auth.token` se aplica en grupo a
+las 533 rutas, y las excepciones se marcan una a una con
+`->withoutMiddleware('auth.token')`. Son quince: nueve de entrada al sistema
+(`login/*`, `publicaciones/ultimas`) y seis de tardanzas, que autentican con
+usuario y contraseña en el cuerpo de cada petición. La lista está en
+`docs/migracion/04-auditoria-autenticacion.md`.
 
-La lista está en `docs/migracion/04-auditoria-autenticacion.md`. Hay tests que
-comprueban que un usuario con sesión válida pasa, pero **no** pueden comprobar
-que el front mande siempre el token.
+**El riesgo de que el front llame sin token está descartado**, y no por los
+tests: `myvc_front` pone `Authorization: Bearer` como cabecera **por defecto**
+de `$http` (`AuthService.js`), tanto al hacer login como al arrancar con un token
+guardado. No hay llamada autenticada que pueda salir sin él.
 
-### 2. `login/ver-pass` se renombra a `login/recuperar-clave` — alias temporal
+**Comprobado además golpeando las 533 rutas con un token real de cada tipo de
+usuario, antes y después de esta rama.** Para el personal —Usuario y Profesor—
+cambia **una sola ruta en 533**, y a mejor: `PUT login/logout`, de 500 a 200.
+Para alumnos y acudientes cambian 31, que son exactamente los agujeros que se
+cierran. El detalle está en el cuerpo del PR.
+
+### 2. Lo que cambia para alumnos y acudientes
+
+- **Un alumno ya no puede pedir el boletín de un compañero, ni un acudiente el de
+  quien no es su acudido, ni con deuda.** Estaba escrito desde hace años y no se
+  ejecutaba. El front ya comprobaba el paz y salvo antes de llamar, así que una
+  familia al día no nota nada.
+- **"Ver mi boletín" empieza a funcionar.** Respondía 500 desde 2021.
+- Alumnos y acudientes reciben **403** en `requisitos/*`, `prematriculas/*`,
+  `piars-grupos/*` y `certificados-persona`, donde antes entraban.
+
+### 3. `login/ver-pass` se renombra a `login/recuperar-clave` — alias temporal
 
 El nombre viejo engañaba: no muestra ninguna contraseña, manda el correo de
 reseteo. **Las dos rutas funcionan**, apuntan al mismo método, así que el
@@ -252,7 +272,7 @@ Como cada colegio publica su front por separado, hay que confirmarlo colegio a
 colegio, no una vez. `tests/Contrato/RecuperarClaveTest.php` falla el día que se
 borre, como recordatorio de que hay que comprobarlo.
 
-### 3. El reseteo ya no dice si un correo existe — cambia lo que ve el usuario
+### 4. El reseteo ya no dice si un correo existe — cambia lo que ve el usuario
 
 Antes devolvía `'No existe'` para un correo no registrado y `'Enviado'` para uno
 registrado, y con eso cualquiera podía averiguar qué correos están dados de alta
@@ -262,5 +282,41 @@ casos.**
 Si el front muestra un mensaje distinto según la respuesta, hay que cambiarlo:
 ya no puede decir "ese correo no está registrado". Lo correcto es un mensaje
 neutro del tipo *"Si el correo está registrado, te llegará un enlace"*.
+
+### 5. Activar `route:cache` y `config:cache` — PENDIENTE, y es la ganancia
+
+Hasta este PR `php artisan route:list` **abortaba con 401**: Laravel instancia el
+controlador para leerle el middleware y 24 constructores llamaban a
+`User::fromToken()`. Sin poder listar las rutas, `route:cache` era imposible.
+
+Ya no. Las dos cachés se pueden activar, y son las dos optimizaciones más baratas
+que da el framework (`docs/migracion/02-plan-rendimiento.md`, punto 3):
+
+```bash
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+php artisan event:cache
+```
+
+**Hay que volver a ejecutarlas en CADA despliegue, después de copiar el código.**
+Una caché de rutas vieja sirve las rutas viejas y no hay ningún síntoma que lo
+delate: la aplicación responde, simplemente responde lo de antes. Como el
+despliegue aquí es copiar ficheros por colegio, el paso hay que añadirlo a mano
+en cada uno.
+
+Si algo va raro después de desplegar, lo primero es `php artisan route:clear &&
+php artisan config:clear` y volver a probar: si con eso funciona, es la caché.
+
+**Comprobado que la suite pasa entera con `route:cache` activo**, que es lo que
+había que verificar: las quince excepciones se marcan con `withoutMiddleware()`,
+y si eso no sobreviviera al cacheado se cerraría la entrada al sistema.
+
+**`config:cache` NO se ejecuta en desarrollo**, y menos antes de los tests:
+congela el `.env`, así que `phpunit.xml` deja de poder apuntar a la base de
+tests y la suite iría contra la base de desarrollo. No llega a pasar —
+`CasoDeContrato` aborta al ver que la base no acaba en `_testing`— pero el
+mensaje despista si no se sabe de dónde viene. En producción sí, y ahí es
+seguro: web y CLI cargan el mismo `php.ini` (ver más arriba).
 
 ---
