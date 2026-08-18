@@ -26,12 +26,24 @@ return [
     /*
     * Matches the request method. `['*']` allows all methods.
     */
-    'allowed_methods' => ['*'],
+    'allowed_methods' => ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
 
     /*
      * Matches the request origin. `['*']` allows all origins. Wildcards can be used, eg `*.mydomain.com`
+     *
+     * Estaba fijo en ['*']: cualquier sitio web podía llamar a la API desde el
+     * navegador de un usuario. Ahora sale de CORS_ALLOWED_ORIGINS, una lista
+     * separada por comas.
+     *
+     * OJO: si la variable no está definida se mantiene ['*'], que es el
+     * comportamiento de siempre. Es deliberado, para no tumbar producción con
+     * este cambio. Hay que definirla en el .env de producción para que el
+     * arreglo sirva de algo.
      */
-    'allowed_origins' => ['*'],
+    'allowed_origins' => array_values(array_filter(array_map(
+        'trim',
+        explode(',', env('CORS_ALLOWED_ORIGINS', '*'))
+    ))) ?: ['*'],
 
     /*
      * Patterns that can be used with `preg_match` to match the origin.

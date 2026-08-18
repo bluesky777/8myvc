@@ -5,6 +5,7 @@ use Request;
 
 use App\User;
 use App\Models\Year;
+use App\Support\Autoriza;
 use App\Models\Periodo;
 use App\Models\ConfigCertificado;
 use App\Models\ImageModel;
@@ -500,7 +501,14 @@ class YearsController extends Controller {
 	public function deleteDestroy($id)
 	{
 		$user = User::fromToken();
-		
+
+		// Se llama "destroy" pero hace forceDelete: borrado físico de un año, que
+		// por las FK ON DELETE CASCADE arrastra 59 tablas hasta 7 saltos de
+		// profundidad. Es el borrado de mayor alcance del sistema y no tenía
+		// ninguna comprobación más allá de tener un token.
+		Autoriza::exigir(Autoriza::esSuperusuario($user),
+			'Solo un superusuario puede eliminar un año definitivamente.');
+
 		$year = Year::onlyTrashed()->findOrFail($id);
 		$year->forceDelete();
 

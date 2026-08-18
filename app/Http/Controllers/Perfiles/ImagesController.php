@@ -16,6 +16,7 @@ use App\Models\Profesor;
 use App\Models\Acudiente;
 use App\Models\ChangeAsked;
 use App\Models\Debugging;
+use App\Support\SafeUpload;
 
 use Carbon\Carbon;
 use \Log;
@@ -178,21 +179,11 @@ class ImagesController extends Controller {
 		}
 
 		$file = Request::file("file");
-		
-		//separamos el nombre de la img y la extensión
-		$info = explode(".", $file->getClientOriginalName());
-		//asignamos de nuevo el nombre de la imagen completo
-		$miImg = $file->getClientOriginalName();
 
-		//return Request::file('file')->getMimeType(); // Puedo borrarlo
-		//mientras el nombre exista iteramos y aumentamos i
-		$i = 0;
-		while(file_exists($folder.'/'. $miImg)){
-			$i++;
-			$miImg = $info[0]."(".$i.")".".".$info[1];              
-		}
+		// Valida la extensión contra la lista blanca y resuelve colisiones
+		// (foto.jpg, foto(1).jpg, foto(2).jpg…) igual que antes.
+		$miImg = SafeUpload::nombreDisponible($file, $folder, SafeUpload::EXTENSIONES_IMAGEN);
 
-		//guardamos la imagen con otro nombre ej foto(1).jpg || foto(2).jpg etc
 		$file->move($folder, $miImg);
 		
 		$newImg 			= new ImageModel;

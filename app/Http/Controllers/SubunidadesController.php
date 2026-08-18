@@ -197,6 +197,13 @@ class SubunidadesController extends Controller {
 	public function deleteForcedelete($id)
 	{
 		$user = User::fromToken();
+
+		// Su hermano unidades/forcedelete sí pasa por pueden_editar_notas; este no
+		// comprobaba nada. Hoy es inerte por un bug (el if de abajo mira $unidad,
+		// que no existe, así que siempre cae en el else), pero el guard va igual:
+		// arreglar esa variable es un cambio de una palabra.
+		User::pueden_editar_notas($user);
+
 		$subunidad = Subunidad::onlyTrashed()->findOrFail($id);
 		
 		if ($unidad) {

@@ -59,7 +59,22 @@ return [
 
         'sendmail' => [
             'transport' => 'sendmail',
-            'path' => '/usr/sbin/sendmail -bs',
+
+            /*
+             * Por defecto se usa el MISMO invocador que usaba la función mail()
+             * de PHP, leyéndolo de sendmail_path del php.ini. Ese es justamente
+             * el objetivo: reproducir el camino anterior.
+             *
+             * Importa porque no coinciden. Laravel trae '/usr/sbin/sendmail -bs',
+             * que habla SMTP por la entrada estándar, y muchos servidores tienen
+             * un binario que solo entiende '-t -i'. Comprobado en el contenedor
+             * de este proyecto: con -bs falla con "Expected response code 220 but
+             * got an empty response", y su sendmail_path es '-t -i'.
+             *
+             * MAIL_SENDMAIL_PATH lo sobrescribe si hiciera falta.
+             */
+            'path' => env('MAIL_SENDMAIL_PATH')
+                ?: (ini_get('sendmail_path') ?: '/usr/sbin/sendmail -bs'),
         ],
 
         'log' => [

@@ -1,6 +1,7 @@
 <?php namespace App\Http\Controllers\Perfiles;
 
 use App\Http\Controllers\Controller;
+use App\Support\Autoriza;
 
 use Request;
 use DB;
@@ -451,6 +452,13 @@ class PerfilesController extends Controller {
 	public function deleteForcedelete($id)
 	{
 		$user = User::fromToken();
+
+		// Duplicado de GruposController::deleteForcedelete bajo otra ruta: borra un
+		// Grupo, con la misma cascada de 27 tablas hasta notas. Cerrar solo la de
+		// grupos dejaba esta puerta abierta.
+		Autoriza::exigir(Autoriza::esAdministrativo($user),
+			'No tienes permiso para eliminar grupos definitivamente.');
+
 		$grupo = Grupo::onlyTrashed()->findOrFail($id);
 		
 		if ($grupo) {

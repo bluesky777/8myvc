@@ -54,6 +54,20 @@ return [
 
     'url' => env('APP_URL', 'http://localhost'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Frontend URL
+    |--------------------------------------------------------------------------
+    |
+    | Base del SPA de AngularJS. Se usa para construir los enlaces que se envían
+    | por correo (por ejemplo el de reseteo de contraseña) cuando la petición no
+    | llega desde el mismo host que la API. Si el frontend se sirve del mismo
+    | dominio, que es lo normal aquí, no hace falta definirla.
+    |
+    */
+
+    'frontend_url' => env('FRONTEND_URL'),
+
     'asset_url' => env('ASSET_URL', null),
 
     /*

@@ -9,6 +9,7 @@ use App\Models\Year;
 use App\Models\Grado;
 use App\Models\Profesor;
 use App\Models\Grupo;
+use App\Support\Autoriza;
 use App\Models\Matricula;
 use App\Models\Acudiente;
 use App\Models\Periodo;
@@ -664,6 +665,24 @@ class GruposController extends Controller {
 	public function deleteForcedelete($id)
 	{
 		$user = User::fromToken();
+
+		// Este es el endpoint más destructivo del sistema y era el único de la
+		// papelera sin ninguna comprobación de autorización: bastaba un token
+		// válido, y el de cualquier alumno servía.
+		//
+		// forceDelete sobre un grupo cascadea, por FK ON DELETE CASCADE, a 27
+		// tablas y hasta 6 saltos de profundidad:
+		//   grupos > asignaturas > unidades > subunidades > notas
+		// o sea, se lleva las notas de todo el mundo en las asignaturas de ese
+		// grupo. Sus hermanos sí comprobaban: alumnos/forcedelete exige
+		// superusuario o secretario, y unidades/forcedelete pasa por
+		// pueden_editar_notas. Este no comprobaba nada.
+		//
+		// Se aplica el criterio de alumnos/forcedelete sin la rama de profesor:
+		// borrar un grupo definitivamente no es tarea docente.
+		Autoriza::exigir(Autoriza::esAdministrativo($user),
+			'No tienes permiso para eliminar grupos definitivamente.');
+
 		$grupo = Grupo::onlyTrashed()->findOrFail($id);
 		
 		if ($grupo) {

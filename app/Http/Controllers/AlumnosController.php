@@ -769,7 +769,7 @@ class AlumnosController extends Controller {
 				return abort('400', $e);
 			}
 		} else {
-			return abort('400', 'No tiene permisos');
+			return abort(403, 'No tienes permiso para eliminar alumnos definitivamente.');
 		}
 	}
 
