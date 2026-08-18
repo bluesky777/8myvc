@@ -88,6 +88,18 @@ afectado: cada colegio tiene el suyo en su propio subdominio.
 No hay inventario en el repo. La única fuente fiable es mirar el subdominio del colegio
 directamente.
 
+**Esto no es una molestia menor: bloquea decisiones concretas.** Hoy hay al menos una
+esperando respuesta.
+
+> **¿Están todos los colegios en un front posterior a marzo de 2024?**
+>
+> `GET api/publicaciones/ultimas` sigue abierta sin token porque fue el verbo real del
+> front entre `c116e3f` (2018-10-12) y `c09718e` (2024-03-05). Un colegio con un front
+> anterior a esa fecha la llama por `GET` hoy, y cerrarla le rompería la pantalla de
+> login **sin síntoma en ningún sitio** hasta que alguien de ese colegio se queje.
+>
+> Si la respuesta es que sí, se cierra y la superficie sin autenticar baja de 7 rutas a 6.
+
 ---
 
 Cosas que hay que hacer **en el servidor**, no en el código. Se acumulan aquí para

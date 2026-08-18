@@ -37,10 +37,18 @@ class RutasPreLoginTest extends CasoDeContrato
     private const PRE_LOGIN = [
         ['PUT',  'login/crear-prematricula'],
         ['PUT',  'publicaciones/ultimas'],
-        // El front solo llama al PUT, pero el GET sirve exactamente lo mismo y
-        // se dejó público a propósito: proteger uno y no el otro no gana nada
-        // —el dato sale igual— y arriesga romper el login si alguna versión
-        // publicada usa el otro verbo.
+        // El GET no es andamiaje: fue el verbo REAL del front durante cinco años
+        // y medio. En myvc_front, c116e3f (2018-10-12) lo introdujo con
+        // `$http.get`, y no pasó a PUT hasta c09718e (2024-03-05).
+        //
+        // Como cada colegio publica su front por separado y no hay inventario de
+        // qué versión tiene cada cual, cualquier colegio con un front anterior a
+        // marzo de 2024 sigue llamando por GET hoy. Cerrarlo le dejaría la
+        // pantalla de login rota, y sin síntoma en ningún sitio hasta que
+        // alguien de ese colegio se queje.
+        //
+        // Se puede cerrar el día que se confirme que TODOS los colegios están en
+        // un front posterior a c09718e. Hasta entonces, público a propósito.
         ['GET',  'publicaciones/ultimas'],
         ['POST', 'login/recuperar-clave'],
         ['POST', 'login/ver-pass'],           // alias, mientras el front migra

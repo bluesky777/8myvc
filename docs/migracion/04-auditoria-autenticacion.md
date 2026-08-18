@@ -173,7 +173,21 @@ ejecutan sin sesión:
   `year.grados_sig`, dentro de esa misma respuesta, igual que el año.
 
   O sea que tocar la forma de lo que devuelve no rompe unas noticias: rompe la
-  prematrícula pública. El front la llama con `PUT` aunque solo lee.
+  prematrícula pública.
+
+  **Los dos verbos están abiertos, GET y PUT, y es deliberado.** El front la
+  llama hoy con `PUT` desde un único sitio (`LoginCtrl.js:81`), pero el `GET` fue
+  el verbo real durante cinco años y medio: `c116e3f` (2018-10-12) lo introdujo
+  con `$http.get` y no cambió a `PUT` hasta `c09718e` (2024-03-05).
+
+  Como cada colegio publica su front por separado y **no hay inventario de qué
+  versión tiene cada cual**, cualquier colegio con un front anterior a marzo de
+  2024 sigue llamando por `GET`. Cerrarlo le rompería la pantalla de login sin
+  dar síntoma en ningún sitio hasta que alguien de ese colegio se queje.
+
+  > **Condición para cerrarlo:** confirmar que todos los colegios están en un
+  > front posterior a `c09718e` (marzo 2024). Es pregunta para Joseth, no
+  > deducible del código.
 - **`login/reset-password`** se llama desde el enlace del correo: el usuario no ha
   iniciado sesión —no puede, ha olvidado la contraseña— y el token del reseteo
   viaja en la URL, no en la cabecera. Si se protege, la recuperación queda rota de
