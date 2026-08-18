@@ -78,10 +78,41 @@ class AutorizacionTest extends CasoDeContrato
         [$token, $mio] = $this->alumnoYCompanero();
 
         $r = $this->pedir($token, $familia, $mio->grupo_id,
-            ['alumno_id' => $mio->alumno_id, 'matricula_id' => $mio->matricula_id]);
+            ['alumno_id' => $mio->alumno_id, 'grupo_id' => $mio->grupo_id]);
 
         $this->assertNotSame(403, $r->getStatusCode(),
             'La guarda rechaza a un alumno pidiendo su propio boletín.');
+    }
+
+    /**
+     * El alumno recibe su boletín, y solo el suyo.
+     *
+     * Va contra `boletines/detailed-notas`, que es la ruta del flujo real: el
+     * estado `panel.boletin_acudiente` de `myvc_front` es el que usan alumno y
+     * acudiente, y llama a esa. Las variantes 2 y 3 son maquetas para el personal.
+     *
+     * **El payload es el que manda el frontend**: `[{alumno_id, grupo_id}]`, sin
+     * `matricula_id` (`NotasAlumnoCtrl.js`, `verMiBoletin()` y `verBoletin()`).
+     * Importa que sea ese y no uno cómodo: con `matricula_id` el endpoint
+     * respondía bien y sin él respondía 500 desde 2021, así que un test con el
+     * payload inventado habría dado verde sobre una pantalla rota.
+     */
+    public function test_el_alumno_recibe_su_boletin_y_solo_el_suyo(): void
+    {
+        [$token, $mio] = $this->alumnoYCompanero();
+
+        $r = $this->pedir($token, 'boletines', $mio->grupo_id,
+            ['alumno_id' => $mio->alumno_id, 'grupo_id' => $mio->grupo_id]);
+
+        $r->assertStatus(200);
+
+        // La respuesta es [grupo, year, alumnos, escalas].
+        $alumnos = $r->json('2');
+
+        $this->assertCount(1, $alumnos,
+            'Pidió su boletín y le devolvieron ' . count($alumnos) . ' alumnos.');
+
+        $this->assertSame($mio->alumno_id, $alumnos[0]['alumno_id']);
     }
 
     /**

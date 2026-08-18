@@ -29,6 +29,7 @@ class Grupo extends Model {
 	public static function alumnos($grupo_id, $con_retirados='')
 	{
 		$consulta = '';
+		$matriculas = [];
 
 		if ($con_retirados=='') {
 			// Consulta con solo los matriculados
@@ -63,12 +64,31 @@ class Grupo extends Model {
 			// 			order by a.apellidos, a.nombres';
 
 
-			$sql_condicion = '';
-			$canti_retirados = count($con_retirados);
+			// Las matrículas que se piden aparte de las vigentes: sirve para que un
+			// retirado siga saliendo en el boletín si se le pide por su matrícula.
+			//
+			// Dos cosas que este bucle hacía mal desde 6bc08ac (31 ago 2021):
+			//
+			// 1. Daba por hecho que todo elemento trae `matricula_id`. El frontend
+			//    manda `[{alumno_id, grupo_id}]` cuando un alumno pide SU boletín o
+			//    un acudiente el de su acudido —así desde 2018—, así que esas dos
+			//    pantallas respondían 500 "Undefined array key matricula_id". Cinco
+			//    años rotas, y nadie lo notó porque el error salía en la consola del
+			//    navegador y no en la pantalla.
+			// 2. Metía el valor en el SQL concatenando. Cualquiera con token podía
+			//    inyectar por `requested_alumnos[i].matricula_id`, y esto lo llaman
+			//    casi todos los informes.
+			$matriculas = [];
 
-			for ($i=0; $i < $canti_retirados; $i++) { 
-				$sql_condicion .= ' or m.id="'.$con_retirados[$i]['matricula_id'].'"';
+			foreach ((array) $con_retirados as $pedido) {
+				if (is_array($pedido) && ! empty($pedido['matricula_id'])) {
+					$matriculas[] = $pedido['matricula_id'];
+				}
 			}
+
+			$sql_condicion = $matriculas === []
+				? ''
+				: ' or m.id in (' . implode(',', array_fill(0, count($matriculas), '?')) . ')';
 
 			// Prueba para excluir retirados pero incluir a los actuales solicitados
 			$consulta = 'SELECT m.id as matricula_id, m.alumno_id, m.nro_folio, a.no_matricula, a.nombres, a.apellidos, a.sexo, a.user_id, a.nee, a.nee_descripcion,
@@ -88,7 +108,7 @@ class Grupo extends Model {
 
 		}
 
-		$alumnos = DB::select($consulta, [$grupo_id]);
+		$alumnos = DB::select($consulta, array_merge([$grupo_id], $matriculas));
 
 		return $alumnos;
 	}

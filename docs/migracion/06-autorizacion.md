@@ -118,18 +118,37 @@ los `destroy` de `boletines2` y `boletines3`.
 Esto **no sustituye** a las comprobaciones por método: varias rutas de matrículas
 exigen además `profes_can_edit_alumnos` o superusuario, y lo siguen exigiendo.
 
-### Lo que hay que confirmar con `myvc_front` antes de desplegar
+### Cómo llega un alumno a su boletín, y por qué la guarda no le estorba
 
-La pantalla de boletines de `myvc_front` está pensada para el personal: se elige
-un grupo y luego, o se piden **todos** los boletines del grupo —sin
-`requested_alumnos`— o se seleccionan alumnos concretos, que es lo que pone la
-cookie. Con la guarda puesta, un alumno o un acudiente que llegue por el primer
-camino recibe **403** donde antes recibía el grupo entero.
+Comprobado en `myvc_front`, no supuesto. Alumno y acudiente **no** pasan por la
+pantalla del personal: tienen la suya, el estado `panel.boletin_acudiente`, y
+llegan por dos botones de `NotasAlumnoCtrl`:
 
-Eso es exactamente lo que se quería cerrar. Pero hace falta confirmar **cómo
-llega hoy un alumno o un acudiente a su propio boletín**: si la pantalla les
-obliga a seleccionarse de la lista, no cambia nada para ellos; si les deja pulsar
-"ver boletines del grupo", ese botón deja de funcionarles y hay que ocultárselo.
+```js
+// verMiBoletin()  — el alumno
+$cookies.putObject('requested_alumno', [{ alumno_id: USER.persona_id, grupo_id: USER.grupo_id }]);
+// verBoletin()    — el acudiente, con el acudido que haya seleccionado
+$cookies.putObject('requested_alumno', [{ alumno_id: alumno.alumno_id, grupo_id: alumno.grupo_id }]);
+```
+
+y el estado llama a `PUT boletines/detailed-notas/{grupo_id}` con ese array. O
+sea que **siempre mandan `requested_alumnos` con un solo `alumno_id`**, que es
+exactamente lo que la guarda pide. No hay regresión para ellos.
+
+Dos consecuencias que cambian lo que parecía:
+
+- **Activar el paz y salvo no cambia lo que ve una familia al día.** El front ya
+  lo comprueba antes de llamar (`if (!alumno.pazysalvo) → 'Debe estar a paz y
+  salvo'`). Lo que hace el backend es dejar de fiarse del front: quien salte la
+  pantalla ya no pasa.
+- **Esa pantalla llevaba cinco años rota, con 500.** El front manda
+  `{alumno_id, grupo_id}` y `Grupo::alumnos()` exigía además `matricula_id` desde
+  el 31 ago 2021. Arreglado en este PR; está en
+  [05-codigo-muerto-y-roto.md](05-codigo-muerto-y-roto.md).
+
+Y donde sí hay cambio: un alumno o acudiente que llegue a la pantalla **del
+personal** y pida el grupo entero recibe ahora 403 donde antes recibía todos los
+boletines. Eso es el agujero que se cierra.
 
 La app Flutter no entra: de sus seis llamadas, ninguna es de boletines.
 

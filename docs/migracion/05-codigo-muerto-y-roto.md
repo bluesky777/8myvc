@@ -123,6 +123,46 @@ Se llega ahí de forma natural al pasar de año, que es justo cuando más gente
 entra a la vez. Arreglado, y con test:
 `ContextoDeUsuarioTest::test_un_periodo_de_otro_anio_se_corrige_y_devuelve_el_contexto`.
 
+### "Ver mi boletín" llevaba cinco años respondiendo 500
+
+Es la pantalla por la que un alumno ve su boletín y un acudiente el de sus
+acudidos: `panel.boletin_acudiente` en el front, `PUT boletines/detailed-notas`
+en el back.
+
+El front manda `requested_alumnos: [{alumno_id, grupo_id}]` —así desde 2018,
+`NotasAlumnoCtrl`—. Y `Grupo::alumnos()` daba por hecho que cada elemento trae
+además `matricula_id`, desde `6bc08ac` (**31 ago 2021**, "Evitar que cuente los
+retirados en bol requested"):
+
+```php
+$sql_condicion .= ' or m.id="'.$con_retirados[$i]['matricula_id'].'"';
+```
+
+Sin esa clave, PHP avisa "Undefined array key" y Laravel lo convierte en
+excepción: **500**. La pantalla del personal sí funcionaba, porque selecciona los
+alumnos de una lista que viene del backend y esa sí lleva `matricula_id`.
+
+Nadie lo notó porque el error sale en la consola del navegador y en el log del
+servidor, no en la pantalla; y porque quien lo sufre —una familia— no tiene a
+quién reportarlo más que al colegio.
+
+**Arreglado**, y con test que usa el payload exacto del front:
+`AutorizacionTest::test_el_alumno_recibe_su_boletin_y_solo_el_suyo`. De paso se
+quitó la concatenación: ese `matricula_id` entraba en el SQL sin parametrizar, o
+sea **inyección SQL** al alcance de cualquiera con token, y `Grupo::alumnos()` la
+llaman casi todos los informes.
+
+### `boletines3` divide por cero cuando un área no tiene asignaturas
+
+`Area::agrupar_asignaturas_periodos()` hace `round($sumatoria / $found)` donde
+`$found` es el número de asignaturas del área en ese grupo. Si un área existe en
+el año pero no tiene asignaturas en el grupo, `$found` es 0 y el informe responde
+**500 "Division by zero"** (`app/Models/Area.php:154`).
+
+Pasa con los datos de la semilla de tests, así que puede pasar en un colegio.
+**No se ha arreglado**: decidir qué debe mostrar un área sin asignaturas —cero,
+en blanco, o no salir— es una decisión del colegio, no mecánica.
+
 ### Un `BolfinalesController` duplicado, sin rutas
 
 Hay dos: `app/Http/Controllers/BolfinalesController.php` (610 líneas) y
