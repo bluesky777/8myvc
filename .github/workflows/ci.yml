@@ -53,6 +53,9 @@ jobs:
         run: |
           cp .env.example .env
           php artisan key:generate
+          # Sin esto el login devuelve 500 con 'Secret is not set'. No basta
+          # con APP_KEY: tymon/jwt-auth firma con su propia clave.
+          php artisan jwt:secret --force
 
       # Barato y atrapa el error más tonto de todos: un fichero que no compila.
       - name: Comprobar sintaxis
