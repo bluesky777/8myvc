@@ -164,9 +164,14 @@ fuera del área autenticada —`main`, `login`, `reset-password` y `logout`— y
 escriben datos de una persona y parecen "de usuario", pero por definición se
 ejecutan sin sesión:
 
-- **`publicaciones/ultimas`** pinta las noticias dentro de la pantalla de login.
-  Está entre las 37 de la sección 2, así que es la que más fácil se protege por
-  descuido. El front la llama con `PUT` aunque solo lee.
+- **`publicaciones/ultimas`** hace bastante más de lo que su nombre sugiere, y por
+  eso es la más peligrosa de proteger por descuido. Además de las noticias que se
+  pintan en el login, **su respuesta alimenta el formulario público de
+  prematrícula entero**: el desplegable de "Grupo a prematricular" sale de
+  `year.grados_sig`, dentro de esa misma respuesta, igual que el año.
+
+  O sea que tocar la forma de lo que devuelve no rompe unas noticias: rompe la
+  prematrícula pública. El front la llama con `PUT` aunque solo lee.
 - **`login/reset-password`** se llama desde el enlace del correo: el usuario no ha
   iniciado sesión —no puede, ha olvidado la contraseña— y el token del reseteo
   viaja en la URL, no en la cabecera. Si se protege, la recuperación queda rota de
