@@ -41,12 +41,12 @@ auditoría.
 
 | | Rutas |
 |---|---|
-| Resuelven al usuario | **531** |
-| No lo resuelven y **escriben** en la base | **6** |
-| No lo resuelven, solo leen | **5** |
+| Resuelven al usuario | **526** |
+| No lo resuelven y **escriben** en la base | **5** |
+| No lo resuelven, solo leen | **2** |
 | Método vacío: la ruta existe, el método no hace nada | 0 |
 | Ruta registrada cuyo método no existe | 0 |
-| **Total** | **542** |
+| **Total** | **533** |
 
 ---
 
@@ -75,7 +75,6 @@ de cualquiera.
 | ☐ | `POST` | `api/login/recuperar-clave` | LoginController::postRecuperarClave | DB::delete, DB::insert |
 | ☐ | `PUT` | `api/login/reset-password` | LoginController::putResetPassword | DB::update, DB::delete |
 | ☐ | `POST` | `api/login/ver-pass` | LoginController::postRecuperarClave | DB::delete, DB::insert |
-| ☐ | `POST` | `api/password/reset` | RemindersController::postReset | ->save() |
 
 
 ---
@@ -99,11 +98,7 @@ de cualquiera.
 
 ### Públicas a propósito (lectura)
 
-| ✔ | Verbo | Ruta | Controlador · método |
-|---|---|---|---|
-| ☐ | `GET` | `api/password/remind` | RemindersController::getRemind |
-| ☐ | `POST` | `api/password/remind` | RemindersController::postRemind |
-| ☐ | `GET` | `api/password/reset/{token?}` | RemindersController::getReset |
+_Ninguna._
 
 
 ---
@@ -125,13 +120,11 @@ endpoints muertos.
 > **Los métodos vacíos siguen en sus controladores**, solo se quitaron las rutas.
 > Borrarlos es limpieza aparte.
 
-> **Cabo suelto de `estados_civiles`.** El front **no llama a ese recurso de
-> ninguna forma**: la lista está escrita a mano en `ProfesoresNewCtrl:14` y
-> `ProfesoresEditCtrl:16` (`Soltero`, `Casado`, `Divorciado`, `Viudo`).
-> Se borraron sus 3 rutas vacías, pero las otras 5 —`index`, `store`, `update`
-> (PUT y PATCH) y `destroy`— siguen ahí y **tampoco tienen cliente**. El recurso
-> entero se podría borrar; queda pendiente de decisión porque esas cinco sí
-> funcionan.
+> **`estados_civiles` se borró entero** (Joseth, 18 ago 2026), rutas y
+> controlador. No tenía cliente —el front lleva la lista escrita a mano en
+> `ProfesoresNewCtrl:14` y `ProfesoresEditCtrl:16`— y encima `store` y `update`
+> respondían 500 por usar `Input::`, eliminada en Laravel 5.2. Ver
+> [05-codigo-muerto-y-roto.md](05-codigo-muerto-y-roto.md).
 
 _Ninguna._
 
@@ -189,8 +182,22 @@ ejecutan sin sesión:
 `tests/Contrato/RutasPreLoginTest.php` comprueba que ninguna lleva guard y que
 ninguna responde 401 sin token.
 
-**Regla:** antes de proteger cualquiera de las 37 de la sección 2, preguntar al
-front si la llama algo antes del login.
+**Regla:** antes de dejar sin guard cualquier ruta nueva, preguntar al front si la
+llama algo antes del login.
+
+### El invariante que esto hace posible
+
+Con `password/*` y `estados_civiles` fuera, **la superficie sin autenticar de la
+API es exactamente esta lista y nada más**. Eso ya no es una observación: es un
+test.
+
+`test_ninguna_otra_ruta_responde_sin_token` recorre las 534 rutas sin cabecera de
+autenticación y comprueba que **ninguna responde 2xx** salvo las de arriba. Da
+igual cómo se defienda cada una —middleware, `User::fromToken()` en el método o
+en el constructor—: lo que se afirma es el resultado, no el mecanismo.
+
+Es la afirmación más fuerte que se puede hacer sobre esto, y la que hay que
+mantener verde.
 
 ---
 

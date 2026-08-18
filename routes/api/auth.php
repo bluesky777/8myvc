@@ -2,7 +2,6 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LoginController;
-use App\Http\Controllers\RemindersController;
 use App\Http\Controllers\Tardanzas\TLoginController;
 
 /*
@@ -32,12 +31,6 @@ Route::post('login/recuperar-clave', [LoginController::class, 'postRecuperarClav
 // versiones que llaman a una y a otra. Se borra cuando el front de TODOS los
 // colegios use ya 'login/recuperar-clave'. Anotado en docs/DESPLIEGUE.md.
 Route::post('login/ver-pass', [LoginController::class, 'postRecuperarClave']);
-
-// RemindersController
-Route::get('password/remind', [RemindersController::class, 'getRemind']);
-Route::post('password/remind', [RemindersController::class, 'postRemind']);
-Route::post('password/reset', [RemindersController::class, 'postReset']);
-Route::get('password/reset/{token?}', [RemindersController::class, 'getReset']);
 
 // TLoginController
 Route::post('tardanzas/login', [TLoginController::class, 'postIndex']);

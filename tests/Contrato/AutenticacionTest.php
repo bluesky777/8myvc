@@ -22,11 +22,12 @@ class AutenticacionTest extends CasoDeContrato
      * Cuántas rutas debe haber con guard. Si cambia a propósito, actualiza el
      * número y regenera la auditoría.
      *
-     * 58 que escribían + 35 de solo lectura. Las 2 de `publicaciones/ultimas`
+     * 58 que escribían + 35 de solo lectura, menos las 5 de estados_civiles
+     * que se borraron por no tener cliente. Las 2 de `publicaciones/ultimas`
      * se quedan fuera a propósito: las llama la pantalla de login. Ver
      * tests/Contrato/RutasPreLoginTest.php.
      */
-    private const RUTAS_CON_GUARD = 93;
+    private const RUTAS_CON_GUARD = 88;
 
     /** @return array<int, array{0: string, 1: string}> */
     private function rutasConGuard(): array

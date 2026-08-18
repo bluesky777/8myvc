@@ -2,6 +2,7 @@
 
 namespace Tests\Contrato;
 
+use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\Route;
 
 /**
@@ -36,6 +37,11 @@ class RutasPreLoginTest extends CasoDeContrato
     private const PRE_LOGIN = [
         ['PUT',  'login/crear-prematricula'],
         ['PUT',  'publicaciones/ultimas'],
+        // El front solo llama al PUT, pero el GET sirve exactamente lo mismo y
+        // se dejó público a propósito: proteger uno y no el otro no gana nada
+        // —el dato sale igual— y arriesga romper el login si alguna versión
+        // publicada usa el otro verbo.
+        ['GET',  'publicaciones/ultimas'],
         ['POST', 'login/recuperar-clave'],
         ['POST', 'login/ver-pass'],           // alias, mientras el front migra
         ['PUT',  'login/reset-password'],
@@ -244,5 +250,55 @@ class RutasPreLoginTest extends CasoDeContrato
             \DB::table('historiales')->where('id', $suya)->value('logout_at'),
             'Sin token se pudo marcar la salida de un usuario cualquiera.'
         );
+    }
+
+    /**
+     * El invariante fuerte: **nadie sin token recibe datos, salvo estas 7**.
+     *
+     * Recorre TODAS las rutas de la API sin cabecera de autenticación y
+     * comprueba que ninguna responde 2xx. Da igual cómo se defienda cada una
+     * —middleware, `User::fromToken()` en el método, o en el constructor—: lo
+     * que se afirma aquí es el resultado, no el mecanismo.
+     *
+     * Antes no se podía escribir: `password/*` (andamiaje de Laravel 4) y
+     * `estados_civiles` (sin cliente) ensuciaban la cuenta. Al borrarlos, la
+     * superficie sin autenticar quedó siendo exactamente la lista de arriba.
+     *
+     * Las llamadas se hacen dentro de la transacción del test, así que si alguna
+     * ruta desprotegida llegara a escribir, se deshace al terminar.
+     */
+    public function test_ninguna_otra_ruta_responde_sin_token(): void
+    {
+        $this->withoutMiddleware(ThrottleRequests::class);
+
+        $publicas = [];
+
+        foreach (self::PRE_LOGIN as [$verbo, $uri]) {
+            $publicas[$verbo . ' api/' . $uri] = true;
+        }
+
+        $sirven = [];
+
+        foreach (Route::getRoutes() as $ruta) {
+            foreach ($ruta->methods() as $verbo) {
+                // Solo la API. `routes/web.php` sirve la página de bienvenida
+                // de Laravel en `/`, que es pública por definición.
+                if ($verbo === 'HEAD'
+                    || ! str_starts_with($ruta->uri(), 'api/')
+                    || isset($publicas[$verbo . ' ' . $ruta->uri()])) {
+                    continue;
+                }
+
+                $uri = preg_replace('/\{[^}]+\}/', '1', $ruta->uri());
+                $codigo = $this->json($verbo, '/' . $uri)->getStatusCode();
+
+                if ($codigo >= 200 && $codigo < 300) {
+                    $sirven[] = sprintf('%-7s %-52s %d', $verbo, $uri, $codigo);
+                }
+            }
+        }
+
+        $this->assertSame([], $sirven,
+            "Estas rutas responden a quien no presenta token:\n  " . implode("\n  ", $sirven));
     }
 }

@@ -2,7 +2,6 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\CiudadesController;
-use App\Http\Controllers\EstadosCivilesController;
 use App\Http\Controllers\PaisesController;
 use App\Http\Controllers\TipoDocumentoController;
 
@@ -42,9 +41,3 @@ Route::put('tiposdocumento/{tiposdocumento}', [TipoDocumentoController::class, '
 Route::patch('tiposdocumento/{tiposdocumento}', [TipoDocumentoController::class, 'update'])->middleware('auth.token');
 Route::delete('tiposdocumento/{tiposdocumento}', [TipoDocumentoController::class, 'destroy'])->middleware('auth.token');
 
-// EstadosCivilesController
-Route::get('estados_civiles', [EstadosCivilesController::class, 'index'])->middleware('auth.token');
-Route::post('estados_civiles', [EstadosCivilesController::class, 'store'])->middleware('auth.token');
-Route::put('estados_civiles/{estados_civile}', [EstadosCivilesController::class, 'update'])->middleware('auth.token');
-Route::patch('estados_civiles/{estados_civile}', [EstadosCivilesController::class, 'update'])->middleware('auth.token');
-Route::delete('estados_civiles/{estados_civile}', [EstadosCivilesController::class, 'destroy'])->middleware('auth.token');
