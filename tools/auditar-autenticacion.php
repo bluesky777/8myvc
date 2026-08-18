@@ -3,10 +3,16 @@
 /**
  * ¿Qué rutas de la API resuelven al usuario antes de trabajar, y cuáles no?
  *
- * El proyecto no tiene middleware de autenticación: cada método se defiende
- * solo, llamando a `User::fromToken()`. Ese método aborta con 401 si no hay
- * token, si expiró o si es inválido (app/User.php:85-99), así que llamarlo ES
- * una comprobación de autenticación — floja, pero lo es.
+ * Desde que `auth.token` se aplica en grupo a toda la API, la respuesta corta es
+ * "todas menos quince". Este informe sigue sirviendo para las quince: dice qué
+ * hace cada una y si escribe en la base, que es lo que hay que revisar cuando
+ * alguien añade una excepción.
+ *
+ * Para las demás mira además cómo se defienden por dentro. Al principio el
+ * proyecto no tenía middleware: cada método se defendía solo llamando a
+ * `User::fromToken()`, que aborta con 401 si no hay token, si expiró o si es
+ * inválido (app/User.php), así que llamarlo ES una comprobación — floja, pero lo
+ * es. Ese mecanismo sigue vivo debajo del guard.
  *
  * Esto recorre las rutas reales del router y, para cada una, mira el cuerpo del
  * método con el analizador sintáctico (no con grep: un `fromToken` dentro de un
@@ -262,14 +268,19 @@ foreach (Route::getRoutes() as $ruta) {
             continue;
         }
 
-        // Middleware de ruta. Desde que existe `auth.token`, una ruta puede
-        // estar protegida sin que su método haga nada: el guard corre antes.
+        // Middleware de ruta. `auth.token` se aplica en grupo a toda la API, así
+        // que aquí lo que importa son las exclusiones: las quince rutas marcadas
+        // con ->withoutMiddleware('auth.token') son las únicas que llegan al
+        // controlador sin token, y son las que este informe tiene que mirar.
+        //
         // `middleware()` y no `gatherMiddleware()`: el segundo instancia el
-        // controlador para leer su middleware, y eso dispara los `fromToken()`
-        // de los constructores — el mismo motivo por el que route:list falla.
-        $conGuard = array_intersect(
-            $ruta->middleware(),
-            ['auth.token', 'auth', \App\Http\Middleware\ExigirAutenticacion::class]
+        // controlador para leer su middleware. Daba igual desde que los
+        // constructores ya no resuelven al usuario, pero sigue siendo lo barato.
+        $guards = ['auth.token', 'auth', \App\Http\Middleware\ExigirAutenticacion::class];
+
+        $conGuard = array_diff(
+            array_intersect($ruta->middleware(), $guards),
+            $ruta->excludedMiddleware()
         );
 
         if ($conGuard !== []) {

@@ -17,10 +17,20 @@ depende de que alguien entre.
 
 ## Cómo se determinó
 
-Al principio este proyecto no tenía middleware de autenticación: cada método se
-defendía solo llamando a `User::fromToken()`, que aborta con 401 si no hay token,
-si expiró o si es inválido (`app/User.php:85-99`). Llamarlo **es** una
-comprobación.
+**Desde el 18 ago 2026 la respuesta corta es "todas menos quince".** `auth.token`
+se aplica en grupo a toda la API en `routes/api.php`, y las excepciones se marcan
+una a una con `->withoutMiddleware('auth.token')` en su propio archivo. Este
+informe sigue haciendo falta para esas quince —dice qué hace cada una y si
+escribe en la base— y para ver cómo se defienden por dentro las demás.
+
+Antes el guard iba ruta por ruta y lo que protegía a las otras 445 era que su
+método llamara a `User::fromToken()`, que aborta con 401 si no hay token, si
+expiró o si es inválido. Llamarlo **es** una comprobación. Pero depender de eso
+no se sostiene: al sacar la llamada de los constructores aparecieron tres métodos
+que devuelven antes de leer `$this->user` —`acudientes/datos`,
+`alumnos/personas-check` y `prematriculas/alumnos-con-grado-anterior`— y las tres
+rutas quedaron abiertas sin que nadie hubiera tocado el archivo de rutas. El
+guard por defecto quita esa clase entera de agujero.
 
 Se recorren las rutas reales del router y se analiza el cuerpo de cada método con
 el analizador sintáctico —no con `grep`, que contaría un `fromToken` escrito
@@ -28,14 +38,16 @@ dentro de un comentario—. Se siguen además las llamadas a métodos auxiliares
 la propia clase: el PR #3 puso las guardas en `$this->exigirAdminUsuarios()`, y
 mirando solo el cuerpo directo salían como desprotegidas.
 
-Cuenta como resuelto: el middleware `auth.token`, o una llamada a
-`User::fromToken()`, `JWTAuth::*`, `Auth::*`, `auth()` o `$this->user` (resuelto
-en el constructor), directa o vía auxiliar.
+Cuenta como resuelto: el middleware `auth.token` **no excluido en esa ruta**, o
+una llamada a `User::fromToken()`, `JWTAuth::*`, `Auth::*`, `auth()` o
+`$this->user`, directa o vía auxiliar.
 
 **Lo que esto NO dice:** que las que sí resuelven al usuario estén bien.
 Resolverlo prueba que hay token válido, no que ese usuario tenga permiso para lo
-que va a hacer. Un alumno con token es un usuario autenticado. Eso es otra
-auditoría.
+que va a hacer. Un alumno con token es un usuario autenticado.
+
+Esa otra auditoría ya empezó, y encontró cuatro guardas escritas que no se
+ejecutaban nunca: [06-autorizacion.md](06-autorizacion.md).
 
 ## Resumen
 
@@ -54,19 +66,20 @@ auditoría.
 
 Lo urgente: permiten modificar datos de un colegio sin presentar token.
 
-> **Las 58 que había aquí están cerradas** con el middleware `auth.token`
-> (Joseth las confirmó todas como error el 18 ago 2026). `tests/Contrato/AutenticacionTest.php`
-> comprueba que responden 401 sin token y que no rechazan a un usuario legítimo.
+> **Las 58 que había aquí están cerradas**, y con ellas las 445 restantes: el
+> guard ya no se pone ruta por ruta sino en grupo. `tests/Contrato/AutenticacionTest.php`
+> fija la lista exacta de las que NO lo llevan y comprueba que las demás
+> responden 401 sin token.
 
 _Ninguna._
 
 
 ### Públicas a propósito (escriben, pero son el flujo de entrada)
 
-De `login/*` y `password/*`, que el plan ya lista como públicas. No pueden llevar
-guard —son justo lo que se usa sin token—, pero conviene mirar `putLogout`:
-recibe el `user_id` por parámetro, así que hoy cualquiera puede cerrar la sesión
-de cualquiera.
+Todas de `login/*`. No pueden llevar guard: son justo lo que se usa sin token.
+`putLogout` recibía el `user_id` por parámetro y cualquiera podía cerrar la
+sesión de cualquiera; se arregló el 18 ago 2026 y ahora el usuario sale del
+token.
 
 | ✔ | Verbo | Ruta | Controlador · método | Escribe |
 |---|---|---|---|---|
@@ -206,22 +219,51 @@ ejecutan sin sesión:
 `tests/Contrato/RutasPreLoginTest.php` comprueba que ninguna lleva guard y que
 ninguna responde 401 sin token.
 
+### Y seis más que no son públicas, pero tampoco llevan token
+
+**Tardanzas no usa token.** El lector manda usuario y contraseña en el cuerpo de
+**cada** petición, y el método los verifica con `Auth::attempt()`. Autentican —no
+son públicas— pero el guard de token las cerraría igual y el lector se quedaría
+sin poder entrar. No aparecían en el inventario de `myvc_front` porque no son de
+`myvc_front`.
+
+| Verbo | Ruta | Cómo autentica |
+|---|---|---|
+| `POST` | `api/tardanzas/login` | `Auth::attempt()` con lo que venga en el cuerpo |
+| `POST` | `api/tardanzas/login/traer-datos` | ídem |
+| `POST` | `api/tardanzas/login/traer-datos-ausencias` | ídem |
+| `POST` | `api/tardanzas/subir` | ídem, vía `$this->user()`, con las credenciales en `loginData` |
+| `PUT` | `api/tardanzas/subir/eliminar-ausencia` | ídem |
+| `PUT` | `api/tardanzas/subir/poner-ausencia` | ídem |
+
+Salieron al aplicar el guard por defecto: hasta entonces nadie había tenido que
+enumerarlas, porque el guard se ponía ruta a ruta y a estas simplemente no se les
+ponía. **Son deuda de autenticación**, no una excepción legítima: mandar la
+contraseña en cada petición es peor que un token, y la Fase 3 (Sanctum) es el
+momento de darles uno.
+
 **Regla:** antes de dejar sin guard cualquier ruta nueva, preguntar al front si la
 llama algo antes del login.
 
 ### El invariante que esto hace posible
 
-Con `password/*` y `estados_civiles` fuera, **la superficie sin autenticar de la
-API es exactamente esta lista y nada más**. Eso ya no es una observación: es un
-test.
+**La superficie sin token de la API son quince rutas: las nueve de arriba y las
+seis de tardanzas.** Ya no es una observación sobre el resultado de una
+auditoría: es una propiedad del archivo de rutas, porque el guard va por defecto
+y salir de él exige escribir `->withoutMiddleware('auth.token')`.
 
-`test_ninguna_otra_ruta_responde_sin_token` recorre las 534 rutas sin cabecera de
-autenticación y comprueba que **ninguna responde 2xx** salvo las de arriba. Da
-igual cómo se defienda cada una —middleware, `User::fromToken()` en el método o
-en el constructor—: lo que se afirma es el resultado, no el mecanismo.
+Dos tests lo sostienen, y hacen falta los dos:
 
-Es la afirmación más fuerte que se puede hacer sobre esto, y la que hay que
-mantener verde.
+- `AutenticacionTest::test_solo_estas_rutas_no_exigen_token` lee la tabla de
+  rutas y compara la lista contra la escrita a mano. Es instantáneo y detecta
+  la excepción puesta por descuido.
+- `RutasPreLoginTest::test_ninguna_otra_ruta_responde_sin_token` recorre las 533
+  rutas sin cabecera de autenticación y comprueba que **ninguna responde 2xx**.
+  Afirma el resultado, no el mecanismo: da igual que la ruta se defienda con
+  middleware o con `User::fromToken()` dentro del método.
+
+El segundo es el que de verdad importa —una ruta puede llevar el middleware en
+la tabla y responder igual— y es el que hay que mantener verde.
 
 ---
 
