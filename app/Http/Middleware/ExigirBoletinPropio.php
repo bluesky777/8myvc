@@ -39,18 +39,16 @@ class ExigirBoletinPropio
             return $next($request);
         }
 
-        $pedidos = $request->input('requested_alumnos');
+        $alumnoId = $this->alumnoPedido($request);
 
-        // Sin lista concreta se está pidiendo el grupo entero. Es lo que hace
-        // `detailed-notas-year`, que ni siquiera acepta el parámetro.
-        if (! is_array($pedidos) || count($pedidos) !== 1) {
+        // Sin alumno concreto se está pidiendo el grupo entero. Es lo que hacen
+        // las rutas `-group`, que ni siquiera aceptan el parámetro.
+        if ($alumnoId === null) {
             $this->anotar($usuario, $usuario->tipo === 'Acudiente'
                 ? 'AcudienteVerVariosBoletines' : 'AlumnoVerVariosBoletines');
 
             abort(403, 'Pedis más de lo que debes');
         }
-
-        $alumnoId = (int) ($pedidos[0]['alumno_id'] ?? 0);
 
         if ($usuario->tipo === 'Alumno') {
             if ($alumnoId !== (int) $usuario->persona_id) {
@@ -82,6 +80,26 @@ class ExigirBoletinPropio
         }
 
         return $next($request);
+    }
+
+    /**
+     * El alumno del que se pide el informe, o null si se está pidiendo más de uno.
+     *
+     * Dos formas, porque los endpoints de esta familia no se pusieron de acuerdo:
+     * la lista `requested_alumnos` (boletines, bolfinales, notas actuales) y el
+     * `alumno_id` suelto (certificados-persona).
+     */
+    private function alumnoPedido(Request $peticion): ?int
+    {
+        $pedidos = $peticion->input('requested_alumnos');
+
+        if (is_array($pedidos)) {
+            return count($pedidos) === 1 ? (int) ($pedidos[0]['alumno_id'] ?? 0) : null;
+        }
+
+        $suelto = $peticion->input('alumno_id');
+
+        return $suelto === null || $suelto === '' ? null : (int) $suelto;
     }
 
     /**

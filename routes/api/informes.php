@@ -50,14 +50,17 @@ Route::put('informes/cumpleanos-por-meses', [InformesController::class, 'putCump
 Route::put('informes/datos', [InformesController::class, 'putDatos']);
 
 // CertificadosPersonaController
-Route::put('certificados-persona', [CertificadosPersonaController::class, 'putIndex']);
+//
+// Devuelve las matrículas de un alumno. Pide el alumno con `alumno_id` suelto en
+// vez de `requested_alumnos`; el middleware entiende las dos formas.
+Route::put('certificados-persona', [CertificadosPersonaController::class, 'putIndex'])->middleware('boletin.propio');
 
 // BolfinalesPreescolarController
 Route::put('bolfinales-preescolar/crear-frase', [BolfinalesPreescolarController::class, 'putCrearFrase']);
 Route::put('bolfinales-preescolar/eliminar-frase', [BolfinalesPreescolarController::class, 'putEliminarFrase']);
 Route::put('bolfinales-preescolar/guardar-frase', [BolfinalesPreescolarController::class, 'putGuardarFrase']);
-Route::put('bolfinales-preescolar/detailed-notas-year-group/{grupo_id}', [BolfinalesPreescolarController::class, 'putDetailedNotasYearGroup']);
-Route::put('bolfinales-preescolar/detailed-notas-year/{grupo_id}', [BolfinalesPreescolarController::class, 'putDetailedNotasYear']);
+Route::put('bolfinales-preescolar/detailed-notas-year-group/{grupo_id}', [BolfinalesPreescolarController::class, 'putDetailedNotasYearGroup'])->middleware('boletin.propio');
+Route::put('bolfinales-preescolar/detailed-notas-year/{grupo_id}', [BolfinalesPreescolarController::class, 'putDetailedNotasYear'])->middleware('boletin.propio');
 
 // PuestosController
 Route::put('puestos/detailed-notas-year', [PuestosController::class, 'putDetailedNotasYear']);

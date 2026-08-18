@@ -193,6 +193,28 @@ class AutorizacionTest extends CasoDeContrato
     }
 
     /**
+     * La otra forma de pedir un alumno.
+     *
+     * `certificados-persona` no manda `requested_alumnos` sino un `alumno_id`
+     * suelto. Es la misma familia —devuelve las matrículas de esa persona— y el
+     * middleware entiende las dos formas; si solo entendiera una, esta ruta
+     * seguiría abierta y el arreglo de los boletines no serviría de nada.
+     */
+    public function test_certificados_persona_solo_del_alumno_propio(): void
+    {
+        [$token, $mio, $otro] = $this->alumnoYCompanero();
+        $cab = ['Authorization' => 'Bearer ' . $token];
+
+        $this->putJson('/api/certificados-persona', ['alumno_id' => $otro->alumno_id], $cab)
+            ->assertStatus(403)
+            ->assertJsonPath('message', 'No puedes ver el de otros');
+
+        $this->assertNotSame(403,
+            $this->putJson('/api/certificados-persona', ['alumno_id' => $mio->alumno_id], $cab)->getStatusCode(),
+            'La guarda rechaza a un alumno pidiendo sus propias matrículas.');
+    }
+
+    /**
      * `requisitos` y `piars-grupos` los podía usar cualquiera con token.
      *
      * Un alumno llegaba a `DELETE api/requisitos/destroy/{id}` y recibía 200
@@ -261,6 +283,11 @@ class AutorizacionTest extends CasoDeContrato
                 'PUT api/boletines2/detailed-notas/{grupo_id}',
                 'PUT api/boletines3/detailed-notas-group/{grupo_id}',
                 'PUT api/boletines3/detailed-notas/{grupo_id}',
+                'PUT api/bolfinales-preescolar/detailed-notas-year-group/{grupo_id}',
+                'PUT api/bolfinales-preescolar/detailed-notas-year/{grupo_id}',
+                'PUT api/bolfinales/detailed-notas-year-group/{grupo_id}',
+                'PUT api/bolfinales/detailed-notas-year/{grupo_id}',
+                'PUT api/certificados-persona',
                 'PUT api/notas-actuales-alumnos/{grupo_id}',
             ],
         ];
