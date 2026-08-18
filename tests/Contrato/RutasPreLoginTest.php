@@ -69,7 +69,7 @@ class RutasPreLoginTest extends CasoDeContrato
 
             $this->assertNotNull($ruta, "La ruta {$verbo} api/{$uri} no existe. ¿Se renombró?");
 
-            if (in_array('auth.token', $ruta->middleware(), true)) {
+            if ($this->exigeToken($ruta)) {
                 $conGuard[] = $verbo . ' api/' . $uri;
             }
         }

@@ -117,6 +117,19 @@ abstract class CasoDeContrato extends TestCase
         return $filas[0];
     }
 
+    /**
+     * ¿Esta ruta exige token?
+     *
+     * El guard se aplica en grupo a toda la API (routes/api.php) y las
+     * excepciones se marcan con `->withoutMiddleware('auth.token')`, así que
+     * mirar solo `middleware()` diría que sí en las 533.
+     */
+    protected function exigeToken(\Illuminate\Routing\Route $ruta): bool
+    {
+        return in_array('auth.token', $ruta->middleware(), true)
+            && ! in_array('auth.token', $ruta->excludedMiddleware(), true);
+    }
+
     /** Hace login y devuelve el token, sin comprobar nada: es la vía para montar otros tests. */
     protected function tokenDe(string $username): string
     {

@@ -30,34 +30,34 @@ use App\Http\Controllers\UnidadesController;
 */
 
 // AreasController
-Route::get('areas', [AreasController::class, 'getIndex'])->middleware('auth.token');
-Route::post('areas', [AreasController::class, 'postIndex'])->middleware('auth.token');
+Route::get('areas', [AreasController::class, 'getIndex']);
+Route::post('areas', [AreasController::class, 'postIndex']);
 Route::put('areas/update-orden', [AreasController::class, 'putUpdateOrden']);
-Route::delete('areas/destroy/{id}', [AreasController::class, 'deleteDestroy'])->middleware('auth.token');
-Route::put('areas/update/{id}', [AreasController::class, 'putUpdate'])->middleware('auth.token');
+Route::delete('areas/destroy/{id}', [AreasController::class, 'deleteDestroy']);
+Route::put('areas/update/{id}', [AreasController::class, 'putUpdate']);
 
 // MateriasController
 Route::get('materias', [MateriasController::class, 'getIndex']);
 Route::post('materias', [MateriasController::class, 'postIndex']);
-Route::put('materias/update-orden', [MateriasController::class, 'putUpdateOrden'])->middleware('auth.token');
-Route::delete('materias/destroy/{id}', [MateriasController::class, 'deleteDestroy'])->middleware('auth.token');
-Route::put('materias/update/{id}', [MateriasController::class, 'putUpdate'])->middleware('auth.token');
+Route::put('materias/update-orden', [MateriasController::class, 'putUpdateOrden']);
+Route::delete('materias/destroy/{id}', [MateriasController::class, 'deleteDestroy']);
+Route::put('materias/update/{id}', [MateriasController::class, 'putUpdate']);
 
 // AsignaturasController
 Route::get('asignaturas', [AsignaturasController::class, 'getIndex']);
-Route::post('asignaturas', [AsignaturasController::class, 'postIndex'])->middleware('auth.token');
+Route::post('asignaturas', [AsignaturasController::class, 'postIndex']);
 Route::post('asignaturas/copiar', [AsignaturasController::class, 'postCopiar']);
 Route::put('asignaturas/datos-asignaturas', [AsignaturasController::class, 'putDatosAsignaturas']);
-Route::put('asignaturas/detalle-asignatura', [AsignaturasController::class, 'putDetalleAsignatura'])->middleware('auth.token');
+Route::put('asignaturas/detalle-asignatura', [AsignaturasController::class, 'putDetalleAsignatura']);
 Route::get('asignaturas/listasignaturas-alone', [AsignaturasController::class, 'getListasignaturasAlone']);
 Route::get('asignaturas/papelera', [AsignaturasController::class, 'getPapelera']);
 Route::put('asignaturas/restaurar', [AsignaturasController::class, 'putRestaurar']);
 Route::put('asignaturas/toggle-dia', [AsignaturasController::class, 'putToggleDia']);
-Route::delete('asignaturas/destroy/{id}', [AsignaturasController::class, 'deleteDestroy'])->middleware('auth.token');
+Route::delete('asignaturas/destroy/{id}', [AsignaturasController::class, 'deleteDestroy']);
 Route::get('asignaturas/list-asignaturas-year/{profesor_id}/{periodo_id}', [AsignaturasController::class, 'getListAsignaturasYear']);
 Route::get('asignaturas/listasignaturas/{persona_id?}', [AsignaturasController::class, 'getListasignaturas']);
 Route::get('asignaturas/show/{asignatura_id}', [AsignaturasController::class, 'getShow']);
-Route::put('asignaturas/update/{id}', [AsignaturasController::class, 'putUpdate'])->middleware('auth.token');
+Route::put('asignaturas/update/{id}', [AsignaturasController::class, 'putUpdate']);
 
 // UnidadesController
 Route::post('unidades', [UnidadesController::class, 'postIndex']);
@@ -95,10 +95,10 @@ Route::put('notas/update/{id}', [NotasController::class, 'putUpdate']);
 // NotaComportamientoController
 Route::get('nota_comportamiento', [NotaComportamientoController::class, 'getIndex']);
 Route::put('nota_comportamiento/crear', [NotaComportamientoController::class, 'putCrear']);
-Route::put('nota_comportamiento/frases-check', [NotaComportamientoController::class, 'putFrasesCheck'])->middleware('auth.token');
+Route::put('nota_comportamiento/frases-check', [NotaComportamientoController::class, 'putFrasesCheck']);
 Route::put('nota_comportamiento/guardar-libro', [NotaComportamientoController::class, 'putGuardarLibro']);
 Route::post('nota_comportamiento/store', [NotaComportamientoController::class, 'postStore']);
-Route::delete('nota_comportamiento/destroy/{id}', [NotaComportamientoController::class, 'deleteDestroy'])->middleware('auth.token');
+Route::delete('nota_comportamiento/destroy/{id}', [NotaComportamientoController::class, 'deleteDestroy']);
 Route::get('nota_comportamiento/detailed/{grupo_id}', [NotaComportamientoController::class, 'getDetailed']);
 Route::put('nota_comportamiento/update/{id}', [NotaComportamientoController::class, 'putUpdate']);
 
@@ -132,8 +132,8 @@ Route::get('frases_asignatura/show/{alumno_id}/{asignatura_id}', [FrasesAsignatu
 Route::post('frases_asignatura/store/{frase_id?}', [FrasesAsignaturaController::class, 'postStore']);
 
 // BolfinalesController
-Route::put('bolfinales/cambiar-contador-certificados', [BolfinalesController::class, 'putCambiarContadorCertificados'])->middleware('auth.token');
-Route::put('bolfinales/cambiar-contador-folios', [BolfinalesController::class, 'putCambiarContadorFolios'])->middleware('auth.token');
+Route::put('bolfinales/cambiar-contador-certificados', [BolfinalesController::class, 'putCambiarContadorCertificados']);
+Route::put('bolfinales/cambiar-contador-folios', [BolfinalesController::class, 'putCambiarContadorFolios']);
 Route::put('bolfinales/detailed-notas-year-group/{grupo_id}', [BolfinalesController::class, 'putDetailedNotasYearGroup']);
 Route::put('bolfinales/detailed-notas-year/{grupo_id}', [BolfinalesController::class, 'putDetailedNotasYear']);
 
@@ -141,10 +141,10 @@ Route::put('bolfinales/detailed-notas-year/{grupo_id}', [BolfinalesController::c
 Route::put('editnota/alum-asignatura', [EditnotaController::class, 'putAlumAsignatura']);
 Route::get('editnota/detailed-notas-year', [EditnotaController::class, 'getDetailedNotasYear']);
 Route::get('editnota/trashed', [EditnotaController::class, 'getTrashed']);
-Route::delete('editnota/destroy/{id}', [EditnotaController::class, 'deleteDestroy'])->middleware('auth.token');
+Route::delete('editnota/destroy/{id}', [EditnotaController::class, 'deleteDestroy']);
 Route::put('editnota/detailed-notas/{grupo_id}', [EditnotaController::class, 'putDetailedNotas']);
 Route::delete('editnota/forcedelete/{id}', [EditnotaController::class, 'deleteForcedelete']);
-Route::put('editnota/restore/{id}', [EditnotaController::class, 'putRestore'])->middleware('auth.token');
+Route::put('editnota/restore/{id}', [EditnotaController::class, 'putRestore']);
 
 // PlanillasController
 Route::get('planillas/listas-personalizadas', [PlanillasController::class, 'getListasPersonalizadas']);

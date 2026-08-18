@@ -20,22 +20,25 @@ use App\Http\Controllers\Tardanzas\TSubirController;
 
 // AsistenciasController
 Route::post('asistencias', [AsistenciasController::class, 'postIndex']);
-Route::get('asistencias/datos-solo-alumnos', [AsistenciasController::class, 'getDatosSoloAlumnos'])->middleware('auth.token');
+Route::get('asistencias/datos-solo-alumnos', [AsistenciasController::class, 'getDatosSoloAlumnos']);
 Route::put('asistencias/detailed', [AsistenciasController::class, 'putDetailed']);
-Route::put('asistencias/eliminar-ausencia', [AsistenciasController::class, 'putEliminarAusencia'])->middleware('auth.token');
-Route::put('asistencias/poner-ausencia', [AsistenciasController::class, 'putPonerAusencia'])->middleware('auth.token');
+Route::put('asistencias/eliminar-ausencia', [AsistenciasController::class, 'putEliminarAusencia']);
+Route::put('asistencias/poner-ausencia', [AsistenciasController::class, 'putPonerAusencia']);
 
 // InicioController
 Route::put('aplicacion-descargas/detailed', [InicioController::class, 'putDetailed']);
 
 // AsistenciasAppController
 Route::post('asistencias-app', [AsistenciasAppController::class, 'postIndex']);
-Route::get('asistencias-app/datos-solo-alumnos', [AsistenciasAppController::class, 'getDatosSoloAlumnos'])->middleware('auth.token');
+Route::get('asistencias-app/datos-solo-alumnos', [AsistenciasAppController::class, 'getDatosSoloAlumnos']);
 Route::put('asistencias-app/detailed', [AsistenciasAppController::class, 'putDetailed']);
-Route::put('asistencias-app/eliminar-ausencia', [AsistenciasAppController::class, 'putEliminarAusencia'])->middleware('auth.token');
-Route::put('asistencias-app/poner-ausencia', [AsistenciasAppController::class, 'putPonerAusencia'])->middleware('auth.token');
+Route::put('asistencias-app/eliminar-ausencia', [AsistenciasAppController::class, 'putEliminarAusencia']);
+Route::put('asistencias-app/poner-ausencia', [AsistenciasAppController::class, 'putPonerAusencia']);
 
 // TSubirController
-Route::post('tardanzas/subir', [TSubirController::class, 'postIndex']);
-Route::put('tardanzas/subir/eliminar-ausencia', [TSubirController::class, 'putEliminarAusencia']);
-Route::put('tardanzas/subir/poner-ausencia', [TSubirController::class, 'putPonerAusencia']);
+// Como las de tardanzas/login: el usuario y la contraseña viajan en el cuerpo de
+// cada petición (aquí dentro de `loginData`) y las verifica $this->user() con
+// Auth::attempt(). No hay token que exigir.
+Route::post('tardanzas/subir', [TSubirController::class, 'postIndex'])->withoutMiddleware('auth.token');
+Route::put('tardanzas/subir/eliminar-ausencia', [TSubirController::class, 'putEliminarAusencia'])->withoutMiddleware('auth.token');
+Route::put('tardanzas/subir/poner-ausencia', [TSubirController::class, 'putPonerAusencia'])->withoutMiddleware('auth.token');

@@ -18,8 +18,8 @@ use App\Http\Controllers\TipoDocumentoController;
 */
 
 // PaisesController
-Route::get('paises', [PaisesController::class, 'getIndex'])->middleware('auth.token');
-Route::post('paises/store', [PaisesController::class, 'postStore'])->middleware('auth.token');
+Route::get('paises', [PaisesController::class, 'getIndex']);
+Route::post('paises/store', [PaisesController::class, 'postStore']);
 
 // CiudadesController
 Route::get('ciudades', [CiudadesController::class, 'getIndex']);
@@ -35,9 +35,9 @@ Route::get('ciudades/paisdeciudad/{ciudad_id}', [CiudadesController::class, 'get
 Route::get('ciudades/por-departamento/{departamento}', [CiudadesController::class, 'getPorDepartamento']);
 
 // TipoDocumentoController
-Route::get('tiposdocumento', [TipoDocumentoController::class, 'index'])->middleware('auth.token');
-Route::post('tiposdocumento', [TipoDocumentoController::class, 'store'])->middleware('auth.token');
-Route::put('tiposdocumento/{tiposdocumento}', [TipoDocumentoController::class, 'update'])->middleware('auth.token');
-Route::patch('tiposdocumento/{tiposdocumento}', [TipoDocumentoController::class, 'update'])->middleware('auth.token');
-Route::delete('tiposdocumento/{tiposdocumento}', [TipoDocumentoController::class, 'destroy'])->middleware('auth.token');
+Route::get('tiposdocumento', [TipoDocumentoController::class, 'index']);
+Route::post('tiposdocumento', [TipoDocumentoController::class, 'store']);
+Route::put('tiposdocumento/{tiposdocumento}', [TipoDocumentoController::class, 'update']);
+Route::patch('tiposdocumento/{tiposdocumento}', [TipoDocumentoController::class, 'update']);
+Route::delete('tiposdocumento/{tiposdocumento}', [TipoDocumentoController::class, 'destroy']);
 

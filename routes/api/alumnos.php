@@ -48,13 +48,13 @@ Route::put('alumnos/restore/{id}', [AlumnosController::class, 'putRestore']);
 Route::put('alumnos/update/{id}', [AlumnosController::class, 'putUpdate']);
 
 // ImportarController
-Route::get('importar', [ImportarController::class, 'getIndex'])->middleware('auth.token');
-Route::post('importar/cartera', [ImportarController::class, 'postCartera'])->middleware('auth.token');
-Route::post('importar/algo/{year}', [ImportarController::class, 'postAlgo'])->middleware('auth.token');
-Route::get('importar/modificar/{year}', [ImportarController::class, 'getModificar'])->middleware('auth.token');
+Route::get('importar', [ImportarController::class, 'getIndex']);
+Route::post('importar/cartera', [ImportarController::class, 'postCartera']);
+Route::post('importar/algo/{year}', [ImportarController::class, 'postAlgo']);
+Route::get('importar/modificar/{year}', [ImportarController::class, 'getModificar']);
 
 // FoliosController
-Route::get('folios/iniciar', [FoliosController::class, 'getIniciar'])->middleware('auth.token');
+Route::get('folios/iniciar', [FoliosController::class, 'getIniciar']);
 
 // AcudientesController
 Route::put('acudientes/buscar', [AcudientesController::class, 'putBuscar']);
@@ -115,9 +115,9 @@ Route::put('requisitos/update', [RequisitosController::class, 'putUpdate']);
 Route::delete('requisitos/destroy/{id}', [RequisitosController::class, 'deleteDestroy']);
 
 // CarteraController
-Route::put('cartera/alumnos', [CarteraController::class, 'putAlumnos'])->middleware('auth.token');
+Route::put('cartera/alumnos', [CarteraController::class, 'putAlumnos']);
 Route::get('cartera/exportar-solo-deudores', [CarteraController::class, 'getExportarSoloDeudores']);
-Route::put('cartera/solo-deudores', [CarteraController::class, 'putSoloDeudores'])->middleware('auth.token');
+Route::put('cartera/solo-deudores', [CarteraController::class, 'putSoloDeudores']);
 
 // DetallesController
 Route::put('detalles/alumno', [DetallesController::class, 'putAlumno']);

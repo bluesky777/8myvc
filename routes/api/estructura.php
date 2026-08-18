@@ -23,18 +23,18 @@ use App\Http\Controllers\YearsController;
 */
 
 // NivelesEducativosController
-Route::get('niveles_educativos', [NivelesEducativosController::class, 'getIndex'])->middleware('auth.token');
-Route::post('niveles_educativos/store', [NivelesEducativosController::class, 'postStore'])->middleware('auth.token');
-Route::delete('niveles_educativos/destroy/{id}', [NivelesEducativosController::class, 'deleteDestroy'])->middleware('auth.token');
-Route::get('niveles_educativos/show/{id}', [NivelesEducativosController::class, 'getShow'])->middleware('auth.token');
-Route::put('niveles_educativos/update/{id}', [NivelesEducativosController::class, 'putUpdate'])->middleware('auth.token');
+Route::get('niveles_educativos', [NivelesEducativosController::class, 'getIndex']);
+Route::post('niveles_educativos/store', [NivelesEducativosController::class, 'postStore']);
+Route::delete('niveles_educativos/destroy/{id}', [NivelesEducativosController::class, 'deleteDestroy']);
+Route::get('niveles_educativos/show/{id}', [NivelesEducativosController::class, 'getShow']);
+Route::put('niveles_educativos/update/{id}', [NivelesEducativosController::class, 'putUpdate']);
 
 // GradosController
 Route::get('grados', [GradosController::class, 'getIndex']);
 Route::post('grados/store', [GradosController::class, 'postStore']);
-Route::delete('grados/destroy/{id}', [GradosController::class, 'deleteDestroy'])->middleware('auth.token');
-Route::get('grados/show/{id}', [GradosController::class, 'getShow'])->middleware('auth.token');
-Route::put('grados/update/{id}', [GradosController::class, 'putUpdate'])->middleware('auth.token');
+Route::delete('grados/destroy/{id}', [GradosController::class, 'deleteDestroy']);
+Route::get('grados/show/{id}', [GradosController::class, 'getShow']);
+Route::put('grados/update/{id}', [GradosController::class, 'putUpdate']);
 
 // GruposController
 Route::get('grupos', [GruposController::class, 'getIndex']);
@@ -46,13 +46,13 @@ Route::get('grupos/con-paises-tipos', [GruposController::class, 'getConPaisesTip
 Route::get('grupos/con-paises-tipos-next-year', [GruposController::class, 'getConPaisesTiposNextYear']);
 Route::get('grupos/next-year', [GruposController::class, 'getNextYear']);
 Route::post('grupos/store', [GruposController::class, 'postStore']);
-Route::get('grupos/trashed', [GruposController::class, 'getTrashed'])->middleware('auth.token');
+Route::get('grupos/trashed', [GruposController::class, 'getTrashed']);
 Route::put('grupos/update', [GruposController::class, 'putUpdate']);
 Route::delete('grupos/destroy/{id}', [GruposController::class, 'deleteDestroy']);
 Route::delete('grupos/forcedelete/{id}', [GruposController::class, 'deleteForcedelete']);
 Route::get('grupos/listado/{grupo_id}', [GruposController::class, 'getListado']);
 Route::put('grupos/restore/{id}', [GruposController::class, 'putRestore']);
-Route::get('grupos/show/{id}', [GruposController::class, 'getShow'])->middleware('auth.token');
+Route::get('grupos/show/{id}', [GruposController::class, 'getShow']);
 
 // ProfesoresController
 Route::get('profesores', [ProfesoresController::class, 'getIndex']);
@@ -88,10 +88,10 @@ Route::put('years/toggle-mostrar-anio-pasado-en-boletin', [YearsController::clas
 Route::put('years/toggle-mostrar-nota-comport-en-boletin', [YearsController::class, 'putToggleMostrarNotaComportEnBoletin']);
 Route::put('years/toggle-mostrar-puestos-en-boletin', [YearsController::class, 'putToggleMostrarPuestosEnBoletin']);
 Route::put('years/toggle-solo-valorativas', [YearsController::class, 'putToggleSoloValorativas']);
-Route::get('years/trashed', [YearsController::class, 'getTrashed'])->middleware('auth.token');
+Route::get('years/trashed', [YearsController::class, 'getTrashed']);
 Route::delete('years/delete/{id}', [YearsController::class, 'deleteDelete']);
 Route::delete('years/destroy/{id}', [YearsController::class, 'deleteDestroy']);
-Route::put('years/restore/{id}', [YearsController::class, 'putRestore'])->middleware('auth.token');
+Route::put('years/restore/{id}', [YearsController::class, 'putRestore']);
 Route::put('years/useractive/{year_id}', [YearsController::class, 'putUseractive']);
 
 // PeriodosController

@@ -24,29 +24,29 @@ Route::get('perfiles', [PerfilesController::class, 'getIndex']);
 Route::put('perfiles/creartodoslosusuarios', [PerfilesController::class, 'putCreartodoslosusuarios']);
 Route::put('perfiles/guardar-mi-email-restore', [PerfilesController::class, 'putGuardarMiEmailRestore']);
 Route::post('perfiles/store', [PerfilesController::class, 'postStore']);
-Route::get('perfiles/trashed', [PerfilesController::class, 'getTrashed'])->middleware('auth.token');
-Route::get('perfiles/usernames', [PerfilesController::class, 'getUsernames'])->middleware('auth.token');
-Route::get('perfiles/usuariosall', [PerfilesController::class, 'getUsuariosall'])->middleware('auth.token');
+Route::get('perfiles/trashed', [PerfilesController::class, 'getTrashed']);
+Route::get('perfiles/usernames', [PerfilesController::class, 'getUsernames']);
+Route::get('perfiles/usuariosall', [PerfilesController::class, 'getUsuariosall']);
 Route::put('perfiles/cambiaremailrestore/{id}', [PerfilesController::class, 'putCambiaremailrestore']);
-Route::put('perfiles/cambiarfirmaunprofe/{profeelegido}', [PerfilesController::class, 'putCambiarfirmaunprofe'])->middleware('auth.token');
-Route::put('perfiles/cambiarimgunalumno/{alumnoelegido}', [PerfilesController::class, 'putCambiarimgunalumno'])->middleware('auth.token');
-Route::put('perfiles/cambiarimgunprofe/{profeelegido}', [PerfilesController::class, 'putCambiarimgunprofe'])->middleware('auth.token');
-Route::put('perfiles/cambiarimgunusuario/{usuarioelegido}', [PerfilesController::class, 'putCambiarimgunusuario'])->middleware('auth.token');
+Route::put('perfiles/cambiarfirmaunprofe/{profeelegido}', [PerfilesController::class, 'putCambiarfirmaunprofe']);
+Route::put('perfiles/cambiarimgunalumno/{alumnoelegido}', [PerfilesController::class, 'putCambiarimgunalumno']);
+Route::put('perfiles/cambiarimgunprofe/{profeelegido}', [PerfilesController::class, 'putCambiarimgunprofe']);
+Route::put('perfiles/cambiarimgunusuario/{usuarioelegido}', [PerfilesController::class, 'putCambiarimgunusuario']);
 Route::put('perfiles/cambiarpassword/{id}', [PerfilesController::class, 'putCambiarpassword']);
-Route::get('perfiles/comprobarusername/{username}', [PerfilesController::class, 'getComprobarusername'])->middleware('auth.token');
-Route::delete('perfiles/destroy/{id}', [PerfilesController::class, 'deleteDestroy'])->middleware('auth.token');
+Route::get('perfiles/comprobarusername/{username}', [PerfilesController::class, 'getComprobarusername']);
+Route::delete('perfiles/destroy/{id}', [PerfilesController::class, 'deleteDestroy']);
 Route::delete('perfiles/forcedelete/{id}', [PerfilesController::class, 'deleteForcedelete']);
 Route::put('perfiles/guardar-username/{id}', [PerfilesController::class, 'putGuardarUsername']);
 Route::put('perfiles/reset-password/{id}', [PerfilesController::class, 'putResetPassword']);
 Route::put('perfiles/restore/{id}', [PerfilesController::class, 'putRestore']);
-Route::get('perfiles/show/{id}', [PerfilesController::class, 'getShow'])->middleware('auth.token');
+Route::get('perfiles/show/{id}', [PerfilesController::class, 'getShow']);
 Route::put('perfiles/update/{id}', [PerfilesController::class, 'putUpdate']);
-Route::get('perfiles/username/{username}', [PerfilesController::class, 'getUsername'])->middleware('auth.token');
+Route::get('perfiles/username/{username}', [PerfilesController::class, 'getUsername']);
 
 // ImagesController
 Route::get('myimages', [ImagesController::class, 'getIndex']);
 Route::put('myimages/cambiarlogocolegio', [ImagesController::class, 'putCambiarlogocolegio']);
-Route::put('myimages/datos-imagen', [ImagesController::class, 'putDatosImagen'])->middleware('auth.token');
+Route::put('myimages/datos-imagen', [ImagesController::class, 'putDatosImagen']);
 Route::post('myimages/store', [ImagesController::class, 'postStore']);
 Route::post('myimages/store-firma', [ImagesController::class, 'postStoreFirma']);
 Route::post('myimages/store-intacta', [ImagesController::class, 'postStoreIntacta']);
@@ -63,9 +63,9 @@ Route::put('images-users/cambiar-foto-un-usuario/{user_id}', [ImagesUsuariosCont
 Route::put('images-users/cambiar-imagen-oficial/{user_id}', [ImagesUsuariosController::class, 'putCambiarImagenOficial']);
 Route::put('images-users/cambiar-imagen-perfil/{user_id}', [ImagesUsuariosController::class, 'putCambiarImagenPerfil']);
 Route::put('images-users/cambiar-imagen-un-usuario/{user_id}', [ImagesUsuariosController::class, 'putCambiarImagenUnUsuario']);
-Route::delete('images-users/destroy/{id}', [ImagesUsuariosController::class, 'deleteDestroy'])->middleware('auth.token');
-Route::put('images-users/rotar-imagen-izquierda/{imagen_id}', [ImagesUsuariosController::class, 'putRotarImagenIzquierda'])->middleware('auth.token');
-Route::put('images-users/rotarimagen/{imagen_id}', [ImagesUsuariosController::class, 'putRotarimagen'])->middleware('auth.token');
+Route::delete('images-users/destroy/{id}', [ImagesUsuariosController::class, 'deleteDestroy']);
+Route::put('images-users/rotar-imagen-izquierda/{imagen_id}', [ImagesUsuariosController::class, 'putRotarImagenIzquierda']);
+Route::put('images-users/rotarimagen/{imagen_id}', [ImagesUsuariosController::class, 'putRotarimagen']);
 
 // PublicacionesController
 Route::put('publicaciones/borrar-comentario', [PublicacionesController::class, 'putBorrarComentario']);
@@ -74,12 +74,17 @@ Route::put('publicaciones/delete', [PublicacionesController::class, 'putDelete']
 Route::put('publicaciones/guardar-edicion', [PublicacionesController::class, 'putGuardarEdicion']);
 Route::put('publicaciones/restaurar', [PublicacionesController::class, 'putRestaurar']);
 Route::put('publicaciones/store', [PublicacionesController::class, 'putStore']);
-Route::put('publicaciones/ultimas', [PublicacionesController::class, 'putUltimas']);
-Route::get('publicaciones/ultimas', [PublicacionesController::class, 'getUltimas']);
+// Las pinta la propia pantalla de login, con el usuario aún sin autenticar, y su
+// respuesta alimenta además el formulario público de prematrícula (el desplegable
+// de grupo sale de year.grados_sig). Los dos verbos siguen abiertos porque el GET
+// fue el verbo real del front durante cinco años y medio y devuelve exactamente
+// lo mismo. Ver docs/migracion/04-auditoria-autenticacion.md §5.
+Route::put('publicaciones/ultimas', [PublicacionesController::class, 'putUltimas'])->withoutMiddleware('auth.token');
+Route::get('publicaciones/ultimas', [PublicacionesController::class, 'getUltimas'])->withoutMiddleware('auth.token');
 
 // CalendarioController
 Route::put('calendario/crear-evento', [CalendarioController::class, 'putCrearEvento']);
 Route::put('calendario/eliminar-evento', [CalendarioController::class, 'putEliminarEvento']);
 Route::put('calendario/guardar-evento', [CalendarioController::class, 'putGuardarEvento']);
 Route::put('calendario/sincronizar-cumples', [CalendarioController::class, 'putSincronizarCumples']);
-Route::put('calendario/this-year', [CalendarioController::class, 'putThisYear'])->middleware('auth.token');
+Route::put('calendario/this-year', [CalendarioController::class, 'putThisYear']);
