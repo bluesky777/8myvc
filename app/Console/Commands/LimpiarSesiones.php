@@ -16,7 +16,7 @@ use Illuminate\Support\Carbon;
  *
  * No se programa en el scheduler porque en estos alojamientos no hay garantía
  * de que corra el cron de Laravel. Si en un colegio se puede, la línea está en
- * docs/DESPLIEGUE.md; y si no, correrlo a mano de vez en cuando basta.
+ * docs/DESPLIEGUE-REFERENCIA.md; y si no, correrlo a mano de vez en cuando basta.
  */
 class LimpiarSesiones extends Command
 {

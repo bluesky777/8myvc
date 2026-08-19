@@ -255,7 +255,7 @@ la tabla y responder igual— y es el que hay que mantener verde.
 ## 6. Quién consume esta API
 
 Resumen; **la explicación completa de la topología está en
-[`docs/DESPLIEGUE.md`](../DESPLIEGUE.md)**. Cuatro clientes, y **no todos
+[`docs/DESPLIEGUE-REFERENCIA.md`](../DESPLIEGUE-REFERENCIA.md)**. Cuatro clientes, y **no todos
 comparten host con la API**.
 
 | Cliente | Despliegue | Origen |

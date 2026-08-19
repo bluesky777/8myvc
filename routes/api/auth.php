@@ -59,7 +59,7 @@ Route::post('login/recuperar-clave', [LoginController::class, 'postRecuperarClav
 // Se mantiene para poder desplegar el backend antes que el frontend — cada
 // colegio publica su front por separado, así que durante un tiempo convivirán
 // versiones que llaman a una y a otra. Se borra cuando el front de TODOS los
-// colegios use ya 'login/recuperar-clave'. Anotado en docs/DESPLIEGUE.md.
+// colegios use ya 'login/recuperar-clave'. Anotado en docs/DESPLIEGUE-REFERENCIA.md.
 Route::post('login/ver-pass', [LoginController::class, 'postRecuperarClave'])->withoutMiddleware('auth.token');
 
 // TLoginController

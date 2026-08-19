@@ -6,7 +6,7 @@
 |--------------------------------------------------------------------------
 |
 | Todo en MINUTOS salvo donde se diga. Va por colegio, en su .env, porque
-| config/ es copia real en cada uno (ver docs/DESPLIEGUE.md).
+| config/ es copia real en cada uno (ver docs/DESPLIEGUE-REFERENCIA.md).
 |
 | El contrato completo, y por qué son dos tokens y no uno, está en
 | docs/migracion/07-sesion.md.

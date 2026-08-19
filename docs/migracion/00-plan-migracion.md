@@ -429,15 +429,16 @@ El backend solo escribe `logout_at` en `historiales`. El JWT **sigue siendo vál
 > (`Http/Kernel`, `Console/Kernel`, los `config/*.php`) arranca sin tocar nada en
 > Laravel 13.
 >
-> Lo que hay que hacer en el servidor está en [DESPLIEGUE.md](../DESPLIEGUE.md),
-> sección «De la Fase 4». En corto: **subir PHP a 8.4 antes, y eso sube para
-> todos los colegios de la cuenta de cPanel a la vez.**
+> Los comandos están en [DESPLIEGUE.md](../DESPLIEGUE.md) y el porqué en
+> [DESPLIEGUE-REFERENCIA.md](../DESPLIEGUE-REFERENCIA.md). En corto: **subir PHP
+> a 8.4 antes, y eso sube para todos los colegios de la cuenta de cPanel a la
+> vez.**
 
 Un major por commit (8→9→10→11→12→13), con la suite de contrato verde en cada uno.
 
 > **⚠️ Bloqueante de despliegue, no de código: `vendor/` está compartido entre
 > colegios por symlink.** Hay una carpeta real y los demás colegios la apuntan
-> (Joseth, 18 ago 2026; ver [`docs/DESPLIEGUE.md`](../DESPLIEGUE.md)). `app/` sí
+> (Joseth, 18 ago 2026; ver [`docs/DESPLIEGUE-REFERENCIA.md`](../DESPLIEGUE-REFERENCIA.md)). `app/` sí
 > es copia real en cada uno.
 >
 > O sea que **subir el framework lo sube para todos los colegios en el mismo
