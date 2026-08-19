@@ -41,10 +41,22 @@ return [
             'provider' => 'users',
         ],
 
+        /*
+        | El guard de la API. 'sesion' lo registra AuthServiceProvider y
+        | pregunta a App\Services\Sesion, que es quien sabe qué token vale:
+        | los de Sanctum con su `expires_at`, y los JWT viejos mientras
+        | config/sesion.php los siga aceptando.
+        |
+        | Era 'jwt'. Con el driver del paquete, `auth()->user()` devolvía null
+        | para un token de Sanctum perfectamente válido, y `Auth::attempt()`
+        | emitía un JWT que ya no usa nadie.
+        |
+        | 'hash' => false se cae con él: era del driver de tokens de Laravel y
+        | tymon ni lo miraba.
+        */
         'api' => [
-            'driver' => 'jwt',
+            'driver' => 'sesion',
             'provider' => 'users',
-            'hash' => false,
         ],
     ],
 

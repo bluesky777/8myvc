@@ -32,8 +32,16 @@ class LoginTest extends CasoDeContrato
         $this->assertArrayHasKey('el_token', $r->json());
         $this->assertIsString($r->json('el_token'));
 
-        // Un JWT son tres partes separadas por puntos.
-        $this->assertCount(3, explode('.', $r->json('el_token')));
+        // Los tokens de Sanctum son '<id>|<40 caracteres>'. Antes esto
+        // comprobaba que fueran tres bloques separados por puntos, o sea un
+        // JWT; la Fase 3 los cambió. La CLAVE no cambia —sigue siendo
+        // `el_token`— y por eso un front sin actualizar sigue entrando: solo se
+        // lo guarda y lo manda como Bearer, sin mirar dentro.
+        $this->assertMatchesRegularExpression('/^\d+\|[A-Za-z0-9]{40}$/', $r->json('el_token'));
+
+        // Y lo que de verdad importa: que sirva para entrar.
+        $this->getJson('/api/ciudades', ['Authorization' => 'Bearer ' . $r->json('el_token')])
+            ->assertStatus(200);
 
         $this->compararConInstantanea(
             'login-credentials-' . strtolower($tipo),

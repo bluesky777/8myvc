@@ -3,21 +3,27 @@
 namespace App;
 
 use Tymon\JWTAuth\Contracts\JWTSubject;
-use JWTAuth;
-use Tymon\JWTAuth\Exceptions\JWTException;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 
+use App\Services\ContextoDeUsuario;
+use App\Services\Sesion;
 use Request;
 use DB;
 use App;
-use \Log;
-use App\Models\Periodo;
 
+/**
+ * `implements JWTSubject` y los dos métodos getJWT* siguen aquí porque
+ * tymon/jwt-auth sigue instalado para poder aceptar los tokens ya emitidos
+ * (ver config/sesion.php). Nada emite JWT nuevos desde la Fase 3. Se van con
+ * el paquete.
+ */
 class User extends Authenticatable implements JWTSubject
 {
     use Notifiable;
+    use HasApiTokens;
 
     
 
@@ -78,7 +84,7 @@ class User extends Authenticatable implements JWTSubject
 	public static function fromToken($already_parsed=false, $request = false)
 	{
 		if ($already_parsed !== false) {
-			return self::resolverContexto($already_parsed, $request);
+			return self::resolverContexto($already_parsed);
 		}
 
 		$peticion = Request::instance();
@@ -87,7 +93,7 @@ class User extends Authenticatable implements JWTSubject
 			return $peticion->attributes->get(self::CONTEXTO);
 		}
 
-		$usuario = self::resolverContexto(false, $request);
+		$usuario = self::resolverContexto(false);
 
 		// null no se guarda: significa que la resolución no llegó a terminar
 		// —el caso del periodo de otro año, más abajo— y la siguiente llamada
@@ -99,285 +105,31 @@ class User extends Authenticatable implements JWTSubject
 		return $usuario;
 	}
 
-	private static function resolverContexto($already_parsed=false, $request = false)
+	/**
+	 * Valida el token y monta el contexto, en ese orden y en dos sitios
+	 * distintos.
+	 *
+	 * Esto eran 280 líneas: el parseo del JWT, el switch de cuatro ramas con
+	 * las consultas de cuarenta columnas, y los roles y permisos, todo junto.
+	 * Estaban juntos porque nadie los separó, no porque tuvieran que estarlo, y
+	 * mientras lo estuvieron no se podía cambiar de mecanismo de autenticación
+	 * sin tocar los 325 sitios que llaman aquí.
+	 *
+	 * Ahora el token lo valida App\Services\Sesion —que acepta los de Sanctum y
+	 * también los JWT viejos mientras dure la transición— y el contexto lo monta
+	 * App\Services\ContextoDeUsuario. Este método solo los junta.
+	 *
+	 * @param  string|false  $already_parsed  Un token concreto, en vez del de la petición.
+	 */
+	private static function resolverContexto($already_parsed=false)
 	{
-		$userTemp = [];
-		$usuario = [];
-		$token = [];
+		$sesion = app(Sesion::class);
 
-		try
-		{
-			if ($already_parsed) {
-				
-				$token = $already_parsed;
-				$userTemp = JWTAuth::toUser($token);
-				
-			}else{
-				
-				try {
-					$token = JWTAuth::parseToken();
-				} catch(JWTException $e){
-					// No haremos nada, continuaremos verificando datos.
-				}	
-				
-				try {
-					if ($token){
-						// Lleva aquí y ocurre un error cuando se ha demorado mucho en mover la página.
-						$userTemp = $token->authenticate();
-					}else {
-						abort(401, 'No existe Token');
-					}
-				} catch (JWTException $e) {
-					Log::info($e);
-					/*
-					$tok = JWTAuth::getToken();
-					$tok->get(); // Sí hay token, definitivamente está expirado :(
-					*/
-					abort(401, 'Token ha expirado.');
-				}
-			}
+		$userTemp = $already_parsed !== false
+			? $sesion->exigirDeToken($already_parsed)
+			: $sesion->exigirUsuario(Request::instance());
 
-			if (!$userTemp) {
-				abort(401, 'Token inválido, prohibido entrar.');
-			}
-
-			if (!$userTemp->periodo_id) {
-				$userTemp->periodo_id = Periodo::where('actual', '=', true)->first()->id;
-				$userTemp->save();
-			}
-
-			$consulta = '';
-			$tipo_tmp = $userTemp->tipo;
-			$is_super = $userTemp->is_superuser;
-
-			switch ($tipo_tmp) {  // Alumno, Profesor, Acudiente, Usuario.
-				case 'Profesor':
-					
-					$consulta = 'SELECT p.id as persona_id, p.nombres, p.apellidos, p.sexo, p.fecha_nac, p.ciudad_nac, p.user_id, u.username, 
-									IFNULL(i.nombre, IF(p.sexo="F","default_female.png", "default_male.png")) as imagen_nombre, 
-									p.foto_id, IFNULL(i2.nombre, IF(p.sexo="F","default_female.png", "default_male.png")) as foto_nombre, 
-									p.firma_id, i3.nombre as firma_nombre, 
-									"N/A" as grupo_id, ("N/A") as nombre_grupo, ("N/A") as abrev_grupo, 
-									"N/A" as year_matricula_id, per.id as periodo_id, per.numero as numero_periodo, per.profes_pueden_editar_notas, per.profes_pueden_nivelar,
-									y.id as year_id, y.year, y.nota_minima_aceptada, y.actual as year_actual, per.actual as periodo_actual, 
-									y.unidad_displayname, y.subunidad_displayname, y.unidades_displayname, y.subunidades_displayname, y.show_materias_todas,
-									y.genero_unidad, y.genero_subunidad, per.fecha_plazo, y.alumnos_can_see_notas, y.logo_id,
-									y.si_recupera_materia_recup_indicador, y.year_pasado_en_bol, y.mostrar_puesto_boletin, y.puestos_alfabeticamente, y.mostrar_nota_comport_boletin, y.profes_can_edit_alumnos,
-									y.compromiso_familiar_label
-								from profesores p 
-								left join images i on i.id=:imagen_id
-								left join images i2 on i2.id=p.foto_id
-								left join images i3 on i3.id=p.firma_id
-								left join periodos per on per.id=:periodo_id
-								left join years y on y.id=per.year_id
-								left join users u on u.id=p.user_id
-								where p.deleted_at is null and p.user_id=:user_id';
-
-					$usuario = DB::select($consulta, array(
-						':user_id'		=> $userTemp->id, 
-						':imagen_id'	=> $userTemp->imagen_id, 
-						':periodo_id'	=> $userTemp->periodo_id,
-					));
-					
-					break;
-
-
-				case 'Alumno':
-					
-					$consulta = 'SELECT a.id as persona_id, a.nombres, a.apellidos, a.user_id, 
-									a.sexo, a.fecha_nac, a.ciudad_nac, a.pazysalvo, a.deuda, u.username, m.fecha_pension,
-									IFNULL(i.nombre, IF(a.sexo="F","default_female.png", "default_male.png")) as imagen_nombre, 
-									a.foto_id, IFNULL(i2.nombre, IF(a.sexo="F","default_female.png", "default_male.png")) as foto_nombre, 
-									g.id as grupo_id, g.nombre as nombre_grupo, g.abrev as abrev_grupo, 
-									g.year_id as year_matricula_id, per.id as periodo_id, per.numero as numero_periodo, 
-									y.id as year_id, y.year, y.nota_minima_aceptada, y.actual as year_actual, per.actual as periodo_actual, 
-									y.unidad_displayname, y.subunidad_displayname, y.unidades_displayname, y.subunidades_displayname, 
-									y.genero_unidad, y.genero_subunidad, per.fecha_plazo, y.mostrar_nota_comport_boletin, y.si_recupera_materia_recup_indicador, y.year_pasado_en_bol, y.alumnos_can_see_notas, y.logo_id,
-									y.prematr_antiguos, y.msg_when_students_blocked, y.compromiso_familiar_label
-								from alumnos a 
-								inner join matriculas m on m.alumno_id=a.id and (m.estado="MATR" or m.estado="ASIS" or m.estado="PREM")
-								inner join grupos g on g.id=m.grupo_id
-								left join images i on i.id=:imagen_id
-								left join images i2 on i2.id=a.foto_id
-								left join periodos per on per.id=:periodo_id
-								inner join years y on y.id=per.year_id and g.year_id=y.id 
-								left join users u on u.id=a.user_id
-								where a.deleted_at is null and a.user_id=:user_id';
-					
-					$usuario = DB::select($consulta, array(
-						':user_id'		=> $userTemp->id, 
-						':imagen_id'	=> $userTemp->imagen_id, 
-						':periodo_id'	=> $userTemp->periodo_id,
-					));
-
-					break;
-
-
-				case 'Acudiente':
-					
-					$consulta = 'SELECT ac.id as persona_id, ac.nombres, ac.apellidos, ac.user_id, u.username, u.is_superuser,
-									ac.sexo, u.email, ac.fecha_nac, ac.ciudad_nac, 
-									u.imagen_id, IFNULL(i.nombre, IF(ac.sexo="F","default_female.png", "default_male.png")) as imagen_nombre, 
-									ac.foto_id, IFNULL(i2.nombre, IF(ac.sexo="F","default_female.png", "default_male.png")) as foto_nombre, 
-									"N/A" as grupo_id, ("N/A") as nombre_grupo, ("N/A") as abrev_grupo, 
-									"N/A" as year_matricula_id, per.id as periodo_id, per.numero as numero_periodo, 
-									y.id as year_id, y.year, y.nota_minima_aceptada, y.actual as year_actual, per.actual as periodo_actual, 
-									y.unidad_displayname, y.subunidad_displayname, y.unidades_displayname, y.subunidades_displayname, 
-									y.genero_unidad, y.genero_subunidad, per.fecha_plazo, y.si_recupera_materia_recup_indicador, y.mostrar_nota_comport_boletin, y.alumnos_can_see_notas, y.logo_id,
-									y.prematr_antiguos, y.compromiso_familiar_label
-								from acudientes ac 
-								left join images i on i.id=:imagen_id
-								left join images i2 on i2.id=ac.foto_id
-								left join periodos per on per.id=:periodo_id
-								inner join years y on y.id=per.year_id  
-								left join users u on u.id=ac.user_id
-								where ac.deleted_at is null and ac.user_id=:user_id';
-
-					$usuario = DB::select($consulta, array(
-						':user_id'		=> $userTemp->id, 
-						':imagen_id'	=> $userTemp->imagen_id, 
-						':periodo_id'	=> $userTemp->periodo_id,
-					));
-
-					break;
-				
-
-				case 'Usuario':
-					
-					$consulta = 'SELECT u.id as persona_id, "" as nombres, "" as apellidos, u.id as user_id, u.username, u.is_superuser, u.tipo, 
-									u.sexo, u.email, "N/A" as fecha_nac, "N/A" as ciudad_nac, u.profesor_id,
-									u.imagen_id, IFNULL(i.nombre, IF(u.sexo="F","default_female.png", "default_male.png")) as imagen_nombre, 
-									u.imagen_id as foto_id, IFNULL(i.nombre, IF(u.sexo="F","default_female.png", "default_male.png")) as foto_nombre, 
-									"N/A" as grupo_id, ("N/A") as nombre_grupo, ("N/A") as abrev_grupo, 
-									"N/A" as year_matricula_id, per.id as periodo_id, per.numero as numero_periodo, per.profes_pueden_editar_notas, per.profes_pueden_nivelar,
-									y.id as year_id, y.year, y.nota_minima_aceptada, y.actual as year_actual, per.actual as periodo_actual, 
-									y.unidad_displayname, y.subunidad_displayname, y.unidades_displayname, y.subunidades_displayname, y.show_materias_todas,
-									y.genero_unidad, y.genero_subunidad, per.fecha_plazo, y.si_recupera_materia_recup_indicador, y.year_pasado_en_bol, y.mostrar_nota_comport_boletin, y.alumnos_can_see_notas, y.logo_id,
-									y.puestos_alfabeticamente, y.compromiso_familiar_label
-								from users u
-								left join periodos per on per.id=u.periodo_id
-								left join years y on y.id=per.year_id
-								left join images i on i.id=u.imagen_id and i.deleted_at is null
-								where u.id=:user_id and u.deleted_at is null';
-
-					$usuario = DB::select($consulta, array(
-						':user_id'		=> $userTemp->id
-					));
-
-					break;
-				
-			}
-
-
-			if (count($usuario) == 0) {
-				if ($userTemp->is_active) {
-					if (User::$intentoLogueoPorActive == 1) {
-						abort(400, 'user_inactivo_por_mucho_logueo');
-					}else{
-						User::$intentoLogueoPorActive = 1;
-						
-						$consulta = 'SELECT p.*
-							from alumnos a 
-							inner join matriculas m on m.alumno_id=a.id and (m.estado="MATR" or m.estado="ASIS" or m.estado="PREM")
-							inner join grupos g on g.id=m.grupo_id and g.deleted_at is null
-							inner join years y on g.year_id=y.id and y.deleted_at is null
-							inner join periodos p on p.year_id=y.id and p.deleted_at is null
-							left join users u on u.id=a.user_id
-							where a.deleted_at is null and a.user_id=:user_id ORDER BY id DESC LIMIT 1';
-
-						$periodos = DB::select($consulta, [
-							':user_id'		=> $userTemp->id
-							]);
-							
-						if (count($periodos) > 0) {
-							
-							$consulta = 'UPDATE users SET periodo_id=? WHERE id=?';
-							$periodos = DB::select($consulta, [ $periodos[0]->id, $userTemp->id ]);
-
-							// Con el periodo ya arreglado, volver a resolver.
-							// Antes se llamaba y se tiraba el resultado: quien
-							// entraba en esta rama recibía null. Un alumno con
-							// el periodo de otro año veía un 200 con el cuerpo
-							// vacío al entrar, y al segundo intento funcionaba
-							// —porque el UPDATE de arriba ya había corregido el
-							// periodo—, así que parecía cosa de una vez.
-							return self::resolverContexto($already_parsed, $request);
-						}else{
-							abort(400, 'user_inactivo_por_falta_periodos');
-						}
-						
-					}
-					
-				}else{
-					abort(400, 'user_inactivo');
-				}
-				
-			}
-			
-			$usuario = (array)$usuario[0];
-			$userTemp = (array)$userTemp['attributes'];
-			//return $userTemp;
-
-			$usuario = array_merge($usuario, $userTemp);
-			$usuario = (object)$usuario;			
-
-			if (! isset( $usuario->tipo) ) {
-				$usuario->tipo = $tipo_tmp;
-			}
-			if (! isset( $usuario->is_superuser) ) {
-				$usuario->is_superuser = $is_super;
-			}
-
-
-			User::$nota_minima_aceptada = $usuario->nota_minima_aceptada;
-			User::$images 				= 'images/';
-			User::$perfilPath 			= User::$images . 'perfil/';
-			User::$imgSharedPath 		= User::$images . 'shared/';
-
-		}
-		catch(Tymon\JWTAuth\Exceptions\TokenExpiredException $e)
-		{
-			if (! count(Request::all())) {
-				return Response::json(['error' => 'token_expired'], 401);
-			}
-		}
-		/*
-		catch(JWTException $e){
-			// No haremos nada, continuaremos verificando datos.
-			return response()->json(['error' => $e], 401);
-		}
-		*/
-
-
-		// *************************************************
-		//    Traeremos los roles y permisos
-		// *************************************************
-
-		$roles = DB::select('SELECT r.* 
-			FROM roles r
-			INNER JOIN role_user rs ON r.id=rs.role_id
-			WHERE rs.user_id=?', [$usuario->user_id]);
-
-		$usuario->roles = $roles;
-		$perms = [];
-
-		foreach($usuario->roles as $role )
-		{
-			$consulta = 'SELECT pm.name, pm.display_name, pm.description from permission_role pmr
-					inner join permissions pm on pm.id = pmr.permission_id 
-						and pmr.role_id = :role_id';
-			
-			$permisos = DB::select($consulta, array(':role_id' => $role->id));
-			
-			foreach ($permisos as $permiso) {
-				array_push($perms, $permiso->name);
-			}
-		}
-
-		$usuario->perms = $perms;
-		$usuario->token = $token;
-
-		return $usuario;
+		return app(ContextoDeUsuario::class)->para($userTemp);
 	}
 
 	// Todos los permisos de un usuario, con el objeto permiso, o solo con el string name del permiso
