@@ -129,7 +129,7 @@ class TSubirController extends Controller {
 					':fecha_hora'			=> $ausencia_to['fecha_hora'], 
 					':periodo_id'			=> $ausencia_to['periodo_id'],
 					':uploaded'				=> 'created',
-					':created_by'			=> $ausencia_to['created_by'],
+					':created_by'			=> $user->id,
 					':created_at'			=> $dt,
 					':updated_at'			=> $dt,
 				]);
@@ -184,7 +184,7 @@ class TSubirController extends Controller {
 			':fecha_hora'			=> Request::input('fecha_hora'), 
 			':periodo_id'			=> Request::input('periodo_id'),
 			':uploaded'				=> 'created',
-			':created_by'			=> Request::input('created_by'),
+			':created_by'			=> $user->id,
 			':created_at'			=> $dt,
 			':updated_at'			=> $dt,
 		]);

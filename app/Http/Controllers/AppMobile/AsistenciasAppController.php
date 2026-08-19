@@ -164,7 +164,7 @@ class AsistenciasAppController extends Controller {
 			':fecha_hora'			=> Request::input('fecha_hora'), 
 			':periodo_id'			=> Request::input('periodo_id'),
 			':uploaded'				=> 'created',
-			':created_by'			=> Request::input('created_by'),
+			':created_by'			=> $user->user_id,
 			':created_at'			=> $now,
 			':updated_at'			=> $now,
 		];
@@ -185,13 +185,13 @@ class AsistenciasAppController extends Controller {
 
 	public function putEliminarAusencia()
 	{
-		$user = $this->user();
+		$user = User::fromToken();
 
 		$id = Request::input('ausencia_id');
 
 		$ausencia 				= Ausencia::findOrFail($id);
 		$ausencia->uploaded 	= 'deleted';
-		$ausencia->deleted_by 	= $user->id;
+		$ausencia->deleted_by 	= $user->user_id;
 		$ausencia->save();
 		$ausencia->delete();
 		return 'Eliminada';
@@ -201,7 +201,7 @@ class AsistenciasAppController extends Controller {
 	# Poner ausencia o tardanza
 	public function putPonerAusencia()
 	{
-		$user = $this->user();
+		$user = User::fromToken();
 
 		$dt = Carbon::now('America/Bogota');
 
@@ -220,7 +220,7 @@ class AsistenciasAppController extends Controller {
 			':fecha_hora'			=> Request::input('fecha_hora'), 
 			':periodo_id'			=> Request::input('periodo_id'),
 			':uploaded'				=> 'created',
-			':created_by'			=> Request::input('created_by'),
+			':created_by'			=> $user->user_id,
 			':created_at'			=> $dt,
 			':updated_at'			=> $dt,
 		]);

@@ -162,6 +162,85 @@ class GuardsDestructivosTest extends TestCase
     }
 
     /**
+     * Quién firma una fila lo decide el servidor, nunca el cliente.
+     *
+     * Cuatro INSERT de `ausencias` ponían `created_by` con lo que llegaba en el
+     * cuerpo de la petición. El que llama está autenticado —unos por token,
+     * otros por credenciales en el cuerpo, que es la excepción del lector de
+     * tardanzas— así que no es acceso abierto: es suplantación autenticada. El
+     * sistema sabe quién eres y aun así firma la fila con el id que le mandes.
+     *
+     * No es teórico. Lo reportó la sesión de la app Flutter después de arreglar
+     * el mismo fallo del lado del cliente: el logout no limpiaba el usuario y
+     * las tardanzas quedaban firmadas por el docente anterior.
+     */
+    public function test_ninguna_columna_de_autoria_sale_de_la_peticion(): void
+    {
+        $columnas = ['created_by', 'updated_by', 'deleted_by'];
+        $sospechosos = [];
+
+        foreach ($this->metodosDeControladores() as [$archivo, $nombre, $cuerpo]) {
+            foreach ($columnas as $columna) {
+                // `':created_by' => Request::input(...)` y `->created_by = Request::input(...)`
+                $patron = '/[\'"]?:?'.$columna.'[\'"]?\s*(?:=>|=)\s*[^,;\n]*Request::(input|get|all)\s*\(/';
+
+                if (preg_match($patron, $cuerpo)) {
+                    $sospechosos[] = "$archivo::$nombre -> $columna";
+                }
+            }
+        }
+
+        $this->assertSame([], $sospechosos, implode("\n", array_merge(
+            ['Hay columnas de autoría que salen del cuerpo de la petición:'],
+            array_map(fn ($m) => "  - $m", $sospechosos),
+            ['', 'El servidor ya sabe quién llama. Usa el usuario resuelto:',
+                '  User::fromToken()->user_id   (contexto)  o  $user->id  (modelo App\\User)']
+        )));
+    }
+
+    /**
+     * `$this->user()` en un controlador que no tiene ese método.
+     *
+     * `Illuminate\Routing\Controller` define `__call()`, así que llamar a un
+     * método que no existe es sintácticamente válido y **Larastan no lo ve ni
+     * en el nivel más alto**: para el análisis, la clase «podría» responder.
+     * En ejecución lanza BadMethodCallException y el endpoint responde 500.
+     *
+     * Pasaba en `AsistenciasController::putEliminarAusencia` y `::putPonerAusencia`,
+     * comprobado golpeándolos: 500 con «Method ...::user does not exist».
+     *
+     * El trait `Concerns\ResuelveElUsuario` expone `$this->user` como PROPIEDAD,
+     * no como método, y de ahí sale la confusión.
+     */
+    public function test_nadie_llama_a_this_user_como_metodo(): void
+    {
+        $sospechosos = [];
+
+        foreach ($this->metodosDeControladores() as [$archivo, $nombre, $cuerpo]) {
+            if (! preg_match('/\$this->user\s*\(/', $cuerpo)) {
+                continue;
+            }
+
+            // TSubirController sí lo define: autentica con las credenciales que
+            // el lector manda en cada petición.
+            $fuente = file_get_contents(self::CONTROLADORES.'/'.$archivo);
+
+            if (preg_match('/function\s+user\s*\(/', $fuente)) {
+                continue;
+            }
+
+            $sospechosos[] = "$archivo::$nombre";
+        }
+
+        $this->assertSame([], $sospechosos, implode("\n", array_merge(
+            ['Hay métodos que llaman a $this->user() sin que la clase lo defina:'],
+            array_map(fn ($m) => "  - $m", $sospechosos),
+            ['', 'Es 500 en ejecución. Usa User::fromToken(), o el trait',
+                'Concerns\\ResuelveElUsuario, que expone $this->user como propiedad.']
+        )));
+    }
+
+    /**
      * Devuelve [archivoRelativo, nombreMetodo, cuerpoSinComentarios] de cada método
      * de cada controlador.
      *
