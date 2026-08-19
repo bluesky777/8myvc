@@ -7,22 +7,36 @@
 
 ## Resumen
 
-| Sev. | Hallazgo | ¿Espera a la migración? |
+> **Estado al 19 ago 2026.** Los quince hallazgos, con dónde se cerró cada uno.
+> La columna de la derecha ya no dice cuándo tocaba: dice qué pasó.
+
+| Sev. | Hallazgo | Estado |
 |---|---|---|
-| 🔴 **Crítico** | Toma de cuenta de cualquier usuario vía reset de contraseña | **NO. Hoy.** |
-| 🔴 **Crítico** | Escalada de privilegios sin autenticación (`roles`, `permissions`) | **NO. Hoy.** |
-| 🔴 **Crítico** | Ejecución remota de código vía subida de archivos | **NO. Hoy.** |
-| 🟠 Alto | Creación de usuarios sin autenticación, con contraseña `123456` | Semana 1 |
-| 🟠 Alto | No existe middleware de autenticación; 35 controladores sin verificación | Fase 2 |
-| 🟠 Alto | Autorización decidida en el cliente, no en el servidor | Fase 3–6 |
-| 🟠 Alto | Enlace de reseteo construido con un dominio que envía el atacante | Semana 1 |
-| 🟡 Medio | Token JWT escrito en texto plano en los logs | Hoy (1 línea) |
-| 🟡 Medio | CORS abierto a `*` con todos los métodos y cabeceras | Semana 1 |
-| 🟡 Medio | Tokens de reset generados con `rand()`, guardados en claro, sin limpiar | Semana 2 |
-| 🟡 Medio | Inyección de cabeceras en `mail()` | Semana 2 |
-| 🟡 Medio | Rate limit de 60/min aplicado también al login | Semana 1 |
-| 🟡 Medio | `tymon/jwt-auth` fijado a `dev-develop` + `minimum-stability: dev` | Fase 3 |
-| 🟢 Bajo | `'hash' => false` en el guard, `APP_DEBUG`, permisos 0777, sin validación | Continuo |
+| 🔴 **Crítico** | Toma de cuenta de cualquier usuario vía reset de contraseña | ✅ PR #7 — el token va atado al usuario |
+| 🔴 **Crítico** | Escalada de privilegios sin autenticación (`roles`, `permissions`) | ✅ PR #7 · y en la Fase 6 se descubrió que además respondían 500 enteros |
+| 🔴 **Crítico** | Ejecución remota de código vía subida de archivos | ✅ PR #7 — `App\Support\SafeUpload`, con test de forma |
+| 🟠 Alto | Creación de usuarios sin autenticación, con contraseña `123456` | ✅ PR #7 (contraseña aleatoria) · **+ límite de 20/hora**, que faltaba |
+| 🟠 Alto | No existe middleware de autenticación; 35 controladores sin verificación | ✅ Fase 2 — guard por defecto, quince excepciones enumeradas y testeadas |
+| 🟠 Alto | Autorización decidida en el cliente, no en el servidor | 🟡 **Parcial** — `Autoriza`, `auth.personal` y `boletin.propio` cubren lo destructivo y los boletines. El resto sigue abierto |
+| 🟠 Alto | Enlace de reseteo construido con un dominio que envía el atacante | ✅ PR #7 — `ruta_frontend_segura()` exige el mismo host |
+| 🟡 Medio | Token JWT escrito en texto plano en los logs | ✅ — y con la Fase 3 ya no hay JWT que escribir |
+| 🟡 Medio | CORS abierto a `*` con todos los métodos y cabeceras | ⚪ **Se queda a propósito.** La app Flutter en build nativa no manda `Origin`. Como la autenticación va por `Bearer` y no por cookies, `*` no abre nada. Ver DESPLIEGUE.md |
+| 🟡 Medio | Tokens de reset generados con `rand()`, guardados en claro, sin limpiar | ✅ PR #7 — CSPRNG, y en la tabla solo queda el hash |
+| 🟡 Medio | Inyección de cabeceras en `mail()` | ✅ PR #7 — validación del destinatario |
+| 🟡 Medio | Rate limit de 60/min aplicado también al login | ✅ **Fase 6** — limitador propio de 5/min, por IP y por usuario |
+| 🟡 Medio | `tymon/jwt-auth` fijado a `dev-develop` + `minimum-stability: dev` | ✅ Fase 3 y 4 · **+ `composer audit` en el CI**, que es lo que faltaba para poder preguntar |
+| 🟢 Bajo | `'hash' => false` en el guard, `APP_DEBUG`, permisos 0777, sin validación | 🟡 **Parcial** — el guard se fue con JWT, `0777` → `0755`. Falta verificar `APP_DEBUG` en producción y las validaciones |
+
+**Lo que encontró la Fase 6 y no estaba en esta lista** (ver
+[05-codigo-muerto-y-roto.md §6](05-codigo-muerto-y-roto.md)):
+
+| Hallazgo | Estado |
+|---|---|
+| Nombre de columna del cliente concatenado en `UPDATE ... SET`, en 10 endpoints | ✅ `App\Support\ColumnaSegura`, contra el esquema real |
+| `created_by` del cuerpo de la petición en 6 INSERT de `ausencias` — suplantación autenticada | ✅ lo pone el servidor |
+| Contraseña guardada sin hashear en `VtParticipantesController`, y el camino de `TSubirController` que la aceptaba como credencial | ✅ las dos mitades |
+| 19 `App::abort(400, ...)` que lanzaban «Class not found» en vez de abortar | ✅ 403/404/422 según el caso |
+| 42 `catch (Exception $e)` que no capturaban nada | ✅ · ocho devolvían la traza serializada con 200 |
 
 **Lo que NO encontré (buenas noticias):** de las 990 consultas crudas, **prácticamente todas están parametrizadas**. Solo hay 3 casos de concatenación con entrada de usuario y ninguno llega a SQL. **No hay inyección SQL clásica.** El junior hizo mal muchas cosas, pero esa la hizo bien.
 

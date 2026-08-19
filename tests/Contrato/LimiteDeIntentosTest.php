@@ -78,6 +78,24 @@ class LimiteDeIntentosTest extends CasoDeContrato
             ->assertStatus(429);
     }
 
+    /**
+     * El único endpoint público que escribe: sin token crea un alumno, su
+     * matrícula y un usuario activo. Con el límite general eran 7.200 filas por
+     * hora desde una IP.
+     */
+    public function test_la_prematricula_publica_tiene_su_propio_limite(): void
+    {
+        $ruta = collect(\Route::getRoutes())->first(
+            fn ($r) => $r->uri() === 'api/login/crear-prematricula'
+        );
+
+        $this->assertNotNull($ruta, 'Desapareció api/login/crear-prematricula.');
+        $this->assertContains('throttle:prematricula', $ruta->middleware());
+        $this->assertNotContains('auth.token', array_diff(
+            $ruta->middleware(), $ruta->excludedMiddleware()
+        ), 'Sigue siendo pública, que es el motivo de que necesite el límite.');
+    }
+
     public function test_las_rutas_que_aceptan_contrasena_llevan_el_limite(): void
     {
         $esperado = [

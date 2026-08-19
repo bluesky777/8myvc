@@ -87,6 +87,24 @@ class RouteServiceProvider extends ServiceProvider
          * cada petición pero no es un login: es el lector subiendo un lote, y
          * ahí cinco por minuto sí estorbaría.
          */
+        /*
+         * Prematrícula: el único endpoint público que ESCRIBE.
+         *
+         * Sin token crea un alumno, su matrícula y un usuario activo. Con el
+         * límite general eran 7.200 filas por hora desde una IP. Ya no crea la
+         * cuenta con una contraseña conocida —eso se cerró en el PR #7, ahora
+         * es aleatoria— pero seguir pudiendo inundar `alumnos` y `matriculas`
+         * es un problema por sí solo.
+         *
+         * Veinte por hora y no cinco: una familia matricula a varios hijos
+         * seguidos, y un colegio que ponga un equipo en recepción los mete a
+         * todos desde la misma IP. Veinte no lo estorba y sigue cortando el
+         * abuso por tres órdenes de magnitud.
+         */
+        RateLimiter::for('prematricula', function (Request $request) {
+            return Limit::perHour(20)->by($request->ip());
+        });
+
         RateLimiter::for('login', function (Request $request) {
             $identidad = (string) ($request->input('username')
                 ?: $request->input('email')

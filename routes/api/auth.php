@@ -46,7 +46,7 @@ Route::get('auth/me', [SesionController::class, 'yo']);
 // (18 ago 2026) recorriendo los estados que viven fuera del área autenticada.
 // Ver docs/migracion/04-auditoria-autenticacion.md §5.
 Route::post('login', [LoginController::class, 'postIndex'])->withoutMiddleware('auth.token')->middleware('throttle:login');
-Route::put('login/crear-prematricula', [LoginController::class, 'putCrearPrematricula'])->withoutMiddleware('auth.token');
+Route::put('login/crear-prematricula', [LoginController::class, 'putCrearPrematricula'])->withoutMiddleware('auth.token')->middleware('throttle:prematricula');
 Route::post('login/credentials', [LoginController::class, 'postCredentials'])->withoutMiddleware('auth.token')->middleware('throttle:login');
 Route::put('login/logout', [LoginController::class, 'putLogout'])->withoutMiddleware('auth.token');
 // Se llama desde el enlace del correo: el usuario no ha iniciado sesión —no
