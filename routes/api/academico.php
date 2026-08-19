@@ -87,7 +87,12 @@ Route::put('subunidades/update/{id}', [SubunidadesController::class, 'putUpdate'
 Route::put('notas/alumno-periodo-grupo', [NotasController::class, 'putAlumnoPeriodoGrupo']);
 Route::put('notas/detailed', [NotasController::class, 'putDetailed']);
 Route::put('notas/subunidad', [NotasController::class, 'putSubunidad']);
-Route::get('notas/alumno/{alumno_id?}/{grupo_id?}', [NotasController::class, 'getAlumno']);
+// Un alumno podía leer las notas de cualquier compañero cambiando el número de
+// la URL, y un acudiente las de cualquier alumno del colegio. El modo `notas`
+// del guard comprueba la propiedad pero NO el paz y salvo, que hoy solo lo
+// comprueba el navegador. Decisión pendiente del colegio: ver ExigirBoletinPropio.
+Route::get('notas/alumno/{alumno_id?}/{grupo_id?}', [NotasController::class, 'getAlumno'])
+    ->middleware('boletin.propio:notas');
 Route::delete('notas/destroy/{id}', [NotasController::class, 'deleteDestroy']);
 Route::get('notas/show/{nota_id}', [NotasController::class, 'getShow']);
 Route::put('notas/update/{id}', [NotasController::class, 'putUpdate']);

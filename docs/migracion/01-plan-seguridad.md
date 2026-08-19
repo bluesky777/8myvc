@@ -425,3 +425,30 @@ Los cuatro caben en un solo PR pequeño y revisable. No dependen de la migració
 Este no es un pentest. Es lo que salió de leer el código durante el análisis de migración, y me detuve donde empezaba a repetirse el patrón. Un repaso dedicado casi seguro encuentra más — en particular en los 129 controladores que no leí completos, en IDOR (¿puede el alumno A pedir las notas del alumno B cambiando el `{id}` de la URL?), y en la app Flutter.
 
 **IDOR es mi principal sospecha de lo no revisado.** Con 538 rutas, la mayoría tomando IDs por URL y sin verificación de propiedad en el servidor, la probabilidad de que un alumno pueda leer datos de otro es alta. Vale la pena una revisión específica de eso, aparte.
+
+> **La pregunta de arriba tiene respuesta desde el 19 ago 2026, y era que sí.**
+> `GET api/notas/alumno/{alumno_id?}` solo deducía el alumno del token cuando el
+> parámetro venía vacío; si venía, lo usaba sin mirar de quién era. Un alumno leía
+> las notas de cualquier compañero cambiando el número de la URL, y un acudiente
+> las de cualquier alumno del colegio. **Cerrado**, reusando el guard de boletines
+> con un modo nuevo, y fijado por `tests/Contrato/NotasTest.php`.
+>
+> No salió de una revisión de seguridad: salió de escribir los tests de contrato
+> P0 que faltaban de la Fase 0.2. Es el tercer hallazgo seguido que aparece así
+> —los otros dos, el giro de imágenes invertido y la importación que dejaba un
+> espacio dentro de los nombres, en el mismo día—, y refuerza lo que ya decía el
+> informe de la Fase 6: **ninguno salió de leer código con una lista delante.**
+>
+> **La revisión específica de IDOR sigue sin hacerse, y ahora con una razón más
+> para hacerla:** si la ruta más obvia de todas lo tenía, el resto de las 538 que
+> reciben un id por URL merece que alguien las mire. `notas/alumno` no era un caso
+> raro.
+>
+> **Decisión pendiente, y para Joseth.** El guard nuevo comprueba la propiedad
+> pero no el paz y salvo, porque retener las notas del día a día por una deuda
+> sería una política nueva y no le toca decidirla a quien escribe el guard. Pero
+> **la política ya existe y hoy solo la sostiene el navegador**:
+> `NotasAlumnoCtrl.seleccionarAcudido()` de `myvc_front` corta con un «Debe estar
+> a paz y salvo» antes de llamar. Un acudiente moroso que abra la petición a mano
+> ve las notas igual. Si el colegio confirma la regla, en el backend es cambiar
+> una palabra en la ruta.

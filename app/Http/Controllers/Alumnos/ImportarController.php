@@ -88,12 +88,17 @@ class ExcelUtils implements ToArray, WithHeadingRow, WithEvents
 			$alumno["ciudad_docu_acud1"] = $res['ciudad_id_A1'];
 			$alumno["ciudad_docu_acud2"] = $res['ciudad_id_A2'];
 
+			// Los nombres se recomponen de dos columnas, y se recortan porque la
+			// segunda casi siempre viene vacía: un alumno de un solo nombre de
+			// pila quedaba guardado como 'Irene ', con el espacio dentro. Lo
+			// destapó el test de ida y vuelta —exportar e importar lo exportado—,
+			// que hasta este arreglo cambiaba a 68 de los 68 alumnos del seed.
 			if ($alumno["id"]) {
 				$consulta 	= 'UPDATE alumnos SET no_matricula=?, nombres=?, apellidos=?, sexo=?, fecha_nac=?, 
 					tipo_doc=?, documento=?, no_matricula=?, direccion=?, barrio=?, telefono=?, celular=?, estrato=?, 
 					tipo_sangre=?, eps=?, religion=?, nro_sisben=?, updated_at=?'.$res['consulta'].' WHERE id=?';
 					
-				DB::update($consulta, [$alumno["no_matricula"], $alumno["primer_nombre"].' '.$alumno["segundo_nombre"], $alumno["primer_apellido"].' '.$alumno["segundo_apellido"], $alumno["sexo"], $alumno["fecha_de_nacim"], 
+				DB::update($consulta, [$alumno["no_matricula"], trim($alumno["primer_nombre"].' '.$alumno["segundo_nombre"]), trim($alumno["primer_apellido"].' '.$alumno["segundo_apellido"]), $alumno["sexo"], $alumno["fecha_de_nacim"], 
 						$alumno["tipo_doc"], $alumno["nro_de_documento"], $alumno["numero_matricula"], $alumno["direccion_residencia"], $alumno["barrio"], $alumno["telefono"], $alumno["celular"], $alumno["estrato"], 
 						$alumno["rh"], $alumno["eps"], $alumno["religion"], $alumno['sisben'], $now, $alumno["id"]]);
 				
@@ -116,8 +121,8 @@ class ExcelUtils implements ToArray, WithHeadingRow, WithEvents
 				$alumno_row = $alumno;
 				if ($alumno_row["primer_nombre"]) {
 					$alumno = new Alumno;
-					$alumno->nombres    			= $alumno_row["primer_nombre"].' '.$alumno_row["segundo_nombre"];
-					$alumno->apellidos  			= $alumno_row["primer_apellido"].' '.$alumno_row["segundo_apellido"];
+					$alumno->nombres    			= trim($alumno_row["primer_nombre"].' '.$alumno_row["segundo_nombre"]);
+					$alumno->apellidos  			= trim($alumno_row["primer_apellido"].' '.$alumno_row["segundo_apellido"]);
 					$alumno->sexo       			= $alumno_row["sexo"] ? $alumno_row["sexo"] : 'M';
 					$alumno->tipo_doc   			= $alumno_row["tipo_doc"];
 					$alumno->documento  			= $alumno_row["nro_de_documento"];

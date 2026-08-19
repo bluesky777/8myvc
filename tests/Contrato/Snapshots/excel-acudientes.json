@@ -1,0 +1,27 @@
+{
+    "hojas": 1,
+    "detalle": [
+        {
+            "titulo": "#",
+            "fila_de_encabezados": 1,
+            "encabezados": [
+                "No",
+                "ID",
+                "Tipo de Documento",
+                "Nro de documento",
+                "Lugar de Expedición Departamento",
+                "Lugar de Expedición Ciudad",
+                "Apellidos",
+                "Nombres",
+                "Usuario",
+                "Teléfono",
+                "Celular",
+                "Fecha de nacim",
+                "Ciudad nacimiento",
+                "Sexo"
+            ],
+            "columnas": 14,
+            "filas_de_datos": 180
+        }
+    ]
+}

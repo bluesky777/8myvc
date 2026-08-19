@@ -38,34 +38,39 @@ class ImagesUsuariosController extends Controller {
 	}
 
 
+	/**
+	 * Gira a la DERECHA. La llama `ImagesUsersApi.rotarDerecha()` del frontend.
+	 *
+	 * El ángulo es +90 y no -90 porque `intervention/image` cambió de signo entre
+	 * la v2 y la v4, y este proyecto saltó de una a otra en la Fase 4. La v2
+	 * pasaba el ángulo tal cual a `imagerotate()`, que es antihorario; la v4 lo
+	 * interpreta al revés —su `RotateModifier` lo documenta como «clockwise
+	 * rotation angle»—. Con el -90 heredado, este endpoint giraba a la izquierda
+	 * y su hermano a la derecha: los dos botones al revés.
+	 */
 	public function putRotarimagen($imagen_id)
 	{
 		$imagen = ImageModel::findOrFail($imagen_id);
 
-		$folderName = $imagen->nombre;
-		$img_dir = 'images/perfil/'.$folderName;
-		//return $img_dir;
-		$img = Image::decodePath($img_dir)->rotate(-90);
-	
+		$img_dir = 'images/perfil/'.$imagen->nombre;
 
-		$img->save();
+		Image::decodePath($img_dir)->rotate(90)->save();
 
 		return $imagen->nombre;
 	}
 
 
+	/**
+	 * Gira a la IZQUIERDA. Mismo cambio de signo que `putRotarimagen()`, y por la
+	 * misma razón.
+	 */
 	public function putRotarImagenIzquierda($imagen_id)
 	{
 		$imagen = ImageModel::findOrFail($imagen_id);
 
-		$folderName = $imagen->nombre;
-		$img_dir = 'images/perfil/'.$folderName;
-		//return $img_dir;
-		$img = Image::decodePath($img_dir);
+		$img_dir = 'images/perfil/'.$imagen->nombre;
 
-		$img->rotate(90);
-
-		$img->save();
+		Image::decodePath($img_dir)->rotate(-90)->save();
 
 		return $imagen->nombre;
 	}

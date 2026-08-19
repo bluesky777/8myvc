@@ -1,0 +1,20 @@
+{
+    "grupos": [],
+    "imagenes_privadas": [
+        {
+            "created_at": "string",
+            "created_by": "int",
+            "deleted_at": "null",
+            "deleted_by": "null",
+            "id": "int",
+            "nombre": "string",
+            "publica": "int",
+            "updated_at": "string",
+            "updated_by": "null",
+            "user_id": "int"
+        }
+    ],
+    "imagenes_publicas": [],
+    "logo": [],
+    "profesores": []
+}

@@ -20,7 +20,7 @@ La buena noticia: el código casi no usa superficie del framework. 990 llamadas 
 
 | # | Fase | Qué desbloquea | Esfuerzo |
 |---|---|---|---|
-| 0 | Red de seguridad (tests de contrato + baseline de BD + CI) | Todo lo demás | 4–6 días |
+| 0 | Red de seguridad (tests de contrato + baseline de BD + CI) | Todo lo demás | 4–6 días · **P0 completo 19 ago 2026**; P1 y P2 pendientes |
 | 1 | Eliminar `AdvancedRoute` (sin tocar el framework) | Rutas cacheables, `route:list` funcional | 1–2 días |
 | 2 | Organizar rutas + middleware `auth` real | Cierra el agujero de roles/permisos | 2–3 días |
 | 3 | Reemplazar `tymon/jwt-auth` (back + front + Flutter) | Desbloquea el salto de framework | 4–6 días · **backend hecho 19 ago 2026** |
@@ -224,10 +224,28 @@ Route::middleware(['auth:sanctum', 'user.context'])->group(function () {
 
 Nada de lo demás se toca antes de esto. Es lo que convierte "espero que no se rompa" en "sé que no se rompió".
 
-> **Estado (18 ago 2026).** Hecho: 0.1 baseline del esquema, 0.3 entorno
-> reproducible, 0.4 CI, y de 0.2 los tests P0 de login (los 6) más el contrato
-> de enrutado. Pendiente de 0.2: notas (~15), Excel (7), imágenes (6), y las
-> prioridades P1 y P2. Cómo se usa todo esto: [03-tests.md](03-tests.md).
+> **Estado (19 ago 2026).** Hecho: 0.1 baseline del esquema, 0.3 entorno
+> reproducible, 0.4 CI, y **todo el P0 de 0.2**: login (6), enrutado, notas,
+> Excel e imágenes. Pendiente: las prioridades P1 y P2. Cómo se usa todo esto:
+> [03-tests.md](03-tests.md).
+>
+> **Los tres bloques P0 que faltaban se escribieron el 19 ago 2026, después de la
+> Fase 6, y cada uno encontró algo.** No es casualidad ni mérito: son las tres
+> áreas que el plan marcó como las de mayor riesgo, y estuvieron sin una sola
+> prueba mientras el proyecto saltaba cinco versiones de framework.
+>
+> - **Imágenes.** `intervention/image` cambió el signo del ángulo entre la v2 y
+>   la v4, así que desde la Fase 4 los dos botones de girar hacían lo contrario
+>   de lo que decían. Ningún test de estado lo habría visto: los dos endpoints
+>   respondían 200 y escribían una imagen girada.
+> - **Excel.** Reimportar la hoja recién exportada cambiaba a 68 de los 68
+>   alumnos: `nombres` se recompone de dos columnas y el de un solo nombre de
+>   pila quedaba guardado con un espacio al final. Y dos de las rutas de la lista
+>   de «endpoints rotos» estaban mal nombradas — una no existe y la otra
+>   funciona.
+> - **Notas.** El IDOR que el plan de seguridad daba por sospechado y no había
+>   comprobado nadie: un alumno leía las notas de cualquier compañero cambiando
+>   el id de la URL.
 >
 > La Fase 1 se hizo antes que esta, saltándose el orden del plan. Las rutas
 > quedaron cubiertas a posteriori por el test de enrutado.

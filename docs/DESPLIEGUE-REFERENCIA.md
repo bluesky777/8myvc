@@ -409,7 +409,7 @@ un script temporal en el docroot, bajo el SAPI real:
 | | |
 |---|---|
 | SAPI web | `litespeed` |
-| PHP | 8.0.30, `php.ini` en `/opt/alt/php80/etc/php.ini` |
+| PHP | 8.0.30, `php.ini` en `/opt/alt/php80/etc/php.ini` (**medido en 8.0**; desde el 19 ago 2026 la cuenta va en 8.4 y el `php.ini` es otro fichero: `/opt/alt/php84/etc/php.ini`) |
 | `sendmail_path` | `/usr/sbin/sendmail -t -i` |
 | binario | existe, ejecutable, no es enlace |
 | `mail()` | disponible, `disable_functions` vacío |
@@ -428,6 +428,15 @@ consecuencias:
 Este servidor es exactamente el caso que motivó el cambio: el valor por defecto
 de Laravel (`-bs`) habría fallado aquí con *"Expected response code 220 but got
 an empty response"*. Leer el `php.ini` da el mismo invocador que usaba `mail()`.
+
+**Al subir a 8.4 esto hay que volver a comprobarlo**, porque el `php.ini` que se
+midió es el de la 8.0 y cada versión tiene el suyo. Un `sendmail_path` distinto
+en `/opt/alt/php84/etc/php.ini` rompe el reseteo de contraseña sin más síntoma:
+
+```bash
+php -i | grep sendmail_path
+php artisan correo:probar tu-correo@ejemplo.com
+```
 
 Estado completo del entorno en `PHP-BASELINE.md`.
 
@@ -671,7 +680,9 @@ la Fase 4: una carpeta por generación», más arriba.
 ### 1. Subir PHP a 8.4 — ANTES, y no se puede escalonar
 
 Laravel 13 exige **PHP 8.3 como mínimo**; el repo va a 8.4, que es la versión con
-soporte activo. Producción corre 8.0.30.
+soporte activo. Producción corría 8.0.30 y **subió a 8.4 el 19 ago 2026, en las
+dos cuentas** (`micolevirtual.com` y `lalvirtual.edu.co`). Este paso ya está
+hecho; queda el 3.
 
 **La versión de PHP se elige por cuenta de cPanel, no por colegio**, así que sube
 para todos los colegios de esa cuenta en el mismo instante. Es el único paso de
@@ -682,12 +693,14 @@ Y por eso el orden es este y no otro:
 1. **Primero** los 16 con el `vendor/` igualado. Hecho el 19 ago 2026. Sin esto,
    subir PHP tumba a los que corran un Laravel anterior a los parches de
    compatibilidad de 2021 — que es justo como se descubrió el problema.
-2. **Después** subir PHP a 8.4 en las dos cuentas. En ese momento todos los
-   colegios siguen en Laravel 8.83.29, que arranca en 8.1 pero **no está
-   soportado en 8.4**. Es una ventana incómoda: funciona, pero con avisos de
-   obsolescencia. Conviene que dure horas, no días — o subir a 8.1 primero, que
-   sí es territorio soportado por Laravel 8, y a 8.4 justo antes del primer
-   despliegue.
+2. **Después** subir PHP a 8.4 en las dos cuentas. Hecho el 19 ago 2026. Desde
+   ese momento todos los colegios siguen en Laravel 8.83.29, que arranca en 8.4
+   pero **no está soportado ahí**. Es una ventana incómoda: funciona, pero con
+   avisos de obsolescencia. Está abierta ahora, y solo la cierra el paso 3.
+
+   Y con la versión nueva puesta, dos cosas que **no se heredan** de la 8.0: las
+   extensiones marcadas (`sodium`, `opcache`) y el `php.ini` (`/opt/alt/php84/`,
+   no `php80`). Ver el paso 0 de `DESPLIEGUE.md`.
 3. **Entonces** desplegar colegio a colegio, moviendo cada uno al `vendor/` de la
    generación 13.
 

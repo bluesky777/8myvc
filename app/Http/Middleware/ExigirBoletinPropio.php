@@ -28,10 +28,31 @@ use Illuminate\Support\Facades\DB;
  *
  * Los `bitacoras` que insertaba el código original se conservan: son el rastro
  * que mira el colegio cuando alguien reclama.
+ *
+ * **El modo `notas` (19 ago 2026).** La misma comprobación de propiedad hacía
+ * falta en `GET api/notas/alumno/{alumno_id?}`, donde un alumno podía leer las
+ * notas de cualquier compañero cambiando el número de la URL. Dos cosas lo
+ * separan de los boletines, y por eso es un parámetro y no otro middleware:
+ *
+ * - El id llega por la **URL**, no en el cuerpo de la petición.
+ * - **No se exige el paz y salvo**, aunque probablemente debería. Retener el
+ *   boletín de quien debe la pensión es una decisión del colegio que ya estaba
+ *   tomada; extenderla a las notas del día a día sería una decisión NUEVA, y no
+ *   es de programación, así que aquí se deja como estaba.
+ *
+ *   Pero conviene saber esto antes de decidir: **`myvc_front` ya la aplica, y
+ *   solo en el navegador.** `NotasAlumnoCtrl.seleccionarAcudido()` corta con un
+ *   «Debe estar a paz y salvo» antes de llamar. O sea que la regla ya existe como
+ *   intención del producto y hoy la sostiene únicamente el cliente, que es la
+ *   mitad que se puede saltar. Si el colegio la confirma, es cambiar `notas` por
+ *   `boletin` en la ruta y borrar la comprobación del frontend.
  */
 class ExigirBoletinPropio
 {
-    public function handle(Request $request, Closure $next)
+    /**
+     * @param  string  $modo  `boletin` (por defecto) o `notas`. Ver la nota de la clase.
+     */
+    public function handle(Request $request, Closure $next, string $modo = 'boletin')
     {
         $usuario = User::fromToken(false, $request);
 
@@ -41,9 +62,17 @@ class ExigirBoletinPropio
 
         $alumnoId = $this->alumnoPedido($request);
 
-        // Sin alumno concreto se está pidiendo el grupo entero. Es lo que hacen
-        // las rutas `-group`, que ni siquiera aceptan el parámetro.
         if ($alumnoId === null) {
+            // En `notas` no pedir alumno significa «las mías»: el controlador lo
+            // resuelve del token para un Alumno, y responde 400 a los demás. No
+            // hay nada que proteger todavía.
+            if ($modo === 'notas') {
+                return $next($request);
+            }
+
+            // En `boletin`, sin alumno concreto se está pidiendo el grupo
+            // entero. Es lo que hacen las rutas `-group`, que ni siquiera
+            // aceptan el parámetro.
             $this->anotar($usuario, $usuario->tipo === 'Acudiente'
                 ? 'AcudienteVerVariosBoletines' : 'AlumnoVerVariosBoletines');
 
@@ -71,6 +100,10 @@ class ExigirBoletinPropio
             abort(403, 'No es acudiente de este alumno. Lo siento.');
         }
 
+        if ($modo === 'notas') {
+            return $next($request);
+        }
+
         $alumno = DB::select('SELECT pazysalvo FROM alumnos WHERE id=? and deleted_at is null', [$alumnoId]);
 
         if (count($alumno) === 0 || ! $alumno[0]->pazysalvo) {
@@ -85,9 +118,10 @@ class ExigirBoletinPropio
     /**
      * El alumno del que se pide el informe, o null si se está pidiendo más de uno.
      *
-     * Dos formas, porque los endpoints de esta familia no se pusieron de acuerdo:
-     * la lista `requested_alumnos` (boletines, bolfinales, notas actuales) y el
-     * `alumno_id` suelto (certificados-persona).
+     * Tres formas, porque los endpoints de esta familia no se pusieron de
+     * acuerdo: la lista `requested_alumnos` (boletines, bolfinales, notas
+     * actuales), el `alumno_id` suelto (certificados-persona) y el segmento de
+     * la URL (`notas/alumno/{alumno_id?}`).
      */
     private function alumnoPedido(Request $peticion): ?int
     {
@@ -97,7 +131,7 @@ class ExigirBoletinPropio
             return count($pedidos) === 1 ? (int) ($pedidos[0]['alumno_id'] ?? 0) : null;
         }
 
-        $suelto = $peticion->input('alumno_id');
+        $suelto = $peticion->input('alumno_id') ?? $peticion->route('alumno_id');
 
         return $suelto === null || $suelto === '' ? null : (int) $suelto;
     }

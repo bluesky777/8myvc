@@ -5,6 +5,13 @@ Si algo deja de funcionar tras el cambio, la respuesta está en el diff contra e
 
 **Capturado:** 2026-08-17 · cPanel del colegio · CloudLinux alt-php
 
+> **La versión ya se cambió: 8.0.30 → 8.4 el 19 ago 2026, en las dos cuentas.**
+> Este documento se queda como está — es la foto del *antes*, y su valor es
+> justamente ese. Lo que hay que hacer con él está al final, en «Cómo comparar
+> tras cambiar de versión». Aviso que se paga caro si se olvida: **en alt-php las
+> extensiones se marcan por versión**, así que `sodium` y `opcache`, activadas
+> aquí sobre la 8.0, no vienen activadas en la 8.4.
+
 ## Runtime
 
 | | |

@@ -1,0 +1,87 @@
+{
+    "grupos": [
+        {
+            "abrev": "string",
+            "apellidos_titular": "string",
+            "caritas": "int",
+            "created_at": "string",
+            "grado_id": "int",
+            "id": "int",
+            "nombre": "string",
+            "nombre_grado": "string",
+            "nombres_titular": "string",
+            "orden": "int",
+            "orden_grado": "int",
+            "titular_id": "int",
+            "titulo": "null",
+            "updated_at": "string",
+            "year_id": "int"
+        }
+    ],
+    "imagenes_privadas": [
+        {
+            "created_at": "string",
+            "created_by": "int",
+            "deleted_at": "null",
+            "deleted_by": "null",
+            "id": "int",
+            "nombre": "string",
+            "publica": "null",
+            "updated_at": "string",
+            "updated_by": "int",
+            "user_id": "int"
+        }
+    ],
+    "imagenes_publicas": [
+        {
+            "created_at": "string",
+            "created_by": "int",
+            "deleted_at": "null",
+            "deleted_by": "null",
+            "id": "int",
+            "nombre": "string",
+            "publica": "int",
+            "updated_at": "string",
+            "updated_by": "null",
+            "user_id": "int"
+        }
+    ],
+    "logo": {
+        "logo": "string",
+        "logo_id": "int"
+    },
+    "profesores": [
+        {
+            "apellidos": "string",
+            "barrio": "null",
+            "celular": "null",
+            "ciudad_doc": "null",
+            "ciudad_nac": "int",
+            "contrato_id": "int",
+            "direccion": "null",
+            "email": "null",
+            "email_usu": "null",
+            "estado_civil": "null",
+            "facebook": "null",
+            "fecha_nac": "string",
+            "firma_id": "int",
+            "firma_nombre": "string",
+            "foto_id": "null",
+            "foto_nombre": "string",
+            "imagen_id": "null",
+            "imagen_nombre": "string",
+            "is_superuser": "int",
+            "nombres": "string",
+            "num_doc": "string",
+            "profesor_id": "int",
+            "sexo": "string",
+            "telefono": "null",
+            "tipo_doc": "null",
+            "tipo_profesor": "null",
+            "titulo": "null",
+            "user_id": "int",
+            "username": "string",
+            "year_id": "int"
+        }
+    ]
+}
