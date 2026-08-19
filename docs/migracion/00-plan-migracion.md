@@ -678,13 +678,13 @@ Lo que **sí** hay que cambiar:
 
 | Cosa | Hoy | Problema |
 |---|---|---|
-| Imagen PHP | `kooldev/php:8.0-nginx` | PHP 8.0 lleva sin soporte de seguridad desde nov 2023 |
-| `version: "3.7"` en `docker-compose.yml` | presente | Obsoleto — Docker ya lo avisa en cada comando |
-| Puerto MySQL | `${KOOL_DATABASE_PORT:-3307}:3307` | El contenedor escucha en 3306, no 3307. El mapeo está mal aunque funcione por el default de la variable |
+| Imagen PHP | ~~`kooldev/php:8.0-nginx`~~ · **`8.4-nginx`** | ✅ Fase 4 |
+| ~~`version: "3.7"` en `docker-compose.yml`~~ | quitado | ✅ 19 ago 2026 |
+| ~~Puerto MySQL `${KOOL_DATABASE_PORT:-3307}:3307`~~ · **`:3306`** | ✅ 19 ago 2026 | Medido antes de tocarlo: MySQL escucha en 3306 y en el 3307 no había nada, así que el puerto publicado no llevaba a ningún sitio. Ahora `mysql -h 127.0.0.1 -P 3307` desde el host responde |
 
 **Recomendación, por orden de esfuerzo:**
 
-1. **Mínimo (recomendado ahora):** quedarse con kool, cambiar la imagen a PHP 8.4, quitar `version:`, arreglar el puerto. 1 hora. No está en el camino crítico de la migración.
+1. ~~**Mínimo (recomendado ahora):** quedarse con kool, cambiar la imagen a PHP 8.4, quitar `version:`, arreglar el puerto. 1 hora.~~ **Hecho.** Se sigue con kool.
 2. **Estándar hoy:** `laravel/sail` — ya está en tus `require-dev`. Es el docker-compose oficial de Laravel, con `sail up`, `sail artisan`, etc. Es lo que cualquier dev de Laravel espera encontrar.
 3. **Producción moderna:** **FrankenPHP** (`dunglas/frankenphp`) con Laravel Octane. Es la historia oficial de rendimiento de Laravel hoy: un binario, sin nginx+fpm, worker mode. Eso sí — Octane mantiene la app en memoria entre requests, y este código tiene estado estático (`User::$nota_minima_aceptada`, `User::$images`, `User::$intentoLogueoPorActive`) que **se filtraría entre usuarios**. Es una mina antipersona con el código actual. Solo después de la Fase 6.
 
