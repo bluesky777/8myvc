@@ -63,8 +63,8 @@ class VtVotosController extends Controller {
 
 			return $voto;
 			
-		} catch (Exception $e) {
-			return Response::json(array('msg'=>'Error al intentar guardar el voto'), 400);
+		} catch (\Exception $e) {
+			return response()->json(['msg' => 'Error al intentar guardar el voto'], 422);
 		}
 	}
 
@@ -146,8 +146,8 @@ class VtVotosController extends Controller {
 			]);
 
 			$candidato->save();
-		} catch (Exception $e) {
-			return $e;
+		} catch (\Exception $e) {
+			abort(422, 'Datos incorrectos');
 		}
 	}
 

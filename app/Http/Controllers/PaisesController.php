@@ -41,8 +41,8 @@ class PaisesController extends Controller {
 
 			$pais->save();
 			
-		} catch (Exception $e) {
-			return $e;
+		} catch (\Exception $e) {
+			abort(422, 'Datos incorrectos');
 		}
 	}
 

@@ -325,9 +325,8 @@ class AlumnosController extends Controller {
 
 				return $alumno;
 
-			} catch (Exception $e) {
-				return abort('400', $alumno);
-				//return $e;
+			} catch (\Exception $e) {
+				abort(422, 'Datos incorrectos');
 			}
 		
 		 
@@ -370,19 +369,15 @@ class AlumnosController extends Controller {
 			}
 		}
 
-		try {
-			if (Request::has('foto')){
+		if (Request::has('foto')){
 
-				if (isset( Request::input('foto')['id'])) {
-					Request::merge(array('foto_id' => Request::input('foto')['id'] ) );
-				}else if (is_string(Request::input('foto')) ){
-					Request::merge(array('foto_id' => Request::input('foto')) );
-				}else{
-					Request::merge(array('foto_id' => null) );
-				}
+			if (isset( Request::input('foto')['id'])) {
+				Request::merge(array('foto_id' => Request::input('foto')['id'] ) );
+			}else if (is_string(Request::input('foto')) ){
+				Request::merge(array('foto_id' => Request::input('foto')) );
+			}else{
+				Request::merge(array('foto_id' => null) );
 			}
-		} catch (Exception $e) {
-			
 		}
 		
 	}
@@ -760,8 +755,8 @@ class AlumnosController extends Controller {
 
 
 				return $alumno;
-			} catch (Exception $e) {
-				return abort('400', $e);
+			} catch (\Exception $e) {
+				abort(422, 'Datos incorrectos');
 			}
 		} else {
 			return abort(403, 'No tienes permiso para eliminar alumnos definitivamente.');

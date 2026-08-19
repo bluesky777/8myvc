@@ -202,7 +202,7 @@ class PuestosController extends Controller {
 					$alumno->perdidos_year = $perdidos_year;
 				}
 				
-			} catch (Exception $e) {
+			} catch (\Throwable $e) {
 				$alumno->promedio_year = 0;
 			}
 
@@ -289,7 +289,7 @@ class PuestosController extends Controller {
 					$alumno->perdidos_year = $perdidos_year;
 				}
 				
-			} catch (Exception $e) {
+			} catch (\Throwable $e) {
 				$alumno->promedio = 0;
 			}
 

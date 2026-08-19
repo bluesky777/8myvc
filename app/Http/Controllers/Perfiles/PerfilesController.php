@@ -73,8 +73,8 @@ class PerfilesController extends Controller {
 			$grupo->save();
 
 			return $grupo;
-		} catch (Exception $e) {
-			return abort('400', $e);
+		} catch (\Exception $e) {
+			abort(422, 'Datos incorrectos');
 		}
 	}
 
@@ -225,8 +225,8 @@ class PerfilesController extends Controller {
 
 				$perfil->save();
 				return $perfil;
-			} catch (Exception $e) {
-				return abort('400', 'Datos incorrectos');
+			} catch (\Exception $e) {
+				abort(422, 'Datos incorrectos');
 			}
 		}
 		if (Request::input('tipo') == 'Alumno') {
@@ -244,8 +244,8 @@ class PerfilesController extends Controller {
 
 				$perfil->save();
 				return $perfil;
-			} catch (Exception $e) {
-				return abort('400', 'Datos incorrectos');
+			} catch (\Exception $e) {
+				abort(422, 'Datos incorrectos');
 			}
 		}
 		if (Request::input('tipo') == 'Ac') {
@@ -263,8 +263,8 @@ class PerfilesController extends Controller {
 
 				$perfil->save();
 				return $perfil;
-			} catch (Exception $e) {
-				return abort(400, 'Datos incorrectos');
+			} catch (\Exception $e) {
+				abort(422, 'Datos incorrectos');
 			}
 		}
 		if (Request::input('tipo') == 'Usuario') {
@@ -280,8 +280,8 @@ class PerfilesController extends Controller {
 
 				$perfil->save();
 				return $perfil;
-			} catch (Exception $e) {
-				return abort(400, 'Datos incorrectos');
+			} catch (\Exception $e) {
+				abort(422, 'Datos incorrectos');
 			}
 		}
 

@@ -582,9 +582,8 @@ class GruposController extends Controller {
 			$grupo->save();
 			
 			return $grupo;
-		} catch (Exception $e) {
-			return abort('400', $e);
-			return $e;
+		} catch (\Exception $e) {
+			abort(422, 'Datos incorrectos');
 		}
 	}
 
@@ -644,9 +643,8 @@ class GruposController extends Controller {
 			$grupo->save();
 
 			return $grupo;
-		} catch (Exception $e) {
-			return abort('400', 'Datos incorrectos');
-			return $e;
+		} catch (\Exception $e) {
+			abort(422, 'Datos incorrectos');
 		}
 	}
 

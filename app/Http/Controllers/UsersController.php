@@ -47,9 +47,8 @@ class UsersController extends Controller {
 
 			]);
 			return $aspiracion;
-		} catch (Exception $e) {
-			return abort(422, 'Datos incorrectos');
-			return $e;
+		} catch (\Exception $e) {
+			abort(422, 'Datos incorrectos');
 		}
 	}
 
@@ -80,9 +79,8 @@ class UsersController extends Controller {
 
 			$aspiracion->save();
 			return $aspiracion;
-		} catch (Exception $e) {
-			return abort(422, 'Datos incorrectos');
-			return $e;
+		} catch (\Exception $e) {
+			abort(422, 'Datos incorrectos');
 		}
 	}
 

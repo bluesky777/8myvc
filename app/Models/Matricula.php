@@ -178,7 +178,7 @@ class Matricula extends Model {
 				Log::info('No entra a la condición . '.$matricula);
 			}
 			
-		} catch (Exception $e) {
+		} catch (\Exception $e) {
 			Log::info('Error creando nueva matrícula .');
 			// se supone que esto nunca va a ocurrir, ya que eliminé todas las matrículas 
 			// excepto la que concordara con el grupo, poniéndola en estado=MATR

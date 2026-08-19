@@ -131,7 +131,7 @@ class DetallesController extends Controller {
 						try {
 							//$periodo->promedio = $sumatoria_asignaturas_per / count($alumno->asignaturas);
 							$periodo->promedio = $sumatoria_asignaturas_per / count($asignaturas);
-						} catch (Exception $e) {
+						} catch (\Throwable $e) {
 							$periodo->promedio = 0;
 						}
 

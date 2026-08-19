@@ -323,8 +323,8 @@ class YearsController extends Controller {
 			DB::insert($consulta, [ $bit_by, $bit_hist, 'YEAR CONFIGURACION', Request::input('id'), $now, (string) $year ]);
 
 			return $year;
-		} catch (Exception $e) {
-			return $e;
+		} catch (\Exception $e) {
+			abort(422, 'Datos incorrectos');
 		}
 	}
 

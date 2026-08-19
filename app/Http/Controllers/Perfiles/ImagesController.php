@@ -125,8 +125,8 @@ class ImagesController extends Controller {
 			//	$constraint->aspectRatio();
 			//});
 			$img->save();
-		} catch (Exception $e) {
-			return 'Error en el make y fit';
+		} catch (\Exception $e) {
+			abort(422, 'No se pudo procesar la imagen.');
 		}
 
 		return $newImg;

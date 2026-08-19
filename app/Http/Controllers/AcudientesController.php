@@ -393,8 +393,8 @@ where id in (
 			$acudiente = DB::select($this->consulta_pariente, [ $parentesco->id ]);
 
 			return (array) $acudiente[0];
-		} catch (Exception $e) {
-			return $e;
+		} catch (\Exception $e) {
+			abort(422, 'Datos incorrectos');
 		}
 	}
 

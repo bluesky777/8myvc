@@ -274,7 +274,7 @@ class EditnotaController extends Controller {
 		}
 		try {
 			$alumno->promedio = $sumatoria_asignaturas / count($alumno->asignaturas);
-		} catch (Exception $e) {
+		} catch (\Throwable $e) {
 			$alumno->promedio = 0;
 		}
 

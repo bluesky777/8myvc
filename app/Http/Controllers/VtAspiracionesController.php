@@ -35,9 +35,8 @@ class VtAspiracionesController extends Controller {
 			$aspiracion->save();
 
 			return $aspiracion;
-		} catch (Exception $e) {
-			return abort(400, 'Datos incorrectos');
-			return $e;
+		} catch (\Exception $e) {
+			abort(422, 'Datos incorrectos');
 		}
 	}
 
@@ -53,9 +52,8 @@ class VtAspiracionesController extends Controller {
 
 			$aspiracion->save();
 			return $aspiracion;
-		} catch (Exception $e) {
-			return abort(400, 'Datos incorrectos');
-			return $e;
+		} catch (\Exception $e) {
+			abort(422, 'Datos incorrectos');
 		}
 	}
 

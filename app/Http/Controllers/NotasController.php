@@ -305,8 +305,8 @@ class NotasController extends Controller {
 
 			DB::insert($consulta, [$bit_by, $bit_hist, $nota->alumno_id, $id, $bit_new, $bit_old, $now]);
 			
-		} catch (Exception $e) {
-			return abort(400, 'No se pudo guardar la nota');
+		} catch (\Exception $e) {
+			abort(422, 'No se pudo guardar la nota');
 		}
 		
 		

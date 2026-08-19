@@ -36,8 +36,8 @@ class GradosController extends Controller {
 			$grado->save();
 			
 			return $grado;
-		} catch (Exception $e) {
-			return abort(400, 'Datos incorrectos');
+		} catch (\Exception $e) {
+			abort(422, 'Datos incorrectos');
 		}
 	}
 
@@ -67,8 +67,8 @@ class GradosController extends Controller {
 
 			$grado->save();
 			return 'Cambiado';
-		} catch (Exception $e) {
-			return abort('400', $e);
+		} catch (\Exception $e) {
+			abort(422, 'Datos incorrectos');
 		}
 	}
 

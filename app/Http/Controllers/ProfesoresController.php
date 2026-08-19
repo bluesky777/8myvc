@@ -357,8 +357,8 @@ class ProfesoresController extends Controller {
 				}
 
 				return $profesor;
-			} catch (Exception $e) {
-				return abort(400, $e);
+			} catch (\Exception $e) {
+				abort(422, 'Datos incorrectos');
 			}
 		}
 	}
