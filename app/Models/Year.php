@@ -102,7 +102,7 @@ class Year extends Model {
 	
 	public static function datos_basicos($year_id)
 	{
-		$consulta = 'SELECT y.id as year_id, y.year, y.nombre_colegio, y.abrev_colegio, y.ciudad_id, c.ciudad, c.departamento, y.resolucion, y.texto_acta_eval,
+		$consulta = 'SELECT y.id as year_id, y.year, y.nombre_colegio, y.abrev_colegio, y.ciudad_id, c.ciudad, c.departamento, y.resolucion, y.texto_acta_eval, y.titulo_rector,
 						y.logo_id, iL.nombre as logo, y.img_encabezado_id, y.nota_minima_aceptada, iE.nombre as img_encabezado, y.encabezado_certificado, y.cant_areas_pierde_year, y.cant_asignatura_pierde_year,
 						y.msg_when_students_blocked, y.solo_escalas_valorativas,
 

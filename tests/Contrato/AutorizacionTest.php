@@ -335,6 +335,7 @@ class AutorizacionTest extends CasoDeContrato
                 'GET api/piars-grupos/grupos',
                 'POST api/requisitos/alumno',
                 'POST api/requisitos/store',
+                'PUT api/actas-evaluacion/cambiar-descripcion',
                 'PUT api/piars-grupos/contexto-de-grupo',
                 'PUT api/prematriculas/alumnos-con-grado-anterior',
                 'PUT api/prematriculas/alumnos-grado-anterior',
