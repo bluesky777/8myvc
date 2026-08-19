@@ -31,6 +31,12 @@
              los tests de contrato usan RefreshDatabase y truncan lo que encuentren. -->
         <server name="DB_CONNECTION" value="mysql_testing"/>
         <server name="MAIL_MAILER" value="array"/>
+        <!-- Sin remitente, Symfony Mailer rechaza el mensaje ("An email must have
+             a From or a Sender header") y el reseteo de contraseña responde 500.
+             Swift Mailer, el de Laravel 8, no lo comprobaba en el transporte de
+             pruebas, así que esto no se notaba. Se fija aquí para que la suite no
+             dependa de lo que cada uno tenga en su .env. -->
+        <server name="MAIL_FROM_ADDRESS" value="pruebas@ejemplo.test"/>
         <server name="QUEUE_CONNECTION" value="sync"/>
         <server name="SESSION_DRIVER" value="array"/>
         <server name="TELESCOPE_ENABLED" value="false"/>
