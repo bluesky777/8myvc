@@ -337,3 +337,23 @@ Dos de ellas —`piars-grupos/contexto-de-grupo`, en sus dos verbos— llevan ad
 > se cae, la app móvil no arranca en **ningún** colegio, porque no puede ni ofrecer
 > la lista de servidores. Queda anotado aquí porque no tiene otro sitio donde
 > constar.
+
+---
+
+## Pendiente que dejó la Fase 3 (19 ago 2026)
+
+**Tardanzas deja entrar a un usuario borrado.** Los cuatro métodos de
+`Tardanzas/` comprobaban la contraseña con `Auth::attempt()`, que busca por
+`username` sin filtrar `deleted_at` — `App\User` no usa SoftDeletes. Al quitar el
+guard `jwt`, esos cuatro sitios pasaron a usar
+[`App\Support\Credenciales`](../../app/Support/Credenciales.php), que **hace
+exactamente lo mismo, y tampoco filtra**.
+
+Se dejó igual a propósito: en ese commit solo tocaba quitar el guard, y meter un
+cambio de comportamiento en el camino de unos aparatos físicos montados en los
+colegios, sin un solo test que los cubra, es cambiar dos cosas a la vez. Si a un
+colegio se le borró el usuario con el que está configurado el lector, añadir el
+filtro deja el lector fuera sin que nadie sepa por qué.
+
+Para cerrarlo hace falta, en este orden: saber con qué usuario entra cada lector,
+comprobar que ninguno está borrado, y entonces añadir el filtro con un test.

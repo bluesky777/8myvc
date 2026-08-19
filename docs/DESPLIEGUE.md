@@ -316,10 +316,22 @@ git pull                    # trae composer.lock
 ls -l composer.lock         # sin él, install se comporta como update
 
 composer install --no-dev   # install, NUNCA update
+php artisan migrate --force # desde la Fase 3. Sin esto el login da 500
 php artisan config:clear && php artisan route:clear
 php artisan config:cache && php artisan route:cache
 php artisan --version       # debe decir 8.83.29
 ```
+
+`migrate --force` es nuevo y hace falta desde la Fase 3: crea
+`personal_access_tokens`, donde viven los tokens de sesión. **Es la primera
+migración que este repo ejecuta de verdad** — las tres viejas están archivadas en
+`database/migrations/legacy/` y no corren. Sobre la base de un colegio no toca
+nada más: crea una tabla que no existía. `--force` porque en producción `migrate`
+pide confirmación y no hay quien la teclee.
+
+El orden importa: `composer install` **antes**, porque la migración y el login
+nuevo necesitan `laravel/sanctum` en `vendor/`. Un colegio con el `vendor/` de
+2021 no lo tiene.
 
 `--no-dev` ahorra **38 MB de los 70** y quita lo que no se usa en producción. El precio
 es que en ese colegio ya no se puede ejecutar `php artisan test`, que corre en el CI y
@@ -641,3 +653,76 @@ mensaje despista si no se sabe de dónde viene. En producción sí, y ahí es
 seguro: web y CLI cargan el mismo `php.ini` (ver más arriba).
 
 ---
+
+---
+
+## Del PR #8 (Fase 3 — la sesión)
+
+El detalle completo, con el contrato para los clientes, está en
+[docs/migracion/07-sesion.md](migracion/07-sesion.md). Aquí solo lo que hay que
+hacer o vigilar al desplegar.
+
+### 1. Correr la migración — OBLIGATORIO
+
+Va en el procedimiento de arriba. Sin la tabla `personal_access_tokens`, **el
+login devuelve 500** — todos los logins, también el viejo. Es el único paso de
+esta fase que no perdona.
+
+Comprobación después de desplegar, desde el propio colegio:
+
+```bash
+php artisan migrate:status | grep personal_access_tokens   # debe decir Ran
+```
+
+### 2. Qué ve el usuario
+
+Nada, si todo va bien. Pero conviene saber qué es normal y qué no:
+
+- **Nadie tiene que volver a entrar.** Los JWT ya emitidos se siguen aceptando
+  hasta que caduquen solos (máximo 24 h después del despliegue). Eso lo controla
+  `SESION_ACEPTA_JWT`, que por defecto está en `true`.
+- **Cerrar sesión ahora cierra de verdad.** Antes el token seguía valiendo 24 h
+  después de pulsar "salir". Si alguien tenía la costumbre de cerrar sesión y
+  volver atrás con el botón del navegador, ahora se encuentra la sesión cerrada.
+  Es lo correcto, pero es un cambio visible.
+- **El token cambia de forma**, de `eyJ0eXAi...` a `17|hGIEXdY6...`. Da igual
+  para el navegador; importa solo si algún cliente lo decodificaba.
+
+### 3. El orden entre backend y front da igual
+
+`login/credentials`, `POST /api/login` y `login/logout` siguen funcionando
+exactamente igual, así que:
+
+- **backend nuevo + front viejo**: entra por la ruta vieja, sesión de 24 h sin
+  refresco, como siempre. Y ya se beneficia del logout real.
+- **front nuevo + backend viejo**: el front intenta `/api/auth/login`, recibe
+  404 y cae solo a la ruta vieja. La sesión de `myvc_front` lo escribió así a
+  propósito.
+
+### 4. `route:clear` no es opcional aquí
+
+Las cinco rutas `auth/*` son nuevas. Con el caché de rutas viejo puesto, no
+existen: `POST /api/auth/login` devuelve **404** aunque el código esté
+desplegado. Ya pasó en local durante el desarrollo.
+
+### 5. Limpieza de la tabla — opcional
+
+```bash
+php artisan sesion:limpiar          # borra los caducados hace más de 7 días
+```
+
+No es urgente: al abrir sesión ya se tiran los tokens caducados de ese usuario,
+así que la tabla no crece en el caso normal. Lo que recoge es lo de quien no
+vuelve a entrar. Si el colegio tiene cron, una vez por semana sobra.
+
+### 6. Lo que queda pendiente para la Fase 4
+
+Quitar `tymon/jwt-auth`. No se puede hasta que **todos** los colegios lleven
+desplegada la Fase 3 y haya pasado el tiempo suficiente para que no quede ningún
+JWT vivo. El orden es: desplegar en todos → poner `SESION_ACEPTA_JWT=false` en
+todos → esperar → `composer remove tymon/jwt-auth`.
+
+Y ese `composer remove` **es exactamente el caso peligroso del `vendor/`
+compartido**: sobre `/home/micolev1/laravel_compartido` le quita el paquete a
+cinco colegios a la vez, incluidos los que aún no tengan el `app/` nuevo. Otra
+razón más para dejar de compartirlo antes de la Fase 4.

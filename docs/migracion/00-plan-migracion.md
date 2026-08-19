@@ -23,7 +23,7 @@ La buena noticia: el código casi no usa superficie del framework. 990 llamadas 
 | 0 | Red de seguridad (tests de contrato + baseline de BD + CI) | Todo lo demás | 4–6 días |
 | 1 | Eliminar `AdvancedRoute` (sin tocar el framework) | Rutas cacheables, `route:list` funcional | 1–2 días |
 | 2 | Organizar rutas + middleware `auth` real | Cierra el agujero de roles/permisos | 2–3 días |
-| 3 | Reemplazar `tymon/jwt-auth` (back + front + Flutter) | Desbloquea el salto de framework | 4–6 días |
+| 3 | Reemplazar `tymon/jwt-auth` (back + front + Flutter) | Desbloquea el salto de framework | 4–6 días · **backend hecho 19 ago 2026** |
 | 4 | Salto 8 → 13 (cinco majors) | El objetivo | 4–6 días |
 | 5 | Migraciones al día contra la BD real | Entornos reproducibles | 2–3 días |
 | 6 | Modelos y limpieza (gradual, opcional) | Mantenibilidad | continuo |
@@ -354,7 +354,17 @@ Si no se usan (muy probable — es una API pura consumida por AngularJS con URLs
 
 ### Fase 3 — Reemplazo de autenticación · 4–6 días
 
-**Backend (2–3 días)**
+> **El backend está hecho (19 ago 2026).** Lo que se hizo, el contrato con los
+> clientes y las decisiones que se tomaron por el camino están en
+> [07-sesion.md](07-sesion.md). Cambió una cosa respecto a lo planeado aquí:
+> el paquete es **Sanctum 2.15.1**, no 4.3.3, porque 4.x pide `illuminate ^11` y
+> aquí todavía corre Laravel 8. Sube a 4.x con la Fase 4, y la migración de este
+> repo ya trae la columna `expires_at` que 4.x añade de serie.
+>
+> Lo demás salió como estaba escrito, incluido lo importante: `User::fromToken()`
+> se convirtió en un shim y **no se tocó ninguno de los 325 call sites**.
+
+**Backend (2–3 días)** — hecho
 
 1. `composer require laravel/sanctum`, publicar migración de `personal_access_tokens`.
 2. `config/auth.php`: guard `api` de `jwt` a `sanctum`. Quitar `'hash' => false`.
