@@ -48,6 +48,10 @@ Sacado del servidor, no supuesto. Los 16 colegios tienen el mismo commit de `app
 `instival` además **no es un repositorio git**, así que no recibe `git pull`: es el
 único colegio que sigue sin la PR #6.
 
+> **Actualizado el 19 ago 2026:** `casb-medellin` ya está igualado —`vendor/` en
+> `8.83.29` y front en `main`—. Quedan 7 con `vendor/` viejo, más `instival`. El
+> procedimiento validado está en «Desplegar un colegio entero», más abajo.
+
 **Cómo se descubrió.** Al pasar el servidor a PHP 8.5, esos 9 colegios empezaron a
 devolver `Return type of Illuminate\Support\Collection::offsetExists($key) should
 either be compatible with…` en cada petición, y desde el arranque. Es un Laravel
@@ -279,6 +283,106 @@ readlink -f /home/micolev1/COLEGIO.micolevirtual.com/8myvc/vendor
 
 Si apunta a `/home/micolev1/laravel_compartido`, ese `composer install` **toca la
 producción de los cinco colegios que cuelgan de ahí**, no solo el que tienes delante.
+
+---
+
+## Procedimiento: desplegar un colegio entero
+
+Validado en `casb-medellin` el 19 ago 2026, backend y front de una vez. Salió bien.
+Esto es lo que hubo que hacer, tropiezos incluidos.
+
+### Una vez, no por colegio: el token de GitHub
+
+En hosting compartido la IP la comparten muchas cuentas, y `composer install` agota el
+límite de la API de GitHub a mitad de la descarga. Se arregla con un token **sin ningún
+scope** —solo lectura pública, sube el límite de 60 a 5.000 peticiones por hora—:
+
+```bash
+composer config -g github-oauth.github.com TU_TOKEN
+```
+
+Se guarda en `~/.composer/auth.json` y sirve para todos los colegios. Se genera en
+<https://github.com/settings/tokens/new?scopes=>, sin marcar ninguna casilla, y se
+revoca al terminar con todos.
+
+### Backend: `8myvc`
+
+```bash
+d=/home/micolev1/COLEGIO.micolevirtual.com/8myvc
+cd "$d"
+
+readlink -f vendor          # PARA si dice laravel_compartido: tocarías 5 colegios
+git pull                    # trae composer.lock
+ls -l composer.lock         # sin él, install se comporta como update
+
+composer install --no-dev   # install, NUNCA update
+php artisan config:clear && php artisan route:clear
+php artisan config:cache && php artisan route:cache
+php artisan --version       # debe decir 8.83.29
+```
+
+`--no-dev` ahorra **38 MB de los 70** y quita lo que no se usa en producción. El precio
+es que en ese colegio ya no se puede ejecutar `php artisan test`, que corre en el CI y
+en local. Si el espacio aprieta, `composer clear-cache` al terminar.
+
+`route:cache` es la ganancia que desbloqueó el PR #7: antes abortaba con 401.
+
+**`CORS_ALLOWED_ORIGINS` se deja sin definir a propósito.** El fallback es `*` y hace
+falta: la app Flutter no tiene el subdominio del colegio como origen, y en build nativa
+no manda `Origin` en absoluto. Como la autenticación va por `Bearer` y no por cookies,
+`*` funciona sin problema.
+
+### Front: `myvc_dist` → carpeta `up/`
+
+Tres tropiezos, y el orden importa:
+
+```bash
+cd /home/micolev1/COLEGIO.micolevirtual.com/up
+
+# 1. comparar el logo ANTES de nada (ver la nota de abajo)
+md5sum images/Logo_Colegio_Header.*.gif images/Logo_MyVc_Header*.gif
+
+# 2. lo que está sin versionar y main SÍ versiona bloquea el checkout
+mv images/Fondo-MyVc.jpg /tmp/Fondo-MyVc.bak
+
+# 3. la rama local es `master` y apunta a un ref que ya no existe en el remoto
+git checkout -B main origin/main
+git branch -d master        # después del checkout, nunca antes
+```
+
+**El logo versionado NO es el del colegio.** `images/Logo_Colegio_Header.<hash>.gif`
+del build viejo es el logo de **`bethelexplora`**, y lo recibieron todos los clientes.
+Es exactamente el fallo que describe el `.gitignore` de `myvc_dist`. **No lo restaures.**
+
+El logo propio va en `images/Logo_Colegio_Header.gif`, sin hash y sin versionar.
+`LoginCtrl.js` lo pide y, si da 404, cae al genérico `Logo_MyVc_Header.gif`: ese 404 es
+la señal de "este colegio no tiene logo propio", no un fallo.
+
+El salto borra cientos de ficheros con hash del build antiguo. Es normal: cambió el
+toolchain a Vite.
+
+**`plus/` es otro repositorio** —`myvc_front_2`, el Angular de PIAR— y solo lo tienen
+seis colegios: `casb`, `coab`, `cads`, `coljordan`, `lal` y `coal`.
+
+### Después de cada colegio
+
+- Probar de verdad: login de personal y de alumno, boletines, certificado de estudio,
+  informes en Excel y subida de foto de perfil.
+- Alumno y acudiente reciben **403** en `requisitos`, `prematriculas` y `piars-grupos`.
+  Es lo esperado, no un fallo.
+- Ya se puede arreglar el typo de `PapeleraCtrl:62` **para ese colegio**, que es la
+  condición por pareja de más abajo.
+
+### Qué queda
+
+| Colegio | Estado |
+|---|---|
+| `casb-medellin` | **hecho** — 19 ago 2026 |
+| `bethelexplora`, `cads-itagui`, `caz-zaragoza`, `coabsaravena`, `coljordan`, `fortul`, `inseaq` | pendientes, mismo procedimiento |
+| `instival` | **no es repositorio git**, no recibe `git pull`. Decisión aparte antes de tocarlo |
+
+**Hasta que los 16 tengan el `vendor/` igualado, PHP se queda en 8.0.** La versión se
+elige por cuenta de cPanel y no por colegio, así que subirla los afecta a todos a la vez.
 
 ---
 
