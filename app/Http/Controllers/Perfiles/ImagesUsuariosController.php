@@ -45,7 +45,7 @@ class ImagesUsuariosController extends Controller {
 		$folderName = $imagen->nombre;
 		$img_dir = 'images/perfil/'.$folderName;
 		//return $img_dir;
-		$img = Image::make($img_dir)->rotate(-90);
+		$img = Image::decodePath($img_dir)->rotate(-90);
 	
 
 		$img->save();
@@ -61,7 +61,7 @@ class ImagesUsuariosController extends Controller {
 		$folderName = $imagen->nombre;
 		$img_dir = 'images/perfil/'.$folderName;
 		//return $img_dir;
-		$img = Image::make($img_dir);
+		$img = Image::decodePath($img_dir);
 
 		$img->rotate(90);
 

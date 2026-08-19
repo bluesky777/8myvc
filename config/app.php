@@ -197,7 +197,7 @@ return [
         */
         \hisorange\BrowserDetect\ServiceProvider::class,
         Maatwebsite\Excel\ExcelServiceProvider::class,
-        Intervention\Image\ImageServiceProvider::class,
+        Intervention\Image\Laravel\ServiceProvider::class,
 
 
     ],
@@ -254,7 +254,7 @@ return [
         'View' => Illuminate\Support\Facades\View::class,
 
         'Browser' => \hisorange\BrowserDetect\Facade::class,
-        'Image' => Intervention\Image\Facades\Image::class,
+        'Image' => Intervention\Image\Laravel\Facades\Image::class,
         'Excel' => Maatwebsite\Excel\Facades\Excel::class,
     ],
 

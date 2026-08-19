@@ -119,8 +119,8 @@ class ImagesController extends Controller {
 
 		try {
 			
-			$img = Image::make($folder . $newImg->nombre)->orientate();
-			$img->fit(200);
+			$img = Image::decodePath($folder . $newImg->nombre)->orient();
+			$img->cover(200, 200);
 			//$img->resize(200, null, function ($constraint) {
 			//	$constraint->aspectRatio();
 			//});
