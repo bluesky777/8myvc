@@ -334,32 +334,33 @@ no manda `Origin` en absoluto. Como la autenticación va por `Bearer` y no por c
 
 ### Front: `myvc_dist` → carpeta `up/`
 
-Cuatro tropiezos, y el orden importa:
+Seis líneas. `-f` y `clean -fd` resuelven solos lo que antes eran pasos manuales;
+el único imprescindible es el `git fetch`.
 
 ```bash
 cd /home/micolev1/COLEGIO.micolevirtual.com/up
 
-# 1. SIEMPRE fetch primero. `checkout -B ... origin/main` usa la copia LOCAL de
-#    origin/main: sin refrescarla te quedas en el build anterior sin enterarte.
-git fetch origin
-
-# 2. comparar el logo ANTES de nada (ver la nota de abajo)
-md5sum images/Logo_Colegio_Header.*.gif images/Logo_MyVc_Header*.gif
-
-# 3. lo sin versionar que main SÍ versiona bloquea el checkout. Cada colegio tiene
-#    sus propios restos: aparta lo que nombre el error, no a ciegas.
-mv images/Fondo-MyVc.jpg /tmp/Fondo-MyVc.bak
-
-# 4. la rama local es `master` y apunta a un ref que ya no existe en el remoto
-git checkout -B main origin/main
-git branch -D master        # -D y no -d: git no puede compararla contra origin/master,
-                            # que ya no existe. Su propio aviso dice "merged to HEAD".
+git fetch origin                     # sin esto te quedas en el build viejo (ver abajo)
+git checkout -f -B main origin/main  # -f pisa lo sin versionar que colisione
+git clean -fd                        # borra restos del build antiguo (fonts/, styles/)
+git branch -D master
 git remote prune origin
+
+grep -o 'assets/index-[^"]*\.js' index.html   # debe coincidir con los demás colegios
 ```
 
-Tras el checkout quedan `fonts/` y `styles/` sin versionar: son restos del build
-antiguo, que ahora vive entero en `assets/`. No estorban; se pueden borrar después de
-comprobar que nada las referencia.
+**`git fetch` no es opcional.** `checkout -B ... origin/main` usa la copia **local** de
+`origin/main`; si no la refrescas, el checkout dice que todo fue bien y te deja en el
+build anterior. Le pasó a `coab`, que se quedó en `f38c8ee` sirviendo el bundle viejo.
+
+**`git branch -D`, no `-d`.** Git no puede comparar `master` contra `origin/master`,
+que ya no existe en el remoto, así que se niega — aunque su propio aviso dice
+`merged to HEAD`, que es la confirmación de que no se pierde nada.
+
+**`git clean -fd` no borra el logo del colegio**, porque está ignorado y `clean` no toca
+ficheros ignorados. Comprobado. **No uses `-x`**, que sí se lo llevaría. Para ver qué
+borraría antes de hacerlo, `git clean -nd`.
+
 
 **El logo versionado NO es el del colegio.** `images/Logo_Colegio_Header.<hash>.gif`
 del build viejo es el logo de **`bethelexplora`**, y lo recibieron todos los clientes.
