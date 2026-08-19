@@ -156,8 +156,25 @@ php artisan event:cache
 > misma resolución. Con un test que lo comprueba contando las consultas
 > (`ContextoDeUsuarioTest`), que daba 2 antes y da 1 ahora.
 >
-> **Siguen pendientes** el N+1 de permisos, la caché entre peticiones y lo del
-> rate limiter, que son los puntos 1 a 4 de "Arreglo".
+> **Y una sola vez el token, desde el 19 ago 2026.** Los puntos 1 y 2 de
+> "Arreglo" están hechos: `GET api/periodos` pasó de **9 consultas a 7**, y de
+> las 7 solo una es del endpoint. Lo cuenta `ConsultasPorPeticionTest`.
+>
+> El limitador de `RouteServiceProvider` llama a `$request->user()` solo para
+> decidir la clave del cubo, y eso resuelve el token entero; después el
+> middleware `auth.token` volvía a resolverlo por su cuenta. Ahora la
+> resolución se memoriza en los `attributes` de la petición —el mismo sitio
+> donde `User::fromToken()` guarda el contexto, y no una propiedad del servicio,
+> que sobreviviría a la petición bajo Octane—.
+>
+> El N+1 de permisos es ahora una consulta con `IN`, con el orden escrito
+> (`role_id` en el orden de los roles, `permission_id` dentro de cada uno). Ese
+> era el orden que devolvía el bucle viejo por el índice, sin que nadie se lo
+> hubiera pedido; el test lo compara contra el algoritmo antiguo con un usuario
+> de dos roles.
+>
+> **Sigue pendiente** la caché del contexto entre peticiones (punto 3) y el
+> driver de caché (punto 4).
 
 Aquí sí es la autenticación, tal como sospechabas. Pero el detalle importa.
 
@@ -270,8 +287,8 @@ Sin esto, "está lento" no es accionable. Con esto, cada endpoint reporta su con
 | 4 | Quitar `AdvancedRoute` → rutas explícitas | 1–2 d | 🔴 45 ms + doble registro | Fase 1 |
 | 5 | ~~Sacar `fromToken()` de los constructores~~ · **hecho 18 ago 2026** | 1 d | habilita el paso 6 | Fase 2 |
 | 6 | `route:cache` + `config:cache` en despliegue | 2 h | 🔴 30–60 ms | paso 5 |
-| 7 | Eliminar la doble autenticación (rate limiter) | 2 h | 🟠 1–2 consultas | Fase 3 |
-| 8 | Colapsar el N+1 de permisos | 1 h | 🟠 N-1 consultas | Fase 3 |
+| 7 | ~~Eliminar la doble autenticación (rate limiter)~~ · **hecho 19 ago 2026** | 2 h | 🟠 **2 consultas menos, medidas** | Fase 3 |
+| 8 | ~~Colapsar el N+1 de permisos~~ · **hecho 19 ago 2026** | 1 h | 🟠 N-1 consultas | Fase 3 |
 | 9 | Cachear el contexto de usuario | 1 d | 🟠 3 consultas → 0 | Fase 3 |
 | 10 | Redis como caché y sesión | 2 h | 🟠 variable | paso 9 |
 | 11 | PHP 8.0 → **8.4** | incluido en Fase 4 | 🟡 10–20 % | Fase 4 |
