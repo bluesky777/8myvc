@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Auth\SesionController;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\Tardanzas\TLoginController;
 
@@ -15,6 +16,28 @@ use App\Http\Controllers\Tardanzas\TLoginController;
 | queden tapadas. No reordenar sin comprobar con tools/route-table-dump.php.
 |
 */
+
+// SesionController — la sesión de la Fase 3: par acceso + refresco.
+//
+// El contrato está en docs/migracion/07-sesion.md. Las tres primeras van sin
+// guard, y cada una por su motivo:
+//
+//   - 'auth/login' es la entrada: quien la llama todavía no tiene token.
+//   - 'auth/refresh' recibe el token de REFRESCO, no el de acceso. Si exigiera
+//     un acceso vivo, no se podría renovar nunca uno caducado, que es justo
+//     para lo que existe.
+//   - 'auth/logout' tiene que funcionar con el token ya vencido —el caso normal
+//     de quien vuelve al día siguiente y pulsa salir— y responder 200 pase lo
+//     que pase, para que el frontend pueda limpiar su estado. Mismo criterio
+//     que 'login/logout', su equivalente viejo.
+//
+// Las dos últimas sí exigen token vivo: 'auth/logout-all' es una acción de
+// seguridad sobre la cuenta, y 'auth/me' devuelve datos del usuario.
+Route::post('auth/login', [SesionController::class, 'login'])->withoutMiddleware('auth.token');
+Route::post('auth/refresh', [SesionController::class, 'refrescar'])->withoutMiddleware('auth.token');
+Route::post('auth/logout', [SesionController::class, 'logout'])->withoutMiddleware('auth.token');
+Route::post('auth/logout-all', [SesionController::class, 'logoutTodas']);
+Route::get('auth/me', [SesionController::class, 'yo']);
 
 // LoginController
 //

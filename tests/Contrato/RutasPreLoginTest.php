@@ -56,6 +56,14 @@ class RutasPreLoginTest extends CasoDeContrato
         ['POST', 'login'],
         ['POST', 'login/credentials'],
         ['PUT',  'login/logout'],
+        // La sesión de la Fase 3. Entrar no requiere estar dentro, y salir
+        // tiene que funcionar con el token ya vencido.
+        //
+        // `auth/refresh` NO está aquí a propósito: sin token responde 401, y
+        // debe hacerlo. No es una pantalla previa al login, es la renovación de
+        // una sesión que ya existe.
+        ['POST', 'auth/login'],
+        ['POST', 'auth/logout'],
     ];
 
     public function test_ninguna_lleva_guard_de_autenticacion(): void

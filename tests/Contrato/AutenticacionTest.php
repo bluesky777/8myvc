@@ -31,10 +31,19 @@ class AutenticacionTest extends CasoDeContrato
      *     además comprueba que ninguna responda 401.
      *   - Las seis de `tardanzas/*` **sí autentican**, pero no con token: el
      *     lector manda usuario y contraseña en el cuerpo de CADA petición y el
-     *     método las verifica con `Auth::attempt()`. No son públicas; el guard
-     *     de token las cerraría igual y el lector no podría entrar.
+     *     método las verifica con `App\Support\Credenciales`. No son públicas;
+     *     el guard de token las cerraría igual y el lector no podría entrar.
+     *   - Las tres de `auth/*` son de la Fase 3, y cada una tiene su motivo
+     *     escrito al lado de la ruta en routes/api/auth.php. En corto: entrar
+     *     no requiere estar dentro; refrescar se hace justo cuando el token de
+     *     acceso ya no vale; y salir tiene que funcionar con el token vencido.
+     *     `auth/refresh` sí responde 401 sin token — no está en la lista de
+     *     RutasPreLoginTest, que es la de pantallas previas al login.
      */
     private const SIN_GUARD = [
+        ['POST',   'auth/login'],
+        ['POST',   'auth/refresh'],
+        ['POST',   'auth/logout'],
         ['POST',   'login'],
         ['PUT',    'login/crear-prematricula'],
         ['POST',   'login/credentials'],
