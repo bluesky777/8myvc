@@ -334,21 +334,32 @@ no manda `Origin` en absoluto. Como la autenticación va por `Bearer` y no por c
 
 ### Front: `myvc_dist` → carpeta `up/`
 
-Tres tropiezos, y el orden importa:
+Cuatro tropiezos, y el orden importa:
 
 ```bash
 cd /home/micolev1/COLEGIO.micolevirtual.com/up
 
-# 1. comparar el logo ANTES de nada (ver la nota de abajo)
+# 1. SIEMPRE fetch primero. `checkout -B ... origin/main` usa la copia LOCAL de
+#    origin/main: sin refrescarla te quedas en el build anterior sin enterarte.
+git fetch origin
+
+# 2. comparar el logo ANTES de nada (ver la nota de abajo)
 md5sum images/Logo_Colegio_Header.*.gif images/Logo_MyVc_Header*.gif
 
-# 2. lo que está sin versionar y main SÍ versiona bloquea el checkout
+# 3. lo sin versionar que main SÍ versiona bloquea el checkout. Cada colegio tiene
+#    sus propios restos: aparta lo que nombre el error, no a ciegas.
 mv images/Fondo-MyVc.jpg /tmp/Fondo-MyVc.bak
 
-# 3. la rama local es `master` y apunta a un ref que ya no existe en el remoto
+# 4. la rama local es `master` y apunta a un ref que ya no existe en el remoto
 git checkout -B main origin/main
-git branch -d master        # después del checkout, nunca antes
+git branch -D master        # -D y no -d: git no puede compararla contra origin/master,
+                            # que ya no existe. Su propio aviso dice "merged to HEAD".
+git remote prune origin
 ```
+
+Tras el checkout quedan `fonts/` y `styles/` sin versionar: son restos del build
+antiguo, que ahora vive entero en `assets/`. No estorban; se pueden borrar después de
+comprobar que nada las referencia.
 
 **El logo versionado NO es el del colegio.** `images/Logo_Colegio_Header.<hash>.gif`
 del build viejo es el logo de **`bethelexplora`**, y lo recibieron todos los clientes.
@@ -364,6 +375,26 @@ toolchain a Vite.
 **`plus/` es otro repositorio** —`myvc_front_2`, el Angular de PIAR— y solo lo tienen
 seis colegios: `casb`, `coab`, `cads`, `coljordan`, `lal` y `coal`.
 
+### Comprobar por URL, no por carpeta
+
+**El nombre de la carpeta no es el subdominio.** A `coabsaravena.micolevirtual.com/` la
+sirve `coab.micolevirtual.com`, y el nombre largo ni siquiera existe en DNS. Lo único
+que cuenta es qué bundle recibe el usuario:
+
+```bash
+for h in coab casb cads coljordan lal coal; do
+  printf '%-12s ' "$h"
+  curl -sL --max-time 15 "https://$h.micolevirtual.com/up/" | grep -o 'assets/index-[^"]*\.js' | head -1
+done
+```
+
+Todos deben devolver el mismo hash. El que devuelva otro está en un build anterior: así
+se detectó que `coab` se había quedado en `f38c8ee` pese a decir que el checkout fue bien.
+
+El **aviso de mantenimiento del login** —*«Estamos actualizando la plataforma…»*— sirve
+de comprobación visual, pero solo sale al cargar la pantalla de login, dura 6 segundos y
+se cierra de un toque. Con sesión abierta no se ve, y eso no significa que falte.
+
 ### Después de cada colegio
 
 - Probar de verdad: login de personal y de alumno, boletines, certificado de estudio,
@@ -378,7 +409,8 @@ seis colegios: `casb`, `coab`, `cads`, `coljordan`, `lal` y `coal`.
 | Colegio | Estado |
 |---|---|
 | `casb-medellin` | **hecho** — 19 ago 2026 |
-| `bethelexplora`, `cads-itagui`, `caz-zaragoza`, `coabsaravena`, `coljordan`, `fortul`, `inseaq` | pendientes, mismo procedimiento |
+| `coabsaravena` | **front hecho** — 19 ago 2026. Falta el `vendor/` |
+| `bethelexplora`, `cads-itagui`, `caz-zaragoza`, `coljordan`, `fortul`, `inseaq` | pendientes, mismo procedimiento |
 | `instival` | **no es repositorio git**, no recibe `git pull`. Decisión aparte antes de tocarlo |
 
 **Hasta que los 16 tengan el `vendor/` igualado, PHP se queda en 8.0.** La versión se
