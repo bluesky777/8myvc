@@ -73,22 +73,20 @@ ln -sfn /home/micolev1/laravel_13 vendor
 php artisan package:discover # OBLIGATORIO al cambiar de generación
 
 php artisan migrate --force  # sin esto TODOS los logins dan 500
-php artisan config:clear && php artisan route:clear
-php artisan config:cache && php artisan route:cache
-
-php artisan --version        # Laravel Framework 13.26.1
 ```
 
 `package:discover` no es opcional: `bootstrap/cache/packages.php` es de cada
 colegio y se genera a partir del `vendor/`. Sin regenerarlo, el colegio arranca
 con la lista de proveedores de la generación anterior.
 
-`route:clear` tampoco: las rutas `auth/*` no existen con la caché vieja puesta, y
-`POST /api/auth/login` devuelve 404 con el código bien desplegado.
+### El `.env` de este colegio
 
-### El `.env` del colegio
+`config/` y `.env` son copia real en cada colegio, así que esto va uno por uno, y
+**antes de cachear la configuración**.
 
-`config/` y `.env` son copia real en cada colegio, así que esto va uno por uno.
+```bash
+php artisan key:generate --force   # una APP_KEY propia, distinta a la de los demás
+```
 
 ```env
 MAIL_MAILER=sendmail
@@ -103,6 +101,49 @@ antes de intentarlo y el reseteo de contraseña devuelve 500.
 app Flutter no tiene el subdominio del colegio como origen y en build nativa no
 manda `Origin` en absoluto. Como la autenticación va por `Bearer` y no por
 cookies, `*` no abre nada.
+
+#### Sobre la `APP_KEY` y los tokens de sesión
+
+Tres cosas que conviene no confundir, porque llevan al paso de arriba:
+
+**Los tokens de sesión no salen de ninguna clave del `.env`.** Son 40 caracteres
+al azar y en la base solo queda su SHA-256, en `personal_access_tokens` de ese
+colegio. Ni `composer install` ni cambiar la `APP_KEY` los toca: siguen valiendo.
+Lo que los invalida es borrar la fila —cerrar sesión— o que caduquen.
+
+**Lo que sí desaparece al desplegar son los JWT viejos**, y no por ninguna clave
+sino porque se quitó el paquete que sabía leerlos. Todo el mundo vuelve a entrar
+una vez.
+
+**Que varios colegios compartan `APP_KEY` era un agujero de verdad, y ya está
+cerrado — pero por el camino, no a propósito.** Con `JWT_SECRET` compartido, un
+token firmado en el colegio A valía en el colegio B: el JWT solo lleva dentro el
+id del usuario, así que quien fuera el usuario 5 en A entraba como el usuario 5
+de B, que es otra persona. Con Sanctum eso no puede pasar — el token es una fila
+en la base de **ese** colegio y en la del vecino no existe.
+
+Aun así, cada colegio con su `APP_KEY`. Hoy aquí no cifra nada persistente
+—no hay `encrypt()`, ni casts cifrados, ni rutas firmadas, y las cookies no se
+usan porque la autenticación va por `Bearer`—, así que rotarla no rompe nada y no
+hay que avisar a nadie. Pero una clave compartida entre 16 sitios es una que solo
+puede empeorar: basta que mañana alguien use `Crypt::` o una URL firmada para que
+lo de un colegio valga en otro. Se arregla ahora, que cuesta un comando.
+
+### Cachés y comprobación
+
+```bash
+php artisan config:clear && php artisan route:clear
+php artisan config:cache && php artisan route:cache
+
+php artisan --version        # Laravel Framework 13.26.1
+```
+
+**Van después del `.env`.** `config:cache` congela lo que haya en ese momento; si
+se cachea antes de tocar la configuración, el colegio sirve la de antes y no hay
+ningún síntoma que lo delate.
+
+`route:clear` tampoco es opcional: las rutas `auth/*` no existen con la caché
+vieja puesta, y `POST /api/auth/login` devuelve 404 con el código bien desplegado.
 
 ### Front (`up/`)
 
@@ -166,7 +207,7 @@ deshacerla — es una tabla nueva que el código viejo ignora.
 
 ---
 
-## 3. Las cinco trampas que cuestan un colegio
+## 3. Las seis trampas que cuestan un colegio
 
 1. **`composer` dentro de un colegio con `vendor/` compartido** le cambia las
    dependencias a todos los que cuelguen de esa carpeta. Sigue el symlink sin
@@ -181,6 +222,9 @@ deshacerla — es una tabla nueva que el código viejo ignora.
    versionar.
 5. **Un arreglo fusionado no está desplegado.** `app/`, `routes/`, `config/` y
    `.env` son copia real en cada colegio; llegan uno a uno.
+6. **`config:cache` antes de tocar el `.env`** deja al colegio sirviendo la
+   configuración anterior, sin ningún síntoma. Si editas el `.env` después,
+   vuelve a correr `config:clear && config:cache`.
 
 ---
 
