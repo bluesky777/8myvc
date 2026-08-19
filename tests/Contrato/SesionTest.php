@@ -2,11 +2,10 @@
 
 namespace Tests\Contrato;
 
-use PHPUnit\Framework\Attributes\DataProvider;
-
 use App\Models\TokenDeSesion;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * La sesión de la Fase 3: par acceso + refresco, con Sanctum.
@@ -41,7 +40,7 @@ class SesionTest extends CasoDeContrato
 
     private function cab(string $token): array
     {
-        return ['Authorization' => 'Bearer ' . $token];
+        return ['Authorization' => 'Bearer '.$token];
     }
 
     /** Adelanta el reloj de un token concreto sin tocar el de los demás. */
@@ -229,7 +228,7 @@ class SesionTest extends CasoDeContrato
     public function test_el_logout_viejo_tambien_mata_el_token(): void
     {
         $usuario = $this->usuarioDeTipo('Usuario');
-        $token   = $this->tokenDe($usuario->username);
+        $token = $this->tokenDe($usuario->username);
 
         $this->getJson('/api/ciudades', $this->cab($token))->assertStatus(200);
 
@@ -243,7 +242,7 @@ class SesionTest extends CasoDeContrato
     {
         $usuario = $this->usuarioDeTipo('Usuario');
 
-        $movil    = $this->entrar($usuario->username);
+        $movil = $this->entrar($usuario->username);
         $portatil = $this->entrar($usuario->username);
 
         $this->postJson('/api/auth/logout', [], $this->cab($movil['el_token']))->assertStatus(200);
@@ -262,7 +261,7 @@ class SesionTest extends CasoDeContrato
     {
         $usuario = $this->usuarioDeTipo('Usuario');
 
-        $movil    = $this->entrar($usuario->username);
+        $movil = $this->entrar($usuario->username);
         $portatil = $this->entrar($usuario->username);
 
         $r = $this->postJson('/api/auth/logout-all', [], $this->cab($movil['el_token']));
@@ -339,11 +338,11 @@ class SesionTest extends CasoDeContrato
     {
         return [
             'un JWT de los de antes' => ['eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9'
-                . '.eyJzdWIiOjEsImlhdCI6MTc1NTYxNzE0NCwiZXhwIjoxNzU1NzAzNTQ0fQ'
-                . '.qXQeQ3nS0cVYQ9m5Fh1x2pKcJ8lLwZ4tR7bN6vA3sEo'],
-            'basura'                 => ['no-es-un-token'],
-            'la forma pero inventado' => ['99999|' . str_repeat('a', 40)],
-            'vacío como texto'       => ['null'],
+                .'.eyJzdWIiOjEsImlhdCI6MTc1NTYxNzE0NCwiZXhwIjoxNzU1NzAzNTQ0fQ'
+                .'.qXQeQ3nS0cVYQ9m5Fh1x2pKcJ8lLwZ4tR7bN6vA3sEo'],
+            'basura' => ['no-es-un-token'],
+            'la forma pero inventado' => ['99999|'.str_repeat('a', 40)],
+            'vacío como texto' => ['null'],
         ];
     }
 }

@@ -36,7 +36,7 @@ class ContextoDeUsuario
     {
         $usuario = [];
 
-        if (!$userTemp->periodo_id) {
+        if (! $userTemp->periodo_id) {
             $userTemp->periodo_id = Periodo::where('actual', '=', true)->first()->id;
             $userTemp->save();
         }
@@ -68,14 +68,13 @@ class ContextoDeUsuario
                             left join users u on u.id=p.user_id
                             where p.deleted_at is null and p.user_id=:user_id';
 
-                $usuario = DB::select($consulta, array(
-                    ':user_id'		=> $userTemp->id,
-                    ':imagen_id'	=> $userTemp->imagen_id,
-                    ':periodo_id'	=> $userTemp->periodo_id,
-                ));
+                $usuario = DB::select($consulta, [
+                    ':user_id' => $userTemp->id,
+                    ':imagen_id' => $userTemp->imagen_id,
+                    ':periodo_id' => $userTemp->periodo_id,
+                ]);
 
                 break;
-
 
             case 'Alumno':
 
@@ -99,14 +98,13 @@ class ContextoDeUsuario
                             left join users u on u.id=a.user_id
                             where a.deleted_at is null and a.user_id=:user_id';
 
-                $usuario = DB::select($consulta, array(
-                    ':user_id'		=> $userTemp->id,
-                    ':imagen_id'	=> $userTemp->imagen_id,
-                    ':periodo_id'	=> $userTemp->periodo_id,
-                ));
+                $usuario = DB::select($consulta, [
+                    ':user_id' => $userTemp->id,
+                    ':imagen_id' => $userTemp->imagen_id,
+                    ':periodo_id' => $userTemp->periodo_id,
+                ]);
 
                 break;
-
 
             case 'Acudiente':
 
@@ -128,14 +126,13 @@ class ContextoDeUsuario
                             left join users u on u.id=ac.user_id
                             where ac.deleted_at is null and ac.user_id=:user_id';
 
-                $usuario = DB::select($consulta, array(
-                    ':user_id'		=> $userTemp->id,
-                    ':imagen_id'	=> $userTemp->imagen_id,
-                    ':periodo_id'	=> $userTemp->periodo_id,
-                ));
+                $usuario = DB::select($consulta, [
+                    ':user_id' => $userTemp->id,
+                    ':imagen_id' => $userTemp->imagen_id,
+                    ':periodo_id' => $userTemp->periodo_id,
+                ]);
 
                 break;
-
 
             case 'Usuario':
 
@@ -155,20 +152,19 @@ class ContextoDeUsuario
                             left join images i on i.id=u.imagen_id and i.deleted_at is null
                             where u.id=:user_id and u.deleted_at is null';
 
-                $usuario = DB::select($consulta, array(
-                    ':user_id'		=> $userTemp->id
-                ));
+                $usuario = DB::select($consulta, [
+                    ':user_id' => $userTemp->id,
+                ]);
 
                 break;
 
         }
 
-
         if (count($usuario) == 0) {
             if ($userTemp->is_active) {
                 if (User::$intentoLogueoPorActive == 1) {
                     abort(400, 'user_inactivo_por_mucho_logueo');
-                }else{
+                } else {
                     User::$intentoLogueoPorActive = 1;
 
                     $consulta = 'SELECT p.*
@@ -181,13 +177,13 @@ class ContextoDeUsuario
                         where a.deleted_at is null and a.user_id=:user_id ORDER BY id DESC LIMIT 1';
 
                     $periodos = DB::select($consulta, [
-                        ':user_id'		=> $userTemp->id
-                        ]);
+                        ':user_id' => $userTemp->id,
+                    ]);
 
                     if (count($periodos) > 0) {
 
                         $consulta = 'UPDATE users SET periodo_id=? WHERE id=?';
-                        $periodos = DB::select($consulta, [ $periodos[0]->id, $userTemp->id ]);
+                        $periodos = DB::select($consulta, [$periodos[0]->id, $userTemp->id]);
 
                         // Con el periodo ya arreglado, volver a resolver.
                         // Antes se llamaba y se tiraba el resultado: quien
@@ -197,37 +193,36 @@ class ContextoDeUsuario
                         // —porque el UPDATE de arriba ya había corregido el
                         // periodo—, así que parecía cosa de una vez.
                         return $this->para($userTemp->fresh());
-                    }else{
+                    } else {
                         abort(400, 'user_inactivo_por_falta_periodos');
                     }
 
                 }
 
-            }else{
+            } else {
                 abort(400, 'user_inactivo');
             }
 
         }
 
-        $usuario = (array)$usuario[0];
-        $userTemp = (array)$userTemp['attributes'];
-        //return $userTemp;
+        $usuario = (array) $usuario[0];
+        $userTemp = (array) $userTemp['attributes'];
+        // return $userTemp;
 
         $usuario = array_merge($usuario, $userTemp);
-        $usuario = (object)$usuario;
+        $usuario = (object) $usuario;
 
-        if (! isset( $usuario->tipo) ) {
+        if (! isset($usuario->tipo)) {
             $usuario->tipo = $tipo_tmp;
         }
-        if (! isset( $usuario->is_superuser) ) {
+        if (! isset($usuario->is_superuser)) {
             $usuario->is_superuser = $is_super;
         }
 
-
         User::$nota_minima_aceptada = $usuario->nota_minima_aceptada;
-        User::$images 				= 'images/';
-        User::$perfilPath 			= User::$images . 'perfil/';
-        User::$imgSharedPath 		= User::$images . 'shared/';
+        User::$images = 'images/';
+        User::$perfilPath = User::$images.'perfil/';
+        User::$imgSharedPath = User::$images.'shared/';
         // *************************************************
         //    Traeremos los roles y permisos
         // *************************************************
@@ -240,13 +235,12 @@ class ContextoDeUsuario
         $usuario->roles = $roles;
         $perms = [];
 
-        foreach($usuario->roles as $role )
-        {
+        foreach ($usuario->roles as $role) {
             $consulta = 'SELECT pm.name, pm.display_name, pm.description from permission_role pmr
                     inner join permissions pm on pm.id = pmr.permission_id
                         and pmr.role_id = :role_id';
 
-            $permisos = DB::select($consulta, array(':role_id' => $role->id));
+            $permisos = DB::select($consulta, [':role_id' => $role->id]);
 
             foreach ($permisos as $permiso) {
                 array_push($perms, $permiso->name);
@@ -259,7 +253,7 @@ class ContextoDeUsuario
         // años recibiendo un objeto vacío. Se mantiene la clave —está en los
         // snapshots y quitarla sería cambiar la forma sin ganar nada— pero ya
         // no se le mete nada.
-        $usuario->token = new \stdClass();
+        $usuario->token = new \stdClass;
 
         return $usuario;
     }

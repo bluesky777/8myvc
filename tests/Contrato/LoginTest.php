@@ -42,11 +42,11 @@ class LoginTest extends CasoDeContrato
         $this->assertMatchesRegularExpression('/^\d+\|[A-Za-z0-9]{40}$/', $r->json('el_token'));
 
         // Y lo que de verdad importa: que sirva para entrar.
-        $this->getJson('/api/ciudades', ['Authorization' => 'Bearer ' . $r->json('el_token')])
+        $this->getJson('/api/ciudades', ['Authorization' => 'Bearer '.$r->json('el_token')])
             ->assertStatus(200);
 
         $this->compararConInstantanea(
-            'login-credentials-' . strtolower($tipo),
+            'login-credentials-'.strtolower($tipo),
             $this->forma($r->json())
         );
     }
@@ -55,16 +55,16 @@ class LoginTest extends CasoDeContrato
     public function test_contexto_de_usuario(string $tipo): void
     {
         $usuario = $this->usuarioDeTipo($tipo);
-        $token   = $this->tokenDe($usuario->username);
+        $token = $this->tokenDe($usuario->username);
 
         $r = $this->postJson('/api/login', [], [
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
         ]);
 
         $r->assertStatus(200);
 
         $this->compararConInstantanea(
-            'login-contexto-' . strtolower($tipo),
+            'login-contexto-'.strtolower($tipo),
             $this->forma($r->json())
         );
     }
@@ -96,10 +96,10 @@ class LoginTest extends CasoDeContrato
     public static function tiposDeUsuario(): array
     {
         return [
-            'alumno'    => ['Alumno'],
-            'profesor'  => ['Profesor'],
+            'alumno' => ['Alumno'],
+            'profesor' => ['Profesor'],
             'acudiente' => ['Acudiente'],
-            'usuario'   => ['Usuario'],
+            'usuario' => ['Usuario'],
         ];
     }
 }

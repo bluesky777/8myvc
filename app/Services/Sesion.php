@@ -49,7 +49,7 @@ class Sesion
     {
         $this->limpiarCaducados($usuario);
 
-        $sesion = $origen . ':' . Str::uuid()->toString();
+        $sesion = $origen.':'.Str::uuid()->toString();
 
         [$acceso, $accesoPlano] = $this->emitir(
             $usuario, $sesion, [TokenDeSesion::ACCESO], (int) config('sesion.acceso_ttl')
@@ -60,8 +60,8 @@ class Sesion
         );
 
         return [
-            'el_token'  => $accesoPlano,
-            'refresco'  => $refrescoPlano,
+            'el_token' => $accesoPlano,
+            'refresco' => $refrescoPlano,
             'expira_en' => $acceso->segundosDeVida(),
         ];
     }
@@ -80,7 +80,7 @@ class Sesion
 
         [, $plano] = $this->emitir(
             $usuario,
-            $origen . ':' . Str::uuid()->toString(),
+            $origen.':'.Str::uuid()->toString(),
             [TokenDeSesion::ACCESO],
             (int) config('sesion.legado_ttl')
         );
@@ -159,8 +159,8 @@ class Sesion
         ])->save();
 
         return [
-            'el_token'  => $accesoPlano,
-            'refresco'  => $refrescoPlano,
+            'el_token' => $accesoPlano,
+            'refresco' => $refrescoPlano,
             'expira_en' => $acceso->segundosDeVida(),
         ];
     }
@@ -344,13 +344,13 @@ class Sesion
         $plano = Str::random(40);
 
         $token = $usuario->tokens()->create([
-            'name'       => $sesion,
-            'token'      => hash('sha256', $plano),
-            'abilities'  => $habilidades,
+            'name' => $sesion,
+            'token' => hash('sha256', $plano),
+            'abilities' => $habilidades,
             'expires_at' => Carbon::now()->addMinutes($minutos),
         ]);
 
-        return [$token, $token->getKey() . '|' . $plano];
+        return [$token, $token->getKey().'|'.$plano];
     }
 
     /**
@@ -389,15 +389,15 @@ class Sesion
     {
         Log::warning('Refresco ya rotado presentado de nuevo', [
             'token_id' => $token->getKey(),
-            'sesion'   => $token->name,
-            'user_id'  => $token->tokenable_id,
+            'sesion' => $token->name,
+            'user_id' => $token->tokenable_id,
         ]);
 
         DB::insert(
             'INSERT INTO bitacoras (descripcion, affected_person_name, affected_element_type, created_at, created_by)
              VALUES (?, ?, "refresco_reutilizado", ?, ?)',
             [
-                'Refresco ya rotado presentado de nuevo. Sesión: ' . $token->name,
+                'Refresco ya rotado presentado de nuevo. Sesión: '.$token->name,
                 '',
                 Carbon::now(),
                 (int) $token->tokenable_id,

@@ -1,0 +1,28 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    paths:
+        - app
+        - config
+        - database
+        - routes
+        - tests
+        - tools
+
+    # Nivel 0. No es poca ambición: es el nivel que solo se queja de cosas que
+    # no pueden funcionar —clases que no existen, variables sin definir,
+    # propiedades sin declarar— y aun así encontró 207 en este repo. Subirlo es
+    # trabajo de la Fase 6 continua; bajarlo, nunca.
+    level: 0
+
+    # El esquema real no está en migraciones (ver Fase 5), así que larastan no
+    # puede deducir las columnas de los modelos. Sin esto, cada `$alumno->nombres`
+    # sería un error de propiedad inexistente y el análisis no diría nada útil.
+    checkModelProperties: false
+
+    excludePaths:
+        analyse:
+            # 990 consultas crudas devuelven stdClass; el análisis de estas dos
+            # vistas no aporta nada y sí mucho ruido.
+            - app/Exports

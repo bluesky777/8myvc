@@ -25,7 +25,7 @@ class ContextoDeUsuarioTest extends CasoDeContrato
     public function test_el_contexto_se_resuelve_una_sola_vez_por_peticion(): void
     {
         $usuario = $this->usuarioDeTipo('Profesor');
-        $token   = $this->tokenDe($usuario->username);
+        $token = $this->tokenDe($usuario->username);
 
         $veces = 0;
 
@@ -38,11 +38,11 @@ class ContextoDeUsuarioTest extends CasoDeContrato
         });
 
         // Una ruta que pasa por el guard Y lee $this->user en el controlador.
-        $this->getJson('/api/periodos', ['Authorization' => 'Bearer ' . $token])
+        $this->getJson('/api/periodos', ['Authorization' => 'Bearer '.$token])
             ->assertStatus(200);
 
         $this->assertSame(1, $veces,
-            "El contexto del usuario se resolvió {$veces} veces en una sola petición.\n" .
+            "El contexto del usuario se resolvió {$veces} veces en una sola petición.\n".
             'Debería salir de la memoria de la petición (App\User::CONTEXTO).');
     }
 
@@ -61,7 +61,7 @@ class ContextoDeUsuarioTest extends CasoDeContrato
     public function test_un_periodo_de_otro_anio_se_corrige_y_devuelve_el_contexto(): void
     {
         $usuario = $this->usuarioDeTipo('Alumno');
-        $token   = $this->tokenDe($usuario->username);
+        $token = $this->tokenDe($usuario->username);
 
         $suYear = DB::select('SELECT g.year_id FROM alumnos a
             INNER JOIN matriculas m ON m.alumno_id = a.id AND m.deleted_at IS NULL
@@ -73,7 +73,7 @@ class ContextoDeUsuarioTest extends CasoDeContrato
 
         DB::update('UPDATE users SET periodo_id = ? WHERE id = ?', [$ajeno->id, $usuario->id]);
 
-        $r = $this->postJson('/api/login', [], ['Authorization' => 'Bearer ' . $token]);
+        $r = $this->postJson('/api/login', [], ['Authorization' => 'Bearer '.$token]);
 
         $r->assertStatus(200);
 

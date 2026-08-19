@@ -1,6 +1,5 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AreasController;
 use App\Http\Controllers\AsignaturasController;
 use App\Http\Controllers\DefinitivasPeriodosController;
@@ -16,6 +15,7 @@ use App\Http\Controllers\Piars\PiarsAsignaturasController;
 use App\Http\Controllers\PlanillasController;
 use App\Http\Controllers\SubunidadesController;
 use App\Http\Controllers\UnidadesController;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------

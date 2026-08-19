@@ -39,7 +39,7 @@ class RecuperarClaveTest extends CasoDeContrato
         $base = ['ruta' => 'http://localhost/'];
 
         $registrado = $this->postJson($ruta, $base + ['email' => $usuario->email]);
-        $inventado  = $this->postJson($ruta, $base + ['email' => 'no-existe-nadie-asi@ejemplo.test']);
+        $inventado = $this->postJson($ruta, $base + ['email' => 'no-existe-nadie-asi@ejemplo.test']);
 
         $this->assertSame(
             $registrado->status(),
@@ -50,8 +50,8 @@ class RecuperarClaveTest extends CasoDeContrato
         $this->assertSame(
             $registrado->getContent(),
             $inventado->getContent(),
-            "La respuesta delata si el correo está registrado.\n" .
-            "registrado: {$registrado->getContent()}\n" .
+            "La respuesta delata si el correo está registrado.\n".
+            "registrado: {$registrado->getContent()}\n".
             "inventado:  {$inventado->getContent()}"
         );
     }
@@ -60,7 +60,7 @@ class RecuperarClaveTest extends CasoDeContrato
     public function test_rechaza_un_correo_mal_formado(string $ruta): void
     {
         $this->postJson($ruta, [
-            'ruta'  => 'http://localhost/',
+            'ruta' => 'http://localhost/',
             'email' => 'esto-no-es-un-correo',
         ])->assertStatus(422);
     }
@@ -75,7 +75,7 @@ class RecuperarClaveTest extends CasoDeContrato
     public function test_no_acepta_una_ruta_de_retorno_de_otro_dominio(): void
     {
         $this->postJson('/api/login/recuperar-clave', [
-            'ruta'  => 'https://sitio-del-atacante.test/',
+            'ruta' => 'https://sitio-del-atacante.test/',
             'email' => 'quien-sea@ejemplo.test',
         ])->assertStatus(422);
     }

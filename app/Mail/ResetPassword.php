@@ -30,6 +30,6 @@ class ResetPassword extends Mailable
     public function build()
     {
         return $this->subject('Ver contraseña Mi Colegio Virtual')
-                    ->view('emails.reset-password');
+            ->view('emails.reset-password');
     }
 }

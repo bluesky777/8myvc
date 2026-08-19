@@ -1,11 +1,11 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Perfiles\CalendarioController;
 use App\Http\Controllers\Perfiles\ImagesController;
 use App\Http\Controllers\Perfiles\ImagesUsuariosController;
 use App\Http\Controllers\Perfiles\PerfilesController;
 use App\Http\Controllers\Perfiles\PublicacionesController;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------

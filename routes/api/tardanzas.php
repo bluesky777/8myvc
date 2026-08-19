@@ -1,10 +1,10 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AplicacionDescargas\InicioController;
 use App\Http\Controllers\AppMobile\AsistenciasAppController;
 use App\Http\Controllers\Tardanzas\AsistenciasController;
 use App\Http\Controllers\Tardanzas\TSubirController;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------

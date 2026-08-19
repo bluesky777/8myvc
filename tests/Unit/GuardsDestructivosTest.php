@@ -19,7 +19,7 @@ use PHPUnit\Framework\TestCase;
  */
 class GuardsDestructivosTest extends TestCase
 {
-    private const CONTROLADORES = __DIR__ . '/../../app/Http/Controllers';
+    private const CONTROLADORES = __DIR__.'/../../app/Http/Controllers';
 
     /**
      * Todo forceDelete() es borrado físico, y el esquema tiene las FK en
@@ -131,7 +131,7 @@ class GuardsDestructivosTest extends TestCase
             }
 
             $fuente = $this->sinComentarios(file_get_contents($archivo->getPathname()));
-            $relativo = str_replace(self::CONTROLADORES . '/', '', $archivo->getPathname());
+            $relativo = str_replace(self::CONTROLADORES.'/', '', $archivo->getPathname());
 
             preg_match_all('/function\s+(\w+)\s*\([^)]*\)\s*\{/', $fuente, $coincidencias, PREG_OFFSET_CAPTURE);
 
@@ -155,6 +155,7 @@ class GuardsDestructivosTest extends TestCase
                     continue;
                 }
                 $limpio .= $token[1];
+
                 continue;
             }
             $limpio .= $token;

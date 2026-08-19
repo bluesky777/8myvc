@@ -1,6 +1,5 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\CertificadosEstudioController;
 use App\Http\Controllers\ConfigCertificadosController;
 use App\Http\Controllers\Historiales\HistorialesController;
@@ -18,6 +17,7 @@ use App\Http\Controllers\Informes\ObservadorController;
 use App\Http\Controllers\Informes\ObservadorHorizontalController;
 use App\Http\Controllers\Informes\PuestosController;
 use App\Http\Controllers\Informes\SimatController;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------

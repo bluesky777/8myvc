@@ -40,17 +40,17 @@ use Illuminate\Support\Facades\Route;
 | test: tests/Contrato/AutenticacionTest.php.
 */
 Route::middleware('auth.token')->group(function () {
-    require __DIR__ . '/api/auth.php';
-    require __DIR__ . '/api/alumnos.php';
-    require __DIR__ . '/api/catalogos.php';
-    require __DIR__ . '/api/academico.php';
-    require __DIR__ . '/api/admin.php';
-    require __DIR__ . '/api/estructura.php';
-    require __DIR__ . '/api/disciplina.php';
-    require __DIR__ . '/api/informes.php';
-    require __DIR__ . '/api/tardanzas.php';
-    require __DIR__ . '/api/perfiles.php';
-    require __DIR__ . '/api/votaciones.php';
-    require __DIR__ . '/api/actividades.php';
-    require __DIR__ . '/api/piars.php';
+    require __DIR__.'/api/auth.php';
+    require __DIR__.'/api/alumnos.php';
+    require __DIR__.'/api/catalogos.php';
+    require __DIR__.'/api/academico.php';
+    require __DIR__.'/api/admin.php';
+    require __DIR__.'/api/estructura.php';
+    require __DIR__.'/api/disciplina.php';
+    require __DIR__.'/api/informes.php';
+    require __DIR__.'/api/tardanzas.php';
+    require __DIR__.'/api/perfiles.php';
+    require __DIR__.'/api/votaciones.php';
+    require __DIR__.'/api/actividades.php';
+    require __DIR__.'/api/piars.php';
 });

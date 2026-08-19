@@ -43,7 +43,7 @@ trait ResuelveElUsuario
         // Cualquier otra propiedad se comporta igual que antes de existir este
         // __get: aviso de PHP y null. Laravel convierte el aviso en excepción,
         // que es exactamente lo que pasaba con la propiedad inexistente.
-        trigger_error('Undefined property: ' . static::class . '::$' . $nombre, E_USER_WARNING);
+        trigger_error('Undefined property: '.static::class.'::$'.$nombre, E_USER_WARNING);
 
         $nulo = null;
 

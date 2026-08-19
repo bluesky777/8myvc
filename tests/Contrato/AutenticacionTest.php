@@ -85,9 +85,9 @@ class AutenticacionTest extends CasoDeContrato
                 if ($this->exigeToken($ruta)) {
                     // Los {parametros} se rellenan con un valor cualquiera: el
                     // guard corre antes que el controlador, así que da igual cuál.
-                    $conGuard[] = [$verbo, '/' . preg_replace('/\{[^}]+\}/', '1', $ruta->uri())];
+                    $conGuard[] = [$verbo, '/'.preg_replace('/\{[^}]+\}/', '1', $ruta->uri())];
                 } else {
-                    $sinGuard[] = $verbo . ' ' . substr($ruta->uri(), strlen('api/'));
+                    $sinGuard[] = $verbo.' '.substr($ruta->uri(), strlen('api/'));
                 }
             }
         }
@@ -99,15 +99,15 @@ class AutenticacionTest extends CasoDeContrato
 
     public function test_solo_estas_rutas_no_exigen_token(): void
     {
-        $esperadas = array_map(fn ($r) => $r[0] . ' ' . $r[1], self::SIN_GUARD);
+        $esperadas = array_map(fn ($r) => $r[0].' '.$r[1], self::SIN_GUARD);
         sort($esperadas);
 
         [, $sinGuard] = $this->rutasPorGuard();
 
         $this->assertSame($esperadas, $sinGuard,
-            "Cambió la lista de rutas que no exigen token.\n" .
-            "Si sobra alguna, es un agujero. Si falta alguna, se rompió la entrada al sistema\n" .
-            'o el lector de tardanzas. Cualquiera de las dos cosas se justifica aquí, en el ' .
+            "Cambió la lista de rutas que no exigen token.\n".
+            "Si sobra alguna, es un agujero. Si falta alguna, se rompió la entrada al sistema\n".
+            'o el lector de tardanzas. Cualquiera de las dos cosas se justifica aquí, en el '.
             "docblock de SIN_GUARD,\ny se regenera la auditoría con tools/auditar-autenticacion.php");
     }
 
@@ -142,7 +142,7 @@ class AutenticacionTest extends CasoDeContrato
         }
 
         $this->assertSame([], $fallos,
-            "Estas rutas deberían rechazar con 401 a quien no presenta token:\n" .
+            "Estas rutas deberían rechazar con 401 a quien no presenta token:\n".
             implode("\n", $fallos));
     }
 
@@ -162,9 +162,9 @@ class AutenticacionTest extends CasoDeContrato
 
         foreach (['Alumno', 'Profesor', 'Acudiente', 'Usuario'] as $tipo) {
             $usuario = $this->usuarioDeTipo($tipo);
-            $token   = $this->tokenDe($usuario->username);
+            $token = $this->tokenDe($usuario->username);
 
-            $codigo = $this->getJson('/api/ciudades', ['Authorization' => 'Bearer ' . $token])
+            $codigo = $this->getJson('/api/ciudades', ['Authorization' => 'Bearer '.$token])
                 ->getStatusCode();
 
             if ($codigo === 401) {
@@ -173,6 +173,6 @@ class AutenticacionTest extends CasoDeContrato
         }
 
         $this->assertSame([], $rechazadas,
-            'El guard rechaza a un usuario con token válido de tipo: ' . implode(', ', $rechazadas));
+            'El guard rechaza a un usuario con token válido de tipo: '.implode(', ', $rechazadas));
     }
 }

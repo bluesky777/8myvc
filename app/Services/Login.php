@@ -29,6 +29,7 @@ use Illuminate\Support\Facades\RateLimiter;
 class Login
 {
     private $entorno = 'Desktop';
+
     private $direccion = '';
 
     /**
@@ -40,8 +41,8 @@ class Login
     public function entrar(Request $peticion): array
     {
         $username = (string) $peticion->input('username');
-        $clave    = (string) $peticion->input('password');
-        $ahora    = Carbon::now('America/Bogota');
+        $clave = (string) $peticion->input('password');
+        $ahora = Carbon::now('America/Bogota');
 
         $this->datosDelEntorno();
 
@@ -49,11 +50,11 @@ class Login
         // de contraseña al día por IP. Este es específico del par IP+usuario, para
         // que un atacante no pueda probar contra muchas cuentas desde una IP ni
         // contra una cuenta desde muchas.
-        $claveLimite = 'login:' . sha1($this->direccion . '|' . $username);
+        $claveLimite = 'login:'.sha1($this->direccion.'|'.$username);
 
         if (RateLimiter::tooManyAttempts($claveLimite, 5)) {
             throw new HttpResponseException(response()->json([
-                'error'    => 'too_many_attempts',
+                'error' => 'too_many_attempts',
                 'segundos' => RateLimiter::availableIn($claveLimite),
             ], 429));
         }
@@ -83,7 +84,7 @@ class Login
         }
 
         return [
-            'usuario'     => $usuario,
+            'usuario' => $usuario,
             'cambia_anio' => $this->ponerEnElPeriodoActual($fila),
         ];
     }
@@ -113,11 +114,11 @@ class Login
 
     private function anotarIntentoFallido(string $username, Carbon $ahora): void
     {
-        $maquina = 'Intento login>> Entorno: ' . $this->entorno . ', Dirección: ' . $this->direccion
-            . ', plataforma: ' . Browser::browserEngine()
-            . ', platfamilia: ' . Browser::platformFamily()
-            . ', device_fami: ' . Browser::deviceFamily()
-            . ', device_model: ' . Browser::deviceModel();
+        $maquina = 'Intento login>> Entorno: '.$this->entorno.', Dirección: '.$this->direccion
+            .', plataforma: '.Browser::browserEngine()
+            .', platfamilia: '.Browser::platformFamily()
+            .', device_fami: '.Browser::deviceFamily()
+            .', device_model: '.Browser::deviceModel();
 
         DB::insert(
             'INSERT INTO bitacoras (descripcion, affected_person_name, affected_element_type, created_at, created_by)
@@ -132,21 +133,21 @@ class Login
             'INSERT INTO historiales(user_id, tipo, ip, browser_name, browser_version, browser_family, browser_engine, entorno, platform_name, platform_family, device_family, device_model, device_grade, updated_at, created_at)
              VALUES(:user_id, :tipo, :ip, :browser_name, :browser_version, :browser_family, :browser_engine, :entorno, :platform_name, :platform_family, :device_family, :device_model, :device_grade, :updated_at, :created_at)',
             [
-                ':user_id'         => $fila->id,
-                ':tipo'            => $fila->tipo,
-                ':ip'              => $this->direccion,
-                ':browser_name'    => Browser::browserName(),
+                ':user_id' => $fila->id,
+                ':tipo' => $fila->tipo,
+                ':ip' => $this->direccion,
+                ':browser_name' => Browser::browserName(),
                 ':browser_version' => Browser::browserVersion(),
-                ':browser_family'  => Browser::browserFamily(),
-                ':browser_engine'  => Browser::browserEngine(),
-                ':entorno'         => $this->entorno,
-                ':platform_name'   => Browser::browserEngine(),
+                ':browser_family' => Browser::browserFamily(),
+                ':browser_engine' => Browser::browserEngine(),
+                ':entorno' => $this->entorno,
+                ':platform_name' => Browser::browserEngine(),
                 ':platform_family' => Browser::platformFamily(),
-                ':device_family'   => Browser::deviceFamily(),
-                ':device_model'    => Browser::deviceModel(),
-                ':device_grade'    => Browser::mobileGrade(),
-                ':updated_at'      => $ahora,
-                ':created_at'      => $ahora,
+                ':device_family' => Browser::deviceFamily(),
+                ':device_model' => Browser::deviceModel(),
+                ':device_grade' => Browser::mobileGrade(),
+                ':updated_at' => $ahora,
+                ':created_at' => $ahora,
             ]
         );
     }

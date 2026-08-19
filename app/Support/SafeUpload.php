@@ -44,13 +44,13 @@ class SafeUpload
         $extension = self::extensionSegura($file, $permitidas);
         $base = self::baseSegura($file);
 
-        $nombre = $base . '.' . $extension;
+        $nombre = $base.'.'.$extension;
 
         // Mismo comportamiento de siempre: foto.jpg, foto(1).jpg, foto(2).jpg…
         $i = 0;
-        while (file_exists($carpeta . '/' . $nombre)) {
+        while (file_exists($carpeta.'/'.$nombre)) {
             $i++;
-            $nombre = $base . '(' . $i . ').' . $extension;
+            $nombre = $base.'('.$i.').'.$extension;
         }
 
         return $nombre;
@@ -82,7 +82,7 @@ class SafeUpload
         $declarada = strtolower($file->getClientOriginalExtension());
 
         if (! in_array($declarada, $permitidas, true) || in_array($declarada, self::PROHIBIDAS, true)) {
-            abort(422, 'Tipo de archivo no permitido: .' . $declarada);
+            abort(422, 'Tipo de archivo no permitido: .'.$declarada);
         }
 
         // extension() deduce del MIME real; devuelve '' si no reconoce el contenido.

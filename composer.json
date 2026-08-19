@@ -18,11 +18,15 @@
         "maatwebsite/excel": "^3.1"
     },
     "require-dev": {
+        "driftingly/rector-laravel": "^2.0",
         "fakerphp/faker": "^1.23",
+        "larastan/larastan": "^3.10",
+        "laravel/pint": "^1.20",
         "laravel/sail": "^1.26",
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.0",
         "phpunit/phpunit": "^11.5",
+        "rector/rector": "^2.0",
         "spatie/laravel-ignition": "^2.0"
     },
     "autoload": {
@@ -38,6 +42,9 @@
         }
     },
     "scripts": {
+        "pint": "pint app/Console app/Http/Middleware app/Http/Controllers/Concerns app/Mail app/Services app/Support routes tests database/migrations",
+        "pint:test": "@pint --test",
+        "stan": "phpstan analyse --memory-limit=-1",
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi"
