@@ -4,22 +4,15 @@
 use Request;
 use DB;
 use Hash;
-use App\User;
 use \Log;
 
 use Carbon\Carbon;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\ResuelveElUsuario;
 
 
 class CambiarUsuariosController extends Controller {
-
-	public $user;
-
-	public function __construct()
-	{
-		$this->user = User::fromToken();
-	}
-
+	use ResuelveElUsuario;
 
 	public function putPonerDocumentoComoUsernameAlumnos()
 	{

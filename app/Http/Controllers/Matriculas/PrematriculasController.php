@@ -5,33 +5,18 @@ use App\Http\Controllers\Controller;
 use Request;
 use DB;
 
-use App\User;
 use App\Models\Matricula;
 use App\Models\Acudiente;
 use Carbon\Carbon;
 
 use App\Events\MatriculasEvent;
 use \Log;
+use App\Http\Controllers\Concerns\ResuelveElUsuario;
 
 
 class PrematriculasController extends Controller {
+	use ResuelveElUsuario;
 
-
-	public $user;
-	
-	public function __construct()
-	{
-		$this->user = User::fromToken();
-		try {
-			if( ! $this->user->is_superuser){
-				return 'No tienes permiso';
-			}
-		} catch (\Throwable $th) {
-			return 'Error';
-		}
-		
-	}
-	
 
 
 	public function putLlevoFormulario()

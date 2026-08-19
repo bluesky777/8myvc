@@ -8,7 +8,6 @@ use Request;
 use DB;
 use Hash;
 
-use App\User;
 use App\Models\Grupo;
 use App\Models\Periodo;
 use App\Models\Year;
@@ -29,22 +28,38 @@ use App\Models\Debugging;
 use \stdClass;
 
 use Carbon\Carbon;
+use App\Http\Controllers\Concerns\ResuelveElUsuario;
 
 
 class NotasActualesAlumnosController extends Controller {
-	
-	public $user;
-	public $escalas_val;
-	
-	public function __construct()
+	use ResuelveElUsuario;
+
+	/**
+	 * Esto lo llenaba el constructor. Lo llena ahora la primera lectura.
+	 *
+	 * Un constructor que consulta la base obliga a resolver al usuario antes de
+	 * saber si la petición lo necesita, y eso es lo que rompía `route:list`. Ver
+	 * App\Http\Controllers\Concerns\ResuelveElUsuario.
+	 *
+	 * La consulta iba dentro de un try/catch que se tragaba cualquier error y
+	 * dejaba la propiedad en null. El boletín salía entonces con los desempeños
+	 * en blanco en vez de fallar, que es peor: un informe mudo se imprime y se
+	 * entrega. Ahora el error sube.
+	 */
+	private $escalas_val;
+
+	private function escalasVal()
 	{
-		$this->user = User::fromToken();
-		try {
-			$this->escalas_val = DB::select('SELECT * FROM escalas_de_valoracion WHERE year_id=? AND deleted_at is null', [$this->user->year_id]);
-		} catch (\Throwable $th) {
-			return 'Error';
+		if ($this->escalas_val === null) {
+			$this->escalas_val = DB::select(
+				'SELECT * FROM escalas_de_valoracion WHERE year_id=? AND deleted_at is null',
+				[$this->user->year_id]
+			);
 		}
+
+		return $this->escalas_val;
 	}
+
 	
     /*
 	public function putGroup($grupo_id)
@@ -172,7 +187,7 @@ class NotasActualesAlumnosController extends Controller {
 		// COMPORTAMIENTO Y SUS FRASES
 		if ($comport_and_frases) {
 			
-			$comportamiento = NotaComportamiento::nota_comportamiento($alumno->alumno_id, $periodo_id, $this->user->year_id, $this->escalas_val);
+			$comportamiento = NotaComportamiento::nota_comportamiento($alumno->alumno_id, $periodo_id, $this->user->year_id, $this->escalasVal());
 
 			$alumno->comportamiento = $comportamiento;
 			$definiciones = [];
@@ -337,7 +352,7 @@ class NotasActualesAlumnosController extends Controller {
 				if ($la_nota < $nota_minima_aceptada) {
 					$clase = ' nota-perdida-bold ';
 				}
-				$escala = EscalaDeValoracion::valoracion($la_nota, $this->escalas_val)->desempenio;
+				$escala = EscalaDeValoracion::valoracion($la_nota, $this->escalasVal())->desempenio;
 			}
 			
 			

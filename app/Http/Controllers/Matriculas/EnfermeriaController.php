@@ -5,22 +5,14 @@ use App\Http\Controllers\Controller;
 use Request;
 use DB;
 
-use App\User;
 use Carbon\Carbon;
 
 use \Log;
+use App\Http\Controllers\Concerns\ResuelveElUsuario;
 
 
 class EnfermeriaController extends Controller {
-
-
-	public $user;
-	
-	public function __construct()
-	{
-		$this->user = User::fromToken();
-	}
-	
+	use ResuelveElUsuario;
 
 	public function putDatos()
 	{

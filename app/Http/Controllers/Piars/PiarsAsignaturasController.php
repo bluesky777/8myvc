@@ -4,18 +4,13 @@ use Request;
 use DB;
 use App\Http\Controllers\Controller;
 
-use App\User;
 use Carbon\Carbon;
 use App\Http\Controllers\Piars\Utils\PiarsAsignaturasUtils;
 use App\Models\Profesor;
+use App\Http\Controllers\Concerns\ResuelveElUsuario;
 
 class PiarsAsignaturasController extends Controller {
-	public $user;
-
-	public function __construct()
-	{
-		$this->user = User::fromToken();
-	}
+	use ResuelveElUsuario;
 
 	public function getAsignaturas($grupo_id, $alumno_id) {
 		if ($this->user->tipo === 'Profesor') {

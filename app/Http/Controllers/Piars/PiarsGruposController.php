@@ -10,17 +10,10 @@ use App\Http\Controllers\Piars\Utils\PiarsAlumnoUtils;
 use Carbon\Carbon;
 use App\Models\Profesor;
 use App\Models\Grupo;
+use App\Http\Controllers\Concerns\ResuelveElUsuario;
 
 class PiarsGruposController extends Controller {
-	public $user;
-
-	public function __construct()
-	{
-		$this->user = User::fromToken();
-		if(!$this->user->is_superuser && !$this->user->tipo == 'Profesor'){
-			return abort(401, 'No puedes cambiar');
-		}
-	}
+	use ResuelveElUsuario;
 
 	public function getGrupos()
 	{

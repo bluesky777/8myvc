@@ -13,18 +13,12 @@ use App\Models\Year;
 use \Log;
 
 use Carbon\Carbon;
+use App\Http\Controllers\Concerns\ResuelveElUsuario;
 
 
 
 class UniformesController extends Controller {
-
-	public $user;
-
-	public function __construct()
-	{
-		$this->user = User::fromToken();
-	}
-
+	use ResuelveElUsuario;
 
 	public function putAgregar()
 	{

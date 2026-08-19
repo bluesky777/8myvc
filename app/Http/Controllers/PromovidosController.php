@@ -23,17 +23,14 @@ use App\Models\Area;
 use \Log;
 
 use Carbon\Carbon;
+use App\Http\Controllers\Concerns\ResuelveElUsuario;
 
 
 class PromovidosController extends Controller {
+	use ResuelveElUsuario;
 
-	public $user;
 	private $escalas_val = [];
 
-	public function __construct()
-	{
-		$this->user = User::fromToken();
-	}
 
 	public function putCalcularGrupo()
 	{

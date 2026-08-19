@@ -27,16 +27,11 @@ use \Log;
 use Carbon\Carbon;
 
 use App\Http\Controllers\Alumnos\GuardarAlumno;
+use App\Http\Controllers\Concerns\ResuelveElUsuario;
 
 
 class AlumnosController extends Controller {
-
-	public $user;
-
-	public function __construct()
-	{
-		$this->user = User::fromToken();
-	}
+	use ResuelveElUsuario;
 
 	public function getIndex()
 	{

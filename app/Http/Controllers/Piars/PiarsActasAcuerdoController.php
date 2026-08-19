@@ -5,18 +5,13 @@ use DB;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Piars\Utils\UploadDocuments;
 
-use App\User;
 use Carbon\Carbon;
 use File;
 use \Log;
+use App\Http\Controllers\Concerns\ResuelveElUsuario;
 
 class PiarsActasAcuerdoController extends Controller {
-	public $user;
-
-	public function __construct()
-	{
-		$this->user = User::fromToken();
-	}
+	use ResuelveElUsuario;
 
 	public function getMatriculas($grupo_id)
 	{

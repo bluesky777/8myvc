@@ -151,6 +151,34 @@ class Area extends Model {
 
 			$areas[$i]->cant = $found;
 
+			// Un área puede existir en el año y no tener ninguna asignatura en
+			// este grupo. Entonces $found es 0 y la división reventaba el informe
+			// entero: boletines3 respondía 500 "Division by zero", no solo para
+			// esa área sino para todo el grupo.
+			//
+			// El área sale sin nota. '' es lo que ya devuelve el desempeño cuando
+			// no hay escala que aplicar (ver agrupar_asignaturas, más arriba), así
+			// que la plantilla lo imprime en blanco sin tocar nada.
+			if ($found === 0) {
+				$areas[$i]->per1_nota 			= '';
+				$areas[$i]->desempenio_per1 	= '';
+
+				if ($num_periodo > 1) {
+					$areas[$i]->per2_nota 			= '';
+					$areas[$i]->desempenio_per2 	= '';
+				}
+				if ($num_periodo > 2) {
+					$areas[$i]->per3_nota 			= '';
+					$areas[$i]->desempenio_per3 	= '';
+				}
+				if ($num_periodo == 4) {
+					$areas[$i]->per4_nota 			= '';
+					$areas[$i]->desempenio_per4 	= '';
+				}
+
+				continue;
+			}
+
 			$areas[$i]->per1_nota 			= round($areas[$i]->sumatoria_per1 / $found);
 			$des 							= EscalaDeValoracion::valoracion($areas[$i]->per1_nota, $escalas);
 			if ($des) {

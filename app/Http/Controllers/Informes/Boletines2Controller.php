@@ -6,7 +6,6 @@ use Request;
 use DB;
 use Hash;
 
-use App\User;
 use App\Models\Grupo;
 use App\Models\Periodo;
 use App\Models\Year;
@@ -28,30 +27,48 @@ use App\Models\Debugging;
 use App\Models\Disciplina;
 
 use Carbon\Carbon;
+use App\Http\Controllers\Concerns\ResuelveElUsuario;
 
 
 class Boletines2Controller extends Controller {
-	
-	public $user;
-	public $escalas_val;
-	public $nota_max;
-	public $year;
-	public function __construct()
+	use ResuelveElUsuario;
+
+	/**
+	 * Estas dos las llenaba el constructor. Las llena ahora la primera lectura.
+	 *
+	 * Un constructor que consulta la base obliga a resolver al usuario antes de
+	 * saber si la petición lo necesita, y eso es lo que rompía `route:list`. Ver
+	 * App\Http\Controllers\Concerns\ResuelveElUsuario.
+	 *
+	 * La consulta iba dentro de un try/catch que se tragaba cualquier error y
+	 * dejaba la propiedad en null. El boletín salía entonces con los desempeños
+	 * en blanco en vez de fallar, que es peor: un informe mudo se imprime y se
+	 * entrega. Ahora el error sube.
+	 */
+	private $escalas_val;
+	private $year;
+
+	private function escalasVal()
 	{
-		$this->user = User::fromToken();
-		$this->year			= Year::datos($this->user->year_id);
-		try {
-			$this->escalas_val = DB::select('SELECT * FROM escalas_de_valoracion WHERE year_id=? AND deleted_at is null', [$this->user->year_id]);
-		} catch (\Throwable $th) {
-			return 'Error';
+		if ($this->escalas_val === null) {
+			$this->escalas_val = DB::select(
+				'SELECT * FROM escalas_de_valoracion WHERE year_id=? AND deleted_at is null',
+				[$this->user->year_id]
+			);
 		}
-		/*
-		$this->nota_max = DB::select('SELECT id, desempenio, porc_inicial, porc_final FROM escalas_de_valoracion 
-					where deleted_at is null and year_id=? order by orden desc limit 1', [$this->user->year_id])[0];
-		$this->nota_max = $this->nota_max->porc_final;
-		*/
+
+		return $this->escalas_val;
 	}
-	
+
+	private function year()
+	{
+		if ($this->year === null) {
+			$this->year = Year::datos($this->user->year_id);
+		}
+
+		return $this->year;
+	}
+
 
 	public function putDetailedNotasGroup($grupo_id)
 	{
@@ -164,7 +181,7 @@ class Boletines2Controller extends Controller {
 			}
 
 			for ($h=0; $h < $cant_n_o; $h++) { 
-				$des = EscalaDeValoracion::valoracion($asignaturas[$i]->notas_finales[$h]->nota, $this->escalas_val);
+				$des = EscalaDeValoracion::valoracion($asignaturas[$i]->notas_finales[$h]->nota, $this->escalasVal());
 				if ($des) {
 					$asignaturas[$i]->notas_finales[$h]->desempenio = $des->desempenio;
 				} 
@@ -177,7 +194,7 @@ class Boletines2Controller extends Controller {
 			}
 			$asignaturas[$i]->nota_faltante 		= $this->user->nota_minima_aceptada*4 - $asignaturas[$i]->nota_faltante;
 			
-			$des = EscalaDeValoracion::valoracion($asignaturas[$i]->nota_definitiva_anio, $this->escalas_val);
+			$des = EscalaDeValoracion::valoracion($asignaturas[$i]->nota_definitiva_anio, $this->escalasVal());
 			if ($des) {
 				$asignaturas[$i]->nota_definitiva_anio_desempenio = $des->desempenio;
 			}
@@ -225,7 +242,7 @@ class Boletines2Controller extends Controller {
 			$alumno->promedio = $sumatoria_asignaturas / count($alumno->asignaturas);
 		}
 		
-		$des = EscalaDeValoracion::valoracion($alumno->promedio, $this->escalas_val);
+		$des = EscalaDeValoracion::valoracion($alumno->promedio, $this->escalasVal());
 		
 		if ($des) {
 			$alumno->promedio_desempenio = $des->desempenio;
@@ -234,7 +251,7 @@ class Boletines2Controller extends Controller {
 		// COMPORTAMIENTO Y SUS FRASES
 		if ($comport_and_frases) {
 			
-			$comportamiento = NotaComportamiento::nota_comportamiento($alumno->alumno_id, $periodo_id, $this->user->year_id, $this->escalas_val);
+			$comportamiento = NotaComportamiento::nota_comportamiento($alumno->alumno_id, $periodo_id, $this->user->year_id, $this->escalasVal());
 
 			$alumno->comportamiento = $comportamiento;
 			$definiciones = [];
@@ -255,7 +272,7 @@ class Boletines2Controller extends Controller {
 		$alumno->situaciones = Disciplina::situaciones_year($alumno->alumno_id, $this->user->year_id, $periodo_id);
 
 		// Agrupamos por áreas
-		$alumno->areas = Area::agrupar_asignaturas($grupo_id, $asignaturas, $this->escalas_val);
+		$alumno->areas = Area::agrupar_asignaturas($grupo_id, $asignaturas, $this->escalasVal());
 
 		return $alumno;
 	}
@@ -280,7 +297,7 @@ class Boletines2Controller extends Controller {
 				if ($this->user->si_recupera_materia_recup_indicador){
 					if ($periodos[0]->definitiva_year < $this->user->nota_minima_aceptada && $periodos[0]->cant_perdidas_year > 0) {
 						$asignatura->detalle_periodos = $periodos[0];
-						$des = EscalaDeValoracion::valoracion($asignatura->detalle_periodos->definitiva_year, $this->escalas_val);
+						$des = EscalaDeValoracion::valoracion($asignatura->detalle_periodos->definitiva_year, $this->escalasVal());
 
 						if ($des) {
 							$asignatura->detalle_periodos->definitiva_year_desempenio = $des->desempenio;
@@ -351,7 +368,7 @@ class Boletines2Controller extends Controller {
 						if ($periodos[0]->definitiva_year < $year_ant->nota_minima_aceptada && $periodos[0]->cant_perdidas_year > 0) {
 							$asignatura->detalle_periodos = $periodos[0];
 							
-							$des = EscalaDeValoracion::valoracion($asignatura->detalle_periodos->definitiva_year, $this->escalas_val);
+							$des = EscalaDeValoracion::valoracion($asignatura->detalle_periodos->definitiva_year, $this->escalasVal());
 							if ($des) {
 								$asignatura->detalle_periodos->definitiva_year_desempenio = $des->desempenio;
 							}
@@ -449,8 +466,8 @@ class Boletines2Controller extends Controller {
 				try {
 					$la_nota = $nota->nota;
 
-					if (EscalaDeValoracion::valoracion($la_nota, $this->escalas_val)) {
-						$escala = EscalaDeValoracion::valoracion($la_nota, $this->escalas_val)->desempenio;
+					if (EscalaDeValoracion::valoracion($la_nota, $this->escalasVal())) {
+						$escala = EscalaDeValoracion::valoracion($la_nota, $this->escalasVal())->desempenio;
 					}
 				} catch (\Throwable $th) {}
 
@@ -458,7 +475,7 @@ class Boletines2Controller extends Controller {
 					$clase = ' nota-perdida-bold ';
 				}
 
-				if ($this->year->solo_escalas_valorativas) {
+				if ($this->year()->solo_escalas_valorativas) {
 					$la_nota = '';
 				}
 			}

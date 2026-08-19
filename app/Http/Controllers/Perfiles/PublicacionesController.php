@@ -45,28 +45,23 @@ class PublicacionesController extends Controller {
     }
     
 
+    /**
+     * Alias de putUltimas(). MISMA respuesta, otro verbo.
+     *
+     * No es scaffolding: el `GET` fue el verbo real del frontend durante cinco
+     * años y medio —de c116e3f (2018-10-12) a c09718e (2024-03-05), en
+     * myvc_front—, así que cualquier colegio con un front de esa época sigue
+     * llamando por aquí.
+     *
+     * Delega en vez de repetir. Antes eran 21 líneas duplicadas palabra por
+     * palabra, y eso es peligroso aquí en concreto: **esta respuesta alimenta el
+     * formulario público de prematrícula**, no solo las noticias del login. El
+     * desplegable de "Grupo a prematricular" sale de `year.grados_sig`. Con dos
+     * copias, quien tocara una dejaría a los colegios del otro verbo con una
+     * respuesta distinta, y sin forma de notarlo.
+     */
     public function getUltimas(){
-        # Las publicaciones
-        $publicaciones = Publicaciones::ultimas_publicaciones('Todos');
-        
-        $year = DB::select('SELECT id, prematr_nuevos, year FROM years WHERE actual=1 and deleted_at is null');
-        
-        if (count($year) > 0) {
-            $year = $year[0];
-            if ($year->prematr_nuevos) {
-                
-				// Grupos próximo año
-				$consulta = 'SELECT g.id, g.nombre, g.abrev, g.orden, g.grado_id, g.year_id, g.titular_id, g.created_at, g.updated_at
-                    from grupos g
-                    inner join years y on y.id=g.year_id and y.year=:anio and y.deleted_at is null
-                    where g.deleted_at is null order by g.orden';
-                
-                $grados_sig = DB::select($consulta, [':anio'=> ($year->year+1) ] );
-                $year->grados_sig = $grados_sig;
-            }
-        }
-
-        return ['publicaciones' => $publicaciones, 'year' => $year];
+        return $this->putUltimas();
     }
     
 

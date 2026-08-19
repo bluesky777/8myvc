@@ -22,7 +22,7 @@
  * no en cada regeneración.
  *
  * Uso (dentro del contenedor, que es donde resuelve DB_HOST):
- *   docker exec 8myvc-app-1 php tools/generar-semilla-test.php
+ *   docker exec 8myvc-app-1 php tools/generar-seed-test.php
  */
 
 require __DIR__ . '/../vendor/autoload.php';
@@ -266,7 +266,7 @@ function revisarFuga(array $palabrasPii, string $tabla, string $columna, $valor,
  * Orden determinista para el volcado.
  *
  * Sin ORDER BY, MySQL devuelve las filas en el orden que le conviene, y no
- * tiene por qué ser el mismo dos veces. Eso hacía que regenerar la semilla
+ * tiene por qué ser el mismo dos veces. Eso hacía que regenerar el seed
  * produjera un diff de 2.354 líneas sin que cambiara un solo dato, y con eso
  * el fichero deja de ser revisable.
  *
@@ -395,7 +395,7 @@ $fh = fopen(SALIDA, 'w');
 fwrite($fh, <<<CAB
 -- Semilla de datos para los tests de contrato.
 --
--- GENERADO. No editar a mano: `php tools/generar-semilla-test.php`.
+-- GENERADO. No editar a mano: `php tools/generar-seed-test.php`.
 --
 -- Es una rebanada anonimizada de la base real, anclada en un grupo de un año.
 -- Los datos personales están sustituidos por valores derivados del id; nada de

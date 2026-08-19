@@ -10,9 +10,9 @@
 
 El proyecto **no es difícil de migrar por el framework**, es difícil por tres cosas concretas:
 
-1. **No hay red de seguridad.** 0 tests reales, y `php artisan route:list` **está roto hoy** (los constructores llaman `User::fromToken()`, que hace `abort(401)` sin token). Sin poder ni listar rutas, "que no se dañe nada" no es verificable — es una esperanza.
+1. **No hay red de seguridad.** 0 tests reales, y `php artisan route:list` **está roto hoy** (los constructores llaman `User::fromToken()`, que hace `abort(401)` sin token). Sin poder ni listar rutas, "que no se dañe nada" no es verificable — es una esperanza. *(Al 18 ago 2026: hay 57 tests de contrato y `route:list` funciona.)*
 2. **El esquema real de la BD no existe en el repo.** 90 tablas vivas contra 3 archivos de migración. La tabla `migrations` tiene 47 filas. La estructura solo existe en producción.
-3. **La autenticación está hecha a mano y es opcional.** No hay middleware `auth` en ninguna ruta; cada controlador decide si autentica. 35 controladores nunca lo hacen — entre ellos `RolesController` y `PermissionsController`, que están ruteados y permiten **asignarse roles y permisos sin token**.
+3. **La autenticación está hecha a mano y es opcional.** No hay middleware `auth` en ninguna ruta; cada controlador decide si autentica. 35 controladores nunca lo hacen — entre ellos `RolesController` y `PermissionsController`, que están ruteados y permiten **asignarse roles y permisos sin token**. *(Al 18 ago 2026: el guard va por defecto en toda la API, con quince excepciones enumeradas y testeadas.)*
 
 La buena noticia: el código casi no usa superficie del framework. 990 llamadas a `DB::select/insert/update`, cero jobs, cero events, cero listeners, cero broadcasting, 2 usos de validación. **Los breaking changes de Laravel 9→13 casi no lo tocan.** El riesgo real está en los paquetes, no en el framework.
 
@@ -51,7 +51,7 @@ Total realista para las fases 0–5: **~4 semanas de trabajo enfocado.**
 | Migraciones | **3 archivos** vs **90 tablas** vivas vs **47 filas** en `migrations` |
 | Tablas más grandes | `notas` 1.163.307 · `notas_finales` 127.810 · `ausencias` 52.118 · `subunidades` 37.197 |
 | Jobs / Events / Listeners | ninguno · `QUEUE_CONNECTION=sync` |
-| `php artisan route:list` | **falla** (`No existe Token`, `app/User.php:85`) |
+| `php artisan route:list` | **falla** (`No existe Token`, `app/User.php:85`) — *arreglado el 18 ago 2026* |
 
 ### Los tres hallazgos que definen el plan
 
@@ -70,6 +70,10 @@ public function __construct()
 }
 ```
 Laravel instancia el controlador para leer su middleware. Por eso `route:list` explota, por eso `route:cache` no se puede usar, y por eso cualquier comando de artisan que toque rutas falla. **Esto se arregla en la Fase 2 y es prerrequisito del caché de rutas.**
+
+> **Arreglado el 18 ago 2026.** `$this->user` lo resuelve ahora la primera
+> lectura, con el trait `Concerns\ResuelveElUsuario`. `route:list` imprime las
+> 533 rutas y `route:cache` funciona.
 
 ---
 
@@ -310,6 +314,30 @@ Si no se usan (muy probable — es una API pura consumida por AngularJS con URLs
 
 ### Fase 2 — Rutas organizadas + middleware de auth real · 2–3 días
 
+> **Estado: terminada el 18 ago 2026.** Los cinco puntos están hechos, con dos
+> diferencias respecto a lo que dice abajo:
+>
+> - El punto 2 no acabó siendo un middleware `EnsureUserContext` que mete al
+>   usuario en el contenedor, sino el trait `Concerns\ResuelveElUsuario`, que lo
+>   resuelve en la primera lectura de `$this->user`, más una memoria en la propia
+>   petición dentro de `User::fromToken()`. Sale igual de barato y no obliga a
+>   tocar los ~300 sitios que leen `$this->user`.
+> - El punto 4 se hizo al revés de como está escrito: en vez de aplicar el guard
+>   ruta por ruta y dejar públicas las demás, va **por defecto a toda la API** y
+>   las excepciones se marcan una a una. Son quince, y son un test.
+>
+> El aviso del riesgo de abajo —"correr una semana con un middleware que solo
+> registra"— se descartó por lo que explica
+> [04-auditoria-autenticacion.md](04-auditoria-autenticacion.md): hay semanas en
+> que los colegios no usan el sistema, así que la ausencia de registros no
+> distingue "nadie llama a esta ruta" de "nadie entró esa semana". La lista real
+> la dio la sesión de `myvc_front` leyendo el frontend.
+>
+> Salió además una auditoría que el plan no preveía: cuatro guards de
+> autorización escritos que no se ejecutaban nunca. Está en
+> [06-autorizacion.md](06-autorizacion.md), con el paso siguiente sobre roles y
+> permisos.
+
 1. Partir el archivo generado en `routes/api/*.php` según §2.5.
 2. Crear el middleware `EnsureUserContext` que resuelve el usuario **una vez por request** y lo mete en el contenedor.
 3. **Sacar `User::fromToken()` de los constructores.** Los 33 constructores pasan de:
@@ -369,6 +397,27 @@ El backend solo escribe `logout_at` en `historiales`. El JWT **sigue siendo vál
 ### Fase 4 — Salto de framework 8 → 13 · 4–6 días
 
 Un major por commit (8→9→10→11→12→13), con la suite de contrato verde en cada uno.
+
+> **⚠️ Bloqueante de despliegue, no de código: `vendor/` está compartido entre
+> colegios por symlink.** Hay una carpeta real y los demás colegios la apuntan
+> (Joseth, 18 ago 2026; ver [`docs/DESPLIEGUE.md`](../DESPLIEGUE.md)). `app/` sí
+> es copia real en cada uno.
+>
+> O sea que **subir el framework lo sube para todos los colegios en el mismo
+> instante**, mientras que el `app/` adaptado llega colegio a colegio. Esta fase
+> no se puede escalonar como las demás: o se rompen los colegios que aún no
+> tienen el código nuevo, o hay que desplegar todos a la vez y sin marcha atrás
+> por colegio.
+>
+> **Antes de empezar la Fase 4 hay que dejar de compartir `vendor/`**: una
+> carpeta real por colegio. Con eso el salto se despliega como todo lo demás —
+> uno por uno, y se puede volver atrás en el que falle. Sin eso, esta fase es un
+> big-bang de los tres clientes a la vez, que es justo lo que el plan evita en
+> todas las demás.
+>
+> Falta confirmar si hay algo más compartido (`storage/`, `bootstrap/cache/`).
+> `bootstrap/cache/` importa desde la Fase 2: es donde caen `route:cache` y
+> `config:cache`, y compartida serviría las rutas de un colegio en otro.
 
 **Tabla de dependencias — versiones y restricciones consultadas en Packagist el 2026-08-17:**
 

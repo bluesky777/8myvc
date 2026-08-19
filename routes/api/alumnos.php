@@ -102,17 +102,23 @@ Route::put('enfermeria/guardar-valor-suceso', [EnfermeriaController::class, 'put
 Route::delete('enfermeria/destroy/{id}', [EnfermeriaController::class, 'deleteDestroy']);
 
 // PrematriculasController
-Route::put('prematriculas/alumnos-con-grado-anterior', [PrematriculasController::class, 'putAlumnosConGradoAnterior']);
-Route::put('prematriculas/alumnos-grado-anterior', [PrematriculasController::class, 'putAlumnosGradoAnterior']);
-Route::put('prematriculas/llevo-formulario', [PrematriculasController::class, 'putLlevoFormulario']);
+//
+// Las tres las cerraba —o eso pretendía— un `return 'No tienes permiso';` en el
+// constructor, que no detiene nada. Ver App\Http\Middleware\ExigirPersonal.
+Route::put('prematriculas/alumnos-con-grado-anterior', [PrematriculasController::class, 'putAlumnosConGradoAnterior'])->middleware('auth.personal');
+Route::put('prematriculas/alumnos-grado-anterior', [PrematriculasController::class, 'putAlumnosGradoAnterior'])->middleware('auth.personal');
+Route::put('prematriculas/llevo-formulario', [PrematriculasController::class, 'putLlevoFormulario'])->middleware('auth.personal');
 
 // RequisitosController
-Route::put('requisitos', [RequisitosController::class, 'putIndex']);
-Route::post('requisitos/alumno', [RequisitosController::class, 'postAlumno']);
-Route::put('requisitos/listado-observaciones', [RequisitosController::class, 'putListadoObservaciones']);
-Route::post('requisitos/store', [RequisitosController::class, 'postStore']);
-Route::put('requisitos/update', [RequisitosController::class, 'putUpdate']);
-Route::delete('requisitos/destroy/{id}', [RequisitosController::class, 'deleteDestroy']);
+//
+// Ninguno de sus seis métodos comprueba nada: el único intento estaba en el
+// constructor y no se ejecutaba. Un alumno podía borrar requisitos de matrícula.
+Route::put('requisitos', [RequisitosController::class, 'putIndex'])->middleware('auth.personal');
+Route::post('requisitos/alumno', [RequisitosController::class, 'postAlumno'])->middleware('auth.personal');
+Route::put('requisitos/listado-observaciones', [RequisitosController::class, 'putListadoObservaciones'])->middleware('auth.personal');
+Route::post('requisitos/store', [RequisitosController::class, 'postStore'])->middleware('auth.personal');
+Route::put('requisitos/update', [RequisitosController::class, 'putUpdate'])->middleware('auth.personal');
+Route::delete('requisitos/destroy/{id}', [RequisitosController::class, 'deleteDestroy'])->middleware('auth.personal');
 
 // CarteraController
 Route::put('cartera/alumnos', [CarteraController::class, 'putAlumnos']);
@@ -126,7 +132,9 @@ Route::put('detalles/eliminar-notas-periodo', [DetallesController::class, 'putEl
 Route::put('detalles/grupos-periodos', [DetallesController::class, 'putGruposPeriodos']);
 
 // NotasActualesAlumnosController
-Route::put('notas-actuales-alumnos/{grupo_id}', [NotasActualesAlumnosController::class, 'putIndex']);
+// Misma familia que los boletines: sirve las notas de los alumnos que se le
+// pidan por `requested_alumnos`.
+Route::put('notas-actuales-alumnos/{grupo_id}', [NotasActualesAlumnosController::class, 'putIndex'])->middleware('boletin.propio');
 
 // PromovidosController
 Route::put('promovidos/calcular-grupo', [PromovidosController::class, 'putCalcularGrupo']);

@@ -4,17 +4,12 @@ use Request;
 use DB;
 use App\Http\Controllers\Controller;
 
-use App\User;
 use Carbon\Carbon;
 use \Log;
+use App\Http\Controllers\Concerns\ResuelveElUsuario;
 
 class PiarsAlumnoUtils {
-	public $user;
-
-	public function __construct()
-	{
-		$this->user = User::fromToken();
-	}
+	use ResuelveElUsuario;
 
 	public function getAlumnosDeGrupo($grupo_id)
 	{

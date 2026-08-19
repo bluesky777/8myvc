@@ -2,7 +2,6 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\CiudadesController;
-use App\Http\Controllers\EstadosCivilesController;
 use App\Http\Controllers\PaisesController;
 use App\Http\Controllers\TipoDocumentoController;
 
@@ -37,20 +36,8 @@ Route::get('ciudades/por-departamento/{departamento}', [CiudadesController::clas
 
 // TipoDocumentoController
 Route::get('tiposdocumento', [TipoDocumentoController::class, 'index']);
-Route::get('tiposdocumento/create', [TipoDocumentoController::class, 'create']);
 Route::post('tiposdocumento', [TipoDocumentoController::class, 'store']);
-Route::get('tiposdocumento/{tiposdocumento}', [TipoDocumentoController::class, 'show']);
-Route::get('tiposdocumento/{tiposdocumento}/edit', [TipoDocumentoController::class, 'edit']);
 Route::put('tiposdocumento/{tiposdocumento}', [TipoDocumentoController::class, 'update']);
 Route::patch('tiposdocumento/{tiposdocumento}', [TipoDocumentoController::class, 'update']);
 Route::delete('tiposdocumento/{tiposdocumento}', [TipoDocumentoController::class, 'destroy']);
 
-// EstadosCivilesController
-Route::get('estados_civiles', [EstadosCivilesController::class, 'index']);
-Route::get('estados_civiles/create', [EstadosCivilesController::class, 'create']);
-Route::post('estados_civiles', [EstadosCivilesController::class, 'store']);
-Route::get('estados_civiles/{estados_civile}', [EstadosCivilesController::class, 'show']);
-Route::get('estados_civiles/{estados_civile}/edit', [EstadosCivilesController::class, 'edit']);
-Route::put('estados_civiles/{estados_civile}', [EstadosCivilesController::class, 'update']);
-Route::patch('estados_civiles/{estados_civile}', [EstadosCivilesController::class, 'update']);
-Route::delete('estados_civiles/{estados_civile}', [EstadosCivilesController::class, 'destroy']);

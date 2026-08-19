@@ -1,7 +1,284 @@
 # Pendientes de despliegue
 
-Cosas que hay que hacer **en el servidor**, no en el código. Se acumulan aquí para
-no perderlas entre PRs.
+## Topología: cómo está montado esto
+
+**Léelo antes de tocar nada.** Casi todas las decisiones de despliegue de este
+proyecto se explican por aquí, y es lo que más caro sale suponer mal.
+
+### Un colegio = un subdominio con todo dentro
+
+Hay **dos alojamientos compartidos con cPanel**. A cada colegio o cliente se le crea
+**un subdominio con su carpeta**, y ahí dentro va todo desde cero:
+
+```
+<colegio>.dominio/
+├── 8myvc/          el backend (este repo)
+└── up/             el frontend web (myvc_front, renombrado)
+```
+
+Y **su propia base de datos**, separada de la de los demás.
+
+### Qué está copiado y qué está compartido por symlink
+
+**Aquí no basta con "cada colegio tiene lo suyo": hay una parte compartida y una
+copiada, y se comportan al revés.** Confirmado por Joseth el 18 ago 2026.
+
+| | Cómo está | Un cambio llega a… |
+|---|---|---|
+| `app/`, `routes/`, `config/`, `.env` | **Copia real en cada colegio** | …solo al colegio donde se despliega |
+| `vendor/` | **Depende del colegio.** 5 apuntan por symlink a `/home/micolev1/laravel_compartido`; los otros 11 tienen carpeta propia | …a los 5 del symlink de golpe. A los demás, solo si se les toca uno por uno |
+
+Lo que era falso era la creencia de que `app/` también se compartía por symlink
+—un proyecto llamado `coal` común a todos—. `app/` es copia real.
+
+Y de `vendor/` resultó ser falso lo contrario: **no hay una sola carpeta real, hay
+doce**, y la mayoría de los colegios no usa la compartida.
+
+#### Inventario real de `vendor/`, 18 ago 2026
+
+Sacado del servidor, no supuesto. Los 16 colegios tienen el mismo commit de `app/`
+—`8b5a060`—, y aun así:
+
+| Estado de `vendor/` | Cuántos | Colegios |
+|---|---|---|
+| Symlink a `/home/micolev1/laravel_compartido`, al día | 5 | `coal`, `colbosque`, `comad-san-andres`, `eal`, `maranathaarauca` |
+| Carpeta propia, al día | 2 | `amiguitosdejesus`, `semillitasdedios` |
+| **Carpeta propia, congelada en 2021** | **9** | `bethelexplora`, `cads-itagui`, `casb-medellin`, `caz-zaragoza`, `coabsaravena`, `coljordan`, `fortul`, `inseaq`, `instival` |
+
+`instival` además **no es un repositorio git**, así que no recibe `git pull`: es el
+único colegio que sigue sin la PR #6.
+
+**Cómo se descubrió.** Al pasar el servidor a PHP 8.5, esos 9 colegios empezaron a
+devolver `Return type of Illuminate\Support\Collection::offsetExists($key) should
+either be compatible with…` en cada petición, y desde el arranque. Es un Laravel
+anterior a los parches de compatibilidad con PHP 8.1 de finales de 2021: **no
+arranca en 8.1 ni en nada posterior**. Nadie lo sabía porque en PHP 8.0 funcionaban.
+
+> **Consecuencia 1, la que más se olvida: un arreglo fusionado NO está
+> desplegado.** Llega a cada colegio por su propio despliegue. Un agujero cerrado
+> en `main` sigue abierto en todos los colegios que aún no han recibido el código.
+> "Arreglado" y "desplegado en el colegio X" son cosas distintas.
+
+> **Consecuencia 2, la contraria y menos evidente: un `composer` sobre la carpeta
+> compartida cambia a cinco colegios de golpe.** El que corra `composer install` o
+> `composer update` sobre `/home/micolev1/laravel_compartido` está tocando la
+> producción de esos cinco en ese instante, incluidos los que sigan con código de
+> `app/` de hace meses. Sobre una carpeta propia solo afecta a su colegio — y por eso
+> mismo las carpetas propias se quedan atrás sin que nadie se entere.
+
+**Las dos juntas son el riesgo real:** `vendor/` avanza para todos a la vez
+mientras `app/` avanza colegio a colegio, así que existe siempre la combinación
+"dependencias nuevas + código viejo". Cualquier cambio de dependencia tiene que
+ser compatible con **el `app/` más antiguo que haya desplegado en algún colegio**,
+y nadie lleva ese inventario.
+
+Por lo mismo que `app/` es copia, cualquier cambio de configuración —`MAIL_*`,
+`CORS_ALLOWED_ORIGINS`, `FRONTEND_URL`— hay que hacerlo **en el `.env` de cada
+colegio**, uno por uno.
+
+#### Lo que hay que confirmar antes de la Fase 4
+
+Esto no es un detalle de despliegue: **decide cómo se puede hacer el salto de
+Laravel 8 a 13.** Con `vendor/` compartido, subir el framework lo sube para todos
+los colegios en el mismo instante, mientras que el `app/` adaptado llega colegio
+a colegio. Eso no se puede escalonar: o se rompen los colegios que aún no tienen
+el código nuevo, o hay que desplegar los 3 a la vez y sin marcha atrás por
+colegio.
+
+La salida limpia es **dejar de compartir `vendor/` antes de la Fase 4**: darle a
+cada colegio su propia carpeta real, y con eso el salto de framework se despliega
+como todo lo demás, uno por uno y con vuelta atrás por colegio.
+
+Falta comprobar en el servidor, y conviene hacerlo antes de planificar la Fase 4:
+
+- Si hay **algo más** compartido por symlink además de `vendor/` (`storage/`,
+  `public/`, `bootstrap/cache/`). `bootstrap/cache/` importa especialmente ahora:
+  ahí es donde caen `route:cache` y `config:cache`, y si estuviera compartida
+  un colegio serviría las rutas de otro.
+- ~~**En cuál de los dos alojamientos** está la carpeta real, y qué colegios cuelgan
+  de ella.~~ **Contestado el 18 ago 2026**: en el host de `micolev1` la compartida es
+  `/home/micolev1/laravel_compartido` y solo cuelgan 5 colegios; los otros 11 tienen
+  la suya. Ver el inventario de arriba. Falta hacer lo mismo en el segundo host.
+
+**El matiz que cambió el inventario:** 11 de 16 colegios ya tienen carpeta propia, así
+que "dejar de compartir `vendor/`" está hecho en dos tercios… pero de la peor manera,
+porque 9 de esas carpetas llevan cinco años sin tocarse. Dejar de compartir no basta:
+hay que **igualarlas primero**, y que exista forma de comprobar que siguen iguales.
+Para eso se versiona `composer.lock`, más abajo.
+
+### Cuatro clientes, no uno
+
+| Cliente | Qué es | Despliegue | ¿Comparte host con la API? |
+|---|---|---|---|
+| **`myvc_front`** | Web, AngularJS 1.8 + Vite | Uno por colegio, en la carpeta `up` de su subdominio | **Sí**, siempre |
+| **`myvc_front_2`** | Web, **Angular 17** · solo la funcionalidad de **PIAR** | Uno por colegio, en la carpeta `plus` de su subdominio | **Sí**, siempre |
+| **`myvc_flutter`** | App móvil y web, Flutter | **Una sola para todos los colegios** | **No** |
+| `8myvc` | Esta API | Uno por colegio, carpeta `8myvc` | — |
+
+**`myvc_front_2` es fácil de olvidar** porque no se parece a los otros: es una
+aplicación aparte, en Angular moderno, que cubre **una sola funcionalidad** —el
+Plan Individual de Ajustes Razonables— y se publica en `plus/` junto a `up/`. La
+intención a futuro es **absorber su funcionalidad en el proyecto principal cuando
+`myvc_front` se migre a Angular** (Joseth, 18 ago 2026); hasta entonces son dos
+front distintos sobre la misma API.
+
+Consume **catorce rutas**, todas de `piars-*` salvo `grupos`, `years` y `login`.
+Manda `Authorization: Bearer` en todas por un interceptor
+(`core/interceptors/auth.interceptor.ts`), igual que `myvc_front`. Es para el
+**personal**: comprueba `tipo === 'Profesor'` contra el titular del grupo
+(`core/services/profile.service.ts`).
+
+> Sus scripts de build nombran **seis subdominios** —`casb`, `coab`, `cads`,
+> `coljordan`, `lal` y `coal`—, cada uno con su `--base-href`. Es el inventario
+> de colegios más concreto que hay escrito en algún repo, y de paso aclara de
+> dónde salía la confusión del proyecto "coal compartido": **`coal` es un
+> colegio**, no un proyecto común.
+
+La app Flutter es la que rompe la intuición: **no se despliega por colegio**. Es una
+sola aplicación, y **en la pantalla de login el usuario elige el servidor de su
+colegio**; a partir de ahí todo apunta a esa URI. Construye la base así
+(`lib/Http/Server.dart`):
+
+```dart
+Server.urlApi = '$servidor/8myvc/public/api';
+```
+
+O sea que su origen **no** es el subdominio del colegio, y en la build nativa no tiene
+origen web en absoluto.
+
+### Por qué esto importa para el código
+
+1. **Guardas que comparan el origen.** `ruta_frontend_segura()` exige que el host del
+   parámetro `ruta` coincida con el de la petición. Hoy no molesta a nadie, pero **no
+   porque todos compartan host** —la app Flutter no lo hace—, sino porque **la app
+   Flutter no tiene recuperación de contraseña**, y esa es la única función que usa esa
+   comprobación. Si algún día se le añade, dará 422 en todos los colegios y hará falta
+   `FRONTEND_URL` en cada `.env`, o una excepción para clientes sin origen web.
+
+2. **Cualquier cambio que rompa el contrato del front** hay que coordinarlo **por
+   colegio**, no una vez: los dos front web se publican colegio a colegio, pero la app
+   Flutter se actualiza para todos a la vez. Un cambio que rompa a la app Flutter rompe
+   a todos los colegios de golpe.
+
+   Y son **dos** front web, no uno: un cambio en las rutas `piars-*` no lo nota
+   `myvc_front` —no las usa— sino `myvc_front_2`, que se publica aparte.
+
+3. **Orden de despliegue.** Cuando un cambio del backend habilita algo que el front
+   necesita, en cada colegio va **primero el backend**. Al revés queda roto.
+
+### Un punto único de fallo fuera de este repo
+
+Antes de elegir colegio —y por tanto antes de cualquier login—, la app Flutter pide
+el directorio de colegios a:
+
+```
+POST https://micolevirtual.com/app/listado_colegios.php
+```
+
+Es un PHP suelto en un host central: no es Laravel, no está en ningún backend por
+colegio, y no aparece en ninguna auditoría de rutas de este repo.
+
+**Si ese fichero se cae, la app móvil no arranca en ningún colegio**, porque no
+puede ni ofrecer la lista de servidores donde elegir. El front web no se ve
+afectado: cada colegio tiene el suyo en su propio subdominio.
+
+### Cómo comprobar qué hay desplegado en un colegio
+
+No hay inventario en el repo. La única fuente fiable es mirar el subdominio del colegio
+directamente.
+
+**Joseth confirma (18 ago 2026) que todos los colegios se actualizan siempre con las
+últimas PRs.** No hay colegios que se queden atrás a propósito.
+
+Eso acorta la ventana, pero **no la elimina**: entre que una PR se fusiona y llega a
+cada subdominio hay un despliegue de por medio, y son varios. Sigue siendo cierto que
+*fusionado* no es *desplegado*, y sigue haciendo falta desplegar el backend antes que
+el front en cada colegio.
+
+### Inventario: qué código y qué dependencias tiene cada colegio
+
+Dos comandos para pegar tal cual en el servidor. El primero da commit, estado de
+`vendor/` y si es carpeta propia o symlink:
+
+```bash
+for d in /home/micolev1/*/8myvc; do
+  printf '%-28s ' "$(basename $(dirname $d))"
+  printf '%-10s ' "$(git -C "$d" log --oneline -1 --format=%h)"
+  grep -q 'ReturnTypeWillChange' "$d/vendor/laravel/framework/src/Illuminate/Collections/Collection.php" 2>/dev/null \
+    && printf 'vendor OK    ' || printf 'vendor VIEJO '
+  [ -L "$d/vendor" ] && printf 'symlink -> %s\n' "$(readlink "$d/vendor")" || printf 'vendor real\n'
+done
+```
+
+`ReturnTypeWillChange` vale de marcador porque es el atributo que Laravel añadió a
+finales de 2021 para poder correr en PHP 8.1. Si no está, ese `vendor/` es anterior.
+
+El segundo arranca cada aplicación y le pide la versión, así que es **inventario y
+prueba de arranque a la vez**: si un `vendor/` está roto, revienta justo ahí.
+
+```bash
+for d in /home/micolev1/*/8myvc; do
+  printf '%-30s ' "$(basename $(dirname $d))"
+  ( cd "$d" && php artisan --version 2>&1 | head -1 )
+done
+```
+
+Lo esperado es que los 16 digan `Laravel Framework 8.83.29`, que es lo que fija
+`composer.lock` y lo único que prueba el CI.
+
+### `composer.lock` va versionado desde ahora
+
+Estuvo en `.gitignore` desde 2021. La consecuencia no se vio hasta agosto de 2026:
+**sin lock en el repositorio no existe ninguna fuente de verdad sobre qué versiones
+debe tener un colegio**, y `git pull` no puede ni corregir la deriva ni detectarla,
+porque `vendor/` también está ignorado —eso con razón—.
+
+El resultado fueron 9 de 16 colegios congelados en un Laravel de 2021 sin que nadie
+lo supiera, hasta que un cambio de versión de PHP los tumbó a todos a la vez.
+
+Un detalle que lo confirma: `.github/workflows/ci.yml` ya cacheaba por
+`hashFiles('composer.lock')`. Como el fichero no estaba en el repo, esa clave era
+constante y `composer install` resolvía sin lock. Versionarlo arregla también eso.
+
+#### Cómo igualar un colegio que se quedó atrás
+
+`vendor/` es portable: `vendor/composer` resuelve todo con `$vendorDir =
+dirname(__DIR__)` y no guarda ni una ruta absoluta. Se puede copiar de un colegio
+sano a uno atrasado **sin ejecutar `composer` en el servidor**.
+
+Con respaldo y vuelta atrás, de uno en uno:
+
+```bash
+d=/home/micolev1/COLEGIO.micolevirtual.com/8myvc
+cp -a /home/micolev1/laravel_compartido "$d/vendor.nuevo"
+mv "$d/vendor" "$d/vendor.viejo"
+mv "$d/vendor.nuevo" "$d/vendor"
+( cd "$d" && php artisan config:clear && php artisan --version )
+# si algo va mal:
+#   mv "$d/vendor" "$d/vendor.malo" && mv "$d/vendor.viejo" "$d/vendor"
+```
+
+Son **70 MB por colegio**; los 9 atrasados suman unos 630 MB. Mirar la cuota antes.
+
+**Copia real y no symlink, a propósito:** da el mismo resultado pero no aumenta el
+número de colegios atados a la carpeta compartida, que es justo lo que hay que
+deshacer antes de la Fase 4.
+
+**Comprobar uno y entrar de verdad a la aplicación antes de seguir con el resto.**
+Esos colegios llevan corriendo código nuevo sobre un framework de 2021, combinación
+que no prueba nadie; igualar el `vendor/` los devuelve a lo que sí está probado, pero
+el cambio hay que verlo funcionar.
+
+#### Si `composer install` es inevitable
+
+Comprobar primero si ese `vendor/` es un symlink:
+
+```bash
+readlink -f /home/micolev1/COLEGIO.micolevirtual.com/8myvc/vendor
+```
+
+Si apunta a `/home/micolev1/laravel_compartido`, ese `composer install` **toca la
+producción de los cinco colegios que cuelgan de ahí**, no solo el que tienes delante.
 
 ---
 
@@ -136,12 +413,94 @@ Avisar a la sesión/persona que lleve `myvc_front` cuando cada colegio esté lis
 
 ---
 
-## Nota general sobre despliegues
+## Del PR #7 (auditoría de autenticación)
 
-Cada colegio tiene su **propia copia real** de `app/` — no hay symlink a un código
-común. Circulaba la creencia contraria (un proyecto compartido llamado `coal`) y es
-falsa.
+### 1. Toda la API pasa a exigir token, menos quince rutas
 
-Implicación: **un arreglo fusionado no está desplegado.** Llega a cada colegio por su
-propio despliegue, así que un agujero cerrado en `main` sigue abierto en cualquier
-colegio que aún no haya recibido el código.
+Este PR sí cambia el comportamiento. El guard `auth.token` se aplica en grupo a
+las 533 rutas, y las excepciones se marcan una a una con
+`->withoutMiddleware('auth.token')`. Son quince: nueve de entrada al sistema
+(`login/*`, `publicaciones/ultimas`) y seis de tardanzas, que autentican con
+usuario y contraseña en el cuerpo de cada petición. La lista está en
+`docs/migracion/04-auditoria-autenticacion.md`.
+
+**El riesgo de que el front llame sin token está descartado**, y no por los
+tests: `myvc_front` pone `Authorization: Bearer` como cabecera **por defecto**
+de `$http` (`AuthService.js`), tanto al hacer login como al arrancar con un token
+guardado. No hay llamada autenticada que pueda salir sin él.
+
+**Comprobado además golpeando las 533 rutas con un token real de cada tipo de
+usuario, antes y después de esta rama.** Para el personal —Usuario y Profesor—
+cambia **una sola ruta en 533**, y a mejor: `PUT login/logout`, de 500 a 200.
+Para alumnos y acudientes cambian 31, que son exactamente los agujeros que se
+cierran. El detalle está en el cuerpo del PR.
+
+### 2. Lo que cambia para alumnos y acudientes
+
+- **Un alumno ya no puede pedir el boletín de un compañero, ni un acudiente el de
+  quien no es su acudido, ni con deuda.** Estaba escrito desde hace años y no se
+  ejecutaba. El front ya comprobaba el paz y salvo antes de llamar, así que una
+  familia al día no nota nada.
+- **"Ver mi boletín" empieza a funcionar.** Respondía 500 desde 2021.
+- Alumnos y acudientes reciben **403** en `requisitos/*`, `prematriculas/*`,
+  `piars-grupos/*` y `certificados-persona`, donde antes entraban.
+
+### 3. `login/ver-pass` se renombra a `login/recuperar-clave` — alias temporal
+
+El nombre viejo engañaba: no muestra ninguna contraseña, manda el correo de
+reseteo. **Las dos rutas funcionan**, apuntan al mismo método, así que el
+backend se puede desplegar antes que el front.
+
+**El alias se borra cuando el front de TODOS los colegios use la ruta nueva.**
+Como cada colegio publica su front por separado, hay que confirmarlo colegio a
+colegio, no una vez. `tests/Contrato/RecuperarClaveTest.php` falla el día que se
+borre, como recordatorio de que hay que comprobarlo.
+
+### 4. El reseteo ya no dice si un correo existe — cambia lo que ve el usuario
+
+Antes devolvía `'No existe'` para un correo no registrado y `'Enviado'` para uno
+registrado, y con eso cualquiera podía averiguar qué correos están dados de alta
+en el colegio probándolos uno a uno. **Ahora devuelve `'Enviado'` en ambos
+casos.**
+
+Si el front muestra un mensaje distinto según la respuesta, hay que cambiarlo:
+ya no puede decir "ese correo no está registrado". Lo correcto es un mensaje
+neutro del tipo *"Si el correo está registrado, te llegará un enlace"*.
+
+### 5. Activar `route:cache` y `config:cache` — PENDIENTE, y es la ganancia
+
+Hasta este PR `php artisan route:list` **abortaba con 401**: Laravel instancia el
+controlador para leerle el middleware y 24 constructores llamaban a
+`User::fromToken()`. Sin poder listar las rutas, `route:cache` era imposible.
+
+Ya no. Las dos cachés se pueden activar, y son las dos optimizaciones más baratas
+que da el framework (`docs/migracion/02-plan-rendimiento.md`, punto 3):
+
+```bash
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+php artisan event:cache
+```
+
+**Hay que volver a ejecutarlas en CADA despliegue, después de copiar el código.**
+Una caché de rutas vieja sirve las rutas viejas y no hay ningún síntoma que lo
+delate: la aplicación responde, simplemente responde lo de antes. Como el
+despliegue aquí es copiar ficheros por colegio, el paso hay que añadirlo a mano
+en cada uno.
+
+Si algo va raro después de desplegar, lo primero es `php artisan route:clear &&
+php artisan config:clear` y volver a probar: si con eso funciona, es la caché.
+
+**Comprobado que la suite pasa entera con `route:cache` activo**, que es lo que
+había que verificar: las quince excepciones se marcan con `withoutMiddleware()`,
+y si eso no sobreviviera al cacheado se cerraría la entrada al sistema.
+
+**`config:cache` NO se ejecuta en desarrollo**, y menos antes de los tests:
+congela el `.env`, así que `phpunit.xml` deja de poder apuntar a la base de
+tests y la suite iría contra la base de desarrollo. No llega a pasar —
+`CasoDeContrato` aborta al ver que la base no acaba en `_testing`— pero el
+mensaje despista si no se sabe de dónde viene. En producción sí, y ahí es
+seguro: web y CLI cargan el mismo `php.ini` (ver más arriba).
+
+---

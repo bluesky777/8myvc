@@ -74,8 +74,13 @@ Route::put('publicaciones/delete', [PublicacionesController::class, 'putDelete']
 Route::put('publicaciones/guardar-edicion', [PublicacionesController::class, 'putGuardarEdicion']);
 Route::put('publicaciones/restaurar', [PublicacionesController::class, 'putRestaurar']);
 Route::put('publicaciones/store', [PublicacionesController::class, 'putStore']);
-Route::put('publicaciones/ultimas', [PublicacionesController::class, 'putUltimas']);
-Route::get('publicaciones/ultimas', [PublicacionesController::class, 'getUltimas']);
+// Las pinta la propia pantalla de login, con el usuario aún sin autenticar, y su
+// respuesta alimenta además el formulario público de prematrícula (el desplegable
+// de grupo sale de year.grados_sig). Los dos verbos siguen abiertos porque el GET
+// fue el verbo real del front durante cinco años y medio y devuelve exactamente
+// lo mismo. Ver docs/migracion/04-auditoria-autenticacion.md §5.
+Route::put('publicaciones/ultimas', [PublicacionesController::class, 'putUltimas'])->withoutMiddleware('auth.token');
+Route::get('publicaciones/ultimas', [PublicacionesController::class, 'getUltimas'])->withoutMiddleware('auth.token');
 
 // CalendarioController
 Route::put('calendario/crear-evento', [CalendarioController::class, 'putCrearEvento']);

@@ -8,7 +8,7 @@ use Tests\TestCase;
 /**
  * Contrato de enrutado.
  *
- * La Fase 1 cambió `AdvancedRoute` por 554 rutas explícitas escritas a mano en
+ * La Fase 1 cambió `AdvancedRoute` por rutas explícitas escritas a mano en
  * routes/api/. Nada impide que un merge desordenado borre una, o que alguien
  * mueva una ruta con `{id}` por encima de una literal y la tape.
  *
@@ -37,7 +37,7 @@ class RutasTest extends TestCase
 
         ksort($resueltas);
 
-        $ruta = __DIR__ . '/Instantaneas/rutas.json';
+        $ruta = __DIR__ . '/Snapshots/rutas.json';
 
         if (! file_exists($ruta)) {
             file_put_contents(
@@ -45,7 +45,7 @@ class RutasTest extends TestCase
                 json_encode($resueltas, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n"
             );
 
-            fwrite(STDERR, "\n  ↳ instantánea de rutas creada con " . count($resueltas) . " entradas\n");
+            fwrite(STDERR, "\n  ↳ snapshot de rutas creado con " . count($resueltas) . " entradas\n");
 
             $this->addToAssertionCount(1);
 
@@ -58,7 +58,7 @@ class RutasTest extends TestCase
         $sobran = array_diff_key($resueltas, $esperadas);
 
         $this->assertSame([], $faltan, 'Desaparecieron rutas: ' . implode(', ', array_keys($faltan)));
-        $this->assertSame([], $sobran, 'Aparecieron rutas nuevas sin actualizar la instantánea: ' . implode(', ', array_keys($sobran)));
+        $this->assertSame([], $sobran, 'Aparecieron rutas nuevas sin actualizar el snapshot: ' . implode(', ', array_keys($sobran)));
 
         // Mismo conjunto de URIs: ahora, que cada una siga atendida por lo mismo.
         $cambiadas = [];

@@ -36,6 +36,9 @@ Route::put('asistencias-app/eliminar-ausencia', [AsistenciasAppController::class
 Route::put('asistencias-app/poner-ausencia', [AsistenciasAppController::class, 'putPonerAusencia']);
 
 // TSubirController
-Route::post('tardanzas/subir', [TSubirController::class, 'postIndex']);
-Route::put('tardanzas/subir/eliminar-ausencia', [TSubirController::class, 'putEliminarAusencia']);
-Route::put('tardanzas/subir/poner-ausencia', [TSubirController::class, 'putPonerAusencia']);
+// Como las de tardanzas/login: el usuario y la contraseña viajan en el cuerpo de
+// cada petición (aquí dentro de `loginData`) y las verifica $this->user() con
+// Auth::attempt(). No hay token que exigir.
+Route::post('tardanzas/subir', [TSubirController::class, 'postIndex'])->withoutMiddleware('auth.token');
+Route::put('tardanzas/subir/eliminar-ausencia', [TSubirController::class, 'putEliminarAusencia'])->withoutMiddleware('auth.token');
+Route::put('tardanzas/subir/poner-ausencia', [TSubirController::class, 'putPonerAusencia'])->withoutMiddleware('auth.token');

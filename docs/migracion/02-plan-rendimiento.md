@@ -101,7 +101,15 @@ Son **538 rutas útiles registradas como ~1.076 objetos `Route`**, cada uno con 
 
 ---
 
-### 3. 🔴 No hay caché de rutas ni de configuración · y hoy es imposible activarla
+### 3. ✅ No hay caché de rutas ni de configuración · ya se puede activar
+
+> **Resuelto el 18 ago 2026.** `route:list` imprime las 533 rutas y
+> `route:cache` funciona. Faltaba sacar `User::fromToken()` de los 24
+> constructores; lo hace ahora el trait `Concerns\ResuelveElUsuario`, que
+> resuelve `$this->user` en la primera lectura. Queda **poner los `*:cache` en
+> el despliegue**, que es lo único que aún no está hecho.
+>
+> Lo de abajo es cómo estaba.
 
 ```
 $ ls bootstrap/cache/
@@ -121,7 +129,13 @@ Symfony\Component\HttpKernel\Exception\HttpException: No existe Token
 
 Laravel instancia el controlador para leer su middleware; el constructor llama a `User::fromToken()`; sin token hace `abort(401)`. **El diseño de autenticar en el constructor bloquea las dos optimizaciones más baratas del framework.**
 
-**Arreglo:** Fase 2 — sacar `fromToken()` de los constructores y resolver el usuario en un middleware. Luego, en el despliegue:
+**Arreglo:** hecho. Falta el despliegue, y antes hay que comprobar una cosa:
+`bootstrap/cache/` es donde caen las dos cachés, y en producción **hay carpetas
+compartidas entre colegios por symlink** —`vendor/` seguro, el resto sin
+confirmar—. Si `bootstrap/cache/` estuviera compartida, un colegio serviría las
+rutas de otro sin ningún síntoma. Ver [`docs/DESPLIEGUE.md`](../DESPLIEGUE.md).
+
+
 
 ```bash
 php artisan config:cache
@@ -136,6 +150,15 @@ php artisan event:cache
 
 ### 4. 🟠 La autenticación se ejecuta dos veces, con 5–8 consultas · ~40–80 ms
 
+> **A medias el 18 ago 2026.** El contexto ya se resuelve **una sola vez por
+> petición**: el resultado viaja en los `attributes` de la petición, así que el
+> guard, el controlador y cualquier método que vuelva a pedirlo comparten la
+> misma resolución. Con un test que lo comprueba contando las consultas
+> (`ContextoDeUsuarioTest`), que daba 2 antes y da 1 ahora.
+>
+> **Siguen pendientes** el N+1 de permisos, la caché entre peticiones y lo del
+> rate limiter, que son los puntos 1 a 4 de "Arreglo".
+
 Aquí sí es la autenticación, tal como sospechabas. Pero el detalle importa.
 
 **Ejecución 1 — el rate limiter.** [`RouteServiceProvider.php`](../../app/Providers/RouteServiceProvider.php):
@@ -149,7 +172,7 @@ Limit::perMinute(60)->by(optional($request->user())->id ?: $request->ip());
 **Ejecución 2 — el constructor del controlador.** [`AlumnosController.php:36`](../../app/Http/Controllers/AlumnosController.php#L36):
 
 ```php
-public function __construct() { $this->user = User::fromToken(); }
+public function __construct() { $this->user = User::fromToken(); }   // ya no existe
 ```
 
 Y [`User::fromToken()`](../../app/User.php#L59) vuelve a hacerlo **todo desde cero**:
@@ -245,7 +268,7 @@ Sin esto, "está lento" no es accionable. Con esto, cada endpoint reporta su con
 | 2 | Instrumentación (Clockwork/Debugbar) en dev | 1 h | medición | nada |
 | 3 | Log de consultas lentas en producción, 1 semana | 30 min | medición | nada |
 | 4 | Quitar `AdvancedRoute` → rutas explícitas | 1–2 d | 🔴 45 ms + doble registro | Fase 1 |
-| 5 | Sacar `fromToken()` de los constructores | 1 d | habilita el paso 6 | Fase 2 |
+| 5 | ~~Sacar `fromToken()` de los constructores~~ · **hecho 18 ago 2026** | 1 d | habilita el paso 6 | Fase 2 |
 | 6 | `route:cache` + `config:cache` en despliegue | 2 h | 🔴 30–60 ms | paso 5 |
 | 7 | Eliminar la doble autenticación (rate limiter) | 2 h | 🟠 1–2 consultas | Fase 3 |
 | 8 | Colapsar el N+1 de permisos | 1 h | 🟠 N-1 consultas | Fase 3 |

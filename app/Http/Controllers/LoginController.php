@@ -211,20 +211,103 @@ class LoginController extends Controller {
 
 
 
-	public function putLogout(Request $request){
+	/**
+	 * Marca la hora de salida en el historial.
+	 *
+	 * Se deja a propósito SIN guard de autenticación y sin resolver al usuario:
+	 * cerrar sesión con el token ya caducado tiene que funcionar. Si devolviera
+	 * 401, el frontend no podría limpiar su estado y el usuario se quedaría
+	 * atrapado en una sesión que ya no vale.
+	 *
+	 * Es idempotente: si no hay historial que cerrar, no pasa nada.
+	 *
+	 * El usuario sale del TOKEN, no del cuerpo de la petición. Antes llegaba como
+	 * `user_id`, así que cualquiera podía falsificar el cierre de sesión de otro
+	 * sabiendo su id — no lo echaba del sistema, pero corrompía el historial de
+	 * accesos, que es justo lo que se mira cuando hay que reconstruir qué pasó.
+	 *
+	 * La sesión de myvc_front confirmó (18 ago 2026) que la cabecera Authorization
+	 * viaja en esta llamada: AngularJS copia las cabeceras por defecto de forma
+	 * síncrona al construir la petición (angular.js:13053), antes de que el propio
+	 * `logout()` borre el default. O sea que el token está aquí aunque el front lo
+	 * borre acto seguido.
+	 */
+	public function putLogout(){
 		$now 		= Carbon::now('America/Bogota');
 
-		$consulta 	= 'UPDATE historiales SET logout_at=? where user_id=? and deleted_at is null order by id desc limit 1';
-		DB::update($consulta, [ $now, $request->input('user_id') ])[0];
-		
+		// Nada de esta petición se lee salvo el token: ni siquiera se recibe el
+		// Request. El `user_id` que mandaba el frontend se ignora, y por eso el
+		// parámetro ya no está.
+		$userId = $this->usuarioDelTokenAunqueCaducado();
+
+		// Sin token identificable no hay sesión que registrar. Se responde igual:
+		// el front tiene que poder limpiar su estado pase lo que pase aquí.
+		if ($userId !== null) {
+			$consulta = 'UPDATE historiales SET logout_at=? where user_id=? and deleted_at is null order by id desc limit 1';
+
+			// Antes esto acababa en `[0]`. DB::update() devuelve un entero —las
+			// filas afectadas—, y aplicarle un índice reventaba: "Trying to
+			// access array offset on value of type int". O sea que el logout
+			// devolvía 500 SIEMPRE, también con un user_id válido.
+			//
+			// Estaba así desde el import de 2021 y pasó desapercibido porque
+			// hasta PHP 7.3 indexar un entero devolvía null en silencio. Desde
+			// 7.4 es un warning, y Laravel los convierte en excepción: se rompió
+			// solo al subir de versión, sin que nadie tocara el fichero.
+			DB::update($consulta, [ $now, $userId ]);
+		}
+
 		return 'Deslogueado';
+	}
+
+
+	/**
+	 * El id del usuario que hay dentro del token, aunque el token haya expirado.
+	 *
+	 * Cerrar sesión con el token caducado tiene que funcionar — es el caso normal
+	 * de quien vuelve al día siguiente—, así que no sirve `User::fromToken()`,
+	 * que aborta con 401 al expirar.
+	 *
+	 * Se decodifica por el proveedor directamente: **comprueba la firma** pero no
+	 * valida la expiración. Un token inventado no pasa; uno legítimo y vencido sí.
+	 *
+	 * No se usa `setRefreshFlow()` del manager, que haría lo mismo, porque es un
+	 * interruptor con estado sobre una instancia compartida: en producción cada
+	 * petición es un proceso nuevo y daría igual, pero en la misma tanda de tests
+	 * el contenedor persiste y se filtraría a los demás.
+	 */
+	private function usuarioDelTokenAunqueCaducado(): ?int
+	{
+		try {
+			$token = JWTAuth::getToken();
+
+			if (! $token) {
+				return null;
+			}
+
+			$claims = JWTAuth::manager()->getJWTProvider()->decode($token->get());
+
+			return isset($claims['sub']) ? (int) $claims['sub'] : null;
+
+		} catch (\Throwable $e) {
+			// Firma inválida, basura, o formato que no se reconoce.
+			return null;
+		}
 	}
 
 
 
 
 
-	public function postVerPass(Request $request){
+	/**
+	 * Envía el correo con el enlace para restablecer la contraseña.
+	 *
+	 * Se llamaba `postVerPass` y la ruta `login/ver-pass`. El nombre engañaba:
+	 * no muestra ninguna contraseña — genera un token de un solo uso, guarda su
+	 * hash y manda el enlace por correo. La ruta vieja sigue existiendo como
+	 * alias mientras el frontend de cada colegio se actualiza.
+	 */
+	public function postRecuperarClave(Request $request){
 		$now 			= Carbon::now('America/Bogota');
 		$hora 			= Carbon::now('America/Bogota')->subHour(); 
 		$destinatario 	= (string) $request->input('email');
@@ -273,7 +356,16 @@ class LoginController extends Controller {
 						$persona 	= $persona[0];
 						$username 	= $persona->username;
 					}else{
-						return 'No existe';
+
+						// Antes esto devolvía 'No existe', y con eso cualquiera podía
+						// averiguar si un correo está registrado en el colegio probando
+						// uno a uno. Ahora la respuesta es la misma exista o no: quien
+						// pregunta no aprende nada que no supiera.
+						//
+						// No se crea token ni se manda correo — no hay a quién.
+						Log::info('Reseteo pedido para un correo que no está registrado.');
+
+						return 'Enviado';
 					}
 
 				}

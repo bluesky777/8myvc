@@ -132,10 +132,14 @@ Route::get('frases_asignatura/show/{alumno_id}/{asignatura_id}', [FrasesAsignatu
 Route::post('frases_asignatura/store/{frase_id?}', [FrasesAsignaturaController::class, 'postStore']);
 
 // BolfinalesController
+//
+// Los boletines finales son la misma familia que los de periodo: el front los
+// pide con el mismo `requested_alumnos`, desde las mismas pantallas. Aquí nunca
+// hubo comprobación escrita siquiera.
 Route::put('bolfinales/cambiar-contador-certificados', [BolfinalesController::class, 'putCambiarContadorCertificados']);
 Route::put('bolfinales/cambiar-contador-folios', [BolfinalesController::class, 'putCambiarContadorFolios']);
-Route::put('bolfinales/detailed-notas-year-group/{grupo_id}', [BolfinalesController::class, 'putDetailedNotasYearGroup']);
-Route::put('bolfinales/detailed-notas-year/{grupo_id}', [BolfinalesController::class, 'putDetailedNotasYear']);
+Route::put('bolfinales/detailed-notas-year-group/{grupo_id}', [BolfinalesController::class, 'putDetailedNotasYearGroup'])->middleware('boletin.propio');
+Route::put('bolfinales/detailed-notas-year/{grupo_id}', [BolfinalesController::class, 'putDetailedNotasYear'])->middleware('boletin.propio');
 
 // EditnotaController
 Route::put('editnota/alum-asignatura', [EditnotaController::class, 'putAlumAsignatura']);
