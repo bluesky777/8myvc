@@ -87,35 +87,96 @@ Por lo mismo que `app/` es copia, cualquier cambio de configuración —`MAIL_*`
 `CORS_ALLOWED_ORIGINS`, `FRONTEND_URL`— hay que hacerlo **en el `.env` de cada
 colegio**, uno por uno.
 
-#### Lo que hay que confirmar antes de la Fase 4
+#### `vendor/` compartido y la Fase 4: una carpeta por generación
 
-Esto no es un detalle de despliegue: **decide cómo se puede hacer el salto de
-Laravel 8 a 13.** Con `vendor/` compartido, subir el framework lo sube para todos
-los colegios en el mismo instante, mientras que el `app/` adaptado llega colegio
-a colegio. Eso no se puede escalonar: o se rompen los colegios que aún no tienen
-el código nuevo, o hay que desplegar los 3 a la vez y sin marcha atrás por
-colegio.
+**Decisión de Joseth, 19 ago 2026: no se independizan los `vendor/`. Al
+contrario** — se borran las carpetas propias y se apuntan por symlink a la
+compartida, dejando quizá una independiente para pruebas. El servidor está
+saturado y pide espacio.
 
-La salida limpia es **dejar de compartir `vendor/` antes de la Fase 4**: darle a
-cada colegio su propia carpeta real, y con eso el salto de framework se despliega
-como todo lo demás, uno por uno y con vuelta atrás por colegio.
+Aquí estaba escrito lo contrario ("la salida limpia es dejar de compartir
+`vendor/` antes de la Fase 4"). El razonamiento era correcto pero la conclusión
+era falsa, porque daba por supuesto que solo hay dos opciones: una carpeta para
+todos, o una por colegio. Hay una tercera, y es mejor que las dos.
 
-Falta comprobar en el servidor, y conviene hacerlo antes de planificar la Fase 4:
+**Una carpeta compartida POR GENERACIÓN DE FRAMEWORK, no una para todo.**
+
+```
+/home/micolev1/laravel_8      <- vendor de Laravel 8.83.29   (lo que hoy es laravel_compartido)
+/home/micolev1/laravel_9      <- vendor de Laravel 9.52.22
+/home/micolev1/laravel_13     <- cuando toque
+```
+
+Cada colegio apunta su `vendor` a la que corresponda a su `app/`. Migrar un
+colegio pasa a ser **desplegar su `app/` y mover un symlink**; volverse atrás,
+mover el symlink al revés. O sea que el salto de framework se escalona colegio a
+colegio, con vuelta atrás por colegio, que es exactamente lo que parecía que
+compartir impedía.
+
+**Y ocupa menos que hoy, no más.** Medido: `vendor/` completo son 70 MB, y con
+`--no-dev` unos 32 MB (se van `fakerphp` 11 MB, `phpunit` 4 MB y compañía).
+
+| | Carpetas reales | Ocupado |
+|---|---|---|
+| Hoy (12 propias + 1 compartida) | 13 | ~416 MB |
+| Una sola compartida | 1 | ~32 MB |
+| **Dos, una por generación** | **2** | **~64 MB** |
+
+Frente a los 416 MB de hoy, la tercera opción libera unos 350 MB **y** deja la
+Fase 4 escalonable. Es la de una sola compartida la que obliga a un big-bang, no
+la de compartir.
+
+##### Las dos trampas de operar así
+
+**1. `composer install` dentro de un colegio escribe en la carpeta compartida.**
+Composer sigue el symlink, así que no falla ni avisa: actualiza a todos los que
+cuelguen de ella. Con esta topología, `composer install` **nunca** se corre desde
+un colegio. Se corre una vez sobre cada carpeta de generación, desde un
+directorio que tenga el `composer.json` y el `composer.lock` de esa generación.
+
+Por eso el procedimiento de despliegue de más abajo empieza con `readlink -f
+vendor` y para si dice que es compartida.
+
+**2. Al mover el symlink hay que tirar los cachés de ese colegio.**
+`bootstrap/cache/packages.php` y `services.php` los genera `package:discover` a
+partir del `vendor/`, y son de cada colegio. Si se cambia la carpeta debajo y no
+se regeneran, el colegio arranca con la lista de proveedores de la generación
+anterior:
+
+```bash
+d=/home/micolev1/COLEGIO.micolevirtual.com/8myvc
+ln -sfn /home/micolev1/laravel_9 "$d/vendor"
+cd "$d" && php artisan package:discover
+php artisan config:clear && php artisan route:clear
+php artisan config:cache && php artisan route:cache
+php artisan --version        # debe decir la de la generación nueva
+```
+
+##### Lo que falta comprobar en el servidor
 
 - Si hay **algo más** compartido por symlink además de `vendor/` (`storage/`,
-  `public/`, `bootstrap/cache/`). `bootstrap/cache/` importa especialmente ahora:
-  ahí es donde caen `route:cache` y `config:cache`, y si estuviera compartida
-  un colegio serviría las rutas de otro.
+  `public/`, `bootstrap/cache/`). `bootstrap/cache/` importa especialmente:
+  ahí es donde caen `route:cache` y `config:cache`, y si estuviera compartida un
+  colegio serviría las rutas de otro — y con esta topología, además, la lista de
+  proveedores de otra generación.
+- Qué colegios cuelgan hoy de `laravel_compartido` y cuáles tienen carpeta
+  propia, para saber cuántas hay que borrar:
+
+```bash
+for d in /home/micolev1/*.micolevirtual.com/8myvc; do
+  printf '%-46s ' "$d"
+  [ -L "$d/vendor" ] && printf 'symlink -> %s\n' "$(readlink "$d/vendor")" || printf 'vendor propio\n'
+done
+```
+
 - ~~**En cuál de los dos alojamientos** está la carpeta real, y qué colegios cuelgan
   de ella.~~ **Contestado el 18 ago 2026**: en el host de `micolev1` la compartida es
-  `/home/micolev1/laravel_compartido` y solo cuelgan 5 colegios; los otros 11 tienen
-  la suya. Ver el inventario de arriba. Falta hacer lo mismo en el segundo host.
+  `/home/micolev1/laravel_compartido` y solo cuelgan 5 colegios. Falta hacer lo
+  mismo en el segundo host.
 
-**El matiz que cambió el inventario:** 11 de 16 colegios ya tienen carpeta propia, así
-que "dejar de compartir `vendor/`" está hecho en dos tercios… pero de la peor manera,
-porque 9 de esas carpetas llevan cinco años sin tocarse. Dejar de compartir no basta:
-hay que **igualarlas primero**, y que exista forma de comprobar que siguen iguales.
-Para eso se versiona `composer.lock`, más abajo.
+**El colegio de pruebas con `vendor/` propio sí tiene sentido**, y no como
+excepción: es donde se estrena cada generación antes de que ninguna carpeta
+compartida cambie. Conviene que sea uno pequeño y que quede escrito cuál es.
 
 ### Cuatro clientes, no uno
 
@@ -742,7 +803,8 @@ desplegada la Fase 3 y haya pasado el tiempo suficiente para que no quede ningú
 JWT vivo. El orden es: desplegar en todos → poner `SESION_ACEPTA_JWT=false` en
 todos → esperar → `composer remove tymon/jwt-auth`.
 
-Y ese `composer remove` **es exactamente el caso peligroso del `vendor/`
-compartido**: sobre `/home/micolev1/laravel_compartido` le quita el paquete a
-cinco colegios a la vez, incluidos los que aún no tengan el `app/` nuevo. Otra
-razón más para dejar de compartirlo antes de la Fase 4.
+Y ese `composer remove` **no se corre nunca sobre la carpeta de la generación
+que está sirviendo**: le quitaría el paquete de golpe a todos los colegios que
+cuelguen de ella, incluidos los que aún tengan el `app/` viejo. Va en la carpeta
+de la generación siguiente, que se construye aparte. Ver «`vendor/` compartido y
+la Fase 4: una carpeta por generación», más arriba.
