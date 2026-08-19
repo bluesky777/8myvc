@@ -9,6 +9,7 @@ use Carbon\Carbon;
 
 use \Log;
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
+use App\Support\ColumnaSegura;
 
 
 class EnfermeriaController extends Controller {
@@ -51,7 +52,7 @@ class EnfermeriaController extends Controller {
 			$now 				= Carbon::now('America/Bogota');
 			$propiedad 			= Request::input('propiedad');
 			
-			$consulta          = 'UPDATE antecedentes SET '.$propiedad.'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:antec_id';
+			$consulta          = 'UPDATE antecedentes SET '.ColumnaSegura::exigir('antecedentes', $propiedad).'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:antec_id';
 			$antecedentes      = DB::select($consulta, [':valor'=>Request::input('valor'), ':modificador'=>$this->user->user_id, ':fecha'=>$now, ':antec_id'=>Request::input('antec_id')]);
 				
 
@@ -98,7 +99,7 @@ class EnfermeriaController extends Controller {
 			$now 				= Carbon::now('America/Bogota');
 			$propiedad 			= Request::input('propiedad');
 			
-			$consulta          = 'UPDATE registros_enfermeria SET '.$propiedad.'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:suceso_id';
+			$consulta          = 'UPDATE registros_enfermeria SET '.ColumnaSegura::exigir('registros_enfermeria', $propiedad).'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:suceso_id';
 			$antecedentes      = DB::select($consulta, [':valor'=>Request::input('valor'), ':modificador'=>$this->user->user_id, ':fecha'=>$now, ':suceso_id'=>Request::input('suceso_id')]);
 				
 

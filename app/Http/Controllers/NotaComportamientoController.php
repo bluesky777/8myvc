@@ -10,6 +10,7 @@ use App\Models\Alumno;
 use App\Models\Frase;
 
 use Carbon\Carbon;
+use App\Support\ColumnaSegura;
 
 
 class NotaComportamientoController extends Controller {
@@ -27,7 +28,7 @@ class NotaComportamientoController extends Controller {
 		$campo = Request::input('campo');
 		$libro_id = Request::input('libro_id');
 
-		$consulta = 'UPDATE dis_libro_rojo SET '.$campo.'=:valor WHERE id=:libro_id';
+		$consulta = 'UPDATE dis_libro_rojo SET '.ColumnaSegura::exigir('dis_libro_rojo', $campo).'=:valor WHERE id=:libro_id';
 		DB::update($consulta, [$valor, $libro_id]);
 
 		return 'Cambiado';

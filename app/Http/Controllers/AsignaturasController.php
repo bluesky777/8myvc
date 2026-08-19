@@ -13,6 +13,7 @@ use Carbon\Carbon;
 
 use App\Http\Controllers\Alumnos\Solicitudes;
 use Log;
+use App\Support\ColumnaSegura;
 
 
 class AsignaturasController extends Controller {
@@ -146,7 +147,7 @@ class AsignaturasController extends Controller {
 		$valor 			= Request::input('valor');
 		$now 			= Carbon::now('America/Bogota');
 		
-		$consulta 	= 'UPDATE asignaturas SET '.$dia.'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:asignatura_id';
+		$consulta 	= 'UPDATE asignaturas SET '.ColumnaSegura::exigir('asignaturas', $dia).'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:asignatura_id';
 		DB::update($consulta, [$valor, $user->user_id, $now, $asignatura_id]);
 		
 		return 'Cambiado';
