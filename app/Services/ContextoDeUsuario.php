@@ -4,7 +4,7 @@ namespace App\Services;
 
 use App\Models\Periodo;
 use App\User;
-use DB;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Monta el objeto "usuario" que usa medio proyecto.
@@ -25,6 +25,9 @@ use DB;
  */
 class ContextoDeUsuario
 {
+    /** Ver yaSeReintento(). */
+    private const REINTENTO = 'usuario.contexto.reintento';
+
     /**
      * El contexto del usuario dado.
      *
@@ -162,10 +165,10 @@ class ContextoDeUsuario
 
         if (count($usuario) == 0) {
             if ($userTemp->is_active) {
-                if (User::$intentoLogueoPorActive == 1) {
+                if ($this->yaSeReintento()) {
                     abort(400, 'user_inactivo_por_mucho_logueo');
                 } else {
-                    User::$intentoLogueoPorActive = 1;
+                    $this->marcarReintento();
 
                     $consulta = 'SELECT p.*
                         from alumnos a
@@ -219,10 +222,11 @@ class ContextoDeUsuario
             $usuario->is_superuser = $is_super;
         }
 
+        // Lo lee el cálculo de notas en 26 sitios, desde métodos estáticos de
+        // `Subunidad` y `Asignatura` que no reciben usuario. Sacarlo de ahí es
+        // tocar el cálculo de notas, que el §5 del plan protege, así que se
+        // queda — anotado en la lista de estado estático del plan.
         User::$nota_minima_aceptada = $usuario->nota_minima_aceptada;
-        User::$images = 'images/';
-        User::$perfilPath = User::$images.'perfil/';
-        User::$imgSharedPath = User::$images.'shared/';
         // *************************************************
         //    Traeremos los roles y permisos
         // *************************************************
@@ -233,17 +237,39 @@ class ContextoDeUsuario
             WHERE rs.user_id=?', [$usuario->user_id]);
 
         $usuario->roles = $roles;
+
+        // Los permisos de todos los roles en UNA consulta, no una por rol.
+        // Era el paso 8 del plan de rendimiento: con `role_user` en 2.346 filas
+        // hay usuarios con más de un rol, y cada uno sumaba una consulta a cada
+        // petición que hicieran.
+        //
+        // La lista tiene que salir igual que salía, porque va en la respuesta
+        // del login: se reagrupa por rol en el orden en que vienen los roles, y
+        // dentro de cada rol por `permission_id`, que es el orden que devolvía
+        // el bucle viejo —por el índice de `permission_role`, sin ORDER BY y sin
+        // que nadie se lo hubiera pedido—. Aquí va escrito. Los repetidos se
+        // conservan: un permiso que dan dos roles salía dos veces.
+        $idsDeRol = array_column($usuario->roles, 'id');
         $perms = [];
 
-        foreach ($usuario->roles as $role) {
-            $consulta = 'SELECT pm.name, pm.display_name, pm.description from permission_role pmr
+        if ($idsDeRol !== []) {
+            $marcas = implode(',', array_fill(0, count($idsDeRol), '?'));
+
+            $filas = DB::select('SELECT pmr.role_id, pm.name from permission_role pmr
                     inner join permissions pm on pm.id = pmr.permission_id
-                        and pmr.role_id = :role_id';
+                where pmr.role_id in ('.$marcas.')
+                order by pmr.permission_id', $idsDeRol);
 
-            $permisos = DB::select($consulta, [':role_id' => $role->id]);
+            $porRol = [];
 
-            foreach ($permisos as $permiso) {
-                array_push($perms, $permiso->name);
+            foreach ($filas as $fila) {
+                $porRol[$fila->role_id][] = $fila->name;
+            }
+
+            foreach ($idsDeRol as $id) {
+                foreach ($porRol[$id] ?? [] as $nombre) {
+                    $perms[] = $nombre;
+                }
             }
         }
 
@@ -256,5 +282,29 @@ class ContextoDeUsuario
         $usuario->token = new \stdClass;
 
         return $usuario;
+    }
+
+    /**
+     * El guardia contra la recursión, atado a la petición y no a la clase.
+     *
+     * Cuando un usuario activo no da contexto, esto vuelve a intentarlo una vez
+     * con el periodo corregido. La segunda vez tiene que rendirse, o se llama a
+     * sí mismo sin fin.
+     *
+     * Era `User::$intentoLogueoPorActive`, una estática que se ponía a 1 y **no
+     * la reiniciaba nadie**. Con PHP-FPM da igual, porque cada petición empieza
+     * con el proceso limpio. Bajo Octane —que el plan contempla— el primer
+     * usuario que pasara por aquí dejaría el 1 puesto para siempre, y a partir
+     * de ahí TODOS recibirían 'user_inactivo_por_mucho_logueo' sin haber
+     * reintentado nada.
+     */
+    private function yaSeReintento(): bool
+    {
+        return request()->attributes->get(self::REINTENTO, false) === true;
+    }
+
+    private function marcarReintento(): void
+    {
+        request()->attributes->set(self::REINTENTO, true);
     }
 }

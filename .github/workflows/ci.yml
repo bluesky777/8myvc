@@ -50,6 +50,13 @@ jobs:
       - name: Instalar dependencias
         run: composer install --no-interaction --prefer-dist --no-progress
 
+      # Cierra el hallazgo MEDIO-13 del plan de seguridad. Con `dev-develop`
+      # instalado no se podía ni preguntar: no es una versión, es un puntero
+      # móvil a una rama de GitHub. Ahora todo está en versiones publicadas y
+      # esto avisa el día que a una le salga un CVE.
+      - name: Avisos de seguridad de las dependencias
+        run: composer audit --no-interaction
+
       - name: Preparar entorno
         run: |
           cp .env.example .env

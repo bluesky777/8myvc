@@ -86,4 +86,46 @@ class ContextoDeUsuarioTest extends CasoDeContrato
         // segundo intento funcionara.
         $this->assertNotSame($ajeno->id, DB::table('users')->where('id', $usuario->id)->value('periodo_id'));
     }
+
+    /**
+     * Y lo hace las veces que haga falta, no una sola vez en la vida del
+     * proceso.
+     *
+     * El guardia contra la recursión era `User::$intentoLogueoPorActive`, una
+     * estática que se ponía a 1 y no la reiniciaba nadie. Con PHP-FPM no se
+     * notaba: cada petición empieza con el proceso limpio. Bajo Octane —que el
+     * plan contempla y que el §4 deja para «después de limpiar el estado
+     * estático»— el primer usuario que pasara por aquí dejaba el 1 puesto para
+     * siempre, y a partir de ahí todos recibían
+     * 'user_inactivo_por_mucho_logueo' sin haber reintentado nada.
+     *
+     * Este test lo ve hoy, sin Octane, porque PHPUnit corre las dos peticiones
+     * en el mismo proceso — que es exactamente la condición que Octane crea en
+     * producción.
+     */
+    public function test_el_guardia_del_reintento_no_se_queda_puesto_entre_peticiones(): void
+    {
+        $usuario = $this->usuarioDeTipo('Alumno');
+        $token = $this->tokenDe($usuario->username);
+
+        $suYear = DB::select('SELECT g.year_id FROM alumnos a
+            INNER JOIN matriculas m ON m.alumno_id = a.id AND m.deleted_at IS NULL
+            INNER JOIN grupos g ON g.id = m.grupo_id
+            WHERE a.user_id = ? LIMIT 1', [$usuario->id])[0]->year_id;
+
+        $ajeno = DB::select('SELECT id FROM periodos WHERE deleted_at IS NULL AND year_id <> ? LIMIT 1',
+            [$suYear])[0];
+
+        foreach ([1, 2] as $intento) {
+            // Cada vuelta deja al usuario en el estado que obliga a reintentar.
+            DB::update('UPDATE users SET periodo_id = ? WHERE id = ?', [$ajeno->id, $usuario->id]);
+
+            $r = $this->postJson('/api/login', [], ['Authorization' => 'Bearer '.$token]);
+
+            $r->assertStatus(200, "La petición $intento debería haber entrado.");
+
+            $this->assertSame($usuario->id, $r->json('user_id'),
+                "En la petición $intento el reintento no llegó a hacerse: el guardia venía puesto de la anterior.");
+        }
+    }
 }

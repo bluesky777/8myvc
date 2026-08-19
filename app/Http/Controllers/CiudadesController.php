@@ -1,7 +1,7 @@
 <?php namespace App\Http\Controllers;
 
-use Request;
-use DB;
+use Illuminate\Support\Facades\Request;
+use Illuminate\Support\Facades\DB;
 
 use App\Models\Ciudad;
 use App\Models\Pais;

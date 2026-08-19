@@ -2,6 +2,8 @@
 
 namespace Tests\Contrato;
 
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Route;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
@@ -23,7 +25,7 @@ class RecuperarClaveTest extends CasoDeContrato
     #[DataProvider('rutas')]
     public function test_no_revela_si_el_correo_esta_registrado(string $ruta): void
     {
-        $usuario = \DB::table('users')
+        $usuario = DB::table('users')
             ->whereNotNull('email')
             ->where('email', '<>', '')
             ->whereNull('deleted_at')
@@ -86,7 +88,7 @@ class RecuperarClaveTest extends CasoDeContrato
      */
     public function test_la_ruta_vieja_sigue_siendo_un_alias_de_la_nueva(): void
     {
-        $rutas = collect(\Route::getRoutes())->filter(
+        $rutas = collect(Route::getRoutes())->filter(
             fn ($r) => in_array($r->uri(), ['api/login/ver-pass', 'api/login/recuperar-clave'], true)
         );
 

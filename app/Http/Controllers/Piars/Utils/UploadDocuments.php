@@ -1,8 +1,8 @@
 <?php namespace App\Http\Controllers\Piars\Utils;
 
-use Request;
-use DB;
-use File;
+use Illuminate\Support\Facades\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use App\Models\ImageModel;
 use App\Support\SafeUpload;
 

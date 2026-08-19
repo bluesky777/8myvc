@@ -1,8 +1,8 @@
 <?php namespace App\Http\Controllers;
 
 
-use DB;
-use Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Request;
 
 use App\User;
 use App\Models\Year;
@@ -12,7 +12,7 @@ use App\Models\Unidad;
 use Carbon\Carbon;
 
 use App\Http\Controllers\Alumnos\Solicitudes;
-use Log;
+use Illuminate\Support\Facades\Log;
 use App\Support\ColumnaSegura;
 
 

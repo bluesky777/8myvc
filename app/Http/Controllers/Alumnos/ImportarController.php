@@ -1,10 +1,10 @@
 <?php namespace App\Http\Controllers\Alumnos;
 
 
-use DB;
-use Request;
-use Excel;
-use Hash;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Request;
+use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Facades\Hash;
 use Carbon\Carbon;
 use \Log;
 
@@ -114,7 +114,6 @@ class ExcelUtils implements ToArray, WithHeadingRow, WithEvents
 			}else{
 				
 				$alumno_row = $alumno;
-				Log::info("primer_nombre " . $alumno_row["primer_nombre"]);
 				if ($alumno_row["primer_nombre"]) {
 					$alumno = new Alumno;
 					$alumno->nombres    			= $alumno_row["primer_nombre"].' '.$alumno_row["segundo_nombre"];

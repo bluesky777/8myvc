@@ -3,8 +3,8 @@
 namespace App\Services;
 
 use App\User;
-use Browser;
 use Carbon\Carbon;
+use hisorange\BrowserDetect\Facade as Browser;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;

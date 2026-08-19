@@ -2,10 +2,10 @@
 
 use App\Http\Controllers\Controller;
 
-use Request;
-use DB;
-use File;
-use Image;
+use Illuminate\Support\Facades\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
+use Intervention\Image\Laravel\Facades\Image;
 use \stdClass;
 
 use App\User;
@@ -21,7 +21,6 @@ class CalendarioController extends Controller {
 
     public function putThisYear(){
         $is_prof_admin = Request::input('is_prof_admin');
-        Log::info($is_prof_admin);
         if ($is_prof_admin == 'true') {
             $eventos = DB::select('SELECT * FROM calendario WHERE deleted_at is null');
         }else{

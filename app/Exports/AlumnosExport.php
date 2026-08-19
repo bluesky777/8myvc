@@ -5,7 +5,7 @@ use App\User;
 use \Log;
 use App\Exports\AlumnosSheet;
 use Illuminate\Contracts\View\View;
-use DB;
+use Illuminate\Support\Facades\DB;
 use App\Models\Matricula;
 use App\Models\Acudiente;
 use App\Http\Controllers\Alumnos\OperacionesAlumnos;

@@ -40,6 +40,9 @@ use Illuminate\Support\Str;
  */
 class Sesion
 {
+    /** Prefijo de la memoria por petición. Ver resolver(). */
+    private const MEMORIA = 'usuario.sesion.';
+
     /**
      * Abre una sesión: par de tokens nuevo.
      *
@@ -226,8 +229,45 @@ class Sesion
      * `$abortando` es lo único que cambia entre el guard —que devuelve null— y
      * el middleware —que responde 401 con el mensaje que toque—. La decisión de
      * qué token vale está aquí y solo aquí.
+     *
+     * **Y se resuelve una vez por petición.** Cada petición preguntaba dos
+     * veces: el limitador de `RouteServiceProvider` llama a `$request->user()`
+     * —que pasa por el guard `sesion`— solo para decidir la clave del cubo, y
+     * después el middleware `auth.token` vuelve a resolver por su cuenta. Eran
+     * dos `SELECT` a `personal_access_tokens` y dos a `users` idénticos,
+     * medidos: 9 consultas en un `GET api/periodos` del que solo una era del
+     * endpoint. Es el paso 7 del plan de rendimiento.
+     *
+     * La memoria va en los `attributes` de la petición y no en una propiedad,
+     * porque `app(Sesion::class)` construye una instancia nueva cada vez y
+     * porque una propiedad sobreviviría a la petición el día que esto corra
+     * bajo Octane. Es el mismo sitio donde `User::fromToken()` guarda el
+     * contexto.
      */
     private function resolver(string $plano, bool $abortando): ?User
+    {
+        $memoria = self::MEMORIA.hash('xxh3', $plano);
+        // `request()` y no `Request::instance()`: aquí `Request` es la clase
+        // Illuminate\Http\Request, no la facade, y no tiene ese método estático.
+        $peticion = request();
+
+        if ($peticion->attributes->has($memoria)) {
+            return $peticion->attributes->get($memoria);
+        }
+
+        $usuario = $this->resolverDeVerdad($plano, $abortando);
+
+        // Solo se guarda lo que resolvió. Un null significa que el token no
+        // vale, y el siguiente que pregunte puede necesitar el `abort()` con su
+        // mensaje —el guard pregunta sin abortar y el middleware abortando—.
+        if ($usuario !== null) {
+            $peticion->attributes->set($memoria, $usuario);
+        }
+
+        return $usuario;
+    }
+
+    private function resolverDeVerdad(string $plano, bool $abortando): ?User
     {
         if ($this->tieneNuestraForma($plano)) {
             $token = $this->buscar($plano);

@@ -24,9 +24,47 @@ La autenticación se suma **encima** de esos 250 ms.
 
 ## Las cinco causas, en orden de impacto
 
-### 1. 🔴 OPcache no está instalado · ~150–200 ms por petición
+### 1. ✅ OPcache · resuelto por el salto de imagen, y medido el 19 ago 2026
 
-**Verificado dentro del contenedor:**
+> **Ya está.** Lo cerró la Fase 4 sin que nadie lo apuntara: la imagen pasó de
+> `kooldev/php:8.0-nginx` a `8.4-nginx`, y esa sí trae la extensión. Comprobado
+> en FPM, no solo en el CLI: **2.037.893 aciertos contra 1.368 fallos**, 1.065
+> scripts en caché, 35 MB de los 128 configurados. Con `validate_timestamps=1` y
+> `revalidate_freq=2`, que es lo correcto en desarrollo.
+>
+> **Y se nota** (20 peticiones, **sin** `route:cache`):
+>
+> | Petición | Antes | Ahora |
+> |---|---|---|
+> | `GET /api/ruta-que-no-existe` (404) | 0,240 – 0,265 s | **0,028 s** de media, 0,024 la mejor |
+>
+> De 0,25 s a 0,03 s. **Esa es la única fila comparable de la tabla de arriba**,
+> y por eso está sola: `GET /api/paises` medía 0,246–0,264 s cuando devolvía dos
+> filas sin autenticación, y hoy contesta **401** —la Fase 2 lo puso detrás del
+> guard, con quince excepciones que no lo incluyen—. Los 0,023 s que da ahora no
+> son la misma medición: no llega a la base de datos. Un 404 sí es lo mismo que
+> era, arranque más tabla de rutas y nada más.
+>
+> No es todo de OPcache: la Fase 1 quitó `AdvancedRoute`, que reflexionaba 97
+> controladores y registraba 1.076 rutas en cada arranque. Los dos iban juntos
+> en el plan y los dos están.
+>
+> **Y el paso 6 ya no vale lo que decía.** Este documento le puso 30–60 ms a
+> `route:cache`. Medido hoy: 0,031 s con la caché puesta contra 0,028 s sin
+> ella — o sea, ruido, y de los dos lados. La estimación era buena para el
+> mundo donde se escribió, con 1.076 rutas registradas dos veces y sin OPcache;
+> quitados esos dos, no queda nada que ahorrar. Se comprobó de paso que
+> `route:cache` **funciona** y que la aplicación responde igual con las rutas
+> cacheadas, que es lo que de verdad hacía falta saber para el despliegue.
+>
+> Lo que no está medido es una petición autenticada de verdad contra la base de
+> desarrollo; para eso hace falta una credencial de ese colegio.
+>
+> **Falta el otro lado:** en producción esto depende de la versión de PHP de la
+> cuenta de cPanel, y hay que confirmar que OPcache está activo ahí. Va en
+> docs/DESPLIEGUE.md junto al cambio de versión.
+
+**Lo que se midió el 17 ago 2026, dentro del contenedor viejo:**
 
 ```
 $ docker exec 8myvc-app-1 php -m | grep -i opcache
@@ -156,8 +194,25 @@ php artisan event:cache
 > misma resolución. Con un test que lo comprueba contando las consultas
 > (`ContextoDeUsuarioTest`), que daba 2 antes y da 1 ahora.
 >
-> **Siguen pendientes** el N+1 de permisos, la caché entre peticiones y lo del
-> rate limiter, que son los puntos 1 a 4 de "Arreglo".
+> **Y una sola vez el token, desde el 19 ago 2026.** Los puntos 1 y 2 de
+> "Arreglo" están hechos: `GET api/periodos` pasó de **9 consultas a 7**, y de
+> las 7 solo una es del endpoint. Lo cuenta `ConsultasPorPeticionTest`.
+>
+> El limitador de `RouteServiceProvider` llama a `$request->user()` solo para
+> decidir la clave del cubo, y eso resuelve el token entero; después el
+> middleware `auth.token` volvía a resolverlo por su cuenta. Ahora la
+> resolución se memoriza en los `attributes` de la petición —el mismo sitio
+> donde `User::fromToken()` guarda el contexto, y no una propiedad del servicio,
+> que sobreviviría a la petición bajo Octane—.
+>
+> El N+1 de permisos es ahora una consulta con `IN`, con el orden escrito
+> (`role_id` en el orden de los roles, `permission_id` dentro de cada uno). Ese
+> era el orden que devolvía el bucle viejo por el índice, sin que nadie se lo
+> hubiera pedido; el test lo compara contra el algoritmo antiguo con un usuario
+> de dos roles.
+>
+> **Sigue pendiente** la caché del contexto entre peticiones (punto 3) y el
+> driver de caché (punto 4).
 
 Aquí sí es la autenticación, tal como sospechabas. Pero el detalle importa.
 
@@ -269,9 +324,9 @@ Sin esto, "está lento" no es accionable. Con esto, cada endpoint reporta su con
 | 3 | Log de consultas lentas en producción, 1 semana | 30 min | medición | nada |
 | 4 | Quitar `AdvancedRoute` → rutas explícitas | 1–2 d | 🔴 45 ms + doble registro | Fase 1 |
 | 5 | ~~Sacar `fromToken()` de los constructores~~ · **hecho 18 ago 2026** | 1 d | habilita el paso 6 | Fase 2 |
-| 6 | `route:cache` + `config:cache` en despliegue | 2 h | 🔴 30–60 ms | paso 5 |
-| 7 | Eliminar la doble autenticación (rate limiter) | 2 h | 🟠 1–2 consultas | Fase 3 |
-| 8 | Colapsar el N+1 de permisos | 1 h | 🟠 N-1 consultas | Fase 3 |
+| 6 | `route:cache` + `config:cache` en despliegue | 2 h | ~~🔴 30–60 ms~~ · **medido: ruido** (0,031 s con, 0,028 s sin) — la ganancia ya la dieron la Fase 1 y OPcache | paso 5 |
+| 7 | ~~Eliminar la doble autenticación (rate limiter)~~ · **hecho 19 ago 2026** | 2 h | 🟠 **2 consultas menos, medidas** | Fase 3 |
+| 8 | ~~Colapsar el N+1 de permisos~~ · **hecho 19 ago 2026** | 1 h | 🟠 N-1 consultas | Fase 3 |
 | 9 | Cachear el contexto de usuario | 1 d | 🟠 3 consultas → 0 | Fase 3 |
 | 10 | Redis como caché y sesión | 2 h | 🟠 variable | paso 9 |
 | 11 | PHP 8.0 → **8.4** | incluido en Fase 4 | 🟡 10–20 % | Fase 4 |
@@ -299,15 +354,34 @@ Ese es el orden de magnitud realista: **de ~5 peticiones por segundo a ~25–50*
 
 Es la respuesta moderna de Laravel al rendimiento (la app queda en memoria entre peticiones, arranque ≈ 0). Con Octane, el problema #1 y el #3 de este documento **desaparecen por completo**.
 
-**Pero hoy es una mina antipersona con este código.** `App\User` tiene estado estático:
+**Era una mina antipersona con este código, y el 19 ago 2026 quedó una sola
+mina.** `App\User` tenía cinco propiedades estáticas mutables:
 
 ```php
 public static $nota_minima_aceptada = 0;
-public static $images = '';
-public static $perfilPath = '';
-public static $intentoLogueoPorActive = 0;
+public static $images = '';          // borradas: no las leía nadie
+public static $perfilPath = '';      // borradas
+public static $imgSharedPath = '';   // borradas
+public static $intentoLogueoPorActive = 0;   // ahora es estado de la petición
 ```
 
-En un worker persistente, esas propiedades **se filtran entre peticiones de usuarios distintos**. `$nota_minima_aceptada` del colegio A aplicándose al alumno del colegio B. Es exactamente la clase de bug que no se reproduce en desarrollo y corrompe datos en producción.
+En un worker persistente esas propiedades se filtran entre peticiones de
+usuarios distintos. De las cinco:
 
-**Octane solo después de eliminar todo el estado estático (Fase 6).** OPcache + caché de rutas te da la mayor parte de la ganancia sin ese riesgo.
+- **Las tres de rutas de imágenes estaban muertas.** Se escribían en cada
+  petición —`'images/'`, `'images/perfil/'`, `'images/shared/'`, siempre lo
+  mismo— y no las leía nadie en todo el repo. Fuera.
+- **`$intentoLogueoPorActive` era la peligrosa de verdad**, y no por Octane: es
+  un guardia contra la recursión que se ponía a 1 y **no lo reiniciaba nadie**.
+  El primer usuario que pasara por ahí lo dejaba puesto para el worker entero, y
+  a partir de ese momento todos recibirían `user_inactivo_por_mucho_logueo` sin
+  haber reintentado nada. Ahora vive en los `attributes` de la petición, y hay
+  un test que lo ve **hoy, sin Octane**, porque PHPUnit corre las dos peticiones
+  en el mismo proceso — que es la condición que Octane crea en producción.
+- **`$nota_minima_aceptada` se queda.** La leen 26 sitios del cálculo de notas,
+  desde métodos estáticos de `Subunidad` y `Asignatura` que no reciben usuario.
+  Sacarla de ahí es tocar el cálculo de notas, y eso es lo que el §5 del plan de
+  migración protege. Es una decisión, no una limpieza.
+
+**Octane sigue esperando a esa última.** OPcache + caché de rutas da la mayor
+parte de la ganancia sin ese riesgo, y ya está dando.

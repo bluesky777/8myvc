@@ -1,12 +1,12 @@
 <?php namespace App\Http\Controllers\Piars;
 
-use Request;
-use DB;
+use Illuminate\Support\Facades\Request;
+use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Piars\Utils\UploadDocuments;
 
 use Carbon\Carbon;
-use File;
+use Illuminate\Support\Facades\File;
 use \Log;
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
 

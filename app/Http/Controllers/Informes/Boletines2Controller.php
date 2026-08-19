@@ -2,9 +2,9 @@
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Informes\CalcPerdidasDefinitivas;
-use Request;
-use DB;
-use Hash;
+use Illuminate\Support\Facades\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 
 use App\Models\Grupo;
 use App\Models\Periodo;

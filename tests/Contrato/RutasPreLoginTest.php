@@ -4,6 +4,7 @@ namespace Tests\Contrato;
 
 use App\Models\TokenDeSesion;
 use Illuminate\Routing\Middleware\ThrottleRequests;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
 /**
@@ -136,7 +137,7 @@ class RutasPreLoginTest extends CasoDeContrato
         $token = $this->tokenDe($usuario->username);
 
         // El login que acaba de hacer tokenDe() deja la fila abierta.
-        $fila = \DB::table('historiales')->where('user_id', $usuario->id)
+        $fila = DB::table('historiales')->where('user_id', $usuario->id)
             ->orderByDesc('id')->first();
 
         $this->assertNotNull($fila, 'El login debería haber dejado una fila en historiales.');
@@ -146,7 +147,7 @@ class RutasPreLoginTest extends CasoDeContrato
             ->assertStatus(200);
 
         $this->assertNotNull(
-            \DB::table('historiales')->where('id', $fila->id)->value('logout_at'),
+            DB::table('historiales')->where('id', $fila->id)->value('logout_at'),
             'El logout no registró la salida.'
         );
     }
@@ -165,7 +166,7 @@ class RutasPreLoginTest extends CasoDeContrato
         $otro = $this->usuarioDeTipo('Profesor');
         $token = $this->tokenDe($mio->username);
 
-        $suya = \DB::table('historiales')->insertGetId([
+        $suya = DB::table('historiales')->insertGetId([
             'user_id' => $otro->id,
             'tipo' => $otro->tipo,
             'created_at' => now(),
@@ -177,7 +178,7 @@ class RutasPreLoginTest extends CasoDeContrato
             ['Authorization' => 'Bearer '.$token])->assertStatus(200);
 
         $this->assertNull(
-            \DB::table('historiales')->where('id', $suya)->value('logout_at'),
+            DB::table('historiales')->where('id', $suya)->value('logout_at'),
             'Se pudo marcar la salida de otro usuario mandando su id en el cuerpo.'
         );
     }
@@ -207,7 +208,7 @@ class RutasPreLoginTest extends CasoDeContrato
         $this->getJson('/api/ciudades', ['Authorization' => 'Bearer '.$caducado])
             ->assertStatus(401);
 
-        $fila = \DB::table('historiales')->insertGetId([
+        $fila = DB::table('historiales')->insertGetId([
             'user_id' => $usuario->id,
             'tipo' => $usuario->tipo,
             'created_at' => now(),
@@ -218,7 +219,7 @@ class RutasPreLoginTest extends CasoDeContrato
             ->assertStatus(200);
 
         $this->assertNotNull(
-            \DB::table('historiales')->where('id', $fila)->value('logout_at'),
+            DB::table('historiales')->where('id', $fila)->value('logout_at'),
             'Con el token caducado no se registró la salida, que es el caso normal.'
         );
     }
@@ -228,7 +229,7 @@ class RutasPreLoginTest extends CasoDeContrato
     {
         $otro = $this->usuarioDeTipo('Profesor');
 
-        $fila = \DB::table('historiales')->insertGetId([
+        $fila = DB::table('historiales')->insertGetId([
             'user_id' => $otro->id,
             'tipo' => $otro->tipo,
             'created_at' => now(),
@@ -244,7 +245,7 @@ class RutasPreLoginTest extends CasoDeContrato
             ->assertStatus(200);
 
         $this->assertNull(
-            \DB::table('historiales')->where('id', $fila)->value('logout_at'),
+            DB::table('historiales')->where('id', $fila)->value('logout_at'),
             'Un token con firma inválida pudo marcar la salida de alguien.'
         );
     }
@@ -254,7 +255,7 @@ class RutasPreLoginTest extends CasoDeContrato
     {
         $otro = $this->usuarioDeTipo('Profesor');
 
-        $suya = \DB::table('historiales')->insertGetId([
+        $suya = DB::table('historiales')->insertGetId([
             'user_id' => $otro->id,
             'tipo' => $otro->tipo,
             'created_at' => now(),
@@ -264,7 +265,7 @@ class RutasPreLoginTest extends CasoDeContrato
         $this->putJson('/api/login/logout', ['user_id' => $otro->id])->assertStatus(200);
 
         $this->assertNull(
-            \DB::table('historiales')->where('id', $suya)->value('logout_at'),
+            DB::table('historiales')->where('id', $suya)->value('logout_at'),
             'Sin token se pudo marcar la salida de un usuario cualquiera.'
         );
     }

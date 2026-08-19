@@ -33,7 +33,7 @@ use Illuminate\Support\Facades\Route;
 //
 // Las dos últimas sí exigen token vivo: 'auth/logout-all' es una acción de
 // seguridad sobre la cuenta, y 'auth/me' devuelve datos del usuario.
-Route::post('auth/login', [SesionController::class, 'login'])->withoutMiddleware('auth.token');
+Route::post('auth/login', [SesionController::class, 'login'])->withoutMiddleware('auth.token')->middleware('throttle:login');
 Route::post('auth/refresh', [SesionController::class, 'refrescar'])->withoutMiddleware('auth.token');
 Route::post('auth/logout', [SesionController::class, 'logout'])->withoutMiddleware('auth.token');
 Route::post('auth/logout-all', [SesionController::class, 'logoutTodas']);
@@ -45,14 +45,14 @@ Route::get('auth/me', [SesionController::class, 'yo']);
 // ninguna puede exigir token. Inventario levantado por la sesión de myvc_front
 // (18 ago 2026) recorriendo los estados que viven fuera del área autenticada.
 // Ver docs/migracion/04-auditoria-autenticacion.md §5.
-Route::post('login', [LoginController::class, 'postIndex'])->withoutMiddleware('auth.token');
-Route::put('login/crear-prematricula', [LoginController::class, 'putCrearPrematricula'])->withoutMiddleware('auth.token');
-Route::post('login/credentials', [LoginController::class, 'postCredentials'])->withoutMiddleware('auth.token');
+Route::post('login', [LoginController::class, 'postIndex'])->withoutMiddleware('auth.token')->middleware('throttle:login');
+Route::put('login/crear-prematricula', [LoginController::class, 'putCrearPrematricula'])->withoutMiddleware('auth.token')->middleware('throttle:prematricula');
+Route::post('login/credentials', [LoginController::class, 'postCredentials'])->withoutMiddleware('auth.token')->middleware('throttle:login');
 Route::put('login/logout', [LoginController::class, 'putLogout'])->withoutMiddleware('auth.token');
 // Se llama desde el enlace del correo: el usuario no ha iniciado sesión —no
 // puede, ha olvidado la contraseña— y el token del reseteo viaja en la URL.
-Route::put('login/reset-password', [LoginController::class, 'putResetPassword'])->withoutMiddleware('auth.token');
-Route::post('login/recuperar-clave', [LoginController::class, 'postRecuperarClave'])->withoutMiddleware('auth.token');
+Route::put('login/reset-password', [LoginController::class, 'putResetPassword'])->withoutMiddleware('auth.token')->middleware('throttle:login');
+Route::post('login/recuperar-clave', [LoginController::class, 'postRecuperarClave'])->withoutMiddleware('auth.token')->middleware('throttle:login');
 // Alias de la anterior. La ruta se llamaba 'login/ver-pass' y el nombre engañaba:
 // no muestra ninguna contraseña, manda el correo de reseteo.
 //
@@ -60,7 +60,7 @@ Route::post('login/recuperar-clave', [LoginController::class, 'postRecuperarClav
 // colegio publica su front por separado, así que durante un tiempo convivirán
 // versiones que llaman a una y a otra. Se borra cuando el front de TODOS los
 // colegios use ya 'login/recuperar-clave'. Anotado en docs/DESPLIEGUE-REFERENCIA.md.
-Route::post('login/ver-pass', [LoginController::class, 'postRecuperarClave'])->withoutMiddleware('auth.token');
+Route::post('login/ver-pass', [LoginController::class, 'postRecuperarClave'])->withoutMiddleware('auth.token')->middleware('throttle:login');
 
 // TLoginController
 //
@@ -68,6 +68,6 @@ Route::post('login/ver-pass', [LoginController::class, 'postRecuperarClave'])->w
 // CADA petición y el método las verifica con Auth::attempt(). No son rutas
 // públicas —autentican— pero el guard de token las cerraría igual, y el lector
 // se quedaría sin poder entrar.
-Route::post('tardanzas/login', [TLoginController::class, 'postIndex'])->withoutMiddleware('auth.token');
+Route::post('tardanzas/login', [TLoginController::class, 'postIndex'])->withoutMiddleware('auth.token')->middleware('throttle:login');
 Route::post('tardanzas/login/traer-datos', [TLoginController::class, 'postTraerDatos'])->withoutMiddleware('auth.token');
 Route::post('tardanzas/login/traer-datos-ausencias', [TLoginController::class, 'postTraerDatosAusencias'])->withoutMiddleware('auth.token');

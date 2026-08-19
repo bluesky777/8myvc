@@ -1,6 +1,6 @@
 <?php namespace App\Http\Controllers\Informes;
 
-use DB;
+use Illuminate\Support\Facades\DB;
 use App\User;
 
 class CalcPerdidasDefinitivas {

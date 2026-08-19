@@ -1,15 +1,15 @@
 <?php namespace App\Http\Controllers;
 
 
-use DB;
-use Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Request;
 
 use App\User;
 use App\Models\Profesor;
 use App\Support\Autoriza;
 use App\Models\Role;
 use App\Models\Year;
-use Hash;
+use Illuminate\Support\Facades\Hash;
 use Carbon\Carbon;
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
 

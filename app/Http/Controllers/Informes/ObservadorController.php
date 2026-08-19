@@ -2,10 +2,10 @@
 
 use App\Http\Controllers\Controller;
 
-use Request;
-use DB;
-use Excel;
-use View;
+use Illuminate\Support\Facades\Request;
+use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Facades\View;
 
 use App\User;
 use App\Models\Year;
@@ -41,7 +41,6 @@ class ObservadorController extends Controller {
 
         $grupos = DB::select($consulta, [':year_id'=> $year->year_id, ':grupo_id' => $grupo_id ] );
         
-        Log::info($year->year_id);
         for ($i=0; $i < count($grupos); $i++) { 
             
             $consulta   = Matricula::$consulta_asistentes_o_matriculados_simat;

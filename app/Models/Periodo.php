@@ -4,7 +4,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 use \stdClass;
-use DB;
+use Illuminate\Support\Facades\DB;
 use App\User;
 
 class Periodo extends Model {

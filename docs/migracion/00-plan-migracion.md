@@ -517,7 +517,7 @@ Con `intervention/image` **4.2.1** + el puente oficial **`intervention/image-lar
 
 - `App\User` → `App\Models\User` (Laravel 8 ya lo esperaba ahí; sigue en la raíz). 336 referencias, pero es un `use` — búsqueda y reemplazo.
 - `$this->namespace` en `RouteServiceProvider` desaparece en L9 → resuelto en Fase 1 al usar `Controller::class`.
-- Los facades con alias de raíz (`use Request;`, `use DB;`, `use Image;`, `use File;`, `use Hash;`) siguen funcionando en L13 vía `config/app.php` aliases. **No hay que tocarlos** — pero conviene migrarlos a `Illuminate\Support\Facades\*` con Rector, aparte.
+- ~~Los facades con alias de raíz (`use Request;`, `use DB;`, `use Image;`, `use File;`, `use Hash;`) siguen funcionando en L13 vía `config/app.php` aliases. **No hay que tocarlos** — pero conviene migrarlos a `Illuminate\Support\Facades\*` con Rector, aparte.~~ **Hecho el 19 ago 2026**, y no con Rector — ver la nota de la Fase 6.
 - `Illuminate\Support\Facades\Input` — verificar; ya no existe. Aparece comentado en `LoginController.php:11`, y hay un uso vivo en `LoginController.php:53` dentro de un `catch` (`Input::all()`) que **explotaría** si ese catch se llegara a ejecutar. Es un bug latente hoy.
 - L11: reestructurado a esqueleto slim (`bootstrap/app.php`) como **commit aparte y opcional**. Laravel 11 y 12 arrancan perfectamente con `app/Http/Kernel.php`. Hazlo solo si quieres el esqueleto moderno; no es requisito.
 
@@ -607,18 +607,67 @@ Ya sembrado en la Fase 0. Aquí se cierra:
 | Herramienta | Alcance | Dónde |
 |---|---|---|
 | **Pint** | solo lo que escribió esta migración: `routes/`, `tests/`, `app/Services`, `app/Support`, `app/Http/Middleware`, `app/Console`, los `Concerns` | `composer run pint` · CI |
-| **Larastan** | nivel 0 sobre `app/`, `config/`, `database/`, `routes/`, `tests/`, `tools/` | `composer run stan` · CI |
+| **Larastan** | **nivel 1** sobre `app/`, `config/`, `database/`, `routes/`, `tests/`, `tools/` | `composer run stan` · CI |
 | **Rector** | configurado y **sin correr**: por carpeta y revisando cada diff | `rector.php` |
+| **`tools/imports-de-facades.php`** | los imports por alias de raíz, una línea por import | corrido el 19 ago 2026 · lo vigila `AliasDeFacadesTest` |
 
 Pint no toca el legacy a propósito: reformatear 129 controladores sería un diff
 ilegible encima de la migración, y el `.styleci.yml` de 2021 ya avisaba de por
 dónde duele —tenía `no_unused_imports` desactivado—. Se formatea el día que se
 toque cada fichero.
 
-Rector queda listo para lo único que le falta de la Fase 4: los 145 ficheros que
-importan los facades por su alias de raíz (`use DB;`, `use Request;`) en vez de
-`Illuminate\Support\Facades\*`. Hoy funcionan porque `config/app.php` mantiene
-los alias; el día que Laravel los retire dejan de hacerlo todos a la vez.
+**Los imports por alias de raíz — cerrado el 19 ago 2026.** Era lo único que le
+quedaba a la Fase 4: `use DB;` funciona porque `config/app.php` mantiene un
+array `aliases` que registra un `class_alias` global por cada uno. Laravel 13 ya
+no genera ese array en las aplicaciones nuevas, y el día que desaparezca —o el
+día que alguien modernice ese fichero copiando uno reciente— dejan de resolver
+todos a la vez: «Class DB not found» en cada petición que pase por ahí.
+
+Medido con el tokenizador, no con grep: **309 referencias en 145 ficheros**. El
+grep se equivocaba en los dos sentidos —contaba seis `Auth::` escritos dentro de
+comentarios, y no veía los `\DB::` de los tests que escribió esta misma
+migración—. El desglose: 140 `use DB;`, 102 `use Request;`, 24 `use Hash;`, y
+una cola de `File`, `Excel`, `Image`, `Auth`, `View`, `Log`, `Browser`, `App`.
+
+**No se hizo con Rector**, aunque estuviera configurado para ello. El set
+`LARAVEL_FACADE_ALIASES_TO_FULL_NAMES` escribe el nombre completo en cada
+llamada, y aquí hay 990 `DB::`; con `withImportNames()` sí pone el import, pero
+de paso colapsa cualquier otro nombre completo que encuentre y tocaba diez
+ficheros que no tenían el problema. `tools/imports-de-facades.php` cambia una
+línea por import y ninguna más: **293 líneas de diff en 141 ficheros**, y ni una
+llamada tocada.
+
+Dos cosas que un reemplazo ciego habría roto, y que salieron de leer el mapa de
+`config/app.php` en vez de escribir la lista a mano:
+
+- **`Browser` apunta a `hisorange\BrowserDetect\Facade`**, cuyo nombre corto no
+  es `Browser`. Necesita `use ... as Browser;` o las llamadas dejan de resolver.
+  Lo mismo con `Eloquent`, que apunta a `Eloquent\Model`.
+- **Las vistas Blade no se arreglan importando.** Una plantilla se compila a PHP
+  sin namespace, así que el `Route::has()` de `welcome.blade.php` resuelve al
+  nombre global igual. Ahí hay que escribir el nombre completo en la llamada.
+
+**El array se queda**, y a propósito. Ya nada de este repo depende de él —lo
+comprueban los dos tests de `AliasDeFacadesTest`—, pero cada colegio tiene su
+copia de la aplicación, y una vista propia que no esté en este repo seguiría
+usando `Route::`. Borrarlo es una decisión que se toma mirando los servidores.
+
+**Larastan, del nivel 0 al 1 — 19 ago 2026.** El 0 solo mira lo que no puede
+existir; el 1 añade métodos y propiedades que no existen en una clase que sí.
+341 errores, y **320 eran uno solo**: el `$this->user` de 129 controladores, que
+sirve un `__get` del trait `ResuelveElUsuario` y que phpstan no puede adivinar.
+Una anotación `@property` en el trait y desaparecen los 320, sin tocar código.
+
+De los 21 que quedaban, **uno se arregló** —`GET perfiles/comprobarusername`,
+que llamaba a `User::withTrashed()` sin que `User` use SoftDeletes: 500 desde
+que se escribió, y el arreglo no tiene decisión detrás— y **diez se documentan**
+con su `count` en `phpstan.neon`, con lo que falta decidir en cada uno. Están en
+[05 §7](05-codigo-muerto-y-roto.md). Dos de ellos son `Excel::create()`, la API
+de maatwebsite 2.x, en informes que el §5 deja fuera de alcance.
+
+Es el mismo punto ciego de la Fase 6 —`__call` hace que para el análisis la
+clase «podría» responder— visto una capa más arriba. Y el mismo patrón: ninguno
+de los once salió de leer el código con una lista delante.
 
 **No es un big-bang.** Con 990 queries crudas, reescribirlas todas a Eloquent sería meses de trabajo y meses de bugs nuevos, sin ganancia funcional. Enfoque:
 
@@ -631,7 +680,7 @@ los alias; el día que Laravel los retire dejan de hacerlo todos a la vez.
   - `Boletines`, `Boletines2`, `Boletines3` (520 + 498 + 494 líneas). **No se tocan**: los tres están enrutados y sirven formatos distintos de boletín. Fusionarlos es tocar el cálculo de notas
   - `ImporterFixer` · se quedó, con las dos propiedades que le faltaban declaradas
   - modelo `Debugging` (9.553 filas en producción) · se quedó: lo usan `ChangeAskedController`, `Grupo`, `Nota`, `Unidad` y `NotaFinal`
-- **Herramientas:** ~~Pint (formato), Larastan (subir de nivel 0 a 3 gradualmente), Rector.~~ **Montadas** — ver arriba. Lo que sigue siendo continuo es subir el nivel de Larastan.
+- **Herramientas:** ~~Pint (formato), Larastan (subir de nivel 0 a 3 gradualmente), Rector.~~ **Montadas** — ver arriba. El nivel 1 se subió el 19 ago 2026 y encontró once endpoints rotos más ([05 §7](05-codigo-muerto-y-roto.md)). Sigue siendo continuo llegar al 3.
 - **Validación:** hoy hay **2** validaciones en todo el proyecto. Cada endpoint que se toque estrena su FormRequest. No se hace de golpe.
 
 ---
@@ -646,15 +695,15 @@ Lo que **sí** hay que cambiar:
 
 | Cosa | Hoy | Problema |
 |---|---|---|
-| Imagen PHP | `kooldev/php:8.0-nginx` | PHP 8.0 lleva sin soporte de seguridad desde nov 2023 |
-| `version: "3.7"` en `docker-compose.yml` | presente | Obsoleto — Docker ya lo avisa en cada comando |
-| Puerto MySQL | `${KOOL_DATABASE_PORT:-3307}:3307` | El contenedor escucha en 3306, no 3307. El mapeo está mal aunque funcione por el default de la variable |
+| Imagen PHP | ~~`kooldev/php:8.0-nginx`~~ · **`8.4-nginx`** | ✅ Fase 4 |
+| ~~`version: "3.7"` en `docker-compose.yml`~~ | quitado | ✅ 19 ago 2026 |
+| ~~Puerto MySQL `${KOOL_DATABASE_PORT:-3307}:3307`~~ · **`:3306`** | ✅ 19 ago 2026 | Medido antes de tocarlo: MySQL escucha en 3306 y en el 3307 no había nada, así que el puerto publicado no llevaba a ningún sitio. Ahora `mysql -h 127.0.0.1 -P 3307` desde el host responde |
 
 **Recomendación, por orden de esfuerzo:**
 
-1. **Mínimo (recomendado ahora):** quedarse con kool, cambiar la imagen a PHP 8.4, quitar `version:`, arreglar el puerto. 1 hora. No está en el camino crítico de la migración.
+1. ~~**Mínimo (recomendado ahora):** quedarse con kool, cambiar la imagen a PHP 8.4, quitar `version:`, arreglar el puerto. 1 hora.~~ **Hecho.** Se sigue con kool.
 2. **Estándar hoy:** `laravel/sail` — ya está en tus `require-dev`. Es el docker-compose oficial de Laravel, con `sail up`, `sail artisan`, etc. Es lo que cualquier dev de Laravel espera encontrar.
-3. **Producción moderna:** **FrankenPHP** (`dunglas/frankenphp`) con Laravel Octane. Es la historia oficial de rendimiento de Laravel hoy: un binario, sin nginx+fpm, worker mode. Eso sí — Octane mantiene la app en memoria entre requests, y este código tiene estado estático (`User::$nota_minima_aceptada`, `User::$images`, `User::$intentoLogueoPorActive`) que **se filtraría entre usuarios**. Es una mina antipersona con el código actual. Solo después de la Fase 6.
+3. **Producción moderna:** **FrankenPHP** (`dunglas/frankenphp`) con Laravel Octane. Es la historia oficial de rendimiento de Laravel hoy: un binario, sin nginx+fpm, worker mode. Eso sí — Octane mantiene la app en memoria entre requests, y este código tenía cinco propiedades estáticas mutables que **se filtrarían entre usuarios**. El 19 ago 2026 quedó una: las tres de rutas de imágenes estaban muertas y `$intentoLogueoPorActive` pasó a ser estado de la petición (con test). Sigue `User::$nota_minima_aceptada`, que leen 26 sitios del cálculo de notas — sacarla de ahí es tocar lo que el §5 protege.
 
 **Mi recomendación concreta: opción 1 ahora, evaluar Sail en la Fase 4, FrankenPHP/Octane nunca antes de limpiar el estado estático.**
 
