@@ -2,7 +2,6 @@
 
 namespace App;
 
-use Tymon\JWTAuth\Contracts\JWTSubject;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -14,13 +13,7 @@ use Request;
 use DB;
 use App;
 
-/**
- * `implements JWTSubject` y los dos métodos getJWT* siguen aquí porque
- * tymon/jwt-auth sigue instalado para poder aceptar los tokens ya emitidos
- * (ver config/sesion.php). Nada emite JWT nuevos desde la Fase 3. Se van con
- * el paquete.
- */
-class User extends Authenticatable implements JWTSubject
+class User extends Authenticatable
 {
     use Notifiable;
     use HasApiTokens;
@@ -34,26 +27,6 @@ class User extends Authenticatable implements JWTSubject
 	public static $intentoLogueoPorActive = 0;
 
 
-
-    /**
-     * Get the identifier that will be stored in the subject claim of the JWT.
-     *
-     * @return mixed
-     */
-    public function getJWTIdentifier()
-    {
-        return $this->getKey();
-    }
-
-    /**
-     * Return a key value array, containing any custom claims to be added to the JWT.
-     *
-     * @return array
-     */
-    public function getJWTCustomClaims()
-    {
-        return [];
-    }
 
 	public function roles()
     {

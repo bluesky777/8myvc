@@ -186,25 +186,25 @@ class RutasPreLoginTest extends CasoDeContrato
      *
      * Es lo normal — quien vuelve al día siguiente y pulsa "salir". Por eso el
      * usuario no se resuelve con `User::fromToken()`, que aborta con 401 al
-     * expirar, sino decodificando el token: se comprueba la firma, no la fecha.
+     * expirar, sino buscando la fila del token: existe aunque haya vencido, y
+     * de paso es la que hay que borrar.
      */
     public function test_registra_la_salida_con_el_token_caducado(): void
     {
         $usuario = $this->usuarioDeTipo('Usuario');
 
-        // Token legítimamente FIRMADO pero vencido ayer.
-        //
-        // No sirve `JWTAuth::claims(['exp' => ...])->fromUser()`: tymon valida
-        // los claims al CONSTRUIR el token y lanza TokenExpiredException antes de
-        // devolverlo. Hay que firmar directamente por el proveedor, que es
-        // además el mismo camino que usa el controlador para leerlo.
-        $caducado = \JWTAuth::manager()->getJWTProvider()->encode([
-            'sub' => $usuario->id,
-            'iat' => now()->subDays(2)->timestamp,
-            'nbf' => now()->subDays(2)->timestamp,
-            'exp' => now()->subDay()->timestamp,
-            'jti' => 'test-caducado',
-        ]);
+        // Un token de verdad, emitido por el login, al que se le adelanta la
+        // caducidad en la propia tabla. Es lo que pasa de forma natural con el
+        // de quien vuelve al día siguiente.
+        $caducado = $this->tokenDe($usuario->username);
+
+        \App\Models\TokenDeSesion::findToken($caducado)
+            ->forceFill(['expires_at' => now()->subDay()])
+            ->save();
+
+        // Y comprobado que de verdad está muerto para todo lo demás.
+        $this->getJson('/api/ciudades', ['Authorization' => 'Bearer ' . $caducado])
+            ->assertStatus(401);
 
         $fila = \DB::table('historiales')->insertGetId([
             'user_id'    => $usuario->id,

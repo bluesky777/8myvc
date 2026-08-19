@@ -141,6 +141,7 @@ la que ocurre durante el despliegue.
 | `POST /api/login` | El contexto del usuario. Sin token, 200 con cuerpo vacío, como siempre |
 | `PUT login/logout` | 200 pase lo que pase. Y ahora además mata el token |
 | Los tres mensajes de 401 | `No existe Token`, `Token ha expirado.`, `Token inválido, prohibido entrar.` |
+| Lo que **sí** cambia | Los JWT vivos dejan de valer: una vuelta al login, una sola vez |
 | `tardanzas/*` | El lector sigue mandando usuario y contraseña en cada petición |
 
 **El token de `login/credentials` dura 24 h**, no una hora
@@ -149,11 +150,10 @@ con un refresco, así que su sesión tiene que aguantar de una vez lo que
 aguantaba. Si emitiera el token corto, esos colegios sacarían al usuario cada
 hora sin que nadie supiera por qué.
 
-**Los JWT ya emitidos se siguen aceptando** (`SESION_ACEPTA_JWT=true`). El día
-del despliegue hay tokens vivos en el navegador de todo el mundo con hasta 24 h
-por delante; si dejaran de valer de golpe, el colegio entero se quedaría fuera a
-la vez. Poner la variable en `false` los mata en el acto — y es **lo único que
-puede revocarlos**.
+~~**Los JWT ya emitidos se siguen aceptando.**~~ **Ya no** — se quitó el paquete
+al saltar a Laravel 10 (ver §6). La ventana existió para no expulsar a nadie el
+día del despliegue; duró lo que tardó en llegar el salto de framework, que no
+podía esperar. **Al desplegar, todo el mundo vuelve a entrar una vez.**
 
 ---
 
@@ -219,11 +219,18 @@ antes que el front nuevo se quedaba sin ninguna forma de entrar.
 
 ## 6. Lo que esta fase NO hace
 
-- **No quita `tymon/jwt-auth`.** Sigue instalado para poder aceptar los tokens
-  ya emitidos. Se quita —junto con `"minimum-stability": "dev"`, `config/jwt.php`,
-  `JWT_SECRET` y el `implements JWTSubject` de `App\User`— cuando todos los
-  colegios lleven tiempo desplegados y `SESION_ACEPTA_JWT` esté en `false`.
-  Es el primer paso de la Fase 4.
+- ~~**No quita `tymon/jwt-auth`.**~~ **Quitado el 19 ago 2026**, junto con
+  `"minimum-stability": "dev"` —que estaba ahí solo por él, porque se instalaba
+  como `dev-develop`—, `config/jwt.php`, `JWT_SECRET`, el proveedor de
+  `config/app.php` y el `implements JWTSubject` de `App\User`. Con él se fue la
+  ventana de compatibilidad: `SESION_ACEPTA_JWT` ya no existe.
+
+  **Consecuencia al desplegar: todo el mundo vuelve a entrar una vez.** Los
+  tokens JWT que haya vivos en los navegadores dejan de valer en el momento del
+  despliegue y el usuario aterriza en el login. Decisión de Joseth (19 ago 2026),
+  tomada sabiendo esto: pasa una sola vez y no se podía esperar, porque Laravel
+  10 exige `illuminate ^10` y `tymon/jwt-auth` solo declara hasta `^9`. Era el
+  bloqueante duro del framework.
 - **No impone límite de inactividad.** Mientras el refresco valga, se refresca.
   El límite absoluto y el de inactividad los cuenta el frontend (fase 7b de
   `myvc_front`), que es donde se sabe si el usuario está delante.

@@ -9,8 +9,6 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use JWTAuth;
-use Tymon\JWTAuth\Exceptions\JWTException;
 
 /**
  * Abre, valida, refresca y cierra sesiones.
@@ -18,6 +16,10 @@ use Tymon\JWTAuth\Exceptions\JWTException;
  * Es el único sitio que sabe qué es un token válido. `User::fromToken()`, el
  * middleware `auth.token` y el guard `sesion` de config/auth.php pasan todos
  * por aquí, para que no haya dos respuestas distintas a la misma pregunta.
+ *
+ * Aquí llegó a convivir el camino de los JWT viejos, para no expulsar a nadie el
+ * día de la Fase 3. Se quitó al saltar a Laravel 10: `tymon/jwt-auth` solo
+ * declara soporte hasta `illuminate ^9` y era el bloqueante duro del framework.
  *
  * **Una sesión son DOS tokens**, no uno:
  *
@@ -227,7 +229,7 @@ class Sesion
      */
     private function resolver(string $plano, bool $abortando): ?User
     {
-        if ($this->pareceDeSanctum($plano)) {
+        if ($this->tieneNuestraForma($plano)) {
             $token = $this->buscar($plano);
 
             // Un refresco presentado como si fuera de acceso cae en el mismo
@@ -252,13 +254,9 @@ class Sesion
             return $usuario->withAccessToken($token);
         }
 
-        $usuario = $this->usuarioDeJwt($plano, $abortando);
-
-        if ($usuario === null && $abortando) {
-            abort(401, 'Token inválido, prohibido entrar.');
-        }
-
-        return $usuario;
+        // No hay un segundo formato al que caer: desde que se quitó
+        // tymon/jwt-auth, lo que no es un token de Sanctum no es nada.
+        return $abortando ? abort(401, 'Token inválido, prohibido entrar.') : null;
     }
 
     /**
@@ -272,7 +270,7 @@ class Sesion
     {
         $plano = $this->tokenPlanoDe($peticion);
 
-        if ($plano === null || ! $this->pareceDeSanctum($plano)) {
+        if ($plano === null || ! $this->tieneNuestraForma($plano)) {
             return null;
         }
 
@@ -322,12 +320,14 @@ class Sesion
     }
 
     /**
-     * Los tokens de Sanctum son '<id>|<40 caracteres>' y los JWT son tres
-     * bloques separados por puntos. No se pueden confundir, así que mirar la
-     * forma evita darle un token de Sanctum al parser de JWT (que respondería
-     * 'No existe Token', y no es que no exista: es que no es suyo).
+     * Los tokens de Sanctum son '<id>|<40 caracteres>'.
+     *
+     * Mirar la forma antes de ir a la base ahorra una consulta por cada cadena
+     * que ni siquiera puede ser un token nuestro. Servía además para distinguir
+     * los JWT viejos, que eran tres bloques separados por puntos; eso se acabó
+     * al quitar tymon/jwt-auth, pero el ahorro sigue.
      */
-    private function pareceDeSanctum(string $plano): bool
+    private function tieneNuestraForma(string $plano): bool
     {
         return (bool) preg_match('/^\d+\|/', $plano);
     }
@@ -337,44 +337,6 @@ class Sesion
         $token = TokenDeSesion::findToken($plano);
 
         return $token instanceof TokenDeSesion ? $token : null;
-    }
-
-    /**
-     * El camino viejo: un JWT emitido antes de la Fase 3.
-     *
-     * Se aceptan para no expulsar a todo el mundo el día del despliegue —hay
-     * tokens vivos con hasta 24 h por delante—. `sesion.acepta_jwt` los corta.
-     */
-    private function usuarioDeJwt(string $plano, bool $abortando): ?User
-    {
-        if (! config('sesion.acepta_jwt')) {
-            if ($abortando) {
-                abort(401, 'Token ha expirado.');
-            }
-
-            return null;
-        }
-
-        try {
-            // getPayload() comprueba la firma y la expiración, y devuelve los
-            // claims. No se usa authenticate(), que sería lo natural, porque
-            // por dentro le pide `onceUsingId` al guard por defecto — y el
-            // guard por defecto ahora es `sesion`, que es quien está llamando
-            // aquí. Se llamaban en círculo y salía un 500.
-            $claims = JWTAuth::setToken($plano)->getPayload();
-        } catch (JWTException $e) {
-            Log::info($e);
-
-            if ($abortando) {
-                abort(401, 'Token ha expirado.');
-            }
-
-            return null;
-        }
-
-        $usuario = User::find($claims->get('sub'));
-
-        return $usuario instanceof User ? $usuario : null;
     }
 
     private function emitir(User $usuario, string $sesion, array $habilidades, int $minutos): array

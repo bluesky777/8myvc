@@ -1,8 +1,6 @@
 <?php namespace App\Http\Controllers\Tardanzas;
 
 
-use JWTAuth;
-use Tymon\JWTAuth\Exceptions\JWTException;
 use App\Http\Controllers\Controller;
 
 use Request;

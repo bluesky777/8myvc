@@ -317,30 +317,31 @@ class SesionTest extends CasoDeContrato
     }
 
     /**
-     * Un JWT emitido antes de la Fase 3 sigue valiendo.
+     * Un token que no es nuestro no entra, sea lo que sea.
      *
-     * El día del despliegue hay tokens JWT vivos en el navegador de todo el
-     * mundo, con hasta 24 h por delante. Si dejaran de valer de golpe, el
-     * colegio entero se quedaría fuera a la vez.
+     * Aquí vivían dos tests de los JWT viejos: que seguían valiendo y que el
+     * interruptor los cortaba. Se fueron con `tymon/jwt-auth` al saltar a
+     * Laravel 10. Lo que queda es la regla que dejaron: **lo que no es un token
+     * de Sanctum no es nada**, y ya no hay un segundo formato al que caer.
+     *
+     * El JWT del caso de prueba es uno real, de los que emitía este backend
+     * antes de la Fase 3.
      */
-    public function test_un_jwt_de_antes_sigue_entrando(): void
+    /** @dataProvider tokensQueNoValen */
+    public function test_un_token_que_no_es_nuestro_no_entra(string $token): void
     {
-        $usuario = \App\User::find($this->usuarioDeTipo('Usuario')->id);
-
-        $jwt = \JWTAuth::fromUser($usuario);
-
-        $this->getJson('/api/ciudades', $this->cab($jwt))->assertStatus(200);
+        $this->getJson('/api/ciudades', $this->cab($token))->assertStatus(401);
     }
 
-    /** Y el interruptor los corta, que es lo único que puede revocarlos. */
-    public function test_el_interruptor_deja_de_aceptar_jwt(): void
+    public function tokensQueNoValen(): array
     {
-        $usuario = \App\User::find($this->usuarioDeTipo('Usuario')->id);
-
-        $jwt = \JWTAuth::fromUser($usuario);
-
-        config(['sesion.acepta_jwt' => false]);
-
-        $this->getJson('/api/ciudades', $this->cab($jwt))->assertStatus(401);
+        return [
+            'un JWT de los de antes' => ['eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9'
+                . '.eyJzdWIiOjEsImlhdCI6MTc1NTYxNzE0NCwiZXhwIjoxNzU1NzAzNTQ0fQ'
+                . '.qXQeQ3nS0cVYQ9m5Fh1x2pKcJ8lLwZ4tR7bN6vA3sEo'],
+            'basura'                 => ['no-es-un-token'],
+            'la forma pero inventado' => ['99999|' . str_repeat('a', 40)],
+            'vacío como texto'       => ['null'],
+        ];
     }
 }

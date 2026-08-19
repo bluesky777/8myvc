@@ -1,9 +1,7 @@
 <?php namespace App\Http\Controllers;
 
 
-use JWTAuth;
 use Browser;
-use Tymon\JWTAuth\Exceptions\JWTException;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
@@ -140,7 +138,10 @@ class LoginController extends Controller {
 			// de la misma sesión.
 			$sesion->cerrar($token);
 		} else {
-			$userId = $this->usuarioDelTokenAunqueCaducado();
+			// Sin token identificable no hay sesión que registrar. Aquí caía
+			// antes el camino de los JWT, que se decodificaban para sacar el
+			// `sub` sin mirar la expiración. Se fue con el paquete.
+			$userId = null;
 		}
 
 		// Sin token identificable no hay sesión que registrar. Se responde igual:
@@ -162,44 +163,6 @@ class LoginController extends Controller {
 
 		return 'Deslogueado';
 	}
-
-
-	/**
-	 * El id del usuario que hay dentro del token, aunque el token haya expirado.
-	 *
-	 * Cerrar sesión con el token caducado tiene que funcionar — es el caso normal
-	 * de quien vuelve al día siguiente—, así que no sirve `User::fromToken()`,
-	 * que aborta con 401 al expirar.
-	 *
-	 * Se decodifica por el proveedor directamente: **comprueba la firma** pero no
-	 * valida la expiración. Un token inventado no pasa; uno legítimo y vencido sí.
-	 *
-	 * No se usa `setRefreshFlow()` del manager, que haría lo mismo, porque es un
-	 * interruptor con estado sobre una instancia compartida: en producción cada
-	 * petición es un proceso nuevo y daría igual, pero en la misma tanda de tests
-	 * el contenedor persiste y se filtraría a los demás.
-	 */
-	private function usuarioDelTokenAunqueCaducado(): ?int
-	{
-		try {
-			$token = JWTAuth::getToken();
-
-			if (! $token) {
-				return null;
-			}
-
-			$claims = JWTAuth::manager()->getJWTProvider()->decode($token->get());
-
-			return isset($claims['sub']) ? (int) $claims['sub'] : null;
-
-		} catch (\Throwable $e) {
-			// Firma inválida, basura, o formato que no se reconoce.
-			return null;
-		}
-	}
-
-
-
 
 
 	/**

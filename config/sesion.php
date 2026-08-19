@@ -63,19 +63,4 @@ return [
     */
     'legado_ttl' => (int) env('SESION_LEGADO_TTL', 1440),
 
-    /*
-    | ¿Se siguen aceptando los JWT de tymon/jwt-auth?
-    |
-    | En el momento de desplegar la Fase 3 hay tokens JWT vivos en el navegador
-    | de todo el mundo, con hasta 24 h por delante. Aceptarlos evita expulsar a
-    | todos a la vez; ponerlo en false los mata en el acto.
-    |
-    | Es también el interruptor de emergencia: un JWT NO se puede revocar —esa
-    | es justo la razón de la Fase 3—, así que si hubiera que invalidar tokens
-    | viejos por seguridad, esto es lo único que lo hace.
-    |
-    | Se queda en false definitivamente cuando se quite tymon/jwt-auth.
-    */
-    'acepta_jwt' => filter_var(env('SESION_ACEPTA_JWT', true), FILTER_VALIDATE_BOOLEAN),
-
 ];
