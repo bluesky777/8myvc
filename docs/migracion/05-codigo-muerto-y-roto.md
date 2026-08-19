@@ -302,6 +302,56 @@ ya no trae), `HomeController`, `WelcomeController`, `RemindersController`,
 
 ---
 
+## 7. Lo que encontró el nivel 1 (19 ago 2026)
+
+El nivel 0 se queja de lo que no puede existir. El **nivel 1** añade una
+pregunta más: métodos y propiedades que no existen **en una clase que sí
+existe**. Es justo el punto ciego que dejó la Fase 6 al descubierto con los
+`$this->user()` — `Illuminate\Routing\Controller` tiene `__call()`, y para el
+análisis la clase «podría» responder. `Model` y las facades tienen lo mismo.
+
+Salieron **341 errores. 320 eran uno solo**: `$this->user` en 129 controladores.
+La propiedad la sirve un `__get` en el trait `ResuelveElUsuario`, y un `__get`
+no le dice a phpstan qué propiedades existen. Una anotación `@property` en el
+trait, y los 320 se van sin tocar una línea de código. Lo que importa es que
+tapaban a los otros 21.
+
+### 7.1 El que se arregló
+
+**`GET api/perfiles/comprobarusername/{username}`** llamaba a
+`User::withTrashed()`, y `App\User` no usa SoftDeletes: `BadMethodCallException`
+desde que se escribió. Lo usa la pantalla de crear usuario para avisar antes de
+guardar; el error salía en la consola del navegador, no en la pantalla.
+
+El arreglo no tiene decisión detrás: sin SoftDeletes tampoco hay scope global
+que filtre, así que un `where` a secas ya devuelve los borrados, que es
+exactamente lo que `withTrashed` pretendía. Y hace falta que los devuelva: el
+username de alguien borrado sigue ocupado, porque la fila sigue en la tabla.
+Con test de contrato, incluido el caso del usuario borrado.
+
+### 7.2 Los que se documentan, y qué falta decidir en cada uno
+
+Misma regla que en la 6.5: enrutados y rotos, así que se anotan en
+`phpstan.neon` con nombre, motivo y `count` — no en un baseline generado, que
+los escondería. Uno nuevo en cualquiera de estos ficheros vuelve a romper el
+análisis; está comprobado insertando una variable inexistente.
+
+| Endpoint | Qué falta decidir |
+|---|---|
+| `GET api/informes/listado-docentes-excel` · `GET api/simat/alumnos-exportar` | `Excel::create()` es la API de maatwebsite/excel **2.x**. La 3.x la quitó, y el proyecto lleva en la 3.x desde antes de esta migración. Reescribirlos a la API nueva es rehacer el informe, y los exports están fuera de alcance por el §5 del plan |
+| `GET api/candidatos/conaspiraciones` | `VtVotacion::actualInscrito()` no existe; lo que hay es `actualesInscrito()`, que devuelve un **array**, y aquí se usa como una sola votación. No es un renombre: hay que decidir cuál es «la suya». Solo revienta para Alumno y Acudiente |
+| `PUT api/publicaciones/borrar-comentario` | `$user.persona_id==comentario.persona_id` — notación de punto de otro lenguaje. En PHP el punto concatena y las dos son constantes que no existen: fatal. Solo lo esquiva un superusuario, porque el `\|\|` corta antes. Falta la consulta que diga de quién es el comentario |
+| `PUT api/publicaciones/guardar` | `$para_todos` se define en las dos ramas del `if` y en ninguna otra; sus cuatro hermanas sí se inicializan a 0 justo encima. Inicializarla cambiaría un 500 por una publicación que no ve nadie, que es peor |
+| `PUT api/piars-alumnos/field` · `PUT api/piars-actas-acuerdo/…` | `$document` sale de un `DB::update()` dentro de un `if` y se devuelve fuera. Si el `if` no entra, la respuesta que el frontend espera no existe |
+| `GET api/piars-asignaturas/asignaturas/{grupo_id}/{alumno_id}` | `$asignaturas` solo se define para Profesor y para Usuario. Qué ve un Alumno de su propio PIAR no es una decisión de programación |
+| `POST api/importar/cartera` | `return (array)$rr;` y `$rr` no se define en ninguna rama |
+| `GET api/definitivas_periodos` | `$profe_id` se define para Profesor y para superusuario —con la condición escrita dos veces, `$user->is_superuser && $user->is_superuser`— y para nadie más |
+| `PUT api/uniformes/guardar-cambios` | El mismo de la 6.5, que su autor anotó con «No la estoy usando actualmente». El nivel 1 ve dos de sus variables otra vez, donde se leen antes de existir |
+
+**El patrón, otra vez:** ninguno de estos diez salió de leer el código con una
+lista delante. Salieron de subirle una pregunta a la herramienta.
+
+---
 ## La lección para la Fase 4
 
 Todos los casos de esta lista comparten forma: **algo dejó de funcionar, o nunca

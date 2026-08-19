@@ -178,7 +178,13 @@ class PerfilesController extends Controller {
 
 	public function getComprobarusername($username)
 	{
-		$users = User::withTrashed()->where('username', '=', $username)->get();
+		// Sin `withTrashed()`: `App\User` no usa SoftDeletes, así que ese método
+		// no existe y la llamada era un BadMethodCallException — 500 fijo desde
+		// que se escribió. Como tampoco hay scope global que filtre, este
+		// `where` ya devuelve también los borrados, que es lo que `withTrashed`
+		// pretendía. Y es lo que hace falta: el username de alguien borrado
+		// sigue ocupado.
+		$users = User::where('username', '=', $username)->get();
 		if (count( $users ) > 0) {
 			return [array('existe' => true )]; 
 		}else{

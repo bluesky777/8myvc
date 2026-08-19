@@ -23,6 +23,12 @@ use App\User;
  * pasan `$this->user` a un parámetro `&$user`. Con un `__get` normal PHP avisa
  * "Indirect modification of overloaded property has no effect", y Laravel
  * convierte ese aviso en excepción: 500 en cada boletín.
+ *
+ * La anotación es para el análisis estático: un `__get` no le dice a phpstan
+ * qué propiedades existen, así que sin ella los 320 `$this->user` de los
+ * controladores salen como «propiedad no definida» y tapan lo que sí importa.
+ *
+ * @property User $user
  */
 trait ResuelveElUsuario
 {

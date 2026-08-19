@@ -10,11 +10,14 @@ parameters:
         - tests
         - tools
 
-    # Nivel 0. No es poca ambición: es el nivel que solo se queja de cosas que
-    # no pueden funcionar —clases que no existen, variables sin definir,
-    # propiedades sin declarar— y aun así encontró 207 en este repo. Subirlo es
-    # trabajo de la Fase 6 continua; bajarlo, nunca.
-    level: 0
+    # Nivel 1, desde el 19 ago 2026. El 0 solo se queja de cosas que no pueden
+    # funcionar —clases que no existen, variables sin definir, propiedades sin
+    # declarar— y aun así encontró 207 en este repo. El 1 añade los métodos y
+    # las propiedades que no existen en una clase que sí, y encontró 341: de
+    # ellos 320 eran los `$this->user` de los controladores, que se callaron con
+    # una anotación `@property` en el trait ResuelveElUsuario, y 21 eran reales.
+    # Bajarlo, nunca.
+    level: 1
 
     # El esquema real no está en migraciones (ver Fase 5), así que larastan no
     # puede deducir las columnas de los modelos. Sin esto, cada `$alumno->nombres`
@@ -64,3 +67,102 @@ parameters:
             message: '#^Undefined variable: \$(propiedad|valor|user|user_id)$#'
             path: app/Http/Controllers/UniformesController.php
             count: 4
+
+        # ---- Los que salieron al subir al nivel 1, misma regla que los de
+        # arriba: enrutados y rotos, así que se documentan en vez de esconderse.
+        # El nivel 0 no los veía porque `Model` y las facades resuelven por
+        # `__call`, y para el análisis la clase «podría» responder.
+
+        # GET api/informes/listado-docentes-excel · GET api/simat/alumnos-exportar
+        # `Excel::create()` es la API de maatwebsite/excel 2.x. La 3.x la quitó,
+        # y este proyecto lleva en la 3.x desde antes de esta migración. Los
+        # exports están fuera de alcance por decisión del plan (§5): reescribir
+        # estos dos a la API nueva es rehacer el informe, no arreglarlo.
+        -
+            message: '#^Call to an undefined static method Maatwebsite\\Excel\\Facades\\Excel::create\(\)\.$#'
+            path: app/Http/Controllers/Informes/ExcelListadoDocentesController.php
+            count: 1
+        -
+            message: '#^Call to an undefined static method Maatwebsite\\Excel\\Facades\\Excel::create\(\)\.$#'
+            path: app/Http/Controllers/Informes/SimatController.php
+            count: 1
+
+        # GET api/candidatos/conaspiraciones
+        # `VtVotacion::actualInscrito()` no existe. Lo que hay es
+        # `actualesInscrito()`, que devuelve un array, y aquí el resultado se usa
+        # como una sola votación (`$votacion->id`). No es un renombre: hay que
+        # decidir cuál de las votaciones es «la suya». Solo revienta para Alumno
+        # y Acudiente; para el resto entra por el else y funciona.
+        -
+            message: '#^Call to an undefined static method App\\Models\\VtVotacion::actualInscrito\(\)\.$#'
+            path: app/Http/Controllers/VtCandidatosController.php
+            count: 1
+
+        # PUT api/publicaciones/borrar-comentario
+        # `$user.persona_id==comentario.persona_id` — notación de punto de otro
+        # lenguaje. En PHP el punto concatena y `persona_id` y `comentario` son
+        # constantes que no existen: fatal en PHP 8. Solo lo esquiva un
+        # superusuario, porque el `||` corta antes. Lo que falta es de dónde sale
+        # el dueño del comentario, y eso es una consulta que nadie escribió.
+        -
+            message: '#^Constant (comentario|persona_id) not found\.$#'
+            path: app/Http/Controllers/Perfiles/PublicacionesController.php
+            count: 3
+
+        # PUT api/publicaciones/guardar
+        # `$para_todos` se define en las dos ramas del if y en ninguna otra; sus
+        # cuatro hermanas sí se inicializan a 0 justo encima. Inicializarla
+        # cambiaría un 500 por una publicación que no ve nadie, que es peor:
+        # hay que decidir qué significa un `publi_para` que no es ninguno de los
+        # dos valores conocidos.
+        -
+            message: '#^Variable \$para_todos might not be defined\.$#'
+            path: app/Http/Controllers/Perfiles/PublicacionesController.php
+            count: 2
+
+        # PUT api/piars-alumnos/field · PUT api/piars-actas-acuerdo/...
+        # `$document` es el resultado de un `DB::update()` dentro de un `if`, y
+        # se devuelve fuera. Si el `if` no entra, la respuesta que el frontend
+        # espera no existe. Qué devolver entonces es la decisión.
+        -
+            message: '#^Variable \$document might not be defined\.$#'
+            path: app/Http/Controllers/Piars/PiarsActasAcuerdoController.php
+            count: 1
+        -
+            message: '#^Variable \$document might not be defined\.$#'
+            path: app/Http/Controllers/Piars/PiarsAlumnosController.php
+            count: 2
+
+        # GET api/piars-asignaturas/asignaturas/{grupo_id}/{alumno_id}
+        # `$asignaturas` solo se define para Profesor y para Usuario. Un Alumno o
+        # un Acudiente llegan al `count()` sin nada. Qué asignaturas ve un alumno
+        # de su propio PIAR es la decisión, y no es de programación.
+        -
+            message: '#^Variable \$asignaturas might not be defined\.$#'
+            path: app/Http/Controllers/Piars/PiarsAsignaturasController.php
+            count: 4
+
+        # POST api/importar/cartera
+        # `return (array)$rr;` — `$rr` no se define en ninguna rama del método.
+        -
+            message: '#^Variable \$rr might not be defined\.$#'
+            path: app/Http/Controllers/Alumnos/ImportarController.php
+            count: 1
+
+        # GET api/definitivas_periodos
+        # `$profe_id` se define para Profesor y para superusuario —con la
+        # condición escrita dos veces, `$user->is_superuser && $user->is_superuser`—
+        # y para nadie más. Un secretario entra y llega sin él.
+        -
+            message: '#^Variable \$profe_id might not be defined\.$#'
+            path: app/Http/Controllers/DefinitivasPeriodosController.php
+            count: 1
+
+        # PUT api/uniformes/guardar-cambios · el mismo método de arriba, que su
+        # autor anotó con «No la estoy usando actualmente». El nivel 1 ve dos de
+        # sus variables una segunda vez, en las líneas donde se leen antes de
+        # existir.
+        -
+            message: '#^Variable \$(propiedad|valor) might not be defined\.$#'
+            path: app/Http/Controllers/UniformesController.php
+            count: 2

@@ -607,7 +607,7 @@ Ya sembrado en la Fase 0. Aquí se cierra:
 | Herramienta | Alcance | Dónde |
 |---|---|---|
 | **Pint** | solo lo que escribió esta migración: `routes/`, `tests/`, `app/Services`, `app/Support`, `app/Http/Middleware`, `app/Console`, los `Concerns` | `composer run pint` · CI |
-| **Larastan** | nivel 0 sobre `app/`, `config/`, `database/`, `routes/`, `tests/`, `tools/` | `composer run stan` · CI |
+| **Larastan** | **nivel 1** sobre `app/`, `config/`, `database/`, `routes/`, `tests/`, `tools/` | `composer run stan` · CI |
 | **Rector** | configurado y **sin correr**: por carpeta y revisando cada diff | `rector.php` |
 | **`tools/imports-de-facades.php`** | los imports por alias de raíz, una línea por import | corrido el 19 ago 2026 · lo vigila `AliasDeFacadesTest` |
 
@@ -652,6 +652,23 @@ comprueban los dos tests de `AliasDeFacadesTest`—, pero cada colegio tiene su
 copia de la aplicación, y una vista propia que no esté en este repo seguiría
 usando `Route::`. Borrarlo es una decisión que se toma mirando los servidores.
 
+**Larastan, del nivel 0 al 1 — 19 ago 2026.** El 0 solo mira lo que no puede
+existir; el 1 añade métodos y propiedades que no existen en una clase que sí.
+341 errores, y **320 eran uno solo**: el `$this->user` de 129 controladores, que
+sirve un `__get` del trait `ResuelveElUsuario` y que phpstan no puede adivinar.
+Una anotación `@property` en el trait y desaparecen los 320, sin tocar código.
+
+De los 21 que quedaban, **uno se arregló** —`GET perfiles/comprobarusername`,
+que llamaba a `User::withTrashed()` sin que `User` use SoftDeletes: 500 desde
+que se escribió, y el arreglo no tiene decisión detrás— y **diez se documentan**
+con su `count` en `phpstan.neon`, con lo que falta decidir en cada uno. Están en
+[05 §7](05-codigo-muerto-y-roto.md). Dos de ellos son `Excel::create()`, la API
+de maatwebsite 2.x, en informes que el §5 deja fuera de alcance.
+
+Es el mismo punto ciego de la Fase 6 —`__call` hace que para el análisis la
+clase «podría» responder— visto una capa más arriba. Y el mismo patrón: ninguno
+de los once salió de leer el código con una lista delante.
+
 **No es un big-bang.** Con 990 queries crudas, reescribirlas todas a Eloquent sería meses de trabajo y meses de bugs nuevos, sin ganancia funcional. Enfoque:
 
 - **Modelos:** completar los que faltan de las 90 tablas, pero solo cuando se toque esa área. Los 47 que hay ya cubren el núcleo.
@@ -663,7 +680,7 @@ usando `Route::`. Borrarlo es una decisión que se toma mirando los servidores.
   - `Boletines`, `Boletines2`, `Boletines3` (520 + 498 + 494 líneas). **No se tocan**: los tres están enrutados y sirven formatos distintos de boletín. Fusionarlos es tocar el cálculo de notas
   - `ImporterFixer` · se quedó, con las dos propiedades que le faltaban declaradas
   - modelo `Debugging` (9.553 filas en producción) · se quedó: lo usan `ChangeAskedController`, `Grupo`, `Nota`, `Unidad` y `NotaFinal`
-- **Herramientas:** ~~Pint (formato), Larastan (subir de nivel 0 a 3 gradualmente), Rector.~~ **Montadas** — ver arriba. Lo que sigue siendo continuo es subir el nivel de Larastan.
+- **Herramientas:** ~~Pint (formato), Larastan (subir de nivel 0 a 3 gradualmente), Rector.~~ **Montadas** — ver arriba. El nivel 1 se subió el 19 ago 2026 y encontró once endpoints rotos más ([05 §7](05-codigo-muerto-y-roto.md)). Sigue siendo continuo llegar al 3.
 - **Validación:** hoy hay **2** validaciones en todo el proyecto. Cada endpoint que se toque estrena su FormRequest. No se hace de golpe.
 
 ---
