@@ -26,3 +26,41 @@ parameters:
             # 990 consultas crudas devuelven stdClass; el análisis de estas dos
             # vistas no aporta nada y sí mucho ruido.
             - app/Exports
+
+    # Cinco endpoints enrutados que responden 500 desde que se escribieron: usan
+    # variables que no se definen en ninguna parte. Arreglarlos no es limpieza,
+    # es decidir de dónde sale cada valor —y en dos de ellos, si la operación
+    # debe existir—. Están descritos uno a uno en
+    # docs/migracion/05-codigo-muerto-y-roto.md.
+    #
+    # El `count` va a propósito: si aparece una variable indefinida más en
+    # cualquiera de estos ficheros, el análisis vuelve a fallar.
+    ignoreErrors:
+        # PUT api/definitivas_periodos/calcular-notas-finales-asignatura
+        -
+            message: '#^Undefined variable: \$(alumno_id|asignaturas)$#'
+            path: app/Http/Controllers/Alumnos/Definitivas.php
+            count: 4
+        -
+            message: '#^Undefined variable: \$asignaturas$#'
+            path: app/Http/Controllers/DefinitivasPeriodosController.php
+            count: 5
+        -
+            message: '#^Static method App\\Models\\NotaFinal::alumnos_grupo_nota_final\(\) invoked with 2 parameters, 3 required\.$#'
+            path: app/Http/Controllers/DefinitivasPeriodosController.php
+            count: 1
+        # GET api/editnota/detailed-notas-year
+        -
+            message: '#^Undefined variable: \$(grupo_id|periodos_a_calcular)$#'
+            path: app/Http/Controllers/EditnotaController.php
+            count: 3
+        # PUT api/piars-config/config
+        -
+            message: '#^Undefined variable: \$(field|alumno_id|arr|fullPath)$#'
+            path: app/Http/Controllers/Piars/PiarsConfigController.php
+            count: 4
+        # PUT api/uniformes/guardar-cambios
+        -
+            message: '#^Undefined variable: \$(propiedad|valor|user|user_id)$#'
+            path: app/Http/Controllers/UniformesController.php
+            count: 4

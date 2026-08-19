@@ -137,7 +137,7 @@ class PiarsActasAcuerdoController extends Controller {
 			if (File::exists($filename)) {
 				File::delete($filename);
 			}else{
-				Log::info($imagen_id . ' -- Al parecer NO existe archivo: ' . $filename);
+				Log::info('Alumno ' . $alumno_id . ' -- Al parecer NO existe archivo: ' . $filename);
 			}
 		}
 		return ['document' => $document];

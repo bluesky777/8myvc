@@ -6,6 +6,7 @@ use DB;
 
 use App\User;
 use App\Models\Profesor;
+use App\Models\ChangeAskedDetails;
 
 use App\Http\Controllers\Alumnos\Solicitudes;
 

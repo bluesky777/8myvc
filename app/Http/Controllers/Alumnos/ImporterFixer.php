@@ -19,6 +19,8 @@ class ImporterFixer {
 
     public $tipos_doc;
     public $cant_td;
+    public $ciudades;
+    public $cant_ciud;
     
 	
 	public function __construct()
@@ -37,7 +39,7 @@ class ImporterFixer {
 		$consA2 = '';
 		$ciudad_id_A1 = null;
 		$ciudad_id_A2 = null;
-		Log::info("id: " . $alumno["id"]) . ". Nombre: " . $alumno["primer_nombre"];
+		Log::info("id: " . $alumno["id"] . ". Nombre: " . $alumno["primer_nombre"]);
 		//if ($alumno->tipo_de_documento == 'fecha_nac')
 		//	$valor = Carbon::parse($valor);
 

@@ -90,7 +90,7 @@ class SubunidadesController extends Controller {
 	public function putUpdateOrdenVarias()
 	{
 		$user = User::fromToken();
-		User::pueden_editar_notas();
+		User::pueden_editar_notas($user);
 
 		$sortHash1 	= Request::input('sortHash1');
 		$sortHash2 	= Request::input('sortHash2');
@@ -206,7 +206,7 @@ class SubunidadesController extends Controller {
 
 		$subunidad = Subunidad::onlyTrashed()->findOrFail($id);
 		
-		if ($unidad) {
+		if ($subunidad) {
 			$subunidad->forceDelete();
 		}else{
 			return abort(404, 'Subunidad no encontrada en la Papelera.');

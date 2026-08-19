@@ -15,41 +15,9 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class UsersController extends Controller {
 
-
-	public function index()
-	{
-		$votacion = $this->eventoactual();
-		$aspiraciones = VtAspiracion::where('votacion_id', '=', $votacion->id)->get();
-		return $aspiraciones;
-	}
-
-	
-	public function eventoactual()
-	{
-		$votacion = VtVotacion::where('actual', true)->first();
-		return $votacion;
-	}
-
 	public function getExport()
 	{
 		return Excel::download(new AlumnosExport, 'alumnos.xlsx');
-	}
-
-
-	public function store()
-	{
-		Eloquent::unguard();
-		try {
-			$aspiracion = VtAspiracion::create([
-				'aspiracion'	=>	Input::get('aspiracion'),
-				'abrev'			=>	Input::get('abrev'),
-				'votacion_id'	=>	Input::get('votacion_id')
-
-			]);
-			return $aspiracion;
-		} catch (\Exception $e) {
-			abort(422, 'Datos incorrectos');
-		}
 	}
 
 	public function putUsernamesCheck()
@@ -63,33 +31,6 @@ class UsersController extends Controller {
 		]);
 		
 		return [ 'usernames' => $res ];
-	}
-
-
-	public function update($id)
-	{
-		Eloquent::unguard();
-		$aspiracion = VtAspiracion::findOrFail($id);
-		try {
-			$aspiracion->fill([
-				'aspiracion'=>	Input::get('aspiracion'),
-				'abrev'		=>	Input::get('abrev')
-
-			]);
-
-			$aspiracion->save();
-			return $aspiracion;
-		} catch (\Exception $e) {
-			abort(422, 'Datos incorrectos');
-		}
-	}
-
-	public function destroy($id)
-	{
-		$aspiracion = VtAspiracion::findOrFail($id);
-		$aspiracion->delete();
-
-		return $aspiracion;
 	}
 
 

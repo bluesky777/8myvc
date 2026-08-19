@@ -93,6 +93,7 @@ class ObservadorController extends Controller {
 	public function getVerticalTodos()
 	{
         $user   = User::fromToken();
+        $tamanio = Request::input('tamanio');
         $year	= Year::datos($user->year_id);
         
         $consulta = 'SELECT g.id, g.nombre, g.abrev, g.orden, gra.orden as orden_grado, g.grado_id, g.year_id, g.titular_id,

@@ -34,7 +34,7 @@ class VtVotacion extends Model {
 		return [];
 	}
 
-	public function actualInAction($user)
+	public static function actualInAction($user)
 	{
 		return VtVotacion::where('actual', true)
 					->where('user_id', $user->user_id)

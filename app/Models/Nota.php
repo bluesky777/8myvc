@@ -4,7 +4,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 use App\Models\Grupo;
-use App\Models\Nota;
 use App\Models\Periodo;
 use App\Models\Alumno;
 use App\Models\Unidad;

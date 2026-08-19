@@ -965,6 +965,8 @@ class AlumnosController extends Controller {
 
 	public function getTrashed()
 	{
+		$user = $this->user;
+
 		$previous_year = $user->year - 1;
 		$id_previous_year = 0;
 		$previous_year = Year::where('year', '=', $previous_year)->first();

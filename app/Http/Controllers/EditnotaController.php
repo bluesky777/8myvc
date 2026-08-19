@@ -11,6 +11,12 @@ use App\Models\Subunidad;
 use App\Models\Unidad;
 use App\Models\Grupo;
 use App\Models\Year;
+use App\Models\Alumno;
+use App\Models\Asignatura;
+use App\Models\Ausencia;
+use App\Models\FraseAsignatura;
+use App\Models\NotaComportamiento;
+use App\Models\DefinicionComportamiento;
 
 use \stdClass;
 
