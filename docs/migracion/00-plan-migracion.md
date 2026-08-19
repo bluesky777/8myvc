@@ -26,7 +26,7 @@ La buena noticia: el código casi no usa superficie del framework. 990 llamadas 
 | 3 | Reemplazar `tymon/jwt-auth` (back + front + Flutter) | Desbloquea el salto de framework | 4–6 días · **backend hecho 19 ago 2026** |
 | 4 | Salto 8 → 13 (~~cinco majors~~ tres saltos) | El objetivo | **hecho 19 ago 2026** |
 | 5 | ~~Migraciones al día contra la BD real~~ | ~~Entornos reproducibles~~ — **recortada**: un colegio nuevo se crea copiando la base de otro | — |
-| 6 | Modelos y limpieza (gradual, opcional) | Mantenibilidad | continuo |
+| 6 | Modelos y limpieza (gradual, opcional) | Mantenibilidad | herramientas y barrido **hechos 19 ago 2026** · el resto, continuo |
 
 Total realista para las fases 0–5: **~4 semanas de trabajo enfocado.**
 
@@ -561,17 +561,77 @@ Ya sembrado en la Fase 0. Aquí se cierra:
 
 ### Fase 6 — Modelos, limpieza y calidad · continuo
 
+> **Cerrada la parte que se cierra, el 19 ago 2026.** Esta fase estaba escrita
+> como «continuo», y la mitad lo sigue siendo. Lo que sí tenía final —montar las
+> herramientas y barrer lo que ya no se ejecuta— está hecho, y produjo bastante
+> más de lo previsto.
+>
+> **Larastan en nivel 0 encontró 207 errores.** El nivel 0 solo se queja de lo
+> que no puede funcionar: clases que no existen, variables sin definir,
+> propiedades sin declarar. Que salgan 207 en ese nivel, sobre 32.000 líneas, es
+> el dato de la fase. Están en
+> [05-codigo-muerto-y-roto.md §6](05-codigo-muerto-y-roto.md), y el resumen es:
+>
+> - **61 sitios con el nombre de clase sin barra** dentro de un `namespace`:
+>   42 `catch (Exception $e)` que no capturan nada y 19 `App::abort(400, ...)`
+>   que no abortan sino que lanzan «Class not found». Es la misma forma del
+>   `catch (Tymon\JWTAuth\...)` que ya teníamos documentado, sesenta veces más.
+> - **Seis reservas contra la división por cero que no reservaban**: en PHP 8
+>   eso es un `DivisionByZeroError`, que es un `Error` y no un `Exception`, así
+>   que hacía falta `\Throwable`.
+> - **La pantalla de roles y permisos, rota entera** desde hace años: el modelo
+>   `Permission` extendía una clase de Entrust, y Entrust no está instalado ni
+>   aparece en el `composer.lock`.
+> - **Un nombre de clase declarado en dos ficheros** (`ImportarController`), con
+>   el classmap de composer eligiendo uno por orden de escaneo.
+> - **1.500 líneas sin ruta y sin referencia**, borradas.
+>
+> **Lo que no se arregló, y por qué.** Seis endpoints están enrutados y
+> responden 500 desde que se escribieron. Arreglarlos no es limpieza: hay que
+> decidir de dónde sale cada variable, y en dos de ellos si la operación debe
+> existir siquiera. Se dejan **anotados en `phpstan.neon` con nombre, motivo y
+> `count`** —no en un baseline generado, que los escondería— para que uno nuevo
+> rompa el análisis. La lista está en la §6.5 del otro documento.
+>
+> **La regla que salió de aquí:** sin ruta y roto se borra; con ruta y roto se
+> documenta. Borrar un endpoint enrutado convierte un 500 en un 404 sin decirle
+> a nadie qué pretendía hacer esa pantalla.
+>
+> **Y lo que no cambia:** las 990 consultas crudas, los tres `Boletines` y los
+> dos `Bolfinales`. Están en la lista de «candidatos a consolidar» de abajo,
+> pero los cinco están enrutados y vivos, y fusionarlos es tocar el cálculo de
+> notas sin nadie que lo especifique. Sigue siendo lo que el §5 protege.
+
+**Lo que quedó montado:**
+
+| Herramienta | Alcance | Dónde |
+|---|---|---|
+| **Pint** | solo lo que escribió esta migración: `routes/`, `tests/`, `app/Services`, `app/Support`, `app/Http/Middleware`, `app/Console`, los `Concerns` | `composer run pint` · CI |
+| **Larastan** | nivel 0 sobre `app/`, `config/`, `database/`, `routes/`, `tests/`, `tools/` | `composer run stan` · CI |
+| **Rector** | configurado y **sin correr**: por carpeta y revisando cada diff | `rector.php` |
+
+Pint no toca el legacy a propósito: reformatear 129 controladores sería un diff
+ilegible encima de la migración, y el `.styleci.yml` de 2021 ya avisaba de por
+dónde duele —tenía `no_unused_imports` desactivado—. Se formatea el día que se
+toque cada fichero.
+
+Rector queda listo para lo único que le falta de la Fase 4: los 145 ficheros que
+importan los facades por su alias de raíz (`use DB;`, `use Request;`) en vez de
+`Illuminate\Support\Facades\*`. Hoy funcionan porque `config/app.php` mantiene
+los alias; el día que Laravel los retire dejan de hacerlo todos a la vez.
+
 **No es un big-bang.** Con 990 queries crudas, reescribirlas todas a Eloquent sería meses de trabajo y meses de bugs nuevos, sin ganancia funcional. Enfoque:
 
 - **Modelos:** completar los que faltan de las 90 tablas, pero solo cuando se toque esa área. Los 47 que hay ya cubren el núcleo.
 - **Queries crudas:** convertir **solo** las que aparezcan en el perfilado como lentas (ver [plan de rendimiento](02-plan-rendimiento.md)). Una query cruda parametrizada no es un bug; es solo verbosa.
-- **Duplicación:** hay candidatos obvios a consolidar —
-  - `BolfinalesController` existe **dos veces** (`app/Http/Controllers/BolfinalesController.php` y `Informes/BolfinalesController.php`)
-  - `Boletines`, `Boletines2`, `Boletines3` (566 + 481 + 479 líneas, casi seguro variantes copiadas)
-  - `ComportamientoController` existe en la raíz y en `Disciplina/`
-  - `ImporterFixer`, modelo `Debugging` (9.553 filas en producción)
-  - `Informes/PuestosAnualesController` — ruta comentada, código vivo
-- **Herramientas:** Pint (formato), Larastan (subir de nivel 0 a 3 gradualmente), Rector.
+- **Duplicación:** los candidatos, con lo que se hizo con cada uno el 19 ago 2026 —
+  - ~~`ComportamientoController` en la raíz y en `Disciplina/`~~ · **borrado** el de la raíz: sin ruta y sin referencia
+  - ~~`Informes/PuestosAnualesController`~~ · **borrado**: ni ruta ni referencia
+  - `BolfinalesController` existe **dos veces**. El de la raíz no está enrutado, pero **sí lo instancia** `CertificadosEstudioController` —sin `use`, así que resuelve al de la raíz—. Se queda: no es código muerto, es código vivo dentro de un camino que responde 500 por otra razón (§6.5 del informe)
+  - `Boletines`, `Boletines2`, `Boletines3` (520 + 498 + 494 líneas). **No se tocan**: los tres están enrutados y sirven formatos distintos de boletín. Fusionarlos es tocar el cálculo de notas
+  - `ImporterFixer` · se quedó, con las dos propiedades que le faltaban declaradas
+  - modelo `Debugging` (9.553 filas en producción) · se quedó: lo usan `ChangeAskedController`, `Grupo`, `Nota`, `Unidad` y `NotaFinal`
+- **Herramientas:** ~~Pint (formato), Larastan (subir de nivel 0 a 3 gradualmente), Rector.~~ **Montadas** — ver arriba. Lo que sigue siendo continuo es subir el nivel de Larastan.
 - **Validación:** hoy hay **2** validaciones en todo el proyecto. Cada endpoint que se toque estrena su FormRequest. No se hace de golpe.
 
 ---

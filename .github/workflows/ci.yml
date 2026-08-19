@@ -61,6 +61,16 @@ jobs:
           find app routes config database tests tools -name '*.php' -print0 \
             | xargs -0 -n1 -P4 php -l > /dev/null
 
+      # Solo sobre lo que escribió esta migración. El legacy se formatea el día
+      # que se toque; reformatearlo entero sería un diff ilegible.
+      - name: Formato (Pint)
+        run: composer run pint:test
+
+      # Nivel 0: únicamente lo que no puede funcionar. Los casos que quedan sin
+      # arreglar están enumerados con su motivo en phpstan.neon.
+      - name: Análisis estático (Larastan)
+        run: composer run stan
+
       - name: Configurar sql_mode
         run: |
           mysql -h 127.0.0.1 -uroot -prootpass \
