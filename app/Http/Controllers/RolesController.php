@@ -56,7 +56,15 @@ class RolesController extends Controller {
 		$rol = Role::find($id);
 		$per = Permission::find(Request::input('permission_id'));
 
-		$rol->attachPermission($per);
+		if (!$rol || !$per) {
+			abort(404, 'Rol o permiso no encontrado.');
+		}
+
+		// Antes era $rol->attachPermission($per), de Entrust, que no está
+		// instalado. El INSERT hace lo mismo, y IGNORE cubre el reintento:
+		// la clave primaria de permission_role es (permission_id, role_id).
+		DB::insert('INSERT IGNORE INTO permission_role(permission_id, role_id) VALUES(?, ?)',
+			[$per->id, $rol->id]);
 
 		return $per;
 
@@ -120,12 +128,12 @@ class RolesController extends Controller {
 	{
 		$this->exigirAdminUsuarios();
 
-		// OJO: esta línea está rota desde antes de este cambio. La facade Input
-		// no existe desde Laravel 6, así que aquí revienta con "class not found".
-		// El botón "quitar permiso" de la pantalla de roles no funciona hoy.
-		// No lo arreglo aquí para no mezclar un cambio funcional con el de seguridad.
-		//$rol = Role::find($id)->permissions()->detach(Input::get('permission_id'));
-		$res = DB::delete('delete from permission_role where permission_id = ? AND role_id = ? ', array(Input::get('permission_id'), $id));
+		// `Input` no existe desde Laravel 6: esta línea reventaba con "class not
+		// found" y el botón «quitar permiso» de la pantalla de roles no
+		// funcionaba. Es la misma petición que ya lee `putAddpermission`.
+		$res = DB::delete('delete from permission_role where permission_id = ? AND role_id = ? ',
+			[Request::input('permission_id'), $id]);
+
 		return $res;
 
 	}
