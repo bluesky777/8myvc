@@ -11,6 +11,12 @@ use App\Models\Subunidad;
 use App\Models\Unidad;
 use App\Models\Grupo;
 use App\Models\Year;
+use App\Models\Alumno;
+use App\Models\Asignatura;
+use App\Models\Ausencia;
+use App\Models\FraseAsignatura;
+use App\Models\NotaComportamiento;
+use App\Models\DefinicionComportamiento;
 
 use \stdClass;
 
@@ -274,7 +280,7 @@ class EditnotaController extends Controller {
 		}
 		try {
 			$alumno->promedio = $sumatoria_asignaturas / count($alumno->asignaturas);
-		} catch (Exception $e) {
+		} catch (\Throwable $e) {
 			$alumno->promedio = 0;
 		}
 
@@ -423,7 +429,7 @@ class EditnotaController extends Controller {
 		if ($alumno) {
 			$alumno->delete();
 		}else{
-			return App::abort(400, 'Alumno no existe o está en Papelera.');
+			return abort(404, 'Alumno no existe o está en Papelera.');
 		}
 		return $alumno;
 	
@@ -446,7 +452,7 @@ class EditnotaController extends Controller {
 		if ($alumno) {
 			$alumno->forceDelete();
 		}else{
-			return App::abort(400, 'Alumno no encontrado en la Papelera.');
+			return abort(404, 'Alumno no encontrado en la Papelera.');
 		}
 		return $alumno;
 	
@@ -459,7 +465,7 @@ class EditnotaController extends Controller {
 		if ($alumno) {
 			$alumno->restore();
 		}else{
-			return App::abort(400, 'Alumno no encontrado en la Papelera.');
+			return abort(404, 'Alumno no encontrado en la Papelera.');
 		}
 		return $alumno;
 	}
@@ -489,7 +495,7 @@ class EditnotaController extends Controller {
 				)m2 on a.id=m2.alumno_id
 			left join users u on u.id=a.user_id where a.deleted_at is not null';
 
-		return DB::select(DB::raw($consulta), array(
+		return DB::select($consulta, array(
 						':id_previous_year'	=>$id_previous_year, 
 						':year_id'			=>$user->year_id,
 						':year2_id'			=>$user->year_id

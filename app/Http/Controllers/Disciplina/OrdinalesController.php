@@ -11,6 +11,7 @@ use App\Models\Alumno;
 use App\Models\Frase;
 
 use Carbon\Carbon;
+use App\Support\ColumnaSegura;
 
 
 class OrdinalesController extends Controller {
@@ -114,7 +115,7 @@ class OrdinalesController extends Controller {
 		$ordinal_id     = Request::input('ordinal_id');
 		$propiedad 		= Request::input('propiedad');
 
-        $consulta = 'UPDATE dis_ordinales SET '.$propiedad.'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:ordinal_id';
+        $consulta = 'UPDATE dis_ordinales SET '.ColumnaSegura::exigir('dis_ordinales', $propiedad).'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:ordinal_id';
         $datos 		= [
             ':valor'		=> Request::input('valor'), 
             ':modificador'	=> $user->user_id, 
@@ -134,7 +135,7 @@ class OrdinalesController extends Controller {
 		$config_id     	= Request::input('config_id');
 		$propiedad 		= Request::input('propiedad');
 
-        $consulta = 'UPDATE dis_configuraciones SET '.$propiedad.'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:id';
+        $consulta = 'UPDATE dis_configuraciones SET '.ColumnaSegura::exigir('dis_configuraciones', $propiedad).'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:id';
         $datos 		= [
             ':valor'		=> Request::input('valor'), 
             ':modificador'	=> $user->user_id, 

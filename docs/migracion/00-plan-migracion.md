@@ -23,10 +23,10 @@ La buena noticia: el código casi no usa superficie del framework. 990 llamadas 
 | 0 | Red de seguridad (tests de contrato + baseline de BD + CI) | Todo lo demás | 4–6 días |
 | 1 | Eliminar `AdvancedRoute` (sin tocar el framework) | Rutas cacheables, `route:list` funcional | 1–2 días |
 | 2 | Organizar rutas + middleware `auth` real | Cierra el agujero de roles/permisos | 2–3 días |
-| 3 | Reemplazar `tymon/jwt-auth` (back + front + Flutter) | Desbloquea el salto de framework | 4–6 días |
-| 4 | Salto 8 → 13 (cinco majors) | El objetivo | 4–6 días |
-| 5 | Migraciones al día contra la BD real | Entornos reproducibles | 2–3 días |
-| 6 | Modelos y limpieza (gradual, opcional) | Mantenibilidad | continuo |
+| 3 | Reemplazar `tymon/jwt-auth` (back + front + Flutter) | Desbloquea el salto de framework | 4–6 días · **backend hecho 19 ago 2026** |
+| 4 | Salto 8 → 13 (~~cinco majors~~ tres saltos) | El objetivo | **hecho 19 ago 2026** |
+| 5 | ~~Migraciones al día contra la BD real~~ | ~~Entornos reproducibles~~ — **recortada**: un colegio nuevo se crea copiando la base de otro | — |
+| 6 | Modelos y limpieza (gradual, opcional) | Mantenibilidad | herramientas y barrido **hechos 19 ago 2026** · el resto, continuo |
 
 Total realista para las fases 0–5: **~4 semanas de trabajo enfocado.**
 
@@ -354,7 +354,17 @@ Si no se usan (muy probable — es una API pura consumida por AngularJS con URLs
 
 ### Fase 3 — Reemplazo de autenticación · 4–6 días
 
-**Backend (2–3 días)**
+> **El backend está hecho (19 ago 2026).** Lo que se hizo, el contrato con los
+> clientes y las decisiones que se tomaron por el camino están en
+> [07-sesion.md](07-sesion.md). Cambió una cosa respecto a lo planeado aquí:
+> el paquete es **Sanctum 2.15.1**, no 4.3.3, porque 4.x pide `illuminate ^11` y
+> aquí todavía corre Laravel 8. Sube a 4.x con la Fase 4, y la migración de este
+> repo ya trae la columna `expires_at` que 4.x añade de serie.
+>
+> Lo demás salió como estaba escrito, incluido lo importante: `User::fromToken()`
+> se convirtió en un shim y **no se tocó ninguno de los 325 call sites**.
+
+**Backend (2–3 días)** — hecho
 
 1. `composer require laravel/sanctum`, publicar migración de `personal_access_tokens`.
 2. `config/auth.php`: guard `api` de `jwt` a `sanctum`. Quitar `'hash' => false`.
@@ -396,11 +406,39 @@ El backend solo escribe `logout_at` en `historiales`. El JWT **sigue siendo vál
 
 ### Fase 4 — Salto de framework 8 → 13 · 4–6 días
 
+> **Hecha el 19 ago 2026, y no como estaba escrita aquí.** El plan decía un major
+> por commit, 8→9→10→11→12→13. Fueron **dos saltos**: 8→9 y 9→13.
+>
+> **Laravel 10 y 11 no se pueden instalar.** Composer los bloquea: todas sus
+> versiones arrastran avisos de seguridad sin parchear —entre ellos
+> CVE-2026-48019, inyección CRLF en la regla de validación `email`, de severidad
+> alta— porque las dos ramas salieron de soporte antes de que llegara la
+> corrección. Solo `>=12.60.0` y `>=13.10.0` están limpias. Saltárselas no fue
+> una elección de ritmo: no había forma de pasar por ellas sin apagar la
+> comprobación de seguridad de composer y dejarlo escrito en el repo.
+>
+> Se pierde con ello la atribución fina de "cuál de los cinco rompió qué", que era
+> lo que el plan buscaba. El detector siguió siendo el mismo, la suite, y lo que
+> rompió fueron **dos cosas**, las dos localizadas y arregladas en commits
+> separados: 46 `DB::raw()` que envolvían consultas enteras (Laravel 10 dejó de
+> convertir `Expression` a cadena) y los proveedores de datos de PHPUnit, que
+> desde la 10 tienen que ser `static`.
+>
+> Lo que el plan sí acertó de lleno: **el código apenas usa superficie del
+> framework, así que apenas le afectan sus cambios.** El esqueleto viejo
+> (`Http/Kernel`, `Console/Kernel`, los `config/*.php`) arranca sin tocar nada en
+> Laravel 13.
+>
+> Los comandos están en [DESPLIEGUE.md](../DESPLIEGUE.md) y el porqué en
+> [DESPLIEGUE-REFERENCIA.md](../DESPLIEGUE-REFERENCIA.md). En corto: **subir PHP
+> a 8.4 antes, y eso sube para todos los colegios de la cuenta de cPanel a la
+> vez.**
+
 Un major por commit (8→9→10→11→12→13), con la suite de contrato verde en cada uno.
 
 > **⚠️ Bloqueante de despliegue, no de código: `vendor/` está compartido entre
 > colegios por symlink.** Hay una carpeta real y los demás colegios la apuntan
-> (Joseth, 18 ago 2026; ver [`docs/DESPLIEGUE.md`](../DESPLIEGUE.md)). `app/` sí
+> (Joseth, 18 ago 2026; ver [`docs/DESPLIEGUE-REFERENCIA.md`](../DESPLIEGUE-REFERENCIA.md)). `app/` sí
 > es copia real en cada uno.
 >
 > O sea que **subir el framework lo sube para todos los colegios en el mismo
@@ -489,6 +527,28 @@ Con `intervention/image` **4.2.1** + el puente oficial **`intervention/image-lar
 
 ### Fase 5 — Migraciones al día · 2–3 días
 
+> **Recortada el 19 ago 2026, y por un dato que invalidaba media fase.** Joseth:
+> **un colegio nuevo no se crea desde cero — se copia la base de datos de otro**,
+> porque hace falta que venga con ciertos datos básicos ya dentro.
+>
+> Eso tumba el punto 5 y con él la razón principal de la fase. `migrate:fresh`
+> produciría un esquema vacío y correcto que **nadie va a usar nunca**: no es así
+> como nace un colegio aquí. Reconstruir hacia atrás la historia de 90 tablas
+> —que además nunca existió, se construyeron a mano durante años— era la parte
+> cara, y resulta que era también la inútil.
+>
+> **Lo que sí sigue haciendo falta, y ya funciona:** una forma repetible de
+> aplicar un cambio de esquema a las 16 bases. Eso no es "migraciones al día", es
+> el punto 4 —*ningún cambio a mano en phpMyAdmin: migración o no existe*— y está
+> en pie desde la Fase 3, donde `personal_access_tokens` llegó a cada colegio con
+> un `artisan migrate` y no con un formulario. La convención está escrita en
+> `database/migrations/legacy/README.md`.
+>
+> **Lo que queda vivo de la fase**, por si algún día compensa: el punto 3,
+> documentar las divergencias entre la base real y lo que el código asume. Es el
+> que produjo hallazgos de verdad (`years.id` en vez de `year_id`). El 1 y el 2
+> son documentación.
+
 Ya sembrado en la Fase 0. Aquí se cierra:
 
 1. La baseline `database/schema/mysql-schema.sql` es la verdad.
@@ -501,17 +561,77 @@ Ya sembrado en la Fase 0. Aquí se cierra:
 
 ### Fase 6 — Modelos, limpieza y calidad · continuo
 
+> **Cerrada la parte que se cierra, el 19 ago 2026.** Esta fase estaba escrita
+> como «continuo», y la mitad lo sigue siendo. Lo que sí tenía final —montar las
+> herramientas y barrer lo que ya no se ejecuta— está hecho, y produjo bastante
+> más de lo previsto.
+>
+> **Larastan en nivel 0 encontró 207 errores.** El nivel 0 solo se queja de lo
+> que no puede funcionar: clases que no existen, variables sin definir,
+> propiedades sin declarar. Que salgan 207 en ese nivel, sobre 32.000 líneas, es
+> el dato de la fase. Están en
+> [05-codigo-muerto-y-roto.md §6](05-codigo-muerto-y-roto.md), y el resumen es:
+>
+> - **61 sitios con el nombre de clase sin barra** dentro de un `namespace`:
+>   42 `catch (Exception $e)` que no capturan nada y 19 `App::abort(400, ...)`
+>   que no abortan sino que lanzan «Class not found». Es la misma forma del
+>   `catch (Tymon\JWTAuth\...)` que ya teníamos documentado, sesenta veces más.
+> - **Seis reservas contra la división por cero que no reservaban**: en PHP 8
+>   eso es un `DivisionByZeroError`, que es un `Error` y no un `Exception`, así
+>   que hacía falta `\Throwable`.
+> - **La pantalla de roles y permisos, rota entera** desde hace años: el modelo
+>   `Permission` extendía una clase de Entrust, y Entrust no está instalado ni
+>   aparece en el `composer.lock`.
+> - **Un nombre de clase declarado en dos ficheros** (`ImportarController`), con
+>   el classmap de composer eligiendo uno por orden de escaneo.
+> - **1.500 líneas sin ruta y sin referencia**, borradas.
+>
+> **Lo que no se arregló, y por qué.** Seis endpoints están enrutados y
+> responden 500 desde que se escribieron. Arreglarlos no es limpieza: hay que
+> decidir de dónde sale cada variable, y en dos de ellos si la operación debe
+> existir siquiera. Se dejan **anotados en `phpstan.neon` con nombre, motivo y
+> `count`** —no en un baseline generado, que los escondería— para que uno nuevo
+> rompa el análisis. La lista está en la §6.5 del otro documento.
+>
+> **La regla que salió de aquí:** sin ruta y roto se borra; con ruta y roto se
+> documenta. Borrar un endpoint enrutado convierte un 500 en un 404 sin decirle
+> a nadie qué pretendía hacer esa pantalla.
+>
+> **Y lo que no cambia:** las 990 consultas crudas, los tres `Boletines` y los
+> dos `Bolfinales`. Están en la lista de «candidatos a consolidar» de abajo,
+> pero los cinco están enrutados y vivos, y fusionarlos es tocar el cálculo de
+> notas sin nadie que lo especifique. Sigue siendo lo que el §5 protege.
+
+**Lo que quedó montado:**
+
+| Herramienta | Alcance | Dónde |
+|---|---|---|
+| **Pint** | solo lo que escribió esta migración: `routes/`, `tests/`, `app/Services`, `app/Support`, `app/Http/Middleware`, `app/Console`, los `Concerns` | `composer run pint` · CI |
+| **Larastan** | nivel 0 sobre `app/`, `config/`, `database/`, `routes/`, `tests/`, `tools/` | `composer run stan` · CI |
+| **Rector** | configurado y **sin correr**: por carpeta y revisando cada diff | `rector.php` |
+
+Pint no toca el legacy a propósito: reformatear 129 controladores sería un diff
+ilegible encima de la migración, y el `.styleci.yml` de 2021 ya avisaba de por
+dónde duele —tenía `no_unused_imports` desactivado—. Se formatea el día que se
+toque cada fichero.
+
+Rector queda listo para lo único que le falta de la Fase 4: los 145 ficheros que
+importan los facades por su alias de raíz (`use DB;`, `use Request;`) en vez de
+`Illuminate\Support\Facades\*`. Hoy funcionan porque `config/app.php` mantiene
+los alias; el día que Laravel los retire dejan de hacerlo todos a la vez.
+
 **No es un big-bang.** Con 990 queries crudas, reescribirlas todas a Eloquent sería meses de trabajo y meses de bugs nuevos, sin ganancia funcional. Enfoque:
 
 - **Modelos:** completar los que faltan de las 90 tablas, pero solo cuando se toque esa área. Los 47 que hay ya cubren el núcleo.
 - **Queries crudas:** convertir **solo** las que aparezcan en el perfilado como lentas (ver [plan de rendimiento](02-plan-rendimiento.md)). Una query cruda parametrizada no es un bug; es solo verbosa.
-- **Duplicación:** hay candidatos obvios a consolidar —
-  - `BolfinalesController` existe **dos veces** (`app/Http/Controllers/BolfinalesController.php` y `Informes/BolfinalesController.php`)
-  - `Boletines`, `Boletines2`, `Boletines3` (566 + 481 + 479 líneas, casi seguro variantes copiadas)
-  - `ComportamientoController` existe en la raíz y en `Disciplina/`
-  - `ImporterFixer`, modelo `Debugging` (9.553 filas en producción)
-  - `Informes/PuestosAnualesController` — ruta comentada, código vivo
-- **Herramientas:** Pint (formato), Larastan (subir de nivel 0 a 3 gradualmente), Rector.
+- **Duplicación:** los candidatos, con lo que se hizo con cada uno el 19 ago 2026 —
+  - ~~`ComportamientoController` en la raíz y en `Disciplina/`~~ · **borrado** el de la raíz: sin ruta y sin referencia
+  - ~~`Informes/PuestosAnualesController`~~ · **borrado**: ni ruta ni referencia
+  - `BolfinalesController` existe **dos veces**. El de la raíz no está enrutado, pero **sí lo instancia** `CertificadosEstudioController` —sin `use`, así que resuelve al de la raíz—. Se queda: no es código muerto, es código vivo dentro de un camino que responde 500 por otra razón (§6.5 del informe)
+  - `Boletines`, `Boletines2`, `Boletines3` (520 + 498 + 494 líneas). **No se tocan**: los tres están enrutados y sirven formatos distintos de boletín. Fusionarlos es tocar el cálculo de notas
+  - `ImporterFixer` · se quedó, con las dos propiedades que le faltaban declaradas
+  - modelo `Debugging` (9.553 filas en producción) · se quedó: lo usan `ChangeAskedController`, `Grupo`, `Nota`, `Unidad` y `NotaFinal`
+- **Herramientas:** ~~Pint (formato), Larastan (subir de nivel 0 a 3 gradualmente), Rector.~~ **Montadas** — ver arriba. Lo que sigue siendo continuo es subir el nivel de Larastan.
 - **Validación:** hoy hay **2** validaciones en todo el proyecto. Cada endpoint que se toque estrena su FormRequest. No se hace de golpe.
 
 ---

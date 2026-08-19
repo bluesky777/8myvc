@@ -193,12 +193,11 @@ return [
          * Instalados por m√≠
          */
         /*  
-        Tymon\JWTAuth\Providers\LaravelServiceProvider::class,
         Barryvdh\Cors\ServiceProvider::class,
         */
         \hisorange\BrowserDetect\ServiceProvider::class,
         Maatwebsite\Excel\ExcelServiceProvider::class,
-        Intervention\Image\ImageServiceProvider::class,
+        Intervention\Image\Laravel\ServiceProvider::class,
 
 
     ],
@@ -254,11 +253,8 @@ return [
         'Validator' => Illuminate\Support\Facades\Validator::class,
         'View' => Illuminate\Support\Facades\View::class,
 
-        /* 'JWTAuth' => Tymon\JWTAuth\Facades\JWTAuth::class,
-        'JWTFactory' => Tymon\JWTAuthFacades\JWTFactory::class,
-        */
         'Browser' => \hisorange\BrowserDetect\Facade::class,
-        'Image' => Intervention\Image\Facades\Image::class,
+        'Image' => Intervention\Image\Laravel\Facades\Image::class,
         'Excel' => Maatwebsite\Excel\Facades\Excel::class,
     ],
 

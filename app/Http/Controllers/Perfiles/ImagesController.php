@@ -119,14 +119,14 @@ class ImagesController extends Controller {
 
 		try {
 			
-			$img = Image::make($folder . $newImg->nombre)->orientate();
-			$img->fit(200);
+			$img = Image::decodePath($folder . $newImg->nombre)->orient();
+			$img->cover(200, 200);
 			//$img->resize(200, null, function ($constraint) {
 			//	$constraint->aspectRatio();
 			//});
 			$img->save();
-		} catch (Exception $e) {
-			return 'Error en el make y fit';
+		} catch (\Exception $e) {
+			abort(422, 'No se pudo procesar la imagen.');
 		}
 
 		return $newImg;

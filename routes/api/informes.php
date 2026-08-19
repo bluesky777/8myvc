@@ -1,6 +1,5 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\CertificadosEstudioController;
 use App\Http\Controllers\ConfigCertificadosController;
 use App\Http\Controllers\Historiales\HistorialesController;
@@ -18,6 +17,7 @@ use App\Http\Controllers\Informes\ObservadorController;
 use App\Http\Controllers\Informes\ObservadorHorizontalController;
 use App\Http\Controllers\Informes\PuestosController;
 use App\Http\Controllers\Informes\SimatController;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -117,6 +117,11 @@ Route::put('observador-horizontal/horizontal/{grupo_id}', [ObservadorHorizontalC
 // ActasEvaluacionController
 Route::put('actas-evaluacion/acta-evaluacion-promocion', [ActasEvaluacionController::class, 'putActaEvaluacionPromocion']);
 Route::put('actas-evaluacion/detalle', [ActasEvaluacionController::class, 'putDetalle']);
+// La pantalla del acta llamaba a esta ruta desde siempre y no existía: guardar el texto del
+// acta fallaba con 404 en silencio. Ahora guarda el texto y los firmantes de la comisión.
+// Con auth.personal porque es la única escritura de este módulo: el resto de actas-evaluacion
+// son lecturas, y el texto del acta es configuración del año lectivo.
+Route::put('actas-evaluacion/cambiar-descripcion', [ActasEvaluacionController::class, 'putGuardarTextoActa'])->middleware('auth.personal');
 
 // CertificadosEstudioController
 Route::get('certificados-estudio/certificado-alumno/{grupo_id}', [CertificadosEstudioController::class, 'getCertificadoAlumno']);

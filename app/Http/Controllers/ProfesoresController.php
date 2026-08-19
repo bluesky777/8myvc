@@ -357,8 +357,8 @@ class ProfesoresController extends Controller {
 				}
 
 				return $profesor;
-			} catch (Exception $e) {
-				return abort(400, $e);
+			} catch (\Exception $e) {
+				abort(422, 'Datos incorrectos');
 			}
 		}
 	}
@@ -468,7 +468,7 @@ class ProfesoresController extends Controller {
 			left join users u on u.id=a.user_id where a.deleted_at is not null
 			order by p.nombres, p.apellidos';
 
-		return DB::select(DB::raw($consulta));
+		return DB::select($consulta);
 	}
 
 }

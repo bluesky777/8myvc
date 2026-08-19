@@ -1,11 +1,11 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\VtAspiracionesController;
 use App\Http\Controllers\VtCandidatosController;
 use App\Http\Controllers\VtParticipantesController;
 use App\Http\Controllers\VtVotacionesController;
 use App\Http\Controllers\VtVotosController;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------

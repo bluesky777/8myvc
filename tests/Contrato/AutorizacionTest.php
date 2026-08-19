@@ -4,6 +4,7 @@ namespace Tests\Contrato;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Quién puede hacer qué, una vez presentado un token válido.
@@ -18,10 +19,10 @@ use Illuminate\Support\Facades\Route;
 class AutorizacionTest extends CasoDeContrato
 {
     /** Los tres controladores de boletines son copias y sirven el mismo dato. */
-    public function familiasDeBoletines(): array
+    public static function familiasDeBoletines(): array
     {
         return [
-            'boletines'  => ['boletines'],
+            'boletines' => ['boletines'],
             'boletines2' => ['boletines2'],
             'boletines3' => ['boletines3'],
         ];
@@ -50,7 +51,7 @@ class AutorizacionTest extends CasoDeContrato
         $cuerpo = $alumno === null ? [] : ['requested_alumnos' => [$alumno]];
 
         return $this->putJson("/api/{$familia}/detailed-notas/{$grupoId}", $cuerpo,
-            ['Authorization' => 'Bearer ' . $token]);
+            ['Authorization' => 'Bearer '.$token]);
     }
 
     /**
@@ -59,9 +60,8 @@ class AutorizacionTest extends CasoDeContrato
      * `abort()` lanza una HttpException, que es un Throwable, así que el
      * `catch (\Throwable $th)` del constructor de BoletinesController se la
      * tragaba entera. Respondía 200 con el boletín del compañero.
-     *
-     * @dataProvider familiasDeBoletines
      */
+    #[DataProvider('familiasDeBoletines')]
     public function test_un_alumno_no_puede_pedir_el_boletin_de_otro(string $familia): void
     {
         [$token, $mio, $otro] = $this->alumnoYCompanero();
@@ -72,7 +72,7 @@ class AutorizacionTest extends CasoDeContrato
             ->assertJsonPath('message', 'No puedes ver el de otros');
     }
 
-    /** @dataProvider familiasDeBoletines */
+    #[DataProvider('familiasDeBoletines')]
     public function test_un_alumno_si_puede_pedir_el_suyo(string $familia): void
     {
         [$token, $mio] = $this->alumnoYCompanero();
@@ -110,7 +110,7 @@ class AutorizacionTest extends CasoDeContrato
         $alumnos = $r->json('2');
 
         $this->assertCount(1, $alumnos,
-            'Pidió su boletín y le devolvieron ' . count($alumnos) . ' alumnos.');
+            'Pidió su boletín y le devolvieron '.count($alumnos).' alumnos.');
 
         $this->assertSame($mio->alumno_id, $alumnos[0]['alumno_id']);
     }
@@ -146,7 +146,7 @@ class AutorizacionTest extends CasoDeContrato
         }
 
         $this->assertNotEmpty($vacias,
-            "El seed ya no tiene ningún área sin asignaturas, así que este test\n" .
+            "El seed ya no tiene ningún área sin asignaturas, así que este test\n".
             'no comprueba nada. Regenérala o construye el caso a mano.');
 
         foreach ($vacias as $area) {
@@ -158,9 +158,8 @@ class AutorizacionTest extends CasoDeContrato
     /**
      * Sin lista concreta se está pidiendo el grupo entero, que es lo que hace
      * `detailed-notas-year`. Un alumno no puede.
-     *
-     * @dataProvider familiasDeBoletines
      */
+    #[DataProvider('familiasDeBoletines')]
     public function test_un_alumno_no_puede_pedir_el_grupo_entero(string $familia): void
     {
         [$token, $mio] = $this->alumnoYCompanero();
@@ -170,14 +169,14 @@ class AutorizacionTest extends CasoDeContrato
             ->assertJsonPath('message', 'Pedis más de lo que debes');
 
         $this->getJson("/api/{$familia}/detailed-notas-year/{$mio->grupo_id}",
-            ['Authorization' => 'Bearer ' . $token])->assertStatus(403);
+            ['Authorization' => 'Bearer '.$token])->assertStatus(403);
     }
 
     /** Un profesor sigue viendo el grupo entero: el guard no le aplica. */
     public function test_un_profesor_sigue_viendo_el_grupo_entero(): void
     {
         $profesor = $this->usuarioDeTipo('Profesor');
-        [, $mio]  = $this->alumnoYCompanero();
+        [, $mio] = $this->alumnoYCompanero();
 
         $r = $this->pedir($this->tokenDe($profesor->username), 'boletines', $mio->grupo_id, null);
 
@@ -274,7 +273,7 @@ class AutorizacionTest extends CasoDeContrato
     public function test_certificados_persona_solo_del_alumno_propio(): void
     {
         [$token, $mio, $otro] = $this->alumnoYCompanero();
-        $cab = ['Authorization' => 'Bearer ' . $token];
+        $cab = ['Authorization' => 'Bearer '.$token];
 
         $this->putJson('/api/certificados-persona', ['alumno_id' => $otro->alumno_id], $cab)
             ->assertStatus(403)
@@ -295,7 +294,7 @@ class AutorizacionTest extends CasoDeContrato
     public function test_un_alumno_no_entra_en_lo_del_personal(): void
     {
         $token = $this->tokenDe($this->usuarioDeTipo('Alumno')->username);
-        $cab   = ['Authorization' => 'Bearer ' . $token];
+        $cab = ['Authorization' => 'Bearer '.$token];
 
         $this->putJson('/api/requisitos', [], $cab)->assertStatus(403);
         $this->deleteJson('/api/requisitos/destroy/999999', [], $cab)->assertStatus(403);
@@ -312,7 +311,7 @@ class AutorizacionTest extends CasoDeContrato
 
         $this->assertNotEmpty($fila, 'El seed no tiene ningún Usuario sin superusuario.');
 
-        $cab = ['Authorization' => 'Bearer ' . $this->tokenDe($fila[0]->username)];
+        $cab = ['Authorization' => 'Bearer '.$this->tokenDe($fila[0]->username)];
 
         $this->putJson('/api/requisitos', [], $cab)->assertStatus(200);
         $this->getJson('/api/piars-grupos/grupos', $cab)->assertStatus(200);
@@ -336,6 +335,7 @@ class AutorizacionTest extends CasoDeContrato
                 'GET api/piars-grupos/grupos',
                 'POST api/requisitos/alumno',
                 'POST api/requisitos/store',
+                'PUT api/actas-evaluacion/cambiar-descripcion',
                 'PUT api/piars-grupos/contexto-de-grupo',
                 'PUT api/prematriculas/alumnos-con-grado-anterior',
                 'PUT api/prematriculas/alumnos-grado-anterior',
@@ -372,7 +372,7 @@ class AutorizacionTest extends CasoDeContrato
                 }
 
                 foreach (array_diff($ruta->methods(), ['HEAD']) as $verbo) {
-                    $reales[] = $verbo . ' ' . $ruta->uri();
+                    $reales[] = $verbo.' '.$ruta->uri();
                 }
             }
 

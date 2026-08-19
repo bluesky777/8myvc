@@ -90,7 +90,7 @@ class SubunidadesController extends Controller {
 	public function putUpdateOrdenVarias()
 	{
 		$user = User::fromToken();
-		User::pueden_editar_notas();
+		User::pueden_editar_notas($user);
 
 		$sortHash1 	= Request::input('sortHash1');
 		$sortHash2 	= Request::input('sortHash2');
@@ -177,7 +177,7 @@ class SubunidadesController extends Controller {
 			$subunidad->save();
 			$subunidad->delete();
 		}else{
-			return App::abort(400, 'Subunidad no existe o está en Papelera.');
+			return abort(404, 'Subunidad no existe o está en Papelera.');
 		}
 		
 		
@@ -206,10 +206,10 @@ class SubunidadesController extends Controller {
 
 		$subunidad = Subunidad::onlyTrashed()->findOrFail($id);
 		
-		if ($unidad) {
+		if ($subunidad) {
 			$subunidad->forceDelete();
 		}else{
-			return App::abort(400, 'Subunidad no encontrada en la Papelera.');
+			return abort(404, 'Subunidad no encontrada en la Papelera.');
 		}
 		return $subunidad;
 	
@@ -262,7 +262,7 @@ class SubunidadesController extends Controller {
 				)m2 on a.id=m2.alumno_id
 			left join users u on u.id=a.user_id where a.deleted_at is not null';
 
-		return DB::select(DB::raw($consulta));
+		return DB::select($consulta);
 	}
 
 }

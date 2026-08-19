@@ -1,11 +1,11 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Actividades\ActividadesController;
 use App\Http\Controllers\Actividades\MisActividadesController;
 use App\Http\Controllers\Actividades\OpcionesController;
 use App\Http\Controllers\Actividades\PreguntasController;
 use App\Http\Controllers\Actividades\RespuestasController;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------

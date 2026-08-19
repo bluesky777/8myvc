@@ -1,6 +1,5 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ContratosController;
 use App\Http\Controllers\GradosController;
 use App\Http\Controllers\GruposController;
@@ -9,6 +8,7 @@ use App\Http\Controllers\PeriodosController;
 use App\Http\Controllers\Piars\PiarsGruposController;
 use App\Http\Controllers\ProfesoresController;
 use App\Http\Controllers\YearsController;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------

@@ -133,7 +133,7 @@ Laravel instancia el controlador para leer su middleware; el constructor llama a
 `bootstrap/cache/` es donde caen las dos cachés, y en producción **hay carpetas
 compartidas entre colegios por symlink** —`vendor/` seguro, el resto sin
 confirmar—. Si `bootstrap/cache/` estuviera compartida, un colegio serviría las
-rutas de otro sin ningún síntoma. Ver [`docs/DESPLIEGUE.md`](../DESPLIEGUE.md).
+rutas de otro sin ningún síntoma. Ver [`docs/DESPLIEGUE-REFERENCIA.md`](../DESPLIEGUE-REFERENCIA.md).
 
 
 

@@ -17,7 +17,7 @@ Si algo deja de funcionar tras el cambio, la respuesta está en el diff contra e
 | `mail()` | disponible |
 
 CLI y web resuelven al mismo `php.ini`, así que `config:cache` y
-`php artisan correo:probar` son fiables. Ver `DESPLIEGUE.md`.
+`php artisan correo:probar` son fiables. Ver `DESPLIEGUE-REFERENCIA.md`.
 
 ## Módulos cargados (`php -m`, verdad del servidor)
 
@@ -50,7 +50,7 @@ antes de tocar la versión de PHP:
 | Extensión | Por qué se activó |
 |---|---|
 | `sodium` | `lcobucci/jwt` 4.3.0 la declara requisito duro. En ejecución el `SodiumBase64Polyfill` degradaba a `base64_encode`, así que no rompía nada, pero `composer install` habría fallado el chequeo de plataforma. |
-| `opcache` | Estaba apagada — `[Zend Modules]` vacío lo confirmaba. Laravel recompilaba cada archivo en cada request. **Ver la nota de invalidación en `DESPLIEGUE.md`: con OPcache activa, desplegar código ya no es solo copiar ficheros.** |
+| `opcache` | Estaba apagada — `[Zend Modules]` vacío lo confirmaba. Laravel recompilaba cada archivo en cada request. **Ver la nota de invalidación en `DESPLIEGUE-REFERENCIA.md`: con OPcache activa, desplegar código ya no es solo copiar ficheros.** |
 
 Con esto, **todos** los requisitos de `composer.lock` están cubiertos.
 

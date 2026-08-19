@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use DB;
 
 use App\Models\Nota;
+use App\User;
 
 
 class Asignatura extends Model {
@@ -30,27 +31,6 @@ class Asignatura extends Model {
 
 		$asignatura = DB::select($consulta, [':asignatura_id' => $asignatura_id,
 											':year_id' => $year_id]);
-
-
-		return (array)$asignatura[0];
-	}
-
-
-	public static function unidades_notas($alumno_id)
-	{
-		$consulta = 'SELECT a.id as asignatura_id, a.grupo_id, a.profesor_id, a.creditos, a.orden as orden_asignatura,
-						m.id as materia_id, m.orden as orden_materia, m.materia, m.alias as alias_materia, 
-						g.nombre as nombre_grupo, g.abrev as abrev_grupo, g.titular_id, g.caritas, 
-						p.id as profesor_id, p.nombres as nombres_profesor, p.apellidos as apellidos_profesor
-					
-					FROM asignaturas a 
-					inner join materias m on m.id=a.materia_id 
-					inner join grupos g on g.id=a.grupo_id and g.id=13
-					inner join profesores p on p.id=a.profesor_id 
-					where a.deleted_at is null
-					order by a.orden, m.orden, m.materia';
-
-		$asignatura = DB::select(DB::raw($consulta), array(':asignatura_id' => $asignatura_id));
 
 
 		return (array)$asignatura[0];

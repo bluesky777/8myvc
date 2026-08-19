@@ -56,7 +56,7 @@ class Unidad extends Model {
 					where u.asignatura_id=:asignatura_id and u.periodo_id=:periodo_id and u.deleted_at is null
 					order by u.orden, u.id';
 
-		$unidades = DB::select(DB::raw($consulta), array(
+		$unidades = DB::select($consulta, array(
 			':asignatura_id'	=> $asignatura_id,
 			':periodo_id'		=> $periodo_id
 		));
@@ -79,7 +79,7 @@ class Unidad extends Model {
 						group by u.id 
 						order by u.orden, u.id';
 
-			$unidades = DB::select(DB::raw($consulta), [
+			$unidades = DB::select($consulta, [
 				':nota_minima'		=> $nota_minima,
 				':alumno_id'		=> $alumno_id,
 				':asignatura_id'	=> $asignatura_id,
@@ -102,7 +102,7 @@ class Unidad extends Model {
 						left join escalas_de_valoracion e ON e.porc_inicial<=r1.nota_unidad and e.porc_final>=r1.nota_unidad and e.deleted_at is null and e.year_id=:year_id
 						order by r1.orden_unidad, r1.unidad_id';
 
-			$unidades = DB::select(DB::raw($consulta), [
+			$unidades = DB::select($consulta, [
 				':alumno_id'		=> $alumno_id,
 				':asignatura_id'	=> $asignatura_id,
 				':periodo_id'		=> $periodo_id,
@@ -119,7 +119,7 @@ class Unidad extends Model {
 						group by u.id 
 						order by u.orden, u.id';
 
-			$unidades = DB::select(DB::raw($consulta), [
+			$unidades = DB::select($consulta, [
 				':alumno_id'		=> $alumno_id,
 				':asignatura_id'	=> $asignatura_id,
 				':periodo_id'		=> $periodo_id
@@ -158,7 +158,7 @@ class Unidad extends Model {
 						where unidad_id=:unidad_id and deleted_at is null
 						order by orden';
 
-			$unidad->subunidades = DB::select(DB::raw($consulta), array(
+			$unidad->subunidades = DB::select($consulta, array(
 				':unidad_id'	=> $unidad->id,
 			));
 

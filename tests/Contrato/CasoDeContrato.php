@@ -3,6 +3,7 @@
 namespace Tests\Contrato;
 
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Routing\Route;
 use Tests\TestCase;
 
 /**
@@ -44,19 +45,19 @@ abstract class CasoDeContrato extends TestCase
     private function comprobarBaseDeTest(): void
     {
         $conexion = config('database.default');
-        $base     = config("database.connections.{$conexion}.database");
+        $base = config("database.connections.{$conexion}.database");
 
         if (! preg_match('/_(testing|test)$/', (string) $base)) {
             $this->fail(
-                "Los tests apuntan a la base '{$base}', que no acaba en _testing.\n" .
+                "Los tests apuntan a la base '{$base}', que no acaba en _testing.\n".
                 "Revisa DB_CONNECTION en phpunit.xml. Debe ser 'mysql_testing'."
             );
         }
 
         if (\DB::table('users')->count() === 0) {
             $this->fail(
-                "La base '{$base}' está vacía. Constrúyela con:\n" .
-                "  tools/construir-bd-test.sh"
+                "La base '{$base}' está vacía. Constrúyela con:\n".
+                '  tools/construir-bd-test.sh'
             );
         }
     }
@@ -103,15 +104,15 @@ abstract class CasoDeContrato extends TestCase
         $this->assertArrayHasKey($tipo, $consultas, "Tipo de usuario desconocido: '{$tipo}'.");
 
         $filas = \DB::select(
-            $consultas[$tipo] . ' WHERE u.tipo = ? AND u.is_active = 1 AND u.deleted_at IS NULL
+            $consultas[$tipo].' WHERE u.tipo = ? AND u.is_active = 1 AND u.deleted_at IS NULL
                                    ORDER BY u.id LIMIT 1',
             [$tipo]
         );
 
         $this->assertNotEmpty(
             $filas,
-            "El seed no tiene ningún usuario de tipo '{$tipo}' con el contexto completo.\n" .
-            "Regenérala con: php tools/generar-seed-test.php"
+            "El seed no tiene ningún usuario de tipo '{$tipo}' con el contexto completo.\n".
+            'Regenérala con: php tools/generar-seed-test.php'
         );
 
         return $filas[0];
@@ -124,7 +125,7 @@ abstract class CasoDeContrato extends TestCase
      * excepciones se marcan con `->withoutMiddleware('auth.token')`, así que
      * mirar solo `middleware()` diría que sí en las 533.
      */
-    protected function exigeToken(\Illuminate\Routing\Route $ruta): bool
+    protected function exigeToken(Route $ruta): bool
     {
         return in_array('auth.token', $ruta->middleware(), true)
             && ! in_array('auth.token', $ruta->excludedMiddleware(), true);
@@ -152,12 +153,12 @@ abstract class CasoDeContrato extends TestCase
      */
     protected function compararConInstantanea(string $nombre, array $real): void
     {
-        $ruta = __DIR__ . '/Snapshots/' . $nombre . '.json';
+        $ruta = __DIR__.'/Snapshots/'.$nombre.'.json';
 
         $json = json_encode($real, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
         if (! file_exists($ruta)) {
-            file_put_contents($ruta, $json . "\n");
+            file_put_contents($ruta, $json."\n");
 
             fwrite(STDERR, "\n  ↳ snapshot creado: {$nombre}.json (revísalo antes de fiarte)\n");
 
@@ -171,7 +172,7 @@ abstract class CasoDeContrato extends TestCase
         $this->assertSame(
             $esperado,
             $real,
-            "La respuesta de '{$nombre}' cambió respecto al snapshot.\n" .
+            "La respuesta de '{$nombre}' cambió respecto al snapshot.\n".
             "Si el cambio es intencionado, borra tests/Contrato/Snapshots/{$nombre}.json y vuelve a correr."
         );
     }
@@ -204,10 +205,18 @@ abstract class CasoDeContrato extends TestCase
             return $forma;
         }
 
-        if (is_null($valor))   return 'null';
-        if (is_bool($valor))   return 'bool';
-        if (is_int($valor))    return 'int';
-        if (is_float($valor))  return 'float';
+        if (is_null($valor)) {
+            return 'null';
+        }
+        if (is_bool($valor)) {
+            return 'bool';
+        }
+        if (is_int($valor)) {
+            return 'int';
+        }
+        if (is_float($valor)) {
+            return 'float';
+        }
 
         return 'string';
     }

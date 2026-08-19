@@ -25,8 +25,8 @@ class NivelesEducativosController extends Controller {
 			$nivel->save();
 
 			return $nivel;
-		} catch (Exception $e) {
-			return abort(400, 'Datos incorrectos');
+		} catch (\Exception $e) {
+			abort(422, 'Datos incorrectos');
 		}
 	}
 
@@ -47,8 +47,8 @@ class NivelesEducativosController extends Controller {
 
 			$nivel->save();
 			return $nivel;
-		} catch (Exception $e) {
-			return abort(400, 'Datos incorrectos');
+		} catch (\Exception $e) {
+			abort(422, 'Datos incorrectos');
 		}
 	}
 

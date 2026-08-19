@@ -50,7 +50,7 @@ class VtVoto extends Model {
 				and vv.participante_id=:participante_id and va.votacion_id=:votacion_id';
 
 		$datos = array(':participante_id' => $participante_id, ':votacion_id' => $votacion_id);
-		$votos = DB::select(DB::raw($consulta), $datos);
+		$votos = DB::select($consulta, $datos);
 		
 		if ( count($votos) > 0 ) {
 			return true;
@@ -68,7 +68,7 @@ class VtVoto extends Model {
 				and vv.participante_id=:participante_id and vc.aspiracion_id=:aspiracion_id';
 
 		$datos = array(':participante_id' => $participante_id, ':aspiracion_id' => $aspiracion_id);
-		$votos = DB::select(DB::raw($consulta), $datos);
+		$votos = DB::select($consulta, $datos);
 		
 		return $votos;
 	}

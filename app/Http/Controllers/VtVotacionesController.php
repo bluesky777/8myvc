@@ -102,8 +102,8 @@ class VtVotacionesController extends Controller {
 			$datos['aspiraciones'] = $aspiraciones;
 
 			return $datos;
-		} catch (Exception $e) {
-			return abort(400, 'Datos incorrectos');
+		} catch (\Exception $e) {
+			abort(422, 'Datos incorrectos');
 		}
 	}
 
@@ -130,7 +130,7 @@ class VtVotacionesController extends Controller {
 		$consulta = 'SELECT u.id, u.username, u.email, u.is_superuser 
 					FROM users u 
 					where u.id not in (select p.user_id from vt_participantes p)';
-		return DB::select(DB::raw($consulta));
+		return DB::select($consulta);
 	}
 
 
@@ -253,9 +253,8 @@ class VtVotacionesController extends Controller {
 
 			$votacion->save();
 			return $votacion;
-		} catch (Exception $e) {
-			return abort(400, 'Datos incorrectos');
-			return $e;
+		} catch (\Exception $e) {
+			abort(422, 'Datos incorrectos');
 		}
 	}
 

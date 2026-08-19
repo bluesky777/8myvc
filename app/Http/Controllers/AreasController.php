@@ -25,8 +25,8 @@ class AreasController extends Controller {
 			$area->save();
 			
 			return $area;
-		} catch (Exception $e) {
-			return $e;
+		} catch (\Exception $e) {
+			abort(422, 'Datos incorrectos');
 		}
 	}
 	

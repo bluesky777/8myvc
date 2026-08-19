@@ -31,10 +31,19 @@ class AutenticacionTest extends CasoDeContrato
      *     además comprueba que ninguna responda 401.
      *   - Las seis de `tardanzas/*` **sí autentican**, pero no con token: el
      *     lector manda usuario y contraseña en el cuerpo de CADA petición y el
-     *     método las verifica con `Auth::attempt()`. No son públicas; el guard
-     *     de token las cerraría igual y el lector no podría entrar.
+     *     método las verifica con `App\Support\Credenciales`. No son públicas;
+     *     el guard de token las cerraría igual y el lector no podría entrar.
+     *   - Las tres de `auth/*` son de la Fase 3, y cada una tiene su motivo
+     *     escrito al lado de la ruta en routes/api/auth.php. En corto: entrar
+     *     no requiere estar dentro; refrescar se hace justo cuando el token de
+     *     acceso ya no vale; y salir tiene que funcionar con el token vencido.
+     *     `auth/refresh` sí responde 401 sin token — no está en la lista de
+     *     RutasPreLoginTest, que es la de pantallas previas al login.
      */
     private const SIN_GUARD = [
+        ['POST',   'auth/login'],
+        ['POST',   'auth/refresh'],
+        ['POST',   'auth/logout'],
         ['POST',   'login'],
         ['PUT',    'login/crear-prematricula'],
         ['POST',   'login/credentials'],
@@ -76,9 +85,9 @@ class AutenticacionTest extends CasoDeContrato
                 if ($this->exigeToken($ruta)) {
                     // Los {parametros} se rellenan con un valor cualquiera: el
                     // guard corre antes que el controlador, así que da igual cuál.
-                    $conGuard[] = [$verbo, '/' . preg_replace('/\{[^}]+\}/', '1', $ruta->uri())];
+                    $conGuard[] = [$verbo, '/'.preg_replace('/\{[^}]+\}/', '1', $ruta->uri())];
                 } else {
-                    $sinGuard[] = $verbo . ' ' . substr($ruta->uri(), strlen('api/'));
+                    $sinGuard[] = $verbo.' '.substr($ruta->uri(), strlen('api/'));
                 }
             }
         }
@@ -90,15 +99,15 @@ class AutenticacionTest extends CasoDeContrato
 
     public function test_solo_estas_rutas_no_exigen_token(): void
     {
-        $esperadas = array_map(fn ($r) => $r[0] . ' ' . $r[1], self::SIN_GUARD);
+        $esperadas = array_map(fn ($r) => $r[0].' '.$r[1], self::SIN_GUARD);
         sort($esperadas);
 
         [, $sinGuard] = $this->rutasPorGuard();
 
         $this->assertSame($esperadas, $sinGuard,
-            "Cambió la lista de rutas que no exigen token.\n" .
-            "Si sobra alguna, es un agujero. Si falta alguna, se rompió la entrada al sistema\n" .
-            'o el lector de tardanzas. Cualquiera de las dos cosas se justifica aquí, en el ' .
+            "Cambió la lista de rutas que no exigen token.\n".
+            "Si sobra alguna, es un agujero. Si falta alguna, se rompió la entrada al sistema\n".
+            'o el lector de tardanzas. Cualquiera de las dos cosas se justifica aquí, en el '.
             "docblock de SIN_GUARD,\ny se regenera la auditoría con tools/auditar-autenticacion.php");
     }
 
@@ -133,7 +142,7 @@ class AutenticacionTest extends CasoDeContrato
         }
 
         $this->assertSame([], $fallos,
-            "Estas rutas deberían rechazar con 401 a quien no presenta token:\n" .
+            "Estas rutas deberían rechazar con 401 a quien no presenta token:\n".
             implode("\n", $fallos));
     }
 
@@ -153,9 +162,9 @@ class AutenticacionTest extends CasoDeContrato
 
         foreach (['Alumno', 'Profesor', 'Acudiente', 'Usuario'] as $tipo) {
             $usuario = $this->usuarioDeTipo($tipo);
-            $token   = $this->tokenDe($usuario->username);
+            $token = $this->tokenDe($usuario->username);
 
-            $codigo = $this->getJson('/api/ciudades', ['Authorization' => 'Bearer ' . $token])
+            $codigo = $this->getJson('/api/ciudades', ['Authorization' => 'Bearer '.$token])
                 ->getStatusCode();
 
             if ($codigo === 401) {
@@ -164,6 +173,6 @@ class AutenticacionTest extends CasoDeContrato
         }
 
         $this->assertSame([], $rechazadas,
-            'El guard rechaza a un usuario con token válido de tipo: ' . implode(', ', $rechazadas));
+            'El guard rechaza a un usuario con token válido de tipo: '.implode(', ', $rechazadas));
     }
 }

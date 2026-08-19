@@ -1,16 +1,14 @@
 <?php namespace App\Http\Controllers\Tardanzas;
 
 
-use JWTAuth;
-use Tymon\JWTAuth\Exceptions\JWTException;
 use App\Http\Controllers\Controller;
 
 use Request;
-use Auth;
 use Hash;
 use DB;
 
 use App\Models\Debugging;
+use App\Support\Credenciales;
 use App\User;
 use App\Models\Ausencia;
 
@@ -37,8 +35,15 @@ class TSubirController extends Controller {
 		
 		
 		
-		if (Auth::attempt($credentials)) {
-			$userTemp = Auth::user();
+		// Era Auth::attempt() + Auth::user(). El guard `api` ya no es el de JWT
+		// sino `sesion`, que resuelve al usuario del token de la petición y por
+		// tanto no tiene attempt(): llamarlo devolvía 500. Aquí no hace falta un
+		// guard —el lector manda usuario y contraseña en cada petición—, solo
+		// comprobar la contraseña. Ver app/Support/Credenciales.php.
+		$autenticado = Credenciales::verificar($credentials['username'], $credentials['password']);
+
+		if ($autenticado !== null) {
+			$userTemp = $autenticado;
 
 		}else if (Request::has('username') && Request::input('username') != ''){
 
@@ -48,7 +53,13 @@ class TSubirController extends Controller {
 							->get();
 
 			if ( count( $usuario) > 0) {
-				$userTemp = Auth::login($usuario[0]);
+				// Rama inalcanzable: la comparaba contra Hash::make() de la
+				// contraseña recién escrita, y bcrypt saliente nunca coincide
+				// con un hash guardado (cada uno lleva su propia sal). Se deja
+				// escrita como lo que quería decir, sin Auth::login() —que
+				// devolvía void, así que aquí caía null y la línea de después
+				// reventaba con null->tipo—.
+				$userTemp = $usuario[0];
 			}else{
 				$usuario = User::where('password', '=', (string)Request::input('password'))
 							->where('username', '=', Request::input('username'))
@@ -56,7 +67,7 @@ class TSubirController extends Controller {
 				if ( count( $usuario) > 0) {
 					$usuario[0]->password = Hash::make((string)$usuario[0]->password);
 					$usuario[0]->save();
-					$userTemp = Auth::loginUsingId($usuario[0]->id);
+					$userTemp = User::find($usuario[0]->id);
 				}else{
 					return abort(400, 'Credenciales inválidas.');
 				}

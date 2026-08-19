@@ -33,10 +33,11 @@ jobs:
       - name: Preparar PHP
         uses: shivammathur/setup-php@v2
         with:
-          # 8.0 es lo que corre en producción (verificado en el servidor:
-          # PHP 8.0.30 bajo LiteSpeed). El CI prueba lo que se despliega, no
-          # lo que nos gustaría desplegar. Sube a 8.4 con la Fase 4.
-          php-version: '8.0'
+          # 8.4 desde la Fase 4: Laravel 13 pide 8.3 como mínimo. En el
+          # servidor hay que subir la versión de PHP de la cuenta de cPanel
+          # ANTES de desplegar, y afecta a todos los colegios de esa cuenta a
+          # la vez. Ver docs/DESPLIEGUE.md.
+          php-version: '8.4'
           extensions: mbstring, pdo_mysql, zip, gd, bcmath, sodium
           coverage: none
 
@@ -53,15 +54,22 @@ jobs:
         run: |
           cp .env.example .env
           php artisan key:generate
-          # Sin esto el login devuelve 500 con 'Secret is not set'. No basta
-          # con APP_KEY: tymon/jwt-auth firma con su propia clave.
-          php artisan jwt:secret --force
 
       # Barato y atrapa el error más tonto de todos: un fichero que no compila.
       - name: Comprobar sintaxis
         run: |
           find app routes config database tests tools -name '*.php' -print0 \
             | xargs -0 -n1 -P4 php -l > /dev/null
+
+      # Solo sobre lo que escribió esta migración. El legacy se formatea el día
+      # que se toque; reformatearlo entero sería un diff ilegible.
+      - name: Formato (Pint)
+        run: composer run pint:test
+
+      # Nivel 0: únicamente lo que no puede funcionar. Los casos que quedan sin
+      # arreglar están enumerados con su motivo en phpstan.neon.
+      - name: Análisis estático (Larastan)
+        run: composer run stan
 
       - name: Configurar sql_mode
         run: |
@@ -70,12 +78,17 @@ jobs:
 
       - name: Construir la base de tests
         env:
-          # Vacío: aquí se habla con MySQL directamente, sin docker exec de por medio.
+          # Vacío: aquí se habla con MySQL y con PHP directamente, sin docker
+          # exec de por medio.
           MYSQL_EXEC: ''
+          PHP_EXEC: ''
           DB_TEST_HOST: 127.0.0.1
           DB_TEST_PORT: 3306
           DB_USERNAME: root
           DB_PASSWORD: rootpass
+          # Las lee artisan al correr las migraciones sobre mysql_testing.
+          DB_TEST_USERNAME: root
+          DB_TEST_PASSWORD: rootpass
           DB_TEST_DATABASE: simonbolivar_testing
         run: tools/construir-bd-test.sh
 

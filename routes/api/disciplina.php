@@ -1,6 +1,5 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AusenciasController;
 use App\Http\Controllers\ChangeAskedAssignmentController;
 use App\Http\Controllers\ChangeAskedController;
@@ -9,6 +8,7 @@ use App\Http\Controllers\Disciplina\ComportamientoController;
 use App\Http\Controllers\Disciplina\DisciplinaController;
 use App\Http\Controllers\Disciplina\OrdinalesController;
 use App\Http\Controllers\Informes\PlanillasAusenciasController;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------

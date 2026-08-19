@@ -2,6 +2,8 @@
 
 namespace Tests\Contrato;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+
 /**
  * P0 — Login.
  *
@@ -16,7 +18,7 @@ namespace Tests\Contrato;
  */
 class LoginTest extends CasoDeContrato
 {
-    /** @dataProvider tiposDeUsuario */
+    #[DataProvider('tiposDeUsuario')]
     public function test_login_devuelve_token(string $tipo): void
     {
         $usuario = $this->usuarioDeTipo($tipo);
@@ -32,29 +34,37 @@ class LoginTest extends CasoDeContrato
         $this->assertArrayHasKey('el_token', $r->json());
         $this->assertIsString($r->json('el_token'));
 
-        // Un JWT son tres partes separadas por puntos.
-        $this->assertCount(3, explode('.', $r->json('el_token')));
+        // Los tokens de Sanctum son '<id>|<40 caracteres>'. Antes esto
+        // comprobaba que fueran tres bloques separados por puntos, o sea un
+        // JWT; la Fase 3 los cambió. La CLAVE no cambia —sigue siendo
+        // `el_token`— y por eso un front sin actualizar sigue entrando: solo se
+        // lo guarda y lo manda como Bearer, sin mirar dentro.
+        $this->assertMatchesRegularExpression('/^\d+\|[A-Za-z0-9]{40}$/', $r->json('el_token'));
+
+        // Y lo que de verdad importa: que sirva para entrar.
+        $this->getJson('/api/ciudades', ['Authorization' => 'Bearer '.$r->json('el_token')])
+            ->assertStatus(200);
 
         $this->compararConInstantanea(
-            'login-credentials-' . strtolower($tipo),
+            'login-credentials-'.strtolower($tipo),
             $this->forma($r->json())
         );
     }
 
-    /** @dataProvider tiposDeUsuario */
+    #[DataProvider('tiposDeUsuario')]
     public function test_contexto_de_usuario(string $tipo): void
     {
         $usuario = $this->usuarioDeTipo($tipo);
-        $token   = $this->tokenDe($usuario->username);
+        $token = $this->tokenDe($usuario->username);
 
         $r = $this->postJson('/api/login', [], [
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
         ]);
 
         $r->assertStatus(200);
 
         $this->compararConInstantanea(
-            'login-contexto-' . strtolower($tipo),
+            'login-contexto-'.strtolower($tipo),
             $this->forma($r->json())
         );
     }
@@ -83,13 +93,13 @@ class LoginTest extends CasoDeContrato
         $this->assertArrayNotHasKey('el_token', (array) $r->json());
     }
 
-    public function tiposDeUsuario(): array
+    public static function tiposDeUsuario(): array
     {
         return [
-            'alumno'    => ['Alumno'],
-            'profesor'  => ['Profesor'],
+            'alumno' => ['Alumno'],
+            'profesor' => ['Profesor'],
             'acudiente' => ['Acudiente'],
-            'usuario'   => ['Usuario'],
+            'usuario' => ['Usuario'],
         ];
     }
 }

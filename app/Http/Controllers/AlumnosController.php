@@ -79,7 +79,7 @@ class AlumnosController extends Controller {
 			SET u.password=:clave
 			WHERE m.grupo_id=:grupo_id';
 
-		DB::select(DB::raw($consulta), [
+		DB::select($consulta, [
 			':clave'			=> $clave,
 			':grupo_id'			=> $grupo_id
 		]);
@@ -100,7 +100,7 @@ class AlumnosController extends Controller {
 			INNER JOIN grupos g ON m.grupo_id=g.id and g.year_id=:year_id and a.id=m.alumno_id and g.deleted_at is null
 			LEFT JOIN images i on i.id=a.foto_id and i.deleted_at is null';
 
-		return DB::select(DB::raw($consulta), array(
+		return DB::select($consulta, array(
 						':year_id'			=> $this->user->year_id
 				));
 	}
@@ -325,9 +325,8 @@ class AlumnosController extends Controller {
 
 				return $alumno;
 
-			} catch (Exception $e) {
-				return abort('400', $alumno);
-				//return $e;
+			} catch (\Exception $e) {
+				abort(422, 'Datos incorrectos');
 			}
 		
 		 
@@ -370,19 +369,15 @@ class AlumnosController extends Controller {
 			}
 		}
 
-		try {
-			if (Request::has('foto')){
+		if (Request::has('foto')){
 
-				if (isset( Request::input('foto')['id'])) {
-					Request::merge(array('foto_id' => Request::input('foto')['id'] ) );
-				}else if (is_string(Request::input('foto')) ){
-					Request::merge(array('foto_id' => Request::input('foto')) );
-				}else{
-					Request::merge(array('foto_id' => null) );
-				}
+			if (isset( Request::input('foto')['id'])) {
+				Request::merge(array('foto_id' => Request::input('foto')['id'] ) );
+			}else if (is_string(Request::input('foto')) ){
+				Request::merge(array('foto_id' => Request::input('foto')) );
+			}else{
+				Request::merge(array('foto_id' => null) );
 			}
-		} catch (Exception $e) {
-			
 		}
 		
 	}
@@ -760,8 +755,8 @@ class AlumnosController extends Controller {
 
 
 				return $alumno;
-			} catch (Exception $e) {
-				return abort('400', $e);
+			} catch (\Exception $e) {
+				abort(422, 'Datos incorrectos');
 			}
 		} else {
 			return abort(403, 'No tienes permiso para eliminar alumnos definitivamente.');
@@ -970,6 +965,8 @@ class AlumnosController extends Controller {
 
 	public function getTrashed()
 	{
+		$user = $this->user;
+
 		$previous_year = $user->year - 1;
 		$id_previous_year = 0;
 		$previous_year = Year::where('year', '=', $previous_year)->first();
@@ -991,7 +988,7 @@ class AlumnosController extends Controller {
 				)m2 on a.id=m2.alumno_id
 			left join users u on u.id=a.user_id where a.deleted_at is not null';
 
-		return DB::select(DB::raw($consulta), array(
+		return DB::select($consulta, array(
 						':id_previous_year'	=>$id_previous_year, 
 						':year_id'			=>$user->year_id,
 						':year2_id'			=>$user->year_id

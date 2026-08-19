@@ -32,7 +32,7 @@ class Profesor extends Model {
 					left join images i2 on i2.id=p.foto_id and i2.deleted_at is null
 					where p.id=? and p.deleted_at is null';
 
-		$profesor = DB::select(DB::raw($consulta), array($profesor_id));
+		$profesor = DB::select($consulta, array($profesor_id));
 		return $profesor[0];
 	}
 
@@ -50,7 +50,7 @@ class Profesor extends Model {
 						where a.profesor_id=:profesor_id and a.deleted_at is null
 						order by g.orden, a.orden, m.materia, m.alias, a.id';
 
-		$asignaturas = DB::select(DB::raw($consulta), array(':year_id' => $year_id, ':profesor_id' => $profesor_id));
+		$asignaturas = DB::select($consulta, array(':year_id' => $year_id, ':profesor_id' => $profesor_id));
 
 		return $asignaturas;
 	}

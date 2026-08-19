@@ -1,6 +1,5 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\BitacorasController;
 use App\Http\Controllers\CambiarUsuarios\CambiarUsuariosController;
 use App\Http\Controllers\EventosController;
@@ -8,6 +7,7 @@ use App\Http\Controllers\PermissionsController;
 use App\Http\Controllers\RolesController;
 use App\Http\Controllers\UniformesController;
 use App\Http\Controllers\UsersController;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------

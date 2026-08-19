@@ -1,9 +1,9 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\CiudadesController;
 use App\Http\Controllers\PaisesController;
 use App\Http\Controllers\TipoDocumentoController;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -40,4 +40,3 @@ Route::post('tiposdocumento', [TipoDocumentoController::class, 'store']);
 Route::put('tiposdocumento/{tiposdocumento}', [TipoDocumentoController::class, 'update']);
 Route::patch('tiposdocumento/{tiposdocumento}', [TipoDocumentoController::class, 'update']);
 Route::delete('tiposdocumento/{tiposdocumento}', [TipoDocumentoController::class, 'destroy']);
-

@@ -2,6 +2,8 @@
 
 namespace Tests\Contrato;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+
 /**
  * P0 — Recuperación de contraseña.
  *
@@ -18,7 +20,7 @@ namespace Tests\Contrato;
  */
 class RecuperarClaveTest extends CasoDeContrato
 {
-    /** @dataProvider rutas */
+    #[DataProvider('rutas')]
     public function test_no_revela_si_el_correo_esta_registrado(string $ruta): void
     {
         $usuario = \DB::table('users')
@@ -37,7 +39,7 @@ class RecuperarClaveTest extends CasoDeContrato
         $base = ['ruta' => 'http://localhost/'];
 
         $registrado = $this->postJson($ruta, $base + ['email' => $usuario->email]);
-        $inventado  = $this->postJson($ruta, $base + ['email' => 'no-existe-nadie-asi@ejemplo.test']);
+        $inventado = $this->postJson($ruta, $base + ['email' => 'no-existe-nadie-asi@ejemplo.test']);
 
         $this->assertSame(
             $registrado->status(),
@@ -48,17 +50,17 @@ class RecuperarClaveTest extends CasoDeContrato
         $this->assertSame(
             $registrado->getContent(),
             $inventado->getContent(),
-            "La respuesta delata si el correo está registrado.\n" .
-            "registrado: {$registrado->getContent()}\n" .
+            "La respuesta delata si el correo está registrado.\n".
+            "registrado: {$registrado->getContent()}\n".
             "inventado:  {$inventado->getContent()}"
         );
     }
 
-    /** @dataProvider rutas */
+    #[DataProvider('rutas')]
     public function test_rechaza_un_correo_mal_formado(string $ruta): void
     {
         $this->postJson($ruta, [
-            'ruta'  => 'http://localhost/',
+            'ruta' => 'http://localhost/',
             'email' => 'esto-no-es-un-correo',
         ])->assertStatus(422);
     }
@@ -73,7 +75,7 @@ class RecuperarClaveTest extends CasoDeContrato
     public function test_no_acepta_una_ruta_de_retorno_de_otro_dominio(): void
     {
         $this->postJson('/api/login/recuperar-clave', [
-            'ruta'  => 'https://sitio-del-atacante.test/',
+            'ruta' => 'https://sitio-del-atacante.test/',
             'email' => 'quien-sea@ejemplo.test',
         ])->assertStatus(422);
     }
@@ -97,7 +99,7 @@ class RecuperarClaveTest extends CasoDeContrato
         );
     }
 
-    public function rutas(): array
+    public static function rutas(): array
     {
         return [
             'ruta nueva' => ['/api/login/recuperar-clave'],

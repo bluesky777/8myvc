@@ -1,10 +1,9 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AcudientesController;
-use App\Http\Controllers\AlumnosController;
 use App\Http\Controllers\Alumnos\FoliosController;
 use App\Http\Controllers\Alumnos\ImportarController;
+use App\Http\Controllers\AlumnosController;
 use App\Http\Controllers\BuscarController;
 use App\Http\Controllers\CarteraController;
 use App\Http\Controllers\DetallesController;
@@ -15,6 +14,7 @@ use App\Http\Controllers\Matriculas\PrematriculasController;
 use App\Http\Controllers\Matriculas\RequisitosController;
 use App\Http\Controllers\Piars\PiarsAlumnosController;
 use App\Http\Controllers\PromovidosController;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------

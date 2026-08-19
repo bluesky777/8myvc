@@ -12,6 +12,7 @@ use App\Models\Year;
 use App\Models\Periodo;
 use App\Models\Debugging;
 use \Log;
+use App\Support\ColumnaSegura;
 
 
 
@@ -19,6 +20,8 @@ class ImporterFixer {
 
     public $tipos_doc;
     public $cant_td;
+    public $ciudades;
+    public $cant_ciud;
     
 	
 	public function __construct()
@@ -37,7 +40,7 @@ class ImporterFixer {
 		$consA2 = '';
 		$ciudad_id_A1 = null;
 		$ciudad_id_A2 = null;
-		Log::info("id: " . $alumno["id"]) . ". Nombre: " . $alumno["primer_nombre"];
+		Log::info("id: " . $alumno["id"] . ". Nombre: " . $alumno["primer_nombre"]);
 		//if ($alumno->tipo_de_documento == 'fecha_nac')
 		//	$valor = Carbon::parse($valor);
 
@@ -173,7 +176,7 @@ class ImporterFixer {
 				break;
 			
 			default:
-				$consulta = 'UPDATE acudientes SET '.$propiedad.'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:acudiente_id';
+				$consulta = 'UPDATE acudientes SET '.ColumnaSegura::exigir('acudientes', $propiedad).'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:acudiente_id';
 				$datos 		= [
 					':valor'		=> $valor, 
 					':modificador'	=> $user_id, 
@@ -184,8 +187,6 @@ class ImporterFixer {
 		}
 		
 		
-		$consulta = DB::raw($consulta);
-
 		$res = DB::update($consulta, $datos);
 
 		if($res)

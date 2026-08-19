@@ -11,6 +11,7 @@ use App\User;
 use App\Models\Year;
 use App\Models\Periodo;
 use \Log;
+use App\Support\ColumnaSegura;
 
 
 
@@ -83,7 +84,7 @@ class GuardarAlumno {
 			
 			default:
 				
-				$consulta = 'UPDATE alumnos SET '.$propiedad.'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:alumno_id';
+				$consulta = 'UPDATE alumnos SET '.ColumnaSegura::exigir('alumnos', $propiedad).'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:alumno_id';
 				$datos 		= [
 					':valor'		=> $valor, 
 					':modificador'	=> $user->user_id, 
@@ -94,8 +95,6 @@ class GuardarAlumno {
 		}
 		
 		
-		$consulta = DB::raw($consulta);
-
 		$res = DB::update($consulta, $datos);
 
 		if($res)
@@ -129,7 +128,7 @@ class GuardarAlumno {
 				break;
 			
 			default:
-				$consulta = 'UPDATE acudientes SET '.$propiedad.'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:acudiente_id';
+				$consulta = 'UPDATE acudientes SET '.ColumnaSegura::exigir('acudientes', $propiedad).'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:acudiente_id';
 				$datos 		= [
 					':valor'		=> $valor, 
 					':modificador'	=> $user_id, 
@@ -140,8 +139,6 @@ class GuardarAlumno {
 		}
 		
 		
-		$consulta = DB::raw($consulta);
-
 		$res = DB::update($consulta, $datos);
 
 		if($res)

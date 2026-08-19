@@ -1,8 +1,8 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Piars\PiarsActasAcuerdoController;
 use App\Http\Controllers\Piars\PiarsConfigController;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------

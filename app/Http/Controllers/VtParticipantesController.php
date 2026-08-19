@@ -277,7 +277,7 @@ class VtParticipantesController extends Controller {
 							inner join grupos g on m.grupo_id=g.id and g.year_id=:year_id2 and g.deleted_at is null
 						)usus';
 		
-		$participantes = DB::select(DB::raw($consulta), [':year_id1' => $user->year_id, ':year_id2' => $user->year_id ]);
+		$participantes = DB::select($consulta, [':year_id1' => $user->year_id, ':year_id2' => $user->year_id ]);
 		//$participantes = [];
 
 		return $participantes;

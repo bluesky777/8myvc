@@ -234,7 +234,7 @@ class NotasController extends Controller {
 		if(($user->is_superuser && $user->is_superuser) || $user->tipo == 'Profesor'){
 			// Todo bien
 		}else{
-			return App::abort(400, 'No tienes permiso.');
+			return abort(403, 'No tienes permiso.');
 		}
 
 		$alumno_id 	= Request::input('alumno_id');
@@ -305,8 +305,8 @@ class NotasController extends Controller {
 
 			DB::insert($consulta, [$bit_by, $bit_hist, $nota->alumno_id, $id, $bit_new, $bit_old, $now]);
 			
-		} catch (Exception $e) {
-			return abort(400, 'No se pudo guardar la nota');
+		} catch (\Exception $e) {
+			abort(422, 'No se pudo guardar la nota');
 		}
 		
 		

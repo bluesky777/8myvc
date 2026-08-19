@@ -15,6 +15,7 @@ use App\Models\EscalaDeValoracion;
 use App\Models\Frase;
 use App\Models\Unidad;
 use Carbon\Carbon;
+use App\Support\ColumnaSegura;
 
 
 class YearsController extends Controller {
@@ -323,8 +324,8 @@ class YearsController extends Controller {
 			DB::insert($consulta, [ $bit_by, $bit_hist, 'YEAR CONFIGURACION', Request::input('id'), $now, (string) $year ]);
 
 			return $year;
-		} catch (Exception $e) {
-			return $e;
+		} catch (\Exception $e) {
+			abort(422, 'Datos incorrectos');
 		}
 	}
 
@@ -462,7 +463,7 @@ class YearsController extends Controller {
 		$valor 		= 	Request::input('valor');
 		$campo 		= 	Request::input('campo');
 
-		$consulta 	= 'UPDATE years SET '.$campo.'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:year_id';
+		$consulta 	= 'UPDATE years SET '.ColumnaSegura::exigir('years', $campo).'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:year_id';
 		\Log::info($consulta);
 		$datos 		= [ ':valor' => $valor, ':modificador' => $user->user_id, ':fecha' => $now, ':year_id' => $year_id ];
 		$res = DB::update($consulta, $datos);

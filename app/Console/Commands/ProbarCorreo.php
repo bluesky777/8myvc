@@ -27,23 +27,23 @@ class ProbarCorreo extends Command
         $destinatario = $this->argument('destinatario');
 
         $this->line('');
-        $this->line('  transporte .......... ' . config('mail.default'));
+        $this->line('  transporte .......... '.config('mail.default'));
 
         if (config('mail.default') === 'smtp') {
-            $this->line('  host ................ ' . config('mail.mailers.smtp.host') . ':' . config('mail.mailers.smtp.port'));
+            $this->line('  host ................ '.config('mail.mailers.smtp.host').':'.config('mail.mailers.smtp.port'));
         }
 
         if (config('mail.default') === 'sendmail') {
             $ruta = config('mail.mailers.sendmail.path');
             $binario = explode(' ', trim($ruta))[0];
-            $this->line('  ruta ................ ' . $ruta);
-            $this->line('  binario existe ...... ' . (is_executable($binario) ? 'sí' : 'NO  <-- esto es el problema'));
-            $this->line('  sendmail_path de PHP  ' . (ini_get('sendmail_path') ?: '(sin definir)'));
+            $this->line('  ruta ................ '.$ruta);
+            $this->line('  binario existe ...... '.(is_executable($binario) ? 'sí' : 'NO  <-- esto es el problema'));
+            $this->line('  sendmail_path de PHP  '.(ini_get('sendmail_path') ?: '(sin definir)'));
         }
 
         $remitente = config('mail.from.address');
-        $this->line('  remitente ........... ' . ($remitente ?: 'SIN DEFINIR  <-- MAIL_FROM_ADDRESS'));
-        $this->line('  destinatario ........ ' . $destinatario);
+        $this->line('  remitente ........... '.($remitente ?: 'SIN DEFINIR  <-- MAIL_FROM_ADDRESS'));
+        $this->line('  destinatario ........ '.$destinatario);
         $this->line('');
 
         if (! $remitente) {
@@ -54,10 +54,10 @@ class ProbarCorreo extends Command
 
         try {
             Mail::to($destinatario)->send(
-                new ResetPassword('usuario-de-prueba', config('app.url') . '/#!/reset-password/prueba/usuario-de-prueba')
+                new ResetPassword('usuario-de-prueba', config('app.url').'/#!/reset-password/prueba/usuario-de-prueba')
             );
         } catch (\Throwable $e) {
-            $this->error('  FALLÓ: ' . $e->getMessage());
+            $this->error('  FALLÓ: '.$e->getMessage());
             $this->line('');
             $this->line('  Si el transporte es sendmail y el binario no existe, busca el real con');
             $this->line('  "which sendmail" y ponlo en MAIL_SENDMAIL_PATH del .env.');
@@ -66,7 +66,7 @@ class ProbarCorreo extends Command
             return 1;
         }
 
-        $this->info('  Enviado sin errores. Revisa la bandeja de ' . $destinatario . '.');
+        $this->info('  Enviado sin errores. Revisa la bandeja de '.$destinatario.'.');
         $this->line('');
         $this->line('  Ojo: "sin errores" significa que el transporte lo aceptó, no que haya');
         $this->line('  llegado. Si no aparece, el problema está aguas abajo (SPF, spam, cola).');

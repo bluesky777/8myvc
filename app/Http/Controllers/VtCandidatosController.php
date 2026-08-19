@@ -49,13 +49,9 @@ class VtCandidatosController extends Controller {
 			$candidato->save();
 		}
 
-		try {
-			$candidatos = VtCandidato::porAspiracion($aspiracion_id, $user->year_id);
-			return $candidatos;
-		} catch (Exception $e) {
-			//return abort('400', 'Datos incorrectos');
-			return $e;
-		}
+		$candidatos = VtCandidato::porAspiracion($aspiracion_id, $user->year_id);
+
+		return $candidatos;
 	}
 
 
@@ -121,9 +117,8 @@ class VtCandidatosController extends Controller {
 			]);
 
 			$candidato->save();
-		} catch (Exception $e) {
-			return App::abort('400', 'Datos incorrectos');
-			return $e;
+		} catch (\Exception $e) {
+			abort(422, 'Datos incorrectos');
 		}
 	}
 

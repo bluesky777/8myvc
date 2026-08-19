@@ -20,7 +20,7 @@ use PHPUnit\Framework\TestCase;
  */
 class UsuarioPerezosoTest extends TestCase
 {
-    private const CONTROLADORES = __DIR__ . '/../../app/Http/Controllers';
+    private const CONTROLADORES = __DIR__.'/../../app/Http/Controllers';
 
     public function test_ningun_constructor_resuelve_al_usuario(): void
     {
@@ -81,7 +81,7 @@ class UsuarioPerezosoTest extends TestCase
             }
 
             yield [
-                str_replace(self::CONTROLADORES . '/', '', $archivo->getPathname()),
+                str_replace(self::CONTROLADORES.'/', '', $archivo->getPathname()),
                 $this->sinComentarios(file_get_contents($archivo->getPathname())),
             ];
         }
@@ -132,6 +132,7 @@ class UsuarioPerezosoTest extends TestCase
                     continue;
                 }
                 $limpio .= $token[1];
+
                 continue;
             }
             $limpio .= $token;

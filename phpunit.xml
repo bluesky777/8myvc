@@ -1,38 +1,40 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:noNamespaceSchemaLocation="./vendor/phpunit/phpunit/phpunit.xsd"
-         bootstrap="vendor/autoload.php"
-         colors="true"
->
-    <testsuites>
-        <testsuite name="Unit">
-            <directory suffix="Test.php">./tests/Unit</directory>
-        </testsuite>
-        <testsuite name="Feature">
-            <directory suffix="Test.php">./tests/Feature</directory>
-        </testsuite>
-        <!-- Tests de contrato: necesitan la base construida con
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="./vendor/phpunit/phpunit/phpunit.xsd" bootstrap="vendor/autoload.php" colors="true" cacheDirectory=".phpunit.cache">
+  <testsuites>
+    <testsuite name="Unit">
+      <directory suffix="Test.php">./tests/Unit</directory>
+    </testsuite>
+    <testsuite name="Feature">
+      <directory suffix="Test.php">./tests/Feature</directory>
+    </testsuite>
+    <!-- Tests de contrato: necesitan la base construida con
              tools/construir-bd-test.sh. Van en su propia suite para poder
              correr las otras sin base de datos. -->
-        <testsuite name="Contrato">
-            <directory suffix="Test.php">./tests/Contrato</directory>
-        </testsuite>
-    </testsuites>
-    <coverage processUncoveredFiles="true">
-        <include>
-            <directory suffix=".php">./app</directory>
-        </include>
-    </coverage>
-    <php>
-        <server name="APP_ENV" value="testing"/>
-        <server name="BCRYPT_ROUNDS" value="4"/>
-        <server name="CACHE_DRIVER" value="array"/>
-        <!-- Base separada, definida en config/database.php. Nunca la de desarrollo:
+    <testsuite name="Contrato">
+      <directory suffix="Test.php">./tests/Contrato</directory>
+    </testsuite>
+  </testsuites>
+  <php>
+    <server name="APP_ENV" value="testing"/>
+    <server name="BCRYPT_ROUNDS" value="4"/>
+    <server name="CACHE_DRIVER" value="array"/>
+    <!-- Base separada, definida en config/database.php. Nunca la de desarrollo:
              los tests de contrato usan RefreshDatabase y truncan lo que encuentren. -->
-        <server name="DB_CONNECTION" value="mysql_testing"/>
-        <server name="MAIL_MAILER" value="array"/>
-        <server name="QUEUE_CONNECTION" value="sync"/>
-        <server name="SESSION_DRIVER" value="array"/>
-        <server name="TELESCOPE_ENABLED" value="false"/>
-    </php>
+    <server name="DB_CONNECTION" value="mysql_testing"/>
+    <server name="MAIL_MAILER" value="array"/>
+    <!-- Sin remitente, Symfony Mailer rechaza el mensaje ("An email must have
+             a From or a Sender header") y el reseteo de contraseña responde 500.
+             Swift Mailer, el de Laravel 8, no lo comprobaba en el transporte de
+             pruebas, así que esto no se notaba. Se fija aquí para que la suite no
+             dependa de lo que cada uno tenga en su .env. -->
+    <server name="MAIL_FROM_ADDRESS" value="pruebas@ejemplo.test"/>
+    <server name="QUEUE_CONNECTION" value="sync"/>
+    <server name="SESSION_DRIVER" value="array"/>
+    <server name="TELESCOPE_ENABLED" value="false"/>
+  </php>
+  <source>
+    <include>
+      <directory suffix=".php">./app</directory>
+    </include>
+  </source>
 </phpunit>

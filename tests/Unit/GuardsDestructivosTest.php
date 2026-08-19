@@ -19,7 +19,7 @@ use PHPUnit\Framework\TestCase;
  */
 class GuardsDestructivosTest extends TestCase
 {
-    private const CONTROLADORES = __DIR__ . '/../../app/Http/Controllers';
+    private const CONTROLADORES = __DIR__.'/../../app/Http/Controllers';
 
     /**
      * Todo forceDelete() es borrado físico, y el esquema tiene las FK en
@@ -110,6 +110,58 @@ class GuardsDestructivosTest extends TestCase
     }
 
     /**
+     * El nombre de una columna no se puede parametrizar en SQL, así que cuando se concatena hay
+     * que validarlo antes. Diez endpoints armaban
+     *
+     *     UPDATE <tabla> SET '.$propiedad.'=:valor WHERE id=:id
+     *
+     * con la propiedad tal cual la mandaba el navegador. El valor iba parametrizado y eso daba
+     * sensación de seguridad, pero el nombre de la columna no, y por ahí se escribía en la fila lo
+     * que se quisiera. Bastaba tener sesión.
+     *
+     * Se buscó la FORMA y no la instancia: el primer hallazgo fue uno solo, en GuardarAlumno, y
+     * mirando el patrón aparecieron nueve más en ocho archivos distintos.
+     */
+    public function test_toda_columna_concatenada_en_un_set_esta_validada(): void
+    {
+        // Métodos revisados uno a uno donde la concatenación NO la decide el cliente.
+        $revisados = [
+            // La interpolación está dentro de if (Request::input('propiedad') == 'is_active'),
+            // así que sólo puede valer esa cadena literal.
+            'ProfesoresController.php::putGuardarValor',
+
+            // Método roto: $propiedad, $valor, $user_id y $user no se definen en ninguna parte.
+            // No lee nada del cliente, así que no hay inyección; falla con 500 por su cuenta.
+            'UniformesController.php::putGuardarCambios',
+        ];
+
+        $sinValidar = [];
+
+        foreach ($this->metodosDeControladores() as [$archivo, $nombre, $cuerpo]) {
+            if (! preg_match('/SET\s*[\'"]\s*\.\s*\$/', $cuerpo)) {
+                continue;
+            }
+
+            if (str_contains($cuerpo, 'ColumnaSegura::')) {
+                continue;
+            }
+
+            if (in_array("$archivo::$nombre", $revisados, true)) {
+                continue;
+            }
+
+            $sinValidar[] = "$archivo::$nombre";
+        }
+
+        $this->assertSame([], $sinValidar, implode("\n", array_merge(
+            ['Hay columnas concatenadas en un UPDATE ... SET sin validar:'],
+            array_map(fn ($m) => "  - $m", $sinValidar),
+            ['', 'Usa App\Support\ColumnaSegura::exigir($tabla, $columna), que valida la forma y',
+                'comprueba contra el esquema real que la columna exista.']
+        )));
+    }
+
+    /**
      * Devuelve [archivoRelativo, nombreMetodo, cuerpoSinComentarios] de cada método
      * de cada controlador.
      *
@@ -131,7 +183,7 @@ class GuardsDestructivosTest extends TestCase
             }
 
             $fuente = $this->sinComentarios(file_get_contents($archivo->getPathname()));
-            $relativo = str_replace(self::CONTROLADORES . '/', '', $archivo->getPathname());
+            $relativo = str_replace(self::CONTROLADORES.'/', '', $archivo->getPathname());
 
             preg_match_all('/function\s+(\w+)\s*\([^)]*\)\s*\{/', $fuente, $coincidencias, PREG_OFFSET_CAPTURE);
 
@@ -155,6 +207,7 @@ class GuardsDestructivosTest extends TestCase
                     continue;
                 }
                 $limpio .= $token[1];
+
                 continue;
             }
             $limpio .= $token;

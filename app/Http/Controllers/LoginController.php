@@ -1,9 +1,7 @@
 <?php namespace App\Http\Controllers;
 
 
-use JWTAuth;
 use Browser;
-use Tymon\JWTAuth\Exceptions\JWTException;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
@@ -17,6 +15,9 @@ use Carbon\Carbon;
 
 
 use App\User;
+use App\Services\Login;
+use App\Services\Sesion;
+use App\Services\VotacionesPendientes;
 use App\Models\VtVotacion;
 use App\Models\Periodo;
 use App\Models\Year;
@@ -33,181 +34,63 @@ class LoginController extends Controller {
 	private $direccion = '';
 
 
+	/**
+	 * El contexto del usuario del token.
+	 *
+	 * Sin token responde 200 con el cuerpo vacío, y eso es de siempre: la ruta
+	 * está fuera del guard porque el frontend la llama antes de saber si tiene
+	 * sesión. Con token inválido o caducado responde 401, como todas.
+	 *
+	 * Antes decidía si había token con `JWTAuth::parseToken()`, que con un token
+	 * de Sanctum lanza excepción: la ruta habría empezado a contestar el cuerpo
+	 * vacío —200, sin datos— a todo el que entrara con la Fase 3 puesta. Ahora
+	 * lo decide App\Services\Sesion, que entiende los dos formatos.
+	 */
 	public function postIndex(Request $request)
 	{
-
-		$user = [];
-		$token = [];
-		
-
-		try
-		{
-			$token = JWTAuth::parseToken();
-
-			if ($token){
-				$user = User::fromToken(false, $request);
-			}else if ((!($request->has('username')) && $request->input('username') != ''))  {
-				return response()->json(['error' => 'Token expirado'], 401);
-			}
-		}
-		catch(Tymon\JWTAuth\Exceptions\TokenExpiredException $e)
-		{
-			if (! count(Input::all())) {
-				return response()->json(['error' => 'token_expired'], 401);
-			}
-		}
-		catch(JWTException $e){
-			// No haremos nada, continuaremos verificando datos.
+		if (app(Sesion::class)->tokenPlanoDe($request) === null) {
+			return [];
 		}
 
+		$user = User::fromToken(false, $request);
 
-
-
-		// Ahora verificamos si está inscrito en alguna votación
-		$votaciones 		= VtVotacion::actualesInscrito($user, true);
-		$votacionesResult 	= [];
-
-		$cantVot = count($votaciones);
-
-		if ($cantVot > 0) {
-			for($i=0; $i<$cantVot; $i++) {
-				$aspiraciones = DB::select('SELECT * FROM vt_aspiraciones WHERE votacion_id=?', [$votaciones[$i]->id]);
-				$completos = VtVotacion::verificarVotosCompletos($aspiraciones, $votaciones[$i]->id, $user->user_id);
-				$votaciones[$i]->completos = $completos;
-				if (!$completos) {
-					array_push($votacionesResult, $votaciones[$i]);
-				}
-			}
-
-			$cantVot = count($votacionesResult);
-			if ($cantVot > 0) {
-				$user->votaciones = $votacionesResult;
-			}
-			
-		}
+		$user = app(VotacionesPendientes::class)->adjuntarA($user);
 
 		return json_decode(json_encode($user), true);
-		
 	}
 
 
 
 
+	/**
+	 * La entrada de siempre: devuelve `{ el_token }` y nada más.
+	 *
+	 * Se mantiene tal cual porque cada colegio despliega su propio front, y
+	 * durante un tiempo habrá colegios con el backend de la Fase 3 y el front
+	 * de antes. Ese front no conoce `/api/auth/login` ni sabría qué hacer con
+	 * un refresco, así que aquí se emite un solo token, y largo (24 h, lo que
+	 * duraba el JWT) para que su sesión aguante lo mismo que aguantaba.
+	 *
+	 * Lo único que cambia es qué hay dentro del token. Antes era un JWT; ahora
+	 * es uno de Sanctum, que sí se puede revocar — o sea que desde ya, cerrar
+	 * sesión desde el front viejo también lo mata de verdad.
+	 *
+	 * El trámite (contraseña, límite de intentos, historial, periodo) está en
+	 * App\Services\Login, compartido con la ruta nueva.
+	 */
 	public function postCredentials(Request $request)
 	{
+		$entrada = app(Login::class)->entrar($request);
 
-		$user 		= [];
-		$token 		= [];
-		$now 		= Carbon::now('America/Bogota');
+		$res = [ 'el_token' => app(Sesion::class)->abrirLegado($entrada['usuario']) ];
 
-		// grab credentials from the request
-		
-		$credentials = [
-			'username' => $request->input('username'),
-			'password' => (string)$request->input('password')
-		];
-
-		$this->datos_entorno_direccion();
-
-		// El limitador global era de 60/min para toda la API, o sea 86.400 intentos
-		// de contraseña al día por IP. Este es específico del par IP+usuario, para
-		// que un atacante no pueda probar contra muchas cuentas desde una IP ni
-		// contra una cuenta desde muchas.
-		$claveLimite = 'login:' . sha1($this->direccion . '|' . $credentials['username']);
-
-		if (RateLimiter::tooManyAttempts($claveLimite, 5)) {
-			return response()->json([
-				'error' => 'too_many_attempts',
-				'segundos' => RateLimiter::availableIn($claveLimite),
-			], 429);
+		if ($entrada['cambia_anio'] !== null) {
+			$res['cambia_anio'] = $entrada['cambia_anio'];
 		}
 
-		try {
-			// attempt to verify the credentials and create a token for the user
-			if (! $token = auth()->attempt($credentials)) {
-
-				RateLimiter::hit($claveLimite, 900);
-				
-				$maquina = 'Intento login>> Entorno: '.$this->entorno.', Dirección: '.$this->direccion.', plataforma: '.Browser::browserEngine().', platfamilia: '.Browser::platformFamily().', device_fami: '.Browser::deviceFamily().', device_model: '.Browser::deviceModel();
-				$consulta 	= 'INSERT INTO bitacoras (descripcion, affected_person_name, affected_element_type, created_at, created_by) 
-					VALUES (?, ?, "intento_login", ?, 0)';
-				DB::insert($consulta, [$maquina, $request->input('username'), $now]);
-				
-				return response()->json(['error' => 'invalid_credentials'], 400);
-			}
-			RateLimiter::clear($claveLimite);
-			//$newToken = auth()->refresh();
-			//$token = $newToken;
-		} catch (JWTException $e) {
-			return response()->json(['error' => 'could_not_create_token'], 500);
-		} catch (Exception $e) {
-			return response()->json(['error' => 'error creando token'], 500);
-		}
-
-		
-		$consulta 	= 'SELECT u.id, u.tipo, u.password, u.periodo_id, p.year_id, u.is_active FROM users u 
-			LEFT JOIN periodos p ON p.id=u.periodo_id and p.deleted_at is null
-			WHERE u.username=? and u.deleted_at is null';
-
-		$usuario 	= DB::select($consulta, [ $credentials['username'] ])[0];
-
-		if (Hash::check($credentials['password'], $usuario->password)){
-
-
-			if ($usuario->is_active) {
-				
-				// Alumnos asistentes o matriculados del grupo
-				$consulta = 'INSERT INTO historiales(user_id, tipo, ip, browser_name, browser_version, browser_family, browser_engine, entorno, platform_name, platform_family, device_family, device_model, device_grade, updated_at, created_at) 
-					VALUES(:user_id, :tipo, :ip, :browser_name, :browser_version, :browser_family, :browser_engine, :entorno, :platform_name, :platform_family, :device_family, :device_model, :device_grade, :updated_at, :created_at)';
-
-				$result = DB::insert($consulta, [ ':user_id' => $usuario->id, ':tipo' => $usuario->tipo, ':ip' => $this->direccion, 
-				':browser_name' => Browser::browserName(), ':browser_version' => Browser::browserVersion(), ':browser_family' => Browser::browserFamily(), 
-				':browser_engine' => Browser::browserEngine(), ':entorno' => $this->entorno, ':platform_name' => Browser::browserEngine(), ':platform_family' => Browser::platformFamily(), ':device_family' => Browser::deviceFamily(), ':device_model' => Browser::deviceModel(), ':device_grade' => Browser::mobileGrade(), ':updated_at' => $now, ':created_at' => $now ]);
-
-			}else{
-
-				abort(400, 'Usuario invalidado');
-
-			}
-
-		}
-
-		$res = [ 'el_token' => $token ];
-
-		// Ahora miramos si está en el periodo actual. Si no, lo cambiamos
-		$consulta 	= 'SELECT id, year, actual FROM years WHERE actual=1 and deleted_at is null';
-		$anio 		= DB::select($consulta)[0];
-
-		$consulta 	= 'SELECT id, actual FROM periodos WHERE actual=1 and year_id=? and deleted_at is null';
-		$periodo 	= DB::select($consulta, [$anio->id]);
-
-
-		if ($usuario->periodo_id > 0 && count($periodo) > 0) {
-			$periodo 	= $periodo[0];
-
-			if ($anio->id != $usuario->year_id) {
-				
-				$res['cambia_anio'] = $periodo->id;
-				$consulta 	= 'UPDATE users SET periodo_id=? WHERE id=?';
-				DB::update($consulta, [$periodo->id, $usuario->id]);
-
-			// Si sí es el año, verificamos periodo
-			}else{
-
-				if ($periodo->id != $usuario->periodo_id) {
-					$res['cambia_anio'] = $periodo->id;
-					$consulta 	= 'UPDATE users SET periodo_id=? WHERE id=?';
-					DB::update($consulta, [$periodo->id, $usuario->id]);
-				}
-			}
-		}
-		
-
-		//return ['token' => compact('token')];
 		return $res;
-
-		
 	}
+
 
 
 
@@ -219,7 +102,10 @@ class LoginController extends Controller {
 	 * 401, el frontend no podría limpiar su estado y el usuario se quedaría
 	 * atrapado en una sesión que ya no vale.
 	 *
-	 * Es idempotente: si no hay historial que cerrar, no pasa nada.
+	 * Es idempotente: si no hay historial que cerrar, no pasa nada. Y borra el
+	 * token de Sanctum, que es lo que hace que cerrar sesión deje de ser
+	 * cosmético. Los JWT viejos no se pueden revocar —esa es justo la razón de
+	 * la Fase 3—, así que con uno de esos solo se apunta la salida, como antes.
 	 *
 	 * El usuario sale del TOKEN, no del cuerpo de la petición. Antes llegaba como
 	 * `user_id`, así que cualquiera podía falsificar el cierre de sesión de otro
@@ -232,13 +118,31 @@ class LoginController extends Controller {
 	 * `logout()` borre el default. O sea que el token está aquí aunque el front lo
 	 * borre acto seguido.
 	 */
-	public function putLogout(){
+	public function putLogout(Request $request){
 		$now 		= Carbon::now('America/Bogota');
 
-		// Nada de esta petición se lee salvo el token: ni siquiera se recibe el
-		// Request. El `user_id` que mandaba el frontend se ignora, y por eso el
-		// parámetro ya no está.
-		$userId = $this->usuarioDelTokenAunqueCaducado();
+		// Del Request no se lee nada salvo el token. El `user_id` que mandaba el
+		// frontend se sigue ignorando: cualquiera podía falsificar el cierre de
+		// sesión de otro sabiendo su id.
+		$sesion = app(Sesion::class);
+		$token  = $sesion->tokenDe($request, true);
+
+		if ($token !== null) {
+			$userId = (int) $token->tokenable_id;
+
+			// Esto es la Fase 3 en una línea. Hasta ahora cerrar sesión solo
+			// escribía la hora en `historiales` y el JWT seguía valiendo 24 h:
+			// quien copiara el token —o quien se sentara después en el equipo
+			// compartido de la sala de profesores— seguía entrando. Ahora la
+			// fila se borra y el token muere en el acto, junto con el refresco
+			// de la misma sesión.
+			$sesion->cerrar($token);
+		} else {
+			// Sin token identificable no hay sesión que registrar. Aquí caía
+			// antes el camino de los JWT, que se decodificaban para sacar el
+			// `sub` sin mirar la expiración. Se fue con el paquete.
+			$userId = null;
+		}
 
 		// Sin token identificable no hay sesión que registrar. Se responde igual:
 		// el front tiene que poder limpiar su estado pase lo que pase aquí.
@@ -259,44 +163,6 @@ class LoginController extends Controller {
 
 		return 'Deslogueado';
 	}
-
-
-	/**
-	 * El id del usuario que hay dentro del token, aunque el token haya expirado.
-	 *
-	 * Cerrar sesión con el token caducado tiene que funcionar — es el caso normal
-	 * de quien vuelve al día siguiente—, así que no sirve `User::fromToken()`,
-	 * que aborta con 401 al expirar.
-	 *
-	 * Se decodifica por el proveedor directamente: **comprueba la firma** pero no
-	 * valida la expiración. Un token inventado no pasa; uno legítimo y vencido sí.
-	 *
-	 * No se usa `setRefreshFlow()` del manager, que haría lo mismo, porque es un
-	 * interruptor con estado sobre una instancia compartida: en producción cada
-	 * petición es un proceso nuevo y daría igual, pero en la misma tanda de tests
-	 * el contenedor persiste y se filtraría a los demás.
-	 */
-	private function usuarioDelTokenAunqueCaducado(): ?int
-	{
-		try {
-			$token = JWTAuth::getToken();
-
-			if (! $token) {
-				return null;
-			}
-
-			$claims = JWTAuth::manager()->getJWTProvider()->decode($token->get());
-
-			return isset($claims['sub']) ? (int) $claims['sub'] : null;
-
-		} catch (\Throwable $e) {
-			// Firma inválida, basura, o formato que no se reconoce.
-			return null;
-		}
-	}
-
-
-
 
 
 	/**

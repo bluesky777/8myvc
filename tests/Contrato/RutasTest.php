@@ -31,21 +31,21 @@ class RutasTest extends TestCase
                     continue;
                 }
 
-                $resueltas[$verbo . ' ' . $ruta->uri()] = $ruta->getActionName();
+                $resueltas[$verbo.' '.$ruta->uri()] = $ruta->getActionName();
             }
         }
 
         ksort($resueltas);
 
-        $ruta = __DIR__ . '/Snapshots/rutas.json';
+        $ruta = __DIR__.'/Snapshots/rutas.json';
 
         if (! file_exists($ruta)) {
             file_put_contents(
                 $ruta,
-                json_encode($resueltas, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n"
+                json_encode($resueltas, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n"
             );
 
-            fwrite(STDERR, "\n  ↳ snapshot de rutas creado con " . count($resueltas) . " entradas\n");
+            fwrite(STDERR, "\n  ↳ snapshot de rutas creado con ".count($resueltas)." entradas\n");
 
             $this->addToAssertionCount(1);
 
@@ -57,15 +57,15 @@ class RutasTest extends TestCase
         $faltan = array_diff_key($esperadas, $resueltas);
         $sobran = array_diff_key($resueltas, $esperadas);
 
-        $this->assertSame([], $faltan, 'Desaparecieron rutas: ' . implode(', ', array_keys($faltan)));
-        $this->assertSame([], $sobran, 'Aparecieron rutas nuevas sin actualizar el snapshot: ' . implode(', ', array_keys($sobran)));
+        $this->assertSame([], $faltan, 'Desaparecieron rutas: '.implode(', ', array_keys($faltan)));
+        $this->assertSame([], $sobran, 'Aparecieron rutas nuevas sin actualizar el snapshot: '.implode(', ', array_keys($sobran)));
 
         // Mismo conjunto de URIs: ahora, que cada una siga atendida por lo mismo.
         $cambiadas = [];
 
         foreach ($esperadas as $uri => $accion) {
             if (($resueltas[$uri] ?? null) !== $accion) {
-                $cambiadas[$uri] = $accion . ' → ' . ($resueltas[$uri] ?? 'nada');
+                $cambiadas[$uri] = $accion.' → '.($resueltas[$uri] ?? 'nada');
             }
         }
 
@@ -83,7 +83,7 @@ class RutasTest extends TestCase
                     continue;
                 }
 
-                $clave = $verbo . ' ' . $ruta->uri();
+                $clave = $verbo.' '.$ruta->uri();
 
                 if (isset($vistas[$clave])) {
                     $duplicadas[$clave] = true;

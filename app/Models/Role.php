@@ -29,7 +29,7 @@ class Role extends Model
 				inner join permissions pm on pm.id = pmr.permission_id 
 					and pmr.role_id = :role_id';
 		
-		$permisos = DB::select(DB::raw($consulta), array(':role_id' => $this->id));
+		$permisos = DB::select($consulta, array(':role_id' => $this->id));
 		
 		$perms = array();
 

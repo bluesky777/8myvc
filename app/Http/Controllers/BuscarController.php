@@ -31,7 +31,7 @@ class BuscarController extends Controller {
 		
 		$consulta = $this->consulta_ini . " WHERE a.nombres like '%$texto_a_buscar%'";
 
-		$res = DB::select(DB::raw($consulta), [$user->year_id]);
+		$res = DB::select($consulta, [$user->year_id]);
 		return $res;
 	}
 
@@ -48,7 +48,7 @@ class BuscarController extends Controller {
 		
 		$consulta = $this->consulta_ini . " WHERE a.apellidos like '%$texto_a_buscar%'";
 
-		$res = DB::select(DB::raw($consulta), [$user->year_id]);
+		$res = DB::select($consulta, [$user->year_id]);
 		return $res;
 	}
 

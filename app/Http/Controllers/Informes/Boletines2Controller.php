@@ -401,13 +401,6 @@ class Boletines2Controller extends Controller {
 		
 		return $alumno;
 	}
-	
-
-	public function periodosPerdidosDeAlumno($alumno, $grupo_id, $year_id, $periodos)
-	{
-		$perdidos = new IndicadoresPerdidos();
-		$perdidos->de_asignaturas_por_periodos($alumno->alumno_id, $grupo_id, $periodos);
-	}
 
 	public function asignaturasPerdidasDeAlumnoPorPeriodo($alumno_id, $grupo_id, $periodo_id)
 	{

@@ -4,7 +4,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 use App\Models\Grupo;
-use App\Models\Nota;
 use App\Models\Periodo;
 use App\Models\Alumno;
 use App\Models\Unidad;
@@ -263,7 +262,7 @@ class Nota extends Model {
 			try {
 				$asignatura->nota_asignatura_year = ($sum_asignatura_year / count($periodos));
 				$asignatura->subunidadesPerdidas = $subunidadesPerdidas;
-			} catch (Exception $e) {
+			} catch (\Throwable $e) {
 				$asignatura->nota_asignatura_year = 0;
 			}
 
@@ -278,7 +277,7 @@ class Nota extends Model {
 		try {
 			$alumno->promedio_year = ($sumatoria_asignaturas_year / count($asignaturas));
 			$alumno->sub_perdidas_year = $sub_perdidas_year;
-		} catch (Exception $e) {
+		} catch (\Throwable $e) {
 			$alumno->promedio_year = 0;
 		}
 

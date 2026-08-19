@@ -237,7 +237,7 @@ class UnidadesController extends Controller {
 			$unidad->save();
 			$unidad->delete();
 		}else{
-			return App::abort(400, 'Unidad no existe o está en Papelera.');
+			return abort(404, 'Unidad no existe o está en Papelera.');
 		}
 		
 		
@@ -264,7 +264,7 @@ class UnidadesController extends Controller {
 		if ($unidad) {
 			$unidad->forceDelete();
 		}else{
-			return App::abort(400, 'Unidad no encontrada en la Papelera.');
+			return abort(404, 'Unidad no encontrada en la Papelera.');
 		}
 		return $unidad;
 	
@@ -319,7 +319,7 @@ class UnidadesController extends Controller {
 					inner join periodos p on p.id=u.periodo_id
 					where u.deleted_at is not null';
 
-		return DB::select(DB::raw($consulta));
+		return DB::select($consulta);
 	}
 
 }

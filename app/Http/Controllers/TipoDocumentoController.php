@@ -24,8 +24,8 @@ class TipoDocumentoController extends Controller {
 			$tipo->save();
 
 			return $tipo;
-		} catch (Exception $e) {
-			return $e;
+		} catch (\Exception $e) {
+			abort(422, 'Datos incorrectos');
 		}
 	}
 
@@ -37,8 +37,8 @@ class TipoDocumentoController extends Controller {
 			$tipo->abrev	= Request::input('abrev');
 			$tipo->save();
 
-		} catch (Exception $e) {
-			return $e;
+		} catch (\Exception $e) {
+			abort(422, 'Datos incorrectos');
 		}
 	}
 

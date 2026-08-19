@@ -87,8 +87,8 @@ class CiudadesController extends Controller {
 			$ciudad->save();
 			
 			return $ciudad;
-		} catch (Exception $e) {
-			return $e;
+		} catch (\Exception $e) {
+			abort(422, 'Datos incorrectos');
 		}
 	}
 
