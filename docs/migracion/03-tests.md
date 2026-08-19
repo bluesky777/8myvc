@@ -33,6 +33,13 @@ el esquema o el seed.
 | `database/dumps/test-seed.sql` | Los datos: rebanada anonimizada, 46 tablas, ~15.800 filas. |
 | `tests/Contrato/Snapshots/*.json` | La forma esperada de cada respuesta. |
 
+Los tests de imagen se mudan a una carpeta temporal antes de correr, y vuelven al
+directorio anterior al terminar. No es manía: los controladores de imagen
+escriben en `images/perfil/...`, una ruta **relativa**, así que el destino real
+depende del directorio de trabajo del proceso —`public/` sirviendo por HTTP, la
+raíz del repo por CLI—. De ahí sale el `images/perfil/` vacío con carpetas
+`user_*` que hay en la raíz sin que nadie lo creara.
+
 Contraseña de todos los usuarios del seed: `test-1234`.
 
 ## Cómo funcionan los snapshots
@@ -116,6 +123,30 @@ contexto el seed pueda resolver de verdad. Un Alumno necesita ficha,
 matrícula en estado MATR/ASIS/PREM, grupo, y que su periodo sea del mismo año
 que el grupo. Sin las cuatro cosas, el endpoint responde 400.
 
+## Los tres bloques P0 del 19 de agosto
+
+Se escribieron después de la Fase 6, y los tres encontraron algo. Lo que los hizo
+encontrar no fue leer código: fue **mirar el resultado en vez del estado**.
+
+| Bloque | Qué se mira, y por qué así |
+|---|---|
+| `ImagenesTest` | El PÍXEL, no la respuesta. Las imágenes de prueba llevan una marca roja en una esquina porque `UploadedFile::fake()->image()` sale plana, y una imagen plana rotada es idéntica a sí misma. Con ella se ve que los dos botones de girar hacían lo contrario de lo que decían |
+| `ExcelTest` | La FORMA de la hoja —hojas, títulos, encabezados, filas—, no los bytes: PhpSpreadsheet escribe la fecha dentro y dos exports iguales dan archivos distintos. Y el viaje de ida y vuelta: exportar, reimportar lo exportado y comparar. Eso destapó que la importación dejaba un espacio dentro de los nombres |
+| `NotasTest` | Quién ve qué, pidiendo con el token de otro. Ahí salió el IDOR de `notas/alumno` |
+
+Tres trampas que costaron tiempo y que se repetirán:
+
+- **Un test que pasa no siempre ejecuta algo.** `notas/detailed` responde 200 con
+  `unidades: []` si el periodo del profesor no es el de las unidades, y todas las
+  comprobaciones de debajo pasan sin haber tocado nada. Por eso `NotasTest`
+  comprueba que la rejilla no venga vacía antes de mirar nada más.
+- **El periodo del usuario no se puede elegir**: `Services\Login` reescribe
+  `users.periodo_id` al periodo `actual` en cada inicio de sesión. Hay que buscar
+  el dato que encaja en el periodo, no al revés.
+- **Una snapshot de listas vacías pasa siempre.** Las de `myimages` y la de
+  deudores salían vacías con el seed tal cual; los tests se crean el dato antes
+  de mirar, dentro de su transacción.
+
 ## Cosas que aparecieron en los datos reales
 
 Encontradas construyendo esto. Ninguna está arreglada.
@@ -127,3 +158,10 @@ Encontradas construyendo esto. Ninguna está arreglada.
   `apellidos`.**
 - **La tabla `failed_jobs` no existe** en la base real, aunque su migración
   estaba en el repo. Nunca se ejecutó.
+- **`notas.nota` es una columna `int`.** Mandar 3,5 guarda un 4, sin error ni
+  aviso. No se toca: el §5 del plan protege el cálculo de notas.
+- **Los cuatro alumnos del seed sin paz y salvo están todos retirados**, y el
+  export de deudores solo mira ASIS, MATR y PREM. Por eso salía vacío.
+- **`ext-exif` es una sugerencia de `intervention/image`, no un requisito.** Sin
+  ella no falla nada: las fotos de móvil suben tumbadas y ya. Hay que confirmarla
+  en el PHP 8.4 de cada cuenta de cPanel.
