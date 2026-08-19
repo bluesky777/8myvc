@@ -32,17 +32,23 @@ La autenticación se suma **encima** de esos 250 ms.
 > scripts en caché, 35 MB de los 128 configurados. Con `validate_timestamps=1` y
 > `revalidate_freq=2`, que es lo correcto en desarrollo.
 >
-> **Y se nota, medido igual que la línea base de arriba** (12 peticiones cada
-> una, con `route:cache` puesto):
+> **Y se nota** (20 peticiones cada una, con `route:cache` puesto):
 >
 > | Petición | Antes | Ahora |
 > |---|---|---|
-> | `GET /api/ruta-que-no-existe` (404) | 0.240 – 0.265 s | **0.038 s** de media, 0.026 la mejor |
-> | `GET /api/paises` | 0.246 – 0.264 s | **0.026 s** de media |
+> | `GET /api/ruta-que-no-existe` (404) | 0,240 – 0,265 s | **0,028 s** de media, 0,024 la mejor |
 >
-> De 0,25 s a 0,03 s. No es todo de OPcache —la Fase 1 quitó `AdvancedRoute` y
-> el paso 6 activó `route:cache`—, pero los tres iban juntos en el plan y los
-> tres están.
+> De 0,25 s a 0,03 s. **Esa es la única fila comparable de la tabla de arriba**,
+> y por eso está sola: `GET /api/paises` medía 0,246–0,264 s cuando devolvía dos
+> filas sin autenticación, y hoy contesta **401** —la Fase 2 lo puso detrás del
+> guard, con quince excepciones que no lo incluyen—. Los 0,023 s que da ahora no
+> son la misma medición: no llega a la base de datos. Un 404 sí es lo mismo que
+> era, arranque más tabla de rutas y nada más.
+>
+> No es todo de OPcache —la Fase 1 quitó `AdvancedRoute` y el paso 6 activó
+> `route:cache`—, pero los tres iban juntos en el plan y los tres están. Lo que
+> no está medido es una petición autenticada de verdad contra la base de
+> desarrollo; para eso hace falta una credencial de ese colegio.
 >
 > **Falta el otro lado:** en producción esto depende de la versión de PHP de la
 > cuenta de cPanel, y hay que confirmar que OPcache está activo ahí. Va en
