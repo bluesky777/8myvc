@@ -6,6 +6,7 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Support\Providers\RouteServiceProvider as ServiceProvider;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Route;
 
 class RouteServiceProvider extends ServiceProvider
@@ -59,8 +60,42 @@ class RouteServiceProvider extends ServiceProvider
      */
     protected function configureRateLimiting()
     {
+        // El límite general. Sube de 60 a 120 porque los informes hacen ráfagas
+        // legítimas —un boletín de grupo son decenas de peticiones seguidas— y
+        // porque el límite que de verdad importaba, el de las contraseñas, pasa
+        // a tener el suyo propio y mucho más estrecho.
         RateLimiter::for('api', function (Request $request) {
-            return Limit::perMinute(60)->by(optional($request->user())->id ?: $request->ip());
+            return Limit::perMinute(120)->by(optional($request->user())->id ?: $request->ip());
+        });
+
+        /*
+         * Contraseñas.
+         *
+         * Antes compartían los 60/min de todo lo demás: 86.400 intentos al día
+         * por IP contra 2.318 cuentas con contraseñas de colegio. Eso no
+         * resiste un diccionario.
+         *
+         * Van dos cubos y no uno, porque tapan ataques distintos:
+         *
+         *   por IP       — un atacante probando muchas contraseñas de una cuenta
+         *   por usuario  — un atacante repartido entre muchas IP contra una cuenta
+         *
+         * Cinco por minuto no estorba a nadie: quien escribe mal su contraseña
+         * cinco veces en un minuto necesita recuperarla, no un sexto intento.
+         *
+         * NO se aplica a `tardanzas/subir/*`, que también manda credenciales en
+         * cada petición pero no es un login: es el lector subiendo un lote, y
+         * ahí cinco por minuto sí estorbaría.
+         */
+        RateLimiter::for('login', function (Request $request) {
+            $identidad = (string) ($request->input('username')
+                ?: $request->input('email')
+                ?: $request->ip());
+
+            return [
+                Limit::perMinute(5)->by('ip:'.$request->ip()),
+                Limit::perMinute(5)->by('id:'.Str::lower($identidad)),
+            ];
         });
     }
 }
