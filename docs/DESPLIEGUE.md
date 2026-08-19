@@ -379,7 +379,8 @@ revoca al terminar con todos.
 d=/home/micolev1/COLEGIO.micolevirtual.com/8myvc
 cd "$d"
 
-readlink -f vendor          # PARA si dice laravel_compartido: tocarías 5 colegios
+php -v                      # PARA si no dice 8.4: Laravel 13 no arranca en menos de 8.3
+readlink -f vendor          # PARA si es una carpeta compartida: tocarías a todos los que cuelguen
 git pull                    # trae composer.lock
 ls -l composer.lock         # sin él, install se comporta como update
 
@@ -808,3 +809,75 @@ que está sirviendo**: le quitaría el paquete de golpe a todos los colegios que
 cuelguen de ella, incluidos los que aún tengan el `app/` viejo. Va en la carpeta
 de la generación siguiente, que se construye aparte. Ver «`vendor/` compartido y
 la Fase 4: una carpeta por generación», más arriba.
+
+---
+
+## De la Fase 4 (Laravel 8 → 13)
+
+### 1. Subir PHP a 8.4 — ANTES, y no se puede escalonar
+
+Laravel 13 exige **PHP 8.3 como mínimo**; el repo va a 8.4, que es la versión con
+soporte activo. Producción corre 8.0.30.
+
+**La versión de PHP se elige por cuenta de cPanel, no por colegio**, así que sube
+para todos los colegios de esa cuenta en el mismo instante. Es el único paso de
+toda la migración que no se puede hacer colegio a colegio.
+
+Y por eso el orden es este y no otro:
+
+1. **Primero** los 16 con el `vendor/` igualado. Hecho el 19 ago 2026. Sin esto,
+   subir PHP tumba a los que corran un Laravel anterior a los parches de
+   compatibilidad de 2021 — que es justo como se descubrió el problema.
+2. **Después** subir PHP a 8.4 en las dos cuentas. En ese momento todos los
+   colegios siguen en Laravel 8.83.29, que arranca en 8.1 pero **no está
+   soportado en 8.4**. Es una ventana incómoda: funciona, pero con avisos de
+   obsolescencia. Conviene que dure horas, no días — o subir a 8.1 primero, que
+   sí es territorio soportado por Laravel 8, y a 8.4 justo antes del primer
+   despliegue.
+3. **Entonces** desplegar colegio a colegio, moviendo cada uno al `vendor/` de la
+   generación 13.
+
+### 2. La vuelta atrás es el symlink
+
+Con una carpeta por generación (ver «`vendor/` compartido y la Fase 4», arriba),
+deshacer el salto en un colegio es:
+
+```bash
+d=/home/micolev1/COLEGIO.micolevirtual.com/8myvc
+cd "$d"
+git checkout <commit-anterior>          # el app/ de antes
+ln -sfn /home/micolev1/laravel_8 vendor # y su vendor
+php artisan package:discover
+php artisan config:clear && php artisan route:clear
+php artisan config:cache && php artisan route:cache
+```
+
+Lo que **no** se deshace moviendo el symlink es la versión de PHP. Si hubo que
+volver atrás por algo que no era el framework, se vuelve con PHP 8.4 puesto.
+
+### 3. Todo el mundo vuelve a entrar una vez
+
+`tymon/jwt-auth` se quitó en esta fase — solo soportaba hasta `illuminate ^9` y
+era el bloqueante duro. Con él se fue la ventana de compatibilidad de los JWT, así
+que los tokens que haya vivos en los navegadores dejan de valer en el momento del
+despliegue y el usuario aterriza en el login. Pasa una sola vez.
+
+### 4. Laravel 10 y 11 no existen como destino
+
+Si alguien se pregunta por qué se saltaron: composer se niega a instalarlos.
+Todas sus versiones arrastran avisos de seguridad sin parchear —entre ellos
+CVE-2026-48019, inyección CRLF en la regla de validación `email`— porque salieron
+de soporte antes de que llegara la corrección. Solo `>=12.60.0` y `>=13.10.0`
+están limpias. **No es una preferencia: es que no se pueden instalar** sin apagar
+la comprobación de seguridad de composer en el repo.
+
+### 5. Qué comprobar en el colegio después
+
+Lo de siempre (login de personal y de alumno, boletines, certificado de estudio,
+informes en Excel, subida de foto), más:
+
+```bash
+php artisan --version                                      # Laravel Framework 13.26.1
+php -v                                                     # 8.4.x
+php artisan migrate:status | grep personal_access_tokens   # Ran
+```

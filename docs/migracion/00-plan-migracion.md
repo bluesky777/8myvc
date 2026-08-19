@@ -24,7 +24,7 @@ La buena noticia: el código casi no usa superficie del framework. 990 llamadas 
 | 1 | Eliminar `AdvancedRoute` (sin tocar el framework) | Rutas cacheables, `route:list` funcional | 1–2 días |
 | 2 | Organizar rutas + middleware `auth` real | Cierra el agujero de roles/permisos | 2–3 días |
 | 3 | Reemplazar `tymon/jwt-auth` (back + front + Flutter) | Desbloquea el salto de framework | 4–6 días · **backend hecho 19 ago 2026** |
-| 4 | Salto 8 → 13 (cinco majors) | El objetivo | 4–6 días |
+| 4 | Salto 8 → 13 (~~cinco majors~~ tres saltos) | El objetivo | **hecho 19 ago 2026** |
 | 5 | Migraciones al día contra la BD real | Entornos reproducibles | 2–3 días |
 | 6 | Modelos y limpieza (gradual, opcional) | Mantenibilidad | continuo |
 
@@ -405,6 +405,33 @@ El backend solo escribe `logout_at` en `historiales`. El JWT **sigue siendo vál
 ---
 
 ### Fase 4 — Salto de framework 8 → 13 · 4–6 días
+
+> **Hecha el 19 ago 2026, y no como estaba escrita aquí.** El plan decía un major
+> por commit, 8→9→10→11→12→13. Fueron **dos saltos**: 8→9 y 9→13.
+>
+> **Laravel 10 y 11 no se pueden instalar.** Composer los bloquea: todas sus
+> versiones arrastran avisos de seguridad sin parchear —entre ellos
+> CVE-2026-48019, inyección CRLF en la regla de validación `email`, de severidad
+> alta— porque las dos ramas salieron de soporte antes de que llegara la
+> corrección. Solo `>=12.60.0` y `>=13.10.0` están limpias. Saltárselas no fue
+> una elección de ritmo: no había forma de pasar por ellas sin apagar la
+> comprobación de seguridad de composer y dejarlo escrito en el repo.
+>
+> Se pierde con ello la atribución fina de "cuál de los cinco rompió qué", que era
+> lo que el plan buscaba. El detector siguió siendo el mismo, la suite, y lo que
+> rompió fueron **dos cosas**, las dos localizadas y arregladas en commits
+> separados: 46 `DB::raw()` que envolvían consultas enteras (Laravel 10 dejó de
+> convertir `Expression` a cadena) y los proveedores de datos de PHPUnit, que
+> desde la 10 tienen que ser `static`.
+>
+> Lo que el plan sí acertó de lleno: **el código apenas usa superficie del
+> framework, así que apenas le afectan sus cambios.** El esqueleto viejo
+> (`Http/Kernel`, `Console/Kernel`, los `config/*.php`) arranca sin tocar nada en
+> Laravel 13.
+>
+> Lo que hay que hacer en el servidor está en [DESPLIEGUE.md](../DESPLIEGUE.md),
+> sección «De la Fase 4». En corto: **subir PHP a 8.4 antes, y eso sube para
+> todos los colegios de la cuenta de cPanel a la vez.**
 
 Un major por commit (8→9→10→11→12→13), con la suite de contrato verde en cada uno.
 
