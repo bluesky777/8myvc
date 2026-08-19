@@ -4,7 +4,6 @@
 use App\Http\Controllers\Controller;
 
 use Request;
-use Hash;
 use DB;
 
 use App\Models\Debugging;
@@ -46,32 +45,21 @@ class TSubirController extends Controller {
 			$userTemp = $autenticado;
 
 		}else if (Request::has('username') && Request::input('username') != ''){
-
-			$pass = Hash::make((string)Request::input('password'));
-			$usuario = User::where('password', '=', $pass)
-							->where('username', '=', Request::input('username'))
-							->get();
-
-			if ( count( $usuario) > 0) {
-				// Rama inalcanzable: la comparaba contra Hash::make() de la
-				// contraseña recién escrita, y bcrypt saliente nunca coincide
-				// con un hash guardado (cada uno lleva su propia sal). Se deja
-				// escrita como lo que quería decir, sin Auth::login() —que
-				// devolvía void, así que aquí caía null y la línea de después
-				// reventaba con null->tipo—.
-				$userTemp = $usuario[0];
-			}else{
-				$usuario = User::where('password', '=', (string)Request::input('password'))
-							->where('username', '=', Request::input('username'))
-							->get();
-				if ( count( $usuario) > 0) {
-					$usuario[0]->password = Hash::make((string)$usuario[0]->password);
-					$usuario[0]->save();
-					$userTemp = User::find($usuario[0]->id);
-				}else{
-					return abort(400, 'Credenciales inválidas.');
-				}
-			}
+			// Aquí colgaban dos respaldos que había que quitar.
+			//
+			// El primero comparaba la columna contra Hash::make() de la
+			// contraseña recién escrita. Inalcanzable por construcción: bcrypt
+			// lleva una sal distinta en cada llamada, así que su salida no
+			// coincide nunca con un hash guardado.
+			//
+			// El segundo comparaba la columna contra la contraseña EN CLARO, y
+			// si acertaba la hasheaba en su sitio y dejaba entrar. Era el camino
+			// de subida para las cuentas guardadas sin hashear — que las había,
+			// porque VtParticipantesController las creaba así. Tratar una
+			// columna sin hashear como credencial válida es exactamente lo que
+			// no se puede hacer, y menos en el único endpoint que acepta
+			// usuario y contraseña en cada petición.
+			return abort(400, 'Credenciales inválidas.');
 		}else{
 			return abort(401, 'Por favor ingrese de nuevo.');
 		}

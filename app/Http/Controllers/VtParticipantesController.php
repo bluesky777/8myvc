@@ -2,6 +2,7 @@
 
 use Request;
 use DB;
+use Hash;
 
 
 use App\User;
@@ -206,7 +207,10 @@ class VtParticipantesController extends Controller {
 
 					$usuario = new User;
 					$usuario->username		=	$name;
-					$usuario->password		=	'123456';
+					// Iba sin hashear: la columna quedaba con el texto literal, y
+					// Hash::check() contra eso siempre falla, así que la cuenta que
+					// esta línea creaba no podía entrar por ninguna parte.
+					$usuario->password		=	Hash::make('123456');
 					$usuario->is_superuser	=	false;
 					$usuario->is_active		=	true;
 					$usuario->save();

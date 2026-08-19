@@ -175,7 +175,11 @@ class ImagesController extends Controller {
 		$folder = 'images/perfil/'.$folderName;
 
 		if (!File::exists($folder)) {
-			File::makeDirectory($folder, $mode = 0777, true, true);
+			// 0755 y no 0777: la carpeta la lee el servidor web y la escribe el
+			// proceso de PHP, que es el mismo usuario. Dar escritura a todo el
+			// mundo en una carpeta servida por HTTP es de las cosas que solo
+			// pueden salir mal.
+			File::makeDirectory($folder, 0755, true, true);
 		}
 
 		$file = Request::file("file");
