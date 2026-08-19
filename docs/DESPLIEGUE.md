@@ -35,6 +35,25 @@ Mientras tanto los colegios siguen en Laravel 8.83.29, que arranca en 8.4 pero n
 está soportado ahí. Para que esa ventana dure poco: subir a **8.1** con calma
 (territorio soportado por Laravel 8) y a **8.4** el día que empiece el despliegue.
 
+**Con la versión ya cambiada, comprobar que OPcache está activo.** No es un
+detalle de afinado: sin él, cada petición recompila los 609 ficheros del
+framework, y eso son 150–200 ms por petición según lo medido en
+[el plan de rendimiento](migracion/02-plan-rendimiento.md) — el problema número
+uno de ese documento. En el contenedor de desarrollo vino con la imagen 8.4 y se
+nota: de 0,25 s a 0,03 s por petición.
+
+En cPanel se activa en *Select PHP Version → Extensions → opcache*. Para
+confirmarlo desde el colegio ya desplegado, sin subir ningún fichero:
+
+```bash
+php -r 'var_dump(function_exists("opcache_get_status"));'
+```
+
+Eso responde por el **CLI**, y lo que sirve las peticiones es **FPM**. Comparten
+la configuración de la cuenta, pero si hay duda, la respuesta buena sale de una
+petición HTTP real. La forma corta y sin dejar rastro es mirar `phpinfo()` desde
+el propio cPanel (*MultiPHP INI Editor*), no subir un `.php` al `public/`.
+
 ### La carpeta `vendor/` de la generación 13
 
 ```bash
