@@ -32,7 +32,7 @@ La autenticación se suma **encima** de esos 250 ms.
 > scripts en caché, 35 MB de los 128 configurados. Con `validate_timestamps=1` y
 > `revalidate_freq=2`, que es lo correcto en desarrollo.
 >
-> **Y se nota** (20 peticiones cada una, con `route:cache` puesto):
+> **Y se nota** (20 peticiones, **sin** `route:cache`):
 >
 > | Petición | Antes | Ahora |
 > |---|---|---|
@@ -45,9 +45,19 @@ La autenticación se suma **encima** de esos 250 ms.
 > son la misma medición: no llega a la base de datos. Un 404 sí es lo mismo que
 > era, arranque más tabla de rutas y nada más.
 >
-> No es todo de OPcache —la Fase 1 quitó `AdvancedRoute` y el paso 6 activó
-> `route:cache`—, pero los tres iban juntos en el plan y los tres están. Lo que
-> no está medido es una petición autenticada de verdad contra la base de
+> No es todo de OPcache: la Fase 1 quitó `AdvancedRoute`, que reflexionaba 97
+> controladores y registraba 1.076 rutas en cada arranque. Los dos iban juntos
+> en el plan y los dos están.
+>
+> **Y el paso 6 ya no vale lo que decía.** Este documento le puso 30–60 ms a
+> `route:cache`. Medido hoy: 0,031 s con la caché puesta contra 0,028 s sin
+> ella — o sea, ruido, y de los dos lados. La estimación era buena para el
+> mundo donde se escribió, con 1.076 rutas registradas dos veces y sin OPcache;
+> quitados esos dos, no queda nada que ahorrar. Se comprobó de paso que
+> `route:cache` **funciona** y que la aplicación responde igual con las rutas
+> cacheadas, que es lo que de verdad hacía falta saber para el despliegue.
+>
+> Lo que no está medido es una petición autenticada de verdad contra la base de
 > desarrollo; para eso hace falta una credencial de ese colegio.
 >
 > **Falta el otro lado:** en producción esto depende de la versión de PHP de la
@@ -314,7 +324,7 @@ Sin esto, "está lento" no es accionable. Con esto, cada endpoint reporta su con
 | 3 | Log de consultas lentas en producción, 1 semana | 30 min | medición | nada |
 | 4 | Quitar `AdvancedRoute` → rutas explícitas | 1–2 d | 🔴 45 ms + doble registro | Fase 1 |
 | 5 | ~~Sacar `fromToken()` de los constructores~~ · **hecho 18 ago 2026** | 1 d | habilita el paso 6 | Fase 2 |
-| 6 | `route:cache` + `config:cache` en despliegue | 2 h | 🔴 30–60 ms | paso 5 |
+| 6 | `route:cache` + `config:cache` en despliegue | 2 h | ~~🔴 30–60 ms~~ · **medido: ruido** (0,031 s con, 0,028 s sin) — la ganancia ya la dieron la Fase 1 y OPcache | paso 5 |
 | 7 | ~~Eliminar la doble autenticación (rate limiter)~~ · **hecho 19 ago 2026** | 2 h | 🟠 **2 consultas menos, medidas** | Fase 3 |
 | 8 | ~~Colapsar el N+1 de permisos~~ · **hecho 19 ago 2026** | 1 h | 🟠 N-1 consultas | Fase 3 |
 | 9 | Cachear el contexto de usuario | 1 d | 🟠 3 consultas → 0 | Fase 3 |
