@@ -23,7 +23,11 @@ Token **sin ningún scope** (<https://github.com/settings/tokens/new?scopes=>, s
 marcar nada). Se guarda en `~/.composer/auth.json`, vale para todos los colegios,
 y se revoca al terminar.
 
-### PHP 8.4 en las dos cuentas de cPanel
+### PHP 8.4 en las dos cuentas de cPanel — HECHO el 19 ago 2026
+
+Las dos cuentas (`micolevirtual.com` y `lalvirtual.edu.co`) ya están en 8.4.
+Queda por confirmar lo de abajo: extensiones y OPcache **no se heredan de la
+versión anterior**.
 
 Laravel 13 no arranca por debajo de 8.3.
 
@@ -31,9 +35,22 @@ Laravel 13 no arranca por debajo de 8.3.
 elige por cuenta, no por colegio. Es el único de toda la migración que no se puede
 escalonar, así que va antes de desplegar el primero.
 
-Mientras tanto los colegios siguen en Laravel 8.83.29, que arranca en 8.4 pero no
-está soportado ahí. Para que esa ventana dure poco: subir a **8.1** con calma
-(territorio soportado por Laravel 8) y a **8.4** el día que empiece el despliegue.
+Ahora mismo los 16 colegios están en Laravel 8.83.29 sobre PHP 8.4: arranca, pero
+**Laravel 8 no está soportado ahí**. Funciona con avisos de obsolescencia. Esa
+ventana se cierra desplegando, así que conviene que dure horas y no días.
+
+**En alt-php la selección de extensiones es por versión.** Marcar `sodium` y
+`opcache` en 8.0 (17 ago 2026, ver [PHP-BASELINE.md](PHP-BASELINE.md)) no las deja
+marcadas en 8.4: cada versión arranca con sus propias casillas. Lo primero tras
+cambiar es volver a comparar:
+
+```bash
+diff <(sort ~/ext-php80.txt) <(php -m | sort)   # las líneas con `<` son lo perdido
+php -v                                          # 8.4.x, en las DOS cuentas
+```
+
+Y lo que tumba la aplicación entera si se descuadra: `nd_pdo_mysql` marcada y
+`pdo_mysql` no — nunca las dos. Está explicado en `PHP-BASELINE.md`.
 
 **Con la versión ya cambiada, comprobar que OPcache está activo.** No es un
 detalle de afinado: sin él, cada petición recompila los 609 ficheros del
@@ -269,9 +286,14 @@ falla con 500 es **guardar** los firmantes. Se arregla corriendo `migrate`.
 | | |
 |---|---|
 | Colegios | **los 16 desplegados y con el `vendor/` igualado** (19 ago 2026) |
-| Framework en producción | Laravel 8.83.29 · PHP 8.0.30 |
+| Framework en producción | Laravel 8.83.29 · **PHP 8.4** (subido en las dos cuentas el 19 ago 2026) |
 | Framework en la rama | Laravel 13.26.1 · PHP 8.4 |
 | Sin confirmar | si los cinco de `laravel_compartido` siguen colgando por symlink |
+| Sin confirmar | si `sodium` y `opcache` siguen activas en 8.4 — se marcaron en 8.0 y **la selección de extensiones es por versión** |
+
+**Laravel 8.83.29 corriendo sobre PHP 8.4 es la ventana incómoda descrita en el
+paso 0: arranca, pero no está soportado ahí.** Cuanto antes empiece el despliegue
+colegio a colegio, menos dura.
 
 ```bash
 # Qué generación usa cada colegio hoy
