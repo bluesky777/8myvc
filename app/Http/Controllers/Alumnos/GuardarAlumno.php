@@ -95,8 +95,6 @@ class GuardarAlumno {
 		}
 		
 		
-		$consulta = $consulta;
-
 		$res = DB::update($consulta, $datos);
 
 		if($res)
@@ -141,8 +139,6 @@ class GuardarAlumno {
 		}
 		
 		
-		$consulta = $consulta;
-
 		$res = DB::update($consulta, $datos);
 
 		if($res)

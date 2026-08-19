@@ -134,7 +134,6 @@ class UniformesController extends Controller {
             WHERE u.asignatura_id=:asignatura_id and u.alumno_id=:alumno_id and u.deleted_at is null;";
         $uniformes = DB::select($cons_uni, [":per_id" => $this->user->periodo_id, ':asignatura_id' => Request::input('asignatura_id'), ':alumno_id' => Request::input('alumno_id') ]);
         
-        $uniformes 			= $uniformes;
         $uniformes_count 	= count($uniformes);
 
 		return ['uniformes' => $uniformes, 'uniformes_count' => $uniformes_count];
