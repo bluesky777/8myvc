@@ -162,7 +162,7 @@ grep -o 'assets/index-[^"]*\.js' index.html
 ### Comprobar
 
 ```bash
-php artisan migrate:status | grep personal_access_tokens   # Ran
+php artisan migrate:status | grep -E 'personal_access_tokens|firmantes_acta'   # Ran, Ran
 
 for h in coab casb cads coljordan lal coal; do
   printf '%-12s ' "$h"
@@ -185,6 +185,18 @@ de estudio, informes en Excel y subida de foto de perfil.
 - Todos los usuarios activos aterrizan en el login **una vez**. Los tokens JWT
   dejaron de valer al quitarse el paquete. Pasa solo el día del despliegue.
 - El logo del colegio da 404 si ese colegio no tiene uno propio: cae al genérico.
+- **El acta de evaluación puede salir con todo en «sin clasificar».** No es un
+  fallo del cálculo: significa que los `periodos` de ese año tienen
+  `fecha_inicio` y `fecha_fin` en NULL. Sin calendario no se puede separar a
+  quien empezó el año de quien entró después, y el acta prefiere decirlo antes
+  que afirmar algo que los datos no dicen. La pantalla pide llenar las fechas.
+  Comprobado así en la base de desarrollo, con sus cuatro periodos vacíos; en
+  producción puede pasar en cualquier colegio que nunca las haya puesto:
+
+  ```sql
+  SELECT numero, fecha_inicio, fecha_fin FROM periodos
+   WHERE year_id = (SELECT id FROM years WHERE deleted_at IS NULL ORDER BY year DESC LIMIT 1);
+  ```
 
 ---
 
@@ -202,8 +214,13 @@ php artisan config:cache && php artisan route:cache
 ```
 
 Lo que **no** se deshace es la versión de PHP: si hay que volver atrás, se vuelve
-con 8.4 puesto. Y la migración de `personal_access_tokens` tampoco hace falta
-deshacerla — es una tabla nueva que el código viejo ignora.
+con 8.4 puesto. Las dos migraciones tampoco hace falta deshacerlas: una añade una
+tabla y la otra una columna que admite NULL, y el código viejo ignora ambas.
+
+Y al revés, si el código llega antes que la migración: el acta sigue abriendo y
+propone rector y secretario como firmantes —`firmantesDelYear` consulta la
+columna aparte, a propósito, para que el fallo se quede en esa pantalla—. Lo que
+falla con 500 es **guardar** los firmantes. Se arregla corriendo `migrate`.
 
 ---
 
