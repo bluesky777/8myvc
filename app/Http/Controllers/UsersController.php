@@ -48,7 +48,7 @@ class UsersController extends Controller {
 			]);
 			return $aspiracion;
 		} catch (Exception $e) {
-			return App::abort('400', 'Datos incorrectos');
+			return abort(422, 'Datos incorrectos');
 			return $e;
 		}
 	}
@@ -81,7 +81,7 @@ class UsersController extends Controller {
 			$aspiracion->save();
 			return $aspiracion;
 		} catch (Exception $e) {
-			return App::abort('400', 'Datos incorrectos');
+			return abort(422, 'Datos incorrectos');
 			return $e;
 		}
 	}

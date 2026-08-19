@@ -122,7 +122,7 @@ class VtCandidatosController extends Controller {
 
 			$candidato->save();
 		} catch (Exception $e) {
-			return App::abort('400', 'Datos incorrectos');
+			return abort(422, 'Datos incorrectos');
 			return $e;
 		}
 	}

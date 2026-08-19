@@ -329,7 +329,7 @@ where id in (
 	public function postCrear()
 	{
 		if(!($this->user->is_superuser || $this->user->tipo == 'Profesor' || $this->user->tipo == 'Secretario')){
-			return App::abort(400, 'No tienes permiso.');
+			return abort(403, 'No tienes permiso.');
 		}
 
 		$fecha_nac = null;
@@ -436,7 +436,7 @@ where id in (
 	public function putGuardarValor()
 	{
 		if(!($this->user->is_superuser || $this->user->tipo == 'Profesor' || $this->user->tipo == 'Secretario')){
-			return App::abort(400, 'No tienes permiso.');
+			return abort(403, 'No tienes permiso.');
 		}
 
 		$guardarAlumno = new GuardarAlumno();
@@ -491,7 +491,7 @@ where id in (
 	public function deleteDestroy($id)
 	{
 		if(!($this->user->is_superuser || $this->user->tipo == 'Secretario')){
-			return App::abort(400, 'No tienes permiso.');
+			return abort(403, 'No tienes permiso.');
 		}
 
 		$acudiente = Acudiente::findOrFail($id);

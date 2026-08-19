@@ -318,7 +318,7 @@ class DefinitivasPeriodosController extends Controller {
 		if ($user->tipo == 'Profesor' || ($user->is_superuser && $user->is_superuser)) {
 			// No pasa nada
 		}else{
-			return App::abort(400, 'No tienes privilegios.');
+			return abort(403, 'No tienes privilegios.');
 		}
 		$now 		= Carbon::now('America/Bogota');
 		$recu 		= Request::input('recuperada');
@@ -343,7 +343,7 @@ class DefinitivasPeriodosController extends Controller {
 		if ($user->tipo == 'Profesor' || ($user->is_superuser && $user->is_superuser)) {
 			// No pasa nada
 		}else{
-			return App::abort(400, 'No tienes privilegios.');
+			return abort(403, 'No tienes privilegios.');
 		}
 		
 		$consulta 	= 'DELETE FROM recuperacion_final WHERE id=?';
@@ -363,7 +363,7 @@ class DefinitivasPeriodosController extends Controller {
 		if ($user->tipo == 'Profesor' || ($user->is_superuser && $user->is_superuser)) {
 			// No pasa nada
 		}else{
-			return App::abort(400, 'No tienes privilegios.');
+			return abort(403, 'No tienes privilegios.');
 		}
 		$now 		= Carbon::now('America/Bogota');
 		$manual 	= Request::input('manual');

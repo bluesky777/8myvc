@@ -177,7 +177,7 @@ class SubunidadesController extends Controller {
 			$subunidad->save();
 			$subunidad->delete();
 		}else{
-			return App::abort(400, 'Subunidad no existe o está en Papelera.');
+			return abort(404, 'Subunidad no existe o está en Papelera.');
 		}
 		
 		
@@ -209,7 +209,7 @@ class SubunidadesController extends Controller {
 		if ($unidad) {
 			$subunidad->forceDelete();
 		}else{
-			return App::abort(400, 'Subunidad no encontrada en la Papelera.');
+			return abort(404, 'Subunidad no encontrada en la Papelera.');
 		}
 		return $subunidad;
 	

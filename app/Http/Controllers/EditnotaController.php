@@ -423,7 +423,7 @@ class EditnotaController extends Controller {
 		if ($alumno) {
 			$alumno->delete();
 		}else{
-			return App::abort(400, 'Alumno no existe o está en Papelera.');
+			return abort(404, 'Alumno no existe o está en Papelera.');
 		}
 		return $alumno;
 	
@@ -446,7 +446,7 @@ class EditnotaController extends Controller {
 		if ($alumno) {
 			$alumno->forceDelete();
 		}else{
-			return App::abort(400, 'Alumno no encontrado en la Papelera.');
+			return abort(404, 'Alumno no encontrado en la Papelera.');
 		}
 		return $alumno;
 	
@@ -459,7 +459,7 @@ class EditnotaController extends Controller {
 		if ($alumno) {
 			$alumno->restore();
 		}else{
-			return App::abort(400, 'Alumno no encontrado en la Papelera.');
+			return abort(404, 'Alumno no encontrado en la Papelera.');
 		}
 		return $alumno;
 	}

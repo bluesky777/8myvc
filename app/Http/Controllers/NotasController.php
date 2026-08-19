@@ -234,7 +234,7 @@ class NotasController extends Controller {
 		if(($user->is_superuser && $user->is_superuser) || $user->tipo == 'Profesor'){
 			// Todo bien
 		}else{
-			return App::abort(400, 'No tienes permiso.');
+			return abort(403, 'No tienes permiso.');
 		}
 
 		$alumno_id 	= Request::input('alumno_id');

@@ -151,7 +151,7 @@ class User extends Authenticatable
 		}else if(($user->is_superuser && $user->is_superuser) || $user->tipo == 'Profesor'){
 			// todo bien
 		}else{
-			return App::abort(400, 'No tienes permiso.');
+			return abort(403, 'No tienes permiso.');
 		}
 
 	}
