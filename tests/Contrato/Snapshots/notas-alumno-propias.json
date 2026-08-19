@@ -1,0 +1,144 @@
+[
+    {
+        "abrev_grupo": "string",
+        "alumno_id": "int",
+        "apellidos": "string",
+        "caritas": "int",
+        "deuda": "int",
+        "email": "string",
+        "facebook": "null",
+        "fecha_nac": "string",
+        "foto_id": "null",
+        "foto_nombre": "string",
+        "grupo_id": "int",
+        "imagen_id": "null",
+        "imagen_nombre": "string",
+        "nee": "int",
+        "nee_descripcion": "null",
+        "nombre_grupo": "string",
+        "nombres": "string",
+        "notas_tercer_per": [],
+        "orden": "int",
+        "pazysalvo": "int",
+        "periodos": [
+            {
+                "actual": "int",
+                "asignaturas": [
+                    {
+                        "alias_materia": "string",
+                        "apellidos_profesor": "string",
+                        "area_alias": "string",
+                        "area_id": "int",
+                        "area_nombre": "string",
+                        "asignatura_id": "int",
+                        "ausencias": [],
+                        "created_at": "string",
+                        "creditos": "int",
+                        "desempenio": "string",
+                        "foto_id": "int",
+                        "foto_nombre": "string",
+                        "frases": [
+                            {
+                                "asignatura_id": "int",
+                                "created_at": "string",
+                                "created_by": "null",
+                                "frase": "string",
+                                "frase_id": "null",
+                                "id": "int",
+                                "periodo_id": "int",
+                                "tipo_frase": "null"
+                            }
+                        ],
+                        "grupo_id": "int",
+                        "manual": "int",
+                        "materia": "string",
+                        "materia_id": "int",
+                        "nf_id": "int",
+                        "nombres_profesor": "string",
+                        "nota_asignatura": "int",
+                        "orden": "null",
+                        "orden_area": "int",
+                        "orden_materia": "null",
+                        "profesor_id": "int",
+                        "recuperada": "int",
+                        "total_ausencias": "int",
+                        "total_tardanzas": "int",
+                        "unidades": [
+                            {
+                                "asignatura_id": "int",
+                                "definicion_unidad": "string",
+                                "orden_unidad": "int",
+                                "periodo_id": "int",
+                                "porcentaje_unidad": "int",
+                                "subunidades": [
+                                    {
+                                        "definicion_subunidad": "string",
+                                        "finaliza_at": "null",
+                                        "inicia_at": "null",
+                                        "nota": {
+                                            "alumno_id": "int",
+                                            "created_at": "string",
+                                            "created_by": "int",
+                                            "deleted_at": "null",
+                                            "deleted_by": "null",
+                                            "desempenio": "string",
+                                            "id": "int",
+                                            "nota": "int",
+                                            "subunidad_id": "int",
+                                            "updated_at": "string",
+                                            "updated_by": "int"
+                                        },
+                                        "nota_default": "int",
+                                        "orden_subunidad": "int",
+                                        "porcentaje_subunidad": "int",
+                                        "subunidad_id": "int"
+                                    }
+                                ],
+                                "unidad_id": "int"
+                            }
+                        ]
+                    }
+                ],
+                "created_at": "null",
+                "created_by": "null",
+                "deleted_at": "null",
+                "deleted_by": "null",
+                "fecha_fin": "null",
+                "fecha_inicio": "null",
+                "fecha_plazo": "null",
+                "id": "int",
+                "nota_comportamiento": {
+                    "alumno_id": "int",
+                    "apellidos": "string",
+                    "created_at": "string",
+                    "created_by": "null",
+                    "deleted_at": "null",
+                    "deleted_by": "null",
+                    "familiar_ausencias": "int",
+                    "familiar_nota": "null",
+                    "foto_id": "int",
+                    "foto_nombre": "string",
+                    "id": "int",
+                    "nombres": "string",
+                    "nota": "int",
+                    "periodo_id": "int",
+                    "sexo": "string",
+                    "updated_at": "string",
+                    "updated_by": "null"
+                },
+                "numero": "int",
+                "profes_pueden_editar_notas": "int",
+                "profes_pueden_nivelar": "int",
+                "promedio": "float",
+                "updated_at": "string",
+                "updated_by": "int",
+                "year_id": "int"
+            }
+        ],
+        "religion": "string",
+        "sexo": "string",
+        "titular_id": "int",
+        "user_id": "int",
+        "username": "string"
+    }
+]
