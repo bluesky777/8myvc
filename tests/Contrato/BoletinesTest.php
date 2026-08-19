@@ -58,38 +58,6 @@ class BoletinesTest extends CasoDeContrato
         ];
     }
 
-    /**
-     * El grupo del seed y un usuario del colegio que lo pueda ver entero.
-     *
-     * El año importa y no se elige: los boletines calculan contra
-     * `$user->year_id`, que sale del periodo del usuario, y `Services\Login` lo
-     * reescribe al periodo `actual` en cada inicio de sesión. Si el año del
-     * usuario no es el del grupo, la respuesta sale con la lista de alumnos
-     * vacía y el test pasa sin haber calculado ningún boletín — la misma trampa
-     * que costó tiempo en `NotasTest`.
-     */
-    private function grupoYPersonal(): array
-    {
-        $grupo = DB::selectOne('SELECT g.id, g.year_id FROM grupos g
-            INNER JOIN matriculas m ON m.grupo_id = g.id AND m.deleted_at IS NULL
-                AND m.estado IN ("MATR","ASIS","PREM")
-            WHERE g.deleted_at IS NULL
-            GROUP BY g.id, g.year_id ORDER BY COUNT(m.id) DESC, g.id LIMIT 1');
-
-        $this->assertNotNull($grupo, 'El seed no tiene ningún grupo con alumnos matriculados.');
-
-        $usuario = DB::selectOne('SELECT u.username FROM users u
-            INNER JOIN periodos p ON p.id = u.periodo_id AND p.deleted_at IS NULL
-            WHERE u.tipo = "Usuario" AND u.is_active = 1 AND u.deleted_at IS NULL
-              AND p.year_id = ? ORDER BY u.id LIMIT 1', [$grupo->year_id]);
-
-        $this->assertNotNull($usuario,
-            "El seed no tiene ningún Usuario en el año {$grupo->year_id}, que es el del grupo.\n".
-            'Sin eso el boletín sale vacío y el test no comprueba nada.');
-
-        return [$grupo, $this->tokenDe($usuario->username)];
-    }
-
     /** Un alumno del grupo, en el formato que manda el frontend. */
     private function unAlumnoDe(int $grupoId): array
     {

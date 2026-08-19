@@ -120,6 +120,68 @@ abstract class CasoDeContrato extends TestCase
     }
 
     /**
+     * El grupo del seed con más alumnos matriculados.
+     *
+     * Casi todo lo que imprime el colegio —boletines, observador, acta de
+     * evaluación, listados— se pide POR GRUPO, así que este es el punto de
+     * partida de medio P1. Se ordena por cantidad y luego por id para que sea
+     * siempre el mismo: si cada corrida eligiera otro grupo, los snapshots no
+     * compararían nada.
+     *
+     * Devuelve también el `year_id` porque es lo que hay que casar con el
+     * usuario que pida el informe. Ver tokenDelPersonalDe().
+     */
+    protected function grupoConAlumnos(): object
+    {
+        $grupo = DB::selectOne('SELECT g.id, g.year_id FROM grupos g
+            INNER JOIN matriculas m ON m.grupo_id = g.id AND m.deleted_at IS NULL
+                AND m.estado IN ("MATR","ASIS","PREM")
+            WHERE g.deleted_at IS NULL
+            GROUP BY g.id, g.year_id ORDER BY COUNT(m.id) DESC, g.id LIMIT 1');
+
+        $this->assertNotNull($grupo, 'El seed no tiene ningún grupo con alumnos matriculados.');
+
+        return $grupo;
+    }
+
+    /**
+     * El token de alguien del colegio cuyo año sea el que se le pide.
+     *
+     * El año no se elige, y es la trampa que más veces ha vaciado un informe sin
+     * que fallara nada: los controladores calculan contra `$user->year_id`, que
+     * sale del periodo del usuario, y `Services\Login` reescribe `users.periodo_id`
+     * al periodo `actual` en cada inicio de sesión. Con un usuario de otro año la
+     * respuesta sale con la lista vacía, en 200, y el test pasa sin haber
+     * calculado nada.
+     *
+     * Se pide un `Usuario` porque es el tipo que atraviesa los guards de
+     * autorización —`boletin.propio` y `auth.personal` no le aplican—, que es lo
+     * que hace falta para mirar la FORMA de la respuesta sin repetir aquí lo que
+     * ya prueba AutorizacionTest.
+     */
+    protected function tokenDelPersonalDe(int $yearId): string
+    {
+        $usuario = DB::selectOne('SELECT u.username FROM users u
+            INNER JOIN periodos p ON p.id = u.periodo_id AND p.deleted_at IS NULL
+            WHERE u.tipo = "Usuario" AND u.is_active = 1 AND u.deleted_at IS NULL
+              AND p.year_id = ? ORDER BY u.id LIMIT 1', [$yearId]);
+
+        $this->assertNotNull($usuario,
+            "El seed no tiene ningún Usuario en el año {$yearId}.\n".
+            'Sin eso los informes de ese año salen vacíos y el test no comprueba nada.');
+
+        return $this->tokenDe($usuario->username);
+    }
+
+    /** El grupo del seed y un token que lo pueda ver entero, que es el par de siempre. */
+    protected function grupoYPersonal(): array
+    {
+        $grupo = $this->grupoConAlumnos();
+
+        return [$grupo, $this->tokenDelPersonalDe((int) $grupo->year_id)];
+    }
+
+    /**
      * ¿Esta ruta exige token?
      *
      * El guard se aplica en grupo a toda la API (routes/api.php) y las

@@ -1,0 +1,589 @@
+{
+    "consolidado": {
+        "grupos_descuadrados": [],
+        "periodos": [
+            {
+                "deserciones": {
+                    "f": "int",
+                    "ids": [],
+                    "m": "int",
+                    "sd": "int",
+                    "total": "int"
+                },
+                "ingresos": {
+                    "f": "int",
+                    "ids": [],
+                    "m": "int",
+                    "sd": "int",
+                    "total": "int"
+                },
+                "numero": "int",
+                "retiros": {
+                    "f": "int",
+                    "ids": [],
+                    "m": "int",
+                    "sd": "int",
+                    "total": "int"
+                }
+            }
+        ],
+        "promocion": {
+            "cuadra": "bool",
+            "descuadre": "int",
+            "evaluados": {
+                "f": "int",
+                "ids": [],
+                "m": "int",
+                "sd": "int",
+                "total": "int"
+            },
+            "no_promovidos_2": {
+                "f": "int",
+                "ids": [],
+                "m": "int",
+                "sd": "int",
+                "total": "int"
+            },
+            "no_promovidos_3": {
+                "f": "int",
+                "ids": [],
+                "m": "int",
+                "sd": "int",
+                "total": "int"
+            },
+            "no_promovidos_4": {
+                "f": "int",
+                "ids": [],
+                "m": "int",
+                "sd": "int",
+                "total": "int"
+            },
+            "no_promovidos_otros": {
+                "f": "int",
+                "ids": [],
+                "m": "int",
+                "sd": "int",
+                "total": "int"
+            },
+            "pendientes": {
+                "f": "int",
+                "ids": [],
+                "m": "int",
+                "sd": "int",
+                "total": "int"
+            },
+            "promovidos_0": {
+                "f": "int",
+                "ids": [],
+                "m": "int",
+                "sd": "int",
+                "total": "int"
+            },
+            "promovidos_1": {
+                "f": "int",
+                "ids": [],
+                "m": "int",
+                "sd": "int",
+                "total": "int"
+            },
+            "promovidos_otros": {
+                "f": "int",
+                "ids": [],
+                "m": "int",
+                "sd": "int",
+                "total": "int"
+            },
+            "sin_definir": {
+                "f": "int",
+                "ids": [],
+                "m": "int",
+                "sd": "int",
+                "total": "int"
+            },
+            "total_no_promovidos": {
+                "f": "int",
+                "ids": [],
+                "m": "int",
+                "sd": "int",
+                "total": "int"
+            },
+            "total_promovidos": {
+                "f": "int",
+                "ids": [],
+                "m": "int",
+                "sd": "int",
+                "total": "int"
+            }
+        },
+        "razones_retiro": [
+            {
+                "contador": {
+                    "f": "int",
+                    "ids": [],
+                    "m": "int",
+                    "sd": "int",
+                    "total": "int"
+                },
+                "razon": "string"
+            }
+        ],
+        "resumen": {
+            "cuadra": "bool",
+            "descuadre": "int",
+            "desertores": {
+                "f": "int",
+                "ids": [],
+                "m": "int",
+                "sd": "int",
+                "total": "int"
+            },
+            "ingresaron": {
+                "f": "int",
+                "ids": [],
+                "m": "int",
+                "sd": "int",
+                "total": "int"
+            },
+            "iniciaron": {
+                "f": "int",
+                "ids": [],
+                "m": "int",
+                "sd": "int",
+                "total": "int"
+            },
+            "retirados": {
+                "f": "int",
+                "ids": [],
+                "m": "int",
+                "sd": "int",
+                "total": "int"
+            },
+            "sin_clasificar": {
+                "f": "int",
+                "ids": [],
+                "m": "int",
+                "sd": "int",
+                "total": "int"
+            },
+            "sin_fecha_matricula": {
+                "f": "int",
+                "ids": [],
+                "m": "int",
+                "sd": "int",
+                "total": "int"
+            },
+            "terminaron": {
+                "f": "int",
+                "ids": [],
+                "m": "int",
+                "sd": "int",
+                "total": "int"
+            },
+            "total_matriculas": {
+                "f": "int",
+                "ids": [],
+                "m": "int",
+                "sd": "int",
+                "total": "int"
+            }
+        }
+    },
+    "duplicados": [],
+    "firmantes": [
+        {
+            "cargo": "string",
+            "documento": "string",
+            "nombre": "string"
+        }
+    ],
+    "grupos": [
+        {
+            "abrev": "string",
+            "alumnos": [
+                {
+                    "alumno_id": "int",
+                    "anios_in_cole": "int",
+                    "apellidos": "string",
+                    "barrio": "string",
+                    "cant_areas_perdidas": "int",
+                    "cant_asign_perdidas": "int",
+                    "ciudad_doc": "int",
+                    "ciudad_nac": "null",
+                    "ciudad_nac_nombre": "null",
+                    "ciudad_resid": "null",
+                    "creado_por": "null",
+                    "created_by": "null",
+                    "departamento_nac_nombre": "null",
+                    "deuda": "int",
+                    "direccion": "string",
+                    "documento": "string",
+                    "edad": "int",
+                    "egresado": "int",
+                    "email": "string",
+                    "eps": "null",
+                    "es_nuevo": "string",
+                    "es_urbana": "string",
+                    "estado": "string",
+                    "estado_promocion": "string",
+                    "estrato": "int",
+                    "facebook": "null",
+                    "fecha_matricula": "string",
+                    "fecha_nac": "string",
+                    "fecha_retiro": "null",
+                    "foto_id": "null",
+                    "foto_nombre": "string",
+                    "grupo_id": "int",
+                    "has_sisben": "int",
+                    "has_sisben_3": "int",
+                    "imagen_id": "null",
+                    "imagen_nombre": "string",
+                    "is_active": "int",
+                    "is_superuser": "int",
+                    "is_urbana": "int",
+                    "matricula_id": "int",
+                    "no_matricula": "null",
+                    "nombres": "string",
+                    "nro_folio": "string",
+                    "nro_sisben": "null",
+                    "nro_sisben_3": "null",
+                    "nuevo": "int",
+                    "pazysalvo": "int",
+                    "promedio": "string",
+                    "promovido": "string",
+                    "promovido_label": "string",
+                    "razon_retiro": "string",
+                    "religion": "string",
+                    "repitente": "int",
+                    "salio": "bool",
+                    "sexo": "string",
+                    "sexo_norm": "string",
+                    "telefonos": "null",
+                    "termino_year": "bool",
+                    "tipo_doc": "string",
+                    "tipo_doc_abrev": "string",
+                    "tipo_sangre": "null",
+                    "updated_by": "int",
+                    "user_id": "int",
+                    "username": "string"
+                }
+            ],
+            "apellidos_titular": "string",
+            "created_at": "string",
+            "grado_id": "int",
+            "id": "int",
+            "nombre": "string",
+            "nombre_grado": "string",
+            "nombres_titular": "string",
+            "orden": "int",
+            "orden_grado": "int",
+            "perfil": {
+                "edad_max": "int",
+                "edad_min": "int",
+                "edad_modal": "int",
+                "extraedad": {
+                    "f": "int",
+                    "ids": [
+                        "int"
+                    ],
+                    "m": "int",
+                    "sd": "int",
+                    "total": "int"
+                },
+                "nuevos": {
+                    "f": "int",
+                    "ids": [
+                        "int"
+                    ],
+                    "m": "int",
+                    "sd": "int",
+                    "total": "int"
+                },
+                "repitentes": {
+                    "f": "int",
+                    "ids": [],
+                    "m": "int",
+                    "sd": "int",
+                    "total": "int"
+                }
+            },
+            "periodos": {
+                "filas": [
+                    {
+                        "deserciones": {
+                            "f": "int",
+                            "ids": [],
+                            "m": "int",
+                            "sd": "int",
+                            "total": "int"
+                        },
+                        "fecha_fin": "null",
+                        "fecha_inicio": "null",
+                        "ingresos": {
+                            "f": "int",
+                            "ids": [],
+                            "m": "int",
+                            "sd": "int",
+                            "total": "int"
+                        },
+                        "numero": "int",
+                        "periodo_id": "int",
+                        "retiros": {
+                            "f": "int",
+                            "ids": [],
+                            "m": "int",
+                            "sd": "int",
+                            "total": "int"
+                        }
+                    }
+                ],
+                "fuera_calendario": {
+                    "deserciones": {
+                        "f": "int",
+                        "ids": [],
+                        "m": "int",
+                        "sd": "int",
+                        "total": "int"
+                    },
+                    "ingresos": {
+                        "f": "int",
+                        "ids": [
+                            "int"
+                        ],
+                        "m": "int",
+                        "sd": "int",
+                        "total": "int"
+                    },
+                    "numero": "null",
+                    "periodo_id": "null",
+                    "retiros": {
+                        "f": "int",
+                        "ids": [
+                            "int"
+                        ],
+                        "m": "int",
+                        "sd": "int",
+                        "total": "int"
+                    }
+                }
+            },
+            "promocion": {
+                "cuadra": "bool",
+                "descuadre": "int",
+                "evaluados": {
+                    "f": "int",
+                    "ids": [
+                        "int"
+                    ],
+                    "m": "int",
+                    "sd": "int",
+                    "total": "int"
+                },
+                "no_promovidos_2": {
+                    "f": "int",
+                    "ids": [],
+                    "m": "int",
+                    "sd": "int",
+                    "total": "int"
+                },
+                "no_promovidos_3": {
+                    "f": "int",
+                    "ids": [],
+                    "m": "int",
+                    "sd": "int",
+                    "total": "int"
+                },
+                "no_promovidos_4": {
+                    "f": "int",
+                    "ids": [],
+                    "m": "int",
+                    "sd": "int",
+                    "total": "int"
+                },
+                "no_promovidos_otros": {
+                    "f": "int",
+                    "ids": [],
+                    "m": "int",
+                    "sd": "int",
+                    "total": "int"
+                },
+                "pendientes": {
+                    "f": "int",
+                    "ids": [],
+                    "m": "int",
+                    "sd": "int",
+                    "total": "int"
+                },
+                "promovidos_0": {
+                    "f": "int",
+                    "ids": [],
+                    "m": "int",
+                    "sd": "int",
+                    "total": "int"
+                },
+                "promovidos_1": {
+                    "f": "int",
+                    "ids": [],
+                    "m": "int",
+                    "sd": "int",
+                    "total": "int"
+                },
+                "promovidos_otros": {
+                    "f": "int",
+                    "ids": [],
+                    "m": "int",
+                    "sd": "int",
+                    "total": "int"
+                },
+                "sin_definir": {
+                    "f": "int",
+                    "ids": [
+                        "int"
+                    ],
+                    "m": "int",
+                    "sd": "int",
+                    "total": "int"
+                },
+                "total_no_promovidos": {
+                    "f": "int",
+                    "ids": [],
+                    "m": "int",
+                    "sd": "int",
+                    "total": "int"
+                },
+                "total_promovidos": {
+                    "f": "int",
+                    "ids": [],
+                    "m": "int",
+                    "sd": "int",
+                    "total": "int"
+                }
+            },
+            "razones_retiro": [
+                {
+                    "contador": {
+                        "f": "int",
+                        "ids": [
+                            "int"
+                        ],
+                        "m": "int",
+                        "sd": "int",
+                        "total": "int"
+                    },
+                    "razon": "string"
+                }
+            ],
+            "resumen": {
+                "cuadra": "bool",
+                "descuadre": "int",
+                "desertores": {
+                    "f": "int",
+                    "ids": [],
+                    "m": "int",
+                    "sd": "int",
+                    "total": "int"
+                },
+                "ingresaron": {
+                    "f": "int",
+                    "ids": [],
+                    "m": "int",
+                    "sd": "int",
+                    "total": "int"
+                },
+                "iniciaron": {
+                    "f": "int",
+                    "ids": [],
+                    "m": "int",
+                    "sd": "int",
+                    "total": "int"
+                },
+                "retirados": {
+                    "f": "int",
+                    "ids": [
+                        "int"
+                    ],
+                    "m": "int",
+                    "sd": "int",
+                    "total": "int"
+                },
+                "sin_clasificar": {
+                    "f": "int",
+                    "ids": [
+                        "int"
+                    ],
+                    "m": "int",
+                    "sd": "int",
+                    "total": "int"
+                },
+                "sin_fecha_matricula": {
+                    "f": "int",
+                    "ids": [],
+                    "m": "int",
+                    "sd": "int",
+                    "total": "int"
+                },
+                "terminaron": {
+                    "f": "int",
+                    "ids": [
+                        "int"
+                    ],
+                    "m": "int",
+                    "sd": "int",
+                    "total": "int"
+                },
+                "total_matriculas": {
+                    "f": "int",
+                    "ids": [
+                        "int"
+                    ],
+                    "m": "int",
+                    "sd": "int",
+                    "total": "int"
+                }
+            },
+            "titular_id": "int",
+            "titulo": "null",
+            "updated_at": "string",
+            "year_id": "int"
+        }
+    ],
+    "hay_corte": "bool",
+    "periodos": [
+        {
+            "fecha_fin": "null",
+            "fecha_inicio": "null",
+            "id": "int",
+            "numero": "int"
+        }
+    ],
+    "usa_areas": "bool",
+    "year": {
+        "abrev_colegio": "string",
+        "apellidos_rector": "string",
+        "apellidos_secretario": "string",
+        "cant_areas_pierde_year": "int",
+        "cant_asignatura_pierde_year": "int",
+        "ciudad": "string",
+        "ciudad_id": "string",
+        "departamento": "string",
+        "encabezado_certificado": "string",
+        "img_encabezado": "null",
+        "img_encabezado_id": "null",
+        "logo": "string",
+        "logo_id": "int",
+        "msg_when_students_blocked": "string",
+        "nombre_colegio": "string",
+        "nombres_rector": "string",
+        "nombres_secretario": "string",
+        "nota_minima_aceptada": "string",
+        "rector_id": "int",
+        "resolucion": "string",
+        "secretario_id": "int",
+        "sexo_rector": "string",
+        "sexo_secretario": "string",
+        "solo_escalas_valorativas": "int",
+        "texto_acta_eval": "null",
+        "titulo_rector": "null",
+        "year": "int",
+        "year_id": "int"
+    }
+}
