@@ -2,6 +2,8 @@
 
 namespace Tests\Contrato;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+
 /**
  * P0 — Recuperación de contraseña.
  *
@@ -18,7 +20,7 @@ namespace Tests\Contrato;
  */
 class RecuperarClaveTest extends CasoDeContrato
 {
-    /** @dataProvider rutas */
+    #[DataProvider('rutas')]
     public function test_no_revela_si_el_correo_esta_registrado(string $ruta): void
     {
         $usuario = \DB::table('users')
@@ -54,7 +56,7 @@ class RecuperarClaveTest extends CasoDeContrato
         );
     }
 
-    /** @dataProvider rutas */
+    #[DataProvider('rutas')]
     public function test_rechaza_un_correo_mal_formado(string $ruta): void
     {
         $this->postJson($ruta, [
@@ -97,7 +99,7 @@ class RecuperarClaveTest extends CasoDeContrato
         );
     }
 
-    public function rutas(): array
+    public static function rutas(): array
     {
         return [
             'ruta nueva' => ['/api/login/recuperar-clave'],

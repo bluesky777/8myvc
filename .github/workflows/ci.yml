@@ -33,10 +33,11 @@ jobs:
       - name: Preparar PHP
         uses: shivammathur/setup-php@v2
         with:
-          # 8.0 es lo que corre en producción (verificado en el servidor:
-          # PHP 8.0.30 bajo LiteSpeed). El CI prueba lo que se despliega, no
-          # lo que nos gustaría desplegar. Sube a 8.4 con la Fase 4.
-          php-version: '8.0'
+          # 8.4 desde la Fase 4: Laravel 13 pide 8.3 como mínimo. En el
+          # servidor hay que subir la versión de PHP de la cuenta de cPanel
+          # ANTES de desplegar, y afecta a todos los colegios de esa cuenta a
+          # la vez. Ver docs/DESPLIEGUE.md.
+          php-version: '8.4'
           extensions: mbstring, pdo_mysql, zip, gd, bcmath, sodium
           coverage: none
 

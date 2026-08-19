@@ -2,6 +2,8 @@
 
 namespace Tests\Contrato;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+
 /**
  * P0 — Login.
  *
@@ -16,7 +18,7 @@ namespace Tests\Contrato;
  */
 class LoginTest extends CasoDeContrato
 {
-    /** @dataProvider tiposDeUsuario */
+    #[DataProvider('tiposDeUsuario')]
     public function test_login_devuelve_token(string $tipo): void
     {
         $usuario = $this->usuarioDeTipo($tipo);
@@ -49,7 +51,7 @@ class LoginTest extends CasoDeContrato
         );
     }
 
-    /** @dataProvider tiposDeUsuario */
+    #[DataProvider('tiposDeUsuario')]
     public function test_contexto_de_usuario(string $tipo): void
     {
         $usuario = $this->usuarioDeTipo($tipo);
@@ -91,7 +93,7 @@ class LoginTest extends CasoDeContrato
         $this->assertArrayNotHasKey('el_token', (array) $r->json());
     }
 
-    public function tiposDeUsuario(): array
+    public static function tiposDeUsuario(): array
     {
         return [
             'alumno'    => ['Alumno'],

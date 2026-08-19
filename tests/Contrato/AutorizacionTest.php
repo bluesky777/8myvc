@@ -2,6 +2,8 @@
 
 namespace Tests\Contrato;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
@@ -18,7 +20,7 @@ use Illuminate\Support\Facades\Route;
 class AutorizacionTest extends CasoDeContrato
 {
     /** Los tres controladores de boletines son copias y sirven el mismo dato. */
-    public function familiasDeBoletines(): array
+    public static function familiasDeBoletines(): array
     {
         return [
             'boletines'  => ['boletines'],
@@ -60,8 +62,8 @@ class AutorizacionTest extends CasoDeContrato
      * `catch (\Throwable $th)` del constructor de BoletinesController se la
      * tragaba entera. Respondía 200 con el boletín del compañero.
      *
-     * @dataProvider familiasDeBoletines
      */
+   #[DataProvider('familiasDeBoletines')]
     public function test_un_alumno_no_puede_pedir_el_boletin_de_otro(string $familia): void
     {
         [$token, $mio, $otro] = $this->alumnoYCompanero();
@@ -72,7 +74,7 @@ class AutorizacionTest extends CasoDeContrato
             ->assertJsonPath('message', 'No puedes ver el de otros');
     }
 
-    /** @dataProvider familiasDeBoletines */
+    #[DataProvider('familiasDeBoletines')]
     public function test_un_alumno_si_puede_pedir_el_suyo(string $familia): void
     {
         [$token, $mio] = $this->alumnoYCompanero();
@@ -159,8 +161,8 @@ class AutorizacionTest extends CasoDeContrato
      * Sin lista concreta se está pidiendo el grupo entero, que es lo que hace
      * `detailed-notas-year`. Un alumno no puede.
      *
-     * @dataProvider familiasDeBoletines
      */
+   #[DataProvider('familiasDeBoletines')]
     public function test_un_alumno_no_puede_pedir_el_grupo_entero(string $familia): void
     {
         [$token, $mio] = $this->alumnoYCompanero();

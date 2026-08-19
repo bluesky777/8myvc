@@ -2,6 +2,8 @@
 
 namespace Tests\Contrato;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+
 use App\Models\TokenDeSesion;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -327,13 +329,13 @@ class SesionTest extends CasoDeContrato
      * El JWT del caso de prueba es uno real, de los que emitía este backend
      * antes de la Fase 3.
      */
-    /** @dataProvider tokensQueNoValen */
+    #[DataProvider('tokensQueNoValen')]
     public function test_un_token_que_no_es_nuestro_no_entra(string $token): void
     {
         $this->getJson('/api/ciudades', $this->cab($token))->assertStatus(401);
     }
 
-    public function tokensQueNoValen(): array
+    public static function tokensQueNoValen(): array
     {
         return [
             'un JWT de los de antes' => ['eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9'
