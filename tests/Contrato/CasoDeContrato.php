@@ -241,6 +241,88 @@ abstract class CasoDeContrato extends TestCase
     }
 
     /**
+     * Como forma(), pero uniendo TODOS los elementos de cada lista en vez de
+     * quedarse con el primero.
+     *
+     * `forma()` mira `$valor[0]` porque para una lista homogénea basta, y es
+     * cierto casi siempre. Deja de serlo cuando la lista trae filas de una tabla
+     * con columnas nullable: `eps` sale `'null'` o `'string'` según qué alumno
+     * vaya primero, y quién va primero depende del `ORDER BY` de la consulta.
+     *
+     * **El del acta de evaluación empata.** Ordena por `apellidos, nombres`, y el
+     * seed está anonimizado con un diccionario de nombres corto: hay ocho alumnos
+     * llamados igual. MySQL devuelve los empates en el orden que quiera, así que
+     * el snapshot cambiaba de una corrida a otra sin que cambiara nada. Se
+     * descubrió porque falló la segunda vez que se ejecutó, no la primera.
+     *
+     * Un tipo que aparece de dos formas se escribe `'null|string'`. Eso hace la
+     * comparación estable y de paso más estricta: describe la columna entera y no
+     * la fila que tocó.
+     *
+     * No se cambia `forma()` para que haga esto. Las snapshots del P0 están
+     * escritas con la otra y regenerarlas de golpe convertiría un cambio de
+     * herramienta en un diff de mil líneas donde no se distingue lo que se movió.
+     */
+    protected function formaUnida($valor)
+    {
+        if (! is_array($valor)) {
+            return $this->forma($valor);
+        }
+
+        if ($valor === []) {
+            return [];
+        }
+
+        // Lista: se unen las formas de todos los elementos en una sola.
+        if (array_keys($valor) === range(0, count($valor) - 1)) {
+            $unida = $this->formaUnida($valor[0]);
+
+            foreach (array_slice($valor, 1) as $elemento) {
+                $unida = $this->unir($unida, $this->formaUnida($elemento));
+            }
+
+            return [$unida];
+        }
+
+        $forma = [];
+
+        foreach ($valor as $clave => $v) {
+            $forma[$clave] = $this->formaUnida($v);
+        }
+
+        ksort($forma);
+
+        return $forma;
+    }
+
+    /** Une dos formas: las claves de las dos, y por clave todos los tipos vistos. */
+    private function unir($a, $b)
+    {
+        if (is_array($a) && is_array($b)) {
+            foreach ($b as $clave => $v) {
+                $a[$clave] = array_key_exists($clave, $a) ? $this->unir($a[$clave], $v) : $v;
+            }
+
+            if ($a !== [] && array_keys($a) !== range(0, count($a) - 1)) {
+                ksort($a);
+            }
+
+            return $a;
+        }
+
+        if (is_array($a) || is_array($b)) {
+            // Una clave que unas veces trae lista y otras un escalar. Pasa, y
+            // esconderlo detrás de uno de los dos sería mentir en el snapshot.
+            return is_array($a) ? $a : $b;
+        }
+
+        $tipos = array_unique(array_merge(explode('|', $a), explode('|', $b)));
+        sort($tipos);
+
+        return implode('|', $tipos);
+    }
+
+    /**
      * Reduce una respuesta a su FORMA: qué claves tiene y de qué tipo es cada
      * valor, descartando los valores concretos.
      *

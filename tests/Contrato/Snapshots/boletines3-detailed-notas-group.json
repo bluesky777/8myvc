@@ -51,7 +51,7 @@
         "periodos": [
             {
                 "actual": "int",
-                "created_at": "null",
+                "created_at": "null|string",
                 "created_by": "null",
                 "deleted_at": "null",
                 "fecha_fin": "null",
@@ -61,7 +61,7 @@
                 "numero": "int",
                 "periodo_id": "int",
                 "updated_at": "string",
-                "updated_by": "int",
+                "updated_by": "int|null",
                 "year_id": "int"
             }
         ],
@@ -124,8 +124,8 @@
             },
             "cant_areas_perdidas": "int",
             "cant_asign_perdidas": "int",
-            "celular": "string",
-            "ciudad_nac": "null",
+            "celular": "null|string",
+            "ciudad_nac": "int|null",
             "comportamiento": {
                 "alumno_id": "int",
                 "created_at": "string",
@@ -155,8 +155,8 @@
                 "updated_at": "string",
                 "updated_by": "null"
             },
-            "direccion": "string",
-            "documento": "string",
+            "direccion": "null|string",
+            "documento": "null|string",
             "encabezado_comportamiento": "string",
             "estado": "string",
             "fecha_nac": "string",
@@ -168,7 +168,7 @@
             "matricula_id": "int",
             "nee": "int",
             "nee_descripcion": "null",
-            "no_matricula": "null",
+            "no_matricula": "null|string",
             "nombres": "string",
             "notas_perdidas_per1": "int",
             "notas_perdidas_per2": "int",
@@ -181,7 +181,7 @@
             "promedio_desempenio": "string",
             "promovido": "string",
             "puesto": "int",
-            "religion": "string",
+            "religion": "null|string",
             "repitente": "int",
             "sexo": "string",
             "situaciones": [],

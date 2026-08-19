@@ -53,7 +53,11 @@ class ActasEvaluacionTest extends CasoDeContrato
 
         $this->assertNotEmpty($cuerpo['grupos'][0]['alumnos'], 'El primer grupo salió sin alumnos.');
 
-        $this->compararConInstantanea('actas-evaluacion-promocion', $this->forma($cuerpo));
+        // formaUnida y no forma: el acta ordena por apellidos y nombres, y el
+        // seed anonimizado tiene ocho alumnos llamados igual. Con `forma()` el
+        // snapshot describía la fila que MySQL pusiera primera, y cambiaba sola
+        // entre corridas. Ver el comentario de formaUnida() en CasoDeContrato.
+        $this->compararConInstantanea('actas-evaluacion-promocion', $this->formaUnida($cuerpo));
     }
 
     // --------------------------------------------------------- Las dos identidades
@@ -419,6 +423,6 @@ class ActasEvaluacionTest extends CasoDeContrato
         $this->assertNotEmpty($r->json('alumnos'), 'El detalle salió sin alumnos del grupo.');
         $this->assertNotEmpty($r->json('matriculas'), 'El detalle salió sin años de estadía.');
 
-        $this->compararConInstantanea('actas-evaluacion-detalle', $this->forma($r->json()));
+        $this->compararConInstantanea('actas-evaluacion-detalle', $this->formaUnida($r->json()));
     }
 }

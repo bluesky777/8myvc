@@ -73,7 +73,7 @@
         "periodos": [
             {
                 "actual": "int",
-                "created_at": "null",
+                "created_at": "null|string",
                 "created_by": "null",
                 "deleted_at": "null",
                 "deleted_by": "null",
@@ -85,7 +85,7 @@
                 "profes_pueden_editar_notas": "int",
                 "profes_pueden_nivelar": "int",
                 "updated_at": "string",
-                "updated_by": "int",
+                "updated_by": "int|null",
                 "year_id": "int"
             }
         ],
@@ -138,12 +138,13 @@
                                     "DefMateria": "int",
                                     "alumno_id": "int",
                                     "asignatura_id": "int",
-                                    "cantidad_ausencia": "int",
-                                    "cantidad_tardanza": "null",
+                                    "cantidad_ausencia": "int|null",
+                                    "cantidad_tardanza": "int|null",
                                     "created_at": "string",
                                     "id": "int",
                                     "manual": "int",
                                     "nota": "int",
+                                    "notas_perdidas": "int",
                                     "periodo": "int",
                                     "periodo_id": "int",
                                     "recuperada": "int",
@@ -152,20 +153,20 @@
                                 }
                             ],
                             "desempenio": "string",
-                            "foto_id": "int",
+                            "foto_id": "int|null",
                             "foto_nombre": "string",
                             "grupo_id": "int",
                             "indice": "int",
                             "materia": "string",
                             "nombres_profesor": "string",
-                            "nota_asignatura": "int",
+                            "nota_asignatura": "float|int",
                             "notas_perdidas": "int",
                             "orden_area": "int",
                             "orden_asignatura": "null",
                             "orden_materia": "null",
                             "perdido": "int",
                             "profesor_id": "int",
-                            "promedio": "int",
+                            "promedio": "float|int",
                             "tardanzas": "int",
                             "valoracion": "string"
                         }
@@ -178,7 +179,7 @@
                     "per2": "int",
                     "per3": "int",
                     "per4": "int",
-                    "sumatoria": "int",
+                    "sumatoria": "float|int",
                     "tardanzas": "int"
                 }
             ],
@@ -195,12 +196,13 @@
                             "DefMateria": "int",
                             "alumno_id": "int",
                             "asignatura_id": "int",
-                            "cantidad_ausencia": "int",
-                            "cantidad_tardanza": "null",
+                            "cantidad_ausencia": "int|null",
+                            "cantidad_tardanza": "int|null",
                             "created_at": "string",
                             "id": "int",
                             "manual": "int",
                             "nota": "int",
+                            "notas_perdidas": "int",
                             "periodo": "int",
                             "periodo_id": "int",
                             "recuperada": "int",
@@ -209,20 +211,20 @@
                         }
                     ],
                     "desempenio": "string",
-                    "foto_id": "int",
+                    "foto_id": "int|null",
                     "foto_nombre": "string",
                     "grupo_id": "int",
                     "indice": "int",
                     "materia": "string",
                     "nombres_profesor": "string",
-                    "nota_asignatura": "int",
+                    "nota_asignatura": "float|int",
                     "notas_perdidas": "int",
                     "orden_area": "int",
                     "orden_asignatura": "null",
                     "orden_materia": "null",
                     "perdido": "int",
                     "profesor_id": "int",
-                    "promedio": "int",
+                    "promedio": "float|int",
                     "tardanzas": "int",
                     "valoracion": "string"
                 }
@@ -235,7 +237,7 @@
                     "asignatura_id": "int",
                     "cantTotal": "int",
                     "creditos": "int",
-                    "foto_id": "int",
+                    "foto_id": "int|null",
                     "foto_nombre": "string",
                     "grupo_id": "int",
                     "indice": "int",
@@ -244,8 +246,26 @@
                     "orden_area": "int",
                     "orden_asignatura": "null",
                     "orden_materia": "null",
-                    "periodos": {
-                        "1": {
+                    "periodos": [
+                        {
+                            "actual": "int",
+                            "cantNotasPerdidas": "int",
+                            "created_at": "null|string",
+                            "created_by": "null",
+                            "deleted_at": "null",
+                            "deleted_by": "null",
+                            "fecha_fin": "null",
+                            "fecha_inicio": "null",
+                            "fecha_plazo": "null",
+                            "id": "int",
+                            "numero": "int",
+                            "profes_pueden_editar_notas": "int",
+                            "profes_pueden_nivelar": "int",
+                            "updated_at": "string",
+                            "updated_by": "int",
+                            "year_id": "int"
+                        },
+                        {
                             "actual": "int",
                             "cantNotasPerdidas": "int",
                             "created_at": "string",
@@ -263,7 +283,7 @@
                             "updated_by": "int",
                             "year_id": "int"
                         }
-                    },
+                    ],
                     "profesor_id": "int"
                 }
             ],
@@ -303,8 +323,8 @@
                             "year_id": "null"
                         }
                     ],
-                    "id": "int",
-                    "nota_comportamiento": "int",
+                    "id": "int|null",
+                    "nota_comportamiento": "int|null",
                     "numero": "int"
                 }
             ],
@@ -316,7 +336,7 @@
                 {
                     "actual": "int",
                     "cant_perdidas": "int",
-                    "created_at": "null",
+                    "created_at": "null|string",
                     "created_by": "null",
                     "deleted_at": "null",
                     "deleted_by": "null",
@@ -328,7 +348,7 @@
                     "profes_pueden_editar_notas": "int",
                     "profes_pueden_nivelar": "int",
                     "updated_at": "string",
-                    "updated_by": "int",
+                    "updated_by": "int|null",
                     "year_id": "int"
                 }
             ],
@@ -353,7 +373,7 @@
             "created_by": "null",
             "deleted_at": "null",
             "deleted_by": "null",
-            "descripcion": "string",
+            "descripcion": "null|string",
             "desempenio": "string",
             "icono_adolescente": "null",
             "icono_infantil": "null",

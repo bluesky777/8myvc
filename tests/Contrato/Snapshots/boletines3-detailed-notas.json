@@ -51,7 +51,7 @@
         "periodos": [
             {
                 "actual": "int",
-                "created_at": "null",
+                "created_at": "null|string",
                 "created_by": "null",
                 "deleted_at": "null",
                 "fecha_fin": "null",
@@ -61,7 +61,7 @@
                 "numero": "int",
                 "periodo_id": "int",
                 "updated_at": "string",
-                "updated_by": "int",
+                "updated_by": "int|null",
                 "year_id": "int"
             }
         ],

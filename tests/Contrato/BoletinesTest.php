@@ -86,6 +86,12 @@ class BoletinesTest extends CasoDeContrato
      * para los alumnos. Si alguna versión del framework serializara esto como
      * objeto con claves, el JSON seguiría siendo válido y la pantalla quedaría
      * en blanco.
+     *
+     * Por dentro usa `formaUnida()` y no `forma()`. `Grupo::alumnos()` ordena por
+     * `apellidos, nombres` y el seed anonimizado repite nombres, así que qué
+     * alumno cae en la posición 0 lo decide MySQL: con `forma()` las columnas
+     * nullable salían `'null'` o `'string'` según la corrida. Ver el comentario
+     * de formaUnida() en CasoDeContrato.
      */
     private function formaDeLaTupla(array $cuerpo, array $nombres): array
     {
@@ -95,7 +101,7 @@ class BoletinesTest extends CasoDeContrato
         $forma = [];
 
         foreach ($nombres as $posicion => $nombre) {
-            $forma[$nombre] = $this->forma($cuerpo[$posicion]);
+            $forma[$nombre] = $this->formaUnida($cuerpo[$posicion]);
         }
 
         return $forma;

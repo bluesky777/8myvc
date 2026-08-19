@@ -234,6 +234,8 @@ class ObservadorTest extends CasoDeContrato
 
         $this->assertNotEmpty($r->json('grupo.alumnos'), 'El grupo salió sin alumnos.');
 
-        $this->compararConInstantanea('observador-horizontal', $this->forma($r->json()));
+        // formaUnida por lo mismo que en BoletinesTest: la lista de alumnos viene
+        // ordenada por apellidos y nombres, y el seed los repite.
+        $this->compararConInstantanea('observador-horizontal', $this->formaUnida($r->json()));
     }
 }

@@ -109,7 +109,7 @@
                         "cantidad_ausencia": "int"
                     },
                     "creditos": "int",
-                    "foto_id": "int",
+                    "foto_id": "int|null",
                     "foto_nombre": "string",
                     "frases": [],
                     "grupo_id": "int",
