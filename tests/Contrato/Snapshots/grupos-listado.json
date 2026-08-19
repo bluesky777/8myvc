@@ -1,0 +1,20 @@
+[
+    {
+        "alumno_id": "int",
+        "apellidos": "string",
+        "deuda": "int",
+        "direccion": "int|null",
+        "estado": "string",
+        "facebook": "null",
+        "fecha_nac": "string",
+        "foto_id": "null",
+        "foto_nombre": "string",
+        "imagen_id": "null",
+        "imagen_nombre": "string",
+        "nombres": "string",
+        "pazysalvo": "int",
+        "sexo": "string",
+        "user_id": "int",
+        "username": "string"
+    }
+]

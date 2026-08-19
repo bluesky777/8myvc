@@ -1,0 +1,322 @@
+<?php
+
+namespace Tests\Contrato;
+
+use Illuminate\Support\Facades\DB;
+use PHPUnit\Framework\Attributes\DataProvider;
+
+/**
+ * Los grupos: la unidad sobre la que gira todo lo demás.
+ *
+ * Cierra el bloque P1. El grupo es de lo que cuelgan asignaturas, unidades,
+ * subunidades y notas —seis saltos de `ON DELETE CASCADE`— así que aquí importan
+ * dos cosas distintas: la forma de las siete lecturas que alimentan los
+ * desplegables de media aplicación, y que las tres formas de borrarlo se sigan
+ * comportando como se espera.
+ */
+class GruposTest extends CasoDeContrato
+{
+    /**
+     * Las siete lecturas del controlador, con la clave que no puede venir vacía.
+     *
+     * Son consultas casi iguales que se diferencian en el filtro y en dos
+     * columnas, y cada pantalla usa la suya. Ponerlas en un proveedor es lo que
+     * hace visible que `getIndex`, `getCantAlumnos` y `putConCantidadAlumnos`
+     * devuelven listas de grupos con columnas distintas: la primera no trae
+     * `cant_alumnos`, la segunda cuenta solo ASIS y MATR, y la tercera cuenta
+     * también PREM y añade la foto del titular.
+     */
+    public static function lecturas(): array
+    {
+        return [
+            'index' => ['GET', 'grupos', 'lista'],
+            'cant-alumnos' => ['GET', 'grupos/cant-alumnos', 'lista'],
+            'con-cantidad-alumnos' => ['PUT', 'grupos/con-cantidad-alumnos', 'objeto'],
+            'con-paises-tipos' => ['GET', 'grupos/con-paises-tipos', 'objeto'],
+            'con-disciplina' => ['PUT', 'grupos/con-disciplina', 'objeto'],
+            'next-year' => ['GET', 'grupos/next-year', 'lista-vacia'],
+            'alumnos-con-datos' => ['PUT', 'grupos/alumnos-con-datos', 'objeto'],
+        ];
+    }
+
+    /**
+     * Dos cosas que el seed deja sin cubrir, y conviene saberlo antes de fiarse:
+     *
+     * - `con-disciplina.descripciones_typeahead` sale vacía siempre. Lee de
+     *   `dis_procesos`, que es una de las dos tablas que el generador de seed
+     *   omite a propósito por ser el dato más sensible del sistema.
+     * - `next-year` sale vacía: el año siguiente al del seed está borrado.
+     */
+    #[DataProvider('lecturas')]
+    public function test_la_forma_de_cada_lectura_de_grupos(string $verbo, string $ruta, string $tipo): void
+    {
+        [$grupo, $token] = $this->grupoYPersonal();
+
+        // `alumnos-con-datos` pide el grupo como objeto y no como id suelto, igual
+        // que las listas de matrículas. No es un capricho del test: con `grupo_id`
+        // el método hace `return;` y responde con el cuerpo vacío, que no es JSON.
+        $r = $this->json($verbo, "/api/{$ruta}", [
+            'grupo_id' => $grupo->id,
+            'grupo_actual' => ['id' => $grupo->id],
+        ], ['Authorization' => 'Bearer '.$token]);
+
+        $r->assertStatus(200);
+
+        $cuerpo = $r->json();
+
+        // `next-year` sale vacío con el seed y a propósito: el año siguiente al del
+        // grupo está borrado. Se deja en el proveedor porque la ruta existe y la
+        // pantalla de prematrículas la llama; el snapshot registra la lista vacía,
+        // que es lo que hay, y avisará el día que el seed traiga el año siguiente.
+        if ($tipo !== 'lista-vacia') {
+            $this->assertNotEmpty($cuerpo, "{$verbo} {$ruta} salió vacío.");
+        }
+
+        if ($tipo === 'lista' && $cuerpo !== []) {
+            $this->assertSame(range(0, count($cuerpo) - 1), array_keys($cuerpo),
+                "{$ruta} dejó de devolver una lista.");
+        }
+
+        $this->compararConInstantanea('grupos-'.str_replace('/', '-', $ruta),
+            $this->formaUnida($cuerpo));
+    }
+
+    /**
+     * Las tres listas de grupos cuentan poblaciones distintas, y a propósito.
+     *
+     * `cant-alumnos` cuenta ASIS y MATR; `con-cantidad-alumnos` cuenta además
+     * PREM. Dos números con el mismo nombre en dos pantallas distintas es
+     * exactamente lo que hace que alguien diga «los datos no cuadran», así que
+     * la diferencia queda escrita en vez de deducirse leyendo dos SQL de quince
+     * líneas.
+     */
+    public function test_las_dos_cuentas_de_alumnos_no_cuentan_lo_mismo(): void
+    {
+        [$grupo, $token] = $this->grupoYPersonal();
+        $cab = ['Authorization' => 'Bearer '.$token];
+
+        DB::update('UPDATE matriculas SET estado = "PREM"
+            WHERE id = (SELECT id FROM (SELECT MIN(m.id) id FROM matriculas m
+                WHERE m.grupo_id = ? AND m.deleted_at IS NULL AND m.estado IN ("MATR","ASIS")) x)',
+            [$grupo->id]);
+
+        $sinPrem = collect($this->getJson('/api/grupos/cant-alumnos', $cab)->json())
+            ->firstWhere('id', $grupo->id)['cant_alumnos'];
+
+        // Esta devuelve {grupos, periodos_total}, no una lista: es la única de las
+        // tres que además trae el movimiento por periodo de cada grupo.
+        $conPrem = collect($this->putJson('/api/grupos/con-cantidad-alumnos', [], $cab)->json('grupos'))
+            ->firstWhere('id', $grupo->id)['cant_alumnos'];
+
+        $this->assertSame($sinPrem + 1, $conPrem,
+            'Las dos cuentas de alumnos dejaron de diferenciarse en los prematriculados.');
+    }
+
+    // ------------------------------------------------------------- El listado
+
+    /**
+     * El listado del grupo nunca trae la dirección. Hoy.
+     *
+     * `(a.direccion + " - " + a.barrio) as direccion`: en MySQL el `+` es suma
+     * aritmética, no concatenación. Las dos cadenas se convierten a número, así
+     * que el resultado es **0** cuando las dos tienen valor y **null** si a
+     * alguna le falta. Nunca la dirección. La pantalla lleva imprimiendo eso
+     * desde que se escribió la consulta.
+     *
+     * Se fija como está porque arreglarlo —`CONCAT_WS(' - ', ...)`— cambia la
+     * respuesta de un endpoint en producción, y la Fase 0 escribe lo que hay.
+     * **Este test debe fallar el día que se arregle**, y ese es su trabajo.
+     */
+    public function test_el_listado_del_grupo_trae_la_direccion_en_cero(): void
+    {
+        [$grupo, $token] = $this->grupoYPersonal();
+
+        $r = $this->getJson("/api/grupos/listado/{$grupo->id}", ['Authorization' => 'Bearer '.$token]);
+
+        $r->assertStatus(200);
+
+        $lista = $r->json();
+
+        $this->assertNotEmpty($lista, 'El listado del grupo salió vacío.');
+
+        $conDireccion = DB::selectOne('SELECT COUNT(*) n FROM alumnos a
+            INNER JOIN matriculas m ON m.alumno_id = a.id AND m.grupo_id = ? AND m.deleted_at IS NULL
+            WHERE a.deleted_at IS NULL AND a.direccion IS NOT NULL AND a.direccion <> ""', [$grupo->id])->n;
+
+        $this->assertGreaterThan(0, $conDireccion,
+            'Ningún alumno del grupo tiene dirección, así que este test no comprueba nada.');
+
+        foreach ($lista as $fila) {
+            $this->assertContains($fila['direccion'], [0, null],
+                "`direccion` dejó de venir en 0 o null. Si se cambió el `+` por CONCAT,\n".
+                'este test hay que sustituirlo por el que compruebe la dirección de verdad.');
+        }
+
+        $this->assertContains(0, array_column($lista, 'direccion'),
+            'Ninguna fila trajo el 0 de la suma; el caso que documenta este test ya no aparece.');
+
+        $this->compararConInstantanea('grupos-listado', $this->formaUnida($lista));
+    }
+
+    // ------------------------------------------------------------- El CRUD
+
+    public function test_crear_actualizar_y_mostrar_un_grupo(): void
+    {
+        [$grupo, $token] = $this->grupoYPersonal();
+        $cab = ['Authorization' => 'Bearer '.$token];
+
+        $base = DB::selectOne('SELECT grado_id, titular_id FROM grupos WHERE id = ?', [$grupo->id]);
+
+        $r = $this->postJson('/api/grupos/store', [
+            'nombre' => 'Grupo de prueba',
+            'abrev' => 'GP',
+            'grado' => ['id' => $base->grado_id],
+            'titular_id' => $base->titular_id,
+            'valormatricula' => 100000,
+            'valorpension' => 50000,
+            'orden' => 99,
+            'caritas' => 0,
+        ], $cab);
+
+        $r->assertStatus(201);
+
+        $id = $r->json('id');
+
+        $this->assertSame((int) $grupo->year_id, (int) $r->json('year_id'),
+            'El grupo nuevo no se creó en el año del usuario.');
+
+        $this->putJson('/api/grupos/update', [
+            'id' => $id,
+            'nombre' => 'Grupo renombrado',
+            'abrev' => 'GR',
+            'grado_id' => $base->grado_id,
+            'valormatricula' => 200000,
+            'valorpension' => 60000,
+            'orden' => 98,
+            'cupo' => 30,
+        ], $cab)->assertStatus(200);
+
+        $r = $this->getJson("/api/grupos/show/{$id}", $cab);
+
+        $r->assertStatus(200)
+            ->assertJsonPath('nombre', 'Grupo renombrado')
+            ->assertJsonPath('cupo', 30);
+
+        // show() adjunta el titular y el grado, que no vienen de la tabla grupos.
+        $this->assertArrayHasKey('grado', $r->json());
+        $this->assertSame($base->grado_id, $r->json('grado.id'));
+
+        $this->compararConInstantanea('grupos-show', $this->formaUnida($r->json()));
+    }
+
+    /** Un grupo sin `grado` no se crea: responde 422 en vez de dejar la fila a medias. */
+    public function test_crear_un_grupo_sin_grado_es_422(): void
+    {
+        [, $token] = $this->grupoYPersonal();
+
+        $this->postJson('/api/grupos/store', ['nombre' => 'Sin grado', 'abrev' => 'SG'],
+            ['Authorization' => 'Bearer '.$token])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Datos incorrectos');
+    }
+
+    /**
+     * Papelera: borrar, verlo en la papelera, restaurar.
+     *
+     * `destroy` es reversible y `forcedelete` no lo es en absoluto: cascadea por
+     * clave foránea a 27 tablas y hasta seis saltos —grupos > asignaturas >
+     * unidades > subunidades > notas—, o sea que se lleva las notas de todo el
+     * mundo en las asignaturas del grupo. Aquí solo se prueba el camino
+     * reversible; el destructivo, en el test de abajo y contra un grupo recién
+     * creado.
+     */
+    public function test_borrar_y_restaurar_un_grupo(): void
+    {
+        [$grupo, $token] = $this->grupoYPersonal();
+        $cab = ['Authorization' => 'Bearer '.$token];
+
+        $this->deleteJson("/api/grupos/destroy/{$grupo->id}", [], $cab)->assertStatus(200);
+
+        $this->assertNotNull(
+            DB::selectOne('SELECT deleted_at FROM grupos WHERE id = ?', [$grupo->id])->deleted_at,
+            'destroy no mandó el grupo a la papelera.');
+
+        $enPapelera = array_column($this->getJson('/api/grupos/trashed', $cab)->json(), 'id');
+
+        $this->assertContains((int) $grupo->id, $enPapelera,
+            'El grupo borrado no aparece en la papelera.');
+
+        $this->putJson("/api/grupos/restore/{$grupo->id}", [], $cab)->assertStatus(200);
+
+        $this->assertNull(
+            DB::selectOne('SELECT deleted_at FROM grupos WHERE id = ?', [$grupo->id])->deleted_at,
+            'restore no sacó el grupo de la papelera.');
+    }
+
+    /**
+     * `forcedelete` exige administrativo, y solo funciona desde la papelera.
+     *
+     * Era el endpoint más destructivo del sistema y el único de la papelera sin
+     * ninguna comprobación: bastaba un token válido, y el de cualquier alumno
+     * servía. El guard se puso en la Fase 6; esto es lo que impide que se caiga
+     * otra vez, y de paso fija que un grupo que no está en la papelera da 404 en
+     * vez de borrarse.
+     *
+     * Se hace sobre un grupo creado en el propio test —sin asignaturas ni notas
+     * colgando— porque el cascade real se llevaría por delante medio seed y el
+     * `assert` siguiente no probaría nada.
+     */
+    public function test_forcedelete_pide_administrativo_y_solo_desde_la_papelera(): void
+    {
+        [$grupo, $token] = $this->grupoYPersonal();
+        $cab = ['Authorization' => 'Bearer '.$token];
+
+        $base = DB::selectOne('SELECT grado_id FROM grupos WHERE id = ?', [$grupo->id]);
+
+        $id = $this->postJson('/api/grupos/store', [
+            'nombre' => 'Grupo desechable', 'abrev' => 'GD',
+            'grado' => ['id' => $base->grado_id], 'orden' => 99,
+            'valormatricula' => 0, 'valorpension' => 0, 'caritas' => 0,
+        ], $cab)->json('id');
+
+        $alumno = ['Authorization' => 'Bearer '.$this->tokenDe($this->usuarioDeTipo('Alumno')->username)];
+
+        $this->deleteJson("/api/grupos/forcedelete/{$id}", [], $alumno)->assertStatus(403);
+
+        $this->assertNotNull(DB::selectOne('SELECT id FROM grupos WHERE id = ?', [$id]),
+            'Un alumno acaba de borrar un grupo definitivamente.');
+
+        // Vivo, no en la papelera: onlyTrashed no lo encuentra.
+        $this->deleteJson("/api/grupos/forcedelete/{$id}", [], $cab)->assertStatus(404);
+
+        $this->deleteJson("/api/grupos/destroy/{$id}", [], $cab)->assertStatus(200);
+        $this->deleteJson("/api/grupos/forcedelete/{$id}", [], $cab)->assertStatus(200);
+
+        $this->assertNull(DB::selectOne('SELECT id FROM grupos WHERE id = ?', [$id]),
+            'forcedelete dejó la fila.');
+    }
+
+    // ----------------------------------------------------------- Promovidos
+
+    /**
+     * El cálculo de promoción del grupo entero.
+     *
+     * `PromovidosController` es quien fija el dominio de `matriculas.promovido`
+     * —«Automático», «Promovido (calculado|manual)», «No promovido (…)»,
+     * «Promoción pendiente (…)»— del que depende toda la clasificación del acta
+     * de evaluación. Aquí no se comprueba el criterio, que es cálculo de notas y
+     * el §5 lo declara intocable: se comprueba la forma y que los valores que
+     * salen sean del dominio que el acta sabe leer.
+     */
+    public function test_la_forma_del_calculo_de_promovidos(): void
+    {
+        [$grupo, $token] = $this->grupoYPersonal();
+
+        $r = $this->putJson('/api/promovidos/calcular-grupo', ['grupo_id' => $grupo->id],
+            ['Authorization' => 'Bearer '.$token]);
+
+        $r->assertStatus(200);
+
+        $this->compararConInstantanea('promovidos-calcular-grupo', $this->formaUnida($r->json()));
+    }
+}
