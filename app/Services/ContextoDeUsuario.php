@@ -25,6 +25,9 @@ use Illuminate\Support\Facades\DB;
  */
 class ContextoDeUsuario
 {
+    /** Ver yaSeReintento(). */
+    private const REINTENTO = 'usuario.contexto.reintento';
+
     /**
      * El contexto del usuario dado.
      *
@@ -162,10 +165,10 @@ class ContextoDeUsuario
 
         if (count($usuario) == 0) {
             if ($userTemp->is_active) {
-                if (User::$intentoLogueoPorActive == 1) {
+                if ($this->yaSeReintento()) {
                     abort(400, 'user_inactivo_por_mucho_logueo');
                 } else {
-                    User::$intentoLogueoPorActive = 1;
+                    $this->marcarReintento();
 
                     $consulta = 'SELECT p.*
                         from alumnos a
@@ -219,10 +222,11 @@ class ContextoDeUsuario
             $usuario->is_superuser = $is_super;
         }
 
+        // Lo lee el cálculo de notas en 26 sitios, desde métodos estáticos de
+        // `Subunidad` y `Asignatura` que no reciben usuario. Sacarlo de ahí es
+        // tocar el cálculo de notas, que el §5 del plan protege, así que se
+        // queda — anotado en la lista de estado estático del plan.
         User::$nota_minima_aceptada = $usuario->nota_minima_aceptada;
-        User::$images = 'images/';
-        User::$perfilPath = User::$images.'perfil/';
-        User::$imgSharedPath = User::$images.'shared/';
         // *************************************************
         //    Traeremos los roles y permisos
         // *************************************************
@@ -278,5 +282,29 @@ class ContextoDeUsuario
         $usuario->token = new \stdClass;
 
         return $usuario;
+    }
+
+    /**
+     * El guardia contra la recursión, atado a la petición y no a la clase.
+     *
+     * Cuando un usuario activo no da contexto, esto vuelve a intentarlo una vez
+     * con el periodo corregido. La segunda vez tiene que rendirse, o se llama a
+     * sí mismo sin fin.
+     *
+     * Era `User::$intentoLogueoPorActive`, una estática que se ponía a 1 y **no
+     * la reiniciaba nadie**. Con PHP-FPM da igual, porque cada petición empieza
+     * con el proceso limpio. Bajo Octane —que el plan contempla— el primer
+     * usuario que pasara por aquí dejaría el 1 puesto para siempre, y a partir
+     * de ahí TODOS recibirían 'user_inactivo_por_mucho_logueo' sin haber
+     * reintentado nada.
+     */
+    private function yaSeReintento(): bool
+    {
+        return request()->attributes->get(self::REINTENTO, false) === true;
+    }
+
+    private function marcarReintento(): void
+    {
+        request()->attributes->set(self::REINTENTO, true);
     }
 }

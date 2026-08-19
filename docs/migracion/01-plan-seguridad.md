@@ -395,7 +395,7 @@ Y bloqueo progresivo tras N fallos. La tabla `bitacoras` ya registra los intento
 | `APP_DEBUG=true` | `.env` | Es `local`, correcto. **Verificar producción** — con debug on, un error filtra el `.env` entero |
 | `File::makeDirectory($folder, 0777, ...)` | `UploadDocuments.php:15` | Debería ser 0755 |
 | 2 validaciones en 32.477 líneas | todo el proyecto | Cada endpoint que toques, estrena FormRequest |
-| Estado estático en `User` | `User::$nota_minima_aceptada`, `$images`, `$intentoLogueoPorActive` | Fuga entre peticiones si algún día usas Octane/Swoole |
+| Estado estático en `User` | ~~`$images`, `$perfilPath`, `$imgSharedPath`~~ borradas (no las leía nadie) · ~~`$intentoLogueoPorActive`~~ ahora es estado de la petición · queda `$nota_minima_aceptada` | 🟡 **Casi.** La que queda la leen 26 sitios del cálculo de notas, que el §5 del plan protege |
 | `password_reminders` sin purgar | 1.620 filas | Tarea programada |
 | `debugging` con 9.553 filas | `Debugging::pin()` en `ChangeAskedController` | Depuración dejada activa en producción |
 | Correos auto-generados `username@myvc.com` | `AlumnosController:418`, `ProfesoresController:194` | Colisiones y reseteos cruzados si dos usuarios comparten correo |

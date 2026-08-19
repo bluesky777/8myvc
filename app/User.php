@@ -21,10 +21,6 @@ class User extends Authenticatable
     
 
 	public static $nota_minima_aceptada = 0;
-	public static $images = '';
-	public static $perfilPath = '';
-	public static $imgSharedPath = '';
-	public static $intentoLogueoPorActive = 0;
 
 
 

@@ -703,7 +703,7 @@ Lo que **sí** hay que cambiar:
 
 1. ~~**Mínimo (recomendado ahora):** quedarse con kool, cambiar la imagen a PHP 8.4, quitar `version:`, arreglar el puerto. 1 hora.~~ **Hecho.** Se sigue con kool.
 2. **Estándar hoy:** `laravel/sail` — ya está en tus `require-dev`. Es el docker-compose oficial de Laravel, con `sail up`, `sail artisan`, etc. Es lo que cualquier dev de Laravel espera encontrar.
-3. **Producción moderna:** **FrankenPHP** (`dunglas/frankenphp`) con Laravel Octane. Es la historia oficial de rendimiento de Laravel hoy: un binario, sin nginx+fpm, worker mode. Eso sí — Octane mantiene la app en memoria entre requests, y este código tiene estado estático (`User::$nota_minima_aceptada`, `User::$images`, `User::$intentoLogueoPorActive`) que **se filtraría entre usuarios**. Es una mina antipersona con el código actual. Solo después de la Fase 6.
+3. **Producción moderna:** **FrankenPHP** (`dunglas/frankenphp`) con Laravel Octane. Es la historia oficial de rendimiento de Laravel hoy: un binario, sin nginx+fpm, worker mode. Eso sí — Octane mantiene la app en memoria entre requests, y este código tenía cinco propiedades estáticas mutables que **se filtrarían entre usuarios**. El 19 ago 2026 quedó una: las tres de rutas de imágenes estaban muertas y `$intentoLogueoPorActive` pasó a ser estado de la petición (con test). Sigue `User::$nota_minima_aceptada`, que leen 26 sitios del cálculo de notas — sacarla de ahí es tocar lo que el §5 protege.
 
 **Mi recomendación concreta: opción 1 ahora, evaluar Sail en la Fase 4, FrankenPHP/Octane nunca antes de limpiar el estado estático.**
 

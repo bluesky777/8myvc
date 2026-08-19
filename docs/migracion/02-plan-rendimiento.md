@@ -24,9 +24,31 @@ La autenticación se suma **encima** de esos 250 ms.
 
 ## Las cinco causas, en orden de impacto
 
-### 1. 🔴 OPcache no está instalado · ~150–200 ms por petición
+### 1. ✅ OPcache · resuelto por el salto de imagen, y medido el 19 ago 2026
 
-**Verificado dentro del contenedor:**
+> **Ya está.** Lo cerró la Fase 4 sin que nadie lo apuntara: la imagen pasó de
+> `kooldev/php:8.0-nginx` a `8.4-nginx`, y esa sí trae la extensión. Comprobado
+> en FPM, no solo en el CLI: **2.037.893 aciertos contra 1.368 fallos**, 1.065
+> scripts en caché, 35 MB de los 128 configurados. Con `validate_timestamps=1` y
+> `revalidate_freq=2`, que es lo correcto en desarrollo.
+>
+> **Y se nota, medido igual que la línea base de arriba** (12 peticiones cada
+> una, con `route:cache` puesto):
+>
+> | Petición | Antes | Ahora |
+> |---|---|---|
+> | `GET /api/ruta-que-no-existe` (404) | 0.240 – 0.265 s | **0.038 s** de media, 0.026 la mejor |
+> | `GET /api/paises` | 0.246 – 0.264 s | **0.026 s** de media |
+>
+> De 0,25 s a 0,03 s. No es todo de OPcache —la Fase 1 quitó `AdvancedRoute` y
+> el paso 6 activó `route:cache`—, pero los tres iban juntos en el plan y los
+> tres están.
+>
+> **Falta el otro lado:** en producción esto depende de la versión de PHP de la
+> cuenta de cPanel, y hay que confirmar que OPcache está activo ahí. Va en
+> docs/DESPLIEGUE.md junto al cambio de versión.
+
+**Lo que se midió el 17 ago 2026, dentro del contenedor viejo:**
 
 ```
 $ docker exec 8myvc-app-1 php -m | grep -i opcache
@@ -316,15 +338,34 @@ Ese es el orden de magnitud realista: **de ~5 peticiones por segundo a ~25–50*
 
 Es la respuesta moderna de Laravel al rendimiento (la app queda en memoria entre peticiones, arranque ≈ 0). Con Octane, el problema #1 y el #3 de este documento **desaparecen por completo**.
 
-**Pero hoy es una mina antipersona con este código.** `App\User` tiene estado estático:
+**Era una mina antipersona con este código, y el 19 ago 2026 quedó una sola
+mina.** `App\User` tenía cinco propiedades estáticas mutables:
 
 ```php
 public static $nota_minima_aceptada = 0;
-public static $images = '';
-public static $perfilPath = '';
-public static $intentoLogueoPorActive = 0;
+public static $images = '';          // borradas: no las leía nadie
+public static $perfilPath = '';      // borradas
+public static $imgSharedPath = '';   // borradas
+public static $intentoLogueoPorActive = 0;   // ahora es estado de la petición
 ```
 
-En un worker persistente, esas propiedades **se filtran entre peticiones de usuarios distintos**. `$nota_minima_aceptada` del colegio A aplicándose al alumno del colegio B. Es exactamente la clase de bug que no se reproduce en desarrollo y corrompe datos en producción.
+En un worker persistente esas propiedades se filtran entre peticiones de
+usuarios distintos. De las cinco:
 
-**Octane solo después de eliminar todo el estado estático (Fase 6).** OPcache + caché de rutas te da la mayor parte de la ganancia sin ese riesgo.
+- **Las tres de rutas de imágenes estaban muertas.** Se escribían en cada
+  petición —`'images/'`, `'images/perfil/'`, `'images/shared/'`, siempre lo
+  mismo— y no las leía nadie en todo el repo. Fuera.
+- **`$intentoLogueoPorActive` era la peligrosa de verdad**, y no por Octane: es
+  un guardia contra la recursión que se ponía a 1 y **no lo reiniciaba nadie**.
+  El primer usuario que pasara por ahí lo dejaba puesto para el worker entero, y
+  a partir de ese momento todos recibirían `user_inactivo_por_mucho_logueo` sin
+  haber reintentado nada. Ahora vive en los `attributes` de la petición, y hay
+  un test que lo ve **hoy, sin Octane**, porque PHPUnit corre las dos peticiones
+  en el mismo proceso — que es la condición que Octane crea en producción.
+- **`$nota_minima_aceptada` se queda.** La leen 26 sitios del cálculo de notas,
+  desde métodos estáticos de `Subunidad` y `Asignatura` que no reciben usuario.
+  Sacarla de ahí es tocar el cálculo de notas, y eso es lo que el §5 del plan de
+  migración protege. Es una decisión, no una limpieza.
+
+**Octane sigue esperando a esa última.** OPcache + caché de rutas da la mayor
+parte de la ganancia sin ese riesgo, y ya está dando.
