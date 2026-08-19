@@ -130,7 +130,6 @@ class Matricula extends Model {
 				}
 			}
 			
-			Log::info('count($matriculas) > 0 && $matricula' . count($matriculas) .' - '. $matricula);
 			//Cuando estoy pasando de un grupo a otro, la matricula a modificar no necesariamente está en papelera así que:
 			if ( count($matriculas) > 0 && $matricula == false ) {
 
@@ -173,13 +172,10 @@ class Matricula extends Model {
 				$matricula->fecha_matricula = $now;
 
 				$matricula->save();
-				Log::info('Se creó matrícula . '.$matricula->id);
 			}else{
-				Log::info('No entra a la condición . '.$matricula);
 			}
 			
 		} catch (\Exception $e) {
-			Log::info('Error creando nueva matrícula .');
 			// se supone que esto nunca va a ocurrir, ya que eliminé todas las matrículas 
 			// excepto la que concordara con el grupo, poniéndola en estado=MATR
 			$matricula 				= Matricula::where('alumno_id', $alumno_id)->where('grupo_id', $grupo_id)->first();
@@ -188,7 +184,6 @@ class Matricula extends Model {
 			$matricula->updated_by	= $user_id;
 			$matricula->save();
 			
-			Log::info('Por lo tanto, una modificada .' . $matricula->id);
 		}
 
 		return $matricula;

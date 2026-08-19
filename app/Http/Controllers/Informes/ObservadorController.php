@@ -41,7 +41,6 @@ class ObservadorController extends Controller {
 
         $grupos = DB::select($consulta, [':year_id'=> $year->year_id, ':grupo_id' => $grupo_id ] );
         
-        Log::info($year->year_id);
         for ($i=0; $i < count($grupos); $i++) { 
             
             $consulta   = Matricula::$consulta_asistentes_o_matriculados_simat;

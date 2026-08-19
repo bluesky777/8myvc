@@ -114,7 +114,6 @@ class ExcelUtils implements ToArray, WithHeadingRow, WithEvents
 			}else{
 				
 				$alumno_row = $alumno;
-				Log::info("primer_nombre " . $alumno_row["primer_nombre"]);
 				if ($alumno_row["primer_nombre"]) {
 					$alumno = new Alumno;
 					$alumno->nombres    			= $alumno_row["primer_nombre"].' '.$alumno_row["segundo_nombre"];

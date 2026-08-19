@@ -41,7 +41,6 @@ class MatriculasController extends Controller {
 			$grupo_id 		= Request::input('grupo_id');
 			$year_id 		= Request::input('year_id');
 			$crear_matri 	= Request::input('crear_matri');
-			Log::info('$crear_matri ' . $crear_matri);
 
 			$consulta = 'SELECT m.id, m.alumno_id, m.grupo_id, m.estado, g.year_id 
 				FROM matriculas m 

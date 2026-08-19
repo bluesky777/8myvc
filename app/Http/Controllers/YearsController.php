@@ -464,7 +464,6 @@ class YearsController extends Controller {
 		$campo 		= 	Request::input('campo');
 
 		$consulta 	= 'UPDATE years SET '.ColumnaSegura::exigir('years', $campo).'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:year_id';
-		\Log::info($consulta);
 		$datos 		= [ ':valor' => $valor, ':modificador' => $user->user_id, ':fecha' => $now, ':year_id' => $year_id ];
 		$res = DB::update($consulta, $datos);
 

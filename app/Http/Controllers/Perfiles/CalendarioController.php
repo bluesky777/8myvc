@@ -21,7 +21,6 @@ class CalendarioController extends Controller {
 
     public function putThisYear(){
         $is_prof_admin = Request::input('is_prof_admin');
-        Log::info($is_prof_admin);
         if ($is_prof_admin == 'true') {
             $eventos = DB::select('SELECT * FROM calendario WHERE deleted_at is null');
         }else{

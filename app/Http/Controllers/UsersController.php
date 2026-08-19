@@ -48,7 +48,6 @@ class UsersController extends Controller {
 			DB::insert($consulta, [$user->user_id]);
 			
 			$id = DB::getPdo()->lastInsertId();
-			Log::info('Último id: '. $id);
 			$consulta = 'INSERT INTO role_user(user_id, role_id) 
 				VALUES('.$id.', 1)';
 				
@@ -87,7 +86,6 @@ class UsersController extends Controller {
 			DB::insert($consulta, [$user->user_id]);
 			
 			$id = DB::getPdo()->lastInsertId();
-			Log::info('Último id: '. $id);
 			$consulta = 'INSERT INTO role_user(user_id, role_id) 
 				VALUES('.$id.', 11)'; //  Psicólogo
 				
@@ -126,7 +124,6 @@ class UsersController extends Controller {
 			DB::insert($consulta, [$user->user_id]);
 			
 			$id = DB::getPdo()->lastInsertId();
-			Log::info('Último id: '. $id);
 			$consulta = 'INSERT INTO role_user(user_id, role_id) 
 				VALUES('.$id.', 7)'; //  Enfermero
 				
