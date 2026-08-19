@@ -1,0 +1,22 @@
+{
+    "hojas": 1,
+    "detalle": [
+        {
+            "titulo": "Deudores por grupos",
+            "fila_de_encabezados": 0,
+            "encabezados": [
+                "No",
+                "ID",
+                "Apellidos",
+                "Nombres",
+                "Última fecha",
+                "Deuda",
+                "Grupo",
+                "Documento",
+                "Celular"
+            ],
+            "columnas": 9,
+            "filas_de_datos": 3
+        }
+    ]
+}

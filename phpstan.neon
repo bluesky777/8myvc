@@ -73,11 +73,18 @@ parameters:
         # El nivel 0 no los veía porque `Model` y las facades resuelven por
         # `__call`, y para el análisis la clase «podría» responder.
 
-        # GET api/informes/listado-docentes-excel · GET api/simat/alumnos-exportar
+        # GET api/excel-docentes/docentes/{year}/{year_id} · GET api/simat/alumnos
         # `Excel::create()` es la API de maatwebsite/excel 2.x. La 3.x la quitó,
         # y este proyecto lleva en la 3.x desde antes de esta migración. Los
         # exports están fuera de alcance por decisión del plan (§5): reescribir
         # estos dos a la API nueva es rehacer el informe, no arreglarlo.
+        #
+        # Las dos rutas de arriba estaban mal escritas hasta el 19 ago 2026:
+        # decían `api/informes/listado-docentes-excel`, que no existe, y
+        # `api/simat/alumnos-exportar`, que sí existe y FUNCIONA —su
+        # `Excel::create()` está detrás de un `return`, así que no se alcanza—.
+        # La que llega a la API vieja es `api/simat/alumnos`. Las tres las fija
+        # ahora ExcelTest, golpeándolas.
         -
             message: '#^Call to an undefined static method Maatwebsite\\Excel\\Facades\\Excel::create\(\)\.$#'
             path: app/Http/Controllers/Informes/ExcelListadoDocentesController.php
