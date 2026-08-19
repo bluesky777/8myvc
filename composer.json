@@ -12,6 +12,7 @@
         "hisorange/browser-detect": "^4.4",
         "intervention/image": "^2.5",
         "laravel/framework": "^8.40",
+        "laravel/sanctum": "^2.15",
         "laravel/tinker": "^2.5",
         "maatwebsite/excel": "^3.1",
         "tymon/jwt-auth": "^1.0.2"
@@ -50,7 +51,9 @@
     },
     "extra": {
         "laravel": {
-            "dont-discover": []
+            "dont-discover": [
+                "laravel/sanctum"
+            ]
         }
     },
     "config": {

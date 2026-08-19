@@ -70,12 +70,17 @@ jobs:
 
       - name: Construir la base de tests
         env:
-          # Vacío: aquí se habla con MySQL directamente, sin docker exec de por medio.
+          # Vacío: aquí se habla con MySQL y con PHP directamente, sin docker
+          # exec de por medio.
           MYSQL_EXEC: ''
+          PHP_EXEC: ''
           DB_TEST_HOST: 127.0.0.1
           DB_TEST_PORT: 3306
           DB_USERNAME: root
           DB_PASSWORD: rootpass
+          # Las lee artisan al correr las migraciones sobre mysql_testing.
+          DB_TEST_USERNAME: root
+          DB_TEST_PASSWORD: rootpass
           DB_TEST_DATABASE: simonbolivar_testing
         run: tools/construir-bd-test.sh
 

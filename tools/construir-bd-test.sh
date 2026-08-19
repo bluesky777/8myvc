@@ -14,6 +14,7 @@
 #   DB_TEST_DATABASE=simonbolivar_testing
 #   DB_TEST_HOST, DB_TEST_PORT                     (solo si no es el host por defecto)
 #   MYSQL_EXEC="docker exec -i 8myvc-database-1"   (vacío para hablar con MySQL directamente)
+#   PHP_EXEC="docker exec -i 8myvc-app-1"          (vacío para usar el php de este equipo)
 
 set -euo pipefail
 
@@ -28,6 +29,7 @@ if [ -z "${DB_PASSWORD:-}" ] && [ -f .env ]; then
 fi
 
 MYSQL_EXEC="${MYSQL_EXEC-docker exec -i 8myvc-database-1}"
+PHP_EXEC="${PHP_EXEC-docker exec -i 8myvc-app-1}"
 
 ESQUEMA="database/schema/mysql-schema.sql"
 SEED="database/dumps/test-seed.sql"
@@ -65,6 +67,13 @@ mysql_cmd "$DB_TEST_DATABASE" < "$ESQUEMA"
 
 echo "  seed:     $SEED"
 mysql_cmd "$DB_TEST_DATABASE" < "$SEED"
+
+# El esquema congelado es el de PRODUCCIÓN, y producción todavía no ha corrido
+# las migraciones nuevas. Se corren aquí encima, que es exactamente lo que hará
+# cada colegio al desplegar: así los tests prueban el resultado real y, de paso,
+# el CI comprueba que la migración se aplica sobre el esquema de verdad.
+echo "  migraciones:"
+$PHP_EXEC php artisan migrate --force --database=mysql_testing --no-interaction
 
 tablas=$(mysql_cmd -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$DB_TEST_DATABASE';")
 users=$(mysql_cmd -N -e "SELECT COUNT(*) FROM \`$DB_TEST_DATABASE\`.users;")
