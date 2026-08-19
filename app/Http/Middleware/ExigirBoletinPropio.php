@@ -35,11 +35,17 @@ use Illuminate\Support\Facades\DB;
  * separan de los boletines, y por eso es un parámetro y no otro middleware:
  *
  * - El id llega por la **URL**, no en el cuerpo de la petición.
- * - **No se exige el paz y salvo.** Retener el boletín de quien debe la pensión
- *   es una decisión del colegio que ya estaba tomada; extenderla a las notas del
- *   día a día sería una decisión NUEVA, y no es de programación. Se deja igual
- *   que estaba y se avisa: si el colegio la quiere, es cambiar `notas` por
- *   `boletin` en la ruta.
+ * - **No se exige el paz y salvo**, aunque probablemente debería. Retener el
+ *   boletín de quien debe la pensión es una decisión del colegio que ya estaba
+ *   tomada; extenderla a las notas del día a día sería una decisión NUEVA, y no
+ *   es de programación, así que aquí se deja como estaba.
+ *
+ *   Pero conviene saber esto antes de decidir: **`myvc_front` ya la aplica, y
+ *   solo en el navegador.** `NotasAlumnoCtrl.seleccionarAcudido()` corta con un
+ *   «Debe estar a paz y salvo» antes de llamar. O sea que la regla ya existe como
+ *   intención del producto y hoy la sostiene únicamente el cliente, que es la
+ *   mitad que se puede saltar. Si el colegio la confirma, es cambiar `notas` por
+ *   `boletin` en la ruta y borrar la comprobación del frontend.
  */
 class ExigirBoletinPropio
 {

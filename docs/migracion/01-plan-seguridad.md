@@ -443,3 +443,12 @@ Este no es un pentest. Es lo que salió de leer el código durante el análisis 
 > para hacerla:** si la ruta más obvia de todas lo tenía, el resto de las 538 que
 > reciben un id por URL merece que alguien las mire. `notas/alumno` no era un caso
 > raro.
+>
+> **Decisión pendiente, y para Joseth.** El guard nuevo comprueba la propiedad
+> pero no el paz y salvo, porque retener las notas del día a día por una deuda
+> sería una política nueva y no le toca decidirla a quien escribe el guard. Pero
+> **la política ya existe y hoy solo la sostiene el navegador**:
+> `NotasAlumnoCtrl.seleccionarAcudido()` de `myvc_front` corta con un «Debe estar
+> a paz y salvo» antes de llamar. Un acudiente moroso que abra la petición a mano
+> ve las notas igual. Si el colegio confirma la regla, en el backend es cambiar
+> una palabra en la ruta.
