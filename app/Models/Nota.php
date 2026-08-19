@@ -11,7 +11,7 @@ use App\Models\Subunidad;
 use App\Models\Asignatura;
 use App\Models\Debugging;
 use \stdClass;
-use DB;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use \Log;
 

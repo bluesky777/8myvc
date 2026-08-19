@@ -9,9 +9,9 @@ use Laravel\Sanctum\HasApiTokens;
 
 use App\Services\ContextoDeUsuario;
 use App\Services\Sesion;
-use Request;
-use DB;
-use App;
+use Illuminate\Support\Facades\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\App;
 
 class User extends Authenticatable
 {

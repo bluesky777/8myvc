@@ -1,6 +1,6 @@
 <?php namespace App\Models;
 
-use DB;
+use Illuminate\Support\Facades\DB;
 
 
 class Disciplina {

@@ -4,6 +4,7 @@ namespace Tests\Contrato;
 
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Routing\Route;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
@@ -54,7 +55,7 @@ abstract class CasoDeContrato extends TestCase
             );
         }
 
-        if (\DB::table('users')->count() === 0) {
+        if (DB::table('users')->count() === 0) {
             $this->fail(
                 "La base '{$base}' está vacía. Constrúyela con:\n".
                 '  tools/construir-bd-test.sh'
@@ -103,7 +104,7 @@ abstract class CasoDeContrato extends TestCase
 
         $this->assertArrayHasKey($tipo, $consultas, "Tipo de usuario desconocido: '{$tipo}'.");
 
-        $filas = \DB::select(
+        $filas = DB::select(
             $consultas[$tipo].' WHERE u.tipo = ? AND u.is_active = 1 AND u.deleted_at IS NULL
                                    ORDER BY u.id LIMIT 1',
             [$tipo]

@@ -1,10 +1,10 @@
 <?php namespace App\Http\Controllers\Alumnos;
 
 
-use DB;
-use Request;
-use Excel;
-use Hash;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Request;
+use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Facades\Hash;
 use Carbon\Carbon;
 use \Log;
 

@@ -2,7 +2,7 @@
 
 
 
-use DB;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 use App\User;

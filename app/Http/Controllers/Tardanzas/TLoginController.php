@@ -3,9 +3,9 @@
 
 use App\Http\Controllers\Controller;
 
-use Request;
-use Hash;
-use DB;
+use Illuminate\Support\Facades\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
 
 use App\Models\Debugging;
 use App\Support\Credenciales;

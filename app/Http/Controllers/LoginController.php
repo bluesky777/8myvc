@@ -1,7 +1,7 @@
 <?php namespace App\Http\Controllers;
 
 
-use Browser;
+use hisorange\BrowserDetect\Facade as Browser;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
@@ -9,8 +9,8 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Http\Request;
 //use Request;
 //use Auth;
-use Hash;
-use DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 

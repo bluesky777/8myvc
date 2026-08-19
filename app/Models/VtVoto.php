@@ -5,8 +5,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 
 
-use Request;
-use DB;
+use Illuminate\Support\Facades\Request;
+use Illuminate\Support\Facades\DB;
 
 
 class VtVoto extends Model {

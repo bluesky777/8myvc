@@ -1,7 +1,7 @@
 <?php namespace App\Http\Controllers\Piars;
 
-use Request;
-use DB;
+use Illuminate\Support\Facades\Request;
+use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 
 use App\User;

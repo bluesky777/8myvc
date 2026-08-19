@@ -15,11 +15,13 @@ use RectorLaravel\Set\LaravelSetList;
  *
  *     vendor/bin/rector process app/Http/Controllers/Perfiles --dry-run
  *
- * Lo que queda pendiente y para lo que está preparada esta configuración: los
- * 145 ficheros que importan los facades por su alias de raíz (`use DB;`,
- * `use Request;`, `use Hash;`) en vez de `Illuminate\Support\Facades\*`. Hoy
- * funcionan porque `config/app.php` mantiene los alias; el día que Laravel los
- * retire, dejan de hacerlo todos a la vez.
+ * Los imports por alias de raíz —lo que quedaba pendiente de la Fase 4— ya
+ * están hechos, pero NO con esto. El set LARAVEL_FACADE_ALIASES_TO_FULL_NAMES
+ * escribe el nombre completo en cada llamada, y aquí hay 990 `DB::`; con
+ * `withImportNames()` sí pone el import, pero de paso colapsa cualquier otro
+ * nombre completo que encuentre y tocaba diez ficheros que no tenían el
+ * problema. Se hizo con `tools/imports-de-facades.php`, que cambia una línea
+ * por import y ninguna más, y lo vigila `tests/Unit/AliasDeFacadesTest.php`.
  */
 return RectorConfig::configure()
     ->withPaths([

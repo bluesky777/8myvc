@@ -1,9 +1,9 @@
 <?php namespace App\Http\Controllers\CambiarUsuarios;
 
 
-use Request;
-use DB;
-use Hash;
+use Illuminate\Support\Facades\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use \Log;
 
 use Carbon\Carbon;

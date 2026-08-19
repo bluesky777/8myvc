@@ -8,7 +8,7 @@ use App\Models\Grupo;
 use App\User;
 use App\Models\Periodo;
 use App\Models\Debugging;
-use DB;
+use Illuminate\Support\Facades\DB;
 
 
 

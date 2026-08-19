@@ -1,7 +1,7 @@
 <?php namespace App\Http\Controllers;
 
 use App\User;
-use DB;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class BitacorasController extends Controller {

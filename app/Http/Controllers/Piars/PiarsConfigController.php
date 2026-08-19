@@ -1,7 +1,7 @@
 <?php namespace App\Http\Controllers\Piars;
 
 use Illuminate\Http\Request;
-use DB;
+use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Piars\Utils\UploadDocuments;
 use App\Models\Year;

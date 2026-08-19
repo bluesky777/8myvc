@@ -517,7 +517,7 @@ Con `intervention/image` **4.2.1** + el puente oficial **`intervention/image-lar
 
 - `App\User` → `App\Models\User` (Laravel 8 ya lo esperaba ahí; sigue en la raíz). 336 referencias, pero es un `use` — búsqueda y reemplazo.
 - `$this->namespace` en `RouteServiceProvider` desaparece en L9 → resuelto en Fase 1 al usar `Controller::class`.
-- Los facades con alias de raíz (`use Request;`, `use DB;`, `use Image;`, `use File;`, `use Hash;`) siguen funcionando en L13 vía `config/app.php` aliases. **No hay que tocarlos** — pero conviene migrarlos a `Illuminate\Support\Facades\*` con Rector, aparte.
+- ~~Los facades con alias de raíz (`use Request;`, `use DB;`, `use Image;`, `use File;`, `use Hash;`) siguen funcionando en L13 vía `config/app.php` aliases. **No hay que tocarlos** — pero conviene migrarlos a `Illuminate\Support\Facades\*` con Rector, aparte.~~ **Hecho el 19 ago 2026**, y no con Rector — ver la nota de la Fase 6.
 - `Illuminate\Support\Facades\Input` — verificar; ya no existe. Aparece comentado en `LoginController.php:11`, y hay un uso vivo en `LoginController.php:53` dentro de un `catch` (`Input::all()`) que **explotaría** si ese catch se llegara a ejecutar. Es un bug latente hoy.
 - L11: reestructurado a esqueleto slim (`bootstrap/app.php`) como **commit aparte y opcional**. Laravel 11 y 12 arrancan perfectamente con `app/Http/Kernel.php`. Hazlo solo si quieres el esqueleto moderno; no es requisito.
 
@@ -609,16 +609,48 @@ Ya sembrado en la Fase 0. Aquí se cierra:
 | **Pint** | solo lo que escribió esta migración: `routes/`, `tests/`, `app/Services`, `app/Support`, `app/Http/Middleware`, `app/Console`, los `Concerns` | `composer run pint` · CI |
 | **Larastan** | nivel 0 sobre `app/`, `config/`, `database/`, `routes/`, `tests/`, `tools/` | `composer run stan` · CI |
 | **Rector** | configurado y **sin correr**: por carpeta y revisando cada diff | `rector.php` |
+| **`tools/imports-de-facades.php`** | los imports por alias de raíz, una línea por import | corrido el 19 ago 2026 · lo vigila `AliasDeFacadesTest` |
 
 Pint no toca el legacy a propósito: reformatear 129 controladores sería un diff
 ilegible encima de la migración, y el `.styleci.yml` de 2021 ya avisaba de por
 dónde duele —tenía `no_unused_imports` desactivado—. Se formatea el día que se
 toque cada fichero.
 
-Rector queda listo para lo único que le falta de la Fase 4: los 145 ficheros que
-importan los facades por su alias de raíz (`use DB;`, `use Request;`) en vez de
-`Illuminate\Support\Facades\*`. Hoy funcionan porque `config/app.php` mantiene
-los alias; el día que Laravel los retire dejan de hacerlo todos a la vez.
+**Los imports por alias de raíz — cerrado el 19 ago 2026.** Era lo único que le
+quedaba a la Fase 4: `use DB;` funciona porque `config/app.php` mantiene un
+array `aliases` que registra un `class_alias` global por cada uno. Laravel 13 ya
+no genera ese array en las aplicaciones nuevas, y el día que desaparezca —o el
+día que alguien modernice ese fichero copiando uno reciente— dejan de resolver
+todos a la vez: «Class DB not found» en cada petición que pase por ahí.
+
+Medido con el tokenizador, no con grep: **309 referencias en 145 ficheros**. El
+grep se equivocaba en los dos sentidos —contaba seis `Auth::` escritos dentro de
+comentarios, y no veía los `\DB::` de los tests que escribió esta misma
+migración—. El desglose: 140 `use DB;`, 102 `use Request;`, 24 `use Hash;`, y
+una cola de `File`, `Excel`, `Image`, `Auth`, `View`, `Log`, `Browser`, `App`.
+
+**No se hizo con Rector**, aunque estuviera configurado para ello. El set
+`LARAVEL_FACADE_ALIASES_TO_FULL_NAMES` escribe el nombre completo en cada
+llamada, y aquí hay 990 `DB::`; con `withImportNames()` sí pone el import, pero
+de paso colapsa cualquier otro nombre completo que encuentre y tocaba diez
+ficheros que no tenían el problema. `tools/imports-de-facades.php` cambia una
+línea por import y ninguna más: **293 líneas de diff en 141 ficheros**, y ni una
+llamada tocada.
+
+Dos cosas que un reemplazo ciego habría roto, y que salieron de leer el mapa de
+`config/app.php` en vez de escribir la lista a mano:
+
+- **`Browser` apunta a `hisorange\BrowserDetect\Facade`**, cuyo nombre corto no
+  es `Browser`. Necesita `use ... as Browser;` o las llamadas dejan de resolver.
+  Lo mismo con `Eloquent`, que apunta a `Eloquent\Model`.
+- **Las vistas Blade no se arreglan importando.** Una plantilla se compila a PHP
+  sin namespace, así que el `Route::has()` de `welcome.blade.php` resuelve al
+  nombre global igual. Ahí hay que escribir el nombre completo en la llamada.
+
+**El array se queda**, y a propósito. Ya nada de este repo depende de él —lo
+comprueban los dos tests de `AliasDeFacadesTest`—, pero cada colegio tiene su
+copia de la aplicación, y una vista propia que no esté en este repo seguiría
+usando `Route::`. Borrarlo es una decisión que se toma mirando los servidores.
 
 **No es un big-bang.** Con 990 queries crudas, reescribirlas todas a Eloquent sería meses de trabajo y meses de bugs nuevos, sin ganancia funcional. Enfoque:
 

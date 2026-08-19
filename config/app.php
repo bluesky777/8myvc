@@ -213,6 +213,20 @@ return [
     |
     */
 
+    /*
+     * Este array registra un `class_alias` global por cada entrada. Laravel 13
+     * ya no lo genera en las aplicaciones nuevas, y desde el 19 ago 2026 nada
+     * de este repo depende de él: los 141 ficheros que importaban `use DB;`
+     * ahora importan `Illuminate\Support\Facades\DB`, y las dos llamadas que
+     * quedaban en una vista Blade escriben el nombre completo.
+     * `tests/Unit/AliasDeFacadesTest.php` lee de aquí la lista y comprueba las
+     * dos cosas, así que un alias nuevo entra vigilado.
+     *
+     * Se queda de todos modos, y a propósito: cada colegio tiene su copia de la
+     * aplicación, y una vista propia que no esté en este repo seguiría usando
+     * `Route::`. Borrarlo es una decisión que hay que tomar mirando los
+     * servidores, no este fichero.
+     */
     'aliases' => [
 
         'App' => Illuminate\Support\Facades\App::class,

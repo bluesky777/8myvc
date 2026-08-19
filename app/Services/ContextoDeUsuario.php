@@ -4,7 +4,7 @@ namespace App\Services;
 
 use App\Models\Periodo;
 use App\User;
-use DB;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Monta el objeto "usuario" que usa medio proyecto.

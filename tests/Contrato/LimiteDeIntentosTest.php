@@ -3,6 +3,7 @@
 namespace Tests\Contrato;
 
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Route;
 
 /**
  * Cuántas contraseñas se pueden probar por minuto.
@@ -85,7 +86,7 @@ class LimiteDeIntentosTest extends CasoDeContrato
      */
     public function test_la_prematricula_publica_tiene_su_propio_limite(): void
     {
-        $ruta = collect(\Route::getRoutes())->first(
+        $ruta = collect(Route::getRoutes())->first(
             fn ($r) => $r->uri() === 'api/login/crear-prematricula'
         );
 
@@ -110,7 +111,7 @@ class LimiteDeIntentosTest extends CasoDeContrato
 
         $reales = [];
 
-        foreach (\Route::getRoutes() as $ruta) {
+        foreach (Route::getRoutes() as $ruta) {
             if (! in_array('throttle:login', $ruta->middleware(), true)) {
                 continue;
             }
