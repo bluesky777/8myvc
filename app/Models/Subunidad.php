@@ -27,7 +27,7 @@ class Subunidad extends Model {
 					where s.unidad_id=:unidad_id and s.deleted_at is null
 					order by s.orden';
 
-		$unidades = DB::select(DB::raw($consulta), array(
+		$unidades = DB::select($consulta, array(
 			':unidad_id'	=> $unidad_id
 		));
 
@@ -52,7 +52,7 @@ class Subunidad extends Model {
 					where s.unidad_id=:unidad_id and s.deleted_at is null
 					order by s.orden';
 
-		$unidades = DB::select(DB::raw($consulta), array(
+		$unidades = DB::select($consulta, array(
 			':min_aceptada' => User::$nota_minima_aceptada, ':alumno_id'	=> $alumno_id, ':unidad_id'	=> $unidad_id, ':year_id'	=> $year_id 
 		));
 
@@ -72,7 +72,7 @@ class Subunidad extends Model {
 					where s.unidad_id=:unidad_id and s.deleted_at is null
 					order by s.orden';
 		//  limit 1
-		$unidades = DB::select(DB::raw($consulta), array(
+		$unidades = DB::select($consulta, array(
 			':min_aceptada' => User::$nota_minima_aceptada, ':alumno_id'	=> $alumno_id, ':unidad_id'	=> $unidad_id, ':year_id'	=> $year_id 
 		));
 
@@ -94,7 +94,7 @@ class Subunidad extends Model {
 					inner join notas n on n.subunidad_id=s.id and n.alumno_id=:alumno_id and n.nota<:nota_minima
 					where s.unidad_id=:unidad_id and s.deleted_at is null';
 
-		$subunidades = DB::select(DB::raw($consulta), array(
+		$subunidades = DB::select($consulta, array(
 			':alumno_id'	=> $alumno_id,
 			':nota_minima'	=> User::$nota_minima_aceptada,
 			':unidad_id'	=> $unidad_id,
@@ -116,7 +116,7 @@ class Subunidad extends Model {
 					group by u.id 
 					order by u.orden, u.id';
 
-		$subunidades = DB::select(DB::raw($consulta), array(
+		$subunidades = DB::select($consulta, array(
 			':alumno_id'	=> $alumno_id,
 			':nota_minima'	=> User::$nota_minima_aceptada,
 			':asignatura_id'=> $asignatura_id,

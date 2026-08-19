@@ -54,7 +54,7 @@ class ContratosController extends Controller {
 				left join users u on p.user_id=u.id and u.is_Active=false
 				where p.deleted_at is null';
 
-		$profesor = DB::select(DB::raw($consulta), array(':contrato_id' => $contrato->id));
+		$profesor = DB::select($consulta, array(':contrato_id' => $contrato->id));
 
 		return $profesor;
 	}

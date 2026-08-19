@@ -188,7 +188,7 @@ class PerfilesController extends Controller {
 
 	public function getUsernames()
 	{
-		$usernames = DB::select(DB::raw('SELECT username FROM users'));
+		$usernames = DB::select('SELECT username FROM users');
 		return $usernames;
 	}
 

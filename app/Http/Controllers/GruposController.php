@@ -537,7 +537,7 @@ class GruposController extends Controller {
 					left join images i2 on i2.id=a.foto_id
 					where a.deleted_at is null order by apellidos, nombres';
 
-		$list = DB::select(DB::raw($consulta), array(':grupo_id'=>$grupo_id));
+		$list = DB::select($consulta, array(':grupo_id'=>$grupo_id));
 		
 		return $list;
 	}

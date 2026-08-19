@@ -236,7 +236,7 @@ class PeriodosController extends Controller {
 						where unidad_id=:unidad_id and deleted_at is null
 						order by orden';
 
-			$unidad->subunidades = DB::select(DB::raw($consulta), [':unidad_id'	=> $unidad->id]);
+			$unidad->subunidades = DB::select($consulta, [':unidad_id'	=> $unidad->id]);
 
 
 		}

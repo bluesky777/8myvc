@@ -130,7 +130,7 @@ class VtVotacionesController extends Controller {
 		$consulta = 'SELECT u.id, u.username, u.email, u.is_superuser 
 					FROM users u 
 					where u.id not in (select p.user_id from vt_participantes p)';
-		return DB::select(DB::raw($consulta));
+		return DB::select($consulta);
 	}
 
 

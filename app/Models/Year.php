@@ -130,7 +130,7 @@ class Year extends Model {
 					inner join contratos c on c.year_id=y.id and c.profesor_id = :profesor_id and c.deleted_at is null
 					where y.deleted_at is null';
 
-		$years = DB::select(DB::raw($consulta), array(':profesor_id' => $profesor_id));
+		$years = DB::select($consulta, array(':profesor_id' => $profesor_id));
 
 		foreach ($years as $year) {
 			$year->periodos = Periodo::where('year_id', $year->id)->get();

@@ -94,7 +94,7 @@ class GuardarAlumno {
 		}
 		
 		
-		$consulta = DB::raw($consulta);
+		$consulta = $consulta;
 
 		$res = DB::update($consulta, $datos);
 
@@ -140,7 +140,7 @@ class GuardarAlumno {
 		}
 		
 		
-		$consulta = DB::raw($consulta);
+		$consulta = $consulta;
 
 		$res = DB::update($consulta, $datos);
 

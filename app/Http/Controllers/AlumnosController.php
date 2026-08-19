@@ -79,7 +79,7 @@ class AlumnosController extends Controller {
 			SET u.password=:clave
 			WHERE m.grupo_id=:grupo_id';
 
-		DB::select(DB::raw($consulta), [
+		DB::select($consulta, [
 			':clave'			=> $clave,
 			':grupo_id'			=> $grupo_id
 		]);
@@ -100,7 +100,7 @@ class AlumnosController extends Controller {
 			INNER JOIN grupos g ON m.grupo_id=g.id and g.year_id=:year_id and a.id=m.alumno_id and g.deleted_at is null
 			LEFT JOIN images i on i.id=a.foto_id and i.deleted_at is null';
 
-		return DB::select(DB::raw($consulta), array(
+		return DB::select($consulta, array(
 						':year_id'			=> $this->user->year_id
 				));
 	}
@@ -991,7 +991,7 @@ class AlumnosController extends Controller {
 				)m2 on a.id=m2.alumno_id
 			left join users u on u.id=a.user_id where a.deleted_at is not null';
 
-		return DB::select(DB::raw($consulta), array(
+		return DB::select($consulta, array(
 						':id_previous_year'	=>$id_previous_year, 
 						':year_id'			=>$user->year_id,
 						':year2_id'			=>$user->year_id

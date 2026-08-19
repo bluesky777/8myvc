@@ -50,7 +50,7 @@ class Asignatura extends Model {
 					where a.deleted_at is null
 					order by a.orden, m.orden, m.materia';
 
-		$asignatura = DB::select(DB::raw($consulta), array(':asignatura_id' => $asignatura_id));
+		$asignatura = DB::select($consulta, array(':asignatura_id' => $asignatura_id));
 
 
 		return (array)$asignatura[0];

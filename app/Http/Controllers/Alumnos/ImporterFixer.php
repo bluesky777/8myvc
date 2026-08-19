@@ -184,7 +184,7 @@ class ImporterFixer {
 		}
 		
 		
-		$consulta = DB::raw($consulta);
+		$consulta = $consulta;
 
 		$res = DB::update($consulta, $datos);
 

@@ -319,7 +319,7 @@ class UnidadesController extends Controller {
 					inner join periodos p on p.id=u.periodo_id
 					where u.deleted_at is not null';
 
-		return DB::select(DB::raw($consulta));
+		return DB::select($consulta);
 	}
 
 }

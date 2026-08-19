@@ -29,7 +29,7 @@ class PiarsAsignaturasController extends Controller {
 				where g.id=:grupo_id and a.deleted_at is null
 				order by g.orden, a.orden, m.materia, m.alias, a.id';
 
-			$asignaturas = DB::select(DB::raw($consulta), [
+			$asignaturas = DB::select($consulta, [
 				':grupo_id' => $grupo_id,
 			]);
 

@@ -181,7 +181,7 @@ class BolfinalesController extends Controller {
 						group by alumno_id, asignatura_id, periodo_id
 						order by numero_periodo, asignatura_id, periodo_id';
 		
-			$asignatura->definitivas = DB::select(DB::raw($consulta), array(
+			$asignatura->definitivas = DB::select($consulta, array(
 										':alumno_id'	=> $alumno->alumno_id, 
 										':year_id'		=> $year_id,
 										':grupo_id'		=> $grupo_id,
@@ -221,7 +221,7 @@ class BolfinalesController extends Controller {
 							inner join unidades u on u.id=s.unidad_id and u.periodo_id=:periodo_id and u.asignatura_id=:asignatura_id and u.deleted_at is null
 							where n.nota < :nota_minima and n.alumno_id=:alumno_id;';
 
-				$definitiva->notas_perdidas = DB::select(DB::raw($consul), array(
+				$definitiva->notas_perdidas = DB::select($consul, array(
 										':periodo_id'	=> $definitiva->periodo_id,
 										':asignatura_id'=> $asignatura->asignatura_id,
 										':nota_minima'	=> User::$nota_minima_aceptada,
@@ -277,7 +277,7 @@ class BolfinalesController extends Controller {
 						and u.asignatura_id=a.id and m.alumno_id=n.alumno_id and m.deleted_at is null and (m.estado="MATR" or m.estado="ASIS")
 						and a.id=:asignatura_id and n.alumno_id=:alumno_id and n.nota < :nota_minima;';
 
-				$notas_perdidas = DB::select(DB::raw($consulta), array(
+				$notas_perdidas = DB::select($consulta, array(
 									':periodo_id'		=> $periodo->id, 
 									':asignatura_id'	=> $asignatura->asignatura_id, 
 									':alumno_id'		=> $alumno->alumno_id,

@@ -262,7 +262,7 @@ class SubunidadesController extends Controller {
 				)m2 on a.id=m2.alumno_id
 			left join users u on u.id=a.user_id where a.deleted_at is not null';
 
-		return DB::select(DB::raw($consulta));
+		return DB::select($consulta);
 	}
 
 }

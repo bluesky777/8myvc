@@ -44,7 +44,7 @@ class ImageModel extends Model {
 				SELECT a.nombres, i.nombre, a.apellidos, a.sexo, "acudiente", i.id FROM images i 
 				inner join acudientes a on a.foto_id=i.id  and i.id=:imagen_id3';
 
-		$oficiales = DB::select(DB::raw($consulta), array(
+		$oficiales = DB::select($consulta, array(
 					':imagen_id1'	=> $imagen_id,
 					':imagen_id2'	=> $imagen_id,
 					':imagen_id3'	=> $imagen_id,
@@ -98,7 +98,7 @@ class ImageModel extends Model {
 		$consulta = 'SELECT u.username, i.nombre, u.sexo, i.id FROM images i 
 				inner join users u on u.imagen_id=i.id  and i.id=:imagen_id';
 
-		$de_usuario = DB::select(DB::raw($consulta), array(
+		$de_usuario = DB::select($consulta, array(
 					':imagen_id'	=> $imagen_id
 				));
 
