@@ -231,6 +231,25 @@ antes que el front nuevo se quedaba sin ninguna forma de entrar.
   así que sigue funcionando por la ruta vieja. Migrarla al par es trabajo aparte,
   y hay que tener en cuenta que es **una sola app para todos los colegios**: no
   puede depender de que un colegio concreto tenga ya la Fase 3.
+
+### `login/credentials` y `POST /api/login` no se retiran
+
+Se propuso el 19 ago 2026, cuando `myvc_front` quitó su vuelta atrás y dejó de
+llamarlas. **No son suyas.** Los otros dos clientes las siguen usando, y está
+leído en su código, no supuesto:
+
+| Cliente | Qué llama | Dónde |
+|---|---|---|
+| `myvc_flutter` | `POST /login/credentials` y `POST /login` | `lib/Http/Server.dart:36` y `:43` |
+| `myvc_front_2` (PIAR) | `POST /login` | `src/app/core/services/profile.service.ts:17` |
+
+Y `myvc_flutter` es **una sola app para todos los colegios**: retirarlas no
+rompería un colegio, los rompería todos a la vez, incluidos los que no hayan
+desplegado nada.
+
+Se retiran cuando esos dos clientes usen `/api/auth/*`, no antes. Mientras
+tanto no cuestan nada de mantener: son tres líneas de controlador sobre el
+mismo `App\Services\Login` que usa la ruta nueva.
 - **No arregla que Tardanzas deje entrar a un usuario borrado.**
   `Auth::attempt()` no filtraba `deleted_at` y `Credenciales` tampoco, a
   propósito: aquí solo tocaba quitar el guard. Anotado en
