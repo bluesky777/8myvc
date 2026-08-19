@@ -25,7 +25,7 @@ La buena noticia: el código casi no usa superficie del framework. 990 llamadas 
 | 2 | Organizar rutas + middleware `auth` real | Cierra el agujero de roles/permisos | 2–3 días |
 | 3 | Reemplazar `tymon/jwt-auth` (back + front + Flutter) | Desbloquea el salto de framework | 4–6 días · **backend hecho 19 ago 2026** |
 | 4 | Salto 8 → 13 (~~cinco majors~~ tres saltos) | El objetivo | **hecho 19 ago 2026** |
-| 5 | Migraciones al día contra la BD real | Entornos reproducibles | 2–3 días |
+| 5 | ~~Migraciones al día contra la BD real~~ | ~~Entornos reproducibles~~ — **recortada**: un colegio nuevo se crea copiando la base de otro | — |
 | 6 | Modelos y limpieza (gradual, opcional) | Mantenibilidad | continuo |
 
 Total realista para las fases 0–5: **~4 semanas de trabajo enfocado.**
@@ -526,6 +526,28 @@ Con `intervention/image` **4.2.1** + el puente oficial **`intervention/image-lar
 ---
 
 ### Fase 5 — Migraciones al día · 2–3 días
+
+> **Recortada el 19 ago 2026, y por un dato que invalidaba media fase.** Joseth:
+> **un colegio nuevo no se crea desde cero — se copia la base de datos de otro**,
+> porque hace falta que venga con ciertos datos básicos ya dentro.
+>
+> Eso tumba el punto 5 y con él la razón principal de la fase. `migrate:fresh`
+> produciría un esquema vacío y correcto que **nadie va a usar nunca**: no es así
+> como nace un colegio aquí. Reconstruir hacia atrás la historia de 90 tablas
+> —que además nunca existió, se construyeron a mano durante años— era la parte
+> cara, y resulta que era también la inútil.
+>
+> **Lo que sí sigue haciendo falta, y ya funciona:** una forma repetible de
+> aplicar un cambio de esquema a las 16 bases. Eso no es "migraciones al día", es
+> el punto 4 —*ningún cambio a mano en phpMyAdmin: migración o no existe*— y está
+> en pie desde la Fase 3, donde `personal_access_tokens` llegó a cada colegio con
+> un `artisan migrate` y no con un formulario. La convención está escrita en
+> `database/migrations/legacy/README.md`.
+>
+> **Lo que queda vivo de la fase**, por si algún día compensa: el punto 3,
+> documentar las divergencias entre la base real y lo que el código asume. Es el
+> que produjo hallazgos de verdad (`years.id` en vez de `year_id`). El 1 y el 2
+> son documentación.
 
 Ya sembrado en la Fase 0. Aquí se cierra:
 
