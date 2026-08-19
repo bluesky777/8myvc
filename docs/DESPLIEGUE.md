@@ -48,9 +48,16 @@ Sacado del servidor, no supuesto. Los 16 colegios tienen el mismo commit de `app
 `instival` además **no es un repositorio git**, así que no recibe `git pull`: es el
 único colegio que sigue sin la PR #6.
 
-> **Actualizado el 19 ago 2026:** `casb-medellin` ya está igualado —`vendor/` en
-> `8.83.29` y front en `main`—. Quedan 7 con `vendor/` viejo, más `instival`. El
-> procedimiento validado está en «Desplegar un colegio entero», más abajo.
+> **Cerrado el 19 ago 2026: los 16 colegios están desplegados y con el `vendor/`
+> igualado.** La tabla de arriba es el estado del 18 de agosto y se deja como
+> historia — es la que explica por qué se descubrió todo esto. Ya no hay ningún
+> colegio con Laravel de 2021.
+>
+> **Igualado no es lo mismo que no compartido**, y para la Fase 4 lo que importa
+> es lo segundo. Falta confirmar si los cinco de `laravel_compartido` siguen
+> colgando por symlink o si ya tienen carpeta propia: mientras cuelguen, un
+> `composer` sobre esa carpeta los cambia a los cinco a la vez y el salto de
+> framework no se puede escalonar en ellos.
 
 **Cómo se descubrió.** Al pasar el servidor a PHP 8.5, esos 9 colegios empezaron a
 devolver `Return type of Illuminate\Support\Collection::offsetExists($key) should
@@ -419,15 +426,28 @@ se cierra de un toque. Con sesión abierta no se ve, y eso no significa que falt
 
 ### Qué queda
 
-| Colegio | Estado |
-|---|---|
-| `casb-medellin` | **hecho** — 19 ago 2026 |
-| `coabsaravena` | **front hecho** — 19 ago 2026. Falta el `vendor/` |
-| `bethelexplora`, `cads-itagui`, `caz-zaragoza`, `coljordan`, `fortul`, `inseaq` | pendientes, mismo procedimiento |
-| `instival` | **no es repositorio git**, no recibe `git pull`. Decisión aparte antes de tocarlo |
+**Los 16 están hechos (19 ago 2026)**, `vendor/` incluido. Se terminó en el día,
+con el procedimiento de arriba.
 
-**Hasta que los 16 tengan el `vendor/` igualado, PHP se queda en 8.0.** La versión se
-elige por cuenta de cPanel y no por colegio, así que subirla los afecta a todos a la vez.
+Con eso caen dos cosas que estaban bloqueadas:
+
+- **PHP ya puede subir de 8.0.** Estaba clavado ahí porque nueve colegios corrían
+  un Laravel anterior a los parches de compatibilidad con PHP 8.1, y la versión
+  se elige por cuenta de cPanel —o sea, para todos a la vez—. Ya no hay ninguno.
+- **La Fase 3 se puede desplegar** en cuanto se fusione: necesita Sanctum en
+  `vendor/`, y ahora lo tienen todos.
+
+Lo que **no** queda cerrado por esto: si los cinco de `laravel_compartido` siguen
+colgando por symlink. Igualar el `vendor/` los pone al día, pero no los
+independiza, y es lo segundo lo que decide si la Fase 4 se puede escalonar
+colegio a colegio. Se comprueba con una línea desde el host:
+
+```bash
+for d in /home/micolev1/*.micolevirtual.com/8myvc; do
+  printf '%-46s ' "$d"
+  [ -L "$d/vendor" ] && printf 'symlink -> %s\n' "$(readlink "$d/vendor")" || printf 'vendor propio\n'
+done
+```
 
 ---
 
