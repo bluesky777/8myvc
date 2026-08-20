@@ -1,0 +1,18 @@
+[
+    {
+        "abrev_grupo": "string",
+        "alias_materia": "string",
+        "asignatura_id": "int",
+        "definicion": "string",
+        "grupo_id": "int",
+        "id": "int",
+        "materia": "string",
+        "materia_id": "int",
+        "nombre_grupo": "string",
+        "numero_periodo": "int",
+        "orden": "int",
+        "periodo_actual": "int",
+        "periodo_id": "int",
+        "porcentaje": "int"
+    }
+]

@@ -1,0 +1,42 @@
+[
+    {
+        "apellidos": "null|string",
+        "email": "null|string",
+        "facebook": "null",
+        "foto_id": "int|null",
+        "foto_nombre": "string",
+        "id": "int",
+        "nombres": "string",
+        "sexo": "string",
+        "tipo_profesor": "null|string",
+        "titulo": "null|string",
+        "user_id": "int",
+        "years": [
+            {
+                "abrev_colegio": "string",
+                "id": "int",
+                "nombre_colegio": "string",
+                "periodos": [
+                    {
+                        "actual": "int",
+                        "created_at": "null|string",
+                        "created_by": "null",
+                        "deleted_at": "null",
+                        "deleted_by": "null",
+                        "fecha_fin": "null",
+                        "fecha_inicio": "null",
+                        "fecha_plazo": "null",
+                        "id": "int",
+                        "numero": "int",
+                        "profes_pueden_editar_notas": "int",
+                        "profes_pueden_nivelar": "int",
+                        "updated_at": "string",
+                        "updated_by": "int|null",
+                        "year_id": "int"
+                    }
+                ],
+                "year": "int"
+            }
+        ]
+    }
+]

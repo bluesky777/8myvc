@@ -1,0 +1,32 @@
+[
+    {
+        "apellidos": "null|string",
+        "barrio": "null|string",
+        "celular": "null|string",
+        "ciudad_doc": "int|null",
+        "ciudad_nac": "int|null",
+        "contrato_id": "int|null",
+        "direccion": "null|string",
+        "email": "null|string",
+        "email_usu": "null|string",
+        "estado_civil": "null|string",
+        "facebook": "null",
+        "fecha_nac": "null|string",
+        "foto_id": "int|null",
+        "foto_nombre": "string",
+        "id": "int",
+        "imagen_id": "null",
+        "is_active": "int|null",
+        "is_superuser": "int|null",
+        "nombres": "string",
+        "num_doc": "null|string",
+        "sexo": "string",
+        "telefono": "null|string",
+        "tipo_doc": "int|null",
+        "tipo_profesor": "null|string",
+        "titulo": "null|string",
+        "user_id": "int",
+        "username": "null|string",
+        "year_id": "int|null"
+    }
+]

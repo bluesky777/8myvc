@@ -1,0 +1,29 @@
+{
+    "publicaciones": [
+        {
+            "comentarios": "int",
+            "contenido": "string",
+            "created_at": "string",
+            "deleted_at": "null",
+            "deleted_by": "null",
+            "foto_autor": "null",
+            "id": "int",
+            "imagen_id": "null",
+            "imagen_nombre": "null",
+            "nombre_autor": "string",
+            "para_acudientes": "int",
+            "para_administradores": "int",
+            "para_alumnos": "int",
+            "para_profes": "int",
+            "para_todos": "int",
+            "persona_id": "int",
+            "tipo_persona": "string",
+            "updated_at": "string"
+        }
+    ],
+    "year": {
+        "id": "int",
+        "prematr_nuevos": "int",
+        "year": "int"
+    }
+}

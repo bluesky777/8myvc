@@ -1,0 +1,15 @@
+[
+    {
+        "blanco_aspiracion_id": "int|null",
+        "candidato_id": "int|null",
+        "created_at": "string",
+        "created_by": "null",
+        "deleted_at": "null",
+        "deleted_by": "null",
+        "id": "int",
+        "locked": "int",
+        "updated_at": "string",
+        "updated_by": "null",
+        "user_id": "int"
+    }
+]

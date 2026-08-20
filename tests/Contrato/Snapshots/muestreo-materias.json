@@ -1,0 +1,47 @@
+{
+    "mat_por_areas": [
+        {
+            "alias": "string",
+            "created_at": "string",
+            "created_by": "null",
+            "deleted_at": "null",
+            "deleted_by": "null",
+            "id": "int",
+            "jefe_id": "null",
+            "materias": [
+                {
+                    "alias": "string",
+                    "area_id": "int",
+                    "created_at": "string",
+                    "created_by": "null",
+                    "deleted_at": "null",
+                    "deleted_by": "null",
+                    "id": "int",
+                    "materia": "string",
+                    "orden": "null",
+                    "updated_at": "string",
+                    "updated_by": "null"
+                }
+            ],
+            "nombre": "string",
+            "orden": "int",
+            "updated_at": "string",
+            "updated_by": "null"
+        }
+    ],
+    "materias": [
+        {
+            "alias": "string",
+            "area_id": "int",
+            "created_at": "string",
+            "created_by": "null",
+            "deleted_at": "null",
+            "deleted_by": "null",
+            "id": "int",
+            "materia": "string",
+            "orden": "null",
+            "updated_at": "string",
+            "updated_by": "null"
+        }
+    ]
+}

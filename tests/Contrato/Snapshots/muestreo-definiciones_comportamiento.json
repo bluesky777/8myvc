@@ -1,0 +1,16 @@
+[
+    {
+        "comportamiento_id": "int",
+        "created_at": "string",
+        "created_by": "null",
+        "deleted_at": "null",
+        "deleted_by": "null",
+        "fecha": "null",
+        "frase": "null|string",
+        "frase_id": "int|null",
+        "id": "int",
+        "orden": "null",
+        "updated_at": "string",
+        "updated_by": "null"
+    }
+]

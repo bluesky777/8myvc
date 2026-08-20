@@ -213,8 +213,13 @@ abstract class CasoDeContrato extends TestCase
      * Al crearla imprime un aviso: un snapshot recién creado no ha
      * verificado nada todavía, solo ha registrado el comportamiento de hoy.
      * Hay que leerla antes de fiarse de ella.
+     *
+     * `$real` no se declara `array` porque hay endpoints que devuelven un
+     * escalar y su forma también lo es: `GET api/folios/iniciar` responde un
+     * número suelto, y su snapshot es la cadena `'int'`. Envolverlo en un array
+     * para que quepa metería en el fichero una clave que la respuesta no tiene.
      */
-    protected function compararConInstantanea(string $nombre, array $real): void
+    protected function compararConInstantanea(string $nombre, array|string $real): void
     {
         $ruta = __DIR__.'/Snapshots/'.$nombre.'.json';
 

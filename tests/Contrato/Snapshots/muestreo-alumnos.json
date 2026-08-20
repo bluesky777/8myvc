@@ -1,0 +1,26 @@
+[
+    {
+        "abrevgrupo": "string",
+        "alumno_id": "int",
+        "apellidos": "string",
+        "celular": "null|string",
+        "ciudad_nac": "int|null",
+        "currentyear": "int",
+        "deuda": "int",
+        "direccion": "null|string",
+        "fecha_nac": "string",
+        "grupo_id": "int",
+        "is_active": "int",
+        "is_superuser": "int",
+        "matricula_id": "int",
+        "no_matricula": "null|string",
+        "nombregrupo": "string",
+        "nombres": "string",
+        "pazysalvo": "int",
+        "religion": "null|string",
+        "sexo": "string",
+        "user_id": "int",
+        "username": "string",
+        "year_id": "int"
+    }
+]

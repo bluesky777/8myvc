@@ -1,0 +1,15 @@
+[
+    {
+        "alias": "string",
+        "created_at": "string",
+        "created_by": "null",
+        "deleted_at": "null",
+        "deleted_by": "null",
+        "id": "int",
+        "jefe_id": "null",
+        "nombre": "string",
+        "orden": "int",
+        "updated_at": "string",
+        "updated_by": "null"
+    }
+]

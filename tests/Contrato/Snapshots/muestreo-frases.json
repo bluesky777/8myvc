@@ -1,0 +1,14 @@
+[
+    {
+        "created_at": "string",
+        "created_by": "null",
+        "deleted_at": "null",
+        "deleted_by": "null",
+        "frase": "string",
+        "id": "int",
+        "tipo_frase": "string",
+        "updated_at": "string",
+        "updated_by": "null",
+        "year_id": "int"
+    }
+]

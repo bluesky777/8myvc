@@ -1,0 +1,119 @@
+{
+    "alumnos": [],
+    "eventos": [
+        {
+            "allDay": "int",
+            "created_at": "string",
+            "created_by": "int",
+            "created_by_nombres": "string",
+            "cumple_alumno_id": "int|null",
+            "cumple_profe_id": "int|null",
+            "deleted_at": "null",
+            "deleted_by": "null",
+            "end": "null|string",
+            "id": "int",
+            "solo_profes": "int",
+            "start": "string",
+            "title": "string",
+            "type": "null",
+            "updated_at": "string",
+            "updated_by": "int|null",
+            "url": "null"
+        }
+    ],
+    "historial": [
+        {
+            "browser_engine": "string",
+            "browser_family": "string",
+            "browser_name": "string",
+            "browser_version": "string",
+            "cant_cambios": "int",
+            "created_at": "string",
+            "deleted_at": "null",
+            "device_family": "string",
+            "device_grade": "string",
+            "device_model": "string",
+            "entorno": "string",
+            "id": "int",
+            "ip": "string",
+            "logout_at": "null",
+            "platform_family": "string",
+            "platform_name": "string",
+            "tipo": "string",
+            "updated_at": "string",
+            "user_id": "int"
+        }
+    ],
+    "horario_hoy": [],
+    "horario_manana": [],
+    "intentos_fallidos": [],
+    "mis_publicaciones": [
+        {
+            "contenido": "string",
+            "created_at": "string",
+            "deleted_at": "null",
+            "deleted_by": "null",
+            "id": "int",
+            "imagen_id": "null",
+            "imagen_nombre": "null",
+            "para_acudientes": "int",
+            "para_administradores": "int",
+            "para_alumnos": "int",
+            "para_profes": "int",
+            "para_todos": "int",
+            "persona_id": "int",
+            "tipo_persona": "string",
+            "updated_at": "string"
+        }
+    ],
+    "profes_actuales": [
+        {
+            "apellidos": "string",
+            "browser_family": "null",
+            "cant_asignaturas": "int",
+            "celular": "null|string",
+            "device_family": "null",
+            "email": "null|string",
+            "entorno": "null",
+            "fecha_ingreso": "null",
+            "fecha_nac": "string",
+            "foto_id": "int|null",
+            "foto_nombre": "string",
+            "id": "null",
+            "imagen_id": "null",
+            "imagen_nombre": "string",
+            "ip": "null",
+            "nombres": "string",
+            "platform_family": "null",
+            "porcentaje": "int",
+            "profesor_id": "int",
+            "sexo": "string",
+            "telefono": "null",
+            "user_id": "int",
+            "username": "string"
+        }
+    ],
+    "profesores": [],
+    "publicaciones": [
+        {
+            "comentarios": [],
+            "contenido": "string",
+            "created_at": "string",
+            "deleted_at": "null",
+            "deleted_by": "null",
+            "foto_autor": "null",
+            "id": "int",
+            "imagen_id": "null",
+            "imagen_nombre": "null",
+            "nombre_autor": "string",
+            "para_acudientes": "int",
+            "para_administradores": "int",
+            "para_alumnos": "int",
+            "para_profes": "int",
+            "para_todos": "int",
+            "persona_id": "int",
+            "tipo_persona": "string",
+            "updated_at": "string"
+        }
+    ]
+}

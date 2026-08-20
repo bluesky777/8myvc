@@ -1,0 +1,14 @@
+[
+    {
+        "abrev": "string",
+        "created_at": "string",
+        "grado_id": "int",
+        "id": "int",
+        "nombre": "string",
+        "nombre_grado": "string",
+        "orden": "int",
+        "titular_id": "int",
+        "updated_at": "string",
+        "year_id": "int"
+    }
+]

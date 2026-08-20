@@ -1,0 +1,43 @@
+[
+    {
+        "abrev_grupo": "string",
+        "apellidos": "null|string",
+        "ciudad_nac": "null|string",
+        "email": "null|string",
+        "fecha_nac": "null|string",
+        "foto_id": "int|null",
+        "foto_nombre": "string",
+        "grupo_id": "string",
+        "imagen_id": "int|null",
+        "imagen_nombre": "string",
+        "nombre_grupo": "string",
+        "nombres": "string",
+        "perms": [
+            "string"
+        ],
+        "persona_id": "int",
+        "roles": [
+            {
+                "created_at": "string",
+                "created_by": "null",
+                "deleted_at": "null",
+                "deleted_by": "null",
+                "description": "null",
+                "display_name": "null",
+                "id": "int",
+                "name": "string",
+                "pivot": {
+                    "role_id": "int",
+                    "user_id": "int"
+                },
+                "updated_at": "string",
+                "updated_by": "null"
+            }
+        ],
+        "sexo": "string",
+        "tipo": "string",
+        "user_id": "int",
+        "username": "string",
+        "year_id": "string"
+    }
+]

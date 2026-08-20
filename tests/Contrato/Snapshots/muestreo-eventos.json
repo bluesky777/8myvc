@@ -1,0 +1,9 @@
+{
+    "votaciones": {
+        "hay": "bool",
+        "rutear": "bool",
+        "signed": "bool",
+        "state": "string",
+        "voted": "bool"
+    }
+}
