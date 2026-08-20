@@ -523,13 +523,24 @@ class GruposController extends Controller {
 
 
 
+	/*
+	 * El listado del grupo nunca devolvió la dirección: la consulta hacía
+	 * `(a.direccion + " - " + a.barrio)`, y en MySQL el `+` es suma aritmética, no
+	 * concatenación. Las dos cadenas se convertían a número, así que salía 0 —o
+	 * null si a alguna le faltaba valor—. La pantalla llevaba imprimiendo eso desde
+	 * que se escribió.
+	 *
+	 * CONCAT_WS y no CONCAT porque CONCAT devuelve null si un argumento es null, y
+	 * un alumno sin barrio perdería también la dirección. NULLIF para que la cadena
+	 * vacía cuente como ausente y no deje un " - " colgando.
+	 */
 	public function getListado($grupo_id)
 	{
 		$user = User::fromToken();
 		$consulta = 'SELECT m.alumno_id, a.user_id, u.username, a.nombres, a.apellidos, a.sexo, a.fecha_nac, m.estado,
 						u.imagen_id, IFNULL(i.nombre, IF(a.sexo="F","default_female.png", "default_male.png")) as imagen_nombre, 
 						a.foto_id, IFNULL(i2.nombre, IF(a.sexo="F","default_female.png", "default_male.png")) as foto_nombre,
-						(a.direccion + " - " + a.barrio) as direccion, a.facebook, a.pazysalvo, a.deuda
+						CONCAT_WS(" - ", NULLIF(a.direccion, ""), NULLIF(a.barrio, "")) as direccion, a.facebook, a.pazysalvo, a.deuda
 					FROM alumnos a
 					inner join matriculas m on m.alumno_id=a.id and m.grupo_id=:grupo_id and (m.estado="PREM" OR m.estado="MATR" OR m.estado="ASIS") and m.deleted_at is null 
 					left join users u on u.id=a.user_id

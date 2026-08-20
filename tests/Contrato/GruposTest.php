@@ -115,47 +115,56 @@ class GruposTest extends CasoDeContrato
     // ------------------------------------------------------------- El listado
 
     /**
-     * El listado del grupo nunca trae la dirección. Hoy.
+     * El listado del grupo trae la dirección, que hasta hoy nunca trajo.
      *
-     * `(a.direccion + " - " + a.barrio) as direccion`: en MySQL el `+` es suma
-     * aritmética, no concatenación. Las dos cadenas se convierten a número, así
-     * que el resultado es **0** cuando las dos tienen valor y **null** si a
-     * alguna le falta. Nunca la dirección. La pantalla lleva imprimiendo eso
-     * desde que se escribió la consulta.
+     * La consulta hacía `(a.direccion + " - " + a.barrio) as direccion`, y en
+     * MySQL el `+` es suma aritmética, no concatenación: las dos cadenas se
+     * convertían a número, así que salía **0** cuando las dos tenían valor y
+     * **null** si a alguna le faltaba. La pantalla llevaba imprimiendo eso desde
+     * que se escribió la consulta.
      *
-     * Se fija como está porque arreglarlo —`CONCAT_WS(' - ', ...)`— cambia la
-     * respuesta de un endpoint en producción, y la Fase 0 escribe lo que hay.
-     * **Este test debe fallar el día que se arregle**, y ese es su trabajo.
+     * Arreglado el 19 ago 2026 con `CONCAT_WS`, no con `CONCAT`: `CONCAT`
+     * devuelve null si un argumento es null, y un alumno sin barrio habría
+     * perdido también la dirección. El `NULLIF` es para que la cadena vacía
+     * cuente como ausente y no deje un « - » colgando.
+     *
+     * El test comprueba las tres combinaciones porque son las tres que hay en
+     * datos reales, y las tres se comportan distinto.
      */
-    public function test_el_listado_del_grupo_trae_la_direccion_en_cero(): void
+    public function test_el_listado_del_grupo_trae_la_direccion(): void
     {
         [$grupo, $token] = $this->grupoYPersonal();
+
+        $alumnos = DB::select('SELECT a.id FROM alumnos a
+            INNER JOIN matriculas m ON m.alumno_id = a.id AND m.grupo_id = ?
+                AND m.deleted_at IS NULL AND m.estado IN ("PREM","MATR","ASIS")
+            WHERE a.deleted_at IS NULL ORDER BY a.id LIMIT 3', [$grupo->id]);
+
+        $this->assertCount(3, $alumnos, 'Hacen falta tres alumnos en el grupo para este test.');
+
+        $casos = [
+            [$alumnos[0]->id, 'Calle 5 #12-30', 'El Prado', 'Calle 5 #12-30 - El Prado'],
+            [$alumnos[1]->id, 'Carrera 9 #4-11', null, 'Carrera 9 #4-11'],
+            [$alumnos[2]->id, null, 'La Ceiba', 'La Ceiba'],
+        ];
+
+        foreach ($casos as [$id, $direccion, $barrio]) {
+            DB::update('UPDATE alumnos SET direccion = ?, barrio = ? WHERE id = ?',
+                [$direccion, $barrio, $id]);
+        }
 
         $r = $this->getJson("/api/grupos/listado/{$grupo->id}", ['Authorization' => 'Bearer '.$token]);
 
         $r->assertStatus(200);
 
-        $lista = $r->json();
+        $porAlumno = collect($r->json())->keyBy('alumno_id');
 
-        $this->assertNotEmpty($lista, 'El listado del grupo salió vacío.');
-
-        $conDireccion = DB::selectOne('SELECT COUNT(*) n FROM alumnos a
-            INNER JOIN matriculas m ON m.alumno_id = a.id AND m.grupo_id = ? AND m.deleted_at IS NULL
-            WHERE a.deleted_at IS NULL AND a.direccion IS NOT NULL AND a.direccion <> ""', [$grupo->id])->n;
-
-        $this->assertGreaterThan(0, $conDireccion,
-            'Ningún alumno del grupo tiene dirección, así que este test no comprueba nada.');
-
-        foreach ($lista as $fila) {
-            $this->assertContains($fila['direccion'], [0, null],
-                "`direccion` dejó de venir en 0 o null. Si se cambió el `+` por CONCAT,\n".
-                'este test hay que sustituirlo por el que compruebe la dirección de verdad.');
+        foreach ($casos as [$id, , , $esperado]) {
+            $this->assertSame($esperado, $porAlumno[$id]['direccion'],
+                "La dirección del alumno {$id} no se compuso como debía.");
         }
 
-        $this->assertContains(0, array_column($lista, 'direccion'),
-            'Ninguna fila trajo el 0 de la suma; el caso que documenta este test ya no aparece.');
-
-        $this->compararConInstantanea('grupos-listado', $this->formaUnida($lista));
+        $this->compararConInstantanea('grupos-listado', $this->formaUnida($r->json()));
     }
 
     // ------------------------------------------------------------- El CRUD

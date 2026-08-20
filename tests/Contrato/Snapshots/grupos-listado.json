@@ -3,7 +3,7 @@
         "alumno_id": "int",
         "apellidos": "string",
         "deuda": "int",
-        "direccion": "int|null",
+        "direccion": "string",
         "estado": "string",
         "facebook": "null",
         "fecha_nac": "string",

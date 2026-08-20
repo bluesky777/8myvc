@@ -192,54 +192,51 @@ class BoletinesTest extends CasoDeContrato
     }
 
     /**
-     * Sin el segmento de la URL, el acumulado del año sale entero en ceros. Hoy.
+     * Sin el segmento de la URL, el acumulado calcula igual que con `de_usuario`.
      *
-     * Encontrado escribiendo el test de arriba, al ver `periodos: []` en el
-     * primer snapshot. **Hay dos funciones cuyos nombres se diferencian en una
-     * letra y que no aceptan lo mismo:**
+     * Hasta el 19 ago 2026 salía entero en ceros. **Hay dos funciones cuyos
+     * nombres se diferencian en una letra y que no aceptan lo mismo:**
      *
      * - `Periodo::hastaPeriodoN($year_id, $periodo_a_calcular = 10)` toma un
      *   NÚMERO, y su 10 significa «hasta el periodo 10», o sea todos.
      * - `Periodo::hastaPeriodo($year_id, $periodos_a_calcular = 'de_usuario')`
      *   toma una CADENA, y solo entiende `de_colegio`, `de_usuario` y `todos`.
      *
-     * `getDetailedNotasYear($grupo_id, $periodo_a_calcular = 10)` lleva el
-     * default de la primera y se lo pasa por debajo a la segunda. Ninguna rama
-     * del `if` casa con `10`, así que `$periodos` se queda en el `new stdClass()`
-     * con el que se inicializa; el `foreach` no itera y el `count()` sobre un
-     * stdClass lanza TypeError, que el `try/catch` de `alumnoAsignaturasPeriodosDetailed`
-     * convierte en `nota = 0`. Respuesta 200, informe en blanco, sin una línea
-     * en el log. Lo mismo en `boletines2` y `boletines3`: son copias.
+     * `getDetailedNotasYear` llevaba el default de la primera y se lo pasaba por
+     * debajo a la segunda. Ninguna rama del `if` casaba, `$periodos` se quedaba
+     * en el `new stdClass()` inicial, y el TypeError del `count()` lo convertía
+     * en `nota = 0` un `try/catch`. Respuesta 200, informe en blanco, sin una
+     * línea en el log. Lo mismo en `boletines2` y `boletines3`.
      *
-     * **Aquí no se arregla.** La Fase 0 escribe lo que hace hoy, y cuál de los
-     * dos criterios es el correcto —«hasta el periodo del usuario» o «todos»—
-     * lo decide el colegio, no el diff. Lo que hace este test es que el día que
-     * se decida, se note si cambia.
+     * Se descubrió mirando `periodos: []` en el primer snapshot, no leyendo el
+     * código: los dos nombres se parecen demasiado para verlo de un vistazo.
      *
-     * Que `subunidadesPerdidas` falte en la respuesta es la prueba de que la
-     * excepción saltó: es la línea siguiente a la que revienta.
+     * Este test compara las dos respuestas en vez de mirar números concretos.
+     * Los números son cálculo de notas y el §5 los declara intocables; lo que
+     * aquí se afirma es que el default y `de_usuario` son ya la misma cosa, que
+     * es exactamente lo que se arregló.
      */
     #[DataProvider('familias')]
-    public function test_el_acumulado_del_year_sin_parametro_sale_en_ceros(string $familia): void
+    public function test_el_acumulado_sin_parametro_calcula_como_de_usuario(string $familia): void
     {
         [$grupo, $token] = $this->grupoYPersonal();
+        $cab = ['Authorization' => 'Bearer '.$token];
 
-        $r = $this->getJson("/api/{$familia}/detailed-notas-year/{$grupo->id}",
-            ['Authorization' => 'Bearer '.$token]);
+        $sinParametro = $this->getJson("/api/{$familia}/detailed-notas-year/{$grupo->id}", $cab);
+        $deUsuario = $this->getJson("/api/{$familia}/detailed-notas-year/{$grupo->id}/de_usuario", $cab);
 
-        $r->assertStatus(200);
+        $sinParametro->assertStatus(200);
+        $deUsuario->assertStatus(200);
 
-        $alumno = $r->json('2.0');
+        $this->assertSame($deUsuario->json(), $sinParametro->json(),
+            'El default de la URL volvió a no ser `de_usuario`.');
 
-        $this->assertSame(0, $alumno['promedio_year'],
-            'El acumulado sin parámetro ya no sale en ceros. Si se arregló, borra este test.');
+        $asignatura = $sinParametro->json('2.0.asignaturas.0');
 
-        $asignatura = $alumno['asignaturas'][0];
-
-        $this->assertSame([], $asignatura['periodos']);
-        $this->assertSame(0, $asignatura['nota_asignatura_year']);
-        $this->assertArrayNotHasKey('subunidadesPerdidas', $asignatura,
-            'Apareció `subunidadesPerdidas`: la excepción que la impedía ya no salta.');
+        $this->assertNotEmpty($asignatura['periodos'],
+            'El acumulado sigue saliendo sin periodos.');
+        $this->assertArrayHasKey('subunidadesPerdidas', $asignatura,
+            'Falta `subunidadesPerdidas`, que es la línea siguiente a la que reventaba.');
     }
 
     // -------------------------------------------------------- Boletines finales

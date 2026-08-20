@@ -19,6 +19,23 @@ class PrematriculasController extends Controller {
 
 
 
+	/*
+	 * Dos arreglos del 19 ago 2026, los dos encontrados escribiendo los tests del P1.
+	 *
+	 * 1. `llevo_formulario` no existía. No estaba en el volcado de la base real ni en la de
+	 *    desarrollo, y este método empieza borrando de ella: la ruta era un 500 seguro desde
+	 *    siempre. La crea database/migrations/2026_08_19_110000_create_llevo_formulario_table.php,
+	 *    donde está también lo que queda por decidir — el sistema ya registra lo mismo como
+	 *    `matriculas.estado = 'FORM'`, y nadie lee esta tabla todavía.
+	 *
+	 * 2. El INSERT pasaba cinco valores para cinco columnas, pero corridos: a
+	 *    `llevo_formulario` le llegaba `$now`. O sea que aunque la tabla hubiera existido, la
+	 *    columna que da nombre a todo esto habría guardado una fecha.
+	 *
+	 * El DELETE mezclaba claves con y sin dos puntos (`'alumno_id'` y `':year'`). Laravel lo
+	 * normaliza, así que funcionaba, pero se uniforma para que no parezca que hay dos cosas
+	 * distintas.
+	 */
 	public function putLlevoFormulario()
 	{
 		if (($this->user->tipo == 'Profesor' && $this->user->profes_can_edit_alumnos) || $this->user->is_superuser) {
@@ -28,15 +45,15 @@ class PrematriculasController extends Controller {
 			$now 			= Carbon::now('America/Bogota');
 
 			$consulta = 'DELETE	FROM llevo_formulario 
-				WHERE alumno_id = :alumno_id and year=:year';
+				WHERE alumno_id = :alumno_id and year = :year';
 
-			DB::delete($consulta, ['alumno_id'=>$alumno_id, ':year'=>$year]);
+			DB::delete($consulta, [':alumno_id' => $alumno_id, ':year' => $year]);
 			
 			if ($llevo) {
 				$consulta = 'INSERT INTO llevo_formulario(alumno_id, year, llevo_formulario, created_at, updated_at) 
-					VALUE(?,?,?,?,?)';
+					VALUES(?,?,?,?,?)';
 
-				$matri = DB::insert($consulta, [ $alumno_id, $year, $now, $now, $now ] );
+				DB::insert($consulta, [ $alumno_id, $year, 1, $now, $now ] );
 
 			}
 			

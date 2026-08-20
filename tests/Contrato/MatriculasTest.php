@@ -404,23 +404,100 @@ class MatriculasTest extends CasoDeContrato
     /**
      * `prematricular` es la excepción: la abren también a Alumno y a Acudiente.
      *
-     * Y **no comprueba de qué alumno se trata**. `alumno_id` llega en el cuerpo
-     * de la petición, así que con un token de alumno se puede mover la matrícula
-     * de cualquier compañero: cambiarle el estado y meterlo en otro grupo.
-     * Comprobado contra el seed, responde 200 y la fila queda escrita.
+     * Y **no comprobaba de qué alumno se trataba**. `alumno_id` llega en el
+     * cuerpo de la petición, así que con un token de alumno se movía la matrícula
+     * de cualquier compañero: cambiarle el estado y meterlo en otro grupo. Es el
+     * mismo agujero que el IDOR de notas del P0 pero de ESCRITURA, y se comprobó
+     * contra el seed antes de cerrarlo: respondía 200 y la fila quedaba escrita.
      *
-     * Es el mismo agujero que el IDOR de notas del P0 pero de ESCRITURA, y no se
-     * cierra aquí por lo mismo que no se cerró el paz y salvo de las notas: la
-     * apertura a Alumno y Acudiente es deliberada —la prematrícula del año
-     * siguiente la hace la familia desde su cuenta— y acotarla a «el suyo» es una
-     * decisión del colegio con efecto en producción desde el despliegue. Hay
-     * middleware para hacerlo en una línea (`boletin.propio`, que ya entiende el
-     * `alumno_id` suelto).
+     * Cerrado el 19 ago 2026 con `boletin.propio:sin-paz-y-salvo`, el middleware
+     * que ya hacía esta misma comprobación para los boletines y que entiende el
+     * `alumno_id` suelto. Joseth confirmó la regla: **un acudiente solo puede
+     * prematricular a sus acudidos.**
      *
-     * **Este test pasa hoy y debe fallar el día que se cierre.** Cuando eso pase,
-     * la respuesta correcta es cambiarlo por su contrario, no borrarlo.
+     * Sin paz y salvo a propósito: retener el boletín de quien debe es una cosa e
+     * impedirle matricularse el año siguiente es otra, y esa nadie la ha pedido.
      */
-    public function test_hoy_un_alumno_puede_prematricular_a_un_companero(): void
+    public function test_un_alumno_no_puede_prematricular_a_un_companero(): void
+    {
+        [$yo, $mio, $companero, $grupo] = $this->alumnoYCompanero();
+
+        $this->putJson('/api/matriculas/prematricular', [
+            'alumno_id' => $companero->id,
+            'grupo_id' => $grupo->id,
+            'estado' => 'PREM',
+            'anio_sig' => 0,
+        ], ['Authorization' => 'Bearer '.$this->tokenDe($yo->username)])
+            ->assertStatus(403)
+            ->assertJsonPath('message', 'No puedes ver el de otros');
+
+        $this->assertNotSame('PREM',
+            DB::selectOne('SELECT estado e FROM matriculas
+                WHERE alumno_id = ? AND grupo_id = ? AND deleted_at IS NULL',
+                [$companero->id, $grupo->id])->e,
+            'El rechazo llegó tarde: la matrícula del compañero ya estaba escrita.');
+    }
+
+    /** Y sí puede prematricularse él, que es para lo que la ruta está abierta. */
+    public function test_un_alumno_si_puede_prematricularse(): void
+    {
+        [$yo, $mio, , $grupo] = $this->alumnoYCompanero();
+
+        $r = $this->putJson('/api/matriculas/prematricular', [
+            'alumno_id' => $mio->id,
+            'grupo_id' => $grupo->id,
+            'estado' => 'PREM',
+            'anio_sig' => 0,
+        ], ['Authorization' => 'Bearer '.$this->tokenDe($yo->username)]);
+
+        $this->assertNotSame(403, $r->getStatusCode(),
+            'El guard rechaza a un alumno prematriculándose a sí mismo.');
+    }
+
+    /** El acudiente, solo a sus acudidos. */
+    public function test_un_acudiente_solo_prematricula_a_sus_acudidos(): void
+    {
+        $grupo = $this->grupoConAlumnos();
+
+        $suyo = DB::selectOne('SELECT u.username, p.alumno_id FROM users u
+            INNER JOIN acudientes ac ON ac.user_id = u.id AND ac.deleted_at IS NULL
+            INNER JOIN parentescos p ON p.acudiente_id = ac.id AND p.deleted_at IS NULL
+            INNER JOIN matriculas m ON m.alumno_id = p.alumno_id AND m.grupo_id = ?
+                AND m.deleted_at IS NULL
+            INNER JOIN periodos per ON per.id = u.periodo_id
+            WHERE u.tipo = "Acudiente" AND u.is_active = 1 AND u.deleted_at IS NULL
+            ORDER BY u.id LIMIT 1', [$grupo->id]);
+
+        $this->assertNotNull($suyo, 'El seed no tiene un acudiente con acudido en el grupo.');
+
+        $ajeno = DB::selectOne('SELECT a.id FROM alumnos a
+            INNER JOIN matriculas m ON m.alumno_id = a.id AND m.grupo_id = ? AND m.deleted_at IS NULL
+            WHERE a.id <> ? AND a.deleted_at IS NULL
+              AND a.id NOT IN (SELECT p.alumno_id FROM parentescos p
+                  INNER JOIN acudientes ac ON ac.id = p.acudiente_id
+                  INNER JOIN users u ON u.id = ac.user_id AND u.username = ?
+                  WHERE p.deleted_at IS NULL)
+            ORDER BY a.id LIMIT 1', [$grupo->id, $suyo->alumno_id, $suyo->username]);
+
+        $cab = ['Authorization' => 'Bearer '.$this->tokenDe($suyo->username)];
+        $cuerpo = ['grupo_id' => $grupo->id, 'estado' => 'PREM', 'anio_sig' => 0];
+
+        $this->putJson('/api/matriculas/prematricular',
+            $cuerpo + ['alumno_id' => $ajeno->id], $cab)
+            ->assertStatus(403)
+            ->assertJsonPath('message', 'No es acudiente de este alumno. Lo siento.');
+
+        // Y su acudido sí, aunque deba: el paz y salvo no aplica aquí.
+        DB::update('UPDATE alumnos SET pazysalvo = 0 WHERE id = ?', [$suyo->alumno_id]);
+
+        $this->assertNotSame(403,
+            $this->putJson('/api/matriculas/prematricular',
+                $cuerpo + ['alumno_id' => $suyo->alumno_id], $cab)->getStatusCode(),
+            'El paz y salvo se está aplicando a la prematrícula, y no debe.');
+    }
+
+    /** El usuario alumno del seed, su ficha, un compañero suyo y el grupo. */
+    private function alumnoYCompanero(): array
     {
         $grupo = $this->grupoConAlumnos();
         $yo = $this->usuarioDeTipo('Alumno');
@@ -431,56 +508,67 @@ class MatriculasTest extends CasoDeContrato
             INNER JOIN matriculas m ON m.alumno_id = a.id AND m.grupo_id = ? AND m.deleted_at IS NULL
             WHERE a.id <> ? AND a.deleted_at IS NULL ORDER BY a.id LIMIT 1', [$grupo->id, $mio->id]);
 
-        $this->putJson('/api/matriculas/prematricular', [
-            'alumno_id' => $companero->id,
-            'grupo_id' => $grupo->id,
-            'estado' => 'PREM',
-            'anio_sig' => 0,
-        ], ['Authorization' => 'Bearer '.$this->tokenDe($yo->username)])->assertStatus(200);
-
-        $this->assertSame('PREM',
-            DB::selectOne('SELECT estado e FROM matriculas
-                WHERE alumno_id = ? AND grupo_id = ? AND deleted_at IS NULL',
-                [$companero->id, $grupo->id])->e,
-            "El agujero se cerró: un alumno ya no puede mover la matrícula de otro.\n".
-            'Cámbialo por su contrario en vez de borrarlo.');
+        return [$yo, $mio, $companero, $grupo];
     }
 
     // ---------------------------------------------------------- Prematrículas
 
     /**
-     * `prematriculas/llevo-formulario` escribe en una tabla que no existe.
+     * `prematriculas/llevo-formulario` guarda, que hasta hoy era un 500 seguro.
      *
-     * `llevo_formulario` no está en `database/schema/mysql-schema.sql` —que es el
-     * volcado de la base real, las 90 tablas— ni en la de desarrollo. El método
-     * hace `DELETE FROM llevo_formulario` de entrada, así que la ruta es un 500
-     * seguro en producción desde siempre.
+     * Dos cosas estaban rotas y las dos salieron escribiendo este test:
      *
-     * Es el mismo caso que `failed_jobs`, ya anotado en el documento de tests:
-     * código que da por hecha una tabla que nadie creó. Se fija como está —el
-     * test dice «hoy revienta»— porque crear la tabla es decidir un esquema, y
-     * quitar la ruta es decidir que la pantalla que la llama sobra. Ninguna de
-     * las dos es cosa de la Fase 0.
+     * 1. **`llevo_formulario` no existía.** No estaba en
+     *    `database/schema/mysql-schema.sql` —el volcado de la base real, las 90
+     *    tablas— ni en la de desarrollo, y el método empieza con un
+     *    `DELETE FROM llevo_formulario`. Mismo caso que `failed_jobs`. La crea
+     *    ahora una migración.
+     * 2. **El INSERT pasaba los cinco valores corridos**: a la columna
+     *    `llevo_formulario` le llegaba la fecha. Aunque la tabla hubiera
+     *    existido, la columna que da nombre a todo esto habría guardado un
+     *    timestamp.
+     *
+     * **Lo que sigue sin decidirse, y por eso se comprueba aquí y no más allá:**
+     * nadie lee esta tabla. El sistema ya registra «llevó el formulario» por otro
+     * camino —`matriculas.estado = 'FORM'`, que escribe `AlumnosController` y lee
+     * `AlumnosFormularios`—, así que hay dos mecanismos para el mismo hecho, uno
+     * vivo y otro que hasta hoy no llegaba a escribir. Cuál se queda es cosa del
+     * colegio y del frontend. Este test afirma lo único que ya no es opinable:
+     * que el endpoint guarda lo que dice que guarda.
      */
-    public function test_llevo_formulario_revienta_porque_su_tabla_no_existe(): void
+    public function test_llevo_formulario_guarda_y_es_idempotente(): void
     {
         $grupo = $this->grupoConAlumnos();
         $matricula = $this->unaMatricula((int) $grupo->id);
+        $cab = ['Authorization' => 'Bearer '.$this->superusuario((int) $grupo->year_id)];
 
-        $this->assertFalse(
-            \Illuminate\Support\Facades\Schema::hasTable('llevo_formulario'),
-            "La tabla `llevo_formulario` ya existe. Si se creó a propósito, este test\n".
-            'sobra y hay que escribir el que compruebe que la ruta guarda.');
+        $cuerpo = ['alumno_id' => $matricula->alumno_id, 'year' => 2026];
 
-        $this->withoutExceptionHandling();
+        $this->putJson('/api/prematriculas/llevo-formulario', $cuerpo + ['llevo_formulario' => 1], $cab)
+            ->assertStatus(200)
+            ->assertJsonPath('modificado', true);
 
-        $this->expectException(\Illuminate\Database\QueryException::class);
+        $fila = DB::selectOne('SELECT llevo_formulario FROM llevo_formulario
+            WHERE alumno_id = ? AND year = 2026', [$matricula->alumno_id]);
 
-        $this->putJson('/api/prematriculas/llevo-formulario', [
-            'alumno_id' => $matricula->alumno_id,
-            'llevo_formulario' => 1,
-            'year' => 2026,
-        ], ['Authorization' => 'Bearer '.$this->superusuario((int) $grupo->year_id)]);
+        $this->assertNotNull($fila, 'No guardó nada.');
+        $this->assertSame(1, (int) $fila->llevo_formulario,
+            'La columna `llevo_formulario` no guardó el valor; antes le llegaba la fecha.');
+
+        // Marcar dos veces no deja dos filas: el método borra la pareja antes de
+        // insertar, y la migración lo respalda con un UNIQUE(alumno_id, year).
+        $this->putJson('/api/prematriculas/llevo-formulario', $cuerpo + ['llevo_formulario' => 1], $cab)
+            ->assertStatus(200);
+
+        $this->assertSame(1, (int) DB::selectOne('SELECT COUNT(*) n FROM llevo_formulario
+            WHERE alumno_id = ? AND year = 2026', [$matricula->alumno_id])->n);
+
+        // Y desmarcar borra la fila, que es lo que significa "no lo llevó".
+        $this->putJson('/api/prematriculas/llevo-formulario', $cuerpo + ['llevo_formulario' => 0], $cab)
+            ->assertStatus(200);
+
+        $this->assertSame(0, (int) DB::selectOne('SELECT COUNT(*) n FROM llevo_formulario
+            WHERE alumno_id = ? AND year = 2026', [$matricula->alumno_id])->n);
     }
 
     /**

@@ -210,25 +210,28 @@ Encontradas construyendo esto. Ninguna está arreglada.
   ella no falla nada: las fotos de móvil suben tumbadas y ya. Hay que confirmarla
   en el PHP 8.4 de cada cuenta de cPanel.
 
-Y cuatro más del P1, ninguno arreglado:
+Y cuatro más del P1, **las cuatro arregladas el mismo día**:
 
-- **`PUT api/matriculas/prematricular` no mira de quién es el `alumno_id`.** La
+- **`PUT api/matriculas/prematricular` no miraba de quién era el `alumno_id`.** La
   ruta está abierta a Alumno y Acudiente a propósito —la prematrícula del año
-  siguiente la hace la familia— pero el id llega en el cuerpo, así que con token
-  de alumno se cambia el estado y el grupo de cualquier compañero. Es el IDOR de
-  notas del P0, de escritura. Se cierra en una línea con `boletin.propio`, que ya
-  entiende el `alumno_id` suelto; falta decidir si un acudiente puede
-  prematricular solo a sus acudidos.
+  siguiente la hace la familia— pero el id llega en el cuerpo, así que con token de
+  alumno se cambiaba el estado y el grupo de cualquier compañero. Era el IDOR de
+  notas del P0, de escritura. Cerrado con `boletin.propio:sin-paz-y-salvo`; un
+  acudiente solo puede prematricular a sus acudidos.
 - **`GET api/boletines/detailed-notas-year/{grupo}` sin el segmento opcional
-  devuelve el acumulado del año entero en ceros**, con 200 y sin log.
-  `Periodo::hastaPeriodoN` toma un número y `Periodo::hastaPeriodo` una cadena;
-  el default `10` de la primera acaba en la segunda, ninguna rama del `if` casa,
-  y el TypeError del `count()` sobre el `stdClass` inicial lo absorbe un
-  `try/catch`. Igual en `boletines2` y `boletines3`. Solo funciona con
-  `de_usuario` o `todos` en la URL.
-- **`GET api/grupos/listado/{grupo}` nunca devuelve la dirección.** La consulta
-  hace `(a.direccion + " - " + a.barrio)`, y en MySQL el `+` es suma: sale `0`, o
-  `null` si falta el barrio.
-- **La tabla `llevo_formulario` no existe**, ni en el volcado de producción ni en
+  devolvía el acumulado del año entero en ceros**, con 200 y sin log.
+  `Periodo::hastaPeriodoN` toma un número y `Periodo::hastaPeriodo` una cadena; el
+  default `10` de la primera acababa en la segunda, ninguna rama del `if` casaba, y
+  el TypeError del `count()` sobre el `stdClass` inicial lo absorbía un `try/catch`.
+  Igual en `boletines2` y `boletines3`. El default es ahora `de_usuario`.
+- **`GET api/grupos/listado/{grupo}` nunca devolvía la dirección.** La consulta
+  hacía `(a.direccion + " - " + a.barrio)`, y en MySQL el `+` es suma: salía `0`, o
+  `null` si faltaba el barrio. Ahora `CONCAT_WS`, que no se traga la dirección
+  cuando falta el barrio.
+- **La tabla `llevo_formulario` no existía**, ni en el volcado de producción ni en
   la de desarrollo, y `PUT api/prematriculas/llevo-formulario` hace un `DELETE`
-  contra ella de entrada. 500 seguro desde siempre. Mismo caso que `failed_jobs`.
+  contra ella de entrada: 500 seguro desde siempre, como `failed_jobs`. La crea una
+  migración, y el INSERT —que pasaba los cinco valores corridos y guardaba la fecha
+  en la columna `llevo_formulario`— quedó arreglado. **Nadie lee esa tabla**: el
+  sistema ya registra lo mismo como `matriculas.estado = 'FORM'`. Cuál de los dos
+  mecanismos se queda es decisión del colegio.

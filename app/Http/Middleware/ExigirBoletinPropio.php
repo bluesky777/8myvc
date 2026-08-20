@@ -29,28 +29,36 @@ use Illuminate\Support\Facades\DB;
  * Los `bitacoras` que insertaba el código original se conservan: son el rastro
  * que mira el colegio cuando alguien reclama.
  *
- * **El modo `notas` (19 ago 2026).** La misma comprobación de propiedad hacía
- * falta en `GET api/notas/alumno/{alumno_id?}`, donde un alumno podía leer las
- * notas de cualquier compañero cambiando el número de la URL. Dos cosas lo
- * separan de los boletines, y por eso es un parámetro y no otro middleware:
+ * **El modo `sin-paz-y-salvo` (19 ago 2026).** La misma comprobación de
+ * propiedad hacía falta en dos sitios donde retener por deuda NO aplica, y por
+ * eso es un parámetro y no otro middleware:
  *
- * - El id llega por la **URL**, no en el cuerpo de la petición.
- * - **No se exige el paz y salvo**, aunque probablemente debería. Retener el
- *   boletín de quien debe la pensión es una decisión del colegio que ya estaba
- *   tomada; extenderla a las notas del día a día sería una decisión NUEVA, y no
- *   es de programación, así que aquí se deja como estaba.
+ * - `GET api/notas/alumno/{alumno_id?}`, donde un alumno podía leer las notas de
+ *   cualquier compañero cambiando el número de la URL. Aquí el id llega por la
+ *   **URL**, no en el cuerpo.
  *
- *   Pero conviene saber esto antes de decidir: **`myvc_front` ya la aplica, y
- *   solo en el navegador.** `NotasAlumnoCtrl.seleccionarAcudido()` corta con un
- *   «Debe estar a paz y salvo» antes de llamar. O sea que la regla ya existe como
- *   intención del producto y hoy la sostiene únicamente el cliente, que es la
- *   mitad que se puede saltar. Si el colegio la confirma, es cambiar `notas` por
- *   `boletin` en la ruta y borrar la comprobación del frontend.
+ *   Sobre el paz y salvo conviene saber esto antes de decidir: **`myvc_front` ya
+ *   lo aplica, y solo en el navegador.** `NotasAlumnoCtrl.seleccionarAcudido()`
+ *   corta con un «Debe estar a paz y salvo» antes de llamar. O sea que la regla
+ *   ya existe como intención del producto y hoy la sostiene únicamente el
+ *   cliente, que es la mitad que se puede saltar. Si el colegio la confirma, es
+ *   quitarle el parámetro a la ruta y borrar la comprobación del frontend.
+ *
+ * - `PUT api/matriculas/prematricular`, la única ESCRITURA de matrículas abierta
+ *   a Alumno y Acudiente —la prematrícula del año siguiente la hace la familia
+ *   desde su cuenta— y que no miraba de quién era el `alumno_id` del cuerpo. Con
+ *   un token de alumno se le cambiaba el estado y el grupo a cualquier
+ *   compañero: el mismo agujero que el de las notas, pero escribiendo. Joseth
+ *   confirmó la regla el 19 ago 2026: **un acudiente solo puede prematricular a
+ *   sus acudidos.**
+ *
+ *   Sin paz y salvo a propósito: retener el boletín de quien debe es una cosa, e
+ *   impedirle matricularse el año siguiente es otra, y esa nadie la ha pedido.
  */
 class ExigirBoletinPropio
 {
     /**
-     * @param  string  $modo  `boletin` (por defecto) o `notas`. Ver la nota de la clase.
+     * @param  string  $modo  `boletin` (por defecto) o `sin-paz-y-salvo`. Ver la nota de la clase.
      */
     public function handle(Request $request, Closure $next, string $modo = 'boletin')
     {
@@ -63,10 +71,12 @@ class ExigirBoletinPropio
         $alumnoId = $this->alumnoPedido($request);
 
         if ($alumnoId === null) {
-            // En `notas` no pedir alumno significa «las mías»: el controlador lo
-            // resuelve del token para un Alumno, y responde 400 a los demás. No
-            // hay nada que proteger todavía.
-            if ($modo === 'notas') {
+            // Sin alumno concreto no hay nada que proteger todavía: en
+            // `notas/alumno` significa «las mías» —el controlador lo resuelve del
+            // token para un Alumno y responde 400 a los demás— y en
+            // `prematricular` la petición no llega a escribir, porque
+            // `matriculas.alumno_id` es NOT NULL.
+            if ($modo === 'sin-paz-y-salvo') {
                 return $next($request);
             }
 
@@ -100,7 +110,7 @@ class ExigirBoletinPropio
             abort(403, 'No es acudiente de este alumno. Lo siento.');
         }
 
-        if ($modo === 'notas') {
+        if ($modo === 'sin-paz-y-salvo') {
             return $next($request);
         }
 
@@ -120,8 +130,8 @@ class ExigirBoletinPropio
      *
      * Tres formas, porque los endpoints de esta familia no se pusieron de
      * acuerdo: la lista `requested_alumnos` (boletines, bolfinales, notas
-     * actuales), el `alumno_id` suelto (certificados-persona) y el segmento de
-     * la URL (`notas/alumno/{alumno_id?}`).
+     * actuales), el `alumno_id` suelto (certificados-persona, prematricular) y
+     * el segmento de la URL (`notas/alumno/{alumno_id?}`).
      */
     private function alumnoPedido(Request $peticion): ?int
     {
