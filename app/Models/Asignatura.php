@@ -72,6 +72,15 @@ class Asignatura extends Model {
 											':year_id' => $year_id]);
 
 
+		// El `[0]` estaba suelto: la consulta une por `g.year_id`, así que una
+		// asignatura de otro año no devuelve filas y esto respondía 500 —con la
+		// traza dentro si `APP_DEBUG` está puesto—. No es un error del servidor:
+		// es que esa asignatura no existe en el año desde el que se pregunta.
+		// Ver 05 §16.
+		if ($asignatura === []) {
+			abort(404, 'Esa asignatura no es de este año');
+		}
+
 		return (array)$asignatura[0];
 	}
 

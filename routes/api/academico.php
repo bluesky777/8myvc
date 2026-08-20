@@ -50,7 +50,9 @@ Route::post('asignaturas/copiar', [AsignaturasController::class, 'postCopiar'])-
 Route::put('asignaturas/datos-asignaturas', [AsignaturasController::class, 'putDatosAsignaturas'])->middleware('auth.personal');
 Route::put('asignaturas/detalle-asignatura', [AsignaturasController::class, 'putDetalleAsignatura'])->middleware('auth.personal');
 Route::get('asignaturas/listasignaturas-alone', [AsignaturasController::class, 'getListasignaturasAlone']);
-Route::get('asignaturas/papelera', [AsignaturasController::class, 'getPapelera']);
+// La papelera del año, con el nombre del profesor de cada asignatura borrada. Es
+// una pantalla de administración y el resto de su familia ya lo era. Ver 05 §16.
+Route::get('asignaturas/papelera', [AsignaturasController::class, 'getPapelera'])->middleware('auth.personal');
 Route::put('asignaturas/restaurar', [AsignaturasController::class, 'putRestaurar'])->middleware('auth.personal');
 Route::put('asignaturas/toggle-dia', [AsignaturasController::class, 'putToggleDia'])->middleware('auth.personal');
 Route::delete('asignaturas/destroy/{id}', [AsignaturasController::class, 'deleteDestroy'])->middleware('auth.personal');
@@ -62,10 +64,16 @@ Route::put('asignaturas/update/{id}', [AsignaturasController::class, 'putUpdate'
 // UnidadesController
 Route::post('unidades', [UnidadesController::class, 'postIndex'])->middleware('auth.personal');
 Route::put('unidades/de-profesor', [UnidadesController::class, 'putDeProfesor'])->middleware('auth.personal');
-Route::get('unidades/trashed', [UnidadesController::class, 'getTrashed']);
+// 29 KB con la papelera académica del colegio entero. No lleva el dato personal
+// de nadie, y por eso el barrido no la vio. Ver 05 §16.
+Route::get('unidades/trashed', [UnidadesController::class, 'getTrashed'])->middleware('auth.personal');
 Route::put('unidades/update-orden', [UnidadesController::class, 'putUpdateOrden'])->middleware('auth.personal');
 Route::put('unidades/de-asignatura-periodo/{asignatura_id}/{periodo_id}', [UnidadesController::class, 'putDeAsignaturaPeriodo'])->middleware('auth.personal');
-Route::get('unidades/de-asignatura-periodo/{asignatura_id}/{periodo_id}/{user?}', [UnidadesController::class, 'getDeAsignaturaPeriodo']);
+// Es la única de `unidades/*` que no lo llevaba, y **escribe**: cuando la
+// asignatura y el periodo no tienen unidades, las crea a partir de las del año
+// —con `created_by` del que pregunta—. Un alumno y un acudiente creaban unidades
+// y subunidades con un GET. Ver 05 §16.
+Route::get('unidades/de-asignatura-periodo/{asignatura_id}/{periodo_id}/{user?}', [UnidadesController::class, 'getDeAsignaturaPeriodo'])->middleware('auth.personal');
 Route::delete('unidades/destroy/{id}', [UnidadesController::class, 'deleteDestroy'])->middleware('auth.personal');
 Route::put('unidades/eliminadas/{asignatura_id}', [UnidadesController::class, 'putEliminadas'])->middleware('auth.personal');
 Route::delete('unidades/forcedelete/{id}', [UnidadesController::class, 'deleteForcedelete'])->middleware('auth.personal');
@@ -74,7 +82,10 @@ Route::put('unidades/update/{id}', [UnidadesController::class, 'putUpdate'])->mi
 
 // SubunidadesController
 Route::post('subunidades', [SubunidadesController::class, 'postIndex'])->middleware('auth.personal');
-Route::get('subunidades/trashed', [SubunidadesController::class, 'getTrashed']);
+// El nombre miente: no devuelve subunidades sino los ALUMNOS BORRADOS del
+// colegio, con documento, fecha de nacimiento, celular y dirección. Salía vacía
+// en el seed porque ahí no hay alumnos borrados. Ver 05 §16.
+Route::get('subunidades/trashed', [SubunidadesController::class, 'getTrashed'])->middleware('auth.personal');
 Route::put('subunidades/update-orden', [SubunidadesController::class, 'putUpdateOrden'])->middleware('auth.personal');
 Route::put('subunidades/update-orden-varias', [SubunidadesController::class, 'putUpdateOrdenVarias'])->middleware('auth.personal');
 Route::delete('subunidades/destroy/{id}', [SubunidadesController::class, 'deleteDestroy'])->middleware('auth.personal');
@@ -149,7 +160,9 @@ Route::put('bolfinales/detailed-notas-year/{grupo_id}', [BolfinalesController::c
 // EditnotaController
 Route::put('editnota/alum-asignatura', [EditnotaController::class, 'putAlumAsignatura'])->middleware('auth.personal');
 Route::get('editnota/detailed-notas-year', [EditnotaController::class, 'getDetailedNotasYear']);
-Route::get('editnota/trashed', [EditnotaController::class, 'getTrashed']);
+// La misma consulta copiada que `subunidades/trashed`: alumnos borrados con sus
+// datos personales, no notas editadas. Ver 05 §16.
+Route::get('editnota/trashed', [EditnotaController::class, 'getTrashed'])->middleware('auth.personal');
 Route::delete('editnota/destroy/{id}', [EditnotaController::class, 'deleteDestroy'])->middleware('auth.personal');
 Route::put('editnota/detailed-notas/{grupo_id}', [EditnotaController::class, 'putDetailedNotas'])->middleware('auth.personal');
 Route::delete('editnota/forcedelete/{id}', [EditnotaController::class, 'deleteForcedelete'])->middleware('auth.personal');

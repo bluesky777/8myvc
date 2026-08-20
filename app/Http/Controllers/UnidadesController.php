@@ -68,7 +68,14 @@ class UnidadesController extends Controller {
 
 	public function getDeAsignaturaPeriodo($asignatura_id, $periodo_id, $user=null)
 	{
-		if ($user==null) {
+		// `is_object` y no `== null`: el tercer parámetro es a la vez el argumento
+		// de la llamada interna de `putDeAsignaturaPeriodo` —que pasa el objeto de
+		// usuario— y el segmento `{user?}` de la URL, que solo puede llegar como
+		// cadena. Con la comparación anterior, una petición con el tercer segmento
+		// se metía aquí con `$user = "1"` y reventaba en `$user->year_id` unas
+		// líneas más abajo: 500 seguro siempre que la asignatura y el periodo no
+		// tuvieran unidades ya. Ver 05 §16.
+		if (! is_object($user)) {
 			$user = User::fromToken();
 		}
 

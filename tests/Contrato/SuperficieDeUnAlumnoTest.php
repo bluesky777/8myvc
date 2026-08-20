@@ -633,4 +633,142 @@ class SuperficieDeUnAlumnoTest extends CasoDeContrato
             ['password' => 'x-1234', 'password_confirmation' => 'x-1234'], $cab)
             ->assertStatus(403);
     }
+
+    /**
+     * Un GET que escribe, que es lo que hacía falta mirar y no se estaba mirando.
+     *
+     * `GET unidades/de-asignatura-periodo/{asignatura}/{periodo}` era la única de
+     * `unidades/*` sin `auth.personal`, y no es una lectura: cuando esa asignatura
+     * y ese periodo no tienen unidades todavía, **las crea** a partir de las
+     * unidades por defecto del año, con `created_by` de quien pregunta. Un alumno
+     * y un acudiente creaban unidades y subunidades en la estructura de notas del
+     * colegio pidiendo una URL.
+     *
+     * No lo encontró ninguna de las tres herramientas, y por tres motivos
+     * distintos que vale la pena separar: el inventario lo tenía en la lista de
+     * lecturas de estructura pendientes de decidir —porque preguntaba por el
+     * identificador, no por lo que hace—; el barrido de escrituras lo golpeó con
+     * `asignatura_id=0`; y aunque lo hubiera golpeado bien, **`unidades_por_defecto`
+     * está vacía en el seed**, así que la rama que escribe no se ejecuta. Por eso
+     * este test la llena primero: sin esa fila, pasaría dijera lo que dijera el
+     * código. Ver 05 §16.
+     */
+    public function test_una_familia_no_crea_unidades_con_un_get(): void
+    {
+        $par = DB::selectOne('SELECT a.id AS asignatura_id, p.id AS periodo_id, p.year_id
+            FROM asignaturas a
+            INNER JOIN grupos g ON g.id = a.grupo_id AND g.deleted_at IS NULL
+            INNER JOIN periodos p ON p.year_id = g.year_id AND p.deleted_at IS NULL
+            WHERE a.deleted_at IS NULL
+              AND NOT EXISTS (SELECT 1 FROM unidades u WHERE u.asignatura_id = a.id
+                              AND u.periodo_id = p.id AND u.deleted_at IS NULL)
+            ORDER BY a.id, p.id LIMIT 1');
+
+        $this->assertNotNull($par, 'El seed no tiene ninguna asignatura sin unidades en algún periodo.');
+
+        // El colegio de verdad tiene unidades por defecto y el seed no. Sin esto
+        // el endpoint sale por el `return ''` y no escribe nunca.
+        DB::insert('INSERT INTO unidades_por_defecto (definicion, porcentaje, obligatoria, orden, year_id, created_at)
+                    VALUES ("Candado", 100, 0, 1, ?, ?)', [$par->year_id, now()]);
+
+        DB::insert('INSERT INTO subunidades_por_defecto (definicion, porcentaje, unidad_defec_id, obligatoria, orden, created_at)
+                    VALUES ("Candado", 100, ?, 0, 1, ?)', [DB::getPdo()->lastInsertId(), now()]);
+
+        $ruta = "/api/unidades/de-asignatura-periodo/{$par->asignatura_id}/{$par->periodo_id}";
+
+        foreach ($this->cabecerasDeUnaFamilia() as $quien => $cab) {
+            $antes = DB::table('unidades')->count();
+
+            $this->getJson($ruta, $cab)->assertStatus(403);
+
+            $this->assertSame($antes, DB::table('unidades')->count(),
+                "El 403 llegó tarde: {$quien} ya había creado unidades con un GET.");
+        }
+    }
+
+    /**
+     * Las papeleras académicas, que no las abre ninguna familia.
+     *
+     * Cuatro rutas de `academico` se quedaron sin guard, y las cuatro son
+     * pantallas de administración cuyas familias enteras ya llevaban
+     * `auth.personal`. Dos de ellas **no devuelven lo que dice su nombre**:
+     * `subunidades/trashed` y `editnota/trashed` son la misma consulta copiada, y
+     * lo que traen son los ALUMNOS BORRADOS del colegio con su documento, su
+     * fecha de nacimiento, su celular y su dirección.
+     *
+     * Aquí solo se comprueba el 403 y no que el dato no salga, al revés que en
+     * `noSaleElDato()`, y es a propósito: **el seed no tiene ningún alumno
+     * borrado**, así que la comprobación del cuerpo pasaría sin significar nada.
+     * Es justo lo que escondió estas dos hasta ahora — el barrido las vio
+     * responder `[]` y siguió. Ver 05 §16.
+     */
+    public static function papelerasAcademicas(): array
+    {
+        return [
+            'la papelera de asignaturas' => ['asignaturas/papelera'],
+            'la papelera de unidades' => ['unidades/trashed'],
+            'los alumnos borrados, con nombre de subunidades' => ['subunidades/trashed'],
+            'los alumnos borrados otra vez, con nombre de editnota' => ['editnota/trashed'],
+        ];
+    }
+
+    #[DataProvider('papelerasAcademicas')]
+    public function test_una_familia_no_abre_las_papeleras_academicas(string $ruta): void
+    {
+        foreach ($this->cabecerasDeUnaFamilia() as $quien => $cab) {
+            // `assertSame` y no `assertStatus`, que se come el mensaje: sin decir
+            // quién de los dos falló, el caso se lee igual para los dos.
+            $this->assertSame(403, $this->getJson('/api/'.$ruta, $cab)->getStatusCode(),
+                "{$quien} sigue abriendo {$ruta}.");
+        }
+    }
+
+    /**
+     * Pedir una asignatura de otro año era un 500, y es un 404.
+     *
+     * `Asignatura::detallada` une por `g.year_id`, así que una asignatura que no
+     * sea del año desde el que se pregunta no devuelve filas — y el `[0]` de la
+     * última línea reventaba. No era un error del servidor: era que esa
+     * asignatura no existe en ese año, que es exactamente un 404. Con `APP_DEBUG`
+     * puesto, además, el 500 se llevaba la traza dentro.
+     *
+     * Se pide con un token del personal a propósito: la ruta sigue sin guard de
+     * propiedad —está en las diez que esperan decisión, [08](../../docs/migracion/08-revision-idor.md)—
+     * y lo que este caso fija es el código, no quién puede pedirla.
+     */
+    public function test_una_asignatura_de_otro_anio_no_revienta(): void
+    {
+        [$grupo, $token] = $this->grupoYPersonal();
+
+        $otroAnio = DB::selectOne('SELECT a.id FROM asignaturas a
+            INNER JOIN grupos g ON g.id = a.grupo_id AND g.deleted_at IS NULL
+            WHERE g.year_id <> ? AND a.deleted_at IS NULL ORDER BY a.id LIMIT 1', [$grupo->year_id]);
+
+        $this->assertNotNull($otroAnio, 'El seed no tiene asignaturas de otro año.');
+
+        $this->getJson("/api/asignaturas/show/{$otroAnio->id}",
+            ['Authorization' => 'Bearer '.$token])->assertStatus(404);
+    }
+
+    /**
+     * Un token de alumno y uno de acudiente, para los casos que valen para los dos.
+     *
+     * La clave es quién es, porque es lo que sale en el mensaje cuando falla: sin
+     * eso, un caso que se rompe solo para el acudiente se lee igual que uno que se
+     * rompe para los dos.
+     *
+     * @return array<string, array<string, string>>
+     */
+    private function cabecerasDeUnaFamilia(): array
+    {
+        $familia = [];
+
+        foreach (['un alumno' => 'Alumno', 'un acudiente' => 'Acudiente'] as $quien => $tipo) {
+            $familia[$quien] = [
+                'Authorization' => 'Bearer '.$this->tokenDe($this->usuarioDeTipo($tipo)->username),
+            ];
+        }
+
+        return $familia;
+    }
 }
