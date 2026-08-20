@@ -150,6 +150,17 @@ Route::put('promovidos/calcular-grupo', [PromovidosController::class, 'putCalcul
 
 // PiarsAlumnosController
 Route::post('piars-alumnos/document', [PiarsAlumnosController::class, 'postDocument'])->middleware('persona.propia');
-Route::put('piars-alumnos/field', [PiarsAlumnosController::class, 'putField']);
+// `auth.personal` desde el 20 ago 2026. Era la única ruta `piars-*` de
+// escritura sin guard ninguno, y el método tampoco miraba el tipo: con un token
+// cualquiera —de alumno o de acudiente— se podía mandar
+// `{id, field: 'reporte', text: '...'}` con el id de CUALQUIER fila de
+// `piars_alumnos` y reescribir la valoración pedagógica de cualquier estudiante.
+// Que además el texto se pintara sin sanear es lo que lo convertía en ejecución
+// de JavaScript en la sesión del docente; eso se cierra aparte, en HtmlDelEditor.
+//
+// El guard deja fuera a alumnos y acudientes, que es hasta donde llega la regla
+// de hoy. Que un profesor solo pueda escribir en los PIAR de SUS grupos es el
+// refactor de permisos entre personal, pendiente (06-autorizacion.md).
+Route::put('piars-alumnos/field', [PiarsAlumnosController::class, 'putField'])->middleware('auth.personal');
 Route::get('piars-alumnos/alumnos/{grupo_id}', [PiarsAlumnosController::class, 'getAlumnos'])->middleware('auth.personal');
 Route::delete('piars-alumnos/document/{alumno_id}', [PiarsAlumnosController::class, 'deleteDocument'])->middleware('persona.propia');

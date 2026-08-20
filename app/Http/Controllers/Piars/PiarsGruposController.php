@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 
 use App\User;
+use App\Support\HtmlDelEditor;
 use App\Http\Controllers\Piars\Utils\PiarsGrupoUtils;
 use App\Http\Controllers\Piars\Utils\PiarsAlumnoUtils;
 use Carbon\Carbon;
@@ -93,7 +94,11 @@ class PiarsGruposController extends Controller {
 		$updated_at = $now;
 		$updated_by = $this->user->user_id;
 
-		$consulta = 'UPDATE piars_grupos 
+		// El texto es HTML del editor y el cliente lo pinta como HTML: lo que no
+		// pase por aquí se ejecuta en la sesión de quien abra el PIAR.
+		$caracterizacion_grupo = HtmlDelEditor::limpiar($caracterizacion_grupo);
+
+		$consulta = 'UPDATE piars_grupos
 			SET caracterizacion_grupo=?, updated_at=?, updated_by=?
 			WHERE id=?';
 		$piars = DB::update($consulta, [

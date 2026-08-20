@@ -318,6 +318,52 @@ class AutorizacionTest extends CasoDeContrato
     }
 
     /**
+     * El PIAR de un estudiante no lo escribe el estudiante.
+     *
+     * Las tres rutas fallaban por motivos distintos y por eso van juntas:
+     *
+     * - `PUT piars-alumnos/field` era la única ruta `piars-*` de escritura **sin
+     *   guard ninguno**, y el método tampoco miraba el tipo. Con un token de
+     *   alumno y el `id` de cualquier fila de `piars_alumnos` se reescribía la
+     *   valoración pedagógica de cualquier estudiante del colegio.
+     * - Las dos de documento sí llevan `persona.propia`, pero ese guard deja
+     *   pasar al alumno **con su propio `alumno_id`**, que es justo el que iba a
+     *   mandar. Lo único que las separaba de un alumno subiendo documentos a su
+     *   PIAR era un `if` en el método que construía la respuesta sin devolverla.
+     *
+     * Se golpea con `id` inexistente a propósito: si el 403 dependiera de que la
+     * fila exista, el test pasaría por el motivo equivocado.
+     */
+    public function test_un_alumno_no_escribe_en_el_piar(): void
+    {
+        [$token, $mio] = $this->alumnoYCompanero();
+        $cab = ['Authorization' => 'Bearer '.$token];
+
+        $this->putJson('/api/piars-alumnos/field',
+            ['id' => 999999, 'field' => 'reporte', 'text' => '<b>x</b>'], $cab)
+            ->assertStatus(403);
+
+        $this->postJson('/api/piars-alumnos/document',
+            ['alumno_id' => $mio->alumno_id, 'documentField' => 'documento1'], $cab)
+            ->assertStatus(403);
+
+        $this->deleteJson("/api/piars-alumnos/document/{$mio->alumno_id}",
+            ['file_name' => 'documento1'], $cab)
+            ->assertStatus(403);
+    }
+
+    /** Y el personal sigue escribiendo, que era el riesgo de poner el guard. */
+    public function test_el_personal_si_escribe_en_el_piar(): void
+    {
+        $cab = ['Authorization' => 'Bearer '.$this->tokenDe($this->usuarioDeTipo('Usuario')->username)];
+
+        $this->assertNotSame(403,
+            $this->putJson('/api/piars-alumnos/field',
+                ['id' => 999999, 'field' => 'reporte', 'text' => ''], $cab)->getStatusCode(),
+            'El guard nuevo deja fuera al personal, que es quien escribe el PIAR.');
+    }
+
+    /**
      * Qué rutas llevan cada guard de autorización.
      *
      * Sin esto, quitar un `->middleware(...)` de una ruta no rompería nada: los

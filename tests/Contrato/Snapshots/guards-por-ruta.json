@@ -240,6 +240,7 @@
         "PUT api/periodos/toggle-profes-pueden-nivelar",
         "PUT api/periodos/update/{id}",
         "PUT api/periodos/useractive/{periodo_id}",
+        "PUT api/piars-alumnos/field",
         "PUT api/piars-asignaturas/field",
         "PUT api/piars-config/config",
         "PUT api/piars-grupos/contexto-de-grupo",

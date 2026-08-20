@@ -27,11 +27,27 @@ class PiarsActasAcuerdoController extends Controller {
 		return ['alumnos' => $alumnos];
 	}
 
-	public function postDocument()
+	/**
+	 * Solo el personal del colegio.
+	 *
+	 * El `if` de siempre construía la respuesta y NO la devolvía, así que no
+	 * comprobaba nada. A diferencia de `PiarsAlumnosController`, aquí las dos
+	 * rutas ya llevan `auth.personal`, que deja fuera a alumnos y acudientes
+	 * antes de llegar: esto es cinturón sobre tirantes, no el cierre de un
+	 * agujero. Se arregla igual porque el guard de la ruta puede moverse y
+	 * porque un `if` que no corta invita a confiar en él.
+	 */
+	private function exigirPersonal()
 	{
 		if ($this->user->tipo != 'Usuario' && $this->user->tipo != 'Profesor') {
-			response()->json(['error' => 'Unknownthorized'], 400);
+			abort(403, 'No tienes permiso');
 		}
+	}
+
+	public function postDocument()
+	{
+		$this->exigirPersonal();
+
 		Request::validate([
 			'file' => 'required',
 			'alumno_id' => 'required',
@@ -93,14 +109,17 @@ class PiarsActasAcuerdoController extends Controller {
 				':history' => $arr,
 			]);
 		}
-		return ['document' => $document];
+
+		// `documento` es nuevo. El nombre final lo decide el servidor —carpeta
+		// `user_<user_id>/` y `(1)`, `(2)`… al chocar, ver SafeUpload— así que
+		// el cliente no puede deducirlo: sin esto pintaba un enlace roto hasta
+		// que se recargaba la página. `document` se mantiene por si algo lo lee.
+		return ['document' => $document, 'documento' => $fullPath];
 	}
 
 	public function deleteDocument($alumno_id)
 	{
-		if ($this->user->tipo != 'Usuario' && $this->user->tipo != 'Profesor') {
-			response()->json(['error' => 'Unknownthorized'], 400);
-		}
+		$this->exigirPersonal();
 
 		$now 				= Carbon::now('America/Bogota');
 		$year_id 			= Request::input('yearId');
@@ -108,37 +127,41 @@ class PiarsActasAcuerdoController extends Controller {
 		$consulta = 'SELECT * FROM piars_actas_acuerdo WHERE alumno_id=? and year_id=?';
 		$alumno_piar = DB::select($consulta, [$alumno_id, $year_id]);
 
-		if (count($alumno_piar) > 0) {
-			$documentValue = $alumno_piar[0]->documento;
-			$fileToDelete = $documentValue;
+		// Sin fila no hay acta que borrar. Antes se caía por `$document` sin
+		// definir, que era un 500 diciendo «no existe».
+		if (count($alumno_piar) === 0) {
+			abort(404, 'No hay acta de acuerdo para ese alumno y ese año.');
+		}
 
-			$record = [
-				'documento' => $documentValue,
-				'updated_at' => $now,
-				'updated_by' => $this->user->user_id,
-				'updated_by_name' => $this->user->nombres . ' - ' . $this->user->username,
-			];
+		$documentValue = $alumno_piar[0]->documento;
+		$fileToDelete = $documentValue;
 
-			$arr = json_decode($alumno_piar[0]->history);
-			$newArra = [];
-			try {
-				array_push($arr, $record);
-				$newArra = $arr;
-			} catch (\Throwable $th) {
-				// nothing
-			}
-			$arr = json_encode($newArra);
+		$record = [
+			'documento' => $documentValue,
+			'updated_at' => $now,
+			'updated_by' => $this->user->user_id,
+			'updated_by_name' => $this->user->nombres . ' - ' . $this->user->username,
+		];
 
-			$consulta = "UPDATE piars_actas_acuerdo SET documento=null, history=? WHERE alumno_id=? and year_id=?";
-			$document = DB::update($consulta, [$arr, $alumno_id, $year_id]);
+		$arr = json_decode($alumno_piar[0]->history);
+		$newArra = [];
+		try {
+			array_push($arr, $record);
+			$newArra = $arr;
+		} catch (\Throwable $th) {
+			// nothing
+		}
+		$arr = json_encode($newArra);
 
-			$filename 	= 'uploads/'.$fileToDelete;
-		
-			if (File::exists($filename)) {
-				File::delete($filename);
-			}else{
-				Log::info('Alumno ' . $alumno_id . ' -- Al parecer NO existe archivo: ' . $filename);
-			}
+		$consulta = "UPDATE piars_actas_acuerdo SET documento=null, history=? WHERE alumno_id=? and year_id=?";
+		$document = DB::update($consulta, [$arr, $alumno_id, $year_id]);
+
+		$filename 	= 'uploads/'.$fileToDelete;
+	
+		if (File::exists($filename)) {
+			File::delete($filename);
+		}else{
+			Log::info('Alumno ' . $alumno_id . ' -- Al parecer NO existe archivo: ' . $filename);
 		}
 		return ['document' => $document];
 	}
