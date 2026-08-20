@@ -7,6 +7,33 @@ use Illuminate\Support\Facades\DB;
 
 use App\Models\Nota;
 use App\User;
+/**
+ * Las columnas de `subunidades`, tal como están en el esquema congelado.
+ *
+ * Generado desde database/schema/mysql-schema.sql — no se edita a mano.
+ * Ver tools/columnas-en-los-modelos.php.
+ *
+ * --- columnas de la tabla, generadas por tools/columnas-en-los-modelos.php ---
+ *
+ * @property int $id
+ * @property string $definicion
+ * @property int $porcentaje
+ * @property int $unidad_id
+ * @property int $nota_default
+ * @property int $obligatoria
+ * @property int $orden
+ * @property int $por_defecto
+ * @property string $inicia_at
+ * @property string $finaliza_at
+ * @property int $actividad_id
+ * @property int $created_by
+ * @property int $updated_by
+ * @property int $deleted_by
+ * @property string $deleted_at
+ * @property string $created_at
+ * @property string $updated_at
+ * --- fin de las columnas generadas ---
+ */
 
 class Subunidad extends Model {
 	use SoftDeletes;

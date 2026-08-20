@@ -61,9 +61,16 @@ class PiarsGruposController extends Controller {
 		
 		if ($this->user->is_superuser) {
 			$piarsAlumnosUtils->getAcudientes($alumnos_piar);
-		} else {
-			$piarsAlumnosUtils->acudientes = [];
 		}
+		// El `else` escribía `$piarsAlumnosUtils->acudientes = []`, y eso no era
+		// lo que parecía: `getAcudientes()` cuelga `acudientes` de CADA ALUMNO,
+		// no del objeto de utilidades. Nadie leía esa propiedad, así que la rama
+		// no hacía nada — salvo crear una propiedad dinámica sobre una clase
+		// normal, que en PHP 8.2 es una deprecación y en PHP 9 será un error.
+		//
+		// Se borra sin cambiar comportamiento. Lo que queda por decidir es otra
+		// cosa: si un profesor que no es superusuario debería ver `acudientes: []`
+		// en cada alumno en vez de que la clave no aparezca.
 
 		$piarsAlumnosUtils->getMatriculas($alumnos_piar);
 

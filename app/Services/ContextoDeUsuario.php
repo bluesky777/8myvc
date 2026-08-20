@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Periodo;
 use App\User;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -37,12 +38,61 @@ class ContextoDeUsuario
      */
     public function para(User $userTemp)
     {
-        $usuario = [];
-
         if (! $userTemp->periodo_id) {
             $userTemp->periodo_id = Periodo::where('actual', '=', true)->first()->id;
             $userTemp->save();
         }
+
+        $segundos = (int) config('rendimiento.contexto.segundos', 0);
+
+        $usuario = $segundos > 0
+            ? Cache::remember(self::clave($userTemp), $segundos, fn () => $this->construir($userTemp))
+            : $this->construir($userTemp);
+
+        // Fuera de la caché a propósito: es una estática de proceso, y una
+        // petición servida desde la caché tiene que dejarla puesta igual. Lo
+        // lee el cálculo de notas en 26 sitios, desde métodos que no reciben
+        // usuario. Sacarla de ahí es tocar el cálculo de notas, que el §5 del
+        // plan protege.
+        User::$nota_minima_aceptada = $usuario->nota_minima_aceptada;
+
+        return $usuario;
+    }
+
+    /**
+     * La clave del contexto de una persona en un periodo.
+     *
+     * Lleva el nombre de la base dentro, y no por gusto: cada colegio tiene su
+     * propia base pero comparte el servidor, y el día que `storage/` o el driver
+     * de caché dejen de ser propios de cada uno —hoy lo son— una clave
+     * `usuario.contexto.5` le serviría al usuario 5 de un colegio el contexto
+     * del 5 de otro. Cuesta nada y quita esa clase entera de accidente.
+     *
+     * El periodo va en la clave porque al cambiar de año o de periodo el
+     * contexto cambia entero: así se invalida solo, sin que nadie lo borre.
+     */
+    private static function clave(User $userTemp): string
+    {
+        return 'usuario.contexto.'.DB::connection()->getDatabaseName().'.'.$userTemp->id.'.'.$userTemp->periodo_id;
+    }
+
+    /**
+     * Olvida el contexto de esa persona, para que la siguiente petición lo
+     * vuelva a montar.
+     *
+     * Se llama al cambiarle los roles: los permisos viajan dentro del contexto
+     * y `RolesController` decide con ellos, así que un permiso retirado tiene
+     * que dejar de valer en el acto y no cuando caduque la caché.
+     */
+    public static function olvidar(User $usuario): void
+    {
+        Cache::forget(self::clave($usuario));
+    }
+
+    /** El contexto montado desde la base, sin pasar por la caché. */
+    private function construir(User $userTemp)
+    {
+        $usuario = [];
 
         $consulta = '';
         $tipo_tmp = $userTemp->tipo;
@@ -222,11 +272,6 @@ class ContextoDeUsuario
             $usuario->is_superuser = $is_super;
         }
 
-        // Lo lee el cálculo de notas en 26 sitios, desde métodos estáticos de
-        // `Subunidad` y `Asignatura` que no reciben usuario. Sacarlo de ahí es
-        // tocar el cálculo de notas, que el §5 del plan protege, así que se
-        // queda — anotado en la lista de estado estático del plan.
-        User::$nota_minima_aceptada = $usuario->nota_minima_aceptada;
         // *************************************************
         //    Traeremos los roles y permisos
         // *************************************************

@@ -60,9 +60,39 @@ La autenticación se suma **encima** de esos 250 ms.
 > Lo que no está medido es una petición autenticada de verdad contra la base de
 > desarrollo; para eso hace falta una credencial de ese colegio.
 >
-> **Falta el otro lado:** en producción esto depende de la versión de PHP de la
-> cuenta de cPanel, y hay que confirmar que OPcache está activo ahí. Va en
-> docs/DESPLIEGUE.md junto al cambio de versión.
+> **El otro lado también, desde el 20 ago 2026: OPcache está activo en
+> producción.** `php -v` en el servidor dice PHP 8.4.24 *with Zend OPcache
+> v8.4.24*, y en el panel la extensión `opcache` está marcada. **Con eso el paso
+> 1 queda cerrado en los dos lados**, que era la ganancia más grande de todo
+> este documento —de 0,25 s a 0,03 s— y la única que valía la pena confirmar
+> aunque costara entrar al panel.
+>
+> **Dónde mirarlo, que no es obvio:** estas cuentas son CloudLinux (se reconoce
+> por `/opt/alt/php84/` en el `include_path`), y ahí OPcache es una
+> **extensión**, no una opción. En *Select PHP Version* está en la pestaña
+> **Extensions**; en **Options** no aparece nunca, por mucho que se busque.
+
+> ### Los límites de PHP de la cuenta, y qué significan para el paso 13
+>
+> De la misma pantalla, el 20 ago 2026 (cuenta `micolev1`, PHP 8.4):
+>
+> | Ajuste | Valor |
+> |---|---|
+> | `max_execution_time` | **300** s |
+> | `memory_limit` | **768M** |
+> | `post_max_size` · `upload_max_filesize` | 128M |
+> | `display_errors` | Off · `log_errors` On |
+>
+> **Cinco minutos y 768 MB no es un alojamiento apretado.** Eso cambia la
+> conversación del paso 13: «los imports dan timeout» se venía diciendo sin
+> número, y el techo real es de cinco minutos, no de treinta segundos. Antes de
+> construir colas —que son pantalla nueva en los cuatro clientes— hay que saber
+> si algún import se acerca siquiera a ese techo, y eso lo dice el registro de
+> consultas lentas del paso 3.
+>
+> `display_errors` en Off y `log_errors` en On es lo correcto, y de paso cubre
+> la mitad del 🟢 «verificar APP_DEBUG en producción» del plan de seguridad: aunque
+> Laravel tuviera el debug encendido, PHP no está escupiendo errores al cliente.
 
 **Lo que se midió el 17 ago 2026, dentro del contenedor viejo:**
 
@@ -267,6 +297,71 @@ foreach($usuario->roles as $role) {
 
 **Impacto esperado: de 5–8 consultas a 0–1 por petición.**
 
+> ### El punto 3 (cachear el contexto) hecho el 20 ago 2026 — y **apagado**, porque lo que ahorra es ruido
+>
+> El plan lo daba por un día de trabajo con un `Cache::remember` de quince
+> minutos y lo pintaba en 🟠. Está escrito, probado y con su interruptor, y viene
+> **apagado** (`CONTEXTO_SEGUNDOS=0`). El motivo es la medición.
+>
+> **Medido con el driver `file`, que es el de producción**, 200 resoluciones del
+> contexto de un profesor en el docker de desarrollo:
+>
+> | | por resolución | consultas |
+> |---|---|---|
+> | Sin caché | 1,41 ms | 3 |
+> | Con caché | 0,66 ms | 0 |
+>
+> **0,75 ms y tres consultas por petición.** Sobre una petición que costaba 250
+> ms y que con OPcache aspira a 40–70, eso es menos del 2%: la misma familia que
+> el paso 6, que ya quedó marcado como ruido. Encenderlo por defecto en los
+> dieciséis colegios sería pagar un techo de obsolescencia sobre la
+> configuración del año a cambio de algo que no se nota.
+>
+> Se queda el código, con el interruptor, para el colegio cuyo registro de
+> consultas lentas diga que allí sí paga — que es justo la pregunta que el paso 3
+> ahora sabe contestar.
+>
+> **Lo que se comprobó antes de escribirlo, y sale al revés de lo esperado.** Las
+> comprobaciones que de verdad deciden algo NO leen del contexto, releen de la
+> base:
+>
+> | Comprobación | De dónde saca el dato |
+> |---|---|
+> | El boletín y el paz y salvo | `SELECT pazysalvo FROM alumnos` en el guard — fresco |
+> | ¿El profesor puede editar notas o nivelar? | `SELECT * FROM periodos` en `User::pueden_modificar_notas` — fresco |
+> | ¿Es acudiente de este alumno? | `SELECT id FROM parentescos` en el guard — fresco |
+>
+> O sea que cachear **no** deja sin boletín a quien acaba de pagar ni mantiene
+> abierta una ventana de notas recién cerrada, que era el miedo razonable. Lo que
+> sí queda obsoleto es lo que el frontend pinta con el contexto —los mismos
+> flags, pero para decidir si enseña el botón— y los permisos.
+>
+> **Los permisos son la parte que no podía quedarse a medias**, porque
+> `RolesController` decide con `in_array('can_edit_usuarios', $user->perms)`.
+> Quitar un rol borra el contexto de esa persona en el acto
+> (`ContextoDeUsuario::olvidar`), sin esperar a que caduque. Con test.
+>
+> **Y la clave lleva dentro el nombre de la base.** Joseth confirmó el 20 ago
+> 2026 que `storage/` es propia de cada colegio, así que hoy no hay colisión
+> posible; el día que deje de serlo —o que se pase a un Redis compartido— una
+> clave `usuario.contexto.5` le serviría al usuario 5 de un colegio el contexto
+> del 5 de otro. Cuesta nada dejarlo cerrado de antemano, y lo fija un test.
+>
+> **El paso 10 (Redis) queda descartado: no hay Redis.** Joseth lo confirmó el 20
+> ago 2026. Lo que aparece en la lista de PHP 8.4 de cPanel es `phpredis`, la
+> extensión cliente, y sin un servidor corriendo en la cuenta no sirve de nada.
+> Da igual: con la medición de arriba, el paso 10 aceleraría una caché que hoy no
+> compensa tener encendida.
+
+> ### Y el paso 2 (instrumentación en dev) no necesita paquete nuevo
+>
+> Pedía Clockwork o Debugbar «para ver consultas por petición y tiempos». Las dos
+> cosas ya se pueden sin añadir dependencia: `CONSULTAS_LENTAS_MS=1` en el `.env`
+> de desarrollo anota todas las consultas con su ruta, y el conteo por petición
+> lo fija `tests/Contrato/ConsultasPorPeticionTest.php`, que además impide que
+> vuelva a subir sin que nadie se entere — que es más de lo que da una barra en
+> el navegador de una API sin vistas.
+
 ---
 
 ### 5. 🟠 `QUEUE_CONNECTION=sync` · los procesos pesados bloquean la petición HTTP
@@ -276,6 +371,45 @@ Todo corre dentro del request HTTP: importar el Excel de alumnos, generar boleti
 La tabla `jobs` existe y está vacía. La infraestructura está; nadie la usó.
 
 **Arreglo:** `QUEUE_CONNECTION=database` (o `redis`), convertir a Jobs los importadores y los informes largos, y devolver un identificador de tarea que el frontend consulte. No es urgente para el rendimiento *percibido* de las llamadas normales, pero elimina una clase entera de incidentes por timeout.
+
+> ### Mirado el 20 ago 2026: el paso 13 no depende de escribir los Jobs
+>
+> Convertir los importadores a Jobs es la parte fácil. Lo que hay debajo son dos
+> cosas que no se resuelven en este repo:
+>
+> **1. ~~Una cola sin worker no es una cola~~ — resuelto el mismo día: sí hay
+> cron.** Joseth lo miró en el panel de A2 Hosting y está ahí. La duda venía de
+> `App\Console\Commands\LimpiarSesiones`, que decía «no hay garantía de que
+> corra el cron», y era infundada: bastó abrir la pantalla.
+>
+> Con eso queda puesto un cron por colegio —`schedule:run` cada minuto, y lo
+> demás se decide en `app/Console/Kernel.php`— y `sesion:limpiar` ya corre solo.
+> Un worker de cola es el mismo mecanismo: `queue:work --stop-when-empty` desde
+> el scheduler. **Deja de ser un bloqueo y pasa a ser trabajo.**
+>
+> Lo que sigue mereciendo cuidado: si el cron de un colegio no está puesto, un
+> import encolado no falla, se queda ahí — y eso es peor que el timeout de hoy,
+> porque nadie se entera. Encolar exige antes comprobar el cron colegio por
+> colegio, y que la cola avise cuando no se vacía.
+>
+> **2. Cambia el contrato con los clientes, y son cuatro.** Hoy el importador
+> responde con el resultado; encolado responde con un identificador y el cliente
+> tiene que preguntar. Eso es trabajo en `myvc_front`, en `myvc_front_2` y en la
+> app de Flutter —que es **una sola para los dieciséis colegios**, así que no se
+> puede escalonar—. No es una optimización interna: es una funcionalidad nueva
+> con pantalla.
+>
+> **Lo que sí se puede hacer sin nada de eso**, si el problema real es que un
+> import grande se corta: subir `max_execution_time` para esas rutas y trocear el
+> importador para que reporte avance. Pero antes de tocarlo conviene saber si de
+> verdad pasa: el registro de consultas lentas (paso 3) dice cuánto tarda cada
+> ruta en cada colegio, y hasta ahora "los imports dan timeout" es una impresión,
+> no una medición.
+>
+> **Contestado el 20 ago 2026: sí hay cron.** Así que el paso 13 es posible. Lo
+> que queda por decidir ya no es técnico: es si vale la pena la pantalla nueva en
+> los cuatro clientes para un problema —los timeouts en los imports— que todavía
+> nadie ha medido.
 
 ---
 
@@ -303,6 +437,56 @@ Con 1,16 millones de filas en `notas`, un índice ausente en la consulta de bole
 
 Añadir índices a ciegas en una tabla de 1,16 M de filas ralentiza las escrituras y ocupa disco sin garantía de ganancia.
 
+> ### Hecho el 20 ago 2026, y el punto 1 no se podía hacer como está escrito
+>
+> **El `slow_query_log` de MySQL no está a nuestro alcance**: los colegios viven
+> en cuentas de cPanel compartidas, sin `my.cnf` ni `SET GLOBAL`. El paso 3 se
+> montó entonces dentro de la aplicación —`App\Support\ConsultasLentas`, que se
+> enciende con `CONSULTAS_LENTAS_MS` en el `.env` de cada colegio— y de paso da
+> algo que el registro de MySQL no da: **qué ruta hizo la consulta**. Con 538
+> rutas y 990 consultas crudas, un SQL suelto en un log no dice a quién ir a
+> mirar. Lo agrupa `tools/consultas-lentas.py`, por tiempo TOTAL y no por la
+> consulta más lenta.
+>
+> Va **apagado**, y anota la forma de la consulta pero **no sus valores**: por
+> ahí pasan nombres y fechas de nacimiento de menores y el fichero cae en un
+> disco compartido. Las dos reglas llevan test.
+>
+> **Y hubo una medición que no hacía falta esperar.** Lo que decide si un índice
+> FALTA no es el volumen: es que `possible_keys` venga vacío en el EXPLAIN —que
+> no exista ningún índice que el optimizador pudiera considerar—, y eso es una
+> propiedad del esquema. Se mide igual con el seed que con la base de un colegio;
+> lo que cambia con las filas es cuánto cuesta el escaneo, no si el índice está.
+>
+> Así que se midió con lo que ya había: `EXPLICAR_CONSULTAS` anota las consultas
+> que ejecuta la suite de contrato (493 distintas) y `tools/indices-que-faltan.php`
+> les pasa EXPLAIN. **16 tablas** filtran por columnas sin ningún índice detrás.
+>
+> **Entraron tres**, con el criterio de que fallara *todo* lo siguiente: ningún
+> índice para esa columna, tabla que crece sin techo, y consulta en un camino que
+> se recorre muchas veces.
+>
+> | Índice | Por qué | Dónde vive la consulta |
+> |---|---|---|
+> | `parentescos(alumno_id, acudiente_id)` y `(acudiente_id)` | Sin un solo índice. Es el guard que cerró los 27 IDOR: recorría la tabla entera **en cada petición de un acudiente** para contestar sí o no | `ExigirPersonaPropia`, `ExigirBoletinPropio` |
+> | `frases_asignatura(alumno_id, asignatura_id, periodo_id)` | 11.446 filas y ningún índice. No se llama una vez por boletín: **una por asignatura de cada alumno** | `FraseAsignatura::deAlumno()` |
+> | `images(user_id)` | Cada foto de cada alumno y profesor de todos los años, sin ningún índice secundario | galería del perfil, logo del colegio |
+>
+> **Lo único medido en tiempo, y bajo qué condiciones.** Con 11.446 filas —las
+> mismas que tiene producción— y las 360 consultas que son una tanda de boletines
+> de un grupo de treinta con doce asignaturas: **970 ms sin el índice, 44 ms con
+> él.** Es un banco sintético en el MySQL de desarrollo, no un colegio; lo que
+> mide bien es la forma de la ganancia, no el número exacto.
+>
+> **Las otras trece se quedan fuera, y el motivo es la parte interesante.**
+> Catálogos de nueve filas (`years.actual`) y columnas de dos valores
+> (`images.publica`, `users.is_active`) no ganan nada con un índice. Y
+> `bitacoras` enseña dónde está el límite de EXPLAIN: se lee en una pantalla de
+> administración de vez en cuando y se le **INSERTA en cada petición** que pasa
+> por un guard. El índice se pagaría siempre y se cobraría rara vez, y esa cuenta
+> no la decide EXPLAIN — la decide el registro de consultas lentas de producción,
+> que es justo para lo que está.
+
 ### Instrumentación en desarrollo
 
 Instalar en `require-dev` una de estas para ver consultas por petición y tiempos:
@@ -320,18 +504,18 @@ Sin esto, "está lento" no es accionable. Con esto, cada endpoint reporta su con
 | # | Acción | Esfuerzo | Impacto esperado | Depende de |
 |---|---|---|---|---|
 | 1 | **Instalar y configurar OPcache** (dev **y producción**) | 1 h | 🔴 **150–200 ms/petición** | nada |
-| 2 | Instrumentación (Clockwork/Debugbar) en dev | 1 h | medición | nada |
-| 3 | Log de consultas lentas en producción, 1 semana | 30 min | medición | nada |
+| 2 | ~~Instrumentación (Clockwork/Debugbar) en dev~~ · **no hace falta paquete**: ver la nota del §4 | 1 h | medición | nada |
+| 3 | ~~Log de consultas lentas en producción, 1 semana~~ · **montado el 20 ago 2026**, falta encenderlo | 30 min | medición | nada |
 | 4 | Quitar `AdvancedRoute` → rutas explícitas | 1–2 d | 🔴 45 ms + doble registro | Fase 1 |
 | 5 | ~~Sacar `fromToken()` de los constructores~~ · **hecho 18 ago 2026** | 1 d | habilita el paso 6 | Fase 2 |
 | 6 | `route:cache` + `config:cache` en despliegue | 2 h | ~~🔴 30–60 ms~~ · **medido: ruido** (0,031 s con, 0,028 s sin) — la ganancia ya la dieron la Fase 1 y OPcache | paso 5 |
 | 7 | ~~Eliminar la doble autenticación (rate limiter)~~ · **hecho 19 ago 2026** | 2 h | 🟠 **2 consultas menos, medidas** | Fase 3 |
 | 8 | ~~Colapsar el N+1 de permisos~~ · **hecho 19 ago 2026** | 1 h | 🟠 N-1 consultas | Fase 3 |
-| 9 | Cachear el contexto de usuario | 1 d | 🟠 3 consultas → 0 | Fase 3 |
-| 10 | Redis como caché y sesión | 2 h | 🟠 variable | paso 9 |
+| 9 | ~~Cachear el contexto de usuario~~ · **hecho el 20 ago 2026 y apagado** | 1 d | ~~🟠 3 consultas → 0~~ · **medido: 1,41 → 0,66 ms, ruido** | Fase 3 |
+| 10 | ~~Redis como caché y sesión~~ · **descartado**: no hay servidor Redis (Joseth, 20 ago 2026); en cPanel solo está la extensión cliente | 2 h | — | paso 9 |
 | 11 | PHP 8.0 → **8.4** | incluido en Fase 4 | 🟡 10–20 % | Fase 4 |
-| 12 | Índices según el `EXPLAIN` | variable | 🟡 puntual, potencialmente enorme | paso 3 |
-| 13 | Colas para importadores e informes | 2–3 d | 🟡 elimina timeouts | Fase 6 |
+| 12 | Índices según el `EXPLAIN` · **tres puestos el 20 ago 2026**, el resto espera al paso 3 | variable | 🟠 **medido: 970 ms → 44 ms** en una tanda de boletines | paso 3 |
+| 13 | Colas para importadores e informes · **posible desde el 20 ago 2026** (sí hay cron); lo que frena es que cambia el contrato de los cuatro clientes | 2–3 d | 🟡 elimina timeouts | medir antes |
 
 **Los pasos 1, 2 y 3 no dependen de la migración. Hazlos esta semana.** El paso 1, solo, puede resolver la mayor parte de lo que percibes como lentitud.
 

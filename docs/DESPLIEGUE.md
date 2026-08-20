@@ -99,6 +99,47 @@ despliegan y se revierten uno a uno, sin ataduras.
 
 ## 0.bis Qué trae esta tanda, y qué se va a notar
 
+### Lo de medir el rendimiento (20 ago 2026)
+
+**Hay una migración nueva**, la primera desde `firmantes_acta`:
+`2026_08_20_100000_add_indices_medidos_con_explain`. Añade tres índices a
+`parentescos`, `frases_asignatura` e `images`. El `migrate --force` del paso 1
+la aplica sola; son `ALTER TABLE` en línea, pero en un alojamiento compartido
+tardan, así que **fuera de horario de clase**. `down()` los quita, o sea que
+volver atrás es inmediato y no toca datos.
+
+Por qué esos tres y no otros trece está en
+[02-plan-rendimiento.md](migracion/02-plan-rendimiento.md); el resumen es que
+son los que la tabla no tenía de ninguna forma y están en caminos que se
+recorren mucho — el guard de cada petición de un acudiente, y una llamada por
+asignatura dentro de cada boletín. Medido: **970 ms → 44 ms** en las 360
+consultas de una tanda de boletines de un grupo.
+
+**El log cambia de nombre.** `storage/logs/laravel.log` pasa a
+`laravel-AAAA-MM-DD.log`, y se conservan catorce días. Escribía siempre en el
+mismo fichero sin truncarlo nunca —48 MB solo en el docker de desarrollo—, y el
+espacio en disco es el motivo por el que `vendor/` va compartido. **El fichero
+viejo no se borra solo**: conviene mirarlo y borrarlo a mano en cada colegio.
+
+```bash
+ls -lh storage/logs/laravel.log     # el de siempre, ya sin escribir
+rm storage/logs/laravel.log         # cuando ya no interese lo que tenga dentro
+```
+
+**Y hay un registro de consultas lentas que se puede encender**, para saber por
+fin qué endpoint cuesta. Va apagado; se enciende en el `.env` del colegio:
+
+```
+CONSULTAS_LENTAS_MS=500      # 0 = apagado, que es como llega
+```
+
+Escribe en `storage/logs/consultas-lentas-AAAA-MM-DD.log`, una consulta por
+línea y **sin los valores** (por ahí pasan datos de menores). Se deja una
+temporada, se baja el fichero y se lee con `tools/consultas-lentas.py`. Eso es
+lo que falta para decidir el resto de los índices.
+
+### Lo de la revisión de IDOR
+
 **No hay migraciones nuevas.** Siguen siendo las dos de siempre
 (`personal_access_tokens` y `firmantes_acta`), así que el `migrate --force` del
 paso 1 es el mismo de antes.
@@ -273,6 +314,48 @@ Comprobación directa de que la ruta existe antes de probar en el navegador:
 
 ```bash
 php artisan route:list --path=auth/login    # POST api/auth/login
+```
+
+### El cron de este colegio — una sola línea, y una sola vez
+
+En cPanel: **Advanced → Cron Jobs → Add New Cron Job**, cada minuto
+(`* * * * *`):
+
+```
+* * * * * /usr/local/bin/php /home/micolev1/COLEGIO.micolevirtual.com/artisan schedule:run >/dev/null 2>&1
+```
+
+**Un solo cron por colegio, y ya no se vuelve a tocar el panel.** Lo que corre y
+cada cuánto se decide en `app/Console/Kernel.php`, que viaja con el `app/`. Hoy
+solo hay `sesion:limpiar`, semanal.
+
+Dos trampas de esta pantalla, y las dos se pagan caro:
+
+1. **`>/dev/null 2>&1` no es opcional.** cPanel manda un correo con la salida
+   **en cada ejecución**, y esto corre cada minuto: son 1.440 correos al día por
+   colegio, y con dieciséis, 23.000. La propia página lo avisa en letra pequeña.
+2. **`/usr/local/bin/php` es el PHP por defecto de la cuenta, no necesariamente
+   el 8.4.** Laravel 13 no arranca con menos. Compruébalo antes de guardar el
+   cron:
+
+   ```bash
+   /usr/local/bin/php -v          # tiene que decir 8.4.x
+   ```
+
+   **Comprobado el 20 ago 2026 en la cuenta `micolev1`: PHP 8.4.24.** La línea
+   de arriba sirve tal cual ahí. En la otra cuenta hay que volver a mirarlo: la
+   versión se elige por cuenta de cPanel, no por colegio.
+
+   Si dice otra cosa, usa la ruta con versión —en cPanel EA4 suele ser
+   `/opt/cpanel/ea-php84/root/usr/bin/php`— o cambia la versión de la cuenta.
+   Un cron con el PHP viejo no avisa: falla en silencio, porque acabas de
+   mandar su salida a `/dev/null`.
+
+Para comprobar que quedó bien, sin esperar a la semana:
+
+```bash
+php artisan schedule:list       # qué hay programado y cuándo toca
+php artisan sesion:limpiar      # correrlo a mano una vez
 ```
 
 ### Front (`up/`)

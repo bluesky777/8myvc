@@ -8,6 +8,44 @@ use Carbon\Carbon;
 
 use App\Models\Year;
 use \Log;
+/**
+ * Las columnas de `matriculas`, tal como están en el esquema congelado.
+ *
+ * Generado desde database/schema/mysql-schema.sql — no se edita a mano.
+ * Ver tools/columnas-en-los-modelos.php.
+ *
+ * --- columnas de la tabla, generadas por tools/columnas-en-los-modelos.php ---
+ *
+ * @property int $id
+ * @property int $alumno_id
+ * @property int $grupo_id
+ * @property string $estado
+ * @property string $prematriculado
+ * @property string $fecha_retiro
+ * @property string $fecha_matricula
+ * @property string $fecha_pension
+ * @property string $razon_retiro
+ * @property string $programar
+ * @property string $descripcion_recomendacion
+ * @property string $efectuar_una
+ * @property string $descripcion_efectuada
+ * @property int $profes_editar_notas
+ * @property int $nuevo
+ * @property int $repitente
+ * @property string $promovido
+ * @property float $promedio
+ * @property int $cant_asign_perdidas
+ * @property int $cant_areas_perdidas
+ * @property int $anios_in_cole
+ * @property string $nro_folio
+ * @property int $created_by
+ * @property int $updated_by
+ * @property int $deleted_by
+ * @property string $deleted_at
+ * @property string $created_at
+ * @property string $updated_at
+ * --- fin de las columnas generadas ---
+ */
 
 class Matricula extends Model {
 

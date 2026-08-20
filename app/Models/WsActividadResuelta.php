@@ -5,6 +5,29 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 use Illuminate\Support\Facades\DB;
 use \stdClass;
+/**
+ * Las columnas de `ws_actividades_resueltas`, tal como están en el esquema congelado.
+ *
+ * Generado desde database/schema/mysql-schema.sql — no se edita a mano.
+ * Ver tools/columnas-en-los-modelos.php.
+ *
+ * --- columnas de la tabla, generadas por tools/columnas-en-los-modelos.php ---
+ *
+ * @property int $id
+ * @property int $persona_id
+ * @property int $actividad_id
+ * @property string $respuesta_comentario
+ * @property int $autoevaluacion
+ * @property int $is_puntaje_manual
+ * @property int $puntaje_manual
+ * @property int $terminado
+ * @property int $timeout
+ * @property int $deleted_by
+ * @property string $deleted_at
+ * @property string $created_at
+ * @property string $updated_at
+ * --- fin de las columnas generadas ---
+ */
 
 
 class WsActividadResuelta extends Model {

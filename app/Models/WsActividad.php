@@ -5,6 +5,49 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 
 use Illuminate\Support\Facades\DB;
+/**
+ * Las columnas de `ws_actividades`, tal como están en el esquema congelado.
+ *
+ * Generado desde database/schema/mysql-schema.sql — no se edita a mano.
+ * Ver tools/columnas-en-los-modelos.php.
+ *
+ * --- columnas de la tabla, generadas por tools/columnas-en-los-modelos.php ---
+ *
+ * @property int $id
+ * @property string $descripcion
+ * @property int $periodo_id
+ * @property int $asignatura_id
+ * @property int $compartida
+ * @property int $para_alumnos
+ * @property int $para_profesores
+ * @property int $para_acudientes
+ * @property int $can_upload
+ * @property string $tipo
+ * @property int $in_action
+ * @property int $duracion_preg
+ * @property int $duracion_exam
+ * @property int $oportunidades
+ * @property int $one_by_one
+ * @property string $tipo_calificacion
+ * @property string $contenido
+ * @property string $inicia_at
+ * @property string $finaliza_at
+ * @property int $created_by
+ * @property int $deleted_by
+ * @property string $deleted_at
+ * @property string $created_at
+ * @property string $updated_at
+ * --- fin de las columnas generadas ---
+ *
+ * Y los atributos que NO son columnas: el código se los cuelga al modelo en
+ * tiempo de ejecución para armar la respuesta, que es un patrón repetido por
+ * todo el proyecto. Eloquent los guarda entre los atributos y salen en el JSON,
+ * así que forman parte del contrato con el frontend igual que las columnas;
+ * anotarlos es lo que permite que el análisis siga avisando de un nombre mal
+ * escrito en vez de callarse con todos.
+ *
+ * @property mixed $puntaje_por_promedio  el puntaje calculado al resolver la actividad
+ */
 
 class WsActividad extends Model {
 	protected $fillable 	= [];

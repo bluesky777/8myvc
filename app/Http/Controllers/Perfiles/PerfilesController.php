@@ -431,14 +431,26 @@ class PerfilesController extends Controller {
 		$newU->username = $nom;
 		$newU->save();
 
+		// `attachRole()` es de Entrust, que no está instalado ni aparece en el
+		// composer.lock: llamarlo aquí era un fatal seguro. Y el fatal caía
+		// ENTRE el `save()` del usuario y el `$persona->user_id = $newU->id`
+		// de más abajo, así que cada llamada a
+		// `PUT api/perfiles/creartodoslosusuarios` creaba un usuario huérfano
+		// —sin persona detrás— y devolvía 500 en la primera persona de la
+		// lista. Repetido, iba dejando uno por intento.
+		//
+		// El reemplazo no es una decisión: `AlumnosController` ya lo tenía
+		// hecho —`$usuario->roles()->attach(...)` con la línea de Entrust
+		// comentada al lado— y aquí quedó sin migrar. Los ids 2, 3 y 4 son
+		// Profesor, Alumno y Acudiente en la tabla `roles`.
 		if ($tipo == 'Profesor') {
-			$newU->attachRole(2);
+			$newU->roles()->attach(2);
 		}
 		if ($tipo == 'Alumno') {
-			$newU->attachRole(3);
+			$newU->roles()->attach(3);
 		}
 		if ($tipo == 'Acudiente') {
-			$newU->attachRole(4);
+			$newU->roles()->attach(4);
 		}
 
 

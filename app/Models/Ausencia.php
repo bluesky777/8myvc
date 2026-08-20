@@ -4,6 +4,32 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 use Illuminate\Support\Facades\DB;
+/**
+ * Las columnas de `ausencias`, tal como están en el esquema congelado.
+ *
+ * Generado desde database/schema/mysql-schema.sql — no se edita a mano.
+ * Ver tools/columnas-en-los-modelos.php.
+ *
+ * --- columnas de la tabla, generadas por tools/columnas-en-los-modelos.php ---
+ *
+ * @property int $id
+ * @property int $asignatura_id
+ * @property int $alumno_id
+ * @property int $periodo_id
+ * @property int $cantidad_ausencia
+ * @property int $cantidad_tardanza
+ * @property int $entrada
+ * @property string $tipo
+ * @property string $fecha_hora
+ * @property string $uploaded
+ * @property int $created_by
+ * @property int $updated_by
+ * @property int $deleted_by
+ * @property string $deleted_at
+ * @property string $created_at
+ * @property string $updated_at
+ * --- fin de las columnas generadas ---
+ */
 
 class Ausencia extends Model {
 	protected $fillable = [];

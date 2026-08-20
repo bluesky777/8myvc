@@ -871,7 +871,12 @@ class ChangeAskedController extends Controller {
 				$fecha_nac_old = $alumno->fecha_nac;
 				
 				if ($alumno->fecha_nac) {
-					$fecha_nac_old = $alumno->fecha_nac->format('Y-m-d');
+					// `fecha_nac` es una cadena: la columna no está en `$casts`,
+					// así que Eloquent no la convierte a Carbon y `->format()`
+					// era «Call to a member function format() on string» —fatal
+					// cada vez que alguien pedía cambiar la fecha de nacimiento
+					// de un alumno que ya tenía una—.
+					$fecha_nac_old = Carbon::parse($alumno->fecha_nac)->format('Y-m-d');
 				}
 				
 

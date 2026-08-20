@@ -122,7 +122,7 @@ class ContextoDeUsuarioTest extends CasoDeContrato
 
             $r = $this->postJson('/api/login', [], ['Authorization' => 'Bearer '.$token]);
 
-            $r->assertStatus(200, "La petición $intento debería haber entrado.");
+            $this->assertSame(200, $r->status(), "La petición $intento debería haber entrado.");
 
             $this->assertSame($usuario->id, $r->json('user_id'),
                 "En la petición $intento el reintento no llegó a hacerse: el guardia venía puesto de la anterior.");

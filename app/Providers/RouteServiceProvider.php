@@ -20,18 +20,14 @@ class RouteServiceProvider extends ServiceProvider
      */
     public const HOME = '/home';
 
-    /**
-     * The controller namespace for the application.
-     *
-     * When present, controller route declarations will automatically be prefixed with this namespace.
-     *
-     * @var string|null
-     */
     /*
      * Sin $namespace: las rutas usan [Controlador::class, 'metodo'] en vez de
      * strings 'Controlador@metodo'. Con el prefijo activo, Laravel antepondría
      * el namespace a una cadena que ya lo lleva. Además la sintaxis de string
      * desaparece en Laravel 9.
+     *
+     * El docblock que describía la propiedad se quedó aquí huérfano al quitarla
+     * en la Fase 1, anunciando un `@var` de nada.
      */
 
     /**

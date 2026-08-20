@@ -405,6 +405,82 @@ las tablas del módulo llevan prefijo `ws_`, y las de cambios de asignatura est�
 en singular (`change_asked_assignment`).
 
 ---
+
+## 9. Lo que encontró subir larastan al nivel 2 (20 ago 2026)
+
+El nivel 1 miraba métodos y propiedades que no existen en una clase que sí. El
+2 añade las propiedades de los objetos con tipo conocido, y con eso llega a lo
+que ninguna de las dos tandas anteriores alcanzaba: **cuatro endpoints
+enrutados que revientan siempre**, dos de ellos con el fallo escondido detrás de
+otro.
+
+Empezó en 465 errores, y **438 no eran del código sino de una anotación
+falsa**. El trait `ResuelveElUsuario` declaraba `@property User $user`, y lo que
+devuelve `User::fromToken()` no es una fila de `users`: es el contexto aplanado
+—`year_id`, `persona_id`, `nombre_grupo`, `perms`— que sale de un `(object)
+$array`. La anotación se sostuvo mientras el análisis no miró dentro. Puesto el
+tipo honesto, `stdClass`, se fueron 381 de una vez.
+
+Los 144 siguientes eran columnas de verdad, y **el motivo de que no se
+supieran es la Fase 5**: el esquema no está en migraciones sino congelado en un
+volcado SQL, y larastan de ahí no lee. Se resolvió generando las columnas dentro
+de cada modelo **desde el esquema real** —`tools/columnas-en-los-modelos.php`—,
+no a mano, por la misma razón por la que `ColumnaSegura` le pregunta al esquema:
+una lista escrita se queda corta el día que alguien añada un campo. De paso salió
+que **`NotaFinal` no declaraba su tabla**: Eloquent deducía `nota_finals`, que no
+existe. Hoy no se nota porque todo lo que hay en esa clase es SQL a mano, pero el
+primer `NotaFinal::where(...)` se habría llevado un «Table doesn't exist».
+
+### 9.1 Los dos que se arreglaron
+
+| Endpoint | Qué le pasaba |
+|---|---|
+| `PUT api/perfiles/creartodoslosusuarios` | Llamaba a `attachRole()`, que es de **Entrust** —el paquete que ya salió en la §6.3, y que no está instalado ni aparece en el `composer.lock`—. Moría en la primera persona de la lista, y moría **entre** guardar el usuario y engancharlo a la persona: cada intento dejaba un usuario huérfano y devolvía 500 |
+| `PUT api/ChangesAsked/…` (cambio de fecha de nacimiento) | `$alumno->fecha_nac->format('Y-m-d')` sobre una columna que no está en `$casts`: «Call to a member function format() on string», cada vez que alguien pedía cambiar la fecha de nacimiento de un alumno que ya tenía una |
+
+**Ninguno de los dos tenía decisión detrás, y por eso se arreglaron.** El de
+Entrust porque `AlumnosController` ya tenía hecha esa misma migración
+—`$usuario->roles()->attach(...)`, con la línea vieja comentada al lado— y en
+estos tres sitios quedó sin hacer; los ids 2, 3 y 4 son Profesor, Alumno y
+Acudiente en la tabla `roles`. El de la fecha porque `Carbon::parse()` es
+exactamente lo que la línea de al lado ya hacía con el valor nuevo.
+
+### 9.2 Los dos que se quedan, y qué falta decidir
+
+| Endpoint | Qué falta decidir |
+|---|---|
+| `PUT api/periodos/update/{id}` | Escribe `$periodo->year` y guarda, pero `periodos` no tiene esa columna: tiene `year_id`. MySQL responde «Unknown column 'year' in 'field list'» —comprobado contra la base—. Falta saber **qué manda el cliente en `year`**, el número del año o el id, y no hay cliente al que preguntarle: `myvc_front` no llama a esta ruta. Escribir un número de año en `year_id` sería peor que el 500 |
+| `POST api/asistencias` · `POST api/appmobile/asistencias` | **Dos fallos, uno tapando al otro.** El INSERT declara `:asignatura_id` y el array de valores no lo trae, así que la consulta ni se ejecuta; detrás espera `$datos->id = $id` sobre un array, que **en PHP 8 es un Error y no un aviso** —de los que cambiaron de gravedad con el salto de versión—. Falta decidir qué es `asignatura_id` en una asistencia y qué debe devolver el endpoint |
+
+Los dos quedan fijados por `tests/Contrato/EntrustYPropiedadesTest.php`, que
+comprueba el 500 exacto, y anotados en `phpstan.neon` con su `count` — no en un
+baseline generado, que los escondería.
+
+### 9.3 Y una propiedad dinámica que no hacía nada
+
+`PiarsGruposController` tenía un `else` que escribía
+`$piarsAlumnosUtils->acudientes = []`. No era lo que parecía: `getAcudientes()`
+cuelga `acudientes` de **cada alumno**, no del objeto de utilidades, y nadie leía
+esa propiedad. La rama no hacía nada — salvo crear una propiedad dinámica sobre
+una clase normal, que en PHP 8.2 es una deprecación y en PHP 9 será un error. Se
+borró sin cambiar comportamiento. Lo que queda por decidir es otra cosa: si un
+profesor que no es superusuario debería ver `acudientes: []` en cada alumno en
+vez de que la clave no aparezca.
+
+### 9.4 Lo demás eran atributos de respuesta, y se anotaron
+
+Los 45 restantes eran el mismo patrón repetido por todo el proyecto: el código le
+cuelga al modelo un atributo que no es columna —`$grupo->titular`,
+`$aspiracion->candidatos`, `$periodo->sumatoria`— para armar la respuesta.
+Eloquent los guarda entre los atributos y **salen en el JSON**, así que son parte
+del contrato con el frontend igual que las columnas. Se anotaron en cada modelo,
+que es lo que permite que el análisis siga avisando de un nombre mal escrito en
+vez de callarse con todos.
+
+Uno NO se anotó a propósito: el `$periodo->year` de la 9.2. Anotarlo habría
+escondido el fallo.
+
+---
 ---
 ## La lección para la Fase 4
 
@@ -426,3 +502,35 @@ contrato de la Fase 0, y por eso conviene terminarlos antes.
 > preguntarle a nadie cuáles importan. Las dos cosas hacen falta, y ninguna
 > sustituye a la otra: por eso `larastan` y `pint` corren ahora en el CI junto a
 > la suite.
+
+---
+
+## 10. La hora, mirada a fondo el 20 ago 2026 — y está bien
+
+Salió al ver `date.timezone = UTC` en el panel de PHP mientras se comprobaba
+otra cosa. En este proyecto conviven **dos zonas horarias**, y Colombia está a
+UTC−5, así que la sospecha era razonable:
+
+| Dónde | Qué usa | Cuántas veces |
+|---|---|---|
+| `config/app.php` | `'timezone' => 'UTC'` | — |
+| El código de siempre | `Carbon::now('America/Bogota')` | 114 |
+| La sesión de la Fase 3 | `Carbon::now()`, o sea UTC | 8 |
+
+**Se revisaron las ocho, y no hay fallo.** Las ocho son de
+`Services\Sesion`, `TokenDeSesion` y `LimpiarSesiones`, y todas comparan contra
+valores que ellas mismas escribieron en UTC: `expires_at`, `last_used_at`, el
+corte de la limpieza. Una duración calculada entera en UTC da lo mismo que
+calculada entera en Bogotá.
+
+Lo mismo por el otro lado: los tokens de reseteo de contraseña se escriben con
+`Carbon::now('America/Bogota')` y se comprueban con
+`Carbon::now('America/Bogota')->subHour()`, así que la ventana de una hora dura
+una hora.
+
+**Lo que sí queda es el aviso**, porque el día que alguien mezcle las dos el
+error no se ve: son cinco horas, no un fallo. La regla es la que ya siguen los
+dos grupos sin habérselo dicho — **cada fecha se escribe y se compara en la
+misma zona**—, y lo que decide cuál es de dónde sale el dato: si es un dato del
+colegio (una matrícula, una ausencia, una nota), va en `America/Bogota` como
+todo lo demás de su tabla; si es un plazo interno del sistema, en UTC.

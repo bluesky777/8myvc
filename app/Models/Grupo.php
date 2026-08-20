@@ -5,6 +5,44 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 use Illuminate\Support\Facades\DB;
 use App\Models\Debugging;
+/**
+ * Las columnas de `grupos`, tal como están en el esquema congelado.
+ *
+ * Generado desde database/schema/mysql-schema.sql — no se edita a mano.
+ * Ver tools/columnas-en-los-modelos.php.
+ *
+ * --- columnas de la tabla, generadas por tools/columnas-en-los-modelos.php ---
+ *
+ * @property int $id
+ * @property string $nombre
+ * @property string $abrev
+ * @property int $year_id
+ * @property int $titular_id
+ * @property int $grado_id
+ * @property int $valormatricula
+ * @property int $valorpension
+ * @property int $orden
+ * @property int $caritas
+ * @property int $cupo
+ * @property int $created_by
+ * @property int $updated_by
+ * @property int $deleted_by
+ * @property string $deleted_at
+ * @property string $created_at
+ * @property string $updated_at
+ * --- fin de las columnas generadas ---
+ *
+ * Y los atributos que NO son columnas: el código se los cuelga al modelo en
+ * tiempo de ejecución para armar la respuesta, que es un patrón repetido por
+ * todo el proyecto. Eloquent los guarda entre los atributos y salen en el JSON,
+ * así que forman parte del contrato con el frontend igual que las columnas;
+ * anotarlos es lo que permite que el análisis siga avisando de un nombre mal
+ * escrito en vez de callarse con todos.
+ *
+ * @property array $asigs_ant  las asignaturas del año anterior, para el traspaso de año
+ * @property \App\Models\Profesor $titular  el profesor titular, resuelto aparte en la ficha del grupo
+ * @property \App\Models\Grado $grado  el grado del grupo, resuelto aparte en la ficha del grupo
+ */
 
 class Grupo extends Model {
 	use SoftDeletes;

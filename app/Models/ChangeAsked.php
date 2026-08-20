@@ -4,6 +4,36 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 use Illuminate\Support\Facades\DB;
+/**
+ * Las columnas de `change_asked`, tal como están en el esquema congelado.
+ *
+ * Generado desde database/schema/mysql-schema.sql — no se edita a mano.
+ * Ver tools/columnas-en-los-modelos.php.
+ *
+ * --- columnas de la tabla, generadas por tools/columnas-en-los-modelos.php ---
+ *
+ * @property int $id
+ * @property int $asked_by_user_id
+ * @property int $asked_to_user_id
+ * @property int $asked_for_user_id
+ * @property string $tipo_user
+ * @property int $data_id
+ * @property int $assignment_id
+ * @property int $comentario_pedido
+ * @property string $comentario_respuesta
+ * @property string $rechazado_at
+ * @property string $accepted_at
+ * @property int $periodo_asked_id
+ * @property int $year_asked_id
+ * @property int $answered_by
+ * @property int $created_by
+ * @property int $updated_by
+ * @property int $deleted_by
+ * @property string $deleted_at
+ * @property string $created_at
+ * @property string $updated_at
+ * --- fin de las columnas generadas ---
+ */
 
 
 class ChangeAsked extends Model {
