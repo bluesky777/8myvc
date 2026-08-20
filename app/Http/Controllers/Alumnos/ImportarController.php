@@ -38,12 +38,6 @@ class AlumnoSheetImport implements ToCollection, WithHeadingRow
     public function collection(Collection $rows)
     {
 		return $rows;
-        foreach ($rows as $row) 
-        {
-            User::create([
-                'name' => $row[0],
-            ]);
-        }
     }
     public function headingRow(): int
     {

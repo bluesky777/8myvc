@@ -5,7 +5,6 @@ use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
-use Illuminate\Support\Facades\View;
 
 use App\User;
 use App\Models\Year;
@@ -65,9 +64,6 @@ class ObservadorHorizontalController extends Controller {
         $grupo = $grupos[0];
         
         return ['grupo' => $grupo, 'imagenes' => $imagenes];
-        $html = View::make('observador', compact('grupos', 'year', 'dns', 'periodos'))->render();
-
-        return $html;
 
     }
 

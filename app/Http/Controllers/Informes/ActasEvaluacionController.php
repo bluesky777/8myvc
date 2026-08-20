@@ -523,6 +523,16 @@ class ActasEvaluacionController extends Controller {
 	 */
 	private function consolidado($grupos, $periodos)
 	{
+		$filas_periodo = [];
+		foreach ($periodos as $periodo) {
+			$filas_periodo[] = (object) [
+				'numero'      => $periodo->numero,
+				'ingresos'    => $this->nuevoContador(),
+				'retiros'     => $this->nuevoContador(),
+				'deserciones' => $this->nuevoContador(),
+			];
+		}
+
 		$c = (object) [
 			'resumen'   => (object) [
 				'iniciaron'           => $this->nuevoContador(),
@@ -548,19 +558,10 @@ class ActasEvaluacionController extends Controller {
 				'total_no_promovidos' => $this->nuevoContador(),
 				'evaluados'           => $this->nuevoContador(),
 			],
-			'periodos'            => [],
+			'periodos'            => $filas_periodo,
 			'razones_retiro'      => [],
 			'grupos_descuadrados' => [],
 		];
-
-		foreach ($periodos as $periodo) {
-			$c->periodos[] = (object) [
-				'numero'      => $periodo->numero,
-				'ingresos'    => $this->nuevoContador(),
-				'retiros'     => $this->nuevoContador(),
-				'deserciones' => $this->nuevoContador(),
-			];
-		}
 
 		$razones = [];
 

@@ -100,21 +100,21 @@ class ImporterFixer {
 		}
 		
 		// SISBEN
-		if(strtolower($alumno["sisben"])=='no aplica' || $alumno["sisben"]=='' || is_null($alumno["sisben"])){
+		if(strtolower($alumno["sisben"])=='no aplica' || $alumno["sisben"]==''){
             $cons .= ', has_sisben=0, nro_sisben=null';
 		}else{
 			$cons .= ', has_sisben=1, nro_sisben='.$alumno["sisben"];
 		}
 		
 		// SISBEN 3
-		if(strtolower($alumno["sisben_3"])=='no aplica' || $alumno["sisben_3"]=='' || is_null($alumno["sisben_3"])){
+		if(strtolower($alumno["sisben_3"])=='no aplica' || $alumno["sisben_3"]==''){
             $cons .= ', has_sisben_3=0, nro_sisben_3=null';
 		}else{
 			$cons .= ', has_sisben_3=1, nro_sisben_3='.$alumno["sisben_3"];
 		}
 		
 		// Nuevo
-		if(strtolower($alumno["nuevo"])=='no' || $alumno["nuevo"]=='' || is_null($alumno["nuevo"])){
+		if(strtolower($alumno["nuevo"])=='no' || $alumno["nuevo"]==''){
 			$alumno["es_nuevo"]=0;
 		}else if(strtolower($alumno["nuevo"])=='si'){
 			$alumno["es_nuevo"]=1;
@@ -123,7 +123,7 @@ class ImporterFixer {
 		
 		
 		// Es acudiente 1
-		if(strtolower($alumno["es_el_acudiente_acud1"])=='no' || $alumno["es_el_acudiente_acud1"]=='' || is_null($alumno["es_el_acudiente_acud1"])){
+		if(strtolower($alumno["es_el_acudiente_acud1"])=='no' || $alumno["es_el_acudiente_acud1"]==''){
 			$alumno["is_acudiente1"]=0;
 			//Debugging::pin('$alumno["es_el_acudiente_acud1"]=="no" ', $alumno["es_el_acudiente_acud1"]);
 		}else if(strtolower($alumno["es_el_acudiente_acud1"])=='si'){
@@ -132,7 +132,7 @@ class ImporterFixer {
 		}
 		
 		// Es acudiente 2
-		if(strtolower($alumno["es_el_acudiente_acud2"])=='no' || $alumno["es_el_acudiente_acud2"]=='' || is_null($alumno["es_el_acudiente_acud2"])){
+		if(strtolower($alumno["es_el_acudiente_acud2"])=='no' || $alumno["es_el_acudiente_acud2"]==''){
 			$alumno["is_acudiente2"]=0;
 		}else if(strtolower($alumno["es_el_acudiente_acud2"])=='si'){
 			$alumno["is_acudiente2"]=1;

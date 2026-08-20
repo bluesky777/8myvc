@@ -1,7 +1,6 @@
 <?php namespace App\Http\Controllers;
 
 
-use hisorange\BrowserDetect\Facade as Browser;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
@@ -30,10 +29,6 @@ use \Log;
 class LoginController extends Controller {
 	
 	
-	private $entorno = 'Desktop';
-	private $direccion = '';
-
-
 	/**
 	 * El contexto del usuario del token.
 	 *
@@ -423,10 +418,6 @@ class LoginController extends Controller {
 			return [ 'estado' => 'Alumno y Prematricula creados. Usuario: ' . $usuario->username
 				. ' - Contraseña: ' . $password_inicial . ' (anótala, no se vuelve a mostrar)' ];
 		}
-		
-
-
-		return 'Reseteado';
 	}
 
 
@@ -499,23 +490,6 @@ class LoginController extends Controller {
 	}
 
 
-	private function datos_entorno_direccion(){
-		if (Browser::isMobile()) {
-			$this->entorno 	= 'Mobile';
-		}else if(Browser::isTablet()){
-			$this->entorno 	= 'Tablet';
-		}else if(Browser::isBot()){
-			$this->entorno 	= 'Bot';
-		}
-		
-		if (!empty($_SERVER['HTTP_CLIENT_IP']))
-			$this->direccion = $_SERVER['HTTP_CLIENT_IP'];
-		if (!empty($_SERVER['HTTP_X_FORWARDED_FOR']))
-			$this->direccion = $_SERVER['HTTP_X_FORWARDED_FOR'];
-		if (!empty($_SERVER['REMOTE_ADDR']))
-			$this->direccion = $_SERVER['REMOTE_ADDR'];
-
-	}
 
 
 
