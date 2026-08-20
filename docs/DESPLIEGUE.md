@@ -316,6 +316,44 @@ Comprobación directa de que la ruta existe antes de probar en el navegador:
 php artisan route:list --path=auth/login    # POST api/auth/login
 ```
 
+### El cron de este colegio — una sola línea, y una sola vez
+
+En cPanel: **Advanced → Cron Jobs → Add New Cron Job**, cada minuto
+(`* * * * *`):
+
+```
+* * * * * /usr/local/bin/php /home/micolev1/COLEGIO.micolevirtual.com/artisan schedule:run >/dev/null 2>&1
+```
+
+**Un solo cron por colegio, y ya no se vuelve a tocar el panel.** Lo que corre y
+cada cuánto se decide en `app/Console/Kernel.php`, que viaja con el `app/`. Hoy
+solo hay `sesion:limpiar`, semanal.
+
+Dos trampas de esta pantalla, y las dos se pagan caro:
+
+1. **`>/dev/null 2>&1` no es opcional.** cPanel manda un correo con la salida
+   **en cada ejecución**, y esto corre cada minuto: son 1.440 correos al día por
+   colegio, y con dieciséis, 23.000. La propia página lo avisa en letra pequeña.
+2. **`/usr/local/bin/php` es el PHP por defecto de la cuenta, no necesariamente
+   el 8.4.** Laravel 13 no arranca con menos. Compruébalo antes de guardar el
+   cron:
+
+   ```bash
+   /usr/local/bin/php -v          # tiene que decir 8.4.x
+   ```
+
+   Si dice otra cosa, usa la ruta con versión —en cPanel EA4 suele ser
+   `/opt/cpanel/ea-php84/root/usr/bin/php`— o cambia la versión de la cuenta.
+   Un cron con el PHP viejo no avisa: falla en silencio, porque acabas de
+   mandar su salida a `/dev/null`.
+
+Para comprobar que quedó bien, sin esperar a la semana:
+
+```bash
+php artisan schedule:list       # qué hay programado y cuándo toca
+php artisan sesion:limpiar      # correrlo a mano una vez
+```
+
 ### Front (`up/`)
 
 ```bash

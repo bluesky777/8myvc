@@ -14,9 +14,14 @@ use Illuminate\Support\Carbon;
  * entrar — el alumno que se gradúa, el profesor que se va — y las filas de las
  * rotaciones de refresco.
  *
- * No se programa en el scheduler porque en estos alojamientos no hay garantía
- * de que corra el cron de Laravel. Si en un colegio se puede, la línea está en
- * docs/DESPLIEGUE-REFERENCIA.md; y si no, correrlo a mano de vez en cuando basta.
+ * **Ya está en el scheduler** (semanal, 20 ago 2026). Aquí ponía que no, «porque
+ * en estos alojamientos no hay garantía de que corra el cron de Laravel»: la
+ * duda era infundada y bastó mirar el panel — las cuentas de cPanel traen cron.
+ * Lo que hace falta es poner en cada colegio el cron de `schedule:run`, y la
+ * línea, con sus dos trampas, está en docs/DESPLIEGUE.md.
+ *
+ * En el colegio que no lo tenga puesto no pasa nada: correrlo a mano de vez en
+ * cuando sigue bastando.
  */
 class LimpiarSesiones extends Command
 {
