@@ -99,6 +99,37 @@ despliegan y se revierten uno a uno, sin ataduras.
 
 ## 0.bis Qué trae esta tanda, y qué se va a notar
 
+### La importación de alumnos, reanudable (20 ago 2026)
+
+**Hay una migración nueva**: `2026_08_20_200000_create_importaciones_table`.
+Crea la tabla `importaciones` y añade un índice a `alumnos.documento`. El
+`migrate --force` del paso 1 la aplica sola. La tabla se crea vacía —no toca
+nada de lo que hay— y el índice es un `ALTER TABLE` sobre `alumnos`, que en un
+colegio grande son unos miles de filas: **fuera de horario de clase**, como los
+tres del rendimiento. `down()` deshace las dos cosas.
+
+**Qué se nota.** Si una importación de alumnos se corta —el corte es el
+`max_execution_time` de 300 s de cPanel— volver a subir **el mismo archivo**
+continúa por donde iba en vez de empezar de cero. La pantalla no cambia: el
+endpoint sigue respondiendo `Importados.`, así que **no hace falta desplegar
+nada en los clientes**, ni en `myvc_front` ni en la app de Flutter.
+
+Y cambia una cosa que no se ve pero conviene saber: una fila cuyo alumno ya
+existe **con ese documento** ahora se actualiza en vez de crear un alumno
+repetido. Antes, cada importación cortada y reintentada dejaba duplicados.
+
+**Lo que hay que recoger, y es el motivo de media tanda.** Después de una
+temporada de matrículas, en el colegio que más importa:
+
+```bash
+php artisan tinker --execute="print_r(DB::select(
+  'SELECT archivo, year, filas, estado, TIMESTAMPDIFF(SECOND, inicio, fin) AS segundos
+   FROM importaciones ORDER BY id DESC LIMIT 20'));"
+```
+
+Ese `segundos` es el número que nadie tenía. Es lo que decide si
+`max_execution_time` puede bajar de 300, y es lo que hay que traer de vuelta.
+
 ### Lo de medir el rendimiento (20 ago 2026)
 
 **Hay una migración nueva**, la primera desde `firmantes_acta`:

@@ -20,6 +20,9 @@ use App\Http\Controllers\Alumnos\Definitivas;
 use App\Http\Controllers\Alumnos\Solicitudes;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Alumnos\ImporterFixer;
+use App\Http\Controllers\Concerns\ResuelveElUsuario;
+use App\Services\PuntoDeControlDeImportacion;
+use App\Support\SafeUpload;
 
 
 use Maatwebsite\Excel\Concerns\WithMultipleSheets;
@@ -64,35 +67,125 @@ class ExcelUtils implements ToArray, WithHeadingRow, WithEvents
     public $year;
     public $fixer;
 
-    public function __construct($year, $fixer){
+    /**
+     * El punto de control por el que se sabe qué filas están ya aplicadas.
+     *
+     * Lo abre el controlador, no esta clase: la huella con la que se reconoce
+     * «el mismo archivo» se saca del fichero subido, y aquí solo llegan las
+     * hojas ya leídas.
+     */
+    public $punto;
+
+    public function __construct($year, $fixer, PuntoDeControlDeImportacion $punto){
         $this->sheetNames = [];
     	$this->sheetData = [];
     	$this->year = $year;
     	$this->fixer = $fixer;
+    	$this->punto = $punto;
     }
+
+    /**
+     * Una hoja del archivo, que es un grupo.
+     *
+     * maatwebsite llama a esto una vez por pestaña y le pasa las filas ya
+     * leídas; el nombre de la pestaña llega por el evento BeforeSheet, no por
+     * aquí, y de ahí el `sheetNames` de la primera línea.
+     */
     public function array(array $array)
     {
         $sheetName = $this->sheetNames[count($this->sheetNames)-1];
         $this->sheetData[$sheetName] = $array;
         $now 		= Carbon::now('America/Bogota');
         $abrev 		= $sheetName;
-        
+
+		// Una hoja que quedó entera detrás del punto de control se salta sin
+		// mirar siquiera qué grupo era. Reanudar un archivo de dieciséis
+		// pestañas por la última no puede costar dieciséis consultas de grupo.
+		if (count($array) > 0 && $this->punto->yaProcesada($abrev, count($array) - 1)) {
+			return;
+		}
+
         $consulta 	= 'SELECT g.id, g.abrev, g.year_id FROM grupos g inner join years y on y.id=g.year_id WHERE g.abrev=? and g.deleted_at is null and y.deleted_at is null and y.year=?;';
-		$grupo 		= DB::select($consulta, [$abrev, $this->year])[0];
+		$grupos 	= DB::select($consulta, [$abrev, $this->year]);
+
+		// Esto era `DB::select(...)[0]`, y una pestaña cuyo nombre no fuera el
+		// de ningún grupo del año daba «Undefined array key 0» — que no dice
+		// cuál era la pestaña, y es el fallo corriente cuando alguien sube la
+		// hoja del año pasado. Sigue siendo un 500, porque cambiarlo es tocar
+		// el contrato de la pantalla; lo que cambia es que ahora se puede leer
+		// en `importaciones.error` con el nombre dentro.
+		if (count($grupos) === 0) {
+			throw new \RuntimeException("La hoja '".$abrev."' no corresponde a ningún grupo del año ".$this->year.".");
+		}
+
+		$grupo 		= $grupos[0];
 		$results    = $array;
-		
-		for ($f=0; $f < count($results); $f++) { 
+
+		for ($f=0; $f < count($results); $f++) {
+
+			if ($this->punto->yaProcesada($abrev, $f)) {
+				continue;
+			}
+
+			// La fila entera y su marca de avance, en la MISMA transacción.
+			//
+			// Ahí está toda la garantía: una fila de alumno son ocho escrituras
+			// —alumno, usuario, rol, matrícula y los dos acudientes con sus
+			// parentescos— y sin transacción el proceso puede morir con tres
+			// hechas. Antes eso dejaba medio alumno en la base y nadie sabía
+			// cuál; ahora la fila entra entera o no entra, y el punto de control
+			// no puede mentir porque se guarda con ella.
+			DB::transaction(function () use ($results, $f, $grupo, $abrev, $now) {
+				$this->procesarFila($results[$f], $grupo, $abrev, $now);
+				$this->punto->anotar($abrev, $f);
+			});
+		}
+    }
+
+    /**
+     * Lo que hace falta hacer con una fila de la hoja: crear o actualizar al
+     * alumno, su usuario, su matrícula y sus dos acudientes.
+     *
+     * Era el cuerpo del `for` de arriba; sale a su propio método para poder
+     * envolverlo en una transacción.
+     */
+    private function procesarFila($alumno, $grupo, $abrev, $now)
+    {
 						
-			$alumno 	= $results[$f];
 			$res 		= $this->fixer->verificar($alumno, $this->year);
 			$alumno["ciudad_docu_acud1"] = $res['ciudad_id_A1'];
 			$alumno["ciudad_docu_acud2"] = $res['ciudad_id_A2'];
+
+			// Idempotencia por la clave natural, que es la otra mitad de poder
+			// reanudar: saber por dónde ibas no sirve si volver a pasar por una
+			// fila crea un alumno repetido.
+			//
+			// La hoja trae el `id` de los alumnos que ya estaban y lo trae vacío
+			// para los nuevos, así que hasta hoy «vacío» significaba «créalo»,
+			// sin mirar si ese documento ya estaba en la base. Eso duplicaba —
+			// alumno, usuario y matrícula— en dos casos reales: la importación
+			// que se cortó y se volvió a subir, y el alumno que cambia de grupo y
+			// alguien escribe a mano en la hoja del grupo nuevo.
+			//
+			// El documento es la clave natural, y el importador ya lo usaba como
+			// tal en el de cartera (`UPDATE alumnos ... WHERE documento=?`).
+			$reencontrado = false;
+
+			if (!$alumno["id"]) {
+				$id = $this->idPorDocumento($alumno["nro_de_documento"]);
+
+				if ($id !== null) {
+					$alumno["id"] 	= $id;
+					$reencontrado 	= true;
+				}
+			}
 
 			// Los nombres se recomponen de dos columnas, y se recortan porque la
 			// segunda casi siempre viene vacía: un alumno de un solo nombre de
 			// pila quedaba guardado como 'Irene ', con el espacio dentro. Lo
 			// destapó el test de ida y vuelta —exportar e importar lo exportado—,
 			// que hasta este arreglo cambiaba a 68 de los 68 alumnos del seed.
+
 			if ($alumno["id"]) {
 				$consulta 	= 'UPDATE alumnos SET no_matricula=?, nombres=?, apellidos=?, sexo=?, fecha_nac=?, 
 					tipo_doc=?, documento=?, no_matricula=?, direccion=?, barrio=?, telefono=?, celular=?, estrato=?, 
@@ -105,7 +198,16 @@ class ExcelUtils implements ToArray, WithHeadingRow, WithEvents
 						
 				DB::update('UPDATE matriculas m INNER JOIN grupos g ON g.id=m.grupo_id and g.year_id=? and g.deleted_at is null SET m.nuevo=?, m.estado=?, m.updated_at=? WHERE m.alumno_id=? and m.deleted_at is null', [$grupo->year_id, $alumno["es_nuevo"], $alumno["estado_matricula"], $now, $alumno["id"]]);
 				
-				//No eliminar!!
+				// El «no eliminar» de esta línea era literal, y decía la verdad:
+				// esto ERA el punto de control. Dejaba en `debugging` una fila por
+				// alumno para poder mirar a mano por dónde iba la importación
+				// cuando el servidor la cortaba.
+				//
+				// Ya no hace ese trabajo —lo hace `importaciones`, que el código
+				// sabe leer y esto no— y se queda porque es el único rastro de las
+				// importaciones anteriores a hoy en las dieciséis bases. Borrarla
+				// es una limpieza aparte, con su decisión: `debugging` crece una
+				// fila por alumno importado y no se limpia nunca.
 				Debugging::pin('Alum_id: ' . $alumno["id"], 'Grupo: ' . $abrev, 'Grupo_id: ' . $grupo->id) ;
 				
 				
@@ -115,6 +217,16 @@ class ExcelUtils implements ToArray, WithHeadingRow, WithEvents
 				// Acudiente 2
 				$this->modificar_acudiente2($alumno, $now, $res['consultaA2']);
 
+
+
+				// Solo cuando se llegó aquí por el documento. Una fila que TRAÍA su
+				// id sigue comportándose exactamente igual que antes: la matrícula
+				// se actualiza, no se crea. Lo que se cubre es el alumno que la
+				// hoja daba por nuevo y resultó existir — sin esto se quedaría
+				// actualizado pero fuera del grupo de la pestaña.
+				if ($reencontrado) {
+					$this->asegurarMatricula($alumno["id"], $grupo, $now);
+				}
 
 			}else{
 				
@@ -181,7 +293,56 @@ class ExcelUtils implements ToArray, WithHeadingRow, WithEvents
 			
 			}
 			
+    }
+
+    /**
+     * El id del alumno que ya tiene ese documento, si lo hay.
+     *
+     * `alumnos.documento` no es UNIQUE y no puede serlo: hay filas históricas
+     * con el documento vacío o repetido, y un índice único ahí haría fallar el
+     * despliegue en los colegios que las tengan. Se comprueba leyendo, y con
+     * `ORDER BY id` para que dos filas repetidas den siempre la misma — una
+     * importación que eligiera una u otra según el humor de MySQL sería peor
+     * que la que duplicaba.
+     */
+    private function idPorDocumento($documento)
+    {
+		$documento = is_string($documento) ? trim($documento) : $documento;
+
+		if ($documento === null || $documento === '') {
+			return null;
 		}
+
+		$fila = DB::selectOne('SELECT id FROM alumnos WHERE documento = ? and deleted_at is null ORDER BY id LIMIT 1', [$documento]);
+
+		return $fila === null ? null : (int) $fila->id;
+    }
+
+    /**
+     * Matricula al alumno en el grupo de la pestaña si no lo estaba ya en ese
+     * año.
+     *
+     * La comprobación es por AÑO y no por grupo, igual que el UPDATE de
+     * matrículas de unas líneas más arriba: un alumno tiene una matrícula por
+     * año, y crearle otra por haber aparecido en la pestaña de al lado lo
+     * dejaría en dos grupos a la vez.
+     */
+    private function asegurarMatricula($alumno_id, $grupo, $now)
+    {
+		$ya = DB::selectOne('SELECT m.id FROM matriculas m INNER JOIN grupos g ON g.id=m.grupo_id
+			WHERE m.alumno_id=? and g.year_id=? and m.deleted_at is null and g.deleted_at is null LIMIT 1',
+			[$alumno_id, $grupo->year_id]);
+
+		if ($ya !== null) {
+			return;
+		}
+
+		$matricula = new Matricula;
+		$matricula->alumno_id		=	$alumno_id;
+		$matricula->grupo_id		=	$grupo->id;
+		$matricula->estado			=	"MATR";
+		$matricula->fecha_matricula	=	$now;
+		$matricula->save();
     }
     public function registerEvents(): array
     {
@@ -272,14 +433,59 @@ class ExcelUtils implements ToArray, WithHeadingRow, WithEvents
 }
 
 class ImportarController extends Controller {
+
+	use ResuelveElUsuario;
 	
-	// Función principal
+	/**
+	 * La importación de alumnos: una pestaña por grupo, una fila por alumno.
+	 *
+	 * **Es reanudable desde el 20 ago 2026** (§1 de docs/migracion/09-pendientes.md).
+	 * Si el servidor la corta —`max_execution_time` son 300 s en cPanel, y está
+	 * en 300 por esto— volver a subir el MISMO archivo continúa por donde iba en
+	 * vez de empezar de cero. Quien lo hace es
+	 * App\Services\PuntoDeControlDeImportacion; el porqué de cada decisión está
+	 * ahí y no aquí.
+	 *
+	 * **La respuesta no cambia.** Sigue siendo la cadena pelada 'Importados.',
+	 * que es lo que leen hoy los cuatro clientes —uno de ellos la app de Flutter,
+	 * que es UNA para los dieciséis colegios y por tanto no se puede escalonar—.
+	 * Ese es justo el motivo de que se haya hecho reanudable y no encolado: la
+	 * cola devuelve un identificador y obliga a preguntar después, y eso sí es
+	 * cambiar el contrato (§3 del mismo documento).
+	 */
 	public function postAlgo($year)
 	{
 		if(Request::hasFile('file')){
+			$archivo 	= request()->file('file');
+
+			// La huella es del CONTENIDO del archivo, no de su nombre: la
+			// secretaría sube tres veces `alumnos.xlsx` y son tres archivos
+			// distintos. Es lo que hace que «volver a subir el mismo» tenga un
+			// significado que el código pueda comprobar.
+			$punto = PuntoDeControlDeImportacion::abrir(
+				'alumnos',
+				hash_file('sha256', $archivo->getRealPath()),
+				(int) $year,
+				SafeUpload::nombreParaGuardar($archivo),
+				$this->user->user_id
+			);
+
 		    $fixer 		= new ImporterFixer();
-			$Import 	= new ExcelUtils($year, $fixer);
-			Excel::import($Import, request()->file('file'));
+			$Import 	= new ExcelUtils($year, $fixer, $punto);
+
+			// El error se guarda y se vuelve a lanzar: el 500 que ve el cliente
+			// es el mismo de siempre —cambiarlo es tocar el contrato— pero deja
+			// de ser la única señal de que algo pasó. Y la fila queda en
+			// 'fallida', que se reanuda igual que 'en_proceso'.
+			try {
+				Excel::import($Import, $archivo);
+			} catch (\Throwable $e) {
+				$punto->fallar($e);
+				throw $e;
+			}
+
+			$punto->completar();
+
 			$data = [];
 			// Return an import object for every sheet
 			foreach ($Import->getSheetNames() as $index => $sheetName) {
@@ -293,6 +499,27 @@ class ImportarController extends Controller {
 
 	
 
+	/**
+	 * La importación de cartera, que **está rota y lleva años estándolo**.
+	 *
+	 * `Excel::import($ruta, $closure)` es la firma de maatwebsite/excel 2.x. En la
+	 * 3.x el primer argumento es el objeto de importación y el segundo la ruta,
+	 * así que el closure llega donde se espera una ruta y `pathinfo()` revienta:
+	 * 500 en cada llamada, desde antes de esta migración. Es el mismo error exacto
+	 * que `getIndex()` unas líneas más abajo.
+	 *
+	 * No salió en el muestreo de rutas del 20 ago 2026 porque aquello golpeaba
+	 * lecturas sin parámetro, y esta es un POST con un archivo dentro. Lo destapó
+	 * el trabajo de la importación reanudable, yendo a mirar los dos importadores
+	 * que se daban por vivos.
+	 *
+	 * **Se deja rota a propósito**, con la regla del proyecto: con ruta y rota se
+	 * documenta, porque borrarla convierte un 500 en un 404 sin decirle a nadie
+	 * qué pretendía hacer esa pantalla. Qué debe hacer —y si la operación debe
+	 * existir— es una decisión del colegio.
+	 * Ver docs/migracion/05-codigo-muerto-y-roto.md §8.4; el error queda fijado
+	 * por tests/Contrato/ExcelTest.php.
+	 */
 	public function postCartera()
 	{
 		if(Request::hasFile('file')){

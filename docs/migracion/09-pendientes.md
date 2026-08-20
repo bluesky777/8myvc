@@ -6,53 +6,113 @@ parada por algo concreto**, y lo que vale de este documento es ese algo — para
 no volver a descubrirlo dentro de tres meses.
 
 Orden: primero lo que decidió Joseth que se hará, después lo que espera una
-decisión suya.
+decisión suya. Lo que se cierra **se deja aquí**, no se borra: el porqué de cada
+desvío respecto al plan es justo lo que no se puede reconstruir después.
 
 ---
 
-## 1. La importación de Excel, reanudable
+## 1. La importación de Excel, reanudable — **hecha el 20 ago 2026**
 
-**Estado: acordado, sin fecha** (Joseth, 20 ago 2026).
+**Estado: cerrada.** Acordada por Joseth ese mismo día y hecha a continuación.
+Se deja escrito lo que se hizo y, sobre todo, **en qué se apartó del plan de
+arriba y por qué**, que es lo que no se puede reconstruir leyendo el diff.
 
 `max_execution_time` está en **300 s** en la cuenta de cPanel, y está así **por
-esto**: las importaciones de alumnos tardaban mucho. El objetivo a futuro es
-poder **bajarlo**, y para eso la importación tiene que dejar de ser una sola
-petición larga.
+esto**: las importaciones de alumnos tardaban mucho. Bajarlo exige que la
+importación deje de ser una sola petición que o entra entera o se pierde.
 
-**Lo que ya se intentó, y es la mitad del diseño.** Joseth puso en su día un
-`Log::info` que dejaba anotado **cuál fue el último alumno importado**, para que
-si el proceso se rompía y alguien volvía a subir el mismo archivo, no se
-recrearan los que ya habían entrado, sino que continuara desde ahí. La intuición
-es la correcta —lo que hace falta es un punto de control— y lo que le faltaba
-era dónde vivir: un `Log::info` no se puede consultar desde el código, se borra
-con la rotación y no distingue un colegio de otro.
+### Lo que ya estaba, y que era la mitad del diseño
 
-Por dónde ir cuando se retome:
+Joseth había puesto un punto de control. No era un `Log::info` —eso es lo que
+decía este documento antes de ir a mirarlo— sino **`Debugging::pin`, que escribe
+en una tabla**, con el comentario `//No eliminar para continuar si se cae el
+servidor!!` al lado. La intuición era la correcta y el sitio también; lo que le
+faltaba era **forma**: tres cadenas sueltas por alumno (`'Alum_id: 431'`,
+`'Grupo: 5A'`) sin decir de qué archivo ni de qué año son. Un humano puede
+leerlas. El importador no.
 
-- **El punto de control en la base, no en el log.** Una fila por importación
-  —archivo, año, última fila procesada, estado— que el propio importador lea al
-  empezar. Con eso «reanudar» deja de depender de que alguien lea un log.
-- **Idempotencia por la clave natural.** Reanudar bien no es solo saber dónde se
-  quedó: es que volver a procesar una fila ya procesada no cree un duplicado. El
-  documento del alumno es esa clave, y el importador ya lo usa en otros sitios
-  (`UPDATE alumnos SET ... WHERE documento=?`).
-- **Por lotes.** Leer y guardar de N en N deja el pico de memoria plano y hace
-  que el punto de control signifique algo. El `memory_limit` es de 768M, así que
-  el problema no es la memoria: es el tiempo.
-- **Medirlo antes.** Cuánto tarda de verdad una importación hoy no lo sabe
-  nadie: se dice que «tardaba mucho». `CONSULTAS_LENTAS_MS` en el colegio que
-  más importa lo dice en una temporada, y de paso dice si hay **otro** endpoint
-  apoyado en esos 300 s —que es la pregunta que quedó abierta— antes de bajarlos
-  y romperlo.
+Las líneas siguen ahí, porque son el único rastro de las importaciones
+anteriores a hoy en las dieciséis bases, con el comentario reescrito para que se
+sepa qué las reemplazó.
 
-Los dos importadores son `Alumnos\ImportarController::postAlgo()` (alumnos, por
-año) y `::postCartera()`. El tercero, `GET api/importar`, está roto por otra
-razón desde hace años: usa la firma de `maatwebsite/excel` 2.x
-([§8](05-codigo-muerto-y-roto.md)).
+### Lo que se hizo
 
-> Esto y las colas (§3) son el mismo problema visto desde dos sitios, y la
-> versión reanudable es la barata: no cambia el contrato con los cuatro
-> clientes.
+- **`importaciones`**, una fila por importación, no por alumno: archivo, huella,
+  año, avance por hoja, filas, estado, error, inicio y fin
+  (`2026_08_20_200000_create_importaciones_table`).
+- **`App\Services\PuntoDeControlDeImportacion`**, que es quien decide qué se
+  reanuda y qué no. Todo el porqué está en su cabecera.
+- **La huella es el sha256 del CONTENIDO**, no el nombre: la secretaría sube
+  tres veces `alumnos.xlsx` y son tres archivos distintos.
+- **Idempotencia por el documento del alumno**, la clave natural. Antes, una
+  fila sin `id` significaba «créalo» sin mirar si ese documento ya estaba; eso
+  duplicaba alumno, usuario y matrícula.
+- **Índice en `alumnos.documento`**, que hasta hoy no tenía ninguno porque nada
+  buscaba por ahí. El `EXPLAIN` da el mismo criterio del paso 12: `type: ALL`,
+  `possible_keys: NULL`.
+- **La respuesta no cambia**: sigue siendo la cadena `'Importados.'`. Ese era el
+  punto — es lo que separa esto de las colas (§3).
+- Seis tests en `tests/Contrato/ImportacionReanudableTest.php`. Los tres que
+  fijan comportamiento nuevo se comprobaron al revés, desactivando el arreglo,
+  para que no pasaran por casualidad.
+- Un método nuevo en `SafeUpload`, `nombreParaGuardar()`, porque
+  `GuardsDestructivosTest` falló en cuanto el código nuevo leyó el nombre del
+  archivo subido. Tenía razón: lo que se guarda en una columna acaba saliendo
+  por una pantalla, y `getClientOriginalName()` vive en un solo sitio.
+
+### Dónde se apartó del plan, y por qué
+
+**«Por lotes, de N en N» → una transacción por fila.** El plan pedía lotes
+pensando en la memoria, y **la memoria no es el problema**: `memory_limit` son
+768M y una hoja de un colegio entero cabe de sobra. Lo que se agota es el
+tiempo. Y anotar de N en N tiene un coste que el plan no había visto: obliga a
+**reprocesar hasta N-1 filas** al reanudar, y reprocesar una fila de alumno no
+es inocuo —el camino de acudientes inserta sin mirar si ya estaba—. Con la fila
+entera y su marca de avance **en la misma transacción**, no se reprocesa
+ninguna: una fila está aplicada si y solo si el punto de control la da por hecha.
+
+Cuesta un `UPDATE` más por alumno sobre las ocho escrituras que ya hacía cada
+fila, y la transacción ahorra los `fsync` sueltos de esas ocho. No se paga: se
+cambia de sitio.
+
+**«Medirlo antes» → la tabla es la medición.** No había forma de medir una
+importación de producción desde aquí, y la tabla contesta la pregunta ella
+misma, en cada colegio, sin instrumentar nada:
+
+```sql
+SELECT archivo, year, filas, TIMESTAMPDIFF(SECOND, inicio, fin) AS segundos
+FROM importaciones WHERE estado = 'completada' ORDER BY id DESC;
+```
+
+**Ese número sigue siendo el que falta**, y ahora sí se puede recoger: hace
+falta una temporada de matrículas en el colegio que más importa antes de tocar
+`max_execution_time`. La otra pregunta que quedó abierta —si hay **otro**
+endpoint apoyado en esos 300 s— sigue abierta y sigue necesitando
+`CONSULTAS_LENTAS_MS`.
+
+### Y una corrección: importador vivo hay uno, no dos
+
+Este documento decía que los dos importadores eran
+`ImportarController::postAlgo()` y `::postCartera()`. **`postCartera` está roto**
+desde el salto a `maatwebsite/excel` 3.x, con el mismo error exacto que
+`GET api/importar`: la firma de la 2.x. No había salido antes porque el muestreo
+de la P2 solo golpeaba lecturas sin parámetro, y esta es un POST con un archivo
+dentro. Queda fijado en `ExcelTest` y descrito en
+[05 §8](05-codigo-muerto-y-roto.md); qué debe hacer la importación de cartera es
+una decisión del colegio, como los otros tres de esa familia.
+
+### Lo que esto NO cubre
+
+Si la secretaría, en vez de volver a subir el mismo archivo, **exporta uno
+nuevo** y sube ese, la huella cambia y no se reanuda nada. No hace falta que lo
+haga: la hoja recién exportada ya trae el `id` de los alumnos que sí entraron.
+Los dos caminos reales están cubiertos, cada uno por su lado — el punto de
+control el primero, la clave natural el segundo.
+
+Lo que sigue sin cubrir es **duplicar acudientes** en ese segundo camino: sus
+tres ramas dependen de lo que la secretaría escribió en la hoja, y hacerlas
+idempotentes exige decidir qué significa «este acudiente ya está» cuando la fila
+viene sin documento. No se tocó a propósito.
 
 ---
 
@@ -85,6 +145,10 @@ una vez al pasar de JWT a Sanctum.
 
 Las demás tablas no necesitan conversión: sus fechas ya están en hora de
 Colombia, que es la que pasarían a leerse.
+
+`importaciones`, que es de hoy, escribe en UTC como la sesión — pero sus dos
+marcas solo se restan entre sí, nunca se comparan con otra tabla, así que el
+cambio no la afecta.
 
 ---
 

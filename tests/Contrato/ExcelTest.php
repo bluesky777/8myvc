@@ -7,7 +7,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PHPUnit\Framework\Attributes\DataProvider;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
  * Las hojas de cálculo: lo que se exporta y lo que se importa.
@@ -105,6 +104,46 @@ class ExcelTest extends CasoDeContrato
 
         $this->get('/'.$ruta, ['Authorization' => 'Bearer '.$token])
             ->assertStatus(500);
+    }
+
+    /**
+     * El importador de cartera está roto por lo mismo que los exports de la 2.x,
+     * y nadie lo sabía.
+     *
+     * `POST api/importar/cartera` hace `Excel::import($ruta, function($reader){…})`,
+     * que es la firma de maatwebsite/excel **2.x**. En la 3.x el primer
+     * argumento es el objeto de importación y el segundo la ruta, así que el
+     * closure llega donde se espera una ruta y `pathinfo()` revienta — el mismo
+     * error exacto que `GET api/importar` (§8 de 05-codigo-muerto-y-roto.md).
+     *
+     * **No salió en el muestreo de la P2 porque aquello solo golpeaba lecturas
+     * sin parámetro**, y esta es un POST con un archivo dentro. Es la lección de
+     * la P2 otra vez, en el sitio donde todavía no se había mirado: lo que no se
+     * golpea no se sabe si funciona, y aquí ni el análisis estático ni las 66
+     * lecturas llegaban.
+     *
+     * Importa más allá del endpoint: docs/migracion/09-pendientes.md daba por
+     * vivos «los dos importadores» al planear la importación reanudable. Vivo
+     * hay uno.
+     *
+     * Se deja roto con la regla de siempre —con ruta y roto se documenta— y
+     * este test fija el error para que arreglarlo sea una decisión y no un
+     * accidente.
+     */
+    public function test_el_importador_de_cartera_usa_la_api_vieja_y_falla(): void
+    {
+        $token = $this->tokenDe($this->usuarioDeTipo('Usuario')->username);
+
+        $this->haciendoQueHayaDeudores();
+
+        $hoja = $this->archivoDescargado(
+            $this->get('/api/cartera/exportar-solo-deudores', ['Authorization' => 'Bearer '.$token])->assertStatus(200)
+        );
+
+        $this->post('/api/importar/cartera',
+            ['file' => new UploadedFile($hoja, 'cartera.xlsx', null, null, true)],
+            ['Authorization' => 'Bearer '.$token]
+        )->assertStatus(500);
     }
 
     /**
@@ -263,20 +302,5 @@ class ExcelTest extends CasoDeContrato
     private function sinNumeros(string $titulo): string
     {
         return preg_replace('/\d+/', '#', $titulo);
-    }
-
-    /** La ruta en disco del archivo que devolvió la descarga. */
-    private function archivoDescargado(TestResponse $r): string
-    {
-        $respuesta = $r->baseResponse;
-
-        $this->assertInstanceOf(BinaryFileResponse::class, $respuesta,
-            'Excel::download() devuelve una BinaryFileResponse. Si esto cambia, cambió el paquete.');
-
-        $ruta = $respuesta->getFile()->getPathname();
-
-        $this->assertFileExists($ruta);
-
-        return $ruta;
     }
 }

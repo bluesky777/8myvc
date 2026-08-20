@@ -369,10 +369,10 @@ texto. Solo aparecen golpeando.
 | `GET api/votaciones/unsignedsusers` | `select p.user_id from vt_participantes p`, y `vt_participantes` no tiene `user_id`: tiene `grupo_profes_acudientes`. La tabla cambió de forma y la consulta se quedó |
 | `GET api/importar` | `Excel::import('…/alumnos.xls', function($reader){…})` es la firma de maatwebsite/excel **2.x**. En la 3.x el primer argumento es el objeto de importación, así que el closure llega donde se espera una ruta y `pathinfo()` revienta. Misma familia que los `Excel::create()` de la 7.2, y mismo motivo para no tocarlo: reescribirlo es rehacer el importador |
 
-**Se dejan como están**, con la misma regla de la 6.5 y la 7.2: arreglarlos no es
-limpieza. Qué debe devolver la papelera de profesores, o de dónde sale el
-`user_id` de un participante ahora que la columna no está, son decisiones del
-colegio. Lo que sí queda es el test que fija el error exacto, para que un cambio
+**Se dejan como están** —los cuatro de la tabla y el de la 8.4—, con la misma
+regla de la 6.5 y la 7.2: arreglarlos no es limpieza. Qué debe devolver la
+papelera de profesores, o de dónde sale el `user_id` de un participante ahora
+que la columna no está, son decisiones del colegio. Lo que sí queda es el test que fija el error exacto, para que un cambio
 de la migración no los mueva sin que nadie se entere.
 
 ### 8.1 Tres pantallas que devuelven la cadena `'Holaa'`
@@ -403,6 +403,25 @@ es lo mismo que `llevo_formulario` del P1, que no existía en ninguna base. Se
 anota aquí porque la primera lectura del inventario fue esa, y costó una hora:
 las tablas del módulo llevan prefijo `ws_`, y las de cambios de asignatura están
 en singular (`change_asked_assignment`).
+
+### 8.4 Y el importador de cartera, que es el quinto (20 ago 2026)
+
+`POST api/importar/cartera` hace `Excel::import($ruta, function($reader){…})`:
+**la misma firma de la 2.x** que rompe `GET api/importar`, y el mismo error
+exacto —`pathinfo(): Argument #1 ($path) must be of type string, Closure given`—.
+
+Lo interesante no es el endpoint, es **por qué tardó un día más en aparecer**. El
+muestreo de la P2 golpeó 66 **lecturas sin parámetro**, y esta es un POST con un
+archivo dentro: no había forma de que saliera ahí. Es la lección de esta sección
+aplicada a sí misma —lo que no se golpea no se sabe si funciona— en el único
+rincón donde golpear cuesta trabajo, porque hay que fabricar el archivo. El que
+lo destapó fue el trabajo de la importación reanudable, que fue a mirar los dos
+importadores que [09 §1](09-pendientes.md) daba por vivos.
+
+Queda fijado en `tests/Contrato/ExcelTest.php`, con la hoja que produce el propio
+export de deudores. **Se deja roto** por lo mismo que los otros cuatro: qué debe
+hacer la importación de cartera —y si la operación debe existir, ahora que se
+sabe que lleva años sin funcionar— es una decisión del colegio.
 
 ---
 

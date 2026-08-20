@@ -328,6 +328,48 @@ una se queda fuera a propósito:
   Lee de `dis_procesos`, una de las dos tablas que el generador omite por ser el
   dato más sensible del sistema.
 
+## La importación reanudable, del 20 de agosto
+
+`ImportacionReanudableTest`, seis tests. No comprueban que el importador
+funcione —de eso se encarga el viaje de ida y vuelta de `ExcelTest`— sino las
+dos promesas que estrena: que volver a subir el mismo archivo **continúa** en
+vez de repetir, y que aunque repitiera **no duplicaría**, porque el documento
+del alumno se mira antes de crear.
+
+Lo que hace que comprueben algo:
+
+- **No matan el proceso a media importación**, que no se puede hacer desde
+  PHPUnit. Escriben a mano la fila de `importaciones` que habría dejado un
+  corte y miran qué hace el importador con ella. Es la misma fila, con los
+  mismos valores, que la que deja un `kill`.
+- **El corte va DENTRO de una pestaña**, no entre dos: el proceso no muere en el
+  hueco entre hojas, muere en el alumno 340. Se marca a dos alumnos de la misma
+  hoja —uno detrás del punto de control y otro delante— con un nombre imposible,
+  y se comprueba que respeta al primero y pisa al segundo. Un corte entre hojas
+  habría pasado igual con el salto roto.
+- **Las columnas se buscan por su encabezado**, no por su letra. Una letra fija
+  se rompe el día que el export añada una columna, y el test seguiría pasando
+  mirando la columna equivocada.
+- **Los tres que fijan comportamiento nuevo se comprobaron al revés**,
+  desactivando el arreglo y viendo fallar exactamente el que debía. Dos de los
+  tres pasaban al principio por una razón tonta —una sustitución con la
+  indentación mal— y sin ese paso se habrían quedado así.
+
+Los dos últimos miran el otro lado. Uno, que una pestaña cuyo nombre no es el de
+ningún grupo deje **el nombre de la pestaña escrito** en `importaciones.error`
+—sigue siendo un 500, porque cambiarlo es tocar el contrato de la pantalla; lo
+que cambia es que ahora se puede leer—. El otro, que el nombre del archivo se
+guarde **saneado**: lo pone quien sube, y lo que entra en una columna acaba
+saliendo por una pantalla. Ese lo pidió `GuardsDestructivosTest`, que falló en
+cuanto el código nuevo llamó a `getClientOriginalName()` fuera de `SafeUpload`
+— exactamente para lo que estaba puesto.
+
+**Y encontró un quinto endpoint roto**: `POST api/importar/cartera`, con la
+misma firma de `maatwebsite/excel` 2.x que rompe `GET api/importar`. No había
+salido en el muestreo P2 porque aquello solo golpeaba lecturas sin parámetro, y
+esta es un POST con un archivo dentro. Queda fijado en `ExcelTest` y descrito en
+[05 §8.4](05-codigo-muerto-y-roto.md).
+
 ## Cosas que aparecieron en los datos reales
 
 Encontradas construyendo esto. Ninguna está arreglada.

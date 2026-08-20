@@ -96,6 +96,32 @@ class SafeUpload
     }
 
     /**
+     * El nombre que mandó el cliente, saneado, para **guardarlo o enseñarlo** —
+     * nunca para decidir dónde aterriza un archivo.
+     *
+     * Es el caso de la importación de alumnos: `importaciones.archivo` guarda
+     * cómo se llamaba la hoja para que un humano reconozca la fila. Ahí no se
+     * escribe nada en disco, pero el nombre viene del cliente igual que en las
+     * subidas, y lo que se guarda en una columna termina saliendo por una
+     * pantalla. Pasa por el mismo saneado que las subidas y así
+     * `getClientOriginalName()` sigue viviendo en un solo sitio, que es lo que
+     * comprueba `GuardsDestructivosTest`.
+     *
+     * No valida la extensión contra ninguna lista: aquí no hay lista blanca que
+     * aplicar, porque el archivo no se guarda. Solo se neutraliza.
+     */
+    public static function nombreParaGuardar(?UploadedFile $file): ?string
+    {
+        if (! $file) {
+            return null;
+        }
+
+        $extension = mb_strtolower(preg_replace('/[^A-Za-z0-9]/', '', (string) $file->getClientOriginalExtension()));
+
+        return self::baseSegura($file).($extension === '' ? '' : '.'.mb_substr($extension, 0, 10));
+    }
+
+    /**
      * Nombre base sin ruta, sin puntos y sin caracteres que el sistema de archivos
      * o el servidor web puedan interpretar.
      *
