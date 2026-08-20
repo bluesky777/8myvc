@@ -396,7 +396,7 @@ Y bloqueo progresivo tras N fallos. La tabla `bitacoras` ya registra los intento
 | `File::makeDirectory($folder, 0777, ...)` | `UploadDocuments.php:15` | Debería ser 0755 |
 | 2 validaciones en 32.477 líneas | todo el proyecto | Cada endpoint que toques, estrena FormRequest |
 | Estado estático en `User` | ~~`$images`, `$perfilPath`, `$imgSharedPath`~~ borradas (no las leía nadie) · ~~`$intentoLogueoPorActive`~~ ahora es estado de la petición · queda `$nota_minima_aceptada` | 🟡 **Casi.** La que queda la leen 26 sitios del cálculo de notas, que el §5 del plan protege |
-| `password_reminders` sin purgar | 1.620 filas | Tarea programada |
+| ~~`password_reminders` sin purgar~~ | 1.620 filas acumuladas desde 2018 | ✅ **Ya no hace falta tarea programada.** El PR #7 purga al escribir: cada petición de reseteo borra todo lo caducado, no solo lo de ese correo, así que una sola sirve para limpiar la tabla entera. Comprobado el 20 ago 2026 |
 | `debugging` con 9.553 filas | `Debugging::pin()` en `ChangeAskedController` | Depuración dejada activa en producción |
 | Correos auto-generados `username@myvc.com` | `AlumnosController:418`, `ProfesoresController:194` | Colisiones y reseteos cruzados si dos usuarios comparten correo |
 

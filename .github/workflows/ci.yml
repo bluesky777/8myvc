@@ -73,8 +73,10 @@ jobs:
       - name: Formato (Pint)
         run: composer run pint:test
 
-      # Nivel 0: únicamente lo que no puede funcionar. Los casos que quedan sin
-      # arreglar están enumerados con su motivo en phpstan.neon.
+      # Nivel 2 desde el 20 ago 2026. Empezó en el 0 —solo lo que no puede
+      # funcionar— y cada subida encontró endpoints rotos de verdad. Los casos
+      # que quedan sin arreglar están enumerados con su motivo en phpstan.neon,
+      # no en un baseline.
       - name: Análisis estático (Larastan)
         run: composer run stan
 
