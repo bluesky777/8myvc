@@ -1,0 +1,382 @@
+{
+    "ChangesAsked": {
+        "total": 8,
+        "con_guard": 7
+    },
+    "ChangesAskedAssignment": {
+        "total": 3,
+        "con_guard": 3
+    },
+    "actas-evaluacion": {
+        "total": 3,
+        "con_guard": 3
+    },
+    "actividades": {
+        "total": 12,
+        "con_guard": 12
+    },
+    "acudientes": {
+        "total": 14,
+        "con_guard": 7
+    },
+    "acudientes-export": {
+        "total": 1,
+        "con_guard": 1
+    },
+    "alumnos": {
+        "total": 17,
+        "con_guard": 7
+    },
+    "aplicacion-descargas": {
+        "total": 1,
+        "con_guard": 0
+    },
+    "areas": {
+        "total": 5,
+        "con_guard": 4
+    },
+    "asignaturas": {
+        "total": 14,
+        "con_guard": 11
+    },
+    "asistencias": {
+        "total": 5,
+        "con_guard": 5
+    },
+    "asistencias-app": {
+        "total": 5,
+        "con_guard": 5
+    },
+    "aspiraciones": {
+        "total": 3,
+        "con_guard": 1
+    },
+    "ausencias": {
+        "total": 7,
+        "con_guard": 7
+    },
+    "auth": {
+        "total": 5,
+        "con_guard": 0
+    },
+    "bitacoras": {
+        "total": 2,
+        "con_guard": 2
+    },
+    "boletines": {
+        "total": 3,
+        "con_guard": 3
+    },
+    "boletines2": {
+        "total": 4,
+        "con_guard": 4
+    },
+    "boletines3": {
+        "total": 4,
+        "con_guard": 4
+    },
+    "bolfinales": {
+        "total": 4,
+        "con_guard": 4
+    },
+    "bolfinales-preescolar": {
+        "total": 5,
+        "con_guard": 5
+    },
+    "buscar": {
+        "total": 2,
+        "con_guard": 2
+    },
+    "calendario": {
+        "total": 5,
+        "con_guard": 0
+    },
+    "cambiar-usuarios": {
+        "total": 4,
+        "con_guard": 4
+    },
+    "candidatos": {
+        "total": 4,
+        "con_guard": 1
+    },
+    "cartera": {
+        "total": 3,
+        "con_guard": 3
+    },
+    "certificados": {
+        "total": 6,
+        "con_guard": 6
+    },
+    "certificados-estudio": {
+        "total": 2,
+        "con_guard": 2
+    },
+    "certificados-persona": {
+        "total": 1,
+        "con_guard": 1
+    },
+    "ciudades": {
+        "total": 11,
+        "con_guard": 5
+    },
+    "comportamiento": {
+        "total": 4,
+        "con_guard": 3
+    },
+    "contratos": {
+        "total": 3,
+        "con_guard": 2
+    },
+    "definiciones_comportamiento": {
+        "total": 4,
+        "con_guard": 3
+    },
+    "definitivas_periodos": {
+        "total": 10,
+        "con_guard": 8
+    },
+    "detalles": {
+        "total": 4,
+        "con_guard": 4
+    },
+    "disciplina": {
+        "total": 7,
+        "con_guard": 7
+    },
+    "editnota": {
+        "total": 7,
+        "con_guard": 6
+    },
+    "enfermeria": {
+        "total": 5,
+        "con_guard": 1
+    },
+    "escalas": {
+        "total": 4,
+        "con_guard": 3
+    },
+    "eventos": {
+        "total": 1,
+        "con_guard": 1
+    },
+    "excel-docentes": {
+        "total": 2,
+        "con_guard": 2
+    },
+    "folios": {
+        "total": 1,
+        "con_guard": 0
+    },
+    "frases": {
+        "total": 4,
+        "con_guard": 3
+    },
+    "frases_asignatura": {
+        "total": 3,
+        "con_guard": 3
+    },
+    "grados": {
+        "total": 5,
+        "con_guard": 3
+    },
+    "grupos": {
+        "total": 16,
+        "con_guard": 15
+    },
+    "historiales": {
+        "total": 4,
+        "con_guard": 4
+    },
+    "images-users": {
+        "total": 10,
+        "con_guard": 9
+    },
+    "importar": {
+        "total": 4,
+        "con_guard": 0
+    },
+    "informes": {
+        "total": 2,
+        "con_guard": 2
+    },
+    "login": {
+        "total": 7,
+        "con_guard": 0
+    },
+    "materias": {
+        "total": 5,
+        "con_guard": 4
+    },
+    "matriculas": {
+        "total": 16,
+        "con_guard": 2
+    },
+    "mis-actividades": {
+        "total": 5,
+        "con_guard": 1
+    },
+    "myimages": {
+        "total": 10,
+        "con_guard": 4
+    },
+    "niveles_educativos": {
+        "total": 5,
+        "con_guard": 3
+    },
+    "nota_comportamiento": {
+        "total": 8,
+        "con_guard": 7
+    },
+    "notas": {
+        "total": 7,
+        "con_guard": 7
+    },
+    "notas-actuales-alumnos": {
+        "total": 1,
+        "con_guard": 1
+    },
+    "notas-perdidas": {
+        "total": 3,
+        "con_guard": 3
+    },
+    "observador": {
+        "total": 3,
+        "con_guard": 3
+    },
+    "observador-horizontal": {
+        "total": 1,
+        "con_guard": 1
+    },
+    "opciones": {
+        "total": 4,
+        "con_guard": 4
+    },
+    "ordinales": {
+        "total": 6,
+        "con_guard": 6
+    },
+    "paises": {
+        "total": 2,
+        "con_guard": 1
+    },
+    "participantes": {
+        "total": 9,
+        "con_guard": 2
+    },
+    "perfiles": {
+        "total": 22,
+        "con_guard": 15
+    },
+    "periodos": {
+        "total": 12,
+        "con_guard": 10
+    },
+    "permissions": {
+        "total": 1,
+        "con_guard": 1
+    },
+    "piars-actas-acuerdo": {
+        "total": 3,
+        "con_guard": 3
+    },
+    "piars-alumnos": {
+        "total": 4,
+        "con_guard": 3
+    },
+    "piars-asignaturas": {
+        "total": 2,
+        "con_guard": 2
+    },
+    "piars-config": {
+        "total": 2,
+        "con_guard": 1
+    },
+    "piars-grupos": {
+        "total": 3,
+        "con_guard": 3
+    },
+    "planillas": {
+        "total": 5,
+        "con_guard": 5
+    },
+    "planillas-ausencias": {
+        "total": 2,
+        "con_guard": 2
+    },
+    "preguntas": {
+        "total": 7,
+        "con_guard": 7
+    },
+    "prematriculas": {
+        "total": 2,
+        "con_guard": 2
+    },
+    "profesores": {
+        "total": 12,
+        "con_guard": 12
+    },
+    "promovidos": {
+        "total": 1,
+        "con_guard": 1
+    },
+    "publicaciones": {
+        "total": 8,
+        "con_guard": 0
+    },
+    "puestos": {
+        "total": 2,
+        "con_guard": 2
+    },
+    "requisitos": {
+        "total": 6,
+        "con_guard": 6
+    },
+    "respuestas": {
+        "total": 1,
+        "con_guard": 0
+    },
+    "roles": {
+        "total": 6,
+        "con_guard": 6
+    },
+    "simat": {
+        "total": 3,
+        "con_guard": 3
+    },
+    "subunidades": {
+        "total": 9,
+        "con_guard": 9
+    },
+    "tardanzas": {
+        "total": 6,
+        "con_guard": 0
+    },
+    "tiposdocumento": {
+        "total": 5,
+        "con_guard": 4
+    },
+    "unidades": {
+        "total": 11,
+        "con_guard": 11
+    },
+    "uniformes": {
+        "total": 4,
+        "con_guard": 4
+    },
+    "users": {
+        "total": 5,
+        "con_guard": 5
+    },
+    "votaciones": {
+        "total": 15,
+        "con_guard": 8
+    },
+    "votos": {
+        "total": 5,
+        "con_guard": 2
+    },
+    "years": {
+        "total": 19,
+        "con_guard": 17
+    }
+}

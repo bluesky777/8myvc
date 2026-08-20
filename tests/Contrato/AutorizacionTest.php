@@ -506,4 +506,202 @@ class AutorizacionTest extends CasoDeContrato
 
         return $rutas;
     }
+
+    /**
+     * La hermana que no lleva el guard que llevan las once restantes.
+     *
+     * Es la forma exacta de todo lo que encontraron la §14, la §15 y la §16, y
+     * la que ninguna de las tres herramientas mira: `inventario-autorizacion.py`
+     * pregunta si la ruta trae el identificador de una persona —así que no ve
+     * las que no traen ninguno—, y el barrido pregunta qué sale y qué se
+     * escribe —así que no ve lo del colegio que no es de nadie—. Entre las dos
+     * se colaron `unidades/trashed`, `subunidades/trashed`, `editnota/trashed`,
+     * `asignaturas/papelera` y el GET de `unidades/de-asignatura-periodo` que
+     * escribía. **Las cinco eran la única de su familia sin guard**, y eso sí es
+     * mecánico.
+     *
+     * La regla: si un prefijo tiene dos o más rutas con guard de propiedad y
+     * alguna sin él, esa alguna se mira. **No afirma que esté mal** —hay
+     * excepciones legítimas y están abajo, una a una con su motivo— sino que no
+     * se ha decidido. Una ruta nueva que nazca sin el guard de sus hermanas
+     * rompe el test el mismo día, que es lo único que impide que la lista vuelva
+     * a crecer sin que nadie lo note.
+     *
+     * Se mide el prefijo y no el controlador a propósito: `editnota/trashed`
+     * está en `EditnotaController` y devuelve alumnos borrados, y lo que la
+     * delató fue estar sola en `editnota/*`, no en su clase.
+     *
+     * @return array<string, string> uri => por qué se queda sin el guard de sus hermanas
+     */
+    private const EXCEPCIONES_DE_FAMILIA = [
+        // Las lecturas de catálogo. Son las nueve que `inventario-autorizacion.py`
+        // sigue contando y que esperan una decisión en 08: no exponen a nadie,
+        // pero nadie ha dicho si un alumno tiene que poder leerlas. Van aquí con
+        // el índice de cada recurso, que es el mismo caso.
+        'GET api/areas' => 'catálogo, pendiente de decisión en 08',
+        'GET api/comportamiento' => 'catálogo, pendiente de decisión en 08',
+        'GET api/definiciones_comportamiento' => 'catálogo, pendiente de decisión en 08',
+        'GET api/escalas' => 'catálogo, pendiente de decisión en 08',
+        'GET api/frases' => 'catálogo, pendiente de decisión en 08',
+        'GET api/grados' => 'catálogo, pendiente de decisión en 08',
+        'GET api/grados/show/{id}' => 'catálogo, pendiente de decisión en 08',
+        'GET api/grupos' => 'catálogo, pendiente de decisión en 08',
+        'GET api/materias' => 'catálogo, pendiente de decisión en 08',
+        'GET api/niveles_educativos' => 'catálogo, pendiente de decisión en 08',
+        'GET api/niveles_educativos/show/{id}' => 'catálogo, pendiente de decisión en 08',
+        'GET api/nota_comportamiento' => 'catálogo, pendiente de decisión en 08',
+        'GET api/periodos' => 'catálogo, pendiente de decisión en 08',
+        'GET api/periodos/show/{year_id}' => 'catálogo, pendiente de decisión en 08',
+        'GET api/tiposdocumento' => 'catálogo, pendiente de decisión en 08',
+        'GET api/asignaturas' => 'catálogo, pendiente de decisión en 08',
+        'GET api/asignaturas/show/{asignatura_id}' => 'catálogo, pendiente de decisión en 08',
+
+        // Decididas y abiertas a propósito.
+        'GET api/ChangesAsked/to-me' => 'la pantalla de inicio de los cuatro tipos; cada rama se acota sola (05 §16.1)',
+        'GET api/years' => 'la configuración del colegio, que necesita todo el mundo al entrar',
+        'GET api/years/colegio' => 'lo mismo. El `telefono` que suelta es el del colegio',
+        'GET api/contratos' => 'lo llama la app de Flutter desde pantallas de familia; qué columnas se recortan está en 09 §5',
+
+        // Defendidas por dentro, que es por lo que el inventario tampoco las lista.
+        'GET api/definitivas_periodos/arreglar-duplicados' => 'User::pueden_modificar_definitivas() corta a todo el que no sea superusuario o profesor con permiso',
+        'PUT api/piars-alumnos/field' => 'comprueba dentro del método; responde 400 a una familia',
+        'PUT api/images-users/imagenes-de-usuario' => 'sin `user_id` significa «las mías», que es lo que devuelve',
+
+        // Rotas desde antes de la migración, con su entrada en 05.
+        'GET api/definitivas_periodos' => 'rota: `$profe_id` no se define para este tipo de usuario (05, tabla de variables sin definir)',
+        'GET api/editnota/detailed-notas-year' => 'rota: usa `$grupo_id` y la ruta no lleva parámetros (05, misma tabla)',
+
+        // La que espera la decisión que Joseth dejó abierta.
+        'GET api/asignaturas/listasignaturas-alone' => 'le da a un alumno las asignaturas del profesor con su id; es la pregunta abierta de 05 §11.2, anotada en 09 §5',
+    ];
+
+    public function test_ninguna_ruta_se_queda_sola_sin_el_guard_de_su_familia(): void
+    {
+        $familias = [];
+
+        foreach (Route::getRoutes()->getRoutes() as $ruta) {
+            $uri = $ruta->uri();
+
+            if (! str_starts_with($uri, 'api/')) {
+                continue;
+            }
+
+            foreach (array_diff($ruta->methods(), ['HEAD']) as $verbo) {
+                $familias[explode('/', $uri)[1]][] = [
+                    'clave' => $verbo.' '.$uri,
+                    'guardada' => $this->llevaGuardDePropiedad($ruta),
+                ];
+            }
+        }
+
+        $solas = [];
+
+        foreach ($familias as $prefijo => $rutas) {
+            $conGuard = count(array_filter($rutas, fn ($r) => $r['guardada']));
+            $sinGuard = count($rutas) - $conGuard;
+
+            // La señal es «la que se quedó sola», no «esta familia está abierta».
+            // Hacen falta al menos dos hermanas con guard —una sola no establece
+            // ninguna costumbre— y que las que no lo llevan sean minoría clara.
+            // Una familia mayoritariamente sin guard es otra pregunta y más
+            // grande, y tiene su sitio en el snapshot de abajo: aquí daría
+            // sesenta líneas de ruido y taparía las cinco que importan.
+            if ($conGuard < 2 || $sinGuard > max(2, intdiv(count($rutas), 4))) {
+                continue;
+            }
+
+            foreach ($rutas as $r) {
+                if (! $r['guardada'] && ! array_key_exists($r['clave'], self::EXCEPCIONES_DE_FAMILIA)) {
+                    $solas[] = $r['clave'].'   (sus hermanas de '.$prefijo.'/*: '
+                        .$conGuard.' de '.count($rutas).' con guard)';
+                }
+            }
+        }
+
+        sort($solas);
+
+        $this->assertSame([], $solas,
+            'Estas rutas son la excepción de su familia: sus hermanas llevan guard de
+'.
+            'propiedad y ellas no. Es la forma exacta de los cinco agujeros de 05 §16.
+'.
+            'Míralas y, si están bien así, añádelas a EXCEPCIONES_DE_FAMILIA con el motivo.');
+    }
+
+    /**
+     * Y al revés: una excepción que deje de hacer falta tiene que gritar.
+     *
+     * Es el mismo mecanismo que el `count` de `phpstan.neon`. Sin esto, la lista
+     * de arriba solo puede crecer: alguien pone el guard, la entrada se queda, y
+     * el día que la ruta vuelva a perderlo nadie se entera.
+     */
+    public function test_no_sobra_ninguna_excepcion_de_familia(): void
+    {
+        $abiertas = [];
+
+        foreach (Route::getRoutes()->getRoutes() as $ruta) {
+            if (! str_starts_with($ruta->uri(), 'api/') || $this->llevaGuardDePropiedad($ruta)) {
+                continue;
+            }
+
+            foreach (array_diff($ruta->methods(), ['HEAD']) as $verbo) {
+                $abiertas[] = $verbo.' '.$ruta->uri();
+            }
+        }
+
+        $sobran = array_values(array_diff(array_keys(self::EXCEPCIONES_DE_FAMILIA), $abiertas));
+
+        $this->assertSame([], $sobran,
+            'Estas entradas de EXCEPCIONES_DE_FAMILIA ya no describen nada: o la ruta
+'.
+            'lleva guard, o ya no existe. Bórralas.');
+    }
+
+    /**
+     * Cuántas de cada familia llevan guard, que es lo que el `assert` deja fuera.
+     *
+     * El test de arriba solo mira la que se quedó sola. Lo contrario —una familia
+     * en la que la mayoría NO lleva guard, como `matriculas/*` con 2 de 16— no se
+     * puede afirmar desde aquí: puede ser un módulo entero de administración que
+     * nadie ha repasado, o puede estar bien porque el barrido ya lo midió por el
+     * otro lado. La máquina no sabe cuál de las dos, y una persona sí.
+     *
+     * Va a snapshot por el mismo motivo que
+     * `test_los_identificadores_que_el_guard_no_reconoce`: no afirma nada, pero
+     * una familia que se abre o se cierra aparece en el diff.
+     */
+    public function test_cuantas_de_cada_familia_llevan_guard(): void
+    {
+        $familias = [];
+
+        foreach (Route::getRoutes()->getRoutes() as $ruta) {
+            if (! str_starts_with($ruta->uri(), 'api/')) {
+                continue;
+            }
+
+            $prefijo = explode('/', $ruta->uri())[1];
+
+            foreach (array_diff($ruta->methods(), ['HEAD']) as $verbo) {
+                $familias[$prefijo]['total'] = ($familias[$prefijo]['total'] ?? 0) + 1;
+                $familias[$prefijo]['con_guard'] = ($familias[$prefijo]['con_guard'] ?? 0)
+                    + ($this->llevaGuardDePropiedad($ruta) ? 1 : 0);
+            }
+        }
+
+        ksort($familias);
+
+        $this->compararConInstantanea('guard-por-familia', $familias);
+    }
+
+    /** Un guard de propiedad, con o sin el `:clave` que le dice a qué apunta el `{id}`. */
+    private function llevaGuardDePropiedad(\Illuminate\Routing\Route $ruta): bool
+    {
+        foreach ($ruta->gatherMiddleware() as $m) {
+            if (in_array(explode(':', (string) $m)[0], ['auth.personal', 'persona.propia', 'boletin.propio'], true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }
