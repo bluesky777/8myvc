@@ -553,3 +553,80 @@ dos grupos sin habérselo dicho — **cada fecha se escribe y se compara en la
 misma zona**—, y lo que decide cuál es de dónde sale el dato: si es un dato del
 colegio (una matrícula, una ausencia, una nota), va en `America/Bogota` como
 todo lo demás de su tabla; si es un plazo interno del sistema, en UTC.
+
+---
+
+## 11. Lo que encontró subir larastan al nivel 3 y mirar el 4 (20 ago 2026)
+
+El nivel 3 comprueba tipos y el 4 comprueba si una condición decide algo. El
+3 está puesto y cerrado (§ [09-pendientes](09-pendientes.md) §6); del 4 se
+arregló lo que tenía arreglo claro y aquí queda **lo que no lo tiene**, que es
+lo de siempre: enrutado, roto, y esperando que alguien decida qué debería hacer.
+
+### 11.1 `case 'Profesor' or 'Usuario':` — el error de escritura que tapa una fuga
+
+`AsignaturasController::getListasignaturas`, la ruta
+`GET api/asignaturas/listasignaturas/{persona_id?}` con guard `persona.propia`:
+
+```php
+switch ($user->tipo) {
+    case 'Profesor' or 'Usuario':
+```
+
+En PHP eso no es «Profesor o Usuario». Es `case ('Profesor' or 'Usuario')`, o
+sea **`case true`**, y como `switch` compara con `==`, cualquier `tipo` que no
+sea cadena vacía entra por ahí. **El `case 'Alumno'` de más abajo no se ejecuta
+nunca.**
+
+Lo que importa es hacia dónde falla, y es al revés de lo que parece. La rama
+muerta filtra por `a.profesor_id = :profesor_id` **pasándole el `persona_id` del
+alumno**, y los ids de `alumnos` y de `profesores` son dos numeraciones
+distintas que se solapan. Medido contra la base de desarrollo `simonbolivar`,
+que es copia de un colegio real:
+
+| Pregunta | Respuesta |
+|---|---|
+| Alumnos cuyo id coincide con el de un profesor con asignaturas | **34** de 1.245 |
+| El más expuesto vería | **92 asignaturas ajenas** |
+| De los que además pueden iniciar sesión, el primero vería | 13 |
+| Lo que devuelve hoy la rama que sí se ejecuta | 0 filas |
+
+O sea que **el `or` mal escrito es lo único que impide que un alumno vea el
+horario de un profesor**. Escribirlo como se pretendía —`case 'Profesor': case
+'Usuario':`— abre esa fuga en el mismo commit que «arregla» el aviso del
+analizador. Es el mismo patrón que el `putCambiarpassword` de perfiles: un `if`
+de adorno que resultó ser la cerradura.
+
+**Qué falta decidir:** qué ve un alumno en esa pantalla. Hoy no ve nada, y sus
+asignaturas de verdad son las de su grupo — que **ninguna de las dos ramas
+consulta**. No es un renombre; es escribir la consulta que nadie escribió.
+
+**Por qué no hay test que lo fije.** Se intentó y no se puede: la base de tests
+copia un solo grupo de alumnos, así que ahí no hay ninguna colisión de ids y el
+candado pasaría siempre, dijera lo que dijera el código. Es un agujero del seed
+que conviene tener escrito —ver [03-tests.md](03-tests.md)—: **el seed no puede
+demostrar los fallos que dependen de que dos numeraciones se crucen.** Mientras el
+nivel siga en el 3, **lo único que vigila esto es este documento**: la anotación
+de `phpstan.neon` no se puede poner por adelantado, porque el analizador avisa
+—con razón— de las excepciones que no llegan a usarse. Entra el día que se suba
+el nivel, y el texto de la entrada ya está escrito en §6 de
+[09-pendientes.md](09-pendientes.md).
+
+### 11.2 `$todos_anios = true;` — un interruptor fijado a mano
+
+`AlumnosController::putPersonasCheck`, con el `Request::input` comentado justo
+encima:
+
+```php
+//$todos_anios = Request::input('todos_anios');
+$todos_anios = true;
+
+if ($todos_anios) { … }else{ … }
+```
+
+La rama `else` es una búsqueda distinta —limitada al año y con el grupo— que
+alguien apagó fijando la variable. **No se borra**, por la misma regla que el
+resto de este documento: la línea comentada dice qué se pretendía y la rama dice
+qué hacía, y las dos cosas se pierden al borrarla. Lo que falta decidir es si el
+buscador de personas debe volver a mirar solo el año en curso, y eso es del
+colegio.

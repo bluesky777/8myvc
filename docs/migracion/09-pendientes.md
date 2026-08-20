@@ -251,13 +251,48 @@ saber el tamaño real del daño en las dieciséis bases antes de tocar código.
   que esperan una decisión; los hallazgos del 3 o tenían arreglo claro o eran
   anotaciones que mentían.
 
-- **Larastan del 3 al 4.** Medido el 20 ago 2026: **55 errores**, y todos de la
-  misma familia —14 `if.alwaysTrue`, 9 `deadCode.unreachable`, 7
-  `booleanAnd.rightAlwaysTrue`, 5 `booleanOr.rightAlwaysFalse`—. O sea
-  condiciones que no deciden nada y ramas que no se ejecutan nunca, que es
-  exactamente la forma del `$user->is_superuser && $user->is_superuser` que
-  destapó el nivel 2. Es el nivel con más pinta de encontrar fallos de verdad de
-  los que quedan, y no está parado por nada: es trabajo.
+- **Larastan del 3 al 4 — empezado el 20 ago 2026, a medias a propósito.**
+  Medido: 55 errores, todos de la familia «esta condición no decide nada» y
+  «esta rama no se ejecuta». Acertó el pronóstico: es donde estaban los fallos.
+  Se arreglaron los que tenían arreglo claro y **quedan 29**, todos mecánicos —
+  9 sentencias tras un `return`, 5 `is_null()` redundantes en `ImporterFixer`,
+  3 `== 'true'` que no pueden ser ciertos, 3 `> 0` sobre algo que ya es
+  positivo, dos métodos sin usar, dos propiedades que solo se escriben—. No
+  está parado por nada; es rato.
+
+  Lo que salió, que es la razón de haberlo empezado:
+
+  - **Cambiar la contraseña borraba el correo de recuperación**, en los
+    dieciséis colegios y ahora mismo. Dos `if` escritos
+    `has('x') || has('x') == ''`, que son siempre ciertos porque `false == ''`
+    vale true en PHP. Uno asignaba `null` al correo cuando el cliente no mandaba
+    el campo —y el front nunca lo manda, comprobado en `UserConfiguracionCtrl.js`—;
+    el otro, el de `oldpassword`, resultó ser **lo único que defiende el
+    endpoint**: al ser siempre cierto, la contraseña antigua se comprueba
+    también cuando no la mandan. Arreglados los dos y fijados en
+    `CambiarPasswordTest`.
+  - **Doce `abort()` inalcanzables** en los `forcedelete` y `restore` de la
+    papelera: `findOrFail()` ya lanza, así que el `else` prometía un 400 que
+    nunca ocurre —y en dos ficheros con un código distinto del de al lado para
+    el mismo caso—. Lo que devuelven de verdad es el 404 de `findOrFail`, que
+    además es el correcto.
+  - **Dos que NO se arreglan**, en [05 §11](05-codigo-muerto-y-roto.md): el
+    `case 'Profesor' or 'Usuario':` —que es `case true`, y cuyo error de
+    escritura es lo único que impide que un alumno vea las asignaturas del
+    profesor con su mismo id: 34 alumnos afectados en la base de desarrollo, uno
+    de ellos con 92 asignaturas ajenas— y el `$todos_anios = true` fijado a
+    mano. Los dos necesitan una decisión, y el primero necesita además una
+    consulta que nadie ha escrito.
+
+  **Cuando se suba el nivel** hay que meter esas dos en `ignoreErrors`, y no
+  antes: el analizador avisa de las excepciones que no llegan a usarse, así que
+  puestas hoy rompen el análisis del nivel 3. Van con `count`, como todas.
+
+  Y una cosa aprendida sobre el seed, que vale para todo lo que venga: **la base
+  de tests no puede demostrar los fallos que dependen de que dos numeraciones se
+  crucen**, porque copia un solo grupo de alumnos y ahí los ids de alumno y de
+  profesor no se solapan. El candado del `switch` se intentó escribir y se tiró:
+  habría pasado siempre, dijera lo que dijera el código.
 - **Rector**, configurado y sin correr: por carpeta y revisando cada diff.
 - **FormRequests**: hay 2 validaciones en 32.000 líneas. Cada endpoint que se
   toque estrena la suya.
