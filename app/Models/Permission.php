@@ -14,6 +14,23 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * aquí y el attach lo hace ahora `RolesController` con un INSERT, igual que su
  * hermano `putRemovepermission` ya hacía el DELETE.
  */
+/**
+ * Las columnas de `permissions`, tal como están en el esquema congelado.
+ *
+ * Generado desde database/schema/mysql-schema.sql — no se edita a mano.
+ * Ver tools/columnas-en-los-modelos.php.
+ *
+ * --- columnas de la tabla, generadas por tools/columnas-en-los-modelos.php ---
+ *
+ * @property int $id
+ * @property string $name
+ * @property string $display_name
+ * @property string $description
+ * @property string $deleted_at
+ * @property string $created_at
+ * @property string $updated_at
+ * --- fin de las columnas generadas ---
+ */
 class Permission extends Model
 {
 	use SoftDeletes;

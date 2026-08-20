@@ -2,6 +2,40 @@
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+/**
+ * Las columnas de `acudientes`, tal como están en el esquema congelado.
+ *
+ * Generado desde database/schema/mysql-schema.sql — no se edita a mano.
+ * Ver tools/columnas-en-los-modelos.php.
+ *
+ * --- columnas de la tabla, generadas por tools/columnas-en-los-modelos.php ---
+ *
+ * @property int $id
+ * @property string $nombres
+ * @property string $apellidos
+ * @property string $sexo
+ * @property int $user_id
+ * @property int $is_acudiente
+ * @property string $fecha_nac
+ * @property int $ciudad_nac
+ * @property int $foto_id
+ * @property string $telefono
+ * @property string $celular
+ * @property string $ocupacion
+ * @property string $email
+ * @property string $barrio
+ * @property string $direccion
+ * @property int $tipo_doc
+ * @property string $documento
+ * @property int $ciudad_doc
+ * @property int $created_by
+ * @property int $updated_by
+ * @property int $deleted_by
+ * @property string $deleted_at
+ * @property string $created_at
+ * @property string $updated_at
+ * --- fin de las columnas generadas ---
+ */
 
 class Acudiente extends Model {
 	use SoftDeletes;

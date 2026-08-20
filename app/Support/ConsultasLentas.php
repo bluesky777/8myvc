@@ -55,7 +55,7 @@ class ConsultasLentas
         }
 
         DB::listen(function (QueryExecuted $consulta) use ($umbral) {
-            static::anotar($consulta, $umbral);
+            self::anotar($consulta, $umbral);
         });
     }
 
@@ -66,7 +66,7 @@ class ConsultasLentas
         }
 
         Log::channel(config('rendimiento.consultas_lentas.canal', 'consultas-lentas'))
-            ->info('consulta lenta', static::contexto($consulta));
+            ->info('consulta lenta', self::contexto($consulta));
     }
 
     /**
@@ -81,13 +81,13 @@ class ConsultasLentas
         $contexto = [
             'ms' => round($consulta->time, 2),
             'conexion' => $consulta->connectionName,
-            'sql' => static::enUnaLinea($consulta->sql),
+            'sql' => self::enUnaLinea($consulta->sql),
         ];
 
-        $contexto += static::deLaPeticion();
+        $contexto += self::deLaPeticion();
 
         if (config('rendimiento.consultas_lentas.bindings', false)) {
-            $contexto['valores'] = static::valores($consulta);
+            $contexto['valores'] = self::valores($consulta);
         }
 
         return $contexto;
@@ -140,7 +140,7 @@ class ConsultasLentas
             }
         }
 
-        return array_map(fn ($valor) => static::recortar($valor), $consulta->bindings);
+        return array_map(fn ($valor) => self::recortar($valor), $consulta->bindings);
     }
 
     public static function recortar($valor): string

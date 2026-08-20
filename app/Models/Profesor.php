@@ -5,6 +5,53 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 
 use Illuminate\Support\Facades\DB;
+/**
+ * Las columnas de `profesores`, tal como están en el esquema congelado.
+ *
+ * Generado desde database/schema/mysql-schema.sql — no se edita a mano.
+ * Ver tools/columnas-en-los-modelos.php.
+ *
+ * --- columnas de la tabla, generadas por tools/columnas-en-los-modelos.php ---
+ *
+ * @property int $id
+ * @property string $nombres
+ * @property string $apellidos
+ * @property string $sexo
+ * @property int $foto_id
+ * @property int $firma_id
+ * @property string $permiso_hasta
+ * @property int $tipo_doc
+ * @property string $num_doc
+ * @property int $ciudad_doc
+ * @property string $fecha_nac
+ * @property int $ciudad_nac
+ * @property string $titulo
+ * @property string $estado_civil
+ * @property string $barrio
+ * @property string $direccion
+ * @property string $telefono
+ * @property string $celular
+ * @property string $facebook
+ * @property string $email
+ * @property string $tipo_profesor
+ * @property int $user_id
+ * @property int $created_by
+ * @property int $updated_by
+ * @property int $deleted_by
+ * @property string $deleted_at
+ * @property string $created_at
+ * @property string $updated_at
+ * --- fin de las columnas generadas ---
+ *
+ * Y los atributos que NO son columnas: el código se los cuelga al modelo en
+ * tiempo de ejecución para armar la respuesta, que es un patrón repetido por
+ * todo el proyecto. Eloquent los guarda entre los atributos y salen en el JSON,
+ * así que forman parte del contrato con el frontend igual que las columnas;
+ * anotarlos es lo que permite que el análisis siga avisando de un nombre mal
+ * escrito en vez de callarse con todos.
+ *
+ * @property \App\User $user  el usuario recién creado, para devolverlo junto al profesor
+ */
 
 
 class Profesor extends Model {

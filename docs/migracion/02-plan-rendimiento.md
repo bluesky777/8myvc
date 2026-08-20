@@ -317,12 +317,11 @@ foreach($usuario->roles as $role) {
 > clave `usuario.contexto.5` le serviría al usuario 5 de un colegio el contexto
 > del 5 de otro. Cuesta nada dejarlo cerrado de antemano, y lo fija un test.
 >
-> **Sobre Redis (paso 10): la extensión de cPanel no es el servidor.** Lo que
-> aparece en la lista de PHP 8.4 es `phpredis`, el cliente; para usarlo hace
-> falta además un servidor Redis corriendo en la cuenta, que en alojamiento
-> compartido raramente lo hay. Queda por confirmar en el servidor, pero con la
-> medición de arriba el paso 10 pierde casi todo su motivo: aceleraría una caché
-> que hoy no compensa tener encendida.
+> **El paso 10 (Redis) queda descartado: no hay Redis.** Joseth lo confirmó el 20
+> ago 2026. Lo que aparece en la lista de PHP 8.4 de cPanel es `phpredis`, la
+> extensión cliente, y sin un servidor corriendo en la cuenta no sirve de nada.
+> Da igual: con la medición de arriba, el paso 10 aceleraría una caché que hoy no
+> compensa tener encendida.
 
 > ### Y el paso 2 (instrumentación en dev) no necesita paquete nuevo
 >
@@ -444,7 +443,7 @@ Sin esto, "está lento" no es accionable. Con esto, cada endpoint reporta su con
 | 7 | ~~Eliminar la doble autenticación (rate limiter)~~ · **hecho 19 ago 2026** | 2 h | 🟠 **2 consultas menos, medidas** | Fase 3 |
 | 8 | ~~Colapsar el N+1 de permisos~~ · **hecho 19 ago 2026** | 1 h | 🟠 N-1 consultas | Fase 3 |
 | 9 | ~~Cachear el contexto de usuario~~ · **hecho el 20 ago 2026 y apagado** | 1 d | ~~🟠 3 consultas → 0~~ · **medido: 1,41 → 0,66 ms, ruido** | Fase 3 |
-| 10 | Redis como caché y sesión · **casi sin motivo** tras medir el 9; y la extensión de cPanel no es el servidor | 2 h | 🟠 variable | paso 9 |
+| 10 | ~~Redis como caché y sesión~~ · **descartado**: no hay servidor Redis (Joseth, 20 ago 2026); en cPanel solo está la extensión cliente | 2 h | — | paso 9 |
 | 11 | PHP 8.0 → **8.4** | incluido en Fase 4 | 🟡 10–20 % | Fase 4 |
 | 12 | Índices según el `EXPLAIN` · **tres puestos el 20 ago 2026**, el resto espera al paso 3 | variable | 🟠 **medido: 970 ms → 44 ms** en una tanda de boletines | paso 3 |
 | 13 | Colas para importadores e informes | 2–3 d | 🟡 elimina timeouts | Fase 6 |

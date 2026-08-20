@@ -9,10 +9,45 @@ use App\User;
 use App\Models\Periodo;
 use App\Models\Debugging;
 use Illuminate\Support\Facades\DB;
+/**
+ * Las columnas de `notas_finales`, tal como están en el esquema congelado.
+ *
+ * Generado desde database/schema/mysql-schema.sql — no se edita a mano.
+ * Ver tools/columnas-en-los-modelos.php.
+ *
+ * --- columnas de la tabla, generadas por tools/columnas-en-los-modelos.php ---
+ *
+ * @property int $id
+ * @property int $alumno_id
+ * @property int $asignatura_id
+ * @property int $periodo_id
+ * @property int $periodo
+ * @property int $nota
+ * @property int $recuperada
+ * @property int $manual
+ * @property int $updated_by
+ * @property string $created_at
+ * @property string $updated_at
+ * --- fin de las columnas generadas ---
+ */
 
 
 
 class NotaFinal extends Model {
+
+	/**
+	 * La tabla es `notas_finales`, y hay que decirlo.
+	 *
+	 * Sin esto Eloquent deduce `nota_finals`, que no existe. Hoy no se nota
+	 * porque todo lo que hay en esta clase son métodos estáticos con SQL
+	 * escrito a mano, y ninguno pasa por la tabla del modelo; el primer
+	 * `NotaFinal::where(...)` que alguien escriba se lleva un
+	 * «Table 'nota_finals' doesn't exist». Salió al anotar las columnas de los
+	 * modelos desde el esquema real (tools/columnas-en-los-modelos.php): fue el
+	 * único modelo de los 45 cuya tabla no se pudo resolver.
+	 */
+	protected $table = 'notas_finales';
+
 	protected $fillable = [];
 
 

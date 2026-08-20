@@ -10,6 +10,23 @@ parameters:
         - tests
         - tools
 
+    # Nivel 2, desde el 20 ago 2026. El 1 encontró 341 errores y 21 reales; el 2
+    # empezó en 465, y de esos 438 eran una anotación falsa: el trait
+    # ResuelveElUsuario decía `@property User $user` cuando lo que devuelve
+    # `User::fromToken()` no es una fila de `users`, es el contexto aplanado
+    # —`year_id`, `persona_id`, `perms`— que termina en un `(object) $array`.
+    # Puesto el tipo honesto, `stdClass`, se fueron 381 de golpe.
+    #
+    # Los siguientes 144 eran columnas de verdad que larastan no podía conocer:
+    # el esquema de este proyecto no está en migraciones sino congelado en un
+    # volcado SQL (Fase 5), y de ahí no lee. Se resolvió generando las columnas
+    # dentro de cada modelo desde el esquema real, con
+    # tools/columnas-en-los-modelos.php — no a mano, por la misma razón que
+    # ColumnaSegura pregunta al esquema: una lista escrita se queda corta el día
+    # que alguien añada un campo.
+    #
+    # Lo que quedó son siete, y son reales. Ver más abajo.
+    #
     # Nivel 1, desde el 19 ago 2026. El 0 solo se queja de cosas que no pueden
     # funcionar —clases que no existen, variables sin definir, propiedades sin
     # declarar— y aun así encontró 207 en este repo. El 1 añade los métodos y
@@ -17,7 +34,7 @@ parameters:
     # ellos 320 eran los `$this->user` de los controladores, que se callaron con
     # una anotación `@property` en el trait ResuelveElUsuario, y 21 eran reales.
     # Bajarlo, nunca.
-    level: 1
+    level: 2
 
     # El esquema real no está en migraciones (ver Fase 5), así que larastan no
     # puede deducir las columnas de los modelos. Sin esto, cada `$alumno->nombres`
@@ -173,3 +190,45 @@ parameters:
             message: '#^Variable \$(propiedad|valor) might not be defined\.$#'
             path: app/Http/Controllers/UniformesController.php
             count: 2
+
+        # ---- Los que salieron al subir al nivel 2 (20 ago 2026). Los demás
+        # errores del nivel se arreglaron o se anotaron en los modelos; estos
+        # tres son fallos de verdad que no se arreglan sin decidir algo, así que
+        # van aquí con su motivo y su `count`, no en un baseline.
+
+        # PUT api/periodos/update/{id}
+        # `$periodo->year = Request::input('year')` y después `save()`. La tabla
+        # `periodos` no tiene columna `year` —tiene `year_id`—, así que el UPDATE
+        # sale con «Unknown column 'year' in 'field list'»: comprobado contra la
+        # base. Lleva roto desde siempre y no lo llama nadie; `myvc_front` no
+        # tiene ninguna llamada a esa ruta.
+        #
+        # NO se anota como atributo del modelo a propósito: anotarlo escondería
+        # el fallo. Lo que falta decidir es qué manda el cliente en `year` —el
+        # número del año o el id— y eso no se puede saber sin un cliente que lo
+        # llame. Está en docs/migracion/05-codigo-muerto-y-roto.md §9.
+        -
+            message: '#^Access to an undefined property App\\Models\\Periodo\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\Periodo\>\:\:\$year\.$#'
+            path: app/Http/Controllers/PeriodosController.php
+            count: 1
+
+        # POST api/asistencias · POST api/appmobile/asistencias
+        # `$datos` es un array y hace `$datos->id = $id`. En PHP 8 eso es
+        # «Attempt to assign property "id" on array», un Error, no un aviso: es
+        # de los que cambiaron de gravedad con el salto de versión.
+        #
+        # Y detrás hay otro: el INSERT declara `:asignatura_id` y el array de
+        # valores no lo trae, así que la consulta ni llega a ejecutarse. Un fallo
+        # tapando a otro, como el `Input::` de la §1.
+        #
+        # Qué es `asignatura_id` en una asistencia, y qué debe devolver el
+        # endpoint —el modelo, o el array que se acaba de armar— son las dos
+        # decisiones. §9 del mismo documento.
+        -
+            message: '#^Cannot access property \$id on array\<string, mixed\>\.$#'
+            path: app/Http/Controllers/Tardanzas/AsistenciasController.php
+            count: 1
+        -
+            message: '#^Cannot access property \$id on array\<string, mixed\>\.$#'
+            path: app/Http/Controllers/AppMobile/AsistenciasAppController.php
+            count: 1

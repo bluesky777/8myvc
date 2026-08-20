@@ -386,7 +386,9 @@ class ImportarController extends Controller {
 
 					
 					$role = Role::where('name', 'Alumno')->get();
-					$usuario->attachRole($role[0]);
+					// Entrust no está instalado; es la misma migración que ya tenía hecha
+					// AlumnosController y que aquí quedó sin hacer.
+					$usuario->roles()->attach($role[0]['id']);
 
 					$alumno->user_id = $usuario->id;
 					$alumno->save();

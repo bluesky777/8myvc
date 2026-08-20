@@ -7,6 +7,26 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use \Log;
 use App\User;
+/**
+ * Las columnas de `images`, tal como están en el esquema congelado.
+ *
+ * Generado desde database/schema/mysql-schema.sql — no se edita a mano.
+ * Ver tools/columnas-en-los-modelos.php.
+ *
+ * --- columnas de la tabla, generadas por tools/columnas-en-los-modelos.php ---
+ *
+ * @property int $id
+ * @property string $nombre
+ * @property int $user_id
+ * @property int $publica
+ * @property int $created_by
+ * @property int $updated_by
+ * @property int $deleted_by
+ * @property string $deleted_at
+ * @property string $created_at
+ * @property string $updated_at
+ * --- fin de las columnas generadas ---
+ */
 
 
 class ImageModel extends Model {

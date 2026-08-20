@@ -8,6 +8,45 @@ use Illuminate\Support\Facades\DB;
 
 use App\Models\Nota;
 use App\User;
+/**
+ * Las columnas de `asignaturas`, tal como están en el esquema congelado.
+ *
+ * Generado desde database/schema/mysql-schema.sql — no se edita a mano.
+ * Ver tools/columnas-en-los-modelos.php.
+ *
+ * --- columnas de la tabla, generadas por tools/columnas-en-los-modelos.php ---
+ *
+ * @property int $id
+ * @property int $materia_id
+ * @property int $grupo_id
+ * @property int $profesor_id
+ * @property int $nuevo_responsable_id
+ * @property int $creditos
+ * @property int $orden
+ * @property int $domingo
+ * @property int $lunes
+ * @property int $martes
+ * @property int $miercoles
+ * @property int $jueves
+ * @property int $viernes
+ * @property int $sabado
+ * @property int $created_by
+ * @property int $updated_by
+ * @property int $deleted_by
+ * @property string $deleted_at
+ * @property string $created_at
+ * @property string $updated_at
+ * --- fin de las columnas generadas ---
+ *
+ * Y los atributos que NO son columnas: el código se los cuelga al modelo en
+ * tiempo de ejecución para armar la respuesta, que es un patrón repetido por
+ * todo el proyecto. Eloquent los guarda entre los atributos y salen en el JSON,
+ * así que forman parte del contrato con el frontend igual que las columnas;
+ * anotarlos es lo que permite que el análisis siga avisando de un nombre mal
+ * escrito en vez de callarse con todos.
+ *
+ * @property array $unidades  las unidades de la asignatura, cargadas aparte
+ */
 
 
 class Asignatura extends Model {

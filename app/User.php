@@ -12,6 +12,35 @@ use App\Services\Sesion;
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\App;
+/**
+ * Las columnas de `users`, tal como están en el esquema congelado.
+ *
+ * Generado desde database/schema/mysql-schema.sql — no se edita a mano.
+ * Ver tools/columnas-en-los-modelos.php.
+ *
+ * --- columnas de la tabla, generadas por tools/columnas-en-los-modelos.php ---
+ *
+ * @property int $id
+ * @property string $username
+ * @property string $password
+ * @property string $sexo
+ * @property string $email
+ * @property int $imagen_id
+ * @property int $is_superuser
+ * @property string $tipo
+ * @property int $is_active
+ * @property int $can_ask
+ * @property int $periodo_id
+ * @property int $profesor_id
+ * @property int $created_by
+ * @property int $updated_by
+ * @property int $deleted_by
+ * @property string $deleted_at
+ * @property string $remember_token
+ * @property string $created_at
+ * @property string $updated_at
+ * --- fin de las columnas generadas ---
+ */
 
 class User extends Authenticatable
 {

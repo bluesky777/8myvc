@@ -28,7 +28,18 @@ use App\User;
  * qué propiedades existen, así que sin ella los 320 `$this->user` de los
  * controladores salen como «propiedad no definida» y tapan lo que sí importa.
  *
- * @property User $user
+ * **Y el tipo es `stdClass`, no `User`, aunque `User::fromToken()` esté en la
+ * clase User.** Lo que vuelve de ahí no es una fila de `users`: es el contexto
+ * aplanado que monta App\Services\ContextoDeUsuario —persona + grupo + año +
+ * periodo + configuración del colegio + roles + permisos, cuarenta y pico
+ * columnas de cuatro consultas distintas según el tipo—, y termina en un
+ * `(object) $array`. Decir `User` era una anotación falsa que se sostuvo
+ * mientras el análisis no miró dentro: al subir larastan al nivel 2 salieron
+ * **381 «propiedad no definida en App\User»**, y todas eran correctas —`year_id`,
+ * `persona_id`, `nombre_grupo`, `perms` no son columnas de `users`—. El tipo
+ * honesto de un objeto que se arma en tiempo de ejecución es `stdClass`.
+ *
+ * @property \stdClass $user
  */
 trait ResuelveElUsuario
 {

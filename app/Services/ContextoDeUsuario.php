@@ -46,7 +46,7 @@ class ContextoDeUsuario
         $segundos = (int) config('rendimiento.contexto.segundos', 0);
 
         $usuario = $segundos > 0
-            ? Cache::remember(static::clave($userTemp), $segundos, fn () => $this->construir($userTemp))
+            ? Cache::remember(self::clave($userTemp), $segundos, fn () => $this->construir($userTemp))
             : $this->construir($userTemp);
 
         // Fuera de la caché a propósito: es una estática de proceso, y una
@@ -86,7 +86,7 @@ class ContextoDeUsuario
      */
     public static function olvidar(User $usuario): void
     {
-        Cache::forget(static::clave($usuario));
+        Cache::forget(self::clave($usuario));
     }
 
     /** El contexto montado desde la base, sin pasar por la caché. */

@@ -6,6 +6,44 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use \stdClass;
 use Illuminate\Support\Facades\DB;
 use App\User;
+/**
+ * Las columnas de `periodos`, tal como están en el esquema congelado.
+ *
+ * Generado desde database/schema/mysql-schema.sql — no se edita a mano.
+ * Ver tools/columnas-en-los-modelos.php.
+ *
+ * --- columnas de la tabla, generadas por tools/columnas-en-los-modelos.php ---
+ *
+ * @property int $id
+ * @property int $numero
+ * @property string $fecha_inicio
+ * @property string $fecha_fin
+ * @property int $actual
+ * @property int $profes_pueden_editar_notas
+ * @property int $profes_pueden_nivelar
+ * @property int $year_id
+ * @property string $fecha_plazo
+ * @property int $created_by
+ * @property int $updated_by
+ * @property int $deleted_by
+ * @property string $deleted_at
+ * @property string $created_at
+ * @property string $updated_at
+ * --- fin de las columnas generadas ---
+ *
+ * Y los atributos que NO son columnas: el código se los cuelga al modelo en
+ * tiempo de ejecución para armar la respuesta, que es un patrón repetido por
+ * todo el proyecto. Eloquent los guarda entre los atributos y salen en el JSON,
+ * así que forman parte del contrato con el frontend igual que las columnas;
+ * anotarlos es lo que permite que el análisis siga avisando de un nombre mal
+ * escrito en vez de callarse con todos.
+ *
+ * @property int $cant_perdidas  cuántas pierde el alumno en ese periodo
+ * @property int $cantNotasPerdidas  lo mismo, con el nombre que usa el otro informe
+ * @property mixed $nota_asignatura  la nota de la asignatura en ese periodo
+ * @property float $sumatoria  el acumulado que va sumando el informe
+ * @property int $periodo_id  copia de `id`, que es como lo pide la plantilla
+ */
 
 class Periodo extends Model {
 	protected $fillable = [];
