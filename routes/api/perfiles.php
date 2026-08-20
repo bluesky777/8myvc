@@ -63,7 +63,11 @@ Route::put('images-users/cambiar-foto-un-usuario/{user_id}', [ImagesUsuariosCont
 Route::put('images-users/cambiar-imagen-oficial/{user_id}', [ImagesUsuariosController::class, 'putCambiarImagenOficial'])->middleware('persona.propia');
 Route::put('images-users/cambiar-imagen-perfil/{user_id}', [ImagesUsuariosController::class, 'putCambiarImagenPerfil']);
 Route::put('images-users/cambiar-imagen-un-usuario/{user_id}', [ImagesUsuariosController::class, 'putCambiarImagenUnUsuario'])->middleware('persona.propia');
-Route::delete('images-users/destroy/{id}', [ImagesUsuariosController::class, 'deleteDestroy'])->middleware('persona.propia');
+// `:imagen_id` no es decorativo. El guard recoge los identificadores por su
+// NOMBRE, y esta es la única ruta de imagen que llama `{id}` a lo que sus
+// hermanas llaman `{imagen_id}`: sin decirle a qué apunta, un alumno pasaba de
+// largo y borraba la foto de cualquiera. Ver 05-codigo-muerto-y-roto.md §13.
+Route::delete('images-users/destroy/{id}', [ImagesUsuariosController::class, 'deleteDestroy'])->middleware('persona.propia:imagen_id');
 Route::put('images-users/rotar-imagen-izquierda/{imagen_id}', [ImagesUsuariosController::class, 'putRotarImagenIzquierda'])->middleware('persona.propia');
 Route::put('images-users/rotarimagen/{imagen_id}', [ImagesUsuariosController::class, 'putRotarimagen'])->middleware('persona.propia');
 

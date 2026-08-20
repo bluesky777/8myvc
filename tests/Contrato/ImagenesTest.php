@@ -262,6 +262,89 @@ class ImagenesTest extends CasoDeContrato
         $this->assertSame('arriba-izquierda', $this->esquinaMarcada($imagen->nombre));
     }
 
+    // -------------------------------------------------------------- Borrado
+
+    /**
+     * Borrar una imagen respondía 500 **después** de haberla borrado.
+     *
+     * El endpoint hacía su trabajo entero —el archivo del disco, la fila de
+     * `images`, y las referencias en alumnos, profesores, acudientes, usuarios
+     * y años— y reventaba en la última línea, en un `count()` sobre un Builder
+     * que en PHP 7 era un warning y en PHP 8 es un TypeError. O sea que el
+     * frontend recibía un error de una operación que sí había ocurrido: quien
+     * lo reintentara vería el 404 del `findOrFail`, que parece otro fallo.
+     *
+     * Se mira lo que quedó escrito y no solo el código: un 200 no distingue
+     * «borró» de «no llegó a borrar».
+     */
+    public function test_borrar_una_imagen_responde_bien_y_limpia_las_referencias(): void
+    {
+        [$token, $imagen] = $this->unaImagenSubida();
+
+        $usuario = $this->usuarioDeTipo('Profesor');
+        DB::table('users')->where('id', $usuario->id)->update(['imagen_id' => $imagen->id]);
+
+        $this->delete("/api/images-users/destroy/{$imagen->id}", [],
+            ['Authorization' => 'Bearer '.$token])
+            ->assertStatus(200);
+
+        $this->assertFileDoesNotExist('images/perfil/'.$imagen->nombre);
+
+        $this->assertNotNull(DB::table('images')->where('id', $imagen->id)->value('deleted_at'),
+            'La fila de images se marca como borrada.');
+
+        $this->assertNull(DB::table('users')->where('id', $usuario->id)->value('imagen_id'),
+            'Y nadie queda apuntando a una imagen que ya no está: es lo que hace este endpoint '.
+            'además de borrar, y lo que se perdería si alguien lo cambiara por un delete a secas.');
+    }
+
+    /**
+     * Un alumno no borra la foto de otro.
+     *
+     * La ruta ya llevaba `persona.propia` desde la revisión de IDOR, y aun así
+     * el agujero estaba abierto: el guard recoge los identificadores **por su
+     * nombre** y esta es la única ruta de imagen cuyo parámetro se llama `{id}`
+     * en vez de `{imagen_id}`. Sus hermanas —rotar, publicar, privatizar— sí lo
+     * nombran, así que sí estaban cerradas. Sin identificador reconocible el
+     * guard entiende «lo mío» y deja pasar, que es lo correcto para las rutas
+     * sin id y lo peor posible para esta.
+     *
+     * Se comprueba el efecto y no el código: antes de esto, el alumno recibía un
+     * 500 —el de arriba— y la imagen ajena ya estaba borrada.
+     */
+    public function test_un_alumno_no_puede_borrar_la_imagen_de_otro(): void
+    {
+        [, $imagen] = $this->unaImagenSubida();
+
+        $tokenAlumno = $this->tokenDe($this->usuarioDeTipo('Alumno')->username);
+
+        $this->delete("/api/images-users/destroy/{$imagen->id}", [],
+            ['Authorization' => 'Bearer '.$tokenAlumno])
+            ->assertStatus(403);
+
+        $this->assertFileExists('images/perfil/'.$imagen->nombre,
+            'La imagen del profesor sigue en disco.');
+
+        $this->assertNull(DB::table('images')->where('id', $imagen->id)->value('deleted_at'),
+            'Y su fila sigue viva.');
+    }
+
+    /** Y el dueño sí borra la suya: cerrar de más también se nota en producción. */
+    public function test_un_alumno_borra_la_suya(): void
+    {
+        $token = $this->tokenDe($this->usuarioDeTipo('Alumno')->username);
+
+        $r = $this->post('/api/myimages/store-intacta',
+            ['file' => $this->imagenMarcada('mia.png', 320, 240)],
+            ['Authorization' => 'Bearer '.$token]);
+
+        $r->assertStatus(201);
+
+        $this->delete("/api/images-users/destroy/{$r->json('id')}", [],
+            ['Authorization' => 'Bearer '.$token])
+            ->assertStatus(200);
+    }
+
     // --------------------------------------------------------------- Listado
 
     /**

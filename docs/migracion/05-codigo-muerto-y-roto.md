@@ -814,3 +814,141 @@ Es el mismo patrón que los `tinyint(1)` del nivel 3: el analizador no encontró
 código muerto, encontró un cambio de comportamiento del salto de versión que
 llevaba ahí sin que nadie lo mirara. Los snapshots `bolfinales` y
 `bolfinales-preescolar` de `BoletinesTest` cubren la forma de los tres.
+
+---
+
+## 13. Lo que encontró subir larastan al nivel 5 (20 ago 2026)
+
+El nivel 5 comprueba **los argumentos**: si lo que se le pasa a un método es del
+tipo que ese método pide. Empezó en **45 errores**, el número más bajo de todas
+las subidas, y aun así trajo el fallo más caro de la serie — porque los tipos que
+no encajan no son todos iguales. La mayoría son cadenas donde se espera un
+entero, que PHP convierte solo; una era **una clase que no implementa
+`Countable`**, y ahí no hay conversión que valga.
+
+### 13.1 Borrar una imagen la borraba y luego respondía 500
+
+`DELETE api/images-users/destroy/{id}` termina así:
+
+```php
+$asks = ChangeAsked::where('oficial_image_id', $id);   // ← un Builder, no una colección
+
+if (count($asks) > 0) {
+    if (method_exists($asks, 'destroy')) {
+        $asks->destroy();
+    }
+}
+```
+
+**Tres fallos apilados, y el orden en que se destapan es lo que importa:**
+
+1. `count()` sobre un `Builder`. En PHP 7 era un warning que devolvía **1**, así
+   que la condición entraba. En PHP 8 es un `TypeError` y **mata la petición**.
+2. `method_exists($asks, 'destroy')` es **false**: `destroy` es un método
+   estático de `Model`, no del `Builder`. O sea que el bloque **nunca limpió
+   nada**, ni antes ni después del salto de versión.
+3. `change_asked.oficial_image_id` **no existe**. No está en `change_asked` ni en
+   ninguna de las 90 tablas del esquema. Aunque los dos anteriores se arreglaran,
+   la consulta saldría con «Unknown column».
+
+Lo grave no es el 500, es **dónde** está: en la última línea. Cuando revienta, el
+endpoint ya ha borrado el archivo del disco, ha marcado la fila de `images` y ha
+puesto a `null` las cinco referencias —alumnos, profesores, acudientes, usuarios
+y años—. **El cliente recibe un error de una operación que sí ocurrió.** Quien lo
+reintente recibirá el 404 del `findOrFail`, que parece otro fallo distinto.
+
+**Se borra el bloque** —no tiene ruta propia y no hizo nunca nada— y se deja
+escrito aquí qué pretendía, porque eso sí es información: al borrar una imagen
+hay que limpiar también las peticiones de cambio que la nombran. Las columnas
+candidatas están en `change_asked_data` y son cuatro: `foto_id_new`,
+`image_id_new`, `firma_id_new` e `image_to_delete_id`. **Qué hacer con ellas es
+una decisión**, y no es de programación: poner la referencia a `null` deja una
+petición que pide cambiar la foto por nada, y borrar la petición entera tira algo
+que el usuario escribió. Por eso no se reescribe aquí.
+
+### 13.2 Y detrás, un alumno borrando la foto de cualquiera
+
+Al escribir el test del 500 salió lo que no se estaba buscando. La ruta lleva
+`persona.propia` desde la revisión de IDOR del 19 ago 2026 — y **el guard no
+miraba nada**.
+
+`ExigirPersonaPropia` recoge los identificadores **por su nombre**
+(`alumno_id`, `user_id`, `imagen_id`…), vengan por URL o por cuerpo. Y esta es la
+única ruta de imagen cuyo parámetro se llama `{id}`:
+
+| Ruta | Parámetro | ¿Comprobada? |
+|---|---|---|
+| `PUT myimages/publicar-imagen/{imagen_id}` | `imagen_id` | sí |
+| `PUT myimages/privatizar-imagen/{imagen_id}` | `imagen_id` | sí |
+| `PUT images-users/rotarimagen/{imagen_id}` | `imagen_id` | sí |
+| `PUT images-users/rotar-imagen-izquierda/{imagen_id}` | `imagen_id` | sí |
+| `DELETE images-users/destroy/{id}` | `id` | **no** |
+
+Sin identificador reconocible, el guard entiende «lo mío» y deja pasar. Eso es lo
+correcto para las rutas que no llevan id —`myimages/datos-imagen` devuelve las de
+quien pregunta— y lo peor posible para esta, que lleva uno y con otro nombre. El
+mecanismo para decirlo ya existía y es el que usan los `perfiles/*/{id}`
+(`persona.propia:user_id`); aquí faltaba: ahora es `persona.propia:imagen_id`.
+
+El efecto era el completo, no un intento: un alumno borraba la imagen de un
+profesor —o el logo del colegio, que vive en `years.logo_id`— y **recibía el 500
+de la 13.1 con el borrado ya hecho**. Los dos fallos se tapaban el uno al otro:
+el 500 hacía parecer que la operación no había ocurrido.
+
+**Es el tercer punto ciego de la misma familia**, después de los buscadores de la
+§11.3 y del inventario de [08 §4](08-revision-idor.md). Los tres se resumen en
+una frase: *el guard estaba puesto y la pregunta era otra*. Aquí la pregunta no
+era «¿tiene guard esta ruta?» —lo tenía— sino «¿el guard reconoce lo que esta
+ruta llama id?». **`inventario-autorizacion.py` tampoco puede contestar esa**:
+lee qué middleware lleva cada ruta, no si el nombre del parámetro casa con las
+claves que el middleware busca. Esa comparación sí es mecánica y sí se puede
+escribir, y es lo que queda pendiente de la herramienta.
+
+Los dos quedan fijados en `ImagenesTest`, escritos primero al revés —afirmando el
+500 y el borrado ajeno— como los 27 de `SuperficieDeUnAlumnoTest`. El tercero es
+el del otro lado: un alumno **sí** borra la suya, porque cerrar de más también se
+nota en producción.
+
+### 13.3 El cuarto importador con la firma de maatwebsite 2.x
+
+`GET api/importar/modificar/{year}`, que no estaba en ninguna lista. La §8
+nombraba dos —`GET api/importar` y `POST api/importar/cartera`— y son tres: los
+tres hacen `Excel::import($ruta, function ($reader) { … })`, que es la firma de la
+2.x, y los tres revientan con el mismo `pathinfo(): Argument #1 ($path) must be
+of type string, Closure given`.
+
+No salió antes por la misma razón que la cartera: el muestreo de la P2 golpeaba
+lecturas **sin parámetro**, y esta lleva `{year}` en la URL. Lo que lo destapó fue
+el nivel 5, que no golpea nada — lee la firma del método y compara. Es la
+contraria exacta de la lección de la §8: allí, lo que no se golpea no se sabe si
+funciona; aquí, lo que no se puede golpear a veces se puede leer.
+
+Se deja roto con la misma regla que los otros —con ruta y roto se documenta— y se
+añade a `ExcelTest`, que ahora fija los tres.
+
+### 13.4 Lo demás: latente, mecánico, y una anotación que faltaba
+
+- **22 `abort('400', …)` con el código entre comillas**, en `MatriculasController`
+  (16), `AlumnosController` (5) e `ImagesController` (1). **Hoy funcionan**:
+  comprobado en el contenedor, PHP convierte la cadena numérica y sale un 400 de
+  verdad. Se pasan a entero porque es gratis y porque el día que alguien ponga
+  `declare(strict_types=1)` en uno de esos ficheros, o escriba un código que no
+  sea numérico, esto deja de convertirse solo. **No se les cambia el número**:
+  que un «no tiene permisos» responda 400 en vez de 403 es el contrato que hoy
+  reciben los cuatro clientes, y cambiarlo es otro trabajo.
+- **Tres `Carbon::createFromDate($anio, $mes, $dia)`** con lo que devuelve
+  `date('m', …)`, que es `'08'`. Mismo caso: funciona por conversión, se hace
+  explícita con un `(int)`. El bloque es el mismo copiado tres veces
+  —`MatriculasController`, `PrematriculasController`, `PlanillasController`—.
+- **Cinco relaciones Eloquent escritas en la sintaxis de Laravel 4**:
+  `hasMany('Alumno')`, `belongsToMany('Materia', 'asignaturas')`… Sin namespace,
+  así que hoy ninguna resuelve. **No las llama nadie** —comprobado en `app/`,
+  `resources/` y `tests/`, con paréntesis y sin ellos—: lo que parecía una
+  llamada en `observador.blade.php` (`$grupo->alumnos`) es una propiedad que el
+  controlador asigna a mano sobre un `stdClass` de una consulta cruda, como todo
+  en este proyecto. Se borran las cinco. Una de ellas, `Matricula::alumnos()`,
+  estaba además al revés: una matrícula es de **un** alumno.
+- **`Sesion::rotar()`**: `$token->tokenable` es `Model|null` para el análisis, y
+  `emitir()` pide un `User`. No es un fallo —`SesionController` comprueba
+  `instanceof User` y devuelve 401 antes de llamar— pero el invariante vivía solo
+  en el llamador. Ahora está escrito donde se usa.

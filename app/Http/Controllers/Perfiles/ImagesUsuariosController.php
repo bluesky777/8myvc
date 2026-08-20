@@ -307,17 +307,22 @@ class ImagesUsuariosController extends Controller {
 			$year->save();
 		}
 		
-		$asks = ChangeAsked::where('oficial_image_id', $id);
+		// Aquí había un sexto bloque que pretendía limpiar también las
+		// peticiones de cambio, y que **nunca limpió nada**: `count()` sobre un
+		// Builder era un warning que devolvía 1 en PHP 7, y el
+		// `method_exists($asks, 'destroy')` que lo protegía es false —`destroy`
+		// es estático de Model, no un método del Builder—. Con el salto a PHP 8
+		// ese `count()` pasó a ser un TypeError, así que el endpoint borraba la
+		// imagen, limpiaba las cinco referencias de arriba y **respondía 500**.
+		//
+		// No se reescribe porque no se puede sin decidir algo: buscaba
+		// `change_asked.oficial_image_id`, una columna que no existe en ninguna
+		// tabla del esquema. Las candidatas están en `change_asked_data` y son
+		// cuatro —`foto_id_new`, `image_id_new`, `firma_id_new`,
+		// `image_to_delete_id`—, y hay que elegir además entre poner la
+		// referencia a null o borrar la petición entera del usuario.
+		// docs/migracion/05-codigo-muerto-y-roto.md §13.
 
-		if (count($asks) > 0) {
-			if (method_exists( $asks, 'destroy') ){
-				$asks->destroy();
-			}
-		}
-		
-		
-
-		
 		return $img;
 	}
 
