@@ -658,7 +658,7 @@ Ya sembrado en la Fase 0. Aquí se cierra:
 | Herramienta | Alcance | Dónde |
 |---|---|---|
 | **Pint** | solo lo que escribió esta migración: `routes/`, `tests/`, `app/Services`, `app/Support`, `app/Http/Middleware`, `app/Console`, los `Concerns` | `composer run pint` · CI |
-| **Larastan** | **nivel 1** sobre `app/`, `config/`, `database/`, `routes/`, `tests/`, `tools/` | `composer run stan` · CI |
+| **Larastan** | **nivel 3** sobre `app/`, `config/`, `database/`, `routes/`, `tests/`, `tools/` | `composer run stan` · CI |
 | **Rector** | configurado y **sin correr**: por carpeta y revisando cada diff | `rector.php` |
 | **`tools/imports-de-facades.php`** | los imports por alias de raíz, una línea por import | corrido el 19 ago 2026 · lo vigila `AliasDeFacadesTest` |
 

@@ -222,8 +222,42 @@ saber el tamaño real del daño en las dieciséis bases antes de tocar código.
 
 ## 6. Continuo, sin final
 
-- **Larastan del 2 al 3.** Cada subida de nivel ha encontrado endpoints rotos de
-  verdad: 21 en el 1, cuatro en el 2.
+- **Larastan del 2 al 3 — hecho el 20 ago 2026.** Sigue siendo cierto que cada
+  subida encuentra cosas: 21 endpoints rotos en el 1, cuatro en el 2, y en el 3
+  un fallo de otra clase, porque el nivel es de otra clase. El 3 no comprueba
+  que algo exista sino que **sea lo que dice ser**, y lo que salió fue eso:
+
+  - **Siete columnas `tinyint(1)` escritas con booleanos de PHP.** Eloquent no
+    relee la fila tras `save()`, así que el JSON de la llamada que crea la fila
+    lleva `false` y el de cualquier lectura posterior lleva `0` — el mismo campo
+    del mismo registro con dos tipos según por dónde se pida. En
+    `vt_participantes` las dos formas salen **en la misma respuesta**: los
+    restaurados de la papelera con `0`, los creados en esa llamada con `false`.
+    33 sitios; larastan veía 14 y el resto estaban detrás de un
+    `Request::input('is_active', true)`, que para el análisis es `mixed`.
+    Arreglado hacia `0` porque es lo que reciben los clientes casi siempre —
+    medido: con `EMULATE_PREPARES` en false, MySQL devuelve `int`—, y fijado por
+    el viaje de ida y vuelta en `BanderasDeUnBitTest`.
+  - **El generador de columnas tiraba el `NOT NULL`.** `tools/columnas-en-los-modelos.php`
+    leía el tipo de cada columna y descartaba el resto de la línea, así que los
+    47 modelos con columnas nulables las anotaban como obligatorias. Arreglado en
+    la herramienta, no en los modelos.
+  - **Un `[0]` sobre el entero que devuelve `DB::update()`**, dentro del bucle
+    del importador: un warning de PHP por cada alumno actualizado de cada
+    importación, en la operación más lenta que tiene la API.
+
+  Y una cosa que no había pasado antes: **el nivel 3 no dejó ninguna excepción
+  nueva** en `phpstan.neon`. El 1 dejó once y el 2 tres, todas endpoints rotos
+  que esperan una decisión; los hallazgos del 3 o tenían arreglo claro o eran
+  anotaciones que mentían.
+
+- **Larastan del 3 al 4.** Medido el 20 ago 2026: **55 errores**, y todos de la
+  misma familia —14 `if.alwaysTrue`, 9 `deadCode.unreachable`, 7
+  `booleanAnd.rightAlwaysTrue`, 5 `booleanOr.rightAlwaysFalse`—. O sea
+  condiciones que no deciden nada y ramas que no se ejecutan nunca, que es
+  exactamente la forma del `$user->is_superuser && $user->is_superuser` que
+  destapó el nivel 2. Es el nivel con más pinta de encontrar fallos de verdad de
+  los que quedan, y no está parado por nada: es trabajo.
 - **Rector**, configurado y sin correr: por carpeta y revisando cada diff.
 - **FormRequests**: hay 2 validaciones en 32.000 líneas. Cada endpoint que se
   toque estrena la suya.
