@@ -73,7 +73,9 @@ class BolfinalesPreescolarController extends Controller {
 
 		$year_actual = true;
 		if (Request::has('year_selected')) {
-			if (Request::input('year_selected') == true || Request::input('year_selected') == 'true') {
+			// Aquí había un `|| ... == 'true'` que en PHP 7 atrapaba los valores falsy
+			// —`0 == 'true'` era cierto— y en PHP 8 ya no se alcanza nunca.
+			if (Request::input('year_selected') == true) {
 				$year_actual = false;
 			}
 		}
