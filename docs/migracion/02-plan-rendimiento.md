@@ -406,6 +406,19 @@ La tabla `jobs` existe y está vacía. La infraestructura está; nadie la usó.
 > ruta en cada colegio, y hasta ahora "los imports dan timeout" es una impresión,
 > no una medición.
 >
+> **Hecho el 20 ago 2026, y por ese camino.** El importador de alumnos es
+> reanudable: si se corta, volver a subir el mismo archivo continúa por donde
+> iba. No cambia el contrato de ningún cliente —sigue respondiendo
+> `'Importados.'`— así que no depende de la pantalla nueva ni del cron. El
+> porqué de cada decisión está en [09 §1](09-pendientes.md).
+>
+> Y con ello llega la medición que faltaba, sin instrumentar nada: la tabla
+> `importaciones` guarda `inicio`, `fin` y `filas` de cada una, así que
+> «cuánto tarda un import» deja de ser una impresión en cuanto pase una
+> temporada de matrículas. Ese número es el que decide si
+> `max_execution_time` puede bajar de los 300 s — y de paso, si el paso 13
+> sigue haciendo falta.
+>
 > **Contestado el 20 ago 2026: sí hay cron.** Así que el paso 13 es posible. Lo
 > que queda por decidir ya no es técnico: es si vale la pena la pantalla nueva en
 > los cuatro clientes para un problema —los timeouts en los imports— que todavía
@@ -515,7 +528,7 @@ Sin esto, "está lento" no es accionable. Con esto, cada endpoint reporta su con
 | 10 | ~~Redis como caché y sesión~~ · **descartado**: no hay servidor Redis (Joseth, 20 ago 2026); en cPanel solo está la extensión cliente | 2 h | — | paso 9 |
 | 11 | PHP 8.0 → **8.4** | incluido en Fase 4 | 🟡 10–20 % | Fase 4 |
 | 12 | Índices según el `EXPLAIN` · **tres puestos el 20 ago 2026**, el resto espera al paso 3 | variable | 🟠 **medido: 970 ms → 44 ms** en una tanda de boletines | paso 3 |
-| 13 | Colas para importadores e informes · **posible desde el 20 ago 2026** (sí hay cron); lo que frena es que cambia el contrato de los cuatro clientes | 2–3 d | 🟡 elimina timeouts | medir antes |
+| 13 | Colas para importadores e informes · **posible desde el 20 ago 2026** (sí hay cron); lo que frena es que cambia el contrato de los cuatro clientes. La importación de alumnos ya es **reanudable** sin tocar ese contrato ([09 §1](09-pendientes.md)), y su tabla es la medición que este paso pedía | 2–3 d | 🟡 elimina timeouts | medir antes |
 
 **Los pasos 1, 2 y 3 no dependen de la migración. Hazlos esta semana.** El paso 1, solo, puede resolver la mayor parte de lo que percibes como lentitud.
 

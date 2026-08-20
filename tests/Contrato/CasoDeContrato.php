@@ -5,6 +5,8 @@ namespace Tests\Contrato;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Testing\TestResponse;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Tests\TestCase;
 
 /**
@@ -408,5 +410,26 @@ abstract class CasoDeContrato extends TestCase
         }
 
         return 'string';
+    }
+
+    /**
+     * La ruta en disco del archivo que devolvió una descarga.
+     *
+     * Vive aquí y no en ExcelTest porque lo usan los dos lados de la misma
+     * historia: el que comprueba la forma de la hoja exportada y el que la
+     * vuelve a subir para comprobar que la importación la digiere.
+     */
+    protected function archivoDescargado(TestResponse $r): string
+    {
+        $respuesta = $r->baseResponse;
+
+        $this->assertInstanceOf(BinaryFileResponse::class, $respuesta,
+            'Excel::download() devuelve una BinaryFileResponse. Si esto cambia, cambió el paquete.');
+
+        $ruta = $respuesta->getFile()->getPathname();
+
+        $this->assertFileExists($ruta);
+
+        return $ruta;
     }
 }
