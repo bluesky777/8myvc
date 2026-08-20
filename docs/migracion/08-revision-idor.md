@@ -187,8 +187,27 @@ más de trescientas, y a ese tamaño una lista a mano deja de leerse.
 
 1. **Qué puede hacer el personal entre sí.** Hoy un profesor alcanza todo lo que
    alcanza un administrativo. Es lo que Joseth dejó fuera a propósito.
-2. **Las 12 lecturas de catálogo** que quedan sin guard. No exponen a nadie, pero
-   conviene decidir si un alumno tiene que poder leerlas.
+2. **Las lecturas de catálogo** que quedan sin guard —**11**, vuelto a medir el
+   20 ago 2026; este documento decía 12—. No exponen a nadie, pero conviene
+   decidir si un alumno tiene que poder leerlas.
+
+4. **Y un punto ciego de la herramienta, encontrado el 20 ago 2026.**
+   `inventario-autorizacion.py` cuenta las rutas que llevan **el identificador de
+   una persona** —`alumno_id`, `user_id`, `persona_id`…— sin guard. Esa es la
+   pregunta del IDOR clásico: «¿puedo pedir el número de otro?».
+
+   Lo que no ve es la pregunta anterior: **¿de dónde saco el número?** Un
+   buscador recibe `texto`, no un id, así que para el inventario no tiene
+   identificador y no aparece en ninguna lista — ni en las 141 del principio ni
+   en las 11 de ahora. Y `alumnos/personas-check` devolvía a cualquier alumno 61
+   compañeros con su `alumno_id`, y `alumnos/documento-check` cincuenta y uno con
+   su número de documento ([05 §11.3](05-codigo-muerto-y-roto.md)).
+
+   O sea que el inventario medía bien la cerradura y no miraba quién reparte las
+   llaves. Las dos rutas ya llevan `auth.personal`, pero **la herramienta sigue
+   sin poder encontrar la siguiente igual**: lo que falta es preguntarle a cada
+   ruta sin guard si su respuesta lleva identificadores de persona dentro, que es
+   una pregunta sobre el cuerpo y no sobre la firma.
 3. **`asignaturas/show`, `unidades/de-asignatura-periodo`, `votaciones/show`**: no
    son de una persona, pero sí de la estructura del colegio.
 

@@ -563,7 +563,10 @@ El nivel 3 comprueba tipos y el 4 comprueba si una condición decide algo. El
 arregló lo que tenía arreglo claro y aquí queda **lo que no lo tiene**, que es
 lo de siempre: enrutado, roto, y esperando que alguien decida qué debería hacer.
 
-### 11.1 `case 'Profesor' or 'Usuario':` — el error de escritura que tapa una fuga
+### 11.1 `case 'Profesor' or 'Usuario':` — el error de escritura que tapaba una fuga
+
+**Decidido y arreglado el 20 ago 2026.** Se deja el análisis entero porque el
+porqué de haber esperado a la decisión es lo que no se reconstruye después.
 
 `AsignaturasController::getListasignaturas`, la ruta
 `GET api/asignaturas/listasignaturas/{persona_id?}` con guard `persona.propia`:
@@ -575,12 +578,12 @@ switch ($user->tipo) {
 
 En PHP eso no es «Profesor o Usuario». Es `case ('Profesor' or 'Usuario')`, o
 sea **`case true`**, y como `switch` compara con `==`, cualquier `tipo` que no
-sea cadena vacía entra por ahí. **El `case 'Alumno'` de más abajo no se ejecuta
+sea cadena vacía entra por ahí. **El `case 'Alumno'` de más abajo no se ejecutaba
 nunca.**
 
-Lo que importa es hacia dónde falla, y es al revés de lo que parece. La rama
-muerta filtra por `a.profesor_id = :profesor_id` **pasándole el `persona_id` del
-alumno**, y los ids de `alumnos` y de `profesores` son dos numeraciones
+Lo que importa es hacia dónde fallaba, y era al revés de lo que parece. La rama
+muerta filtraba por `a.profesor_id = :profesor_id` **pasándole el `persona_id`
+del alumno**, y los ids de `alumnos` y de `profesores` son dos numeraciones
 distintas que se solapan. Medido contra la base de desarrollo `simonbolivar`,
 que es copia de un colegio real:
 
@@ -589,28 +592,34 @@ que es copia de un colegio real:
 | Alumnos cuyo id coincide con el de un profesor con asignaturas | **34** de 1.245 |
 | El más expuesto vería | **92 asignaturas ajenas** |
 | De los que además pueden iniciar sesión, el primero vería | 13 |
-| Lo que devuelve hoy la rama que sí se ejecuta | 0 filas |
+| Lo que devolvía la rama que sí se ejecutaba | 0 filas |
 
-O sea que **el `or` mal escrito es lo único que impide que un alumno vea el
-horario de un profesor**. Escribirlo como se pretendía —`case 'Profesor': case
-'Usuario':`— abre esa fuga en el mismo commit que «arregla» el aviso del
-analizador. Es el mismo patrón que el `putCambiarpassword` de perfiles: un `if`
-de adorno que resultó ser la cerradura.
+O sea que **el `or` mal escrito era lo único que impedía que un alumno viera el
+horario de un profesor**. Escribirlo como se pretendía abría esa fuga en el
+mismo commit que «arreglaba» el aviso del analizador. Es el mismo patrón que el
+`putCambiarpassword` de perfiles: un `if` de adorno que resultó ser la cerradura.
 
-**Qué falta decidir:** qué ve un alumno en esa pantalla. Hoy no ve nada, y sus
-asignaturas de verdad son las de su grupo — que **ninguna de las dos ramas
-consulta**. No es un renombre; es escribir la consulta que nadie escribió.
+**Lo que decidió Joseth**, y que es lo que permitió tocarlo: un alumno o
+acudiente solo puede **alcanzar** asignaturas de su grupo, o de todos sus grupos.
+Es una regla de acceso, no una especificación de la respuesta — lo dijo
+explícitamente.
 
-**Por qué no hay test que lo fije.** Se intentó y no se puede: la base de tests
-copia un solo grupo de alumnos, así que ahí no hay ninguna colisión de ids y el
-candado pasaría siempre, dijera lo que dijera el código. Es un agujero del seed
-que conviene tener escrito —ver [03-tests.md](03-tests.md)—: **el seed no puede
-demostrar los fallos que dependen de que dos numeraciones se crucen.** Mientras el
-nivel siga en el 3, **lo único que vigila esto es este documento**: la anotación
-de `phpstan.neon` no se puede poner por adelantado, porque el analizador avisa
-—con razón— de las excepciones que no llegan a usarse. Entra el día que se suba
-el nivel, y el texto de la entrada ya está escrito en §6 de
-[09-pendientes.md](09-pendientes.md).
+Con eso, el arreglo es de una pieza: el `switch` se escribe como se pretendía y
+la consulta ajena se retira, con lo que la rama devuelve lista vacía. Cumple la
+regla y **no cambia lo que ve ningún cliente**, porque la consulta que había
+tampoco devolvía nada.
+
+**Lo que sigue abierto:** si esa pantalla debe enseñarle al alumno sus
+asignaturas de verdad, que son las de su grupo — las que **ninguna de las dos
+consultas miraba**. Eso no es arreglar esta ruta, es escribir la consulta que
+nadie escribió, y Joseth lo dejó fuera a propósito.
+
+**Y el agujero del seed, que se queda.** El candado se intentó escribir y se
+tiró: la base de tests copia un solo grupo de alumnos, así que ahí no hay
+ninguna colisión de ids y el test habría pasado dijera lo que dijera el código.
+**El seed no puede demostrar los fallos que dependen de que dos numeraciones se
+crucen** — ver [03-tests.md](03-tests.md). Lo que hay hoy es este documento y el
+comentario al lado del `switch`.
 
 ### 11.2 `$todos_anios = true;` — un interruptor fijado a mano
 
@@ -625,8 +634,59 @@ if ($todos_anios) { … }else{ … }
 ```
 
 La rama `else` es una búsqueda distinta —limitada al año y con el grupo— que
-alguien apagó fijando la variable. **No se borra**, por la misma regla que el
-resto de este documento: la línea comentada dice qué se pretendía y la rama dice
-qué hacía, y las dos cosas se pierden al borrarla. Lo que falta decidir es si el
-buscador de personas debe volver a mirar solo el año en curso, y eso es del
-colegio.
+alguien apagó fijando la variable.
+
+**Decidido el 20 ago 2026: se queda como está.** Joseth: que un profesor pueda
+ver a todos los estudiantes del plantel sin importar el año está bien. O sea que
+el `true` fijado a mano no es un descuido pendiente de revertir, es el
+comportamiento que se quiere — y lo que estaba mal era no tenerlo escrito en
+ninguna parte.
+
+La rama `else` **no se borra**, por la misma regla que el resto de este
+documento: la línea comentada dice qué se pretendía y la rama dice qué hacía. Y
+hay una razón añadida — `AsignarAcudienteAOtroModalCtrl.js` sigue mandando
+`todos_anios: true` en el cuerpo, así que el front cree que el interruptor
+existe. Quitarlo del backend sin avisar dejaría esa llamada mintiendo.
+
+Lo que sí salió de esta decisión, y era la mitad importante de la pregunta, es
+el otro lado: **quién puede usar el buscador**. Iba sin guard y lo contestaba
+todo el mundo — está en §11.3.
+
+### 11.3 Los buscadores de personas no tenían guard
+
+Salió de la misma conversación: «si es un alumno el que está buscando… un
+compañero no puede ver datos personales de otro».
+
+`alumnos/personas-check` y `alumnos/documento-check` iban con `auth.token` y
+nada más. Medido con el token de un alumno del seed y un `texto` de un carácter,
+**antes** de tocarlas:
+
+| Ruta | Lo que le devolvía a un alumno |
+|---|---|
+| `personas-check` | 61 compañeros: nombres, apellidos, foto y `alumno_id` |
+| `documento-check` | 51 compañeros **con su número de documento** |
+
+Un acudiente recibía lo mismo. Y el `alumno_id` no es un dato más: es la llave
+de la superficie que fija `SuperficieDeUnAlumnoTest` — el buscador era el paso
+previo, el que dice qué números pedir.
+
+Las dos pasan a `auth.personal`, y lo fija `BuscadoresDePersonasTest`.
+`alumnos/eps-check` y `acudientes/ocupaciones-check` se quedan como estaban:
+devuelven `DISTINCT eps` y `DISTINCT ocupacion`, valores de catálogo sin ninguna
+persona detrás.
+
+**La mitad que no está en este repo.** El buscador del `sidebarMenu` de
+`myvc_front` se pinta **sin `ng-if`**, mientras que todas las entradas del menú
+que hay debajo sí están condicionadas por rol. O sea que un alumno ve la caja
+«Buscar alumno» y puede teclear en ella. Con el guard puesto no obtiene nada,
+pero esconderla es trabajo del front. El orden es el bueno: el guard va
+desplegado antes, no después.
+
+**Y uno que se ve al pasar y no se toca:** el `WHERE` de `putPersonasCheck` dice
+`a.deleted_at is null and nombres like :texto or apellidos like :texto2`, sin
+paréntesis. Con la precedencia de SQL eso es `(deleted_at is null AND nombres
+like) OR (apellidos like)`, así que **buscar por apellido devuelve también
+alumnos borrados**. Ahora solo lo ve el personal, y `AlumnosNewCtrl` usa la
+respuesta —que incluye `deleted_at`— para detectar duplicados al crear un
+alumno, donde ver los borrados puede ser lo que se quiere. Qué debe devolver es
+una decisión pequeña, pero es una decisión.

@@ -214,7 +214,7 @@ saber el tamaño real del daño en las dieciséis bases antes de tocar código.
 |---|---|---|
 | Cuatro endpoints rotos desde siempre | [05 §6.5, §7.2, §8, §9.2](05-codigo-muerto-y-roto.md) | qué debe devolver cada uno; en dos de ellos, si la operación debe existir |
 | La estructura de roles y permisos | [06 §4](06-autorizacion.md) | si los roles de la base se quedan y se pueblan, o se borran las cuatro tablas |
-| 12 rutas de catálogo sin guard | [08](08-revision-idor.md) | a quién se abren; no exponen a nadie, pero no están decididas |
+| 11 rutas de catálogo sin guard | [08](08-revision-idor.md) | a quién se abren; no exponen a nadie, pero no están decididas. Vuelto a medir el 20 ago 2026: eran 11, no 12 |
 | `APP_DEBUG` en producción | [01](01-plan-seguridad.md) | comprobarlo colegio a colegio. `display_errors` de PHP está en Off, así que la mitad del riesgo ya está cubierta |
 | Los correos `username@myvc.com` autogenerados | [01](01-plan-seguridad.md) | dos usuarios que compartan correo comparten reseteo de contraseña |
 
@@ -276,13 +276,28 @@ saber el tamaño real del daño en las dieciséis bases antes de tocar código.
     nunca ocurre —y en dos ficheros con un código distinto del de al lado para
     el mismo caso—. Lo que devuelven de verdad es el 404 de `findOrFail`, que
     además es el correcto.
-  - **Dos que NO se arreglan**, en [05 §11](05-codigo-muerto-y-roto.md): el
-    `case 'Profesor' or 'Usuario':` —que es `case true`, y cuyo error de
-    escritura es lo único que impide que un alumno vea las asignaturas del
-    profesor con su mismo id: 34 alumnos afectados en la base de desarrollo, uno
-    de ellos con 92 asignaturas ajenas— y el `$todos_anios = true` fijado a
-    mano. Los dos necesitan una decisión, y el primero necesita además una
-    consulta que nadie ha escrito.
+  - **Dos que esperaban decisión, y Joseth las decidió el mismo día** — en
+    [05 §11](05-codigo-muerto-y-roto.md), con el análisis entero por qué se
+    esperó:
+    - El `case 'Profesor' or 'Usuario':`, que es `case true`, y cuyo error de
+      escritura era lo único que impedía que un alumno viera las asignaturas del
+      profesor con su mismo id (34 alumnos en la base de desarrollo, uno con 92
+      ajenas). Con la regla puesta —**un alumno o acudiente solo alcanza
+      asignaturas de su grupo o de todos sus grupos**— el `switch` queda escrito
+      como se pretendía y la consulta ajena se retira. Sigue abierto si esa
+      pantalla debe enseñarle sus asignaturas de verdad, que Joseth dejó fuera a
+      propósito.
+    - El `$todos_anios = true` fijado a mano: **se queda**. Que un profesor vea
+      a todos los estudiantes del plantel sin importar el año está bien, así que
+      no era un descuido pendiente de revertir; lo que faltaba era tenerlo
+      escrito.
+  - **Y de esa misma decisión salió lo que no se estaba mirando:** los
+    buscadores `alumnos/personas-check` y `alumnos/documento-check` iban sin más
+    guard que `auth.token`. Un alumno obtenía 61 compañeros con nombre y foto, y
+    51 **con su número de documento**; un acudiente, lo mismo. Ahora son
+    `auth.personal`, fijado por `BuscadoresDePersonasTest` — [05 §11.3](05-codigo-muerto-y-roto.md).
+    Queda la mitad del front: la caja de búsqueda del `sidebarMenu` se pinta sin
+    `ng-if` y un alumno la ve.
 
   **Cuando se suba el nivel** hay que meter esas dos en `ignoreErrors`, y no
   antes: el analizador avisa de las excepciones que no llegan a usarse, así que
