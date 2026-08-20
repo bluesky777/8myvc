@@ -38,9 +38,31 @@ use Tests\Contrato\CasoDeContrato;
  * grupo, un profesor, un superusuario. Un 403 es la respuesta correcta y no se
  * imprime; lo que se imprime es lo que pasó de largo.
  *
- * **Lo que sigue sin barrer** (20 ago 2026): se hizo con `BARRIDO_TIPO=Alumno`.
- * El acudiente tiene una superficie parecida y no idéntica —`persona.propia` le
- * acepta lo de sus acudidos— y nadie la ha medido con esto.
+ * **Barrido con `Alumno` y con `Acudiente`** (20 ago 2026). El acudiente no
+ * encontró ningún agujero nuevo: alcanza dos rutas más que el alumno
+ * —`acudientes/mis-acudidos` y `ChangesAsked/to-me`— y las dos le devuelven lo
+ * de su acudido, que es la regla.
+ *
+ * **Lo que la segunda pasada sí encontró fue en el barrido mismo**, y por eso
+ * hay que leer esto antes de fiarse de un resultado suyo:
+ *
+ *   - **Imprimía menos de lo que contaba.** Una respuesta de archivo vacía el
+ *     buffer de salida al enviarse, y con él las líneas ya escritas: decía «17
+ *     rutas» y enseñaba once. Ahora acumula y vuelca al final.
+ *   - **Pedía en el año equivocado.** `Services\Login` reescribe
+ *     `users.periodo_id` al periodo del año actual, así que el año solo se sabe
+ *     después de entrar. Con el de antes, media API contestaba vacío.
+ *   - **36 rutas no se estaban midiendo** —boletines, planillas, observador,
+ *     certificados de otro grupo— porque el seed tiene dos grupos y el sujeto de
+ *     siempre está matriculado en los dos: no había ningún grupo ajeno y se
+ *     pedían con un cero. Ahora se elige un sujeto que sí deje uno libre, y las
+ *     36 salieron cerradas. Para el acudiente no hay sujeto posible, y el
+ *     barrido lo dice al final en vez de callárselo.
+ *
+ * Y una cosa que este archivo **no** puede encontrar, demostrada el mismo día:
+ * lo que sale sin ser dato personal. `unidades/trashed` devolvía a un alumno la
+ * papelera académica del colegio y el barrido la vio pasar, porque su criterio
+ * de fuga es la lista `PERSONALES` de arriba. Ver 05 §16.
  */
 #[Group('barrido')]
 class SuperficieDeUnTokenTest extends CasoDeContrato
@@ -64,8 +86,31 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
 
     private array $ajenos;
 
+    /**
+     * Los parámetros para los que el seed NO tiene ningún valor ajeno.
+     *
+     * Las rutas que los llevan se golpean igual, pero con un cero: contestan
+     * vacío, y un vacío no distingue un guard que funciona de uno que no mira
+     * nada. **No están medidas, y el barrido tiene que decirlo** — es el mismo
+     * motivo por el que el `assertSame` del final existe.
+     */
+    private array $sinAjeno = [];
+
     /** Las consultas de escritura de la petición que se está midiendo. */
     private array $escrituras = [];
+
+    /**
+     * Lo que el barrido va a imprimir, acumulado hasta el final.
+     *
+     * No es un capricho de estilo: **imprimir sobre la marcha perdía hallazgos**.
+     * Entre las 539 rutas hay descargas, y una respuesta de archivo de Symfony
+     * vacía el buffer de salida al enviarse; con ella se iban las líneas que ya
+     * se habían escrito. El barrido decía «17 rutas» y enseñaba once, y las seis
+     * que faltaban eran justo las de antes de la primera descarga — las de las
+     * rutas que se golpean primero. Se guarda y se vuelca al terminar, que es
+     * después de la última respuesta.
+     */
+    private array $salida = [];
 
     protected function setUp(): void
     {
@@ -74,7 +119,13 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
         $this->withoutMiddleware(ThrottleRequests::class);
 
         $tipo = getenv('BARRIDO_TIPO') ?: 'Alumno';
-        $quien = $this->usuarioDeTipo($tipo);
+        $quien = $this->sujetoDeBarrido($tipo);
+
+        // El login va ANTES de elegir los identificadores, y no es indiferente:
+        // `Services\Login` reescribe `users.periodo_id` al periodo del año
+        // actual, así que el año del contexto solo se sabe después de entrar.
+        // Con la fila leída antes, el barrido pedía en un año en el que el token
+        // no está y media API contestaba vacía sin que nada fallara.
         $this->token = $this->tokenDe($quien->username);
         $this->ajenos = $this->identificadoresAjenosA($quien, $tipo);
 
@@ -93,14 +144,16 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
             }
         });
 
-        echo "\nBarrido con token de {$tipo} (usuario {$quien->id}).\n"
-            .'Identificadores usados, todos ajenos: '.json_encode($this->ajenos)."\n\n";
+        $this->salida[] = "Barrido con token de {$tipo} (usuario {$quien->id}).";
+        $this->salida[] = 'Identificadores usados, todos ajenos: '.json_encode($this->ajenos);
+        $this->salida[] = '';
     }
 
     public function test_que_alcanza_este_token(): void
     {
         $encontrado = 0;
         $sinValor = [];
+        $sinMedir = [];
 
         foreach (Route::getRoutes()->getRoutes() as $ruta) {
             $verbo = $ruta->methods()[0];
@@ -118,6 +171,14 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
                 continue;
             }
 
+            foreach ($this->sinAjeno as $parametro) {
+                if (str_contains($uri, $parametro)) {
+                    $sinMedir[] = $verbo.' '.$uri.'   ('.$parametro.')';
+
+                    break;
+                }
+            }
+
             $this->escrituras = [];
 
             try {
@@ -128,13 +189,13 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
                 // al propio usuario—, y desde ahí todo respondería 401 y el
                 // barrido dejaría de medir. Se vuelve a entrar y se repite.
                 if ($codigo === 401) {
-                    $this->token = $this->tokenDe($this->usuarioDeTipo(getenv('BARRIDO_TIPO') ?: 'Alumno')->username);
+                    $this->token = $this->tokenDe($this->sujetoDeBarrido(getenv('BARRIDO_TIPO') ?: 'Alumno')->username);
                     $this->escrituras = [];
                     $r = $this->withToken($this->token)->json($verbo, '/'.$pedida, []);
                     $codigo = $r->getStatusCode();
                 }
             } catch (\Throwable $e) {
-                echo '  EXCEPCIÓN   '.$verbo.' '.$uri.'   '.substr($e->getMessage(), 0, 90)."\n";
+                $this->salida[] = '  EXCEPCIÓN   '.$verbo.' '.$uri.'   '.substr($e->getMessage(), 0, 90);
 
                 continue;
             }
@@ -155,15 +216,28 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
 
             $encontrado++;
 
-            echo '  '.str_pad((string) $codigo, 5).str_pad($verbo, 7).str_pad($uri, 58)
+            $this->salida[] = '  '.str_pad((string) $codigo, 5).str_pad($verbo, 7).str_pad($uri, 58)
                 .($escribio !== [] ? '  ESCRIBE: '.implode(' | ', $escribio) : '')
                 .($personales !== [] ? '  PERSONALES: '.implode(',', $personales)
-                    .' ['.strlen((string) $r->getContent()).' b]' : '')
-                ."\n";
+                    .' ['.strlen((string) $r->getContent()).' b]' : '');
         }
 
-        echo "\n{$encontrado} rutas pasaron de largo con algo dentro.\n"
-            ."Cada una hay que mirarla: muchas son lo suyo, y eso el barrido no lo sabe.\n";
+        $this->salida[] = '';
+        $this->salida[] = "{$encontrado} rutas pasaron de largo con algo dentro.";
+        $this->salida[] = 'Cada una hay que mirarla: muchas son lo suyo, y eso el barrido no lo sabe.';
+
+        if ($sinMedir !== []) {
+            $this->salida[] = '';
+            $this->salida[] = count($sinMedir).' rutas NO se midieron: el seed no tiene ningún valor '
+                .'ajeno para '.implode(', ', $this->sinAjeno).'.';
+            $this->salida[] = 'Se golpearon con un cero, así que su respuesta vacía no prueba nada.';
+
+            foreach ($sinMedir as $ruta) {
+                $this->salida[] = '  '.$ruta;
+            }
+        }
+
+        echo "\n".implode("\n", $this->salida)."\n";
 
         // La única comprobación que tiene sentido en un archivo que mide, y es
         // la que impide el fallo silencioso: si mañana alguien añade una ruta
@@ -173,6 +247,55 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
         $this->assertSame([], $sinValor,
             "El mapa de identificadores no cubre estos parámetros, así que el barrido\n"
             .'los saltó sin medirlos. Añádelos en identificadoresAjenosA().');
+    }
+
+    /**
+     * A quién se le da el token, que no es «el primero de su tipo» por una razón.
+     *
+     * El seed tiene **dos** grupos y 56 de sus 68 alumnos están matriculados en
+     * los dos —el del año pasado y el de éste—. Para uno de ésos no existe
+     * ningún grupo ajeno, así que el barrido pedía `grupo_id=0` y 36 rutas
+     * —boletines, planillas, observador, certificados de OTRO grupo— contestaban
+     * vacío sin haber medido nada. Es el agujero más grande que tenía la medida
+     * de agosto y no se veía, porque una respuesta vacía se parece a una
+     * respuesta que no filtra.
+     *
+     * Se prefiere un alumno matriculado en UN solo grupo, y que ese grupo sea
+     * del año actual: el login reescribe su periodo al del año actual, y un
+     * alumno cuyo único grupo fuera de otro año se quedaría sin contexto y
+     * contestaría 400 en toda la API.
+     *
+     * Para el acudiente no hay elección posible —ninguno del seed tiene a sus
+     * acudidos en un solo grupo— y por eso se cae al de siempre. El barrido lo
+     * dice al final en vez de callárselo.
+     */
+    private function sujetoDeBarrido(string $tipo): object
+    {
+        if ($tipo !== 'Alumno') {
+            return $this->usuarioDeTipo($tipo);
+        }
+
+        // Los grupos se cuentan SIN mirar el estado de la matrícula: una
+        // matrícula retirada sigue siendo suya, y un alumno con la de este año
+        // en un grupo y una vieja en el otro no deja ningún grupo ajeno. Ése fue
+        // el primer sujeto que se eligió y seguía dando `grupo_id=0`.
+        $elegido = DB::selectOne('SELECT u.id FROM users u
+            INNER JOIN alumnos a ON a.user_id = u.id AND a.deleted_at IS NULL
+            INNER JOIN periodos p ON p.id = u.periodo_id
+            INNER JOIN (SELECT alumno_id, MIN(grupo_id) AS grupo_id, COUNT(DISTINCT grupo_id) AS grupos
+                        FROM matriculas WHERE deleted_at IS NULL GROUP BY alumno_id) sus
+                ON sus.alumno_id = a.id AND sus.grupos = 1
+            INNER JOIN grupos g ON g.id = sus.grupo_id AND g.deleted_at IS NULL
+            INNER JOIN years y ON y.id = g.year_id AND y.actual = 1 AND y.deleted_at IS NULL
+            WHERE u.tipo = "Alumno" AND u.is_active = 1 AND u.deleted_at IS NULL
+              AND p.year_id = g.year_id
+              AND EXISTS (SELECT 1 FROM matriculas m WHERE m.alumno_id = a.id
+                          AND m.deleted_at IS NULL AND m.estado IN ("MATR", "ASIS", "PREM"))
+            ORDER BY u.id LIMIT 1');
+
+        return $elegido === null
+            ? $this->usuarioDeTipo($tipo)
+            : DB::selectOne('SELECT * FROM users WHERE id = ?', [$elegido->id]);
     }
 
     /** Sustituye los parámetros de la URL, o devuelve null si no sabe con qué. */
@@ -196,35 +319,60 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
      *
      * Que sean ajenos es la mitad del método: con los propios, un guard que
      * funcione y un guard que no mire nada responden lo mismo.
+     *
+     * **Y «suyo» no significa lo mismo para cada tipo**, que es lo que obligó a
+     * partir esto en dos. Lo suyo de un alumno es su ficha y su grupo; lo de un
+     * acudiente es su ficha MÁS la de cada acudido, su cuenta y las de ellos, y
+     * los grupos de ellos — `persona.propia` se lo acepta todo. Elegir los
+     * identificadores con el criterio del alumno —«el primer alumno que no sea
+     * yo»— podía dar justo el acudido, y entonces el 403 que no llega no prueba
+     * nada: el guard estaría funcionando.
      */
     private function identificadoresAjenosA(object $quien, string $tipo): array
     {
-        $mio = DB::selectOne('SELECT a.id, m.grupo_id, g.year_id FROM alumnos a
-            INNER JOIN matriculas m ON m.alumno_id = a.id AND m.deleted_at IS NULL
-            INNER JOIN grupos g ON g.id = m.grupo_id
-            WHERE a.user_id = ? LIMIT 1', [$quien->id]);
+        $suyo = $this->loSuyoDe($quien, $tipo);
 
-        $grupoPropio = $mio->grupo_id ?? 0;
-        $year = $mio->year_id ?? DB::selectOne('SELECT id FROM years ORDER BY id DESC LIMIT 1')->id;
+        // Los ids salen de la base, no de la petición: se interpolan porque
+        // `IN (?)` no admite lista. La lista vacía se escribe como `(0)`, que
+        // no excluye nada y es lo que se quiere.
+        $fuera = static fn (array $ids) => implode(',', $ids === [] ? [0] : $ids);
 
-        $grupo = DB::selectOne('SELECT id FROM grupos WHERE id <> ? AND titular_id IS NOT NULL
-            AND deleted_at IS NULL ORDER BY id LIMIT 1', [$grupoPropio]);
-        $alumno = DB::selectOne('SELECT id FROM alumnos WHERE id <> ? AND user_id IS NOT NULL
-            AND deleted_at IS NULL ORDER BY id LIMIT 1', [$mio->id ?? 0]);
-        $profesor = DB::selectOne('SELECT id FROM profesores WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+        $year = $suyo['year'];
+
+        $grupo = DB::selectOne('SELECT id FROM grupos WHERE id NOT IN ('.$fuera($suyo['grupos']).')
+            AND titular_id IS NOT NULL AND deleted_at IS NULL ORDER BY id LIMIT 1');
+        $alumno = DB::selectOne('SELECT id FROM alumnos WHERE id NOT IN ('.$fuera($suyo['alumnos']).')
+            AND user_id IS NOT NULL AND deleted_at IS NULL ORDER BY id LIMIT 1');
+        // El profesor hace de `persona_id` ajeno, así que no vale cualquiera: si
+        // su id coincidiera con el de un acudido, el guard lo daría por suyo por
+        // el número y no por la tabla. Es el cruce de numeraciones de la §11.
+        $profesor = DB::selectOne('SELECT id FROM profesores WHERE deleted_at IS NULL
+            AND id NOT IN ('.$fuera($suyo['personas']).') ORDER BY id LIMIT 1');
         $asignatura = DB::selectOne('SELECT id FROM asignaturas WHERE grupo_id = ? AND deleted_at IS NULL
             ORDER BY id LIMIT 1', [$grupo->id ?? 0]);
         $periodo = DB::selectOne('SELECT id, numero FROM periodos WHERE year_id = ? AND deleted_at IS NULL
             ORDER BY numero LIMIT 1', [$year]);
-        $imagen = DB::selectOne('SELECT id FROM images WHERE user_id IS NOT NULL AND user_id <> ?
-            ORDER BY id LIMIT 1', [$quien->id]);
+        $imagen = DB::selectOne('SELECT id FROM images WHERE user_id IS NOT NULL
+            AND user_id NOT IN ('.$fuera($suyo['usuarios']).') ORDER BY id LIMIT 1');
         $superusuario = DB::selectOne('SELECT id, username FROM users WHERE is_superuser = 1
-            AND deleted_at IS NULL ORDER BY id LIMIT 1');
+            AND deleted_at IS NULL AND id NOT IN ('.$fuera($suyo['usuarios']).') ORDER BY id LIMIT 1');
         $ciudad = DB::selectOne('SELECT id, departamento FROM ciudades WHERE departamento IS NOT NULL
             ORDER BY id LIMIT 1');
         $nota = DB::selectOne('SELECT id FROM notas ORDER BY id LIMIT 1');
         $votacion = DB::selectOne('SELECT id FROM vt_votaciones ORDER BY id LIMIT 1');
         $rol = DB::selectOne('SELECT id FROM roles ORDER BY id LIMIT 1');
+
+        foreach ([
+            '{grupo_id}' => $grupo, '{grupo_id?}' => $grupo,
+            '{alumno_id}' => $alumno, '{alumno_id?}' => $alumno, '{alumnoelegido}' => $alumno,
+            '{asignatura_id}' => $asignatura, '{imagen_id}' => $imagen,
+            '{profesor_id}' => $profesor, '{profe_id}' => $profesor,
+            '{profeelegido}' => $profesor, '{persona_id?}' => $profesor,
+        ] as $parametro => $fila) {
+            if ($fila === null) {
+                $this->sinAjeno[] = $parametro;
+            }
+        }
 
         return [
             '{grupo_id}' => $grupo->id ?? 0, '{grupo_id?}' => $grupo->id ?? 0,
@@ -245,5 +393,92 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
             '{role_id}' => $rol->id ?? 0, '{tiposdocumento}' => 1, '{tamanio}' => 10,
             '{frase_id?}' => 1,
         ];
+    }
+
+    /**
+     * Lo que el guard daría por suyo a quien lleva el token.
+     *
+     * Se lee con las MISMAS consultas que hace `ExigirPersonaPropia`
+     * —`parentescos` para los acudidos, `alumnos.user_id` para sus cuentas—
+     * para que la definición de «ajeno» del barrido no se separe de la del
+     * guard el día que una de las dos cambie.
+     *
+     * Las cuatro listas están separadas porque el guard resuelve cada clave
+     * contra una tabla distinta: `alumno_id` contra `alumnos`, `persona_id`
+     * contra la ficha del tipo, `user_id` contra `users`. Un mismo número es
+     * ajeno en una y propio en otra.
+     *
+     * @return array{personas: int[], alumnos: int[], usuarios: int[], grupos: int[], year: int}
+     */
+    private function loSuyoDe(object $quien, string $tipo): array
+    {
+        if ($tipo !== 'Acudiente') {
+            $mio = DB::selectOne('SELECT a.id, m.grupo_id, g.year_id FROM alumnos a
+                INNER JOIN matriculas m ON m.alumno_id = a.id AND m.deleted_at IS NULL
+                INNER JOIN grupos g ON g.id = m.grupo_id
+                WHERE a.user_id = ? LIMIT 1', [$quien->id]);
+
+            $suyos = $mio === null ? [] : array_map(
+                fn ($f) => (int) $f->grupo_id,
+                DB::select('SELECT DISTINCT grupo_id FROM matriculas
+                    WHERE alumno_id = ? AND deleted_at IS NULL', [$mio->id])
+            );
+
+            return [
+                'personas' => [(int) ($mio->id ?? 0)],
+                'alumnos' => [(int) ($mio->id ?? 0)],
+                'usuarios' => [(int) $quien->id],
+                'grupos' => $suyos,
+                'year' => $this->yearDelContextoDe($quien),
+            ];
+        }
+
+        $acudiente = DB::selectOne('SELECT id FROM acudientes WHERE user_id = ? AND deleted_at IS NULL
+            ORDER BY id LIMIT 1', [$quien->id]);
+
+        $acudidos = array_map(fn ($f) => (int) $f->alumno_id, DB::select(
+            'SELECT alumno_id FROM parentescos WHERE acudiente_id = ? AND deleted_at IS NULL',
+            [$acudiente->id ?? 0]
+        ));
+
+        $enLista = implode(',', $acudidos === [] ? [0] : $acudidos);
+
+        $cuentas = array_map(fn ($f) => (int) $f->user_id, DB::select(
+            'SELECT user_id FROM alumnos WHERE id IN ('.$enLista.')
+             AND user_id IS NOT NULL AND deleted_at IS NULL'
+        ));
+
+        $grupos = array_map(fn ($f) => (int) $f->grupo_id, DB::select(
+            'SELECT DISTINCT grupo_id FROM matriculas WHERE alumno_id IN ('.$enLista.')
+             AND deleted_at IS NULL'
+        ));
+
+        return [
+            'personas' => array_merge([(int) ($acudiente->id ?? 0)], $acudidos),
+            'alumnos' => $acudidos,
+            'usuarios' => array_merge([(int) $quien->id], $cuentas),
+            'grupos' => $grupos,
+            'year' => $this->yearDelContextoDe($quien),
+        ];
+    }
+
+    /**
+     * El año en el que trabaja este token, que es el único que devuelve datos.
+     *
+     * No sale de la matrícula ni de la fila que se leyó al elegir al usuario:
+     * sale de `users.periodo_id` **releído después del login**, porque el login
+     * lo reescribe. Un acudiente no tiene grupo —el contexto le pone la cadena
+     * "N/A"— así que para él no hay otra fuente, y para un alumno la matrícula
+     * puede ser la de un año anterior: el del barrido tiene dos, y la de la
+     * primera es de 2024 mientras su token trabaja en 2025.
+     */
+    private function yearDelContextoDe(object $quien): int
+    {
+        $fila = DB::selectOne('SELECT p.year_id FROM users u
+            INNER JOIN periodos p ON p.id = u.periodo_id
+            WHERE u.id = ?', [$quien->id]);
+
+        return (int) ($fila->year_id
+            ?? DB::selectOne('SELECT id FROM years WHERE actual = 1 ORDER BY id LIMIT 1')->id);
     }
 }
