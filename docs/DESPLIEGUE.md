@@ -342,6 +342,10 @@ Dos trampas de esta pantalla, y las dos se pagan caro:
    /usr/local/bin/php -v          # tiene que decir 8.4.x
    ```
 
+   **Comprobado el 20 ago 2026 en la cuenta `micolev1`: PHP 8.4.24.** La línea
+   de arriba sirve tal cual ahí. En la otra cuenta hay que volver a mirarlo: la
+   versión se elige por cuenta de cPanel, no por colegio.
+
    Si dice otra cosa, usa la ruta con versión —en cPanel EA4 suele ser
    `/opt/cpanel/ea-php84/root/usr/bin/php`— o cambia la versión de la cuenta.
    Un cron con el PHP viejo no avisa: falla en silencio, porque acabas de

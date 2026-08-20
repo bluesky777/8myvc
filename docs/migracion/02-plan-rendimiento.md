@@ -60,9 +60,17 @@ La autenticación se suma **encima** de esos 250 ms.
 > Lo que no está medido es una petición autenticada de verdad contra la base de
 > desarrollo; para eso hace falta una credencial de ese colegio.
 >
-> **Falta el otro lado:** en producción esto depende de la versión de PHP de la
-> cuenta de cPanel, y hay que confirmar que OPcache está activo ahí. Va en
-> docs/DESPLIEGUE.md junto al cambio de versión.
+> **Falta el otro lado, y el 20 ago 2026 se avanzó medio paso.** `php -v` en el
+> servidor de la cuenta `micolev1` dice **PHP 8.4.24 with Zend OPcache
+> v8.4.24**, o sea que la extensión está instalada y cargada. Pero eso es el
+> **CLI**, y lo que sirve las peticiones no es el CLI: en cPanel es LSAPI o
+> FPM, con su propio `opcache.enable` y su propia memoria. Un servidor puede
+> tener OPcache en el CLI y no en el web, que es justo donde valen los 200 ms.
+>
+> Lo que falta es mirarlo desde el lado web —en el panel, *Select PHP Version →
+> Options*, o *MultiPHP INI Editor*, comprobando `opcache.enable` y
+> `opcache.memory_consumption`—. Es la comprobación más barata de todo este
+> documento y vale la ganancia más grande que se ha medido.
 
 **Lo que se midió el 17 ago 2026, dentro del contenedor viejo:**
 
