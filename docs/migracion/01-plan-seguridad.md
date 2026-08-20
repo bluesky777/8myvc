@@ -491,3 +491,36 @@ De paso, `AutorizacionTest` comparaba el guard con un `in_array` exacto, así qu
 **las rutas que lo llevan con modo no entraban en su lista y podían perderlo sin
 que fallara nada.** `notas/alumno` llevaba así desde que se puso. Ahora la
 comparación entiende el modo y lo imprime al lado de la ruta.
+
+---
+
+## Y la revisión de IDOR, hecha por fin (19 ago 2026)
+
+Estaba pendiente desde el primer hallazgo y se hizo después del segundo. El
+resultado completo está en [08-revision-idor.md](08-revision-idor.md); el resumen
+para quien no lo abra:
+
+**141 de las 539 rutas exigen token, reciben un identificador del cliente y no
+tienen ningún guard.** De las que se golpearon con un token de alumno del seed,
+está confirmado que un alumno cualquiera puede hoy:
+
+- **cambiarle el nombre de usuario al rector** y dejarlo fuera de su cuenta;
+- leer los **antecedentes médicos** de cualquier alumno, y la lista de **alumnos
+  con PIAR** de su grupo —el módulo cuyos datos el generador de seed omite por ser
+  el más sensible del sistema—;
+- sacar el listado de sus 68 compañeros con documento, dirección y deuda;
+- **abrirle un proceso disciplinario** a otro alumno, ponerle ausencias, borrarle
+  las notas de un periodo y **borrarle la matrícula sin papelera**;
+- **borrar un año lectivo entero**, borrar materias y cambiar cuál es el periodo
+  actual del colegio.
+
+Los 27 casos confirmados quedan fijados en
+`tests/Contrato/SuperficieDeUnAlumnoTest.php`, cada uno escrito para fallar el día
+que se cierre su ruta.
+
+**No se arregla aquí, y hay razón.** Son 141 rutas y el arreglo es literalmente la
+Fase 2 del plan —«Organizar rutas + middleware `auth` real»—, que además pide
+decidir qué ve un alumno de su propio grupo y qué ve un acudiente. Eso lo dice el
+colegio, no el diff. Las herramientas ya están: `boletin.propio` resuelve «solo lo
+suyo», `auth.personal` y `Autoriza::esAdministrativo` resuelven «solo el personal»,
+y las tres funcionan. Lo que falta es repartirlas.
