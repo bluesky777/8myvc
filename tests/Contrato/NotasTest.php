@@ -30,6 +30,14 @@ class NotasTest extends CasoDeContrato
      * así que ponérselo a mano antes de pedir el token no sirve de nada. De ahí
      * el `per.actual = 1` de la consulta — se busca la asignatura que encaja en
      * el periodo, no al revés.
+     *
+     * **`years.actual = 1` hace falta además, y no se notaba con un solo año.**
+     * `periodos.actual` marca el periodo actual DE SU AÑO, así que los nueve
+     * años del seed tienen uno; el año actual del COLEGIO lo dice `years`. Al
+     * ampliar el seed a dos años (20 ago 2026) el `ORDER BY a.id` pasó a elegir
+     * una asignatura de 2024, el login le ponía al profesor el periodo de 2025,
+     * y de ahí salieron los tres fallos: la rejilla en 500, y el periodo cerrado
+     * dejando guardar porque el cerrado era el del otro año.
      */
     private function contexto(): object
     {
@@ -42,6 +50,7 @@ class NotasTest extends CasoDeContrato
             INNER JOIN unidades un ON un.asignatura_id = a.id AND un.deleted_at IS NULL
             INNER JOIN periodos per ON per.id = un.periodo_id AND per.actual = 1
                 AND per.year_id = g.year_id AND per.deleted_at IS NULL
+            INNER JOIN years y ON y.id = g.year_id AND y.actual = 1 AND y.deleted_at IS NULL
             INNER JOIN subunidades s ON s.unidad_id = un.id AND s.deleted_at IS NULL
             INNER JOIN matriculas m ON m.grupo_id = a.grupo_id AND m.deleted_at IS NULL
                 AND m.estado IN ("MATR", "ASIS", "PREM")
@@ -203,7 +212,7 @@ class NotasTest extends CasoDeContrato
     public function test_un_alumno_ve_sus_propias_notas_sin_pedir_id(): void
     {
         $usuario = $this->usuarioDeTipo('Alumno');
-        $this->dejandoQueLosAlumnosVeanNotas($usuario);
+        $this->notasVisiblesParaAlumnos(true);
         $token = $this->tokenDe($usuario->username);
 
         $r = $this->getJson('/api/notas/alumno', ['Authorization' => 'Bearer '.$token]);
@@ -221,9 +230,7 @@ class NotasTest extends CasoDeContrato
         $usuario = $this->usuarioDeTipo('Alumno');
         $token = $this->tokenDe($usuario->username);
 
-        DB::table('years')
-            ->whereIn('id', DB::table('periodos')->where('id', $usuario->periodo_id)->pluck('year_id'))
-            ->update(['alumnos_can_see_notas' => 0]);
+        $this->notasVisiblesParaAlumnos(false);
 
         $r = $this->getJson('/api/notas/alumno', ['Authorization' => 'Bearer '.$token]);
 
@@ -249,7 +256,7 @@ class NotasTest extends CasoDeContrato
     public function test_un_alumno_no_puede_pedir_las_notas_de_otro(): void
     {
         $usuario = $this->usuarioDeTipo('Alumno');
-        $this->dejandoQueLosAlumnosVeanNotas($usuario);
+        $this->notasVisiblesParaAlumnos(true);
         $token = $this->tokenDe($usuario->username);
 
         $propio = DB::table('alumnos')->where('user_id', $usuario->id)->value('id');
@@ -294,7 +301,7 @@ class NotasTest extends CasoDeContrato
 
         $this->assertNotNull($vinculo, 'El seed necesita un acudiente con acudido matriculado.');
 
-        $this->dejandoQueLosAlumnosVeanNotas((object) ['periodo_id' => DB::table('users')->where('id', $vinculo->user_id)->value('periodo_id')]);
+        $this->notasVisiblesParaAlumnos(true);
 
         DB::table('alumnos')->where('id', $vinculo->alumno_id)->update(['pazysalvo' => 0]);
 
@@ -325,7 +332,7 @@ class NotasTest extends CasoDeContrato
     public function test_el_intento_de_ver_notas_ajenas_queda_anotado(): void
     {
         $usuario = $this->usuarioDeTipo('Alumno');
-        $this->dejandoQueLosAlumnosVeanNotas($usuario);
+        $this->notasVisiblesParaAlumnos(true);
         $token = $this->tokenDe($usuario->username);
 
         $propio = DB::table('alumnos')->where('user_id', $usuario->id)->value('id');
@@ -388,10 +395,20 @@ class NotasTest extends CasoDeContrato
             ->update(['profes_pueden_editar_notas' => 1]);
     }
 
-    private function dejandoQueLosAlumnosVeanNotas(object $usuario): void
+    /**
+     * Enciende o apaga `alumnos_can_see_notas` donde de verdad lo va a leer el
+     * contexto: en el año ACTUAL del colegio.
+     *
+     * No en el año del periodo que el usuario tenga ahora, que es como estaba.
+     * `Services\Login` reescribe `users.periodo_id` al periodo actual en cada
+     * inicio de sesión, así que el usuario acaba en el año que marca
+     * `years.actual`, no en el que estaba. Con un solo año en el seed las dos
+     * cosas eran la misma; con dos, el helper encendía el permiso en 2024 y el
+     * alumno entraba en 2025 y recibía la frase de bloqueo.
+     */
+    private function notasVisiblesParaAlumnos(bool $visibles): void
     {
-        DB::table('years')
-            ->whereIn('id', DB::table('periodos')->where('id', $usuario->periodo_id)->pluck('year_id'))
-            ->update(['alumnos_can_see_notas' => 1]);
+        DB::table('years')->where('actual', 1)->whereNull('deleted_at')
+            ->update(['alumnos_can_see_notas' => $visibles ? 1 : 0]);
     }
 }

@@ -35,11 +35,31 @@ use Illuminate\Support\Facades\DB;
 const SALIDA = __DIR__ . '/../database/dumps/test-seed.sql';
 
 /*
- * El ancla. Un grupo con alumnos de verdad, en un año con periodos.
- * Se pasa por argumento si algún día hace falta otro.
+ * El ancla. DOS años consecutivos con el mismo grupo de alumnos avanzando de
+ * grado: Tercero 2024 (grupo 84, 56 alumnos) y Cuarto 2025 (98, los mismos 56
+ * más 12).
+ *
+ * Con un año solo —como estaba hasta el 20 ago 2026— cuatro listas salían vacías
+ * siempre y su contenido no lo comprobaba nadie: las tres de prematrículas y
+ * matrículas, que buscan candidatos en el grado ANTERIOR con un `NOT IN` —la
+ * consulta más enredada de las tres—, y `grupos/next-year`, que mira el
+ * siguiente. El año de más las cubre las cuatro.
+ *
+ * **No se añade un tercer año hacia adelante, y se probó.** 2026 existe en
+ * producción con sus trece grupos, pero está BORRADO, así que ninguna consulta
+ * lo devuelve y meterlo en el seed no cambia nada. `grupos/next-year` se
+ * comprueba al revés: con un token de 2024, que ve los grupos de 2025.
+ *
+ * Se pasan por argumento separados por coma si algún día hacen falta otros:
+ *   php tools/generar-seed-test.php 7,8 84,98
  */
-$YEAR_ID  = (int) ($argv[1] ?? 8);
-$GRUPO_ID = (int) ($argv[2] ?? 98);
+$YEARS  = numeros($argv[1] ?? '7,8');
+$GRUPOS = numeros($argv[2] ?? '84,98');
+
+function numeros(string $csv): array
+{
+    return array_values(array_filter(array_map('intval', explode(',', $csv))));
+}
 
 /*
  * Tablas que NO entran. Ruido de operación o datos sensibles que ningún test
@@ -49,6 +69,13 @@ $GRUPO_ID = (int) ($argv[2] ?? 98);
 $OMITIDAS = [
     'debugging', 'bitacoras', 'dis_libro_rojo', 'password_reminders',
     'password_resets', 'jobs', 'migrations', 'historiales',
+    // Tokens de sesión de Sanctum. Ruido de operación, y además credenciales:
+    // no pintan nada en el repo. Se coló al regenerar el seed el 20 ago 2026
+    // —la tabla no existía cuando se generó el anterior— y **rompió la carga**,
+    // porque el esquema congelado es el de PRODUCCIÓN y allí la crea la
+    // migración, que corre después del seed. Cualquier tabla nueva entra sola:
+    // lo que no está aquí ni en los recortes se copia entero.
+    'personal_access_tokens',
     // Peticiones de cambio: pequeñas, y cada fila es una copia de los datos
     // personales del alumno pendientes de aprobar. No las necesita ningún test P0.
     'change_asked', 'change_asked_data', 'change_asked_assignment',
@@ -78,6 +105,13 @@ $ANONIMAS = [
                      'direccion', 'barrio', 'email', 'facebook', 'titulo'],
     'users'      => ['username', 'password', 'email'],
     'parentescos' => ['observaciones'],
+    // Texto libre, y lleva dentro el nombre de OTRO alumno: «le pegó en la
+    // cabeza al compañero <nombre y apellido>». Lo destapó el detector de fugas
+    // al ampliar el seed al año anterior, el 20 ago 2026 — con un solo año esa
+    // fila no entraba y la columna parecía inofensiva. Es la misma categoría que
+    // `dis_libro_rojo`, que se omite entera; esta se anonimiza porque la tabla sí
+    // la necesitan los recortes.
+    'uniformes'  => ['descripcion'],
     // 'plancha' es el nombre del equipo, y lo forman con los nombres de pila.
     'vt_candidatos' => ['plancha'],
     // El nombre del fichero suele llevar el del alumno: 'foto-juan-perez.jpg'.
@@ -174,10 +208,20 @@ const COLISIONES_ACEPTADAS = [
     'publicaciones.contenido'      => ['JULIO', 'BELLO', 'ESPERANZA', 'NELSON'],
     // Lenguaje académico: 'contrasta diversas fuentes de informacion', 'cuadros
     // sinópticos'. Nada personal.
-    'unidades.definicion'          => ['ELÍAS', 'URBANO', 'FUENTES', 'CUADROS'],
+    //
+    // Los seis de la segunda línea entraron con el año 2024: son el plan de
+    // clase de religión —DAVID, JESÚS y MARCO(S) son de quien habla la unidad—,
+    // 'feria de ciencia y tecnología', 'daily routines' de inglés, y CARLOS, que
+    // no es nadie: sale de 'identifi carlos', una palabra partida a mano.
+    'unidades.definicion'          => ['ELÍAS', 'URBANO', 'FUENTES', 'CUADROS',
+                                       'DAILY', 'DAVID', 'FERIA', 'JESÚS', 'MARCO', 'CARLOS'],
     // El mes, en frases de boletín con fechas.
-    'frases_asignatura.frase'      => ['ABRIL'],
-    'subunidades.definicion'       => ['ABRIL'],
+    'frases_asignatura.frase'      => ['ABRIL', 'JULIO'],
+    // Igual que unidades: talleres de religión con sus personajes —SAMUEL,
+    // DAVID, MARCOS, JESÚS, las tribus de ISRAEL, y BRENDA, del 'taller de Bruno
+    // y Brenda' del libro—, más 'feria', 'largo' y el mes.
+    'subunidades.definicion'       => ['ABRIL', 'FERIA', 'BRENDA', 'LARGO', 'SAMUEL',
+                                       'JULIO', 'DAVID', 'ISRAEL', 'MARCOS', 'JESÚS'],
     'years.frase_final_certificado' => ['ABRIL'],
 ];
 
@@ -304,16 +348,16 @@ function lista(array $ids): string
     return $ids === [] ? 'NULL' : implode(',', array_map('intval', $ids));
 }
 
-echo "Anclando en year_id={$YEAR_ID}, grupo_id={$GRUPO_ID}\n";
+echo 'Anclando en year_id IN ('.lista($YEARS).'), grupo_id IN ('.lista($GRUPOS).")\n";
 
-$periodos    = ids('SELECT id FROM periodos WHERE year_id = ?', [$YEAR_ID]);
-$grupos      = [$GRUPO_ID];
-$asignaturas = ids('SELECT id FROM asignaturas WHERE grupo_id = ?', [$GRUPO_ID]);
-$matriculas  = ids('SELECT id FROM matriculas WHERE grupo_id = ?', [$GRUPO_ID]);
-$alumnos     = ids('SELECT DISTINCT alumno_id id FROM matriculas WHERE grupo_id = ?', [$GRUPO_ID]);
+$periodos    = ids('SELECT id FROM periodos WHERE year_id IN (' . lista($YEARS) . ')');
+$grupos      = $GRUPOS;
+$asignaturas = ids('SELECT id FROM asignaturas WHERE grupo_id IN (' . lista($GRUPOS) . ')');
+$matriculas  = ids('SELECT id FROM matriculas WHERE grupo_id IN (' . lista($GRUPOS) . ')');
+$alumnos     = ids('SELECT DISTINCT alumno_id id FROM matriculas WHERE grupo_id IN (' . lista($GRUPOS) . ')');
 $parentescos = ids('SELECT id FROM parentescos WHERE alumno_id IN (' . lista($alumnos) . ')');
 $acudientes  = ids('SELECT DISTINCT acudiente_id id FROM parentescos WHERE alumno_id IN (' . lista($alumnos) . ')');
-$profesores  = ids('SELECT DISTINCT profesor_id id FROM asignaturas WHERE grupo_id = ? AND profesor_id IS NOT NULL', [$GRUPO_ID]);
+$profesores  = ids('SELECT DISTINCT profesor_id id FROM asignaturas WHERE grupo_id IN (' . lista($GRUPOS) . ') AND profesor_id IS NOT NULL');
 $unidades    = ids('SELECT id FROM unidades WHERE asignatura_id IN (' . lista($asignaturas) . ') AND periodo_id IN (' . lista($periodos) . ')');
 $subunidades = ids('SELECT id FROM subunidades WHERE unidad_id IN (' . lista($unidades) . ')');
 
@@ -370,7 +414,7 @@ $RECORTES = [
     'nota_comportamiento'         => 'alumno_id IN (' . lista($alumnos) . ') AND periodo_id IN (' . lista($periodos) . ')',
     'recuperacion_final'          => 'alumno_id IN (' . lista($alumnos) . ')',
     'antecedentes'                => 'alumno_id IN (' . lista($alumnos) . ')',
-    'contratos'                   => 'profesor_id IN (' . lista($profesores) . ') AND year_id = ' . $YEAR_ID,
+    'contratos'                   => 'profesor_id IN (' . lista($profesores) . ') AND year_id IN (' . lista($YEARS) . ')',
     // Mismo filtro que nota_comportamiento, o quedan definiciones apuntando a
     // filas de otros periodos que la rebanada no incluye.
     'definiciones_comportamiento' => 'comportamiento_id IN (SELECT id FROM nota_comportamiento WHERE alumno_id IN (' . lista($alumnos) . ') AND periodo_id IN (' . lista($periodos) . '))',

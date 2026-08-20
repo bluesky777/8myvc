@@ -54,7 +54,16 @@ CONEXION=""
 [ -n "${DB_TEST_HOST:-}" ] && CONEXION="$CONEXION -h $DB_TEST_HOST"
 [ -n "${DB_TEST_PORT:-}" ] && CONEXION="$CONEXION -P $DB_TEST_PORT"
 
-mysql_cmd() { $MYSQL_EXEC mysql $CONEXION -u"$DB_USERNAME" -p"$DB_PASSWORD" "$@" 2>/dev/null; }
+# Los errores NO se silencian: solo el aviso de la contraseña en la línea de
+# órdenes, que MySQL imprime siempre. Silenciarlos enteros —como estaba hasta el
+# 20 ago 2026— deja el peor fallo posible: el script imprime sus tres pasos, se
+# corta a la mitad por `set -e`, y la base queda a medio cargar sin que nada lo
+# diga. Se descubrió cargando el seed a mano para ver por qué la suite entera
+# fallaba con "la base está vacía".
+mysql_cmd() {
+    $MYSQL_EXEC mysql $CONEXION -u"$DB_USERNAME" -p"$DB_PASSWORD" "$@" \
+        2> >(grep -v '^mysql: \[Warning\] Using a password' >&2)
+}
 
 echo "Reconstruyendo '$DB_TEST_DATABASE'..."
 
@@ -65,15 +74,25 @@ mysql_cmd -e "DROP DATABASE IF EXISTS \`$DB_TEST_DATABASE\`;
 echo "  esquema:  $ESQUEMA"
 mysql_cmd "$DB_TEST_DATABASE" < "$ESQUEMA"
 
-echo "  seed:     $SEED"
-mysql_cmd "$DB_TEST_DATABASE" < "$SEED"
-
-# El esquema congelado es el de PRODUCCIÓN, y producción todavía no ha corrido
-# las migraciones nuevas. Se corren aquí encima, que es exactamente lo que hará
-# cada colegio al desplegar: así los tests prueban el resultado real y, de paso,
-# el CI comprueba que la migración se aplica sobre el esquema de verdad.
+# El esquema congelado es el de PRODUCCIÓN, y producción va por detrás de la
+# rama: le faltan las tablas y columnas que añaden las migraciones nuevas.
+# Correrlas aquí es lo que hará cada colegio al desplegar, y comprueba lo que
+# hay que comprobar: que la migración se aplica sobre el esquema de verdad.
+#
+# **Van ANTES del seed**, y el orden costó una tarde. El seed se genera desde la
+# base de desarrollo, que sí está migrada, así que trae las columnas nuevas
+# dentro: cargarlo sobre el esquema pelado muere con "Unknown column
+# 'firmantes_acta'". Con las migraciones ya aplicadas encaja.
+#
+# Lo que este orden NO comprueba es una migración que transforme datos que ya
+# estaban: corre sobre la base vacía. Las de hoy son aditivas —una tabla nueva y
+# una columna nullable—, pero la primera que toque datos existentes necesita su
+# propio test, no este script.
 echo "  migraciones:"
 $PHP_EXEC php artisan migrate --force --database=mysql_testing --no-interaction
+
+echo "  seed:     $SEED"
+mysql_cmd "$DB_TEST_DATABASE" < "$SEED"
 
 tablas=$(mysql_cmd -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$DB_TEST_DATABASE';")
 users=$(mysql_cmd -N -e "SELECT COUNT(*) FROM \`$DB_TEST_DATABASE\`.users;")

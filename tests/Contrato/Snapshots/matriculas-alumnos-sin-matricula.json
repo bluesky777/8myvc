@@ -1,0 +1,26 @@
+[
+    {
+        "abrev_grupo": "string",
+        "alumno_id": "int",
+        "apellidos": "string",
+        "celular": "string",
+        "ciudad_nac": "null",
+        "direccion": "string",
+        "estado": "string",
+        "fecha_matricula": "string",
+        "fecha_nac": "string",
+        "fecha_retiro": "null",
+        "foto_id": "null",
+        "foto_nombre": "string",
+        "grupo_id": "int",
+        "imagen_id": "null",
+        "imagen_nombre": "string",
+        "matricula_id": "int",
+        "no_matricula": "string",
+        "nombre_grupo": "string",
+        "nombres": "string",
+        "religion": "string",
+        "sexo": "string",
+        "user_id": "int"
+    }
+]

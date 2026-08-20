@@ -50,7 +50,7 @@
             "matricula_id": "int",
             "nombre": "string",
             "nro_folio": "string",
-            "nuevo": "int",
+            "nuevo": "int|null",
             "prematriculado": "null",
             "profes_editar_notas": "null",
             "programar": "null",

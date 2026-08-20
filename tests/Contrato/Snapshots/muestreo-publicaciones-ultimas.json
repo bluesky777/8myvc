@@ -2,14 +2,14 @@
     "publicaciones": [
         {
             "comentarios": "int",
-            "contenido": "string",
+            "contenido": "null|string",
             "created_at": "string",
             "deleted_at": "null",
             "deleted_by": "null",
             "foto_autor": "null",
             "id": "int",
-            "imagen_id": "null",
-            "imagen_nombre": "null",
+            "imagen_id": "int|null",
+            "imagen_nombre": "null|string",
             "nombre_autor": "string",
             "para_acudientes": "int",
             "para_administradores": "int",

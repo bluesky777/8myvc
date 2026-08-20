@@ -34,18 +34,15 @@ class GruposTest extends CasoDeContrato
             'con-cantidad-alumnos' => ['PUT', 'grupos/con-cantidad-alumnos', 'objeto'],
             'con-paises-tipos' => ['GET', 'grupos/con-paises-tipos', 'objeto'],
             'con-disciplina' => ['PUT', 'grupos/con-disciplina', 'objeto'],
-            'next-year' => ['GET', 'grupos/next-year', 'lista-vacia'],
             'alumnos-con-datos' => ['PUT', 'grupos/alumnos-con-datos', 'objeto'],
         ];
     }
 
     /**
-     * Dos cosas que el seed deja sin cubrir, y conviene saberlo antes de fiarse:
-     *
-     * - `con-disciplina.descripciones_typeahead` sale vacía siempre. Lee de
-     *   `dis_procesos`, que es una de las dos tablas que el generador de seed
-     *   omite a propósito por ser el dato más sensible del sistema.
-     * - `next-year` sale vacía: el año siguiente al del seed está borrado.
+     * Lo que el seed deja sin cubrir aquí, y conviene saberlo antes de fiarse:
+     * `con-disciplina.descripciones_typeahead` sale vacía siempre. Lee de
+     * `dis_procesos`, que es una de las dos tablas que el generador de seed
+     * omite a propósito por ser el dato más sensible del sistema.
      */
     #[DataProvider('lecturas')]
     public function test_la_forma_de_cada_lectura_de_grupos(string $verbo, string $ruta, string $tipo): void
@@ -64,21 +61,63 @@ class GruposTest extends CasoDeContrato
 
         $cuerpo = $r->json();
 
-        // `next-year` sale vacío con el seed y a propósito: el año siguiente al del
-        // grupo está borrado. Se deja en el proveedor porque la ruta existe y la
-        // pantalla de prematrículas la llama; el snapshot registra la lista vacía,
-        // que es lo que hay, y avisará el día que el seed traiga el año siguiente.
-        if ($tipo !== 'lista-vacia') {
-            $this->assertNotEmpty($cuerpo, "{$verbo} {$ruta} salió vacío.");
-        }
+        $this->assertNotEmpty($cuerpo, "{$verbo} {$ruta} salió vacío.");
 
-        if ($tipo === 'lista' && $cuerpo !== []) {
+        if ($tipo === 'lista') {
             $this->assertSame(range(0, count($cuerpo) - 1), array_keys($cuerpo),
                 "{$ruta} dejó de devolver una lista.");
         }
 
         $this->compararConInstantanea('grupos-'.str_replace('/', '-', $ruta),
             $this->formaUnida($cuerpo));
+    }
+
+    /**
+     * `GET api/grupos/next-year`: los grupos del año siguiente al de quien pide.
+     *
+     * **Se pregunta desde el año anterior, y no es un rodeo.** Con el año actual
+     * de siempre —2025— la lista sale vacía: 2026 existe en producción con sus
+     * trece grupos pero está BORRADO, y la consulta filtra `y.deleted_at is
+     * null`. Retrasando el año actual a 2024, el siguiente es 2025, que sí está
+     * vivo, y la consulta se ejecuta de verdad.
+     *
+     * **No basta con pedir un token de alguien de 2024.** `Services\Login`
+     * reescribe `users.periodo_id` al periodo actual en cada inicio de sesión, y
+     * el periodo actual sale de `years.actual`: entre para quien entre, acaba en
+     * el año que marca esa columna. Por eso lo que se mueve es el año actual, y
+     * antes de pedir el token. Lo deshace la transacción del test.
+     *
+     * Hasta el 20 ago 2026 este caso vivía en el proveedor de arriba con la
+     * etiqueta `lista-vacia` y un snapshot que decía `[]`. Pasaba siempre, y no
+     * comprobaba nada: es la pantalla con la que el colegio arma el año que
+     * viene.
+     */
+    public function test_los_grupos_del_year_siguiente(): void
+    {
+        $grupo = $this->grupoConAlumnos();
+
+        $anterior = DB::selectOne('SELECT anterior.id FROM years actual
+            INNER JOIN years anterior ON anterior.year = actual.year - 1 AND anterior.deleted_at IS NULL
+            WHERE actual.id = ?', [$grupo->year_id]);
+
+        $this->assertNotNull($anterior,
+            'El seed necesita el año anterior al del grupo para comprobar next-year.');
+
+        DB::table('years')->update(['actual' => 0]);
+        DB::table('years')->where('id', $anterior->id)->update(['actual' => 1]);
+
+        $r = $this->getJson('/api/grupos/next-year',
+            ['Authorization' => 'Bearer '.$this->tokenDelPersonalDe((int) $anterior->id)]);
+
+        $r->assertStatus(200);
+
+        $cuerpo = $r->json();
+
+        $this->assertNotEmpty($cuerpo, 'next-year salió vacío preguntando desde el año anterior.');
+        $this->assertContains($grupo->id, array_column($cuerpo, 'id'),
+            'El grupo del seed no aparece entre los del año siguiente.');
+
+        $this->compararConInstantanea('grupos-grupos-next-year', $this->formaUnida($cuerpo));
     }
 
     /**
