@@ -39,7 +39,11 @@ class ExigirPersonaPropia
     /** Los que sí tienen dueño. Cada uno se resuelve distinto. */
     private const CLAVES = [
         'alumno_id', 'user_id', 'persona_id', 'acudiente_id', 'profesor_id', 'matricula_id',
-        'imagen_id',
+        // `img_id` es `imagen_id` con otro nombre, y va aquí porque una lista de
+        // nombres se queda corta en cuanto un endpoint escribe el suyo:
+        // `images-users/move-img-to-me` lo llama así y por eso el guard no veía
+        // nada que comprobar. Ver 05-codigo-muerto-y-roto.md §15.
+        'imagen_id', 'img_id',
     ];
 
     /**
@@ -138,6 +142,7 @@ class ExigirPersonaPropia
     private function esSuyo(object $usuario, string $clave, int $valor): bool
     {
         $clave = str_contains($clave, 'alumno_id') ? 'alumno_id' : $clave;
+        $clave = $clave === 'img_id' ? 'imagen_id' : $clave;
 
         if ($usuario->tipo === 'Alumno') {
             return match ($clave) {

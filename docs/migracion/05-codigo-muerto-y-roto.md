@@ -1125,3 +1125,118 @@ Y una que se midió y **está bien**, para no volver a mirarla:
 `GET api/ChangesAsked/to-me` pesa 210 KB y a un alumno le devuelve lo suyo —sus
 ausencias, su comportamiento, sus publicaciones— más 593 eventos del calendario y
 los nombres y fotos de sus nueve profesores. Nada ajeno.
+
+---
+
+## 15. La otra mitad: las escrituras que no nombran a nadie (20 ago 2026)
+
+La [§14](#14-los-listados-que-no-nombran-a-nadie-20-ago-2026) preguntó **qué
+sale**. Esta pregunta **si llegó a escribir**, y son dos preguntas distintas por
+una razón concreta de este proyecto: **aquí se lee con `PUT`**. Un 200 no
+distingue una consulta de un `UPDATE`, así que la lista de «escrituras que el
+guard no cortó» no dice nada por sí sola.
+
+Se midió escuchando las consultas de cada petición —`DB::listen`, quedándose con
+las que empiezan por `insert`, `update` o `delete`— y descontando `bitacoras` y
+`personal_access_tokens`, que son la huella de la defensa y no del ataque.
+
+**De las 417 escrituras de la API, 133 llegaban al controlador con el token de un
+alumno y 27 cambiaban datos de verdad.**
+
+### 15.1 El patrón, que esta vez se ve de un vistazo
+
+En `ActividadesController`, `PreguntasController` y `OpcionesController`, **la
+única ruta de cada uno que llevaba guard era `destroy/{id}`** — la única que tiene
+un `{id}` en la URL. Las otras veinte —crear la actividad, editarla, compartirla
+con un grupo, añadir preguntas y opciones— iban abiertas.
+
+Es el mismo criterio de §14 visto desde el otro lado: **se guardó lo que nombraba
+a alguien**. Y aparece otra vez en parejas de hermanas donde una lo lleva y la
+otra no, en el mismo fichero y a pocas líneas:
+
+| Sin guard | Su hermana, que sí lo tenía |
+|---|---|
+| `PUT matriculas/alumnos-con-grado-anterior` | `PUT prematriculas/alumnos-con-grado-anterior` |
+| `PUT images-users/cambiar-imagen-perfil/{user_id}` | `cambiar-imagen-oficial/{user_id}` · `cambiar-imagen-un-usuario/{user_id}` |
+| `PUT images-users/cambiar-foto-un-usuario/{user_id}` | `putRotarimagen/{imagen_id}` y las demás de imagen |
+
+### 15.2 Las cuatro que valen por sí solas
+
+**`PUT api/alumnos/cambiar-claves` — la contraseña de todo un grupo.** Toma
+`clave` y `grupo_id` **del cuerpo** y hace un `UPDATE users INNER JOIN matriculas
+... WHERE m.grupo_id = :grupo_id`. Un alumno le ponía la contraseña que quisiera
+a todos los alumnos de cualquier grupo. No nombra a ninguna persona: nombra un
+grupo. Y es la única de todo lo encontrado estos dos días que es
+**irreversible** —nadie guarda la contraseña anterior—, así que su test se
+comprueba por el efecto y no por el 403.
+
+**Los seis interruptores de la elección.** `votaciones/set-actual`,
+`set-in-action`, `set-locked`, `set-permiso-ver-results`, `set-votan-acudientes` y
+`set-votan-profes`: cuál es la votación vigente, si está abierta, si está
+bloqueada, quién puede votar y quién ve los resultados. La votación viaja en el
+cuerpo. Y el `UPDATE` de `set-actual` **no lleva ninguna condición de dueño** —el
+de arriba sí la lleva, el de abajo no—, así que valía para cualquier votación de
+cualquier colegio del año.
+
+**`PUT api/images-users/move-img-to-me` — una escalada, no una fuga.**
+`UPDATE images SET user_id = <yo> WHERE id = :img_id`, sin mirar de quién era. El
+daño no está en esa línea: está en que **una vez la imagen es suya, sus hermanas
+—rotar, publicar, privatizar, borrar— comprueban la propiedad y dicen que sí**.
+El guard no veía nada que comprobar porque aquí la clave se llama `img_id` y sus
+siete claves se escribían `imagen_id`. **Es la sexta variante de la familia**: no
+falta el guard, ni deja de reconocer el parámetro — es el mismo identificador con
+otro nombre. `ExigirPersonaPropia` ya lo conoce, y esa lista tiene que crecer con
+los endpoints, nunca al revés.
+
+**`PUT api/publicaciones/delete` — la regla vivía solo en el frontend.** Borraba
+por `publi_id` sin mirar de quién era la publicación, así que cualquiera con un
+token vaciaba el muro. La regla existía, escrita en el `ng-if` del botón de la
+papelera de `publicacionesPanelDir.html`:
+`publi.persona_id == USER.persona_id || USER.is_superuser`. Aquí el guard no
+sirve —la publicación no viaja como persona, viaja como `publi_id`—, así que la
+comprobación se puso en el controlador, **exactamente la misma que el front ya
+decide**, para que nada de lo que hoy se puede hacer deje de poderse. `tipo_persona`
+entra en la comparación aunque el front no lo mire, porque `persona_id` solo es
+único dentro de su tabla: el alumno 12 y el profesor 12 existen los dos.
+
+### 15.3 Y una corrección a la §14: el barrido de lectura miró poco
+
+El de ayer solo golpeó las **GET**, y en este proyecto se lee con `PUT`. Pasando
+el mismo detector de datos personales por las lecturas-`PUT` salieron cuatro más,
+todas del fichero de acudientes —documento, celular, dirección, fecha de
+nacimiento—: `acudientes/buscar` (38 KB), `acudientes/planillas-ausencias`
+(50 KB), `acudientes/no-asignados` y `acudientes/ultimos`. Más
+`participantes/profesores`, con la ficha completa de los docentes.
+
+Las cuatro las piden `NewAcudienteModalCtrl`, `AcudientesCtrl` e `informes`, y la
+app de Flutter no llama a ninguna ruta de `acudientes/`.
+
+### 15.4 Lo que se dejó abierto a propósito
+
+- **`DELETE api/myimages/destroy/{id}`** parece la gemela sin guard de la que se
+  arregló en [§13](#13-lo-que-encontró-subir-larastan-al-nivel-5-20-ago-2026), y
+  no lo es: cuando la imagen **no** es tuya no la borra, **abre una petición de
+  cambio**. Eso está escrito a propósito y ponerle `persona.propia` mataría la
+  función. Es el ejemplo de por qué esto no se puede cerrar con una lista.
+- **`PUT api/publicaciones/comentar`**, **`mis-actividades/*`**,
+  **`respuestas/actividad`**, **`perfiles/guardar-mi-email-restore`** y las de
+  sesión: son lo suyo, y siguen abiertas. La mitad que no se puede perder tiene
+  su propio caso en `SuperficieDeUnAlumnoTest` — borrar **su** publicación se
+  comprueba en el mismo test que impide borrar la ajena.
+- **`PUT api/aplicacion-descargas/detailed`** devuelve una `fecha_nac`, la suya.
+  Es lo que pide la app de Flutter al arrancar y está descrita en
+  [§12.1](#121-put-apiaplicacion-descargasdetailed).
+
+### 15.5 Qué queda de esto
+
+Veinte casos nuevos en `SuperficieDeUnAlumnoTest`: diecisiete de puerta y tres de
+efecto —la contraseña del grupo, el dueño de la imagen y el muro—. **No hacía
+falta escribirlos al revés**, que es lo que pide el resto del archivo: el barrido
+que los encontró **ya es la prueba al revés**, porque no midió códigos de
+respuesta sino filas cambiadas. Un test que afirmara la fuga no habría demostrado
+nada que la medición no demostrara antes.
+
+Lo que este barrido **no** cubre, para no repetir la lección de la §14: se hizo
+con token de **alumno**. Un acudiente tiene una superficie parecida pero no
+idéntica —`persona.propia` le acepta lo de sus acudidos— y no se ha barrido con
+el mismo detector.

@@ -20,17 +20,21 @@ use Illuminate\Support\Facades\Route;
 */
 
 // ActividadesController
-Route::put('actividades/compartidas', [ActividadesController::class, 'putCompartidas']);
-Route::post('actividades/crear', [ActividadesController::class, 'postCrear']);
-Route::put('actividades/datos', [ActividadesController::class, 'putDatos']);
-Route::put('actividades/edicion', [ActividadesController::class, 'putEdicion']);
-Route::put('actividades/guardar', [ActividadesController::class, 'putGuardar']);
-Route::put('actividades/insert-grupo-compartido', [ActividadesController::class, 'putInsertGrupoCompartido']);
-Route::put('actividades/para-acudientes-toggle', [ActividadesController::class, 'putParaAcudientesToggle']);
-Route::put('actividades/para-alumnos-toggle', [ActividadesController::class, 'putParaAlumnosToggle']);
-Route::put('actividades/para-profesores-toggle', [ActividadesController::class, 'putParaProfesoresToggle']);
-Route::put('actividades/quitando-grupo-compartido', [ActividadesController::class, 'putQuitandoGrupoCompartido']);
-Route::put('actividades/set-compartida', [ActividadesController::class, 'putSetCompartida']);
+// Es el lado del AUTOR: crear la actividad, editarla, compartirla con un grupo.
+// El lado del alumno es `mis-actividades/*` y `respuestas/actividad`, más abajo.
+// De los tres controladores de aquí solo llevaba guard el `destroy/{id}` de cada
+// uno — las únicas que tienen `{id}`. Ver 05 §15.
+Route::put('actividades/compartidas', [ActividadesController::class, 'putCompartidas'])->middleware('auth.personal');
+Route::post('actividades/crear', [ActividadesController::class, 'postCrear'])->middleware('auth.personal');
+Route::put('actividades/datos', [ActividadesController::class, 'putDatos'])->middleware('auth.personal');
+Route::put('actividades/edicion', [ActividadesController::class, 'putEdicion'])->middleware('auth.personal');
+Route::put('actividades/guardar', [ActividadesController::class, 'putGuardar'])->middleware('auth.personal');
+Route::put('actividades/insert-grupo-compartido', [ActividadesController::class, 'putInsertGrupoCompartido'])->middleware('auth.personal');
+Route::put('actividades/para-acudientes-toggle', [ActividadesController::class, 'putParaAcudientesToggle'])->middleware('auth.personal');
+Route::put('actividades/para-alumnos-toggle', [ActividadesController::class, 'putParaAlumnosToggle'])->middleware('auth.personal');
+Route::put('actividades/para-profesores-toggle', [ActividadesController::class, 'putParaProfesoresToggle'])->middleware('auth.personal');
+Route::put('actividades/quitando-grupo-compartido', [ActividadesController::class, 'putQuitandoGrupoCompartido'])->middleware('auth.personal');
+Route::put('actividades/set-compartida', [ActividadesController::class, 'putSetCompartida'])->middleware('auth.personal');
 Route::delete('actividades/destroy/{id}', [ActividadesController::class, 'deleteDestroy'])->middleware('auth.personal');
 
 // MisActividadesController
@@ -41,18 +45,18 @@ Route::put('mis-actividades/mi-actividad', [MisActividadesController::class, 'pu
 Route::put('mis-actividades/seleccionar-opcion', [MisActividadesController::class, 'putSeleccionarOpcion']);
 
 // PreguntasController
-Route::post('preguntas/crear', [PreguntasController::class, 'postCrear']);
-Route::put('preguntas/duplicar-pregunta', [PreguntasController::class, 'putDuplicarPregunta']);
-Route::put('preguntas/edicion', [PreguntasController::class, 'putEdicion']);
-Route::put('preguntas/guardar', [PreguntasController::class, 'putGuardar']);
-Route::put('preguntas/toggle-opcion-otra', [PreguntasController::class, 'putToggleOpcionOtra']);
-Route::put('preguntas/update-orden', [PreguntasController::class, 'putUpdateOrden']);
+Route::post('preguntas/crear', [PreguntasController::class, 'postCrear'])->middleware('auth.personal');
+Route::put('preguntas/duplicar-pregunta', [PreguntasController::class, 'putDuplicarPregunta'])->middleware('auth.personal');
+Route::put('preguntas/edicion', [PreguntasController::class, 'putEdicion'])->middleware('auth.personal');
+Route::put('preguntas/guardar', [PreguntasController::class, 'putGuardar'])->middleware('auth.personal');
+Route::put('preguntas/toggle-opcion-otra', [PreguntasController::class, 'putToggleOpcionOtra'])->middleware('auth.personal');
+Route::put('preguntas/update-orden', [PreguntasController::class, 'putUpdateOrden'])->middleware('auth.personal');
 Route::delete('preguntas/destroy/{id}', [PreguntasController::class, 'deleteDestroy'])->middleware('auth.personal');
 
 // OpcionesController
-Route::put('opciones/add-opcion', [OpcionesController::class, 'putAddOpcion']);
-Route::put('opciones/guardar', [OpcionesController::class, 'putGuardar']);
-Route::put('opciones/set-opcion-correct', [OpcionesController::class, 'putSetOpcionCorrect']);
+Route::put('opciones/add-opcion', [OpcionesController::class, 'putAddOpcion'])->middleware('auth.personal');
+Route::put('opciones/guardar', [OpcionesController::class, 'putGuardar'])->middleware('auth.personal');
+Route::put('opciones/set-opcion-correct', [OpcionesController::class, 'putSetOpcionCorrect'])->middleware('auth.personal');
 Route::delete('opciones/destroy/{id}', [OpcionesController::class, 'deleteDestroy'])->middleware('auth.personal');
 
 // RespuestasController

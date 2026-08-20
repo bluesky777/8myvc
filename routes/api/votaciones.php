@@ -24,12 +24,17 @@ Route::get('votaciones', [VtVotacionesController::class, 'getIndex']);
 Route::get('votaciones/actual', [VtVotacionesController::class, 'getActual']);
 Route::get('votaciones/actual-in-action', [VtVotacionesController::class, 'getActualInAction']);
 Route::get('votaciones/en-accion-inscrito', [VtVotacionesController::class, 'getEnAccionInscrito']);
-Route::put('votaciones/set-actual', [VtVotacionesController::class, 'putSetActual']);
-Route::put('votaciones/set-in-action', [VtVotacionesController::class, 'putSetInAction']);
-Route::put('votaciones/set-locked', [VtVotacionesController::class, 'putSetLocked']);
-Route::put('votaciones/set-permiso-ver-results', [VtVotacionesController::class, 'putSetPermisoVerResults']);
-Route::put('votaciones/set-votan-acudientes', [VtVotacionesController::class, 'putSetVotanAcudientes']);
-Route::put('votaciones/set-votan-profes', [VtVotacionesController::class, 'putSetVotanProfes']);
+// Los seis interruptores de la elección del colegio: cuál es la votación
+// actual, si está abierta, si está bloqueada, quién puede votar y quién puede
+// ver los resultados. La votación viaja en el cuerpo, así que la ruta no nombra
+// a nadie — y el `UPDATE` de `set-actual` no lleva ninguna condición de dueño.
+// Las pinta `VotacionesCtrl`, que es la pantalla de administración.
+Route::put('votaciones/set-actual', [VtVotacionesController::class, 'putSetActual'])->middleware('auth.personal');
+Route::put('votaciones/set-in-action', [VtVotacionesController::class, 'putSetInAction'])->middleware('auth.personal');
+Route::put('votaciones/set-locked', [VtVotacionesController::class, 'putSetLocked'])->middleware('auth.personal');
+Route::put('votaciones/set-permiso-ver-results', [VtVotacionesController::class, 'putSetPermisoVerResults'])->middleware('auth.personal');
+Route::put('votaciones/set-votan-acudientes', [VtVotacionesController::class, 'putSetVotanAcudientes'])->middleware('auth.personal');
+Route::put('votaciones/set-votan-profes', [VtVotacionesController::class, 'putSetVotanProfes'])->middleware('auth.personal');
 Route::post('votaciones/store', [VtVotacionesController::class, 'postStore']);
 Route::get('votaciones/unsignedsusers', [VtVotacionesController::class, 'getUnsignedsusers']);
 Route::delete('votaciones/destroy/{id}', [VtVotacionesController::class, 'deleteDestroy'])->middleware('auth.personal');
@@ -47,7 +52,8 @@ Route::get('participantes/allinscritos', [VtParticipantesController::class, 'get
 Route::put('participantes/datos', [VtParticipantesController::class, 'putDatos']);
 Route::put('participantes/guardar-inscripciones', [VtParticipantesController::class, 'putGuardarInscripciones']);
 Route::post('participantes/inscribir-profesores', [VtParticipantesController::class, 'postInscribirProfesores']);
-Route::put('participantes/profesores', [VtParticipantesController::class, 'putProfesores']);
+// Devuelve la ficha completa de los docentes —documento, dirección, teléfono—.
+Route::put('participantes/profesores', [VtParticipantesController::class, 'putProfesores'])->middleware('auth.personal');
 Route::put('participantes/set-locked', [VtParticipantesController::class, 'putSetLocked']);
 Route::put('participantes/votantes', [VtParticipantesController::class, 'putVotantes']);
 Route::delete('participantes/destroy/{id}', [VtParticipantesController::class, 'deleteDestroy'])->middleware('auth.personal');

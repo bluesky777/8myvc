@@ -235,7 +235,9 @@ class PublicacionesController extends Controller {
 	{
         $user   = User::fromToken();
         $now 	= Carbon::now('America/Bogota');
-        
+
+        $this->exigeQueLaPublicacionSeaSuya($user, Request::input('publi_id'));
+
         $consulta = 'UPDATE publicaciones SET deleted_at=:deleted_at, deleted_by=:deleted_by WHERE id=:id';
         DB::update($consulta, [
             ':deleted_at' 	        => $now, 
@@ -250,7 +252,9 @@ class PublicacionesController extends Controller {
 	{
         $user   = User::fromToken();
         $now 	= Carbon::now('America/Bogota');
-        
+
+        $this->exigeQueLaPublicacionSeaSuya($user, Request::input('publi_id'));
+
         $consulta = 'UPDATE publicaciones SET deleted_at=null, updated_at=:updated_at WHERE id=:id';
         DB::update($consulta, [
             ':updated_at' 	        => $now,
@@ -260,4 +264,35 @@ class PublicacionesController extends Controller {
     }
 
 
+
+    /**
+     * Borrar y restaurar solo lo propio.
+     *
+     * **La regla existía y vivía únicamente en el frontend**: el botón de la
+     * papelera de `publicacionesPanelDir.html` va dentro de un
+     * `ng-if="publi.persona_id==$ctrl.USER.persona_id || $ctrl.USER.is_superuser"`.
+     * El backend borraba por `publi_id` sin mirar de quién era, así que cualquiera
+     * con un token —un alumno, sin ir más lejos— borraba del muro la publicación
+     * de quien fuera. Se comprueba aquí lo mismo que el front ya decide, ni más ni
+     * menos: así nada de lo que hoy se puede hacer deja de poderse.
+     *
+     * `tipo_persona` va en la comparación aunque el front no lo mire, porque
+     * `persona_id` solo es único DENTRO de su tabla: el alumno 12 y el profesor 12
+     * existen los dos. Es lo mismo que guarda `postStore` al publicar.
+     */
+    private function exigeQueLaPublicacionSeaSuya(object $user, $publiId): void
+    {
+        if ($user->is_superuser) {
+            return;
+        }
+
+        $suya = DB::selectOne(
+            'SELECT id FROM publicaciones WHERE id = ? AND persona_id = ? AND tipo_persona = ?',
+            [$publiId, $user->persona_id, $user->tipo]
+        );
+
+        if ($suya === null) {
+            abort(403, 'Solo puedes borrar tus publicaciones');
+        }
+    }
 }

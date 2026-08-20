@@ -353,6 +353,168 @@ class SuperficieDeUnAlumnoTest extends CasoDeContrato
         $this->json($verbo, '/api/'.$url, [], $cab)->assertStatus(403);
     }
 
+    /**
+     * Las escrituras que tampoco nombran a nadie — la otra mitad de §14.
+     *
+     * El barrido de lectura contestaba «¿qué sale?». Este contesta **«¿llegó a
+     * escribir?»**, que no es lo mismo que qué código respondió: en este proyecto
+     * se lee con `PUT`, así que un 200 no distingue una consulta de un `UPDATE`.
+     * Se midió escuchando las consultas de cada petición y quedándose con las que
+     * insertan, actualizan o borran.
+     *
+     * De las 417 escrituras de la API, 133 llegaban al controlador con el token de
+     * un alumno y **27 cambiaban datos de verdad**. El patrón es otra vez el
+     * mismo, y en tres controladores enteros —actividades, preguntas y opciones—
+     * se ve de un vistazo: **la única ruta que llevaba guard era `destroy/{id}`**,
+     * la única que tiene un `{id}` en la URL.
+     */
+    public static function escriturasDelColegio(): array
+    {
+        return [
+            // La peor de todas: `clave` y `grupo_id` en el cuerpo, y le pone esa
+            // contraseña a TODOS los alumnos del grupo.
+            'la contraseña de todo un grupo' => ['PUT', 'alumnos/cambiar-claves',
+                ['clave' => 'robada-1234', 'grupo_id' => '{grupo}']],
+            'crear los usuarios del colegio' => ['PUT', 'perfiles/creartodoslosusuarios', []],
+            'el logo del colegio' => ['PUT', 'myimages/cambiarlogocolegio', ['imagen_id' => 1]],
+            'la foto de otro alumno' => ['PUT', 'perfiles/cambiarimgunalumno/{otroAlumno}', []],
+            'la foto de un usuario' => ['PUT', 'images-users/cambiar-foto-un-usuario/{otroUser}', []],
+            'la firma de un profesor' => ['PUT', 'images-users/cambiar-firma-un-profe/{profesor}', []],
+            // Los interruptores de la elección del colegio.
+            'abrir la votación' => ['PUT', 'votaciones/set-actual', ['id' => '{votacion}', 'actual' => true]],
+            'bloquear la votación' => ['PUT', 'votaciones/set-locked', ['id' => '{votacion}']],
+            'quién puede votar' => ['PUT', 'votaciones/set-votan-acudientes', ['id' => '{votacion}']],
+            'ver los resultados' => ['PUT', 'votaciones/set-permiso-ver-results', ['id' => '{votacion}']],
+            // El fichero de acudientes, que se lee con PUT y por eso no salió en §14.
+            'buscar en los acudientes' => ['PUT', 'acudientes/buscar', ['texto_a_buscar' => 'a']],
+            'los acudientes sin asignar' => ['PUT', 'acudientes/no-asignados', []],
+            'la ficha de los docentes' => ['PUT', 'participantes/profesores', []],
+            // El lado del autor de las actividades. El del alumno es
+            // `mis-actividades/*`, que sigue abierto y tiene su caso más abajo.
+            'crear una pregunta' => ['POST', 'preguntas/crear', []],
+            'compartir una actividad con un grupo' => ['PUT', 'actividades/insert-grupo-compartido', []],
+            'editar una actividad' => ['PUT', 'actividades/edicion', []],
+            'los alumnos del grado anterior' => ['PUT', 'matriculas/alumnos-con-grado-anterior', []],
+        ];
+    }
+
+    #[DataProvider('escriturasDelColegio')]
+    public function test_un_alumno_no_escribe_en_lo_del_colegio(string $verbo, string $ruta, array $cuerpo): void
+    {
+        [, , $otro, $personal, $cab] = $this->actores();
+        $grupo = $this->grupoConAlumnos();
+
+        $profesor = DB::selectOne('SELECT id FROM profesores WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+        $votacion = DB::selectOne('SELECT id FROM vt_votaciones ORDER BY id LIMIT 1');
+
+        $de = [
+            '{grupo}' => $grupo->id,
+            '{otroAlumno}' => $otro->id,
+            '{otroUser}' => $personal->id,
+            '{profesor}' => $profesor->id ?? 1,
+            '{votacion}' => $votacion->id ?? 1,
+        ];
+
+        $this->json($verbo, '/api/'.strtr($ruta, array_map('strval', $de)),
+            array_map(fn ($v) => is_string($v) ? strtr($v, array_map('strval', $de)) : $v, $cuerpo),
+            $cab)->assertStatus(403);
+    }
+
+    /**
+     * La contraseña de un compañero sigue siendo la suya.
+     *
+     * Es la de §15 que había que comprobar por su efecto y no por el 403: un
+     * `UPDATE ... INNER JOIN matriculas` sobre un grupo entero no deja rastro en
+     * la respuesta, y si el guard llegara tarde el daño ya estaría hecho y sería
+     * **irreversible** — nadie guarda la contraseña anterior.
+     */
+    public function test_un_alumno_no_le_cambia_la_clave_a_todo_un_grupo(): void
+    {
+        [, , , , $cab] = $this->actores();
+        $grupo = $this->grupoConAlumnos();
+
+        $antes = DB::selectOne('SELECT u.password FROM users u
+            INNER JOIN alumnos a ON a.user_id = u.id AND a.deleted_at IS NULL
+            INNER JOIN matriculas m ON m.alumno_id = a.id AND m.grupo_id = ? AND m.deleted_at IS NULL
+            ORDER BY u.id LIMIT 1', [$grupo->id]);
+
+        $this->assertNotNull($antes, 'El grupo del seed no tiene alumnos con cuenta.');
+
+        $this->putJson('/api/alumnos/cambiar-claves',
+            ['clave' => 'robada-1234', 'grupo_id' => $grupo->id], $cab)->assertStatus(403);
+
+        $this->assertSame($antes->password,
+            DB::selectOne('SELECT u.password FROM users u
+                INNER JOIN alumnos a ON a.user_id = u.id AND a.deleted_at IS NULL
+                INNER JOIN matriculas m ON m.alumno_id = a.id AND m.grupo_id = ? AND m.deleted_at IS NULL
+                ORDER BY u.id LIMIT 1', [$grupo->id])->password,
+            'El 403 llegó tarde: las contraseñas del grupo ya estaban cambiadas.');
+    }
+
+    /**
+     * Una imagen ajena no se vuelve suya, que es lo que abría la puerta a lo demás.
+     *
+     * `move-img-to-me` no es una fuga sino **una escalada**: hace
+     * `UPDATE images SET user_id=<yo>` sin mirar de quién era, y en cuanto la
+     * imagen es suya, sus hermanas —rotar, publicar, privatizar, borrar—
+     * comprueban la propiedad y dicen que sí. El guard no veía nada que comprobar
+     * porque aquí la clave se llama `img_id` y sus siete claves terminaban en
+     * `_id` con otra grafía. Es la razón de que la lista de nombres tenga que
+     * crecer con los endpoints y no al revés.
+     */
+    public function test_un_alumno_no_se_queda_con_la_imagen_de_otro(): void
+    {
+        [$yo, , , , $cab] = $this->actores();
+
+        $ajena = DB::selectOne('SELECT id, user_id FROM images
+            WHERE user_id IS NOT NULL AND user_id <> ? AND deleted_at IS NULL
+            ORDER BY id LIMIT 1', [$yo->id]);
+
+        $this->assertNotNull($ajena, 'El seed no tiene ninguna imagen de otra persona.');
+
+        $this->putJson('/api/images-users/move-img-to-me', ['img_id' => $ajena->id], $cab)
+            ->assertStatus(403);
+
+        $this->assertSame((int) $ajena->user_id,
+            (int) DB::selectOne('SELECT user_id FROM images WHERE id = ?', [$ajena->id])->user_id,
+            'La imagen cambió de dueño.');
+    }
+
+    /**
+     * El muro: la publicación de otro no se toca, la propia sí.
+     *
+     * Aquí el guard no servía —la publicación no viaja como persona, viaja como
+     * `publi_id`— y la regla existía **solo en el frontend**, en el `ng-if` del
+     * botón de la papelera. Los dos casos van juntos a propósito: el segundo es
+     * el que impide arreglar el primero cerrando la puerta entera.
+     */
+    public function test_un_alumno_borra_su_publicacion_y_no_la_de_otro(): void
+    {
+        [$yo, $mio, , , $cab] = $this->actores();
+
+        $ajena = DB::selectOne('SELECT id FROM publicaciones
+            WHERE NOT (persona_id = ? AND tipo_persona = "Alumno") AND deleted_at IS NULL
+            ORDER BY id LIMIT 1', [$mio->id]);
+
+        $this->assertNotNull($ajena, 'El seed no tiene ninguna publicación de otra persona.');
+
+        $this->putJson('/api/publicaciones/delete', ['publi_id' => $ajena->id], $cab)
+            ->assertStatus(403);
+
+        $this->assertNull(DB::selectOne('SELECT deleted_at FROM publicaciones WHERE id = ?',
+            [$ajena->id])->deleted_at, 'La publicación ajena quedó borrada.');
+
+        // Y la suya sí, que es la mitad que no se puede perder.
+        DB::insert('INSERT INTO publicaciones(persona_id, tipo_persona, contenido, created_at, updated_at)
+            VALUES(?, "Alumno", "mía", ?, ?)', [$mio->id, now(), now()]);
+        $suya = DB::getPdo()->lastInsertId();
+
+        $this->putJson('/api/publicaciones/delete', ['publi_id' => $suya], $cab)->assertStatus(200);
+
+        $this->assertNotNull(DB::selectOne('SELECT deleted_at FROM publicaciones WHERE id = ?',
+            [$suya])->deleted_at, 'Un alumno ya no puede borrar su propia publicación.');
+    }
+
     // ------------------------------------------------ Y lo que SÍ tienen que poder
 
     /**

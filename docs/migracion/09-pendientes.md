@@ -420,6 +420,24 @@ saber el tamaño real del daño en las dieciséis bases antes de tocar código.
   autorización. Y no está agotado: el barrido solo miró **lecturas**, y solo con
   token de alumno.
 
+- **El barrido de las escrituras, hecho el 20 ago 2026.** La otra mitad del
+  anterior, y con la pregunta cambiada: no qué código responde una ruta sino **si
+  llegó a escribir**, que aquí no es lo mismo porque este proyecto lee con `PUT`.
+  Medido escuchando las consultas: de 417 escrituras, 133 llegaban al controlador
+  con token de alumno y **27 cambiaban datos**. Entre ellas, ponerle la
+  contraseña a todos los alumnos de un grupo, los seis interruptores de la
+  elección del colegio, y quedarse con la imagen de otro —que no es una fuga sino
+  una escalada: hecha suya, los demás guards ya la dan por suya—. Cerradas, más
+  veinte casos nuevos en `SuperficieDeUnAlumnoTest`. Detalle en
+  [05 §15](05-codigo-muerto-y-roto.md).
+
+  De paso corrigió al barrido de lecturas del mismo día, que **solo había mirado
+  las GET**: el fichero de acudientes se lee con `PUT` y por eso no había salido.
+
+  Lo que queda sin barrer con este criterio es el **acudiente**, cuya superficie
+  se parece pero no es igual, y las escrituras que sí puede hacer un alumno pero
+  sobre lo de otro sin que el guard pueda verlo — como fue el caso del muro.
+
 - **Rector**, configurado y sin correr: por carpeta y revisando cada diff.
 - **FormRequests**: hay 2 validaciones en 32.000 líneas. Cada endpoint que se
   toque estrena la suya.

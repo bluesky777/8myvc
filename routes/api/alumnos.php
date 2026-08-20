@@ -30,7 +30,10 @@ use Illuminate\Support\Facades\Route;
 
 // AlumnosController
 Route::get('alumnos', [AlumnosController::class, 'getIndex']);
-Route::put('alumnos/cambiar-claves', [AlumnosController::class, 'putCambiarClaves']);
+// Toma `clave` y `grupo_id` del CUERPO y le pone esa contraseña a todos los
+// alumnos del grupo. No nombra a ninguna persona —nombra un grupo—, que es por
+// lo que ningún inventario lo señaló. Ver 05 §15.
+Route::put('alumnos/cambiar-claves', [AlumnosController::class, 'putCambiarClaves'])->middleware('auth.personal');
 Route::put('alumnos/documento-check', [AlumnosController::class, 'putDocumentoCheck'])->middleware('auth.personal');
 Route::put('alumnos/eps-check', [AlumnosController::class, 'putEpsCheck']);
 Route::put('alumnos/guardar-valor', [AlumnosController::class, 'putGuardarValor']);
@@ -57,19 +60,23 @@ Route::get('importar/modificar/{year}', [ImportarController::class, 'getModifica
 Route::get('folios/iniciar', [FoliosController::class, 'getIniciar']);
 
 // AcudientesController
-Route::put('acudientes/buscar', [AcudientesController::class, 'putBuscar']);
+// Las cuatro devuelven el fichero de acudientes con documento, celular,
+// dirección y fecha de nacimiento. Se leen con PUT —el patrón de este
+// proyecto—, y por eso el primer barrido, que solo miró GET, no las vio.
+// Las piden `NewAcudienteModalCtrl`, `AcudientesCtrl` e `informes`.
+Route::put('acudientes/buscar', [AcudientesController::class, 'putBuscar'])->middleware('auth.personal');
 Route::post('acudientes/crear', [AcudientesController::class, 'postCrear']);
 Route::post('acudientes/crear-usuario', [AcudientesController::class, 'postCrearUsuario']);
 Route::put('acudientes/datos', [AcudientesController::class, 'putDatos']);
 Route::put('acudientes/de-persona', [AcudientesController::class, 'putDePersona'])->middleware('persona.propia');
 Route::put('acudientes/guardar-valor', [AcudientesController::class, 'putGuardarValor']);
 Route::put('acudientes/mis-acudidos', [AcudientesController::class, 'putMisAcudidos']);
-Route::put('acudientes/no-asignados', [AcudientesController::class, 'putNoAsignados']);
+Route::put('acudientes/no-asignados', [AcudientesController::class, 'putNoAsignados'])->middleware('auth.personal');
 Route::put('acudientes/ocupaciones-check', [AcudientesController::class, 'putOcupacionesCheck']);
-Route::put('acudientes/planillas-ausencias', [AcudientesController::class, 'putPlanillasAusencias']);
+Route::put('acudientes/planillas-ausencias', [AcudientesController::class, 'putPlanillasAusencias'])->middleware('auth.personal');
 Route::put('acudientes/quitar-parentesco-alumno', [AcudientesController::class, 'putQuitarParentescoAlumno'])->middleware('auth.personal');
 Route::put('acudientes/seleccionar-parentesco', [AcudientesController::class, 'putSeleccionarParentesco'])->middleware('auth.personal');
-Route::put('acudientes/ultimos', [AcudientesController::class, 'putUltimos']);
+Route::put('acudientes/ultimos', [AcudientesController::class, 'putUltimos'])->middleware('auth.personal');
 Route::delete('acudientes/destroy/{id}', [AcudientesController::class, 'deleteDestroy']);
 
 // BuscarController
@@ -77,7 +84,8 @@ Route::put('buscar/por-apellido', [BuscarController::class, 'putPorApellido']);
 Route::put('buscar/por-nombre', [BuscarController::class, 'putPorNombre']);
 
 // MatriculasController
-Route::put('matriculas/alumnos-con-grado-anterior', [MatriculasController::class, 'putAlumnosConGradoAnterior']);
+// Su gemela de `prematriculas`, cuatro líneas más abajo, sí lo llevaba.
+Route::put('matriculas/alumnos-con-grado-anterior', [MatriculasController::class, 'putAlumnosConGradoAnterior'])->middleware('auth.personal');
 Route::put('matriculas/alumnos-grado-anterior', [MatriculasController::class, 'putAlumnosGradoAnterior']);
 Route::put('matriculas/cambiar-fecha-matricula', [MatriculasController::class, 'putCambiarFechaMatricula']);
 Route::put('matriculas/cambiar-fecha-retiro', [MatriculasController::class, 'putCambiarFechaRetiro']);

@@ -21,7 +21,8 @@ use Illuminate\Support\Facades\Route;
 
 // PerfilesController
 Route::get('perfiles', [PerfilesController::class, 'getIndex']);
-Route::put('perfiles/creartodoslosusuarios', [PerfilesController::class, 'putCreartodoslosusuarios']);
+// Crea usuarios, les asigna roles y toca acudientes. No nombra a nadie.
+Route::put('perfiles/creartodoslosusuarios', [PerfilesController::class, 'putCreartodoslosusuarios'])->middleware('auth.personal');
 Route::put('perfiles/guardar-mi-email-restore', [PerfilesController::class, 'putGuardarMiEmailRestore']);
 Route::post('perfiles/store', [PerfilesController::class, 'postStore']);
 Route::get('perfiles/trashed', [PerfilesController::class, 'getTrashed'])->middleware('auth.personal');
@@ -31,10 +32,13 @@ Route::get('perfiles/usernames', [PerfilesController::class, 'getUsernames']);
 // `UsuariosCtrl`, que es de administración.
 Route::get('perfiles/usuariosall', [PerfilesController::class, 'getUsuariosall'])->middleware('auth.personal');
 Route::put('perfiles/cambiaremailrestore/{id}', [PerfilesController::class, 'putCambiaremailrestore'])->middleware('persona.propia:user_id');
-Route::put('perfiles/cambiarfirmaunprofe/{profeelegido}', [PerfilesController::class, 'putCambiarfirmaunprofe']);
-Route::put('perfiles/cambiarimgunalumno/{alumnoelegido}', [PerfilesController::class, 'putCambiarimgunalumno']);
-Route::put('perfiles/cambiarimgunprofe/{profeelegido}', [PerfilesController::class, 'putCambiarimgunprofe']);
-Route::put('perfiles/cambiarimgunusuario/{usuarioelegido}', [PerfilesController::class, 'putCambiarimgunusuario']);
+// Las cuatro `cambiar*un*` operan sobre OTRA persona —y además devuelven su
+// ficha entera—, y el identificador no se llama como ninguno de los que el
+// guard conoce: `{profeelegido}`, `{alumnoelegido}`, `{usuarioelegido}`.
+Route::put('perfiles/cambiarfirmaunprofe/{profeelegido}', [PerfilesController::class, 'putCambiarfirmaunprofe'])->middleware('auth.personal');
+Route::put('perfiles/cambiarimgunalumno/{alumnoelegido}', [PerfilesController::class, 'putCambiarimgunalumno'])->middleware('auth.personal');
+Route::put('perfiles/cambiarimgunprofe/{profeelegido}', [PerfilesController::class, 'putCambiarimgunprofe'])->middleware('auth.personal');
+Route::put('perfiles/cambiarimgunusuario/{usuarioelegido}', [PerfilesController::class, 'putCambiarimgunusuario'])->middleware('auth.personal');
 Route::put('perfiles/cambiarpassword/{id}', [PerfilesController::class, 'putCambiarpassword'])->middleware('persona.propia:user_id');
 Route::get('perfiles/comprobarusername/{username}', [PerfilesController::class, 'getComprobarusername']);
 Route::delete('perfiles/destroy/{id}', [PerfilesController::class, 'deleteDestroy'])->middleware('auth.personal');
@@ -53,7 +57,8 @@ Route::get('perfiles/username/{username}', [PerfilesController::class, 'getUsern
 
 // ImagesController
 Route::get('myimages', [ImagesController::class, 'getIndex']);
-Route::put('myimages/cambiarlogocolegio', [ImagesController::class, 'putCambiarlogocolegio']);
+// El logo del colegio es de `years`, o sea del colegio.
+Route::put('myimages/cambiarlogocolegio', [ImagesController::class, 'putCambiarlogocolegio'])->middleware('auth.personal');
 Route::put('myimages/datos-imagen', [ImagesController::class, 'putDatosImagen'])->middleware('persona.propia');
 Route::post('myimages/store', [ImagesController::class, 'postStore']);
 Route::post('myimages/store-firma', [ImagesController::class, 'postStoreFirma']);
@@ -65,11 +70,17 @@ Route::put('myimages/publicar-imagen/{imagen_id}', [ImagesController::class, 'pu
 
 // ImagesUsuariosController
 Route::put('images-users/imagenes-de-usuario', [ImagesUsuariosController::class, 'putImagenesDeUsuario']);
-Route::put('images-users/move-img-to-me', [ImagesUsuariosController::class, 'putMoveImgToMe']);
-Route::put('images-users/cambiar-firma-un-profe/{profe_id}', [ImagesUsuariosController::class, 'putCambiarFirmaUnProfe']);
-Route::put('images-users/cambiar-foto-un-usuario/{user_id}', [ImagesUsuariosController::class, 'putCambiarFotoUnUsuario']);
+// `UPDATE images SET user_id=<yo> WHERE id=:img_id`, sin mirar de quién era.
+// Es una escalada, no una fuga: hecha mía la imagen, las hermanas de abajo
+// —rotar, publicar, privatizar— ya la dan por suya y dejan pasar. El guard no
+// veía nada porque aquí la clave se llama `img_id`; ahora la conoce.
+Route::put('images-users/move-img-to-me', [ImagesUsuariosController::class, 'putMoveImgToMe'])->middleware('persona.propia');
+Route::put('images-users/cambiar-firma-un-profe/{profe_id}', [ImagesUsuariosController::class, 'putCambiarFirmaUnProfe'])->middleware('auth.personal');
+Route::put('images-users/cambiar-foto-un-usuario/{user_id}', [ImagesUsuariosController::class, 'putCambiarFotoUnUsuario'])->middleware('auth.personal');
 Route::put('images-users/cambiar-imagen-oficial/{user_id}', [ImagesUsuariosController::class, 'putCambiarImagenOficial'])->middleware('persona.propia');
-Route::put('images-users/cambiar-imagen-perfil/{user_id}', [ImagesUsuariosController::class, 'putCambiarImagenPerfil']);
+// Sus dos vecinas —`cambiar-imagen-oficial` y `cambiar-imagen-un-usuario`, con
+// el mismo `{user_id}`— sí lo llevaban desde la revisión de IDOR. Esta se saltó.
+Route::put('images-users/cambiar-imagen-perfil/{user_id}', [ImagesUsuariosController::class, 'putCambiarImagenPerfil'])->middleware('persona.propia');
 Route::put('images-users/cambiar-imagen-un-usuario/{user_id}', [ImagesUsuariosController::class, 'putCambiarImagenUnUsuario'])->middleware('persona.propia');
 // `:imagen_id` no es decorativo. El guard recoge los identificadores por su
 // NOMBRE, y esta es la única ruta de imagen que llama `{id}` a lo que sus
