@@ -359,11 +359,16 @@ saber el tamaño real del daño en las dieciséis bases antes de tocar código.
     tercer cambio de comportamiento del salto de versión que encuentra el
     analizador, después de los `tinyint(1)` del 3 y los `== 'true'` del 4.
 
-    El bloque no se reescribe: buscaba `change_asked.oficial_image_id`, una
-    columna que no existe en ninguna de las 90 tablas. Lo que pretendía —limpiar
-    también las peticiones de cambio que nombran la imagen— queda escrito con sus
-    cuatro columnas candidatas, porque elegir entre ponerlas a `null` o borrar la
-    petición del usuario es **una decisión, y no es de programación**.
+    El bloque buscaba `change_asked.oficial_image_id`, una columna que no existe
+    en ninguna de las 90 tablas — las buenas son cuatro y están en
+    `change_asked_data`. **Lo que pretendía sí hacía falta, y Joseth lo decidió
+    el mismo día: se borra la petición**, no se pone su referencia a `null`. Una
+    que pide cambiar la foto por una imagen que ya no está no es una petición a
+    medias, es una que solo se puede rechazar. Se borra como lo hace
+    `putDestruir`, en las tres tablas y en una transacción. El efecto que no se
+    ve venir —que una petición es una por usuario y año, así que arrastra el
+    cambio de asignatura que viajara dentro— tiene su propio test para que no
+    sea una sorpresa.
 
   - **Y detrás, un alumno borrando la foto de cualquiera.** La ruta llevaba
     `persona.propia` desde la revisión de IDOR y el guard **no miraba nada**:

@@ -307,21 +307,54 @@ class ImagesUsuariosController extends Controller {
 			$year->save();
 		}
 		
-		// Aquí había un sexto bloque que pretendía limpiar también las
-		// peticiones de cambio, y que **nunca limpió nada**: `count()` sobre un
-		// Builder era un warning que devolvía 1 en PHP 7, y el
-		// `method_exists($asks, 'destroy')` que lo protegía es false —`destroy`
-		// es estático de Model, no un método del Builder—. Con el salto a PHP 8
-		// ese `count()` pasó a ser un TypeError, así que el endpoint borraba la
-		// imagen, limpiaba las cinco referencias de arriba y **respondía 500**.
+		// Y la sexta referencia: las peticiones de cambio que nombran la imagen.
 		//
-		// No se reescribe porque no se puede sin decidir algo: buscaba
-		// `change_asked.oficial_image_id`, una columna que no existe en ninguna
-		// tabla del esquema. Las candidatas están en `change_asked_data` y son
-		// cuatro —`foto_id_new`, `image_id_new`, `firma_id_new`,
-		// `image_to_delete_id`—, y hay que elegir además entre poner la
-		// referencia a null o borrar la petición entera del usuario.
-		// docs/migracion/05-codigo-muerto-y-roto.md §13.
+		// Aquí había un bloque que pretendía hacer esto y **nunca hizo nada**
+		// —`count()` sobre un Builder, protegido por un `method_exists(…,
+		// 'destroy')` que es false, contra `change_asked.oficial_image_id`, que
+		// no existe en el esquema—. Con el salto a PHP 8 ese `count()` pasó de
+		// warning a TypeError y el endpoint empezó a responder 500 con el
+		// borrado ya hecho. 05-codigo-muerto-y-roto.md §13.1.
+		//
+		// **Decidido por Joseth el 20 ago 2026: se borra la petición**, no se
+		// pone su referencia a `null`. Una petición que pide cambiar la foto por
+		// una imagen que ya no está no es una petición a medias, es una que no
+		// se puede conceder: dejarla viva es dejarle al administrativo algo que
+		// solo puede rechazar. Se borra como la borra `putDestruir`, que es la
+		// operación que ya existía para esto: de verdad y en las tres tablas,
+		// porque ni `change_asked_data` ni `change_asked_assignment` tienen
+		// `deleted_at`.
+		//
+		// Las cuatro columnas son las cuatro formas que tiene una petición de
+		// nombrar una imagen; `image_to_delete_id` es la de «bórrame esta», que
+		// con la imagen ya borrada tampoco tiene nada que pedir.
+		$peticiones = DB::select(
+			'SELECT c.id, c.data_id, c.assignment_id
+			   FROM change_asked c
+			   INNER JOIN change_asked_data d ON d.id = c.data_id
+			  WHERE d.foto_id_new = ? OR d.image_id_new = ?
+			     OR d.firma_id_new = ? OR d.image_to_delete_id = ?',
+			[ $id, $id, $id, $id ]
+		);
+
+		foreach ($peticiones as $peticion) {
+			// Las tres en una transacción: media petición borrada es peor que
+			// ninguna, porque `$consulta_all` la lee por LEFT JOIN y saldría
+			// entera con los campos del lado que quedó sin borrar.
+			DB::transaction(function () use ($peticion) {
+				DB::delete('DELETE FROM change_asked WHERE id = ?', [ $peticion->id ]);
+				DB::delete('DELETE FROM change_asked_data WHERE id = ?', [ $peticion->data_id ]);
+
+				// Una petición es una por usuario y año, y puede llevar dentro
+				// un cambio de asignatura que no tiene nada que ver con la
+				// imagen. Se va con ella —es lo que significa borrar la
+				// petición, y es lo que hace `putDestruir`—, y por eso se anota:
+				// es el único efecto de esta decisión que no se ve venir.
+				if ($peticion->assignment_id !== null) {
+					DB::delete('DELETE FROM change_asked_assignment WHERE id = ?', [ $peticion->assignment_id ]);
+				}
+			});
+		}
 
 		return $img;
 	}

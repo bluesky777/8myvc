@@ -345,6 +345,106 @@ class ImagenesTest extends CasoDeContrato
             ->assertStatus(200);
     }
 
+    /**
+     * La petición de cambio que nombraba la imagen se va con ella.
+     *
+     * Es la sexta referencia, y la única que hasta el 20 ago 2026 no se limpiaba
+     * —el bloque que lo intentaba no llegó a hacerlo nunca, §13.1—. Joseth
+     * decidió ese día que **se borra la petición** en vez de poner su referencia
+     * a `null`: una que pide cambiar la foto por una imagen que ya no está solo
+     * se puede rechazar, así que dejarla viva es dejarle trabajo inútil a quien
+     * las revisa.
+     *
+     * Se comprueba en las cuatro columnas porque son las cuatro formas que tiene
+     * una petición de nombrar una imagen, y la que se olvidara seguiría dejando
+     * peticiones imposibles detrás.
+     */
+    #[DataProvider('columnasQueNombranUnaImagen')]
+    public function test_la_peticion_de_cambio_se_borra_con_la_imagen(string $columna): void
+    {
+        [$token, $imagen] = $this->unaImagenSubida();
+
+        $usuario = $this->usuarioDeTipo('Profesor');
+
+        $dataId = DB::table('change_asked_data')->insertGetId([$columna => $imagen->id]);
+        $askedId = DB::table('change_asked')->insertGetId([
+            'asked_by_user_id' => $usuario->id,
+            'data_id' => $dataId,
+        ]);
+
+        $this->delete("/api/images-users/destroy/{$imagen->id}", [],
+            ['Authorization' => 'Bearer '.$token])
+            ->assertStatus(200);
+
+        $this->assertDatabaseMissing('change_asked', ['id' => $askedId]);
+        $this->assertDatabaseMissing('change_asked_data', ['id' => $dataId]);
+    }
+
+    public static function columnasQueNombranUnaImagen(): array
+    {
+        return [
+            'la foto de la ficha' => ['foto_id_new'],
+            'la imagen del usuario' => ['image_id_new'],
+            'la firma' => ['firma_id_new'],
+            'la que pedía borrar' => ['image_to_delete_id'],
+        ];
+    }
+
+    /**
+     * Y el cambio de asignatura que viajaba en la misma petición se va con ella.
+     *
+     * Es el único efecto de la decisión que no se ve venir: una petición es
+     * **una por usuario y año**, así que puede llevar dentro un cambio de
+     * asignatura que no tiene nada que ver con la imagen. Borrar la petición lo
+     * borra también — es lo que significa borrarla, y es lo que hace
+     * `putDestruir`, que es la operación que ya existía para esto.
+     *
+     * El test está para que eso sea una decisión escrita y no una sorpresa el
+     * día que alguien lo reporte.
+     */
+    public function test_borrar_la_peticion_arrastra_su_cambio_de_asignatura(): void
+    {
+        [$token, $imagen] = $this->unaImagenSubida();
+
+        $usuario = $this->usuarioDeTipo('Profesor');
+
+        $dataId = DB::table('change_asked_data')->insertGetId(['image_id_new' => $imagen->id]);
+        $asignaturaId = DB::table('change_asked_assignment')->insertGetId([]);
+        $askedId = DB::table('change_asked')->insertGetId([
+            'asked_by_user_id' => $usuario->id,
+            'data_id' => $dataId,
+            'assignment_id' => $asignaturaId,
+        ]);
+
+        $this->delete("/api/images-users/destroy/{$imagen->id}", [],
+            ['Authorization' => 'Bearer '.$token])
+            ->assertStatus(200);
+
+        $this->assertDatabaseMissing('change_asked', ['id' => $askedId]);
+        $this->assertDatabaseMissing('change_asked_assignment', ['id' => $asignaturaId]);
+    }
+
+    /** Y la de otra imagen no se toca: borrar de más también se nota. */
+    public function test_la_peticion_de_otra_imagen_sigue_viva(): void
+    {
+        [$token, $imagen] = $this->unaImagenSubida();
+
+        $usuario = $this->usuarioDeTipo('Profesor');
+
+        $dataId = DB::table('change_asked_data')->insertGetId(['image_id_new' => $imagen->id + 1000]);
+        $askedId = DB::table('change_asked')->insertGetId([
+            'asked_by_user_id' => $usuario->id,
+            'data_id' => $dataId,
+        ]);
+
+        $this->delete("/api/images-users/destroy/{$imagen->id}", [],
+            ['Authorization' => 'Bearer '.$token])
+            ->assertStatus(200);
+
+        $this->assertDatabaseHas('change_asked', ['id' => $askedId]);
+        $this->assertDatabaseHas('change_asked_data', ['id' => $dataId]);
+    }
+
     // --------------------------------------------------------------- Listado
 
     /**

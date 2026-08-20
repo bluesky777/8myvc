@@ -862,14 +862,38 @@ puesto a `null` las cinco referencias —alumnos, profesores, acudientes, usuari
 y años—. **El cliente recibe un error de una operación que sí ocurrió.** Quien lo
 reintente recibirá el 404 del `findOrFail`, que parece otro fallo distinto.
 
-**Se borra el bloque** —no tiene ruta propia y no hizo nunca nada— y se deja
-escrito aquí qué pretendía, porque eso sí es información: al borrar una imagen
-hay que limpiar también las peticiones de cambio que la nombran. Las columnas
-candidatas están en `change_asked_data` y son cuatro: `foto_id_new`,
-`image_id_new`, `firma_id_new` e `image_to_delete_id`. **Qué hacer con ellas es
-una decisión**, y no es de programación: poner la referencia a `null` deja una
-petición que pide cambiar la foto por nada, y borrar la petición entera tira algo
-que el usuario escribió. Por eso no se reescribe aquí.
+El bloque no hizo nunca nada, pero **lo que pretendía sí hacía falta**: al borrar
+una imagen hay que limpiar también las peticiones de cambio que la nombran. Las
+columnas están en `change_asked_data` y son cuatro —`foto_id_new`,
+`image_id_new`, `firma_id_new` e `image_to_delete_id`—, que son las cuatro formas
+que tiene una petición de nombrar una imagen.
+
+**Decidido por Joseth el 20 ago 2026: se borra la petición**, no se pone su
+referencia a `null`. El razonamiento es el que zanja la duda que dejaba abierta
+la primera redacción de esta sección: una petición que pide cambiar la foto por
+una imagen que ya no está **no es una petición a medias, es una que no se puede
+conceder**. Dejarla viva con la referencia en `null` es dejarle al administrativo
+algo que solo puede rechazar; y `image_to_delete_id` —la que pide «bórrame
+esta»— ya está concedida de hecho.
+
+Se borra como lo hace `putDestruir`, que es la operación que ya existía en
+`ChangeAskedController` para esto: de verdad y en las tres tablas, porque ni
+`change_asked_data` ni `change_asked_assignment` tienen `deleted_at`. Las tres
+van en una transacción: media petición borrada es peor que ninguna, porque
+`$consulta_all` la lee por `LEFT JOIN` y saldría entera con los campos del lado
+que quedara sin borrar.
+
+**Y el efecto que no se ve venir, que por eso tiene su propio test:** una petición
+es **una por usuario y año**, así que puede llevar dentro un cambio de asignatura
+que no tiene nada que ver con la imagen. Se va con ella — es lo que significa
+borrar la petición, y es lo que hace `putDestruir`. Queda escrito para que el día
+que alguien lo reporte sea una decisión y no una sorpresa.
+
+Los seis casos están en `ImagenesTest`: uno por cada una de las cuatro columnas,
+el del cambio de asignatura arrastrado, y el del otro lado —la petición de otra
+imagen sigue viva—. Los cinco primeros se comprobaron al revés, desactivando el
+borrado; el sexto sigue pasando sin él, que es exactamente el reparto que debe
+dar.
 
 ### 13.2 Y detrás, un alumno borrando la foto de cualquiera
 

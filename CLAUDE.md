@@ -20,7 +20,7 @@ medición o de una decisión, y sin el porqué se deshace solo.
 Todo corre dentro del contenedor (`kool` sobre docker compose):
 
 ```bash
-docker exec 8myvc-app-1 php artisan test                       # los 430
+docker exec 8myvc-app-1 php artisan test                       # los 436
 docker exec 8myvc-app-1 php artisan test --testsuite=Contrato  # solo contrato (necesita BD)
 docker exec 8myvc-app-1 php artisan test --filter=NotasTest    # una clase
 docker exec 8myvc-app-1 composer run pint                      # formato
