@@ -32,22 +32,22 @@ use Illuminate\Support\Facades\Route;
 */
 
 // ConfigCertificadosController
-Route::get('certificados', [ConfigCertificadosController::class, 'getIndex']);
-Route::put('certificados/actual', [ConfigCertificadosController::class, 'putActual']);
-Route::put('certificados/encabezado', [ConfigCertificadosController::class, 'putEncabezado']);
-Route::post('certificados/store', [ConfigCertificadosController::class, 'postStore']);
-Route::put('certificados/update', [ConfigCertificadosController::class, 'putUpdate']);
-Route::delete('certificados/destroy/{id}', [ConfigCertificadosController::class, 'deleteDestroy']);
+Route::get('certificados', [ConfigCertificadosController::class, 'getIndex'])->middleware('auth.personal');
+Route::put('certificados/actual', [ConfigCertificadosController::class, 'putActual'])->middleware('auth.personal');
+Route::put('certificados/encabezado', [ConfigCertificadosController::class, 'putEncabezado'])->middleware('auth.personal');
+Route::post('certificados/store', [ConfigCertificadosController::class, 'postStore'])->middleware('auth.personal');
+Route::put('certificados/update', [ConfigCertificadosController::class, 'putUpdate'])->middleware('auth.personal');
+Route::delete('certificados/destroy/{id}', [ConfigCertificadosController::class, 'deleteDestroy'])->middleware('auth.personal');
 
 // HistorialesController
-Route::put('historiales/de-usuario', [HistorialesController::class, 'putDeUsuario']);
-Route::put('historiales/nota-detalle', [HistorialesController::class, 'putNotaDetalle']);
-Route::put('historiales/nota-final-detalle', [HistorialesController::class, 'putNotaFinalDetalle']);
-Route::put('historiales/sesion', [HistorialesController::class, 'putSesion']);
+Route::put('historiales/de-usuario', [HistorialesController::class, 'putDeUsuario'])->middleware('auth.personal');
+Route::put('historiales/nota-detalle', [HistorialesController::class, 'putNotaDetalle'])->middleware('auth.personal');
+Route::put('historiales/nota-final-detalle', [HistorialesController::class, 'putNotaFinalDetalle'])->middleware('auth.personal');
+Route::put('historiales/sesion', [HistorialesController::class, 'putSesion'])->middleware('auth.personal');
 
 // InformesController
-Route::put('informes/cumpleanos-por-meses', [InformesController::class, 'putCumpleanosPorMeses']);
-Route::put('informes/datos', [InformesController::class, 'putDatos']);
+Route::put('informes/cumpleanos-por-meses', [InformesController::class, 'putCumpleanosPorMeses'])->middleware('auth.personal');
+Route::put('informes/datos', [InformesController::class, 'putDatos'])->middleware('auth.personal');
 
 // CertificadosPersonaController
 //
@@ -56,20 +56,20 @@ Route::put('informes/datos', [InformesController::class, 'putDatos']);
 Route::put('certificados-persona', [CertificadosPersonaController::class, 'putIndex'])->middleware('boletin.propio');
 
 // BolfinalesPreescolarController
-Route::put('bolfinales-preescolar/crear-frase', [BolfinalesPreescolarController::class, 'putCrearFrase']);
-Route::put('bolfinales-preescolar/eliminar-frase', [BolfinalesPreescolarController::class, 'putEliminarFrase']);
-Route::put('bolfinales-preescolar/guardar-frase', [BolfinalesPreescolarController::class, 'putGuardarFrase']);
+Route::put('bolfinales-preescolar/crear-frase', [BolfinalesPreescolarController::class, 'putCrearFrase'])->middleware('auth.personal');
+Route::put('bolfinales-preescolar/eliminar-frase', [BolfinalesPreescolarController::class, 'putEliminarFrase'])->middleware('auth.personal');
+Route::put('bolfinales-preescolar/guardar-frase', [BolfinalesPreescolarController::class, 'putGuardarFrase'])->middleware('auth.personal');
 Route::put('bolfinales-preescolar/detailed-notas-year-group/{grupo_id}', [BolfinalesPreescolarController::class, 'putDetailedNotasYearGroup'])->middleware('boletin.propio');
 Route::put('bolfinales-preescolar/detailed-notas-year/{grupo_id}', [BolfinalesPreescolarController::class, 'putDetailedNotasYear'])->middleware('boletin.propio');
 
 // PuestosController
-Route::put('puestos/detailed-notas-year', [PuestosController::class, 'putDetailedNotasYear']);
-Route::put('puestos/detailed-notas-periodo/{grupo_id}', [PuestosController::class, 'putDetailedNotasPeriodo']);
+Route::put('puestos/detailed-notas-year', [PuestosController::class, 'putDetailedNotasYear'])->middleware('auth.personal');
+Route::put('puestos/detailed-notas-periodo/{grupo_id}', [PuestosController::class, 'putDetailedNotasPeriodo'])->middleware('auth.personal');
 
 // NotasPerdidasController
-Route::put('notas-perdidas/profesor-grupos', [NotasPerdidasController::class, 'putProfesorGrupos']);
-Route::put('notas-perdidas/todos', [NotasPerdidasController::class, 'putTodos']);
-Route::get('notas-perdidas/show-profesor/{profesor_id}', [NotasPerdidasController::class, 'getShowProfesor']);
+Route::put('notas-perdidas/profesor-grupos', [NotasPerdidasController::class, 'putProfesorGrupos'])->middleware('auth.personal');
+Route::put('notas-perdidas/todos', [NotasPerdidasController::class, 'putTodos'])->middleware('auth.personal');
+Route::get('notas-perdidas/show-profesor/{profesor_id}', [NotasPerdidasController::class, 'getShowProfesor'])->middleware('auth.personal');
 
 // BoletinesController
 //
@@ -95,28 +95,28 @@ Route::get('boletines3/detailed-notas-year/{grupo_id}/{periodo_a_calcular?}', [B
 Route::put('boletines3/detailed-notas/{grupo_id}', [Boletines3Controller::class, 'putDetailedNotas'])->middleware('boletin.propio');
 
 // SimatController
-Route::get('simat', [SimatController::class, 'getIndex']);
-Route::get('simat/alumnos', [SimatController::class, 'getAlumnos']);
-Route::get('simat/alumnos-exportar', [SimatController::class, 'getAlumnosExportar']);
+Route::get('simat', [SimatController::class, 'getIndex'])->middleware('auth.personal');
+Route::get('simat/alumnos', [SimatController::class, 'getAlumnos'])->middleware('auth.personal');
+Route::get('simat/alumnos-exportar', [SimatController::class, 'getAlumnosExportar'])->middleware('auth.personal');
 
 // AcudientesExportController
-Route::get('acudientes-export/acudientes', [AcudientesExportController::class, 'getAcudientes']);
+Route::get('acudientes-export/acudientes', [AcudientesExportController::class, 'getAcudientes'])->middleware('auth.personal');
 
 // ExcelListadoDocentesController
-Route::get('excel-docentes', [ExcelListadoDocentesController::class, 'getIndex']);
-Route::get('excel-docentes/docentes/{year}/{year_id}', [ExcelListadoDocentesController::class, 'getDocentes']);
+Route::get('excel-docentes', [ExcelListadoDocentesController::class, 'getIndex'])->middleware('auth.personal');
+Route::get('excel-docentes/docentes/{year}/{year_id}', [ExcelListadoDocentesController::class, 'getDocentes'])->middleware('auth.personal');
 
 // ObservadorController
-Route::get('observador', [ObservadorController::class, 'getIndex']);
-Route::get('observador/vertical-todos', [ObservadorController::class, 'getVerticalTodos']);
-Route::get('observador/vertical/{grupo_id}/{tamanio}', [ObservadorController::class, 'getVertical']);
+Route::get('observador', [ObservadorController::class, 'getIndex'])->middleware('auth.personal');
+Route::get('observador/vertical-todos', [ObservadorController::class, 'getVerticalTodos'])->middleware('auth.personal');
+Route::get('observador/vertical/{grupo_id}/{tamanio}', [ObservadorController::class, 'getVertical'])->middleware('auth.personal');
 
 // ObservadorHorizontalController
-Route::put('observador-horizontal/horizontal/{grupo_id}', [ObservadorHorizontalController::class, 'putHorizontal']);
+Route::put('observador-horizontal/horizontal/{grupo_id}', [ObservadorHorizontalController::class, 'putHorizontal'])->middleware('auth.personal');
 
 // ActasEvaluacionController
-Route::put('actas-evaluacion/acta-evaluacion-promocion', [ActasEvaluacionController::class, 'putActaEvaluacionPromocion']);
-Route::put('actas-evaluacion/detalle', [ActasEvaluacionController::class, 'putDetalle']);
+Route::put('actas-evaluacion/acta-evaluacion-promocion', [ActasEvaluacionController::class, 'putActaEvaluacionPromocion'])->middleware('auth.personal');
+Route::put('actas-evaluacion/detalle', [ActasEvaluacionController::class, 'putDetalle'])->middleware('auth.personal');
 // La pantalla del acta llamaba a esta ruta desde siempre y no existía: guardar el texto del
 // acta fallaba con 404 en silencio. Ahora guarda el texto y los firmantes de la comisión.
 // Con auth.personal porque es la única escritura de este módulo: el resto de actas-evaluacion
@@ -124,5 +124,5 @@ Route::put('actas-evaluacion/detalle', [ActasEvaluacionController::class, 'putDe
 Route::put('actas-evaluacion/cambiar-descripcion', [ActasEvaluacionController::class, 'putGuardarTextoActa'])->middleware('auth.personal');
 
 // CertificadosEstudioController
-Route::get('certificados-estudio/certificado-alumno/{grupo_id}', [CertificadosEstudioController::class, 'getCertificadoAlumno']);
-Route::get('certificados-estudio/certificado-grupo/{grupo_id}', [CertificadosEstudioController::class, 'getCertificadoGrupo']);
+Route::get('certificados-estudio/certificado-alumno/{grupo_id}', [CertificadosEstudioController::class, 'getCertificadoAlumno'])->middleware('auth.personal');
+Route::get('certificados-estudio/certificado-grupo/{grupo_id}', [CertificadosEstudioController::class, 'getCertificadoGrupo'])->middleware('auth.personal');

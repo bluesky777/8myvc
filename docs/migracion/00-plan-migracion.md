@@ -1,7 +1,7 @@
 # Plan de migración — 8myvc (Laravel 8 → Laravel 13)
 
 > Rama: `chore/migracion-laravel-13`
-> Documentos hermanos: [01-plan-seguridad.md](01-plan-seguridad.md) · [02-plan-rendimiento.md](02-plan-rendimiento.md)
+> Documentos hermanos: [01-plan-seguridad.md](01-plan-seguridad.md) · [02-plan-rendimiento.md](02-plan-rendimiento.md) · [08-revision-idor.md](08-revision-idor.md)
 > Evidencia generada: [rutas-actuales.csv](rutas-actuales.csv) (538 rutas) · [`tools/route-inventory.php`](../../tools/route-inventory.php)
 
 ---

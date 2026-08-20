@@ -19,21 +19,21 @@ use Illuminate\Support\Facades\Route;
 */
 
 // AsistenciasController
-Route::post('asistencias', [AsistenciasController::class, 'postIndex']);
-Route::get('asistencias/datos-solo-alumnos', [AsistenciasController::class, 'getDatosSoloAlumnos']);
-Route::put('asistencias/detailed', [AsistenciasController::class, 'putDetailed']);
-Route::put('asistencias/eliminar-ausencia', [AsistenciasController::class, 'putEliminarAusencia']);
-Route::put('asistencias/poner-ausencia', [AsistenciasController::class, 'putPonerAusencia']);
+Route::post('asistencias', [AsistenciasController::class, 'postIndex'])->middleware('auth.personal');
+Route::get('asistencias/datos-solo-alumnos', [AsistenciasController::class, 'getDatosSoloAlumnos'])->middleware('auth.personal');
+Route::put('asistencias/detailed', [AsistenciasController::class, 'putDetailed'])->middleware('auth.personal');
+Route::put('asistencias/eliminar-ausencia', [AsistenciasController::class, 'putEliminarAusencia'])->middleware('auth.personal');
+Route::put('asistencias/poner-ausencia', [AsistenciasController::class, 'putPonerAusencia'])->middleware('auth.personal');
 
 // InicioController
 Route::put('aplicacion-descargas/detailed', [InicioController::class, 'putDetailed']);
 
 // AsistenciasAppController
-Route::post('asistencias-app', [AsistenciasAppController::class, 'postIndex']);
-Route::get('asistencias-app/datos-solo-alumnos', [AsistenciasAppController::class, 'getDatosSoloAlumnos']);
-Route::put('asistencias-app/detailed', [AsistenciasAppController::class, 'putDetailed']);
-Route::put('asistencias-app/eliminar-ausencia', [AsistenciasAppController::class, 'putEliminarAusencia']);
-Route::put('asistencias-app/poner-ausencia', [AsistenciasAppController::class, 'putPonerAusencia']);
+Route::post('asistencias-app', [AsistenciasAppController::class, 'postIndex'])->middleware('auth.personal');
+Route::get('asistencias-app/datos-solo-alumnos', [AsistenciasAppController::class, 'getDatosSoloAlumnos'])->middleware('auth.personal');
+Route::put('asistencias-app/detailed', [AsistenciasAppController::class, 'putDetailed'])->middleware('auth.personal');
+Route::put('asistencias-app/eliminar-ausencia', [AsistenciasAppController::class, 'putEliminarAusencia'])->middleware('auth.personal');
+Route::put('asistencias-app/poner-ausencia', [AsistenciasAppController::class, 'putPonerAusencia'])->middleware('auth.personal');
 
 // TSubirController
 // Como las de tardanzas/login: el usuario y la contraseña viajan en el cuerpo de

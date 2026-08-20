@@ -321,79 +321,59 @@ class AutorizacionTest extends CasoDeContrato
      * Qué rutas llevan cada guard de autorización.
      *
      * Sin esto, quitar un `->middleware(...)` de una ruta no rompería nada: los
-     * tests de arriba solo miran las rutas que nombran, y el agujero original
-     * era precisamente que la copia de al lado no tenía la comprobación.
+     * tests de arriba solo miran las rutas que nombran, y el agujero original era
+     * precisamente que la copia de al lado no tenía la comprobación.
+     *
+     * **Era una lista escrita a mano de 31 rutas y ahora son más de doscientas**,
+     * después de repartir `auth.personal` y `persona.propia` por la revisión de
+     * IDOR. A ese tamaño una lista a mano deja de leerse y se convierte en algo
+     * que se actualiza sin mirar, así que pasa a snapshot: el diff del `.json` es
+     * lo que hay que revisar cuando cambie, y ahí sí se ve qué ruta ganó o perdió
+     * un guard.
+     *
+     * El modo va al lado de la ruta —`[sin-paz-y-salvo]`, `[user_id]`— porque
+     * hasta el 19 ago 2026 esta comprobación usaba un `in_array` exacto y las
+     * rutas con modo no entraban en la lista: podían perderlo sin que fallara
+     * nada. `notas/alumno` llevaba meses así.
      */
     public function test_los_guards_estan_en_las_rutas_que_deben(): void
     {
-        $esperado = [
-            'auth.personal' => [
-                'DELETE api/boletines2/destroy/{id}',
-                'DELETE api/boletines3/destroy/{id}',
-                'DELETE api/requisitos/destroy/{id}',
-                'GET api/piars-grupos/contexto-de-grupo/{grupo_id}',
-                'GET api/piars-grupos/grupos',
-                'POST api/requisitos/alumno',
-                'POST api/requisitos/store',
-                'PUT api/actas-evaluacion/cambiar-descripcion',
-                'PUT api/piars-grupos/contexto-de-grupo',
-                'PUT api/prematriculas/alumnos-con-grado-anterior',
-                'PUT api/prematriculas/alumnos-grado-anterior',
-                'PUT api/requisitos',
-                'PUT api/requisitos/listado-observaciones',
-                'PUT api/requisitos/update',
-            ],
-            'boletin.propio' => [
-                'GET api/boletines/detailed-notas-year/{grupo_id}/{periodo_a_calcular?}',
-                'GET api/boletines2/detailed-notas-year/{grupo_id}/{periodo_a_calcular?}',
-                'GET api/boletines3/detailed-notas-year/{grupo_id}/{periodo_a_calcular?}',
-                'GET api/notas/alumno/{alumno_id?}/{grupo_id?} [sin-paz-y-salvo]',
-                'PUT api/boletines/detailed-notas-group/{grupo_id}',
-                'PUT api/boletines/detailed-notas/{grupo_id}',
-                'PUT api/boletines2/detailed-notas-group/{grupo_id}',
-                'PUT api/boletines2/detailed-notas/{grupo_id}',
-                'PUT api/boletines3/detailed-notas-group/{grupo_id}',
-                'PUT api/boletines3/detailed-notas/{grupo_id}',
-                'PUT api/bolfinales-preescolar/detailed-notas-year-group/{grupo_id}',
-                'PUT api/bolfinales-preescolar/detailed-notas-year/{grupo_id}',
-                'PUT api/bolfinales/detailed-notas-year-group/{grupo_id}',
-                'PUT api/bolfinales/detailed-notas-year/{grupo_id}',
-                'PUT api/certificados-persona',
-                'PUT api/matriculas/prematricular [sin-paz-y-salvo]',
-                'PUT api/notas-actuales-alumnos/{grupo_id}',
-            ],
-        ];
+        $guards = ['auth.personal', 'persona.propia', 'boletin.propio'];
+        $mapa = [];
 
-        foreach ($esperado as $guard => $rutas) {
-            $reales = [];
+        foreach ($guards as $guard) {
+            $mapa[$guard] = [];
+        }
 
-            foreach (Route::getRoutes() as $ruta) {
-                // El guard puede llevar modo (`boletin.propio:sin-paz-y-salvo`), y
-                // hasta el 19 ago 2026 esta comparación era un `in_array` exacto:
-                // las rutas con modo no entraban en la lista y podían perderlo sin
-                // que nadie se enterara. `notas/alumno` llevaba meses así.
-                $modo = null;
+        foreach (Route::getRoutes() as $ruta) {
+            foreach ($ruta->middleware() as $aplicado) {
+                foreach ($guards as $guard) {
+                    $modo = null;
 
-                foreach ($ruta->middleware() as $aplicado) {
                     if ($aplicado === $guard) {
                         $modo = '';
                     } elseif (str_starts_with((string) $aplicado, $guard.':')) {
                         $modo = ' ['.substr($aplicado, strlen($guard) + 1).']';
                     }
-                }
 
-                if ($modo === null) {
-                    continue;
-                }
+                    if ($modo === null) {
+                        continue;
+                    }
 
-                foreach (array_diff($ruta->methods(), ['HEAD']) as $verbo) {
-                    $reales[] = $verbo.' '.$ruta->uri().$modo;
+                    foreach (array_diff($ruta->methods(), ['HEAD']) as $verbo) {
+                        $mapa[$guard][] = $verbo.' '.$ruta->uri().$modo;
+                    }
                 }
             }
-
-            sort($reales);
-
-            $this->assertSame($rutas, $reales, "Cambió la lista de rutas con '{$guard}'.");
         }
+
+        foreach ($mapa as $guard => $rutas) {
+            sort($rutas);
+            $mapa[$guard] = $rutas;
+
+            $this->assertNotEmpty($rutas, "Ninguna ruta lleva '{$guard}'.");
+        }
+
+        $this->compararConInstantanea('guards-por-ruta', $mapa);
     }
 }
