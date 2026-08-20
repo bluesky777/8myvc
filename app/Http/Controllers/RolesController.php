@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\DB;
 use App\User;
 use App\Models\Role;
 use App\Models\Permission;
+use App\Services\ContextoDeUsuario;
 
 
 class RolesController extends Controller {
@@ -96,6 +97,11 @@ class RolesController extends Controller {
 				':user_id'		=> $user->id,
 				':role_id'		=> $rol->id,
 			));
+
+			// Los permisos viajan dentro del contexto, y este mismo controlador
+			// decide con ellos. Si el contexto está cacheado (paso 9 del plan de
+			// rendimiento), un rol nuevo no puede tardar en valer.
+			ContextoDeUsuario::olvidar($user);
 		}
 		
 		return $user;
@@ -120,6 +126,10 @@ class RolesController extends Controller {
 			':user_id'		=> $user->id,
 			':role_id'		=> $rol->id,
 		));
+
+		// Y un rol retirado tiene que dejar de valer en el acto, no cuando
+		// caduque la caché: esta es la mitad que importa de las dos.
+		ContextoDeUsuario::olvidar($user);
 
 		return $roles;
 	}

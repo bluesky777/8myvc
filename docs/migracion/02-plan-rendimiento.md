@@ -267,14 +267,33 @@ foreach($usuario->roles as $role) {
 
 **Impacto esperado: de 5–8 consultas a 0–1 por petición.**
 
-> ### El punto 3 (cachear el contexto) mirado de cerca el 20 ago 2026, y NO hecho
+> ### El punto 3 (cachear el contexto) hecho el 20 ago 2026 — y **apagado**, porque lo que ahorra es ruido
 >
-> El plan lo da por un día de trabajo con un `Cache::remember` de 15 minutos.
-> Antes de escribirlo hacía falta contestar qué se queda obsoleto, y la respuesta
-> tiene dos mitades que se compensan al revés de lo esperado.
+> El plan lo daba por un día de trabajo con un `Cache::remember` de quince
+> minutos y lo pintaba en 🟠. Está escrito, probado y con su interruptor, y viene
+> **apagado** (`CONTEXTO_SEGUNDOS=0`). El motivo es la medición.
 >
-> **La mitad tranquilizadora: las comprobaciones que de verdad deciden algo NO
-> leen del contexto, releen de la base.** Se comprobó una por una:
+> **Medido con el driver `file`, que es el de producción**, 200 resoluciones del
+> contexto de un profesor en el docker de desarrollo:
+>
+> | | por resolución | consultas |
+> |---|---|---|
+> | Sin caché | 1,41 ms | 3 |
+> | Con caché | 0,66 ms | 0 |
+>
+> **0,75 ms y tres consultas por petición.** Sobre una petición que costaba 250
+> ms y que con OPcache aspira a 40–70, eso es menos del 2%: la misma familia que
+> el paso 6, que ya quedó marcado como ruido. Encenderlo por defecto en los
+> dieciséis colegios sería pagar un techo de obsolescencia sobre la
+> configuración del año a cambio de algo que no se nota.
+>
+> Se queda el código, con el interruptor, para el colegio cuyo registro de
+> consultas lentas diga que allí sí paga — que es justo la pregunta que el paso 3
+> ahora sabe contestar.
+>
+> **Lo que se comprobó antes de escribirlo, y sale al revés de lo esperado.** Las
+> comprobaciones que de verdad deciden algo NO leen del contexto, releen de la
+> base:
 >
 > | Comprobación | De dónde saca el dato |
 > |---|---|
@@ -282,38 +301,28 @@ foreach($usuario->roles as $role) {
 > | ¿El profesor puede editar notas o nivelar? | `SELECT * FROM periodos` en `User::pueden_modificar_notas` — fresco |
 > | ¿Es acudiente de este alumno? | `SELECT id FROM parentescos` en el guard — fresco |
 >
-> O sea que cachear el contexto **no** deja a un alumno que acaba de pagar sin
-> boletín, ni mantiene abierta una ventana de notas que el coordinador acaba de
-> cerrar. Que era el miedo razonable.
+> O sea que cachear **no** deja sin boletín a quien acaba de pagar ni mantiene
+> abierta una ventana de notas recién cerrada, que era el miedo razonable. Lo que
+> sí queda obsoleto es lo que el frontend pinta con el contexto —los mismos
+> flags, pero para decidir si enseña el botón— y los permisos.
 >
-> **La mitad que sí para el trabajo son dos cosas, y ninguna es de programación:**
+> **Los permisos son la parte que no podía quedarse a medias**, porque
+> `RolesController` decide con `in_array('can_edit_usuarios', $user->perms)`.
+> Quitar un rol borra el contexto de esa persona en el acto
+> (`ContextoDeUsuario::olvidar`), sin esperar a que caduque. Con test.
 >
-> 1. **Los permisos sí se leen del contexto.** `RolesController` decide con
->    `in_array('can_edit_usuarios', $user->perms)`. Cachear quince minutos es
->    dejar vivo quince minutos un permiso que alguien acaba de quitar. Se
->    arregla invalidando al escribir roles —son pocos sitios— pero es una
->    decisión de seguridad, no un detalle de implementación.
+> **Y la clave lleva dentro el nombre de la base.** Joseth confirmó el 20 ago
+> 2026 que `storage/` es propia de cada colegio, así que hoy no hay colisión
+> posible; el día que deje de serlo —o que se pase a un Redis compartido— una
+> clave `usuario.contexto.5` le serviría al usuario 5 de un colegio el contexto
+> del 5 de otro. Cuesta nada dejarlo cerrado de antemano, y lo fija un test.
 >
-> 2. **Y la que de verdad bloquea: no sabemos si `storage/` se comparte entre
->    colegios.** `DESPLIEGUE-REFERENCIA.md` lo deja sin confirmar, y el driver
->    de caché de hoy es `file`, que escribe justo ahí. Si está compartida, una
->    clave `user.context.5` le sirve al usuario 5 de un colegio el contexto del
->    usuario 5 de otro: nombre, grupo, notas y permisos de otro colegio. Es
->    exactamente la clase de suposición que ya salió cara una vez — la creencia
->    de que `app/` se compartía por symlink cuando es copia real.
->
->    Tiene arreglo trivial (meter el nombre de la base en la clave), pero
->    escribir el arreglo antes de confirmar el dato es volver a construir sobre
->    una suposición.
->
-> **Y aunque las dos se resuelvan, falta saber si gana algo.** Con
-> `CACHE_DRIVER=file` la caché es leer y deserializar un fichero del mismo disco
-> compartido; contra tres consultas que ahora sí van por índice, puede no ganar
-> nada. Por eso el plan pone Redis (paso 10) *después* del 9: sin él, el 9 es una
-> apuesta. La medición que lo contesta es la del paso 3, que ya está montada.
->
-> **Queda para Joseth**, y son dos preguntas concretas: ¿se comparte `storage/`
-> entre colegios?, y ¿hay Redis disponible en esas cuentas de cPanel?
+> **Sobre Redis (paso 10): la extensión de cPanel no es el servidor.** Lo que
+> aparece en la lista de PHP 8.4 es `phpredis`, el cliente; para usarlo hace
+> falta además un servidor Redis corriendo en la cuenta, que en alojamiento
+> compartido raramente lo hay. Queda por confirmar en el servidor, pero con la
+> medición de arriba el paso 10 pierde casi todo su motivo: aceleraría una caché
+> que hoy no compensa tener encendida.
 
 > ### Y el paso 2 (instrumentación en dev) no necesita paquete nuevo
 >
@@ -434,8 +443,8 @@ Sin esto, "está lento" no es accionable. Con esto, cada endpoint reporta su con
 | 6 | `route:cache` + `config:cache` en despliegue | 2 h | ~~🔴 30–60 ms~~ · **medido: ruido** (0,031 s con, 0,028 s sin) — la ganancia ya la dieron la Fase 1 y OPcache | paso 5 |
 | 7 | ~~Eliminar la doble autenticación (rate limiter)~~ · **hecho 19 ago 2026** | 2 h | 🟠 **2 consultas menos, medidas** | Fase 3 |
 | 8 | ~~Colapsar el N+1 de permisos~~ · **hecho 19 ago 2026** | 1 h | 🟠 N-1 consultas | Fase 3 |
-| 9 | Cachear el contexto de usuario · **mirado el 20 ago 2026 y parado**: falta saber si `storage/` se comparte | 1 d | 🟠 3 consultas → 0 | Fase 3 |
-| 10 | Redis como caché y sesión | 2 h | 🟠 variable | paso 9 |
+| 9 | ~~Cachear el contexto de usuario~~ · **hecho el 20 ago 2026 y apagado** | 1 d | ~~🟠 3 consultas → 0~~ · **medido: 1,41 → 0,66 ms, ruido** | Fase 3 |
+| 10 | Redis como caché y sesión · **casi sin motivo** tras medir el 9; y la extensión de cPanel no es el servidor | 2 h | 🟠 variable | paso 9 |
 | 11 | PHP 8.0 → **8.4** | incluido en Fase 4 | 🟡 10–20 % | Fase 4 |
 | 12 | Índices según el `EXPLAIN` · **tres puestos el 20 ago 2026**, el resto espera al paso 3 | variable | 🟠 **medido: 970 ms → 44 ms** en una tanda de boletines | paso 3 |
 | 13 | Colas para importadores e informes | 2–3 d | 🟡 elimina timeouts | Fase 6 |

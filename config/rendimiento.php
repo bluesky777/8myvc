@@ -38,4 +38,31 @@ return [
         'bindings' => (bool) env('CONSULTAS_LENTAS_BINDINGS', false),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Caché del contexto de usuario
+    |--------------------------------------------------------------------------
+    |
+    | El paso 9 del plan de rendimiento. El contexto —persona, grupo, año,
+    | periodo, configuración del colegio, roles y permisos— cuesta tres
+    | consultas por petición, y entre dos peticiones seguidas del mismo usuario
+    | casi nunca cambia.
+    |
+    | Segundos que se guarda; 0 lo deja apagado. **Es un techo de obsolescencia,
+    | no un ajuste fino**: durante ese rato, un cambio en la configuración del
+    | año o del periodo —abrir la ventana de notas, por ejemplo— le llega a la
+    | pantalla del profesor con retraso. Las comprobaciones que de verdad
+    | deciden algo no dependen de esto: el paz y salvo del boletín, la ventana
+    | de notas y el parentesco se releen de la base al responder.
+    |
+    | Los permisos sí viajan aquí dentro, así que quitarle un rol a alguien
+    | borra su contexto en el acto (ContextoDeUsuario::olvidar), sin esperar a
+    | que caduque.
+    |
+    */
+
+    'contexto' => [
+        'segundos' => (int) env('CONTEXTO_SEGUNDOS', 0),
+    ],
+
 ];
