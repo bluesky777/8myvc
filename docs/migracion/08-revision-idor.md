@@ -1,6 +1,6 @@
 # Revisión de autorización horizontal (IDOR) — 19 ago 2026
 
-> **Estado: arreglado.** 141 rutas sin guard → 12. Ver «Qué se hizo» al final.
+> **Estado: arreglado.** 141 rutas sin guard → 9. Ver «Qué se hizo» al final.
 
 > Herramienta: [`tools/inventario-autorizacion.py`](../../tools/inventario-autorizacion.py)
 > Fallos confirmados: [`tests/Contrato/SuperficieDeUnAlumnoTest.php`](../../tests/Contrato/SuperficieDeUnAlumnoTest.php)
@@ -187,9 +187,9 @@ más de trescientas, y a ese tamaño una lista a mano deja de leerse.
 
 1. **Qué puede hacer el personal entre sí.** Hoy un profesor alcanza todo lo que
    alcanza un administrativo. Es lo que Joseth dejó fuera a propósito.
-2. **Las lecturas de catálogo** que quedan sin guard —**11**, vuelto a medir el
-   20 ago 2026; este documento decía 12—. No exponen a nadie, pero conviene
-   decidir si un alumno tiene que poder leerlas.
+2. **Las lecturas de catálogo** que quedan sin guard —**9**, vuelto a medir el
+   20 ago 2026 después de la §16; este documento dijo 12 y luego 11—. No exponen
+   a nadie, pero conviene decidir si un alumno tiene que poder leerlas.
 
 4. **Y un punto ciego de la herramienta, encontrado el 20 ago 2026.**
    `inventario-autorizacion.py` cuenta las rutas que llevan **el identificador de
@@ -208,8 +208,29 @@ más de trescientas, y a ese tamaño una lista a mano deja de leerse.
    sin poder encontrar la siguiente igual**: lo que falta es preguntarle a cada
    ruta sin guard si su respuesta lleva identificadores de persona dentro, que es
    una pregunta sobre el cuerpo y no sobre la firma.
-3. **`asignaturas/show`, `unidades/de-asignatura-periodo`, `votaciones/show`**: no
-   son de una persona, pero sí de la estructura del colegio.
+
+   **Y el 20 ago 2026 el mismo punto ciego dejó pasar cuatro más**, esta vez sin
+   buscador de por medio: `subunidades/trashed`, `editnota/trashed`,
+   `unidades/trashed` y `asignaturas/papelera` no reciben ningún identificador,
+   así que no aparecen en ninguna lista de este documento — y las dos primeras
+   devolvían **los alumnos borrados del colegio con su documento**, porque son
+   una consulta de papelera de alumnos copiada bajo otro nombre
+   ([05 §16.4](05-codigo-muerto-y-roto.md)). Las cuatro llevan ya
+   `auth.personal`.
+3. **`asignaturas/show` y `votaciones/show`**: no son de una persona, pero sí de
+   la estructura del colegio.
+
+   La tercera de esta línea era **`unidades/de-asignatura-periodo`**, y ya no
+   está: aplazarla fue un error de categoría que se vio al medirla. **No es una
+   lectura — escribe.** Cuando la asignatura y el periodo no tienen unidades, las
+   crea a partir de las del año, y un alumno y un acudiente lo hacían con un GET.
+   Una escritura de estructura por una familia ya estaba decidida, así que se
+   cerró con `auth.personal` sin volver a preguntar
+   ([05 §16.3](05-codigo-muerto-y-roto.md)).
+
+   Y la lección para esta lista: **está ordenada por lo que la herramienta ve de
+   la petición, no por lo que hace el método.** Antes de aplazar otra por «es una
+   lectura de estructura», hay que mirar si lo es.
 
 Volver a medir es una orden:
 

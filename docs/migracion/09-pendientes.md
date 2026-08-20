@@ -214,12 +214,13 @@ saber el tamaño real del daño en las dieciséis bases antes de tocar código.
 |---|---|---|
 | Cuatro endpoints rotos desde siempre | [05 §6.5, §7.2, §8, §9.2](05-codigo-muerto-y-roto.md) | qué debe devolver cada uno; en dos de ellos, si la operación debe existir |
 | La estructura de roles y permisos | [06 §4](06-autorizacion.md) | si los roles de la base se quedan y se pueblan, o se borran las cuatro tablas |
-| 11 rutas de catálogo sin guard | [08](08-revision-idor.md) | a quién se abren; no exponen a nadie, pero no están decididas. Vuelto a medir el 20 ago 2026: eran 11, no 12 |
+| 9 rutas de catálogo sin guard | [08](08-revision-idor.md) | a quién se abren; no exponen a nadie, pero no están decididas. Vuelto a medir el 20 ago 2026 tras [05 §16](05-codigo-muerto-y-roto.md): 12 → 11 → 9. La que salió de la lista no se decidió, **se recategorizó**: `unidades/de-asignatura-periodo` no era una lectura, escribía |
 | `APP_DEBUG` en producción | [01](01-plan-seguridad.md) | comprobarlo colegio a colegio. `display_errors` de PHP está en Off, así que la mitad del riesgo ya está cubierta |
 | Los correos `username@myvc.com` autogenerados | [01](01-plan-seguridad.md) | dos usuarios que compartan correo comparten reseteo de contraseña |
 | `GET api/contratos` manda el expediente y el cliente solo quiere el nombre | [05 §14.4](05-codigo-muerto-y-roto.md) | qué columnas se recortan. Lo llama la app de Flutter desde pantallas de familia, así que el cambio entra en los dieciséis colegios a la vez |
 | `GET api/perfiles/usernames` devuelve los 2.351 usuarios del colegio | [05 §14.4](05-codigo-muerto-y-roto.md) | apuntar `UserConfiguracionCtrl` a `comprobarusername/{username}`, que ya existe, **y desplegar el front antes** de cerrar la ruta |
 | `GET api/perfiles/username/{username}` no comprueba que el usuario sea el tuyo | [05 §14.4](05-codigo-muerto-y-roto.md) | si `ExigirPersonaPropia` aprende a resolver un nombre de usuario, o si la ruta deja de aceptar parámetro y lo saca del token |
+| `GET api/asignaturas/listasignaturas-alone` le da a un alumno las asignaturas del profesor con su mismo id | [05 §16.6](05-codigo-muerto-y-roto.md) | es la misma pregunta que Joseth dejó abierta en [05 §11.2](05-codigo-muerto-y-roto.md): si esa pantalla debe enseñarle sus asignaturas de verdad. Cerrarla con `auth.personal` es de una línea; decidir qué ve el alumno, no |
 
 ---
 
@@ -441,12 +442,37 @@ saber el tamaño real del daño en las dieciséis bases antes de tocar código.
   todos los parámetros de las 539 rutas. Un barrido que se encoge en silencio
   sería peor que no tenerlo.
 
-  Lo que queda sin barrer con este criterio es el **acudiente**, cuya superficie
-  se parece pero no es igual —`persona.propia` le acepta lo de sus acudidos—, y
-  es literalmente `BARRIDO_TIPO=Acudiente`. Y sigue fuera de su alcance lo que
-  un alumno sí puede escribir pero sobre lo de otro sin que el guard pueda
-  verlo, como fue el caso del muro: eso no lo encuentra un barrido, lo encuentra
-  leer el controlador.
+  Sigue fuera de su alcance lo que un alumno sí puede escribir pero sobre lo de
+  otro sin que el guard pueda verlo, como fue el caso del muro: eso no lo
+  encuentra un barrido, lo encuentra leer el controlador.
+
+- **El barrido del acudiente, hecho el 20 ago 2026 — y el barrido, arreglado.**
+  El acudiente **no encontró ningún agujero**: alcanza dos rutas más que el
+  alumno y las dos le devuelven lo de su acudido, que es la regla. Lo que sí
+  encontró la segunda pasada fue **tres fallos del propio barrido**, y por eso
+  están aquí y no solo en [05 §16](05-codigo-muerto-y-roto.md):
+
+  - **Imprimía menos de lo que contaba** —una respuesta de archivo vacía el
+    buffer de salida al enviarse—, y las seis líneas que se perdían eran siempre
+    las primeras. O sea las mismas seis en las medidas de la §14 y la §15.
+  - **Pedía en el año equivocado**, porque el login reescribe `users.periodo_id`
+    y el barrido elegía los identificadores con la fila leída antes de entrar.
+    Es la trampa que `tokenDelPersonalDe()` lleva documentada desde la P1.
+  - **36 rutas no se estaban midiendo.** El seed tiene dos grupos y el sujeto de
+    siempre está matriculado en los dos, así que no había ningún grupo ajeno y
+    boletines, planillas, observador y certificados **de otro grupo** se pedían
+    con un cero. Arreglado eligiendo un sujeto que deje uno libre: las 34 de
+    grupo dan 403. Para el acudiente no hay sujeto posible en este seed, y el
+    barrido lo imprime en vez de callárselo.
+
+  Y lo que se aprendió, que es lo que hay que llevarse: **hay una tercera
+  categoría que este detector no mide**. Su criterio de fuga son los datos
+  personales y las escrituras, y entre las dos cabe *lo del colegio que no es de
+  nadie en particular*: `unidades/trashed` le devolvió a un alumno 29 KB con la
+  papelera académica del colegio y el barrido la vio pasar. De ahí salieron un
+  GET que escribía, cuatro papeleras sin guard —dos de ellas devolviendo alumnos
+  borrados con su documento— y un 500 que era un 404. Todo en
+  [05 §16](05-codigo-muerto-y-roto.md).
 
 - **Rector**, configurado y sin correr: por carpeta y revisando cada diff.
 - **FormRequests**: hay 2 validaciones en 32.000 líneas. Cada endpoint que se

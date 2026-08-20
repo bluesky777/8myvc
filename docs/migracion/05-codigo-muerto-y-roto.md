@@ -1240,3 +1240,151 @@ Lo que este barrido **no** cubre, para no repetir la lección de la §14: se hiz
 con token de **alumno**. Un acudiente tiene una superficie parecida pero no
 idéntica —`persona.propia` le acepta lo de sus acudidos— y no se ha barrido con
 el mismo detector.
+
+---
+
+## 16. El acudiente, y lo que el barrido no puede ver (20 ago 2026)
+
+La [§15](#15-la-otra-mitad-las-escrituras-que-no-nombran-a-nadie-20-ago-2026)
+terminaba diciendo que faltaba barrer con token de **acudiente**. Se hizo, y el
+resultado tiene dos mitades muy distintas de tamaño: el acudiente no encontró
+ningún agujero, y **el barrido sí**.
+
+### 16.1 El acudiente: nada nuevo, y por qué eso se escribe
+
+Con `BARRIDO_TIPO=Acudiente` pasan de largo 17 rutas frente a las 15 del alumno.
+Las dos de diferencia son suyas:
+
+- **`PUT api/acudientes/mis-acudidos`** — sus acudidos, que es literalmente para
+  lo que existe.
+- **`GET api/ChangesAsked/to-me`** — 209 KB con documento, celular, dirección y
+  correo. Los 204 KB son **593 filas del calendario**, no personas; la rama de
+  acudiente une por `parentescos` y el único alumno que devuelve es su acudido.
+
+Que no haya hallazgos no significa que la pasada sobrara: lo que se sabe ahora y
+no se sabía es que **`persona.propia` resuelve bien los parentescos en toda la
+superficie**, no solo en las rutas que tienen su caso escrito.
+
+### 16.2 Tres fallos del barrido, y el más caro no se veía
+
+- **Imprimía menos de lo que contaba.** Entre las 539 rutas hay descargas, y una
+  respuesta de archivo de Symfony vacía el buffer de salida al enviarse; con él
+  se iban las líneas ya escritas. El barrido decía «17 rutas» y enseñaba once.
+  **Las seis que faltaban eran siempre las primeras**, o sea las mismas seis en
+  cada pasada, incluidas las de la §14 y la §15. Ahora acumula y vuelca al final.
+- **Pedía en el año equivocado.** `Services\Login` reescribe `users.periodo_id`
+  al periodo del año actual, así que el año del contexto solo se sabe **después**
+  de entrar, y el barrido elegía los identificadores con la fila leída antes. Es
+  exactamente la trampa que `tokenDelPersonalDe()` lleva documentada desde la
+  P1: la respuesta sale vacía, en 200, y no ha calculado nada.
+- **36 rutas no se estaban midiendo.** El seed tiene **dos** grupos y 56 de sus
+  68 alumnos están matriculados en los dos, así que para el sujeto de siempre no
+  existía ningún grupo ajeno y el barrido pedía `grupo_id=0`. Boletines,
+  planillas, observador, certificados y actas **de otro grupo** contestaban vacío
+  sin haber medido nada, y un vacío se parece a un guard que funciona.
+
+  Ahora el barrido elige un alumno matriculado en un solo grupo —y del año
+  actual, porque el login le reescribe el periodo y uno de otro año se quedaría
+  sin contexto—. Las 36 se midieron y **las 34 que son de grupo dan 403**. Las
+  dos que no son las de la §16.3.
+
+  Para el acudiente no hay sujeto posible: ninguno del seed tiene a sus acudidos
+  en un solo grupo. El barrido lo imprime al final en vez de callárselo, que es
+  lo mismo que hace el `assertSame` de los parámetros desconocidos.
+
+### 16.3 Un GET que escribe
+
+**`GET api/unidades/de-asignatura-periodo/{asignatura_id}/{periodo_id}/{user?}`
+era la única ruta de `unidades/*` sin `auth.personal`, y no es una lectura.**
+Cuando esa asignatura y ese periodo no tienen unidades todavía, **las crea** a
+partir de las `unidades_por_defecto` del año, con sus subunidades y con
+`created_by` de quien pregunta. Comprobado: un alumno y un acudiente crean
+unidades en la estructura de notas del colegio pidiendo una URL.
+
+No lo encontró ninguna de las tres herramientas, y cada una falló por un motivo
+distinto que conviene separar:
+
+- **`inventario-autorizacion.py`** sí la lista, pero entre las lecturas de
+  estructura pendientes de decidir ([08](08-revision-idor.md), punto 3): la
+  herramienta pregunta qué identificador viaja, no qué hace el método.
+- **El barrido de escrituras** la golpeó con `asignatura_id=0` — el fallo de la
+  §16.2.
+- **Y aunque la hubiera golpeado bien, no habría escrito**, porque
+  `unidades_por_defecto` **está vacía en el seed**. Es de la familia de «la base
+  de tests no puede demostrar los fallos que dependen de dos numeraciones que se
+  cruzan» ([§11](#11-lo-que-encontró-subir-larastan-al-nivel-3-y-mirar-el-4-20-ago-2026)),
+  y por eso el candado llena la tabla antes de pedir: sin esa fila pasaría dijera
+  lo que dijera el código.
+
+Cerrada con `auth.personal`, como sus once hermanas. **Esto no re-litiga la
+decisión pendiente** de [08](08-revision-idor.md): allí se aplazó como lectura de
+estructura, y una escritura de estructura por un alumno ya estaba decidida en la
+§15.
+
+Y de paso, **el `{user?}` de esa URL era un 500 seguro**. El tercer parámetro del
+método es a la vez el argumento de la llamada interna de `putDeAsignaturaPeriodo`
+—que pasa el objeto de usuario— y un segmento de la URL, que solo puede llegar
+como cadena; con `if ($user == null)` se colaba y reventaba en `$user->year_id`
+siempre que el par no tuviera unidades ya. Ahora es `is_object()`.
+
+### 16.4 Cuatro papeleras sin guard, y dos que mienten en el nombre
+
+| Ruta | Qué devuelve de verdad |
+|---|---|
+| `GET api/subunidades/trashed` | **Los alumnos borrados del colegio**, con documento, fecha de nacimiento, celular y dirección |
+| `GET api/editnota/trashed` | La misma consulta copiada. Tampoco son notas editadas |
+| `GET api/unidades/trashed` | La papelera académica del colegio entero: 29 KB en el seed |
+| `GET api/asignaturas/papelera` | Las asignaturas borradas del año, con el nombre de su profesor |
+
+Las cuatro con token de alumno y de acudiente. Las cuatro son pantallas de
+administración y sus familias enteras ya llevaban `auth.personal`; ahora lo
+llevan ellas.
+
+**Lo que hay que recordar de estas cuatro no es el número: es por qué ninguna
+herramienta podía verlas.**
+
+- `inventario-autorizacion.py` no las lista porque **no reciben ningún
+  identificador**. Es el mismo punto ciego que dejó pasar los buscadores
+  ([§11.3](#113-los-buscadores-de-personas)) y que
+  [08 §4](08-revision-idor.md) dejó escrito.
+- El barrido las golpeó y las vio contestar. **`unidades/trashed` le devolvió
+  29 KB y no la imprimió**, porque su criterio de fuga es la lista `PERSONALES`
+  y ahí no hay ninguna de esas columnas. Hay una tercera categoría entre «dato
+  personal» y «escritura» —**lo del colegio que no es de nadie en particular**—
+  y el barrido no la mide.
+- Y a las dos que **sí** sueltan datos personales las vio contestar `[]`, porque
+  **el seed no tiene ningún alumno borrado**. Un `[]` de una papelera vacía se
+  lee igual que un `[]` de un guard que corta.
+
+Por eso los candados de estas cuatro comprueban el 403 y no el cuerpo, al revés
+que `noSaleElDato()`: con el seed que hay, la comprobación del cuerpo pasaría sin
+significar nada, y un test que pasa por vacío es peor que no tenerlo.
+
+### 16.5 Y un 500 que era un 404
+
+`Asignatura::detallada` termina en `return (array)$asignatura[0];` y la consulta
+une por `g.year_id`: **una asignatura que no sea del año desde el que se pregunta
+no devuelve filas**, y ese `[0]` reventaba. Lo alcanzan `asignaturas/show`,
+`ausencias/detailed` y `notas/detailed-notas`.
+
+No es un error del servidor —es que esa asignatura no existe en ese año— así que
+ahora es un `abort(404)`. Con `APP_DEBUG` puesto, además, el 500 se llevaba la
+traza dentro, que es la mitad de la §1 de [01](01-plan-seguridad.md).
+
+### 16.6 Lo que queda de esto
+
+- Nueve casos nuevos en `SuperficieDeUnAlumnoTest`, **comprobados al revés**:
+  quitados los cinco `auth.personal` y el `abort(404)`, los seis fallan, cada uno
+  por su motivo —el de las unidades por haberlas creado, no por el código—.
+- El barrido, arreglado y con las dos pasadas hechas, en
+  `tests/Barrido/SuperficieDeUnTokenTest.php`.
+- **Y una pendiente que no se toca, porque es la misma que Joseth dejó abierta a
+  propósito en la [§11.2](#11-lo-que-encontró-subir-larastan-al-nivel-3-y-mirar-el-4-20-ago-2026):**
+  `GET api/asignaturas/listasignaturas-alone` llama a
+  `Profesor::asignaturas($year, $user->persona_id)` sin mirar el tipo, así que a
+  un alumno le devuelve las asignaturas del **profesor que tenga su mismo id**.
+  Es el gemelo sin parámetro de `asignaturas/listasignaturas/{persona_id?}`, que
+  sí lleva `persona.propia`. Cerrarlo con `auth.personal` es fácil; lo que no
+  está decidido —y es lo que quedó abierto entonces— es **si esa pantalla debe
+  enseñarle sus asignaturas de verdad**. El seed no puede demostrar el fallo,
+  por lo de siempre: ahí los ids de alumno y de profesor no se solapan.
