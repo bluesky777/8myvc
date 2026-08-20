@@ -174,7 +174,21 @@ arriba es la comprobación, y va antes que el comando a propósito.
 cd "$d"
 php artisan package:discover # OBLIGATORIO tras tocar vendor/
 php artisan migrate --force  # sin esto TODOS los logins dan 500
+
+php artisan migrate:status | grep -E 'personal_access_tokens|firmantes_acta'
+# las dos tienen que decir Ran
 ```
+
+**Las dos migraciones de esta tanda, y qué se rompe si falta cada una:**
+
+| Migración | Qué hace | Si no se corre |
+|---|---|---|
+| `2026_08_19_000000_create_personal_access_tokens_table` | crea la tabla de tokens de Sanctum | **todos los logins dan 500** y el colegio queda inservible |
+| `2026_08_19_100000_add_firmantes_acta_to_years_table` | añade `firmantes_acta` a `years`, admite NULL | el acta abre y propone rector y secretario, pero **guardar** los firmantes da 500 |
+
+Las dos son aditivas —una tabla nueva y una columna que admite NULL—, así que
+correrlas de más no rompe nada y el código viejo las ignora. Por eso volver atrás
+no exige deshacerlas.
 
 `package:discover` no es opcional: `bootstrap/cache/packages.php` es de cada
 colegio y se genera a partir del `vendor/`. Sin regenerarlo, el colegio arranca
@@ -246,6 +260,20 @@ ningún síntoma que lo delate.
 
 `route:clear` tampoco es opcional: las rutas `auth/*` no existen con la caché
 vieja puesta, y `POST /api/auth/login` devuelve 404 con el código bien desplegado.
+**Confirmado en `coal`**, y así se reconoce en el trace: si aparece
+`CompiledRouteCollection`, las rutas vienen de `bootstrap/cache/routes-v7.php` y
+la caché sigue puesta.
+
+**Cada comando lleva su propio `php artisan`.** Encadenar
+`php artisan config:clear && route:clear` **no funciona**: el `&&` no arrastra el
+`php artisan`, el segundo muere con `route:clear: command not found` y la caché
+vieja se queda intacta. Es el peor estado posible —parece limpiada y no lo está—.
+
+Comprobación directa de que la ruta existe antes de probar en el navegador:
+
+```bash
+php artisan route:list --path=auth/login    # POST api/auth/login
+```
 
 ### Front (`up/`)
 
@@ -335,7 +363,7 @@ falla con 500 es **guardar** los firmantes. Se arregla corriendo `migrate`.
 
 ---
 
-## 3. Las seis trampas que cuestan un colegio
+## 3. Las siete trampas que cuestan un colegio
 
 1. **`composer` dentro de un colegio con `vendor/` compartido** le cambia las
    dependencias a los otros cuatro. Sigue el symlink sin avisar y sin fallar.
@@ -352,7 +380,12 @@ falla con 500 es **guardar** los firmantes. Se arregla corriendo `migrate`.
    `.env` son copia real en cada colegio; llegan uno a uno.
 6. **`config:cache` antes de tocar el `.env`** deja al colegio sirviendo la
    configuración anterior, sin ningún síntoma. Si editas el `.env` después,
-   vuelve a correr `config:clear && config:cache`.
+   vuelve a correr `php artisan config:clear && php artisan config:cache`.
+7. **Encadenar `artisan` con `&&` sin repetir `php artisan`.** El segundo comando
+   no existe como binario suelto, la cadena se corta ahí y la caché vieja sigue
+   viva. Pasó en `coal`: `config:clear` corrió, `route:clear` no, y el login
+   devolvió 404 con el código bien desplegado. Si un `artisan` de la cadena no
+   imprime su `INFO`, no se ejecutó.
 
 ---
 
@@ -366,6 +399,8 @@ falla con 500 es **guardar** los firmantes. Se arregla corriendo `migrate`.
 | Topología | mixta y se queda así (Joseth, 20 ago 2026): unos con `vendor/` propio, cinco colgando de `laravel_compartido`. **Esos cinco se despliegan y se revierten como bloque** |
 | Sin confirmar | si `sodium` y `opcache` siguen activas en 8.4 — se marcaron en 8.0 y **la selección de extensiones es por versión** |
 | Sin confirmar | si alguna pantalla de familia de `myvc_front` llama a una ruta que el guard nuevo cierra. Solo se ve con el front delante |
+| Esta tanda | **cerrada: los 16 colegios desplegados** (20 ago 2026). `coal` fue el primero, y es de donde salieron las trampas 6 y 7. Migraciones en `Ran` y login de personal comprobado en el navegador tras `route:clear` |
+| Sin confirmar | si `coal` cuelga del `vendor/` compartido. El trace de producción apunta a `/home/micolev1/laravel_compartido/`, y ahí el `composer install --no-dev` se corrió **dentro** del colegio, que es la trampa 1. La segunda pasada dijo «Nothing to install», así que el `lock` ya coincidía y probablemente no cambió nada — pero hay que comprobarlo con `[ -L vendor ]` |
 
 **Laravel 8.83.29 corriendo sobre PHP 8.4 es la ventana incómoda descrita en el
 paso 0: arranca, pero no está soportado ahí.** Cuanto antes empiece el despliegue
