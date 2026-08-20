@@ -261,11 +261,7 @@ class UnidadesController extends Controller {
 
 		$unidad = Unidad::onlyTrashed()->findOrFail($id);
 		
-		if ($unidad) {
-			$unidad->forceDelete();
-		}else{
-			return abort(404, 'Unidad no encontrada en la Papelera.');
-		}
+		$unidad->forceDelete();
 		return $unidad;
 	
 	}

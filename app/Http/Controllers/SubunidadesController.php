@@ -206,11 +206,7 @@ class SubunidadesController extends Controller {
 
 		$subunidad = Subunidad::onlyTrashed()->findOrFail($id);
 		
-		if ($subunidad) {
-			$subunidad->forceDelete();
-		}else{
-			return abort(404, 'Subunidad no encontrada en la Papelera.');
-		}
+		$subunidad->forceDelete();
 		return $subunidad;
 	
 	}

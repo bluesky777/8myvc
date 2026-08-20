@@ -231,7 +231,7 @@ class NotasController extends Controller {
 		$user = User::fromToken();
 
 
-		if(($user->is_superuser && $user->is_superuser) || $user->tipo == 'Profesor'){
+		if(($user->is_superuser) || $user->tipo == 'Profesor'){
 			// Todo bien
 		}else{
 			return abort(403, 'No tienes permiso.');

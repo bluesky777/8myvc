@@ -694,11 +694,7 @@ class GruposController extends Controller {
 
 		$grupo = Grupo::onlyTrashed()->findOrFail($id);
 		
-		if ($grupo) {
-			$grupo->forceDelete();
-		}else{
-			return abort(400, 'Grupo no encontrado en la Papelera.');
-		}
+		$grupo->forceDelete();
 		return $grupo;
 	
 	}
@@ -708,11 +704,7 @@ class GruposController extends Controller {
 		$user = User::fromToken();
 		$grupo = Grupo::onlyTrashed()->findOrFail($id);
 
-		if ($grupo) {
-			$grupo->restore();
-		}else{
-			return abort(400, 'Grupo no encontrado en la Papelera.');
-		}
+		$grupo->restore();
 		return $grupo;
 	}
 

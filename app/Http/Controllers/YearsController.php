@@ -519,11 +519,7 @@ class YearsController extends Controller {
 	{
 		$year = Year::onlyTrashed()->findOrFail($id);
 
-		if ($year) {
-			$year->restore();
-		} else {
-			return abort(400, 'Año no encontrado en la Papelera.');
-		}
+		$year->restore();
 		return $year;
 	}
 

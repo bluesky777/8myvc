@@ -505,11 +505,7 @@ class PerfilesController extends Controller {
 		$user = User::fromToken();
 		$grupo = Grupo::onlyTrashed()->findOrFail($id);
 
-		if ($grupo) {
-			$grupo->restore();
-		}else{
-			return abort(400, 'Grupo no encontrado en la Papelera.');
-		}
+		$grupo->restore();
 		return $grupo;
 	}
 

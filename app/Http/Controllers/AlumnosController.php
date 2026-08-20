@@ -935,11 +935,7 @@ class AlumnosController extends Controller {
 		if (($this->user->tipo == 'Profesor' && $this->user->profes_can_edit_alumnos) || $this->user->is_superuser || Role::isSecretario($this->user->user_id)) {
 			$alumno = Alumno::onlyTrashed()->findOrFail($id);
 			
-			if ($alumno) {
-				$alumno->forceDelete();
-			}else{
-				return abort(400, 'Alumno no encontrado en la Papelera.');
-			}
+			$alumno->forceDelete();
 			return $alumno;
 		} else {
 			return abort('400', 'No tiene permisos');
@@ -951,11 +947,7 @@ class AlumnosController extends Controller {
 		if (($this->user->tipo == 'Profesor' && $this->user->profes_can_edit_alumnos) || $this->user->is_superuser || Role::isSecretario($this->user->user_id)) {
 			$alumno = Alumno::onlyTrashed()->findOrFail($id);
 
-			if ($alumno) {
-				$alumno->restore();
-			}else{
-				return abort(400, 'Alumno no encontrado en la Papelera.');
-			}
+			$alumno->restore();
 			return $alumno;
 		} else {
 			return abort('400', 'No tiene permisos');

@@ -427,11 +427,7 @@ class ProfesoresController extends Controller {
 
 		$profesor = Profesor::onlyTrashed()->findOrFail($id);
 		
-		if ($profesor) {
-			$profesor->forceDelete();
-		}else{
-			return abort(400, 'Profesor no encontrado en la Papelera.');
-		}
+		$profesor->forceDelete();
 		return $profesor;
 	
 	}
@@ -440,11 +436,7 @@ class ProfesoresController extends Controller {
 	{
 		$profesor = Profesor::onlyTrashed()->findOrFail($id);
 
-		if ($profesor) {
-			$profesor->restore();
-		}else{
-			return abort(400, 'Profesor no encontrado en la Papelera.');
-		}
+		$profesor->restore();
 		return $profesor;
 	}
 

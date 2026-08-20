@@ -27,7 +27,7 @@ class DefinitivasPeriodosController extends Controller {
 
 		if ($user->tipo == 'Profesor') {
 			$profe_id = $user->persona_id;
-		} else if($user->is_superuser && $user->is_superuser){
+		} else if($user->is_superuser){
 			$profe_id = Request::input('profesor_id');
 		}
 		
@@ -315,7 +315,7 @@ class DefinitivasPeriodosController extends Controller {
 		$user 			= User::fromToken();
 		User::pueden_modificar_definitivas($user);
 		
-		if ($user->tipo == 'Profesor' || ($user->is_superuser && $user->is_superuser)) {
+		if ($user->tipo == 'Profesor' || ($user->is_superuser)) {
 			// No pasa nada
 		}else{
 			return abort(403, 'No tienes privilegios.');
@@ -340,7 +340,7 @@ class DefinitivasPeriodosController extends Controller {
 		$user 			= User::fromToken();
 		User::pueden_modificar_definitivas($user);
 		
-		if ($user->tipo == 'Profesor' || ($user->is_superuser && $user->is_superuser)) {
+		if ($user->tipo == 'Profesor' || ($user->is_superuser)) {
 			// No pasa nada
 		}else{
 			return abort(403, 'No tienes privilegios.');
@@ -360,7 +360,7 @@ class DefinitivasPeriodosController extends Controller {
 		$user 			= User::fromToken();
 		User::pueden_modificar_definitivas($user);
 		
-		if ($user->tipo == 'Profesor' || ($user->is_superuser && $user->is_superuser)) {
+		if ($user->tipo == 'Profesor' || ($user->is_superuser)) {
 			// No pasa nada
 		}else{
 			return abort(403, 'No tienes privilegios.');

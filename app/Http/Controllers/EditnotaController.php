@@ -449,11 +449,7 @@ class EditnotaController extends Controller {
 
 		$alumno = Alumno::onlyTrashed()->findOrFail($id);
 		
-		if ($alumno) {
-			$alumno->forceDelete();
-		}else{
-			return abort(404, 'Alumno no encontrado en la Papelera.');
-		}
+		$alumno->forceDelete();
 		return $alumno;
 	
 	}
@@ -462,11 +458,7 @@ class EditnotaController extends Controller {
 	{
 		$alumno = Alumno::onlyTrashed()->findOrFail($id);
 
-		if ($alumno) {
-			$alumno->restore();
-		}else{
-			return abort(404, 'Alumno no encontrado en la Papelera.');
-		}
+		$alumno->restore();
 		return $alumno;
 	}
 

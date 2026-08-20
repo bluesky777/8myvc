@@ -173,7 +173,7 @@ class User extends Authenticatable
 		
 		if ($user->tipo == 'Profesor' && $user->profes_pueden_editar_notas==0) {
 			return abort(400, 'No tienes permiso');
-		}else if(($user->is_superuser && $user->is_superuser) || $user->tipo == 'Profesor'){
+		}else if(($user->is_superuser) || $user->tipo == 'Profesor'){
 			// todo bien
 		}else{
 			return abort(403, 'No tienes permiso.');
@@ -206,7 +206,7 @@ class User extends Authenticatable
 		
 		if ($user->tipo == 'Profesor' && $user->profes_pueden_nivelar==0) {
 			return abort(400, 'No tienes permiso');
-		}else if($user->is_superuser && $user->is_superuser){
+		}else if($user->is_superuser){
 			// todo bien
 		}else if($user->tipo == 'Profesor' && $user->profes_pueden_nivelar==1){
 			// todo bien
