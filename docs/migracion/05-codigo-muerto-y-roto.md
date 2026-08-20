@@ -1499,3 +1499,108 @@ comodín, que es lo que hace hoy y lo que la secretaría usa.
   suyo sin golpear nada.** El inventario mira la petición; el barrido, el
   resultado; ésta mira **la forma de la tabla de rutas**, y por eso ve las que no
   reciben identificador y las que solo escriben con el cuerpo lleno.
+
+---
+
+## 18. El cuerpo lleno, y el módulo de votaciones (20 ago 2026)
+
+La [§17](#17-la-hermana-que-se-quedó-sin-el-guard-20-ago-2026) terminó nombrando
+lo que faltaba: **golpear con cuerpos plausibles**. Es lo que había ocultado
+`promovidos/calcular-grupo` y media cartera, y se hizo a continuación. El barrido
+manda ahora, en cada petición, los mismos identificadores ajenos con los nombres
+que usan los cuerpos —`grupo_id`, `grupo_actual`, `alumno_id`, `votacion_id`,
+`texto_a_buscar`…—, todos a la vez: una ruta lee la que conoce y las demás le dan
+igual.
+
+Lo que cuesta está escrito en el método: una ruta que lea **dos** recibe una
+combinación que puede no casar, y entonces el vacío vuelve a no probar nada. Es
+el mismo límite que el mapa de la URL y se acepta por lo mismo — la alternativa
+es una petición por combinación, y son 539 rutas.
+
+Dos cosas se vieron de inmediato. Una fue que **`images-users/move-img-to-me`
+desapareció de la lista de hallazgos**: con el `img_id` ajeno en el cuerpo,
+`persona.propia` lo corta. Antes pasaba porque el cuerpo iba vacío y el guard
+entendía «lo mío». La otra fue el módulo de votaciones.
+
+### 18.1 El mismo patrón, sin una sola variación
+
+De las cinco familias del módulo, **la ruta con guard era `destroy/{id}` en todas
+ellas**. Es literalmente el patrón de la [§15](#15-la-otra-mitad-las-escrituras-que-no-nombran-a-nadie-20-ago-2026):
+el guard fue a la que tiene un `{id}` en la URL. Lo que había detrás, con token
+de alumno y de acudiente:
+
+| Ruta | Qué hacía |
+|---|---|
+| `POST votaciones/store` | **Crea una votación.** Y con `actual=1` hace `UPDATE vt_votaciones SET actual=0 WHERE actual=1` sobre todas. Escribía y **después** respondía 500, que es el patrón de la [§13.1](#13-lo-que-encontró-subir-larastan-al-nivel-5-20-ago-2026) |
+| `POST aspiraciones/store` · `PUT aspiraciones/update` | Crea y edita los cargos a los que se aspira |
+| `POST candidatos/store` | **Inscribe como candidato al `user_id` que venga en el cuerpo**, o sea a cualquiera |
+| `PUT participantes/votantes` | 37 KB con documento, celular, dirección, fecha de nacimiento y correo de todo un grupo — **y a quién votó cada uno** |
+| `GET votos` | `VtVoto::all()`: 52 KB con todos los votos del colegio y el `user_id` que emitió cada uno. Es el voto secreto |
+| `GET candidatos` | `VtCandidato::all()`, de todos los años |
+| `GET participantes` · `allinscritos` · `PUT datos` · `guardar-inscripciones` · `inscribir-profesores` · `set-locked` | El censo electoral, y las cuatro últimas lo escriben |
+
+### 18.2 Qué se cierra lo decidió el front, no el criterio
+
+Cerrar catorce rutas de un módulo a ojo es dejar sin elecciones a dieciséis
+colegios, así que se miró quién las llama, que es lo que ya se hizo en la
+[§14](#14-los-listados-que-no-nombran-a-nadie-20-ago-2026):
+
+- **`VotarCtrl` es el único estado de `votaciones/*` sin `needed_permissions`** en
+  `VotacionesConfig.js`, y llama exactamente a dos endpoints:
+  `votaciones/en-accion-inscrito` y `votos/store`.
+- `ParticipantesCtrl` y `CandidatosCtrl` van con `can_edit_participantes` y
+  `can_edit_candidatos`. `VotacionesCtrl` es la pantalla de Configuración, cuyos
+  seis `set-*`, su `update` y su `destroy` **ya llevaban `auth.personal`**: la
+  pantalla ya estaba cerrada a las familias por todas partes menos por `store`.
+- `votaciones/unsignedsusers`, `participantes/inscribir-profesores` y
+  `participantes/set-locked` **no las llama ningún cliente**, en ninguno de los
+  cuatro.
+
+Con eso, catorce con `auth.personal` y cinco familias que pasan a estar cerradas
+o casi: `aspiraciones` 3/3, `participantes` 9/9, `candidatos` 3/4, `votos` 3/5,
+`votaciones` 10/15.
+
+Se quedan abiertas y con su motivo en `EXCEPCIONES_DE_FAMILIA`:
+`candidatos/conaspiraciones` (la papeleta), `votos/store` (votar), `votos/show`
+(los resultados de quien pregunta, acotados por su `user_id`), el índice de
+`votaciones` (acotado por `user_id`) y las tres lecturas de «la votación en
+curso». Hay un test que comprueba que ninguna de ellas responde 403: **la mitad
+de este trabajo es no romper el flujo de votar.**
+
+### 18.3 Y el candado del §17 hizo lo que tenía que hacer
+
+Al cerrar el módulo, las tres del flujo de votar se convirtieron en «la que se
+quedó sola» de su familia y **el test falló el mismo día que se escribió el
+arreglo**. Es exactamente para lo que está: no dice que estén mal, dice que hay
+que decidir. Van a la lista de excepciones con su motivo, y la de `votos/store`
+lleva escrito lo que hay que saber — *si esto lleva guard, no hay elecciones*.
+
+### 18.4 La papeleta lleva rota para las familias desde siempre
+
+`GET candidatos/conaspiraciones` hace, en la rama de Alumno y Acudiente:
+
+```php
+$votacion = VtVotacion::actualInscrito($user);
+```
+
+**y ese método no existe.** Los que tiene `VtVotacion` son `actual`,
+`actualInAction` y `actualesInscrito`, en plural. Un alumno que abra la papeleta
+recibe un 500, y lo ha recibido siempre.
+
+No lo encontró el muestreo de la P2 ([§8](#8-lo-que-encontró-golpear-las-rutas-20-ago-2026-p2-de-tests)),
+y el motivo es el de toda esta serie con una variación más: **es una lectura sin
+parámetros, así que sí se golpeó — pero con un token del personal**, y el `else`
+del personal llama a un método que sí existe. La herramienta preguntaba bien, con
+un solo tipo de usuario.
+
+**Se deja rota**, con la regla de siempre: arreglarlo es decidir qué votación es
+«la suya» cuando hay varias en curso, y de paso encender para los alumnos una
+pantalla que hoy no funciona en dieciséis colegios. Está en la tabla del
+[09 §5](09-pendientes.md) y su test fija el 500 exacto, para que el día que se
+arregle falle y haya que venir aquí.
+
+Y una que ya estaba y ahora tiene guard: `votaciones/unsignedsusers` responde 500
+desde antes de la migración ([§8](#8-lo-que-encontró-golpear-las-rutas-20-ago-2026-p2-de-tests)),
+porque `vt_participantes` no tiene `user_id`. El guard es para el día que se
+arregle — lo que pretende devolver es el directorio de cuentas del colegio con su
+correo y su `is_superuser`.

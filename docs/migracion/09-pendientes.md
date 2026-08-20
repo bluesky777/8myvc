@@ -221,6 +221,7 @@ saber el tamaño real del daño en las dieciséis bases antes de tocar código.
 | `GET api/perfiles/usernames` devuelve los 2.351 usuarios del colegio | [05 §14.4](05-codigo-muerto-y-roto.md) | apuntar `UserConfiguracionCtrl` a `comprobarusername/{username}`, que ya existe, **y desplegar el front antes** de cerrar la ruta |
 | `GET api/perfiles/username/{username}` no comprueba que el usuario sea el tuyo | [05 §14.4](05-codigo-muerto-y-roto.md) | si `ExigirPersonaPropia` aprende a resolver un nombre de usuario, o si la ruta deja de aceptar parámetro y lo saca del token |
 | `GET api/asignaturas/listasignaturas-alone` le da a un alumno las asignaturas del profesor con su mismo id | [05 §16.6](05-codigo-muerto-y-roto.md) | es la misma pregunta que Joseth dejó abierta en [05 §11.2](05-codigo-muerto-y-roto.md): si esa pantalla debe enseñarle sus asignaturas de verdad. Cerrarla con `auth.personal` es de una línea; decidir qué ve el alumno, no |
+| `GET api/candidatos/conaspiraciones` responde 500 a alumnos y acudientes desde siempre | [05 §18.4](05-codigo-muerto-y-roto.md) | qué votación es «la suya» cuando hay varias en curso. Y que arreglarlo **enciende** para los alumnos una pantalla que hoy no funciona en los dieciséis colegios, que es una decisión y no un arreglo |
 
 ---
 
@@ -504,8 +505,7 @@ saber el tamaño real del daño en las dieciséis bases antes de tocar código.
   encuentra lo que las anteriores no pueden ver.** El inventario mira la
   petición, el barrido el resultado, y ésta la forma de la tabla de rutas — que
   es lo único que ve las que no reciben identificador y las que solo escriben
-  con el cuerpo lleno. Lo que sigue sin cubrir es golpear con **cuerpos
-  plausibles**: es lo que ocultó `promovidos` y la mitad de la cartera.
+  con el cuerpo lleno.
 
 - **Rector**, configurado y sin correr: por carpeta y revisando cada diff.
 - **FormRequests**: hay 2 validaciones en 32.000 líneas. Cada endpoint que se
@@ -514,3 +514,33 @@ saber el tamaño real del daño en las dieciséis bases antes de tocar código.
   que lo harían seguro.
 - **`User::$nota_minima_aceptada`**, la última estática mutable. La leen 26
   sitios del cálculo de notas, que el §5 del plan protege.
+
+- **El cuerpo lleno, hecho el 20 ago 2026.** Lo que la entrada anterior dejaba
+  pendiente. El barrido manda ahora los mismos identificadores ajenos con los
+  nombres que usan los cuerpos, todos a la vez. Dos efectos inmediatos:
+  `images-users/move-img-to-me` **dejó** de aparecer —con el `img_id` ajeno en el
+  cuerpo, `persona.propia` lo corta; antes pasaba porque el cuerpo iba vacío y el
+  guard entendía «lo mío»— y salió el módulo de votaciones entero.
+
+  De sus cinco familias, **la única ruta con guard era `destroy/{id}` en todas**,
+  que es el patrón de la §15 sin una variación. Un alumno creaba votaciones,
+  creaba y editaba los cargos, inscribía de candidato a cualquier `user_id`, y
+  leía el censo con los datos personales de todos y **a quién votó cada uno**, más
+  los 52 KB de `VtVoto::all()`. Catorce cerradas — [05 §18](05-codigo-muerto-y-roto.md).
+
+  Lo que hay que recordar de esta pasada es **cómo se decidió qué cerrar**, porque
+  cerrar catorce rutas de un módulo a ojo es dejar sin elecciones a dieciséis
+  colegios: lo decidió el front. `VotarCtrl` es el único estado de `votaciones/*`
+  sin `needed_permissions` y llama a dos endpoints; el resto cuelga de pantallas
+  con permiso, o no lo llama ningún cliente. Y hay un test que comprueba que el
+  flujo de votar sigue sin recibir 403, que es la otra mitad del trabajo.
+
+  Y el candado de la §17 se ganó el sueldo el mismo día: al cerrar el módulo, las
+  tres del flujo de votar pasaron a ser «la que se quedó sola» y el test falló.
+  Es para lo que está — no dice que estén mal, dice que hay que decidir.
+
+  Lo que sigue sin cubrir: el barrido manda **todas** las claves a la vez, así que
+  una ruta que lea dos recibe una combinación que puede no casar, y ahí el vacío
+  vuelve a no probar nada. Y sigue sin haber forma estática de saber qué claves
+  lee un controlador — la lista de nombres del cuerpo se amplía a mano, como el
+  mapa de la URL.
