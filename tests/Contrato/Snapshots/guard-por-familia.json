@@ -49,7 +49,7 @@
     },
     "aspiraciones": {
         "total": 3,
-        "con_guard": 1
+        "con_guard": 3
     },
     "ausencias": {
         "total": 7,
@@ -97,7 +97,7 @@
     },
     "candidatos": {
         "total": 4,
-        "con_guard": 1
+        "con_guard": 3
     },
     "cartera": {
         "total": 3,
@@ -261,7 +261,7 @@
     },
     "participantes": {
         "total": 9,
-        "con_guard": 2
+        "con_guard": 9
     },
     "perfiles": {
         "total": 22,
@@ -369,11 +369,11 @@
     },
     "votaciones": {
         "total": 15,
-        "con_guard": 8
+        "con_guard": 10
     },
     "votos": {
         "total": 5,
-        "con_guard": 2
+        "con_guard": 3
     },
     "years": {
         "total": 19,

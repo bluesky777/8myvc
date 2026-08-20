@@ -571,6 +571,13 @@ class AutorizacionTest extends CasoDeContrato
         'GET api/definitivas_periodos' => 'rota: `$profe_id` no se define para este tipo de usuario (05, tabla de variables sin definir)',
         'GET api/editnota/detailed-notas-year' => 'rota: usa `$grupo_id` y la ruta no lleva parámetros (05, misma tabla)',
 
+        // El flujo de votar, que es lo que queda abierto del módulo a propósito
+        // después de cerrarle catorce (05 §18). `VotarCtrl` es el único estado de
+        // `votaciones/*` del front sin `needed_permissions`.
+        'GET api/candidatos/conaspiraciones' => 'la papeleta; se acota con actualInscrito($user) — y por eso está rota para una familia, 05 §18.4',
+        'POST api/votos/store' => 'votar. Si esto lleva guard, no hay elecciones',
+        'PUT api/votos/show' => 'los resultados de las votaciones del que pregunta; se acota por su user_id',
+
         // La que espera la decisión que Joseth dejó abierta.
         'GET api/asignaturas/listasignaturas-alone' => 'le da a un alumno las asignaturas del profesor con su id; es la pregunta abierta de 05 §11.2, anotada en 09 §5',
     ];

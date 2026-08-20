@@ -879,4 +879,113 @@ class SuperficieDeUnAlumnoTest extends CasoDeContrato
                 "El 403 llegó tarde: {$quien} ya había cambiado quién pasa el año.");
         }
     }
+
+    /**
+     * El módulo de votaciones, que estaba abierto casi entero.
+     *
+     * El patrón es el de [05 §15] otra vez y sin variación: **el guard fue a la
+     * ruta que tiene `{id}` en la URL**. `destroy/{id}` lo llevaba en las cinco
+     * familias del módulo; `store`, `update` y los listados, no. Con el barrido
+     * mandando un cuerpo plausible salió lo que había detrás: un alumno creaba
+     * votaciones, creaba y editaba los cargos, inscribía como candidato a
+     * cualquier `user_id`, y leía el censo con los datos personales de todos **y
+     * a quién votó cada uno**.
+     *
+     * Qué se cierra y qué no lo decidió el front, no el criterio: `VotarCtrl` es
+     * el único estado de `votaciones/*` sin `needed_permissions`, y llama a dos
+     * endpoints — `votaciones/en-accion-inscrito` y `votos/store`—. Los demás
+     * cuelgan de pantallas con `can_edit_participantes` o `can_edit_candidatos`,
+     * o no los llama ningún cliente. Ver 05 §18.
+     */
+    public static function administracionDeVotaciones(): array
+    {
+        return [
+            'crear una votación' => ['POST', 'votaciones/store'],
+            'el directorio de cuentas sin inscribir' => ['GET', 'votaciones/unsignedsusers'],
+            'crear un cargo' => ['POST', 'aspiraciones/store'],
+            'editar un cargo' => ['PUT', 'aspiraciones/update'],
+            'el censo del evento' => ['GET', 'participantes'],
+            'todos los inscritos' => ['GET', 'participantes/allinscritos'],
+            'los datos del censo' => ['PUT', 'participantes/datos'],
+            'guardar inscripciones' => ['PUT', 'participantes/guardar-inscripciones'],
+            'inscribir profesores' => ['POST', 'participantes/inscribir-profesores'],
+            'bloquear participantes' => ['PUT', 'participantes/set-locked'],
+            'el censo con el voto de cada uno' => ['PUT', 'participantes/votantes'],
+            'todos los candidatos' => ['GET', 'candidatos'],
+            'inscribir un candidato' => ['POST', 'candidatos/store'],
+            'todos los votos del colegio' => ['GET', 'votos'],
+        ];
+    }
+
+    #[DataProvider('administracionDeVotaciones')]
+    public function test_una_familia_no_administra_las_votaciones(string $verbo, string $ruta): void
+    {
+        $cuerpo = [
+            'grupo_id' => $this->grupoConAlumnos()->id,
+            'votacion_id' => 1, 'aspiracion_id' => 1, 'user_id' => 1, 'id' => 1,
+        ];
+
+        foreach ($this->cabecerasDeUnaFamilia() as $quien => $cab) {
+            $this->assertSame(403,
+                $this->json($verbo, '/api/'.$ruta, $cuerpo, $cab)->getStatusCode(),
+                "{$quien} sigue alcanzando {$ruta}.");
+        }
+    }
+
+    /**
+     * Y lo que hace falta para votar sigue abierto, que es la otra mitad.
+     *
+     * Cerrar catorce rutas de un módulo sin comprobar esto sería dejar sin
+     * elecciones a dieciséis colegios. Se mira `assertNotSame(403)` y no un 200:
+     * en el seed no hay ninguna votación en acción, así que varias contestan
+     * vacío por motivos suyos, y `candidatos/conaspiraciones` contesta 500 por el
+     * suyo, que tiene su propio test aquí abajo. Lo que aquí importa es lo único
+     * que este caso puede afirmar: que el guard no las corte.
+     */
+    public function test_una_familia_sigue_pudiendo_votar(): void
+    {
+        $abiertas = [
+            ['GET', 'votaciones'], ['GET', 'votaciones/actual'],
+            ['GET', 'votaciones/actual-in-action'], ['GET', 'votaciones/en-accion-inscrito'],
+            ['GET', 'candidatos/conaspiraciones'], ['PUT', 'votos/show'], ['POST', 'votos/store'],
+        ];
+
+        foreach ($this->cabecerasDeUnaFamilia() as $quien => $cab) {
+            foreach ($abiertas as [$verbo, $ruta]) {
+                $this->assertNotSame(403,
+                    $this->json($verbo, '/api/'.$ruta, [], $cab)->getStatusCode(),
+                    "El guard está cortando a {$quien} en {$ruta}, que es del flujo de votar.");
+            }
+        }
+    }
+
+    /**
+     * La papeleta lleva rota para las familias desde siempre, y aquí queda fijado.
+     *
+     * `candidatos/conaspiraciones` llama a `VtVotacion::actualInscrito($user)`
+     * **en la rama de Alumno y Acudiente, y ese método no existe** —los que hay
+     * son `actual`, `actualInAction` y `actualesInscrito`, en plural—. Un alumno
+     * que abra la papeleta recibe un 500, y lo ha recibido siempre.
+     *
+     * No lo encontró el muestreo de la P2, que golpeó una lectura por controlador
+     * con un token de verdad ([05 §8]): ésta es una lectura sin parámetros y sí
+     * se golpeó, pero **con un token del personal**, y el `else` del personal usa
+     * un método que sí existe. Es el mismo tipo de punto ciego que el resto de
+     * esta serie — la herramienta preguntaba bien y con un solo tipo de usuario.
+     *
+     * Se deja roto con la regla de siempre —con ruta y roto se documenta— porque
+     * arreglarlo es decidir qué votación es «la suya» cuando hay varias en curso,
+     * y de paso encender para los alumnos una pantalla que hoy no funciona en
+     * dieciséis colegios. Está en la tabla del 09 §5. Este test fija el error
+     * exacto para que el día que se arregle, falle y haya que venir aquí.
+     */
+    public function test_la_papeleta_de_una_familia_sigue_rota(): void
+    {
+        foreach ($this->cabecerasDeUnaFamilia() as $quien => $cab) {
+            $this->assertSame(500,
+                $this->getJson('/api/candidatos/conaspiraciones', $cab)->getStatusCode(),
+                "La papeleta ya no responde 500 a {$quien}: si se ha arreglado, ".
+                'actualiza este test y la entrada de 05 §18.');
+        }
+    }
 }
