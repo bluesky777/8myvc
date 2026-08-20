@@ -351,6 +351,60 @@ análisis; está comprobado insertando una variable inexistente.
 **El patrón, otra vez:** ninguno de estos diez salió de leer el código con una
 lista delante. Salieron de subirle una pregunta a la herramienta.
 
+## 8. Lo que encontró golpear las rutas (20 ago 2026, P2 de tests)
+
+El muestreo de la P2 pidió una lectura por controlador con un token de verdad.
+De 66 lecturas sin parámetro, **cuatro fallaban siempre**, y ninguna de las
+cuatro estaba en las listas de arriba.
+
+Lo que las une importa más que las cuatro: **tres son SQL contra columnas que no
+existen, y larastan pasó por esos tres ficheros en la Fase 6 sin ver ninguna.**
+El análisis estático lee PHP, y estos errores viven dentro de una cadena de
+texto. Solo aparecen golpeando.
+
+| Endpoint | Qué le pasa |
+|---|---|
+| `GET api/profesores/trashed` | `order by p.nombres` y en el `FROM` no hay ninguna `p`. Y aunque no fallara devolvería lo que no debe: la consulta es la papelera de ALUMNOS copiada entera —`FROM alumnos a … where a.deleted_at is not null`—, con dos `year_id` escritos a mano. La papelera de profesores nunca ha devuelto un profesor |
+| `PUT api/preguntas/edicion` | `ORDER BY p.order` cuando la columna se llama `orden`; la misma consulta la selecciona bien tres líneas más arriba. `order` es además palabra reservada |
+| `GET api/votaciones/unsignedsusers` | `select p.user_id from vt_participantes p`, y `vt_participantes` no tiene `user_id`: tiene `grupo_profes_acudientes`. La tabla cambió de forma y la consulta se quedó |
+| `GET api/importar` | `Excel::import('…/alumnos.xls', function($reader){…})` es la firma de maatwebsite/excel **2.x**. En la 3.x el primer argumento es el objeto de importación, así que el closure llega donde se espera una ruta y `pathinfo()` revienta. Misma familia que los `Excel::create()` de la 7.2, y mismo motivo para no tocarlo: reescribirlo es rehacer el importador |
+
+**Se dejan como están**, con la misma regla de la 6.5 y la 7.2: arreglarlos no es
+limpieza. Qué debe devolver la papelera de profesores, o de dónde sale el
+`user_id` de un participante ahora que la columna no está, son decisiones del
+colegio. Lo que sí queda es el test que fija el error exacto, para que un cambio
+de la migración no los mueva sin que nadie se entere.
+
+### 8.1 Tres pantallas que devuelven la cadena `'Holaa'`
+
+`GET api/observador`, `GET api/simat` y `GET api/excel-docentes` responden 200
+con la palabra `Holaa`. Es el `getIndex` de andamio que quedó cuando cada
+controlador pasó a servir solo sus métodos con parámetros. No molesta a nadie
+—`myvc_front` no las llama— pero son rutas publicadas de la API, y quien las
+encuentre en el inventario merece saber que no son un error de despliegue.
+
+### 8.2 Pedir algo que no existe da 500, no 404
+
+`PUT api/respuestas/actividad` y `PUT api/ChangesAskedAssignment/ver-detalles`
+hacen `DB::select(…)[0]` sin mirar si vino algo: con un id que no está, el error
+es `Undefined array key 0`. No es un fallo del seed —con la tabla llena pasa
+igual con cualquier id ajeno—, y se ve desde fuera: un 500 en el log del colegio
+que en realidad era «eso no está».
+
+Queda fijado en `MuestreoDeLecturasConContextoTest` y sin tocar. Cambiarlo a 404
+es tocar el contrato de dos pantallas sin saber qué hace `myvc_front` con cada
+código, y eso es otro trabajo.
+
+### 8.3 Y una tabla que no existe, otra vez
+
+`ws_preguntas`, `ws_actividades`, `ws_opciones` y `ws_respuestas` sí existen —el
+módulo de actividades está vivo—, pero el generador de seed no copia ninguna. No
+es lo mismo que `llevo_formulario` del P1, que no existía en ninguna base. Se
+anota aquí porque la primera lectura del inventario fue esa, y costó una hora:
+las tablas del módulo llevan prefijo `ws_`, y las de cambios de asignatura están
+en singular (`change_asked_assignment`).
+
+---
 ---
 ## La lección para la Fase 4
 

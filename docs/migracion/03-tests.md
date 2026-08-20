@@ -25,12 +25,41 @@ el esquema o el seed.
 > daño —`CasoDeContrato` aborta al ver que la base no acaba en `_testing`— pero
 > el mensaje despista. Con `route:cache` no pasa: la suite pasa entera.
 
+## Qué falta por cubrir, medido
+
+La pregunta «¿qué rutas no mira nadie?» no se puede contestar leyendo los tests:
+las URLs se construyen interpolando —`"api/boletines/detailed-notas/{$grupo}"`—
+así que buscarlas con grep pierde justo las que llevan parámetro. Se mide
+ejecutando:
+
+```bash
+docker exec 8myvc-app-1 rm -f /tmp/tocadas.txt
+docker exec -e COBERTURA_RUTAS=/tmp/tocadas.txt 8myvc-app-1 php artisan test
+docker exec 8myvc-app-1 php artisan route:list --json > /tmp/rutas.json
+docker exec 8myvc-app-1 cat /tmp/tocadas.txt > /tmp/tocadas.txt   # sacarlo del contenedor
+python3 tools/cobertura-de-rutas.py /tmp/rutas.json /tmp/tocadas.txt
+```
+
+El registrador vive en `tests/TestCase.php` y solo se enciende con la variable
+puesta; una corrida normal no escribe nada.
+
+**Lo que hace útil al informe es separar «ejecutada» de «comprobada».** Medido a
+secas, el 99% de las rutas se ejecutan: `AutenticacionTest` y `RutasPreLoginTest`
+las hacen pasar a las 539 por el router para sus snapshots de guards, y eso no
+mira lo que devuelven. Descontando esos barridos, la cuenta real era **96 de 539
+el 20 de agosto de 2026**, antes de la P2. Después, 208.
+
+Un barrido se reconoce por tocar más de 25 rutas **en una sola ejecución**, no
+por clase: un test parametrizado que mira 66 respuestas de una en una toca una en
+cada ejecución y 66 entre todas, y con el criterio por clase se descartaría a sí
+mismo. Pasó con `MuestreoDeLecturasTest` en cuanto se escribió.
+
 ## Las tres piezas
 
 | Fichero | Qué es |
 |---|---|
 | `database/schema/mysql-schema.sql` | El esquema real congelado. 90 tablas. |
-| `database/dumps/test-seed.sql` | Los datos: rebanada anonimizada, 46 tablas, ~15.800 filas. |
+| `database/dumps/test-seed.sql` | Los datos: rebanada anonimizada de DOS años, 47 tablas, ~32.800 filas. |
 | `tests/Contrato/Snapshots/*.json` | La forma esperada de cada respuesta. |
 
 Los tests de imagen se mudan a una carpeta temporal antes de correr, y vuelven al
@@ -72,9 +101,25 @@ Se genera desde la base real, así que solo se puede hacer en local:
 docker exec 8myvc-app-1 php tools/generar-seed-test.php [year_id] [grupo_id]
 ```
 
-Por defecto se ancla en el año 8 (2025) y el grupo 98 (Cuarto, 68 alumnos).
-Sigue el grafo de claves foráneas hacia fuera, así que lo que entra tiene sus
-referencias dentro.
+Por defecto se ancla en **dos años**: el grupo 84 (Tercero 2024, 56 alumnos) y
+el 98 (Cuarto 2025, los mismos 56 más 12). Sigue el grafo de claves foráneas
+hacia fuera, así que lo que entra tiene sus referencias dentro.
+
+**El segundo año es lo que hace que se ejecuten las consultas del grado
+anterior**, y ampliarlo destapó tres cosas del andamiaje que llevaban ahí desde
+el principio:
+
+- **Lo que no está en `$OMITIDAS` ni en los recortes se copia ENTERO**, así que
+  cualquier tabla nueva entra sola. Se coló `personal_access_tokens` con 319
+  tokens de sesión —credenciales, en el repo— y además rompió la carga.
+- **Las migraciones van antes del seed**, no después. El seed sale de la base de
+  desarrollo, que ya está migrada, así que trae las columnas nuevas dentro y
+  sobre el esquema pelado muere con `Unknown column 'firmantes_acta'`. Lo que ese
+  orden no comprueba es una migración que TRANSFORME datos existentes; las de hoy
+  son aditivas, pero la primera que toque datos necesitará su propio test.
+- **`construir-bd-test.sh` silenciaba los errores de `mysql`.** Con `set -e` eso
+  deja el peor estado posible: el script imprime sus pasos, se corta a la mitad, y
+  la base queda vacía sin que nada lo diga.
 
 ### El detector de fugas
 
@@ -176,20 +221,80 @@ Dos trampas nuevas, además de las tres del P0:
   y ahí venía el nombre del colegio. Las cabeceras se leen ahora solo de los
   `<th>`, donde no hay una sola interpolación.
 
+## El muestreo P2 del 20 de agosto
+
+Una lectura por controlador, para los 62 que no tenían ninguna. Setenta y ocho
+tests en dos ficheros. Los controladores con algo mirándolos pasan de 35 a 90 de
+97; los siete que faltan no tienen ninguna lectura que mirar —son escrituras, o
+los lectores de tardanzas—.
+
+| Bloque | Qué se mira, y por qué así |
+|---|---|
+| `MuestreoDeLecturasTest` | Las 66 lecturas SIN parámetro: catálogos, listados y papeleras. Se separan en tres grupos —con datos, vacías, rotas— y **separarlas es todo el valor**: una lista vacía pasa cualquier comprobación, así que las once que salen vacías se anotan con su motivo en vez de guardarles un snapshot que describiría la nada |
+| `MuestreoDeLecturasConContextoTest` | Las que piden un id que exista y que encaje. **Casi ninguna es un GET**: en este proyecto se lee con `PUT` y el filtro va en el cuerpo, así que buscar «un GET por controlador» —como estaba escrita la P2 en el plan— dejaba fuera a veinte controladores enteros por un detalle de verbo |
+
+Dos trampas nuevas, además de las cinco del P0 y el P1:
+
+- **El id no basta: tiene que encajar.** `tokenDelPersonalDe()` ya resolvía esto
+  para el año; un escalón más abajo está el mismo problema con el profesor. «El
+  primer profesor» no da clase en el año del grupo, así que su planilla sale
+  vacía en 200 y el test pasa sin haber calculado nada. Se elige **el profesor
+  con más asignaturas en el año del grupo**.
+- **Los huecos se cuelan un nivel más adentro.** Una respuesta puede traer datos
+  y aun así dejar una lista vacía dentro; el resto viene lleno, la comprobación
+  pasa, y esa clave concreta se queda sin que nadie le mire la forma. Los vigila
+  `test_los_huecos_del_seed_son_los_conocidos`, que los lee de los propios
+  ficheros de snapshot —el snapshot ES la forma, así que sale igual y sin
+  repetir las peticiones— y falla en cuanto aparece uno nuevo. Hay ocho.
+
+Y dos más que salieron al ampliar el seed, y que valen para cualquier test que
+se escriba a partir de ahora:
+
+- **`periodos.actual` no dice cuál es el año actual del colegio.** Marca el
+  periodo actual DE SU AÑO, así que los nueve años del seed tienen uno; el año
+  del colegio lo dice `years.actual`. `NotasTest` filtraba solo por el primero y
+  con dos años pasó a elegir una asignatura de 2024 mientras el login ponía al
+  profesor en 2025: la rejilla en 500 y el periodo cerrado dejando guardar notas.
+- **Un join con `matriculas` da una fila por MATRÍCULA, no por alumno.** Desde
+  que hay dos años el mismo alumno sale dos veces, así que «los tres primeros»
+  eran tres filas de dos personas. `ExcelTest` marcaba dos deudores creyendo que
+  marcaba tres, y su `assertCount(3)` seguía pasando porque contaba filas.
+
+**Y encontró cuatro endpoints que fallan siempre, ninguno en las listas del
+inventario de código roto.** Tres son SQL contra columnas que no existen, y
+**larastan pasó por esos tres ficheros en la Fase 6 sin ver ninguna**: el
+análisis estático lee PHP, y estos errores viven dentro de una cadena de texto.
+Están en [05-codigo-muerto-y-roto.md §8](05-codigo-muerto-y-roto.md).
+
 ### Lo que el seed no cubre, y hay que saberlo
 
-Cuatro listas salen vacías siempre, así que su contenido **no lo comprueba
-nadie** aunque el test esté verde:
+Un snapshot describe la forma de lo que vino, así que **una lista vacía se
+describe como vacía y a partir de ahí pasa siempre**. El mapa completo de eso
+—31 snapshots, más de cien claves— lo mantiene `HuecosDelSeedTest`, que lo lee de
+los propios ficheros de snapshot y lo compara contra
+`Snapshots/huecos-del-seed.json`. Su docblock lleva las ocho familias que hay hoy
+y qué hacer cuando el test falla.
 
-- `AlumnosSinMatricula` (matrículas y prematrículas) y las otras dos listas de
-  prematrículas: el seed es un grupo de un año, y no hay grado anterior del que
-  sacar candidatos. Es la consulta del `NOT IN`, la más enredada de las tres.
-- `grupos/next-year`: el año siguiente al del seed está borrado.
-- `con-disciplina.descripciones_typeahead`: lee de `dis_procesos`, una de las dos
-  tablas que el generador omite a propósito.
-- `promovidos.recuperaciones`: `recuperacion_final` no entra en el seed.
+Es el test que hay que mirar cuando aparece un hueco nuevo: o el seed dejó de
+traer un dato, o la ruta dejó de devolverlo, y **lo segundo no lo ve ningún otro
+test**, porque la forma de una lista vacía casa con el snapshot anterior si el
+anterior también estaba vacío.
 
-Cubrirlas pide un seed con dos años. Es trabajo de la P2.
+De las cuatro listas que motivaron el seed de dos años, tres quedaron cubiertas y
+una se queda fuera a propósito:
+
+- `AlumnosSinMatricula` — cubierta, pero **fabricando el caso**. Con dos años ya
+  hay grado anterior, y aun así el `NOT IN` seguía descartando a todos: los 56 de
+  Tercero 2024 están todos en Cuarto 2025. El test desmatricula a uno, que es la
+  situación real de la pantalla —el que estuvo el año pasado y este todavía no ha
+  vuelto—.
+- `grupos/next-year` — cubierta **al revés**. 2026 existe con sus trece grupos
+  pero está borrado en producción, así que se retrasa el año actual a 2024 dentro
+  de la transacción y se pregunta desde ahí.
+- Las otras dos listas de prematrículas — cubiertas por el año anterior sin más.
+- `con-disciplina.descripciones_typeahead` — **se queda vacía y así se queda**.
+  Lee de `dis_procesos`, una de las dos tablas que el generador omite por ser el
+  dato más sensible del sistema.
 
 ## Cosas que aparecieron en los datos reales
 
