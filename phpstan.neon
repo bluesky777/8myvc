@@ -10,6 +10,29 @@ parameters:
         - tests
         - tools
 
+    # Nivel 3, desde el 20 ago 2026. El 3 comprueba los tipos: lo que se asigna
+    # a una propiedad, lo que devuelve un método y si la anotación del hijo
+    # encaja con la del padre. Empezó en 61 y **no hizo falta ninguna excepción
+    # nueva** — es el primer nivel que se cierra con la lista de abajo intacta.
+    #
+    # De los 61, catorce eran el mismo fallo de verdad: siete columnas
+    # `tinyint(1)` que el código escribía con booleanos de PHP, así que la
+    # respuesta de la llamada que crea la fila llevaba `false` y la de cualquier
+    # lectura posterior llevaba `0`. Otras 19 iguales estaban escondidas detrás
+    # de un `Request::input('is_active', true)`, que para el análisis es `mixed`:
+    # el nivel enseñó dónde mirar, el grep encontró el resto. Lo fija
+    # BanderasDeUnBitTest.
+    #
+    # Trece más eran una mentira del generador de columnas, que leía el tipo de
+    # cada una y tiraba el `NOT NULL`: `?int` donde decía `int`. Se arregló en
+    # tools/columnas-en-los-modelos.php, no en los modelos.
+    #
+    # Los otros 34 no eran fallos: 16 `@var array` del esqueleto de Laravel 8
+    # donde el padre declara `array<int, string>`, 13 `foreach` sobre
+    # `RouteCollectionInterface` —que no es iterable, aunque la clase concreta
+    # que hay detrás sí— y cinco sueltos, entre ellos un `[0]` sobre el entero
+    # que devuelve `DB::update()`, que era un warning por cada alumno importado.
+    #
     # Nivel 2, desde el 20 ago 2026. El 1 encontró 341 errores y 21 reales; el 2
     # empezó en 465, y de esos 438 eran una anotación falsa: el trait
     # ResuelveElUsuario decía `@property User $user` cuando lo que devuelve
@@ -34,7 +57,7 @@ parameters:
     # ellos 320 eran los `$this->user` de los controladores, que se callaron con
     # una anotación `@property` en el trait ResuelveElUsuario, y 21 eran reales.
     # Bajarlo, nunca.
-    level: 2
+    level: 3
 
     # El esquema real no está en migraciones (ver Fase 5), así que larastan no
     # puede deducir las columnas de los modelos. Sin esto, cada `$alumno->nombres`
