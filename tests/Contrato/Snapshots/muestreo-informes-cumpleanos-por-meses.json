@@ -1,0 +1,48 @@
+[
+    {
+        "alumnos": [
+            {
+                "abrev_grupo": "string",
+                "alumno_id": "int",
+                "apellidos": "string",
+                "barrio": "null|string",
+                "celular": "null|string",
+                "created_by": "null",
+                "deuda": "int",
+                "direccion": "null|string",
+                "documento": "null|string",
+                "email": "null|string",
+                "eps": "null|string",
+                "estado": "string",
+                "estrato": "int",
+                "facebook": "null",
+                "fecha_matricula": "string",
+                "fecha_nac": "string",
+                "foto_id": "null",
+                "foto_nombre": "string",
+                "grupo_id": "int",
+                "imagen_id": "null",
+                "imagen_nombre": "string",
+                "is_active": "int",
+                "matricula_id": "int",
+                "no_matricula": "null|string",
+                "nombre_grupo": "string",
+                "nombres": "string",
+                "nuevo": "int",
+                "orden": "int",
+                "pazysalvo": "int",
+                "religion": "null|string",
+                "repitente": "int",
+                "sexo": "string",
+                "telefono": "null|string",
+                "tipo_doc": "int",
+                "tipo_sangre": "null|string",
+                "updated_by": "int",
+                "user_id": "int",
+                "username": "string"
+            }
+        ],
+        "indice": "int",
+        "mes": "string"
+    }
+]

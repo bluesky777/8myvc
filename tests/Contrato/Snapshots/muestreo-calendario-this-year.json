@@ -1,0 +1,21 @@
+[
+    {
+        "allDay": "int",
+        "created_at": "string",
+        "created_by": "int",
+        "created_by_nombres": "string",
+        "cumple_alumno_id": "int|null",
+        "cumple_profe_id": "int|null",
+        "deleted_at": "null",
+        "deleted_by": "null",
+        "end": "null|string",
+        "id": "int",
+        "solo_profes": "int",
+        "start": "string",
+        "title": "string",
+        "type": "null",
+        "updated_at": "string",
+        "updated_by": "int|null",
+        "url": "null"
+    }
+]

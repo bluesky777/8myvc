@@ -339,6 +339,20 @@ class MuestreoDeLecturasTest extends CasoDeContrato
             // hoja del árbol.
             'planillas-ver-ausencias' => ['alumnos.periodos.ausencias'],
 
+            // El módulo de actividades vive en las tablas `ws_*`, y el generador
+            // de seed no copia ninguna. Lo que queda comprobado de estas dos
+            // pantallas es el armazón —los grupos y las asignaturas entre las
+            // que elige el profesor—, no las actividades en sí.
+            'actividades-compartidas' => ['actv_acudi', 'actv_alumnos', 'actv_profes'],
+            'actividades-datos' => ['mis_asignaturas', 'otras_asignaturas.actividades'],
+
+            // El mismo contexto de usuario que `auth/me`, con los mismos dos
+            // huecos y por el mismo motivo.
+            'aplicacion-descargas-detailed' => ['perms', 'token'],
+
+            // Ningún alumno del grupo del seed ha perdido una asignatura.
+            'notas-actuales-alumnos' => ['alumnos.periodos.asignaturas_perdidas'],
+
             // `perms` sale vacío solo para el tipo Usuario, que es el que elige
             // tokenDelPersonalDe(): el primero del año no tiene rol. La forma de
             // la lista sí está cubierta, por los contextos de Profesor, Alumno y

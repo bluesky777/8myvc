@@ -1,0 +1,114 @@
+[
+    {
+        "apellidos": "string",
+        "barrio": "null|string",
+        "celular": "null|string",
+        "ciudad_doc": "int|null",
+        "ciudad_nac": "int|null",
+        "contrato_id": "int",
+        "direccion": "null|string",
+        "email": "null|string",
+        "email_usu": "null|string",
+        "estado_civil": "null|string",
+        "facebook": "null",
+        "fecha_nac": "string",
+        "foto_id": "int|null",
+        "foto_nombre": "string",
+        "grupos": [
+            {
+                "abrev": "string",
+                "apellidos_titular": "string",
+                "asignaturas": [
+                    {
+                        "alias": "string",
+                        "alumnos": [
+                            {
+                                "alumno_id": "int",
+                                "apellidos": "string",
+                                "celular": "null|string",
+                                "email": "null|string",
+                                "foto_id": "null",
+                                "nombres": "string",
+                                "notas": [
+                                    {
+                                        "alumno_id": "int",
+                                        "apellidos": "string",
+                                        "asignatura_id": "int",
+                                        "celular": "null|string",
+                                        "created_at": "string",
+                                        "defin_subunidad": "string",
+                                        "defin_unidad": "string",
+                                        "email": "null|string",
+                                        "foto_id": "null",
+                                        "nombres": "string",
+                                        "nota": "int",
+                                        "nota_id": "int",
+                                        "numero_periodo": "int",
+                                        "orden_subunidad": "int",
+                                        "orden_unidad": "int",
+                                        "pazysalvo": "int",
+                                        "periodo_id": "int",
+                                        "porc_subunidad": "int",
+                                        "porc_unidad": "int",
+                                        "sexo": "string",
+                                        "subunidad_id": "int",
+                                        "unidad_id": "int",
+                                        "user_id": "int"
+                                    }
+                                ],
+                                "pazysalvo": "int",
+                                "sexo": "string",
+                                "userData": {
+                                    "email": "null|string",
+                                    "fecha_nac": "string",
+                                    "foto_id": "null",
+                                    "foto_nombre": "string",
+                                    "imagen_id": "null",
+                                    "imagen_nombre": "string",
+                                    "sexo": "string",
+                                    "user_id": "int",
+                                    "username": "string"
+                                },
+                                "user_id": "int"
+                            }
+                        ],
+                        "asignatura_id": "int",
+                        "creditos": "int",
+                        "grupo_id": "int",
+                        "materia": "string",
+                        "orden": "null",
+                        "profesor_apellidos": "string",
+                        "profesor_id": "int",
+                        "profesor_nombres": "string"
+                    }
+                ],
+                "created_at": "string",
+                "grado_id": "int",
+                "grupo_id": "int",
+                "nombre": "string",
+                "nombre_grado": "string",
+                "nombres_titular": "string",
+                "orden": "int",
+                "orden_grado": "int",
+                "titular_id": "int",
+                "titulo": "null",
+                "updated_at": "string",
+                "year_id": "int"
+            }
+        ],
+        "imagen_id": "null",
+        "is_superuser": "int",
+        "nombre_completo": "string",
+        "nombres": "string",
+        "num_doc": "string",
+        "profesor_id": "int",
+        "sexo": "string",
+        "telefono": "null",
+        "tipo_doc": "int|null",
+        "tipo_profesor": "null",
+        "titulo": "null|string",
+        "user_id": "int",
+        "username": "string",
+        "year_id": "int"
+    }
+]
