@@ -10,6 +10,35 @@ parameters:
         - tests
         - tools
 
+    # Nivel 5, desde el 20 ago 2026. El 5 comprueba los ARGUMENTOS: si lo que
+    # se le pasa a un método es del tipo que ese método pide. Empezó en 45, el
+    # número más bajo de todas las subidas, y aun así trajo el fallo más caro de
+    # la serie —porque los tipos que no encajan no son todos iguales—.
+    #
+    # 31 de los 45 eran cadenas donde se esperaba un entero, que PHP convierte
+    # solo: 22 `abort('400', …)` y tres `Carbon::createFromDate('2010','08','05')`
+    # copiados. Comprobados en el contenedor: funcionan. Se hicieron explícitos y
+    # ya, porque dejan de convertirse solos el día que alguien escriba
+    # `declare(strict_types=1)` ahí.
+    #
+    # Cinco eran relaciones Eloquent en la sintaxis de Laravel 4 —`hasMany('Alumno')`,
+    # sin namespace—, que no resuelven hoy y que no llama nadie. Borradas.
+    #
+    # Y **una era `count()` sobre un Builder**, que no se convierte: es un
+    # TypeError. `DELETE api/images-users/destroy/{id}` borraba la imagen del
+    # disco, limpiaba las cinco referencias y reventaba en la última línea, así
+    # que el cliente recibía un error de una operación que sí había ocurrido. En
+    # PHP 7 ese mismo `count()` era un warning que devolvía 1. Detrás salió lo
+    # que no se buscaba: el guard `persona.propia` estaba puesto en esa ruta y no
+    # miraba nada, porque recoge los identificadores por su NOMBRE y esta es la
+    # única ruta de imagen que llama `{id}` a lo que sus hermanas llaman
+    # `{imagen_id}`. Un alumno borraba la foto de cualquiera. Los dos en
+    # 05-codigo-muerto-y-roto.md §13.1 y §13.2, y los dos fijados por ImagenesTest.
+    #
+    # Lo que queda son los seis de abajo, y son un solo fallo contado tres veces:
+    # los tres endpoints del importador con la firma de maatwebsite 2.x. Uno de
+    # ellos no estaba en ninguna lista hasta este nivel.
+
     # Nivel 4, desde el 20 ago 2026. El 4 no comprueba tipos: comprueba si una
     # condición decide algo y si una línea llega a ejecutarse. Empezó en 55 y es
     # el nivel donde estaban los fallos —cambiar la contraseña borraba el correo
@@ -79,7 +108,7 @@ parameters:
     # ellos 320 eran los `$this->user` de los controladores, que se callaron con
     # una anotación `@property` en el trait ResuelveElUsuario, y 21 eran reales.
     # Bajarlo, nunca.
-    level: 4
+    level: 5
 
     # El esquema real no está en migraciones (ver Fase 5), así que larastan no
     # puede deducir las columnas de los modelos. Sin esto, cada `$alumno->nombres`
@@ -340,6 +369,31 @@ parameters:
             message: '#^Unreachable statement - code above always terminates\.$#'
             path: app/Http/Controllers/Informes/SimatController.php
             count: 1
+
+        # ---- Los seis que quedaron del nivel 5 (20 ago 2026). Son un solo
+        # fallo contado tres veces —dos argumentos por llamada—: los tres
+        # endpoints que llaman a `Excel::import($ruta, function ($reader) {…})`,
+        # que es la firma de maatwebsite/excel 2.x. En la 3.x el primer argumento
+        # es el objeto de importación y el segundo la ruta, así que el closure
+        # llega donde se espera una ruta y `pathinfo()` revienta.
+        #
+        # Misma familia y mismo motivo que los `Excel::create()` de más arriba:
+        # reescribirlos a la API nueva es rehacer el importador, no arreglarlo, y
+        # qué debe hacer cada uno —y si la operación debe existir— es una
+        # decisión del colegio. Los tres son `GET api/importar`,
+        # `POST api/importar/cartera` y `GET api/importar/modificar/{year}`; el
+        # tercero no estaba en ninguna lista hasta este nivel, porque el muestreo
+        # de la P2 solo golpeaba lecturas sin parámetro y lleva `{year}`.
+        #
+        # Los tres los fija ExcelTest, golpeándolos. 05 §8, §8.4 y §13.3.
+        -
+            message: '#^Parameter \#1 \$import of static method Maatwebsite\\Excel\\Facades\\Excel\:\:import\(\) expects object, .+ given\.$#'
+            path: app/Http/Controllers/Alumnos/ImportarController.php
+            count: 3
+        -
+            message: '#^Parameter \#2 \$filePath of static method Maatwebsite\\Excel\\Facades\\Excel\:\:import\(\) expects Illuminate\\Http\\UploadedFile\|string, Closure given\.$#'
+            path: app/Http/Controllers/Alumnos/ImportarController.php
+            count: 3
 
         # PUT api/respuestas/actividad
         # `$cantidad_pregs = 4;` a mano, con el comentario de su autor al lado

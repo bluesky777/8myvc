@@ -20,11 +20,11 @@ medición o de una decisión, y sin el porqué se deshace solo.
 Todo corre dentro del contenedor (`kool` sobre docker compose):
 
 ```bash
-docker exec 8myvc-app-1 php artisan test                       # los 426
+docker exec 8myvc-app-1 php artisan test                       # los 430
 docker exec 8myvc-app-1 php artisan test --testsuite=Contrato  # solo contrato (necesita BD)
 docker exec 8myvc-app-1 php artisan test --filter=NotasTest    # una clase
 docker exec 8myvc-app-1 composer run pint                      # formato
-docker exec 8myvc-app-1 composer run stan                      # larastan nivel 4
+docker exec 8myvc-app-1 composer run stan                      # larastan nivel 5
 
 tools/construir-bd-test.sh                                     # crea/reconstruye la BD de tests
 ```
@@ -119,7 +119,7 @@ Cómo se usan, cómo se regenera el seed y qué no cubre: `docs/migracion/03-tes
 - **Pint** solo sobre lo que escribió la migración (ver `composer.json`).
   Reformatear los 129 controladores sería un diff ilegible; se formatea el día
   que se toca cada fichero.
-- **Larastan nivel 4**, y no baja. Lo que no se puede arreglar va anotado en
+- **Larastan nivel 5**, y no baja. Lo que no se puede arreglar va anotado en
   `phpstan.neon` **con nombre, motivo y `count`** — nunca en un baseline
   generado, que los escondería.
 - **Rector** está configurado y sin correr: por carpeta y revisando cada diff.

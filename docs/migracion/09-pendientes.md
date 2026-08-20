@@ -332,6 +332,64 @@ saber el tamaño real del daño en las dieciséis bases antes de tocar código.
   crucen**, porque copia un solo grupo de alumnos y ahí los ids de alumno y de
   profesor no se solapan. El candado del `switch` se intentó escribir y se tiró:
   habría pasado siempre, dijera lo que dijera el código.
+- **Larastan del 4 al 5 — cerrado el 20 ago 2026.** Medido al empezar: **45
+  errores**, el número más bajo de todas las subidas —el 1 encontró 341, el 2
+  465, el 3 61, el 4 55—. Y aun así trajo el fallo más caro de la serie, que es
+  lo que hay que recordar de este nivel: **el número de errores no dice nada del
+  tamaño de lo que hay dentro**.
+
+  El 5 comprueba los argumentos. La mayoría de lo que encuentra son cadenas
+  donde se espera un entero, y PHP las convierte solo: 31 de los 45 eran eso
+  —22 `abort('400', …)` y tres `Carbon::createFromDate('2010','08','05')`
+  copiados— y funcionan hoy, comprobados en el contenedor. Se hicieron
+  explícitos y ya. Otros cinco eran relaciones Eloquent con la sintaxis de
+  Laravel 4 (`hasMany('Alumno')`, sin namespace) que no llamaba nadie, borradas.
+
+  **Y una era `count()` sobre un Builder, que no se convierte: es un TypeError.**
+  De ahí salieron los dos hallazgos, y salieron juntos porque se tapaban el uno
+  al otro — [05 §13](05-codigo-muerto-y-roto.md):
+
+  - **`DELETE api/images-users/destroy/{id}` borraba la imagen y después
+    respondía 500.** El `count()` está en la última línea del método: cuando
+    revienta, el archivo ya no está en el disco, la fila de `images` está marcada
+    y las cinco referencias —alumnos, profesores, acudientes, usuarios y años—
+    puestas a `null`. El cliente recibía un error de una operación que sí había
+    ocurrido, y quien reintentara vería el 404 del `findOrFail`, que parece otro
+    fallo distinto. En PHP 7 ese `count()` era un warning que devolvía 1: es el
+    tercer cambio de comportamiento del salto de versión que encuentra el
+    analizador, después de los `tinyint(1)` del 3 y los `== 'true'` del 4.
+
+    El bloque no se reescribe: buscaba `change_asked.oficial_image_id`, una
+    columna que no existe en ninguna de las 90 tablas. Lo que pretendía —limpiar
+    también las peticiones de cambio que nombran la imagen— queda escrito con sus
+    cuatro columnas candidatas, porque elegir entre ponerlas a `null` o borrar la
+    petición del usuario es **una decisión, y no es de programación**.
+
+  - **Y detrás, un alumno borrando la foto de cualquiera.** La ruta llevaba
+    `persona.propia` desde la revisión de IDOR y el guard **no miraba nada**:
+    recoge los identificadores por su NOMBRE, y esta es la única ruta de imagen
+    que llama `{id}` a lo que sus cuatro hermanas llaman `{imagen_id}`. Un alumno
+    borraba la foto de un profesor —o el logo del colegio, que vive en
+    `years.logo_id`— y recibía el 500 de arriba con el borrado ya hecho.
+
+    Es el **tercer punto ciego de la misma familia**, después de los buscadores
+    de [05 §11.3](05-codigo-muerto-y-roto.md) y del inventario de
+    [08 §4](08-revision-idor.md), y los tres caben en una frase: *el guard estaba
+    puesto y la pregunta era otra*. Aquí no era «¿tiene guard esta ruta?» —lo
+    tenía— sino «¿el guard reconoce lo que esta ruta llama id?».
+    **`inventario-autorizacion.py` tampoco contesta esa**, y esta sí es mecánica:
+    comparar el nombre del parámetro de cada ruta con las claves que busca su
+    middleware. Es lo que queda pendiente de la herramienta, y lo único de este
+    nivel que deja trabajo escrito.
+
+  Lo que queda anotado en `phpstan.neon` son seis errores que son un solo fallo
+  contado tres veces: los tres endpoints del importador con la firma de
+  maatwebsite 2.x. **El tercero —`GET api/importar/modificar/{year}`— no estaba
+  en ninguna lista hasta este nivel**, y no salió antes porque el muestreo de la
+  P2 golpeaba lecturas sin parámetro y esta lleva `{year}`. Es la contraria de la
+  lección de la §8: allí, lo que no se golpea no se sabe si funciona; aquí, lo
+  que no se puede golpear a veces se puede leer.
+
 - **Rector**, configurado y sin correr: por carpeta y revisando cada diff.
 - **FormRequests**: hay 2 validaciones en 32.000 líneas. Cada endpoint que se
   toque estrena la suya.

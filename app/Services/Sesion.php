@@ -140,6 +140,17 @@ class Sesion
     {
         $usuario = $token->tokenable;
 
+        // El invariante, escrito donde se usa. `SesionController` ya comprueba
+        // esto mismo antes de llamar y devuelve 401 —un token de alguien que ya
+        // no está no renueva nada—, pero ahí es una defensa y aquí es la
+        // condición de la que depende todo lo de abajo: `tokenable` es un
+        // `morphTo`, así que devuelve `null` para un usuario borrado, y sin este
+        // `abort` la renovación de una cuenta dada de baja sería un 500 en vez
+        // del 401 que le toca.
+        if (! $usuario instanceof User) {
+            abort(401, 'Token inválido, prohibido entrar.');
+        }
+
         $sesion = $token->name;
 
         [$acceso, $accesoPlano] = $this->emitir(
