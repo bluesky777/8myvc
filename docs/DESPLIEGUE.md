@@ -23,11 +23,12 @@ Token **sin ningún scope** (<https://github.com/settings/tokens/new?scopes=>, s
 marcar nada). Se guarda en `~/.composer/auth.json`, vale para todos los colegios,
 y se revoca al terminar.
 
-### PHP 8.4 en las dos cuentas de cPanel — HECHO el 19 ago 2026
+### PHP 8.4 en las dos cuentas de cPanel — HECHO
 
-Las dos cuentas (`micolevirtual.com` y `lalvirtual.edu.co`) ya están en 8.4.
-Queda por confirmar lo de abajo: extensiones y OPcache **no se heredan de la
-versión anterior**.
+Las dos cuentas (`micolevirtual.com` y `lalvirtual.edu.co`) ya están en 8.4, y
+Joseth lo confirmó el 20 ago 2026. **Lo único que queda de este paso es comprobar
+extensiones y OPcache, que NO se heredan de la versión anterior.** Si ya se
+comprobaron, sáltate a la carpeta `vendor/`.
 
 Laravel 13 no arranca por debajo de 8.3.
 
@@ -88,6 +89,48 @@ Cada colegio apuntará aquí con un symlink. Hay una carpeta por generación
 (`laravel_8`, `laravel_13`), no una sola: es lo que permite migrar y volver atrás
 colegio a colegio. **Nunca correr `composer` dentro de un colegio** — sigue el
 symlink y le cambia las dependencias a todos los que cuelguen de la misma carpeta.
+
+---
+
+## 0.bis Qué trae esta tanda, y qué se va a notar
+
+**No hay migraciones nuevas.** Siguen siendo las dos de siempre
+(`personal_access_tokens` y `firmantes_acta`), así que el `migrate --force` del
+paso 1 es el mismo de antes.
+
+Lo que sí cambia, y se nota desde el minuto uno:
+
+**Alumnos y acudientes pierden acceso a casi todo lo que no es suyo.** Es el
+cambio grande de esta tanda y viene de la revisión de IDOR
+([08-revision-idor.md](migracion/08-revision-idor.md)): 141 rutas no comprobaban
+de quién era el dato que servían. La regla que se aplicó es **un alumno solo ve lo
+suyo; un acudiente, lo suyo y lo completo de sus acudidos**. En números, 141 rutas
+sin guard pasan a 12, y las 12 son catálogos que no exponen a nadie.
+
+Antes de esto, cualquier alumno con su token podía cambiarle el nombre de usuario
+al rector, leer antecedentes médicos ajenos, sacar el listado de sus compañeros con
+documento y dirección, abrirle un proceso disciplinario a otro y borrar un año
+lectivo entero. Ya no.
+
+**Lo que hay que mirar en el navegador después de desplegar el primer colegio**, y
+con calma, porque es donde el riesgo cambió de sitio: entrar **como alumno y como
+acudiente** y dar una vuelta por sus pantallas. Los tests cubren que siguen viendo
+lo suyo —perfil, fotos, notas, boletín, matrículas, acudientes, ficha de
+enfermería—, pero salen del backend: si `myvc_front` llama a alguna ruta desde una
+pantalla de familia que no esté en esa lista, saldrá un 403 donde antes había
+datos. Es lo único de esta tanda que no se puede comprobar sin el front delante.
+
+Y tres arreglos que también se ven:
+
+- **El certificado de notas acumuladas del año deja de salir en ceros.** Llevaba
+  así desde siempre: `GET boletines/detailed-notas-year/{grupo}` sin el segmento de
+  la URL devolvía 200 con todo a 0. Ahora calcula.
+- **El listado del grupo deja de imprimir «0» en la dirección.** La consulta usaba
+  `+` en vez de `CONCAT`, y en MySQL eso es una suma.
+- **`PUT prematriculas/llevo-formulario` ya no existe**: escribía en una tabla que
+  nunca se creó, o sea que era un 500 seguro. Si el front la llama, ahora recibirá
+  404 en vez de 500. Quién llevó el formulario se guarda —y siempre se guardó— como
+  `matriculas.estado = 'FORM'`, que es lo que mueve la pantalla de prematrículas.
 
 ---
 
@@ -216,8 +259,14 @@ de estudio, informes en Excel y subida de foto de perfil.
 
 **Lo que parece un fallo y no lo es:**
 
-- Alumno y acudiente reciben **403** en `requisitos`, `prematriculas` y
-  `piars-grupos`. Es lo esperado desde el PR #7.
+- Alumno y acudiente reciben **403 en casi todo lo que no es suyo**, no solo en
+  `requisitos`, `prematriculas` y `piars-grupos` como hasta el PR #7. Desde el
+  PR #11 son más de trescientas rutas: el listado del grupo, el observador, la
+  rejilla de notas del profesor, la configuración del colegio y cualquier ruta que
+  nombre a otra persona. El mensaje es «No tienes permiso» o «Solo puedes consultar
+  lo tuyo», y **cada rechazo queda anotado en `bitacoras`**, que es donde mirar si
+  alguien reclama. Lo que NO debe dar 403 es un alumno pidiendo lo suyo o un
+  acudiente pidiendo lo de su acudido; si pasa, es un fallo y hay que reportarlo.
 - Todos los usuarios activos aterrizan en el login **una vez**. Los tokens JWT
   dejaron de valer al quitarse el paquete. Pasa solo el día del despliegue.
 - El logo del colegio da 404 si ese colegio no tiene uno propio: cae al genérico.
@@ -290,6 +339,7 @@ falla con 500 es **guardar** los firmantes. Se arregla corriendo `migrate`.
 | Framework en la rama | Laravel 13.26.1 · PHP 8.4 |
 | Sin confirmar | si los cinco de `laravel_compartido` siguen colgando por symlink |
 | Sin confirmar | si `sodium` y `opcache` siguen activas en 8.4 — se marcaron en 8.0 y **la selección de extensiones es por versión** |
+| Sin confirmar | si alguna pantalla de familia de `myvc_front` llama a una ruta que el guard nuevo cierra. Solo se ve con el front delante |
 
 **Laravel 8.83.29 corriendo sobre PHP 8.4 es la ventana incómoda descrita en el
 paso 0: arranca, pero no está soportado ahí.** Cuanto antes empiece el despliegue
