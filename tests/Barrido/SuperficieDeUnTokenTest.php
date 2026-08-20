@@ -87,6 +87,25 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
     private array $ajenos;
 
     /**
+     * El cuerpo que se manda en cada petición, con los mismos valores ajenos.
+     *
+     * **Golpear con el cuerpo vacío era la mitad del barrido que faltaba.** Este
+     * proyecto pide por el cuerpo tanto como por la URL, y una ruta que saca su
+     * alcance de ahí —`promovidos/calcular-grupo` con su `grupo_id`,
+     * `cartera/alumnos` con su `grupo_actual`— no llegaba a tocar a nadie: el
+     * controlador entraba, no encontraba a quién, y devolvía vacío sin escribir.
+     * El barrido lo leía como «esta ruta no alcanza nada». Ver 05 §17.
+     *
+     * Se mandan todas las claves a la vez, no una a una: una ruta lee la que
+     * conoce y las demás le dan igual. Lo que cuesta es que una que lea DOS
+     * recibe una combinación que puede no casar —el alumno ajeno con el grupo
+     * ajeno de otro año—, y entonces el vacío vuelve a no probar nada. Es el
+     * mismo límite del mapa de la URL y se acepta por lo mismo: la alternativa
+     * es una petición por combinación, y son 539 rutas.
+     */
+    private array $cuerpo = [];
+
+    /**
      * Los parámetros para los que el seed NO tiene ningún valor ajeno.
      *
      * Las rutas que los llevan se golpean igual, pero con un cero: contestan
@@ -128,6 +147,7 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
         // no está y media API contestaba vacía sin que nada fallara.
         $this->token = $this->tokenDe($quien->username);
         $this->ajenos = $this->identificadoresAjenosA($quien, $tipo);
+        $this->cuerpo = $this->cuerpoPlausible();
 
         DB::listen(function ($q) {
             if (preg_match('/^\s*(insert|update|delete)\s/i', $q->sql) !== 1) {
@@ -182,7 +202,7 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
             $this->escrituras = [];
 
             try {
-                $r = $this->withToken($this->token)->json($verbo, '/'.$pedida, []);
+                $r = $this->withToken($this->token)->json($verbo, '/'.$pedida, $this->cuerpo);
                 $codigo = $r->getStatusCode();
 
                 // Alguna de las rutas cierra la sesión —o le cambia la contraseña
@@ -191,7 +211,7 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
                 if ($codigo === 401) {
                     $this->token = $this->tokenDe($this->sujetoDeBarrido(getenv('BARRIDO_TIPO') ?: 'Alumno')->username);
                     $this->escrituras = [];
-                    $r = $this->withToken($this->token)->json($verbo, '/'.$pedida, []);
+                    $r = $this->withToken($this->token)->json($verbo, '/'.$pedida, $this->cuerpo);
                     $codigo = $r->getStatusCode();
                 }
             } catch (\Throwable $e) {
@@ -296,6 +316,47 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
         return $elegido === null
             ? $this->usuarioDeTipo($tipo)
             : DB::selectOne('SELECT * FROM users WHERE id = ?', [$elegido->id]);
+    }
+
+    /**
+     * Los mismos valores ajenos, con los nombres que usan los cuerpos.
+     *
+     * Los nombres NO son los de la URL: un `{grupo_id}` de la URL se llama
+     * `grupo_actual` en la cartera y `grupo_id` en la promoción, y esa diferencia
+     * es justo la que dejó las dos sin medir. La lista se amplía cuando aparezca
+     * un nombre nuevo, igual que el mapa de la URL — y como aquél, lo que no
+     * cubre lo salta en silencio, con la diferencia de que aquí no hay forma
+     * estática de saber qué claves lee un controlador.
+     *
+     * `texto_a_buscar` va con una sola letra a propósito: es lo que enseñó que
+     * los buscadores devolvían 49 compañeros.
+     */
+    private function cuerpoPlausible(): array
+    {
+        $de = fn (string $clave) => $this->ajenos[$clave] ?? 0;
+
+        return [
+            'alumno_id' => $de('{alumno_id}'),
+            'grupo_id' => $de('{grupo_id}'),
+            'grupo_actual' => $de('{grupo_id}'),
+            'profesor_id' => $de('{profesor_id}'),
+            'persona_id' => $de('{profesor_id}'),
+            'user_id' => $de('{user_id}'),
+            'usuario_id' => $de('{user_id}'),
+            'acudiente_id' => $de('{persona_id?}'),
+            'asignatura_id' => $de('{asignatura_id}'),
+            'periodo_id' => $de('{periodo_id}'),
+            'num_periodo' => $this->ajenos['{periodo_a_calcular?}'] ?? 1,
+            'year_id' => $de('{year_id}'),
+            'year' => $de('{year}'),
+            'imagen_id' => $de('{imagen_id}'),
+            'img_id' => $de('{imagen_id}'),
+            'nota_id' => $de('{nota_id}'),
+            'votacion_id' => $de('{votacion_id}'),
+            'role_id' => $de('{role_id}'),
+            'ciudad_id' => $de('{ciudad_id}'),
+            'texto_a_buscar' => 'a',
+        ];
     }
 
     /** Sustituye los parámetros de la URL, o devuelve null si no sabe con qué. */
