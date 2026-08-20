@@ -13,7 +13,18 @@
     <testsuite name="Contrato">
       <directory suffix="Test.php">./tests/Contrato</directory>
     </testsuite>
+    <!-- Barrido: la herramienta que mide qué alcanza un token de verdad. Tarda,
+             no afirma nada e imprime un informe, así que va excluida de la
+             corrida normal por su grupo. Ver tests/Barrido/. -->
+    <testsuite name="Barrido">
+      <directory suffix="Test.php">./tests/Barrido</directory>
+    </testsuite>
   </testsuites>
+  <groups>
+    <exclude>
+      <group>barrido</group>
+    </exclude>
+  </groups>
   <php>
     <server name="APP_ENV" value="testing"/>
     <server name="BCRYPT_ROUNDS" value="4"/>

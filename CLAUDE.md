@@ -23,6 +23,9 @@ Todo corre dentro del contenedor (`kool` sobre docker compose):
 docker exec 8myvc-app-1 php artisan test                       # los 438
 docker exec 8myvc-app-1 php artisan test --testsuite=Contrato  # solo contrato (necesita BD)
 docker exec 8myvc-app-1 php artisan test --filter=NotasTest    # una clase
+
+# Qué alcanza de verdad un token. No corre con los demás: mide e imprime.
+docker exec -e BARRIDO_TIPO=Alumno 8myvc-app-1 php artisan test --group=barrido
 docker exec 8myvc-app-1 composer run pint                      # formato
 docker exec 8myvc-app-1 composer run stan                      # larastan nivel 5
 
@@ -49,6 +52,13 @@ leyendo el código. Cada una lleva su uso en la cabecera.
 | `columnas-en-los-modelos.php` | reescribe las `@property` de los modelos desde el esquema real |
 | `route-inventory.php` · `route-match-check.php` | la tabla de rutas, comparable 1:1 |
 | `inventario-autorizacion.py` · `auditar-autenticacion.php` | qué guard cubre cada ruta |
+
+Y una que **no** está en `tools/` y contesta la pregunta contraria:
+`tests/Barrido/SuperficieDeUnTokenTest.php` golpea la API entera con un token y
+mira **el resultado** —qué datos personales salen y qué filas se escriben de
+verdad— en vez de la petición. Vive en `tests/` porque barrer las escrituras es
+ejecutarlas, y la transacción de cada test es lo único que hace eso inocuo. De
+ahí salieron las §14 y §15 de `docs/migracion/05-codigo-muerto-y-roto.md`.
 
 ## Arquitectura
 

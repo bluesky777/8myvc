@@ -434,9 +434,19 @@ saber el tamaño real del daño en las dieciséis bases antes de tocar código.
   De paso corrigió al barrido de lecturas del mismo día, que **solo había mirado
   las GET**: el fichero de acudientes se lee con `PUT` y por eso no había salido.
 
+  **Y el barrido se quedó**, que es lo que permite retomarlo:
+  `tests/Barrido/SuperficieDeUnTokenTest.php`, fuera de la corrida normal, con
+  el tipo de usuario en `BARRIDO_TIPO`. Reproduce las dos medidas —qué sale y
+  qué escribe— y afirma una sola cosa: que su mapa de identificadores cubra
+  todos los parámetros de las 539 rutas. Un barrido que se encoge en silencio
+  sería peor que no tenerlo.
+
   Lo que queda sin barrer con este criterio es el **acudiente**, cuya superficie
-  se parece pero no es igual, y las escrituras que sí puede hacer un alumno pero
-  sobre lo de otro sin que el guard pueda verlo — como fue el caso del muro.
+  se parece pero no es igual —`persona.propia` le acepta lo de sus acudidos—, y
+  es literalmente `BARRIDO_TIPO=Acudiente`. Y sigue fuera de su alcance lo que
+  un alumno sí puede escribir pero sobre lo de otro sin que el guard pueda
+  verlo, como fue el caso del muro: eso no lo encuentra un barrido, lo encuentra
+  leer el controlador.
 
 - **Rector**, configurado y sin correr: por carpeta y revisando cada diff.
 - **FormRequests**: hay 2 validaciones en 32.000 líneas. Cada endpoint que se
