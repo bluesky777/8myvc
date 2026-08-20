@@ -134,8 +134,8 @@ class ProfesoresController extends Controller {
 		$usuario->username		=	Request::input('username');
 		$usuario->password		=	Hash::make(Request::input('password', '123456'));
 		$usuario->email			=	Request::input('email2');
-		$usuario->is_superuser	=	Request::input('is_superuser', false);
-		$usuario->is_active		=	Request::input('is_active', true);
+		$usuario->is_superuser	=	Request::input('is_superuser', 0);
+		$usuario->is_active		=	Request::input('is_active', 1);
 		$usuario->tipo			=	'Profesor';
 		$usuario->save();
 
@@ -321,8 +321,8 @@ class ProfesoresController extends Controller {
 					$usuario = User::find($profesor->user_id);
 					$usuario->username		=	Request::input('username');
 					$usuario->email			=	Request::input('email2');
-					$usuario->is_superuser	=	Request::input('is_superuser', false);
-					$usuario->is_active		=	Request::input('is_active', true);
+					$usuario->is_superuser	=	Request::input('is_superuser', 0);
+					$usuario->is_active		=	Request::input('is_active', 1);
 
 					if (Request::input('nuevo_password')){
 						$usuario->password = Hash::make(Request::input('nuevo_password'));
@@ -344,8 +344,8 @@ class ProfesoresController extends Controller {
 					$usuario->username		=	Request::input('username');
 					$usuario->password		=	Hash::make(Request::input('password', '123456'));
 					$usuario->email			=	Request::input('email2');
-					$usuario->is_superuser	=	Request::input('is_superuser', false);
-					$usuario->is_active		=	Request::input('is_active', true);
+					$usuario->is_superuser	=	Request::input('is_superuser', 0);
+					$usuario->is_active		=	Request::input('is_active', 1);
 					$usuario->save();
 
 

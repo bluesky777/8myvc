@@ -28,7 +28,7 @@ class PeriodosController extends Controller {
 		$periodo->numero						=	Request::input('numero');
 		$periodo->fecha_inicio					=	Request::input('fecha_inicio');
 		$periodo->fecha_fin						=	Request::input('fecha_fin');
-		$periodo->actual						=	false;
+		$periodo->actual						=	0;
 		$periodo->year_id						=	$year_id;
 		$periodo->profes_pueden_editar_notas	=	1;
 		$periodo->profes_pueden_nivelar			=	1;
@@ -122,13 +122,13 @@ class PeriodosController extends Controller {
 		foreach ($periodos as $periodo) {
 			
 			if ($periodo->id != $periodoACambiar->id) {
-				$periodo->actual = false;
+				$periodo->actual = 0;
 				$periodo->save();
 			}
 			
 		}
 
-		$periodoACambiar->actual 		= true;
+		$periodoACambiar->actual 		= 1;
 		$periodoACambiar->updated_by 	= $this->user->user_id;
 		$periodoACambiar->save();
 

@@ -392,7 +392,7 @@ class LoginController extends Controller {
 
 			if (!is_object($periodo_actual)) {
 				$periodo_actual = Periodo::where('year_id', $yearactual->id)->first();
-				$periodo_actual->actual 	= true;
+				$periodo_actual->actual 	= 1;
 				$periodo_actual->updated_by = 0; // endpoint público: no hay usuario autenticado
 				$periodo_actual->save();
 			}
@@ -406,9 +406,9 @@ class LoginController extends Controller {
 			$usuario->username		=	$alumno->nombres . rand(99, 999);
 			$usuario->password		=	Hash::make($password_inicial);
 			$usuario->sexo			=	$sexo;
-			$usuario->is_superuser	=	false;
+			$usuario->is_superuser	=	0;
 			$usuario->periodo_id	=	$periodo_actual->id;
-			$usuario->is_active		=	true;
+			$usuario->is_active		=	1;
 			$usuario->tipo			=	'Alumno';
 			$usuario->save();
 

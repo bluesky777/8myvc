@@ -71,7 +71,7 @@ class MisActividadesController extends Controller {
 			$res = new WsActividadResuelta();
 			$res->actividad_id 		= $actividad_id;
 			$res->persona_id 		= $user->persona_id;
-			$res->timeout 			= false;
+			$res->timeout 			= 0;
 			$res->save();
 		}
 		$actividad = WsActividad::datosActividadConRespuestas($actividad_id, $res->id);

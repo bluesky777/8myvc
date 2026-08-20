@@ -104,7 +104,7 @@ class YearsController extends Controller {
 		}
 
 		$year 				= Year::find($year_id_nuevo);
-		$year->actual 		= true;
+		$year->actual 		= 1;
 		$year->created_by 	= $user->user_id;
 		$year->save();
 
@@ -340,7 +340,7 @@ class YearsController extends Controller {
 		}
 
 		$year = Year::findOrFail($year_id);
-		$year->actual = true;
+		$year->actual = 1;
 		$year->save();
 
 		if ($actual) { return 'Ahora es año actual.';

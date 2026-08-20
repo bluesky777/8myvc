@@ -30,7 +30,7 @@ class PreguntasController extends Controller {
 		$opcion->definicion 	= 'Opción 1';
 		$opcion->pregunta_id 	= $preg->id;
 		$opcion->orden 			= 0;
-		$opcion->is_correct 	= true;
+		$opcion->is_correct 	= 1;
 		$opcion->save();
 
 		$preg->opciones = [$opcion];

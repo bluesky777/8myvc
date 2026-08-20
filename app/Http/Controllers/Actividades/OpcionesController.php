@@ -52,7 +52,7 @@ class OpcionesController extends Controller {
 		WsOpcion::where('pregunta_id', Request::input('pregunta_id'))
 					->update(['is_correct' => false]);
 		
-		$opcion->is_correct 	= true;
+		$opcion->is_correct 	= 1;
 		$opcion->save();
 
 		return $opcion;

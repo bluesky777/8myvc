@@ -263,7 +263,7 @@ class AlumnosController extends Controller {
 
 				if (!is_object($periodo_actual)) {
 					$periodo_actual = Periodo::where('year_id', $yearactual->id)->first();
-					$periodo_actual->actual 	= true;
+					$periodo_actual->actual 	= 1;
 					$periodo_actual->updated_by = $this->user->user_id;
 					$periodo_actual->save();
 				}
@@ -273,9 +273,9 @@ class AlumnosController extends Controller {
 				$usuario->password		=	Hash::make(Request::input('password', '123456'));
 				$usuario->email			=	Request::input('email');
 				$usuario->sexo			=	Request::input('sexo');
-				$usuario->is_superuser	=	Request::input('is_superuser', false);
+				$usuario->is_superuser	=	Request::input('is_superuser', 0);
 				$usuario->periodo_id	=	$periodo_actual->id;
-				$usuario->is_active		=	Request::input('is_active', true);
+				$usuario->is_active		=	Request::input('is_active', 1);
 				$usuario->tipo			=	'Alumno';
 				$usuario->updated_by	=	$this->user->user_id;
 				$usuario->save();
@@ -694,8 +694,8 @@ class AlumnosController extends Controller {
 					$usuario = User::find($alumno->user_id);
 					$usuario->username		=	Request::input('username');
 					$usuario->email			=	Request::input('email2');
-					$usuario->is_superuser	=	false;
-					$usuario->is_active		=	Request::input('is_active', true);
+					$usuario->is_superuser	=	0;
+					$usuario->is_active		=	Request::input('is_active', 1);
 					$usuario->updated_by 	= $this->user->user_id;
 
 					if (Request::has('password')) {
@@ -728,8 +728,8 @@ class AlumnosController extends Controller {
 					$usuario->username		=	Request::input('username');
 					$usuario->password		=	Hash::make(Request::input('password', '123456'));
 					$usuario->email			=	Request::input('email2');
-					$usuario->is_superuser	=	false;
-					$usuario->is_active		=	Request::input('is_active', true);
+					$usuario->is_superuser	=	0;
+					$usuario->is_active		=	Request::input('is_active', 1);
 					$usuario->periodo_id	=	$periodo_actual->id;
 					$usuario->created_by 	= $this->user->user_id;
 					$usuario->save();

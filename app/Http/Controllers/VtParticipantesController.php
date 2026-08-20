@@ -211,8 +211,8 @@ class VtParticipantesController extends Controller {
 					// Hash::check() contra eso siempre falla, así que la cuenta que
 					// esta línea creaba no podía entrar por ninguna parte.
 					$usuario->password		=	Hash::make('123456');
-					$usuario->is_superuser	=	false;
-					$usuario->is_active		=	true;
+					$usuario->is_superuser	=	0;
+					$usuario->is_active		=	1;
 					$usuario->save();
 
 					$profe = Profesor::find($profesores[$i]->id);
@@ -235,7 +235,7 @@ class VtParticipantesController extends Controller {
 					$participante = new VtParticipante;
 					$participante->user_id		=	$profesores[$i]->user_id;
 					$participante->votacion_id	=	$votacion->id;
-					$participante->locked		=	false;
+					$participante->locked		=	0;
 					$participante->intentos		=	0;
 					$participante->save();
 				}

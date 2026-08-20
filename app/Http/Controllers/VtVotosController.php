@@ -46,13 +46,13 @@ class VtVotosController extends Controller {
 				$voto = new VtVoto;
 				$voto->user_id				=	$user->user_id;
 				$voto->blanco_aspiracion_id	=	$aspiracion_id;
-				$voto->locked				=	false;
+				$voto->locked				=	0;
 				$voto->save();
 			}else{
 				$voto = new VtVoto;
 				$voto->user_id			=	$user->user_id;
 				$voto->candidato_id		=	Request::input('candidato_id');
-				$voto->locked			=	false;
+				$voto->locked			=	0;
 				$voto->save();
 			}
 			
