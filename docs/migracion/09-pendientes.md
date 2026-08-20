@@ -168,7 +168,47 @@ techo real son cinco minutos. Ver [02-plan-rendimiento.md](02-plan-rendimiento.m
 
 ---
 
-## 4. Lo que espera una decisión del colegio
+## 4. Las definitivas: notas que se pierden, se duplican y no se actualizan
+
+**Estado: analizado, planificado y decidido — parado hasta que termine la
+migración en curso.** Lo decidió Joseth el 20 ago 2026, y la razón es de orden,
+no de duda: el trabajo entra de lleno en el cálculo de notas, que el §5 del plan
+protege, y abrirlo a la vez que la migración deja dos frentes tocando lo mismo.
+
+El análisis completo está en **[10-definitivas.md](10-definitivas.md)**: seis
+sitios distintos escriben en `notas_finales` con cinco criterios distintos de qué
+borrar, ninguno transaccional, sobre una tabla **sin clave única**. De ahí salen
+los tres síntomas que se venían reportando por separado y resultaron ser el mismo
+problema: definitivas que desaparecen al cambiar de periodo, definitivas
+duplicadas que el profesor puede editar dos veces, y notas que los profesores
+juraban haber puesto —y tenían razón.
+
+Lo que **no** hay que volver a averiguar cuando se retome:
+
+- La causa principal del borrado es `BoletinesController::putDetailedNotas`, con
+  su propio `// CALCULAMOS SIN VERIFICAR QUE ESTÉ DESACTUALIZADO` al lado. Usa el
+  periodo **del usuario que mira**, no el del boletín, y su ruta es
+  `boletin.propio`: también lo dispara un acudiente.
+- La comprobación de «desactualizada» se calcula en /notas y **el `if` de al lado
+  no la mira**. Y aunque la mirara, es un `MAX(notas.updated_at)`: ciega a los
+  borrados, a los porcentajes y a los alumnos nuevos.
+- `putSubunidad` no guarda nada: la consulta está en comillas dobles con sintaxis
+  de concatenación de simples.
+- El front no revierte el valor cuando falla el guardado, y pierde la última nota
+  tecleada si se cambia de asignatura antes del segundo del `debounce`.
+
+Las **tres decisiones ya están tomadas** y no se re-litigan (10 §9): la fila
+existe siempre que exista la matrícula; entre notas duplicadas gana la más alta
+—pero entre definitivas duplicadas gana la manual—; y la fórmula **no** se
+normaliza, para que los porcentajes mal puestos se vean en la planilla.
+
+Cuando se retome, se empieza por la fase 0: la herramienta de medición, para
+saber el tamaño real del daño en las dieciséis bases antes de tocar código.
+**Antes de optimizar algo: medirlo.**
+
+---
+
+## 5. Lo que espera una decisión del colegio
 
 | Qué | Dónde está descrito | Qué falta decidir |
 |---|---|---|
@@ -180,7 +220,7 @@ techo real son cinco minutos. Ver [02-plan-rendimiento.md](02-plan-rendimiento.m
 
 ---
 
-## 5. Continuo, sin final
+## 6. Continuo, sin final
 
 - **Larastan del 2 al 3.** Cada subida de nivel ha encontrado endpoints rotos de
   verdad: 21 en el 1, cuatro en el 2.

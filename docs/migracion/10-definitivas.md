@@ -10,6 +10,13 @@ clave única**.
 Este documento es el análisis. No hay código escrito todavía; el plan está al
 final.
 
+> **Parado a propósito.** Decidido el 20 ago 2026: esto se hace **cuando termine
+> la migración en curso**, no antes. No es duda sobre el plan —las tres
+> decisiones de la §9 están tomadas— sino orden de trabajo: toca el cálculo de
+> notas, que el §5 del plan de migración protege, y no conviene abrir dos frentes
+> sobre lo mismo. Al retomar se empieza por la **fase 0**, la medición.
+> Ver [09-pendientes.md §4](09-pendientes.md).
+
 ---
 
 ## 0. El mapa: quién escribe en `notas_finales`
@@ -313,13 +320,69 @@ subunidades pero nunca llama a /notas, el hueco puede durar días.
 **5.2 Eliminar un indicador sube o baja según cómo quedaron los porcentajes**, sin
 que nadie reajuste el resto ni avise de que ya no suman 100.
 
-Esto no es un fallo del recálculo sino de la fórmula, y **no se arregla poniendo
-más disparadores de recálculo**: recalcular más a menudo propaga antes un número
-que ya estaba mal. Va en el plan aparte (fase 1 y fase 3).
+**Decidido (§9.3): la fórmula no cambia.** Que los porcentajes descuadrados se
+noten en la planilla es la intención, no un descuido — es lo que delata la
+asignatura mal configurada. Lo que sí se arregla es la §5.1, que no es un
+problema de porcentajes sino una ventana en la que la definitiva no corresponde a
+nada: se cierra creando la subunidad y sus notas en la misma transacción
+(fase 3), no tocando el cálculo.
 
 ---
 
-## 6. Otros hallazgos del mismo recorrido
+## 6. Qué pasa hoy cuando falta la fila
+
+Al principio no la tiene nadie, y hoy **no hay ningún punto que la cree a
+propósito**: aparece cuando algún recálculo pasa por encima —abrir /notas, editar
+una unidad, imprimir un boletín, pulsar el botón—, y ninguno de esos la crea para
+el alumno que no tiene notas (§1). Así que «sin fila» no es un estado inicial que
+se resuelve solo: es un estado en el que un alumno puede quedarse el periodo
+entero.
+
+Lo que hace cada consumidor con esa fila ausente **no es coherente**, y ninguna de
+las tres respuestas es «no muestra nada»:
+
+**6.1 El puesto anual la cuenta como cero, sin decirlo.**
+[PuestosController.php:38](app/Http/Controllers/Informes/PuestosController.php#L38)
+hace `sum(nf.nota)/4` — divide entre 4 siempre, haya cuatro filas o tres. Falta
+una definitiva ⇒ **esa materia pierde el 25 % de su nota anual**, y como el puesto
+sale de la suma de materias, el alumno baja de puesto por una fila que no está.
+(La misma consulta con una definitiva duplicada suma cinco y divide entre cuatro:
+sube. Es la §2 llegando al puesto.)
+
+**6.2 La planilla deja al alumno entero fuera — y arrastra al grupo.**
+[PlanillasController.php:54](app/Http/Controllers/PlanillasController.php#L54)
+usa la definitiva del periodo 1 como **tabla base**:
+
+```sql
+FROM notas_finales nf1
+left join notas_finales nf2 ... and nf2.periodo=2
+...
+where nf1.alumno_id=:alu4 and nf1.asignatura_id=:asi4 and nf1.periodo=1
+```
+
+Sin definitiva del periodo 1 no hay ninguna fila, y el alumno sale de la planilla
+**sin ninguna definitiva, tampoco las de los periodos 2, 3 y 4** que sí existen.
+Y el promedio de la asignatura suma solo a los alumnos con fila pero divide entre
+`count($alumnos)`, o sea entre todos: **cada alumno sin definitiva del periodo 1
+baja el promedio del grupo entero.** Los `left join` de nf2/nf3/nf4 tampoco se
+relacionan con nf1 por ninguna columna —solo por parámetros sueltos—, así que un
+duplicado en cualquier periodo multiplica las filas y el `[0]` de la línea 62
+elige una al azar.
+
+**6.3 El boletín la cuenta como cero y hace perder la materia.**
+`CalcPerdidasDefinitivas` calcula `(IFNULL(nf1.nota,0) + IFNULL(nf2.nota,0) +
+...)/4`: la definitiva que falta entra como 0 y puede dejar la materia por debajo
+del mínimo. Lo mismo en
+[NotaFinal.php:167](app/Models/NotaFinal.php#L167), donde `promedio_automatico`
+suma los cuatro periodos con los NULL valiendo 0.
+
+**En resumen:** no tener fila hoy no significa «todavía no hay nota», significa
+**cero** en el puesto y en el boletín, y **desaparecido** en la planilla. Por eso
+la decisión de la §9.1 no es cosmética.
+
+---
+
+## 7. Otros hallazgos del mismo recorrido
 
 - `Alumnos/Definitivas::calcular_notas_finales_asignatura` y
   `..._periodo` ([Definitivas.php:36,66](app/Http/Controllers/Alumnos/Definitivas.php#L36))
@@ -342,7 +405,7 @@ que ya estaba mal. Va en el plan aparte (fase 1 y fase 3).
 
 ---
 
-## 7. Plan
+## 8. Plan
 
 El orden importa: mientras el código siga insertando duplicados, poner el índice
 único convierte cada duplicado en un error 500. Las fases 1 y 2 se despliegan
@@ -381,10 +444,12 @@ sitio que escribe en `notas_finales`. Con:
   de borrado, la pérdida por petición muerta y el cambio de `id` en cada carga
   (§3.5).
 - **El conjunto de alumnos sale de `matriculas`, no de `notas`.** Es lo que
-  arregla la §1.1 y la §1.3: un alumno sin notas recibe su definitiva igual.
-- **Se decide qué escribir**: con notas → el cálculo; sin ninguna nota → hay que
-  elegir entre `nota = 0` y no escribir fila. **Es una decisión del colegio, no
-  mía** — hoy el sistema hace las dos cosas según por dónde entres. Ver §8.
+  arregla la §1.1 y la §1.3, y lo que hace cierta la §9.1: un alumno sin notas
+  recibe su definitiva igual, siempre.
+- **La fórmula no cambia** (§9.3): suma de aportes, sin normalizar por la suma de
+  porcentajes. Junto a la definitiva, el servicio devuelve **la suma real de
+  porcentajes** de la asignatura y periodo, para que la planilla pueda señalar la
+  que está descuadrada.
 - **Respeta `manual` y `recuperada`** en un único punto, no en cinco.
 - **Transacción** por asignatura y periodo.
 - **Identifica la fila siempre por `periodo_id`**, nunca por `periodo`, y mantiene
@@ -408,16 +473,12 @@ periodo, que sea `GREATEST` de:
 Con `>=` en vez de `>` y toda la aritmética de fechas **dentro de MySQL**
 (`NOW()`), no repartida entre PHP y la base — cierra la §4.5.
 
-Y la fórmula, que es lo de la §5. Dos cosas separadas:
-
-- **Normalizar o no** es decisión del colegio (§8), porque cambia notas ya
-  impresas. Lo que sí hay que hacer en cualquier caso es **dejar de calcular en
-  silencio sobre porcentajes que no suman 100**: que el servicio devuelva la suma
-  real junto a la definitiva, para que la pantalla pueda avisar.
-- **Validar al guardar** en `Unidades/SubunidadesController`: hoy aceptan
-  cualquier `porcentaje` sin mirar el total. Con un 422 y el total en el mensaje
-  —código correcto, aunque el legacy de al lado devuelva 400— el problema deja de
-  crearse. Esto vale la pena aunque no se toque nada más.
+Ojo con una consecuencia de la §9.1: **con la fila siempre presente, la
+comprobación deja de servir para «existe o no existe» y pasa a servir solo para
+«coincide o no coincide»**, que es para lo que debería haber estado desde el
+principio. El guardia de [NotaFinal.php:169](app/Models/NotaFinal.php#L169)
+(`&& $alumnos[$i]->updated_at_def_1`, que hoy corta el recálculo del alumno sin
+notas) desaparece con ella.
 
 Esta comprobación es lo que hay que fijar con un test de contrato antes de
 apoyarse en ella. **El criterio del §«Tests de contrato» del CLAUDE.md aplica
@@ -431,14 +492,21 @@ definitiva, la comparo; cambio un porcentaje, ídem. Un test que compruebe que
 Migración (no phpMyAdmin — [CLAUDE.md](CLAUDE.md), «migración o no existe»), en
 este orden y en la misma migración:
 
-1. Limpiar los duplicados existentes con la regla correcta: **gana la manual; si
-   hay dos manuales, la de `id` mayor; si son todas automáticas, la de `id`
-   mayor**. Registrar en la bitácora lo que se elimine.
-2. Rellenar `periodo` donde esté NULL o desincronizado, desde `periodo_id`.
-3. `UNIQUE KEY (alumno_id, asignatura_id, periodo_id)` en `notas_finales`.
-4. `UNIQUE KEY (subunidad_id, alumno_id)` en `notas`, previa limpieza de las
-   notas duplicadas — decidiendo antes qué hacer con ellas (§8), porque ahí hay
-   notas que un profesor escribió.
+1. Limpiar los duplicados de `notas_finales`: **gana la manual; si hay dos
+   manuales o ninguna, la de `id` mayor** (§9.2). Registrar en la bitácora lo que
+   se elimine.
+2. Limpiar los duplicados de `notas`: **gana la nota más alta; en empate, la de
+   `id` mayor** (§9.2). También a la bitácora — son notas que escribió un
+   profesor, y hoy las dos cuentan en la definitiva, así que **limpiarlas cambia
+   definitivas**. Conviene correr la fase 0 justo antes para saber a cuántas
+   afecta.
+3. Rellenar `periodo` donde esté NULL o desincronizado, desde `periodo_id`.
+4. `UNIQUE KEY (alumno_id, asignatura_id, periodo_id)` en `notas_finales`.
+5. `UNIQUE KEY (subunidad_id, alumno_id)` en `notas`.
+6. Rellenar las filas que faltan (§9.1): un alumno matriculado sin definitiva en
+   alguna asignatura y periodo la recibe, calculada con el servicio de la fase 1.
+   Es lo que devuelve a la planilla a los alumnos que hoy no salen (§6.2) y
+   deshace los ceros del puesto (§6.1).
 
 Ojo con el despliegue: son dieciséis bases, y `app/` es copia por colegio.
 El único índice y el código que lo respeta tienen que llegar **juntos** a cada
@@ -509,31 +577,66 @@ enseñando cero discrepancias durante un periodo completo:
    borra** — aquí se borran ruta y método a la vez, y este documento queda como
    el registro de qué hacía y por qué existió.
 3. Borrar `Alumnos/Definitivas` entero y `putCalcularNotasFinalesAsignatura`
-   (§6), moviendo su entrada en `05-codigo-muerto-y-roto.md`.
+   (§7), moviendo su entrada en `05-codigo-muerto-y-roto.md`.
 
 ---
 
-## 8. Lo que no puedo decidir yo
+## 9. Decisiones tomadas
 
-Dos preguntas son del colegio, y las dos cambian el resultado del boletín:
+Las tres preguntas abiertas están resueltas. **No se re-litigan.**
 
-1. **Un alumno sin ninguna nota en una asignatura y periodo, ¿tiene definitiva 0
-   o no tiene definitiva?** Hoy el sistema hace las dos cosas según por dónde
-   entres: /notas le escribe un 0 (§4, final), el botón de calcular no le escribe
-   nada. Afecta al promedio, al puesto y a si la materia aparece como perdida.
-2. **Las notas duplicadas de la §2.5, ¿cuál se queda?** Son notas que alguien
-   escribió, y hoy **las dos** cuentan en la definitiva. Puede ser la última
-   editada, la mayor, o revisarlas una por una si la fase 0 dice que son pocas.
-3. **Cuando los porcentajes no suman 100, ¿se normaliza o se deja tal cual?**
-   (§5). Normalizar —dividir por la suma real— hace que la definitiva sea siempre
-   una nota sobre la escala y que agregar un indicador no la hunda; pero **cambia
-   definitivas ya publicadas** en las asignaturas que hoy están descuadradas, y
-   puede tapar un error de configuración en vez de mostrarlo. La alternativa es
-   no normalizar y **bloquear el guardado** hasta que sumen 100. Lo que no puede
-   seguir es la tercera opción, que es la de hoy: calcular mal en silencio.
+### 9.1 La fila existe siempre que exista la matrícula
 
-Mientras no haya respuesta, la fase 1 puede implementarse dejando el
-comportamiento actual de cada punto y el sitio marcado, pero conviene resolverlo
-antes de la fase 2, porque el índice único de `notas` obliga a elegir. La tercera
-es más urgente que las otras dos: **hasta que esté decidida, añadir disparadores
-de recálculo propaga más rápido un número que puede estar mal.**
+Todo alumno matriculado tiene fila en todas sus asignaturas y periodos, desde el
+principio. Se crea **con las notas de las subunidades**, en la misma transacción
+(fase 3), y el recalculador la crea igualmente para quien no tenga ninguna nota:
+el conjunto de alumnos sale de `matriculas`, nunca de `notas`.
+
+El porqué está en la §6: hoy «sin fila» no quiere decir «todavía no hay nota». En
+el puesto anual vale **cero** —`sum/4` divide entre cuatro siempre—, en el boletín
+vale **cero** y puede hacer perder la materia, y en la planilla **borra al alumno
+de la lista** y baja el promedio de su grupo. Un estado que tres informes
+interpretan de tres maneras distintas no es un estado, es un fallo esperando
+turno. Con la fila siempre presente, «no hay nota» queda representado por el
+único sitio que puede representarlo sin ambigüedad: las notas de las subunidades,
+que sí existen o no existen.
+
+### 9.2 Entre notas duplicadas, gana la más alta
+
+Para las notas duplicadas de la §2.5: **se conserva la de nota más alta**, y en
+empate la de `id` mayor. Se aplica en la limpieza previa al índice único de la
+fase 2, y lo que se elimine queda registrado en la bitácora.
+
+Vale la pena no confundir las dos limpiezas de la fase 2, porque son tablas
+distintas y criterios distintos:
+
+| Tabla | Duplicado sobre | Gana |
+|---|---|---|
+| `notas` | `(subunidad_id, alumno_id)` | la **nota más alta**; en empate, `id` mayor |
+| `notas_finales` | `(alumno_id, asignatura_id, periodo_id)` | la **manual**; si hay dos manuales o ninguna, `id` mayor |
+
+En `notas_finales` la regla no puede ser «la más alta»: la marca `manual` es una
+decisión del profesor, y quedarse con la automática por ser mayor la borraría.
+
+### 9.3 No se normaliza: los porcentajes malos se ven en la planilla
+
+La definitiva se calcula tal cual, aunque los porcentajes no sumen 100, **salvo
+que sea manual**. Esa es la intención: que el número raro aparezca en la planilla
+y delate la asignatura mal configurada.
+
+Consecuencias que se aceptan y que conviene tener escritas:
+
+- La fórmula se queda como está — suma de aportes, sin dividir por la suma real.
+  Ninguna definitiva ya impresa cambia por este motivo.
+- **No se bloquea el guardado** de un porcentaje que descuadre. La propuesta de
+  validar con 422 en `Unidades/SubunidadesController` **queda descartada**: sería
+  justo lo que impide que el error llegue a la planilla.
+- Lo que sí se hace es que el servicio devuelva **la suma real de porcentajes**
+  junto a la definitiva, para que la planilla pueda señalar la asignatura en vez
+  de obligar a deducirlo de una nota rara. Es información añadida, no un cambio
+  de cálculo ni un bloqueo.
+- La §5.1 sigue siendo un fallo aunque no se normalice, y se arregla igual: que
+  al agregar un indicador la definitiva baje **durante días** hasta que alguien
+  abra /notas no es un error de porcentajes que se quiera ver, es una ventana en
+  la que el número no corresponde a nada. Lo cierra la creación conjunta de la
+  subunidad y sus notas (fase 3), no la fórmula.
