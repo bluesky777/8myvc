@@ -3,6 +3,7 @@
 namespace Tests\Contrato;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Route;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
@@ -559,7 +560,7 @@ class MatriculasTest extends CasoDeContrato
     {
         $rutas = [];
 
-        foreach (\Illuminate\Support\Facades\Route::getRoutes() as $ruta) {
+        foreach (Route::getRoutes() as $ruta) {
             $rutas[] = $ruta->uri();
         }
 
