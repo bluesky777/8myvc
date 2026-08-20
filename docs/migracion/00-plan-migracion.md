@@ -20,7 +20,7 @@ La buena noticia: el código casi no usa superficie del framework. 990 llamadas 
 
 | # | Fase | Qué desbloquea | Esfuerzo |
 |---|---|---|---|
-| 0 | Red de seguridad (tests de contrato + baseline de BD + CI) | Todo lo demás | 4–6 días · **P0 completo 19 ago 2026**; P1 y P2 pendientes |
+| 0 | Red de seguridad (tests de contrato + baseline de BD + CI) | Todo lo demás | 4–6 días · **P0 y P1 completos 19 ago 2026**; P2 pendiente |
 | 1 | Eliminar `AdvancedRoute` (sin tocar el framework) | Rutas cacheables, `route:list` funcional | 1–2 días |
 | 2 | Organizar rutas + middleware `auth` real | Cierra el agujero de roles/permisos | 2–3 días |
 | 3 | Reemplazar `tymon/jwt-auth` (back + front + Flutter) | Desbloquea el salto de framework | 4–6 días · **backend hecho 19 ago 2026** |
@@ -225,30 +225,45 @@ Route::middleware(['auth:sanctum', 'user.context'])->group(function () {
 Nada de lo demás se toca antes de esto. Es lo que convierte "espero que no se rompa" en "sé que no se rompió".
 
 > **Estado (19 ago 2026).** Hecho: 0.1 baseline del esquema, 0.3 entorno
-> reproducible, 0.4 CI, y **todo el P0 de 0.2**: login (6), enrutado, notas,
-> Excel e imágenes. Pendiente: las prioridades P1 y P2. Cómo se usa todo esto:
-> [03-tests.md](03-tests.md).
+> reproducible, 0.4 CI, y **el P0 y el P1 de 0.2**: login (6), enrutado, notas,
+> Excel, imágenes, boletines, observador, acta de evaluación, matrículas y
+> grupos. **200 tests de contrato.** Pendiente: la prioridad P2. Cómo se usa
+> todo esto: [03-tests.md](03-tests.md).
 >
-> **Los tres bloques P0 que faltaban se escribieron el 19 ago 2026, después de la
-> Fase 6, y cada uno encontró algo.** No es casualidad ni mérito: son las tres
-> áreas que el plan marcó como las de mayor riesgo, y estuvieron sin una sola
-> prueba mientras el proyecto saltaba cinco versiones de framework.
+> **El P1 encontró cuatro cosas más, y las cuatro quedaron arregladas** (19 ago
+> 2026). Al contrario que en el P0, aquí no se dejó nada abierto:
 >
-> - **Imágenes.** `intervention/image` cambió el signo del ángulo entre la v2 y
->   la v4, así que desde la Fase 4 los dos botones de girar hacían lo contrario
->   de lo que decían. Ningún test de estado lo habría visto: los dos endpoints
->   respondían 200 y escribían una imagen girada.
-> - **Excel.** Reimportar la hoja recién exportada cambiaba a 68 de los 68
->   alumnos: `nombres` se recompone de dos columnas y el de un solo nombre de
->   pila quedaba guardado con un espacio al final. Y dos de las rutas de la lista
->   de «endpoints rotos» estaban mal nombradas — una no existe y la otra
->   funciona.
-> - **Notas.** El IDOR que el plan de seguridad daba por sospechado y no había
->   comprobado nadie: un alumno leía las notas de cualquier compañero cambiando
->   el id de la URL.
+> - **`PUT api/matriculas/prematricular` no miraba de quién era el `alumno_id`.**
+>   La ruta está abierta a Alumno y Acudiente a propósito —la prematrícula del año
+>   siguiente la hace la familia desde su cuenta— pero el id llega en el cuerpo:
+>   con token de alumno se le cambiaba el estado y el grupo a cualquier compañero.
+>   Era el IDOR de notas del P0, de ESCRITURA. Cerrado con
+>   `boletin.propio:sin-paz-y-salvo`, el middleware que ya hacía esta misma
+>   comprobación para los boletines. **Joseth confirmó la regla: un acudiente solo
+>   puede prematricular a sus acudidos.** Sin paz y salvo: retener el boletín de
+>   quien debe es una cosa e impedirle matricularse el año siguiente es otra.
+> - **El acumulado del año de los boletines salía entero en ceros** si la URL no
+>   traía `de_usuario` o `todos`. `Periodo::hastaPeriodoN` toma un número y
+>   `Periodo::hastaPeriodo` una cadena, y el default `10` de la primera acababa en
+>   la segunda; ninguna rama del `if` casaba, y el TypeError del `count()` sobre el
+>   `stdClass` inicial lo absorbía un `try/catch`. 200, informe en blanco, sin log.
+>   El default pasa a `de_usuario` en los tres controladores.
+> - **`GET api/grupos/listado/{grupo}` nunca devolvía la dirección**: la consulta
+>   usaba `+` en vez de `CONCAT`, y en MySQL eso es una suma. Salía `0`, o `null` si
+>   faltaba el barrio. Arreglado con `CONCAT_WS` —no `CONCAT`, que se traga la
+>   dirección entera si falta el barrio.
+> - **La tabla `llevo_formulario` no existía** —ni en el volcado de producción ni
+>   en desarrollo— y `PUT api/prematriculas/llevo-formulario` empieza borrando de
+>   ella: 500 seguro desde siempre, como `failed_jobs`.
 >
-> La Fase 1 se hizo antes que esta, saltándose el orden del plan. Las rutas
-> quedaron cubiertas a posteriori por el test de enrutado.
+>   **La ruta se borró en vez de crearle la tabla.** Joseth confirmó que quién
+>   llevó el formulario es `matriculas.estado = 'FORM'`: lo pone
+>   `AlumnosController` al crear el alumno, lo pone y lo cambia
+>   `matriculas/prematricular` con `estado=FORM` —que es por donde lo mueve el
+>   administrador— y lo lee `AlumnosFormularios`. Había dos mecanismos para el
+>   mismo dato, uno vivo y otro que nunca llegó a escribir una fila. De paso, el
+>   INSERT muerto pasaba los cinco valores corridos: a la columna
+>   `llevo_formulario` le habría llegado una fecha aunque la tabla existiera.
 
 **0.1 Baseline del esquema real de la BD**
 
@@ -281,8 +296,8 @@ Cobertura mínima, priorizada por lo que más duele si se rompe:
 | P0 | Notas: listar, guardar, definitivas por periodo | ~15 |
 | P0 | **Excel**: importar alumnos, exportar acudientes, deudores, SIMAT, listado docentes | 7 |
 | P0 | **Imágenes**: subir, recortar, rotar, foto de perfil | 6 |
-| P1 | Boletines / bolfinales / observador / actas (los Blade que generan PDF-HTML) | ~12 |
-| P1 | Matrículas, prematrículas, grupos, promovidos | ~15 |
+| P1 | Boletines / bolfinales / observador / actas (los Blade que generan PDF-HTML) | ~12 · **hecho, 35 tests** |
+| P1 | Matrículas, prematrículas, grupos, promovidos | ~15 · **hecho, 31 tests** |
 | P2 | El resto, por muestreo (1 GET por controlador) | ~100 |
 
 Para los binarios (Excel, imágenes) el snapshot no es del byte-stream: es **hash del contenido normalizado** (para XLSX: número de hojas + headers + N filas + checksum de celdas; para imágenes: dimensiones + tipo MIME + tamaño ±5%). Comparar bytes crudos daría falsos positivos por metadatos de fecha.

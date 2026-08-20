@@ -1,0 +1,66 @@
+{
+    "grupos": [
+        {
+            "abrev": "string",
+            "apellidos_titular": "string",
+            "cant_alumnos": "int",
+            "cant_hombres": "int",
+            "cant_mujeres": "int",
+            "caritas": "int",
+            "created_at": "string",
+            "cupo": "int",
+            "foto_id": "int",
+            "foto_nombre": "string",
+            "grado_id": "int",
+            "id": "int",
+            "nombre": "string",
+            "nombres_titular": "string",
+            "orden": "int",
+            "periodos_matr": [
+                {
+                    "Per": "int",
+                    "cant_matr": "string"
+                }
+            ],
+            "periodos_ret": [
+                {
+                    "Per": "int",
+                    "cant_reti": "string"
+                }
+            ],
+            "titular_id": "int",
+            "titulo": "null",
+            "updated_at": "string",
+            "year_id": "int"
+        }
+    ],
+    "periodos_total": [
+        {
+            "actual": "int",
+            "created_at": "null|string",
+            "created_by": "null",
+            "deleted_at": "null",
+            "deleted_by": "null",
+            "fecha_fin": "null",
+            "fecha_inicio": "null",
+            "fecha_plazo": "null",
+            "id": "int",
+            "numero": "int",
+            "profes_pueden_editar_notas": "int",
+            "profes_pueden_nivelar": "int",
+            "total_matr": {
+                "cant_alumnos": "int",
+                "id": "null",
+                "nombre": "null"
+            },
+            "total_reti": {
+                "cant_alumnos": "int",
+                "id": "null",
+                "nombre": "null"
+            },
+            "updated_at": "string",
+            "updated_by": "int|null",
+            "year_id": "int"
+        }
+    ]
+}

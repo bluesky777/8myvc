@@ -77,7 +77,28 @@ class Boletines3Controller extends Controller {
 
 	}
 
-	public function getDetailedNotasYear($grupo_id, $periodo_a_calcular=10)
+	/*
+	 * `de_usuario` y no `10`.
+	 *
+	 * Hay dos funciones cuyos nombres se diferencian en una letra y que no aceptan
+	 * lo mismo: `Periodo::hastaPeriodoN($year_id, $periodo_a_calcular = 10)` toma un
+	 * NÚMERO —su 10 significa «hasta el periodo 10», o sea todos— y
+	 * `Periodo::hastaPeriodo($year_id, $periodos_a_calcular = 'de_usuario')` toma
+	 * una CADENA, y solo entiende `de_colegio`, `de_usuario` y `todos`.
+	 *
+	 * Este método llevaba el default de la primera y se lo pasaba por debajo a la
+	 * segunda. Ninguna rama del `if` casaba con `10`, así que `$periodos` se quedaba
+	 * en el `new stdClass()` con el que se inicializa; el `foreach` no iteraba y el
+	 * `count()` sobre un stdClass lanzaba un TypeError que el `try/catch` de
+	 * `alumnoAsignaturasPeriodosDetailed` convertía en `nota = 0`. Resultado: el
+	 * acumulado del año salía entero en ceros, con 200 y sin una línea en el log.
+	 * Igual en los tres controladores de boletines, que son copias.
+	 *
+	 * Se pone `de_usuario` —hasta el periodo del usuario— porque es el default de
+	 * la propia `hastaPeriodo` y el que usa `EditnotaController`, el otro consumidor.
+	 * Con `todos` en la URL se sigue pudiendo pedir el año completo.
+	 */
+	public function getDetailedNotasYear($grupo_id, $periodo_a_calcular='de_usuario')
 	{
 		$alumnos_response = [];
 

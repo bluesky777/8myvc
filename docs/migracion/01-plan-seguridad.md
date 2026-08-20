@@ -452,3 +452,42 @@ Este no es un pentest. Es lo que salió de leer el código durante el análisis 
 > a paz y salvo» antes de llamar. Un acudiente moroso que abra la petición a mano
 > ve las notas igual. Si el colegio confirma la regla, en el backend es cambiar
 > una palabra en la ruta.
+
+---
+
+## El segundo IDOR, y este de escritura (19 ago 2026)
+
+Salió igual que el primero: escribiendo tests de contrato, esta vez los del P1.
+
+**`PUT api/matriculas/prematricular` no miraba de quién era el `alumno_id`.** La
+ruta está abierta a Alumno y Acudiente a propósito —la prematrícula del año
+siguiente la hace la familia desde su cuenta— pero el id del alumno llega en el
+cuerpo de la petición y nadie lo comprobaba. Con un token de alumno del seed se le
+cambió el estado y el grupo a un compañero: 200, y la fila escrita.
+
+Es el mismo agujero que el de `notas/alumno`, con dos diferencias que lo empeoran:
+
+- **Escribe.** El primero dejaba leer las notas de otro; este cambia
+  `matriculas.estado`, que es la columna de la que cuelgan los boletines, el acta
+  de evaluación y el export de deudores. Un alumno podía sacar del grupo a otro.
+- **No hacía falta ni cambiar una URL**: bastaba con mandar otro número en el
+  cuerpo, que es lo que cualquiera ve abriendo las herramientas del navegador.
+
+Cerrado con `boletin.propio:sin-paz-y-salvo` —el mismo middleware, que ya entendía
+el `alumno_id` suelto— y con tres tests: el alumno no puede con un compañero, sí
+puede consigo mismo, y el acudiente solo con sus acudidos. **Joseth confirmó la
+regla el 19 ago 2026.** Sin paz y salvo a propósito: retener el boletín de quien
+debe es una cosa e impedirle matricularse el año siguiente es otra, y esa nadie la
+ha pedido.
+
+**Esto es lo cuarto que aparece así, y ya no es casualidad.** Dos IDOR, el giro de
+imágenes invertido y la importación que corrompía nombres: los cuatro salieron de
+escribir tests, ninguno de leer código con una lista delante. **La revisión
+específica de IDOR sigue pendiente y ahora tiene dos precedentes en vez de uno.**
+Las 538 rutas que reciben un id —por URL o por cuerpo, que este demuestra que da
+igual— merecen que alguien las mire una por una.
+
+De paso, `AutorizacionTest` comparaba el guard con un `in_array` exacto, así que
+**las rutas que lo llevan con modo no entraban en su lista y podían perderlo sin
+que fallara nada.** `notas/alumno` llevaba así desde que se puso. Ahora la
+comparación entiende el modo y lo imprime al lado de la ruta.

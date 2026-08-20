@@ -339,7 +339,6 @@ class AutorizacionTest extends CasoDeContrato
                 'PUT api/piars-grupos/contexto-de-grupo',
                 'PUT api/prematriculas/alumnos-con-grado-anterior',
                 'PUT api/prematriculas/alumnos-grado-anterior',
-                'PUT api/prematriculas/llevo-formulario',
                 'PUT api/requisitos',
                 'PUT api/requisitos/listado-observaciones',
                 'PUT api/requisitos/update',
@@ -348,6 +347,7 @@ class AutorizacionTest extends CasoDeContrato
                 'GET api/boletines/detailed-notas-year/{grupo_id}/{periodo_a_calcular?}',
                 'GET api/boletines2/detailed-notas-year/{grupo_id}/{periodo_a_calcular?}',
                 'GET api/boletines3/detailed-notas-year/{grupo_id}/{periodo_a_calcular?}',
+                'GET api/notas/alumno/{alumno_id?}/{grupo_id?} [sin-paz-y-salvo]',
                 'PUT api/boletines/detailed-notas-group/{grupo_id}',
                 'PUT api/boletines/detailed-notas/{grupo_id}',
                 'PUT api/boletines2/detailed-notas-group/{grupo_id}',
@@ -359,6 +359,7 @@ class AutorizacionTest extends CasoDeContrato
                 'PUT api/bolfinales/detailed-notas-year-group/{grupo_id}',
                 'PUT api/bolfinales/detailed-notas-year/{grupo_id}',
                 'PUT api/certificados-persona',
+                'PUT api/matriculas/prematricular [sin-paz-y-salvo]',
                 'PUT api/notas-actuales-alumnos/{grupo_id}',
             ],
         ];
@@ -367,12 +368,26 @@ class AutorizacionTest extends CasoDeContrato
             $reales = [];
 
             foreach (Route::getRoutes() as $ruta) {
-                if (! in_array($guard, $ruta->middleware(), true)) {
+                // El guard puede llevar modo (`boletin.propio:sin-paz-y-salvo`), y
+                // hasta el 19 ago 2026 esta comparación era un `in_array` exacto:
+                // las rutas con modo no entraban en la lista y podían perderlo sin
+                // que nadie se enterara. `notas/alumno` llevaba meses así.
+                $modo = null;
+
+                foreach ($ruta->middleware() as $aplicado) {
+                    if ($aplicado === $guard) {
+                        $modo = '';
+                    } elseif (str_starts_with((string) $aplicado, $guard.':')) {
+                        $modo = ' ['.substr($aplicado, strlen($guard) + 1).']';
+                    }
+                }
+
+                if ($modo === null) {
                     continue;
                 }
 
                 foreach (array_diff($ruta->methods(), ['HEAD']) as $verbo) {
-                    $reales[] = $verbo.' '.$ruta->uri();
+                    $reales[] = $verbo.' '.$ruta->uri().$modo;
                 }
             }
 

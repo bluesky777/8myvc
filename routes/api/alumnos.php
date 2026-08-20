@@ -84,7 +84,13 @@ Route::put('matriculas/cambiar-fecha-retiro', [MatriculasController::class, 'put
 Route::put('matriculas/desertar', [MatriculasController::class, 'putDesertar']);
 Route::post('matriculas/matricular-en', [MatriculasController::class, 'postMatricularEn']);
 Route::post('matriculas/matricularuno', [MatriculasController::class, 'postMatricularuno']);
-Route::put('matriculas/prematricular', [MatriculasController::class, 'putPrematricular']);
+// La única escritura de matrículas abierta a Alumno y Acudiente: la prematrícula
+// del año siguiente la hace la familia desde su cuenta. No miraba de quién era el
+// `alumno_id` del cuerpo, así que un alumno le cambiaba el estado y el grupo a
+// cualquier compañero. Sin paz y salvo: retener el boletín de quien debe es una
+// cosa, impedirle matricularse el año siguiente es otra.
+Route::put('matriculas/prematricular', [MatriculasController::class, 'putPrematricular'])
+    ->middleware('boletin.propio:sin-paz-y-salvo');
 Route::put('matriculas/quitar-prematricula', [MatriculasController::class, 'putQuitarPrematricula']);
 Route::put('matriculas/re-matricularuno', [MatriculasController::class, 'putReMatricularuno']);
 Route::put('matriculas/retirar', [MatriculasController::class, 'putRetirar']);
@@ -107,7 +113,10 @@ Route::delete('enfermeria/destroy/{id}', [EnfermeriaController::class, 'deleteDe
 // constructor, que no detiene nada. Ver App\Http\Middleware\ExigirPersonal.
 Route::put('prematriculas/alumnos-con-grado-anterior', [PrematriculasController::class, 'putAlumnosConGradoAnterior'])->middleware('auth.personal');
 Route::put('prematriculas/alumnos-grado-anterior', [PrematriculasController::class, 'putAlumnosGradoAnterior'])->middleware('auth.personal');
-Route::put('prematriculas/llevo-formulario', [PrematriculasController::class, 'putLlevoFormulario'])->middleware('auth.personal');
+// `prematriculas/llevo-formulario` se borró el 19 ago 2026: escribía en una tabla
+// que no existe y el dato ya se guarda como `matriculas.estado = 'FORM'`, que es
+// por donde lo mueve el administrador con `matriculas/prematricular`. Ver
+// PrematriculasController.
 
 // RequisitosController
 //

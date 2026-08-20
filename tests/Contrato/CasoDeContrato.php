@@ -120,6 +120,68 @@ abstract class CasoDeContrato extends TestCase
     }
 
     /**
+     * El grupo del seed con más alumnos matriculados.
+     *
+     * Casi todo lo que imprime el colegio —boletines, observador, acta de
+     * evaluación, listados— se pide POR GRUPO, así que este es el punto de
+     * partida de medio P1. Se ordena por cantidad y luego por id para que sea
+     * siempre el mismo: si cada corrida eligiera otro grupo, los snapshots no
+     * compararían nada.
+     *
+     * Devuelve también el `year_id` porque es lo que hay que casar con el
+     * usuario que pida el informe. Ver tokenDelPersonalDe().
+     */
+    protected function grupoConAlumnos(): object
+    {
+        $grupo = DB::selectOne('SELECT g.id, g.year_id FROM grupos g
+            INNER JOIN matriculas m ON m.grupo_id = g.id AND m.deleted_at IS NULL
+                AND m.estado IN ("MATR","ASIS","PREM")
+            WHERE g.deleted_at IS NULL
+            GROUP BY g.id, g.year_id ORDER BY COUNT(m.id) DESC, g.id LIMIT 1');
+
+        $this->assertNotNull($grupo, 'El seed no tiene ningún grupo con alumnos matriculados.');
+
+        return $grupo;
+    }
+
+    /**
+     * El token de alguien del colegio cuyo año sea el que se le pide.
+     *
+     * El año no se elige, y es la trampa que más veces ha vaciado un informe sin
+     * que fallara nada: los controladores calculan contra `$user->year_id`, que
+     * sale del periodo del usuario, y `Services\Login` reescribe `users.periodo_id`
+     * al periodo `actual` en cada inicio de sesión. Con un usuario de otro año la
+     * respuesta sale con la lista vacía, en 200, y el test pasa sin haber
+     * calculado nada.
+     *
+     * Se pide un `Usuario` porque es el tipo que atraviesa los guards de
+     * autorización —`boletin.propio` y `auth.personal` no le aplican—, que es lo
+     * que hace falta para mirar la FORMA de la respuesta sin repetir aquí lo que
+     * ya prueba AutorizacionTest.
+     */
+    protected function tokenDelPersonalDe(int $yearId): string
+    {
+        $usuario = DB::selectOne('SELECT u.username FROM users u
+            INNER JOIN periodos p ON p.id = u.periodo_id AND p.deleted_at IS NULL
+            WHERE u.tipo = "Usuario" AND u.is_active = 1 AND u.deleted_at IS NULL
+              AND p.year_id = ? ORDER BY u.id LIMIT 1', [$yearId]);
+
+        $this->assertNotNull($usuario,
+            "El seed no tiene ningún Usuario en el año {$yearId}.\n".
+            'Sin eso los informes de ese año salen vacíos y el test no comprueba nada.');
+
+        return $this->tokenDe($usuario->username);
+    }
+
+    /** El grupo del seed y un token que lo pueda ver entero, que es el par de siempre. */
+    protected function grupoYPersonal(): array
+    {
+        $grupo = $this->grupoConAlumnos();
+
+        return [$grupo, $this->tokenDelPersonalDe((int) $grupo->year_id)];
+    }
+
+    /**
      * ¿Esta ruta exige token?
      *
      * El guard se aplica en grupo a toda la API (routes/api.php) y las
@@ -176,6 +238,88 @@ abstract class CasoDeContrato extends TestCase
             "La respuesta de '{$nombre}' cambió respecto al snapshot.\n".
             "Si el cambio es intencionado, borra tests/Contrato/Snapshots/{$nombre}.json y vuelve a correr."
         );
+    }
+
+    /**
+     * Como forma(), pero uniendo TODOS los elementos de cada lista en vez de
+     * quedarse con el primero.
+     *
+     * `forma()` mira `$valor[0]` porque para una lista homogénea basta, y es
+     * cierto casi siempre. Deja de serlo cuando la lista trae filas de una tabla
+     * con columnas nullable: `eps` sale `'null'` o `'string'` según qué alumno
+     * vaya primero, y quién va primero depende del `ORDER BY` de la consulta.
+     *
+     * **El del acta de evaluación empata.** Ordena por `apellidos, nombres`, y el
+     * seed está anonimizado con un diccionario de nombres corto: hay ocho alumnos
+     * llamados igual. MySQL devuelve los empates en el orden que quiera, así que
+     * el snapshot cambiaba de una corrida a otra sin que cambiara nada. Se
+     * descubrió porque falló la segunda vez que se ejecutó, no la primera.
+     *
+     * Un tipo que aparece de dos formas se escribe `'null|string'`. Eso hace la
+     * comparación estable y de paso más estricta: describe la columna entera y no
+     * la fila que tocó.
+     *
+     * No se cambia `forma()` para que haga esto. Las snapshots del P0 están
+     * escritas con la otra y regenerarlas de golpe convertiría un cambio de
+     * herramienta en un diff de mil líneas donde no se distingue lo que se movió.
+     */
+    protected function formaUnida($valor)
+    {
+        if (! is_array($valor)) {
+            return $this->forma($valor);
+        }
+
+        if ($valor === []) {
+            return [];
+        }
+
+        // Lista: se unen las formas de todos los elementos en una sola.
+        if (array_keys($valor) === range(0, count($valor) - 1)) {
+            $unida = $this->formaUnida($valor[0]);
+
+            foreach (array_slice($valor, 1) as $elemento) {
+                $unida = $this->unir($unida, $this->formaUnida($elemento));
+            }
+
+            return [$unida];
+        }
+
+        $forma = [];
+
+        foreach ($valor as $clave => $v) {
+            $forma[$clave] = $this->formaUnida($v);
+        }
+
+        ksort($forma);
+
+        return $forma;
+    }
+
+    /** Une dos formas: las claves de las dos, y por clave todos los tipos vistos. */
+    private function unir($a, $b)
+    {
+        if (is_array($a) && is_array($b)) {
+            foreach ($b as $clave => $v) {
+                $a[$clave] = array_key_exists($clave, $a) ? $this->unir($a[$clave], $v) : $v;
+            }
+
+            if ($a !== [] && array_keys($a) !== range(0, count($a) - 1)) {
+                ksort($a);
+            }
+
+            return $a;
+        }
+
+        if (is_array($a) || is_array($b)) {
+            // Una clave que unas veces trae lista y otras un escalar. Pasa, y
+            // esconderlo detrás de uno de los dos sería mentir en el snapshot.
+            return is_array($a) ? $a : $b;
+        }
+
+        $tipos = array_unique(array_merge(explode('|', $a), explode('|', $b)));
+        sort($tipos);
+
+        return implode('|', $tipos);
     }
 
     /**

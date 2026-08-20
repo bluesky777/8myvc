@@ -1,0 +1,48 @@
+{
+    "grupos": [
+        {
+            "abrev": "string",
+            "apellidos_titular": "string",
+            "caritas": "int",
+            "created_at": "string",
+            "cupo": "int",
+            "grado_id": "int",
+            "id": "int",
+            "nombre": "string",
+            "nombre_grado": "string",
+            "nombres_titular": "string",
+            "orden": "int",
+            "orden_grado": "int",
+            "titular_id": "int",
+            "titulo": "null",
+            "updated_at": "string",
+            "year_id": "int"
+        }
+    ],
+    "paises": [
+        {
+            "abrev": "string",
+            "created_at": "string",
+            "created_by": "null",
+            "deleted_at": "null",
+            "deleted_by": "null",
+            "id": "int",
+            "pais": "string",
+            "updated_at": "string",
+            "updated_by": "null"
+        }
+    ],
+    "tipos_doc": [
+        {
+            "abrev": "string",
+            "created_at": "string",
+            "created_by": "null",
+            "deleted_at": "null",
+            "deleted_by": "null",
+            "id": "int",
+            "tipo": "string",
+            "updated_at": "string",
+            "updated_by": "null"
+        }
+    ]
+}

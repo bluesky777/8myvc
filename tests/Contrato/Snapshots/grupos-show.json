@@ -1,0 +1,33 @@
+{
+    "abrev": "string",
+    "caritas": "int",
+    "created_at": "string",
+    "created_by": "null",
+    "cupo": "int",
+    "deleted_at": "null",
+    "deleted_by": "null",
+    "grado": {
+        "abrev": "string",
+        "created_at": "string",
+        "created_by": "null",
+        "deleted_at": "null",
+        "deleted_by": "null",
+        "id": "int",
+        "nivel_educativo_id": "int",
+        "nombre": "string",
+        "orden": "int",
+        "updated_at": "string",
+        "updated_by": "null"
+    },
+    "grado_id": "int",
+    "id": "int",
+    "nombre": "string",
+    "orden": "int",
+    "titular": "null",
+    "titular_id": "null",
+    "updated_at": "string",
+    "updated_by": "int",
+    "valormatricula": "int",
+    "valorpension": "int",
+    "year_id": "int"
+}

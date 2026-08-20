@@ -147,6 +147,50 @@ Tres trampas que costaron tiempo y que se repetirán:
   deudores salían vacías con el seed tal cual; los tests se crean el dato antes
   de mirar, dentro de su transacción.
 
+## Los dos bloques P1 del 19 de agosto
+
+Los informes que el colegio imprime y entrega, y las matrículas de las que
+cuelgan. Sesenta y seis tests en cinco ficheros.
+
+| Bloque | Qué se mira, y por qué así |
+|---|---|
+| `BoletinesTest` | La TUPLA, no el cálculo. Los cinco controladores devuelven `[grupo, year, alumnos, escalas]` y `myvc_front` la desempaqueta por índice; el cálculo lo declara intocable el §5 del plan. Cada posición va nombrada en el snapshot |
+| `ObservadorTest` | El ESQUELETO del HTML —qué etiquetas con qué clases, qué cabeceras de tabla—, no el HTML: trae nombres y fotos. Más las cuentas que importan en papel: dos páginas por alumno y las filas en blanco que decide el tamaño de hoja |
+| `ActasEvaluacionTest` | Las IDENTIDADES que el acta lleva escritas (`resumen.cuadra`, `promocion.cuadra`), rehechas aquí en vez de creídas, y cada total reconciliado contra los `ids` que lo componen |
+| `MatriculasTest` | La TRANSICIÓN, no la respuesta. Cada ruta se comprueba leyendo `matriculas.estado` de vuelta desde la base |
+| `GruposTest` | Que las tres formas de borrar sigan siendo tres cosas distintas: papelera, DELETE de verdad, y el cascade a 27 tablas |
+
+Dos trampas nuevas, además de las tres del P0:
+
+- **`forma()` reduce una lista a su primer elemento, y eso no siempre vale.**
+  Con una tupla posicional guarda la primera posición y tira el resto: el primer
+  snapshot de boletines guardaba el grupo y no el boletín, y pasaba siempre. Y
+  con filas de una tabla que tiene columnas nullable, describe la fila que MySQL
+  puso primera: el snapshot del acta **falló en su segunda ejecución sin que
+  hubiera cambiado nada**, porque ordena por `apellidos, nombres` y el seed
+  anonimizado tiene ocho alumnos llamados igual. Para eso está `formaUnida()`,
+  que une todos los elementos y escribe `'null|string'` cuando una columna
+  aparece de dos maneras.
+- **Un snapshot puede llevar dentro un dato de la base sin que se note.** El
+  primer intento del observador recogía todo el texto en mayúsculas de la hoja,
+  y ahí venía el nombre del colegio. Las cabeceras se leen ahora solo de los
+  `<th>`, donde no hay una sola interpolación.
+
+### Lo que el seed no cubre, y hay que saberlo
+
+Cuatro listas salen vacías siempre, así que su contenido **no lo comprueba
+nadie** aunque el test esté verde:
+
+- `AlumnosSinMatricula` (matrículas y prematrículas) y las otras dos listas de
+  prematrículas: el seed es un grupo de un año, y no hay grado anterior del que
+  sacar candidatos. Es la consulta del `NOT IN`, la más enredada de las tres.
+- `grupos/next-year`: el año siguiente al del seed está borrado.
+- `con-disciplina.descripciones_typeahead`: lee de `dis_procesos`, una de las dos
+  tablas que el generador omite a propósito.
+- `promovidos.recuperaciones`: `recuperacion_final` no entra en el seed.
+
+Cubrirlas pide un seed con dos años. Es trabajo de la P2.
+
 ## Cosas que aparecieron en los datos reales
 
 Encontradas construyendo esto. Ninguna está arreglada.
@@ -165,3 +209,29 @@ Encontradas construyendo esto. Ninguna está arreglada.
 - **`ext-exif` es una sugerencia de `intervention/image`, no un requisito.** Sin
   ella no falla nada: las fotos de móvil suben tumbadas y ya. Hay que confirmarla
   en el PHP 8.4 de cada cuenta de cPanel.
+
+Y cuatro más del P1, **las cuatro arregladas el mismo día**:
+
+- **`PUT api/matriculas/prematricular` no miraba de quién era el `alumno_id`.** La
+  ruta está abierta a Alumno y Acudiente a propósito —la prematrícula del año
+  siguiente la hace la familia— pero el id llega en el cuerpo, así que con token de
+  alumno se cambiaba el estado y el grupo de cualquier compañero. Era el IDOR de
+  notas del P0, de escritura. Cerrado con `boletin.propio:sin-paz-y-salvo`; un
+  acudiente solo puede prematricular a sus acudidos.
+- **`GET api/boletines/detailed-notas-year/{grupo}` sin el segmento opcional
+  devolvía el acumulado del año entero en ceros**, con 200 y sin log.
+  `Periodo::hastaPeriodoN` toma un número y `Periodo::hastaPeriodo` una cadena; el
+  default `10` de la primera acababa en la segunda, ninguna rama del `if` casaba, y
+  el TypeError del `count()` sobre el `stdClass` inicial lo absorbía un `try/catch`.
+  Igual en `boletines2` y `boletines3`. El default es ahora `de_usuario`.
+- **`GET api/grupos/listado/{grupo}` nunca devolvía la dirección.** La consulta
+  hacía `(a.direccion + " - " + a.barrio)`, y en MySQL el `+` es suma: salía `0`, o
+  `null` si faltaba el barrio. Ahora `CONCAT_WS`, que no se traga la dirección
+  cuando falta el barrio.
+- **La tabla `llevo_formulario` no existía**, ni en el volcado de producción ni en
+  la de desarrollo, y `PUT api/prematriculas/llevo-formulario` hacía un `DELETE`
+  contra ella de entrada: 500 seguro desde siempre, como `failed_jobs`. **La ruta
+  se borró en vez de crearle la tabla**: quién llevó el formulario es
+  `matriculas.estado = 'FORM'`, que pone y cambia `matriculas/prematricular` con
+  `estado=FORM` y lee `AlumnosFormularios`. Eran dos mecanismos para el mismo dato,
+  uno vivo y otro que nunca llegó a escribir una fila.
