@@ -251,14 +251,32 @@ saber el tamaño real del daño en las dieciséis bases antes de tocar código.
   que esperan una decisión; los hallazgos del 3 o tenían arreglo claro o eran
   anotaciones que mentían.
 
-- **Larastan del 3 al 4 — empezado el 20 ago 2026, a medias a propósito.**
-  Medido: 55 errores, todos de la familia «esta condición no decide nada» y
-  «esta rama no se ejecuta». Acertó el pronóstico: es donde estaban los fallos.
-  Se arreglaron los que tenían arreglo claro y **quedan 29**, todos mecánicos —
-  9 sentencias tras un `return`, 5 `is_null()` redundantes en `ImporterFixer`,
-  3 `== 'true'` que no pueden ser ciertos, 3 `> 0` sobre algo que ya es
-  positivo, dos métodos sin usar, dos propiedades que solo se escriben—. No
-  está parado por nada; es rato.
+- **Larastan del 3 al 4 — cerrado el 20 ago 2026.** Medido al empezar: 55
+  errores, todos de la familia «esta condición no decide nada» y «esta rama no
+  se ejecuta». Acertó el pronóstico: es donde estaban los fallos. Se arreglaron
+  primero los que tenían arreglo claro, quedaron 30 mecánicos, y se cerraron
+  así: **24 borrados o simplificados, 1 reescrito sin cambiar comportamiento y
+  5 anotados en `phpstan.neon`** con su motivo y su `count`.
+
+  Los cinco que se quedan no son pereza, y merece la pena el porqué de cada uno
+  —está entero en [05 §12](05-codigo-muerto-y-roto.md), aquí va en una línea—:
+  en tres de ellos **la línea que sobra es la única pista de lo que se
+  pretendía** (el `$alumnos[$i]` suelto de `Definitivas`, el `return $user`
+  de `aplicacion-descargas/detailed`, el cuerpo 2.x de `simat/alumnos-exportar`
+  con las instrucciones de la plantilla del SIMAT dentro), y en los otros dos
+  hay una decisión que dice que se queden (el `$todos_anios = true` de §11.2, y
+  el `if` que protege el `$cantidad_pregs = 4` de las actividades, que es el
+  guardia que hará falta el día que ese 4 se sustituya por un `COUNT(*)`).
+
+  Y lo que se llevó por delante, que es el hallazgo del cierre: los tres
+  `Request::input('year_selected') == true || ... == 'true'` de los informes
+  **no se escribieron muertos, murieron con el salto a PHP 8**. En PHP 7 la
+  rama derecha atrapaba los valores falsy, porque `0 == 'true'` valía true; en
+  PHP 8 ya no. Un cliente que mandara `year_selected=0` recibía el año
+  seleccionado antes de la migración y el actual después, sin que nadie
+  cambiara una línea. Es el mismo patrón que los `tinyint(1)` del nivel 3: el
+  analizador no encuentra código muerto, encuentra **cambios de comportamiento
+  del salto de versión** que llevaban ahí sin mirar.
 
   Lo que salió, que es la razón de haberlo empezado:
 
@@ -299,9 +317,15 @@ saber el tamaño real del daño en las dieciséis bases antes de tocar código.
     Queda la mitad del front: la caja de búsqueda del `sidebarMenu` se pinta sin
     `ng-if` y un alumno la ve.
 
-  **Cuando se suba el nivel** hay que meter esas dos en `ignoreErrors`, y no
-  antes: el analizador avisa de las excepciones que no llegan a usarse, así que
-  puestas hoy rompen el análisis del nivel 3. Van con `count`, como todas.
+  **Y el aviso que dejó escrito el 3 se cumplió al pie de la letra**: las
+  excepciones del 4 no se podían poner antes de subir el nivel, porque el
+  analizador avisa de las que no llegan a usarse y habrían roto el análisis del
+  3. Van con `count`, como todas. El mismo mecanismo mordió en el cierre por el
+  otro lado: la sesión del PIAR arregló los `$document` de dos controladores de
+  Piars y **eso dejó sin casar las dos entradas que los documentaban**, con lo
+  que el análisis se puso en rojo sin que ninguno de los dos hubiera tocado
+  `phpstan.neon`. Es lo que hace ese `count`: cuando el fallo se arregla de
+  verdad, la anotación grita en vez de callarse.
 
   Y una cosa aprendida sobre el seed, que vale para todo lo que venga: **la base
   de tests no puede demostrar los fallos que dependen de que dos numeraciones se

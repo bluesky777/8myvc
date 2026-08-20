@@ -61,7 +61,7 @@ class ExcelListadoDocentesController extends Controller {
                         $profesores[$i]->orden_grupo = $grupos[$j]->orden;
                     }
                     
-                    if ($cant_g > 0 && $j < ($cant_g-1)) {
+                    if ($j < ($cant_g-1)) {
                         $profesores[$i]->grupos .= ',';
                     }
                 }
@@ -89,34 +89,4 @@ class ExcelListadoDocentesController extends Controller {
     }
     
     
-    private function Comentarios(&$sheet){
-        
-        $sheet->getComment('C3')->getText()->createTextRun('Coloque: "CÉDULA", "PERMISO ESPECIAL DE PERMANENCIA", "TARJETA DE IDENTIDAD", "CÉDULA EXTRANJERA", "REGISTRO CIVIL", "NÚMERO DE IDENTIFICACIÓN PERSONAL", "NÚMERO ÚNICO DE IDENTIFICACIÓN PERSONAL", "NÚMERO DE SECRETARÍA", "PASAPORTE"');
-        $sheet->getComment('E3')->getText()->createTextRun('No coloque departamento, solo ciudad');
-        $sheet->getComment('K3')->getText()->createTextRun('Ignore esta columna');
-        $sheet->getComment('L3')->getText()->createTextRun('Coloque: MATR, ASIS, RETI, DESE');
-        $sheet->getComment('Q3')->getText()->createTextRun('¿Es urbano? SI o NO');
-        $sheet->getComment('U3')->getText()->createTextRun('Coloque "No aplica" o deje vacío si no tiene el antiguo SISBEN.');
-        $sheet->getComment('V3')->getText()->createTextRun('Coloque "No aplica" o deje vacío si no tiene el nuevo SISBEN tipo 3.');
-        $sheet->getComment('AA3')->getText()->createTextRun('Si el año pasado NO finalizó en la institución, coloque SI, de lo contrario, especifique que NO es nuevo.');
-        
-        $sheet->getComment('AE3')->getText()->createTextRun('Coloque un código e ignore las demás columnas para asignar un acudiente a este alumno que ya está agregado');
-        $sheet->getComment('AI3')->getText()->createTextRun('Coloque: "CÉDULA", "PERMISO ESPECIAL DE PERMANENCIA", "TARJETA DE IDENTIDAD", "CÉDULA EXTRANJERA", "REGISTRO CIVIL", "NÚMERO DE IDENTIFICACIÓN PERSONAL", "NÚMERO ÚNICO DE IDENTIFICACIÓN PERSONAL", "NÚMERO DE SECRETARÍA", "PASAPORTE"');
-        $sheet->getComment('AJ3')->getText()->createTextRun('SI o NO');
-        $sheet->getComment('AK3')->getText()->createTextRun('Padre, Madre, Hermano, Hermana, Abuelo, Abuela, Tío, Tía, Primo(a), Otro');
-        $sheet->getComment('AM3')->getText()->createTextRun('Ignore esta columna');
-        $sheet->getComment('AS3')->getText()->createTextRun('Ignore esta columna');
-        $sheet->getComment('AU3')->getText()->createTextRun('Comentarios sobre este acudiente del alumno');
-        
-        $sheet->getComment('AV3')->getText()->createTextRun('Coloque un código e ignore las demás columnas para asignar un acudiente a este alumno que ya está agregado');
-        $sheet->getComment('AZ3')->getText()->createTextRun('Coloque: "CÉDULA", "PERMISO ESPECIAL DE PERMANENCIA", "TARJETA DE IDENTIDAD", "CÉDULA EXTRANJERA", "REGISTRO CIVIL", "NÚMERO DE IDENTIFICACIÓN PERSONAL", "NÚMERO ÚNICO DE IDENTIFICACIÓN PERSONAL", "NÚMERO DE SECRETARÍA", "PASAPORTE"');
-        $sheet->getComment('BA3')->getText()->createTextRun('SI o NO');
-        $sheet->getComment('BB3')->getText()->createTextRun('Padre, Madre, Hermano, Hermana, Abuelo, Abuela, Tío, Tía, Primo(a), Otro');
-        $sheet->getComment('BD3')->getText()->createTextRun('Ignore esta columna');
-        $sheet->getComment('BJ3')->getText()->createTextRun('Ignore esta columna');
-        $sheet->getComment('BL3')->getText()->createTextRun('Comentarios sobre este acudiente del alumno');
-        
-    }
-
-
 }

@@ -690,3 +690,127 @@ alumnos borrados**. Ahora solo lo ve el personal, y `AlumnosNewCtrl` usa la
 respuesta —que incluye `deleted_at`— para detectar duplicados al crear un
 alumno, donde ver los borrados puede ser lo que se quiere. Qué debe devolver es
 una decisión pequeña, pero es una decisión.
+
+## 12. Los cinco que quedaron del nivel 4 (20 ago 2026)
+
+Con el nivel 4 puesto, de los 30 errores mecánicos que quedaban se borraron o se
+simplificaron 24 y se reescribió 1. **Estos cinco se quedan con la línea que
+sobra puesta**, y la razón es la misma en todos: aquí la línea muerta es
+información. Borrarla dejaría el fichero limpio y la pregunta sin responder.
+
+Cada uno tiene su entrada en `phpstan.neon` con su `count`, no en un baseline.
+
+### 12.1 `PUT api/aplicacion-descargas/detailed` — el `return` que tapa un 500
+
+`InicioController::putDetailed` tiene esto en sus dos primeras líneas:
+
+```php
+$user = User::fromToken();
+return $user;
+```
+
+y debajo, sin ejecutarse nunca, el cuerpo entero del endpoint: la consulta de
+grupos con su grado y su titular, condicionada a que llegue `year_id`.
+
+Lo interesante es qué pasaría al quitar el `return`, que es lo que parece el
+arreglo: el método terminaría en `return $resultado;` y **`$resultado` solo se
+define dentro del `if ($con_grupos)`**. Sin `year_id` en el cuerpo, 500. O sea
+que el `return` de más no es un descuido que sobra, **es lo único que hace que
+la ruta conteste algo**, igual que el `oldpassword` de `putCambiarpassword`
+resultó ser la cerradura del endpoint (§11).
+
+Y hay un cliente detrás: el nombre del controlador es `AplicacionDescargas` y la
+ruta la puede estar llamando la app de Flutter, que es **una sola para los
+dieciséis colegios**. Hoy recibe el contexto del usuario y no se rompe. Decidir
+qué debe devolver —el usuario, los grupos, o las dos cosas— es una pregunta para
+quien conozca esa pantalla, no una limpieza.
+
+### 12.2 `GET api/simat/alumnos-exportar` — la plantilla perdió sus instrucciones
+
+La ruta **funciona**: devuelve `Excel::download(new AlumnosExport, 'alumnos.xlsx')`,
+que es la API de maatwebsite 3.x. Debajo, sin ejecutarse, está la implementación
+de la 2.x — y con ella el método `Comentarios()`, que escribe un comentario en
+cada columna de la hoja:
+
+> «Coloque: MATR, ASIS, RETI, DESE» · «¿Es urbano? SI o NO» · «Coloque "No
+> aplica" o deje vacío si no tiene el antiguo SISBEN» · «Coloque: "CÉDULA",
+> "TARJETA DE IDENTIDAD", "REGISTRO CIVIL"…»
+
+**Eso no es decoración: es la especificación del importador que sí está vivo.**
+Es exactamente lo que `ImporterFixer` lee de vuelta cuando la secretaría sube la
+hoja — `strtolower($alumno["urbana"])=='si'`, `=='no aplica'` para el SISBEN—.
+La hoja del SIMAT es de ida y vuelta: sale de aquí, la llena la secretaría y
+entra por el importador que acabamos de hacer reanudable.
+
+Y aquí está el hallazgo: **`AlumnosSheet`, el export 3.x que sí se ejecuta, no
+escribe ninguno de esos comentarios.** Se perdieron en el salto de versión. Hoy
+la secretaría recibe la plantilla en blanco y tiene que acordarse de que el
+estado se escribe `MATR` y no `Matriculado`. No se arregla aquí —los exports
+están fuera de alcance por el §5 del plan, y son 33 comentarios repartidos por
+60 columnas—, pero **este bloque muerto es el único sitio del repo donde está
+escrito qué acepta cada columna**, así que no se borra hasta que esté en el
+export nuevo.
+
+Su gemelo sí se borró: `ExcelListadoDocentesController` tenía una copia de
+`Comentarios()` **que nadie llamaba**, y encima con las columnas de alumnos
+—SISBEN, urbana, acudientes— dentro de un informe de docentes. Copia y pega en
+el fichero equivocado; el original se queda en `SimatController`.
+
+### 12.3 `PUT api/respuestas/actividad` — el promedio se calcula siempre sobre 4
+
+En `WsActividadResuelta::alumnos_grupo`, con el comentario de su autor al lado:
+
+```php
+$cantidad_pregs = 4; // Debo hacer un código que traiga la cantidad de preguntas de la actividad
+
+if ($cantidad_pregs > 0) {
+    $promedio = $correctas * 100 / $cantidad_pregs;
+}
+```
+
+El porcentaje de cada alumno sale **siempre sobre cuatro preguntas**, tenga la
+actividad las que tenga: una actividad de 10 con 4 aciertos da 100, y una de 2
+con 2 aciertos da 50. El número viaja al cliente tal cual, en
+`$actividad_res->cantidad_pregs`.
+
+Parece de una línea —`SELECT COUNT(*) FROM ws_preguntas WHERE actividad_id=?`— y
+no se hace por dos razones. La primera es que **no se puede medir**: el módulo de
+actividades está vacío en la base de desarrollo, cero actividades con preguntas y
+cero resueltas, así que no hay forma de saber desde aquí cuántas actividades de
+un colegio real tienen cuatro preguntas y a cuántos alumnos les cambiaría la
+nota en pantalla. *Antes de optimizar algo: medirlo* vale también para arreglar.
+La segunda es que hay decisiones dentro: si cuentan las preguntas borradas
+(`deleted_at`), y qué pasa con `tipo_calificacion = 'Por promedio'`, que es una
+columna de `ws_actividades` que nadie lee.
+
+El `if ($cantidad_pregs > 0)` **no se borra aunque hoy no decida nada**: es el
+guardia que hará falta el día que el 4 se sustituya por un `COUNT(*)`, y quitarlo
+dejaría una división por cero esperando a la primera actividad sin preguntas.
+
+### 12.4 y 12.5 Los dos que ya tenían dueño
+
+- **`Definitivas.php`, el `$alumnos[$i];` suelto** (dos veces, uno por método).
+  No asigna a nada, pero el `INSERT` de la línea siguiente usa `$alumno_id`, que
+  no existe en ninguna parte — es uno de los cinco endpoints rotos de la §6.5.
+  **La expresión suelta es la única pista de por dónde iba el autor**: lo que
+  debía ir ahí es `$alumnos[$i]->alumno_id`. Se arregla el día que se decida qué
+  hace el endpoint, y entonces la línea se usa en vez de borrarse.
+- **`AlumnosController`, el `if ($todos_anios)`** que siempre es cierto. Decidido
+  el 20 ago 2026 y explicado en la §11.2: se queda, la rama `else` también, y el
+  front sigue mandando `todos_anios` como si el interruptor existiera.
+
+### Y uno que no se quedó: el `== 'true'` que murió con PHP 8
+
+Los tres informes con `Request::input('year_selected') == true || … == 'true'`
+—`BolfinalesController`, `BolfinalesPreescolarController`,
+`CertificadosPersonaController`— se simplificaron, pero **la rama derecha no se
+escribió muerta**. En PHP 7 atrapaba los valores falsy, porque `0 == 'true'`
+valía true; en PHP 8 la comparación entre número y cadena cambió y ya no se
+alcanza.
+
+O sea que un cliente que mandara `year_selected=0` recibía **el año seleccionado
+antes de la migración y el año actual después**, sin que nadie tocara una línea.
+Es el mismo patrón que los `tinyint(1)` del nivel 3: el analizador no encontró
+código muerto, encontró un cambio de comportamiento del salto de versión que
+llevaba ahí sin que nadie lo mirara. Los snapshots `bolfinales` y
+`bolfinales-preescolar` de `BoletinesTest` cubren la forma de los tres.

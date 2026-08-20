@@ -26,14 +26,8 @@ class FoliosController extends Controller {
 			SET m.nro_folio=CONCAT(y.year,"-", m.alumno_id);';
 
 		$matriculas = DB::update($consulta, [$yearactual->id]);
+
 		return $matriculas;
-		$canti_matri = count($matriculas);
-
-		for ($i=0; $i < $canti_matri; $i++) {
-			
-		}
-
-        return [$matriculas];
 	}
 
 	

@@ -48,9 +48,6 @@ class CertificadosEstudioController extends Controller {
 		$pdf->loadHTML($content);
 		return $pdf->download();
 
-		return $content;
-
-
 	}
 
 

@@ -88,7 +88,7 @@ class ProfesoresController extends Controller {
 					$profesores[$i]->orden_grupo = $grupos[$j]->orden;
 				}
 				
-				if ($cant_g > 0 && $j < ($cant_g-1)) {
+				if ($j < ($cant_g-1)) {
 					$profesores[$i]->grupos .= ',';
 				}
 			}

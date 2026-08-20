@@ -490,12 +490,9 @@ class PerfilesController extends Controller {
 			'No tienes permiso para eliminar grupos definitivamente.');
 
 		$grupo = Grupo::onlyTrashed()->findOrFail($id);
-		
-		if ($grupo) {
-			$grupo->forceDelete();
-		}else{
-			return abort(400, 'Grupo no encontrado en la Papelera.');
-		}
+
+		$grupo->forceDelete();
+
 		return $grupo;
 	
 	}
