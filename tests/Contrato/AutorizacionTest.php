@@ -345,7 +345,7 @@ class AutorizacionTest extends CasoDeContrato
             $mapa[$guard] = [];
         }
 
-        foreach (Route::getRoutes() as $ruta) {
+        foreach (Route::getRoutes()->getRoutes() as $ruta) {
             foreach ($ruta->middleware() as $aplicado) {
                 foreach ($guards as $guard) {
                     $modo = null;

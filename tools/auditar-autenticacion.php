@@ -242,7 +242,7 @@ function analizarControlador(string $clase, $parser, NodeFinder $finder, array &
 
 $resultados = [];
 
-foreach (Route::getRoutes() as $ruta) {
+foreach (Route::getRoutes()->getRoutes() as $ruta) {
     $accion = $ruta->getActionName();
 
     if (! str_contains($accion, '@')) {

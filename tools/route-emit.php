@@ -64,7 +64,7 @@ function dominioDe(string $clase, array $dominios): string
 $porDominio = [];
 $sinClasificar = [];
 
-foreach (Illuminate\Support\Facades\Route::getRoutes() as $ruta) {
+foreach (Illuminate\Support\Facades\Route::getRoutes()->getRoutes() as $ruta) {
     $accion = $ruta->getActionName();
 
     if ($accion === 'Closure' || ! str_contains($accion, '@')) {

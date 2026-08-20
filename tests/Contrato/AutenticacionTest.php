@@ -72,7 +72,7 @@ class AutenticacionTest extends CasoDeContrato
         $conGuard = [];
         $sinGuard = [];
 
-        foreach (Route::getRoutes() as $ruta) {
+        foreach (Route::getRoutes()->getRoutes() as $ruta) {
             if (! str_starts_with($ruta->uri(), 'api/')) {
                 continue;
             }

@@ -111,7 +111,7 @@ class LimiteDeIntentosTest extends CasoDeContrato
 
         $reales = [];
 
-        foreach (Route::getRoutes() as $ruta) {
+        foreach (Route::getRoutes()->getRoutes() as $ruta) {
             if (! in_array('throttle:login', $ruta->middleware(), true)) {
                 continue;
             }

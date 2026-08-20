@@ -297,7 +297,7 @@ class RutasPreLoginTest extends CasoDeContrato
 
         $sirven = [];
 
-        foreach (Route::getRoutes() as $ruta) {
+        foreach (Route::getRoutes()->getRoutes() as $ruta) {
             foreach ($ruta->methods() as $verbo) {
                 // Solo la API. `routes/web.php` sirve la página de bienvenida
                 // de Laravel en `/`, que es pública por definición.

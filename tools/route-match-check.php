@@ -26,7 +26,7 @@ $coleccion = Illuminate\Support\Facades\Route::getRoutes();
 
 $candidatas = [];
 
-foreach ($coleccion as $ruta) {
+foreach ($coleccion->getRoutes() as $ruta) {
     $uri = $ruta->uri();
 
     foreach ($ruta->methods() as $verbo) {

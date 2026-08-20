@@ -25,7 +25,7 @@ $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
 $filas = [];
 
-foreach (Illuminate\Support\Facades\Route::getRoutes() as $ruta) {
+foreach (Illuminate\Support\Facades\Route::getRoutes()->getRoutes() as $ruta) {
     $accion = $ruta->getActionName();
 
     foreach ($ruta->methods() as $verbo) {

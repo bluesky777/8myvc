@@ -621,7 +621,7 @@ class MatriculasTest extends CasoDeContrato
     {
         $rutas = [];
 
-        foreach (Route::getRoutes() as $ruta) {
+        foreach (Route::getRoutes()->getRoutes() as $ruta) {
             $rutas[] = $ruta->uri();
         }
 

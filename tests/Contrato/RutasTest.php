@@ -25,7 +25,7 @@ class RutasTest extends TestCase
     {
         $resueltas = [];
 
-        foreach (Route::getRoutes() as $ruta) {
+        foreach (Route::getRoutes()->getRoutes() as $ruta) {
             foreach ($ruta->methods() as $verbo) {
                 if ($verbo === 'HEAD') {
                     continue;
@@ -77,7 +77,7 @@ class RutasTest extends TestCase
         $vistas = [];
         $duplicadas = [];
 
-        foreach (Route::getRoutes() as $ruta) {
+        foreach (Route::getRoutes()->getRoutes() as $ruta) {
             foreach ($ruta->methods() as $verbo) {
                 if ($verbo === 'HEAD') {
                     continue;
