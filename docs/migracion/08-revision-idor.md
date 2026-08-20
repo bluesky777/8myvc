@@ -209,7 +209,13 @@ más de trescientas, y a ese tamaño una lista a mano deja de leerse.
    ruta sin guard si su respuesta lleva identificadores de persona dentro, que es
    una pregunta sobre el cuerpo y no sobre la firma.
 
-   **Y el 20 ago 2026 el mismo punto ciego dejó pasar cuatro más**, esta vez sin
+   **Y los otros dos buscadores seguían abiertos hasta el 20 ago 2026**:
+   `buscar/por-nombre` y `buscar/por-apellido` hacen lo mismo y viven en otra
+   familia, así que la pasada de la §11.3 no los tocó. Con ellos salió además
+   que el texto entraba interpolado en la consulta
+   ([05 §17.4](05-codigo-muerto-y-roto.md)).
+
+   **Y el mismo punto ciego dejó pasar cuatro más**, esta vez sin
    buscador de por medio: `subunidades/trashed`, `editnota/trashed`,
    `unidades/trashed` y `asignaturas/papelera` no reciben ningún identificador,
    así que no aparecen en ninguna lista de este documento — y las dos primeras

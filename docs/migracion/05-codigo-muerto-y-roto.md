@@ -1388,3 +1388,114 @@ traza dentro, que es la mitad de la §1 de [01](01-plan-seguridad.md).
   está decidido —y es lo que quedó abierto entonces— es **si esa pantalla debe
   enseñarle sus asignaturas de verdad**. El seed no puede demostrar el fallo,
   por lo de siempre: ahí los ids de alumno y de profesor no se solapan.
+
+---
+
+## 17. La hermana que se quedó sin el guard (20 ago 2026)
+
+Los cinco agujeros de la [§16](#16-el-acudiente-y-lo-que-el-barrido-no-puede-ver-20-ago-2026)
+se encontraron mirándolos a mano, y al escribirlos salió que los cinco tenían la
+**misma forma**: eran la única ruta de su familia sin guard. Eso es mecánico, y
+lo mecánico se escribe como test.
+
+`AutorizacionTest::test_ninguna_ruta_se_queda_sola_sin_el_guard_de_su_familia`
+mira, por prefijo de URL, las rutas que no llevan `auth.personal`,
+`persona.propia` ni `boletin.propio` cuando **dos o más hermanas sí** y las que
+no son minoría clara. No afirma que estén mal —hay excepciones legítimas, y van
+en `EXCEPCIONES_DE_FAMILIA` una a una con su motivo, como en `phpstan.neon`—
+sino que **nadie ha decidido**. Un segundo test comprueba que ninguna excepción
+sobre, para que la lista no pueda solo crecer.
+
+Se mide por prefijo y no por controlador a propósito: `editnota/trashed` vive en
+`EditnotaController` y devuelve alumnos borrados. Lo que la delata es estar sola
+en `editnota/*`, no su clase.
+
+### 17.1 Lo que encontró el mismo día que se escribió
+
+Las 27 que marcó estaban todas explicadas —catálogos pendientes de decisión en
+[08](08-revision-idor.md), rutas defendidas dentro del método, y dos rotas que ya
+tenían su entrada aquí—. **Lo que no estaba explicado fue lo que enseñó su
+gemelo**, el snapshot `guard-por-familia`: de las 95 familias, **12 no tenían
+ningún guard**, y por eso la regla de «la que se quedó sola» no las mira — no hay
+hermana con la que comparar.
+
+Nueve de las doce son correctas (`auth`, `login`, `publicaciones`,
+`respuestas`, `tardanzas` —que son públicas y son un test—, `folios`,
+`aplicacion-descargas`, `importar`, `calendario`, defendidas dentro o ya
+descritas). Las otras tres, no.
+
+### 17.2 Quién pasa el año
+
+**`PUT api/promovidos/calcular-grupo` no es un cálculo que se devuelve: escribe.**
+Recorre el grupo que se nombre en el CUERPO y hace
+
+```sql
+UPDATE matriculas SET promovido=?, promedio=?, cant_asign_perdidas=?, cant_areas_perdidas=?
+WHERE id=? AND promovido NOT LIKE '%(manual)%'
+```
+
+por cada alumno. Un alumno y un acudiente lo dispararon sobre un grupo que no es
+suyo, y de paso recibieron **331 KB** con las notas de ese grupo.
+
+De todo lo que se ha encontrado en esta serie es lo más caro, porque el campo que
+escribe es el que dice si un alumno repite. Y **el barrido no podía verlo**: el
+`grupo_id` viaja en el cuerpo y el barrido golpea con el cuerpo vacío, así que
+`Grupo::alumnos(null)` no devolvía a nadie y no había nada que actualizar. Es la
+limitación que la §15 dejó escrita, con su primera víctima concreta.
+
+### 17.3 La cartera, que no miraba el token ni una vez
+
+| Ruta | De dónde saca su alcance |
+|---|---|
+| `PUT api/cartera/solo-deudores` | `year_id` del cuerpo. Devuelve **todos los deudores del colegio** con documento, celular, dirección y deuda |
+| `PUT api/cartera/alumnos` | `grupo_actual` del cuerpo, cualquier grupo. Tiene el `User::fromToken()` **comentado** |
+| `GET api/cartera/exportar-solo-deudores` | De ningún sitio: devuelve el **Excel de deudores** sin parámetros |
+
+Las tres, con token de alumno y de acudiente. El barrido no vio ninguna, y por
+las **dos mitades de su límite a la vez**: las dos primeras piden por el cuerpo,
+que él manda vacío, y la tercera devuelve un `xlsx` cuyos bytes su detector de
+datos personales no puede leer.
+
+En el seed `solo-deudores` sale vacía porque no hay nadie con `pazysalvo=false`
+—la misma trampa que `unidades_por_defecto` y que los alumnos borrados de la
+§16.4—, así que el candado comprueba el 403 y no el cuerpo.
+
+### 17.4 Los otros dos buscadores, y una comilla
+
+`PUT api/buscar/por-nombre` y `PUT api/buscar/por-apellido` hacen lo mismo que
+`alumnos/personas-check` y `alumnos/documento-check`, que se cerraron en la
+[§11.3](#113-los-buscadores-de-personas): con una sola letra le devolvían a
+cualquier alumno **49 compañeros** con su `alumno_id`, su `user_id`, su foto y su
+grupo. Se quedaron fuera de aquella pasada porque viven en otra familia,
+`buscar/*`, y porque **reciben `texto_a_buscar` y no un id**, que es exactamente
+el punto ciego que [08 §4](08-revision-idor.md) dejó descrito: la herramienta mide
+la cerradura y no mira quién reparte las llaves.
+
+Y había una segunda cosa dentro, que es de otra clase:
+
+```php
+$consulta = $this->consulta_ini . " WHERE a.apellidos like '%$texto_a_buscar%'";
+$res = DB::select($consulta, [$user->year_id]);
+```
+
+**El texto entra interpolado en la cadena de la consulta.** El `year_id` va como
+parámetro y el texto del cliente no. Para verlo no hace falta plantear un ataque:
+basta un alumno que se apellide **O'Brien** — el buscador responde 500. Por eso
+el candado busca una comilla, que es la misma prueba escrita sin construir nada.
+
+Ahora va como parámetro. El `%` que escriba quien busca sigue funcionando como
+comodín, que es lo que hace hoy y lo que la secretaría usa.
+
+### 17.5 Lo que queda de esto
+
+- Seis rutas más con `auth.personal`, y tres familias que pasan de no tener
+  ningún guard a tenerlo entero: `buscar`, `cartera` y `promovidos`.
+- Cuatro casos nuevos en `SuperficieDeUnAlumnoTest`, comprobados al revés. El de
+  la promoción mira **el efecto**: guarda el `promovido` de cada matrícula del
+  grupo antes y después, porque un 403 que llegue tras el `UPDATE` no vale nada.
+- Dos tests y un snapshot nuevos en `AutorizacionTest`.
+- Y la lección, que es la de siempre con una vuelta más: **cada herramienta de
+  esta serie encontró lo que las anteriores no podían ver, y ésta encontró lo
+  suyo sin golpear nada.** El inventario mira la petición; el barrido, el
+  resultado; ésta mira **la forma de la tabla de rutas**, y por eso ve las que no
+  reciben identificador y las que solo escriben con el cuerpo lleno.

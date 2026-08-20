@@ -474,6 +474,39 @@ saber el tamaño real del daño en las dieciséis bases antes de tocar código.
   borrados con su documento— y un 500 que era un 404. Todo en
   [05 §16](05-codigo-muerto-y-roto.md).
 
+- **La hermana que se quedó sin el guard, hecho el 20 ago 2026.** Los cinco
+  agujeros de la §16 tenían la misma forma —ser la única de su familia sin
+  guard—, y eso es mecánico. Está en `AutorizacionTest` como test y no como
+  herramienta, por lo mismo que el candado de los identificadores: así corre con
+  los demás. Las excepciones legítimas van en `EXCEPCIONES_DE_FAMILIA` con su
+  motivo, y un segundo test impide que la lista solo crezca.
+
+  Las 27 que marcó estaban todas explicadas. **Lo que no lo estaba fue lo que
+  enseñó su gemelo**, el snapshot `guard-por-familia`: de 95 familias, doce no
+  tienen ningún guard, y por eso la regla no las mira — no hay hermana con la que
+  comparar. Nueve son correctas; las otras tres eran
+  [05 §17](05-codigo-muerto-y-roto.md):
+
+  - **`promovidos/calcular-grupo` escribe `matriculas.promovido`** —si el alumno
+    pasa el año— de cualquier grupo nombrado en el cuerpo, y devuelve 331 KB con
+    sus notas. Es lo más caro de toda la serie, y el barrido no podía verlo
+    porque golpea con el cuerpo vacío.
+  - **La cartera entera**, que no mira el token ni una vez: los deudores del
+    colegio con su documento y su deuda, cualquier grupo, y el Excel de deudores
+    sin parámetros. El barrido falló aquí por sus dos mitades a la vez — dos
+    piden por el cuerpo y la tercera devuelve un `xlsx`.
+  - **`buscar/por-nombre` y `buscar/por-apellido`**, los otros dos buscadores de
+    la §11.3: 49 compañeros a cualquier alumno. Y con el texto **interpolado en
+    la consulta** — que no hace falta un atacante para verlo, basta un alumno
+    apellidado O'Brien: 500.
+
+  Lo que queda de esto para lo que venga: **cada herramienta de la serie
+  encuentra lo que las anteriores no pueden ver.** El inventario mira la
+  petición, el barrido el resultado, y ésta la forma de la tabla de rutas — que
+  es lo único que ve las que no reciben identificador y las que solo escriben
+  con el cuerpo lleno. Lo que sigue sin cubrir es golpear con **cuerpos
+  plausibles**: es lo que ocultó `promovidos` y la mitad de la cartera.
+
 - **Rector**, configurado y sin correr: por carpeta y revisando cada diff.
 - **FormRequests**: hay 2 validaciones en 32.000 líneas. Cada endpoint que se
   toque estrena la suya.
