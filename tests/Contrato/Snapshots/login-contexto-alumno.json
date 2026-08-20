@@ -2,7 +2,7 @@
     "abrev_grupo": "string",
     "alumnos_can_see_notas": "int",
     "apellidos": "string",
-    "ciudad_nac": "null",
+    "ciudad_nac": "int",
     "compromiso_familiar_label": "string",
     "deuda": "int",
     "fecha_nac": "string",

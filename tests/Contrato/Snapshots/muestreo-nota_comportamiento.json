@@ -1,0 +1,16 @@
+[
+    {
+        "alumno_id": "int",
+        "created_at": "string",
+        "created_by": "null",
+        "deleted_at": "null",
+        "deleted_by": "null",
+        "familiar_ausencias": "int|null",
+        "familiar_nota": "null",
+        "id": "int",
+        "nota": "int",
+        "periodo_id": "int",
+        "updated_at": "string",
+        "updated_by": "null"
+    }
+]

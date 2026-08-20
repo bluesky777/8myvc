@@ -20,7 +20,7 @@ La buena noticia: el código casi no usa superficie del framework. 990 llamadas 
 
 | # | Fase | Qué desbloquea | Esfuerzo |
 |---|---|---|---|
-| 0 | Red de seguridad (tests de contrato + baseline de BD + CI) | Todo lo demás | 4–6 días · **P0 y P1 completos 19 ago 2026**; P2 pendiente |
+| 0 | Red de seguridad (tests de contrato + baseline de BD + CI) | Todo lo demás | 4–6 días · **completa: P0 y P1 el 19 ago 2026, P2 el 20** |
 | 1 | Eliminar `AdvancedRoute` (sin tocar el framework) | Rutas cacheables, `route:list` funcional | 1–2 días |
 | 2 | Organizar rutas + middleware `auth` real | Cierra el agujero de roles/permisos | 2–3 días |
 | 3 | Reemplazar `tymon/jwt-auth` (back + front + Flutter) | Desbloquea el salto de framework | 4–6 días · **backend hecho 19 ago 2026** |
@@ -224,11 +224,24 @@ Route::middleware(['auth:sanctum', 'user.context'])->group(function () {
 
 Nada de lo demás se toca antes de esto. Es lo que convierte "espero que no se rompa" en "sé que no se rompió".
 
-> **Estado (19 ago 2026).** Hecho: 0.1 baseline del esquema, 0.3 entorno
-> reproducible, 0.4 CI, y **el P0 y el P1 de 0.2**: login (6), enrutado, notas,
-> Excel, imágenes, boletines, observador, acta de evaluación, matrículas y
-> grupos. **200 tests de contrato.** Pendiente: la prioridad P2. Cómo se usa
-> todo esto: [03-tests.md](03-tests.md).
+> **Estado (20 ago 2026): la Fase 0 está completa.** Hecho: 0.1 baseline del
+> esquema, 0.3 entorno reproducible, 0.4 CI, y **las tres prioridades de 0.2**:
+> login (6), enrutado, notas, Excel, imágenes, boletines, observador, acta de
+> evaluación, matrículas y grupos en el P0 y el P1; el muestreo del resto de la
+> API en el P2. **389 tests de contrato.** Cómo se usa todo esto:
+> [03-tests.md](03-tests.md).
+>
+> **El P2 (20 ago 2026)** cierra la pregunta que quedaba abierta, que era cuánto
+> falta por cubrir. Ahora se mide —`tools/cobertura-de-rutas.py`— en vez de
+> estimarse: **de 96 rutas con la respuesta comprobada a 208, y de 35
+> controladores a 90 de 97**. Los siete que faltan no tienen ninguna lectura que
+> mirar: son escrituras, o los lectores de tardanzas.
+>
+> Trajo además el seed de **dos años**, que era lo que faltaba para que se
+> ejecutaran las consultas del grado anterior, y **cuatro endpoints que fallan
+> siempre** —tres son SQL contra columnas que no existen, y larastan había pasado
+> por esos ficheros en la Fase 6 sin ver ninguna—. Están en
+> [05-codigo-muerto-y-roto.md §8](05-codigo-muerto-y-roto.md).
 >
 > **El P1 encontró cuatro cosas más, y las cuatro quedaron arregladas** (19 ago
 > 2026). Al contrario que en el P0, aquí no se dejó nada abierto:
@@ -298,7 +311,12 @@ Cobertura mínima, priorizada por lo que más duele si se rompe:
 | P0 | **Imágenes**: subir, recortar, rotar, foto de perfil | 6 |
 | P1 | Boletines / bolfinales / observador / actas (los Blade que generan PDF-HTML) | ~12 · **hecho, 35 tests** |
 | P1 | Matrículas, prematrículas, grupos, promovidos | ~15 · **hecho, 31 tests** |
-| P2 | El resto, por muestreo (1 GET por controlador) | ~100 |
+| P2 | El resto, por muestreo (~~1 GET~~ **1 LECTURA** por controlador) | ~100 · **hecho, 78 tests** |
+
+> **«1 GET por controlador» estaba mal escrito, y se vio al hacerlo.** Solo 62 de
+> los 97 controladores tienen algún GET: en este proyecto se lee con `PUT` y el
+> filtro va en el cuerpo, así que el criterio del verbo dejaba fuera a veinte
+> controladores enteros. Lo que se muestrea es una lectura, venga por donde venga.
 
 Para los binarios (Excel, imágenes) el snapshot no es del byte-stream: es **hash del contenido normalizado** (para XLSX: número de hojas + headers + N filas + checksum de celdas; para imágenes: dimensiones + tipo MIME + tamaño ±5%). Comparar bytes crudos daría falsos positivos por metadatos de fecha.
 

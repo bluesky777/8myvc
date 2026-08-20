@@ -1,0 +1,22 @@
+[
+    {
+        "created_at": "string",
+        "created_by": "int",
+        "encabezado_height": "int",
+        "encabezado_img_id": "null",
+        "encabezado_margin_left": "int",
+        "encabezado_margin_top": "int",
+        "encabezado_solo_primera_pagina": "int",
+        "encabezado_width": "int",
+        "id": "int",
+        "nombre": "string",
+        "piepagina_height": "int",
+        "piepagina_img_id": "null",
+        "piepagina_margin_bottom": "int",
+        "piepagina_margin_left": "int",
+        "piepagina_solo_ultima_pagina": "int",
+        "piepagina_width": "int",
+        "updated_at": "string",
+        "updated_by": "null"
+    }
+]

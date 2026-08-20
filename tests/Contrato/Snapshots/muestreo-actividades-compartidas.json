@@ -1,0 +1,26 @@
+{
+    "actv_acudi": [],
+    "actv_alumnos": [],
+    "actv_profes": [],
+    "grupos": [
+        {
+            "abrev": "string",
+            "caritas": "int",
+            "created_at": "string",
+            "created_by": "null",
+            "cupo": "int",
+            "deleted_at": "null",
+            "deleted_by": "null",
+            "grado_id": "int",
+            "id": "int",
+            "nombre": "string",
+            "orden": "int",
+            "titular_id": "int",
+            "updated_at": "string",
+            "updated_by": "int",
+            "valormatricula": "null",
+            "valorpension": "null",
+            "year_id": "int"
+        }
+    ]
+}

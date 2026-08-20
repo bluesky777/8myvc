@@ -31,7 +31,7 @@
                                 "periodo_id": "int",
                                 "recuperada": "int",
                                 "updated_at": "string",
-                                "updated_by": "int"
+                                "updated_by": "int|null"
                             }
                         ],
                         "desempenio": "string",
@@ -85,7 +85,7 @@
                         "periodo_id": "int",
                         "recuperada": "int",
                         "updated_at": "string",
-                        "updated_by": "int"
+                        "updated_by": "int|null"
                     }
                 ],
                 "desempenio": "string",

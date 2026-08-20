@@ -213,8 +213,13 @@ abstract class CasoDeContrato extends TestCase
      * Al crearla imprime un aviso: un snapshot recién creado no ha
      * verificado nada todavía, solo ha registrado el comportamiento de hoy.
      * Hay que leerla antes de fiarse de ella.
+     *
+     * `$real` no se declara `array` porque hay endpoints que devuelven un
+     * escalar y su forma también lo es: `GET api/folios/iniciar` responde un
+     * número suelto, y su snapshot es la cadena `'int'`. Envolverlo en un array
+     * para que quepa metería en el fichero una clave que la respuesta no tiene.
      */
-    protected function compararConInstantanea(string $nombre, array $real): void
+    protected function compararConInstantanea(string $nombre, array|string $real): void
     {
         $ruta = __DIR__.'/Snapshots/'.$nombre.'.json';
 
@@ -238,6 +243,45 @@ abstract class CasoDeContrato extends TestCase
             "La respuesta de '{$nombre}' cambió respecto al snapshot.\n".
             "Si el cambio es intencionado, borra tests/Contrato/Snapshots/{$nombre}.json y vuelve a correr."
         );
+    }
+
+    /**
+     * La forma de la respuesta, con cada posición nombrada, y el largo comprobado.
+     *
+     * **A esta respuesta no se le puede pasar `forma()` entera.** Para `forma()`
+     * un array de claves 0..3 es una LISTA, y de una lista guarda solo la forma
+     * del primer elemento — que es lo correcto cuando los elementos son
+     * homogéneos, el caso de `alumnos`, y es desastroso aquí, donde la posición 0
+     * es el grupo y la 3 son las escalas. El snapshot habría guardado el grupo,
+     * tirado el boletín entero, y pasado siempre. Se descubrió al mirar el primer
+     * `.json` generado, no leyendo el código.
+     *
+     * Comprobar el largo tampoco es puntillería: el frontend lee `respuesta[2]`
+     * para los alumnos. Si alguna versión del framework serializara esto como
+     * objeto con claves, el JSON seguiría siendo válido y la pantalla quedaría
+     * en blanco.
+     *
+     * Por dentro usa `formaUnida()` y no `forma()`. `Grupo::alumnos()` ordena por
+     * `apellidos, nombres` y el seed anonimizado repite nombres, así que qué
+     * alumno cae en la posición 0 lo decide MySQL: con `forma()` las columnas
+     * nullable salían `'null'` o `'string'` según la corrida. Ver el comentario
+     * de formaUnida(), aquí debajo.
+     *
+     * Vive en la clase base desde el muestreo de la P2: la tupla no era cosa de
+     * los boletines, la devuelven también las notas actuales del grupo.
+     */
+    protected function formaDeLaTupla(array $cuerpo, array $nombres): array
+    {
+        $this->assertSame(range(0, count($nombres) - 1), array_keys($cuerpo),
+            'La respuesta dejó de ser una tupla posicional de '.count($nombres).' elementos.');
+
+        $forma = [];
+
+        foreach ($nombres as $posicion => $nombre) {
+            $forma[$nombre] = $this->formaUnida($cuerpo[$posicion]);
+        }
+
+        return $forma;
     }
 
     /**

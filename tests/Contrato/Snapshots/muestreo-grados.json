@@ -1,0 +1,12 @@
+[
+    {
+        "abrev": "string",
+        "created_at": "string",
+        "id": "int",
+        "nivel_educativo_id": "int",
+        "nombre": "string",
+        "nombre_nivel": "string",
+        "orden": "int",
+        "updated_at": "string"
+    }
+]

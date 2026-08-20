@@ -1,0 +1,49 @@
+{
+    "configuracion": {
+        "cant_ft1_to_ft2": "int",
+        "cant_ft2_to_ft3": "int",
+        "cant_tard_to_ft1": "int",
+        "created_at": "null",
+        "definicion_ft1": "null",
+        "definicion_ft2": "null",
+        "definicion_ft3": "null",
+        "deleted_at": "null",
+        "falta_tipo1_displayname": "string",
+        "falta_tipo2_displayname": "string",
+        "falta_tipo3_displayname": "string",
+        "faltas_tipo1_displayname": "string",
+        "faltas_tipo2_displayname": "string",
+        "faltas_tipo3_displayname": "string",
+        "genero_falta_t1": "string",
+        "genero_falta_t2": "string",
+        "genero_falta_t3": "string",
+        "id": "int",
+        "nombre_col1": "string",
+        "nombre_col2": "string",
+        "nombre_col3": "string",
+        "reinicia_por_periodo": "int",
+        "updated_at": "null",
+        "updated_by": "null",
+        "year_id": "int"
+    },
+    "ordinales": [
+        {
+            "created_at": "null",
+            "deleted_at": "null",
+            "deleted_by": "null",
+            "descripcion": "string",
+            "id": "int",
+            "ordinal": "string",
+            "pagina": "null",
+            "tipo": "string",
+            "updated_at": "null",
+            "updated_by": "null",
+            "year_id": "int"
+        }
+    ],
+    "tipos": [
+        {
+            "tipo": "string"
+        }
+    ]
+}

@@ -1,0 +1,26 @@
+[
+    {
+        "abrev_grupo": "string",
+        "alias_materia": "string",
+        "asignatura_id": "int",
+        "creditos": "int",
+        "grupo_id": "int",
+        "materia": "string",
+        "nivel_educativo_id": "int",
+        "nombre_grupo": "string",
+        "orden": "null",
+        "piar_asignatura": {
+            "alumno_id": "int",
+            "apoyo_razonable": "null",
+            "asignatura_id": "int",
+            "created_at": "string",
+            "id": "int",
+            "seguimientos": "null",
+            "updated_at": "string",
+            "updated_by": "int",
+            "year": "int"
+        },
+        "profesor_id": "int",
+        "titular_id": "int"
+    }
+]

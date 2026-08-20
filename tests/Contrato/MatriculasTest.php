@@ -76,12 +76,12 @@ class MatriculasTest extends CasoDeContrato
      * El `year_ant` que se manda es el del grupo menos uno, que es lo que hace la
      * pantalla.
      *
-     * **`AlumnosSinMatricula` sale vacía con el seed, y seguirá saliendo.** El
-     * seed es una rebanada de un solo grupo de un solo año, así que no hay ningún
-     * grupo del grado anterior del que sacar candidatos. Se deja escrito porque un
-     * snapshot con una lista vacía pasa siempre: esa tercera consulta —la del
-     * `NOT IN`, la más enredada de las tres— **no la cubre nadie**. Para cubrirla
-     * hace falta un seed con dos años, y eso es trabajo de la P2.
+     * **`AlumnosSinMatricula` sale vacía aquí**, y no es un descuido: los 56
+     * alumnos del grupo del año anterior están todos matriculados en el actual,
+     * así que el `NOT IN` no deja pasar a ninguno. La consulta —la más enredada
+     * de las tres— la cubre
+     * test_los_del_grado_anterior_sin_matricular_salen_en_su_lista, que se
+     * fabrica el caso desmatriculando a uno.
      */
     public function test_la_forma_de_las_tres_listas_de_la_pantalla_de_matriculas(): void
     {
@@ -108,6 +108,67 @@ class MatriculasTest extends CasoDeContrato
 
         $this->compararConInstantanea('matriculas-alumnos-con-grado-anterior',
             $this->formaUnida($r->json()));
+    }
+
+    /**
+     * La tercera lista: los del grado anterior que todavía no se han matriculado.
+     *
+     * Es la consulta del `NOT IN`, y hasta el 20 ago 2026 **no la ejecutaba
+     * nadie**. Primero porque el seed tenía un año solo y no había grado
+     * anterior; y después de ampliarlo a dos, porque los 56 alumnos de Tercero
+     * 2024 siguen todos en Cuarto 2025 y el `NOT IN` los descarta a todos. Una
+     * lista vacía pasa cualquier comprobación.
+     *
+     * Así que el caso se fabrica: se desmatricula a uno del grupo actual, y
+     * entonces tiene que aparecer. Es la situación real de la pantalla —el
+     * alumno que estuvo el año pasado y este todavía no ha vuelto—, y es
+     * exactamente para quien existe.
+     *
+     * El borrado es blando y lo deshace la transacción del test.
+     */
+    public function test_los_del_grado_anterior_sin_matricular_salen_en_su_lista(): void
+    {
+        [$grupo, $token] = $this->grupoYPersonal();
+
+        $anterior = DB::selectOne('SELECT g.id, g.grado_id, y.year FROM grupos g
+            INNER JOIN years y ON y.id = g.year_id AND y.deleted_at IS NULL
+            INNER JOIN matriculas m ON m.grupo_id = g.id AND m.deleted_at IS NULL
+            WHERE g.deleted_at IS NULL
+              AND y.year = (SELECT y2.year - 1 FROM grupos g2
+                            INNER JOIN years y2 ON y2.id = g2.year_id WHERE g2.id = ?)
+            GROUP BY g.id, g.grado_id, y.year ORDER BY COUNT(m.id) DESC LIMIT 1', [$grupo->id]);
+
+        $this->assertNotNull($anterior, 'El seed necesita un grupo del año anterior.');
+
+        // Uno que esté en los dos grupos: es el que, al quitarle la matrícula de
+        // este año, se convierte en candidato.
+        $alumno = DB::selectOne('SELECT m2.alumno_id, m2.id AS matricula_actual
+            FROM matriculas m1
+            INNER JOIN matriculas m2 ON m2.alumno_id = m1.alumno_id AND m2.grupo_id = ?
+                AND m2.deleted_at IS NULL
+            WHERE m1.grupo_id = ? AND m1.deleted_at IS NULL
+            ORDER BY m2.alumno_id LIMIT 1', [$grupo->id, $anterior->id]);
+
+        $this->assertNotNull($alumno, 'Ningún alumno del año anterior sigue en el grupo actual.');
+
+        DB::table('matriculas')->where('id', $alumno->matricula_actual)->update(['deleted_at' => now()]);
+
+        $r = $this->putJson('/api/matriculas/alumnos-con-grado-anterior', [
+            'grupo_actual' => ['id' => $grupo->id],
+            'grado_ant_id' => $anterior->grado_id,
+            'year_ant' => $anterior->year,
+        ], ['Authorization' => 'Bearer '.$token]);
+
+        $r->assertStatus(200);
+
+        $sinMatricula = $r->json('AlumnosSinMatricula');
+
+        $this->assertNotEmpty($sinMatricula,
+            'El alumno desmatriculado no aparece como candidato del grado anterior.');
+        $this->assertContains($alumno->alumno_id, array_column($sinMatricula, 'alumno_id'));
+
+        $this->compararConInstantanea('matriculas-alumnos-sin-matricula',
+            $this->formaUnida($sinMatricula));
     }
 
     /**

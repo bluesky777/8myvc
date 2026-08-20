@@ -1,0 +1,93 @@
+[
+    {
+        "abrev": "string",
+        "alumnos": [
+            {
+                "alumno_id": "int",
+                "apellidos": "string",
+                "cant_areas_perdidas": "int",
+                "cant_asign_perdidas": "int",
+                "celular": "null|string",
+                "ciudad_nac": "int|null",
+                "direccion": "null|string",
+                "documento": "null|string",
+                "estado": "string",
+                "fecha_nac": "string",
+                "foto_id": "null",
+                "foto_nombre": "string",
+                "grupo_id": "int",
+                "imagen_id": "null",
+                "imagen_nombre": "string",
+                "matricula_id": "int",
+                "nee": "int",
+                "nee_descripcion": "null",
+                "no_matricula": "null|string",
+                "nombres": "string",
+                "nro_folio": "string",
+                "nuevo": "int",
+                "periodos": [
+                    {
+                        "actual": "int",
+                        "ausencias": [],
+                        "created_at": "null|string",
+                        "created_by": "null",
+                        "deleted_at": "null",
+                        "deleted_by": "null",
+                        "fecha_fin": "null",
+                        "fecha_inicio": "null",
+                        "fecha_plazo": "null",
+                        "id": "int",
+                        "numero": "int",
+                        "profes_pueden_editar_notas": "int",
+                        "profes_pueden_nivelar": "int",
+                        "updated_at": "string",
+                        "updated_by": "int|null",
+                        "year_id": "int"
+                    }
+                ],
+                "promedio": "string",
+                "promovido": "string",
+                "religion": "null|string",
+                "repitente": "int",
+                "sexo": "string",
+                "tipo_doc": "string",
+                "tipo_doc_abrev": "string",
+                "total_aus_alum": "int",
+                "user_id": "int",
+                "username": "string"
+            }
+        ],
+        "apellidos_titular": "string",
+        "created_at": "string",
+        "grado_id": "int",
+        "id": "int",
+        "nombre": "string",
+        "nombre_grado": "string",
+        "nombres_titular": "string",
+        "orden": "int",
+        "orden_grado": "int",
+        "periodos": [
+            {
+                "actual": "int",
+                "created_at": "null|string",
+                "created_by": "null",
+                "deleted_at": "null",
+                "deleted_by": "null",
+                "fecha_fin": "null",
+                "fecha_inicio": "null",
+                "fecha_plazo": "null",
+                "id": "int",
+                "numero": "int",
+                "profes_pueden_editar_notas": "int",
+                "profes_pueden_nivelar": "int",
+                "updated_at": "string",
+                "updated_by": "int|null",
+                "year_id": "int"
+            }
+        ],
+        "titular_id": "int",
+        "titulo": "null",
+        "updated_at": "string",
+        "year_id": "int"
+    }
+]

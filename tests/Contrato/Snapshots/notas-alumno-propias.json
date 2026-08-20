@@ -5,7 +5,7 @@
         "apellidos": "string",
         "caritas": "int",
         "deuda": "int",
-        "email": "string",
+        "email": "null",
         "facebook": "null",
         "fecha_nac": "string",
         "foto_id": "null",

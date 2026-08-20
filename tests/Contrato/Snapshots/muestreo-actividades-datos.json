@@ -1,0 +1,45 @@
+{
+    "grupo_id": "int",
+    "grupos": [
+        {
+            "abrev": "string",
+            "caritas": "int",
+            "created_at": "string",
+            "created_by": "null",
+            "cupo": "int",
+            "deleted_at": "null",
+            "deleted_by": "null",
+            "grado_id": "int",
+            "id": "int",
+            "nombre": "string",
+            "orden": "int",
+            "titular_id": "int",
+            "updated_at": "string",
+            "updated_by": "int",
+            "valormatricula": "null",
+            "valorpension": "null",
+            "year_id": "int"
+        }
+    ],
+    "mis_asignaturas": [],
+    "otras_asignaturas": [
+        {
+            "actividades": [],
+            "alias_materia": "string",
+            "apellidos_profesor": "string",
+            "area_id": "int",
+            "asignatura_id": "int",
+            "creditos": "int",
+            "foto_id": "int|null",
+            "foto_nombre": "string",
+            "grupo_id": "int",
+            "indice": "int",
+            "materia": "string",
+            "nombres_profesor": "string",
+            "orden_area": "int",
+            "orden_asignatura": "null",
+            "orden_materia": "null",
+            "profesor_id": "int"
+        }
+    ]
+}

@@ -1,0 +1,183 @@
+{
+    "actas-evaluacion-promocion": [
+        "consolidado.grupos_descuadrados",
+        "consolidado.periodos.deserciones.ids",
+        "consolidado.periodos.ingresos.ids",
+        "consolidado.periodos.retiros.ids",
+        "consolidado.promocion.evaluados.ids",
+        "consolidado.promocion.no_promovidos_2.ids",
+        "consolidado.promocion.no_promovidos_3.ids",
+        "consolidado.promocion.no_promovidos_4.ids",
+        "consolidado.promocion.no_promovidos_otros.ids",
+        "consolidado.promocion.pendientes.ids",
+        "consolidado.promocion.promovidos_0.ids",
+        "consolidado.promocion.promovidos_1.ids",
+        "consolidado.promocion.promovidos_otros.ids",
+        "consolidado.promocion.sin_definir.ids",
+        "consolidado.promocion.total_no_promovidos.ids",
+        "consolidado.promocion.total_promovidos.ids",
+        "consolidado.razones_retiro.contador.ids",
+        "consolidado.resumen.desertores.ids",
+        "consolidado.resumen.ingresaron.ids",
+        "consolidado.resumen.iniciaron.ids",
+        "consolidado.resumen.retirados.ids",
+        "consolidado.resumen.sin_clasificar.ids",
+        "consolidado.resumen.sin_fecha_matricula.ids",
+        "consolidado.resumen.terminaron.ids",
+        "consolidado.resumen.total_matriculas.ids",
+        "duplicados",
+        "grupos.perfil.repitentes.ids",
+        "grupos.periodos.filas.deserciones.ids",
+        "grupos.periodos.filas.ingresos.ids",
+        "grupos.periodos.filas.retiros.ids",
+        "grupos.periodos.fuera_calendario.deserciones.ids",
+        "grupos.promocion.no_promovidos_2.ids",
+        "grupos.promocion.no_promovidos_3.ids",
+        "grupos.promocion.no_promovidos_4.ids",
+        "grupos.promocion.no_promovidos_otros.ids",
+        "grupos.promocion.pendientes.ids",
+        "grupos.promocion.promovidos_0.ids",
+        "grupos.promocion.promovidos_1.ids",
+        "grupos.promocion.promovidos_otros.ids",
+        "grupos.promocion.total_no_promovidos.ids",
+        "grupos.promocion.total_promovidos.ids",
+        "grupos.resumen.desertores.ids",
+        "grupos.resumen.ingresaron.ids",
+        "grupos.resumen.iniciaron.ids",
+        "grupos.resumen.sin_fecha_matricula.ids"
+    ],
+    "boletines-detailed-notas": [
+        "alumnos.asignaturas.ausencias",
+        "alumnos.asignaturas.frases",
+        "alumnos.asignaturas_perdidas",
+        "alumnos.comportamiento.definiciones",
+        "alumnos.situaciones"
+    ],
+    "boletines-detailed-notas-group": [
+        "alumnos.asignaturas.frases",
+        "alumnos.asignaturas_perdidas",
+        "alumnos.comportamiento.definiciones",
+        "alumnos.situaciones"
+    ],
+    "boletines2-detailed-notas": [
+        "alumnos.areas.asignaturas.ausencias",
+        "alumnos.areas.asignaturas.frases",
+        "alumnos.asignaturas.ausencias",
+        "alumnos.asignaturas.frases",
+        "alumnos.asignaturas_perdidas",
+        "alumnos.comportamiento.definiciones",
+        "alumnos.situaciones"
+    ],
+    "boletines2-detailed-notas-group": [
+        "alumnos.areas.asignaturas.frases",
+        "alumnos.asignaturas.frases",
+        "alumnos.asignaturas_perdidas",
+        "alumnos.comportamiento.definiciones",
+        "alumnos.situaciones"
+    ],
+    "boletines3-detailed-notas": [
+        "alumnos.areas.asignaturas",
+        "alumnos.asignaturas_perdidas",
+        "alumnos.comportamiento.definiciones",
+        "alumnos.situaciones"
+    ],
+    "boletines3-detailed-notas-group": [
+        "alumnos.areas.asignaturas",
+        "alumnos.asignaturas_perdidas",
+        "alumnos.comportamiento.definiciones",
+        "alumnos.situaciones"
+    ],
+    "bolfinales-detailed-notas-year": [
+        "alumnos.recuperaciones"
+    ],
+    "bolfinales-detailed-notas-year-group": [
+        "alumnos.recuperaciones"
+    ],
+    "bolfinales-preescolar-detailed-notas-year": [
+        "alumnos.asignaturas.frases"
+    ],
+    "bolfinales-preescolar-detailed-notas-year-group": [
+        "alumnos.asignaturas.frases"
+    ],
+    "grupos-grupos-con-disciplina": [
+        "descripciones_typeahead"
+    ],
+    "login-contexto-acudiente": [
+        "token"
+    ],
+    "login-contexto-alumno": [
+        "token"
+    ],
+    "login-contexto-profesor": [
+        "token"
+    ],
+    "login-contexto-usuario": [
+        "perms",
+        "token"
+    ],
+    "matriculas-alumnos-con-grado-anterior": [
+        "AlumnosSinMatricula"
+    ],
+    "muestreo-ChangesAsked-to-me": [
+        "alumnos",
+        "horario_hoy",
+        "horario_manana",
+        "intentos_fallidos",
+        "profesores",
+        "publicaciones.comentarios"
+    ],
+    "muestreo-actividades-compartidas": [
+        "actv_acudi",
+        "actv_alumnos",
+        "actv_profes"
+    ],
+    "muestreo-actividades-datos": [
+        "mis_asignaturas",
+        "otras_asignaturas.actividades"
+    ],
+    "muestreo-aplicacion-descargas-detailed": [
+        "perms",
+        "token"
+    ],
+    "muestreo-auth-me": [
+        "perms",
+        "token"
+    ],
+    "muestreo-grupos-con-paises-tipos-next-year": [
+        "grupos"
+    ],
+    "muestreo-notas-actuales-alumnos": [
+        "alumnos.periodos.asignaturas_perdidas"
+    ],
+    "muestreo-planillas-ver-ausencias": [
+        "alumnos.periodos.ausencias"
+    ],
+    "myimages-index-acudiente": [
+        "grupos",
+        "imagenes_publicas",
+        "logo",
+        "profesores"
+    ],
+    "myimages-index-alumno": [
+        "grupos",
+        "imagenes_publicas",
+        "logo",
+        "profesores"
+    ],
+    "notas-alumno-propias": [
+        "notas_tercer_per",
+        "periodos.asignaturas.ausencias"
+    ],
+    "notas-detailed-profesor": [
+        "alumnos.frases",
+        "alumnos.tardanzas"
+    ],
+    "prematriculas-alumnos-con-grado-anterior": [
+        "AlumnosFormularios",
+        "AlumnosPrematriculadosA",
+        "AlumnosSinMatricula"
+    ],
+    "promovidos-calcular-grupo": [
+        "recuperaciones"
+    ]
+}

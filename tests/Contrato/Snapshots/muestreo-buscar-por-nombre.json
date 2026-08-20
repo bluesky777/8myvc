@@ -1,0 +1,21 @@
+[
+    {
+        "abrev_grupo": "string",
+        "alumno_id": "int",
+        "apellidos": "string",
+        "created_at": "string",
+        "created_by": "null",
+        "deleted_at": "null",
+        "deleted_by": "null",
+        "estado": "string",
+        "foto_id": "null",
+        "foto_nombre": "string",
+        "no_matricula": "null|string",
+        "nombre_grupo": "string",
+        "nombres": "string",
+        "sexo": "string",
+        "updated_at": "string",
+        "updated_by": "int",
+        "user_id": "int"
+    }
+]

@@ -1,0 +1,21 @@
+[
+    {
+        "created_at": "string",
+        "created_by": "null",
+        "deleted_at": "null",
+        "deleted_by": "null",
+        "descripcion": "null|string",
+        "desempenio": "string",
+        "icono_adolescente": "null",
+        "icono_infantil": "null",
+        "id": "int",
+        "orden": "int",
+        "perdido": "int",
+        "porc_final": "int",
+        "porc_inicial": "int",
+        "updated_at": "string",
+        "updated_by": "null",
+        "valoracion": "string",
+        "year_id": "int"
+    }
+]

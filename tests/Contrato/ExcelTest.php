@@ -178,11 +178,17 @@ class ExcelTest extends CasoDeContrato
      */
     private function haciendoQueHayaDeudores(): void
     {
+        // `distinct()` no es adorno: el join da una fila por MATRÍCULA, y desde
+        // que el seed tiene dos años el mismo alumno aparece dos veces. Sin él,
+        // «los tres primeros» eran tres filas de dos alumnos, el `whereIn`
+        // marcaba dos deudores, y la hoja salía con una fila menos sin que nada
+        // avisara: `assertCount(3)` seguía pasando porque contaba filas.
         $ids = DB::table('alumnos')
             ->join('matriculas', 'matriculas.alumno_id', '=', 'alumnos.id')
             ->whereIn('matriculas.estado', ['ASIS', 'MATR', 'PREM'])
             ->whereNull('alumnos.deleted_at')
             ->whereNull('matriculas.deleted_at')
+            ->distinct()
             ->orderBy('alumnos.id')
             ->limit(3)
             ->pluck('alumnos.id');

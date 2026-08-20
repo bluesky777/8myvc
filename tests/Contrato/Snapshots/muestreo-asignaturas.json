@@ -1,0 +1,24 @@
+[
+    {
+        "alias_area": "string",
+        "created_at": "string",
+        "created_by": "null",
+        "creditos": "int",
+        "domingo": "null",
+        "grupo_id": "int",
+        "id": "int",
+        "jueves": "null",
+        "lunes": "null",
+        "martes": "null",
+        "materia_id": "int",
+        "miercoles": "null",
+        "nombre_area": "string",
+        "nombre_asignatura": "string",
+        "orden": "null",
+        "profesor_id": "int",
+        "sabado": "null",
+        "updated_at": "string",
+        "updated_by": "null",
+        "viernes": "null"
+    }
+]

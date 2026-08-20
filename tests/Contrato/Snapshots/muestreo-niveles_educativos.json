@@ -1,0 +1,14 @@
+[
+    {
+        "abrev": "string",
+        "created_at": "string",
+        "created_by": "null",
+        "deleted_at": "null",
+        "deleted_by": "null",
+        "id": "int",
+        "nombre": "string",
+        "orden": "int",
+        "updated_at": "string",
+        "updated_by": "null"
+    }
+]
