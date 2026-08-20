@@ -10,6 +10,28 @@ parameters:
         - tests
         - tools
 
+    # Nivel 4, desde el 20 ago 2026. El 4 no comprueba tipos: comprueba si una
+    # condición decide algo y si una línea llega a ejecutarse. Empezó en 55 y es
+    # el nivel donde estaban los fallos —cambiar la contraseña borraba el correo
+    # de recuperación, doce `abort()` inalcanzables, un `case true` que tapaba
+    # una fuga—, todos descritos en 05-codigo-muerto-y-roto.md §11.
+    #
+    # Los 30 últimos eran mecánicos y se cerraron así: 24 se borraron o se
+    # simplificaron —bucles vacíos detrás de un `return`, cinco `is_null()` a la
+    # derecha de un `||` que ya excluía el null, el `datos_entorno_direccion()`
+    # que nadie llama porque lo hace Services\Login—, uno se reescribió sin
+    # cambiar comportamiento y **cinco se quedan como están**, con su entrada
+    # aquí abajo y su motivo. Ninguno de los cinco es pereza: en tres de ellos la
+    # línea que sobra es la única pista de lo que se pretendía, y en los otros dos
+    # hay una decisión tomada que dice que se queden.
+    #
+    # Uno de los borrados merece nombre porque no se escribió muerto: los tres
+    # `Request::input('year_selected') == true || ... == 'true'` de los informes.
+    # En PHP 7 la rama derecha atrapaba los valores falsy —`0 == 'true'` valía
+    # true— y con el salto a PHP 8 dejó de alcanzarse. O sea que el análisis no
+    # encontró código muerto, encontró **un cambio de comportamiento del salto de
+    # versión** que llevaba ahí sin que nadie lo mirara.
+    #
     # Nivel 3, desde el 20 ago 2026. El 3 comprueba los tipos: lo que se asigna
     # a una propiedad, lo que devuelve un método y si la anotación del hijo
     # encaja con la del padre. Empezó en 61 y **no hizo falta ninguna excepción
@@ -57,7 +79,7 @@ parameters:
     # ellos 320 eran los `$this->user` de los controladores, que se callaron con
     # una anotación `@property` en el trait ResuelveElUsuario, y 21 eran reales.
     # Bajarlo, nunca.
-    level: 3
+    level: 4
 
     # El esquema real no está en migraciones (ver Fase 5), así que larastan no
     # puede deducir las columnas de los modelos. Sin esto, cada `$alumno->nombres`
@@ -254,4 +276,83 @@ parameters:
         -
             message: '#^Cannot access property \$id on array\<string, mixed\>\.$#'
             path: app/Http/Controllers/AppMobile/AsistenciasAppController.php
+            count: 1
+
+        # ---- Los cinco que quedaron del nivel 4 (20 ago 2026). Los otros 25 se
+        # borraron o se reescribieron; estos cinco se quedan **con la línea que
+        # sobra puesta**, y eso es lo que hay que entender: aquí la línea muerta
+        # es información. Borrarla dejaría el fichero limpio y la pregunta sin
+        # responder.
+
+        # PUT api/definitivas_periodos/calcular-notas-finales-asignatura
+        # `$alumnos[$i];` suelto, sin asignar a nada, en los dos métodos.
+        # **Es la única pista de lo que se pretendía**: el INSERT de la línea
+        # siguiente usa `$alumno_id`, que no existe en ningún sitio —está aquí
+        # arriba, entre los cinco endpoints rotos—, y lo que debía ir ahí es
+        # `$alumnos[$i]->alumno_id`. Quitar la expresión suelta borraría el único
+        # rastro de por dónde iba el autor. Se arregla el día que se decida qué
+        # devuelve el endpoint, no antes.
+        -
+            message: '#^Expression "\$alumnos\[\$i\]" on a separate line does not do anything\.$#'
+            path: app/Http/Controllers/Alumnos/Definitivas.php
+            count: 2
+
+        # PUT api/alumnos/personas-check
+        # `$todos_anios = true` fijado a mano, con el `Request::input` comentado
+        # justo encima y una rama `else` que no se ejecuta nunca.
+        # **Decidido por Joseth el 20 ago 2026: se queda.** Que un profesor vea a
+        # todos los estudiantes del plantel sin importar el año es lo que se
+        # quiere. La rama `else` no se borra porque dice qué hacía antes, y
+        # porque `AsignarAcudienteAOtroModalCtrl.js` sigue mandando
+        # `todos_anios: true`: el front cree que el interruptor existe.
+        # Está en 05-codigo-muerto-y-roto.md §11.2.
+        -
+            message: '#^If condition is always true\.$#'
+            path: app/Http/Controllers/AlumnosController.php
+            count: 1
+
+        # PUT api/aplicacion-descargas/detailed
+        # `return $user;` en la segunda línea, y debajo el cuerpo entero del
+        # endpoint sin ejecutarse nunca. No se borra por dos razones: es lo único
+        # que dice qué pretendía devolver esa pantalla, y si se quitara el
+        # `return` el endpoint **respondería 500** —`$resultado` sólo se define
+        # dentro del `if ($con_grupos)`—. O sea que el `return` de más está
+        # tapando un fallo, como el `Input::` de la §1. Qué debe devolver es una
+        # decisión, y hay una app de Flutter que hoy recibe el usuario.
+        # 05-codigo-muerto-y-roto.md §12.1.
+        -
+            message: '#^Unreachable statement - code above always terminates\.$#'
+            path: app/Http/Controllers/AplicacionDescargas/InicioController.php
+            count: 1
+
+        # GET api/simat/alumnos-exportar
+        # La ruta funciona: devuelve `Excel::download(new AlumnosExport, ...)`.
+        # Debajo, sin ejecutarse, está la implementación de maatwebsite 2.x, y
+        # con ella el `Comentarios()` que escribe las instrucciones de cada
+        # columna de la plantilla del SIMAT —«Coloque: MATR, ASIS, RETI, DESE»,
+        # «¿Es urbano? SI o NO», «Coloque "No aplica" … si no tiene SISBEN»—.
+        # **Eso es la especificación del importador que sí está vivo**: es lo que
+        # `ImporterFixer` lee de la hoja que devuelve la secretaría. El export
+        # 3.x (`AlumnosSheet`) no las escribe, así que hoy la plantilla sale sin
+        # instrucciones y este bloque muerto es el único sitio donde están.
+        # 05-codigo-muerto-y-roto.md §12.2.
+        -
+            message: '#^Unreachable statement - code above always terminates\.$#'
+            path: app/Http/Controllers/Informes/SimatController.php
+            count: 1
+
+        # PUT api/respuestas/actividad
+        # `$cantidad_pregs = 4;` a mano, con el comentario de su autor al lado
+        # («Debo hacer un código que traiga la cantidad de preguntas»), y el
+        # `if ($cantidad_pregs > 0)` que lo protege. El porcentaje de cada alumno
+        # se calcula **siempre sobre 4 preguntas**, tenga la actividad las que
+        # tenga. El `if` no se borra: es el guardia que hará falta el día que el
+        # 4 se sustituya por un `COUNT(*)`, y borrarlo dejaría una división por
+        # cero esperando. No se arregla desde aquí porque no se puede medir: el
+        # módulo de actividades está vacío en la base de desarrollo —0
+        # actividades con preguntas, 0 resueltas—, así que no hay forma de saber
+        # cuánto se desvía en un colegio real. 05-codigo-muerto-y-roto.md §12.3.
+        -
+            message: '#^Comparison operation "\>" between 4 and 0 is always true\.$#'
+            path: app/Models/WsActividadResuelta.php
             count: 1
