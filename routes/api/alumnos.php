@@ -31,11 +31,11 @@ use Illuminate\Support\Facades\Route;
 // AlumnosController
 Route::get('alumnos', [AlumnosController::class, 'getIndex']);
 Route::put('alumnos/cambiar-claves', [AlumnosController::class, 'putCambiarClaves']);
-Route::put('alumnos/documento-check', [AlumnosController::class, 'putDocumentoCheck']);
+Route::put('alumnos/documento-check', [AlumnosController::class, 'putDocumentoCheck'])->middleware('auth.personal');
 Route::put('alumnos/eps-check', [AlumnosController::class, 'putEpsCheck']);
 Route::put('alumnos/guardar-valor', [AlumnosController::class, 'putGuardarValor']);
 Route::put('alumnos/guardar-valor-varios', [AlumnosController::class, 'putGuardarValorVarios']);
-Route::put('alumnos/personas-check', [AlumnosController::class, 'putPersonasCheck']);
+Route::put('alumnos/personas-check', [AlumnosController::class, 'putPersonasCheck'])->middleware('auth.personal');
 Route::put('alumnos/show', [AlumnosController::class, 'putShow']);
 Route::get('alumnos/sin-matriculas', [AlumnosController::class, 'getSinMatriculas'])->middleware('auth.personal');
 Route::post('alumnos/store', [AlumnosController::class, 'postStore']);

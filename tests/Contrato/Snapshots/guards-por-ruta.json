@@ -145,6 +145,8 @@
         "PUT api/acudientes/quitar-parentesco-alumno",
         "PUT api/acudientes/seleccionar-parentesco",
         "PUT api/alumnos/de-grupo/{grupo_id}",
+        "PUT api/alumnos/documento-check",
+        "PUT api/alumnos/personas-check",
         "PUT api/areas/update-orden",
         "PUT api/areas/update/{id}",
         "PUT api/asignaturas/datos-asignaturas",
