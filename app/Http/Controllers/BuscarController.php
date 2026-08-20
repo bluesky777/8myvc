@@ -29,9 +29,14 @@ class BuscarController extends Controller {
 			return abort(400, 'Texto Inválido');
 		}
 		
-		$consulta = $this->consulta_ini . " WHERE a.nombres like '%$texto_a_buscar%'";
+		// El texto entraba interpolado en la cadena de la consulta. No hacía falta
+		// un atacante para verlo: un apellido con apóstrofo —O'Brien— respondía
+		// 500. Ahora va como parámetro; el `%` que escriba quien busca sigue
+		// funcionando como comodín, que es lo que hace hoy. Ver 05 §17.
+		$consulta = $this->consulta_ini.' WHERE a.nombres LIKE ?';
 
-		$res = DB::select($consulta, [$user->year_id]);
+		$res = DB::select($consulta, [$user->year_id, '%'.$texto_a_buscar.'%']);
+
 		return $res;
 	}
 
@@ -46,9 +51,10 @@ class BuscarController extends Controller {
 			return 'Texto Inválido';
 		}
 		
-		$consulta = $this->consulta_ini . " WHERE a.apellidos like '%$texto_a_buscar%'";
+		$consulta = $this->consulta_ini.' WHERE a.apellidos LIKE ?';
 
-		$res = DB::select($consulta, [$user->year_id]);
+		$res = DB::select($consulta, [$user->year_id, '%'.$texto_a_buscar.'%']);
+
 		return $res;
 	}
 

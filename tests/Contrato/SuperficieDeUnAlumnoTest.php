@@ -771,4 +771,112 @@ class SuperficieDeUnAlumnoTest extends CasoDeContrato
 
         return $familia;
     }
+
+    /**
+     * Los otros dos buscadores, y la comilla que los delataba.
+     *
+     * `alumnos/personas-check` y `alumnos/documento-check` se cerraron en
+     * [05 §11.3]; `buscar/por-nombre` y `buscar/por-apellido` se quedaron abiertos
+     * dos días más, y hacen lo mismo: con una letra devolvían a cualquier alumno
+     * 49 compañeros con su `alumno_id`, su `user_id` y su grupo. Es «quién reparte
+     * las llaves» de [08 §4] otra vez — un buscador recibe `texto_a_buscar` y no
+     * un id, así que para el inventario no tiene identificador y no sale en
+     * ninguna lista.
+     *
+     * Y el texto entraba **interpolado en la cadena de la consulta**. Para verlo
+     * no hacía falta ningún atacante: basta un alumno que se apellide O'Brien.
+     * Por eso el segundo caso busca una comilla — es la misma prueba y es la que
+     * se puede escribir sin construir un ataque.
+     */
+    public function test_una_familia_no_busca_a_los_demas_alumnos(): void
+    {
+        foreach ($this->cabecerasDeUnaFamilia() as $quien => $cab) {
+            foreach (['buscar/por-nombre', 'buscar/por-apellido'] as $ruta) {
+                $this->assertSame(403,
+                    $this->putJson('/api/'.$ruta, ['texto_a_buscar' => 'a'], $cab)->getStatusCode(),
+                    "{$quien} sigue buscando por {$ruta}.");
+            }
+        }
+    }
+
+    /** Y el personal sigue buscando, también a quien lleve un apóstrofo en el apellido. */
+    public function test_el_personal_busca_y_una_comilla_ya_no_revienta(): void
+    {
+        [$grupo, $token] = $this->grupoYPersonal();
+        $cab = ['Authorization' => 'Bearer '.$token];
+
+        $this->assertNotSame(403,
+            $this->putJson('/api/buscar/por-apellido', ['texto_a_buscar' => 'a'], $cab)->getStatusCode(),
+            'El guard está cortando al personal, que es quien usa el buscador.');
+
+        // Sin parametrizar, esto era un 500: la comilla cerraba la cadena.
+        $this->putJson('/api/buscar/por-apellido', ['texto_a_buscar' => "o'"], $cab)
+            ->assertStatus(200);
+
+        $this->putJson('/api/buscar/por-nombre', ['texto_a_buscar' => "o'"], $cab)
+            ->assertStatus(200);
+
+        $this->assertNotNull($grupo);
+    }
+
+    /**
+     * La cartera del colegio, que no miraba el token ni una vez.
+     *
+     * Las tres rutas sacan su alcance del CUERPO —`year_id`, `grupo_actual`— o de
+     * ningún sitio, y `putAlumnos` tiene el `User::fromToken()` comentado. Un
+     * alumno se descargaba el Excel de deudores del colegio.
+     *
+     * El barrido no las vio por las dos mitades de su límite a la vez: dos piden
+     * por el cuerpo, que él manda vacío, y la tercera devuelve un xlsx, cuyos
+     * bytes su detector de datos personales no puede leer. Ver 05 §17.
+     */
+    public function test_una_familia_no_abre_la_cartera(): void
+    {
+        $casos = [
+            ['PUT', 'cartera/solo-deudores', ['year_id' => 8]],
+            ['PUT', 'cartera/alumnos', ['grupo_actual' => 84]],
+            ['GET', 'cartera/exportar-solo-deudores', []],
+        ];
+
+        foreach ($this->cabecerasDeUnaFamilia() as $quien => $cab) {
+            foreach ($casos as [$verbo, $ruta, $cuerpo]) {
+                $this->assertSame(403,
+                    $this->json($verbo, '/api/'.$ruta, $cuerpo, $cab)->getStatusCode(),
+                    "{$quien} sigue abriendo {$ruta}.");
+            }
+        }
+    }
+
+    /**
+     * Y lo más caro: quién pasa el año.
+     *
+     * `PUT promovidos/calcular-grupo` no es un cálculo que se devuelve: **escribe
+     * `matriculas.promovido`** de todo el grupo que se nombre en el cuerpo —solo
+     * respeta las filas ya marcadas `(manual)`— y de paso devuelve 331 KB con las
+     * notas de ese grupo. Un alumno y un acudiente lo hacían sobre un grupo que
+     * no es suyo.
+     *
+     * Se comprueba por el efecto y no por el código, como el resto de escrituras
+     * de este archivo: un 403 que llegue después del `UPDATE` no vale de nada.
+     */
+    public function test_una_familia_no_decide_quien_pasa_el_anio(): void
+    {
+        $grupo = $this->grupoConAlumnos();
+
+        $antes = DB::table('matriculas')->where('grupo_id', $grupo->id)
+            ->orderBy('id')->pluck('promovido', 'id')->all();
+
+        $this->assertNotSame([], $antes, 'El grupo del seed no tiene matrículas que mirar.');
+
+        foreach ($this->cabecerasDeUnaFamilia() as $quien => $cab) {
+            $this->assertSame(403,
+                $this->putJson('/api/promovidos/calcular-grupo', ['grupo_id' => $grupo->id], $cab)->getStatusCode(),
+                "{$quien} sigue calculando la promoción de un grupo.");
+
+            $this->assertSame($antes,
+                DB::table('matriculas')->where('grupo_id', $grupo->id)
+                    ->orderBy('id')->pluck('promovido', 'id')->all(),
+                "El 403 llegó tarde: {$quien} ya había cambiado quién pasa el año.");
+        }
+    }
 }

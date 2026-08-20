@@ -80,8 +80,13 @@ Route::put('acudientes/ultimos', [AcudientesController::class, 'putUltimos'])->m
 Route::delete('acudientes/destroy/{id}', [AcudientesController::class, 'deleteDestroy']);
 
 // BuscarController
-Route::put('buscar/por-apellido', [BuscarController::class, 'putPorApellido']);
-Route::put('buscar/por-nombre', [BuscarController::class, 'putPorNombre']);
+// Los otros dos buscadores. `alumnos/personas-check` y `alumnos/documento-check`
+// se cerraron en 05 §11.3 y éstos se quedaron, porque viven en otra familia y
+// ninguna herramienta mira una ruta que recibe `texto_a_buscar` y no un id.
+// Devolvían a cualquier alumno 49 compañeros con su `alumno_id` y su grupo, que
+// es justo «quién reparte las llaves» de 08 §4. Ver 05 §17.
+Route::put('buscar/por-apellido', [BuscarController::class, 'putPorApellido'])->middleware('auth.personal');
+Route::put('buscar/por-nombre', [BuscarController::class, 'putPorNombre'])->middleware('auth.personal');
 
 // MatriculasController
 // Su gemela de `prematriculas`, cuatro líneas más abajo, sí lo llevaba.
@@ -138,9 +143,12 @@ Route::put('requisitos/update', [RequisitosController::class, 'putUpdate'])->mid
 Route::delete('requisitos/destroy/{id}', [RequisitosController::class, 'deleteDestroy'])->middleware('auth.personal');
 
 // CarteraController
-Route::put('cartera/alumnos', [CarteraController::class, 'putAlumnos']);
-Route::get('cartera/exportar-solo-deudores', [CarteraController::class, 'getExportarSoloDeudores']);
-Route::put('cartera/solo-deudores', [CarteraController::class, 'putSoloDeudores']);
+// La cartera del colegio, y ninguna de las tres miraba el token: el `year_id` y
+// el `grupo_actual` vienen del cuerpo y el exportador no lleva parámetros. Un
+// alumno se descargaba el Excel de deudores. Ver 05 §17.
+Route::put('cartera/alumnos', [CarteraController::class, 'putAlumnos'])->middleware('auth.personal');
+Route::get('cartera/exportar-solo-deudores', [CarteraController::class, 'getExportarSoloDeudores'])->middleware('auth.personal');
+Route::put('cartera/solo-deudores', [CarteraController::class, 'putSoloDeudores'])->middleware('auth.personal');
 
 // DetallesController
 Route::put('detalles/alumno', [DetallesController::class, 'putAlumno'])->middleware('persona.propia');
@@ -154,7 +162,11 @@ Route::put('detalles/grupos-periodos', [DetallesController::class, 'putGruposPer
 Route::put('notas-actuales-alumnos/{grupo_id}', [NotasActualesAlumnosController::class, 'putIndex'])->middleware('boletin.propio');
 
 // PromovidosController
-Route::put('promovidos/calcular-grupo', [PromovidosController::class, 'putCalcularGrupo']);
+// Escribe `matriculas.promovido` —si el alumno pasa el año— de todo el grupo que
+// se nombre en el cuerpo, y devuelve 331 KB con sus notas. El barrido no la vio
+// porque el `grupo_id` viaja en el cuerpo y él golpea con el cuerpo vacío.
+// Ver 05 §17.
+Route::put('promovidos/calcular-grupo', [PromovidosController::class, 'putCalcularGrupo'])->middleware('auth.personal');
 
 // PiarsAlumnosController
 Route::post('piars-alumnos/document', [PiarsAlumnosController::class, 'postDocument'])->middleware('persona.propia');
