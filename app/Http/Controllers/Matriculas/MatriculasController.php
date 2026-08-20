@@ -28,7 +28,7 @@ class MatriculasController extends Controller {
 
 			return Matricula::matricularUno($alumno_id, $grupo_id, $year_id, $this->user->user_id);
 		} else {
-			return abort('400', 'No tiene permisos para editar');
+			return abort(400, 'No tiene permisos para editar');
 		}
 	}
 
@@ -55,7 +55,7 @@ class MatriculasController extends Controller {
 
 			return Matricula::matricularUno($alumno_id, $grupo_id, $year_id, $this->user->user_id, $crear_matri);
 		} else {
-			return abort('400', 'No tiene permisos para editar');
+			return abort(400, 'No tiene permisos para editar');
 		}
 	}
 
@@ -74,7 +74,7 @@ class MatriculasController extends Controller {
 
 			return $matri;
 		} else {
-			return abort('400', 'No tiene permisos para editar');
+			return abort(400, 'No tiene permisos para editar');
 		}
 	}
 
@@ -95,7 +95,7 @@ class MatriculasController extends Controller {
 
 			return $matri;
 		} else {
-			return abort('400', 'No tiene permisos para editar');
+			return abort(400, 'No tiene permisos para editar');
 		}
 	}
 
@@ -114,7 +114,7 @@ class MatriculasController extends Controller {
 
 			return $matricula;
 		} else {
-			return abort('400', 'No tiene permisos para editar');
+			return abort(400, 'No tiene permisos para editar');
 		}
 	}
 
@@ -135,7 +135,7 @@ class MatriculasController extends Controller {
 
 			return $matricula;
 		} else {
-			return abort('400', 'No tiene permisos para editar');
+			return abort(400, 'No tiene permisos para editar');
 		}
 	}
 
@@ -154,7 +154,7 @@ class MatriculasController extends Controller {
 
 			return $matricula;
 		} else {
-			return abort('400', 'No tiene permisos para editar');
+			return abort(400, 'No tiene permisos para editar');
 		}
 	}
 
@@ -172,7 +172,7 @@ class MatriculasController extends Controller {
 
 			return $matricula;
 		} else {
-			return abort('400', 'No tiene permisos para editar');
+			return abort(400, 'No tiene permisos para editar');
 		}
 	}
 
@@ -301,7 +301,7 @@ class MatriculasController extends Controller {
 				$anio 	= date('Y', strtotime( $result['AlumnosActuales'][$i]->fecha_nac) );
 				$mes 	= date('m', strtotime( $result['AlumnosActuales'][$i]->fecha_nac) );
 				$dia 	= date('d', strtotime( $result['AlumnosActuales'][$i]->fecha_nac) );
-				$result['AlumnosActuales'][$i]->edad = Carbon::createFromDate($anio, $mes, $dia)->age;
+				$result['AlumnosActuales'][$i]->edad = Carbon::createFromDate((int) $anio, (int) $mes, (int) $dia)->age;
 				//$result['AlumnosActuales'][$i]->edad = $anio.'-'. $mes.'-'. $dia;
 			}else{
 				$result['AlumnosActuales'][$i]->edad = '';
@@ -406,7 +406,7 @@ class MatriculasController extends Controller {
 
 			return $matri;
 		} else {
-			return abort('400', 'No tiene permisos para editar');
+			return abort(400, 'No tiene permisos para editar');
 		}
 	}
 
@@ -425,7 +425,7 @@ class MatriculasController extends Controller {
 
 			return $matri;
 		} else {
-			return abort('400', 'No tiene permisos para editar');
+			return abort(400, 'No tiene permisos para editar');
 		}
 	}
 
@@ -458,7 +458,7 @@ class MatriculasController extends Controller {
 				$grupo 		= $grupo[0];
 				$year_id 	= $grupo->year_id;
 			}else{
-				return abort('400', 'Asigne grupo que corresponda a algún año creado.');
+				return abort(400, 'Asigne grupo que corresponda a algún año creado.');
 			}
 
 			
@@ -510,7 +510,7 @@ class MatriculasController extends Controller {
 
 			return ['matricula' => $matri];
 		} else {
-			return abort('400', 'No tiene permisos para editar');
+			return abort(400, 'No tiene permisos para editar');
 		}
 	}
 
@@ -529,7 +529,7 @@ class MatriculasController extends Controller {
 
 			return 'Quitada';
 		} else {
-			return abort('400', 'No tiene permisos para editar');
+			return abort(400, 'No tiene permisos para editar');
 		}
 	}
 
@@ -548,7 +548,7 @@ class MatriculasController extends Controller {
 
 			return $matri;
 		} else {
-			return abort('400', 'No tiene permisos para editar');
+			return abort(400, 'No tiene permisos para editar');
 		}
 	}
 
@@ -563,7 +563,7 @@ class MatriculasController extends Controller {
 			$matri->delete();
 			return $matri;
 		} else {
-			return abort('400', 'No tiene permisos para editar');
+			return abort(400, 'No tiene permisos para editar');
 		}
 	}
 

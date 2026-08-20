@@ -331,7 +331,7 @@ class AlumnosController extends Controller {
 		
 		 
 		} else {
-			return abort('400', 'No tiene permisos para editar');
+			return abort(400, 'No tiene permisos para editar');
 		}
 	}
 
@@ -803,7 +803,7 @@ class AlumnosController extends Controller {
 			return $guardarAlumno->valor($this->user, Request::input('propiedad'), Request::input('valor'), Request::input('user_id'), $year_id, Request::input('alumno_id'));
 			
 		} else {
-			return abort('400', 'No tiene permisos');
+			return abort(400, 'No tiene permisos');
 		}
 		
 	}
@@ -901,7 +901,7 @@ class AlumnosController extends Controller {
 			}
 			return 'Cambios realizados';
 		} else {
-			return abort('400', 'No tiene permisos');
+			return abort(400, 'No tiene permisos');
 		}
 		
 	}
@@ -926,7 +926,7 @@ class AlumnosController extends Controller {
 			}
 			return $alumno;
 		} else {
-			return abort('400', 'No tiene permisos');
+			return abort(400, 'No tiene permisos');
 		}
 	}	
 
@@ -938,7 +938,7 @@ class AlumnosController extends Controller {
 			$alumno->forceDelete();
 			return $alumno;
 		} else {
-			return abort('400', 'No tiene permisos');
+			return abort(400, 'No tiene permisos');
 		}
 	}
 
@@ -950,7 +950,7 @@ class AlumnosController extends Controller {
 			$alumno->restore();
 			return $alumno;
 		} else {
-			return abort('400', 'No tiene permisos');
+			return abort(400, 'No tiene permisos');
 		}
 	}
 

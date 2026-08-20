@@ -109,7 +109,7 @@ class ImagesController extends Controller {
 		if ($user->tipo == 'Acudiente' || $user->tipo == 'Alumno') {
 			$imagenes_user 	= ImageModel::where('user_id', $user->user_id)->get();
 			if (count($imagenes_user) > 2) {
-				abort('400', 'No tiene permisos para subir más de 3 imágenes');
+				abort(400, 'No tiene permisos para subir más de 3 imágenes');
 			}
 		}
 

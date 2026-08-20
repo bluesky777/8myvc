@@ -339,7 +339,7 @@ class PlanillasController extends Controller {
 					$anio 	= date('Y', strtotime( $grupos[$i]->alumnos[$j]->fecha_nac) );
 					$mes 	= date('m', strtotime( $grupos[$i]->alumnos[$j]->fecha_nac) );
 					$dia 	= date('d', strtotime( $grupos[$i]->alumnos[$j]->fecha_nac) );
-					$grupos[$i]->alumnos[$j]->edad = Carbon::createFromDate($anio, $mes, $dia)->age;
+					$grupos[$i]->alumnos[$j]->edad = Carbon::createFromDate((int) $anio, (int) $mes, (int) $dia)->age;
 				}else{
 					$grupos[$i]->alumnos[$j]->edad = '';
 				}
