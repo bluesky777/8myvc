@@ -37,11 +37,11 @@ Route::put('alumnos/guardar-valor', [AlumnosController::class, 'putGuardarValor'
 Route::put('alumnos/guardar-valor-varios', [AlumnosController::class, 'putGuardarValorVarios']);
 Route::put('alumnos/personas-check', [AlumnosController::class, 'putPersonasCheck']);
 Route::put('alumnos/show', [AlumnosController::class, 'putShow']);
-Route::get('alumnos/sin-matriculas', [AlumnosController::class, 'getSinMatriculas']);
+Route::get('alumnos/sin-matriculas', [AlumnosController::class, 'getSinMatriculas'])->middleware('auth.personal');
 Route::post('alumnos/store', [AlumnosController::class, 'postStore']);
-Route::get('alumnos/trashed', [AlumnosController::class, 'getTrashed']);
-Route::put('alumnos/years-con-notas', [AlumnosController::class, 'putYearsConNotas']);
-Route::put('alumnos/de-grupo/{grupo_id}', [AlumnosController::class, 'putDeGrupo']);
+Route::get('alumnos/trashed', [AlumnosController::class, 'getTrashed'])->middleware('auth.personal');
+Route::put('alumnos/years-con-notas', [AlumnosController::class, 'putYearsConNotas'])->middleware('persona.propia');
+Route::put('alumnos/de-grupo/{grupo_id}', [AlumnosController::class, 'putDeGrupo'])->middleware('auth.personal');
 Route::delete('alumnos/destroy/{id}', [AlumnosController::class, 'deleteDestroy']);
 Route::delete('alumnos/forcedelete/{id}', [AlumnosController::class, 'deleteForcedelete']);
 Route::put('alumnos/restore/{id}', [AlumnosController::class, 'putRestore']);
@@ -61,14 +61,14 @@ Route::put('acudientes/buscar', [AcudientesController::class, 'putBuscar']);
 Route::post('acudientes/crear', [AcudientesController::class, 'postCrear']);
 Route::post('acudientes/crear-usuario', [AcudientesController::class, 'postCrearUsuario']);
 Route::put('acudientes/datos', [AcudientesController::class, 'putDatos']);
-Route::put('acudientes/de-persona', [AcudientesController::class, 'putDePersona']);
+Route::put('acudientes/de-persona', [AcudientesController::class, 'putDePersona'])->middleware('persona.propia');
 Route::put('acudientes/guardar-valor', [AcudientesController::class, 'putGuardarValor']);
 Route::put('acudientes/mis-acudidos', [AcudientesController::class, 'putMisAcudidos']);
 Route::put('acudientes/no-asignados', [AcudientesController::class, 'putNoAsignados']);
 Route::put('acudientes/ocupaciones-check', [AcudientesController::class, 'putOcupacionesCheck']);
 Route::put('acudientes/planillas-ausencias', [AcudientesController::class, 'putPlanillasAusencias']);
-Route::put('acudientes/quitar-parentesco-alumno', [AcudientesController::class, 'putQuitarParentescoAlumno']);
-Route::put('acudientes/seleccionar-parentesco', [AcudientesController::class, 'putSeleccionarParentesco']);
+Route::put('acudientes/quitar-parentesco-alumno', [AcudientesController::class, 'putQuitarParentescoAlumno'])->middleware('auth.personal');
+Route::put('acudientes/seleccionar-parentesco', [AcudientesController::class, 'putSeleccionarParentesco'])->middleware('auth.personal');
 Route::put('acudientes/ultimos', [AcudientesController::class, 'putUltimos']);
 Route::delete('acudientes/destroy/{id}', [AcudientesController::class, 'deleteDestroy']);
 
@@ -102,7 +102,7 @@ Route::delete('matriculas/destroy/{id}', [MatriculasController::class, 'deleteDe
 
 // EnfermeriaController
 Route::post('enfermeria/crear-suceso', [EnfermeriaController::class, 'postCrearSuceso']);
-Route::put('enfermeria/datos', [EnfermeriaController::class, 'putDatos']);
+Route::put('enfermeria/datos', [EnfermeriaController::class, 'putDatos'])->middleware('persona.propia');
 Route::put('enfermeria/guardar-valor', [EnfermeriaController::class, 'putGuardarValor']);
 Route::put('enfermeria/guardar-valor-suceso', [EnfermeriaController::class, 'putGuardarValorSuceso']);
 Route::delete('enfermeria/destroy/{id}', [EnfermeriaController::class, 'deleteDestroy']);
@@ -135,10 +135,10 @@ Route::get('cartera/exportar-solo-deudores', [CarteraController::class, 'getExpo
 Route::put('cartera/solo-deudores', [CarteraController::class, 'putSoloDeudores']);
 
 // DetallesController
-Route::put('detalles/alumno', [DetallesController::class, 'putAlumno']);
-Route::put('detalles/eliminar-matricula-destroy', [DetallesController::class, 'putEliminarMatriculaDestroy']);
-Route::put('detalles/eliminar-notas-periodo', [DetallesController::class, 'putEliminarNotasPeriodo']);
-Route::put('detalles/grupos-periodos', [DetallesController::class, 'putGruposPeriodos']);
+Route::put('detalles/alumno', [DetallesController::class, 'putAlumno'])->middleware('persona.propia');
+Route::put('detalles/eliminar-matricula-destroy', [DetallesController::class, 'putEliminarMatriculaDestroy'])->middleware('auth.personal');
+Route::put('detalles/eliminar-notas-periodo', [DetallesController::class, 'putEliminarNotasPeriodo'])->middleware('auth.personal');
+Route::put('detalles/grupos-periodos', [DetallesController::class, 'putGruposPeriodos'])->middleware('auth.personal');
 
 // NotasActualesAlumnosController
 // Misma familia que los boletines: sirve las notas de los alumnos que se le
@@ -149,7 +149,7 @@ Route::put('notas-actuales-alumnos/{grupo_id}', [NotasActualesAlumnosController:
 Route::put('promovidos/calcular-grupo', [PromovidosController::class, 'putCalcularGrupo']);
 
 // PiarsAlumnosController
-Route::post('piars-alumnos/document', [PiarsAlumnosController::class, 'postDocument']);
+Route::post('piars-alumnos/document', [PiarsAlumnosController::class, 'postDocument'])->middleware('persona.propia');
 Route::put('piars-alumnos/field', [PiarsAlumnosController::class, 'putField']);
-Route::get('piars-alumnos/alumnos/{grupo_id}', [PiarsAlumnosController::class, 'getAlumnos']);
-Route::delete('piars-alumnos/document/{alumno_id}', [PiarsAlumnosController::class, 'deleteDocument']);
+Route::get('piars-alumnos/alumnos/{grupo_id}', [PiarsAlumnosController::class, 'getAlumnos'])->middleware('auth.personal');
+Route::delete('piars-alumnos/document/{alumno_id}', [PiarsAlumnosController::class, 'deleteDocument'])->middleware('persona.propia');

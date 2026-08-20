@@ -58,6 +58,7 @@ class Kernel extends HttpKernel
         // Autorización, no autenticación: quién puede hacer qué con el token que
         // ya presentó. Ver docs/migracion/06-autorizacion.md.
         'auth.personal'  => \App\Http\Middleware\ExigirPersonal::class,
+        'persona.propia' => \App\Http\Middleware\ExigirPersonaPropia::class,
         'boletin.propio' => \App\Http\Middleware\ExigirBoletinPropio::class,
         'auth' => \App\Http\Middleware\Authenticate::class,
         'auth.basic' => \Illuminate\Auth\Middleware\AuthenticateWithBasicAuth::class,

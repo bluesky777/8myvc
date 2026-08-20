@@ -518,9 +518,13 @@ Los 27 casos confirmados quedan fijados en
 `tests/Contrato/SuperficieDeUnAlumnoTest.php`, cada uno escrito para fallar el día
 que se cierre su ruta.
 
-**No se arregla aquí, y hay razón.** Son 141 rutas y el arreglo es literalmente la
-Fase 2 del plan —«Organizar rutas + middleware `auth` real»—, que además pide
-decidir qué ve un alumno de su propio grupo y qué ve un acudiente. Eso lo dice el
-colegio, no el diff. Las herramientas ya están: `boletin.propio` resuelve «solo lo
-suyo», `auth.personal` y `Autoriza::esAdministrativo` resuelven «solo el personal»,
-y las tres funcionan. Lo que falta es repartirlas.
+**Y se arregló el mismo día.** Joseth fijó la regla que faltaba —un alumno solo
+puede ver lo suyo; un acudiente, lo suyo y lo completo de sus acudidos; el personal
+entre sí queda para después— y con eso el arreglo dejó de ser una discusión: es
+repartir `auth.personal` en lo que una familia no usa y un guard nuevo,
+`persona.propia`, en lo que sí usa.
+
+**141 rutas sin guard → 12**, y las 12 son lecturas de catálogo que no exponen a
+ninguna persona. Los 27 tests se dieron la vuelta y se les añadieron nueve más por
+el otro lado: que un alumno sigue viendo lo suyo y un acudiente lo de su acudido.
+Cerrar de más también se nota en producción.

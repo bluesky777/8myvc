@@ -19,24 +19,24 @@ use Illuminate\Support\Facades\Route;
 
 // PaisesController
 Route::get('paises', [PaisesController::class, 'getIndex']);
-Route::post('paises/store', [PaisesController::class, 'postStore']);
+Route::post('paises/store', [PaisesController::class, 'postStore'])->middleware('auth.personal');
 
 // CiudadesController
 Route::get('ciudades', [CiudadesController::class, 'getIndex']);
-Route::put('ciudades/actualizar-ciudad', [CiudadesController::class, 'putActualizarCiudad']);
-Route::put('ciudades/actualizar-departamento', [CiudadesController::class, 'putActualizarDepartamento']);
+Route::put('ciudades/actualizar-ciudad', [CiudadesController::class, 'putActualizarCiudad'])->middleware('auth.personal');
+Route::put('ciudades/actualizar-departamento', [CiudadesController::class, 'putActualizarDepartamento'])->middleware('auth.personal');
 Route::get('ciudades/by-departamento', [CiudadesController::class, 'getByDepartamento']);
-Route::put('ciudades/departamentos-by-id', [CiudadesController::class, 'putDepartamentosById']);
-Route::post('ciudades/guardar-ciudad', [CiudadesController::class, 'postGuardarCiudad']);
+Route::put('ciudades/departamentos-by-id', [CiudadesController::class, 'putDepartamentosById'])->middleware('auth.personal');
+Route::post('ciudades/guardar-ciudad', [CiudadesController::class, 'postGuardarCiudad'])->middleware('auth.personal');
 Route::get('ciudades/datosciudad/{ciudad_id}', [CiudadesController::class, 'getDatosciudad']);
 Route::get('ciudades/departamentos/{pais_id}', [CiudadesController::class, 'getDepartamentos']);
-Route::delete('ciudades/destroy/{id}', [CiudadesController::class, 'deleteDestroy']);
+Route::delete('ciudades/destroy/{id}', [CiudadesController::class, 'deleteDestroy'])->middleware('auth.personal');
 Route::get('ciudades/paisdeciudad/{ciudad_id}', [CiudadesController::class, 'getPaisdeciudad']);
 Route::get('ciudades/por-departamento/{departamento}', [CiudadesController::class, 'getPorDepartamento']);
 
 // TipoDocumentoController
 Route::get('tiposdocumento', [TipoDocumentoController::class, 'index']);
-Route::post('tiposdocumento', [TipoDocumentoController::class, 'store']);
-Route::put('tiposdocumento/{tiposdocumento}', [TipoDocumentoController::class, 'update']);
-Route::patch('tiposdocumento/{tiposdocumento}', [TipoDocumentoController::class, 'update']);
-Route::delete('tiposdocumento/{tiposdocumento}', [TipoDocumentoController::class, 'destroy']);
+Route::post('tiposdocumento', [TipoDocumentoController::class, 'store'])->middleware('auth.personal');
+Route::put('tiposdocumento/{tiposdocumento}', [TipoDocumentoController::class, 'update'])->middleware('auth.personal');
+Route::patch('tiposdocumento/{tiposdocumento}', [TipoDocumentoController::class, 'update'])->middleware('auth.personal');
+Route::delete('tiposdocumento/{tiposdocumento}', [TipoDocumentoController::class, 'destroy'])->middleware('auth.personal');

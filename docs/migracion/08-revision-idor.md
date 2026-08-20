@@ -1,5 +1,7 @@
 # Revisión de autorización horizontal (IDOR) — 19 ago 2026
 
+> **Estado: arreglado.** 141 rutas sin guard → 12. Ver «Qué se hizo» al final.
+
 > Herramienta: [`tools/inventario-autorizacion.py`](../../tools/inventario-autorizacion.py)
 > Fallos confirmados: [`tests/Contrato/SuperficieDeUnAlumnoTest.php`](../../tests/Contrato/SuperficieDeUnAlumnoTest.php)
 > Documentos hermanos: [01-plan-seguridad.md](01-plan-seguridad.md) · [06-autorizacion.md](06-autorizacion.md)
@@ -36,7 +38,7 @@ un atacante externo: es la credencial que el colegio le da a cada uno de sus 1.2
 alumnos**, y la que cualquiera puede usar desde las herramientas del navegador sin
 saber programar.
 
-## Lo que se puede hacer hoy con un token de alumno
+## Lo que se podía hacer con un token de alumno (antes del arreglo)
 
 Todo lo de esta tabla está comprobado contra el seed, no deducido. Cada fila tiene
 su test en `SuperficieDeUnAlumnoTest`.
@@ -124,35 +126,73 @@ Va aquí para no caerse sin que nadie lo note, y tiene su test:
 - Los once de boletines y bolfinales — P0.
 - `PUT perfiles/cambiarpassword/{id}` — comprueba la contraseña antigua.
 
-## Qué hacer con esto
+## Qué se hizo (19 ago 2026)
 
-**No se arregla en esta revisión**, y no por falta de ganas: son 141 rutas, el
-arreglo es exactamente el trabajo que el plan llama **Fase 2 — «Organizar rutas +
-middleware `auth` real»**, y hacerlo bien pide decidir tres cosas que no son de
-programación:
+Joseth fijó la regla el mismo día: **un alumno solo puede ver información de sí
+mismo; un acudiente, la suya y la completa de sus acudidos.** Y dejó fuera, a
+propósito, lo que puede hacer el personal del colegio entre sí: eso va en el
+refactor de permisos que viene después.
 
-1. **Qué ve un alumno de su propio grupo.** Hoy la respuesta de facto es «todo».
-   La lista de compañeros con nombre y foto probablemente sí; con documento,
-   dirección y deuda, probablemente no. Eso lo dice el colegio.
-2. **Qué ve un acudiente.** El guard `boletin.propio` ya resuelve «solo sus
-   acudidos» y se puede reutilizar tal cual en casi todas las de la tabla de datos
-   personales.
-3. **Dónde va la línea entre personal y administrativo.** `auth.personal` y
-   `Autoriza::esAdministrativo` ya existen y ya se usan; falta repartirlas.
+Con esa regla el arreglo deja de ser una discusión y pasa a ser un reparto de dos
+guards, y los dos ya existían o casi:
 
-Mientras tanto, `SuperficieDeUnAlumnoTest` deja los 27 casos fijados. **Cada uno
-está escrito para fallar el día que se cierre su ruta**, y la respuesta correcta
-entonces es cambiarlo por `assertStatus(403)`, no borrarlo. Así el arreglo de la
-Fase 2 se puede hacer en tandas y en cada tanda se ve exactamente qué se cerró.
+- **`auth.personal`** —«no es alumno ni acudiente»— en todo lo que una familia no
+  usa: las escrituras sobre estructura, catálogos y administración; las lecturas
+  de grupo entero; y las escrituras sobre terceros.
+- **`persona.propia`**, nuevo, en lo que una familia SÍ usa: su perfil, sus fotos,
+  sus datos, los de sus acudidos.
 
-### Por dónde empezar, si hay que priorizar
+**141 → 12.** Lo que queda son lecturas de catálogo —ciudades, grados, niveles,
+periodos, la ficha de una asignatura— que no exponen datos de ninguna persona.
 
-En este orden, que es el de daño irreversible primero:
+### Cómo está hecho `persona.propia`
 
-1. `detalles/eliminar-matricula-destroy` y `detalles/eliminar-notas-periodo` —
-   borran sin papelera.
-2. `years/delete`, `grupos/destroy`, `materias/destroy`, `periodos/establecer-actual`
-   y el resto de `destroy` de catálogo — `auth.personal`, que ya existe.
-3. `perfiles/guardar-username` y `perfiles/update` — cuenta ajena.
-4. Las dos de PIAR y `enfermeria/datos` — el dato más sensible del sistema.
-5. El resto de la pantalla del grupo, cuando el colegio diga qué ve un alumno.
+Recoge **todos** los identificadores de persona que traiga la petición —`alumno_id`,
+`user_id`, `persona_id`, `acudiente_id`, `profesor_id`, `matricula_id`, `imagen_id`,
+y la lista `requested_alumnos`—, vengan por URL o por cuerpo, y exige que **todos**
+sean suyos. No uno: todos. El agujero de `matriculas/prematricular` no fue que
+faltara una comprobación, fue que el id viajaba por donde nadie miraba.
+
+Sin identificador deja pasar, porque eso significa «lo mío» y lo resuelve el
+controlador desde el token. Las rutas de grupo entero, que no llevan id, no llegan
+aquí: llevan `auth.personal`.
+
+Dos cosas que se descubrieron cerrando:
+
+- **`perfiles/update/{id}` elige la TABLA con el `tipo` que manda el cliente.** Con
+  `tipo=Profesor` busca en `profesores`, con `tipo=Alumno` en `alumnos`. Comprobar
+  solo el id no bastaba: un alumno con id 460 habría editado al profesor 460
+  diciendo que era profesor. El guard comprueba las dos cosas.
+- **`images.user_id` es nullable.** Las imágenes públicas del colegio no son de
+  nadie, y `null` no es de quien pregunta, así que rotarlas o publicarlas queda
+  para el personal. Es lo correcto: una imagen sin dueño es del colegio.
+
+### Cómo se comprobó
+
+Los 27 casos de `SuperficieDeUnAlumnoTest` **se escribieron primero al revés**,
+afirmando que el agujero estaba abierto. Al cerrar las rutas, los 27 fallaron —y
+ese fallo es lo que demostró que el guard llegaba a la ruta— y luego se les dio la
+vuelta. Un test de autorización escrito solo en su versión final no prueba que
+antes hiciera falta.
+
+Y se añadió la otra mitad, que es la que de verdad hay que vigilar: **nueve casos
+de que un alumno sigue viendo lo suyo y un acudiente lo de su acudido**. Cerrar de
+más también se nota en producción, y se nota cuando una familia abre la app y no ve
+nada.
+
+`AutorizacionTest` pasa de una lista escrita a mano de 31 rutas a un snapshot: son
+más de trescientas, y a ese tamaño una lista a mano deja de leerse.
+
+## Lo que queda para el refactor de permisos
+
+1. **Qué puede hacer el personal entre sí.** Hoy un profesor alcanza todo lo que
+   alcanza un administrativo. Es lo que Joseth dejó fuera a propósito.
+2. **Las 12 lecturas de catálogo** que quedan sin guard. No exponen a nadie, pero
+   conviene decidir si un alumno tiene que poder leerlas.
+3. **`asignaturas/show`, `unidades/de-asignatura-periodo`, `votaciones/show`**: no
+   son de una persona, pero sí de la estructura del colegio.
+
+Volver a medir es una orden:
+
+    docker exec 8myvc-app-1 php artisan route:list --json > /tmp/rutas.json
+    python3 tools/inventario-autorizacion.py /tmp/rutas.json

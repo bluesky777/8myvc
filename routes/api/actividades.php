@@ -31,10 +31,10 @@ Route::put('actividades/para-alumnos-toggle', [ActividadesController::class, 'pu
 Route::put('actividades/para-profesores-toggle', [ActividadesController::class, 'putParaProfesoresToggle']);
 Route::put('actividades/quitando-grupo-compartido', [ActividadesController::class, 'putQuitandoGrupoCompartido']);
 Route::put('actividades/set-compartida', [ActividadesController::class, 'putSetCompartida']);
-Route::delete('actividades/destroy/{id}', [ActividadesController::class, 'deleteDestroy']);
+Route::delete('actividades/destroy/{id}', [ActividadesController::class, 'deleteDestroy'])->middleware('auth.personal');
 
 // MisActividadesController
-Route::put('mis-actividades/datos', [MisActividadesController::class, 'putDatos']);
+Route::put('mis-actividades/datos', [MisActividadesController::class, 'putDatos'])->middleware('persona.propia');
 Route::put('mis-actividades/finalizar-actividad', [MisActividadesController::class, 'putFinalizarActividad']);
 Route::put('mis-actividades/guardar', [MisActividadesController::class, 'putGuardar']);
 Route::put('mis-actividades/mi-actividad', [MisActividadesController::class, 'putMiActividad']);
@@ -47,13 +47,13 @@ Route::put('preguntas/edicion', [PreguntasController::class, 'putEdicion']);
 Route::put('preguntas/guardar', [PreguntasController::class, 'putGuardar']);
 Route::put('preguntas/toggle-opcion-otra', [PreguntasController::class, 'putToggleOpcionOtra']);
 Route::put('preguntas/update-orden', [PreguntasController::class, 'putUpdateOrden']);
-Route::delete('preguntas/destroy/{id}', [PreguntasController::class, 'deleteDestroy']);
+Route::delete('preguntas/destroy/{id}', [PreguntasController::class, 'deleteDestroy'])->middleware('auth.personal');
 
 // OpcionesController
 Route::put('opciones/add-opcion', [OpcionesController::class, 'putAddOpcion']);
 Route::put('opciones/guardar', [OpcionesController::class, 'putGuardar']);
 Route::put('opciones/set-opcion-correct', [OpcionesController::class, 'putSetOpcionCorrect']);
-Route::delete('opciones/destroy/{id}', [OpcionesController::class, 'deleteDestroy']);
+Route::delete('opciones/destroy/{id}', [OpcionesController::class, 'deleteDestroy'])->middleware('auth.personal');
 
 // RespuestasController
 Route::put('respuestas/actividad', [RespuestasController::class, 'putActividad']);

@@ -18,9 +18,9 @@ use Illuminate\Support\Facades\Route;
 
 // PiarsConfigController
 Route::get('piars-config', [PiarsConfigController::class, 'getIndex']);
-Route::put('piars-config/config', [PiarsConfigController::class, 'putConfig']);
+Route::put('piars-config/config', [PiarsConfigController::class, 'putConfig'])->middleware('auth.personal');
 
 // PiarsActasAcuerdoController
-Route::post('piars-actas-acuerdo/document', [PiarsActasAcuerdoController::class, 'postDocument']);
-Route::delete('piars-actas-acuerdo/document/{alumno_id}', [PiarsActasAcuerdoController::class, 'deleteDocument']);
-Route::get('piars-actas-acuerdo/matriculas/{grupo_id}', [PiarsActasAcuerdoController::class, 'getMatriculas']);
+Route::post('piars-actas-acuerdo/document', [PiarsActasAcuerdoController::class, 'postDocument'])->middleware('auth.personal');
+Route::delete('piars-actas-acuerdo/document/{alumno_id}', [PiarsActasAcuerdoController::class, 'deleteDocument'])->middleware('auth.personal');
+Route::get('piars-actas-acuerdo/matriculas/{grupo_id}', [PiarsActasAcuerdoController::class, 'getMatriculas'])->middleware('auth.personal');

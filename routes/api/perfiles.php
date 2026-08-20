@@ -24,48 +24,48 @@ Route::get('perfiles', [PerfilesController::class, 'getIndex']);
 Route::put('perfiles/creartodoslosusuarios', [PerfilesController::class, 'putCreartodoslosusuarios']);
 Route::put('perfiles/guardar-mi-email-restore', [PerfilesController::class, 'putGuardarMiEmailRestore']);
 Route::post('perfiles/store', [PerfilesController::class, 'postStore']);
-Route::get('perfiles/trashed', [PerfilesController::class, 'getTrashed']);
+Route::get('perfiles/trashed', [PerfilesController::class, 'getTrashed'])->middleware('auth.personal');
 Route::get('perfiles/usernames', [PerfilesController::class, 'getUsernames']);
 Route::get('perfiles/usuariosall', [PerfilesController::class, 'getUsuariosall']);
-Route::put('perfiles/cambiaremailrestore/{id}', [PerfilesController::class, 'putCambiaremailrestore']);
+Route::put('perfiles/cambiaremailrestore/{id}', [PerfilesController::class, 'putCambiaremailrestore'])->middleware('persona.propia:user_id');
 Route::put('perfiles/cambiarfirmaunprofe/{profeelegido}', [PerfilesController::class, 'putCambiarfirmaunprofe']);
 Route::put('perfiles/cambiarimgunalumno/{alumnoelegido}', [PerfilesController::class, 'putCambiarimgunalumno']);
 Route::put('perfiles/cambiarimgunprofe/{profeelegido}', [PerfilesController::class, 'putCambiarimgunprofe']);
 Route::put('perfiles/cambiarimgunusuario/{usuarioelegido}', [PerfilesController::class, 'putCambiarimgunusuario']);
-Route::put('perfiles/cambiarpassword/{id}', [PerfilesController::class, 'putCambiarpassword']);
+Route::put('perfiles/cambiarpassword/{id}', [PerfilesController::class, 'putCambiarpassword'])->middleware('persona.propia:user_id');
 Route::get('perfiles/comprobarusername/{username}', [PerfilesController::class, 'getComprobarusername']);
-Route::delete('perfiles/destroy/{id}', [PerfilesController::class, 'deleteDestroy']);
-Route::delete('perfiles/forcedelete/{id}', [PerfilesController::class, 'deleteForcedelete']);
-Route::put('perfiles/guardar-username/{id}', [PerfilesController::class, 'putGuardarUsername']);
+Route::delete('perfiles/destroy/{id}', [PerfilesController::class, 'deleteDestroy'])->middleware('auth.personal');
+Route::delete('perfiles/forcedelete/{id}', [PerfilesController::class, 'deleteForcedelete'])->middleware('auth.personal');
+Route::put('perfiles/guardar-username/{id}', [PerfilesController::class, 'putGuardarUsername'])->middleware('persona.propia:user_id');
 Route::put('perfiles/reset-password/{id}', [PerfilesController::class, 'putResetPassword']);
-Route::put('perfiles/restore/{id}', [PerfilesController::class, 'putRestore']);
-Route::get('perfiles/show/{id}', [PerfilesController::class, 'getShow']);
-Route::put('perfiles/update/{id}', [PerfilesController::class, 'putUpdate']);
+Route::put('perfiles/restore/{id}', [PerfilesController::class, 'putRestore'])->middleware('auth.personal');
+Route::get('perfiles/show/{id}', [PerfilesController::class, 'getShow'])->middleware('persona.propia:user_id');
+Route::put('perfiles/update/{id}', [PerfilesController::class, 'putUpdate'])->middleware('persona.propia:persona_id');
 Route::get('perfiles/username/{username}', [PerfilesController::class, 'getUsername']);
 
 // ImagesController
 Route::get('myimages', [ImagesController::class, 'getIndex']);
 Route::put('myimages/cambiarlogocolegio', [ImagesController::class, 'putCambiarlogocolegio']);
-Route::put('myimages/datos-imagen', [ImagesController::class, 'putDatosImagen']);
+Route::put('myimages/datos-imagen', [ImagesController::class, 'putDatosImagen'])->middleware('persona.propia');
 Route::post('myimages/store', [ImagesController::class, 'postStore']);
 Route::post('myimages/store-firma', [ImagesController::class, 'postStoreFirma']);
 Route::post('myimages/store-intacta', [ImagesController::class, 'postStoreIntacta']);
 Route::post('myimages/store-intacta-privada', [ImagesController::class, 'postStoreIntactaPrivada']);
 Route::delete('myimages/destroy/{id}', [ImagesController::class, 'deleteDestroy']);
-Route::put('myimages/privatizar-imagen/{imagen_id}', [ImagesController::class, 'putPrivatizarImagen']);
-Route::put('myimages/publicar-imagen/{imagen_id}', [ImagesController::class, 'putPublicarImagen']);
+Route::put('myimages/privatizar-imagen/{imagen_id}', [ImagesController::class, 'putPrivatizarImagen'])->middleware('persona.propia');
+Route::put('myimages/publicar-imagen/{imagen_id}', [ImagesController::class, 'putPublicarImagen'])->middleware('persona.propia');
 
 // ImagesUsuariosController
 Route::put('images-users/imagenes-de-usuario', [ImagesUsuariosController::class, 'putImagenesDeUsuario']);
 Route::put('images-users/move-img-to-me', [ImagesUsuariosController::class, 'putMoveImgToMe']);
 Route::put('images-users/cambiar-firma-un-profe/{profe_id}', [ImagesUsuariosController::class, 'putCambiarFirmaUnProfe']);
 Route::put('images-users/cambiar-foto-un-usuario/{user_id}', [ImagesUsuariosController::class, 'putCambiarFotoUnUsuario']);
-Route::put('images-users/cambiar-imagen-oficial/{user_id}', [ImagesUsuariosController::class, 'putCambiarImagenOficial']);
+Route::put('images-users/cambiar-imagen-oficial/{user_id}', [ImagesUsuariosController::class, 'putCambiarImagenOficial'])->middleware('persona.propia');
 Route::put('images-users/cambiar-imagen-perfil/{user_id}', [ImagesUsuariosController::class, 'putCambiarImagenPerfil']);
-Route::put('images-users/cambiar-imagen-un-usuario/{user_id}', [ImagesUsuariosController::class, 'putCambiarImagenUnUsuario']);
-Route::delete('images-users/destroy/{id}', [ImagesUsuariosController::class, 'deleteDestroy']);
-Route::put('images-users/rotar-imagen-izquierda/{imagen_id}', [ImagesUsuariosController::class, 'putRotarImagenIzquierda']);
-Route::put('images-users/rotarimagen/{imagen_id}', [ImagesUsuariosController::class, 'putRotarimagen']);
+Route::put('images-users/cambiar-imagen-un-usuario/{user_id}', [ImagesUsuariosController::class, 'putCambiarImagenUnUsuario'])->middleware('persona.propia');
+Route::delete('images-users/destroy/{id}', [ImagesUsuariosController::class, 'deleteDestroy'])->middleware('persona.propia');
+Route::put('images-users/rotar-imagen-izquierda/{imagen_id}', [ImagesUsuariosController::class, 'putRotarImagenIzquierda'])->middleware('persona.propia');
+Route::put('images-users/rotarimagen/{imagen_id}', [ImagesUsuariosController::class, 'putRotarimagen'])->middleware('persona.propia');
 
 // PublicacionesController
 Route::put('publicaciones/borrar-comentario', [PublicacionesController::class, 'putBorrarComentario']);

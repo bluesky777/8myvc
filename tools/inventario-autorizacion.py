@@ -13,8 +13,8 @@ Marca una ruta cuando se cumplen las tres:
 
   - exige token (`auth.token`); las de antes del login las cubre RutasPreLoginTest,
   - recibe un identificador del cliente, por segmento de URL o por el cuerpo,
-  - y NO tiene guard: ni `auth.personal` ni `boletin.propio` en la ruta, ni una
-    comprobación de permisos dentro del método.
+  - y NO tiene guard: ni `auth.personal`, ni `persona.propia`, ni `boletin.propio`
+    en la ruta, ni una comprobación de permisos dentro del método.
 
 Es un filtro grueso a propósito: da falsos positivos —hay rutas de catálogo que no exponen datos
 de nadie— y por eso su salida es una lista PARA REVISAR, no una lista de fallos. Los fallos
@@ -48,7 +48,7 @@ def cuerpo(accion):
     return src[m.start():j+1]
 
 # --- señales -------------------------------------------------------------------
-GUARDS_RUTA = ('auth.personal', 'boletin.propio')
+GUARDS_RUTA = ('auth.personal', 'boletin.propio', 'persona.propia')
 # comprobaciones de permiso dentro del método
 GUARD_CUERPO = re.compile(r'is_superuser|profes_can_edit|Autoriza::|pueden_editar_notas|es_secretari', re.I)
 # identificadores de PERSONA que llegan del cliente

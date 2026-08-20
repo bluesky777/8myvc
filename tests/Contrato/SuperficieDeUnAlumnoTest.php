@@ -6,24 +6,27 @@ use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
- * Qué alcanza HOY un alumno con su token, y no debería.
+ * Un alumno solo lo suyo; un acudiente, lo suyo y lo de sus acudidos.
  *
- * Este archivo no prueba que el sistema esté bien: prueba que está mal, a
- * propósito, y con la precisión suficiente para que el arreglo sea verificable.
- * **Cada test de aquí debe fallar el día que se cierre su ruta**, y la respuesta
- * correcta entonces es cambiarlo por su contrario —`assertStatus(403)`— no
- * borrarlo.
+ * Es la regla que fijó Joseth el 19 ago 2026 después de la revisión de IDOR
+ * (docs/migracion/08-revision-idor.md), y este archivo es lo que la sostiene.
  *
- * Sale de la revisión de IDOR que el plan de seguridad tenía pendiente desde el
- * primer hallazgo, y que ya llevaba dos precedentes: el IDOR de lectura de
- * `notas/alumno` (P0) y el de escritura de `matriculas/prematricular` (P1). La
- * revisión completa, con el inventario de las 141 rutas y cómo reproducirla, está
- * en docs/migracion/08-revision-idor.md.
+ * **Cada caso de aquí se escribió primero al revés.** La revisión encontró 27
+ * cosas que un alumno podía hacer con su token —cambiarle el nombre de usuario al
+ * rector, leer antecedentes médicos ajenos, abrirle un proceso disciplinario a un
+ * compañero, borrar un año lectivo— y se fijaron con tests que las afirmaban. Al
+ * cerrarlas, cada test falló, y ese fallo es lo que demostró que el guard llegaba
+ * a la ruta. Luego se dieron la vuelta. Un test de autorización escrito solo en su
+ * versión final no prueba que antes hiciera falta.
  *
  * **El token de un alumno es la línea correcta que hay que probar.** No es un
- * atacante externo: es la credencial que el colegio le da a cada uno de sus
- * 1.279 alumnos, y la que cualquiera de ellos puede usar desde las herramientas
- * del navegador sin saber programar.
+ * atacante externo: es la credencial que el colegio le da a cada uno de sus 1.279
+ * alumnos, y la que cualquiera puede usar desde las herramientas del navegador sin
+ * saber programar.
+ *
+ * Lo que este archivo NO fija es qué puede hacer el personal del colegio entre sí.
+ * Eso queda como está hasta el refactor de permisos, y mezclarlo aquí habría
+ * convertido un arreglo comprobable en uno que hay que discutir.
  */
 class SuperficieDeUnAlumnoTest extends CasoDeContrato
 {
@@ -58,27 +61,33 @@ class SuperficieDeUnAlumnoTest extends CasoDeContrato
      * conviene decirlo: no es que el módulo de perfiles no compruebe nada, es que
      * comprueba en un sitio de tres.
      */
-    public function test_un_alumno_le_cambia_el_username_a_otro(): void
+    public function test_un_alumno_no_le_cambia_el_username_a_otro(): void
     {
         [, , , $personal, $cab] = $this->actores();
 
         $antes = $personal->username;
 
         $this->putJson("/api/perfiles/guardar-username/{$personal->id}",
-            ['username' => 'robado-'.$personal->id], $cab)->assertStatus(200);
+            ['username' => 'robado-'.$personal->id], $cab)->assertStatus(403);
 
-        $this->assertNotSame($antes,
+        $this->assertSame($antes,
             DB::selectOne('SELECT username u FROM users WHERE id = ?', [$personal->id])->u,
-            "Ya no se puede: cambia este test por `assertStatus(403)`.");
+            'El 403 llegó tarde: el nombre de usuario ya estaba cambiado.');
     }
 
-    public function test_un_alumno_edita_el_perfil_de_otro(): void
+    public function test_un_alumno_no_edita_el_perfil_de_otro(): void
     {
-        [, , , $personal, $cab] = $this->actores();
+        [, $mio, , $personal, $cab] = $this->actores();
 
-        $this->assertNotSame(403,
-            $this->putJson("/api/perfiles/update/{$personal->id}", ['nombres' => 'X'], $cab)->getStatusCode(),
-            'Ya no se puede: cambia este test por `assertStatus(403)`.');
+        $this->putJson("/api/perfiles/update/{$personal->id}",
+            ['nombres' => 'X', 'tipo' => 'Alumno'], $cab)->assertStatus(403);
+
+        // Y tampoco por el otro lado: `perfiles/update` elige la TABLA con el
+        // `tipo` que manda el cliente, así que con su propio id y `tipo=Profesor`
+        // editaría al profesor que tenga ese número. Por eso el guard comprueba
+        // las dos cosas.
+        $this->putJson("/api/perfiles/update/{$mio->id}",
+            ['nombres' => 'X', 'tipo' => 'Profesor'], $cab)->assertStatus(403);
     }
 
     /**
@@ -105,16 +114,14 @@ class SuperficieDeUnAlumnoTest extends CasoDeContrato
     }
 
     #[DataProvider('lecturasDeOtro')]
-    public function test_un_alumno_lee_datos_de_otra_persona(string $verbo, string $ruta, array $cuerpo): void
+    public function test_un_alumno_no_lee_datos_de_otra_persona(string $verbo, string $ruta, array $cuerpo): void
     {
         [, , $otro, $personal, $cab] = $this->actores();
 
         $sustituir = fn ($v) => str_replace(['{alumno}', '{user}'], [$otro->id, $personal->id], (string) $v);
 
-        $r = $this->json($verbo, '/api/'.$sustituir($ruta), array_map($sustituir, $cuerpo), $cab);
-
-        $this->assertNotSame(403, $r->getStatusCode(),
-            "Ya no se puede: cambia este caso por `assertStatus(403)`.");
+        $this->json($verbo, '/api/'.$sustituir($ruta), array_map($sustituir, $cuerpo), $cab)
+            ->assertStatus(403);
     }
 
     /**
@@ -145,15 +152,13 @@ class SuperficieDeUnAlumnoTest extends CasoDeContrato
     }
 
     #[DataProvider('lecturasDelGrupo')]
-    public function test_un_alumno_lee_el_grupo_entero(string $verbo, string $ruta): void
+    public function test_un_alumno_no_lee_el_grupo_entero(string $verbo, string $ruta): void
     {
         [, , , , $cab] = $this->actores();
         $grupo = $this->grupoConAlumnos();
 
-        $r = $this->json($verbo, '/api/'.str_replace('{grupo}', (string) $grupo->id, $ruta), [], $cab);
-
-        $this->assertNotSame(403, $r->getStatusCode(),
-            'Ya no se puede: cambia este caso por `assertStatus(403)`.');
+        $this->json($verbo, '/api/'.str_replace('{grupo}', (string) $grupo->id, $ruta), [], $cab)
+            ->assertStatus(403);
     }
 
     /**
@@ -163,30 +168,31 @@ class SuperficieDeUnAlumnoTest extends CasoDeContrato
      * ya costó tiempo en `NotasTest`—, así que cada una se comprueba contando
      * filas antes y después.
      */
-    public function test_un_alumno_le_pone_un_proceso_disciplinario_a_otro(): void
+    public function test_un_alumno_no_le_pone_un_proceso_disciplinario_a_otro(): void
     {
         [, , $otro, , $cab] = $this->actores();
 
         $antes = DB::selectOne('SELECT COUNT(*) n FROM dis_procesos WHERE alumno_id = ?', [$otro->id])->n;
 
-        $this->postJson('/api/disciplina/store', ['alumno_id' => $otro->id], $cab)->assertStatus(200);
+        $this->postJson('/api/disciplina/store', ['alumno_id' => $otro->id], $cab)->assertStatus(403);
 
-        $this->assertGreaterThan($antes,
+        $this->assertSame($antes,
             DB::selectOne('SELECT COUNT(*) n FROM dis_procesos WHERE alumno_id = ?', [$otro->id])->n,
-            'Ya no se puede: cambia este test por `assertStatus(403)`.');
+            'El 403 llegó tarde: el proceso disciplinario ya estaba abierto.');
     }
 
-    public function test_un_alumno_le_pone_una_ausencia_a_otro(): void
+    public function test_un_alumno_no_le_pone_una_ausencia_a_otro(): void
     {
         [, , $otro, , $cab] = $this->actores();
 
         $antes = DB::selectOne('SELECT COUNT(*) n FROM ausencias WHERE alumno_id = ?', [$otro->id])->n;
 
-        $this->postJson('/api/ausencias/agregar-ausencia', ['alumno_id' => $otro->id], $cab);
+        $this->postJson('/api/ausencias/agregar-ausencia', ['alumno_id' => $otro->id], $cab)
+            ->assertStatus(403);
 
-        $this->assertGreaterThan($antes,
+        $this->assertSame($antes,
             DB::selectOne('SELECT COUNT(*) n FROM ausencias WHERE alumno_id = ?', [$otro->id])->n,
-            'Ya no se puede: cambia este test por `assertStatus(403)`.');
+            'El 403 llegó tarde: la ausencia ya estaba puesta.');
     }
 
     /**
@@ -198,7 +204,7 @@ class SuperficieDeUnAlumnoTest extends CasoDeContrato
      * como se supo. Un alumno le quita a otro la matrícula del año, y no queda
      * de dónde restaurarla.
      */
-    public function test_un_alumno_borra_la_matricula_de_otro_sin_papelera(): void
+    public function test_un_alumno_no_borra_la_matricula_de_otro(): void
     {
         [, , $otro, , $cab] = $this->actores();
 
@@ -206,10 +212,10 @@ class SuperficieDeUnAlumnoTest extends CasoDeContrato
             WHERE alumno_id = ? AND deleted_at IS NULL ORDER BY id LIMIT 1', [$otro->id]);
 
         $this->putJson('/api/detalles/eliminar-matricula-destroy',
-            ['matricula_id' => $matricula->id], $cab)->assertStatus(200);
+            ['matricula_id' => $matricula->id], $cab)->assertStatus(403);
 
-        $this->assertNull(DB::selectOne('SELECT id FROM matriculas WHERE id = ?', [$matricula->id]),
-            'Ya no se puede: cambia este test por `assertStatus(403)`.');
+        $this->assertNotNull(DB::selectOne('SELECT id FROM matriculas WHERE id = ?', [$matricula->id]),
+            'El 403 llegó tarde: la matrícula ya no está, y no había papelera.');
     }
 
     /**
@@ -236,7 +242,7 @@ class SuperficieDeUnAlumnoTest extends CasoDeContrato
     }
 
     #[DataProvider('configuracionDelColegio')]
-    public function test_un_alumno_toca_la_configuracion_del_colegio(string $verbo, string $ruta): void
+    public function test_un_alumno_no_toca_la_configuracion_del_colegio(string $verbo, string $ruta): void
     {
         [, , , , $cab] = $this->actores();
         $grupo = $this->grupoConAlumnos();
@@ -246,8 +252,97 @@ class SuperficieDeUnAlumnoTest extends CasoDeContrato
 
         $url = str_replace(['{grupo}', '{periodo}'], [$grupo->id, $periodo->id], $ruta);
 
-        $this->assertNotSame(403, $this->json($verbo, '/api/'.$url, [], $cab)->getStatusCode(),
-            'Ya no se puede: cambia este caso por `assertStatus(403)`.');
+        $this->json($verbo, '/api/'.$url, [], $cab)->assertStatus(403);
+    }
+
+    // ------------------------------------------------ Y lo que SÍ tienen que poder
+
+    /**
+     * La otra mitad de la regla, y la que de verdad hay que vigilar.
+     *
+     * Cerrar rutas es fácil; cerrarlas de más también, y se nota en producción
+     * cuando una familia abre la app y no ve nada. Estos casos son el contrapeso:
+     * un alumno tiene que seguir viendo LO SUYO por las mismas rutas que antes
+     * usaba para ver lo de todos.
+     *
+     * Se comprueba `assertNotSame(403)` y no `assertStatus(200)` a propósito:
+     * varias de estas responden 400 o 500 por motivos suyos, viejos, que no son
+     * de autorización y que este archivo no viene a arreglar. Lo que aquí importa
+     * es que el guard no sea quien las corta.
+     */
+    public static function loSuyoDeUnAlumno(): array
+    {
+        return [
+            'sus matrículas' => ['PUT', 'detalles/alumno', ['alumno_id' => '{mio}']],
+            'sus años con notas' => ['PUT', 'alumnos/years-con-notas', ['alumno_id' => '{mio}']],
+            'sus asignaturas' => ['PUT', 'mis-actividades/datos', ['alumno_id' => '{mio}']],
+            'su ficha de enfermería' => ['PUT', 'enfermeria/datos', ['alumno_id' => '{mio}']],
+            'sus acudientes' => ['PUT', 'acudientes/de-persona', ['alumno_id' => '{mio}']],
+            'sus imágenes' => ['PUT', 'myimages/datos-imagen', []],
+            'sus notas' => ['GET', 'notas/alumno/{mio}', []],
+        ];
+    }
+
+    #[DataProvider('loSuyoDeUnAlumno')]
+    public function test_un_alumno_sigue_viendo_lo_suyo(string $verbo, string $ruta, array $cuerpo): void
+    {
+        [, $mio, , , $cab] = $this->actores();
+
+        $sustituir = fn ($v) => str_replace('{mio}', (string) $mio->id, (string) $v);
+
+        $r = $this->json($verbo, '/api/'.$sustituir($ruta), array_map($sustituir, $cuerpo), $cab);
+
+        $this->assertNotSame(403, $r->getStatusCode(),
+            "El guard está cortando a un alumno pidiendo lo suyo: {$verbo} {$ruta}.");
+    }
+
+    /**
+     * Y un acudiente, lo de sus acudidos completo.
+     *
+     * «Completo» es la palabra de la regla: al acudiente no se le recorta nada de
+     * lo de su acudido. Por eso `persona.propia` resuelve los parentescos y acepta
+     * tanto el `alumno_id` del acudido como el `user_id` de su cuenta —hay rutas
+     * que piden por uno y rutas que piden por el otro—, y por eso no comprueba el
+     * paz y salvo, que es cosa de los boletines y ya lo lleva su propio guard.
+     */
+    public function test_un_acudiente_ve_lo_de_su_acudido_y_no_lo_de_otros(): void
+    {
+        $fila = DB::selectOne('SELECT u.username, p.alumno_id FROM users u
+            INNER JOIN acudientes ac ON ac.user_id = u.id AND ac.deleted_at IS NULL
+            INNER JOIN parentescos p ON p.acudiente_id = ac.id AND p.deleted_at IS NULL
+            INNER JOIN alumnos a ON a.id = p.alumno_id AND a.deleted_at IS NULL
+            INNER JOIN periodos per ON per.id = u.periodo_id
+            WHERE u.tipo = "Acudiente" AND u.is_active = 1 AND u.deleted_at IS NULL
+            ORDER BY u.id LIMIT 1');
+
+        $this->assertNotNull($fila, 'El seed no tiene un acudiente con acudido.');
+
+        $ajeno = DB::selectOne('SELECT id FROM alumnos WHERE id <> ? AND deleted_at IS NULL
+            ORDER BY id LIMIT 1', [$fila->alumno_id]);
+
+        $cab = ['Authorization' => 'Bearer '.$this->tokenDe($fila->username)];
+
+        foreach (['detalles/alumno', 'alumnos/years-con-notas', 'enfermeria/datos'] as $ruta) {
+            $this->assertNotSame(403,
+                $this->putJson("/api/{$ruta}", ['alumno_id' => $fila->alumno_id], $cab)->getStatusCode(),
+                "El guard corta a un acudiente pidiendo lo de su acudido: {$ruta}.");
+
+            $this->putJson("/api/{$ruta}", ['alumno_id' => $ajeno->id], $cab)->assertStatus(403);
+        }
+    }
+
+    /** El rechazo deja rastro, que es lo que mira el colegio cuando alguien reclama. */
+    public function test_el_intento_de_pedir_lo_ajeno_queda_en_bitacoras(): void
+    {
+        [, , $otro, , $cab] = $this->actores();
+
+        $antes = DB::table('bitacoras')->where('affected_element_type', 'like', 'AlumnoPideAjeno%')->count();
+
+        $this->putJson('/api/detalles/alumno', ['alumno_id' => $otro->id], $cab)->assertStatus(403);
+
+        $this->assertSame($antes + 1,
+            DB::table('bitacoras')->where('affected_element_type', 'like', 'AlumnoPideAjeno%')->count(),
+            'El intento de pedir los datos de otro no quedó registrado.');
     }
 
     /** Lo que sí está cerrado, para que no se caiga sin que nadie lo note. */
@@ -271,9 +366,11 @@ class SuperficieDeUnAlumnoTest extends CasoDeContrato
 
         $this->getJson("/api/notas/alumno/{$otro->id}", $cab)->assertStatus(403);
 
-        // Y `perfiles/cambiarpassword`, que es la única de su familia que comprueba.
+        // `perfiles/cambiarpassword` era la única de su familia que comprobaba algo
+        // —pedía la contraseña antigua, y por eso respondía 400 y no 200—. Ahora
+        // ni llega: el guard corta antes por ser de otro.
         $this->putJson('/api/perfiles/cambiarpassword/1',
             ['password' => 'x-1234', 'password_confirmation' => 'x-1234'], $cab)
-            ->assertStatus(400);
+            ->assertStatus(403);
     }
 }
