@@ -928,10 +928,34 @@ el 500 hacía parecer que la operación no había ocurrido.
 §11.3 y del inventario de [08 §4](08-revision-idor.md). Los tres se resumen en
 una frase: *el guard estaba puesto y la pregunta era otra*. Aquí la pregunta no
 era «¿tiene guard esta ruta?» —lo tenía— sino «¿el guard reconoce lo que esta
-ruta llama id?». **`inventario-autorizacion.py` tampoco puede contestar esa**:
-lee qué middleware lleva cada ruta, no si el nombre del parámetro casa con las
-claves que el middleware busca. Esa comparación sí es mecánica y sí se puede
-escribir, y es lo que queda pendiente de la herramienta.
+ruta llama id?». **`inventario-autorizacion.py` no puede contestar esa**: lee
+qué middleware lleva cada ruta, no si el nombre del parámetro casa con las claves
+que el middleware busca.
+
+Esa comparación sí es mecánica, y **se escribió como test en vez de como
+herramienta** (decisión de Joseth, 20 ago 2026): corre con los otros y no depende
+de que alguien se acuerde de lanzar un script. Son dos en `AutorizacionTest`, y
+las claves las leen del propio middleware por reflexión, porque una lista copiada
+se queda corta el día que el guard aprenda una clave nueva — que es justo el
+fallo que existen para impedir:
+
+- **`test_el_guard_reconoce_algun_identificador_de_cada_ruta_que_protege`**, que
+  es la forma exacta del fallo y vale para cualquier nombre nuevo: si una ruta
+  trae identificadores y el guard **no reconoce ninguno**, no está haciendo nada.
+  Las que no traen ninguno no entran —esas sí significan «lo mío»—. Comprobado al
+  revés devolviendo la ruta a `persona.propia` a secas: falla y nombra
+  `api/images-users/destroy/{id} → id`.
+- **`test_los_identificadores_que_el_guard_no_reconoce`**, un snapshot. Hoy trae
+  dos, `{grupo_id}` y `{asignatura_id}`, y las dos están bien: no nombran a una
+  persona y sus rutas llevan además un `{alumno_id}` que sí se comprueba. Va a
+  snapshot y no a `assert` porque la máquina no sabe cuál es cuál — pero el día
+  que aparezca un `{expediente_id}` de otro alumno al lado del `{alumno_id}`,
+  saldrá en un diff y lo decidirá una persona.
+
+**Lo que sigue sin verse, y hay que saberlo:** los dos miran los parámetros de la
+URL. El guard lee también el cuerpo y la query, y ahí una clave con nombre nuevo
+sigue siendo invisible desde fuera. Para eso no hay atajo estático — hace falta
+golpear la ruta, que es lo que hace `SuperficieDeUnAlumnoTest`.
 
 Los dos quedan fijados en `ImagenesTest`, escritos primero al revés —afirmando el
 500 y el borrado ajeno— como los 27 de `SuperficieDeUnAlumnoTest`. El tercero es

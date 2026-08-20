@@ -382,10 +382,15 @@ saber el tamaño real del daño en las dieciséis bases antes de tocar código.
     [08 §4](08-revision-idor.md), y los tres caben en una frase: *el guard estaba
     puesto y la pregunta era otra*. Aquí no era «¿tiene guard esta ruta?» —lo
     tenía— sino «¿el guard reconoce lo que esta ruta llama id?».
-    **`inventario-autorizacion.py` tampoco contesta esa**, y esta sí es mecánica:
+    **`inventario-autorizacion.py` no contesta esa**, y esta sí es mecánica:
     comparar el nombre del parámetro de cada ruta con las claves que busca su
-    middleware. Es lo que queda pendiente de la herramienta, y lo único de este
-    nivel que deja trabajo escrito.
+    middleware. **Se escribió como test y no como herramienta** —decisión de
+    Joseth el mismo día—, porque así corre con los otros y no depende de que
+    alguien se acuerde de lanzar un script: son los dos últimos de
+    `AutorizacionTest`, leen las claves del propio middleware por reflexión, y el
+    primero se comprobó al revés devolviendo la ruta a `persona.propia` a secas.
+    Lo que siguen sin ver son las claves que viajan en el cuerpo: eso no tiene
+    atajo estático y hay que golpearlo.
 
   Lo que queda anotado en `phpstan.neon` son seis errores que son un solo fallo
   contado tres veces: los tres endpoints del importador con la firma de

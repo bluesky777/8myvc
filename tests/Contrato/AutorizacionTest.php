@@ -2,6 +2,7 @@
 
 namespace Tests\Contrato;
 
+use App\Http\Middleware\ExigirPersonaPropia;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -375,5 +376,134 @@ class AutorizacionTest extends CasoDeContrato
         }
 
         $this->compararConInstantanea('guards-por-ruta', $mapa);
+    }
+
+    /**
+     * El guard puesto no basta: tiene que reconocer lo que la ruta llama id.
+     *
+     * Esto sale del tercer punto ciego de la misma familia
+     * ([05 §13.2](../../docs/migracion/05-codigo-muerto-y-roto.md)).
+     * `DELETE images-users/destroy/{id}` llevaba `persona.propia` desde la
+     * revisión de IDOR y **el guard no miraba nada**: recoge los identificadores
+     * por su NOMBRE, y esa era la única ruta de imagen que llamaba `{id}` a lo
+     * que sus cuatro hermanas llaman `{imagen_id}`. Sin identificador
+     * reconocible, `ExigirPersonaPropia` entiende «lo mío» y deja pasar — que es
+     * lo correcto para las rutas que no llevan ninguno, y lo peor posible para
+     * una que lleva uno con otro nombre. Un alumno borraba la foto de
+     * cualquiera.
+     *
+     * La regla que se comprueba aquí es la forma exacta de aquel fallo, y sirve
+     * para cualquier nombre nuevo: **si una ruta trae identificadores y el guard
+     * no reconoce NINGUNO, el guard no está haciendo nada.** Las rutas sin
+     * identificador ninguno no entran — esas sí significan «lo mío»— y las que
+     * traen uno reconocido junto a otros que no, tampoco: de esas se ocupa el
+     * snapshot de abajo.
+     *
+     * Las claves se leen del propio middleware por reflexión, no se copian aquí:
+     * una lista repetida se queda corta el día que el guard aprenda una clave
+     * nueva, que es el fallo que este test existe para impedir.
+     *
+     * **Lo que este test NO ve**, y hay que saberlo: solo mira los parámetros de
+     * la URL. El guard lee también el cuerpo y la query, y ahí una clave con
+     * nombre nuevo sigue siendo invisible desde fuera. Para eso no hay atajo
+     * estático — hace falta golpear la ruta, como en `SuperficieDeUnAlumnoTest`.
+     */
+    public function test_el_guard_reconoce_algun_identificador_de_cada_ruta_que_protege(): void
+    {
+        $ciegas = [];
+
+        foreach ($this->rutasDePersonaPropia() as $ruta) {
+            if ($ruta['identificadores'] !== [] && $ruta['reconocidos'] === []) {
+                $ciegas[] = $ruta['uri'].' → '.implode(', ', $ruta['identificadores']);
+            }
+        }
+
+        $this->assertSame([], $ciegas,
+            "Estas rutas llevan 'persona.propia' y el guard no reconoce ninguno de sus identificadores, ".
+            "así que las deja pasar enteras.\n".
+            'O se renombra el parámetro a uno de los que el guard busca, o se le dice a qué apunta con '.
+            "'persona.propia:<clave>', como hacen los perfiles/*/{id}.");
+    }
+
+    /**
+     * Y los que el guard no reconoce aunque la ruta esté cubierta.
+     *
+     * Aquí no se puede afirmar nada: `{grupo_id}` y `{asignatura_id}` no nombran
+     * a una persona y es correcto que el guard los ignore. Pero el día que
+     * aparezca uno que sí —un `{expediente_id}` de otro alumno junto al
+     * `{alumno_id}` que sí se comprueba— nadie lo va a notar sin verlo en un
+     * diff. Por eso va a snapshot y no a `assert`: la máquina no sabe cuál de
+     * los dos es, y una persona sí.
+     */
+    public function test_los_identificadores_que_el_guard_no_reconoce(): void
+    {
+        $mapa = [];
+
+        foreach ($this->rutasDePersonaPropia() as $ruta) {
+            $sinReconocer = array_values(array_diff($ruta['identificadores'], $ruta['reconocidos']));
+
+            if ($sinReconocer !== []) {
+                $mapa[$ruta['uri']] = [
+                    'reconocidos' => $ruta['reconocidos'],
+                    'sin_reconocer' => $sinReconocer,
+                ];
+            }
+        }
+
+        ksort($mapa);
+
+        $this->compararConInstantanea('persona-propia-identificadores', $mapa);
+    }
+
+    /**
+     * Cada ruta con `persona.propia`, con sus identificadores y cuáles de ellos
+     * mira el guard.
+     *
+     * «Identificador» es el parámetro que se llama `id` o acaba en `_id`. Los
+     * demás —`{tamanio}`, `{year}`— no nombran nada que tenga dueño.
+     *
+     * @return list<array{uri: string, identificadores: list<string>, reconocidos: list<string>}>
+     */
+    private function rutasDePersonaPropia(): array
+    {
+        /** @var list<string> $claves */
+        $claves = (new \ReflectionClass(ExigirPersonaPropia::class))->getConstant('CLAVES');
+
+        $rutas = [];
+
+        foreach (Route::getRoutes()->getRoutes() as $ruta) {
+            foreach ($ruta->middleware() as $aplicado) {
+                $aplicado = (string) $aplicado;
+
+                if ($aplicado !== 'persona.propia' && ! str_starts_with($aplicado, 'persona.propia:')) {
+                    continue;
+                }
+
+                // El `{id}` genérico solo cuenta como reconocido si la ruta ha
+                // dicho a qué apunta. Es el mecanismo que le faltaba a
+                // `images-users/destroy`.
+                $declarado = str_contains($aplicado, ':')
+                    ? substr($aplicado, strlen('persona.propia:'))
+                    : null;
+
+                $identificadores = array_values(array_filter(
+                    $ruta->parameterNames(),
+                    fn ($p) => $p === 'id' || str_ends_with($p, '_id')
+                ));
+
+                $reconocidos = array_values(array_filter(
+                    $identificadores,
+                    fn ($p) => in_array($p, $claves, true) || ($p === 'id' && $declarado !== null)
+                ));
+
+                $rutas[] = [
+                    'uri' => $ruta->uri().($declarado === null ? '' : ' ['.$declarado.']'),
+                    'identificadores' => $identificadores,
+                    'reconocidos' => $reconocidos,
+                ];
+            }
+        }
+
+        return $rutas;
     }
 }

@@ -1,0 +1,18 @@
+{
+    "api/frases_asignatura/show/{alumno_id}/{asignatura_id}": {
+        "reconocidos": [
+            "alumno_id"
+        ],
+        "sin_reconocer": [
+            "asignatura_id"
+        ]
+    },
+    "api/piars-asignaturas/asignaturas/{grupo_id}/{alumno_id}": {
+        "reconocidos": [
+            "alumno_id"
+        ],
+        "sin_reconocer": [
+            "grupo_id"
+        ]
+    }
+}
