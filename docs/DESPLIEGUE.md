@@ -72,25 +72,30 @@ la configuración de la cuenta, pero si hay duda, la respuesta buena sale de una
 petición HTTP real. La forma corta y sin dejar rastro es mirar `phpinfo()` desde
 el propio cPanel (*MultiPHP INI Editor*), no subir un `.php` al `public/`.
 
-### La carpeta `vendor/` de la generación 13
+### Los `vendor/` se quedan como están
+
+**Decisión de Joseth, 20 ago 2026: no se crea ninguna carpeta por generación.** Se
+sigue con la topología de hoy, que es mixta: unos colegios tienen `vendor/` propio
+y cinco cuelgan por symlink de `/home/micolev1/laravel_compartido`.
+
+Lo primero es saber cuál es cuál, porque el comando de instalar cambia:
 
 ```bash
-cd /home/micolev1
-mkdir laravel_13 && cd laravel_13
-# composer.json y composer.lock de la rama que se va a desplegar
-composer install --no-dev
+for d in /home/micolev1/*.micolevirtual.com/8myvc; do
+  printf '%-46s ' "$d"
+  [ -L "$d/vendor" ] && printf 'COMPARTIDO -> %s\n' "$(readlink "$d/vendor")" || printf 'propio\n'
+done
 ```
 
-`--no-dev` ahorra 38 MB de los 70 y quita lo que no se usa en producción. El
-precio es que en esa carpeta no se puede ejecutar `php artisan test`; eso corre en
-el CI y en local.
+**Los que comparten van como un bloque, y no hay forma de escalonarlos.** Composer
+sigue el symlink: actualizar la carpeta compartida cambia las dependencias de los
+cinco a la vez, en ese instante. Y el `app/` de cada colegio sí es copia propia. O
+sea que entre actualizar el `vendor/` compartido y terminar de desplegar el quinto
+`app/`, los que falten están corriendo código viejo sobre librerías nuevas. Hay que
+hacerlos seguidos, con los cinco `git pull` preparados.
 
-Cada colegio apuntará aquí con un symlink. Hay una carpeta por generación
-(`laravel_8`, `laravel_13`), no una sola: es lo que permite migrar y volver atrás
-colegio a colegio. **Nunca correr `composer` dentro de un colegio** — sigue el
-symlink y le cambia las dependencias a todos los que cuelguen de la misma carpeta.
-
----
+Volver atrás en esos cinco también es todo o nada. Los de `vendor/` propio se
+despliegan y se revierten uno a uno, sin ataduras.
 
 ## 0.bis Qué trae esta tanda, y qué se va a notar
 
@@ -143,20 +148,38 @@ d=/home/micolev1/COLEGIO.micolevirtual.com/8myvc
 cd "$d"
 
 php -v                       # PARA si no dice 8.4
-readlink -f vendor           # mira a qué generación apunta hoy
-
 git pull                     # trae composer.lock
 ls -l composer.lock          # sin él, install se comporta como update
+```
 
-ln -sfn /home/micolev1/laravel_13 vendor
-php artisan package:discover # OBLIGATORIO al cambiar de generación
+**Ahora las librerías, y depende de qué tipo sea el colegio:**
 
+```bash
+# A) vendor/ PROPIO — se instala dentro del colegio
+[ -L vendor ] && echo "COMPARTIDO: no sigas por aquí" || composer install --no-dev
+
+# B) vendor/ COMPARTIDO — UNA vez para los cinco, en la carpeta real,
+#    y con el composer.json/lock de la rama ya puestos ahí
+cd /home/micolev1/laravel_compartido && composer install --no-dev
+```
+
+**Nunca `composer` dentro de un colegio que cuelgue por symlink**: sigue el enlace
+sin avisar y le cambia las dependencias a los otros cuatro. El `[ -L vendor ]` de
+arriba es la comprobación, y va antes que el comando a propósito.
+
+`--no-dev` ahorra 38 MB de los 70. El precio es que ahí no se puede ejecutar
+`php artisan test`; eso corre en el CI y en local.
+
+```bash
+cd "$d"
+php artisan package:discover # OBLIGATORIO tras tocar vendor/
 php artisan migrate --force  # sin esto TODOS los logins dan 500
 ```
 
 `package:discover` no es opcional: `bootstrap/cache/packages.php` es de cada
 colegio y se genera a partir del `vendor/`. Sin regenerarlo, el colegio arranca
-con la lista de proveedores de la generación anterior.
+con la lista de proveedores anterior. **En los cinco compartidos hay que correrlo
+en los cinco**, aunque el `composer install` se haya hecho una sola vez.
 
 ### El `.env` de este colegio
 
@@ -292,11 +315,14 @@ d=/home/micolev1/COLEGIO.micolevirtual.com/8myvc
 cd "$d"
 
 git checkout <commit-anterior>
-ln -sfn /home/micolev1/laravel_8 vendor
+composer install --no-dev            # o en laravel_compartido, si cuelga de ahí
 php artisan package:discover
 php artisan config:clear && php artisan route:clear
 php artisan config:cache && php artisan route:cache
 ```
+
+**En los cinco del `vendor/` compartido, volver atrás es todo o nada**: la carpeta
+es una sola. O se revierten los cinco `app/` y la carpeta, o ninguno.
 
 Lo que **no** se deshace es la versión de PHP: si hay que volver atrás, se vuelve
 con 8.4 puesto. Las dos migraciones tampoco hace falta deshacerlas: una añade una
@@ -312,8 +338,8 @@ falla con 500 es **guardar** los firmantes. Se arregla corriendo `migrate`.
 ## 3. Las seis trampas que cuestan un colegio
 
 1. **`composer` dentro de un colegio con `vendor/` compartido** le cambia las
-   dependencias a todos los que cuelguen de esa carpeta. Sigue el symlink sin
-   avisar. Se corre sobre la carpeta de generación, nunca desde un colegio.
+   dependencias a los otros cuatro. Sigue el symlink sin avisar y sin fallar.
+   Comprueba siempre antes: `[ -L vendor ]`.
 2. **`git fetch` antes del checkout del front.** `checkout -B ... origin/main` usa
    la copia local del ref: sin refrescarla dice que todo fue bien y te deja en el
    build anterior. Le pasó a `coab`.
@@ -337,7 +363,7 @@ falla con 500 es **guardar** los firmantes. Se arregla corriendo `migrate`.
 | Colegios | **los 16 desplegados y con el `vendor/` igualado** (19 ago 2026) |
 | Framework en producción | Laravel 8.83.29 · **PHP 8.4** (subido en las dos cuentas el 19 ago 2026) |
 | Framework en la rama | Laravel 13.26.1 · PHP 8.4 |
-| Sin confirmar | si los cinco de `laravel_compartido` siguen colgando por symlink |
+| Topología | mixta y se queda así (Joseth, 20 ago 2026): unos con `vendor/` propio, cinco colgando de `laravel_compartido`. **Esos cinco se despliegan y se revierten como bloque** |
 | Sin confirmar | si `sodium` y `opcache` siguen activas en 8.4 — se marcaron en 8.0 y **la selección de extensiones es por versión** |
 | Sin confirmar | si alguna pantalla de familia de `myvc_front` llama a una ruta que el guard nuevo cierra. Solo se ve con el front delante |
 

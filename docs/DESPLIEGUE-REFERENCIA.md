@@ -98,6 +98,14 @@ colegio**, uno por uno.
 
 #### `vendor/` compartido y la Fase 4: una carpeta por generación
 
+> **Revocada el 20 ago 2026.** Joseth decidió quedarse con la topología mixta que
+> hay: unos colegios con `vendor/` propio y cinco colgando de
+> `laravel_compartido`. No se crean carpetas por generación. La consecuencia que
+> hay que tener presente está en [DESPLIEGUE.md](DESPLIEGUE.md): **los cinco que
+> comparten se despliegan y se revierten como un bloque**, porque la carpeta es
+> una sola y Composer sigue el symlink. Lo de abajo se conserva porque el
+> razonamiento sigue siendo válido si algún día se retoma.
+
 **Decisión de Joseth, 19 ago 2026: no se independizan los `vendor/`. Al
 contrario** — se borran las carpetas propias y se apuntan por symlink a la
 compartida, dejando quizá una independiente para pruebas. El servidor está
