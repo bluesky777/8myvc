@@ -30,10 +30,10 @@ abstract class TestCase extends BaseTestCase
      * de un comentario o de un `assertStatus(404)`.
      *
      * Solo se activa con la variable puesta, y el informe lo saca
-     * tools/cobertura-de-rutas.php:
+     * tools/cobertura-de-rutas.py:
      *
      *   COBERTURA_RUTAS=/tmp/rutas-tocadas.txt php artisan test --testsuite=Contrato
-     *   php tools/cobertura-de-rutas.php /tmp/rutas-tocadas.txt
+     *   python3 tools/cobertura-de-rutas.py /tmp/rutas.json /tmp/rutas-tocadas.txt
      *
      * Se anota también QUÉ test la ejecutó, y esa columna es la que hace útil
      * al fichero. Sin ella la respuesta es «el 99% de las rutas se ejecutan», que

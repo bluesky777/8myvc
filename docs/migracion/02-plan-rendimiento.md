@@ -303,6 +303,56 @@ Con 1,16 millones de filas en `notas`, un índice ausente en la consulta de bole
 
 Añadir índices a ciegas en una tabla de 1,16 M de filas ralentiza las escrituras y ocupa disco sin garantía de ganancia.
 
+> ### Hecho el 20 ago 2026, y el punto 1 no se podía hacer como está escrito
+>
+> **El `slow_query_log` de MySQL no está a nuestro alcance**: los colegios viven
+> en cuentas de cPanel compartidas, sin `my.cnf` ni `SET GLOBAL`. El paso 3 se
+> montó entonces dentro de la aplicación —`App\Support\ConsultasLentas`, que se
+> enciende con `CONSULTAS_LENTAS_MS` en el `.env` de cada colegio— y de paso da
+> algo que el registro de MySQL no da: **qué ruta hizo la consulta**. Con 538
+> rutas y 990 consultas crudas, un SQL suelto en un log no dice a quién ir a
+> mirar. Lo agrupa `tools/consultas-lentas.py`, por tiempo TOTAL y no por la
+> consulta más lenta.
+>
+> Va **apagado**, y anota la forma de la consulta pero **no sus valores**: por
+> ahí pasan nombres y fechas de nacimiento de menores y el fichero cae en un
+> disco compartido. Las dos reglas llevan test.
+>
+> **Y hubo una medición que no hacía falta esperar.** Lo que decide si un índice
+> FALTA no es el volumen: es que `possible_keys` venga vacío en el EXPLAIN —que
+> no exista ningún índice que el optimizador pudiera considerar—, y eso es una
+> propiedad del esquema. Se mide igual con el seed que con la base de un colegio;
+> lo que cambia con las filas es cuánto cuesta el escaneo, no si el índice está.
+>
+> Así que se midió con lo que ya había: `EXPLICAR_CONSULTAS` anota las consultas
+> que ejecuta la suite de contrato (493 distintas) y `tools/indices-que-faltan.php`
+> les pasa EXPLAIN. **16 tablas** filtran por columnas sin ningún índice detrás.
+>
+> **Entraron tres**, con el criterio de que fallara *todo* lo siguiente: ningún
+> índice para esa columna, tabla que crece sin techo, y consulta en un camino que
+> se recorre muchas veces.
+>
+> | Índice | Por qué | Dónde vive la consulta |
+> |---|---|---|
+> | `parentescos(alumno_id, acudiente_id)` y `(acudiente_id)` | Sin un solo índice. Es el guard que cerró los 27 IDOR: recorría la tabla entera **en cada petición de un acudiente** para contestar sí o no | `ExigirPersonaPropia`, `ExigirBoletinPropio` |
+> | `frases_asignatura(alumno_id, asignatura_id, periodo_id)` | 11.446 filas y ningún índice. No se llama una vez por boletín: **una por asignatura de cada alumno** | `FraseAsignatura::deAlumno()` |
+> | `images(user_id)` | Cada foto de cada alumno y profesor de todos los años, sin ningún índice secundario | galería del perfil, logo del colegio |
+>
+> **Lo único medido en tiempo, y bajo qué condiciones.** Con 11.446 filas —las
+> mismas que tiene producción— y las 360 consultas que son una tanda de boletines
+> de un grupo de treinta con doce asignaturas: **970 ms sin el índice, 44 ms con
+> él.** Es un banco sintético en el MySQL de desarrollo, no un colegio; lo que
+> mide bien es la forma de la ganancia, no el número exacto.
+>
+> **Las otras trece se quedan fuera, y el motivo es la parte interesante.**
+> Catálogos de nueve filas (`years.actual`) y columnas de dos valores
+> (`images.publica`, `users.is_active`) no ganan nada con un índice. Y
+> `bitacoras` enseña dónde está el límite de EXPLAIN: se lee en una pantalla de
+> administración de vez en cuando y se le **INSERTA en cada petición** que pasa
+> por un guard. El índice se pagaría siempre y se cobraría rara vez, y esa cuenta
+> no la decide EXPLAIN — la decide el registro de consultas lentas de producción,
+> que es justo para lo que está.
+
 ### Instrumentación en desarrollo
 
 Instalar en `require-dev` una de estas para ver consultas por petición y tiempos:
@@ -321,7 +371,7 @@ Sin esto, "está lento" no es accionable. Con esto, cada endpoint reporta su con
 |---|---|---|---|---|
 | 1 | **Instalar y configurar OPcache** (dev **y producción**) | 1 h | 🔴 **150–200 ms/petición** | nada |
 | 2 | Instrumentación (Clockwork/Debugbar) en dev | 1 h | medición | nada |
-| 3 | Log de consultas lentas en producción, 1 semana | 30 min | medición | nada |
+| 3 | ~~Log de consultas lentas en producción, 1 semana~~ · **montado el 20 ago 2026**, falta encenderlo | 30 min | medición | nada |
 | 4 | Quitar `AdvancedRoute` → rutas explícitas | 1–2 d | 🔴 45 ms + doble registro | Fase 1 |
 | 5 | ~~Sacar `fromToken()` de los constructores~~ · **hecho 18 ago 2026** | 1 d | habilita el paso 6 | Fase 2 |
 | 6 | `route:cache` + `config:cache` en despliegue | 2 h | ~~🔴 30–60 ms~~ · **medido: ruido** (0,031 s con, 0,028 s sin) — la ganancia ya la dieron la Fase 1 y OPcache | paso 5 |
@@ -330,7 +380,7 @@ Sin esto, "está lento" no es accionable. Con esto, cada endpoint reporta su con
 | 9 | Cachear el contexto de usuario | 1 d | 🟠 3 consultas → 0 | Fase 3 |
 | 10 | Redis como caché y sesión | 2 h | 🟠 variable | paso 9 |
 | 11 | PHP 8.0 → **8.4** | incluido en Fase 4 | 🟡 10–20 % | Fase 4 |
-| 12 | Índices según el `EXPLAIN` | variable | 🟡 puntual, potencialmente enorme | paso 3 |
+| 12 | Índices según el `EXPLAIN` · **tres puestos el 20 ago 2026**, el resto espera al paso 3 | variable | 🟠 **medido: 970 ms → 44 ms** en una tanda de boletines | paso 3 |
 | 13 | Colas para importadores e informes | 2–3 d | 🟡 elimina timeouts | Fase 6 |
 
 **Los pasos 1, 2 y 3 no dependen de la migración. Hazlos esta semana.** El paso 1, solo, puede resolver la mayor parte de lo que percibes como lentitud.

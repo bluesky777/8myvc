@@ -54,6 +54,38 @@ por clase: un test parametrizado que mira 66 respuestas de una en una toca una e
 cada ejecución y 66 entre todas, y con el criterio por clase se descartaría a sí
 mismo. Pasó con `MuestreoDeLecturasTest` en cuanto se escribió.
 
+## Y qué consultas hace, que es otra pregunta
+
+La misma corrida sirve para lo que necesita el plan de rendimiento. Con
+`EXPLICAR_CONSULTAS` puesta, `tests/TestCase.php` anota cada consulta distinta
+que la suite ejecuta —493 en la corrida del 20 de agosto—, y
+`tools/indices-que-faltan.php` les pasa `EXPLAIN` y se queda con las que
+recorren una tabla sin que exista ningún índice aplicable:
+
+```bash
+docker exec 8myvc-app-1 rm -f /tmp/consultas.jsonl
+docker exec -e EXPLICAR_CONSULTAS=/tmp/consultas.jsonl 8myvc-app-1 \
+    php artisan test --testsuite=Contrato
+docker exec 8myvc-app-1 php tools/indices-que-faltan.php /tmp/consultas.jsonl
+```
+
+**Vale medirlo contra el seed pequeño, y esa es la parte que no es obvia.** Lo
+que se busca es `possible_keys` vacío: que para esa consulta no exista un índice
+que MySQL pudiera considerar. El optimizador decide eso mirando el WHERE, antes
+de contar filas — es una propiedad del esquema. Con el seed se ve el mismo hecho
+que en un colegio con un millón de notas; lo que cambia es cuánto cuesta el
+escaneo, no si el índice está.
+
+Lo que esto **no** contesta es cuáles de esos merecen el índice. Eso lo dice el
+registro de consultas lentas de producción (`CONSULTAS_LENTAS_MS`) leído con
+`tools/consultas-lentas.py`, y por eso los tres índices que se pusieron llevan
+escrito al lado por qué entraron ellos y no los otros trece.
+
+Los índices puestos los vigila `tests/Contrato/IndicesTest.php`, que no comprueba
+que el índice exista —eso ya lo dice `migrate`— sino que **para estas consultas
+hay un índice aplicable**, preguntándoselo a MySQL. Sobrevive a que alguien
+reordene un WHERE; «hay un índice llamado así» no.
+
 ## Las tres piezas
 
 | Fichero | Qué es |

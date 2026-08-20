@@ -99,6 +99,47 @@ despliegan y se revierten uno a uno, sin ataduras.
 
 ## 0.bis Qué trae esta tanda, y qué se va a notar
 
+### Lo de medir el rendimiento (20 ago 2026)
+
+**Hay una migración nueva**, la primera desde `firmantes_acta`:
+`2026_08_20_100000_add_indices_medidos_con_explain`. Añade tres índices a
+`parentescos`, `frases_asignatura` e `images`. El `migrate --force` del paso 1
+la aplica sola; son `ALTER TABLE` en línea, pero en un alojamiento compartido
+tardan, así que **fuera de horario de clase**. `down()` los quita, o sea que
+volver atrás es inmediato y no toca datos.
+
+Por qué esos tres y no otros trece está en
+[02-plan-rendimiento.md](migracion/02-plan-rendimiento.md); el resumen es que
+son los que la tabla no tenía de ninguna forma y están en caminos que se
+recorren mucho — el guard de cada petición de un acudiente, y una llamada por
+asignatura dentro de cada boletín. Medido: **970 ms → 44 ms** en las 360
+consultas de una tanda de boletines de un grupo.
+
+**El log cambia de nombre.** `storage/logs/laravel.log` pasa a
+`laravel-AAAA-MM-DD.log`, y se conservan catorce días. Escribía siempre en el
+mismo fichero sin truncarlo nunca —48 MB solo en el docker de desarrollo—, y el
+espacio en disco es el motivo por el que `vendor/` va compartido. **El fichero
+viejo no se borra solo**: conviene mirarlo y borrarlo a mano en cada colegio.
+
+```bash
+ls -lh storage/logs/laravel.log     # el de siempre, ya sin escribir
+rm storage/logs/laravel.log         # cuando ya no interese lo que tenga dentro
+```
+
+**Y hay un registro de consultas lentas que se puede encender**, para saber por
+fin qué endpoint cuesta. Va apagado; se enciende en el `.env` del colegio:
+
+```
+CONSULTAS_LENTAS_MS=500      # 0 = apagado, que es como llega
+```
+
+Escribe en `storage/logs/consultas-lentas-AAAA-MM-DD.log`, una consulta por
+línea y **sin los valores** (por ahí pasan datos de menores). Se deja una
+temporada, se baja el fichero y se lee con `tools/consultas-lentas.py`. Eso es
+lo que falta para decidir el resto de los índices.
+
+### Lo de la revisión de IDOR
+
 **No hay migraciones nuevas.** Siguen siendo las dos de siempre
 (`personal_access_tokens` y `firmantes_acta`), así que el `migrate --force` del
 paso 1 es el mismo de antes.
