@@ -342,17 +342,29 @@ class PerfilesController extends Controller {
 		$perfil = User::findOrFail($id);
 
 
-		if (Request::has('email_restore') || Request::has('email_restore') == '') {
+		// Antes decía `has('email_restore') || has('email_restore') == ''`, que es
+		// siempre cierto: `has()` devuelve un booleano y `false == ''` vale true.
+		// O sea que el correo se asignaba también cuando el cliente no lo mandaba,
+		// y entonces `input()` es null: cambiar la contraseña BORRABA el correo de
+		// recuperación, que es con lo que se recupera la cuenta si se pierde la
+		// contraseña nueva. La columna es `DEFAULT NULL` y el save() no protestaba.
+		if (Request::has('email_restore')) {
 			$perfil->email = Request::input('email_restore');
 		}
 
 
-		if (Request::has('oldpassword') || Request::has('oldpassword') == '') {
-			if (! Hash::check((string)Request::input('oldpassword'), $perfil->password))
-			{
-				abort(400, 'Contraseña antigua es incorrecta');
-			}
-
+		// El `if` de aquí también era siempre cierto, por lo mismo — y esta vez
+		// esa era la única razón de que el endpoint se defendiera: la comprobación
+		// se hacía SIEMPRE, también cuando el cliente no mandaba `oldpassword`, y
+		// ahí `Hash::check('', $hash)` falla y corta con un 400.
+		//
+		// Se deja escrito sin condición, que es lo que de verdad hacía. Escrito
+		// como parecía pretenderse —`if (Request::has('oldpassword'))`— un token
+		// robado cambiaría la contraseña sin conocer la anterior. Lo fija
+		// CambiarPasswordTest para que no se pueda quitar sin que falle algo.
+		if (! Hash::check((string)Request::input('oldpassword'), $perfil->password))
+		{
+			abort(400, 'Contraseña antigua es incorrecta');
 		}
 
 		$perfil->password = Hash::make((string)Request::input('password'));
