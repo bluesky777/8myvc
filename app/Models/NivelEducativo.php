@@ -12,14 +12,14 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  *
  * @property int $id
  * @property string $nombre
- * @property string $abrev
- * @property int $orden
- * @property int $created_by
- * @property int $updated_by
- * @property int $deleted_by
- * @property string $deleted_at
- * @property string $created_at
- * @property string $updated_at
+ * @property ?string $abrev
+ * @property ?int $orden
+ * @property ?int $created_by
+ * @property ?int $updated_by
+ * @property ?int $deleted_by
+ * @property ?string $deleted_at
+ * @property ?string $created_at
+ * @property ?string $updated_at
  * --- fin de las columnas generadas ---
  */
 

@@ -14,8 +14,8 @@ use Illuminate\Support\Facades\DB;
  * --- columnas de la tabla, generadas por tools/columnas-en-los-modelos.php ---
  *
  * @property int $id
- * @property int $user_id
- * @property int $year_id
+ * @property ?int $user_id
+ * @property ?int $year_id
  * @property string $nombre
  * @property int $votan_profes
  * @property int $votan_acudientes
@@ -23,14 +23,14 @@ use Illuminate\Support\Facades\DB;
  * @property int $actual
  * @property int $in_action
  * @property int $can_see_results
- * @property string $fecha_inicio
- * @property string $fecha_fin
- * @property int $created_by
- * @property int $updated_by
- * @property int $deleted_by
- * @property string $deleted_at
- * @property string $created_at
- * @property string $updated_at
+ * @property ?string $fecha_inicio
+ * @property ?string $fecha_fin
+ * @property ?int $created_by
+ * @property ?int $updated_by
+ * @property ?int $deleted_by
+ * @property ?string $deleted_at
+ * @property ?string $created_at
+ * @property ?string $updated_at
  * --- fin de las columnas generadas ---
  *
  * Y los atributos que NO son columnas: el código se los cuelga al modelo en

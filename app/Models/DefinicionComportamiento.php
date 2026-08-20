@@ -14,16 +14,16 @@ use Illuminate\Support\Facades\DB;
  *
  * @property int $id
  * @property int $comportamiento_id
- * @property int $frase_id
- * @property string $frase
- * @property string $fecha
- * @property int $orden
- * @property int $created_by
- * @property int $updated_by
- * @property int $deleted_by
- * @property string $deleted_at
- * @property string $created_at
- * @property string $updated_at
+ * @property ?int $frase_id
+ * @property ?string $frase
+ * @property ?string $fecha
+ * @property ?int $orden
+ * @property ?int $created_by
+ * @property ?int $updated_by
+ * @property ?int $deleted_by
+ * @property ?string $deleted_at
+ * @property ?string $created_at
+ * @property ?string $updated_at
  * --- fin de las columnas generadas ---
  */
 

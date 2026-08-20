@@ -14,14 +14,14 @@ use Illuminate\Support\Facades\DB;
  *
  * @property int $id
  * @property string $name
- * @property int $created_by
- * @property int $updated_by
- * @property int $deleted_by
- * @property string $display_name
- * @property string $description
- * @property string $deleted_at
- * @property string $created_at
- * @property string $updated_at
+ * @property ?int $created_by
+ * @property ?int $updated_by
+ * @property ?int $deleted_by
+ * @property ?string $display_name
+ * @property ?string $description
+ * @property ?string $deleted_at
+ * @property ?string $created_at
+ * @property ?string $updated_at
  * --- fin de las columnas generadas ---
  *
  * Y los atributos que NO son columnas: el código se los cuelga al modelo en

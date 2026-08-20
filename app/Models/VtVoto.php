@@ -17,15 +17,15 @@ use Illuminate\Support\Facades\DB;
  *
  * @property int $id
  * @property int $user_id
- * @property int $candidato_id
- * @property int $blanco_aspiracion_id
+ * @property ?int $candidato_id
+ * @property ?int $blanco_aspiracion_id
  * @property int $locked
- * @property int $created_by
- * @property int $updated_by
- * @property int $deleted_by
- * @property string $deleted_at
- * @property string $created_at
- * @property string $updated_at
+ * @property ?int $created_by
+ * @property ?int $updated_by
+ * @property ?int $deleted_by
+ * @property ?string $deleted_at
+ * @property ?string $created_at
+ * @property ?string $updated_at
  * --- fin de las columnas generadas ---
  *
  * Y los atributos que NO son columnas: el código se los cuelga al modelo en

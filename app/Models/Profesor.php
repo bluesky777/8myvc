@@ -15,32 +15,32 @@ use Illuminate\Support\Facades\DB;
  *
  * @property int $id
  * @property string $nombres
- * @property string $apellidos
+ * @property ?string $apellidos
  * @property string $sexo
- * @property int $foto_id
- * @property int $firma_id
- * @property string $permiso_hasta
- * @property int $tipo_doc
- * @property string $num_doc
- * @property int $ciudad_doc
- * @property string $fecha_nac
- * @property int $ciudad_nac
- * @property string $titulo
- * @property string $estado_civil
- * @property string $barrio
- * @property string $direccion
- * @property string $telefono
- * @property string $celular
- * @property string $facebook
- * @property string $email
- * @property string $tipo_profesor
- * @property int $user_id
- * @property int $created_by
- * @property int $updated_by
- * @property int $deleted_by
- * @property string $deleted_at
- * @property string $created_at
- * @property string $updated_at
+ * @property ?int $foto_id
+ * @property ?int $firma_id
+ * @property ?string $permiso_hasta
+ * @property ?int $tipo_doc
+ * @property ?string $num_doc
+ * @property ?int $ciudad_doc
+ * @property ?string $fecha_nac
+ * @property ?int $ciudad_nac
+ * @property ?string $titulo
+ * @property ?string $estado_civil
+ * @property ?string $barrio
+ * @property ?string $direccion
+ * @property ?string $telefono
+ * @property ?string $celular
+ * @property ?string $facebook
+ * @property ?string $email
+ * @property ?string $tipo_profesor
+ * @property ?int $user_id
+ * @property ?int $created_by
+ * @property ?int $updated_by
+ * @property ?int $deleted_by
+ * @property ?string $deleted_at
+ * @property ?string $created_at
+ * @property ?string $updated_at
  * --- fin de las columnas generadas ---
  *
  * Y los atributos que NO son columnas: el código se los cuelga al modelo en

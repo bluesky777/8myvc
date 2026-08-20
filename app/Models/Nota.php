@@ -26,12 +26,12 @@ use \Log;
  * @property int $nota
  * @property int $subunidad_id
  * @property int $alumno_id
- * @property int $created_by
- * @property int $updated_by
- * @property int $deleted_by
- * @property string $deleted_at
- * @property string $created_at
- * @property string $updated_at
+ * @property ?int $created_by
+ * @property ?int $updated_by
+ * @property ?int $deleted_by
+ * @property ?string $deleted_at
+ * @property ?string $created_at
+ * @property ?string $updated_at
  * --- fin de las columnas generadas ---
  *
  * Y los atributos que NO son columnas: el código se los cuelga al modelo en

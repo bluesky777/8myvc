@@ -17,14 +17,14 @@ use App\Models\EscalaDeValoracion;
  * @property int $alumno_id
  * @property int $periodo_id
  * @property int $nota
- * @property int $familiar_nota
- * @property int $familiar_ausencias
- * @property int $created_by
- * @property int $updated_by
- * @property int $deleted_by
- * @property string $deleted_at
- * @property string $created_at
- * @property string $updated_at
+ * @property ?int $familiar_nota
+ * @property ?int $familiar_ausencias
+ * @property ?int $created_by
+ * @property ?int $updated_by
+ * @property ?int $deleted_by
+ * @property ?string $deleted_at
+ * @property ?string $created_at
+ * @property ?string $updated_at
  * --- fin de las columnas generadas ---
  *
  * Y los atributos que NO son columnas: el código se los cuelga al modelo en

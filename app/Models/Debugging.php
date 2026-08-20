@@ -13,12 +13,12 @@ use Illuminate\Support\Facades\DB;
  * --- columnas de la tabla, generadas por tools/columnas-en-los-modelos.php ---
  *
  * @property int $id
- * @property string $accion
- * @property string $dato1
- * @property string $dato2
- * @property int $created_by
- * @property string $created_at
- * @property string $updated_at
+ * @property ?string $accion
+ * @property ?string $dato1
+ * @property ?string $dato2
+ * @property ?int $created_by
+ * @property ?string $created_at
+ * @property ?string $updated_at
  * --- fin de las columnas generadas ---
  */
 

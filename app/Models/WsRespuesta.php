@@ -11,14 +11,14 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * --- columnas de la tabla, generadas por tools/columnas-en-los-modelos.php ---
  *
  * @property int $id
- * @property int $actividad_resuelta_id
- * @property int $pregunta_id
- * @property int $tiempo
- * @property string $tipo_pregunta
- * @property int $opcion_id
- * @property int $opcion_cuadricula_id
- * @property string $created_at
- * @property string $updated_at
+ * @property ?int $actividad_resuelta_id
+ * @property ?int $pregunta_id
+ * @property ?int $tiempo
+ * @property ?string $tipo_pregunta
+ * @property ?int $opcion_id
+ * @property ?int $opcion_cuadricula_id
+ * @property ?string $created_at
+ * @property ?string $updated_at
  * --- fin de las columnas generadas ---
  */
 

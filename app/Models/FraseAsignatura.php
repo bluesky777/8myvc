@@ -18,16 +18,16 @@ use App\User;
  *
  * @property int $id
  * @property int $alumno_id
- * @property int $frase_id
- * @property string $frase
+ * @property ?int $frase_id
+ * @property ?string $frase
  * @property int $asignatura_id
  * @property int $periodo_id
- * @property int $created_by
- * @property int $updated_by
- * @property int $deleted_by
- * @property string $deleted_at
- * @property string $created_at
- * @property string $updated_at
+ * @property ?int $created_by
+ * @property ?int $updated_by
+ * @property ?int $deleted_by
+ * @property ?string $deleted_at
+ * @property ?string $created_at
+ * @property ?string $updated_at
  * --- fin de las columnas generadas ---
  */
 

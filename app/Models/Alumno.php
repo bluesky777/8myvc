@@ -14,46 +14,46 @@ use Illuminate\Support\Facades\DB;
  * --- columnas de la tabla, generadas por tools/columnas-en-los-modelos.php ---
  *
  * @property int $id
- * @property string $no_matricula
+ * @property ?string $no_matricula
  * @property string $nombres
- * @property string $apellidos
+ * @property ?string $apellidos
  * @property string $sexo
- * @property int $user_id
- * @property string $fecha_nac
- * @property int $ciudad_nac
- * @property int $tipo_doc
- * @property string $documento
- * @property int $ciudad_doc
- * @property string $tipo_sangre
- * @property string $eps
- * @property string $telefono
- * @property string $celular
- * @property string $direccion
- * @property string $barrio
- * @property int $estrato
- * @property int $ciudad_resid
- * @property int $is_urbana
- * @property int $egresado
- * @property string $religion
- * @property string $email
- * @property string $facebook
- * @property int $foto_id
- * @property int $pazysalvo
- * @property int $deuda
- * @property string $discapacidad
- * @property int $has_sisben
- * @property int $nro_sisben
- * @property int $has_sisben_3
- * @property int $nro_sisben_3
+ * @property ?int $user_id
+ * @property ?string $fecha_nac
+ * @property ?int $ciudad_nac
+ * @property ?int $tipo_doc
+ * @property ?string $documento
+ * @property ?int $ciudad_doc
+ * @property ?string $tipo_sangre
+ * @property ?string $eps
+ * @property ?string $telefono
+ * @property ?string $celular
+ * @property ?string $direccion
+ * @property ?string $barrio
+ * @property ?int $estrato
+ * @property ?int $ciudad_resid
+ * @property ?int $is_urbana
+ * @property ?int $egresado
+ * @property ?string $religion
+ * @property ?string $email
+ * @property ?string $facebook
+ * @property ?int $foto_id
+ * @property ?int $pazysalvo
+ * @property ?int $deuda
+ * @property ?string $discapacidad
+ * @property ?int $has_sisben
+ * @property ?int $nro_sisben
+ * @property ?int $has_sisben_3
+ * @property ?int $nro_sisben_3
  * @property int $nee
- * @property string $nee_descripcion
- * @property int $presencial
- * @property int $created_by
- * @property int $updated_by
- * @property int $deleted_by
- * @property string $deleted_at
- * @property string $created_at
- * @property string $updated_at
+ * @property ?string $nee_descripcion
+ * @property ?int $presencial
+ * @property ?int $created_by
+ * @property ?int $updated_by
+ * @property ?int $deleted_by
+ * @property ?string $deleted_at
+ * @property ?string $created_at
+ * @property ?string $updated_at
  * --- fin de las columnas generadas ---
  *
  * Y los atributos que NO son columnas: el código se los cuelga al modelo en

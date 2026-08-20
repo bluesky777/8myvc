@@ -14,29 +14,29 @@ use Illuminate\Support\Facades\DB;
  * --- columnas de la tabla, generadas por tools/columnas-en-los-modelos.php ---
  *
  * @property int $id
- * @property string $descripcion
- * @property int $periodo_id
+ * @property ?string $descripcion
+ * @property ?int $periodo_id
  * @property int $asignatura_id
- * @property int $compartida
+ * @property ?int $compartida
  * @property int $para_alumnos
  * @property int $para_profesores
  * @property int $para_acudientes
  * @property int $can_upload
- * @property string $tipo
- * @property int $in_action
- * @property int $duracion_preg
- * @property int $duracion_exam
- * @property int $oportunidades
- * @property int $one_by_one
+ * @property ?string $tipo
+ * @property ?int $in_action
+ * @property ?int $duracion_preg
+ * @property ?int $duracion_exam
+ * @property ?int $oportunidades
+ * @property ?int $one_by_one
  * @property string $tipo_calificacion
- * @property string $contenido
- * @property string $inicia_at
- * @property string $finaliza_at
- * @property int $created_by
- * @property int $deleted_by
- * @property string $deleted_at
- * @property string $created_at
- * @property string $updated_at
+ * @property ?string $contenido
+ * @property ?string $inicia_at
+ * @property ?string $finaliza_at
+ * @property ?int $created_by
+ * @property ?int $deleted_by
+ * @property ?string $deleted_at
+ * @property ?string $created_at
+ * @property ?string $updated_at
  * --- fin de las columnas generadas ---
  *
  * Y los atributos que NO son columnas: el código se los cuelga al modelo en

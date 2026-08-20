@@ -13,21 +13,21 @@ use Illuminate\Support\Facades\DB;
  * --- columnas de la tabla, generadas por tools/columnas-en-los-modelos.php ---
  *
  * @property int $id
- * @property int $asignatura_id
- * @property int $alumno_id
- * @property int $periodo_id
- * @property int $cantidad_ausencia
- * @property int $cantidad_tardanza
+ * @property ?int $asignatura_id
+ * @property ?int $alumno_id
+ * @property ?int $periodo_id
+ * @property ?int $cantidad_ausencia
+ * @property ?int $cantidad_tardanza
  * @property int $entrada
- * @property string $tipo
- * @property string $fecha_hora
- * @property string $uploaded
- * @property int $created_by
- * @property int $updated_by
- * @property int $deleted_by
- * @property string $deleted_at
- * @property string $created_at
- * @property string $updated_at
+ * @property ?string $tipo
+ * @property ?string $fecha_hora
+ * @property ?string $uploaded
+ * @property ?int $created_by
+ * @property ?int $updated_by
+ * @property ?int $deleted_by
+ * @property ?string $deleted_at
+ * @property ?string $created_at
+ * @property ?string $updated_at
  * --- fin de las columnas generadas ---
  */
 

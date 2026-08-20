@@ -16,15 +16,15 @@ use \Log;
  *
  * @property int $id
  * @property string $nombre
- * @property string $alias
- * @property int $jefe_id
- * @property int $orden
- * @property int $created_by
- * @property int $updated_by
- * @property int $deleted_by
- * @property string $deleted_at
- * @property string $created_at
- * @property string $updated_at
+ * @property ?string $alias
+ * @property ?int $jefe_id
+ * @property ?int $orden
+ * @property ?int $created_by
+ * @property ?int $updated_by
+ * @property ?int $deleted_by
+ * @property ?string $deleted_at
+ * @property ?string $created_at
+ * @property ?string $updated_at
  * --- fin de las columnas generadas ---
  */
 

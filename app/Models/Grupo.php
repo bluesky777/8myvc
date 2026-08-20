@@ -15,21 +15,21 @@ use App\Models\Debugging;
  *
  * @property int $id
  * @property string $nombre
- * @property string $abrev
+ * @property ?string $abrev
  * @property int $year_id
- * @property int $titular_id
+ * @property ?int $titular_id
  * @property int $grado_id
- * @property int $valormatricula
- * @property int $valorpension
- * @property int $orden
+ * @property ?int $valormatricula
+ * @property ?int $valorpension
+ * @property ?int $orden
  * @property int $caritas
- * @property int $cupo
- * @property int $created_by
- * @property int $updated_by
- * @property int $deleted_by
- * @property string $deleted_at
- * @property string $created_at
- * @property string $updated_at
+ * @property ?int $cupo
+ * @property ?int $created_by
+ * @property ?int $updated_by
+ * @property ?int $deleted_by
+ * @property ?string $deleted_at
+ * @property ?string $created_at
+ * @property ?string $updated_at
  * --- fin de las columnas generadas ---
  *
  * Y los atributos que NO son columnas: el código se los cuelga al modelo en

@@ -17,67 +17,67 @@ use App\Models\Periodo;
  * @property int $id
  * @property int $year
  * @property string $nombre_colegio
- * @property string $abrev_colegio
+ * @property ?string $abrev_colegio
  * @property string $genero_colegio
- * @property string $ciudad_id
- * @property int $logo_id
- * @property int $img_encabezado_id
- * @property int $rector_id
- * @property int $secretario_id
- * @property int $tesorero_id
- * @property int $coordinador_academico_id
- * @property int $coordinador_disciplinario_id
- * @property int $capellan_id
- * @property int $psicorientador_id
+ * @property ?string $ciudad_id
+ * @property ?int $logo_id
+ * @property ?int $img_encabezado_id
+ * @property ?int $rector_id
+ * @property ?int $secretario_id
+ * @property ?int $tesorero_id
+ * @property ?int $coordinador_academico_id
+ * @property ?int $coordinador_disciplinario_id
+ * @property ?int $capellan_id
+ * @property ?int $psicorientador_id
  * @property string $nota_minima_aceptada
- * @property int $minu_hora_clase
+ * @property ?int $minu_hora_clase
  * @property string $unidad_displayname
  * @property string $unidades_displayname
  * @property string $genero_unidad
  * @property string $subunidad_displayname
  * @property string $subunidades_displayname
  * @property string $genero_subunidad
- * @property string $resolucion
- * @property string $codigo_dane
- * @property string $caracter
- * @property string $calendario
- * @property string $jornada
- * @property string $encabezado_certificado
- * @property string $frase_final_certificado
+ * @property ?string $resolucion
+ * @property ?string $codigo_dane
+ * @property ?string $caracter
+ * @property ?string $calendario
+ * @property ?string $jornada
+ * @property ?string $encabezado_certificado
+ * @property ?string $frase_final_certificado
  * @property int $actual
- * @property string $telefono
- * @property string $celular
- * @property string $website
- * @property string $website_myvc
+ * @property ?string $telefono
+ * @property ?string $celular
+ * @property ?string $website
+ * @property ?string $website_myvc
  * @property int $alumnos_can_see_notas
  * @property int $profes_can_edit_alumnos
  * @property int $mostrar_puesto_boletin
  * @property int $puestos_alfabeticamente
- * @property string $titulo_rector
+ * @property ?string $titulo_rector
  * @property int $mostrar_nota_comport_boletin
  * @property int $si_recupera_materia_recup_indicador
  * @property int $year_pasado_en_bol
  * @property int $show_fortaleza_bol
  * @property int $solo_escalas_valorativas
- * @property int $config_certificado_estudio_id
- * @property int $cant_areas_pierde_year
- * @property int $cant_asignatura_pierde_year
+ * @property ?int $config_certificado_estudio_id
+ * @property ?int $cant_areas_pierde_year
+ * @property ?int $cant_asignatura_pierde_year
  * @property int $show_subasignaturas_en_finales
  * @property int $mensaje_aprobo_con_pendientes
  * @property int $show_materias_todas
- * @property string $msg_when_students_blocked
+ * @property ?string $msg_when_students_blocked
  * @property string $contador_certificados
  * @property string $contador_folios
- * @property string $texto_acta_eval
- * @property int $prematr_antiguos
- * @property int $prematr_nuevos
- * @property string $compromiso_familiar_label
- * @property int $created_by
- * @property int $updated_by
- * @property int $deleted_by
- * @property string $deleted_at
- * @property string $created_at
- * @property string $updated_at
+ * @property ?string $texto_acta_eval
+ * @property ?int $prematr_antiguos
+ * @property ?int $prematr_nuevos
+ * @property ?string $compromiso_familiar_label
+ * @property ?int $created_by
+ * @property ?int $updated_by
+ * @property ?int $deleted_by
+ * @property ?string $deleted_at
+ * @property ?string $created_at
+ * @property ?string $updated_at
  * --- fin de las columnas generadas ---
  *
  * Y los atributos que NO son columnas: el código se los cuelga al modelo en

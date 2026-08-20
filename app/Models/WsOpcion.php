@@ -10,13 +10,13 @@ use Illuminate\Database\Eloquent\Model;
  * --- columnas de la tabla, generadas por tools/columnas-en-los-modelos.php ---
  *
  * @property int $id
- * @property string $definicion
+ * @property ?string $definicion
  * @property int $pregunta_id
- * @property int $image_id
- * @property int $orden
- * @property int $is_correct
- * @property string $created_at
- * @property string $updated_at
+ * @property ?int $image_id
+ * @property ?int $orden
+ * @property ?int $is_correct
+ * @property ?string $created_at
+ * @property ?string $updated_at
  * --- fin de las columnas generadas ---
  */
 

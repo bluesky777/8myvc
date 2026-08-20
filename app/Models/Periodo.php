@@ -16,19 +16,19 @@ use App\User;
  *
  * @property int $id
  * @property int $numero
- * @property string $fecha_inicio
- * @property string $fecha_fin
+ * @property ?string $fecha_inicio
+ * @property ?string $fecha_fin
  * @property int $actual
  * @property int $profes_pueden_editar_notas
  * @property int $profes_pueden_nivelar
  * @property int $year_id
- * @property string $fecha_plazo
- * @property int $created_by
- * @property int $updated_by
- * @property int $deleted_by
- * @property string $deleted_at
- * @property string $created_at
- * @property string $updated_at
+ * @property ?string $fecha_plazo
+ * @property ?int $created_by
+ * @property ?int $updated_by
+ * @property ?int $deleted_by
+ * @property ?string $deleted_at
+ * @property ?string $created_at
+ * @property ?string $updated_at
  * --- fin de las columnas generadas ---
  *
  * Y los atributos que NO son columnas: el código se los cuelga al modelo en

@@ -14,23 +14,23 @@ use Illuminate\Support\Facades\DB;
  *
  * @property int $id
  * @property int $created_by
- * @property int $historial_id
- * @property string $descripcion
- * @property int $affected_user_id
- * @property int $affected_person_id
- * @property string $affected_person_name
- * @property string $affected_person_type
- * @property string $affected_element_type
- * @property int $affected_element_id
- * @property string $affected_element_new_value_string
- * @property string $affected_element_old_value_string
- * @property int $affected_element_new_value_int
- * @property int $affected_element_old_value_int
- * @property int $periodo_id
- * @property int $deleted_by
- * @property string $deleted_at
- * @property string $created_at
- * @property string $updated_at
+ * @property ?int $historial_id
+ * @property ?string $descripcion
+ * @property ?int $affected_user_id
+ * @property ?int $affected_person_id
+ * @property ?string $affected_person_name
+ * @property ?string $affected_person_type
+ * @property ?string $affected_element_type
+ * @property ?int $affected_element_id
+ * @property ?string $affected_element_new_value_string
+ * @property ?string $affected_element_old_value_string
+ * @property ?int $affected_element_new_value_int
+ * @property ?int $affected_element_old_value_int
+ * @property ?int $periodo_id
+ * @property ?int $deleted_by
+ * @property ?string $deleted_at
+ * @property ?string $created_at
+ * @property ?string $updated_at
  * --- fin de las columnas generadas ---
  */
 

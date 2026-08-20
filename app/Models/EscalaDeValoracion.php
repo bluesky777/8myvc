@@ -15,18 +15,18 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string $valoracion
  * @property int $porc_inicial
  * @property int $porc_final
- * @property string $descripcion
+ * @property ?string $descripcion
  * @property int $orden
  * @property int $perdido
  * @property int $year_id
- * @property string $icono_infantil
- * @property string $icono_adolescente
- * @property int $created_by
- * @property int $updated_by
- * @property int $deleted_by
- * @property string $deleted_at
- * @property string $created_at
- * @property string $updated_at
+ * @property ?string $icono_infantil
+ * @property ?string $icono_adolescente
+ * @property ?int $created_by
+ * @property ?int $updated_by
+ * @property ?int $deleted_by
+ * @property ?string $deleted_at
+ * @property ?string $created_at
+ * @property ?string $updated_at
  * --- fin de las columnas generadas ---
  */
 

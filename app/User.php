@@ -24,21 +24,21 @@ use Illuminate\Support\Facades\App;
  * @property string $username
  * @property string $password
  * @property string $sexo
- * @property string $email
- * @property int $imagen_id
+ * @property ?string $email
+ * @property ?int $imagen_id
  * @property int $is_superuser
- * @property string $tipo
+ * @property ?string $tipo
  * @property int $is_active
  * @property int $can_ask
- * @property int $periodo_id
- * @property int $profesor_id
- * @property int $created_by
- * @property int $updated_by
- * @property int $deleted_by
- * @property string $deleted_at
- * @property string $remember_token
- * @property string $created_at
- * @property string $updated_at
+ * @property ?int $periodo_id
+ * @property ?int $profesor_id
+ * @property ?int $created_by
+ * @property ?int $updated_by
+ * @property ?int $deleted_by
+ * @property ?string $deleted_at
+ * @property ?string $remember_token
+ * @property ?string $created_at
+ * @property ?string $updated_at
  * --- fin de las columnas generadas ---
  */
 

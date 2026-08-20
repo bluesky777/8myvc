@@ -16,16 +16,16 @@ use \stdClass;
  * @property int $id
  * @property int $persona_id
  * @property int $actividad_id
- * @property string $respuesta_comentario
+ * @property ?string $respuesta_comentario
  * @property int $autoevaluacion
  * @property int $is_puntaje_manual
  * @property int $puntaje_manual
  * @property int $terminado
  * @property int $timeout
- * @property int $deleted_by
- * @property string $deleted_at
- * @property string $created_at
- * @property string $updated_at
+ * @property ?int $deleted_by
+ * @property ?string $deleted_at
+ * @property ?string $created_at
+ * @property ?string $updated_at
  * --- fin de las columnas generadas ---
  */
 

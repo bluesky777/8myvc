@@ -18,16 +18,16 @@ use Illuminate\Support\Facades\DB;
  * --- columnas de la tabla, generadas por tools/columnas-en-los-modelos.php ---
  *
  * @property int $id
- * @property int $alumno_id
- * @property int $asignatura_id
- * @property int $periodo_id
- * @property int $periodo
+ * @property ?int $alumno_id
+ * @property ?int $asignatura_id
+ * @property ?int $periodo_id
+ * @property ?int $periodo
  * @property int $nota
- * @property int $recuperada
- * @property int $manual
- * @property int $updated_by
- * @property string $created_at
- * @property string $updated_at
+ * @property ?int $recuperada
+ * @property ?int $manual
+ * @property ?int $updated_by
+ * @property ?string $created_at
+ * @property ?string $updated_at
  * --- fin de las columnas generadas ---
  */
 

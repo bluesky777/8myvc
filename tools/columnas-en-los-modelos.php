@@ -37,28 +37,35 @@ preg_match_all('/CREATE TABLE `(\w+)` \((.*?)\n\) ENGINE/s', $esquema, $tablas, 
 
 $columnasPorTabla = [];
 foreach ($tablas as [, $tabla, $cuerpo]) {
-    preg_match_all('/^  `(\w+)` (\w+)/m', $cuerpo, $cols, PREG_SET_ORDER);
-    foreach ($cols as [, $columna, $tipo]) {
-        $columnasPorTabla[$tabla][$columna] = tipoPhp($tipo);
+    // Se captura la línea entera, no solo el tipo: el resto es donde vive el
+    // `NOT NULL`, y sin él la anotación miente en la dirección peligrosa —dice
+    // `int` de una columna que devuelve null y el análisis deja de avisar de
+    // los sitios que no lo contemplan.
+    preg_match_all('/^  `(\w+)` (\w+)([^\n]*)/m', $cuerpo, $cols, PREG_SET_ORDER);
+    foreach ($cols as [, $columna, $tipo, $resto]) {
+        $columnasPorTabla[$tabla][$columna] = tipoPhp($tipo, str_contains($resto, 'NOT NULL'));
     }
 }
 
-/** El tipo de PHP que va a devolver Eloquent para esa columna de MySQL. */
-function tipoPhp(string $tipoSql): string
+/**
+ * El tipo de PHP que va a devolver Eloquent para esa columna de MySQL.
+ *
+ * En MySQL una columna admite NULL salvo que diga lo contrario, así que la
+ * pregunta es al revés: nulable es lo normal, `NOT NULL` es la excepción.
+ */
+function tipoPhp(string $tipoSql, bool $obligatoria): string
 {
     $tipoSql = strtolower($tipoSql);
+    $prefijo = $obligatoria ? '' : '?';
 
     if (str_contains($tipoSql, 'int')) {
-        return 'int';
+        return $prefijo.'int';
     }
     if (in_array($tipoSql, ['decimal', 'float', 'double'], true)) {
-        return 'float';
-    }
-    if (in_array($tipoSql, ['timestamp', 'datetime', 'date'], true)) {
-        return 'string';
+        return $prefijo.'float';
     }
 
-    return 'string';
+    return $prefijo.'string';
 }
 
 $tocados = $saltados = 0;

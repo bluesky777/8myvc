@@ -11,23 +11,23 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * --- columnas de la tabla, generadas por tools/columnas-en-los-modelos.php ---
  *
  * @property int $id
- * @property string $enunciado
- * @property int $actividad_id
- * @property int $contenido_id
- * @property string $ayuda
- * @property string $tipo_pregunta
- * @property int $orden
+ * @property ?string $enunciado
+ * @property ?int $actividad_id
+ * @property ?int $contenido_id
+ * @property ?string $ayuda
+ * @property ?string $tipo_pregunta
+ * @property ?int $orden
  * @property int $puntos
- * @property int $duracion
- * @property int $aleatorias
+ * @property ?int $duracion
+ * @property ?int $aleatorias
  * @property int $opcion_otra
- * @property string $texto_arriba
- * @property string $texto_abajo
- * @property int $added_by
- * @property int $deleted_by
- * @property string $deleted_at
- * @property string $created_at
- * @property string $updated_at
+ * @property ?string $texto_arriba
+ * @property ?string $texto_abajo
+ * @property ?int $added_by
+ * @property ?int $deleted_by
+ * @property ?string $deleted_at
+ * @property ?string $created_at
+ * @property ?string $updated_at
  * --- fin de las columnas generadas ---
  *
  * Y los atributos que NO son columnas: el código se los cuelga al modelo en

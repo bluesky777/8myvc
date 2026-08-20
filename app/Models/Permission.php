@@ -24,11 +24,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  *
  * @property int $id
  * @property string $name
- * @property string $display_name
- * @property string $description
- * @property string $deleted_at
- * @property string $created_at
- * @property string $updated_at
+ * @property ?string $display_name
+ * @property ?string $description
+ * @property ?string $deleted_at
+ * @property ?string $created_at
+ * @property ?string $updated_at
  * --- fin de las columnas generadas ---
  */
 class Permission extends Model

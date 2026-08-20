@@ -15,12 +15,12 @@ use App\User;
  * --- columnas de la tabla, generadas por tools/columnas-en-los-modelos.php ---
  *
  * @property int $id
- * @property string $grupo_profes_acudientes
+ * @property ?string $grupo_profes_acudientes
  * @property int $votacion_id
  * @property int $locked
  * @property int $intentos
- * @property string $created_at
- * @property string $updated_at
+ * @property ?string $created_at
+ * @property ?string $updated_at
  * --- fin de las columnas generadas ---
  *
  * Y los atributos que NO son columnas: el código se los cuelga al modelo en
