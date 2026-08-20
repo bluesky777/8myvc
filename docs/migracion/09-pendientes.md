@@ -217,6 +217,9 @@ saber el tamaño real del daño en las dieciséis bases antes de tocar código.
 | 11 rutas de catálogo sin guard | [08](08-revision-idor.md) | a quién se abren; no exponen a nadie, pero no están decididas. Vuelto a medir el 20 ago 2026: eran 11, no 12 |
 | `APP_DEBUG` en producción | [01](01-plan-seguridad.md) | comprobarlo colegio a colegio. `display_errors` de PHP está en Off, así que la mitad del riesgo ya está cubierta |
 | Los correos `username@myvc.com` autogenerados | [01](01-plan-seguridad.md) | dos usuarios que compartan correo comparten reseteo de contraseña |
+| `GET api/contratos` manda el expediente y el cliente solo quiere el nombre | [05 §14.4](05-codigo-muerto-y-roto.md) | qué columnas se recortan. Lo llama la app de Flutter desde pantallas de familia, así que el cambio entra en los dieciséis colegios a la vez |
+| `GET api/perfiles/usernames` devuelve los 2.351 usuarios del colegio | [05 §14.4](05-codigo-muerto-y-roto.md) | apuntar `UserConfiguracionCtrl` a `comprobarusername/{username}`, que ya existe, **y desplegar el front antes** de cerrar la ruta |
+| `GET api/perfiles/username/{username}` no comprueba que el usuario sea el tuyo | [05 §14.4](05-codigo-muerto-y-roto.md) | si `ExigirPersonaPropia` aprende a resolver un nombre de usuario, o si la ruta deja de aceptar parámetro y lo saca del token |
 
 ---
 
@@ -399,6 +402,23 @@ saber el tamaño real del daño en las dieciséis bases antes de tocar código.
   P2 golpeaba lecturas sin parámetro y esta lleva `{year}`. Es la contraria de la
   lección de la §8: allí, lo que no se golpea no se sabe si funciona; aquí, lo
   que no se puede golpear a veces se puede leer.
+
+- **El barrido de lo que sale, hecho el 20 ago 2026.** Las herramientas de
+  autorización preguntan todas por la petición —qué identificador viaja, qué
+  guard lo mira—. Golpear las 121 lecturas con el token de un alumno y mirar si
+  en la respuesta salía el dato personal de alguien encontró **siete rutas** que
+  no nombran a nadie y devuelven a todo el mundo: la planilla SIMAT del colegio
+  entero, el directorio de las 2.279 personas, la hoja de vida de los 47
+  docentes. Cerradas con `auth.personal` y fijadas por catorce casos de
+  `SuperficieDeUnAlumnoTest`; las tres que no se pueden cerrar sin romper una
+  pantalla de familia están arriba, en la tabla del §5. Todo el detalle en
+  [05 §14](05-codigo-muerto-y-roto.md).
+
+  Lo que hay que recordar de esto no es el número: es que **la medición del
+  resultado encuentra lo que la medición de la petición no puede ver**, y que era
+  el mismo criterio que ya hacía útiles a los tests de contrato, sin aplicar a la
+  autorización. Y no está agotado: el barrido solo miró **lecturas**, y solo con
+  token de alumno.
 
 - **Rector**, configurado y sin correr: por carpeta y revisando cada diff.
 - **FormRequests**: hay 2 validaciones en 32.000 líneas. Cada endpoint que se

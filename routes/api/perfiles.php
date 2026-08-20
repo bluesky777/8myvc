@@ -26,7 +26,10 @@ Route::put('perfiles/guardar-mi-email-restore', [PerfilesController::class, 'put
 Route::post('perfiles/store', [PerfilesController::class, 'postStore']);
 Route::get('perfiles/trashed', [PerfilesController::class, 'getTrashed'])->middleware('auth.personal');
 Route::get('perfiles/usernames', [PerfilesController::class, 'getUsernames']);
-Route::get('perfiles/usuariosall', [PerfilesController::class, 'getUsuariosall']);
+// El directorio entero del colegio: nombre, usuario, tipo, correo, fecha de
+// nacimiento, foto y roles de las 2.279 personas. Lo pinta la rejilla de
+// `UsuariosCtrl`, que es de administración.
+Route::get('perfiles/usuariosall', [PerfilesController::class, 'getUsuariosall'])->middleware('auth.personal');
 Route::put('perfiles/cambiaremailrestore/{id}', [PerfilesController::class, 'putCambiaremailrestore'])->middleware('persona.propia:user_id');
 Route::put('perfiles/cambiarfirmaunprofe/{profeelegido}', [PerfilesController::class, 'putCambiarfirmaunprofe']);
 Route::put('perfiles/cambiarimgunalumno/{alumnoelegido}', [PerfilesController::class, 'putCambiarimgunalumno']);
@@ -39,7 +42,12 @@ Route::delete('perfiles/forcedelete/{id}', [PerfilesController::class, 'deleteFo
 Route::put('perfiles/guardar-username/{id}', [PerfilesController::class, 'putGuardarUsername'])->middleware('persona.propia:user_id');
 Route::put('perfiles/reset-password/{id}', [PerfilesController::class, 'putResetPassword']);
 Route::put('perfiles/restore/{id}', [PerfilesController::class, 'putRestore'])->middleware('auth.personal');
-Route::get('perfiles/show/{id}', [PerfilesController::class, 'getShow'])->middleware('persona.propia:user_id');
+// `getShow` hace `Grupo::findOrFail($id)`: es GruposController copiado en el
+// fichero equivocado, y con él otros cuatro métodos. El guard que llevaba decía
+// que `{id}` era un `user_id` —el guard cumplía, y lo que le habían dicho era
+// falso—, así que un alumno cuyo user_id coincidiera con un grupo recibía ese
+// grupo. No la llama ningún cliente. §14.2.
+Route::get('perfiles/show/{id}', [PerfilesController::class, 'getShow'])->middleware('auth.personal');
 Route::put('perfiles/update/{id}', [PerfilesController::class, 'putUpdate'])->middleware('persona.propia:persona_id');
 Route::get('perfiles/username/{username}', [PerfilesController::class, 'getUsername']);
 

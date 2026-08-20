@@ -1005,3 +1005,123 @@ añade a `ExcelTest`, que ahora fija los tres.
   `emitir()` pide un `User`. No es un fallo —`SesionController` comprueba
   `instanceof User` y devuelve 401 antes de llamar— pero el invariante vivía solo
   en el llamador. Ahora está escrito donde se usa.
+
+---
+
+## 14. Los listados que no nombran a nadie (20 ago 2026)
+
+**El cuarto punto ciego de la misma familia, y el que más gente expone.** Los
+tres anteriores fueron los buscadores de [§11.3](#113-y-de-la-misma-decisión-salió-lo-que-no-se-estaba-mirando),
+el inventario de [08 §4](08-revision-idor.md) y el `{id}` que el guard no
+reconocía de [§13.2](#132-y-detrás-un-alumno-borrando-la-foto-de-cualquiera).
+Los tres se encontraron preguntando por **la petición**: qué identificador viaja
+y si el guard lo mira. Este no se podía encontrar así, y por eso llevaba abierto
+desde la revisión de IDOR.
+
+### 14.1 La pregunta que faltaba
+
+`inventario-autorizacion.py` contesta «¿qué guard cubre esta ruta?».
+`auditar-autenticacion.php`, «¿exige token?». Los dos candados de
+`AutorizacionTest` que se escribieron esta misma mañana, «¿el guard reconoce lo
+que esta ruta llama id?». **Las cuatro preguntan por lo que entra.**
+
+Estas siete rutas no traen ningún identificador —`planillas/ver-simat` no pide
+grupo: devuelve **todos los del año**— así que ninguna herramienta tenía nada que
+señalar. La pregunta que las encuentra es la otra: **¿qué sale?** Es exactamente
+el criterio que hace útiles a los tests de contrato —mirar el resultado y no el
+estado— y que no se estaba aplicando a la autorización.
+
+Se midió golpeando las 121 lecturas de la API con **el token de un alumno** y
+mirando si en la respuesta aparecía el dato personal de alguien: documento,
+dirección, teléfono, celular, correo o fecha de nacimiento. Es un barrido de una
+sola tarde y encontró siete.
+
+### 14.2 Lo que un alumno podía leer, medido
+
+| Ruta | Lo que devolvía |
+|---|---|
+| `GET api/planillas/ver-simat` | **todos los grupos del año**, y de cada alumno: documento, tipo de documento, fecha de nacimiento, tipo de sangre, EPS, teléfono, celular, dirección, barrio, estrato, religión, correo y estado de deuda |
+| `GET api/planillas/ver-ausencias` | los mismos grupos y los mismos alumnos, por otro lado |
+| `GET api/planillas/listas-personalizadas` | ídem |
+| `GET api/perfiles/usuariosall` | el directorio entero: **2.279 personas** con nombre, usuario, tipo, correo, fecha de nacimiento, foto y roles. 1,5 MB |
+| `GET api/profesores` | la hoja de vida de los **47 docentes**: documento, dirección, teléfono, celular, correo, título y estado civil |
+| `GET api/grupos/show/{id}` | cualquier grupo con la ficha **completa** de su titular |
+| `GET api/perfiles/show/{id}` | el mismo método copiado en el controlador equivocado |
+
+**El patrón se ve al mirar las vecinas, y es lo que explica cómo pasó.** En
+`ProfesoresController` las once rutas llevan `auth.personal` **menos el
+listado**. En `ContratosController`, igual. En `PlanillasController` lo llevan
+`show-grupo` y `show-profesor` —las que piden un id— y no las tres que no piden
+nada. O sea que la revisión de IDOR guardó **lo que nombraba a alguien**, que era
+su criterio, y estas se quedaron fuera por no nombrar a nadie.
+
+Lo dice el propio `ExigirPersonaPropia` en su cabecera, escrito aquel día: *«lo
+que no puede pasar es que una ruta de grupo entero llegue aquí sin id y salga
+entera: esas llevan `auth.personal`»*. **La regla estaba escrita y estas siete se
+quedaron sin ella.**
+
+`perfiles/show/{id}` merece su línea aparte porque es la variante fina: **sí
+tenía guard**, `persona.propia:user_id`, y el guard cumplía. Lo que era falso es
+lo que le habían dicho — el método hace `Grupo::findOrFail($id)`, así que `{id}`
+es un grupo y no un usuario. Un alumno cuyo `user_id` coincidiera con el id de
+algún grupo recibía ese grupo; los demás, un 404 que parecía normal. Es
+`GruposController` copiado en el fichero equivocado, y con él otros cuatro
+métodos (`destroy`, `forcedelete`, `restore`, `trashed`) — lo que explica que
+`perfiles/forcedelete` cascadeara por las mismas 27 tablas que
+`grupos/forcedelete`: **es** `grupos/forcedelete`. Está anotado desde el front en
+`services/api/PerfilesApi.js` y en `usuarios/UsuariosEditCtrl.js`, que se
+tropezaron con lo mismo por el otro lado y dejaron dicho que **que el nombre de
+una ruta encaje no dice nada de lo que devuelve**.
+
+### 14.3 Lo que se hizo
+
+Las siete llevan `auth.personal`. No es una decisión nueva: es la regla del 19
+de agosto —*un alumno solo ve lo suyo*— aplicada donde no se había aplicado, y el
+mismo remedio que se les puso a los buscadores de §11.3.
+
+Se comprobó antes de cerrar que ninguna la llama una pantalla de familia, en los
+cuatro clientes: las tres de planillas cuelgan de `panel.informes` con
+`hasRoleOrPerm(['psicólogo'])` encima, `perfiles/usuariosall` es la rejilla de
+`UsuariosCtrl`, `profesores` lo piden cinco pantallas de administración —la app
+de Flutter usa `/contratos` para los nombres, no esta— y `grupos/show` y
+`perfiles/show` **no las llama nadie en ningún cliente**.
+
+Lo fijan catorce casos nuevos en `SuperficieDeUnAlumnoTest`, siete con token de
+alumno y siete con token de acudiente. Como todos los de ese archivo, **se
+escribieron primero al revés**: afirmando la fuga y comprobando que el dato
+personal salía en la respuesta. Seis pasaron —o sea que seis filtraban— y la
+séptima, `perfiles/show`, dio 403 por el motivo de arriba: su guard la cerraba
+por accidente, comprobando lo que no era.
+
+### 14.4 Lo que queda, y por qué no se cerró hoy
+
+Tres rutas más salieron del mismo barrido y **ninguna se puede cerrar con un
+guard sin romper una pantalla que una familia sí usa**. Van al
+[09-pendientes.md](09-pendientes.md) porque cada una necesita una decisión:
+
+- **`GET api/contratos`** — nueve docentes con documento, dirección, teléfono,
+  celular, correo y estado civil. La app de Flutter la llama desde pantallas de
+  alumno y de acudiente (`FaltasAlumnoScreen`, `AsistenciaClaseScreen`,
+  `UnidadesApi`, `NotasApi`) y **solo la usa para pasar de un id a un nombre**.
+  Lo que hay que recortar es la respuesta, no la puerta — y eso cambia el
+  contrato de los dieciséis colegios a la vez, porque la app es una sola.
+- **`GET api/perfiles/usernames`** — los 2.351 nombres de usuario del colegio.
+  Lo pide `UserConfiguracionCtrl`, la pantalla de configuración **del propio
+  usuario**, que un alumno alcanza, y solo para saber si el nombre que escribe
+  está libre. Ya existe el endpoint que contesta esa pregunta sin la lista:
+  `GET api/perfiles/comprobarusername/{username}`, 17 bytes. Es un arreglo de
+  front primero y de backend después, en ese orden: cerrar antes de desplegar el
+  front deja a las familias sin poder cambiarse el usuario.
+- **`GET api/perfiles/username/{username}`** — la ficha de una persona por su
+  nombre de usuario: documento, correo de recuperación y fecha de nacimiento. Es
+  el `resolve` de `panel.user`, la pantalla del perfil propio, y **no comprueba
+  que el nombre de usuario sea el tuyo**. Aquí `ExigirPersonaPropia` no puede
+  ayudar tal como está: sus siete claves terminan todas en `_id` y el
+  identificador de esta ruta es un nombre. **Es la quinta variante de la
+  familia** — no es que falte el guard ni que no reconozca el parámetro: es que
+  el parámetro no se parece a un identificador.
+
+Y una que se midió y **está bien**, para no volver a mirarla:
+`GET api/ChangesAsked/to-me` pesa 210 KB y a un alumno le devuelve lo suyo —sus
+ausencias, su comportamiento, sus publicaciones— más 593 eventos del calendario y
+los nombres y fotos de sus nueve profesores. Nada ajeno.

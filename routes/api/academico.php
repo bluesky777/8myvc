@@ -156,9 +156,14 @@ Route::delete('editnota/forcedelete/{id}', [EditnotaController::class, 'deleteFo
 Route::put('editnota/restore/{id}', [EditnotaController::class, 'putRestore'])->middleware('auth.personal');
 
 // PlanillasController
-Route::get('planillas/listas-personalizadas', [PlanillasController::class, 'getListasPersonalizadas']);
-Route::get('planillas/ver-ausencias', [PlanillasController::class, 'getVerAusencias']);
-Route::get('planillas/ver-simat', [PlanillasController::class, 'getVerSimat']);
+// Las tres primeras NO piden grupo: devuelven todos los del año con la ficha
+// completa de cada alumno —documento, EPS, tipo de sangre, teléfono, dirección—.
+// Iban sin guard porque no nombran a nadie, que es el punto ciego de
+// docs/migracion/05-codigo-muerto-y-roto.md §14. Las tres cuelgan de
+// `panel.informes`, que es pantalla de personal.
+Route::get('planillas/listas-personalizadas', [PlanillasController::class, 'getListasPersonalizadas'])->middleware('auth.personal');
+Route::get('planillas/ver-ausencias', [PlanillasController::class, 'getVerAusencias'])->middleware('auth.personal');
+Route::get('planillas/ver-simat', [PlanillasController::class, 'getVerSimat'])->middleware('auth.personal');
 Route::get('planillas/show-grupo/{grupo_id}', [PlanillasController::class, 'getShowGrupo'])->middleware('auth.personal');
 Route::get('planillas/show-profesor/{profesor_id}', [PlanillasController::class, 'getShowProfesor'])->middleware('auth.personal');
 

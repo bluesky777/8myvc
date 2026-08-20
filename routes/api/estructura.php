@@ -52,10 +52,17 @@ Route::delete('grupos/destroy/{id}', [GruposController::class, 'deleteDestroy'])
 Route::delete('grupos/forcedelete/{id}', [GruposController::class, 'deleteForcedelete'])->middleware('auth.personal');
 Route::get('grupos/listado/{grupo_id}', [GruposController::class, 'getListado'])->middleware('auth.personal');
 Route::put('grupos/restore/{id}', [GruposController::class, 'putRestore'])->middleware('auth.personal');
-Route::get('grupos/show/{id}', [GruposController::class, 'getShow']);
+// Devuelve el grupo con la ficha ENTERA de su titular —documento, dirección,
+// teléfono, correo, fecha de nacimiento—, y `{id}` es un grupo, no una persona:
+// por eso ningún inventario de autorización lo señaló. No la llama ningún
+// cliente. §14 del mismo documento.
+Route::get('grupos/show/{id}', [GruposController::class, 'getShow'])->middleware('auth.personal');
 
 // ProfesoresController
-Route::get('profesores', [ProfesoresController::class, 'getIndex']);
+// El listado es la única ruta de este controlador que no llevaba `auth.personal`,
+// y es la que trae la hoja de vida de los 47 docentes. Lo que la piden son cinco
+// pantallas de administración; la app de Flutter usa /contratos, no esta.
+Route::get('profesores', [ProfesoresController::class, 'getIndex'])->middleware('auth.personal');
 Route::get('profesores/conyears', [ProfesoresController::class, 'getConyears'])->middleware('auth.personal');
 Route::put('profesores/guardar-valor', [ProfesoresController::class, 'putGuardarValor'])->middleware('auth.personal');
 Route::put('profesores/listado', [ProfesoresController::class, 'putListado'])->middleware('auth.personal');

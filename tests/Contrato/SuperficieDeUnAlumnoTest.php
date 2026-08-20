@@ -162,6 +162,104 @@ class SuperficieDeUnAlumnoTest extends CasoDeContrato
     }
 
     /**
+     * Los listados que no nombran a nadie, y por eso nadie los miró.
+     *
+     * **Es el cuarto punto ciego de la misma familia, y el que más gente
+     * expone.** Los tres anteriores —los buscadores de [05 §11.3], el inventario
+     * de [08 §4] y el `{id}` que el guard no reconocía de [05 §13.2]— se
+     * encontraron preguntando por la PETICIÓN: qué identificador viaja, y si el
+     * guard lo mira. `inventario-autorizacion.py` contesta eso, y los dos
+     * candados de `AutorizacionTest` también.
+     *
+     * Estas rutas no traen ningún identificador. `planillas/ver-simat` no pide
+     * grupo: devuelve TODOS los del año. Ninguna herramienta las señaló porque
+     * ninguna pregunta por el RESULTADO, que es justo el criterio que hace útiles
+     * a los tests de contrato —mirar lo que sale y no el estado— y que aquí no se
+     * estaba aplicando a la autorización.
+     *
+     * El patrón se ve al mirar sus vecinas: en `ProfesoresController` y en
+     * `ContratosController` **todas las rutas llevan `auth.personal` menos el
+     * listado**, y en `PlanillasController` lo llevan `show-grupo` y
+     * `show-profesor` pero no las tres que no piden nada. Lo que se guardó fue lo
+     * que nombraba a alguien.
+     *
+     * Lo dice el propio `ExigirPersonaPropia` en su cabecera: «lo que no puede
+     * pasar es que una ruta de grupo entero llegue aquí sin id y salga entera:
+     * esas llevan `auth.personal`». La regla estaba escrita; estas siete se
+     * quedaron sin ella.
+     *
+     * Ninguna de las siete la llama una pantalla de familia: las tres de
+     * planillas cuelgan de `panel.informes` —con `hasRoleOrPerm(['psicólogo'])`
+     * encima—, `perfiles/usuariosall` es la rejilla de `UsuariosCtrl`,
+     * `profesores` lo piden cinco pantallas de administración, y `grupos/show`
+     * y `perfiles/show` no las llama nadie en ninguno de los cuatro clientes.
+     */
+    public static function listadosSinIdentificador(): array
+    {
+        return [
+            // Todos los grupos del año con la ficha SIMAT completa de cada alumno:
+            // documento, tipo de sangre, EPS, teléfono, dirección y correo.
+            'planilla SIMAT del colegio' => ['GET', 'planillas/ver-simat', 'documento'],
+            'planilla de ausencias' => ['GET', 'planillas/ver-ausencias', 'documento'],
+            'listas personalizadas' => ['GET', 'planillas/listas-personalizadas', 'documento'],
+            // El directorio entero: nombre, usuario, tipo, correo y fecha de
+            // nacimiento de todas las personas del colegio.
+            'directorio de usuarios' => ['GET', 'perfiles/usuariosall', 'fecha_nac'],
+            // La hoja de vida de cada docente: documento, dirección, teléfono,
+            // celular, correo y estado civil.
+            'listado de profesores' => ['GET', 'profesores', 'num_doc'],
+            // Un grupo cualquiera con la ficha completa de su titular. Y su
+            // gemelo de `perfiles`, que es el mismo método copiado en el
+            // controlador equivocado — ver [05 §14.2].
+            'grupo ajeno con su titular' => ['GET', 'grupos/show/{grupo}', 'num_doc'],
+            'el gemelo en perfiles' => ['GET', 'perfiles/show/{grupo}', 'num_doc'],
+        ];
+    }
+
+    #[DataProvider('listadosSinIdentificador')]
+    public function test_un_alumno_no_lee_los_listados_del_colegio(string $verbo, string $ruta, string $columna): void
+    {
+        [, , , , $cab] = $this->actores();
+        $grupo = $this->grupoConAlumnos();
+
+        $this->noSaleElDato($verbo, $ruta, $columna, $grupo->id, $cab);
+    }
+
+    /** Y un acudiente tampoco: la puerta es la misma para los dos. */
+    #[DataProvider('listadosSinIdentificador')]
+    public function test_un_acudiente_no_lee_los_listados_del_colegio(string $verbo, string $ruta, string $columna): void
+    {
+        $acudiente = $this->usuarioDeTipo('Acudiente');
+        $cab = ['Authorization' => 'Bearer '.$this->tokenDe($acudiente->username)];
+        $grupo = $this->grupoConAlumnos();
+
+        $this->noSaleElDato($verbo, $ruta, $columna, (int) $grupo->id, $cab);
+    }
+
+    /**
+     * El 403 **y** que el dato no haya salido, que no son la misma comprobación.
+     *
+     * Mirar solo el estado deja pasar el caso que ya ocurrió una vez en este
+     * proyecto: el guard responde el error después de que la operación haya
+     * tenido efecto (§13.1). Aquí la versión de lectura de lo mismo sería un
+     * cuerpo con datos y un código de error encima, así que se mira la columna
+     * concreta que cada ruta filtraba — la que hizo fallar a este mismo caso
+     * cuando se escribió al revés.
+     */
+    private function noSaleElDato(string $verbo, string $ruta, string $columna, int $grupoId, array $cab): void
+    {
+        $r = $this->json($verbo, '/api/'.str_replace('{grupo}', (string) $grupoId, $ruta), [], $cab);
+
+        $r->assertStatus(403);
+
+        $this->assertDoesNotMatchRegularExpression(
+            '/"'.$columna.'"\s*:\s*"[^"]+"/',
+            (string) $r->getContent(),
+            "'{$ruta}' responde 403 y aun así trae '{$columna}' en el cuerpo."
+        );
+    }
+
+    /**
      * Escrituras sobre otro alumno, comprobadas por su efecto y no por el 200.
      *
      * Un 200 no prueba nada si la petición no llegó a escribir —es la trampa que
