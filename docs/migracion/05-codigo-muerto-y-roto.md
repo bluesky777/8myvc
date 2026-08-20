@@ -1561,13 +1561,39 @@ o casi: `aspiraciones` 3/3, `participantes` 9/9, `candidatos` 3/4, `votos` 3/5,
 `votaciones` 10/15.
 
 Se quedan abiertas y con su motivo en `EXCEPCIONES_DE_FAMILIA`:
-`candidatos/conaspiraciones` (la papeleta), `votos/store` (votar), `votos/show`
-(los resultados de quien pregunta, acotados por su `user_id`), el índice de
-`votaciones` (acotado por `user_id`) y las tres lecturas de «la votación en
-curso». Hay un test que comprueba que ninguna de ellas responde 403: **la mitad
-de este trabajo es no romper el flujo de votar.**
+`candidatos/conaspiraciones` (la papeleta de la pantalla de prueba, §18.5),
+`votos/store` (votar), `votos/show` (los resultados de quien pregunta, acotados
+por su `user_id`), el índice de `votaciones` (acotado por `user_id`) y las tres
+lecturas de «la votación en curso».
 
-### 18.3 Y el candado del §17 hizo lo que tenía que hacer
+Y el dato que lo cierra, que es más fuerte que la lista de permisos:
+**`VotacionesInicioCtrl` manda a un Alumno o un Acudiente a
+`panel.actividades.votaciones.votar`, y a admin o profesor a `.config`.** El
+alumno tiene un destino y uno solo, y ese destino llama a dos endpoints.
+
+### 18.3 Y aun así, eso se lee: hay que votar
+
+Comprobar catorce puertas cerradas y siete abiertas **no es lo mismo que votar**,
+y darlo por bueno leyendo el front es justo el error que este archivo lleva
+evitando desde la P1 — mirar el 403 y no el resultado. Así que
+`SuperficieDeUnAlumnoTest` monta ahora **una elección de verdad** —votación en
+acción, un cargo, un candidato, y el grupo del alumno en `vt_participantes`— y
+recorre el camino real de `VotarCtrl`:
+
+1. `GET votaciones/en-accion-inscrito`, que es de donde el panel saca las
+   aspiraciones y, dentro de cada una, **sus candidatos**. No de
+   `candidatos/conaspiraciones`, que es la pantalla de prueba.
+2. `POST votos/store` con el `candidato_id` que salió de ahí — y se comprueba la
+   fila en `vt_votos`, no el código: un 201 no prueba que el voto se guardara.
+
+Se comprobó al revés de las dos maneras posibles de dejar sin elecciones a
+dieciséis colegios: poniéndole `auth.personal` a `votos/store` y poniéndoselo a
+`votaciones/en-accion-inscrito`. El test falla con cada una.
+
+De paso fijó un detalle que se habría escrito mal de memoria: **`votos/store`
+responde 201**, no 200, porque devuelve el modelo recién creado.
+
+### 18.4 Y el candado del §17 hizo lo que tenía que hacer
 
 Al cerrar el módulo, las tres del flujo de votar se convirtieron en «la que se
 quedó sola» de su familia y **el test falló el mismo día que se escribió el
@@ -1575,7 +1601,7 @@ arreglo**. Es exactamente para lo que está: no dice que estén mal, dice que ha
 que decidir. Van a la lista de excepciones con su motivo, y la de `votos/store`
 lleva escrito lo que hay que saber — *si esto lleva guard, no hay elecciones*.
 
-### 18.4 La papeleta lleva rota para las familias desde siempre
+### 18.5 La papeleta lleva rota para las familias desde siempre
 
 `GET candidatos/conaspiraciones` hace, en la rama de Alumno y Acudiente:
 

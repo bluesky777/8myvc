@@ -988,4 +988,143 @@ class SuperficieDeUnAlumnoTest extends CasoDeContrato
                 'actualiza este test y la entrada de 05 §18.');
         }
     }
+
+    /**
+     * Una elección de verdad, votada de punta a punta con un token de alumno.
+     *
+     * Los otros dos casos del módulo comprueban puertas: que catorce respondan
+     * 403 y que siete no. **Eso no es lo mismo que votar.** Cerrar catorce rutas
+     * de un módulo y comprobarlo leyendo el front es exactamente el error que
+     * este archivo lleva evitando desde la P1: el 403 se mira, el resultado no.
+     *
+     * Así que aquí se monta la elección —votación en acción, un cargo, un
+     * candidato, y el grupo del alumno inscrito como participante— y se recorre
+     * el camino real de `VotarCtrl`, que son dos llamadas y solo dos:
+     *
+     *   1. `GET votaciones/en-accion-inscrito`, que es de donde el panel saca las
+     *      aspiraciones y, dentro de cada una, sus candidatos. **No** de
+     *      `candidatos/conaspiraciones`, que es la pantalla de prueba.
+     *   2. `POST votos/store` con el `candidato_id` que salió de ahí.
+     *
+     * Y se comprueba por el efecto: que la fila esté en `vt_votos` con el
+     * `user_id` del alumno. Un 200 no prueba que el voto se haya guardado.
+     */
+    public function test_un_alumno_vota_de_verdad(): void
+    {
+        [$votacion, $candidato] = $this->montarUnaEleccionPara('Alumno');
+
+        $yo = $this->usuarioDeTipo('Alumno');
+        $cab = ['Authorization' => 'Bearer '.$this->tokenDe($yo->username)];
+
+        $abiertas = $this->getJson('/api/votaciones/en-accion-inscrito', $cab);
+        $abiertas->assertStatus(200);
+
+        $lista = $abiertas->json();
+
+        $this->assertNotSame([], $lista,
+            'El alumno no ve la votación en la que está inscrito: `en-accion-inscrito` '
+            .'es la primera de las dos llamadas de VotarCtrl y sin ella no hay pantalla.');
+
+        $this->assertSame((int) $votacion, (int) $lista[0]['id']);
+
+        $this->assertNotEmpty($lista[0]['aspiraciones'] ?? [],
+            'La votación llega sin aspiraciones, así que el panel no pinta nada que votar.');
+
+        $candidatos = $lista[0]['aspiraciones'][0]['candidatos'] ?? [];
+
+        $this->assertNotEmpty($candidatos,
+            'La aspiración llega sin candidatos. El panel los saca de aquí, no de '
+            .'`candidatos/conaspiraciones`.');
+
+        $this->assertSame((int) $candidato, (int) $candidatos[0]['candidato_id']);
+
+        $antes = DB::table('vt_votos')->where('user_id', $yo->id)->count();
+
+        // 201 y no 200: el método devuelve el modelo recién creado y Laravel le
+        // pone el código de creado. Se fija el que da, no el que uno espera.
+        $this->postJson('/api/votos/store',
+            ['votacion_id' => $votacion, 'candidato_id' => $candidato], $cab)
+            ->assertStatus(201);
+
+        $this->assertSame($antes + 1,
+            DB::table('vt_votos')->where('user_id', $yo->id)->count(),
+            'El 200 llegó sin voto detrás: `votos/store` no guardó nada.');
+
+        $this->assertSame((int) $candidato,
+            (int) DB::table('vt_votos')->where('user_id', $yo->id)
+                ->orderByDesc('id')->value('candidato_id'));
+    }
+
+    /** Y un acudiente, por la misma puerta: `persona.propia` no vive en este módulo. */
+    public function test_un_acudiente_tambien_llega_a_la_papeleta(): void
+    {
+        $this->montarUnaEleccionPara('Acudiente');
+
+        $acudiente = $this->usuarioDeTipo('Acudiente');
+        $cab = ['Authorization' => 'Bearer '.$this->tokenDe($acudiente->username)];
+
+        // `actualesInscrito()` solo mira `matriculas` para el tipo Alumno, así que
+        // un acudiente no entra en la lista aunque su acudido sí. Lo que este caso
+        // fija es lo único que depende de lo que se cerró: que el guard no lo
+        // corte. Que la lista le llegue vacía es de antes y no lo cambia esto.
+        $this->getJson('/api/votaciones/en-accion-inscrito', $cab)->assertStatus(200);
+        $this->postJson('/api/votos/store', [], $cab)->assertStatus(500);
+    }
+
+    /**
+     * La elección mínima que hace falta para que un alumno pueda votar.
+     *
+     * Son cuatro filas y las cuatro importan: `actualesInscrito()` exige que la
+     * votación sea `actual` **y** `in_action`, y que el grupo del alumno esté en
+     * `vt_participantes.grupo_profes_acudientes` —que es una columna de texto con
+     * un id de grupo dentro, y por eso `unsignedsusers` está rota (05 §8)—.
+     *
+     * @return array{0: int, 1: int} el id de la votación y el del candidato
+     */
+    private function montarUnaEleccionPara(string $tipo): array
+    {
+        $quien = $this->usuarioDeTipo($tipo);
+
+        $grupo = DB::selectOne('SELECT m.grupo_id, g.year_id FROM users u
+            INNER JOIN alumnos a ON a.user_id = u.id AND a.deleted_at IS NULL
+            INNER JOIN matriculas m ON m.alumno_id = a.id AND m.deleted_at IS NULL
+                AND m.estado IN ("MATR", "ASIS", "PREM")
+            INNER JOIN grupos g ON g.id = m.grupo_id AND g.deleted_at IS NULL
+            INNER JOIN periodos p ON p.id = u.periodo_id AND p.year_id = g.year_id
+            WHERE u.id = ? LIMIT 1', [$quien->id]);
+
+        if ($grupo === null) {
+            $grupo = DB::selectOne('SELECT g.id AS grupo_id, g.year_id FROM grupos g
+                WHERE g.deleted_at IS NULL ORDER BY g.id DESC LIMIT 1');
+        }
+
+        DB::insert('INSERT INTO vt_votaciones (user_id, year_id, nombre, actual, in_action, locked,
+                        votan_profes, votan_acudientes, created_at, updated_at)
+                    VALUES (?, ?, "Elección de prueba", 1, 1, 0, 1, 1, ?, ?)',
+            [$quien->id, $grupo->year_id, now(), now()]);
+        $votacion = (int) DB::getPdo()->lastInsertId();
+
+        DB::insert('INSERT INTO vt_participantes (grupo_profes_acudientes, votacion_id, locked, created_at, updated_at)
+                    VALUES (?, ?, 0, ?, ?)', [(string) $grupo->grupo_id, $votacion, now(), now()]);
+
+        DB::insert('INSERT INTO vt_aspiraciones (votacion_id, aspiracion, abrev, created_at, updated_at)
+                    VALUES (?, "Personero", "PER", ?, ?)', [$votacion, now(), now()]);
+        $aspiracion = (int) DB::getPdo()->lastInsertId();
+
+        // El candidato tiene que ser alguien con ficha y matrícula, porque
+        // `VtCandidato::porAspiracion()` une contra `alumnos` y `matriculas`.
+        $otro = DB::selectOne('SELECT a.user_id FROM alumnos a
+            INNER JOIN matriculas m ON m.alumno_id = a.id AND m.deleted_at IS NULL
+                AND m.estado IN ("MATR", "ASIS", "PREM")
+            INNER JOIN grupos g ON g.id = m.grupo_id AND g.year_id = ? AND g.deleted_at IS NULL
+            WHERE a.user_id IS NOT NULL AND a.user_id <> ? AND a.deleted_at IS NULL
+            ORDER BY a.id LIMIT 1', [$grupo->year_id, $quien->id]);
+
+        $this->assertNotNull($otro, 'El seed no tiene otro alumno que pueda ser candidato.');
+
+        DB::insert('INSERT INTO vt_candidatos (user_id, aspiracion_id, plancha, numero, locked, created_at, updated_at)
+                    VALUES (?, ?, "A", "1", 0, ?, ?)', [$otro->user_id, $aspiracion, now(), now()]);
+
+        return [$votacion, (int) DB::getPdo()->lastInsertId()];
+    }
 }

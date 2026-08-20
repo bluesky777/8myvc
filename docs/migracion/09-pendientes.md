@@ -528,12 +528,15 @@ saber el tamaño real del daño en las dieciséis bases antes de tocar código.
   leía el censo con los datos personales de todos y **a quién votó cada uno**, más
   los 52 KB de `VtVoto::all()`. Catorce cerradas — [05 §18](05-codigo-muerto-y-roto.md).
 
-  Lo que hay que recordar de esta pasada es **cómo se decidió qué cerrar**, porque
-  cerrar catorce rutas de un módulo a ojo es dejar sin elecciones a dieciséis
-  colegios: lo decidió el front. `VotarCtrl` es el único estado de `votaciones/*`
-  sin `needed_permissions` y llama a dos endpoints; el resto cuelga de pantallas
-  con permiso, o no lo llama ningún cliente. Y hay un test que comprueba que el
-  flujo de votar sigue sin recibir 403, que es la otra mitad del trabajo.
+  Lo que hay que recordar de esta pasada es **cómo se comprobó que no se rompía
+  nada**, porque cerrar catorce rutas de un módulo a ojo es dejar sin elecciones a
+  dieciséis colegios. Primero el front: `VotacionesInicioCtrl` manda a un alumno o
+  acudiente a la pantalla de votar y a admin o profesor a la de configuración, y
+  la de votar llama a dos endpoints. **Pero eso es leer.** Así que hay además un
+  test que monta una elección de verdad y vota con un token de alumno de punta a
+  punta, comprobando la fila en `vt_votos` y no el código de respuesta. Se
+  verificó al revés de las dos maneras de romperlo, cerrando `votos/store` y
+  cerrando `en-accion-inscrito`: falla con cada una.
 
   Y el candado de la §17 se ganó el sueldo el mismo día: al cerrar el módulo, las
   tres del flujo de votar pasaron a ser «la que se quedó sola» y el test falló.
