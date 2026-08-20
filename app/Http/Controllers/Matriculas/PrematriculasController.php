@@ -20,53 +20,25 @@ class PrematriculasController extends Controller {
 
 
 	/*
-	 * Dos arreglos del 19 ago 2026, los dos encontrados escribiendo los tests del P1.
+	 * `putLlevoFormulario` se borró el 19 ago 2026, con su ruta.
 	 *
-	 * 1. `llevo_formulario` no existía. No estaba en el volcado de la base real ni en la de
-	 *    desarrollo, y este método empieza borrando de ella: la ruta era un 500 seguro desde
-	 *    siempre. La crea database/migrations/2026_08_19_110000_create_llevo_formulario_table.php,
-	 *    donde está también lo que queda por decidir — el sistema ya registra lo mismo como
-	 *    `matriculas.estado = 'FORM'`, y nadie lee esta tabla todavía.
+	 * Escribía en una tabla `llevo_formulario` que **no existe**: no está en el volcado de la base
+	 * real —las 90 tablas— ni en la de desarrollo, y el método empezaba con un `DELETE` contra
+	 * ella. Era un 500 seguro desde siempre. Salió escribiendo los tests de contrato del P1.
 	 *
-	 * 2. El INSERT pasaba cinco valores para cinco columnas, pero corridos: a
-	 *    `llevo_formulario` le llegaba `$now`. O sea que aunque la tabla hubiera existido, la
-	 *    columna que da nombre a todo esto habría guardado una fecha.
+	 * No se creó la tabla: se quitó el método, porque el hecho que pretendía guardar ya se guarda
+	 * en otro sitio y ese sí funciona. **Quién llevó el formulario es `matriculas.estado = 'FORM'`**:
 	 *
-	 * El DELETE mezclaba claves con y sin dos puntos (`'alumno_id'` y `':year'`). Laravel lo
-	 * normaliza, así que funcionaba, pero se uniforma para que no parezca que hay dos cosas
-	 * distintas.
+	 * - lo pone `AlumnosController` al crear el alumno,
+	 * - lo pone y lo cambia `MatriculasController::putPrematricular` con `estado=FORM`, que es por
+	 *   donde lo mueve el administrador,
+	 * - y lo lee `AlumnosConGradoAnterior` unas líneas más abajo, en `AlumnosFormularios`.
+	 *
+	 * O sea que había dos mecanismos para el mismo dato, uno vivo y otro que nunca llegó a
+	 * escribir una fila. Joseth confirmó cuál manda (19 ago 2026). Y de paso: el INSERT muerto
+	 * pasaba los cinco valores corridos, así que a la columna `llevo_formulario` le habría llegado
+	 * una fecha aunque la tabla hubiera existido.
 	 */
-	public function putLlevoFormulario()
-	{
-		if (($this->user->tipo == 'Profesor' && $this->user->profes_can_edit_alumnos) || $this->user->is_superuser) {
-			$alumno_id 		= Request::input('alumno_id');
-			$llevo 			= Request::input('llevo_formulario');
-			$year 			= Request::input('year');
-			$now 			= Carbon::now('America/Bogota');
-
-			$consulta = 'DELETE	FROM llevo_formulario 
-				WHERE alumno_id = :alumno_id and year = :year';
-
-			DB::delete($consulta, [':alumno_id' => $alumno_id, ':year' => $year]);
-			
-			if ($llevo) {
-				$consulta = 'INSERT INTO llevo_formulario(alumno_id, year, llevo_formulario, created_at, updated_at) 
-					VALUES(?,?,?,?,?)';
-
-				DB::insert($consulta, [ $alumno_id, $year, 1, $now, $now ] );
-
-			}
-			
-			return ['modificado' => true];
-		} else {
-			return abort('400', 'No tiene permisos para editar');
-		}
-	}
-
-	
-
-
-
 
 	public function putAlumnosGradoAnterior()
 	{

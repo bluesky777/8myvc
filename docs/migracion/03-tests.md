@@ -229,9 +229,9 @@ Y cuatro más del P1, **las cuatro arregladas el mismo día**:
   `null` si faltaba el barrio. Ahora `CONCAT_WS`, que no se traga la dirección
   cuando falta el barrio.
 - **La tabla `llevo_formulario` no existía**, ni en el volcado de producción ni en
-  la de desarrollo, y `PUT api/prematriculas/llevo-formulario` hace un `DELETE`
-  contra ella de entrada: 500 seguro desde siempre, como `failed_jobs`. La crea una
-  migración, y el INSERT —que pasaba los cinco valores corridos y guardaba la fecha
-  en la columna `llevo_formulario`— quedó arreglado. **Nadie lee esa tabla**: el
-  sistema ya registra lo mismo como `matriculas.estado = 'FORM'`. Cuál de los dos
-  mecanismos se queda es decisión del colegio.
+  la de desarrollo, y `PUT api/prematriculas/llevo-formulario` hacía un `DELETE`
+  contra ella de entrada: 500 seguro desde siempre, como `failed_jobs`. **La ruta
+  se borró en vez de crearle la tabla**: quién llevó el formulario es
+  `matriculas.estado = 'FORM'`, que pone y cambia `matriculas/prematricular` con
+  `estado=FORM` y lee `AlumnosFormularios`. Eran dos mecanismos para el mismo dato,
+  uno vivo y otro que nunca llegó a escribir una fila.

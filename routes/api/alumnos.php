@@ -113,7 +113,10 @@ Route::delete('enfermeria/destroy/{id}', [EnfermeriaController::class, 'deleteDe
 // constructor, que no detiene nada. Ver App\Http\Middleware\ExigirPersonal.
 Route::put('prematriculas/alumnos-con-grado-anterior', [PrematriculasController::class, 'putAlumnosConGradoAnterior'])->middleware('auth.personal');
 Route::put('prematriculas/alumnos-grado-anterior', [PrematriculasController::class, 'putAlumnosGradoAnterior'])->middleware('auth.personal');
-Route::put('prematriculas/llevo-formulario', [PrematriculasController::class, 'putLlevoFormulario'])->middleware('auth.personal');
+// `prematriculas/llevo-formulario` se borró el 19 ago 2026: escribía en una tabla
+// que no existe y el dato ya se guarda como `matriculas.estado = 'FORM'`, que es
+// por donde lo mueve el administrador con `matriculas/prematricular`. Ver
+// PrematriculasController.
 
 // RequisitosController
 //

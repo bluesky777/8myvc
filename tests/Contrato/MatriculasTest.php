@@ -514,61 +514,58 @@ class MatriculasTest extends CasoDeContrato
     // ---------------------------------------------------------- Prematrículas
 
     /**
-     * `prematriculas/llevo-formulario` guarda, que hasta hoy era un 500 seguro.
+     * Quién llevó el formulario es `matriculas.estado = 'FORM'`, y solo eso.
      *
-     * Dos cosas estaban rotas y las dos salieron escribiendo este test:
+     * Había dos mecanismos para el mismo dato. El que **no** funcionaba era
+     * `PUT api/prematriculas/llevo-formulario`, que escribía en una tabla
+     * `llevo_formulario` inexistente —no está en el volcado de la base real ni en
+     * la de desarrollo— y empezaba con un `DELETE` contra ella: 500 seguro desde
+     * siempre. Se borró con su ruta el 19 ago 2026 en vez de crearle la tabla,
+     * porque nadie la leía y el dato ya vive en `matriculas`.
      *
-     * 1. **`llevo_formulario` no existía.** No estaba en
-     *    `database/schema/mysql-schema.sql` —el volcado de la base real, las 90
-     *    tablas— ni en la de desarrollo, y el método empieza con un
-     *    `DELETE FROM llevo_formulario`. Mismo caso que `failed_jobs`. La crea
-     *    ahora una migración.
-     * 2. **El INSERT pasaba los cinco valores corridos**: a la columna
-     *    `llevo_formulario` le llegaba la fecha. Aunque la tabla hubiera
-     *    existido, la columna que da nombre a todo esto habría guardado un
-     *    timestamp.
+     * El que sí funciona es este: `matriculas/prematricular` con `estado=FORM`,
+     * que **inserta y también actualiza**, que es lo que hace el administrador al
+     * marcar o desmarcar. Lo lee `AlumnosFormularios` en la pantalla de
+     * prematrículas.
      *
-     * **Lo que sigue sin decidirse, y por eso se comprueba aquí y no más allá:**
-     * nadie lee esta tabla. El sistema ya registra «llevó el formulario» por otro
-     * camino —`matriculas.estado = 'FORM'`, que escribe `AlumnosController` y lee
-     * `AlumnosFormularios`—, así que hay dos mecanismos para el mismo hecho, uno
-     * vivo y otro que hasta hoy no llegaba a escribir. Cuál se queda es cosa del
-     * colegio y del frontend. Este test afirma lo único que ya no es opinable:
-     * que el endpoint guarda lo que dice que guarda.
+     * El test cubre las dos mitades —marcar sobre una matrícula que ya existe y
+     * volver a moverla— porque la que estaba rota no probaba ninguna, y porque una
+     * ruta borrada solo es segura de borrar si lo que la sustituye está cubierto.
      */
-    public function test_llevo_formulario_guarda_y_es_idempotente(): void
+    public function test_marcar_que_llevo_formulario_va_por_el_estado_de_la_matricula(): void
     {
         $grupo = $this->grupoConAlumnos();
+        $token = $this->superusuario((int) $grupo->year_id);
         $matricula = $this->unaMatricula((int) $grupo->id);
-        $cab = ['Authorization' => 'Bearer '.$this->superusuario((int) $grupo->year_id)];
+        $cab = ['Authorization' => 'Bearer '.$token];
 
-        $cuerpo = ['alumno_id' => $matricula->alumno_id, 'year' => 2026];
+        $cuerpo = ['alumno_id' => $matricula->alumno_id, 'grupo_id' => $grupo->id, 'anio_sig' => 0];
 
-        $this->putJson('/api/prematriculas/llevo-formulario', $cuerpo + ['llevo_formulario' => 1], $cab)
-            ->assertStatus(200)
-            ->assertJsonPath('modificado', true);
-
-        $fila = DB::selectOne('SELECT llevo_formulario FROM llevo_formulario
-            WHERE alumno_id = ? AND year = 2026', [$matricula->alumno_id]);
-
-        $this->assertNotNull($fila, 'No guardó nada.');
-        $this->assertSame(1, (int) $fila->llevo_formulario,
-            'La columna `llevo_formulario` no guardó el valor; antes le llegaba la fecha.');
-
-        // Marcar dos veces no deja dos filas: el método borra la pareja antes de
-        // insertar, y la migración lo respalda con un UNIQUE(alumno_id, year).
-        $this->putJson('/api/prematriculas/llevo-formulario', $cuerpo + ['llevo_formulario' => 1], $cab)
+        $this->putJson('/api/matriculas/prematricular', $cuerpo + ['estado' => 'FORM'], $cab)
             ->assertStatus(200);
 
-        $this->assertSame(1, (int) DB::selectOne('SELECT COUNT(*) n FROM llevo_formulario
-            WHERE alumno_id = ? AND year = 2026', [$matricula->alumno_id])->n);
+        $this->assertSame('FORM', $this->estadoDe((int) $matricula->id),
+            'Marcar «llevó formulario» no dejó la matrícula en FORM.');
 
-        // Y desmarcar borra la fila, que es lo que significa "no lo llevó".
-        $this->putJson('/api/prematriculas/llevo-formulario', $cuerpo + ['llevo_formulario' => 0], $cab)
+        // Y desmarcar es moverla al otro estado de la pantalla, no borrar nada.
+        $this->putJson('/api/matriculas/prematricular', $cuerpo + ['estado' => 'PREM'], $cab)
             ->assertStatus(200);
 
-        $this->assertSame(0, (int) DB::selectOne('SELECT COUNT(*) n FROM llevo_formulario
-            WHERE alumno_id = ? AND year = 2026', [$matricula->alumno_id])->n);
+        $this->assertSame('PREM', $this->estadoDe((int) $matricula->id));
+    }
+
+    /** Y la ruta que no funcionaba ya no está, para que nadie la reviva sin leer por qué. */
+    public function test_la_ruta_de_llevo_formulario_ya_no_existe(): void
+    {
+        $rutas = [];
+
+        foreach (\Illuminate\Support\Facades\Route::getRoutes() as $ruta) {
+            $rutas[] = $ruta->uri();
+        }
+
+        $this->assertNotContains('api/prematriculas/llevo-formulario', $rutas,
+            "Volvió `prematriculas/llevo-formulario`. Escribía en una tabla que no existe y\n".
+            'el dato va en `matriculas.estado`. Ver PrematriculasController.');
     }
 
     /**

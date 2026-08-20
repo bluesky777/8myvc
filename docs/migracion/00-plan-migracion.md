@@ -254,15 +254,16 @@ Nada de lo demás se toca antes de esto. Es lo que convierte "espero que no se r
 >   dirección entera si falta el barrio.
 > - **La tabla `llevo_formulario` no existía** —ni en el volcado de producción ni
 >   en desarrollo— y `PUT api/prematriculas/llevo-formulario` empieza borrando de
->   ella: 500 seguro desde siempre, como `failed_jobs`. La crea una migración, y de
->   paso se arregló el INSERT, que pasaba los cinco valores corridos y guardaba la
->   fecha en la columna `llevo_formulario`.
+>   ella: 500 seguro desde siempre, como `failed_jobs`.
 >
->   **Queda una decisión de producto encima de la mesa:** nadie lee esa tabla. El
->   sistema ya registra «llevó el formulario» como `matriculas.estado = 'FORM'`,
->   que escribe `AlumnosController` y lee `AlumnosFormularios`. Son dos mecanismos
->   para el mismo hecho, uno vivo y otro que hasta ahora no llegaba a escribir.
->   Cuál se queda lo dicen el colegio y quien lleve `myvc_front`.
+>   **La ruta se borró en vez de crearle la tabla.** Joseth confirmó que quién
+>   llevó el formulario es `matriculas.estado = 'FORM'`: lo pone
+>   `AlumnosController` al crear el alumno, lo pone y lo cambia
+>   `matriculas/prematricular` con `estado=FORM` —que es por donde lo mueve el
+>   administrador— y lo lee `AlumnosFormularios`. Había dos mecanismos para el
+>   mismo dato, uno vivo y otro que nunca llegó a escribir una fila. De paso, el
+>   INSERT muerto pasaba los cinco valores corridos: a la columna
+>   `llevo_formulario` le habría llegado una fecha aunque la tabla existiera.
 
 **0.1 Baseline del esquema real de la BD**
 

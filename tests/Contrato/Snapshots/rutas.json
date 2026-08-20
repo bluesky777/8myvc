@@ -475,7 +475,6 @@
     "PUT api/preguntas/update-orden": "App\\Http\\Controllers\\Actividades\\PreguntasController@putUpdateOrden",
     "PUT api/prematriculas/alumnos-con-grado-anterior": "App\\Http\\Controllers\\Matriculas\\PrematriculasController@putAlumnosConGradoAnterior",
     "PUT api/prematriculas/alumnos-grado-anterior": "App\\Http\\Controllers\\Matriculas\\PrematriculasController@putAlumnosGradoAnterior",
-    "PUT api/prematriculas/llevo-formulario": "App\\Http\\Controllers\\Matriculas\\PrematriculasController@putLlevoFormulario",
     "PUT api/profesores/guardar-valor": "App\\Http\\Controllers\\ProfesoresController@putGuardarValor",
     "PUT api/profesores/listado": "App\\Http\\Controllers\\ProfesoresController@putListado",
     "PUT api/profesores/restore/{id}": "App\\Http\\Controllers\\ProfesoresController@putRestore",
