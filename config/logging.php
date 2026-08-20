@@ -1,6 +1,8 @@
 <?php
 
+use Monolog\Formatter\JsonFormatter;
 use Monolog\Handler\NullHandler;
+use Monolog\Handler\RotatingFileHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
 
@@ -95,6 +97,30 @@ return [
         'null' => [
             'driver' => 'monolog',
             'handler' => NullHandler::class,
+        ],
+
+        /*
+         * Las consultas lentas, en su propio fichero y en JSON.
+         *
+         * Aparte de `laravel.log` porque se enciende para una temporada y se
+         * lee entero: mezclado con los errores del día habría que separarlo a
+         * mano. Y en JSON —una consulta por línea— porque el SQL de este
+         * proyecto viene de cadenas PHP de varias líneas, y en un log de texto
+         * plano no se sabe dónde acaba cada entrada. Lo agrupa
+         * tools/consultas-lentas.py.
+         *
+         * Catorce ficheros: si nadie lo mira en dos semanas, es que no se está
+         * midiendo nada y lo que sobra es el registro, no el disco.
+         */
+        'consultas-lentas' => [
+            'driver' => 'monolog',
+            'handler' => RotatingFileHandler::class,
+            'with' => [
+                'filename' => storage_path('logs/consultas-lentas.log'),
+                'maxFiles' => 14,
+            ],
+            'formatter' => JsonFormatter::class,
+            'level' => 'info',
         ],
 
         'emergency' => [
