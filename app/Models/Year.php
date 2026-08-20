@@ -87,7 +87,7 @@ use App\Models\Periodo;
  * anotarlos es lo que permite que el análisis siga avisando de un nombre mal
  * escrito en vez de callarse con todos.
  *
- * @property array $grupos_ant  los grupos del año anterior, para el traspaso de año
+ * @property \Illuminate\Database\Eloquent\Collection<int, \App\Models\Grupo> $grupos_ant  los grupos del año anterior, para el traspaso de año
  */
 
 

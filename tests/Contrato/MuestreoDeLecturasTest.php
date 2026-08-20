@@ -128,7 +128,12 @@ class MuestreoDeLecturasTest extends CasoDeContrato
             'api/asistencias-app/datos-solo-alumnos' => 'la misma consulta, para la app de Flutter',
         ];
 
-        return array_map(fn ($k, $v) => [$k, $v], array_keys($casos), $casos);
+        $rutas = array_keys($casos);
+
+        // Con la clave puesta, y no como una lista: los otros dos proveedores de
+        // esta clase la llevan, y el nombre del caso es lo que hace legible tanto
+        // el fallo como el informe de cobertura, que anota `nameWithDataSet()`.
+        return array_combine($rutas, array_map(fn ($r) => [$r, $casos[$r]], $rutas));
     }
 
     /**

@@ -39,7 +39,7 @@ use App\Models\Debugging;
  * anotarlos es lo que permite que el análisis siga avisando de un nombre mal
  * escrito en vez de callarse con todos.
  *
- * @property array $asigs_ant  las asignaturas del año anterior, para el traspaso de año
+ * @property \Illuminate\Database\Eloquent\Collection<int, \App\Models\Asignatura> $asigs_ant  las asignaturas del año anterior, para el traspaso de año
  * @property \App\Models\Profesor $titular  el profesor titular, resuelto aparte en la ficha del grupo
  * @property \App\Models\Grado $grado  el grado del grupo, resuelto aparte en la ficha del grupo
  */

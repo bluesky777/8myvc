@@ -565,11 +565,14 @@ class ActasEvaluacionController extends Controller {
 		$razones = [];
 
 		foreach ($grupos as $grupo) {
-			foreach ($c->resumen as $clave => $contador) {
+			// El `(array)` no cambia nada en tiempo de ejecución —recorrer un
+			// stdClass ya recorre sus campos— pero dice en voz alta que lo que
+			// se recorre son los contadores del objeto, no una lista.
+			foreach ((array) $c->resumen as $clave => $contador) {
 				if (!isset($grupo->resumen->$clave)) continue;
 				$this->acumular($contador, $grupo->resumen->$clave);
 			}
-			foreach ($c->promocion as $clave => $contador) {
+			foreach ((array) $c->promocion as $clave => $contador) {
 				if (!isset($grupo->promocion->$clave)) continue;
 				$this->acumular($contador, $grupo->promocion->$clave);
 			}
