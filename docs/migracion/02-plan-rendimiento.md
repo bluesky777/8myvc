@@ -342,6 +342,37 @@ La tabla `jobs` existe y está vacía. La infraestructura está; nadie la usó.
 
 **Arreglo:** `QUEUE_CONNECTION=database` (o `redis`), convertir a Jobs los importadores y los informes largos, y devolver un identificador de tarea que el frontend consulte. No es urgente para el rendimiento *percibido* de las llamadas normales, pero elimina una clase entera de incidentes por timeout.
 
+> ### Mirado el 20 ago 2026: el paso 13 no depende de escribir los Jobs
+>
+> Convertir los importadores a Jobs es la parte fácil. Lo que hay debajo son dos
+> cosas que no se resuelven en este repo:
+>
+> **1. Una cola sin worker no es una cola: es una papelera.** `queue:work`
+> necesita un proceso vivo, y en un alojamiento compartido de cPanel no hay
+> supervisor. El sustituto habitual es un cron cada minuto con
+> `queue:work --stop-when-empty`, y eso son **dieciséis crons, uno por colegio**,
+> en cuentas donde ya no se dio por garantizado que el cron corra — está escrito
+> en `App\Console\Commands\LimpiarSesiones`, que por eso no se programó en el
+> scheduler. Si el worker no corre, un import encolado no falla: se queda ahí,
+> que es peor que el timeout de hoy porque nadie se entera.
+>
+> **2. Cambia el contrato con los clientes, y son cuatro.** Hoy el importador
+> responde con el resultado; encolado responde con un identificador y el cliente
+> tiene que preguntar. Eso es trabajo en `myvc_front`, en `myvc_front_2` y en la
+> app de Flutter —que es **una sola para los dieciséis colegios**, así que no se
+> puede escalonar—. No es una optimización interna: es una funcionalidad nueva
+> con pantalla.
+>
+> **Lo que sí se puede hacer sin nada de eso**, si el problema real es que un
+> import grande se corta: subir `max_execution_time` para esas rutas y trocear el
+> importador para que reporte avance. Pero antes de tocarlo conviene saber si de
+> verdad pasa: el registro de consultas lentas (paso 3) dice cuánto tarda cada
+> ruta en cada colegio, y hasta ahora "los imports dan timeout" es una impresión,
+> no una medición.
+>
+> **Para Joseth**: ¿hay cron disponible en las cuentas de cPanel de los dos
+> alojamientos? De esa respuesta depende que el paso 13 sea posible siquiera.
+
 ---
 
 ## Lo que hay que medir antes de seguir optimizando
@@ -446,7 +477,7 @@ Sin esto, "está lento" no es accionable. Con esto, cada endpoint reporta su con
 | 10 | ~~Redis como caché y sesión~~ · **descartado**: no hay servidor Redis (Joseth, 20 ago 2026); en cPanel solo está la extensión cliente | 2 h | — | paso 9 |
 | 11 | PHP 8.0 → **8.4** | incluido en Fase 4 | 🟡 10–20 % | Fase 4 |
 | 12 | Índices según el `EXPLAIN` · **tres puestos el 20 ago 2026**, el resto espera al paso 3 | variable | 🟠 **medido: 970 ms → 44 ms** en una tanda de boletines | paso 3 |
-| 13 | Colas para importadores e informes | 2–3 d | 🟡 elimina timeouts | Fase 6 |
+| 13 | Colas para importadores e informes · **parado el 20 ago 2026**: sin worker no hay cola, y cambia el contrato de los cuatro clientes | 2–3 d | 🟡 elimina timeouts | cron por colegio |
 
 **Los pasos 1, 2 y 3 no dependen de la migración. Hazlos esta semana.** El paso 1, solo, puede resolver la mayor parte de lo que percibes como lentitud.
 
