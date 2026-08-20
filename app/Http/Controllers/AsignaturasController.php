@@ -201,8 +201,20 @@ class AsignaturasController extends Controller {
 		$asignaturas 	= '';
 		$pedidos 		= [];
 
+		// Decía `case 'Profesor' or 'Usuario':`, que en PHP no es «uno u otro»:
+		// es `case ('Profesor' or 'Usuario')`, o sea `case true`. Y como `switch`
+		// compara con `==`, cualquier tipo no vacío entraba por aquí y el
+		// `case 'Alumno'` de abajo no se ejecutaba nunca.
+		//
+		// Ese error de escritura era lo único que tapaba una fuga: la rama de
+		// Alumno filtraba por `a.profesor_id = <persona_id del alumno>`, y los
+		// ids de `alumnos` y de `profesores` son numeraciones distintas que se
+		// solapan — 34 alumnos de la base de desarrollo verían las asignaturas
+		// del profesor con su mismo id, uno de ellos 92. Ver
+		// docs/migracion/05-codigo-muerto-y-roto.md §11.1.
 		switch ($user->tipo) {
-			case 'Profesor' or 'Usuario':
+			case 'Profesor':
+			case 'Usuario':
 				$asignaturas = Profesor::asignaturas($user->year_id, $persona_id);
 
 				foreach ($asignaturas as $asignatura) {
@@ -237,16 +249,24 @@ class AsignaturasController extends Controller {
 				break;
 
 			case 'Alumno':
-				$consulta = 'SELECT a.id as asignatura_id, a.grupo_id, a.profesor_id, a.creditos, a.orden,
-							m.materia, m.alias as alias_materia, g.nombre as nombre_grupo, g.abrev as abrev_grupo, g.titular_id, g.caritas
-						FROM asignaturas a
-						inner join materias m on m.id=a.materia_id and m.deleted_at is null
-						inner join grupos g on g.id=a.grupo_id and g.year_id=:year_id and g.deleted_at is null
-						where a.profesor_id=:profesor_id and a.deleted_at is null
-						order by g.orden, a.orden, a.id';
+				// Esta rama llevaba una consulta que preguntaba por
+				// `a.profesor_id = :profesor_id` pasándole el `persona_id` del
+				// alumno. No era «las asignaturas del alumno»: era «las del
+				// profesor que por casualidad tenga ese número». Se retira, que
+				// es lo único que se puede hacer sin decidir lo otro.
+				//
+				// La regla de acceso sí está decidida (Joseth, 20 ago 2026): un
+				// alumno o acudiente solo puede alcanzar asignaturas **de su
+				// grupo, o de todos sus grupos**. Devolver la lista vacía la
+				// cumple y además no cambia lo que ve el cliente hoy, porque la
+				// consulta de arriba tampoco devolvía nada.
+				//
+				// Lo que queda abierto es si esta pantalla debe enseñarle sus
+				// asignaturas de verdad — las de su grupo, que ninguna de las dos
+				// consultas miraba—. Eso es escribir la que nadie escribió, y va
+				// aparte.
+				$asignaturas = [];
 
-				$asignaturas = DB::select($consulta, [':year_id' => $user->year_id, ':profesor_id' => $persona_id]);
-				
 				break;
 			
 			default:
