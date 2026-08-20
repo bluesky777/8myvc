@@ -366,16 +366,6 @@ class Grupo extends Model {
 
 	
 	
-	public function materias()
-	{
-		return $this->belongsToMany('Materia', 'asignaturas');
-	}
-
-	public function asignaturas()
-	{
-		return $this->hasMany('Asignatura');
-	}
-
 	public static function datos($grupo_id)
 	{
 		$consulta = 'SELECT g.id as grupo_id, g.titular_id, g.nombre as nombre_grupo, g.abrev as abrev_grupo,

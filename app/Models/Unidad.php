@@ -44,11 +44,6 @@ class Unidad extends Model {
 
 
 
-	public function subunidades()
-	{
-		return $this->hasMany('Subunidad');
-	}
-
 
 
 	public static function arreglarOrden($unidadesT, $asignatura_id, $periodo_id)

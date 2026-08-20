@@ -76,11 +76,6 @@ class Alumno extends Model {
 	protected $softDelete = true;
 
 
-	public function matriculas()
-	{
-		return $this->hasMany('Matricula');
-	}
-
 	public static function userData($alumno_id)
 	{
 		$consulta = 'SELECT a.user_id, u.username, a.sexo, u.email, a.fecha_nac,

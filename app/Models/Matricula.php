@@ -228,11 +228,6 @@ class Matricula extends Model {
 	}
 
 
-	public function alumnos()
-	{
-		return $this->hasMany('Alumno');
-	}
-
 }
 
 
