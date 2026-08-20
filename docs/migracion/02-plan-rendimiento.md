@@ -267,6 +267,63 @@ foreach($usuario->roles as $role) {
 
 **Impacto esperado: de 5–8 consultas a 0–1 por petición.**
 
+> ### El punto 3 (cachear el contexto) mirado de cerca el 20 ago 2026, y NO hecho
+>
+> El plan lo da por un día de trabajo con un `Cache::remember` de 15 minutos.
+> Antes de escribirlo hacía falta contestar qué se queda obsoleto, y la respuesta
+> tiene dos mitades que se compensan al revés de lo esperado.
+>
+> **La mitad tranquilizadora: las comprobaciones que de verdad deciden algo NO
+> leen del contexto, releen de la base.** Se comprobó una por una:
+>
+> | Comprobación | De dónde saca el dato |
+> |---|---|
+> | El boletín y el paz y salvo | `SELECT pazysalvo FROM alumnos` en el guard — fresco |
+> | ¿El profesor puede editar notas o nivelar? | `SELECT * FROM periodos` en `User::pueden_modificar_notas` — fresco |
+> | ¿Es acudiente de este alumno? | `SELECT id FROM parentescos` en el guard — fresco |
+>
+> O sea que cachear el contexto **no** deja a un alumno que acaba de pagar sin
+> boletín, ni mantiene abierta una ventana de notas que el coordinador acaba de
+> cerrar. Que era el miedo razonable.
+>
+> **La mitad que sí para el trabajo son dos cosas, y ninguna es de programación:**
+>
+> 1. **Los permisos sí se leen del contexto.** `RolesController` decide con
+>    `in_array('can_edit_usuarios', $user->perms)`. Cachear quince minutos es
+>    dejar vivo quince minutos un permiso que alguien acaba de quitar. Se
+>    arregla invalidando al escribir roles —son pocos sitios— pero es una
+>    decisión de seguridad, no un detalle de implementación.
+>
+> 2. **Y la que de verdad bloquea: no sabemos si `storage/` se comparte entre
+>    colegios.** `DESPLIEGUE-REFERENCIA.md` lo deja sin confirmar, y el driver
+>    de caché de hoy es `file`, que escribe justo ahí. Si está compartida, una
+>    clave `user.context.5` le sirve al usuario 5 de un colegio el contexto del
+>    usuario 5 de otro: nombre, grupo, notas y permisos de otro colegio. Es
+>    exactamente la clase de suposición que ya salió cara una vez — la creencia
+>    de que `app/` se compartía por symlink cuando es copia real.
+>
+>    Tiene arreglo trivial (meter el nombre de la base en la clave), pero
+>    escribir el arreglo antes de confirmar el dato es volver a construir sobre
+>    una suposición.
+>
+> **Y aunque las dos se resuelvan, falta saber si gana algo.** Con
+> `CACHE_DRIVER=file` la caché es leer y deserializar un fichero del mismo disco
+> compartido; contra tres consultas que ahora sí van por índice, puede no ganar
+> nada. Por eso el plan pone Redis (paso 10) *después* del 9: sin él, el 9 es una
+> apuesta. La medición que lo contesta es la del paso 3, que ya está montada.
+>
+> **Queda para Joseth**, y son dos preguntas concretas: ¿se comparte `storage/`
+> entre colegios?, y ¿hay Redis disponible en esas cuentas de cPanel?
+
+> ### Y el paso 2 (instrumentación en dev) no necesita paquete nuevo
+>
+> Pedía Clockwork o Debugbar «para ver consultas por petición y tiempos». Las dos
+> cosas ya se pueden sin añadir dependencia: `CONSULTAS_LENTAS_MS=1` en el `.env`
+> de desarrollo anota todas las consultas con su ruta, y el conteo por petición
+> lo fija `tests/Contrato/ConsultasPorPeticionTest.php`, que además impide que
+> vuelva a subir sin que nadie se entere — que es más de lo que da una barra en
+> el navegador de una API sin vistas.
+
 ---
 
 ### 5. 🟠 `QUEUE_CONNECTION=sync` · los procesos pesados bloquean la petición HTTP
@@ -370,14 +427,14 @@ Sin esto, "está lento" no es accionable. Con esto, cada endpoint reporta su con
 | # | Acción | Esfuerzo | Impacto esperado | Depende de |
 |---|---|---|---|---|
 | 1 | **Instalar y configurar OPcache** (dev **y producción**) | 1 h | 🔴 **150–200 ms/petición** | nada |
-| 2 | Instrumentación (Clockwork/Debugbar) en dev | 1 h | medición | nada |
+| 2 | ~~Instrumentación (Clockwork/Debugbar) en dev~~ · **no hace falta paquete**: ver la nota del §4 | 1 h | medición | nada |
 | 3 | ~~Log de consultas lentas en producción, 1 semana~~ · **montado el 20 ago 2026**, falta encenderlo | 30 min | medición | nada |
 | 4 | Quitar `AdvancedRoute` → rutas explícitas | 1–2 d | 🔴 45 ms + doble registro | Fase 1 |
 | 5 | ~~Sacar `fromToken()` de los constructores~~ · **hecho 18 ago 2026** | 1 d | habilita el paso 6 | Fase 2 |
 | 6 | `route:cache` + `config:cache` en despliegue | 2 h | ~~🔴 30–60 ms~~ · **medido: ruido** (0,031 s con, 0,028 s sin) — la ganancia ya la dieron la Fase 1 y OPcache | paso 5 |
 | 7 | ~~Eliminar la doble autenticación (rate limiter)~~ · **hecho 19 ago 2026** | 2 h | 🟠 **2 consultas menos, medidas** | Fase 3 |
 | 8 | ~~Colapsar el N+1 de permisos~~ · **hecho 19 ago 2026** | 1 h | 🟠 N-1 consultas | Fase 3 |
-| 9 | Cachear el contexto de usuario | 1 d | 🟠 3 consultas → 0 | Fase 3 |
+| 9 | Cachear el contexto de usuario · **mirado el 20 ago 2026 y parado**: falta saber si `storage/` se comparte | 1 d | 🟠 3 consultas → 0 | Fase 3 |
 | 10 | Redis como caché y sesión | 2 h | 🟠 variable | paso 9 |
 | 11 | PHP 8.0 → **8.4** | incluido en Fase 4 | 🟡 10–20 % | Fase 4 |
 | 12 | Índices según el `EXPLAIN` · **tres puestos el 20 ago 2026**, el resto espera al paso 3 | variable | 🟠 **medido: 970 ms → 44 ms** en una tanda de boletines | paso 3 |
