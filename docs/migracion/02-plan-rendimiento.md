@@ -60,17 +60,39 @@ La autenticación se suma **encima** de esos 250 ms.
 > Lo que no está medido es una petición autenticada de verdad contra la base de
 > desarrollo; para eso hace falta una credencial de ese colegio.
 >
-> **Falta el otro lado, y el 20 ago 2026 se avanzó medio paso.** `php -v` en el
-> servidor de la cuenta `micolev1` dice **PHP 8.4.24 with Zend OPcache
-> v8.4.24**, o sea que la extensión está instalada y cargada. Pero eso es el
-> **CLI**, y lo que sirve las peticiones no es el CLI: en cPanel es LSAPI o
-> FPM, con su propio `opcache.enable` y su propia memoria. Un servidor puede
-> tener OPcache en el CLI y no en el web, que es justo donde valen los 200 ms.
+> **El otro lado también, desde el 20 ago 2026: OPcache está activo en
+> producción.** `php -v` en el servidor dice PHP 8.4.24 *with Zend OPcache
+> v8.4.24*, y en el panel la extensión `opcache` está marcada. **Con eso el paso
+> 1 queda cerrado en los dos lados**, que era la ganancia más grande de todo
+> este documento —de 0,25 s a 0,03 s— y la única que valía la pena confirmar
+> aunque costara entrar al panel.
 >
-> Lo que falta es mirarlo desde el lado web —en el panel, *Select PHP Version →
-> Options*, o *MultiPHP INI Editor*, comprobando `opcache.enable` y
-> `opcache.memory_consumption`—. Es la comprobación más barata de todo este
-> documento y vale la ganancia más grande que se ha medido.
+> **Dónde mirarlo, que no es obvio:** estas cuentas son CloudLinux (se reconoce
+> por `/opt/alt/php84/` en el `include_path`), y ahí OPcache es una
+> **extensión**, no una opción. En *Select PHP Version* está en la pestaña
+> **Extensions**; en **Options** no aparece nunca, por mucho que se busque.
+
+> ### Los límites de PHP de la cuenta, y qué significan para el paso 13
+>
+> De la misma pantalla, el 20 ago 2026 (cuenta `micolev1`, PHP 8.4):
+>
+> | Ajuste | Valor |
+> |---|---|
+> | `max_execution_time` | **300** s |
+> | `memory_limit` | **768M** |
+> | `post_max_size` · `upload_max_filesize` | 128M |
+> | `display_errors` | Off · `log_errors` On |
+>
+> **Cinco minutos y 768 MB no es un alojamiento apretado.** Eso cambia la
+> conversación del paso 13: «los imports dan timeout» se venía diciendo sin
+> número, y el techo real es de cinco minutos, no de treinta segundos. Antes de
+> construir colas —que son pantalla nueva en los cuatro clientes— hay que saber
+> si algún import se acerca siquiera a ese techo, y eso lo dice el registro de
+> consultas lentas del paso 3.
+>
+> `display_errors` en Off y `log_errors` en On es lo correcto, y de paso cubre
+> la mitad del 🟢 «verificar APP_DEBUG en producción» del plan de seguridad: aunque
+> Laravel tuviera el debug encendido, PHP no está escupiendo errores al cliente.
 
 **Lo que se midió el 17 ago 2026, dentro del contenedor viejo:**
 

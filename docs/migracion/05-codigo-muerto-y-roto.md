@@ -502,3 +502,35 @@ contrato de la Fase 0, y por eso conviene terminarlos antes.
 > preguntarle a nadie cuáles importan. Las dos cosas hacen falta, y ninguna
 > sustituye a la otra: por eso `larastan` y `pint` corren ahora en el CI junto a
 > la suite.
+
+---
+
+## 10. La hora, mirada a fondo el 20 ago 2026 — y está bien
+
+Salió al ver `date.timezone = UTC` en el panel de PHP mientras se comprobaba
+otra cosa. En este proyecto conviven **dos zonas horarias**, y Colombia está a
+UTC−5, así que la sospecha era razonable:
+
+| Dónde | Qué usa | Cuántas veces |
+|---|---|---|
+| `config/app.php` | `'timezone' => 'UTC'` | — |
+| El código de siempre | `Carbon::now('America/Bogota')` | 114 |
+| La sesión de la Fase 3 | `Carbon::now()`, o sea UTC | 8 |
+
+**Se revisaron las ocho, y no hay fallo.** Las ocho son de
+`Services\Sesion`, `TokenDeSesion` y `LimpiarSesiones`, y todas comparan contra
+valores que ellas mismas escribieron en UTC: `expires_at`, `last_used_at`, el
+corte de la limpieza. Una duración calculada entera en UTC da lo mismo que
+calculada entera en Bogotá.
+
+Lo mismo por el otro lado: los tokens de reseteo de contraseña se escriben con
+`Carbon::now('America/Bogota')` y se comprueban con
+`Carbon::now('America/Bogota')->subHour()`, así que la ventana de una hora dura
+una hora.
+
+**Lo que sí queda es el aviso**, porque el día que alguien mezcle las dos el
+error no se ve: son cinco horas, no un fallo. La regla es la que ya siguen los
+dos grupos sin habérselo dicho — **cada fecha se escribe y se compara en la
+misma zona**—, y lo que decide cuál es de dónde sale el dato: si es un dato del
+colegio (una matrícula, una ausencia, una nota), va en `America/Bogota` como
+todo lo demás de su tabla; si es un plazo interno del sistema, en UTC.
