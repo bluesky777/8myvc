@@ -418,6 +418,11 @@ rincón donde golpear cuesta trabajo, porque hay que fabricar el archivo. El que
 lo destapó fue el trabajo de la importación reanudable, que fue a mirar los dos
 importadores que [09 §1](09-pendientes.md) daba por vivos.
 
+> **Y son tres, no dos** (20 ago 2026, nivel 5). `GET api/importar/modificar/{year}`
+> tiene la misma firma de la 2.x y tampoco estaba en ninguna lista. No lo
+> encontró golpear —lleva parámetro en la URL, como esta— sino leer la firma.
+> Ver la [§13.3](#133-el-cuarto-importador-con-la-firma-de-maatwebsite-2x).
+
 Queda fijado en `tests/Contrato/ExcelTest.php`, con la hoja que produce el propio
 export de deudores. **Se deja roto** por lo mismo que los otros cuatro: qué debe
 hacer la importación de cartera —y si la operación debe existir, ahora que se

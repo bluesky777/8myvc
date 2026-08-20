@@ -147,6 +147,41 @@ class ExcelTest extends CasoDeContrato
     }
 
     /**
+     * Y el tercero de la misma familia, que no estaba en ninguna lista.
+     *
+     * `GET api/importar/modificar/{year}` hace el mismo `Excel::import($ruta,
+     * function ($reader) { … })` de la 2.x que los otros dos. No salió antes por
+     * lo mismo que la cartera —el muestreo de la P2 golpeaba lecturas **sin
+     * parámetro**, y esta lleva `{year}`—; lo destapó el nivel 5 de larastan, que
+     * no golpea nada: lee la firma del método y compara. Es la contraria de la
+     * lección de la §8, y por eso merece quedar escrita.
+     *
+     * **Ojo con el error que se ve aquí, porque no es el de producción.** El
+     * método empieza por `apache_request_headers()`, que existe bajo FPM
+     * —comprobado sirviendo por HTTP en el contenedor— y **no existe en el PHP
+     * de línea de comandos** donde corre phpunit. Así que aquí revienta antes,
+     * en la línea 639, y en producción llega hasta el `Excel::import` y muere
+     * con el `pathinfo(): Argument #1 ($path) must be of type string, Closure
+     * given` de sus dos hermanos. Los dos caminos son 500; el test fija eso, que
+     * es lo único que se ve desde fuera y lo único que no depende del SAPI.
+     *
+     * Y un detalle que cambia lo que es este endpoint: el archivo que lee
+     * —`app/Http/Controllers/Alumnos/archivos/alumnos-modificar-{year}.xlsx`—
+     * **no está en el repo, ni el directorio que lo contiene**. Junto con
+     * `GET api/importar`, que lee `archivos/alumnos.xls` del mismo sitio, no son
+     * pantallas del colegio: son la herramienta manual de alguien, que dejaba el
+     * archivo en la carpeta y llamaba a la URL. Eso es parte de la decisión de
+     * si la operación debe existir.
+     */
+    public function test_el_importador_de_modificar_usa_la_api_vieja_y_falla(): void
+    {
+        $token = $this->tokenDe($this->usuarioDeTipo('Usuario')->username);
+
+        $this->get('/api/importar/modificar/2025', ['Authorization' => 'Bearer '.$token])
+            ->assertStatus(500);
+    }
+
+    /**
      * Lo que se exporta se puede volver a importar sin que cambie nada.
      *
      * Es el uso real: la secretaría descarga la hoja, corrige unas celdas y la
