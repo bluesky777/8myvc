@@ -213,11 +213,17 @@ Route::put('promovidos/calcular-grupo', [PromovidosController::class, 'putCalcul
 //
 //   - `field` no llevaba **ninguno**, y las tres columnas que escribe se eligen
 //     por `id` de la fila del PIAR, así que cualquiera con token reescribía la
-//     valoración pedagógica de cualquier alumno.
+//     valoración pedagógica de cualquier alumno. Que además el texto se pintara
+//     sin sanear es lo que lo convertía en ejecución de JavaScript en la sesión
+//     del docente; **eso se cierra aparte, en `App\Support\HtmlDelEditor`**.
 //   - las dos de `document` llevaban `persona.propia`, que deja pasar al alumno
 //     sobre lo suyo: un alumno subía y borraba los documentos de su propio PIAR.
 //     Decisión de Joseth, 21 ago 2026: los documentos del PIAR los pone el
 //     colegio.
+//
+// El guard deja fuera a alumnos y acudientes, que es hasta donde llega la regla
+// de hoy. Que un profesor solo pueda escribir en los PIAR de SUS grupos es el
+// refactor de permisos entre personal, pendiente (06-autorizacion.md).
 Route::post('piars-alumnos/document', [PiarsAlumnosController::class, 'postDocument'])->middleware('auth.personal');
 Route::put('piars-alumnos/field', [PiarsAlumnosController::class, 'putField'])->middleware('auth.personal');
 Route::get('piars-alumnos/alumnos/{grupo_id}', [PiarsAlumnosController::class, 'getAlumnos'])->middleware('auth.personal');

@@ -247,18 +247,12 @@ parameters:
             path: app/Http/Controllers/Perfiles/PublicacionesController.php
             count: 2
 
-        # PUT api/piars-alumnos/field · PUT api/piars-actas-acuerdo/...
-        # `$document` es el resultado de un `DB::update()` dentro de un `if`, y
-        # se devuelve fuera. Si el `if` no entra, la respuesta que el frontend
-        # espera no existe. Qué devolver entonces es la decisión.
-        -
-            message: '#^Variable \$document might not be defined\.$#'
-            path: app/Http/Controllers/Piars/PiarsActasAcuerdoController.php
-            count: 1
-        -
-            message: '#^Variable \$document might not be defined\.$#'
-            path: app/Http/Controllers/Piars/PiarsAlumnosController.php
-            count: 2
+        # El `$document` de los tres endpoints de documento del PIAR estaba aquí
+        # hasta el 20 ago 2026. La decisión que faltaba —qué devolver cuando el
+        # `if` no entra— resultó ser que no hay nada que devolver: sin fila en
+        # `piars_alumnos` ese alumno no tiene PIAR, y sin fila en
+        # `piars_actas_acuerdo` no hay acta que borrar. Los tres contestan ahora
+        # 404 y las variables ya no pueden quedar sin definir.
 
         # GET api/piars-asignaturas/asignaturas/{grupo_id}/{alumno_id}
         # `$asignaturas` solo se define para Profesor y para Usuario. Un Alumno o

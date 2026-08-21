@@ -342,7 +342,7 @@ análisis; está comprobado insertando una variable inexistente.
 | `GET api/candidatos/conaspiraciones` | `VtVotacion::actualInscrito()` no existe; lo que hay es `actualesInscrito()`, que devuelve un **array**, y aquí se usa como una sola votación. No es un renombre: hay que decidir cuál es «la suya». Solo revienta para Alumno y Acudiente |
 | `PUT api/publicaciones/borrar-comentario` | `$user.persona_id==comentario.persona_id` — notación de punto de otro lenguaje. En PHP el punto concatena y las dos son constantes que no existen: fatal. Solo lo esquiva un superusuario, porque el `\|\|` corta antes. Falta la consulta que diga de quién es el comentario |
 | `PUT api/publicaciones/guardar` | `$para_todos` se define en las dos ramas del `if` y en ninguna otra; sus cuatro hermanas sí se inicializan a 0 justo encima. Inicializarla cambiaría un 500 por una publicación que no ve nadie, que es peor |
-| `PUT api/piars-alumnos/field` · `PUT api/piars-actas-acuerdo/…` | `$document` sale de un `DB::update()` dentro de un `if` y se devuelve fuera. Si el `if` no entra, la respuesta que el frontend espera no existe |
+| ~~`POST api/piars-alumnos/document` · `DELETE api/piars-alumnos/document/{alumno_id}` · `DELETE api/piars-actas-acuerdo/document/{alumno_id}`~~ | **Decidido el 20 ago 2026, ver §7.3.** La fila decía `PUT api/piars-alumnos/field`, y `putField` no usa `$document` en ninguna parte: eran los tres endpoints de documento |
 | `GET api/piars-asignaturas/asignaturas/{grupo_id}/{alumno_id}` | `$asignaturas` solo se define para Profesor y para Usuario. Qué ve un Alumno de su propio PIAR no es una decisión de programación |
 | `POST api/importar/cartera` | `return (array)$rr;` y `$rr` no se define en ninguna rama |
 | `GET api/definitivas_periodos` | `$profe_id` se define para Profesor y para superusuario —con la condición escrita dos veces, `$user->is_superuser && $user->is_superuser`— y para nadie más |
@@ -350,6 +350,35 @@ análisis; está comprobado insertando una variable inexistente.
 
 **El patrón, otra vez:** ninguno de estos diez salió de leer el código con una
 lista delante. Salieron de subirle una pregunta a la herramienta.
+
+### 7.3 El `$document` de los documentos del PIAR: decidido (20 ago 2026)
+
+La decisión que faltaba era **qué devolver cuando el `if` no entra**, y resultó
+que no hay nada que devolver: el `if` preguntaba si existe la fila, y no existir
+no es un caso raro del que haya que salir con algo — es que no hay PIAR.
+
+- Sin fila en `piars_alumnos`, ese alumno no tiene PIAR. La crea
+  `PiarsAlumnoUtils::getAlumnosPiar` al pedir el grupo, y solo para los que
+  tienen `nee=1`. Los tres endpoints contestan ahora **404**.
+- Sin fila en `piars_actas_acuerdo`, no hay acta que borrar. **404** también.
+
+Con eso las variables ya no pueden quedar sin definir y **las dos entradas de
+`phpstan.neon` desaparecen**, comentario incluido.
+
+De paso, en `POST piars-alumnos/document` el archivo se guardaba en disco
+**antes** de comprobar la fila. O sea que el caso roto no solo devolvía un 500:
+dejaba el archivo escrito bajo `uploads/` sin nada que lo apuntara. Ahora se
+comprueba primero y se guarda después.
+
+**Lo que salió de paso y no era esto.** Los tres `postDocument` devolvían
+`['document' => <nº de filas afectadas>]`, que no le sirve de nada a quien acaba
+de subir un archivo: el nombre final lo decide el servidor —carpeta
+`user_<user_id>/` y sufijo `(1)`, `(2)`… al chocar, ver `SafeUpload`—, así que
+el cliente no podía saber a qué enlazar y pintaba un enlace roto hasta que se
+recargaba la página. Y la carpeta es **por usuario, no por alumno**: un titular
+que suba `acta.pdf` para dos estudiantes provoca la colisión de verdad. Se añade
+`documento` a la respuesta con la ruta real; `document` se mantiene por si algo
+lo lee.
 
 ## 8. Lo que encontró golpear las rutas (20 ago 2026, P2 de tests)
 

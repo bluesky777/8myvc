@@ -1,5 +1,13 @@
 # El nivel 6 no encuentra nada, y el 7 sí — medido el 21 de agosto de 2026
 
+> **Qué hay dentro, porque el título se quedó corto.** Esto empezó siendo la
+> medición de un peldaño de larastan (§1–§7) y acabó siendo el cuaderno de una
+> sesión entera: **sesión y tokens, reseteo de contraseña, generadores de nombres
+> de usuario, superusuarios y matrículas**. Se dejó en un solo fichero a
+> propósito —cada hallazgo salió del anterior y separarlos rompería el hilo, que
+> es lo que hace falta para entenderlos—. El índice está en el §21, al final, que
+> es también el traspaso de este frente.
+
 Este documento contesta una pregunta que se dio por hecha: **«el siguiente nivel
 de larastan es el 6»**. Se midió antes de subirlo, y la respuesta es que no.
 
@@ -1102,3 +1110,85 @@ documento decía qué hacía la bandera; ahora hay algo que lo comprueba.
 El `400` se deja como está, aunque para código nuevo la regla sea 403: cambiarlo
 es tocar lo que el front lee hoy, y lo que aquí se está midiendo es **quién
 puede**, no con qué número se le dice que no.
+
+
+---
+
+## §21. Traspaso — dónde queda este frente el 21 de agosto de 2026
+
+Lo escribe la sesión que lo llevó, para que la siguiente no tenga que
+reconstruirlo. **Nada de esto está desplegado**: `app/` es copia real en cada
+colegio y fusionar no es desplegar (`docs/DESPLIEGUE.md`).
+
+### El índice de este documento
+
+| § | Qué hay | Estado |
+|---|---|---|
+| 1–7 | La medición de larastan: por qué el 6 no y el 7 sí, y los 24 del 7 | **cerrado**, gate en el 7 |
+| 8–10, 13 | El reseteo de contraseña: el enlace abría cualquier cuenta del mismo correo | **arreglado**; su consecuencia (ocho cuentas sin recuperación) **decidida: se deja** |
+| 9, 14 | Los correos autogenerados y los generadores de nombre de usuario | **arreglados los generadores**; los datos ya creados **no se tocan**, decidido |
+| 15, 16 | Seis superusuarios «(inhabilitado)» encendidos, y que apagarlos no cortaba la sesión | la sesión **arreglada**; las cuentas, **decidido: se quedan** |
+| 17, 18 | Los interruptores que no lee nadie, y los cinco significados de «matriculado» | **medido**, sin nada que arreglar |
+| 19 | El perfil de cualquiera por su nombre de usuario | **cerrado** con guard; el 500 de detrás, **traspasado a la sesión de `Perfiles/*`** |
+| 20 | La bandera `profes_can_edit_alumnos`: no son dos cosas, son 19 rutas | **medido y fijado**; la decisión sigue abierta |
+
+### Lo que está encendido y no hay que bajar
+
+- **`phpstan.neon` en nivel 7**, con tres familias de ruido y siete de deuda de
+  anotación diferidas **por identificador y con su número**. Se puso con el
+  análisis en cero. El 6 **no se sube**: está medido en la cabecera de este
+  documento y resumido en el propio `phpstan.neon`.
+- **`Sesion::resolverDeVerdad()` comprueba `is_active` y `deleted_at`.** Si
+  alguien lo quita, apagar una cuenta vuelve a dejar a esa persona dentro hasta
+  24 h. Lo fijan dos tests de `SesionTest`.
+- **`persona.propia:username`**, el séptimo modo del guard. Y con él, la lección
+  de operación: cerrar una ruta con `persona.propia` mueve **dos instantáneas** y
+  puede hacer que su familia cruce el umbral del test «la que se quedó sola», que
+  entonces exige justificar a las hermanas sin guard. Es el test funcionando.
+
+### Lo que queda, con dueño
+
+| Qué | De quién | Qué falta |
+|---|---|---|
+| `PerfilesController::getUsername()` — la segunda consulta no filtra por el nombre y devolvería los 1.000 acudientes; hoy solo lo impide un fallo de binding | la sesión de `Perfiles/*` | **el arreglo evidente es el malo**: hay que añadir `and u.username = :username`, no quitar el parámetro que sobra. §19, con test que lo dice en su mensaje de fallo |
+| `ws_actividades.can_upload` y `one_by_one` — el backend no las mira, solo el front | la sesión de actividades | misma forma que el `in_action` que ya cerró |
+| `config_certificados.encabezado_solo_primera_pagina` y `piepagina_solo_ultima_pagina` — no las lee nadie, en ninguna parte | la sesión de certificados | §17 |
+| El modelo de aprobación **por campo** de los pedidos de cambio está abandonado: `can_ask` encendida en las 2.351 cuentas sin lectores y los `*_accepted` a cero en 131 filas | quien retome la §38/§39 | §17, para no reconstruirlo |
+| `years.profes_can_edit_alumnos` | decisión del colegio | §20: son 19 rutas y hoy está apagada en los ocho años. Encenderla entrega matrículas completo a los 19 profesores |
+| `matriculas.estado` con cinco significados de «matriculado» | decisión, si algún colegio usa prematrícula | §18. `matriculas:huerfanas` ya dice si a ese colegio le pasa |
+
+### Por dónde seguir, si se retoma este frente
+
+**Rutas sin comprobar, eligiendo hueco con forma de dominio.** Es lo que produjo
+la §20 y sigue siendo la vena más productiva, con dos avisos que hoy costaron
+tiempo:
+
+1. La cobertura **ya no es la medida que manda**: sube de tres en tres y lo que
+   encuentra no sale del número sino de elegir bien el dominio y leer el
+   controlador.
+2. Pero sí amplía lo que ven las otras herramientas — `indices-que-faltan.php`
+   solo mide las consultas que la suite ejecuta, así que el 36% de la API está
+   fuera de esa medición (ver [02-plan-rendimiento.md](02-plan-rendimiento.md)).
+
+Los dominios sin dueño y sin un solo test, medidos hoy: `ciudades` (9 rutas),
+`ordinales` (5), `calendario` (4), `profesores` (4), `bolfinales` (4).
+
+**Y lo que no hay que retomar:** `CONSULTAS_LENTAS_MS` sigue apagado a propósito
+—el importador se va a rehacer, no a optimizar— y con él se queda sin crear el
+índice de `bitacoras`. Está en el plan de rendimiento con el `EXPLAIN` hecho.
+
+### Tres cosas de trabajar tres sesiones sobre el mismo árbol
+
+Van aquí porque volverá a pasar y las tres costaron tiempo hoy:
+
+- **Una base de tests por sesión** (`DB_TEST_DATABASE=simonbolivar_testing_x`), y
+  aun así **las bases derivan**: si algo falla raro, compara `migrations` antes de
+  buscar el fallo en el código. Está en [03-tests.md](03-tests.md).
+- **El gate es compartido.** Subir el nivel de larastan deja en rojo el
+  `composer run stan` de los demás si su código en vuelo no pasa; se puso el 7
+  **con el análisis en cero** justamente por eso, y aun así hay que avisar.
+- **Volver a correr la herramienta después del arreglo.** El comando
+  `usuarios:correos-compartidos` estuvo una hora imprimiendo un agujero ya
+  cerrado y recomendando lo que ya estaba hecho, y al re-correrlo apareció lo que
+  el arreglo había roto — ocho cuentas sin recuperación — que **ningún test veía,
+  porque los tests fijan lo que el arreglo protege, no lo que el arreglo quita**.

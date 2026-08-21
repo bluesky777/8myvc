@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Piars\Utils\UploadDocuments;
+use App\Support\HtmlDelEditor;
 
 use Carbon\Carbon;
 use Illuminate\Support\Facades\File;
@@ -27,8 +28,10 @@ class PiarsAlumnosController extends Controller {
 		return ['alumnos' => $alumnos];
 	}
 
+
 	public function postDocument()
 	{
+
 		Request::validate([
 			'file' => 'required',
 			'alumno_id' => 'required',
@@ -44,35 +47,48 @@ class PiarsAlumnosController extends Controller {
 		}
 
 		$now 		= Carbon::now('America/Bogota');
-		$fullPath 	= UploadDocuments::save_document($this->user);
 		$alumno_id 	= Request::input('alumno_id');
 
 		$consulta 		= 'SELECT * FROM piars_alumnos WHERE alumno_id=?';
 		$alumno_piar 	= DB::select($consulta, [$alumno_id]);
 
-		if (count($alumno_piar) > 0) {
-			$record = [
-				'documento1' => $alumno_piar[0]->documento1,
-				'documento2' => $alumno_piar[0]->documento2,
-				'updated_at' => $now,
-				'updated_by' => $this->user->user_id,
-				'updated_by_name' => $this->user->nombres . ' - ' . $this->user->username,
-			];
-
-			$arr = json_decode($alumno_piar[0]->history);
-			$newArra = [];
-			try {
-				array_push($arr, $record);
-				$newArra = $arr;
-			} catch (\Throwable $th) {
-				// nothing
-			}
-			$arr = json_encode($newArra);
-
-			$consulta = "UPDATE piars_alumnos SET $field=?, history=? WHERE alumno_id=?";
-			$document = DB::update($consulta, [$fullPath, $arr, $alumno_id]);
+		// El archivo se guardaba ANTES de mirar si existía la fila, y si no
+		// existía el método terminaba con `$document` sin definir: 500, y el
+		// archivo ya escrito en disco sin nada que lo apuntara. La fila la crea
+		// `PiarsAlumnoUtils::getAlumnosPiar` al pedir el grupo, así que no
+		// haberla significa que ese alumno no tiene PIAR, no un fallo interno.
+		if (count($alumno_piar) === 0) {
+			abort(404, 'El alumno no tiene PIAR.');
 		}
-		return ['document' => $document];
+
+		$fullPath = UploadDocuments::save_document($this->user);
+
+		$record = [
+			'documento1' => $alumno_piar[0]->documento1,
+			'documento2' => $alumno_piar[0]->documento2,
+			'updated_at' => $now,
+			'updated_by' => $this->user->user_id,
+			'updated_by_name' => $this->user->nombres . ' - ' . $this->user->username,
+		];
+
+		$arr = json_decode($alumno_piar[0]->history);
+		$newArra = [];
+		try {
+			array_push($arr, $record);
+			$newArra = $arr;
+		} catch (\Throwable $th) {
+			// nothing
+		}
+		$arr = json_encode($newArra);
+
+		$consulta = "UPDATE piars_alumnos SET $field=?, history=? WHERE alumno_id=?";
+		$document = DB::update($consulta, [$fullPath, $arr, $alumno_id]);
+
+		// `documento` es nuevo. El nombre final lo decide el servidor —carpeta
+		// `user_<user_id>/` y `(1)`, `(2)`… al chocar, ver SafeUpload— así que
+		// el cliente no puede deducirlo: sin esto pintaba un enlace roto hasta
+		// que se recargaba la página. `document` se mantiene por si algo lo lee.
+		return ['document' => $document, 'documento' => $fullPath];
 	}
 
 	public function putField()
@@ -91,11 +107,15 @@ class PiarsAlumnosController extends Controller {
 			return response()->json(['error' => 'Invalid'], 400);
 		}
 
-		$consulta = "UPDATE piars_alumnos 
+		// El texto es HTML del editor y el cliente lo pinta como HTML: lo que no
+		// pase por aquí se ejecuta en la sesión de quien abra el PIAR.
+		$text = HtmlDelEditor::limpiar($text);
+
+		$consulta = "UPDATE piars_alumnos
 			SET $field=?, updated_at=?, updated_by=?
 			WHERE id=?";
 		$piars = DB::update($consulta, [
-			$text, $updated_at, $updated_by, $id,  
+			$text, $updated_at, $updated_by, $id,
 		]);
 
     return ['piars' => $piars];
@@ -105,60 +125,67 @@ class PiarsAlumnosController extends Controller {
 	{
 
 		$now 				= Carbon::now('America/Bogota');
+		// `file_name` no lleva un nombre de archivo sino la COLUMNA a vaciar
+		// (`documento1` o `documento2`); el nombre viene de la fila. Se conserva
+		// la clave porque es el contrato que ya usa el cliente.
 		$field 			= Request::input('file_name');
 
 		$consulta = 'SELECT * FROM piars_alumnos WHERE alumno_id=?';
 		$alumno_piar = DB::select($consulta, [$alumno_id]);
-		
+
 		// campos seguros para evitar ataques sql injection
 		$validFields = ['documento1', 'documento2'];
 		if (!in_array($field, $validFields)) {
 			return response()->json(['error' => 'Invalid'], 400);
 		}
 
-		if (count($alumno_piar) > 0) {
-			$documentValue1 = $alumno_piar[0]->documento1;
-			$documentValue2 = $alumno_piar[0]->documento2;
-			$fileToDelete = '';
+		// Sin fila no hay nada que borrar. Antes se caía por `$document` sin
+		// definir, que era un 500 diciendo «no existe».
+		if (count($alumno_piar) === 0) {
+			abort(404, 'El alumno no tiene PIAR.');
+		}
 
-			if ($field == 'documento1') {
-				$fileToDelete = $documentValue1;
-				$documentValue1 = null;
-			}
+		$documentValue1 = $alumno_piar[0]->documento1;
+		$documentValue2 = $alumno_piar[0]->documento2;
+		$fileToDelete = '';
 
-			if ($field == 'documento2') {
-				$fileToDelete = $documentValue2;
-				$documentValue2 = null;
-			}
+		if ($field == 'documento1') {
+			$fileToDelete = $documentValue1;
+			$documentValue1 = null;
+		}
 
-			$record = [
-				'documento1' => $documentValue1,
-				'documento2' => $documentValue2,
-				'updated_at' => $now,
-				'updated_by' => $this->user->user_id,
-				'updated_by_name' => $this->user->nombres . ' - ' . $this->user->username,
-			];
+		if ($field == 'documento2') {
+			$fileToDelete = $documentValue2;
+			$documentValue2 = null;
+		}
 
-			$arr = json_decode($alumno_piar[0]->history);
-			$newArra = [];
-			try {
-				array_push($arr, $record);
-				$newArra = $arr;
-			} catch (\Throwable $th) {
-				// nothing
-			}
-			$arr = json_encode($newArra);
+		$record = [
+			'documento1' => $documentValue1,
+			'documento2' => $documentValue2,
+			'updated_at' => $now,
+			'updated_by' => $this->user->user_id,
+			'updated_by_name' => $this->user->nombres . ' - ' . $this->user->username,
+		];
 
-			$consulta = "UPDATE piars_alumnos SET $field=null, history=? WHERE alumno_id=?";
-			$document = DB::update($consulta, [$arr, $alumno_id]);
+		$arr = json_decode($alumno_piar[0]->history);
+		$newArra = [];
+		try {
+			array_push($arr, $record);
+			$newArra = $arr;
+		} catch (\Throwable $th) {
+			// nothing
+		}
+		$arr = json_encode($newArra);
 
-			$filename 	= 'uploads/'.$fileToDelete;
-		
-			if (File::exists($filename)) {
-				File::delete($filename);
-			}else{
-				Log::info($filename . ' -- Al parecer NO existe archivo: ' . $filename);
-			}
+		$consulta = "UPDATE piars_alumnos SET $field=null, history=? WHERE alumno_id=?";
+		$document = DB::update($consulta, [$arr, $alumno_id]);
+
+		$filename 	= 'uploads/'.$fileToDelete;
+	
+		if (File::exists($filename)) {
+			File::delete($filename);
+		}else{
+			Log::info($filename . ' -- Al parecer NO existe archivo: ' . $filename);
 		}
 		return ['document' => $document];
 	}

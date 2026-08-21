@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 
+use App\Support\HtmlDelEditor;
 use Carbon\Carbon;
 use App\Http\Controllers\Piars\Utils\PiarsAsignaturasUtils;
 use App\Models\Profesor;
@@ -60,7 +61,11 @@ class PiarsAsignaturasController extends Controller {
 			return response()->json(['error' => 'Invalid'], 400);
 		}
 
-		$consulta = "UPDATE piars_asignaturas 
+		// El texto es HTML del editor y el cliente lo pinta como HTML: lo que no
+		// pase por aquí se ejecuta en la sesión de quien abra el PIAR.
+		$text = HtmlDelEditor::limpiar($text);
+
+		$consulta = "UPDATE piars_asignaturas
 			SET $field=?, updated_at=?, updated_by=?
 			WHERE id=?";
 		$piars = DB::update($consulta, [
