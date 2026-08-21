@@ -570,9 +570,23 @@ class ChangeAskedController extends Controller {
 
 
 	
+	/**
+	 * Los detalles de un pedido, para la bandeja de revisión.
+	 *
+	 * No miraba de quién era el pedido, y `detalles()` indexa con `[0]` el
+	 * resultado de su consulta: con un id que no existe era un **500**, la misma
+	 * forma que la §44 y la §47. Ver 05 §50.
+	 *
+	 * El criterio es el de la §49 —el dueño o el superusuario— y no «solo el
+	 * superusuario» como en `rechazar`: aquí leer lo suyo es legítimo, y el
+	 * llamante del front es el panel de revisión, así que ninguno de los dos se
+	 * queda fuera.
+	 */
 	public function putVerDetalles(){
-		$user 		= User::fromToken();
 		$asked_id 	= Request::input('asked_id');
+
+		$this->pedidoPropio($asked_id, 'Solo puedes ver los detalles de un pedido tuyo.');
+
 		$detalles 	= ChangeAskedDetails::detalles($asked_id);
 		return [ 'detalles' => $detalles ];
 	}
@@ -774,6 +788,21 @@ class ChangeAskedController extends Controller {
 
 
 
+	/**
+	 * Rechazar un pedido de cambio.
+	 *
+	 * No comprobaba **nada**: ni quién rechaza ni de quién es el pedido, y el
+	 * `data_id` sobre el que escribía venía del cuerpo. Ver 05 §50.
+	 *
+	 * Rechazar es una operación de la bandeja de revisión, y esa bandeja es
+	 * `getToMe()`, que exige `Usuario` **y** `is_superuser`. O sea que quien no es
+	 * superusuario **no puede ni ver la lista desde la que se rechaza**: cerrarlo
+	 * aquí no le quita nada a nadie por el front, solo cierra la llamada directa.
+	 * Su único llamante, el modal de `AnunciosDir`, se abre desde ahí.
+	 *
+	 * Y el `data_id` se deriva del pedido, no del cuerpo — la §39 y la §49 otra
+	 * vez, la tercera en este mismo controlador.
+	 */
 	public function putRechazar()
 	{
 		$user 		= User::fromToken();
@@ -781,10 +810,18 @@ class ChangeAskedController extends Controller {
 
 		$asked_id 	= Request::input('asked_id');
 		$tipo 		= Request::input('tipo');
-		$data_id 	= Request::input('data_id');
 
+		Autoriza::exigir(Autoriza::esSuperusuario($user), 'Solo quien revisa los pedidos puede rechazarlos.');
 
 		$pedido 	= ChangeAsked::pedido($asked_id);
+
+		// `pedido()` devuelve un array vacío cuando el id no existe, igual que en
+		// `putAceptarAlumno()`, y así llegaba hasta los UPDATE sin que nadie mirara.
+		if (! is_object($pedido)) {
+			abort(404, 'Ese pedido no existe.');
+		}
+
+		$data_id 	= $pedido->data_id;
 
 		if ($tipo == "img_perfil") {
 			$consulta = 'UPDATE change_asked_data SET image_id_accepted=false, updated_at=:updated_at WHERE id=:data_id';
@@ -1085,7 +1122,7 @@ class ChangeAskedController extends Controller {
 	 * y aquí borraría de `change_asked_data` y `change_asked_assignment` filas de
 	 * cualquier otro pedido con solo nombrarlas.
 	 */
-	private function pedidoPropio($asked_id)
+	private function pedidoPropio($asked_id, string $mensaje = 'Solo puedes retirar un pedido tuyo.')
 	{
 		$pedido = DB::selectOne(
 			'SELECT id, asked_by_user_id, data_id, assignment_id FROM change_asked WHERE id = ?',
@@ -1100,7 +1137,7 @@ class ChangeAskedController extends Controller {
 
 		Autoriza::exigir(
 			(int) $pedido->asked_by_user_id === (int) $user->user_id || Autoriza::esSuperusuario($user),
-			'Solo puedes retirar un pedido tuyo.'
+			$mensaje
 		);
 
 		return $pedido;

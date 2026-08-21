@@ -4491,3 +4491,49 @@ Fijado por `RetirarPedidosTest`, cinco casos: el dueño retira, un tercero no, e
 superusuario sí, el anexo ajeno no se borra nombrándolo, y el pedido inexistente
 es 404. Comprobado al revés: revirtiendo las dos comprobaciones caen dos, y las
 tres que dicen que el dueño y el superusuario siguen pudiendo siguen verdes.
+
+---
+
+## 50. Y las otras tres del mismo controlador (21 ago 2026)
+
+La §49 cerró las dos de `destruir`. Quedaban tres rutas de
+`ChangeAskedController` sin ninguna respuesta comprobada, y **dos de ellas tenían
+la misma forma**, así que se miraron a la vez en vez de una por sesión — que es lo
+que había dejado a la §39 sin terminar.
+
+**`ChangesAsked/rechazar` no comprobaba nada**: ni quién rechaza, ni de quién es
+el pedido, y el `data_id` sobre el que escribía venía del cuerpo. Cualquiera de
+los 71 que pasan `auth.personal` rechazaba el pedido de cualquiera.
+
+Rechazar es una operación de la bandeja de revisión, y **esa bandeja es
+`getToMe()`, que exige `Usuario` y `is_superuser`**. Eso es lo que hace el cierre
+barato de justificar: quien no es superusuario **no puede ni ver la lista desde la
+que se rechaza**, así que restringirlo no le quita nada por el front — cierra la
+llamada directa y nada más. Su único llamante, el modal de `AnunciosDir`, se abre
+desde ahí.
+
+**`ChangesAsked/ver-detalles` tampoco miraba de quién era el pedido**, y aquí el
+criterio es **otro a propósito**: el de la §49, el dueño **o** el superusuario, y
+no «solo el superusuario» como en rechazar. Leer lo suyo es legítimo; rechazar lo
+suyo no significa nada. Dos rutas del mismo controlador con criterios distintos
+porque las operaciones son distintas, y eso hay que escribirlo o el siguiente las
+unifica «por coherencia».
+
+Y `ChangeAskedDetails::detalles()` indexa con `[0]` el resultado de su consulta,
+así que un id que no existe era un **500**. Es la tercera vez hoy —§44, §47 y
+ésta— que el mismo `[0]` sobre una consulta vacía tapa que el cliente nombró una
+fila que no está. Ahora 404.
+
+### Lo que hay que llevarse de las tres juntas
+
+`data_id` derivado del cuerpo y no de la fila va **tres veces en este mismo
+controlador**: la §39 en `aceptar-alumno` y `aceptar-asignatura`, la §49 en los dos
+`destruir`, y ésta en `rechazar`. Cinco métodos, un solo error, encontrado en tres
+pasadas distintas con un día de diferencia.
+
+No es que las pasadas anteriores fueran flojas: es que **cada una entró por una
+ruta y arregló lo que esa ruta tocaba**. La pregunta que las habría juntado no es
+«¿está bien esta ruta?» sino **«¿qué más lee este identificador del cuerpo?»**, y
+esa se contesta de una vez y no cinco.
+
+Fijado por `RetirarPedidosTest`, que pasa de cinco casos a nueve.

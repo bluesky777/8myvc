@@ -121,4 +121,53 @@ class RetirarPedidosTest extends CasoDeContrato
             ->putJson('/api/ChangesAsked/destruir', ['asked_id' => $maximo + 1000])
             ->assertStatus(404);
     }
+
+    /**
+     * Rechazar es de la bandeja de revisión, y esa bandeja es `getToMe()`, que
+     * exige `Usuario` y `is_superuser`. Quien no es superusuario **no puede ni ver
+     * la lista desde la que se rechaza**, así que cerrarlo no le quita nada por el
+     * front: cierra la llamada directa. Antes no comprobaba nada.
+     */
+    public function test_un_docente_no_rechaza_un_pedido(): void
+    {
+        [$asked] = $this->pedidoDe((int) $this->otroProfesor()->id);
+
+        $this->withToken($this->tokenDe($this->usuarioDeTipo('Profesor')->username))
+            ->putJson('/api/ChangesAsked/rechazar', ['asked_id' => $asked, 'tipo' => 'nombres'])
+            ->assertStatus(403);
+    }
+
+    /** Y ver los detalles del pedido de otro tampoco. */
+    public function test_un_docente_no_ve_los_detalles_del_pedido_de_otro(): void
+    {
+        [$asked] = $this->pedidoDe((int) $this->otroProfesor()->id);
+
+        $this->withToken($this->tokenDe($this->usuarioDeTipo('Profesor')->username))
+            ->putJson('/api/ChangesAsked/ver-detalles', ['asked_id' => $asked])
+            ->assertStatus(403);
+    }
+
+    /** Los suyos sí, que es el criterio de la §49 y no «solo el superusuario». */
+    public function test_un_docente_ve_los_detalles_de_su_propio_pedido(): void
+    {
+        $yo = $this->usuarioDeTipo('Profesor');
+        [$asked] = $this->pedidoDe((int) $yo->id);
+
+        $this->withToken($this->tokenDe($yo->username))
+            ->putJson('/api/ChangesAsked/ver-detalles', ['asked_id' => $asked])
+            ->assertStatus(200);
+    }
+
+    /**
+     * `detalles()` indexa con `[0]` el resultado de su consulta, así que un id que
+     * no existe era un 500 — la forma de la §44 y la §47.
+     */
+    public function test_los_detalles_de_un_pedido_que_no_existe_son_404(): void
+    {
+        $maximo = (int) DB::table('change_asked')->max('id');
+
+        $this->withToken($this->tokenDe($this->usuarioDeTipo('Profesor')->username))
+            ->putJson('/api/ChangesAsked/ver-detalles', ['asked_id' => $maximo + 1000])
+            ->assertStatus(404);
+    }
 }
