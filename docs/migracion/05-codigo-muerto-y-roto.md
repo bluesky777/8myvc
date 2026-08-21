@@ -2781,7 +2781,31 @@ Así que hoy, en los once sitios, el criterio efectivo es `is_superuser` (más
 **un administrativo sin `is_superuser` no puede crear ni editar acudientes**, que
 es exactamente lo contrario de lo que la línea pretendía decir.
 
-La pregunta es una sola y vale para los once: **quién es el Secretario**. Si la
+### Y no es solo el «Secretario»: el psicólogo, con la nota del autor al lado
+
+En `AlumnosController::putGuardarValor` hay una cuarta rama:
+
+```php
+// Debo verificar que tenga rol Psicólogo. Por ahora lo dejo Usuario para que funcione
+} else if($this->user->tipo == 'Psicólogo' && (Request::input('propiedad') == 'nee' || ...)){
+```
+
+**El comentario dice `Usuario` y el código dice `Psicólogo`.** Su autor sabía que
+el criterio bueno era el rol y dejó escrito que mientras tanto lo abría al tipo
+`Usuario`; lo que quedó escrito compara `tipo` con un valor que `tipo` no toma
+nunca. O sea que la rama **no se ejecuta jamás**, y quien iba a usarla —el rol
+`Psicólogo`, que existe y tiene **cuatro personas dentro**— cae al `else` con un
+400.
+
+`nee` y `nee_descripcion` son las necesidades educativas especiales del alumno.
+Hoy solo las escribe un superusuario, por la rama de arriba. La rama que existía
+para el psicólogo es la única de las doce que **quita** una función en vez de
+dejar una puerta abierta, y es la que mejor explica el patrón: cuando el criterio
+no está donde se busca, unas veces se abre de más y otras se cierra de más, y las
+dos se ven igual desde fuera —que es como no verse—.
+
+La pregunta es una sola y vale para las doce: **quién es el Secretario** (y quién
+el Psicólogo). Si la
 respuesta es el rol `Admin` —el que existe, con sus diez personas, que resultaron
 ser [los mismos diez `is_superuser`](#261-y-quién-puede-dispararlas-que-sí-tenía-respuesta)—
 hoy no cambia nada y mañana sí. Anotado en 09 §5. `larastan` no puede encontrar
