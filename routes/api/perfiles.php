@@ -64,7 +64,13 @@ Route::post('myimages/store', [ImagesController::class, 'postStore']);
 Route::post('myimages/store-firma', [ImagesController::class, 'postStoreFirma']);
 Route::post('myimages/store-intacta', [ImagesController::class, 'postStoreIntacta']);
 Route::post('myimages/store-intacta-privada', [ImagesController::class, 'postStoreIntactaPrivada']);
-Route::delete('myimages/destroy/{id}', [ImagesController::class, 'deleteDestroy']);
+// La misma operación que `images-users/destroy/{id}` de más abajo, y la que usan
+// las familias, pero ésta iba sin guard. Con una imagen ajena no la borra: el
+// controlador solo mira `created_by` —quién la subió— y nunca `user_id` —de quién
+// es—, así que cae en la rama de la petición de cambio y deja el id ajeno escrito
+// en `change_asked_data.image_to_delete_id`. Desde ahí la borra un clic de quien
+// revisa peticiones. Ver 05 §21.
+Route::delete('myimages/destroy/{id}', [ImagesController::class, 'deleteDestroy'])->middleware('persona.propia:imagen_id');
 Route::put('myimages/privatizar-imagen/{imagen_id}', [ImagesController::class, 'putPrivatizarImagen'])->middleware('persona.propia');
 Route::put('myimages/publicar-imagen/{imagen_id}', [ImagesController::class, 'putPublicarImagen'])->middleware('persona.propia');
 

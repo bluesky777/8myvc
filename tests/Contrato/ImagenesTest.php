@@ -346,6 +346,71 @@ class ImagenesTest extends CasoDeContrato
     }
 
     /**
+     * Y la MISMA operación por la otra puerta, que es la que estaba abierta.
+     *
+     * Borrar una imagen se pide por dos rutas: `images-users/destroy/{id}`, que
+     * lleva `persona.propia:imagen_id` y es la que comprueban los dos tests de
+     * arriba, y `myimages/destroy/{id}`, que solo lleva `auth.token`. La segunda
+     * es la que usan las familias —se llama «mis imágenes»— y es la que el
+     * barrido señaló cuando dejó de mandarle un `users.id` a un `{id}` que
+     * nombra una fila de `images`.
+     *
+     * Lo que hace con una imagen ajena no es borrarla: **es pedir que la borren**.
+     * El controlador solo mira `created_by` —quién la subió—, nunca `user_id`
+     * —de quién es—, así que cae en la rama de la petición de cambio y escribe
+     * el id ajeno en `change_asked_data.image_to_delete_id`. Desde ahí, un clic
+     * de quien revisa peticiones ejecuta `eliminar_imagen_y_enlaces()` sobre la
+     * foto de otro.
+     *
+     * Se comprueba el efecto —la fila que queda escrita— y no el código:
+     * respondía 200, que es lo que responde también el caso legítimo.
+     */
+    public function test_un_alumno_no_pide_que_borren_la_imagen_de_otro(): void
+    {
+        [, $ajena] = $this->unaImagenSubida();
+
+        $alumno = $this->usuarioDeTipo('Alumno');
+        $token = $this->tokenDe($alumno->username);
+
+        $this->delete("/api/myimages/destroy/{$ajena->id}", [],
+            ['Authorization' => 'Bearer '.$token])
+            ->assertStatus(403);
+
+        $this->assertSame(0,
+            DB::table('change_asked_data')->where('image_to_delete_id', $ajena->id)->count(),
+            'Ninguna petición de cambio nombra la imagen ajena.');
+
+        $this->assertNull(DB::table('images')->where('id', $ajena->id)->value('deleted_at'),
+            'Y la imagen sigue viva.');
+    }
+
+    /**
+     * El contrario, que es la mitad que impide cerrar de más.
+     *
+     * Una foto oficial la sube la secretaría: `user_id` es del alumno y
+     * `created_by` de quien la subió. Pedir que la borren es justo para lo que
+     * está la rama de la petición, y tiene que seguir funcionando — si no, el
+     * arreglo deja a las familias sin poder pedir que quiten su propia foto.
+     */
+    public function test_un_alumno_sigue_pidiendo_que_borren_la_suya(): void
+    {
+        [, $imagen] = $this->unaImagenSubida();
+
+        $alumno = $this->usuarioDeTipo('Alumno');
+
+        // La subió otro —`created_by` es del profesor— pero es del alumno.
+        DB::table('images')->where('id', $imagen->id)->update(['user_id' => $alumno->id]);
+
+        $this->delete("/api/myimages/destroy/{$imagen->id}", [],
+            ['Authorization' => 'Bearer '.$this->tokenDe($alumno->username)])
+            ->assertStatus(200);
+
+        $this->assertSame(1,
+            DB::table('change_asked_data')->where('image_to_delete_id', $imagen->id)->count(),
+            'La petición quedó escrita, que es lo que hace esta rama.');
+    }
+
+    /**
      * La petición de cambio que nombraba la imagen se va con ella.
      *
      * Es la sexta referencia, y la única que hasta el 20 ago 2026 no se limpiaba

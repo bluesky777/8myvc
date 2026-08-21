@@ -373,6 +373,7 @@
     ],
     "persona.propia": [
         "DELETE api/images-users/destroy/{id} [imagen_id]",
+        "DELETE api/myimages/destroy/{id} [imagen_id]",
         "DELETE api/piars-alumnos/document/{alumno_id}",
         "GET api/asignaturas/listasignaturas/{persona_id?}",
         "GET api/frases_asignatura/show/{alumno_id}/{asignatura_id}",
