@@ -1,0 +1,74 @@
+{
+    "app/Http/Controllers/AlumnosController.php::putGuardarValor": [
+        "PUT api/alumnos/guardar-valor"
+    ],
+    "app/Http/Controllers/AlumnosController.php::putGuardarValorVarios": [
+        "PUT api/alumnos/guardar-valor-varios"
+    ],
+    "app/Http/Controllers/ChangeAskedController.php::putVerDetalles": [
+        "PUT api/ChangesAsked/ver-detalles"
+    ],
+    "app/Http/Controllers/Matriculas/MatriculasController.php::deleteDestroy": [
+        "DELETE api/matriculas/destroy/{id}"
+    ],
+    "app/Http/Controllers/Matriculas/MatriculasController.php::postMatricularEn": [
+        "POST api/matriculas/matricular-en"
+    ],
+    "app/Http/Controllers/Matriculas/MatriculasController.php::postMatricularuno": [
+        "POST api/matriculas/matricularuno"
+    ],
+    "app/Http/Controllers/Matriculas/MatriculasController.php::putCambiarFechaMatricula": [
+        "PUT api/matriculas/cambiar-fecha-matricula"
+    ],
+    "app/Http/Controllers/Matriculas/MatriculasController.php::putCambiarFechaRetiro": [
+        "PUT api/matriculas/cambiar-fecha-retiro"
+    ],
+    "app/Http/Controllers/Matriculas/MatriculasController.php::putDesertar": [
+        "PUT api/matriculas/desertar"
+    ],
+    "app/Http/Controllers/Matriculas/MatriculasController.php::putPrematricular": [
+        "PUT api/matriculas/prematricular"
+    ],
+    "app/Http/Controllers/Matriculas/MatriculasController.php::putQuitarPrematricula": [
+        "PUT api/matriculas/quitar-prematricula"
+    ],
+    "app/Http/Controllers/Matriculas/MatriculasController.php::putReMatricularuno": [
+        "PUT api/matriculas/re-matricularuno"
+    ],
+    "app/Http/Controllers/Matriculas/MatriculasController.php::putRetirar": [
+        "PUT api/matriculas/retirar"
+    ],
+    "app/Http/Controllers/Matriculas/MatriculasController.php::putSetAsistente": [
+        "PUT api/matriculas/set-asistente"
+    ],
+    "app/Http/Controllers/Matriculas/MatriculasController.php::putSetNewAsistente": [
+        "PUT api/matriculas/set-new-asistente"
+    ],
+    "app/Http/Controllers/Matriculas/MatriculasController.php::putSetPromovido": [
+        "PUT api/matriculas/set-promovido"
+    ],
+    "app/Http/Controllers/Matriculas/MatriculasController.php::putToggleNuevo": [
+        "PUT api/matriculas/toggle-nuevo"
+    ],
+    "app/Http/Controllers/Perfiles/PerfilesController.php::putResetPassword": [
+        "PUT api/perfiles/reset-password/{id}"
+    ],
+    "app/Http/Controllers/YearsController.php::postStore": [
+        "POST api/years/store"
+    ],
+    "app/Http/Controllers/YearsController.php::putProfesCanEditAlumnos": [
+        "PUT api/years/profes-can-edit-alumnos"
+    ],
+    "app/Http/Middleware/ExigirPersonal.php::(fuera de método)": [
+        "(sin ruta propia)"
+    ],
+    "app/Models/Year.php::(fuera de método)": [
+        "(sin ruta propia)"
+    ],
+    "app/Services/ContextoDeUsuario.php::construir": [
+        "(sin ruta propia)"
+    ],
+    "app/Support/Autoriza.php::puedeBorrarAlumnos": [
+        "(sin ruta propia)"
+    ]
+}

@@ -1048,3 +1048,57 @@ instantáneas y una lista de excepciones** las que se mueven, y todas a propósi
 | `GET api/perfiles/usernames` | devuelve los 2.351 usuarios y **hay que cerrarla**, pero antes tiene que dejar de llamarla `UserConfiguracionCtrl` (05 §14.4) |
 | `PUT api/perfiles/guardar-mi-email-restore` | no acepta ningún id: saca el usuario del token |
 | `PUT api/perfiles/reset-password/{id}` | no es de familia sino el reseteo a mano del personal, defendido por dentro con `Autoriza` (05 §26.1, §29) |
+
+
+## §20. La bandera que decidía «dos cosas» decide diecinueve rutas
+
+**Medido el 21 ago 2026. No se arregla —es la decisión que ya estaba esperando—,
+pero la lista con la que se iba a decidir estaba mal.**
+
+Es el primer resultado de mirar rutas sin comprobar. `matriculas/desertar`,
+`retirar`, `set-asistente` y `matricular-en` no tenían un solo test, y las cuatro
+escriben el `estado` de una matrícula — justo la columna de la §18. Al leerlas
+resultó que **no son un agujero**: las cuatro se defienden por dentro con la misma
+condición.
+
+```php
+if (($this->user->tipo == 'Profesor' && $this->user->profes_can_edit_alumnos)
+    || $this->user->is_superuser) { … } else { abort(400, 'No tiene permisos para editar'); }
+```
+
+Lo que sí es un hallazgo es **el tamaño de esa condición**. La lista de decisiones
+del colegio dice de esta bandera que *«hoy son dos cosas escritas en dos sitios:
+borrar alumnos definitivamente y resetear la contraseña de un alumno»*. Contadas:
+**25 apariciones en `app/` y 19 rutas**, y catorce de ellas son el módulo de
+matrículas entero —matricular, re-matricular, prematricular, quitar la
+prematrícula, promover, poner asistente, cambiar la fecha de matrícula, cambiar
+la de retiro, retirar, desertar y borrar la matrícula—, más
+`alumnos/guardar-valor`, `ChangesAsked/ver-detalles`, `years/store` y el reseteo
+de contraseña.
+
+Eso cambia la pregunta que está esperando respuesta. *«Qué debe poder hacer un
+docente con esa bandera encendida»* no es un permiso fino que se pueda ajustar:
+**es un interruptor que entrega el módulo de matrículas completo**, y hay que
+contestarlo sabiéndolo.
+
+Y el dato que dice si corre prisa: en la copia de desarrollo la bandera está
+**apagada en los ocho años**, así que hoy esas diecinueve rutas son solo del
+superusuario. Encenderla se las da de golpe a los 19 profesores del colegio.
+
+### Por qué esto es un test y no un párrafo
+
+Porque la lista escrita a mano ya se quedó vieja una vez —esa es la historia de
+esta sección— y volverá a pasar en cuanto alguien añada la comprobación en un
+método nuevo. `tests/Contrato/BanderaProfesEditaAlumnosTest.php` la **lee del
+código** y la guarda en una instantánea, con el mismo criterio con el que se
+vigilan los guards: si la bandera empieza a decidir una ruta más, sale en el diff
+del `.json`.
+
+Y al lado, la comprobación que nadie había hecho desde fuera: **la misma llamada
+a `matriculas/retirar`, con la bandera apagada y encendida**. Apagada, el profesor
+recibe 400 y la matrícula no se toca; encendida, el alumno queda `RETI`. El
+documento decía qué hacía la bandera; ahora hay algo que lo comprueba.
+
+El `400` se deja como está, aunque para código nuevo la regla sea 403: cambiarlo
+es tocar lo que el front lee hoy, y lo que aquí se está midiendo es **quién
+puede**, no con qué número se le dice que no.
