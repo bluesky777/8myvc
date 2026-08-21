@@ -79,6 +79,12 @@ use Tests\Contrato\CasoDeContrato;
  * había nada que alcanzar, no porque algo lo impidiera. Ahora hay una segunda
  * pasada —{@see control()}— que repite las mudas con un superusuario. Ver 05 §22.
  *
+ * **Y la quinta, el cuerpo anidado** (20 ago 2026). El barrido mandaba números
+ * planos donde varios controladores leen objetos —`Request::input('titular')['id']`,
+ * `$grupo_actual['id']`—, así que esas rutas reventaban antes de actuar y se
+ * contaban como cerradas. Ahora se golpea con las dos formas, porque la misma
+ * clave se lee de las dos maneras en sitios distintos. Salieron cinco. Ver 05 §23.
+ *
  * Y una cosa que este archivo **no** puede encontrar, demostrada el mismo día:
  * lo que sale sin ser dato personal. `unidades/trashed` devolvía a un alumno la
  * papelera académica del colegio y el barrido la vio pasar, porque su criterio
@@ -124,6 +130,9 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
      * es una petición por combinación, y son 539 rutas.
      */
     private array $cuerpo = [];
+
+    /** El mismo cuerpo con las claves que se leen como array. Ver CLAVES_ANIDADAS. */
+    private array $cuerpoAnidado = [];
 
     /** Una matrícula que no es suya, para las rutas que piden por `matricula_id`. */
     private int $matriculaAjena = 0;
@@ -192,6 +201,7 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
             WHERE alumno_id = ? AND deleted_at IS NULL ORDER BY id LIMIT 1',
             [$this->ajenos['{alumno_id}'] ?? 0])->id ?? 0);
         $this->cuerpo = $this->cuerpoPlausible();
+        $this->cuerpoAnidado = $this->cuerpoAnidado();
 
         DB::listen(function ($q) {
             if (preg_match('/^\s*(insert|update|delete)\s/i', $q->sql) !== 1) {
@@ -230,92 +240,116 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
                 continue;
             }
 
-            $id = null;
+            // Cada ruta con las DOS formas del cuerpo, y se para en cuanto una
+            // encuentra algo: lo que se mide es si llega a actuar, no de cuántas
+            // maneras se le puede pedir. El `{id}` se resuelve dentro y no fuera
+            // porque la fila prestada a la papelera se devuelve tras cada
+            // petición, así que la segunda forma necesita la suya.
+            $hallazgo = null;
+            $ultimaMuda = null;
 
-            if (str_contains($uri, '{id}')) {
-                [$id, $motivo] = $this->idAjenoPara($uri, $ruta);
+            foreach (['plano', 'anidado'] as $forma) {
+                $id = null;
 
-                if ($id === null) {
-                    $destino = $verbo.' '.$uri.'   ('.$motivo.')';
-                    str_contains($motivo, 'TABLA_DE_ID')
-                        ? $sinMapa[] = $verbo.' '.$uri
-                        : $sinFila[] = $destino;
+                if (str_contains($uri, '{id}')) {
+                    [$id, $motivo] = $this->idAjenoPara($uri, $ruta);
+
+                    if ($id === null && $forma === 'plano') {
+                        $destino = $verbo.' '.$uri.'   ('.$motivo.')';
+                        str_contains($motivo, 'TABLA_DE_ID')
+                            ? $sinMapa[] = $verbo.' '.$uri
+                            : $sinFila[] = $destino;
+                    }
                 }
-            }
 
-            $pedida = $this->rellenar($uri, $id);
+                $pedida = $this->rellenar($uri, $id);
 
-            if ($pedida === null) {
-                $sinValor[] = $verbo.' '.$uri;
-                $this->devolverLoPrestado();
+                if ($pedida === null) {
+                    if ($forma === 'plano') {
+                        $sinValor[] = $verbo.' '.$uri;
+                    }
 
-                continue;
-            }
-
-            foreach ($this->sinAjeno as $parametro) {
-                if (str_contains($uri, $parametro)) {
-                    $sinMedir[] = $verbo.' '.$uri.'   ('.$parametro.')';
+                    $this->devolverLoPrestado();
 
                     break;
                 }
-            }
 
-            $this->escrituras = [];
-            $codigo = 0;
-            $escribio = [];
-            $contenido = '';
+                if ($forma === 'plano') {
+                    foreach ($this->sinAjeno as $parametro) {
+                        if (str_contains($uri, $parametro)) {
+                            $sinMedir[] = $verbo.' '.$uri.'   ('.$parametro.')';
 
-            try {
-                $r = $this->withToken($this->token)->json($verbo, '/'.$pedida, $this->cuerpo);
-                $codigo = $r->getStatusCode();
-
-                // Alguna de las rutas cierra la sesión —o le cambia la contraseña
-                // al propio usuario—, y desde ahí todo respondería 401 y el
-                // barrido dejaría de medir. Se vuelve a entrar y se repite.
-                if ($codigo === 401) {
-                    $this->token = $this->tokenDe($this->sujetoDeBarrido(getenv('BARRIDO_TIPO') ?: 'Alumno')->username);
-                    $this->escrituras = [];
-                    $r = $this->withToken($this->token)->json($verbo, '/'.$pedida, $this->cuerpo);
-                    $codigo = $r->getStatusCode();
+                            break;
+                        }
+                    }
                 }
 
-                // Lo que escribió la petición se captura AQUÍ, antes de devolver
-                // lo prestado: el `UPDATE ... deleted_at = NULL` de la vuelta es
-                // del barrido y no de la ruta, y contado como suyo aparecería
-                // como un hallazgo en cada una de las ocho.
-                $escribio = $this->escriturasDeLaPeticion();
-                $contenido = (string) $r->getContent();
-            } catch (\Throwable $e) {
-                $this->salida[] = '  EXCEPCIÓN   '.$verbo.' '.$uri.'   '.substr($e->getMessage(), 0, 90);
-            } finally {
-                $this->devolverLoPrestado();
+                $this->escrituras = [];
+                $codigo = 0;
+                $escribio = [];
+                $contenido = '';
+
+                $cuerpo = $forma === 'anidado' ? $this->cuerpoAnidado : $this->cuerpo;
+
+                try {
+                    $r = $this->withToken($this->token)->json($verbo, '/'.$pedida, $cuerpo);
+                    $codigo = $r->getStatusCode();
+
+                    // Alguna de las rutas cierra la sesión —o le cambia la contraseña
+                    // al propio usuario—, y desde ahí todo respondería 401 y el
+                    // barrido dejaría de medir. Se vuelve a entrar y se repite.
+                    if ($codigo === 401) {
+                        $this->token = $this->tokenDe($this->sujetoDeBarrido(getenv('BARRIDO_TIPO') ?: 'Alumno')->username);
+                        $this->escrituras = [];
+                        $r = $this->withToken($this->token)->json($verbo, '/'.$pedida, $cuerpo);
+                        $codigo = $r->getStatusCode();
+                    }
+
+                    // Lo que escribió la petición se captura AQUÍ, antes de devolver
+                    // lo prestado: el `UPDATE ... deleted_at = NULL` de la vuelta es
+                    // del barrido y no de la ruta, y contado como suyo aparecería
+                    // como un hallazgo en cada una de las ocho.
+                    $escribio = $this->escriturasDeLaPeticion();
+                    $contenido = (string) $r->getContent();
+                } catch (\Throwable $e) {
+                    $this->salida[] = '  EXCEPCIÓN   '.$verbo.' '.$uri.'   '.substr($e->getMessage(), 0, 90);
+                } finally {
+                    $this->devolverLoPrestado();
+                }
+
+                // Sin código no hubo respuesta: saltó la excepción, y ya está impresa.
+                // Y el 403 es la respuesta correcta, así que tampoco se imprime.
+                if ($codigo === 0 || $codigo === 403) {
+                    continue;
+                }
+
+                $personales = $escribio === [] && $codigo === 200
+                    ? $this->datosPersonalesEn($contenido)
+                    : [];
+
+                if ($escribio === [] && $personales === []) {
+                    $ultimaMuda = [$verbo, $pedida, $uri, $codigo, $forma];
+
+                    continue;
+                }
+
+                $hallazgo = '  '.str_pad((string) $codigo, 5).str_pad($verbo, 7).str_pad($uri, 58)
+                    .($escribio !== [] ? '  ESCRIBE: '.implode(' | ', $escribio) : '')
+                    .($personales !== [] ? '  PERSONALES: '.implode(',', $personales)
+                        .' ['.strlen($contenido).' b]' : '')
+                    .($forma === 'anidado' ? '  [cuerpo anidado]' : '');
+
+                break;
             }
 
-            // Sin código no hubo respuesta: saltó la excepción, y ya está impresa.
-            // Y el 403 es la respuesta correcta, así que tampoco se imprime.
-            if ($codigo === 0 || $codigo === 403) {
-                continue;
+            if ($hallazgo !== null) {
+                $encontrado++;
+                $this->salida[] = $hallazgo;
+            } elseif ($ultimaMuda !== null) {
+                // Nada por ninguna de las dos formas. Que es justo lo que el control
+                // de después tiene que desmentir o confirmar.
+                $mudas[] = $ultimaMuda;
             }
-
-            $personales = $escribio === [] && $codigo === 200
-                ? $this->datosPersonalesEn($contenido)
-                : [];
-
-            if ($escribio === [] && $personales === []) {
-                // Nada. Que es justo lo que el control de después tiene que
-                // desmentir o confirmar: «nada» puede ser el guard o puede ser
-                // que no hubiera nada.
-                $mudas[] = [$verbo, $pedida, $uri];
-
-                continue;
-            }
-
-            $encontrado++;
-
-            $this->salida[] = '  '.str_pad((string) $codigo, 5).str_pad($verbo, 7).str_pad($uri, 58)
-                .($escribio !== [] ? '  ESCRIBE: '.implode(' | ', $escribio) : '')
-                .($personales !== [] ? '  PERSONALES: '.implode(',', $personales)
-                    .' ['.strlen($contenido).' b]' : '');
         }
 
         $this->salida[] = '';
@@ -374,6 +408,14 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
             "Estas rutas llevan {id} y TABLA_DE_ID no dice qué tabla nombra, así que\n"
             .'se golpearon con un cero. Añade la familia en TABLA_DE_ID.');
 
+        // Y el cuarto: una clave que los controladores leen como objeto y el
+        // barrido manda plana es una ruta que responde 500 y que el barrido
+        // apunta como cerrada. Así se escondieron las tres de la §23.
+        $this->assertSame([], $this->clavesAnidadasSinCubrir(),
+            "Los controladores leen del cuerpo estas claves como ARRAY y el barrido\n"
+            .'las manda planas, así que esas rutas revientan antes de actuar. '
+            .'Añádelas en CLAVES_ANIDADAS.');
+
         $this->assertSame([], $this->clavesDeCuerpoSinCubrir(),
             "Los controladores leen del cuerpo estos identificadores y el barrido no\n"
             .'los manda, así que esas rutas se miden sin llegar a tocar a nadie. '
@@ -411,10 +453,24 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
      * mismo. El error va hacia el lado seguro — dice «no puedo juzgarla» de una que
      * quizá sí estaba medida, nunca «cerrada» de una que no lo está.
      *
-     * @param  list<array{string, string, string}>  $mudas
+     * @param  list<array{string, string, string, int, string}>  $mudas
      */
     private function control(array $mudas): void
     {
+        // Antes del control, quitar de en medio las que SÍ contestaron que no.
+        // El bucle salta los 403 porque son la respuesta correcta, pero este
+        // legacy rechaza con 400 —`pueden_modificar_definitivas()` sin ir más
+        // lejos— y también con 401 y con 422. Un 4xx es un juicio igual que el
+        // 403: la ruta miró y dijo que no. Contarlas como silencio inflaba el
+        // número del control con rutas que estaban defendidas.
+        $rechazadas = array_values(array_filter($mudas, fn ($m) => $m[3] >= 400 && $m[3] < 500));
+        $calladas = array_values(array_filter($mudas, fn ($m) => $m[3] < 400 || $m[3] >= 500));
+
+        $this->salida[] = '';
+        $this->salida[] = count($rechazadas).' de las '.count($mudas).' mudas eran un rechazo con otro '
+            .'código: 400, 401 o 422 en vez de 403.';
+        $this->salida[] = 'No hacen falta control: la ruta miró y dijo que no. El código es cosa aparte.';
+
         $superusuario = DB::selectOne('SELECT username FROM users WHERE is_superuser = 1
             AND is_active = 1 AND deleted_at IS NULL ORDER BY id LIMIT 1');
 
@@ -428,13 +484,14 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
         $token = $this->tokenDe($superusuario->username);
         $noJuzgables = [];
 
-        foreach ($mudas as [$verbo, $pedida, $uri]) {
+        foreach ($calladas as [$verbo, $pedida, $uri, , $forma]) {
             $this->escrituras = [];
 
             DB::beginTransaction();
 
             try {
-                $r = $this->withToken($token)->json($verbo, '/'.$pedida, $this->cuerpo);
+                $r = $this->withToken($token)->json($verbo, '/'.$pedida,
+                    $forma === 'anidado' ? $this->cuerpoAnidado : $this->cuerpo);
                 $saco = $this->escriturasDeLaPeticion() !== []
                     || ($r->getStatusCode() < 300 && ! $this->pareceVacia((string) $r->getContent()));
             } catch (\Throwable) {
@@ -451,8 +508,8 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
         }
 
         $this->salida[] = '';
-        $this->salida[] = count($noJuzgables).' de las '.count($mudas).' mudas NO son juzgables: '
-            .'con un superusuario tampoco sale nada.';
+        $this->salida[] = count($noJuzgables).' de las '.count($calladas).' que contestaron bien y sin '
+            .'hacer nada NO son juzgables: con un superusuario tampoco sale nada.';
         $this->salida[] = 'Su silencio en la primera pasada no distingue un guard de un vacío.';
 
         foreach ($noJuzgables as $ruta) {
@@ -666,6 +723,44 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
     ];
 
     /**
+     * Las claves que los controladores leen como ARRAY, no como número.
+     *
+     * **La cuarta forma del mismo límite**, y la que más ha escondido: el barrido
+     * mandaba `titular_id`, `acudiente_id` y `grupo_actual` como números planos, y
+     * esos controladores hacen `Request::input('titular')['id']`,
+     * `$acu['nombres']` y `$grupo_actual['id']`. El índice sobre un `int` o sobre
+     * `null` lanza, la ruta responde 500 o 422, y desde fuera se ve una que no hace
+     * nada. Así se escondieron las tres de la §23 — crear un grupo, crear cuentas
+     * de acudiente y la rejilla de acudientes de un grupo entero.
+     *
+     * **No se sustituyen las planas: se golpea con las dos formas.** La misma
+     * clave se lee de las dos maneras en sitios distintos —`grupo_actual` lo
+     * indexa `acudientes/datos` y lo usa plano `cartera/alumnos`—, así que elegir
+     * una deja la otra sin medir. Son dos peticiones por ruta y el barrido tarda
+     * cinco segundos.
+     *
+     * Los campos de dentro salen de contar cuáles se indexan de verdad: `id` en
+     * 53 sitios, `profesor_id` en cinco, y sueltos `sangre`, `estado_civil`,
+     * `username`, `password` y `parentesco`. Se mandan todos en cada objeto: al
+     * que solo lee `id` los demás le dan igual.
+     */
+    private const CLAVES_ANIDADAS = [
+        'grupo' => 'grupo', 'grupo_actual' => 'grupo', 'grupo_sig' => 'grupo',
+        'titular' => 'profesor', 'profesor' => 'profesor', 'acudiente' => 'acudiente',
+        'foto' => 'imagen', 'imagen' => 'imagen',
+        'encabezado_img' => 'imagen', 'piepagina_img' => 'imagen',
+        // Y las dos que `ConfigCertificadosController` lee como objeto AUNQUE se
+        // llamen `_id`. El nombre no dice la forma, que es justo por lo que este
+        // mapa se comprueba contra el código y no se escribe a ojo.
+        'encabezado_img_id' => 'imagen', 'piepagina_img_id' => 'imagen',
+        'ciudad_nac' => 'ciudad', 'ciudad_doc' => 'ciudad',
+        'grado' => 'otro', 'area' => 'otro', 'materia' => 'otro', 'nivel' => 'otro',
+        'tipo_doc' => 'otro', 'tipo_sangre' => 'otro', 'estado_civil' => 'otro',
+        'parentesco' => 'otro', 'pedido' => 'otro', 'partFrom' => 'otro',
+        'partTo' => 'otro', 'loginData' => 'otro',
+    ];
+
+    /**
      * El cuerpo que se manda, con un valor ajeno para cada clave conocida.
      *
      * `requested_alumnos` va aparte porque no es un id sino la lista con la que
@@ -674,7 +769,32 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
      */
     private function cuerpoPlausible(): array
     {
-        $porClase = [
+        $porClase = $this->valoresAjenosPorClase();
+
+        $cuerpo = [];
+
+        foreach (self::CLAVES_DE_CUERPO as $clave => $clase) {
+            $cuerpo[$clave] = $porClase[$clase];
+        }
+
+        $cuerpo['requested_alumnos'] = [['alumno_id' => $porClase['alumno']]];
+        $cuerpo['num_periodo'] = $this->ajenos['{periodo_a_calcular?}'] ?? 1;
+        $cuerpo['periodo_a_calcular'] = $cuerpo['num_periodo'];
+        $cuerpo['year'] = $porClase['year'];
+        $cuerpo['username'] = $this->ajenos['{username}'] ?? 'x';
+        $cuerpo['texto_a_buscar'] = 'a';
+
+        return $cuerpo;
+    }
+
+    /**
+     * Qué valor ajeno le toca a cada clase de cosa que puede nombrar el cuerpo.
+     *
+     * @return array<string, int>
+     */
+    private function valoresAjenosPorClase(): array
+    {
+        return [
             'alumno' => $this->ajenos['{alumno_id}'] ?? 0,
             'grupo' => $this->ajenos['{grupo_id}'] ?? 0,
             'profesor' => $this->ajenos['{profesor_id}'] ?? 0,
@@ -691,21 +811,79 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
             'ciudad' => $this->ajenos['{ciudad_id}'] ?? 0,
             'otro' => 1,
         ];
+    }
 
-        $cuerpo = [];
+    /**
+     * El cuerpo plano más las claves que se leen como objeto.
+     *
+     * Cada objeto lleva todos los campos que alguien indexa, porque al que solo
+     * lee `id` los demás le dan igual y así no hace falta acertar cuál toca.
+     */
+    private function cuerpoAnidado(): array
+    {
+        $porClase = $this->valoresAjenosPorClase();
+        $cuerpo = $this->cuerpo;
 
-        foreach (self::CLAVES_DE_CUERPO as $clave => $clase) {
-            $cuerpo[$clave] = $porClase[$clase];
+        foreach (self::CLAVES_ANIDADAS as $clave => $clase) {
+            $cuerpo[$clave] = [
+                'id' => $porClase[$clase],
+                'profesor_id' => $porClase['profesor'],
+                'sangre' => 'O+',
+                'estado_civil' => 'Soltero',
+                'parentesco' => 'Madre',
+                'username' => $this->ajenos['{username}'] ?? 'x',
+                'password' => 'x',
+            ];
         }
 
-        $cuerpo['requested_alumnos'] = [['alumno_id' => $porClase['alumno']]];
-        $cuerpo['num_periodo'] = $this->ajenos['{periodo_a_calcular?}'] ?? 1;
-        $cuerpo['periodo_a_calcular'] = $cuerpo['num_periodo'];
-        $cuerpo['year'] = $porClase['year'];
-        $cuerpo['username'] = $this->ajenos['{username}'] ?? 'x';
-        $cuerpo['texto_a_buscar'] = 'a';
-
         return $cuerpo;
+    }
+
+    /**
+     * Las claves de cuerpo que los controladores leen como array y no están en el mapa.
+     *
+     * El cuarto candado, y el mismo atajo que el del cuerpo plano: se buscan las
+     * dos formas de indexar una clave del cuerpo —directa, `Request::input('x')['y']`,
+     * y en dos pasos, `$v = Request::input('x'); ... $v['y']`— y se comprueba que
+     * el mapa las cubra. Una clave que se lea como objeto y se mande plana es una
+     * ruta que responde 500 y que el barrido cuenta como cerrada.
+     *
+     * @return list<string>
+     */
+    private function clavesAnidadasSinCubrir(): array
+    {
+        $fuentes = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator(app_path('Http/Controllers'))
+        );
+
+        $leidas = [];
+
+        foreach ($fuentes as $fichero) {
+            if ($fichero->getExtension() !== 'php') {
+                continue;
+            }
+
+            $codigo = (string) file_get_contents($fichero->getPathname());
+
+            preg_match_all("/Request::input\(\s*'([a-zA-Z0-9_]+)'\s*\)\s*\[/", $codigo, $directas);
+
+            foreach ($directas[1] as $clave) {
+                $leidas[$clave] = true;
+            }
+
+            preg_match_all("/\\\$([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*Request::input\(\s*'([a-zA-Z0-9_]+)'\s*\)\s*;/",
+                $codigo, $indirectas, PREG_OFFSET_CAPTURE);
+
+            foreach ($indirectas[1] as $i => $variable) {
+                $resto = substr($codigo, $indirectas[0][$i][1] + strlen($indirectas[0][$i][0]), 3000);
+
+                if (preg_match('/\\$'.preg_quote($variable[0], '/')."\s*\[\s*'/", $resto) === 1) {
+                    $leidas[$indirectas[2][$i][0]] = true;
+                }
+            }
+        }
+
+        return array_values(array_diff(array_keys($leidas), array_keys(self::CLAVES_ANIDADAS)));
     }
 
     /**
