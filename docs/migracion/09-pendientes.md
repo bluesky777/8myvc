@@ -121,7 +121,7 @@ eso es justo lo que había que aprender.
 ### Lo que se hizo el 21 de agosto
 
 Primero las seis decisiones de Joseth, y después la lista de cobertura, que
-volvió a ser lo que más encontró. Cobertura: **312 → 331 de 539 (61%)**, y sigue
+volvió a ser lo que más encontró. Cobertura: **312 → 342 de 539 (63%)**, y sigue
 sin haber ningún controlador a cero.
 
 **Lo que se decidió y se aplicó:**
@@ -143,6 +143,7 @@ sin haber ningún controlador a cero.
 | Cinco rutas cambiaban la **firma o la imagen** de cualquiera, incluido el **logo que sale en cada boletín** | [05 §36.2](05-codigo-muerto-y-roto.md) |
 | Tres rutas frenaban la escritura y respondían **200 diciendo que sí** | [05 §37](05-codigo-muerto-y-roto.md) |
 | Los pedidos de cambio devolvían **filas de `users` enteras, con el hash**, por una ruta de familia | [05 §38](05-codigo-muerto-y-roto.md) |
+| **Aprobar un cambio escribía lo que dijera el cuerpo**: renombrar a cualquier alumno, reasignar o borrar cualquier asignatura | [05 §39](05-codigo-muerto-y-roto.md) |
 
 **Nada de esto está desplegado**: `app/` es copia real en cada colegio.
 
