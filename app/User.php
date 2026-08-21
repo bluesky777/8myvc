@@ -236,6 +236,33 @@ class User extends Authenticatable
 	 *
 	 * @param  int|array<int>|null  $periodo
 	 */
+	/**
+	 * Lo mismo que `pueden_editar_notas()` pero contestando en vez de abortar.
+	 *
+	 * Hace falta para las rutas que **leen y de paso escriben**: no se les puede
+	 * poner el `abort()` delante porque apagaría la lectura, pero tampoco pueden
+	 * escribir en un periodo cerrado. La primera es
+	 * `unidades/de-asignatura-periodo`, que es la pantalla con la que el profesor
+	 * mira la rejilla — y decidió Joseth que con el periodo cerrado **enseñe lo
+	 * que hay y no cree nada** (05 §47.2).
+	 *
+	 * Repite la forma del de arriba en vez de compartirla a propósito: aquél
+	 * distingue 400 de 403 y ésta solo dice sí o no, así que unificarlos obligaría
+	 * a que uno de los dos dejara de decir lo que dice hoy.
+	 *
+	 * @param  int|array<int>|null  $periodo
+	 */
+	public static function permiteEditarNotas($user, int|array|null $periodo = null): bool
+	{
+		self::aplicarBanderasDelPeriodo($user, $periodo);
+
+		if ($user->tipo == 'Profesor' && $user->profes_pueden_editar_notas == 0) {
+			return false;
+		}
+
+		return (bool) ($user->is_superuser ?? false) || $user->tipo == 'Profesor';
+	}
+
 	public static function pueden_editar_notas($user, int|array|null $periodo = null)
 	{
 		self::aplicarBanderasDelPeriodo($user, $periodo);

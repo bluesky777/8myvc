@@ -239,4 +239,83 @@ class UnidadesTest extends CasoDeContrato
 
         $this->assertNull(DB::table('subunidades')->where('id', $subunidad)->value('deleted_at'));
     }
+
+    /**
+     * La pantalla con la que el profesor mira la rejilla lee y **de paso
+     * escribe**: crea las unidades por defecto si no hay ninguna. Decidido por
+     * Joseth el 21 ago 2026: con el periodo cerrado **enseña lo que hay y no crea
+     * nada**. No puede llevar el 400 de sus hermanas porque sería apagarle la
+     * vista de un periodo cerrado, que es justo la que querrá consultar.
+     */
+    public function test_la_rejilla_de_un_periodo_cerrado_no_crea_unidades(): void
+    {
+        $e = $this->escenario();
+
+        // La asignatura del seed YA tiene unidades en ese periodo, así que no
+        // sirve para medir esto: hace falta una sin ninguna, y el ayudante que
+        // monta el grupo ajeno deja justo eso. Se descubrió porque el test falló
+        // diciendo «4 no es 0».
+        $limpia = (int) $this->grupoAjenoDelMismoAnio($e->year_id)->asignatura_id;
+
+        // Y hace falta que HAYA unidades por defecto que copiar: `unidades_por_defecto`
+        // está vacía en el seed —es una de las cuatro tablas de la §21.5— así que sin
+        // esta fila el método sale por el `return ''` y el test pasaba también con el
+        // arreglo desactivado. Se descubrió comprobando al revés: caía uno de los dos.
+        DB::table('unidades_por_defecto')->insert([
+            'definicion' => 'Por defecto', 'porcentaje' => 100, 'year_id' => $e->year_id,
+            'obligatoria' => 0, 'orden' => 0, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $this->assertSame(0, DB::table('unidades')
+            ->where('asignatura_id', $limpia)->where('periodo_id', $e->periodo)->count());
+
+        $this->withToken($e->token)
+            ->getJson("/api/unidades/de-asignatura-periodo/{$limpia}/{$e->periodo}")
+            ->assertStatus(200);
+
+        $this->assertSame(0, DB::table('unidades')
+            ->where('asignatura_id', $limpia)->where('periodo_id', $e->periodo)->count(),
+            'Con el periodo cerrado no se crea ninguna.');
+    }
+
+    /** Y con el periodo abierto sí las crea, que es para lo que existe. */
+    public function test_con_el_periodo_abierto_la_rejilla_crea_las_por_defecto(): void
+    {
+        $e = $this->escenario();
+        $limpia = (int) $this->grupoAjenoDelMismoAnio($e->year_id)->asignatura_id;
+        $this->abrirElPeriodo($e->year_id);
+
+        DB::table('unidades_por_defecto')->insert([
+            'definicion' => 'Por defecto', 'porcentaje' => 100, 'year_id' => $e->year_id,
+            'obligatoria' => 0, 'orden' => 0, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $this->withToken($e->token)
+            ->getJson("/api/unidades/de-asignatura-periodo/{$limpia}/{$e->periodo}")
+            ->assertStatus(200);
+
+        $this->assertGreaterThan(0, DB::table('unidades')
+            ->where('asignatura_id', $limpia)->where('periodo_id', $e->periodo)->count(),
+            'Con el periodo abierto sí las crea, que es para lo que existe.');
+    }
+
+    /**
+     * La otra mitad, y la que no se veía: `arreglarOrden()` no ordena la
+     * respuesta, **reescribe `orden` en la tabla** en cada lectura. Sin esto la
+     * §47 habría dejado tapado `unidades/update-orden` y abierto el mismo cambio
+     * por el camino del GET.
+     */
+    public function test_leer_la_rejilla_cerrada_no_reescribe_el_orden(): void
+    {
+        $e = $this->escenario();
+        $unidad = $this->unidad($e);
+        DB::table('unidades')->where('id', $unidad)->update(['orden' => 9]);
+
+        $this->withToken($e->token)
+            ->getJson("/api/unidades/de-asignatura-periodo/{$e->asignatura}/{$e->periodo}")
+            ->assertStatus(200);
+
+        $this->assertSame(9, (int) DB::table('unidades')->where('id', $unidad)->value('orden'),
+            'Con el periodo cerrado el orden se queda como estaba.');
+    }
 }

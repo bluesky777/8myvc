@@ -83,8 +83,13 @@ class UnidadesController extends Controller {
 	
 		$unidades = DB::select($this->cons_unidades, [$asignatura_id, $periodo_id]);
 
-		
-		if (count($unidades) == 0) {
+		// Esta ruta lee y de paso escribe, así que no puede llevar el `abort()` de
+		// sus hermanas: sería apagarle al profesor la vista de un periodo cerrado,
+		// que es justo la que va a querer consultar cuando esté cerrado. Decidido
+		// por Joseth: **enseña lo que hay y no crea nada**. Ver 05 §47.2.
+		$puedeEscribir = User::permiteEditarNotas($user, (int) $periodo_id);
+
+		if (count($unidades) == 0 && $puedeEscribir) {
 			$consulta = 'SELECT * FROM unidades_por_defecto WHERE year_id=? and deleted_at is null';
 			$unidades_default = DB::select($consulta, [$user->year_id]);
 
@@ -132,7 +137,15 @@ class UnidadesController extends Controller {
 			}
 		}
 
-		$unidades = Unidad::arreglarOrden($unidades, $asignatura_id, $periodo_id);
+		// `arreglarOrden()` no ordena la respuesta: **reescribe `orden` en la tabla**
+		// de todas las unidades y subunidades, en cada lectura. O sea que este GET
+		// escribía en la rejilla incluso cuando ya había unidades. Con el periodo
+		// cerrado no se toca — y sin esto quedaría el mismo agujero que la §47
+		// acaba de cerrar en `unidades/update-orden`, alcanzable por el otro lado:
+		// la misma escritura, un camino tapado y el otro no.
+		if ($puedeEscribir) {
+			$unidades = Unidad::arreglarOrden($unidades, $asignatura_id, $periodo_id);
+		}
 
 		return $unidades;
 	}

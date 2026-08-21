@@ -4223,7 +4223,43 @@ lista vacía sin crear nada, o crear igual porque son unidades por defecto y no
 notas— cambian lo que ve la pantalla, y eso lo decide el colegio. Va a la tabla
 del §5 de [09-pendientes.md](09-pendientes.md).
 
-Fijado por `UnidadesTest`, once casos. Comprobado al revés: revirtiendo los cinco
+### §47.2. La rejilla que se lee — **decidido** (21 ago 2026)
+
+Joseth contestó: con el periodo cerrado, **enseña lo que hay y no crea nada**. Ni
+400 —que le apagaría al profesor la vista de un periodo cerrado— ni seguir
+creando.
+
+Como la ruta lee y de paso escribe, no le sirve el `abort()` de sus hermanas.
+Hace falta preguntar sin abortar, y eso es `User::permiteEditarNotas()`, que
+repite la forma de `pueden_editar_notas()` en vez de compartirla: aquélla
+distingue 400 de 403 y ésta solo dice sí o no, así que unificarlas obligaría a que
+una de las dos dejara de decir lo que dice.
+
+**Y al ponerlo apareció la otra mitad, que no estaba en la pregunta.**
+`Unidad::arreglarOrden()` no ordena la respuesta: **reescribe `orden` en la tabla**
+—de todas las unidades y de todas sus subunidades— **en cada lectura**. O sea que
+este GET escribía en la rejilla siempre, hubiera unidades o no.
+
+Eso convierte el arreglo en obligatorio y no en opcional: sin él, la §47 habría
+dejado `unidades/update-orden` tapado y **el mismo cambio abierto por el camino
+del GET**. Es la lección de la §36 —la misma protección, dos caminos, y solo uno
+cubierto— pero creada por el propio arreglo de hace una hora, que es la forma más
+fácil de que vuelva a pasar: **al tapar un camino hay que preguntarse cuál es el
+otro**.
+
+### Y el test que pasaba por el motivo equivocado
+
+El caso de «no crea nada» **pasaba también con el arreglo desactivado**, y solo se
+vio al comprobar al revés: de los dos, caía uno. La razón es la §21.5 otra vez —
+`unidades_por_defecto` es una de las tablas que el seed trae vacías, así que el
+método salía por su `return ''` sin llegar nunca a la rama que crea. El test no
+comprobaba «no crea», comprobaba «no había nada que copiar».
+
+Van ya tres veces en un día que el seed vacío deja verde un test que no mide nada.
+Y las tres se cazaron igual: **contando cuántos caen al revertir**. Si el arreglo
+tapa dos caminos, tienen que caer dos.
+
+Fijado por `UnidadesTest`, catorce casos. Comprobado al revés: revirtiendo los cinco
 arreglos caen cinco, y los seis que comprueban que con el periodo **abierto** se
 sigue creando, reordenando y restaurando siguen verdes — que es lo que dice que no
 se cerró de más.
