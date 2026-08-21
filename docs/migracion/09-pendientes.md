@@ -41,12 +41,21 @@ es **copia real en cada colegio** (`docs/DESPLIEGUE.md`). Fusionar no es despleg
 | Cualquiera de los **51 profesores** reiniciaba la contraseña de todo el colegio y creaba las cuentas de todo el colegio | [05 §26.1](05-codigo-muerto-y-roto.md), [§29.3](05-codigo-muerto-y-roto.md) |
 | Un **docente se hacía con la cuenta del superusuario** en una petición, y recibía la clave nueva en la respuesta | [05 §29](05-codigo-muerto-y-roto.md) |
 | Cualquier profesor **se fabricaba un superusuario** mandando `is_superuser: 1` al crear un profesor | [05 §30](05-codigo-muerto-y-roto.md) |
+| **`GET api/alumnos` entregaba el directorio del colegio entero** —nombre, fecha de nacimiento, celular, dirección, religión y deuda de cada alumno— a cualquier alumno o acudiente | [05 §34](05-codigo-muerto-y-roto.md) |
 | «Ahora NO es año actual» dejaba el año **encendido**, por tres caminos distintos | [05 §28](05-codigo-muerto-y-roto.md) |
 
 Y uno que no es del código sino de la red que lo vigila: **una ruta golpeada con
 dos tokens en el mismo test medía dos veces al primero**, porque Laravel guarda la
 instancia del controlador dentro de la ruta. Cerrado en `CasoDeContrato`, y
 anotado como bloqueante de Octane — [03-tests.md](03-tests.md).
+
+**El último salió de comprobar los otros seis.** Se volvió a correr el barrido
+para medir el efecto de los arreglos y apareció `GET api/alumnos`, que llevaba
+abierta desde siempre: cae justo entre dos criterios —no nombra a nadie, así que
+ningún inventario la señalaba, y no está muda, así que tampoco entró en las listas
+de «sin juzgar»— y se quedó en el grupo que se repasa a mano. Se repasaron once de
+las doce. Vale la pena quedarse con eso: **una lista que hay que mirar a mano cada
+vez acaba teniendo un hueco, y el hueco no se ve**.
 
 ### Lo que necesita una respuesta tuya, por orden
 
