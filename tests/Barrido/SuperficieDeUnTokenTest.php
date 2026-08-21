@@ -105,6 +105,9 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
      */
     private array $cuerpo = [];
 
+    /** Una matrícula que no es suya, para las rutas que piden por `matricula_id`. */
+    private int $matriculaAjena = 0;
+
     /**
      * Los parámetros para los que el seed NO tiene ningún valor ajeno.
      *
@@ -147,6 +150,9 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
         // no está y media API contestaba vacía sin que nada fallara.
         $this->token = $this->tokenDe($quien->username);
         $this->ajenos = $this->identificadoresAjenosA($quien, $tipo);
+        $this->matriculaAjena = (int) (DB::selectOne('SELECT id FROM matriculas
+            WHERE alumno_id = ? AND deleted_at IS NULL ORDER BY id LIMIT 1',
+            [$this->ajenos['{alumno_id}'] ?? 0])->id ?? 0);
         $this->cuerpo = $this->cuerpoPlausible();
 
         DB::listen(function ($q) {
@@ -267,6 +273,15 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
         $this->assertSame([], $sinValor,
             "El mapa de identificadores no cubre estos parámetros, así que el barrido\n"
             .'los saltó sin medirlos. Añádelos en identificadoresAjenosA().');
+
+        // Y lo mismo por el lado del cuerpo. Una clave que los controladores leen
+        // y el barrido no manda es una ruta que no llega a actuar sobre nada
+        // ajeno: entra, no encuentra a quién, y contesta vacío. Así se escondieron
+        // `promovidos/calcular-grupo` y media cartera (05 §17).
+        $this->assertSame([], $this->clavesDeCuerpoSinCubrir(),
+            "Los controladores leen del cuerpo estos identificadores y el barrido no\n"
+            .'los manda, así que esas rutas se miden sin llegar a tocar a nadie. '
+            .'Añádelos en CLAVES_DE_CUERPO.');
     }
 
     /**
@@ -319,44 +334,140 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
     }
 
     /**
-     * Los mismos valores ajenos, con los nombres que usan los cuerpos.
+     * Qué nombra cada clave que los controladores leen del cuerpo.
      *
-     * Los nombres NO son los de la URL: un `{grupo_id}` de la URL se llama
-     * `grupo_actual` en la cartera y `grupo_id` en la promoción, y esa diferencia
-     * es justo la que dejó las dos sin medir. La lista se amplía cuando aparezca
-     * un nombre nuevo, igual que el mapa de la URL — y como aquél, lo que no
-     * cubre lo salta en silencio, con la diferencia de que aquí no hay forma
-     * estática de saber qué claves lee un controlador.
+     * Los nombres NO son los de la URL: un grupo se llama `grupo_id` en la
+     * promoción y `grupo_actual` en la cartera, y esa diferencia es la que dejó
+     * las dos sin medir (05 §17). La primera versión de este mapa se escribió a
+     * mano con veinte claves; los controladores leen **setenta y ocho**, así que
+     * ahora se declara qué clase de cosa nombra cada una y el valor sale de la
+     * misma consulta que el mapa de la URL.
      *
-     * `texto_a_buscar` va con una sola letra a propósito: es lo que enseñó que
-     * los buscadores devolvían 49 compañeros.
+     * `otro` es el comodín: un identificador que existe y no es suyo, para las
+     * claves cuya tabla no hace falta acertar —lo que se mide es si la ruta llega
+     * a actuar sobre algo ajeno, no sobre qué—.
+     *
+     * **`tipo` no se manda a propósito.** `ExigirPersonaPropia` comprueba que el
+     * `tipo` declarado sea el del token, así que mandarlo provocaría 403 en rutas
+     * que sin él pasan, y el barrido mediría menos creyendo que mide más.
+     */
+    private const CLAVES_DE_CUERPO = [
+        'alumno_id' => 'alumno',
+        'grupo_id' => 'grupo', 'grupo_actual' => 'grupo', 'grupo_from_id' => 'grupo',
+        'grupo_to_id' => 'grupo', 'grupo_id_destino' => 'grupo', 'grupo_id_origen' => 'grupo',
+        'profesor_id' => 'profesor', 'titular_id' => 'profesor', 'rector_id' => 'profesor',
+        'secretario_id' => 'profesor', 'tesorero_id' => 'profesor', 'persona_id' => 'profesor',
+        'user_id' => 'usuario', 'usuario_id' => 'usuario', 'become_id' => 'usuario',
+        'acudiente_id' => 'acudiente',
+        'imagen_id' => 'imagen', 'img_id' => 'imagen', 'foto_id' => 'imagen',
+        'logo_id' => 'imagen', 'encabezado_img_id' => 'imagen', 'piepagina_img_id' => 'imagen',
+        'matricula_id' => 'matricula',
+        'asignatura_id' => 'asignatura', 'asign_id' => 'asignatura', 'asignatura_to_id' => 'asignatura',
+        'periodo_id' => 'periodo', 'periodo_from_id' => 'periodo', 'periodo_to_id' => 'periodo',
+        'year_id' => 'year',
+        'nota_id' => 'nota', 'votacion_id' => 'votacion', 'role_id' => 'rol', 'ciudad_id' => 'ciudad',
+
+        // Todo lo demás nombra algo del colegio que no es de nadie en concreto.
+        'id' => 'otro', 'actividad_id' => 'otro', 'actividad_resuelta_id' => 'otro',
+        'antec_id' => 'otro', 'area_id' => 'otro', 'asked_id' => 'otro',
+        'aspiracion_id' => 'otro', 'assignment_id' => 'otro', 'ausencia_id' => 'otro',
+        'blanco_aspiracion_id' => 'otro', 'candidato_id' => 'otro', 'comentario_id' => 'otro',
+        'comportamiento_id' => 'otro', 'config_certificado_estudio_id' => 'otro',
+        'config_id' => 'otro', 'contenido_id' => 'otro', 'data_id' => 'otro',
+        'frase_id' => 'otro', 'grado_ant_id' => 'otro', 'grado_id' => 'otro',
+        'historial_id' => 'otro', 'libro_id' => 'otro', 'materia_id' => 'otro',
+        'nf_id' => 'otro', 'nivel_educativo_id' => 'otro', 'opcion_cuadricula_id' => 'otro',
+        'opcion_id' => 'otro', 'ordinal_id' => 'otro', 'pais_id' => 'otro',
+        'parentesco_acudiente_cambiar_id' => 'otro', 'parentesco_id' => 'otro',
+        'participante_id' => 'otro', 'permission_id' => 'otro', 'pregunta_id' => 'otro',
+        'proceso_id' => 'otro', 'publi_id' => 'otro', 'requisito_alumno_id' => 'otro',
+        'rf_id' => 'otro', 'suceso_id' => 'otro', 'unidad1_id' => 'otro',
+        'unidad2_id' => 'otro', 'unidad_id' => 'otro', 'unidades_ids' => 'otro',
+        'uniforme_id' => 'otro',
+    ];
+
+    /**
+     * El cuerpo que se manda, con un valor ajeno para cada clave conocida.
+     *
+     * `requested_alumnos` va aparte porque no es un id sino la lista con la que
+     * los informes piden alumnos, y es una de las claves que `ExigirPersonaPropia`
+     * mira por su cuenta.
      */
     private function cuerpoPlausible(): array
     {
-        $de = fn (string $clave) => $this->ajenos[$clave] ?? 0;
-
-        return [
-            'alumno_id' => $de('{alumno_id}'),
-            'grupo_id' => $de('{grupo_id}'),
-            'grupo_actual' => $de('{grupo_id}'),
-            'profesor_id' => $de('{profesor_id}'),
-            'persona_id' => $de('{profesor_id}'),
-            'user_id' => $de('{user_id}'),
-            'usuario_id' => $de('{user_id}'),
-            'acudiente_id' => $de('{persona_id?}'),
-            'asignatura_id' => $de('{asignatura_id}'),
-            'periodo_id' => $de('{periodo_id}'),
-            'num_periodo' => $this->ajenos['{periodo_a_calcular?}'] ?? 1,
-            'year_id' => $de('{year_id}'),
-            'year' => $de('{year}'),
-            'imagen_id' => $de('{imagen_id}'),
-            'img_id' => $de('{imagen_id}'),
-            'nota_id' => $de('{nota_id}'),
-            'votacion_id' => $de('{votacion_id}'),
-            'role_id' => $de('{role_id}'),
-            'ciudad_id' => $de('{ciudad_id}'),
-            'texto_a_buscar' => 'a',
+        $porClase = [
+            'alumno' => $this->ajenos['{alumno_id}'] ?? 0,
+            'grupo' => $this->ajenos['{grupo_id}'] ?? 0,
+            'profesor' => $this->ajenos['{profesor_id}'] ?? 0,
+            'usuario' => $this->ajenos['{user_id}'] ?? 0,
+            'acudiente' => $this->ajenos['{persona_id?}'] ?? 0,
+            'imagen' => $this->ajenos['{imagen_id}'] ?? 0,
+            'matricula' => $this->matriculaAjena,
+            'asignatura' => $this->ajenos['{asignatura_id}'] ?? 0,
+            'periodo' => $this->ajenos['{periodo_id}'] ?? 0,
+            'year' => $this->ajenos['{year_id}'] ?? 0,
+            'nota' => $this->ajenos['{nota_id}'] ?? 0,
+            'votacion' => $this->ajenos['{votacion_id}'] ?? 0,
+            'rol' => $this->ajenos['{role_id}'] ?? 0,
+            'ciudad' => $this->ajenos['{ciudad_id}'] ?? 0,
+            'otro' => 1,
         ];
+
+        $cuerpo = [];
+
+        foreach (self::CLAVES_DE_CUERPO as $clave => $clase) {
+            $cuerpo[$clave] = $porClase[$clase];
+        }
+
+        $cuerpo['requested_alumnos'] = [['alumno_id' => $porClase['alumno']]];
+        $cuerpo['num_periodo'] = $this->ajenos['{periodo_a_calcular?}'] ?? 1;
+        $cuerpo['periodo_a_calcular'] = $cuerpo['num_periodo'];
+        $cuerpo['year'] = $porClase['year'];
+        $cuerpo['username'] = $this->ajenos['{username}'] ?? 'x';
+        $cuerpo['texto_a_buscar'] = 'a';
+
+        return $cuerpo;
+    }
+
+    /**
+     * Las claves de cuerpo que los controladores leen y este mapa no cubre.
+     *
+     * El barrido ya se protege de encogerse en silencio por el lado de la URL con
+     * el `assertSame` del final. Por el lado del cuerpo se decía que no había
+     * atajo estático, y **no es cierto**: los identificadores se leen con
+     * `Request::input('x')` y eso se puede buscar. No es exacto —una clave
+     * construida en una variable se escapa— pero encuentra la que alguien añada
+     * escribiéndola, que es como se añaden.
+     *
+     * @return list<string>
+     */
+    private function clavesDeCuerpoSinCubrir(): array
+    {
+        $fuentes = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator(app_path('Http/Controllers'))
+        );
+
+        $leidas = [];
+
+        foreach ($fuentes as $fichero) {
+            if ($fichero->getExtension() !== 'php') {
+                continue;
+            }
+
+            preg_match_all(
+                "/(?:Request::(?:input|has)|request\(\)->input)\(\s*'([a-zA-Z0-9_]+)'/",
+                (string) file_get_contents($fichero->getPathname()),
+                $coincidencias
+            );
+
+            foreach ($coincidencias[1] as $clave) {
+                if (preg_match('/(^id$|_id$|_ids$)/', $clave) === 1) {
+                    $leidas[$clave] = true;
+                }
+            }
+        }
+
+        return array_values(array_diff(array_keys($leidas), array_keys(self::CLAVES_DE_CUERPO)));
     }
 
     /** Sustituye los parámetros de la URL, o devuelve null si no sabe con qué. */

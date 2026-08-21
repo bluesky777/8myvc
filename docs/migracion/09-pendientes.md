@@ -572,3 +572,32 @@ saber el tamaño real del daño en las dieciséis bases antes de tocar código.
     en el barrido desde la primera pasada **escribiendo**, y se dejó pasar porque
     afectaba a cero filas. Una consulta que se ejecuta sobre cero filas se
     parece demasiado a una que no se ejecuta.
+
+- **El cuerpo entero, hecho el 20 ago 2026.** La §18 mandaba veinte claves
+  escritas a mano; los controladores leen **setenta y ocho**. Y con eso cae la
+  frase que aquella dejó escrita —«no hay forma estática de saber qué claves lee
+  un controlador»—: no es exacta, pero encuentra la que alguien añada
+  escribiéndola, que es como se añaden. El barrido tiene ya por el lado del
+  cuerpo el mismo candado que tenía por el de la URL.
+
+  Lo que salió — [05 §20](05-codigo-muerto-y-roto.md): **un alumno respondía el
+  examen de otro.** `mis-actividades/seleccionar-opcion` recibe el
+  `actividad_resuelta_id` por el cuerpo y no miraba de quién es, así que borraba
+  la respuesta del otro y escribía la suya; y `finalizar-actividad` le cerraba el
+  examen en mitad de la prueba. Ninguna de las dos puede llevar `auth.personal`
+  —responder un examen es lo que hace un alumno— ni `persona.propia` —el
+  identificador nombra un intento, no una persona—, así que la comprobación va
+  dentro del controlador. Es la forma de la §13.2 vista del revés: allí el guard
+  estaba puesto y no reconocía el nombre; aquí no hay nombre que reconocer.
+
+- **Y una decisión que hay que tomar sobre el seed, que ya lleva cinco.** El seed
+  vacío ha tapado cinco hallazgos: `unidades_por_defecto`, los alumnos borrados,
+  `pazysalvo`, los folios y ahora `ws_actividades`. El patrón es siempre el
+  mismo: **el seed copia un grupo y sus datos, y todo lo que un colegio acumula
+  alrededor —papeleras, deudas, exámenes, plantillas— llega vacío**, así que un
+  `[]` no distingue «cerrado» de «no había nada». Los cinco se resolvieron
+  montando la fila a mano dentro de la transacción, que funciona y es honesto,
+  pero es un parche por caso. Decidir si el seed debe traer una fila de cada
+  familia —o si se prefiere seguir montándolas en cada test, que es explícito—
+  es lo que falta, y no se decide desde aquí porque cambia el seed de todos los
+  tests de contrato.

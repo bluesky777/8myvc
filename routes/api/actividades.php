@@ -40,7 +40,14 @@ Route::delete('actividades/destroy/{id}', [ActividadesController::class, 'delete
 // MisActividadesController
 Route::put('mis-actividades/datos', [MisActividadesController::class, 'putDatos'])->middleware('persona.propia');
 Route::put('mis-actividades/finalizar-actividad', [MisActividadesController::class, 'putFinalizarActividad']);
-Route::put('mis-actividades/guardar', [MisActividadesController::class, 'putGuardar']);
+// Sobrescribe la actividad entera —descripción, duración, oportunidades, si está
+// en acción—, que es la operación del profesor duplicada en el controlador del
+// alumno. **No la llama ningún cliente**: lo dice el comentario del propio
+// `MisActividadesApi.ts`, y la que usa el profesor es `actividades/guardar`.
+// Además está rota: escribe `puntaje_por_promedio`, que no es una columna de
+// `ws_actividades` — 500 seguro, como los cuatro de 05 §8. El guard es para el
+// día que se arregle. Ver 05 §20.
+Route::put('mis-actividades/guardar', [MisActividadesController::class, 'putGuardar'])->middleware('auth.personal');
 Route::put('mis-actividades/mi-actividad', [MisActividadesController::class, 'putMiActividad']);
 Route::put('mis-actividades/seleccionar-opcion', [MisActividadesController::class, 'putSeleccionarOpcion']);
 

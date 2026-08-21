@@ -1197,4 +1197,113 @@ class SuperficieDeUnAlumnoTest extends CasoDeContrato
                 "{$quien} sigue numerando los folios del colegio.");
         }
     }
+
+    /**
+     * El examen de otro alumno: responderlo por él y darlo por terminado.
+     *
+     * `mis-actividades/seleccionar-opcion` y `finalizar-actividad` reciben un
+     * `actividad_resuelta_id` por el cuerpo y **no comprobaban de quién era**.
+     * Medido antes de arreglarlo: un alumno borró la respuesta de otro y escribió
+     * la suya —`seleccionar-opcion` hace `DELETE` y luego `INSERT`— y le puso
+     * `terminado = 1` al intento del otro, que es cerrarle el examen en mitad de
+     * la prueba.
+     *
+     * **No pueden llevar `auth.personal`**: responder un examen es justo lo que
+     * hace un alumno. Y `persona.propia` tampoco sirve, porque el identificador
+     * que viaja nombra un intento y no una persona, y el guard recoge los
+     * identificadores por su nombre — es el mismo motivo por el que la §13.2
+     * necesitó su propio candado. La comprobación va dentro del controlador.
+     *
+     * El seed no tiene ninguna actividad, así que el caso monta la suya: el
+     * examen del profesor, el intento del OTRO alumno, y una respuesta dentro.
+     * Ver 05 §20.
+     */
+    public function test_un_alumno_no_responde_el_examen_de_otro(): void
+    {
+        [$ajena, $pregunta] = $this->montarElExamenDeOtroAlumno();
+
+        [, , , , $cab] = $this->actores();
+
+        $respuestasAntes = DB::table('ws_respuestas')
+            ->where('actividad_resuelta_id', $ajena)->pluck('id')->all();
+
+        $this->putJson('/api/mis-actividades/seleccionar-opcion',
+            ['actividad_resuelta_id' => $ajena, 'pregunta_id' => $pregunta, 'tipo_pregunta' => 'U'], $cab)
+            ->assertStatus(403);
+
+        $this->assertSame($respuestasAntes,
+            DB::table('ws_respuestas')->where('actividad_resuelta_id', $ajena)->pluck('id')->all(),
+            'El 403 llegó tarde: la respuesta del otro alumno ya estaba borrada.');
+
+        $this->putJson('/api/mis-actividades/finalizar-actividad',
+            ['actividad_resuelta_id' => $ajena], $cab)->assertStatus(403);
+
+        $this->assertSame(0,
+            (int) DB::table('ws_actividades_resueltas')->where('id', $ajena)->value('terminado'),
+            'El examen del otro alumno quedó cerrado.');
+    }
+
+    /** Y el suyo lo sigue respondiendo, que es la otra mitad. */
+    public function test_un_alumno_responde_el_suyo(): void
+    {
+        [, $pregunta, $actividad] = $this->montarElExamenDeOtroAlumno();
+
+        [, $mio, , , $cab] = $this->actores();
+
+        DB::insert('INSERT INTO ws_actividades_resueltas (persona_id, actividad_id, terminado, created_at, updated_at)
+                    VALUES (?, ?, 0, ?, ?)', [$mio->id, $actividad, now(), now()]);
+        $mia = (int) DB::getPdo()->lastInsertId();
+
+        $this->putJson('/api/mis-actividades/seleccionar-opcion',
+            ['actividad_resuelta_id' => $mia, 'pregunta_id' => $pregunta, 'tipo_pregunta' => 'U'], $cab)
+            ->assertStatus(201);
+
+        $this->putJson('/api/mis-actividades/finalizar-actividad',
+            ['actividad_resuelta_id' => $mia], $cab)->assertStatus(200);
+
+        $this->assertSame(1,
+            (int) DB::table('ws_actividades_resueltas')->where('id', $mia)->value('terminado'),
+            'El alumno ya no puede terminar su propia actividad.');
+    }
+
+    /**
+     * Un examen del profesor y el intento de OTRO alumno, con una respuesta dentro.
+     *
+     * El seed no trae ninguna actividad —`ws_actividades` está vacía—, y por eso
+     * el barrido pasó por estas dos sin poder decir nada: golpeaba con un
+     * `actividad_resuelta_id` que no existía. Es la quinta vez que el seed vacío
+     * tapa un hallazgo.
+     *
+     * @return array{0: int, 1: int, 2: int} intento ajeno, pregunta y actividad
+     */
+    private function montarElExamenDeOtroAlumno(): array
+    {
+        [, $mio, $otro] = $this->actores();
+
+        $asignatura = DB::selectOne('SELECT id FROM asignaturas WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+        $periodo = DB::selectOne('SELECT id FROM periodos WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+
+        DB::insert('INSERT INTO ws_actividades (asignatura_id, periodo_id, descripcion, tipo, compartida,
+                        can_upload, in_action, duracion_preg, duracion_exam, oportunidades, one_by_one,
+                        contenido, created_at, updated_at)
+                    VALUES (?, ?, "Examen del profesor", "E", 0, 0, 1, 60, 3600, 1, 0, "", ?, ?)',
+            [$asignatura->id, $periodo->id, now(), now()]);
+        $actividad = (int) DB::getPdo()->lastInsertId();
+
+        DB::insert('INSERT INTO ws_actividades_resueltas (persona_id, actividad_id, terminado, created_at, updated_at)
+                    VALUES (?, ?, 0, ?, ?)', [$otro->id, $actividad, now(), now()]);
+        $ajena = (int) DB::getPdo()->lastInsertId();
+
+        $this->assertNotSame((int) $mio->id, (int) $otro->id,
+            'El intento tiene que ser de otro alumno para que este caso pruebe algo.');
+
+        DB::insert('INSERT INTO ws_preguntas (actividad_id, enunciado, tipo_pregunta, orden, created_at, updated_at)
+                    VALUES (?, "¿?", "U", 1, ?, ?)', [$actividad, now(), now()]);
+        $pregunta = (int) DB::getPdo()->lastInsertId();
+
+        DB::insert('INSERT INTO ws_respuestas (actividad_resuelta_id, pregunta_id, tipo_pregunta, created_at, updated_at)
+                    VALUES (?, ?, "U", ?, ?)', [$ajena, $pregunta, now(), now()]);
+
+        return [$ajena, $pregunta, $actividad];
+    }
 }

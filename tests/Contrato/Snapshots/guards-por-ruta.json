@@ -266,6 +266,7 @@
         "PUT api/materias/update-orden",
         "PUT api/materias/update/{id}",
         "PUT api/matriculas/alumnos-con-grado-anterior",
+        "PUT api/mis-actividades/guardar",
         "PUT api/myimages/cambiarlogocolegio",
         "PUT api/niveles_educativos/update/{id}",
         "PUT api/nota_comportamiento/crear",

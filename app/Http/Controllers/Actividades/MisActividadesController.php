@@ -113,6 +113,7 @@ class MisActividadesController extends Controller {
 		$actividad_resuelta_id 	= Request::input('actividad_resuelta_id');
 		$pregunta_id 			= Request::input('pregunta_id');
 
+		$this->exigirQueLaResueltaSeaSuya($user, $actividad_resuelta_id);
 
 		$consulta = 'DELETE FROM ws_respuestas WHERE actividad_resuelta_id=? AND pregunta_id=?';
 		DB::delete($consulta, [$actividad_resuelta_id, $pregunta_id]);
@@ -129,12 +130,44 @@ class MisActividadesController extends Controller {
 		return $res;
 	}
 
+	/**
+	 * Que la actividad resuelta sea de quien la está tocando.
+	 *
+	 * Estas dos rutas no pueden llevar `auth.personal` —responder y terminar un
+	 * examen es justo lo que hace un alumno— y `persona.propia` tampoco sirve: el
+	 * identificador que viaja es `actividad_resuelta_id`, que no nombra a una
+	 * persona sino a un intento, y el guard recoge los identificadores por su
+	 * nombre. O sea que la comprobación tiene que estar aquí.
+	 *
+	 * Sin ella, medido antes de escribirla: un alumno **cambiaba la respuesta del
+	 * examen de otro** —`seleccionar-opcion` borra la respuesta anterior y escribe
+	 * la suya— y **daba por terminado el examen de otro** en mitad de la prueba.
+	 * Ver 05 §20.
+	 *
+	 * Se compara contra `persona_id`, que es lo que guarda la tabla y lo que ya
+	 * usa `putMiActividad()` para buscarla. Un acudiente no tiene intentos, así
+	 * que esto le cierra las dos — y es lo correcto: ver el examen de su acudido
+	 * es una cosa y responderlo por él es otra.
+	 */
+	private function exigirQueLaResueltaSeaSuya($user, $actividad_resuelta_id): void
+	{
+		$suya = WsActividadResuelta::where('id', $actividad_resuelta_id)
+			->where('persona_id', $user->persona_id)
+			->exists();
+
+		if (! $suya) {
+			abort(403, 'Solo puedes responder tu actividad');
+		}
+	}
+
+
 	public function putFinalizarActividad()
 	{
 		$user 	= User::fromToken();
 
 		$actividad_resuelta_id 	= Request::input('actividad_resuelta_id');
 
+		$this->exigirQueLaResueltaSeaSuya($user, $actividad_resuelta_id);
 
 		$res 						= WsActividadResuelta::findOrFail($actividad_resuelta_id);
 		$res->terminado 			= true;

@@ -1710,3 +1710,89 @@ comprueba la puerta y no el efecto, y lo dice.
 - Y el barrido baja de 16 rutas con algo dentro a **13**, que son las de siempre:
   lo suyo del alumno, la configuración del colegio, y las tres que esperan una
   decisión en la tabla del [09 §5](09-pendientes.md).
+
+---
+
+## 20. El cuerpo entero, y el examen de otro alumno (20 ago 2026)
+
+La [§18](#18-el-cuerpo-lleno-y-el-módulo-de-votaciones-20-ago-2026) puso al
+barrido a mandar cuerpo, con **veinte claves escritas a mano**. La pregunta que
+no se hizo entonces es cuántas hay, y tiene respuesta: los controladores leen
+**setenta y ocho** identificadores del cuerpo. Se contaron así, que es la
+medición entera:
+
+```bash
+grep -rhoE "(Request::(input|has)|request\(\)->input)\(\s*'[a-zA-Z0-9_]+'" app/Http/Controllers/ \
+  | grep -oE "'[a-zA-Z0-9_]+'" | tr -d "'" | sort -u | grep -E '(^id$|_id$|_ids$)'
+```
+
+Y con eso cae la frase que la §18 dejó escrita —«no hay forma estática de saber
+qué claves lee un controlador»—, que **no es cierta**: no es exacta, porque una
+clave construida en una variable se escapa, pero encuentra la que alguien añada
+escribiéndola, que es como se añaden. Así que el barrido tiene ahora, por el lado
+del cuerpo, el mismo candado que ya tenía por el de la URL: un `assertSame` que
+falla cuando un controlador lee un identificador que el mapa no manda.
+
+`CLAVES_DE_CUERPO` declara qué clase de cosa nombra cada una —alumno, grupo,
+imagen, matrícula…— y el valor sale de la misma consulta que el mapa de la URL.
+Las que no hace falta acertar van a `otro`, un id que existe y no es suyo: lo que
+se mide es si la ruta llega a actuar sobre algo ajeno, no sobre qué.
+
+**`tipo` no se manda, y es deliberado.** `ExigirPersonaPropia` comprueba que el
+`tipo` declarado sea el del token, así que mandarlo provocaría 403 en rutas que
+sin él pasan, y el barrido mediría menos creyendo que mide más.
+
+### 20.1 Un alumno respondiendo el examen de otro
+
+Con el cuerpo entero, `mis-actividades/seleccionar-opcion` pasó de aparecer como
+una escritura propia a aparecer **borrando y reventando**. Mirado de cerca, y
+montando el examen que el seed no tiene:
+
+| Ruta | Qué hacía |
+|---|---|
+| `PUT mis-actividades/seleccionar-opcion` | Recibe `actividad_resuelta_id` por el cuerpo y no mira de quién es: **borra la respuesta de otro alumno y escribe la suya** —el método hace `DELETE` y luego `INSERT`— |
+| `PUT mis-actividades/finalizar-actividad` | Le pone `terminado = 1` al intento de otro: **le cierra el examen en mitad de la prueba** |
+
+**Ninguna de las dos puede llevar `auth.personal`**: responder y terminar un
+examen es justo lo que hace un alumno. Y `persona.propia` tampoco sirve, porque
+el identificador que viaja —`actividad_resuelta_id`— nombra **un intento y no una
+persona**, y el guard recoge los identificadores por su nombre. Es la misma forma
+del punto ciego de la [§13.2](#13-lo-que-encontró-subir-larastan-al-nivel-5-20-ago-2026),
+vista desde el otro lado: allí el guard estaba puesto y no reconocía el nombre;
+aquí no hay nombre que reconocer.
+
+Así que la comprobación va **dentro del controlador**, contra `persona_id`, que
+es lo que guarda la tabla y lo que ya usaba `putMiActividad()` para buscarla. Un
+acudiente no tiene intentos, así que le cierra las dos, y es lo correcto: ver el
+examen de su acudido es una cosa y responderlo por él es otra.
+
+### 20.2 Y la tercera, que no la llama nadie y además está rota
+
+`PUT mis-actividades/guardar` sobrescribe la actividad entera —descripción,
+duración, oportunidades, si está en acción—: es la operación del profesor
+duplicada en el controlador del alumno. **No la llama ningún cliente**, y no hay
+que deducirlo: lo dice el comentario del propio `MisActividadesApi.ts`, y la que
+usa el profesor es `actividades/guardar`.
+
+Además está rota: escribe `puntaje_por_promedio`, que no es una columna de
+`ws_actividades`. Es el quinto endpoint de la familia de la
+[§8](#8-lo-que-encontró-golpear-las-rutas-20-ago-2026-p2-de-tests) —SQL contra una
+columna que no existe— y responde 500 siempre. Lleva `auth.personal` para el día
+que se arregle.
+
+### 20.3 Lo que queda de esto
+
+- El candado de cobertura del cuerpo, comprobado al revés quitándole
+  `matricula_id` al mapa: el barrido lo señala.
+- Dos casos nuevos en `SuperficieDeUnAlumnoTest` que montan el examen que el seed
+  no tiene, y que comprueban **el efecto**: que la respuesta del otro siga ahí y
+  que su intento siga abierto. Más su contrario —que el alumno sí responde y
+  termina el suyo—, porque la mitad de esto es no romper el examen.
+- **Y la quinta vez que el seed vacío tapa un hallazgo**: `ws_actividades` está
+  vacía, así que el barrido golpeaba estas dos con un `actividad_resuelta_id` que
+  no existía. Van ya `unidades_por_defecto`, los alumnos borrados, `pazysalvo`,
+  los folios y las actividades. **El patrón está claro y merece una decisión que
+  no es de esta sesión:** el seed copia un grupo y sus datos, y todo lo que un
+  colegio acumula alrededor —papeleras, deudas, exámenes, plantillas— llega
+  vacío. Mientras siga así, un `[]` de este seed no distingue «cerrado» de «no
+  había nada».
