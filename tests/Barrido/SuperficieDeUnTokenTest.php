@@ -59,6 +59,14 @@ use Tests\Contrato\CasoDeContrato;
  *     36 salieron cerradas. Para el acudiente no hay sujeto posible, y el
  *     barrido lo dice al final en vez de callárselo.
  *
+ * **La tercera pasada fue por el `{id}`** (20 ago 2026). 85 rutas lo llevan y
+ * todas recibían el mismo número, el `users.id` del superusuario, porque el mapa
+ * resuelve por nombre de parámetro y `{id}` es un nombre solo. Contra las otras
+ * cuarenta y dos tablas era un id prestado, y **un 404 por «esa fila no está» se
+ * lee igual que un guard que funciona**. Ahora se resuelve por familia de rutas
+ * —{@see TABLA_DE_ID}— y salió `myimages/destroy/{id}`, que con una imagen ajena
+ * pide que la borren. Ver 05 §21.
+ *
  * Y una cosa que este archivo **no** puede encontrar, demostrada el mismo día:
  * lo que sale sin ser dato personal. `unidades/trashed` devolvía a un alumno la
  * papelera académica del colegio y el barrido la vio pasar, porque su criterio
@@ -107,6 +115,16 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
 
     /** Una matrícula que no es suya, para las rutas que piden por `matricula_id`. */
     private int $matriculaAjena = 0;
+
+    /**
+     * Lo que el guard daría por suyo, guardado para resolver los `{id}`.
+     *
+     * @var array{personas: int[], alumnos: int[], usuarios: int[], grupos: int[], year: int}
+     */
+    private array $suyo = ['personas' => [], 'alumnos' => [], 'usuarios' => [], 'grupos' => [], 'year' => 0];
+
+    /** Los `{id}` ya resueltos, por tabla y por si hacía falta de la papelera. */
+    private array $idsPorTabla = [];
 
     /**
      * Los parámetros para los que el seed NO tiene ningún valor ajeno.
@@ -180,6 +198,8 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
         $encontrado = 0;
         $sinValor = [];
         $sinMedir = [];
+        $sinFila = [];
+        $sinMapa = [];
 
         foreach (Route::getRoutes()->getRoutes() as $ruta) {
             $verbo = $ruta->methods()[0];
@@ -189,7 +209,20 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
                 continue;
             }
 
-            $pedida = $this->rellenar($uri);
+            $id = null;
+
+            if (str_contains($uri, '{id}')) {
+                [$id, $motivo] = $this->idAjenoPara($uri, $ruta);
+
+                if ($id === null) {
+                    $destino = $verbo.' '.$uri.'   ('.$motivo.')';
+                    str_contains($motivo, 'TABLA_DE_ID')
+                        ? $sinMapa[] = $verbo.' '.$uri
+                        : $sinFila[] = $destino;
+                }
+            }
+
+            $pedida = $this->rellenar($uri, $id);
 
             if ($pedida === null) {
                 $sinValor[] = $verbo.' '.$uri;
@@ -252,6 +285,17 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
         $this->salida[] = "{$encontrado} rutas pasaron de largo con algo dentro.";
         $this->salida[] = 'Cada una hay que mirarla: muchas son lo suyo, y eso el barrido no lo sabe.';
 
+        if ($sinFila !== []) {
+            $this->salida[] = '';
+            $this->salida[] = count($sinFila).' rutas con {id} NO se midieron: el seed no tiene ninguna '
+                .'fila que mandarles.';
+            $this->salida[] = 'Se golpearon con un cero, así que su respuesta vacía no prueba nada.';
+
+            foreach ($sinFila as $ruta) {
+                $this->salida[] = '  '.$ruta;
+            }
+        }
+
         if ($sinMedir !== []) {
             $this->salida[] = '';
             $this->salida[] = count($sinMedir).' rutas NO se midieron: el seed no tiene ningún valor '
@@ -278,6 +322,12 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
         // y el barrido no manda es una ruta que no llega a actuar sobre nada
         // ajeno: entra, no encuentra a quién, y contesta vacío. Así se escondieron
         // `promovidos/calcular-grupo` y media cartera (05 §17).
+        // Y por el lado del `{id}`, que es el tercero. Una familia de rutas que no
+        // esté en el mapa se golpearía con un cero y el barrido diría que la mide.
+        $this->assertSame([], $sinMapa,
+            "Estas rutas llevan {id} y TABLA_DE_ID no dice qué tabla nombra, así que\n"
+            .'se golpearon con un cero. Añade la familia en TABLA_DE_ID.');
+
         $this->assertSame([], $this->clavesDeCuerpoSinCubrir(),
             "Los controladores leen del cuerpo estos identificadores y el barrido no\n"
             .'los manda, así que esas rutas se miden sin llegar a tocar a nadie. '
@@ -332,6 +382,87 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
             ? $this->usuarioDeTipo($tipo)
             : DB::selectOne('SELECT * FROM users WHERE id = ?', [$elegido->id]);
     }
+
+    /**
+     * Qué tabla nombra el `{id}` de cada familia de rutas.
+     *
+     * **`{id}` es el mismo nombre para cuarenta y tres tablas distintas**, y el
+     * barrido les mandaba a las ochenta y cinco el mismo número: el `users.id`
+     * del superusuario. Contra `perfiles/*` era el correcto y contra las demás
+     * era un id de otra tabla — que existe o no existe, y si existe no es la fila
+     * que la ruta pretende tocar. Un 404 por «esa fila no está» se lee igual que
+     * un guard que funciona, y por eso esto no era un detalle: **eran ochenta y
+     * cinco rutas cuya respuesta no probaba nada**, casi todas `DELETE` y `PUT`.
+     *
+     * El nombre de la familia sale de la URL y la tabla de lo que hace el
+     * controlador, que no siempre coinciden: `boletines2/destroy/{id}` y
+     * `editnota/destroy/{id}` borran **alumnos**, `definitivas_periodos` borra
+     * `notas_finales`, y `certificados` es `config_certificados`.
+     */
+    private const TABLA_DE_ID = [
+        'actividades' => 'ws_actividades',
+        'acudientes' => 'acudientes',
+        'alumnos' => 'alumnos',
+        'areas' => 'areas',
+        'asignaturas' => 'asignaturas',
+        'aspiraciones' => 'vt_aspiraciones',
+        'ausencias' => 'ausencias',
+        'bitacoras' => 'bitacoras',
+        'boletines2' => 'alumnos',
+        'boletines3' => 'alumnos',
+        'candidatos' => 'vt_candidatos',
+        'certificados' => 'config_certificados',
+        'ciudades' => 'ciudades',
+        'contratos' => 'contratos',
+        'definiciones_comportamiento' => 'definiciones_comportamiento',
+        'definitivas_periodos' => 'notas_finales',
+        'editnota' => 'alumnos',
+        'enfermeria' => 'registros_enfermeria',
+        'escalas' => 'escalas_de_valoracion',
+        'frases' => 'frases',
+        'frases_asignatura' => 'frases_asignatura',
+        'grados' => 'grados',
+        'grupos' => 'grupos',
+        'images-users' => 'images',
+        'materias' => 'materias',
+        'matriculas' => 'matriculas',
+        'myimages' => 'images',
+        'niveles_educativos' => 'niveles_educativos',
+        'nota_comportamiento' => 'nota_comportamiento',
+        'notas' => 'notas',
+        'opciones' => 'ws_opciones',
+        'participantes' => 'vt_participantes',
+        'perfiles' => 'users',
+        'periodos' => 'periodos',
+        'preguntas' => 'ws_preguntas',
+        'profesores' => 'profesores',
+        'requisitos' => 'requisitos_matricula',
+        'roles' => 'roles',
+        'subunidades' => 'subunidades',
+        'unidades' => 'unidades',
+        'votaciones' => 'vt_votaciones',
+        'votos' => 'vt_votos',
+        'years' => 'years',
+    ];
+
+    /**
+     * Cómo se elige una fila AJENA en las tablas donde «suyo» significa algo.
+     *
+     * En las demás —`areas`, `frases`, `ciudades`, `unidades`— cualquier fila
+     * sirve: son del colegio y no de nadie, que es el mismo criterio del comodín
+     * `otro` de {@see CLAVES_DE_CUERPO}. Aquí están solo las cinco tablas donde
+     * mandar una fila suya convertiría el barrido en un espejo: la ruta
+     * respondería que sí y tendría razón.
+     */
+    private const AJENO_POR = [
+        'alumnos' => ['id', 'alumnos'],
+        'users' => ['id', 'usuarios'],
+        'grupos' => ['id', 'grupos'],
+        'profesores' => ['id', 'personas'],
+        'acudientes' => ['id', 'personas'],
+        'images' => ['user_id', 'usuarios'],
+        'matriculas' => ['alumno_id', 'alumnos'],
+    ];
 
     /**
      * Qué nombra cada clave que los controladores leen del cuerpo.
@@ -470,10 +601,105 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
         return array_values(array_diff(array_keys($leidas), array_keys(self::CLAVES_DE_CUERPO)));
     }
 
-    /** Sustituye los parámetros de la URL, o devuelve null si no sabe con qué. */
-    private function rellenar(string $uri): ?string
+    /**
+     * El `{id}` que le toca a esta ruta, y por qué no lo hay cuando no lo hay.
+     *
+     * Devuelve el motivo en vez de un cero silencioso a propósito: el barrido
+     * golpea igual —una ruta que responde 403 antes de mirar la fila queda
+     * medida de todos modos—, pero **lo que no se ha medido lo dice**. Es la
+     * misma regla que ya cumplen el mapa de la URL y el del cuerpo.
+     *
+     * @return array{0: ?int, 1: string}
+     */
+    private function idAjenoPara(string $uri, \Illuminate\Routing\Route $ruta): array
     {
-        $pedida = strtr($uri, array_map('strval', $this->ajenos));
+        $familia = explode('/', $uri)[1] ?? '';
+
+        if (! isset(self::TABLA_DE_ID[$familia])) {
+            return [null, 'la familia no está en TABLA_DE_ID'];
+        }
+
+        $tabla = self::TABLA_DE_ID[$familia];
+        $papelera = $this->necesitaPapelera($ruta);
+        $clave = $tabla.($papelera ? ' (papelera)' : '');
+
+        if (! array_key_exists($clave, $this->idsPorTabla)) {
+            $this->idsPorTabla[$clave] = $this->idAjenoEn($tabla, $papelera);
+        }
+
+        return $this->idsPorTabla[$clave] === null
+            ? [null, $papelera ? "no hay ninguna fila borrada en {$tabla}" : "no hay ninguna fila ajena en {$tabla}"]
+            : [$this->idsPorTabla[$clave], ''];
+    }
+
+    /**
+     * Si la ruta solo actúa sobre una fila que ya esté en la papelera.
+     *
+     * Se lee del código del método y no del nombre de la ruta porque los nombres
+     * mienten: `years/destroy/{id}` hace `forceDelete()` sobre `onlyTrashed()`
+     * —es el borrado de más alcance del sistema— y `years/delete/{id}` es el que
+     * manda a la papelera. Con el nombre por criterio, la de verdad peligrosa se
+     * habría golpeado con un año vivo y habría contestado 404.
+     */
+    private function necesitaPapelera(\Illuminate\Routing\Route $ruta): bool
+    {
+        $accion = $ruta->getActionName();
+
+        if (! str_contains($accion, '@')) {
+            return false;
+        }
+
+        [$clase, $metodo] = explode('@', $accion);
+
+        try {
+            $reflejo = new \ReflectionMethod($clase, $metodo);
+        } catch (\ReflectionException) {
+            return false;
+        }
+
+        $fichero = (array) file((string) $reflejo->getFileName());
+        $cuerpo = implode('', array_slice($fichero, $reflejo->getStartLine() - 1,
+            $reflejo->getEndLine() - $reflejo->getStartLine() + 1));
+
+        return str_contains($cuerpo, 'onlyTrashed');
+    }
+
+    /** Una fila de esta tabla que no sea suya, o null si el seed no tiene ninguna. */
+    private function idAjenoEn(string $tabla, bool $papelera): ?int
+    {
+        $donde = [];
+
+        if ($this->tieneBorradoSuave($tabla)) {
+            $donde[] = $papelera ? 'deleted_at IS NOT NULL' : 'deleted_at IS NULL';
+        } elseif ($papelera) {
+            // El método usa `onlyTrashed()` sobre una tabla sin `deleted_at`: es
+            // un endpoint roto, no una fila que falte. Se golpea con lo que haya.
+            $donde[] = '1 = 1';
+        }
+
+        if (isset(self::AJENO_POR[$tabla])) {
+            [$columna, $lista] = self::AJENO_POR[$tabla];
+            $suyos = $this->suyo[$lista];
+            $donde[] = "{$columna} NOT IN (".implode(',', $suyos === [] ? [0] : $suyos).')';
+        }
+
+        // La tabla sale de TABLA_DE_ID, que es una constante de este archivo: no
+        // hay nada de la petición en esta consulta.
+        $fila = DB::selectOne('SELECT id FROM `'.$tabla.'` WHERE '
+            .($donde === [] ? '1 = 1' : implode(' AND ', $donde)).' ORDER BY id LIMIT 1');
+
+        return $fila === null ? null : (int) $fila->id;
+    }
+
+    private function tieneBorradoSuave(string $tabla): bool
+    {
+        return DB::select('SHOW COLUMNS FROM `'.$tabla."` LIKE 'deleted_at'") !== [];
+    }
+
+    /** Sustituye los parámetros de la URL, o devuelve null si no sabe con qué. */
+    private function rellenar(string $uri, ?int $id): ?string
+    {
+        $pedida = strtr($uri, array_map('strval', $this->ajenos) + ['{id}' => (string) ($id ?? 0)]);
         $pedida = preg_replace('/\{[^}]*\?\}/', '', $pedida);
         $pedida = rtrim(str_replace('//', '/', $pedida), '/');
 
@@ -502,7 +728,7 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
      */
     private function identificadoresAjenosA(object $quien, string $tipo): array
     {
-        $suyo = $this->loSuyoDe($quien, $tipo);
+        $suyo = $this->suyo = $this->loSuyoDe($quien, $tipo);
 
         // Los ids salen de la base, no de la petición: se interpolan porque
         // `IN (?)` no admite lista. La lista vacía se escribe como `(0)`, que
@@ -557,7 +783,7 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
             '{username}' => $superusuario->username ?? 'x',
             '{asignatura_id}' => $asignatura->id ?? 0,
             '{periodo_id}' => $periodo->id ?? 0, '{periodo_a_calcular?}' => $periodo->numero ?? 1,
-            '{imagen_id}' => $imagen->id ?? 0, '{id}' => $superusuario->id ?? 0,
+            '{imagen_id}' => $imagen->id ?? 0,
             '{year_id}' => $year, '{year}' => $year,
             '{ciudad_id}' => $ciudad->id ?? 0, '{pais_id}' => 1,
             '{departamento}' => rawurlencode((string) ($ciudad->departamento ?? 'x')),
