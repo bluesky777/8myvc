@@ -33,6 +33,11 @@ $escribir = in_array('--escribir', $argv, true);
 
 $esquema = file_get_contents(__DIR__.'/../database/schema/mysql-schema.sql');
 
+if ($esquema === false) {
+    fwrite(STDERR, "No se pudo leer el fichero\n");
+    exit(1);
+}
+
 preg_match_all('/CREATE TABLE `(\w+)` \((.*?)\n\) ENGINE/s', $esquema, $tablas, PREG_SET_ORDER);
 
 $columnasPorTabla = [];
@@ -76,6 +81,11 @@ $modelos = array_merge(glob(__DIR__.'/../app/Models/*.php'), [__DIR__.'/../app/U
 
 foreach ($modelos as $fichero) {
     $fuente = file_get_contents($fichero);
+
+    if ($fuente === false) {
+        fwrite(STDERR, "No se pudo leer el fichero\n");
+        exit(1);
+    }
     $clase = basename($fichero, '.php');
 
     $tabla = tablaDe($fuente, $clase, $columnasPorTabla);

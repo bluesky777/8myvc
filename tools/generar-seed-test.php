@@ -436,6 +436,11 @@ sort($tablas);
 @mkdir(dirname(SALIDA), 0755, true);
 $fh = fopen(SALIDA, 'w');
 
+if ($fh === false) {
+    fwrite(STDERR, "No se pudo abrir el fichero de salida\n");
+    exit(1);
+}
+
 fwrite($fh, <<<CAB
 -- Semilla de datos para los tests de contrato.
 --

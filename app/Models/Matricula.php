@@ -127,9 +127,23 @@ class Matricula extends Model {
 	{
 		if (!$year_id) {
 			$year = Year::where('actual', true)->first();
+
+			// Sin año actual no hay folio ni grupo al que matricular. Antes esto era
+			// «Attempt to read property on null» y un 500 sin explicación; el caso
+			// existe de verdad y lo diagnostica `php artisan anios:actuales`.
+			if ($year === null) {
+				abort(409, 'El colegio no tiene ningún año marcado como actual.');
+			}
+
 			$year_id = $year->id;
 		}else{
-			$year = Year::find($year_id);
+			// `findOrFail` y no `find`: el folio es `{año}-{alumno_id}` y es lo que el
+			// colegio escribe en el libro de matrícula. Con `find`, un `year_id` que no
+			// existe devolvía null, `$year->year` daba un aviso y la matrícula se
+			// creaba con el folio «-1234», sin que nadie se enterara. `year_id` llega
+			// del cuerpo de la petición sin validar. Ver
+			// docs/migracion/12-larastan-nivel-7.md §11.
+			$year = Year::findOrFail((int) $year_id);
 		}
 
 		$matricula = false;

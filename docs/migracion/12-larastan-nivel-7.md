@@ -394,3 +394,38 @@ token sin usuario guardado.
 cambiada, que es lo que lo hace útil: nació fijando que el token abría la cuenta
 de al lado y ahora fija que no. Si alguien vuelve a leer el username del cuerpo,
 se pone rojo.
+
+## §11. Mi territorio, cerrado al nivel 7
+
+Con las tres reglas de deuda de anotación diferidas, `app/Models`,
+`app/Services`, `app/Support`, `app/Mail`, `app/Console`, `app/Http/Middleware`
+y `tools/` pasaron de **57 a 36** errores, y los 36 que quedan son los 31
+`property.notFound` de las consultas crudas —`stdClass`, el ruido documentado— y
+cinco `argument.type` en herramientas, todos de la misma forma.
+
+Lo que salió por el camino, y es lo que valía la pena:
+
+**Un `year_id` que no existe escribía el folio «-1234» en el libro de matrícula.**
+`Matricula::matricularUno()` hacía `Year::find($year_id)`, y `year_id` llega **del
+cuerpo de la petición sin validar** (`MatriculasController::postMatricularuno`).
+Con un año inexistente, `find()` devuelve null, `$year->year` da un aviso de PHP y
+**la matrícula se crea igual**, con el folio empezando por un guion. El folio es
+`{año}-{alumno_id}` y es lo que el colegio escribe en el libro físico. Ahora es
+`findOrFail((int) $year_id)` → 404, y si no hay ningún año actual —el caso que
+diagnostica `anios:actuales`— un 409 con su motivo en vez de «Attempt to read
+property on null». Misma familia que la §1: **un dato malo escrito en silencio es
+peor que un error**.
+
+**`ImageModel::eliminar_imagen_y_enlaces()`** hacía `findOrFail($imagen_id)` sin
+tipo, así que la firma dejaba abierta la rama en que devuelve una `Collection` —
+la misma confusión `first()`/`get()` de la §13.1. Hoy ningún llamador puede pasar
+un array (uno es parámetro de ruta y el otro una columna), así que es precisión y
+no arreglo; pero `$img->nombre` sobre una Collection es una **excepción**, no un
+aviso, y la línea de al lado ya borró el fichero del disco. Cerrado con un
+`(int)`.
+
+**Seis `fopen()`/`file_get_contents()` sin comprobar en `tools/`**, más los tres
+`foreach` de la §4. Ninguno alcanzable hoy; se cierran porque son de casa y
+cuestan una guarda. Una herramienta de medición que falla en silencio es peor que
+una que no existe: **da un número, y el número es plausible** — que es la lección
+que costó una medición de cobertura esta misma tarde.

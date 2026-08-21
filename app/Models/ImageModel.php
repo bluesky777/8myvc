@@ -131,7 +131,13 @@ class ImageModel extends Model {
 
 	public static function eliminar_imagen_y_enlaces($imagen_id)
 	{
-		$img 		= ImageModel::findOrFail($imagen_id);
+		// El `(int)` cierra la rama en que `findOrFail()` devuelve una Collection —con
+		// un array por argumento la firma la contempla—, que es la misma confusión
+		// `first()`/`get()` de la §13.1. Hoy ningún llamador puede pasar un array
+		// (uno es parámetro de ruta y el otro una columna), así que es precisión y no
+		// arreglo; pero `$img->nombre` sobre una Collection es una excepción, no un
+		// aviso, y la línea de al lado ya borró el fichero del disco.
+		$img 		= ImageModel::findOrFail((int) $imagen_id);
 		$filename 	= 'images/perfil/'.$img->nombre;
 		
 		if (File::exists($filename)) {

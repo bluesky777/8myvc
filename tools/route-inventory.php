@@ -133,6 +133,11 @@ foreach ($collisions as $key => $actions) {
 
 if ($output = $argv[1] ?? null) {
     $handle = fopen($output, 'w');
+
+    if ($handle === false) {
+        fwrite(STDERR, "No se pudo abrir el fichero de salida\n");
+        exit(1);
+    }
     fputcsv($handle, ['verb', 'uri', 'controller', 'method']);
     foreach ($rows as $row) {
         fputcsv($handle, $row);

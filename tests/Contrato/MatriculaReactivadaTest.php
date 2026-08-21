@@ -78,4 +78,39 @@ class MatriculaReactivadaTest extends CasoDeContrato
         $this->assertSame("{$anio}-{$matricula->alumno_id}", $fila->nro_folio,
             'El folio no se le puso a la matrícula que revivió.');
     }
+
+    /**
+     * Un `year_id` que no existe es 404, y no una matrícula con el folio «-1234».
+     *
+     * El folio es `{año}-{alumno_id}` y es lo que el colegio escribe en el libro
+     * de matrícula. `year_id` llega del cuerpo de la petición sin validar, y con
+     * `Year::find()` un año inexistente devolvía null: `$year->year` daba un aviso
+     * de PHP, la matrícula se creaba igual y el folio salía empezando por un
+     * guion. Un dato malo escrito en silencio es peor que un error, que es la
+     * misma lección de la §1.
+     */
+    public function test_un_ano_que_no_existe_no_crea_una_matricula_con_folio_roto(): void
+    {
+        $grupo = $this->grupoConAlumnos();
+        $token = $this->superusuario((int) $grupo->year_id);
+
+        $alumno = DB::selectOne('SELECT m.alumno_id FROM matriculas m
+            WHERE m.grupo_id = ? AND m.deleted_at IS NULL ORDER BY m.id LIMIT 1', [$grupo->id]);
+
+        $inexistente = ((int) DB::selectOne('SELECT MAX(id) m FROM years')->m) + 1000;
+
+        $antes = (int) DB::selectOne('SELECT COUNT(*) n FROM matriculas')->n;
+
+        $this->postJson('/api/matriculas/matricularuno', [
+            'alumno_id' => $alumno->alumno_id,
+            'grupo_id' => $grupo->id,
+            'year_id' => $inexistente,
+        ], ['Authorization' => 'Bearer '.$token])->assertStatus(404);
+
+        $this->assertSame($antes, (int) DB::selectOne('SELECT COUNT(*) n FROM matriculas')->n,
+            'Se creó una matrícula contra un año que no existe.');
+
+        $this->assertSame(0, (int) DB::selectOne('SELECT COUNT(*) n FROM matriculas
+            WHERE nro_folio LIKE "-%"')->n, 'Quedó una matrícula con el folio empezando por guion.');
+    }
 }

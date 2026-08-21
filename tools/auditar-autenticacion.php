@@ -317,6 +317,11 @@ usort($resultados, fn ($a, $b) => [$a[2], $a[1]] <=> [$b[2], $b[1]]);
 
 if (in_array('--csv', $argv, true)) {
     $fh = fopen('php://stdout', 'w');
+
+    if ($fh === false) {
+        fwrite(STDERR, "No se pudo abrir el fichero de salida\n");
+        exit(1);
+    }
     fputcsv($fh, ['verbo', 'uri', 'controlador', 'metodo', 'autentica', 'como', 'riesgo']);
     foreach ($resultados as $fila) {
         $fila[2] = str_replace('App\\Http\\Controllers\\', '', $fila[2]);
