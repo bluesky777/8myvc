@@ -121,7 +121,7 @@ eso es justo lo que había que aprender.
 ### Lo que se hizo el 21 de agosto
 
 Primero las seis decisiones de Joseth, y después la lista de cobertura, que
-volvió a ser lo que más encontró. Cobertura: **312 → 342 de 539 (63%)**, y sigue
+volvió a ser lo que más encontró. Cobertura: **312 → 346 de 539 (64%)**, y sigue
 sin haber ningún controlador a cero.
 
 **Lo que se decidió y se aplicó:**
@@ -144,6 +144,10 @@ sin haber ningún controlador a cero.
 | Tres rutas frenaban la escritura y respondían **200 diciendo que sí** | [05 §37](05-codigo-muerto-y-roto.md) |
 | Los pedidos de cambio devolvían **filas de `users` enteras, con el hash**, por una ruta de familia | [05 §38](05-codigo-muerto-y-roto.md) |
 | **Aprobar un cambio escribía lo que dijera el cuerpo**: renombrar a cualquier alumno, reasignar o borrar cualquier asignatura | [05 §39](05-codigo-muerto-y-roto.md) |
+| El interruptor del periodo pasa a cerrar **las notas y no la asistencia**, decidido | [05 §40](05-codigo-muerto-y-roto.md) |
+| `PUT alumnos/show` entregaba **la ficha completa de cualquier alumno** —incluidas las necesidades educativas— a otro alumno | [05 §41.1](05-codigo-muerto-y-roto.md) |
+| La **enfermera** no podía escribir los antecedentes médicos: la tercera de la familia del Secretario | [05 §41.2](05-codigo-muerto-y-roto.md) |
+| El **autor de un comentario no podía borrar el suyo** — un 500 que solo apareció con PHP 8 | [05 §42](05-codigo-muerto-y-roto.md) |
 
 **Nada de esto está desplegado**: `app/` es copia real en cada colegio.
 
