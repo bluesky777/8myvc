@@ -19,7 +19,12 @@ class OpcionesController extends Controller {
 	{
 		$user 	= User::fromToken();
 		
-		$opc 					= WsOpcion::find(Request::input('id'));
+		// Era `find()`, y una opción que no existe llegaba a `null->definicion`:
+		// 500 donde la respuesta correcta es 404. Las otras tres rutas de este
+		// mismo fichero ya usan `findOrFail`, y una de ellas con el comentario de
+		// su autor al lado. Es la misma decisión de los doce `abort()` de la §12:
+		// lo que devuelve `findOrFail` es lo que había que devolver.
+		$opc 					= WsOpcion::findOrFail(Request::input('id'));
 		$opc->definicion 		= Request::input('definicion');
 		$opc->orden 			= Request::input('orden');
 		$opc->save();

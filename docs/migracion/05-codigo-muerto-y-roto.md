@@ -2331,3 +2331,139 @@ la hizo la cobertura, y su respuesta —«cinco controladores donde nadie mira n
 respuesta»— apuntó a las dos únicas familias de la API que se autentican de otra
 manera. Quedan tres de esos cinco por mirar: `CambiarUsuarios`, `Opciones` y
 `Uniformes`.
+
+---
+
+## 26. Sin `clave`, el colegio entero con la contraseña vacía (20 ago 2026)
+
+Tercero de los cinco controladores mudos de la cobertura, y el que más lejos
+llega. `CambiarUsuariosController` son cuatro rutas de `routes/api/admin.php`:
+dos ponen el número de documento como nombre de usuario de todos los alumnos —o
+de todos los acudientes— y las otras dos les ponen la misma contraseña a todos.
+
+```php
+$password = Hash::make(Request::input('clave'));
+DB::update('UPDATE users SET password=:texto WHERE tipo="Alumno";', [':texto' => $password]);
+```
+
+**`Hash::make(null)` no falla: devuelve el hash de la cadena vacía.** Una llamada
+sin `clave` responde 200 y deja a **los 1.280 alumnos** de la base de desarrollo
+con esa contraseña. Y no se queda ahí: medido en el mismo test,
+`POST api/login/credentials` con la contraseña vacía responde **200**.
+
+Con la ruta hermana puesta antes —el nombre de usuario pasa a ser el número de
+documento— las dos juntas dejan todas las cuentas de alumno del colegio abiertas
+a quien tenga una lista de documentos, que es un papel que circula.
+
+**Y ningún cliente llama a estas cuatro rutas.** Comprobado en los tres:
+`myvc_front`, `myvc_front_2` y `myvc_flutter`. O sea que quien las usa escribe la
+petición a mano, que es exactamente la situación en la que se olvida un campo.
+
+Se exige `clave` no vacía, con **422**. No se exige nada más —longitud, forma—
+porque eso es una política del colegio y no se inventa aquí. Fijado en
+`OperacionesMasivasTest`, que comprueba las dos mitades: que sin clave no cambia
+**ninguna** fila, y que con clave las cambia todas.
+
+### 26.1 Lo que queda abierto, y no es de esta pasada
+
+Las cuatro llevan `auth.personal`, así que **un profesor puede reiniciar la
+contraseña de todos los alumnos del colegio**. Cae de lleno en «qué puede hacer el
+personal entre sí», que Joseth dejó fuera a propósito ([08 §1](08-revision-idor.md)),
+y no hay dónde apoyarse para cerrarlo: **en toda la API no existe ningún guard de
+superusuario** —los cuatro middlewares son de sesión, de personal, de boletín
+propio y de persona propia—, así que crear uno es una decisión y no un arreglo.
+Anotado en 09 §5.
+
+---
+
+## 27. El interruptor del periodo lo elige el cliente (20 ago 2026)
+
+Salió de mirar el cuarto controlador mudo, `UniformesController`, y no es de
+uniformes: es de notas.
+
+`User::pueden_editar_notas()` y `User::pueden_modificar_definitivas()` son el
+interruptor con el que el colegio cierra un periodo a los profesores
+(`periodos.profes_pueden_editar_notas` y `profes_pueden_nivelar`). Entre las dos
+las llaman **26 veces desde 7 controladores**: `DefinitivasPeriodos` (7),
+`Subunidades` (5), `Uniformes` (4), `Unidades` (3), `Ausencias` (3), `Notas` (2) y
+`FrasesAsignatura` (2).
+
+Las dos deciden así:
+
+```php
+$num_periodo = (int)Request::input('num_periodo');
+if ($num_periodo) { /* Todo bien */ } else { $num_periodo = (int)$user->numero_periodo; }
+
+for (...) if ($periodos[$i]->numero == $num_periodo) {
+    $user->profes_pueden_editar_notas = $periodos[$i]->profes_pueden_editar_notas;
+}
+```
+
+**La bandera que se consulta es la del periodo que nombra el cuerpo de la
+petición, y la escritura va a otro sitio.** Medido de punta a punta con un
+profesor del seed:
+
+| Estado | Petición | Resultado |
+|---|---|---|
+| los cuatro periodos del año cerrados | `PUT uniformes/agregar` | **400**, y no se escribe nada — el interruptor funciona |
+| los cuatro cerrados, y luego el periodo 1 abierto | `PUT uniformes/agregar` con `num_periodo=1` | **200**, y la fila se escribe con `periodo_id` = el del profesor, **que sigue cerrado** |
+
+O sea: el interruptor se abre nombrando el periodo de al lado. Y no hace falta
+que ninguno esté abierto de verdad — basta con que lo esté uno cualquiera de los
+del año.
+
+### 27.1 Por qué no se arregla esta noche
+
+Porque `num_periodo` **no es un parámetro parásito**: `myvc_flutter` lo manda en
+sus cuatro llamadas de unidades y subunidades, siempre junto a `periodo_id` y con
+el mismo periodo en los dos. Ahí la comprobación es la correcta — se consulta la
+bandera del periodo que se está editando. Ignorarlo rompería esas cuatro
+pantallas; los otros dos clientes no lo mandan nunca.
+
+El candado correcto se dice en una frase —**la bandera del periodo al que escribe
+esta petición**— y esa frase se resuelve en un sitio distinto en cada una de las
+26 llamadas: de `periodo_id` del cuerpo en uniformes, de la unidad en
+`unidades/update/{id}`, de la nota en `notas/update/{id}`, de la definitiva en
+`definitivas_periodos/*`. Son 26 consultas nuevas dentro del cálculo de notas,
+que es lo que el [§5 del plan](00-plan-migracion.md) protege y lo que la
+[§4 de 09](09-pendientes.md) tiene parado por decisión.
+
+Las tres formas de cerrarlo, para que la decisión sea de una línea:
+
+1. **Exigir que `num_periodo` y `periodo_id` concuerden** cuando los dos vienen.
+   Cierra uniformes y las cuatro de Flutter sin tocar nada más, y no cierra
+   `notas/update/{id}`, que no manda `periodo_id`. Es media hora.
+2. **Derivar el periodo de la fila que se toca**, las 26. Es el arreglo de
+   verdad y entra en el camino de notas.
+3. **Ignorar `num_periodo`** y usar siempre el periodo del usuario. Es de una
+   línea y apaga las cuatro pantallas de Flutter.
+
+Mientras tanto queda fijado por `UniformesTest::test_el_periodo_que_se_comprueba_lo_elige_el_cliente`,
+que **afirma el comportamiento malo a propósito**: el día que se arregle, falla.
+Es la regla de la casa —con ruta y roto se documenta— aplicada a una autorización
+en vez de a un 500.
+
+### 27.2 Y lo demás que se midió al pasar
+
+- **`uniformes/guardar-cambios` sigue rota**, con su `// No la estoy usando
+  actualmente` encima y sus cuatro variables sin definir. Ya estaba en la §6.5 y
+  en la §7 con su `count` en `phpstan.neon`; ahora tiene además el test que fija
+  el 500.
+- **`opciones/guardar` usaba `find()` donde sus tres hermanas usan `findOrFail()`**:
+  una opción que no existe llegaba a `null->definicion` y daba 500 en vez de 404.
+  Arreglado, que es la misma decisión de los doce `abort()` de la §12 y no una
+  nueva. `ws_actividades` está vacía en el seed, así que `OpcionesTest` monta la
+  actividad, la pregunta y las dos opciones — es la sexta vez que hace falta.
+- **`opciones/add-opcion` responde 201, no 200.** Laravel lo pone solo cuando la
+  respuesta es un modelo Eloquent recién creado. No es un cambio: es lo que
+  reciben los clientes hoy, y ahora está escrito.
+
+### 27.3 Los cinco mudos, cerrados
+
+Los cinco controladores que la cobertura dio con cero respuestas comprobadas ya
+no lo están: `TLogin` y `TSubir` en la §25, `CambiarUsuarios` en la §26, y
+`Uniformes` y `Opciones` aquí. **Ninguno de los cinco estaba mudo por casualidad**
+—dos autentican por el cuerpo, uno no lo llama ningún cliente, y dos necesitan
+filas que el seed no trae—, y de los cinco salieron cuatro cosas que arreglar.
+Que no los mirara nadie y que no los mirara ninguna herramienta era la misma
+frase dicha dos veces.
