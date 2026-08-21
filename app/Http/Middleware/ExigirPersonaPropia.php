@@ -51,6 +51,16 @@ class ExigirPersonaPropia
      *                             `user_id`, `persona_id`... Varias rutas de perfiles
      *                             llaman `id` a la persona, y sin decir a qué tabla
      *                             apunta no hay forma de saber de quién es.
+     *
+     *                             El valor especial **`username`** es otra cosa: dice
+     *                             que la ruta nombra a la persona por su nombre de
+     *                             usuario y no por un id. Se resuelve contra `users` y
+     *                             se comprueba como si fuera `user_id`. Va aparte
+     *                             —y no en `CLAVES`— porque un `username` en el cuerpo
+     *                             de una petición suele ser el nombre que se quiere
+     *                             PONER, no la persona a la que se apunta: mirarlo en
+     *                             todas las rutas convertiría un renombrado legítimo
+     *                             en un 403.
      */
     public function handle(Request $request, Closure $next, ?string $como = null)
     {
@@ -89,8 +99,24 @@ class ExigirPersonaPropia
         $pedidos = [];
 
         // El `{id}` genérico, cuando la ruta ha dicho a qué apunta.
-        if ($como !== null && ($generico = $peticion->route('id')) !== null) {
+        if ($como !== null && $como !== 'username' && ($generico = $peticion->route('id')) !== null) {
             $pedidos[$como] = (int) $generico;
+        }
+
+        // La persona nombrada por su username, cuando la ruta lo declara.
+        if ($como === 'username') {
+            $nombre = $peticion->route('username');
+
+            if (is_string($nombre) && $nombre !== '') {
+                $dueno = $this->usuarioLlamado($nombre);
+
+                // Un username que no existe no nombra a nadie, así que no hay
+                // nada que proteger: la ruta contestará lo que conteste —hoy,
+                // un array vacío— y eso no es de este guard.
+                if ($dueno !== null) {
+                    $pedidos['user_id'] = $dueno;
+                }
+            }
         }
 
         foreach (self::CLAVES as $clave) {
@@ -169,6 +195,25 @@ class ExigirPersonaPropia
                 || in_array((int) $this->duenoDeLaImagen($valor), $this->usuariosDe($acudidos), true),
             default => false,
         };
+    }
+
+    /**
+     * El id de la cuenta que se llama así, si existe.
+     *
+     * La comparación la hace MySQL con la colación de la columna, que es
+     * `utf8mb4_unicode_ci`: **ignora mayúsculas y tildes**, así que `maria.beleno`
+     * resuelve a la cuenta de `maria.beleño`. Es a propósito que sea la misma
+     * regla que usa el login, y no una más estricta: si con ese nombre se entra,
+     * con ese nombre se comprueba.
+     */
+    private function usuarioLlamado(string $nombre): ?int
+    {
+        $fila = DB::selectOne(
+            'SELECT id FROM users WHERE username = ? AND deleted_at IS NULL LIMIT 1',
+            [$nombre]
+        );
+
+        return $fila === null ? null : (int) $fila->id;
     }
 
     /** Los alumnos de los que es acudiente. */

@@ -58,7 +58,13 @@ Route::put('perfiles/restore/{id}', [PerfilesController::class, 'putRestore'])->
 // grupo. No la llama ningún cliente. §14.2.
 Route::get('perfiles/show/{id}', [PerfilesController::class, 'getShow'])->middleware('auth.personal');
 Route::put('perfiles/update/{id}', [PerfilesController::class, 'putUpdate'])->middleware('persona.propia:persona_id');
-Route::get('perfiles/username/{username}', [PerfilesController::class, 'getUsername']);
+// `persona.propia:username` — la ruta nombra a la persona por su nombre de
+// usuario, y el guard lo resuelve contra `users` para comprobarlo como `user_id`.
+// Sin esto, un alumno sacaba la fecha de nacimiento, el correo personal y el
+// **correo de recuperación** de cualquiera. Decidido por Joseth el 21 ago 2026
+// entre las tres opciones de 05 §14.4.
+Route::get('perfiles/username/{username}', [PerfilesController::class, 'getUsername'])
+    ->middleware('persona.propia:username');
 
 // ImagesController
 Route::get('myimages', [ImagesController::class, 'getIndex']);

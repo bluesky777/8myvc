@@ -955,3 +955,96 @@ ausencia del aviso por separado habría pasado en verde sin comprobar nada. Es l
 cuarta vez que este repo tropieza con lo mismo —**un fixture que el seed no puede
 expresar da un test que pasa sin mirar**— y por eso el caso se crea antes de
 negarlo.
+
+
+## §19. El perfil de cualquiera por su nombre de usuario — y el 500 que tapa una fuga
+
+**Cerrada la ruta el 21 ago 2026, por decisión de Joseth. El fallo de detrás se
+documenta y se traspasa: `PerfilesController` es de otra sesión.**
+
+`GET api/perfiles/username/{username}` devuelve `fecha_nac`, `email_persona` y
+**`email_restore`** —el correo al que llega el enlace de reseteo— y no comprobaba
+de quién era. Con token de alumno y el nombre de usuario de otro: 200 y la ficha
+dentro. Lo volvió a sacar el barrido después de arreglar el reseteo, y llevaba
+abierta desde siempre; estaba en [05 §14.4](05-codigo-muerto-y-roto.md) esperando
+una decisión entre tres salidas.
+
+> **Decidido: que el guard resuelva el username.** De las tres —sacarlo del
+> token, enseñárselo al guard, o recortar las columnas— es la que menos rompe: la
+> ruta sigue aceptando parámetro, el personal la usa igual, y lo único que cambia
+> es que una familia ya no alcanza a nadie que no sea suyo.
+
+`ExigirPersonaPropia` aprende una séptima forma de nombrar a una persona, y solo
+eso: `persona.propia:username` resuelve el nombre contra `users` y lo comprueba
+**como si fuera `user_id`**, con el camino de siempre — que es lo que hace que un
+acudiente siga viendo el perfil de su acudido sin escribir un `if` nuevo.
+
+Tres decisiones pequeñas, y las tres se ven en el test:
+
+- **La resolución no va en `CLAVES`.** Un `username` en el cuerpo de una petición
+  suele ser el nombre que se quiere **poner**, no la persona a la que se apunta;
+  mirarlo en todas las rutas convertiría un renombrado legítimo en un 403. Por
+  eso es opt-in por ruta, como el `{id}` genérico.
+- **Un username que no existe pasa.** No nombra a nadie, así que no hay nada que
+  proteger, y un 403 diría «ese usuario existe y no es tuyo» — justo lo que un
+  guard no debe contar.
+- **La comparación la hace MySQL con `utf8mb4_unicode_ci`**, o sea ignorando
+  tildes y mayúsculas. Es a propósito la misma regla que el login: si con ese
+  nombre se entra, con ese nombre se comprueba. Ver §14.
+
+### Y lo que apareció al preguntar qué pasa con un nombre inventado
+
+Un 500. Y detrás del 500, esto:
+
+`getUsername()` tiene una consulta grande que cubre profesores, alumnos y
+usuarios sin ficha, y **una segunda para acudientes** a la que se cae si la
+primera no encuentra nada. Esa segunda:
+
+- **no filtra por el nombre**. Su `WHERE` entero es `ac.deleted_at is null`, así
+  que devolvería **los 1.000 acudientes del colegio** —documento, fecha de
+  nacimiento, correo personal y correo de recuperación de cada uno—;
+- y se le pasa un `:username` que **no aparece en el SQL**, así que PDO lanza
+  `Invalid parameter number` antes de ejecutarla.
+
+O sea que **lo único que hoy impide que esa ruta entregue el directorio entero de
+acudientes es un fallo de binding**. Es la forma de la §1 otra vez —un fallo
+tapando a otro— y esta vez con una trampa en el arreglo: lo que sugiere el
+mensaje de error es *quitar el parámetro que sobra*, y eso es exactamente lo que
+abre la puerta. El arreglo bueno es el contrario, **añadir `and u.username =
+:username`**, que es lo que hacen sus tres consultas hermanas — el mismo criterio
+que la §1: *el gemelo correcto es la especificación del roto*.
+
+No se arregla desde aquí porque el fichero está en vuelo en otra sesión. Se
+traspasa medido y **se fija el 500 con un test que dice en su mensaje de fallo
+cuál de los dos arreglos es el bueno**, para el día que alguien lo toque:
+
+```
+La segunda consulta de getUsername dejó de reventar con "…". Si el arreglo fue
+quitar el parámetro que sobra, la ruta acaba de empezar a devolver los mil
+acudientes del colegio: hace falta el WHERE por username.
+```
+
+Y una consecuencia lateral del guard que conviene notar: **hasta hoy ese 500 lo
+alcanzaba cualquiera con token**; desde hoy, una familia que pida un nombre ajeno
+se queda en el 403 y no llega. El guard no arregla el fallo, pero le quita casi
+todos los visitantes.
+
+### Lo que costó ponerlo, que es la parte reutilizable
+
+Cerrar una ruta con `persona.propia` no es añadir una línea: son **tres
+instantáneas y una lista de excepciones** las que se mueven, y todas a propósito.
+
+- `guards-por-ruta.json` gana una línea. Es el diff que hay que mirar.
+- `guard-por-familia.json` pasa `perfiles/*` de 16 a 17 rutas con guard.
+- Y con eso la familia **cruza el umbral** del test que busca «la que se quedó
+  sola»: al ser mayoría con guard, sus cinco hermanas sin guard pasan a ser la
+  excepción y hay que justificarlas una a una. Es el test funcionando, no un
+  estorbo — obliga a mirar cinco rutas que nadie había mirado juntas:
+
+| Ruta | Por qué se queda sin guard |
+|---|---|
+| `GET api/perfiles` | **no devuelve perfiles: devuelve los grupos del año.** Es un catálogo con el nombre cambiado |
+| `GET api/perfiles/comprobarusername/{username}` | contesta `{existe: true\|false}` y nada más |
+| `GET api/perfiles/usernames` | devuelve los 2.351 usuarios y **hay que cerrarla**, pero antes tiene que dejar de llamarla `UserConfiguracionCtrl` (05 §14.4) |
+| `PUT api/perfiles/guardar-mi-email-restore` | no acepta ningún id: saca el usuario del token |
+| `PUT api/perfiles/reset-password/{id}` | no es de familia sino el reseteo a mano del personal, defendido por dentro con `Autoriza` (05 §26.1, §29) |

@@ -385,6 +385,7 @@
         "DELETE api/myimages/destroy/{id} [imagen_id]",
         "GET api/asignaturas/listasignaturas/{persona_id?}",
         "GET api/frases_asignatura/show/{alumno_id}/{asignatura_id}",
+        "GET api/perfiles/username/{username} [username]",
         "GET api/piars-asignaturas/asignaturas/{grupo_id}/{alumno_id}",
         "PUT api/acudientes/de-persona",
         "PUT api/alumnos/years-con-notas",

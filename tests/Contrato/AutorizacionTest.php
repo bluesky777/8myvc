@@ -562,6 +562,16 @@ class AutorizacionTest extends CasoDeContrato
         'GET api/years/colegio' => 'lo mismo. El `telefono` que suelta es el del colegio',
         'GET api/contratos' => 'lo llama la app de Flutter desde pantallas de familia; qué columnas se recortan está en 09 §5',
 
+        // La familia `perfiles/*` pasó a 17 de 22 con guard el 21 ago 2026, al
+        // cerrar `perfiles/username/{username}`. Estas cinco se quedan fuera, y
+        // cada una por un motivo distinto — que es justo lo que este test obliga
+        // a escribir en vez de suponer:
+        'GET api/perfiles' => 'no devuelve perfiles: devuelve los GRUPOS del año. Es un catálogo con el nombre cambiado',
+        'GET api/perfiles/comprobarusername/{username}' => 'contesta {existe: true|false} y nada más; el front la necesita para validar un nombre',
+        'GET api/perfiles/usernames' => 'devuelve los 2.351 usuarios y hay que cerrarla, pero antes tiene que dejar de llamarla UserConfiguracionCtrl (05 §14.4, 09 §5)',
+        'PUT api/perfiles/guardar-mi-email-restore' => 'no acepta ningún id: saca al usuario del token, así que no hay nada que comprobar',
+        'PUT api/perfiles/reset-password/{id}' => 'no es una ruta de familia sino el reseteo a mano del personal, y se defiende por dentro con Autoriza (05 §26.1, §29)',
+
         // Defendidas por dentro, que es por lo que el inventario tampoco las lista.
         //
         // Aquí estuvo `PUT api/piars-alumnos/field` con el motivo «comprueba
