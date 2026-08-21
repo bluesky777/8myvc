@@ -4536,4 +4536,30 @@ ruta y arregló lo que esa ruta tocaba**. La pregunta que las habría juntado no
 «¿está bien esta ruta?» sino **«¿qué más lee este identificador del cuerpo?»**, y
 esa se contesta de una vez y no cinco.
 
-Fijado por `RetirarPedidosTest`, que pasa de cinco casos a nueve.
+### La quinta, y el `[0]` que va por su cuarta vez
+
+`ChangesAsked/solicitar-cambios` —la pantalla «pedir que me corrijan mis datos»—
+cierra el controlador. Con un `persona_id` que no existe, o de un alumno en la
+papelera, `first()` devuelve null y la primera comparación era un **500**. Ahora
+404, y con eso van **cuatro en un día**: §44, §47, §50 y ésta. Siempre lo mismo —
+una fila que no está sale como error del servidor en vez de como «eso no existe»,
+y quien lo lee busca el fallo en el sitio equivocado.
+
+Y dos cosas que se aprendieron mirándola y que **no** son fallos, porque merecía
+la pena comprobarlo antes de tocar:
+
+- **`$tipo == 'Al'` no compara con `users.tipo`.** Esa columna vale `'Alumno'`, así
+  que la condición parecía imposible de cumplir y el método, muerto. No lo está:
+  `'Al'` es el **código corto del front** —`'Pr'`, `'Acu'`, `'Usu'` son los otros—
+  y `userConfiguracion.html` lleva `ng-if="perfilactual.tipo=='Al'"`, o sea que esa
+  pantalla solo se pinta para alumnos. La rama única del controlador es el reflejo
+  de eso. **Dos vocabularios para lo mismo en los dos lados de la API**, y leer uno
+  con el diccionario del otro da un hallazgo que no existe.
+- **`persona_id` no decide de quién es el pedido.** El pedido se archiva siempre
+  contra `$user->user_id` —lo hace `crear_o_modificar_datos_de_pedido()`—, así que
+  el parámetro solo elige **contra qué ficha se compara** lo que se manda. Medido:
+  con el id de otro, el pedido sale igual a nombre de quien llama. No es un
+  agujero, pero el nombre del parámetro promete otra cosa, y el siguiente que lo
+  lea va a creer que ahí se elige el sujeto.
+
+Fijado por `RetirarPedidosTest`, doce casos.

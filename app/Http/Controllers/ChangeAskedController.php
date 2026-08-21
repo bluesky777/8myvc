@@ -966,6 +966,13 @@ class ChangeAskedController extends Controller {
 		if ($tipo == 'Al') {
 			$alumno = Alumno::where('id', $id)->first();
 
+			// Con un `persona_id` que no existe —o de un alumno en la papelera—
+			// `first()` devuelve null y la primera comparación de abajo era un
+			// **500**. Cuarta vez hoy que una fila que no está sale como error del
+			// servidor en vez de como 404: §44, §47, §50 y ésta.
+			if ($alumno === null) {
+				abort(404, 'Ese alumno no existe.');
+			}
 
 			$cambios = [];
 

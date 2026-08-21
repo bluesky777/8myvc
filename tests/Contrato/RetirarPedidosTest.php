@@ -170,4 +170,50 @@ class RetirarPedidosTest extends CasoDeContrato
             ->putJson('/api/ChangesAsked/ver-detalles', ['asked_id' => $maximo + 1000])
             ->assertStatus(404);
     }
+
+    /**
+     * `solicitar-cambios`, la última ruta del controlador que nadie miraba. Es la
+     * pantalla «pedir que me corrijan mis datos», y el front solo la pinta para
+     * alumnos —`userConfiguracion.html` lleva `ng-if="perfilactual.tipo=='Al'"`—,
+     * que es por qué el controlador solo tiene esa rama. `'Al'` es el código corto
+     * del front y no `users.tipo`, que vale `'Alumno'`: son dos vocabularios.
+     */
+    public function test_se_pide_un_cambio_de_datos(): void
+    {
+        $alumno = DB::selectOne('SELECT id, nombres FROM alumnos WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+        $antes = DB::table('change_asked')->count();
+
+        $r = $this->withToken($this->tokenDe($this->usuarioDeTipo('Profesor')->username))
+            ->putJson('/api/ChangesAsked/solicitar-cambios', [
+                'tipo' => 'Al', 'persona_id' => $alumno->id, 'nombres' => 'Nombre Distinto',
+            ]);
+
+        $r->assertStatus(200);
+        $this->assertSame($antes + 1, DB::table('change_asked')->count());
+    }
+
+    /** Pedir lo que ya vale no crea pedido: el cuerpo se compara con la ficha. */
+    public function test_pedir_el_mismo_nombre_no_crea_pedido(): void
+    {
+        $alumno = DB::selectOne('SELECT id, nombres FROM alumnos WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+        $antes = DB::table('change_asked')->count();
+
+        $this->withToken($this->tokenDe($this->usuarioDeTipo('Profesor')->username))
+            ->putJson('/api/ChangesAsked/solicitar-cambios', [
+                'tipo' => 'Al', 'persona_id' => $alumno->id, 'nombres' => $alumno->nombres,
+            ])->assertStatus(200);
+
+        $this->assertSame($antes, DB::table('change_asked')->count());
+    }
+
+    /** Y un alumno que no existe era 500. */
+    public function test_pedir_cambios_de_un_alumno_que_no_existe_es_404(): void
+    {
+        $maximo = (int) DB::table('alumnos')->max('id');
+
+        $this->withToken($this->tokenDe($this->usuarioDeTipo('Profesor')->username))
+            ->putJson('/api/ChangesAsked/solicitar-cambios', [
+                'tipo' => 'Al', 'persona_id' => $maximo + 1000, 'nombres' => 'Inventado',
+            ])->assertStatus(404);
+    }
 }
