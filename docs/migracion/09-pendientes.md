@@ -662,6 +662,49 @@ saber el tamaño real del daño en las dieciséis bases antes de tocar código.
     demás reciben un 500. No es un agujero, es un botón que no funciona; arreglarlo
     **enciende** una función en los dieciséis colegios, que es decisión y no arreglo.
 
+- **El cuerpo anidado, hecho el 20 ago 2026.** Las 57 no juzgables de la §22
+  estaban infladas: el bucle salta los 403 por ser la respuesta correcta, pero
+  este legacy rechaza con **400** —y con 401 y 422—, y un 4xx es un juicio igual.
+  Descontadas, **57 pasan a 14**; 47 de las mudas eran rechazos con el código
+  equivocado, que se quedan como están porque la regla es que el legacy no se
+  toca. Con catorce se mira una por una, y salió la causa común.
+
+  **El barrido manda números planos y esos controladores leen objetos**:
+  `Request::input('titular')['id']`, `$acu['nombres']`, `$grupo_actual['id']`. El
+  índice sobre un `int` lanza, la ruta responde 500 y desde fuera se ve una que no
+  hace nada. Es la cuarta cara del mismo límite —tras el cuerpo vacío, el `xlsx`
+  de salida y el archivo de entrada— y la que más ha escondido. Ahora se golpea con
+  **las dos formas**, porque la misma clave se lee de las dos maneras en sitios
+  distintos. Cuarto candado, y señaló al escribirlo `encabezado_img_id` y
+  `piepagina_img_id`, que se leen como objeto aunque se llamen `_id`.
+
+  Cinco rutas salieron, y **las cinco son la §17 otra vez** — ver
+  [05 §23](05-codigo-muerto-y-roto.md):
+
+  - **`POST perfiles/store` no crea un perfil: crea un grupo.** De 2 a 3 con un
+    token de alumno.
+  - **`PUT publicaciones/guardar-edicion` reescribe cualquier publicación**, y no
+    solo el texto: también a quién se le enseña.
+  - **`POST acudientes/crear-usuario` crea cuentas** de tipo Acudiente con
+    `Hash::make('123456')` y **reapunta `acudientes.user_id`**: si ese acudiente ya
+    tenía cuenta, se queda fuera y entra una cuya contraseña conoce quien la pidió.
+    Y un acudiente ve lo completo de sus acudidos. La más seria de las cinco.
+  - **`PUT acudientes/datos`** devuelve los acudientes del grupo que le nombren con
+    documento, teléfono, email y dirección — y la consulta filtra por grupo y **no
+    por año**, así que vale cualquiera del colegio.
+  - **`PUT matriculas/alumnos-grado-anterior`** devuelve el grupo entero con
+    `fecha_nac`, `celular`, `direccion` y `religion`. Sus tres hermanas
+    —`matriculas/alumnos-con-grado-anterior` y las dos de `prematriculas`— llevan
+    `auth.personal` desde siempre.
+
+  **Y esta última dice algo del candado de la §17 que hay que apuntar:** ese
+  candado comprueba que no quede una sola ruta sin guard **en su familia**, y la
+  familia `matriculas` tiene muchas con él, así que la que faltaba no estaba sola.
+  Sí lo estaba entre sus **hermanas de operación** —el mismo nombre de método en
+  cuatro controladores, tres con guard—. Son dos preguntas distintas y hoy solo se
+  hace la primera; la segunda la contesta el barrido, que es más caro y menos
+  seguro. Es lo siguiente que merece un candado.
+
 - **La decisión del seed, tomada el 20 ago 2026: partirla en dos.** El seed vacío
   llevaba seis hallazgos tapados —`unidades_por_defecto`, los alumnos borrados,
   `pazysalvo`, los folios, `ws_actividades` y trece rutas con `{id}`—, y lo que la

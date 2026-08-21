@@ -2064,3 +2064,80 @@ para él por lo mismo que para el alumno. **El error va hacia el lado seguro**: 
 «no puedo juzgarla» de alguna que quizá sí estaba medida, nunca «cerrada» de una
 que no lo está. Que es la dirección correcta para una herramienta cuyo trabajo es
 no mentir sobre lo que ha mirado.
+
+---
+
+## 23. El cuerpo anidado, y las cuatro que escondía (20 ago 2026)
+
+El control de la [§22](#22-el-control-vacío-no-es-cerrado-20-ago-2026) dejó 57
+rutas marcadas como no juzgables. Lo primero fue afinar ese número, porque estaba
+inflado: **el bucle salta los 403 por ser la respuesta correcta, pero este legacy
+rechaza con 400** —`pueden_modificar_definitivas()` sin ir más lejos—, y también
+con 401 y con 422. Un 4xx es un juicio igual que el 403: la ruta miró y dijo que
+no. Descontadas ésas, **57 pasan a 14**, y 47 de las mudas resultaron ser rechazos
+con el código equivocado. El código es cosa aparte y no se toca: la regla del
+proyecto es que el legacy se queda como está.
+
+Con catorce se puede mirar una por una. Y mirándolas salió la causa común.
+
+### 23.1 La cuarta forma del mismo límite
+
+El barrido manda `titular_id`, `acudiente_id` y `grupo_actual` como **números
+planos**, y esos controladores hacen `Request::input('titular')['id']`,
+`$acu['nombres']` y `$grupo_actual['id']`. El índice sobre un `int` o sobre `null`
+lanza, la ruta responde 500 o 422, y desde fuera se ve una que no hace nada.
+
+Es la cuarta vez que aparece el mismo límite con otra cara —el cuerpo vacío
+(§17), el `xlsx` que no sabe leer (§17), el archivo que no sabe mandar (§19)— y la
+que más ha escondido. Medido con las dos formas de leer una clave como array:
+
+```bash
+# directa
+grep -rhoE "Request::input\('[a-zA-Z0-9_]+'\)\[" app/Http/Controllers/
+# en dos pasos: $v = Request::input('x'); ... $v['y']
+```
+
+Salen **veintiséis claves**, y los campos que se indexan dentro son `id` en 53
+sitios, `profesor_id` en cinco y sueltos `sangre`, `estado_civil`, `username`,
+`password` y `parentesco`.
+
+**No se sustituyen las planas: se golpea con las dos formas.** La misma clave se
+lee de las dos maneras en sitios distintos —`grupo_actual` lo indexa
+`acudientes/datos` y lo usa plano `cartera/alumnos`—, así que elegir una deja la
+otra sin medir. Son dos peticiones por ruta y el barrido tarda diez segundos.
+
+Y el **cuarto candado**, que se ganó el sueldo al escribirlo: señaló
+`encabezado_img_id` y `piepagina_img_id`, que `ConfigCertificadosController` lee
+como objeto **aunque se llamen `_id`**. El nombre no dice la forma, que es
+exactamente por lo que este mapa se comprueba contra el código y no se escribe a
+ojo.
+
+### 23.2 Las cuatro que salieron
+
+Todas son **la §17 otra vez** —la hermana que se quedó sin el guard—, y las cuatro
+estaban invisibles por lo mismo.
+
+| Ruta | Qué hacía | Sus hermanas |
+|---|---|---|
+| `POST perfiles/store` | **No crea un perfil: crea un grupo.** Un alumno creaba uno del colegio en el año en curso; medido, de 2 a 3, con un 201 | las otras cuatro del controlador que operan sobre grupo ya llevaban `auth.personal` |
+| `PUT publicaciones/guardar-edicion` | Reescribe cualquier publicación por su `id`, y no solo el texto: también **a quién se le enseña** | `putDelete` y `putRestaurar` ya llevaban `exigeQueLaPublicacionSeaSuya()` |
+| `POST acudientes/crear-usuario` | Crea un `User` de tipo Acudiente con `Hash::make('123456')` y **reapunta `acudientes.user_id`** a la cuenta nueva | ninguna: solo lo llaman pantallas de personal |
+| `PUT acudientes/datos` | Los acudientes del grupo que le nombren, con documento, teléfono, email y dirección. **La consulta filtra por grupo y no por año**, así que vale cualquiera | las otras seis rutas `*/datos` llevan `auth.personal` o `persona.propia` |
+| `PUT matriculas/alumnos-grado-anterior` | El grupo entero con `fecha_nac`, `celular`, `direccion` y `religion` — 24 KB | `matriculas/alumnos-con-grado-anterior` y **las dos de `prematriculas`** lo llevan |
+
+La de `crear-usuario` es la más seria de las cinco y merece decirlo entero: la
+cuenta nace con una contraseña que conoce quien la pidió, y si ese acudiente ya
+tenía una, **el `UPDATE` la deja fuera**. Un acudiente ve lo completo de sus
+acudidos.
+
+### 23.3 Lo que esto dice del candado de la §17
+
+`matriculas/alumnos-grado-anterior` es el caso que el candado de la
+[§17](#17-la-hermana-que-se-quedó-sin-el-guard-20-ago-2026) **no puede ver**, y
+conviene tenerlo escrito. Ese candado comprueba que no quede una sola ruta sin
+guard en su familia, y la familia `matriculas` tiene muchas con él: la que falta
+no está sola. Pero sí estaba sola entre sus **hermanas de operación** —el mismo
+nombre de método en cuatro controladores, tres con guard—.
+
+Son dos preguntas distintas y hoy solo se hace la primera. La segunda no tiene
+candado; de momento la contesta el barrido, que es más caro y menos seguro.
