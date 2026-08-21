@@ -265,7 +265,7 @@ saber el tamaño real del daño en las dieciséis bases antes de tocar código.
 
 | Qué | Dónde está descrito | Qué falta decidir |
 |---|---|---|
-| Cuatro endpoints rotos desde siempre | [05 §6.5, §7.2, §8, §9.2](05-codigo-muerto-y-roto.md) | qué debe devolver cada uno; en dos de ellos, si la operación debe existir |
+| Cuatro endpoints rotos desde siempre | [05 §6.5, §7.2, §8, §9.2](05-codigo-muerto-y-roto.md) | qué debe devolver cada uno; en dos de ellos, si la operación debe existir. **De uno ya no hay que averiguar nada más** (21 ago 2026): `periodos/update/{id}` falla con y sin el campo que la §9 dejó en duda, y arreglarla enciende la única forma de dejar dos periodos actuales en un año — [05 §31.1](05-codigo-muerto-y-roto.md) |
 | La estructura de roles y permisos | [06 §4](06-autorizacion.md) | si los roles de la base se quedan y se pueblan, o se borran las cuatro tablas |
 | 9 rutas de catálogo sin guard | [08](08-revision-idor.md) | a quién se abren; no exponen a nadie, pero no están decididas. Vuelto a medir el 20 ago 2026 tras [05 §16](05-codigo-muerto-y-roto.md): 12 → 11 → 9. La que salió de la lista no se decidió, **se recategorizó**: `unidades/de-asignatura-periodo` no era una lectura, escribía |
 | `APP_DEBUG` en producción | [01](01-plan-seguridad.md) | comprobarlo colegio a colegio. `display_errors` de PHP está en Off, así que la mitad del riesgo ya está cubierta |

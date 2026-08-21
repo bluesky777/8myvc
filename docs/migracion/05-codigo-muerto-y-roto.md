@@ -2787,3 +2787,68 @@ ser [los mismos diez `is_superuser`](#261-y-quién-puede-dispararlas-que-sí-ten
 hoy no cambia nada y mañana sí. Anotado en 09 §5. `larastan` no puede encontrar
 esto: `$this->user` es un `stdClass` con `@property` sueltas, así que para el
 análisis `tipo` es `mixed` y la comparación «podría» ser cierta.
+
+---
+
+## 31. La tabla de al lado: los periodos (21 ago 2026)
+
+La [§28](#28-cuál-es-el-año-actual-del-colegio-20-ago-2026) encontró en `Years`
+tres veces la misma frase —`actual = 1` sin condición— y quedaba mirar si estaba
+repetida en `Periodos`, que es la tabla de al lado y tiene la misma bandera.
+
+**No lo está.** `putEstablecerActual` apaga a los hermanos del mismo año y
+enciende el pedido, que es lo correcto, y `postStore` fija `actual = 0` a mano
+aunque el cuerpo pida otra cosa. Los siete tests de `PeriodosTest` lo dejan fijado:
+encender cada periodo de un año por turno y comprobar que queda **exactamente
+uno**, y que los otros ocho años no se mueven.
+
+Salieron otras dos cosas.
+
+### 31.1 `periodos/update/{id}`: lo que la §9 no podía saber
+
+**Ya estaba documentada** en la [§9](#9-lo-que-encontró-subir-larastan-al-nivel-2-20-ago-2026),
+con su entrada en `phpstan.neon`: escribe `$periodo->year` y `periodos` no tiene
+esa columna. Lo que aquella entrada dejó abierto era «qué manda el cliente en
+`year`, el número o el id», sin cliente al que preguntar. Golpearla añade dos
+cosas que no se ven leyendo:
+
+- **Falla mandando `year` y falla sin mandarlo.** El atributo se asigna siempre,
+  así que la fila siempre sale sucia y el `UPDATE` siempre nombra la columna que
+  no existe. No hay cuerpo con el que funcione — la pregunta de la §9 no tiene
+  respuesta buena porque el campo no llega a importar.
+- **Y arreglarla enciende el fallo de la §28.** Su
+  `$periodo->actual = Request::input('actual')` **no apaga a los hermanos**, así
+  que la única forma de dejar dos periodos actuales en un año está detrás de este
+  500. Repararla sin mirar eso abriría exactamente lo que la §28 acaba de cerrar
+  en la tabla de al lado.
+
+Sigue sin cliente —el front tiene un endpoint por campo, que es lo que se
+construye cuando el de «guardar todo» no funciona— y ahora tiene test: el 500 con
+y sin `year`, y la fila sin moverse.
+
+### 31.2 Y el «primero sin ORDER BY», que aparece por tercera vez
+
+`ContextoDeUsuario::para()`, para un usuario sin `periodo_id`:
+
+```php
+$userTemp->periodo_id = Periodo::where('actual', '=', true)->first()->id;
+```
+
+Sin filtrar por año y sin `ORDER BY`. Cada año tiene su periodo actual —nueve en
+la base, uno por año, que es lo correcto— así que ese `first()` devuelve el del
+**año más viejo**: medido, el periodo 4, de **2018**. La regla buena está escrita
+tres ficheros más allá, en `Login::ponerEnElPeriodoActual`: el año actual primero,
+su periodo actual después.
+
+**No se toca, y por dos razones.** Afecta a 4 usuarios de 2.351 —los que tienen
+`periodo_id` nulo— y el efecto dura hasta que entran, porque el propio `Login` los
+mueve al periodo bueno. Y la línea está en el camino más caliente de la API, el
+que resuelve el contexto de **cada petición**. Cambiarla por poco a cambio de nada
+la misma noche en que se toca la autorización de seis controladores es exactamente
+lo que no se hace.
+
+Queda anotado con los otros dos de su familia —el `$anios[0]` de la [§28.3](#283-la-papelera-que-es-donde-estaba-la-prueba)
+y el `$periodos[0]` del mismo `Login`—, porque los tres son la misma frase: **una
+fila elegida entre varias sin decir cuál**. Y en la misma familia entra el
+`periodo_id = 1` escrito a mano de `AcudientesController::postCrear`, que apunta al
+mismo 2018 por el mismo motivo.
