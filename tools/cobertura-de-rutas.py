@@ -7,7 +7,6 @@ pregunta no se puede contestar leyendo los tests: las URLs se construyen
 interpolando —"api/boletines/detailed-notas/{$grupo}"— así que buscarlas con
 grep pierde justo las que llevan parámetro, que son las que más se rompen.
 
-    docker exec 8myvc-app-1 rm -f /tmp/tocadas.txt
     docker exec -e COBERTURA_RUTAS=/tmp/tocadas.txt 8myvc-app-1 \
         php artisan test --testsuite=Contrato
     docker exec 8myvc-app-1 php artisan route:list --json > /tmp/rutas.json
@@ -15,6 +14,20 @@ grep pierde justo las que llevan parámetro, que son las que más se rompen.
 
 El registrador vive en tests/TestCase.php y solo se enciende con la variable
 puesta, así que una corrida normal no escribe nada.
+
+**El fichero NO se borra antes: lo vacía la propia corrida**, y aquí había un
+`rm -f` que se quitó el 21 ago 2026 porque costó una medición entera. Borrarlo
+mientras OTRA corrida lo tiene abierto —dos sesiones trabajando a la vez— le
+desengancha el inode y esa corrida empieza uno nuevo; ni `FILE_APPEND` ni
+`LOCK_EX` protegen de eso. Salió **86 de 539 cuando eran 346**, con 135 casos
+registrados de los 588 que corrieron, y el número era lo bastante plausible como
+para creérselo. Con varias sesiones a la vez, un nombre de fichero por sesión.
+
+Y por lo mismo: **la suite entera se corre contra una base de tests que no
+comparta nadie** (`DB_TEST_DATABASE`). Dos corridas contra la misma dan
+deadlocks en el `insert` de `personal_access_tokens`, y lo que se ve no es un
+error de infraestructura sino tests de contrato en rojo — 36 fallando el mismo
+día, y las mismas clases pasando solas. Ver docs/migracion/03-tests.md.
 
 **«Ejecutada» no es «comprobada», y la diferencia es todo el valor de esto.**
 Medido a secas, el 99% de las rutas se ejecutan: `AutorizacionTest` las hace

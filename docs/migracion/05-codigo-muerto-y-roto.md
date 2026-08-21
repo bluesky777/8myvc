@@ -3758,3 +3758,277 @@ sin la tabla no es una identidad.**
 
 Fijado por `ComentariosTest`, con las cuatro caras: el autor sí, un tercero no, el
 superusuario sí, y comentar guarda de quién es.
+
+---
+
+## 43. El examen de otro grupo, por su número (21 ago 2026)
+
+`PUT api/mis-actividades/mi-actividad` recibe un `actividad_id` y **no comprobaba
+nada sobre él**. Medido con un token de alumno contra una actividad de un grupo
+en el que no está matriculado: **200 con el examen entero** —el enunciado de cada
+pregunta y el texto de cada opción—, teniendo la actividad `para_alumnos = 0` e
+`in_action = 0`, o sea un examen que el profesor todavía no había abierto a nadie.
+
+Los ids son enteros pequeños y consecutivos, así que no hay que adivinar nada: se
+recorren en orden.
+
+### Y no solo leía
+
+La primera línea del método **crea el intento**:
+
+```php
+$res = WsActividadResuelta::where('actividad_id', $actividad_id)
+    ->where('persona_id', $user->persona_id)->first();
+if (!$res) { $res = new WsActividadResuelta(); ... $res->save(); }
+```
+
+Así que abrir el examen de otro grupo dejaba una fila en
+`ws_actividades_resueltas` a nombre del que miraba — y esa fila es exactamente la
+que sale después en la pantalla de corregir de ese profesor
+(`respuestas/actividad`, la §24), donde aparece un alumno que no es suyo. Por eso
+la comprobación va **delante** de la creación y no después.
+
+### Por qué se había quedado sin nada
+
+Las tres rutas de familia de este controlador no pueden llevar `auth.personal`
+—responder un examen es justo lo que hace un alumno— y la §20 ya lo había
+resuelto para dos de ellas con una comprobación dentro,
+`exigirQueLaResueltaSeaSuya()`. Ésta se quedó fuera **porque su identificador es
+otro**: las dos de la §20 reciben `actividad_resuelta_id`, que nombra un intento,
+y ésta recibe `actividad_id`, que nombra una actividad. La §20 contestó «de quién
+es el intento»; **«a qué actividad se puede entrar» no la contestaba nadie**, y
+como la pregunta no era la misma, la respuesta de la §20 no la cubría.
+
+Es la forma de la §21 vista desde el otro lado: allí un mismo nombre de parámetro
+—`{id}`— tapaba tablas distintas; aquí dos nombres distintos tapan que la
+pregunta de autorización es la misma.
+
+### Lo que se cerró, y lo que no
+
+El guard no puede ir en la ruta, y esto es lo que la había dejado sin ninguno:
+`panel.mi_actividad` tiene **dos entradas en el front y son de bandos distintos**
+—`misActividades.html`, que es la lista del alumno, y `actividades.html`, que es
+la del profesor—, así que `auth.personal` apagaría la pantalla del alumno. La
+comprobación va dentro, y al personal no se le toca: abre cualquiera, como hoy.
+
+Lo que se cierra es la familia, con la regla de siempre. Y «lo suyo» son **las dos
+formas** en que una actividad llega a un grupo:
+
+- ser de una asignatura de un grupo suyo del año en curso, o
+- estar compartida con ese grupo en `ws_actividades_compartidas`.
+
+Comprobar solo la primera habría **apagado el compartir entre grupos**, que es una
+función viva —es de donde saca sus grupos la pantalla de corregir— y que se habría
+roto en los dieciséis colegios sin que ningún test lo dijera. Tiene su propio caso.
+
+De paso, un `actividad_id` que no existe era **500 con el intento ya escrito**,
+porque `datosActividadConRespuestas()` indexa con `[0]` el resultado de la
+consulta. Ahora es 404.
+
+### Lo que se deja abierto a propósito
+
+`para_alumnos`, `in_action`, `inicia_at` y `oportunidades` **siguen sin
+comprobarse**, y no es un descuido: hoy un alumno puede abrir un examen de su
+propio grupo antes de que el profesor lo suelte, y las veces que quiera. Cerrarlo
+no es un arreglo de autorización sino **encender una regla de procedimiento** que
+hoy no existe, y eso cambia cómo se dan los exámenes en dieciséis colegios. Va a
+la tabla del §5 de [09-pendientes.md](09-pendientes.md), con su test dejándolo
+fijado como está (`test_hoy_se_abre_un_examen_de_su_grupo_que_no_esta_en_accion`).
+
+Es la misma forma que el `locked` de las votaciones, y no es una analogía: se
+midieron el mismo día y por separado, y allí salió lo mismo — se vota con
+`locked = 1` e `in_action = 0` porque nadie lee esas columnas. **La regla de
+procedimiento no la comprueba nadie porque no es un guard.** El módulo entero
+está en [11-votaciones.md](11-votaciones.md), fuera de este documento porque lo
+midió otra sesión; su §1 —`PUT votos/show` destapando el recuento en vivo con un
+`permitir` en el cuerpo— es la misma familia que ésta.
+
+Y una segunda de la misma familia, que salió al medir: **entregar no es
+entregar.** `finalizar-actividad` pone `terminado = true` y nadie vuelve a mirar
+esa columna, así que `seleccionar-opcion` sigue borrando la respuesta anterior y
+escribiendo la nueva. El profesor corrige lo último que se escribió, no lo que
+había al entregar. También fijado como está.
+
+### Lo que enseñó el seed, por tercera vez
+
+El primer intento de medir esto **no midió nada**, y el segundo tampoco, por dos
+trampas que ya estaban escritas y que aun así volvieron a morder:
+
+1. **No hay ningún grupo ajeno.** El seed copia UN grupo por año —84 del año 7, 98
+   del 8— y el alumno de siempre está matriculado en los dos, así que un
+   `grupo_id != el suyo` devuelve *el otro grupo suyo*. Es lo que ya costó 36
+   rutas mal medidas en la §16, y aquí habría dado un test en verde afirmando que
+   el alumno abre «el examen de otro grupo» cuando abría el propio.
+2. **El año no se elige.** `Services\Login` reescribe `users.periodo_id` al
+   periodo del año `actual` al entrar, así que un sujeto elegido por el periodo
+   que tiene guardado *antes* de entrar monta el examen en un año y lo pide desde
+   otro — y entonces el 403 sale por el año y no por el grupo. Lo documenta
+   `tokenDelPersonalDe()` desde la P1.
+
+Las dos caben en una frase, y es la que hay que llevarse: **un fixture que el seed
+no puede expresar da un test que pasa sin comprobar lo que dice.** El grupo ajeno
+hay que montarlo —lo que falta es una fila, no el estado de una que exista— y el
+año hay que anclarlo a `years.actual = 1`.
+
+Y la frase se ganó dos caras más el mismo día, en el módulo de votaciones
+([11](11-votaciones.md)), que conviene tener juntas porque las tres se parecen y
+fallan distinto:
+
+- **La fila que se monta y la consulta descarta en silencio.**
+  `VtCandidato::porAspiracion()` une solo con `alumnos`, con matrícula
+  MATR/ASIS/PREM y filtrando por año, así que un candidato cuyo `user_id` no sea
+  un alumno de ese año **no da error: desaparece de la papeleta**. Un
+  `assertNotEmpty` encima pasa con la lista que trae solo el «Voto en Blanco».
+- **El año, otra vez y por el otro extremo.** Los alumnos del seed están en los
+  años 7 y 8 y el primer profesor está en el 4, así que montar la elección contra
+  el año del profesor deja la papeleta vacía.
+
+Las tres tienen la misma forma —**el test no falla, se queda sin sujeto**— y
+ninguna la detecta el propio test. Lo único que las caza es afirmar sobre el
+contenido y no sobre la forma: no `assertNotEmpty`, sino el nombre del candidato
+que se acaba de insertar.
+
+Fijado por `MisActividadesTest`, nueve casos, comprobado al revés: desactivando la
+comprobación caen tres y los otros seis siguen verdes, que es lo que dice que no
+se rompió nada de lo que ya funcionaba.
+
+---
+
+## 44. La foto oficial de quien no tiene ficha (21 ago 2026)
+
+Primero de la lista que dejó medida el nivel 7 de larastan
+([12 §5](12-larastan-nivel-7.md)), y el que más pinta tenía por una razón que
+resultó ser la correcta: **`save()` sobre `Acudiente|Alumno|Profesor|stdClass`**.
+Que el análisis vea un `stdClass` en esa unión significa que hay un camino por el
+que lo que se guarda no es un modelo, y `stdClass` no tiene `save()`.
+
+Había dos caminos, no uno.
+
+### El que señaló el análisis
+
+```php
+$persona = new stdClass();
+
+switch ($usu->tipo) {
+    case 'Alumno':    ... break;
+    case 'Profesor':  ... break;
+    case 'Acudiente': ... break;
+}                      // <- ni rama para 'Usuario' ni default
+
+$persona->foto_id = $img_id ? $img_id : null;
+$persona->save();
+```
+
+`users.tipo` toma **cuatro** valores —son los del `switch` de
+`ContextoDeUsuario`— y el `switch` cubre tres. Con un administrativo,
+`$persona` se queda en el `stdClass` vacío de la inicialización y la última línea
+es un fatal:
+
+```
+Error: Call to undefined method stdClass::save()
+```
+
+Medido: **500**. Y no es un fallo que haya que arreglar para que funcione, porque
+**la operación no existe**: hay dos imágenes por persona y no una.
+`users.imagen_id` es el avatar de la cuenta, y lo cambia la ruta hermana
+`cambiar-imagen-un-usuario`, que sí funciona para los cuatro tipos.
+`alumnos|profesores|acudientes.foto_id` es la foto **oficial**, la del carné y los
+informes, y vive en la ficha. Un `Usuario` administrativo tiene lo primero y no
+tiene lo segundo. Así que la respuesta correcta es decirlo —422— y no un fatal.
+
+### El que no señaló, y es el que puede pasar de verdad
+
+`Alumno::where('user_id', $user_id)->first()` devuelve **null** si la cuenta
+existe y su ficha no. `null->foto_id` revienta igual. Y esa combinación no es
+rara: es exactamente lo que queda cuando se retira a un alumno —la ficha se manda
+a la papelera y la cuenta sigue viva—. Ahora es 404.
+
+El análisis no lo vio porque para él `first()` devuelve `Model|null` y el `null`
+lo absorbía la misma unión; lo que denunció fue el `stdClass`, que era el más
+llamativo de los dos. **Vale la pena el apunte: el nivel 7 señala el camino más
+raro y a su lado suele estar el probable.**
+
+### Y una tercera, que ya tenía nombre
+
+El método entero era un `if` sin `else`:
+
+```php
+if ($user->tipo == 'Profesor' or $user->is_superuser) {
+    ...
+    return $persona;
+}
+// y aquí no hay nada
+```
+
+`auth.personal` deja pasar a los 51 profesores **y a los 20 administrativos**, así
+que un `Usuario` sin `is_superuser` no cumplía la condición, caía por el final y
+recibía **200 con el cuerpo vacío**, con la foto sin tocar. Es la §37 otra vez —la
+cuarta cara de «una respuesta que miente»— y ahora es 403.
+
+**No se le amplía nada a nadie**: el que no podía sigue sin poder. Lo único que
+cambia es que se entera, y el test comprueba además que la foto sigue como estaba.
+
+### Lo que hay que llevarse
+
+Los tres fallos estaban **en el mismo método**, y ninguna de las herramientas
+anteriores podía verlos: el barrido no, porque la ruta lleva `auth.personal` y un
+token de familia no llega; los inventarios de autorización tampoco, porque el
+guard está puesto y es el correcto. Lo que había aquí no era un agujero de
+autorización sino **tres formas de que la respuesta no se corresponda con lo que
+pasó**, y eso solo se ve leyendo el método o preguntándole al analizador por los
+tipos.
+
+El front no llegaba a ninguno de los tres: `fileManager.html` solo llama a esta
+ruta con `alumnoElegido` y `profeElegido`. O sea que estaban esperando a que
+alguien la llamara con otra cosa — y la ruta está abierta a los 71.
+
+Fijado por `FotoOficialTest`, cinco casos, comprobado al revés: revirtiendo los
+tres arreglos caen tres y los dos que comprueban que la foto se sigue cambiando
+—ponerla y quitarla— siguen verdes.
+
+### §43.1. Las dos reglas de procedimiento — **decididas** (21 ago 2026)
+
+La §43 dejó abiertas cuatro cosas que no eran agujeros sino reglas que nadie
+comprobaba, y Joseth contestó las dos que importaban. **Se cierran.**
+
+**1. El examen se abre cuando el profesor lo suelta.** `in_action` e `inicia_at`
+se comprueban ahora para la familia. Antes se leía el examen antes de que
+empezara, que es lo mismo que repartir la hoja el día anterior.
+
+La comprobación va **después** de la de grupo, y el orden es la decisión: quien no
+es del grupo recibe «no es de tu grupo» y no «todavía no está abierta», porque lo
+segundo confirmaría que ahí hay un examen y cuándo empieza.
+
+Y va **solo para la familia**: el profesor tiene que poder abrirla antes que
+nadie, porque eso *es* la vista previa —`actividades.html` enlaza a la misma
+pantalla—. Cerrarla para todos habría apagado la única forma que tiene un profesor
+de ver su examen como lo verá su clase.
+
+`inicia_at` se compara en `America/Bogota` y no con `now()` a secas, que es la
+trampa que [09 §2](09-pendientes.md) lleva documentada: `config/app.php` dice UTC y
+el código de siempre escribe en hora de Colombia, así que mientras las dos zonas
+convivan comparar una fecha de esta tabla con `now()` la adelanta cinco horas — y
+un examen se abriría cinco horas antes sin que fallara nada.
+
+**2. Entregar es entregar.** `finalizar-actividad` ponía `terminado = true` y
+**nadie volvía a mirar esa columna**, así que `seleccionar-opcion` seguía borrando
+la respuesta anterior y escribiendo la nueva. El profesor corregía lo último que
+se escribió, no lo que había al entregar. Ahora es 403.
+
+**La consecuencia se eligió a sabiendas y hay que tenerla escrita: quien entregue
+sin querer se queda fuera**, porque hoy no existe ninguna ruta que reabra un
+intento. Si eso aparece en un colegio, el sitio del arreglo es una ruta nueva del
+profesor —«reabrir el intento de este alumno»— y **no** relajar esta comprobación,
+que es lo que se hace cuando corre prisa y deja el agujero otra vez.
+
+### Lo que sigue abierto, y por qué
+
+`oportunidades` y `para_alumnos` **no** se cerraron. El primero es el que más
+puede sorprender a un colegio a mitad de periodo —hoy los intentos son ilimitados
+y hay clases que cuentan con ello—, y el segundo no tiene un uso claro separado de
+`compartida`. Siguen en la tabla del §5 de [09-pendientes.md](09-pendientes.md).
+
+Fijado por `MisActividadesTest`, que pasa de 9 casos a 12: los tres nuevos son
+que no se abre sin soltar, que no se abre antes de la hora, y que **sí** se abre
+pasada la hora — este último es el que se rompería sin que nadie se enterase—, más
+que el personal sigue abriendo la que no está en acción.

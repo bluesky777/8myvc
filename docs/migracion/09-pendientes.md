@@ -151,6 +151,100 @@ sin haber ningún controlador a cero.
 
 **Nada de esto está desplegado**: `app/` es copia real en cada colegio.
 
+### Lo que se hizo el 21 de agosto, por la tarde — y con tres sesiones a la vez
+
+La cobertura volvió a medirse desde cero y confirmó el punto de partida: **345 de
+539**, y un solo controlador sin ninguna respuesta comprobada, que es la ruta `/`
+sin controlador. La lista de trabajo ya no son controladores mudos sino **194
+rutas sueltas**, y el hueco más grande con forma de dominio era el módulo de
+actividades y exámenes. Cerró el día en **348 de 539 (64%)**.
+
+Y ahí hay algo que conviene decir antes de que el número engañe: **la cobertura ya
+no es la medida que manda**. Mientras hubo controladores mudos, subirla encontraba
+cosas a cada paso —seis fallos en una noche—. Ahora sube de tres en tres porque lo
+que queda son rutas sueltas dentro de controladores ya mirados, y el hallazgo de
+hoy no salió de subir el número sino de **elegir el hueco con forma de dominio** y
+leer el controlador. La lista de 194 sigue diciendo dónde mirar; ya no dice cuánto
+falta.
+
+**Lo que salió: el examen de otro grupo, por su número** — [05 §43](05-codigo-muerto-y-roto.md).
+`mis-actividades/mi-actividad` entregaba a un alumno el examen entero de un grupo
+en el que no está matriculado, sin soltar y con las preguntas dentro, y **le abría
+un intento** que después aparece en la pantalla de corregir de ese profesor.
+Cerrado dentro del controlador —la ruta no puede llevar guard, porque esa pantalla
+es también la vista previa del profesor— y comprobado al revés.
+
+Salieron con él dos de la misma familia, que no son agujeros sino **reglas de
+procedimiento que nadie comprobaba**, y Joseth las decidió el mismo día
+([05 §43.1](05-codigo-muerto-y-roto.md)): **el examen se abre cuando el profesor
+lo suelta** —`in_action` e `inicia_at`, solo para la familia, porque abrirla antes
+que nadie es lo que es la vista previa del profesor— y **entregar es entregar**.
+De la segunda se eligió a sabiendas la consecuencia: quien entregue sin querer se
+queda fuera, y el día que eso moleste el sitio del arreglo es una ruta nueva del
+profesor, no relajar la comprobación. Queda abierto `oportunidades`, en el §5.
+
+Y esa forma —**la regla de procedimiento que no comprueba nadie porque no es un
+guard**— resultó ser de las que se repiten: la sesión que llevaba votaciones
+encontró la misma en su módulo, donde se vota con `locked = 1` e `in_action = 0`
+porque nadie lee esas columnas, y donde `PUT votos/show` **destapa el recuento en
+vivo** de una votación con `can_see_results = 0` si se le manda `permitir` en el
+cuerpo. Está entero en [11-votaciones.md](11-votaciones.md), y su §1 es primo
+hermano del `in_action` de aquí. Larastan del 5 al 6 y al 7 quedó medido y
+decidido en [12-larastan-nivel-7.md](12-larastan-nivel-7.md): **el 6 no se sube**
+—1.940 errores, ninguno señala código que pueda fallar, y el 68% cae en los
+controladores, o sea el diff ilegible que CLAUDE.md prohíbe— y el valor está en
+los seis identificadores del 7, que son la familia del `count()` sobre Builder de
+la §13.1.
+
+**Y lo segundo del día, ya con la lista del nivel 7 delante**
+([12 §5](12-larastan-nivel-7.md)): `PUT images-users/cambiar-foto-un-usuario/{user_id}`
+tenía **tres fallos en el mismo método** — [05 §44](05-codigo-muerto-y-roto.md).
+Un `switch` sin rama para el cuarto tipo de usuario dejaba un `stdClass` vacío y
+`->save()` daba **500** a cualquier intento de cambiarle la foto a un
+administrativo; una cuenta viva con la ficha en la papelera —lo que queda al
+retirar a un alumno— reventaba igual; y el `if` sin `else` devolvía **200 con el
+cuerpo vacío** a los administrativos sin `is_superuser`. Ahora 422, 404 y 403.
+
+Lo que enseña, y por eso está aquí y no solo en el 05: **ninguna herramienta de la
+serie podía ver esto.** El barrido no llega —la ruta lleva `auth.personal`—, y los
+inventarios de autorización tampoco, porque el guard está puesto y es el correcto.
+No era un agujero de autorización: eran tres formas de que la respuesta no se
+corresponda con lo que pasó. La serie de cobertura y la de larastan se cruzan
+justo ahí, y es donde conviene seguir mirando.
+
+### Y lo que enseñó trabajar tres sesiones sobre el mismo árbol
+
+Esto no estaba previsto y vale más que el arreglo, porque va a volver a pasar.
+Tres sesiones de Claude a la vez sobre el mismo repo, sin ramas separadas.
+**Tres mediciones se perdieron antes de que ninguna diera un número bueno:**
+
+1. **La base de tests es lo que limita el paralelismo, no la CPU.** Dos suites a
+   la vez contra `simonbolivar_testing` dan *deadlocks* en el `insert` de
+   `personal_access_tokens` de `CasoDeContrato::token()`. Y lo que se ve no es un
+   error de infraestructura: son **tests de contrato en rojo** —36 en una corrida,
+   5 en otra— y las mismas clases pasan solas. Resuelto con `DB_TEST_DATABASE`
+   (ver [03-tests.md](03-tests.md)).
+2. **`rm -f` sobre el fichero de medición borra la medición de otro sin avisar.**
+   Estaba documentado como primer paso en `tools/cobertura-de-rutas.py`. Borrarlo
+   mientras otra corrida lo tiene abierto le desengancha el inode; ni `FILE_APPEND`
+   ni `LOCK_EX` protegen de eso. Dio **86 de 539 cuando eran 346**, con 135 casos
+   de 588 registrados — y el número era **lo bastante plausible como para
+   creérselo**. Ahora el fichero lo vacía la propia corrida y el paso ya no existe.
+3. **Dos sesiones escribieron el mismo test del mismo endpoint en la misma hora**,
+   y una sobrescribió a la otra en disco. Se recuperó porque se comparó antes de
+   fusionar, no porque nada lo impidiera.
+
+Lo que queda como regla: **el trabajo se reparte por ficheros y se dice en voz
+alta antes de empezar**, y toda medición compartida —base de datos y fichero de
+salida— quiere un nombre por sesión. Lo barato es acordarlo; lo caro es un número
+plausible que nadie sabe que está mal.
+
+Y una cuarta, que es la que más se repite: **el fixture que el seed no puede
+expresar da un test que pasa sin comprobar lo que dice.** Las dos sesiones que
+midieron esto cayeron en la misma trampa por separado —«el otro grupo» del seed es
+el otro grupo *suyo*— y es la **tercera** vez que muerde después de la §16 y de
+`tokenDelPersonalDe()`. Merece un ayudante en `CasoDeContrato`, no una nota más.
+
 ### Las dos cosas que enseñó el día, y que valen más que los arreglos
 
 1. **La misma protección, dos caminos, y solo uno cubierto.** `App\User` tiene
@@ -160,10 +254,21 @@ sin haber ningún controlador a cero.
    protege el camino que este proyecto casi no usa. Vale la pena buscar con esa
    forma en la cabeza.
 2. **Una respuesta que miente es peor que un error**, porque el que la lee deja de
-   mirar. Ha aparecido ya tres veces con tres caras: los `abort()` de la §12, el
-   `response()->json()` sin `return` de la §35, y el `if` de permiso sin `else` de
-   la §37. Esta última tiene ya herramienta:
+   mirar. Ha aparecido ya **cinco** veces con cinco caras: los `abort()` de la
+   §12, el `response()->json()` sin `return` de la §35, el `if` de permiso sin
+   `else` de la §37, el mismo `if` sin `else` de la [§44](05-codigo-muerto-y-roto.md)
+   —que devolvía 200 con el cuerpo vacío y la foto sin tocar—, y
+   `Matricula::matricularUno()` —
+   [12 §1](12-larastan-nivel-7.md)—, que en PHP 7 **no revivía ninguna matrícula
+   y respondía 200 igual**. Esta tercera tiene ya herramienta:
    `tools/respuestas-que-mienten.py`.
+
+   Y la cuarta añade algo que las otras tres no enseñaban: **el 500 de PHP 8 es
+   la buena noticia.** Mientras la conversión silenciosa de `false` a `stdClass`
+   funcionó, aquello no dejó ni excepción, ni log, ni código de error — solo una
+   secretaría viendo un 200 y un alumno sin matrícula. El fallo se volvió medible
+   el día que dejó de ser silencioso, que es el argumento entero de por qué
+   existe esa herramienta.
 
 ### Lo que hace falta de Joseth ahora — por orden
 
@@ -431,6 +536,7 @@ saber el tamaño real del daño en las dieciséis bases antes de tocar código.
 | Un `Usuario` administrativo sin `is_superuser` lee en Tardanzas pero no puede subir | [05 §25.3](05-codigo-muerto-y-roto.md) | si el `if` de `TSubirController::user()` debe decir `Profesor o Usuario` como el de lectura, o si dejar fuera al administrativo era la intención. Hoy entra al lector, ve los datos y recibe 400 al subir |
 | `years.profes_can_edit_alumnos` decide más cosas de las que dice su nombre | [05 §29.1](05-codigo-muerto-y-roto.md) | qué debe poder hacer un docente con esa bandera encendida. Hoy son dos cosas escritas en dos sitios: borrar alumnos definitivamente (`Autoriza::puedeBorrarAlumnos`) y resetear la contraseña de un alumno. Las dos son suyas por herencia, no por decisión |
 | **Quién es el «Secretario»** —y el «Psicólogo»—, que el código busca donde no están | [05 §30.2](05-codigo-muerto-y-roto.md) | ocho sitios preguntan `Role::isSecretario()` y la tabla `roles` no tiene ese nombre; otros tres preguntan `users.tipo == 'Secretario'`, y `tipo` solo toma los cuatro valores del `switch` del contexto, así que es siempre falso. Hoy el criterio efectivo en los once es `is_superuser` — y en `AcudientesController` eso deja a un administrativo sin poder crear acudientes, que es lo contrario de lo que la línea pretendía. Si la respuesta es el rol `Admin`, hoy no cambia nada y mañana sí. Y con el psicólogo pasa al revés: su rama de `putGuardarValor` compara `tipo` con `'Psicólogo'` y **nunca se ejecuta**, así que las necesidades educativas especiales de un alumno solo las escribe hoy un superusuario — con el comentario del propio autor al lado diciendo que quería el rol |
+| Los intentos de un examen son ilimitados: `oportunidades` no lo mira nadie | [05 §43.1](05-codigo-muerto-y-roto.md) | si se limitan. Es la que más puede sorprender a un colegio a mitad de periodo, y por eso quedó fuera cuando el 21 ago 2026 se cerraron `in_action` e `inicia_at`. `para_alumnos` sigue con ella, sin un uso claro separado de `compartida` |
 | El interruptor con el que el colegio cierra el periodo a los profesores lo elige el cliente | [05 §27](05-codigo-muerto-y-roto.md) | si se hace la 1 —exigir que `num_periodo` y `periodo_id` concuerden, media hora, y deja fuera la rejilla de definitivas y `notas/update/{id}`, que no mandan `periodo_id`— o la 2, que es derivar el periodo de la fila en las 26 llamadas y entra en el cálculo de notas. La tercera vía, ignorar `num_periodo`, quedó descartada al medir el front: apagaría la rejilla de definitivas. **Es la única de esta lista que deja algo abierto ahora mismo** |
 | `Login::ponerEnElPeriodoActual` se queda con el primer año actual, sin `ORDER BY` | [05 §28.3](05-codigo-muerto-y-roto.md) | qué hacer si un colegio tiene dos años marcados como actuales. Los tres caminos que los creaban están cerrados, así que esto solo puede venir de datos de antes; poner `ORDER BY year DESC` es una línea, pero **decide en qué año amanece un colegio** que hoy entra en el otro. Se contesta mirando las dieciséis bases: `SELECT id, year FROM years WHERE actual=1 AND deleted_at IS NULL` |
 
