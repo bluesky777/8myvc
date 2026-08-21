@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Request;
 
 /**
  * Validación de archivos subidos.
@@ -25,6 +26,47 @@ class SafeUpload
         'pdf', 'doc', 'docx', 'xls', 'xlsx', 'odt', 'ods',
         'jpg', 'jpeg', 'png', 'gif', 'webp',
     ];
+
+    /**
+     * El archivo de un campo del formulario, o 422 si no hay exactamente uno.
+     *
+     * Existe porque `Request::file('x')` devuelve **un `UploadedFile` o un array**,
+     * según el cliente mande `file` o `file[]`, y los dos puntos de subida
+     * asumían lo primero. Con dos archivos en el mismo campo, `nombreDisponible()`
+     * recibía un array donde su firma declara `?UploadedFile` y el TypeError salía
+     * como **500**; medido antes de escribir esto. No es un agujero —lo que se
+     * cuela no llega a guardarse— pero es un 500 en la única operación de subida
+     * que tiene el sistema, y desde fuera un 500 no se distingue de «el servidor
+     * está caído». Ver 05 §45.
+     *
+     * Se rechaza en vez de quedarse con el primero: quien manda dos archivos cree
+     * que va a subir dos, y guardar uno en silencio es peor que decirle que no.
+     * Ninguna pantalla manda `file[]` —comprobado en los cuatro clientes—, así que
+     * esto no apaga nada.
+     *
+     * Lo señaló el nivel 7 de larastan en tres sitios a la vez; vive aquí y no en
+     * cada uno por lo mismo que el resto de la clase: para que no haya dos
+     * versiones de la misma regla.
+     */
+    public static function archivoRecibido(string $campo): UploadedFile
+    {
+        $file = Request::file($campo);
+
+        // Esta rama no decide el control —el `instanceof` de abajo también
+        // rechaza un array—, decide el MENSAJE. Se comprobó quitándola: el test
+        // seguía verde. Se queda porque «sube los archivos de uno en uno» y «no se
+        // recibió un archivo válido» le dicen cosas distintas a quien lo lee, y la
+        // segunda manda a buscar el fallo donde no está.
+        if (is_array($file)) {
+            abort(422, 'Sube los archivos de uno en uno.');
+        }
+
+        if (! $file instanceof UploadedFile || ! $file->isValid()) {
+            abort(422, 'No se recibió un archivo válido.');
+        }
+
+        return $file;
+    }
 
     /**
      * Comprueba el archivo y devuelve un nombre seguro que aún no exista en la carpeta.

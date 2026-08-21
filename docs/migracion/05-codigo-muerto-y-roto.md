@@ -4032,3 +4032,59 @@ Fijado por `MisActividadesTest`, que pasa de 9 casos a 12: los tres nuevos son
 que no se abre sin soltar, que no se abre antes de la hora, y que **sí** se abre
 pasada la hora — este último es el que se rompería sin que nadie se enterase—, más
 que el personal sigue abriendo la que no está en acción.
+
+---
+
+## 45. `Request::file()` devuelve dos cosas, y el código esperaba una (21 ago 2026)
+
+Segundo de la lista del nivel 7 ([12 §5](12-larastan-nivel-7.md)), y el que venía
+señalado **tres veces**: `getRealPath()` y `move()` sobre
+`array<UploadedFile>|UploadedFile`, en `ImagesController`, en
+`Piars/Utils/UploadDocuments` y en `ImportarController::postCartera`.
+
+`Request::file('file')` devuelve un `UploadedFile` si el cliente manda `file` y un
+**array** si manda `file[]`. Los dos puntos de subida del sistema asumían lo
+primero. Medido: con dos archivos en el mismo campo, `nombreDisponible()` recibe
+un array donde su firma declara `?UploadedFile`, y el TypeError sale como **500**.
+
+**No es un agujero** —no llega a guardarse nada, y la lista blanca de extensiones
+sigue intacta— pero es un 500 en la única operación de subida que tiene el
+sistema, y desde fuera un 500 no se distingue de «el servidor está caído».
+
+### Dónde va el arreglo, y por qué ahí
+
+En `SafeUpload`, no en cada controlador, por la misma razón que ya tenía escrita
+esa clase: *para que no haya dos versiones de la misma regla*. Se añade
+`archivoRecibido($campo)`, que lee el campo y devuelve **un** `UploadedFile` o
+aborta con 422, y los dos puntos vivos pasan por ella.
+
+**Se rechaza en vez de quedarse con el primero.** Quien manda dos archivos cree
+que va a subir dos; guardar uno en silencio es la respuesta que miente otra vez, y
+esta vez por adelantado. Ninguna pantalla de los cuatro clientes manda `file[]`,
+así que no apaga nada.
+
+`postCartera` se queda como está: lleva rota desde el salto a maatwebsite 3.x por
+la firma de la 2.x ([§8](05-codigo-muerto-y-roto.md)), y ponerle un 422 delante de
+un 500 que ya existe no arregla nada — qué debe hacer esa importación sigue siendo
+una decisión del colegio.
+
+### Y una cosa que salió al comprobarlo al revés
+
+La comprobación se escribió con dos ramas —`is_array()` primero, `instanceof`
+después— y al desactivar la primera **el test seguía verde**: el `instanceof`
+también rechaza un array. O sea que esa rama no decide el control, decide el
+**mensaje**.
+
+Se queda, y por eso está escrito en el código: «sube los archivos de uno en uno» y
+«no se recibió un archivo válido» le dicen cosas distintas a quien las lee, y la
+segunda manda a buscar el fallo donde no está. Pero la distinción importa para el
+que venga: **la línea que se puede quitar sin que falle un test no siempre es la
+que sobra** — a veces es la única que explica.
+
+Y el orden del reverso importó: quitar esa rama no probaba nada, y hubo que
+revertir la llamada entera a `Request::file()` para ver el 500. **Comprobar al
+revés solo vale si se revierte lo que de verdad cambió el comportamiento.**
+
+Fijado por `SubidaDeArchivosTest`: se sube una imagen, dos son 422 y no se guarda
+ninguna, ninguna sigue siendo 422, y un `.php` disfrazado sigue sin entrar — este
+último porque el atajo nuevo no puede saltarse la lista blanca.

@@ -183,7 +183,9 @@ class ImagesController extends Controller {
 			File::makeDirectory($folder, 0755, true, true);
 		}
 
-		$file = Request::file("file");
+		// `Request::file()` devuelve un array si el cliente manda `file[]`, y eso
+		// salía como 500. Ver 05 §45.
+		$file = SafeUpload::archivoRecibido("file");
 
 		// Valida la extensión contra la lista blanca y resuelve colisiones
 		// (foto.jpg, foto(1).jpg, foto(2).jpg…) igual que antes.

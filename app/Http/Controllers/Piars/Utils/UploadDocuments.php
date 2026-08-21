@@ -16,7 +16,8 @@ class UploadDocuments {
 			File::makeDirectory($folder, $mode = 0755, true, true);
 		}
 
-		$file = Request::file("file");
+		// Ver 05 §45: con `file[]` esto era un array y el TypeError salía como 500.
+		$file = SafeUpload::archivoRecibido("file");
 
 		// Valida la extensión contra la lista blanca y resuelve colisiones
 		// (foto.pdf, foto(1).pdf, foto(2).pdf…) igual que antes.
