@@ -10,6 +10,7 @@ use Carbon\Carbon;
 use \Log;
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
 use App\Support\ColumnaSegura;
+use App\Models\Role;
 
 
 class EnfermeriaController extends Controller {
@@ -47,13 +48,24 @@ class EnfermeriaController extends Controller {
 
 	public function putGuardarValor()
 	{
-		// Debo verificar que tenga rol Enfermero. Por ahora lo dejo Usuario para que funcione
-		if($this->user->is_superuser || $this->user->tipo == 'Enfermero'){
+		// El comentario que había aquí decía «Debo verificar que tenga rol
+		// Enfermero. Por ahora lo dejo Usuario para que funcione», y lo escrito
+		// debajo comparaba `tipo` con 'Enfermero', un valor que `tipo` no toma
+		// nunca —solo son Usuario, Profesor, Alumno y Acudiente, las cuatro ramas
+		// del switch de ContextoDeUsuario—. O sea que la rama no se ejecutaba y
+		// **la enfermera del colegio no podía escribir los antecedentes médicos**
+		// salvo que fuera superusuaria.
+		//
+		// Es la tercera de la misma familia: el Secretario y el Psicólogo de la
+		// §30.2, con la misma forma y el mismo comentario del autor al lado. Se
+		// arregla con la decisión que Joseth ya tomó allí: el criterio es el rol,
+		// que existe y tiene gente dentro. Ver 05 §41.2.
+		if($this->user->is_superuser || Role::isEnfermero($this->user->user_id)){
 			$now 				= Carbon::now('America/Bogota');
 			$propiedad 			= Request::input('propiedad');
 			
 			$consulta          = 'UPDATE antecedentes SET '.ColumnaSegura::exigir('antecedentes', $propiedad).'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:antec_id';
-			$antecedentes      = DB::select($consulta, [':valor'=>Request::input('valor'), ':modificador'=>$this->user->user_id, ':fecha'=>$now, ':antec_id'=>Request::input('antec_id')]);
+			$antecedentes      = DB::update($consulta, [':valor'=>Request::input('valor'), ':modificador'=>$this->user->user_id, ':fecha'=>$now, ':antec_id'=>Request::input('antec_id')]);
 				
 
 			return 'Cambios guardados';
@@ -100,7 +112,7 @@ class EnfermeriaController extends Controller {
 			$propiedad 			= Request::input('propiedad');
 			
 			$consulta          = 'UPDATE registros_enfermeria SET '.ColumnaSegura::exigir('registros_enfermeria', $propiedad).'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:suceso_id';
-			$antecedentes      = DB::select($consulta, [':valor'=>Request::input('valor'), ':modificador'=>$this->user->user_id, ':fecha'=>$now, ':suceso_id'=>Request::input('suceso_id')]);
+			$antecedentes      = DB::update($consulta, [':valor'=>Request::input('valor'), ':modificador'=>$this->user->user_id, ':fecha'=>$now, ':suceso_id'=>Request::input('suceso_id')]);
 				
 
 			return 'Cambios guardados';

@@ -123,6 +123,21 @@ class Role extends Model
 	 * El nombre lleva tilde en la tabla y por eso está escrito con tilde aquí:
 	 * la comparación de `hasRole()` es en PHP y no la salva la collation.
 	 */
+	/**
+	 * El rol `Enfermero`, la tercera de la misma familia.
+	 *
+	 * `EnfermeriaController::putGuardarValor` preguntaba
+	 * `$this->user->tipo == 'Enfermero'` **con el mismo comentario al lado que la
+	 * rama del psicólogo** —«Debo verificar que tenga rol Enfermero. Por ahora lo
+	 * dejo Usuario para que funcione»— y `tipo` no toma ese valor nunca. La
+	 * consecuencia era la misma: cierra de más. La enfermera del colegio no podía
+	 * escribir los antecedentes médicos salvo que fuera superusuaria.
+	 * Ver docs/migracion/05-codigo-muerto-y-roto.md §41.2.
+	 */
+	public static function isEnfermero($user_id) {
+		return Role::hasRole($user_id, 'Enfermero');
+	}
+
 	public static function isPsicologo($user_id) {
 		return Role::hasRole($user_id, 'Psicólogo');
 	}

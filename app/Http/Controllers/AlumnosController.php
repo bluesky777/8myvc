@@ -413,10 +413,35 @@ class AlumnosController extends Controller {
 
 
 
+	/**
+	 * La ficha de un alumno. **Es la hermana en detalle de la §34.**
+	 *
+	 * Devuelve documento, tipo de sangre, EPS, dirección, teléfono, religión,
+	 * sisbén, deuda y `nee`/`nee_descripcion` —las necesidades educativas
+	 * especiales—, y la ruta lleva solo `auth.token`. Tenía una rama para
+	 * acudientes que sí comprueba el vínculo y **un `else` que cubría a todos los
+	 * demás, incluido un alumno**, buscando por `a.id` sin mirar de quién es. Con
+	 * token de alumno y el id de otro respondía 200 con la ficha entera.
+	 *
+	 * **Por qué no lo cazó `persona.propia`**, que existe justo para esto: el
+	 * identificador aquí se llama **`id`**, y la lista de nombres que ese guard
+	 * reconoce es `alumno_id`, `user_id`, `persona_id`, `acudiente_id`,
+	 * `profesor_id`, `matricula_id`, `imagen_id`, `img_id`. Su propio docblock lo
+	 * había previsto —«comprobar solo la que uno espera deja abierta la que no»— y
+	 * aun así faltaba ésta. **`id` no se le puede añadir a esa lista**: media API
+	 * lo usa para cosas que no son personas —una unidad, una nota, un año— y el
+	 * guard intentaría resolverlas como si lo fueran. Por eso se cierra aquí.
+	 *
+	 * Ver 05 §41.
+	 */
 	public function putShow()
 	{
 		$id 		= Request::input('id');
 		$con_grupos = Request::input('con_grupos');
+		
+		if ($this->user->tipo === 'Alumno' && (int) $id !== (int) $this->user->persona_id) {
+			abort(403, 'Solo puedes consultar lo tuyo');
+		}
 		
 		if ($this->user->tipo == 'Acudiente') {
 			

@@ -3649,3 +3649,71 @@ decisión, y los dos fallaron al aplicarla — que era su trabajo:
 
 Ahora fijan lo contrario, y **cada uno comprueba la fila y no solo el código**: que
 la corrección de la ausencia llega, y que la nota de comportamiento no cambia.
+
+---
+
+## 41. La ficha del alumno por un identificador que el guard no conocía (21 ago 2026)
+
+De cruzar dos listas: las rutas **sin comprobar** y las rutas **alcanzables por una
+familia** —o sea, sin `auth.personal`—. Salieron 38, y dos importan.
+
+### 41.1 `PUT alumnos/show`, la hermana en detalle de la §34
+
+Devuelve la ficha completa: documento, tipo de sangre, EPS, dirección, teléfono,
+religión, sisbén, deuda, `username`, y **`nee` y `nee_descripcion`** —las
+necesidades educativas especiales—. La ruta lleva solo `auth.token`.
+
+Tiene una rama para acudientes que **sí** comprueba el vínculo y devuelve «No es
+tu acudido», y **un `else` que cubre a todos los demás**, incluido un alumno,
+buscando por `a.id` sin mirar de quién es. Medido: con token de alumno y el id de
+otro, **200 con la ficha entera**.
+
+**Y lo interesante es por qué no lo cazó `persona.propia`**, que existe justo para
+esto y que se aplicó a treinta y tantas rutas en la revisión de IDOR. El
+identificador aquí se llama **`id`**, y la lista de nombres que ese guard reconoce
+es `alumno_id`, `user_id`, `persona_id`, `acudiente_id`, `profesor_id`,
+`matricula_id`, `imagen_id`, `img_id`. Su propio docblock había previsto
+exactamente este fallo:
+
+> «Los endpoints de este sistema nombran a una persona de seis maneras distintas
+> […] Comprobar solo la que uno espera deja abierta la que no.»
+
+Y aun así faltaba ésta. **`id` no se le puede añadir a la lista**: media API lo usa
+para cosas que no son personas —una unidad, una nota, un año, una imagen— y el
+guard intentaría resolver cada una como si lo fuera. Por eso se cierra dentro del
+método.
+
+Lo que deja: **una lista de nombres nunca está completa**, y la forma de encontrar
+lo que le falta no es leerla otra vez sino cruzar «quién puede llegar» con «quién
+lo ha comprobado». Es la misma pregunta de la cobertura, hecha sobre otro eje.
+
+### 41.2 El Enfermero, la tercera de la familia del Secretario
+
+En el mismo barrido salió `enfermeria/guardar-valor`:
+
+```php
+// Debo verificar que tenga rol Enfermero. Por ahora lo dejo Usuario para que funcione
+if($this->user->is_superuser || $this->user->tipo == 'Enfermero'){
+```
+
+**Es la rama del psicólogo otra vez, con el mismo comentario del autor al lado y
+el mismo error debajo**: el comentario dice `Usuario` y el código compara `tipo`
+con un valor que `tipo` no toma nunca. Y de las que cierran de más: **la enfermera
+del colegio no podía escribir los antecedentes médicos** salvo que fuera
+superusuaria. El rol `Enfermero` existe y tiene una persona dentro.
+
+Se arregla con la decisión que Joseth ya tomó en la §30.2 —el criterio es el rol—
+sin volver a preguntar, porque es la misma pregunta. Con esto se cierran **las
+tres** de esa familia: Secretario, Psicólogo y Enfermero.
+
+Se buscó si quedaba alguna cuarta comparando `tipo` con los once nombres de rol:
+**no queda ninguna**.
+
+### 41.3 Y dos cosas medidas al pasar
+
+- **`enfermeria/guardar-valor` ejecutaba su `UPDATE` con `DB::select`**, igual que
+  los siete de la §39. Pasa a `DB::update`.
+- **`ColumnaSegura::exigir()` es lo único que separa esa ruta de una inyección**:
+  la `propiedad` se concatena en el SQL. Queda fijado con un test que manda
+  `observaciones=1, updated_by=99 WHERE 1=1 -- ` y exige un 422 — para que el día
+  que alguien quite la lista blanca «porque estorba», esto lo cuente.
