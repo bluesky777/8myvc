@@ -144,6 +144,7 @@
         "POST api/ordinales/store",
         "POST api/paises/store",
         "POST api/participantes/inscribir-profesores",
+        "POST api/perfiles/store",
         "POST api/periodos/store/{year_id}",
         "POST api/piars-actas-acuerdo/document",
         "POST api/preguntas/crear",

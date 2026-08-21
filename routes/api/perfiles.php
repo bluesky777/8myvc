@@ -24,7 +24,12 @@ Route::get('perfiles', [PerfilesController::class, 'getIndex']);
 // Crea usuarios, les asigna roles y toca acudientes. No nombra a nadie.
 Route::put('perfiles/creartodoslosusuarios', [PerfilesController::class, 'putCreartodoslosusuarios'])->middleware('auth.personal');
 Route::put('perfiles/guardar-mi-email-restore', [PerfilesController::class, 'putGuardarMiEmailRestore']);
-Route::post('perfiles/store', [PerfilesController::class, 'postStore']);
+// No crea un perfil: crea un GRUPO. Es la sexta del controlador que opera sobre
+// grupo y no sobre persona —las otras cinco las lleva anotadas `PerfilesApi.ts`—,
+// y la única de ellas que ESCRIBE; las otras cuatro con {id} ya llevaban
+// `auth.personal` y ésta se quedó fuera. Medido: un alumno creaba un grupo del
+// colegio en el año en curso. Ver 05 §22.
+Route::post('perfiles/store', [PerfilesController::class, 'postStore'])->middleware('auth.personal');
 Route::get('perfiles/trashed', [PerfilesController::class, 'getTrashed'])->middleware('auth.personal');
 Route::get('perfiles/usernames', [PerfilesController::class, 'getUsernames']);
 // El directorio entero del colegio: nombre, usuario, tipo, correo, fecha de

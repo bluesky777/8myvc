@@ -129,7 +129,12 @@ class PublicacionesController extends Controller {
 	{
         $user   = User::fromToken();
         $now 	= Carbon::now('America/Bogota');
-        
+
+        // La hermana que se quedó fuera cuando se cerraron `putDelete` y
+        // `putRestaurar`. Y nombra la publicación `id` y no `publi_id`, que es por
+        // lo que buscar la clave por su nombre no la encontró.
+        $this->exigeQueLaPublicacionSeaSuya($user, Request::input('id'));
+
         $publi_para             = Request::input('publi_para');
         $para_alumnos           = 0;
         $para_acudientes        = 0;
@@ -266,7 +271,7 @@ class PublicacionesController extends Controller {
 
 
     /**
-     * Borrar y restaurar solo lo propio.
+     * Borrar, restaurar y editar solo lo propio.
      *
      * **La regla existía y vivía únicamente en el frontend**: el botón de la
      * papelera de `publicacionesPanelDir.html` va dentro de un
@@ -279,6 +284,12 @@ class PublicacionesController extends Controller {
      * `tipo_persona` va en la comparación aunque el front no lo mire, porque
      * `persona_id` solo es único DENTRO de su tabla: el alumno 12 y el profesor 12
      * existen los dos. Es lo mismo que guarda `postStore` al publicar.
+     *
+     * **Y la edición pide lo mismo**, que es lo que faltaba: el lápiz de
+     * `publicacionesPanelDir.html` va dentro de un
+     * `ng-if="$ctrl.USER.persona_id==$ctrl.publicacion_actual.persona_id"`, o sea
+     * solo el autor. El backend reescribía por `id` sin mirar, y no solo el texto:
+     * también a quién se le enseña. Ver 05 §22.
      */
     private function exigeQueLaPublicacionSeaSuya(object $user, $publiId): void
     {
@@ -292,7 +303,7 @@ class PublicacionesController extends Controller {
         );
 
         if ($suya === null) {
-            abort(403, 'Solo puedes borrar tus publicaciones');
+            abort(403, 'Solo puedes tocar tus publicaciones');
         }
     }
 }

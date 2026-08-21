@@ -1267,6 +1267,129 @@ class SuperficieDeUnAlumnoTest extends CasoDeContrato
     }
 
     /**
+     * Un alumno creando un grupo del colegio, por la ruta que dice «perfiles».
+     *
+     * `PerfilesController::postStore` **no crea un perfil: crea un `Grupo`**. Es
+     * un método que se quedó del copiar y pegar, y no comprueba nada — ni guard en
+     * la ruta ni una línea dentro—. Con el año sacado del token, así que el grupo
+     * nace en el año en curso del colegio.
+     *
+     * **Por qué no salió en cuatro pasadas del barrido:** lee
+     * `Request::input('titular')['id']`, un array anidado, y el barrido manda
+     * `titular_id` plano. El índice sobre `null` lanza, el `catch` de al lado lo
+     * convierte en 422 y desde fuera se ve una ruta que no hace nada. Lo señaló el
+     * control con superusuario, que es lo que sabe distinguir «no le dejaron» de
+     * «no llegó a intentarlo».
+     */
+    public function test_un_alumno_no_crea_grupos_del_colegio(): void
+    {
+        [, , , , $cab] = $this->actores();
+
+        $antes = DB::table('grupos')->count();
+
+        $titular = DB::selectOne('SELECT id FROM profesores WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+        $grado = DB::selectOne('SELECT id FROM grados WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+
+        $this->postJson('/api/perfiles/store', [
+            'nombre' => 'Grupo del alumno',
+            'abrev' => 'GDA',
+            'titular' => ['id' => $titular->id],
+            'grado' => ['id' => $grado->id],
+            'valormatricula' => 0,
+            'valorpension' => 0,
+            'orden' => 99,
+            'caritas' => 0,
+        ], $cab)->assertStatus(403);
+
+        $this->assertSame($antes, DB::table('grupos')->count(),
+            'No nació ningún grupo.');
+    }
+
+    /**
+     * Y un alumno reescribiendo el tablón del colegio.
+     *
+     * `publicaciones/guardar-edicion` hace `UPDATE publicaciones ... WHERE id=:id`
+     * con el `id` que llega del cuerpo y **sin mirar de quién es la publicación**.
+     * No solo el texto: también `para_alumnos`, `para_acudientes`, `para_profes` y
+     * `para_administradores`, o sea a quién se le enseña.
+     *
+     * **Por qué tampoco salió:** sin `publi_para` en el cuerpo, `$para_todos` se
+     * queda sin asignar y la petición muere en 500 antes del `UPDATE`. El barrido
+     * lo leía como una ruta que no escribe. Es la misma forma que
+     * `folios/iniciar`: rota o vacía por fuera, viva en cuanto le llega el cuerpo
+     * que espera.
+     */
+    public function test_un_alumno_no_reescribe_una_publicacion_del_colegio(): void
+    {
+        [, , , , $cab] = $this->actores();
+
+        $publi = DB::selectOne('SELECT id, contenido FROM publicaciones ORDER BY id LIMIT 1');
+
+        $this->assertNotNull($publi, 'El seed tiene publicaciones; sin una, este test no prueba nada.');
+
+        $this->putJson('/api/publicaciones/guardar-edicion', [
+            'id' => $publi->id,
+            'publi_para' => 'publi_para_todos',
+            'contenido' => 'Reescrita por un alumno',
+        ], $cab)->assertStatus(403);
+
+        $this->assertSame($publi->contenido,
+            DB::table('publicaciones')->where('id', $publi->id)->value('contenido'),
+            'La publicación sigue diciendo lo que decía.');
+    }
+
+    /** Y el personal sigue creándolos, que cerrar de más también se nota. */
+    public function test_el_personal_sigue_creando_grupos_por_esa_ruta(): void
+    {
+        $antes = DB::table('grupos')->count();
+
+        $titular = DB::selectOne('SELECT id FROM profesores WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+        $grado = DB::selectOne('SELECT id FROM grados WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+
+        $this->postJson('/api/perfiles/store', [
+            'nombre' => 'Grupo del personal',
+            'abrev' => 'GDP',
+            'titular' => ['id' => $titular->id],
+            'grado' => ['id' => $grado->id],
+            'valormatricula' => 0,
+            'valorpension' => 0,
+            'orden' => 99,
+            'caritas' => 0,
+        ], ['Authorization' => 'Bearer '.$this->tokenDe($this->usuarioDeTipo('Usuario')->username)])
+            ->assertStatus(201);
+
+        $this->assertSame($antes + 1, DB::table('grupos')->count());
+    }
+
+    /**
+     * Y el autor sigue editando la suya, que es lo que el lápiz del front hace.
+     *
+     * Publica con su token —`putStore` saca el `persona_id` del token, no del
+     * cuerpo— y edita eso mismo. Si esto fallara, el arreglo habría apagado el
+     * botón de editar de todo el colegio.
+     */
+    public function test_el_autor_sigue_editando_su_publicacion(): void
+    {
+        [, , , , $cab] = $this->actores();
+
+        $this->putJson('/api/publicaciones/store', [
+            'publi_para' => 'publi_para_todos',
+            'contenido' => 'La mía',
+        ], $cab)->assertSuccessful();
+
+        $mia = DB::selectOne('SELECT id FROM publicaciones ORDER BY id DESC LIMIT 1');
+
+        $this->putJson('/api/publicaciones/guardar-edicion', [
+            'id' => $mia->id,
+            'publi_para' => 'publi_para_todos',
+            'contenido' => 'La mía, corregida',
+        ], $cab)->assertStatus(200);
+
+        $this->assertSame('La mía, corregida',
+            DB::table('publicaciones')->where('id', $mia->id)->value('contenido'));
+    }
+
+    /**
      * Un examen del profesor y el intento de OTRO alumno, con una respuesta dentro.
      *
      * El seed no trae ninguna actividad —`ws_actividades` está vacía—, y por eso
