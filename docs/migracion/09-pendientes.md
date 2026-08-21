@@ -713,6 +713,31 @@ saber el tamaño real del daño en las dieciséis bases antes de tocar código.
   familia el caso que motivó el candado se le habría escapado — comprobado
   quitándole el guard a la ruta: con dos pasa, con uno falla y la nombra.
 
+- **Las once sin juzgar, miradas una por una el 20 ago 2026.** Nueve ya tenían
+  sitio —una pública de pre-login, dos que esperan decisión, dos rotas conocidas,
+  el muro de publicaciones y las tres del flujo de votar—. Las dos de actividades
+  estaban mudas porque `ws_actividades` está vacía, y se midieron **montando la
+  actividad**, que es justo la regla que salió al partir la decisión del seed.
+
+  Salió una: **`PUT respuestas/actividad` es la pantalla de corregir del profesor**
+  —por cada grupo al que se compartió la actividad, todos sus alumnos con lo que
+  contestaron, su `puntaje_manual` y su respuesta a cada pregunta— y no llevaba
+  guard. `panel.respuestas` tiene dos entradas en el front y las dos son del autor;
+  `actividades/datos`, que abre esa lista, lleva `auth.personal` desde siempre.
+
+  **Y el comentario de la ruta decía lo contrario** —«el lado del alumno es
+  `mis-actividades/*` y `respuestas/actividad`»—, que es de donde salió que se
+  quedara abierta. Corregido con el guard.
+
+  Se queda rota, y documentada, la otra rama del mismo método: para una actividad
+  **no compartida** hace `DB::select('')` con la consulta vacía, así que el
+  profesor que abra «Ver resultados» de cualquier actividad de un solo grupo
+  recibe un 500 desde que existe la pantalla. Con su test fijando el error. Ver
+  [05 §24](05-codigo-muerto-y-roto.md).
+
+  Quedan **diez sin juzgar, las diez con nombre y motivo**. Es el punto en el que
+  la serie deja de encontrar por barrido: lo que queda son decisiones.
+
 - **La decisión del seed, tomada el 20 ago 2026: partirla en dos.** El seed vacío
   llevaba seis hallazgos tapados —`unidades_por_defecto`, los alumnos borrados,
   `pazysalvo`, los folios, `ws_actividades` y trece rutas con `{id}`—, y lo que la

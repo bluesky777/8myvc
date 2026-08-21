@@ -2158,3 +2158,67 @@ y `publicaciones/restaurar`, las dos defendidas dentro—, y las quince que ya
 había son casi todas lo mismo: controladores que abortan con 400 o 401 en vez de
 con 403. Cada una lleva su motivo escrito, y el test inverso grita si alguna deja
 de hacer falta.
+
+---
+
+## 24. Las once que quedaron sin juzgar (20 ago 2026)
+
+La [§23](#23-el-cuerpo-anidado-y-las-cuatro-que-escond%C3%ADa-20-ago-2026) dejó
+once rutas que ni el token de familia ni el superusuario del control mueven. Con
+once se pueden mirar una por una, y eso es lo que se hizo. Nueve ya tenían sitio:
+
+| Cuántas | Cuáles | Por qué están ahí |
+|---|---|---|
+| 1 | `login/crear-prematricula` | pública de pre-login, no depende del token |
+| 2 | `ciudades/by-departamento`, `asignaturas/listasignaturas-alone` | esperan una decisión, ya anotadas en [08](08-revision-idor.md) y en 09 §5 |
+| 2 | `definitivas_periodos`, `editnota/detailed-notas-year` | rotas desde antes de la migración, con su entrada en la tabla de variables sin definir |
+| 1 | `publicaciones/store` | es el diseño: el muro no restringe quién publica y cada uno borra lo suyo |
+| 3 | `votaciones`, `votaciones/actual`, `votaciones/actual-in-action` | el flujo de votar que la §18 dejó abierto a propósito |
+
+Y quedaban dos de actividades, mudas porque **`ws_actividades` está vacía en el
+seed**. Ésas se midieron montando la actividad, que es la regla que quedó escrita
+al partir la decisión del seed: si falta el estado, lo prepara quien mide; si falta
+la fila, la monta el test que la necesita.
+
+### 24.1 La pantalla de corregir del profesor
+
+`PUT respuestas/actividad` recibe `actividad_id` por el cuerpo y devuelve, por
+cada grupo al que se compartió la actividad, **todos sus alumnos con lo que
+contestaron**: nombres, foto, si terminaron, `puntaje_manual` y la respuesta a
+cada pregunta. Sin guard.
+
+Lo que lo hace claro es de dónde se llega a esa pantalla. `panel.respuestas` tiene
+exactamente dos entradas en el front y las dos son del autor: la lista de
+actividades del profesor (`actividades.html`) y su botón «Ver resultados»
+(`EditarActividadCtrl::verResultados`). Y `actividades/datos`, que es la que abre
+esa lista, lleva `auth.personal` desde siempre.
+
+**Y el comentario de la ruta decía lo contrario.** En `routes/api/actividades.php`
+estaba escrito que «el lado del alumno es `mis-actividades/*` y
+`respuestas/actividad`», que es de donde salió que se quedara abierta. Corregido
+junto con el guard: el lado del alumno es `mis-actividades/*` y nada más.
+
+### 24.2 Y la otra rama del mismo método, que se queda rota
+
+Para una actividad **no compartida** —que son la mayoría, porque `compartida`
+viene a 0 por defecto— el `else` hace:
+
+```php
+$consulta = '';
+$alumnos = DB::select($consulta, [$user->year_id]);
+```
+
+Una consulta vacía no es SQL. O sea que un profesor que abra «Ver resultados» de
+cualquier actividad de un solo grupo recibe **500 desde que existe la pantalla**.
+
+Es la familia de la [§8](#8-lo-que-encontró-golpear-las-rutas-20-ago-2026-p2-de-tests)
+y se queda, según la regla: tiene ruta, y qué debe enseñar esa pantalla para una
+actividad sin compartir es una decisión del colegio y no un arreglo. El test fija
+el error exacto para que el día que se arregle se note.
+
+### 24.3 Lo que deja la pasada
+
+Diez rutas sin juzgar, y **las diez con nombre y motivo**. Ninguna es un agujero
+sin mirar: son públicas, decisiones pendientes, rotas conocidas o el flujo de
+votar. Es el punto en el que la serie deja de encontrar por barrido — lo que queda
+son decisiones, no hallazgos.
