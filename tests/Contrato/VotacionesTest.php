@@ -560,4 +560,139 @@ class VotacionesTest extends CasoDeContrato
             'Sin mandar `can_see_results`, los resultados se tapan.'
         );
     }
+
+    /**
+     * El censo dice **a quién votó cada uno**, y eso lo ven los 51 profesores.
+     *
+     * `PUT participantes/votantes` devuelve, por cada matriculado del grupo y por
+     * cada cargo de la elección, **las filas de `vt_votos`** con su
+     * `candidato_id` dentro. No es un recuento agregado: es el voto de esa
+     * persona, nominal.
+     *
+     * La [05 §18](05-codigo-muerto-y-roto.md) ya lo decía leyendo el código. Esto
+     * lo fija por el resultado, que es otra cosa: lo que se comprueba aquí no es
+     * que la consulta lo pida, es que **llega al cliente**.
+     *
+     * Se fija sin arreglar. El voto secreto es una decisión del colegio y no del
+     * código: puede que la pantalla exista precisamente para auditar quién votó
+     * —hay colegios que lo quieren— o puede que sea un descuido. Lo que no puede
+     * es no estar escrito. Ver 11-votaciones.md §6.
+     */
+    public function test_el_censo_dice_a_quien_voto_cada_uno(): void
+    {
+        $profe = $this->votante();
+        $eleccion = $this->eleccionAbierta($profe);
+        $grupo = $this->grupoConAlumnos();
+
+        // Un alumno del grupo emite su voto.
+        $alumno = DB::selectOne('SELECT a.user_id FROM alumnos a
+            INNER JOIN matriculas m ON m.alumno_id = a.id AND m.deleted_at IS NULL
+                AND m.estado IN ("MATR","ASIS")
+            WHERE m.grupo_id = ? AND a.deleted_at IS NULL AND a.user_id IS NOT NULL
+            ORDER BY a.id LIMIT 1', [$grupo->id]);
+
+        $this->assertNotNull($alumno, 'El grupo del seed no tiene alumnos con cuenta.');
+
+        DB::table('vt_votos')->insert([
+            'user_id' => $alumno->user_id,
+            'candidato_id' => $eleccion->candidatos[0],
+            'locked' => 0,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $participantes = $this->withToken($profe->token)
+            ->putJson('/api/participantes/votantes', [
+                'grupo_id' => $grupo->id,
+                'votacion_id' => $eleccion->votacion_id,
+            ])
+            ->assertStatus(200)
+            ->json('participantes');
+
+        $suyo = collect($participantes)->firstWhere('user_id', $alumno->user_id);
+
+        $this->assertNotNull($suyo, 'El votante sale en el censo.');
+
+        $votos = collect($suyo['aspiraciones'])->pluck('votos')->flatten(1);
+
+        $this->assertSame(
+            [$eleccion->candidatos[0]],
+            $votos->pluck('candidato_id')->all(),
+            'Y con él viaja el candidato al que votó, por su nombre.'
+        );
+    }
+
+    /**
+     * Y cuesta una consulta por participante y cargo, medido.
+     *
+     * `putVotantes()` tiene dos bucles anidados y **la consulta de aspiraciones
+     * está dentro del primero**: se lanza una vez por participante con los mismos
+     * parámetros y el mismo resultado. Después, una consulta de votos por cada
+     * cargo de cada participante.
+     *
+     * O sea `P × (1 + A)` consultas para P matriculados y A cargos. Con los 30 de
+     * un grupo y cuatro cargos son **150**, y el grupo grande de un colegio real
+     * tiene más de treinta.
+     *
+     * Es la misma forma que el bucle de `respuestas/actividad` en
+     * [13-actividades.md §5.3](13-actividades.md) —trabajo repetido dentro de un
+     * bucle, resultado correcto, nadie lo nota— y sale el mismo día en dos
+     * dominios distintos. Se mide y no se arregla: sacar la consulta del bucle es
+     * de una línea, pero primero hay que tener fijada la forma, y eso es el test
+     * de arriba.
+     */
+    public function test_el_censo_repite_la_consulta_de_cargos_por_cada_participante(): void
+    {
+        $profe = $this->votante();
+        $eleccion = $this->eleccionAbierta($profe);
+        $grupo = $this->grupoConAlumnos();
+
+        $participantes = DB::table('matriculas')->where('grupo_id', $grupo->id)
+            ->whereIn('estado', ['MATR', 'ASIS'])->whereNull('deleted_at')->count();
+
+        $this->assertGreaterThan(1, $participantes, 'Con un solo participante no se ve la repetición.');
+
+        $consultasDeCargos = 0;
+
+        DB::listen(function ($consulta) use (&$consultasDeCargos) {
+            if (str_contains($consulta->sql, 'FROM vt_aspiraciones WHERE votacion_id')) {
+                $consultasDeCargos++;
+            }
+        });
+
+        $this->withToken($profe->token)
+            ->putJson('/api/participantes/votantes', [
+                'grupo_id' => $grupo->id,
+                'votacion_id' => $eleccion->votacion_id,
+            ])
+            ->assertStatus(200);
+
+        $this->assertSame($participantes, $consultasDeCargos,
+            "La lista de cargos se pidió {$consultasDeCargos} veces, una por participante. ".
+            'Debería pedirse una sola. Si esto baja a 1, alguien la sacó del bucle: bórrese este test.');
+    }
+
+    /**
+     * Y no comprueba que el grupo y la elección tengan nada que ver.
+     *
+     * `grupo_id` y `votacion_id` llegan por el cuerpo y se usan por separado: uno
+     * elige a los participantes y el otro los cargos. Nadie mira si ese grupo
+     * está inscrito en esa elección —que es lo que dice `vt_participantes`—, así
+     * que se puede pedir el censo de un grupo cualquiera contra una elección
+     * cualquiera y sale una tabla con sentido aparente.
+     */
+    public function test_el_grupo_y_la_eleccion_no_tienen_que_ver_nada(): void
+    {
+        $profe = $this->votante();
+        $eleccion = $this->eleccionAbierta($profe);
+        $ajeno = $this->grupoAjenoDelMismoAnio($profe->year_id);
+
+        $this->withToken($profe->token)
+            ->putJson('/api/participantes/votantes', [
+                'grupo_id' => $ajeno->grupo_id,
+                'votacion_id' => $eleccion->votacion_id,
+            ])
+            ->assertStatus(200)
+            ->assertJsonStructure(['participantes']);
+    }
 }

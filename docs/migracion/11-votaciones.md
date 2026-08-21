@@ -323,6 +323,57 @@ cuando se haga:
 
 ---
 
+## §6. El censo dice a quién votó cada uno
+
+`PUT participantes/votantes`, con `auth.personal`, o sea los 51 profesores.
+
+Devuelve, por cada matriculado del grupo y por cada cargo de la elección, **las
+filas de `vt_votos`** con su `candidato_id` dentro. No es un recuento agregado:
+es el voto de esa persona, nominal, junto a su nombre y su documento.
+
+La [05 §18](05-codigo-muerto-y-roto.md) ya lo decía leyendo el código. Aquí queda
+fijado **por el resultado**, que es otra cosa: lo que se comprueba no es que la
+consulta lo pida, es que **llega al cliente**.
+
+**Se fija sin arreglar, y esta vez la razón es de fondo.** El voto secreto es una
+decisión del colegio y no del código: puede que la pantalla exista precisamente
+para auditar quién votó —hay colegios que lo quieren, y el nombre de la ruta,
+«votantes», apunta a eso— o puede ser un descuido que nadie ha mirado en años. Lo
+que no puede es no estar escrito.
+
+Y conviene leerla junto a la §3: `verificarNoVoto()` manda el voto anterior a la
+papelera en vez de borrarlo, así que **el rastro de que alguien cambió su voto
+también existe**, aunque esta pantalla solo enseñe el último.
+
+### §6.1. Y no comprueba que el grupo y la elección tengan que ver
+
+`grupo_id` y `votacion_id` llegan por el cuerpo y se usan por separado: uno elige
+a los participantes y el otro los cargos. Nadie mira si ese grupo está inscrito
+en esa elección —que es justo lo que dice `vt_participantes`—, así que se puede
+pedir el censo de un grupo cualquiera contra una elección cualquiera y sale una
+tabla **con sentido aparente**: gente de verdad, cargos de verdad, y ninguna
+relación entre las dos cosas.
+
+### §6.2. Cuesta una consulta por participante y cargo — medido
+
+Dos bucles anidados, y **la consulta de cargos está dentro del primero**: se
+lanza una vez por participante, con los mismos parámetros y el mismo resultado.
+Después, una consulta de votos por cada cargo de cada participante.
+
+O sea `P × (1 + A)` para P matriculados y A cargos. Medido contra el grupo del
+seed: **37 consultas de cargos donde debía haber una**, y eso antes de contar las
+de votos.
+
+Es la misma forma que el bucle de `respuestas/actividad`
+([13-actividades.md §5.3](13-actividades.md)): trabajo repetido dentro de un
+bucle, resultado correcto, nadie lo nota. **Salió el mismo día en dos dominios
+distintos**, lo que sugiere que no es un descuido puntual sino cómo se escribía.
+
+No se arregla aquí: sacar la consulta del bucle es de una línea, pero la línea
+solo es segura con la forma de la respuesta fijada, y eso es el test de la §6.
+
+---
+
 ## Lo que queda por mirar de este dominio
 
 Cubiertas las cinco rutas de `votos` y la forma de las de `votaciones`. Sin mirar
