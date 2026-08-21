@@ -203,4 +203,70 @@ class PeriodoDeLaFilaTest extends CasoDeContrato
         $this->assertSame($unidad->definicion,
             DB::table('unidades')->where('id', $unidad->id)->value('definicion'));
     }
+
+    /**
+     * La recuperación final es del año, así que los quiere abiertos todos.
+     *
+     * `recuperacion_final` no tiene `periodo_id` —guarda alumno, asignatura,
+     * `year` y nota—, o sea que no hay fila de la que derivar un periodo, y el
+     * permiso que la gobierna sí es por periodo. Antes se leía `num_periodo` del
+     * cuerpo, que es el hueco de la §27; el front nunca lo manda ahí, así que la
+     * puerta estaba abierta y no la usaba nadie.
+     *
+     * Joseth eligió el 21 ago 2026 exigir que estén abiertos **todos**, porque lo
+     * que se toca es del año entero. Con uno cerrado no se puede, y eso es lo
+     * elegido a sabiendas.
+     */
+    public function test_nivelar_exige_todos_los_periodos_del_ano_abiertos(): void
+    {
+        $e = $this->escenario();   // deja abierto solo uno de los del año
+
+        // El seed no trae ninguna recuperación final, así que se monta aquí dentro
+        // de la transacción del test. Es la séptima vez que hace falta hacerlo:
+        // el seed es una rebanada del grafo de claves foráneas y las tablas que
+        // nadie referencia se quedan vacías.
+        $alumno = DB::selectOne('SELECT a.id FROM alumnos a
+            INNER JOIN matriculas m ON m.alumno_id = a.id AND m.deleted_at IS NULL
+            INNER JOIN grupos g ON g.id = m.grupo_id AND g.year_id = ?
+            WHERE a.deleted_at IS NULL ORDER BY a.id LIMIT 1', [$e->cerrado->year_id]);
+
+        $asignatura = DB::selectOne('SELECT asig.id FROM asignaturas asig
+            INNER JOIN grupos g ON g.id = asig.grupo_id AND g.year_id = ?
+            WHERE asig.deleted_at IS NULL ORDER BY asig.id LIMIT 1', [$e->cerrado->year_id]);
+
+        $this->assertNotNull($alumno, 'El seed necesita un alumno en el año del profesor.');
+        $this->assertNotNull($asignatura, 'El seed necesita una asignatura en ese año.');
+
+        $rfId = DB::table('recuperacion_final')->insertGetId([
+            'alumno_id' => $alumno->id,
+            'asignatura_id' => $asignatura->id,
+            'year' => DB::table('years')->where('id', $e->cerrado->year_id)->value('year'),
+            'nota' => 3,
+        ]);
+
+        $rf = (object) ['id' => $rfId, 'nota' => 3];
+
+        $this->withToken($e->token)->putJson('/api/definitivas_periodos/update-recuperacion', [
+            'rf_id' => $rf->id,
+            'nota' => 1,
+            'num_periodo' => $e->abierto->numero,
+        ])->assertStatus(400);
+
+        $this->assertEquals($rf->nota,
+            DB::table('recuperacion_final')->where('id', $rf->id)->value('nota'),
+            'La recuperación se cambió con periodos cerrados en el año.');
+
+        // Y con los cuatro abiertos sí, que es la mitad que impide que esto sea
+        // un candado que no deja trabajar a nadie.
+        DB::table('periodos')->where('year_id', $e->cerrado->year_id)
+            ->update(['profes_pueden_nivelar' => 1]);
+
+        $this->withToken($e->token)->putJson('/api/definitivas_periodos/update-recuperacion', [
+            'rf_id' => $rf->id,
+            'nota' => 1,
+        ])->assertStatus(200);
+
+        $this->assertEquals(1,
+            DB::table('recuperacion_final')->where('id', $rf->id)->value('nota'));
+    }
 }

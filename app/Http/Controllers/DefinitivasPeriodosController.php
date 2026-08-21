@@ -210,12 +210,17 @@ class DefinitivasPeriodosController extends Controller {
 	public function putUpdateRecuperacion()
 	{
 		$user 			= User::fromToken();
-		// Sin derivar, y no por descuido: `recuperacion_final` NO tiene
-		// `periodo_id` —se guarda por año, sus columnas son alumno, asignatura,
-		// `year` y nota—, así que no hay periodo en la fila del que sacar nada.
-		// Se queda con el comportamiento de antes. La §27.1 decía que las 26 eran
-		// derivables; son 24, y estas dos son la razón.
-		User::pueden_modificar_definitivas($user);
+		// `recuperacion_final` NO tiene `periodo_id` —guarda alumno, asignatura,
+		// `year` y nota—, así que no hay fila de la que derivar un periodo. Lo que
+		// se toca es del AÑO, y por eso se exigen abiertos **todos** los periodos
+		// del año en vez de uno. Decisión de Joseth, 21 ago 2026.
+		//
+		// Antes se leía `num_periodo` del cuerpo, que es el hueco de la §27: la
+		// nivelación se abría nombrando un periodo cualquiera. Medido en el front:
+		// `DefinitivasPeriodosCtrl` manda `{rf_id, nota}` y nunca `num_periodo`,
+		// así que esto no cambia ninguna pantalla — cierra la puerta, no la usa
+		// nadie.
+		User::pueden_modificar_definitivas($user, PeriodoDeLaFila::todosLosDelAnio($user));
 		
 		$now 		= Carbon::now('America/Bogota');
 		
@@ -358,9 +363,9 @@ class DefinitivasPeriodosController extends Controller {
 	public function putEliminarRecuperada()
 	{
 		$user 			= User::fromToken();
-		// La otra de `recuperacion_final`, sin `periodo_id`. Ver la de
+		// La otra de `recuperacion_final`, del año y no de un periodo. Ver la de
 		// `putUpdateRecuperacion` más arriba.
-		User::pueden_modificar_definitivas($user);
+		User::pueden_modificar_definitivas($user, PeriodoDeLaFila::todosLosDelAnio($user));
 		
 		if ($user->tipo == 'Profesor' || ($user->is_superuser)) {
 			// No pasa nada

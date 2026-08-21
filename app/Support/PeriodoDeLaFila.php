@@ -117,6 +117,35 @@ class PeriodoDeLaFila
         );
     }
 
+    /**
+     * Todos los periodos vivos del año del usuario.
+     *
+     * Para lo que **no cuelga de un periodo sino del año**: la recuperación
+     * final. `recuperacion_final` guarda alumno, asignatura, `year` y nota — no
+     * tiene `periodo_id`—, así que no hay fila de la que derivar uno, y el
+     * permiso que la gobierna (`profes_pueden_nivelar`) sí es por periodo.
+     *
+     * Decisión de Joseth, 21 ago 2026, entre las cuatro que se midieron: **se
+     * exige que estén abiertos todos**, porque lo que se toca es del año entero.
+     * Como `pueden_modificar_definitivas()` cruza la lista con AND, pasar aquí
+     * los cuatro periodos significa exactamente eso.
+     *
+     * La otra cara, que quedó dicha al elegir: si el colegio deja cerrado el
+     * periodo 1 y abre el 4, la recuperación final **no se puede tocar**. Es lo
+     * que se eligió a sabiendas, no un efecto lateral.
+     *
+     * @return array<int>
+     */
+    public static function todosLosDelAnio($user): array
+    {
+        $filas = DB::select(
+            'SELECT id FROM periodos WHERE year_id = ? AND deleted_at IS NULL',
+            [$user->year_id ?? null]
+        );
+
+        return array_map(fn ($f) => (int) $f->id, $filas);
+    }
+
     /** Varias filas a la vez, sin repetidos y sin los que no se pudieron derivar. */
     public static function deVariasSubunidades(array $subunidadIds): array
     {

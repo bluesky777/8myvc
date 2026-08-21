@@ -2530,11 +2530,26 @@ Las cadenas que hacían falta, que es lo que convertía esto en trabajo de verda
 
 **Y la §27.1 se equivocaba en un número: no son 26 derivables, son 24.**
 `recuperacion_final` **no tiene `periodo_id`** —sus columnas son alumno,
-asignatura, `year` y nota, o sea que se guarda por AÑO— así que sus dos llamadas
-no tienen fila de la que sacar nada y se quedan con el comportamiento de antes.
-La tercera que no deriva es `uniformes/guardar-cambios`, que está rota desde antes
-de la migración y cuyo `UPDATE` apunta a una variable que no existe: no hay fila
-porque no hay fila. **23 de 26 derivan.**
+asignatura, `year` y nota, o sea que se guarda por AÑO—, así que sus dos llamadas
+no tienen fila de la que sacar un periodo. La tercera que no deriva es
+`uniformes/guardar-cambios`, que está rota desde antes de la migración y cuyo
+`UPDATE` apunta a una variable que no existe: no hay fila porque no hay fila.
+
+**Las dos de la recuperación se cerraron por el otro lado**, el mismo día y con su
+propia decisión de Joseth. Si lo que se toca es del año, el permiso se pide para el
+año: **tienen que estar abiertos los cuatro periodos**. Como el candado cruza la
+lista con AND, pasarle los periodos del año dice exactamente eso.
+
+Se midió antes de preguntar, y el dato cambió la pregunta: `DefinitivasPeriodosCtrl`
+manda `{rf_id, nota}` y **nunca manda `num_periodo`** en esas dos, así que el hueco
+estaba abierto y no lo usaba ningún cliente. Cerrarlo no apaga ninguna pantalla.
+
+La otra cara quedó dicha al elegir: **si el colegio deja cerrado el periodo 1 y
+abre el 4, la recuperación final no se puede tocar.** Es lo elegido a sabiendas, no
+un efecto lateral, y por eso está escrito aquí y en `PeriodoDeLaFila::todosLosDelAnio()`.
+
+**25 de 26 comprueban ahora el permiso del sitio al que escriben**; la que falta es
+la ruta rota.
 
 Tres decisiones que hubo que tomar dentro y que no estaban en el enunciado:
 

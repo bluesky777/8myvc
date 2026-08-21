@@ -128,7 +128,7 @@ y sigue sin haber ningún controlador a cero.
 | El hash bcrypt sale de las respuestas del lector de tardanzas | [05 §25.4](05-codigo-muerto-y-roto.md) |
 | El PIAR entero pasa a ser del personal — una de sus rutas no tenía guard ninguno | [05 §35](05-codigo-muerto-y-roto.md) |
 | El rol `Secretario` existe, y el `Psicólogo` gobierna por fin algo | [05 §30.3–30.5](05-codigo-muerto-y-roto.md) |
-| La bandera del periodo que se comprueba es la del periodo al que se escribe, en 23 de 26 llamadas | [05 §27.1.1](05-codigo-muerto-y-roto.md) |
+| La bandera del periodo que se comprueba es la del periodo al que se escribe, en 25 de 26 llamadas | [05 §27.1.1](05-codigo-muerto-y-roto.md) |
 | `php artisan anios:actuales`, para los dieciséis | [05 §28.3](05-codigo-muerto-y-roto.md) |
 
 **Nada de esto está desplegado**: `app/` es copia real en cada colegio.
@@ -149,11 +149,10 @@ y sigue sin haber ningún controlador a cero.
    a superusuario por la regla de no regalar permisos, y porque la §28.4 ya lo
    había fijado. Si la secretaria debe poder borrar definitivamente, se cambia en
    tres líneas.
-4. **La nivelación no se puede cerrar por periodo, y conviene saberlo.**
-   `recuperacion_final` **no tiene `periodo_id`**: se guarda por año. Las dos rutas
-   de recuperación siguen comprobando `num_periodo`, o sea que ahí el candado sigue
-   como estaba. Cerrarlo de verdad es una decisión de esquema —añadir la columna— y
-   no un arreglo.
+4. ~~La nivelación no se puede cerrar por periodo~~ — **contestado el 21 ago
+   2026**: si lo que se toca es del año, el permiso se pide para el año. Las dos
+   rutas de recuperación exigen ahora **los cuatro periodos abiertos**. Con uno
+   cerrado no se puede tocar la recuperación final, y eso se eligió a sabiendas.
 5. **Correr `php artisan anios:actuales` en los dieciséis**, antes de la copia de
    octubre. En desarrollo ya sale un aviso: el 2026 encendido en la papelera.
 
