@@ -17,7 +17,7 @@ Se cerró la serie del barrido y se abrió otra, la de **cobertura**: en vez de
 «¿tiene guard esta ruta?», la pregunta fue **«¿alguien ha mirado alguna vez qué
 responde?»**. `tools/cobertura-de-rutas.py` daba 261 de 539 rutas comprobadas y
 cinco controladores con **cero**. Ahí estaban casi todos los hallazgos de abajo.
-La cobertura quedó en **307 de 539 (57%)** y ningún controlador a cero.
+La cobertura quedó en **312 de 539 (58%)** y ningún controlador a cero.
 
 **Y la pregunta funcionó tan bien que merece quedarse escrita.** Seis fallos de
 autorización o de credenciales en una noche, todos en los dos huecos más grandes
