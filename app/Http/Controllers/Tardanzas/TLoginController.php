@@ -4,29 +4,46 @@
 use App\Http\Controllers\Controller;
 
 use Illuminate\Support\Facades\Request;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
 
-use App\Models\Debugging;
 use App\Support\Credenciales;
-use App\User;
 
 
 class TLoginController extends Controller {
 
-	public function postIndex()
+	/**
+	 * Quién manda usuario y contraseña en el cuerpo, comprobado y del colegio.
+	 *
+	 * Era el mismo bloque copiado tres veces, y las tres copias conservaban los
+	 * dos respaldos que TSubirController ya había quitado **por escrito**: el
+	 * primero comparaba la columna contra `Hash::make()` de la contraseña recién
+	 * tecleada —inalcanzable, bcrypt lleva una sal distinta en cada llamada—, y
+	 * el segundo la comparaba contra la contraseña EN CLARO y, si acertaba, la
+	 * hasheaba en su sitio y dejaba entrar. Ése no es un respaldo, es una puerta:
+	 * cualquier fila cuya columna `password` guardara texto plano entraba al
+	 * lector con ese texto. Se quitan aquí por la misma decisión que allí; no es
+	 * una nueva.
+	 *
+	 * Y la comprobación de tipo es lo que faltaba. TSubirController exigía ser
+	 * del colegio para escribir y este fichero no exigía nada para leer, así que
+	 * `traer-datos-ausencias` —que a diferencia de los otros dos métodos no tiene
+	 * `switch` por tipo y por tanto no se rompía solo— entregaba a cualquier
+	 * alumno con su propia clave TODAS las ausencias y tardanzas del colegio del
+	 * año, y de cualquier año, porque el `year_id` lo elige el cuerpo. Ver
+	 * docs/migracion/05-codigo-muerto-y-roto.md §25.
+	 *
+	 * Se admiten Profesor y Usuario, que son los dos que el `switch` de los otros
+	 * dos métodos ya sabía servir: así no cambia nada de lo que hoy funciona.
+	 * **No** se copia el `is_superuser` de TSubirController, que dejaría fuera a
+	 * un Usuario administrativo que hoy sí entra a leer.
+	 */
+	private function usuarioAutenticado()
 	{
-
-		$userTemp 	= [];
-		$usuario 	= [];
-
-
-
 		$credentials = [
 			'username' => Request::input('username'),
 			'password' => (string)Request::input('password')
 		];
-		
+
 		// Era Auth::attempt() + Auth::user(). El guard `api` ya no es el de JWT
 		// sino `sesion`, que resuelve al usuario del token de la petición y por
 		// tanto no tiene attempt(): llamarlo devolvía 500. Aquí no hace falta un
@@ -34,39 +51,33 @@ class TLoginController extends Controller {
 		// comprobar la contraseña. Ver app/Support/Credenciales.php.
 		$autenticado = Credenciales::verificar($credentials['username'], $credentials['password']);
 
-		if ($autenticado !== null) {
-			$userTemp = $autenticado;
-
-		}else if (Request::has('username') && Request::input('username') != ''){
-
-			$pass = Hash::make((string)Request::input('password'));
-			$usuario = User::where('password', '=', $pass)
-							->where('username', '=', Request::input('username'))
-							->get();
-
-			if ( count( $usuario) > 0) {
-				// Rama inalcanzable: la comparaba contra Hash::make() de la
-				// contraseña recién escrita, y bcrypt saliente nunca coincide
-				// con un hash guardado (cada uno lleva su propia sal). Se deja
-				// escrita como lo que quería decir, sin Auth::login() —que
-				// devolvía void, así que aquí caía null y la línea de después
-				// reventaba con null->tipo—.
-				$userTemp = $usuario[0];
-			}else{
-				$usuario = User::where('password', '=', (string)Request::input('password'))
-							->where('username', '=', Request::input('username'))
-							->get();
-				if ( count( $usuario) > 0) {
-					$usuario[0]->password = Hash::make((string)$usuario[0]->password);
-					$usuario[0]->save();
-					$userTemp = User::find($usuario[0]->id);
-				}else{
-					return abort(400, 'Credenciales inválidas.');
-				}
+		if ($autenticado === null) {
+			if (Request::has('username') && Request::input('username') != '') {
+				return abort(400, 'Credenciales inválidas.');
 			}
-		}else{
+
 			return abort(401, 'Por favor ingrese de nuevo.');
 		}
+
+		// 403 y no el 400 de TSubirController: es código nuevo, y ahí el 400 es
+		// una respuesta que el lector ya recibe hoy. Cambiarlo no arregla nada y
+		// se ve desde los dieciséis colegios.
+		if ($autenticado->tipo !== 'Profesor' && $autenticado->tipo !== 'Usuario') {
+			return abort(403, 'No tienes permiso');
+		}
+
+		return $autenticado;
+	}
+
+
+	public function postIndex()
+	{
+
+		$usuario 	= [];
+
+
+
+		$userTemp = $this->usuarioAutenticado();
 
 
 
@@ -127,54 +138,9 @@ class TLoginController extends Controller {
 	public function postTraerDatos()
 	{
 
-		$userTemp 	= [];
 		$usuario 	= [];
 		
-		$credentials = [
-			'username' => Request::input('username'),
-			'password' => (string)Request::input('password')
-		];
-		
-		// Era Auth::attempt() + Auth::user(). El guard `api` ya no es el de JWT
-		// sino `sesion`, que resuelve al usuario del token de la petición y por
-		// tanto no tiene attempt(): llamarlo devolvía 500. Aquí no hace falta un
-		// guard —el lector manda usuario y contraseña en cada petición—, solo
-		// comprobar la contraseña. Ver app/Support/Credenciales.php.
-		$autenticado = Credenciales::verificar($credentials['username'], $credentials['password']);
-
-		if ($autenticado !== null) {
-			$userTemp = $autenticado;
-
-		}else if (Request::has('username') && Request::input('username') != ''){
-
-			$pass = Hash::make((string)Request::input('password'));
-			$usuario = User::where('password', '=', $pass)
-							->where('username', '=', Request::input('username'))
-							->get();
-
-			if ( count( $usuario) > 0) {
-				// Rama inalcanzable: la comparaba contra Hash::make() de la
-				// contraseña recién escrita, y bcrypt saliente nunca coincide
-				// con un hash guardado (cada uno lleva su propia sal). Se deja
-				// escrita como lo que quería decir, sin Auth::login() —que
-				// devolvía void, así que aquí caía null y la línea de después
-				// reventaba con null->tipo—.
-				$userTemp = $usuario[0];
-			}else{
-				$usuario = User::where('password', '=', (string)Request::input('password'))
-							->where('username', '=', Request::input('username'))
-							->get();
-				if ( count( $usuario) > 0) {
-					$usuario[0]->password = Hash::make((string)$usuario[0]->password);
-					$usuario[0]->save();
-					$userTemp = User::find($usuario[0]->id);
-				}else{
-					return abort(400, 'Credenciales inválidas.');
-				}
-			}
-		}else{
-			return abort(401, 'Por favor ingrese de nuevo.');
-		}
+		$userTemp = $this->usuarioAutenticado();
 
 
 
@@ -300,55 +266,10 @@ class TLoginController extends Controller {
 	public function postTraerDatosAusencias()
 	{
 
-		$userTemp 	= [];
 		$usuario 	= [];
 		
 
-		$credentials = [
-			'username' => Request::input('username'),
-			'password' => (string)Request::input('password')
-		];
-		
-		// Era Auth::attempt() + Auth::user(). El guard `api` ya no es el de JWT
-		// sino `sesion`, que resuelve al usuario del token de la petición y por
-		// tanto no tiene attempt(): llamarlo devolvía 500. Aquí no hace falta un
-		// guard —el lector manda usuario y contraseña en cada petición—, solo
-		// comprobar la contraseña. Ver app/Support/Credenciales.php.
-		$autenticado = Credenciales::verificar($credentials['username'], $credentials['password']);
-
-		if ($autenticado !== null) {
-			$userTemp = $autenticado;
-
-		}else if (Request::has('username') && Request::input('username') != ''){
-
-			$pass = Hash::make((string)Request::input('password'));
-			$usuario = User::where('password', '=', $pass)
-							->where('username', '=', Request::input('username'))
-							->get();
-
-			if ( count( $usuario) > 0) {
-				// Rama inalcanzable: la comparaba contra Hash::make() de la
-				// contraseña recién escrita, y bcrypt saliente nunca coincide
-				// con un hash guardado (cada uno lleva su propia sal). Se deja
-				// escrita como lo que quería decir, sin Auth::login() —que
-				// devolvía void, así que aquí caía null y la línea de después
-				// reventaba con null->tipo—.
-				$userTemp = $usuario[0];
-			}else{
-				$usuario = User::where('password', '=', (string)Request::input('password'))
-							->where('username', '=', Request::input('username'))
-							->get();
-				if ( count( $usuario) > 0) {
-					$usuario[0]->password = Hash::make((string)$usuario[0]->password);
-					$usuario[0]->save();
-					$userTemp = User::find($usuario[0]->id);
-				}else{
-					return abort(400, 'Credenciales inválidas.');
-				}
-			}
-		}else{
-			return abort(401, 'Por favor ingrese de nuevo.');
-		}
+		$userTemp = $this->usuarioAutenticado();
 
 
 		$consulta = 'SELECT u.username, per.id as periodo_id, per.numero as numero_periodo, per.year_id

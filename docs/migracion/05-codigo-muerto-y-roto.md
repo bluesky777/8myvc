@@ -2222,3 +2222,112 @@ Diez rutas sin juzgar, y **las diez con nombre y motivo**. Ninguna es un agujero
 sin mirar: son públicas, decisiones pendientes, rotas conocidas o el flujo de
 votar. Es el punto en el que la serie deja de encontrar por barrido — lo que queda
 son decisiones, no hallazgos.
+
+---
+
+## 25. Las seis rutas que no autentican por token (20 ago 2026)
+
+La [§24](#24-las-once-que-quedaron-sin-juzgar-20-ago-2026) cerró el barrido
+diciendo que lo que quedaba eran decisiones y no hallazgos. Era cierto **para lo
+que el barrido puede ver**, y el barrido golpea con un token. Estas seis rutas no
+usan token.
+
+Salieron de otra pregunta, la de la cobertura: `tools/cobertura-de-rutas.py` sobre
+la corrida del 20 de agosto da **261 de 539 rutas con la respuesta comprobada
+(48%)** y, dentro de eso, **cinco controladores con cero**. Dos de los cinco son
+`TLoginController` y `TSubirController`, que son Tardanzas.
+
+Tardanzas es el lector montado en la puerta del colegio. No usa token: manda
+usuario y contraseña **en el cuerpo de cada petición** y el controlador las
+comprueba con `Support\Credenciales`. Por eso sus seis rutas llevan
+`withoutMiddleware('auth.token')` sin ser públicas, y por eso quedan fuera de las
+tres redes que teníamos: el barrido golpea con token, `AutorizacionTest` mira
+guards, y `RutasPreLoginTest` enumera las públicas. **La única defensa de estas
+seis era lo que dijera su propio código, y nadie lo había mirado.**
+
+### 25.1 El respaldo que TSubir había quitado y TLogin conservaba
+
+`TSubirController::user()` lleva escrito desde la Fase 3 por qué se le quitaron
+dos respaldos, y el segundo con nombre y todo: comparaba la columna `password`
+**contra la contraseña en claro** y, si acertaba, la hasheaba en su sitio y dejaba
+entrar. Era el camino de subida para las cuentas guardadas sin hashear.
+
+`TLoginController` tenía el mismo bloque **copiado tres veces**, con los dos
+respaldos intactos. O sea que la decisión estaba tomada, escrita y aplicada a la
+mitad del módulo. Aquí solo se termina de aplicar: los tres bloques pasan a un
+`usuarioAutenticado()` privado, como el de al lado.
+
+No es teórico y tampoco es de hoy: quien tuviera una fila con la columna en texto
+plano entraba al lector escribiendo ese texto. El seed no tiene ninguna —las
+2.351 filas están hasheadas— así que el test **escribe una a propósito** dentro de
+su transacción, que es la única forma de comprobar que la puerta ya no está.
+
+### 25.2 Y lo que dejaba salir: las ausencias del colegio entero
+
+Los tres métodos de `TLoginController` verificaban la contraseña y **no miraban de
+quién era**. Que eso no se notara es un accidente de dos de ellos:
+
+| Método | Con credenciales de un alumno | Por qué |
+|---|---|---|
+| `tardanzas/login` | 500 | su `switch ($userTemp->tipo)` no tiene rama para Alumno ni Acudiente, así que `$usuario` sigue vacío y `$usuario[0]` revienta con «Undefined array key 0» |
+| `tardanzas/login/traer-datos` | 500 | el mismo `switch` |
+| `tardanzas/login/traer-datos-ausencias` | **200** | **este no tiene `switch`**: su consulta es una sola y no depende del tipo |
+
+El tercero devolvía, a cualquier alumno con su propia clave y sin token, **todas
+las ausencias y tardanzas del colegio**: en la base de desarrollo, **801 filas de
+51 alumnos distintos**. Y no eran «las de su año»: el `year_id` sale del cuerpo si
+viene, así que se piden las de cualquiera. Un acudiente, lo mismo.
+
+Es quién llegó tarde y cuántas veces, de todo el colegio, con solo la cuenta que
+el propio colegio le da a cada alumno. Rompe de frente la regla que no se
+re-litiga: *un alumno solo ve lo suyo*.
+
+**Y es el cuarto punto ciego de la misma familia**, después de los buscadores de
+la §11.3, el inventario de [08 §4](08-revision-idor.md) y el `{id}` de la §13. Los
+cuatro se resumen igual: *la cerradura estaba y la pregunta era otra*. Aquí la
+pregunta era «¿y las rutas que no tienen cerradura porque abren con otra llave?».
+
+### 25.3 Cómo se cerró, y las dos cosas que no se copiaron
+
+`usuarioAutenticado()` admite **Profesor y Usuario**, que son exactamente los dos
+que el `switch` de los otros dos métodos ya sabía servir. Así no cambia nada de lo
+que hoy funciona en los dieciséis colegios: lo único que se mueve es que Alumno y
+Acudiente reciben 403 donde recibían 500 en dos rutas y 200 en la tercera.
+
+Dos cosas de `TSubirController` **no** se copiaron, y las dos a propósito:
+
+- **Su `|| $userTemp->is_superuser`.** Escrito entero, ese `if` exige ser Profesor
+  *o* superusuario, y deja fuera a un Usuario administrativo que no lo sea. Para
+  escribir es lo que hay hoy y no se toca; copiarlo aquí cerraría la lectura a
+  gente que hoy entra. **Queda una pregunta para Joseth**, en 09 §5.
+- **Su `abort(400, 'No tienes permiso')`.** El candado nuevo devuelve **403**,
+  que es la regla para código nuevo. El 400 de TSubir se queda: es una respuesta
+  que el lector ya recibe hoy, y cambiarla se ve desde los dieciséis colegios sin
+  arreglar nada.
+
+### 25.4 Lo que sale de aquí y no se arregla
+
+- **`tardanzas/login` y `traer-datos` devuelven el hash bcrypt del usuario**, en
+  la clave `password`, porque está en el `SELECT`. Es el hash *propio* de quien
+  acaba de mandar su contraseña en claro en la misma petición, así que no expone a
+  nadie más. Se deja porque **quitarlo puede apagar el lector**: es un aparato que
+  trabaja sin red, y validar contra el hash guardado es justo lo que necesitaría
+  para dejar entrar al operario estando desconectado. Anotado en 09 §5.
+- **`Credenciales::verificar` no filtra `deleted_at`** —está escrito y decidido en
+  su propio docblock—, así que un usuario borrado sigue entrando al lector. Medido
+  al pasar: borrar al profesor y entrar sigue dando 200. No cambia con este
+  arreglo, y ahora que el candado de tipo existe expone menos.
+- **`(array)$userTemp['attributes']` no fusiona nada.** Está en los tres métodos:
+  `$modelo['attributes']` pide un atributo llamado así, no el array interno, y
+  devuelve `null`. La respuesta es solo las columnas del `SELECT`. Se deja igual
+  que los tres de la §12: la línea que sobra es la única pista de lo que se
+  pretendía, y quitarla no cambia ni un byte de la respuesta.
+
+### 25.5 Lo que deja la pasada
+
+Que la serie dejara de encontrar **por barrido** no era que dejara de haber qué
+encontrar: era que la herramienta había agotado su pregunta. La siguiente pregunta
+la hizo la cobertura, y su respuesta —«cinco controladores donde nadie mira ninguna
+respuesta»— apuntó a las dos únicas familias de la API que se autentican de otra
+manera. Quedan tres de esos cinco por mirar: `CambiarUsuarios`, `Opciones` y
+`Uniformes`.
