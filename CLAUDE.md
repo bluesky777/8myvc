@@ -2,8 +2,9 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-`8myvc` es la API del sistema escolar MyVc: Laravel 13 + PHP 8.4, ~32.000 líneas
-en `app/`, 129 controladores y 539 rutas. Está en migración desde Laravel 8; el
+`8myvc` es la API del sistema escolar MyVc: Laravel 13 + PHP 8.4, ~37.000 líneas
+en `app/`, 113 clases de controlador y 539 rutas (medido el 21 ago 2026; los dos
+primeros números se mueven, el de rutas no). Está en migración desde Laravel 8; el
 plan, las mediciones y las decisiones ya tomadas viven en `docs/migracion/` y
 **se leen antes de re-litigar nada**.
 
@@ -20,7 +21,7 @@ medición o de una decisión, y sin el porqué se deshace solo.
 Todo corre dentro del contenedor (`kool` sobre docker compose):
 
 ```bash
-docker exec 8myvc-app-1 php artisan test                       # los 666
+docker exec 8myvc-app-1 php artisan test                       # los 710 del 21 ago
 docker exec 8myvc-app-1 php artisan test --testsuite=Contrato  # solo contrato (necesita BD)
 docker exec 8myvc-app-1 php artisan test --filter=NotasTest    # una clase
 
@@ -133,9 +134,13 @@ Cómo se usan, cómo se regenera el seed y qué no cubre: `docs/migracion/03-tes
 ### Calidad
 
 - **Pint** solo sobre lo que escribió la migración (ver `composer.json`).
-  Reformatear los 129 controladores sería un diff ilegible; se formatea el día
+  Reformatear los 113 de golpe sería un diff ilegible; se formatea el día
   que se toca cada fichero.
-- **Larastan nivel 5**, y no baja. Lo que no se puede arreglar va anotado en
+- **Larastan nivel 7**, y no baja. El **6 se salta a propósito**: sus 1.940
+  errores son anotación pura, ninguno señala código que pueda fallar y el 68% cae
+  en los controladores — se paga fichero a fichero, como el formato. El porqué
+  está medido en `docs/migracion/12-larastan-nivel-7.md` y resumido en el propio
+  `phpstan.neon`. Lo que no se puede arreglar va anotado en
   `phpstan.neon` **con nombre, motivo y `count`** — nunca en un baseline
   generado, que los escondería.
 - **Rector** está configurado y sin correr: por carpeta y revisando cada diff.

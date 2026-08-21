@@ -658,7 +658,7 @@ Ya sembrado en la Fase 0. Aquí se cierra:
 | Herramienta | Alcance | Dónde |
 |---|---|---|
 | **Pint** | solo lo que escribió esta migración: `routes/`, `tests/`, `app/Services`, `app/Support`, `app/Http/Middleware`, `app/Console`, los `Concerns` | `composer run pint` · CI |
-| **Larastan** | **nivel 3** sobre `app/`, `config/`, `database/`, `routes/`, `tests/`, `tools/` | `composer run stan` · CI |
+| **Larastan** | **nivel 7** sobre `app/`, `config/`, `database/`, `routes/`, `tests/`, `tools/` — el **6 se salta a propósito** ([12](12-larastan-nivel-7.md)) | `composer run stan` · CI |
 | **Rector** | configurado y **sin correr**: por carpeta y revisando cada diff | `rector.php` |
 | **`tools/imports-de-facades.php`** | los imports por alias de raíz, una línea por import | corrido el 19 ago 2026 · lo vigila `AliasDeFacadesTest` |
 
@@ -731,7 +731,7 @@ de los once salió de leer el código con una lista delante.
   - `Boletines`, `Boletines2`, `Boletines3` (520 + 498 + 494 líneas). **No se tocan**: los tres están enrutados y sirven formatos distintos de boletín. Fusionarlos es tocar el cálculo de notas
   - `ImporterFixer` · se quedó, con las dos propiedades que le faltaban declaradas
   - modelo `Debugging` (9.553 filas en producción) · se quedó: lo usan `ChangeAskedController`, `Grupo`, `Nota`, `Unidad` y `NotaFinal`
-- **Herramientas:** ~~Pint (formato), Larastan (subir de nivel 0 a 3 gradualmente), Rector.~~ **Montadas** — ver arriba. El nivel 1 se subió el 19 ago 2026 y encontró once endpoints rotos más ([05 §7](05-codigo-muerto-y-roto.md)). Sigue siendo continuo llegar al 3.
+- **Herramientas:** ~~Pint (formato), Larastan (subir de nivel 0 a 3 gradualmente), Rector.~~ **Montadas** — ver arriba. La escalera de larastan llegó hasta el **7** el 21 ago 2026 y ahí para: cada peldaño del 0 al 5 encontró fallos reales, el **6 no encuentra ninguno** —1.940 errores de anotación pura, el 68% en los controladores— y el 7 sí, porque es la familia «se usa como objeto algo que no lo es». Medido antes de subir, en [12-larastan-nivel-7.md](12-larastan-nivel-7.md). **Lo que sigue siendo continuo es el 6**, y se paga fichero a fichero el día que cada uno se toque por otra cosa, como el formato.
 - **Validación:** hoy hay **2** validaciones en todo el proyecto. Cada endpoint que se toque estrena su FormRequest. No se hace de golpe.
 
 ---
