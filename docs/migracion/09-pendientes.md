@@ -182,6 +182,13 @@ sin haber ningún controlador a cero.
    cerrado no se puede tocar la recuperación final, y eso se eligió a sabiendas.
 5. **Correr `php artisan anios:actuales` en los dieciséis**, antes de la copia de
    octubre. En desarrollo ya sale un aviso: el 2026 encendido en la papelera.
+6. **¿Se puede anotar una ausencia con el periodo cerrado?**
+   ([05 §40](05-codigo-muerto-y-roto.md)) Hoy sí, y **corregirla o borrarla no**:
+   las tres rutas que editan comprueban la bandera y las dos que crean no. Las dos
+   lecturas son razonables —pasar asistencia es trabajo de todos los días y no es
+   una nota; pero si el boletín ya salió, añadir ausencias lo cambia igual que
+   corregirlas— y por eso no se elige desde aquí. Está fijado con un test que
+   afirma el comportamiento de hoy a propósito.
 
 ### Y una cosa que no encaja con lo que se dio por hecho
 

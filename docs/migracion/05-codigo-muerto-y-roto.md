@@ -3573,3 +3573,56 @@ fallar.**
 Y las tres líneas del final de `putAceptarAsignatura` que hacían
 `$pedido['..._accepted'] = true` sobre un array local que ya nadie leía se
 retiran: la respuesta era y sigue siendo `['finalizado' => true, 'msg' => …]`.
+
+---
+
+## 40. Anotar una ausencia no mira el periodo; corregirla sí (21 ago 2026)
+
+**No se arregla: hace falta que lo decida el colegio.**
+
+`AusenciasController` tiene seis rutas y ninguna estaba comprobada. Al cubrirlas
+salió una incoherencia dentro del mismo fichero:
+
+| Ruta | ¿Comprueba `profes_pueden_editar_notas`? |
+|---|---|
+| `PUT ausencias/guardar-cambios-ausencia` | **sí** |
+| `PUT ausencias/cambiar-tipo-ausencia` | **sí** |
+| `DELETE ausencias/destroy/{id}` | **sí** |
+| `POST ausencias/store` | **no** |
+| `POST ausencias/agregar-tardanza` | **no** |
+
+O sea que **con el periodo cerrado un profesor no puede corregir una ausencia ni
+borrarla, pero sí anotar una nueva.** Las tres primeras son tres de las 26
+llamadas de la [§27](#27-el-interruptor-del-periodo-lo-elige-el-cliente-20-ago-2026)
+y desde el arreglo miran la bandera del periodo de la ausencia; las dos que
+escriben no miran nada.
+
+**Por qué no se elige aquí cuál de las dos mitades está mal.** Las dos lecturas
+son razonables y llevan a cosas distintas:
+
+- Que **anotar deba seguir funcionando**: pasar asistencia es trabajo de todos los
+  días y una ausencia no es una nota. El interruptor se llama
+  `profes_pueden_editar_notas`, y cerrarlo para que un profesor no pueda apuntar
+  que un alumno faltó hoy sería una consecuencia que nadie pidió.
+- Que sea **un olvido**: si el periodo está cerrado porque el boletín ya salió,
+  meter ausencias nuevas lo cambia igual que corregirlas, y las tres hermanas del
+  mismo controlador ya lo impiden.
+
+Queda fijado por `AusenciasTest::test_con_el_periodo_cerrado_todavia_se_puede_anotar`,
+que **afirma el comportamiento de hoy a propósito** — la misma técnica que usó la
+§27 con uniformes mientras esperaba decisión. El día que se decida, ese test falla,
+y ese es su trabajo.
+
+### 40.1 Lo demás que se midió al pasar, y estaba bien
+
+- **`ausencias/store` y `agregar-tardanza` responden 201, no 200.** Es un modelo
+  Eloquent recién creado y Laravel lo pone solo. Mismo caso que
+  `opciones/add-opcion` (§27.2) y el contrario que `years/store` (§28.4), que
+  vuelve a buscar el modelo antes de devolverlo. Los tres números están fijados
+  porque los tres son lo que reciben los clientes.
+- **El tipo se deduce de la cantidad**: si viene `cantidad_ausencia` la fila queda
+  como `ausencia`, y si viene `cantidad_tardanza`, como `tardanza` — incluso si el
+  cuerpo manda otro `tipo`, porque las dos deducciones van después. Está fijado.
+- **`ausencias/detailed/{asignatura_id}` no arrastra credenciales.**
+  `Alumno::userData()` es una lista de columnas nombrada y no un `SELECT *`, que
+  es justo la diferencia que la §38 encontró cara. Se fija para que siga siéndolo.
