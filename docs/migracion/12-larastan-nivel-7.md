@@ -429,3 +429,49 @@ aviso, y la línea de al lado ya borró el fichero del disco. Cerrado con un
 cuestan una guarda. Una herramienta de medición que falla en silencio es peor que
 una que no existe: **da un número, y el número es plausible** — que es la lección
 que costó una medición de cobertura esta misma tarde.
+
+## §12. La tercera cara: el generador de cuentas fabrica cuentas rotas
+
+`PUT api/perfiles/creartodoslosusuarios` recorre alumnos, profesores y
+acudientes y le crea la cuenta al que no la tenga. Es **el mecanismo que existe
+para que todo el mundo tenga una**, y es el mismo del que salieron los correos
+con tilde de la §9. Fabricaba dos clases de cuenta que su dueño no puede usar.
+
+**Las tildes se borraban en vez de transliterarse.** El generador hacía
+`filter_var($nombre, FILTER_SANITIZE_EMAIL)`, que es el sanitizador de **correos**
+aplicado a un nombre. Lo que hace con un nombre castellano:
+
+| Nombre | Username que salía | Y ahora |
+|---|---|---|
+| `José Andrés` | `JosAndrs` | `JoseAndres` |
+| `Ñoño` | `oo` | `Nono` |
+| `MARÍA JOSÉ` | `MARAJOS` | `MARIAJOSE` |
+
+Arreglado con `Str::ascii()` **antes** del sanitizador, que es la diferencia entre
+transliterar y borrar. El sanitizador se conserva detrás porque sigue quitando lo
+que `ascii()` deja pasar.
+
+**Con el nombre en blanco, el username salía vacío.** `preg_replace('/\s+/','')`
+sobre un nombre de solo espacios da la cadena vacía, el `if ($user)` que
+desambigua solo entra si ya existe alguien con ese username, y la cuenta se creaba
+con `username = ''`. **Ya pasó**: en la copia de desarrollo hay una así desde 2019
+—usuario 842, un acudiente activo— y `acudientes` tiene dos filas con `nombres` en
+blanco, que es de donde salen. Ahora cae a `{tipo}{id}` (`acudiente227`).
+
+Y aquí conviene no pasarse: se fue a mirar si esa cuenta era una puerta abierta y
+**no lo es**. Tiene su hash bcrypt de 60 caracteres y la contraseña vacía no
+entra. Es una cuenta inservible, no un acceso — pero es un cebo esperando a la
+próxima operación masiva de contraseñas, que es exactamente lo que fue la §26.
+
+De paso, la desambiguación se leía como una comprobación y era una casualidad:
+`sizeof((array) User::where(...)->first()) > 0` funciona porque `(array) null` es
+`[]` y un modelo encontrado nunca lo es. Ahora es `exists()`. Una casualidad que
+se lee como una comprobación es de las que sobreviven a un refactor
+bienintencionado y dejan de funcionar sin que nadie lo note.
+
+**Las tres caras juntas dicen algo que ninguna dice sola.** El mecanismo que
+reparte cuentas y correos produce, en castellano, artefactos rotos: correos con
+tilde que `filter_var` rechaza (§9), usernames con las tildes borradas y usernames
+vacíos (§12). No es un fallo repetido tres veces — es **un idioma que el código no
+contempla**, apareciendo en cada sitio donde un nombre propio se convierte en un
+identificador.

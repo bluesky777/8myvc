@@ -247,20 +247,30 @@ cd "$d"
 php artisan package:discover # OBLIGATORIO tras tocar vendor/
 php artisan migrate --force  # sin esto TODOS los logins dan 500
 
-php artisan migrate:status | grep -E 'personal_access_tokens|firmantes_acta'
-# las dos tienen que decir Ran
+php artisan migrate:status | grep -E 'personal_access_tokens|firmantes_acta|password_reminders'
+# las tres tienen que decir Ran
 ```
 
-**Las dos migraciones de esta tanda, y qué se rompe si falta cada una:**
+**Las migraciones de esta tanda, y qué se rompe si falta cada una:**
 
 | Migración | Qué hace | Si no se corre |
 |---|---|---|
 | `2026_08_19_000000_create_personal_access_tokens_table` | crea la tabla de tokens de Sanctum | **todos los logins dan 500** y el colegio queda inservible |
 | `2026_08_19_100000_add_firmantes_acta_to_years_table` | añade `firmantes_acta` a `years`, admite NULL | el acta abre y propone rector y secretario, pero **guardar** los firmantes da 500 |
+| `2026_08_21_200000_add_username_to_password_reminders_table` | añade `username` a `password_reminders`, admite NULL | **la recuperación de contraseña cae entera**: `postRecuperarClave` inserta en una columna que no existe. Ver abajo |
 
-Las dos son aditivas —una tabla nueva y una columna que admite NULL—, así que
-correrlas de más no rompe nada y el código viejo las ignora. Por eso volver atrás
-no exige deshacerlas.
+Todas son aditivas —tablas nuevas y columnas que admiten NULL—, así que correrlas
+de más no rompe nada y el código viejo las ignora. Por eso volver atrás no exige
+deshacerlas.
+
+> **La de `password_reminders` va ANTES que `app/`, no después.** Es la única de
+> la lista en la que el orden importa, porque el código nuevo escribe en la
+> columna nueva desde la primera petición. Y lo que se cae si se invierte no es
+> una pantalla secundaria: **2.112 de 2.321 cuentas activas (el 91%) no pueden
+> recuperar su contraseña solas** —1.435 sin correo y 677 con un correo que no es
+> una dirección válida—, así que la vía que queda es que un superusuario se la
+> ponga a mano. Medido con `php artisan usuarios:correos-compartidos`; el porqué
+> está en [12-larastan-nivel-7.md](migracion/12-larastan-nivel-7.md) §9 y §10.
 
 `package:discover` no es opcional: `bootstrap/cache/packages.php` es de cada
 colegio y se genera a partir del `vendor/`. Sin regenerarlo, el colegio arranca

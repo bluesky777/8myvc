@@ -15,6 +15,7 @@ use App\Models\Grupo;
 use App\Models\Grado;
 use App\Models\Acudiente;
 use App\Models\ImageModel;
+use Illuminate\Support\Str;
 
 
 class PerfilesController extends Controller {
@@ -496,26 +497,52 @@ class PerfilesController extends Controller {
 
 
 
+	/**
+	 * El nombre de usuario que se le fabrica a una persona que no tiene cuenta.
+	 *
+	 * `Str::ascii()` y no `FILTER_SANITIZE_EMAIL` a secas. El sanitizador es para
+	 * correos, y lo que hace con un nombre castellano es **borrar** las tildes en
+	 * vez de transliterarlas: `José Andrés` salía `JosAndrs` y `Ñoño` salía `oo`.
+	 * Se sigue pasando el sanitizador después, porque quita lo que `ascii()` deja
+	 * y aquí no interesa. Ver docs/migracion/12-larastan-nivel-7.md §12.
+	 *
+	 * Y si de ahí no sale nada —el nombre estaba vacío o era todo espacios— se cae
+	 * a `{tipo}{id}`. Antes se creaba la cuenta con el username **vacío**: en la
+	 * base de desarrollo hay una así desde 2019 (usuario 842, un acudiente activo
+	 * cuyo `nombres` está en blanco). No es una puerta abierta —tiene su hash y la
+	 * clave vacía no entra— pero es una cuenta que su dueño no puede usar, y la
+	 * fabricó el mecanismo que existe justamente para que todo el mundo tenga una.
+	 */
+	private function usernameLibrePara($persona, $tipo)
+	{
+		$base = filter_var(
+			preg_replace('/\s+/', '', Str::ascii((string) $persona->nombres)),
+			FILTER_SANITIZE_EMAIL
+		);
+
+		if (! is_string($base) || $base === '') {
+			$base = Str::lower($tipo).$persona->id;
+		}
+
+		$candidato = $base;
+		$i = 0;
+
+		// `exists()` y no `sizeof((array) ...->first())`, que funcionaba de casualidad:
+		// `(array) null` es `[]` y un modelo encontrado nunca lo es. Una casualidad
+		// que se lee como una comprobación es de las que sobreviven a un refactor
+		// bienintencionado y dejan de funcionar sin que nadie lo note.
+		while (User::where('username', '=', $candidato)->exists()) {
+			$i++;
+			$candidato = $base.$i;
+		}
+
+		return $candidato;
+	}
+
 	public function createAndAsignUser($persona, $tipo)
 	{
 		$newU = new User;
-		$name = preg_replace('/\s+/', '', $persona->nombres);
-		$nom = filter_var($name, FILTER_SANITIZE_EMAIL);
-
-		$user = User::where('username', '=', $nom)->first();
-
-		//mientras el user exista iteramos y aumentamos i
-		if ($user) {
-			$username = $user->username;
-			$i = 0;
-			while(sizeof((array)User::where('username', '=', $username)->first()) > 0 ){
-				$i++;
-				$username = $user->username.$i;
-			}
-			$nom = $username;
-		}
-
-		$newU->username = $nom;
+		$newU->username = $this->usernameLibrePara($persona, $tipo);
 		$newU->save();
 
 		// `attachRole()` es de Entrust, que no está instalado ni aparece en el
