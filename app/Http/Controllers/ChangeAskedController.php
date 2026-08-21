@@ -4,6 +4,7 @@
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\DB;
 
+use App\Support\Autoriza;
 use App\User;
 use App\Models\ChangeAsked;
 use App\Models\ChangeAskedDetails;
@@ -1064,40 +1065,72 @@ class ChangeAskedController extends Controller {
 
 
 
+	/**
+	 * El pedido que se va a borrar, comprobando que sea de quien lo borra.
+	 *
+	 * Los dos `destruir` recibían `asked_id`, `data_id` y `assignment_id` **por el
+	 * cuerpo** y borraban los tres sin mirar de quién eran: cualquiera de los 71
+	 * que pasan `auth.personal` hacía desaparecer el pedido pendiente de otro, y
+	 * quien lo revisa no llega a verlo nunca. Medido con dos profesores: 200 y la
+	 * fila borrada. Ver 05 §49.
+	 *
+	 * El criterio sale de los dos únicos sitios desde los que se llama, y los dos
+	 * lo confirman: `ListAsignaturasCtrl.quitarSolicitud` borra **el suyo**, y el
+	 * modal de `AnunciosDir` se abre desde el panel de revisión, que es
+	 * `getToMe()` y exige `Usuario` **y** `is_superuser`. Así que **el dueño o el
+	 * superusuario**, y nadie más.
+	 *
+	 * Y los otros dos identificadores **se derivan de la fila, no del cuerpo**:
+	 * es la §39 exacta —allí aprobar un cambio escribía lo que dijera el cuerpo—,
+	 * y aquí borraría de `change_asked_data` y `change_asked_assignment` filas de
+	 * cualquier otro pedido con solo nombrarlas.
+	 */
+	private function pedidoPropio($asked_id)
+	{
+		$pedido = DB::selectOne(
+			'SELECT id, asked_by_user_id, data_id, assignment_id FROM change_asked WHERE id = ?',
+			[$asked_id]
+		);
+
+		if (! $pedido) {
+			abort(404, 'Ese pedido no existe.');
+		}
+
+		$user = User::fromToken();
+
+		Autoriza::exigir(
+			(int) $pedido->asked_by_user_id === (int) $user->user_id || Autoriza::esSuperusuario($user),
+			'Solo puedes retirar un pedido tuyo.'
+		);
+
+		return $pedido;
+	}
+
 	public function putDestruir()
 	{
-		$user 			= User::fromToken();
-		$asked_id 		= Request::input('asked_id');
-		$data_id 		= Request::input('data_id');
-		$assignment_id 	= Request::input('assignment_id');
+		$pedido = $this->pedidoPropio(Request::input('asked_id'));
 
 		$consulta = 'DELETE FROM change_asked WHERE id=:asked_id';
-		$borrar = DB::delete($consulta, [ ':asked_id' => $asked_id ]);
-		
-		$consulta = 'DELETE FROM change_asked_data WHERE id=:data_id';
-		$borrar = DB::delete($consulta, [ ':data_id' => $data_id ]);
-		
-		$consulta = 'DELETE FROM change_asked_assignment WHERE id=:assignment_id';
-		$borrar = DB::delete($consulta, [ ':assignment_id' => $assignment_id ]);
-		
+		$borrar = DB::delete($consulta, [ ':asked_id' => $pedido->id ]);
 
+		$consulta = 'DELETE FROM change_asked_data WHERE id=:data_id';
+		DB::delete($consulta, [ ':data_id' => $pedido->data_id ]);
+
+		$consulta = 'DELETE FROM change_asked_assignment WHERE id=:assignment_id';
+		DB::delete($consulta, [ ':assignment_id' => $pedido->assignment_id ]);
 
 		return [ 'borrar' => $borrar ];
 	}
 
 	public function putDestruirPedidoAsignatura()
 	{
-		$user 			= User::fromToken();
-		$asked_id 		= Request::input('asked_id');
-		$assignment_id 	= Request::input('assignment_id');
+		$pedido = $this->pedidoPropio(Request::input('asked_id'));
 
 		$consulta = 'DELETE FROM change_asked WHERE id=:asked_id';
-		$borrar = DB::delete($consulta, [ ':asked_id' => $asked_id ]);
-		
-		$consulta = 'DELETE FROM change_asked_assignment WHERE id=:assignment_id';
-		$borrar = DB::delete($consulta, [ ':assignment_id' => $assignment_id ]);
-		
+		$borrar = DB::delete($consulta, [ ':asked_id' => $pedido->id ]);
 
+		$consulta = 'DELETE FROM change_asked_assignment WHERE id=:assignment_id';
+		DB::delete($consulta, [ ':assignment_id' => $pedido->assignment_id ]);
 
 		return [ 'borrar' => $borrar ];
 	}

@@ -4439,3 +4439,55 @@ todo. Y eso no se reporta como «el guard está mal», se reporta como **«la pa
 no funciona»**, que manda a buscar a otro sitio. Es la §41.1 —el id sin su tabla no
 es una identidad— con las dos numeraciones dentro del mismo módulo. Lo midió la
 sesión de actividades; el detalle está en [13-actividades.md](13-actividades.md).
+
+---
+
+## 49. El pedido de otro, retirado por su número (21 ago 2026)
+
+Sigue la lista de cobertura: `ChangeAskedController` tenía **cinco rutas sin
+ninguna respuesta comprobada**, y dos de ellas —`ChangesAsked/destruir` y
+`ChangesAsked/destruir-pedido-asignatura`— recibían `asked_id`, `data_id` y
+`assignment_id` **por el cuerpo** y borraban las tres filas sin mirar de quién
+eran.
+
+Medido con dos profesores: **200, y la fila del otro borrada.**
+
+Lo que hace que importe no es el borrado en sí, es **quién no se entera**: un
+pedido de cambio es cómo un docente o una familia piden que se corrija un nombre,
+una foto o una asignatura, y quien los revisa los ve en una bandeja. Un pedido
+retirado por un tercero no deja rastro en ninguna parte — no hay `deleted_at`,
+es un `DELETE`. Para el que lo pidió, sigue esperando; para el que revisa, nunca
+existió.
+
+### El criterio no se eligió: lo dicen los dos únicos sitios que llaman
+
+Y se confirman entre ellos, que es lo que lo vuelve un arreglo y no una decisión:
+
+- `ListAsignaturasCtrl.quitarSolicitud` retira **el suyo**, desde la lista del
+  propio docente.
+- El modal de `AnunciosDir` se abre desde el panel de revisión, y ese panel es
+  `getToMe()`, que exige `Usuario` **y** `is_superuser`.
+
+O sea: **el dueño o el superusuario**, y nadie más. Ningún cliente pide otra cosa.
+
+### Y la §39 otra vez, en la misma familia
+
+Los otros dos identificadores —`data_id` y `assignment_id`— también venían del
+cuerpo, así que aun siendo el dueño del pedido se podían borrar los anexos **de
+otro** con solo nombrarlos. Ahora se derivan de la fila.
+
+Es exactamente lo que la [§39](05-codigo-muerto-y-roto.md) encontró un día antes
+en `aceptar-alumno` y `aceptar-asignatura` —aprobar un cambio escribía lo que
+dijera el cuerpo— y **está en el mismo controlador**. La §39 arregló las dos de
+aceptar y las dos de destruir se quedaron: no por descuido de aquella pasada, sino
+porque **la §39 salió de leer las de aceptar y nadie preguntó por las hermanas**.
+Es la §17 —la que se quedó sola— vista desde el otro lado: allí faltaba el guard
+en la ruta, aquí falta la comprobación en el método hermano.
+
+Y de paso, un pedido que no existe devolvía **200 con `['borrar' => 0]`**: tres
+`DELETE` que no borran nada y una respuesta que no lo dice. Ahora 404.
+
+Fijado por `RetirarPedidosTest`, cinco casos: el dueño retira, un tercero no, el
+superusuario sí, el anexo ajeno no se borra nombrándolo, y el pedido inexistente
+es 404. Comprobado al revés: revirtiendo las dos comprobaciones caen dos, y las
+tres que dicen que el dueño y el superusuario siguen pudiendo siguen verdes.
