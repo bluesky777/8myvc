@@ -151,7 +151,10 @@ class Matricula extends Model {
 				$matri = Matricula::onlyTrashed()->where('id', $matriculas[$i]->id)->first();
 
 				if ($matri) {
-					if ($matricula->nro_folio == null) $matricula->nro_folio = $year->year . '-' . $alumno_id;
+					// `$matri`, no `$matricula`: era una copia de la línea del bucle de abajo
+					// con el nombre sin cambiar, y `$matricula` vale `false` en la primera
+					// vuelta. Ver docs/migracion/12-larastan-nivel-7.md §1.
+					if ($matri->nro_folio == null) $matri->nro_folio = $year->year . '-' . $alumno_id;
 					if ($matricula) { // Si ya he encontrado en un elemento anterior una matrícula identica, es porque ya la he activado, no debo activar más. Por el contrario, debo borrarlas
 						$matri->deleted_by		= $user_id;
 						$matri->save();

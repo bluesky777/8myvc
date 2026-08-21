@@ -1,0 +1,81 @@
+<?php
+
+namespace Tests\Contrato;
+
+use Illuminate\Support\Facades\DB;
+
+/**
+ * Re-matricular a un alumno que estaba en la papelera.
+ *
+ * `Matricula::matricularUno()` tiene dos bucles casi idénticos: el primero
+ * busca las matrículas **borradas** del alumno en ese año para revivir una, y el
+ * segundo hace lo mismo con las vivas cuando el alumno cambia de grupo. El
+ * primero llevaba `$matricula->nro_folio` donde el segundo lleva
+ * `$matri->nro_folio` —una copia con el nombre sin cambiar—, y `$matricula` vale
+ * `false` hasta que el bucle consigue revivir alguna.
+ *
+ * Lo que hacía por eso, según la versión de PHP:
+ *
+ *   - **PHP 7**: asignar una propiedad a `false` convertía `$matricula` en un
+ *     `stdClass` vacío. Como un objeto es *truthy*, el `if ($matricula)` de la
+ *     línea siguiente entraba siempre por la rama de «esta ya sobra, bórrala»,
+ *     así que **ninguna matrícula se revivía nunca** y todas volvían a la
+ *     papelera. Y al final `!$matricula` era falso, así que tampoco se creaba
+ *     una nueva: el alumno se quedaba **sin matrícula** y la API respondía 200
+ *     con un objeto de una sola propiedad.
+ *   - **PHP 8**: la misma asignación es `Error: Attempt to assign property
+ *     "nro_folio" on false`. O sea **500**.
+ *
+ * Este test fija el comportamiento que se quiere: la matrícula que estaba en la
+ * papelera vuelve, con su estado y su folio. Ver
+ * docs/migracion/12-larastan-nivel-7.md §1.
+ */
+class MatriculaReactivadaTest extends CasoDeContrato
+{
+    private function superusuario(int $yearId): string
+    {
+        $fila = DB::selectOne('SELECT u.username FROM users u
+            INNER JOIN periodos p ON p.id = u.periodo_id AND p.deleted_at IS NULL
+            WHERE u.is_superuser = 1 AND u.is_active = 1 AND u.deleted_at IS NULL
+              AND p.year_id = ? ORDER BY u.id LIMIT 1', [$yearId]);
+
+        $this->assertNotNull($fila, "El seed no tiene ningún superusuario en el año {$yearId}.");
+
+        return $this->tokenDe($fila->username);
+    }
+
+    public function test_matricular_a_quien_tenia_la_matricula_en_la_papelera_la_revive(): void
+    {
+        $grupo = $this->grupoConAlumnos();
+        $token = $this->superusuario((int) $grupo->year_id);
+
+        $matricula = DB::selectOne('SELECT m.id, m.alumno_id FROM matriculas m
+            INNER JOIN alumnos a ON a.id = m.alumno_id AND a.deleted_at IS NULL
+            WHERE m.grupo_id = ? AND m.deleted_at IS NULL
+              AND m.estado IN ("MATR","ASIS","PREM") ORDER BY m.id LIMIT 1', [$grupo->id]);
+
+        $this->assertNotNull($matricula, "El grupo {$grupo->id} no tiene matrículas vivas.");
+
+        // A la papelera, y sin folio: es el estado del que sale el alumno que
+        // se retiró y vuelve, que es para lo que existe el primer bucle.
+        DB::update('UPDATE matriculas SET deleted_at = NOW(), estado = "RETI", nro_folio = NULL
+            WHERE id = ?', [$matricula->id]);
+
+        $this->postJson('/api/matriculas/matricularuno', [
+            'alumno_id' => $matricula->alumno_id,
+            'grupo_id' => $grupo->id,
+            'year_id' => $grupo->year_id,
+        ], ['Authorization' => 'Bearer '.$token])->assertStatus(200);
+
+        $fila = DB::selectOne('SELECT deleted_at, estado, nro_folio FROM matriculas WHERE id = ?',
+            [$matricula->id]);
+
+        $this->assertNull($fila->deleted_at, 'La matrícula siguió en la papelera.');
+        $this->assertSame('MATR', $fila->estado, 'La matrícula revivió pero no quedó matriculada.');
+
+        $anio = DB::selectOne('SELECT year FROM years WHERE id = ?', [$grupo->year_id])->year;
+
+        $this->assertSame("{$anio}-{$matricula->alumno_id}", $fila->nro_folio,
+            'El folio no se le puso a la matrícula que revivió.');
+    }
+}
