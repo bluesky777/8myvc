@@ -250,7 +250,7 @@ class ExcelUtils implements ToArray, WithHeadingRow, WithEvents
 					$opera = new OperacionesAlumnos();
 					
 					$usuario = new User;
-					$usuario->username		=	$opera->username_no_repetido($alumno->nombres);
+					$usuario->username		=	$opera->username_no_repetido($alumno->nombres, 'alumno'.$alumno->id);
 					$usuario->password		=	Hash::make('123456');
 					$usuario->sexo			=	$alumno_row["sexo"] ? $alumno_row["sexo"] : 'M';
 					$usuario->is_superuser	=	0;
@@ -596,7 +596,7 @@ class ImportarController extends Controller {
 					$opera = new OperacionesAlumnos();
 					
 					$usuario = new User;
-					$usuario->username		=	$opera->username_no_repetido($alumno->nombres);
+					$usuario->username		=	$opera->username_no_repetido($alumno->nombres, 'alumno'.$alumno->id);
 					$usuario->password		=	Hash::make('123456');
 					$usuario->sexo			=	$alumno_row->sexo ? $alumno_row->sexo : 'M';
 					$usuario->is_superuser	=	0;

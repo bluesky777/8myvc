@@ -573,3 +573,101 @@ que quita no aparece en ningún test porque los tests fijan lo que el arreglo
 protege.** Lo que lo destapó fue volver a correr la herramienta de medición
 *después*, que es el mismo criterio de los tests de contrato —mirar el resultado,
 no el estado— aplicado a las propias herramientas.
+
+
+## §14. El generador roto era el que no se usaba, y el que se usa tenía otros tres
+
+**Arreglado. Lo fija `tests/Contrato/UsernameGeneradoTest.php`.**
+
+La §12 arregló `perfiles/creartodoslosusuarios` y de ahí salió la frase que
+resume el día —«no es un fallo repetido tres veces, es un idioma que el código no
+contempla»—. Al ir a contar el daño para poder decidir qué hacer con los
+usernames ya creados, la cuenta salió **cero**, y esa es la parte interesante:
+
+```
+personas con cuenta ....................... 2288
+usernames MUTILADOS por el sanitizador ....    0
+usernames VACÍOS ..........................    1   (el 842, de 2019)
+usuarios activos sin ficha viva ...........   63
+```
+
+**El generador de la §12 no llegó a crear ninguna cuenta usable en años.** Moría
+en el `attachRole()` de Entrust —que no está instalado— *entre* el `save()` del
+usuario y el enlace con la ficha, así que lo que dejaba no eran cuentas con el
+nombre mutilado: eran **usuarios huérfanos**, uno por intento, y ahí están los 63.
+Los `JosAndrs` de la tabla de la §12 eran reales como comportamiento y
+**ficticios como daño**. Que el arreglo de aquella lo vuelva alcanzable es
+justamente lo que obliga a mirar el otro.
+
+Porque hay otro, y es el que sí se usa: **`OperacionesAlumnos::username_no_repetido()`**,
+al que llaman el importador de alumnos (dos veces) y `acudientes/crear-usuario`.
+Tenía tres cosas, y la primera está escrita en los datos de este colegio.
+
+### El sufijo se acumulaba
+
+```php
+$username_a_verificar = $username_a_verificar.$i;   // sobre el candidato, no sobre la base
+```
+
+`Samuel` → `Samuel1` → `Samuel12` → `Samuel123`… A la quinta colisión el username
+no es `Samuel5`, es `Samuel12345`. Y no es cosmético: **es lo que esa persona
+teclea para entrar**. En la copia de desarrollo se lee tal cual —
+`SamuelSamuel12345`, `MatíasMatías1234`, `MariaJoséMariaJosé12`— y durante años
+nadie lo leyó como un fallo, porque un username raro se lee como un dato de la
+persona.
+
+De paso quedó descartada la otra mitad de esos nombres, que era la sospecha
+inicial: **el nombre repetido no es de este código**. Las 75 cuentas cuyo username
+es el nombre dos veces tienen todas la misma fecha —febrero de 2018, una
+importación—, y el importador de hoy arma el nombre de dos columnas de la hoja,
+no de una repetida. Medido antes de arreglar nada.
+
+### Con el nombre en blanco, la cadena vacía — y eso ya es un 500
+
+`users.username` es **UNIQUE**, y en la base hay una cuenta con el username vacío
+desde 2019. O sea que el segundo nombre en blanco no fabrica una cuenta
+inservible como decía la §12: **choca con la primera**. Por
+`acudientes/crear-usuario`, que no tiene `catch`, eso es un 500; por
+`acudientes/crear` sería el `abort(422, 'Datos incorrectos')` que tapa cualquier
+cosa que pase dentro del `try`.
+
+Ahora cae a `{tipo}{id}`, que lo arma el llamador porque es el único que tiene la
+ficha delante.
+
+Y hay que decir por dónde **no** entra: por `acudientes/crear` un nombre en blanco
+no llega nunca al generador, porque `acudientes.nombres` es NOT NULL y el
+`ConvertEmptyStringsToNull` de Laravel lo convierte en null antes. El test va por
+la otra puerta a propósito, y eso está escrito en el test.
+
+### Y `rand(1000, 99999)` como desambiguación, en la puerta de al lado
+
+`AcudientesController::postCrear` no llamaba al generador: se fabricaba el suyo
+pegando **cinco dígitos al azar** al nombre. Eso no evita la colisión —
+`users.username` es UNIQUE, así que la convierte en un error de clave duplicada
+que el `catch` traduce a «Datos incorrectos»— y el precio lo paga el acudiente
+todos los días, porque `Maria12345` es lo que tiene que teclear. Ahora llama al
+mismo generador que el importador: mira si está libre y **solo numera cuando hace
+falta**.
+
+### Las tildes, y por qué esto no era un problema de acceso
+
+Se transliteran, como en la §12. Pero al medirlo salió algo que cambia la
+respuesta a la pregunta que quedó abierta —«¿corregimos los usernames ya
+creados?»—: **`users.username` es `utf8mb4_unicode_ci`, y esa colación ignora las
+tildes**. Comprobado contra la base:
+
+```
+"José" = "Jose"   → 1        "Ñoño" = "Nono" → 1        "ADMIN" = "admin" → 1
+SELECT … WHERE username = 'maria.beleno'   →  encuentra  maria.beleño  (id 470)
+```
+
+O sea que las **113 cuentas con tilde** en el username entran perfectamente
+escribiéndolo sin tilde, y también el `exists()` que desambigua las ve. No hay
+nada que arreglar ahí, y renombrarlas sería cambiarle el usuario a gente que hoy
+entra sin problema. La transliteración se hace por coherencia y porque el
+identificador acaba en sitios que **no** son MySQL — el correo autogenerado
+`username@myvc.com` de la §9, donde `filter_var` sí rechaza la tilde.
+
+**Lo que queda como respuesta a la pregunta abierta:** de los usernames ya
+creados, los mutilados son **cero**, los que llevan tilde **no necesitan nada**, y
+el único roto es el vacío de 2019 — una fila, y ahora sin sucesores.

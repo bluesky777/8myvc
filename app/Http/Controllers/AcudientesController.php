@@ -365,13 +365,22 @@ where id in (
 			$parentesco->created_by			=	$this->user->user_id;
 			$parentesco->save();
 
-			// Usuario nuevo
+			// Usuario nuevo.
+			//
+			// El username salía del nombre MÁS CINCO DÍGITOS AL AZAR y sin comprobar
+			// nada: `rand(1000, 99999)` no es una desambiguación, es una apuesta
+			// —`users.username` es UNIQUE, así que la colisión no se evita, se
+			// convierte en un error de clave duplicada que este `catch` traduce a
+			// «Datos incorrectos»—. Y el precio lo paga el acudiente todos los días,
+			// porque `Maria12345` es lo que tiene que teclear para entrar.
+			//
+			// `username_no_repetido()` es el mismo generador que usa el importador:
+			// mira si está libre y solo numera cuando hace falta.
 			if (Request::input('documento')) {
 				$uname = Request::input('documento');
 			}else{
-				$dirtyName = Request::input('nombres');
-				$uname = preg_replace('/\s+/', '', $dirtyName);
-				$uname = $uname . rand(1000, 99999);
+				$opera = new OperacionesAlumnos();
+				$uname = $opera->username_no_repetido(Request::input('nombres'), 'acudiente'.$acudiente->id);
 			}
 			
 
@@ -408,7 +417,7 @@ where id in (
 		$acu 				= Request::input('acudiente');
 		
 		$opera 			= new OperacionesAlumnos();
-		$username 	= $opera->username_no_repetido($acu['nombres']);
+		$username 	= $opera->username_no_repetido($acu['nombres'], 'acudiente'.$acu['id']);
 		
 		$usu 								= new User;
 		$usu->password 			= Hash::make('123456');
