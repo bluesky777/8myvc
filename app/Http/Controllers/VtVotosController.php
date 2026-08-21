@@ -92,7 +92,26 @@ class VtVotosController extends Controller {
 
 		for($j=0; $j<$cantVot; $j++){
 
-			if ($votaciones[$j]->can_see_results || Request::input('permitir')) {
+			// `permitir` NO significa «déjame ver los resultados», aunque lo
+			// parezca: significa «dame la papeleta aunque estén ocultos». Lo dice
+			// el front, que es quien lo manda — `TarjetonesCtrl` pide
+			// `permitir: true` y `tarjetones.html` **no pinta `cantidad` por
+			// ninguna parte**; solo foto, plancha y nombre. El que sí lo pinta es
+			// `resultados.html`, y su controlador manda `permitir: false`.
+			//
+			// Así que quien decide si el conteo viaja es `can_see_results`, y solo
+			// él. `permitir` decide otra cosa: si viaja la ESTRUCTURA. Hasta el 21
+			// de agosto de 2026 el `if` mezclaba las dos y el conteo salía con la
+			// papeleta, o sea que cualquier alumno con la elección abierta recibía
+			// el escrutinio en vivo dentro del JSON — no en pantalla, pero en el
+			// JSON, y el botón «Tarjetones» del front no lleva `ng-if`.
+			//
+			// Se recorta el número y NO la papeleta porque quitar `permitir`
+			// apagaría el tarjetón en los dieciséis colegios. Ver 11-votaciones.md §1.
+			$conEstructura = $votaciones[$j]->can_see_results || Request::input('permitir');
+			$conConteo = (bool) $votaciones[$j]->can_see_results;
+
+			if ($conEstructura) {
 
 				$aspiraciones = VtAspiracion::where('votacion_id', $votaciones[$j]->id)->get();
 
@@ -101,19 +120,24 @@ class VtVotosController extends Controller {
 				foreach ($aspiraciones as $aspira) {
 					$candidatos = VtCandidato::porAspiracion($aspira->id, $user->year_id);
 
-					for ($i=0; $i<count($candidatos); $i++) {
+					if ($conConteo) {
+						for ($i=0; $i<count($candidatos); $i++) {
 
-						$votos 	= VtVoto::deCandidato($candidatos[$i]->candidato_id, $aspira->id)[0];
-						$candidatos[$i]->cantidad 	= $votos->cantidad;
-						$candidatos[$i]->total 		= $votos->total;
+							$votos 	= VtVoto::deCandidato($candidatos[$i]->candidato_id, $aspira->id)[0];
+							$candidatos[$i]->cantidad 	= $votos->cantidad;
+							$candidatos[$i]->total 		= $votos->total;
+						}
 					}
 					
 					// Voto en blanco como candidato
 					$blanco 	= ['nombres' => 'Voto en Blanco', 'voto_blanco' => true, 'foto_nombre' => 'voto_en_blanco.jpg'];
-					$consulta 	= 'SELECT count(*) as cantidad from vt_votos vv 
-									where vv.blanco_aspiracion_id=:aspiracion_id and vv.deleted_at is null';
-					$vt_blancos	= DB::select($consulta, [':aspiracion_id' => $aspira->id])[0];
-					$blanco['cantidad'] = $vt_blancos->cantidad;
+
+					if ($conConteo) {
+						$consulta 	= 'SELECT count(*) as cantidad from vt_votos vv 
+										where vv.blanco_aspiracion_id=:aspiracion_id and vv.deleted_at is null';
+						$vt_blancos	= DB::select($consulta, [':aspiracion_id' => $aspira->id])[0];
+						$blanco['cantidad'] = $vt_blancos->cantidad;
+					}
 						
 					array_push($candidatos, $blanco);
 					// Fin voto en blanco
