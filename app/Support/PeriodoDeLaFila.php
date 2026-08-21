@@ -77,6 +77,20 @@ class PeriodoDeLaFila
         );
     }
 
+    /**
+     * `nota_comportamiento.periodo_id`.
+     *
+     * Llegó tarde: este controlador no comprobaba el periodo en **ninguna** de sus
+     * ocho rutas, así que no estaba entre las 26 de la §27 — no había llamada que
+     * arreglar, había que ponerla. Joseth decidió el 21 ago 2026 cerrarla como las
+     * demás notas: sale en el boletín y el año tiene un conmutador para
+     * enseñarla. Ver 05 §40.2.
+     */
+    public static function deNotaComportamiento($notaId): ?int
+    {
+        return self::uno('SELECT periodo_id FROM nota_comportamiento WHERE id = ?', $notaId);
+    }
+
     /** `ausencias.periodo_id`. */
     public static function deAusencia($ausenciaId): ?int
     {

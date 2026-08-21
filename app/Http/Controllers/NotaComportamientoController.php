@@ -11,6 +11,7 @@ use App\Models\Frase;
 
 use Carbon\Carbon;
 use App\Support\ColumnaSegura;
+use App\Support\PeriodoDeLaFila;
 
 
 class NotaComportamientoController extends Controller {
@@ -123,6 +124,8 @@ class NotaComportamientoController extends Controller {
 	public function postStore()
 	{
 		$user = User::fromToken();
+		// La fila se escribe en el periodo del profesor tres líneas más abajo.
+		User::pueden_editar_notas($user, (int) $user->periodo_id);
 
 		$nota = new NotaComportamiento;
 
@@ -157,6 +160,7 @@ class NotaComportamientoController extends Controller {
 	public function putUpdate($id)
 	{
 		$user = User::fromToken();
+		User::pueden_editar_notas($user, PeriodoDeLaFila::deNotaComportamiento($id));
 
 		$nota = NotaComportamiento::findOrFail($id);
 
@@ -181,7 +185,11 @@ class NotaComportamientoController extends Controller {
 
 	public function putCrear()
 	{
+		// Aquí el periodo lo nombra el cuerpo, y es también donde se escribe:
+		// la comprobación tiene que mirar ése y no el del profesor. Es la
+		// lección de la §27 aplicada a una llamada nueva.
 		$user 	= User::fromToken();
+		User::pueden_editar_notas($user, (int) Request::input('periodo_id'));
 		$now 	= Carbon::now('America/Bogota');
 
 		DB::insert('INSERT INTO nota_comportamiento (alumno_id, periodo_id, nota, created_at, updated_at) VALUES (?,?,?,?,?)', 
@@ -216,6 +224,7 @@ class NotaComportamientoController extends Controller {
 
 	public function deleteDestroy($id)
 	{
+		User::pueden_editar_notas(User::fromToken(), PeriodoDeLaFila::deNotaComportamiento($id));
 		$nota = NotaComportamiento::findOrFail($id);
 		$nota->delete();
 

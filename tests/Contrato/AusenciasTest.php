@@ -122,12 +122,20 @@ class AusenciasTest extends CasoDeContrato
     }
 
     /**
-     * Editar, cambiar de tipo y borrar: las tres respetan el periodo cerrado.
+     * Editar, cambiar de tipo y borrar tampoco los cierra el periodo.
      *
-     * Son tres de las 26 llamadas de la §27, y desde el 21 ago 2026 comprueban la
-     * bandera **del periodo de la ausencia** y no la del que nombre el cuerpo.
+     * Este test estaba al revés: fijaba que las tres respetaban el periodo
+     * cerrado, porque era lo que hacían —eran tres de las 26 llamadas de la §27—.
+     * Joseth decidió el 21 ago 2026 que **la asistencia no la bloquea el
+     * interruptor del periodo**, y al preguntarle por esta mitad contestó que
+     * también: excusar una falta cuando el alumno trae la excusa es el mismo
+     * trabajo de asistencia, no calificar. Las tres llamadas se retiraron.
+     *
+     * Lo que el test comprueba ahora es que **la corrección llega a la fila**, no
+     * solo que responda 200: lo que importa es que el profesor pueda arreglar una
+     * ausencia mal puesta con el boletín ya cerrado. Ver 05 §40.
      */
-    public function test_con_el_periodo_cerrado_no_se_edita_ni_se_borra(): void
+    public function test_con_el_periodo_cerrado_se_sigue_corrigiendo_y_borrando(): void
     {
         $c = $this->contexto();
 
@@ -140,38 +148,38 @@ class AusenciasTest extends CasoDeContrato
         $ausenciaId = $r->json('id');
 
         DB::table('periodos')->where('year_id', $c->periodo->year_id)
-            ->update(['profes_pueden_editar_notas' => 0]);
+            ->update(['profes_pueden_editar_notas' => 0, 'profes_pueden_nivelar' => 0]);
 
         $this->withToken($c->token)->putJson('/api/ausencias/cambiar-tipo-ausencia', [
             'ausencia_id' => $ausenciaId,
             'new_tipo' => 'tardanza',
-        ])->assertStatus(400);
+        ])->assertStatus(200);
+
+        $this->assertSame('tardanza',
+            DB::table('ausencias')->where('id', $ausenciaId)->value('tipo'),
+            'La corrección no llegó a la fila con el periodo cerrado.');
 
         $this->withToken($c->token)
             ->deleteJson('/api/ausencias/destroy/'.$ausenciaId)
-            ->assertStatus(400);
+            ->assertStatus(200);
 
-        $fila = DB::table('ausencias')->where('id', $ausenciaId)->first();
-
-        $this->assertSame('ausencia', $fila->tipo, 'Cambió de tipo con el periodo cerrado.');
-        $this->assertNull($fila->deleted_at, 'Se borró con el periodo cerrado.');
+        $this->assertNotNull(DB::table('ausencias')->where('id', $ausenciaId)->value('deleted_at'),
+            'Borrar la ausencia dejó de funcionar con el periodo cerrado.');
     }
 
     /**
-     * **Y crearla con el periodo cerrado sí se puede**, que es la incoherencia.
+     * Con el periodo cerrado **se sigue pudiendo anotar**, y ahora es una decisión.
      *
-     * Este test afirma el comportamiento de hoy **a propósito**, como el de
-     * uniformes de la §27 en su momento: `store` y `agregar-tardanza` no llaman a
-     * `pueden_editar_notas()` y sus tres hermanas del mismo controlador sí. O sea
-     * que con el periodo cerrado un profesor no puede corregir una ausencia ni
-     * borrarla, pero sí anotar una nueva.
+     * `store` y `agregar-tardanza` no llaman a `pueden_editar_notas()` y sus tres
+     * hermanas del mismo controlador sí. Se le preguntó a Joseth si era un olvido
+     * y contestó que no: **«que poner asistencias no se bloquee al bloquear
+     * periodos»** (21 ago 2026). Pasar asistencia es trabajo de todos los días y
+     * el interruptor se llama `profes_pueden_editar_notas`.
      *
-     * No se arregla aquí porque **no es deducible cuál de las dos mitades está
-     * mal**: puede que anotar asistencia deba seguir funcionando con las notas
-     * cerradas —es trabajo de todos los días y no es una nota— o puede que sea un
-     * olvido. Lo decide el colegio. Ver 05 §40.
-     *
-     * El día que se decida, este test falla, y ese es su trabajo.
+     * Así que este test deja de afirmar un comportamiento pendiente y pasa a
+     * afirmar uno **querido**: si algún día alguien le pone el candado a estas dos
+     * rutas «por coherencia con las otras tres», esto falla y le cuenta por qué no.
+     * Ver 05 §40.
      */
     public function test_con_el_periodo_cerrado_todavia_se_puede_anotar(): void
     {
@@ -190,6 +198,7 @@ class AusenciasTest extends CasoDeContrato
         ])->assertStatus(201);
 
         $this->assertSame($antes + 1, DB::selectOne('SELECT COUNT(*) c FROM ausencias')->c,
-            'Si esto falla es que ya se cerró: hay que quitar este test y su §40.');
+            'Anotar asistencia dejó de funcionar con el periodo cerrado, y Joseth '
+            .'decidió el 21 ago 2026 que no debía bloquearse.');
     }
 }

@@ -12,9 +12,23 @@ use App\Models\Ausencia;
 use App\Models\Asignatura;
 use App\Models\Role;
 use Carbon\Carbon;
-use App\Support\PeriodoDeLaFila;
 
 
+/*
+ * Las ausencias **no las cierra el interruptor del periodo**, y es una decisión.
+ *
+ * Hasta el 21 ago 2026 tres de estas rutas —guardar cambios, cambiar el tipo y
+ * borrar— llamaban a `User::pueden_editar_notas()` y las dos que anotan no, así
+ * que con el periodo cerrado un profesor podía apuntar una falta pero no
+ * corregirla. Se le preguntó a Joseth cuál de las dos mitades estaba mal y
+ * contestó la contraria de la que se esperaba: **«que poner asistencias no se
+ * bloquee al bloquear periodos»**, y las tres que faltaban se liberaron también
+ * —excusar una falta cuando el alumno trae la excusa es el mismo trabajo de
+ * asistencia, no calificar—.
+ *
+ * `profes_pueden_editar_notas` es lo que dice su nombre: notas. Ver
+ * docs/migracion/05-codigo-muerto-y-roto.md §40.
+ */
 class AusenciasController extends Controller {
 
 	public function getIndex()
@@ -136,7 +150,6 @@ class AusenciasController extends Controller {
 		$isCoorDisciplinario = Role::isCoorDisciplinario($user->user_id);
 
 		if (!$isCoorDisciplinario) {
-			User::pueden_editar_notas($user, PeriodoDeLaFila::deAusencia(Request::input('ausencia_id')));
 		}
 		
 		$aus = Ausencia::findOrFail(Request::input('ausencia_id'));
@@ -150,7 +163,6 @@ class AusenciasController extends Controller {
 	public function putCambiarTipoAusencia()
 	{
 		$user = User::fromToken();
-		User::pueden_editar_notas($user, PeriodoDeLaFila::deAusencia(Request::input('ausencia_id')));
 		
 		$aus = Ausencia::findOrFail(Request::input('ausencia_id'));
 		
@@ -175,7 +187,6 @@ class AusenciasController extends Controller {
 		$isCoorDisciplinario = Role::isCoorDisciplinario($user->user_id);
 
 		if (!$isCoorDisciplinario) {
-			User::pueden_editar_notas($user, PeriodoDeLaFila::deAusencia($id));
 		}
 		
 		$aus = Ausencia::findOrFail($id);

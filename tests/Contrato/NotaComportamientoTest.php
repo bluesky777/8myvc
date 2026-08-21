@@ -36,6 +36,12 @@ class NotaComportamientoTest extends CasoDeContrato
             WHERE m.grupo_id = ? AND m.deleted_at IS NULL AND m.estado IN ("MATR","ASIS")
             ORDER BY m.alumno_id LIMIT 1', [$grupo->id]);
 
+        // Desde el 21 ago 2026 estas rutas comprueban el periodo, y en el seed los
+        // cuatro vienen cerrados. Se abren aquí para que cada test mida lo suyo y
+        // no el candado; el que mide el candado lo cierra a mano.
+        DB::table('periodos')->where('year_id', $periodo->year_id)
+            ->update(['profes_pueden_editar_notas' => 1]);
+
         return (object) ['token' => $token, 'periodo' => $periodo,
             'grupo_id' => $grupo->id, 'alumno_id' => $alumno->alumno_id];
     }
@@ -120,20 +126,20 @@ class NotaComportamientoTest extends CasoDeContrato
     }
 
     /**
-     * **Con el periodo cerrado se sigue pudiendo todo**, y eso es lo que hay que
-     * decidir.
+     * Con el periodo cerrado la nota de comportamiento **ya no se escribe**.
      *
-     * Este controlador no llama a `pueden_editar_notas()` en ninguna de sus ocho
-     * rutas, mientras que uniformes —que también es disciplina— sí. El test
-     * afirma el comportamiento de hoy **a propósito**: el día que se decida
-     * cerrarlo, falla, y ese es su trabajo. Ver 05 §40.
+     * Este test estaba al revés: afirmaba que se seguía pudiendo, porque este
+     * controlador no llamaba a `pueden_editar_notas()` en ninguna de sus ocho
+     * rutas. Joseth decidió el 21 ago 2026 cerrarla como las demás notas —sale en
+     * el boletín y el año tiene un conmutador para enseñarla—, al contrario que la
+     * asistencia, que dejó libre. Ver 05 §40.
+     *
+     * Se comprueba la fila y no solo el código: lo que importa es que la nota **no
+     * cambie**.
      */
-    public function test_con_el_periodo_cerrado_la_nota_de_comportamiento_se_sigue_escribiendo(): void
+    public function test_con_el_periodo_cerrado_la_nota_de_comportamiento_no_se_escribe(): void
     {
         $c = $this->contexto();
-
-        DB::table('periodos')->where('year_id', $c->periodo->year_id)
-            ->update(['profes_pueden_editar_notas' => 0, 'profes_pueden_nivelar' => 0]);
 
         $id = DB::table('nota_comportamiento')->insertGetId([
             'alumno_id' => $c->alumno_id,
@@ -141,12 +147,61 @@ class NotaComportamientoTest extends CasoDeContrato
             'nota' => 20,
         ]);
 
+        DB::table('periodos')->where('year_id', $c->periodo->year_id)
+            ->update(['profes_pueden_editar_notas' => 0, 'profes_pueden_nivelar' => 0]);
+
         $this->withToken($c->token)
             ->putJson('/api/nota_comportamiento/update/'.$id, ['nota' => 50])
-            ->assertStatus(200);
+            ->assertStatus(400);
 
-        $this->assertEquals(50, DB::table('nota_comportamiento')->where('id', $id)->value('nota'),
-            'Si esto falla es que ya se cerró: hay que quitar este test y su §40.');
+        $this->assertEquals(20, DB::table('nota_comportamiento')->where('id', $id)->value('nota'),
+            'La nota se escribió con el periodo cerrado.');
+
+        $this->withToken($c->token)
+            ->deleteJson('/api/nota_comportamiento/destroy/'.$id)
+            ->assertStatus(400);
+
+        $this->assertNull(DB::table('nota_comportamiento')->where('id', $id)->value('deleted_at'),
+            'La nota se borró con el periodo cerrado.');
+
+        $this->withToken($c->token)->postJson('/api/nota_comportamiento/store', [
+            'alumno_id' => $c->alumno_id,
+            'nota' => 45,
+        ])->assertStatus(400);
+    }
+
+    /**
+     * Y el candado de `crear` mira **el periodo que nombra el cuerpo**, no el del
+     * profesor, porque es donde escribe. Es la lección de la §27 aplicada a una
+     * llamada que no existía cuando se hizo aquel arreglo.
+     */
+    public function test_crear_mira_el_periodo_al_que_escribe(): void
+    {
+        $c = $this->contexto();
+
+        $otro = DB::selectOne('SELECT id FROM periodos
+            WHERE year_id = ? AND id <> ? AND deleted_at IS NULL ORDER BY numero LIMIT 1',
+            [$c->periodo->year_id, $c->periodo->id]);
+
+        $this->assertNotNull($otro, 'El año del profesor tiene un solo periodo.');
+
+        // El suyo abierto y el de destino cerrado: si el candado mirara el del
+        // profesor —el fallo de la §27— esto pasaría.
+        DB::table('periodos')->where('id', $otro->id)
+            ->update(['profes_pueden_editar_notas' => 0]);
+
+        DB::table('nota_comportamiento')
+            ->where('alumno_id', $c->alumno_id)->where('periodo_id', $otro->id)->delete();
+
+        $this->withToken($c->token)->putJson('/api/nota_comportamiento/crear', [
+            'alumno_id' => $c->alumno_id,
+            'periodo_id' => $otro->id,
+            'nota' => 38,
+        ])->assertStatus(400);
+
+        $this->assertNull(DB::table('nota_comportamiento')
+            ->where('alumno_id', $c->alumno_id)->where('periodo_id', $otro->id)->first(),
+            'Se escribió en un periodo cerrado nombrándolo desde uno abierto.');
     }
 
     /**

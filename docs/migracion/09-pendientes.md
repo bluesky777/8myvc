@@ -183,15 +183,18 @@ sin haber ningún controlador a cero.
    cerrado no se puede tocar la recuperación final, y eso se eligió a sabiendas.
 5. **Correr `php artisan anios:actuales` en los dieciséis**, antes de la copia de
    octubre. En desarrollo ya sale un aviso: el 2026 encendido en la papelera.
-6. **¿Qué escrituras debe cerrar el interruptor del periodo?**
-   ([05 §40](05-codigo-muerto-y-roto.md)) La lista de hoy no la eligió nadie: se
-   fue formando llamada a llamada, y tiene dos asimetrías que no parecen
-   decididas. **Uniformes cierra y la nota de comportamiento no**, siendo las dos
-   disciplina —y la de comportamiento sale en el boletín—. Y de las ausencias
-   cierra la mitad: **corregir una o borrarla no se puede con el periodo cerrado,
-   pero anotar una nueva sí**. Las dos mitades tienen defensa —pasar asistencia es
-   trabajo de todos los días— y por eso no se elige desde aquí. Está todo fijado
-   con tests que afirman el comportamiento de hoy a propósito.
+
+### Contestado también el 21 de agosto: qué cierra el interruptor del periodo
+
+Se le preguntó con las dos listas medidas delante y contestó las dos
+([05 §40](05-codigo-muerto-y-roto.md)):
+
+> **«Que poner asistencias no se bloquee al bloquear periodos.»**
+
+Y corregir o borrar una ausencia, también libre. El criterio que queda: **el
+interruptor cierra las notas, no la asistencia**. Las cinco rutas de ausencias
+salieron del candado —eran tres de las 26 de la §27— y las cuatro que escriben
+nota de comportamiento entraron, porque esa sí es una nota del boletín.
 
 ### Y una cosa que no encaja con lo que se dio por hecho
 

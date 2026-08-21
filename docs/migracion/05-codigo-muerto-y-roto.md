@@ -3576,90 +3576,76 @@ retiran: la respuesta era y sigue siendo `['finalizado' => true, 'msg' => …]`.
 
 ---
 
-## 40. Qué escrituras debe cerrar el interruptor del periodo (21 ago 2026)
+## 40. Qué escrituras cierra el interruptor del periodo — **decidido** (21 ago 2026)
 
-**No se arregla: hace falta que lo decida el colegio.**
+Al cubrir `AusenciasController` y `NotaComportamientoController` —doce rutas que
+nadie había mirado— salió que **la lista de lo que cierra el interruptor del
+periodo no la había elegido nadie**: se fue formando llamada a llamada, y tenía
+dos asimetrías que no parecían decididas.
 
-`AusenciasController` tiene seis rutas y ninguna estaba comprobada. Al cubrirlas
-salió una incoherencia dentro del mismo fichero:
-
-| Ruta | ¿Comprueba `profes_pueden_editar_notas`? |
+| Asimetría | Qué pasaba |
 |---|---|
-| `PUT ausencias/guardar-cambios-ausencia` | **sí** |
-| `PUT ausencias/cambiar-tipo-ausencia` | **sí** |
-| `DELETE ausencias/destroy/{id}` | **sí** |
-| `POST ausencias/store` | **no** |
-| `POST ausencias/agregar-tardanza` | **no** |
+| De las ausencias cerraba **la mitad** | Corregir una o borrarla exigía el periodo abierto; **anotar una nueva no**. |
+| **Uniformes cerraba y la nota de comportamiento no** | Siendo las dos disciplina — y la de comportamiento sale en el boletín. |
 
-O sea que **con el periodo cerrado un profesor no puede corregir una ausencia ni
-borrarla, pero sí anotar una nueva.** Las tres primeras son tres de las 26
-llamadas de la [§27](#27-el-interruptor-del-periodo-lo-elige-el-cliente-20-ago-2026)
-y desde el arreglo miran la bandera del periodo de la ausencia; las dos que
-escriben no miran nada.
+Se le preguntó a Joseth, con las dos listas medidas delante, y contestó las dos.
+La respuesta partió por un sitio distinto del que sugería el código:
 
-**Por qué no se elige aquí cuál de las dos mitades está mal.** Las dos lecturas
-son razonables y llevan a cosas distintas:
+> **«Que poner asistencias no se bloquee al bloquear periodos.»**
 
-- Que **anotar deba seguir funcionando**: pasar asistencia es trabajo de todos los
-  días y una ausencia no es una nota. El interruptor se llama
-  `profes_pueden_editar_notas`, y cerrarlo para que un profesor no pueda apuntar
-  que un alumno faltó hoy sería una consecuencia que nadie pidió.
-- Que sea **un olvido**: si el periodo está cerrado porque el boletín ya salió,
-  meter ausencias nuevas lo cambia igual que corregirlas, y las tres hermanas del
-  mismo controlador ya lo impiden.
+Y al preguntarle por la otra mitad —corregir y borrar— contestó que también libre.
+El criterio que queda, y que vale para la próxima ruta que se escriba:
 
-Queda fijado por `AusenciasTest::test_con_el_periodo_cerrado_todavia_se_puede_anotar`,
-que **afirma el comportamiento de hoy a propósito** — la misma técnica que usó la
-§27 con uniformes mientras esperaba decisión. El día que se decida, ese test falla,
-y ese es su trabajo.
+> **El interruptor cierra las notas, no la asistencia.** `profes_pueden_editar_notas`
+> es lo que dice su nombre. Pasar asistencia, excusar una falta cuando el alumno
+> trae la excusa o corregir una tardanza mal puesta es trabajo de todos los días y
+> no cambia ninguna calificación.
 
-### 40.2 Y la nota de comportamiento no lo mira en ninguna de sus ocho rutas
+### 40.1 Lo que cambió
 
-Al cubrir `NotaComportamientoController` salió lo mismo, y más grande: **ninguna
-de sus ocho rutas llama a `pueden_editar_notas()`**. Con el periodo cerrado, un
-profesor sigue escribiendo, editando y borrando notas de comportamiento.
+**Las ausencias salen del interruptor, las cinco.** Se retiraron las tres llamadas
+que quedaban —`guardar-cambios-ausencia`, `cambiar-tipo-ausencia` y `destroy`—,
+que eran tres de las 26 de la [§27](#27-el-interruptor-del-periodo-lo-elige-el-cliente-20-ago-2026).
+El porqué está en la cabecera de `AusenciasController`, que es donde alguien va a
+preguntarse por qué faltan.
 
-Y la nota de comportamiento **es una nota**: sale en el boletín, el año tiene un
-conmutador para enseñarla o no (`mostrar_nota_comport_boletin`) y el observador la
-usa. Cuesta más defender que quede fuera que las ausencias.
+**La nota de comportamiento entra, en las cuatro que escriben.** No estaba entre
+las 26 porque no llamaba al candado en **ninguna** de sus ocho rutas: aquí no
+había una llamada que arreglar sino una que poner. Se le pone a `store`, `crear`,
+`update` y `destroy`, con el periodo derivado igual que en la §27:
 
-Dos cosas más, que fija `NotaComportamientoTest`:
+- `store` escribe en el periodo del profesor, así que mira ése.
+- **`crear` escribe en el periodo que nombra el cuerpo, así que mira ése y no el
+  del profesor.** Es la lección de la §27 aplicada a una llamada que no existía
+  cuando se hizo aquel arreglo, y tiene su propio test: con el periodo del profesor
+  abierto y el de destino cerrado, no pasa.
+- `update` y `destroy` lo derivan de `nota_comportamiento.periodo_id`.
 
-- **`nota_comportamiento/crear` escribe en el periodo que diga el cuerpo**, no en
-  el del profesor. Hoy no es el fallo de la §27 —no hay bandera que saltarse
-  porque no se comprueba ninguna—, pero es la misma forma: el día que se le ponga
-  candado, tiene que mirar **ese** `periodo_id` y no el del usuario.
+`guardar-libro` se queda fuera: escribe en `dis_libro_rojo`, que es el observador
+y no una nota. Y `frases-check` es una lectura, aunque sea un `PUT`.
+
+### 40.2 Y dos cosas que se fijan sin tocarlas
+
 - **`nota_comportamiento/detailed/{grupo_id}` escribe dentro de un `GET`**:
   `crearVerifNota()` crea la fila del alumno que no la tenga. Es lo mismo que hace
-  el PIAR (§35.4), y significa lo mismo — esa ruta no se puede cachear ni servir
-  desde una réplica.
+  el PIAR (§35.4) y significa lo mismo — esa ruta no se puede cachear ni servir
+  desde una réplica de lectura. Por eso el candado **no** se le puso: bloquear la
+  lectura de la pantalla habría sido el efecto, y nadie lo pidió.
+- **`ausencias/store` y `agregar-tardanza` responden 201, no 200.** Modelo Eloquent
+  recién creado, igual que `opciones/add-opcion` (§27.2) y al contrario que
+  `years/store` (§28.4). Los tres números están fijados porque los tres son lo que
+  reciben los clientes.
+- **`ausencias/detailed` no arrastra credenciales**: `Alumno::userData()` es una
+  lista de columnas nombrada y no un `SELECT *`, que es justo la diferencia que la
+  §38 encontró cara.
 
-### 40.3 La pregunta, que es una sola
+### 40.3 Los dos tests que se dieron la vuelta
 
-**¿Qué escrituras debe cerrar el interruptor del periodo?** Hoy la lista es esta,
-y no la eligió nadie: se fue formando llamada a llamada.
+Los dos afirmaban el comportamiento de entonces **a propósito**, esperando esta
+decisión, y los dos fallaron al aplicarla — que era su trabajo:
 
-| Cierra | No cierra |
-|---|---|
-| notas, definitivas, unidades, subunidades | **crear** ausencias y tardanzas |
-| frases de asignatura | **todo** lo de nota de comportamiento |
-| uniformes (disciplina) | |
-| editar y borrar ausencias | |
+- el de ausencias fijaba que corregir y borrar respetaban el periodo cerrado;
+- el de comportamiento fijaba que con el periodo cerrado se seguía escribiendo.
 
-Lo que llama la atención es que **uniformes sí y comportamiento no**, siendo las
-dos disciplina; y que de ausencias cierre la mitad. Ninguna de las dos asimetrías
-parece decidida.
-
-### 40.1 Lo demás que se midió al pasar, y estaba bien
-
-- **`ausencias/store` y `agregar-tardanza` responden 201, no 200.** Es un modelo
-  Eloquent recién creado y Laravel lo pone solo. Mismo caso que
-  `opciones/add-opcion` (§27.2) y el contrario que `years/store` (§28.4), que
-  vuelve a buscar el modelo antes de devolverlo. Los tres números están fijados
-  porque los tres son lo que reciben los clientes.
-- **El tipo se deduce de la cantidad**: si viene `cantidad_ausencia` la fila queda
-  como `ausencia`, y si viene `cantidad_tardanza`, como `tardanza` — incluso si el
-  cuerpo manda otro `tipo`, porque las dos deducciones van después. Está fijado.
-- **`ausencias/detailed/{asignatura_id}` no arrastra credenciales.**
-  `Alumno::userData()` es una lista de columnas nombrada y no un `SELECT *`, que
-  es justo la diferencia que la §38 encontró cara. Se fija para que siga siéndolo.
+Ahora fijan lo contrario, y **cada uno comprueba la fila y no solo el código**: que
+la corrección de la ausencia llega, y que la nota de comportamiento no cambia.
