@@ -5,6 +5,7 @@ namespace Tests\Contrato;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Testing\PendingCommand;
 use Illuminate\Testing\TestResponse;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Tests\TestCase;
@@ -537,5 +538,25 @@ abstract class CasoDeContrato extends TestCase
         $this->assertFileExists($ruta);
 
         return $ruta;
+    }
+
+    /**
+     * Un comando de artisan, con el tipo que de verdad tiene aquí.
+     *
+     * `artisan()` está declarado `PendingCommand|int` y el `int` es el caso de
+     * `withoutMockingConsoleOutput()`: sin salida simulada no hay nada que
+     * encadenar y lo único que queda es el código de salida. Ningún test de
+     * contrato la desactiva —lo que se comprueba de un comando de diagnóstico es
+     * justo lo que imprime—, así que esa rama no existe de este lado. Se cierra
+     * en un sitio y no en los once que encadenan `expectsOutputToContain()`.
+     */
+    protected function comando(string $nombre, array $parametros = []): PendingCommand
+    {
+        $pendiente = $this->artisan($nombre, $parametros);
+
+        $this->assertInstanceOf(PendingCommand::class, $pendiente,
+            'artisan() devolvió un int: alguien desactivó la salida simulada, y con ella lo que este test comprueba.');
+
+        return $pendiente;
     }
 }

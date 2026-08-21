@@ -54,7 +54,7 @@ class MatriculasHuerfanasTest extends CasoDeContrato
     {
         DB::update('UPDATE matriculas SET deleted_at = NULL WHERE deleted_at IS NOT NULL');
 
-        $this->artisan('matriculas:huerfanas')
+        $this->comando('matriculas:huerfanas')
             ->expectsOutputToContain('el fallo de matricularUno no se')
             ->assertExitCode(0);
     }
@@ -89,7 +89,7 @@ class MatriculasHuerfanasTest extends CasoDeContrato
             'deleted_at' => now(),
         ]);
 
-        $this->artisan('matriculas:huerfanas')
+        $this->comando('matriculas:huerfanas')
             ->expectsOutputToContain('ningún alumno se quedó sin ninguna')
             ->assertExitCode(0);
     }
@@ -103,7 +103,7 @@ class MatriculasHuerfanasTest extends CasoDeContrato
         $borradas = $this->aLaPapelera((int) $alumno->alumno_id, (int) $alumno->year_id);
         $this->assertGreaterThan(0, $borradas, 'No se pudo dejar al alumno sin matrículas vivas.');
 
-        $this->artisan('matriculas:huerfanas')
+        $this->comando('matriculas:huerfanas')
             ->expectsOutputToContain('no salen hoy en ninguna lista')
             ->assertExitCode(1);
     }
@@ -121,7 +121,7 @@ class MatriculasHuerfanasTest extends CasoDeContrato
 
         $this->assertNotNull($otroAnio, 'El seed necesita al menos dos años.');
 
-        $this->artisan('matriculas:huerfanas', ['--year' => $otroAnio->year])
+        $this->comando('matriculas:huerfanas', ['--year' => $otroAnio->year])
             ->expectsOutputToContain('ningún alumno se quedó sin ninguna')
             ->assertExitCode(0);
     }

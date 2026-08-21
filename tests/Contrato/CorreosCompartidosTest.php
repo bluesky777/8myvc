@@ -37,7 +37,7 @@ class CorreosCompartidosTest extends CasoDeContrato
     {
         $this->cadaUnoConLaSuya();
 
-        $this->artisan('usuarios:correos-compartidos')
+        $this->comando('usuarios:correos-compartidos')
             ->expectsOutputToContain('Nada que hacer')
             ->assertExitCode(0);
     }
@@ -58,7 +58,7 @@ class CorreosCompartidosTest extends CasoDeContrato
 
         DB::update('UPDATE users SET email = "@gmail.com" WHERE id IN (?, ?)', [$a, $b]);
 
-        $this->artisan('usuarios:correos-compartidos')
+        $this->comando('usuarios:correos-compartidos')
             ->expectsOutputToContain('SE RESETEAN ENTRE SÍ ............ 0 cuentas')
             ->expectsOutputToContain('el correo no es una dirección')
             ->assertExitCode(1);
@@ -72,7 +72,7 @@ class CorreosCompartidosTest extends CasoDeContrato
 
         DB::update('UPDATE users SET email = "hermanos@ejemplo.test" WHERE id IN (?, ?)', [$a, $b]);
 
-        $this->artisan('usuarios:correos-compartidos')
+        $this->comando('usuarios:correos-compartidos')
             ->expectsOutputToContain('SE RESETEAN ENTRE SÍ ............ 2 cuentas en 1 grupos')
             ->assertExitCode(1);
     }
@@ -93,7 +93,7 @@ class CorreosCompartidosTest extends CasoDeContrato
         DB::update('UPDATE users SET email = "compartido@ejemplo.test" WHERE id IN (?, ?)',
             [$super->id, $otro->id]);
 
-        $this->artisan('usuarios:correos-compartidos')
+        $this->comando('usuarios:correos-compartidos')
             ->expectsOutputToContain('CON SUPERUSUARIO DENTRO')
             ->assertExitCode(1);
     }

@@ -30,7 +30,7 @@ class AniosActualesTest extends CasoDeContrato
     {
         $this->unSoloActual();
 
-        $this->artisan('anios:actuales')->assertExitCode(0);
+        $this->comando('anios:actuales')->assertExitCode(0);
     }
 
     public function test_con_dos_anos_actuales_falla_y_lo_dice(): void
@@ -42,7 +42,7 @@ class AniosActualesTest extends CasoDeContrato
 
         DB::table('years')->where('id', $otro)->update(['actual' => 1]);
 
-        $this->artisan('anios:actuales')
+        $this->comando('anios:actuales')
             ->expectsOutputToContain('MÁS DE UN año actual')
             ->assertExitCode(1);
     }
@@ -62,7 +62,7 @@ class AniosActualesTest extends CasoDeContrato
 
         DB::table('years')->where('id', $otro)->update(['actual' => 1, 'deleted_at' => now()]);
 
-        $this->artisan('anios:actuales')
+        $this->comando('anios:actuales')
             ->expectsOutputToContain('en la papelera')
             ->assertExitCode(1);
     }
@@ -72,7 +72,7 @@ class AniosActualesTest extends CasoDeContrato
     {
         DB::table('years')->update(['actual' => 0]);
 
-        $this->artisan('anios:actuales')
+        $this->comando('anios:actuales')
             ->expectsOutputToContain('NINGÚN año actual')
             ->assertExitCode(1);
     }

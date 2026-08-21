@@ -632,7 +632,14 @@ class ImagenesTest extends CasoDeContrato
 
         $this->assertFileExists($ruta);
 
-        return array_slice((array) getimagesize($ruta), 0, 2);
+        $tamano = getimagesize($ruta);
+
+        // `getimagesize()` devuelve `false` con un fichero que no es una imagen,
+        // y `(array) false` es `[false]`: el ancho salía `false` y la comparación
+        // de dimensiones pasaba a comparar otra cosa sin decirlo.
+        $this->assertNotFalse($tamano, $ruta.' no es una imagen que PHP sepa leer.');
+
+        return [(int) $tamano[0], (int) $tamano[1]];
     }
 
     /** En qué esquina quedó el cuadro rojo de `imagenMarcada()`. */

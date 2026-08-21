@@ -28,8 +28,8 @@ class YearsTest extends CasoDeContrato
         // año actual, y contarlo aquí haría fallar los tests por una fila que el
         // sistema no mira. Que además esa fila exista —2026, borrada y con
         // `actual=1`— es lo que arregla `deleteDelete`.
-        return array_map('intval', DB::table('years')->where('actual', 1)
-            ->whereNull('deleted_at')->orderBy('id')->pluck('id')->all());
+        return array_values(array_map('intval', DB::table('years')->where('actual', 1)
+            ->whereNull('deleted_at')->orderBy('id')->pluck('id')->all()));
     }
 
     /**

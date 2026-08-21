@@ -10,6 +10,32 @@ parameters:
         - tests
         - tools
 
+    # Nivel 7, desde el 21 ago 2026 — y el 6 saltado a propósito, que es lo que
+    # hay que leer antes de tocar esto. El 6 pide anotación de tipo en cada
+    # parámetro, cada retorno y cada propiedad: 1.940 errores, **ninguno señala
+    # código que pueda fallar** y el 68% cae en los 129 controladores, o sea el
+    # mismo diff ilegible que CLAUDE.md prohíbe para Pint. Se paga el día que
+    # cada fichero se toque por otra cosa. Medido en docs/migracion/12-larastan-nivel-7.md.
+    #
+    # El 7 comprueba los tipos «parcialmente equivocados», y de sus 1.276 errores
+    # 1.163 son las 990 consultas crudas devolviendo stdClass — la misma razón
+    # por la que `checkModelProperties` está en false. Esos tres se difieren por
+    # identificador, con su número aquí para que se note si crece:
+    #
+    #   property.notFound  1.002   ·  method.notFound  161  ·  argument.type  89
+    #
+    # Y con ellos las siete de la deuda de anotación del 6, por lo mismo.
+    #
+    # Lo que queda encendido son seis identificadores, y son **la familia exacta
+    # que dio los dos hallazgos más caros de toda la serie**: `count()` sobre un
+    # Builder (§13.1, un TypeError en producción) y `$datos->id = $id` sobre un
+    # array (§9, un Error de PHP 8). Los dos son «se usa como objeto algo que no
+    # lo es»: method.nonObject, property.nonObject, offsetAccess.nonOffsetAccessible,
+    # foreach.nonIterable, assign.propertyType y return.type. Eran 24 en todo el
+    # repo; de ahí salieron el folio «-1234» del libro de matrícula, el
+    # *deprecated* de cada login y las tres del §44. Quedan los tres de abajo,
+    # todos dentro de endpoints que ya estaban documentados como rotos.
+
     # Nivel 5, desde el 20 ago 2026. El 5 comprueba los ARGUMENTOS: si lo que
     # se le pasa a un método es del tipo que ese método pide. Empezó en 45, el
     # número más bajo de todas las subidas, y aun así trajo el fallo más caro de
@@ -108,7 +134,7 @@ parameters:
     # ellos 320 eran los `$this->user` de los controladores, que se callaron con
     # una anotación `@property` en el trait ResuelveElUsuario, y 21 eran reales.
     # Bajarlo, nunca.
-    level: 5
+    level: 7
 
     # El esquema real no está en migraciones (ver Fase 5), así que larastan no
     # puede deducir las columnas de los modelos. Sin esto, cada `$alumno->nombres`
@@ -130,6 +156,20 @@ parameters:
     # El `count` va a propósito: si aparece una variable indefinida más en
     # cualquiera de estos ficheros, el análisis vuelve a fallar.
     ignoreErrors:
+        # ---- Las tres familias de ruido del nivel 7 y las siete de la deuda de
+        # anotación del 6, diferidas **por identificador y con su número arriba**,
+        # nunca en un baseline generado: un baseline las escondería una a una y
+        # dejaría de avisar cuando aparezca una nueva.
+        - identifier: property.notFound
+        - identifier: method.notFound
+        - identifier: argument.type
+        - identifier: missingType.return
+        - identifier: missingType.parameter
+        - identifier: missingType.property
+        - identifier: missingType.iterableValue
+        - identifier: missingType.generics
+        - identifier: argument.templateType
+
         # PUT api/definitivas_periodos/calcular-notas-finales-asignatura
         -
             message: '#^Undefined variable: \$(alumno_id|asignaturas)$#'
@@ -398,4 +438,34 @@ parameters:
         -
             message: '#^Comparison operation "\>" between 4 and 0 is always true\.$#'
             path: app/Models/WsActividadResuelta.php
+            count: 1
+
+        # ---- Los tres que quedaron del nivel 7 (21 ago 2026). Los otros 21 se
+        # arreglaron; estos tres caen **dentro de endpoints que ya estaban en
+        # esta lista como rotos**, así que arreglar el tipo no arreglaría nada:
+        # la ruta seguiría respondiendo 500 por lo de arriba.
+
+        # PUT api/definitivas_periodos/calcular-notas-finales-asignatura
+        # La tercera cara del mismo método: `$alumnos` se reasigna dentro del
+        # bucle con lo que devuelve `DB::insert()` —un bool—, así que en la
+        # segunda vuelta `$alumnos[$i]` es un offset sobre un booleano. Las otras
+        # dos caras ya están arriba: el `$alumno_id` que no existe y la expresión
+        # suelta que es la única pista de lo que se pretendía. Se arregla el día
+        # que se decida qué devuelve el endpoint, con las otras dos.
+        -
+            message: '#^Cannot access offset int\<0, max\> on array\|bool\.$#'
+            path: app/Http/Controllers/Alumnos/Definitivas.php
+            count: 2
+
+        # POST api/importar/cartera
+        # `Request::file('file')->getRealPath()` sin comprobar que llegue **un**
+        # archivo: con dos en el mismo campo es un fatal, que es justo lo que se
+        # cerró en las otras tres subidas con `SafeUpload::unSoloArchivo()`. Aquí
+        # no se cierra porque la ruta ya está rota unas líneas más abajo —usa la
+        # firma de `Excel::import()` de maatwebsite 2.x, y su `$rr` no se define
+        # en ninguna rama—, y las dos entradas de eso están arriba. Ponerle el
+        # guard cambiaría un 500 por otro 500. 05 §8.4, fijado por ExcelTest.
+        -
+            message: '#^Cannot call method getRealPath\(\) on array\<Illuminate\\Http\\UploadedFile\>\|Illuminate\\Http\\UploadedFile\.$#'
+            path: app/Http/Controllers/Alumnos/ImportarController.php
             count: 1

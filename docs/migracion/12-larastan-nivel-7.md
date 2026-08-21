@@ -207,37 +207,58 @@ Por orden de lo que más pinta tiene:
 | `AlumnosController.php:322` | `Alumno::$grupo` no acepta `Grupo\|Collection\|null` | `first()`/`get()` otra vez |
 | `tests/Contrato/AniosActualesTest.php` (4), `HuecosDelSeedTest.php:56`, `ImagenesTest.php:635`, `PeriodosTest.php:26`, `YearsTest.php:31`, `tests/Unit/AliasDeFacadesTest.php:81` | `nonObject`, `nonIterable`, `return.type` | De los tests, y de una línea cada uno |
 
-## §6. El interruptor, escrito y **sin poner**
 
-Subir el gate a 7 es lo que convierte esto en un trinquete en vez de una limpieza
-de un día. No se aplica aquí por una razón de calendario y no de criterio:
-**cambia `composer run stan` para las tres sesiones**, y dieciocho de los
-veinticuatro errores están en ficheros que las otras dos tenían abiertos. Se deja
-listo para pegar el día que sus frentes cierren, con los tres identificadores de
-ruido diferidos por regla —no por error, y nunca en un baseline generado—:
+### Y lo que pasó con los 18, unas horas después
+
+**Los 18 son 3.** Se volvieron a medir al final del día, con las otras dos
+sesiones ya habiendo cerrado sus frentes, y la mayor parte se había ido sola:
+`getRealPath()`/`move()` sobre `array<UploadedFile>|UploadedFile` cayó en dos de
+sus tres sitios con el arreglo de las subidas, y el `string|false` del
+`username` con el del generador de cuentas — los dos salieron de esta misma
+lista, o sea que la lista funcionó como lo que era: **pistas con dirección**.
+
+Los 17 de los tests eran de una línea cada uno y se cerraron aquí:
+
+| Qué era | Cómo se cerró |
+|---|---|
+| 11 × `assertExitCode()`/`expectsOutputToContain()` sobre `PendingCommand\|int` | Un `comando()` en `CasoDeContrato`. El `int` es el caso de `withoutMockingConsoleOutput()`, que ningún test de contrato usa —lo que se comprueba de un comando de diagnóstico es justo lo que imprime—, así que la rama se cierra en un sitio y no en once |
+| `glob()` y `file()` devolviendo `false` | `assertNotFalse()` con su mensaje. En un test, un `?: []` pasaría en verde recorriendo nada |
+| `getimagesize()` devolviendo `false` | `(array) false` es `[false]`, así que el ancho salía `false` y la comparación de dimensiones **pasaba a comparar otra cosa sin decirlo**. Es el mismo fallo que persigue todo este documento, esta vez dentro del test que vigila |
+| `array<int>` donde se prometía `list<int>` | `array_values()` |
+
+Y `Alumno::$grupo`, que era el único de app/ con arreglo claro: la anotación decía
+`Grupo` y el código asigna lo que devuelve `Grupo::find()`, que es `null` cuando el
+grupo está en la papelera. **La anotación obligatoria escondía ese caso**; ahora es
+`?Grupo`, y el `(int)` de las dos llamadas cierra la rama de la `Collection` como
+en la §13.1.
+
+Los tres que quedan —`Definitivas.php:52,82` y `ImportarController.php:520`— caen
+**dentro de endpoints que esta misma lista ya tenía como rotos**, así que
+arreglarles el tipo no arreglaría la ruta: seguiría respondiendo 500 por lo de
+arriba. Van a `phpstan.neon` con nombre, motivo y `count`.
+
+## §6. El interruptor, **puesto**
+
+**Nivel 7 desde el 21 de agosto de 2026**, con las tres reglas de ruido y las
+siete de la deuda de anotación diferidas **por identificador y con su número en
+el comentario** — nunca en un baseline generado, que las escondería una a una y
+dejaría de avisar cuando aparezca una nueva.
+
+No se puso a la vez que los arreglos, y esa espera era la parte deliberada:
+`composer run stan` es de las tres sesiones, y dieciocho de los veinticuatro
+errores estaban en ficheros que las otras dos tenían abiertos. Poner el gate con
+sus errores dentro habría dejado en rojo la herramienta que usan para saber si lo
+suyo está bien, que es la forma más rápida de que alguien la desactive. Se puso
+cuando el análisis dio **cero**, que es lo que hace que un gate se note solo
+cuando algo nuevo lo rompe.
 
 ```neon
-    # Nivel 7 desde <fecha>, con tres reglas diferidas. El 7 comprueba los tipos
-    # "parcialmente equivocados", y de sus 1.276 errores 1.163 son las 990
-    # consultas crudas devolviendo stdClass — la misma razón por la que
-    # checkModelProperties está en false. Se difieren por identificador, con su
-    # número aquí para que se note si crece:
-    #
-    #   property.notFound  1.002   ·  method.notFound  161  ·  argument.type  89
-    #
-    # Lo que queda encendido es la familia que encontró la §13.1 y la §9:
-    # method.nonObject, property.nonObject, offsetAccess.nonOffsetAccessible,
-    # foreach.nonIterable, assign.propertyType y return.type.
-    #
-    # El nivel 6 NO se sube: sus 1.940 errores son anotación pura, ninguno
-    # señala código que pueda fallar y el 68% cae en los 129 controladores.
-    # Ver docs/migracion/12-larastan-nivel-7.md.
     level: 7
     ignoreErrors:
-        - identifier: property.notFound
-        - identifier: method.notFound
-        - identifier: argument.type
-        - identifier: missingType.return
+        - identifier: property.notFound      # 1.002 · las 990 consultas crudas
+        - identifier: method.notFound        #   161 · lo mismo
+        - identifier: argument.type          #    89 · lo mismo
+        - identifier: missingType.return     # y las siete de la deuda del 6
         - identifier: missingType.parameter
         - identifier: missingType.property
         - identifier: missingType.iterableValue
@@ -245,8 +266,10 @@ ruido diferidos por regla —no por error, y nunca en un baseline generado—:
         - identifier: argument.templateType
 ```
 
-Antes de ponerlo hay que cerrar los 18 de la §5, o darles su entrada con nombre,
-motivo y `count` como las demás.
+Lo que queda encendido son los seis de la familia «se usa como objeto algo que no
+lo es», que es la que encontró la §13.1 y la §9. Y el nivel 6 sigue sin subirse:
+está escrito arriba por qué, y en el comentario del propio `phpstan.neon` para
+que nadie tenga que venir a buscarlo.
 
 **Y lo que hay que quedarse de todo esto, más que los arreglos**: la escalera de
 phpstan se había estado subiendo por inercia, un peldaño detrás de otro, y

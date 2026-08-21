@@ -78,7 +78,11 @@ class AliasDeFacadesTest extends TestCase
                 continue;
             }
 
-            foreach (file($fichero->getPathname()) as $numero => $linea) {
+            $lineas = file($fichero->getPathname());
+
+            $this->assertNotFalse($lineas, 'No se pudo leer '.$fichero->getPathname());
+
+            foreach ($lineas as $numero => $linea) {
                 foreach ($alias as $nombre) {
                     // Sin barra delante y sin nada pegado por la izquierda: un
                     // `\Illuminate\...\Route::` o un `$objeto::` no cuentan.

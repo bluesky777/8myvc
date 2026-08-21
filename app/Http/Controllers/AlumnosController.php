@@ -318,7 +318,7 @@ class AlumnosController extends Controller {
 					
 					$matricula->save();
 
-					$grupo = Grupo::find($matricula->grupo_id);
+					$grupo = Grupo::find((int) $matricula->grupo_id);
 					$alumno->grupo = $grupo;
 				
 				}
@@ -774,7 +774,7 @@ class AlumnosController extends Controller {
 
 					$matricula = Matricula::matricularUno($alumno->id, $grupo_id, false, $this->user->user_id);
 
-					$grupo = Grupo::find($matricula->grupo_id);
+					$grupo = Grupo::find((int) $matricula->grupo_id);
 					$alumno->grupo = $grupo;
 				}
 

@@ -64,7 +64,9 @@ use Illuminate\Support\Facades\DB;
  * escrito en vez de callarse con todos.
  *
  * @property \App\User $user  el usuario recién creado, para devolverlo junto al alumno
- * @property \App\Models\Grupo $grupo  el grupo de su matrícula, añadido al armar la respuesta
+ * @property \App\Models\Grupo|null $grupo  el grupo de su matrícula, añadido al armar la respuesta.
+ *   Nulable a propósito: se asigna con `Grupo::find()` y el grupo puede estar en la papelera,
+ *   con lo que la ficha sale sin grupo. Anotarlo obligatorio escondía ese caso.
  */
 
 

@@ -23,8 +23,8 @@ class PeriodosTest extends CasoDeContrato
     /** @return list<int> Los periodos actuales de un año, que debe ser uno. */
     private function actualesDe(int $yearId): array
     {
-        return array_map('intval', DB::table('periodos')->where('year_id', $yearId)
-            ->where('actual', 1)->whereNull('deleted_at')->orderBy('id')->pluck('id')->all());
+        return array_values(array_map('intval', DB::table('periodos')->where('year_id', $yearId)
+            ->where('actual', 1)->whereNull('deleted_at')->orderBy('id')->pluck('id')->all()));
     }
 
     private function unAnioConPeriodos(): object

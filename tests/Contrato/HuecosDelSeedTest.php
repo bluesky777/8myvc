@@ -53,7 +53,11 @@ class HuecosDelSeedTest extends CasoDeContrato
     {
         $mapa = [];
 
-        foreach (glob(__DIR__.'/Snapshots/*.json') as $fichero) {
+        $ficheros = glob(__DIR__.'/Snapshots/*.json');
+
+        $this->assertNotFalse($ficheros, 'No se pudo leer el directorio de snapshots.');
+
+        foreach ($ficheros as $fichero) {
             $nombre = basename($fichero, '.json');
 
             if ($nombre === self::MAPA) {
