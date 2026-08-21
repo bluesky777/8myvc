@@ -6,8 +6,8 @@ use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Intervention\Image\Laravel\Facades\Image;
-use \stdClass;
 
+use App\Support\Autoriza;
 use App\User;
 use App\Models\ImageModel;
 use App\Models\Year;
@@ -103,48 +103,51 @@ class ImagesUsuariosController extends Controller {
 		$user 	= User::fromToken(); // Logueado
 		$usu 	= User::findOrFail($user_id); // persona a la que le cambiaremos la foto
 
-		// Solo puede cambiarle a alguien si es profesor o superuser
-		if ($user->tipo == 'Profesor' or $user->is_superuser) {
-			
-			$persona = new stdClass();
+		// Solo puede cambiarle a alguien si es profesor o superuser.
+		// Antes esto era un `if` sin `else`: quien no cumpliera —un administrativo
+		// de tipo `Usuario` sin `is_superuser`, que el guard `auth.personal` deja
+		// pasar— recibía **200 con el cuerpo vacío** y la foto sin cambiar. Es la
+		// forma de la §37, y no se amplía a nadie: el que no podía sigue sin poder,
+		// pero ahora se le dice.
+		Autoriza::exigir(
+			$user->tipo == 'Profesor' || $user->is_superuser,
+			'Solo un profesor o un superusuario cambia la foto de otro.'
+		);
 
-			switch ($usu->tipo) {
-				case 'Alumno':
-					$alumno = Alumno::where('user_id', $user_id)->first();
-					$persona = $alumno;
-					break;
+		// La foto OFICIAL vive en la ficha de la persona —`alumnos.foto_id`,
+		// `profesores.foto_id`, `acudientes.foto_id`—, y un `Usuario`
+		// administrativo no tiene ficha: lo suyo es `users.imagen_id`, que cambia
+		// la ruta hermana `cambiar-imagen-un-usuario`. El `switch` no tenía rama
+		// para él ni `default`, así que `$persona` se quedaba en el `stdClass`
+		// vacío con el que se inicializaba y `$persona->save()` era un **fatal**:
+		// 500 en una operación que no puede existir. Ver 05 §44.
+		$persona = match ($usu->tipo) {
+			'Alumno' => Alumno::where('user_id', $user_id)->first(),
+			'Profesor' => Profesor::where('user_id', $user_id)->first(),
+			'Acudiente' => Acudiente::where('user_id', $user_id)->first(),
+			default => abort(422, 'Un usuario administrativo no tiene foto oficial; su imagen es la del perfil.'),
+		};
 
-				case 'Profesor':
-					$profesor = Profesor::where('user_id', $user_id)->first();
-					$persona = $profesor;
-					break;
-
-				case 'Acudiente':
-					$acudiente = Acudiente::where('user_id', $user_id)->first();
-					$persona = $acudiente;
-					break;
-
-			}
-			
-			
-			$img_id 			= Request::input('imagen_id');
-			$img 				= ImageModel::find($img_id);
-
-
-			$persona->foto_id = $img_id ? $img_id : null;
-			$persona->save();
-			
-			if ($img){
-				$img->user_id 		= $user_id;
-				$img->updated_by 	= $user->user_id;
-				$img->publica 		= false;
-				$img->save();
-			}
-			
-			return $persona;
+		// Y el otro camino al mismo fatal: la cuenta existe pero su ficha no
+		// —borrada, o nunca creada—, y `first()` devuelve null.
+		if (! $persona) {
+			abort(404, 'Esa cuenta no tiene ficha a la que cambiarle la foto.');
 		}
 
+		$img_id 			= Request::input('imagen_id');
+		$img 				= ImageModel::find($img_id);
 
+		$persona->foto_id = $img_id ? $img_id : null;
+		$persona->save();
+
+		if ($img){
+			$img->user_id 		= $user_id;
+			$img->updated_by 	= $user->user_id;
+			$img->publica 		= false;
+			$img->save();
+		}
+
+		return $persona;
 	}
 
 
