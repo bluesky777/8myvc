@@ -118,10 +118,13 @@ eso es justo lo que había que aprender.
    parámetro suelto: **es una regla de negocio, y de las que un refactor bienintencionado
    borra** por parecer un descuido.
 
-### Lo que se hizo con esas respuestas, el 21 de agosto
+### Lo que se hizo el 21 de agosto
 
-Las cinco decisiones se aplicaron el mismo día. Cobertura: **312 → 322 de 539**,
-y sigue sin haber ningún controlador a cero.
+Primero las seis decisiones de Joseth, y después la lista de cobertura, que
+volvió a ser lo que más encontró. Cobertura: **312 → 331 de 539 (61%)**, y sigue
+sin haber ningún controlador a cero.
+
+**Lo que se decidió y se aplicó:**
 
 | Qué | Dónde |
 |---|---|
@@ -129,9 +132,33 @@ y sigue sin haber ningún controlador a cero.
 | El PIAR entero pasa a ser del personal — una de sus rutas no tenía guard ninguno | [05 §35](05-codigo-muerto-y-roto.md) |
 | El rol `Secretario` existe, y el `Psicólogo` gobierna por fin algo | [05 §30.3–30.5](05-codigo-muerto-y-roto.md) |
 | La bandera del periodo que se comprueba es la del periodo al que se escribe, en 25 de 26 llamadas | [05 §27.1.1](05-codigo-muerto-y-roto.md) |
+| La recuperación final es del año, así que pide los cuatro periodos abiertos | [05 §27.1.1](05-codigo-muerto-y-roto.md) |
 | `php artisan anios:actuales`, para los dieciséis | [05 §28.3](05-codigo-muerto-y-roto.md) |
 
+**Y lo que salió de seguir mirando, que fueron cuatro cosas más:**
+
+| Qué | Dónde |
+|---|---|
+| Un profesor cambiaba el **correo de recuperación** del superusuario y se llevaba su cuenta — y recibía su hash | [05 §36.1](05-codigo-muerto-y-roto.md) |
+| Cinco rutas cambiaban la **firma o la imagen** de cualquiera, incluido el **logo que sale en cada boletín** | [05 §36.2](05-codigo-muerto-y-roto.md) |
+| Tres rutas frenaban la escritura y respondían **200 diciendo que sí** | [05 §37](05-codigo-muerto-y-roto.md) |
+| Los pedidos de cambio devolvían **filas de `users` enteras, con el hash**, por una ruta de familia | [05 §38](05-codigo-muerto-y-roto.md) |
+
 **Nada de esto está desplegado**: `app/` es copia real en cada colegio.
+
+### Las dos cosas que enseñó el día, y que valen más que los arreglos
+
+1. **La misma protección, dos caminos, y solo uno cubierto.** `App\User` tiene
+   `password` en `$hidden` y eso funciona — pero solo si el usuario se lee **con
+   el modelo**. La §36.1 lo saltaba concatenando en una cadena y la §38 leyendo
+   con `DB::select`. En un proyecto con **990 consultas crudas**, `$hidden`
+   protege el camino que este proyecto casi no usa. Vale la pena buscar con esa
+   forma en la cabeza.
+2. **Una respuesta que miente es peor que un error**, porque el que la lee deja de
+   mirar. Ha aparecido ya tres veces con tres caras: los `abort()` de la §12, el
+   `response()->json()` sin `return` de la §35, y el `if` de permiso sin `else` de
+   la §37. Esta última tiene ya herramienta:
+   `tools/respuestas-que-mienten.py`.
 
 ### Lo que hace falta de Joseth ahora — por orden
 
