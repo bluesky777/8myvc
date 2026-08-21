@@ -178,4 +178,39 @@ class ResetCorreoCompartidoTest extends CasoDeContrato
             DB::selectOne('SELECT password FROM users WHERE username = ?', [$ajeno->username])->password,
             'El token alcanzó a una cuenta que NO comparte el correo.');
     }
+
+    /**
+     * La otra cara del arreglo, y por eso está escrita como test y no como nota:
+     * **la segunda cuenta de un correo compartido ya no puede pedir un enlace
+     * para sí**.
+     *
+     * `postRecuperarClave` recibe solo el correo —el formulario de «olvidé mi
+     * contraseña» del front manda `{email, ruta}` y nada más— y se queda con
+     * `$persona[0]`, la cuenta de id más bajo. Antes, la segunda llegaba a
+     * cambiar su contraseña nombrándose en el cuerpo al canjear, que era
+     * exactamente el agujero que se cerró: **el arreglo le quitó la única vía que
+     * tenía**. Son 8 cuentas en la copia de desarrollo, todas hermanos con el
+     * correo de un padre, y las cuenta `usuarios:correos-compartidos`.
+     *
+     * No se «arregla» aquí porque no es un fallo: elegir a cuál de las dos va el
+     * enlace es una decisión, y toca a los cuatro clientes. Lo que sí es un fallo
+     * sería que dejara de notarse.
+     */
+    public function test_la_segunda_cuenta_no_puede_pedir_un_enlace_para_si(): void
+    {
+        $cuentas = $this->dosCuentasConElMismoCorreo();
+
+        $numero = $this->pedirElEnlace($cuentas->correo);
+
+        $fila = DB::selectOne('SELECT username FROM password_reminders WHERE token = ?',
+            [hash('sha256', $numero)]);
+
+        $this->assertNotNull($fila, 'No se guardó el token que se acaba de emitir.');
+
+        $this->assertSame($cuentas->primero, $fila->username,
+            'El enlace de un correo compartido se emite para la cuenta de id más bajo.');
+
+        $this->assertNotSame($cuentas->segundo, $fila->username,
+            'Si esto cambia, la segunda cuenta ya puede recuperar: se decidió algo y hay que contarlo.');
+    }
 }

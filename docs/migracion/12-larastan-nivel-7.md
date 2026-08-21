@@ -498,3 +498,78 @@ tilde que `filter_var` rechaza (§9), usernames con las tildes borradas y userna
 vacíos (§12). No es un fallo repetido tres veces — es **un idioma que el código no
 contempla**, apareciendo en cada sitio donde un nombre propio se convierte en un
 identificador.
+
+
+## §13. El arreglo le quitó la recuperación a ocho cuentas, y el diagnóstico seguía contando el agujero de ayer
+
+**Arreglado el diagnóstico. La decisión de fondo es de Joseth y está abajo.**
+
+Esto salió de volver a correr `usuarios:correos-compartidos` unas horas después
+del §10, y es de las cosas que solo se ven mirando el resultado: **el comando
+imprimía un problema que ya no existe y callaba el que había creado el arreglo**.
+
+Las dos mitades:
+
+**El comando mentía, como mentía `DESPLIEGUE.md` esta mañana.** Decía
+`SE RESETEAN ENTRE SÍ ... 16 cuentas en 8 grupos` y cerraba recomendando el
+arreglo que ya estaba hecho —«que `password_reminders` guarde a quién se le
+emitió el token»—. Un diagnóstico que manda a arreglar lo arreglado no es ruido:
+es la forma que tiene una herramienta de medición de hacer daño, porque el que lo
+lea o pierde el rato o deja de creérsela. Se escribió a las 12:20 y el arreglo
+entró a las 12:35; **nada avisa de eso salvo volver a correrlo**.
+
+**Y lo que callaba.** `postRecuperarClave` recibe solo el correo —el formulario
+del front manda `{email, ruta}` y nada más— y se queda con `$persona[0]`, o sea
+la cuenta de **id más bajo** del grupo. Antes, la segunda del grupo llegaba a
+cambiar su contraseña nombrándose en el cuerpo al canjear el token, que es
+exactamente el agujero que se cerró. Dicho al derecho: **el arreglo de seguridad
+le quitó a ocho cuentas la única vía de recuperación que tenían**.
+
+Ocho, en la copia de desarrollo, y las ocho son hermanos con el correo de un
+padre — el caso legítimo, no el peligroso. El número que hay que mirar sube de
+2.112 a **2.120 (91%)**, y ahora sale desglosado:
+
+```
+  NO PUEDEN RECUPERAR CONTRASEÑA .. 2120  (91%)
+     sin correo ................... 1435
+     el correo no es una dirección  677
+     lo comparten y no son la 1ª ..   8
+```
+
+El bloque de grupos se queda —compartir buzón sigue importando— pero dice otra
+cosa: ya no es «se alcanzan entre sí», es **«quien lea ese buzón resetea la
+cuenta a la que le toque el enlace, y a cuál le toca lo decide un `id`»**. Por eso
+cada grupo imprime ahora `recibe el enlace: <username>`, que es el dato que no
+estaba y del que depende todo lo demás. El orden por superusuario y por cruce de
+tipos se conserva, con ese motivo nuevo.
+
+Lo fijan dos tests, y a propósito en sitios distintos: `CorreosCompartidosTest`
+comprueba que el comando **cuenta** a la segunda cuenta entre las que no pueden
+recuperar, y `ResetCorreoCompartidoTest` comprueba en el endpoint que el token se
+emite para la primera. Si alguien cambia eso, lo segundo se pone rojo con el
+mensaje escrito: *se decidió algo y hay que contarlo*.
+
+### La decisión, que no es mía
+
+Devolverle el enlace a esas ocho cuentas se puede, y no reabre nada — pero es una
+decisión y toca a los cuatro clientes:
+
+- **Dejarlo como está.** Las ocho dependen del reseteo a mano del superusuario,
+  igual que las otras 2.112. Cero trabajo, y honesto mientras el comando lo diga.
+- **Que `postRecuperarClave` acepte un `username` para elegir dentro del grupo.**
+  Ojo a la distinción, que es la que hace que esto no sea reabrir el §10: leer el
+  username **al emitir** solo decide a quién va un enlace que llega igualmente a
+  ese buzón; leerlo **al canjear** era dejar que el que llama eligiera qué cuenta
+  abre un token que ya tiene. Lo primero no alcanza a ninguna cuenta cuyo correo
+  no controles; lo segundo sí. Pero el front hoy no lo manda, así que sin tocar
+  `myvc_front` **y la app de Flutter, que es una para los dieciséis**, el cambio
+  no hace nada.
+- **Darles correo propio**, que es lo que el comando recomienda y lo único que
+  además saca a un superusuario de un buzón de familia si algún colegio tiene ese
+  caso.
+
+Y la forma, que es la que se repite: **un arreglo de seguridad quita algo, y lo
+que quita no aparece en ningún test porque los tests fijan lo que el arreglo
+protege.** Lo que lo destapó fue volver a correr la herramienta de medición
+*después*, que es el mismo criterio de los tests de contrato —mirar el resultado,
+no el estado— aplicado a las propias herramientas.

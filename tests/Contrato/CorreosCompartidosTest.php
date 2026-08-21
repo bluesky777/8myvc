@@ -5,17 +5,22 @@ namespace Tests\Contrato;
 use Illuminate\Support\Facades\DB;
 
 /**
- * El comando que separa «no puede recuperar» de «se resetean entre sí».
+ * El comando que separa «no puede recuperar» de «comparte el correo».
  *
  * Lo que hay que comprobar no es que cuente: es que **no confunda las dos
  * preguntas**. Un correo que `filter_var` rechaza no puede usarse para pedir un
  * enlace —`postRecuperarClave` aborta con 422 antes de tocar la base—, así que
- * un grupo con dirección inválida NO es riesgo de reseteo cruzado por muy grande
- * que sea. En la copia de desarrollo esa distinción es la diferencia entre
- * «690 cuentas en peligro» y «16», y la primera cifra habría mandado a mirar
+ * un grupo con dirección inválida no es un grupo compartido por muy grande que
+ * sea. En la copia de desarrollo esa distinción es la diferencia entre «690
+ * cuentas en peligro» y «16», y la primera cifra habría mandado a mirar
  * dieciséis colegios por un problema que no es ese.
  *
- * Ver docs/migracion/12-larastan-nivel-7.md §8.
+ * Y desde el arreglo del §10 hay una tercera que comprobar, que es la que un
+ * diagnóstico viejo se traga: de un grupo que comparte correo **solo la cuenta
+ * de id más bajo puede pedir el enlace**. Las demás no son un riesgo, son
+ * cuentas que no pueden recuperar, y tienen que salir contadas ahí.
+ *
+ * Ver docs/migracion/12-larastan-nivel-7.md §8 y §13.
  */
 class CorreosCompartidosTest extends CasoDeContrato
 {
@@ -43,14 +48,14 @@ class CorreosCompartidosTest extends CasoDeContrato
     }
 
     /**
-     * Un correo repetido pero **inválido** no cuenta como reseteo cruzado.
+     * Un correo repetido pero **inválido** no cuenta como grupo compartido.
      *
      * Es el caso que separa este diagnóstico de uno que solo suma filas
      * repetidas: `@gmail.com` —un dominio suelto, sin parte local— lo llevaban
      * 674 alumnos en la base de desarrollo, y ninguno de ellos puede pedir un
      * enlace de reseteo.
      */
-    public function test_un_correo_repetido_pero_invalido_no_es_reseteo_cruzado(): void
+    public function test_un_correo_repetido_pero_invalido_no_cuenta_como_compartido(): void
     {
         $this->cadaUnoConLaSuya();
 
@@ -59,7 +64,7 @@ class CorreosCompartidosTest extends CasoDeContrato
         DB::update('UPDATE users SET email = "@gmail.com" WHERE id IN (?, ?)', [$a, $b]);
 
         $this->comando('usuarios:correos-compartidos')
-            ->expectsOutputToContain('SE RESETEAN ENTRE SÍ ............ 0 cuentas')
+            ->expectsOutputToContain('COMPARTEN CORREO ................ 0 cuentas')
             ->expectsOutputToContain('el correo no es una dirección')
             ->assertExitCode(1);
     }
@@ -73,7 +78,7 @@ class CorreosCompartidosTest extends CasoDeContrato
         DB::update('UPDATE users SET email = "hermanos@ejemplo.test" WHERE id IN (?, ?)', [$a, $b]);
 
         $this->comando('usuarios:correos-compartidos')
-            ->expectsOutputToContain('SE RESETEAN ENTRE SÍ ............ 2 cuentas en 1 grupos')
+            ->expectsOutputToContain('COMPARTEN CORREO ................ 2 cuentas en 1 grupos')
             ->assertExitCode(1);
     }
 
@@ -95,6 +100,32 @@ class CorreosCompartidosTest extends CasoDeContrato
 
         $this->comando('usuarios:correos-compartidos')
             ->expectsOutputToContain('CON SUPERUSUARIO DENTRO')
+            ->assertExitCode(1);
+    }
+
+    /**
+     * La segunda cuenta de un correo compartido **no puede recuperar**, y el
+     * comando tiene que contarla ahí y no solo en el bloque de compartidos.
+     *
+     * Es la consecuencia del arreglo del §10, y la razón de que este comando
+     * haya tenido que cambiar: antes esa cuenta sí llegaba a un enlace, porque
+     * podía nombrarse en el cuerpo de la petición — que era el agujero. Cerrarlo
+     * le quitó la única vía que tenía. Un diagnóstico que siga diciendo «se
+     * resetean entre sí» manda a arreglar lo arreglado y **esconde esto**.
+     */
+    public function test_la_segunda_de_un_correo_compartido_no_puede_recuperar(): void
+    {
+        $this->cadaUnoConLaSuya();
+
+        [$a, $b] = $this->primeros(2);
+
+        DB::update('UPDATE users SET email = "hermanos@ejemplo.test" WHERE id IN (?, ?)', [$a, $b]);
+
+        $primero = DB::selectOne('SELECT username FROM users WHERE id = ?', [min($a, $b)]);
+
+        $this->comando('usuarios:correos-compartidos')
+            ->expectsOutputToContain('lo comparten y no son la 1ª .. 1')
+            ->expectsOutputToContain('recibe el enlace: '.$primero->username)
             ->assertExitCode(1);
     }
 }

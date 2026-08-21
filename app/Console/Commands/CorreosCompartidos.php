@@ -12,22 +12,30 @@ use Illuminate\Support\Facades\DB;
  * en la copia de desarrollo la primera es enorme y la segunda es grave, y
  * mezclarlas hace que la grande tape a la grave.
  *
- * **Resetearse entre sí.** `putResetPassword` ata la contraseña nueva al correo
- * del token, pero el `username` llega en el cuerpo de la petición y
- * `password_reminders` no guarda a quién se le emitió el token — la tabla solo
- * tiene `email`, `token` y `created_at`—. O sea que un enlace de reseteo abre
- * **cualquier cuenta que comparta ese correo**: la protección existe y llega
- * exactamente hasta el borde del grupo. Lo demuestra
- * `tests/Contrato/ResetCorreoCompartidoTest.php`.
+ * **Compartir correo.** Hasta el 21 ago 2026 esto era un agujero: el enlace abría
+ * cualquier cuenta del grupo, porque `putResetPassword` se creía el `username`
+ * del cuerpo. Ya no —`password_reminders` guarda a quién se le emitió el token—,
+ * y por eso este comando dejó de decir «se resetean entre sí»: **decirlo ahora
+ * mandaría a arreglar algo que está arreglado**, que es la única forma que tiene
+ * un diagnóstico de hacer daño.
+ *
+ * Lo que queda es de recuperación y no de seguridad, y es la otra cara del mismo
+ * arreglo: `postRecuperarClave` busca el correo y se queda con `$persona[0]`, o
+ * sea **la cuenta de id más bajo del grupo**. Las demás no pueden pedir un enlace
+ * nunca — antes lo lograban nombrándose en el cuerpo, que era justo el agujero.
+ * Ocho cuentas en la copia de desarrollo. Por eso suman en el bloque de arriba.
  *
  * **No poder recuperar.** Sin correo, o con un correo que no es una dirección,
- * `postRecuperarClave` aborta con 422 antes de mirar la base. Esas cuentas no
- * corren el riesgo de arriba —no se les puede emitir un enlace— pero dependen
- * de que un superusuario les ponga la contraseña a mano.
+ * `postRecuperarClave` aborta con 422 antes de mirar la base. Esas cuentas
+ * dependen de que un superusuario les ponga la contraseña a mano.
  *
- * Los grupos de riesgo se ordenan por lo que cuesta que pase, no por tamaño:
+ * Los grupos se siguen ordenando por lo que cuesta, no por tamaño, y el motivo
+ * cambió con el arreglo: ya no es que el grupo se alcance entre sí, es que
+ * **quien lea ese buzón resetea la cuenta a la que le toque el enlace**, y a cuál
+ * le toca lo decide un `id`:
  *
- *   1. grupos con un **superusuario** dentro — cualquiera del grupo toma el colegio;
+ *   1. grupos con un **superusuario** dentro — si es el de id más bajo, el enlace
+ *      del colegio entero llega a un buzón de familia;
  *   2. grupos que **cruzan tipos** (un alumno y un profesor, por ejemplo);
  *   3. el resto — normalmente hermanos con el correo de un padre.
  *
@@ -64,7 +72,8 @@ class CorreosCompartidos extends Command
                                         SUM(is_superuser = 1) AS superusuarios,
                                         COUNT(DISTINCT tipo) AS tipos,
                                         GROUP_CONCAT(DISTINCT tipo ORDER BY tipo) AS cuales,
-                                        GROUP_CONCAT(username ORDER BY id SEPARATOR ", ") AS quienes
+                                        GROUP_CONCAT(username ORDER BY id SEPARATOR ", ") AS quienes,
+                                        SUBSTRING_INDEX(GROUP_CONCAT(username ORDER BY id), ",", 1) AS primera
                                  FROM users
                                  WHERE deleted_at IS NULL AND is_active = 1
                                    AND email IS NOT NULL AND email != ""
@@ -82,7 +91,15 @@ class CorreosCompartidos extends Command
 
         $cuentasSinDireccion = array_sum(array_map(fn ($g) => (int) $g->cuentas, $noSonDireccion));
         $enJuego = array_sum(array_map(fn ($g) => (int) $g->cuentas, $compartidos));
-        $noRecuperan = $sinCorreo + $cuentasSinDireccion;
+
+        // Todas menos la de id más bajo de cada grupo: `postRecuperarClave` se
+        // queda con `$persona[0]`, así que a las demás no se les puede emitir un
+        // enlace. Suman aquí porque el efecto para su dueño es el mismo que no
+        // tener correo, y contarlas aparte las dejaría fuera del número que se
+        // mira.
+        $noPrimeras = array_sum(array_map(fn ($g) => (int) $g->cuentas - 1, $compartidos));
+
+        $noRecuperan = $sinCorreo + $cuentasSinDireccion + $noPrimeras;
 
         $this->line('');
         $this->line('  base ............................ '.$base);
@@ -101,8 +118,10 @@ class CorreosCompartidos extends Command
             $this->line('        ... y '.(count($noSonDireccion) - 5).' formas más.');
         }
 
+        $this->line('     lo comparten y no son la 1ª .. '.$noPrimeras);
+
         $this->line('');
-        $this->line('  SE RESETEAN ENTRE SÍ ............ '.$enJuego.' cuentas en '.count($compartidos).' grupos');
+        $this->line('  COMPARTEN CORREO ................ '.$enJuego.' cuentas en '.count($compartidos).' grupos');
         $this->line('');
 
         if ($compartidos !== []) {
@@ -131,10 +150,10 @@ class CorreosCompartidos extends Command
                 }
             }
 
-            $this->line('  El arreglo de fondo es que `password_reminders` guarde a quién se le');
-            $this->line('  emitió el token, para que `putResetPassword` deje de creerse el');
-            $this->line('  `username` del cuerpo. Mientras tanto, lo que baja el riesgo es dar');
-            $this->line('  correo propio a las cuentas de los dos primeros bloques.');
+            $this->line('  El enlace de cada grupo va a la cuenta de id más bajo, que arriba sale');
+            $this->line('  como «recibe el enlace». Las demás no pueden pedirlo: darles correo');
+            $this->line('  propio es lo que las devuelve al circuito, y de paso saca al superusuario');
+            $this->line('  de un buzón que lee una familia.');
             $this->line('');
         }
 
@@ -146,7 +165,7 @@ class CorreosCompartidos extends Command
         }
 
         if ($compartidos === []) {
-            $this->warn('  Ningún correo repetido: cada enlace abre una sola cuenta. Pero las');
+            $this->warn('  Ningún correo repetido: cada cuenta activa tiene el suyo. Pero las');
             $this->warn('  '.$noRecuperan.' de arriba no pueden pedirlo, así que dependen de que un');
             $this->warn('  superusuario les ponga la contraseña a mano.');
             $this->line('');
@@ -161,6 +180,7 @@ class CorreosCompartidos extends Command
         foreach ($grupos as $g) {
             $this->line(sprintf('    %5dx  %-34s  [%s]', $g->cuentas, mb_substr((string) $g->email, 0, 34), $g->cuales));
             $this->line('            '.mb_substr((string) $g->quienes, 0, 88));
+            $this->line('            recibe el enlace: '.$g->primera);
         }
 
         $this->line('');
