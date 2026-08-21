@@ -295,6 +295,32 @@ Puede que sea lo que el colegio quiere —varias elecciones a la vez— o puede 
 no. Lo que no puede ser es que dependa de qué consulta se lea, así que **se
 contesta antes de tocar los interruptores**.
 
+### §5.4. Contestada la mitad — 21 ago 2026
+
+Joseth eligió **«una por profesor»**, o sea la lectura de `actual()` y
+`actualInAction()`: el dueño de una elección es quien la creó, y él la
+administra. Con eso, **acotar los seis interruptores de la §5 por dueño queda
+autorizado**: son «el que la creó la administra».
+
+> La respuesta llegó a través de otra sesión que trabajaba en paralelo, no
+> directamente, y se anota así a propósito. Antes de escribir el guard conviene
+> confirmarlo, porque decide quién deja de poder configurar una elección en los
+> dieciséis colegios.
+
+**Y la otra mitad sigue abierta, en las palabras de la propia respuesta:** cuál
+de las elecciones de los profesores le toca a un alumno **no se puede deducir de
+la base**. `actualesInscrito()` no filtra por dueño porque no hay por dónde
+filtrar: `vt_votaciones` no dice a qué alumnos alcanza una elección, solo
+`vt_participantes` dice quién vota, y eso es el censo, no la pertenencia.
+
+Así que **`actualesInscrito()` no se acota todavía**. Elegir ahí un criterio
+—los alumnos de sus asignaturas, los de su grupo como titular, o todo el
+colegio— es decidir por el colegio, no arreglar. La pregunta afinada, para
+cuando se haga:
+
+> ¿La elección de un profesor la votan sus alumnos de asignatura, los de su grupo
+> como titular, o todo el colegio?
+
 ---
 
 ## Lo que queda por mirar de este dominio
