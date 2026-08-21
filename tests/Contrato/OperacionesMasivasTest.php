@@ -2,6 +2,7 @@
 
 namespace Tests\Contrato;
 
+use App\Support\Autoriza;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
@@ -105,25 +106,80 @@ class OperacionesMasivasTest extends CasoDeContrato
             (string) DB::table('users')->where('id', $conDocumento->id)->value('username'));
     }
 
-    /** Un alumno no dispara ninguna de las cuatro: son de `auth.personal`. */
-    public function test_una_familia_no_dispara_las_masivas(): void
+    /** @return list<string> Las cuatro, para no escribirlas cuatro veces. */
+    private function lasCuatro(): array
     {
-        $token = $this->tokenDe($this->usuarioDeTipo('Alumno')->username);
-
-        $rutas = [
+        return [
             'cambiar-usuarios/poner-documento-como-username-alumnos',
             'cambiar-usuarios/poner-documento-como-username-acudientes',
             'cambiar-usuarios/poner-password-todos-alumnos',
             'cambiar-usuarios/poner-password-todos-acudientes',
         ];
+    }
+
+    /** Un alumno no dispara ninguna de las cuatro: son de `auth.personal`. */
+    public function test_una_familia_no_dispara_las_masivas(): void
+    {
+        $token = $this->tokenDe($this->usuarioDeTipo('Alumno')->username);
 
         $antes = DB::table('users')->where('tipo', 'Alumno')->orderBy('id')->pluck('password')->all();
 
-        foreach ($rutas as $ruta) {
+        foreach ($this->lasCuatro() as $ruta) {
             $this->withToken($token)->putJson('/api/'.$ruta, ['clave' => 'x'])->assertStatus(403);
         }
 
         $this->assertSame($antes,
             DB::table('users')->where('tipo', 'Alumno')->orderBy('id')->pluck('password')->all());
+    }
+
+    /**
+     * Y un profesor tampoco, que es lo que faltaba.
+     *
+     * Con `auth.personal` a secas las disparaba cualquiera de los 51 profesores
+     * del colegio: reiniciar la contraseña de los 1.280 alumnos era una petición
+     * a mano de distancia. Ahora piden el mismo criterio que la papelera de
+     * grupos y profesores — `Autoriza::esAdministrativo` —, que es la misma clase
+     * de operación.
+     */
+    public function test_un_profesor_no_dispara_las_masivas(): void
+    {
+        $token = $this->tokenDe($this->usuarioDeTipo('Profesor')->username);
+
+        $antes = DB::table('users')->where('tipo', 'Alumno')->orderBy('id')->pluck('password')->all();
+        $usernames = DB::table('users')->where('tipo', 'Alumno')->orderBy('id')->pluck('username')->all();
+
+        foreach ($this->lasCuatro() as $ruta) {
+            $this->withToken($token)->putJson('/api/'.$ruta, ['clave' => 'x'])->assertStatus(403);
+        }
+
+        $this->assertSame($antes,
+            DB::table('users')->where('tipo', 'Alumno')->orderBy('id')->pluck('password')->all());
+        $this->assertSame($usernames,
+            DB::table('users')->where('tipo', 'Alumno')->orderBy('id')->pluck('username')->all());
+    }
+
+    /**
+     * El criterio se lee del propio `Autoriza`, no se copia aquí.
+     *
+     * En la base de desarrollo no existe el rol `Secretario`, así que hoy
+     * `esAdministrativo` vale exactamente `is_superuser` y un test escrito con
+     * «superusuario sí, profesor no» pasaría por la razón equivocada el día que
+     * el colegio cree ese rol. Se comprueba la regla, no su valor de hoy.
+     */
+    public function test_el_criterio_es_el_de_autoriza(): void
+    {
+        $superusuario = DB::selectOne('SELECT u.* FROM users u
+            INNER JOIN periodos p ON p.id = u.periodo_id
+            WHERE u.tipo = "Usuario" AND u.is_superuser = 1 AND u.is_active = 1
+              AND u.deleted_at IS NULL ORDER BY u.id LIMIT 1');
+
+        $profesor = $this->usuarioDeTipo('Profesor');
+
+        $this->assertTrue(Autoriza::esAdministrativo(
+            (object) ['is_superuser' => $superusuario->is_superuser, 'user_id' => $superusuario->id]));
+
+        $this->assertFalse(Autoriza::esAdministrativo(
+            (object) ['is_superuser' => $profesor->is_superuser, 'user_id' => $profesor->id]),
+            'Si un profesor pasa el criterio, las cuatro masivas vuelven a estar abiertas a los 51.');
     }
 }

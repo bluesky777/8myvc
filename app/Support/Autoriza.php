@@ -5,7 +5,13 @@ namespace App\Support;
 use App\Models\Role;
 
 /**
- * Comprobaciones de autorización para las operaciones destructivas de la papelera.
+ * Comprobaciones de autorización para las operaciones de alcance de colegio.
+ *
+ * Nació para las destructivas de la papelera y desde el 20 ago 2026 cubre
+ * también las masivas de cuentas (`cambiar-usuarios/*`), que no borran nada pero
+ * reescriben el nombre de usuario o la contraseña de TODOS los alumnos o de
+ * todos los acudientes de golpe. El criterio es el mismo y por eso vive aquí:
+ * son operaciones de colegio, no de aula.
  *
  * Existe porque el criterio estaba copiado a mano en unos controladores y ausente
  * en otros: alumnos/forcedelete comprobaba, unidades/forcedelete comprobaba otra
@@ -23,9 +29,19 @@ use App\Models\Role;
 class Autoriza
 {
     /**
-     * Operaciones administrativas de papelera: grupos, profesores.
-     * Mismo criterio que ya usaba alumnos/forcedelete, sin la rama de profesor:
-     * borrar definitivamente no es tarea docente.
+     * Operaciones administrativas: papelera de grupos y profesores, y las
+     * masivas de cuentas. Mismo criterio que ya usaba alumnos/forcedelete, sin
+     * la rama de profesor: ni borrar definitivamente ni reiniciar la contraseña
+     * del colegio entero son tarea docente.
+     *
+     * **Aviso medido el 20 ago 2026:** en la base de desarrollo no existe ningún
+     * rol llamado `Secretario` —los once son Alumno, Acudiente, Profesor, Admin,
+     * Psicólogo, Enfermero, Coord disciplinario, Manager, Asistente, Coord
+     * académico y Rector—, así que aquí esta condición vale exactamente
+     * `is_superuser`. El rol que sí existe y tiene gente dentro es `Admin`, con
+     * diez. Si el nombre correcto es ése, se cambia en esta línea y arregla los
+     * seis sitios a la vez; es justo para eso que la regla está en uno solo.
+     * Anotado en docs/migracion/09-pendientes.md §5.
      */
     public static function esAdministrativo($user): bool
     {

@@ -43,6 +43,13 @@ python3 tools/cobertura-de-rutas.py /tmp/rutas.json /tmp/tocadas.txt
 El registrador vive en `tests/TestCase.php` y solo se enciende con la variable
 puesta; una corrida normal no escribe nada.
 
+> **Una corrida cada vez.** Cada test se aísla dentro de una transacción, y una
+> transacción aísla de las otras conexiones **de esa misma corrida**. Dos
+> `php artisan test` a la vez sobre la misma base —por ejemplo, la medición de
+> cobertura de arriba en segundo plano mientras se prueba un fichero suelto— se
+> pisan: aparecen fallos que no se reproducen después y que no están en el
+> código. Costó un cuarto de hora el 20 de agosto de 2026.
+
 **Lo que hace útil al informe es separar «ejecutada» de «comprobada».** Medido a
 secas, el 99% de las rutas se ejecutan: `AutenticacionTest` y `RutasPreLoginTest`
 las hacen pasar a las 539 por el router para sus snapshots de guards, y eso no

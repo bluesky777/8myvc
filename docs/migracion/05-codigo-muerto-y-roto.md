@@ -2364,15 +2364,36 @@ porque eso es una política del colegio y no se inventa aquí. Fijado en
 `OperacionesMasivasTest`, que comprueba las dos mitades: que sin clave no cambia
 **ninguna** fila, y que con clave las cambia todas.
 
-### 26.1 Lo que queda abierto, y no es de esta pasada
+### 26.1 Y quién puede dispararlas, que sí tenía respuesta
 
-Las cuatro llevan `auth.personal`, así que **un profesor puede reiniciar la
-contraseña de todos los alumnos del colegio**. Cae de lleno en «qué puede hacer el
-personal entre sí», que Joseth dejó fuera a propósito ([08 §1](08-revision-idor.md)),
-y no hay dónde apoyarse para cerrarlo: **en toda la API no existe ningún guard de
-superusuario** —los cuatro middlewares son de sesión, de personal, de boletín
-propio y de persona propia—, así que crear uno es una decisión y no un arreglo.
-Anotado en 09 §5.
+Las cuatro llevaban `auth.personal` a secas, así que **cualquiera de los 51
+profesores del colegio podía reiniciar la contraseña de los 1.280 alumnos**. Eso
+parece «qué puede hacer el personal entre sí», que Joseth dejó fuera a propósito
+([08 §1](08-revision-idor.md)) — y la primera versión de esta sección lo dejó ahí
+diciendo que no había dónde apoyarse porque ninguno de los cuatro middlewares es
+de superusuario.
+
+**Era falso, y se vio al leer `YearsController` para otra cosa.** El sitio donde
+apoyarse existe y está decidido: `App\Support\Autoriza`, escrito en esta misma
+migración para los `forceDelete`, con tres criterios y un 403, y con el porqué en
+su cabecera: *«el criterio estaba copiado a mano en unos controladores y ausente
+en otros… con la regla en un solo sitio no puede volver a divergir»*. Reiniciar la
+cuenta de todo el colegio es la misma clase de operación que vaciar la papelera de
+un año: de colegio, no de aula. Las cuatro piden ya `Autoriza::esAdministrativo`.
+
+**Lo que salió de aplicarlo, y vale para los cinco sitios que ya lo usaban:**
+`esAdministrativo` es `is_superuser || Role::isSecretario()`, y **en la base no
+existe ningún rol llamado `Secretario`**. Los once son Alumno (1.280), Acudiente
+(999), Profesor (51), **Admin (10)**, Psicólogo, Enfermero, Coord disciplinario,
+Manager, Asistente, Coord académico y Rector. O sea que hoy la condición vale
+exactamente `is_superuser`, y el rol que existe y tiene gente dentro se llama
+`Admin`. Si ése es el nombre correcto, se cambia una línea y arregla los seis
+sitios a la vez — que es justo para lo que la regla está en uno solo. Anotado en
+09 §5.
+
+El test no copia el criterio: se lo pregunta a `Autoriza`. Escribirlo como
+«superusuario sí, profesor no» pasaría por la razón equivocada el día que el
+colegio cree el rol que falta.
 
 ---
 
