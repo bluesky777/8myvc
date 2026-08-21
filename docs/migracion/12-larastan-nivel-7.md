@@ -125,6 +125,37 @@ ni un rastro —ni excepción, ni log, ni código de error— y la secretaría v
 200 cada vez. El fallo solo se volvió medible el día que dejó de ser silencioso,
 que es justo el argumento de por qué `tools/respuestas-que-mienten.py` existe.
 
+## §1.1. `php artisan matriculas:huerfanas`, para saber a quién le pasó
+
+Arreglar el fallo no deshace lo que hizo. Durante los años de PHP 7 esto
+respondió 200 dejando alumnos sin matricular, y **eso sigue escrito en dieciséis
+bases**. El comando las cuenta, con el mismo criterio que `anios:actuales`: no
+decide nada, solo acota la lista a mano de colegio.
+
+Lo que **no** puede hacer, y va escrito en su cabecera: **distinguir el daño del
+fallo de una baja legítima**. Un alumno con todas sus matrículas del año en la
+papelera puede haber llegado ahí por `matriculas/destroy`, que es una operación
+normal. Lo que sí es cierto de todos los que lista es que **hoy no salen en
+ninguna lista, ningún boletín ni ninguna acta** de ese año, y eso el colegio lo
+puede contrastar en un minuto. Un diagnóstico que afirmara más de lo que sabe se
+dejaría de mirar a la tercera vez.
+
+La primera cifra que imprime es la que más dice: **si el colegio no tiene ninguna
+matrícula en la papelera, el fallo no se disparó nunca ahí**.
+
+Y ese es el hallazgo lateral de escribirlo: **la copia de desarrollo tiene cero
+matrículas en la papelera** y 479 retiros vivos con `estado = 'RETI'`. O sea que
+en este colegio los retiros no borran la fila, la marcan — así que el bucle roto
+no llegaba a entrar y el daño aquí es nulo. Es perfectamente posible que varios
+de los dieciséis salgan limpios, y por eso el comando dice primero cuántas hay
+en la papelera y solo después mira a quién le falta: **la pregunta barata va
+delante de la cara**.
+
+Lo fija `tests/Contrato/MatriculasHuerfanasTest.php`, y el caso que de verdad
+comprueba es el de en medio —hay matrículas en la papelera pero nadie se quedó
+fuera—, que es el que un diagnóstico perezoso confundiría con el tercero y
+mandaría a revisar dieciséis colegios para nada.
+
 ## §2. `segundosDeVida()` emitía un *deprecated* de PHP en cada login
 
 **Arreglado.**
