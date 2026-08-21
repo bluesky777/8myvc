@@ -547,3 +547,28 @@ saber el tamaño real del daño en las dieciséis bases antes de tocar código.
   vuelve a no probar nada. Y sigue sin haber forma estática de saber qué claves
   lee un controlador — la lista de nombres del cuerpo se amplía a mano, como el
   mapa de la URL.
+
+- **Las dos familias que quedaban, hechas el 20 ago 2026.** El snapshot por
+  familia decía que doce no tenían ningún guard y que nueve estaban bien. **Dos
+  de esas nueve no lo estaban** — [05 §19](05-codigo-muerto-y-roto.md):
+
+  - **`POST importar/algo/{year}` es el importador vivo y no llevaba guard.** Un
+    alumno sube una hoja y la importación se ejecuta entera a su nombre:
+    `completada`, 37 filas, y 37 alumnos, 37 matrículas, 44 acudientes y 44
+    parentescos escritos. Es la escritura más grande que ha alcanzado un token de
+    familia en toda la serie. Que no crecieran los alumnos es mérito de la
+    idempotencia por documento del §1 de este documento, no del guard.
+  - **`GET folios/iniciar` numera de golpe las matrículas del año** y no llama a
+    `fromToken()` ni una vez.
+
+  Lo que hay que llevarse, porque es lo que decide dónde mirar después:
+
+  - **El barrido mide lo que sabe construir.** Tres sabores del mismo límite, ya
+    con nombre: el cuerpo vacío (§17), el `xlsx` de salida que no sabe leer
+    (§17), y el archivo de entrada que no sabe mandar (§19). Si mañana aparece un
+    endpoint que solo actúa con una cabecera concreta, será el cuarto.
+  - **El seed vacío tapa hallazgos, y ya van cuatro**: `unidades_por_defecto`,
+    los alumnos borrados, `pazysalvo` y ahora los folios. `folios/iniciar` salía
+    en el barrido desde la primera pasada **escribiendo**, y se dejó pasar porque
+    afectaba a cero filas. Una consulta que se ejecuta sobre cero filas se
+    parece demasiado a una que no se ejecuta.

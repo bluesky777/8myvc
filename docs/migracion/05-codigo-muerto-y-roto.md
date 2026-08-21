@@ -1630,3 +1630,83 @@ desde antes de la migración ([§8](#8-lo-que-encontró-golpear-las-rutas-20-ago
 porque `vt_participantes` no tiene `user_id`. El guard es para el día que se
 arregle — lo que pretende devolver es el directorio de cuentas del colegio con su
 correo y su `is_superuser`.
+
+---
+
+## 19. Las dos familias que quedaban sin guard (20 ago 2026)
+
+El snapshot `guard-por-familia` de la [§17](#17-la-hermana-que-se-quedó-sin-el-guard-20-ago-2026)
+decía que doce familias no tenían ningún guard, y que nueve de las doce estaban
+bien. **Dos de esas nueve no lo estaban**, y las dos las había visto el barrido
+sin poder decir lo que pasaba dentro.
+
+### 19.1 Un alumno importando alumnos
+
+`POST api/importar/algo/{year}` es el importador **vivo** —los otros tres de su
+familia están rotos con la firma de maatwebsite 2.x, [§8](#8-lo-que-encontró-golpear-las-rutas-20-ago-2026-p2-de-tests)—
+y no llevaba ningún guard. Medido con token de alumno y de acudiente antes de
+cerrarlo:
+
+```
+POST importar/algo -> 200
+  ESCRITURAS: {"importaciones":39,"alumnos":37,"matriculas":37,
+               "debugging":37,"acudientes":44,"parentescos":44}
+  fila:       {"estado":"completada","filas":37,"created_by":2375}
+```
+
+**La importación se ejecutó entera, y la fila quedó a nombre del alumno.** Es la
+escritura más grande que ha alcanzado un token de familia en toda esta serie.
+
+Que el número de alumnos no cambiara es mérito de la **idempotencia por
+documento** que se hizo en [09 §1](09-pendientes.md), no del guard: la hoja que
+se subió era un export de los que ya estaban. Una hoja editada crea y modifica lo
+que diga — que es precisamente lo que hace un importador.
+
+**Por qué el barrido no podía verlo**, que es la parte que hay que recordar:
+`postAlgo` empieza con `if (Request::hasFile('file'))`, y el barrido no manda
+archivos. Es el **tercer sabor del mismo límite**, y conviene tenerlos juntos:
+
+1. el cuerpo vacío, que escondió `promovidos/calcular-grupo` y media cartera
+   ([§17](#17-la-hermana-que-se-quedó-sin-el-guard-20-ago-2026));
+2. el `xlsx` de respuesta, cuyos bytes su detector de datos personales no lee
+   —`cartera/exportar-solo-deudores`—;
+3. y ahora el archivo de **entrada**, que no sabe mandar.
+
+Las tres son la misma frase con el sujeto cambiado: **el barrido mide lo que sabe
+construir.**
+
+### 19.2 El `UPDATE` que no mira el token ni una vez
+
+`GET api/folios/iniciar` no llama a `fromToken()`. Hace:
+
+```sql
+UPDATE matriculas m
+  INNER JOIN grupos g ON g.id=m.grupo_id AND (m.nro_folio is null OR m.nro_folio="")
+    AND g.year_id=? and g.deleted_at is null
+  INNER JOIN years y ON y.id=g.year_id and y.deleted_at is null
+SET m.nro_folio=CONCAT(y.year,"-", m.alumno_id);
+```
+
+o sea que numera de golpe todas las matrículas del año actual que no tengan
+folio. **Esta sí la enseñaba el barrido** —salió como `ESCRIBE: update matriculas`
+desde la primera pasada de la §15— y se dejó pasar porque en el seed **afecta a
+cero filas**: todas las matrículas tienen folio. La consulta se ejecuta igual, así
+que `DB::listen` la ve, y el resultado no distingue «escribió» de «no había nada
+que escribir».
+
+Es la cuarta vez que el seed vacío tapa un hallazgo, después de
+`unidades_por_defecto`, los alumnos borrados y `pazysalvo`
+([§16.4](#164-cuatro-papeleras-sin-guard-y-dos-que-mienten-en-el-nombre),
+[§17.3](#173-la-cartera-que-no-miraba-el-token-ni-una-vez)). El candado de ésta
+comprueba la puerta y no el efecto, y lo dice.
+
+### 19.3 Lo que queda de esto
+
+- Cinco rutas más con `auth.personal` —las cuatro de `importar` y `folios/iniciar`—
+  y dos familias que pasan de no tener ningún guard a tenerlo entero.
+- Dos casos nuevos en `SuperficieDeUnAlumnoTest`, comprobados al revés. El del
+  importador mira **el efecto**: que no quede fila en `importaciones`, porque un
+  403 que llegara después de la primera hoja ya habría escrito.
+- Y el barrido baja de 16 rutas con algo dentro a **13**, que son las de siempre:
+  lo suyo del alumno, la configuración del colegio, y las tres que esperan una
+  decisión en la tabla del [09 §5](09-pendientes.md).

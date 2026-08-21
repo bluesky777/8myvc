@@ -51,13 +51,25 @@ Route::put('alumnos/restore/{id}', [AlumnosController::class, 'putRestore']);
 Route::put('alumnos/update/{id}', [AlumnosController::class, 'putUpdate']);
 
 // ImportarController
-Route::get('importar', [ImportarController::class, 'getIndex']);
-Route::post('importar/cartera', [ImportarController::class, 'postCartera']);
-Route::post('importar/algo/{year}', [ImportarController::class, 'postAlgo']);
-Route::get('importar/modificar/{year}', [ImportarController::class, 'getModificar']);
+//
+// Las cuatro con `auth.personal`, y la que importa es `algo/{year}`: es el
+// importador VIVO —los otros tres están rotos con la firma de maatwebsite 2.x,
+// 05 §8— y no llevaba guard ninguno. Medido: un alumno sube una hoja y la
+// importación se ejecuta ENTERA a su nombre —`estado: completada`, 37 filas,
+// `created_by` el suyo— escribiendo alumnos, matrículas, acudientes y
+// parentescos. El barrido no podía verlo porque `Request::hasFile('file')` es
+// false cuando se golpea sin archivo, y él golpea sin archivo. Ver 05 §19.
+Route::get('importar', [ImportarController::class, 'getIndex'])->middleware('auth.personal');
+Route::post('importar/cartera', [ImportarController::class, 'postCartera'])->middleware('auth.personal');
+Route::post('importar/algo/{year}', [ImportarController::class, 'postAlgo'])->middleware('auth.personal');
+Route::get('importar/modificar/{year}', [ImportarController::class, 'getModificar'])->middleware('auth.personal');
 
 // FoliosController
-Route::get('folios/iniciar', [FoliosController::class, 'getIniciar']);
+// Un `UPDATE matriculas` sobre todas las del año actual sin número de folio, sin
+// mirar el token ni una vez —el método no llama a `fromToken()`—. En el seed
+// afecta a cero filas porque todas tienen folio, y por eso el barrido la
+// enseñaba escribiendo sin que se viera el daño. Ver 05 §19.
+Route::get('folios/iniciar', [FoliosController::class, 'getIniciar'])->middleware('auth.personal');
 
 // AcudientesController
 // Las cuatro devuelven el fichero de acudientes con documento, celular,

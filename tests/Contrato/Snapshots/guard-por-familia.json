@@ -165,7 +165,7 @@
     },
     "folios": {
         "total": 1,
-        "con_guard": 0
+        "con_guard": 1
     },
     "frases": {
         "total": 4,
@@ -193,7 +193,7 @@
     },
     "importar": {
         "total": 4,
-        "con_guard": 0
+        "con_guard": 4
     },
     "informes": {
         "total": 2,

@@ -2,6 +2,7 @@
 
 namespace Tests\Contrato;
 
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\DataProvider;
 
@@ -1126,5 +1127,74 @@ class SuperficieDeUnAlumnoTest extends CasoDeContrato
                     VALUES (?, ?, "A", "1", 0, ?, ?)', [$otro->user_id, $aspiracion, now(), now()]);
 
         return [$votacion, (int) DB::getPdo()->lastInsertId()];
+    }
+
+    /**
+     * Un alumno importando alumnos, que es la escritura más grande de la API.
+     *
+     * `POST importar/algo/{year}` es el importador **vivo** —los otros tres de su
+     * familia están rotos con la firma de maatwebsite 2.x ([05 §8])— y no llevaba
+     * ningún guard. Medido antes de cerrarlo: un alumno y un acudiente subieron
+     * una hoja y la importación **se ejecutó entera** —`estado: completada`, 37
+     * filas, `created_by` el del alumno— escribiendo 37 `alumnos`, 37
+     * `matriculas`, 44 `acudientes` y 44 `parentescos`.
+     *
+     * Que el número de alumnos no cambiara es mérito de la idempotencia por
+     * documento que se hizo en [09 §1], no del guard: la hoja era un export de
+     * los que ya estaban. Una hoja editada crea y modifica lo que diga.
+     *
+     * **El barrido no podía verlo**, y esta vez no por el cuerpo: `postAlgo`
+     * empieza con `if (Request::hasFile('file'))` y el barrido no manda archivos.
+     * Es el tercer sabor del mismo límite —primero el cuerpo vacío, luego el
+     * `xlsx` que no sabe leer, y ahora el archivo que no sabe mandar.
+     *
+     * Se comprueba por el efecto: que no quede fila en `importaciones`. Un 403
+     * que llegara después de la primera hoja ya habría escrito.
+     */
+    public function test_una_familia_no_importa_alumnos(): void
+    {
+        $personal = $this->usuarioDeTipo('Usuario');
+
+        $anio = (int) DB::table('periodos')
+            ->join('years', 'years.id', '=', 'periodos.year_id')
+            ->where('periodos.id', $personal->periodo_id)
+            ->value('years.year');
+
+        $r = $this->get('/api/users/export', ['Authorization' => 'Bearer '.$this->tokenDe($personal->username)]);
+        $r->assertStatus(200);
+
+        $hoja = tempnam(sys_get_temp_dir(), 'importar').'.xlsx';
+        copy($this->archivoDescargado($r), $hoja);
+
+        foreach ($this->cabecerasDeUnaFamilia() as $quien => $cab) {
+            $antes = DB::table('importaciones')->count();
+
+            $this->post("/api/importar/algo/{$anio}",
+                ['file' => new UploadedFile($hoja, 'alumnos.xlsx', null, null, true)], $cab)
+                ->assertStatus(403);
+
+            $this->assertSame($antes, DB::table('importaciones')->count(),
+                "El 403 llegó tarde: {$quien} ya había abierto una importación.");
+        }
+
+        @unlink($hoja);
+    }
+
+    /**
+     * Y el `UPDATE` de los folios, que no mira el token ni una vez.
+     *
+     * `GET folios/iniciar` no llama a `fromToken()`: numera de golpe todas las
+     * matrículas del año actual que no tengan folio. En el seed afecta a cero
+     * filas porque todas lo tienen, y por eso el barrido la enseñaba escribiendo
+     * sin que se viera el daño — es la misma trampa que `unidades_por_defecto` y
+     * que los alumnos borrados de [05 §16.4]. Aquí se comprueba la puerta, que
+     * es lo único que este seed puede demostrar, y se deja dicho por qué.
+     */
+    public function test_una_familia_no_numera_los_folios_del_colegio(): void
+    {
+        foreach ($this->cabecerasDeUnaFamilia() as $quien => $cab) {
+            $this->assertSame(403, $this->getJson('/api/folios/iniciar', $cab)->getStatusCode(),
+                "{$quien} sigue numerando los folios del colegio.");
+        }
     }
 }
