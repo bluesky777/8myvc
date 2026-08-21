@@ -138,14 +138,84 @@ Fijado por `test_compartir_una_actividad_que_no_existe_es_500`.
 
 ---
 
+## §5. La pantalla de corregir: cuatro caminos y uno que funciona
+
+`PUT respuestas/actividad` es una sola ruta y la que más devuelve del dominio:
+por cada grupo al que se compartió la actividad, **todos sus alumnos** con
+nombre, foto, si terminaron, su `puntaje_manual` y su comentario. Lleva
+`auth.personal` desde la [05 §24](05-codigo-muerto-y-roto.md), que la cerró a las
+familias — y ahí se quedó la cosa. Nadie había mirado qué responde.
+
+`putActividad()` se abre en cuatro caminos según cómo esté la actividad, y **solo
+uno de los cuatro hace lo que dice el nombre de la ruta**:
+
+| Estado de la actividad | Qué devuelve |
+|---|---|
+| compartida + `para_alumnos` | la lista de corregir, bien |
+| compartida + `para_profesores` | **la palabra `Profesores`** |
+| compartida + `para_acudientes` | **la palabra `Acudientes`** |
+| compartida sin ningún `para_*` | 200 con la actividad y **sin la clave `grupos`** |
+| **sin compartir** | **500** |
+
+### §5.1. La rama `else` es una consulta vacía
+
+```php
+} else {
+    $consulta = '';
+    $alumnos  = DB::select($consulta, [$user->year_id]);
+}
+```
+
+Una cadena vacía como SQL. No es que devuelva mal: es que no se puede ejecutar. Y
+el `$alumnos` que saldría de ahí **no se usa después** — se pierde.
+
+O sea que la pantalla de corregir **solo existe si la actividad está
+compartida**, y `compartida` vale 0 por defecto en el esquema. El profesor que
+llegue ahí recibe un 500. Con ruta y roto se documenta.
+
+### §5.2. Y dos ramas devuelven una palabra suelta
+
+`return 'Profesores';` y `return 'Acudientes';`, literal. No es un error ni una
+lista vacía: es el hueco donde nunca se escribió esa pantalla, y ha llegado hasta
+aquí devolviendo una cadena con 200 dentro.
+
+Es la familia de «**una respuesta que miente**» en su forma más literal de todas
+las que lleva encontradas este repo: se pide la corrección de una actividad de
+profesores y llega un 200 con la palabra «Profesores».
+
+### §5.3. El bucle que hace el mismo trabajo N² veces — medido
+
+Dos `for` anidados, y **el de dentro no usa el índice del de fuera**: el exterior
+recorre `count($grupos)` y el interior vuelve a lanzar la misma consulta de
+grupos y a recorrerlos todos otra vez, pisando `$grupos` con un resultado
+idéntico.
+
+El resultado final es correcto, y por eso no lo ha notado nadie. Lo que cuesta es
+cuadrático: con G grupos compartidos, la consulta de alumnos —la cara, cinco
+joins y todos los matriculados de cada grupo— se ejecuta **G × G veces en vez de
+G**.
+
+Medido con tres grupos: **nueve consultas donde debían ser tres**
+(`test_la_consulta_de_alumnos_se_repite_al_cuadrado`). Se mide y no se afirma
+porque «esto parece O(n²)» es justo lo que este repo pide comprobar.
+
+El arreglo es borrar el bucle exterior, y **no se hace aquí**: va con la forma de
+la respuesta ya fijada al lado (`test_la_lista_de_corregir_trae_los_alumnos_del_grupo`),
+que es lo que convierte ese borrado en un cambio comprobable en vez de uno a
+ciegas.
+
+### §5.4. Y la §2 pega aquí más fuerte que en ningún sitio
+
+`putActividad()` tampoco mira `created_by`. En los demás métodos eso significa
+tocar la configuración de un examen ajeno; aquí significa **leer los datos
+personales de todos los alumnos** de todos los grupos a los que se compartió, con
+su foto y con su nota. Fijado por `test_el_personal_abre_la_correccion_de_otro`.
+
+---
+
 ## Lo que queda por mirar
 
-1. **`PUT respuestas/actividad`** — la pantalla de corregir: por cada grupo al que
-   se compartió la actividad, todos sus alumnos con lo que contestaron, su
-   `puntaje_manual` y su foto. Lleva `auth.personal` desde la
-   [05 §24](05-codigo-muerto-y-roto.md), pero **nadie ha mirado su respuesta**, y
-   por la §2 de aquí el que la pide no tiene por qué ser el autor de la
-   actividad.
+1. ~~`PUT respuestas/actividad`~~ — **mirada, está en la §5.**
 2. **`PUT actividades/datos` y `putCompartidas`**, que son los dos listados
    grandes del profesor.
 3. **`putDuplicarPregunta`**, que copia una pregunta con sus opciones y es donde
