@@ -2650,6 +2650,39 @@ los lectores ese año ya no estaba; pone en la fila lo que todos ya deducían.
 El test no comprueba la línea, comprueba la trampa: borra el año actual, pone otro
 como actual, restaura el primero y exige que no haya dos.
 
+**Y los datos de antes siguen ahí**, que es lo que este arreglo no toca: impide
+que vuelva a pasar, no deshace lo que pasó. Joseth eligió el 21 ago 2026 recogerlo
+con un comando en vez de con una consulta pegada dieciséis veces:
+
+```bash
+php artisan anios:actuales      # en cada colegio. No escribe nada.
+```
+
+Cuenta los años actuales, enseña además **los que están encendidos en la
+papelera** —que no se ven desde ninguna pantalla y que `years/restore/{id}`
+devuelve encendidos— y sale con código 1 si hay algo que mirar, para que se note
+en un bucle sobre los dieciséis. **No apaga ninguno**: elegir en qué año amanece
+un colegio no es de un script.
+
+Corrido en la base de desarrollo el mismo día, encontró exactamente el caso de
+esta sección: un año actual vivo (2025) y el 2026 encendido en la papelera desde
+el 24 de junio de 2025.
+
+**Y hay fecha para correrlo.** Al contestar esta pregunta, Joseth contó algo que
+no estaba escrito en ninguna parte:
+
+> Más o menos en **octubre se crea el año siguiente copiando todo del anterior**
+> excepto el número del año. El año que elige el usuario rige la plataforma con
+> sus configuraciones, **excepto en los informes, donde siempre salen el rector y
+> el secretario del año actual** — para que se puedan firmar informes viejos
+> cuando el rector de aquel año ya no trabaja en el colegio.
+
+Las dos mitades importan. La primera pone fecha: **la copia de octubre es el
+momento exacto en que un colegio con dos años actuales se lleva la ambigüedad al
+año nuevo**. La segunda explica el `$actual=true` de `Year::datos()`, que hasta hoy
+parecía un parámetro suelto: **es una regla de negocio**, y de las que un refactor
+bienintencionado borra por parecer un descuido. Anotado también en `Year`.
+
 ### 28.4 Lo que se midió y estaba bien
 
 - **`years/useractive/{id}` muda al usuario y no al colegio.** Es el par que el

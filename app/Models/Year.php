@@ -112,6 +112,21 @@ class Year extends Model {
 	}
 
 	
+	/**
+	 * Los datos del colegio para un informe.
+	 *
+	 * **`$actual` no es un parámetro suelto: es una regla de negocio**, y de las
+	 * que un refactor bienintencionado borra por parecer un descuido. Con `true`
+	 * —que es como lo llama casi todo— los firmantes salen del año **actual** y no
+	 * del año del informe, a propósito: un boletín de hace tres años se firma con
+	 * el rector y el secretario de hoy, porque **el rector de aquel año puede que
+	 * ya no trabaje en el colegio** y un informe hay que poder firmarlo cuando se
+	 * imprime. Contado por Joseth el 21 ago 2026; no estaba escrito en ninguna
+	 * parte. Ver docs/migracion/05-codigo-muerto-y-roto.md §28.3.
+	 *
+	 * Con `false` salen los del año que se pide, que es lo que quiere quien está
+	 * mirando ese año y no imprimiendo nada.
+	 */
 	public static function datos($year_id, $actual=true)
 	{
 		if ($actual) {
