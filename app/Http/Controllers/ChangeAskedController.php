@@ -578,21 +578,50 @@ class ChangeAskedController extends Controller {
 
 
 
+	/**
+	 * Aprobar un cambio que alguien pidió sobre sus propios datos.
+	 *
+	 * **Lo que se arregló el 21 ago 2026 (05 §39).** Las cuatro ramas de texto
+	 * —nombres, apellidos, sexo, fecha de nacimiento— escribían así:
+	 *
+	 *     UPDATE alumnos SET nombres=:nombres WHERE id=:id
+	 *     [ ':nombres' => Request::input('valor_nuevo'),
+	 *       ':id'      => Request::input('alumno_id') ]
+	 *
+	 * O sea que **a quién se renombra y con qué lo decidía el cuerpo de la
+	 * petición**, no el pedido. `$asked_id` se buscaba y no se usaba para nada: se
+	 * podía mandar un id inventado. Con `auth.personal` como único guard, la ruta
+	 * era un `UPDATE alumnos SET nombres` abierto a los 51 profesores, saltándose
+	 * `alumnos/update`, que sí exige superusuario o `profes_can_edit_alumnos`.
+	 * Comprobado de punta a punta antes de tocarlo.
+	 *
+	 * Es la misma forma que la §27 y se arregla igual: **derivar de la fila que se
+	 * aprueba, no de lo que venga escrito**. El alumno sale de
+	 * `change_asked.asked_by_user_id` —como ya hacía `cambiarOficialAlumno()`, que
+	 * estaba bien— y el valor de `change_asked_data.<campo>_new`, que es lo que la
+	 * persona pidió de verdad.
+	 */
 	public function putAceptarAlumno()
 	{
 		$user 			= User::fromToken();
 
 		$asked_id 		= Request::input('asked_id');
 		$tipo 			= Request::input('tipo');
-		$data_id 		= Request::input('data_id');
-		$valor_nuevo 	= Request::input('valor_nuevo');
 
 		$pedido 		= ChangeAsked::pedido($asked_id);
+
+		// `pedido()` devuelve un array vacío cuando el id no existe, y así
+		// llegaba hasta el UPDATE sin que nadie mirara.
+		if (! is_object($pedido)) {
+			abort(404, 'Ese pedido no existe.');
+		}
+
+		$data_id 		= $pedido->data_id;
 
 		if ($tipo == "img_perfil") {
 			$this->cambiarImgAlumno($pedido);
 			$consulta = 'UPDATE change_asked_data SET image_id_accepted=true WHERE id=:data_id';
-			DB::select($consulta, [ ':data_id' => $data_id ]);
+			DB::update($consulta, [ ':data_id' => $data_id ]);
 			$pedido->image_id_accepted 	= true;
 		}
 
@@ -603,43 +632,39 @@ class ChangeAskedController extends Controller {
 				$this->cambiarOficialAlumno($pedido);
 			}
 			$consulta = 'UPDATE change_asked_data SET foto_id_accepted=true WHERE id=:data_id';
-			DB::select($consulta, [ ':data_id' => $data_id ]);
+			DB::update($consulta, [ ':data_id' => $data_id ]);
 			$pedido->foto_id_accepted 	= true;			
 		}
 		
 		if ($tipo == "img_delete") {
 			ImageModel::eliminar_imagen_y_enlaces($pedido->image_to_delete_id);
 			$consulta = 'UPDATE change_asked_data SET image_to_delete_accepted=true WHERE id=:data_id';
-			DB::select($consulta, [ ':data_id' => $data_id ]);
+			DB::update($consulta, [ ':data_id' => $data_id ]);
 			$pedido->image_to_delete_accepted 	= true;
 		}
 		
 		if ($tipo == "nombres") {
-			$consulta = 'UPDATE alumnos SET nombres=:nombres WHERE id=:id';
-			DB::select($consulta, [ ':nombres' => $valor_nuevo, ':id' => Request::input('alumno_id') ]);
+			$this->aplicarAlAlumno($pedido, 'nombres', $pedido->nombres_new);
 			$consulta = 'UPDATE change_asked_data SET nombres_accepted=true WHERE id=:data_id';
-			DB::select($consulta, [ ':data_id' => $data_id ]);
+			DB::update($consulta, [ ':data_id' => $data_id ]);
 			$pedido->nombres_accepted 	= true;
 		}
 		if ($tipo == "apellidos") {
-			$consulta = 'UPDATE alumnos SET apellidos=:apellidos WHERE id=:id';
-			DB::select($consulta, [ ':apellidos' => $valor_nuevo, ':id' => Request::input('alumno_id') ]);
+			$this->aplicarAlAlumno($pedido, 'apellidos', $pedido->apellidos_new);
 			$consulta = 'UPDATE change_asked_data SET apellidos_accepted=true WHERE id=:data_id';
-			DB::select($consulta, [ ':data_id' => $data_id ]);
+			DB::update($consulta, [ ':data_id' => $data_id ]);
 			$pedido->apellidos_accepted 	= true;
 		}
 		if ($tipo == "sexo") {
-			$consulta = 'UPDATE alumnos SET sexo=:sexo WHERE id=:id';
-			DB::select($consulta, [ ':sexo' => $valor_nuevo, ':id' => Request::input('alumno_id') ]);
+			$this->aplicarAlAlumno($pedido, 'sexo', $pedido->sexo_new);
 			$consulta = 'UPDATE change_asked_data SET sexo_accepted=true WHERE id=:data_id';
-			DB::select($consulta, [ ':data_id' => $data_id ]);
+			DB::update($consulta, [ ':data_id' => $data_id ]);
 			$pedido->sexo_accepted 	= true;
 		}
 		if ($tipo == "fecha_nac") {
-			$consulta = 'UPDATE alumnos SET fecha_nac=:fecha_nac WHERE id=:id';
-			DB::select($consulta, [ ':fecha_nac' => $valor_nuevo, ':id' => Request::input('alumno_id') ]);
+			$this->aplicarAlAlumno($pedido, 'fecha_nac', $pedido->fecha_nac_new);
 			$consulta = 'UPDATE change_asked_data SET fecha_nac_accepted=true WHERE id=:data_id';
-			DB::select($consulta, [ ':data_id' => $data_id ]);
+			DB::update($consulta, [ ':data_id' => $data_id ]);
 			$pedido->fecha_nac_accepted 	= true;
 		}
 		
@@ -649,70 +674,101 @@ class ChangeAskedController extends Controller {
 	}
 
 
+	/**
+	 * Aprobar el cambio de asignatura que pidió un profesor.
+	 *
+	 * **Lo que se arregló el 21 ago 2026 (05 §39).** El método empezaba con
+	 * `$pedido = Request::input('pedido')` y a partir de ahí **todo salía del
+	 * cuerpo**: a qué asignatura, a qué profesor, con cuántos créditos y cuál
+	 * borrar. Con `auth.personal` como único guard, cualquiera de los 51
+	 * profesores reasignaba cualquier asignatura a cualquiera, creaba asignaturas
+	 * en cualquier grupo y **mandaba a la papelera la asignatura que quisiera**,
+	 * sin que hiciera falta que existiera ningún pedido.
+	 *
+	 * Ahora el cuerpo solo aporta el `asked_id` —que es lo que el front ya manda
+	 * dentro de `pedido`, porque el objeto se lo dio este mismo servidor— y lo
+	 * demás se relee de la base. Incluido `asignatura_actual`, que no es una
+	 * columna sino algo que `Solicitudes` **calcula** a partir de la materia y el
+	 * grupo pedidos: recalcularlo aquí cuesta una consulta y quita la última cosa
+	 * que se estaba creyendo.
+	 *
+	 * El profesor tampoco se acepta escrito: es el que hizo el pedido, o sea el
+	 * dueño de `change_asked.asked_by_user_id`, que es de donde lo sacaba
+	 * `Solicitudes` para enseñarlo.
+	 */
 	public function putAceptarAsignatura()
 	{
-		$user 			= User::fromToken();
-		$pedido 		= Request::input('pedido');
-		$now 			= Carbon::now('America/Bogota');
+		$user 		= User::fromToken();
+		$now 		= Carbon::now('America/Bogota');
+		$enviado 	= Request::input('pedido');
+		$asked_id 	= is_array($enviado) ? ($enviado['asked_id'] ?? null) : $enviado;
+		$pedido 	= ChangeAsked::pedido($asked_id);
 
-		if ($pedido['materia_to_add_id'] > 0) {
-			
-			if ($pedido['asignatura_actual']['ocupada']) {
-				
+		if (! is_object($pedido)) {
+			abort(404, 'Ese pedido no existe.');
+		}
+
+		$profesor = DB::selectOne('SELECT id FROM profesores WHERE user_id = ? AND deleted_at IS NULL',
+			[$pedido->asked_by_user_id]);
+
+		if ($profesor === null) {
+			abort(404, 'El pedido no es de ningún profesor.');
+		}
+
+		if ($pedido->materia_to_add_id > 0) {
+
+			// `ocupada`: si esa materia ya tiene asignatura en ese grupo. Es el
+			// mismo cálculo que hace Solicitudes para enseñarlo, rehecho aquí en
+			// vez de creerse el que venga en el cuerpo.
+			$ocupada = DB::selectOne('SELECT id FROM asignaturas
+				WHERE materia_id = ? AND grupo_id = ? AND deleted_at IS NULL',
+				[$pedido->materia_to_add_id, $pedido->grupo_to_add_id]);
+
+			if ($ocupada !== null) {
 				$consulta = 'UPDATE asignaturas SET profesor_id=:profesor_id, creditos=:creditos, updated_by=:updated_by, updated_at=:updated_at
 								WHERE id=:id';
 				DB::update($consulta, [
-						':profesor_id' 	=> $pedido['profesor_id'], 
-						':creditos' 	=> $pedido['creditos_new'], 
-						':updated_by'	=> $user->user_id, 
-						':updated_at' 	=> $now, 
-						':id' 			=> $pedido['asignatura_actual']['asignatura_id']
+						':profesor_id' 	=> $profesor->id,
+						':creditos' 	=> $pedido->creditos_new,
+						':updated_by'	=> $user->user_id,
+						':updated_at' 	=> $now,
+						':id' 			=> $ocupada->id,
 				]);
-
-			}else{
-
-				$consulta = 'INSERT INTO asignaturas(materia_id, grupo_id, profesor_id, creditos, orden, created_by, created_at) 
+			} else {
+				$consulta = 'INSERT INTO asignaturas(materia_id, grupo_id, profesor_id, creditos, orden, created_by, created_at)
 										VALUES(:materia_id, :grupo_id, :profesor_id, :creditos, 1, :created_by, :created_at)';
 				DB::insert($consulta, [
-						':materia_id' 	=> $pedido['materia_to_add_id'], 
-						':grupo_id' 	=> $pedido['grupo_to_add_id'], 
-						':profesor_id' 	=> $pedido['profesor_id'], 
-						':creditos' 	=> $pedido['creditos_new'], 
-						':created_by'	=> $user->user_id, 
-						':created_at' 	=> $now
+						':materia_id' 	=> $pedido->materia_to_add_id,
+						':grupo_id' 	=> $pedido->grupo_to_add_id,
+						':profesor_id' 	=> $profesor->id,
+						':creditos' 	=> $pedido->creditos_new,
+						':created_by'	=> $user->user_id,
+						':created_at' 	=> $now,
 				]);
 			}
 
-			$consulta = 'UPDATE change_asked_assignment SET asignatura_to_remove_accepted=true, materia_to_add_accepted=true, creditos_accepted=true, updated_at=:updated_at 
+			$consulta = 'UPDATE change_asked_assignment SET asignatura_to_remove_accepted=true, materia_to_add_accepted=true, creditos_accepted=true, updated_at=:updated_at
 						WHERE id=:assignment_id';
+			DB::update($consulta, [ ':updated_at' => $now, ':assignment_id' => $pedido->assignment_id ]);
 
-			DB::update($consulta, [ ':updated_at' => $now, ':assignment_id' => $pedido['assignment_id'] ]);
+		} else if ($pedido->asignatura_to_remove_id > 0) {
 
-		} else if($pedido['asignatura_to_remove_id'] > 0) {
-			
 			$consulta = 'UPDATE asignaturas SET deleted_at=:deleted_at, deleted_by=:deleted_by WHERE id=:asignatura_id';
 			DB::update($consulta, [
-					':deleted_at' 		=> $now, 
-					':deleted_by' 		=> $pedido['asked_by_user_id'], 
-					':asignatura_id' 	=> $pedido['asignatura_to_remove_id'], 
+					':deleted_at' 		=> $now,
+					':deleted_by' 		=> $pedido->asked_by_user_id,
+					':asignatura_id' 	=> $pedido->asignatura_to_remove_id,
 			]);
-			$consulta = 'UPDATE change_asked_assignment SET asignatura_to_remove_accepted=true, materia_to_add_accepted=true, creditos_accepted=true, updated_at=:updated_at 
+
+			$consulta = 'UPDATE change_asked_assignment SET asignatura_to_remove_accepted=true, materia_to_add_accepted=true, creditos_accepted=true, updated_at=:updated_at
 						WHERE id=:assignment_id';
-
-			DB::update($consulta, [ ':updated_at' => $now, ':assignment_id' => $pedido['assignment_id'] ]);
-
-
+			DB::update($consulta, [ ':updated_at' => $now, ':assignment_id' => $pedido->assignment_id ]);
 		}
 
 		$consulta = 'UPDATE change_asked SET accepted_at=:accepted_at, answered_by=:answered_by	WHERE id=:asked_id';
-		DB::update($consulta, [ ':accepted_at' => $now, ':answered_by' => $user->user_id, ':asked_id' => $pedido['asked_id'] ]);
+		DB::update($consulta, [ ':accepted_at' => $now, ':answered_by' => $user->user_id, ':asked_id' => $pedido->asked_id ]);
 
-
-		$pedido['asignatura_to_remove_accepted'] 	= true;
-		$pedido['materia_to_add_accepted'] 			= true;
-		$pedido['creditos_accepted'] 				= true;
-		
-		return [ 'finalizado'=> true, 'msg'=>'Cambio aceptado con éxito'];
+		return [ 'finalizado' => true, 'msg' => 'Cambio aceptado con éxito' ];
 	}
 
 
@@ -783,6 +839,28 @@ class ChangeAskedController extends Controller {
 		$finalizado = $this->finalizar_si_no_hay_cambios($pedido, $user->user_id);
 
 		return [ 'finalizado'=> $finalizado, 'msg'=>'Cambio rechazado con éxito'];
+	}
+
+
+	/**
+	 * Escribe una columna del alumno **que hizo el pedido**, con el valor que pidió.
+	 *
+	 * Las dos mitades salen del pedido y ninguna del cuerpo, que es el arreglo
+	 * entero: el alumno de `asked_by_user_id` —igual que `cambiarOficialAlumno()`,
+	 * que ya lo hacía bien— y el valor de la columna `<campo>_new`.
+	 *
+	 * La columna es una de cuatro cadenas literales escritas más arriba, nunca
+	 * algo que venga de la petición.
+	 */
+	private function aplicarAlAlumno($pedido, string $columna, $valor)
+	{
+		$alumno = Alumno::where('user_id', $pedido->asked_by_user_id)->first();
+
+		if ($alumno === null) {
+			abort(404, 'El pedido no es de ningún alumno.');
+		}
+
+		DB::update("UPDATE alumnos SET {$columna}=? WHERE id=?", [$valor, $alumno->id]);
 	}
 
 

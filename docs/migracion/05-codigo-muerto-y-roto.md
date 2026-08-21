@@ -3501,3 +3501,75 @@ primero para conseguir lo segundo.
 Fijado por `PedidosDeCambioTest`, con las dos mitades: que no sale ningún hash y
 que **el pedido se sigue creando y sigue diciendo quién lo hizo** — porque
 recortar una respuesta es fácil de hacer de más.
+
+---
+
+## 39. El pedido era decorativo: aprobar escribía lo que dijera el cuerpo (21 ago 2026)
+
+Siete rutas de `ChangeAskedController` sin que nadie hubiera mirado nunca lo que
+responden. Es el flujo con el que alguien **pide** un cambio sobre sus propios
+datos y otro lo **aprueba**, y las dos rutas que aprueban no comprobaban lo que
+estaban aprobando.
+
+### 39.1 Renombrar a cualquier alumno
+
+`putAceptarAlumno` recibe un `asked_id`, busca el pedido… y luego escribe así:
+
+```php
+$consulta = 'UPDATE alumnos SET nombres=:nombres WHERE id=:id';
+DB::select($consulta, [ ':nombres' => Request::input('valor_nuevo'),
+                        ':id'      => Request::input('alumno_id') ]);
+```
+
+**A quién se renombra y con qué lo decidía el cuerpo de la petición.** El pedido
+se buscaba y no se usaba: se podía mandar un `asked_id` inventado. Con
+`auth.personal` como único guard, la ruta era un `UPDATE alumnos SET nombres`
+abierto a los 51 profesores —y saltándose `alumnos/update`, que sí exige
+superusuario o `profes_can_edit_alumnos`—. Las cuatro ramas de texto igual:
+nombres, apellidos, sexo y fecha de nacimiento.
+
+Medido antes de tocarlo: con token de profesor y `asked_id: 999999`, el alumno
+quedó renombrado.
+
+### 39.2 Reasignar o borrar cualquier asignatura
+
+`putAceptarAsignatura` empezaba con `$pedido = Request::input('pedido')`, y a
+partir de ahí **todo** salía del cuerpo: a qué asignatura, a qué profesor, con
+cuántos créditos, y cuál mandar a la papelera. La rama de
+`asignatura_to_remove_id` es la que más alcance tiene: un `UPDATE asignaturas SET
+deleted_at` sobre el id que se escriba.
+
+### 39.3 El arreglo es el mismo de la §27, y por eso se dice igual
+
+**Derivar de la fila que se aprueba, no de lo que venga escrito.** El alumno sale
+de `change_asked.asked_by_user_id` —como ya hacía `cambiarOficialAlumno()`, que
+estaba bien y era el modelo a seguir dentro del mismo fichero— y el valor de
+`change_asked_data.<campo>_new`, que es lo que la persona pidió de verdad. En la
+de asignaturas, el cuerpo solo aporta ya el `asked_id`, que es lo que el front
+manda dentro de `pedido` porque **el objeto se lo dio este mismo servidor**.
+
+Se recalcula además `asignatura_actual`, que no es una columna sino algo que
+`Solicitudes` **calcula** a partir de la materia y el grupo pedidos. Cuesta una
+consulta y quita la última cosa que se estaba creyendo.
+
+Y de paso: **siete `UPDATE` se ejecutaban con `DB::select`**. Funciona —PDO no
+distingue— pero devuelve una lista vacía en vez del número de filas afectadas, así
+que ninguno de los siete podía saber si había escrito algo. Pasan a `DB::update`.
+
+### 39.4 Un test que pasaba por la razón equivocada
+
+El primer test de la asignatura **daba verde antes del arreglo**, y no porque la
+ruta estuviera bien: mandaba `asignatura_actual['id']` y el controlador lee
+`asignatura_actual['asignatura_id']`, así que el `UPDATE` iba con `:id => null`,
+no tocaba nada, y el test concluía que la fila no se había movido.
+
+Se vio comparando el test con el código, no corriéndolo. **Un test que da verde
+porque no llegó a ninguna parte es peor que no tenerlo**, porque además ocupa el
+sitio del que sí habría comprobado. Es la tercera vez en el día que aparece la
+misma idea —el test del hash de la §25.4 y las excepciones de `AutorizacionTest`
+de la §35—, y las tres se cazaron igual: **mirando si el test falla cuando debe
+fallar.**
+
+Y las tres líneas del final de `putAceptarAsignatura` que hacían
+`$pedido['..._accepted'] = true` sobre un array local que ya nadie leía se
+retiran: la respuesta era y sigue siendo `['finalizado' => true, 'msg' => …]`.
