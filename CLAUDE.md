@@ -20,7 +20,7 @@ medición o de una decisión, y sin el porqué se deshace solo.
 Todo corre dentro del contenedor (`kool` sobre docker compose):
 
 ```bash
-docker exec 8myvc-app-1 php artisan test                       # los 438
+docker exec 8myvc-app-1 php artisan test                       # los 666
 docker exec 8myvc-app-1 php artisan test --testsuite=Contrato  # solo contrato (necesita BD)
 docker exec 8myvc-app-1 php artisan test --filter=NotasTest    # una clase
 
@@ -30,6 +30,11 @@ docker exec 8myvc-app-1 composer run pint                      # formato
 docker exec 8myvc-app-1 composer run stan                      # larastan nivel 5
 
 tools/construir-bd-test.sh                                     # crea/reconstruye la BD de tests
+
+# Varias sesiones a la vez: una base por sesión, o se pisan (deadlocks, fallos
+# que no se reproducen). El sufijo es libre mientras lleve _testing dentro.
+DB_TEST_DATABASE=simonbolivar_testing_b tools/construir-bd-test.sh
+docker exec -e DB_TEST_DATABASE=simonbolivar_testing_b 8myvc-app-1 php artisan test
 ```
 
 La base de tests **no** se reconstruye entre tests: cada uno corre dentro de una

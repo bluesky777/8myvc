@@ -50,7 +50,10 @@ abstract class CasoDeContrato extends TestCase
         $conexion = config('database.default');
         $base = config("database.connections.{$conexion}.database");
 
-        if (! preg_match('/_(testing|test)$/', (string) $base)) {
+        // El sufijo opcional del final admite una base por sesión
+        // (`simonbolivar_testing_b`), que es como se corren dos tandas a la vez
+        // sin que se bloqueen entre sí. Ver docs/migracion/03-tests.md.
+        if (! preg_match('/_(testing|test)(_[a-z0-9]+)?$/', (string) $base)) {
             $this->fail(
                 "Los tests apuntan a la base '{$base}', que no acaba en _testing.\n".
                 "Revisa DB_CONNECTION en phpunit.xml. Debe ser 'mysql_testing'."
@@ -173,6 +176,65 @@ abstract class CasoDeContrato extends TestCase
             'Sin eso los informes de ese año salen vacíos y el test no comprueba nada.');
 
         return $this->tokenDe($usuario->username);
+    }
+
+    /**
+     * Un grupo del MISMO año al que el alumno no pertenece, montado aquí.
+     *
+     * Existe porque «un grupo que no es el suyo» no se puede sacar del seed con
+     * `WHERE grupo_id != $suyo`, y creerlo ha costado ya cuatro veces lo mismo
+     * —la última, el 21 de agosto de 2026, una acusación falsa contra un guard
+     * que estaba bien—. El seed trae **dos grupos, uno por año**, y **el mismo
+     * alumno está matriculado en los dos**: 84 en el año 7 y 98 en el 8. Así que
+     * `!=` no devuelve un grupo ajeno, devuelve **el otro grupo suyo**.
+     *
+     * Y devuelve el peor de los dos, porque `Services\Login` reescribe
+     * `users.periodo_id` al periodo del año `actual` en cada inicio de sesión: el
+     * grupo «ajeno» que sale del `!=` acaba siendo justo el del año en el que el
+     * token deja al alumno. El test pasa, y lo que ha comprobado es que un alumno
+     * abre una actividad **de su propia asignatura**.
+     *
+     * Por eso esto crea un grupo de verdad —mismo año, sin matrículas— con una
+     * asignatura dentro, y lo deshace la transacción del test. Es la única forma
+     * de que «ajeno» signifique ajeno sin que el año se cuele en la comparación.
+     *
+     * Ver 05 §16 y docs/migracion/11-votaciones.md.
+     *
+     * @return object {grupo_id, asignatura_id}
+     */
+    protected function grupoAjenoDelMismoAnio(int $yearId): object
+    {
+        $molde = DB::selectOne('SELECT grado_id FROM grupos WHERE year_id = ? AND deleted_at IS NULL
+                                ORDER BY id LIMIT 1', [$yearId]);
+
+        $this->assertNotNull($molde, "El seed no tiene ningún grupo en el año {$yearId}.");
+
+        $grupoId = DB::table('grupos')->insertGetId([
+            'nombre' => 'Grupo ajeno de pruebas',
+            'abrev' => 'AJE',
+            'year_id' => $yearId,
+            'grado_id' => $molde->grado_id,
+            'orden' => 99,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $materia = DB::selectOne('SELECT id FROM materias WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+        $profesor = DB::selectOne('SELECT id FROM profesores WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+
+        $this->assertNotNull($materia, 'El seed no tiene materias.');
+        $this->assertNotNull($profesor, 'El seed no tiene profesores.');
+
+        $asignaturaId = DB::table('asignaturas')->insertGetId([
+            'materia_id' => $materia->id,
+            'grupo_id' => $grupoId,
+            'profesor_id' => $profesor->id,
+            'orden' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return (object) ['grupo_id' => $grupoId, 'asignatura_id' => $asignaturaId];
     }
 
     /** El grupo del seed y un token que lo pueda ver entero, que es el par de siempre. */

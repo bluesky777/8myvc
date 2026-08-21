@@ -11,7 +11,7 @@
 #   tools/construir-bd-test.sh
 #
 # Variables (con sus valores por defecto para el docker de desarrollo):
-#   DB_TEST_DATABASE=simonbolivar_testing
+#   DB_TEST_DATABASE=simonbolivar_testing        (o ..._testing_b, una por sesión)
 #   DB_TEST_HOST, DB_TEST_PORT                     (solo si no es el host por defecto)
 #   MYSQL_EXEC="docker exec -i 8myvc-database-1"   (vacío para hablar con MySQL directamente)
 #   PHP_EXEC="docker exec -i 8myvc-app-1"          (vacío para usar el php de este equipo)
@@ -39,8 +39,14 @@ for f in "$ESQUEMA" "$SEED"; do
 done
 
 # Guardia: que nadie apunte esto por accidente a la base de trabajo.
+#
+# El sufijo (`..._testing_b`) es para tener una base por sesión: varias sesiones
+# corriendo tests contra la MISMA base se bloquean entre sí —el `insert` de
+# `personal_access_tokens` de `CasoDeContrato::token()` da deadlock, medido el
+# 21 ago 2026—, y con `DatabaseTransactions` una corrida ve a medias lo que la
+# otra está escribiendo. Ver docs/migracion/03-tests.md.
 case "$DB_TEST_DATABASE" in
-    *_testing|*_test) ;;
+    *_testing|*_test|*_testing_*|*_test_*) ;;
     *)
         echo "DB_TEST_DATABASE='$DB_TEST_DATABASE' no acaba en _testing ni _test." >&2
         echo "Este script BORRA la base entera. Abortando por si acaso." >&2
@@ -89,7 +95,18 @@ mysql_cmd "$DB_TEST_DATABASE" < "$ESQUEMA"
 # una columna nullable—, pero la primera que toque datos existentes necesita su
 # propio test, no este script.
 echo "  migraciones:"
-$PHP_EXEC php artisan migrate --force --database=mysql_testing --no-interaction
+# `env` va aquí porque `$PHP_EXEC` es un `docker exec`, y un `docker exec` NO
+# hereda el entorno de quien lo llama: la variable se queda fuera del
+# contenedor. Sin esto, pedir una base distinta con DB_TEST_DATABASE construye
+# esa base con `mysql` —que sí corre desde aquí— pero migra **la de por
+# defecto**, y luego el seed muere con "Unknown column 'firmantes_acta'" sobre
+# un esquema pelado. Falla ruidoso, pero acusa al fichero equivocado.
+# Con `env` la variable se pone dentro, y sirve igual si PHP_EXEC está vacío.
+$PHP_EXEC env \
+    DB_TEST_DATABASE="$DB_TEST_DATABASE" \
+    ${DB_TEST_HOST:+DB_TEST_HOST="$DB_TEST_HOST"} \
+    ${DB_TEST_PORT:+DB_TEST_PORT="$DB_TEST_PORT"} \
+    php artisan migrate --force --database=mysql_testing --no-interaction
 
 echo "  seed:     $SEED"
 mysql_cmd "$DB_TEST_DATABASE" < "$SEED"

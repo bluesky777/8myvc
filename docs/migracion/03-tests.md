@@ -19,6 +19,79 @@ La base **no** se reconstruye entre tests: cada test corre dentro de una
 transacción que se deshace al terminar. Solo hace falta reconstruirla si cambia
 el esquema o el seed.
 
+### Varias sesiones a la vez: una base por sesión
+
+Si hay más de una persona —o más de una sesión de Claude— trabajando en el mismo
+repo, **cada una quiere su propia base**. Se construye con `DB_TEST_DATABASE` y
+se usa con la misma variable:
+
+```bash
+# Una vez, para montarla
+DB_TEST_DATABASE=simonbolivar_testing_b tools/construir-bd-test.sh
+
+# Cada vez
+docker exec -e DB_TEST_DATABASE=simonbolivar_testing_b 8myvc-app-1 php artisan test
+```
+
+El sufijo es libre mientras el nombre lleve `_testing` o `_test` dentro: es lo
+que miran los dos guardias que impiden correr los tests contra la base de
+trabajo, el del script y el de `CasoDeContrato::comprobarBaseDeTest()`.
+
+**Por qué hace falta, que no es evidente:** los tests se aíslan con
+`DatabaseTransactions`, y una transacción aísla de las demás conexiones **de esa
+misma corrida**. Dos `php artisan test` a la vez sobre la misma base se pisan de
+dos maneras distintas, y ninguna se parece a un fallo del código:
+
+- **Deadlock.** Medido el 21 de agosto de 2026: cinco tests muertos en el
+  `insert` de `personal_access_tokens` que hace `CasoDeContrato::token()`, con
+  las dos corridas peleándose por la misma tabla.
+- **Fallos que no se reproducen.** Cada corrida ve a medias lo que la otra está
+  escribiendo. Costó un cuarto de hora el 20 de agosto de 2026 y cinco tests el
+  21.
+
+Con base propia no hay nada que coordinar: cada sesión corre suites enteras
+cuando quiera.
+
+> **Lo que cuesta tener una base por sesión: se quedan viejas por separado.**
+> Cada una se construye una vez y no vuelve a mirar las migraciones. Si otra
+> sesión añade una, tu base no la tiene — y **la suite sigue en verde**, porque
+> lo que falta son tablas o columnas que solo usan los tests de esa otra sesión.
+>
+> Pasó el mismo día que se montó esto: `simonbolivar_testing` se quedó sin
+> `2026_08_21_100000_create_rol_secretario` mientras las otras dos sí la tenían.
+>
+> **Y la forma en que se encontró es media lección.** Se llegó por una corazonada
+> equivocada: dos sesiones daban «todo verde» con números distintos —604 y 682— y
+> se supuso que la base vieja lo explicaba. No lo explicaba. La diferencia era que
+> una había corrido `--testsuite=Contrato` y la otra la suite entera
+> (`Unit: 69 + Feature: 9 + Contrato: 604 = 682`), y la migración que faltaba **no
+> cambiaba ningún resultado**: crea la fila del rol `Secretario` y todavía no hay
+> test que la exija.
+>
+> O sea que la base **sí** estaba desactualizada y los números **sí** diferían, y
+> las dos cosas no tenían nada que ver. Un conteo distinto no delata una base
+> vieja —lo que la delata es mirar `migrations`—, y una base vieja no se nota en
+> el conteo: **no se nota en nada**, que es exactamente por lo que hay que
+> comprobarla a mano.
+>
+> Antes de fiarte de una corrida, compara:
+>
+> ```bash
+> docker exec -i 8myvc-database-1 mysql -uroot -p"$DB_PASSWORD" -N \
+>     -e "SELECT migration FROM simonbolivar_testing_b.migrations ORDER BY id;" | tail -5
+> ```
+>
+> Si le falta alguna, se reconstruye: `DB_TEST_DATABASE=... tools/construir-bd-test.sh`.
+> Tarda unos minutos y es lo mismo que hacía falta antes al cambiar el esquema —
+> lo nuevo es que ahora hay que hacerlo **en cada base**, no en una.
+
+> **La variable tiene que cruzar el `docker exec`**, y por eso el paso de
+> migraciones de `construir-bd-test.sh` va con `env`: un `docker exec` **no**
+> hereda el entorno de quien lo llama. Sin eso, pedir otra base la creaba con
+> `mysql` —que corre desde el equipo— pero la migraba con `artisan` **dentro**
+> del contenedor, o sea contra la de por defecto, y el seed moría después con
+> `Unknown column 'firmantes_acta'` acusando al fichero equivocado.
+
 > **Si alguna vez ejecutas `php artisan config:cache` en local, bórralo antes de
 > correr los tests** (`php artisan config:clear`). El config cacheado congela el
 > `.env`, así que `phpunit.xml` deja de poder apuntar a la base de tests. No hay
@@ -33,7 +106,6 @@ así que buscarlas con grep pierde justo las que llevan parámetro. Se mide
 ejecutando:
 
 ```bash
-docker exec 8myvc-app-1 rm -f /tmp/tocadas.txt
 docker exec -e COBERTURA_RUTAS=/tmp/tocadas.txt 8myvc-app-1 php artisan test
 docker exec 8myvc-app-1 php artisan route:list --json > /tmp/rutas.json
 docker exec 8myvc-app-1 cat /tmp/tocadas.txt > /tmp/tocadas.txt   # sacarlo del contenedor
@@ -43,12 +115,33 @@ python3 tools/cobertura-de-rutas.py /tmp/rutas.json /tmp/tocadas.txt
 El registrador vive en `tests/TestCase.php` y solo se enciende con la variable
 puesta; una corrida normal no escribe nada.
 
-> **Una corrida cada vez.** Cada test se aísla dentro de una transacción, y una
-> transacción aísla de las otras conexiones **de esa misma corrida**. Dos
-> `php artisan test` a la vez sobre la misma base —por ejemplo, la medición de
-> cobertura de arriba en segundo plano mientras se prueba un fichero suelto— se
-> pisan: aparecen fallos que no se reproducen después y que no están en el
-> código. Costó un cuarto de hora el 20 de agosto de 2026.
+> **No borres el fichero a mano antes de medir, y el modo de empleo ya no lo
+> pide.** Lo vacía la propia corrida, una vez, al primer test que lo va a usar.
+>
+> El paso `rm -f` que había aquí hasta el 21 de agosto de 2026 es exactamente
+> como se pierde una medición entera sin que nada avise: si cae a mitad de otra
+> corrida —dos sesiones trabajando a la vez—, desengancha el inode que esa
+> corrida tiene abierto y el siguiente `file_put_contents` empieza un fichero
+> nuevo. **Ni `FILE_APPEND` ni `LOCK_EX` protegen de eso.** Ese día la cobertura
+> salió **86 de 539** en vez de 346, con 135 casos registrados de los 588 que
+> corrieron.
+>
+> Y la lección no es el fallo, es que **el número salió plausible**: 86 de 539 no
+> se distingue de un mal día de verdad. Una medición que puede equivocarse hacia
+> abajo en silencio no es una medición.
+
+> **Con varias sesiones midiendo a la vez, un fichero por sesión** —
+> `/tmp/tocadas-b.txt`, `/tmp/consultas-b.jsonl`—, igual que la base. La ruta es
+> fija dentro del contenedor, así que bases distintas no bastan: dos corridas
+> escribirían sus rutas mezcladas en el mismo fichero y las dos mentirían hacia
+> arriba.
+
+> **El día que se instale paratest esto hay que revisarlo.** Hoy la suite corre
+> en un proceso y por eso vaciar una vez por proceso es correcto; con
+> `--parallel`, cada worker borraría lo que escribieron los demás. Entonces toca
+> un fichero por PID y un lector que los junte. No está en `composer.json`
+> —comprobado el 21 de agosto de 2026—, y el aviso está también en el docblock
+> de `TestCase::$medicionesVaciadas`.
 
 **Lo que hace útil al informe es separar «ejecutada» de «comprobada».** Medido a
 secas, el 99% de las rutas se ejecutan: `AutenticacionTest` y `RutasPreLoginTest`
@@ -70,7 +163,6 @@ que la suite ejecuta —493 en la corrida del 20 de agosto—, y
 recorren una tabla sin que exista ningún índice aplicable:
 
 ```bash
-docker exec 8myvc-app-1 rm -f /tmp/consultas.jsonl
 docker exec -e EXPLICAR_CONSULTAS=/tmp/consultas.jsonl 8myvc-app-1 \
     php artisan test --testsuite=Contrato
 docker exec 8myvc-app-1 php tools/indices-que-faltan.php /tmp/consultas.jsonl
