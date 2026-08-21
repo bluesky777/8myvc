@@ -582,3 +582,40 @@ usuarios distintos. De las cinco:
 
 **Octane sigue esperando a esa última.** OPcache + caché de rutas da la mayor
 parte de la ganancia sin ese riesgo, y ya está dando.
+
+
+---
+
+## Las dos series se tapan una a la otra — 21 ago 2026
+
+`tools/indices-que-faltan.php` mide **las consultas que la suite ejecuta**. Está
+en la primera línea de su cabecera y aun así es fácil leer su salida como «no
+falta ningún índice», cuando lo que dice es «no falta ninguno **en lo que hay
+comprobado**». Ese día había **194 rutas sin un solo test**
+(`tools/cobertura-de-rutas.py`), o sea que el 36% de la API queda fuera de la
+medición de índices — y no estar en la lista se lee igual que estar bien.
+
+El caso concreto, encontrado por el barrido y no por ninguna de las dos
+herramientas: `GET api/ChangesAsked/to-me` —la pantalla de inicio del
+superusuario y del profesor— hace
+
+```sql
+SELECT * FROM bitacoras
+WHERE affected_element_type="intento_login" AND affected_person_name=?
+  AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 50
+```
+
+y `bitacoras` solo tiene índice por `id` y por `historial_id`. `EXPLAIN` da
+**`type=ALL, possible_keys=NULL`**: candidato de manual, y nunca ha salido en la
+lista porque ningún test golpea esa ruta.
+
+**No se crea el índice**, y por lo de siempre: en la copia de desarrollo
+`bitacoras` tiene 59 filas y no cuesta nada, pero ahí se escribe **un intento de
+login fallido por cada uno** y cuánto ha crecido depende de cada colegio. Sin el
+paso 3 —`CONSULTAS_LENTAS_MS` una temporada en producción— crear un índice aquí
+es exactamente lo que este documento lleva prohibiendo desde la primera página.
+
+Lo que sí queda hecho es escribirlo en la cabecera de la herramienta, para que el
+que la corra sepa qué **no** está mirando. Y la regla que se lleva: **subir la
+cobertura no solo encuentra fallos, también amplía lo que las demás herramientas
+pueden ver.** Las dos series no son independientes.

@@ -27,6 +27,30 @@
  * falta el paso 3 —el registro de consultas lentas, una temporada en
  * producción— y `tools/consultas-lentas.py`. Esta lista es la de candidatos;
  * aquella dice cuáles se llevan el tiempo de verdad.
+ *
+ * **Y el hueco que sí conviene tener en la cabeza, porque no se ve:** esto solo
+ * mira las consultas que **la suite ejecuta**. Una ruta sin ningún test no pasa
+ * por aquí, así que sus consultas no están en la lista — y no estar en la lista
+ * se lee como «no tiene problema». El 21 ago 2026 había **194 rutas sin
+ * comprobar** (`tools/cobertura-de-rutas.py`), o sea que el 36% de la API está
+ * fuera de esta medición.
+ *
+ * Ejemplo medido ese día, para que no quede en abstracto:
+ * `GET api/ChangesAsked/to-me` —la pantalla de inicio del superusuario y del
+ * profesor— hace
+ *
+ *     SELECT * FROM bitacoras
+ *     WHERE affected_element_type="intento_login" AND affected_person_name=?
+ *       AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 50
+ *
+ * y `bitacoras` solo tiene índice por `id` y por `historial_id`: el EXPLAIN da
+ * `type=ALL, possible_keys=NULL`. Es un candidato de manual y **nunca ha salido
+ * aquí**, porque ningún test golpea esa ruta. Cuánto cuesta depende de cuántas
+ * filas tenga `bitacoras` en cada colegio —en la copia de desarrollo son 59 y no
+ * cuesta nada, pero ahí se escribe un intento de login fallido por cada uno—, así
+ * que sigue haciendo falta el paso 3 antes de crear nada. Lo que no hace falta
+ * medir es el hueco: las dos series —cobertura e índices— se tapan una a la otra
+ * y conviene correrlas sabiéndolo.
  */
 
 require __DIR__.'/../vendor/autoload.php';
