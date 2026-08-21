@@ -61,6 +61,15 @@ quedó aprendido, y que ahorra la tarde:
    539 cuando eran 346*—.
 4. **Di en voz alta qué ficheros coges antes de empezar.** Dos sesiones
    escribieron el mismo test del mismo endpoint en la misma hora.
+5. **`git add -A` y `git commit -a` no son seguros con el árbol compartido**, ni
+   siquiera cerrando un merge. Pasó al cerrar el del PIAR: el commit de fusión se
+   llevó dentro un documento entero de otra sesión que estaba sin *stagear*, y se
+   supo porque su autor fue a commitearlo y git le dijo «no changes added to
+   commit». No hubo daño —el contenido está entero— pero el commit dice traer una
+   cosa y trae otra, y reescribir un commit ya publicado es peor que eso.
+   **Durante un merge, `git commit` a secas ya hace lo correcto**: lo que hay que
+   incluir es lo que git puso en el índice, y lo demás que haya en el árbol puede
+   ser de otro. Fuera del merge, `git add <rutas>` una a una.
 
 ### Las cuatro lecciones de método que más se repitieron
 
