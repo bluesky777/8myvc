@@ -3450,3 +3450,54 @@ resultado**. Un contador de formas no entiende lo que cuenta.
 `is_active`**; con cualquier otra responde igual y tampoco escribe. Eso no se
 toca: es la forma del método y no un permiso, y arreglarlo es decidir qué
 propiedades debería aceptar, que es otra pregunta. Queda dicho en su docblock.
+
+---
+
+## 38. Dos formas de leer un usuario, y solo una está protegida (21 ago 2026)
+
+Salió de barrer la forma de la §36.1 por todo el proyecto: **credenciales que
+acaban en una respuesta**. El barrido de `u.password` en los `SELECT` salió
+limpio —solo queda el de `Services\Login`, que es el que la verifica— pero al
+buscar `SELECT *` sobre `users` aparecieron **siete**.
+
+Están en `ChangeAsked::extender_datos()` y en su gemelo de `ChangeAskedDetails`,
+que cuelgan de cada pedido de cambio hasta **tres filas de `users`**: quien lo
+pide, a quién se le pide y sobre quién.
+
+Lo que hace que esto sea una lección y no un descuido:
+
+> **El modelo `App\User` tiene `password` y `remember_token` en `$hidden`.** La
+> protección está puesta, es la correcta, y funciona — pero solo si el usuario se
+> lee con el modelo. Aquí se lee con `DB::select`, y **una consulta cruda no tiene
+> modelo al que ocultarle nada**.
+
+Es exactamente la misma frase de la §36.1 —allí lo que se saltaba `$hidden` era
+una concatenación en una cadena— y en un proyecto con **990 consultas crudas** no
+es casualidad que salga dos veces el mismo día: el `$hidden` cubre el camino que
+este proyecto casi no usa.
+
+**Y sale por una ruta de familia.** `PUT images-users/cambiar-imagen-perfil/{id}`
+lleva `persona.propia`, o sea que la usa un alumno sobre su propia foto: como no
+es superusuario, su cambio no se aplica sino que se convierte en un **pedido**, y
+el pedido volvía con las filas dentro. Medido con token de alumno: la respuesta
+traía un `$2y$…`.
+
+### 38.1 El arreglo quita en vez de elegir
+
+`App\Support\UsuarioSinCredenciales::porId()` hace la misma consulta y borra las
+dos columnas que son credenciales.
+
+**Quitar y no elegir es la decisión.** Una lista de columnas permitidas habría
+dejado fuera cualquier columna nueva sin que nadie se enterara, y esto va dentro
+de una respuesta que los clientes ya reciben. Quitando solo las dos, la forma no
+cambia: sale exactamente lo mismo menos lo que no debía estar.
+
+Se comprobó además que **ningún cliente lee `asked_by_user`, `asked_to_user` ni
+`asked_for_user`** —ni el front viejo, ni el del PIAR, ni Flutter—. Con eso se
+podrían haber borrado los tres; se dejan porque quitar tres claves de una
+respuesta es un cambio de contrato y quitar un hash no lo es, y no hacía falta lo
+primero para conseguir lo segundo.
+
+Fijado por `PedidosDeCambioTest`, con las dos mitades: que no sale ningún hash y
+que **el pedido se sigue creando y sigue diciendo quién lo hizo** — porque
+recortar una respuesta es fácil de hacer de más.

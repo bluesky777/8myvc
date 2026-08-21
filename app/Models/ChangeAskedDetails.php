@@ -4,6 +4,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 use Illuminate\Support\Facades\DB;
+use App\Support\UsuarioSinCredenciales;
 /**
  * Las columnas de `change_asked_data`, tal como están en el esquema congelado.
  *
@@ -104,27 +105,28 @@ class ChangeAskedDetails {
 	{
 
 
-		$consulta = 'SELECT * FROM users WHERE id=:user_id and deleted_at is null';
-		$asked_by_user = DB::select($consulta, [ ':user_id'	=> $pedido->asked_by_user_id ]);
-		if (count($asked_by_user)>0) {
-			$pedido->asked_by_user = $asked_by_user[0];
-		}
+		// Los tres bloques de aquí abajo hacían `SELECT * FROM users` y colgaban
+		// del pedido la fila entera, con `password` dentro: una consulta cruda no
+		// tiene modelo al que ocultarle nada, así que el `$hidden` de `App\User`
+		// no intervenía. Y ningún cliente lee estos tres objetos. Ver 05 §38.
+		$asked_by_user = UsuarioSinCredenciales::porId($pedido->asked_by_user_id);
+			if ($asked_by_user !== null) {
+				$pedido->asked_by_user = $asked_by_user;
+			}
 
 		if ($pedido->asked_to_user_id) {
 			
-			$consulta = 'SELECT * FROM users WHERE id=:user_id and deleted_at is null';
-			$asked_to_user = DB::select($consulta, [ ':user_id'	=> $pedido->asked_to_user_id ]);
-			if (count($asked_to_user)>0) {
-				$pedido->asked_to_user = $asked_to_user[0];
+			$asked_to_user = UsuarioSinCredenciales::porId($pedido->asked_to_user_id);
+			if ($asked_to_user !== null) {
+				$pedido->asked_to_user = $asked_to_user;
 			}
 		}
 
 		if ($pedido->asked_for_user_id) {
 			
-			$consulta = 'SELECT * FROM users WHERE id=:user_id and deleted_at is null';
-			$asked_for_user = DB::select($consulta, [ ':user_id'	=> $pedido->asked_for_user_id ]);
-			if (count($asked_for_user)>0) {
-				$pedido->asked_for_user = $asked_for_user[0];
+			$asked_for_user = UsuarioSinCredenciales::porId($pedido->asked_for_user_id);
+			if ($asked_for_user !== null) {
+				$pedido->asked_for_user = $asked_for_user;
 			}
 		}
 		
