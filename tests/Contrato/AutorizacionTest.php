@@ -701,6 +701,144 @@ class AutorizacionTest extends CasoDeContrato
     }
 
     /** Un guard de propiedad, con o sin el `:clave` que le dice a qué apunta el `{id}`. */
+    /**
+     * Las que están solas entre sus hermanas de OPERACIÓN, y por qué está bien.
+     *
+     * Mismo formato y mismo propósito que {@see EXCEPCIONES_DE_FAMILIA}: cada
+     * entrada es una decisión escrita, y el test de más abajo grita si deja de
+     * hacer falta.
+     */
+    private const EXCEPCIONES_DE_HERMANAS = [
+        // Las que comprueban dentro del método. El inventario no las lista por lo
+        // mismo, y el barrido las cuenta como mudas porque abortan con 400 o 401
+        // en vez de con 403 — que es lo que hace el legacy en todas partes.
+        'DELETE api/acudientes/destroy/{id}' => 'aborta 403 si no es superusuario ni Secretario',
+        'DELETE api/alumnos/destroy/{id}' => 'aborta 400 salvo superusuario, Secretario o profesor con permiso',
+        'DELETE api/alumnos/forcedelete/{id}' => 'lo mismo',
+        'PUT api/alumnos/restore/{id}' => 'lo mismo',
+        'PUT api/alumnos/update/{id}' => 'lo mismo',
+        'POST api/alumnos/store' => 'lo mismo',
+        'DELETE api/matriculas/destroy/{id}' => 'aborta 400 salvo superusuario o profesor con permiso',
+        'DELETE api/enfermeria/destroy/{id}' => 'aborta 401 si no es superusuario ni Usuario',
+        'POST api/acudientes/crear' => 'aborta 403 si no es superusuario, Profesor ni Secretario',
+
+        // El módulo de tardanzas se autentica solo, y por eso ni siquiera lleva
+        // `auth.token`: el lector de códigos manda usuario y contraseña en CADA
+        // petición y `TSubirController::user()` exige Profesor o superusuario.
+        'PUT api/tardanzas/subir/eliminar-ausencia' => 'TSubirController::user() exige Profesor o superusuario',
+        'PUT api/tardanzas/subir/poner-ausencia' => 'lo mismo',
+
+        // Defendidas por dentro, las dos que aparecen al bastar UNA hermana.
+        'PUT api/piars-alumnos/field' => 'comprueba dentro del método; responde 400 a una familia',
+        'PUT api/publicaciones/restaurar' => 'exigeQueLaPublicacionSeaSuya() corta antes del UPDATE',
+
+        // Abiertas a propósito, con su decisión en otro sitio.
+        'POST api/myimages/store' => 'subir su propia imagen es lo que hace una familia; el dueño sale del token',
+        'POST api/votos/store' => 'votar. Si esto lleva guard, no hay elecciones (05 §18)',
+        'PUT api/aplicacion-descargas/detailed' => 'devuelve el `$user` del token y nada más (05 §12)',
+        'GET api/editnota/detailed-notas-year' => 'rota: usa `$grupo_id` y la ruta no lleva parámetros (05)',
+    ];
+
+    /**
+     * La otra mitad de la pregunta de la §17, que hasta hoy no se hacía.
+     *
+     * El candado de familia mira el prefijo de la URL —`matriculas/*`— y dice si
+     * una se quedó sola sin el guard que llevan sus vecinas. **Eso no ve el caso
+     * de la §23:** `matriculas/alumnos-grado-anterior` iba sin guard mientras sus
+     * tres hermanas de operación —`matriculas/alumnos-con-grado-anterior` y las
+     * dos de `prematriculas`— lo llevaban. No estaba sola en su familia, porque
+     * `matriculas/*` tiene muchas con guard; estaba sola entre las rutas que
+     * apuntan al **mismo nombre de método**.
+     *
+     * Son dos preguntas distintas y las dos hacen falta. Ésta es la segunda:
+     * agrupa por `Controlador@metodo` y no por prefijo. `putDatos` existe en
+     * siete controladores y `deleteDestroy` en cuarenta y dos, y esa repetición
+     * es la costumbre del proyecto: cuando cuarenta llevan guard y dos no, las
+     * dos hay que mirarlas.
+     *
+     * **El umbral NO es el mismo que el de familia, y el porqué importa.** Allí
+     * hacen falta dos hermanas con guard porque compartir prefijo de URL es una
+     * relación floja: `matriculas/*` son treinta rutas que no se parecen en nada
+     * y una sola con guard no establece ninguna costumbre. Aquí basta **una**,
+     * porque compartir nombre de método es una relación fuerte: en este proyecto
+     * significa que la operación está copiada y pegada en dos controladores.
+     * `putAlumnosGradoAnterior` existe exactamente dos veces, y ése era el caso —
+     * con el umbral de familia se habría escapado, comprobado quitándole el guard.
+     *
+     * Lo que sí se conserva es que las que no lo llevan sean minoría: un nombre de
+     * método mayoritariamente sin guard no dice nada.
+     */
+    public function test_ninguna_ruta_se_queda_sola_entre_sus_hermanas_de_operacion(): void
+    {
+        $operaciones = [];
+
+        foreach (Route::getRoutes()->getRoutes() as $ruta) {
+            $accion = $ruta->getActionName();
+
+            if (! str_starts_with($ruta->uri(), 'api/') || ! str_contains($accion, '@')) {
+                continue;
+            }
+
+            $metodo = explode('@', $accion)[1];
+
+            foreach (array_diff($ruta->methods(), ['HEAD']) as $verbo) {
+                $operaciones[$metodo][] = [
+                    'clave' => $verbo.' '.$ruta->uri(),
+                    'guardada' => $this->llevaGuardDePropiedad($ruta),
+                ];
+            }
+        }
+
+        $solas = [];
+
+        foreach ($operaciones as $metodo => $rutas) {
+            $conGuard = count(array_filter($rutas, fn ($r) => $r['guardada']));
+            $sinGuard = count($rutas) - $conGuard;
+
+            if ($conGuard < 1 || $sinGuard > max(1, intdiv(count($rutas), 4))) {
+                continue;
+            }
+
+            foreach ($rutas as $r) {
+                if (! $r['guardada'] && ! array_key_exists($r['clave'], self::EXCEPCIONES_DE_HERMANAS)) {
+                    $solas[] = $r['clave'].'   (sus hermanas de @'.$metodo.': '
+                        .$conGuard.' de '.count($rutas).' con guard)';
+                }
+            }
+        }
+
+        sort($solas);
+
+        $this->assertSame([], $solas,
+            "Estas rutas apuntan al mismo método que otras que SÍ llevan guard de\n"
+            ."propiedad, y ellas no. Es la forma exacta de las de 05 §23.\n"
+            .'Míralas y, si están bien así, añádelas a EXCEPCIONES_DE_HERMANAS con el motivo.');
+    }
+
+    /** Y al revés, igual que en el de familia: una excepción que sobre tiene que gritar. */
+    public function test_no_sobra_ninguna_excepcion_de_hermanas(): void
+    {
+        $abiertas = [];
+
+        foreach (Route::getRoutes()->getRoutes() as $ruta) {
+            if (! str_starts_with($ruta->uri(), 'api/') || $this->llevaGuardDePropiedad($ruta)) {
+                continue;
+            }
+
+            foreach (array_diff($ruta->methods(), ['HEAD']) as $verbo) {
+                $abiertas[] = $verbo.' '.$ruta->uri();
+            }
+        }
+
+        $sobran = array_values(array_diff(array_keys(self::EXCEPCIONES_DE_HERMANAS), $abiertas));
+
+        sort($sobran);
+
+        $this->assertSame([], $sobran,
+            'Estas entradas de EXCEPCIONES_DE_HERMANAS ya no hacen falta: la ruta lleva '
+            .'guard, o ya no existe. Bórralas, o la lista solo puede crecer.');
+    }
+
     private function llevaGuardDePropiedad(\Illuminate\Routing\Route $ruta): bool
     {
         foreach ($ruta->gatherMiddleware() as $m) {

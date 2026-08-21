@@ -702,8 +702,16 @@ saber el tamaño real del daño en las dieciséis bases antes de tocar código.
   familia `matriculas` tiene muchas con él, así que la que faltaba no estaba sola.
   Sí lo estaba entre sus **hermanas de operación** —el mismo nombre de método en
   cuatro controladores, tres con guard—. Son dos preguntas distintas y hoy solo se
-  hace la primera; la segunda la contesta el barrido, que es más caro y menos
-  seguro. Es lo siguiente que merece un candado.
+  hace la primera. **La segunda ya tiene candado** —hecho a continuación, el mismo
+  día—: agrupa por `Controlador@metodo` en vez de por prefijo de URL.
+
+  Y al escribirlo salió el detalle que lo hace funcionar: **el umbral no puede ser
+  el mismo**. En el de familia hacen falta dos hermanas con guard porque compartir
+  prefijo es una relación floja; aquí basta una, porque compartir nombre de método
+  significa que la operación está copiada y pegada en dos controladores.
+  `putAlumnosGradoAnterior` existe exactamente dos veces, así que con el umbral de
+  familia el caso que motivó el candado se le habría escapado — comprobado
+  quitándole el guard a la ruta: con dos pasa, con uno falla y la nombra.
 
 - **La decisión del seed, tomada el 20 ago 2026: partirla en dos.** El seed vacío
   llevaba seis hallazgos tapados —`unidades_por_defecto`, los alumnos borrados,

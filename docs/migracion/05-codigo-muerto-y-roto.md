@@ -2139,5 +2139,22 @@ guard en su familia, y la familia `matriculas` tiene muchas con él: la que falt
 no está sola. Pero sí estaba sola entre sus **hermanas de operación** —el mismo
 nombre de método en cuatro controladores, tres con guard—.
 
-Son dos preguntas distintas y hoy solo se hace la primera. La segunda no tiene
-candado; de momento la contesta el barrido, que es más caro y menos seguro.
+Son dos preguntas distintas y las dos hacen falta. **La segunda ya tiene candado**
+—`test_ninguna_ruta_se_queda_sola_entre_sus_hermanas_de_operacion`—, y agrupa por
+`Controlador@metodo` en vez de por prefijo de URL.
+
+Al escribirlo salió un detalle que merece quedar: **el umbral no puede ser el
+mismo que el de familia.** Allí hacen falta dos hermanas con guard porque
+compartir prefijo es una relación floja —`matriculas/*` son treinta rutas que no
+se parecen en nada—. Aquí basta **una**, porque compartir nombre de método es una
+relación fuerte: en este proyecto significa que la operación está copiada y pegada
+en dos controladores. Y hacía falta bajarlo: `putAlumnosGradoAnterior` existe
+exactamente dos veces, así que con el umbral de familia el caso que motivó el
+candado **se le habría escapado**. Comprobado quitándole el guard a la ruta: con
+el umbral en dos, pasa; con el umbral en uno, falla y la nombra.
+
+Bajarlo cuesta dos entradas más en la lista de excepciones —`piars-alumnos/field`
+y `publicaciones/restaurar`, las dos defendidas dentro—, y las quince que ya
+había son casi todas lo mismo: controladores que abortan con 400 o 401 en vez de
+con 403. Cada una lleva su motivo escrito, y el test inverso grita si alguna deja
+de hacer falta.
