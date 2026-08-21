@@ -268,76 +268,84 @@ Usuario— y el cuarto es el que se olvida:
 | **§6, aquí** | las listas de actividades le llegan vacías, en 200 |
 
 Cuatro sitios, cuatro consecuencias distintas —400, 500, un permiso denegado y
-una lista vacía— y **la misma causa**: el tipo `Usuario` es el que no tiene una
+una lista vacía— y la misma causa: el tipo `Usuario` es el que no tiene una
 pantalla propia que lo pruebe, así que nadie lo ejerce hasta que alguien mira.
 
-Vale la pena mirarlo así: no es un descuido repetido, es que **el sistema tiene
-cuatro tipos de usuario y el desarrollo se hizo con tres en la cabeza**.
+### La generalización que salió de aquí era falsa, y cómo se cayó
 
-**Y como eso es una corazonada, se midió antes de escribirla** — dos veces, porque
-la primera medida estaba mal y la corrigió otra sesión.
+De lo anterior salió una conclusión que **estuvo escrita en este documento y hubo
+que retirarla**: que buscar `tipo == 'Profesor'` sin `else` daba la lista de los
+sitios con el mismo hueco, y que esa lista marcaba el código sin migrar. Se
+retira entera, y el porqué vale más que lo que decía.
 
-La cuenta buena: `tipo == 'Profesor'` aparece **42 veces** en los controladores.
-La primera medición dijo 25 porque el patrón buscaba `$user->tipo` y se dejaba
-fuera `$this->user->tipo`, que es como lo escribe el código que pasó por el trait
-`ResuelveElUsuario`. **El total estaba mal; la lista de trabajo no**, y eso es lo
-que hay que mirar de cerca:
+**Tres mediciones del mismo patrón dieron tres listas distintas**, y cada una
+llevaba dentro un límite arbitrario que no se veía:
 
-| Estilo | Con `else` | **Sin `else`** |
+| Cómo se midió | Sin salida |
+|---|---|
+| `$user->tipo` y una ventana de 25 líneas para buscar el `else` | 12 |
+| emparejando llaves, otra sesión | 9 |
+| emparejando llaves **y** aceptando `abort`/`return` como salida | **6** |
+
+La ventana de 25 líneas se inventó tres falsos positivos, los tres de
+`CalendarioController`. Sobre ellos llegué a escribir que *«si el hueco está ahí,
+el calendario entero le llega vacío a un administrativo»* y a escribir un test
+para demostrarlo. **El test lo desmintió**: responde **404 «No tienes permiso»**,
+porque el `abort` está a más de veinticinco líneas del `if`. El guard funciona y
+siempre funcionó.
+
+Peor todavía: para apuntalar aquella afirmación había señalado como prueba un
+ternario `$user->tipo == 'Usuario' ? ...` **dentro** de la rama que excluye a los
+`Usuario`, y dije que no se ejecutaba nunca. Sí se ejecuta: los superusuarios son
+de tipo `Usuario`, y entran por el `|| $user->is_superuser` de al lado.
+
+**Y las seis que sobreviven a la mejor medición tampoco son huecos**, revisadas
+una a una:
+
+- `AsignaturasController:226`, `GruposController:50`, `ImagesController:44` —
+  **enriquecen**: al docente se le añaden sus pedidos, sus grupos de titularía,
+  sus imágenes. Al que no lo es no le falta nada, así que no necesita `else`.
+- `NotasController:195` y `:247` — **acotan**: `$profesor_id` se inicializa vacío
+  tres líneas antes. El `else` está escrito, como valor por defecto.
+- `PerfilesController:416` y `TSubirController:71` — **cortan con `abort()`**. No
+  tener `else` no es no tener salida.
+- Las de `ChangeAskedAssignmentController` son la [05 §48](05-codigo-muerto-y-roto.md),
+  ya arregladas.
+
+Queda **una sola de la lista que sea un fallo de verdad: la §6 de aquí**, y no se
+encontró con el patrón —se encontró leyendo, y se demostró con un test.
+
+### Lo que sí sirve, que es lo que queda de todo esto
+
+**El patrón sintáctico tiene precisión cero.** Lo que distingue un hueco de las
+otras cuarenta y una apariciones son dos condiciones juntas:
+
+> el `if` **envuelve el método entero**, y **dentro hay lo único que el método
+> produce** —la escritura, o las listas que devuelve—.
+
+Que son justo las dos que `tools/respuestas-que-mienten.py` ya exigía, y por eso
+esa herramienta encuentra tres y no doce. **Buscar el `else` que falta no es
+buscar el fallo**: el `else` que falta es sintaxis y el fallo es que la respuesta
+salga bien habiendo hecho nada.
+
+### Y la correlación con el estilo es real, pero no dice lo que parecía
+
+Medido dos veces, por dos caminos y por dos personas, con el mismo resultado:
+
+| Estilo | Con salida | Sin salida |
 |---|---|---|
-| `$user = User::fromToken()` — el de siempre | 13 | **12** |
+| `$user = User::fromToken()` — el de siempre | 13 | 12 |
 | `$this->user` — el del trait | 17 | **0** |
 
-**Los diecisiete que se habían escapado llevan `else` todos.** No es casualidad y
-es el hallazgo de verdad de esta sección: **ninguna de las ramas escritas contra
-el trait tiene el hueco, y todas las que lo tienen son del código de antes**. La
-lista de doce no es una muestra dispersa por el repo — es la parte del repo que
-todavía no se ha tocado.
+Cero en el grupo del trait, las dos veces. La correlación existe. Lo que no se
+sostiene es lo que se dedujo de ella: **marca estilo, no riesgo**. El código viejo
+resuelve al usuario con `$user =` y además escribe ramas que enriquecen; las dos
+cosas van juntas sin que una cause la otra, y presentarla como marcador de riesgo
+manda al siguiente a auditar sitios correctos.
 
-Eso cambia lo que hay que hacer con ella. No es «revisar doce sitios sueltos»,
-es que **el hueco del cuarto tipo es un marcador de código sin migrar**, y
-aparece solo donde el usuario se resuelve a la vieja usanza.
-
-La lista, que sigue siendo la misma después de corregir el total:
-
-```
-GruposController.php:50                  AsignaturasController.php:226
-ChangeAskedAssignmentController.php:33   ChangeAskedAssignmentController.php:74
-NotasController.php:247                  Perfiles/PerfilesController.php:416
-Perfiles/ImagesController.php:44         Perfiles/CalendarioController.php:36
-Perfiles/CalendarioController.php:75     Perfiles/CalendarioController.php:137
-Actividades/ActividadesController.php:132  (es la §6.1, mirada)
-Perfiles/ImagesUsuariosController.php:113  (es la 05 §44, arreglada)
-```
-
-Quedan **diez sin mirar**, y las tres de `CalendarioController` son la misma
-pantalla: si el hueco está ahí, el calendario entero le llega vacío a un
-administrativo.
-
-Y la primera que se miró a mano fue una de las trece **con** `else`
-—`InformesController:69`, donde un administrativo recibe *todos* los grupos—, así
-que la búsqueda a secas no vale: el patrón no es «ramifica por Profesor», es
-**«ramifica por Profesor y no tiene salida»**.
-
-### La herramienta llegó a la §6.1 sola, y eso vale más que el hallazgo
-
-`tools/respuestas-que-mienten.py` daba cero hasta que otra sesión la ensanchó: solo
-admitía **una línea de preámbulo** antes del `if`, y los métodos que resuelven al
-usuario *y* buscan otra cosa antes llevan dos. Con el preámbulo ensanchado, lo
-primero que señala es:
-
-```
-ActividadesController::putCompartidas  (línea 98)
-```
-
-Que es exactamente la §6.1, encontrada aquí leyendo. **Dos caminos independientes
-—una herramienta y un par de ojos— dieron el mismo sitio**, y por eso conviene
-dejarlo escrito: no confirma la §6.1, que ya tenía test; confirma **la
-herramienta**, que acababa de cambiar y necesitaba algo con lo que contrastarse.
-
-Tener el `else` no garantiza que la rama general sea la correcta —solo que hay
-una—, así que las 13 tampoco están limpias: están **fuera de esta lista**, que es
-otra cosa.
+Lo que sí se lleva uno de aquí: **una correlación limpia entre dos poblaciones no
+es una causa**, y la tentación de escribirla como si lo fuera es mayor cuanto más
+limpio sale el cero.
 
 ### §6.1. El segundo listado tiene el mismo hueco, y peor
 
@@ -365,7 +373,8 @@ el de la §5, y estos dos.
 ## Lo que queda por mirar
 
 1. ~~`PUT respuestas/actividad`~~ — **mirada, está en la §5.**
-2. **Las diez ramas sin `else` de la §6** que no son de este dominio, empezando
-   por las tres de `CalendarioController`.
+2. Nada de la lista de la §6: se revisó entera y no queda ninguna. Lo que sí
+   queda es pasar `tools/respuestas-que-mienten.py` cada vez que se ensanche,
+   que es lo que sí encuentra esta familia.
 3. **`putDuplicarPregunta`**, que copia una pregunta con sus opciones y es donde
    suelen esconderse los campos que no se copian.
