@@ -50,11 +50,27 @@ quedó aprendido, y que ahorra la tarde:
    Dos suites contra la misma dan *deadlocks* en `personal_access_tokens`, y lo
    que se ve **no es un error de infraestructura sino tests de contrato en rojo**.
    Ver [03-tests.md](03-tests.md).
-2. **La base deriva sin avisar.** Compara `SELECT COUNT(*) FROM <base>.migrations`
-   con las de al lado **antes** de buscar un fallo en el código. Pasó dos veces el
-   mismo día: la primera la migración que faltaba no cambiaba ningún resultado y
-   la segunda rompió cinco tests. **Una base vieja no se nota en el conteo de
-   tests ni en nada.**
+2. **La base deriva sin avisar, y es la trampa que más veces mordió.** Compara
+   las migraciones **antes** de buscar un fallo en el código:
+
+   ```bash
+   for db in simonbolivar_testing simonbolivar_testing_b simonbolivar_testing_c; do
+     printf "%-28s " "$db"
+     docker exec 8myvc-app-1 php artisan tinker --execute="echo DB::connection('mysql_testing')
+       ->selectOne('SELECT COUNT(*) n FROM \`$db\`.migrations')->n;" 2>/dev/null | tail -1
+   done
+   ```
+
+   Mordió **tres veces el 21 de agosto**, y las tres distinto: la primera la
+   migración que faltaba no cambiaba ningún resultado, la segunda rompió cinco
+   tests, y la tercera **le pasó a quien acababa de leer esta regla**.
+
+   Lo que hay que reconocer no es la causa, es **la cara que pone**: no falla la
+   infraestructura ni sale un error de conexión — salen **tests de contrato en
+   rojo con mensajes perfectamente creíbles**, del tipo «ni al crear ni al guardar
+   se anota quién fue». Te pones a leer el código y el código está bien. Diez
+   segundos de comparar migraciones ahorran media hora de leer un controlador
+   correcto.
 3. **Un fichero de medición por sesión** (`COBERTURA_RUTAS`, `EXPLICAR_CONSULTAS`).
    Y **no lo borres a mano**: lo vacía la propia corrida. Borrarlo mientras otro
    mide le desengancha el inode y su medición sale plausible y falsa —salió *86 de
