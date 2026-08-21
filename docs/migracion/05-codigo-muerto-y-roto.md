@@ -3576,7 +3576,7 @@ retiran: la respuesta era y sigue siendo `['finalizado' => true, 'msg' => …]`.
 
 ---
 
-## 40. Anotar una ausencia no mira el periodo; corregirla sí (21 ago 2026)
+## 40. Qué escrituras debe cerrar el interruptor del periodo (21 ago 2026)
 
 **No se arregla: hace falta que lo decida el colegio.**
 
@@ -3612,6 +3612,43 @@ Queda fijado por `AusenciasTest::test_con_el_periodo_cerrado_todavia_se_puede_an
 que **afirma el comportamiento de hoy a propósito** — la misma técnica que usó la
 §27 con uniformes mientras esperaba decisión. El día que se decida, ese test falla,
 y ese es su trabajo.
+
+### 40.2 Y la nota de comportamiento no lo mira en ninguna de sus ocho rutas
+
+Al cubrir `NotaComportamientoController` salió lo mismo, y más grande: **ninguna
+de sus ocho rutas llama a `pueden_editar_notas()`**. Con el periodo cerrado, un
+profesor sigue escribiendo, editando y borrando notas de comportamiento.
+
+Y la nota de comportamiento **es una nota**: sale en el boletín, el año tiene un
+conmutador para enseñarla o no (`mostrar_nota_comport_boletin`) y el observador la
+usa. Cuesta más defender que quede fuera que las ausencias.
+
+Dos cosas más, que fija `NotaComportamientoTest`:
+
+- **`nota_comportamiento/crear` escribe en el periodo que diga el cuerpo**, no en
+  el del profesor. Hoy no es el fallo de la §27 —no hay bandera que saltarse
+  porque no se comprueba ninguna—, pero es la misma forma: el día que se le ponga
+  candado, tiene que mirar **ese** `periodo_id` y no el del usuario.
+- **`nota_comportamiento/detailed/{grupo_id}` escribe dentro de un `GET`**:
+  `crearVerifNota()` crea la fila del alumno que no la tenga. Es lo mismo que hace
+  el PIAR (§35.4), y significa lo mismo — esa ruta no se puede cachear ni servir
+  desde una réplica.
+
+### 40.3 La pregunta, que es una sola
+
+**¿Qué escrituras debe cerrar el interruptor del periodo?** Hoy la lista es esta,
+y no la eligió nadie: se fue formando llamada a llamada.
+
+| Cierra | No cierra |
+|---|---|
+| notas, definitivas, unidades, subunidades | **crear** ausencias y tardanzas |
+| frases de asignatura | **todo** lo de nota de comportamiento |
+| uniformes (disciplina) | |
+| editar y borrar ausencias | |
+
+Lo que llama la atención es que **uniformes sí y comportamiento no**, siendo las
+dos disciplina; y que de ausencias cierre la mitad. Ninguna de las dos asimetrías
+parece decidida.
 
 ### 40.1 Lo demás que se midió al pasar, y estaba bien
 
