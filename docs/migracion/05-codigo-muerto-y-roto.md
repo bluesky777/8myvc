@@ -2852,3 +2852,46 @@ y el `$periodos[0]` del mismo `Login`—, porque los tres son la misma frase: **
 fila elegida entre varias sin decir cuál**. Y en la misma familia entra el
 `periodo_id = 1` escrito a mano de `AcudientesController::postCrear`, que apunta al
 mismo 2018 por el mismo motivo.
+
+---
+
+## 32. La última copia del criterio de alumnos (21 ago 2026)
+
+`AlumnosController` era el mayor hueco de cobertura que quedaba —8 de 17— y
+guardaba **siete copias a mano** de esto:
+
+```php
+($this->user->tipo == 'Profesor' && $this->user->profes_can_edit_alumnos)
+    || $this->user->is_superuser || Role::isSecretario($this->user->user_id)
+```
+
+Es exactamente la condición que `App\Support\Autoriza` existe para no volver a
+tener repartida —su propia cabecera lo dice, y nombra a `alumnos/forcedelete` como
+el sitio del que se copió—. Las demás pasaron por el helper en la revisión de la
+papelera; ésta se quedó atrás porque era **el original**.
+
+Se llevan las siete a `Autoriza`, sin cambiar la condición. Lo que gana no es
+estética: la [§30.2](#302-secretario-es-un-permiso-que-nadie-tiene-buscado-en-dos-sitios-distintos)
+deja pendiente **quién es el «Secretario»**, y con esto esa respuesta se escribe en
+una línea en vez de en ocho.
+
+**Y no se funden en un solo método**, aunque hoy digan lo mismo. Crear un alumno y
+borrarlo definitivamente —20 tablas en cascada— comparten condición **por herencia,
+no porque nadie haya decidido que deban compartirla**. Con dos nombres
+—`puedeEditarAlumnos` y `puedeBorrarAlumnos`, uno delegando en el otro— se pueden
+separar el día que se decida; con uno, hay que volver a repartirlas por siete
+sitios.
+
+### 32.1 Dos cosas que el test creyó fallos y eran suyas
+
+Merece la pena porque las dos se pueden volver a creer:
+
+- **«De otro grupo» no es «con matrícula en otro grupo».** Un alumno arrastra
+  matrículas de varios años, así que casi todos están en el grupo *y* en otro. El
+  primer test acusó a `alumnos/cambiar-claves` de cambiar la clave de quien no
+  tocaba; el filtro bueno es *no tener ninguna matrícula en ese grupo*, y con él la
+  consulta está bien.
+- **`alumnos/destroy/{id}` no lleva `auth.personal`**, a diferencia de casi todas
+  sus hermanas. Lo que la defiende es la condición de dentro, que responde **400**
+  y no 403. No es un fallo —una familia no pasa— pero es una respuesta distinta
+  para la misma pregunta según la ruta, y ahora está fijada.

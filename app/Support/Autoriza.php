@@ -63,6 +63,28 @@ class Autoriza
     }
 
     /**
+     * Crear, editar, mandar a la papelera y restaurar alumnos.
+     *
+     * **Hoy es la misma condición que `puedeBorrarAlumnos`, y por eso son dos
+     * métodos y no uno.** El día 21 ago 2026 estaba escrita a mano siete veces
+     * dentro de `AlumnosController` —era la última copia que quedaba del criterio
+     * que esta clase existe para no volver a tener repartido—, así que traerla
+     * aquí no cambia nada y hace que la pregunta pendiente de quién es el
+     * «Secretario» ([05 §30.2](../../docs/migracion/05-codigo-muerto-y-roto.md))
+     * se conteste en una línea en vez de en ocho.
+     *
+     * Lo que **no** se hizo fue fundirlas en una sola: crear un alumno y
+     * borrarlo definitivamente —20 tablas en cascada— son la misma condición hoy
+     * por herencia, no porque nadie haya decidido que deban serlo. Con dos
+     * nombres se pueden separar el día que se decida; con uno, hay que volver a
+     * repartirlas.
+     */
+    public static function puedeEditarAlumnos($user): bool
+    {
+        return self::puedeBorrarAlumnos($user);
+    }
+
+    /**
      * Solo superusuario. Para lo que arrastra el esquema entero.
      */
     public static function esSuperusuario($user): bool

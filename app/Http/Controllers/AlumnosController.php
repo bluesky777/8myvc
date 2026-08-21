@@ -216,8 +216,7 @@ class AlumnosController extends Controller {
 	public function postStore()
 	{
 		if (
-			($this->user->tipo == 'Profesor' && $this->user->profes_can_edit_alumnos)
-			|| $this->user->is_superuser || Role::isSecretario($this->user->user_id))
+			Autoriza::puedeEditarAlumnos($this->user))
 		{
 
 			$alumno = [];
@@ -654,7 +653,7 @@ class AlumnosController extends Controller {
 
 	public function putUpdate($id)
 	{
-		if (($this->user->tipo == 'Profesor' && $this->user->profes_can_edit_alumnos) || $this->user->is_superuser || Role::isSecretario($this->user->user_id)) {
+		if (Autoriza::puedeEditarAlumnos($this->user)) {
 			
 			$alumno = Alumno::findOrFail($id);
 
@@ -792,7 +791,7 @@ class AlumnosController extends Controller {
 				return response()->json([ 'autorizado'=> false, 'msg'=> 'No eres el titular' ], 400);
 			}
 			
-		} else if($this->user->is_superuser || Role::isSecretario($this->user->user_id)){
+		} else if(Autoriza::esAdministrativo($this->user)){
 			
 			$guardarAlumno = new GuardarAlumno();
 			return $guardarAlumno->valor($this->user, Request::input('propiedad'), Request::input('valor'), Request::input('user_id'), $year_id, Request::input('alumno_id'));
@@ -889,7 +888,7 @@ class AlumnosController extends Controller {
 			
 			}
 				
-		} else if($this->user->is_superuser || Role::isSecretario($this->user->user_id)){
+		} else if(Autoriza::esAdministrativo($this->user)){
 			
 			$alumnos 	= Request::input('alumnos');
 			$cant 		= count($alumnos);
@@ -912,7 +911,7 @@ class AlumnosController extends Controller {
 
 	public function deleteDestroy($id)
 	{
-		if (($this->user->tipo == 'Profesor' && $this->user->profes_can_edit_alumnos) || $this->user->is_superuser || Role::isSecretario($this->user->user_id)) {
+		if (Autoriza::puedeEditarAlumnos($this->user)) {
 			$alumno = Alumno::find($id);
 			//Alumno::destroy($id);
 			//$alumno->restore();
@@ -933,7 +932,7 @@ class AlumnosController extends Controller {
 
 	public function deleteForcedelete($id)
 	{
-		if (($this->user->tipo == 'Profesor' && $this->user->profes_can_edit_alumnos) || $this->user->is_superuser || Role::isSecretario($this->user->user_id)) {
+		if (Autoriza::puedeBorrarAlumnos($this->user)) {
 			$alumno = Alumno::onlyTrashed()->findOrFail($id);
 			
 			$alumno->forceDelete();
@@ -945,7 +944,7 @@ class AlumnosController extends Controller {
 
 	public function putRestore($id)
 	{
-		if (($this->user->tipo == 'Profesor' && $this->user->profes_can_edit_alumnos) || $this->user->is_superuser || Role::isSecretario($this->user->user_id)) {
+		if (Autoriza::puedeEditarAlumnos($this->user)) {
 			$alumno = Alumno::onlyTrashed()->findOrFail($id);
 
 			$alumno->restore();
