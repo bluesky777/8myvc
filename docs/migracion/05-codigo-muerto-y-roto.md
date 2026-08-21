@@ -2462,29 +2462,48 @@ del año.
 
 ### 27.1 Por qué no se arregla esta noche
 
-Porque `num_periodo` **no es un parámetro parásito**: `myvc_flutter` lo manda en
-sus cuatro llamadas de unidades y subunidades, siempre junto a `periodo_id` y con
-el mismo periodo en los dos. Ahí la comprobación es la correcta — se consulta la
-bandera del periodo que se está editando. Ignorarlo rompería esas cuatro
-pantallas; los otros dos clientes no lo mandan nunca.
+Porque `num_periodo` **no es un parámetro parásito, es la declaración del periodo
+que se está editando** — y en las pantallas que más importan es la única que hay.
+Medido en los tres clientes (contra `myvc_front/app`, que es donde vive el front
+actual; la primera versión de esta sección buscó en `www/js`, que es el viejo, y
+por eso dijo que los otros dos clientes no lo mandaban nunca):
 
-El candado correcto se dice en una frase —**la bandera del periodo al que escribe
-esta petición**— y esa frase se resuelve en un sitio distinto en cada una de las
-26 llamadas: de `periodo_id` del cuerpo en uniformes, de la unidad en
-`unidades/update/{id}`, de la nota en `notas/update/{id}`, de la definitiva en
-`definitivas_periodos/*`. Son 26 consultas nuevas dentro del cálculo de notas,
-que es lo que el [§5 del plan](00-plan-migracion.md) protege y lo que la
-[§4 de 09](09-pendientes.md) tiene parado por decisión.
+| Quién | Qué manda como `num_periodo` |
+|---|---|
+| `myvc_flutter`, unidades y subunidades | el periodo que edita, junto a `periodo_id`, los dos iguales |
+| `DefinitivasPeriodosCtrl.js` | **el periodo de la columna que se toca** en la rejilla de las cuatro, sin `periodo_id` |
+| `PromocionarNotasCtrl.js` | el periodo **de destino** de la promoción |
+| `NotasPerdidasProfesorEditCtrl.js` | el de la nota que se corrige |
+| `UnidadesCtrl.js`, `UnidadesProfesorCtrl.js`, `InformesCtrl.js` | el del usuario, `USER.numero_periodo` |
 
-Las tres formas de cerrarlo, para que la decisión sea de una línea:
+O sea que la rejilla de definitivas —donde un usuario edita los cuatro periodos
+en la misma pantalla— **depende** de poder nombrar un periodo distinto del suyo.
+Ahí el diseño es correcto: se consulta la bandera del periodo que se edita. Lo que
+falta es lo único que lo haría un candado: **nada comprueba que la declaración
+coincida con la fila que se escribe**.
 
-1. **Exigir que `num_periodo` y `periodo_id` concuerden** cuando los dos vienen.
-   Cierra uniformes y las cuatro de Flutter sin tocar nada más, y no cierra
-   `notas/update/{id}`, que no manda `periodo_id`. Es media hora.
-2. **Derivar el periodo de la fila que se toca**, las 26. Es el arreglo de
-   verdad y entra en el camino de notas.
-3. **Ignorar `num_periodo`** y usar siempre el periodo del usuario. Es de una
-   línea y apaga las cuatro pantallas de Flutter.
+El candado correcto se dice en una frase —*la bandera del periodo al que escribe
+esta petición*— y esa frase se resuelve en un sitio distinto en cada una de las 26
+llamadas: de `periodo_id` del cuerpo en uniformes, de la unidad en
+`unidades/update/{id}`, de la nota en `notas/update/{id}`, de
+`notas_finales.periodo_id` en `definitivas_periodos/*`. Son 26 consultas nuevas
+dentro del cálculo de notas, que es lo que el [§5 del plan](00-plan-migracion.md)
+protege y lo que la [§4 de 09](09-pendientes.md) tiene parado por decisión.
+
+Las formas de cerrarlo, con lo que cuesta cada una:
+
+1. **Exigir que `num_periodo` y `periodo_id` concuerden** cuando vienen los dos.
+   Cierra uniformes y las cuatro de Flutter, es media hora, y **no cierra las que
+   más pesan**: la rejilla de definitivas manda `nf_id` y `num_periodo` sin
+   `periodo_id`, y `notas/update/{id}` tampoco lo manda.
+2. **Derivar el periodo de la fila que se toca**, las 26. Es el arreglo de verdad,
+   y las 26 son derivables: la que menos, `definitivas_periodos/update`, sale de
+   `notas_finales.periodo_id` con el `nf_id` que ya viaja.
+3. ~~**Ignorar `num_periodo`** y usar siempre el del usuario.~~ **Descartada al
+   medir el front:** apagaría la rejilla de definitivas para los tres periodos que
+   no son el del usuario, que es justo para lo que esa pantalla existe. Es el
+   ejemplo de por qué la búsqueda se rehízo: con la ruta equivocada esta opción
+   parecía la barata.
 
 Mientras tanto queda fijado por `UniformesTest::test_el_periodo_que_se_comprueba_lo_elige_el_cliente`,
 que **afirma el comportamiento malo a propósito**: el día que se arregle, falla.
