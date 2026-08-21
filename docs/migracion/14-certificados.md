@@ -6,8 +6,8 @@ colegio imprime y firma**. La cobertura del 21 de agosto de 2026 daba **364 de
 `ConfigCertificadosController`: **1 de 6**.
 
 Fijado por `tests/Contrato/ConfigCertificadosTest.php` (9 casos) y
-`tests/Contrato/FrasesPreescolarTest.php` (7). Ninguno exige lo correcto: fijan
-lo que hace hoy.
+`tests/Contrato/FrasesPreescolarTest.php` (9) y `tests/Contrato/HistorialesTest.php`
+(5). Salvo la §3, ninguno exige lo correcto: fijan lo que hace hoy.
 
 Lo que se configura aquí no es el dato de un alumno, es **el membrete**: qué
 imagen va de encabezado y de pie de página con sus márgenes
@@ -66,6 +66,25 @@ Joseth decidió hacerlo como barrido y no como arreglos sueltos.
 
 Los diez de diferencia **sí comprobaban el nulo**, en la forma positiva
 —`$alumno = Alumno::find($id); if ($alumno) {`— que el primer patrón no veía.
+
+Otra sesión midió lo mismo por su cuenta y le salieron **20** y luego **10**, con
+un criterio más estrecho —«el resultado se usa en la línea siguiente como
+objeto»—. Ése tiene el problema contrario: **se deja fuera casos reales**, entre
+ellos los cuatro de este controlador, donde entre el `find()` y el uso hay una
+línea en blanco y un `if` que no toca la variable. Estaban probados con test
+antes de tocarlos.
+
+Cuatro medidas del mismo patrón —**47, 37, 20, 10**— y **ninguna es la buena**:
+las anchas tienen recall alto y precisión baja, la estrecha al revés. Lo único
+que lo resolvió fue **leer cada sitio y escribir el test**.
+
+Y un detalle que lo cierra: las dos sesiones fallamos por separado en la misma
+variante, **la comprobación repartida entre dos variables** — una en forma
+positiva (`if ($alumno)`) y otra en orden (`if (!$rol || !$per)`, con la variable
+buscada en segundo lugar). Que dos criterios distintos tropiecen con el mismo
+hueco no es casualidad: **«hay comprobación» tiene más formas de las que uno
+enumera de memoria**, y por eso el patrón sirve para hacer la lista y nunca para
+cerrarla.
 
 **Es el mismo error que la §6 de [13-actividades.md](13-actividades.md)**, cometido
 el mismo día y a sabiendas: un patrón con un límite arbitrario dentro que infla la
@@ -270,13 +289,76 @@ colegio —la misma familia de la [05 §18.4](05-codigo-muerto-y-roto.md) y la
 
 ---
 
+## §9. El historial: la pantalla que contesta «¿quién entró?» dice siempre que nadie
+
+Tercer hueco del fichero. `HistorialesController` estaba a **1 de 4**, y es la
+pantalla con la que el colegio contesta *¿quién cambió esta nota?* y *¿quién ha
+intentado entrar en esta cuenta?*. Fijado por `tests/Contrato/HistorialesTest.php`
+(5 casos).
+
+### §9.1. Los intentos fallidos no se encuentran nunca
+
+`Services\Login::anotarIntentoFallido()` escribe el **`username`** en
+`bitacoras.affected_person_name`, que es una columna de nombre. Y
+`HistorialCalc::intentos_fallidos_de_usuario($user_id)` la busca pasándole **el
+`user_id`**, que es un número.
+
+**Nunca casan.** La lista sale vacía siempre, con la fila delante.
+
+Y eso es peor que no tener la pantalla: **una lista vacía se lee como «no ha
+pasado nada»**, que es exactamente la respuesta contraria a la que la pantalla
+existe para dar. Es la familia de «una respuesta que miente» en su forma más
+silenciosa — sin error, sin 500, sin nada que mirar.
+
+**Lo que lo convierte en un descuido y no en una decisión** es que la misma
+consulta está en tres sitios y **las otras dos aciertan**:
+
+| Dónde | Qué le pasa |
+|---|---|
+| `ChangeAskedController` (dos veces) | `$user->username` ✔ |
+| `HistorialCalc::intentos_fallidos_de_usuario` | `$user_id` ✘ |
+
+La copia equivocada es justo la que vive en **la clase reutilizable**, o sea la
+que parece la buena. Es el reverso de la lección de la
+[13 §2](13-actividades.md): allí el peligro era comparar contra la columna
+equivocada al escribir un guard nuevo; aquí ya está escrito y lleva años
+contestando que no.
+
+El arreglo es cambiar el argumento, y **enciende una pantalla que hoy responde
+vacía en los dieciséis colegios** — con lo cual va a la lista de decisiones, no a
+la de arreglos, igual que la §8.
+
+### §9.2. Y cualquiera ve las sesiones de cualquiera, con IP y dispositivo
+
+`putDeUsuario()` recibe `user_id` por el cuerpo y `putSesion()` recibe
+`historial_id`, y ninguna comprueba de quién es.
+
+Lo que devuelven no es una lista de fechas. `historiales` guarda **`ip`,
+`browser_name`, `platform_name` y `device_model`**, y la consulta de `putSesion()`
+une con `users` para traer el **`username`**, así que ni siquiera hace falta saber
+de quién es la sesión: el id basta y el nombre viene dentro.
+
+Con `auth.personal` delante, eso son los 51 profesores viendo **desde qué sitio y
+con qué teléfono entra un compañero** — o el superusuario. Va con la pregunta de
+la [09 §5](09-pendientes.md) sobre qué puede hacer el personal entre sí, que es
+donde está esta familia entera.
+
+### §9.3. Lo que sí está bien, y por eso se anota
+
+`putSesion()` **sí** comprueba que el historial exista y responde **400** en vez
+de reventar. Es el único de los métodos mirados hoy en este fichero que lo hace,
+y por eso se fija: cuando alguien haga el barrido de los `[0]` y los `find()`,
+este método no está en la lista y conviene que se vea por qué.
+
+---
+
 ## Lo que queda de `informes.php`
 
 Por orden de hueco medido:
 
 1. ~~`BolfinalesPreescolarController`~~ — **las tres de escritura, en la §7.**
    Quedan sus dos de lectura, que son boletines y van con `BoletinesTest`.
-2. **`HistorialesController`** — 1 de 4.
+2. ~~`HistorialesController`~~ — **mirado, está en la §9.**
 3. **`PuestosController`** — 1 de 2, y `Boletines2`/`Boletines3` a 3 de 4.
 4. Los grandes ya cubiertos a medias por `BoletinesTest` y `ActasEvaluacionTest`,
    que son los que más se imprimen.
