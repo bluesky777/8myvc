@@ -4180,7 +4180,50 @@ resultado. Con un id que no existe, `find()` devuelve null y era un **500** — 
 tapaba lo único que había pasado de verdad: el cliente nombró una unidad que no
 está. Ahora es 404.
 
-Fijado por `UnidadesTest`, nueve casos. Comprobado al revés: revirtiendo los
-cuatro arreglos caen cuatro, y los cinco que comprueban que con el periodo
-**abierto** se sigue creando, reordenando y restaurando siguen verdes — que es lo
-que dice que no se cerró de más.
+### §47.1. Y entonces se contó bien
+
+Encontrar tres que no estaban en la cuenta dijo algo más importante que las tres:
+**la cuenta estaba mal**, y una lista hecha a mano que se da por completa es
+exactamente lo que la §0 de [09](09-pendientes.md) ya había avisado que acaba
+teniendo un hueco invisible.
+
+Así que se contó a máquina: **todos los métodos de `app/Http/Controllers` que
+escriben en `unidades`, `subunidades`, `notas`, `notas_finales`,
+`recuperacion_final` o `nota_comportamiento`**, y cuáles piden el interruptor.
+
+**17 métodos escriben en la rejilla. 11 lo piden, 6 no.** De esos seis:
+
+| Método | Qué es |
+|---|---|
+| `SubunidadesController::putRestore` | **Gemelo exacto** del de unidades: `UPDATE subunidades SET deleted_at=NULL` a pelo, mientras `putUpdate` y `deleteDestroy` en el mismo fichero sí lo piden. **Arreglado aquí** |
+| `UnidadesController::getDeAsignaturaPeriodo` | El GET que escribe de la [§16](05-codigo-muerto-y-roto.md): crea las unidades por defecto cuando no hay ninguna. **Sin decidir** — ver abajo |
+| `Informes/BoletinesController::putDetailedNotas` | La causa principal del borrado de definitivas, con su propio `// CALCULAMOS SIN VERIFICAR` al lado. **Parado** por la decisión del §4 de 09 |
+| `DefinitivasPeriodosController::putCalcularGrupoPeriodo` | Misma zona de definitivas. **Parado** |
+| `NotasController::putDetailed` | Misma zona. **Parado** |
+| `NotasController::putSubunidad` | El que no guarda nada porque la consulta está en comillas dobles con sintaxis de simples. **Roto y documentado** |
+
+O sea que de los seis, **uno era un arreglo, cuatro están parados por decisiones
+ya tomadas, y uno hay que preguntarlo**. Que cuatro de los seis caigan en la zona
+de definitivas no es casualidad: es la misma zona que el §4 de 09 dejó congelada
+**porque seis sitios escriben en `notas_finales` con cinco criterios distintos**,
+y el interruptor es un sexto criterio que tampoco comparten.
+
+### Lo que hay que preguntar
+
+`GET unidades/de-asignatura-periodo` **crea unidades** cuando la asignatura y el
+periodo no tienen ninguna, copiándolas de las del año. Con el periodo cerrado, hoy
+las crea igual.
+
+**No se cierra sin decidirlo**, y la razón es que la pregunta no es «¿debe
+escribir con el periodo cerrado?» —claramente no— sino **qué debe devolver
+entonces**. Es la pantalla con la que un profesor mira la rejilla, así que
+responderle 400 le apaga la vista de un periodo cerrado, que es justo lo que
+querrá consultar cuando esté cerrado. Las dos salidas razonables —devolver la
+lista vacía sin crear nada, o crear igual porque son unidades por defecto y no
+notas— cambian lo que ve la pantalla, y eso lo decide el colegio. Va a la tabla
+del §5 de [09-pendientes.md](09-pendientes.md).
+
+Fijado por `UnidadesTest`, once casos. Comprobado al revés: revirtiendo los cinco
+arreglos caen cinco, y los seis que comprueban que con el periodo **abierto** se
+sigue creando, reordenando y restaurando siguen verdes — que es lo que dice que no
+se cerró de más.

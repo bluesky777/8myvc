@@ -267,6 +267,13 @@ class SubunidadesController extends Controller {
 	public function putRestore($id)
 	{
 		$user = User::fromToken();
+
+		// Gemelo exacto de `unidades/restore`: restaurar devuelve la subunidad con
+		// su `porcentaje` a la rejilla, así que es escribir en las notas igual que
+		// borrarla — y `putUpdate` y `deleteDestroy`, aquí al lado, sí lo piden.
+		// Las dos salieron del mismo inventario. Ver 05 §47.
+		User::pueden_editar_notas($user, PeriodoDeLaFila::deSubunidad($id));
+
 		$consulta = 'UPDATE subunidades SET deleted_at=NULL WHERE id=?';
 					
 		DB::update($consulta, [$id]);

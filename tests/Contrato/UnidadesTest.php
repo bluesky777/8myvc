@@ -203,4 +203,40 @@ class UnidadesTest extends CasoDeContrato
             array_map(fn ($u) => (int) $u['id'], $r->json('unidades_eliminadas'))
         );
     }
+
+    /**
+     * El gemelo exacto, que salió del inventario hecho tras encontrar los tres de
+     * arriba: `subunidades/restore` tenía la misma forma —`UPDATE ... SET
+     * deleted_at=NULL` a pelo— mientras `subunidades/update` y
+     * `subunidades/destroy`, en el mismo fichero, sí piden el periodo.
+     */
+    public function test_no_se_restaura_una_subunidad_con_el_periodo_cerrado(): void
+    {
+        $e = $this->escenario();
+        $unidad = $this->unidad($e);
+
+        DB::insert('INSERT INTO subunidades (definicion, porcentaje, unidad_id, orden, created_at, updated_at, deleted_at)
+                    VALUES ("Subunidad de prueba", 50, ?, 0, ?, ?, ?)', [$unidad, now(), now(), now()]);
+        $subunidad = (int) DB::getPdo()->lastInsertId();
+
+        $this->withToken($e->token)->putJson('/api/subunidades/restore/'.$subunidad, [])->assertStatus(400);
+
+        $this->assertNotNull(DB::table('subunidades')->where('id', $subunidad)->value('deleted_at'));
+    }
+
+    public function test_con_el_periodo_abierto_la_subunidad_se_restaura(): void
+    {
+        $e = $this->escenario();
+        $unidad = $this->unidad($e);
+
+        DB::insert('INSERT INTO subunidades (definicion, porcentaje, unidad_id, orden, created_at, updated_at, deleted_at)
+                    VALUES ("Subunidad de prueba", 50, ?, 0, ?, ?, ?)', [$unidad, now(), now(), now()]);
+        $subunidad = (int) DB::getPdo()->lastInsertId();
+
+        $this->abrirElPeriodo($e->year_id);
+
+        $this->withToken($e->token)->putJson('/api/subunidades/restore/'.$subunidad, [])->assertStatus(200);
+
+        $this->assertNull(DB::table('subunidades')->where('id', $subunidad)->value('deleted_at'));
+    }
 }
