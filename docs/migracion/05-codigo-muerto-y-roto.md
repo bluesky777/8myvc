@@ -2307,12 +2307,21 @@ Dos cosas de `TSubirController` **no** se copiaron, y las dos a propósito:
 
 ### 25.4 Lo que sale de aquí y no se arregla
 
-- **`tardanzas/login` y `traer-datos` devuelven el hash bcrypt del usuario**, en
-  la clave `password`, porque está en el `SELECT`. Es el hash *propio* de quien
-  acaba de mandar su contraseña en claro en la misma petición, así que no expone a
-  nadie más. Se deja porque **quitarlo puede apagar el lector**: es un aparato que
-  trabaja sin red, y validar contra el hash guardado es justo lo que necesitaría
-  para dejar entrar al operario estando desconectado. Anotado en 09 §5.
+- ~~**`tardanzas/login` y `traer-datos` devuelven el hash bcrypt del usuario**~~
+  — **quitado el 21 ago 2026**, decidido por Joseth. Estaba en los cuatro `SELECT`
+  del `switch` y salía en la clave `password`. Esta sección lo había dejado por
+  miedo a apagar el lector —es un aparato que trabaja sin red, y validar contra el
+  hash guardado es justo lo que necesitaría estando desconectado—, y ese miedo se
+  contestó yendo a mirar el cliente en vez de razonándolo: **no usa el hash**,
+  guarda la contraseña en claro y compara contra ella. Fijado por
+  `TardanzasTest::test_el_hash_no_sale_en_la_respuesta`.
+
+  Y el test se equivocó primero, que es lo que vale la pena de esto. Buscaba el
+  hash **en el texto** de la respuesta y pasaba con el hash puesto: en JSON las
+  barras salen escapadas (`$2y$10$a\/b`), así que un bcrypt nunca aparece literal
+  en el cuerpo. Se vio al comprobarlo al revés —desactivar el arreglo y exigir que
+  el test falle—, que es la costumbre que lo cazó. Ahora compara contra la
+  respuesta **decodificada**, no contra sus bytes.
 - **`Credenciales::verificar` no filtra `deleted_at`** —está escrito y decidido en
   su propio docblock—, así que un usuario borrado sigue entrando al lector. Medido
   al pasar: borrar al profesor y entrar sigue dando 200. No cambia con este

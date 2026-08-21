@@ -57,26 +57,64 @@ de «sin juzgar»— y se quedó en el grupo que se repasa a mano. Se repasaron 
 las doce. Vale la pena quedarse con eso: **una lista que hay que mirar a mano cada
 vez acaba teniendo un hueco, y el hueco no se ve**.
 
-### Lo que necesita una respuesta tuya, por orden
+### Lo que necesitaba una respuesta suya — **contestado el 21 ago 2026**
 
-1. **El interruptor del periodo** ([05 §27](05-codigo-muerto-y-roto.md)) — es lo
-   único de la noche que **sigue abierto**. Un profesor al que el colegio le cerró
-   el periodo sigue editando: la bandera que se comprueba es la del periodo que
-   nombra el cuerpo de la petición, y la escritura va a otro. Hay dos formas de
-   cerrarlo y la decisión es cuál; están escritas con lo que cuesta cada una.
-2. **Quién es el «Secretario»** ([05 §30.2](05-codigo-muerto-y-roto.md)) — once
-   sitios preguntan por él de dos maneras que no pueden ser las dos, y hoy ninguna
-   se cumple. La consecuencia visible: **un administrativo que no sea superusuario
-   no puede crear acudientes**. Si la respuesta es el rol `Admin`, hoy no cambia
-   nada y mañana sí — los diez de `Admin` son exactamente los diez `is_superuser`.
-3. **El hash del lector de tardanzas** ([05 §25.4](05-codigo-muerto-y-roto.md)) —
-   solo hace falta que digas que sí. Se fue a mirar el cliente y no usa ese hash:
-   guarda la contraseña en claro y compara contra ella cuando está sin red.
-4. **Los años actuales de los dieciséis colegios** ([05 §28.3](05-codigo-muerto-y-roto.md))
-   — los tres caminos que creaban años actuales de más están cerrados, pero los
-   datos de antes siguen ahí. Una consulta por base:
-   `SELECT id, year FROM years WHERE actual=1 AND deleted_at IS NULL`. Si alguna
-   devuelve dos filas, en qué año amanece ese colegio lo decide MySQL.
+Las cuatro preguntas de la noche anterior se le hicieron a Joseth una a una y las
+cuatro tienen respuesta. Se escriben aquí **con lo que dijo, no con lo que se le
+propuso**, porque en dos de ellas la respuesta no era ninguna de las opciones y
+eso es justo lo que había que aprender.
+
+1. **El interruptor del periodo** ([05 §27](05-codigo-muerto-y-roto.md)) →
+   **derivar el periodo de la fila que se toca, las 26**. La opción barata —exigir
+   que `num_periodo` y `periodo_id` concuerden— queda descartada por lo que ya
+   decía la §27.1: no cierra la rejilla de definitivas ni `notas/update`, que son
+   las que más pesan.
+2. **Quién es el «Secretario»** ([05 §30.2](05-codigo-muerto-y-roto.md)) → **un
+   rol nuevo, `Secretario`, que se le asigna a un usuario docente.** No es
+   `Admin`: la razón de existir del rol es precisamente **una secretaria docente
+   que no es superusuario**, y con `Admin` eso no se puede porque los diez `Admin`
+   son los diez `is_superuser`. `Role::isSecretario` ya lo busca exactamente por
+   ese nombre, así que los once sitios empiezan a funcionar en cuanto la fila
+   existe y alguien la tiene.
+
+   **Y el alcance no es el que se había propuesto.** Se le ofreció «alumnos,
+   matrículas, docencia e informes» y corrigió el corte, que va por otro sitio:
+
+   | Puede | No puede |
+   |---|---|
+   | Las **configuraciones del colegio**: materias y su orden, las asignaturas de **todos** los grupos, los titulares de grado | **Crear usuarios** |
+   | Alumnos y su edición, matrículas | |
+   | La **configuración del año**, y **bloquear periodos** | |
+   | Ver e imprimir **todos** los informes, no solo los de sus grupos | |
+   | De unidades, subunidades y notas, **solo las suyas como docente** | Las de los demás docentes |
+
+   O sea que el Secretario **no** es «un docente con más cosas» ni «un
+   superusuario con menos»: es administrador de la **estructura** del colegio y
+   docente normal en **su propia aula**. Los dos ejes son independientes, y
+   confundirlos es lo que haría el arreglo mal.
+3. **El «Psicólogo»** ([05 §30.2](05-codigo-muerto-y-roto.md)) → el rol
+   `Psicólogo` (que ya existe, id 11, cuatro personas) **abre `nee` y
+   `nee_descripcion`, y nada más**. La decisión se tomó después de ir a mirar el
+   PIAR, y lo que se encontró allí cambió la pregunta — está en la [§32](05-codigo-muerto-y-roto.md).
+4. **El hash del lector de tardanzas** ([05 §25.4](05-codigo-muerto-y-roto.md)) →
+   **quitarlo del `SELECT`**, en `tardanzas/login` y en `traer-datos`.
+5. **Los años actuales de los dieciséis colegios**
+   ([05 §28.3](05-codigo-muerto-y-roto.md)) → **un comando de diagnóstico**, en vez
+   de una consulta suelta que hay que pegar dieciséis veces. Y con contexto nuevo
+   que Joseth dio al contestar y que no estaba escrito en ninguna parte:
+
+   > Más o menos en **octubre se crea el año siguiente copiando todo del anterior**
+   > excepto el número del año. El año que elige el usuario rige la plataforma con
+   > sus configuraciones, **excepto en los informes, donde siempre salen el rector
+   > y el secretario del año actual** — para que se puedan firmar informes viejos
+   > cuando el rector de aquel año ya no trabaja en el colegio.
+
+   Las dos mitades importan. La primera pone **fecha** a esto: la copia de octubre
+   es exactamente el momento en que un colegio con dos años actuales se lleva la
+   ambigüedad al año nuevo, así que el comando quiere estar corrido antes. La
+   segunda explica el `$actual=true` de `Year::datos()`, que hasta hoy parecía un
+   parámetro suelto: **es una regla de negocio, y de las que un refactor bienintencionado
+   borra** por parecer un descuido.
 
 Lo demás de esa noche está abajo, en la tabla del §5, con las anteriores.
 

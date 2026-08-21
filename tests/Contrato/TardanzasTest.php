@@ -21,6 +21,28 @@ use Illuminate\Support\Facades\DB;
  */
 class TardanzasTest extends CasoDeContrato
 {
+    /**
+     * Todos los valores de una respuesta, sin importar cómo estén anidados.
+     *
+     * Se compara contra la respuesta ya decodificada y no contra el texto: en el
+     * JSON un hash bcrypt sale con las barras escapadas (`$2y$10$a\/b`), así que
+     * buscar el hash en crudo dentro del cuerpo no acierta nunca y el test pasaría
+     * estando el hash. Se descubrió comprobando este test al revés.
+     */
+    private function hojasDe(mixed $valor): array
+    {
+        if (! is_array($valor)) {
+            return [$valor];
+        }
+
+        $hojas = [];
+        foreach ($valor as $v) {
+            $hojas = array_merge($hojas, $this->hojasDe($v));
+        }
+
+        return $hojas;
+    }
+
     /** Las credenciales que espera el lector, en el cuerpo de cada petición. */
     private function credencialesDe(string $tipo): array
     {
@@ -125,6 +147,33 @@ class TardanzasTest extends CasoDeContrato
         $this->assertSame('enclaro123',
             DB::table('users')->where('id', $usuario->id)->value('password'),
             'El respaldo que se quitó reescribía la columna al pasar por aquí.');
+    }
+
+    /**
+     * El lector ya no recibe el hash de la contraseña.
+     *
+     * Estaba en los cuatro `SELECT` del `switch` y salía en la respuesta de
+     * `login` y de `traer-datos`. La §25.4 lo había dejado a propósito, por si el
+     * aparato lo necesitara para validar sin red; se fue a mirar el cliente y no
+     * lo usa. El test mira **la respuesta entera**, no la clave `password`: si
+     * mañana el hash vuelve a salir con otro nombre, esto lo ve igual.
+     */
+    public function test_el_hash_no_sale_en_la_respuesta(): void
+    {
+        foreach (['Profesor', 'Usuario'] as $tipo) {
+            $hash = DB::table('users')->where('id', $this->usuarioDeTipo($tipo)->id)->value('password');
+            $this->assertStringStartsWith('$2', (string) $hash,
+                'Si la columna dejara de ser bcrypt, este test pasaría sin comprobar nada.');
+
+            foreach (['tardanzas/login', 'tardanzas/login/traer-datos'] as $ruta) {
+                $respuesta = $this->postJson('/api/'.$ruta, $this->credencialesDe($tipo))
+                    ->assertStatus(200)
+                    ->json();
+
+                $this->assertNotContains($hash, $this->hojasDe($respuesta),
+                    "{$ruta} sigue devolviendo el hash de un {$tipo}.");
+            }
+        }
     }
 
     /** Sin usuario es 401 y con usuario equivocado 400, que es como estaba. */

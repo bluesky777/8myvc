@@ -36,6 +36,13 @@ class TLoginController extends Controller {
 	 * dos métodos ya sabía servir: así no cambia nada de lo que hoy funciona.
 	 * **No** se copia el `is_superuser` de TSubirController, que dejaría fuera a
 	 * un Usuario administrativo que hoy sí entra a leer.
+	 *
+	 * Y el hash de `users.password` ya no sale en la respuesta. Estaba en los
+	 * cuatro `SELECT` del `switch` y la §25.4 lo dejó **a propósito**, por miedo a
+	 * apagar un aparato que trabaja sin red y que podría estar validando contra
+	 * él estando desconectado. Se fue a mirar el cliente del lector antes de
+	 * tocarlo: no lo usa —guarda la contraseña en claro y compara contra ella—,
+	 * así que quitarlo no apaga nada. Decidido por Joseth el 21 ago 2026.
 	 */
 	private function usuarioAutenticado()
 	{
@@ -86,7 +93,7 @@ class TLoginController extends Controller {
 		switch ($userTemp->tipo) {  // Alumno, Profesor, Acudiente, Usuario.
 			case 'Profesor':
 				
-				$consulta = 'SELECT p.id as persona_id, p.nombres, p.apellidos, p.sexo, p.fecha_nac, p.user_id, u.username, u.password,
+				$consulta = 'SELECT p.id as persona_id, p.nombres, p.apellidos, p.sexo, p.fecha_nac, p.user_id, u.username,
 								IFNULL(i.nombre, IF(p.sexo="F","default_female.png", "default_male.png")) as imagen_nombre,  
 								per.id as periodo_id, per.numero as numero_periodo, per.year_id
 							from profesores p 
@@ -108,7 +115,7 @@ class TLoginController extends Controller {
 			case 'Usuario':
 				
 				$consulta = 'SELECT u.id as persona_id, "" as nombres, "" as apellidos, u.id as user_id, u.username, u.is_superuser, u.tipo, 
-								u.sexo, u.email, "N/A" as fecha_nac, u.password, 
+								u.sexo, u.email, "N/A" as fecha_nac, 
 								u.imagen_id, IFNULL(i.nombre, IF(u.sexo="F","default_female.png", "default_male.png")) as imagen_nombre, 
 								per.id as periodo_id, per.numero as numero_periodo, per.year_id
 							from users u
@@ -149,7 +156,7 @@ class TLoginController extends Controller {
 		switch ($userTemp->tipo) {  // Alumno, Profesor, Acudiente, Usuario.
 			case 'Profesor':
 				
-				$consulta = 'SELECT p.id as persona_id, p.nombres, p.apellidos, p.sexo, p.fecha_nac, p.user_id, u.username, u.password,
+				$consulta = 'SELECT p.id as persona_id, p.nombres, p.apellidos, p.sexo, p.fecha_nac, p.user_id, u.username,
 								IFNULL(i.nombre, IF(p.sexo="F","default_female.png", "default_male.png")) as imagen_nombre,  
 								per.id as periodo_id, per.numero as numero_periodo, per.year_id, y.year
 							from profesores p 
@@ -172,7 +179,7 @@ class TLoginController extends Controller {
 			case 'Usuario':
 				
 				$consulta = 'SELECT u.id as persona_id, "" as nombres, "" as apellidos, u.id as user_id, u.username, u.is_superuser, u.tipo, 
-								u.sexo, u.email, "N/A" as fecha_nac, u.password, 
+								u.sexo, u.email, "N/A" as fecha_nac, 
 								u.imagen_id, IFNULL(i.nombre, IF(u.sexo="F","default_female.png", "default_male.png")) as imagen_nombre, 
 								per.id as periodo_id, per.numero as numero_periodo, per.year_id, y.year
 							from users u
