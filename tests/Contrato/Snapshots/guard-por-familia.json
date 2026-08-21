@@ -17,7 +17,7 @@
     },
     "acudientes": {
         "total": 14,
-        "con_guard": 7
+        "con_guard": 9
     },
     "acudientes-export": {
         "total": 1,
@@ -209,7 +209,7 @@
     },
     "matriculas": {
         "total": 16,
-        "con_guard": 2
+        "con_guard": 3
     },
     "mis-actividades": {
         "total": 5,

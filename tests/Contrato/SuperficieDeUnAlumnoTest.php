@@ -1390,6 +1390,163 @@ class SuperficieDeUnAlumnoTest extends CasoDeContrato
     }
 
     /**
+     * Un alumno creando cuentas de acudiente, con la contraseña puesta a mano.
+     *
+     * `AcudientesController::postCrearUsuario` no comprueba nada: crea un `User`
+     * de tipo `Acudiente` con `Hash::make('123456')` y **reapunta
+     * `acudientes.user_id` a la cuenta nueva**, así que si ese acudiente ya tenía
+     * una, se queda fuera y entra la recién hecha — cuya contraseña conoce quien
+     * la pidió. Y un acudiente ve lo completo de sus acudidos.
+     *
+     * Solo lo llaman pantallas de personal —`AlumnosCtrl` y `PrematriculasCtrl`,
+     * el botón «Crear su usuario (aún no tiene)»—, así que `auth.personal` es lo
+     * que ya decía el front.
+     *
+     * **Por qué no salió en cinco pasadas:** lee `Request::input('acudiente')`
+     * como array —`$acu['nombres']`— y el barrido manda `acudiente_id` plano. El
+     * índice sobre `null` lanza y la ruta responde 500, que desde fuera es una que
+     * no hace nada. Igual que `perfiles/store`.
+     */
+    public function test_un_alumno_no_crea_cuentas_de_acudiente(): void
+    {
+        [, , , , $cab] = $this->actores();
+
+        $acudiente = DB::selectOne('SELECT id, nombres, sexo, user_id FROM acudientes
+            WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+
+        $antes = DB::table('users')->count();
+
+        $this->postJson('/api/acudientes/crear-usuario', [
+            'acudiente' => [
+                'id' => $acudiente->id,
+                'nombres' => $acudiente->nombres,
+                'sexo' => $acudiente->sexo,
+            ],
+        ], $cab)->assertStatus(403);
+
+        $this->assertSame($antes, DB::table('users')->count(),
+            'No nació ninguna cuenta.');
+
+        $this->assertSame($acudiente->user_id,
+            DB::table('acudientes')->where('id', $acudiente->id)->value('user_id'),
+            'Y el acudiente sigue apuntando a la cuenta que tenía.');
+    }
+
+    /**
+     * Los acudientes de un grupo entero, con su documento y su teléfono.
+     *
+     * `acudientes/datos` recibe `grupo_actual` por el cuerpo y devuelve **todos
+     * los acudientes de ese grupo** con `documento`, `telefono`, `celular`,
+     * `email`, `direccion`, `barrio` y `fecha_nac`, más los alumnos de cada uno.
+     * La consulta filtra por grupo y **no por año**, así que sirve cualquier grupo
+     * del colegio. Es la pantalla del personal —sus `columnDefs` traen el botón de
+     * resetear contraseña—, y no llevaba guard.
+     *
+     * **Por qué no salió:** el barrido manda `grupo_actual` como número y el
+     * controlador hace `$grupo_actual['id']`. El índice sobre un int lanza y la
+     * ruta responde 500. Tercera de la misma pasada que se escondía tras un array
+     * anidado, después de `perfiles/store` y `acudientes/crear-usuario`.
+     */
+    public function test_un_alumno_no_ve_los_acudientes_de_un_grupo(): void
+    {
+        // El sujeto NO puede ser «el primer alumno»: 56 de los 68 del seed están
+        // matriculados en los dos grupos —el del año pasado y el de éste—, así que
+        // para ellos no existe ningún grupo ajeno y el test pasaría sin probar
+        // nada. Es el mismo cuidado que se lleva `sujetoDeBarrido()`, y la razón
+        // por la que 36 rutas estuvieron sin medirse hasta la §16.
+        $quien = DB::selectOne('SELECT u.username, sus.grupo_id FROM users u
+            INNER JOIN alumnos a ON a.user_id = u.id AND a.deleted_at IS NULL
+            INNER JOIN (SELECT alumno_id, MIN(grupo_id) AS grupo_id, COUNT(DISTINCT grupo_id) AS grupos
+                        FROM matriculas WHERE deleted_at IS NULL GROUP BY alumno_id) sus
+                ON sus.alumno_id = a.id AND sus.grupos = 1
+            WHERE u.tipo = "Alumno" AND u.is_active = 1 AND u.deleted_at IS NULL
+            ORDER BY u.id LIMIT 1');
+
+        $ajeno = DB::selectOne('SELECT id FROM grupos WHERE deleted_at IS NULL AND id <> ?
+            ORDER BY id LIMIT 1', [$quien->grupo_id]);
+
+        $this->assertNotNull($ajeno, 'Sin un grupo ajeno este test no prueba nada.');
+
+        $r = $this->putJson('/api/acudientes/datos', ['grupo_actual' => ['id' => $ajeno->id]],
+            ['Authorization' => 'Bearer '.$this->tokenDe($quien->username)]);
+
+        $r->assertStatus(403);
+
+        // Y el efecto, que es lo que importa: ni un documento ajeno en la
+        // respuesta. Antes salían los de todos los acudientes del grupo.
+        $this->assertStringNotContainsString('"documento"', (string) $r->getContent());
+    }
+
+    /** Y el personal sigue viendo la rejilla, que es su pantalla de siempre. */
+    public function test_el_personal_sigue_viendo_los_acudientes_de_un_grupo(): void
+    {
+        $grupo = DB::selectOne('SELECT id FROM grupos WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+
+        $r = $this->putJson('/api/acudientes/datos', ['grupo_actual' => ['id' => $grupo->id]],
+            ['Authorization' => 'Bearer '.$this->tokenDe($this->usuarioDeTipo('Usuario')->username)]);
+
+        $r->assertStatus(200);
+
+        $this->assertNotSame([], $r->json('acudientes'),
+            'La rejilla sigue trayendo acudientes; si no, el guard cerró de más.');
+    }
+
+    /** Y sigue creando la cuenta del acudiente que no tiene, que es el botón. */
+    public function test_el_personal_sigue_creando_la_cuenta_de_un_acudiente(): void
+    {
+        $acudiente = DB::selectOne('SELECT id, nombres, sexo FROM acudientes
+            WHERE user_id IS NULL AND deleted_at IS NULL ORDER BY id LIMIT 1');
+
+        $this->assertNotNull($acudiente, 'El seed tiene acudientes sin cuenta; sin uno esto no prueba nada.');
+
+        $antes = DB::table('users')->count();
+
+        $this->postJson('/api/acudientes/crear-usuario', [
+            'acudiente' => ['id' => $acudiente->id, 'nombres' => $acudiente->nombres, 'sexo' => $acudiente->sexo],
+        ], ['Authorization' => 'Bearer '.$this->tokenDe($this->usuarioDeTipo('Usuario')->username)])
+            ->assertStatus(201);
+
+        $this->assertSame($antes + 1, DB::table('users')->count());
+    }
+
+    /**
+     * Y los alumnos del grupo entero, por la cuarta hermana.
+     *
+     * `matriculas/alumnos-grado-anterior` devuelve el grupo que le nombren con
+     * `fecha_nac`, `celular`, `direccion` y `religion` — 24 KB con un token de
+     * alumno—. Sus tres hermanas llevan `auth.personal` desde siempre:
+     * `matriculas/alumnos-con-grado-anterior` y las dos de `prematriculas`. Ésta
+     * se quedó fuera, y el candado de la §17 no la vio porque comprueba que no
+     * quede una sola sin guard en su familia, y la familia `matriculas` tiene
+     * muchas con él.
+     *
+     * **Por qué no salió antes:** lee `$grupo_actual['id']`, y hasta esta pasada
+     * el barrido mandaba `grupo_actual` como número. Con las dos formas del cuerpo
+     * apareció a la primera.
+     */
+    public function test_un_alumno_no_ve_los_alumnos_de_otro_grupo_por_matriculas(): void
+    {
+        $quien = DB::selectOne('SELECT u.username, sus.grupo_id FROM users u
+            INNER JOIN alumnos a ON a.user_id = u.id AND a.deleted_at IS NULL
+            INNER JOIN (SELECT alumno_id, MIN(grupo_id) AS grupo_id, COUNT(DISTINCT grupo_id) AS grupos
+                        FROM matriculas WHERE deleted_at IS NULL GROUP BY alumno_id) sus
+                ON sus.alumno_id = a.id AND sus.grupos = 1
+            WHERE u.tipo = "Alumno" AND u.is_active = 1 AND u.deleted_at IS NULL
+            ORDER BY u.id LIMIT 1');
+
+        $ajeno = DB::selectOne('SELECT id FROM grupos WHERE deleted_at IS NULL AND id <> ?
+            ORDER BY id LIMIT 1', [$quien->grupo_id]);
+
+        $r = $this->putJson('/api/matriculas/alumnos-grado-anterior',
+            ['grupo_actual' => ['id' => $ajeno->id]],
+            ['Authorization' => 'Bearer '.$this->tokenDe($quien->username)]);
+
+        $r->assertStatus(403);
+
+        $this->assertStringNotContainsString('"celular"', (string) $r->getContent());
+    }
+
+    /**
      * Un examen del profesor y el intento de OTRO alumno, con una respuesta dentro.
      *
      * El seed no trae ninguna actividad —`ws_actividades` está vacía—, y por eso

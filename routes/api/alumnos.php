@@ -78,8 +78,18 @@ Route::get('folios/iniciar', [FoliosController::class, 'getIniciar'])->middlewar
 // Las piden `NewAcudienteModalCtrl`, `AcudientesCtrl` e `informes`.
 Route::put('acudientes/buscar', [AcudientesController::class, 'putBuscar'])->middleware('auth.personal');
 Route::post('acudientes/crear', [AcudientesController::class, 'postCrear']);
-Route::post('acudientes/crear-usuario', [AcudientesController::class, 'postCrearUsuario']);
-Route::put('acudientes/datos', [AcudientesController::class, 'putDatos']);
+// Crea un `User` de tipo Acudiente con `Hash::make('123456')` y REAPUNTA
+// `acudientes.user_id` a la cuenta nueva, así que la que hubiera queda fuera y
+// entra una cuya contraseña conoce quien la pidió. Sin una sola comprobación.
+// Solo lo llaman pantallas de personal —el botón «Crear su usuario (aún no
+// tiene)» de `AlumnosCtrl` y `PrematriculasCtrl`—. Ver 05 §23.
+Route::post('acudientes/crear-usuario', [AcudientesController::class, 'postCrearUsuario'])->middleware('auth.personal');
+// Devuelve TODOS los acudientes del grupo que le nombren, con documento,
+// teléfono, celular, email, dirección y fecha de nacimiento — y la consulta
+// filtra por grupo y no por año, así que vale cualquier grupo del colegio. Es la
+// rejilla del personal: sus `columnDefs` traen el botón de resetear contraseña.
+// Ver 05 §23.
+Route::put('acudientes/datos', [AcudientesController::class, 'putDatos'])->middleware('auth.personal');
 Route::put('acudientes/de-persona', [AcudientesController::class, 'putDePersona'])->middleware('persona.propia');
 Route::put('acudientes/guardar-valor', [AcudientesController::class, 'putGuardarValor']);
 Route::put('acudientes/mis-acudidos', [AcudientesController::class, 'putMisAcudidos']);
@@ -103,7 +113,10 @@ Route::put('buscar/por-nombre', [BuscarController::class, 'putPorNombre'])->midd
 // MatriculasController
 // Su gemela de `prematriculas`, cuatro líneas más abajo, sí lo llevaba.
 Route::put('matriculas/alumnos-con-grado-anterior', [MatriculasController::class, 'putAlumnosConGradoAnterior'])->middleware('auth.personal');
-Route::put('matriculas/alumnos-grado-anterior', [MatriculasController::class, 'putAlumnosGradoAnterior']);
+// La cuarta hermana, y la única sin guard: `matriculas/alumnos-con-grado-anterior`
+// y las dos de `prematriculas` lo llevan desde siempre. Devuelve el grupo entero
+// que le nombren con `fecha_nac`, `celular`, `direccion` y `religion`. Ver 05 §23.
+Route::put('matriculas/alumnos-grado-anterior', [MatriculasController::class, 'putAlumnosGradoAnterior'])->middleware('auth.personal');
 Route::put('matriculas/cambiar-fecha-matricula', [MatriculasController::class, 'putCambiarFechaMatricula']);
 Route::put('matriculas/cambiar-fecha-retiro', [MatriculasController::class, 'putCambiarFechaRetiro']);
 Route::put('matriculas/desertar', [MatriculasController::class, 'putDesertar']);
