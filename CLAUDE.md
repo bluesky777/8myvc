@@ -59,6 +59,7 @@ leyendo el código. Cada una lleva su uso en la cabecera.
 | `route-inventory.php` · `route-match-check.php` | la tabla de rutas, comparable 1:1 |
 | `inventario-autorizacion.py` · `auditar-autenticacion.php` | qué guard cubre cada ruta |
 | `respuestas-que-mienten.py` | qué métodos frenan la escritura y responden 200 igual |
+| `interruptores-que-nadie-lee.py` | qué columnas `tinyint(1)` no decide nadie — con `--clientes`, tampoco los cuatro fronts |
 
 Y una que **no** está en `tools/` y contesta la pregunta contraria:
 `tests/Barrido/SuperficieDeUnTokenTest.php` golpea la API entera con un token y

@@ -795,3 +795,82 @@ Y la forma, que es la de la §15 vista desde el otro lado: **la intención estab
 escrita en un sitio que casi todo el mundo lee, y quedaba una puerta que no lo
 leía**. Las dos que sí lo miraban tenían el comentario puesto y el razonamiento
 hecho; la que faltaba era la que se ejecuta más veces al día.
+
+
+## §17. `tools/interruptores-que-nadie-lee.py` — y lo que dijo la primera corrida
+
+**Medido el 21 ago 2026. No hay nada que arreglar, y eso es el resultado.**
+
+La forma que más ha encontrado hoy es siempre la misma: **el colegio expresa una
+intención por un camino que el código no mira.** Salió cuatro veces en un día y
+cada vez por un sitio distinto —el `actual` de un año en la papelera, el
+`(inhabilitado)` escrito en el `username`, el `in_action` de las votaciones y el
+de las actividades—, así que valía la pena preguntarse si el resto de esa forma
+se puede buscar en vez de tropezarse con ella.
+
+El subconjunto mecánico son las columnas `tinyint(1)`: interruptores. La
+herramienta las saca del volcado del esquema y las reparte en tres montones —las
+que nadie nombra, las que se guardan y se sirven pero **ningún `if` ni ningún
+`WHERE` mira**, y las que deciden algo—. Y con `--clientes` pasa por encima de
+`myvc_front`, `myvc_front_2` y `myvc_flutter`, que es lo que convierte
+«candidato» en una frase que se puede afirmar: *esto no lo lee nadie, en ninguna
+parte*.
+
+```
+  columnas tinyint(1) distintas ... 157
+  ni se nombran .................. 48
+  NO DECIDEN NADA ................ 44
+  alguien decide con ellas ....... 65
+
+  SIN NADIE QUE LAS MIRE, ni aquí ni allí: 49
+```
+
+### Y la segunda pregunta, que es la que decide si importa
+
+Un interruptor que nadie lee solo importa **si alguien lo ha estado pulsando**.
+Se contaron las filas encendidas de las 49 en la copia de desarrollo, y la
+respuesta es que no: `dis_procesos` tiene 327 filas y **cero** firmas de alumno o
+de acudiente marcadas; `change_asked_data`, 96 filas y **cero** campos aceptados;
+`unidades` y `subunidades`, 54.516 filas entre las dos y **cero** `por_defecto`.
+O sea que casi todas son **esquema muerto**, no una casilla que alguien marca
+para nada.
+
+Tres cosas que sí quedan dichas, y ninguna es un fallo:
+
+**1. `users.can_ask` está encendida en las 2.351 cuentas y no la lee nadie.** Es
+la única de las 49 con datos dentro, y lo que tiene dentro es su valor por
+defecto en todas. Encaja con lo de al lado: los `*_accepted` por campo de
+`change_asked_data` y `change_asked_assignment` tampoco los lee nadie y están a
+cero en las 131 filas. O sea que **el modelo de aprobación por campo de los
+pedidos de cambio está abandonado**: se diseñó campo a campo y lo que quedó vivo
+aprueba escribiendo directamente — que es justo el mecanismo de la §39, el que
+escribía lo que dijera el cuerpo. Quien retome aquello se ahorra reconstruirlo.
+
+**2. `df_alumnos`, `df_asignaturas` y `df_grupos` no existen para nadie**: cero
+filas, y **ni una sola mención en `app/`, `routes/`, `config/` ni los seeders**.
+Sus veinte columnas `per{1..4}_manual` / `per{1..4}_recuperada` son la copia
+denormalizada de las definitivas que alguien empezó y no terminó. Importa para
+[10-definitivas.md](10-definitivas.md), que está parado: **no son un séptimo
+sitio que escriba notas**, están muertas. Lo mismo con `default_unidades` y
+`default_subunidades`, cero filas y cero menciones.
+
+**3. `matriculas.profes_editar_notas`**, cero encendidas en 3.542 filas, y nadie
+la lee. Es la hermana por matrícula de `years.profes_can_edit_alumnos`, que sí
+decide dos cosas y **está esperando una decisión** ([09 §5](09-pendientes.md)).
+Quien conteste aquella pregunta debería saber que existe esta, porque contesta
+sola parte de la duda: alguien ya pensó en un permiso por alumno y no llegó a
+usarse.
+
+### Lo que la herramienta no puede decir, y por qué se corre igual
+
+Que una columna esté en el montón de las vivas **no significa que la comprobación
+sea la correcta**: `vt_votaciones.locked` la miraba el front —para pintar un
+candado— y aun así se podía votar en una votación cerrada. Y el reconocimiento de
+«esto es SQL» es por palabras clave dentro de la cadena, no un parser; con 990
+consultas escritas a mano acierta lo normal y falla en lo raro, por eso imprime
+el número de apariciones de cada una.
+
+Sirve para lo que sirve: **preguntar por una ausencia**, que es lo que no se puede
+hacer leyendo. Y el resultado de hoy —«casi todo esto es esquema muerto y nadie
+ha pulsado nada»— vale exactamente lo mismo que si hubiera salido lo contrario,
+porque la sospecha estaba y ahora está contestada con números.
