@@ -563,8 +563,13 @@ class AutorizacionTest extends CasoDeContrato
         'GET api/contratos' => 'lo llama la app de Flutter desde pantallas de familia; qué columnas se recortan está en 09 §5',
 
         // Defendidas por dentro, que es por lo que el inventario tampoco las lista.
+        //
+        // Aquí estuvo `PUT api/piars-alumnos/field` con el motivo «comprueba
+        // dentro del método; responde 400 a una familia», y **era falso**: el
+        // método no comprobaba nada. Esta lista es de las pocas cosas del repo
+        // que se escriben creyendo al código en vez de midiéndolo, y por eso se
+        // le coló. Ver 05 §35.
         'GET api/definitivas_periodos/arreglar-duplicados' => 'User::pueden_modificar_definitivas() corta a todo el que no sea superusuario o profesor con permiso',
-        'PUT api/piars-alumnos/field' => 'comprueba dentro del método; responde 400 a una familia',
         'PUT api/images-users/imagenes-de-usuario' => 'sin `user_id` significa «las mías», que es lo que devuelve',
 
         // Rotas desde antes de la migración, con su entrada en 05.
@@ -728,8 +733,7 @@ class AutorizacionTest extends CasoDeContrato
         'PUT api/tardanzas/subir/eliminar-ausencia' => 'TSubirController::user() exige Profesor o superusuario',
         'PUT api/tardanzas/subir/poner-ausencia' => 'lo mismo',
 
-        // Defendidas por dentro, las dos que aparecen al bastar UNA hermana.
-        'PUT api/piars-alumnos/field' => 'comprueba dentro del método; responde 400 a una familia',
+        // Defendida por dentro, la que aparece al bastar UNA hermana.
         'PUT api/publicaciones/restaurar' => 'exigeQueLaPublicacionSeaSuya() corta antes del UPDATE',
 
         // Abiertas a propósito, con su decisión en otro sitio.

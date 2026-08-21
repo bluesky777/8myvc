@@ -205,8 +205,20 @@ Route::put('notas-actuales-alumnos/{grupo_id}', [NotasActualesAlumnosController:
 // Ver 05 §17.
 Route::put('promovidos/calcular-grupo', [PromovidosController::class, 'putCalcularGrupo'])->middleware('auth.personal');
 
-// PiarsAlumnosController
-Route::post('piars-alumnos/document', [PiarsAlumnosController::class, 'postDocument'])->middleware('persona.propia');
-Route::put('piars-alumnos/field', [PiarsAlumnosController::class, 'putField']);
+// PiarsAlumnosController — las cuatro son del PIAR y el PIAR es del personal.
+//
+// `myvc_front_2` es la única aplicación que las llama y no tiene camino de
+// familia: en todo su código solo distingue `Usuario`, `Profesor` titular e
+// `is_superuser`. Las cuatro llevaban otra cosa (ver 05 §35):
+//
+//   - `field` no llevaba **ninguno**, y las tres columnas que escribe se eligen
+//     por `id` de la fila del PIAR, así que cualquiera con token reescribía la
+//     valoración pedagógica de cualquier alumno.
+//   - las dos de `document` llevaban `persona.propia`, que deja pasar al alumno
+//     sobre lo suyo: un alumno subía y borraba los documentos de su propio PIAR.
+//     Decisión de Joseth, 21 ago 2026: los documentos del PIAR los pone el
+//     colegio.
+Route::post('piars-alumnos/document', [PiarsAlumnosController::class, 'postDocument'])->middleware('auth.personal');
+Route::put('piars-alumnos/field', [PiarsAlumnosController::class, 'putField'])->middleware('auth.personal');
 Route::get('piars-alumnos/alumnos/{grupo_id}', [PiarsAlumnosController::class, 'getAlumnos'])->middleware('auth.personal');
-Route::delete('piars-alumnos/document/{alumno_id}', [PiarsAlumnosController::class, 'deleteDocument'])->middleware('persona.propia');
+Route::delete('piars-alumnos/document/{alumno_id}', [PiarsAlumnosController::class, 'deleteDocument'])->middleware('auth.personal');

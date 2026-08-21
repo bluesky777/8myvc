@@ -95,7 +95,7 @@ eso es justo lo que había que aprender.
 3. **El «Psicólogo»** ([05 §30.2](05-codigo-muerto-y-roto.md)) → el rol
    `Psicólogo` (que ya existe, id 11, cuatro personas) **abre `nee` y
    `nee_descripcion`, y nada más**. La decisión se tomó después de ir a mirar el
-   PIAR, y lo que se encontró allí cambió la pregunta — está en la [§32](05-codigo-muerto-y-roto.md).
+   PIAR, y lo que se encontró allí cambió la pregunta — está en la [§35](05-codigo-muerto-y-roto.md).
 4. **El hash del lector de tardanzas** ([05 §25.4](05-codigo-muerto-y-roto.md)) →
    **quitarlo del `SELECT`**, en `tardanzas/login` y en `traer-datos`.
 5. **Los años actuales de los dieciséis colegios**

@@ -3037,3 +3037,105 @@ que ya estaba anotada**: `GET api/contratos` y
 Con token de acudiente son trece, y las dos de más son las suyas: `mis-acudidos` y
 `ChangesAsked/to-me`, que traen la ficha completa de su acudido — que es
 exactamente lo que la regla del colegio permite y no se re-litiga.
+
+---
+
+## 35. El PIAR, al que entraba cualquiera (21 ago 2026)
+
+**No se llegó buscando aquí.** Joseth pidió, antes de decidir el alcance del rol
+`Psicólogo` de la [§30.2](#302-secretario-es-un-permiso-que-nadie-tiene-buscado-en-dos-sitios-distintos),
+ver **qué endpoints toca el PIAR**. La lista se sacó de `myvc_front_2` —el único
+cliente que los llama— y contestó otra pregunta antes que la suya.
+
+El PIAR (plan individual de ajustes razonables) es el módulo de las necesidades
+educativas especiales, y sus catorce rutas se habían mirado poco por una razón
+concreta: **es la única aplicación del sistema que no comparte pantallas con el
+resto**, así que ni el barrido ni las revisiones por dominio pasaron por ahí.
+
+### 35.1 Lo que estaba abierto
+
+| Ruta | Llevaba | Qué permitía |
+|---|---|---|
+| `PUT piars-alumnos/field` | **nada, solo `auth.token`** | reescribir la valoración pedagógica, los ajustes generales o el reporte del PIAR **de cualquier alumno**, con un token cualquiera y el `id` de la fila |
+| `POST piars-alumnos/document` | `persona.propia` | que el **propio alumno** subiera los documentos de su PIAR |
+| `DELETE piars-alumnos/document/{id}` | `persona.propia` | que el **propio alumno** los borrara |
+
+La de `field` es la que importa. Elige la fila **por el `id` del PIAR**, no por el
+alumno, así que `persona.propia` tampoco habría servido: no hay ningún
+identificador de persona en el cuerpo que un guard pudiera comprobar. Lo único
+que la cierra es que el PIAR entero sea del personal.
+
+Y lo es: `myvc_front_2` **no tiene camino de familia**. En todo su código fuente
+solo distingue `tipo === 'Usuario'`, `tipo === 'Profesor'` con titularidad, e
+`is_superuser`. El `familiar-context.service` que hay dentro no es la familia
+entrando: es la sección «contexto familiar» de la ficha del alumno.
+
+Las tres pasan a `auth.personal`. Decisión de Joseth, 21 ago 2026: **los
+documentos del PIAR los pone el colegio**. Fijado por `PiarTest`, comprobado al
+revés.
+
+### 35.2 Las cuatro comprobaciones que no comprobaban
+
+`PiarsAlumnosController` y `PiarsActasAcuerdoController` tenían, cada uno dos
+veces, esto:
+
+```php
+if ($this->user->tipo != 'Usuario' && $this->user->tipo != 'Profesor') {
+    response()->json(['error' => 'Unknownthorized'], 400);   // sin return
+}
+```
+
+**`response()` sin `return` construye una respuesta y la tira.** La petición
+sigue. Es el mismo error de forma que el `return 'No tienes permiso';` dentro de
+un constructor que documenta `ExigirPersonal`, y la tercera familia de la misma
+cosa: **una autorización escrita en una expresión que no corta nada**. Se borran
+las cuatro en vez de arreglarlas, porque el criterio que intentaban aplicar
+—«Usuario o Profesor»— es letra por letra lo que hace `auth.personal`, que ahora
+llevan las rutas. Un candado en un sitio.
+
+**Queda una quinta, y esa está además al revés:**
+
+```php
+// PiarsConfigController::putConfig
+if ($this->user->is_superuser) {
+    response()->json(['error' => 'Unknownthorized'], 400);   // sin return, y la
+}                                                            // condición invertida
+```
+
+Dice «si **es** superusuario, error». Si el `return` hubiera estado, la ruta
+habría dejado fuera exactamente a quien tenía que dejar entrar. No la llama
+**ningún** cliente de los cuatro —se comprobó contra `myvc_front/app`,
+`myvc_front_2/src` y `myvc_flutter/lib`—, y en `myvc_front_2` la única llamada a
+`piars-config/field` está **comentada**. Se arregla junto con el rol `Secretario`,
+porque la pregunta de quién configura el colegio es la suya y no otra.
+
+### 35.3 Lo que contestó la pregunta de Joseth
+
+**El PIAR no pregunta por el rol `Psicólogo` en ningún sitio.** Autoriza por
+`tipo`, así que hoy entran los 71 del personal, tengan el rol o no. El rol existe
+—id 11, cuatro personas, se lo asigna `users/crear-psicologo`— y no gobierna nada.
+
+Lo que sí falta es **el eslabón de antes**. `PiarsAlumnoUtils` filtra sus dos
+consultas por `a.nee=1`: el PIAR solo ve a los alumnos **ya marcados**. Y marcar a
+uno es `alumnos/guardar-valor`, que hoy exige `is_superuser` porque la rama del
+psicólogo compara `tipo` con un valor que `tipo` no toma nunca (§30.2). O sea:
+
+> **El psicólogo trabaja el PIAR pero no puede meter a nadie en él.**
+
+Con eso delante, Joseth decidió: el rol `Psicólogo` abre `nee` y
+`nee_descripcion`, y nada más. El PIAR se queda como está —abierto al personal—
+porque cerrarlo al rol dejaría fuera de golpe a los docentes que hoy lo usan.
+
+### 35.4 Y dos cosas que se ven al pasar y no se tocan
+
+- **`getAlumnosPiar()` escribe dentro de un `GET`.** `contexto-de-grupo` crea la
+  fila de PIAR del alumno marcado que no la tenga. Funciona y nadie se queja, pero
+  es un `INSERT` en una lectura: lo que significa es que **no se puede cachear esa
+  ruta** ni servirla desde una réplica. Anotado aquí para que el día que alguien
+  lo intente sepa por qué no.
+- **`data.alumnos` de esa misma respuesta no filtra nada**: son los del grupo
+  entero con teléfono, celular, dirección, `nee` y `nee_descripcion` de cada uno.
+  Lo recibe personal del colegio, así que no es un caso de la §34; se fija en el
+  test porque **la diferencia entre `alumnos` y `alumnos_piar` es justo lo que un
+  refactor confundiría**, y confundirlas sería mandar las necesidades educativas
+  de todo el grupo a una pantalla que solo debía mostrar diez.

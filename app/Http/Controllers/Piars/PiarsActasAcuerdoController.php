@@ -29,9 +29,6 @@ class PiarsActasAcuerdoController extends Controller {
 
 	public function postDocument()
 	{
-		if ($this->user->tipo != 'Usuario' && $this->user->tipo != 'Profesor') {
-			response()->json(['error' => 'Unknownthorized'], 400);
-		}
 		Request::validate([
 			'file' => 'required',
 			'alumno_id' => 'required',
@@ -98,9 +95,6 @@ class PiarsActasAcuerdoController extends Controller {
 
 	public function deleteDocument($alumno_id)
 	{
-		if ($this->user->tipo != 'Usuario' && $this->user->tipo != 'Profesor') {
-			response()->json(['error' => 'Unknownthorized'], 400);
-		}
 
 		$now 				= Carbon::now('America/Bogota');
 		$year_id 			= Request::input('yearId');
