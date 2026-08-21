@@ -2534,3 +2534,81 @@ no lo están: `TLogin` y `TSubir` en la §25, `CambiarUsuarios` en la §26, y
 filas que el seed no trae—, y de los cinco salieron cuatro cosas que arreglar.
 Que no los mirara nadie y que no los mirara ninguna herramienta era la misma
 frase dicha dos veces.
+
+---
+
+## 28. Cuál es el año actual del colegio (20 ago 2026)
+
+`YearsController` era el hueco más grande de la cobertura —**4 de 19 rutas
+comprobadas**— y de él cuelga lo que decide en qué año trabaja todo el mundo:
+`Services\Login` mete a cada usuario en el periodo `actual` del año `actual` en
+cada inicio de sesión. Mirar las quince que faltaban dio tres cosas, y las tres
+son la misma frase escrita en tres sitios: **`actual = 1` sin condición**.
+
+### 28.1 Destildar la casilla encendía el año
+
+```php
+$actual = (bool) Request::input('can');
+if ($actual) { Year::where('actual', true)->update(['actual'=>false]); }
+$year = Year::findOrFail($year_id);
+$year->actual = 1;                       // <- pasara lo que pasara
+if ($actual) { return 'Ahora es año actual.'; } else { return 'Ahora NO es año actual';}
+```
+
+La respuesta dice una cosa y la fila queda con la contraria. El front
+(`colegio/years.html`) es **una casilla por año**, con `ng-false-value="0"`: quien
+la apaga manda `can=0`, recibe «Ahora NO es año actual» en verde, y el año queda
+encendido — y como el `update` que apaga a los demás solo corre cuando `can` es
+verdadero, queda encendido **además** del que ya lo estaba.
+
+### 28.2 Y crear un año, lo mismo
+
+`postStore` guarda `actual` con lo que venga, apaga a los demás **solo si venía
+verdadero**, y después hace `$year->actual = 1` igual. Crear un año pidiendo
+`actual: false` lo encendía sin apagar a nadie. El front manda siempre
+`actual: true` (`YearsCtrl.fixControles`), así que arreglarlo no cambia la
+pantalla; cierra el segundo camino.
+
+### 28.3 La papelera, que es donde estaba la prueba
+
+En la base hay un año con `actual=1` **y `deleted_at` puesto**: el 2026, borrado
+el 24 de junio de 2025. Hoy no se ve, y merece la pena por qué no: todo lo que lee
+el año actual filtra `deleted_at`, así que para el sistema entero ese año no
+existe. Y `putSetActual` apaga a los demás con Eloquent, que tampoco ve los
+borrados — o sea que **ese año se libraba de todas las apagadas**.
+
+La trampa es `years/restore/{id}`. Restaurarlo lo devuelve encendido al lado del
+que lo esté, y con dos encendidos:
+
+```php
+$anios = DB::select('SELECT id, year, actual FROM years WHERE actual=1 and deleted_at is null');
+$anio  = $anios[0];      // sin ORDER BY
+```
+
+**En qué año entra todo el colegio lo decidiría el orden en que MySQL devuelva las
+filas.** No se toca ese `[0]` —cambiarlo es elegir por 16 colegios en qué año
+amanecen, y eso es una decisión— sino la causa: un año que va a la papelera deja
+de ser el actual. No cambia nada de lo que hoy calcula nadie, porque para todos
+los lectores ese año ya no estaba; pone en la fila lo que todos ya deducían.
+
+El test no comprueba la línea, comprueba la trampa: borra el año actual, pone otro
+como actual, restaura el primero y exige que no haya dos.
+
+### 28.4 Lo que se midió y estaba bien
+
+- **`years/useractive/{id}` muda al usuario y no al colegio.** Es el par que el
+  propio front avisa de no confundir (`YearsApi.ts`: «set-actual cambia el año DEL
+  COLEGIO; useractive/{id} cambia el año en el que trabaja UN usuario»). Se
+  comprueban las dos mitades: que el usuario cambia de periodo y que la lista de
+  años actuales no se mueve. Y que un año sin periodos responde 400.
+- **Los ocho conmutadores del boletín** guardan lo que dicen, comprobados
+  encendiendo y apagando cada uno y leyendo su columna.
+- **El borrado físico sigue siendo solo de superusuario**, que es el candado de
+  59 tablas en cascada que se puso en la revisión de la papelera y que hasta ahora
+  no tenía cerrojo que lo sostuviera.
+- **`years/store` responde 200 y no 201**, aunque devuelva un modelo recién
+  creado, y es un buen contraste con `opciones/add-opcion` de la §27, que responde
+  201 haciendo lo mismo. Laravel decide mirando `wasRecentlyCreated`, y aquí el
+  controlador vuelve a buscar el año con `Year::find()` antes de devolverlo: la
+  instancia que sale ya no sabe que acaba de nacer. Los dos números están fijados,
+  porque los dos son lo que reciben los clientes.

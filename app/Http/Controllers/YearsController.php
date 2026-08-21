@@ -80,6 +80,7 @@ class YearsController extends Controller {
 		$year->codigo_dane            = Request::input('codigo_dane');
 		$year->encabezado_certificado = Request::input('encabezado_certificado');
 
+		$actual_pedido  = (bool) Request::input('actual');
 		$year->actual   = Request::input('actual');
 		$year->telefono = Request::input('telefono');
 		$year->celular  = Request::input('celular');
@@ -104,7 +105,12 @@ class YearsController extends Controller {
 		}
 
 		$year 				= Year::find($year_id_nuevo);
-		$year->actual 		= 1;
+		// El mismo `= 1` de putSetActual, y con el mismo efecto: crear un año
+		// pidiendo `actual: false` apagaba a los demás y encendía éste igual. El
+		// front manda siempre `actual: true` (`YearsCtrl.fixControles`), así que
+		// esto no cambia lo que hace la pantalla; cierra el segundo camino por el
+		// que aparecen dos años actuales.
+		$year->actual 		= $actual_pedido ? 1 : 0;
 		$year->created_by 	= $user->user_id;
 		$year->save();
 
@@ -340,7 +346,14 @@ class YearsController extends Controller {
 		}
 
 		$year = Year::findOrFail($year_id);
-		$year->actual = 1;
+		// Era `= 1` a secas, o sea que destildar la casilla marcaba el año como
+		// actual y devolvía «Ahora NO es año actual». De ahí salen los años con
+		// `actual=1` de más que hay en la base: el front es una casilla por año
+		// (`years.html`, ng-false-value="0") y quien la apaga cree que la apagó.
+		// Lo que se rompe con eso está en Services\Login::ponerEnElPeriodoActual,
+		// que se queda con el PRIMERO de los años actuales y no tiene ORDER BY.
+		// Ver docs/migracion/05-codigo-muerto-y-roto.md §28.
+		$year->actual = $actual ? 1 : 0;
 		$year->save();
 
 		if ($actual) { return 'Ahora es año actual.';
@@ -493,6 +506,22 @@ class YearsController extends Controller {
 		$user = User::fromToken();
 		
 		$year = Year::findOrFail($id);
+
+		// Un año en la papelera no puede ser el año actual del colegio, y hasta
+		// hoy podía: en la base hay uno así —2026, borrado, con `actual=1`—.
+		// Hoy no se ve, porque todo lo que lee el año actual filtra `deleted_at`;
+		// la trampa es `years/restore/{id}`, que lo devolvería encendido junto al
+		// que lo esté, y ahí `Login::ponerEnElPeriodoActual` se queda con el
+		// PRIMERO de los dos y no tiene ORDER BY. Además, `putSetActual` apaga a
+		// los demás con Eloquent, que no ve los borrados: el de la papelera se
+		// libraba de todas las apagadas.
+		//
+		// No cambia nada de lo que hoy calcula nadie —para todos los lectores ese
+		// año ya no estaba—: pone en la fila lo que todos ya deducían.
+		// Ver docs/migracion/05-codigo-muerto-y-roto.md §28.
+		$year->actual = 0;
+		$year->save();
+
 		$year->delete();
 
 		return $year;
