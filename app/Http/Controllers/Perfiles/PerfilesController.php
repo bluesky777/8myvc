@@ -446,9 +446,40 @@ class PerfilesController extends Controller {
 	}
 
 
+	/**
+	 * El correo de recuperación de una cuenta. **Es la llave, no un dato de perfil.**
+	 *
+	 * `login/recuperar-clave` busca a quien pide el reseteo con
+	 * `SELECT * FROM users WHERE email = ?` y le manda el enlace ahí, así que
+	 * quien escribe esta columna en una cuenta ajena se lleva esa cuenta. El único
+	 * guard que tenía era `persona.propia:user_id`, que frena a alumnos y
+	 * acudientes y **deja pasar de largo a todo el personal**: cualquiera de los 51
+	 * profesores ponía su correo en la cuenta del superusuario. Es la misma familia
+	 * que la §29 y se cierra igual — ver 05 §36.
+	 *
+	 * El criterio es el suyo o el de un superusuario. Se comprueba aquí y no en la
+	 * ruta porque «el suyo» necesita comparar el `{id}` con el del token, y eso el
+	 * middleware solo lo hace para familias.
+	 *
+	 * Y el `return` era `$perfil->password . ' - ' . Request::input('password')`.
+	 * `User` tiene `password` en `$hidden`, así que en JSON no sale nunca; una
+	 * concatenación en una cadena **se salta `$hidden` entero**. La protección
+	 * estaba puesta y no cubría la única salida que se usaba.
+	 *
+	 * Ningún cliente llama a esta ruta —el propio front lo dejó escrito al retirar
+	 * su último llamante en `UserConfiguracionCtrl`—, así que ni el 403 ni la
+	 * respuesta nueva rompen ninguna pantalla. Lo que cada uno usa para cambiar el
+	 * suyo es `perfiles/guardar-mi-email-restore`.
+	 */
 	public function putCambiaremailrestore($id)
 	{
 		$user = User::fromToken();
+		
+		Autoriza::exigir(
+			(int) $id === (int) $user->user_id || Autoriza::esSuperusuario($user),
+			'Solo puedes cambiar tu propio correo de recuperación.'
+		);
+		
 		$perfil = User::findOrFail($id);
 
 
@@ -459,7 +490,7 @@ class PerfilesController extends Controller {
 			abort(400, 'Email no asignado');
 		}
 
-		return $perfil->password . ' - ' . (string)Request::input('password');
+		return 'Correo de recuperación guardado.';
 	}
 
 
@@ -649,6 +680,14 @@ class PerfilesController extends Controller {
 
 	public function putCambiarimgunusuario($usuarioElegido)
 	{
+		// La pestaña «Imágenes de usuarios» del gestor de archivos, que es la única
+		// que llama a esto, la enseña el front con `hasRoleOrPerm('admin')`; el
+		// backend pedía solo `auth.personal`. Es la situación de la §29.3 —el
+		// backend dos escalones por debajo de su propia pantalla— y se cierra con
+		// aquella decisión, no con una nueva. Ver 05 §36.
+		Autoriza::exigir(Autoriza::esAdministrativo(User::fromToken()),
+			'No tienes permiso para cambiar la imagen de otra persona.');
+		
 		$user = User::findOrFail($usuarioElegido);
 		$user->imagen_id = Request::input('imgParaUsuario');
 		$user->save();
@@ -658,6 +697,14 @@ class PerfilesController extends Controller {
 
 	public function putCambiarimgunalumno($alumnoElegido)
 	{
+		// La pestaña «Imágenes de usuarios» del gestor de archivos, que es la única
+		// que llama a esto, la enseña el front con `hasRoleOrPerm('admin')`; el
+		// backend pedía solo `auth.personal`. Es la situación de la §29.3 —el
+		// backend dos escalones por debajo de su propia pantalla— y se cierra con
+		// aquella decisión, no con una nueva. Ver 05 §36.
+		Autoriza::exigir(Autoriza::esAdministrativo(User::fromToken()),
+			'No tienes permiso para cambiar la imagen de otra persona.');
+		
 		$alumno = Alumno::findOrFail($alumnoElegido);
 		$alumno->foto_id = Request::input('imgOficialAlumno');
 		$alumno->save();
@@ -668,6 +715,14 @@ class PerfilesController extends Controller {
 
 	public function putCambiarimgunprofe($profeElegido)
 	{
+		// La pestaña «Imágenes de usuarios» del gestor de archivos, que es la única
+		// que llama a esto, la enseña el front con `hasRoleOrPerm('admin')`; el
+		// backend pedía solo `auth.personal`. Es la situación de la §29.3 —el
+		// backend dos escalones por debajo de su propia pantalla— y se cierra con
+		// aquella decisión, no con una nueva. Ver 05 §36.
+		Autoriza::exigir(Autoriza::esAdministrativo(User::fromToken()),
+			'No tienes permiso para cambiar la imagen de otra persona.');
+		
 		$profesor = Profesor::findOrFail($profeElegido);
 		$profesor->foto_id = Request::input('imgOficialProfe');
 		$profesor->save();
@@ -676,6 +731,14 @@ class PerfilesController extends Controller {
 
 	public function putCambiarfirmaunprofe($profeElegido)
 	{
+		// La pestaña «Imágenes de usuarios» del gestor de archivos, que es la única
+		// que llama a esto, la enseña el front con `hasRoleOrPerm('admin')`; el
+		// backend pedía solo `auth.personal`. Es la situación de la §29.3 —el
+		// backend dos escalones por debajo de su propia pantalla— y se cierra con
+		// aquella decisión, no con una nueva. Ver 05 §36.
+		Autoriza::exigir(Autoriza::esAdministrativo(User::fromToken()),
+			'No tienes permiso para cambiar la imagen de otra persona.');
+		
 		$profesor = Profesor::findOrFail($profeElegido);
 		$profesor->firma_id = Request::input('imgFirmaProfe');
 		$profesor->save();

@@ -3302,3 +3302,88 @@ porque cerrarlo al rol dejaría fuera de golpe a los docentes que hoy lo usan.
   test porque **la diferencia entre `alumnos` y `alumnos_piar` es justo lo que un
   refactor confundiría**, y confundirlas sería mandar las necesidades educativas
   de todo el grupo a una pantalla que solo debía mostrar diez.
+
+---
+
+## 36. El correo por el que llega el reseteo, y las imágenes de los demás (21 ago 2026)
+
+De seguir la lista de cobertura. `PerfilesController` tenía **nueve rutas cuya
+respuesta no había mirado nadie nunca**, y dos de ellas resultaron caras.
+
+### 36.1 Un profesor se llevaba la cuenta del superusuario, otra vez
+
+`login/recuperar-clave` busca a quien pide el reseteo así:
+
+```php
+$consulta = 'SELECT * FROM users WHERE email = ? and deleted_at is null and is_active=1';
+```
+
+y le manda el enlace a esa dirección. O sea que **`users.email` no es un dato de
+perfil: es la llave de la cuenta.**
+
+Y `PUT perfiles/cambiaremailrestore/{id}` escribe esa columna **de cualquier id**.
+Su único guard era `persona.propia:user_id`, que frena a alumnos y acudientes y
+**deja pasar de largo a todo el personal** — es lo que ese middleware dice de sí
+mismo en su propio docblock: «lo que puede hacer el personal del colegio entre sí
+queda como está». Con eso, cualquiera de los 51 profesores ponía su correo en la
+cuenta del superusuario y pedía un reseteo.
+
+Medido antes de arreglar: con token de profesor, la ruta respondía **200** sobre
+el id del superusuario.
+
+**Y devolvía el hash.** El método terminaba en:
+
+```php
+return $perfil->password . ' - ' . (string)Request::input('password');
+```
+
+Esto merece quedarse: el modelo `User` **tiene `password` en `$hidden`**, así que
+en cualquier respuesta JSON no sale nunca. Una **concatenación en una cadena se
+salta `$hidden` entero**. La protección estaba puesta, era la correcta, y no
+cubría la única salida que ese método usaba.
+
+El criterio nuevo es el suyo o el de un superusuario, comprobado dentro del método
+porque «el suyo» necesita comparar el `{id}` con el del token y el middleware eso
+solo lo hace para familias. **No rompe ninguna pantalla**: el propio front dejó
+escrito, al retirar su último llamante, que `PerfilesApi.cambiarEmailRestore` «se
+queda sin llamantes». Lo que cada uno usa para cambiar el suyo es
+`perfiles/guardar-mi-email-restore`, que ya sacaba el id del token.
+
+Es la tercera de la misma familia que la §29, y las tres se parecen: **una ruta
+que escribe sobre un id ajeno sin preguntar de quién es.**
+
+### 36.2 Las cinco imágenes, y el backend por debajo de su propia pantalla
+
+Las cinco rutas que cambian la imagen o la firma **de otra persona** llevaban
+`auth.personal`:
+
+| Ruta | Qué cambia |
+|---|---|
+| `perfiles/cambiarfirmaunprofe/{id}` | la **firma** de un profesor |
+| `perfiles/cambiarimgunprofe/{id}` | su foto |
+| `perfiles/cambiarimgunusuario/{id}` | la imagen de un administrativo |
+| `perfiles/cambiarimgunalumno/{id}` | la foto de un alumno — **sin ningún cliente que la llame** |
+| `myimages/cambiarlogocolegio` | **el logo, que sale en cada boletín y cada certificado** |
+
+Las cinco viven, en el front, dentro de la pestaña «Imágenes de usuarios» del
+gestor de archivos, que la plantilla enseña con
+`ng-if="$ctrl.hasRoleOrPerm('admin')"`. **Es la situación de la [§29.3](#293-y-dos-cosas-más-de-la-misma-pasada)
+otra vez: el backend dos escalones por debajo de su propia pantalla.** Se cierra
+con aquella decisión y no con una nueva, y por eso no hace falta preguntar: a
+quien no es admin el front **no le enseña ni el botón**, así que subir el listón
+no puede apagar un flujo que nadie ve.
+
+Pasan a `Autoriza::esAdministrativo`. Fijado por `ImagenesDeOtrosTest`, que
+comprueba las tres caras —profesor no, familia no, administrativo sí— y **la
+columna** en cada una, no solo el código.
+
+### 36.3 Lo que enseñó de paso
+
+El test de las cinco escribía `assertStatus(403, "cuál de las cinco falló")`.
+**`assertStatus()` acepta un solo parámetro**, y PHP se traga en silencio los que
+sobran: el test parecía llevar mensajes y no llevaba ninguno, así que un fallo
+habría dicho «403 esperado, 200 recibido» sin decir en cuál de las cinco rutas.
+
+No lo dijo la corrida —pasaba— sino **larastan**. Vale la pena por lo que dice del
+reparto: los tests dicen si el código hace lo que se quiere, y el análisis estático
+dice si el test comprueba lo que dice comprobar.

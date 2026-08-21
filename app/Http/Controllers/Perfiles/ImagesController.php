@@ -20,6 +20,7 @@ use App\Support\SafeUpload;
 
 use Carbon\Carbon;
 use \Log;
+use App\Support\Autoriza;
 
 
 class ImagesController extends Controller {
@@ -238,9 +239,20 @@ class ImagesController extends Controller {
 
 
 
+	/**
+	 * El logo del colegio, que sale en **cada boletín y cada certificado**.
+	 *
+	 * Pedía solo `auth.personal`, así que cualquiera de los 51 profesores lo
+	 * cambiaba. Su botón vive en la pestaña que el front enseña con
+	 * `hasRoleOrPerm('admin')`: la misma situación de la §29.3 y el mismo cierre.
+	 * De las cinco de esta familia es la que más alcance tiene. Ver 05 §36.
+	 */
 	public function putCambiarlogocolegio()
 	{
 		$user = User::fromToken();
+		
+		Autoriza::exigir(Autoriza::esAdministrativo($user),
+			'No tienes permiso para cambiar el logo del colegio.');
 
 		$year = Year::findOrFail($user->year_id);
 		$year->logo_id = Request::input('logo_id');
