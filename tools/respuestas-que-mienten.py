@@ -42,7 +42,18 @@ RAIZ = pathlib.Path(__file__).resolve().parent.parent / 'app' / 'Http' / 'Contro
 
 # Las condiciones que son de permiso y no de negocio. Una lista corta a
 # propósito: ampliarla mete ruido y lo que se busca es una forma concreta.
-PERMISO = re.compile(r'^\s*if\s*\(.*(is_superuser|esAdministrativo|esSuperusuario|tipo\s*==)')
+# `->tipo ==` y no `tipo ==`: el segundo casa también con `$tipo == "img_perfil"`,
+# que es una condición de negocio —qué campo del pedido se rechaza— y no de
+# permiso. Salió al ensanchar el preámbulo de abajo: con una sola línea de
+# preámbulo el `$tipo = Request::input('tipo')` tapaba el `if` y el falso positivo
+# no llegaba a verse. Ensanchar un detector enseña dónde era flojo.
+PERMISO = re.compile(r'^\s*if\s*\(.*(is_superuser|esAdministrativo|esSuperusuario|->tipo\s*==)')
+
+# Lo que puede haber ANTES del `if` sin que cuente como cuerpo del método:
+# comentarios y asignaciones de una línea. Se buscan a mano y no con «cualquier
+# cosa» a propósito: si se admitiera una llamada con efectos, el `if` dejaría de
+# envolver el método entero y el hallazgo sería otro.
+PREAMBULO = re.compile(r'^\s*(//|/\*|\*|\$\w+(\s*\[[^\]]*\])?\s*=\s*[^;]*;\s*$)')
 
 
 def metodos(lineas):
@@ -76,8 +87,14 @@ def main():
             if not resto:
                 continue
 
-            # Una resolución de usuario antes del `if` no cuenta como cuerpo.
-            i = 1 if re.search(r'User::fromToken|^\s*\$user\s*=', resto[0]) else 0
+            # Lo que hay antes del `if` de permiso y no es cuerpo: comentarios y
+            # asignaciones sueltas. Antes se saltaba **una sola línea**, y por eso
+            # este script no encontró la §44 —`putCambiarFotoUnUsuario` resuelve al
+            # usuario y ADEMÁS busca la persona a la que le cambia la foto, dos
+            # líneas—, que tuvo que salir leyendo. Ver 05 §48.
+            i = 0
+            while i < len(resto) and PREAMBULO.match(resto[i]):
+                i += 1
 
             if i >= len(resto) or not PERMISO.match(resto[i]):
                 continue

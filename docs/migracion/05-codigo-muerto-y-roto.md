@@ -4263,3 +4263,72 @@ Fijado por `UnidadesTest`, catorce casos. Comprobado al revés: revirtiendo los 
 arreglos caen cinco, y los seis que comprueban que con el periodo **abierto** se
 sigue creando, reordenando y restaurando siguen verdes — que es lo que dice que no
 se cerró de más.
+
+---
+
+## 48. El detector que no se encontraba a sí mismo (21 ago 2026)
+
+`tools/respuestas-que-mienten.py` salió de la §37 y busca **un `if` de permiso que
+envuelve el método entero y no tiene `else`**. Corrido hoy: **cero**.
+
+Y sin embargo la [§44](05-codigo-muerto-y-roto.md), encontrada esta misma tarde
+leyendo el método a mano, **es exactamente esa forma**. O sea que el detector no
+encontraba un caso que cumplía su propia definición.
+
+### Por qué se le escapaba
+
+Por una línea. El script admitía **una sola** línea de preámbulo antes del `if`
+—la resolución del usuario— y `putCambiarFotoUnUsuario` tiene dos:
+
+```php
+$user = User::fromToken();
+$usu  = User::findOrFail($user_id);   // <- la segunda
+if ($user->tipo == 'Profesor' or $user->is_superuser) {
+```
+
+Con la segunda línea, el `if` ya no estaba donde el script miraba y el método se
+descartaba entero. Ahora se salta **todo** preámbulo que sea comentario o
+asignación de una línea.
+
+Es la misma forma que llevamos encontrando todo el día en el código, aplicada a la
+herramienta: **un criterio correcto con un límite arbitrario dentro**, y el límite
+no se ve porque lo que deja fuera no aparece en ninguna lista.
+
+### Lo que apareció al ensancharlo
+
+Tres casos. Uno es de `actividades`, que llevaba otra sesión. Los otros dos son
+`ChangeAskedAssignment::putSolicitarMateria` y `::putPedirQuitarAsignatura`:
+devolvían **200 con `['msg' => 'No puedes']`** y no escribían nada.
+
+**Y el front convierte eso en algo que se ve.** `ListAsignaturasCtrl` hace:
+
+```js
+.then(function(r){ $ctrl.pedidos.push(r.pedido); })
+```
+
+Con esa respuesta `r.pedido` es `undefined`, así que mete un `undefined` en la
+lista y pinta **una solicitud en blanco** que desaparece al recargar. Quien lo veía
+es el administrativo, que `auth.personal` deja pasar.
+
+El criterio no cambia —solo el docente pide cambios de asignatura, porque un
+superusuario no pide, hace— y no se le amplía nada a nadie. Lo que cambia es que
+ahora es 403 y se dice.
+
+### Y un falso positivo que enseñó dónde era flojo
+
+Al ensanchar el preámbulo apareció también `ChangeAskedController::putRechazar`,
+que **no** es un fallo: su condición es `$tipo == "img_perfil"` —qué campo del
+pedido se rechaza—, negocio y no permiso. El patrón de permiso decía `tipo\s*==`,
+que casa con las dos cosas.
+
+Lo interesante es **por qué no había salido antes**: con una sola línea de
+preámbulo, el `$tipo = Request::input('tipo');` de encima tapaba el `if` y el falso
+positivo nunca llegaba a verse. O sea que el límite estrecho estaba **escondiendo
+un fallo del patrón**, no protegiendo de él. Ajustado a `->tipo ==`.
+
+**Ensanchar un detector enseña dónde era flojo**, y las dos cosas que enseña —lo
+que dejaba fuera y lo que dejaba entrar mal— salen a la vez.
+
+Fijado por `PedidosDeAsignaturaTest`, cuatro casos. Comprobado al revés:
+revirtiendo los dos arreglos caen dos —los dos del administrativo— y los dos que
+comprueban que el docente sigue pidiendo siguen verdes.
