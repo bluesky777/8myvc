@@ -300,6 +300,30 @@ class Sesion
                 return $abortando ? abort(401, 'Token inválido, prohibido entrar.') : null;
             }
 
+            // A quien han desactivado o borrado se le cae la sesión AHORA, no
+            // cuando caduque el token que ya tiene.
+            //
+            // `POST /api/auth/refresh` ya lo comprobaba, así que una cuenta dada
+            // de baja no podía renovar — pero el token de acceso que llevaba en
+            // la mano seguía valiendo hasta su hora: **60 minutos, y 24 h si lo
+            // emitió `login/credentials`**, que es la puerta de los fronts que
+            // todavía no conocen `/api/auth/*`. Para «apagar la cuenta de
+            // alguien», que es lo que un colegio hace un lunes por la mañana,
+            // ese hueco es justo el que importa. Ver
+            // docs/migracion/12-larastan-nivel-7.md §16.
+            //
+            // No cuesta una consulta: `tokenable` ya trae la fila entera de
+            // `users`, y estas dos columnas vienen dentro.
+            //
+            // `deleted_at` va con ella aunque hoy no la escriba ningún endpoint
+            // —`App\User` no usa SoftDeletes y la papelera de usuarios está
+            // vacía— porque `Services\Login` sí la filtra al entrar: sin esto,
+            // el día que alguien añada el borrado, quien tuviera sesión abierta
+            // se quedaría dentro renovando cada catorce días para siempre.
+            if (! $usuario->is_active || $usuario->deleted_at !== null) {
+                return $abortando ? abort(401, 'Usuario invalidado') : null;
+            }
+
             $this->marcarUso($token);
 
             return $usuario->withAccessToken($token);

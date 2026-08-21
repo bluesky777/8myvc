@@ -748,3 +748,50 @@ las actividades: **el colegio expresó una intención por un camino que el códi
 mira**. Renombrar no apaga, igual que un año borrado seguía siendo el actual. La
 pregunta que lo encuentra es siempre la misma — *¿esto que parece un estado, lo
 lee alguien?*
+
+
+## §16. «Apagar la cuenta» dejaba a esa persona dentro hasta 24 horas
+
+**Arreglado. Lo fijan dos tests nuevos en `tests/Contrato/SesionTest.php`.**
+
+Sale directamente de la §15. Al escribir allí *«si de verdad sobran, lo que las
+apaga es `is_active = 0`»* convenía comprobar que eso es cierto, porque es un
+consejo que un colegio va a seguir. Y era cierto **a medias**.
+
+Las tres puertas y lo que comprobaba cada una:
+
+| Puerta | ¿mira `is_active`? |
+|---|---|
+| `Services\Login::entrar()` — el login | **sí**, `abort(400, 'Usuario invalidado')` |
+| `POST /api/auth/refresh` — la renovación | **sí**, `400 user_inactivo`, y con su comentario al lado explicando que sin eso el usuario seguiría dentro catorce días |
+| `Sesion::resolverDeVerdad()` — **cada petición** | **no** |
+
+O sea que la mitad larga estaba cerrada y la corta no: a quien desactivaban no se
+le podía renovar, pero **el token de acceso que llevaba en la mano seguía
+valiendo hasta su hora**. Son 60 minutos por la puerta nueva y **24 horas por
+`login/credentials`**, que es la que usan los fronts que todavía no conocen
+`/api/auth/*` —y por tanto la que más colegios están usando hoy—.
+
+Para el caso que motiva todo esto —apagar la cuenta de alguien un lunes por la
+mañana— ese hueco es justo el que importa, y con la §15 delante todavía más: seis
+de los diez superusuarios de la copia de desarrollo son cuentas que el colegio ya
+dio por apagadas.
+
+El arreglo son cuatro líneas en `resolverDeVerdad()`, y **no cuesta una consulta**:
+`$token->tokenable` ya trae la fila entera de `users` y las dos columnas vienen
+dentro. Con `is_active` va `deleted_at`, que hoy no escribe ningún endpoint —`App\User`
+no usa SoftDeletes y la papelera de usuarios está vacía— pero que `Services\Login`
+**sí** filtra al entrar: sin esto, el día que alguien añada el borrado de
+usuarios, el que ya tuviera sesión abierta se quedaría dentro renovando cada
+catorce días para siempre. Cerrarlo hoy cuesta una línea; encontrarlo entonces,
+no.
+
+La respuesta es **401 `Usuario invalidado`** y no el 400 del login, a propósito:
+aquí lo que ha dejado de valer es el token, y 401 es lo que el front ya sabe leer
+como «vuelve a entrar». Que el mensaje sea el mismo que el del login es
+deliberado — es la misma frase para la misma causa.
+
+Y la forma, que es la de la §15 vista desde el otro lado: **la intención estaba
+escrita en un sitio que casi todo el mundo lee, y quedaba una puerta que no lo
+leía**. Las dos que sí lo miraban tenían el comentario puesto y el razonamiento
+hecho; la que faltaba era la que se ejecuta más veces al día.

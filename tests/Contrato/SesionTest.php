@@ -289,6 +289,54 @@ class SesionTest extends CasoDeContrato
     }
 
     /**
+     * Y el acceso que ya tenía en la mano deja de valer **en la siguiente
+     * petición**, no cuando caduque.
+     *
+     * El test de arriba cerraba la renovación, que era la mitad larga: catorce
+     * días. Faltaba la corta, y no es despreciable — el acceso dura 60 minutos,
+     * y **24 horas si lo emitió `login/credentials`**, que es la puerta de los
+     * fronts que todavía no conocen `/api/auth/*`. «Apagar la cuenta de alguien»
+     * es lo que un colegio hace un lunes por la mañana, y con esas dos piezas
+     * sueltas seguía dentro hasta la noche.
+     *
+     * Importa especialmente porque seis de los diez superusuarios de la copia de
+     * desarrollo son cuentas que el colegio dio por apagadas — §15.
+     */
+    public function test_al_desactivar_la_cuenta_el_acceso_que_ya_tenia_deja_de_valer(): void
+    {
+        $usuario = $this->usuarioDeTipo('Usuario');
+
+        $par = $this->entrar($usuario->username);
+
+        $this->getJson('/api/ciudades', $this->cab($par['el_token']))->assertStatus(200);
+
+        DB::update('UPDATE users SET is_active = 0 WHERE id = ?', [$usuario->id]);
+
+        $this->getJson('/api/ciudades', $this->cab($par['el_token']))
+            ->assertStatus(401)
+            ->assertSee('Usuario invalidado');
+    }
+
+    /**
+     * Y lo mismo con la papelera, que hoy no la escribe ningún endpoint.
+     *
+     * `Services\Login` filtra `deleted_at` al entrar, así que un usuario borrado
+     * no puede iniciar sesión; sin esto, el que ya la tuviera abierta seguiría
+     * dentro. Se fija ahora —cuesta una línea— para que el día que alguien añada
+     * el borrado de usuarios no haya que acordarse de esto.
+     */
+    public function test_un_usuario_en_la_papelera_tampoco_sigue_dentro(): void
+    {
+        $usuario = $this->usuarioDeTipo('Usuario');
+
+        $par = $this->entrar($usuario->username);
+
+        DB::update('UPDATE users SET deleted_at = NOW() WHERE id = ?', [$usuario->id]);
+
+        $this->getJson('/api/ciudades', $this->cab($par['el_token']))->assertStatus(401);
+    }
+
+    /**
      * La ruta vieja emite un token largo y sin refresco.
      *
      * Un front que no conoce `/api/auth/*` no sabría qué hacer con un refresco,

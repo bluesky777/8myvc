@@ -78,6 +78,14 @@ GET  /api/auth/me               Bearer = acceso
   200: lo mismo que POST /api/login, votaciones pendientes incluidas
 ```
 
+**Y cualquier ruta con guard, no solo estas cinco**, responde `401 Usuario
+invalidado` desde el 21 ago 2026 si la cuenta se desactivó —o se borró— después
+de emitir el token. Antes solo lo miraban el login y el refresco, así que a quien
+apagaban le quedaba dentro el acceso que ya tenía: **60 minutos, y 24 h si lo
+emitió `login/credentials`**. Es 401 y no el 400 del login porque lo que ha
+dejado de valer es el token, que es lo que el front ya sabe leer como «vuelve a
+entrar». Ver [12 §16](12-larastan-nivel-7.md).
+
 - `el_token` se llama así, y no `access_token`, a propósito: es la clave que ya
   devuelve `login/credentials` y que el frontend lleva años leyendo. Un cliente
   que solo la guarde y la mande como `Bearer` no nota el cambio.
