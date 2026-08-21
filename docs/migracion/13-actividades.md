@@ -274,28 +274,66 @@ pantalla propia que lo pruebe, así que nadie lo ejerce hasta que alguien mira.
 Vale la pena mirarlo así: no es un descuido repetido, es que **el sistema tiene
 cuatro tipos de usuario y el desarrollo se hizo con tres en la cabeza**.
 
-**Y como eso es una corazonada, se midió antes de escribirla.** `$user->tipo ==
-'Profesor'` aparece **25 veces** en los controladores. De ellas:
+**Y como eso es una corazonada, se midió antes de escribirla** — dos veces, porque
+la primera medida estaba mal y la corrigió otra sesión.
 
-- **13 llevan `else`**, y ahí el cuarto tipo cae en la rama general. La primera
-  que se miró fue una de éstas —`InformesController:69`, donde un administrativo
-  recibe *todos* los grupos— así que la búsqueda a secas **no vale**: el patrón
-  no es «ramifica por Profesor», es «ramifica por Profesor y no tiene salida».
-- **12 no lo llevan.** Ésa es la lista de trabajo:
+La cuenta buena: `tipo == 'Profesor'` aparece **42 veces** en los controladores.
+La primera medición dijo 25 porque el patrón buscaba `$user->tipo` y se dejaba
+fuera `$this->user->tipo`, que es como lo escribe el código que pasó por el trait
+`ResuelveElUsuario`. **El total estaba mal; la lista de trabajo no**, y eso es lo
+que hay que mirar de cerca:
 
-  ```
-  GruposController.php:50                  AsignaturasController.php:226
-  ChangeAskedAssignmentController.php:24   ChangeAskedAssignmentController.php:59
-  NotasController.php:247                  Perfiles/PerfilesController.php:416
-  Perfiles/ImagesController.php:44         Perfiles/CalendarioController.php:36
-  Perfiles/CalendarioController.php:75     Perfiles/CalendarioController.php:137
-  Actividades/ActividadesController.php:132  (es la §6.1, mirada)
-  Perfiles/ImagesUsuariosController.php:113  (es la 05 §44, arreglada)
-  ```
+| Estilo | Con `else` | **Sin `else`** |
+|---|---|---|
+| `$user = User::fromToken()` — el de siempre | 13 | **12** |
+| `$this->user` — el del trait | 17 | **0** |
 
-  Quedan **diez sin mirar**, y las tres de `CalendarioController` son la misma
-  pantalla: si el hueco está ahí, el calendario entero le llega vacío a un
-  administrativo.
+**Los diecisiete que se habían escapado llevan `else` todos.** No es casualidad y
+es el hallazgo de verdad de esta sección: **ninguna de las ramas escritas contra
+el trait tiene el hueco, y todas las que lo tienen son del código de antes**. La
+lista de doce no es una muestra dispersa por el repo — es la parte del repo que
+todavía no se ha tocado.
+
+Eso cambia lo que hay que hacer con ella. No es «revisar doce sitios sueltos»,
+es que **el hueco del cuarto tipo es un marcador de código sin migrar**, y
+aparece solo donde el usuario se resuelve a la vieja usanza.
+
+La lista, que sigue siendo la misma después de corregir el total:
+
+```
+GruposController.php:50                  AsignaturasController.php:226
+ChangeAskedAssignmentController.php:33   ChangeAskedAssignmentController.php:74
+NotasController.php:247                  Perfiles/PerfilesController.php:416
+Perfiles/ImagesController.php:44         Perfiles/CalendarioController.php:36
+Perfiles/CalendarioController.php:75     Perfiles/CalendarioController.php:137
+Actividades/ActividadesController.php:132  (es la §6.1, mirada)
+Perfiles/ImagesUsuariosController.php:113  (es la 05 §44, arreglada)
+```
+
+Quedan **diez sin mirar**, y las tres de `CalendarioController` son la misma
+pantalla: si el hueco está ahí, el calendario entero le llega vacío a un
+administrativo.
+
+Y la primera que se miró a mano fue una de las trece **con** `else`
+—`InformesController:69`, donde un administrativo recibe *todos* los grupos—, así
+que la búsqueda a secas no vale: el patrón no es «ramifica por Profesor», es
+**«ramifica por Profesor y no tiene salida»**.
+
+### La herramienta llegó a la §6.1 sola, y eso vale más que el hallazgo
+
+`tools/respuestas-que-mienten.py` daba cero hasta que otra sesión la ensanchó: solo
+admitía **una línea de preámbulo** antes del `if`, y los métodos que resuelven al
+usuario *y* buscan otra cosa antes llevan dos. Con el preámbulo ensanchado, lo
+primero que señala es:
+
+```
+ActividadesController::putCompartidas  (línea 98)
+```
+
+Que es exactamente la §6.1, encontrada aquí leyendo. **Dos caminos independientes
+—una herramienta y un par de ojos— dieron el mismo sitio**, y por eso conviene
+dejarlo escrito: no confirma la §6.1, que ya tenía test; confirma **la
+herramienta**, que acababa de cambiar y necesitaba algo con lo que contrastarse.
 
 Tener el `else` no garantiza que la rama general sea la correcta —solo que hay
 una—, así que las 13 tampoco están limpias: están **fuera de esta lista**, que es
