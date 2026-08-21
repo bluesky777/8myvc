@@ -174,6 +174,13 @@ class UnidadesController extends Controller {
 	{
 		$user = User::fromToken();
 
+		// La unidad nace con `periodo_id = $user->periodo_id` tres líneas más
+		// abajo, así que el periodo de la fila que se toca ES el del usuario: no
+		// hay fila de la que derivarlo todavía. Faltaba —crear una unidad con el
+		// periodo cerrado devolvía 201— mientras su gemelo
+		// `SubunidadesController::postIndex` sí lo pedía. Ver 05 §47.
+		User::pueden_editar_notas($user, (int) $user->periodo_id);
+
 		$cant = Unidad::where('periodo_id', $user->periodo_id)
 				->where('asignatura_id', Request::input('asignatura_id'))
 				->count();
@@ -196,13 +203,25 @@ class UnidadesController extends Controller {
 
 		$sortHash = Request::input('sortHash');
 
+		// Los periodos de TODAS las unidades que se mueven, como hace su gemelo
+		// `SubunidadesController::putUpdateOrdenVarias`: reordenar es escribir en
+		// la rejilla de notas, y faltaba. Ver 05 §47.
+		$ordenes = [];
+
 		for($row = 0; $row < count($sortHash); $row++){
 			foreach($sortHash[$row] as $key => $value){
-
-				$unidad 			= Unidad::find((int)$key);
-				$unidad->orden 		= (int)$value;
-				$unidad->save();
+				$ordenes[(int)$key] = (int)$value;
 			}
+		}
+
+		User::pueden_editar_notas($user, PeriodoDeLaFila::deVariasUnidades(array_keys($ordenes)));
+
+		foreach ($ordenes as $id => $orden) {
+			// `find()` devolvía null con un id que no existe y `->orden` sobre null
+			// era un 500. Es 404 porque el cliente nombró una unidad que no está.
+			$unidad = Unidad::findOrFail($id);
+			$unidad->orden = $orden;
+			$unidad->save();
 		}
 
 		return 'Ordenado correctamente';
@@ -303,6 +322,13 @@ class UnidadesController extends Controller {
 	public function putRestore($id)
 	{
 		$user = User::fromToken();
+
+		// Restaurar devuelve la unidad con su `porcentaje` a la rejilla, así que
+		// es escribir en las notas igual que borrarla — y `deleteDestroy` sí lo
+		// pedía. `PeriodoDeLaFila::deUnidad()` no filtra `deleted_at` justo para
+		// esto. Ver 05 §47.
+		User::pueden_editar_notas($user, PeriodoDeLaFila::deUnidad($id));
+
 		$consulta = 'UPDATE unidades SET deleted_at=NULL WHERE id=?';
 					
 		DB::update($consulta, [$id]);

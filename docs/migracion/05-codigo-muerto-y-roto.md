@@ -4116,3 +4116,71 @@ sobre la forma**. No `assertNotEmpty`, sino el nombre del candidato que se acaba
 insertar; no «responde 200», sino el enunciado de la pregunta que tenía que llegar
 —o no llegar—. Es el mismo criterio con el que se escribieron los tests de
 contrato, aplicado a la trampa de un nivel más abajo.
+
+---
+
+## 47. Tres llamadas del interruptor del periodo que no estaban en la cuenta (21 ago 2026)
+
+Sale de la cobertura: `UnidadesController` tenía **7 de sus 11 rutas** sin
+ninguna respuesta comprobada, y es el controlador de la **rejilla con la que se
+calcula la nota** de una asignatura — cada unidad lleva un `porcentaje`.
+
+La §27.1.1 dejó el interruptor puesto en «25 de 26 llamadas». **Eran más de 26.**
+Estas tres no estaban en la lista:
+
+| Ruta | Con el periodo cerrado devolvía |
+|---|---|
+| `POST unidades` — crear una unidad | **201**, con su porcentaje dentro |
+| `PUT unidades/update-orden` — reordenarlas | **200**, y el orden escrito |
+| `PUT unidades/restore/{id}` — sacarla de la papelera | **200**, y la unidad de vuelta en la rejilla |
+
+Medido, no supuesto. Y lo que lo vuelve una incoherencia y no una decisión es que
+**los métodos de al lado sí lo piden**: `unidades/update` y `unidades/destroy`
+llevan `pueden_editar_notas` desde la §27, así que con el periodo cerrado se podía
+**crear** una unidad y no **editarla un segundo después**.
+
+### Lo que lo hizo decidible: el controlador gemelo
+
+`SubunidadesController` es el mismo controlador un nivel más abajo, y ahí las dos
+llamadas equivalentes **sí están**:
+
+- `subunidades/store` comprueba el periodo al crear; `unidades` no lo hacía.
+- `subunidades/update-orden-varias` lo comprueba al reordenar —con su comentario
+  de la §27 al lado, «hay dos periodos que mirar y tienen que estar abiertos los
+  dos»—; `unidades/update-orden` no.
+
+O sea que no hace falta decidir nada nuevo: la §40 ya fijó que **el interruptor
+cierra las notas**, y una unidad es una nota. Lo que faltaba era aplicarlo.
+
+Es la forma de la §17 —*ser la única de su familia sin la comprobación*— pero
+sobre el interruptor del periodo en vez de sobre un guard, y por eso el candado de
+familia de `AutorizacionTest` no la veía: ese mira middlewares en la tabla de
+rutas, y esto ocurre dentro del método.
+
+### El periodo de una fila que todavía no existe
+
+`postIndex` no puede derivar el periodo de la fila que toca, porque la crea. Pero
+no hace falta: la unidad nace con `periodo_id = $user->periodo_id` tres líneas más
+abajo, así que **el periodo del usuario ES el de la fila**. Es el único caso de la
+§27 donde preguntar por `$user->periodo_id` es la respuesta correcta y no el atajo
+que la §27.1 descartó.
+
+`putUpdateOrden` sí puede, y pide **todos** los periodos de las unidades que mueve
+—`PeriodoDeLaFila::deVariasUnidades()`, el mismo que usa su gemelo—, porque un
+reordenamiento puede tocar unidades de más de uno.
+
+`putRestore` deriva de la unidad borrada, y funciona porque `deUnidad()` **no
+filtra `deleted_at`** — algo que ya estaba escrito en su docblock, decidido para
+que los `forcedelete` pudieran derivar. Aquí se cobró ese diseño sin tocarlo.
+
+### Y un 500 de la misma familia que la §44
+
+`putUpdateOrden` hacía `Unidad::find((int)$key)` y escribía `->orden` sobre el
+resultado. Con un id que no existe, `find()` devuelve null y era un **500** — que
+tapaba lo único que había pasado de verdad: el cliente nombró una unidad que no
+está. Ahora es 404.
+
+Fijado por `UnidadesTest`, nueve casos. Comprobado al revés: revirtiendo los
+cuatro arreglos caen cuatro, y los cinco que comprueban que con el periodo
+**abierto** se sigue creando, reordenando y restaurando siguen verdes — que es lo
+que dice que no se cerró de más.
