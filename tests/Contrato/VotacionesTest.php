@@ -29,12 +29,12 @@ class VotacionesTest extends CasoDeContrato
      *
      * Devuelve el id de la votación, el de su aspiración y los de sus candidatos.
      */
-    private function eleccionAbierta(object $votante): object
+    private function eleccionAbierta(object $votante, ?int $duenoId = null): object
     {
         $yearId = $votante->year_id;
 
         $votacionId = DB::table('vt_votaciones')->insertGetId([
-            'user_id' => $votante->user_id,
+            'user_id' => $duenoId ?? $votante->user_id,
             'year_id' => $yearId,
             'nombre' => 'Elección de prueba',
             'votan_profes' => 1,
@@ -124,6 +124,19 @@ class VotacionesTest extends CasoDeContrato
             'year_id' => (int) $grupo->year_id,
             'token' => $this->tokenDe($usuario->username),
         ];
+    }
+
+    /** Otro usuario del colegio, del mismo año, para poner de dueño de una votación ajena. */
+    private function otroUsuarioDe(int $yearId, int $distintoDe): int
+    {
+        $otro = DB::selectOne('SELECT u.id FROM users u
+            INNER JOIN periodos p ON p.id = u.periodo_id AND p.deleted_at IS NULL
+            WHERE u.is_active = 1 AND u.deleted_at IS NULL AND u.id <> ?
+              AND p.year_id = ? ORDER BY u.id LIMIT 1', [$distintoDe, $yearId]);
+
+        $this->assertNotNull($otro, "El seed no tiene un segundo usuario en el año {$yearId}.");
+
+        return (int) $otro->id;
     }
 
     /**
@@ -399,6 +412,152 @@ class VotacionesTest extends CasoDeContrato
             1,
             (int) DB::table('vt_candidatos')->where('id', $eleccion->candidatos[0])->value('plancha'),
             'Y no escribe nada por el camino.'
+        );
+    }
+
+    /**
+     * Cualquiera del personal destapa los resultados de la votación de OTRO.
+     *
+     * Los seis `set-*` de `VtVotacionesController` reciben el `id` por el cuerpo
+     * y su `UPDATE` **no lleva condición de dueño, ni de año, ni de papelera**:
+     * `VtVotacion::where('id', $id)->update([...])`. Con `auth.personal` delante,
+     * eso son los 51 profesores del colegio sobre cualquier elección.
+     *
+     * Y `set-permiso-ver-results` es el que más pesa, porque llega al mismo sitio
+     * que la §1 por otro camino: la §1 se arregló para que el conteo no viajara
+     * con la papeleta, y esto **enciende el conteo de verdad**, en la fila.
+     *
+     * Se fija sin arreglar: son los interruptores de la pantalla de
+     * administración y acotarlos por dueño choca con que hoy «la votación
+     * actual» ya significa dos cosas distintas según quién pregunte. Ver
+     * 11-votaciones.md §5.
+     */
+    public function test_el_personal_destapa_los_resultados_de_la_votacion_de_otro(): void
+    {
+        $profe = $this->votante();
+        $ajena = $this->eleccionAbierta($profe, $this->otroUsuarioDe($profe->year_id, $profe->user_id));
+
+        $this->withToken($profe->token)
+            ->putJson('/api/votaciones/set-permiso-ver-results', [
+                'id' => $ajena->votacion_id,
+                'can_see_results' => true,
+            ])
+            ->assertStatus(200);
+
+        $this->assertSame(
+            1,
+            (int) DB::table('vt_votaciones')->where('id', $ajena->votacion_id)->value('can_see_results'),
+            'Se destapó el recuento de una elección que no es suya.'
+        );
+    }
+
+    /** Y el candado de la elección de otro se abre igual. */
+    public function test_el_personal_abre_el_candado_de_la_votacion_de_otro(): void
+    {
+        $profe = $this->votante();
+        $ajena = $this->eleccionAbierta($profe, $this->otroUsuarioDe($profe->year_id, $profe->user_id));
+
+        DB::table('vt_votaciones')->where('id', $ajena->votacion_id)->update(['locked' => 1]);
+
+        $this->withToken($profe->token)
+            ->putJson('/api/votaciones/set-locked', ['id' => $ajena->votacion_id, 'locked' => false])
+            ->assertStatus(200);
+
+        $this->assertSame(0, (int) DB::table('vt_votaciones')->where('id', $ajena->votacion_id)->value('locked'));
+    }
+
+    /**
+     * De los seis interruptores, dos escriben en la papelera y cuatro no.
+     *
+     * Y no es una decisión: es **por dónde se escribe**. Los cuatro que van por
+     * Eloquent —`VtVotacion::where('id',$id)->update(...)`— los protege el scope
+     * de `SoftDeletes` sin que nadie lo pidiera. Los dos que van por SQL crudo
+     * —`set-actual` y `set-in-action`, que hacen
+     * `DB::statement('UPDATE vt_votaciones v SET ... WHERE v.id=?')`— no lo
+     * tienen, porque el scope vive en el modelo y ahí no hay modelo.
+     *
+     * Es la lección de 09, «la misma protección, dos caminos, y solo uno
+     * cubierto», otra vez y en el mismo fichero: en un proyecto con 990
+     * consultas crudas, lo que protege el modelo protege el camino que este
+     * proyecto casi no usa. Aquí los dos caminos están **en la misma clase, a
+     * setenta líneas de distancia**.
+     *
+     * El daño hoy es pequeño —los lectores filtran la papelera— pero deja filas
+     * borradas cambiando de estado, así que un `restore` devuelve algo distinto
+     * de lo que se borró.
+     */
+    public function test_solo_los_dos_interruptores_de_sql_crudo_escriben_en_la_papelera(): void
+    {
+        $profe = $this->votante();
+        $eleccion = $this->eleccionAbierta($profe);
+
+        DB::table('vt_votaciones')->where('id', $eleccion->votacion_id)
+            ->update(['deleted_at' => now(), 'locked' => 0, 'in_action' => 0]);
+
+        // Eloquent: el scope de SoftDeletes lo para, aunque nadie lo escribió.
+        $this->withToken($profe->token)
+            ->putJson('/api/votaciones/set-locked', ['id' => $eleccion->votacion_id, 'locked' => true])
+            ->assertStatus(200);
+
+        $this->assertSame(
+            0,
+            (int) DB::table('vt_votaciones')->where('id', $eleccion->votacion_id)->value('locked'),
+            'set-locked va por Eloquent y no toca la papelera.'
+        );
+
+        // SQL crudo: entra.
+        $this->withToken($profe->token)
+            ->putJson('/api/votaciones/set-in-action', ['id' => $eleccion->votacion_id, 'in_action' => true])
+            ->assertStatus(200);
+
+        $this->assertSame(
+            1,
+            (int) DB::table('vt_votaciones')->where('id', $eleccion->votacion_id)->value('in_action'),
+            'set-in-action va por DB::statement y sí entra en la papelera.'
+        );
+    }
+
+    /**
+     * Sin el campo en el cuerpo, tres de los seis se encienden solos.
+     *
+     * `Request::input('locked', true)`, y lo mismo `votan_profes`,
+     * `votan_acudientes` y `actual`. Los otros dos —`in_action` y
+     * `can_see_results`— tienen por defecto `false`. O sea que **una llamada con
+     * solo el `id` dentro hace cosas opuestas según a qué interruptor le llegue**,
+     * y en la mitad de ellos la cosa que hace es la restrictiva.
+     *
+     * Es la forma de 05 §26: una llamada sin el campo escribió el valor por
+     * defecto sobre 1.280 alumnos. Aquí el daño es pequeño y la forma es la
+     * misma, así que se deja fijada.
+     */
+    public function test_sin_el_campo_el_candado_se_cierra_solo(): void
+    {
+        $profe = $this->votante();
+        $eleccion = $this->eleccionAbierta($profe);
+
+        $this->assertSame(0, (int) DB::table('vt_votaciones')->where('id', $eleccion->votacion_id)->value('locked'));
+
+        $this->withToken($profe->token)
+            ->putJson('/api/votaciones/set-locked', ['id' => $eleccion->votacion_id])
+            ->assertStatus(200);
+
+        $this->assertSame(
+            1,
+            (int) DB::table('vt_votaciones')->where('id', $eleccion->votacion_id)->value('locked'),
+            'Sin mandar `locked`, la elección queda cerrada.'
+        );
+
+        // Y el de al lado hace lo contrario con el mismo cuerpo.
+        DB::table('vt_votaciones')->where('id', $eleccion->votacion_id)->update(['can_see_results' => 1]);
+
+        $this->withToken($profe->token)
+            ->putJson('/api/votaciones/set-permiso-ver-results', ['id' => $eleccion->votacion_id])
+            ->assertStatus(200);
+
+        $this->assertSame(
+            0,
+            (int) DB::table('vt_votaciones')->where('id', $eleccion->votacion_id)->value('can_see_results'),
+            'Sin mandar `can_see_results`, los resultados se tapan.'
         );
     }
 }

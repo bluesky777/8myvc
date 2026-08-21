@@ -225,6 +225,78 @@ Fijado por `test_votos_destroy_borra_un_candidato` y
 
 ---
 
+## §5. Los seis interruptores de la elección
+
+`PUT votaciones/set-actual`, `set-in-action`, `set-locked`,
+`set-permiso-ver-results`, `set-votan-profes`, `set-votan-acudientes`. Todos con
+`auth.personal`, o sea los 51 profesores del colegio.
+
+Los seis reciben el `id` **por el cuerpo** y su `UPDATE` no lleva condición de
+dueño ni de año. Cualquiera del personal cierra, abre, destapa o pone como actual
+la elección de cualquier otro.
+
+El que más pesa es `set-permiso-ver-results`, porque **llega al mismo sitio que la
+§1 por otro camino**: la §1 se arregló para que el conteo no viajara con la
+papeleta, y esto enciende `can_see_results` en la fila, que es el interruptor de
+verdad. Fijado por `test_el_personal_destapa_los_resultados_de_la_votacion_de_otro`
+y `test_el_personal_abre_el_candado_de_la_votacion_de_otro`.
+
+### §5.1. Dos escriben en la papelera y cuatro no, y no es una decisión
+
+Es **por dónde se escribe**:
+
+| Cómo | Cuáles | Qué pasa con una votación borrada |
+|---|---|---|
+| `VtVotacion::where('id',$id)->update(...)` | los otros cuatro | el scope de `SoftDeletes` los para |
+| `DB::statement('UPDATE vt_votaciones v SET ... WHERE v.id=?')` | `set-actual`, `set-in-action` | entran |
+
+Nadie escribió esa protección: la puso el modelo. Es la lección del
+[09](09-pendientes.md) —«la misma protección, dos caminos, y solo uno cubierto»—
+otra vez, y esta con el agravante de que **los dos caminos están en la misma
+clase, a setenta líneas de distancia**. En un proyecto con 990 consultas crudas,
+lo que protege el modelo protege el camino que casi no se usa.
+
+El daño hoy es pequeño, porque los lectores filtran la papelera. Lo que deja es
+filas borradas cambiando de estado, así que un `restore` devuelve algo distinto
+de lo que se borró. Fijado por
+`test_solo_los_dos_interruptores_de_sql_crudo_escriben_en_la_papelera`.
+
+### §5.2. Sin el campo en el cuerpo, la mitad se enciende sola
+
+`Request::input('locked', true)`. El valor por defecto es **`true`** en `locked`,
+`votan_profes`, `votan_acudientes` y `actual`, y **`false`** en `in_action` y
+`can_see_results`.
+
+O sea que una llamada con solo el `id` dentro **hace cosas opuestas según a qué
+interruptor le llegue**: cierra la elección, o tapa los resultados, o abre el voto
+a los acudientes. Es la forma de la [05 §26](05-codigo-muerto-y-roto.md) —donde una
+llamada sin `clave` dejó a 1.280 alumnos con la contraseña vacía—, aquí con daño
+pequeño y la misma cara. Fijado por `test_sin_el_campo_el_candado_se_cierra_solo`.
+
+### §5.3. Y lo que no se toca: «la votación actual» significa dos cosas
+
+Esto no es un fallo con arreglo obvio, y por eso no lleva test que lo exija —pero
+es lo que hay que saber antes de acotar los interruptores por dueño, que es el
+arreglo que pide la §5.
+
+- `VtVotacion::actual($user)` y `actualInAction($user)` filtran **por
+  `user_id`**: para las pantallas de administración, la elección actual es la
+  **del profesor que mira**. Cada uno tiene la suya.
+- `VtVotacion::actualesInscrito($user)` —la que usa `en-accion-inscrito`, o sea
+  **la pantalla de votar**— no filtra por `user_id`: `WHERE actual=true and
+  in_action=true`. Es **global**.
+
+Y el `UPDATE` que apaga a las demás en `set-actual` filtra `v.user_id=?`, o sea
+que es coherente con la primera lectura y no con la segunda. Consecuencia: dos
+profesores pueden tener cada uno «su» elección actual y en acción, **el alumno ve
+las dos**, y ninguno de los dos profesores puede verlo desde su pantalla.
+
+Puede que sea lo que el colegio quiere —varias elecciones a la vez— o puede que
+no. Lo que no puede ser es que dependa de qué consulta se lea, así que **se
+contesta antes de tocar los interruptores**.
+
+---
+
 ## Lo que queda por mirar de este dominio
 
 Cubiertas las cinco rutas de `votos` y la forma de las de `votaciones`. Sin mirar
@@ -243,6 +315,4 @@ todavía, por orden de lo que parece pesar:
    consulta comentada de `porAspiracion()` lo contemplara. La que corre une solo
    con `alumnos`. No se ha tocado: puede ser lo que el colegio quiere —elecciones
    de personero estudiantil— o un recorte que se hizo y nadie revisó.
-5. **Los seis `set-*` de `votaciones`**, que son los interruptores de la elección:
-   la votación viaja en el cuerpo y el `UPDATE` de `set-actual` no lleva condición
-   de dueño.
+5. ~~Los seis `set-*` de `votaciones`~~ — **mirados, están en la §5.**
