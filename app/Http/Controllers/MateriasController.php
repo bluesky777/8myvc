@@ -44,7 +44,11 @@ class MateriasController extends Controller {
 
 		for($row = 0; $row < count($sortHash); $row++){
 			foreach($sortHash[$row] as $key => $value){
-				$materia 			= Materia::find((int)$key);
+				// `find()` devolvía null con un id que no existe y la línea de abajo
+				// reventaba: 500 donde tocaba 404. El bucle de reordenar está copiado en
+				// cinco controladores y los cinco lo tenían; el de unidades se arregló en
+				// la §47 y éste salió al contarlos. Ver 05 §52.
+				$materia 			= Materia::findOrFail((int)$key);
 				$materia->orden 	= (int)$value;
 				$materia->save();
 			}
@@ -58,7 +62,7 @@ class MateriasController extends Controller {
 			for($row = 0; $row < count($sortHash); $row++){
 				foreach($sortHash[$row] as $key => $value){
 
-					$materia 			= Materia::find((int)$key);
+					$materia 			= Materia::findOrFail((int)$key);
 					$materia->orden 	= (int)$value;
 					$materia->area_id 	= $partTo['area_id'];
 					$materia->save();

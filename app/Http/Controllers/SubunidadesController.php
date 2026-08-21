@@ -106,7 +106,11 @@ class SubunidadesController extends Controller {
 		for($row = 0; $row < count($sortHash); $row++){
 			foreach($sortHash[$row] as $key => $value){
 
-				$subunidad 			= Subunidad::find((int)$key);
+				// `find()` devolvía null con un id que no existe y la línea de abajo
+				// reventaba: 500 donde tocaba 404. El bucle de reordenar está copiado en
+				// cinco controladores y los cinco lo tenían; el de unidades se arregló en
+				// la §47 y éste salió al contarlos. Ver 05 §52.
+				$subunidad 			= Subunidad::findOrFail((int)$key);
 				$subunidad->orden 	= (int)$value;
 				$subunidad->save();
 
@@ -136,7 +140,7 @@ class SubunidadesController extends Controller {
 		for($row = 0; $row < count($sortHash1); $row++){
 			foreach($sortHash1[$row] as $key => $value){
 
-				$subunidad 				= Subunidad::find((int)$key);
+				$subunidad 				= Subunidad::findOrFail((int)$key);
 				$subunidad->orden 		= (int)$value;
 				$subunidad->unidad_id 	= (int)$unidad1_id;
 				$subunidad->save();
@@ -147,7 +151,7 @@ class SubunidadesController extends Controller {
 		for($row = 0; $row < count($sortHash2); $row++){
 			foreach($sortHash2[$row] as $key => $value){
 
-				$subunidad 				= Subunidad::find((int)$key);
+				$subunidad 				= Subunidad::findOrFail((int)$key);
 				$subunidad->orden 		= (int)$value;
 				$subunidad->unidad_id 	= (int)$unidad2_id;
 				$subunidad->save();

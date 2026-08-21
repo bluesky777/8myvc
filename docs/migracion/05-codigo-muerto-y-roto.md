@@ -4622,3 +4622,60 @@ respuesta con lo que la pantalla pinta.
 Fijado por `AsignaturasDatosTest`, tres casos. Comprobado al revés: devolviendo la
 llamada a `contratos()` cae uno, y los otros dos —que la pantalla sigue recibiendo
 sus cuatro campos y que `contratos()` sigue intacto— siguen verdes.
+
+---
+
+## 52. El bucle de reordenar, copiado en cinco controladores (21 ago 2026)
+
+La §47 arregló un `Unidad::find()` sin comprobar dentro de `unidades/update-orden`
+—500 donde tocaba 404— y se dio por un caso suelto. **No lo era.**
+
+Al contar los `Modelo::find()` sin `OrFail` del repo salió que **de los diez sitios
+donde el resultado se usa en la línea siguiente sin comprobarlo, seis son este
+mismo bucle**, copiado y pegado en `areas`, `materias` (dos veces) y `subunidades`
+(tres). Cinco arreglados aquí; el sexto era el de la §47.
+
+### Cómo se llegó al número, porque las dos primeras cuentas estaban mal
+
+Se contó tres veces y las tres dieron distinto:
+
+| Medida | Sitios |
+|---|---|
+| «`find()` sin comprobación en las 3 líneas siguientes» (otra sesión) | 47 |
+| lo mismo, con el hueco de las asignaciones encadenadas (aquí) | 27 |
+| **«el resultado se usa en la LÍNEA siguiente como objeto»** | **10** |
+
+Las dos primeras estaban infladas y **cada una por su lado**: la de 47 contaba
+como fallo cosas con un `if ($x)` en la línea inmediatamente posterior —se
+comprobaron tres a mano y las tres estaban bien—; la de 27 se dejaba fuera las que
+no son una asignación simple, y además marcaba como fallo un `Role::find()` cuya
+comprobación es un `if (!$rol || !$per)` dos líneas más abajo.
+
+Es la lección de la §48.2 repetida con otro patrón: **el detector se encoge cada
+vez que se mide mejor, y lo que cae no eran fallos que se arreglaron sino fallos
+que nunca estuvieron.** Y la medida buena no fue la más lista, fue **la más
+estrecha**: pedir que el uso esté en la línea de al lado quita casi todo el ruido
+porque es exactamente la forma del bucle copiado.
+
+### Y una que salió escribiendo el test
+
+Las cuatro rutas hacen lo mismo y **`materias` recibe el cuerpo de otra forma**:
+las otras tres leen `sortHash` plano y ésa lo lee dentro de `partFrom`. El test se
+escribió con el cuerpo plano para las cuatro y materias devolvió **500** — pero por
+`$partFrom['sortHash']` sobre null, no por el `find()`. O sea que **casi se apunta
+como arreglado algo que no se había probado**, y lo que lo delató fue que el 500
+siguiera ahí después del arreglo.
+
+Es la §23 —la misma clave leída de dos maneras en sitios distintos— dentro de un
+bucle que por lo demás está copiado y pegado. Cinco copias de las mismas doce
+líneas y una de ellas con otro contrato de entrada: el copiar y pegar no conserva
+lo de fuera.
+
+Fijado por `ReordenarTest`, seis casos —las cuatro rutas con un id que no existe, y
+dos que comprueban que reordenar de verdad sigue funcionando—. Comprobado al revés:
+devolviendo los `find()` caen tres, que son los tres controladores que se tocaron
+aquí; el cuarto sigue verde porque su arreglo es el de la §47.
+
+**Quedan cuatro** de la lista de diez, de otra forma —`AlumnosController:719`,
+`ProfesoresController:344`, `CiudadesController:98` y `PlanillasController:128`—:
+no son el bucle, así que cada uno pide leerse por su cuenta.
