@@ -21,7 +21,10 @@ use Illuminate\Support\Facades\Route;
 
 // ActividadesController
 // Es el lado del AUTOR: crear la actividad, editarla, compartirla con un grupo.
-// El lado del alumno es `mis-actividades/*` y `respuestas/actividad`, más abajo.
+// El lado del alumno es `mis-actividades/*`. **`respuestas/actividad` NO lo es**,
+// y este comentario decía que sí: es la pantalla `panel.respuestas` del front, a
+// la que solo se llega desde la lista de actividades del profesor y desde su «Ver
+// resultados». Ver 05 §24.
 // De los tres controladores de aquí solo llevaba guard el `destroy/{id}` de cada
 // uno — las únicas que tienen `{id}`. Ver 05 §15.
 Route::put('actividades/compartidas', [ActividadesController::class, 'putCompartidas'])->middleware('auth.personal');
@@ -67,4 +70,10 @@ Route::put('opciones/set-opcion-correct', [OpcionesController::class, 'putSetOpc
 Route::delete('opciones/destroy/{id}', [OpcionesController::class, 'deleteDestroy'])->middleware('auth.personal');
 
 // RespuestasController
-Route::put('respuestas/actividad', [RespuestasController::class, 'putActividad']);
+// La pantalla de corregir: por cada grupo al que se compartió la actividad,
+// TODOS sus alumnos con lo que contestaron —nombres, foto, si terminaron,
+// `puntaje_manual` y la respuesta a cada pregunta—. Iba sin guard mientras
+// `actividades/datos`, que es la pantalla desde la que se llega, lo lleva desde
+// siempre. El barrido no podía decirlo porque `ws_actividades` está vacía en el
+// seed; se midió montando la actividad. Ver 05 §24.
+Route::put('respuestas/actividad', [RespuestasController::class, 'putActividad'])->middleware('auth.personal');

@@ -1547,6 +1547,117 @@ class SuperficieDeUnAlumnoTest extends CasoDeContrato
     }
 
     /**
+     * La pantalla de corregir del profesor, con las respuestas de todo el grupo.
+     *
+     * `respuestas/actividad` recibe `actividad_id` por el cuerpo y devuelve, para
+     * cada grupo al que se compartió, **todos sus alumnos con lo que contestaron**:
+     * nombres, foto, si terminaron, `puntaje_manual` y la respuesta a cada
+     * pregunta. Es la pantalla `panel.respuestas` del front, a la que se llega
+     * desde Actividades — y `actividades/datos`, que es la que abre Actividades,
+     * lleva `auth.personal` desde siempre. Ésta no.
+     *
+     * **Por qué el barrido no podía decirlo:** `ws_actividades` está vacía en el
+     * seed, así que ni el alumno ni el superusuario del control sacaban nada. Es
+     * la sexta vez que ese vacío tapa algo, y aquí se resuelve montando la
+     * actividad — que es la regla que quedó escrita en 03-tests.md: si falta la
+     * fila, la monta el test que la necesita.
+     *
+     * Y la otra rama del método está rota desde siempre: para una actividad NO
+     * compartida hace `DB::select('')` con la consulta vacía, así que responde
+     * 500. Queda en 05 §24.
+     */
+    public function test_un_alumno_no_ve_las_respuestas_de_todo_un_grupo(): void
+    {
+        [$actividad, $grupo] = $this->montarUnaActividadCompartida();
+
+        [, , , , $cab] = $this->actores();
+
+        $r = $this->putJson('/api/respuestas/actividad', ['actividad_id' => $actividad], $cab);
+
+        $r->assertStatus(403);
+
+        $this->assertStringNotContainsString('"puntaje_manual"', (string) $r->getContent(),
+            'Ni una respuesta ajena en el cuerpo.');
+
+        // Y el profesor sigue corrigiendo, que es de quien es la pantalla.
+        $this->putJson('/api/respuestas/actividad', ['actividad_id' => $actividad],
+            ['Authorization' => 'Bearer '.$this->tokenDe($this->usuarioDeTipo('Usuario')->username)])
+            ->assertStatus(200);
+
+        $this->assertNotSame(0, $grupo, 'La actividad se compartió con un grupo de verdad.');
+    }
+
+    /**
+     * Y la otra rama del mismo método, que está rota desde siempre.
+     *
+     * Para una actividad **no compartida** —que son la mayoría: `compartida`
+     * viene a 0 por defecto— el `else` hace `$consulta = '';` y a continuación
+     * `DB::select($consulta, ...)`. Una consulta vacía no es SQL, así que el
+     * profesor que abra «Ver resultados» de cualquier actividad normal recibe un
+     * 500 desde que existe la pantalla.
+     *
+     * Es la familia de la §8 —SQL que no puede ejecutarse— y se queda: tiene ruta,
+     * y qué debe devolver esa pantalla para una actividad de un solo grupo es una
+     * decisión del colegio, no un arreglo. El test fija el error exacto para que
+     * el día que se arregle se note. Ver 05 §24.
+     */
+    public function test_ver_resultados_de_una_actividad_no_compartida_sigue_rota(): void
+    {
+        $actividad = $this->montarUnaActividadNoCompartida();
+
+        $this->putJson('/api/respuestas/actividad', ['actividad_id' => $actividad],
+            ['Authorization' => 'Bearer '.$this->tokenDe($this->usuarioDeTipo('Usuario')->username)])
+            ->assertStatus(500);
+    }
+
+    /** Una actividad del profesor sin compartir, que es el caso normal. */
+    private function montarUnaActividadNoCompartida(): int
+    {
+        $asignatura = DB::selectOne('SELECT id FROM asignaturas WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+        $periodo = DB::selectOne('SELECT id FROM periodos WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+
+        DB::insert('INSERT INTO ws_actividades (asignatura_id, periodo_id, descripcion, tipo, compartida,
+                        can_upload, in_action, duracion_preg, duracion_exam, oportunidades, one_by_one,
+                        contenido, created_at, updated_at)
+                    VALUES (?, ?, "Sin compartir", "E", 0, 0, 1, 60, 3600, 1, 0, "", ?, ?)',
+            [$asignatura->id, $periodo->id, now(), now()]);
+
+        return (int) DB::getPdo()->lastInsertId();
+    }
+
+    /**
+     * Una actividad compartida con un grupo, y el intento de un alumno dentro.
+     *
+     * @return array{0: int, 1: int} actividad y grupo
+     */
+    private function montarUnaActividadCompartida(): array
+    {
+        $grupo = DB::selectOne('SELECT id FROM grupos WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+        $asignatura = DB::selectOne('SELECT id FROM asignaturas WHERE grupo_id = ? AND deleted_at IS NULL
+            ORDER BY id LIMIT 1', [$grupo->id]);
+        $periodo = DB::selectOne('SELECT id FROM periodos WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+        $otro = DB::selectOne('SELECT a.id FROM alumnos a
+            INNER JOIN matriculas m ON m.alumno_id = a.id AND m.grupo_id = ? AND m.deleted_at IS NULL
+            WHERE a.deleted_at IS NULL ORDER BY a.id LIMIT 1', [$grupo->id]);
+
+        DB::insert('INSERT INTO ws_actividades (asignatura_id, periodo_id, descripcion, tipo, compartida,
+                        para_alumnos, can_upload, in_action, duracion_preg, duracion_exam, oportunidades,
+                        one_by_one, contenido, created_at, updated_at)
+                    VALUES (?, ?, "Compartida", "E", 1, 1, 0, 1, 60, 3600, 1, 0, "", ?, ?)',
+            [$asignatura->id ?? 0, $periodo->id, now(), now()]);
+        $actividad = (int) DB::getPdo()->lastInsertId();
+
+        DB::insert('INSERT INTO ws_actividades_compartidas (actividad_id, grupo_id, created_at, updated_at)
+                    VALUES (?, ?, ?, ?)', [$actividad, $grupo->id, now(), now()]);
+
+        DB::insert('INSERT INTO ws_actividades_resueltas (persona_id, actividad_id, terminado,
+                        is_puntaje_manual, puntaje_manual, created_at, updated_at)
+                    VALUES (?, ?, 1, 1, 45, ?, ?)', [$otro->id ?? 0, $actividad, now(), now()]);
+
+        return [$actividad, (int) $grupo->id];
+    }
+
+    /**
      * Un examen del profesor y el intento de OTRO alumno, con una respuesta dentro.
      *
      * El seed no trae ninguna actividad —`ws_actividades` está vacía—, y por eso

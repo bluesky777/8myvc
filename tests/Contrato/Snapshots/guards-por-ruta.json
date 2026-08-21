@@ -332,6 +332,7 @@
         "PUT api/requisitos",
         "PUT api/requisitos/listado-observaciones",
         "PUT api/requisitos/update",
+        "PUT api/respuestas/actividad",
         "PUT api/roles/addpermission/{id}",
         "PUT api/roles/addroletouser/{role_id}",
         "PUT api/roles/removepermission/{id}",
