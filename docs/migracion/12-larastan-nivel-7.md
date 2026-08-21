@@ -874,3 +874,60 @@ Sirve para lo que sirve: **preguntar por una ausencia**, que es lo que no se pue
 hacer leyendo. Y el resultado de hoy —«casi todo esto es esquema muerto y nadie
 ha pulsado nada»— vale exactamente lo mismo que si hubiera salido lo contrario,
 porque la sospecha estaba y ahora está contestada con números.
+
+
+## §18. «Matriculado» se responde de cinco maneras, y cuál toca depende de la consulta
+
+**Medido el 21 ago 2026. No se arregla: se mide por colegio, que es lo que
+faltaba para poder decidir.**
+
+Es el hermano de la §17 con las columnas que no son booleanas. `matriculas.estado`
+lleva siete valores —`MATR`, `ASIS`, `PREM`, `PREA`, `FORM`, `RETI`, `DESE`— y las
+consultas de `app/` que preguntan «¿está matriculado?» **no usan la misma lista**.
+Contando las condiciones sobre esa columna:
+
+```
+   MATR 78 · ASIS 67 · PREM 40 · PREA 11 · FORM 8 · RETI 10 · DESE 7
+```
+
+`MATR` y `ASIS` los incluyen todas las variantes y `RETI`/`DESE` los excluye
+todas — hasta ahí hay acuerdo. Los tres de en medio son el desacuerdo: **un
+alumno en `PREM` sale en cuarenta sitios y no sale en otros treinta y ocho**, y
+uno en `PREA` o `FORM`, casi en ninguno. No es un fallo con un culpable: son
+cinco listas escritas a mano en años distintos, y cada pantalla heredó la que
+tenía delante.
+
+**Y aquí es donde importa medir en vez de arreglar.** En la copia de desarrollo
+esto no le pasa a nadie: 3.060 `MATR`, 479 `RETI` y **una fila suelta** de cada
+uno de los demás. Cambiar sesenta consultas para un caso que aquí no existe sería
+tocar listas, boletines y actas a ciegas. Pero la copia de desarrollo es **un**
+colegio de dieciséis, y hay uno que es previsible: Joseth contó que *«en octubre
+se crea el año siguiente copiando todo del anterior»*, y la prematrícula es
+exactamente de esas fechas. Un colegio que la use de verdad tiene alumnos que
+salen en unas pantallas y no en otras, y eso se reporta como «la aplicación va
+mal», no como esto.
+
+Así que lo que se hace es imprimirlo. `php artisan matriculas:huerfanas` —que ya
+había que correr en los dieciséis— dice ahora también en qué estados está cada
+colegio y señala los tres ambiguos:
+
+```
+  matrículas vivas por estado .. 3542
+     MATR     3060
+     RETI      479
+     DESE        1
+     PREM        1   <-- sale en unas listas y en otras no
+     ASIS        1
+```
+
+Va **antes** del corte por «papelera vacía», que es lo que le pasaba al comando
+si no: en este colegio no hay nada en la papelera, así que salía por el `return`
+temprano y no habría llegado a imprimirlo nunca. Son dos preguntas
+independientes en el mismo viaje.
+
+Lo fija `MatriculasHuerfanasTest`, y el test va **de ida y vuelta en el mismo
+método** a propósito: el seed solo tiene `MATR` y `RETI`, así que comprobar la
+ausencia del aviso por separado habría pasado en verde sin comprobar nada. Es la
+cuarta vez que este repo tropieza con lo mismo —**un fixture que el seed no puede
+expresar da un test que pasa sin mirar**— y por eso el caso se crea antes de
+negarlo.

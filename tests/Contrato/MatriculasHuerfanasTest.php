@@ -125,4 +125,42 @@ class MatriculasHuerfanasTest extends CasoDeContrato
             ->expectsOutputToContain('ningún alumno se quedó sin ninguna')
             ->assertExitCode(0);
     }
+
+    /**
+     * Y el otro recuento del comando: en qué estados está este colegio.
+     *
+     * «Matriculado» no significa lo mismo en todas las consultas —hay cinco
+     * listas distintas de `estado` repartidas por `app/`— y de eso depende si un
+     * alumno sale o no en una pantalla. El comando no decide cuál es la buena:
+     * dice **si a este colegio le pasa**, que es lo que no se sabe leyendo el
+     * código. MATR y ASIS los cuentan todas las variantes, RETI y DESE ninguna;
+     * los tres de en medio son los que cambian, y son los únicos que se señalan.
+     *
+     * Va de ida y vuelta en el mismo test a propósito: **el seed solo tiene MATR
+     * y RETI**, así que comprobar la ausencia del aviso por separado pasaría en
+     * verde sin comprobar nada. Es la misma trampa que ya mordió tres veces en
+     * este repo —un fixture que el seed no puede expresar da un test que pasa
+     * sin mirar—, y aquí se evita creando el caso antes de negarlo.
+     */
+    public function test_un_estado_ambiguo_se_senala_y_deja_de_senalarse_al_quitarlo(): void
+    {
+        $matricula = DB::selectOne('SELECT m.id FROM matriculas m
+            INNER JOIN grupos g ON g.id = m.grupo_id AND g.deleted_at IS NULL
+            WHERE m.deleted_at IS NULL ORDER BY m.id LIMIT 1');
+
+        $this->assertNotNull($matricula, 'El seed necesita una matrícula viva.');
+
+        DB::update('UPDATE matriculas SET estado = "PREM" WHERE id = ?', [$matricula->id]);
+
+        $this->comando('matriculas:huerfanas')
+            ->expectsOutputToContain('matrículas vivas por estado')
+            ->expectsOutputToContain('sale en unas listas y en otras no')
+            ->expectsOutputToContain('1 matrícula en un estado que unas consultas cuentan como');
+
+        DB::update('UPDATE matriculas SET estado = "MATR" WHERE id = ?', [$matricula->id]);
+
+        $this->comando('matriculas:huerfanas')
+            ->expectsOutputToContain('matrículas vivas por estado')
+            ->doesntExpectOutputToContain('sale en unas listas y en otras no');
+    }
 }

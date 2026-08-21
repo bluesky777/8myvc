@@ -28,6 +28,22 @@ use Illuminate\Support\Facades\DB;
  * queda viva—, así que es perfectamente posible que varios colegios salgan
  * limpios.
  *
+ * **Y una segunda pregunta, que se contesta en el mismo viaje.** «Matriculado»
+ * no significa lo mismo en todas las consultas de este proyecto: hay al menos
+ * cinco listas distintas de `estado` repartidas por `app/`, y la diferencia entre
+ * ellas decide si un alumno sale o no en una pantalla. Medido el 21 ago 2026,
+ * contando las condiciones sobre `matriculas.estado`:
+ *
+ *     MATR 78 · ASIS 67 · PREM 40 · PREA 11 · FORM 8 · RETI 10 · DESE 7
+ *
+ * O sea que un alumno en **PREM** —prematriculado— sale en cuarenta sitios y no
+ * sale en otros treinta y ocho, y uno en **PREA** o **FORM**, casi en ninguno.
+ * Cuál de las dos formas es la correcta no lo puede decir un script; lo que sí
+ * puede es decir **si a este colegio le pasa**, que es lo que no se sabe desde
+ * aquí. En la copia de desarrollo no le pasa: 3.060 MATR, 479 RETI y una fila
+ * suelta de cada uno de los demás. En un colegio que use la prematrícula —la
+ * copia del año siguiente es de octubre— la respuesta puede ser otra.
+ *
  * Uso, en cada colegio:
  *
  *     php artisan matriculas:huerfanas
@@ -40,7 +56,7 @@ class MatriculasHuerfanas extends Command
 {
     protected $signature = 'matriculas:huerfanas {--year= : Mirar solo ese año (el número, no el id)}';
 
-    protected $description = 'Lista los alumnos cuyas matrículas de un año están todas en la papelera';
+    protected $description = 'Lista los alumnos sin matrícula viva, y en qué estados están las matrículas de este colegio';
 
     public function handle(): int
     {
@@ -51,6 +67,9 @@ class MatriculasHuerfanas extends Command
 
         $this->line('');
         $this->line('  base ......................... '.$base);
+
+        $this->estadosDeEsteColegio($soloYear);
+
         $this->line('  matrículas en la papelera .... '.$enPapelera);
 
         if ($enPapelera === 0) {
@@ -129,5 +148,63 @@ class MatriculasHuerfanas extends Command
         $this->line('');
 
         return self::FAILURE;
+    }
+
+    /**
+     * En qué estados están las matrículas vivas, y si alguno es de los ambiguos.
+     *
+     * No decide nada: imprime. Lo que hace útil imprimirlo es que **la respuesta
+     * cambia de colegio a colegio** y de ella depende si las cinco listas de
+     * `estado` que hay repartidas por `app/` son un problema real aquí o una
+     * incoherencia dormida.
+     */
+    private function estadosDeEsteColegio(?string $soloYear): void
+    {
+        // MATR y ASIS los incluyen todas las variantes; RETI y DESE los excluyen
+        // todas. Los tres de en medio son los que cambian según la consulta, y
+        // por eso son los únicos que se señalan.
+        $ambiguos = ['PREM', 'PREA', 'FORM'];
+
+        $consulta = 'SELECT m.estado, COUNT(*) n FROM matriculas m
+                     INNER JOIN grupos g ON g.id = m.grupo_id AND g.deleted_at IS NULL
+                     INNER JOIN years y ON y.id = g.year_id
+                     WHERE m.deleted_at IS NULL';
+
+        $parametros = [];
+
+        if ($soloYear !== null) {
+            $consulta .= ' AND y.year = ?';
+            $parametros[] = $soloYear;
+        }
+
+        $consulta .= ' GROUP BY m.estado ORDER BY n DESC';
+
+        $filas = DB::select($consulta, $parametros);
+
+        $this->line('  matrículas vivas por estado .. '
+            .array_sum(array_map(fn ($f) => (int) $f->n, $filas)));
+
+        $enDisputa = 0;
+
+        foreach ($filas as $fila) {
+            $estado = (string) $fila->estado;
+            $dudoso = in_array($estado, $ambiguos, true);
+
+            if ($dudoso) {
+                $enDisputa += (int) $fila->n;
+            }
+
+            $this->line(sprintf('     %-6s %6s%s', $estado === '' ? '(vacío)' : $estado, $fila->n,
+                $dudoso ? '   <-- sale en unas listas y en otras no' : ''));
+        }
+
+        if ($enDisputa > 0) {
+            $this->warn('     '.$enDisputa.' '.($enDisputa === 1 ? 'matrícula' : 'matrículas')
+                .' en un estado que unas consultas cuentan como');
+            $this->warn('     matriculado y otras no (MATR 78 · ASIS 67 · PREM 40 · PREA 11 · FORM 8');
+            $this->warn('     condiciones en app/). Cuál es la correcta no lo decide un script.');
+        }
+
+        $this->line('');
     }
 }
