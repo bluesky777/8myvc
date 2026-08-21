@@ -150,8 +150,48 @@ class User extends Authenticatable
 
 
     
-	public static function pueden_editar_notas($user)
+	/**
+	 * Deja en `$user` las dos banderas del periodo que toca comprobar.
+	 *
+	 * Con `$periodo` se leen las del periodo de la fila que se escribe. Sin él se
+	 * conserva **letra por letra** lo que había antes —`num_periodo` del cuerpo, o
+	 * el del usuario si no viene, y si ningún periodo coincide no se toca nada y
+	 * quedan las que trajo el contexto—, porque ese camino sigue vivo en las dos
+	 * llamadas que no tienen fila de la que derivar.
+	 *
+	 * Con varias filas se cruzan con AND: basta que una esté en periodo cerrado
+	 * para que la petición entera no pase.
+	 *
+	 * @param  int|array<int>|null  $periodo
+	 */
+	private static function aplicarBanderasDelPeriodo($user, int|array|null $periodo): void
 	{
+		$ids = array_values(array_filter(is_array($periodo) ? $periodo : [$periodo], fn ($p) => $p !== null));
+		
+		if ($ids !== []) {
+			$filas = DB::select(
+				'SELECT profes_pueden_editar_notas, profes_pueden_nivelar FROM periodos
+				 WHERE id IN ('.implode(',', array_fill(0, count($ids), '?')).') AND deleted_at IS NULL',
+				$ids
+			);
+			
+			// Un id que no resuelve a ninguna fila es un periodo borrado debajo de
+			// una fila que sigue apuntándolo. No se inventa permiso: cuenta como
+			// cerrado, igual que si la bandera estuviera en 0.
+			$editar  = count($filas) === count($ids);
+			$nivelar = $editar;
+			
+			foreach ($filas as $fila) {
+				$editar  = $editar  && (bool) $fila->profes_pueden_editar_notas;
+				$nivelar = $nivelar && (bool) $fila->profes_pueden_nivelar;
+			}
+			
+			$user->profes_pueden_editar_notas = $editar ? 1 : 0;
+			$user->profes_pueden_nivelar      = $nivelar ? 1 : 0;
+			
+			return;
+		}
+		
 		$periodos = DB::select('SELECT * FROM periodos p WHERE p.deleted_at is null and p.year_id=?', [$user->year_id]);
 		
 		$num_periodo = (int)Request::input('num_periodo');
@@ -170,6 +210,35 @@ class User extends Authenticatable
 				$user->profes_pueden_editar_notas 	= $periodos[$i]->profes_pueden_editar_notas;
 			}
 		}
+	}
+	
+	
+	/**
+	 * El interruptor con el que el colegio le cierra un periodo a los profesores.
+	 *
+	 * `$periodo` es **el periodo de la fila que esta petición va a escribir**, y
+	 * es lo que arregla la §27: antes se comprobaba la bandera del periodo que
+	 * nombraba el cuerpo (`num_periodo`) y la escritura iba a otro sitio, así que
+	 * el candado se abría nombrando el periodo de al lado. Lo deriva
+	 * `App\Support\PeriodoDeLaFila`, un método por cada forma que tiene una
+	 * llamada de saber a qué fila le toca.
+	 *
+	 * Acepta un id, una lista de ids —hay llamadas que tocan varias filas de
+	 * golpe, como el reordenado de subunidades— o `null`. **Con lista, tienen que
+	 * pasar todos**: si una de las filas está en un periodo cerrado, la petición
+	 * entera no va, porque escribir la mitad de un reordenado es peor que no
+	 * escribir nada.
+	 *
+	 * `null` es «no se pudo derivar», no «adelante»: se vuelve al comportamiento
+	 * de antes, que es leer `num_periodo`. Pasa en las dos de `recuperacion_final`
+	 * y por una razón de esquema —esa tabla se guarda por año y no tiene
+	 * `periodo_id`—, no por descuido.
+	 *
+	 * @param  int|array<int>|null  $periodo
+	 */
+	public static function pueden_editar_notas($user, int|array|null $periodo = null)
+	{
+		self::aplicarBanderasDelPeriodo($user, $periodo);
 		
 		if ($user->tipo == 'Profesor' && $user->profes_pueden_editar_notas==0) {
 			return abort(400, 'No tienes permiso');
@@ -182,27 +251,15 @@ class User extends Authenticatable
 	}
 
 	
-	public static function pueden_modificar_definitivas($user)
+	/**
+	 * El otro interruptor, el de nivelar. Mismo criterio de periodo que el de
+	 * arriba y por la misma razón; ver pueden_editar_notas().
+	 *
+	 * @param  int|array<int>|null  $periodo
+	 */
+	public static function pueden_modificar_definitivas($user, int|array|null $periodo = null)
 	{
-		$periodos = DB::select('SELECT * FROM periodos p WHERE p.deleted_at is null and p.year_id=?', [$user->year_id]);
-		
-		$num_periodo = (int)Request::input('num_periodo');
-		
-		if ($num_periodo) {
-			# Todo bien
-		}else{
-			$num_periodo = (int)$user->numero_periodo;
-		}
-		
-		$cant_p = count($periodos);
-		
-		for ($i=0; $i < $cant_p; $i++) { 
-			if ($periodos[$i]->numero == $num_periodo){
-				$user->profes_pueden_nivelar 		= $periodos[$i]->profes_pueden_nivelar;
-				$user->profes_pueden_editar_notas 	= $periodos[$i]->profes_pueden_editar_notas;
-			}
-		}
-		
+		self::aplicarBanderasDelPeriodo($user, $periodo);
 		
 		if ($user->tipo == 'Profesor' && $user->profes_pueden_nivelar==0) {
 			return abort(400, 'No tienes permiso');

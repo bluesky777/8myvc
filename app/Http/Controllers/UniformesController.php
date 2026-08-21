@@ -14,6 +14,7 @@ use \Log;
 
 use Carbon\Carbon;
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
+use App\Support\PeriodoDeLaFila;
 
 
 
@@ -23,7 +24,11 @@ class UniformesController extends Controller {
 	public function putAgregar()
 	{
         
-        User::pueden_editar_notas($this->user);
+        // El periodo de la fila que se va a escribir es el mismo que usa la
+        // escritura de más abajo. Antes se comprobaba el que nombrara
+        // `num_periodo`, y por eso pedir `num_periodo=1` con el periodo 1 abierto
+        // dejaba escribir en el periodo del profesor, que seguía cerrado. §27.
+        User::pueden_editar_notas($this->user, (int) Request::input('periodo_id', $this->user->periodo_id));
         
         $now 			= Carbon::now('America/Bogota');
         $asignatura_id  = Request::input('asignatura_id');
@@ -69,6 +74,10 @@ class UniformesController extends Controller {
 	public function putGuardarCambios()
 	{
 		
+        // Sin derivar, y a propósito: esta ruta está rota desde antes de la
+        // migración —cuatro variables sin definir, con `// No la estoy usando
+        // actualmente` encima— y su UPDATE apunta a `$user_id`, que no existe.
+        // No hay fila de la que sacar el periodo porque no hay fila. §6.5 y §27.2.
         User::pueden_editar_notas($this->user);
         $now 			= Carbon::now('America/Bogota');
         
@@ -87,7 +96,7 @@ class UniformesController extends Controller {
 	public function putActualizar()
 	{
 		
-        User::pueden_editar_notas($this->user);
+        User::pueden_editar_notas($this->user, PeriodoDeLaFila::deUniforme(Request::input('id')));
         $now 			= Carbon::now('America/Bogota');
         $unifor_id      = Request::input('id');
         $contrario      = Request::input('contrario');
@@ -118,7 +127,7 @@ class UniformesController extends Controller {
 	public function putEliminar()
 	{
 		
-        User::pueden_editar_notas($this->user);
+        User::pueden_editar_notas($this->user, PeriodoDeLaFila::deUniforme(Request::input('uniforme_id')));
         $now 			= Carbon::now('America/Bogota');
         
         $consulta 	= 'UPDATE uniformes SET deleted_at=:deleted_at WHERE id=:uniforme_id';

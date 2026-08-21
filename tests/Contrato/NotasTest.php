@@ -136,6 +136,7 @@ class NotasTest extends CasoDeContrato
         $token = $this->tokenDe($asignatura->username);
 
         $nota = $this->unaNotaDe($asignatura);
+        $this->permitiendoEditarLaNota($nota);
         $anterior = (int) $nota->nota;
         $nueva = $anterior === 4 ? 3 : 4;
 
@@ -365,6 +366,7 @@ class NotasTest extends CasoDeContrato
         $token = $this->tokenDe($asignatura->username);
 
         $nota = $this->unaNotaDe($asignatura);
+        $this->permitiendoEditarLaNota($nota);
 
         $this->putJson("/api/notas/update/{$nota->id}", ['nota' => 3.5],
             ['Authorization' => 'Bearer '.$token])
@@ -392,6 +394,29 @@ class NotasTest extends CasoDeContrato
     private function permitiendoEditarNotas(object $contexto): void
     {
         DB::table('periodos')->where('id', $contexto->periodo_id)
+            ->update(['profes_pueden_editar_notas' => 1]);
+    }
+
+    /**
+     * Abre el periodo **de la nota**, que no es el mismo que el del profesor.
+     *
+     * Hasta el 21 ago 2026 bastaba con `permitiendoEditarNotas()` —el periodo del
+     * usuario— porque el candado miraba ése y no el de la fila. Al arreglar la
+     * §27 estos dos tests empezaron a dar 400, y tenían razón: la nota que elige
+     * `unaNotaDe()` cuelga de una unidad de un periodo **cerrado**, y el profesor
+     * la estaba editando igual. Que hiciera falta tocarlos es la prueba de que
+     * el arreglo hace algo.
+     */
+    private function permitiendoEditarLaNota(object $nota): void
+    {
+        $periodo = DB::selectOne('SELECT un.periodo_id FROM notas n
+            INNER JOIN subunidades s ON s.id = n.subunidad_id
+            INNER JOIN unidades un ON un.id = s.unidad_id
+            WHERE n.id = ?', [$nota->id]);
+
+        $this->assertNotNull($periodo, 'La nota no cuelga de ninguna unidad con periodo.');
+
+        DB::table('periodos')->where('id', $periodo->periodo_id)
             ->update(['profes_pueden_editar_notas' => 1]);
     }
 

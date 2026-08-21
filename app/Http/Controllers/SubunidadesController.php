@@ -8,6 +8,7 @@ use App\Models\Unidad;
 use App\Models\Subunidad;
 use App\Models\NotaFinal;
 use Carbon\Carbon;
+use App\Support\PeriodoDeLaFila;
 
 
 class SubunidadesController extends Controller {
@@ -18,7 +19,9 @@ class SubunidadesController extends Controller {
 	{
 		$user 	= User::fromToken();
 		$now 	= Carbon::now('America/Bogota');
-		User::pueden_editar_notas($user);
+		// La subunidad todavía no existe: nace colgada de `unidad_id`, así que el
+		// periodo al que se escribe es el de esa unidad. §27.
+		User::pueden_editar_notas($user, PeriodoDeLaFila::deUnidad(Request::input('unidad_id')));
 
 		$cant = Subunidad::where('unidad_id', Request::input('unidad_id'))->count();
 
@@ -64,10 +67,39 @@ class SubunidadesController extends Controller {
 
 
 	
+	/**
+	 * Los ids de subunidad que vienen dentro de `sortHash`.
+	 *
+	 * El cuerpo llega como una lista de objetos `{id: orden}` —así lo manda el
+	 * front—, o sea que el identificador es la CLAVE y no el valor. Hace falta
+	 * aparte porque el bucle que las guarda las recorre de dos en dos niveles y
+	 * el candado tiene que conocerlas todas antes de escribir la primera. §27.
+	 *
+	 * @return array<int>
+	 */
+	private static function idsDelSortHash($sortHash): array
+	{
+		$ids = [];
+		
+		foreach (is_array($sortHash) ? $sortHash : [] as $fila) {
+			foreach (is_array($fila) ? $fila : [] as $id => $orden) {
+				$ids[] = (int) $id;
+			}
+		}
+		
+		return $ids;
+	}
+	
+	
 	public function putUpdateOrden()
 	{
 		$user = User::fromToken();
-		User::pueden_editar_notas($user);
+		// Esta toca VARIAS filas de golpe. Se comprueban todas y basta que una
+		// esté en periodo cerrado para que no pase ninguna: escribir la mitad de
+		// un reordenado es peor que no escribir nada. §27.
+		User::pueden_editar_notas($user, PeriodoDeLaFila::deVariasSubunidades(
+            self::idsDelSortHash(Request::input('sortHash'))
+        ));
 
 		$sortHash = Request::input('sortHash');
 
@@ -90,7 +122,11 @@ class SubunidadesController extends Controller {
 	public function putUpdateOrdenVarias()
 	{
 		$user = User::fromToken();
-		User::pueden_editar_notas($user);
+		// Mueve subunidades entre dos unidades, así que hay dos periodos que
+		// mirar y tienen que estar abiertos los dos. §27.
+		User::pueden_editar_notas($user, PeriodoDeLaFila::deVariasUnidades([
+            Request::input('unidad1_id'), Request::input('unidad2_id'),
+        ]));
 
 		$sortHash1 	= Request::input('sortHash1');
 		$sortHash2 	= Request::input('sortHash2');
@@ -130,7 +166,7 @@ class SubunidadesController extends Controller {
 	public function putUpdate($id)
 	{
 		$user = User::fromToken();
-		User::pueden_editar_notas($user);
+		User::pueden_editar_notas($user, PeriodoDeLaFila::deSubunidad($id));
 
 		$subunidad = Subunidad::findOrFail($id);
 
@@ -202,7 +238,8 @@ class SubunidadesController extends Controller {
 		// comprobaba nada. Hoy es inerte por un bug (el if de abajo mira $unidad,
 		// que no existe, así que siempre cae en el else), pero el guard va igual:
 		// arreglar esa variable es un cambio de una palabra.
-		User::pueden_editar_notas($user);
+		// En la papelera: el resolutor no filtra `deleted_at` justo por esto.
+		User::pueden_editar_notas($user, PeriodoDeLaFila::deSubunidad($id));
 
 		$subunidad = Subunidad::onlyTrashed()->findOrFail($id);
 		

@@ -12,6 +12,7 @@ use App\Models\NotaFinal;
 
 use Carbon\Carbon;
 use \Log;
+use App\Support\PeriodoDeLaFila;
 
 
 class UnidadesController extends Controller {
@@ -211,7 +212,7 @@ class UnidadesController extends Controller {
 	public function putUpdate($id)
 	{
 		$user = User::fromToken();
-		User::pueden_editar_notas($user);
+		User::pueden_editar_notas($user, PeriodoDeLaFila::deUnidad($id));
 
 		$unidad = Unidad::findOrFail($id);
 		$unidad->definicion		= Request::input('definicion');
@@ -236,7 +237,7 @@ class UnidadesController extends Controller {
 	public function deleteDestroy($id)
 	{
 		$user = User::fromToken();
-		User::pueden_editar_notas($user);
+		User::pueden_editar_notas($user, PeriodoDeLaFila::deUnidad($id));
 		$unidad = Unidad::find($id);
 
 		if ($unidad) {
@@ -264,7 +265,9 @@ class UnidadesController extends Controller {
 	public function deleteForcedelete($id)
 	{
 		$user = User::fromToken();
-		User::pueden_editar_notas($user);
+		// La unidad está en la papelera —esto es un forcedelete—, así que el
+		// resolutor no filtra `deleted_at`. §27.
+		User::pueden_editar_notas($user, PeriodoDeLaFila::deUnidad($id));
 
 		$unidad = Unidad::onlyTrashed()->findOrFail($id);
 		

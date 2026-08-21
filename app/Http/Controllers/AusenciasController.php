@@ -12,6 +12,7 @@ use App\Models\Ausencia;
 use App\Models\Asignatura;
 use App\Models\Role;
 use Carbon\Carbon;
+use App\Support\PeriodoDeLaFila;
 
 
 class AusenciasController extends Controller {
@@ -135,7 +136,7 @@ class AusenciasController extends Controller {
 		$isCoorDisciplinario = Role::isCoorDisciplinario($user->user_id);
 
 		if (!$isCoorDisciplinario) {
-			User::pueden_editar_notas($user);
+			User::pueden_editar_notas($user, PeriodoDeLaFila::deAusencia(Request::input('ausencia_id')));
 		}
 		
 		$aus = Ausencia::findOrFail(Request::input('ausencia_id'));
@@ -149,7 +150,7 @@ class AusenciasController extends Controller {
 	public function putCambiarTipoAusencia()
 	{
 		$user = User::fromToken();
-		User::pueden_editar_notas($user);
+		User::pueden_editar_notas($user, PeriodoDeLaFila::deAusencia(Request::input('ausencia_id')));
 		
 		$aus = Ausencia::findOrFail(Request::input('ausencia_id'));
 		
@@ -174,7 +175,7 @@ class AusenciasController extends Controller {
 		$isCoorDisciplinario = Role::isCoorDisciplinario($user->user_id);
 
 		if (!$isCoorDisciplinario) {
-			User::pueden_editar_notas($user);
+			User::pueden_editar_notas($user, PeriodoDeLaFila::deAusencia($id));
 		}
 		
 		$aus = Ausencia::findOrFail($id);

@@ -65,7 +65,9 @@ propuso**, porque en dos de ellas la respuesta no era ninguna de las opciones y
 eso es justo lo que había que aprender.
 
 1. **El interruptor del periodo** ([05 §27](05-codigo-muerto-y-roto.md)) →
-   **derivar el periodo de la fila que se toca, las 26**. La opción barata —exigir
+   **derivar el periodo de la fila que se toca**. Hecho el mismo día; son 23 de
+   26 y no 26, porque `recuperacion_final` se guarda por año y no tiene
+   `periodo_id`. La opción barata —exigir
    que `num_periodo` y `periodo_id` concuerden— queda descartada por lo que ya
    decía la §27.1: no cierra la rejilla de definitivas ni `notas/update`, que son
    las que más pesan.

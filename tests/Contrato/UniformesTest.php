@@ -116,23 +116,55 @@ class UniformesTest extends CasoDeContrato
     }
 
     /**
-     * Y con el periodo cerrado, nombrando otro abierto, sí anota. **Está mal, y
-     * el test lo fija así a propósito.**
+     * Y con el periodo cerrado, nombrar otro abierto **ya no lo abre**.
      *
-     * `pueden_editar_notas()` mira la bandera del periodo cuyo NÚMERO venga en
-     * `num_periodo`, y el cuerpo lo elige el cliente. La escritura, en cambio, va
-     * al periodo del usuario. O sea que el interruptor con el que el colegio
-     * cierra el periodo se abre nombrando el periodo de al lado.
+     * Este test existía al revés: afirmaba el fallo a propósito y decía «el día
+     * que se arregle, este test falla, y ese es su trabajo». Se arregló el 21 ago
+     * 2026 y falló, así que se le da la vuelta aquí — conservando lo que medía,
+     * que es lo que vale: **la respuesta y la fila escrita, no el 200**.
      *
-     * No se arregla aquí porque el arreglo no es deducible: el candado correcto
-     * es «la bandera del periodo al que escribe esta petición», y ese periodo se
-     * saca de un sitio distinto en cada una de las 26 llamadas —de la unidad, de
-     * la nota, de la definitiva—, todas dentro del cálculo de notas, que el §5 del
-     * plan protege. Está descrito con las opciones en 05 §27 y en 09 §5.
-     *
-     * El día que se arregle, este test falla, y ese es su trabajo.
+     * `pueden_editar_notas()` miraba la bandera del periodo cuyo NÚMERO venía en
+     * `num_periodo`, y el cuerpo lo elige el cliente; la escritura iba al periodo
+     * del usuario. O sea que el interruptor con el que el colegio cierra el
+     * periodo se abría nombrando el periodo de al lado. Ahora la bandera que se
+     * comprueba es la del periodo **al que se escribe**, derivado en
+     * `App\Support\PeriodoDeLaFila`. Ver 05 §27.
      */
-    public function test_el_periodo_que_se_comprueba_lo_elige_el_cliente(): void
+    public function test_nombrar_otro_periodo_ya_no_abre_el_cerrado(): void
+    {
+        [$token, $periodo] = $this->profesorYSuPeriodo();
+
+        DB::table('periodos')->where('year_id', $periodo->year_id)
+            ->update(['profes_pueden_editar_notas' => 0]);
+
+        $otro = DB::selectOne('SELECT id, numero FROM periodos
+            WHERE year_id = ? AND id <> ? AND deleted_at IS NULL ORDER BY numero LIMIT 1',
+            [$periodo->year_id, $periodo->id]);
+
+        $this->assertNotNull($otro, 'El año del profesor tiene un solo periodo: no se puede medir esto.');
+
+        DB::table('periodos')->where('id', $otro->id)->update(['profes_pueden_editar_notas' => 1]);
+
+        $antes = DB::selectOne('SELECT COUNT(*) c FROM uniformes')->c;
+
+        $this->withToken($token)->putJson('/api/uniformes/agregar',
+            $this->cuerpoDeUniforme() + ['num_periodo' => $otro->numero])
+            ->assertStatus(400);
+
+        $this->assertSame($antes, DB::selectOne('SELECT COUNT(*) c FROM uniformes')->c,
+            'La fila se escribió de todas formas en el periodo cerrado.');
+    }
+
+    /**
+     * Y la otra mitad, que es la que impide que el arreglo sea un candado tonto:
+     * nombrando el periodo abierto **y escribiendo en él**, sigue pasando.
+     *
+     * Es lo que la §27.1 protegía: `num_periodo` no sobra, en la rejilla de
+     * definitivas es la única declaración que hay de qué periodo se edita. Si el
+     * arreglo hubiera sido «ignorar `num_periodo`», esta pantalla se habría
+     * apagado para los tres periodos que no son el del usuario.
+     */
+    public function test_escribir_en_el_periodo_abierto_sigue_pasando(): void
     {
         [$token, $periodo] = $this->profesorYSuPeriodo();
 
@@ -148,11 +180,11 @@ class UniformesTest extends CasoDeContrato
         DB::table('periodos')->where('id', $otro->id)->update(['profes_pueden_editar_notas' => 1]);
 
         $r = $this->withToken($token)->putJson('/api/uniformes/agregar',
-            $this->cuerpoDeUniforme() + ['num_periodo' => $otro->numero]);
+            $this->cuerpoDeUniforme() + ['num_periodo' => $otro->numero, 'periodo_id' => $otro->id]);
 
         $r->assertStatus(200);
-        $this->assertSame((int) $periodo->id, $r->json('uniforme.periodo_id'),
-            'La fila se escribió en el periodo CERRADO, comprobando la bandera del otro.');
+        $this->assertSame((int) $otro->id, $r->json('uniforme.periodo_id'),
+            'La fila tenía que quedar en el periodo abierto, que es al que se pidió escribir.');
     }
 
     /** Un alumno no anota uniformes: la ruta es `auth.personal`. */

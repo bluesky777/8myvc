@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\DB;
 
 use App\User;
 use App\Models\FraseAsignatura;
+use App\Support\PeriodoDeLaFila;
 
 
 class FrasesAsignaturaController extends Controller {
@@ -14,7 +15,10 @@ class FrasesAsignaturaController extends Controller {
 	public function postStore($frase_id='')
 	{
 		$user = User::fromToken();
-		User::pueden_editar_notas($user);
+		// La frase se crea con `periodo_id = $user->periodo_id` tres líneas más
+		// abajo, así que el periodo de la fila que se escribe es ése y no el que
+		// venga en `num_periodo`. §27.
+		User::pueden_editar_notas($user, (int) $user->periodo_id);
 
 		$frase = new FraseAsignatura;
 		$frase->alumno_id = Request::input('alumno_id');
@@ -47,7 +51,7 @@ class FrasesAsignaturaController extends Controller {
 	public function deleteDestroy($id)
 	{
 		$user = User::fromToken();
-		User::pueden_editar_notas($user);
+		User::pueden_editar_notas($user, PeriodoDeLaFila::deFraseAsignatura($id));
 		
 		$frase = FraseAsignatura::findOrFail($id);
 		$frase->delete();

@@ -2469,7 +2469,7 @@ O sea: el interruptor se abre nombrando el periodo de al lado. Y no hace falta
 que ninguno esté abierto de verdad — basta con que lo esté uno cualquiera de los
 del año.
 
-### 27.1 Por qué no se arregla esta noche
+### 27.1 Por qué no se arregló la noche que se encontró
 
 Porque `num_periodo` **no es un parámetro parásito, es la declaración del periodo
 que se está editando** — y en las pantallas que más importan es la única que hay.
@@ -2505,19 +2505,66 @@ Las formas de cerrarlo, con lo que cuesta cada una:
    Cierra uniformes y las cuatro de Flutter, es media hora, y **no cierra las que
    más pesan**: la rejilla de definitivas manda `nf_id` y `num_periodo` sin
    `periodo_id`, y `notas/update/{id}` tampoco lo manda.
-2. **Derivar el periodo de la fila que se toca**, las 26. Es el arreglo de verdad,
-   y las 26 son derivables: la que menos, `definitivas_periodos/update`, sale de
-   `notas_finales.periodo_id` con el `nf_id` que ya viaja.
+2. **Derivar el periodo de la fila que se toca**, las 26. Es el arreglo de verdad.
 3. ~~**Ignorar `num_periodo`** y usar siempre el del usuario.~~ **Descartada al
    medir el front:** apagaría la rejilla de definitivas para los tres periodos que
    no son el del usuario, que es justo para lo que esa pantalla existe. Es el
    ejemplo de por qué la búsqueda se rehízo: con la ruta equivocada esta opción
    parecía la barata.
 
-Mientras tanto queda fijado por `UniformesTest::test_el_periodo_que_se_comprueba_lo_elige_el_cliente`,
-que **afirma el comportamiento malo a propósito**: el día que se arregle, falla.
-Es la regla de la casa —con ruta y roto se documenta— aplicada a una autorización
-en vez de a un 500.
+### 27.1.1 Arreglado — **la 2, el 21 ago 2026**
+
+Joseth eligió derivar de la fila. La regla vive ahora en
+`App\Support\PeriodoDeLaFila`, un método por cada forma que tiene una llamada de
+saber a qué fila le toca, y `User::pueden_editar_notas()` y
+`pueden_modificar_definitivas()` reciben ese periodo como segundo parámetro.
+
+Las cadenas que hacían falta, que es lo que convertía esto en trabajo de verdad:
+
+| De qué se escribe | Cómo se llega al periodo |
+|---|---|
+| uniforme, ausencia, frase de asignatura, nota final | la columna `periodo_id` de su propia fila |
+| unidad | `unidades.periodo_id` |
+| **subunidad** | no lo lleva: cuelga de la unidad |
+| **nota** | no lo lleva: cuelga de la subunidad, que cuelga de la unidad |
+
+**Y la §27.1 se equivocaba en un número: no son 26 derivables, son 24.**
+`recuperacion_final` **no tiene `periodo_id`** —sus columnas son alumno,
+asignatura, `year` y nota, o sea que se guarda por AÑO— así que sus dos llamadas
+no tienen fila de la que sacar nada y se quedan con el comportamiento de antes.
+La tercera que no deriva es `uniformes/guardar-cambios`, que está rota desde antes
+de la migración y cuyo `UPDATE` apunta a una variable que no existe: no hay fila
+porque no hay fila. **23 de 26 derivan.**
+
+Tres decisiones que hubo que tomar dentro y que no estaban en el enunciado:
+
+- **Varias filas de golpe se cruzan con AND.** `subunidades/update-orden` reordena
+  una lista entera y `update-orden-varias` mueve subunidades entre dos unidades,
+  que pueden ser de periodos distintos. Basta que una esté cerrada para que no
+  pase ninguna: **escribir la mitad de un reordenado deja el orden inconsistente**,
+  que es peor que no escribir nada.
+- **Un periodo borrado debajo de una fila cuenta como cerrado**, no como «no se
+  pudo derivar». No se inventa permiso.
+- **`num_periodo` sigue mandando donde declarar y escribir son la misma cosa.** El
+  `else` de `definitivas_periodos/update` **inserta** una fila nueva con el
+  `periodo_id` sacado de ese mismo `num_periodo`; ahí comprobar el declarado sí es
+  comprobar el escrito, y tratarlo como los demás habría apagado la creación de
+  definitivas.
+
+**Los tests que hubo que tocar son la mejor prueba de que el arreglo hace algo.**
+Dos de `NotasTest` empezaron a dar 400, y tenían razón: abrían el periodo **del
+profesor** y editaban una nota que colgaba de una unidad de un periodo **cerrado**.
+Llevaban así desde que se escribieron. Ahora abren el de la fila.
+
+Y `UniformesTest::test_el_periodo_que_se_comprueba_lo_elige_el_cliente` —el que
+afirmaba el fallo a propósito y decía «el día que se arregle, este test falla, y
+ese es su trabajo»— falló, y se le dio la vuelta. Al lado quedó su simétrico:
+**nombrar el periodo abierto y escribir en él sigue pasando**, que es lo que
+impide que el arreglo sea un candado tonto y apague la rejilla de definitivas.
+
+Lo demás está en `PeriodoDeLaFilaTest`, con los cinco comprobados al revés. Uno de
+ellos pasaba también con el arreglo desactivado y hubo que reescribirlo: **un test
+que pasa de las dos maneras no comprueba nada**, y solo se ve mirándolo.
 
 ### 27.2 Y lo demás que se midió al pasar
 

@@ -16,6 +16,7 @@ use App\Models\Bitacora;
 use App\Models\FraseAsignatura;
 use App\Http\Controllers\Informes\PuestosController;
 use \Log;
+use App\Support\PeriodoDeLaFila;
 
 
 class NotasController extends Controller {
@@ -277,7 +278,9 @@ class NotasController extends Controller {
 		$user 	= User::fromToken();
 		$now 	= Carbon::now('America/Bogota');
 		
-		User::pueden_editar_notas($user);
+		// La nota no lleva periodo: cuelga de la subunidad y esa de la unidad,
+		// que sí. Es una de las dos que la §27.1 daba por difíciles.
+		User::pueden_editar_notas($user, PeriodoDeLaFila::deNota($id));
 		
 		try {
 
@@ -323,7 +326,7 @@ class NotasController extends Controller {
 	public function deleteDestroy($id)
 	{
 		$user 	= User::fromToken();
-		User::pueden_editar_notas($user);
+		User::pueden_editar_notas($user, PeriodoDeLaFila::deNota($id));
 		$consulta 	= 'DELETE FROM notas WHERE id=?';
 		DB::delete($consulta, [$id]);
 

@@ -17,6 +17,7 @@ use App\Http\Controllers\Alumnos\Definitivas;
 use \Log;
 
 use App\Http\Controllers\Alumnos\Solicitudes;
+use App\Support\PeriodoDeLaFila;
 
 
 class DefinitivasPeriodosController extends Controller {
@@ -138,7 +139,19 @@ class DefinitivasPeriodosController extends Controller {
 	public function putUpdate()
 	{
 		$user 			= User::fromToken();
-		User::pueden_modificar_definitivas($user);
+		// Las dos ramas de este método escriben en sitios distintos y por eso el
+		// periodo se saca distinto:
+		//
+		//   - con `nf_id` se ACTUALIZA una nota final que ya existe, así que manda
+		//     su `periodo_id` y no lo que diga el cuerpo. Es la llamada de la
+		//     rejilla de definitivas, la que la §27.1 daba por la más difícil: el
+		//     front manda `nf_id` y `num_periodo` sin `periodo_id`.
+		//   - sin `nf_id` se INSERTA una fila nueva con `periodo_id` sacado de
+		//     `num_periodo` veinte líneas más abajo. Ahí declarar y escribir son la
+		//     misma cosa, así que comprobar el declarado sí es comprobar el escrito.
+		User::pueden_modificar_definitivas($user, Request::input('nf_id')
+			? PeriodoDeLaFila::deNotaFinal(Request::input('nf_id'))
+			: PeriodoDeLaFila::porNumero($user, Request::input('num_periodo')));
 		
 		$now 		= Carbon::now('America/Bogota');
 		
@@ -197,6 +210,11 @@ class DefinitivasPeriodosController extends Controller {
 	public function putUpdateRecuperacion()
 	{
 		$user 			= User::fromToken();
+		// Sin derivar, y no por descuido: `recuperacion_final` NO tiene
+		// `periodo_id` —se guarda por año, sus columnas son alumno, asignatura,
+		// `year` y nota—, así que no hay periodo en la fila del que sacar nada.
+		// Se queda con el comportamiento de antes. La §27.1 decía que las 26 eran
+		// derivables; son 24, y estas dos son la razón.
 		User::pueden_modificar_definitivas($user);
 		
 		$now 		= Carbon::now('America/Bogota');
@@ -246,7 +264,9 @@ class DefinitivasPeriodosController extends Controller {
 	public function getArreglarDuplicados()
 	{
 		$user 			= User::fromToken();
-		User::pueden_modificar_definitivas($user);
+		// El mismo periodo que el método usa cuatro líneas más abajo para buscar
+		// los duplicados que va a arreglar.
+		User::pueden_modificar_definitivas($user, (int) Request::input('periodo_id', $user->periodo_id));
 		
 		$now 		= Carbon::now('America/Bogota');
 		$res 		= [];
@@ -313,7 +333,7 @@ class DefinitivasPeriodosController extends Controller {
 	public function putToggleRecuperada()
 	{
 		$user 			= User::fromToken();
-		User::pueden_modificar_definitivas($user);
+		User::pueden_modificar_definitivas($user, PeriodoDeLaFila::deNotaFinal(Request::input('nf_id')));
 		
 		if ($user->tipo == 'Profesor' || ($user->is_superuser)) {
 			// No pasa nada
@@ -338,6 +358,8 @@ class DefinitivasPeriodosController extends Controller {
 	public function putEliminarRecuperada()
 	{
 		$user 			= User::fromToken();
+		// La otra de `recuperacion_final`, sin `periodo_id`. Ver la de
+		// `putUpdateRecuperacion` más arriba.
 		User::pueden_modificar_definitivas($user);
 		
 		if ($user->tipo == 'Profesor' || ($user->is_superuser)) {
@@ -358,7 +380,7 @@ class DefinitivasPeriodosController extends Controller {
 	public function putToggleManual()
 	{
 		$user 			= User::fromToken();
-		User::pueden_modificar_definitivas($user);
+		User::pueden_modificar_definitivas($user, PeriodoDeLaFila::deNotaFinal(Request::input('nf_id')));
 		
 		if ($user->tipo == 'Profesor' || ($user->is_superuser)) {
 			// No pasa nada
@@ -382,7 +404,7 @@ class DefinitivasPeriodosController extends Controller {
 	public function deleteDestroy($id)
 	{
 		$user 	= User::fromToken();
-		User::pueden_modificar_definitivas($user);
+		User::pueden_modificar_definitivas($user, PeriodoDeLaFila::deNotaFinal($id));
 		$consulta 	= 'DELETE FROM notas_finales WHERE id=?';
 		DB::delete($consulta, [$id]);
 
