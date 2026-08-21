@@ -593,11 +593,18 @@ usuarios activos sin ficha viva ...........   63
 
 **El generador de la §12 no llegó a crear ninguna cuenta usable en años.** Moría
 en el `attachRole()` de Entrust —que no está instalado— *entre* el `save()` del
-usuario y el enlace con la ficha, así que lo que dejaba no eran cuentas con el
-nombre mutilado: eran **usuarios huérfanos**, uno por intento, y ahí están los 63.
-Los `JosAndrs` de la tabla de la §12 eran reales como comportamiento y
-**ficticios como daño**. Que el arreglo de aquella lo vuelva alcanzable es
-justamente lo que obliga a mirar el otro.
+usuario y el enlace con la ficha, así que no dejaba cuentas con el nombre
+mutilado: dejaba usuarios sin ficha, uno por intento. Los `JosAndrs` de la tabla
+de la §12 eran reales como comportamiento y **ficticios como daño**. Que el
+arreglo de aquella lo vuelva alcanzable es justamente lo que obliga a mirar el
+otro.
+
+Los 63 de la cuarta línea **no son esos**, y darlos por tales fue un error de un
+minuto que conviene dejar escrito porque es el que produjo la §15: al ir a
+mirarlos uno a uno resultaron ser cuentas administrativas de 2015 y alumnos con
+la ficha en la papelera —lo normal cuando alguien se retira—, **todas con su hash
+bcrypt intacto**. Ninguna huella del fatal de Entrust. Y entre ellas, diez
+superusuarios.
 
 Porque hay otro, y es el que sí se usa: **`OperacionesAlumnos::username_no_repetido()`**,
 al que llaman el importador de alumnos (dos veces) y `acudientes/crear-usuario`.
@@ -671,3 +678,73 @@ identificador acaba en sitios que **no** son MySQL — el correo autogenerado
 **Lo que queda como respuesta a la pregunta abierta:** de los usernames ya
 creados, los mutilados son **cero**, los que llevan tilde **no necesitan nada**, y
 el único roto es el vacío de 2019 — una fila, y ahora sin sucesores.
+
+
+## §15. Los diez superusuarios no son diez personas: seis dicen en su nombre que están inhabilitados
+
+**Medido el 21 ago 2026. `php artisan usuarios:superusuarios`, y lo fija
+`tests/Contrato/SuperusuariosTest.php`. No se arregla desde aquí: apagar la
+cuenta de alguien es del colegio.**
+
+Salió de comprobar una frase que yo mismo acababa de escribir mal —«los 63
+huérfanos son los del generador roto»— y de ir a mirarlos uno a uno en vez de
+darla por buena.
+
+`is_superuser` es el permiso más grande que hay aquí, y varios documentos de esta
+migración razonan sobre él como si fuera un dato limpio: **«los diez `Admin` son
+exactamente los diez `is_superuser`»** ([06 §4](06-autorizacion.md), [09 §0](09-pendientes.md),
+[05 §30.2](05-codigo-muerto-y-roto.md)). La frase es cierta y la conclusión que se
+saca de ella no:
+
+```
+  SUPERUSUARIOS ENCENDIDOS ........ 10
+     y el nombre los da por rotos . 6
+  apagados o en la papelera ....... 0
+
+    1      administrador                      Usuario   desde 2015-02-24
+    2      admin(inhabilitado)                Usuario   desde 2015-02-24   <--
+    3      coordinacion(inhabilitado)         Usuario   desde 2015-02-24   <--
+    687    convivencia2019(inhabilitado)      Usuario   desde 2019-01-24   <--
+    688    admin.psicologia(inhabilitado)     Usuario   desde 2019-01-29   <--
+    706    AUXILIAR(inhabilitado)             Usuario   desde 2019-02-14   <--
+    1217   admin.maryeline                    Usuario   desde 2021-01-07
+    1218   admin.veronica(inhabilitado)       Usuario   desde 2021-01-07   <--
+    1495   usuario5213                        Usuario   desde 2022-05-03
+    1503   PSICOLILI                          Usuario   desde 2022-05-10
+```
+
+**Seis de los diez están `is_active = 1`, fuera de la papelera y con su hash
+bcrypt intacto.** El colegio dio por apagadas seis cuentas de superusuario
+**renombrándolas**, y el sistema no lee el nombre: lee la bandera, y la bandera
+dice que sí. Una de ellas se llama `convivencia2019`.
+
+No es un fallo del código —`perfiles/update` escribe `is_active`, o sea que la
+forma de apagar una cuenta existe y funciona— y por eso no se arregla desde aquí:
+puede que alguna de las seis se siga usando pese al nombre, y apagar la cuenta de
+alguien un lunes por la mañana no es una decisión de esta migración. Lo que sí se
+puede es **dejar de suponer**, y de ahí el comando: los lista para que cada
+colegio confirme uno a uno, con el mismo criterio que `anios:actuales` y
+`matriculas:huerfanas`.
+
+Lo que el comando **no** puede decir, y va escrito en su cabecera para que nadie
+le pida más: si una cuenta sin marca pertenece a alguien que sigue trabajando
+ahí. Los superusuarios son `tipo = 'Usuario'` y **no tienen ficha** —ni alumno,
+ni profesor, ni acudiente—, así que no hay en la base ni un nombre real ni una
+fecha de último acceso. La marca en el nombre es la única pista que dejó el
+colegio, y por eso es la que se busca; el total sale siempre impreso justamente
+porque la lista de marcas se puede quedar corta en silencio.
+
+### Por qué esto importa más que seis filas
+
+Porque **cambia el suelo de tres decisiones que están abiertas ahora mismo**. El
+alcance del rol `Secretario` se diseñó sobre «con `Admin` no se puede, porque los
+diez `Admin` son los diez `is_superuser`» — y de esos diez, seis son cuentas que
+el colegio cree apagadas. La cuenta de la §29 que un docente podía tomar, y la
+§26.1 de los 51 profesores que reseteaban contraseñas, valen para estas seis
+igual que para las otras cuatro.
+
+Y la forma, que ya salió hoy con el año en la papelera y con el `in_action` de
+las actividades: **el colegio expresó una intención por un camino que el código no
+mira**. Renombrar no apaga, igual que un año borrado seguía siendo el actual. La
+pregunta que lo encuentra es siempre la misma — *¿esto que parece un estado, lo
+lee alguien?*
