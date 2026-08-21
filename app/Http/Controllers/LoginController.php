@@ -240,8 +240,13 @@ class LoginController extends Controller {
 		// acumuladas desde 2018, ninguna vigente).
 		DB::delete('DELETE FROM password_reminders WHERE created_at <= ? OR email = ?', [ $hora, $destinatario ]);
 
-		$consulta 	= 'INSERT INTO password_reminders(email, token, created_at) VALUES(?,?,?)';
-		DB::insert($consulta, [ $destinatario, hash('sha256', $numero), $now ]);
+		// El username se guarda **aquí**, que es el único momento en que se sabe de
+		// verdad a quién va el enlace. Antes se calculaba, se metía en la URL del
+		// correo y se tiraba, así que al canjear el token había que creerse el que
+		// mandara el cliente — y con eso un enlace abría cualquier cuenta que
+		// compartiera el correo. Ver docs/migracion/12-larastan-nivel-7.md §8.
+		$consulta 	= 'INSERT INTO password_reminders(email, username, token, created_at) VALUES(?,?,?,?)';
+		DB::insert($consulta, [ $destinatario, $username, hash('sha256', $numero), $now ]);
 
 		$ruta 		= $ruta_base . '#!/reset-password/'.$numero.'/'.$username;
 
@@ -275,7 +280,11 @@ class LoginController extends Controller {
 		$hora 			= Carbon::now('America/Bogota')->subHour(); 
 
 		$numero 		= $request->input('numero');
-		$username 		= $request->input('username');
+
+		// El cuerpo sigue trayendo un `username` —el enlace del correo lo lleva y el
+		// front lo reenvía—, y **no se lee a propósito**. No se borra de la línea de
+		// arriba porque nunca estuvo ahí: se quita de aquí para que se vea que la
+		// decisión es ignorarlo, y no un descuido al que alguien le añada un `if`.
 
 		// El front ya valida la longitud, pero eso es una comodidad, no una defensa:
 		// a este endpoint se puede llamar directamente.
@@ -287,19 +296,31 @@ class LoginController extends Controller {
 	
 
 
-		$consulta 	= 'SELECT email FROM password_reminders WHERE token=? and created_at > ?';
+		$consulta 	= 'SELECT email, username FROM password_reminders WHERE token=? and created_at > ?';
 		$reminder 	= DB::select($consulta, [ hash('sha256', (string) $numero), $hora ]);
 
 		if (count($reminder) == 0) {
 			return 'Token inválido';
 		}
 
-		// El token manda: la contraseña solo puede cambiarse en la cuenta cuyo correo
-		// recibió el enlace. Antes se confiaba en el username que enviaba el cliente,
-		// así que un token pedido para el correo propio servía para tomar cualquier
-		// cuenta, superusuarios incluidos.
+		// El token manda del todo: el usuario sale de la fila del token, no del
+		// cuerpo. El `$username` que manda el cliente **se ignora**, no se compara —
+		// compararlo dejaría el mismo agujero con un paso más.
+		//
+		// Antes aquí se filtraba por `username=? and email=?` con el username del
+		// cuerpo. Eso cerraba «cualquier cuenta del colegio» y dejaba abierto
+		// «cualquier cuenta con tu mismo correo», que es un agujero más pequeño y
+		// menos visible. 12-larastan-nivel-7.md §8.
+		//
+		// Un token emitido ANTES de la migración no tiene username, y entonces no se
+		// puede saber a quién iba: se rechaza. Caducan en una hora, así que el coste
+		// es que quien pidiera el enlace justo antes del despliegue lo pida otra vez.
+		if ($reminder[0]->username === null || $reminder[0]->username === '') {
+			return 'Token inválido';
+		}
+
 		$consulta 	= 'UPDATE users SET password=? WHERE username=? and email=? and deleted_at is null';
-		$cambiados 	= DB::update($consulta, [ $pass1, $username, $reminder[0]->email ]);
+		$cambiados 	= DB::update($consulta, [ $pass1, $reminder[0]->username, $reminder[0]->email ]);
 
 		if ($cambiados === 0) {
 			return 'Token inválido';

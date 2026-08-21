@@ -8,24 +8,27 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 
 /**
- * El enlace de reseteo abre **cualquier** cuenta que comparta ese correo.
+ * El enlace de reseteo abre **solo** la cuenta a la que se emitió.
  *
- * `putResetPassword` ata la contraseña nueva al correo del token, pero el
- * `username` **sigue llegando en el cuerpo de la petición**:
+ * Este test nació fijando lo contrario. `putResetPassword` ataba la contraseña
+ * nueva al correo del token, pero el `username` llegaba en el cuerpo de la
+ * petición:
  *
  *     UPDATE users SET password=? WHERE username=? and email=? and deleted_at is null
  *
- * Y `password_reminders` no guarda a quién se le emitió el token — solo tiene
- * `email`, `token` y `created_at`—, así que el endpoint no tiene de dónde
- * sacarlo. El comentario que hay encima de esa consulta dice que «el token
- * manda», y es verdad solo hasta el grupo de cuentas que comparten el correo:
- * dentro de ese grupo elige el cliente.
+ * y `password_reminders` no guardaba a quién se le había emitido el token — solo
+ * `email`, `token` y `created_at`—, así que el endpoint no tenía de dónde
+ * sacarlo. El resultado era que un enlace abría **cualquier** cuenta que
+ * compartiera ese correo: la protección existía y llegaba hasta el borde del
+ * grupo. Medido: 16 cuentas en 8 grupos en la copia de desarrollo.
  *
- * Esto no es teoría en este proyecto. Ver
- * docs/migracion/12-larastan-nivel-7.md §8 para el recuento por colegio.
+ * Cerrado el 21 ago 2026 guardando el username al emitir. **El del cuerpo se
+ * ignora, no se compara**: compararlo dejaría el mismo agujero con un paso más y
+ * encima parecería arreglado.
  *
- * El test fija **lo que hace hoy**, no lo que debería hacer: mientras esté en
- * rojo el día que alguien lo arregle, se sabrá que el arreglo llegó.
+ * El test se queda con la misma forma y la expectativa cambiada, que es lo que
+ * lo hace útil: si alguien vuelve a leer el username del cuerpo, esto se pone
+ * rojo. Ver docs/migracion/12-larastan-nivel-7.md §8.
  */
 class ResetCorreoCompartidoTest extends CasoDeContrato
 {
@@ -80,12 +83,15 @@ class ResetCorreoCompartidoTest extends CasoDeContrato
         return $partes[count($partes) - 2];
     }
 
-    public function test_el_token_de_un_correo_compartido_cambia_la_clave_de_la_otra_cuenta(): void
+    public function test_el_token_de_un_correo_compartido_no_alcanza_a_la_otra_cuenta(): void
     {
         $cuentas = $this->dosCuentasConElMismoCorreo();
 
+        $antesSegundo = DB::selectOne('SELECT password FROM users WHERE username = ?',
+            [$cuentas->segundo])->password;
+
         // El enlace se emite para la PRIMERA cuenta: la consulta que resuelve el
-        // username coge `[0]`. Aquí se usa contra la SEGUNDA.
+        // username coge `[0]`. Aquí se pide el reseteo nombrando a la SEGUNDA.
         $numero = $this->pedirElEnlace($cuentas->correo);
 
         $this->putJson('/api/login/reset-password', [
@@ -94,19 +100,61 @@ class ResetCorreoCompartidoTest extends CasoDeContrato
             'password1' => 'tomada-1234',
         ])->assertStatus(200);
 
-        $hash = DB::selectOne('SELECT password FROM users WHERE username = ?',
-            [$cuentas->segundo])->password;
+        $this->assertSame($antesSegundo,
+            DB::selectOne('SELECT password FROM users WHERE username = ?', [$cuentas->segundo])->password,
+            'El token emitido para la primera cuenta cambió la clave de la segunda.');
 
-        $this->assertTrue(Hash::check('tomada-1234', $hash),
-            'El token emitido para la primera cuenta no cambió la clave de la segunda: '
-            .'si esto falla, alguien ató el token a su usuario y hay que borrar este test.');
+        // Y la contraseña que sí cambia es la del dueño del token, porque el
+        // `username` del cuerpo se ignora en vez de rechazarse: el enlace hace lo
+        // que decía hacer, no falla.
+        $this->assertTrue(
+            Hash::check('tomada-1234',
+                DB::selectOne('SELECT password FROM users WHERE username = ?', [$cuentas->primero])->password),
+            'El token no cambió la clave de la cuenta a la que se emitió.');
+    }
+
+    /** Un token emitido antes de la migración no sabe a quién iba: se rechaza. */
+    public function test_un_token_sin_usuario_guardado_no_vale(): void
+    {
+        $cuentas = $this->dosCuentasConElMismoCorreo();
+
+        $antes = DB::selectOne('SELECT password FROM users WHERE username = ?',
+            [$cuentas->primero])->password;
+
+        $numero = $this->pedirElEnlace($cuentas->correo);
+
+        // Así están las filas que ya estaban en la tabla el día del despliegue.
+        DB::update('UPDATE password_reminders SET username = NULL WHERE token = ?',
+            [hash('sha256', $numero)]);
+
+        $this->putJson('/api/login/reset-password', [
+            'numero' => $numero,
+            'username' => $cuentas->primero,
+            'password1' => 'tomada-1234',
+        ])->assertStatus(200)->assertSee('Token inválido');
+
+        $this->assertSame($antes,
+            DB::selectOne('SELECT password FROM users WHERE username = ?', [$cuentas->primero])->password,
+            'Un token sin usuario guardado cambió una contraseña.');
     }
 
     /**
-     * Y con un correo que no es el del token, no. O sea que la protección existe
-     * y llega exactamente hasta el borde del grupo que comparte correo.
+     * Y a una cuenta de otro correo tampoco, que ya era cierto antes del arreglo.
+     *
+     * Se conserva porque es el control: si algún día se rompiera **esto**, el
+     * fallo sería de otra clase y mucho peor que el que cerró la §8.
+     *
+     * **Aquí se ve el único cambio de contrato del arreglo.** Antes, nombrar en el
+     * cuerpo a una cuenta que no era la del token dejaba el UPDATE en cero filas y
+     * la respuesta era «Token inválido». Ahora el cuerpo se ignora, así que el
+     * enlace hace lo que decía hacer —resetea a su dueño— y responde «Reseteado».
+     * `LoginCtrl.ts` manda `$stateParams.username`, que sale del enlace que
+     * construyó el propio backend, así que para el cliente real las dos cuentas
+     * siempre coinciden y el cambio no se nota. El «Token inválido» que el front
+     * sí sabe leer se sigue devolviendo donde importa: token caducado, token
+     * desconocido y token sin usuario guardado.
      */
-    public function test_pero_no_alcanza_a_una_cuenta_con_otro_correo(): void
+    public function test_tampoco_alcanza_a_una_cuenta_con_otro_correo(): void
     {
         $cuentas = $this->dosCuentasConElMismoCorreo();
 
@@ -124,7 +172,7 @@ class ResetCorreoCompartidoTest extends CasoDeContrato
             'numero' => $numero,
             'username' => $ajeno->username,
             'password1' => 'tomada-1234',
-        ])->assertStatus(200)->assertSee('Token inválido');
+        ])->assertStatus(200);
 
         $this->assertSame($antes,
             DB::selectOne('SELECT password FROM users WHERE username = ?', [$ajeno->username])->password,

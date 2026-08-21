@@ -339,3 +339,58 @@ El comando ordena los grupos por lo que cuesta que pase y no por tamaño —prim
 los que llevan un superusuario dentro, después los que cruzan tipos, después el
 resto—, y no decide nada: qué hacer con un colegio donde 1.435 cuentas no tienen
 correo no es de un script.
+
+## §10. Cerrado — el token ya sabe a quién iba
+
+**Arreglado el 21 ago 2026**, por decisión de Joseth, en `LoginController` y con
+una migración. Tres piezas:
+
+1. `2026_08_21_200000_add_username_to_password_reminders_table` añade `username`
+   a `password_reminders`.
+2. `postRecuperarClave` **guarda** ahí el username. No hace falta calcularlo: ya
+   lo calculaba —lo mete en la URL del enlace— y lo tiraba.
+3. `putResetPassword` lo saca de la fila del token y **deja de leer el del
+   cuerpo**.
+
+Las tres decisiones que hacen que esto sea un arreglo y no un parche:
+
+- **El `username` del cuerpo se ignora, no se compara.** Compararlo dejaría el
+  mismo agujero con un paso más —el cliente seguiría eligiendo dentro del grupo,
+  solo que teniendo que acertar— y encima *parecería* arreglado.
+- **Los tokens emitidos antes de la migración se rechazan.** Quedan con
+  `username` nulo y no hay forma de saber a quién iban; caer al comportamiento
+  viejo reabriría el agujero durante una hora en los dieciséis colegios, y una
+  puerta trasera con fecha de caducidad sigue siendo una puerta. El coste real es
+  que quien pidiera el enlace justo antes del despliegue lo pida otra vez.
+- **La columna es nullable para siempre**, no por comodidad de la migración.
+  Ponerle un valor por defecto convertiría un token viejo en un token válido para
+  ese valor.
+
+### Lo que cambia para el cliente, que es poco pero hay que decirlo
+
+Antes, nombrar en el cuerpo una cuenta distinta a la del token dejaba el `UPDATE`
+en cero filas y la respuesta era `Token inválido`. Ahora el cuerpo se ignora, así
+que el enlace hace lo que decía hacer —resetea a su dueño— y responde
+`Reseteado`. `LoginCtrl.ts` manda `$stateParams.username`, que sale **del enlace
+que construyó el propio backend**, así que para el cliente real los dos nombres
+siempre coinciden y el cambio no se nota. El `Token inválido` que el front sí
+sabe leer se sigue devolviendo donde importa: token caducado, token desconocido y
+token sin usuario guardado.
+
+### Dos comprobaciones que parecían obligatorias y no lo eran
+
+- **Índice por `token`.** La consulta filtra por `token` y la tabla solo tiene
+  `KEY` por `email`, así que `EXPLAIN` da `type=ALL`. **No se crea índice**:
+  desde que cada petición purga lo caducado, la tabla tiene **0 filas** y el
+  `EXPLAIN` dice `rows=1`. Un índice que no se usa solo cuesta escrituras. Queda
+  escrito para que nadie lo añada «por si acaso» — *antes de crear un índice:
+  `EXPLAIN`*.
+- **Zonas horarias.** `created_at` se escribe con `Carbon::now('America/Bogota')`
+  y se compara con `Carbon::now('America/Bogota')->subHour()`: las dos puntas en
+  la misma zona, así que la trampa del §2 de `09-pendientes.md` —los `expires_at`
+  en UTC de `personal_access_tokens`— **no toca a esta tabla**.
+
+`ResetCorreoCompartidoTest` se queda con la misma forma y la expectativa
+cambiada, que es lo que lo hace útil: nació fijando que el token abría la cuenta
+de al lado y ahora fija que no. Si alguien vuelve a leer el username del cuerpo,
+se pone rojo.
