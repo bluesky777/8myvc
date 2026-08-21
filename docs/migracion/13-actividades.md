@@ -370,6 +370,46 @@ el de la §5, y estos dos.
 
 ---
 
+## §7. Dos reglas del examen que solo existen en el front
+
+Medido con `tools/interruptores-que-nadie-lee.py` cruzando los tres clientes:
+
+```
+ws_actividades.can_upload    <-- lo mira myvc_front
+ws_actividades.one_by_one    <-- lo mira myvc_front
+```
+
+El backend **no las mira**: las guarda, las sirve y ningún `if` decide con ellas.
+Quien las obedece es la pantalla — `one_by_one` es «una pregunta cada vez» y
+`can_upload` es si el alumno puede adjuntar archivo.
+
+**Es exactamente la forma que cerró la §6.1 de este documento y la §2.1 de
+[11-votaciones.md](11-votaciones.md)**: la regla existe, la pinta el cliente, y
+quien llame a la API directamente se la salta. Un alumno que responda por HTTP en
+vez de por la pantalla contesta las preguntas en el orden que quiera aunque el
+profesor haya pedido una a una.
+
+Y el aviso que trae la propia herramienta, que es el que hace falta aquí:
+
+> Estar en el cliente no es lo mismo que estar bien. `vt_votaciones.locked` la
+> miraba el front —para pintar un candado— y aun así se podía votar en una
+> votación cerrada.
+
+O sea que «lo mira el front» **no cierra el caso, lo abre**: dice dónde está hoy
+la regla, no que la regla se cumpla.
+
+No se arregla aquí. Comprobarlas en `putSeleccionarOpcion()` es de dos líneas,
+pero decide si un examen empezado a medias se puede terminar salteado, y eso es
+una decisión del colegio como lo fue `in_action`. Va con las de la §5 de
+`09-pendientes.md`.
+
+**Y una que no es fallo**: `ws_preguntas.aleatorias`, `ws_contenidos_preg.is_cuadricula`
+y `ws_actividades_resueltas.is_puntaje_manual` no las lee nadie **en ninguna
+parte**, y sus tablas están vacías en la copia de desarrollo. Eso es esquema
+muerto, no una regla que no se cumple. Se anota para que nadie las persiga.
+
+---
+
 ## Lo que queda por mirar
 
 1. ~~`PUT respuestas/actividad`~~ — **mirada, está en la §5.**

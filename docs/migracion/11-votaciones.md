@@ -167,6 +167,19 @@ Es una lección sobre los nombres: `in_action` suena a candado, está al lado de
 `locked` en la misma tabla, y **el código que no lo comprueba tenía razón**. Sin
 preguntar, el arreglo «obvio» era el equivocado.
 
+**Y la lección tiene una segunda mitad que la hace peor:** `in_action` existe
+también en `ws_actividades`, y **allí sí es un candado**. La sesión que cubrió las
+actividades lo cerró el mismo día con una decisión de Joseth
+([05 §43.1](05-codigo-muerto-y-roto.md)), tomada sabiendo qué apagaba.
+
+O sea que **la misma columna, con el mismo nombre, significa cosas opuestas en dos
+módulos**: en actividades decide si se puede entrar al examen; en votaciones solo
+decide si el front te lleva de la mano. Saber lo que hace en un sitio **no vale**
+para el otro, y las dos veces hay que preguntar.
+
+Es la trampa más barata que hay en este repo: no exige leer mal el código, solo
+exige haberlo leído bien en otro fichero.
+
 ### §2.2. Lo que sigue sin comprobar, y sí cuenta
 
 - **`locked`**, que es el candado de verdad — el fallo de esta sección.
@@ -321,6 +334,10 @@ contesta antes de tocar los interruptores**.
 Primero llegó, a través de otra sesión, que el dueño de una elección es **«una
 por profesor»**. Con eso, **acotar los seis interruptores de la §5 por dueño
 queda autorizado**: el que la creó la administra.
+
+> **Ese «una por profesor» vale para quién ADMINISTRA, no para quién VOTA**, y hay
+> que leerlo pegado a lo de abajo o se entiende que vale para las dos cosas.
+> Aplicarlo a la pantalla de votar apaga la votación general del colegio.
 
 Después Joseth dio el contexto que faltaba, y es el que impide aplicar esa misma
 respuesta al otro lado:
