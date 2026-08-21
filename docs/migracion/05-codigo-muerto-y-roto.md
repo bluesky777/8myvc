@@ -1894,20 +1894,56 @@ Las otras setenta y dos aguantaron. Eso no es un hallazgo, pero **antes no estab
 medido y ahora sí**: casi todas llevan `auth.personal` o comprueban dentro, y el
 403 llega antes de mirar la fila.
 
-Lo que no aguanta es el seed. Trece rutas con un token de alumno y quince con uno
-de acudiente **no se pueden medir**, y el barrido las imprime con el motivo en vez
-de callárselas:
+Lo que no aguanta es el seed: **trece rutas no se podían medir**, y ocho de ellas
+por la misma razón —son operaciones de papelera y en este seed no hay ni un
+alumno, ni un grupo, ni un usuario borrado, porque el seed copia un grupo y sus
+datos y las papeleras se quedan fuera—.
 
-| Motivo | Rutas |
-|---|---|
-| No hay ninguna fila borrada en `alumnos` | `alumnos/forcedelete`, `alumnos/restore`, `editnota/forcedelete`, `editnota/restore` |
-| No hay ninguna fila borrada en `grupos` | `grupos/forcedelete`, `grupos/restore` |
-| No hay ninguna fila borrada en `users` | `perfiles/forcedelete`, `perfiles/restore` |
-| La tabla está vacía | `enfermeria/destroy`, `requisitos/destroy`, `actividades/destroy`, `preguntas/destroy`, `opciones/destroy` |
+### 21.4 Las ocho de papelera: prestar una fila y devolverla
 
-Ocho de las trece son operaciones de papelera, y es **la sexta vez que el seed
-vacío tapa una medición**. Las cinco anteriores se resolvieron montando la fila a
-mano dentro de la transacción del test; aquí no se ha hecho, a propósito: son
-trece rutas de una herramienta que mide, y ponerla a fabricar lo que después mide
-la vuelve turbia. Lo que corresponde es la decisión que la §20.3 dejó abierta y
-que ahora tiene un número al lado.
+**Preparar el sujeto no es fabricar el efecto**, y ésa es la línea. Lo que se mide
+en `alumnos/restore/{id}` sigue siendo si el token restaura la fila de OTRO;
+marcarla como borrada antes de golpear es lo mismo que ya se hace al elegir a
+quién se le da el token. Lo que no se hace —y eso sí volvería turbia la medida— es
+montar la fila que la ruta escribiría.
+
+Así que el barrido presta una fila ajena a la papelera para la petición y la
+devuelve después. Dos detalles que no son opcionales:
+
+- **Se devuelve en cuanto se golpea la ruta, no al final.** El seed tiene dos
+  grupos y uno es el del sujeto, así que el único grupo ajeno es el mismo
+  `{grupo_id}` que usan otras treinta y seis rutas. Dejarlo borrado hasta el
+  final las mediría todas contra un grupo que ya no está.
+- **Lo que escribió la petición se captura antes de devolver.** El
+  `UPDATE ... deleted_at = NULL` de la vuelta es del barrido y no de la ruta;
+  contado como suyo, aparecería como un hallazgo en cada una de las ocho.
+
+Y un `assertSame` más: que no quede nada prestado al terminar. Una fila que se
+quedara en la papelera mediría a partir de ahí todas las rutas que la usan contra
+algo que no está, y el barrido diría que están cerradas.
+
+Con eso son **doce las rutas con `{id}` que aguantan sin haber sido nunca
+medidas**, y las ocho de papelera pasan a medirse. Ninguna de las ocho dio nada:
+llevan `auth.personal` o comprueban dentro, y el 403 llega antes de mirar la fila.
+
+### 21.5 Y las cinco que quedan, que no son un descuido del seed
+
+`enfermeria/destroy`, `requisitos/destroy`, `actividades/destroy`,
+`preguntas/destroy` y `opciones/destroy` nombran tablas vacías. Y no lo están
+solo en el seed: **están vacías en la base de desarrollo**, las once de la familia
+—`registros_enfermeria`, `requisitos_matricula`, `requisitos_alumno` y las ocho
+`ws_*`—. O sea que el generador del seed no puede traerlas, porque no hay nada
+que copiar; meterlas es **fabricarlas**, que es otra decisión y no la misma.
+
+Lo que cuesta, medido y no supuesto: solo **dos snapshots** tocan esa familia
+—`muestreo-actividades-compartidas` y `muestreo-actividades-datos`—, y los dos
+están ya en `huecos-del-seed.json` como listas vacías conocidas. `enfermeria` y
+`requisitos` no aparecen en ningún snapshot. Y la forma de un examen no habría que
+inventarla: `montarElExamenDeOtroAlumno()` la escribió la §20 y funciona.
+
+Lo que **no** cuesta poco es el contrato del generador, que hoy es «una rebanada
+de la base real, determinista a partir del id». Fabricar rompe esa frase, y por
+eso queda anotado y no hecho. Con el matiz que decide si merece la pena: las cinco
+llevan `auth.personal` o comprueban dentro, así que medirlas no va a encontrar
+nada — **compra honestidad de la medición, no hallazgos**. Es exactamente lo
+contrario que las ocho de papelera, que salieron gratis.

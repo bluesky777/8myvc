@@ -300,6 +300,14 @@ Están en [05-codigo-muerto-y-roto.md §8](05-codigo-muerto-y-roto.md).
 
 ### Lo que el seed no cubre, y hay que saberlo
 
+**La regla, fijada el 20 ago 2026** después de que el seed vacío tapara seis
+hallazgos: si lo que falta es **estado** de una fila que ya existe —una papelera
+vacía, una matrícula sin retirar—, lo prepara quien mide y lo devuelve; si lo que
+falta es la **fila** —un examen, un registro de enfermería—, se monta en el test
+que la necesita. Llevarla al seed es una decisión aparte, y se toma cuando compre
+hallazgos y no solo cobertura. Ver [09 §6](09-pendientes.md).
+
+
 Un snapshot describe la forma de lo que vino, así que **una lista vacía se
 describe como vacía y a partir de ahí pasa siempre**. El mapa completo de eso
 —31 snapshots, más de cien claves— lo mantiene `HuecosDelSeedTest`, que lo lee de

@@ -624,18 +624,36 @@ saber el tamaño real del daño en las dieciséis bases antes de tocar código.
   Y las otras setenta y dos aguantaron — que no es un hallazgo, pero antes no
   estaba medido.
 
-- **Y una decisión que hay que tomar sobre el seed, que ya lleva seis.** El seed
-  vacío ha tapado seis hallazgos: `unidades_por_defecto`, los alumnos borrados,
-  `pazysalvo`, los folios, `ws_actividades` y ahora **trece rutas con `{id}` que
-  no se pueden medir en absoluto** —ocho de ellas de papelera, porque en este seed
-  no hay ni un alumno, ni un grupo, ni un usuario borrado—. El patrón es siempre el
-  mismo: **el seed copia un grupo y sus datos, y todo lo que un colegio acumula
-  alrededor —papeleras, deudas, exámenes, plantillas— llega vacío**, así que un
-  `[]` no distingue «cerrado» de «no había nada». Los cinco primeros se
-  resolvieron montando la fila a mano dentro de la transacción, que funciona y es
-  honesto, pero es un parche por caso — y con el sexto ya no vale: son trece
-  rutas de una herramienta que **mide**, y ponerla a fabricar lo que después mide
-  la vuelve turbia. Ésas se quedan sin medir y el barrido lo imprime. Decidir si el seed debe traer una fila de cada
-  familia —o si se prefiere seguir montándolas en cada test, que es explícito—
-  es lo que falta, y no se decide desde aquí porque cambia el seed de todos los
-  tests de contrato.
+- **La decisión del seed, tomada el 20 ago 2026: partirla en dos.** El seed vacío
+  llevaba seis hallazgos tapados —`unidades_por_defecto`, los alumnos borrados,
+  `pazysalvo`, los folios, `ws_actividades` y trece rutas con `{id}`—, y lo que la
+  volvió decidible fue ver que las trece se parten en dos mitades con costes
+  distintos.
+
+  **Las ocho de papelera van dentro del barrido, y salieron gratis.** Necesitan
+  una fila con `deleted_at` puesto, y para eso no hace falta un dato nuevo: vale
+  marcar una que ya está. **Preparar el sujeto no es fabricar el efecto** —lo que
+  se mide sigue siendo si el token restaura la fila de otro—, así que la
+  objeción de «poner al barrido a fabricar lo vuelve turbio» no se le aplica: es
+  lo mismo que ya hace al elegir a quién se le da el token. Se presta y se
+  devuelve en cuanto se golpea la ruta, porque el seed tiene dos grupos y dejar
+  borrado el único ajeno mediría mal otras treinta y seis. Ninguna dio nada, que
+  ahora está medido y antes no.
+
+  **Las cinco restantes quedan anotadas y sin hacer, y por un motivo que no se
+  sabía al decidir:** el generador del seed no puede traerlas porque **no están
+  solo vacías en el seed, están vacías en la base de desarrollo** —las once tablas
+  de la familia—. No es ampliar el generador, es fabricar, y eso rompe su
+  contrato: «una rebanada de la base real, determinista a partir del id».
+  Medido lo que costaría: solo dos snapshots tocan esa familia y los dos están ya
+  en `huecos-del-seed.json`, y la forma del examen la escribió la §20. Y medido lo
+  que compraría: **nada**, porque las cinco llevan `auth.personal` o comprueban
+  dentro. Honestidad de la medición, no hallazgos. Ver [05 §21.5](05-codigo-muerto-y-roto.md).
+
+  El patrón que queda escrito, porque va a volver: **el seed copia un grupo y sus
+  datos, y todo lo que un colegio acumula alrededor —papeleras, deudas, exámenes,
+  plantillas— llega vacío**, así que un `[]` no distingue «cerrado» de «no había
+  nada». La regla con la que se resolvió: si lo que falta es **estado** de una
+  fila que ya existe, lo prepara quien mide; si lo que falta es la **fila**, se
+  monta en el test que la necesita — y llevarla al seed es una decisión aparte,
+  que se toma cuando compre hallazgos y no solo cobertura.

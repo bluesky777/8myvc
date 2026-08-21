@@ -67,6 +67,12 @@ use Tests\Contrato\CasoDeContrato;
  * —{@see TABLA_DE_ID}— y salió `myimages/destroy/{id}`, que con una imagen ajena
  * pide que la borren. Ver 05 §21.
  *
+ * De ahí salió también lo que el barrido hace con las papeleras. Ocho rutas solo
+ * actúan sobre una fila borrada y este seed no tiene ninguna, así que se **presta
+ * una y se devuelve** —{@see fabricarEnPapelera()}—. La línea es que preparar el
+ * sujeto no es fabricar el efecto: marcar una fila como borrada es lo mismo que
+ * elegir a quién se le da el token; montar la fila que la ruta escribiría, no.
+ *
  * Y una cosa que este archivo **no** puede encontrar, demostrada el mismo día:
  * lo que sale sin ser dato personal. `unidades/trashed` devolvía a un alumno la
  * papelera académica del colegio y el barrido la vio pasar, porque su criterio
@@ -125,6 +131,14 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
 
     /** Los `{id}` ya resueltos, por tabla y por si hacía falta de la papelera. */
     private array $idsPorTabla = [];
+
+    /**
+     * Las filas que este barrido ha mandado a la papelera para poder medir, y
+     * que devuelve en cuanto golpea la ruta. Ver {@see fabricarEnPapelera()}.
+     *
+     * @var list<array{string, int}>
+     */
+    private array $devolverDeLaPapelera = [];
 
     /**
      * Los parámetros para los que el seed NO tiene ningún valor ajeno.
@@ -226,6 +240,7 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
 
             if ($pedida === null) {
                 $sinValor[] = $verbo.' '.$uri;
+                $this->devolverLoPrestado();
 
                 continue;
             }
@@ -239,6 +254,9 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
             }
 
             $this->escrituras = [];
+            $codigo = 0;
+            $escribio = [];
+            $contenido = '';
 
             try {
                 $r = $this->withToken($this->token)->json($verbo, '/'.$pedida, $this->cuerpo);
@@ -253,20 +271,27 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
                     $r = $this->withToken($this->token)->json($verbo, '/'.$pedida, $this->cuerpo);
                     $codigo = $r->getStatusCode();
                 }
+
+                // Lo que escribió la petición se captura AQUÍ, antes de devolver
+                // lo prestado: el `UPDATE ... deleted_at = NULL` de la vuelta es
+                // del barrido y no de la ruta, y contado como suyo aparecería
+                // como un hallazgo en cada una de las ocho.
+                $escribio = array_values(array_unique($this->escrituras));
+                $contenido = (string) $r->getContent();
             } catch (\Throwable $e) {
                 $this->salida[] = '  EXCEPCIÓN   '.$verbo.' '.$uri.'   '.substr($e->getMessage(), 0, 90);
+            } finally {
+                $this->devolverLoPrestado();
+            }
 
+            // Sin código no hubo respuesta: saltó la excepción, y ya está impresa.
+            // Y el 403 es la respuesta correcta, así que tampoco se imprime.
+            if ($codigo === 0 || $codigo === 403) {
                 continue;
             }
 
-            // El 403 es la respuesta correcta: no se imprime.
-            if ($codigo === 403) {
-                continue;
-            }
-
-            $escribio = array_values(array_unique($this->escrituras));
             $personales = $escribio === [] && $codigo === 200
-                ? $this->datosPersonalesEn((string) $r->getContent())
+                ? $this->datosPersonalesEn($contenido)
                 : [];
 
             if ($escribio === [] && $personales === []) {
@@ -278,7 +303,7 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
             $this->salida[] = '  '.str_pad((string) $codigo, 5).str_pad($verbo, 7).str_pad($uri, 58)
                 .($escribio !== [] ? '  ESCRIBE: '.implode(' | ', $escribio) : '')
                 .($personales !== [] ? '  PERSONALES: '.implode(',', $personales)
-                    .' ['.strlen((string) $r->getContent()).' b]' : '');
+                    .' ['.strlen($contenido).' b]' : '');
         }
 
         $this->salida[] = '';
@@ -288,8 +313,9 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
         if ($sinFila !== []) {
             $this->salida[] = '';
             $this->salida[] = count($sinFila).' rutas con {id} NO se midieron: el seed no tiene ninguna '
-                .'fila que mandarles.';
+                .'fila ajena de la tabla que nombran.';
             $this->salida[] = 'Se golpearon con un cero, así que su respuesta vacía no prueba nada.';
+            $this->salida[] = 'Las de papelera NO están aquí: para ésas el barrido presta una fila y la devuelve.';
 
             foreach ($sinFila as $ruta) {
                 $this->salida[] = '  '.$ruta;
@@ -322,6 +348,12 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
         // y el barrido no manda es una ruta que no llega a actuar sobre nada
         // ajeno: entra, no encuentra a quién, y contesta vacío. Así se escondieron
         // `promovidos/calcular-grupo` y media cartera (05 §17).
+        // Que no quede nada prestado. Una fila que se quedara en la papelera
+        // mediría a partir de ahí todas las rutas que la usan contra algo que no
+        // está, y el barrido diría que están cerradas.
+        $this->assertSame([], $this->devolverDeLaPapelera,
+            'El barrido dejó filas en la papelera que tenía que haber devuelto.');
+
         // Y por el lado del `{id}`, que es el tercero. Una familia de rutas que no
         // esté en el mapa se golpearía con un cero y el barrido diría que la mide.
         $this->assertSame([], $sinMapa,
@@ -627,8 +659,19 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
             $this->idsPorTabla[$clave] = $this->idAjenoEn($tabla, $papelera);
         }
 
+        // Si la ruta necesita una fila borrada y el seed no tiene ninguna, se
+        // manda una a la papelera para esta petición y se devuelve después. NO se
+        // cachea: al devolverla, el id guardado dejaría de estar borrado.
+        if ($this->idsPorTabla[$clave] === null && $papelera) {
+            $prestada = $this->fabricarEnPapelera($tabla);
+
+            return $prestada === null
+                ? [null, "no hay ninguna fila ajena en {$tabla} que mandar a la papelera"]
+                : [$prestada, ''];
+        }
+
         return $this->idsPorTabla[$clave] === null
-            ? [null, $papelera ? "no hay ninguna fila borrada en {$tabla}" : "no hay ninguna fila ajena en {$tabla}"]
+            ? [null, "no hay ninguna fila ajena en {$tabla}"]
             : [$this->idsPorTabla[$clave], ''];
     }
 
@@ -662,6 +705,59 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
             $reflejo->getEndLine() - $reflejo->getStartLine() + 1));
 
         return str_contains($cuerpo, 'onlyTrashed');
+    }
+
+    /**
+     * Manda una fila ajena a la papelera para poder medir la ruta que la restaura.
+     *
+     * Ocho de las rutas con `{id}` solo actúan sobre una fila con `deleted_at`
+     * puesto —`alumnos/restore`, `grupos/forcedelete`, `perfiles/restore`…— y en
+     * este seed no hay ni un alumno, ni un grupo, ni un usuario borrado, porque el
+     * seed copia un grupo y sus datos y las papeleras se quedan fuera. Sin fila,
+     * la ruta contesta 404 y ese 404 se lee igual que un guard que funciona.
+     *
+     * **Preparar el sujeto no es fabricar el efecto.** Lo que se mide sigue siendo
+     * si el token restaura la fila de OTRO; marcarla como borrada es lo mismo que
+     * ya se hace al elegir a quién se le da el token. Lo que no se hace es montar
+     * la fila que la ruta escribiría — eso sí volvería turbia la medida.
+     *
+     * **Se devuelve en cuanto se golpea la ruta**, y no al final del barrido, por
+     * una razón del seed: solo tiene dos grupos y uno es el del sujeto, así que el
+     * único grupo ajeno es el mismo `{grupo_id}` que usan otras treinta y seis
+     * rutas. Dejarlo borrado hasta el final las mediría todas contra un grupo que
+     * ya no está.
+     */
+    private function fabricarEnPapelera(string $tabla): ?int
+    {
+        $id = $this->idAjenoEn($tabla, false);
+
+        if ($id === null) {
+            return null;
+        }
+
+        DB::update('UPDATE `'.$tabla.'` SET deleted_at = ? WHERE id = ?',
+            [now()->toDateTimeString(), $id]);
+
+        $this->devolverDeLaPapelera[] = [$tabla, $id];
+
+        return $id;
+    }
+
+    /**
+     * Devuelve lo prestado.
+     *
+     * Sin `deleted_at IS NOT NULL` en el WHERE a propósito: si la ruta medida la
+     * restauró de verdad —que es justo el hallazgo que se busca— la fila ya está
+     * viva y el UPDATE no cambia nada. Y si la borró del todo, no hay fila que
+     * devolver y afecta a cero.
+     */
+    private function devolverLoPrestado(): void
+    {
+        foreach ($this->devolverDeLaPapelera as [$tabla, $id]) {
+            DB::update('UPDATE `'.$tabla.'` SET deleted_at = NULL WHERE id = ?', [$id]);
+        }
+
+        $this->devolverDeLaPapelera = [];
     }
 
     /** Una fila de esta tabla que no sea suya, o null si el seed no tiene ninguna. */
