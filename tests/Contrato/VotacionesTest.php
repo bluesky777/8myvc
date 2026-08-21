@@ -695,4 +695,90 @@ class VotacionesTest extends CasoDeContrato
             ->assertStatus(200)
             ->assertJsonStructure(['participantes']);
     }
+
+    /**
+     * `GET votos` entrega todos los votos del colegio, con quién emitió cada uno.
+     *
+     * Es `VtVoto::all()`, sin filtro de año, de elección ni de nada: cada fila
+     * lleva su `user_id` y su `candidato_id`. Lleva `auth.personal`, así que no
+     * lo alcanza una familia, y **no lo llama ningún cliente** —la pantalla de
+     * resultados usa `votos/show`, que sí se acota—.
+     *
+     * Junto a la §6 completa el cuadro: el voto nominal sale por dos rutas
+     * distintas, una que una pantalla usa y otra que no usa nadie.
+     */
+    public function test_el_indice_de_votos_los_entrega_todos_con_su_votante(): void
+    {
+        $profe = $this->votante();
+        $eleccion = $this->eleccionAbierta($profe);
+
+        $mio = DB::table('vt_votos')->insertGetId([
+            'user_id' => $profe->user_id,
+            'candidato_id' => $eleccion->candidatos[0],
+            'locked' => 0,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $votos = $this->withToken($profe->token)
+            ->getJson('/api/votos')
+            ->assertStatus(200)
+            ->json();
+
+        $this->assertGreaterThan(1, count($votos),
+            'Salen los del seed además del recién creado: no filtra por elección ni por año.');
+
+        $nuestro = collect($votos)->firstWhere('id', $mio);
+
+        $this->assertNotNull($nuestro);
+        $this->assertSame($profe->user_id, (int) $nuestro['user_id'],
+            'Cada voto viaja con el id de quien lo emitió.');
+    }
+
+    /**
+     * La papeleta responde 500 a un alumno, y el guard que lo evitaría **está
+     * escrito en la otra rama**.
+     *
+     * `getConaspiraciones()` se abre en dos:
+     *
+     *     if ($user->tipo == 'Alumno' || $user->tipo == 'Acudiente') {
+     *         $votacion = VtVotacion::actualInscrito($user);
+     *     } else {
+     *         $votacion = VtVotacion::actual($user);
+     *         if (! $votacion) { return [['sin_votaciones_propias' => true]]; }
+     *     }
+     *     $aspiraciones = VtAspiracion::where('votacion_id', $votacion->id)...
+     *
+     * La comprobación de nulo existe, funciona, y **cubre solo al personal**. Un
+     * alumno que no esté inscrito en ninguna elección en acción —que es el caso
+     * normal casi todo el año— llega al `$votacion->id` con `null` y revienta.
+     *
+     * La [05 §18.4](05-codigo-muerto-y-roto.md) ya lo tenía como «responde 500 a
+     * alumnos y acudientes desde siempre». Lo que añade este test es **dónde está
+     * la asimetría**: no falta la comprobación, está en el sitio equivocado, y eso
+     * la hace un descuido y no una decisión.
+     *
+     * Sigue sin arreglarse, y por la razón de la §18.4: mover ese `if` **enciende
+     * en los dieciséis colegios** una pantalla que hoy no funciona, y qué debe ver
+     * un alumno cuando no hay elección suya es decisión del colegio. Se junta con
+     * la §5.4, que es la misma pregunta por el otro lado.
+     */
+    public function test_la_papeleta_revienta_para_un_alumno_sin_eleccion(): void
+    {
+        $alumno = $this->usuarioDeTipo('Alumno');
+        $token = $this->tokenDe($alumno->username);
+
+        // No se monta ninguna elección: es el estado normal del colegio.
+        $this->withToken($token)
+            ->getJson('/api/candidatos/conaspiraciones')
+            ->assertStatus(500);
+
+        // Y al personal, con el mismo estado, le contesta bien.
+        $profe = $this->votante();
+
+        $this->withToken($profe->token)
+            ->getJson('/api/candidatos/conaspiraciones')
+            ->assertStatus(200)
+            ->assertJsonFragment(['sin_votaciones_propias' => true]);
+    }
 }

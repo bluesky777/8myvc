@@ -374,22 +374,64 @@ solo es segura con la forma de la respuesta fijada, y eso es el test de la §6.
 
 ---
 
-## Lo que queda por mirar de este dominio
+## §7. Las dos que faltaban
 
-Cubiertas las cinco rutas de `votos` y la forma de las de `votaciones`. Sin mirar
-todavía, por orden de lo que parece pesar:
+### §7.1. `GET votos` entrega todos, con quién emitió cada uno
 
-1. **`PUT participantes/votantes`** — el censo entero: 37 KB con documento,
-   celular, dirección y correo de cada votante **y a quién votó**. Lleva
-   `auth.personal`, así que no lo alcanza una familia, pero sí los 51 profesores.
-   Ya está señalada en [05 §18](05-codigo-muerto-y-roto.md); lo que falta es mirar
-   la respuesta.
-2. **`GET votos`** — `VtVoto::all()`, con el `user_id` de quien emitió cada voto.
-   Es el voto secreto, y no lo llama ningún cliente.
-3. **`GET candidatos/conaspiraciones`**, que es la papeleta y responde 500 a
-   alumnos y acudientes desde siempre ([05 §18.4](05-codigo-muerto-y-roto.md)).
-4. **Un profesor no puede ser candidato**, aunque `votan_profes` exista y la
-   consulta comentada de `porAspiracion()` lo contemplara. La que corre une solo
-   con `alumnos`. No se ha tocado: puede ser lo que el colegio quiere —elecciones
-   de personero estudiantil— o un recorte que se hizo y nadie revisó.
-5. ~~Los seis `set-*` de `votaciones`~~ — **mirados, están en la §5.**
+`VtVoto::all()`, sin filtro de año, de elección ni de nada. Cada fila lleva su
+`user_id` y su `candidato_id`. Con `auth.personal`, y **no lo llama ningún
+cliente**: la pantalla de resultados usa `votos/show`, que sí se acota.
+
+Junto a la §6 completa el cuadro: **el voto nominal sale por dos rutas, una que
+una pantalla usa y otra que no usa nadie.** La segunda se puede cerrar sin
+preguntarle a nadie el día que se decida la primera.
+
+### §7.2. La papeleta revienta para un alumno, y el guard está en la otra rama
+
+`GET candidatos/conaspiraciones`:
+
+```php
+if ($user->tipo == 'Alumno' || $user->tipo == 'Acudiente') {
+    $votacion = VtVotacion::actualInscrito($user);
+} else {
+    $votacion = VtVotacion::actual($user);
+    if (! $votacion) { return [['sin_votaciones_propias' => true]]; }
+}
+$aspiraciones = VtAspiracion::where('votacion_id', $votacion->id)...
+```
+
+La comprobación de nulo **existe y funciona — y cubre solo al personal**. Un
+alumno que no esté inscrito en ninguna elección en acción, que es el caso normal
+casi todo el año, llega al `$votacion->id` con `null` y revienta.
+
+La [05 §18.4](05-codigo-muerto-y-roto.md) ya lo tenía como «responde 500 a
+alumnos y acudientes desde siempre». Lo que añade el test es **dónde está la
+asimetría**: no falta la comprobación, está en el sitio equivocado. Eso la
+convierte en un descuido y no en una decisión, que no es lo mismo a la hora de
+arreglarla.
+
+Sigue sin arreglarse por lo que ya decía la §18.4 —mover ese `if` **enciende en
+los dieciséis colegios** una pantalla que hoy no funciona—, y ahora se sabe que
+es la misma pregunta que la §5.4 por el otro lado: para contestar qué ve un
+alumno cuando no hay elección suya hay que saber antes **cuál es la suya**.
+
+---
+
+## Lo que queda de este dominio
+
+Las 26 rutas están miradas. Lo que queda no es cobertura sino decisiones, y son
+tres, en el orden en que se desbloquean:
+
+1. **¿Cuál de las elecciones de los profesores le toca a un alumno?** Es la §5.4
+   y no se puede deducir de la base. Desbloquea acotar `actualesInscrito()` y,
+   detrás, la §7.2.
+2. **¿El voto es secreto en este colegio?** Es la §6. Si lo es, se cierran las dos
+   rutas de la §6 y la §7.1; si no lo es, se documenta que la pantalla existe para
+   eso y se deja.
+3. **¿Se puede votar con la urna cerrada?** Es la §2, y su arreglo tiene el orden
+   invertido que avisa la §3: primero `in_action`/`locked` en `postStore()`,
+   después `verificarNoVoto()`. Al revés se enciende el fallo.
+
+Y dos cosas medidas que no esperan decisión y se pueden hacer cuando se quiera:
+sacar la consulta de cargos del bucle (§6.2, 37 consultas donde va una) y acotar
+los seis interruptores por dueño (§5), que Joseth ya contestó.
