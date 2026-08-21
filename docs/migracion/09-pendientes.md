@@ -590,14 +590,52 @@ saber el tamaño real del daño en las dieciséis bases antes de tocar código.
   dentro del controlador. Es la forma de la §13.2 vista del revés: allí el guard
   estaba puesto y no reconocía el nombre; aquí no hay nombre que reconocer.
 
-- **Y una decisión que hay que tomar sobre el seed, que ya lleva cinco.** El seed
-  vacío ha tapado cinco hallazgos: `unidades_por_defecto`, los alumnos borrados,
-  `pazysalvo`, los folios y ahora `ws_actividades`. El patrón es siempre el
+- **El `{id}`, hecho el 20 ago 2026.** Cerrado el cuerpo, quedaba mal medido el
+  otro lado de la URL: **85 rutas llevan `{id}` y el barrido les mandaba a las
+  ochenta y cinco el mismo número**, el `users.id` del superusuario, porque el
+  mapa resuelve por nombre de parámetro y `{id}` es un nombre solo. Contra
+  `perfiles/*` era el correcto; contra las otras setenta y tantas era un id de
+  otra tabla, y **un 404 por «esa fila no está» se lee igual que un guard que
+  funciona**. Casi todas son `DELETE` y `PUT`. Ver [05 §21](05-codigo-muerto-y-roto.md).
+
+  Ahora el `{id}` se resuelve contra la tabla que la ruta nombra de verdad, que
+  no es la que dice la URL: `boletines2/destroy/{id}` y las tres de `editnota`
+  operan sobre **alumnos**, y `definitivas_periodos` borra de `notas_finales`. Y
+  **la papelera se detecta leyendo el método, no el nombre**: `years/destroy/{id}`
+  hace `forceDelete()` sobre `onlyTrashed()` —el borrado que arrastra 59 tablas—
+  y `years/delete/{id}` es el que manda a la papelera. Con el nombre por
+  criterio, la peligrosa se habría golpeado con un año vivo. Es el tercer candado
+  del barrido contra encogerse en silencio, después del de la URL y el del cuerpo.
+
+  Lo que salió: **se podía pedir que borraran la foto de otro.** Borrar una imagen
+  se pide por dos rutas y son la misma operación; `images-users/destroy/{id}`
+  lleva `persona.propia:imagen_id` desde la §13.1 y `myimages/destroy/{id}` —la
+  que usan las familias, porque se llama «mis imágenes»— no llevaba ninguna. Con
+  una imagen ajena no la borra: el controlador solo mira `created_by` —quién la
+  subió— y nunca `user_id` —de quién es—, así que cae en la rama de la petición de
+  cambio y deja el id ajeno escrito. Desde ahí lo ejecuta un clic de quien revisa
+  peticiones. Alcanzaba también a las imágenes sin dueño, que son las del colegio:
+  el logo del año, la firma de un profesor.
+
+  Aquí el arreglo **sí** es el guard y no una comprobación dentro, al revés que el
+  del examen: el identificador nombra una imagen y `ExigirPersonaPropia` ya sabe
+  de quién es una imagen. Es la misma línea que lleva su ruta hermana.
+
+  Y las otras setenta y dos aguantaron — que no es un hallazgo, pero antes no
+  estaba medido.
+
+- **Y una decisión que hay que tomar sobre el seed, que ya lleva seis.** El seed
+  vacío ha tapado seis hallazgos: `unidades_por_defecto`, los alumnos borrados,
+  `pazysalvo`, los folios, `ws_actividades` y ahora **trece rutas con `{id}` que
+  no se pueden medir en absoluto** —ocho de ellas de papelera, porque en este seed
+  no hay ni un alumno, ni un grupo, ni un usuario borrado—. El patrón es siempre el
   mismo: **el seed copia un grupo y sus datos, y todo lo que un colegio acumula
   alrededor —papeleras, deudas, exámenes, plantillas— llega vacío**, así que un
-  `[]` no distingue «cerrado» de «no había nada». Los cinco se resolvieron
-  montando la fila a mano dentro de la transacción, que funciona y es honesto,
-  pero es un parche por caso. Decidir si el seed debe traer una fila de cada
+  `[]` no distingue «cerrado» de «no había nada». Los cinco primeros se
+  resolvieron montando la fila a mano dentro de la transacción, que funciona y es
+  honesto, pero es un parche por caso — y con el sexto ya no vale: son trece
+  rutas de una herramienta que **mide**, y ponerla a fabricar lo que después mide
+  la vuelve turbia. Ésas se quedan sin medir y el barrido lo imprime. Decidir si el seed debe traer una fila de cada
   familia —o si se prefiere seguir montándolas en cada test, que es explícito—
   es lo que falta, y no se decide desde aquí porque cambia el seed de todos los
   tests de contrato.

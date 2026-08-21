@@ -1796,3 +1796,118 @@ que se arregle.
   colegio acumula alrededor —papeleras, deudas, exámenes, plantillas— llega
   vacío. Mientras siga así, un `[]` de este seed no distingue «cerrado» de «no
   había nada».
+
+---
+
+## 21. El `{id}`, que es el mismo nombre para cuarenta y tres tablas (20 ago 2026)
+
+La [§20](#20-el-cuerpo-entero-y-el-examen-de-otro-alumno-20-ago-2026) cerró el
+lado del cuerpo, así que la pregunta siguiente es qué queda mal medido por el
+lado de la URL. Y quedaba esto: **85 de las 538 rutas llevan `{id}`, y el barrido
+les mandaba a las ochenta y cinco el mismo número** —el `users.id` del
+superusuario—, porque el mapa de identificadores resuelve por nombre de parámetro
+y `{id}` es un nombre solo.
+
+Contra `perfiles/*` era el número correcto. Contra las otras setenta y tantas era
+un id de otra tabla: `areas/destroy/{id}` nombra una fila de `areas`,
+`matriculas/destroy/{id}` una de `matriculas`, `unidades/restore/{id}` una de
+`unidades`. Y un id de otra tabla o no existe, o existe y no es la fila que la
+ruta pretende tocar.
+
+**Por qué eso no es un detalle:** un 404 por «esa fila no está» se lee igual que
+un guard que funciona. Eran ochenta y cinco rutas —casi todas `DELETE` y `PUT`,
+que es lo que hace daño— cuya respuesta no probaba nada, y el barrido las contaba
+como medidas. Es el mismo error de lectura que la §16 encontró en los grupos y la
+§17 en el cuerpo vacío, en el sitio que quedaba.
+
+### 21.1 Qué se hizo
+
+`TABLA_DE_ID` dice qué tabla nombra el `{id}` de cada familia de rutas. El nombre
+de la familia sale de la URL y la tabla de lo que hace el controlador, **y no
+siempre coinciden**: `boletines2/destroy/{id}`, `boletines3/destroy/{id}` y las
+tres de `editnota` operan sobre **alumnos**; `definitivas_periodos` borra de
+`notas_finales`; `certificados` es `config_certificados`.
+
+`AJENO_POR` dice cómo se elige una fila ajena, y solo aparecen las siete tablas
+donde «suyo» significa algo —`alumnos`, `users`, `grupos`, `profesores`,
+`acudientes`, `images` por su `user_id` y `matriculas` por su `alumno_id`—. En
+las demás cualquier fila sirve: `areas`, `frases` o `ciudades` son del colegio y
+no de nadie, que es el mismo criterio del comodín `otro` del mapa del cuerpo.
+
+**Y la papelera se detecta leyendo el método, no el nombre de la ruta**, porque
+los nombres mienten. `years/destroy/{id}` hace `forceDelete()` sobre
+`onlyTrashed()` —es el borrado de mayor alcance del sistema, el que arrastra 59
+tablas por las FK— y `years/delete/{id}` es el que manda a la papelera. Con el
+nombre por criterio, la de verdad peligrosa se habría golpeado con un año vivo y
+habría contestado 404 sin haber medido nada. Se mira si el cuerpo del método
+contiene `onlyTrashed`, por reflexión, que es el mismo atajo estático que la §20
+usó para las claves del cuerpo.
+
+Con eso el barrido tiene su **tercer** candado contra encogerse en silencio: si
+mañana aparece una familia de rutas con `{id}` que el mapa no conoce, falla en
+vez de golpearla con un cero. Ya lo tenía por el lado de los parámetros de la URL
+y por el de las claves del cuerpo.
+
+### 21.2 Lo que salió: pedir que borren la foto de otro
+
+Con el `{id}` resuelto contra `images`, `DELETE myimages/destroy/{id}` dejó de
+recibir un `users.id` y pasó a recibir **la imagen de otra persona**. Y siguió
+escribiendo.
+
+Borrar una imagen se pide por dos rutas, y son la misma operación:
+
+| Ruta | Guard |
+|---|---|
+| `DELETE images-users/destroy/{id}` | `persona.propia:imagen_id` — cerrada, y con sus dos tests desde la §13.1 |
+| `DELETE myimages/destroy/{id}` | ninguno, y **es la que usan las familias**: se llama «mis imágenes» |
+
+Lo que hace con una imagen ajena no es borrarla —eso habría salido antes—: **es
+pedir que la borren.** El controlador solo mira `created_by`, que es quién la
+subió, y nunca `user_id`, que es de quién es. Así que con una imagen que no es
+suya cae en la rama de la petición de cambio y deja el id ajeno escrito en
+`change_asked_data.image_to_delete_id`. Desde ahí, `putAceptarAlumno` con
+`tipo=img_delete` ejecuta `eliminar_imagen_y_enlaces()` sobre ella: **la foto de
+otro a un clic de quien revisa peticiones**, que es exactamente el trabajo de
+quien revisa peticiones.
+
+Y alcanza a más que a las fotos de las personas. `images.user_id` es nullable
+porque las imágenes del colegio no son de nadie —el logo del año, la firma de un
+profesor—, así que también se podía pedir que borraran ésas.
+
+**El arreglo no va dentro del controlador**, al contrario que el de la §20.1:
+allí el identificador nombraba un intento y el guard no tenía cómo reconocerlo;
+aquí nombra una imagen, y `ExigirPersonaPropia` ya sabe de quién es una imagen
+—`duenoDeLaImagen()`, y una sin dueño es del colegio—. Es una línea, la misma que
+lleva su ruta hermana: `persona.propia:imagen_id`, con el parámetro `$como` que
+existe justo para decir a qué tabla apunta un `{id}` genérico.
+
+**Y no le quita nada a nadie.** `myimages` le devuelve a una familia solo las
+imágenes con su `user_id`, así que en su galería no hay ninguna que el guard
+pueda cortar; a profesores y administrativos el guard no les aplica. Lo que sí
+tenía que seguir vivo es el caso legítimo —la foto oficial la sube la secretaría,
+o sea que es del alumno pero la subió otro, y pedir que la borren es justo para
+lo que está esa rama—, y ése es el segundo de los dos tests.
+
+### 21.3 Y lo que sigue sin medirse, que ahora al menos se dice
+
+Las otras setenta y dos aguantaron. Eso no es un hallazgo, pero **antes no estaba
+medido y ahora sí**: casi todas llevan `auth.personal` o comprueban dentro, y el
+403 llega antes de mirar la fila.
+
+Lo que no aguanta es el seed. Trece rutas con un token de alumno y quince con uno
+de acudiente **no se pueden medir**, y el barrido las imprime con el motivo en vez
+de callárselas:
+
+| Motivo | Rutas |
+|---|---|
+| No hay ninguna fila borrada en `alumnos` | `alumnos/forcedelete`, `alumnos/restore`, `editnota/forcedelete`, `editnota/restore` |
+| No hay ninguna fila borrada en `grupos` | `grupos/forcedelete`, `grupos/restore` |
+| No hay ninguna fila borrada en `users` | `perfiles/forcedelete`, `perfiles/restore` |
+| La tabla está vacía | `enfermeria/destroy`, `requisitos/destroy`, `actividades/destroy`, `preguntas/destroy`, `opciones/destroy` |
+
+Ocho de las trece son operaciones de papelera, y es **la sexta vez que el seed
+vacío tapa una medición**. Las cinco anteriores se resolvieron montando la fila a
+mano dentro de la transacción del test; aquí no se ha hecho, a propósito: son
+trece rutas de una herramienta que mide, y ponerla a fabricar lo que después mide
+la vuelve turbia. Lo que corresponde es la decisión que la §20.3 dejó abierta y
+que ahora tiene un número al lado.
