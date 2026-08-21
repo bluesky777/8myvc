@@ -20,6 +20,7 @@ use App\Models\Year;
 use App\Models\Matricula;
 use \Log;
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
+use App\Support\Autoriza;
 
 
 use App\Http\Controllers\Alumnos\GuardarAlumno; // para guardar datos de acudiente. No quiero crear otro archivo
@@ -328,9 +329,11 @@ where id in (
 
 	public function postCrear()
 	{
-		if(!($this->user->is_superuser || $this->user->tipo == 'Profesor' || $this->user->tipo == 'Secretario')){
-			return abort(403, 'No tienes permiso.');
-		}
+		// `$this->user->tipo == 'Secretario'` era imposible: `tipo` solo toma los
+		// cuatro valores del `switch` de ContextoDeUsuario. El criterio pasa al
+		// rol, que desde el 21 ago 2026 existe. Ver 05 §30.2.
+		Autoriza::exigir(Autoriza::puedeEditarAcudientes($this->user),
+			'No tienes permiso.');
 
 		$fecha_nac = null;
 		if (Request::input('fecha_nac')) {
@@ -435,9 +438,11 @@ where id in (
 	 *************************************************************/
 	public function putGuardarValor()
 	{
-		if(!($this->user->is_superuser || $this->user->tipo == 'Profesor' || $this->user->tipo == 'Secretario')){
-			return abort(403, 'No tienes permiso.');
-		}
+		// `$this->user->tipo == 'Secretario'` era imposible: `tipo` solo toma los
+		// cuatro valores del `switch` de ContextoDeUsuario. El criterio pasa al
+		// rol, que desde el 21 ago 2026 existe. Ver 05 §30.2.
+		Autoriza::exigir(Autoriza::puedeEditarAcudientes($this->user),
+			'No tienes permiso.');
 
 		$guardarAlumno = new GuardarAlumno();
 
@@ -490,9 +495,11 @@ where id in (
 
 	public function deleteDestroy($id)
 	{
-		if(!($this->user->is_superuser || $this->user->tipo == 'Secretario')){
-			return abort(403, 'No tienes permiso.');
-		}
+		// Sin la rama de `Profesor` que sí tienen `crear` y `guardar-valor`: aquí
+		// estaba escrita así a propósito y unificarla sería colar una decisión
+		// dentro de un arreglo. Ver 05 §30.2.
+		Autoriza::exigir(Autoriza::puedeEditarAcudientes($this->user, conDocentes: false),
+			'No tienes permiso.');
 
 		$acudiente = Acudiente::findOrFail($id);
 		$acudiente->delete();

@@ -2813,13 +2813,81 @@ dejar una puerta abierta, y es la que mejor explica el patrón: cuando el criter
 no está donde se busca, unas veces se abre de más y otras se cierra de más, y las
 dos se ven igual desde fuera —que es como no verse—.
 
-La pregunta es una sola y vale para las doce: **quién es el Secretario** (y quién
-el Psicólogo). Si la
-respuesta es el rol `Admin` —el que existe, con sus diez personas, que resultaron
-ser [los mismos diez `is_superuser`](#261-y-quién-puede-dispararlas-que-sí-tenía-respuesta)—
-hoy no cambia nada y mañana sí. Anotado en 09 §5. `larastan` no puede encontrar
-esto: `$this->user` es un `stdClass` con `@property` sueltas, así que para el
-análisis `tipo` es `mixed` y la comparación «podría» ser cierta.
+### 30.3 Contestado — **el 21 ago 2026**
+
+La pregunta era una sola y valía para las doce: **quién es el Secretario** (y
+quién el Psicólogo). Joseth contestó y **la respuesta no era ninguna de las
+opciones que se le ofrecieron**, que es lo que hay que quedarse de aquí.
+
+**El Secretario es un rol nuevo**, `Secretario`, que se le asigna a un usuario
+**docente**. No es `Admin`, que era lo propuesto: la razón de existir del rol es
+precisamente una secretaria docente **sin** `is_superuser`, y los diez `Admin`
+son exactamente los diez `is_superuser`, así que con `Admin` el rol no
+distinguiría a nadie. Lo crea `2026_08_21_100000_create_rol_secretario` y
+`Role::isSecretario()` ya lo buscaba por ese nombre exacto, así que los once
+sitios empezaron a funcionar con la fila.
+
+**Y el alcance va por otro corte del que se le propuso.** Se le ofreció «alumnos,
+matrículas, docencia e informes» y lo corrigió:
+
+| Puede | No puede |
+|---|---|
+| Las **configuraciones del colegio**: materias y su orden, las asignaturas de **todos** los grupos, los titulares de grado | **Crear usuarios** |
+| Alumnos y su edición, matrículas | |
+| La **configuración del año**, y **bloquear periodos** | |
+| Ver e imprimir **todos** los informes, no solo los de sus grupos | |
+| Cambiar username y contraseña **de alumnos y acudientes** | |
+| De unidades, subunidades y notas, **solo las suyas como docente** | Las de los demás docentes |
+
+El Secretario **no** es «un docente con más cosas» ni «un superusuario con
+menos»: administra la **estructura** del colegio y es docente normal en **su
+propia aula**. Los dos ejes son independientes y confundirlos es lo que haría el
+arreglo mal.
+
+### 30.4 La regla que hizo falta inventarse para repartirlo
+
+`Autoriza::esAdministrativo()` ya llamaba a `Role::isSecretario()` desde el 20 de
+agosto, esperando esta respuesta. Colgaban de él **seis llamadas**, y crear el rol
+se las habría dado todas de golpe. Dos de ellas no estaban en la lista de Joseth:
+
+- **`perfiles/creartodoslosusuarios`**, que crea las cuentas de alumnos,
+  profesores y acudientes. «No crea usuarios» fue textual.
+- **Los tres `forcedelete`** —perfiles, grupos y profesores—, borrado físico en
+  cascada de 20, 27 y 31 tablas. La [§28.4](#284-lo-que-se-midió-y-estaba-bien) ya
+  había fijado que eso es de superusuario, y Joseth no lo nombró.
+
+Las cuatro se anclaron a `esSuperusuario` el mismo día. La regla, que vale para la
+próxima vez que se cree un rol:
+
+> **Crear un rol no puede dar permisos que nadie pidió.** Todo lo que colgaba del
+> criterio compartido y no estaba en la lista se ancla explícitamente a donde ya
+> estaba de hecho.
+
+Sin esa pasada, el rol habría llegado a los dieciséis colegios con el poder de
+borrar profesores en cascada, y **nadie lo habría escrito en ninguna parte**:
+habría sido un efecto de una fila en una tabla.
+
+**Una lectura que conviene confirmar.** «No crea usuarios» y «puede crear
+acudientes» se tocan: `acudientes/crear` crea también la **cuenta** del acudiente,
+porque un acudiente sin usuario no puede entrar. Se ha entendido que «no crea
+usuarios» se refiere a las cuentas del personal y a la creación masiva —que es lo
+que hace `creartodoslosusuarios`—, y no a la cuenta que nace con cada acudiente,
+porque desbloquear justo eso era el problema visible de la §30.2. Anotado para
+que Joseth lo confirme o lo corrija.
+
+### 30.5 El Psicólogo, que solo necesitaba que le preguntaran donde vive
+
+El rol `Psicólogo` **sí existía** —id 11, desde enero de 2019, cuatro personas
+dentro, se lo asigna `users/crear-psicologo` insertando el `role_id` a pelo— y no
+gobernaba nada. Ahora abre `nee` y `nee_descripcion`, y nada más.
+
+La decisión se tomó después de ir a mirar el PIAR, y **lo que se encontró allí
+cambió la pregunta**: el PIAR filtra sus consultas por `a.nee=1`, así que solo ve
+a los alumnos ya marcados. Con la rama muerta, el psicólogo podía trabajar el PIAR
+pero **no meter a nadie en él**. Está en la [§35](#35-el-piar-al-que-entraba-cualquiera-21-ago-2026).
+
+Fijado por `SecretarioTest`, con los tres tests que abren algo comprobados al
+revés.
 
 ---
 

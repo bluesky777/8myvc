@@ -422,7 +422,9 @@ class ProfesoresController extends Controller {
 		// Autenticado por el constructor, pero sin ninguna autorización: cualquier
 		// usuario con token podía borrar un profesor definitivamente, y con él
 		// 31 tablas en cascada.
-		Autoriza::exigir(Autoriza::esAdministrativo($this->user),
+		// Superusuario: 31 tablas en cascada, siete saltos. Igual que las otras
+		// dos de papelera, y por la misma razón.
+		Autoriza::exigir(Autoriza::esSuperusuario($this->user),
 			'No tienes permiso para eliminar profesores definitivamente.');
 
 		$profesor = Profesor::onlyTrashed()->findOrFail($id);

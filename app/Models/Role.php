@@ -112,6 +112,21 @@ class Role extends Model
 		return Role::hasRole($user_id, 'Secretario');
 	}
 
+	/**
+	 * El rol `Psicólogo`, que sí existe desde 2019 y no gobernaba nada.
+	 *
+	 * Lo asigna `users/crear-psicologo` (inserta el role_id 11 a pelo) y tiene
+	 * cuatro personas dentro. El único sitio que quería preguntar por él
+	 * comparaba `users.tipo` con `'Psicólogo'`, y `tipo` no toma ese valor
+	 * nunca. Ver docs/migracion/05-codigo-muerto-y-roto.md §30.2.
+	 *
+	 * El nombre lleva tilde en la tabla y por eso está escrito con tilde aquí:
+	 * la comparación de `hasRole()` es en PHP y no la salva la collation.
+	 */
+	public static function isPsicologo($user_id) {
+		return Role::hasRole($user_id, 'Psicólogo');
+	}
+
 	public static function hasRole($user_id, $role) {
 		$roles = Role::getUserRoles($user_id);
 		$isRole = false;

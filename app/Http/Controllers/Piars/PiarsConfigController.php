@@ -3,6 +3,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
+use App\Support\Autoriza;
 use App\Http\Controllers\Piars\Utils\UploadDocuments;
 use App\Models\Year;
 use App\Models\Periodo;
@@ -27,9 +28,18 @@ class PiarsConfigController extends Controller {
 
 	public function putConfig(Request $request)
 	{
-		if ($this->user->is_superuser) {
-			response()->json(['error' => 'Unknownthorized'], 400);
-		}
+		// Aquí ponía `if ($this->user->is_superuser) { response()->json(...); }`,
+		// sin `return` y **con la condición al revés**: decía «si ES superusuario,
+		// error». Si el `return` hubiera estado, la ruta habría dejado fuera
+		// exactamente a quien tenía que dejar entrar. Sin él no cortaba nada, así
+		// que la configuración del PIAR la cambiaba cualquiera del personal.
+		//
+		// El criterio es el de configuración del colegio: superusuario o
+		// Secretario. No la llama ningún cliente de los cuatro —en `front_2` la
+		// única llamada está comentada—, así que esto no rompe ninguna pantalla.
+		// Ver 05 §35.2.
+		Autoriza::exigir(Autoriza::esAdministrativo($this->user),
+			'No tienes permiso para cambiar la configuración del PIAR.');
 		$request->validate([
 			'id' => 'required',
 		]);

@@ -304,8 +304,12 @@ class PerfilesController extends Controller {
 		// —de colegio, no de aula— y el botón que la dispara vive en la pantalla de
 		// usuarios, que el menú del front enseña solo con `hasRoleOrPerm('admin')`.
 		// Con `auth.personal` a secas la disparaba cualquiera de los 51 profesores.
-		Autoriza::exigir(Autoriza::esAdministrativo($user),
-			'Solo un administrativo puede crear las cuentas de todo el colegio.');
+		// Superusuario y no `esAdministrativo`, que desde el 21 ago 2026 incluye
+		// al Secretario: esto CREA las cuentas de alumnos, profesores y
+		// acudientes, y «no crea usuarios» fue textual en el alcance que decidió
+		// Joseth. Ver Autoriza::esAdministrativo() y 05 §30.2.
+		Autoriza::exigir(Autoriza::esSuperusuario($user),
+			'Solo un superusuario puede crear las cuentas de todo el colegio.');
 
 		$alumnos = Alumno::all();
 		foreach ($alumnos as $alumno) {
@@ -526,7 +530,9 @@ class PerfilesController extends Controller {
 		// Duplicado de GruposController::deleteForcedelete bajo otra ruta: borra un
 		// Grupo, con la misma cascada de 27 tablas hasta notas. Cerrar solo la de
 		// grupos dejaba esta puerta abierta.
-		Autoriza::exigir(Autoriza::esAdministrativo($user),
+		// Superusuario: borrado físico en cascada, que la §28.4 ya había fijado
+		// como suyo y que el alcance del Secretario no nombra.
+		Autoriza::exigir(Autoriza::esSuperusuario($user),
 			'No tienes permiso para eliminar grupos definitivamente.');
 
 		$grupo = Grupo::onlyTrashed()->findOrFail($id);

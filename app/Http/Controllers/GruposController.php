@@ -689,7 +689,9 @@ class GruposController extends Controller {
 		//
 		// Se aplica el criterio de alumnos/forcedelete sin la rama de profesor:
 		// borrar un grupo definitivamente no es tarea docente.
-		Autoriza::exigir(Autoriza::esAdministrativo($user),
+		// Superusuario: 27 tablas en cascada, seis saltos, y llega a `notas`.
+		// La §28.4 lo fijó y el alcance del Secretario no lo nombra.
+		Autoriza::exigir(Autoriza::esSuperusuario($user),
 			'No tienes permiso para eliminar grupos definitivamente.');
 
 		$grupo = Grupo::onlyTrashed()->findOrFail($id);

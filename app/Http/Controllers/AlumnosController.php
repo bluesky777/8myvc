@@ -796,8 +796,16 @@ class AlumnosController extends Controller {
 			$guardarAlumno = new GuardarAlumno();
 			return $guardarAlumno->valor($this->user, Request::input('propiedad'), Request::input('valor'), Request::input('user_id'), $year_id, Request::input('alumno_id'));
 			
-		// Debo verificar que tenga rol Psicólogo. Por ahora lo dejo Usuario para que funcione
-		} else if($this->user->tipo == 'Psicólogo' && (Request::input('propiedad') == 'nee' || Request::input('propiedad') == 'nee_descripcion')){
+		// El comentario que había aquí decía «Debo verificar que tenga rol
+		// Psicólogo. Por ahora lo dejo Usuario para que funcione», y lo que estaba
+		// escrito debajo era `$this->user->tipo == 'Psicólogo'` — un valor que
+		// `tipo` no toma nunca, así que la rama no se ejecutaba jamás y las
+		// necesidades educativas especiales solo las escribía un superusuario.
+		// Su autor sabía cuál era el criterio bueno; lo que faltaba era que el rol
+		// se preguntara donde vive. Decidido por Joseth el 21 ago 2026 después de
+		// ver que el PIAR filtra por `nee=1` y que sin esto el psicólogo no puede
+		// meter a nadie en él. Ver 05 §30.2 y §35.3.
+		} else if(Role::isPsicologo($this->user->user_id) && (Request::input('propiedad') == 'nee' || Request::input('propiedad') == 'nee_descripcion')){
 			
 			$guardarAlumno = new GuardarAlumno();
 			return $guardarAlumno->valor($this->user, Request::input('propiedad'), Request::input('valor'), Request::input('user_id'), $year_id, Request::input('alumno_id'));

@@ -29,24 +29,67 @@ use App\Models\Role;
 class Autoriza
 {
     /**
-     * Operaciones administrativas: papelera de grupos y profesores, y las
-     * masivas de cuentas. Mismo criterio que ya usaba alumnos/forcedelete, sin
-     * la rama de profesor: ni borrar definitivamente ni reiniciar la contraseña
-     * del colegio entero son tarea docente.
+     * Superusuario o Secretario. El criterio de secretaría, ya con dueño.
      *
-     * **Aviso medido el 20 ago 2026:** en la base de desarrollo no existe ningún
-     * rol llamado `Secretario` —los once son Alumno, Acudiente, Profesor, Admin,
-     * Psicólogo, Enfermero, Coord disciplinario, Manager, Asistente, Coord
-     * académico y Rector—, así que aquí esta condición vale exactamente
-     * `is_superuser`. El rol que sí existe y tiene gente dentro es `Admin`, con
-     * diez. Si el nombre correcto es ése, se cambia en esta línea y arregla los
-     * seis sitios a la vez; es justo para eso que la regla está en uno solo.
-     * Anotado en docs/migracion/09-pendientes.md §5.
+     * Hasta el 21 ago 2026 esto valía exactamente `is_superuser`, porque el rol
+     * `Secretario` **no existía** en la tabla `roles` — el aviso que había aquí
+     * lo decía y proponía usar `Admin`. Se le preguntó a Joseth y la respuesta
+     * fue otra: **rol nuevo**, porque la razón de existir del Secretario es una
+     * secretaria docente **sin** `is_superuser`, y los diez `Admin` son
+     * exactamente los diez `is_superuser`, así que con `Admin` el rol no
+     * distinguiría a nadie. Lo crea
+     * `2026_08_21_100000_create_rol_secretario`, sin dárselo a nadie.
+     *
+     * **Qué cubre este método, después de repasar sus seis llamadas una a una.**
+     * El alcance que Joseth describió no es «un docente con más cosas» ni «un
+     * superusuario con menos»: la secretaria administra la **estructura** del
+     * colegio y es docente normal en **su propia aula**. De lo que colgaba de
+     * aquí, le corresponden las cuatro masivas de `cambiar-usuarios/*`
+     * —cambiarle el username o la contraseña a los alumnos y a los acudientes,
+     * que es literalmente lo que dijo— y las dos ramas de `alumnos/guardar-valor`.
+     *
+     * **Lo que se sacó de aquí a `esSuperusuario` el mismo día**, porque crear el
+     * rol se las habría regalado sin que nadie lo decidiera:
+     *
+     *   - `perfiles/creartodoslosusuarios`, que **crea cuentas** de alumnos,
+     *     profesores y acudientes. «No crea usuarios» fue textual.
+     *   - los tres `forcedelete` —perfiles, grupos y profesores—, que son borrado
+     *     físico en cascada de 20, 27 y 31 tablas. La §28.4 ya había fijado que
+     *     el borrado físico es solo de superusuario, y Joseth no lo nombró.
+     *
+     * La regla que se siguió para repartirlas, y que vale para la próxima:
+     * **crear el rol no puede dar permisos que nadie pidió**. Todo lo que
+     * colgaba de este método y no estaba en la lista de Joseth se ancló a
+     * superusuario, que es donde ya estaba de hecho.
      */
     public static function esAdministrativo($user): bool
     {
         return (bool) ($user->is_superuser ?? false)
             || Role::isSecretario($user->user_id);
+    }
+
+    /**
+     * Crear y editar acudientes.
+     *
+     * Los tres sitios de `AcudientesController` preguntaban
+     * `$this->user->tipo == 'Secretario'`, y `users.tipo` solo toma los cuatro
+     * valores del `switch` de `ContextoDeUsuario` —Usuario, Profesor, Alumno,
+     * Acudiente—, así que era **siempre falso**: el criterio efectivo quedaba en
+     * `is_superuser` (más `Profesor` en dos de los tres). Es el sitio donde la
+     * §30.2 se veía desde fuera — un administrativo sin superusuario no podía
+     * crear un acudiente.
+     *
+     * Se conserva la rama de `Profesor` de los dos primeros y la ausencia de esa
+     * rama en el tercero: son criterios distintos escritos a propósito, y
+     * unificarlos aquí sería colar una decisión dentro de un arreglo.
+     */
+    public static function puedeEditarAcudientes($user, bool $conDocentes = true): bool
+    {
+        if ($conDocentes && ($user->tipo ?? '') === 'Profesor') {
+            return true;
+        }
+
+        return self::esAdministrativo($user);
     }
 
     /**
