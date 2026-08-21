@@ -4088,3 +4088,31 @@ revés solo vale si se revierte lo que de verdad cambió el comportamiento.**
 Fijado por `SubidaDeArchivosTest`: se sube una imagen, dos son 422 y no se guarda
 ninguna, ninguna sigue siendo 422, y un `.php` disfrazado sigue sin entrar — este
 último porque el atajo nuevo no puede saltarse la lista blanca.
+
+---
+
+## 46. Lo que depende de dónde corre, y por eso no se ve (21 ago 2026)
+
+No es un hallazgo: es la forma que tuvieron **cuatro** de los tropiezos del día,
+y se escribe porque cuesta más reconocerla que arreglarla. En los cuatro había
+algo correcto en el código y equivocado en el **contexto en que se ejecutaba**, y
+en los cuatro el síntoma fue el mismo: *no falla nada, y el número que sale es
+plausible*.
+
+| Lo que dependía del contexto | Cómo se manifestó |
+|---|---|
+| **El directorio de trabajo.** Los controladores de imagen escriben en `images/perfil/...`, que es relativo: por HTTP es `public/`, en phpunit es la raíz del repo | Un test de subidas dejó cinco `.jpg` dentro del repo. `ImagenesTest` ya se mudaba a un temporal por esto mismo, con su porqué escrito, y aun así el siguiente que tocó subidas volvió a caer |
+| **Qué migraciones tiene la base contra la que corres.** Tres sesiones, tres bases | Una vez **no cambió ningún resultado** (faltaba el rol `Secretario`, que ningún test exigía) y otra **rompió cinco tests**. Misma causa, consecuencias opuestas, y ninguna visible sin mirar la tabla `migrations` |
+| **El año en el que el login deja al usuario.** `Services\Login` reescribe `users.periodo_id` al periodo del año `actual` al entrar | Un test montaba el examen en un año y lo pedía desde otro, con lo que el 403 salía por el año y no por lo que el test decía comprobar. Y un candidato de votación fuera del año **desaparecía de la papeleta en silencio**, dejando un `assertNotEmpty` que pasaba sin mirar nada |
+| **El fichero de medición y quién más lo tiene abierto.** `FILE_APPEND | LOCK_EX` no protege de un `rm -f` de otra sesión | La cobertura salió **86 de 539 cuando eran 346**, con 135 casos de 588 registrados |
+
+Lo que las une, y lo que hay que preguntar cuando algo salga raro: **¿esto lo
+decide el código, o lo decide el sitio donde el código está corriendo?** Si es lo
+segundo, leer el código no lo va a contar, y el test tampoco — porque el test
+corre en el mismo sitio.
+
+Y de ahí la única defensa que ha funcionado hoy: **afirmar sobre el contenido y no
+sobre la forma**. No `assertNotEmpty`, sino el nombre del candidato que se acaba de
+insertar; no «responde 200», sino el enunciado de la pregunta que tenía que llegar
+—o no llegar—. Es el mismo criterio con el que se escribieron los tests de
+contrato, aplicado a la trampa de un nivel más abajo.
