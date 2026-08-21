@@ -4,6 +4,7 @@
 use App\Http\Controllers\Controller;
 
 
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -189,7 +190,10 @@ class BolfinalesPreescolarController extends Controller {
 			$asignatura->tardanzas = DB::select($consulta_tar, $paramentros)[0];
 			
 			
-			$consulta = 'SELECT * FROM frases_preescolar WHERE asignatura_id=?';
+			// `deleted_at is null` desde que la tabla tiene papelera (21 ago 2026): sin
+			// esto, una frase borrada seguiría saliendo impresa en el boletín, que es
+			// el único sitio donde se vería el fallo.
+			$consulta = 'SELECT * FROM frases_preescolar WHERE asignatura_id=? AND deleted_at IS NULL';
 			$asignatura->frases = DB::select($consulta, [$asignatura->asignatura_id]);
 
 		}
@@ -290,19 +294,36 @@ class BolfinalesPreescolarController extends Controller {
 		$definicion 	= Request::input('definicion');
 		$id 			= Request::input('id');
 		
-		DB::update('UPDATE frases_preescolar SET asignatura_id=?, definicion=? WHERE id=?;', [ $asignatura_id, $definicion, $id ]);
+		DB::update('UPDATE frases_preescolar SET asignatura_id=?, definicion=? WHERE id=? AND deleted_at IS NULL;', [ $asignatura_id, $definicion, $id ]);
 		
 		return 'Cambiada';
 	}
 	
 	
+	/**
+	 * Manda la frase a la papelera, que hasta el 21 ago 2026 no existía.
+	 *
+	 * Era un `DELETE` físico, y `frases_preescolar` era la única tabla de contenido
+	 * de este módulo sin `deleted_at`. Lo que se borra aquí es texto que escribió un
+	 * profesor y que sale impreso en el boletín de un niño de preescolar — en ese
+	 * boletín no hay notas, hay frases.
+	 *
+	 * El daño no era el borrado sino la expectativa: en el resto del sistema todo va
+	 * a la papelera, así que quien pulsa «eliminar» aquí cree que puede deshacerlo.
+	 * Decidido por Joseth con la medición delante (14-certificados.md §7.2).
+	 *
+	 * Se escribe con `DB::update` y no con Eloquent para no cambiar nada más de este
+	 * método: sigue respondiendo `'ELIMINADA'` aunque el id no exista, que es un
+	 * fallo aparte —el de 14 §7.1— y tiene su propio test.
+	 */
 	public function putEliminarFrase(){
 		
 		$user = User::fromToken();
 		
 		$id 			= Request::input('id');
 		
-		DB::delete('DELETE FROM frases_preescolar WHERE id=?;', [ $id ]);
+		DB::update('UPDATE frases_preescolar SET deleted_at=? WHERE id=? AND deleted_at IS NULL;',
+			[ Carbon::now('America/Bogota'), $id ]);
 		
 		return 'ELIMINADA';
 	}

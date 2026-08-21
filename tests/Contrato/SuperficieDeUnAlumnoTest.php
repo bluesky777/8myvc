@@ -1069,7 +1069,15 @@ class SuperficieDeUnAlumnoTest extends CasoDeContrato
         // fija es lo único que depende de lo que se cerró: que el guard no lo
         // corte. Que la lista le llegue vacía es de antes y no lo cambia esto.
         $this->getJson('/api/votaciones/en-accion-inscrito', $cab)->assertStatus(200);
-        $this->postJson('/api/votos/store', [], $cab)->assertStatus(500);
+
+        // 404 y no 500 desde el barrido de los `::find()` sin `OrFail`
+        // (21 ago 2026): el cuerpo va vacío, así que `postStore()` resuelve un
+        // `candidato_id` nulo. Antes reventaba leyendo una propiedad de `null`;
+        // ahora `VtCandidato::findOrFail()` dice que no existe, que es lo correcto.
+        // Lo que este caso fija sigue siendo lo mismo — **que el guard no le corta
+        // el paso al acudiente**—, y eso no ha cambiado: 404 es la respuesta del
+        // controlador, no del middleware. Ver 14-certificados.md §3.
+        $this->postJson('/api/votos/store', [], $cab)->assertStatus(404);
     }
 
     /**

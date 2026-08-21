@@ -155,7 +155,7 @@ class NotasPerdidasController extends Controller {
 				foreach ($periodosTemp as $keyPer => $periodo) {
 
 					// Unidades y subunidades de la asignatura en el periodo
-					$asignaturaTemp = Asignatura::find($asignatura->asignatura_id);
+					$asignaturaTemp = Asignatura::findOrFail($asignatura->asignatura_id);
 					$asignaturaTemp->unidades = Unidad::deAsignatura($asignaturaTemp->id, $periodo->id);
 
 					foreach ($asignaturaTemp->unidades as $unidad) {

@@ -124,21 +124,17 @@ class FrasesPreescolarTest extends CasoDeContrato
     }
 
     /**
-     * El borrado es **físico**, y esta tabla no tiene papelera.
+     * La frase borrada va a la papelera — **desde el 21 de agosto de 2026**.
      *
-     * `DELETE FROM frases_preescolar WHERE id=?`, sin `deleted_at` — y la columna
-     * no existe en el esquema, así que **no es un descuido del controlador sino
-     * de la tabla**: se diseñó sin papelera.
+     * Era un `DELETE` físico y `frases_preescolar` era la única tabla de contenido
+     * de este módulo sin `deleted_at`. Se decidió añadirle papelera con la
+     * medición delante, y el argumento no fue el borrado sino la expectativa: en
+     * el resto del sistema todo se restaura, así que quien pulsa «eliminar» aquí
+     * cree que puede deshacerlo.
      *
-     * Se fija porque en este proyecto **casi todo lo demás va a la papelera**, y
-     * lo que se borra aquí es texto que escribió un profesor. Quien pulse
-     * «eliminar» por error no tiene de dónde recuperarlo, y el resto de pantallas
-     * del sistema le han enseñado que sí.
-     *
-     * No se cambia: añadir `deleted_at` es una migración y una decisión, no un
-     * arreglo. Lo que hacía falta es que estuviera escrito.
+     * Ver 14-certificados.md §7.2.
      */
-    public function test_el_borrado_es_fisico_y_no_hay_papelera(): void
+    public function test_la_frase_borrada_va_a_la_papelera(): void
     {
         $personal = $this->personal();
         $id = $this->unaFrase($personal->asignatura_id);
@@ -147,13 +143,69 @@ class FrasesPreescolarTest extends CasoDeContrato
             ->putJson('/api/bolfinales-preescolar/eliminar-frase', ['id' => $id])
             ->assertStatus(200);
 
-        $this->assertSame(0, DB::table('frases_preescolar')->where('id', $id)->count(),
-            'La fila ya no está: no queda en la papelera porque no hay papelera.');
+        $fila = DB::table('frases_preescolar')->where('id', $id)->first();
 
-        $columnas = DB::select('SHOW COLUMNS FROM frases_preescolar LIKE "deleted_at"');
+        $this->assertNotNull($fila, 'La fila sigue existiendo: no se borró de verdad.');
+        $this->assertNotNull($fila->deleted_at, 'Y quedó marcada como borrada.');
+        $this->assertSame('Comparte con sus compañeros', $fila->definicion,
+            'Con su texto intacto, que es lo que se quería poder recuperar.');
+    }
 
-        $this->assertEmpty($columnas,
-            'Si alguien añadió `deleted_at`, este test sobra y hay que mirar el controlador.');
+    /**
+     * Y una frase de la papelera **no sale impresa en el boletín**.
+     *
+     * Es la otra mitad del arreglo, y la que se olvida: añadir `deleted_at` no
+     * sirve de nada si la consulta que arma el informe no lo filtra. Sin esto,
+     * una frase «borrada» seguiría apareciendo y **el único sitio donde se vería
+     * el fallo sería el papel**.
+     *
+     * Se comprueba **pidiendo el boletín de verdad** y no consultando la tabla:
+     * consultar la tabla comprobaría el SQL que acaba de escribir uno mismo, que
+     * es la trampa de escribir el test después del arreglo. La respuesta son 200
+     * KB y lo que se busca dentro es el texto de la frase.
+     */
+    public function test_una_frase_de_la_papelera_no_sale_en_el_boletin(): void
+    {
+        $personal = $this->personal();
+
+        $viva = $this->unaFrase($personal->asignatura_id, 'FRASE-VIVA-DE-PRUEBA');
+        $muerta = $this->unaFrase($personal->asignatura_id, 'FRASE-BORRADA-DE-PRUEBA');
+
+        $this->withToken($personal->token)
+            ->putJson('/api/bolfinales-preescolar/eliminar-frase', ['id' => $muerta])
+            ->assertStatus(200);
+
+        $boletin = $this->withToken($personal->token)
+            ->putJson('/api/bolfinales-preescolar/detailed-notas-year-group/'.$personal->grupo_id, [])
+            ->assertStatus(200);
+
+        $boletin->assertSee('FRASE-VIVA-DE-PRUEBA');
+        $boletin->assertDontSee('FRASE-BORRADA-DE-PRUEBA');
+    }
+
+    /** Y guardar tampoco toca una frase que está en la papelera. */
+    public function test_guardar_no_resucita_una_frase_borrada(): void
+    {
+        $personal = $this->personal();
+        $id = $this->unaFrase($personal->asignatura_id, 'Texto original');
+
+        $this->withToken($personal->token)
+            ->putJson('/api/bolfinales-preescolar/eliminar-frase', ['id' => $id])
+            ->assertStatus(200);
+
+        $this->withToken($personal->token)
+            ->putJson('/api/bolfinales-preescolar/guardar-frase', [
+                'id' => $id,
+                'asignatura_id' => $personal->asignatura_id,
+                'definicion' => 'Texto nuevo sobre una frase borrada',
+            ])
+            ->assertStatus(200);
+
+        $this->assertSame(
+            'Texto original',
+            DB::table('frases_preescolar')->where('id', $id)->value('definicion'),
+            'La frase de la papelera se quedó como estaba.'
+        );
     }
 
     /**

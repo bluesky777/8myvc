@@ -58,7 +58,7 @@ class ConfigCertificadosController extends Controller {
 	{
 		$user = User::fromToken();
 
-		$certif = ConfigCertificado::find(Request::input('id'));
+		$certif = ConfigCertificado::findOrFail(Request::input('id'));
 
 		if (Request::input('encabezado_img')) {
 			$certif->encabezado_img_id = Request::input('encabezado_img')['id'];
@@ -96,7 +96,7 @@ class ConfigCertificadosController extends Controller {
 	{
 		$user = User::fromToken();
 
-		$year = Year::find(Request::input('year_id'));
+		$year = Year::findOrFail(Request::input('year_id'));
 
 		$year->config_certificado_estudio_id = Request::input('config_certificado_estudio_id');
 		$year->save();
@@ -110,7 +110,7 @@ class ConfigCertificadosController extends Controller {
 	{
 		$user = User::fromToken();
 
-		$year = Year::find(Request::input('year_id'));
+		$year = Year::findOrFail(Request::input('year_id'));
 
 		$year->encabezado_certificado = Request::input('encabezado_certificado');
 		$year->save();
@@ -123,7 +123,7 @@ class ConfigCertificadosController extends Controller {
 	{
 		$user = User::fromToken();
 
-		$certif = ConfigCertificado::find($id);
+		$certif = ConfigCertificado::findOrFail($id);
 		$certif->delete();
 		return $certif;
 	}

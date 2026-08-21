@@ -145,21 +145,20 @@ class ConfigCertificadosTest extends CasoDeContrato
     }
 
     /**
-     * Los cuatro `find()` sin `OrFail` de este controlador, por el resultado.
+     * Un id que no existe es 404 — **arreglado el 21 ago 2026**.
      *
-     * `putUpdate`, `putActual`, `putEncabezado` y `deleteDestroy` resuelven con
-     * `find()` y siguen escribiendo propiedades sobre el `null` que devuelve. En
-     * PHP 8 eso es un error fatal: **500 donde tocaba 404**, cuatro veces en un
-     * controlador de seis métodos.
+     * Los cuatro métodos resolvían con `find()` y seguían escribiendo propiedades
+     * sobre el `null` que devuelve, que en PHP 8 es fatal: **500 donde tocaba
+     * 404**, cuatro veces en un controlador de seis métodos.
      *
-     * Es la misma forma que los tres de `PreguntasController`
-     * ([13-actividades.md §3](13-actividades.md)) y los dos de
-     * `ActividadesController`. Van diez en tres controladores de dos dominios
-     * distintos, así que no es un descuido: **es cómo se resolvía un id en este
-     * proyecto antes de la migración.**
+     * Entró en el barrido de los `::find()` sin `OrFail` de todo el repo. El
+     * argumento para hacerlo, que no es cosmético: un 500 no es una elección de
+     * código sino un proceso que revienta, y **con `APP_DEBUG` encendido devuelve
+     * la traza al cliente** — que es justo lo que la 01 tiene pendiente de
+     * comprobar colegio a colegio. Ver 14-certificados.md §3.
      */
     #[DataProvider('rutasQueResuelvenPorId')]
-    public function test_un_id_que_no_existe_es_500(string $metodo, string $ruta, string $clave): void
+    public function test_un_id_que_no_existe_es_404(string $metodo, string $ruta, string $clave): void
     {
         $personal = $this->personal();
 
@@ -170,7 +169,7 @@ class ConfigCertificadosTest extends CasoDeContrato
 
         $this->withToken($personal->token)
             ->json($metodo, '/api/'.$url, $cuerpo)
-            ->assertStatus(500);
+            ->assertStatus(404);
     }
 
     /** @return array<string, array{string, string, string}> */

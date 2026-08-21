@@ -48,21 +48,41 @@ pantalla.
 Se junta con la pregunta que la [09 §5](09-pendientes.md) tiene abierta para las
 44 rutas de estructura: quién configura el colegio. **No se cierra por separado.**
 
-## §3. Cuatro `find()` sin `OrFail` en un controlador de seis métodos
+## §3. El barrido de los `find()` sin `OrFail` — hecho el 21 ago 2026
 
-`putUpdate`, `putActual`, `putEncabezado` y `deleteDestroy` resuelven con
-`find()` y siguen escribiendo propiedades sobre el `null` que devuelve. En PHP 8
-eso es fatal: **500 donde tocaba 404**.
+`putUpdate`, `putActual`, `putEncabezado` y `deleteDestroy` resolvían con
+`find()` y seguían escribiendo propiedades sobre el `null` que devuelve. En PHP 8
+eso es fatal: **500 donde tocaba 404**, cuatro veces en un controlador de seis
+métodos.
 
-Con éstos van **diez** en tres controladores de dos dominios distintos —los tres
-de `PreguntasController` y los dos de `ActividadesController` están en
-[13-actividades.md §3](13-actividades.md) y §6.2—. A partir de aquí deja de ser
-un descuido y pasa a ser una descripción: **así se resolvía un id en este
-proyecto antes de la migración**, y aparecerá en cada controlador que se mire.
+Joseth decidió hacerlo como barrido y no como arreglos sueltos.
 
-Merece la pena que quede dicho porque cambia qué hacer con ellos: no son diez
-arreglos sueltos, es un barrido, y un barrido se hace de una vez y con una
-medición delante — no cada vez que alguien tropieza con uno.
+### §3.1. La medición, que tuvo que hacerse dos veces
+
+| Criterio | Sitios |
+|---|---|
+| `Modelo::find()` sin `OrFail`, ventana de 4 líneas buscando `if (!$x)` o `=== null` | **47** |
+| lo mismo, aceptando también `if ($x)`, `empty()`, `is_null()`, `??` | **37** |
+
+Los diez de diferencia **sí comprobaban el nulo**, en la forma positiva
+—`$alumno = Alumno::find($id); if ($alumno) {`— que el primer patrón no veía.
+
+**Es el mismo error que la §6 de [13-actividades.md](13-actividades.md)**, cometido
+el mismo día y a sabiendas: un patrón con un límite arbitrario dentro que infla la
+lista, y el límite no se ve porque lo que deja fuera no aparece en ninguna parte.
+Allí fue una ventana de 25 líneas; aquí, no contemplar `if ($x)`. Se descubrió
+mirando los primeros cinco antes de tocarlos, que es lo único que lo caza.
+
+De los 37, **once eran de este frente** y son los que se arreglaron. Los otros 26
+están medidos y repartidos entre las sesiones que llevan esos ficheros.
+
+### §3.2. Por qué no es cosmética
+
+Un 404 en vez de un 403 no gana nada y no se toca —eso ya se decidió—. Pero
+**un 500 no es una elección de código: es un proceso que revienta**, y con
+`APP_DEBUG` encendido **devuelve la traza al cliente**, que es justo lo que la
+[01](01-plan-seguridad.md) tiene pendiente de comprobar colegio a colegio. Además
+ensucia el log donde luego hay que buscar los fallos de verdad.
 
 ## §4. Dos cosas que NO son fallos, y por eso se escriben
 
@@ -217,6 +237,36 @@ guarda nada en absoluto:
 | `ws_preguntas.added_by` | el `user_id` |
 | `config_certificados.created_by` | quién editó el último |
 | `frases_preescolar.updated_by` | **nada** |
+
+---
+
+## §8. Y una ruta que no funciona para nadie, encontrada al barrer
+
+`PUT preguntas/edicion` —la pantalla de editar una pregunta de un examen—
+responde **500 con cualquier id, exista la pregunta o no**. Comprobado con una
+pregunta real.
+
+No es el `[0]` sobre una consulta vacía, que era lo que se venía a arreglar. Es
+que el `ORDER BY` dice **`p.order`** y la columna se llama **`orden`**, así que la
+consulta falla antes de devolver nada. **La pantalla no funciona en ningún colegio
+y no ha funcionado nunca.**
+
+**Y lo que enseña es sobre el propio barrido.** Se había escrito ya el
+`?? abort(404, 'Esa pregunta no existe')` —correcto, coherente con los otros tres
+del mismo controlador— y hubo que retirarlo al medirlo: era **código
+inalcanzable**, porque la excepción de SQL salta antes. Habría quedado un arreglo
+con buena pinta que no se ejecuta jamás, **que es peor que el fallo, porque hace
+creer que el caso está cubierto**.
+
+Un barrido mecánico sobre una lista medida es exactamente donde eso se cuela: el
+patrón dice «aquí hay un id sin comprobar» y tiene razón, pero no dice que el
+método esté muerto por otro motivo.
+
+El arreglo es cambiar una letra, y **por eso mismo no se hace aquí**: enciende en
+los dieciséis colegios una pantalla que hoy no existe, y eso es una decisión del
+colegio —la misma familia de la [05 §18.4](05-codigo-muerto-y-roto.md) y la
+[§22.3](05-codigo-muerto-y-roto.md)—. Fijado por
+`test_editar_una_pregunta_es_500_exista_o_no`.
 
 ---
 

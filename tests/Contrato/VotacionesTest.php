@@ -245,30 +245,62 @@ class VotacionesTest extends CasoDeContrato
     }
 
     /**
-     * **Con el candado echado se sigue votando**, y eso sí es un fallo.
+     * Con la urna pausada no se vota — **arreglado el 21 ago 2026**.
      *
-     * `locked` es el único interruptor que cierra la urna. Lo dijo Joseth el 21
-     * de agosto de 2026, y con esas palabras: *«si está lock entonces nadie puede
-     * votar»*. `postStore()` no lo lee.
+     * `locked` es el único interruptor que para la votación, y `postStore()` no lo
+     * leía: se votaba con el candado echado.
      *
-     * **`in_action` no entra aquí, y este test se reescribió para sacarlo.** No
-     * es un candado: es lo que hace que el front, después de entrar, mande al
-     * usuario directo a la pantalla de votar. Con `in_action = 0` no se le manda,
-     * pero puede llegar por el menú y votar igual — o sea que **el
-     * comportamiento de abajo es el correcto para `in_action` y solo es un fallo
-     * para `locked`**.
-     *
-     * La versión anterior de este test los cambiaba los dos a la vez y lo llamaba
-     * «fuera de acción», que habría llevado a cerrar `in_action` en el arreglo.
-     * Ver 11-votaciones.md §2.
+     * **Es una pausa y no un cierre**, y por eso el código es **423 Locked** y el
+     * mensaje dice «pausada». Joseth: *«se puede inactivar la votación tal como
+     * esté y luego continuar para que los alumnos que no habían podido votar sigan
+     * votando»*. Decirle a un alumno que la votación terminó cuando va a seguir en
+     * diez minutos sería la misma clase de mentira que esta serie persigue.
      */
-    public function test_con_el_candado_echado_se_sigue_votando(): void
+    public function test_con_la_urna_pausada_no_se_vota(): void
     {
         $profe = $this->votante();
         $eleccion = $this->eleccionAbierta($profe);
 
-        DB::table('vt_votaciones')->where('id', $eleccion->votacion_id)
-            ->update(['locked' => 1]);
+        DB::table('vt_votaciones')->where('id', $eleccion->votacion_id)->update(['locked' => 1]);
+
+        $this->withToken($profe->token)
+            ->postJson('/api/votos/store', [
+                'votacion_id' => $eleccion->votacion_id,
+                'candidato_id' => $eleccion->candidatos[0],
+            ])
+            ->assertStatus(423)
+            ->assertSee('pausada');
+
+        $this->assertSame(
+            0,
+            DB::table('vt_votos')->where('user_id', $profe->user_id)->whereNull('deleted_at')->count(),
+            'Y no entró el voto.'
+        );
+    }
+
+    /**
+     * Y al reanudarla, el que no había podido votar vota.
+     *
+     * Es la otra mitad de «pausa, no cierre», y la que hace falta fijar: un
+     * arreglo que dejara la votación inservible después de un `locked` sería peor
+     * que el fallo. Se comprueba el viaje entero — pausar, rechazar, reanudar,
+     * votar.
+     */
+    public function test_al_reanudarla_se_sigue_votando(): void
+    {
+        $profe = $this->votante();
+        $eleccion = $this->eleccionAbierta($profe);
+
+        DB::table('vt_votaciones')->where('id', $eleccion->votacion_id)->update(['locked' => 1]);
+
+        $this->withToken($profe->token)
+            ->postJson('/api/votos/store', [
+                'votacion_id' => $eleccion->votacion_id,
+                'candidato_id' => $eleccion->candidatos[0],
+            ])
+            ->assertStatus(423);
+
+        DB::table('vt_votaciones')->where('id', $eleccion->votacion_id)->update(['locked' => 0]);
 
         $this->withToken($profe->token)
             ->postJson('/api/votos/store', [
@@ -282,7 +314,7 @@ class VotacionesTest extends CasoDeContrato
             DB::table('vt_votos')->where('user_id', $profe->user_id)
                 ->where('candidato_id', $eleccion->candidatos[0])
                 ->whereNull('deleted_at')->count(),
-            'El voto entró con el candado echado.'
+            'El voto que la pausa había frenado entra al reanudar.'
         );
     }
 

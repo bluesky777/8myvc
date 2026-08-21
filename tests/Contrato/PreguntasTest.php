@@ -12,9 +12,9 @@ use Illuminate\Support\Facades\DB;
  *
  * Repite las dos formas de `actividades/*` —un campo que no viene se escribe
  * como null, y nadie mira de quién es— y añade una tercera que aquélla no tenía:
- * **`find()` donde debería haber `findOrFail()`**, tres veces. Con un id que no
- * existe el método sigue adelante con `null` y el 404 que le correspondía sale
- * como 500.
+ * **resolver un id y seguir con la nada**, tres veces —dos `find()` sin `OrFail` y
+ * un `[0]` sobre una consulta vacía—. Los tres daban 500 donde tocaba 404 y los
+ * tres se arreglaron en el barrido del 21 ago 2026.
  *
  * `ws_actividades` está vacía en el seed, así que todo se monta aquí.
  */
@@ -78,18 +78,13 @@ class PreguntasTest extends CasoDeContrato
     }
 
     /**
-     * Guardar una pregunta que no existe es 500, y debería ser 404.
+     * Guardar una pregunta que no existe es 404 — **arreglado el 21 ago 2026**.
      *
-     * `putGuardar()` hace `WsPregunta::find(...)` —no `findOrFail`— y sigue
-     * asignando propiedades sobre el `null` que devuelve. En PHP 8 eso es un
-     * error fatal, así que el cliente recibe un 500 en vez del 404 que le
-     * corresponde.
-     *
-     * Es la misma forma que ya se arregló en `datosActividadConRespuestas()`,
-     * donde un `[0]` sobre una consulta vacía daba 500 —y allí, además, con el
-     * intento ya escrito—. Aquí no escribe nada antes de reventar.
+     * `putGuardar()` hacía `WsPregunta::find(...)` y seguía asignando propiedades
+     * sobre el `null` que devuelve, que en PHP 8 es fatal: 500 en vez del 404 que
+     * le corresponde. Entró en el barrido de los `::find()` sin `OrFail`.
      */
-    public function test_guardar_una_pregunta_que_no_existe_es_500(): void
+    public function test_guardar_una_pregunta_que_no_existe_es_404(): void
     {
         $docente = $this->docente();
 
@@ -97,11 +92,11 @@ class PreguntasTest extends CasoDeContrato
 
         $this->withToken($docente->token)
             ->putJson('/api/preguntas/guardar', ['id' => $inventada, 'enunciado' => 'X'])
-            ->assertStatus(500);
+            ->assertStatus(404);
     }
 
     /** Y el interruptor de la opción «Otra», por lo mismo. */
-    public function test_el_toggle_de_una_pregunta_que_no_existe_es_500(): void
+    public function test_el_toggle_de_una_pregunta_que_no_existe_es_404(): void
     {
         $docente = $this->docente();
 
@@ -109,24 +104,38 @@ class PreguntasTest extends CasoDeContrato
 
         $this->withToken($docente->token)
             ->putJson('/api/preguntas/toggle-opcion-otra', ['id' => $inventada, 'opcion_otra' => 1])
-            ->assertStatus(500);
+            ->assertStatus(404);
     }
 
     /**
-     * Y la pantalla de edición, por el `[0]` sobre una consulta vacía.
+     * **`preguntas/edicion` responde 500 a todo el mundo, y no por el `[0]`.**
      *
-     * `putEdicion()` hace `DB::select($consulta, [...])[0]` sin comprobar que
-     * haya fila. Es el tercer sitio del mismo dominio con esta forma.
+     * Se entró aquí a arreglar un `[0]` sobre una consulta vacía, como los dos de
+     * arriba. Al medirlo resultó ser otra cosa: el `ORDER BY` dice **`p.order`** y
+     * la columna se llama **`orden`**, así que la consulta falla antes de devolver
+     * nada. **Con una pregunta que sí existe, también es 500.**
+     *
+     * O sea que la pantalla de editar una pregunta no funciona en ningún colegio y
+     * no ha funcionado nunca. El `?? abort(404)` que se había escrito se retiró:
+     * era código inalcanzable, **que es peor que el fallo porque hace creer que el
+     * caso está cubierto**.
+     *
+     * Se fija tal cual —con ruta y roto se documenta—, y el arreglo es una letra.
+     * No se hace aquí porque enciende en los dieciséis colegios una pantalla que
+     * hoy no existe. Ver 14-certificados.md §8.
      */
-    public function test_editar_una_pregunta_que_no_existe_es_500(): void
+    public function test_editar_una_pregunta_es_500_exista_o_no(): void
     {
         $docente = $this->docente();
+        $examen = $this->actividadConPreguntas($docente->user_id, $docente->grupo_id);
 
         $inventada = ((int) DB::table('ws_preguntas')->max('id')) + 1000;
 
-        $this->withToken($docente->token)
-            ->putJson('/api/preguntas/edicion', ['pregunta_id' => $inventada])
-            ->assertStatus(500);
+        foreach ([$examen->preguntas[0], $inventada] as $id) {
+            $this->withToken($docente->token)
+                ->putJson('/api/preguntas/edicion', ['pregunta_id' => $id])
+                ->assertStatus(500);
+        }
     }
 
     /**
@@ -207,7 +216,7 @@ class PreguntasTest extends CasoDeContrato
                     [$inventada => 8],
                 ],
             ])
-            ->assertStatus(500);
+            ->assertStatus(404);
 
         $this->assertSame(
             7,

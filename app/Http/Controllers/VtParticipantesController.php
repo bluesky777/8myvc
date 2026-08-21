@@ -215,7 +215,7 @@ class VtParticipantesController extends Controller {
 					$usuario->is_active		=	1;
 					$usuario->save();
 
-					$profe = Profesor::find($profesores[$i]->id);
+					$profe = Profesor::findOrFail($profesores[$i]->id);
 					$profe->user_id = $usuario->id;
 					$profe->save();
 					$profesores[$i]->user_id = $profe->user_id ;

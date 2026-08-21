@@ -50,6 +50,18 @@ class PreguntasController extends Controller {
 						FROM ws_preguntas p 
 						WHERE p.id=? and p.deleted_at is null
 						ORDER BY p.order, p.id';
+		// **ESTE MÉTODO NO FUNCIONA PARA NADIE, y el `[0]` no tiene la culpa.**
+		// El `ORDER BY` de arriba dice `p.order` y la columna se llama `orden`, así
+		// que la consulta falla antes de devolver nada: 500 con cualquier id, exista
+		// o no. Comprobado el 21 ago 2026 con una pregunta real.
+		//
+		// Se entró aquí a poner un `?? abort(404)` durante el barrido de los
+		// `::find()` y se retiró al medirlo: habría sido código inalcanzable, que es
+		// peor que el fallo porque hace creer que el caso está cubierto.
+		//
+		// Arreglarlo es cambiar una letra, y por eso mismo NO se hace aquí: enciende
+		// en los dieciséis colegios una pantalla que hoy no funciona, que es una
+		// decisión del colegio y no un arreglo. Ver 14-certificados.md §8.
 		$Pregunta 	= DB::select($consulta, [ Request::input('pregunta_id') ])[0];
 
 
@@ -70,7 +82,7 @@ class PreguntasController extends Controller {
 	{
 		$user 	= User::fromToken();
 		
-		$preg 					= WsPregunta::find(Request::input('id'));
+		$preg 					= WsPregunta::findOrFail(Request::input('id'));
 		$preg->enunciado 		= Request::input('enunciado');
 		$preg->ayuda 			= Request::input('ayuda');
 		$preg->puntos 			= Request::input('puntos');
@@ -89,7 +101,7 @@ class PreguntasController extends Controller {
 	{
 		$user 	= User::fromToken();
 		
-		$preg 					= WsPregunta::find(Request::input('id'));
+		$preg 					= WsPregunta::findOrFail(Request::input('id'));
 		$preg->opcion_otra 		= Request::input('opcion_otra');
 		$preg->save();
 
@@ -107,7 +119,7 @@ class PreguntasController extends Controller {
 		for($row = 0; $row < count($sortHash); $row++){
 			foreach($sortHash[$row] as $key => $value){
 
-				$preg 			= WsPregunta::find((int)$key);
+				$preg 			= WsPregunta::findOrFail((int)$key);
 				$preg->orden 	= (int)$value;
 				$preg->save();
 			}
