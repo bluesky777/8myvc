@@ -93,6 +93,41 @@ que el índice exista —eso ya lo dice `migrate`— sino que **para estas consu
 hay un índice aplicable**, preguntándoselo a MySQL. Sobrevive a que alguien
 reordene un WHERE; «hay un índice llamado así» no.
 
+## La trampa del proceso compartido: una ruta, dos identidades
+
+**`Illuminate\Routing\Route::getController()` guarda la instancia del
+controlador dentro de la ruta**, y el router es un singleton que sobrevive a
+todas las peticiones del proceso. En una petición HTTP de verdad da igual —cPanel
+corre php-fpm, un proceso por petición— pero dentro de un test method todas las
+llamadas comparten proceso.
+
+O sea que **golpear la misma ruta con dos tokens distintos reutiliza la misma
+instancia del controlador**, y con ella el `$this->user` que el trait
+`ResuelveElUsuario` memorizó la primera vez. La segunda llamada se ejecuta con la
+identidad de la primera.
+
+Lo que eso rompe casi nunca es que un test falle: es que **pase por la razón
+equivocada**. El patrón de media suite —«un alumno no puede; un acudiente
+tampoco»— sobre una ruta cuyo permiso se comprueba **dentro del controlador**
+comprueba dos veces al alumno y nunca al acudiente. Cuando el permiso lo pone un
+middleware (`auth.personal`) no pasa, porque el middleware lee el token de la
+petición y no del controlador; por eso no se había notado.
+
+Se descubrió al revés, el 20 de agosto de 2026: un superusuario recibiendo el 403
+del profesor de la línea anterior, con el token bueno y el contexto bien resuelto.
+
+**Está cerrado y no hace falta acordarse de nada**: `CasoDeContrato` sobreescribe
+`withToken()` para soltar la instancia que cada ruta guarda. Se puso encima de
+`withToken()` y no en un método aparte a propósito, porque la disciplina es justo
+lo que falló. Al activarlo no se puso en rojo ningún test existente —ninguno
+cambiaba de resultado— pero desde entonces la segunda identidad se ejercita de
+verdad.
+
+**Y fuera de los tests esto tiene una fecha de caducidad.** Bajo un runtime
+persistente —Octane, FrankenPHP— los procesos se reutilizan entre peticiones de
+usuarios distintos, y entonces esto deja de ser cosa de los tests para ser una
+fuga de identidad entre personas. Está anotado en la nota sobre Octane del plan.
+
 ## Las tres piezas
 
 | Fichero | Qué es |

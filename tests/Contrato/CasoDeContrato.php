@@ -196,6 +196,50 @@ abstract class CasoDeContrato extends TestCase
             && ! in_array('auth.token', $ruta->excludedMiddleware(), true);
     }
 
+    /**
+     * `withToken()`, olvidando el controlador que dejó la petición anterior.
+     * **Es lo que hace que un test con dos identidades mida algo.**
+     *
+     * `Illuminate\Routing\Route::getController()` guarda la instancia del
+     * controlador **en la ruta**, y el router es un singleton que sobrevive a
+     * todas las peticiones del proceso. En una petición HTTP de verdad da igual
+     * —php-fpm levanta un proceso por petición—, pero dentro de un test method
+     * todas las llamadas comparten proceso: **golpear la MISMA ruta con dos
+     * tokens distintos reutiliza la misma instancia**, y con ella el
+     * `$this->user` que memorizó el trait `ResuelveElUsuario` la primera vez.
+     *
+     * Lo que eso rompe no es que falle: es que **pasa por la razón equivocada**.
+     * Un test de la forma «un alumno no puede; un acudiente tampoco» sobre una
+     * ruta cuyo permiso se comprueba dentro del controlador —y no en un
+     * middleware, que sí lee el token de la petición— comprueba dos veces al
+     * alumno y nunca al acudiente. Se descubrió al revés, con un superusuario
+     * recibiendo el 403 del profesor de la línea de antes.
+     *
+     * Se hace aquí, encima de `withToken()`, y no en un método aparte que haya
+     * que acordarse de usar: la disciplina es justo lo que falló. Cuesta recorrer
+     * las 539 rutas soltando una referencia, que no se nota al lado de una
+     * petición HTTP completa.
+     *
+     * Ver docs/migracion/03-tests.md y la nota sobre Octane del plan: bajo un
+     * runtime persistente esto deja de ser cosa de los tests.
+     */
+    public function withToken(string $token, string $type = 'Bearer'): static
+    {
+        $this->olvidarControladores();
+
+        return parent::withToken($token, $type);
+    }
+
+    /** Suelta la instancia que cada ruta guarda de su controlador. */
+    protected function olvidarControladores(): void
+    {
+        foreach (app('router')->getRoutes()->getRoutes() as $ruta) {
+            (function () {
+                $this->controller = null;
+            })->call($ruta);
+        }
+    }
+
     /** Hace login y devuelve el token, sin comprobar nada: es la vía para montar otros tests. */
     protected function tokenDe(string $username): string
     {
