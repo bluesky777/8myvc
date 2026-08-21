@@ -2937,3 +2937,70 @@ veces duplica**. Inserta una fila por asignatura del origen sin mirar lo que ya 
 en el destino. Queda fijado, no arreglado: quien copia sobre un grupo que ya tiene
 asignaturas está pidiendo algo que el endpoint no sabe resolver, y decidir qué
 debería pasar —saltar, reemplazar, fallar— es del colegio.
+
+---
+
+## 34. El directorio del colegio, que se había quedado sin juzgar (21 ago 2026)
+
+Se volvió a correr el barrido —`BARRIDO_TIPO=Alumno`— **después** de tocar la
+autorización de seis controladores, para comprobar el efecto. Encontró una que
+llevaba abierta todo el tiempo.
+
+```
+200  GET  api/alumnos   PERSONALES: celular,direccion,fecha_nac [27128 b]
+```
+
+`GET api/alumnos` devuelve **todos los alumnos del colegio**, sin filtrar por
+grupo ni por año: nombre, apellidos, sexo, fecha de nacimiento, ciudad de
+nacimiento, **celular, dirección**, religión, estado de deuda, nombre de usuario y
+si la cuenta está activa. Iba **sin más guard que el token**, así que la leía
+cualquier alumno o acudiente.
+
+### 34.1 Por qué se había escapado a todo
+
+Es el quinto de la familia de la [§14](#14-los-listados-que-no-nombran-a-nadie-20-ago-2026),
+y el que faltaba. Cae justo entre dos criterios:
+
+- **No nombra a nadie.** No lleva `{alumno_id}` ni nada parecido, así que
+  `inventario-autorizacion.py` no tenía qué señalar — es el punto ciego que la
+  §14 describió y cerró para siete rutas.
+- **Y no está muda.** Las listas de «sin juzgar» de la [§23](#23-el-cuerpo-anidado-y-las-cuatro-que-escondía-20-ago-2026)
+  y la [§24](#24-las-once-que-quedaron-sin-juzgar-20-ago-2026) recogían las que no
+  devolvían nada; ésta devuelve 27 KB.
+
+O sea que estaba en el grupo de «pasaron de largo con algo dentro», que es el que
+**se juzga a mano, una por una**. Se juzgaron once de las doce. Ésta no, y no hay
+manera de saberlo mirando: el barrido las imprime todas cada vez, y una que ya
+tiene sitio se lee igual que una que no lo tiene.
+
+**La lección es sobre la herramienta, no sobre la ruta:** una lista que hay que
+repasar a mano cada vez acaba teniendo un hueco, y el hueco no se ve. Lo que lo
+encontró fue volver a correr el barrido por otra razón —comprobar seis
+arreglos— y leerlo entero otra vez.
+
+### 34.2 Qué se hizo
+
+`auth.personal`, que es lo que llevan **quince de sus dieciséis hermanas** en
+`routes/api/alumnos.php` y lo que la §14 decidió siete veces para esta misma
+forma. No hay decisión nueva que tomar: `ExigirPersonaPropia` lo lleva escrito en
+su cabecera desde la revisión de IDOR —*«una ruta de grupo entero… esas llevan
+`auth.personal`»*—.
+
+Y **ningún cliente la llama**: `AlumnosApi.ts` enumera diecisiete rutas de este
+recurso y la del listado no está. Comprobado también en `myvc_flutter` y en
+`myvc_front_2`, y esta vez contra `myvc_front/app`, que es donde vive el front
+actual — la lección de la [§26](#26-sin-clave-el-colegio-entero-con-la-contraseña-vacía-20-ago-2026).
+
+### 34.3 Lo que queda después, medido
+
+Con el guard puesto, el barrido de un alumno baja de doce rutas a once, y **las
+once tienen sitio**: cinco son datos propios (`auth/me`, `login`, `logout`,
+`aplicacion-descargas/detailed`, `guardar-mi-email-restore`), dos son
+configuración del colegio (`years`, `years/colegio`), dos son el muro y la
+votación (`publicaciones/comentar`, `votos/store`), y **dos esperan una decisión
+que ya estaba anotada**: `GET api/contratos` y
+`GET api/perfiles/username/{username}` (09 §5).
+
+Con token de acudiente son trece, y las dos de más son las suyas: `mis-acudidos` y
+`ChangesAsked/to-me`, que traen la ficha completa de su acudido — que es
+exactamente lo que la regla del colegio permite y no se re-litiga.

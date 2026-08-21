@@ -29,7 +29,19 @@ use Illuminate\Support\Facades\Route;
 */
 
 // AlumnosController
-Route::get('alumnos', [AlumnosController::class, 'getIndex']);
+// El directorio de alumnos del colegio ENTERO —nombre, fecha de nacimiento,
+// celular, dirección, religión y estado de deuda de cada uno— sin filtrar por
+// grupo ni por año. Iba sin más guard que el token: cualquier alumno o acudiente
+// lo leía. Es el quinto de la familia de la §14, y el que faltaba: no nombra a
+// nadie, así que ningún inventario tenía nada que señalar, y no está mudo, así
+// que tampoco cayó en las listas de «sin juzgar» de la §24. Lo encontró volver a
+// correr el barrido después de tocar la autorización.
+//
+// `auth.personal` es lo que llevan sus quince hermanas de este mismo fichero, y
+// lo que la §14 decidió siete veces para exactamente esta forma. Ningún cliente
+// la llama —`AlumnosApi.ts` enumera diecisiete rutas de este recurso y ésta no
+// está—. Ver 05 §34.
+Route::get('alumnos', [AlumnosController::class, 'getIndex'])->middleware('auth.personal');
 // Toma `clave` y `grupo_id` del CUERPO y le pone esa contraseña a todos los
 // alumnos del grupo. No nombra a ninguna persona —nombra un grupo—, que es por
 // lo que ningún inventario lo señaló. Ver 05 §15.

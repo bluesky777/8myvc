@@ -46,6 +46,7 @@
         "DELETE api/years/delete/{id}",
         "DELETE api/years/destroy/{id}",
         "GET api/acudientes-export/acudientes",
+        "GET api/alumnos",
         "GET api/alumnos/sin-matriculas",
         "GET api/alumnos/trashed",
         "GET api/asignaturas/list-asignaturas-year/{profesor_id}/{periodo_id}",

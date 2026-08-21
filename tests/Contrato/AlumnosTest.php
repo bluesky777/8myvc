@@ -181,4 +181,32 @@ class AlumnosTest extends CasoDeContrato
 
         $this->assertNull(DB::table('alumnos')->where('id', $alumno->id)->value('deleted_at'));
     }
+
+    /**
+     * El directorio del colegio no se lo lleva una familia.
+     *
+     * `GET api/alumnos` devuelve **todos** los alumnos del colegio —sin filtrar
+     * por grupo ni por año— con fecha de nacimiento, celular, dirección, religión
+     * y estado de deuda. Iba sin más guard que el token. Ver 05 §34.
+     */
+    public function test_el_directorio_de_alumnos_no_es_para_las_familias(): void
+    {
+        foreach (['Alumno', 'Acudiente'] as $tipo) {
+            $this->withToken($this->tokenDe($this->usuarioDeTipo($tipo)->username))
+                ->getJson('/api/alumnos')->assertStatus(403);
+        }
+    }
+
+    /** Y el personal lo sigue leyendo entero, que es para lo que existe. */
+    public function test_el_personal_sigue_leyendo_el_directorio(): void
+    {
+        $r = $this->withToken($this->tokenDelSuperusuario())->getJson('/api/alumnos');
+
+        $r->assertStatus(200);
+
+        $cuerpo = $r->json();
+        $this->assertNotEmpty($cuerpo, 'El directorio salió vacío: el test no mediría nada.');
+        $this->assertArrayHasKey('celular', $cuerpo[0]);
+        $this->assertArrayHasKey('direccion', $cuerpo[0]);
+    }
 }
