@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Controller;
 use App\Support\Autoriza;
+use App\Support\ClaveNueva;
 
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\DB;
@@ -297,6 +298,15 @@ class PerfilesController extends Controller {
 	public function putCreartodoslosusuarios()
 	{
 		$user = User::fromToken();
+
+		// Crea la cuenta de todos los alumnos, profesores y acudientes del colegio
+		// que no la tengan. Es la misma clase de operación que `cambiar-usuarios/*`
+		// —de colegio, no de aula— y el botón que la dispara vive en la pantalla de
+		// usuarios, que el menú del front enseña solo con `hasRoleOrPerm('admin')`.
+		// Con `auth.personal` a secas la disparaba cualquiera de los 51 profesores.
+		Autoriza::exigir(Autoriza::esAdministrativo($user),
+			'Solo un administrativo puede crear las cuentas de todo el colegio.');
+
 		$alumnos = Alumno::all();
 		foreach ($alumnos as $alumno) {
 			if ($alumno->user_id) {
@@ -367,10 +377,18 @@ class PerfilesController extends Controller {
 			abort(400, 'Contraseña antigua es incorrecta');
 		}
 
-		$perfil->password = Hash::make((string)Request::input('password'));
+		// Lo mismo que en putResetPassword, y aquí sobre la cuenta de quien la pide:
+		// mandar el campo vacío la dejaba con el hash de la cadena vacía. El front
+		// exige cuatro caracteres en su pantalla, así que nunca llega vacío desde
+		// ahí — y esta ruta no es solo esa pantalla.
+		$clave = ClaveNueva::exigir();
+
+		$perfil->password = Hash::make($clave);
 
 		$perfil->save();
-		return (string)Request::input('password');
+
+		// Devolvía la contraseña recién puesta. El front la ignora.
+		return 'Password cambiado';
 		
 	}
 
@@ -393,12 +411,34 @@ class PerfilesController extends Controller {
 			if(!($user->tipo == 'Profesor' && $user->profes_can_edit_alumnos)){
 				abort(400, 'No tiene permisos para resetear password');
 			}
+
+			// La bandera se llama `profes_can_edit_alumnos` y esta comprobación no
+			// miraba a QUIÉN se le cambia la contraseña: un profesor con la bandera
+			// encendida reseteaba la del superusuario y recibía la clave nueva en la
+			// respuesta. Eso no es «qué puede hacer el personal entre sí», es subirse
+			// de nivel en una petición. Medido el 20 ago 2026: 200 y la cuenta tomada.
+			//
+			// El criterio es el que ya tiene escrito Autoriza::puedeBorrarAlumnos —un
+			// profesor con esa bandera actúa SOBRE ALUMNOS—, aplicado aquí al objetivo
+			// en vez de al que pide. 403 y no el 400 de arriba: aquél es una respuesta
+			// que el front ya recibe, y esto es código nuevo.
+			// Ver docs/migracion/05-codigo-muerto-y-roto.md §29.
+			Autoriza::exigir($perfil->tipo === 'Alumno',
+				'Un docente solo puede resetear la contraseña de un alumno.');
 		}
 
-		$perfil->password = Hash::make((string)Request::input('password'));
+		// Sin esto, `Hash::make('')` dejaba la cuenta con el hash de la cadena vacía
+		// y respondía 200. El modal del front no comprueba el largo.
+		$clave = ClaveNueva::exigir();
+
+		$perfil->password = Hash::make($clave);
 
 		$perfil->save();
-		return 'Password cambiado -> '.(string)Request::input('password');
+
+		// Devolvía la contraseña nueva dentro del cuerpo. El front no la lee —enseña
+		// un aviso fijo— y una contraseña en una respuesta acaba en los registros de
+		// quien esté en medio.
+		return 'Password cambiado';
 	}
 
 

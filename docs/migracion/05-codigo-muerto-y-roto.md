@@ -2612,3 +2612,98 @@ como actual, restaura el primero y exige que no haya dos.
   controlador vuelve a buscar el año con `Year::find()` antes de devolverlo: la
   instancia que sale ya no sabe que acaba de nacer. Los dos números están fijados,
   porque los dos son lo que reciben los clientes.
+
+---
+
+## 29. Un docente se hacía con la cuenta del superusuario (20 ago 2026)
+
+Es lo más caro de la serie, y estaba en el segundo hueco de la cobertura:
+`PerfilesController`, 12 de 22 rutas comprobadas.
+
+`PUT api/perfiles/reset-password/{id}` es **la única ruta de la API que deja a una
+persona poner la contraseña de otra sin conocer la anterior**. Su comprobación era:
+
+```php
+if (!$user->is_superuser){
+    if(!($user->tipo == 'Profesor' && $user->profes_can_edit_alumnos)){
+        abort(400, 'No tiene permisos para resetear password');
+    }
+}
+$perfil->password = Hash::make((string)Request::input('password'));
+$perfil->save();
+return 'Password cambiado -> '.(string)Request::input('password');
+```
+
+Mira **quién pide** y no mira **a quién**. Con `years.profes_can_edit_alumnos`
+encendida —que es una configuración normal del colegio, con su propio conmutador
+en la pantalla de años— cualquier profesor podía escribir la contraseña de
+cualquier cuenta. Medido: un profesor del seed contra el superusuario id 1
+responde **200**, la cuenta queda tomada, y **la respuesta le devuelve la clave
+que acaba de poner**.
+
+Eso no es «qué puede hacer el personal entre sí», que es lo que Joseth dejó fuera
+a propósito. Aquello es alcance horizontal; esto es subir de nivel: el profesor
+entra después como superusuario y tiene el colegio entero.
+
+### 29.1 El criterio ya estaba escrito, otra vez
+
+`Autoriza::puedeBorrarAlumnos` dice exactamente lo que esa bandera significa:
+
+```php
+if (($user->tipo ?? '') === 'Profesor' && ($user->profes_can_edit_alumnos ?? false)) return true;
+```
+
+…y lo dice **para borrar alumnos**. La bandera se llama `profes_can_edit_alumnos`.
+Aquí falta la mitad: el objetivo. Se añade el 403 sobre `$perfil->tipo === 'Alumno'`
+—el superusuario sigue alcanzando a cualquiera— y con eso la ruta hace lo que su
+propia bandera dice desde el principio.
+
+Es la segunda vez esta noche que un candado nuevo resulta ser la aplicación de una
+regla ya decidida y escrita, después de la §26.1. Y la tercera del proyecto, con el
+respaldo en claro de la §25.1. **Cuando hace falta un criterio, primero se mira si
+ya está escrito**: las tres veces lo estaba, en el fichero de al lado.
+
+### 29.2 La contraseña vacía, en cuatro sitios
+
+`Hash::make('')` no falla. Los cuatro sitios que escriben una contraseña la
+escribían sin mirar:
+
+| Ruta | Qué dejaba abierto |
+|---|---|
+| `cambiar-usuarios/poner-password-todos-alumnos` | los 1.280 alumnos |
+| `cambiar-usuarios/poner-password-todos-acudientes` | los 999 acudientes |
+| `perfiles/reset-password/{id}` | la persona que se elija |
+| `perfiles/cambiarpassword/{id}` | la cuenta de quien la pide |
+
+Y detrás, `login/credentials` con la contraseña vacía responde 200 — comprobado.
+
+La regla se saca a **`App\Support\ClaveNueva`** y no se copia cuatro veces, por lo
+mismo que `Autoriza` y `ColumnaSegura` existen: lo que está copiado a mano
+diverge, y esto ya estaba divergido en la peor forma posible, que es ausente en
+los cuatro. Solo exige que venga y que no esté vacía: **cuánto debe medir es una
+política del colegio** y no se inventa aquí. El front pide cuatro caracteres en su
+pantalla, y esa cifra es suya.
+
+### 29.3 Y dos cosas más de la misma pasada
+
+- **La contraseña ya no vuelve en el cuerpo.** Las dos rutas la devolvían —una con
+  `'Password cambiado -> '.$clave` y la otra la clave a secas—. Ninguno de los dos
+  sitios del front la lee: los dos enseñan un aviso fijo. Una contraseña en un
+  cuerpo acaba en el registro de todo lo que haya en medio.
+- **`perfiles/creartodoslosusuarios` pide ser administrativo.** Recorre alumnos,
+  profesores y acudientes y crea la cuenta del que no la tenga; es la misma clase
+  de operación que `cambiar-usuarios/*`. Su botón vive en la pantalla de usuarios,
+  que el menú del front enseña solo con `hasRoleOrPerm('admin')`, así que el
+  backend estaba dos escalones por debajo de su propia pantalla.
+
+### 29.4 Lo que enseña el patrón
+
+Las cuatro secciones de esta noche —§25, §26, §28 y §29— salieron de la misma
+pregunta, que no es «¿tiene guard esta ruta?» sino **«¿alguien ha mirado alguna
+vez qué responde?»**. `tools/cobertura-de-rutas.py` contesta esa, y las cinco
+rutas más caras del año estaban en los dos huecos más grandes que señaló.
+
+Y las tres del final se parecen demasiado para ser casualidad: `actual = 1` sin
+condición, `Hash::make()` sin condición, y una comprobación de permiso sin
+objetivo. **Las tres son una decisión que el código no llega a tomar.** Vale la
+pena buscarlas con esa forma en la cabeza.
