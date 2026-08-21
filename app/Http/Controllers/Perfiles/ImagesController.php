@@ -206,8 +206,16 @@ class ImagesController extends Controller {
 	{
 		$user = User::fromToken();
 
+		// Esto devolvía la cadena 'No tiene permisos...' **con un 200**, y el front
+		// no puede distinguirla de un éxito: `FileManagerCtrl.publicarImagen`
+		// enseña «Ahora la imagen es pública» en cualquier respuesta correcta. O
+		// sea que una familia pulsaba Publicar en la pestaña «Mis imágenes» —que
+		// ven los cuatro tipos—, le decían que sí, y la imagen seguía privada.
+		//
+		// Con 403 el front entra por su rama de error, que ya existe y enseña el
+		// mensaje. Ver 05 §37.
 		if ($user->tipo == 'Acudiente' || $user->tipo == 'Alumno') {
-			return 'No tiene permisos para establecer imágenes públicas.';
+			abort(403, 'No tiene permisos para establecer imágenes públicas.');
 		}
 
 		$imagen 				= ImageModel::findOrFail($imagen_id);

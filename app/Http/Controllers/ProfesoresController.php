@@ -209,8 +209,23 @@ class ProfesoresController extends Controller {
 	/*************************************************************
 	 * Guardar por VALOR
 	 *************************************************************/
+	/**
+	 * Guardar una propiedad suelta de un profesor.
+	 *
+	 * El `if` envolvía TODO el cuerpo y no tenía `else`: quien no fuera
+	 * superusuario recibía `['Guardado.']` **sin que se hubiera guardado nada**.
+	 * Una respuesta que dice que sí cuando fue que no es peor que un error, porque
+	 * el que la lee deja de mirar. Ver 05 §37.
+	 *
+	 * Y de las propiedades que acepta solo actúa sobre `is_active`; con cualquier
+	 * otra responde igual y tampoco escribe. Eso se deja como está —es la forma
+	 * del método, no un permiso— pero queda dicho.
+	 */
 	public function putGuardarValor()
 	{
+		Autoriza::exigir(Autoriza::esSuperusuario($this->user),
+			'No tienes permiso para cambiar los datos de un profesor.');
+		
 		if($this->user->is_superuser){
 			$valor 		= Request::input('valor');
 			$user_id 	= Request::input('user_id');
@@ -285,8 +300,16 @@ class ProfesoresController extends Controller {
 
 
 
+	/**
+	 * Igual que `putGuardarValor`: el `if` abarcaba el método entero y no había
+	 * `else`, así que un profesor que editaba a otro recibía **200 con el cuerpo
+	 * vacío** y creía que se había guardado. Ver 05 §37.
+	 */
 	public function putUpdate($id)
 	{
+		Autoriza::exigir(Autoriza::esSuperusuario($this->user),
+			'No tienes permiso para editar a un profesor.');
+		
 		if ($this->user->is_superuser) {
 			$this->sanarInputUser();
 			$this->sanarInputProfesor();

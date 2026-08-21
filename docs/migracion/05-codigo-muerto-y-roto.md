@@ -3387,3 +3387,66 @@ habría dicho «403 esperado, 200 recibido» sin decir en cuál de las cinco rut
 No lo dijo la corrida —pasaba— sino **larastan**. Vale la pena por lo que dice del
 reparto: los tests dicen si el código hace lo que se quiere, y el análisis estático
 dice si el test comprueba lo que dice comprobar.
+
+---
+
+## 37. Tres respuestas que decían que sí cuando fue que no (21 ago 2026)
+
+No son un agujero: las tres **frenaban la escritura**. Lo que hacían mal era
+contarlo.
+
+| Ruta | Qué respondía a quien no podía |
+|---|---|
+| `PUT profesores/update/{id}` | **200 con el cuerpo vacío** |
+| `PUT profesores/guardar-valor` | **200 con `['Guardado.']`** |
+| `PUT myimages/publicar-imagen/{id}` | **200** con la cadena «No tiene permisos…» dentro |
+
+Las tres tienen la misma forma, y es una forma que **no se ve leyendo el sitio
+donde está**: un `if` de permiso que envuelve el cuerpo entero del método y no
+tiene `else`. Quien no cumple la condición cae por debajo del `if` y se encuentra
+con lo que haya al final —nada, o un `return ['Guardado.']` que estaba pensado
+para el caso bueno.
+
+**Que el cliente no puede distinguirlo está comprobado, no supuesto.** En
+`FileManagerCtrl`:
+
+```js
+$ctrl.publicarImagen = imagen => MyimagesApi.publicar(imagen.id).then(function(){
+    toastr.info('Ahora la imagen es pública');
+```
+
+O sea que un alumno pulsaba «Publicar» en la pestaña «Mis imágenes» —que ven los
+cuatro tipos de usuario—, le decían que ahora era pública, y seguía privada. Y un
+profesor que editaba a otro profesor veía la pantalla decir que se guardó.
+
+**Una respuesta que miente es peor que un error, porque el que la lee deja de
+mirar.** Es la tercera vez que aparece la misma idea con otra cara: los doce
+`abort()` de la §12, el `response()->json()` sin `return` de la §35, y esto.
+
+### 37.1 Cómo se encontraron, que es lo que se puede repetir
+
+Con un buscador de **forma**, no leyendo: `tools/respuestas-que-mienten.py`
+recorre los 129 controladores y saca los métodos cuyo primer statement es un `if`
+de permiso que abarca todo y no tiene `else` ni `abort()`. Se llegó a él por
+casualidad —mirando `ProfesoresController` porque la cobertura lo señalaba— y en
+cuanto la forma tuvo nombre, buscarla costó un minuto.
+
+Y el buscador **se equivocó dos veces, en las dos direcciones**, que es lo que hay
+que saber de él:
+
+- **Catorce falsos positivos** en `MatriculasController`, que sí abortan: buscaba
+  el `else` en la línea siguiente al cierre del `if`, y en este proyecto el
+  `} else {` va **en la misma línea del cierre**.
+- **Un falso negativo**: `profesores/update` tiene un `abort(422)` en su `catch`,
+  así que el criterio «no contiene `abort(`» lo dejaba fuera. Se encontró leyendo
+  el fichero de al lado.
+
+Por eso la herramienta lleva escrito en su cabecera que **hay que mirar cada
+resultado**. Un contador de formas no entiende lo que cuenta.
+
+### 37.2 Y una de propina, que se deja como está
+
+`profesores/guardar-valor` acepta una `propiedad` cualquiera y **solo actúa sobre
+`is_active`**; con cualquier otra responde igual y tampoco escribe. Eso no se
+toca: es la forma del método y no un permiso, y arreglarlo es decidir qué
+propiedades debería aceptar, que es otra pregunta. Queda dicho en su docblock.
