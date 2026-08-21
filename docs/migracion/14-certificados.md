@@ -5,8 +5,9 @@ colegio imprime y firma**. La cobertura del 21 de agosto de 2026 daba **364 de
 539 rutas (67%)**, y dentro de informes el hueco mayor era
 `ConfigCertificadosController`: **1 de 6**.
 
-Fijado por `tests/Contrato/ConfigCertificadosTest.php` (9 casos). Ninguno exige
-lo correcto: fijan lo que hace hoy.
+Fijado por `tests/Contrato/ConfigCertificadosTest.php` (9 casos) y
+`tests/Contrato/FrasesPreescolarTest.php` (7). Ninguno exige lo correcto: fijan
+lo que hace hoy.
 
 Lo que se configura aquí no es el dato de un alumno, es **el membrete**: qué
 imagen va de encabezado y de pie de página con sus márgenes
@@ -138,12 +139,93 @@ esquema muerto y se borra el día que se toque la tabla.
 
 ---
 
+## §7. Las frases del boletín de preescolar
+
+Segundo hueco del fichero: `BolfinalesPreescolarController` estaba a **2 de 5**, y
+las tres sin comprobar eran justo las que escriben. Fijado por
+`tests/Contrato/FrasesPreescolarTest.php` (7 casos).
+
+En preescolar el boletín no lleva notas, lleva **frases**: el texto que sale
+impreso en el informe de un niño de cinco años, redactado por el profesor y por
+asignatura.
+
+### §7.1. «Cambiada» y «ELIMINADA» sin haber tocado nada
+
+`putGuardarFrase()` hace un `UPDATE ... WHERE id=?` y devuelve la cadena
+`'Cambiada'` pase lo que pase. `putEliminarFrase()` hace lo mismo con
+`'ELIMINADA'`. Con un id que no existe, MySQL toca cero filas y el cliente
+recibe un 200 diciendo que sí.
+
+Es la familia de «una respuesta que miente», **pero por una vía que
+`tools/respuestas-que-mienten.py` no mira**: ese detector busca un `if` de
+permiso que envuelve el método sin salida, y aquí **no hay ningún `if`**. No es
+que falte una comprobación y el método siga: es que **nadie mira el resultado de
+la escritura**. `DB::update()` y `DB::delete()` devuelven el número de filas
+afectadas, y las dos veces se descarta.
+
+Merece la pena separarlas porque el arreglo es distinto: la del detector se
+arregla poniendo el `else`; ésta se arregla **leyendo lo que ya devuelve la
+función que se está llamando**.
+
+### §7.2. El borrado es físico, y esta tabla no tiene papelera
+
+`DELETE FROM frases_preescolar WHERE id=?`. Y `deleted_at` **no existe en el
+esquema**, así que no es un descuido del controlador sino de la tabla: se diseñó
+sin papelera.
+
+En este proyecto casi todo lo demás va a la papelera, y lo que se borra aquí es
+texto que escribió un profesor. Quien pulse «eliminar» por error no tiene de
+dónde recuperarlo, **y el resto de las pantallas del sistema le han enseñado que
+sí lo tendría**.
+
+No se cambia: añadir `deleted_at` es una migración y una decisión. Lo que hacía
+falta es que estuviera escrito.
+
+### §7.3. Guardar mueve la frase a la asignatura que diga el cuerpo
+
+`putGuardarFrase()` escribe `asignatura_id` además de la definición, así que la
+misma llamada que corrige una errata puede reasignar la frase a otra asignatura
+—la de otro profesor, otro grupo u otro año—. Nadie comprueba de quién es ninguna
+de las dos. Va con la [§2 de 13-actividades.md](13-actividades.md).
+
+### §7.4. Y un contraste que vale por los dos
+
+`frases_preescolar` **sí** lleva `FOREIGN KEY` a `asignaturas`, así que crear con
+una asignatura inexistente da 500: el controlador no comprueba nada y quien dice
+que no es la base.
+
+Justo al lado, la §1 de este mismo documento: `years` **no** lleva la clave para
+`config_certificado_estudio_id`, y por eso un año puede quedar apuntando a un
+membrete que no existe.
+
+**Dos tablas del mismo módulo, una con red y otra sin ella, y el código se
+comporta igual de confiado en las dos.** Es la mejor razón que ha aparecido hoy
+para no dar por buena una validación solo porque «hasta ahora no ha fallado».
+
+### §7.5. `updated_by` no la escribe nadie
+
+La columna existe y los tres métodos resuelven el usuario sin usarla. Del texto
+que sale impreso en el boletín de un niño **no queda registro de quién lo
+escribió**.
+
+Con ésta van cuatro columnas de propiedad en la serie, y es la primera que no
+guarda nada en absoluto:
+
+| Columna | Qué guarda de verdad |
+|---|---|
+| `ws_actividades.created_by` | el `persona_id`, no el `users.id` |
+| `ws_preguntas.added_by` | el `user_id` |
+| `config_certificados.created_by` | quién editó el último |
+| `frases_preescolar.updated_by` | **nada** |
+
+---
+
 ## Lo que queda de `informes.php`
 
 Por orden de hueco medido:
 
-1. **`BolfinalesPreescolarController`** — 2 de 5. Boletines finales de
-   preescolar, que son los que llevan frases en vez de notas.
+1. ~~`BolfinalesPreescolarController`~~ — **las tres de escritura, en la §7.**
+   Quedan sus dos de lectura, que son boletines y van con `BoletinesTest`.
 2. **`HistorialesController`** — 1 de 4.
 3. **`PuestosController`** — 1 de 2, y `Boletines2`/`Boletines3` a 3 de 4.
 4. Los grandes ya cubiertos a medias por `BoletinesTest` y `ActasEvaluacionTest`,
