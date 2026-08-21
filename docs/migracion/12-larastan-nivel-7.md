@@ -253,3 +253,89 @@ phpstan se había estado subiendo por inercia, un peldaño detrás de otro, y
 funcionó cinco veces seguidas. La sexta no, y **medir antes de subir costó veinte
 minutos**. Las herramientas de `tools/` existen todas por esta misma razón; esta
 vez la pregunta era sobre una herramienta y no sobre el código.
+
+---
+
+# El enlace de reseteo abre cualquier cuenta que comparta el correo
+
+**Medido el 21 de agosto de 2026.** Esto ya no es del nivel 7 — salió de bajar a
+mirar una de las entradas del §5 de `09-pendientes.md` que no espera una decisión
+sino **un número**: «los correos auto-generados `username@myvc.com` — colisiones
+y reseteos cruzados si dos usuarios comparten correo»
+([01-plan-seguridad.md](01-plan-seguridad.md)). El número no estaba, y sin él no
+se puede decidir nada.
+
+## §8. El `username` sigue viniendo del cliente
+
+`LoginController::putResetPassword` cambia la contraseña así:
+
+```php
+UPDATE users SET password=? WHERE username=? and email=? and deleted_at is null
+```
+
+El `email` sale del token. **El `username` sale del cuerpo de la petición.** Y
+`password_reminders` no guarda a quién se le emitió el token — la tabla tiene
+`email`, `token` y `created_at`, y nada más—, así que el endpoint no tiene de
+dónde sacarlo aunque quisiera.
+
+El comentario que hay encima de esa consulta dice que «el token manda: la
+contraseña solo puede cambiarse en la cuenta cuyo correo recibió el enlace». Es
+verdad **hasta el borde del grupo de cuentas que comparten ese correo**; dentro
+del grupo elige quien llama. El arreglo anterior cerró «cualquier cuenta del
+colegio» y dejó abierto «cualquier cuenta con tu mismo correo», que es un agujero
+mucho más pequeño y **exactamente el que el documento de seguridad predijo**.
+
+No se afirma: se demuestra. `tests/Contrato/ResetCorreoCompartidoTest.php` pide
+el enlace para un correo compartido por dos cuentas y lo usa contra la segunda —
+200 y contraseña cambiada—, y comprueba después que contra una tercera cuenta con
+otro correo responde «Token inválido». La protección existe y llega hasta donde
+llega.
+
+**No se arregla desde aquí**: `LoginController` estaba en vuelo en otra sesión el
+mismo día. El arreglo de fondo es de una columna y no de una línea — que
+`password_reminders` guarde el usuario al emitir, que es un dato que
+`postRecuperarClave` **ya calcula** y tira.
+
+## §9. Y el número que faltaba: el 91% no puede recuperar la contraseña
+
+`php artisan usuarios:correos-compartidos`, en la copia de desarrollo:
+
+```
+  cuentas activas ................. 2321
+
+  NO PUEDEN RECUPERAR CONTRASEÑA .. 2112  (91%)
+     sin correo ................... 1435
+     el correo no es una dirección  677
+
+  SE RESETEAN ENTRE SÍ ............ 16 cuentas en 8 grupos
+```
+
+Las dos cifras son de problemas distintos y **el comando las separa a propósito**,
+porque la primera vez que se midió salieron juntas: «690 cuentas en peligro», de
+las cuales 674 compartían el correo `@gmail.com` — un dominio suelto, sin parte
+local. Esa dirección **`filter_var` la rechaza**, así que `postRecuperarClave`
+aborta con 422 antes de tocar la base: esas 674 cuentas no corren el riesgo de la
+§8, es que no pueden pedir el enlace. El riesgo real son 16 cuentas, no 690, y la
+diferencia entre las dos cifras es la diferencia entre mandar a revisar dieciséis
+colegios o no.
+
+De separarlas salió un hallazgo que no estaba en ninguna lista: **4 de los 29
+correos auto-generados `username@myvc.com` no son direcciones válidas**, y todos
+por lo mismo —`CarlosAndrés@myvc.com`, `MÓNICAXAMARA@myvc.com`,
+`JOSUÉ3@myvc.com`, `DÁMARIS@myvc.com`—. El generador pega el nombre de usuario
+delante del dominio, y **un nombre con tilde da una dirección que PHP rechaza**.
+En un colegio colombiano eso no es un caso raro: es el 14% de los que llevan
+correo generado. O sea que el mecanismo que existía **para** que todo el mundo
+tuviera correo produce, en castellano, cuentas que no pueden recuperar su
+contraseña.
+
+Eso explica de paso por qué `perfiles/reset-password/{id}` —el reseteo a mano de
+un superusuario— es una ruta tan usada, y por qué las §26 y §26.1 (la llamada que
+dejaba a 1.280 alumnos con la contraseña vacía, y los 51 profesores que podían
+resetear a todo el colegio) eran tan graves: **es la única vía de recuperación que
+tiene el 91% de las cuentas.**
+
+El comando ordena los grupos por lo que cuesta que pase y no por tamaño —primero
+los que llevan un superusuario dentro, después los que cruzan tipos, después el
+resto—, y no decide nada: qué hacer con un colegio donde 1.435 cuentas no tienen
+correo no es de un script.
