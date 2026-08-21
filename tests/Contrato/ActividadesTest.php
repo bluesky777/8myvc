@@ -23,7 +23,15 @@ use Illuminate\Support\Facades\DB;
  */
 class ActividadesTest extends CasoDeContrato
 {
-    /** Personal del colegio del año que tiene grupos con alumnos. */
+    /**
+     * Personal del colegio del año que tiene grupos con alumnos.
+     *
+     * **Ojo: el primero por id resulta ser superusuario** (el `1`), y conviene
+     * saberlo al leer el resto del fichero. No invalida nada de lo que se fija
+     * aquí —ninguno de estos métodos mira `is_superuser`, así que el resultado es
+     * el mismo para los 51 profesores—, pero sí importa en `actividades/datos`,
+     * que es el único que sí lo mira. Para ése está `administrativo()`.
+     */
     private function docente(): object
     {
         $grupo = $this->grupoConAlumnos();
@@ -49,6 +57,12 @@ class ActividadesTest extends CasoDeContrato
      * Se rellenan todos a propósito: lo que se mira después es cuáles
      * sobreviven a un guardado, y con la mitad en null no se distinguiría
      * «lo borró» de «ya estaba vacío».
+     *
+     * **`created_by` guarda el `persona_id`, no el `users.id`**, aunque el nombre
+     * diga lo contrario: lo escribe `postCrear()` con `$user->persona_id` y lo
+     * lee `putCompartidas()` con lo mismo. Aquí da igual cuál de los dos se use
+     * —lo que se comprueba es que ningún método lo mira—, pero **no da igual el
+     * día que se escriba el dueño de verdad**: ver 13-actividades.md §2.
      */
     private function actividadDe(int $duenoId, int $grupoId): int
     {
@@ -220,5 +234,127 @@ class ActividadesTest extends CasoDeContrato
             DB::table('ws_actividades_compartidas')->where('actividad_id', $ajena)
                 ->where('grupo_id', $otroGrupo->grupo_id)->count()
         );
+    }
+
+    /** Un `Usuario` del colegio que NO es superusuario, que es el caso de la §6. */
+    private function administrativo(): object
+    {
+        $grupo = $this->grupoConAlumnos();
+
+        $usuario = DB::selectOne('SELECT u.id, u.username FROM users u
+            INNER JOIN periodos p ON p.id = u.periodo_id AND p.deleted_at IS NULL
+            WHERE u.tipo = "Usuario" AND u.is_active = 1 AND u.deleted_at IS NULL
+              AND u.is_superuser = 0 AND p.year_id = ? ORDER BY u.id LIMIT 1', [$grupo->year_id]);
+
+        $this->assertNotNull($usuario,
+            "El seed no tiene un Usuario sin superusuario en el año {$grupo->year_id}.");
+
+        return (object) [
+            'user_id' => (int) $usuario->id,
+            'grupo_id' => (int) $grupo->id,
+            'token' => $this->tokenDe($usuario->username),
+        ];
+    }
+
+    /**
+     * El cuarto tipo de usuario cae por el hueco: 200 y las listas vacías.
+     *
+     * `putDatos()` tiene dos ramas, `is_superuser` y `tipo == 'Profesor'`. Un
+     * **administrativo** —tipo `Usuario` sin superusuario, que es lo que son las
+     * secretarias— no entra en ninguna, así que `mis_asignaturas` y
+     * `otras_asignaturas` se quedan como los arrays vacíos con los que empiezan.
+     *
+     * Y responde **200 con la lista de grupos dentro**, que es lo que lo hace
+     * difícil de ver: la pantalla se pinta, el selector de grupos se llena, y al
+     * elegir un grupo no aparece ninguna asignatura. No parece un permiso que
+     * falta; parece que el grupo no tiene nada.
+     *
+     * Es la forma que ya lleva encontradas cuatro caras en este repo —el `switch`
+     * de cuatro ramas al que le falta la cuarta—: la 05 §25.3 en Tardanzas, la
+     * 05 §44 en las fotos, y ésta. Ver 13-actividades.md §6.
+     */
+    public function test_un_administrativo_recibe_las_listas_vacias(): void
+    {
+        $admin = $this->administrativo();
+
+        $respuesta = $this->withToken($admin->token)
+            ->putJson('/api/actividades/datos', ['grupo_id' => $admin->grupo_id])
+            ->assertStatus(200);
+
+        $this->assertNotEmpty($respuesta->json('grupos'), 'El selector de grupos sí se llena.');
+        $this->assertSame([], $respuesta->json('mis_asignaturas'));
+        $this->assertSame([], $respuesta->json('otras_asignaturas'));
+    }
+
+    /** Y el superusuario, con el mismo cuerpo, sí las recibe. */
+    public function test_el_superusuario_si_recibe_las_asignaturas(): void
+    {
+        $docente = $this->docente();
+
+        $respuesta = $this->withToken($docente->token)
+            ->putJson('/api/actividades/datos', ['grupo_id' => $docente->grupo_id])
+            ->assertStatus(200);
+
+        $this->assertNotEmpty($respuesta->json('otras_asignaturas'),
+            'El mismo grupo, el mismo cuerpo, y a éste sí le llegan.');
+    }
+
+    /**
+     * Y pedir por una asignatura que no existe es 500.
+     *
+     * Las dos ramas de `putDatos()` resuelven el grupo con
+     * `DB::select($consulta, [...])[0]->grupo_id`. Es el `[0]` de siempre, aquí
+     * por partida doble en el mismo método.
+     */
+    public function test_pedir_por_una_asignatura_que_no_existe_es_500(): void
+    {
+        $docente = $this->docente();
+
+        $inventada = ((int) DB::table('asignaturas')->max('id')) + 1000;
+
+        $this->withToken($docente->token)
+            ->putJson('/api/actividades/datos', ['asign_id' => $inventada])
+            ->assertStatus(500);
+    }
+
+    /**
+     * El segundo listado tiene el mismo hueco, y peor: las claves ni existen.
+     *
+     * `putCompartidas()` repite las dos ramas de la §6 —`is_superuser` y
+     * `tipo == 'Profesor'`— y a un administrativo no le entra ninguna. La
+     * diferencia con `actividades/datos` es que allí las listas se inicializan
+     * vacías arriba y aquí **no se inicializan las tres claves `actv_*`**: no
+     * llegan vacías, **no llegan**.
+     *
+     * Para el cliente eso es `undefined` en vez de `[]`, que es la diferencia
+     * entre una tabla vacía y un error de JavaScript.
+     */
+    public function test_el_segundo_listado_no_le_manda_ni_las_claves(): void
+    {
+        $admin = $this->administrativo();
+
+        $respuesta = $this->withToken($admin->token)
+            ->putJson('/api/actividades/compartidas', [])
+            ->assertStatus(200);
+
+        $this->assertNotEmpty($respuesta->json('grupos'), 'Los grupos sí llegan.');
+
+        foreach (['actv_alumnos', 'actv_profes', 'actv_acudi'] as $clave) {
+            $this->assertNull($respuesta->json($clave), "La clave {$clave} no viaja.");
+        }
+    }
+
+    /** Y al superusuario sí le llegan las tres. */
+    public function test_al_superusuario_le_llegan_las_tres_listas(): void
+    {
+        $docente = $this->docente();
+
+        $respuesta = $this->withToken($docente->token)
+            ->putJson('/api/actividades/compartidas', [])
+            ->assertStatus(200);
+
+        foreach (['actv_alumnos', 'actv_profes', 'actv_acudi'] as $clave) {
+            $this->assertIsArray($respuesta->json($clave), "La clave {$clave} sí viaja.");
+        }
     }
 }

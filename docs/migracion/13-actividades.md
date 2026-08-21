@@ -6,8 +6,8 @@ Cierra la serie de cobertura sobre el dominio de actividades. El lado del alumno
 `OpcionesTest`. Aquí van las que faltaban: **`actividades/*` y `preguntas/*`**,
 que son con las que un profesor crea el examen, lo edita, lo comparte y lo borra.
 
-Fijado por `tests/Contrato/ActividadesTest.php` (5 casos) y
-`tests/Contrato/PreguntasTest.php` (6). Ninguno exige lo correcto: **fijan lo que
+Fijado por `tests/Contrato/ActividadesTest.php` (10 casos),
+`tests/Contrato/PreguntasTest.php` (6) y `tests/Contrato/RespuestasTest.php` (7). Ninguno exige lo correcto: **fijan lo que
 hace hoy**, porque son endpoints vivos en los dieciséis colegios.
 
 Las diecinueve rutas llevan `auth.personal`, así que ninguna familia las alcanza
@@ -78,8 +78,26 @@ comprobación que cerró el lado del alumno— **abre la actividad a un alumno s
 está compartida con su grupo**. O sea que `insert-grupo-compartido` es la puerta
 por la que se decide quién ve un examen, y no comprueba quién la abre.
 
+### La mina que tiene ese arreglo, y hay que leerla antes de escribirlo
+
+Parece de una línea por método: comparar `created_by` con el usuario. **Escrito
+de la forma obvia no funcionaría, y no fallaría: no encontraría nunca nada.**
+
+`ws_actividades.created_by` **no guarda el `users.id` que su nombre sugiere: guarda
+el `persona_id`.** Lo escribe `postCrear()` con `$user->persona_id` y lo lee
+`putCompartidas()` con lo mismo, así que hoy es coherente. Pero cualquiera que
+añada el guard comparando `$user->user_id` —que es lo que uno escribe— obtendría
+un `WHERE` que no casa nunca, y el resultado sería **un permiso que deniega todo
+en vez de un permiso que no existe**. Con `ws_preguntas.added_by` pasa al revés:
+`postCrear()` de preguntas escribe `$user->user_id`.
+
+O sea que las dos columnas de propiedad del mismo dominio guardan **cosas
+distintas con nombres igual de genéricos**. Es exactamente lo que CLAUDE.md
+advierte —`user_id` y `persona_id` no son lo mismo— aplicado al sitio donde más
+caro sale.
+
 Cerrar esto es de una línea por método —comparar `created_by` con
-`$user->user_id`—, y **no se hace aquí** por lo que ya enseñó la §5 de
+`$user->persona_id`—, y **no se hace aquí** por lo que ya enseñó la §5 de
 [11-votaciones.md](11-votaciones.md): en este sistema «de quién es» y «quién
 puede tocarlo» no coinciden, y el colegio tiene coordinadores que configuran lo
 que no crearon. Es la misma pregunta que dejó abierta la [09 §5](09-pendientes.md)
@@ -213,10 +231,103 @@ su foto y con su nota. Fijado por `test_el_personal_abre_la_correccion_de_otro`.
 
 ---
 
+## §6. El cuarto tipo de usuario cae por el hueco, otra vez
+
+`PUT actividades/datos` es el listado con el que el profesor entra al módulo. Su
+`putDatos()` tiene **dos ramas**:
+
+```php
+if ($user->is_superuser) { ... }
+if ($user->tipo == 'Profesor') { ... }
+```
+
+Un **administrativo** —tipo `Usuario` sin superusuario, que es lo que son las
+secretarias— no entra en ninguna. `mis_asignaturas` y `otras_asignaturas` se
+quedan como los arrays vacíos con los que empiezan.
+
+**Y responde 200 con la lista de grupos dentro**, que es lo que lo hace difícil
+de ver: la pantalla se pinta, el selector de grupos se llena, y al elegir un
+grupo no aparece ninguna asignatura. No parece un permiso que falta; **parece que
+el grupo no tiene actividades**.
+
+El mismo cuerpo, el mismo grupo y un superusuario sí las recibe. Fijado por los
+dos lados —`test_un_administrativo_recibe_las_listas_vacias` y
+`test_el_superusuario_si_recibe_las_asignaturas`—, porque un test que solo mira
+el vacío no distingue «no le llega» de «no hay».
+
+### Es la misma forma, y van cuatro
+
+El contexto de usuario tiene **cuatro** ramas —Profesor, Alumno, Acudiente,
+Usuario— y el cuarto es el que se olvida:
+
+| Dónde | Qué pasaba |
+|---|---|
+| [05 §25.3](05-codigo-muerto-y-roto.md) | un administrativo lee en Tardanzas y recibe 400 al subir |
+| [05 §44](05-codigo-muerto-y-roto.md) | el `switch` sin rama para el cuarto tipo daba 500 al cambiarle la foto |
+| [05 §30.2](05-codigo-muerto-y-roto.md) | `AcudientesController` dejaba a un administrativo sin poder crear acudientes |
+| **§6, aquí** | las listas de actividades le llegan vacías, en 200 |
+
+Cuatro sitios, cuatro consecuencias distintas —400, 500, un permiso denegado y
+una lista vacía— y **la misma causa**: el tipo `Usuario` es el que no tiene una
+pantalla propia que lo pruebe, así que nadie lo ejerce hasta que alguien mira.
+
+Vale la pena mirarlo así: no es un descuido repetido, es que **el sistema tiene
+cuatro tipos de usuario y el desarrollo se hizo con tres en la cabeza**.
+
+**Y como eso es una corazonada, se midió antes de escribirla.** `$user->tipo ==
+'Profesor'` aparece **25 veces** en los controladores. De ellas:
+
+- **13 llevan `else`**, y ahí el cuarto tipo cae en la rama general. La primera
+  que se miró fue una de éstas —`InformesController:69`, donde un administrativo
+  recibe *todos* los grupos— así que la búsqueda a secas **no vale**: el patrón
+  no es «ramifica por Profesor», es «ramifica por Profesor y no tiene salida».
+- **12 no lo llevan.** Ésa es la lista de trabajo:
+
+  ```
+  GruposController.php:50                  AsignaturasController.php:226
+  ChangeAskedAssignmentController.php:24   ChangeAskedAssignmentController.php:59
+  NotasController.php:247                  Perfiles/PerfilesController.php:416
+  Perfiles/ImagesController.php:44         Perfiles/CalendarioController.php:36
+  Perfiles/CalendarioController.php:75     Perfiles/CalendarioController.php:137
+  Actividades/ActividadesController.php:132  (es la §6.1, mirada)
+  Perfiles/ImagesUsuariosController.php:113  (es la 05 §44, arreglada)
+  ```
+
+  Quedan **diez sin mirar**, y las tres de `CalendarioController` son la misma
+  pantalla: si el hueco está ahí, el calendario entero le llega vacío a un
+  administrativo.
+
+Tener el `else` no garantiza que la rama general sea la correcta —solo que hay
+una—, así que las 13 tampoco están limpias: están **fuera de esta lista**, que es
+otra cosa.
+
+### §6.1. El segundo listado tiene el mismo hueco, y peor
+
+`PUT actividades/compartidas` repite las dos ramas, y la diferencia con
+`actividades/datos` es que allí las listas se inicializan vacías arriba y aquí
+**las tres claves `actv_*` no se inicializan**. Al administrativo no le llegan
+vacías: **no le llegan**.
+
+Para el cliente eso es `undefined` en vez de `[]`, que es la diferencia entre una
+tabla vacía y un error de JavaScript. Fijado por
+`test_el_segundo_listado_no_le_manda_ni_las_claves` y su contrario.
+
+### §6.2. Y el `[0]` de siempre, dos veces en el mismo método
+
+Las dos ramas resuelven el grupo con
+`DB::select($consulta, [Request::input('asign_id')])[0]->grupo_id`. Con una
+asignatura que no existe, 500. Fijado por
+`test_pedir_por_una_asignatura_que_no_existe_es_500`.
+
+Con éste van **seis** sitios del dominio con la misma forma: los tres de la §3,
+el de la §5, y estos dos.
+
+---
+
 ## Lo que queda por mirar
 
 1. ~~`PUT respuestas/actividad`~~ — **mirada, está en la §5.**
-2. **`PUT actividades/datos` y `putCompartidas`**, que son los dos listados
-   grandes del profesor.
+2. **Las diez ramas sin `else` de la §6** que no son de este dominio, empezando
+   por las tres de `CalendarioController`.
 3. **`putDuplicarPregunta`**, que copia una pregunta con sus opciones y es donde
    suelen esconderse los campos que no se copian.
