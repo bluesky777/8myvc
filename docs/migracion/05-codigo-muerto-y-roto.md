@@ -3717,3 +3717,44 @@ Se buscó si quedaba alguna cuarta comparando `tipo` con los once nombres de rol
   la `propiedad` se concatena en el SQL. Queda fijado con un test que manda
   `observaciones=1, updated_by=99 WHERE 1=1 -- ` y exige un 422 — para que el día
   que alguien quite la lista blanca «porque estorba», esto lo cuente.
+
+---
+
+## 42. El comentario que su autor no podía borrar (21 ago 2026)
+
+`PUT publicaciones/borrar-comentario` decidía así:
+
+```php
+if ($user->is_superuser || $user.persona_id==comentario.persona_id) {
+```
+
+**`$user.persona_id` no lee una propiedad.** El punto en PHP concatena, así que
+eso es `$user . persona_id`, con `persona_id` y `comentario` como **constantes que
+no existen** — notación de punto de otro lenguaje. En PHP 7 una constante
+indefinida era un aviso y valía su propio nombre; **en PHP 8 es un error fatal**.
+
+Y como `||` corta por la izquierda, **un superusuario nunca llegaba a esa mitad**.
+Todos los demás sí. O sea que el autor de un comentario recibía un **500 al borrar
+el suyo**, y solo desde el salto a PHP 8 — antes «funcionaba» comparando dos
+cadenas que nunca coincidían, así que tampoco borraba: pasó de no dejar a reventar.
+
+Estaba anotado en `phpstan.neon` con su `count: 3` y con esta frase, que resultó
+ser el arreglo entero:
+
+> «Lo que falta es de dónde sale el dueño del comentario, y eso es una consulta
+> que nadie escribió.»
+
+### 42.1 Y `persona_id` sola no identifica a nadie
+
+La consulta que faltaba compara **dos columnas**, no una. Los ids de este sistema
+son **por tabla**: el alumno 5 y el profesor 5 son personas distintas, y por eso
+`comentarios` guarda `tipo_persona` al lado de `persona_id`. Comparando solo el
+número, un alumno habría podido borrar el comentario del profesor que compartiera
+número — un agujero nuevo, metido al arreglar uno viejo.
+
+Es la misma trampa que `$user->user_id` frente a `$user->persona_id`, que el
+CLAUDE.md avisa en su primera página. Aquí aparece en su tercera forma: **el id
+sin la tabla no es una identidad.**
+
+Fijado por `ComentariosTest`, con las cuatro caras: el autor sí, un tercero no, el
+superusuario sí, y comentar guarda de quién es.

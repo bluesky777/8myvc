@@ -218,7 +218,28 @@ class PublicacionesController extends Controller {
         $user   = User::fromToken();
         $now 	= Carbon::now('America/Bogota');
         
-        if ($user->is_superuser || $user.persona_id==comentario.persona_id) {
+        // Aquí ponía `$user.persona_id==comentario.persona_id`, que no es leer una
+        // propiedad sino **concatenar cadenas** con dos constantes que no existen.
+        // En PHP 7 una constante indefinida era un aviso y valía su propio nombre;
+        // en PHP 8 es error fatal. Y como el `||` corta por la izquierda, un
+        // superusuario nunca llegaba a esa mitad: el 500 solo lo veían los demás.
+        // O sea que **el autor de un comentario no podía borrar el suyo**, y solo
+        // desde el salto a PHP 8. Ver 05 §42.
+        //
+        // Se comparan las DOS columnas, no solo `persona_id`: los ids son por
+        // tabla —el alumno 5 y el profesor 5 son personas distintas— y por eso
+        // `comentarios` guarda `tipo_persona` al lado. Con solo el id, un alumno
+        // borraría el comentario del profesor que compartiera número.
+        $comentario = DB::selectOne(
+            'SELECT persona_id, tipo_persona FROM comentarios WHERE id = ? AND deleted_at IS NULL',
+            [Request::input('comentario_id')]
+        );
+
+        $suyo = $comentario !== null
+            && (int) $comentario->persona_id === (int) $user->persona_id
+            && $comentario->tipo_persona === $user->tipo;
+
+        if ($user->is_superuser || $suyo) {
             
             $consulta = 'UPDATE comentarios SET deleted_at=:deleted_at, deleted_by=:deleted_by WHERE id=:id';
             DB::update($consulta, [

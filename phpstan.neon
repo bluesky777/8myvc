@@ -196,17 +196,6 @@ parameters:
             path: app/Http/Controllers/VtCandidatosController.php
             count: 1
 
-        # PUT api/publicaciones/borrar-comentario
-        # `$user.persona_id==comentario.persona_id` — notación de punto de otro
-        # lenguaje. En PHP el punto concatena y `persona_id` y `comentario` son
-        # constantes que no existen: fatal en PHP 8. Solo lo esquiva un
-        # superusuario, porque el `||` corta antes. Lo que falta es de dónde sale
-        # el dueño del comentario, y eso es una consulta que nadie escribió.
-        -
-            message: '#^Constant (comentario|persona_id) not found\.$#'
-            path: app/Http/Controllers/Perfiles/PublicacionesController.php
-            count: 3
-
         # PUT api/publicaciones/guardar
         # `$para_todos` se define en las dos ramas del if y en ninguna otra; sus
         # cuatro hermanas sí se inicializan a 0 justo encima. Inicializarla
