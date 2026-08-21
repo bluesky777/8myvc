@@ -11,6 +11,59 @@ desvío respecto al plan es justo lo que no se puede reconstruir después.
 
 ---
 
+## 0. La noche del 20 al 21 de agosto de 2026 — lo que hay que mirar primero
+
+Se cerró la serie del barrido y se abrió otra, la de **cobertura**: en vez de
+«¿tiene guard esta ruta?», la pregunta fue **«¿alguien ha mirado alguna vez qué
+responde?»**. `tools/cobertura-de-rutas.py` daba 261 de 539 rutas comprobadas y
+cinco controladores con **cero**. Ahí estaban casi todos los hallazgos de abajo.
+La cobertura quedó en **291 de 539 (53%)** y ningún controlador a cero.
+
+### Lo que se arregló, y **hay que desplegar**
+
+Los seis son de autorización o de credenciales, y ninguno está desplegado: `app/`
+es **copia real en cada colegio** (`docs/DESPLIEGUE.md`). Fusionar no es desplegar.
+
+| Qué pasaba | Dónde |
+|---|---|
+| Un **alumno** sacaba, con su propia clave y sin token, **todas las ausencias y tardanzas del colegio** de cualquier año | [05 §25](05-codigo-muerto-y-roto.md) |
+| El lector de tardanzas aceptaba la contraseña **en claro** contra la columna, un respaldo que su controlador hermano ya había quitado por escrito | [05 §25.1](05-codigo-muerto-y-roto.md) |
+| Una llamada sin `clave` dejaba a **los 1.280 alumnos con la contraseña vacía** — y entrar con la contraseña vacía responde 200 | [05 §26](05-codigo-muerto-y-roto.md) |
+| Cualquiera de los **51 profesores** reiniciaba la contraseña de todo el colegio y creaba las cuentas de todo el colegio | [05 §26.1](05-codigo-muerto-y-roto.md), [§29.3](05-codigo-muerto-y-roto.md) |
+| Un **docente se hacía con la cuenta del superusuario** en una petición, y recibía la clave nueva en la respuesta | [05 §29](05-codigo-muerto-y-roto.md) |
+| Cualquier profesor **se fabricaba un superusuario** mandando `is_superuser: 1` al crear un profesor | [05 §30](05-codigo-muerto-y-roto.md) |
+| «Ahora NO es año actual» dejaba el año **encendido**, por tres caminos distintos | [05 §28](05-codigo-muerto-y-roto.md) |
+
+Y uno que no es del código sino de la red que lo vigila: **una ruta golpeada con
+dos tokens en el mismo test medía dos veces al primero**, porque Laravel guarda la
+instancia del controlador dentro de la ruta. Cerrado en `CasoDeContrato`, y
+anotado como bloqueante de Octane — [03-tests.md](03-tests.md).
+
+### Lo que necesita una respuesta tuya, por orden
+
+1. **El interruptor del periodo** ([05 §27](05-codigo-muerto-y-roto.md)) — es lo
+   único de la noche que **sigue abierto**. Un profesor al que el colegio le cerró
+   el periodo sigue editando: la bandera que se comprueba es la del periodo que
+   nombra el cuerpo de la petición, y la escritura va a otro. Hay dos formas de
+   cerrarlo y la decisión es cuál; están escritas con lo que cuesta cada una.
+2. **Quién es el «Secretario»** ([05 §30.2](05-codigo-muerto-y-roto.md)) — once
+   sitios preguntan por él de dos maneras que no pueden ser las dos, y hoy ninguna
+   se cumple. La consecuencia visible: **un administrativo que no sea superusuario
+   no puede crear acudientes**. Si la respuesta es el rol `Admin`, hoy no cambia
+   nada y mañana sí — los diez de `Admin` son exactamente los diez `is_superuser`.
+3. **El hash del lector de tardanzas** ([05 §25.4](05-codigo-muerto-y-roto.md)) —
+   solo hace falta que digas que sí. Se fue a mirar el cliente y no usa ese hash:
+   guarda la contraseña en claro y compara contra ella cuando está sin red.
+4. **Los años actuales de los dieciséis colegios** ([05 §28.3](05-codigo-muerto-y-roto.md))
+   — los tres caminos que creaban años actuales de más están cerrados, pero los
+   datos de antes siguen ahí. Una consulta por base:
+   `SELECT id, year FROM years WHERE actual=1 AND deleted_at IS NULL`. Si alguna
+   devuelve dos filas, en qué año amanece ese colegio lo decide MySQL.
+
+Lo demás de esa noche está abajo, en la tabla del §5, con las anteriores.
+
+---
+
 ## 1. La importación de Excel, reanudable — **hecha el 20 ago 2026**
 
 **Estado: cerrada.** Acordada por Joseth ese mismo día y hecha a continuación.
