@@ -2355,9 +2355,19 @@ Con la ruta hermana puesta antes —el nombre de usuario pasa a ser el número d
 documento— las dos juntas dejan todas las cuentas de alumno del colegio abiertas
 a quien tenga una lista de documentos, que es un papel que circula.
 
-**Y ningún cliente llama a estas cuatro rutas.** Comprobado en los tres:
-`myvc_front`, `myvc_front_2` y `myvc_flutter`. O sea que quien las usa escribe la
-petición a mano, que es exactamente la situación en la que se olvida un campo.
+**Quién las llama, corregido.** Esta sección dijo primero que no las llamaba
+ningún cliente. Era falso y el error fue de método: se buscó en
+`myvc_front/www/js`, que es la ruta del front **viejo**, y el actual vive en
+`myvc_front/app`. Rehecha la búsqueda, `CambiarUsuariosApi.ts` llama a las cuatro
+desde el botón «Cambiar claves y usuarios» de la pantalla de alumnos —con su
+`confirm()` de «¿Seguro que quiere cambiar la contraseña a TODOS los alumnos?»—.
+La contraseña sale de un `<input>` sin `required`, así que el campo vacío llega
+igual: el 422 es exactamente el caso que pasa en la vida real, no uno de
+laboratorio.
+
+La lección es de las que se repiten: **una búsqueda que no encuentra nada no
+prueba nada hasta comprobar que estaba mirando donde hay algo.** Las demás
+búsquedas de esta serie se rehicieron contra la ruta buena.
 
 Se exige `clave` no vacía, con **422**. No se exige nada más —longitud, forma—
 porque eso es una política del colegio y no se inventa aquí. Fijado en
@@ -2394,6 +2404,23 @@ sitios a la vez — que es justo para lo que la regla está en uno solo. Anotado
 El test no copia el criterio: se lo pregunta a `Autoriza`. Escribirlo como
 «superusuario sí, profesor no» pasaría por la razón equivocada el día que el
 colegio cree el rol que falta.
+
+**Y el riesgo de cerrar de más resultó no existir**, comprobado antes de cerrar y
+no después. La duda era dejar fuera a quien hoy usa el botón: el menú del front
+(`sidebarMenu.html`) enseña la pantalla de alumnos con
+`hasRoleOrPerm(['admin', 'secretario'])`, o sea que la puerta de entrada **ya
+exigía lo mismo**. Y los dos conjuntos coinciden fila por fila:
+
+```
+superusuarios: [1,2,3,687,688,706,1217,1218,1495,1503]
+rol Admin:     [1,2,3,687,688,706,1217,1218,1495,1503]
+```
+
+Diez y diez, los mismos diez. O sea que `is_superuser` y el rol `Admin` son en
+esta base la misma cosa escrita dos veces, y nadie que hoy vea el botón pierde el
+botón. Eso además responde a medias la pregunta de arriba: si `esAdministrativo`
+mira `Admin` en vez de `Secretario`, hoy no cambia nada — y mañana sí, en cuanto
+alguien tenga uno sin el otro.
 
 ---
 
