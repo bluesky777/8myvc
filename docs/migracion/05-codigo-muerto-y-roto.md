@@ -4563,3 +4563,62 @@ la pena comprobarlo antes de tocar:
   lea va a creer que ahí se elige el sujeto.
 
 Fijado por `RetirarPedidosTest`, doce casos.
+
+---
+
+## 51. El expediente del docente, por la pantalla de asignar materias (21 ago 2026)
+
+`AsignaturasController` tenía **seis de sus catorce rutas** sin ninguna respuesta
+comprobada. La que llena la pantalla de asignar materias a grupos,
+`PUT api/asignaturas/datos-asignaturas`, devuelve tres cosas: materias, grupos y
+`Profesor::contratos($user->year_id)`.
+
+Y `contratos()` devuelve, **de cada docente del colegio**: `tipo_doc`, `num_doc`,
+`ciudad_doc`, `fecha_nac`, `ciudad_nac`, `estado_civil`, `barrio`, `direccion`,
+`telefono`, `celular`, `facebook`, `email`, el `email` de su cuenta, su `username`
+y su `is_superuser`.
+
+Para una pantalla cuya parte de docentes es **un desplegable con nombres**.
+
+### Lo que decide el recorte no es una opinión: es el propio front
+
+No hizo falta juzgar qué sobra. `AsignaturasCtrl.ts` declara su interfaz:
+
+```ts
+interface ProfesorDeAsignatura { profesor_id: number; nombres?: string; apellidos?: string; … }
+```
+
+y su plantilla usa exactamente `profe.nombres`, `profe.apellidos` y
+`profe.foto_nombre`. Cuatro campos. El resto no lo lee nadie.
+
+### Dónde va el recorte, y dónde NO
+
+En un método nuevo, `Profesor::paraElegirEnAsignaturas()`. **`contratos()` se queda
+como está**, y eso es lo importante: su otro llamante es `GET api/contratos`, que
+**lo lee la app de Flutter desde pantallas de familia** y cuyo recorte lleva desde
+la §14.4 esperando una decisión del colegio en el §5 de
+[09-pendientes.md](09-pendientes.md).
+
+Recortar el método compartido habría sido cómodo —una consulta en vez de dos— y
+habría metido esa decisión **por la puerta de atrás y en los dieciséis colegios a
+la vez**, que es exactamente lo que el §5 existe para impedir. Dos consultas
+parecidas conviviendo es el precio de que la decisión siga siendo de quien le toca.
+
+Y hay un test que lo vigila por el otro lado:
+`test_contratos_sigue_devolviendo_el_expediente` **afirma que `GET api/contratos`
+todavía manda `num_doc`**. Si algún día falla, es que alguien recortó el método
+compartido sin pasar por la decisión — el día que se decida, se cambia el test y se
+nota que se decidió, en vez de arrastrarse.
+
+### Y lo que esto dice de la serie del §14
+
+La §14 barrió las lecturas con un token de **alumno** y cerró siete rutas que
+entregaban datos personales a quien no debía. Ésta no salió allí, y no podía:
+lleva `auth.personal`, así que el barrido no llega. Es de otra familia — no «quién
+alcanza esto» sino **«cuánto de más devuelve esto a quien sí puede pedirlo»**, que
+ninguna de las herramientas de la serie mide y que solo se ve comparando la
+respuesta con lo que la pantalla pinta.
+
+Fijado por `AsignaturasDatosTest`, tres casos. Comprobado al revés: devolviendo la
+llamada a `contratos()` cae uno, y los otros dos —que la pantalla sigue recibiendo
+sus cuatro campos y que `contratos()` sigue intacto— siguen verdes.

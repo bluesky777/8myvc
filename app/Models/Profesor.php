@@ -118,6 +118,38 @@ class Profesor extends Model {
 		return $profesores;
 	}
 
+	/**
+	 * Los docentes con contrato del año, **solo con lo que se pinta en un select**.
+	 *
+	 * `contratos()`, que es de donde salía esto, devuelve el expediente entero de
+	 * cada docente: `num_doc`, `fecha_nac`, `estado_civil`, `barrio`, `direccion`,
+	 * `telefono`, `celular`, `facebook`, `email` y su `is_superuser`. La pantalla
+	 * que lo pedía es la de asignar materias a grupos, y usa **cuatro campos** —lo
+	 * dice su propia interfaz en `AsignaturasCtrl.ts` (`profesor_id`, `nombres`,
+	 * `apellidos`) y su plantilla, que además pinta `foto_nombre`—.
+	 *
+	 * Se hace aquí y **no** recortando `contratos()`, que se queda como está: su
+	 * otro llamante es `GET api/contratos`, que lo lee la app de Flutter desde
+	 * pantallas de familia y cuyo recorte es una decisión del colegio pendiente
+	 * (09 §5, 05 §14.4). Tocar el método compartido metería esa decisión por la
+	 * puerta de atrás y en los dieciséis colegios a la vez.
+	 *
+	 * Ver 05 §51.
+	 */
+	public static function paraElegirEnAsignaturas($year_id)
+	{
+		return DB::select(
+			'SELECT p.id as profesor_id, p.nombres, p.apellidos, p.foto_id,
+					IFNULL(i.nombre, IF(p.sexo="F","default_female.png", "default_male.png")) as foto_nombre
+			 FROM profesores p
+			 INNER JOIN contratos c ON c.profesor_id=p.id AND c.year_id=:year_id AND c.deleted_at IS NULL
+			 LEFT JOIN images i ON i.id=p.foto_id AND i.deleted_at IS NULL
+			 WHERE p.deleted_at IS NULL
+			 ORDER BY p.nombres, p.apellidos',
+			[':year_id' => $year_id]
+		);
+	}
+
 	public static function contratos($year_id)
 	{
 		

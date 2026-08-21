@@ -89,7 +89,8 @@ class AsignaturasController extends Controller {
 
 		$grupos 	= DB::select($consulta, [':year_id'=>$user->year_id]);
 		
-		$profesores = Profesor::contratos($user->year_id);
+		// Solo los cuatro campos que pinta la pantalla. Ver 05 §51.
+		$profesores = Profesor::paraElegirEnAsignaturas($user->year_id);
 		
 		return [ 'materias' => $materias, 'grupos' => $grupos, 'profesores' => $profesores ];
 	}
