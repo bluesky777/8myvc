@@ -17,7 +17,16 @@ Se cerró la serie del barrido y se abrió otra, la de **cobertura**: en vez de
 «¿tiene guard esta ruta?», la pregunta fue **«¿alguien ha mirado alguna vez qué
 responde?»**. `tools/cobertura-de-rutas.py` daba 261 de 539 rutas comprobadas y
 cinco controladores con **cero**. Ahí estaban casi todos los hallazgos de abajo.
-La cobertura quedó en **291 de 539 (53%)** y ningún controlador a cero.
+La cobertura quedó en **302 de 539 (56%)** y ningún controlador a cero.
+
+**Y la pregunta funcionó tan bien que merece quedarse escrita.** Seis fallos de
+autorización o de credenciales en una noche, todos en los dos huecos más grandes
+que señaló la medición, y ninguno lo había encontrado ni el barrido, ni larastan,
+ni las tres herramientas de autorización. Lo que ninguna miraba era **el resultado
+de la ruta**: el barrido mira quién llega, larastan mira si el código puede
+funcionar, y `inventario-autorizacion.py` mira la firma. La cobertura mira si
+alguien ha leído la respuesta alguna vez, y donde nadie la había leído estaba
+todo.
 
 ### Lo que se arregló, y **hay que desplegar**
 
