@@ -11,6 +11,113 @@ desvío respecto al plan es justo lo que no se puede reconstruir después.
 
 ---
 
+## 0.0 Para quien retome esto — cierre del 21 de agosto de 2026
+
+**Lee esta sección entera antes de tocar nada.** Es el estado real al cerrar, no
+un resumen de lo hecho.
+
+### Dónde está todo
+
+`main`, con todo fusionado y subido a `origin/main`. **No queda ninguna rama con
+trabajo fuera**: la última, `fix/piar-autorizacion-y-saneado-html`, entró el 21
+ago —ver el commit de la fusión, que explica cómo se resolvieron sus tres
+conflictos, que es lo que el diff no dice—. Las otras tres ramas locales están
+fusionadas y se pueden borrar sin perder nada.
+
+Al cerrar: **859 tests**, `pint` y `stan` en verde, `stan` en **nivel 7**.
+Cobertura de rutas: **370 de 539 (69%)**, medida con
+`tools/cobertura-de-rutas.py`.
+
+### Lo primero que hay que hacer, y no es código
+
+**Nada de lo de hoy está desplegado.** `app/` es copia real en cada colegio
+(CLAUDE.md), así que fusionar no es desplegar y hay **diez y pico arreglos de
+autorización** esperando. Y hay **tres migraciones nuevas** —el rol `Secretario`,
+`password_reminders.username` y `frases_preescolar.deleted_at`—.
+
+**El orden importa en una de ellas**: la de `password_reminders` va **antes** que
+`app/`, en cada colegio. Al revés, `postRecuperarClave` insertaría en una columna
+que no existe y la recuperación de contraseña se cae entera — que es la única vía
+que le queda al **91% de las cuentas**, medido. Está en `docs/DESPLIEGUE.md`.
+
+### Cómo se trabaja aquí sin destrozarle la medición a otro
+
+El 21 de agosto trabajaron **tres sesiones en paralelo** sobre este mismo árbol y
+se perdieron tres mediciones antes de que ninguna diera un número bueno. Lo que
+quedó aprendido, y que ahorra la tarde:
+
+1. **Una base de tests por sesión.** `DB_TEST_DATABASE=simonbolivar_testing_b`.
+   Dos suites contra la misma dan *deadlocks* en `personal_access_tokens`, y lo
+   que se ve **no es un error de infraestructura sino tests de contrato en rojo**.
+   Ver [03-tests.md](03-tests.md).
+2. **La base deriva sin avisar.** Compara `SELECT COUNT(*) FROM <base>.migrations`
+   con las de al lado **antes** de buscar un fallo en el código. Pasó dos veces el
+   mismo día: la primera la migración que faltaba no cambiaba ningún resultado y
+   la segunda rompió cinco tests. **Una base vieja no se nota en el conteo de
+   tests ni en nada.**
+3. **Un fichero de medición por sesión** (`COBERTURA_RUTAS`, `EXPLICAR_CONSULTAS`).
+   Y **no lo borres a mano**: lo vacía la propia corrida. Borrarlo mientras otro
+   mide le desengancha el inode y su medición sale plausible y falsa —salió *86 de
+   539 cuando eran 346*—.
+4. **Di en voz alta qué ficheros coges antes de empezar.** Dos sesiones
+   escribieron el mismo test del mismo endpoint en la misma hora.
+
+### Las cuatro lecciones de método que más se repitieron
+
+Están desarrolladas en el 05, pero se resumen porque **cada una costó al menos un
+error real**:
+
+- **Comprobar al revés solo vale si se revierte lo que de verdad cambió el
+  comportamiento**, y hay que **contar cuántos tests caen**. Si el arreglo tapa
+  dos caminos y cae uno, el otro no estaba probado. Cazó tres tests que pasaban
+  sin medir nada. Ver [05 §45](05-codigo-muerto-y-roto.md) y [§47.2](05-codigo-muerto-y-roto.md).
+- **Un detector da una lista de sitios donde mirar, nunca una lista de fallos.**
+  El mismo patrón se midió cuatro veces (47, 37, 20, 10) y **ninguna era la
+  buena**: las anchas tenían falsos positivos, la estrecha se dejaba verdaderos.
+  Lo resolvió leer cada sitio. Ver [05 §52](05-codigo-muerto-y-roto.md) y [§48.2](05-codigo-muerto-y-roto.md).
+- **Al tapar un camino, la pregunta siguiente es cuál es el otro.** Un arreglo de
+  la mañana abrió por el GET el mismo agujero que cerraba por el PUT. Ver
+  [05 §47.2](05-codigo-muerto-y-roto.md).
+- **El seed vacío deja verdes tests que no miden nada**, y ya van seis veces. Si
+  la tabla que necesitas llega vacía, móntala en el test — y comprueba que el test
+  falla sin el arreglo.
+
+### Qué mirar después, por orden de lo que ha dado fruto
+
+1. **Seguir la cobertura**: quedan **169 rutas** sin respuesta comprobada. El
+   método que ha dado los diez hallazgos del día no es subir el número, es
+   **elegir un hueco con forma de dominio y leer el controlador**. La lista sale
+   de `tools/cobertura-de-rutas.py`.
+2. **La pregunta que junta cinco fallos y que sigue sin hacerse**: «¿qué **más**
+   lee este identificador del cuerpo?». `data_id` derivado del cuerpo apareció
+   **tres veces en el mismo controlador** en tres pasadas distintas (§39, §49,
+   §50). Se contesta de una vez y no de cinco.
+3. **Las definitivas ([§4](#4-las-definitivas-notas-que-se-pierden-se-duplican-y-no-se-actualizan))**,
+   cuando Joseth lo reabra. Dato nuevo del 21 ago: de los seis métodos que
+   escriben en la rejilla sin mirar el interruptor del periodo, **cuatro caen ahí**
+   ([05 §47.1](05-codigo-muerto-y-roto.md)). No es casualidad y es parte del mismo
+   trabajo.
+4. **Lo que espera decisión del colegio** está en el [§5](#5-lo-que-espera-una-decisión-del-colegio),
+   y es lo que de verdad frena — no falta código, faltan respuestas.
+
+### Los documentos, que son cinco y no uno
+
+- **[05](05-codigo-muerto-y-roto.md)** — el código roto y los hallazgos, §1 a §52.
+- **[09](09-pendientes.md)** — éste: lo que queda y por qué está parado.
+- **[11](11-votaciones.md)** — votaciones. Ojo: `in_action` **no es un candado**
+  ahí (manda al usuario a la pantalla, no cierra la urna) y `locked` es una
+  **pausa reversible**, no un cierre. **La misma columna significa cosas distintas
+  en dos módulos.**
+- **[12](12-larastan-nivel-7.md)** — la escalera de larastan hasta el 7, sesión,
+  reseteo de contraseña y generadores de nombres de usuario.
+- **[13](13-actividades.md)** y **[14](14-certificados.md)** — actividades y
+  certificados.
+
+**Se leen antes de re-litigar nada.** Es la regla de CLAUDE.md y hoy ha evitado
+por lo menos dos arreglos que habrían apagado una pantalla en dieciséis colegios.
+
+---
+
 ## 0. La noche del 20 al 21 de agosto de 2026 — lo que hay que mirar primero
 
 Se cerró la serie del barrido y se abrió otra, la de **cobertura**: en vez de
