@@ -10,7 +10,6 @@
  *
  * Uso (dentro del contenedor, contra la base de tests):
  *
- *   docker exec 8myvc-app-1 rm -f /tmp/consultas.jsonl
  *   docker exec -e EXPLICAR_CONSULTAS=/tmp/consultas.jsonl 8myvc-app-1 \
  *       php artisan test --testsuite=Contrato
  *   docker exec 8myvc-app-1 php tools/indices-que-faltan.php /tmp/consultas.jsonl
@@ -57,7 +56,14 @@ foreach ($db->select('SELECT table_name AS t, table_rows AS n FROM information_s
 }
 
 $consultas = [];
-foreach (file($fichero) as $linea) {
+$lineas = file($fichero);
+
+if ($lineas === false) {
+    fwrite(STDERR, "No se pudo leer $fichero\n");
+    exit(1);
+}
+
+foreach ($lineas as $linea) {
     $linea = trim($linea);
     if ($linea === '') {
         continue;

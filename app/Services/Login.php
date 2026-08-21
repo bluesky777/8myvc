@@ -77,7 +77,10 @@ class Login
 
         $this->anotarEntrada($fila, $ahora);
 
-        $usuario = User::find($fila->id);
+        // El `(int)` no es cosmético: sin él, `$fila->id` es `mixed` y `find()`
+        // podría estar devolviendo una Collection —la firma la contempla—, que es
+        // el mismo enredo `first()`/`get()` que ya costó un TypeError en la §13.1.
+        $usuario = User::find((int) $fila->id);
 
         if ($usuario === null) {
             throw new HttpResponseException(response()->json(['error' => 'invalid_credentials'], 400));

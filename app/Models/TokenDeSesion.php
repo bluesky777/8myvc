@@ -67,6 +67,10 @@ class TokenDeSesion extends PersonalAccessToken
             return 0;
         }
 
-        return max(0, Carbon::now()->diffInSeconds($this->expires_at, false));
+        // `(int)` explícito: `diffInSeconds` devuelve **float** en Carbon 3, y
+        // `expires_at` casi nunca cae en un segundo entero, así que la conversión
+        // implícita del `: int` emitía un «Implicit conversion from float ... loses
+        // precision» de PHP 8.1 en **cada** login y cada refresco.
+        return (int) max(0, Carbon::now()->diffInSeconds($this->expires_at, false));
     }
 }

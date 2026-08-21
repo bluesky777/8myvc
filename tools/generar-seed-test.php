@@ -250,7 +250,7 @@ function palabrasPersonales(): array
             continue;
         }
 
-        foreach (preg_split('/[^\p{L}]+/u', $nombre, -1, PREG_SPLIT_NO_EMPTY) as $palabra) {
+        foreach (preg_split('/[^\p{L}]+/u', $nombre, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $palabra) {
             // Cinco letras o más: por debajo hay demasiadas colisiones con
             // palabras corrientes ('Mora', 'Cruz', 'Alto') y el detector se
             // vuelve ruido que nadie mira.
@@ -287,7 +287,7 @@ function revisarFuga(array $palabrasPii, string $tabla, string $columna, $valor,
         return;
     }
 
-    foreach (preg_split('/[^\p{L}]+/u', $valor, -1, PREG_SPLIT_NO_EMPTY) as $palabra) {
+    foreach (preg_split('/[^\p{L}]+/u', $valor, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $palabra) {
         $mayus = mb_strtoupper($palabra);
 
         if (mb_strlen($palabra) < 5 || ! isset($palabrasPii[$mayus])) {
