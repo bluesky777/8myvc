@@ -4332,3 +4332,57 @@ que dejaba fuera y lo que dejaba entrar mal— salen a la vez.
 Fijado por `PedidosDeAsignaturaTest`, cuatro casos. Comprobado al revés:
 revirtiendo los dos arreglos caen dos —los dos del administrativo— y los dos que
 comprueban que el docente sigue pidiendo siguen verdes.
+
+### §48.1. Y la lista de «ramifica por Profesor y no tiene salida», mirada una a una
+
+La otra sesión propuso una pista: los `if ($user->tipo == 'Profesor')` **sin
+`else`** serían huecos como el de la §44. Se midió por separado en las dos
+sesiones y los números no coincidían, así que se volvió a contar aquí emparejando
+llaves en vez de con una ventana de líneas:
+
+| Cómo se resuelve el usuario | Total | Con `else` | Sin `else` |
+|---|---|---|---|
+| `$user = User::fromToken()` — el estilo de antes | 24 | 15 | **9** |
+| `$this->user` — el trait de la migración | 16 | 16 | **0** |
+
+**La correlación es real y se confirma**: ninguna rama escrita contra el trait
+tiene el hueco. (Y hubo que quitar dos falsos positivos del propio script: buscaba
+el `if` hacia atrás y se tragaba la palabra «if» escrita **dentro de un
+comentario** — uno de ellos, el de la §44, comentando que allí *había habido* un
+`if` sin `else`.)
+
+**Pero las nueve se miraron una a una, y ninguna es un hueco.** Es lo que hay que
+apuntar, porque la conclusión fácil era la contraria:
+
+| Dónde | Qué es de verdad |
+|---|---|
+| `AsignaturasController:226`, `GruposController:50`, `ImagesController:44` | **Enriquecen la respuesta**: al docente se le añaden sus pedidos, sus grupos de titularía o las imágenes públicas. Quien no es docente no necesita `else` porque no le falta nada |
+| `NotasController:195` y `:247` | **Acotan**: `$profesor_id` se inicializa vacío arriba y se rellena si es docente. El `else` está escrito como valor por defecto, tres líneas antes |
+| `PerfilesController:416`, `TSubirController:71` | **Sí cortan, con `abort()`**. Son guards que funcionan; lo que no tienen es `else`, que no es lo mismo |
+
+O sea que el patrón sintáctico —«ramifica por Profesor y no tiene salida»— tiene
+**precisión cero** una vez se mira qué hace cada rama. Lo que separa la §44 y las
+dos de la §48 de estas nueve no es que no tengan `else`: es que **el `if` envuelve
+el método entero y dentro hay una escritura**. Que son exactamente las dos
+condiciones que `tools/respuestas-que-mienten.py` ya exige, y por eso encontró
+tres y no doce.
+
+**La lección, que es la contraria de la que apetecía sacar:** una correlación
+limpia —0 de 16 contra 9 de 24— invita a leerla como un marcador de riesgo, y aquí
+solo marca **estilo**. El código viejo resuelve el usuario con `$user =` y también
+escribe ramas que enriquecen; las dos cosas van juntas sin que una cause la otra.
+Mandar a alguien a auditar esas nueve habría sido gastar una tarde en confirmar
+que están bien.
+
+### Y una mina que hay que tener escrita antes de escribir ningún guard ahí
+
+`ws_actividades.created_by` guarda **`persona_id`**, mientras `ws_preguntas.added_by`
+guarda **`user_id`**. Son dos numeraciones distintas en dos columnas que se llaman
+casi igual y viven en tablas hermanas.
+
+Un guard de propiedad escrito de la forma natural —comparar `created_by` con
+`$user->user_id`— daría un `WHERE` que **no casa nunca**: un permiso que deniega
+todo. Y eso no se reporta como «el guard está mal», se reporta como **«la pantalla
+no funciona»**, que manda a buscar a otro sitio. Es la §41.1 —el id sin su tabla no
+es una identidad— con las dos numeraciones dentro del mismo módulo. Lo midió la
+sesión de actividades; el detalle está en [13-actividades.md](13-actividades.md).
