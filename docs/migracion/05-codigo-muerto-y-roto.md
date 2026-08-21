@@ -1947,3 +1947,120 @@ eso queda anotado y no hecho. Con el matiz que decide si merece la pena: las cin
 llevan `auth.personal` o comprueban dentro, así que medirlas no va a encontrar
 nada — **compra honestidad de la medición, no hallazgos**. Es exactamente lo
 contrario que las ocho de papelera, que salieron gratis.
+
+---
+
+## 22. El control: «vacío» no es «cerrado» (20 ago 2026)
+
+Las §14 a §21 se apoyan todas en la misma lectura —una ruta que no escribe ni
+devuelve datos personales está defendida— y **esa lectura es falsa la mitad de las
+veces**. Un silencio puede ser el guard, o puede ser que los identificadores que se
+le mandaron no nombren nada. Desde fuera se ven idénticos, y de ahí salieron los
+seis hallazgos que el seed vacío tapó: `folios/iniciar` pasó cuatro pasadas
+escribiendo sobre cero filas.
+
+Así que las mudas se repiten con un token de **superusuario**, que no tiene guard
+que lo pare, con los mismos identificadores y el mismo cuerpo. Si tampoco saca
+nada, el silencio de la primera pasada **no prueba nada**.
+
+Cada control va en su propio savepoint y se deshace: son escrituras de verdad
+hechas por quien sí puede hacerlas —`years/destroy` fuerza el borrado de un año y
+arrastra 59 tablas por las FK— y sin deshacerlas la pasada se destruiría a sí
+misma a mitad de camino.
+
+### 22.1 El número
+
+**59 de 106.** Más de la mitad de los silencios del barrido no significaban nada.
+Y no son rutas cerradas con 403: ésas ni siquiera entran en el recuento, porque un
+403 sí es un juicio. Son rutas por las que **un token de alumno pasa** y sobre las
+que el barrido no tenía nada que decir.
+
+Tres causas, y las tres estaban nombradas por separado sin saber que eran la
+misma:
+
+- **El desajuste de año.** El sujeto trabaja en 2025 y **el único grupo ajeno que
+  existe es de 2024**, porque el seed tiene dos grupos y uno es el suyo. Cualquier
+  ruta que cruce grupo y año contesta vacío por eso. O sea que las 36 rutas que la
+  [§16](#16-el-acudiente-y-lo-que-el-barrido-no-puede-ver-20-ago-2026) dio por
+  cerradas al elegir un sujeto con un solo grupo **pueden no haberse medido
+  nunca**: el grupo quedó libre, pero del año que no era.
+- **Las tablas vacías**, que es la [§21.5](#215-y-las-cinco-que-quedan-que-no-son-un-descuido-del-seed).
+- **El cuerpo que no casa.** La §18 lo dejó escrito —«una ruta que lea DOS recibe
+  una combinación que puede no casar»— y aquí tiene número.
+
+De las 59, unas quince son límites ya nombrados y aceptados: las diez rutas
+públicas de pre-login, que no dependen del token, y las cinco que esperan un
+archivo ([§19](#19-las-dos-familias-que-quedaban-sin-guard-20-ago-2026)). Las
+otras cuarenta y pico son las que no se sabían.
+
+### 22.2 Lo que salió del primer vistazo a esas cuarenta
+
+Veintidós de ellas son escrituras **sin guard ninguno más allá de `auth.token`**.
+Casi todas comprueban dentro del controlador —el `(Profesor && profes_can_edit_alumnos)
+|| is_superuser` que se repite trece veces en `MatriculasController`—, y tres no
+comprobaban nada. Dos de esas tres eran agujeros:
+
+**`POST api/perfiles/store` no crea un perfil: crea un grupo.** Un método que se
+quedó del copiar y pegar, con el año sacado del token, así que el grupo nace en el
+año en curso del colegio. Medido: los grupos pasan de 2 a 3 con un token de
+alumno, y responde 201.
+
+`PerfilesApi.ts` ya llevaba anotado que **cinco** métodos de ese controlador operan
+sobre grupo y no sobre persona —`show`, `destroy`, `forcedelete`, `restore`,
+`trashed`—. `store` es la sexta y la única que escribe; las otras cuatro con `{id}`
+ya llevaban `auth.personal` y ésta se quedó fuera. Es la §17 otra vez.
+
+**Por qué no salió en cuatro pasadas del barrido:** lee
+`Request::input('titular')['id']`, un array anidado, y el barrido manda
+`titular_id` plano. El índice sobre `null` lanza, el `catch` de al lado lo
+convierte en 422, y desde fuera se ve una ruta que no hace nada.
+
+**`PUT api/publicaciones/guardar-edicion` reescribe cualquier publicación.**
+`UPDATE publicaciones ... WHERE id=:id` con el `id` del cuerpo y sin mirar de quién
+es. No solo el texto: también `para_todos`, `para_alumnos`, `para_acudientes`,
+`para_profes` y `para_administradores`, o sea **a quién se le enseña**. Medido: un
+alumno reescribió el anuncio de bienvenida del colegio.
+
+Y es la §17 por segunda vez en la misma pasada: `putDelete` y `putRestaurar` ya
+llevaban `exigeQueLaPublicacionSeaSuya()` desde que se cerró el módulo, y la
+edición se quedó fuera — **porque nombra la publicación `id` y no `publi_id`**,
+que es el mismo tropiezo de los nombres de la §15.
+
+**Por qué tampoco salió:** sin `publi_para` en el cuerpo, `$para_todos` se queda
+sin asignar y la petición muere en 500 antes del `UPDATE`. El barrido lo leía como
+una ruta que no escribe. Rota por fuera, viva en cuanto le llega el cuerpo que
+espera — igual que `folios/iniciar`.
+
+El arreglo de las dos es el que ya existía al lado: `auth.personal` en la ruta del
+grupo, y el ayudante de publicaciones en la edición. Con sus contrarios, que aquí
+importan más que de costumbre: el personal sigue creando grupos por esa ruta y el
+autor sigue editando la suya, que es lo que hace el lápiz del front
+—`ng-if="$ctrl.USER.persona_id==$ctrl.publicacion_actual.persona_id"`—.
+
+### 22.3 Y la tercera, que se queda rota a propósito
+
+`PUT api/publicaciones/borrar-comentario` tiene esto:
+
+```php
+if ($user->is_superuser || $user.persona_id==comentario.persona_id) {
+```
+
+Eso es **sintaxis de JavaScript en PHP**. El `.` es concatenación, `persona_id` es
+una constante que no existe y `comentario` una variable que tampoco, así que la
+rama derecha lanza en cuanto se evalúa. Con el `||` en corto, el resultado es que
+**un superusuario borra cualquier comentario y todos los demás reciben un 500**,
+incluido el autor borrando el suyo.
+
+No es un agujero: es un botón que no funciona para nadie. Y arreglarlo **enciende**
+en los dieciséis colegios una función que hoy no existe, que es una decisión y no
+un arreglo — la misma forma que `candidatos/conaspiraciones` de la
+[§18.4](#18-el-cuerpo-lleno-y-el-módulo-de-votaciones-20-ago-2026). Se queda
+documentado y con su ruta, según la regla.
+
+### 22.4 Lo que este control no garantiza
+
+El superusuario tiene su propio año de contexto, así que una ruta puede salir muda
+para él por lo mismo que para el alumno. **El error va hacia el lado seguro**: dice
+«no puedo juzgarla» de alguna que quizá sí estaba medida, nunca «cerrada» de una
+que no lo está. Que es la dirección correcta para una herramienta cuyo trabajo es
+no mentir sobre lo que ha mirado.

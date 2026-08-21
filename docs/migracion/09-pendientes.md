@@ -221,6 +221,7 @@ saber el tamaño real del daño en las dieciséis bases antes de tocar código.
 | `GET api/perfiles/usernames` devuelve los 2.351 usuarios del colegio | [05 §14.4](05-codigo-muerto-y-roto.md) | apuntar `UserConfiguracionCtrl` a `comprobarusername/{username}`, que ya existe, **y desplegar el front antes** de cerrar la ruta |
 | `GET api/perfiles/username/{username}` no comprueba que el usuario sea el tuyo | [05 §14.4](05-codigo-muerto-y-roto.md) | si `ExigirPersonaPropia` aprende a resolver un nombre de usuario, o si la ruta deja de aceptar parámetro y lo saca del token |
 | `GET api/asignaturas/listasignaturas-alone` le da a un alumno las asignaturas del profesor con su mismo id | [05 §16.6](05-codigo-muerto-y-roto.md) | es la misma pregunta que Joseth dejó abierta en [05 §11.2](05-codigo-muerto-y-roto.md): si esa pantalla debe enseñarle sus asignaturas de verdad. Cerrarla con `auth.personal` es de una línea; decidir qué ve el alumno, no |
+| `PUT api/publicaciones/borrar-comentario` responde 500 a todo el que no sea superusuario | [05 §22.3](05-codigo-muerto-y-roto.md) | si se arregla. Hoy nadie borra un comentario suyo; arreglarlo enciende esa función en los dieciséis colegios de golpe |
 | `GET api/candidatos/conaspiraciones` responde 500 a alumnos y acudientes desde siempre | [05 §18.4](05-codigo-muerto-y-roto.md) | qué votación es «la suya» cuando hay varias en curso. Y que arreglarlo **enciende** para los alumnos una pantalla que hoy no funciona en los dieciséis colegios, que es una decisión y no un arreglo |
 
 ---
@@ -623,6 +624,43 @@ saber el tamaño real del daño en las dieciséis bases antes de tocar código.
 
   Y las otras setenta y dos aguantaron — que no es un hallazgo, pero antes no
   estaba medido.
+
+- **El control, hecho el 20 ago 2026 — y es el hallazgo de método de toda la
+  serie.** Las §14 a §21 se apoyan todas en leer «vacío» como «cerrado», y esa
+  lectura **es falsa la mitad de las veces**: un silencio puede ser el guard o
+  puede ser que los identificadores no nombren nada. Ahora las mudas se repiten con
+  un token de superusuario —sin guard que lo pare, mismos identificadores, mismo
+  cuerpo—; si tampoco saca nada, el silencio de la primera pasada no prueba nada.
+  Cada control va en su savepoint y se deshace, porque son escrituras de verdad
+  hechas por quien sí puede hacerlas. Ver [05 §22](05-codigo-muerto-y-roto.md).
+
+  **59 de 106.** Y no son las que dan 403 —ésas ni entran, un 403 sí es un juicio—:
+  son rutas por las que un token de alumno pasa y sobre las que el barrido no tenía
+  nada que decir. Tres causas, que estaban nombradas por separado sin saber que
+  eran la misma: el **desajuste de año** —el sujeto trabaja en 2025 y el único
+  grupo ajeno del seed es de 2024, así que las 36 rutas que la §16 dio por cerradas
+  pueden no haberse medido nunca—, las tablas vacías de §21.5, y el cuerpo que no
+  casa que la §18 dejó escrito sin número.
+
+  Lo que salió del primer vistazo a las cuarenta que no eran límites ya conocidos:
+
+  - **`POST perfiles/store` no crea un perfil: crea un grupo.** Un alumno creaba un
+    grupo del colegio en el año en curso; medido, de 2 a 3, con un 201. `PerfilesApi.ts`
+    ya tenía anotado que cinco métodos de ese controlador operan sobre grupo y no
+    sobre persona; ésta es la sexta y la única que escribe, y las otras cuatro ya
+    llevaban `auth.personal`. La §17 otra vez. Invisible al barrido porque lee
+    `Request::input('titular')['id']` y el barrido manda `titular_id` plano: el
+    índice sobre `null` lanza y el `catch` lo convierte en 422.
+  - **`PUT publicaciones/guardar-edicion` reescribe cualquier publicación**, y no
+    solo el texto: también a quién se le enseña. La §17 por segunda vez en la misma
+    pasada — `putDelete` y `putRestaurar` ya llevaban la comprobación y la edición
+    se quedó fuera **porque nombra la publicación `id` y no `publi_id`**. Invisible
+    porque sin `publi_para` la petición muere en 500 antes del `UPDATE`.
+  - Y una que se queda rota a propósito: **`publicaciones/borrar-comentario` tiene
+    sintaxis de JavaScript en PHP** —`$user.persona_id==comentario.persona_id`—, así
+    que con el `||` en corto un superusuario borra cualquier comentario y todos los
+    demás reciben un 500. No es un agujero, es un botón que no funciona; arreglarlo
+    **enciende** una función en los dieciséis colegios, que es decisión y no arreglo.
 
 - **La decisión del seed, tomada el 20 ago 2026: partirla en dos.** El seed vacío
   llevaba seis hallazgos tapados —`unidades_por_defecto`, los alumnos borrados,
