@@ -73,6 +73,12 @@ use Tests\Contrato\CasoDeContrato;
  * sujeto no es fabricar el efecto: marcar una fila como borrada es lo mismo que
  * elegir a quién se le da el token; montar la fila que la ruta escribiría, no.
  *
+ * **Y la cuarta cambió la lectura de todo lo anterior** (20 ago 2026). Este archivo
+ * daba por cerrada toda ruta que no escribiera ni devolviera datos personales, y esa
+ * lectura es falsa la mitad de las veces: 59 de 106 silencios lo eran porque no
+ * había nada que alcanzar, no porque algo lo impidiera. Ahora hay una segunda
+ * pasada —{@see control()}— que repite las mudas con un superusuario. Ver 05 §22.
+ *
  * Y una cosa que este archivo **no** puede encontrar, demostrada el mismo día:
  * lo que sale sin ser dato personal. `unidades/trashed` devolvía a un alumno la
  * papelera académica del colegio y el barrido la vio pasar, porque su criterio
@@ -214,6 +220,7 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
         $sinMedir = [];
         $sinFila = [];
         $sinMapa = [];
+        $mudas = [];
 
         foreach (Route::getRoutes()->getRoutes() as $ruta) {
             $verbo = $ruta->methods()[0];
@@ -276,7 +283,7 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
                 // lo prestado: el `UPDATE ... deleted_at = NULL` de la vuelta es
                 // del barrido y no de la ruta, y contado como suyo aparecería
                 // como un hallazgo en cada una de las ocho.
-                $escribio = array_values(array_unique($this->escrituras));
+                $escribio = $this->escriturasDeLaPeticion();
                 $contenido = (string) $r->getContent();
             } catch (\Throwable $e) {
                 $this->salida[] = '  EXCEPCIÓN   '.$verbo.' '.$uri.'   '.substr($e->getMessage(), 0, 90);
@@ -295,6 +302,11 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
                 : [];
 
             if ($escribio === [] && $personales === []) {
+                // Nada. Que es justo lo que el control de después tiene que
+                // desmentir o confirmar: «nada» puede ser el guard o puede ser
+                // que no hubiera nada.
+                $mudas[] = [$verbo, $pedida, $uri];
+
                 continue;
             }
 
@@ -309,6 +321,8 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
         $this->salida[] = '';
         $this->salida[] = "{$encontrado} rutas pasaron de largo con algo dentro.";
         $this->salida[] = 'Cada una hay que mirarla: muchas son lo suyo, y eso el barrido no lo sabe.';
+
+        $this->control($mudas);
 
         if ($sinFila !== []) {
             $this->salida[] = '';
@@ -364,6 +378,108 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
             "Los controladores leen del cuerpo estos identificadores y el barrido no\n"
             .'los manda, así que esas rutas se miden sin llegar a tocar a nadie. '
             .'Añádelos en CLAVES_DE_CUERPO.');
+    }
+
+    /**
+     * La segunda pasada, que contesta lo que la primera no puede: ¿había algo?
+     *
+     * **Todo el barrido se apoya en leer «vacío» como «cerrado», y esa lectura es
+     * falsa la mitad de las veces.** Una ruta que no escribe ni devuelve datos
+     * personales puede estar defendida, o puede ser que los identificadores que se
+     * le mandaron no nombren nada. Las dos cosas se ven idénticas desde fuera, y de
+     * ahí salieron los seis hallazgos que el seed vacío tapó: `folios/iniciar`
+     * pasó cuatro pasadas escribiendo sobre cero filas.
+     *
+     * En este seed el caso más gordo no es una tabla vacía sino un desajuste de
+     * año: el sujeto trabaja en 2025 y **el único grupo ajeno que existe es de
+     * 2024**, porque el seed tiene dos grupos y uno es el suyo. Cualquier ruta que
+     * cruce grupo y año contesta vacío por eso, no por el guard — y así las 36
+     * rutas que la §16 dio por cerradas pueden no haberse medido nunca.
+     *
+     * Así que las mudas se repiten con un token de **superusuario**, que no tiene
+     * guard que lo pare, y con los mismos identificadores y el mismo cuerpo. Si
+     * tampoco saca nada, esos identificadores no nombran nada alcanzable y el
+     * silencio de la primera pasada **no prueba nada**.
+     *
+     * Cada control va en su propio savepoint y se deshace: son escrituras de
+     * verdad hechas por quien sí puede hacerlas —`years/destroy` fuerza el borrado
+     * de un año y arrastra 59 tablas por las FK— y sin deshacerlas la pasada se
+     * destruiría a sí misma a mitad de camino.
+     *
+     * Lo que este control NO garantiza, y hay que saberlo: el superusuario tiene su
+     * propio año de contexto, así que una ruta puede salir muda para él por lo
+     * mismo. El error va hacia el lado seguro — dice «no puedo juzgarla» de una que
+     * quizá sí estaba medida, nunca «cerrada» de una que no lo está.
+     *
+     * @param  list<array{string, string, string}>  $mudas
+     */
+    private function control(array $mudas): void
+    {
+        $superusuario = DB::selectOne('SELECT username FROM users WHERE is_superuser = 1
+            AND is_active = 1 AND deleted_at IS NULL ORDER BY id LIMIT 1');
+
+        if ($superusuario === null) {
+            $this->salida[] = '';
+            $this->salida[] = 'SIN CONTROL: el seed no tiene ningún superusuario activo.';
+
+            return;
+        }
+
+        $token = $this->tokenDe($superusuario->username);
+        $noJuzgables = [];
+
+        foreach ($mudas as [$verbo, $pedida, $uri]) {
+            $this->escrituras = [];
+
+            DB::beginTransaction();
+
+            try {
+                $r = $this->withToken($token)->json($verbo, '/'.$pedida, $this->cuerpo);
+                $saco = $this->escriturasDeLaPeticion() !== []
+                    || ($r->getStatusCode() < 300 && ! $this->pareceVacia((string) $r->getContent()));
+            } catch (\Throwable) {
+                // Una ruta que revienta para el superusuario tampoco puede servir
+                // de control: no dice si había algo, dice que está rota.
+                $saco = false;
+            } finally {
+                DB::rollBack();
+            }
+
+            if (! $saco) {
+                $noJuzgables[] = $verbo.' '.$uri;
+            }
+        }
+
+        $this->salida[] = '';
+        $this->salida[] = count($noJuzgables).' de las '.count($mudas).' mudas NO son juzgables: '
+            .'con un superusuario tampoco sale nada.';
+        $this->salida[] = 'Su silencio en la primera pasada no distingue un guard de un vacío.';
+
+        foreach ($noJuzgables as $ruta) {
+            $this->salida[] = '  '.$ruta;
+        }
+    }
+
+    /**
+     * Lo que escribió la petición que se acaba de medir, sin repetidos.
+     *
+     * Va en un método y no en la línea porque las escrituras las mete el
+     * `DB::listen` de `setUp()`, y para el análisis estático la propiedad sigue
+     * valiendo el `[]` con el que se limpió antes de la petición.
+     *
+     * @return list<string>
+     */
+    private function escriturasDeLaPeticion(): array
+    {
+        return array_values(array_unique($this->escrituras));
+    }
+
+    /** Si la respuesta no trae nada que mirar: lista vacía, objeto vacío, null. */
+    private function pareceVacia(string $contenido): bool
+    {
+        $limpio = trim($contenido);
+
+        return in_array($limpio, ['', '[]', '{}', 'null', '""', '0', 'false'], true);
     }
 
     /**
