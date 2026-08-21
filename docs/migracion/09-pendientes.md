@@ -118,6 +118,56 @@ eso es justo lo que había que aprender.
    parámetro suelto: **es una regla de negocio, y de las que un refactor bienintencionado
    borra** por parecer un descuido.
 
+### Lo que se hizo con esas respuestas, el 21 de agosto
+
+Las cinco decisiones se aplicaron el mismo día. Cobertura: **312 → 322 de 539**,
+y sigue sin haber ningún controlador a cero.
+
+| Qué | Dónde |
+|---|---|
+| El hash bcrypt sale de las respuestas del lector de tardanzas | [05 §25.4](05-codigo-muerto-y-roto.md) |
+| El PIAR entero pasa a ser del personal — una de sus rutas no tenía guard ninguno | [05 §35](05-codigo-muerto-y-roto.md) |
+| El rol `Secretario` existe, y el `Psicólogo` gobierna por fin algo | [05 §30.3–30.5](05-codigo-muerto-y-roto.md) |
+| La bandera del periodo que se comprueba es la del periodo al que se escribe, en 23 de 26 llamadas | [05 §27.1.1](05-codigo-muerto-y-roto.md) |
+| `php artisan anios:actuales`, para los dieciséis | [05 §28.3](05-codigo-muerto-y-roto.md) |
+
+**Nada de esto está desplegado**: `app/` es copia real en cada colegio.
+
+### Lo que hace falta de Joseth ahora — por orden
+
+1. **Asignarle el rol `Secretario` a alguien, colegio por colegio.** La migración
+   crea la fila y **no se la da a nadie**, a propósito: hasta que alguien lo tenga,
+   no cambia nada en ningún colegio. Es el paso que convierte el trabajo en efecto.
+2. **Confirmar una lectura de «no crea usuarios».** `acudientes/crear` crea también
+   la **cuenta** del acudiente —sin usuario no puede entrar—, así que «no crea
+   usuarios» y «puede crear acudientes» se tocan. Se entendió que se refiere a las
+   cuentas del **personal** y a la creación **masiva**
+   (`perfiles/creartodoslosusuarios`, que quedó de superusuario), y no a la cuenta
+   que nace con cada acudiente, porque desbloquear justo eso era el problema
+   visible de la §30.2.
+3. **Confirmar los tres `forcedelete`.** Grupos, profesores y perfiles se anclaron
+   a superusuario por la regla de no regalar permisos, y porque la §28.4 ya lo
+   había fijado. Si la secretaria debe poder borrar definitivamente, se cambia en
+   tres líneas.
+4. **La nivelación no se puede cerrar por periodo, y conviene saberlo.**
+   `recuperacion_final` **no tiene `periodo_id`**: se guarda por año. Las dos rutas
+   de recuperación siguen comprobando `num_periodo`, o sea que ahí el candado sigue
+   como estaba. Cerrarlo de verdad es una decisión de esquema —añadir la columna— y
+   no un arreglo.
+5. **Correr `php artisan anios:actuales` en los dieciséis**, antes de la copia de
+   octubre. En desarrollo ya sale un aviso: el 2026 encendido en la papelera.
+
+### Y una cosa que no encaja con lo que se dio por hecho
+
+Al medir para el rol salió que **las 44 rutas de escritura de materias,
+asignaturas, grupos, años y periodos llevan solo `auth.personal`**: hoy cualquiera
+de los 51 profesores renombra materias, reasigna las asignaturas de todos los
+grupos, cambia titulares, mueve la configuración del año y bloquea o desbloquea
+periodos. Joseth decidió **no cerrarlas todavía**, y está bien decidido —cerrarlas
+puede dejar fuera a un coordinador que hoy configura y no tiene el rol—, pero
+conviene que quede escrito el efecto: **«la secretaria puede configurar el colegio»
+ya era cierto antes del rol, y también lo es para los otros cincuenta.**
+
 Lo demás de esa noche está abajo, en la tabla del §5, con las anteriores.
 
 ---
