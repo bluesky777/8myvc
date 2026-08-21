@@ -120,4 +120,44 @@ class FotoOficialTest extends CasoDeContrato
 
         $this->assertSame($antes, DB::table('alumnos')->where('user_id', $alumno->id)->value('foto_id'));
     }
+
+    /**
+     * La firma del profesor, que es la hermana de la foto y tenía la misma forma
+     * con una vuelta más: aquí el `else` **existía** y devolvía la cadena
+     * `'No tienes permiso'` **con 200**. Peor que no tenerlo, porque el front hace
+     * `.then()` y dentro pinta la firma como cambiada —mueve la imagen de las
+     * privadas a las del usuario y actualiza `firma_id` en pantalla—, así que al
+     * administrativo se le enseñaba puesta y al recargar no estaba. Ver 05 §48.2.
+     */
+    public function test_un_administrativo_sin_superusuario_no_cambia_la_firma(): void
+    {
+        $administrativo = DB::selectOne('SELECT username FROM users
+            WHERE tipo = "Usuario" AND is_active = 1 AND deleted_at IS NULL
+              AND (is_superuser IS NULL OR is_superuser = 0) ORDER BY id LIMIT 1');
+
+        if (! $administrativo) {
+            $this->markTestSkipped('El seed no tiene un administrativo sin is_superuser.');
+        }
+
+        $profesor = DB::selectOne('SELECT id, firma_id FROM profesores WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+
+        $this->withToken($this->tokenDe($administrativo->username))
+            ->putJson("/api/images-users/cambiar-firma-un-profe/{$profesor->id}", ['imagen_id' => $this->imagen()])
+            ->assertStatus(403);
+
+        $this->assertSame($profesor->firma_id, DB::table('profesores')->where('id', $profesor->id)->value('firma_id'));
+    }
+
+    /** Y el profesor sí, que es lo que no se puede romper. */
+    public function test_un_profesor_cambia_la_firma(): void
+    {
+        $profesor = DB::selectOne('SELECT id FROM profesores WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+        $imagen = $this->imagen();
+
+        $this->withToken($this->tokenDe($this->usuarioDeTipo('Profesor')->username))
+            ->putJson("/api/images-users/cambiar-firma-un-profe/{$profesor->id}", ['imagen_id' => $imagen])
+            ->assertStatus(200);
+
+        $this->assertSame($imagen, (int) DB::table('profesores')->where('id', $profesor->id)->value('firma_id'));
+    }
 }

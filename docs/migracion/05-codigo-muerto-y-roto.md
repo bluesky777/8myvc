@@ -4374,6 +4374,59 @@ escribe ramas que enriquecen; las dos cosas van juntas sin que una cause la otra
 Mandar a alguien a auditar esas nueve habría sido gastar una tarde en confirmar
 que están bien.
 
+### §48.2. Tres medidas del mismo patrón, y la que mentía de verdad
+
+La otra sesión volvió a medir aceptando también `abort` y `return` como salida
+—que es lo correcto: no tener `else` no es no tener salida— y el patrón se encogió
+otra vez:
+
+| Cómo se midió | «Sin salida» |
+|---|---|
+| ventana de 25 líneas | 12 |
+| emparejando llaves | 9 |
+| llaves **y** `abort`/`return` como salida | **6** |
+
+Y de las seis, ninguna es un hueco. **En todo el repo queda una sola que lo sea, y
+no la encontró el patrón: la encontró alguien leyendo.**
+
+De camino se cayó el ejemplo que más prometía. Las cuatro de `CalendarioController`
+parecían las buenas —el `if` envuelve el método, dentro hay un `INSERT`, y encima
+hay un ternario `$user->tipo == 'Usuario' ? …` **dentro** de la rama que
+supuestamente excluye a los `Usuario`, o sea el autor contando con ellos y el
+guard olvidándolos—. **El test lo desmintió**: hay un `abort` veinticinco líneas
+más abajo, y el ternario tampoco probaba nada porque **los superusuarios son de
+tipo `Usuario`** y entran por el `|| $user->is_superuser` de al lado.
+
+Sus cuatro `abort` devuelven **404** donde tocaría 403. **No se cambian**, y la
+razón está en CLAUDE.md: los códigos correctos son para el código nuevo, y el
+legacy no se toca por cosmética. Un 404 y un 403 fallan igual en el front —los dos
+rechazan la promesa— así que cambiarlos sería mover el contrato de dieciséis
+colegios a cambio de nada. Queda medido y escrito, que es lo que hacía falta.
+
+### La que sí mentía
+
+`putCambiarFirmaUnProfe`, la hermana de la foto de la §44, con una vuelta más:
+aquí el `else` **existía** y devolvía la cadena `'No tienes permiso'` **con 200**.
+
+Es peor que no tenerlo. El front hace `.then()` y dentro **pinta la firma como
+cambiada**: mueve la imagen de la lista de privadas a las del usuario y actualiza
+`firma_id` en pantalla. Así que al administrativo que `auth.personal` deja pasar se
+le enseñaba la firma puesta, y al recargar no estaba. Ahora 403.
+
+**Y por eso el detector no la veía**: `respuestas-que-mienten.py` descarta el
+método en cuanto encuentra la palabra `else`, porque su criterio es «el `if`
+envuelve el método y no hay salida». Aquí la salida existe — lo que miente es lo
+que devuelve. Son dos fallos distintos con el mismo efecto, y el segundo necesita
+otra pregunta: **no «¿hay `else`?» sino «¿el `else` dice la verdad?»**, que es
+mirar el código de respuesta y no la forma del bloque.
+
+Lo que queda de toda esta serie, en una línea: **buscar el `else` que falta no es
+buscar el fallo.** Lo que distingue un hueco son dos condiciones juntas —el `if`
+envuelve el método entero y dentro está lo único que el método produce— y las dos
+las exigía ya la herramienta, que por eso encontró tres y no doce.
+
+Fijado por `FotoOficialTest`, que pasa de cinco casos a siete.
+
 ### Y una mina que hay que tener escrita antes de escribir ningún guard ahí
 
 `ws_actividades.created_by` guarda **`persona_id`**, mientras `ws_preguntas.added_by`

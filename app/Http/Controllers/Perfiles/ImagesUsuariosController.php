@@ -157,28 +157,30 @@ class ImagesUsuariosController extends Controller {
 	{
 		$user 	= User::fromToken(); // Logueado
 
-		// Solo puede cambiarle a alguien si es profesor o superuser
-		if ($user->tipo == 'Profesor' or $user->is_superuser) {
-			
-			$img_id 			= Request::input('imagen_id');
-			$img 				= ImageModel::find($img_id);
+		// Tenía `else { return 'No tienes permiso'; }` — **con 200**. El front hace
+		// `.then()` y dentro pinta la firma como cambiada: mueve la imagen de la
+		// lista de privadas a las del usuario y actualiza `firma_id` en pantalla.
+		// O sea que al administrativo que `auth.personal` deja pasar se le enseñaba
+		// la firma puesta y al recargar no estaba. Misma familia que la §44 y la
+		// §48; aquí el `else` existía y lo que mentía era el código. Ver 05 §48.2.
+		Autoriza::exigir(
+			$user->tipo == 'Profesor' || $user->is_superuser,
+			'Solo un profesor o un superusuario cambia la firma de otro.'
+		);
 
+		$img_id 			= Request::input('imagen_id');
+		$img 				= ImageModel::find($img_id);
 
-			$profesor 				= Profesor::findOrFail($profe_id);
-			$img_id 				= Request::input('imagen_id');
-			$profesor->firma_id 	= $img_id ? $img_id : null;
-			$profesor->updated_by 	= $user->user_id;
-			$profesor->save();
-			
-			if ($img){
-				$img->user_id 		= $profesor->user_id;
-				$img->updated_by 	= $user->user_id;
-				$img->publica 		= false;
-				$img->save();
-			}
+		$profesor 				= Profesor::findOrFail($profe_id);
+		$profesor->firma_id 	= $img_id ? $img_id : null;
+		$profesor->updated_by 	= $user->user_id;
+		$profesor->save();
 
-		}else{
-			return 'No tienes permiso';
+		if ($img){
+			$img->user_id 		= $profesor->user_id;
+			$img->updated_by 	= $user->user_id;
+			$img->publica 		= false;
+			$img->save();
 		}
 
 		return $profesor;
