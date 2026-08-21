@@ -2707,3 +2707,83 @@ Y las tres del final se parecen demasiado para ser casualidad: `actual = 1` sin
 condición, `Hash::make()` sin condición, y una comprobación de permiso sin
 objetivo. **Las tres son una decisión que el código no llega a tomar.** Vale la
 pena buscarlas con esa forma en la cabeza.
+
+---
+
+## 30. Fabricar un superusuario, que es más fácil que robar uno (20 ago 2026)
+
+La §29.4 dejó escrita la forma que buscar: **una decisión que el código no llega a
+tomar**. Buscarla con esa forma en la cabeza —`grep is_superuser` sobre los
+controladores— dio esto en la primera pasada.
+
+Cuatro sitios copian `is_superuser` del cuerpo de la petición:
+
+```php
+$usuario->is_superuser = Request::input('is_superuser', 0);
+```
+
+Están en `profesores/store`, en las dos ramas de `profesores/update/{id}` y en
+`alumnos/store`. Las de `update` van dentro de un `if ($this->user->is_superuser)`
+y por tanto estaban bien; las otras dos, no.
+
+**`POST api/profesores/store` no tiene más candado que `auth.personal`.** O sea
+que cualquiera de los 51 profesores mandaba un profesor nuevo con
+`is_superuser: 1`, un `username` y una `password` suyos, y entraba con esa cuenta
+como superusuario. Es más limpio que la §29: no hay que quitarle la cuenta a
+nadie, se fabrica una.
+
+Y la otra rama es peor de lo que parece. `alumnos/store` está detrás de «profesor
+con `profes_can_edit_alumnos`», y un usuario de **tipo Alumno** con `is_superuser`
+no es inofensivo aunque `auth.personal` lo pare en casi todas partes:
+`perfiles/reset-password/{id}` **no lleva `auth.personal`**, y su primera línea es
+`if (!$user->is_superuser)`. La cadena entera cabe en un renglón: profesor con la
+bandera → alumno superusuario → contraseña de cualquiera. Y sobrevivía al arreglo
+de la §29, porque aquel candado está dentro del `if` que un `is_superuser` se
+salta.
+
+### 30.1 El arreglo
+
+La regla que faltaba se dice en cinco palabras: **un permiso no se concede a sí
+mismo**. Va a `Autoriza`, con los otros:
+
+```php
+public static function concederSuperusuario($user, $pedido): int
+{
+    return (self::esSuperusuario($user) && $pedido) ? 1 : 0;
+}
+```
+
+Devuelve `int` a propósito. `sanarInputUser()` hace
+`Request::merge(['is_superuser' => false])` cuando el campo viene falsy, y ese
+`false` de PHP en una columna `tinyint(1)` es la familia de la [§13](#13-lo-que-encontró-subir-larastan-al-nivel-5-20-ago-2026):
+el mismo campo del mismo registro con dos tipos según por dónde se lea.
+
+Cinco tests, y el último no mira las rutas sino la regla: si
+`concederSuperusuario` devuelve 1 para un profesor, las cuatro vuelven a fabricar
+superusuarios de golpe, y eso tiene que fallar en un sitio y no en cuatro.
+
+### 30.2 «Secretario» es un permiso que nadie tiene, buscado en dos sitios distintos
+
+De la misma pasada, y esto **no se arregla**: hace falta que lo decida el colegio.
+
+El código pregunta por «Secretario» de dos maneras que no pueden ser las dos:
+
+| Dónde | Cómo pregunta | Qué pasa hoy |
+|---|---|---|
+| `Autoriza::esAdministrativo` + 7 sitios de `AlumnosController` | `Role::isSecretario($user_id)` | la tabla `roles` tiene once nombres y **ninguno es `Secretario`** |
+| `AcudientesController`, 3 sitios | `$this->user->tipo == 'Secretario'` | `users.tipo` solo toma cuatro valores —Usuario (20), Profesor (51), Alumno (1.280), Acudiente (1.000)—, así que **es siempre falso** |
+
+Los cuatro valores de `tipo` no son una costumbre: son las cuatro ramas del
+`switch` de `ContextoDeUsuario`. `Secretario` no puede estar ahí.
+
+Así que hoy, en los once sitios, el criterio efectivo es `is_superuser` (más
+`Profesor` donde lo lleve al lado). Y en `AcudientesController` eso significa que
+**un administrativo sin `is_superuser` no puede crear ni editar acudientes**, que
+es exactamente lo contrario de lo que la línea pretendía decir.
+
+La pregunta es una sola y vale para los once: **quién es el Secretario**. Si la
+respuesta es el rol `Admin` —el que existe, con sus diez personas, que resultaron
+ser [los mismos diez `is_superuser`](#261-y-quién-puede-dispararlas-que-sí-tenía-respuesta)—
+hoy no cambia nada y mañana sí. Anotado en 09 §5. `larastan` no puede encontrar
+esto: `$this->user` es un `stdClass` con `@property` sueltas, así que para el
+análisis `tipo` es `mixed` y la comparación «podría» ser cierta.

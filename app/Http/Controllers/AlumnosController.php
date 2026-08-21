@@ -2,6 +2,7 @@
 
 
 
+use App\Support\Autoriza;
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -273,7 +274,7 @@ class AlumnosController extends Controller {
 				$usuario->password		=	Hash::make(Request::input('password', '123456'));
 				$usuario->email			=	Request::input('email');
 				$usuario->sexo			=	Request::input('sexo');
-				$usuario->is_superuser	=	Request::input('is_superuser', 0);
+				$usuario->is_superuser	=	Autoriza::concederSuperusuario($this->user, Request::input('is_superuser'));
 				$usuario->periodo_id	=	$periodo_actual->id;
 				$usuario->is_active		=	Request::input('is_active', 1);
 				$usuario->tipo			=	'Alumno';

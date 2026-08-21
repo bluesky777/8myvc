@@ -71,6 +71,30 @@ class Autoriza
     }
 
     /**
+     * El `is_superuser` que de verdad se puede conceder.
+     *
+     * Cuatro sitios lo copiaban del cuerpo de la petición sin mirar quién la
+     * manda: `profesores/store`, las dos ramas de `profesores/update/{id}` y
+     * `alumnos/store`. La de profesores es la cara: solo pide `auth.personal`,
+     * así que cualquiera de los 51 profesores creaba **una cuenta de
+     * superusuario con el nombre y la contraseña que quisiera** y entraba con
+     * ella. No hace falta tomar la cuenta de nadie: se fabrica una.
+     *
+     * La regla es la que el código no llegaba a escribir: **un permiso no se
+     * concede a sí mismo**. Solo un superusuario puede crear otro; para el resto
+     * el campo vale 0, venga como venga.
+     *
+     * Devuelve `int` y no `bool` a propósito: la columna es `tinyint(1)` y
+     * `sanarInputUser()` metía un `false` de PHP, que es la familia de la
+     * [§13](../../docs/migracion/05-codigo-muerto-y-roto.md) — el mismo campo
+     * saliendo como `false` en la respuesta que lo crea y como `0` en las demás.
+     */
+    public static function concederSuperusuario($user, $pedido): int
+    {
+        return (self::esSuperusuario($user) && $pedido) ? 1 : 0;
+    }
+
+    /**
      * Corta con 403 si no se cumple.
      */
     public static function exigir(bool $condicion, string $mensaje): void
