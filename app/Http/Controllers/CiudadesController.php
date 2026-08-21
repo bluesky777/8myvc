@@ -95,7 +95,9 @@ class CiudadesController extends Controller {
 
 	public function putActualizarCiudad()
 	{
-		$city 				= Ciudad::find(Request::input('id'));
+		// 404 y no 500: con un id que no existe, `find()` devolvía null y la línea
+		// de abajo reventaba. Ver 05 §52.
+		$city 				= Ciudad::findOrFail(Request::input('id'));
 		$city->ciudad 		= Request::input('ciudad');
 		$city->departamento = Request::input('departamento');
 		$city->save();
@@ -105,7 +107,8 @@ class CiudadesController extends Controller {
 	public function putActualizarDepartamento()
 	{
 		$newDepart 	= Request::input('departamento');
-		$city 		= Ciudad::find(Request::input('id'));
+		// Ver 05 §52: mismo caso que su hermana de arriba.
+		$city 		= Ciudad::findOrFail(Request::input('id'));
 		DB::table('ciudades')
             ->where('departamento', $city->departamento)
             ->update(['departamento' => $newDepart]);

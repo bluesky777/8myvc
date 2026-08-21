@@ -75,8 +75,10 @@ class RolesController extends Controller {
 	{
 		$this->exigirAdminUsuarios();
 
-		$rol = Role::find($role_id);
-		$user = User::find(Request::input('user_id'));
+		// 404 y no 500: los dos identificadores vienen de fuera y se usan como
+		// objeto unas líneas más abajo. Ver 05 §52.
+		$rol = Role::findOrFail($role_id);
+		$user = User::findOrFail(Request::input('user_id'));
 
 		$roles = Role::getUserRoles($user->id);
 
@@ -111,8 +113,9 @@ class RolesController extends Controller {
 	{
 		$this->exigirAdminUsuarios();
 
-		$rol = Role::find($role_id);
-		$user = User::find(Request::input('user_id'));
+		// Ver 05 §52: los dos se usan en el DELETE de abajo.
+		$rol = Role::findOrFail($role_id);
+		$user = User::findOrFail(Request::input('user_id'));
 
 		// if (!$user->hasRole($rol->name)) {
 		// 	abort(400, 'Usuario no tiene ese role para eliminar.');

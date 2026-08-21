@@ -4641,21 +4641,35 @@ Se contó tres veces y las tres dieron distinto:
 
 | Medida | Sitios |
 |---|---|
-| «`find()` sin comprobación en las 3 líneas siguientes» (otra sesión) | 47 |
-| lo mismo, con el hueco de las asignaciones encadenadas (aquí) | 27 |
-| **«el resultado se usa en la LÍNEA siguiente como objeto»** | **10** |
+| «sin comprobación en las 3 líneas siguientes» (otra sesión) | 47 |
+| lo mismo, aceptando `if ($x)`, `empty()`, `is_null()` y `??` | 37 |
+| «sin comprobar en 15 líneas y usado como objeto» | 20 |
+| «el resultado se usa en la LÍNEA siguiente como objeto» | 10 |
 
-Las dos primeras estaban infladas y **cada una por su lado**: la de 47 contaba
-como fallo cosas con un `if ($x)` en la línea inmediatamente posterior —se
-comprobaron tres a mano y las tres estaban bien—; la de 27 se dejaba fuera las que
-no son una asignación simple, y además marcaba como fallo un `Role::find()` cuya
-comprobación es un `if (!$rol || !$per)` dos líneas más abajo.
+**Ninguna de las cuatro es «la buena», y creerlo fue el error.** Este documento
+llegó a decir que la de 10 lo era, por ser la más estrecha y la más limpia. La
+otra sesión lo refutó con un contraejemplo **probado con test**:
+`ConfigCertificadosController::putUpdate` hace el `find()`, deja una línea en
+blanco, abre un `if` que no toca la variable, y la usa en la siguiente. Era un 500
+de verdad, y el criterio de la línea de al lado lo descarta.
 
-Es la lección de la §48.2 repetida con otro patrón: **el detector se encoge cada
-vez que se mide mejor, y lo que cae no eran fallos que se arreglaron sino fallos
-que nunca estuvieron.** Y la medida buena no fue la más lista, fue **la más
-estrecha**: pedir que el uso esté en la línea de al lado quita casi todo el ruido
-porque es exactamente la forma del bucle copiado.
+Así que cada una falla por su lado y **en direcciones contrarias**:
+
+- Las anchas tienen **recall alto y precisión baja**: contaban como fallo cosas
+  con la comprobación una línea más abajo, en forma positiva (`if ($x)`) o
+  repartida (`if (!$rol || !$per)`, donde la variable señalada no es la primera).
+  Las dos sesiones cayeron en esa segunda variante **por separado**.
+- La estrecha tiene **precisión alta y recall bajo**: no ve nada que no esté pegado
+  a la línea siguiente, y el patrón real no siempre lo está.
+
+Lo único que lo resolvió fue **leer los sitios uno a uno y escribir el test**. De
+los veinte de la medida ancha, nueve sobrevivieron a la lectura y de esos **uno era
+falso positivo al leerlo** —el `Role::find()` de arriba—.
+
+Vale la pena tenerlo junto a la §48.2, porque son la misma lección desde los dos
+lados: allí un patrón **inflaba** la lista y aquí otro la **encoge**, y las dos
+veces el número parecía una respuesta. **Un detector da una lista de sitios donde
+mirar, nunca una lista de fallos.**
 
 ### Y una que salió escribiendo el test
 
@@ -4676,6 +4690,24 @@ dos que comprueban que reordenar de verdad sigue funcionando—. Comprobado al r
 devolviendo los `find()` caen tres, que son los tres controladores que se tocaron
 aquí; el cuarto sigue verde porque su arreglo es el de la §47.
 
-**Quedan cuatro** de la lista de diez, de otra forma —`AlumnosController:719`,
-`ProfesoresController:344`, `CiudadesController:98` y `PlanillasController:128`—:
-no son el bucle, así que cada uno pide leerse por su cuenta.
+### Los que no son el bucle
+
+Leídos uno a uno, y separados por lo que se sabe de cada uno:
+
+**Arreglados** —el identificador viene de fuera y se usa como objeto acto seguido,
+así que un id inventado era 500—: `ciudades/actualizar-ciudad`,
+`ciudades/actualizar-departamento`, `roles/addroletouser/{role_id}` y
+`roles/removeroletouser/{role_id}`. Los dos de roles exigen ya administrar
+usuarios, así que el 500 no lo alcanzaba cualquiera; los de ciudades llevan
+`auth.personal`. Fijados por `IdentificadoresQueNoExistenTest`.
+
+**Sin tocar, porque no es un id de fuera sino una fila que puede no tener cuenta**:
+`AlumnosController:719` y `ProfesoresController:344` hacen
+`User::find($persona->user_id)` y revientan cuando esa persona **no tiene usuario**.
+Ahí 404 sería la respuesta equivocada —el alumno existe, lo que no existe es su
+cuenta— y lo correcto es saltarse la parte de usuario o crearla, que es una
+decisión y no un arreglo. Queda anotado.
+
+**Sin tocar, porque el id sale de una consulta previa**: `PlanillasController:128`
+y `YearsController:107` buscan una fila que se acaba de leer o de crear. Se pueden
+blindar, pero hoy no hay camino conocido por el que sean null.
