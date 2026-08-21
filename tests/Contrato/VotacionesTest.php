@@ -245,19 +245,30 @@ class VotacionesTest extends CasoDeContrato
     }
 
     /**
-     * La papeleta cerrada con llave sigue aceptando votos.
+     * **Con el candado echado se sigue votando**, y eso sí es un fallo.
      *
-     * `locked` es el candado de la votación y `in_action` el interruptor de
-     * «se está votando». `votos/store` no mira ninguno de los dos: inserta y
-     * responde el voto.
+     * `locked` es el único interruptor que cierra la urna. Lo dijo Joseth el 21
+     * de agosto de 2026, y con esas palabras: *«si está lock entonces nadie puede
+     * votar»*. `postStore()` no lo lee.
+     *
+     * **`in_action` no entra aquí, y este test se reescribió para sacarlo.** No
+     * es un candado: es lo que hace que el front, después de entrar, mande al
+     * usuario directo a la pantalla de votar. Con `in_action = 0` no se le manda,
+     * pero puede llegar por el menú y votar igual — o sea que **el
+     * comportamiento de abajo es el correcto para `in_action` y solo es un fallo
+     * para `locked`**.
+     *
+     * La versión anterior de este test los cambiaba los dos a la vez y lo llamaba
+     * «fuera de acción», que habría llevado a cerrar `in_action` en el arreglo.
+     * Ver 11-votaciones.md §2.
      */
-    public function test_se_vota_en_una_eleccion_cerrada(): void
+    public function test_con_el_candado_echado_se_sigue_votando(): void
     {
         $profe = $this->votante();
         $eleccion = $this->eleccionAbierta($profe);
 
         DB::table('vt_votaciones')->where('id', $eleccion->votacion_id)
-            ->update(['locked' => 1, 'in_action' => 0]);
+            ->update(['locked' => 1]);
 
         $this->withToken($profe->token)
             ->postJson('/api/votos/store', [
@@ -271,7 +282,37 @@ class VotacionesTest extends CasoDeContrato
             DB::table('vt_votos')->where('user_id', $profe->user_id)
                 ->where('candidato_id', $eleccion->candidatos[0])
                 ->whereNull('deleted_at')->count(),
-            'El voto entró con la votación cerrada y fuera de acción.'
+            'El voto entró con el candado echado.'
+        );
+    }
+
+    /**
+     * Y con `in_action = 0` también se vota, que **es lo correcto**.
+     *
+     * Se fija para que el arreglo de `locked` no se lleve esto por delante. Es
+     * fácil escribir «que no se vote si la elección no está en acción» y sería un
+     * error: apagaría la votación por el menú, que es un camino legítimo.
+     */
+    public function test_sin_estar_en_accion_se_vota_y_asi_debe_ser(): void
+    {
+        $profe = $this->votante();
+        $eleccion = $this->eleccionAbierta($profe);
+
+        DB::table('vt_votaciones')->where('id', $eleccion->votacion_id)
+            ->update(['in_action' => 0, 'locked' => 0]);
+
+        $this->withToken($profe->token)
+            ->postJson('/api/votos/store', [
+                'votacion_id' => $eleccion->votacion_id,
+                'candidato_id' => $eleccion->candidatos[0],
+            ])
+            ->assertStatus(201);
+
+        $this->assertSame(
+            1,
+            DB::table('vt_votos')->where('user_id', $profe->user_id)
+                ->whereNull('deleted_at')->count(),
+            '`in_action` solo decide si el front te lleva; no si puedes votar.'
         );
     }
 

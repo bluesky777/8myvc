@@ -129,35 +129,56 @@ profesor no puede aparecer en la papeleta**, aunque `votan_profes` exista.
 
 ---
 
-## §2. Se vota con la urna cerrada, y `locked` no cierra nada
+## §2. Con el candado echado se sigue votando
 
-`POST api/votos/store`, sin más guard que el token.
+`POST api/votos/store`, sin más guard que el token. **`postStore()` no lee
+`locked`.**
 
-`vt_votaciones` tiene dos columnas para el estado de la elección: `in_action`
-—«se está votando»— y `locked` —el candado—. `postStore()` **no lee ninguna de
-las dos**. Inserta el voto y responde 201 con la votación cerrada y fuera de
-acción.
+Y `locked` es el que cierra la urna, con estas palabras de Joseth el 21 de agosto
+de 2026:
 
-Y hay una tercera que tampoco mira: `vt_votos.locked`. La consulta de
-`VtVoto::verificarNoVoto()` la trae en el `SELECT` —`vv.locked`— y luego no la
-usa para nada; un voto marcado como bloqueado se sustituye igual que cualquier
-otro. La columna existe, se lee, y no decide nada.
+> **«Si está lock entonces nadie puede votar.»**
 
-Tampoco comprueba que quien vota esté en el censo (`vt_participantes`), ni que el
-candidato pertenezca a la votación que dice el cuerpo: `votacion_id` viene del
-cliente y solo se usa después, para calcular si el voto quedó «completo».
+Así que esto es un fallo, y de los que tienen regla clara: falta una comprobación
+que el colegio da por hecha.
 
-**Y quedan dos más, que salieron al comprobar otra cosa**: `vt_votaciones` tiene
-`fecha_inicio` y `fecha_fin`, y `VtVotacionesController` **solo las escribe** —al
-crear la votación, poniéndoles la de hoy si vienen vacías—. Ningún sitio las lee
-para decidir nada.
+### §2.1. `in_action` NO es un candado, y creerlo llevaba a romper algo
 
-Así que el recuento de la situación es este: la elección tiene **cuatro señales de
-si está abierta** —`in_action`, `locked`, `fecha_inicio`, `fecha_fin`— y
-`postStore()` **no lee ninguna**. No es que falte una comprobación: es que la
-pregunta «¿se puede votar ahora?» no se hace en ningún sitio.
+Esta sección decía antes que la elección tenía «cuatro señales de si está
+abierta» —`in_action`, `locked`, `fecha_inicio`, `fecha_fin`— y que `postStore()`
+no leía ninguna. **Contar `in_action` entre ellas estaba mal.** Lo que hace, en
+palabras de Joseth:
 
-Fijado por `test_se_vota_en_una_eleccion_cerrada` y
+> «`in_action` hace que el front mande, después de que un usuario se logueó,
+> directo a la pantalla de votaciones para que vote. Si `in_action` es false,
+> entonces no afecta a nadie: igual puede ir al menú y abrir la pantalla a la que
+> el front no lo mandó automáticamente.»
+
+O sea que **es un redirector, no un permiso**. Que `postStore()` no lo mire es
+correcto, y escribir «que no se vote si la elección no está en acción» —que es lo
+que sugería la versión anterior de este documento— **habría apagado la votación
+por el menú**, que es un camino legítimo.
+
+Por eso el test que lo fijaba se partió en dos: uno que dice que con `locked` se
+vota (fallo) y otro que dice que sin `in_action` se vota (**correcto, y fijado
+para que el arreglo del primero no se lo lleve por delante**).
+
+Es una lección sobre los nombres: `in_action` suena a candado, está al lado de
+`locked` en la misma tabla, y **el código que no lo comprueba tenía razón**. Sin
+preguntar, el arreglo «obvio» era el equivocado.
+
+### §2.2. Lo que sigue sin comprobar, y sí cuenta
+
+- **`locked`**, que es el candado de verdad — el fallo de esta sección.
+- **`vt_votos.locked`**: la consulta de `verificarNoVoto()` lo trae en el
+  `SELECT` y no lo usa; un voto marcado como bloqueado se sustituye igual.
+- **`fecha_inicio` y `fecha_fin`**: `VtVotacionesController` solo las escribe al
+  crear la votación. Nadie las lee para decidir nada.
+- Que quien vota esté en el censo (`vt_participantes`), y que el candidato
+  pertenezca a la votación que dice el cuerpo.
+
+Fijado por `test_con_el_candado_echado_se_sigue_votando`,
+`test_sin_estar_en_accion_se_vota_y_asi_debe_ser` y
 `test_un_voto_bloqueado_se_sustituye`.
 
 ---
@@ -295,31 +316,36 @@ Puede que sea lo que el colegio quiere —varias elecciones a la vez— o puede 
 no. Lo que no puede ser es que dependa de qué consulta se lea, así que **se
 contesta antes de tocar los interruptores**.
 
-### §5.4. Contestada la mitad — 21 ago 2026
+### §5.4. Contestada entera — 21 ago 2026, y la respuesta cambia el arreglo
 
-Joseth eligió **«una por profesor»**, o sea la lectura de `actual()` y
-`actualInAction()`: el dueño de una elección es quien la creó, y él la
-administra. Con eso, **acotar los seis interruptores de la §5 por dueño queda
-autorizado**: son «el que la creó la administra».
+Primero llegó, a través de otra sesión, que el dueño de una elección es **«una
+por profesor»**. Con eso, **acotar los seis interruptores de la §5 por dueño
+queda autorizado**: el que la creó la administra.
 
-> La respuesta llegó a través de otra sesión que trabajaba en paralelo, no
-> directamente, y se anota así a propósito. Antes de escribir el guard conviene
-> confirmarlo, porque decide quién deja de poder configurar una elección en los
-> dieciséis colegios.
+Después Joseth dio el contexto que faltaba, y es el que impide aplicar esa misma
+respuesta al otro lado:
 
-**Y la otra mitad sigue abierta, en las palabras de la propia respuesta:** cuál
-de las elecciones de los profesores le toca a un alumno **no se puede deducir de
-la base**. `actualesInscrito()` no filtra por dueño porque no hay por dónde
-filtrar: `vt_votaciones` no dice a qué alumnos alcanza una elección, solo
-`vt_participantes` dice quién vota, y eso es el censo, no la pertenencia.
+> «La idea inicial es que los profes pudieran hacer sus votaciones en el salón de
+> clase para elegir su representante del grupo, **pero no sé si finalicé eso**. Lo
+> importante es la votación que hace el colegio en general: cada alumno puede
+> votar, y al final un administrador imprime el resultado o lo exporta a Excel.»
 
-Así que **`actualesInscrito()` no se acota todavía**. Elegir ahí un criterio
-—los alumnos de sus asignaturas, los de su grupo como titular, o todo el
-colegio— es decidir por el colegio, no arreglar. La pregunta afinada, para
-cuando se haga:
+Eso explica de dónde salía la contradicción de esta sección. **No eran dos
+lecturas del mismo concepto: eran dos funciones, una terminada y otra no.**
+`actual()` y `actualInAction()` filtran por `user_id` porque son de la votación
+de aula —la que quedó a medias—, y `actualesInscrito()` no filtra porque es la
+del colegio, que es la que se usa.
 
-> ¿La elección de un profesor la votan sus alumnos de asignatura, los de su grupo
-> como titular, o todo el colegio?
+**Y por eso `actualesInscrito()` no se acota, y acotarla habría sido el error.**
+Filtrarla por dueño no habría «arreglado una incoherencia»: habría apagado la
+votación general, que es la única que funciona. La pregunta que este documento
+tenía escrita —*¿la elección de un profesor la votan sus alumnos de asignatura,
+los de su grupo como titular, o todo el colegio?*— **se retira**: no hay que
+contestarla para seguir, porque la función que la necesitaba nunca se terminó.
+
+Lo que queda de ella, que es distinto y menor: **decidir si la votación de aula
+se termina o se retira.** Hoy existe a medias —los interruptores la administran,
+`actual()` la lee— y no la usa nadie. Mientras siga así, no estorba.
 
 ---
 
@@ -335,15 +361,28 @@ La [05 §18](05-codigo-muerto-y-roto.md) ya lo decía leyendo el código. Aquí 
 fijado **por el resultado**, que es otra cosa: lo que se comprueba no es que la
 consulta lo pida, es que **llega al cliente**.
 
-**Se fija sin arreglar, y esta vez la razón es de fondo.** El voto secreto es una
-decisión del colegio y no del código: puede que la pantalla exista precisamente
-para auditar quién votó —hay colegios que lo quieren, y el nombre de la ruta,
-«votantes», apunta a eso— o puede ser un descuido que nadie ha mirado en años. Lo
-que no puede es no estar escrito.
+**Y ya no es una pregunta abierta: Joseth lo contestó el 21 de agosto de 2026.**
+
+> **«Las votaciones son secretas.»**
+
+Este documento llegó a plantearlo como decisión del colegio —«puede que la
+pantalla exista para auditar quién votó»— y **esa duda se cierra**: no existe
+para eso. Con la regla puesta, la §6 y la [§7.1](#71-get-votos-entrega-todos-con-quién-emitió-cada-uno)
+dejan de ser hallazgos que esperan criterio y pasan a ser **dos fugas del voto
+secreto**, una por una ruta que usa una pantalla y otra por una que no usa nadie.
+
+No se arreglan aquí porque el arreglo no es quitar la ruta: la pantalla del censo
+sirve para saber **quién ha votado ya** —que es legítimo y hace falta el día de
+la elección— y lo que sobra es **a quién votó**. Son columnas, no rutas: el
+`candidato_id` y el `blanco_aspiracion_id` de cada fila de `vt_votos`. Recortarlos
+deja la pantalla funcionando y cierra la fuga, que es la misma forma que el
+arreglo de la §1.
 
 Y conviene leerla junto a la §3: `verificarNoVoto()` manda el voto anterior a la
 papelera en vez de borrarlo, así que **el rastro de que alguien cambió su voto
-también existe**, aunque esta pantalla solo enseñe el último.
+también existe** —con `deleted_at` puesto, pero con su `user_id` y su
+`candidato_id` intactos—. Con el voto secreto confirmado, eso deja de ser una
+curiosidad: es la misma fuga en la papelera.
 
 ### §6.1. Y no comprueba que el grupo y la elección tengan que ver
 
@@ -419,19 +458,37 @@ alumno cuando no hay elección suya hay que saber antes **cuál es la suya**.
 
 ## Lo que queda de este dominio
 
-Las 26 rutas están miradas. Lo que queda no es cobertura sino decisiones, y son
-tres, en el orden en que se desbloquean:
+Las 26 rutas están miradas y **las tres preguntas que este documento tenía
+abiertas están contestadas** (21 ago 2026). Lo que queda es trabajo, no criterio:
 
-1. **¿Cuál de las elecciones de los profesores le toca a un alumno?** Es la §5.4
-   y no se puede deducir de la base. Desbloquea acotar `actualesInscrito()` y,
-   detrás, la §7.2.
-2. **¿El voto es secreto en este colegio?** Es la §6. Si lo es, se cierran las dos
-   rutas de la §6 y la §7.1; si no lo es, se documenta que la pantalla existe para
-   eso y se deja.
-3. **¿Se puede votar con la urna cerrada?** Es la §2, y su arreglo tiene el orden
-   invertido que avisa la §3: primero `in_action`/`locked` en `postStore()`,
-   después `verificarNoVoto()`. Al revés se enciende el fallo.
+**Con regla clara, listos para hacerse:**
 
-Y dos cosas medidas que no esperan decisión y se pueden hacer cuando se quiera:
-sacar la consulta de cargos del bucle (§6.2, 37 consultas donde va una) y acotar
-los seis interruptores por dueño (§5), que Joseth ya contestó.
+1. **`postStore()` tiene que leer `locked`** (§2). «Si está lock, nadie puede
+   votar», y hoy se vota. Es la comprobación que falta, no más.
+2. **Recortar el voto nominal de las dos rutas del censo** (§6, §7.1). Las
+   votaciones son secretas. No se quitan las rutas —saber *quién ha votado ya*
+   hace falta el día de la elección—: se quitan las columnas que dicen *a quién*,
+   incluidas las de la papelera.
+3. **Acotar los seis interruptores por dueño** (§5, §5.4). El que la creó la
+   administra.
+4. **Sacar la consulta de cargos del bucle** (§6.2): 37 consultas donde va una.
+
+**Con regla clara y orden que importa:**
+
+5. La §2 antes que la §3. `verificarNoVoto()` borra el voto anterior y **eso es
+   lo único que impide que votar con la urna abierta a destiempo infle el
+   recuento**. Arreglar el borrado primero enciende la §2 sin tocarla.
+
+**Y lo que NO se toca, que es la mitad del valor de esta lista:**
+
+- **`in_action` no se comprueba al votar, y así debe quedarse** (§2.1). Es un
+  redirector del front, no un candado. El arreglo «obvio» aquí era el
+  equivocado.
+- **`actualesInscrito()` no se acota por dueño** (§5.4). Acotarla apagaría la
+  votación general del colegio, que es la que funciona.
+- Los tres endpoints rotos de la §4 y la §7.2 siguen documentados y sin arreglar:
+  encenderlos cambia pantallas en los dieciséis colegios y eso es despliegue, no
+  código.
+
+Una cosa menor y de otro orden: **decidir si la votación de aula se termina o se
+retira** (§5.4). Existe a medias y no la usa nadie; mientras siga así, no estorba.
