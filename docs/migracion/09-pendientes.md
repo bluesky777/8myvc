@@ -292,7 +292,10 @@ el otro grupo *suyo*— y es la **tercera** vez que muerde después de la §16 y
    cerrado no se puede tocar la recuperación final, y eso se eligió a sabiendas.
 5. **Correr `php artisan anios:actuales` en los dieciséis**, antes de la copia de
    octubre. En desarrollo ya sale un aviso: el 2026 encendido en la papelera.
-6. **Confirmar los superusuarios de cada colegio**, con
+6. ~~**Confirmar los superusuarios de cada colegio**~~ — **contestado el 21 ago
+   2026: se queda.** Ni se apagan ni se sale a correr el comando ahora. Se deja
+   escrito porque el dato sigue siendo el mismo y el comando lo repite cada vez.
+   Con
    `php artisan usuarios:superusuarios` ([12 §15](12-larastan-nivel-7.md)). En la
    copia de desarrollo hay diez encendidos y **seis se llaman
    `algo(inhabilitado)`**: el colegio los dio por apagados renombrándolos, y lo
@@ -533,8 +536,8 @@ saber el tamaño real del daño en las dieciséis bases antes de tocar código.
 | La estructura de roles y permisos | [06 §4](06-autorizacion.md) | si los roles de la base se quedan y se pueblan, o se borran las cuatro tablas |
 | 9 rutas de catálogo sin guard | [08](08-revision-idor.md) | a quién se abren; no exponen a nadie, pero no están decididas. Vuelto a medir el 20 ago 2026 tras [05 §16](05-codigo-muerto-y-roto.md): 12 → 11 → 9. La que salió de la lista no se decidió, **se recategorizó**: `unidades/de-asignatura-periodo` no era una lectura, escribía |
 | `APP_DEBUG` en producción | [01](01-plan-seguridad.md) | comprobarlo colegio a colegio. `display_errors` de PHP está en Off, así que la mitad del riesgo ya está cubierta |
-| Los correos `username@myvc.com` autogenerados | [01](01-plan-seguridad.md) · [12 §9](12-larastan-nivel-7.md) | **Ya no es el reseteo cruzado**, que se cerró el 21 ago 2026 ([12 §10](12-larastan-nivel-7.md)). Lo que queda es qué son esas 29 direcciones: el generador pega el username delante del dominio del **proveedor**, así que no es un buzón de la familia, y cuatro ni siquiera son direcciones válidas porque el nombre lleva tilde. Decidir si se generan, y con qué |
-| **Ocho cuentas que compartían correo se quedaron sin recuperación** | [12 §13](12-larastan-nivel-7.md) | consecuencia medida del arreglo anterior: de un correo compartido, el enlace se emite para la cuenta de **id más bajo** y las demás no pueden pedirlo. Tres opciones escritas allí; la del medio —que `postRecuperarClave` acepte un `username` para elegir dentro del grupo— **no reabre el agujero**, pero no hace nada hasta que `myvc_front` y la app de Flutter lo manden |
+| Los correos `username@myvc.com` autogenerados | [01](01-plan-seguridad.md) · [12 §9](12-larastan-nivel-7.md) | **Ya no es el reseteo cruzado**, que se cerró el 21 ago 2026 ([12 §10](12-larastan-nivel-7.md)). Lo que queda es qué son esas 29 direcciones: el generador pega el username delante del dominio del **proveedor**, así que no es un buzón de la familia, y cuatro ni siquiera son direcciones válidas porque el nombre lleva tilde. **Contestado el 21 ago 2026: se queda como está** — ni se repara la tilde ni se deja de generar. El número ya está medido para el día que se toque |
+| **Ocho cuentas que compartían correo se quedaron sin recuperación** | [12 §13](12-larastan-nivel-7.md) | consecuencia medida del arreglo anterior: de un correo compartido, el enlace se emite para la cuenta de **id más bajo** y las demás no pueden pedirlo. Tres opciones escritas allí; la del medio —que `postRecuperarClave` acepte un `username` para elegir dentro del grupo— **no reabre el agujero**, pero no hace nada hasta que `myvc_front` y la app de Flutter lo manden. **Contestado el 21 ago 2026: se deja como está**, dependen del reseteo a mano igual que las otras 2.112 |
 | `GET api/contratos` manda el expediente y el cliente solo quiere el nombre | [05 §14.4](05-codigo-muerto-y-roto.md) | qué columnas se recortan. Lo llama la app de Flutter desde pantallas de familia, así que el cambio entra en los dieciséis colegios a la vez |
 | `GET api/perfiles/usernames` devuelve los 2.351 usuarios del colegio | [05 §14.4](05-codigo-muerto-y-roto.md) | apuntar `UserConfiguracionCtrl` a `comprobarusername/{username}`, que ya existe, **y desplegar el front antes** de cerrar la ruta |
 | `GET api/perfiles/username/{username}` no comprueba que el usuario sea el tuyo | [05 §14.4](05-codigo-muerto-y-roto.md) | si `ExigirPersonaPropia` aprende a resolver un nombre de usuario, o si la ruta deja de aceptar parámetro y lo saca del token |

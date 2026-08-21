@@ -549,7 +549,12 @@ recuperar, y `ResetCorreoCompartidoTest` comprueba en el endpoint que el token s
 emite para la primera. Si alguien cambia eso, lo segundo se pone rojo con el
 mensaje escrito: *se decidió algo y hay que contarlo*.
 
-### La decisión, que no es mía
+### La decisión, que no es mía — **contestada el 21 ago 2026**
+
+> **«Dejarlo como está.»** Las ocho dependen del reseteo a mano del superusuario,
+> igual que las otras 2.112, y `usuarios:correos-compartidos` lo dice en voz alta
+> cada vez que se corre. No se re-litiga: si algún día molesta, las tres opciones
+> siguen aquí abajo con lo que cuesta cada una.
 
 Devolverle el enlace a esas ocho cuentas se puede, y no reabre nada — pero es una
 decisión y toca a los cuatro clientes:
@@ -679,12 +684,31 @@ identificador acaba en sitios que **no** son MySQL — el correo autogenerado
 creados, los mutilados son **cero**, los que llevan tilde **no necesitan nada**, y
 el único roto es el vacío de 2019 — una fila, y ahora sin sucesores.
 
+> **Decidido por Joseth el 21 ago 2026, dos cosas:**
+>
+> - **Los usernames ya creados no se tocan**, incluidos los `SamuelSamuel12345`
+>   que dejó el sufijo acumulado. Entran sin problema con lo que tienen, y
+>   renombrarlos es cambiarle el usuario a alguien que hoy usa el suyo y avisarle
+>   uno a uno. El generador arreglado solo afecta a los que nazcan a partir de
+>   ahora, así que un colegio puede acabar con las dos formas conviviendo — y eso
+>   está aceptado a sabiendas.
+> - **El generador de correos `username@myvc.com` se queda como está.** No se
+>   repara la tilde ni se deja de generar. Lo que se sabe de esas 29 direcciones
+>   —dominio del proveedor, cuatro inválidas, ninguna la lee su dueño— queda
+>   escrito en la §9 y en la lista de decisiones; el día que se toque, el número
+>   ya está.
+
 
 ## §15. Los diez superusuarios no son diez personas: seis dicen en su nombre que están inhabilitados
 
 **Medido el 21 ago 2026. `php artisan usuarios:superusuarios`, y lo fija
 `tests/Contrato/SuperusuariosTest.php`. No se arregla desde aquí: apagar la
 cuenta de alguien es del colegio.**
+
+> **Decidido por Joseth el 21 ago 2026: se queda.** Ni se apagan ni se sale a
+> correr el comando en los dieciséis ahora mismo. Queda medido, con su test, y el
+> comando lo vuelve a decir cada vez que alguien lo ejecute — que es lo que
+> convierte esto en un dato disponible en vez de en un hallazgo perdido.
 
 Salió de comprobar una frase que yo mismo acababa de escribir mal —«los 63
 huérfanos son los del generador roto»— y de ir a mirarlos uno a uno en vez de
