@@ -243,6 +243,23 @@ nada. La única comprobación real que se le pide —`can_edit_usuarios`— la c
 un rol sin usuarios, así que en la práctica siempre gana el `is_superuser` de la
 línea de arriba.
 
+**Y hay una consecuencia de esto que no se había visto, medida el 20 ago 2026:**
+once sitios del código preguntan por un «Secretario» que esta tabla no tiene.
+Ocho lo hacen con `Role::isSecretario()` —incluido `Autoriza::esAdministrativo`,
+de donde cuelgan las papeleras en cascada— y tres con
+`$this->user->tipo == 'Secretario'`, que además no puede ser cierto nunca porque
+`tipo` solo toma los cuatro valores del `switch` del contexto. No es una rama
+muerta más: en `AcudientesController` deja a un administrativo **sin poder crear
+acudientes**, que es lo contrario de lo que la línea pretendía decir. Está entero
+en [05 §30.2](05-codigo-muerto-y-roto.md), y es lo primero que contesta esta
+decisión cuando se tome.
+
+Y el dato que la hace más fácil: los diez usuarios del rol `Admin` son
+**exactamente** los diez con `is_superuser`, fila por fila
+([05 §26.1](05-codigo-muerto-y-roto.md)). O sea que hoy los dos sistemas dicen lo
+mismo con palabras distintas, y por eso se puede elegir sin romper nada — pero solo
+hoy.
+
 ### Qué habría que decidir
 
 1. **Un solo sitio donde se diga quién puede qué.** Hoy hay tres criterios
