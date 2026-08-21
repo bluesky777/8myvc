@@ -2895,3 +2895,45 @@ Merece la pena porque las dos se pueden volver a creer:
   sus hermanas. Lo que la defiende es la condición de dentro, que responde **400**
   y no 403. No es un fallo —una familia no pasa— pero es una respuesta distinta
   para la misma pregunta según la ruta, y ahora está fijada.
+
+---
+
+## 33. Dos cosas que parecían fallos y no lo eran (21 ago 2026)
+
+Cubrir `AsignaturasController` —5 de 14 rutas comprobadas— no dio ningún fallo, y
+las dos veces que lo pareció fue por leer en vez de ejecutar. Se dejan escritas
+porque las dos se pueden volver a creer.
+
+### 33.1 Marcadores nombrados con ataduras posicionales
+
+`putToggleDia` monta la consulta con `:valor`, `:modificador`, `:fecha` y
+`:asignatura_id`, y le pasa un array **posicional**:
+
+```php
+DB::update($consulta, [$valor, $user->user_id, $now, $asignatura_id]);
+```
+
+Leído, eso es un `HY093 Invalid parameter number`. Ejecutado, funciona: PDO liga
+por posición. Está fijado por test —los cinco días, encendiendo y apagando— para
+que si alguna versión deja de tolerarlo se note aquí y no en el horario de un
+colegio.
+
+### 33.2 `ColumnaSegura` no limita a los días
+
+La misma ruta se llama `toggle-dia` y su comprobación es
+`ColumnaSegura::exigir('asignaturas', $dia)`, que acepta **cualquier columna que
+exista en la tabla**. O sea que por ahí se escribe `profesor_id`, `materia_id` o
+`creditos`.
+
+**No es un agujero**: lleva `auth.personal`, y quien pasa ese guard ya puede
+escribir esas columnas por `asignaturas/update/{id}`. Pero el nombre promete otra
+cosa, y el día que alguien apoye un permiso en «esta ruta solo toca el horario» se
+llevará una sorpresa. El test fija las dos mitades: que una columna real que no es
+un día entra igual, y que un nombre que no es columna no llega a la consulta —que
+es lo que `ColumnaSegura` sí hace, y hace bien—.
+
+Y una tercera, ésta sí del comportamiento: **`asignaturas/copiar` llamado dos
+veces duplica**. Inserta una fila por asignatura del origen sin mirar lo que ya hay
+en el destino. Queda fijado, no arreglado: quien copia sobre un grupo que ya tiene
+asignaturas está pidiendo algo que el endpoint no sabe resolver, y decidir qué
+debería pasar —saltar, reemplazar, fallar— es del colegio.
