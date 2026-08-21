@@ -619,3 +619,33 @@ Lo que sí queda hecho es escribirlo en la cabecera de la herramienta, para que 
 que la corra sepa qué **no** está mirando. Y la regla que se lleva: **subir la
 cobertura no solo encuentra fallos, también amplía lo que las demás herramientas
 pueden ver.** Las dos series no son independientes.
+
+
+---
+
+## El paso 3 sigue apagado, y ahora por una razón distinta — 21 ago 2026
+
+Se le preguntó a Joseth si encender `CONSULTAS_LENTAS_MS` en producción, que es
+lo que desbloquea crear índices con fundamento y bajar el `max_execution_time`
+de 300 s. La respuesta cambia el marco y por eso se escribe aquí:
+
+> **«Quiero refactorizar o hacer de nuevo ese importador de alumnos después, con
+> tu ayuda, cuando terminemos la migración.»**
+
+O sea que el importador —que es el motivo por el que `max_execution_time` está en
+300 s— **no se va a optimizar: se va a rehacer**. Y medir lo que tarda hoy un
+código que va a desaparecer no vale la pena. Lo que queda dicho:
+
+- **`CONSULTAS_LENTAS_MS` se queda apagado**, y no por precaución sino porque la
+  pregunta que iba a contestar ya tiene otra respuesta.
+- **El índice de `bitacoras` de la sección anterior sigue sin crearse**, por lo
+  mismo de siempre: sin números de producción es adivinar. Queda escrito el
+  `EXPLAIN` para el día que haga falta.
+- **La importación reanudable de la [§1 de 09-pendientes](09-pendientes.md) no se
+  toca.** Es de ayer y funciona; lo que se rehará es el importador que hay debajo,
+  y la tabla `importaciones` seguirá contando lo mismo con el código nuevo.
+- Cuando llegue ese momento, lo que **sí** hay que traer a la mesa es lo que ya
+  está medido: los 300 s de cPanel, los 768M de `memory_limit`, la transacción
+  por fila que evita reprocesar, la idempotencia por documento y la huella sha256
+  del contenido. Todo eso está en la §1 de `09-pendientes.md` y no hay que volver
+  a averiguarlo.
