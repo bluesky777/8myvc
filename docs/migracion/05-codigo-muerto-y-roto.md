@@ -5345,3 +5345,176 @@ Los otros casos de estos dos días eran un verde que fijaba lo que había. Éste
 **una revisión explícita dada por cerrada mirando una sola rama**, y es el más
 fuerte de los cinco: obliga a leer «se revisó entero» como **«se revisó la rama
 que abrí»**.
+
+
+---
+
+## 56. Los doce sitios de concatenación del dominio de cuentas: ninguno inyectable (22 ago 2026)
+
+El barrido de la [§59](#59-el-barrido-de-la-concatenación-cruda-cuarenta-sitios-dos-fallos)
+sacó cuarenta sitios, y el bloque más grande caía en el dominio de credenciales:
+nueve en `UsersController`, dos en `LoginController` y uno en
+`ProfesoresController`. Se leyeron los doce, uno a uno. **Ninguno es
+inyectable**, y eso es el resultado — no la ausencia de uno.
+
+Se escribe porque el dominio pesa: de ahí salieron la [§26.1](#261),
+la [§29](#29), la [§29.3](#293) y la [§30](#30). Un «no hay nada» sin el porqué
+de cada sitio se vuelve a mirar dentro de tres meses.
+
+- **Los nueve de `UsersController`** están en `postCrearAdministrador`,
+  `postCrearPsicologo` y `postCrearEnfermero`, que son copia literal uno de otro.
+  Lo concatenado es siempre lo mismo y **nada sale del usuario**: `$username`
+  generado con `'usuario'.rand(100, 9999)`, `Hash::make('123456')` —bcrypt de una
+  constante, y su salida no lleva comillas—, `Carbon::now()` y el
+  `lastInsertId()`. El único valor que viene del token va **ligado**, y es esa
+  mezcla la que hace que el sitio parezca sospechoso en un grep.
+- **`LoginController` 251 y 265 ni siquiera son SQL**: una arma la URL del correo
+  de reseteo y la otra un `Log::error`. Las dos consultas de verdad de ese trozo
+  van con `?`. Se leyeron línea a línea igualmente, por ser superficie pre-login.
+- **`ProfesoresController:237` es el único con la forma mala** —`'UPDATE users
+  SET '.$propiedad` con `$propiedad` del cuerpo— y lo salva estar dentro de
+  `if(Request::input('propiedad') == 'is_active')`. Es **correcto por el guard, no
+  por el código**: el día que esa línea salga del `if`, es inyección de nombre de
+  columna. No se toca —cambiar código que funciona no era el trabajo de esa
+  noche— pero ahora lo dice un comentario, que antes no.
+
+**La lección es la de la [§52](#52) otra vez, y ya van cinco recuentos del mismo
+patrón**: un detector da una lista de sitios donde mirar, nunca una lista de
+fallos. Lo que sí salió de leerlos es una señal mejor, y está en la
+[§60](#60): no la concatenación a secas, sino **la asimetría** —dos consultas
+hermanas del mismo método, una liga y la otra no—.
+
+---
+
+## 57. `POST api/asistencias-app`, que no puede funcionar y no la llama nadie (22 ago 2026)
+
+Dos fallos en el mismo método, `AsistenciasAppController::postIndex`:
+
+1. La consulta de inserción lleva `:asignatura_id` y **el array de datos no lo
+   incluye**, así que PDO revienta antes de insertar.
+2. Y si llegara a pasar, la línea siguiente hace `$datos->id = $id` sobre un
+   **array**, que en PHP 8.4 es un `Error`.
+
+O sea: 500 siempre, sin escribir nada.
+
+**Lo primero que se pensó de esto era falso, y por eso se escribe.** El
+controlador vive en `app/Http/Controllers/AppMobile/`, así que se dio por hecho
+que era una ruta de `myvc_flutter` —la app única de los dieciséis colegios— y
+que el fallo era de producción. No lo es. La sesión que llevaba el árbol del
+front enumeró las **34 rutas** que arma el Flutter, incluidas **las cuatro que se
+construyen con variable**, que es donde un `grep` de cadenas se pierde: no hay
+ninguna llamada a `asistencias-app`, ni al `POST` ni a las otras cuatro.
+
+Lo que el Flutter sí usa es **otro controlador con nombres de método idénticos**,
+y conviene que quede fijado porque el parecido es lo que engaña:
+
+| lo que manda `myvc_flutter` | quién lo sirve |
+|---|---|
+| `PUT api/asistencias/detailed` | `AsistenciasController@putDetailed` |
+| `POST api/ausencias/store` y las tres de `agregar-*` | `AusenciasController` |
+
+`asistencias/detailed` y `asistencias-app/detailed` **no son la misma ruta**.
+
+Se deja roto, con la regla de siempre —con ruta y roto se documenta— y con un
+argumento que aporta el lado del front y es mejor que el de aquí: **los dos
+fallos son la especificación de lo que esa pantalla pretendía hacer**. Borrar la
+ruta convierte el 500 en un 404 y esa intención se pierde, y estas cinco son las
+que un cliente móvil futuro volvería a necesitar.
+
+**Lo que queda sin comprobar, dicho como tal**: que hoy nadie la llame no
+significa que nunca la llamara. `myvc_flutter` se actualiza por tienda, y la
+versión instalada en un móvil no tiene por qué ser la del repositorio. Eso no lo
+puede contestar el código: solo el log de alguno de los dieciséis, buscando
+`POST /api/asistencias-app` con 500.
+
+---
+
+## 60. La casilla del SISBEN de la hoja de importación entraba en el SQL sin ligar (22 ago 2026)
+
+`ImporterFixer::verificar()` arma un trozo de SQL —`$cons`— que
+`ImportarController` mete **dentro de la lista SET** de un `UPDATE alumnos` que
+sí se ejecuta. Casi todo lo que concatena ahí sale de la base, pero
+`nro_sisben` y `nro_sisben_3` salían de **la casilla de la hoja que sube el
+usuario**:
+
+    ImporterFixer:106   $cons .= ', has_sisben=1, nro_sisben='.$alumno["sisben"];
+    ImporterFixer:113   $cons .= ', has_sisben_3=1, nro_sisben_3='.$alumno["sisben_3"];
+    ImportarController:186   'UPDATE alumnos SET …, updated_at=?'.$res['consulta'].' WHERE id=?'
+
+Alcanzable por `POST api/importar/algo/{year}`, que es `auth.personal`: el mismo
+grupo del que salieron la §26.1 y la §30. Con `1, nombres='X'` en la casilla se
+escribe **cualquier columna de `alumnos`** de la fila que se importa, `user_id`
+incluida —que es apuntar la ficha de un alumno a la cuenta de otro— y admite
+subconsulta, que deja el dato robado dentro de una columna que el front enseña.
+
+**Por qué no se había visto nunca, y esto es lo que hay que llevarse**: el
+intento ingenuo lleva `--`, que comenta el `WHERE id=?` final y deja **una marca
+de menos frente a las vinculaciones**, así que PDO revienta y lo que se ve parece
+una hoja mal formada. El que entra es el que **respeta el número de marcas**. Una
+vulnerabilidad que castiga el ataque torpe y premia el cuidadoso sobrevive años.
+
+### 60.1 El arreglo barato se llevaba cuatro columnas por delante
+
+La consulta de `procesarFila` **ya liga `nro_sisben=?`**, así que la
+concatenación parecía una segunda asignación redundante y el arreglo parecía ser
+borrarla. Medido con `grep` sobre `app/` entero, no lo era:
+
+- `has_sisben`, `has_sisben_3` y `nro_sisben_3` **no las escribe nadie más en
+  todo `app/`**;
+- `nro_sisben` solo va ligada por esa ruta —la consulta de `getModificar` no la
+  lleva—;
+- y la rama del «no aplica» escribe `nro_sisben=null` **pisando a propósito** al
+  `?` que se ligó antes, porque va después en el SET.
+
+El arreglo bueno es que el fragmento lleve **marcas y sus valores aparte**, y que
+los dos llamantes los fusionen en el orden en que el fragmento entra en la
+consulta.
+
+`getModificar` quedó ligado igual **aunque no llegue nunca al fixer**: muere
+antes en `Excel::import()` con la firma de maatwebsite 2.x, que es la
+[§13.3](#133-el-cuarto-importador-con-la-firma-de-maatwebsite-2x). Un fragmento
+que solo es seguro porque su llamante está muerto es una trampa esperando a que
+alguien lo reviva.
+
+### 60.2 Revertir al código original no basta: hay que revertir también al atajo
+
+Lo fija `tests/Contrato/ImportarSisbenTest.php`, cinco casos. Y comprobar al
+revés **una sola vez daba una respuesta falsa**:
+
+| se revierte a… | caen |
+|---|---|
+| el código original | **1** de 5 |
+| el arreglo barato | **4** de 5 |
+
+Revertir el arreglo bueno tumba solo el de la inyección, y es correcto: el
+arreglo bueno **no cambia lo que se escribe**, solo cómo llega. Los otros cuatro
+no miden ese arreglo — miden **la regresión que el atajo habría causado**. Con
+una sola reversión se habrían leído como cuatro tests que no miden nada, y se
+habrían borrado.
+
+**De ahí sale la adición a la regla de la [§45](#45)**: no basta revertir lo que
+cambió el comportamiento; hay que revertir también **a la solución equivocada que
+parecía buena**. Es lo único que demuestra que los tests distinguen el arreglo
+del atajo.
+
+Y la segunda reversión destapó **un verde hueco** que leer el test no destapó:
+los dos casos de «no aplica» pasaban sin medir nada porque la columna ya llegaba
+vacía del seed. Ahora plantan el valor antes de importar. **Van ocho** con el
+seed vacío.
+
+### 60.3 «Viene de la base» dejó de ser un motivo
+
+Las tres concatenaciones de `ciudades` de las líneas 77-90 del mismo método sí
+aguantan, pero **no por lo que se pensó primero**. Después de la inyección de
+segundo orden de la [§61](#61) hubo que mirar quién escribe esa tabla, y resulta
+que **la escribe el cuerpo**: `CiudadesController::postGuardarCiudad` hace
+`$ciudad->ciudad = Request::input('ciudad')`, y la columna es `varchar(255)`.
+
+Lo que las salva es que lo concatenado es **`->id`, entero autoincremental**, y
+no `->ciudad`. Está escrito al lado, con la ruta que escribe la columna de texto
+nombrada: si algún día se concatena el nombre en vez del id, eso es inyección.
+
+Y por el otro lado: **ningún otro sumidero concatena `nro_sisben`**. Los cinco
+sitios que la nombran —`Matricula:92`, `AlumnosController:488` y `:521`,
+`PlanillasController:319`, `ActasEvaluacionController:102`— la llevan como
+nombre de columna en un `SELECT`, y `OperacionesAlumnos` solo copia el valor.
