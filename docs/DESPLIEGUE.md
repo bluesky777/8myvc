@@ -55,16 +55,57 @@ done
 Repítelo en la otra cuenta de cPanel (`lalvirtual.edu.co`) con su propia ruta:
 es otro login, así que el `for` no la alcanza.
 
+### Los dieciséis de `micolev1`, y el que no entra
+
+Leídos del servidor el 21 ago 2026, con el bucle de arriba. Los cinco que
+**comparten `vendor/`** por symlink con `/home/micolev1/laravel_compartido` van
+primero, porque son los únicos que no se pueden escalonar el día que haya que
+tocar dependencias:
+
+```
+coal   colbosque   comad-san-andres   eal   maranathaarauca
+```
+
+Y los once de `vendor/` propio:
+
+```
+amiguitosdejesus   bethelexplora   cads-itagui   casb-medellin   caz-zaragoza
+coabsaravena       coljordan       fortul        inseaq          instival
+semillitasdedios
+```
+
+La ruta de cada uno es `/home/micolev1/<nombre>.micolevirtual.com/8myvc`. El
+colegio es **`eal`**: el inventario viejo lo escribía así en un sitio y `lal` en
+otros tres, y el bucle del 21 ago zanjó cuál de los dos existe aquí — `lal` está
+en la otra cuenta.
+
+> **`instival` no se despliega con este bucle y hay que mirarlo aparte.** El 21
+> ago contestó `fatal: not a git repository` y, lo que es peor, `Could not open
+> input file: artisan` cinco veces: en esa carpeta no hay ni repositorio ni
+> aplicación. O sea que **no recibe ni código ni migraciones**, y se queda con lo
+> que tuviera — arreglos de autorización incluidos. Ya salía como caso raro en el
+> inventario del 18 ago («no es un repositorio git»), y el cierre del 19 que dio
+> los 16 por desplegados **no lo comprobó**. Es el único colegio del que no se
+> sabe qué está sirviendo.
+
 ---
 
 ## 2. Comprobar
 
 ```bash
 for d in /home/micolev1/*.micolevirtual.com/8myvc; do
-  printf '%-46s ' "$d"; cd "$d" || continue
-  php artisan migrate:status | grep -cE 'Ran.*(rol_secretario|password_reminders|frases_preescolar)'
-done                                              # tiene que decir 3 en todos
+  printf '%-52s ' "$d"
+  git -C "$d" log -1 --format='%h ' 2>/dev/null || { echo 'NO ES REPO GIT'; continue; }
+  (cd "$d" && php artisan migrate:status 2>/dev/null \
+     | grep -cE 'Ran.*(rol_secretario|password_reminders|frases_preescolar)')
+done            # el mismo commit en todos, y un 3 detrás
 ```
+
+**Mira el commit, no solo el 3.** «Already up to date» significa que ese colegio ya
+estaba donde apunta **su** remoto, que no tiene por qué ser el `origin/main` que
+acabas de actualizar: el 21 ago los dieciséis dijeron «Already up to date» minutos
+después de un `push`, y eso solo se distingue de un despliegue bueno mirando el
+hash. Si no coincide, `git -C "$d" remote -v` y `git -C "$d" branch -vv`.
 
 Y a mano, en el navegador de un colegio cualquiera: **login de personal, login de
 alumno y recuperar contraseña**. Los tres tocan lo que cambió.
