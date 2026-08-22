@@ -2635,6 +2635,72 @@ filas que el seed no trae—, y de los cinco salieron cuatro cosas que arreglar.
 Que no los mirara nadie y que no los mirara ninguna herramienta era la misma
 frase dicha dos veces.
 
+### 27.4 El candado es por (año, periodo), no por número de periodo (21 ago 2026)
+
+Lo dijo Joseth al terminar el arreglo, y es la frase que le faltaba a toda esta
+sección: **cada año tiene sus propios periodos con su propio interruptor.** El
+periodo 1 del año pasado puede estar bloqueado y el 1 de este año abierto. O sea
+que «el periodo 1» no identifica nada: el par (año, periodo) sí.
+
+Se fue a comprobar si el arreglo del 21 ago aguantaba esa frase, y **aguanta por
+donde importa**: `aplicarBanderasDelPeriodo()` lee el periodo **por id**
+—`WHERE id IN (...)`, sin filtrar año—, y el id lo saca `PeriodoDeLaFila` de la
+propia fila que se escribe. Un id de periodo ya lleva el año dentro. Los dos
+sitios que sí traducen un número a un periodo —`porNumero()` y el camino viejo de
+`num_periodo`— lo hacen **dentro de `$user->year_id`**, que es lo correcto porque
+los dos existen para filas que se están creando en el año en curso.
+
+Al comprobarlo aparecieron dos preguntas que nadie había hecho, y las dos se le
+hicieron con lo medido delante. **Las dos se contestaron «se queda como está»**, y
+por eso lo que hay aquí no es un arreglo sino dos tests.
+
+#### La primera: escribir en un año que ya no es el actual
+
+Hoy, si el colegio dejó abierto el periodo 1 de 2024, un profesor puede seguir
+corrigiendo unidades, notas y definitivas de 2024 aunque el colegio esté en 2025
+—porque el candado mira la fila, y la fila dice «periodo 1 de 2024, abierto»—.
+La alternativa era exigir además `years.actual`.
+
+**Joseth: manda solo el interruptor.** Un colegio cierra un año pasado bloqueando
+sus periodos, que es la herramienta que ya tiene; si dejó uno abierto es porque
+quiere poder corregir ahí. Añadir `years.actual` habría apagado las correcciones
+de enero en los dieciséis colegios.
+
+Y por eso hay test, que es lo único que hacía falta escribir en código:
+`test_un_periodo_abierto_de_un_ano_pasado_deja_escribir_...` en
+`PeriodoDeLaFilaTest`. **Es exactamente el «arreglo» que una sesión futura haría
+sin preguntar** —un `years.actual` al lado del interruptor parece prudencia—, y
+ahora falla si alguien lo intenta. Comprobado al revés poniéndolo de verdad: cae
+**uno solo**, y es ése; su simétrico —el mismo periodo del año pasado cerrado no
+deja— sigue en rojo como debe.
+
+#### La segunda: la nivelación de otro año
+
+`recuperacion_final` **no tiene `periodo_id`** —guarda alumno, asignatura, `year`
+y nota— y por eso su permiso se pide con `todosLosDelAnio($user)`, los periodos
+del año **del usuario**. Con un `rf_id` de otro año, el candado que se comprueba
+no es el de esa fila: **con 2024 cerrado y 2025 abierto, se toca 2024.** Es el
+único sitio donde la frase de arriba no se cumple, y es de esquema: el `year` de
+esa tabla es el **número** (2024), no el id, así que llegar a sus periodos exige
+pasar por `years`.
+
+**Joseth: se queda como está.** El front manda `{rf_id, nota}` desde la pantalla
+del año en curso —medido en la §27.1.1—, así que ninguna pantalla llega aquí con
+un `rf_id` viejo. El hueco existe y no lo usa nadie.
+
+Queda fijado por `test_la_nivelacion_de_otro_ano_la_gobierna_el_ano_en_curso`, en
+la forma que ya usó `UniformesTest` antes de la §27.1.1: **el día que se decida
+cerrarlo, ese test falla, y ése es su trabajo** — obliga a venir a leer por qué se
+dejó abierto antes de cambiarlo.
+
+#### Lo que se vio al pasar y no se tocó
+
+`unidades/update/{id}` **no comprueba de quién es la unidad**: el único candado
+que tiene es el del periodo, así que un profesor puede reescribir la definición y
+el porcentaje de una unidad de la asignatura de otro profesor con solo saber su
+id. Es la misma forma que la §16.6 y no se toca aquí porque no es la pregunta que
+se estaba contestando; va a la lista de la cobertura.
+
 ---
 
 ## 28. Cuál es el año actual del colegio (20 ago 2026)

@@ -269,4 +269,169 @@ class PeriodoDeLaFilaTest extends CasoDeContrato
         $this->assertEquals(1,
             DB::table('recuperacion_final')->where('id', $rf->id)->value('nota'));
     }
+
+    /**
+     * El año del profesor entero cerrado, sin dejar ninguno abierto.
+     *
+     * `escenario()` deja uno abierto a propósito, porque lo que mide es «nombrar
+     * el abierto no abre el cerrado». Aquí hace falta lo contrario: que en el año
+     * en curso no quede nada abierto, para que un 200 solo pueda venir del año de
+     * la fila y no del del usuario.
+     */
+    private function escenarioConElAnioEnCursoCerrado(): object
+    {
+        $prof = $this->usuarioDeTipo('Profesor');
+        $token = $this->tokenDe($prof->username);
+
+        $suyo = DB::selectOne('SELECT p.id, p.numero, p.year_id FROM periodos p
+            INNER JOIN users u ON u.periodo_id = p.id WHERE u.id = ?', [$prof->id]);
+
+        $this->assertNotNull($suyo, 'El profesor del seed se quedó sin periodo al entrar.');
+
+        DB::table('periodos')->where('year_id', $suyo->year_id)
+            ->update(['profes_pueden_editar_notas' => 0, 'profes_pueden_nivelar' => 0]);
+
+        return (object) ['token' => $token, 'year_id' => (int) $suyo->year_id];
+    }
+
+    /** Una unidad viva de otro año, con su periodo. El seed tiene 166 en 2024. */
+    private function unidadDeOtroAnio(int $yearIdEnCurso): ?object
+    {
+        return DB::selectOne('SELECT u.id, u.definicion, u.porcentaje, p.id AS periodo_id, y.year
+            FROM unidades u
+            INNER JOIN periodos p ON p.id = u.periodo_id AND p.deleted_at IS NULL
+            INNER JOIN years y ON y.id = p.year_id AND y.deleted_at IS NULL
+            WHERE p.year_id <> ? AND u.deleted_at IS NULL ORDER BY u.id LIMIT 1', [$yearIdEnCurso]);
+    }
+
+    /**
+     * El candado es por (año, periodo) y no mira si el año es el actual.
+     *
+     * Cada año tiene sus cuatro periodos con su propio interruptor: el 1 de un
+     * año puede estar bloqueado y el 1 del siguiente abierto. Como
+     * `aplicarBanderasDelPeriodo()` lee el periodo **por id** y no por número,
+     * eso ya funciona — este test lo fija.
+     *
+     * Se le preguntó derecho a Joseth el 21 ago 2026 si era lo que quería, con la
+     * alternativa de exigir además `years.actual`, y contestó que **manda solo el
+     * interruptor**: un colegio cierra un año pasado bloqueando sus periodos, que
+     * es la herramienta que ya tiene, y si dejó uno abierto es porque quiere
+     * poder corregir ahí.
+     *
+     * Por eso existe este test y no solo el párrafo: añadir un `years.actual` al
+     * lado del interruptor parece prudencia y apagaría las correcciones de enero
+     * en los dieciséis colegios. Ver 05 §27.3.
+     */
+    public function test_un_periodo_abierto_de_un_ano_pasado_deja_escribir_aunque_el_ano_en_curso_este_cerrado(): void
+    {
+        $e = $this->escenarioConElAnioEnCursoCerrado();
+        $unidad = $this->unidadDeOtroAnio($e->year_id);
+
+        if ($unidad === null) {
+            $this->markTestSkipped('El seed no tiene unidades fuera del año en curso.');
+        }
+
+        DB::table('periodos')->where('id', $unidad->periodo_id)
+            ->update(['profes_pueden_editar_notas' => 1]);
+
+        $this->withToken($e->token)->putJson('/api/unidades/update/'.$unidad->id, [
+            'definicion' => 'corregida en un año pasado',
+            'porcentaje' => $unidad->porcentaje,
+        ])->assertStatus(200);
+
+        $this->assertSame('corregida en un año pasado',
+            DB::table('unidades')->where('id', $unidad->id)->value('definicion'),
+            'El periodo abierto del año pasado no dejó escribir, y debía.');
+    }
+
+    /**
+     * La otra mitad, y es la que hace que la de arriba mida algo.
+     *
+     * Mismo profesor, misma unidad de un año pasado, y lo único que cambia es el
+     * interruptor de **ese** periodo. Sin este caso, el de arriba pasaría también
+     * si el candado no mirara nada.
+     */
+    public function test_y_ese_mismo_periodo_del_ano_pasado_cerrado_no_deja(): void
+    {
+        $e = $this->escenarioConElAnioEnCursoCerrado();
+        $unidad = $this->unidadDeOtroAnio($e->year_id);
+
+        if ($unidad === null) {
+            $this->markTestSkipped('El seed no tiene unidades fuera del año en curso.');
+        }
+
+        DB::table('periodos')->where('id', $unidad->periodo_id)
+            ->update(['profes_pueden_editar_notas' => 0]);
+
+        $this->withToken($e->token)->putJson('/api/unidades/update/'.$unidad->id, [
+            'definicion' => 'corregida en un año pasado',
+            'porcentaje' => $unidad->porcentaje,
+        ])->assertStatus(400);
+
+        $this->assertSame($unidad->definicion,
+            DB::table('unidades')->where('id', $unidad->id)->value('definicion'));
+    }
+
+    /**
+     * La nivelación de otro año se gobierna con el candado del año EN CURSO, y
+     * eso se queda así.
+     *
+     * `recuperacion_final` no tiene `periodo_id` —guarda alumno, asignatura,
+     * `year` y nota—, así que `todosLosDelAnio($user)` pide los periodos del año
+     * del usuario. Con una fila de otro año, el permiso que se comprueba no es el
+     * de esa fila: con 2024 cerrado y el año en curso abierto, se toca 2024.
+     *
+     * Preguntado a Joseth el 21 ago 2026 junto con la de arriba, y contestó
+     * **dejarlo como está**: el front manda `{rf_id, nota}` desde la pantalla del
+     * año en curso, así que ninguna pantalla llega aquí con un `rf_id` viejo.
+     *
+     * Este test fija el hueco a propósito, como el de `UniformesTest` antes de la
+     * §27.1.1: **el día que se decida cerrarlo, este test falla, y ése es su
+     * trabajo** — obliga a venir a leer por qué se dejó abierto antes de cambiarlo.
+     */
+    public function test_la_nivelacion_de_otro_ano_la_gobierna_el_ano_en_curso(): void
+    {
+        $prof = $this->usuarioDeTipo('Profesor');
+        $token = $this->tokenDe($prof->username);
+
+        $suyo = DB::selectOne('SELECT p.year_id FROM periodos p
+            INNER JOIN users u ON u.periodo_id = p.id WHERE u.id = ?', [$prof->id]);
+
+        $otro = DB::selectOne('SELECT id, year FROM years
+            WHERE id <> ? AND deleted_at IS NULL ORDER BY year DESC LIMIT 1', [$suyo->year_id]);
+
+        $this->assertNotNull($otro, 'El seed necesita más de un año para medir esto.');
+
+        // El año en curso abierto de par en par; el otro, cerrado del todo.
+        DB::table('periodos')->where('year_id', $suyo->year_id)
+            ->update(['profes_pueden_nivelar' => 1]);
+        DB::table('periodos')->where('year_id', $otro->id)
+            ->update(['profes_pueden_nivelar' => 0]);
+
+        $alumno = DB::selectOne('SELECT a.id FROM alumnos a
+            WHERE a.deleted_at IS NULL ORDER BY a.id LIMIT 1');
+        $asignatura = DB::selectOne('SELECT asig.id FROM asignaturas asig
+            INNER JOIN grupos g ON g.id = asig.grupo_id AND g.year_id = ?
+            WHERE asig.deleted_at IS NULL ORDER BY asig.id LIMIT 1', [$otro->id]);
+
+        $this->assertNotNull($alumno, 'El seed necesita un alumno.');
+        $this->assertNotNull($asignatura, 'El seed necesita una asignatura en el año pasado.');
+
+        // La fila es del año pasado: es su columna `year` la que lo dice.
+        $rfId = DB::table('recuperacion_final')->insertGetId([
+            'alumno_id' => $alumno->id,
+            'asignatura_id' => $asignatura->id,
+            'year' => $otro->year,
+            'nota' => 3,
+        ]);
+
+        $this->withToken($token)->putJson('/api/definitivas_periodos/update-recuperacion', [
+            'rf_id' => $rfId,
+            'nota' => 1,
+        ])->assertStatus(200);
+
+        $this->assertEquals(1,
+            DB::table('recuperacion_final')->where('id', $rfId)->value('nota'),
+            'Si esto falla, alguien cerró el hueco: ve a 05 §27.3 antes de tocarlo.');
+    }
 }

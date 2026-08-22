@@ -112,6 +112,11 @@ class PeriodoDeLaFila
     /**
      * El periodo de un número, dentro del año del usuario.
      *
+     * El año hace falta porque **el número solo no identifica un periodo**: cada
+     * año tiene el suyo con su propio interruptor, y el 1 de un año puede estar
+     * bloqueado con el 1 del siguiente abierto (05 §27.4). Los métodos de arriba
+     * no lo necesitan porque un `periodo_id` ya lleva el año dentro.
+     *
      * Esto **no** es la traducción de `num_periodo` que la §27 llama el fallo: se
      * usa donde la fila todavía no existe y la petición la va a **crear con ese
      * mismo número** —el `else` de `definitivas_periodos/update`, que inserta con
@@ -147,6 +152,14 @@ class PeriodoDeLaFila
      * La otra cara, que quedó dicha al elegir: si el colegio deja cerrado el
      * periodo 1 y abre el 4, la recuperación final **no se puede tocar**. Es lo
      * que se eligió a sabiendas, no un efecto lateral.
+     *
+     * **Y el año es el del usuario, no el de la fila.** `recuperacion_final.year`
+     * guarda el NÚMERO de año (2024), no el id, así que con un `rf_id` de otro
+     * año el permiso que se comprueba no es el de esa fila: con 2024 cerrado y el
+     * año en curso abierto, se toca 2024. Preguntado a Joseth el 21 ago 2026 y
+     * contestado **se queda**: el front manda `{rf_id, nota}` desde la pantalla
+     * del año en curso, así que ninguna pantalla llega aquí con un `rf_id` viejo.
+     * Lo fija `PeriodoDeLaFilaTest`, que falla el día que se cierre — 05 §27.4.
      *
      * @return array<int>
      */

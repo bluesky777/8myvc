@@ -162,6 +162,12 @@ class User extends Authenticatable
 	 * Con varias filas se cruzan con AND: basta que una esté en periodo cerrado
 	 * para que la petición entera no pase.
 	 *
+	 * El periodo se lee **por id y sin filtrar año**, y es a propósito: el candado
+	 * es por (año, periodo) —el periodo 1 de un año puede estar bloqueado con el 1
+	 * del siguiente abierto—, así que la bandera que vale es la de la fila, viva
+	 * en el año que viva. Ver 05 §27.4, donde Joseth lo confirmó el 21 ago 2026
+	 * frente a la alternativa de exigir además `years.actual`.
+	 *
 	 * @param  int|array<int>|null  $periodo
 	 */
 	private static function aplicarBanderasDelPeriodo($user, int|array|null $periodo): void
