@@ -10,7 +10,6 @@ use App\Models\Alumno;
 use App\Models\Grupo;
 use App\Models\Ausencia;
 use App\Models\Asignatura;
-use App\Models\Role;
 use Carbon\Carbon;
 
 
@@ -136,6 +135,38 @@ class AusenciasController extends Controller {
 		return $aus;
 	}
 
+	/*
+	 * Corregir el día de una falta lo puede hacer **cualquiera del personal**, y
+	 * es una decisión tomada, no un olvido.
+	 *
+	 * Aquí había una comprobación de permisos calculada y tirada a la basura:
+	 *
+	 *     $isCoorDisciplinario = Role::isCoorDisciplinario($user->user_id);
+	 *     if (!$isCoorDisciplinario) {
+	 *     }
+	 *
+	 * El cuerpo del `if` vacío, en éste método y en `deleteDestroy`. `myvc_front`
+	 * ya lo había visto en la fase 11 y lo dejó apuntado por ser del backend.
+	 * Leído en frío parece un descuido con arreglo obvio —rellenar el `if`— y es
+	 * justo lo que no se puede hacer: **el rol no gobierna esto en ningún
+	 * cliente**. El menú de AngularJS enseña «Asistencias» a `profesor`;
+	 * `crearFaltaModal` repite el mismo botón «Eliminar» tres veces y solo uno
+	 * mira el rol; y `myvc_flutter` —una sola app para los dieciséis colegios—
+	 * borra desde la pantalla de asistencia del profesor sin mirar ninguno.
+	 * Rellenar el `if` dejaría a los 51 profesores sin poder corregir una falta
+	 * mal puesta, en dieciséis colegios y de golpe, por una app que no se puede
+	 * publicar el mismo día.
+	 *
+	 * Joseth lo decidió el 22 ago 2026: **se queda abierto**, en la misma línea
+	 * que el interruptor del periodo de la cabecera —corregir una falta es
+	 * trabajo de asistencia—. Lo que se cerró en su lugar fue el rastro: ver
+	 * `deleteDestroy`. Lo fija `AusenciasTest`, que además cuenta qué habría que
+	 * publicar antes si algún día se cierra.
+	 *
+	 * `Role::isCoorDisciplinario()` se queda sin llamantes con esto, y es el
+	 * cuarto rol de la familia que no gobierna nada — tras Psicólogo y Enfermero
+	 * (05 §30.2), que fallaban al revés: cerraban de más.
+	 */
 	public function putGuardarCambiosAusencia()
 	{
 		$user = User::fromToken();
@@ -147,11 +178,6 @@ class AusenciasController extends Controller {
 			return $dato;
 		}
 		*/
-		$isCoorDisciplinario = Role::isCoorDisciplinario($user->user_id);
-
-		if (!$isCoorDisciplinario) {
-		}
-		
 		$aus = Ausencia::findOrFail(Request::input('ausencia_id'));
 		$aus->fecha_hora		= Request::input('fecha_hora', null);
 		$aus->updated_by		= $user->user_id;
@@ -181,15 +207,30 @@ class AusenciasController extends Controller {
 		return $aus;
 	}
 
+	/*
+	 * Borrar una falta **la firma**, y hasta el 22 ago 2026 no la firmaba.
+	 *
+	 * Las otras dos rutas que borran una ausencia —la del lector y la de la app—
+	 * ponen `deleted_by` antes del `delete()`; ésta, que es la de las tres
+	 * pantallas web y la de Flutter, no ponía nada. En la copia de producción del
+	 * 22 ago hay **5.689 ausencias borradas y 5.684 sin autor**: las cinco que lo
+	 * tienen son las que pasaron por el lector.
+	 *
+	 * Importa justo por lo que se decidió el 22 ago: que corregir y borrar una
+	 * falta siga abierto a cualquier profesor. Si no cierra el permiso, lo único
+	 * que queda es el rastro — y el rastro estaba en blanco.
+	 *
+	 * El `save()` va antes del `delete()` y no es cosmético: el borrado suave de
+	 * Eloquent escribe solo `deleted_at`, así que un `deleted_by` sin guardar se
+	 * pierde. Es lo que hacen las dos hermanas.
+	 */
 	public function deleteDestroy($id)
 	{
 		$user = User::fromToken();
-		$isCoorDisciplinario = Role::isCoorDisciplinario($user->user_id);
 
-		if (!$isCoorDisciplinario) {
-		}
-		
 		$aus = Ausencia::findOrFail($id);
+		$aus->deleted_by = $user->user_id;
+		$aus->save();
 		$aus->delete();
 		return $aus;
 	}
