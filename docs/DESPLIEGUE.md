@@ -63,6 +63,10 @@ desplegar:
   le devolvía la entrada al sistema y deshacía el interruptor de «Activo» de la
   rejilla, que es otra ruta. Igual con el correo de la cuenta, que se sustituía por
   el de la persona. **Las altas no cambian**: una cuenta que nace, nace activa.
+- **El modal «quién cambió esta definitiva» abre por primera vez**
+  ([05 §73](migracion/05-codigo-muerto-y-roto.md)): contestaba 500 a todo el mundo
+  por una ligadura de más en la consulta. Es de sólo lectura y está en la pantalla
+  de promoción; el de las notas sueltas ya funcionaba.
 - **`editnota` deja de mandar alumnos a la papelera sin criterio**
   ([05 §72](migracion/05-codigo-muerto-y-roto.md)). Tres de sus rutas no tocan
   ninguna nota —mandan un alumno a la papelera, lo sacan y lo borran— y dos no
