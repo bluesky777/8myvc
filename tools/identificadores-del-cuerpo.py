@@ -74,8 +74,20 @@ def cuerpo(accion):
 ENTRA = re.compile(r"""(?:Request::input|Input::get|->input)\(\s*['"]((?:[A-Za-z0-9_]+_ids?)|ids?)['"]""")
 
 ESCRIBE  = re.compile(r'\b(UPDATE|DELETE|INSERT)\b|DB::(update|delete|insert|statement)|->(save|delete|update|forceDelete)\(', re.I)
-# comprobaciones de propiedad DENTRO del método, en cualquier forma vista en el repo
-PROPIEDAD = re.compile(r'Autoriza::|pedidoPropio|is_superuser|esSuperusuario|profes_can_edit|PeriodoDeLaFila', re.I)
+# Comprobaciones de propiedad DENTRO del método, en cualquier forma vista en el repo.
+#
+# La raíz `exig` y no `exigir`: cubre `Autoriza::exigir` y también los helpers
+# privados que este proyecto escribe con ese verbo, que es donde vive la mitad de
+# las comprobaciones — y los escribe **conjugados de dos maneras**,
+# `exigirQueLaResueltaSeaSuya` y `exigeQueLaPublicacionSeaSuya`. Con `exigir`,
+# `MisActividadesController` y `PublicacionesController` salían enteros como
+# candidatos teniéndolas todas puestas desde la §20, la §22 y la §43.
+#
+# Que dos controladores conjuguen distinto el mismo verbo es la misma trampa que
+# persigue esta herramienta, un piso más arriba: **el detector también se queda
+# ciego ante un nombre nuevo.**
+PROPIEDAD = re.compile(r'exig|pedidoPropio|is_superuser|esSuperusuario|'
+                       r'profes_can_edit|PeriodoDeLaFila|pueden_modificar|pueden_editar', re.I)
 
 filas = []
 for r in rutas:

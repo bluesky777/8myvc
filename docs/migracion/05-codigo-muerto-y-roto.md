@@ -4930,6 +4930,51 @@ las claves que viajan en el cuerpo: eso no tiene atajo estático y hay que
 golpearlo»—, y eso es lo que hace `IdentificadoresDelCuerpoTest`: nueve casos,
 golpeando.
 
+### 53.4 Comentar donde no se lee, y el cuarto que salió al afinar el detector
+
+Las tres de arriba salieron de la primera pasada. La cuarta salió de **arreglar la
+herramienta**, que es un sitio del que no se espera que salga nada.
+
+El detector marcaba `MisActividadesController` y `PublicacionesController` enteros
+como candidatos, y los dos tienen todas sus comprobaciones puestas desde la §20,
+la §22 y la §43. El motivo es tonto y vale la pena tenerlo escrito: la señal
+buscaba `Autoriza::` y los dos comprueban en un helper privado — y los helpers se
+llaman **`exigirQueLaResueltaSeaSuya`** y **`exigeQueLaPublicacionSeaSuya`**, o sea
+el mismo verbo conjugado de dos maneras. Buscar por la raíz `exig` bajó los
+candidatos alcanzables por una familia de catorce a uno.
+
+**Es la misma trampa que persigue esta herramienta, un piso más arriba: el
+detector también se queda ciego ante un nombre nuevo.**
+
+Y el uno que quedó era real. `PUT publicaciones/comentar` recibía `publi_id` del
+cuerpo y no miraba nada. Medido con token de alumno contra una publicación marcada
+solo `para_administradores`: **200 y la fila escrita**, y la misma llamada
+comprobando que esa publicación **no sale en su muro**. Escribir donde no se lee.
+Con un `publi_id` que no existe, **500** —la clave ajena de `comentarios`—, donde
+tocaba 404.
+
+Es la §22 en la hermana que aquella pasada no tocó, y no la tocó por una razón que
+se ve ahora: la §22 entró por `publi_id` en **borrar, restaurar y editar**, y
+comentar es la cuarta que lo lleva. El criterio tampoco se inventa —es el reparto
+que ya aplica `Publicaciones::ultimas_publicaciones()` para pintar el muro de cada
+tipo, que es lo mismo que hace el front, que solo enseña la caja de comentario
+debajo de una publicación que ha pintado—.
+
+El `Usuario` administrativo las ve todas —su rama de `ultimas_publicaciones()` no
+lleva filtro— y por eso tampoco se le pregunta aquí. `para_administradores` existe
+como columna y esa rama no la mira: se respeta lo que hay, porque unificarlo sería
+colar una decisión dentro de un arreglo.
+
+### Los dos que la herramienta marca y no lo son, para no volver a mirarlos
+
+- **`aplicacion-descargas/detailed`** lee `grupo_id` y `year_id` del cuerpo… en
+  código que no se ejecuta: el método hace `return $user` en su segunda línea
+  (§12.1). El detector lee las claves del texto del método, no del que llega a
+  correr.
+- **`tardanzas/subir/*`** salen sin guard porque lo llevan `withoutMiddleware`:
+  autentican por dentro con usuario y contraseña, que es el mecanismo propio del
+  lector (§25). Lo que sigue abierto ahí es la pregunta del §5 de 09, no ésta.
+
 ### Lo que queda de la pregunta
 
 Comprobado al revés, revirtiendo cada arreglo por separado: caen **3, 2 y 1**, y

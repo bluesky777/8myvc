@@ -198,6 +198,66 @@ class IdentificadoresDelCuerpoTest extends CasoDeContrato
         );
     }
 
+    /**
+     * Comentar donde no se lee.
+     *
+     * `publicaciones/comentar` recibía `publi_id` del cuerpo y no miraba nada.
+     * Antes: 200 y la fila escrita en una publicación marcada solo
+     * `para_administradores`, que la misma llamada confirma que **no sale en el
+     * muro del alumno**. Es la §22 en la hermana que aquella pasada no tocó:
+     * miró borrar, restaurar y editar, y comentar no lleva `publi_id` en ninguna
+     * de las tres.
+     */
+    public function test_un_alumno_no_comenta_una_publicacion_que_no_ve(): void
+    {
+        $alumno = $this->usuarioDeTipo('Alumno');
+
+        DB::insert('INSERT INTO publicaciones(persona_id, tipo_persona, contenido,
+            para_todos, para_alumnos, para_acudientes, para_profes, para_administradores,
+            created_at, updated_at)
+            VALUES(1, "Usuario", "Solo para administradores", 0, 0, 0, 0, 1, NOW(), NOW())');
+        $invisible = (int) DB::getPdo()->lastInsertId();
+
+        $this->withToken($this->tokenDe($alumno->username))
+            ->putJson('/api/publicaciones/comentar',
+                ['publi_id' => $invisible, 'comentario' => 'no debería entrar'])
+            ->assertStatus(403);
+
+        $this->assertSame(0, DB::table('comentarios')->where('publicacion_id', $invisible)->count(),
+            'El 403 tiene que llegar antes de la escritura, no después.');
+    }
+
+    /** Y la que sí ve la sigue comentando: se cierra el muro ajeno, no el suyo. */
+    public function test_un_alumno_sigue_comentando_lo_que_si_ve(): void
+    {
+        $alumno = $this->usuarioDeTipo('Alumno');
+
+        DB::insert('INSERT INTO publicaciones(persona_id, tipo_persona, contenido,
+            para_todos, para_alumnos, para_acudientes, para_profes, para_administradores,
+            created_at, updated_at)
+            VALUES(1, "Usuario", "Para todos", 1, 1, 1, 1, 1, NOW(), NOW())');
+        $visible = (int) DB::getPdo()->lastInsertId();
+
+        $this->withToken($this->tokenDe($alumno->username))
+            ->putJson('/api/publicaciones/comentar',
+                ['publi_id' => $visible, 'comentario' => 'sí entra'])
+            ->assertStatus(200);
+
+        $this->assertSame(1, DB::table('comentarios')->where('publicacion_id', $visible)->count());
+    }
+
+    /** Una publicación que no existe era 500 —la clave ajena— donde tocaba 404. */
+    public function test_comentar_una_publicacion_que_no_existe_es_404(): void
+    {
+        $alumno = $this->usuarioDeTipo('Alumno');
+        $inexistente = ((int) DB::table('publicaciones')->max('id')) + 1000;
+
+        $this->withToken($this->tokenDe($alumno->username))
+            ->putJson('/api/publicaciones/comentar',
+                ['publi_id' => $inexistente, 'comentario' => 'huérfano'])
+            ->assertStatus(404);
+    }
+
     /** Con una imagen suya, la pantalla sigue funcionando. */
     public function test_un_alumno_sigue_proponiendo_su_propia_imagen(): void
     {

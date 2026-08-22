@@ -131,6 +131,15 @@ error real**:
    §35. **Medir una ruta no es haberla juzgado**, y una exención es la única línea
    del repo cuya recompensa es que nadie la vuelva a mirar.
 
+   **Y el cuarto salió de arreglar la herramienta**, que es de donde menos se
+   espera: la señal buscaba `Autoriza::` y media API comprueba en un helper
+   privado —llamado `exigirQue…` en un controlador y `exigeQue…` en otro, el mismo
+   verbo conjugado de dos maneras—. Buscar por la raíz `exig` bajó los candidatos
+   alcanzables por una familia de catorce a uno, y ese uno era
+   `publicaciones/comentar`: un alumno comentaba en una publicación marcada solo
+   para administradores, que no sale en su muro. **El detector también se queda
+   ciego ante un nombre nuevo**, que es la misma trampa que persigue.
+
    Y no está agotada: la herramienta da **231 rutas** y no sabe distinguir un id
    de persona de uno del colegio. Lo leído es lo alcanzable por una familia y por
    el personal que no debería; el resto espera a que se decida quién configura el
