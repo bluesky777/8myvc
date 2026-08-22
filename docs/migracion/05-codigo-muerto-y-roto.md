@@ -6403,3 +6403,140 @@ dieciséis colegios y la aplicación vieja está congelada por decisión del col
 La excepción que se dio esa noche era sobre «el borrado del correo» y **esto es
 otra cosa y más grande** — un permiso dado sobre un diagnóstico equivocado no
 cubre el corregido.
+
+### 68.7 Escrito y probado el 22 ago 2026, **y esperando esa palabra**
+
+El arreglo existe, está medido y **no está en `main`**: vive en la rama
+`fix/campos-que-se-pisan`. La razón de que no entre solo es la de arriba y no ha
+cambiado — sigue siendo un formulario de dieciséis colegios— y al medirlo salió
+**más grande** todavía, no más pequeño: ver la [§69](#69), que es la que dice que
+la mitad de alumno de esta sección **no estaba viva** porque la pantalla no
+guardaba nunca.
+
+Qué hace, para que la decisión se tome sobre lo que es:
+
+| Dónde | Antes | Ahora |
+|---|---|---|
+| `ProfesoresController:348` · `AlumnosController:723` | `is_active` se pisaba a 1 | si el cuerpo no lo trae, **no se toca** |
+| las mismas dos | `users.email` se sustituía por el de la persona, o por `usuario@myvc.com` | sólo se escribe si vino `email2` |
+| `AlumnosController:726` | escribía la contraseña **sólo si venía vacía** | `filled`: vacía o ausente no toca nada; una de verdad **sí la cambia** |
+| las cuatro altas (`new User`) | `is_active = 1` por defecto | **igual**, y hay un caso que lo fija |
+
+Lo que decide una línea y no otra es `new User` contra `User::find()`, como decía
+la §68.2. `App\Support\CamposQueVinieron` es lo que permite contestar «¿lo mandó
+el cliente?» **después** de que los `sanarInput*` hayan hecho su `merge` — a esa
+altura `Request::has()` ya no lo sabe, y ése es el motivo de que sea una clase y
+no un `if`.
+
+**Lo único que enciende algo que hoy no funciona** es la contraseña: la casilla de
+`alumnosEdit.html` pasa a cambiarla de verdad. Se puede dejar fuera sin tocar lo
+demás —es un `if`—, y va señalado aquí porque es lo que hay que decidir, no lo que
+hay que revisar.
+
+---
+
+## 69. La ficha de alumno no guarda: 422 «Datos incorrectos» **después** de escribir (22 ago 2026)
+
+Salió de escribir la prueba que pedía la [§68.6](#686-la-prueba-que-valdría-para-siempre).
+El caso del profesor se puso en rojo a la primera, como decía el documento; **el
+del alumno no llegaba a la línea**: contestaba 422 antes. Un test que no alcanza
+lo que quiere medir es un dato, no un estorbo — y éste tapaba una pantalla entera.
+
+### 69.1 El mecanismo: se indexa dos veces lo que ya se convirtió una
+
+`sanarInputAlumno()` convierte tres campos de `{id: N}` al número:
+
+```php
+if (Request::input('ciudad_nac')['id']) {
+    Request::merge(array('ciudad_nac' => Request::input('ciudad_nac')['id'] ));
+}
+```
+
+Y `putUpdate`, a continuación, los volvía a indexar:
+
+```php
+$alumno->ciudad_nac = Request::input('ciudad_nac')['id'];   // <- sobre un ENTERO
+$alumno->tipo_doc   = Request::input('tipo_doc')['id'];
+$alumno->ciudad_doc = Request::input('ciudad_doc')['id'];
+```
+
+Indexar un entero —o un null, si el campo no venía— es un aviso de PHP, no un
+error. **Lo que lo convierte en 422 es Laravel**: `HandleExceptions::bootstrap`
+hace `error_reporting(-1)` al arrancar, así que el aviso sube a `ErrorException`,
+la caza el `catch (\Exception $e)` del propio método y sale
+`abort(422, 'Datos incorrectos')`.
+
+Eso último importa más de lo que parece: **no depende del `php.ini` del colegio**.
+Es la lección de la [§46](#46) al revés — aquí buscas una diferencia entre
+entornos y no la hay, porque el framework la borra.
+
+### 69.2 La asimetría, otra vez, y esta vez entre métodos hermanos
+
+`postStore` —el alta, en el mismo controlador— lee **los mismos tres campos sin
+`['id']`** desde siempre. La [§59](#59) sacó tres inyecciones mirando dos consultas
+vecinas que sí ligaban; aquí la vecina es un método:
+
+> **La asimetría entre hermanas vale también entre dos métodos del mismo
+> controlador.** Y el que se desvía no es siempre el nuevo.
+
+### 69.3 Guardaba y decía que no
+
+El desplegable de grupo de la ficha sólo pone `grupo` en el cuerpo **cuando alguien
+lo toca** —`putShow` no devuelve ese objeto—, así que el guardado normal caía
+también en `Request::input('grupo')['id']`, al final del método. Y ese está
+**después** de `$alumno->save()` y de `$usuario->save()`: la ficha y la cuenta ya
+estaban escritas cuando salía el 422.
+
+O sea que hay dos formas de fallar, y la segunda es peor:
+
+| Cuerpo | Qué pasaba |
+|---|---|
+| con los catálogos como objeto (lo que manda la pantalla) | 422 **sin escribir nada** |
+| con los catálogos ya resueltos y sin tocar el grupo | **escribía** la ficha y la cuenta, y contestaba 422 |
+
+Es la [§45](#45) por el otro lado: allí un `else` decía 200 sin hacer nada; aquí un
+`catch` dice «Datos incorrectos» sobre algo que sí se hizo. **Las dos formas
+engañan a quien mira el código de estado, y por eso este repo mira el resultado.**
+
+### 69.4 Lo que esto le hace a la §68
+
+**La mitad de alumno de la §68 no estaba viva: estaba tapada por esto.** El
+`is_active` que se pisa a 1, el correo que se muda de columna y la condición
+invertida de la contraseña son ciertos los tres, y **ninguno llegaba a ocurrir**
+por el camino normal, porque el método no terminaba.
+
+Por eso las dos cosas van juntas o no van: arreglar el 422 **enciende** los tres.
+Un arreglo que devuelve la vida a una pantalla tiene que llegar con los guardas
+puestos.
+
+### 69.5 Y una corrección a la §68.2.1: el grep miró los ficheros de al lado
+
+La §68.2.1 daba la condición invertida de la contraseña por **latente** con este
+argumento: *«la pantalla vieja no manda `password` — `grep` en `AlumnosCtrl` y
+`PersonaCtrl`, cero resultados»*.
+
+La casilla existe. Está en **`alumnosEdit.html:229`**, atada a
+`$ctrl.alumno.password`, y `$ctrl.alumno` es el objeto entero que `AlumnosEditCtrl`
+manda al guardar. Los dos ficheros que se grepearon son las **rejillas**; el
+formulario es otro.
+
+> **Un grep de clientes vale lo que valen los ficheros que mira**, y «no lo manda
+> nadie» es la afirmación más fácil de hacer con una muestra incompleta: no hay
+> ningún resultado que la contradiga a la vista.
+
+Con la casilla delante, el fallo se lee distinto: escribir una contraseña de
+verdad **no hacía nada** —la condición pedía que estuviera vacía— y vaciarla
+después de escribir en ella guardaba **el hash de la cadena vacía**, que es entrar
+sin contraseña ([§26](#26)). No era una mina para el día que un cliente añadiera el
+campo: era una tecla.
+
+### 69.6 Cómo queda
+
+Los tres `['id']` de más, fuera —la forma de `postStore`, que es la que siempre
+estuvo bien—; los dos `Request::input('grupo')['id']` pasan a `grupo.id`, que es
+nulo-seguro; y con la pantalla ya viva, los guardas de la §68 puestos en la misma
+tanda. Lo fija `CamposQueSePisanTest`, once casos, y cada pieza del arreglo se
+comprobó al revés: **ninguna se puede quitar sin que caiga por lo menos un caso**.
+
+Un alta sin grupo deja de contestar 422 y crea al alumno sin matrícula, que es lo
+que ya decía el `$grupo_id = false` de al lado.
