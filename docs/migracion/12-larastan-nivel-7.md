@@ -1093,6 +1093,29 @@ Y el dato que dice si corre prisa: en la copia de desarrollo la bandera está
 **apagada en los ocho años**, así que hoy esas diecinueve rutas son solo del
 superusuario. Encenderla se las da de golpe a los 19 profesores del colegio.
 
+### Contestado el 21 ago 2026: no es un descuido, es un módulo — y se aplaza
+
+Joseth, al leer el recuento: **hay un módulo parecido a la tabla de Alumnos donde
+los profesores entran a editar alumnos para ayudar a la secretaria**, y la bandera
+es su interruptor — se le activa al docente solo cuando está encendida. O sea que
+las diecinueve rutas no son un permiso que se desbordó: son el módulo, y su tamaño
+es el que tiene que tener.
+
+Eso corrige el tono de todo lo de arriba. La medición sigue siendo buena —la lista
+escrita a mano decía dos y son diecinueve— pero la conclusión no era «hay que
+recortar esto», sino **«esto es una función del producto y nadie sabía cuánta
+superficie ocupa»**. Ahora se sabe, y la fija el test.
+
+**Y hoy no la usa nadie, por seguridad.** Está apagada en los dieciséis a
+propósito, no por olvido. Así que la pregunta que quedaba —qué debe poder hacer un
+docente con la bandera encendida— **se aplaza a después de la migración**: no
+frena nada, no hay nadie esperándola, y decidirla ahora sería abrir un frente de
+permisos entre personal que no toca todavía.
+
+Lo que queda hecho, y es lo que valía la pena: la bandera está **medida y fijada**.
+El día que un colegio quiera encender el módulo, la superficie exacta está en
+`BanderaProfesEditaAlumnosTest` y no hay que volver a contarla.
+
 ### Por qué esto es un test y no un párrafo
 
 Porque la lista escrita a mano ya se quedó vieja una vez —esa es la historia de
@@ -1130,7 +1153,7 @@ colegio y fusionar no es desplegar (`docs/DESPLIEGUE.md`).
 | 15, 16 | Seis superusuarios «(inhabilitado)» encendidos, y que apagarlos no cortaba la sesión | la sesión **arreglada**; las cuentas, **decidido: se quedan** |
 | 17, 18 | Los interruptores que no lee nadie, y los cinco significados de «matriculado» | **medido**, sin nada que arreglar |
 | 19 | El perfil de cualquiera por su nombre de usuario | **cerrado** con guard; el 500 de detrás, **traspasado a la sesión de `Perfiles/*`** |
-| 20 | La bandera `profes_can_edit_alumnos`: no son dos cosas, son 19 rutas | **medido y fijado**; la decisión sigue abierta |
+| 20 | La bandera `profes_can_edit_alumnos`: no son dos cosas, son 19 rutas | **medido y fijado**; y contestado el 21 ago: es el módulo con el que el docente ayuda a secretaría, hoy apagado a propósito — **aplazado a después de la migración** |
 
 ### Lo que está encendido y no hay que bajar
 
@@ -1154,7 +1177,7 @@ colegio y fusionar no es desplegar (`docs/DESPLIEGUE.md`).
 | `ws_actividades.can_upload` y `one_by_one` — el backend no las mira, solo el front | la sesión de actividades | misma forma que el `in_action` que ya cerró |
 | `config_certificados.encabezado_solo_primera_pagina` y `piepagina_solo_ultima_pagina` — no las lee nadie, en ninguna parte | la sesión de certificados | §17 |
 | El modelo de aprobación **por campo** de los pedidos de cambio está abandonado: `can_ask` encendida en las 2.351 cuentas sin lectores y los `*_accepted` a cero en 131 filas | quien retome la §38/§39 | §17, para no reconstruirlo |
-| `years.profes_can_edit_alumnos` | decisión del colegio | §20: son 19 rutas y hoy está apagada en los ocho años. Encenderla entrega matrículas completo a los 19 profesores |
+| `years.profes_can_edit_alumnos` | **aplazado, 21 ago 2026** | §20: son 19 rutas porque son un módulo —el docente ayudando a secretaría—, no un permiso desbordado. Apagada en todos por seguridad y sin nadie esperándola: se decide después de la migración |
 | `matriculas.estado` con cinco significados de «matriculado» | decisión, si algún colegio usa prematrícula | §18. `matriculas:huerfanas` ya dice si a ese colegio le pasa |
 
 ### Por dónde seguir, si se retoma este frente
