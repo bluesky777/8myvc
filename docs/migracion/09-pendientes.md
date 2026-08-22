@@ -277,6 +277,20 @@ roto es un rojo global y quien lo ve no puede saber de quién es.
   revertir **también a la solución equivocada que parecía buena**. Es lo único que
   demuestra que los tests distinguen el arreglo del atajo — y de esa segunda
   reversión salió un verde hueco que leer el test no destapaba.
+- **Una lista de sitios no vale sin su clasificación, y la clasificación no sale
+  del nombre.** El mismo `Request::input('is_active', 1)` está en seis sitios y
+  **solo dos son el fallo**: los otros cuatro son altas, donde ese valor por
+  defecto es correcto. Clasificarlos por el nombre del método daba cuatro fallos
+  —porque `putUpdate` **también da de alta**— y «arreglarlos» habría roto dos. El
+  discriminador era `new User` contra `User::find()`. **Una lista sin clasificar
+  es más peligrosa que no tenerla**, porque invita a arreglar en bloque.
+- **La tercera pata: el llamante dice si el fallo está vivo o solo latente.** El
+  controlador dice qué acepta y el `return` qué devuelve; **si nadie manda ese
+  campo, el fallo existe y no muerde**. Dos de esta noche son así —
+  `perfiles/destroy` borrando grupos y la condición invertida de la contraseña— y
+  las dos **se encienden solas** el día que un cliente añada una línea. Se
+  documentan como minas, no como fallos activos, y el aviso va **en el código**,
+  no solo en el documento.
 - **Cuando una serie se cierra, anotar sobre qué población se cerró.** La §54
   cerró ocho rechazos barriendo las rutas de `auth.token`; los mismos fallos
   seguían vivos en las de `auth.personal` y nadie los buscaba, porque la serie
@@ -300,6 +314,12 @@ equivocado con una pista convincente:
 | probar una orden de git **contra una muestra sin el caso que la rompe** | salió bien; clasificaba mal cuatro ramas |
 | «que el fichero siga mostrando líneas sin stagear» | pasaba mientras arrastraba 400 líneas ajenas |
 | **entrar mueve `users.periodo_id`** | rojos con cara de «falta seed» |
+| `grep … \| head -5` para contar | **un recuento truncado presentado como total** — dijo cinco donde había seis |
+
+**Tres de las ocho son de la misma familia: un tubo que limita en silencio** —
+`| tail` tragándose el código de salida, `| head -N` truncando un recuento— **y
+contesta como si hubiera contestado entero.** Si el resultado de un comando va a
+convertirse en un número o en un veredicto, no lleva tubo que corte.
 
 **Las dos del medio son las peores porque hacen lo que este repo predica** —no
 leas, ejecuta— y aun así miden otra cosa: una por **el cuerpo que mandas**, otra
