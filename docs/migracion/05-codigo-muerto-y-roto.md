@@ -6560,3 +6560,117 @@ tiene una consecuencia práctica para la lista de huecos: **cuando el hueco se
 elige por el número, conviene mirar si lo que cubre esa ruta es un caso que
 escribe o uno que rechaza**. Los que rechazan son baratos de escribir y por eso
 son los que más hay.
+
+---
+
+## 70. Qué se lleva por delante borrar un catálogo del colegio (22 ago 2026)
+
+Hueco de cobertura elegido por la pregunta y no por la carpeta, que es lo que
+funciona cuando el hueco es plano: de las 121 rutas sin comprobar, nueve son
+`destroy` de catálogos repartidos por nueve controladores. **Una sola lectura.**
+
+La pregunta era doble: qué se lleva por delante el borrado, y quién puede
+llamarlo. La segunda ya está decidida —las 44 rutas de configuración se quedan
+con `auth.personal`, 09— así que lo que había que medir era la primera.
+
+### 70.1 Lo primero, y descarta el susto: las cascadas no disparan
+
+El esquema está lleno de `ON DELETE CASCADE` apuntando a los catálogos:
+
+| Quién | A quién | Qué haría un borrado real |
+|---|---|---|
+| `grupos.grado_id` · `df_grupos.grado_id` | `grados` | se lleva los grupos, y con ellos `asignaturas`, `matriculas` y `ws_actividades_compartidas` |
+| `grados.nivel_educativo_id` | `niveles_educativos` | se lleva los grados, y de ahí lo anterior |
+| `materias.area_id` | `areas` | se lleva las materias |
+| `definiciones_comportamiento.frase_id` | `frases` | se lleva las definiciones |
+
+**Ninguna se dispara**, porque los seis modelos son de papelera (`SoftDeletes`) y
+`$grado->delete()` es un `UPDATE deleted_at`. El susto no está ahí. Conviene
+saberlo escrito: **la cascada existe y está armada** para el día que alguien
+escriba un `forceDelete()` en uno de estos controladores.
+
+### 70.2 Lo que sí pasa: la papelera esconde una pantalla y no la otra
+
+Medido, no leído — un grado del año actual, con su grupo y un profesor con una
+asignatura dentro:
+
+| Después de `DELETE api/grados/destroy/{id}` | Antes | Después |
+|---|---|---|
+| asignaturas del profesor (`asignaturas/listasignaturas/{id}`) | 1 | **0** |
+| el grupo en la rejilla (`GET api/grupos`) | sale | **sigue saliendo** |
+
+El grupo no se ha ido, las asignaturas siguen en su tabla y las notas también.
+Lo que cambió es **quién las une**: `Profesor::asignaturas` hace
+`inner join grados … and gr.deleted_at is null`, y la rejilla de `GruposController`
+une por el mismo grado **sin ese filtro**.
+
+> **La misma fila en la papelera esconde una pantalla y deja intacta la otra**,
+> según lo que decidiera la consulta que las une. No es una regla del sistema: son
+> catorce consultas decidiendo por su cuenta.
+
+Y el contraste, que es lo que lo convierte en regla utilizable: `tipos_documentos`
+entra en las listas de alumnos por `left join … and t.deleted_at is null`. Mandar
+uno a la papelera **no esconde a ningún alumno**: le deja el tipo de documento
+vacío, a la vista.
+
+> **Con `left join` la papelera deja un hueco; con `inner join` esconde la fila
+> entera.** Mismo gesto, misma columna, dos consecuencias.
+
+### 70.3 El tamaño, que es lo que hay que decidir
+
+Un clic en «eliminar» de la pantalla de grados **apaga la planilla de todos los
+profesores de ese grado**: no ven asignaturas, así que no pueden poner notas. Y no
+sale ningún error en ninguna parte — la rejilla de grupos sigue enseñando el grupo,
+así que quien lo mire desde administración no ve nada raro.
+
+**No hay ruta de `restore` para grados.** Las cinco que tiene el controlador son
+index, show, store, update y destroy. Así que desde ninguna pantalla se puede
+deshacer: hay que entrar a la base.
+
+**Se fija y no se juzga**, con el porqué escrito al lado, que es lo que pedía la
+§54: qué debe pasar con los grupos de un grado borrado es una pregunta del
+colegio. Las dos salidas razonables —que `destroy` se niegue si el grado tiene
+grupos vivos, o que haya `restore`— son código pequeño; lo que no es pequeño es
+decidir cuál.
+
+### 70.4 Y tres respuestas que decían que sí — arregladas
+
+`EscalasDeValoracionController` contestaba **200 «En papelera»** al borrar una
+escala que no existe y **200 «Guardado»** al editarla; con un cuerpo sin `id`
+—que es fácil, porque en esa ruta el id va en el cuerpo y no en la URL—,
+también «Guardado». Es la familia de `tools/respuestas-que-mienten.py` y de las
+§37 y §45: una respuesta que dice que sí cuando fue que no es peor que un error,
+porque quien la lee deja de mirar.
+
+Pasan a **404**, que en esta API significa «esa fila no está» desde la serie
+§44/§47/§49/§50/§53. Comprobado en el cliente antes de tocarlo: `ConfigEscalas.ts`
+ya tiene rama de error en las dos llamadas —«Cambio no guardado» y «Escala no
+eliminada»— y **no mira el código**, así que lo único que cambia es que ahora
+enseña el error verdadero en vez de un éxito falso.
+
+#### La trampa de escribir ese 404, que es la misma de las definitivas
+
+Lo primero que uno hace es contar las filas afectadas por el `UPDATE`. **MySQL
+devuelve 0 filas afectadas cuando el `UPDATE` no cambia ningún valor**, no sólo
+cuando no encuentra la fila: guardar una escala sin tocarle nada daría 404. Por eso
+la comprobación es un `SELECT` aparte. Es exactamente el tropiezo que se cazó
+escribiendo el UPSERT de la fase 1 de las definitivas (10-definitivas.md).
+
+Los seis casos de `CatalogosDelColegioTest` se comprobaron al revés, y **también
+contra esa solución equivocada**: al escribir el 404 contando filas afectadas cae
+`test_guardar_una_escala_sin_cambiar_nada_sigue_siendo_guardado`, que es justo el
+caso que existe para eso.
+
+### 70.5 Lo que queda anotado sin tocar
+
+- **La escala de otro año se puede borrar y editar**: no hay filtro por año en
+  ninguno de los dos métodos. Es coherente con la decisión de escribir en años
+  pasados (§27.4) y por eso se deja, pero decide cómo se pinta el desempeño en los
+  boletines de aquel año. Fijado por un test.
+- **`GET api/nota_comportamiento/detailed/{grupo}` devuelve un array posicional**
+  —`[frases, alumnos, grupo]`, montado con tres `array_push`—. Añadir un elemento
+  en medio le cambia el sitio a todo lo de detrás, en un contrato que ningún
+  cliente puede nombrar por clave.
+- **`TipoDocumentoController::update` no devuelve nada**: 200 con cuerpo vacío
+  aunque haya guardado. No miente —guardó—, pero no deja al cliente comprobar qué
+  quedó.
