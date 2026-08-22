@@ -7160,3 +7160,126 @@ test lo dice. Va al [§5 de 09](09-pendientes.md).
   autorización, a la revisión IDOR y a la fase 11 del front — las tres lo vieron y
   ninguna lo tocó, porque las tres buscaban *comprobaciones que faltan*, no
   *comprobaciones que sobran*.
+
+---
+
+## 76. La otra mitad de la papelera: se cerró el borrar y no el devolver (22 ago 2026)
+
+La cabecera de `App\Support\Autoriza`, escrita el 21 de agosto, dice de dónde
+venía la clase:
+
+> *«alumnos/forcedelete comprobaba, unidades/forcedelete comprobaba otra cosa, y
+> **grupos, perfiles, profesores, years y editnota no comprobaban nada**»*
+
+**Son exactamente los mismos cinco cuyo `restore` seguía sin comprobar nada.**
+
+Cada operación de la papelera es una **pareja** —`forcedelete` y `restore`, uno al
+lado del otro en el mismo controlador— y aquella revisión cerró **una mitad de
+cada una**. A la que devuelve no se le preguntó, y por eso nadie volvió en un mes:
+la serie constaba cerrada. Es la lección de la [§54](#54) otra vez —*cuando una
+serie se cierra, anotar sobre qué población se cerró*— y es también, aplicada a
+nuestro propio arreglo, la de la [§47.2](#472): **al tapar un camino, la pregunta
+siguiente es cuál es el otro.**
+
+### 76.1 La tabla, que es todo el hallazgo
+
+| Pareja | Borrar definitivamente exigía | Restaurar exigía |
+|---|---|---|
+| `alumnos` | `Autoriza::puedeBorrarAlumnos` | `Autoriza::puedeEditarAlumnos` |
+| `editnota` (alumnos) | `Autoriza::puedeBorrarAlumnos` | `Autoriza::puedeEditarAlumnos` |
+| `unidades` | `pueden_editar_notas` del periodo | `pueden_editar_notas` del periodo |
+| `subunidades` | `pueden_editar_notas` del periodo | `pueden_editar_notas` del periodo |
+| `grupos` (27 tablas en cascada) | `Autoriza::esSuperusuario` | **nada** |
+| `perfiles` — el mismo grupo, otra URL | `Autoriza::esSuperusuario` | **nada** |
+| `profesores` (31 tablas) | `Autoriza::esSuperusuario` | **nada** |
+| `years` (59 tablas) | `Autoriza::esSuperusuario` | **nada** |
+| `asignaturas` | *(borrado blando, sin criterio)* | **nada, y sin filtrar por año** |
+
+Las cuatro primeras son simétricas porque las escribió la misma revisión. Las
+cinco de abajo no, porque aquella revisión sólo miraba lo que borra.
+
+Medido, no leído: con un token de profesor cualquiera, `grupos/restore`,
+`perfiles/restore` y `profesores/restore` contestaban **200**. Con un token de
+alumno, **403** — `auth.personal` sí estaba, así que el alcance del agujero es el
+personal del colegio y no cualquiera con cuenta. Eso es lo que lo separa de la
+[§28.4](#284), donde el `forcedelete` de grupos lo alcanzaba **el token de
+cualquier alumno**.
+
+### 76.2 Por qué `esSuperusuario` y no `esAdministrativo`
+
+Las dos son hoy las **mismas diez personas** —`is_superuser` y el rol `Admin`
+coinciden fila por fila, medido en la §28.4— así que hoy da igual. La diferencia
+es mañana: `esAdministrativo` incluye al `Secretario` del día que ese rol exista.
+
+Se eligió el criterio **del gemelo destructivo de cada pareja**, que es lo que
+hace la regla escrita en la propia clase: *crear el rol no puede dar permisos que
+nadie pidió*. El alcance del `Secretario` que se repartió el 21 ago no nombra la
+papelera, y colar restaurar ahí dentro sería concederle algo por la puerta de
+atrás de un arreglo. Subirlo es una palabra el día que se decida, y está anotado
+en el [§5 de 09](09-pendientes.md).
+
+**Y el riesgo de cerrar de más se comprobó antes, no después**: la pantalla de
+papelera de `myvc_front` está en el menú «Colegio» con
+`ng-show="hasRoleOrPerm('admin')"`, o sea que **ya se enseñaba sólo a los mismos
+diez**. Nadie pierde un botón que hoy vea. La papelera del front tiene tres
+rejillas —alumnos, grupos y unidades— y de las cinco rutas cerradas **sólo una,
+`grupos/restore`, la llama algún cliente**: las otras cuatro eran minas, no
+fallos vivos.
+
+### 76.3 La pareja de profesores, donde sólo era alcanzable la mitad peligrosa
+
+`profesores/trashed` contesta **500 desde siempre** —`order by p.nombres` y en el
+`FROM` no hay ninguna `p`, porque la consulta es la papelera de alumnos copiada
+entera— y ya estaba fijado por `MuestreoDeLecturasTest` desde la primera pasada
+(tabla del [§6](#6)). O sea que **la papelera de profesores nunca ha devuelto un
+profesor**.
+
+Puesto junto a lo de arriba, la pareja entera queda así: mandar un profesor a la
+papelera funciona, **listarla no funciona para nadie**, y sacarlo de ella lo podía
+hacer cualquiera de los 51 sabiendo el id. De las dos mitades, la única alcanzable
+era la que no debía serlo.
+
+### 76.4 `asignaturas/restaurar`: el listado filtraba y el botón no
+
+Ésta no es de permisos. `getPapelera()` filtra `g.year_id = ?` con el año del
+token y `putRestaurar()` hacía `UPDATE asignaturas SET deleted_at=NULL WHERE id=?`
+con el id que llegara en el cuerpo. **La misma pantalla, dos alcances**: el
+listado enseñaba un año y el botón los alcanzaba todos.
+
+Ahora restaura con la ligadura del listado, y contesta **404** y no 403: para
+quien pide, una asignatura de otro año no es que esté prohibida — es que no está
+en su papelera.
+
+Es la misma forma que ya salió en la §69 (`postStore` leía tres campos bien y
+`putUpdate` los leía mal) y en la §75 (`getPapelera` contra su restore): **la
+asimetría que más ha dado es la que hay entre las dos mitades de una misma
+pantalla**, no la que hay entre dos controladores.
+
+### 76.5 Lo que dice que ningún test lo cubría, y cómo se supo
+
+Al aplicar el arreglo **no se rompió ni un test de los 986**. Eso no es que el
+arreglo sea inocuo: es que **ninguno fijaba quién podía restaurar**.
+
+El de años lo parecía. `YearsTest::test_el_ano_va_a_la_papelera_y_vuelve` llama a
+`years/restore` y sigue verde — y sigue verde porque su token sale de
+`usuarioDeTipo('Usuario')`, y **el `Usuario` del seed resulta ser
+`is_superuser = 1`**. Pasaba por el token que eligió, no por haber juzgado el
+permiso.
+
+> **Un test verde sobre una ruta abierta no dice que la ruta esté bien: dice que
+> quien la llamó tenía permiso.** Es la tercera cara de la misma trampa de la
+> semana —«medir una ruta no es haberla juzgado» (§53), «cubrir un controlador no
+> es haber cubierto el que se ejecuta» (§75.4)— y la más difícil de ver, porque
+> aquí el test **sí** llama a la ruta y **sí** mira lo que devuelve.
+
+Por eso `PapeleraRestaurarTest` recorre **la pareja entera en un solo bucle** y no
+cada ruta por su lado: el fallo no era que una ruta no comprobara, era que **la de
+al lado sí**, y eso sólo se ve poniéndolas en la misma tabla. Comprobado al revés
+quitando el guard de la **última** pareja del bucle: cae, o sea que el recorrido
+llega al final y no se queda en la primera.
+
+Y un tercero, que lo cazó larastan y no el test: `assertStatus()` acepta **un**
+parámetro. El mensaje que le pasé de segundo se lo tragaba sin decir nada, así que
+un rojo dentro de un bucle de cuatro parejas no habría dicho cuál falló. **Una
+comprobación que no puede explicarse cuando falla es media comprobación**, y el
+nivel 7 la encontró por la aridad.
