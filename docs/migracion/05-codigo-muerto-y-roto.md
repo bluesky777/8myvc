@@ -6935,3 +6935,61 @@ Se cita como lectura del código y **no como hecho medido**: para provocarlo hac
 falta la ruta de recuperación, que exige los cuatro periodos abiertos, y eso es
 montar un caso para una pregunta que no es ésta. Qué debe enseñar ese modal es del
 colegio; lo que había que arreglar era que abriera.
+
+---
+
+## 74. Cuál de los cuatro interruptores de una actividad decide algo (22 ago 2026)
+
+Las seis rutas sin comprobar de `ActividadesController` son la superficie con la
+que un profesor dice **quién ve un examen**: crear, los tres *toggles*
+—alumnos, profesores, acudientes—, `set-compartida` y `quitando-grupo-compartido`.
+La pregunta no era si guardan —guardan— sino **qué cambian de lo que ve un
+alumno**, y eso sólo se contesta abriendo el examen con un token de alumno.
+
+Contesta también la anotación que llevaba abierta desde el 21 ago en la tabla del
+[§5 de 09](09-pendientes.md): *«`para_alumnos` sigue con ella, sin un uso claro
+separado de `compartida`»*.
+
+| Interruptor | Ruta que lo mueve | Qué decide para un alumno |
+|---|---|---|
+| `in_action` | `actividades/guardar` | **cierra** — 403 «todavía no está abierta» (cerrado el 21 ago, §43.1) |
+| fila en `ws_actividades_compartidas` | `insert-`/`quitando-grupo-compartido` | **decide** el acceso desde otro grupo |
+| `compartida` | `actividades/set-compartida` | **nada** |
+| `para_alumnos` | `actividades/para-alumnos-toggle` | **nada** |
+
+Medido, no leído: con `para_alumnos = 0` y `compartida = 0`, el alumno **abre el
+examen igual** —200 con el enunciado—. Y en el par de contraste, quitar la fila de
+grupo compartido lo cierra de verdad: 403 antes de compartir, 200 compartido, 403
+después de quitarlo.
+
+### 74.1 Dónde sí se leen, que es lo que los hace engañosos
+
+`compartida` y `para_alumnos` aparecen en siete `WHERE` — todos en listados **del
+lado del profesor** (`actividades/compartidas`) y en la rama de la pantalla de
+corregir. `exigirQueLaActividadLeCorresponda`, que es la comprobación que cerró el
+lado del alumno, no los mira.
+
+> **El interruptor esconde en una pantalla y no cierra en la otra.** Es la misma
+> forma que `vt_votaciones.in_action`, que manda al usuario a otra pantalla y deja
+> la urna abierta ([11-votaciones.md](11-votaciones.md)) — y van dos módulos donde
+> el mismo nombre significa «lo escondo» en un sitio y «lo prohíbo» en otro.
+
+Para el profesor que marca la casilla, las dos cosas se parecen mucho: la
+actividad desaparece de su lista de compartidas. Lo que no puede saber es que el
+alumno que ya tiene el enlace la sigue abriendo.
+
+### 74.2 Por qué se fija y no se arregla
+
+Hacer que `para_alumnos` cierre es una línea en `exigirQueLaActividadLeCorresponda`.
+Y es justo lo que no se decide desde aquí: **hoy los alumnos abren exámenes que ese
+interruptor dice que no son para ellos**, así que encenderlo **esconde de golpe
+actividades que hoy se ven**, en los dieciséis colegios y a mitad de periodo. Es la
+misma forma que `oportunidades` —la de los intentos ilimitados— y va en la misma
+fila del §5.
+
+Lo que cambia respecto a ayer es que ya no es una pregunta abierta con una
+suposición dentro, sino **un hecho con su número**: no es que `para_alumnos` no
+tenga un uso claro; es que para el alumno **no tiene ninguno**.
+
+Lo fija `InterruptoresDeUnaActividadTest`, dos casos, y el segundo existe para que
+el primero no se lea como «los interruptores no hacen nada»: uno de ellos sí.
