@@ -1084,6 +1084,16 @@ la de retiro, retirar, desertar y borrar la matrícula—, más
 `alumnos/guardar-valor`, `ChangesAsked/ver-detalles`, `years/store` y el reseteo
 de contraseña.
 
+> **Corrección del 22 ago 2026, y no cambia la respuesta.** Aquellas 25 eran un
+> `grep` del fichero entero: **cuatro de ellas son comentarios** —incluido el
+> `@property` que genera `tools/columnas-en-los-modelos.php`—, así que en código
+> son **22**. Y de los sitios que listaba `BanderaProfesEditaAlumnosTest`, uno
+> colgaba una ruta que **no lee la bandera**: `PUT api/ChangesAsked/ver-detalles`
+> sólo la nombra en un docblock para explicar otra. Quedan **21 sitios y 19
+> rutas**; las catorce de matrículas, intactas. Lo que se decidió sigue decidido
+> — lo que se arregló es el detector, que contaba lo que se escribía **sobre** la
+> bandera igual que lo que la lee. Ver [05 §72.5](05-codigo-muerto-y-roto.md).
+
 Eso cambia la pregunta que está esperando respuesta. *«Qué debe poder hacer un
 docente con esa bandera encendida»* no es un permiso fino que se pueda ajustar:
 **es un interruptor que entrega el módulo de matrículas completo**, y hay que

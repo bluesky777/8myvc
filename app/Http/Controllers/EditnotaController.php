@@ -417,8 +417,24 @@ class EditnotaController extends Controller {
 	}
 
 
+	/**
+	 * **Manda un ALUMNO a la papelera**, no una nota. Ver 05 §72.
+	 *
+	 * El criterio no es nuevo: es el que ya usa la hermana de al lado,
+	 * `AlumnosController::deleteDestroy`. Aquí faltaba, y el hueco era real —
+	 * `puedeEditarAlumnos` es superusuario **o** profesor con
+	 * `profes_can_edit_alumnos`, que está apagada en los dieciséis colegios, así que
+	 * un profesor no podía mandar un alumno a la papelera por `alumnos/destroy` y sí
+	 * por aquí.
+	 *
+	 * El `forceDelete` de más abajo se cerró en su día y estos dos se quedaron: es lo
+	 * que pasa cuando se arregla **el sitio que se está mirando** y no la operación.
+	 */
 	public function deleteDestroy($id)
 	{
+		Autoriza::exigir(Autoriza::puedeEditarAlumnos(User::fromToken()),
+			'No tienes permiso para mandar un alumno a la papelera.');
+
 		$alumno = Alumno::find($id);
 		//Alumno::destroy($id);
 		//$alumno->restore();
@@ -454,8 +470,12 @@ class EditnotaController extends Controller {
 	
 	}
 
+	/** Saca un ALUMNO de la papelera. Mismo criterio que `deleteDestroy`, y por lo mismo. */
 	public function putRestore($id)
 	{
+		Autoriza::exigir(Autoriza::puedeEditarAlumnos(User::fromToken()),
+			'No tienes permiso para restaurar un alumno.');
+
 		$alumno = Alumno::onlyTrashed()->findOrFail($id);
 
 		$alumno->restore();

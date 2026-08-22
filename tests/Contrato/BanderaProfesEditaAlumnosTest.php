@@ -31,6 +31,16 @@ use Illuminate\Support\Facades\Route;
  * rutas son solo del superusuario. Encenderla se las da de golpe a los 19
  * profesores del colegio — no es un permiso fino, es un interruptor.
  *
+ * **Recontado el 22 ago 2026, y la cuenta baja**: aquellas veinticinco eran un
+ * `grep` del fichero entero, **comentarios incluidos**. En código son **22**, y
+ * de los sitios que este test listaba **tres eran prosa** — un docblock de
+ * `ChangeAskedController`, otro de `ExigirPersonal` y el `@property` generado de
+ * `Year`—. El primero además colgaba una ruta,
+ * `PUT api/ChangesAsked/ver-detalles`, que **no mira la bandera**: la nombra para
+ * explicar otra. La lista queda en **21 sitios y 19 rutas**, y las 14 de
+ * matrículas siguen siendo las mismas, que es lo que sostenía la respuesta de
+ * Joseth.
+ *
  * Ver docs/migracion/12-larastan-nivel-7.md §20.
  */
 class BanderaProfesEditaAlumnosTest extends CasoDeContrato
@@ -98,12 +108,68 @@ class BanderaProfesEditaAlumnosTest extends CasoDeContrato
         return $mapa;
     }
 
-    /** @return list<int> */
+    /**
+     * Dónde aparece la bandera **en el código**, saltándose los comentarios.
+     *
+     * Empezó siendo un `preg_match_all` sobre el fichero entero, y el 22 ago 2026
+     * eso metió en la lista un sitio que no lee nada: **un docblock que nombraba la
+     * bandera para explicar un guard**. La entrada decía que
+     * `asignaturasPerdidasDeAlumnoPorPeriodo` la mira —el método anterior al
+     * comentario— y era mentira.
+     *
+     * > **Un detector que lee el fichero entero encuentra también lo que se escribió
+     * > sobre él.** Y el resultado no tiene la cara de un fallo del detector: tiene
+     * > la cara de un sitio nuevo, que es justo lo que este test existe para avisar.
+     *
+     * Se tokeniza y se descartan `T_COMMENT` y `T_DOC_COMMENT`. Lo demás cuenta:
+     * la bandera aparece como propiedad (`$user->profes_can_edit_alumnos`) y dentro
+     * de cadenas de SQL, y las dos son sitios de verdad.
+     *
+     * @return list<int>
+     */
     private function posicionesDe(string $texto): array
     {
-        preg_match_all('/'.self::BANDERA.'/', $texto, $encuentros, PREG_OFFSET_CAPTURE);
+        $posiciones = [];
 
-        return array_map(fn ($e) => (int) $e[1], $encuentros[0]);
+        foreach (token_get_all($texto) as $token) {
+            if (! is_array($token)) {
+                continue;
+            }
+
+            [$tipo, $valor, $linea] = $token;
+
+            if ($tipo === T_COMMENT || $tipo === T_DOC_COMMENT) {
+                continue;
+            }
+
+            if (! str_contains($valor, self::BANDERA)) {
+                continue;
+            }
+
+            // El offset dentro del fichero, que es lo que `metodoEn` compara. La línea
+            // no vale: `metodoEn` trabaja con las posiciones de `preg_match_all`.
+            $posiciones[] = (int) strpos($texto, $valor, $this->desde($texto, $linea));
+        }
+
+        return $posiciones;
+    }
+
+    /** El offset donde empieza la línea `$linea` (1-indexada). */
+    private function desde(string $texto, int $linea): int
+    {
+        $offset = 0;
+
+        for ($i = 1; $i < $linea; $i++) {
+            $salto = strpos($texto, "\n", $offset);
+
+            if ($salto === false) {
+                return $offset;
+            }
+
+            $offset = $salto + 1;
+        }
+
+        return $offset;
     }
 
     /** @param  array<int, array<int, array{0: string, 1: int}>>  $metodos */
