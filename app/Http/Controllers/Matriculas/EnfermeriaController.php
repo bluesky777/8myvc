@@ -13,6 +13,26 @@ use App\Support\ColumnaSegura;
 use App\Models\Role;
 
 
+/**
+ * Los antecedentes y los sucesos de enfermería.
+ *
+ * **Sus cuatro rechazos respondían 401, y un 401 aquí no es un código mal
+ * elegido: es una orden al frontend.** `Sesion.ts` intercepta todo 401 que no
+ * venga de una ruta de sesión, pide una renovación de tokens y reenvía la
+ * petición; si la renovación falla —el refresco ya rotado en otra pestaña, por
+ * ejemplo— llama a `sesion.expirar('token')`, que borra los tokens, avisa con
+ * «La sesión ha expirado» y manda al login.
+ *
+ * O sea que a quien no tiene el permiso no se le decía «no puedes»: se le
+ * **rotaba la sesión en cada intento**, y en la carrera que el propio front
+ * documenta se le echaba de la plataforma. Eso se reporta como «me saca», que
+ * manda a mirar el código de sesión —donde no está el fallo—, y no como «no
+ * tengo permiso».
+ *
+ * Pasan a 403, que es lo que hace el resto de la API y lo que este front ya
+ * sabe pintar: el `.catch` de cada llamada enseña el mensaje del cuerpo.
+ * Ningún cliente leía el 401 de aquí para otra cosa. Ver 05 §54.
+ */
 class EnfermeriaController extends Controller {
 	use ResuelveElUsuario;
 
@@ -70,7 +90,7 @@ class EnfermeriaController extends Controller {
 
 			return 'Cambios guardados';
 		}else{
-			return abort(401, 'No puedes cambiar');
+			return abort(403, 'No puedes cambiar');
 		}
 			
 	}
@@ -98,7 +118,7 @@ class EnfermeriaController extends Controller {
 				
 			return (array)$registro_enfermeria[0];
 		}else{
-			return abort(401, 'No puedes cambiar');
+			return abort(403, 'No puedes cambiar');
 		}
 			
 	}
@@ -117,7 +137,7 @@ class EnfermeriaController extends Controller {
 
 			return 'Cambios guardados';
 		}else{
-			return abort(401, 'No puedes cambiar');
+			return abort(403, 'No puedes cambiar');
 		}
 			
 	}
@@ -134,7 +154,7 @@ class EnfermeriaController extends Controller {
 				
 			return 'Eliminado';
 		}else{
-			return abort(401, 'No puedes eliminar');
+			return abort(403, 'No puedes eliminar');
 		}
 			
 	}

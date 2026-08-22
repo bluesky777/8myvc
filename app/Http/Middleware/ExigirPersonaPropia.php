@@ -43,7 +43,19 @@ class ExigirPersonaPropia
         // nombres se queda corta en cuanto un endpoint escribe el suyo:
         // `images-users/move-img-to-me` lo llama así y por eso el guard no veía
         // nada que comprobar. Ver 05-codigo-muerto-y-roto.md §15.
-        'imagen_id', 'img_id',
+        //
+        // Y `foto_id` es el TERCER nombre de lo mismo, encontrado por la pregunta
+        // de la §53: `images-users/cambiar-imagen-oficial/{user_id}` lleva
+        // `persona.propia` desde la revisión de IDOR y el guard leía el `user_id`
+        // de la URL —suyo— sin ver la imagen que proponía el cuerpo. Medido: un
+        // alumno dejaba la imagen de un superusuario en su propio pedido de foto
+        // oficial, y un administrador que lo acepte se la pone en la ficha. Sus
+        // dos hermanas del mismo controlador llaman `imagen_id` a este mismo
+        // dato, así que la asimetría era del vocabulario y no del criterio.
+        //
+        // La lista lleva tres nombres para una sola cosa y ése es el aviso: en
+        // este repo, un identificador con un nombre nuevo es un guard ciego.
+        'imagen_id', 'img_id', 'foto_id',
     ];
 
     /**
@@ -168,7 +180,7 @@ class ExigirPersonaPropia
     private function esSuyo(object $usuario, string $clave, int $valor): bool
     {
         $clave = str_contains($clave, 'alumno_id') ? 'alumno_id' : $clave;
-        $clave = $clave === 'img_id' ? 'imagen_id' : $clave;
+        $clave = in_array($clave, ['img_id', 'foto_id'], true) ? 'imagen_id' : $clave;
 
         if ($usuario->tipo === 'Alumno') {
             return match ($clave) {

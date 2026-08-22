@@ -65,7 +65,15 @@ class UsersController extends Controller {
 
 			return ['usuario'=>$usuario];
 		}else{
-			return abort(404, 'Sin autorización');
+			// 403 y no 404, que es lo que decia y no lo que pasaba. Es la familia
+			// de la §54 —un codigo que significa «esa fila no esta» usado para
+			// «no puedes»— y no salio con los ocho de entonces porque aquel
+			// barrido cubria `auth.token` y estas tres son `auth.personal`.
+			// Comprobado en los cuatro clientes antes de cambiarlo: solo las
+			// llama `myvc_front` desde `UsuariosCtrl.ts`, y su `.catch` no
+			// recibe ni argumentos —pinta un texto fijo—, asi que no lee el
+			// codigo ni el cuerpo.
+			return abort(403, 'Sin autorización');
 		}
 		
 	}
@@ -103,7 +111,15 @@ class UsersController extends Controller {
 
 			return ['usuario'=>$usuario];
 		}else{
-			return abort(404, 'Sin autorización');
+			// 403 y no 404, que es lo que decia y no lo que pasaba. Es la familia
+			// de la §54 —un codigo que significa «esa fila no esta» usado para
+			// «no puedes»— y no salio con los ocho de entonces porque aquel
+			// barrido cubria `auth.token` y estas tres son `auth.personal`.
+			// Comprobado en los cuatro clientes antes de cambiarlo: solo las
+			// llama `myvc_front` desde `UsuariosCtrl.ts`, y su `.catch` no
+			// recibe ni argumentos —pinta un texto fijo—, asi que no lee el
+			// codigo ni el cuerpo.
+			return abort(403, 'Sin autorización');
 		}
 		
 	}
@@ -141,7 +157,15 @@ class UsersController extends Controller {
 
 			return ['usuario'=>$usuario];
 		}else{
-			return abort(404, 'Sin autorización');
+			// 403 y no 404, que es lo que decia y no lo que pasaba. Es la familia
+			// de la §54 —un codigo que significa «esa fila no esta» usado para
+			// «no puedes»— y no salio con los ocho de entonces porque aquel
+			// barrido cubria `auth.token` y estas tres son `auth.personal`.
+			// Comprobado en los cuatro clientes antes de cambiarlo: solo las
+			// llama `myvc_front` desde `UsuariosCtrl.ts`, y su `.catch` no
+			// recibe ni argumentos —pinta un texto fijo—, asi que no lee el
+			// codigo ni el cuerpo.
+			return abort(403, 'Sin autorización');
 		}
 		
 	}

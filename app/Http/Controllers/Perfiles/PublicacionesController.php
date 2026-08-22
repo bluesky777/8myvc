@@ -188,11 +188,36 @@ class PublicacionesController extends Controller {
 
     
     
-	public function putComentar()
+	/**
+     * Comentar una publicación, que ahora tiene que ser una que se vea.
+     *
+     * `publi_id` venía del cuerpo y no lo miraba nadie. Medido con token de
+     * alumno contra una publicación marcada solo `para_administradores`: **200 y
+     * la fila escrita**, con la misma llamada comprobando que esa publicación
+     * **no sale en su muro**. O sea escribir donde no se lee, que es la forma que
+     * más veces ha salido en este repo. Y con un `publi_id` que no existe, **500**
+     * —la clave ajena de `comentarios`—, donde tocaba 404.
+     *
+     * El criterio no se inventa aquí: es el mismo reparto que ya aplica
+     * `Publicaciones::ultimas_publicaciones()` para pintar el muro de cada tipo, y
+     * es también lo que hace el front, que solo enseña la caja de comentario
+     * debajo de una publicación que ha pintado. Es la §22 otra vez —**la regla
+     * existía y vivía únicamente en el frontend**—, ahora en la hermana que
+     * aquella pasada no tocó porque solo miró borrar, restaurar y editar.
+     *
+     * El `Usuario` administrativo las ve todas —su rama de
+     * `ultimas_publicaciones()` no lleva filtro— y por eso aquí tampoco se le
+     * pregunta. `para_administradores` existe como columna y esa rama no la mira:
+     * se respeta lo que hay, que unificarlo sería colar una decisión dentro de un
+     * arreglo.
+     */
+    public function putComentar()
 	{
         $user   = User::fromToken();
         $now 	= Carbon::now('America/Bogota');
-        
+
+        $this->exigeQueLaPublicacionSeVea($user, Request::input('publi_id'));
+
         $consulta = 'INSERT INTO comentarios(publicacion_id, persona_id, tipo_persona, comentario, created_at, updated_at) 
             VALUES (:publicacion_id, :persona_id, :tipo_persona, :comentario, :created_at, :updated_at)';
         
@@ -312,6 +337,44 @@ class PublicacionesController extends Controller {
      * solo el autor. El backend reescribía por `id` sin mirar, y no solo el texto:
      * también a quién se le enseña. Ver 05 §22.
      */
+    /**
+     * Que la publicación que se comenta sea una de las que esa persona ve.
+     *
+     * Las columnas son las mismas que decide `ultimas_publicaciones()`, una por
+     * tipo, más `para_todos`. Un `Usuario` administrativo no pasa por aquí porque
+     * su muro no lleva filtro.
+     */
+    private function exigeQueLaPublicacionSeVea(object $user, $publiId): void
+    {
+        $publicacion = DB::selectOne(
+            'SELECT para_todos, para_alumnos, para_acudientes, para_profes
+               FROM publicaciones WHERE id = ? AND deleted_at IS NULL',
+            [$publiId]
+        );
+
+        if ($publicacion === null) {
+            abort(404, 'Esa publicación no existe');
+        }
+
+        if (($user->tipo ?? '') === 'Usuario') {
+            return;
+        }
+
+        $columna = match ($user->tipo ?? '') {
+            'Alumno' => 'para_alumnos',
+            'Acudiente' => 'para_acudientes',
+            'Profesor' => 'para_profes',
+            default => null,
+        };
+
+        $visible = $publicacion->para_todos
+            || ($columna !== null && $publicacion->{$columna});
+
+        if (! $visible) {
+            abort(403, 'Esa publicación no es para ti');
+        }
+    }
+
     private function exigeQueLaPublicacionSeaSuya(object $user, $publiId): void
     {
         if ($user->is_superuser) {

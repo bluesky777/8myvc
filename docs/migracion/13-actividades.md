@@ -416,5 +416,35 @@ muerto, no una regla que no se cumple. Se anota para que nadie las persiga.
 2. Nada de la lista de la §6: se revisó entera y no queda ninguna. Lo que sí
    queda es pasar `tools/respuestas-que-mienten.py` cada vez que se ensanche,
    que es lo que sí encuentra esta familia.
-3. **`putDuplicarPregunta`**, que copia una pregunta con sus opciones y es donde
-   suelen esconderse los campos que no se copian.
+3. ~~**`putDuplicarPregunta`**~~ — **mirada el 21 ago 2026, y la corazonada no
+   era.** Copia todo lo que está vivo. Lo que no copia no son campos perdidos:
+
+   - `ws_opciones.image_id` **no lo escribe nadie** —ni el backend ni ninguno de
+     los cuatro clientes— y hay **0 filas** con valor. Columna muerta.
+   - `ws_opciones_cuadricula` tampoco se copia, y es lo mismo un piso más arriba:
+     **la tabla no tiene un solo `INSERT` en toda la API** y está vacía. Es el
+     hueco del cuarto tipo de pregunta de la [§6](#6-el-cuarto-tipo-de-usuario-cae-por-el-hueco-otra-vez):
+     el tipo «Cuadrícula» se lee y no se escribe, así que **duplicar no puede
+     perder lo que no se puede crear**.
+   - El `// Debo modificarlo` que el autor dejó al lado de `orden` **ya lo
+     resuelve el front**: `EditarActividadCtrl.duplicar_pregunta` pone
+     `pregunta.orden = $ctrl.actividad.preguntas.length` antes de mandar. El
+     comentario describe una tarea hecha en el otro lado, que es de las cosas que
+     más tiempo hacen perder.
+
+   Lo que sí salió de mirarla, y queda fijado por `DuplicarPreguntaTest`:
+
+   - **Sin `opciones` en el cuerpo es un 500 con la pregunta ya creada.**
+     `count()` sobre el null de un `Request::input` ausente es un TypeError desde
+     PHP 8 —el mismo de la [05 §13](05-codigo-muerto-y-roto.md)— y llega *después*
+     del `save()`. No hay camino real que llegue así, porque el front manda el
+     objeto entero de una pregunta que ya existe; se deja escrito para que se vea
+     el día que alguien toque el método.
+   - **Responde 201 y no 200**, y no lo escribió nadie: Laravel lo pone solo
+     cuando la acción devuelve un modelo con `wasRecentlyCreated`. Sus hermanas
+     devuelven cadenas o modelos existentes y salen 200. **El código depende de
+     qué se devuelve, no de qué se hace.**
+   - Y `added_by` guarda el `user_id`, comprobado y fijado — que es la mitad de la
+     mina de la [§2](#2-nadie-mira-de-quién-es): su hermana
+     `ws_actividades.created_by` guarda `persona_id`. El día que se escriba el
+     guard de propiedad, este test dice cuál es cuál.

@@ -1,5 +1,6 @@
 <?php namespace App\Http\Controllers\Informes;
 
+use App\Services\DefinitivasDeAsignatura;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Informes\CalcPerdidasDefinitivas;
 use Illuminate\Support\Facades\Request;
@@ -119,50 +120,87 @@ class BoletinesController extends Controller {
 	}
 
 
+	/**
+	 * El boletín de un grupo, y —cuando se pide uno solo— el recálculo de sus
+	 * definitivas.
+	 *
+	 * **Aquí estaba la causa principal de que las definitivas desaparecieran**, con
+	 * el comentario del propio autor al lado: `// CALCULAMOS SIN VERIFICAR QUE ESTÉ
+	 * DESACTUALIZADO`. El bloque borraba TODAS las definitivas automáticas del
+	 * alumno en ese grupo y periodo, y el INSERT de detrás sólo reponía las
+	 * asignaturas **en las que el alumno tuviera alguna nota viva**. Toda asignatura
+	 * sin notas registradas perdía su definitiva y no volvía.
+	 *
+	 * Con tres agravantes, y ninguno es teórico:
+	 *
+	 * - Usaba **el periodo del usuario que mira**, no el del boletín. Estar en el
+	 *   periodo 2, pasarse al 1 y abrir un boletín reescribía las definitivas del
+	 *   periodo 1. Ése fue el síntoma que se reportó.
+	 * - La ruta es `boletin.propio`, así que no lo disparaba sólo el coordinador:
+	 *   **el propio alumno o su acudiente, al abrir su boletín**.
+	 * - Sin transacción. Una petición que muriera entre el DELETE y el INSERT las
+	 *   dejaba borradas.
+	 *
+	 * Ahora **no se borra nada**: se pregunta si la definitiva está desactualizada y,
+	 * si lo está, se recalcula. Los dos lados los pone `DefinitivasDeAsignatura`,
+	 * que parte de las matrículas y no de las notas —así que el alumno sin notas
+	 * recibe su fila en vez de perderla— y cuyo sello mira también la estructura y
+	 * los borrados, que es lo que el `MAX(notas.updated_at)` de antes no veía.
+	 *
+	 * El recálculo se acota **a este alumno** con `soloAlumno`. Recalcular el grupo
+	 * entero sería igual de correcto, pero convertiría «un acudiente abre el boletín
+	 * de su hijo» en «un acudiente reescribe las definitivas de treinta alumnos», y
+	 * eso no es lo que nadie espera de abrir un boletín.
+	 *
+	 * El periodo sigue siendo el del usuario, y ya no importa: **recalcular no
+	 * destruye**. Dejarlo como estaba es lo que mantiene la intención original
+	 * —«imprimimos y descubrimos que faltaba calcular»— sin el daño.
+	 *
+	 * Ver docs/migracion/10-definitivas.md §1.1 y su fase 3.
+	 */
 	public function putDetailedNotas($grupo_id)
 	{
 		$periodo_a_calcular 	= Request::input('periodo_a_calcular', 10);
 		$requested_alumnos 		= Request::input('requested_alumnos', '');
 
-		if (count($requested_alumnos) == 1) {
-			$alumno 	= $requested_alumnos[0];
-			$now 		= Carbon::now('America/Bogota');
-			
-			// CALCULAMOS SIN VERIFICAR QUE ESTÉ DESACTUALIZADO
-			DB::delete('DELETE nf FROM notas_finales nf INNER JOIN asignaturas a ON a.id=nf.asignatura_id and a.grupo_id=? 
-					WHERE (nf.manual is null or nf.manual=0) and (nf.recuperada is null or nf.recuperada=0) and nf.periodo_id=? and nf.alumno_id=?', 
-					[ $grupo_id, $this->user->periodo_id, $alumno['alumno_id'] ]);
-
-			$consulta = 'SELECT nt.alumno_id, asi.id as asignatura_id, nt.periodo_id, cast(sum(nt.ValorNota) as decimal(4,1)) as nota_asignatura
-				FROM asignaturas asi 
-				inner join 
-					(select u.asignatura_id, n.alumno_id, u.periodo_id, sum( ((u.porcentaje/100)*((s.porcentaje/100)*n.nota)) ) ValorNota
-					from unidades u 
-					inner join subunidades s on s.unidad_id=u.id and s.deleted_at is null and u.periodo_id=:periodo_id
-					inner join notas n on n.subunidad_id=s.id and n.deleted_at is null and n.alumno_id=:alumno_id
-					inner join asignaturas asi2 on asi2.id=u.asignatura_id and asi2.deleted_at is null and asi2.grupo_id=:grupo_id
-					where  u.deleted_at is null
-					group by n.alumno_id, u.id, s.id
-				) nt ON asi.id=nt.asignatura_id and asi.grupo_id=:grupo_id2 
-				where asi.deleted_at is null
-				group by nt.alumno_id, asi.id, nt.periodo_id';
-
-			$defi_autos = DB::select($consulta, [ ':periodo_id'=>$this->user->periodo_id, ':alumno_id'=>$alumno['alumno_id'], ':grupo_id'=>$grupo_id, ':grupo_id2'=>$grupo_id ]);
-			$cant_def = count($defi_autos);
-					
-			for ($i=0; $i < $cant_def; $i++) {
-				$consulta = 'INSERT INTO notas_finales(alumno_id, asignatura_id, periodo_id, periodo, nota, recuperada, manual, updated_by, created_at, updated_at) 
-							SELECT * FROM (SELECT '.$defi_autos[$i]->alumno_id.' as alumno_id, '.$defi_autos[$i]->asignatura_id.' as asignatura_id, '.$defi_autos[$i]->periodo_id.' as periodo_id, '.$this->user->numero_periodo.' as periodo, '.$defi_autos[$i]->nota_asignatura.' as nota_asignatura, 0 as recuperada, 0 as manual, '.$this->user->user_id.' as crea, "'.$now.'" as fecha, "'.$now.'" as fecha2) AS tmp
-							WHERE NOT EXISTS (
-								SELECT id FROM notas_finales WHERE alumno_id='.$defi_autos[$i]->alumno_id.' and asignatura_id='.$defi_autos[$i]->asignatura_id.' and periodo_id='.$defi_autos[$i]->periodo_id.'
-							) LIMIT 1';
-
-				DB::select($consulta);
-			}
+		if (is_array($requested_alumnos) && count($requested_alumnos) == 1) {
+			$this->ponerAlDiaLasDefinitivas($grupo_id, (int) $requested_alumnos[0]['alumno_id']);
 		}
 
 		$boletines = $this->detailedNotasGrupo($grupo_id, $this->user, $requested_alumnos, $periodo_a_calcular);
 		return $boletines;
+	}
+
+	/**
+	 * Recalcula las definitivas de un alumno en las asignaturas de su grupo que lo
+	 * necesiten.
+	 *
+	 * Recorre las asignaturas y pregunta una por una, en vez de recalcular a lo
+	 * bruto: la comprobación es una consulta agregada barata y el recálculo escribe,
+	 * así que preguntar sale a cuenta en la pantalla que más veces se abre sin que
+	 * nada haya cambiado.
+	 */
+	private function ponerAlDiaLasDefinitivas(int $grupo_id, int $alumno_id): void
+	{
+		$asignaturas = DB::select(
+			'SELECT id FROM asignaturas WHERE grupo_id = ? AND deleted_at IS NULL',
+			[$grupo_id]
+		);
+
+		foreach ($asignaturas as $asignatura) {
+			if (! DefinitivasDeAsignatura::estaDesactualizada(
+				(int) $asignatura->id, (int) $this->user->periodo_id, $alumno_id
+			)) {
+				continue;
+			}
+
+			DefinitivasDeAsignatura::recalcular(
+				(int) $asignatura->id,
+				(int) $this->user->periodo_id,
+				(int) $this->user->user_id,
+				$alumno_id
+			);
+		}
 	}
 
 	public function detailedNotasGrupo($grupo_id, &$user, $requested_alumnos='', $periodo_a_calcular=10)

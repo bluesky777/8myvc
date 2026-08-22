@@ -21,9 +21,34 @@ use Carbon\Carbon;
 class ImagesUsuariosController extends Controller {
 
 	
+	/**
+	 * El álbum PRIVADO de otra persona, para el gestor de imágenes del administrador.
+	 *
+	 * **Estaba abierto a cualquiera con token**, y medido con el de un alumno del
+	 * seed: 200 y las **162 imágenes privadas** de un superusuario, con su nombre
+	 * de archivo dentro —que es la ruta con la que se piden—. Ver 05 §53.
+	 *
+	 * Lo que lo tuvo tapado no fue que nadie mirara la ruta, sino **el nombre de
+	 * la clave**. La exención de `AutorizacionTest` decía «sin `user_id` significa
+	 * "las mías", que es lo que devuelve», y el método no lee `user_id`: lee
+	 * `usuario_id`. Las dos mitades de la frase eran falsas —sin la clave devuelve
+	 * las imágenes cuyo `user_id` es NULL, no las de quien pregunta— y la lista de
+	 * exenciones ya avisa dos líneas más arriba de que es de las pocas cosas del
+	 * repo que se escriben creyendo al código en vez de midiéndolo. Es la segunda
+	 * que se le cuela, después de `piars-alumnos/field` en la §35.
+	 *
+	 * El criterio no es nuevo: la pestaña «Imágenes de usuarios» del gestor de
+	 * archivos es la única que llama aquí —`alumSelect` y `profeSelect` de
+	 * `FileManagerCtrl`— y el front la enseña con `ng-if="hasRoleOrPerm('admin')"`.
+	 * Es la situación de la §29.3 —el backend dos escalones por debajo de su
+	 * propia pantalla— y se cierra con la decisión que ya tomó la §36 para sus
+	 * cinco hermanas de este mismo controlador, no con una nueva.
+	 */
 	public function putImagenesDeUsuario()
 	{
-		$user = User::fromToken();
+		Autoriza::exigir(Autoriza::esAdministrativo(User::fromToken()),
+			'No tienes permiso para ver las imágenes de otra persona.');
+
 		$consulta = 'SELECT * FROM images WHERE user_id=:user_id and (publica is null or publica=false) and deleted_at is null';
 		return DB::select($consulta, [ ':user_id'	=> Request::input('usuario_id') ]);
 	}

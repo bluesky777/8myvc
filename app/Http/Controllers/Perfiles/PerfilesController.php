@@ -620,6 +620,30 @@ class PerfilesController extends Controller {
 
 	
 	
+	/**
+	 * La rejilla de usuarios del colegio: profesores, alumnos y acudientes en un
+	 * `UNION`.
+	 *
+	 * ⚠️ **NO AÑADAS `is_superuser` A ESTE `SELECT` SIN LEER ESTO.** Es una línea,
+	 * es lo primero que uno hace si necesita saber quién es administrador, y
+	 * **enciende un botón que manda grupos a la papelera**.
+	 *
+	 * El botón de borrar de la rejilla se pinta con `is_superuser`. Como esa
+	 * columna no viaja en esta respuesta, la condición es siempre falsa y nadie lo
+	 * pulsa nunca. Lo que hay detrás es `DELETE perfiles/destroy/{id}`, que **no
+	 * borra un perfil: hace `Grupo::findOrFail($id)->delete()`** — un grupo, con su
+	 * cascada. Hoy está muerto por accidente, no por diseño.
+	 *
+	 * Es uno de los cinco métodos de este controlador que operan sobre GRUPO y no
+	 * sobre persona, y lo avisa también el front en la cabecera de `PerfilesApi.ts`.
+	 * Fijado por `PerfilesEscribeEnOtraTablaTest`, que se pone en rojo el día que
+	 * esta columna aparezca — y su mensaje dice qué mirar antes de actualizarlo.
+	 *
+	 * Y de aquí sale el otro dato que hace daño: las columnas que no aplican a cada
+	 * rama del `UNION` se rellenan con la cadena **«N/A»**. La rejilla reenvía lo
+	 * que recibió, y `putUpdate` la escribe tal cual; con `'strict' => false`, un
+	 * «N/A» en una columna `DATE` se guarda como `0000-00-00`. Ver 05 §65.
+	 */
 	public function getUsuariosall()
 	{
 		$year_id = Request::input('year_id');

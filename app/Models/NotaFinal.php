@@ -288,13 +288,36 @@ class NotaFinal extends Model {
 					
 		for ($i=0; $i < $cant_def; $i++) { 
 			
+			// **Los diez valores van ligados; antes iban concatenados.** Tres de ellos
+			// —`$asignatura_id`, `$periodo_id` y `$num_periodo`— son los argumentos
+			// del método, y los cuatro llamantes se los pasan **crudos de
+			// `Request::input`**: `unidades/update`, `unidades/destroy`,
+			// `subunidades/update` y `subunidades/destroy`. O sea que esto era una
+			// inyección sobre un INSERT en `notas_finales`, dentro de un bucle, por
+			// cuatro rutas de `auth.personal`.
+			//
+			// Es el gemelo del de `DefinitivasPeriodosController` (c24706e): la misma
+			// consulta copiada, con los mismos valores del cuerpo. Se arregló aquel
+			// primero porque lo señaló otra sesión; éste salió de mirar los hermanos,
+			// que es lo que la asimetría enseña — cuando una consulta concatena, la
+			// pregunta no es si está mal sino **dónde más está copiada**.
+			//
+			// Se liga y nada más: ni una línea de lógica. El método entero está
+			// condenado —es uno de los seis escritores que la fase 3 de
+			// docs/migracion/10-definitivas.md sustituye por
+			// `App\Services\DefinitivasDeAsignatura`— pero sigue desplegado en los
+			// dieciséis colegios y la fase 3 no tiene fecha.
 			$consulta = 'INSERT INTO notas_finales(alumno_id, asignatura_id, periodo_id, periodo, nota, recuperada, manual, created_at, updated_at) 
-						SELECT * FROM (SELECT '.$defi_autos[$i]->alumno_id.' as alumno_id, '.$asignatura_id.' as asignatura_id, '.$periodo_id.' as periodo_id, '.$num_periodo.' as periodo, '.$defi_autos[$i]->def_materia_auto.' as nota_asignatura, 0 as recuperada, 0 as manual, '.$user->user_id.' as crea, "'.$now.'" as fecha) AS tmp
+						SELECT * FROM (SELECT ? as alumno_id, ? as asignatura_id, ? as periodo_id, ? as periodo, ? as nota_asignatura, 0 as recuperada, 0 as manual, ? as crea, ? as fecha) AS tmp
 						WHERE NOT EXISTS (
-							SELECT id FROM notas_finales WHERE alumno_id='.$defi_autos[$i]->alumno_id.' and asignatura_id='.$asignatura_id.' and periodo_id='.$periodo_id.'
+							SELECT id FROM notas_finales WHERE alumno_id=? and asignatura_id=? and periodo_id=?
 						) LIMIT 1';
 
-			DB::select($consulta);
+			DB::select($consulta, [
+				$defi_autos[$i]->alumno_id, $asignatura_id, $periodo_id, $num_periodo,
+				$defi_autos[$i]->def_materia_auto, $user->user_id, $now,
+				$defi_autos[$i]->alumno_id, $asignatura_id, $periodo_id,
+			]);
 			
 		}
 		

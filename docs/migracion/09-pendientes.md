@@ -28,6 +28,14 @@ Al cerrar: **859 tests**, `pint` y `stan` en verde, `stan` en **nivel 7**.
 Cobertura de rutas: **370 de 539 (69%)**, medida con
 `tools/cobertura-de-rutas.py`.
 
+> **Añadido después del despliegue del 21 ago**, en la rama
+> `fix/identificadores-del-cuerpo` y **sin fusionar todavía**: **887 tests** y
+> cobertura **385 de 539 (71%)**. Cuatro commits, y lo que traen está en
+> [05 §53](05-codigo-muerto-y-roto.md) y [§54](05-codigo-muerto-y-roto.md) —la
+> pregunta del identificador contestada, y ocho rechazos que contestaban con el
+> código de otra cosa—. **Nada de eso está desplegado**: son arreglos de `app/`
+> sin migraciones y sin tocar los cuatro clientes.
+
 ### Lo primero que hay que hacer, y no es código
 
 **Nada de lo de hoy está desplegado.** `app/` es copia real en cada colegio
@@ -109,14 +117,59 @@ error real**:
 
 ### Qué mirar después, por orden de lo que ha dado fruto
 
-1. **Seguir la cobertura**: quedan **169 rutas** sin respuesta comprobada. El
-   método que ha dado los diez hallazgos del día no es subir el número, es
-   **elegir un hueco con forma de dominio y leer el controlador**. La lista sale
-   de `tools/cobertura-de-rutas.py`.
-2. **La pregunta que junta cinco fallos y que sigue sin hacerse**: «¿qué **más**
-   lee este identificador del cuerpo?». `data_id` derivado del cuerpo apareció
-   **tres veces en el mismo controlador** en tres pasadas distintas (§39, §49,
-   §50). Se contesta de una vez y no de cinco.
+1. **Seguir la cobertura**: al 21 ago 2026 por la noche, **385 de 539 (71%)**. El
+   método que ha dado los hallazgos no es subir el número, es **elegir un hueco
+   con forma de dominio y leer el controlador**. La lista sale de
+   `tools/cobertura-de-rutas.py`.
+
+   El último hueco leído fueron las **veintidós rutas de `auth.token` a secas que
+   no había mirado nadie**, y salió **sin ningún fallo de autorización** — el
+   primer barrido del mes que sale así, y eso es un dato y no un rato perdido:
+   dice que ese trozo está cubierto. Lo que sí trajo son **ocho rechazos que
+   contestan con el código de otra cosa** ([05 §54](05-codigo-muerto-y-roto.md)),
+   y uno de los ocho no era cosmético: `enfermeria/*` respondía **401**, que
+   `Sesion.ts` del front lee como «sesión caducada» — le rotaba los tokens al que
+   llamaba y en la carrera lo echaba al login. Se reporta como «me saca», que
+   manda a mirar el código de sesión, donde no está el fallo.
+
+   **Y la lección que ya va por la tercera vez en dos días**: los tres hallazgos
+   de ayer y hoy —el 500 de `ChangesAskedAssignment`, la exención de
+   `imagenes-de-usuario` y este 401— **ya tenían un test o una anotación que los
+   fijaba**. Un test que fija lo que hay deja fijado también lo que estaba mal, y
+   lo vuelve más difícil de ver, porque a partir de ahí hay un verde que dice que
+   es así. No es un argumento contra fijar lo que hay: es que hace falta escribir
+   al lado **por qué ese valor es el que es**, aunque solo sea «no se juzgó».
+2. ~~**La pregunta que junta cinco fallos y que sigue sin hacerse**~~ —
+   **contestada el 21 ago 2026, y salieron tres** ([05 §53](05-codigo-muerto-y-roto.md)).
+   Fueron el **sexto** `asked_id` —la copia literal de la ruta que arregló la §50,
+   en otro controlador, entregando el documento y la dirección de cualquiera—, el
+   **álbum privado de cualquiera** a cualquiera con token, y **`foto_id`**, el
+   tercer nombre de una imagen que `persona.propia` no conocía. La herramienta es
+   `tools/identificadores-del-cuerpo.py` y los fija `IdentificadoresDelCuerpoTest`,
+   nueve casos.
+
+   Lo que hay que llevarse no es el número: **dos de los tres ya estaban
+   medidos**, y por eso nadie volvió. Al sexto `asked_id` se le había preguntado
+   qué código devuelve con un id que no existe —tiene su test fijando el 500— y
+   nunca de quién es la fila cuando sí existe; al álbum privado lo tapaba una
+   exención de `AutorizacionTest` escrita contra `user_id` cuando el método lee
+   `usuario_id`, que es **la segunda que se le cuela a esa lista** después de la
+   §35. **Medir una ruta no es haberla juzgado**, y una exención es la única línea
+   del repo cuya recompensa es que nadie la vuelva a mirar.
+
+   **Y el cuarto salió de arreglar la herramienta**, que es de donde menos se
+   espera: la señal buscaba `Autoriza::` y media API comprueba en un helper
+   privado —llamado `exigirQue…` en un controlador y `exigeQue…` en otro, el mismo
+   verbo conjugado de dos maneras—. Buscar por la raíz `exig` bajó los candidatos
+   alcanzables por una familia de catorce a uno, y ese uno era
+   `publicaciones/comentar`: un alumno comentaba en una publicación marcada solo
+   para administradores, que no sale en su muro. **El detector también se queda
+   ciego ante un nombre nuevo**, que es la misma trampa que persigue.
+
+   Y no está agotada: la herramienta da **231 rutas** y no sabe distinguir un id
+   de persona de uno del colegio. Lo leído es lo alcanzable por una familia y por
+   el personal que no debería; el resto espera a que se decida quién configura el
+   colegio (§0).
 3. **Las definitivas ([§4](#4-las-definitivas-notas-que-se-pierden-se-duplican-y-no-se-actualizan))**,
    cuando Joseth lo reabra. Dato nuevo del 21 ago: de los seis métodos que
    escriben en la rejilla sin mirar el interruptor del periodo, **cuatro caen ahí**
@@ -140,6 +193,170 @@ error real**:
 
 **Se leen antes de re-litigar nada.** Es la regla de CLAUDE.md y hoy ha evitado
 por lo menos dos arreglos que habrían apagado una pantalla en dieciséis colegios.
+
+---
+
+## 0.1 La noche del 21 al 22 de agosto de 2026 — cinco sesiones en paralelo
+
+Cinco sesiones sobre **el mismo árbol y la misma rama**, coordinadas por una sexta
+que no escribió código. Salieron **17 commits**, la cobertura pasó de **385/539
+(71%) a 417/539 (77%)** y los tests de 887 a **939**, medido al cerrar contra una
+base propia. Lo que sigue **no son los hallazgos** —ésos están en el 05, §55 a
+§67— sino lo que costó aprenderlos.
+
+### Quién hizo qué, porque `git log` no lo dice
+
+**Las cinco sesiones commitean como «Joseth David».** `git log --author` no las
+distingue, así que **cualquier reparto de crédito o de culpa leído del log es una
+conjetura**. La única atribución fiable es esta tabla:
+
+| Commit | Sesión | Qué |
+|---|---|---|
+| `fbfc796` · `5d7a885` · `2901602` | 22 | inyección en ordinales · `detailed_materias` fijado sin juzgar · **inyección de segundo orden** en calendario |
+| `179c662` · `c24706e` · `640306e` · `10c0410` · `673043d` | 67 | definitivas fase 3 primer escritor · ligar `DefinitivasPeriodos` · el gemelo en `NotaFinal` · corregir una afirmación falsa propia · `perfiles/*` |
+| `3fb58e0` · `f06e060` · `88d2671` · `a82cec3` · `f7c32ba` | c8 | inyección de la importación · §56/57/60 · método de la §57 · `asistencias-app` · `users` |
+| `6411bcb` · `8ce3d4f` · `2e34d8f` | fe | los cuatro `destroy` de votaciones · observador del grupo · requisitos de matrícula |
+| `c3b6d26` | f3 (coordinación) | cierre del 05: §61 y la ampliación de la §59 |
+
+Dos commits traen **más de lo que dicen**: `6411bcb` se llevó dentro las §55 y §59
+de otra sesión, y `c3b6d26` las §62 a §67. **No se reescribió ninguno**, y las
+tres sesiones llegaron por separado a la misma razón: rehacer la historia de otra
+sesión para arreglar una atribución destruye trabajo de verdad, y el problema de
+provenencia se arregla con una nota. Es lo que ya decidió este repo con el merge
+del PIAR. **El commit huérfano `f48f0a7` no es antepasado de `HEAD`**; su
+contenido está entero en la rama, comprobado línea a línea.
+
+### Lo que hay que montar antes de la próxima noche
+
+**El documento compartido es el punto de fallo, y falló cuatro veces.** El 05 lo
+escribieron cuatro sesiones a la vez y cuatro commits se llevaron trabajo ajeno
+dentro. Se probaron tres reglas y **ninguna lo cerró**:
+
+1. «`git add <ruta>` una a una» — **no ve el caso**: la ruta es una sola y el
+   fichero es de todas.
+2. «Nadie añade el 05; lo commitea la sesión que coordina» — estrecha la ventana;
+   entre comprobar el diff y hacer `git add` cabe otra sesión, y cupo.
+3. «Recorta tus hunks» — **falla por geometría**: cuando varias anexan al final,
+   git funde todas las adiciones en **un solo hunk**.
+
+**La conclusión, después de cuatro fallos en una noche: un documento por sesión y
+una fusión en frío al final.** Cualquier secuencia de dos pasos tiene un antes y
+un después, y con cinco sesiones sobre un árbol **«lo arreglo en un momento» ya es
+una ventana**.
+
+Si aun así hace falta commitear un documento compartido, el índice se arma a mano
+y **se verifica con un número, no con una presencia**:
+
+```bash
+git show HEAD:<fichero> > /tmp/base && cat /tmp/mi-bloque >> /tmp/base
+blob=$(git hash-object -w /tmp/base)
+git update-index --cacheinfo 100644,$blob,<fichero>
+git diff --cached --stat     # tiene que dar TU número de líneas
+```
+
+**Y una regla que no es de git**: un test a medias sin commitear **pone la suite
+en rojo para todas**. Un fichero de `app/` a medias solo rompe lo suyo; un test
+roto es un rojo global y quien lo ve no puede saber de quién es.
+
+### El método que funcionó, y que no estaba escrito
+
+- **La asimetría entre hermanas.** Una línea que no hace lo que hacen las de al
+  lado: el `?` que falta entre dos consultas que sí ligan, el guard que falta
+  entre dos rutas vecinas que sí lo llevan. Encontró **tres inyecciones y un guard
+  ausente**. Concatenación a secas daba 40 sitios, casi todos ruido; la asimetría
+  dio dos, y los dos eran fallos reales.
+- **Con una condición, o da falsos positivos con buena pinta**: comprobar que el
+  valor concatenado **llega de verdad al SQL que se ejecuta**.
+- **«Viene de la base» no es motivo para descartar un sitio.** Solo vale si además
+  se sabe **quién escribe esa columna**: si alguna ruta la llena desde
+  `Request::input`, el sitio sigue vivo y la entrada está en otro fichero. Así se
+  encontró la inyección de segundo orden. Los descartes por constante, por marcas
+  de parámetro (`?,?,?`), por bloque comentado y por «no llega al SQL» **no
+  dependen del origen y siguen siendo buenos**.
+- **Revertir de dos maneras.** No basta revertir al código original: hay que
+  revertir **también a la solución equivocada que parecía buena**. Es lo único que
+  demuestra que los tests distinguen el arreglo del atajo — y de esa segunda
+  reversión salió un verde hueco que leer el test no destapaba.
+- **Una lista de sitios no vale sin su clasificación, y la clasificación no sale
+  del nombre.** El mismo `Request::input('is_active', 1)` está en seis sitios y
+  **solo dos son el fallo**: los otros cuatro son altas, donde ese valor por
+  defecto es correcto. Clasificarlos por el nombre del método daba cuatro fallos
+  —porque `putUpdate` **también da de alta**— y «arreglarlos» habría roto dos. El
+  discriminador era `new User` contra `User::find()`. **Una lista sin clasificar
+  es más peligrosa que no tenerla**, porque invita a arreglar en bloque.
+- **La tercera pata: el llamante dice si el fallo está vivo o solo latente.** El
+  controlador dice qué acepta y el `return` qué devuelve; **si nadie manda ese
+  campo, el fallo existe y no muerde**. Dos de esta noche son así —
+  `perfiles/destroy` borrando grupos y la condición invertida de la contraseña— y
+  las dos **se encienden solas** el día que un cliente añada una línea. Se
+  documentan como minas, no como fallos activos, y el aviso va **en el código**,
+  no solo en el documento.
+- **Cuando una serie se cierra, anotar sobre qué población se cerró.** La §54
+  cerró ocho rechazos barriendo las rutas de `auth.token`; los mismos fallos
+  seguían vivos en las de `auth.personal` y nadie los buscaba, porque la serie
+  constaba cerrada.
+- **Cuando el hueco es plano, la pregunta agrupa mejor que la carpeta.** Con 143
+  rutas repartidas en 57 controladores (mediana 2), agrupar por dominio multiplica
+  lecturas. «Qué se lleva por delante un `destroy` y quién puede llamarlo» son
+  cuatro rutas de cuatro controladores y **una sola lectura**.
+
+### La forma de fallo más cara: el instrumento que miente con la cara del problema
+
+Ocurrió **siete veces en una noche**, y es la que manda a investigar el sitio
+equivocado con una pista convincente:
+
+| El instrumento | La cara que puso |
+|---|---|
+| migraciones desincronizadas entre bases | tests de contrato en rojo con mensajes creíbles |
+| `\| tail` tragándose el código de salida | un script que sigue como si nada — un commit borró 128 ficheros ajenos |
+| `git status \| grep '^ M'` tras `git apply --cached` | «te llevaste trabajo ajeno» cuando no; **fallaba siempre** |
+| ejecutar contra el backend real **con un cuerpo que la pantalla no manda** | midió de verdad, y midió otra cosa |
+| probar una orden de git **contra una muestra sin el caso que la rompe** | salió bien; clasificaba mal cuatro ramas |
+| «que el fichero siga mostrando líneas sin stagear» | pasaba mientras arrastraba 400 líneas ajenas |
+| **entrar mueve `users.periodo_id`** | rojos con cara de «falta seed» |
+| `grep … \| head -5` para contar | **un recuento truncado presentado como total** — dijo cinco donde había seis |
+
+**Tres de las ocho son de la misma familia: un tubo que limita en silencio** —
+`| tail` tragándose el código de salida, `| head -N` truncando un recuento— **y
+contesta como si hubiera contestado entero.** Si el resultado de un comando va a
+convertirse en un número o en un veredicto, no lleva tubo que corte.
+
+**Las dos del medio son las peores porque hacen lo que este repo predica** —no
+leas, ejecuta— y aun así miden otra cosa: una por **el cuerpo que mandas**, otra
+por **la muestra contra la que pruebas**. Ejecutar con el cuerpo equivocado es una
+forma nueva de mirar el 200.
+
+Y la regla que las resume, que salió de nuestro propio proceso y vale para el
+código:
+
+> **Una comprobación que no puede fallar cuando el fallo ocurre no es una
+> comprobación.** La buena es la que da un número, no una presencia.
+
+**El seed vacío va por nueve**, dos de ellas en esta noche. Y **cinco de los
+hallazgos vivían debajo de algo verde** — uno de ellos, debajo de una revisión que
+se había dado por cerrada mirando solo la rama que abrió.
+
+### Sobre trabajar en paralelo, que también se aprendió
+
+- **El reparto no lo lleva una sesión: lo lleva una lista escrita.** Dos
+  coordinadoras chocaron tres veces la primera hora. Con una cola escrita de la
+  que cada una **se sirve sola** al terminar, nadie espera respuesta y la noche no
+  se para cuando quien coordina tarda.
+- **Un acuerdo bilateral cerrado y en ejecución no se reabre desde fuera**, ni
+  siquiera por quien coordina.
+- **Quien coordina es quien más ensancha las afirmaciones**, porque es quien menos
+  toca el código y más lejos las manda. Una afirmación falsa sobre las claves
+  ajenas de `notas_finales` llegó a «dato estructural» y a argumento para reabrir
+  la fase 2 en dos saltos. **Lo que llega de otra sesión y suena a hallazgo
+  estructural se comprueba antes de subirlo de rango**, no después.
+- **Una sesión no puede autorizar a otra.** Coordinar es administrar el permiso
+  que el usuario ya dio; **no es concederlo**. Vale también entre repositorios.
+- **Lo que se autorizó fue un diagnóstico, no un fichero.** Cuando la medición
+  cambia lo que pasa, el permiso se vuelve a pedir — aunque sea la misma pantalla
+  y el arreglo sea más pequeño.
+- **Un número medido en un solo sitio describe ese sitio.** «14 filas dañables»
+  del árbol del front y «cero» de la base de tests eran el mismo mecanismo: lo
+  afirmable era el mecanismo, no la cantidad. Ninguna de las dos podía verlo sola.
 
 ---
 

@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\DB;
 
 use App\Support\Autoriza;
+use App\Support\PedidoPropio;
 use App\User;
 use App\Models\ChangeAsked;
 use App\Models\ChangeAskedDetails;
@@ -1128,26 +1129,17 @@ class ChangeAskedController extends Controller {
 	 * es la §39 exacta —allí aprobar un cambio escribía lo que dijera el cuerpo—,
 	 * y aquí borraría de `change_asked_data` y `change_asked_assignment` filas de
 	 * cualquier otro pedido con solo nombrarlas.
+	 *
+	 * **Se mudó a `App\Support\PedidoPropio` el 21 ago 2026** (05 §53): el mismo
+	 * `asked_id` del cuerpo resultó llegar también a
+	 * `ChangesAskedAssignment/ver-detalles`, en otro controlador y sin comprobar
+	 * nada. Copiar el criterio allí habría sido escribirlo dos veces, y este
+	 * costó tres pasadas fijarlo una. El envoltorio se queda para no tocar los
+	 * tres llamantes ni este comentario, que es donde está el porqué.
 	 */
 	private function pedidoPropio($asked_id, string $mensaje = 'Solo puedes retirar un pedido tuyo.')
 	{
-		$pedido = DB::selectOne(
-			'SELECT id, asked_by_user_id, data_id, assignment_id FROM change_asked WHERE id = ?',
-			[$asked_id]
-		);
-
-		if (! $pedido) {
-			abort(404, 'Ese pedido no existe.');
-		}
-
-		$user = User::fromToken();
-
-		Autoriza::exigir(
-			(int) $pedido->asked_by_user_id === (int) $user->user_id || Autoriza::esSuperusuario($user),
-			$mensaje
-		);
-
-		return $pedido;
+		return PedidoPropio::exigir($asked_id, $mensaje);
 	}
 
 	public function putDestruir()

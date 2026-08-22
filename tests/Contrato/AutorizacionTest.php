@@ -626,7 +626,13 @@ class AutorizacionTest extends CasoDeContrato
         // que se escriben creyendo al código en vez de midiéndolo, y por eso se
         // le coló. Ver 05 §35.
         'GET api/definitivas_periodos/arreglar-duplicados' => 'User::pueden_modificar_definitivas() corta a todo el que no sea superusuario o profesor con permiso',
-        'PUT api/images-users/imagenes-de-usuario' => 'sin `user_id` significa «las mías», que es lo que devuelve',
+        // Esta decía «sin `user_id` significa "las mías", que es lo que devuelve»,
+        // y las dos mitades eran falsas: el método lee `usuario_id`, no `user_id`,
+        // y sin la clave devuelve las imágenes cuyo `user_id` es NULL. Con token de
+        // alumno soltaba las 162 privadas de un superusuario. Es la SEGUNDA que se
+        // le cuela a esta lista después de `piars-alumnos/field` (§35), y las dos
+        // por lo mismo: se escribió creyéndole al código. Ver 05 §53.
+        'PUT api/images-users/imagenes-de-usuario' => 'Autoriza::esAdministrativo() corta a todo el que no sea superusuario o secretario, que es el gate que el front le pone a la pestaña (05 §53)',
 
         // Rotas desde antes de la migración, con su entrada en 05.
         'GET api/definitivas_periodos' => 'rota: `$profe_id` no se define para este tipo de usuario (05, tabla de variables sin definir)',

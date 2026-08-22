@@ -7,30 +7,60 @@ completas y lo que trajo cada tanda anterior están en
 
 ---
 
-## Esta tanda: 21 ago 2026
+## Esta tanda: 22 ago 2026
 
-Backend y nada más. **No hay que publicar nada en `myvc_front`, `myvc_front_2` ni
-en la app de Flutter.**
+Backend y nada más. **No hay migraciones nuevas** —las tres del 21 ago siguen
+siendo las últimas— y **no hay que publicar nada en `myvc_front`, `myvc_front_2`
+ni en la app de Flutter**.
 
-- **Una decena de arreglos de autorización.** El más gordo: `GET api/alumnos`
-  entregaba el directorio del colegio —nombre, fecha de nacimiento, celular,
-  dirección, religión y deuda de cada alumno— a cualquier alumno o acudiente. Los
-  demás, en [09-pendientes.md §0](migracion/09-pendientes.md).
-- **Tres migraciones nuevas**, las tres aditivas:
+Son los 28 commits de la noche del 21 al 22, con cinco sesiones trabajando a la
+vez. Los hallazgos están enteros en
+[05-codigo-muerto-y-roto.md](migracion/05-codigo-muerto-y-roto.md) §55 a §68;
+aquí va lo que **se nota** en un colegio, que es lo que hace falta para
+desplegar:
 
-  | Migración | Qué hace | Si no se corre |
-  |---|---|---|
-  | `..._create_rol_secretario` | crea la fila `Secretario` en `roles`. **No se la da a nadie**: el colegio decide después quién es su secretaria | nada se rompe; los once sitios que preguntan por ese rol siguen contestando `false`, como hasta hoy |
-  | `..._add_username_to_password_reminders_table` | añade `username`, nullable | **la recuperación de contraseña cae entera**: el código nuevo inserta en una columna que no existe |
-  | `..._add_deleted_at_to_frases_preescolar_table` | papelera para las frases del boletín de preescolar | borrar una frase da 500 |
+- **El boletín deja de borrar definitivas** —[10-definitivas.md §1.1](migracion/10-definitivas.md).
+  Abrir un boletín borraba las definitivas automáticas de ese alumno en el
+  periodo y sólo reponía las asignaturas con notas vivas; y lo disparaba también
+  **el alumno o el acudiente abriendo el suyo**, con el periodo del que mira y no
+  el del boletín. Ahora recalcula sólo si está desactualizada, y sin borrar.
+  **Es el cambio que más se va a notar, y es a favor**: donde faltaban
+  definitivas, vuelven a aparecer. Va acotado a ese alumno a propósito, para que
+  un acudiente no reescriba las de treinta.
+- **Cinco sitios donde un valor del cuerpo entraba crudo en el SQL**: los
+  ordinales de disciplina, el calendario, la casilla del SISBEN de la hoja de
+  importación y los dos `INSERT` de «Calcular definitivas». El del calendario es
+  **de segundo orden** —el valor no llegaba en esa petición, lo había escrito
+  antes otra ruta—, que es la razón de que no lo viera ningún detector. En
+  pantalla no cambia nada.
+- **Cuatro guards que no miraban el identificador que decidía** ([05 §53](migracion/05-codigo-muerto-y-roto.md)):
+  el documento y la dirección de cualquiera por `change-asked-assignment`, el
+  álbum privado de cualquiera, la foto oficial pedida **con la imagen de otro** y
+  el comentario de un alumno en una publicación marcada sólo para
+  administradores. Quien no debía deja de poder; quien sí, no nota nada.
+- **Once rechazos pasan a 403** ([05 §54](migracion/05-codigo-muerto-y-roto.md)
+  y [§67](migracion/05-codigo-muerto-y-roto.md)): los cuatro de `enfermeria/*`,
+  que contestaban **401**; los cuatro de `calendario/*`, que contestaban 404; y
+  los tres `users/crear-*`. **El 401 es el que importa**: `Sesion.ts` de
+  `myvc_front` lee cualquier 401 como sesión caducada, así que a quien no tenía
+  el permiso de enfermería se le rotaba la sesión en cada intento y en la carrera
+  se le echaba al login — se reporta como **«me saca»**, no como «no tengo
+  permiso». Comprobado en los tres fronts: ninguno mira el código, todos pintan
+  el mensaje del cuerpo, así que el cambio es invisible salvo por dejar de echar
+  a nadie.
+- Y **un mensaje que hablaba de otra operación**: `alumnos/update` respondía «No
+  tienes permiso para eliminar alumnos definitivamente», que es lo que quedaba
+  escrito en el log de un colegio cuando alguien intentaba **editar**.
 
-> **Por eso `migrate --force` va pegado al `git pull`, no «para luego».** En
-> cuanto el `app/` nuevo está en su sitio, `postRecuperarClave` escribe en la
-> columna nueva desde la primera petición — y esa es la única vía que le queda al
-> **91% de las cuentas** para recuperar su clave.
+Lo demás son tests y documentos. Entra también `App\Services\DefinitivasDeAsignatura`,
+el recalculador único, **y sólo lo llama el boletín**: el resto de la fase 3 y el
+índice único de la fase 2 no van en esta tanda.
 
-**Fuera de horario de clase**: son `ALTER TABLE` y en alojamiento compartido
-tardan.
+> **Sin migraciones, el `migrate --force` del bucle no aplica nada** y se deja
+> donde está: correrlo es idempotente y el día que haya una, el orden ya es el
+> bueno. Lo que sí hay que mirar si el comportamiento sigue siendo el viejo con
+> el código nuevo en su sitio es **OPcache**, no el `.env` —trampa 1b de la
+> [referencia](DESPLIEGUE-REFERENCIA.md).
 
 ---
 
@@ -107,8 +137,20 @@ acabas de actualizar: el 21 ago los dieciséis dijeron «Already up to date» mi
 después de un `push`, y eso solo se distingue de un despliegue bueno mirando el
 hash. Si no coincide, `git -C "$d" remote -v` y `git -C "$d" branch -vv`.
 
-Y a mano, en el navegador de un colegio cualquiera: **login de personal, login de
-alumno y recuperar contraseña**. Los tres tocan lo que cambió.
+**Ese 3 es de la tanda anterior, no de ésta**: aquí no hay migraciones nuevas, así
+que sigue siendo 3 y lo que dice es que el colegio no se quedó atrás el 21 ago.
+Lo que fija esta tanda es el **hash**.
+
+Y a mano, en el navegador de un colegio cualquiera, que aquí son tres cosas
+distintas:
+
+1. **Abrir el boletín de un alumno y volver a la planilla de notas.** Es lo único
+   que cambia de comportamiento visible: las definitivas tienen que seguir ahí —y
+   en las asignaturas sin notas, donde antes desaparecían, ahora salen. Hazlo
+   además **entrando como el acudiente**, que es quien lo disparaba sin saberlo.
+2. **Una acción de enfermería con alguien que no tenga el permiso.** Antes de esto
+   se le echaba al login; ahora tiene que ver el mensaje y **seguir dentro**.
+3. **Login de personal y login de alumno**, como siempre.
 
 ---
 
@@ -120,8 +162,9 @@ php artisan config:clear && php artisan route:clear
 php artisan config:cache && php artisan route:cache
 ```
 
-**Las tres migraciones no hay que deshacerlas**: una tabla de más y dos columnas
-que admiten NULL, y el código viejo las ignora.
+**Esta tanda no trae migraciones**, así que volver atrás es sólo el `checkout` y
+las cachés. Las tres del 21 ago se quedan donde están: una tabla de más y dos
+columnas que admiten NULL, y el código viejo las ignora.
 
 ---
 

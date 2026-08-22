@@ -36,6 +36,11 @@ class ImporterFixer {
 	public function verificar(&$alumno, $year)
 	{
 		$cons = '';
+		// Los valores del fragmento `$cons` van aparte y ligados. Lo que entra
+		// aqui sale de la hoja que sube el usuario, y concatenarlo era inyeccion:
+		// el fragmento acaba dentro del SET de un UPDATE que si se ejecuta
+		// (ImportarController 186 y 669). Ver 05 §60.
+		$valores = [];
 		$consA1 = '';
 		$consA2 = '';
 		$ciudad_id_A1 = null;
@@ -72,6 +77,15 @@ class ImporterFixer {
 		}
 
 		// ciudad de doc y ciudad de nac
+		//
+		// Estas tres SI se concatenan y aguantan, pero el motivo no es «sale de
+		// la base»: eso dejo de valer con la inyeccion de segundo orden de
+		// `putSincronizarCumples` (05 §61), donde lo concatenado era una columna
+		// que escribe otra ruta desde `Request::input`. Aqui aguanta porque lo
+		// que entra es `->id` —entero autoincremental—, no `->ciudad`, que es
+		// varchar(255) y SI lo escribe `CiudadesController::postGuardarCiudad`
+		// desde el cuerpo. Si algun dia se concatena el nombre en vez del id,
+		// esto es inyeccion.
 		for ($i=0; $i < $this->cant_ciud; $i++) { 
             if(strtolower($this->ciudades[$i]->ciudad) == strtolower($alumno["lugar_de_expedicion_ciudad"]) || $this->ciudades[$i]->id == $alumno["lugar_de_expedicion_ciudad"]){
 				$cons .= ', ciudad_doc='.$this->ciudades[$i]->id;
@@ -103,14 +117,16 @@ class ImporterFixer {
 		if(strtolower($alumno["sisben"])=='no aplica' || $alumno["sisben"]==''){
             $cons .= ', has_sisben=0, nro_sisben=null';
 		}else{
-			$cons .= ', has_sisben=1, nro_sisben='.$alumno["sisben"];
+			$cons .= ', has_sisben=1, nro_sisben=?';
+			$valores[] = $alumno["sisben"];
 		}
 		
 		// SISBEN 3
 		if(strtolower($alumno["sisben_3"])=='no aplica' || $alumno["sisben_3"]==''){
             $cons .= ', has_sisben_3=0, nro_sisben_3=null';
 		}else{
-			$cons .= ', has_sisben_3=1, nro_sisben_3='.$alumno["sisben_3"];
+			$cons .= ', has_sisben_3=1, nro_sisben_3=?';
+			$valores[] = $alumno["sisben_3"];
 		}
 		
 		// Nuevo
@@ -147,7 +163,7 @@ class ImporterFixer {
 			$alumno["parentesco_acud2"] = 'Madre';
 		}
 		
-		return ['consulta' => $cons, 'consultaA1' => $consA1, 'consultaA2' => $consA2, 'ciudad_id_A1' => $ciudad_id_A1, 'ciudad_id_A2' => $ciudad_id_A2];
+		return ['consulta' => $cons, 'valores' => $valores, 'consultaA1' => $consA1, 'consultaA2' => $consA2, 'ciudad_id_A1' => $ciudad_id_A1, 'ciudad_id_A2' => $ciudad_id_A2];
 
 	}
 

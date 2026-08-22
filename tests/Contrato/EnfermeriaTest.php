@@ -14,6 +14,18 @@ use Illuminate\Support\Facades\DB;
  * de más: la enfermera del colegio no podía escribir nada.
  *
  * Ver docs/migracion/05-codigo-muerto-y-roto.md §41.2.
+ *
+ * **El código del rechazo pasó de 401 a 403 el 21 ago 2026** (§54), y merece la
+ * pena por qué no se tocó al escribir este test: la §41.2 entró a arreglar el
+ * CRITERIO —quién puede escribir— y anotó el código que había, sin preguntárselo.
+ * Es la tercera vez que pasa lo mismo en dos días, después de las dos de la §53:
+ * **un test que fija lo que hay deja fijado también lo que estaba mal**, y lo
+ * vuelve más difícil de ver, porque a partir de ahí hay un test verde que dice
+ * que es así.
+ *
+ * El 401 importaba: `Sesion.ts` del front lo lee como «sesión caducada», rota los
+ * tokens del que llama y en la carrera que documenta lo echa al login. A la
+ * enfermera sin rol no se le decía «no puedes»; se le rompía la sesión.
  */
 class EnfermeriaTest extends CasoDeContrato
 {
@@ -77,7 +89,7 @@ class EnfermeriaTest extends CasoDeContrato
 
         $this->withToken($this->tokenDe($usuario->username))
             ->putJson('/api/enfermeria/guardar-valor', $cuerpo)
-            ->assertStatus(401);
+            ->assertStatus(403);
 
         $this->assertSame('ninguna',
             DB::table('antecedentes')->where('id', $antecedenteId)->value('observaciones'));
@@ -106,7 +118,7 @@ class EnfermeriaTest extends CasoDeContrato
                 'antec_id' => $antecedenteId,
                 'propiedad' => 'observaciones',
                 'valor' => 'lo escribió un profesor',
-            ])->assertStatus(401);
+            ])->assertStatus(403);
 
         $this->assertSame('ninguna',
             DB::table('antecedentes')->where('id', $antecedenteId)->value('observaciones'));
