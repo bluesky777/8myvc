@@ -5253,9 +5253,18 @@ motivos, porque los motivos son lo que afina el detector y el recuento no:
 | **Ya estaba arreglado**, con su comentario al lado explicando qué se inyectaba antes | `Grupo:138` |
 | El valor sale de un **`switch` de casos literales**: no lo elige el cliente | `ChangeAskedController:1215`, `GuardarAlumno:44` y `:76` |
 | Es un **literal fijo** con su propio parámetro ligado dentro | `CertificadosPersonaController:228` |
-| El valor sale de **una consulta anterior**, no del cuerpo | `AlumnosController:642` |
+| La columna es **`int unsigned`**: no puede llevar texto, así que ningún payload sobrevive al viaje | `AlumnosController:642` |
 | La ruta está **rota a propósito y documentada**: la variable concatenada ni siquiera está definida y revienta antes del SQL (§6.5, §27.2) | `UniformesController:87` |
 | **La variable concatenada no se usa en la consulta** | `Grupo:159` y `:161` |
+
+> **«Viene de la base» no es un motivo, y este documento lo tuvo mal escrito una
+> hora.** Descartar por el origen solo vale si además se sabe **quién escribe esa
+> columna**: si alguna ruta la llena desde `Request::input` con texto libre, el
+> sitio sigue vivo y la entrada está en otro fichero — que es exactamente la
+> [§59.1](#591-la-inyección-que-ninguna-señal-encuentra-el-nombre-que-guarda-otra-ruta).
+> Lo que salva a `AlumnosController:642` no es venir de una consulta: es que la
+> columna es un entero. Los descartes por constante, por marcas de parámetro, por
+> bloque comentado y por «no llega al SQL» no dependen del origen y siguen buenos.
 
 Ninguno de esos ocho motivos lo distingue un `grep`, y por eso la lista de
 cuarenta era **una lista de sitios donde mirar y no una lista de fallos** — la
@@ -5311,6 +5320,43 @@ texto tal cual, el sumidero ya no lo interpreta— y mira **lo que queda escrito
 `calendario`**, no el código de respuesta: una inyección de segundo orden contesta
 200 igual de bien. Comprobado al revés según el §45: revertido el arreglo cae **un
 solo test**, el del sumidero.
+
+#### La puerta de entrada es un hallazgo por sí sola
+
+`POST profesores/store` **no tiene ninguna `Autoriza::exigir`**. Su único uso de
+`Autoriza` es `concederSuperusuario()` para el flag `is_superuser`; el resto del
+método no comprueba nada. Con `auth.personal` delante, eso son los **51
+profesores**, y lo que crea es un profesor **con su cuenta de usuario dentro** —
+`username` del cuerpo y `password` con `'123456'` por defecto—.
+
+Es del tamaño de la [§26.1](#) y la [§30](#), que salieron de este mismo
+controlador, y **no debe quedar enterrado dentro de la explicación de la
+inyección**: aquí aparece como la fuente del texto, pero se sostiene solo.
+
+#### Lo que enseñó la comprobación al revés, y no es lo que se buscaba
+
+Revertido el arreglo del calendario cae **un solo test**, el del sumidero. El de
+la fuente **sigue verde**, y eso no es que sobre: es el resultado.
+
+**En una cadena de dos rutas, arreglar una no protege a la otra.**
+`profesores/store` sigue guardando comillas sin sanear, exactamente igual que
+antes; lo único que ha cambiado es que ya no hay un sumidero que las interprete.
+El test de la fuente es el que sigue diciendo eso en voz alta, y por eso se queda.
+
+#### ¿Cuántos sumideros más leen ese nombre? Uno, y era éste
+
+La pregunta obvia al cerrar la §59.1 —si `nombres` se guarda crudo, quién más lo
+lee— se contestó barriendo `app/` en busca de texto de una fila metido entre
+comillas dentro de SQL crudo. Salen cuatro sitios más y **ninguno está vivo**:
+
+- `UsersController:46`, `:84` y `:122` concatenan un `username`, pero es
+  **generado**: `'usuario'.rand(100, 9999)`, `'psicologo'.rand(...)`,
+  `'enfermero'.rand(...)`. No lo elige nadie. Confirma el descarte de C0-a.
+- `Bitacora:76-78` está **dentro de un bloque comentado**.
+
+Así que `putSincronizarCumples` era **el único sumidero vivo** de esta familia. Es
+un resultado y no un rato perdido: cierra la pregunta en vez de dejarla abierta
+tres meses.
 
 ### 59.2. Y debajo de un falso positivo había un filtro que no filtra
 
@@ -5524,3 +5570,710 @@ Y por el otro lado: **ningún otro sumidero concatena `nro_sisben`**. Los cinco
 sitios que la nombran —`Matricula:92`, `AlumnosController:488` y `:521`,
 `PlanillasController:319`, `ActasEvaluacionController:102`— la llevan como
 nombre de columna en un `SELECT`, y `OperacionesAlumnos` solo copia el valor.
+
+
+---
+
+## 63. El gemelo de la inyección, y cómo se encuentra lo que ningún detector ve (22 ago 2026)
+
+La §55 y la §60 salieron de barrer la concatenación cruda. Ésta salió de otra
+cosa, y por eso merece sección aparte: **de mirar los hermanos de la que ya
+estaba arreglada.**
+
+La cadena fue: `22` encuentra el `year_id` concatenado de `putOrdinales` (§55) y,
+buscando la misma forma, ve que `DefinitivasPeriodosController` concatena
+`periodo_id` y `num_periodo` en un `INSERT INTO notas_finales` dentro de un
+bucle. Me lo pasa medido en vez de tocarlo, porque el fichero está en el dominio
+congelado de las definitivas. Se liga con alcance estrecho —un `?` donde había
+una concatenación, ni una línea de lógica— y se cierra (`c24706e`).
+
+**Y ahí es donde empieza esta sección.** Cerrada aquélla, la pregunta que quedaba
+no era «¿hay más sitios con esta forma?» —eso ya lo contestaba el barrido de la
+§59— sino **«¿dónde más está copiada esta consulta?»**. Está copiada en
+`NotaFinal::calcularAsignaturaPeriodo`: la misma consulta, palabra por palabra,
+con los mismos valores del cuerpo. Sus tres argumentos los pasan los **cuatro**
+llamantes crudos de `Request::input`:
+
+| Ruta | Guard |
+|---|---|
+| `PUT unidades/update` | `auth.personal` |
+| `DELETE unidades/destroy/{id}` | `auth.personal` |
+| `PUT subunidades/update` | `auth.personal` |
+| `DELETE subunidades/destroy/{id}` | `auth.personal` |
+
+Cuatro rutas más sobre el mismo INSERT en bucle, y **ningún detector de los de
+esta noche la habría señalado por sí sola**: el de la asimetría no la ve porque
+aquí no hay hermana ligada con la que comparar —las dos copias concatenan—, y el
+del barrido la habría dado como un sitio más de cuarenta, sin decir que es la
+misma consulta.
+
+Lo que sí la encuentra es la pregunta, y conviene escribirla porque es la misma
+que la §53 dejó para los identificadores:
+
+> **Cuando una consulta concatena, la pregunta no es si está mal. Es dónde más
+> está copiada.**
+
+Ligada en `640306e`, con el mismo alcance estrecho. Los dos métodos están
+condenados —son dos de los seis escritores que la fase 3 de
+[10-definitivas.md](10-definitivas.md) sustituye por
+`App\Services\DefinitivasDeAsignatura`— y aun así se arreglan, por una razón que
+conviene tener escrita para la próxima vez que aparezca la duda: **el criterio no
+es «va a morir» sino «cuándo muere»**. La fase 3 no tiene fecha y esto está
+desplegado en los dieciséis colegios. Si la fase 3 estuviera lista para
+desplegarse, lo correcto habría sido dejarlo morir.
+
+### Los otros tres sitios del dominio, que no lo son
+
+C0-b listaba cinco. Leídos uno a uno:
+
+- **`DefinitivasPeriodosController:318` no existe.** Esa zona ya ligaba con `?`.
+  El número apareció al pasar el aviso de una sesión a otra, no en el código. Es
+  el mismo mecanismo que persiguen todas estas secciones —**una lista se ensancha
+  al pasar de mano en mano**— pero entre nosotros, y cuesta lo mismo: quien lo lea
+  va a buscar algo que no está.
+- **`BolfinalesController:281` no es inyectable.** Su `$sqlPeriodo` es un
+  fragmento constante que elige un `if`; no entra nada del cliente.
+- **`NotasController:371` no es una inyección**, es otra cosa y tiene su propia
+  sección abajo.
+
+### Y lo que salió de escribir el test, que vale más que el arreglo
+
+Probando la carga útil apareció que **`num_periodo` se escribe tal cual en la
+columna `periodo` sin comprobar que concuerde con el `numero` del `periodo_id`
+que va al lado**. Sin ninguna carga útil: basta mandar el `periodo_id` del
+periodo 1 y `num_periodo = 9`.
+
+Eso es exactamente el mecanismo de la [§2.1 de 10-definitivas](10-definitivas.md)
+—tres de los seis escritores buscan la fila por `periodo` y los otros por
+`periodo_id`, así que una fila desincronizada es invisible para unos y duplicable
+por otros—, que hasta hoy estaba descrito como algo que **puede** pasar. Ahora
+está medido: **se provoca desde el cliente en una llamada**. La fase 0 contó
+**0 filas descuadradas** en el colegio de desarrollo, así que está abierto y nadie
+ha entrado.
+
+No se arregla: es lógica, y el alcance de estos dos commits era ligar y nada más.
+Muere con la fase 3, donde `periodo` se deriva de `periodo_id` y no se acepta del
+cuerpo.
+
+### Una trampa de método que casi hace leer mal el arreglo
+
+El primer test de la inyección **falló después de arreglarla**, y por poco se lee
+como «el arreglo no sirve». No era eso: ligado, MySQL coacciona la cadena
+`9, 0, 0, 0, "x", "x") AS t2 -- ` a su prefijo numérico —**9**— y la escribe, así
+que la tabla quedaba descuadrada igual que antes.
+
+O sea que al medir una carga útil hay que separar dos cosas que se parecen:
+
+- **entró como SQL** — la consulta cambió, y eso es la inyección;
+- **entró como dato raro** — la consulta es la misma y el valor es absurdo, que es
+  lo que hace un parámetro ligado con `strict => false` delante.
+
+Sin separarlas, un arreglo bueno parece malo. Y con una columna de texto en vez
+de entera no habría pasado, que es lo que hace la trampa difícil de anticipar.
+
+---
+
+## 64. Lo que impide escribir basura es el esquema, y una conclusión mía que era falsa (22 ago 2026)
+
+`PUT notas/subunidad` es el quinto sitio de C0-b y no es una inyección. Es el
+fallo que la [§3.1 de 10-definitivas](10-definitivas.md) ya tenía anotado —*«la
+consulta está en comillas dobles con sintaxis de concatenación de simples»*—, y
+al medirlo salieron dos cosas: **la causa estaba bien vista y el efecto no**.
+
+En comillas dobles PHP **sí** interpola la variable; lo que no hace es concatenar,
+así que los `'.` y `.'` se quedan como texto:
+
+```
+$sql = "SELECT '.$sub_id.' as subunidad_id"   con $sub_id = 7
+     → SELECT '.7.' as subunidad_id
+     → devuelve la CADENA «.7.»
+```
+
+De ahí salía una hipótesis razonable, y con `'strict' => false` en
+`config/database.php` era muy creíble: MySQL coacciona `.7.` a su prefijo
+numérico y **escribe una fila de basura**, apuntando a una subunidad que no es —
+y esa fila entraría en el cálculo de la definitiva de quien fuera.
+
+**No pasa.** `notas` lleva `FOREIGN KEY (subunidad_id) REFERENCES subunidades(id)`,
+el valor coaccionado es `0`, la subunidad 0 no existe y MySQL rechaza el INSERT.
+El endpoint responde **500** y no escribe nada. Es lo mismo que la
+[§4 de 13-actividades](13-actividades.md) encontró en
+`ws_actividades_compartidas`: **la integridad la sostiene el esquema y no el
+código**.
+
+Y para quien lo usa, la corrección a la §3.1 no es un matiz: «no guarda nada» es
+un botón que no hace nada, y **500** es un error en pantalla.
+
+### La conclusión que saqué de más, y que era falsa
+
+De ahí salté a escribir —en un commit y en la pizarra de la noche— que
+**`notas_finales` no lleva ninguna de esas claves** y que por eso las inyecciones
+de esta noche podían escribir en ella, lo cual le daría a la fase 2 un argumento
+de integridad además del de los duplicados.
+
+Medido contra `information_schema` al ir a verificarlo:
+
+| Tabla | Claves ajenas |
+|---|---|
+| `notas` | 2 — `alumno_id`, `subunidad_id` |
+| `notas_finales` | **3** — `alumno_id`, `asignatura_id`, `periodo_id` |
+
+Y estaba escrito desde antes: la §2 del 10, al hablar del índice único, aclara
+«solo hay tres índices de clave foránea». **Lo que le falta a `notas_finales` no
+es integridad referencial: es la clave única**, que es lo que aquel documento dijo
+siempre y lo que la fase 2 viene a poner. La fase 2 no gana ningún argumento; el
+de los duplicados era el bueno y basta.
+
+Se deja escrito en vez de borrado porque el error es más instructivo que el dato,
+y porque tuvo **tres saltos y no uno**:
+
+1. Generalicé de un sitio medido a la tabla de al lado sin mirarla.
+2. La sesión que coordina lo subió a «dato estructural de la noche» y le añadió un
+   argumento que yo no había dado.
+3. Y llegó al resumen del usuario como hecho.
+
+Nadie mintió, y el dato creció en cada salto. Es la misma forma que persiguen la
+§52 y la §53 —«se revisó entero» significando «se revisó la rama que abrí», una
+lista de sitios convertida en una lista de fallos— aplicada esta vez a una
+conclusión propia y con un amplificador delante. Las dos reglas que deja:
+
+> **Un sitio medido no autoriza a hablar del de al lado.**
+>
+> Y lo que llega de otro y suena a hallazgo estructural **se comprueba antes de
+> subirlo de rango**, no después: diez segundos de `information_schema` contra dos
+> horas de una conclusión falsa dentro de un documento.
+
+Y una tercera, sobre el aviso: se mandó **en cuanto se vio, sin esperar a
+arreglarlo del todo**. Veinte minutos más tarde ya estaba en el resumen de la
+mañana y en un argumento para reabrir la fase 2. **Para una corrección, rápido
+gana a pulido; para un arreglo, al revés.**
+
+---
+
+## 62. El observador del grupo, y la prueba de por qué muerde una copia (22 ago 2026)
+
+Sale del hueco de cobertura de `comportamiento`: tres rutas que no miraba ningún
+test al 22 ago, las tres `auth.personal` y las tres `PUT` que **solo leen** — el
+verbo es del front, no escriben nada. Fijadas por
+`tests/Contrato/ObservadorDelGrupoTest.php`, cinco tests y 30 aserciones.
+
+### 62.1. Lo que enseña, y no es el fallo: arreglar una copia deja la otra rota
+
+`putObservadorPeriodo()` es `putObservadorCompleto()` **copiado**. La única
+diferencia entre los dos es que el segundo filtra las notas por
+`p.id = :periodo_id`; el bloque que resuelve el grupo es idéntico. Y **están en
+el fichero en orden inverso al que sugiere el nombre**: `Periodo` aparece antes
+que `Completo`, que es justo la clase de detalle que hace que alguien parchee uno
+y se vaya convencido de haberlo arreglado.
+
+Eso ya lo decía el [§52](#52-el-bucle-de-reordenar-copiado-en-cinco-controladores-21-ago-2026)
+como argumento. Aquí está el experimento:
+
+> Se parcheó **solo** `putObservadorCompleto` —comprobando el array antes de
+> indexarlo— y se corrió la clase entera. Cayeron **dos tests**, los dos de esa
+> ruta, **y el de `observador-periodo` siguió en verde**.
+
+O sea que un arreglo de la copia buena deja la otra rota **y ningún test lo
+dice**, a menos que estén separados. Es la razón de fondo por la que en este
+documento cada copia lleva su propio test en vez de uno que valga para las dos.
+Y es la misma forma que el §47.2: al tapar un camino, la pregunta siguiente es
+cuál es el otro.
+
+### 62.2. Un grupo de otro año responde 500
+
+Las dos rutas resuelven el grupo así:
+
+```php
+$grupo = DB::select($consulta, [':year_id' => $user->year_id, ':grupo_id' => $grupo_id])[0];
+```
+
+El `[0]` da por hecho que hubo fila. La consulta filtra por
+`g.year_id = :year_id`, así que **un `grupo_id` de otro año no devuelve nada y la
+petición muere**. El grupo existe y no está borrado: lo único que falla es el
+año.
+
+**Y el año no lo elige quien llama**: sale de `$user->year_id`, del contexto. Un
+coordinador que se cambia de año y vuelve a una pantalla que tenía abierta manda
+el mismo `grupo_id` de antes y se come un 500 sin haber hecho nada raro. No es un
+caso límite, es un martes.
+
+Sin `grupo_id` en el cuerpo pasa lo mismo: `Request::input()` devuelve `null`, la
+consulta no casa y se llega al mismo `[0]`. **500 donde CLAUDE.md pide un 422.**
+
+Se fija y no se arregla: son endpoints vivos en los dieciséis colegios y cambiar
+el 500 por un 404 cambia lo que ve una pantalla.
+
+### 62.3. Cuatro `[0]` más, señalados y sin cubrir
+
+En el mismo fichero hay **cuatro `$libro = $libro[0];`** sin comprobar, dos en
+cada copia del método. No están cubiertos: viven dentro del bucle de alumnos y
+para dispararlos hace falta **un alumno sin libro de comportamiento**, que el
+seed no trae. Queda dicho con su condición de disparo para quien coja ese hueco.
+
+### 62.4. `situaciones-por-grupos` devuelve el colegio entero
+
+No recibe `grupo_id` ni filtra por titular: recorre **todos los grupos del año**
+y por cada uno saca `nombres`, `apellidos`, `celular`, `direccion`, `religion` y
+`fecha_nac` de sus alumnos. Con `auth.personal`, así que **cualquier profesor lo
+alcanza**, no solo un coordinador.
+
+No se cierra: es la familia del §5 de [09-pendientes.md](09-pendientes.md) —las
+rutas de `auth.personal` que Joseth decidió el 21 ago no cerrar, porque cerrarlas
+puede dejar fuera a quien hoy trabaja con ellas—. Lo que aporta el test es que
+**el alcance quede medido**, para que esa decisión se tome sabiendo qué sale.
+
+### 62.5. Y una de método: la guarda que cazó lo que nadie buscaba
+
+El test de la §62.4 llevaba un `assertGreaterThan(1, ...)` puesto **por la
+regla**, sin sospechar nada. Falló: el seed trae **un solo grupo por año**, y con
+uno solo la respuesta es idéntica devuelva «todos los grupos» o «el mío». Habría
+sido un verde que no distingue nada. El segundo grupo se monta ahora dentro del
+test, y la transacción lo deshace.
+
+**Van ocho veces que el seed deja pasar un verde que no mide** —dos de esta
+noche—. Lo que hace distinta a ésta es que la regla cazó algo **cuando quien la
+aplicaba no sabía qué buscar**, que es la única prueba real de que una regla se
+ha ganado el sitio.
+
+
+---
+
+## 65. `perfiles/*` no opera sobre la persona que dice — tres cosas y una mina (22 ago 2026)
+
+El aviso más claro sobre este controlador no estaba en el backend: estaba en la
+cabecera de `PerfilesApi.ts`, escrita por quien migró el front.
+
+> **CUIDADO CON ESTE RECURSO.** `PerfilesController` es el más engañoso del
+> backend: cinco de sus métodos —`show`, `destroy`, `forcedelete`, `restore`,
+> `trashed`— operan sobre **GRUPO**, no sobre persona. `GET perfiles/show/{id}`
+> devuelve el grupo cuyo id coincide, no el perfil.
+
+Esta sección lo mide desde este lado. **Los tres se fijan y no se arreglan**, por
+la misma razón que `preguntas/edicion`: arreglar el primero **enciende** un
+guardado que lleva años apagado en los dieciséis colegios, y eso lo decide el
+colegio. Fijado por `PerfilesEscribeEnOtraTablaTest`, seis casos.
+
+### 65.1 `putUpdate` no guarda nunca desde la pantalla de perfil
+
+Cuatro ramas, que comparan `tipo` contra `'Profesor'`, `'Alumno'`, `'Ac'` y
+`'Usuario'`. La pantalla de perfil manda los **códigos cortos** del front. Ninguno
+casa: el método recorre los cuatro `if`, no entra en ninguno, **cae hasta el final
+sin `return`** y responde 200 con cuerpo vacío. El botón dice «Datos guardados» y
+la fila no se ha tocado.
+
+Y las cuatro etiquetas no son coherentes ni entre sí: tres son el nombre largo y
+la cuarta, `'Ac'`, es un código corto. **Son dos vocabularios mezclados dentro del
+mismo `switch`** — la misma forma que la [§50](05-codigo-muerto-y-roto.md)
+encontró en `solicitar-cambios`, donde `'Al'` era el código del front y no el
+valor de `users.tipo`. Allí el vocabulario cruzado producía un hallazgo falso;
+aquí esconde uno verdadero.
+
+El test prueba los cinco códigos cortos de golpe y **la mitad de al revés en el
+mismo fichero**: con `'Profesor'` sí guarda. Sin esa mitad, el caso pasaría igual
+si el método estuviera roto por cualquier otro motivo.
+
+### 65.2 La rama `'Usuario'` coge el modelo equivocado
+
+```php
+if (Request::input('tipo') == 'Usuario') {
+    $perfil = Acudiente::findOrFail($id);
+```
+
+Desde la rejilla de usuarios —que sí manda los nombres largos— editar la fila de
+un administrador **escribe sobre el acudiente del mismo id**.
+
+**No es autorización: es identidad.** El id se comprueba —la ruta lleva
+`persona.propia:persona_id`— y después se usa contra **otra tabla**. Es primo del
+`asked_id` y del `foto_id` de la [§53](05-codigo-muerto-y-roto.md), un paso más
+allá: allí se **leía** la fila de otro, aquí se **escribe en la tabla de otra
+cosa**. Ningún guard puede ver esto, porque el guard mira de quién es el id y no a
+qué tabla va.
+
+**Y destruye una fecha.** `getUsuariosall` rellena con la cadena **«N/A»** las
+columnas que no aplican a cada rama de su `UNION`; la rejilla reenvía lo que
+recibió y `putUpdate` lo escribe tal cual. `acudientes.fecha_nac` es una columna
+`DATE` y, con `'strict' => false` en `config/database.php`, MySQL no rechaza «N/A»:
+la guarda como `0000-00-00`. **La fecha anterior no se recupera.**
+
+Es el tercer sitio de la noche donde `strict => false` convierte un error en un
+dato silencioso, después del `created_at` de la fase 0 y de la
+[§64](05-codigo-muerto-y-roto.md). Empieza a parecer menos una nota al pie y más
+una decisión pendiente.
+
+### 65.3 La mina: `perfiles/destroy/{id}` borra un grupo
+
+`Grupo::findOrFail($id)->delete()`, con `auth.personal`. **Hoy no lo dispara nadie
+por accidente**: el botón de borrar de la rejilla se pinta con `is_superuser`, y
+el `SELECT` de `getUsuariosall` no devuelve esa columna, así que la condición es
+siempre falsa.
+
+O sea que lo único que separa la rejilla de usuarios de un botón que manda grupos
+a la papelera es **una columna que falta en un `SELECT`** — y añadirla es lo
+primero que hace cualquiera que necesite saber quién es administrador.
+
+Por eso el aviso **no vive solo aquí**: está escrito encima de ese `SELECT`, en
+`PerfilesController::getUsuariosall`, que es donde lo va a leer quien lo toque. Un
+aviso en un documento que hay que saber que existe no protege de nada.
+
+Y el test que lo fija —`test_usuariosall_no_devuelve_is_superuser`— lleva el
+mensaje en el `assert`, no en un comentario: cuando se ponga en rojo, lo que se
+lee no es «actualiza el test» sino **«esto enciende un botón que borra grupos;
+mira antes qué hace ahora esa ruta»**.
+
+### Lo que enseña el conjunto
+
+Los tres fallos tienen la misma raíz y no es el descuido: **este controlador
+mezcla dos dominios**. Se llama `Perfiles`, cinco de sus métodos operan sobre
+`Grupo`, uno escribe en `Acudiente` creyendo que escribe en un usuario, y su
+`putUpdate` habla un vocabulario distinto del de la pantalla que lo llama.
+Ninguna de las herramientas de esta noche podía verlo: no hay concatenación, no
+falta ningún guard, el id que llega es el correcto y todas las rutas responden
+200.
+
+Lo que lo destapó fue **ejecutarlo y mirar la fila**, que es lo mismo que lleva
+encontrando cosas desde la §14 — y esta vez con el aviso del front delante, que
+llevaba escrito desde la fase 11 y nadie había traído a este lado.
+
+---
+
+## 66. Los requisitos de matrícula: «Actualizado» sin haber actualizado (22 ago 2026)
+
+Cuatro rutas de `requisitos` que no miraba ningún test al 22 ago, las cuatro
+`auth.personal`. El carril no se eligió por carpeta sino por una pregunta —**qué
+contestan cuando no han escrito nada**— y por eso salieron dos respuestas que
+mienten donde una lectura por controlador habría dado un test de `store` y otro
+de `index`.
+
+Fijado por `tests/Contrato/RequisitosDeMatriculaTest.php`: cinco tests, 34
+aserciones. **Los tests miran `updated_at`, `updated_by` y el tamaño de la tabla,
+nunca el cuerpo de la respuesta** — si el endpoint hubiera insertado en vez de
+actualizar, el conteo lo dice y la cadena no.
+
+### 66.1. Dos respuestas que mienten
+
+```php
+$consulta = 'UPDATE requisitos_matricula SET requisito=?, descripcion=?, updated_by=?, updated_at=? WHERE id=?';
+DB::select($consulta, [$requ, $descrip, $this->user->user_id, $now, $id]);
+
+return 'Actualizado';
+```
+
+El `id` llega del cuerpo y **nadie mira cuántas filas tocó**. MySQL no se queja
+de un `WHERE` que no casa con nada: afecta a cero y sigue. Así que el 200 y la
+cadena `'Actualizado'` no dicen que se haya escrito. Es la familia del
+[§54](#54-ocho-rechazos-que-contestan-con-el-código-de-otra-cosa-21-ago-2026) y
+la que `tools/respuestas-que-mienten.py` existe para encontrar.
+
+`requisitos/alumno` es la misma forma sobre `requisitos_alumno`, y **es la que
+importa**: esa tabla no guarda un catálogo, guarda **el estado de la matrícula de
+una persona**. Un «Actualizado» que no actualizó nada, en una pantalla de
+secretaría, es **un papel que consta entregado y no lo está**. Eso no se descubre
+nunca desde el backend: se descubre el día que alguien reclama.
+
+### 66.2. Dos de alcance, medidas y no cerradas
+
+Las dos son la familia del §5 de [09-pendientes.md](09-pendientes.md) —rutas de
+estructura con solo `auth.personal`, que Joseth decidió el 21 ago no cerrar
+porque cerrarlas puede dejar fuera a un coordinador—. Se dejan **medidas con el
+nombre de la columna que falta**, para que el día que se decidan sea un cambio de
+una línea y no una investigación:
+
+- **`requisitos/update` escribe sobre un requisito de otro año.** Al `WHERE` del
+  `UPDATE` le falta **`year_id`**, y el año de quien llama no interviene.
+- **`requisitos/listado-observaciones` obedece al `year_id` del cuerpo**:
+  `Request::input('year_id', $this->user->year_id)` — el año propio es solo el
+  **valor por defecto**. Devuelve `nombres`, `apellidos` y `celular` de los
+  alumnos con observación. Que el año propio sea el defecto y no el límite es lo
+  que convierte esto en una decisión y no en un descuido.
+
+### 66.3. El mismo experimento, en un segundo dominio
+
+Se parcheó **solo** `putUpdate` —usando `DB::update` y rechazando cuando afecta a
+cero filas— y cayó **un** test: el del id inexistente. Los otros dos siguieron en
+verde, y cada uno por su motivo, que es lo que hace útil la medida:
+
+- el de **otro año** siguió verde porque ése **sí escribe**;
+- el de **`requisitos/alumno`** siguió verde porque es **la copia gemela y
+  necesita su propio arreglo**.
+
+Es el segundo experimento independiente de la misma noche que demuestra lo que la
+[§52](#52-el-bucle-de-reordenar-copiado-en-cinco-controladores-21-ago-2026)
+afirmaba y la [§62.1](#621-lo-que-enseña-y-no-es-el-fallo-arreglar-una-copia-deja-la-otra-rota)
+midió en `comportamiento`. **Dos dominios distintos, dos veces el mismo
+resultado: arreglar una copia deja la otra rota y ningún test lo dice**, salvo
+que estén separados. Un patrón medido dos veces ya no es una anécdota.
+
+### 66.4. Y una del arnés: entrar mueve el periodo del usuario
+
+Los helpers de estos tests piden el token **antes** de leer nada del contexto, y
+lleva su comentario al lado. El motivo lo encontró otra sesión la misma noche:
+
+> **Autenticarse cambia el estado del usuario**: entrar mueve `users.periodo_id`
+> al periodo vigente.
+
+Así que un test que lea el año o el periodo **antes** de pedir el token está
+midiendo un estado que su propio login va a alterar. Lo que se lee entonces es el
+periodo del seed, cuyo año puede no tener asignaturas con alumnos, y todo lo que
+cuelga sale vacío — con la cara de **«falta seed»**, que manda a reconstruir la
+base o a comparar migraciones cuando el fallo está en el test. Costó cinco tests
+en rojo.
+
+Es la séptima vez esta noche que **un instrumento falla con la cara exacta del
+problema que se estaba buscando**, después del detector de asimetría, el fichero
+de medición desenganchado y el test verde que fija el comportamiento viejo.
+
+
+---
+
+## 67. Tres rechazos más de la §54, y por qué no salieron entonces (22 ago 2026)
+
+`POST api/users/crear-administrador`, `crear-enfermero` y `crear-psicologo`
+respondían **`404, 'Sin autorización'`** a quien no es superusuario. Es
+exactamente el defecto de la [§54](#54-ocho-rechazos-que-contestan-con-el-código-de-otra-cosa-21-ago-2026):
+un código que significa «esa fila no está» usado para decir «no puedes», en un
+API donde se gastó una serie entera —§44, §47, §49, §50, §53— en que signifique
+lo primero. Pasan a **403**.
+
+### 67.1 Lo que hay que llevarse: sobre qué población se cerró la serie
+
+La §54 no se equivocó de criterio. Se quedó corta de **alcance**: barrió las
+**veintidós rutas de `auth.token` a secas**, y estas tres son `auth.personal`.
+El defecto era el mismo, el criterio para arreglarlo era el mismo, y aun así
+sobrevivieron tres — porque a partir del día en que la serie consta cerrada,
+**nadie vuelve a buscar ese fallo en ningún sitio**.
+
+> **Cuando una serie se cierra, hay que anotar sobre qué población se cerró.**
+
+Es la hermana de la lección del [13 §2](13-actividades.md): «se revisó entero»
+leído tres meses después significa «se revisó la rama que abrí». Aquí, «los
+rechazos que mienten están arreglados» significaba «los de `auth.token` están
+arreglados», y nada lo decía.
+
+### 67.2 Por qué se cambió esta noche y no la semana que viene
+
+No es «se cambió porque es lo correcto». Se cambió **en la única ventana en que
+era invisible**, y el argumento es medible:
+
+- Hoy solo las llama `myvc_front`, desde los tres botones de `UsuariosCtrl.ts`
+  (`:86`, `:102`, `:118`) a través de `UsersApi`. `myvc_flutter` no las llama y
+  `myvc_front_2` tampoco; la aplicación nueva las tiene en su repositorio de
+  datos pero ninguna pantalla lo usa todavía.
+- Y su `.catch` **está declarado sin argumentos**: `function(){ toastr.error('No
+  se pudo crear'); … }`. No mira `status`, no lee el cuerpo, no recibe siquiera
+  el objeto de error. Enseña un texto fijo escrito en el front.
+
+Es un caso **más** limpio que los de `calendario/*`, que al menos pintaban el
+mensaje del servidor: aquí no se nota ningún cambio de la respuesta, ni de código
+ni de cuerpo.
+
+**Pero esa pantalla se está reescribiendo.** En la versión nueva ese `catch` mudo
+va a enseñar el mensaje del servidor, y a partir de entonces un cambio de código
+sí sería visible. Cambiarlo hoy es gratis; dentro de una semana ya no.
+
+### 67.3 Y dos cosas de `usernames-check`, fijadas y no juzgadas
+
+Las cuatro rutas del controlador estaban a **1 de 5** y quedan cubiertas por
+`tests/Contrato/UsersCuentasTest.php`. Dos de lo que se vio se fija **sin
+juzgarlo**, con el porqué escrito al lado, que es la costumbre que pedía la §54:
+
+- **Con el texto vacío devuelve el colegio entero.** La consulta es
+  `WHERE username LIKE :texto` con `$texto.'%'`, así que sin texto el patrón
+  queda en `%`. No es un fallo de autorización —es `auth.personal`, y el personal
+  ve al colegio— pero es **enumeración completa de nombres de usuario en una ruta
+  que parece de autocompletado**. Es la misma forma que `perfiles/usernames`:
+  **son dos puertas al mismo dato**, y la decisión que se tome sobre una tiene
+  que tomarse sobre la otra.
+- **Devuelve también los borrados**, porque la consulta no filtra `deleted_at`.
+
+El seed no trae ningún usuario borrado, así que el test **planta uno**: sin eso
+pasaba sin medir nada. Comprobado al revés añadiendo el filtro —cae ese y solo
+ese—. **Van nueve** verdes huecos por seed vacío.
+
+Lo demás del fichero se fija porque es lo que hay y se dice que no se juzga: los
+tres `crear-*` cuelgan los roles 1, 7 y 11 escritos a mano en tres copias
+literales, nacen activos y con la contraseña `123456`. Esa constante es material
+de la [§26](#26) y merece su propia pregunta.
+
+## 61. La lista de usuarios del colegio: el autocompletado que filtra (22 ago 2026)
+
+Esta sección **no trae un arreglo, trae una recomendación medida**. El fallo es
+real; el arreglo evidente —ponerle el guard que llevan sus vecinas— habría roto
+los dieciséis colegios; y la salida que sí sirve apareció **escribiendo esta
+sección**, no investigando el fallo. Está contada en ese orden a propósito,
+porque lo que frenaba esto no era código.
+
+### 61.1 Qué pasa
+
+`GET api/perfiles/usernames` es, entero:
+
+```php
+public function getUsernames()
+{
+    $usernames = DB::select('SELECT username FROM users');
+    return $usernames;
+}
+```
+
+**Todos los usuarios del colegio, sin filtro y sin límite.** Su guard efectivo es
+`auth.token` **a secas**: lo alcanza cualquiera con sesión válida, incluidos
+alumnos y acudientes.
+
+Sus dos vecinas, que hacen lo mismo en más pequeño, sí exigen ser personal:
+
+| Ruta | Guard |
+|---|---|
+| `GET perfiles/usernames` | `auth.token` |
+| `GET perfiles/usuariosall` | `auth.token` + `auth.personal` |
+| `PUT users/usernames-check` | `auth.token` + `auth.personal` |
+
+### 61.2 Cómo apareció, que es lo reutilizable
+
+**No lo encontró ninguna de las tres herramientas de autorización.** Salió de
+aplicarle a los guards la señal que `c8` y `22` habían afinado esa misma noche
+para las inyecciones de SQL (§55, §59, §60): **la asimetría — una línea que no
+hace lo que hacen sus hermanas.**
+
+Se descubrió leyendo consultas —el `?` que falta entre dos que sí ligan— pero no
+es una regla sobre SQL. Vale igual para **el guard que falta entre dos rutas
+vecinas que sí lo llevan**. Es la misma pregunta de la §53 girada: allí era «¿qué
+más lee este identificador?»; aquí es «**¿por qué esta línea es distinta de la de
+al lado?**».
+
+### 61.3 Por qué no se cierra, y no es prudencia genérica
+
+Ponerle `auth.personal` es una línea. **Rompe los dieciséis colegios**, y la
+prueba la dio la sesión que coordinaba el árbol de `myvc_front` esa noche, con
+fichero y línea:
+
+- `app/scripts/usuarios/UserConfig.ts:122` — la pantalla cuelga de `panel.user`,
+  que **no declara `needed_permissions`**. Veinte líneas antes, `panel.usuarios`
+  **sí** lo declara (`can_edit_usuarios`). La asimetría también está aquí, **y
+  aquí es deliberada**: una es «mi perfil», la otra es «los usuarios».
+- `app/scripts/panel/panel.html:60` — el enlace vive en el desplegable del
+  avatar, **sin un solo `ng-if` de rol**. Lo ve cualquiera que inicie sesión.
+- `app/scripts/usuarios/UserConfiguracionCtrl.ts:115` — `PerfilesApi.usernames()`
+  se llama en el cuerpo del controlador, **fuera de toda comprobación**: se
+  dispara incluso cuando `canConfig` es falso, es decir **mirando el perfil de
+  otra persona**.
+
+Es decir: la pantalla es el único sitio donde un alumno puede cambiarse su propio
+usuario y su contraseña, y cerrarle la ruta se la deja inservible.
+
+### 61.4 Para qué se usa la lista, que es peor de lo que parecía
+
+`app/scripts/usuarios/userConfiguracion.html:210`:
+
+```html
+uib-typeahead="... for nombresusu in $ctrl.nombresdeusuario | filter:{username:$viewValue} | limitTo:8"
+```
+
+**No es una comprobación de «este nombre está libre». Es un autocompletado.** Un
+alumno abre su configuración, empieza a teclear, y la pantalla **le va sugiriendo
+los nombres de usuario reales de sus compañeros y de sus profesores**.
+
+De ahí salen las dos consecuencias que hay que tener escritas antes de tocar
+nada:
+
+1. **`comprobarusername/{username}` no es sustituto directo.** Contesta
+   «libre/ocupado» sobre uno; no puede alimentar un autocompletado. Sustituir la
+   llamada es **quitar el autocompletado** y comprobar la disponibilidad al salir
+   del campo: un cambio de comportamiento de la pantalla, no una línea.
+2. **Se cierra con el sustituto puesto, no antes** — y «puesto» significa
+   **desplegado en ese colegio**, no fusionado.
+
+### 61.5 La regla, que es la de CLAUDE.md girada
+
+CLAUDE.md dice que **un arreglo del front que exponga un endpoint no se publica
+hasta que el guard del backend esté desplegado, no solo fusionado**. Esto es el
+mismo filo por el otro lado: **un guard del backend no se cierra hasta que el
+front que llamaba a esa ruta esté desplegado, no solo fusionado.**
+
+Y aquí muerde especialmente, porque `myvc_front` **está congelado por decisión
+del colegio, ni siquiera correcciones**, y sigue desplegado en los dieciséis. El
+sustituto llegará cuando la pantalla `usuarios/` se reescriba en Angular — o sea,
+por la aplicación nueva y colegio a colegio.
+
+### 61.6 Para calibrar la prisa
+
+Se va **la lista de nombres de usuario**, no el directorio. **No es la §34**,
+donde salía la ficha entera de cada alumno con fecha de nacimiento, celular,
+dirección, religión y deuda. Es real y hay que cerrarlo, pero **no es lo que hay
+que correr a arreglar**, y confundirlo con la §34 llevaría a cerrarlo con prisa,
+que es justo lo que rompe las pantallas.
+
+### 61.7 La salida, medida: devolver una lista vacía
+
+Las dos opciones evidentes son malas por motivos opuestos. **Esperar** a que la
+`usuarios/` nueva esté desplegada en cada colegio deja el fallo abierto meses y
+va colegio a colegio; **cerrar ya** con `auth.personal` les deja a alumnos y
+acudientes sin la pantalla de su usuario y su contraseña.
+
+**Hay una tercera y está medida: dejar la ruta abierta y que deje de devolver la
+lista.** Rompe el autocompletado —que *era* la fuga— y **no rompe la pantalla**,
+y sobre todo **no espera a ningún despliegue del front**, que es lo que hacía
+inaceptables a las otras dos.
+
+Lo comprobó la sesión del árbol de `myvc_front`, y no de memoria:
+
+- **`nombresdeusuario` lo consume solo el typeahead.** Cuatro apariciones en todo
+  el proyecto: el tipo, la inicialización a `[]`, la asignación y el
+  `uib-typeahead`. Nada más lo lee.
+- **Con lista vacía no revienta**, verificado en el código de las librerías
+  (AngularJS 1.8.3 y `angular-ui-bootstrap`): `filterFilter` devuelve `null` tal
+  cual y sale de `isArrayLike`, `limitToFilter` igual, y el typeahead hace
+  `resetMatches()` cuando no hay coincidencias. El campo se sigue escribiendo y
+  guardando.
+- **Y ese camino ya está vivo hoy.** El controlador tiene manejador de error:
+
+  ```js
+  PerfilesApi.usernames().then(r => $ctrl.nombresdeusuario = r,
+                               () => toastr.error('No se trajeron los nombres de usuario'));
+  ```
+
+  Cada vez que esa petición falla en producción, **la pantalla ya corre con la
+  lista vacía, y nadie lo ha reportado nunca como pantalla rota**. No es una
+  predicción: es el caso vacío funcionando en los dieciséis colegios desde
+  siempre.
+
+#### El contrato, que hay que respetar al pie de la letra
+
+```
+devolver  []                 → bien: no sugiere y todo lo demás funciona
+devolver  null               → bien: filterFilter lo devuelve tal cual
+devolver  {}  o  {"…": []}   → ROMPE: filter:notarray, «Expected array but received: [object Object]»
+```
+
+**Un objeto vacío no es una lista vacía.** `PerfilesApi.usernames()` es
+`api.get(RECURSO + '/usernames')` a secas, sin desenvolver nada, así que **lo que
+devuelva el backend cae directo en el filtro**. Envolverlo en `{"usernames": []}`
+—que es lo que haría cualquiera que "moderniza" la respuesta de paso— **lanza y
+se lleva la pantalla**, que es exactamente lo que esta opción quería evitar.
+
+Si en vez de vaciarla se decide que conteste solo sobre un nombre pasado por
+parámetro, **el resultado tiene que seguir siendo un array** con cero o un
+elemento y con la forma de hoy, `[{username: "..."}]`: la plantilla lee
+`nombresusu.username`.
+
+#### La regla general, que sirve para las demás rutas
+
+**«Devolver vacío en vez de cerrar» es seguro solo si el cliente trata la
+respuesta como una colección.** Aquí lo hacía. En cuanto una pantalla lea un
+campo de dentro —`r.total`, `r.usernames`—, devolver `[]` la rompe igual que
+cerrarla y encima con un error más raro de diagnosticar. **Exige un grep del
+llamante antes de aplicarlo, ruta por ruta.**
+
+### 61.8 Lo que queda por decidir
+
+Con lo anterior medido, la decisión ya no es entre tres mundos:
+
+1. **Recomendada: vaciar la respuesta**, respetando el contrato de arriba. No
+   espera despliegue del front, no rompe nada, y quita la fuga. Se puede hacer en
+   días, no en meses.
+2. **Esperar** a la `usuarios/` en Angular y cerrar la ruta detrás, colegio a
+   colegio. Sigue siendo el final limpio; la 1 no lo estorba, lo adelanta.
+3. **Cerrar ya con `auth.personal`.** Descartada salvo que se acepte romper la
+   pantalla de alumnos y acudientes.
+
+Lo único que la 1 no resuelve: la ruta sigue existiendo y sigue alcanzable por
+cualquiera con sesión. Deja de filtrar, pero **no vuelve a tener el guard de sus
+dos vecinas** hasta el paso 2.
