@@ -63,6 +63,11 @@ desplegar:
   le devolvía la entrada al sistema y deshacía el interruptor de «Activo» de la
   rejilla, que es otra ruta. Igual con el correo de la cuenta, que se sustituía por
   el de la persona. **Las altas no cambian**: una cuenta que nace, nace activa.
+- **`editnota` deja de mandar alumnos a la papelera sin criterio**
+  ([05 §72](migracion/05-codigo-muerto-y-roto.md)). Tres de sus rutas no tocan
+  ninguna nota —mandan un alumno a la papelera, lo sacan y lo borran— y dos no
+  exigían nada, así que un profesor podía por ahí lo que no puede por
+  `alumnos/destroy`. Ningún cliente las llama; no se apaga ninguna pantalla.
 - **Un cálculo de definitivas que borraba notas se corta**
   ([05 §71](migracion/05-codigo-muerto-y-roto.md)).
   `definitivas_periodos/calcular-notas-finales-asignatura` empezaba por un `DELETE`

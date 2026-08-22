@@ -28,10 +28,10 @@ Al cerrar: **859 tests**, `pint` y `stan` en verde, `stan` en **nivel 7**.
 Cobertura de rutas: **370 de 539 (69%)**, medida con
 `tools/cobertura-de-rutas.py`.
 
-> **Al cerrar el 22 ago**, con lo de la §0.1, las fichas, los catálogos y el
-> cálculo de definitivas ya fusionados en `main`: **968 tests**, `pint` y `stan`
-> (nivel 7) en verde y cobertura **424 de 539 (78%)**, medido contra una base
-> propia. El número de cobertura **no se movió con
+> **Al cerrar el 22 ago**, con lo de la §0.1, las fichas, los catálogos, el
+> cálculo de definitivas y `editnota` ya fusionados en `main`: **973 tests**,
+> `pint` y `stan` (nivel 7) en verde y cobertura **428 de 539 (79%)**, medido
+> contra una base propia. El número de cobertura **no se movió con
 > el último arreglo, y eso es el hallazgo**: la ruta que no guardaba nunca ya
 > constaba comprobada, porque lo que la cubría era un caso de rechazo
 > ([05 §69.7](05-codigo-muerto-y-roto.md)). La rama
@@ -303,6 +303,13 @@ roto es un rojo global y quien lo ve no puede saber de quién es.
   nadie» es la afirmación más fácil de hacer con una muestra incompleta, porque no
   hay ningún resultado que la contradiga a la vista: la casilla de contraseña que
   se dio por ausente estaba en el formulario, y se había grepeado en las rejillas.
+- **Un detector que lee el fichero entero encuentra también lo que se escribió
+  sobre él**, y el resultado tiene cara de hallazgo, no de fallo del detector: el
+  de la bandera contó un docblock recién escrito como un sitio nuevo
+  ([05 §72.5](05-codigo-muerto-y-roto.md)). Va con su corolario, que costó tres
+  entradas falsas en una lista que ya se había usado para decidir: **una lista
+  leída del código no es automáticamente cierta — hereda lo que el lector no sabe
+  distinguir.**
 - **«Si llegara a ejecutarse» es una hipótesis, y suele estar a una llamada de
   comprobarse.** Lo del cálculo de definitivas llevaba tres días escrito así
   ([05 §71](05-codigo-muerto-y-roto.md)); sí se ejecutaba, y borraba justo las
