@@ -89,8 +89,16 @@ echo "Salud de `notas_finales` — base `{$base}`";
 echo $soloYear !== null ? ", año {$soloYear}" : ', todos los años';
 echo PHP_EOL.str_repeat('=', 78).PHP_EOL.PHP_EOL;
 
-/** Imprime un bloque con su título, su número y —si se pidió— sus primeras filas. */
-function bloque(string $titulo, int $cuantos, string $unidad, array $ejemplos = [], string $nota = ''): void
+/**
+ * Imprime un bloque con su título, su número y —si se pidió— sus primeras filas.
+ *
+ * El nombre lleva sufijo porque `tools/auditar-autenticacion.php` ya define una
+ * `bloque()` global con otra firma. Los dos son scripts sueltos y nunca se cargan
+ * juntos, así que hoy no choca; lo dijo larastan, que sí los analiza a la vez, y
+ * se le hace caso porque el día que alguien incluya uno desde el otro el fatal es
+ * inmediato.
+ */
+function bloqueDeSalud(string $titulo, int $cuantos, string $unidad, array $ejemplos = [], string $nota = ''): void
 {
     global $detalle;
 
@@ -148,7 +156,7 @@ foreach ($duplicados as $d) {
     }
 }
 
-bloque(
+bloqueDeSalud(
     '1. Definitivas duplicadas — (alumno, asignatura, periodo) con más de una fila',
     count($duplicados),
     'combinaciones duplicadas · '.
@@ -189,7 +197,7 @@ foreach ($notasDup as $n) {
     }
 }
 
-bloque(
+bloqueDeSalud(
     '2. Notas duplicadas — (subunidad, alumno) con más de una nota viva',
     count($notasDup),
     "combinaciones duplicadas · con valores distintos entre sí: {$discrepan}",
@@ -290,7 +298,7 @@ if ($detalle) {
     );
 }
 
-bloque(
+bloqueDeSalud(
     '3. Definitivas contra el cálculo',
     (int) $comparacion->no_existe,
     'filas que DEBERÍAN existir y no existen '.
@@ -303,7 +311,7 @@ bloque(
     'el caso peor y el que no se explica por la §9.1 sino por la §1.'
 );
 
-bloque(
+bloqueDeSalud(
     '3.1 De las que sí existen y son automáticas',
     (int) $comparacion->discrepa,
     'discrepan del cálculo teniendo notas detrás · '.
@@ -332,7 +340,7 @@ $periodoMalo = DB::select(
       WHERE nf.periodo IS NULL OR p.id IS NULL OR nf.periodo <> p.numero'
 );
 
-bloque(
+bloqueDeSalud(
     '4. `periodo` que no concuerda con `periodo_id`',
     count($periodoMalo),
     'filas',
@@ -370,7 +378,7 @@ $fechaMala = DB::select(
          OR nf.created_at > DATE_ADD(NOW(), INTERVAL 1 DAY)'
 );
 
-bloque(
+bloqueDeSalud(
     '5. `created_at` imposible',
     count($fechaMala),
     'filas',
@@ -409,7 +417,7 @@ $subunidadesMal = DB::select(
       ORDER BY ABS(SUM(s.porcentaje) - 100) DESC'
 );
 
-bloque(
+bloqueDeSalud(
     '6. Porcentajes que no suman 100',
     count($unidadesMal),
     '(asignatura, periodo) cuyas UNIDADES no suman 100 · '.
@@ -443,7 +451,7 @@ $huecos = DB::select(
      ) t'
 )[0];
 
-bloque(
+bloqueDeSalud(
     '7. Subunidades vivas sin nota para un alumno matriculado',
     (int) $huecos->faltan,
     '(subunidad, alumno) sin nota',

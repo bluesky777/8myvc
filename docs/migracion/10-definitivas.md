@@ -566,6 +566,44 @@ y vuelta: pongo una nota, pido la definitiva, la comparo; borro una nota, pido l
 definitiva, la comparo; cambio un porcentaje, ídem. Un test que compruebe que
 `nfinal_desactualizada` vale `1` no encuentra nada.
 
+#### El estado de la fase 1 al 22 ago 2026 — **escrita y probada, sin cablear**
+
+`App\Services\DefinitivasDeAsignatura` existe, con las cinco reglas de arriba y
+el sello de versión, y **no la llama nadie todavía**. Es deliberado: sustituir los
+seis escritores es la fase 3 y va detrás de la fase 2, que no se puede desplegar
+sola. Escribirla antes hace que lo que llegue a producción llegue ya medido.
+
+La fija `DefinitivasDeAsignaturaTest`, 14 casos, con el criterio que este plan
+pedía: **el viaje de ida y vuelta**, ni una sola comprobación de
+`nfinal_desactualizada`. Se monta una asignatura con dos unidades al 50% y dos
+subunidades al 50% cada una —para que cada nota pese un cuarto y la aritmética se
+compruebe de cabeza— y se compara el número escrito con el multiplicado a mano.
+
+**Y ese test encontró un fallo en el propio servicio antes de que existiera
+ningún llamante**, que es la razón de escribirlo así:
+
+> El UPSERT hacía `UPDATE` y, si devolvía 0 filas, `INSERT`. **MySQL devuelve 0
+> filas afectadas cuando el `UPDATE` no cambia ningún valor**, no cuando no
+> encuentra la fila. Recalcular tres veces dentro del mismo segundo —misma nota,
+> mismo `updated_at`— dejaba **tres filas**: el fallo de la §2 reintroducido por la
+> forma de escribir su propio arreglo.
+
+Se decide ahora por si la fila existe. Lo cazó `test_recalcular_dos_veces_no_duplica`,
+que **cuenta filas en la tabla** en vez de mirar lo que devuelve el servicio: un
+duplicado no se ve en la respuesta.
+
+Dos apartes del plan, los dos escritos en la clase:
+
+- **Los conteos del sello no hacen falta.** Estaban para que «borrar una y añadir
+  otra dentro del mismo segundo» no pasara desapercibido, y eso ya lo coge la
+  comparación conservadora —en el empate se recalcula, que la §4.5 dice que es
+  inofensivo—. Añadirlos obligaría a guardar el conteo en una columna nueva para
+  un caso que el empate ya cubre.
+- **El UPSERT no es `ON DUPLICATE KEY UPDATE`** porque la clave única la pone la
+  fase 2, y sin ella esa forma no dispara nunca y se comporta como un INSERT a
+  secas. Lo que sí consigue ya es que **no haya ventana de borrado**: no existe
+  ningún instante en el que la definitiva no esté, que es la mitad de la §1.1.
+
 ### Fase 2 — Cerrar la base
 
 Migración (no phpMyAdmin — [CLAUDE.md](CLAUDE.md), «migración o no existe»), en
