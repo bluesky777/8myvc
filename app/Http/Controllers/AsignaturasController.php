@@ -360,14 +360,37 @@ class AsignaturasController extends Controller {
 	}
 
 
+	/*
+	 * Restaurar obedece al año del que pide, igual que el listado de al lado.
+	 *
+	 * `getPapelera()` filtra `g.year_id = ?` con el año del token y esto hacía
+	 * `UPDATE ... WHERE id=?` con lo que llegara en el cuerpo: el listado enseñaba
+	 * un año y el botón alcanzaba todos. Es la asimetría entre las dos mitades de
+	 * una misma pantalla, que es donde han salido casi todas.
+	 *
+	 * No es un permiso nuevo —quien llega ya es personal y ya podía restaurar las
+	 * suyas—, es el mismo alcance que su listado. Y no lo llama ningún cliente: la
+	 * papelera del front tiene tres rejillas y ninguna es ésta, así que era una
+	 * mina y no un fallo vivo.
+	 *
+	 * 404 y no 403 a propósito: para quien pide, una asignatura de otro año no está
+	 * prohibida — no está en su papelera.
+	 */
 	public function putRestaurar()
 	{
 		$user 				= User::fromToken();
 		$asignatura_id 		= Request::input('asignatura_id');
-		
-		$consulta = 'UPDATE asignaturas SET deleted_at=NULL WHERE id=?';
-					
-		DB::update($consulta, [$asignatura_id]);
+
+		$consulta = 'UPDATE asignaturas a
+					INNER JOIN grupos g ON g.id = a.grupo_id AND g.year_id = ?
+					SET a.deleted_at = NULL
+					WHERE a.id = ? AND a.deleted_at IS NOT NULL';
+
+		$filas = DB::update($consulta, [$user->year_id, $asignatura_id]);
+
+		if ($filas === 0) {
+			return abort(404, 'Esa asignatura no está en la papelera de este año.');
+		}
 
 		return 'Retaurada';
 	}

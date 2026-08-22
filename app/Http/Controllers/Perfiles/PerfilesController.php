@@ -601,9 +601,21 @@ class PerfilesController extends Controller {
 	
 	}
 
+	/*
+	 * El gemelo de `grupos/restore` bajo otra URL, igual que su `forcedelete`.
+	 *
+	 * Cerrar sólo la de `grupos/` dejaba esta puerta abierta — que es literalmente
+	 * lo que ya avisaba el comentario que la §28.4 dejó escrito en el `forcedelete`
+	 * de este mismo fichero. El porqué del criterio está allí y en
+	 * `GruposController::putRestore`.
+	 */
 	public function putRestore($id)
 	{
 		$user = User::fromToken();
+
+		Autoriza::exigir(Autoriza::esSuperusuario($user),
+			'No tienes permiso para restaurar grupos.');
+
 		$grupo = Grupo::onlyTrashed()->findOrFail($id);
 
 		$grupo->restore();

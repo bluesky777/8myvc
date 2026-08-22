@@ -701,9 +701,33 @@ class GruposController extends Controller {
 	
 	}
 
+	/*
+	 * Restaurar pide lo mismo que borrar definitivamente, y hasta el 22 ago 2026
+	 * no pedía nada.
+	 *
+	 * Cada operación de la papelera es una pareja, y el 21 ago se cerró **una
+	 * mitad de cada una**: `forcedelete` quedó anclado a superusuario y `restore`,
+	 * en el mismo controlador y dos métodos más abajo, se quedó como estaba —
+	 * bastaba `auth.personal`, o sea cualquiera de los 51 profesores—. La cabecera
+	 * de `Autoriza` nombra los cinco sitios de los que venía aquello: grupos,
+	 * perfiles, profesores, years y editnota. Son los mismos cinco.
+	 *
+	 * El criterio es el del gemelo destructivo y no uno nuevo, a propósito: la
+	 * regla de `Autoriza` es que crear un rol no regale permisos, y
+	 * `esAdministrativo` incluiría al `Secretario` del día que exista sin que
+	 * nadie lo haya pedido. Hoy los dos criterios son las mismas diez personas
+	 * —`is_superuser` y el rol `Admin` coinciden fila por fila, §28.4— y la
+	 * pantalla de papelera del front ya se enseña sólo con `hasRoleOrPerm('admin')`,
+	 * así que **nadie pierde un botón que hoy vea**. Subirlo a `esAdministrativo`
+	 * es una palabra el día que se decida; está anotado en 09 §5.
+	 */
 	public function putRestore($id)
 	{
 		$user = User::fromToken();
+
+		Autoriza::exigir(Autoriza::esSuperusuario($user),
+			'No tienes permiso para restaurar grupos.');
+
 		$grupo = Grupo::onlyTrashed()->findOrFail($id);
 
 		$grupo->restore();
