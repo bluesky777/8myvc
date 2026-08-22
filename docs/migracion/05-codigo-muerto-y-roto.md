@@ -5083,3 +5083,265 @@ Un barrido que sale **sin ningún fallo de autorización** no es un barrido perd
 es la primera medición que dice que ese trozo está cubierto. Y aun así trajo ocho
 respuestas que mienten, porque **la pregunta era «qué responde» y no «quién
 entra»**. Es la misma diferencia que hizo útil la cobertura desde el principio.
+
+---
+
+## 55. El `year_id` del cuerpo entraba crudo en el SQL de los ordinales (22 ago 2026)
+
+`Disciplina\OrdinalesController::putOrdinales()` armaba la primera de sus tres
+consultas concatenando:
+
+```php
+$year_id  = Request::input('year_id', $user->year_id);
+$consulta = 'SELECT * FROM dis_ordinales WHERE year_id='.$year_id.' and deleted_at is null order by ordinal';
+$ordinales = DB::select($consulta);
+```
+
+Mandando `2 OR 1=1` salen **dieciséis filas donde tocaban dos**: los ordinales de
+todos los años del colegio. `and` liga más fuerte que `or`, así que el
+`deleted_at is null` se queda colgando del `or` y deja de filtrar.
+
+**No es la familia del `ColumnaSegura`**, y por eso esa defensa no lo tapaba: allí
+lo que se concatena es el **nombre** de la columna y el valor va ligado. Aquí era
+el valor. Arreglado ligando `:year_id`, con `CatalogosDelColegioTest` fijándolo.
+
+### Lo que lo hace barato de encontrar, y lo que lo hacía invisible
+
+Las **otras dos consultas del mismo método** ya ligaban `:year_id`. Esa asimetría
+—una hermana concatenando entre dos que ligan— es lo que convierte una sospecha en
+una prueba de dos líneas: se manda un `year_id` con SQL dentro y `ordinales`
+obedece al SQL mientras `tipos` sigue contestando por el año de verdad.
+
+Y lo que lo escondía: **la ruta ya estaba cubierta**.
+`MuestreoDeLecturasConContextoTest` la golpea con un `year_id` legítimo y compara
+la instantánea desde que se escribió. Es la tercera vez en dos días que un
+hallazgo aparece debajo de un verde que fijaba el comportamiento — ver la §54.
+La instantánea **no se movió** con el arreglo: el camino legítimo responde igual,
+que es justo por lo que el test no lo veía.
+
+---
+
+## 58. Los cuatro borrados de las votaciones: el mismo código, tres resultados (22 ago 2026)
+
+Sale de la cobertura de la noche del 21 al 22. De las 36 rutas `Vt*`, 29 ya
+tenían la respuesta comprobada y las siete que faltaban eran **los cuatro
+`destroy` del módulo** más tres de `votaciones`. Que lo único no mirado fueran
+los borrados no es casualidad estadística: un `destroy` es lo más caro de probar
+a mano y lo único que no se puede deshacer en producción.
+
+Los cuatro métodos son **idénticos**, línea por línea:
+
+```php
+public function deleteDestroy($id)
+{
+    $x = VtLoQueSea::findOrFail($id);
+    $x->delete();
+
+    return $x;
+}
+```
+
+Sin comprobar año, ni dueño, ni si la urna está abierta. Y aun así **hacen tres
+cosas distintas**, porque lo que decide no está en el controlador:
+
+| Ruta | Trait en el modelo | Columna en la tabla | Qué pasa de verdad |
+|---|---|---|---|
+| `votaciones/destroy/{id}` | sí | sí | lógico; los hijos sobreviven |
+| `candidatos/destroy/{id}` | sí | sí | lógico; el voto sobrevive |
+| `aspiraciones/destroy/{id}` | **no** | sí | **físico**, y la cascada se lleva candidatos y **votos** |
+| `participantes/destroy/{id}` | sí | **no** | **500** |
+
+Las dos condiciones —el trait en el modelo, la columna en la tabla— se pusieron
+por separado y **nadie las comparó nunca**. Donde no cuadran, salen las dos de
+abajo.
+
+### 58.1. Borrar una aspiración destruye los votos, de verdad y sin papelera
+
+`VtAspiracion` es **el único de los cinco modelos que no lleva `SoftDeletes`**.
+Lo importa en la cabecera del fichero y no lo usa dentro de la clase, que es
+justo la forma de no verlo: un `grep SoftDeletes` sobre `app/Models/Vt*` los
+devuelve los cinco.
+
+Así que ahí `delete()` sí manda un `DELETE` a MySQL, y entonces la cascada que el
+esquema tenía declarada hace su trabajo:
+
+```
+vt_aspiraciones ──ON DELETE CASCADE──> vt_candidatos ──ON DELETE CASCADE──> vt_votos
+```
+
+**El escrutinio de una elección se borra de forma irreversible con una sola
+llamada**, aunque `vt_candidatos` y `vt_votos` tengan su `deleted_at` puesto y
+listo para usarse. La papelera existe en las dos tablas; lo que se pierde no pasa
+por ella.
+
+Su vecina de arriba hace lo contrario con el mismo código. `votaciones/destroy`
+sí es lógica, así que **el `DELETE` nunca llega a MySQL y la cascada no
+dispara**: la fila padre se queda marcada como borrada, y sus aspiraciones,
+participantes, candidatos y votos siguen vivos. La intención escrita en el
+esquema —cuatro `ON DELETE CASCADE` apuntando a `vt_votaciones`— **no se cumple
+en ningún caso**, porque el único camino que la activaría está tapado por el
+trait.
+
+### 58.2. Borrar un participante responde 500
+
+`vt_participantes` es **la única de las cinco tablas `vt_*` sin columna
+`deleted_at`** (`database/schema/mysql-schema.sql:1934`). Y `VtParticipante` sí
+lleva `use SoftDeletes` dentro de la clase. El trait traduce el `delete()` a
+`UPDATE vt_participantes SET deleted_at = ?`, MySQL contesta que esa columna no
+existe, y la petición muere.
+
+El modelo lleva además `protected $softDelete = true`, que es la sintaxis de
+Laravel 4 y hoy no la lee nadie: **dos formas de pedir lo mismo, y ninguna
+comprobada contra el esquema**.
+
+Ha sobrevivido a la migración entera porque el resto del módulo lee por SQL
+crudo —de las 990 consultas del proyecto—, así que el censo funciona y **el
+fallo solo asoma al borrar**. Es el mismo motivo por el que no lo vio ninguna
+herramienta: larastan mira si el código puede funcionar, no si la columna está;
+el barrido mira quién entra; `inventario-autorizacion.py` mira la firma.
+
+### Por qué se fija y no se arregla
+
+Los dos están fijados por `tests/Contrato/VotacionesBorradoTest.php` —cuatro
+tests, 34 aserciones— **describiendo lo que hacen hoy**, no lo que deberían
+hacer. Son endpoints vivos en los dieciséis colegios y las dos correcciones son
+decisiones, no arreglos:
+
+- En `participantes`, o se le añade la columna a la tabla —migración, y el
+  borrado pasa a ser lógico— o se le quita el trait al modelo, y entonces pasa a
+  ser **físico con la cascada del esquema detrás**, que es lo que hace hoy la
+  aspiración. Las dos son un cambio de comportamiento, en direcciones opuestas.
+- En `aspiraciones`, ponerle el trait detiene la pérdida de votos, pero deja
+  candidatos y votos colgando de un padre invisible — que es exactamente lo que
+  ya hace `votaciones/destroy`, y nadie ha decidido que eso esté bien.
+
+Ninguna de las cuatro rutas comprueba tampoco **el año ni el dueño**: `findOrFail`
+acepta cualquier id de la base. Eso no se toca aquí porque es la familia del
+§5 de [09-pendientes.md](09-pendientes.md) —las rutas de estructura con solo
+`auth.personal`, que Joseth decidió el 21 ago no cerrar— y cerrarlas puede dejar
+fuera a un coordinador.
+
+### Lo que enseña, y no es sobre votaciones
+
+**Cuatro métodos idénticos no son cuatro veces el mismo comportamiento.** Aquí lo
+que decide está repartido entre el modelo y el esquema, dos sitios que no se
+leen cuando se lee el controlador — y el controlador es lo único que mira un
+diff. Es la misma familia que el §52, el bucle copiado en cinco sitios, pero al
+revés: allí cinco copias hacían lo mismo mal, aquí cuatro copias iguales hacen
+tres cosas distintas.
+
+Y comprobado al revés, como manda el §45: al añadirle `SoftDeletes` a
+`VtAspiracion` cae **un solo test**, el de la cascada, con su mensaje. Uno de
+cuatro es lo correcto — si hubieran caído dos, es que alguno medía de rebote.
+
+---
+
+## 59. El barrido de la concatenación cruda: cuarenta sitios, dos fallos (22 ago 2026)
+
+Después de la §55 se barrió el patrón por toda `app/`: **cuarenta sitios en
+diecinueve ficheros**, de los ciento cuarenta que usan SQL crudo. Se repartió
+entre cuatro sesiones. Aquí van los **veintiún sitios** de los bloques C0-c y
+C0-d, leídos uno a uno.
+
+**Quince falsos positivos, una inyección real.** El ratio importa menos que los
+motivos, porque los motivos son lo que afina el detector y el recuento no:
+
+| Motivo del falso positivo | Dónde |
+|---|---|
+| Concatena **marcas de parámetro** (`?,?,?` de `array_fill`), no valores — la única forma de un `IN` de longitud variable | `ContextoDeUsuario:305`, `MisActividadesController:210` |
+| Está **dentro de un bloque comentado** | `Bitacora:76` |
+| **Ya estaba arreglado**, con su comentario al lado explicando qué se inyectaba antes | `Grupo:138` |
+| El valor sale de un **`switch` de casos literales**: no lo elige el cliente | `ChangeAskedController:1215`, `GuardarAlumno:44` y `:76` |
+| Es un **literal fijo** con su propio parámetro ligado dentro | `CertificadosPersonaController:228` |
+| El valor sale de **una consulta anterior**, no del cuerpo | `AlumnosController:642` |
+| La ruta está **rota a propósito y documentada**: la variable concatenada ni siquiera está definida y revienta antes del SQL (§6.5, §27.2) | `UniformesController:87` |
+| **La variable concatenada no se usa en la consulta** | `Grupo:159` y `:161` |
+
+Ninguno de esos ocho motivos lo distingue un `grep`, y por eso la lista de
+cuarenta era **una lista de sitios donde mirar y no una lista de fallos** — la
+misma lección de la §52, recorrida esta vez en una noche en lugar de en cuatro
+mediciones.
+
+### La condición que redujo cuarenta a dos
+
+La señal buena no resultó ser la concatenación, sino **la asimetría**: un método
+donde una consulta liga el parámetro y su hermana lo concatena. Pero la asimetría
+sola no basta, y casi cuela un falso positivo con muy buena pinta —
+`AlumnosController:642` tiene `WHERE m.year_id=? and a.alumno_id='.$alumno_id`,
+ligado y concatenado en la misma consulta, y no es inyectable.
+
+Lo que hay que añadirle es preguntar **si ese valor llega de verdad al `DB::` que
+se ejecuta**: hay que seguir la variable, no leer la línea. Con esa condición, los
+cuarenta sitios quedaron en **dos**, y los dos eran el mismo fallo real
+(`ImporterFixer` → `ImportarController`, la casilla de la hoja de cálculo que sube
+el usuario dentro de un `UPDATE alumnos`).
+
+**Y aun así la lista de dos estaba incompleta**, que es lo siguiente.
+
+### 59.1. La inyección que ninguna señal encuentra: el nombre que guarda otra ruta
+
+`Perfiles\CalendarioController::putSincronizarCumples()` metía el nombre del que
+llama **dentro de unas comillas dobles del SQL, sin ligar**:
+
+```php
+$nombres = $user->tipo == 'Usuario' ? $user->username : ($user->nombres.' '.$user->apellidos);
+...
+SELECT '.$user->user_id.' as created_by, "'.$nombres.'" as created_by_nombres, ...
+```
+
+Medido: un profesor llamado `Ana "La Profe"` recibe un **500 con error de sintaxis
+de MySQL** y su propio nombre visible dentro de la consulta. Un nombre con comilla
+doble es un nombre legítimo: **la ruta se caía sola sin que nadie atacara nada**.
+
+Es una **inyección de segundo orden**, y por eso ninguna de las dos señales de la
+noche la caza. El valor no llega del cuerpo de la petición que detona: llega de la
+fila del usuario, y esa fila la escribe el cuerpo de **otra** ruta —
+`ProfesoresController::postStore()` asigna `nombres` desde `Request::input`, **no
+tiene ninguna `Autoriza::exigir`** y su `sanarInputProfesor()` solo normaliza
+`tipo_sangre` y `estado_civil`: no toca las comillas.
+
+**La asimetría está repartida entre dos peticiones.** Un detector que mire un
+método a la vez no da la lista larga —eso se corrige leyendo—, da la **lista
+incompleta**, que no se corrige con nada porque no se ve. Se guarda por una puerta
+y detona por otra, y las dos por separado parecen inocentes.
+
+Arreglado ligando los seis valores de las dos consultas.
+`CalendarioCumplesTest` lo fija en dos mitades a propósito —la fuente guarda el
+texto tal cual, el sumidero ya no lo interpreta— y mira **lo que queda escrito en
+`calendario`**, no el código de respuesta: una inyección de segundo orden contesta
+200 igual de bien. Comprobado al revés según el §45: revertido el arreglo cae **un
+solo test**, el del sumidero.
+
+### 59.2. Y debajo de un falso positivo había un filtro que no filtra
+
+`Grupo::detailed_materias($grupo_id, $profesor_id, $exceptuando)` salió en la lista
+por concatenar `' and p.id!='.$profesor_id`. No es inyectable **porque
+`$complemento` se escribe en tres sitios y no se lee en ninguno**: nunca entra en
+la consulta.
+
+Lo que hay debajo es que **los dos parámetros que distinguen «las mías» de «las de
+los demás» no hacen nada**. Medido en `PUT actividades/datos`: a un profesor del
+grupo 84 le llegan las **diez** asignaturas del grupo dentro de
+`mis_asignaturas`, con las de los otros seis profesores dentro. Treinta llamadas
+pasan solo el grupo; tres pasan además el profesor y se comportan igual.
+
+**No se arregla, y el test fija lo que hace hoy.** Arreglarlo encoge una lista que
+ven dieciséis colegios en una pantalla del front, y `app/` es copia real en cada
+uno: es decisión de Joseth y no del que pasaba por aquí. La pregunta que la decide
+en un minuto es **quién mira esa lista y para qué la usa** — si es el profesor
+eligiendo entre sus asignaturas, la lista larga es un estorbo; si es una rejilla
+del grupo, es correcta. `FiltroDeProfesorEnMateriasTest` lo fija con el «no se
+juzgó» escrito al lado, para que el verde no se lea como que esto está bien.
+
+### Y esto cambia cómo hay que leer las revisiones viejas
+
+`PUT actividades/datos` no solo estaba cubierta: **la §6 de
+[13-actividades.md](13-actividades.md) la revisó y se dio por cerrada** — «se
+revisó entera y no queda ninguna». Lo que revisó fue la rama del administrativo,
+que era la que había abierto. El contenido de la rama del profesor no lo miró
+nadie.
+
+Los otros casos de estos dos días eran un verde que fijaba lo que había. Éste es
+**una revisión explícita dada por cerrada mirando una sola rama**, y es el más
+fuerte de los cinco: obliga a leer «se revisó entero» como **«se revisó la rama
+que abrí»**.
