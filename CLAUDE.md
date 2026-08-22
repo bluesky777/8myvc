@@ -60,6 +60,7 @@ leyendo el código. Cada una lleva su uso en la cabecera.
 | `inventario-autorizacion.py` · `auditar-autenticacion.php` | qué guard cubre cada ruta |
 | `respuestas-que-mienten.py` | qué métodos frenan la escritura y responden 200 igual |
 | `interruptores-que-nadie-lee.py` | qué columnas `tinyint(1)` no decide nadie — con `--clientes`, tampoco los cuatro fronts |
+| `identificadores-del-cuerpo.py` | qué rutas reciben un id por el cuerpo que no comprueba nadie |
 
 Y una que **no** está en `tools/` y contesta la pregunta contraria:
 `tests/Barrido/SuperficieDeUnTokenTest.php` golpea la API entera con un token y

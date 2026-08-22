@@ -4806,3 +4806,139 @@ decisión y no un arreglo. Queda anotado.
 **Sin tocar, porque el id sale de una consulta previa**: `PlanillasController:128`
 y `YearsController:107` buscan una fila que se acaba de leer o de crear. Se pueden
 blindar, pero hoy no hay camino conocido por el que sean null.
+
+---
+
+## 53. La pregunta del identificador, contestada de una vez (21 ago 2026)
+
+La §50 no cerró un fallo: cerró **el quinto sitio** de un mismo fallo, y dejó
+escrito por qué había hecho falta tres pasadas para eso.
+
+> No es que las pasadas anteriores fueran flojas: es que cada una entró por una
+> ruta y arregló lo que esa ruta tocaba. La pregunta que las habría juntado no es
+> «¿está bien esta ruta?» sino **«¿qué más lee este identificador del cuerpo?»**,
+> y esa se contesta de una vez y no cinco.
+
+Esto es esa pregunta, contestada. Salieron **tres**, y ninguno de los tres estaba
+en el controlador que se había repasado ya.
+
+La herramienta es `tools/identificadores-del-cuerpo.py`: por cada ruta, qué
+identificadores llegan por el cuerpo, cuáles no se leen además de ninguna fila y
+si el método comprueba propiedad. Da **231 rutas**, que es una lista para mirar y
+no una lista de fallos —la lección de la §52, otra vez—; lo que la vuelve
+manejable es filtrarla por quién puede llegar, porque «cualquiera de los 71 del
+personal configura el colegio» ya está decidido que se queda (09 §0).
+
+### 53.1 El sexto `asked_id`, en el controlador de al lado
+
+`PUT ChangesAskedAssignment/ver-detalles` es **la copia literal** de
+`ChangeAskedController::putVerDetalles`, la que arregló la §50, con la
+comprobación quitada. Medido con token de profesor, uno al lado del otro:
+
+| | pedido de otro | id que no existe |
+|---|---|---|
+| `ChangesAsked/ver-detalles` (§50) | **403** | **404** |
+| `ChangesAskedAssignment/ver-detalles` | **200** | **500** |
+
+El 200 devuelve la fila entera de `change_asked_data`: `documento_new`,
+`telefono_new`, `celular_new`, `direccion_new`, `email_new`. O sea el dato nuevo
+**y** el viejo del mismo campo, que es para lo que existe la tabla.
+
+**Por qué se salvó de tres pasadas seguidas**, que es lo que hay que llevarse:
+
+1. **Está en otro controlador.** La §39, la §49 y la §50 entraron las tres por la
+   lista de cobertura de `ChangeAskedController`, y esta ruta no vive ahí.
+2. **Los dos recursos se llaman casi igual y los dos tienen `ver-detalles`.** No
+   lo decimos nosotros: lo avisa el propio front en la cabecera de
+   `ChangesAskedAssignmentApi.ts` —«los dos van en CamelCase y en inglés, los dos
+   tienen `ver-detalles`, y se confunden con solo mirar el nombre»—. Arreglado el
+   que se llama, el nombre de la lista ya parecía tachado.
+3. **Y ya estaba medida. Dos veces.** Vivía en
+   `MuestreoDeLecturasConContextoTest` con un test que **fijaba su 500** como
+   comportamiento conocido y con un párrafo explicando que cambiarlo a 404 era
+   otro trabajo. La pregunta que se le hizo fue «¿qué código devuelve con un id
+   que no existe?»; la que faltaba era «¿y de quién es la fila cuando sí existe?».
+   **Medir una ruta no es haberla juzgado**, y esto es lo más parecido a una
+   prueba de eso que hay en el repo.
+
+Y el arreglo salió gratis por donde se temía que costara: el párrafo de aquel test
+frenaba el 404 por no saber qué hace `myvc_front` con cada código. **No hace
+nada**: `ChangesAskedAssignmentApi` expone `solicitar-materia` y
+`pedir-quitar-asignatura`, y `ver-detalles` de este recurso **no lo llama ningún
+cliente**. La ruta que quedaba abierta era justamente la que no usa nadie.
+
+El criterio no se eligió aquí —es el que fijaron sus cinco hermanas: el dueño o el
+superusuario— y por eso se mudó a `App\Support\PedidoPropio` en vez de copiarse.
+Copiar un criterio que costó tres pasadas fijar una vez es cómo se llega a la
+sexta.
+
+### 53.2 El álbum privado de cualquiera, y la exención escrita contra otra clave
+
+`PUT images-users/imagenes-de-usuario` iba con `auth.token` a secas. Medido con el
+token de un alumno del seed: **200 y las 162 imágenes privadas de un
+superusuario**, con el nombre de archivo dentro, que es la ruta con la que se
+piden.
+
+Lo que la tuvo tapada no fue que nadie la mirara —tenía su entrada en
+`AutorizacionTest`— sino **el nombre de la clave**. La exención decía:
+
+> `'PUT api/images-users/imagenes-de-usuario' => 'sin user_id significa «las mías», que es lo que devuelve'`
+
+y las dos mitades son falsas. El método no lee `user_id`: lee **`usuario_id`**. Y
+sin la clave no devuelve «las mías» sino las imágenes cuyo `user_id` es NULL. La
+frase describe un método que no existe.
+
+Dos líneas más arriba, en ese mismo fichero, está escrito el aviso:
+
+> Esta lista es de las pocas cosas del repo que se escriben creyendo al código en
+> vez de midiéndolo, y por eso se le coló.
+
+Es la **segunda** que se le cuela, después de `piars-alumnos/field` en la §35. Van
+dos de dos por lo mismo. Lo que las separa de todo lo demás no es la dificultad:
+es que una exención es la única línea del repo cuya recompensa es que nadie la
+vuelva a mirar.
+
+El criterio tampoco es nuevo: la pestaña «Imágenes de usuarios» del gestor de
+archivos es la única que llama aquí —`alumSelect` y `profeSelect` de
+`FileManagerCtrl`, y el propio `ImagesUsersApi` la documenta como «el álbum de
+otra persona, para el gestor de imágenes del administrador»— y el front la enseña
+con `ng-if="hasRoleOrPerm('admin')"`. Es la §29.3 —**el backend dos escalones por
+debajo de su propia pantalla**— y se cierra con la decisión que ya tomó la §36
+para las cinco hermanas de este mismo controlador.
+
+### 53.3 `foto_id`, el tercer nombre de una imagen
+
+`PUT images-users/cambiar-imagen-oficial/{user_id}` lleva `persona.propia` desde
+la revisión de IDOR, y el guard miraba el `user_id` de la URL —suyo— sin ver la
+imagen que proponía el cuerpo. Medido: un alumno deja **la imagen de un
+superusuario** en su propio pedido de foto oficial, `change_asked_data.foto_id_new`
+la guarda, y un administrador que acepte el pedido se la pone en la ficha.
+
+Sus **dos hermanas del mismo controlador llaman `imagen_id` a este mismo dato**.
+La asimetría era del vocabulario, no del criterio.
+
+Es la §13 por tercera vez —allí, `{id}` donde sus cuatro hermanas dicen
+`{imagen_id}`; en la §15, `img_id`—, y la lista del guard ya lleva **tres nombres
+para una sola cosa**. Eso es lo que hay que leer en ella: en este repo, **un
+identificador con un nombre nuevo es un guard ciego**, y la lista se queda corta
+en cuanto un endpoint escribe el suyo.
+
+`AutorizacionTest` compara por reflexión los nombres de los parámetros de URL con
+las claves del middleware, y por eso no vio ninguno de estos: **los tres viajan en
+el cuerpo**. Ese test ya avisaba de su propio límite —«lo que siguen sin ver son
+las claves que viajan en el cuerpo: eso no tiene atajo estático y hay que
+golpearlo»—, y eso es lo que hace `IdentificadoresDelCuerpoTest`: nueve casos,
+golpeando.
+
+### Lo que queda de la pregunta
+
+Comprobado al revés, revirtiendo cada arreglo por separado: caen **3, 2 y 1**, y
+los tres «esto sigue funcionando» —el dueño ve su pedido, el administrador ve el
+álbum, el alumno propone su propia imagen— siguen verdes en las tres reversiones.
+
+Y lo que la pregunta **no** contesta, para que no se dé por agotada: la
+herramienta mira si alguien comprueba el identificador, no si lo comprueba bien, y
+sobre todo **no sabe qué identificadores son de una persona y cuáles del colegio**.
+Las 231 rutas siguen ahí; lo que se ha leído es el trozo alcanzable por una
+familia y por el personal que no debería. El resto se lee el día que se decida
+quién configura el colegio, que es lo que está abierto en 09 §0.

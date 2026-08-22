@@ -113,10 +113,28 @@ error real**:
    método que ha dado los diez hallazgos del día no es subir el número, es
    **elegir un hueco con forma de dominio y leer el controlador**. La lista sale
    de `tools/cobertura-de-rutas.py`.
-2. **La pregunta que junta cinco fallos y que sigue sin hacerse**: «¿qué **más**
-   lee este identificador del cuerpo?». `data_id` derivado del cuerpo apareció
-   **tres veces en el mismo controlador** en tres pasadas distintas (§39, §49,
-   §50). Se contesta de una vez y no de cinco.
+2. ~~**La pregunta que junta cinco fallos y que sigue sin hacerse**~~ —
+   **contestada el 21 ago 2026, y salieron tres** ([05 §53](05-codigo-muerto-y-roto.md)).
+   Fueron el **sexto** `asked_id` —la copia literal de la ruta que arregló la §50,
+   en otro controlador, entregando el documento y la dirección de cualquiera—, el
+   **álbum privado de cualquiera** a cualquiera con token, y **`foto_id`**, el
+   tercer nombre de una imagen que `persona.propia` no conocía. La herramienta es
+   `tools/identificadores-del-cuerpo.py` y los fija `IdentificadoresDelCuerpoTest`,
+   nueve casos.
+
+   Lo que hay que llevarse no es el número: **dos de los tres ya estaban
+   medidos**, y por eso nadie volvió. Al sexto `asked_id` se le había preguntado
+   qué código devuelve con un id que no existe —tiene su test fijando el 500— y
+   nunca de quién es la fila cuando sí existe; al álbum privado lo tapaba una
+   exención de `AutorizacionTest` escrita contra `user_id` cuando el método lee
+   `usuario_id`, que es **la segunda que se le cuela a esa lista** después de la
+   §35. **Medir una ruta no es haberla juzgado**, y una exención es la única línea
+   del repo cuya recompensa es que nadie la vuelva a mirar.
+
+   Y no está agotada: la herramienta da **231 rutas** y no sabe distinguir un id
+   de persona de uno del colegio. Lo leído es lo alcanzable por una familia y por
+   el personal que no debería; el resto espera a que se decida quién configura el
+   colegio (§0).
 3. **Las definitivas ([§4](#4-las-definitivas-notas-que-se-pierden-se-duplican-y-no-se-actualizan))**,
    cuando Joseth lo reabra. Dato nuevo del 21 ago: de los seis métodos que
    escriben en la rejilla sin mirar el interruptor del periodo, **cuatro caen ahí**

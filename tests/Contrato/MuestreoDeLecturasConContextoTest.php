@@ -238,31 +238,35 @@ class MuestreoDeLecturasConContextoTest extends CasoDeContrato
     /**
      * Pedir por un id que no existe devuelve 500, no 404.
      *
-     * Las dos consultas hacen `DB::select(...)[0]` sin mirar si vino algo. No es
-     * un fallo de datos del seed —con la tabla llena pasaría igual con un id
+     * La consulta hace `DB::select(...)[0]` sin mirar si vino algo. No es un
+     * fallo de datos del seed —con la tabla llena pasaría igual con un id
      * cualquiera—, y se ve desde fuera: un 500 en el log del colegio que en
      * realidad era «eso no está».
      *
      * Se deja como está y se fija aquí. Cambiarlo a 404 es tocar el contrato de
-     * dos pantallas sin saber qué hace `myvc_front` con cada código, y eso es
-     * otro trabajo.
+     * una pantalla sin saber qué hace `myvc_front` con cada código, y eso es otro
+     * trabajo.
+     *
+     * **Aquí estuvo también `ChangesAskedAssignment/ver-detalles`, y salió el 21
+     * ago 2026 por la puerta de al lado** (05 §53). Es lo que este test enseña
+     * mejor que ninguno: la ruta estaba medida —dos veces, incluso—, y lo que se
+     * le preguntó fue «¿qué código devuelve con un id que no existe?». La
+     * pregunta que faltaba era «¿y de quién es la fila que sí existe?»: entregaba
+     * el documento, el teléfono y la dirección de cualquiera. **Medir una ruta no
+     * es haberla juzgado.**
      */
     public function test_pedir_una_actividad_que_no_existe_da_500_en_vez_de_404(): void
     {
-        foreach ([
-            'api/respuestas/actividad' => ['actividad_id' => 999999],
-            'api/ChangesAskedAssignment/ver-detalles' => ['asked_id' => 999999],
-        ] as $uri => $cuerpo) {
-            $r = $this->withToken($this->token)->putJson('/'.$uri, $cuerpo);
+        $r = $this->withToken($this->token)
+            ->putJson('/api/respuestas/actividad', ['actividad_id' => 999999]);
 
-            $r->assertStatus(500);
+        $r->assertStatus(500);
 
-            $this->assertStringContainsString(
-                'Undefined array key 0',
-                (string) (json_decode($r->getContent(), true)['message'] ?? ''),
-                "'{$uri}' falla, pero ya no por el índice sin comprobar."
-            );
-        }
+        $this->assertStringContainsString(
+            'Undefined array key 0',
+            (string) (json_decode($r->getContent(), true)['message'] ?? ''),
+            "'api/respuestas/actividad' falla, pero ya no por el índice sin comprobar."
+        );
     }
 
     /**
