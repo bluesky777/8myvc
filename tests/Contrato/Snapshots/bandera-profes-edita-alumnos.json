@@ -5,9 +5,6 @@
     "app/Http/Controllers/AlumnosController.php::putGuardarValorVarios": [
         "PUT api/alumnos/guardar-valor-varios"
     ],
-    "app/Http/Controllers/ChangeAskedController.php::putVerDetalles": [
-        "PUT api/ChangesAsked/ver-detalles"
-    ],
     "app/Http/Controllers/Matriculas/MatriculasController.php::deleteDestroy": [
         "DELETE api/matriculas/destroy/{id}"
     ],
@@ -58,12 +55,6 @@
     ],
     "app/Http/Controllers/YearsController.php::putProfesCanEditAlumnos": [
         "PUT api/years/profes-can-edit-alumnos"
-    ],
-    "app/Http/Middleware/ExigirPersonal.php::(fuera de método)": [
-        "(sin ruta propia)"
-    ],
-    "app/Models/Year.php::(fuera de método)": [
-        "(sin ruta propia)"
     ],
     "app/Services/ContextoDeUsuario.php::construir": [
         "(sin ruta propia)"

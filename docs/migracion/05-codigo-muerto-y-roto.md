@@ -6760,3 +6760,121 @@ hacer falta.
 
 La que se queda es la de `Alumnos/Definitivas.php`: la clase sigue entera, con las
 dos copias del método roto, y hoy es lo único que dice qué se pretendía.
+
+---
+
+## 72. `editnota` no borra notas: borra alumnos, y por la puerta sin llave (22 ago 2026)
+
+Cuatro rutas sin comprobar en `EditnotaController` —la pantalla con la que se
+corrige el histórico académico de un alumno ya promovido—. **Tres de las cuatro no
+tocan ninguna nota**: mandan un alumno a la papelera, lo sacan y lo borran
+definitivamente.
+
+Es la forma de la [§65](#65): un controlador que opera sobre otra cosa de la que
+dice su nombre. Con un agravante que la §65 no tenía — **las mismas tres
+operaciones existen en `AlumnosController`, con criterio**:
+
+| Operación | `AlumnosController` | `EditnotaController` |
+|---|---|---|
+| a la papelera | `puedeEditarAlumnos` | **nada** |
+| restaurar | `puedeEditarAlumnos` | **nada** |
+| borrado definitivo | `puedeBorrarAlumnos` | `puedeBorrarAlumnos` ✅ |
+
+### 72.1 El hueco era real, no teórico
+
+`puedeEditarAlumnos` es superusuario **o** profesor con
+`profes_can_edit_alumnos`, y esa bandera está **apagada en los dieciséis colegios**
+—por seguridad, no por olvido ([§29.1](#291))—. Así que hasta hoy:
+
+> Un profesor **no** podía mandar un alumno a la papelera por `alumnos/destroy`, y
+> **sí** por `editnota/destroy`.
+
+Medido antes de tocar nada: con un token de profesor y la bandera apagada, las dos
+rutas contestaban **200** y el alumno iba y volvía de la papelera.
+
+### 72.2 Por qué se quedó abierta, que es la parte que se repite
+
+El `forceDelete` de este mismo controlador **ya se había cerrado**, y lleva su
+comentario contándolo: no tenía ninguna autenticación y era inerte por accidente
+—faltaba el `use` de `Alumno` y reventaba antes de borrar—. Aquel arreglo miró
+**ese método**, no la operación.
+
+> **Cerrar una de tres es lo que pasa cuando se arregla el sitio que se está
+> mirando y no la operación.** Es la hermana de la lección de la
+> [§67.1](#671-lo-que-hay-que-llevarse-sobre-qué-población-se-cerró-la-serie):
+> cuando se cierra algo, hay que anotar **sobre qué población** se cerró — y si la
+> población es «un método», decirlo.
+
+### 72.3 Cómo queda
+
+Las dos rutas pasan a exigir `puedeEditarAlumnos`, que **no es un criterio nuevo**:
+es el que ya decidió su hermana. Cerrarlas no apaga ninguna pantalla —`EditnotaApi.ts`
+sólo declara `alum-asignatura`, con un comentario que dice «cubierto hasta donde hay
+call site»— y ningún otro cliente las nombra.
+
+Lo fija `EditnotaBorraAlumnosTest`, con el caso al revés incluido: **un superusuario
+sigue mandando el alumno a la papelera y sacándolo**, ida y vuelta, para que se vea
+que se cerró la puerta y no la casa.
+
+### 72.4 Y la cuarta, que sí es de notas, fijada sin juzgar
+
+`PUT api/editnota/alum-asignatura` es la única que llama un cliente.
+`periodos_a_calcular` viaja en el cuerpo y `Periodo::hastaPeriodo` sólo conoce tres
+valores —`de_usuario`, `de_colegio`, `todos`—. Con cualquier otro **no falla**:
+devuelve un `stdClass` vacío, el `foreach` no da vueltas y la pantalla del
+histórico sale **vacía en 200**.
+
+Una errata en un cliente vacía la pantalla y nadie se entera. Se fija como está
+—decidir si debe ser 422 o tratarse como `de_usuario` cambia lo que ve una pantalla
+en dieciséis colegios, y hoy ningún cliente manda un valor malo— con el porqué al
+lado, que es lo que pedía la §54.
+
+### 72.5 El detector contó lo que se escribió *sobre* la bandera
+
+Al cerrar los dos guards, `BanderaProfesEditaAlumnosTest` se puso rojo. Ese test
+lee del código —no de una lista a mano— cada sitio que mira
+`profes_can_edit_alumnos`, y avisó de **un sitio nuevo**:
+
+```
++ 'app/Http/Controllers/EditnotaController.php::asignaturasPerdidasDeAlumnoPorPeriodo'
+```
+
+Que es falso dos veces: ese método no mira la bandera, y el guard nuevo tampoco
+está ahí. **Lo que encontró fue el docblock que yo acababa de escribir**, donde se
+nombra la bandera para explicar por qué el hueco era real. El detector buscaba la
+cadena con `preg_match_all` sobre el fichero entero, y `metodoEn` se la atribuyó al
+último `function` anterior — el de al lado.
+
+> **Un detector que lee el fichero entero encuentra también lo que se escribió
+> sobre él.** Y no tiene la cara de un fallo del detector: tiene la cara de un
+> sitio nuevo, que es exactamente lo que ese test existe para avisar.
+
+Es la cuarta de la familia de la §48 —el detector que no se encontraba a sí
+mismo— y la novena «mentira de instrumento» de la lista del [09 §0.1](09-pendientes.md).
+
+**Arreglado en el detector, no en el comentario**: se tokeniza y se descartan
+`T_COMMENT` y `T_DOC_COMMENT`. Escribir la prosa esquivando al instrumento habría
+dejado el instrumento roto para el siguiente.
+
+#### Y al arreglarlo, la lista adelgazó — con una ruta que nunca leyó la bandera
+
+| | antes | después |
+|---|---|---|
+| sitios | 24 | **21** |
+| rutas | 20 | **19** |
+
+Los tres que se van son prosa: un docblock de `ChangeAskedController`, otro de
+`ExigirPersonal` y **el `@property` generado de `Year`** —o sea que el generador de
+columnas alimentaba al detector—. Y el primero colgaba una ruta,
+`PUT api/ChangesAsked/ver-detalles`, que **no mira la bandera**: la nombra para
+explicar otra.
+
+Eso estaba en la medición que se le pasó a Joseth para decidir sobre la bandera
+([12 §20](12-larastan-nivel-7.md)). **No cambia la respuesta** —las catorce rutas
+del módulo de matrículas, que son las que sostenían el argumento, siguen ahí— pero
+la cuenta buena es **22 apariciones en código, 21 sitios y 19 rutas**, y queda
+corregida donde vive el número.
+
+Lo que sí se lleva de aquí es que **una lista que se lee del código no es
+automáticamente cierta**: hereda lo que el lector no sabe distinguir. Ésta no
+distinguía código de comentario.
