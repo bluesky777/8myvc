@@ -434,6 +434,85 @@ sobre la base de cada colegio:
 Sin esto no se sabe si el arreglo hay que acompañarlo de una corrección de datos
 ni de qué tamaño. **Antes de optimizar algo: medirlo.**
 
+### Fase 0 — **hecha el 22 ago 2026**
+
+La herramienta es [`tools/salud-de-las-definitivas.php`](../../tools/salud-de-las-definitivas.php)
+y contesta las siete preguntas de arriba. Sólo SELECT: la corrección de datos va
+en una migración con su registro en la bitácora, no en algo que alguien pueda
+lanzar dos veces.
+
+**Medido sobre la copia de desarrollo —un colegio real, todos los años—**, en 61
+segundos:
+
+| # | Qué | Cuántos |
+|---|---|---|
+| 1 | definitivas duplicadas | **1** (auto+auto) |
+| 2 | notas duplicadas vivas | **2**, ninguna con valores distintos |
+| 3 | definitivas que deberían existir y no existen | **11.988** de 132.865 |
+| 3.1 | automáticas que discrepan del cálculo teniendo notas detrás | **718** |
+| — | automáticas en 0 sin ninguna nota detrás | 1.073 |
+| 4 | `periodo` que no concuerda con `periodo_id` | **0** |
+| 5 | `created_at` imposible | **732** |
+| 6 | porcentajes que no suman 100 | **14** asignaturas + **26** unidades |
+| 7 | (subunidad, alumno) sin nota | **33.076** |
+
+#### Lo que cambia del plan, y lo que lo confirma
+
+**La fase 2 es mucho más barata de lo que parecía.** Un solo duplicado, y de los
+que se resuelven sin decidir nada. El índice único se puede poner limpiando una
+fila, no un censo — y el orden «fases 1 y 2 juntas» sigue valiendo por el código,
+no por los datos.
+
+**El bloque 4 sale en cero, y eso es un dato contra una hipótesis.** La §2 dice
+que las tres formas distintas de identificar la fila —`id`, `periodo_id`,
+`periodo`— son la mitad de por qué se duplican. En este colegio **`periodo` y
+`periodo_id` concuerdan en todas las filas**, así que ese camino no ha producido
+ni un duplicado aquí. No lo cierra —el riesgo sigue en el código y otro colegio
+puede tener otra cosa—, pero baja su prioridad frente a lo que sí aparece.
+
+**Y lo que sí aparece es el síntoma que se venía reportando.** Los ejemplos del
+bloque 3.1, ordenados por diferencia:
+
+```
+alumno 1041, asignatura 991, periodo 25 — guardada 0, calculada 24, con 7 notas
+alumno  909, asignatura 1297, periodo 31 — guardada 8, calculada 18, con 11 notas
+alumno  945, asignatura 1245, periodo 31 — guardada 0, calculada  9, con 8 notas
+```
+
+Definitivas **en cero con siete y ocho notas detrás**. Es literalmente «puse
+notas y no aparecen» (§3), con el número al lado. Y varias comparten asignatura y
+`created_at` al segundo, que es la firma de un recálculo masivo escribiendo el
+cero — no de un profesor equivocándose uno a uno.
+
+#### Y una corrección a la §1.2, que se supo por medirla
+
+La §1.2 dice que el INSERT desalineado hace que **`created_at` reciba el
+`user_id`**. El mecanismo es ese, pero **lo guardado no es el número**: un entero
+no es una fecha válida y, con `'strict' => false` en `config/database.php`, MySQL
+no falla — lo convierte en `0000-00-00 00:00:00`. Las 732 filas llevan la fecha
+cero y ninguna lleva un id.
+
+La diferencia importa para la limpieza: **no hay ningún `user_id` que recuperar de
+ahí**. Y es el mismo `strict => false` que la [13 §1](13-actividades.md) encontró
+convirtiendo `null` en cadena vacía — dos capas que eligen callar, otra vez.
+
+#### Lo que falta de esta fase, y necesita a Joseth
+
+Esto está medido en **un** colegio: la copia de desarrollo. Los dieciséis tienen
+bases distintas y el plan pregunta por todos. La herramienta ya acepta la base por
+entorno:
+
+```bash
+for d in /home/micolev1/*.micolevirtual.com/8myvc; do
+  (cd "$d" && php tools/salud-de-las-definitivas.php)
+done
+```
+
+Hasta tener esos dieciséis números **no se sabe si la fase 2 necesita limpieza de
+datos o no**, que es justo la pregunta que la fase 0 existe para contestar.
+
+---
+
 ### Fase 1 — Un solo recalculador, correcto
 
 Una clase nueva, `App\Services\DefinitivasDeAsignatura`, que sea **el único**
