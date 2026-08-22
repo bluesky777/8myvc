@@ -6878,3 +6878,60 @@ corregida donde vive el número.
 Lo que sí se lleva de aquí es que **una lista que se lee del código no es
 automáticamente cierta**: hereda lo que el lector no sabe distinguir. Ésta no
 distinguía código de comentario.
+
+---
+
+## 73. «Quién cambió esta definitiva» contestaba 500 a todo el mundo (22 ago 2026)
+
+Las dos últimas rutas sin comprobar de `Historiales`: los modales que contestan
+**quién cambió una nota** y **quién cambió una definitiva**. Uno funciona y el
+otro no ha abierto nunca.
+
+```php
+$consulta = 'SELECT n.*, u2.username as modificado_por
+                FROM notas_finales n
+                left join users u2 on u2.id=n.updated_by
+                where n.id=?';
+
+$nota = DB::select($consulta, [$nf_id, $nf_id] );   // <- UNA marca, DOS valores
+```
+
+Con `EMULATE_PREPARES` en false —que es como está este proyecto— MySQL prepara de
+verdad y eso es `SQLSTATE[HY093]: Invalid parameter number`. Medido: **500**, para
+cualquiera y con cualquier `nf_id`.
+
+El dos está copiado de la consulta de arriba, en el mismo método, que sí lleva dos
+porque es un `UNION` de dos ramas con el mismo `where`. **La asimetría entre
+hermanas otra vez, y esta vez dentro del mismo método**: dos consultas seguidas,
+una con dos marcas y otra con una, y la lista de valores copiada tal cual.
+
+### 73.1 Se mide haciendo el cambio, porque `bitacoras` llega vacía
+
+El seed no trae ninguna bitácora, así que un caso que buscara un cambio ya
+registrado pasaría sin comprobar nada — la duodécima vez que ese agujero aparece.
+Los dos casos **hacen el cambio por la API** y después le preguntan a la pantalla:
+
+1. `PUT api/notas/update/{id}` con una nota nueva → `historiales/nota-detalle`
+   cuenta un cambio, con valor viejo, valor nuevo y quién.
+2. `PUT api/definitivas_periodos/update` con una definitiva → hoy
+   `historiales/nota-final-detalle` lo cuenta igual; antes de esto, 500.
+
+Y el primero comprueba de paso algo que no se ve: el `historial_id` de la bitácora
+sale de la fila de `historiales` **que escribe el login**, y la primera consulta de
+`NotasController::putUpdate` cruza `notas` con el último historial del usuario. Sin
+esa fila no devuelve ninguna y **la nota no se puede guardar**. Nadie llega ahí sin
+haber entrado, así que no es un fallo — pero es una dependencia que no está escrita
+en ninguna parte y que ata guardar una nota a haber iniciado sesión por la vía
+normal.
+
+### 73.2 Lo que la pantalla sigue sin enseñar, y no se toca
+
+`putNotaFinalDetalle` pregunta sólo por `affected_element_type="NF_UPDATE"`. La
+recuperación se anota con **`"RF_UPDATE"`** —`DefinitivasPeriodosController:275`—,
+así que **los cambios de recuperación no salen** en el historial de la definitiva
+aunque la nota que se ve sí los refleje.
+
+Se cita como lectura del código y **no como hecho medido**: para provocarlo hace
+falta la ruta de recuperación, que exige los cuatro periodos abiertos, y eso es
+montar un caso para una pregunta que no es ésta. Qué debe enseñar ese modal es del
+colegio; lo que había que arreglar era que abriera.

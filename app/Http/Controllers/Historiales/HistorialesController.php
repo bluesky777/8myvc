@@ -86,13 +86,18 @@ class HistorialesController extends Controller {
 		$bita = DB::select($consulta, [$nf_id, $nf_id] );
 		
 		
+		// Una marca de parámetro y **un** valor. Llevaba dos —copiados de la consulta
+		// de arriba, que sí tiene dos porque es un UNION— y con `EMULATE_PREPARES` en
+		// false eso es `SQLSTATE[HY093]: Invalid parameter number`: la pantalla «quién
+		// cambió esta definitiva» contestaba **500 a todo el mundo, siempre**. Medido
+		// el 22 ago 2026; ver 05 §73.
 		$consulta 	= 'SELECT n.*, u2.username as modificado_por
 							FROM notas_finales n 
 							left join users u2 on u2.id=n.updated_by
 							where n.id=?';
 		
 
-		$nota = DB::select($consulta, [$nf_id, $nf_id] );
+		$nota = DB::select($consulta, [$nf_id] );
 		if(count($nota)>0){
 			$nota = $nota[0];
 		}
