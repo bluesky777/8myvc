@@ -28,13 +28,14 @@ Al cerrar: **859 tests**, `pint` y `stan` en verde, `stan` en **nivel 7**.
 Cobertura de rutas: **370 de 539 (69%)**, medida con
 `tools/cobertura-de-rutas.py`.
 
-> **Añadido después del despliegue del 21 ago**, en la rama
-> `fix/identificadores-del-cuerpo` y **sin fusionar todavía**: **887 tests** y
-> cobertura **385 de 539 (71%)**. Cuatro commits, y lo que traen está en
-> [05 §53](05-codigo-muerto-y-roto.md) y [§54](05-codigo-muerto-y-roto.md) —la
-> pregunta del identificador contestada, y ocho rechazos que contestaban con el
-> código de otra cosa—. **Nada de eso está desplegado**: son arreglos de `app/`
-> sin migraciones y sin tocar los cuatro clientes.
+> **Al cerrar la noche del 22 ago**, con lo de la §0.1 ya fusionado en `main`:
+> **950 tests**, `pint` y `stan` (nivel 7) en verde y cobertura **418 de 539
+> (77%)**, medido contra una base propia. La rama
+> `fix/identificadores-del-cuerpo` entró entera con `--no-ff` —29 commits— y se
+> puede borrar. **Sigue sin desplegarse nada**: son arreglos de `app/`, **sin
+> migraciones nuevas** y sin tocar los cuatro clientes; la tanda está descrita
+> por lo que se nota en un colegio en [DESPLIEGUE.md](../DESPLIEGUE.md), y lo del
+> 21 ago quedó archivado en la referencia.
 
 ### Lo primero que hay que hacer, y no es código
 
