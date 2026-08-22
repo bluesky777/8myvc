@@ -84,6 +84,17 @@ desplegar:
   que no existe contestaba «En papelera» y «Guardado». La pantalla de escalas ya
   tenía rama de error para las dos y no mira el código, así que lo que cambia es
   que enseña el error verdadero en vez de un éxito falso.
+- **Sacar de la papelera pasa a pedir superusuario, como borrar de ella**
+  ([05 §76](migracion/05-codigo-muerto-y-roto.md)). Son cinco rutas —grupos,
+  el mismo grupo por la puerta de `perfiles/`, profesores, años y asignaturas—
+  y hasta hoy cualquiera del personal las llamaba: la revisión de la papelera
+  del 21 ago cerró **la mitad que borra de cada pareja y no la que devuelve**.
+  **Lo que se nota es nada**, y está comprobado antes: la pantalla de papelera
+  del front ya está en el menú «Colegio» con `hasRoleOrPerm('admin')`, o sea
+  que sólo la veían los mismos diez que ahora la pueden usar. De las cinco,
+  **cuatro no las llama ningún cliente**. La de asignaturas cambia de otra
+  manera: restaurar obedece ahora al año del que pide, igual que su listado, y
+  una de otro año contesta 404.
 - **Borrar una falta pasa a firmarla** ([05 §75.3](migracion/05-codigo-muerto-y-roto.md)).
   De las tres rutas que borran una ausencia, dos anotaban `deleted_by` y la de las
   pantallas web y de Flutter no anotaba nada: en la copia de producción hay **5.689

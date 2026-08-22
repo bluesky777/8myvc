@@ -53,6 +53,15 @@ Cobertura de rutas: **370 de 539 (69%)**, medida con
 > revisión IDOR y a la fase 11 del front**: las tres lo vieron y ninguna lo tocó,
 > porque las tres buscaban comprobaciones que faltan y no **comprobaciones que
 > sobran**.
+>
+> **Y detrás, la otra mitad de la papelera** ([05 §76](05-codigo-muerto-y-roto.md)):
+> **988 tests**, cobertura **443 de 539 (82%)**. El 21 ago se cerraron las rutas
+> destructivas de la papelera y **la mitad que devuelve se quedó abierta en los
+> mismos cinco sitios** que nombra la cabecera de `Autoriza`. Cualquiera de los 51
+> profesores sacaba de ella un grupo, un profesor o un año. **No se rompió ni un
+> test al cerrarlo**, y ése es el dato: ninguno fijaba quién podía restaurar — el
+> de `YearsTest` pasaba porque el `Usuario` del seed resulta ser `is_superuser`.
+> Va a la tanda de despliegue.
 
 ### Lo primero que hay que hacer, y no es código
 
@@ -943,6 +952,7 @@ saber el tamaño real del daño en las dieciséis bases antes de tocar código.
 | **Borrar un grado apaga la planilla de sus profesores, y no hay forma de deshacerlo** | [05 §70](05-codigo-muerto-y-roto.md) | Medido el 22 ago 2026: mandar un grado a la papelera deja al profesor con **0 asignaturas** donde tenía 1 —`Profesor::asignaturas` filtra `gr.deleted_at is null`— mientras **la rejilla de grupos sigue enseñando el grupo**, así que desde administración no se ve nada raro. No se ha movido ninguna fila y las notas siguen ahí; lo que hay que decidir es qué debe pasar: que `destroy` **se niegue** si el grado tiene grupos vivos, o que haya un `restore` (hoy `GradosController` no lo tiene, así que sólo se deshace entrando a la base). Las dos son código pequeño; elegir no lo es |
 | **La planilla de la puerta manda el correo de cada alumno, a 392 consultas por petición** | [05 §75.6](05-codigo-muerto-y-roto.md) | Medido el 22 ago 2026: `planillas-ausencias/tardanza-entrada` monta el año entero y llama a `Alumno::userData()` **una vez por alumno** — 1 + 13 + **378** consultas en una sola petición, en un colegio de 378 matriculados. Y esas 378 añaden sobre lo que `Grupo::alumnos()` ya traía **una sola columna: el correo**, a dos hojas para imprimir que del alumno leen `nombres`, `apellidos` y `estado`. Quitar `userData` es un `foreach` menos; lo que hay que decidir es encoger una respuesta que es **contrato con dieciséis copias del front** que no se pueden grepear desde aquí. `PlanillasAusenciasTest` deja el arreglo comprobable: el día que se quite, las consultas por alumno tienen que ser cero |
 | **Quién puede corregir y borrar una falta** | [05 §75](05-codigo-muerto-y-roto.md) | **Contestado el 22 ago 2026: se queda abierto al personal.** No es una pregunta que quede, es una que se cerró — y se deja aquí porque el porqué es lo que no se puede reconstruir. `AusenciasController` calculaba `Role::isCoorDisciplinario()` y lo tiraba en un `if` con el cuerpo vacío, en corregir y en borrar. Rellenarlo parecía el arreglo y era el error: el rol **no gobierna esto en ningún cliente** —el menú de AngularJS enseña «Asistencias» a `profesor`, `crearFaltaModal` repite el botón «Eliminar» tres veces y sólo uno mira el rol, y `myvc_flutter` no mira ninguno—, así que cerrarlo dejaba a los 51 profesores sin poder corregir una falta mal puesta, en dieciséis colegios y por una app que no se publica el mismo día. Lo que sí se cerró es el rastro: **5.684 de 5.689 borrados no tenían autor** |
+| **Si el `Secretario` restaura desde la papelera** | [05 §76.2](05-codigo-muerto-y-roto.md) | Las cinco rutas de `restore` que se cerraron el 22 ago piden `Autoriza::esSuperusuario`, que es **el criterio del gemelo que borra** de cada pareja y no uno nuevo — la regla de la propia clase es que crear un rol no regale permisos, y el alcance del `Secretario` repartido el 21 ago no nombra la papelera. Hoy `esSuperusuario` y `esAdministrativo` son las mismas diez personas, así que no cambia nada; el día que exista el rol, sí. Subirlo a `esAdministrativo` es **una palabra en cinco sitios**, y no se hace desde aquí porque sería concederle algo por la puerta de atrás de un arreglo |
 | `Login::ponerEnElPeriodoActual` se queda con el primer año actual, sin `ORDER BY` | [05 §28.3](05-codigo-muerto-y-roto.md) | qué hacer si un colegio tiene dos años marcados como actuales. Los tres caminos que los creaban están cerrados, así que esto solo puede venir de datos de antes; poner `ORDER BY year DESC` es una línea, pero **decide en qué año amanece un colegio** que hoy entra en el otro. Se contesta mirando las dieciséis bases: `SELECT id, year FROM years WHERE actual=1 AND deleted_at IS NULL` |
 
 ---
