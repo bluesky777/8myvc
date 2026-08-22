@@ -84,6 +84,14 @@ desplegar:
   que no existe contestaba «En papelera» y «Guardado». La pantalla de escalas ya
   tenía rama de error para las dos y no mira el código, así que lo que cambia es
   que enseña el error verdadero en vez de un éxito falso.
+- **Borrar una falta pasa a firmarla** ([05 §75.3](migracion/05-codigo-muerto-y-roto.md)).
+  De las tres rutas que borran una ausencia, dos anotaban `deleted_by` y la de las
+  pantallas web y de Flutter no anotaba nada: en la copia de producción hay **5.689
+  ausencias borradas y 5.684 sin autor**. En pantalla no cambia nada — lo que
+  cambia es que a partir de la copia se sabe quién borró qué. **Va con su decisión
+  al lado**: quién puede corregir y borrar una falta se dejó abierto al personal a
+  propósito ([05 §75.2](migracion/05-codigo-muerto-y-roto.md)), así que el rastro
+  es lo único que queda, y por eso importa que no esté en blanco.
 - **Y la casilla de contraseña de la ficha de alumno empieza a funcionar** — esto
   sí enciende algo, y se decidió encenderlo. Antes escribir una contraseña no hacía
   nada y **vaciarla dejaba la cuenta con el hash de la cadena vacía**, que es entrar

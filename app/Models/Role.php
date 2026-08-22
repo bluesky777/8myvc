@@ -96,33 +96,31 @@ class Role extends Model
 		return $roles;
 	}
 
+	/**
+	 * El rol `Coord disciplinario`, el cuarto de la familia que no gobierna nada.
+	 *
+	 * Existe en la tabla y tiene gente dentro, pero **ya no lo llama nadie**. Sus
+	 * dos únicos llamantes estaban en `AusenciasController`, calculándolo para
+	 * tirarlo a la basura en un `if` de cuerpo vacío; el 22 ago 2026 Joseth
+	 * decidió que corregir y borrar una falta se queda abierto al personal y el
+	 * cálculo muerto se retiró. El porqué —y qué clientes habría que publicar
+	 * antes si algún día se cierra— está escrito en ese controlador.
+	 *
+	 * Falla al revés que Psicólogo y Enfermero: aquellos **cerraban de más**
+	 * preguntando por un `users.tipo` que no toma ese valor nunca; éste no cerró
+	 * nada. Se deja el método, y no se borra, porque el día que el colegio decida
+	 * quién corrige una falta es aquí donde se va a buscar.
+	 *
+	 * Era una copia a mano del bucle de `hasRole()`. Ahora lo llama.
+	 */
 	public static function isCoorDisciplinario($user_id) {
-		$roles = Role::getUserRoles($user_id);
-		$isCoorDisciplinario = false;
-		for ($i=0; $i < count($roles); $i++) { 
-			if ($roles[$i]->name == 'Coord disciplinario') {
-				$isCoorDisciplinario = true;
-				break;
-			}
-		}
-		return $isCoorDisciplinario;
+		return Role::hasRole($user_id, 'Coord disciplinario');
 	}
 
 	public static function isSecretario($user_id) {
 		return Role::hasRole($user_id, 'Secretario');
 	}
 
-	/**
-	 * El rol `Psicólogo`, que sí existe desde 2019 y no gobernaba nada.
-	 *
-	 * Lo asigna `users/crear-psicologo` (inserta el role_id 11 a pelo) y tiene
-	 * cuatro personas dentro. El único sitio que quería preguntar por él
-	 * comparaba `users.tipo` con `'Psicólogo'`, y `tipo` no toma ese valor
-	 * nunca. Ver docs/migracion/05-codigo-muerto-y-roto.md §30.2.
-	 *
-	 * El nombre lleva tilde en la tabla y por eso está escrito con tilde aquí:
-	 * la comparación de `hasRole()` es en PHP y no la salva la collation.
-	 */
 	/**
 	 * El rol `Enfermero`, la tercera de la misma familia.
 	 *
@@ -138,6 +136,17 @@ class Role extends Model
 		return Role::hasRole($user_id, 'Enfermero');
 	}
 
+	/**
+	 * El rol `Psicólogo`, que sí existe desde 2019 y no gobernaba nada.
+	 *
+	 * Lo asigna `users/crear-psicologo` (inserta el role_id 11 a pelo) y tiene
+	 * cuatro personas dentro. El único sitio que quería preguntar por él
+	 * comparaba `users.tipo` con `'Psicólogo'`, y `tipo` no toma ese valor
+	 * nunca. Ver docs/migracion/05-codigo-muerto-y-roto.md §30.2.
+	 *
+	 * El nombre lleva tilde en la tabla y por eso está escrito con tilde aquí:
+	 * la comparación de `hasRole()` es en PHP y no la salva la collation.
+	 */
 	public static function isPsicologo($user_id) {
 		return Role::hasRole($user_id, 'Psicólogo');
 	}

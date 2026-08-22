@@ -6993,3 +6993,170 @@ tenga un uso claro; es que para el alumno **no tiene ninguno**.
 
 Lo fija `InterruptoresDeUnaActividadTest`, dos casos, y el segundo existe para que
 el primero no se lea como «los interruptores no hacen nada»: uno de ellos sí.
+
+---
+
+## 75. El permiso que se calculaba y se tiraba, y las tres firmas de un borrado (22 ago 2026)
+
+El hueco de cobertura llegó plano —105 rutas repartidas en 48 controladores,
+mediana 2— así que se agrupó por la pregunta y no por la carpeta, como enseñó la
+noche anterior: **quién pone y quita una falta, y a quién**. Son siete rutas en
+cuatro controladores, y no es una familia cualquiera: es justo la que Joseth sacó
+del candado del periodo el 21 ago ([§40](#40)), así que lo único que le queda
+protegiéndola es la autorización.
+
+### 75.1 El `if` con el cuerpo vacío
+
+`AusenciasController` calculaba el permiso y lo tiraba a la basura, en dos
+métodos:
+
+```php
+$isCoorDisciplinario = Role::isCoorDisciplinario($user->user_id);
+
+if (!$isCoorDisciplinario) {
+}
+```
+
+Corregir el día de una falta y borrarla. Un barrido del patrón en `app/` entero da
+**tres** sitios y dos son éstos.
+
+**No lo encontró un detector: lo encontró la asimetría entre hermanas.** Las tres
+rutas que borran una ausencia se leyeron seguidas —la del lector, la de
+`asistencias/*` y ésta— y ésta era la única que preguntaba algo antes de borrar. Y
+lo llamativo no era que preguntara: era que **no hacía nada con la respuesta**.
+
+`myvc_front` ya lo había visto en la fase 11 y lo dejó escrito en su MIGRATION.md,
+en «lo que se vio y no se cambió»: *«el cuerpo del `if` está vacío, así que
+cualquiera con `auth.personal` puede cambiar la fecha de cualquier inasistencia.
+Es del backend… queda apuntado»*. Nadie volvió. **Un hallazgo apuntado en el
+documento del cliente equivocado es un hallazgo perdido**, y van dos —el otro fue
+el sexto `asked_id` de la §53—.
+
+### 75.2 Por qué rellenar el `if` era el arreglo equivocado
+
+Leído en frío tiene un arreglo obvio y de una línea. Es el que no se puede hacer, y
+para saberlo hubo que ir a los cuatro clientes:
+
+| Cliente | Qué exige para tocar una falta |
+|---|---|
+| `myvc_front` · menú | «Asistencias» se le enseña a `admin`, `profesor` y `Coord disciplinario` |
+| `myvc_front` · `crearFaltaModal` | el mismo botón «Eliminar» **tres veces**, y **sólo uno** mira el rol |
+| `myvc_flutter` | borra y corrige desde la pantalla de asistencia del profesor, **sin mirar ningún rol** |
+| esta API | nada: el `if` estaba vacío |
+
+O sea que el rol **no gobierna esto en ningún sitio**, y rellenar el `if` dejaba a
+los 51 profesores sin poder corregir una falta mal puesta — de golpe, en dieciséis
+colegios, y por una app que es **una sola para los dieciséis** y no se publica el
+mismo día que el backend.
+
+Joseth lo decidió con eso medido delante: **se queda abierto**, en la misma línea
+que el interruptor del periodo. El cálculo muerto se retiró y en su sitio quedó el
+porqué y la lista de arriba, que es lo que hay que volver a leer el día que
+alguien quiera cerrarlo. Lo fija `AusenciasTest`, y el test corrige una falta **de
+otro grupo** a propósito: lo que está abierto no es «cualquier profesor», es
+«cualquier profesor sobre cualquier falta del colegio», y quien lo cierre tiene que
+decidir las dos cosas.
+
+`Role::isCoorDisciplinario()` se queda sin llamantes: es el **cuarto rol de la
+familia que no gobierna nada**, tras Psicólogo y Enfermero ([§30.2](#302)). Falla
+al revés que aquellos —que **cerraban de más** preguntando por un `users.tipo` que
+no toma ese valor nunca—; éste no cerró nada.
+
+### 75.3 Lo que sí se cerró: el rastro, que estaba en blanco
+
+Si el permiso se queda abierto, lo único que queda es saber quién fue. De las tres
+rutas que borran una ausencia, dos ponían `deleted_by` antes del `delete()` y la
+tercera —la de las pantallas web y la mitad de Flutter— no ponía nada. Medido en la
+copia de producción:
+
+```
+ausencias borradas: 5.689
+  sin deleted_by:   5.684
+  uploaded=deleted:     5
+```
+
+Las cinco firmadas son exactamente las que pasaron por el lector. **El 99,9% de los
+borrados de faltas del colegio no tiene autor**, y la columna existe desde siempre.
+
+**El `save()` antes del `delete()` no es cosmético, y está medido.** Se revirtió de
+las dos maneras que manda el método: al código original —cae un test, el que
+debía— y **al atajo que parece bueno**, poner `deleted_by` y llamar a `delete()`
+sin guardar. También cae, porque el borrado suave de Eloquent escribe solo
+`deleted_at` y se lleva por delante lo que esté sin guardar. Sin esa segunda
+reversión el comentario del código sería una suposición.
+
+### 75.4 La copia muerta estaba cubierta y la viva no
+
+Hay dos ejemplares casi idénticos del controlador de asistencias.
+`AsistenciasAppTest` cubría las cinco rutas de `AppMobile\AsistenciasAppController`
+—que la [§57](#57) ya midió que **no llama ningún cliente**— y las de
+`Tardanzas\AsistenciasController`, que es la que llama `myvc_flutter`, estaban a
+dos de cinco.
+
+Y **ya han divergido**: la viva selecciona `a.created_at` en sus cuatro consultas y
+la muerta no. No es casual y se ve desde el cliente — `AsistenciaModel.fromJson`
+de Flutter lee `created_at`. Alguien lo añadió donde hacía falta y la copia se
+quedó atrás sin que nada lo dijera.
+
+> **Un test que fija una copia deja que la otra se vaya sin que nadie lo note.**
+> Por eso `AsistenciasTest` **compara las dos respuestas** en vez de fijar la suya:
+> afirma que la única diferencia es `created_at`, con nombre. Comprobado al revés
+> añadiendo la columna a la copia muerta — el test cae, o sea que la comparación
+> mide y no adorna.
+
+Es la tercera cara de la misma trampa de la semana: el 21 ago fue *medir una ruta
+no es haberla juzgado* (§53), hoy es **cubrir un controlador no es haber cubierto
+el que se ejecuta**.
+
+### 75.5 El lector: un lote mixto, y por qué `find()` es lo correcto aquí
+
+`tardanzas/subir` es la ruta de verdad del aparato de la puerta: acumula el día
+entero sin red y lo sube completo. Altas y bajas van en el **mismo `foreach`**, y
+no había ningún test que comprobara que hace las dos cosas en la misma petición.
+
+Lo interesante es una asimetría que **no** es un fallo: `postIndex` borra con
+`Ausencia::find()` y comprueba el resultado, mientras sus hermanas de
+`eliminar-ausencia` usan `findOrFail()`. Aquí tragarse un id que no existe es lo
+correcto — si alguien ya borró esa fila desde la web, un 404 tiraría el lote entero
+y perdería lo que venía detrás. Se fija con su porqué, porque leído sin él parece
+justo el descuido que hay que arreglar.
+
+### 75.6 La planilla de la puerta: 392 consultas para una columna que nadie lee
+
+`planillas-ausencias/tardanza-entrada` monta el año entero y llama a
+`Alumno::userData()` **una vez por alumno**. Medido contra la copia de desarrollo,
+con 13 grupos y 378 matriculados en el año actual:
+
+```
+1 consulta   los grupos del año
+13 consultas los alumnos de cada grupo
+378 consultas userData, una por alumno
+─────────────
+392 en una sola petición
+```
+
+`Grupo::alumnos()` ya devuelve del alumno el `user_id`, el `username`, el `sexo`,
+la `fecha_nac`, la imagen y la foto. Las 378 consultas añaden sobre eso **una sola
+columna: el correo**. Y las dos vistas que consumen la ruta —«Control entrada» y
+«Control asistencia a clases», dos hojas para imprimir— leen del alumno `nombres`,
+`apellidos` y `estado`, nada más. `userData` no lo mira ninguna vista del front.
+
+O sea: **el correo de cada alumno del colegio viaja hasta una hoja de papel donde
+no sale**, y cuesta una consulta por alumno.
+
+Se fija y no se arregla, y no por prudencia genérica: encoger una respuesta es
+contrato con **dieciséis copias del front** que no se pueden grepear desde aquí.
+Lo que deja hecho `PlanillasAusenciasTest` es que el arreglo sea comprobable — el
+día que se quite, el número de consultas por alumno tiene que bajar a cero y el
+test lo dice. Va al [§5 de 09](09-pendientes.md).
+
+### 75.7 Lo que se llevó la sesión
+
+- 986 tests (eran 977), cobertura **441 de 539 (81%)**, las siete rutas dentro.
+- Un arreglo desplegable: `deleted_by` en `ausencias/destroy`.
+- Y la regla que resume las dos primeras: **una comprobación que existe pero no
+  decide es peor que ninguna**, porque el que lee el código cuenta con ella. El
+  `if` vacío llevaba escrito desde antes de la migración y sobrevivió al barrido de
+  autorización, a la revisión IDOR y a la fase 11 del front — las tres lo vieron y
+  ninguna lo tocó, porque las tres buscaban *comprobaciones que faltan*, no
+  *comprobaciones que sobran*.

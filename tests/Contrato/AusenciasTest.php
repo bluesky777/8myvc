@@ -41,6 +41,7 @@ class AusenciasTest extends CasoDeContrato
 
         return (object) [
             'token' => $token,
+            'user_id' => $prof->id,
             'periodo' => $periodo,
             'asignatura' => $asignatura,
             'alumno_id' => $alumno->alumno_id,
@@ -200,5 +201,105 @@ class AusenciasTest extends CasoDeContrato
         $this->assertSame($antes + 1, DB::selectOne('SELECT COUNT(*) c FROM ausencias')->c,
             'Anotar asistencia dejó de funcionar con el periodo cerrado, y Joseth '
             .'decidió el 21 ago 2026 que no debía bloquearse.');
+    }
+
+    /**
+     * Corregir el día de una falta **ajena** se puede, y ahora es una decisión.
+     *
+     * `putGuardarCambiosAusencia` tenía una comprobación de permisos calculada y
+     * tirada a la basura —`Role::isCoorDisciplinario()` seguido de un `if` con el
+     * cuerpo vacío—, lo mismo que `deleteDestroy`. `myvc_front` la vio en la fase
+     * 11 y la dejó apuntada por ser del backend; nadie volvió.
+     *
+     * Se le preguntó a Joseth el 22 ago 2026 con el alcance medido delante y
+     * contestó que **se queda abierto**, en la misma línea que el interruptor del
+     * periodo: corregir una falta mal puesta es trabajo de asistencia. El cálculo
+     * muerto se retiró y el porqué quedó escrito en el controlador.
+     *
+     * **Este test existe para el día que alguien quiera cerrarlo.** Si se rellena
+     * el `if`, esto falla y le cuenta qué se lleva por delante: el menú de
+     * AngularJS enseña «Asistencias» a `profesor`, y `myvc_flutter` —una sola app
+     * para los dieciséis colegios— borra y corrige desde la pantalla de
+     * asistencia del profesor sin mirar ningún rol. La app no se publica el mismo
+     * día que el backend.
+     *
+     * La falta que se corrige es de **otro grupo**, y a propósito: lo que está
+     * abierto no es solo «cualquier profesor», es «cualquier profesor sobre
+     * cualquier falta del colegio». Quien cierre esto tiene que decidir las dos.
+     */
+    public function test_corregir_el_dia_de_una_falta_ajena_se_puede_y_queda_firmado(): void
+    {
+        $c = $this->contexto();
+        $ajeno = $this->grupoAjenoDelMismoAnio((int) $c->periodo->year_id);
+
+        $ausenciaId = DB::table('ausencias')->insertGetId([
+            'alumno_id' => $c->alumno_id,
+            'asignatura_id' => $ajeno->asignatura_id,
+            'periodo_id' => $c->periodo->id,
+            'cantidad_ausencia' => 1,
+            'tipo' => 'ausencia',
+            'fecha_hora' => '2026-08-22 07:00:00',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $r = $this->withToken($c->token)->putJson('/api/ausencias/guardar-cambios-ausencia', [
+            'ausencia_id' => $ausenciaId,
+            'fecha_hora' => '2026-08-19 07:00:00',
+        ]);
+
+        $r->assertStatus(200);
+
+        $fila = DB::table('ausencias')->where('id', $ausenciaId)->first();
+
+        $this->assertStringStartsWith('2026-08-19', (string) $fila->fecha_hora,
+            'La corrección no llegó a la fila de un grupo ajeno.');
+        $this->assertNotNull($fila->updated_by,
+            'Corregir una falta dejó de anotar quién la corrigió.');
+    }
+
+    /**
+     * Borrar una falta **la firma**, y hasta el 22 ago 2026 no la firmaba.
+     *
+     * De las tres rutas que borran una ausencia, dos —la del lector y la de
+     * `asistencias/*`— ponían `deleted_by`; la de las pantallas web y la de
+     * Flutter no ponía nada. En la copia de producción del 22 ago hay **5.689
+     * ausencias borradas y 5.684 sin autor**, y las cinco firmadas son justo las
+     * que pasaron por el lector.
+     *
+     * Es la contrapartida de la decisión de arriba: si borrar sigue abierto a
+     * cualquiera del personal, el rastro es lo único que queda — y estaba en
+     * blanco.
+     *
+     * Se comprueba sobre una falta de **otro grupo** por lo mismo que el test de
+     * arriba, y se mira el valor y no solo que no sea nulo: `deleted_by` es de
+     * `users`, no de `personas`, y confundirlos es la trampa de siempre en este
+     * repo (`$user->user_id` contra `$user->persona_id`).
+     */
+    public function test_borrar_una_falta_ajena_anota_quien_fue(): void
+    {
+        $c = $this->contexto();
+        $ajeno = $this->grupoAjenoDelMismoAnio((int) $c->periodo->year_id);
+
+        $ausenciaId = DB::table('ausencias')->insertGetId([
+            'alumno_id' => $c->alumno_id,
+            'asignatura_id' => $ajeno->asignatura_id,
+            'periodo_id' => $c->periodo->id,
+            'cantidad_ausencia' => 1,
+            'tipo' => 'ausencia',
+            'fecha_hora' => '2026-08-22 07:00:00',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->withToken($c->token)
+            ->deleteJson('/api/ausencias/destroy/'.$ausenciaId)
+            ->assertStatus(200);
+
+        $fila = DB::table('ausencias')->where('id', $ausenciaId)->first();
+
+        $this->assertNotNull($fila->deleted_at, 'La falta no se borró.');
+        $this->assertSame((int) $c->user_id, (int) $fila->deleted_by,
+            'Borrar una falta no anota quién fue, o anota el id equivocado.');
     }
 }

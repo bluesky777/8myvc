@@ -223,4 +223,161 @@ class TardanzasTest extends CasoDeContrato
             'La ausencia del profesor no llegó a escribirse.');
         $this->assertSame((int) $alumno->id, $r->json('alumno_id'));
     }
+
+    /**
+     * Subir un lote escribe las altas y las bajas en la misma petición.
+     *
+     * Es la ruta que usa de verdad el aparato de la puerta: acumula lo del día
+     * sin red y lo sube entero. Cada elemento lleva su propio `uploaded`, y
+     * `to_delete` significa «esto lo borré en el aparato, bórralo aquí»; los
+     * demás son altas. Las dos mitades van en el mismo `foreach`, así que lo que
+     * hay que fijar es que **un lote mixto haga las dos cosas** — no una, ni la
+     * primera hasta que aparece la otra.
+     *
+     * La baja se comprueba sobre una falta que **no puso este lote**, porque es
+     * lo que pasa de verdad: el aparato borra una tardanza puesta ayer.
+     */
+    public function test_subir_un_lote_mixto_da_de_alta_y_borra_en_la_misma_peticion(): void
+    {
+        $alumno = DB::selectOne('SELECT id FROM alumnos WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+        $periodo = DB::selectOne('SELECT id FROM periodos WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+
+        $vieja = DB::table('ausencias')->insertGetId([
+            'alumno_id' => $alumno->id,
+            'periodo_id' => $periodo->id,
+            'cantidad_ausencia' => 0,
+            'cantidad_tardanza' => 1,
+            'entrada' => 1,
+            'tipo' => 'tardanza',
+            'fecha_hora' => '2026-08-21 07:10:00',
+            'uploaded' => 'created',
+            'created_at' => '2026-08-21 07:10:00',
+            'updated_at' => '2026-08-21 07:10:00',
+        ]);
+
+        $antes = DB::selectOne('SELECT COUNT(*) c FROM ausencias WHERE deleted_at IS NULL')->c;
+
+        $r = $this->postJson('/api/tardanzas/subir', $this->credencialesDe('Profesor') + [
+            'ausencias_to_create' => [
+                [
+                    'uploaded' => 'to_delete',
+                    'id' => $vieja,
+                ],
+                [
+                    'uploaded' => 'created',
+                    'alumno_id' => $alumno->id,
+                    'asignatura_id' => null,
+                    'cantidad_ausencia' => 1,
+                    'cantidad_tardanza' => 0,
+                    'entrada' => 1,
+                    'tipo' => 'ausencia',
+                    'fecha_hora' => '2026-08-22 07:00:00',
+                    'periodo_id' => $periodo->id,
+                ],
+            ],
+        ]);
+
+        $r->assertStatus(200);
+        $this->assertSame('Datos subidos', $r->json('result'),
+            'La respuesta del lector es esta cadena y es el contrato con el aparato.');
+
+        $borrada = DB::selectOne('SELECT deleted_at, deleted_by, uploaded FROM ausencias WHERE id = ?', [$vieja]);
+
+        $this->assertNotNull($borrada->deleted_at, 'La baja del lote no llegó a borrarse.');
+        $this->assertSame('deleted', $borrada->uploaded);
+        $this->assertNotNull($borrada->deleted_by, 'El lector firma sus borrados, y éste salió sin firma.');
+
+        $this->assertSame($antes, DB::selectOne('SELECT COUNT(*) c FROM ausencias WHERE deleted_at IS NULL')->c,
+            'El lote mixto no dejó una alta y una baja: se hizo solo una de las dos.');
+    }
+
+    /**
+     * Subir un lote con una baja que no existe **no revienta y sigue con el resto**.
+     *
+     * `postIndex` usa `Ausencia::find()` y comprueba el resultado; sus hermanas de
+     * `eliminar-ausencia` usan `findOrFail()`. Esa diferencia es correcta y por
+     * eso se fija: el aparato sube lo del día entero, y si una fila ya la borró
+     * alguien desde la web, un 404 tiraría el lote completo y perdería lo que
+     * traía detrás. Es la única ruta del módulo donde tragarse un id que no existe
+     * es lo que hay que hacer.
+     */
+    public function test_una_baja_que_ya_no_existe_no_tira_el_resto_del_lote(): void
+    {
+        $alumno = DB::selectOne('SELECT id FROM alumnos WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+        $periodo = DB::selectOne('SELECT id FROM periodos WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+        $inexistente = (int) DB::selectOne('SELECT IFNULL(MAX(id),0) + 1000 n FROM ausencias')->n;
+
+        $antes = DB::selectOne('SELECT COUNT(*) c FROM ausencias WHERE deleted_at IS NULL')->c;
+
+        $this->postJson('/api/tardanzas/subir', $this->credencialesDe('Profesor') + [
+            'ausencias_to_create' => [
+                ['uploaded' => 'to_delete', 'id' => $inexistente],
+                [
+                    'uploaded' => 'created',
+                    'alumno_id' => $alumno->id,
+                    'asignatura_id' => null,
+                    'cantidad_ausencia' => 0,
+                    'cantidad_tardanza' => 1,
+                    'entrada' => 1,
+                    'tipo' => 'tardanza',
+                    'fecha_hora' => '2026-08-22 07:05:00',
+                    'periodo_id' => $periodo->id,
+                ],
+            ],
+        ])->assertStatus(200);
+
+        $this->assertSame($antes + 1, DB::selectOne('SELECT COUNT(*) c FROM ausencias WHERE deleted_at IS NULL')->c,
+            'La baja fantasma se llevó por delante el alta que venía detrás.');
+    }
+
+    /**
+     * Borrar una falta por el lector exige ser del colegio, y firma.
+     *
+     * La mitad que faltaba de `test_subir_ausencias_exige_ser_del_colegio`: allí
+     * se comprobó quién puede **poner** una falta sin token, aquí quién puede
+     * **quitarla**. Un alumno manda su usuario y su contraseña, que son válidos, y
+     * se queda en el 400 de «no tienes permiso» — que es deliberado y no se sube a
+     * 403 porque el aparato ya lo recibe hoy en los dieciséis colegios.
+     *
+     * Y se comprueba que **la falta sigue ahí** después del rechazo, no solo el
+     * código: un rechazo que borra antes de contestar es la forma de fallo que
+     * este repo lleva persiguiendo desde la §71.
+     */
+    public function test_el_lector_no_borra_una_falta_para_un_alumno_y_si_para_el_personal(): void
+    {
+        $alumno = DB::selectOne('SELECT id FROM alumnos WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+        $periodo = DB::selectOne('SELECT id FROM periodos WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+
+        $id = DB::table('ausencias')->insertGetId([
+            'alumno_id' => $alumno->id,
+            'periodo_id' => $periodo->id,
+            'cantidad_ausencia' => 0,
+            'cantidad_tardanza' => 1,
+            'entrada' => 1,
+            'tipo' => 'tardanza',
+            'fecha_hora' => '2026-08-22 07:15:00',
+            'uploaded' => 'created',
+            'created_at' => '2026-08-22 07:15:00',
+            'updated_at' => '2026-08-22 07:15:00',
+        ]);
+
+        $this->putJson('/api/tardanzas/subir/eliminar-ausencia',
+            $this->credencialesDe('Alumno') + ['ausencia_id' => $id])->assertStatus(400);
+
+        $this->assertNull(DB::selectOne('SELECT deleted_at FROM ausencias WHERE id = ?', [$id])->deleted_at,
+            'El rechazo borró la falta antes de contestar que no.');
+
+        $r = $this->putJson('/api/tardanzas/subir/eliminar-ausencia',
+            $this->credencialesDe('Profesor') + ['ausencia_id' => $id]);
+
+        $r->assertStatus(200);
+        $this->assertSame('Eliminada', $r->getContent(),
+            'La respuesta es una cadena pelada y es el contrato con el aparato.');
+
+        $fila = DB::selectOne('SELECT deleted_at, deleted_by, uploaded FROM ausencias WHERE id = ?', [$id]);
+
+        $this->assertNotNull($fila->deleted_at, 'La falta no quedó borrada.');
+        $this->assertSame('deleted', $fila->uploaded);
+        $this->assertNotNull($fila->deleted_by, 'El lector firma sus borrados, y éste salió sin firma.');
+    }
 }
