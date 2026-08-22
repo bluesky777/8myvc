@@ -6542,3 +6542,21 @@ comprobó al revés: **ninguna se puede quitar sin que caiga por lo menos un cas
 
 Un alta sin grupo deja de contestar 422 y crea al alumno sin matrícula, que es lo
 que ya decía el `$grupo_id = false` de al lado.
+
+### 69.7 La ruta ya constaba «comprobada», y el número no se movió
+
+`PUT api/alumnos/update/{id}` sale como cubierta en `tools/cobertura-de-rutas.py`
+desde la [§54](#54-ocho-rechazos-que-contestan-con-el-código-de-otra-cosa-21-ago-2026),
+y sigue saliendo igual después de esto: **418 de 539 antes y después**. Lo que la
+cubría era `RechazosQueMientenTest`, que comprueba **cómo rechaza** a quien no
+tiene permiso — y un rechazo no entra en el cuerpo del método.
+
+> **«Comprobada» puede significar que alguien miró sólo cómo rechaza.** La ruta
+> que devuelve 403 al que no puede y 422 a todo el mundo tiene el mismo aspecto en
+> la medición que una sana.
+
+Es la hermana de la lección de la §54 —medir una ruta no es haberla juzgado— y
+tiene una consecuencia práctica para la lista de huecos: **cuando el hueco se
+elige por el número, conviene mirar si lo que cubre esa ruta es un caso que
+escribe o uno que rechaza**. Los que rechazan son baratos de escribir y por eso
+son los que más hay.
