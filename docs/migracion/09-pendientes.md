@@ -29,9 +29,9 @@ Cobertura de rutas: **370 de 539 (69%)**, medida con
 `tools/cobertura-de-rutas.py`.
 
 > **Al cerrar el 22 ago**, con lo de la §0.1, las fichas, los catálogos, el
-> cálculo de definitivas, `editnota` y los historiales ya fusionados en `main`:
-> **975 tests**, `pint` y `stan` (nivel 7) en verde y cobertura **430 de 539
-> (79%)**, medido contra una base propia. El número de cobertura **no se movió con
+> cálculo de definitivas, `editnota`, los historiales y los interruptores de las
+> actividades ya fusionados en `main`: **977 tests**, `pint` y `stan` (nivel 7) en
+> verde y cobertura **434 de 539 — el 80%**, medido contra una base propia. El número de cobertura **no se movió con
 > el último arreglo, y eso es el hallazgo**: la ruta que no guardaba nunca ya
 > constaba comprobada, porque lo que la cubría era un caso de rechazo
 > ([05 §69.7](05-codigo-muerto-y-roto.md)). La rama
