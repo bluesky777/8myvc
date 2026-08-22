@@ -5400,10 +5400,16 @@ O sea: 500 siempre, sin escribir nada.
 **Lo primero que se pensó de esto era falso, y por eso se escribe.** El
 controlador vive en `app/Http/Controllers/AppMobile/`, así que se dio por hecho
 que era una ruta de `myvc_flutter` —la app única de los dieciséis colegios— y
-que el fallo era de producción. No lo es. La sesión que llevaba el árbol del
-front enumeró las **34 rutas** que arma el Flutter, incluidas **las cuatro que se
-construyen con variable**, que es donde un `grep` de cadenas se pierde: no hay
-ninguna llamada a `asistencias-app`, ni al `POST` ni a las otras cuatro.
+que el fallo era de producción. No lo es.
+
+Que no la llama nadie es **comprobado, no supuesto**, y por quién y cómo importa
+tanto como el resultado: lo midió la sesión que llevaba el árbol de
+`myvc_front` la noche del 22 de agosto, en los cuatro clientes, y en tres pasos
+—`grep` de la cadena, enumeración de **las 34 rutas literales** que arma el
+Flutter, y sobre todo **las cuatro que se construyen con variable**, que es
+donde un `grep` de cadenas se pierde y donde se habrían equivocado los dos
+lados—. No hay ninguna llamada a `asistencias-app`, ni al `POST` ni a las otras
+cuatro. Es ese tercer paso el que convierte «no encontré nada» en «no está».
 
 Lo que el Flutter sí usa es **otro controlador con nombres de método idénticos**,
 y conviene que quede fijado porque el parecido es lo que engaña:
