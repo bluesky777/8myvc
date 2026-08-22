@@ -6404,14 +6404,16 @@ La excepción que se dio esa noche era sobre «el borrado del correo» y **esto 
 otra cosa y más grande** — un permiso dado sobre un diagnóstico equivocado no
 cubre el corregido.
 
-### 68.7 Escrito y probado el 22 ago 2026, **y esperando esa palabra**
+### 68.7 Arreglado el 22 ago 2026, **con la palabra pedida y dada**
 
-El arreglo existe, está medido y **no está en `main`**: vive en la rama
-`fix/campos-que-se-pisan`. La razón de que no entre solo es la de arriba y no ha
-cambiado — sigue siendo un formulario de dieciséis colegios— y al medirlo salió
-**más grande** todavía, no más pequeño: ver la [§69](#69), que es la que dice que
-la mitad de alumno de esta sección **no estaba viva** porque la pantalla no
-guardaba nunca.
+Se preguntó con la medición delante —incluida la [§69](#69), que es la que dice
+que la mitad de alumno de esta sección **no estaba viva** porque la pantalla no
+guardaba nunca— y Joseth contestó **que entre**, las dos cosas y con la casilla de
+la contraseña encendida.
+
+Se pidió porque el permiso anterior era sobre un diagnóstico más pequeño, y la
+regla que lo obliga es la de arriba: **cuando la medición cambia lo que pasa, el
+permiso se vuelve a pedir**, aunque sea la misma pantalla.
 
 Qué hace, para que la decisión se tome sobre lo que es:
 
@@ -6429,9 +6431,9 @@ altura `Request::has()` ya no lo sabe, y ése es el motivo de que sea una clase 
 no un `if`.
 
 **Lo único que enciende algo que hoy no funciona** es la contraseña: la casilla de
-`alumnosEdit.html` pasa a cambiarla de verdad. Se puede dejar fuera sin tocar lo
-demás —es un `if`—, y va señalado aquí porque es lo que hay que decidir, no lo que
-hay que revisar.
+`alumnosEdit.html` pasa a cambiarla de verdad. Se ofreció dejarla fuera —es un
+`if`— y se decidió encenderla: la pantalla la pide dos veces y la verifica, o sea
+que promete lo que ahora hace.
 
 ---
 

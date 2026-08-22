@@ -51,6 +51,23 @@ desplegar:
 - Y **un mensaje que hablaba de otra operación**: `alumnos/update` respondía «No
   tienes permiso para eliminar alumnos definitivamente», que es lo que quedaba
   escrito en el log de un colegio cuando alguien intentaba **editar**.
+- **La ficha de alumno vuelve a guardar** ([05 §69](migracion/05-codigo-muerto-y-roto.md)).
+  No es una mejora: **no guardaba nunca**. Contestaba 422 «Datos incorrectos»
+  porque indexaba dos veces lo que su propio saneador ya había convertido, y en el
+  guardado sin tocar el desplegable de grupo el 422 llegaba **después** de escribir
+  la ficha y la cuenta — guardaba y decía que no. Con ella se encienden los guardas
+  de la [§68](migracion/05-codigo-muerto-y-roto.md), que hasta hoy no llegaban a
+  ocurrir por esa vía.
+- **Editar una ficha deja de reactivar la cuenta.** `is_active` se pisaba a 1 en
+  cada guardado de profesor y de alumno, así que corregirle el teléfono a alguien
+  le devolvía la entrada al sistema y deshacía el interruptor de «Activo» de la
+  rejilla, que es otra ruta. Igual con el correo de la cuenta, que se sustituía por
+  el de la persona. **Las altas no cambian**: una cuenta que nace, nace activa.
+- **Y la casilla de contraseña de la ficha de alumno empieza a funcionar** — esto
+  sí enciende algo, y se decidió encenderlo. Antes escribir una contraseña no hacía
+  nada y **vaciarla dejaba la cuenta con el hash de la cadena vacía**, que es entrar
+  sin contraseña. Conviene avisar a quien administre: la casilla ahora cambia la
+  contraseña de verdad.
 
 Lo demás son tests y documentos. Entra también `App\Services\DefinitivasDeAsignatura`,
 el recalculador único, **y sólo lo llama el boletín**: el resto de la fase 3 y el
@@ -144,6 +161,9 @@ Lo que fija esta tanda es el **hash**.
 Y a mano, en el navegador de un colegio cualquiera, que aquí son tres cosas
 distintas:
 
+0. **Editar una ficha de alumno y darle a guardar.** Tiene que decir que se guardó
+   —y haberse guardado: vuelve a entrar y míralo—. Es la que llevaba más tiempo
+   rota y la que más gente usa.
 1. **Abrir el boletín de un alumno y volver a la planilla de notas.** Es lo único
    que cambia de comportamiento visible: las definitivas tienen que seguir ahí —y
    en las asignaturas sin notas, donde antes desaparecían, ahora salen. Hazlo
