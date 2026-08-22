@@ -28,9 +28,12 @@ Al cerrar: **859 tests**, `pint` y `stan` en verde, `stan` en **nivel 7**.
 Cobertura de rutas: **370 de 539 (69%)**, medida con
 `tools/cobertura-de-rutas.py`.
 
-> **Al cerrar la noche del 22 ago**, con lo de la §0.1 ya fusionado en `main`:
-> **950 tests**, `pint` y `stan` (nivel 7) en verde y cobertura **418 de 539
-> (77%)**, medido contra una base propia. La rama
+> **Al cerrar el 22 ago**, con lo de la §0.1 y las fichas ya fusionados en `main`:
+> **961 tests**, `pint` y `stan` (nivel 7) en verde y cobertura **418 de 539
+> (77%)**, medido contra una base propia. El número de cobertura **no se movió con
+> el último arreglo, y eso es el hallazgo**: la ruta que no guardaba nunca ya
+> constaba comprobada, porque lo que la cubría era un caso de rechazo
+> ([05 §69.7](05-codigo-muerto-y-roto.md)). La rama
 > `fix/identificadores-del-cuerpo` entró entera con `--no-ff` —29 commits— y se
 > puede borrar. **Sigue sin desplegarse nada**: son arreglos de `app/`, **sin
 > migraciones nuevas** y sin tocar los cuatro clientes; la tanda está descrita
@@ -292,6 +295,16 @@ roto es un rojo global y quien lo ve no puede saber de quién es.
   las dos **se encienden solas** el día que un cliente añada una línea. Se
   documentan como minas, no como fallos activos, y el aviso va **en el código**,
   no solo en el documento.
+- **La asimetría entre hermanas vale también entre dos métodos del mismo
+  controlador**, y el que se desvía no es siempre el nuevo: `postStore` leía tres
+  campos bien y `putUpdate` los leía mal desde siempre ([05 §69](05-codigo-muerto-y-roto.md)).
+- **Un grep de clientes vale lo que valen los ficheros que mira.** «No lo manda
+  nadie» es la afirmación más fácil de hacer con una muestra incompleta, porque no
+  hay ningún resultado que la contradiga a la vista: la casilla de contraseña que
+  se dio por ausente estaba en el formulario, y se había grepeado en las rejillas.
+- **Escribir la prueba de un fallo encuentra otro.** El caso de la §68 no llegaba a
+  la línea que quería medir, y ese 422 era una pantalla entera que no guardaba.
+  **Un test que no alcanza lo que quiere medir es un dato, no un estorbo.**
 - **Cuando una serie se cierra, anotar sobre qué población se cerró.** La §54
   cerró ocho rechazos barriendo las rutas de `auth.token`; los mismos fallos
   seguían vivos en las de `auth.personal` y nadie los buscaba, porque la serie
