@@ -859,10 +859,39 @@ hacerlos seguidos, con los cinco `git pull` preparados.
 Volver atrás en esos cinco también es todo o nada. Los de `vendor/` propio se
 despliegan y se revierten uno a uno, sin ataduras.
 
-## Lo que trajeron las tandas ya desplegadas (19–20 ago 2026)
+## Lo que trajeron las tandas ya desplegadas (19–21 ago 2026)
 
 Se conserva porque explica **qué se notó** en cada una: es lo que se mira cuando
 un colegio reporta algo raro y hay que saber desde cuándo es así.
+
+### Una decena de arreglos de autorización, y tres migraciones (21 ago 2026)
+
+Backend y nada más; no se publicó nada en los clientes. Los seis primeros salieron
+de la serie de cobertura y están en
+[09-pendientes.md §0](migracion/09-pendientes.md), con el detalle en el 05. El más
+gordo: **`GET api/alumnos` entregaba el directorio del colegio entero** —nombre,
+fecha de nacimiento, celular, dirección, religión y deuda de cada alumno— a
+cualquier alumno o acudiente.
+
+**Tres migraciones, las tres aditivas:**
+
+| Migración | Qué hace | Si no se corre |
+|---|---|---|
+| `..._create_rol_secretario` | crea la fila `Secretario` en `roles`. **No se la da a nadie**: el colegio decide después quién es su secretaria | nada se rompe; los once sitios que preguntan por ese rol siguen contestando `false` |
+| `..._add_username_to_password_reminders_table` | añade `username`, nullable | **la recuperación de contraseña cae entera**: el código nuevo inserta en una columna que no existe |
+| `..._add_deleted_at_to_frases_preescolar_table` | papelera para las frases del boletín de preescolar | borrar una frase da 500 |
+
+**De aquí sale la regla de que `migrate --force` va pegado al `git pull` y no
+«para luego»**: en cuanto el `app/` nuevo está en su sitio, `postRecuperarClave`
+escribe en la columna nueva desde la primera petición — y ésa es la única vía que
+le queda al **91% de las cuentas** para recuperar su clave.
+
+Y dos cosas que enseñó el despliegue en sí, las dos ya recogidas en
+[DESPLIEGUE.md](DESPLIEGUE.md): que **«Already up to date» no significa
+desplegado** —los dieciséis lo dijeron minutos después de un `push`, porque cada
+colegio apunta a su propio remoto, y sólo el hash lo distingue— y que **`instival`
+no recibe nada**: no hay repositorio ni aplicación en esa carpeta, así que se
+quedó sin estos arreglos como sin los anteriores.
 
 ### La importación de alumnos, reanudable (20 ago 2026)
 
