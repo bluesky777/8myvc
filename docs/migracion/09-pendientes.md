@@ -28,9 +28,10 @@ Al cerrar: **859 tests**, `pint` y `stan` en verde, `stan` en **nivel 7**.
 Cobertura de rutas: **370 de 539 (69%)**, medida con
 `tools/cobertura-de-rutas.py`.
 
-> **Al cerrar el 22 ago**, con lo de la §0.1, las fichas y los catálogos ya
-> fusionados en `main`: **966 tests**, `pint` y `stan` (nivel 7) en verde y
-> cobertura **423 de 539 (78%)**, medido contra una base propia. El número de cobertura **no se movió con
+> **Al cerrar el 22 ago**, con lo de la §0.1, las fichas, los catálogos y el
+> cálculo de definitivas ya fusionados en `main`: **968 tests**, `pint` y `stan`
+> (nivel 7) en verde y cobertura **424 de 539 (78%)**, medido contra una base
+> propia. El número de cobertura **no se movió con
 > el último arreglo, y eso es el hallazgo**: la ruta que no guardaba nunca ya
 > constaba comprobada, porque lo que la cubría era un caso de rechazo
 > ([05 §69.7](05-codigo-muerto-y-roto.md)). La rama
@@ -302,6 +303,12 @@ roto es un rojo global y quien lo ve no puede saber de quién es.
   nadie» es la afirmación más fácil de hacer con una muestra incompleta, porque no
   hay ningún resultado que la contradiga a la vista: la casilla de contraseña que
   se dio por ausente estaba en el formulario, y se había grepeado en las rejillas.
+- **«Si llegara a ejecutarse» es una hipótesis, y suele estar a una llamada de
+  comprobarse.** Lo del cálculo de definitivas llevaba tres días escrito así
+  ([05 §71](05-codigo-muerto-y-roto.md)); sí se ejecutaba, y borraba justo las
+  notas que nadie puede rehacer. **Un roto documentado se lee como inofensivo**, y
+  ésa es la trampa: lo que hay que preguntarle a un método roto no es qué
+  responde, es **si escribe antes de morir**.
 - **Escribir la prueba de un fallo encuentra otro.** El caso de la §68 no llegaba a
   la línea que quería medir, y ese 422 era una pantalla entera que no guardaba.
   **Un test que no alcanza lo que quiere medir es un dato, no un estorbo.**

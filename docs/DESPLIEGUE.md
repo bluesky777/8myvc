@@ -63,6 +63,13 @@ desplegar:
   le devolvía la entrada al sistema y deshacía el interruptor de «Activo» de la
   rejilla, que es otra ruta. Igual con el correo de la cuenta, que se sustituía por
   el de la persona. **Las altas no cambian**: una cuenta que nace, nace activa.
+- **Un cálculo de definitivas que borraba notas se corta**
+  ([05 §71](migracion/05-codigo-muerto-y-roto.md)).
+  `definitivas_periodos/calcular-notas-finales-asignatura` empezaba por un `DELETE`
+  con el criterio invertido —se llevaba **las definitivas puestas a mano**, que son
+  las que no se pueden recalcular— y después reventaba con 500. Ahora contesta 410
+  sin ejecutar nada. **Ninguna pantalla lo llama**, así que no se nota; lo que
+  cambia es que deja de poder vaciarse por ahí.
 - **Tres respuestas de las escalas de valoración pasan de 200 a 404**
   ([05 §70.4](migracion/05-codigo-muerto-y-roto.md)): borrar o editar una escala
   que no existe contestaba «En papelera» y «Guardado». La pantalla de escalas ya
