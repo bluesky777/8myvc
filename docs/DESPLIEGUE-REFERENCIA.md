@@ -756,3 +756,376 @@ php artisan --version                                      # Laravel Framework 1
 php -v                                                     # 8.4.x
 php artisan migrate:status | grep personal_access_tokens   # Ran
 ```
+
+
+---
+
+# Archivo del operativo largo
+
+Lo que sigue vivía en `DESPLIEGUE.md` hasta el 21 ago 2026, cuando ese documento
+se rehízo corto —Joseth: «pocas líneas de lo que tengo que hacer»— y se quedó solo
+con la tanda que toca desplegar. **Nada de esto se borró porque nada de esto es
+relleno**: son el montaje que se hace una vez, las trampas que costaron un colegio
+cada una, y lo que trajo cada tanda ya desplegada.
+
+Se lee cuando algo no sale como dice el corto, o cuando entra un colegio nuevo.
+
+## Se hace una vez, no por colegio
+
+### Token de GitHub
+
+En hosting compartido la IP la comparten muchas cuentas y `composer install` agota
+el límite de la API de GitHub a mitad de la descarga.
+
+```bash
+composer config -g github-oauth.github.com TU_TOKEN
+```
+
+Token **sin ningún scope** (<https://github.com/settings/tokens/new?scopes=>, sin
+marcar nada). Se guarda en `~/.composer/auth.json`, vale para todos los colegios,
+y se revoca al terminar.
+
+### PHP 8.4 en las dos cuentas de cPanel — HECHO
+
+Las dos cuentas (`micolevirtual.com` y `lalvirtual.edu.co`) ya están en 8.4, y
+Joseth lo confirmó el 20 ago 2026. **Lo único que queda de este paso es comprobar
+extensiones y OPcache, que NO se heredan de la versión anterior.** Si ya se
+comprobaron, sáltate a la carpeta `vendor/`.
+
+Laravel 13 no arranca por debajo de 8.3.
+
+**Este paso afecta a todos los colegios de la cuenta a la vez** — la versión se
+elige por cuenta, no por colegio. Es el único de toda la migración que no se puede
+escalonar, así que va antes de desplegar el primero.
+
+Ahora mismo los 16 colegios están en Laravel 8.83.29 sobre PHP 8.4: arranca, pero
+**Laravel 8 no está soportado ahí**. Funciona con avisos de obsolescencia. Esa
+ventana se cierra desplegando, así que conviene que dure horas y no días.
+
+**En alt-php la selección de extensiones es por versión.** Marcar `sodium` y
+`opcache` en 8.0 (17 ago 2026, ver [PHP-BASELINE.md](PHP-BASELINE.md)) no las deja
+marcadas en 8.4: cada versión arranca con sus propias casillas. Lo primero tras
+cambiar es volver a comparar:
+
+```bash
+diff <(sort ~/ext-php80.txt) <(php -m | sort)   # las líneas con `<` son lo perdido
+php -v                                          # 8.4.x, en las DOS cuentas
+```
+
+Y lo que tumba la aplicación entera si se descuadra: `nd_pdo_mysql` marcada y
+`pdo_mysql` no — nunca las dos. Está explicado en `PHP-BASELINE.md`.
+
+**Con la versión ya cambiada, comprobar que OPcache está activo.** No es un
+detalle de afinado: sin él, cada petición recompila los 609 ficheros del
+framework, y eso son 150–200 ms por petición según lo medido en
+[el plan de rendimiento](migracion/02-plan-rendimiento.md) — el problema número
+uno de ese documento. En el contenedor de desarrollo vino con la imagen 8.4 y se
+nota: de 0,25 s a 0,03 s por petición.
+
+En cPanel se activa en *Select PHP Version → Extensions → opcache*. Para
+confirmarlo desde el colegio ya desplegado, sin subir ningún fichero:
+
+```bash
+php -r 'var_dump(function_exists("opcache_get_status"));'
+```
+
+Eso responde por el **CLI**, y lo que sirve las peticiones es **FPM**. Comparten
+la configuración de la cuenta, pero si hay duda, la respuesta buena sale de una
+petición HTTP real. La forma corta y sin dejar rastro es mirar `phpinfo()` desde
+el propio cPanel (*MultiPHP INI Editor*), no subir un `.php` al `public/`.
+
+### Los `vendor/` se quedan como están
+
+**Decisión de Joseth, 20 ago 2026: no se crea ninguna carpeta por generación.** Se
+sigue con la topología de hoy, que es mixta: unos colegios tienen `vendor/` propio
+y cinco cuelgan por symlink de `/home/micolev1/laravel_compartido`.
+
+Lo primero es saber cuál es cuál, porque el comando de instalar cambia:
+
+```bash
+for d in /home/micolev1/*.micolevirtual.com/8myvc; do
+  printf '%-46s ' "$d"
+  [ -L "$d/vendor" ] && printf 'COMPARTIDO -> %s\n' "$(readlink "$d/vendor")" || printf 'propio\n'
+done
+```
+
+**Los que comparten van como un bloque, y no hay forma de escalonarlos.** Composer
+sigue el symlink: actualizar la carpeta compartida cambia las dependencias de los
+cinco a la vez, en ese instante. Y el `app/` de cada colegio sí es copia propia. O
+sea que entre actualizar el `vendor/` compartido y terminar de desplegar el quinto
+`app/`, los que falten están corriendo código viejo sobre librerías nuevas. Hay que
+hacerlos seguidos, con los cinco `git pull` preparados.
+
+Volver atrás en esos cinco también es todo o nada. Los de `vendor/` propio se
+despliegan y se revierten uno a uno, sin ataduras.
+
+## Lo que trajeron las tandas ya desplegadas (19–20 ago 2026)
+
+Se conserva porque explica **qué se notó** en cada una: es lo que se mira cuando
+un colegio reporta algo raro y hay que saber desde cuándo es así.
+
+### La importación de alumnos, reanudable (20 ago 2026)
+
+**Hay una migración nueva**: `2026_08_20_200000_create_importaciones_table`.
+Crea la tabla `importaciones` y añade un índice a `alumnos.documento`. El
+`migrate --force` del paso 1 la aplica sola. La tabla se crea vacía —no toca
+nada de lo que hay— y el índice es un `ALTER TABLE` sobre `alumnos`, que en un
+colegio grande son unos miles de filas: **fuera de horario de clase**, como los
+tres del rendimiento. `down()` deshace las dos cosas.
+
+**Qué se nota.** Si una importación de alumnos se corta —el corte es el
+`max_execution_time` de 300 s de cPanel— volver a subir **el mismo archivo**
+continúa por donde iba en vez de empezar de cero. La pantalla no cambia: el
+endpoint sigue respondiendo `Importados.`, así que **no hace falta desplegar
+nada en los clientes**, ni en `myvc_front` ni en la app de Flutter.
+
+Y cambia una cosa que no se ve pero conviene saber: una fila cuyo alumno ya
+existe **con ese documento** ahora se actualiza en vez de crear un alumno
+repetido. Antes, cada importación cortada y reintentada dejaba duplicados.
+
+**Lo que hay que recoger, y es el motivo de media tanda.** Después de una
+temporada de matrículas, en el colegio que más importa:
+
+```bash
+php artisan tinker --execute="print_r(DB::select(
+  'SELECT archivo, year, filas, estado, TIMESTAMPDIFF(SECOND, inicio, fin) AS segundos
+   FROM importaciones ORDER BY id DESC LIMIT 20'));"
+```
+
+Ese `segundos` es el número que nadie tenía. Es lo que decide si
+`max_execution_time` puede bajar de 300, y es lo que hay que traer de vuelta.
+
+### Lo de medir el rendimiento (20 ago 2026)
+
+**Hay una migración nueva**, la primera desde `firmantes_acta`:
+`2026_08_20_100000_add_indices_medidos_con_explain`. Añade tres índices a
+`parentescos`, `frases_asignatura` e `images`. El `migrate --force` del paso 1
+la aplica sola; son `ALTER TABLE` en línea, pero en un alojamiento compartido
+tardan, así que **fuera de horario de clase**. `down()` los quita, o sea que
+volver atrás es inmediato y no toca datos.
+
+Por qué esos tres y no otros trece está en
+[02-plan-rendimiento.md](migracion/02-plan-rendimiento.md); el resumen es que
+son los que la tabla no tenía de ninguna forma y están en caminos que se
+recorren mucho — el guard de cada petición de un acudiente, y una llamada por
+asignatura dentro de cada boletín. Medido: **970 ms → 44 ms** en las 360
+consultas de una tanda de boletines de un grupo.
+
+**El log cambia de nombre.** `storage/logs/laravel.log` pasa a
+`laravel-AAAA-MM-DD.log`, y se conservan catorce días. Escribía siempre en el
+mismo fichero sin truncarlo nunca —48 MB solo en el docker de desarrollo—, y el
+espacio en disco es el motivo por el que `vendor/` va compartido. **El fichero
+viejo no se borra solo**: conviene mirarlo y borrarlo a mano en cada colegio.
+
+```bash
+ls -lh storage/logs/laravel.log     # el de siempre, ya sin escribir
+rm storage/logs/laravel.log         # cuando ya no interese lo que tenga dentro
+```
+
+**Y hay un registro de consultas lentas que se puede encender**, para saber por
+fin qué endpoint cuesta. Va apagado; se enciende en el `.env` del colegio:
+
+```
+CONSULTAS_LENTAS_MS=500      # 0 = apagado, que es como llega
+```
+
+Escribe en `storage/logs/consultas-lentas-AAAA-MM-DD.log`, una consulta por
+línea y **sin los valores** (por ahí pasan datos de menores). Se deja una
+temporada, se baja el fichero y se lee con `tools/consultas-lentas.py`. Eso es
+lo que falta para decidir el resto de los índices.
+
+### Lo de la revisión de IDOR
+
+**No hay migraciones nuevas.** Siguen siendo las dos de siempre
+(`personal_access_tokens` y `firmantes_acta`), así que el `migrate --force` del
+paso 1 es el mismo de antes.
+
+Lo que sí cambia, y se nota desde el minuto uno:
+
+**Alumnos y acudientes pierden acceso a casi todo lo que no es suyo.** Es el
+cambio grande de esta tanda y viene de la revisión de IDOR
+([08-revision-idor.md](migracion/08-revision-idor.md)): 141 rutas no comprobaban
+de quién era el dato que servían. La regla que se aplicó es **un alumno solo ve lo
+suyo; un acudiente, lo suyo y lo completo de sus acudidos**. En números, 141 rutas
+sin guard pasan a 12, y las 12 son catálogos que no exponen a nadie.
+
+Antes de esto, cualquier alumno con su token podía cambiarle el nombre de usuario
+al rector, leer antecedentes médicos ajenos, sacar el listado de sus compañeros con
+documento y dirección, abrirle un proceso disciplinario a otro y borrar un año
+lectivo entero. Ya no.
+
+**Lo que hay que mirar en el navegador después de desplegar el primer colegio**, y
+con calma, porque es donde el riesgo cambió de sitio: entrar **como alumno y como
+acudiente** y dar una vuelta por sus pantallas. Los tests cubren que siguen viendo
+lo suyo —perfil, fotos, notas, boletín, matrículas, acudientes, ficha de
+enfermería—, pero salen del backend: si `myvc_front` llama a alguna ruta desde una
+pantalla de familia que no esté en esa lista, saldrá un 403 donde antes había
+datos. Es lo único de esta tanda que no se puede comprobar sin el front delante.
+
+Y tres arreglos que también se ven:
+
+- **El certificado de notas acumuladas del año deja de salir en ceros.** Llevaba
+  así desde siempre: `GET boletines/detailed-notas-year/{grupo}` sin el segmento de
+  la URL devolvía 200 con todo a 0. Ahora calcula.
+- **El listado del grupo deja de imprimir «0» en la dirección.** La consulta usaba
+  `+` en vez de `CONCAT`, y en MySQL eso es una suma.
+- **`PUT prematriculas/llevo-formulario` ya no existe**: escribía en una tabla que
+  nunca se creó, o sea que era un 500 seguro. Si el front la llama, ahora recibirá
+  404 en vez de 500. Quién llevó el formulario se guarda —y siempre se guardó— como
+  `matriculas.estado = 'FORM'`, que es lo que mueve la pantalla de prematrículas.
+
+## El cron de este colegio — una sola línea, y una sola vez
+
+En cPanel: **Advanced → Cron Jobs → Add New Cron Job**, cada minuto
+(`* * * * *`):
+
+```
+* * * * * /usr/local/bin/php /home/micolev1/COLEGIO.micolevirtual.com/artisan schedule:run >/dev/null 2>&1
+```
+
+**Un solo cron por colegio, y ya no se vuelve a tocar el panel.** Lo que corre y
+cada cuánto se decide en `app/Console/Kernel.php`, que viaja con el `app/`. Hoy
+solo hay `sesion:limpiar`, semanal.
+
+Dos trampas de esta pantalla, y las dos se pagan caro:
+
+1. **`>/dev/null 2>&1` no es opcional.** cPanel manda un correo con la salida
+   **en cada ejecución**, y esto corre cada minuto: son 1.440 correos al día por
+   colegio, y con dieciséis, 23.000. La propia página lo avisa en letra pequeña.
+2. **`/usr/local/bin/php` es el PHP por defecto de la cuenta, no necesariamente
+   el 8.4.** Laravel 13 no arranca con menos. Compruébalo antes de guardar el
+   cron:
+
+   ```bash
+   /usr/local/bin/php -v          # tiene que decir 8.4.x
+   ```
+
+   **Comprobado el 20 ago 2026 en la cuenta `micolev1`: PHP 8.4.24.** La línea
+   de arriba sirve tal cual ahí. En la otra cuenta hay que volver a mirarlo: la
+   versión se elige por cuenta de cPanel, no por colegio.
+
+   Si dice otra cosa, usa la ruta con versión —en cPanel EA4 suele ser
+   `/opt/cpanel/ea-php84/root/usr/bin/php`— o cambia la versión de la cuenta.
+   Un cron con el PHP viejo no avisa: falla en silencio, porque acabas de
+   mandar su salida a `/dev/null`.
+
+Para comprobar que quedó bien, sin esperar a la semana:
+
+```bash
+php artisan schedule:list       # qué hay programado y cuándo toca
+php artisan sesion:limpiar      # correrlo a mano una vez
+```
+
+## Front (`up/`) — solo las tandas que publican front
+
+```bash
+cd /home/micolev1/COLEGIO.micolevirtual.com/up
+
+git fetch origin                     # sin esto te quedas en el build viejo
+git checkout -f -B main origin/main
+git clean -fd                        # NO uses -x: se llevaría el logo del colegio
+git branch -D master
+git remote prune origin
+
+grep -o 'assets/index-[^"]*\.js' index.html
+```
+
+## Comprobar, la lista larga
+
+```bash
+php artisan migrate:status | grep -E 'personal_access_tokens|firmantes_acta'   # Ran, Ran
+
+for h in coab casb cads coljordan lal coal; do
+  printf '%-12s ' "$h"
+  curl -sL --max-time 15 "https://$h.micolevirtual.com/up/" \
+    | grep -o 'assets/index-[^"]*\.js' | head -1
+done
+```
+
+Todos los colegios ya desplegados deben devolver el mismo hash. **Comprueba por
+URL, no por carpeta**: a `coabsaravena.micolevirtual.com/` la sirve
+`coab.micolevirtual.com`, y el nombre largo ni existe en DNS.
+
+Y a mano, en el navegador: login de personal y de alumno, boletines, certificado
+de estudio, informes en Excel y subida de foto de perfil.
+
+**Lo que parece un fallo y no lo es:**
+
+- Alumno y acudiente reciben **403 en casi todo lo que no es suyo**, no solo en
+  `requisitos`, `prematriculas` y `piars-grupos` como hasta el PR #7. Desde el
+  PR #11 son más de trescientas rutas: el listado del grupo, el observador, la
+  rejilla de notas del profesor, la configuración del colegio y cualquier ruta que
+  nombre a otra persona. El mensaje es «No tienes permiso» o «Solo puedes consultar
+  lo tuyo», y **cada rechazo queda anotado en `bitacoras`**, que es donde mirar si
+  alguien reclama. Lo que NO debe dar 403 es un alumno pidiendo lo suyo o un
+  acudiente pidiendo lo de su acudido; si pasa, es un fallo y hay que reportarlo.
+- Todos los usuarios activos aterrizan en el login **una vez**. Los tokens JWT
+  dejaron de valer al quitarse el paquete. Pasa solo el día del despliegue.
+- El logo del colegio da 404 si ese colegio no tiene uno propio: cae al genérico.
+- **El acta de evaluación puede salir con todo en «sin clasificar».** No es un
+  fallo del cálculo: significa que los `periodos` de ese año tienen
+  `fecha_inicio` y `fecha_fin` en NULL. Sin calendario no se puede separar a
+  quien empezó el año de quien entró después, y el acta prefiere decirlo antes
+  que afirmar algo que los datos no dicen. La pantalla pide llenar las fechas.
+  Comprobado así en la base de desarrollo, con sus cuatro periodos vacíos; en
+  producción puede pasar en cualquier colegio que nunca las haya puesto:
+
+  ```sql
+  SELECT numero, fecha_inicio, fecha_fin FROM periodos
+   WHERE year_id = (SELECT id FROM years WHERE deleted_at IS NULL ORDER BY year DESC LIMIT 1);
+  ```
+
+## Las siete trampas que cuestan un colegio
+
+Las tres que muerden en un despliegue normal están también en el corto; estas son
+las siete, y cada una salió de un incidente.
+
+1. **`composer` dentro de un colegio con `vendor/` compartido** le cambia las
+   dependencias a los otros cuatro. Sigue el symlink sin avisar y sin fallar.
+   Comprueba siempre antes: `[ -L vendor ]`.
+2. **`git fetch` antes del checkout del front.** `checkout -B ... origin/main` usa
+   la copia local del ref: sin refrescarla dice que todo fue bien y te deja en el
+   build anterior. Le pasó a `coab`.
+3. **`git clean -x` en `up/`** borra el logo del colegio, que está ignorado. Sin
+   `-x` no lo toca. Para ver qué borraría: `git clean -nd`.
+4. **No restaurar `images/Logo_Colegio_Header.<hash>.gif`** del build viejo: ese es
+   el logo de `bethelexplora` y lo recibieron todos. El propio va sin hash y sin
+   versionar.
+5. **Un arreglo fusionado no está desplegado.** `app/`, `routes/`, `config/` y
+   `.env` son copia real en cada colegio; llegan uno a uno.
+6. **`config:cache` antes de tocar el `.env`** deja al colegio sirviendo la
+   configuración anterior, sin ningún síntoma. Si editas el `.env` después,
+   vuelve a correr `php artisan config:clear && php artisan config:cache`.
+7. **Encadenar `artisan` con `&&` sin repetir `php artisan`.** El segundo comando
+   no existe como binario suelto, la cadena se corta ahí y la caché vieja sigue
+   viva. Pasó en `coal`: `config:clear` corrió, `route:clear` no, y el login
+   devolvió 404 con el código bien desplegado. Si un `artisan` de la cadena no
+   imprime su `INFO`, no se ejecutó.
+
+## Estado al cerrar la tanda del 20 ago 2026
+
+| | |
+|---|---|
+| Colegios | **los 16 desplegados y con el `vendor/` igualado** (19 ago 2026) |
+| Framework en producción | Laravel 8.83.29 · **PHP 8.4** (subido en las dos cuentas el 19 ago 2026) |
+| Framework en la rama | Laravel 13.26.1 · PHP 8.4 |
+| Topología | mixta y se queda así (Joseth, 20 ago 2026): unos con `vendor/` propio, cinco colgando de `laravel_compartido`. **Esos cinco se despliegan y se revierten como bloque** |
+| Sin confirmar | si `sodium` y `opcache` siguen activas en 8.4 — se marcaron en 8.0 y **la selección de extensiones es por versión** |
+| Sin confirmar | si alguna pantalla de familia de `myvc_front` llama a una ruta que el guard nuevo cierra. Solo se ve con el front delante |
+| Esta tanda | **cerrada: los 16 colegios desplegados** (20 ago 2026). `coal` fue el primero, y es de donde salieron las trampas 6 y 7. Migraciones en `Ran` y login de personal comprobado en el navegador tras `route:clear` |
+| Sin confirmar | si `coal` cuelga del `vendor/` compartido. El trace de producción apunta a `/home/micolev1/laravel_compartido/`, y ahí el `composer install --no-dev` se corrió **dentro** del colegio, que es la trampa 1. La segunda pasada dijo «Nothing to install», así que el `lock` ya coincidía y probablemente no cambió nada — pero hay que comprobarlo con `[ -L vendor ]` |
+
+**Laravel 8.83.29 corriendo sobre PHP 8.4 es la ventana incómoda descrita en el
+paso 0: arranca, pero no está soportado ahí.** Cuanto antes empiece el despliegue
+colegio a colegio, menos dura.
+
+```bash
+# Qué generación usa cada colegio hoy
+for d in /home/micolev1/*.micolevirtual.com/8myvc; do
+  printf '%-46s ' "$d"
+  [ -L "$d/vendor" ] && printf 'symlink -> %s\n' "$(readlink "$d/vendor")" || printf 'vendor propio\n'
+done
+```
+
+**`plus/` es otro repositorio** (`myvc_front_2`, el Angular del PIAR) y solo lo
+tienen seis colegios: `casb`, `coab`, `cads`, `coljordan`, `lal` y `coal`.
