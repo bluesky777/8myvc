@@ -6277,3 +6277,83 @@ Con lo anterior medido, la decisión ya no es entre tres mundos:
 Lo único que la 1 no resuelve: la ruta sigue existiendo y sigue alcanzable por
 cualquiera con sesión. Deja de filtrar, pero **no vuelve a tener el guard de sus
 dos vecinas** hasta el paso 2.
+
+## 68. Un campo que no se manda no es un campo que no cambia (22 ago 2026)
+
+Medido **ejecutando** por el árbol de `myvc_front`, con las filas restauradas y
+verificadas después de cada prueba; **ampliado y confirmado en el código** desde
+este lado, donde resultó ser **más ancho de lo que se veía desde el front**.
+
+`ProfesoresController::sanarInputUser()` **rellena con valores por defecto lo que
+el cuerpo no trae**. Y el formulario viejo no trae cuatro campos. De ahí la
+frase, que es lo que hay que llevarse:
+
+> **Un campo que no se manda no es un campo que no cambia: es un campo que se
+> pisa.**
+
+### 68.1 Corregirle el teléfono a un docente le devuelve la entrada al sistema
+
+```php
+$usuario->is_active = Request::input('is_active', 1);   // <- por defecto UNO
+```
+
+Medido: `users.is_active` de un profesor pasa de **0 a 1** con el cuerpo exacto
+de la pantalla vieja, respondiendo 200. **Reactiva una cuenta que alguien cerró**,
+y quien edita no se entera.
+
+### 68.2 No está solo en profesores: también en alumnos, y ahí es `putUpdate`
+
+Lo que el front no podía ver. El mismo `Request::input('is_active', 1)` está en
+**cinco** sitios:
+
+| Fichero | Línea | Método | Qué implica |
+|---|---|---|---|
+| `ProfesoresController` | 138, 348, 371 | alta y actualización | lo medido arriba |
+| `AlumnosController` | 278 | `postStore()` | **alta**: un alumno nuevo nace activo, que es razonable |
+| `AlumnosController` | **723** | **`putUpdate($id)`** | **actualización: el mismo fallo, sobre alumnos** |
+
+La fila que importa es la última: **editar la ficha de un alumno reactiva su
+cuenta si estaba desactivada.** Y no es la misma magnitud — un colegio tiene ~47
+docentes y **~1.280 alumnos**.
+
+`AlumnosController:723` trae además, en las líneas de al lado, **el mismo apaño
+del correo** (`$usuario->email = Request::input('email2')`) y un
+`is_superuser = 0` escrito a pelo.
+
+### 68.3 El correo no se pierde: se muda de columna
+
+`if (!email1) { email2 = email }` y después `$usuario->email = email2`. Medido:
+`users.email` pasó de la dirección **de la cuenta** a la **del profesor**. Existe
+un quinto nombre, **`email1`, cuya única función es desactivar ese apaño**, y no
+lo manda ningún cliente.
+
+### 68.4 Lo que sí es lectura de código y NO está medido
+
+`if (!is_superuser) is_superuser = false` **quitaría el superusuario** a quien lo
+tuviera. **No está comprobado**: no hay ningún docente superusuario en la base
+donde se midió. Se cita como lectura de código, no como hecho.
+
+### 68.5 El fallo de fondo, que es del backend y no de la pantalla
+
+**Ningún endpoint de lectura devuelve los veintiún campos juntos.** `show` se deja
+tres. Así que **el contrato de `putUpdate` no se puede cumplir con lo que el
+backend deja leer**: no es que la pantalla llame mal, es que **no existe una forma
+correcta de llamar a ese endpoint**. Mientras siga así, cualquier cliente que no
+mande los veintiuno hace daño — y ninguno puede mandarlos.
+
+La pantalla nueva lo resuelve cargando de `GET profesores` en vez de `show`, o sea
+**trayéndose 47 filas para editar una**. Se aceptó porque la alternativa era
+guardar sin saber qué se pisa. Eso es el síntoma, no la cura.
+
+### 68.6 La prueba que valdría para siempre
+
+`PUT` con el cuerpo real de la pantalla **sobre un usuario con `is_active = 0`**,
+comprobando que sigue en 0. **Hoy falla.** Y como en la §65, la condición hay que
+**construirla en el `setUp`** —desactivar la cuenta— y no buscarla: la base de
+tests no la trae, y un test que la busque pasaría sin medir nada. **Van diez.**
+
+**Sin arreglar a propósito**: tocar esto cambia lo que hace un formulario en
+dieciséis colegios y la aplicación vieja está congelada por decisión del colegio.
+La excepción que se dio esa noche era sobre «el borrado del correo» y **esto es
+otra cosa y más grande** — un permiso dado sobre un diagnóstico equivocado no
+cubre el corregido.
