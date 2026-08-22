@@ -171,18 +171,24 @@ parameters:
         - identifier: argument.templateType
 
         # PUT api/definitivas_periodos/calcular-notas-finales-asignatura
+        #
+        # Las tres excepciones que había aquí para `DefinitivasPeriodosController`
+        # **se fueron el 22 ago 2026**, y no por anotarlas mejor: el método que las
+        # producía se quedó sin cuerpo. Borraba de verdad las definitivas puestas a
+        # mano y después reventaba con un 500 —medido, 05 §71—, así que hoy contesta
+        # 410 y no ejecuta nada. Las variables sin definir se fueron con él.
+        #
+        # Vale la pena que quede escrito **cómo se notó**: al cortar el método, las
+        # excepciones dejaron de casar y larastan las convirtió en error
+        # (`ignore.unmatched`). Un baseline generado se habría callado. Es
+        # exactamente lo que este fichero dice arriba y la primera vez que se cobra.
+        #
+        # La de `Alumnos/Definitivas` se queda: la clase sigue ahí con las dos copias
+        # del método roto, y es lo único que dice qué se pretendía.
         -
             message: '#^Undefined variable: \$(alumno_id|asignaturas)$#'
             path: app/Http/Controllers/Alumnos/Definitivas.php
             count: 4
-        -
-            message: '#^Undefined variable: \$asignaturas$#'
-            path: app/Http/Controllers/DefinitivasPeriodosController.php
-            count: 5
-        -
-            message: '#^Static method App\\Models\\NotaFinal::alumnos_grupo_nota_final\(\) invoked with 2 parameters, 3 required\.$#'
-            path: app/Http/Controllers/DefinitivasPeriodosController.php
-            count: 1
         # GET api/editnota/detailed-notas-year
         -
             message: '#^Undefined variable: \$(grupo_id|periodos_a_calcular)$#'

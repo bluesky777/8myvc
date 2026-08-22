@@ -48,29 +48,39 @@ class DefinitivasPeriodosController extends Controller {
 	}
 
 
+	/**
+	 * **Retirado: no puede terminar, y por el camino borraba las definitivas puestas
+	 * a mano.** Ver 05 §71.
+	 *
+	 * Lo que hacía, medido —no leído— el 22 ago 2026 sobre una asignatura con 164
+	 * definitivas, cuatro de ellas manuales:
+	 *
+	 * 1. `Definitivas::calcular_notas_finales_asignatura` empieza por
+	 *    `DELETE FROM notas_finales WHERE asignatura_id=? and (manual is null or
+	 *    manual=1)`. Es un DELETE de verdad, no la papelera, **sin filtro de periodo
+	 *    ni de año**, y el criterio está **invertido**: se lleva justo las manuales.
+	 *    Medido: 164 → 160 filas, y las **cuatro manuales a cero**. Las automáticas
+	 *    se pueden recalcular; las de a mano las escribió una persona.
+	 * 2. Después consulta `g.asignatura_id`, columna que `grupos` no tiene, así que
+	 *    revienta con 500 — **con el borrado ya hecho**, porque no hay transacción.
+	 * 3. Y el id que recibe es `Request::input('profesor_id')` usado como
+	 *    `asignatura_id`, con el `// Aquí un error por arreglar` del propio autor al
+	 *    lado: quien lo llamara creyendo que recalcula lo suyo, borraría lo de otra
+	 *    asignatura cualquiera.
+	 *
+	 * Así que **nunca ha calculado nada**: sólo destruye. Se corta aquí, antes de
+	 * escribir, y no se borra la ruta —la regla de este repo es que un endpoint
+	 * enrutado y roto se documenta, porque borrarlo convierte un 500 en un 404 sin
+	 * decirle a nadie qué pretendía—. Ningún cliente lo llama: `myvc_front` tiene el
+	 * método en `DefinitivasPeriodosApi.ts:57` y **ninguna pantalla lo usa**.
+	 *
+	 * Recalcular una asignatura de verdad es `App\Services\DefinitivasDeAsignatura`,
+	 * que ya existe (fase 1); cablearlo aquí es la fase 3 y retirar el botón, la 5.
+	 * Ver 10-definitivas.md.
+	 */
 	public function putCalcularNotasFinalesAsignatura()
 	{
-		$user 			= User::fromToken();
-
-		if ($user->tipo == 'Profesor' || $user->is_superuser) {
-			// Aquí un error por arreglar
-			$asignatura_id 	= Request::input('profesor_id');
-		}else{
-			return 'No tienes privilegios';
-		}
-		
-		$definitivas 	= new Definitivas();
-		$definitivas->calcular_notas_finales_asignatura($asignatura_id);
-		
-		$cantAsig 		= count($asignaturas);
-		
-		for ($i=0; $i < $cantAsig; $i++) { 
-			
-			$asignaturas[$i]->alumnos = NotaFinal::alumnos_grupo_nota_final($asignaturas[$i]->grupo_id, $asignaturas[$i]->asignatura_id);
-			
-		}
-		
-		return $asignaturas;
+		abort(410, 'Este cálculo está retirado: borraba las definitivas puestas a mano y nunca llegó a calcular ninguna.');
 	}
 
 
