@@ -33,9 +33,20 @@ use Illuminate\Support\Facades\DB;
  *
  * 1. **La integridad la sostiene el esquema y no el código**, igual que encontró
  *    la [§4 de 13-actividades](13-actividades.md) en `ws_actividades_compartidas`.
- *    Y sirve sobre todo para saber dónde NO hay red: **`notas_finales`, la tabla
- *    hermana de la que cuelgan los boletines, no lleva ninguna de estas claves** —
- *    ahí entra lo que sea.
+ *
+ *    **Aquí hubo una afirmación falsa y se deja escrita porque es instructiva.**
+ *    Este comentario decía que `notas_finales` «no lleva ninguna de estas claves»
+ *    y que por eso las inyecciones de esta noche podían escribir en ella. Medido
+ *    contra `information_schema`: **`notas_finales` tiene tres claves ajenas**
+ *    —`alumno_id`, `asignatura_id` y `periodo_id`— y `notas` tiene dos. Lo dice
+ *    además la §2 del propio 10-definitivas, que al hablar del índice único
+ *    aclara «solo hay tres índices de clave foránea».
+ *
+ *    Lo que le falta a `notas_finales` no es integridad referencial: es la
+ *    **clave única** sobre `(alumno_id, asignatura_id, periodo_id)`. Que es lo
+ *    que aquel documento dijo desde el principio y lo que la fase 2 viene a
+ *    poner. La conclusión que se sacó de más no añadía un argumento nuevo a la
+ *    fase 2 — solo lo repetía mal.
  * 2. «No guarda nada» y «responde 500» no son lo mismo para quien lo usa: lo
  *    primero es un botón que no hace nada, lo segundo es un error en pantalla. La
  *    §3.1 se queda corta y por eso este test existe.
