@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Request;
 use App\User;
 use App\Models\Profesor;
 use App\Support\Autoriza;
+use App\Support\CamposQueVinieron;
 use App\Models\Role;
 use App\Models\Year;
 use Illuminate\Support\Facades\Hash;
@@ -311,6 +312,11 @@ class ProfesoresController extends Controller {
 			'No tienes permiso para editar a un profesor.');
 		
 		if ($this->user->is_superuser) {
+			// ANTES del primer `sanar*`: los dos hacen `Request::merge()`, así que a
+			// partir de aquí `Request::has()` ya no distingue lo que mandó el cliente
+			// de lo que se rellenó solo. Ver App\Support\CamposQueVinieron y 05 §68.
+			$vinieron = CamposQueVinieron::capturar();
+
 			$this->sanarInputUser();
 			$this->sanarInputProfesor();
 
@@ -343,9 +349,29 @@ class ProfesoresController extends Controller {
 
 					$usuario = User::find($profesor->user_id);
 					$usuario->username		=	Request::input('username');
-					$usuario->email			=	Request::input('email2');
 					$usuario->is_superuser	=	Autoriza::concederSuperusuario($this->user, Request::input('is_superuser'));
-					$usuario->is_active		=	Request::input('is_active', 1);
+
+					// Esta cuenta YA EXISTE, así que lo que el cuerpo no trae no se toca.
+					// Escribir el valor por defecto aquí es lo que reactivaba cuentas
+					// cerradas: la pantalla de edición no tiene la casilla de «Activo»
+					// —el interruptor de las rejillas llama a `guardar-valor`, otra
+					// ruta— y cada guardado deshacía el interruptor. 05 §68.1.
+					//
+					// El `(int)` es la conclusión del nivel 3 de larastan: en un
+					// `tinyint(1)` se escribe 0 o 1, no un booleano de PHP, o el mismo
+					// campo sale de dos tipos según por dónde se lea.
+					if ($vinieron->trae('is_active')) {
+						$usuario->is_active	=	(int) Request::boolean('is_active');
+					}
+
+					// Y el correo, por lo mismo y con un agravante: `sanarInputUser`
+					// **regenera** `email2` cuando no viene `email1` —que no lo manda
+					// ningún cliente—, así que sin esta guarda el correo de la CUENTA
+					// se sustituía por el de la persona, o por `usuario@myvc.com`.
+					// Son dos columnas de dos tablas. 05 §68.3.
+					if ($vinieron->trae('email2')) {
+						$usuario->email		=	Request::input('email2');
+					}
 
 					if (Request::input('nuevo_password')){
 						$usuario->password = Hash::make(Request::input('nuevo_password'));

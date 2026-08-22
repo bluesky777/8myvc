@@ -3,6 +3,7 @@
 
 
 use App\Support\Autoriza;
+use App\Support\CamposQueVinieron;
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -291,10 +292,16 @@ class AlumnosController extends Controller {
 				$alumno->user = $usuario;
 
 				$grupo_id = false;
-				if (Request::input('grupo')['id']) {
-					$grupo_id = Request::input('grupo')['id'];
-				}elseif (Request::input('grupo_sig')['id']) {
-					$grupo_id = Request::input('grupo_sig')['id'];
+				// `grupo.id` en vez de `Request::input('grupo')['id']`: indexar un
+				// cuerpo que no trae el campo es un aviso de PHP, y Laravel arranca con
+				// `error_reporting(-1)`, así que ese aviso es una excepción y el `catch`
+				// la convierte en 422 **después de haber creado el alumno**. Un alta sin
+				// grupo es un alumno sin matrícula, que es lo que dice `$grupo_id =
+				// false`; no es un error que haya que esconder detrás de un 422. 05 §69.
+				if (Request::input('grupo.id')) {
+					$grupo_id = Request::input('grupo.id');
+				}elseif (Request::input('grupo_sig.id')) {
+					$grupo_id = Request::input('grupo_sig.id');
 				}
 
 				if ($grupo_id){
@@ -682,6 +689,10 @@ class AlumnosController extends Controller {
 			
 			$alumno = Alumno::findOrFail($id);
 
+			// ANTES del primer `sanar*`, que hace `Request::merge()`: después,
+			// `Request::has()` ya no distingue lo que mandó el cliente. 05 §68.
+			$vinieron = CamposQueVinieron::capturar();
+
 			$this->sanarInputAlumno();
 
 			try {
@@ -690,10 +701,18 @@ class AlumnosController extends Controller {
 				$alumno->apellidos	=	Request::input('apellidos');
 				$alumno->sexo		=	Request::input('sexo', 'M');
 				$alumno->fecha_nac	=	Request::input('fecha_nac');
-				$alumno->ciudad_nac =	Request::input('ciudad_nac')['id'];
-				$alumno->tipo_doc	=	Request::input('tipo_doc')['id'];
+				// Sin `['id']`, y no es cosmético: `sanarInputAlumno` ya convirtió los
+				// tres de `{id: N}` al número. Volver a indexar era indexar un entero
+				// —o un null—, y Laravel arranca con `error_reporting(-1)`, así que ese
+				// aviso de PHP se convierte en excepción, la caza el `catch` de abajo y
+				// **la ficha entera contestaba 422 «Datos incorrectos» sin guardar
+				// nada**. La hermana de al lado, `postStore`, lee estos mismos tres
+				// campos sin `['id']` desde siempre: la asimetría entre hermanas es lo
+				// que lo señaló. 05 §69.
+				$alumno->ciudad_nac =	Request::input('ciudad_nac');
+				$alumno->tipo_doc	=	Request::input('tipo_doc');
 				$alumno->documento	=	Request::input('documento');
-				$alumno->ciudad_doc	=	Request::input('ciudad_doc')['id'];
+				$alumno->ciudad_doc	=	Request::input('ciudad_doc');
 				$alumno->tipo_sangre=	Request::input('tipo_sangre')['sangre'];
 				$alumno->eps 		=	Request::input('eps');
 				$alumno->telefono 	=	Request::input('telefono');
@@ -718,15 +737,32 @@ class AlumnosController extends Controller {
 					
 					$usuario = User::find($alumno->user_id);
 					$usuario->username		=	Request::input('username');
-					$usuario->email			=	Request::input('email2');
 					$usuario->is_superuser	=	0;
-					$usuario->is_active		=	Request::input('is_active', 1);
 					$usuario->updated_by 	= $this->user->user_id;
 
-					if (Request::has('password')) {
-						if (Request::input('password') == ""){
-							$usuario->password	=	Hash::make(Request::input('password'));
-						}
+					// Cuenta que ya existe: lo que el cuerpo no trae, no se toca. Ver el
+					// gemelo en ProfesoresController y 05 §68.1.
+					if ($vinieron->trae('is_active')) {
+						$usuario->is_active	=	(int) Request::boolean('is_active');
+					}
+
+					// `sanarInputUser` regenera `email2` desde el correo de la PERSONA
+					// cuando no viene `email1` —que no lo manda nadie—, así que sin esta
+					// guarda el correo de la cuenta se mudaba de columna. 05 §68.3.
+					if ($vinieron->trae('email2')) {
+						$usuario->email		=	Request::input('email2');
+					}
+
+					// La condición estaba invertida: escribía la contraseña **sólo si
+					// venía vacía**, o sea que teclear una de verdad no hacía nada y
+					// borrar la casilla dejaba la cuenta con el hash de la cadena vacía
+					// —y entrar con la contraseña vacía responde 200, que es la §26—.
+					// La casilla existe y es alcanzable: `alumnosEdit.html:229` la ata a
+					// `$ctrl.alumno`, que es el objeto entero que se manda.
+					// `filled` es las dos cosas a la vez: si no viene, no se toca; si
+					// viene vacía, tampoco. 05 §68.2.1.
+					if (Request::filled('password')) {
+						$usuario->password	=	Hash::make(Request::input('password'));
 					}
 
 					$usuario->save();
@@ -768,9 +804,14 @@ class AlumnosController extends Controller {
 
 
 
-				if (Request::input('grupo')['id']) {
+				// El desplegable de grupo de la ficha sólo pone `grupo` en el cuerpo
+				// cuando alguien lo toca —`putShow` no devuelve ese objeto—, así que en
+				// el guardado normal esto indexaba un null y tiraba el 422 **después**
+				// de haber escrito ya la ficha y la cuenta: guardaba y decía que no.
+				// 05 §69.
+				if (Request::input('grupo.id')) {
 					
-					$grupo_id = Request::input('grupo')['id'];
+					$grupo_id = Request::input('grupo.id');
 
 					$matricula = Matricula::matricularUno($alumno->id, $grupo_id, false, $this->user->user_id);
 
