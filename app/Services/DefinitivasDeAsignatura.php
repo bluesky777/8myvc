@@ -69,15 +69,29 @@ class DefinitivasDeAsignatura
     /**
      * Recalcula las definitivas automáticas de una asignatura y un periodo.
      *
+     * `respetadas` son las `manual` o `recuperada` que no se tocan;
+     * `porcentaje_unidades` es la suma REAL de los porcentajes de las unidades,
+     * que vale 100 cuando la asignatura está bien configurada y es lo que hay que
+     * enseñar cuando no.
+     *
+     * `$soloAlumno` acota la ESCRITURA a un alumno sin cambiar el cálculo, que
+     * sigue siendo el de la asignatura entera. Lo propone el propio plan para el
+     * día que recalcular salga caro —«la salida no es dejar de recalcular sino
+     * recalcular solo la fila de ese alumno, que es lo que cambió»— y lo usa el
+     * boletín individual, donde ensanchar la escritura al grupo entero convertiría
+     * «un acudiente abre el boletín de su hijo» en «un acudiente reescribe las
+     * definitivas de treinta alumnos». Recalcularlas sería correcto; hacerlo desde
+     * ahí no es lo que nadie espera.
+     *
      * @return array{escritas:int, creadas:int, respetadas:int, porcentaje_unidades:float}
-     *                                                                                     `respetadas` son las `manual` o `recuperada` que no se tocan;
-     *                                                                                     `porcentaje_unidades` es la suma REAL de los porcentajes de
-     *                                                                                     las unidades, que vale 100 cuando la asignatura está bien
-     *                                                                                     configurada y es lo que hay que enseñar cuando no.
      */
-    public static function recalcular(int $asignaturaId, int $periodoId, ?int $porUsuario = null): array
-    {
-        return DB::transaction(function () use ($asignaturaId, $periodoId, $porUsuario) {
+    public static function recalcular(
+        int $asignaturaId,
+        int $periodoId,
+        ?int $porUsuario = null,
+        ?int $soloAlumno = null
+    ): array {
+        return DB::transaction(function () use ($asignaturaId, $periodoId, $porUsuario, $soloAlumno) {
             $periodo = DB::selectOne(
                 'SELECT id, numero FROM periodos WHERE id = ? AND deleted_at IS NULL',
                 [$periodoId]
@@ -88,6 +102,13 @@ class DefinitivasDeAsignatura
             }
 
             $calculadas = self::calcular($asignaturaId, $periodoId);
+
+            if ($soloAlumno !== null) {
+                $calculadas = array_values(array_filter(
+                    $calculadas,
+                    fn ($fila) => (int) $fila->alumno_id === $soloAlumno
+                ));
+            }
 
             $escritas = 0;
             $creadas = 0;

@@ -79,6 +79,30 @@ class BoletinesTest extends CasoDeContrato
 
     // ------------------------------------------------------- Boletín de periodo
 
+    /**
+     * La forma del boletín de UN alumno — y la instantánea cambió el 22 ago 2026.
+     *
+     * `boletines-detailed-notas` pasó de tener `nf_id`, `nota_asignatura`,
+     * `manual`, `recuperada`, `created_at` y `desempenio` como `int|null` a
+     * tenerlos como `int`. **No es un cambio de forma: es que dejó de haber
+     * asignaturas sin definitiva.**
+     *
+     * Es el efecto de sustituir el bloque de la §1.1 de
+     * [10-definitivas.md](../../docs/migracion/10-definitivas.md) —que borraba
+     * todas las definitivas del alumno y sólo reponía aquéllas en las que tuviera
+     * alguna nota— por un recálculo que parte de las matrículas (§9.1). Los
+     * `null` de la instantánea vieja eran exactamente las asignaturas que ese
+     * bloque dejaba sin fila, y salían al boletín como un hueco.
+     *
+     * Se anota aquí y no sólo en el commit porque **una instantánea regenerada no
+     * dice por qué cambió**, y el día que alguien vea `int` donde su memoria dice
+     * `int|null` tiene que poder llegar hasta esto sin abrir el historial.
+     *
+     * Lo que el cliente ve ahora en esas asignaturas es un número —hoy 0 cuando no
+     * hay notas— donde antes veía un hueco. Que 0 y «sin notas» sigan siendo
+     * indistinguibles es la §4 y no se resuelve aquí: cambiarlo es decidir qué
+     * sale impreso en el boletín, que es del colegio.
+     */
     #[DataProvider('familias')]
     public function test_la_forma_del_boletin_de_un_alumno(string $familia, int $largo, string $notas): void
     {
