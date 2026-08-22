@@ -6674,3 +6674,89 @@ caso que existe para eso.
 - **`TipoDocumentoController::update` no devuelve nada**: 200 con cuerpo vacío
   aunque haya guardado. No miente —guardó—, pero no deja al cliente comprobar qué
   quedó.
+
+---
+
+## 71. El cálculo que nunca calculó y borraba lo escrito a mano (22 ago 2026)
+
+`PUT api/definitivas_periodos/calcular-notas-finales-asignatura`, una de las cinco
+rutas de ese controlador que nadie había mirado. Estaba **documentada como rota**
+desde el primer recorrido y en [10-definitivas.md §7](10-definitivas.md), que
+además dejó escrito el detalle importante: su DELETE usa el criterio invertido.
+Lo que faltaba era la pregunta que convierte una anotación en un hallazgo:
+
+> **¿Escribe antes de morir?**
+
+Medido sobre una asignatura con 164 definitivas:
+
+```
+respuesta:    500  «Unknown column 'g.asignatura_id'»
+definitivas:  164 -> 160
+manuales:       4 ->   0
+```
+
+Sí escribe. Y lo que se lleva son **exactamente las manuales**.
+
+### 71.1 El orden, que es lo que hace el daño
+
+1. `Definitivas::calcular_notas_finales_asignatura` empieza por
+   `DELETE FROM notas_finales WHERE asignatura_id=? and (manual is null or manual=1)`.
+   Es un `DELETE` de verdad —esta tabla no tiene papelera— y **sin filtro de periodo
+   ni de año**: se lleva todos los periodos de todos los años de esa asignatura.
+2. El criterio está **invertido**. El resto del proyecto borra lo automático y
+   respeta lo manual (`manual is null or manual=0`); éste borra `manual=1`. En la
+   base de desarrollo eso son las cuatro que alguien escribió a mano, y las 160
+   automáticas —que están en `manual=0`— ni se enteran.
+3. Después consulta `g.asignatura_id`, que **`grupos` no tiene**, y revienta con
+   500. No hay transacción, así que el 500 llega con el borrado hecho.
+
+**Y la asimetría del daño es lo que lo pone por delante de otros rotos**: una
+definitiva automática se recalcula desde las notas; una manual la escribió una
+persona mirando un caso concreto, y no hay de dónde sacarla otra vez.
+
+### 71.2 El id que recibe no es el que dice
+
+`$asignatura_id = Request::input('profesor_id')`, con el comentario del propio
+autor al lado: `// Aquí un error por arreglar`. O sea que quien lo llamara creyendo
+que recalcula lo suyo estaría borrando las definitivas de **la asignatura cuyo id
+coincida con su número de profesor** — dos numeraciones distintas que se solapan,
+que es la misma forma de la §11.1 y de la §53.
+
+### 71.3 Qué se hizo, y qué no
+
+**Cortado antes de escribir**: el método contesta **410** y no ejecuta nada.
+
+- **No se borra la ruta.** La regla de este repo es que un endpoint enrutado y roto
+  se documenta; borrarlo convierte un 500 en un 404 sin decirle a nadie qué
+  pretendía hacer esa pantalla.
+- **No se arregla.** Recalcular una asignatura de verdad ya está escrito
+  —`App\Services\DefinitivasDeAsignatura`, fase 1— y cablearlo aquí es la fase 3,
+  que va detrás de la fase 2. Retirar el botón es la fase 5. Ninguna de las dos se
+  decide desde aquí.
+- **Ningún cliente lo llama.** `myvc_front` tiene el método en
+  `DefinitivasPeriodosApi.ts:57` y ninguna pantalla lo usa; en Flutter y en el PIAR
+  no aparece. Así que el 410 no se ve en ninguna parte — lo que cambia es que un
+  token cualquiera del personal deja de poder vaciar las definitivas manuales de
+  una asignatura por su número.
+
+Lo fija `CalcularAsignaturaBorraYRevientaTest`, y el caso está escrito para medir
+**el borrado y no el código**: comprobado al revés contra tres versiones —sin el
+corte, con el corte después del cálculo, y con un 410 correcto que aun así
+borra—. La última pasa el `assertStatus(410)` y cae por el recuento, que es justo
+para lo que existe.
+
+### 71.4 Lo que enseñó, y no es sobre definitivas
+
+**Al quedarse el método sin cuerpo, saltó `phpstan.neon`.** Tres excepciones
+—`Undefined variable: $asignaturas` con `count: 5` y una llamada con dos
+parámetros de tres— dejaron de casar, y larastan las convirtió en error
+(`ignore.unmatched`). Se borraron con el código que las producía.
+
+Eso es exactamente lo que el propio `phpstan.neon` dice arriba —«nunca en un
+baseline generado, que los escondería»— y **es la primera vez que se cobra**: un
+baseline se habría callado, y las tres habrían seguido ahí tapando lo que ya no
+existe. Una excepción con nombre y `count` es la única que se queja cuando deja de
+hacer falta.
+
+La que se queda es la de `Alumnos/Definitivas.php`: la clase sigue entera, con las
+dos copias del método roto, y hoy es lo único que dice qué se pretendía.

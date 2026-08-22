@@ -390,8 +390,19 @@ la decisión de la §9.1 no es cosmética.
   sin definir, y el INSERT no liga la mitad de sus parámetros. La primera está
   enrutada a través de `putCalcularNotasFinalesAsignatura`, ya documentada como
   rota en [05-codigo-muerto-y-roto.md:271](docs/migracion/05-codigo-muerto-y-roto.md#L271).
-  Su DELETE, si llegara a ejecutarse, borra por `manual is null or manual=1` — el
-  criterio **invertido**: se llevaría por delante justo las que se pusieron a mano.
+  Su DELETE borra por `manual is null or manual=1` — el criterio **invertido**: se
+  lleva por delante justo las que se pusieron a mano.
+
+  **«Si llegara a ejecutarse» decía esta línea, y sí se ejecutaba** (22 ago 2026):
+  es la primera sentencia del método, y el 500 llega después. Medido: 164 → 160
+  definitivas y las **cuatro manuales a cero**. El endpoint contesta **410** desde
+  esa fecha y no ejecuta nada; el porqué y lo que NO se hizo están en la
+  [05 §71](05-codigo-muerto-y-roto.md). La fase 3 sigue siendo la que lo sustituye
+  de verdad, y la 5 la que retira la ruta.
+
+  Vale la pena la lección: **«si llegara a ejecutarse» es una hipótesis, y estaba a
+  una llamada de comprobarse.** Lo que la mantuvo sin contestar tres días fue que
+  el método está documentado como roto, y un roto documentado se lee como inofensivo.
 - `CalcPerdidasDefinitivas` ([líneas 18-21](app/Http/Controllers/Informes/CalcPerdidasDefinitivas.php#L18))
   tiene un copia-pega en los joins: `nf2`, `nf3` y `nf4` condicionan por
   `nf1.periodo_id is not null`. Si falta la definitiva del periodo 1, **el boletín
