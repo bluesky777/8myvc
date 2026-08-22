@@ -784,7 +784,13 @@ class AlumnosController extends Controller {
 				abort(422, 'Datos incorrectos');
 			}
 		} else {
-			return abort(403, 'No tienes permiso para eliminar alumnos definitivamente.');
+			// El mensaje decía «eliminar alumnos definitivamente», copiado del
+			// `forcedelete` de más abajo. Esta ruta EDITA, y quien lea el aviso o el
+			// log de un colegio creería que alguien intentó borrar a un alumno. El
+			// criterio que se comprueba arriba es `puedeEditarAlumnos`, no
+			// `puedeBorrarAlumnos`. Salió del barrido de cobertura del 21 ago 2026,
+			// que fue el primero que leyó lo que responde esta ruta. Ver 05 §54.
+			return abort(403, 'No tienes permiso para editar alumnos.');
 		}
 	}
 

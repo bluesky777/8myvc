@@ -109,10 +109,28 @@ error real**:
 
 ### Qué mirar después, por orden de lo que ha dado fruto
 
-1. **Seguir la cobertura**: quedan **169 rutas** sin respuesta comprobada. El
-   método que ha dado los diez hallazgos del día no es subir el número, es
-   **elegir un hueco con forma de dominio y leer el controlador**. La lista sale
-   de `tools/cobertura-de-rutas.py`.
+1. **Seguir la cobertura**: al 21 ago 2026 por la noche, **385 de 539 (71%)**. El
+   método que ha dado los hallazgos no es subir el número, es **elegir un hueco
+   con forma de dominio y leer el controlador**. La lista sale de
+   `tools/cobertura-de-rutas.py`.
+
+   El último hueco leído fueron las **veintidós rutas de `auth.token` a secas que
+   no había mirado nadie**, y salió **sin ningún fallo de autorización** — el
+   primer barrido del mes que sale así, y eso es un dato y no un rato perdido:
+   dice que ese trozo está cubierto. Lo que sí trajo son **ocho rechazos que
+   contestan con el código de otra cosa** ([05 §54](05-codigo-muerto-y-roto.md)),
+   y uno de los ocho no era cosmético: `enfermeria/*` respondía **401**, que
+   `Sesion.ts` del front lee como «sesión caducada» — le rotaba los tokens al que
+   llamaba y en la carrera lo echaba al login. Se reporta como «me saca», que
+   manda a mirar el código de sesión, donde no está el fallo.
+
+   **Y la lección que ya va por la tercera vez en dos días**: los tres hallazgos
+   de ayer y hoy —el 500 de `ChangesAskedAssignment`, la exención de
+   `imagenes-de-usuario` y este 401— **ya tenían un test o una anotación que los
+   fijaba**. Un test que fija lo que hay deja fijado también lo que estaba mal, y
+   lo vuelve más difícil de ver, porque a partir de ahí hay un verde que dice que
+   es así. No es un argumento contra fijar lo que hay: es que hace falta escribir
+   al lado **por qué ese valor es el que es**, aunque solo sea «no se juzgó».
 2. ~~**La pregunta que junta cinco fallos y que sigue sin hacerse**~~ —
    **contestada el 21 ago 2026, y salieron tres** ([05 §53](05-codigo-muerto-y-roto.md)).
    Fueron el **sexto** `asked_id` —la copia literal de la ruta que arregló la §50,

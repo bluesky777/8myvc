@@ -17,6 +17,18 @@ use \Log;
 use Carbon\Carbon;
 
 
+/**
+ * El calendario del colegio.
+ *
+ * **Sus cuatro rechazos respondían `404, 'No tienes permiso'`**, o sea un código
+ * y un mensaje que dicen cosas distintas: el cuerpo habla de permisos y el
+ * código dice que la ruta o la fila no existen. En un API donde 404 significa
+ * «esa fila no está» en todas partes —y donde se acaba de gastar una serie
+ * entera en que lo signifique—, esto es la contraria de un 200 que miente.
+ *
+ * Pasan a 403. El front no mira el código en ninguna de las cuatro: pinta el
+ * mensaje del cuerpo con `toastr.error`. Ver 05 §54.
+ */
 class CalendarioController extends Controller {
 
     public function putThisYear(){
@@ -62,7 +74,7 @@ class CalendarioController extends Controller {
 
             return ['evento_id' => $last_id];
         }else{
-            return abort(404, 'No tienes permiso');
+            return abort(403, 'No tienes permiso');
         }
         
 	}
@@ -105,7 +117,7 @@ class CalendarioController extends Controller {
             
             return 'Modificado';
         }else{
-            return abort(404, 'No tienes permiso');
+            return abort(403, 'No tienes permiso');
         }
 	}
 
@@ -124,7 +136,7 @@ class CalendarioController extends Controller {
             ]);
             return 'Eliminado';
         }else{
-            return abort(404, 'No tienes permiso');
+            return abort(403, 'No tienes permiso');
         }
     }
 
@@ -162,7 +174,7 @@ class CalendarioController extends Controller {
             return 'Sincronizados';
             
         }else{
-            return abort(404, 'No tienes permiso');
+            return abort(403, 'No tienes permiso');
         }
     }
 

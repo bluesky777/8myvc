@@ -4987,3 +4987,99 @@ sobre todo **no sabe qué identificadores son de una persona y cuáles del coleg
 Las 231 rutas siguen ahí; lo que se ha leído es el trozo alcanzable por una
 familia y por el personal que no debería. El resto se lee el día que se decida
 quién configura el colegio, que es lo que está abierto en 09 §0.
+
+---
+
+## 54. Ocho rechazos que contestan con el código de otra cosa (21 ago 2026)
+
+Sigue la lista de cobertura. Quedaban **veintidós rutas que ningún test había
+mirado nunca y que alcanza cualquiera con token** —las de `auth.token` a secas—,
+así que se golpearon las veintidós con un token de alumno de una vez, mirando el
+resultado.
+
+**Ninguna dejaba pasar nada**: las diecisiete que deniegan lo hacían bien y las
+cinco que responden 200 son catálogos o cosas suyas. O sea que no hay aquí un
+hallazgo de autorización, y eso ya es un dato: es el primer barrido del mes que
+sale sin uno.
+
+Lo que sí salió es que **la mitad contesta con un código que dice otra cosa que su
+propio mensaje**, y son cuatro códigos distintos para lo mismo:
+
+| Rutas | Contestaba | Mensaje |
+|---|---|---|
+| `enfermeria/*` (4) | **401** | «No puedes cambiar» / «No puedes eliminar» |
+| `calendario/*` (4) | **404** | «No tienes permiso» |
+| `alumnos/forcedelete`, `alumnos/guardar-valor-varios` | 400 | «No tiene permisos» |
+| `publicaciones/restaurar`, `acudientes/crear`… | 403 | el bueno |
+
+### El 401 no es un código mal elegido: es una orden al frontend
+
+Es el que hay que mirar, y no se ve leyendo el backend. `Sesion.ts` de
+`myvc_front` intercepta **todo 401** que no venga de una ruta de sesión, pide una
+renovación de tokens y reenvía la petición; si la renovación falla —el refresco ya
+rotado en otra pestaña, que es la carrera que el propio fichero documenta—, llama
+a `expirar('token')`: borra los tokens, avisa con «La sesión ha expirado» y manda
+al login.
+
+O sea que a quien no tiene el permiso de enfermería no se le decía «no puedes»:
+se le **rotaba la sesión en cada intento**, y en la carrera se le echaba de la
+plataforma. Eso se reporta como **«me saca»**, que manda a mirar el código de
+sesión —donde no está el fallo— y no como «no tengo permiso».
+
+Es el reverso exacto de la §45: allí un `else` devolvía 200 y el front pintaba
+como hecho algo que no se hizo; aquí devuelve 401 y el front deshace algo que sí
+estaba bien.
+
+### El 404 de calendario, y por qué ahora importa más que antes
+
+`404, 'No tienes permiso'` es un código y un mensaje que dicen cosas distintas. En
+un API donde 404 significa «esa fila no está» en todas partes —y donde se acaba de
+gastar una serie entera en que lo signifique: §44, §47, §49, §50, §53— dejar
+cuatro que lo usan para «no puedes» es sembrar el siguiente rato perdido.
+
+Los ocho pasan a **403**, que es lo que dice CLAUDE.md para código nuevo y lo que
+hace el resto de la API. **Ningún cliente los leía para otra cosa**: comprobado en
+los tres fronts, el `.catch` de las ocho llamadas pinta el mensaje del cuerpo con
+`toastr.error` y no mira el código. Fijado por `RechazosQueMientenTest`, con el
+caso al revés —un profesor sigue creando eventos— para que se vea que se corrige
+el código y no el criterio.
+
+Los 400 se dejan: son el legacy que CLAUDE.md ya describe, no mienten sobre lo que
+pasó y cambiarlos es tocar rutas cuyo front no se ha leído.
+
+### Y un mensaje que hablaba de otra operación
+
+`PUT alumnos/update/{id}` respondía **403 «No tienes permiso para eliminar alumnos
+definitivamente»**, copiado del `forcedelete` de más abajo del mismo controlador.
+El código era el correcto; el que mentía era el texto — y el texto es lo que se
+enseña en pantalla y lo que queda en el log de un colegio, donde parecería que
+alguien intentó borrar a un alumno. El criterio que la ruta comprueba es
+`puedeEditarAlumnos`.
+
+### Y la tercera vez en dos días de lo mismo
+
+El 401 de enfermería **ya tenía un test que lo fijaba**: `EnfermeriaTest`, escrito
+por la §41.2 al arreglar el criterio —quién puede escribir los antecedentes—. Aquel
+trabajo entró por el criterio, anotó el código que había y no se lo preguntó.
+
+Es la tercera en dos días, después de las dos de la §53: el 500 de
+`ChangesAskedAssignment/ver-detalles` en `MuestreoDeLecturasConContextoTest` y la
+exención de `images-users/imagenes-de-usuario` en `AutorizacionTest`. Las tres
+tienen la misma forma y conviene decirla entera:
+
+> **Un test que fija lo que hay deja fijado también lo que estaba mal, y lo vuelve
+> más difícil de ver** — porque a partir de ahí hay un test verde que dice que es
+> así.
+
+No es un argumento contra fijar lo que hay: es lo que hace útiles a los tests de
+contrato y no se cambia. Lo que hace falta es la costumbre de **escribir al lado
+por qué ese valor es el que es**, aunque solo sea «no se juzgó». Los tres estaban
+anotados con precisión y ninguno decía eso, así que los tres se leyeron como
+decididos.
+
+### Lo que se lleva de aquí el método
+
+Un barrido que sale **sin ningún fallo de autorización** no es un barrido perdido:
+es la primera medición que dice que ese trozo está cubierto. Y aun así trajo ocho
+respuestas que mienten, porque **la pregunta era «qué responde» y no «quién
+entra»**. Es la misma diferencia que hizo útil la cobertura desde el principio.
