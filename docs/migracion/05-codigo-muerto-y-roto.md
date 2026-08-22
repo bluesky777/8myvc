@@ -6301,24 +6301,70 @@ Medido: `users.is_active` de un profesor pasa de **0 a 1** con el cuerpo exacto
 de la pantalla vieja, respondiendo 200. **Reactiva una cuenta que alguien cerró**,
 y quien edita no se entera.
 
-### 68.2 No está solo en profesores: también en alumnos, y ahí es `putUpdate`
+### 68.2 Son SEIS sitios, y solo DOS son el fallo — el discriminador no es el método
 
-Lo que el front no podía ver. El mismo `Request::input('is_active', 1)` está en
-**cinco** sitios:
+Aquí hubo dos recuentos malos antes de éste, y los dos con la misma forma:
 
-| Fichero | Línea | Método | Qué implica |
+- **`f3` dijo cinco.** Había contado con `grep … | head -5`: **un recuento
+  truncado presentado como total.** Es la misma familia que el `| tail` que se
+  traga un código de salida — **un tubo que limita en silencio y contesta como si
+  hubiera contestado entero.**
+- **`myvc-front-99` dijo seis y clasificó cuatro como fallo**, usando el nombre
+  del método: todo lo que estuviera en `putUpdate` era edición.
+
+**El nombre del método no lo dice.** `putUpdate` **también da de alta**: crea la
+cuenta del alumno o del profesor que todavía no tiene una. Lo que discrimina es
+si la línea cuelga de un **`new User`** o de un **`User::find()`**:
+
+| Sitio | Método | Objeto | ¿Fallo? |
 |---|---|---|---|
-| `ProfesoresController` | 138, 348, 371 | alta y actualización | lo medido arriba |
-| `AlumnosController` | 278 | `postStore()` | **alta**: un alumno nuevo nace activo, que es razonable |
-| `AlumnosController` | **723** | **`putUpdate($id)`** | **actualización: el mismo fallo, sobre alumnos** |
+| `ProfesoresController:138` | `postStore` | `new User` | no — alta |
+| **`ProfesoresController:348`** | **`putUpdate`** | **`User::find($profesor->user_id)`** | **SÍ** |
+| `ProfesoresController:371` | `putUpdate` | `new User` | no — alta |
+| `AlumnosController:278` | `postStore` | `new User` | no — alta |
+| **`AlumnosController:723`** | **`putUpdate`** | **`User::find($alumno->user_id)`** | **SÍ** |
+| `AlumnosController:757` | `putUpdate` | `new User` | no — alta |
 
-La fila que importa es la última: **editar la ficha de un alumno reactiva su
-cuenta si estaba desactivada.** Y no es la misma magnitud — un colegio tiene ~47
-docentes y **~1.280 alumnos**.
+**Dos fallos y cuatro altas.** En una cuenta que se está creando, `is_active = 1`
+por defecto es el comportamiento correcto y **no se toca**.
 
+Esto importa porque el aviso que dio `myvc-front-99` —«sin la distinción, alguien
+arregla los seis y rompe el alta»— **era exacto, y su propia clasificación habría
+roto dos**: la 371 y la 757 son altas dentro de `putUpdate`. La regla utilizable
+es **`new User` contra `User::find`**, no el nombre del método.
+
+**Y la magnitud sigue en pie**: el fallo de `AlumnosController:723` afecta a la
+ficha de alumno, que un colegio tiene ~1.280 frente a 47 docentes.
 `AlumnosController:723` trae además, en las líneas de al lado, **el mismo apaño
 del correo** (`$usuario->email = Request::input('email2')`) y un
 `is_superuser = 0` escrito a pelo.
+
+### 68.2.1 La mina latente de al lado: la condición de la contraseña está invertida
+
+`AlumnosController:726`, dentro del mismo bloque:
+
+```php
+if (Request::has('password')) {
+    if (Request::input('password') == "") {        // <- solo si está VACÍA
+        $usuario->password = Hash::make(Request::input('password'));
+    }
+}
+```
+
+Mandar una contraseña de verdad **no hace nada**; mandar la cadena vacía pone la
+contraseña al **hash de la cadena vacía**.
+
+**Hoy no muerde, y está comprobado por qué**: la pantalla vieja **no manda
+`password`** en `alumnos/update` —`grep` en `AlumnosCtrl` y `PersonaCtrl`, cero
+resultados—, así que `Request::has` es falso y el bloque no se ejecuta jamás.
+
+> **Es la tercera pata de la lectura**: el controlador dice qué acepta, el `return`
+> qué devuelve, **y el llamante si el fallo está vivo o solo latente**. Éste está
+> **latente**, como `perfiles/destroy` borrando grupos (§65.3).
+
+**Y como aquélla, se enciende sola el día que alguien añada el campo** — y es una
+pantalla de fichas de alumno, así que va a pasar. La prueba que lo fija: `PUT` con
+`password: 'algoDeVerdad'` y comprobar que **el hash cambia**. Hoy falla.
 
 ### 68.3 El correo no se pierde: se muda de columna
 
