@@ -185,9 +185,12 @@ class ExcelUtils implements ToArray, WithHeadingRow, WithEvents
 					tipo_doc=?, documento=?, no_matricula=?, direccion=?, barrio=?, telefono=?, celular=?, estrato=?, 
 					tipo_sangre=?, eps=?, religion=?, nro_sisben=?, updated_at=?'.$res['consulta'].' WHERE id=?';
 					
-				DB::update($consulta, [$alumno["no_matricula"], trim($alumno["primer_nombre"].' '.$alumno["segundo_nombre"]), trim($alumno["primer_apellido"].' '.$alumno["segundo_apellido"]), $alumno["sexo"], $alumno["fecha_de_nacim"], 
+				// Los valores del fragmento van en medio: entra detras de `updated_at=?`
+				// y delante del `WHERE id=?`, asi que el orden del array tiene que ser
+				// el mismo. Ver 05 §60.
+				DB::update($consulta, array_merge([$alumno["no_matricula"], trim($alumno["primer_nombre"].' '.$alumno["segundo_nombre"]), trim($alumno["primer_apellido"].' '.$alumno["segundo_apellido"]), $alumno["sexo"], $alumno["fecha_de_nacim"], 
 						$alumno["tipo_doc"], $alumno["nro_de_documento"], $alumno["numero_matricula"], $alumno["direccion_residencia"], $alumno["barrio"], $alumno["telefono"], $alumno["celular"], $alumno["estrato"], 
-						$alumno["rh"], $alumno["eps"], $alumno["religion"], $alumno['sisben'], $now, $alumno["id"]]);
+						$alumno["rh"], $alumno["eps"], $alumno["religion"], $alumno['sisben'], $now], $res['valores'], [$alumno["id"]]));
 				
 						
 				DB::update('UPDATE matriculas m INNER JOIN grupos g ON g.id=m.grupo_id and g.year_id=? and g.deleted_at is null SET m.nuevo=?, m.estado=?, m.updated_at=? WHERE m.alumno_id=? and m.deleted_at is null', [$grupo->year_id, $alumno["es_nuevo"], $alumno["estado_matricula"], $now, $alumno["id"]]);
@@ -669,9 +672,11 @@ class ImportarController extends Controller {
 							tipo_sangre=?, eps=?, religion=?, updated_at=?'.$res['consulta'].' WHERE id=?';
 							
 	
-						DB::update($consulta, [$alumno->no_matricula, $alumno->primer_nombre.' '.$alumno->segundo_nombre, $alumno->primer_apellido.' '.$alumno->segundo_apellido, $alumno->sexo, $alumno->fecha_de_nacim, 
+						// Aqui la consulta NO liga `nro_sisben`, al reves que la de procesarFila:
+						// el fragmento es el unico que la escribe por esta ruta. Ver 05 §60.
+						DB::update($consulta, array_merge([$alumno->no_matricula, $alumno->primer_nombre.' '.$alumno->segundo_nombre, $alumno->primer_apellido.' '.$alumno->segundo_apellido, $alumno->sexo, $alumno->fecha_de_nacim, 
 								$alumno->tipo_doc, $alumno->nro_de_documento, $alumno->numero_matricula, $alumno->direccion_residencia, $alumno->barrio, $alumno->telefono, $alumno->celular, $alumno->estrato, 
-								$alumno->rh, $alumno->eps, $alumno->religion, $now, $alumno->id]);
+								$alumno->rh, $alumno->eps, $alumno->religion, $now], $res['valores'], [$alumno->id]));
 						
 								
 						DB::update('UPDATE matriculas m INNER JOIN grupos g ON g.id=m.grupo_id and g.year_id=? and g.deleted_at is null SET m.nuevo=?, m.estado=?, m.updated_at=? WHERE m.alumno_id=? and m.deleted_at is null', [$grupo->year_id, $alumno->es_nuevo, $alumno->estado_matricula, $now, $alumno->id]);
