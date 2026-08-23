@@ -756,3 +756,28 @@ cayó al mirarla.
     fichero que se estaba contando**. Es la lección 2 en pequeño y más traicionera,
     porque **una resta es una medición de dos cosas** y basta con que se mueva una
     para que el resultado siga teniendo la pinta exacta de la respuesta.
+
+### Y lo único que hay que llevarse si no se lee el resto
+
+Las treinta y dos de arriba no se cumplen por sabérselas. **La del sello la
+escribimos las dos sesiones, la citamos las dos, y la incumplimos las dos** — la
+última vez en la cabecera de la herramienta que existe justo para eso, que
+envejeció **dos veces en una sola noche**.
+
+Y ninguna de las treinta y dos salió de mirar mejor:
+
+> **Todas salieron de que un número tuviera que salir de un sitio hacia otro.** El
+> único momento en que este trabajo se comprueba de verdad es **cuando cruza una
+> frontera** — cuando alguien que no lo produjo tiene delante el número, el
+> comando al lado, y la costumbre de correrlo antes de contestar.
+
+Por eso el reparto de la noche no es solo una forma de ir más rápido: **es el
+único mecanismo que hizo que estas treinta y dos aparecieran.** Cuatro veces se
+dio la noche por cerrada y las cuatro había algo debajo; las cuatro lo destapó un
+mensaje, no una relectura.
+
+Corolario operativo, que es lo que hay que montar la próxima vez: **una sesión que
+trabaja sola no tiene frontera que cruzar, así que sus números no se comprueban.**
+Si alguna vez hay una sola, que la última hora sea escribirle el cierre a alguien
+—aunque ese alguien sea el documento— **con el comando al lado de cada número**.
+Lo que no puede pasar es que el último que mire el número sea el que lo escribió.
