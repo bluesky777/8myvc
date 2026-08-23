@@ -8,7 +8,7 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
-**Última actualización: 24 ago 2026** · `main`
+**Última actualización: 24 ago 2026** · rama `fix/definitivas-fase-2`
 
 ---
 
@@ -48,12 +48,17 @@ desaparecen los `INSERT` sin guarda** que hoy impiden poner el índice único:
 | Disparador | Estado |
 |---|---|
 | Abrir un boletín | **hecho** |
-| **Editar una nota** (`NotasController::putUpdate`) | **siguiente** — es el que se pidió |
-| `putSubunidad` | falta, y antes hay que arreglar que **hoy no guarda nada** (§3.1) |
-| Unidades y subunidades | falta — siguen llamando a `NotaFinal::calcularAsignaturaPeriodo` |
-| Copiar un periodo | falta |
-| Cada carga de /notas (`putDetailed`) | falta |
-| Crear la subunidad y sus notas en la misma transacción | falta |
+| Editar una nota (`putUpdate`) y **borrarla** (`deleteDestroy`) | **hecho** — era la petición de origen |
+| `putSubunidad`, la nota rápida del horario | **hecho**, y de paso arreglada la §3.1: no guardaba nada **y era una inyección** |
+| Unidades y subunidades (crear, editar, borrar) | **hecho** — las cuatro llamadas al calculador viejo, y **ya no dependen de que el cliente mande `asignatura_id`** |
+| Copiar un periodo | **hecho** — traía la estructura y no avisaba a nadie |
+| Cada carga de /notas (`putDetailed`) | **hecho** — era un DELETE+INSERT por alumno en cada carga; ahora pregunta primero |
+| Crear la subunidad y sus notas en la misma transacción | **falta — es lo único que queda de la fase 3** |
+
+**Cinco `INSERT` sin guarda menos**: al desaparecer los de `putDetailed` y los del
+calculador viejo, la fase 2 queda más cerca. Lo que sigue sin guarda es
+`DefinitivasPeriodosController::putUpdate` —el profesor tecleando una definitiva—
+y los cuatro de `NotaFinal::alumnos_grupo_nota_final`.
 
 ### Y el orden, que se corrigió el 24 ago
 

@@ -121,6 +121,49 @@ class DefinitivasDeAsignatura
         );
     }
 
+    /**
+     * Recalcular la asignatura y periodo a los que pertenece una **unidad**.
+     *
+     * **No se filtra `deleted_at` a propósito**, igual que hace `PeriodoDeLaFila`:
+     * el caso que más lo necesita es justo el borrado —quitar una unidad cambia
+     * los pesos de todas las demás—, y ahí la fila ya lleva su `deleted_at`
+     * puesto cuando esto se llama.
+     */
+    public static function recalcularPorUnidad(int $unidadId, ?int $porUsuario = null): ?array
+    {
+        $donde = DB::selectOne(
+            'SELECT asignatura_id, periodo_id FROM unidades WHERE id = ?',
+            [$unidadId]
+        );
+
+        if ($donde === null) {
+            return null;
+        }
+
+        return self::recalcular((int) $donde->asignatura_id, (int) $donde->periodo_id, $porUsuario);
+    }
+
+    /**
+     * Lo mismo desde una **subunidad**, que no lleva ni asignatura ni periodo:
+     * cuelga de la unidad y la unidad sí.
+     */
+    public static function recalcularPorSubunidad(int $subunidadId, ?int $porUsuario = null): ?array
+    {
+        $donde = DB::selectOne(
+            'SELECT u.asignatura_id, u.periodo_id
+               FROM subunidades s
+               INNER JOIN unidades u ON u.id = s.unidad_id
+              WHERE s.id = ?',
+            [$subunidadId]
+        );
+
+        if ($donde === null) {
+            return null;
+        }
+
+        return self::recalcular((int) $donde->asignatura_id, (int) $donde->periodo_id, $porUsuario);
+    }
+
     public static function recalcular(
         int $asignaturaId,
         int $periodoId,

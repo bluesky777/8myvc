@@ -129,19 +129,32 @@ class NotasController extends Controller {
 				
 			$nota_final = DB::select($cons_nf, [':asign_id1'=>$asignatura->asignatura_id, ':periodo'=>$user->numero_periodo, ':asign_id2'=>$asignatura->asignatura_id, ':alumno_id'=>$alumno->alumno_id])[0];
 			
-			$now 		= Carbon::now('America/Bogota');
-			
-			$consulta = 'INSERT INTO notas_finales(alumno_id, asignatura_id, periodo_id, periodo, nota, recuperada, manual, updated_by, created_at, updated_at) 
-				VALUES(:alumno_id, :asignatura_id, :periodo_id, :periodo, :nota, :recuperada, :manual, :updated_by, :created_at, :updated_at)';
-		
-			if (!$nota_final->manual && !$nota_final->recuperada) {
-				DB::delete('DELETE FROM notas_finales WHERE id=?', [ $nota_final->nf_id ]);
-				
-				DB::insert($consulta, [':alumno_id' => $alumno->alumno_id, ':asignatura_id' => $asignatura_id, ':periodo_id' => $user->periodo_id, 
-					':periodo' => $user->numero_periodo, ':nota' => round($nota_final->def_materia_auto), ':recuperada' => 0, ':manual' => 0, ':updated_by' => $user->user_id, ':created_at' => $now, ':updated_at' => $now ]);
+			// Fase 3 de 10-definitivas.md. **Aquí había un DELETE+INSERT por alumno
+			// en CADA carga de esta pantalla**, sin preguntar si hacía falta: es el
+			// tercer escritor de la §0 y una de las ventanas por las que se perdían
+			// definitivas —entre el DELETE y el INSERT la fila no existe, y una
+			// petición que muriera en medio la dejaba borrada—.
+			//
+			// Ahora se pregunta primero y **casi siempre no hace falta**: el sello de
+			// versión mira las notas vivas y borradas, las unidades, las subunidades y
+			// las matrículas del grupo, así que sólo recalcula cuando algo de eso se
+			// movió después de la última definitiva.
+			//
+			// Y el `INSERT` que había aquí era **uno de los cinco sin guarda** que
+			// impedían poner la clave única de la fase 2: al desaparecer, esa fase se
+			// acerca un sitio más.
+			if (DefinitivasDeAsignatura::estaDesactualizada(
+				(int) $asignatura_id, (int) $user->periodo_id, (int) $alumno->alumno_id
+			)) {
+				DefinitivasDeAsignatura::recalcular(
+					(int) $asignatura_id,
+					(int) $user->periodo_id,
+					(int) $user->user_id,
+					(int) $alumno->alumno_id
+				);
+
+				$nota_final = DB::select($cons_nf, [':asign_id1'=>$asignatura->asignatura_id, ':periodo'=>$user->numero_periodo, ':asign_id2'=>$asignatura->asignatura_id, ':alumno_id'=>$alumno->alumno_id])[0];
 			}
-				
-			$nota_final = DB::select($cons_nf, [':asign_id1'=>$asignatura->asignatura_id, ':periodo'=>$user->numero_periodo, ':asign_id2'=>$asignatura->asignatura_id, ':alumno_id'=>$alumno->alumno_id])[0];
 			
 			
 
@@ -404,14 +417,33 @@ class NotasController extends Controller {
 		foreach ($alumnos as $alumno) {
 			
 			if ($sub_id) {
-				$consulta = "INSERT INTO notas(subunidad_id, alumno_id, nota, created_by, created_at, updated_at) 
-						SELECT * FROM 
-						(SELECT '.$sub_id.' as subunidad_id, '.$alumno->alumno_id.' as alumno_id, '.$nota_default.' as nota, '.$user->user_id.' as created_by, '.$now.' as created_at, '.$now.' as updated_at) AS tmp
+				// §3.1 de 10-definitivas.md — **esto no guardaba nada, y de paso era
+				// una inyección.** La cadena estaba entre comillas **dobles** pero
+				// escrita con la sintaxis de concatenación de las simples:
+				//
+				//     "... (SELECT '.$sub_id.' as subunidad_id, ...)"
+				//
+				// En comillas dobles PHP **sí** interpola `$sub_id`, así que lo que
+				// llegaba a MySQL era `'.123.'` — una cadena, no un número—, que en
+				// una columna `int` vale **0** y la clave foránea a `subunidades`
+				// rechaza. Por eso «no guarda nada»: el `WHERE NOT EXISTS` sí iba
+				// parametrizado, así que cuando la nota ya existía no se intentaba
+				// insertar y no se notaba; cuando no existía, reventaba.
+				//
+				// Y la otra mitad: **los cinco valores venían del cuerpo y entraban
+				// interpolados**. Que la comilla de más los rompiera es lo único que
+				// impedía que fuera explotable. Se liga todo.
+				$consulta = 'INSERT INTO notas(subunidad_id, alumno_id, nota, created_by, created_at, updated_at)
+						SELECT * FROM
+						(SELECT ? as subunidad_id, ? as alumno_id, ? as nota, ? as created_by, ? as created_at, ? as updated_at) AS tmp
 							WHERE NOT EXISTS (
 								SELECT * from notas WHERE subunidad_id=? and alumno_id=? and deleted_at is null
-							) LIMIT 1";
-								
-				DB::insert($consulta, [ $sub_id, $alumno->alumno_id ]);
+							) LIMIT 1';
+
+				DB::insert($consulta, [
+					$sub_id, $alumno->alumno_id, $nota_default, $user->user_id, $now, $now,
+					$sub_id, $alumno->alumno_id,
+				]);
 				
 				// Notas
 				$cons = "SELECT n.id, n.nota, n.subunidad_id, n.alumno_id, n.created_by, n.updated_by, n.deleted_by, n.deleted_at, n.created_at, n.updated_at
@@ -456,8 +488,29 @@ class NotasController extends Controller {
 			$alumno->uniformes_count 	= count($uniformes);
 
 		}
-		
-		
+
+		// Fase 3 de 10-definitivas.md. **Una vez al final y no por alumno**: el
+		// bucle de arriba crea la nota por defecto de esa subunidad para todos los
+		// del grupo, así que lo que cambia es la asignatura entera y recalcularla
+		// por alumno serían N consultas agregadas para el mismo resultado.
+		//
+		// El periodo sale de la **subunidad**, no de `$user->periodo_id`: la
+		// subunidad cuelga de la unidad y la unidad sí lo lleva. Es la misma
+		// distinción que hizo falta en el boletín —usar el periodo del que mira en
+		// vez del de la fila es la §1.1—, y aquí es gratis porque `PeriodoDeLaFila`
+		// ya sabe hacer ese camino.
+		if ($sub_id) {
+			$periodoDeLaSubunidad = PeriodoDeLaFila::deSubunidad($sub_id);
+
+			if ($periodoDeLaSubunidad !== null && $asignatura_id) {
+				DefinitivasDeAsignatura::recalcular(
+					(int) $asignatura_id,
+					$periodoDeLaSubunidad,
+					$user->user_id
+				);
+			}
+		}
+
 		return [ 'alumnos'=> $alumnos ];
 	}
 

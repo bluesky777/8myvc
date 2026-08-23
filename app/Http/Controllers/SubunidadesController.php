@@ -1,6 +1,7 @@
 <?php namespace App\Http\Controllers;
 
 use Illuminate\Support\Facades\Request;
+use App\Services\DefinitivasDeAsignatura;
 use Illuminate\Support\Facades\DB;
 
 use App\User;
@@ -218,14 +219,13 @@ class SubunidadesController extends Controller {
 		$subunidad->save();
 		
 		
-		if (Request::input('asignatura_id')) {
-			$asignatura_id 	= Request::input('asignatura_id');
-			$periodo_id 	= Request::input('periodo_id');
-			$num_periodo 	= Request::input('num_periodo');
-			
-			NotaFinal::calcularAsignaturaPeriodo($asignatura_id, $periodo_id, $num_periodo);
-
-		}
+		// Fase 3 de 10-definitivas.md: el recálculo lo hace el servicio único, y
+		// **deja de depender de que el cliente mande `asignatura_id`**. Ese
+		// `if (Request::input('asignatura_id'))` era la mitad del problema: si el
+		// front no lo mandaba —y no siempre lo manda— **el peso cambiaba y la
+		// definitiva no**, en 200 y sin avisar. La subunidad sabe de qué asignatura y
+		// periodo es; no hay nada que preguntarle al cuerpo.
+		DefinitivasDeAsignatura::recalcularPorSubunidad((int) $id, $user->user_id);
 
 		return $subunidad;
 	}
@@ -269,14 +269,13 @@ class SubunidadesController extends Controller {
 		}
 		
 		
-		if (Request::input('asignatura_id')) {
-			$asignatura_id 	= Request::input('asignatura_id');
-			$periodo_id 	= Request::input('periodo_id');
-			$num_periodo 	= Request::input('num_periodo');
-			
-			NotaFinal::calcularAsignaturaPeriodo($asignatura_id, $periodo_id, $num_periodo);
-
-		}
+		// Fase 3 de 10-definitivas.md: el recálculo lo hace el servicio único, y
+		// **deja de depender de que el cliente mande `asignatura_id`**. Ese
+		// `if (Request::input('asignatura_id'))` era la mitad del problema: si el
+		// front no lo mandaba —y no siempre lo manda— **el peso cambiaba y la
+		// definitiva no**, en 200 y sin avisar. La subunidad sabe de qué asignatura y
+		// periodo es; no hay nada que preguntarle al cuerpo.
+		DefinitivasDeAsignatura::recalcularPorSubunidad((int) $id, $user->user_id);
 		
 		return $subunidad;
 	

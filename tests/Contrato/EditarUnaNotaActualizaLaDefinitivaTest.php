@@ -103,6 +103,55 @@ class EditarUnaNotaActualizaLaDefinitivaTest extends CasoDeContrato
     }
 
     /**
+     * `putSubunidad` crea la nota que faltaba **y ahora sí guarda** — §3.1.
+     *
+     * Es la nota rápida desde el horario del día. Su `INSERT` estaba entre
+     * comillas **dobles** con la sintaxis de concatenación de las simples, así que
+     * a MySQL le llegaba `'.123.'` —una cadena— donde iba un `int`: valía **0** y
+     * la clave foránea lo rechazaba. Lo que lo tapaba es que el `WHERE NOT EXISTS`
+     * sí iba ligado: cuando la nota ya existía no se intentaba insertar y no se
+     * notaba nada.
+     *
+     * **Por eso el test borra la nota antes**: con la nota puesta, el método pasa
+     * igual de bien roto que arreglado. El sujeto de esto es el hueco.
+     */
+    public function test_la_nota_rapida_del_horario_se_guarda_y_mueve_la_definitiva(): void
+    {
+        [$token, $ctx] = $this->asignaturaConNotas();
+
+        $nota = DB::table('notas')->where('id', $ctx['notas'][0])->first();
+        $subunidadId = (int) $nota->subunidad_id;
+
+        // Se quita la nota de ese alumno en esa subunidad para que haya hueco que
+        // rellenar. Con `nota_default` a 40, su definitiva pasa de 20 a **25**.
+        //
+        // El 40 no es arbitrario: `notas_finales.nota` es **`int`**, así que un
+        // resultado de 22,5 se guarda como 23 y el test estaría afirmando el
+        // redondeo de MySQL sin decirlo. Con números que dan entero, lo que se
+        // comprueba es el disparador, que es lo que este test mide.
+        DB::table('notas')->where('id', $ctx['notas'][0])->delete();
+        DB::table('subunidades')->where('id', $subunidadId)->update(['nota_default' => 40]);
+
+        $grupoId = DB::table('asignaturas')->where('id', $ctx['asignatura'])->value('grupo_id');
+
+        $this->withToken($token)->putJson('/api/notas/subunidad', [
+            'grupo_id' => $grupoId,
+            'asignatura_id' => $ctx['asignatura'],
+            'subunidad' => ['id' => $subunidadId, 'nota_default' => 40],
+        ])->assertStatus(200);
+
+        $this->assertSame(1, DB::table('notas')
+            ->where('subunidad_id', $subunidadId)
+            ->where('alumno_id', $ctx['alumno'])
+            ->whereNull('deleted_at')->count(),
+            'La nota rápida no llegó a guardarse: el INSERT sigue mandando una cadena '
+            .'donde va un entero, y la clave foránea lo rechaza.');
+
+        $this->assertSame(25.0, $this->definitivaDe($ctx),
+            'Se guardó la nota pero la definitiva no se movió.');
+    }
+
+    /**
      * La definitiva del alumno del montaje, como número.
      *
      * @param  array<string, mixed>  $ctx

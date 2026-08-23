@@ -674,12 +674,27 @@ De los siete disparadores que lista la fase 3, **hay uno cableado**:
 | Disparador | Estado |
 |---|---|
 | `BoletinesController::putDetailedNotas` | **hecho** — comprueba y recalcula, ya no borra |
-| `NotasController::putUpdate` — al editar una nota | **falta** — es el que pedía «que la definitiva se actualice al modificar la nota» |
-| `NotasController::putSubunidad` | **falta**, y antes hay que arreglar la §3.1: hoy no guarda nada |
-| `Unidades`/`SubunidadesController` | **falta** — siguen llamando a `calcularAsignaturaPeriodo` |
-| `PeriodosController::copiar` | **falta** — mueve unidades sin avisar a nadie |
-| `NotasController::putDetailed` — cada carga de /notas | **falta** — sigue recalculando a lo bruto |
-| Crear la subunidad y sus notas en la misma transacción | **falta** — es lo que cierra la §5.1 |
+| `NotasController::putUpdate` — al editar una nota | **hecho el 24 ago** — era la petición de origen, y el sitio donde iba tenía un `if` **vacío** |
+| `NotasController::deleteDestroy` — al borrarla | **hecho el 24 ago** — no estaba ni en la lista, y quitar una nota cambia la definitiva igual |
+| `NotasController::putSubunidad` | **hecho el 24 ago**, con la §3.1 arreglada: no guardaba nada **y estaba interpolada** |
+| `Unidades`/`SubunidadesController` | **hecho el 24 ago** — las cuatro, y **sin depender de `asignatura_id` del cuerpo** |
+| `PeriodosController::putCopiar` | **hecho el 24 ago** |
+| `NotasController::putDetailed` — cada carga de /notas | **hecho el 24 ago** — pregunta por el sello antes de escribir |
+| Crear la subunidad y sus notas en la misma transacción | **falta** — es lo único que queda de la fase 3, y es lo que cierra la §5.1 |
+
+> **Lo que la fase 3 le compra a la fase 2, contado en `INSERT`:** al sustituir
+> `putDetailed` y las cuatro llamadas al calculador viejo, **cinco de los seis
+> `INSERT` sin guarda en pantallas vivas desaparecen**. Queda uno:
+> `DefinitivasPeriodosController::putUpdate`, la rama sin `nf_id` — **el profesor
+> tecleando una definitiva**— más los cuatro de `NotaFinal::alumnos_grupo_nota_final`,
+> que sustituye lo que queda de la fase 3.
+>
+> Y un aparte que no estaba en el plan: **`putUpdate` de notas no dependía sólo de
+> que no hubiera recálculo, sino de que el cliente mandara `asignatura_id`.** Las
+> cuatro llamadas de unidades y subunidades llevaban `if (Request::input('asignatura_id'))`
+> delante: si el front no lo mandaba —y no siempre lo manda— **el peso cambiaba y
+> la definitiva no**, en 200 y sin avisar. Ahora el controlador lo saca de la
+> propia unidad, que es quien lo sabe.
 
 ### Fase 2 — Cerrar la base
 

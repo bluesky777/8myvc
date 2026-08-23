@@ -26,7 +26,7 @@ use Illuminate\Support\Facades\DB;
  *     los nueve cuya tabla no tiene ninguna columna `NOT NULL`.
  *
  * > **Lo que impide que ocho de los nueve escriban basura no es el código: es el
- * > esquema.** Es la misma forma que `SubunidadNoCreaNotasTest`, y la razón por la
+ * > esquema.** Es la misma forma que `SubunidadCreaLasNotasQueFaltanTest`, y la razón por la
  * > que la ausencia de validaciones no se nota — hasta que una tabla se define
  * > toda nulable.
  *

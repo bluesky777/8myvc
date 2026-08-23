@@ -5,7 +5,12 @@ namespace Tests\Contrato;
 use Illuminate\Support\Facades\DB;
 
 /**
- * `PUT notas/subunidad` no crea ninguna nota, y lo que lo impide es el esquema.
+ * `PUT notas/subunidad` **estuvo roto y ya no lo está** — §3.1, arreglado el 24
+ * ago 2026 con la fase 3.
+ *
+ * Este documento se conserva entero porque **el diagnóstico es lo que vale**: la
+ * causa, las dos hipótesis que la medición descartó y la red que resultó
+ * sostenerlo. Lo único que cambia es el desenlace, y va al final.
  *
  * La §3.1 de [10-definitivas.md](../../docs/migracion/10-definitivas.md) lo tenía
  * anotado como *«`putSubunidad` no guarda nada: la consulta está en comillas
@@ -57,7 +62,7 @@ use Illuminate\Support\Facades\DB;
  * falla en uno que crea notas para un grupo entero, y eso mueve definitivas en los
  * dieciséis colegios: es la fase 3 de aquel plan, que Joseth revisa antes.
  */
-class SubunidadNoCreaNotasTest extends CasoDeContrato
+class SubunidadCreaLasNotasQueFaltanTest extends CasoDeContrato
 {
     /**
      * La consulta que PHP construye de verdad, sin pasar por el endpoint.
@@ -92,17 +97,25 @@ class SubunidadNoCreaNotasTest extends CasoDeContrato
      *
      * Es lo mismo que la [§4 de 13-actividades](13-actividades.md) encontró en
      * `ws_actividades_compartidas` y merece decirse igual: **la integridad la
-     * sostiene el esquema y no el código**. Y sirve para saber dónde NO hay red —
-     * `notas_finales`, la tabla hermana, no lleva ninguna clave ajena de éstas, y
-     * ahí sí entra lo que sea.
+     * sostiene el esquema y no el código**.
      *
-     * No se arregla aquí. Arreglar las comillas convierte un endpoint que hoy falla
-     * en uno que crea notas para un grupo entero, y eso mueve definitivas en los
-     * dieciséis colegios: es la fase 3 de
-     * [10-definitivas.md](../../docs/migracion/10-definitivas.md), que Joseth
-     * revisa antes.
+     * *(Aquí decía además que `notas_finales` «no lleva ninguna clave ajena de
+     * éstas». Es falso y la cabecera de esta clase ya lo corrige: tiene tres. Se
+     * quita para que la frase mala no sobreviva a su corrección, que es como
+     * vuelven.)*
+     *
+     * ## El desenlace, 24 ago 2026
+     *
+     * **Arreglado.** El `INSERT` va ligado, así que el endpoint crea la nota que
+     * faltaba y **recalcula la definitiva** — es la fase 3 de
+     * [10-definitivas.md](../../docs/migracion/10-definitivas.md), y Joseth la
+     * revisó antes, que era la condición que este test ponía.
+     *
+     * Lo que se comprueba ahora es lo contrario de lo que se comprobaba: que
+     * **no** responde 500 y que **sí** escribe. La red del esquema sigue estando
+     * donde estaba; lo que cambia es que ya no hace falta que salte.
      */
-    public function test_el_endpoint_responde_500_por_la_clave_ajena(): void
+    public function test_el_endpoint_ya_no_falla_y_crea_la_nota_que_faltaba(): void
     {
         $grupo = $this->grupoConAlumnos();
         $token = $this->tokenDelPersonalDe((int) $grupo->year_id);
@@ -126,14 +139,11 @@ class SubunidadNoCreaNotasTest extends CasoDeContrato
             'subunidad' => ['id' => $subunidad->id, 'nota_default' => $subunidad->nota_default ?? 0],
         ]);
 
-        $r->assertStatus(500);
+        $r->assertStatus(200);
 
-        $this->assertStringContainsString('notas_subunidad_id_foreign',
-            (string) ($r->json('message') ?? ''),
-            'Sigue fallando, pero ya no por la clave ajena: vuelve a medirlo.');
-
-        $this->assertSame(0,
+        $this->assertGreaterThan(0,
             DB::table('notas')->where('subunidad_id', $subunidad->id)->whereNull('deleted_at')->count(),
-            'Se escribió alguna nota: el endpoint dejó de estar roto o dejó de estar protegido.');
+            'El endpoint volvió a no escribir nada: si el INSERT deja de ir ligado, '
+            .'la cadena `.123.` se coacciona a 0 y la clave ajena lo rechaza otra vez.');
     }
 }
