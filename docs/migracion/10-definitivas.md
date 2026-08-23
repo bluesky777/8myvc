@@ -615,6 +615,72 @@ Dos apartes del plan, los dos escritos en la clase:
   secas. Lo que sí consigue ya es que **no haya ventana de borrado**: no existe
   ningún instante en el que la definitiva no esté, que es la mitad de la §1.1.
 
+---
+
+### Antes de la fase 2: los once `INSERT` contra el índice único  *(auditado 2026-08-24)*
+
+**El orden del plan dice «las fases 1 y 2 se despliegan juntas», y eso da por hecho
+que la fase 1 sustituyó a los seis escritores. No lo hizo:** el recalculador único
+está escrito y probado, pero **sólo lo llama el boletín**. Los demás siguen
+insertando, y con el índice único puesto **cada `INSERT` que choque es un 500 en la
+pantalla de un profesor**, no un duplicado silencioso.
+
+Auditados los once `INSERT INTO notas_finales` que hay en `app/`:
+
+| Sitio | ¿Protegido? | Qué pasa con el índice |
+|---|---|---|
+| `Services/DefinitivasDeAsignatura:164` | **sí** — decide por existencia en PHP antes de insertar | nada |
+| `Models/NotaFinal:310` (`calcularAsignaturaPeriodo`) | **sí** — `WHERE NOT EXISTS` | nada |
+| `DefinitivasPeriodosController:146` | **sí** — `WHERE NOT EXISTS` | nada |
+| `Models/NotaFinal:176,191,206,222` (`alumnos_grupo_nota_final`) | **no** | 500 al abrir la pantalla de definitivas |
+| `DefinitivasPeriodosController:224` (`putUpdate`, rama sin `nf_id`) | **no** | **500 al teclear una definitiva** |
+| `NotasController:133` (`putDetailed`) | **no** | 500 al abrir /notas |
+| `Alumnos/Definitivas:53,83` | **no** | código muerto — la fase 5 lo borra entero |
+
+**Los cuatro de `alumnos_grupo_nota_final` y el de `putUpdate` son los que
+importan**, y los dos por el mismo motivo: sus `DELETE` previos **excluyen
+`manual` y `recuperada`** —a propósito, para no pisar lo que puso un profesor— y
+después el `INSERT` repone la fila automática **del mismo alumno cuya manual se
+acaba de conservar**. Hoy eso produce el duplicado auto+manual que la §2 describe;
+mañana produce un error de clave duplicada.
+
+`putUpdate` es el peor de los cinco porque **es el que teclea el profesor**: su
+rama sin `nf_id` hace un `INSERT` incondicional, y el front la usa justo cuando no
+tiene el `nf_id` a mano (§2.3) — que es exactamente cuando la fila puede existir ya.
+
+#### Lo que esto cambia del plan
+
+**La fase 2 no puede ir antes que la fase 3, y no es una preferencia de orden: es
+que el índice convierte cinco pantallas en 500.** El orden bueno es:
+
+1. **Fase 3 primero** —o al menos los cinco `INSERT` sin guarda—, sustituyéndolos
+   por el recalculador único o dándoles la misma decisión por existencia que ya
+   tienen los otros tres.
+2. **Fase 2 después**: limpiar, rellenar y poner los dos índices.
+
+Lo que no cambia es que **las dos tienen que llegar juntas a cada colegio**: el
+índice sin el código nuevo rompe, y el código nuevo sin el índice deja el UPSERT de
+la fase 1 comportándose como un INSERT a secas (ya escrito en la fase 1).
+
+> **La comprobación que faltaba no era sobre los datos, era sobre el código.** La
+> fase 0 midió la tabla y encontró **un** duplicado, o sea «la fase 2 es barata».
+> Y lo es, en datos. Lo caro estaba en los once sitios que siguen escribiendo, que
+> no los mira ninguna consulta.
+
+#### Dónde se recalcula hoy, y dónde no
+
+De los siete disparadores que lista la fase 3, **hay uno cableado**:
+
+| Disparador | Estado |
+|---|---|
+| `BoletinesController::putDetailedNotas` | **hecho** — comprueba y recalcula, ya no borra |
+| `NotasController::putUpdate` — al editar una nota | **falta** — es el que pedía «que la definitiva se actualice al modificar la nota» |
+| `NotasController::putSubunidad` | **falta**, y antes hay que arreglar la §3.1: hoy no guarda nada |
+| `Unidades`/`SubunidadesController` | **falta** — siguen llamando a `calcularAsignaturaPeriodo` |
+| `PeriodosController::copiar` | **falta** — mueve unidades sin avisar a nadie |
+| `NotasController::putDetailed` — cada carga de /notas | **falta** — sigue recalculando a lo bruto |
+| Crear la subunidad y sus notas en la misma transacción | **falta** — es lo que cierra la §5.1 |
+
 ### Fase 2 — Cerrar la base
 
 Migración (no phpMyAdmin — [CLAUDE.md](CLAUDE.md), «migración o no existe»), en
