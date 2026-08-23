@@ -124,12 +124,41 @@ porque el nombre lo diga. Los dos sitios donde podía haber algo:
 - **Las dos de matricular** no llevan guard de ruta y **se defienden por dentro**:
   `$user->tipo == 'Profesor' && $user->profes_can_edit_alumnos`, o superusuario.
 
-> Y de ahí una fila para el lote J: **`matriculas/matricularuno` y
-> `matricular-en` no están en las exenciones de `AutorizacionTest`**, igual que
-> `acudientes/guardar-valor`. Son la segunda y tercera ruta abierta y defendida
-> por dentro que la comprobación de «exenciones que faltan» no ve. No es un
-> agujero —las tres comprueban— pero **una lista que se cree completa y no lo
-> está** es lo que hace que nadie vuelva a mirar.
+### Y una cosa que dije y retiro: `AutorizacionTest` no tiene ahí ningún hueco
+
+Al ver que `matriculas/matricularuno`, `matricular-en` y `acudientes/guardar-valor`
+—abiertas y defendidas por dentro— **no están en las exenciones**, lo mandé como
+hallazgo: «una lista que se cree completa». **Era falso**, y lo di por hueco sin
+leer el instrumento.
+
+La red **se salta esas familias a propósito**, con el umbral escrito en su propio
+comentario: hacen falta **≥2 hermanas con guard** y que las que no lo llevan sean
+minoría clara (`sin <= max(2, total/4)`). Medido:
+
+| familia | con guard | sin | ¿la mira? |
+|---|---|---|---|
+| `acudientes` | 1 | 13 | **no** (umbral: sin ≤ 3) |
+| `matriculas` | 1 | 15 | **no** (umbral: sin ≤ 4) |
+| `alumnos` | 1 | 16 | **no** (umbral: sin ≤ 4) |
+| `perfiles` | 5 | 17 | **no** (umbral: sin ≤ 5) |
+
+Y su comentario dice por qué: *«una familia mayoritariamente sin guard es otra
+pregunta y más grande… aquí daría sesenta líneas de ruido y taparía las cinco que
+importan»*.
+
+**Y hay una segunda mitad que tampoco miré**:
+`test_cuantas_de_cada_familia_llevan_guard` guarda **un snapshot con el recuento
+de cada familia**, justo para que una familia que se abre o se cierra aparezca en
+el diff — y su docblock **nombra `matriculas/*` como ejemplo** de lo que el
+`assert` no puede afirmar. Lo que presenté como descubrimiento **ya estaba escrito
+en el fichero que estaba criticando**.
+
+> Un instrumento que declara su alcance **no tiene un hueco: tiene un límite**.
+> Confundir las dos cosas manda a alguien a arreglar lo que ya está decidido.
+>
+> Y el error es el mío de toda la noche girado del revés: llevo horas repitiendo
+> que *medir una ruta no es haberla juzgado*, y aquí **juzgué un instrumento sin
+> leer su docblock**, que es lo mismo que mirar una ruta y no leer el método.
 
 ## §149 — Erratas de mi propia curva: eran 313, no 315
 
