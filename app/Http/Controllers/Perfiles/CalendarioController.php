@@ -22,10 +22,58 @@ use Illuminate\Support\Facades\Request;
  */
 class CalendarioController extends Controller
 {
+    /**
+     * **Quién ve los eventos internos lo decide el token, no el cuerpo.** Ver 05 §137.
+     *
+     * `calendario.solo_profes` es el interruptor con el que el colegio marca un
+     * evento como interno, y hasta hoy el booleano que decidía si se aplicaba
+     * llegaba **en el cuerpo de la petición** (`is_prof_admin`). La columna
+     * funcionaba: sin la bandera, un alumno veía exactamente los públicos. Lo que
+     * fallaba era de dónde salía el dato. Medido con token de alumno mandando
+     * `is_prof_admin=true`: recibía los eventos `solo_profes = 1`.
+     *
+     * **El criterio es el que ya usan las otras cuatro rutas de este mismo
+     * controlador**: `($user->tipo == 'Profesor') || $user->is_superuser`. No es
+     * uno nuevo, que es lo que evita acabar con cuatro criterios para el mismo
+     * módulo.
+     *
+     * El candidato alternativo era el de `ExigirPersonal` —«no es alumno ni
+     * acudiente»— y **se descartó midiendo, no razonando**. El front manda
+     * `IS_PROF_ADMIN = hasRoleOrPerm(['admin', 'profesor'])`, o sea un criterio de
+     * **rol**, así que la pregunta era si hay personal con rol `Admin` y sin
+     * `is_superuser`, que con «no es familia» ganaría acceso y hoy no lo tiene.
+     * Contado en la base: de las **20 cuentas de tipo `Usuario`**, **10 son
+     * superusuario y tienen el rol `Admin`, y las otras 10 no tienen ninguno de
+     * los dos**. Los dos conjuntos coinciden, así que este `if` **reproduce
+     * exactamente lo que ve hoy cada persona** y lo único que cambia es de dónde
+     * sale el dato.
+     *
+     * Con «no es familia» habrían **ganado** acceso a los eventos internos diez
+     * cuentas administrativas —secretaría, coordinación, enfermería, rectoría—.
+     * Puede que sea lo que el colegio quiere; no lo decide un arreglo. Queda
+     * anotado: **si `solo_profes` significa «solo profesores» o «solo personal»
+     * es una pregunta para Joseth**, y hoy significa lo primero.
+     *
+     * La ruta **no lleva `auth.personal`** y no debe llevarlo: el calendario
+     * público es de todo el mundo. Lo que se filtra son las filas.
+     *
+     * Ningún cliente lo usa como conmutador de pantalla: en las 23 ramas de
+     * `myvc_front` hay **una sola** llamada —`AnunciosCtrl.ts:482`—, y manda
+     * justamente ese predicado de rol. `myvc_front_2` y `myvc_flutter` no la
+     * llaman. Así que esto es un arreglo, no un cambio de contrato.
+     *
+     * Lo fija `CalendarioInternoTest`, con las dos mitades: que la familia deje de
+     * verlos y que **el personal los siga viendo sin mandar nada**.
+     */
     public function putThisYear()
     {
-        $is_prof_admin = Request::input('is_prof_admin');
-        if ($is_prof_admin == 'true') {
+        $user = User::fromToken();
+
+        // El mismo `if` que `putCrearEvento`, `putGuardarEvento`,
+        // `putEliminarEvento` y `putSincronizarCumples` treinta líneas más abajo.
+        $puedeVerLosInternos = ($user->tipo == 'Profesor') || $user->is_superuser;
+
+        if ($puedeVerLosInternos) {
             $eventos = DB::select('SELECT * FROM calendario WHERE deleted_at is null');
         } else {
             $eventos = DB::select('SELECT * FROM calendario WHERE solo_profes=0 and deleted_at is null');
