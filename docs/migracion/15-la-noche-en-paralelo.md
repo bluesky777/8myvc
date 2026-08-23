@@ -411,9 +411,23 @@ Tres cosas ya sabidas:
 ### Lote G — Los 44 interruptores que en el backend no decide nadie
 
 ```bash
+# Rutas ABSOLUTAS: desde un worktree, `../myvc_front` apunta a
+# `.worktrees/<x>/../myvc_front`, que no existe. Medido esta noche: con dos
+# clientes inexistentes la herramienta daba **50** donde la buena da 49 — el
+# error da un número MÁS GRANDE, o sea con cara de mejor hallazgo, y el aviso
+# salía por `stderr`, que cualquier tubo se traga. Ya aborta.
 python3 tools/interruptores-que-nadie-lee.py \
-    --clientes ../myvc_front ../myvc_front_2 ../myvc_flutter
+    --clientes /Users/josethguerrero/DESARROLLOS/myvc_front \
+               /Users/josethguerrero/DESARROLLOS/myvc_front_2 \
+               /Users/josethguerrero/DESARROLLOS/myvc_flutter
 ```
+
+> **Y no basta con los tres directorios.** `myvc_front` tiene **veinte worktrees**
+> en ramas `fase-11/*`, y el control (cinco columnas que sí se leen) aparece en
+> **52–54 ficheros por rama frente a 31 en `main`**: mirar solo `main` es una
+> muestra incompleta. Un grep de clientes vale lo que valen los ficheros que
+> mira, y en un repositorio a mitad de migración **«los ficheros» no son los del
+> directorio: son los de todas sus ramas**.
 
 Sin `--clientes` la salida es **una lista de candidatos, no de fallos**: una
 columna que aquí no decide nada puede estar decidiendo en cualquiera de los
