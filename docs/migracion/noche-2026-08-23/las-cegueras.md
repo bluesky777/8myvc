@@ -311,27 +311,8 @@ veces esta noche**:
    sitio donde lo declara es el que no se lee con prisa.
 9. **Sellar todo número que esté en una cabecera** con el commit contra el que se
    midió. Un total sellado deja de ser una afirmación y pasa a ser una medición con
-   fecha: **si un día no cuadra, se ve que es viejo en vez de parecer falso**.
-
-   Y la regla general que hay detrás, porque en una sola noche pasó **seis veces**:
-
-   > **Lo que se queda viejo no es lo que se edita: es lo que hay encima de lo que
-   > se edita.**
-
-   | Qué se quedó viejo | Qué había cambiado debajo |
-   |---|---|
-   | «ocho instrumentos» en el barrido | el documento creció con dos formas más |
-   | «trece lotes» en la tabla | se fundieron tres más |
-   | Seis «esta noche» en un borrador del 05 | el documento acumula noches |
-   | El rango `(§140–143)` en el **título** de un lote | su §143 se había renumerado a §166 **en el cuerpo y en el código**, en el mismo commit |
-   | Una subtabla que contaba `abort(403` | la forma idiomática del repo nunca fue ésa |
-   | «esta noche» en un procedimiento del `03` | el `03` es permanente |
-
-   Cabeceras, títulos, totales y resúmenes: **todo lo que está arriba y describe lo
-   de abajo, y que nadie vuelve a mirar cuando cambia lo de abajo.** El caso del
-   título es el más limpio de los seis, porque quien renumeró lo hizo con cuidado
-   —documento y comentario de `app/` en el mismo commit— y **aun así el título se
-   quedó**: un título no se relee al editar el cuerpo.
+   fecha: **si un día no cuadra, se ve que es viejo en vez de parecer falso**. Esta
+   misma noche dos totales de estos documentos envejecieron sin avisar.
 10. **Un documento permanente no puede decir «hoy».** «Esta noche» en un fichero
     que acumula noches no se puede resolver — y es más difícil de ver que un número
     raro, porque **un número raro se nota y un «hoy» no**.
