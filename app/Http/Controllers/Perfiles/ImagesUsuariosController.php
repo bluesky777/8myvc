@@ -105,6 +105,8 @@ class ImagesUsuariosController extends Controller {
 	{
 		$user = User::fromToken();
 
+		$this->exigeQueLaImagenSeaSuyaODelColegio($user, Request::input('imagen_id'));
+
 		$usu 				= User::findOrFail($user_id);
 		$usu->imagen_id 	= Request::input('imagen_id');
 		$usu->save();
@@ -160,6 +162,9 @@ class ImagesUsuariosController extends Controller {
 		}
 
 		$img_id 			= Request::input('imagen_id');
+
+		$this->exigeQueLaImagenSeaSuyaODelColegio($user, $img_id);
+
 		$img 				= ImageModel::find($img_id);
 
 		$persona->foto_id = $img_id ? $img_id : null;
@@ -194,6 +199,9 @@ class ImagesUsuariosController extends Controller {
 		);
 
 		$img_id 			= Request::input('imagen_id');
+
+		$this->exigeQueLaImagenSeaSuyaODelColegio($user, $img_id);
+
 		$img 				= ImageModel::find($img_id);
 
 		$profesor 				= Profesor::findOrFail($profe_id);
@@ -389,4 +397,57 @@ class ImagesUsuariosController extends Controller {
 		return $img;
 	}
 
+	/**
+	 * La imagen que se le pone a otro tiene que ser de quien la regala — §99.
+	 *
+	 * Las tres rutas de `cambiar-*` de este controlador hacen la misma escritura
+	 * —`images.user_id = <la persona destino>`, más `publica = false`—, y ninguna
+	 * miraba de quién era la imagen que llegaba en el cuerpo. Medido con dos
+	 * tokens del seed: **un profesor pone en su perfil la imagen privada de un
+	 * alumno y el alumno deja de verla en `myimages`**, porque esa lectura filtra
+	 * por `user_id`. No es una fuga: es un cambio de dueño.
+	 *
+	 * `persona.propia` ya lo cierra para las familias —`imagen_id` está en su
+	 * lista de claves desde la §15— pero **deja pasar al personal antes de mirar
+	 * ninguna clave**, y eso está escrito a propósito en su cabecera: lo que puede
+	 * hacer el personal entre sí no lo decide ese guard. Lo que no cubría esa
+	 * exención es que **un alumno no es personal del colegio**.
+	 *
+	 * El criterio no se inventa aquí, lo dice el front: los tres botones mandan
+	 * `$ctrl.dato.selectedImg`, que sale de `imagenes_privadas` —las de quien
+	 * pide—, y el confirm dice literalmente «Esto quitará la imágen de tu lista».
+	 * O sea que la operación es **regalar la mía**, no llevarme la de otro. Se
+	 * admite además la imagen sin dueño, que es la del colegio y la que la
+	 * pestaña ofrece en `imagenes_publicas`. Con esto **nadie pierde un botón que
+	 * hoy funcione**: lo único que deja de poderse es lo que la pantalla no sabe
+	 * pedir.
+	 *
+	 * **Lo que NO toca**: `move-img-to-me`, que es la operación contraria y
+	 * deliberada —«Quitar de usuario y ponerla en mis imágenes», con su propio
+	 * botón y su propia lista—, y `cambiar-imagen-perfil`, que escribe
+	 * `users.imagen_id` sin cambiar de dueño a nadie. Queda anotado.
+	 */
+	private function exigeQueLaImagenSeaSuyaODelColegio(object $user, $imagenId): void
+	{
+		// Sin imagen no hay nada que comprobar: el cuerpo vacío significa «quitar»,
+		// que es como funcionan las cuatro rutas de `cambiar-*`.
+		if ($imagenId === null || $imagenId === '') {
+			return;
+		}
+
+		$imagen = DB::selectOne('SELECT user_id, publica FROM images WHERE id = ? AND deleted_at IS NULL', [$imagenId]);
+
+		if ($imagen === null) {
+			abort(404, 'Esa imagen no existe.');
+		}
+
+		// Sin dueño o pública es del colegio, y el personal ya la maneja.
+		if ($imagen->user_id === null || $imagen->publica) {
+			return;
+		}
+
+		if ((int) $imagen->user_id !== (int) $user->user_id) {
+			abort(403, 'Solo puedes asignar una imagen tuya o del colegio.');
+		}
+	}
 }
