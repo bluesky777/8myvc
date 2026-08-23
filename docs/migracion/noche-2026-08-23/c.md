@@ -200,6 +200,116 @@ dicho aquí.
 
 ---
 
+## §91. El libro rojo: la única escritura de la tabla, y no mira de quién es la fila
+
+`PUT api/nota_comportamiento/guardar-libro` recibe `{campo, valor, libro_id}` y
+hace `UPDATE dis_libro_rojo SET <campo>=:valor WHERE id=:libro_id`.
+`dis_libro_rojo` es el observador disciplinario: doce columnas de texto, **tres
+por periodo** (`per1_col1` … `per4_col3`), una fila por alumno y año.
+
+El **nombre de columna** está a salvo desde la §31 —lo valida `ColumnaSegura`
+contra el esquema y lo fija `ColumnaConcatenadaTest`—. Lo que no mira nadie es
+**`libro_id`**.
+
+### 91.1 Lo medido
+
+Con un token de **profesor** y un alumno que **no está en ningún grupo suyo**
+—pedido al revés, exigiendo que ninguno de sus grupos tenga asignatura de ese
+profesor, porque un `!=` aquí devuelve el otro grupo del mismo alumno y eso ya ha
+costado cuatro veces lo mismo—:
+
+| Caso | Respuesta | Efecto |
+|---|---|---|
+| Escribir el libro rojo de un alumno ajeno | **200 `Cambiado`** | **escrito** |
+| Con un `libro_id` que no existe | **200 `Cambiado`** | nada |
+| Con el periodo 1 cerrado, escribiendo `per1_col1` | **200** | **escrito** |
+
+El segundo es de la familia de la [§74](../05-codigo-muerto-y-roto.md): el método
+devuelve la cadena fija pase lo que pase y **`DB::update` sí devuelve el número de
+filas, que se tira**. Importa más de lo normal porque la pantalla guarda campo a
+campo mientras se escribe: un `libro_id` viejo en el navegador deja un observador
+que parece guardado y no lo está. Y el dato está a mano: su vecina de la misma
+forma, `years/toggle-cambiar-valor`, hace `$res = DB::update(...)` y contesta
+`Guardado` o `No guardado`.
+
+### 91.2 Por qué el detector no lo señalaba, y las otras cuatro que arrastra
+
+`tools/identificadores-del-cuerpo.py` da esta ruta como **«prop = sí»**. Su señal
+de propiedad es la raíz `exig`, ensanchada **a propósito** para cazar los helpers
+privados que el repo conjuga de dos maneras (`exigirQue…` y `exigeQue…`), y en
+este método el único `exig` es **`ColumnaSegura::exigir`**, que valida un nombre
+de columna y no comprueba propiedad de nada.
+
+Medido quitando esa llamada del texto y volviendo a pasar la misma regex: se
+cuelan **cinco rutas, las cinco de escritura**.
+
+| Ruta | Identificador que nadie mira | Lote |
+|---|---|---|
+| `PUT api/ordinales/guardar-valor` | `ordinal_id` | B |
+| `PUT api/ordinales/guardar-valor-config` | `config_id` | B |
+| `PUT api/years/toggle-cambiar-valor` | `year_id` | D |
+| `PUT api/asignaturas/toggle-dia` | `asignatura_id` | fuera de los 77 |
+| `PUT api/nota_comportamiento/guardar-libro` | `libro_id` | **C** |
+
+> **Ensanchar una señal para no perder verdaderos positivos mete falsos negativos
+> por el otro lado, y los falsos negativos de un detector de propiedad no se ven
+> nunca: la ruta sale de la lista y ya está.**
+
+Es la cara contraria de la trampa que la propia cabecera del script advierte —«el
+detector también se queda ciego ante un nombre nuevo»—: aquí no se queda ciego
+ante un nombre nuevo, **se traga uno que se parece**. Y es la tercera vez esta
+noche que lo que apaga la pregunta no es un detector callado sino **un renglón que
+dice «ya está»**: la §89 lo tenía en la `TABLA_DE_ID`, la §90 en la tabla de la
+§77.2, y ésta en una columna calculada.
+
+`asignaturas/toggle-dia` merece una línea aparte porque tiene **dos** renglones a
+la vez: la columna `prop = sí` y un test de contrato verde. Ese test preguntó qué
+código devuelve con un nombre de columna con SQL dentro, y nunca de quién es la
+fila. Un test verde tampoco es un veredicto sobre lo que no preguntó.
+
+El arreglo del script no se hace aquí: `tools/` no es de ningún lote y cambiar la
+salida mientras B, D y H puedan estar corriéndolo la mueve debajo de ellas. Va al
+lote H, que es el dueño de esa herramienta esta noche.
+
+### 91.3 Qué se ha hecho y qué no
+
+**Hecho**: `LibroRojoTest`, cuatro casos. Los tres primeros fijan lo de arriba; el
+cuarto lee del código —descartando comentarios, que es el arreglo que la §72.5 le
+hizo a su propio detector— **quién más escribe en `dis_libro_rojo`**, y hoy no
+escribe nadie más: los otros dos controladores que la nombran sólo crean la fila
+vacía o la leen.
+
+Ese cuarto caso hacía falta porque **no hay hermana de la que copiar el guard**.
+Lo que resolvió la §89 en una línea fue que el criterio ya estaba elegido por tres
+rutas iguales; aquí la operación tiene **una sola puerta** y no hay criterio
+elegido. Y si mañana aparece una segunda, esta sección se queda corta sin que
+falle nada — que es exactamente cómo la §72 se cerró sobre tres de cuatro.
+
+> Y una que conviene contar: ese mismo caso nació con `preg_match` en vez de
+> `preg_match_all`, o sea **quedándose con la primera escritura de cada fichero**.
+> El propio `NotaComportamientoController` tiene un `INSERT` y el `UPDATE` de esta
+> sección, así que el detector escrito para que no se escondiera una segunda
+> puerta escondía una a dos líneas de distancia. Falló al primer intento y por eso
+> se vio; si el `INSERT` hubiera estado en otro fichero, habría pasado verde.
+
+**No hecho, y las dos razones son distintas**:
+
+- **No se cierra el `libro_id`.** Quién puede escribir el libro rojo de quién es
+  una decisión del colegio, de la misma familia que las 44 rutas de escritura de
+  configuración con sólo `auth.personal` que Joseth decidió no cerrar todavía
+  porque cerrarlas dejaría fuera a un coordinador que hace ese trabajo sin tener
+  el rol. Aquí igual: **el coordinador de convivencia no es el titular del
+  grupo.**
+- **No se mete bajo el candado del periodo.** El interruptor se llama
+  `profes_pueden_editar_notas`, y lo que Joseth decidió el 21 ago 2026 al meter
+  `nota_comportamiento` dentro fue que **la nota de comportamiento sale en el
+  boletín** ([05 §40.2](../05-codigo-muerto-y-roto.md)). El libro rojo **no sale
+  en el boletín**: ningún controlador de `Informes/` lo nombra. Meterlo ahí sería
+  ampliar lo que el interruptor significa, y eso no se decide de noche.
+
+
+---
+
 ## PARA JOSETH
 
 ### 1. ¿Se le pone el candado del periodo a «Calcular definitivas per N»? (§90)
@@ -244,7 +354,27 @@ Las tres formas, para que la decisión sea entre cosas y no entre palabras:
 
 No decido ninguna. Queda fijado lo que hay con `CalcularGrupoPeriodoTest`.
 
-### 2. Lo que hay que corregir en el 05, y no es mío (§90.3)
+### 2. ¿Quién puede escribir el libro rojo de un alumno? (§91)
+
+Hoy **cualquiera de los 51 profesores** escribe el observador disciplinario de
+cualquier alumno del colegio, y con el periodo cerrado. Medido, no supuesto.
+
+No se cierra porque **no hay criterio del que copiar**: `guardar-libro` es la
+única escritura de `dis_libro_rojo` en toda la API. Las dos preguntas son:
+
+1. ¿Debe poder escribirlo alguien que no sea el titular del grupo? (El
+   coordinador de convivencia no lo es, y por eso esto no es un `persona.propia`
+   automático.)
+2. ¿Debe cerrarse con el periodo? Sus columnas son por periodo, pero el libro
+   rojo **no sale en el boletín** — que fue el motivo por el que la nota de
+   comportamiento sí entró bajo el candado (05 §40.2).
+
+Y una que no necesita decisión, sólo trabajo: contesta `Cambiado` con un
+`libro_id` que no existe. Su vecina de la misma forma
+(`years/toggle-cambiar-valor`) sí mira las filas afectadas y contesta `Guardado` o
+`No guardado`.
+
+### 3. Lo que hay que corregir en el 05, y no es mío (§90.3)
 
 La fila de `putCalcularGrupoPeriodo` en la tabla de la **§77.2** dice «§71, cortada
 con 410» y eso es falso: la cortada es su vecina,
