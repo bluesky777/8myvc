@@ -429,7 +429,7 @@ recalcula las definitivas de la asignatura veinte líneas más abajo.
 No hace falta `CamposQueVinieron`: eso es para cuando el controlador hace
 `Request::merge()` antes de leer y `has()` deja de distinguir, y aquí no lo hace
 nadie —comprobado en el controlador y en los middlewares—. `nota_default` conserva
-su recorte a 0 letra por letra. Ningún cliente cambia: `UnidadesCtrl.ts:651` manda
+su recorte a 0 letra por letra. Ningún cliente cambia: `UnidadesCtrl.ts::actualizarSubunidad` (:651 el 23 ago) manda
 las cuatro columnas siempre.
 
 `PorcentajeQueSePisaTest` lleva **dos casos al revés**, y el segundo lo señaló el
@@ -587,7 +587,7 @@ Tres cambios de comportamiento, ninguna migración. Lo escribe quien coordina en
 | Cambio | Antes | Después | Quién lo nota |
 |---|---|---|---|
 | §89 `DELETE boletines2/destroy/{id}` y `boletines3/destroy/{id}` | cualquiera de los 51 profesores mandaba un **alumno** a la papelera, 200 | **403** | nadie: ninguna pantalla llama a esas dos rutas |
-| §92.2 `PUT subunidades/update/{id}` | un cuerpo sin `porcentaje` lo dejaba en `null` y recalculaba las definitivas con el peso perdido | conserva el valor de la fila | nadie: `UnidadesCtrl.ts:651` manda las cuatro columnas siempre |
+| §92.2 `PUT subunidades/update/{id}` | un cuerpo sin `porcentaje` lo dejaba en `null` y recalculaba las definitivas con el peso perdido | conserva el valor de la fila | nadie: `UnidadesCtrl.ts::actualizarSubunidad` manda las cuatro columnas siempre |
 | — | — | — | — |
 
 **Ninguna migración**, así que el orden dentro de la tanda es libre y las bases de
@@ -694,7 +694,7 @@ delante:
 |---|---|---|---|
 | «ningún cliente llama a `boletines2/destroy` ni a `boletines3/destroy`» | §89.3 | `detailed-notas`: 13 ficheros en `main`, **24–26 por rama** | **0 en las 23**. El único `destroy` de un fichero de boletines, en todas, es `$scope.$on('$destroy', …)` — el gancho de Angular, no la ruta |
 | «`calcularGrupoPeriodo` se llama en tres sitios, y el tercero decide» | §90, PARA JOSETH | — | **idéntico en las 23**: 6 apariciones en `InformesCtrl.ts` y el mismo `:499` dentro de `verBoletinesGrupo` |
-| «`UnidadesCtrl.ts:651` manda las cuatro columnas siempre» | §92.2 | — | **las 23 mandan `porcentaje:`** en `actualizarSubunidad` |
+| «`UnidadesCtrl.ts::actualizarSubunidad` manda las cuatro columnas siempre» | §92.2 | — | **las 23 mandan `porcentaje:`** en `actualizarSubunidad` |
 
 Las tres **aguantan**. Lo que cambia no es la conclusión: es que antes eran ciertas
 sobre una muestra y ahora lo son sobre el corpus.
@@ -712,6 +712,42 @@ directorio: son los de todas sus ramas.*
 
 ---
 
+## Apéndice 3: por qué estas citas llevan el método delante y la línea entre paréntesis
+
+Escrito al pasar por los diecinueve documentos la pregunta al revés —**«¿qué he
+cambiado yo que alguien esté citando?»**— y encontrar que **mi propio arreglo de
+la §89 caducó dos citas de `i.md`**.
+
+No fue por tocar lo que citaban. Fue por esto:
+
+```
+@@ -28,6 +28,7 @@
++use App\Support\Autoriza;
+```
+
+Un `use`. Con él, todo lo que hay debajo se desplazó uno, y el `if` que `i.md`
+sitúa en `Boletines2Controller.php:154` está hoy en la 155.
+
+> Una cita por número de línea **no la invalida sólo tocar lo que cita: la
+> invalida cualquier cosa por encima.** Un `use` nuevo, ocho líneas de docblock,
+> un `import` que reordena pint. Y **ninguna de esas tres aparecerá jamás en un
+> `git log --follow` del método citado**, así que no hay traza que relacione el
+> cambio con la cita.
+
+Por eso las de este documento pasan a **`Fichero::método` con la línea entre
+paréntesis y fechada**. El método aguanta; la línea es una ayuda para encontrarlo
+rápido el día que se escribió.
+
+Y hay un caso que **no** hay que arreglar, que es el que se le va a cruzar a quien
+haga esto en los demás documentos: **un número de línea dentro de una salida de
+medición es un registro, no una afirmación.** `Attempt to read property "nota" on
+array / …Controller.php:351` dice *«cuando lo medí, reventó aquí»*, y eso sigue
+siendo verdad de aquel día aunque el fichero haya cambiado. Ése lleva su fecha por
+estar dentro del bloque, y con eso basta.
+
+
+---
+
 ## PARA JOSETH
 
 ### 1. ¿Se le pone el candado del periodo a «Calcular definitivas per N»? (§90)
@@ -726,9 +762,9 @@ sitios, y sólo dos son el botón.
 
 | Dónde | Qué pasaría con un 400 |
 |---|---|
-| `informes.html:13` → `InformesCtrl.ts:410` | el botón «Calcular per N» sale con un `toastr.error`. Es lo que se querría |
-| `InformesCtrl.ts:451` | el bucle que calcula todos los grupos de un periodo: `toastr.warning` y sigue con el siguiente |
-| **`InformesCtrl.ts:499`, dentro de `verBoletinesGrupo`** | **el profesor no puede abrir los boletines de ese grupo** |
+| `informes.html` → `InformesCtrl.ts::calcularGrupoPeriodo` (:410 el 23 ago) | el botón «Calcular per N» sale con un `toastr.error`. Es lo que se querría |
+| `InformesCtrl.ts`, el bucle de `verBoletinesGrupoTodos` (:451 el 23 ago) | el bucle que calcula todos los grupos de un periodo: `toastr.warning` y sigue con el siguiente |
+| **`InformesCtrl.ts::verBoletinesGrupo`** (:499 el 23 ago) | **el profesor no puede abrir los boletines de ese grupo** |
 
 El tercero es el que decide. `verBoletinesGrupo` sólo llama al cálculo cuando el
 periodo está en `periodos_desactualizados` **y** el grupo está dentro; y si el
