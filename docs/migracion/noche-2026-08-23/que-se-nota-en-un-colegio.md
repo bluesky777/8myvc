@@ -15,7 +15,7 @@
 | | |
 |---|---|
 | **Migraciones nuevas** | **ninguna**, en los trece lotes |
-| **Rutas** | **539 antes y 539 después**. Ninguna nace, ninguna muere |
+| **Rutas** | **539 antes y 539 después**. Ninguna nace, ninguna muere — y no es una suposición: **ningún commit de la noche tocó `routes/`** (`git log c2c2a04..main -- routes/` sale vacío) y el recuento de `Route::` en `routes/api/` da **538 en los dos extremos**, más el `GET /` de `web.php` |
 | **Formas de respuesta** | ninguna respuesta pierde ni gana claves |
 | **Capacidades que se quitan** | **cuatro**, todas del lote E — y las cuatro con **riesgo bajo**, por la misma razón |
 | **Cosas que se encienden** | **una sola**, y es del lote B |
