@@ -69,15 +69,33 @@ aplicación.
 Así que la receta es un **segundo cron**, diario, **sin** `>/dev/null`:
 
 ```cron
-# El de cada minuto, como está hoy — callado a propósito
+# El de cada minuto, como está hoy — uno por colegio y callado a propósito
 * * * * * /usr/local/bin/php /home/micolev1/COLEGIO.micolevirtual.com/artisan schedule:run >/dev/null 2>&1
 
-# Y el parte diario, que SÍ habla: cPanel manda su salida por correo
-30 5 * * * /usr/local/bin/php /home/micolev1/COLEGIO.micolevirtual.com/artisan colegio:parte
+# Y el parte diario: UNA línea para los dieciséis, y SÍ habla
+30 5 * * * for d in /home/micolev1/*.micolevirtual.com/8myvc; do echo "=== $d"; /usr/local/bin/php "$d/artisan" colegio:parte; done
 ```
 
-Dieciséis correos al día, uno por colegio. Comparado con los 23.000 que evita la
-otra línea, es gratis — y es la diferencia entre saber y no saber.
+**El bucle, y no una línea por colegio.** Es la forma que propuso `8myvc-d0` el 24
+ago 2026 para el cron de las notificaciones, y para el parte es mejor que la que
+tenía escrita aquí, por dos razones que no se ven de entrada:
+
+1. **Un correo con dieciséis partes se lee; dieciséis correos se archivan sin
+   abrir.** Y lo que hace útil a este parte es comparar los colegios entre sí — un
+   número raro se ve **al lado** de los otros quince, no en un correo suelto.
+2. **Un colegio que falta se nota.** Con dieciséis correos, el que no llega es un
+   correo que no llega, y eso no se ve. En un solo listado, `instival` aparece como
+   un hueco con su `=== ruta` y nada debajo. **Es exactamente el fallo que tardó
+   semanas en descubrirse**, y así se descubre solo el primer día.
+
+> **La otra cuenta de cPanel (`lalvirtual.edu.co`) necesita su propia línea**: es
+> otro login y el bucle no la alcanza. Es la misma advertencia que lleva el
+> despliegue, y por el mismo motivo.
+>
+> Y **el de cada minuto se queda como está: uno por colegio.** No se convierte en
+> bucle. `schedule:run` corre cada minuto y tiene que devolver el control rápido;
+> un bucle de dieciséis arranques de Laravel cada minuto es otra cosa
+> completamente, y en un hosting compartido se nota.
 
 > `/usr/local/bin/php` tiene que ser **8.4**; en la cuenta `micolev1` lo estaba el
 > 20 ago 2026. La otra cuenta de cPanel hay que mirarla aparte, y un cron con el
