@@ -506,9 +506,28 @@ class MatriculasController extends Controller {
 				where a.deleted_at is null and m.deleted_at is null
 				order by y.year, g.orden';
 
-			$matri = DB::select($consulta, [ ':alumno_id' => $alumno_id, ':anio'=> ($this->user->year+$anio_sig) ] )[0];
+			// El `[0]` estaba desnudo, y la consulta busca la matrícula **en el año
+			// `$this->user->year + $anio_sig`**, que puede no existir: un colegio que
+			// todavía no ha creado el año siguiente —o que lo tiene en la papelera—
+			// no tiene nada que devolver aquí. Eso era **500 después de haber
+			// escrito**: la fila ya está cambiada cuando revienta.
+			//
+			// Y es lo peor que puede pasarle a esta ruta en concreto, porque es **la
+			// única escritura que alcanza una familia**: el acudiente ve un error
+			// sobre una prematrícula que sí ocurrió, y lo natural es repetirla.
+			// `AnunciosDir.ts` lee `r.matricula.prematriculado` dentro del `.then`,
+			// así que con un 500 no llega nunca.
+			//
+			// 404 y no 500, que es lo que ya eligieron la §52 y la §86 para esta
+			// misma forma. **Lo que no arregla el código de salida es que la
+			// escritura ya se hizo**, y por eso el mensaje lo dice. Ver 05 §144.
+			$matri = DB::select($consulta, [ ':alumno_id' => $alumno_id, ':anio'=> ($this->user->year+$anio_sig) ]);
 
-			return ['matricula' => $matri];
+			if (count($matri) === 0) {
+				abort(404, 'La matrícula se guardó, pero no hay ninguna en el año pedido para devolver.');
+			}
+
+			return ['matricula' => $matri[0]];
 		} else {
 			return abort(400, 'No tiene permisos para editar');
 		}
