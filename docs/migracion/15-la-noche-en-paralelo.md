@@ -511,10 +511,15 @@ Como G: **lee y reporta**, no edita controladores de otros lotes.
 En este orden, y el primero no es opcional:
 
 1. **La medición buena se hace una sola vez, al final, con todo fusionado y desde
-   el árbol raíz.** Con `main` ya cerrado:
+   el árbol raíz** — y **el sello se imprime al disparar y al terminar**, que es
+   la forma operativa de las lecciones 1, 6 y 32: una suite de siete minutos
+   corre mientras la rama se mueve, y sin los dos extremos no se sabe **qué**
+   midió.
    ```bash
+   SHA=$(git rev-parse --short HEAD); echo "sellado al disparar: $SHA"
    docker exec -e DB_TEST_DATABASE=simonbolivar_testing \
        -e COBERTURA_RUTAS=/tmp/tocadas.txt 8myvc-app-1 php artisan test
+   echo "commit al terminar: $(git rev-parse --short HEAD)"
    docker exec 8myvc-app-1 php artisan route:list --json > /tmp/rutas.json
    docker exec 8myvc-app-1 cat /tmp/tocadas.txt > /tmp/tocadas.txt
    python3 tools/cobertura-de-rutas.py /tmp/rutas.json /tmp/tocadas.txt

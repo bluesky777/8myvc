@@ -38,6 +38,11 @@ disparar, no al escribirlo:
 | Larastan nivel 7 | `[OK]` | `[OK]` | |
 | Rojos · saltados | 0 · 0 | 0 · 0 | |
 
+> **Y la corrida de cierre se repitió entera en `4c5fdbe`**, ya con todo fundido y
+> los documentos escritos: **1.276 pasados, 8.594 aserciones, `EXIT=0`**, idéntico.
+> No es redundancia: entre los dos sellos la rama se movió, y *«solo cambiaron
+> comentarios»* es un argumento, mientras que una suite verde es una medición.
+
 **Los 97/97 no son el mérito de la noche; los 41 → 4 sí.** Con la suite entera ya
 había un test por controlador antes de empezar: lo que faltaba era **dentro** de
 cada uno. Y las cifras de partida son 462 y 97/97 **porque son de la suite
