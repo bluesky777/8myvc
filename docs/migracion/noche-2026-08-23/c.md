@@ -197,3 +197,58 @@ llamada de sitio, la ruta queda abierta a cualquier token, alumnos incluidos, y
 borra filas de `notas_finales`. Es de mi lote y no lo toco porque cambiar el guard
 de una ruta que hoy no tiene hueco es ruido en una noche de seis sesiones; queda
 dicho aquí.
+
+---
+
+## PARA JOSETH
+
+### 1. ¿Se le pone el candado del periodo a «Calcular definitivas per N»? (§90)
+
+**La pregunta**: hoy un profesor recalcula —borra y reescribe— las definitivas
+automáticas de un periodo que el colegio ha cerrado. Ponerle
+`pueden_modificar_definitivas` lo cierra en una línea. **No se ha hecho porque
+apaga algo**, y hay que decidirlo mirando qué apaga.
+
+**Qué apaga, medido en el front**: `myvc_front` llama a esta ruta en **tres**
+sitios, y sólo dos son el botón.
+
+| Dónde | Qué pasaría con un 400 |
+|---|---|
+| `informes.html:13` → `InformesCtrl.ts:410` | el botón «Calcular per N» sale con un `toastr.error`. Es lo que se querría |
+| `InformesCtrl.ts:451` | el bucle que calcula todos los grupos de un periodo: `toastr.warning` y sigue con el siguiente |
+| **`InformesCtrl.ts:499`, dentro de `verBoletinesGrupo`** | **el profesor no puede abrir los boletines de ese grupo** |
+
+El tercero es el que decide. `verBoletinesGrupo` sólo llama al cálculo cuando el
+periodo está en `periodos_desactualizados` **y** el grupo está dentro; y si el
+cálculo falla, muestra un aviso y **no llama a `verBoletinesGrupoCargar`**. O sea
+que con el periodo cerrado y las definitivas marcadas como desactualizadas, un
+profesor se quedaría sin poder abrir el boletín del grupo.
+
+**Hay precedente y no es el mismo caso**: en [05 §47.2](../05-codigo-muerto-y-roto.md)
+decidiste, para `unidades/de-asignatura-periodo`, que con el periodo cerrado la
+pantalla **enseñe lo que hay y no cree nada** — para eso existe
+`User::permiteEditarNotas`, que contesta en vez de abortar. Aquí valdría lo mismo:
+no recalcular y dejar que el boletín se abra con las definitivas que ya hay. La
+diferencia con aquél es que aquél es una lectura que de paso escribe, y éste es un
+botón que escribe y que además una pantalla dispara sola.
+
+Las tres formas, para que la decisión sea entre cosas y no entre palabras:
+
+1. **Abortar 400** como sus siete hermanas. Cierra del todo; deja a un profesor sin
+   abrir el boletín de un grupo desactualizado en periodo cerrado.
+2. **No recalcular y contestar 200** (la forma de la §47.2). El boletín se abre con
+   lo que hay. Contrapartida: contesta `Calculado` sin haber calculado, que es la
+   familia de «[respuestas que mienten](../05-codigo-muerto-y-roto.md)» (§74).
+3. **No recalcular y decirlo** — 200 con otro cuerpo, o 409. Lo más honesto y lo
+   único que **cambia el contrato** de una ruta que el front sí llama.
+
+No decido ninguna. Queda fijado lo que hay con `CalcularGrupoPeriodoTest`.
+
+### 2. Lo que hay que corregir en el 05, y no es mío (§90.3)
+
+La fila de `putCalcularGrupoPeriodo` en la tabla de la **§77.2** dice «§71, cortada
+con 410» y eso es falso: la cortada es su vecina,
+`putCalcularNotasFinalesAsignatura`. Como esa tabla es la que convierte los cuatro
+«NO pregunta» del detector en veredictos, **la fila fabrica un veredicto falso y lo
+deja escrito**. Lo lleva quien coordina al fundir el 05; queda medido aquí y con
+test.
