@@ -203,13 +203,33 @@ Cualquiera que llame a `PUT api/notas-actuales-alumnos/{grupo}` sin esa clave
 recibe `foreach() argument must be of type array|object, string given`, con
 cualquier token.
 
-**Se fija y no se arregla.** El bucle interior sólo procesa a los alumnos que
-aparecen en la lista, así que un `[]` por defecto devolvería **200 con el grupo
-vacío** —un 200 hueco, que en este repo es peor que el error— y la otra salida es
-**422**, que es el código correcto pero cambia lo que recibe una ruta enrutada.
-Cuál de las dos es una decisión, y R se abrió por el boletín de una familia.
+**Se fijó y no se arregló**, con esta justificación: *«el bucle interior sólo
+procesa a los alumnos que aparecen en la lista, así que un `[]` por defecto
+devolvería 200 con el grupo vacío —un 200 hueco— y la otra salida es 422. Cuál de
+las dos es una decisión.»*
 
-Con ruta y roto se documenta.
+### Y esa justificación era falsa — resuelto el 24 ago 2026
+
+**Había una tercera salida, y no había que inventarla: ya era el comportamiento
+del proyecto.** `detailedNotasGrupo` está copiado en **nueve** controladores —los
+tres boletines, los dos bolfinales, preescolar, certificados, `editnota` y éste—
+y **ocho llevan `if ($requested_alumnos == '')` delante del bucle, metiendo a todo
+el grupo**. Sólo a esta copia se le cayó esa línea.
+
+Así que no era «200 hueco contra 422»: era **«sin lista, entran todos»**, escrito
+ocho veces al lado y ya esperado por las pantallas equivalentes. Repuesta la
+guarda, el centinela pasa a vigilar que **sigan saliendo todos los matriculados**
+— porque un 200 con menos alumnos de los que hay sí sería el 200 hueco, y ése no
+se distingue del bueno mirando el código.
+
+> **La lección es del centinela, no del fallo.** Al fijar un comportamiento roto
+> se enumeraron las salidas **pensándolas**, en vez de mirar qué hacían las ocho
+> copias hermanas. Un centinela que enumera opciones puede dejar fuera la
+> correcta, y entonces **la decisión que reclama es una decisión falsa** — y se
+> queda esperando a alguien que no tenía nada que decidir.
+>
+> Lo destapó `myvc-front-12` barriendo 107 rutas en Chrome con el log del backend
+> delante: no lo encontró releyendo esto, sino pidiendo el endpoint.
 
 ---
 
@@ -298,8 +318,10 @@ que se regenera el seed.
 
 ### Para Joseth / el colegio
 
-- **§142**: qué debe contestar `notas-actuales-alumnos` sin `requested_alumnos`
-  —200 con el grupo vacío o 422—. Hoy es 500.
+- ~~**§142**: qué debe contestar `notas-actuales-alumnos` sin `requested_alumnos`
+  —200 con el grupo vacío o 422—. Hoy es 500.~~ **Resuelto el 24 ago 2026, y no
+  hacía falta decidir nada**: ocho de las nueve copias del método ya devolvían el
+  grupo entero. Ver la §142.
 
 ### Para otros lotes
 

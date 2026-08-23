@@ -161,37 +161,53 @@ class CentinelaDelComportamientoTest extends CasoDeContrato
     }
 
     /**
-     * §142 — Pedir el grupo sin `requested_alumnos` es un 500 seguro.
+     * §142 — Pedir el grupo sin `requested_alumnos` devuelve **el grupo entero**.
+     * *(Era un 500 seguro; arreglado el 24 ago 2026.)*
      *
-     * No es del centinela ni tiene que ver con las notas: la ruta declara
-     * `Request::input('requested_alumnos', '')` —una CADENA por defecto— y
-     * doce líneas más abajo le hace `foreach`. Cualquiera que llame sin esa
-     * clave recibe `foreach() argument must be of type array|object, string
-     * given`, con nota o sin ella y con cualquier token.
+     * La ruta declara `Request::input('requested_alumnos', '')` —una CADENA— y
+     * doce líneas más abajo le hacía `foreach`. En PHP 8 eso lanza; en PHP 5 y 7
+     * no hacía nada. Lo destapó `myvc-front-12` barriendo rutas en Chrome.
      *
-     * **Se fija y no se arregla**, y no por pereza: el bucle interior sólo
-     * procesa a los alumnos que aparecen en la lista, así que un `[]` por
-     * defecto devolvería 200 con el grupo vacío — un 200 hueco, que en este
-     * repo es peor que el error. La otra salida es 422, que es el código
-     * correcto pero cambia lo que recibe una ruta enrutada. **Cuál de las dos
-     * es una decisión**, y R se abrió por el boletín de una familia.
+     * ## Este centinela decía que había DOS salidas, y eran TRES
      *
-     * Con ruta y roto se documenta (CLAUDE.md).
+     * La versión anterior dejaba la decisión abierta entre «200 con el grupo
+     * vacío —un 200 hueco— y 422», y **su premisa era falsa**: daba por hecho que
+     * sin lista no entra nadie. Pero `detailedNotasGrupo` está copiado en **nueve
+     * controladores** y **ocho de ellos llevan `if ($requested_alumnos == '')`
+     * delante del bucle, metiendo a todo el grupo**. Sólo a esta copia se le cayó
+     * esa línea.
+     *
+     * O sea que la tercera salida no había que inventarla: **ya era el
+     * comportamiento del proyecto**, escrito ocho veces al lado. No es un 200
+     * hueco ni hacía falta un 422 nuevo — es «sin lista, entran todos», que
+     * además es lo que las pantallas equivalentes ya esperan.
+     *
+     * **La lección es del centinela, no del fallo:** al fijar un comportamiento
+     * roto se enumeraron las salidas *pensándolas*, en vez de mirar qué hacían
+     * las copias hermanas. Un centinela que enumera opciones puede dejar fuera la
+     * correcta, y entonces la decisión que reclama es una decisión falsa.
+     *
+     * Por eso esto ya no vigila un error: vigila que **sigan saliendo todos**.
      */
-    public function test_pedir_el_grupo_sin_la_lista_de_alumnos_sigue_siendo_500(): void
+    public function test_pedir_el_grupo_sin_la_lista_devuelve_el_grupo_entero(): void
     {
         [$grupo] = $this->grupoConUnAlumnoSinNota();
 
         $r = $this->withToken($this->tokenDelPersonalDe($grupo->year_id))
             ->putJson("/api/notas-actuales-alumnos/{$grupo->id}", []);
 
-        $this->assertSame(500, $r->status(),
-            'Cambió lo que contesta `notas-actuales-alumnos` sin `requested_alumnos`. Si se arregló, '
-            .'hay que decidir entre 200 con el grupo vacío —un 200 hueco— y 422, y escribirlo aquí.');
+        $this->assertSame(200, $r->status(),
+            'Volvió a fallar pedir el grupo sin `requested_alumnos`. Si es 500 con '
+            .'«foreach() argument must be of type array|object», se cayó otra vez la guarda '
+            .'que tienen las ocho copias hermanas de `detailedNotasGrupo`.');
 
-        $this->assertStringContainsString('foreach() argument must be of type array|object',
-            (string) $r->json('message'),
-            'Sigue siendo 500 pero por otro motivo: entonces es otro fallo y hay que mirarlo.');
+        $matriculados = (int) DB::selectOne('SELECT COUNT(*) AS n FROM matriculas
+            WHERE grupo_id = ? AND deleted_at IS NULL AND estado IN ("MATR", "ASIS")',
+            [$grupo->id])->n;
+
+        $this->assertCount($matriculados, $r->json()[2],
+            'Contestó 200 pero con menos alumnos de los matriculados: eso es el «200 hueco» '
+            .'que este centinela existía para evitar, y no se distingue del bueno por el código.');
     }
 
     /**
