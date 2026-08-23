@@ -103,7 +103,7 @@ class CentinelaDelComportamientoTest extends CasoDeContrato
     {
         [$grupo, $sinNota] = $this->grupoConUnAlumnoSinNota();
 
-        $r = $this->withToken($this->tokenDelPersonalDe($grupo->year_id))
+        $r = $this->withToken($this->tokenDelPersonalLlanoDe($grupo->year_id))
             ->putJson("/api/notas-actuales-alumnos/{$grupo->id}",
                 $this->pidiendoAlGrupo($grupo->id))->assertStatus(200);
 
@@ -148,7 +148,7 @@ class CentinelaDelComportamientoTest extends CasoDeContrato
             .'el test: un `markTestSkipped` se lee igual que un verde en la línea de resumen, y esta '
             .'noche ya ha escondido un caso (§122).');
 
-        $r = $this->withToken($this->tokenDelPersonalDe($grupo->year_id))
+        $r = $this->withToken($this->tokenDelPersonalLlanoDe($grupo->year_id))
             ->putJson("/api/notas-actuales-alumnos/{$grupo->id}",
                 $this->pidiendoAlGrupo($grupo->id))->assertStatus(200);
 

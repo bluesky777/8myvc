@@ -47,7 +47,7 @@ class CatalogosDelColegioTest extends CasoDeContrato
     public function test_el_year_de_los_ordinales_no_admite_sql_en_el_cuerpo(): void
     {
         $grupo = $this->grupoConAlumnos();
-        $token = $this->tokenDelPersonalDe($grupo->year_id);
+        $token = $this->tokenDelPersonalLlanoDe($grupo->year_id);
 
         $suyos = (int) DB::selectOne('SELECT COUNT(*) n FROM dis_ordinales
             WHERE year_id = ? AND deleted_at IS NULL', [$grupo->year_id])->n;
@@ -106,7 +106,7 @@ class CatalogosDelColegioTest extends CasoDeContrato
 
         $this->assertNotNull($grupo, 'El seed necesita un grupo del año actual con asignatura y profesor.');
 
-        $token = $this->tokenDelPersonalDe($grupo->year_id);
+        $token = $this->tokenDelPersonalLlanoDe($grupo->year_id);
 
         $antes = $this->withToken($token)->getJson('/api/asignaturas/listasignaturas/'.$grupo->profesor_id);
         $this->assertGreaterThan(0, count($antes->json('asignaturas') ?? []),
@@ -143,7 +143,7 @@ class CatalogosDelColegioTest extends CasoDeContrato
     public function test_borrar_un_tipo_de_documento_deja_el_hueco_pero_no_esconde_al_alumno(): void
     {
         $grupo = $this->grupoConAlumnos();
-        $token = $this->tokenDelPersonalDe($grupo->year_id);
+        $token = $this->tokenDelPersonalLlanoDe($grupo->year_id);
 
         $tipo = DB::selectOne('SELECT id FROM tipos_documentos WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
         $this->assertNotNull($tipo, 'El seed necesita un tipo de documento.');
@@ -219,7 +219,7 @@ class CatalogosDelColegioTest extends CasoDeContrato
     public function test_guardar_una_escala_sin_cambiar_nada_sigue_siendo_guardado(): void
     {
         $grupo = $this->grupoConAlumnos();
-        $token = $this->tokenDelPersonalDe($grupo->year_id);
+        $token = $this->tokenDelPersonalLlanoDe($grupo->year_id);
 
         $escala = DB::selectOne('SELECT * FROM escalas_de_valoracion WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
         $this->assertNotNull($escala, 'El seed necesita una escala de valoración.');
@@ -244,7 +244,7 @@ class CatalogosDelColegioTest extends CasoDeContrato
     public function test_borrar_una_escala_la_quita_del_indice_y_la_de_otro_anio_tambien_se_deja(): void
     {
         $grupo = $this->grupoConAlumnos();
-        $token = $this->tokenDelPersonalDe($grupo->year_id);
+        $token = $this->tokenDelPersonalLlanoDe($grupo->year_id);
 
         $indice = $this->withToken($token)->getJson('/api/escalas');
         $indice->assertStatus(200);

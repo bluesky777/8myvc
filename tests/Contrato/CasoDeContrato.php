@@ -180,6 +180,111 @@ abstract class CasoDeContrato extends TestCase
     }
 
     /**
+     * Alguien del personal del colegio que **no** es superusuario.
+     *
+     * Existe porque los dos ayudantes de arriba **no valen para esta pregunta**, y no
+     * porque estén mal: ordenan por id y devuelven el primero del tipo, que es
+     * exactamente lo correcto cuando lo que se mira es **la forma de la respuesta**.
+     * Cuando lo que se mira es **qué puede hacer alguien del personal**, «cualquiera
+     * del tipo» es lo único que no vale.
+     *
+     * Medido la noche del 22 al 23 de agosto de 2026 (§157): de los **veinte `Usuario`
+     * activos del seed, diez son superusuario**, y son los de id más bajo. Así que:
+     *
+     *     usuarioDeTipo('Usuario')   ->  usuario 1     is_superuser = 1, rol Admin
+     *     tokenDelPersonalDe(8)      ->  usuario 1     is_superuser = 1
+     *     tokenDelPersonalDe(7)      ->  usuario 685   is_superuser = 0
+     *
+     * **El mismo ayudante devuelve un superusuario o un administrativo llano según el
+     * año que le toque**, y ninguna llamada pasa el año literal: todas pasan
+     * `$grupo->year_id`, así que el sujeto **depende del grupo que ese test eligió** y
+     * no se puede ver leyendo el test.
+     *
+     * Con eso, treinta y cinco tests que dicen «el personal puede X» estaban
+     * demostrando «el superusuario puede X», que es **menos**, y salían verdes.
+     *
+     * **Los dos viejos no se tocaron, se añadió éste**, y el motivo es el reverso:
+     * hay **treinta y un** métodos que afirman un rechazo —o un 500— y que hoy pasan
+     * **porque el sujeto es un superusuario**. Algunos prueban de más justo por eso:
+     * `PedidosDeAsignaturaTest::test_un_administrativo_recibe_403_al_pedir_una_materia`
+     * demuestra que esa ruta rechaza **incluso** a un superusuario, que es más fuerte
+     * que lo que dice su nombre. Cambiarles el sujeto los debilitaría sin que nadie lo
+     * haya pedido.
+     *
+     * Y si el seed dejara de traer uno llano, esto **falla con nombre** en vez de
+     * devolver un superusuario y llamarlo personal. Es el mismo criterio que
+     * `tests/Barrido/SuperficieDeUnTokenTest.php` después de la §111:
+     * **un ayudante que dice a quién eligió no puede elegir a otro en silencio**, que
+     * es literalmente el fallo que este método viene a cerrar.
+     */
+    protected function usuarioLlanoDelPersonal(): object
+    {
+        // **`y.actual = 1` no es un adorno: sin él este ayudante cambia el año en
+        // silencio.** El `Usuario` llano de id más bajo es el 679, y su periodo es del
+        // año **2018**; el que devolvía `usuarioDeTipo('Usuario')` era el 1, del **2025**,
+        // que es el actual. O sea que la primera versión de esto repuntó cuarenta y un
+        // tests y **de paso los mudó siete años atrás**, y sólo uno se quejó: `ExcelTest`,
+        // que importa una hoja del año del usuario y reventó con «La hoja 4 no
+        // corresponde a ningún grupo del año 2018». Los otros cuarenta no se quejaron
+        // porque no miran el año — que no es lo mismo que seguir midiendo lo mismo.
+        //
+        // Es exactamente lo que avisa `tokenDelPersonalDe()` desde que se escribió: con
+        // un sujeto de otro año los listados salen vacíos **en 200** y el test pasa sin
+        // haber calculado nada. Cambiar el sujeto para arreglar quién es y estropear de
+        // paso en qué año está sería cambiar un fallo silencioso por otro.
+        $fila = DB::selectOne('SELECT u.* FROM users u
+            INNER JOIN periodos p ON p.id = u.periodo_id AND p.deleted_at IS NULL
+            INNER JOIN years y ON y.id = p.year_id AND y.actual = 1 AND y.deleted_at IS NULL
+            WHERE u.tipo = "Usuario" AND u.is_active = 1 AND u.deleted_at IS NULL
+              AND u.is_superuser = 0
+            ORDER BY u.id LIMIT 1');
+
+        $this->assertNotNull($fila,
+            "El seed no tiene ningún Usuario que NO sea superusuario en el año actual.\n"
+            .'Sin él, un test que diga «el personal puede X» demuestra «el superusuario '
+            ."puede X», que es menos.\n"
+            .'Regenérala con: php tools/generar-seed-test.php');
+
+        return $fila;
+    }
+
+    /** Su token, que es como lo usan casi todos. */
+    protected function tokenDelPersonalLlano(): string
+    {
+        return $this->tokenDe($this->usuarioLlanoDelPersonal()->username);
+    }
+
+    /**
+     * El mismo, pero **de un año concreto**: el hermano llano de `tokenDelPersonalDe()`.
+     *
+     * Hace falta aparte porque los informes se calculan contra `$user->year_id`, así
+     * que un sujeto de otro año devuelve la lista vacía en 200 y el test pasa sin
+     * haber calculado nada — que es justo lo que explica el docblock de
+     * `tokenDelPersonalDe()` y sigue siendo cierto.
+     *
+     * Lo que cambia es lo otro: **aquel devuelve un superusuario o no según el año**
+     * —el 1 para el 8 y el 685 para el 7—, y como ninguna llamada pasa el año literal
+     * sino `$grupo->year_id`, **el sujeto depende del grupo que el test eligió y no se
+     * ve leyendo el test**. Éste exige `is_superuser = 0` en el año que se le pida, y
+     * el seed tiene al menos dos en cada uno de los tres años con usuarios.
+     */
+    protected function tokenDelPersonalLlanoDe(int $yearId): string
+    {
+        $usuario = DB::selectOne('SELECT u.username FROM users u
+            INNER JOIN periodos p ON p.id = u.periodo_id AND p.deleted_at IS NULL
+            WHERE u.tipo = "Usuario" AND u.is_active = 1 AND u.deleted_at IS NULL
+              AND u.is_superuser = 0 AND p.year_id = ?
+            ORDER BY u.id LIMIT 1', [$yearId]);
+
+        $this->assertNotNull($usuario,
+            "El seed no tiene ningún Usuario sin superusuario en el año {$yearId}.\n"
+            .'Con uno de otro año el informe sale vacío en 200 y el test no comprueba nada; '
+            .'con un superusuario, comprueba menos de lo que dice su nombre.');
+
+        return $this->tokenDe($usuario->username);
+    }
+
+    /**
      * Un grupo del MISMO año al que el alumno no pertenece, montado aquí.
      *
      * Existe porque «un grupo que no es el suyo» no se puede sacar del seed con

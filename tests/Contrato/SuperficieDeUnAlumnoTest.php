@@ -1363,7 +1363,7 @@ class SuperficieDeUnAlumnoTest extends CasoDeContrato
             'valorpension' => 0,
             'orden' => 99,
             'caritas' => 0,
-        ], ['Authorization' => 'Bearer '.$this->tokenDe($this->usuarioDeTipo('Usuario')->username)])
+        ], ['Authorization' => 'Bearer '.$this->tokenDelPersonalLlano()])
             ->assertStatus(201);
 
         $this->assertSame($antes + 1, DB::table('grupos')->count());
@@ -1491,7 +1491,7 @@ class SuperficieDeUnAlumnoTest extends CasoDeContrato
         $grupo = DB::selectOne('SELECT id FROM grupos WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
 
         $r = $this->putJson('/api/acudientes/datos', ['grupo_actual' => ['id' => $grupo->id]],
-            ['Authorization' => 'Bearer '.$this->tokenDe($this->usuarioDeTipo('Usuario')->username)]);
+            ['Authorization' => 'Bearer '.$this->tokenDelPersonalLlano()]);
 
         $r->assertStatus(200);
 
@@ -1511,7 +1511,7 @@ class SuperficieDeUnAlumnoTest extends CasoDeContrato
 
         $this->postJson('/api/acudientes/crear-usuario', [
             'acudiente' => ['id' => $acudiente->id, 'nombres' => $acudiente->nombres, 'sexo' => $acudiente->sexo],
-        ], ['Authorization' => 'Bearer '.$this->tokenDe($this->usuarioDeTipo('Usuario')->username)])
+        ], ['Authorization' => 'Bearer '.$this->tokenDelPersonalLlano()])
             ->assertStatus(201);
 
         $this->assertSame($antes + 1, DB::table('users')->count());

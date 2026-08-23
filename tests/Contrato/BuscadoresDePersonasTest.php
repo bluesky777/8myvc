@@ -67,7 +67,7 @@ class BuscadoresDePersonasTest extends CasoDeContrato
     #[DataProvider('buscadores')]
     public function test_el_personal_del_colegio_sigue_buscando(string $ruta, string $texto): void
     {
-        $token = $this->tokenDe($this->usuarioDeTipo('Usuario')->username);
+        $token = $this->tokenDelPersonalLlano();
 
         $respuesta = $this->putJson("/api/{$ruta}", ['texto' => $texto],
             ['Authorization' => 'Bearer '.$token])->assertStatus(200)->json();

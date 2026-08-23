@@ -21,6 +21,12 @@ class PapeleraTest extends CasoDeContrato
 {
     public function test_forzar_el_borrado_de_una_subunidad_la_borra_de_verdad(): void
     {
+        // **Este test fija el sujeto en una aserción, y por eso NO se repunta**: el
+        // borrado físico es sólo de superusuario (§28.4), y la línea de abajo es la que
+        // lo deja escrito. El repunte del §158 lo cambió a un `Usuario` llano y el test
+        // se puso rojo en su propia premisa — que es como se descubrió que la
+        // clasificación por códigos HTTP no ve a los que fijan el sujeto con un
+        // `assert`. Ver §159.3.
         $usuario = $this->usuarioDeTipo('Usuario');
         $this->assertSame(1, (int) $usuario->is_superuser);
         $token = $this->tokenDe($usuario->username);

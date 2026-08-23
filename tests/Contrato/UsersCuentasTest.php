@@ -37,7 +37,7 @@ class UsersCuentasTest extends CasoDeContrato
      */
     public function test_usernames_check_sin_texto_devuelve_el_colegio_entero(): void
     {
-        $token = $this->tokenDe($this->usuarioDeTipo('Usuario')->username);
+        $token = $this->tokenDelPersonalLlano();
 
         $r = $this->withToken($token)->putJson('/api/users/usernames-check', ['texto' => '']);
 
@@ -68,7 +68,7 @@ class UsersCuentasTest extends CasoDeContrato
      */
     public function test_usernames_check_devuelve_tambien_los_borrados(): void
     {
-        $token = $this->tokenDe($this->usuarioDeTipo('Usuario')->username);
+        $token = $this->tokenDelPersonalLlano();
 
         $borrado = 'retirado'.random_int(1000, 9999);
 

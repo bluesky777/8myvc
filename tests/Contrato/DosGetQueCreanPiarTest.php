@@ -80,7 +80,7 @@ class DosGetQueCreanPiarTest extends CasoDeContrato
         // profesor del seed se crean **cero** filas, porque no da clase en ese
         // grupo. Un test escrito con el token de profesor habría dado verde
         // diciendo que no escribe.
-        $token = $this->tokenDe($this->usuarioDeTipo('Usuario')->username);
+        $token = $this->tokenDelPersonalLlano();
         $grupo = $this->grupoConAlumnos();
 
         $sinNee = DB::selectOne('SELECT a.id FROM alumnos a

@@ -178,7 +178,7 @@ class MisActividadesTest extends CasoDeContrato
         $alumno = $this->alumnoYGrupoAjeno();
         $examen = $this->montarExamen($alumno->asignatura_ajena, $alumno->periodo_id);
 
-        $this->withToken($this->tokenDe($this->usuarioDeTipo('Usuario')->username))
+        $this->withToken($this->tokenDelPersonalLlano())
             ->putJson('/api/mis-actividades/mi-actividad', ['actividad_id' => $examen->actividad_id])
             ->assertStatus(200)
             ->assertJsonPath('actividad.id', $examen->actividad_id);
@@ -280,7 +280,7 @@ class MisActividadesTest extends CasoDeContrato
         $alumno = $this->alumnoYGrupoAjeno();
         $examen = $this->montarExamen($alumno->asignatura_propia, $alumno->periodo_id, inAction: 0);
 
-        $this->withToken($this->tokenDe($this->usuarioDeTipo('Usuario')->username))
+        $this->withToken($this->tokenDelPersonalLlano())
             ->putJson('/api/mis-actividades/mi-actividad', ['actividad_id' => $examen->actividad_id])
             ->assertStatus(200);
     }

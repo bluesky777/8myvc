@@ -75,7 +75,7 @@ class BitacorasTest extends CasoDeContrato
     /** Sin id en la URL, el listado es el de quien pregunta. */
     public function test_el_listado_sin_id_es_el_de_uno_mismo(): void
     {
-        $yo = $this->usuarioDeTipo('Usuario');
+        $yo = $this->usuarioLlanoDelPersonal();
         $mia = $this->bitacoraDe((int) $yo->id);
         $ajena = $this->bitacoraDe((int) $this->otroUsuario((int) $yo->id)->id);
 
@@ -96,7 +96,7 @@ class BitacorasTest extends CasoDeContrato
      */
     public function test_cualquiera_del_personal_lee_el_rastro_de_otro(): void
     {
-        $yo = $this->usuarioDeTipo('Usuario');
+        $yo = $this->usuarioLlanoDelPersonal();
         $otro = $this->otroUsuario((int) $yo->id);
         $ajena = $this->bitacoraDe((int) $otro->id);
 
@@ -134,7 +134,7 @@ class BitacorasTest extends CasoDeContrato
      */
     public function test_borrar_una_bitacora_la_saca_del_listado(): void
     {
-        $yo = $this->usuarioDeTipo('Usuario');
+        $yo = $this->usuarioLlanoDelPersonal();
         $token = $this->tokenDe($yo->username);
         $otro = $this->otroUsuario((int) $yo->id);
         $ajena = $this->bitacoraDe((int) $otro->id);
@@ -163,7 +163,7 @@ class BitacorasTest extends CasoDeContrato
      */
     public function test_borrar_una_bitacora_deja_escrito_quien_la_borro(): void
     {
-        $yo = $this->usuarioDeTipo('Usuario');
+        $yo = $this->usuarioLlanoDelPersonal();
         $ajena = $this->bitacoraDe((int) $this->otroUsuario((int) $yo->id)->id);
 
         $this->withToken($this->tokenDe($yo->username))
@@ -184,7 +184,7 @@ class BitacorasTest extends CasoDeContrato
      */
     public function test_borrar_la_bitacora_no_borra_quien_cambio_la_nota(): void
     {
-        $yo = $this->usuarioDeTipo('Usuario');
+        $yo = $this->usuarioLlanoDelPersonal();
         $token = $this->tokenDe($yo->username);
 
         $nota = DB::table('notas')->whereNull('deleted_at')->orderBy('id')->first();

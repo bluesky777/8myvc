@@ -118,7 +118,7 @@ class RutasPreLoginTest extends CasoDeContrato
      */
     public function test_logout_funciona_y_es_idempotente(): void
     {
-        $usuario = $this->usuarioDeTipo('Usuario');
+        $usuario = $this->usuarioLlanoDelPersonal();
         $token = $this->tokenDe($usuario->username);
         $cab = ['Authorization' => 'Bearer '.$token];
 
@@ -133,7 +133,7 @@ class RutasPreLoginTest extends CasoDeContrato
     /** El cierre de sesión se registra en el historial del usuario del token. */
     public function test_logout_registra_la_salida(): void
     {
-        $usuario = $this->usuarioDeTipo('Usuario');
+        $usuario = $this->usuarioLlanoDelPersonal();
         $token = $this->tokenDe($usuario->username);
 
         // El login que acaba de hacer tokenDe() deja la fila abierta.
@@ -162,7 +162,7 @@ class RutasPreLoginTest extends CasoDeContrato
      */
     public function test_no_se_puede_cerrar_la_sesion_de_otro(): void
     {
-        $mio = $this->usuarioDeTipo('Usuario');
+        $mio = $this->usuarioLlanoDelPersonal();
         $otro = $this->usuarioDeTipo('Profesor');
         $token = $this->tokenDe($mio->username);
 

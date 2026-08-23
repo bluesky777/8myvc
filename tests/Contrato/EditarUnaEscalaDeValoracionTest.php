@@ -74,7 +74,7 @@ class EditarUnaEscalaDeValoracionTest extends CasoDeContrato
      */
     public function test_mandar_solo_el_id_no_vacia_la_escala(): void
     {
-        $token = $this->tokenDe($this->usuarioDeTipo('Usuario')->username);
+        $token = $this->tokenDelPersonalLlano();
 
         $columnas = 'desempenio, valoracion, porc_inicial, porc_final, descripcion, orden, perdido, '
             .'icono_infantil, icono_adolescente';
@@ -110,7 +110,7 @@ class EditarUnaEscalaDeValoracionTest extends CasoDeContrato
      */
     public function test_editar_una_escala_entera_sigue_escribiendo(): void
     {
-        $token = $this->tokenDe($this->usuarioDeTipo('Usuario')->username);
+        $token = $this->tokenDelPersonalLlano();
 
         $escala = DB::selectOne('SELECT id FROM escalas_de_valoracion
             WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
@@ -155,7 +155,7 @@ class EditarUnaEscalaDeValoracionTest extends CasoDeContrato
      */
     public function test_un_cero_mandado_a_proposito_no_se_reemplaza_por_el_valor_viejo(): void
     {
-        $token = $this->tokenDe($this->usuarioDeTipo('Usuario')->username);
+        $token = $this->tokenDelPersonalLlano();
 
         // Van en DOS filas distintas, y no es rebuscado: en las cuatro escalas
         // de cada año la única con `perdido = 1` es BAJO, que es justamente la
