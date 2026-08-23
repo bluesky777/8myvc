@@ -319,7 +319,13 @@ PUT  api/puestos/detailed-notas-periodo/103       200    3.676 b   PERSONALES: d
 
 **Seis de las siete contestan, y cuatro con datos personales dentro.** Su silencio en
 el barrido grande no era «no hay nada que alcanzar»: era **el año**. Sólo
-`piars-asignaturas` se queda muda de verdad.
+`piars-asignaturas` se queda muda para el profesor.
+
+**Y con un administrativo sin ningún rol, las siete**: `piars-asignaturas` le contesta
+435 b donde al profesor le da 2. La corrección es simétrica, o sea que **las dos cifras
+estaban contando de menos** —164 y 145— y no es un efecto del tipo de sujeto. Se midió
+con los dos a propósito: una corrección que sólo se comprueba en un sujeto no distingue
+«el barrido contaba mal» de «este sujeto alcanza más».
 
 **Esto no es un agujero nuevo**, y decirlo lo sería: es la misma decisión de Joseth
 sobre `auth.personal` —el personal del colegio ve el colegio entero— aplicada a seis

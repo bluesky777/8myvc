@@ -61,11 +61,40 @@ class GrupoAjenoDelMismoAnioTest extends CasoDeContrato
 
     public function test_que_ve_un_profesor_de_un_grupo_ajeno_de_su_mismo_anio(): void
     {
+        $this->medirCon($this->usuarioDeTipo('Profesor'), 'Profesor');
+    }
+
+    /**
+     * Y lo mismo con un administrativo **sin ningún rol**, para que la corrección sea
+     * simétrica: si el barrido grande estaba contando de menos, lo estaba haciendo con
+     * los dos sujetos, y las dos cifras —164 y 145— se corrigen igual.
+     *
+     * El sujeto se exige `is_superuser = 0` **y sin roles**, por lo mismo que en el
+     * barrido: `usuarioDeTipo('Usuario')` devuelve el usuario 1, que es superusuario, y
+     * medirlo sería medir el control. Ver §111.
+     */
+    public function test_que_ve_un_administrativo_sin_rol_del_mismo_grupo_ajeno(): void
+    {
+        $llano = DB::selectOne('SELECT u.* FROM users u
+            INNER JOIN periodos p ON p.id = u.periodo_id AND p.deleted_at IS NULL
+            WHERE u.tipo = "Usuario" AND u.is_active = 1 AND u.deleted_at IS NULL
+              AND u.is_superuser = 0
+              AND NOT EXISTS (SELECT 1 FROM role_user ru WHERE ru.user_id = u.id)
+            ORDER BY u.id LIMIT 1');
+
+        $this->assertNotNull($llano,
+            'El seed no tiene ningún Usuario sin superusuario y sin roles.');
+
+        $this->medirCon($llano, 'Usuario sin rol');
+    }
+
+    private function medirCon(object $profe, string $etiqueta): void
+    {
         $this->withoutMiddleware(ThrottleRequests::class);
 
-        $profe = $this->usuarioDeTipo('Profesor');
         $token = $this->tokenDe($profe->username);
 
+        // El año se lee DESPUÉS de entrar: `Services\Login` reescribe `periodo_id`.
         // El año se lee DESPUÉS de entrar: `Services\Login` reescribe `periodo_id`.
         $suyo = DB::selectOne('SELECT p.year_id, p.id AS periodo_id, p.numero FROM users u
             INNER JOIN periodos p ON p.id = u.periodo_id WHERE u.id = ?', [$profe->id]);
@@ -80,7 +109,7 @@ class GrupoAjenoDelMismoAnioTest extends CasoDeContrato
             INNER JOIN grupos g ON g.id = m.grupo_id AND g.year_id = ?
             WHERE a.deleted_at IS NULL ORDER BY a.id LIMIT 1', [$suyo->year_id]);
 
-        $this->assertNotNull($alumno, 'El seed no tiene alumnos en el año del profesor.');
+        $this->assertNotNull($alumno, 'El seed no tiene alumnos en el año del sujeto.');
 
         DB::table('matriculas')->insert([
             'alumno_id' => $alumno->id,
@@ -95,7 +124,8 @@ class GrupoAjenoDelMismoAnioTest extends CasoDeContrato
             ->where('profesor_id', $profesorId)->count();
 
         $salida = [];
-        $salida[] = "Profesor {$profe->username} (profesor_id {$profesorId}), año {$suyo->year_id}.";
+        $salida[] = "{$etiqueta}: {$profe->username} (profesor_id "
+            .var_export($profesorId, true)."), año {$suyo->year_id}.";
         $salida[] = "Grupo ajeno del MISMO año: {$ajeno->grupo_id}, con 1 alumno dentro "
             ."y {$suyas} asignaturas suyas.";
         $salida[] = '';
