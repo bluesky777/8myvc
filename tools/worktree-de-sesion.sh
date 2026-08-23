@@ -21,8 +21,10 @@
 # contenedor monta `/Users/.../8myvc` en `/app` y nada más: un worktree hermano
 # —`../8myvc.worktrees/x`, que es lo que se intentó el 19 de agosto y quedó
 # abandonado vacío— no lo ve el contenedor, así que no se le pueden correr los
-# tests. Git ignora solo las carpetas de worktree que él mismo registró, así que
-# `.worktrees/` no ensucia `git status` y no hace falta tocar `.gitignore`.
+# tests. Git **no desciende** dentro de un worktree registrado, pero **sí lista la
+# carpeta** como sin seguimiento (`?? .worktrees/`, medido el 22 ago 2026: aquí
+# decía que no y era falso). Va en `.git/info/exclude` del árbol raíz —local— y
+# no en `.gitignore`, que se copia a los dieciséis colegios.
 #
 # ─────────────────────────────────────────────────────────────────────────────
 # LA TRAMPA, que es la razón entera de que esto sea un script y no tres órdenes:

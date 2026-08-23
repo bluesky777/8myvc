@@ -94,8 +94,24 @@ clases**, que es lo único que demuestra que el aislamiento existe.
 **El árbol va dentro del proyecto y no al lado.** El contenedor monta
 `/Users/.../8myvc` en `/app` y nada más; un worktree hermano no lo ve, así que
 no se le pueden correr los tests. Ya se intentó el 19 de agosto —
-`../8myvc.worktrees/` sigue ahí, vacío—. Git ignora solo las carpetas de worktree
-que él mismo registró, así que `.worktrees/` no ensucia `git status`.
+`../8myvc.worktrees/` sigue ahí, vacío—.
+
+**Y una corrección medida esta misma noche, porque aquí decía lo contrario**: git
+**no desciende** dentro de los worktrees que él mismo registró —por eso
+`git status` no lista sus ficheros— pero **sí lista la carpeta**:
+
+```
+$ git status --short
+?? .worktrees/
+$ git check-ignore -v .worktrees/d     # exit=1: no está ignorado
+```
+
+O sea que un `git add -A` desde la raíz se los encuentra delante, y quien
+coordina verifica el índice con un número (`git diff --cached --stat`) que esto
+mueve. Se arregla con `/.worktrees/` en **`.git/info/exclude` del árbol raíz** —
+local, y no en `.gitignore`, que se copia a los dieciséis colegios. Hecho el 22
+de agosto de 2026. Lo encontró la sesión del lote D mirando su `git status`, que
+es lo que nadie hace cuando el documento ya afirma que sale limpio.
 
 ### `vendor/` no se puede enlazar, y eso costó encontrarlo
 
