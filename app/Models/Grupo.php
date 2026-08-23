@@ -380,9 +380,25 @@ class Grupo extends Model {
 					left join images i2 on p.firma_id=i2.id and i.deleted_at is null
 					where g.id=:grupo_id and g.deleted_at is null';
 
-		$datos = DB::select($consulta, [':grupo_id' => $grupo_id])[0];
+		$datos = DB::select($consulta, [':grupo_id' => $grupo_id]);
 
-		return $datos;
+		// **404 y no `[0]` a pelo.** Este `[0]` era un 500 —«Undefined array key
+		// 0»— para cualquier grupo que no exista **o esté en la papelera**, porque
+		// la consulta filtra `g.deleted_at is null`. Lo destapó `myvc-front-12`
+		// verificando en Chrome el 24 ago 2026: `boletines/detailed-notas-group/1`
+		// devolvía 500 y la pantalla no reventaba ni pintaba veneno, así que no lo
+		// había visto nadie. El grupo 1 de la copia de producción existe y está
+		// borrado **desde 2018**.
+		//
+		// Los diecisiete llamantes de este método hacen lo mismo —lo asignan y
+		// usan sus campos—, o sea que ninguno sabe tratar la ausencia: para todos,
+		// 404 es la respuesta correcta y es estrictamente mejor que la traza de
+		// PHP que daban hasta hoy.
+		if ($datos === []) {
+			abort(404, 'El grupo no existe o está en la papelera.');
+		}
+
+		return $datos[0];
 	}
 }
 
