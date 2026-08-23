@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Disciplina;
 
 use App\Http\Controllers\Controller;
+use App\Support\CatalogoEnUso;
 use App\Support\ColumnaSegura;
 use App\User;
 use Carbon\Carbon;
@@ -140,10 +141,27 @@ class OrdinalesController extends Controller
         return 'Cambiado';
     }
 
+    /**
+     * Borrar un ordinal del manual de convivencia **dejaba en pie las faltas que
+     * lo citaban, sin el artículo que dice qué se incumplió** (lote B).
+     *
+     * `Disciplina` une con `LEFT JOIN dis_ordinales o … and o.deleted_at is null`,
+     * así que la situación sigue saliendo en el observador del alumno con
+     * `ordinal`, `descripcion` y `pagina` en null. Por la regla de la §70.2 eso es
+     * «un hueco visible» y no «esconder la fila» — pero aquí **el hueco es el
+     * contenido**: una falta sin su artículo ya no dice qué norma se incumplió, y
+     * es un registro disciplinario de un menor.
+     *
+     * **Joseth, 23 ago 2026: se impide, y el aviso dice cuántas dependen.** Hoy
+     * lo bloquearía en 7 de los 16 ordinales vivos.
+     */
     public function putDestroy()
     {
         $user = User::fromToken();
         $now = Carbon::now('America/Bogota');
+
+        CatalogoEnUso::exigirQueNadieApunte('dis_proceso_ordinales', 'ordinal_id',
+            Request::input('ordinal_id'), 'situaciones de disciplina');
 
         $consulta = 'UPDATE dis_ordinales SET deleted_at=?, deleted_by=? WHERE id=?';
         $datos = [$now, $user->user_id, Request::input('ordinal_id')];

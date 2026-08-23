@@ -70,28 +70,32 @@ class CatalogosDelColegioTest extends CasoDeContrato
     }
 
     /**
-     * **Mandar un grado a la papelera apaga las asignaturas de sus profesores, y la
-     * rejilla de grupos sigue enseñando el grupo como si nada.**
+     * **Ya no se puede llegar al daño: un grado con grupos no se borra — 422.**
      *
-     * Medido, no leído: 1 asignatura antes y 0 después para el mismo profesor, con
+     * Este test medía el daño y hoy mide que la puerta está cerrada. Lo que medía
+     * —y sigue siendo verdad del mecanismo— es que mandar un grado a la papelera
+     * **apagaba las asignaturas de sus profesores** mientras la rejilla de grupos
+     * seguía enseñando el grupo como si nada: 1 asignatura antes y 0 después, con
      * el grupo intacto en `GET api/grupos` las dos veces.
      *
-     * El mecanismo no es una cascada de la base —los seis modelos de catálogo son de
-     * papelera, así que el `ON DELETE CASCADE` de `grupos.grado_id` no llega a
-     * dispararse nunca—. Es que **cada consulta decide por su cuenta si mira
+     * El mecanismo no era una cascada de la base —los seis modelos de catálogo son
+     * de papelera, así que el `ON DELETE CASCADE` de `grupos.grado_id` no llega a
+     * dispararse nunca—. Era que **cada consulta decide por su cuenta si mira
      * `deleted_at`**: `Profesor::asignaturas` une `inner join grados … and
      * gr.deleted_at is null`, y la rejilla de `GruposController` une por el mismo
-     * grado **sin ese filtro**. La misma fila en la papelera esconde una pantalla y
-     * no la otra.
+     * grado **sin ese filtro**. La misma fila en la papelera escondía una pantalla
+     * y no la otra.
      *
-     * **Esto se fija y NO se juzga**, y el porqué va escrito aquí porque la §54 dice
-     * que un valor sin su motivo se lee como decidido: quién puede borrar un grado
-     * es de las 44 rutas de configuración que Joseth decidió no cerrar (09), y qué
-     * debe pasar con los grupos de un grado borrado es una pregunta del colegio, no
-     * un arreglo. Lo que sí queda dicho es el tamaño: **no hay ruta de restore para
-     * grados**, así que desde ninguna pantalla se puede deshacer.
+     * **Joseth, 23 ago 2026: se impide, y el aviso dice cuántos grupos dependen.**
+     * Lo que este test afirma ahora son las dos mitades: que **corta con 422** y
+     * que **el profesor conserva sus asignaturas**, que es lo único que distingue
+     * «no dejó» de «dijo que no».
+     *
+     * **El mecanismo sigue armado y por eso se deja escrito**: nada impide que
+     * vuelva por otro camino —un `forceDelete`, o un borrado hecho a mano en la
+     * base—, y sigue sin haber ruta de `restore` para grados.
      */
-    public function test_borrar_un_grado_apaga_las_asignaturas_de_sus_profesores(): void
+    public function test_un_grado_con_grupos_no_se_borra_y_el_profesor_conserva_sus_asignaturas(): void
     {
         // El año tiene que ser el ACTUAL: `Services\Login` reescribe `users.periodo_id`
         // al entrar, así que el token acaba en el año actual y una asignatura de otro
@@ -117,16 +121,19 @@ class CatalogosDelColegioTest extends CasoDeContrato
 
         $this->olvidarControladores();
         $this->withToken($token)->deleteJson('/api/grados/destroy/'.$grupo->grado_id)
-            ->assertStatus(200);
+            ->assertStatus(422);
         $this->olvidarControladores();
 
+        $this->assertNull(DB::table('grados')->where('id', $grupo->grado_id)->value('deleted_at'),
+            'Contestó 422 y aun así mandó el grado a la papelera.');
+
         $despues = $this->withToken($token)->getJson('/api/asignaturas/listasignaturas/'.$grupo->profesor_id);
-        $this->assertSame([], $despues->json('asignaturas') ?? [],
-            'El profesor conserva asignaturas: si esto cambia, es que alguien decidió lo otro.');
+        $this->assertGreaterThan(0, count($despues->json('asignaturas') ?? []),
+            'El profesor perdió sus asignaturas: el 422 llegó DESPUÉS de escribir, que es '
+            .'la forma exacta que tenían la mitad de los hallazgos de la noche del 22 al 23.');
 
         $gruposDespues = $this->withToken($token)->getJson('/api/grupos');
-        $this->assertContains($grupo->id, array_column($gruposDespues->json() ?? [], 'id'),
-            'La rejilla de grupos dejó de enseñar el grupo: eso sería un cambio de las dos consultas, no de una.');
+        $this->assertContains($grupo->id, array_column($gruposDespues->json() ?? [], 'id'));
     }
 
     /**
