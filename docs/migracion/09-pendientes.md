@@ -96,7 +96,7 @@ la llama la pinta en un menú `hasRoleOrPerm(['admin','secretario'])`, y hoy hay
 | | La decisión | Instancias que cuelgan de ella |
 |---|---|---|
 | **A** | **¿Se puede escribir en un año pasado?** — [**las cuatro pantallas, en el 16**](16-escribir-en-un-anio-pasado.md) | frases y contratos de años pasados (§84) · ordinales del manual de convivencia de un año cerrado (lote B) · **escalas de valoración, que hoy lo permiten y llevan escrito que es a propósito** |
-| **B** | **Borrar un catálogo al que otra fila apunta: ¿se impide, se avisa o se deja?** | borrar un grado apaga la planilla de sus profesores (§70) · borrar un ordinal deja la falta en pie sin artículo (lote B) |
+| ~~**B**~~ | ~~**Borrar un catálogo al que otra fila apunta**~~ — **CONTESTADA Y APLICADA el 23 ago: se impide, con la cuenta de lo que depende.** Cerrados `grados` y `dis_ordinales`, que son los dos con daño medido; **`frases`, `tipos_documentos` y `ciudades` NO**, y `niveles_educativos`, `areas` y `materias` esperan número (ver abajo) | (§70, lote B) |
 | **C** | **La hora mal escrita en filas ya guardadas: ¿migración o nota?** | `change_asked.deleted_at` (§121) · `created_at`/`updated_at` de las ausencias del lector (§123) |
 | **D** | **Los interruptores `para_*`** | `para_acudientes` y `para_profesores` (§104) son los gemelos de `para_alumnos` (§74) |
 | **E** | **¿Quién del personal puede qué?** | las cinco rutas que un profesor alcanza de verdad · **quién reparte acudientes (§109)** · `bitacoras/*`, leerla y borrarla · `historiales/de-usuario` (§110) · `matriculas/*` 3 de 16 con guard, `alumnos/*` 8 de 17 · quién es el «Secretario» y para qué está `Manager` |
@@ -130,6 +130,23 @@ Tres avisos sobre esa tabla, que son la mitad del valor de haberla cruzado:
   anclada a superusuario. Las dos son ciertas — **el guard deja pasar y el método
   aborta dentro**. De las seis rutas de esa familia, cinco las puede hacer un
   profesor de verdad y una contesta 403.
+
+### Lo que abrió cerrar la B, y hace falta un número tuyo
+
+Los tres catálogos que quedan tienen **la misma forma que `grados`** —el hijo se
+queda huérfano y alguna consulta lo esconde— pero el tamaño manda, porque cerrar
+significa que esa fila **ya no se puede retirar mientras tenga hijos vivos**:
+
+| Catálogo | Hijo | Se bloquearían hoy | Qué pasa si no se cierra |
+|---|---|---|---|
+| `niveles_educativos` | `grados` | **4 de 4** — o sea, ninguno se podría borrar nunca | se lleva los grados por delante, y de ahí los grupos |
+| `areas` | `materias` | **20 de 22** | las materias quedan sin área |
+| `materias` | `asignaturas` | **27 de 35** | las asignaturas quedan sin materia |
+
+**Y tres que NO se cierran, con su porqué medido**, para que no se amplíen por
+analogía: `frases` —la definición ya guarda el texto copiado, 235 de 426 sin poder
+retirar a cambio de nada—, `tipos_documentos` y `ciudades` —hueco visible medido
+en la §70.2, y quedarían prácticamente inborrables—.
 
 Y **tres filas que parecen nuevas y no lo son**: que `GET api/contratos` mande el
 expediente completo ya está en el §5 de aquí abajo —lo nuevo es que ahora un test
