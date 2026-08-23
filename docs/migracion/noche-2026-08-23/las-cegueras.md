@@ -152,6 +152,27 @@ La más cara, porque **el resultado falso es indistinguible de un hallazgo**.
 > cortos de escribir; la `merge-base` es más explícita de leer. Lo que hay que
 > marcar como trampa es **el de dos puntos**, que es el que uno teclea sin pensar.
 
+### Una de la forma 5 fabricada mientras se escribía esto
+
+Ya cerrado el barrido, auditando si alguien había tocado mis tests después de
+fundirlos, un bucle de shell comparó los hashes de blob de doce ficheros y dijo
+que **los doce habían cambiado**. Doce de doce es un número que no se parece a
+«otro lote tocó uno»: se parece a que algo grande pasó.
+
+No pasó nada. **Los doce estaban idénticos**, y `git diff` sobre uno de ellos
+salía vacío en un segundo. Lo que fallaba era el bucle —la captura de las
+variables dentro de la sustitución—, y su salida tenía **exactamente la forma de
+un hallazgo**.
+
+> **El instrumento era el bucle escrito para comprobar, no lo comprobado.** Lo
+> único que lo cazó fue la regla que este mismo documento acababa de escribir:
+> **mirar el diff de verdad antes de creerse el resumen** — y que doce de doce es
+> demasiado redondo.
+
+Se cuenta porque es la prueba más barata de que estas formas no se evitan
+sabiéndoselas: **el barrido estaba escrito y firmado cuando pasó.** Lo que las
+evita es el hábito de pedirle al instrumento que enseñe el caso concreto.
+
 ---
 
 ## Forma 6 — La señal que se busca no es la forma que tiene el fallo
