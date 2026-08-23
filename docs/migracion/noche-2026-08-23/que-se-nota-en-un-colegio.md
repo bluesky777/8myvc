@@ -57,6 +57,7 @@ Ordenado por lo que un colegio notaría antes.
 | **K** | Que aceptar o rechazar un pedido escriba **hasta cinco filas de depuración** en `debugging`, una con el texto `ENTROOOOO` | idem |
 | **L** | Lo mismo de la hora, en **cada ausencia que sube el lector de tardanzas** — el camino de más volumen de los dos | `POST tardanzas/subir` |
 | **S** | Que **un acudiente reciba un error después de que su prematrícula sí se haya guardado** — y que vuelva a darle al botón. Es la única escritura que alcanza una familia | `PUT matriculas/prematricular` |
+| **P** | Que **abrir la rejilla de comportamiento escriba la nota de cada alumno del grupo con el tope de la escala** con el periodo cerrado — y en el periodo **del que mira**, no el del grupo | la rejilla de comportamiento |
 
 **Además**, en **cinco lotes** hay 500 que pasan a ser 404 o 422. No son un cambio
 de capacidad: un id que no lleva a ninguna fila **deja de devolver una traza de
@@ -103,6 +104,12 @@ Un superusuario **sigue** mandando el grupo a la papelera —el botón sigue hac
 lo que no dice, ahora para menos gente—, pero se dibuja con
 `ng-show="row.entity.is_superuser"` y **`perfiles/usuariosall` no devuelve esa
 columna**: la condición es siempre falsa.
+
+**Y una que quita capacidad sin que la pierda ninguna persona**, del lote P:
+
+| Lote | Qué |
+|---|---|
+| **P** | **La pierde una pantalla, no alguien.** El profesor ve lo mismo y recibe el mismo 400 si intenta guardar — solo que ahora **antes de que se escriba nada**. Sin `abort()` en la lectura: con el periodo cerrado la rejilla sigue abriéndose, que es el precedente que Joseth fijó en la §47.2 |
 
 **Y una que NO quita capacidad aunque lo parezca**, porque conviene decirlo antes
 de que alguien lo lea al revés:
@@ -157,6 +164,9 @@ con esto.
 | El botón de la rejilla de Usuarios que manda **un grupo** a la papelera | el front lo pinta con `ng-show="row.entity.is_superuser"` y **`perfiles/usuariosall` no devuelve esa columna** | **añadir `is_superuser` a `perfiles/usuariosall`** — lo primero que hace cualquiera que necesite saber quién es administrador | E |
 | `PUT grupos/update` sellaba el grupo con **el año de quien lo edita** *(ya arreglado)* | las dos pantallas que editan grupos solo listan los del año en curso | **una pantalla nueva que liste grupos de otro año**, o un cliente que reutilice `grupos/update` | E |
 | `folios/iniciar` | es idempotente **por la condición de los datos, no por diseño** | que esa condición deje de cumplirse | *(ver su lote)* |
+| `folios/iniciar` **(de nuevo, con su detonante escrito)** | es idempotente por la condición de los datos | **una reescritura que pierda esa condición** | P |
+| `GET api/importar` | **la carpeta que necesita no existe** | **que alguien la cree** | P |
+| `arreglar-duplicados` | lleva su comprobación **dentro del método** | **que alguien le quite el `pueden_modificar_definitivas` creyendo que la ruta ya está protegida** — el error que induce su propia exención mal leída | P |
 | `matriculas/prematricular` no mira **el año del grupo ni el estado**, y los dos vienen del cuerpo | las tres comprobaciones **viven en el front**: el desplegable solo ofrece grupos de `year + 1`, el botón se esconde para los estados ya decididos, y manda `estado: 'PREA'` fijo | **que `grados_sig` deje de ser `year + 1`** (`ChangeAskedController:305` y `:428`) — un cambio de una palabra que hoy nadie relaciona con esto. O cualquier cliente que llame sin esas tres comprobaciones | S |
 
 > Las tres tienen la misma forma y por eso van juntas: **no se notan al desplegar
