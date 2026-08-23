@@ -349,6 +349,38 @@ comprobable desde este repositorio.
 
 ---
 
+## Lo que se lleva la noche de este lote
+
+Este lote no descubrió el 49 —lo descubrió la §17 del 12 el 21 de agosto—.
+Descubrió **por qué nadie lo sabía**, y eso resultó ser lo mismo que encontraron
+las otras dos secciones de esta sesión ([§89 y §90](c.md)).
+
+Cuatro instrumentos mintieron esta noche, y **los cuatro en la misma dirección**:
+
+| Dónde | Qué decía | Qué era |
+|---|---|---|
+| §89 | `boletines2/destroy` estaba en la `TABLA_DE_ID` del barrido | medida **con otro propósito**, nunca juzgada |
+| §90 | «§71, cortada con 410» en la tabla de la §77.2 | era **su vecina** la cortada |
+| §105 | «quedaron **dos** columnas» en la cabecera del script | eran **49** |
+| §106.5 | el ejemplo de uso con rutas relativas | desde un worktree da **50**, y sólo avisa por `stderr` |
+
+Ninguno de los cuatro es un fallo al medir. **Los cuatro son fallos al decidir si
+vale la pena medir**, y por eso son más caros que un detector que se equivoca:
+un detector equivocado se corre y su salida se lee; un renglón que dice «ya está»
+hace que nadie lo corra.
+
+Y los cuatro empujan hacia el mismo lado —hacia «no hay nada» o hacia «ya está»,
+nunca hacia la duda—, con una excepción que es la más peligrosa de todas: la de
+la §106.5 **da un número más grande que el bueno**. Una ejecución rota que parece
+un hallazgo mejor que una correcta no la cuestiona nadie.
+
+> Lo que se puede hacer con esto, y es barato: **cuando una cabecera, una tabla o
+> un renglón diga que algo ya está resuelto, comprobar el número contra la
+> herramienta antes de creerlo.** Las cuatro veces bastó con correr lo que ya
+> existía.
+
+---
+
 ## PARA JOSETH
 
 ### 1. ¿Quién despliega `../myvc_dist`? (§106.2)
