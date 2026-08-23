@@ -1,6 +1,7 @@
 <?php namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Services\DefinitivasDeAsignatura;
 
 
 use Carbon\Carbon;
@@ -150,6 +151,22 @@ class NotaFinal extends Model {
 
 
 
+    /**
+     * **Los cuatro DELETE+INSERT de aquí eran los últimos `INSERT` sin guarda de
+     * `notas_finales`** — fase 3 de docs/migracion/10-definitivas.md, 24 ago 2026.
+     *
+     * Cada uno borraba las automáticas del alumno en su periodo **excluyendo las
+     * manuales y las recuperadas** —a propósito, para no pisar lo que puso un
+     * profesor— y después reponía la automática **del mismo alumno cuya manual se
+     * acababa de conservar**. Eso es el duplicado auto+manual de la §2, y con la
+     * clave única de la fase 2 sería un 500 al abrir esta pantalla.
+     *
+     * Ahora los cuatro llaman a `DefinitivasDeAsignatura`, que decide por
+     * existencia y respeta `manual` y `recuperada` **en un único punto** en vez de
+     * en cinco. **Las condiciones de arriba se dejan como estaban**: cambiar a la
+     * vez quién escribe y cuándo se dispara haría imposible saber cuál de las dos
+     * cosas movió un número.
+     */
     public static function alumnos_grupo_nota_final($grupo_id, $asignatura_id, $user_id){
 
         $consulta = self::$consulta_alumnos_grupo_nota_final;
@@ -169,63 +186,45 @@ class NotaFinal extends Model {
             if($alumnos[$i]->nfinal1_desactualizada && $alumnos[$i]->updated_at_def_1){
                 $per_desact['per1'] = true;
                 
-                if (!$alumnos[$i]->manual_1 && !$alumnos[$i]->recuperada_1) {
-                    
-                    DB::delete('DELETE FROM notas_finales WHERE asignatura_id=? and (manual is null or manual=0) and (recuperada is null or recuperada=0) and periodo=? and alumno_id=?', [ $asignatura_id, 1, $alumnos[$i]->alumno_id ]);
-                    
-                    $consulta = 'INSERT INTO notas_finales(alumno_id, asignatura_id, periodo_id, periodo, nota, recuperada, manual, updated_by, created_at, updated_at) 
-						VALUES(:alumno_id, :asignatura_id, :periodo_id, :periodo, :nota, :recuperada, :manual, :updated_by, :created_at, :updated_at)';
-                
-                    DB::insert($consulta, [':alumno_id' => $alumnos[$i]->alumno_id, ':asignatura_id' => $asignatura_id, ':periodo_id' => $alumnos[$i]->periodo_id1, 
-                                                    ':periodo' => 1, ':nota' => round($alumnos[$i]->def_materia_auto_1), ':recuperada' => 0, ':manual' => 0, ':updated_by' => $user_id, ':created_at' => $now, ':updated_at' => $now ]);
-                
-                }
+                DefinitivasDeAsignatura::recalcular(
+                    (int) $asignatura_id,
+                    (int) $alumnos[$i]->periodo_id1,
+                    $user_id,
+                    (int) $alumnos[$i]->alumno_id
+                );
                 
             }
             if($alumnos[$i]->nfinal2_desactualizada && $alumnos[$i]->updated_at_def_2){
                 $per_desact['per2'] = true;
                 
-                if (!$alumnos[$i]->manual_2 && !$alumnos[$i]->recuperada_2) {
-                    DB::delete('DELETE FROM notas_finales WHERE asignatura_id=? and (manual is null or manual=0) and (recuperada is null or recuperada=0) and periodo_id=? and alumno_id=?', [ $asignatura_id, $alumnos[$i]->periodo_id2, $alumnos[$i]->alumno_id ]);
-                    
-                    $consulta = 'INSERT INTO notas_finales(alumno_id, asignatura_id, periodo_id, periodo, nota, recuperada, manual, updated_by, created_at, updated_at) 
-						VALUES(:alumno_id, :asignatura_id, :periodo_id, :periodo, :nota, :recuperada, :manual, :updated_by, :created_at, :updated_at)';
-                
-                    DB::insert($consulta, [':alumno_id' => $alumnos[$i]->alumno_id, ':asignatura_id' => $asignatura_id, ':periodo_id' => $alumnos[$i]->periodo_id2, 
-                                                    ':periodo' => 2, ':nota' => round($alumnos[$i]->def_materia_auto_2), ':recuperada' => 0, ':manual' => 0, ':updated_by' => $user_id, ':created_at' => $now, ':updated_at' => $now ]);
-                
-                }
+                DefinitivasDeAsignatura::recalcular(
+                    (int) $asignatura_id,
+                    (int) $alumnos[$i]->periodo_id2,
+                    $user_id,
+                    (int) $alumnos[$i]->alumno_id
+                );
                 
             }
             if($alumnos[$i]->nfinal3_desactualizada && $alumnos[$i]->updated_at_def_3){
                 $per_desact['per3'] = true;
                 
-                if (!$alumnos[$i]->manual_3 && !$alumnos[$i]->recuperada_3) {
-                    DB::delete('DELETE FROM notas_finales WHERE asignatura_id=? and (manual is null or manual=0) and (recuperada is null or recuperada=0) and periodo_id=? and alumno_id=?', [ $asignatura_id, $alumnos[$i]->periodo_id3, $alumnos[$i]->alumno_id ]);
-                    
-                    $consulta = 'INSERT INTO notas_finales(alumno_id, asignatura_id, periodo_id, periodo, nota, recuperada, manual, updated_by, created_at, updated_at) 
-						VALUES(:alumno_id, :asignatura_id, :periodo_id, :periodo, :nota, :recuperada, :manual, :updated_by, :created_at, :updated_at)';
-                
-                    DB::insert($consulta, [':alumno_id' => $alumnos[$i]->alumno_id, ':asignatura_id' => $asignatura_id, ':periodo_id' => $alumnos[$i]->periodo_id3, 
-                                                    ':periodo' => 3, ':nota' => round($alumnos[$i]->def_materia_auto_3), ':recuperada' => 0, ':manual' => 0, ':updated_by' => $user_id, ':created_at' => $now, ':updated_at' => $now ]);
-                
-                }
+                DefinitivasDeAsignatura::recalcular(
+                    (int) $asignatura_id,
+                    (int) $alumnos[$i]->periodo_id3,
+                    $user_id,
+                    (int) $alumnos[$i]->alumno_id
+                );
                 
             }
             if($alumnos[$i]->nfinal4_desactualizada && $alumnos[$i]->updated_at_def_4){
                 $per_desact['per4'] = true;
                 
-                if (!$alumnos[$i]->manual_4 && !$alumnos[$i]->recuperada_4) {
-                    
-                    DB::delete('DELETE FROM notas_finales WHERE asignatura_id=? and (manual is null or manual=0) and (recuperada is null or recuperada=0) and periodo_id=? and alumno_id=?', [ $asignatura_id, $alumnos[$i]->periodo_id4, $alumnos[$i]->alumno_id ]);
-                    
-                    $consulta = 'INSERT INTO notas_finales(alumno_id, asignatura_id, periodo_id, periodo, nota, recuperada, manual, updated_by, created_at, updated_at) 
-						VALUES(:alumno_id, :asignatura_id, :periodo_id, :periodo, :nota, :recuperada, :manual, :updated_by, :created_at, :updated_at)';
-                
-                    DB::insert($consulta, [':alumno_id' => $alumnos[$i]->alumno_id, ':asignatura_id' => $asignatura_id, ':periodo_id' => $alumnos[$i]->periodo_id4, 
-                                                    ':periodo' => 4, ':nota' => round($alumnos[$i]->def_materia_auto_4), ':recuperada' => 0, ':manual' => 0, ':updated_by' => $user_id, ':created_at' => $now, ':updated_at' => $now ]);
-                
-                }
+                DefinitivasDeAsignatura::recalcular(
+                    (int) $asignatura_id,
+                    (int) $alumnos[$i]->periodo_id4,
+                    $user_id,
+                    (int) $alumnos[$i]->alumno_id
+                );
                 
             }
         }

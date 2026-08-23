@@ -682,12 +682,18 @@ De los siete disparadores que lista la fase 3, **hay uno cableado**:
 | `NotasController::putDetailed` — cada carga de /notas | **hecho el 24 ago** — pregunta por el sello antes de escribir |
 | Crear la subunidad y sus notas en la misma transacción | **hecho el 24 ago** — §5.1 cerrada, y en **una** transacción: hacerlo en el mismo método con escrituras sueltas dejaría la misma ventana, sólo que más corta |
 
-> **Lo que la fase 3 le compra a la fase 2, contado en `INSERT`:** al sustituir
-> `putDetailed` y las cuatro llamadas al calculador viejo, **cinco de los seis
-> `INSERT` sin guarda en pantallas vivas desaparecen**. Queda uno:
-> `DefinitivasPeriodosController::putUpdate`, la rama sin `nf_id` — **el profesor
-> tecleando una definitiva**— más los cuatro de `NotaFinal::alumnos_grupo_nota_final`,
-> que sustituye lo que queda de la fase 3.
+> **La fase 3 desbloquea la fase 2, y esto es la comprobación.** Re-auditados los
+> `INSERT INTO notas_finales` el 24 ago, después de cablearlo todo:
+>
+> | Sitio | Estado |
+> |---|---|
+> | el servicio · `NotaFinal:309` · `DefinitivasPeriodosController:146` | protegidos desde antes |
+> | `DefinitivasPeriodosController::putUpdate`, rama sin `nf_id` | **cerrado**: decide por existencia, en transacción y con `FOR UPDATE` para que dos profesores en la misma celda no creen dos filas |
+> | `NotaFinal::alumnos_grupo_nota_final` (los cuatro) | **cerrados**: los sustituye el servicio |
+> | `Alumnos/Definitivas:53,83` | sin guarda **pero inalcanzables** — su ruta responde **410** antes de llegar y al otro método no lo llama nadie. La fase 5 borra la clase |
+>
+> O sea: **ningún `INSERT` alcanzable puede chocar con la clave única.** Lo que
+> queda para la fase 2 no es código, son **los dieciséis números de la fase 0**.
 >
 > Y un aparte que no estaba en el plan: **`putUpdate` de notas no dependía sólo de
 > que no hubiera recálculo, sino de que el cliente mandara `asignatura_id`.** Las

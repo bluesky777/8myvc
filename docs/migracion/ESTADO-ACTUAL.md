@@ -55,24 +55,29 @@ desaparecen los `INSERT` sin guarda** que hoy impiden poner el índice único:
 | Cada carga de /notas (`putDetailed`) | **hecho** — era un DELETE+INSERT por alumno en cada carga; ahora pregunta primero |
 | Crear la subunidad y sus notas en la misma transacción | **hecho** — §5.1 cerrada: nacía sola y la ventana podía durar días desde Flutter |
 
-**La fase 3 está completa.** Y con ella caen **cinco de los seis `INSERT` sin
-guarda** que impedían la fase 2. Lo que queda sin guarda:
+**La fase 3 está completa, y con ella la fase 2 queda desbloqueada.** Auditados
+otra vez los `INSERT INTO notas_finales`: **ninguno alcanzable queda sin guarda.**
 
-| Sitio | Qué pasa con el índice único |
+| Sitio | Estado |
 |---|---|
-| `DefinitivasPeriodosController::putUpdate`, rama sin `nf_id` | **500 al teclear una definitiva** — es el que hay que arreglar primero |
-| `NotaFinal::alumnos_grupo_nota_final` (4 `INSERT`) | 500 al abrir la pantalla de definitivas |
+| El servicio, `NotaFinal:309`, `DefinitivasPeriodosController:146` | protegidos desde antes |
+| `DefinitivasPeriodosController::putUpdate` (rama sin `nf_id`) | **cerrado el 24 ago** — decide por existencia, en transacción y con `FOR UPDATE` |
+| `NotaFinal::alumnos_grupo_nota_final` (4) | **cerrados el 24 ago** — sustituidos por el servicio |
+| `Alumnos/Definitivas:53,83` | **sin guarda pero inalcanzables**: uno responde 410 antes de llegar, al otro no lo llama nadie. La fase 5 borra la clase entera |
 
 ### Lo siguiente
 
-1. **Cerrar esos cinco** —`putUpdate` con un UPSERT, y `alumnos_grupo_nota_final`
-   sustituido por el servicio—. Es lo último que separa de la fase 2.
-2. **La fase 2**: la migración con los dos índices únicos, la limpieza y el
-   relleno. **Necesita antes los dieciséis números de la fase 0**, que hay que
-   correr en el servidor.
-3. **La fase 4 es del front** y no de aquí: revertir el valor cuando falla el
+1. **La fase 2**: la migración con los dos índices únicos, la limpieza de
+   duplicados y el relleno de las que faltan. **Necesita antes los dieciséis
+   números de la fase 0** — la herramienta está, hay que correrla en el servidor,
+   y es un `for` de una línea que está escrito en el 10.
+2. **La fase 4 es del front** y no de aquí: revertir el valor cuando falla el
    guardado y no perder la última nota tecleada. *El arreglo de más valor por
    línea de todo el plan.*
+3. **La fase 5 —quitar los botones «Calcular definitivas per N»— no antes** de que
+   las 1–4 estén **desplegadas** y la fase 0 dé cero discrepancias durante un
+   periodo completo. Hoy esos botones son el parche con el que un colegio se
+   arregla; quitarlos antes deja el problema y quita el parche.
 
 ### Y el orden, que se corrigió el 24 ago
 
