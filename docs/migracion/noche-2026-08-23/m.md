@@ -69,49 +69,44 @@ Lo que sí es del modelo es **fallar de forma diagnosticable**, y eso ya lo hace
 
 ---
 
-## Lo que este lote **no** puede afirmar todavía
+## La comprobación al revés, hecha ya con el lote E fundido
 
-La ficha del lote traía una puerta: *no midas hasta que el lote E esté fundido*.
-**Comprobado en el árbol raíz, no en la ficha:**
+La ficha traía una puerta: *no midas hasta que E esté fundido*. Cuando abrí el
+lote **no lo estaba** —`main` iba por `5f4da32` con A, B, C, D y F— y de los seis
+llamantes de `detallado()` solo había **dos cerrados**, los del lote D. Con E
+dentro (`8ab9b9a`, `2dc6462`) se hizo lo que quedaba.
 
-```
-$ git log --oneline main | grep "lote E"     # vacío
-main: 5f4da32 (A, B, C, D y F)
-```
+**La condición que puse yo mismo para cerrar el §127 era:** buscar si alguno de
+los cuatro llamantes de E **no** mete el resultado en la respuesta, porque ése
+cambiaría la regla. Quitados sus cuatro guards y puesto el `?? null`:
 
-**E no está fundido.** Así que de los seis llamantes de `detallado()`:
+| Ruta | Con el guard puesto (hoy) | Sin guard y con `?? null` |
+|---|---|---|
+| `profesores/show/{id}` | 404 | **200 `[null]`** |
+| `planillas/show-profesor/{id}` | 404 | **200 con la cabecera del informe y sin filas** |
+| `planillas-ausencias/show-profesor/{id}` | 404 | idem |
+| `notas-perdidas/show-profesor/{id}` | 404 | idem |
 
-| Llamante | Estado en `main` |
-|---|---|
-| `AsignaturasController:275` | **cerrado** con 404 (lote D, §96) |
-| `UnidadesController:186` | **cerrado** con 404 (lote D, §96) |
-| `ProfesoresController:298` | **sin cerrar en `main`** — el arreglo vive en `.worktrees/e` |
-| `PlanillasController:105` | idem |
-| `Informes/PlanillasAusenciasController:70` | idem |
-| `Informes/NotasPerdidasController:135` | idem |
+**Los cuatro contestan 200. Ninguno cambia la regla: la confirman.**
 
-**Las dos mediciones de `detallado()` se hicieron contra dos de esos cuatro**, que
-es lo que `main` tiene hoy. Cuando E entre, esas dos rutas contestarán 404 antes
-de llegar al modelo y **esa medición dejará de ser reproducible por ahí** — no
-porque cambie la conclusión, sino porque el guard llegará antes.
+### Y el mecanismo es más fino de lo que se lee
 
-> **La conclusión no depende del recuento**: depende de **qué hace cada llamante
-> con el valor**, y eso se lee llamante a llamante. Por eso la tabla de arriba
-> nombra la ruta y no dice «dos de seis».
+Los tres informes **sí desreferencian** el resultado —`$profesor->nombres_profesor`,
+`->apellidos_profesor`, `->foto_nombre`— así que leyendo el código parecería que
+un null reventaría igual. No revienta, y el porqué es el hallazgo:
 
-`Year::de_un_periodo()` **no tenía puerta**: su único llamante,
-`AsignaturasController:417`, es del lote D y **está fundido**. Por eso su medición
-está completa y la de `detallado()` no.
+> **La desreferencia está dentro de un `foreach` sobre las asignaturas del
+> profesor, y un profesor que no existe no tiene asignaturas.** El bucle no entra
+> nunca. **La línea que habría reventado es inalcanzable justo cuando el id es
+> malo.**
 
-### Lo que queda por hacer cuando E entre
+O sea que el null no se cuela *a pesar* de la desreferencia: se cuela **porque la
+desreferencia depende de datos que ese id no tiene**. Es la misma forma que ha
+dado casi todo esta noche —*mira el resultado, no el estado*— aplicada a una
+lectura de código: **el `foreach` parece la protección y es la puerta**.
 
-Una sola cosa, y está preparada: **repetir la comprobación al revés sobre los
-cuatro llamantes de E** —quitarles el 404 y poner el `?? null`— para confirmar que
-los cuatro se comportan como los dos medidos. Si alguno **no** metiera el
-resultado en la respuesta, ése sería el caso que cambia la regla, y hay que
-buscarlo antes de dar el §127 por cerrado.
-
----
+Con esto el §127 queda cerrado sobre **los seis llamantes**: cuatro medidos aquí y
+los dos del lote D con sus tests de §96.
 
 ## PARA JOSETH
 

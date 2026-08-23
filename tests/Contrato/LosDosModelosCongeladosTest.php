@@ -51,17 +51,33 @@ use Illuminate\Support\Facades\DB;
  * «arregle» dentro de seis meses sin estos números delante: si el modelo empieza a
  * devolver null, cae.
  *
- * ## Lo que este test NO puede afirmar todavía
+ * ## La comprobación al revés, con el lote E ya fundido
  *
- * De los seis llamantes de `detallado()`, **en `main` hay dos cerrados** —los del
- * lote D, con su 404 y su test— y **cuatro esperan a que se funda el lote E**. Las
- * dos mediciones de arriba se hicieron **contra dos de esos cuatro**, que es lo
- * que `main` tiene hoy. Cuando E entre, esas dos rutas contestarán 404 antes de
- * llegar al modelo, y **la medición de arriba dejará de ser reproducible por ahí**
- * — no porque cambie la conclusión, sino porque el guard llegará antes.
+ * La condición para dar esto por cerrado era: **buscar si alguno de los cuatro
+ * llamantes de E NO mete el resultado en la respuesta**, porque ése cambiaría la
+ * regla. Fundido E, se hizo: quitados sus cuatro guards y puesto el `?? null`.
+ * **Los cuatro contestan 200.**
  *
- * La conclusión no depende del recuento: depende de **qué hace cada llamante con
- * el valor**, y eso se lee llamante a llamante.
+ * | Ruta | Con `?? null` y sin su guard |
+ * |---|---|
+ * | `profesores/show/{id}` | **200 `[null]`** |
+ * | `planillas/show-profesor/{id}` | **200 con la cabecera del informe montada y sin filas** |
+ * | `planillas-ausencias/show-profesor/{id}` | idem |
+ * | `notas-perdidas/show-profesor/{id}` | idem |
+ *
+ * **Y el mecanismo es más fino de lo que parecía leyendo.** Los tres informes SÍ
+ * desreferencian el resultado —`$profesor->nombres_profesor`— pero **dentro de un
+ * `foreach` sobre las asignaturas del profesor**, y un profesor que no existe **no
+ * tiene asignaturas**: el bucle no entra nunca.
+ *
+ * > **La línea que habría reventado es inalcanzable justo cuando el id es malo.**
+ * > O sea que el null no se cuela a pesar de la desreferencia: se cuela **porque
+ * > la desreferencia depende de datos que ese id no tiene**. Leer el método no lo
+ * > dice; ejecutarlo, sí.
+ *
+ * Ninguno de los cuatro cambia la regla: la confirman. Y los dos que faltan
+ * —`AsignaturasController` y `UnidadesController`, del lote D— quedan medidos por
+ * sus propios tests de §96.
  */
 class LosDosModelosCongeladosTest extends CasoDeContrato
 {
