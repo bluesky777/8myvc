@@ -1,0 +1,12 @@
+{
+    "alumno_id": "int",
+    "created_at": "string",
+    "created_by": "int",
+    "deleted_at": "null",
+    "deleted_by": "null",
+    "id": "int",
+    "nota": "int",
+    "subunidad_id": "int",
+    "updated_at": "string",
+    "updated_by": "int"
+}

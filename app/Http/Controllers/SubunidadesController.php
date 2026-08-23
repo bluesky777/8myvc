@@ -167,6 +167,32 @@ class SubunidadesController extends Controller {
 
 
 
+	/**
+	 * **Lo que no venga en el cuerpo se queda como estaba.** Ver 05 §92.2.
+	 *
+	 * Es la §68 —«un campo que no se manda no es un campo que no cambia»— caída en
+	 * la rejilla. Las tres columnas se asignaban con `Request::input()` sin defecto,
+	 * así que un cuerpo que sólo renombrara la subunidad dejaba `porcentaje` a
+	 * **null**; y `porcentaje` no es un dato descriptivo: es lo que pesa el
+	 * componente dentro de la unidad —`(u.porcentaje/100)*((s.porcentaje/100)*n.nota)`—
+	 * así que la definitiva que sale al boletín cambia. Y cambia enseguida, porque
+	 * este mismo método recalcula la asignatura veinte líneas más abajo.
+	 *
+	 * El defecto se toma de la fila, que es lo que ya decidió la §68, y **no**
+	 * `CamposQueVinieron`: eso hace falta donde el controlador hace `Request::merge()`
+	 * antes de leer y `has()` deja de distinguir, y aquí no lo hace nadie.
+	 *
+	 * `nota_default` conserva su recorte a 0 letra por letra: lo único que cambia es
+	 * de dónde sale cuando el campo no viene. Su vecino
+	 * `NotaComportamientoController::putUpdate` no necesita nada porque envuelve cada
+	 * asignación en su `Request::has()` — la diferencia está en la línea de antes, no
+	 * en la asignación, que es justo lo que un barrido por
+	 * `$obj->col = Request::input('col')` no ve.
+	 *
+	 * Ningún cliente cambia: `UnidadesCtrl.ts:651` manda las cuatro columnas siempre.
+	 * Lo fija `PorcentajeQueSePisaTest`, con el caso al revés —mandar un 0 sigue
+	 * poniendo 0— para que el defecto no se coma un valor legítimo.
+	 */
 	public function putUpdate($id)
 	{
 		$user = User::fromToken();
@@ -174,14 +200,14 @@ class SubunidadesController extends Controller {
 
 		$subunidad = Subunidad::findOrFail($id);
 
-		$nota_def = Request::input('nota_default');
+		$nota_def = Request::input('nota_default', $subunidad->nota_default);
 
 		if (!$nota_def or $nota_def =='' or $nota_def < 0) {
 			$nota_def = 0;
 		}
 
-		$subunidad->definicion		= Request::input('definicion');
-		$subunidad->porcentaje		= Request::input('porcentaje');
+		$subunidad->definicion		= Request::input('definicion', $subunidad->definicion);
+		$subunidad->porcentaje		= Request::input('porcentaje', $subunidad->porcentaje);
 		$subunidad->nota_default	= $nota_def;
 		$subunidad->updated_by		= $user->user_id;
 

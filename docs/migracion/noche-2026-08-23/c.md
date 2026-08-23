@@ -310,6 +310,120 @@ falle nada — que es exactamente cómo la §72 se cerró sobre tres de cuatro.
 
 ---
 
+## §92. Las trece, una a una — el candado estaba puesto; el otro no
+
+### 92.1 Las seis que escriben preguntan, y preguntan de verdad
+
+| Ruta | ¿De dónde saca el periodo? |
+|---|---|
+| `DELETE definitivas_periodos/destroy/{id}` | `notas_finales.periodo_id` |
+| `PUT definitivas_periodos/toggle-manual` | ídem |
+| `PUT definitivas_periodos/toggle-recuperada` | ídem |
+| `PUT definitivas_periodos/eliminar-recuperada` | **el año entero** |
+| `DELETE notas/destroy/{id}` | nota → subunidad → unidad |
+| `POST subunidades` | la unidad de la que va a colgar |
+
+`RejillaLasQueFaltabanTest` no comprueba que la llamada esté escrita en el código
+—eso se lee— sino **el resultado**: con el periodo cerrado, 400 **y la fila
+intacta**. Las seis pasan.
+
+Dos casos merecen su párrafo porque miden lo que nadie había golpeado:
+
+- **`eliminar-recuperada` se cierra por el AÑO y no por un periodo**, y el caso lo
+  mide con el año **abierto menos uno**. Con todo cerrado los dos criterios darían
+  el mismo resultado y el test no distinguiría nada. Fija justo la otra cara de la
+  decisión de Joseth del 21 ago 2026: **un solo periodo cerrado basta** para que no
+  se pueda tocar la recuperación final.
+- **`notas/destroy` es un `DELETE` físico**, no la papelera. Su gemela
+  `notas/update` ya estaba fijada; la destructiva no.
+
+### 92.2 Lo que sí salió: el porcentaje que se pisa
+
+`SubunidadesController::putUpdate` asignaba `definicion`, `porcentaje` y
+`nota_default` con `Request::input()` **sin defecto**. Medido: un `PUT` con sólo
+`{definicion}` responde 200 y deja `porcentaje` en **null** (50 → null).
+
+Es la [§68](../05-codigo-muerto-y-roto.md) —«un campo que no se manda no es un
+campo que no cambia»— caída donde más pesa: `porcentaje` no describe nada, es lo
+que pondera el componente dentro de la unidad, `(u.porcentaje/100) *
+((s.porcentaje/100) * n.nota)`. **Un cuerpo parcial no borra un dato: borra un
+peso, y la nota que sale al boletín cambia.** Y no espera: el mismo método
+recalcula las definitivas de la asignatura veinte líneas más abajo.
+
+**Arreglado** con el defecto de la fila, que es el criterio que ya eligió la §68.
+No hace falta `CamposQueVinieron`: eso es para cuando el controlador hace
+`Request::merge()` antes de leer y `has()` deja de distinguir, y aquí no lo hace
+nadie —comprobado en el controlador y en los middlewares—. `nota_default` conserva
+su recorte a 0 letra por letra. Ningún cliente cambia: `UnidadesCtrl.ts:651` manda
+las cuatro columnas siempre.
+
+`PorcentajeQueSePisaTest` lleva **el caso al revés**, que es la trampa de este
+arreglo: mandar un `0` a propósito sigue poniendo 0. Con un defecto escrito
+`?: $subunidad->porcentaje` ese caso cae, y el arreglo se habría comido un valor
+legítimo.
+
+#### Y su vecino, que parecía igual y no lo es
+
+`NotaComportamientoController::putUpdate` asigna también tres columnas del cuerpo,
+pero **cada una dentro de su `if (Request::has(...))`**. Medido: con `{nota: 90}`,
+`familiar_nota` y `familiar_ausencias` siguen donde estaban. **No hay nada que
+arreglar ahí.**
+
+Los dos salieron de la misma lista, hecha con un barrido que cuenta
+`$obj->col = Request::input('col')`. La asignación es idéntica en los dos sitios;
+**lo que los separa es la línea de antes**. Esa lista tiene además la ceguera
+contraria —no ve los `DB::update` crudos, y hay 990 consultas crudas en el
+proyecto—, así que arrastra falsos positivos y falsos negativos a la vez:
+
+> **El tamaño de la lista no dice nada sobre el tamaño del problema.** Es lo que
+> hay que escribir al lado de cualquier «salieron N sitios».
+
+**Y el gemelo que no se toca**: `UnidadesController::putUpdate:244` tiene la misma
+forma exacta y `unidades.porcentaje` es el factor **de fuera** del mismo producto,
+así que perderlo se lleva por delante todas las subunidades de esa unidad de
+golpe. Es de otro lote y va anotado, no tocado.
+
+### 92.3 Las cuatro que sólo leen, y a quién le contestan
+
+Ninguna se cierra, y **no por falta de criterio sino porque el criterio ya está
+decidido y es que no**: «hoy un profesor alcanza todo lo que alcanza un
+administrativo, y **es lo que Joseth dejó fuera a propósito**»
+([08](../08-revision-idor.md)). Las cuatro llevan `auth.personal`, así que no
+alcanzan ni a un alumno ni a un acudiente: lo que miden es personal contra
+personal, que es exactamente el punto aplazado. Se fija lo que contestan.
+
+- **`GET notas/show/{nota_id}`** devuelve cualquier nota por su id, sin mirar de
+  quién es ni de qué asignatura. Y con una nota en la papelera contesta **200 con
+  el cuerpo vacío**, no 404 — `Nota::find()` respeta el borrado lógico y devuelve
+  `null`. Se fija sin juzgarlo: el 404 sería lo correcto por el criterio de
+  códigos, pero es cambio de contrato de una ruta que un cliente lee.
+- **`PUT puestos/detailed-notas-year`** es la que más enseña, y **eso sólo se ve
+  en el snapshot de la forma**. Por cada alumno del grupo que se pida devuelve,
+  además de las definitivas: `documento`, `direccion`, `celular`, `fecha_nac`,
+  `religion`, `nee`, `no_matricula`, `username` y `user_id`. Es un informe de
+  **puestos** —un orden de mérito— y viaja con la ficha personal entera de cada
+  alumno dentro.
+
+  Encogerlo es contrato con dieciséis copias del front, así que **se mide y se
+  anota**, igual que la planilla de la [§75.6](../05-codigo-muerto-y-roto.md). Lo
+  que aporta esta noche es el número: no es que «devuelva de más», es que la
+  respuesta de un ranking lleva el número de documento y la dirección de cada
+  menor. Va a la lista de Joseth.
+- **`PUT subunidades/eliminadas/{asignatura_id}`** y **`PUT
+  nota_comportamiento/frases-check`** devuelven catálogo del colegio, sin datos
+  de ninguna persona dentro — que es el criterio con el que el 08 separa una fuga
+  de un catálogo. Fijadas por su forma.
+
+> El caso de `subunidades/eliminadas` nació **hueco**: pedía la primera asignatura
+> del seed y la respuesta salía `[]`, así que el snapshot fijaba una lista vacía y
+> habría pasado igual el día que la consulta dejara de traer columnas. La consulta
+> filtra por el periodo **del usuario**, no por la asignatura. Se vio mirando el
+> `.json` generado, no leyendo el test — que es la misma forma en la que se
+> descubrió la trampa de `formaDeLaTupla` en la clase base.
+
+
+---
+
 ## PARA JOSETH
 
 ### 1. ¿Se le pone el candado del periodo a «Calcular definitivas per N»? (§90)
@@ -374,7 +488,20 @@ Y una que no necesita decisión, sólo trabajo: contesta `Cambiado` con un
 (`years/toggle-cambiar-valor`) sí mira las filas afectadas y contesta `Guardado` o
 `No guardado`.
 
-### 3. Lo que hay que corregir en el 05, y no es mío (§90.3)
+### 3. El informe de puestos viaja con la ficha personal de cada alumno (§92.3)
+
+`PUT puestos/detailed-notas-year` devuelve, por cada alumno del grupo que se pida,
+`documento`, `direccion`, `celular`, `fecha_nac`, `religion`, `nee`,
+`no_matricula`, `username` y `user_id`, además de las definitivas. Es un orden de
+mérito, no una ficha.
+
+No se encoge porque **encoger una respuesta es contrato con dieciséis copias del
+front** (la misma razón que la §75.6). La pregunta es si alguna pantalla lee
+alguno de esos campos de este endpoint; si no, es un recorte y no un cambio.
+Queda fijado en `Snapshots/puestos-detailed-notas-year.json`, así que el recorte
+se verá en un diff el día que se haga.
+
+### 4. Lo que hay que corregir en el 05, y no es mío (§90.3)
 
 La fila de `putCalcularGrupoPeriodo` en la tabla de la **§77.2** dice «§71, cortada
 con 410» y eso es falso: la cortada es su vecina,
