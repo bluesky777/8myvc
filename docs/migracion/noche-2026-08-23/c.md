@@ -325,6 +325,34 @@ falle nada — que es exactamente cómo la §72 se cerró sobre tres de cuatro.
 
 ## §92. Las trece, una a una — el candado estaba puesto; el otro no
 
+### 92.0 El alcance de esta respuesta, escrito antes que la respuesta
+
+La pregunta del lote se contestó **sobre las trece rutas** y apoyándose en
+`tools/escrituras-en-las-notas.py` para no dejarse ninguna fuera de ellas. Ese
+detector tiene una frontera que **no es una ceguera de implementación sino su
+definición**:
+
+```python
+TABLAS = ('notas', 'notas_finales', 'recuperacion_final')
+```
+
+**`nota_comportamiento` no está**, ni `NotaComportamiento` en su `MODELOS`. Y esa
+tabla **sí está bajo el mismo candado** por decisión de Joseth del 21 ago 2026 —
+sale en el boletín y el año tiene su conmutador ([05 §40.2](../05-codigo-muerto-y-roto.md)),
+y `PeriodoDeLaFila::deNotaComportamiento` existe justo para eso.
+
+O sea que la herramienta se escribió el 22 y el candado sobre esa tabla se decidió
+el 21, y **nadie volvió a la lista**. No es un renglón que diga «ya está»: es una
+lista escrita antes de la decisión que la amplía, que es la misma familia por otro
+lado.
+
+Lo que eso significa para lo de abajo, dicho sin rodeos: **la respuesta de este
+lote es correcta sobre sus trece rutas y sobre las tres tablas que el detector
+mira.** La escritura de `nota_comportamiento` que no pregunta —`getDetailed`, que
+crea una nota por alumno con el tope de la escala— **no está en ninguna de las
+dos poblaciones** y salió al leer el controlador para otra cosa. Está medida y
+pasada al lote que la tiene.
+
 ### 92.1 Las seis que escriben preguntan, y preguntan de verdad
 
 | Ruta | ¿De dónde saca el periodo? |
