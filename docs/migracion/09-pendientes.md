@@ -1870,3 +1870,84 @@ miró.
 > rojo**. No se puso. *«Un test que pasa con el código roto no prueba nada, y ahí
 > estaba la pista: algo reparaba el periodo por el camino.»*
 
+
+---
+
+## 9. El personal ve la ficha de cualquiera por su nombre de usuario — 24 ago 2026
+
+**Esto ya se decidió el 21 ago y se vuelve a abrir con una pregunta más
+estrecha.** No es un hallazgo nuevo ni una re-litigación de aquello: es que la
+decisión contestó *«cómo cerramos el agujero de las familias»* y **no llegó a
+contestar** *«qué debe ver un docente»*.
+
+### Lo medido, entrando de verdad con cada rol
+
+Lo midió `myvc-front-ce` el 24 ago con las tres sesiones abiertas en el navegador,
+que es la primera vez que se prueba esta ruta con alguien que no sea el
+administrador:
+
+```
+GET perfiles/username/administrador
+  como DOCENTE (DANIEL1)      -> 200
+  como ALUMNO  (JuanEsteban2) -> 403
+```
+
+El 200 devuelve, **de la persona consultada**: `documento` y `tipo_doc`,
+**`email_restore`** —el correo al que llega el enlace de reseteo—,
+`email_persona`, `fecha_nac`, **`deuda`**, `pazysalvo`, `ciudad_nac`, `ciudad_doc`
+y las imágenes. Y se ve en pantalla: tecleando `/panel/perfil/administrador` sale
+la ficha del administrador con su correo de recuperación.
+
+### Por qué pasa, y es exactamente lo que se decidió
+
+`ExigirPersonaPropia` empieza así (`:81`):
+
+```php
+if ($usuario->tipo !== 'Alumno' && $usuario->tipo !== 'Acudiente') {
+    return $next($request);
+}
+```
+
+**El guard sólo estrecha a familias.** Es literal la decisión del 21 ago —de las
+tres salidas de la [§14.4](05-codigo-muerto-y-roto.md), Joseth eligió *«que el
+guard resuelva el username»*, y el commit lo dejó escrito: *«lo único que cambia
+es que una familia ya no alcanza a nadie que no sea suyo»*—. La tercera salida,
+**recortar las columnas de la respuesta, no se tomó.**
+
+Así que el 403 al alumno es el arreglo funcionando, y el 200 al docente es el
+estado que se decidió conservar.
+
+### Lo que la decisión no llegó a mirar
+
+**Que un docente pueda leer el correo de recuperación del administrador.** La
+§14.4 nombraba los campos, pero la pregunta que se contestó era sobre la puerta y
+no sobre la respuesta.
+
+Y conviene decir lo que **no** es, para no inflarlo: el reseteo manda el enlace
+**a ese correo** (`LoginController::postRecuperarClave` busca por `email` y
+escribe a esa dirección), así que **saberlo no da acceso a nada**. Es fuga de
+información —útil para dirigir un intento de suplantación fuera del sistema—, no
+una vía de entrada.
+
+### Las salidas, y ninguna es un guard
+
+- **(a) Recortar la respuesta**, que es la tercera salida de la §14.4 sin tomar.
+  Quitar `email_restore` de esta ruta, y quizá `deuda` y `documento` para quien no
+  sea superusuario. **Cambia lo que reciben los clientes**, así que va con el
+  orden invertido —front delante— si alguna pantalla los pinta.
+- **(b) Distinguir «sus alumnos» de «cualquiera»** para el docente. Es lo que
+  `myvc_front_2` está apuntando como *pertenencia*: «este usuario, sobre lo suyo»,
+  que un permiso por rol no sabe expresar. Es el arreglo correcto y el más caro.
+- **(c) Dejarlo como está**, y entonces conviene que quede escrito **que se miró
+  con el dato delante** y no por omisión.
+
+> **Un guard en el front no vale**, y es lo que hace que esto sea del backend:
+> evitaría abrir la pantalla, pero **el endpoint seguiría contestando 200 a quien
+> llame por su cuenta** — y `app/`, la que corre hoy en los dieciséis colegios,
+> llama a los mismos sitios.
+
+> **De paso, lo que este hallazgo dice del método:** con la cuenta de
+> `administrador` no se veía nada de esto, porque el administrador puede verlo
+> todo. En la primera vuelta probando con **un docente, un alumno y un acudiente
+> de verdad** salieron tres cosas en una tarde. **Verificar con el usuario más
+> poderoso es verificar la mitad** — la hermana de «verificar con el caso bonito».
