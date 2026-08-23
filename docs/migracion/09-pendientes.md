@@ -78,7 +78,8 @@ Cobertura de rutas: **370 de 539 (69%)**, medida con
 > tiene ninguna, escribía una fila huérfana y contestaba 200. Cero huérfanos en
 > producción, así que era una mina.
 >
-> **Y al llegar a los 1.000 tests** ([05 §79](05-codigo-muerto-y-roto.md)): qué
+> **Y al llegar a los 1.000 tests**, con cobertura **461 de 539 (85%)**
+> ([05 §79](05-codigo-muerto-y-roto.md)): qué
 > **escriben** las rutas que sólo piden token, que es la mitad que el barrido no
 > midió. Cuatro comportamientos y **sólo uno es un problema** — que un alumno pueda
 > quedarse con el correo de recuperación de cualquier cuenta con id más alto que la
