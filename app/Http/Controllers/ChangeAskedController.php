@@ -949,9 +949,11 @@ class ChangeAskedController extends Controller {
 			// de un pedido de cambio anterior a este arreglo tiene que saberlo.
 			// Ver 05 §121.
 			//
-			// La misma forma está en otros dos sitios que NO son de este lote y
-			// quedan anotados: `Tardanzas/TSubirController:103` la escribe igual, y
-			// `AusenciasController:177` **lee** con ese mismo formato.
+			// La misma forma la escribe también `Tardanzas/TSubirController:103`
+			// —arreglado en el lote L (§123)—. Y **no hay quien lo lea así**: el
+			// único sitio que parseaba con ese formato, `AusenciasController:177`,
+			// lleva años dentro de un `/* */`. Lo de «uno lo LEE» salió de un grep
+			// que no distingue el código del comentario.
 			$dt = Carbon::now('America/Bogota')->format('Y-m-d H:i:s');
 			$consulta = 'UPDATE change_asked SET answered_by=:user_id, deleted_by=:user_id2, deleted_at=:dt WHERE id=:asked_id';
 			DB::update($consulta, [ ':user_id' => $user_id, ':user_id2' => $user_id, ':dt' => $dt, ':asked_id' => $pedido->asked_id ]);

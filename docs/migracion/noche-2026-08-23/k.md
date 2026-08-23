@@ -155,14 +155,15 @@ líneas más arriba, liga el `Carbon` directamente. Dos escrituras a
 contraste es el que dice cuál de las dos es el arreglo**, y no una preferencia de
 estilo.
 
-**La población es de tres, no de una**, medida con un grep del formato en todo
+**La población es de dos escrituras y ningún lector**, medida en el lote L (§123) —
+aquí decía «tres, no de una», con un grep del formato en todo
 `app/`:
 
 | Dónde | Qué hace |
 |---|---|
 | `ChangeAskedController:947` | lo escribe — **arreglado** |
 | `Tardanzas/TSubirController:103` | lo escribe igual — **anotado** |
-| `AusenciasController:177` | **lo lee** con ese mismo formato — **anotado** |
+| `AusenciasController:177` | **nada: está dentro de un `/* */`** — medido y corregido en el lote L (§123) |
 
 > **Las filas ya escritas llevan la hora mal**, y eso no lo arregla el commit.
 > Quien lea la auditoría de un pedido cerrado antes del despliegue está leyendo
@@ -223,8 +224,10 @@ toca.
   Y en la misma llamada `titular_id`, `cupo`, `abrev`, `valormatricula`,
   `valorpension` y `orden` se fueron a null. Sin `grado_id` sí frena —422, por el
   `NOT NULL` con clave ajena—, y sin `id` es 404.
-- **`Tardanzas/TSubirController:103`** y **`AusenciasController:177`** — el mismo
-  `'Y-m-d G:H:i'`, uno escribiendo y otro **leyendo**. (§121)
+- ~~**`Tardanzas/TSubirController:103`** y **`AusenciasController:177`**~~ —
+  cerrado por el lote L: el primero arreglado, y el segundo **no lee nada**, está
+  comentado. La población era **dos escrituras y ningún lector**, no tres sitios
+  con uno leyendo. (§123)
 - **Huecos del seed**, para quien lo regenere: `ws_actividades`, `change_asked`,
   `change_asked_data` y `debugging` están **vacías**.
 
