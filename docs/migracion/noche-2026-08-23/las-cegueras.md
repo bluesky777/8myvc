@@ -5,12 +5,21 @@
 > escrita entera en un sitio**: cada lote apuntó la suya y siguió.
 >
 > Sale un patrón, y sale con población: **siete formas**, y una octava que no es
-> de una herramienta sino de quien lee su salida. Este repo lleva diez
-> herramientas de medición y **esta noche mintieron ocho instrumentos distintos**.
+> de una herramienta sino de quien lee su salida.
 >
-> No es que las herramientas sean malas: es que **una herramienta que busca una
-> señal encuentra la señal, no el hecho**, y la distancia entre las dos tiene
-> formas fijas. Ésas son las que están aquí.
+> **El recuento, contado al cerrar y no al empezar** —la primera versión de este
+> párrafo decía «ocho» y no se volvió a sumar cuando el documento creció, que es
+> justo lo que este documento persigue—:
+>
+> | | Cuántos | Cuáles |
+> |---|---|---|
+> | **Detectores** que dieron una respuesta falsa | **8** | `identificadores-del-cuerpo.py`, el barrido de columnas pisadas, `escrituras-en-las-notas.py`, `interruptores-que-nadie-lee.py`, el barrido de rutas sin test, el detector de tests que juzgan, `respuestas-que-mienten.py`, el barrido por tipo de token |
+> | **Aparatos de medida y de entorno** | **10** | el `vendor/` enlazado, `\| tail -60`, `ps \| grep`, el log que deja de crecer, el `pkill` que deja al hijo vivo, el `exit 143` resumido como «exit code 0», el snapshot que defendía el fallo, `git diff main <rama>`, el seed vacío, y un bucle de hashes escrito para comprobar esto mismo |
+>
+> **Dieciocho**, y varios mintieron de más de una forma. No es que las
+> herramientas sean malas: es que **una herramienta que busca una señal encuentra
+> la señal, no el hecho**, y la distancia entre las dos tiene formas fijas. Ésas
+> son las que están aquí.
 
 ## Lo primero, porque es lo que decide qué hacer con esto
 
