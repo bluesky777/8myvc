@@ -613,6 +613,25 @@ class GruposController extends Controller {
 	}
 
 
+	/**
+	 * Editar un grupo. Con medio formulario se llevaba por delante el resto — §101.
+	 *
+	 * Diez columnas, nueve leídas con `Request::input('x')` **sin defecto**, y la
+	 * décima es la que enseña la trampa: `caritas` tenía defecto —`false`— y por
+	 * eso salía como «a salvo» en el barrido, **pero ese defecto la apaga**. Es la
+	 * §68 con casco: el `is_active` de aquella también tenía defecto, y por eso el
+	 * que se pisaba era justo ése.
+	 *
+	 * Y las caritas no son cosméticas: deciden si el grupo se califica con la
+	 * escala de preescolar en vez de con números. Corregirle el nombre a un grupo
+	 * de preescolar le cambiaba la forma de evaluar.
+	 *
+	 * El defecto es el valor que ya tiene la fila, no una constante: mandar el
+	 * campo vacío a propósito sigue vaciándolo. `titular_id` y `grado_id` se
+	 * dejan como estaban —su cadena de `if` ya distingue tres formas de nombrarlos
+	 * y tocarla es otro arreglo—, pero con el suyo como último recurso en vez de
+	 * `null`.
+	 */
 	public function putUpdate()
 	{
 		$user = User::fromToken();
@@ -620,15 +639,12 @@ class GruposController extends Controller {
 
 		try {
 
-			$titular_id = null;
-			$grado_id = null;
-
 			if (Request::input('titular_id')) {
 				$titular_id = Request::input('titular_id');
 			}else if (Request::input('titular')) {
 				$titular_id = Request::input('titular')['profesor_id'];
 			}else{
-				$titular_id = null;
+				$titular_id = $grupo->titular_id;
 			}
 
 			if (Request::input('grado_id')) {
@@ -636,19 +652,31 @@ class GruposController extends Controller {
 			}else if (Request::input('grado')) {
 				$grado_id = Request::input('grado')['id'];
 			}else{
-				$grado_id = null;
+				$grado_id = $grupo->grado_id;
 			}
 
-			$grupo->nombre		=	Request::input('nombre');
-			$grupo->abrev		=	Request::input('abrev');
-			$grupo->year_id		=	$user->year_id;
+			$grupo->nombre		=	Request::input('nombre', $grupo->nombre);
+			$grupo->abrev		=	Request::input('abrev', $grupo->abrev);
+			// **El año NO se toca al editar** — §102. Aquí ponía `$user->year_id`, sin
+			// leer nunca el cuerpo, y el front tampoco lo manda: ni la rejilla
+			// (`GruposCtrl`) ni el formulario (`GruposEditCtrl`) incluyen `year_id`.
+			// O sea que lo que se escribía era siempre el año del que edita, y eso
+			// es una de dos cosas: o el grupo ya estaba en su año —el 99% de las
+			// veces, y no pasa nada— o **se lo llevaba**, con sus matrículas dentro,
+			// porque cuelgan del grupo y no del año. Medido: corregirle la
+			// abreviatura a un grupo del año 7 lo pasaba al 8 con **56 matrículas**.
+			//
+			// Y no hay forma de que el cliente lo pida, así que no se le da una: el
+			// año de un grupo se decide al crearlo, y `postStore` lo sigue tomando
+			// del token, que ahí es la única fuente posible. Mover un grupo de año es
+			// otra operación y hoy no existe.
 			$grupo->titular_id	=	$titular_id;
 			$grupo->grado_id	=	$grado_id;
-			$grupo->valormatricula=	Request::input('valormatricula');
-			$grupo->valorpension=	Request::input('valorpension');
-			$grupo->orden		=	Request::input('orden');
-			$grupo->caritas		=	Request::input('caritas', false);
-			$grupo->cupo		=	Request::input('cupo');
+			$grupo->valormatricula=	Request::input('valormatricula', $grupo->valormatricula);
+			$grupo->valorpension=	Request::input('valorpension', $grupo->valorpension);
+			$grupo->orden		=	Request::input('orden', $grupo->orden);
+			$grupo->caritas		=	Request::input('caritas', $grupo->caritas);
+			$grupo->cupo		=	Request::input('cupo', $grupo->cupo);
 			$grupo->updated_by	=	$user->user_id;
 
 			$grupo->save();
@@ -661,9 +689,36 @@ class GruposController extends Controller {
 
 
 
+	/**
+	 * Manda un grupo a la papelera. La mitad que faltaba — §100.
+	 *
+	 * De las cuatro operaciones de papelera de un grupo, `forcedelete` y
+	 * `restore` piden superusuario desde la §28.4 y la §76, y **las dos que
+	 * mandan a la papelera se habían quedado con `auth.personal` a secas**: ésta y
+	 * su duplicada `perfiles/destroy`, que es la misma línea bajo otra URL. Es el
+	 * §97 por tercera vez esta noche: la pareja se cierra entera o no se cierra.
+	 *
+	 * Y aquí el aviso llevaba escrito desde antes, en dos sitios a la vez —el
+	 * docblock del `forcedelete` de `PerfilesController` y la cabecera de
+	 * `PerfilesApi.ts` en el front—, los dos diciendo que cerrar una sola no cierra
+	 * nada. **Un aviso en prosa no defiende**: por eso esto va con su test.
+	 *
+	 * Nadie pierde un botón que hoy vea: la X de la rejilla de grupos
+	 * (`GruposCtrl.eliminar`) vive en «Editar Grupos», que el menú del front
+	 * enseña con `hasRoleOrPerm(['admin'])`, y los diez `Admin` son exactamente
+	 * los diez `is_superuser` (§28.4). Y no se sube a `esAdministrativo` porque
+	 * crear un rol no regala permisos: el alcance del Secretario no nombra dar de
+	 * baja un grupo.
+	 *
+	 * **Población cerrada: las dos.** `perfiles/destroy` en el mismo commit.
+	 */
 	public function deleteDestroy($id)
 	{
 		$user = User::fromToken();
+
+		Autoriza::exigir(Autoriza::esSuperusuario($user),
+			'No tienes permiso para eliminar grupos.');
+
 		$grupo = Grupo::findOrFail($id);
 		$grupo->deleted_by = $user->user_id;
 		$grupo->save();

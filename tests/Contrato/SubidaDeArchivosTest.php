@@ -95,6 +95,46 @@ class SubidaDeArchivosTest extends CasoDeContrato
     }
 
     /**
+     * `store-firma` es la MISMA función que `store-intacta-privada`, línea por línea.
+     *
+     * Los dos métodos son `guardar_imagen($user)` + `publica = false` + `save()`,
+     * sin una sola diferencia, y viven a diez líneas uno de otro. No se unifican
+     * aquí —son dos entradas del contrato con cuatro clientes y fundirlas es una
+     * decisión— pero **sí se fija que hacen lo mismo**: mientras nadie lo
+     * compruebe, arreglar una y no la otra es gratis, y es exactamente lo que ha
+     * pasado dos veces esta noche en `perfiles`/`grupos`.
+     *
+     * Lo que se comprueba es el resultado y no la respuesta: la fila que queda en
+     * `images` tiene dueño y es privada.
+     */
+    public function test_subir_una_firma_hace_lo_mismo_que_su_gemela(): void
+    {
+        $token = $this->token();
+
+        $filas = [];
+
+        foreach (['store-firma', 'store-intacta-privada'] as $ruta) {
+            $r = $this->withToken($token)->post('/api/myimages/'.$ruta, [
+                'file' => UploadedFile::fake()->image('firma.jpg'),
+            ]);
+
+            $this->assertSame(201, $r->status(), "`myimages/{$ruta}` dejó de aceptar una imagen.");
+
+            $fila = DB::table('images')->where('id', $r->json('id'))->first();
+
+            $this->assertNotNull($fila, "`myimages/{$ruta}` contestó 201 y no dejó fila.");
+
+            $filas[$ruta] = ['publica' => $fila->publica, 'user_id' => $fila->user_id];
+        }
+
+        $this->assertSame($filas['store-intacta-privada'], $filas['store-firma'],
+            'Las dos gemelas dejaron filas distintas: alguien tocó una y no la otra.');
+
+        $this->assertSame(0, (int) $filas['store-firma']['publica'],
+            'Una firma dejó de subirse como privada.');
+    }
+
+    /**
      * La lista blanca sigue en pie: lo que se comprueba aquí no es la extensión
      * —eso ya lo fija `ImagenesTest`— sino que el atajo nuevo no se la salte.
      */

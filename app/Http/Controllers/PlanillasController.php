@@ -93,9 +93,24 @@ class PlanillasController extends Controller {
 
 
 
+	/**
+	 * La planilla de un profesor. Con un id que no está daba 500 — §100.
+	 *
+	 * Es el mismo fatal que `profesores/show` (§98) y por la misma línea:
+	 * `Profesor::detallado()` termina en `$profesor[0]` sin comprobar nada. El
+	 * modelo se deja quieto a propósito —lo llaman seis sitios y un `?? null`
+	 * convertiría seis 500 en seis comportamientos distintos sin haber medido
+	 * ninguno—; se comprueba en el llamante, con su test.
+	 */
 	public function getShowProfesor($profesor_id)
 	{
 		$user = User::fromToken();
+
+		$existe = DB::selectOne('SELECT id FROM profesores WHERE id = ? AND deleted_at IS NULL', [$profesor_id]);
+
+		if ($existe === null) {
+			abort(404, 'Ese profesor no existe o está en la papelera.');
+		}
 
 		$year 			= Year::datos_basicos($user->year_id);
 		$asignaturas 	= Profesor::asignaturas($user->year_id, $profesor_id);

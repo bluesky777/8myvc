@@ -293,8 +293,26 @@ class ProfesoresController extends Controller {
 
 
 
+	/**
+	 * La ficha de un profesor. Un id que no está daba 500 — §98.
+	 *
+	 * `Profesor::detallado()` termina en `return $profesor[0]` sobre el resultado
+	 * de un `DB::select`, y sin filas eso es clave indefinida: **error fatal en
+	 * PHP 8**. No hace falta un id inventado para verlo, basta uno que esté en la
+	 * papelera, porque esa consulta filtra `deleted_at is null`. Se comprueba
+	 * aquí y no dentro del modelo porque `detallado()` la llaman **otros cinco
+	 * sitios**, cuatro de ellos en controladores de otros lotes: cambiarla les
+	 * cambiaría la respuesta a los cinco de una vez, y eso no es de esta noche.
+	 * Queda anotado para quien los tenga.
+	 */
 	public function getShow($id)
 	{
+		$existe = DB::selectOne('SELECT id FROM profesores WHERE id = ? AND deleted_at IS NULL', [$id]);
+
+		if ($existe === null) {
+			abort(404, 'Ese profesor no existe o está en la papelera.');
+		}
+
 		$profesor = Profesor::detallado($id);
 		return array( $profesor );
 	}
@@ -323,23 +341,50 @@ class ProfesoresController extends Controller {
 			
 			$profesor = Profesor::findOrFail($id);
 			try {
-				$profesor->nombres		=	Request::input('nombres_profesor', Request::input('nombres'));
-				$profesor->apellidos	=	Request::input('apellidos_profesor', Request::input('apellidos'));
-				$profesor->sexo			=	Request::input('sexo');
-				$profesor->tipo_doc		=	Request::input('tipo_doc');
-				$profesor->num_doc		=	Request::input('num_doc');
-				$profesor->ciudad_doc	=	Request::input('ciudad_doc');
-				$profesor->fecha_nac	=	Request::input('fecha_nac');
-				$profesor->ciudad_nac	=	Request::input('ciudad_nac');
-				$profesor->titulo		=	Request::input('titulo');
-				$profesor->estado_civil	=	Request::input('estado_civil');
-				$profesor->barrio		=	Request::input('barrio');
-				$profesor->direccion	=	Request::input('direccion');
-				$profesor->telefono		=	Request::input('telefono');
-				$profesor->celular		=	Request::input('celular');
-				$profesor->facebook		=	Request::input('facebook');
-				$profesor->email		=	Request::input('email_usu');
-				$profesor->tipo_profesor	=	Request::input('tipo_profesor'); // Catedrático o Tiempo completo
+				// Las diecisiete columnas de la ficha, con la clave —o las dos claves—
+				// con las que puede llegar cada una. Van en una tabla y no en
+				// diecisiete `if` porque lo que hay que poder leer de un vistazo es
+				// que **la regla es la misma para las diecisiete**: si el cliente no
+				// mandó la clave, la columna no se toca. §101.
+				//
+				// Y aquí hace falta `CamposQueVinieron` y NO el defecto de
+				// `Request::input()`, que es lo que se usó en `perfiles/update` y en
+				// `grupos/update`. El discriminador está medido:
+				// `sanarInputProfesor()` corre unas líneas más arriba y hace
+				// `Request::merge(['ciudad_nac' => null])` —y lo mismo con
+				// `ciudad_doc`, `tipo_doc`, `estado_civil` y `foto_id`— cuando la
+				// clave no viene. O sea que a esta altura **la clave existe y vale
+				// null**, y un defecto no se dispara nunca: `input('ciudad_nac', $x)`
+				// devolvería el null recién metido. Copiar aquí la solución de
+				// `perfiles` habría dado un arreglo en verde que no arregla nada.
+				$deLaFicha = [
+					'nombres'		=> ['nombres_profesor', 'nombres'],
+					'apellidos'		=> ['apellidos_profesor', 'apellidos'],
+					'sexo'			=> ['sexo'],
+					'tipo_doc'		=> ['tipo_doc'],
+					'num_doc'		=> ['num_doc'],
+					'ciudad_doc'	=> ['ciudad_doc'],
+					'fecha_nac'		=> ['fecha_nac'],
+					'ciudad_nac'	=> ['ciudad_nac'],
+					'titulo'		=> ['titulo'],
+					'estado_civil'	=> ['estado_civil'],
+					'barrio'		=> ['barrio'],
+					'direccion'		=> ['direccion'],
+					'telefono'		=> ['telefono'],
+					'celular'		=> ['celular'],
+					'facebook'		=> ['facebook'],
+					'email'			=> ['email_usu'],
+					'tipo_profesor'	=> ['tipo_profesor'], // Catedrático o Tiempo completo
+				];
+
+				foreach ($deLaFicha as $columna => $claves) {
+					foreach ($claves as $clave) {
+						if ($vinieron->trae($clave)) {
+							$profesor->setAttribute($columna, Request::input($clave));
+							break;
+						}
+					}
+				}
 
 				$profesor->save();
 
@@ -454,8 +499,35 @@ class ProfesoresController extends Controller {
 	}
 
 
+	/**
+	 * Mandar un profesor a la papelera. Hasta hoy no pedía nada — §97.
+	 *
+	 * Las otras tres operaciones de esta misma ficha piden superusuario, y cada
+	 * una lo pide desde una revisión distinta: editar desde la §37, restaurar
+	 * desde la §76 y borrar definitivamente desde la §28.4. **La que la mete en
+	 * la papelera se quedó con `auth.personal` a secas**, o sea cualquiera de los
+	 * 51 profesores de la copia de producción. Un test por ruta daba cuatro
+	 * verdes; poner las cuatro en la misma tabla es lo que lo enseñó.
+	 *
+	 * Y no es una puerta pequeña por ser blanda: el profesor desaparece del
+	 * listado y de las rejillas, **pero `grupos.titular_id` sigue apuntándole**,
+	 * así que el grupo sigue enseñando de titular a alguien que ya no está.
+	 *
+	 * Se ancla a `esSuperusuario` y no a `esAdministrativo` por la regla que dejó
+	 * escrita `Autoriza`: **crear un rol no regala permisos**. El `Secretario`
+	 * existe desde el 21 ago y no lo tiene nadie, y lo que Joseth describió de él
+	 * —la estructura del colegio, y docente normal en su aula— no nombra dar de
+	 * baja a un compañero. Con esto **nadie pierde un botón que hoy vea**: la
+	 * pantalla que lleva la X vive en un menú que el front enseña con
+	 * `hasRoleOrPerm(['admin', 'secretario'])`, y los diez `Admin` son
+	 * exactamente los diez `is_superuser` (§28.4). Subirlo a `esAdministrativo`
+	 * es una palabra el día que se decida; está anotado.
+	 */
 	public function deleteDestroy($id)
 	{
+		Autoriza::exigir(Autoriza::esSuperusuario($this->user),
+			'No tienes permiso para enviar profesores a la papelera.');
+
 		$profesor = Profesor::find($id);
 		if ($profesor) {
 			$profesor->delete();
