@@ -65,8 +65,12 @@ Y los huecos que quedan en el rango de esta noche, con lo que son:
 
 | Hueco | Qué es |
 |---|---|
-| **§117**, **§128–129** | huecos de verdad, de una o dos secciones — de los que deja renumerar |
+| **§117**, **§128–129** | **números que nadie usó**, no secciones perdidas: quedaron sin asignar al ir abriendo lotes sobre la marcha. **No hay que rellenarlos** |
 | **§138–142**, **§146–149** | **no son huecos**: son los lotes que seguían abiertos al hacer esta comprobación |
+
+> **Y lo primero, porque es lo que hace ir a buscar a alguien**: **un hueco en la
+> numeración no es una sección perdida, es un número que nadie usó.** Quien lea el
+> 05 de corrido y eche en falta la §117 no ha perdido nada: no existe.
 
 > **Un aviso sobre esta misma comprobación, porque su salida se lee entera y solo
 > vale la mitad**: por debajo de §81 da «huecos» que no lo son —§54–80—. Son
