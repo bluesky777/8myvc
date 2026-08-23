@@ -69,14 +69,19 @@ class LecturasDeCatalogoConTokenDeAlumnoTest extends CasoDeContrato
     ];
 
     /**
-     * De las once lecturas del lote, exactamente una saca datos de una persona.
+     * De las once lecturas del lote, **ninguna** saca datos de una persona.
+     *
+     * Se llamaba «solo contratos saca datos de una persona» hasta el 24 ago 2026,
+     * y se renombró con el recorte: **un test cuyo nombre no describe lo que
+     * comprueba es la misma trampa que un detector que no cuenta lo que dice su
+     * nombre** — y esa la pagamos hoy con un barrido que dijo nueve.
      *
      * El alumno es el token que menos puede de los cuatro tipos, así que lo que
      * alcanza él lo alcanzan los otros tres. Se comprueba de paso que las once
      * contestan 200: si alguna empezara a dar 403 sería porque le pusieron un
      * guard, y eso también hay que verlo — apagaría una pantalla.
      */
-    public function test_solo_contratos_saca_datos_de_una_persona(): void
+    public function test_ninguna_lectura_del_lote_saca_datos_de_una_persona(): void
     {
         $token = $this->tokenDe($this->usuarioDeTipo('Alumno')->username);
 
@@ -123,11 +128,18 @@ class LecturasDeCatalogoConTokenDeAlumnoTest extends CasoDeContrato
             'Alguna lectura del lote dejó de contestar 200 a un alumno. Si le pusieron un guard, hay '
             ."que mirar qué pantalla se apaga.\n  ".implode("\n  ", $noContestan));
 
-        $this->assertSame(['contratos'], array_keys($filtran),
-            "Cambió qué lecturas del lote A sacan datos de una persona con un token de alumno.\n"
-            .'Lo medido el 22 ago 2026 es exactamente una, `GET api/contratos`, y está esperando '
-            .'decisión en el §5 de 09-pendientes (05 §14.4): la app de Flutter la usa sólo para pasar '
-            ."de un id a un nombre.\nLo que hay ahora:\n  "
+        // **Cero de once desde el 24 ago 2026.** Este test se escribió midiendo
+        // «exactamente una de once» —`contratos`— y dejando dicho que el día que
+        // se recortara había que quitarla de la lista. Ese día llegó: la lista de
+        // esperados es la vacía, y ahora lo que vigila es que **ninguna** vuelva
+        // a sacar datos de una persona.
+        //
+        // Es más fuerte que antes, no más flojo: una lista con un nombre dentro
+        // tolera que ese nombre siga ahí; la vacía no tolera ninguno.
+        $this->assertSame([], array_keys($filtran),
+            "Una lectura del lote A volvió a sacar datos de una persona con un token de alumno.\n"
+            .'Desde el recorte de `contratos` (09 §10) la respuesta correcta es CERO de once. '
+            ."Si es `contratos` otra vez, alguien añadió una columna al SELECT.\nLo que hay ahora:\n  "
             .implode("\n  ", array_map(
                 fn ($k, $v) => $k.': '.implode(', ', $v),
                 array_keys($filtran), $filtran)));
@@ -145,7 +157,7 @@ class LecturasDeCatalogoConTokenDeAlumnoTest extends CasoDeContrato
      * (§14.4) pero desde la otra punta: aquél mira que la pantalla siga
      * recibiendo lo suyo, éste mira **qué de más le llega a quien no debería**.
      */
-    public function test_que_le_llega_exactamente_a_un_alumno_por_contratos(): void
+    public function test_a_un_alumno_no_le_llega_ningun_dato_personal_por_contratos(): void
     {
         $token = $this->tokenDe($this->usuarioDeTipo('Alumno')->username);
 
@@ -155,15 +167,16 @@ class LecturasDeCatalogoConTokenDeAlumnoTest extends CasoDeContrato
         $this->assertNotEmpty($filas,
             'El seed no devuelve ningún contrato para el año del alumno: sin filas este test no mide nada.');
 
-        $this->assertSame(
-            ['barrio', 'celular', 'ciudad_doc', 'ciudad_nac', 'direccion', 'email', 'email_usu',
-                'estado_civil', 'facebook', 'fecha_nac', 'is_superuser', 'num_doc', 'telefono',
-                'tipo_doc', 'username'],
-            $this->columnasDePersona($filas),
-            'Cambió el expediente que `GET api/contratos` le manda a un alumno. Si es porque se '
-            .'recortó —que es lo que espera decisión en el §5 de 09—, hay que actualizar esta lista '
-            .'y avisar: la app de Flutter es una sola para los dieciséis colegios.'
-        );
+        // Aquí estaban escritas las quince columnas de expediente que un alumno
+        // recibía: barrio, celular, ciudad_doc, ciudad_nac, direccion, email,
+        // email_usu, estado_civil, facebook, fecha_nac, is_superuser, num_doc,
+        // telefono, tipo_doc y username. **Se quedan escritas en este comentario
+        // a propósito**, porque el día que alguna vuelva conviene poder ver de un
+        // vistazo que ya estuvo — y porque el aserto de abajo, al esperar la lista
+        // vacía, no las nombra.
+        $this->assertSame([], $this->columnasDePersona($filas),
+            'Volvió el expediente a `GET api/contratos`, y esa ruta sólo pide un token: '
+            .'lo que se añada ahí lo ve un alumno. Ver 09 §10.');
     }
 
     /**
