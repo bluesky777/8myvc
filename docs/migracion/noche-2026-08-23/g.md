@@ -113,7 +113,51 @@ O sea que **el 49 se sostiene contra un cuarto corpus que la herramienta no pued
 ver**, y por un camino independiente del suyo: el código fuente y el artefacto
 construido dicen lo mismo.
 
-### 106.3 El arreglo no es leer el bundle: es decir que no se ha leído
+### 106.3 Y el hueco que no eran extensiones ni tamaños: **ramas**
+
+Lo anterior miraba `myvc_front` **en `main`**. Al lado hay **veinte carpetas
+`myvc_front-*` más**, y las veinte son **worktrees del mismo repositorio**, cada
+una en su rama `fase-11/…` — el mismo montaje que el nuestro, para la noche del
+front. Son 23 ramas locales en total, y el front está **a mitad de migración**,
+así que ahí es justo donde puede haber aparecido un lector nuevo.
+
+Repetido contra las 23 ramas, **con el control delante**:
+
+| Buscado | Resultado |
+|---|---|
+| Control: `caritas`, `perdido`, `presencial`, `mostrar_puesto_boletin`, `mostrar_nota_comport_boletin` | **52–54 ficheros por rama** (31 en `main`) |
+| Las **49** | **0 en `main`**; **5 ficheros** en cada una de las otras 22 |
+
+O sea que el control no sólo alcanza: **alcanza más en las ramas que en `main`**,
+porque llevan dentro la reescritura. Y las 49 sí aparecen ahí — en cinco ficheros
+y siempre los mismos, todos bajo `app2/src/app/datos/`. Leídos uno a uno, son
+**cuatro columnas y todas son declaraciones de tipo**:
+
+```ts
+app2/src/app/datos/preguntas.ts:112      aleatorias: boolean | number | null;
+app2/src/app/datos/subunidades.ts:23     por_defecto: number | null;
+app2/src/app/datos/unidades.ts:29        por_defecto: number | null;
+app2/src/app/datos/certificados.ts:40    encabezado_solo_primera_pagina?: unknown;
+app2/src/app/datos/certificados.ts:41    piepagina_solo_ultima_pagina?: unknown;
+```
+
+Más una línea de un `.spec` que rellena un objeto de prueba. **Ningún sitio las
+lee.** Declarar un campo en una interfaz no es leerlo: es describir lo que llega.
+
+Comprobado además el **contenido en disco** de los veinte worktrees —que incluye
+lo que todavía no está commiteado, y hay cuatro con cambios sin commitear—: los
+mismos cinco ficheros y nada más.
+
+Así que **el 49 aguanta**, y ahora se puede decir contra qué: 23 ramas del front,
+sus veinte worktrees con lo no commiteado dentro, `myvc_front_2`, `myvc_flutter`
+y el bundle construido de `myvc_dist`.
+
+> Y la lección, que es de la casa: **lo que faltaba no eran extensiones ni
+> tamaños, eran ramas.** Un grep de clientes vale lo que valen los ficheros que
+> mira, y «los ficheros» en un repositorio a mitad de migración no son los del
+> directorio: son los de todas sus ramas.
+
+### 106.4 El arreglo no es leer el bundle: es decir que no se ha leído
 
 Pasarle `../myvc_dist` como cuarto cliente **no cambia el número** —siguen siendo
 49— porque el fichero que importa sigue pasando del mega y se salta. Lo que sí
@@ -166,6 +210,55 @@ tienen sentido en la pantalla.
 > puerta de verdad**: 22 de 48. Buscarlas en `app/` da cero apariciones, y con
 > ese cero delante la conclusión natural —«esto no lo usa nadie, se puede
 > borrar»— habría borrado la ficha médica de los alumnos.
+
+### 107.1 Y cuatro más, porque **aparecer en el cliente no es leerlo**
+
+El detector contesta «lo mira `myvc_front`» con un `grep` de la palabra. Eso
+mete en el montón de las vivas cosas que no deciden nada:
+
+- una **declaración de tipo** (`otro1?: number`), que describe lo que llega;
+- un **`ng-model`**, que es justamente lo contrario de leerla: es la casilla con
+  la que alguien la **enciende**.
+
+Clasificadas las 21 columnas del montón B que algún cliente «mira», por cómo
+aparecen en los tres clientes:
+
+| Columna | apariciones | declaración | `ng-model` | lecturas de verdad |
+|---|---|---|---|---|
+| **`can_upload`** | 1 | 0 | **1** | **0** |
+| **`deriva_de_tardanzas`** | 2 | 0 | **2** | **0** |
+| **`mensaje_aprobo_con_pendientes`** | 2 | **2** | 0 | **0** |
+| **`otro1`** | 1 | **1** | 0 | **0** |
+| `one_by_one` | 7 | 1 | 1 | 5 (`ng-hide="…one_by_one"`) |
+| `obligatoria` | 8 | 2 | 0 | 6 (`ng-if="unidad.obligatoria==0"`) |
+| `puestos_alfabeticamente` | 8 | 3 | 0 | 5 (`if ($ctrl.USER.puestos_alfabeticamente)`) |
+| … las otras 14 | | | | todas con lecturas de verdad |
+
+O sea que **son 53 y no 49** las columnas que no lee nadie en ninguna parte. Las
+cuatro que faltaban estaban en la mitad limpia de la tabla.
+
+Y **dos de las cuatro son interruptores con su casilla en pantalla**:
+
+| Interruptor | Dónde se enciende | Qué decide |
+|---|---|---|
+| `ws_actividades.can_upload` | `editarActividad.html:124`, casilla del examen | **nada** — el backend lo guarda (`ActividadesController:197`, `MisActividadesController:95`) y no lo lee nadie |
+| `dis_procesos.deriva_de_tardanzas` | formulario del proceso disciplinario | **nada** — se inserta (`DisciplinaController:202`) y no lo lee nadie |
+
+Es **exactamente la forma que el script existe para encontrar** —«el colegio
+expresa una intención por un camino que el código no mira», la de la
+[§74](../05-codigo-muerto-y-roto.md)— y el propio script las clasificaba como
+vivas. La casilla que enciende una columna cuenta como lector de esa columna
+cuando lo único que se busca es su nombre.
+
+> **Una columna que sólo aparece donde se escribe no tiene lectores: tiene
+> autores.** Y un detector que busca el nombre no distingue las dos cosas.
+
+Lo que **no** se hizo: meter esa distinción dentro del script. `ng-model` y una
+declaración de tipo se reconocen con dos expresiones regulares, pero un `grep` que
+además juzga **qué clase de aparición** es deja de ser «sitios donde mirar» y
+empieza a ser una lista de fallos, que es lo que este repo tiene escrito que no
+hay que hacer. La clasificación queda aquí, con el comando, para quien la quiera
+repetir.
 
 Las **26 restantes** de ese montón no las mira nadie tampoco en los clientes, y
 son las que la §17 ya explicó una a una: las veinte `per{1..4}_*` de
