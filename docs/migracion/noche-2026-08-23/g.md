@@ -443,6 +443,17 @@ creyendo que decide algo. **No se tocan** —encender un interruptor por iniciat
 propia enciende pantallas en dieciséis colegios, y apagar la casilla es una
 decisión de producto—, pero conviene saber que hoy no hacen nada.
 
+**Y la pregunta no se queda como una anotación suelta**: la sostiene
+`InterruptoresSinLectorTest`, que dice **qué tiene que pasar para que deje de
+estar abierta**. El día que alguien haga que una de las dos decida algo —un `if`,
+un `WHERE`, una comparación— el caso cae y la pregunta queda contestada por los
+hechos. Y el segundo caso comprueba que **las dos se siguen guardando**, porque un
+interruptor que ya no se escribe no es una pregunta abierta: es una columna
+borrada, que es otra anotación distinta.
+
+Comprobado al revés metiendo un `if ($act->can_upload)` en `ActividadesController`:
+el primer caso cae y nombra el fichero.
+
 ### 3. Las 53 columnas: qué se hace con ellas
 
 Ya está contestado que **no las lee nadie**, y la [§17 del 12](../12-larastan-nivel-7.md)
