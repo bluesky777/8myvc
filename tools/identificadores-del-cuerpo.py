@@ -89,6 +89,90 @@ ESCRIBE  = re.compile(r'\b(UPDATE|DELETE|INSERT)\b|DB::(update|delete|insert|sta
 PROPIEDAD = re.compile(r'exig|pedidoPropio|is_superuser|esSuperusuario|'
                        r'profes_can_edit|PeriodoDeLaFila|pueden_modificar|pueden_editar', re.I)
 
+# Y lo que la raíz `exig` se traga sin ser una comprobación de propiedad.
+#
+# `ColumnaSegura::exigir` valida **un nombre de columna**, no de quién es la fila:
+# es la defensa contra la inyección de las pantallas que guardan un campo suelto
+# mandando {propiedad, valor}. Con la raíz `exig` a secas, esos métodos salían en
+# la mitad limpia de la tabla —`prop = sí`— **sin que nadie comprobara nada**, que
+# es peor que salir marcados: una ruta del lado limpio no la vuelve a mirar nadie.
+#
+# Son CINCO, medidas el 23 ago 2026 sobre las 230: `asignaturas/toggle-dia`,
+# `nota_comportamiento/guardar-libro`, `ordinales/guardar-valor`,
+# `ordinales/guardar-valor-config` y `years/toggle-cambiar-valor`. **No es toda la
+# familia `guardar-valor`**: las demás —alumnos, acudientes, profesores,
+# enfermería, uniformes— tienen además una comprobación de verdad, y su `sí` es
+# correcto. Contarlo antes de escribirlo es lo que separa las dos cosas.
+#
+# Es la §53 girada del revés. Allí el detector se quedó **ciego ante un nombre
+# nuevo** —`exigeQue…` frente a `exigirQue…`— y por eso la raíz es `exig`; aquí
+# **ve un nombre que no es**. Ensanchar una señal para no perder nada la hace
+# tragar de más, y las dos formas del error se pagan en el mismo sitio: una ruta
+# que nadie vuelve a mirar.
+NO_ES_PROPIEDAD = re.compile(r'ColumnaSegura::exigir')
+
+# Y la tercera forma del mismo error: **la señal leía la prosa**.
+#
+# Con la columna nueva puesta, la primera ejecución sacó
+# `definitivas_periodos/update-recuperacion` marcada como comprobada por un
+# token que era `exigen` — la palabra, dentro del comentario «se exigen abiertos
+# todos los periodos». Un método con un docblock que hable de exigir salía del
+# lado limpio sin comprobar nada.
+#
+# Es la misma ceguera que ya se midió en `escrituras-en-las-notas.py`, que
+# también leía prosa de los docblocks. Que dos herramientas distintas caigan en
+# lo mismo es lo que lo convierte en una regla y no en un caso: **un detector que
+# busca una palabra tiene que mirar solo el código.**
+COMENTARIOS = re.compile(r'/\*.*?\*/|//[^\n]*|(?<!:)#[^\n]*', re.S)
+
+
+def senal_de_propiedad(src):
+    """Qué disparó el `prop = sí`, o None. Devolver el token y no un booleano es
+    lo que permite ver el siguiente falso positivo sin volver a medirlo: una
+    columna que dice `sí` afirma; una que dice `Autoriza::exigir` se puede
+    comprobar de un vistazo."""
+    limpio = NO_ES_PROPIEDAD.sub('', COMENTARIOS.sub(' ', src))
+    m = PROPIEDAD.search(limpio)
+    if not m:
+        return None
+
+    # El token entero alrededor de la coincidencia, para que se lea `esSuperusuario`
+    # y no `exig`.
+    i, j = m.start(), m.end()
+    while i > 0 and (limpio[i - 1].isalnum() or limpio[i - 1] in '_:>-'):
+        i -= 1
+    while j < len(limpio) and (limpio[j].isalnum() or limpio[j] == '_'):
+        j += 1
+    return limpio[i:j].lstrip(':>-')
+
+# --- lo que el guard `persona.propia` ya comprueba por su nombre ----------------
+#
+# La comprobación de propiedad **no siempre está dentro del método**: para ocho de
+# estas rutas la hace `ExigirPersonaPropia`, que recoge del cuerpo y de la URL los
+# identificadores que nombran a una persona y comprueba que sean del que pregunta.
+# Sin cruzarlo, esta herramienta las marcaba «sin comprobar propiedad» teniéndola
+# puesta desde la revisión de IDOR — y son **más falsos positivos que los cinco de
+# `ColumnaSegura::exigir`**.
+#
+# La lista se lee **del propio middleware** y no se copia aquí: lleva tres nombres
+# para una sola cosa —`imagen_id`, `img_id`, `foto_id`— porque cada endpoint que
+# inventó el suyo dejó al guard ciego (05 §15, §53). Una copia a mano se
+# desincronizaría en el siguiente nombre nuevo, que es exactamente el fallo que
+# esta herramienta persigue.
+def claves_del_guard():
+    ruta = 'app/Http/Middleware/ExigirPersonaPropia.php'
+    if not os.path.exists(ruta):
+        return set()
+    src = open(ruta, encoding='utf-8', errors='replace').read()
+    m = re.search(r'private const CLAVES = \[(.*?)\];', src, re.S)
+    if not m:
+        return set()
+    cuerpo_lista = re.sub(r'/\*.*?\*/|//[^\n]*', ' ', m.group(1), flags=re.S)
+    return set(re.findall(r"'([a-z_]+)'", cuerpo_lista))
+
+
+CLAVES_GUARD = claves_del_guard()
+
 filas = []
 for r in rutas:
     uri = r['uri']
@@ -101,20 +185,29 @@ for r in rutas:
     if CLAVE and CLAVE not in claves: continue
 
     escribe   = bool(ESCRIBE.search(src))
-    propiedad = bool(PROPIEDAD.search(src))
+    senal     = senal_de_propiedad(src)
 
-    # de los que entran, cuáles NO se derivan además de una fila
+    mw = [m for m in r['middleware'] if not m.startswith('Illuminate') and m != 'api']
+    lleva_persona_propia = any(m.split(':')[0] == 'persona.propia' for m in mw)
+    cubiertas = CLAVES_GUARD if lleva_persona_propia else set()
+
+    # de los que entran, cuáles NO se derivan de una fila NI los mira el guard
     sueltos = []
     for k in claves:
         if re.search(r'\$[A-Za-z_]\w*->%s\b' % re.escape(k), src):
             continue          # también se lee de una fila: probablemente derivado
+        if k in cubiertas:
+            continue          # lo comprueba `persona.propia` por su nombre
         sueltos.append(k)
 
-    mw = [m for m in r['middleware'] if not m.startswith('Illuminate') and m != 'api']
+    if senal is None and cubiertas & set(claves):
+        senal = 'persona.propia'
+    propiedad = senal is not None
+
     filas.append({
         'uri': uri, 'metodo': r['method'].split('|')[0], 'accion': r['action'].split('\\')[-1],
         'claves': claves, 'sueltos': sueltos, 'escribe': escribe,
-        'propiedad': propiedad, 'mw': ','.join(mw) or '—',
+        'propiedad': propiedad, 'senal': senal or 'NO', 'mw': ','.join(mw) or '—',
     })
 
 # --- salida --------------------------------------------------------------------
@@ -124,12 +217,12 @@ def peso(f):
 filas.sort(key=peso, reverse=True)
 
 print(f'{len(filas)} rutas leen al menos un identificador del cuerpo.\n')
-print(f'{"ruta":<52} {"guard":<22} {"esc":<4} {"prop":<5} identificadores')
-print('-' * 130)
+print(f'{"ruta":<52} {"guard":<22} {"esc":<4} {"quién comprueba":<26} identificadores')
+print('-' * 150)
 for f in filas:
     marca = ' '.join(('*' + k if k in f['sueltos'] and not f['propiedad'] else k) for k in f['claves'])
     print(f'{f["metodo"]+" "+f["uri"]:<52} {f["mw"]:<22} '
-          f'{"sí" if f["escribe"] else "no":<4} {"sí" if f["propiedad"] else "NO":<5} {marca}')
+          f'{"sí" if f["escribe"] else "no":<4} {f["senal"][:26]:<26} {marca}')
 
 print('\n(*) identificador que entra por el cuerpo, no se lee de ninguna fila y el '
       'método no comprueba propiedad. Es el sitio donde mirar, no el fallo.')
