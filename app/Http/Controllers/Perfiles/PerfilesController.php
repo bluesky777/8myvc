@@ -574,8 +574,37 @@ class PerfilesController extends Controller {
 
 
 
+	/**
+	 * No borra un perfil: manda un GRUPO a la papelera — §100.
+	 *
+	 * Duplicado de `GruposController::deleteDestroy` bajo otra URL, como el
+	 * `forcedelete` y el `restore` de aquí abajo. Y con un cliente enchufado: la
+	 * rejilla de Usuarios del front llama `PerfilesApi.eliminar(row.user_id)`, así
+	 * que **pulsar «Eliminar» sobre un usuario deja al usuario donde está y manda
+	 * a la papelera el grupo cuyo id coincide con su `user_id`**. El propio
+	 * `PerfilesApi` lleva escrito que cinco métodos de este controlador operan
+	 * sobre grupo; el botón sigue enchufado igual.
+	 *
+	 * **Lo que hace esta ruta no se cambia aquí**: la regla del repo para lo roto
+	 * con ruta es documentarlo, y decidir qué debería borrar es una decisión con
+	 * el front delante. Queda fijado en `BorrarUnPerfilBorraUnGrupoTest`.
+	 *
+	 * **Lo que sí se cierra es la autorización, que no necesita decisión**: sus
+	 * dos hermanas de papelera en este mismo fichero piden superusuario desde la
+	 * §28.4 y la §76, y ésta se había quedado con `auth.personal` a secas — o sea
+	 * cualquiera de los 51 profesores. Nadie pierde un botón que hoy vea: la
+	 * rejilla de Usuarios vive en un menú que el front enseña con
+	 * `hasRoleOrPerm('admin')`, y los diez `Admin` son los diez `is_superuser`.
+	 *
+	 * **Sobre qué población se cierra**: sólo esta. Su gemela `grupos/destroy`
+	 * hace lo mismo y sigue abierta; `GruposController` no es de este lote y va
+	 * anotada, con su propio test en verde para que se vea.
+	 */
 	public function deleteDestroy($id)
 	{
+		Autoriza::exigir(Autoriza::esSuperusuario(User::fromToken()),
+			'No tienes permiso para eliminar grupos.');
+
 		$grupo = Grupo::findOrFail($id);
 		$grupo->delete();
 
