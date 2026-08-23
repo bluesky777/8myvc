@@ -292,6 +292,32 @@ alguien empezó y no terminó, **cero filas**), las de `default_unidades` /
 `*_accepted` de `change_asked_assignment`.
 
 
+### 106.5 Y una tercera forma de mentir, que salió al usar la herramienta desde un worktree
+
+El ejemplo de la propia cabecera dice `--clientes ../myvc_front ../myvc_front_2
+../myvc_flutter`. **Desde un worktree eso apunta a otro sitio**:
+`.worktrees/g/../myvc_front` no existe. Y con un árbol por sesión —lo que hace
+esta noche— ésa es la forma normal de correrlo.
+
+Lo que hacía el script hasta esta noche, medido:
+
+| Rutas dadas | Clientes mirados | «SIN NADIE QUE LAS MIRE» |
+|---|---|---|
+| las tres buenas | `myvc_front, myvc_front_2, myvc_flutter` | **49** |
+| una buena y dos que no existen | `myvc_front` | **50** |
+
+Seguía adelante con lo que encontrara y **el aviso iba por `stderr`**, así que
+dentro de un tubo desaparece y queda el número solo.
+
+> **El error da un número MÁS GRANDE que el bueno.** Las columnas del cliente que
+> falta caen del lado de «no las mira nadie», así que una ejecución rota **parece
+> un hallazgo mejor** que una correcta. Es la peor dirección posible para
+> equivocarse, y la que nadie va a cuestionar.
+
+**Ahora aborta**, que es lo que ya hizo `escrituras-en-las-notas.py` cuando le
+pasó lo suyo: *un cero tiene la misma cara que un arreglo*, y aquí un cincuenta
+tiene la misma cara que un cuarenta y nueve mejor.
+
 ---
 
 ## §107.2 El test, que es lo único que impide que un cero borre la ficha médica

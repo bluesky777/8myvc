@@ -50,6 +50,11 @@ Uso, desde la raíz del proyecto:
     python3 tools/interruptores-que-nadie-lee.py \
         --clientes ../myvc_front ../myvc_front_2 ../myvc_flutter
 
+**Desde un worktree, esas rutas relativas apuntan a otro sitio** y hay que darlas
+absolutas: `.worktrees/g/../myvc_front` no existe. Si una no existe, el script
+aborta — ver el comentario en `clientes()`, que explica por qué eso no puede ser
+un aviso.
+
 Con `--clientes` la salida separa lo que un cliente sí mira de lo que no mira
 nadie. El 21 ago 2026, con los tres delante, quedaron **49** columnas que no
 aparecen ni en el backend ni en ningún cliente, y el 23 de agosto salieron las
@@ -145,9 +150,24 @@ def clientes(rutas):
     for ruta in rutas:
         carpeta = pathlib.Path(ruta).expanduser()
 
+        # Aborta, no avisa. Con una ruta mala el barrido sigue y contesta un
+        # número MÁS GRANDE —el 23 ago 2026, 50 en vez de 49— porque las columnas
+        # que miraba el cliente que falta pasan a «no las mira nadie». O sea que
+        # el fallo se disfraza de hallazgo, y el aviso iba por stderr: dentro de
+        # un tubo desaparece y queda el número solo. Es la misma razón por la que
+        # `escrituras-en-las-notas.py` aborta al correrse desde otro directorio.
+        #
+        # Pasa de verdad y por un motivo tonto: las rutas del ejemplo son
+        # relativas (`../myvc_front`) y **desde un worktree apuntan a otro sitio**
+        # —`.worktrees/g/../myvc_front` no existe—. Con un árbol por sesión, esa
+        # es la forma normal de correrlo.
         if not carpeta.is_dir():
-            print(f'  (aviso: {carpeta} no existe, se salta)', file=sys.stderr)
-            continue
+            print(f'\n  {carpeta} no existe.\n\n'
+                  '  No se sigue: sin ese cliente, sus columnas caerían del lado de «no las mira\n'
+                  '  nadie» y el número saldría MAYOR, que es lo que hace creíble el error.\n'
+                  '  Si lo corres desde un worktree, usa rutas absolutas: `../` apunta a otro sitio.',
+                  file=sys.stderr)
+            raise SystemExit(2)
 
         trozos = []
         for fichero in carpeta.rglob('*'):
