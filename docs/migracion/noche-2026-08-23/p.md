@@ -134,6 +134,41 @@ notas**, y el libro rojo es disciplina —Joseth ya separó una vez esas dos cos
 decidir que el interruptor cierra las notas y no la asistencia—. Meterlo en el
 mismo `if` sería colar una decisión dentro de un arreglo. Queda medido y anotado.
 
+### Dos cosas más que quedan medidas y **no** juzgadas
+
+Las trae la sesión que leyó ese controlador entero, y son de las que hay que
+escribir precisamente porque **se leen bien de las dos maneras**:
+
+- **La nota con la que nace es el tope de la escala.** Dicho al derecho es el
+  mecanismo del colegio: se empieza el periodo con el comportamiento entero y se
+  le baja a quien lo pierda. Dicho al revés es *«un GET que califica de
+  sobresaliente a todo el grupo»*. **Las dos frases describen la misma fila**, así
+  que cuál de las dos es depende de una decisión del colegio y no del código.
+- **El periodo es el de quien mira, no el del grupo.** `crearVerifNota()` recibe
+  `$user->periodo_id`, así que dos personas en periodos distintos abriendo la
+  misma rejilla crean filas en periodos distintos.
+
+Las dos con test, fijando **el valor y el periodo** y no solo «se inicializa»:
+sin eso, el día que alguien cambie el tope o el origen del periodo, la suite
+seguiría en verde.
+
+## §136 — El único de los seis sin `auth.personal`
+
+`GET definitivas_periodos/arreglar-duplicados` es la única de las seis cuya ruta
+no lleva **ni `auth.personal`**: solo el `auth.token` que va por defecto a toda la
+API. Y borra filas de definitivas recorriendo **grupos × alumnos × asignaturas**
+del colegio entero.
+
+Está en la lista de exenciones de `AutorizacionTest` con su motivo escrito, y
+**es cierto**: `pueden_modificar_definitivas()` corta dentro del método. Pero una
+exención dice **quién no pasa**; nadie había mirado **qué contesta**. Comprobado:
+una familia recibe 400/403 y **no se borra ninguna fila antes del rechazo**.
+
+Se mide **solo el rechazo**, a propósito: el camino de éxito recorre tres bucles
+anidados sobre todo el colegio, y **lo congelado por decisión de Joseth es justo
+eso** — el cálculo de las definitivas. Medir la puerta no toca el cálculo;
+ejecutarlo, sí.
+
 ## §134 — Un GET que renumera las matrículas del colegio
 
 `folios/iniciar` lanza:

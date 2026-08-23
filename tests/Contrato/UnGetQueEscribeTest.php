@@ -74,6 +74,21 @@ class UnGetQueEscribeTest extends CasoDeContrato
         $this->assertGreaterThan(0, $despues,
             'Un GET dejó de escribir: si se arregló, este test se cambia con el porqué — §133.');
 
+        // **Y con el tope de la escala.** Dicho al derecho es el mecanismo del
+        // colegio: se empieza el periodo con el comportamiento entero y se le baja
+        // a quien lo pierda. Dicho al revés es «un GET que califica de
+        // sobresaliente a todo el grupo». Las dos frases describen la misma fila,
+        // así que **cuál de las dos es depende de una decisión del colegio** y no
+        // del código. Se fija el valor para que ese día se vea lo que se cambia.
+        $maxima = DB::selectOne('SELECT porc_final FROM escalas_de_valoracion e
+            INNER JOIN periodos p ON p.year_id = e.year_id AND p.id = ?
+            WHERE e.deleted_at IS NULL ORDER BY e.orden DESC LIMIT 1', [$periodo]);
+
+        $this->assertSame((int) $maxima->porc_final,
+            (int) DB::table('nota_comportamiento')->whereIn('alumno_id', $ids)
+                ->where('periodo_id', $periodo)->max('nota'),
+            'Las notas que nacen al abrir la rejilla dejaron de ser el tope de la escala — §133.');
+
         // **Y en una segunda tabla**, que es la que no se ve leyendo el nombre del
         // endpoint: `dis_libro_rojo`, el libro rojo de disciplina. Abrir la
         // rejilla de comportamiento le abre a cada alumno del grupo su fila de
@@ -190,6 +205,19 @@ class UnGetQueEscribeTest extends CasoDeContrato
                 ->where('periodo_id', $periodo)->count(),
             'Con el periodo abierto la rejilla dejó de inicializarse: el arreglo del §133 se '
             .'pasó de largo y ahora no se puede calificar el comportamiento de nadie.');
+
+        // **Y en el periodo de QUIEN MIRA, no en el del grupo.** `crearVerifNota()`
+        // recibe `$user->periodo_id`, así que dos personas en periodos distintos
+        // abriendo la misma rejilla crean filas en periodos distintos. Se fija
+        // medido y **no juzgado**: puede ser lo correcto —cada uno califica su
+        // periodo— pero leído al revés es «la pantalla escribe donde esté el que
+        // entra», y eso hay que escribirlo, no suponerlo.
+        $enOtros = DB::table('nota_comportamiento')->whereIn('alumno_id', $ids)
+            ->where('periodo_id', '<>', $periodo)
+            ->where('created_at', '>=', '2026-08-23 00:00:00')->count();
+
+        $this->assertSame(0, $enOtros,
+            'La rejilla creó filas en un periodo que no es el de quien la abrió — §133.');
     }
 
     /**
@@ -296,6 +324,45 @@ class UnGetQueEscribeTest extends CasoDeContrato
         $this->assertSame(500,
             $this->withToken($token)->getJson('/api/importar/modificar/'.$year)->status(),
             '`importar/modificar` dejó de dar 500 — mídela otra vez, escribe con `DB::update`.');
+    }
+
+    /**
+     * La sexta: un GET **sin guard ninguno** que borra — §136.
+     *
+     * `GET definitivas_periodos/arreglar-duplicados` es la única de las seis cuya
+     * ruta no lleva **ni `auth.personal`**: solo el `auth.token` que va por defecto
+     * a toda la API. Y borra filas de definitivas recorriendo **grupos × alumnos ×
+     * asignaturas** del colegio entero.
+     *
+     * Está en la lista de exenciones de `AutorizacionTest` con su motivo escrito
+     * —«`pueden_modificar_definitivas()` corta a todo el que no sea superusuario o
+     * profesor con permiso»— y **eso es cierto**. Pero una exención dice quién no
+     * pasa; **nadie había mirado qué contesta**, que es la mitad que este test
+     * añade. Es el patrón de esta noche: la tabla de rutas no es la autoridad
+     * sobre si algo está defendido, **ni para bien ni para mal**.
+     *
+     * Se comprueba **solo el rechazo** a propósito. El camino de éxito recorre
+     * tres bucles anidados sobre todo el colegio y **lo que está congelado es
+     * justo eso**: el cálculo de las definitivas espera a que termine la
+     * migración. Medir la puerta no toca el cálculo; ejecutarlo, sí.
+     */
+    public function test_el_get_que_borra_definitivas_no_lo_alcanza_una_familia(): void
+    {
+        $antes = DB::table('notas_finales')->count();
+
+        foreach (['Alumno', 'Acudiente'] as $tipo) {
+            $token = $this->tokenDe($this->usuarioDeTipo($tipo)->username);
+
+            $r = $this->withToken($token)->getJson('/api/definitivas_periodos/arreglar-duplicados');
+
+            $this->assertContains($r->status(), [400, 403],
+                "Un {$tipo} entró en el GET que borra definitivas del colegio entero. Su ruta no "
+                .'lleva `auth.personal`: lo único que la defiende es '
+                .'`pueden_modificar_definitivas()` dentro del método — §136.');
+        }
+
+        $this->assertSame($antes, DB::table('notas_finales')->count(),
+            'El rechazo llegó a borrar definitivas antes de contestar que no — §136.');
     }
 
     /**
