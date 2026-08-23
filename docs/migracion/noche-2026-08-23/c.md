@@ -513,6 +513,71 @@ el calendario del colegio, no en cualquier momento.
 
 ---
 
+## Apéndice: la mentira de instrumento de esta noche, y la fabriqué yo
+
+No es del lote, pero es de la familia que este repo colecciona, así que se cuenta
+donde se cuentan las demás.
+
+Corriendo la suite de Contrato en mi árbol salieron **cinco rojos en familias que
+no había tocado** —`AceptarCambiosTest`, `ActividadesTest`, `AcudientesTest`,
+`ConcederSuperusuarioTest`, `ConfigCertificadosTest`—, uno de ellos tardando
+**53,48 s** en un caso que hace tres consultas. Tres hipótesis razonables y las
+tres falsas: que fueran mías, que la base heredada de la noche anterior tuviera
+datos dentro, y que fuera contención con las otras sesiones.
+
+El mensaje real, sacado corriendo esas cinco clases solas:
+
+```
+SQLSTATE[40001]: Serialization failure: 1213 Deadlock found when trying to get lock
+(Connection: mysql_testing, Database: simonbolivar_testing_c,
+ SQL: insert into `personal_access_tokens` (...))
+   at tests/Contrato/CasoDeContrato.php:314    ← tokenDe(), el login de cada test
+```
+
+Un deadlock necesita **dos** transacciones, y yo era la única sesión en `_c`. Las
+otras dos eran mías:
+
+```
+84365 cwd=/app/.worktrees/c ppid=1   21 min corriendo
+84987 cwd=/app/.worktrees/c ppid=1   14 min corriendo
+```
+
+**`php artisan test` es un envoltorio que lanza `vendor/phpunit/phpunit` como
+hijo.** Matar el envoltorio —da igual con qué— **no mata al hijo**: queda
+reparentado a init y sigue corriendo la suite entera contra la misma base,
+haciendo login en cada test. Yo había parado dos tandas y tenía tres.
+
+Tres cosas que se llevan de aquí:
+
+1. **Una base por sesión no protege de la sesión.** El aislamiento del
+   [15 §3](../15-la-noche-en-paralelo.md) supone una tanda por base y no hay nada
+   que lo garantice. El punto caliente no está en las tablas del dominio: está en
+   `personal_access_tokens`, porque **cada test hace login**. Por eso dos tandas
+   contra la misma base chocan **corran los tests que corran**, sin compartir ni
+   una tabla de negocio.
+2. **Un huérfano no da la cara como huérfano.** Da la cara como un test de
+   contrato en rojo, en una familia que no has tocado y en un sitio creíble. Es
+   la forma de siempre: el instrumento miente con la cara del problema.
+3. **Y el cmdline no distingue las sesiones** —las seis dicen
+   `artisan test --testsuite=Contrato`—, **pero el `cwd` sí**:
+
+   ```bash
+   docker exec 8myvc-app-1 sh -c 'for p in $(pgrep -f phpunit); do
+       echo "$p cwd=$(readlink /proc/$p/cwd) ppid=$(awk "{print \$4}" /proc/$p/stat)"; done'
+   ```
+
+   `ppid=1` es un huérfano. Y para parar lo propio de verdad hay que ir al hijo:
+   `pgrep -f "phpunit.*worktrees/<sufijo>" | xargs -r kill -9`.
+
+Lo que lo convierte en apéndice y no en anécdota es cómo empezó: **con un
+`pkill -f "artisan test"` mío dentro del contenedor compartido**. El árbol y la
+base son por sesión; el contenedor no. Ese `pkill` mató envoltorios ajenos y dejó
+huérfanos vivos en los árboles de otros dos lotes, que a partir de ahí midieron
+con dos tandas por base sin saberlo.
+
+
+---
+
 ## PARA JOSETH
 
 ### 1. ¿Se le pone el candado del periodo a «Calcular definitivas per N»? (§90)
