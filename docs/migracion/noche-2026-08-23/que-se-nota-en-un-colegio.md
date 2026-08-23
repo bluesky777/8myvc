@@ -16,7 +16,7 @@
 |---|---|
 | **Migraciones nuevas** | **ninguna** — comprobado con `git diff c2c2a04 main -- database/migrations/ database/schema/`, que sale vacío |
 | **Rutas** | **539 antes y 539 después**. Ninguna nace, ninguna muere — y no es una suposición: **ningún commit de la noche tocó `routes/`** (`git log c2c2a04..main -- routes/` sale vacío) y el recuento de `Route::` en `routes/api/` da **538 en los dos extremos**, más el `GET /` de `web.php` |
-| **Formas de respuesta** | ninguna respuesta pierde ni gana claves |
+| **Formas de respuesta** | ninguna respuesta pierde ni gana claves — **comprobado contra los snapshots**, ver la nota de abajo |
 | **Capacidades que se quitan** | **cuatro**, todas del lote E — y las cuatro con **riesgo bajo**, por la misma razón |
 | **Cosas que se encienden** | **una** hoy, y **dos con R dentro** — ver la nota de abajo |
 | **Minas que no se notan al desplegar** | **seis**, en **tres detonantes**, y las seis esperan a que alguien haga lo razonable (§4.b) |
@@ -32,6 +32,25 @@
 > cuyo despliegue **devuelve algo que hoy falta** —una familia que no puede ver el
 > boletín de su hijo en las maquetas 2 y 3—, así que es la primera que un colegio
 > agradecería. **Eso es una recomendación de orden, no una dependencia.**
+
+---
+
+### Las formas de respuesta, comprobadas y no supuestas
+
+De los **seis** snapshots de contrato que cambiaron esta noche, **cinco son
+nuevos** —tests que antes no existían— y **uno ya existía**: `grupos-show.json`,
+donde `titular` pasa de `"null"` a un objeto entero.
+
+**Y ése no es un cambio de contrato: es un cambio de fixture.** `GruposController::getShow`
+**no se tocó** en toda la noche (`git diff c2c2a04 main` sobre ese fichero no
+enseña ese método). Lo que cambió es el test: el snapshot viejo se había grabado
+sobre **un grupo al que el fallo del §101 le había borrado el titular**, así que
+**guardaba el vaciado como si fuera lo correcto** — que es lo que encontró el
+lote E.
+
+> **Un snapshot cambiado no es una respuesta cambiada.** Quien audite la tanda
+> mirando qué snapshots se movieron encontrará uno y tendrá que ir a mirar si se
+> movió la ruta o se movió el test. Aquí se movió el test, y a mejor.
 
 ---
 
@@ -58,18 +77,34 @@ Ordenado por lo que un colegio notaría antes.
 | **K** | Que aceptar o rechazar un pedido escriba **hasta cinco filas de depuración** en `debugging`, una con el texto `ENTROOOOO` | idem |
 | **L** | Lo mismo de la hora, en **cada ausencia que sube el lector de tardanzas** — el camino de más volumen de los dos | `POST tardanzas/subir` |
 | **S** | Que **un acudiente reciba un error después de que su prematrícula sí se haya guardado** — y que vuelva a darle al botón. Es la única escritura que alcanza una familia | `PUT matriculas/prematricular` |
+| **Q** | Que **un alumno o acudiente que mandara `is_prof_admin=true` en el cuerpo recibiera los eventos que el colegio marca como internos**. Lo que se quita no es un permiso: es que **el cuerpo decida el permiso** | el calendario |
 | **P** | Que **abrir la rejilla de comportamiento escriba la nota de cada alumno del grupo con el tope de la escala** con el periodo cerrado — y en el periodo **del que mira**, no el del grupo | la rejilla de comportamiento |
 
 **Además**, en **cinco lotes** hay 500 que pasan a ser 404 o 422. No son un cambio
 de capacidad: un id que no lleva a ninguna fila **deja de devolver una traza de
-PHP** y pasa a decir que no existe. Códigos añadidos, contados en el diff:
+PHP** y pasa a decir que no existe.
 
-| Lote | `abort()` añadidos |
-|---|---|
-| E | 5 × 404 · **1 × 403** |
-| D | 5 × 404 · 1 × 422 |
-| A | 1 × 404 |
-| B | 1 × 404 |
+Códigos añadidos, **contando las dos formas** —el `abort()` literal y
+`Autoriza::exigir()`, que hace `abort(403)` por dentro—:
+
+| Lote | 403 | 404 | 422 |
+|---|---|---|---|
+| **E** | **4** (1 `abort` + 3 `exigir`) | 5 | — |
+| **D** | — | 5 | 1 |
+| **C** | **2** (0 `abort` + 2 `exigir`) | — | — |
+| **A** | — | 1 | — |
+| **B** | — | 1 | — |
+| **S** | — | 1 | — |
+
+> **Esta tabla contaba mal hasta ahora, y merece la pena decir cómo**: la primera
+> versión buscaba `abort(403` en el diff y daba **uno**. Pero la forma idiomática
+> de este repo es **`Autoriza::exigir(...)`**, que hace `abort(403)` dentro, así
+> que **cinco de los seis 403 de la noche no llevan la palabra `abort` al lado**.
+>
+> Quien auditara «qué capacidades se quitaron» con un `grep abort(403` encontraría
+> una y concluiría una. Es la **forma 6** del [barrido de cegueras](las-cegueras.md)
+> —*la señal que se busca no es la forma que tiene el fallo*— en el documento que
+> decide qué se avisa antes de desplegar.
 
 ---
 
