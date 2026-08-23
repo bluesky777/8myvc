@@ -268,10 +268,40 @@ los identificadores que usa:
 **`{grupo_id}` ajeno es también «de otro año», y en este seed no puede no serlo.** Hay
 exactamente **dos grupos vivos, uno por año** —84 en 2024 y 98 en 2025—, así que el
 grupo «ajeno» que elige el barrido es siempre de un año distinto al del sujeto. Para
-las 28 rutas que llevan un grupo en la URL, un vacío no distingue **«el guard lo
-impidió»** de **«el filtro de año no encontró nada»**. La segunda pasada de control lo
-tapa en parte —si el superusuario tampoco saca nada, la ruta se marca no juzgable—,
-pero no separa las dos causas.
+las rutas que llevan un grupo en la URL, un vacío puede no distinguir **«el guard lo
+impidió»** de **«el filtro de año no encontró nada»**.
+
+**Y la segunda pasada de control no lo rescata**, que es lo que hace a esta ceguera
+distinta de las otras: el control usa un superusuario que **está en el mismo año que el
+sujeto** —los cuatro sujetos de esta noche salieron con `year_id = 8`— así que ve
+exactamente el mismo vacío por exactamente la misma razón. **Un control que comparte el
+sesgo del sujeto confirma el sesgo, no lo desmiente.**
+
+### Cuánto mide, porque una ceguera sin tamaño se lee como un descargo
+
+De las **28** rutas con `{grupo_id}` en la URL:
+
+- **19 no miran el año del usuario** para nada: su vacío sí es del guard o de la fila, y
+  se puede leer.
+- **9 lo nombran**, y de ésas **2 salieron como hallazgo igual** —`nota_comportamiento/detailed`
+  y `planillas/show-grupo`, que devolvió 394 KB del grupo ajeno—, o sea que en ellas el
+  año se usa para otra cosa y no para acotar el grupo.
+- Quedan **7 mudas cuyo silencio no está explicado**:
+
+```
+GET api/boletines/detailed-notas-year/{grupo_id}/{periodo_a_calcular?}
+GET api/boletines2/detailed-notas-year/{grupo_id}/{periodo_a_calcular?}
+GET api/boletines3/detailed-notas-year/{grupo_id}/{periodo_a_calcular?}
+GET api/observador/vertical/{grupo_id}/{tamanio}
+GET api/piars-asignaturas/asignaturas/{grupo_id}/{alumno_id}   (muda para el profesor)
+PUT api/observador-horizontal/horizontal/{grupo_id}
+PUT api/puestos/detailed-notas-periodo/{grupo_id}
+```
+
+**Siete de las ~190 mudas de cada pasada**, o sea alrededor del 4%. No invalida los
+cinco números —los hallazgos son hallazgos y las 19 legibles se leen—, pero esas siete
+**no están medidas**, y hoy se cuentan como «no juzgable», que suena a resultado. Son
+un «no medido» con nombre.
 
 `CasoDeContrato::grupoAjenoDelMismoAnio()` existe justo para esto y el barrido no lo
 usa. No se cambia aquí: tocarlo mueve los cinco números de arriba, y esos números son
