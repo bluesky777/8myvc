@@ -313,9 +313,16 @@ veces esta noche**:
    midió. Un total sellado deja de ser una afirmación y pasa a ser una medición con
    fecha: **si un día no cuadra, se ve que es viejo en vez de parecer falso**. Esta
    misma noche dos totales de estos documentos envejecieron sin avisar.
-10. **Un documento permanente no puede decir «hoy».** «Esta noche» en un fichero
-    que acumula noches no se puede resolver — y es más difícil de ver que un número
-    raro, porque **un número raro se nota y un «hoy» no**.
+10. **Un documento permanente no puede decir «hoy».** Y la regla exacta no es «no
+    digas *esta noche*»: es **«no lo digas donde no se puede resolver»**. En
+    `15-la-noche-en-paralelo.md` o en esta misma carpeta está bien —esos documentos
+    *son* de una noche y lo dicen en el título—; en el 05, que **acumula noches**,
+    las tres que había significan **tres noches distintas**. Y es más difícil de
+    ver que un número raro, porque **un número raro se nota y un «hoy» no**.
+
+    > La frase que más se estropea es justo la que más importaba:
+    > *«es la segunda vez esta noche que…»*, que se escribe **porque el patrón
+    > importaba** y deja de significar nada en cuanto pasa la noche.
 11. **Marcar qué mitad de una salida hay que ignorar, en la propia salida.** Una
     comprobación que necesita saberlo y no lo dice fabrica la forma 4 ella sola: el
     lector que desconfía **tiene razón en desconfiar**, porque no le diste con qué
