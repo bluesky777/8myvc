@@ -7,7 +7,9 @@ Qué §§ cita el código y no existen en la documentación.
     python3 tools/secciones-citadas.py --autoprueba   # que el patrón sigue leyendo bien
 
 Existe porque **los comentarios de este repo citan secciones de `docs/` por su
-número** —1.254 citas a 227 secciones distintas, medido el 23 ago 2026— y esas
+número** —**1.239 citas a 225 secciones**, medido el 23 ago 2026 con la propia
+herramienta (`4c5fdbe`); el número de arriba se quedó viejo dos veces en una
+noche, que es justo lo que le pasa a todo lo que describe lo de abajo— y esas
 citas son la única forma de saber por qué un guard está donde está. Renumerar una
 sección en `docs/` deja atrás las que la citaban desde `app/`, y ahí no las mira
 nadie: **un índice desalineado lo caza quien recorre el índice; un `// §144`

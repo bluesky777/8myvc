@@ -744,3 +744,10 @@ cayó al mirarla.
     raya ancha, las dos pegadas—. Es la comprobación inversa de siempre, la que se
     le hace a un test para saber si mide algo, aplicada a las mitades de un
     patrón. Y el día que una sobre, se sabrá igual: quitándola.
+32. **Una diferencia entre dos estados solo mide lo que crees si lo demás no se
+    movió** — y cuando se puede contar directo, se cuenta directo. Al comprobar
+    cuántas citas aporta un fichero, restar entre dos commits daba **16** y contar
+    sobre el fichero daba **17**: entre los dos commits había cambiado **el propio
+    fichero que se estaba contando**. Es la lección 2 en pequeño y más traicionera,
+    porque **una resta es una medición de dos cosas** y basta con que se mueva una
+    para que el resultado siga teniendo la pinta exacta de la respuesta.
