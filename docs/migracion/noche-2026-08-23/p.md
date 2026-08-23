@@ -27,7 +27,8 @@ método:
 |---|---|
 | Candidatos | **10** |
 | Falsos positivos | **4** |
-| Escriben de verdad | **6** |
+| Escriben de verdad **a un salto** | **6** |
+| Escriben de verdad **a dos saltos** | **7** — ver §137 |
 
 **Los cuatro falsos positivos importan tanto como los seis.** Tres son
 `Excel::create()`, que no es la base de datos; **y el cuarto era de mi propio
@@ -168,6 +169,48 @@ Se mide **solo el rechazo**, a propósito: el camino de éxito recorre tres bucl
 anidados sobre todo el colegio, y **lo congelado por decisión de Joseth es justo
 eso** — el cálculo de las definitivas. Medir la puerta no toca el cálculo;
 ejecutarlo, sí.
+
+## §137 — La séptima, y la ceguera de mi propio detector
+
+**Lo encontré auditando mi barrido, no barriendo más.** Hice la **pregunta
+espejo** —*qué rutas con verbo de escritura solo leen*— y salieron **114 de 417**.
+Casi todas se explican solas: esta API usa `PUT` como «leer con cuerpo»
+(`putDetailed`, `putUltimas`…). Pero entre ellas estaban `POST
+matriculas/matricular-en`, `PUT requisitos/update` y `PUT
+roles/addroletouser` — escrituras evidentes marcadas como lecturas. El motivo era
+el mismo en todas: **la escritura vive un salto más allá, en un helper**.
+
+Y de ahí lo incómodo: **mi barrido de GET cazó el §133 por el `DB::insert` de
+`dis_libro_rojo`, que está en línea — no por `crearVerifNota()`, que es la
+escritura que de verdad importaba.** Si esa ruta solo hubiera creado la nota, no
+la habría visto. **Encontré el §133 por suerte, no por método.**
+
+Repetido el barrido **con un salto de profundidad** —siguiendo `Clase::metodo()` y
+`$this->metodo()`— aparece una que el primero no podía ver:
+
+**`GET api/definitivas_periodos`** → `NotaFinal::alumnos_grupo_nota_final()` →
+**`DELETE` + `INSERT` sobre `notas_finales`**, por cada asignatura del profesor
+que pregunta. Y **la ruta no lleva guard ninguno**: solo el `auth.token` por
+defecto.
+
+Está en las exenciones de `AutorizacionTest` como *«rota: `$profe_id` no se define
+para este tipo de usuario»*, y **eso es cierto solo para los demás tipos**: para
+un `Profesor` la variable sí se define (`$user->persona_id`) y **la ruta funciona
+— y reescribe definitivas**. La exención decía la verdad y aun así tapaba la
+pregunta: **«rota» era la respuesta para un alumno, no para el usuario que la
+usa.**
+
+**No se ejecuta, y no se toca**, por el criterio de esta misma noche: *medir la
+puerta no toca el cálculo; ejecutarlo, sí*. `notas_finales` es lo congelado. Lo
+que sí se ve leyendo es la mitigación, y es la misma forma que `folios/iniciar`:
+el `DELETE` lleva `(manual is null or manual=0) and (recuperada is null or
+recuperada=0)`, así que **respeta lo puesto a mano y lo recuperado**. Protegido
+por la condición, no por el diseño.
+
+> **Un detector no dice cuántos hay: dice cuántos hay a la profundidad a la que
+> miró, y esa profundidad hay que escribirla al lado del número.**
+>
+> Seis a un salto. Siete a dos. **Ninguno de los dos ve tres.**
 
 ## §134 — Un GET que renumera las matrículas del colegio
 
