@@ -74,6 +74,7 @@ leyendo el código. Cada una lleva su uso en la cabecera.
 | `interruptores-que-nadie-lee.py` | qué columnas `tinyint(1)` no decide nadie — con `--clientes`, tampoco los cuatro fronts |
 | `identificadores-del-cuerpo.py` | qué rutas reciben un id por el cuerpo que no comprueba nadie |
 | `escrituras-en-las-notas.py` | qué métodos escriben en las notas sin preguntar por el interruptor del periodo |
+| `secciones-citadas.py` | qué §§ cita el código y ya no existen en `docs/` — se corre **después de cada renumerado** |
 
 Y una que **no** está en `tools/` y contesta la pregunta contraria:
 `tests/Barrido/SuperficieDeUnTokenTest.php` golpea la API entera con un token y

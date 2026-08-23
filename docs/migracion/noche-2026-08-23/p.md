@@ -1,4 +1,4 @@
-# Lote P — Las que escriben sin decirlo · §133–134 y §136–137
+# Lote P — Las que escriben sin decirlo · §133–137
 
 > Sesión `8myvc-4f`, noche del 22 al 23 de agosto de 2026. Rama
 > `fix/lote-p-las-seis-que-preguntan`, árbol `.worktrees/p`.
@@ -234,3 +234,30 @@ fijado con test por los dos lados: rellena la vacía y **no toca la que ya tení
 
 Y medido: **no la llama ningún cliente**. Hoy es una mina, no un fallo vivo — la
 misma categoría que el `year_id` de los grupos del §102.
+
+## §135 — Las dos de `importar`, rotas, y por dónde
+
+> Esta sección se escribió al cerrar la noche, **desde el test que ya la citaba**:
+> `UnGetQueEscribeTest::test_las_dos_de_importar_estan_rotas_y_por_donde` manda
+> dos veces al §135 y el §135 no existía. No se ha medido nada nuevo aquí — lo
+> que sigue es lo que ese test ya fija, puesto donde se dijo que estaría.
+
+`GET api/importar` **no recibe ningún fichero**: lee una **ruta fija dentro del
+propio código** —`app/Http/Controllers/Alumnos/archivos/alumnos.xls`— y a partir
+de ahí **crea alumnos y cuentas de usuario en masa**. Esa carpeta no existe en el
+repositorio, así que hoy la ruta contesta 500 y no puede funcionar.
+
+**Se fija el error exacto en vez de borrarlas** porque **tienen ruta**, y borrar
+un endpoint enrutado convierte un 500 en un 404 sin decirle a nadie qué pretendía
+hacer esa pantalla. Y lo que pretendía importa: es **la única importación del
+sistema que no recibe el fichero del cliente**, o sea un resto de una migración
+hecha a mano que quedó enchufada a la API.
+
+**Lo peligroso no es que esté rota: es lo que haría si alguien creara esa
+carpeta.** Un `GET` con `auth.personal` que da de alta alumnos y cuentas es la
+peor forma posible de una importación, y hoy **sólo lo impide un fichero
+ausente** — por eso está en las minas de
+[`que-se-nota-en-un-colegio.md`](que-se-nota-en-un-colegio.md) con su detonante
+escrito: *completar lo que falta*. El test comprueba las dos mitades: que sigue
+dando 500, y que **no alcanza a crear ni un alumno ni una cuenta antes de
+reventar**.

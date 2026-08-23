@@ -669,3 +669,24 @@ cayó al mirarla.
     **sin haberlo ejecutado**. Lo que hace que la revisión externa sirva no es el
     comando: es que **quien lo recibe lo corra**. Contra un coordinador que
     discute el dato en vez de correr el comando, revisar es teatro.
+22. **Dos mediciones independientes que coinciden no se han comprobado la una a
+    la otra si comparten el punto ciego.** El recuento de secciones dio 75, se
+    «corrigió» a 74 y lo confirmó una segunda sesión con su propio script — y **el
+    bueno era el 75**. Las dos regex leían el primer número del encabezado, y hay
+    uno que declara **dos**: `## §125–126 — Lo medido…`. La coincidencia no era
+    acuerdo: era **el mismo agujero visto dos veces**. Y no se quedó en el número
+    —publicó el §126 como «hueco que nadie usó» **existiendo**.
+23. **Los comentarios del código citan secciones de `docs/` por su número, y
+    renumerar deja atrás las citas.** 1.251 citas a 227 secciones, medido el 23 de
+    agosto de 2026. Tiene dos agravantes que una colisión dentro de un documento
+    no tiene: **nadie lee un comentario para comprobar si su número sigue siendo
+    el bueno**, y **no se rompe, miente** — un `// §144` desalineado sigue
+    apuntando a una sección que existe y manda a leer sobre otro asunto. Lo
+    comprueba `tools/secciones-citadas.py`, y va **después de cada renumerado**,
+    al lado de la de colisiones.
+24. **Y prueba el comprobador antes de fiarte de su cero.** El primer patrón de
+    esa herramienta daba **75 huérfanas y las 75 eran falsas** —no veía los
+    encabezados numerados sin `§`, que son los del 05 anterior a esta noche—; con
+    los dos patrones da cero. Un cero solo significa algo si la herramienta
+    enseña que **falla cuando hay algo que encontrar**: se le pone delante un
+    `§999` inventado y se mira que salga.

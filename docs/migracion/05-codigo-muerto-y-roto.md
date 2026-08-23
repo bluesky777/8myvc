@@ -7773,14 +7773,14 @@ Las dos advertencias que van pegadas a esas cifras y no debajo:
 | [J](noche-2026-08-23/j.md) | Las rutas ya cubiertas que nadie juzgó | §114–116 |
 | [K](noche-2026-08-23/k.md) | Las columnas que se pisan donde no llegaba ningún lote | §118–121 |
 | [L](noche-2026-08-23/l.md) | Las sobras huérfanas | §123–124 |
-| [M](noche-2026-08-23/m.md) | Descongelar los dos modelos congelados | §125 y §127 |
+| [M](noche-2026-08-23/m.md) | Descongelar los dos modelos congelados | §125–127 |
 | [N](noche-2026-08-23/n.md) | El ayudante que devolvía un superusuario | §157–159 |
 | [O](noche-2026-08-23/o.md) | La población de `PerfilesController` | §130–132 |
-| [P](noche-2026-08-23/p.md) | Las que escriben sin decirlo | §133–134, §136–137 |
+| [P](noche-2026-08-23/p.md) | Las que escriben sin decirlo |  §133–137 |
 | [Q](noche-2026-08-23/q.md) | El calendario, donde el cliente decidía | §150–152 |
 | [R](noche-2026-08-23/r.md) | El boletín de una familia, y la imagen ajena en el muro | §140–142, §166–167 |
 | [S](noche-2026-08-23/s.md) | La única escritura que alcanza a una familia | §143–145 |
 | [T](noche-2026-08-23/t.md) | Lo que destapó la curva de profundidad | §146–149 |
 
-**Los huecos —§117, §126, §128–129, §135, §138–139 y §160–165— son números que nadie usó**
+**Los huecos —§117, §128–129, §138–139 y §160–165— son números que nadie usó**
 al abrir lotes sobre la marcha. Un hueco no es una sección perdida.
