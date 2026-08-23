@@ -343,15 +343,25 @@ veces esta noche**:
 10. **Un documento permanente no puede decir «hoy».** «Esta noche» en un fichero
     que acumula noches no se puede resolver — y es más difícil de ver que un número
     raro, porque **un número raro se nota y un «hoy» no**.
-11. **Marcar qué mitad de una salida hay que ignorar, en la propia salida.** Una
+11. **Antes de traer un fichero de `main` para no pisar lo de otro, comprobar que
+    lo tuyo ya está en `main`.** `git log main..HEAD -- <fichero>`. La disciplina
+    que evita deshacer el trabajo ajeno **deshace el propio** cuando el commit de
+    uno todavía no está fundido — y el `git add -A` de la línea siguiente se lleva
+    la reversión sin que nada falle a la vista.
+
+    > Y su complemento: **un `assert` que corta el script no corta el `git commit`
+    > de la línea siguiente.** Un commit puede salir con un título que anuncia una
+    > mejora y un cuerpo que borra veintiuna líneas.
+
+12. **Marcar qué mitad de una salida hay que ignorar, en la propia salida.** Una
     comprobación que necesita saberlo y no lo dice fabrica la forma 4 ella sola: el
     lector que desconfía **tiene razón en desconfiar**, porque no le diste con qué
     distinguir.
 
 ### Y la que no es una regla sino el saldo
 
-**Ninguna de estas once se evita sabiéndosela.** Este documento estaba escrito y
-firmado cuando su propia autora se equivocó **cuatro veces**, tres de ellas
+**Ninguna de estas doce se evita sabiéndosela.** Este documento estaba escrito y
+firmado cuando su propia autora se equivocó **cinco veces**, tres de ellas
 repitiendo formas que el propio documento describe:
 
 | Qué | Cuál |
@@ -360,8 +370,12 @@ repitiendo formas que el propio documento describe:
 | Un bucle que dijo «doce de doce» mientras auditaba si alguien había tocado sus tests | forma 5 |
 | Dos totales de cabecera que no volvió a sumar cuando el documento creció | forma 4 |
 | Publicar una **causa** —«no respeta la variable»— cuando lo medido era un **síntoma** | la regla 8, que salió de ahí |
+| **Borrar su propio trabajo** trayendo el fichero de `main` sin comprobar que lo suyo ya estaba fundido, con el `AssertionError` a la vista y el `commit` corriendo igual | la regla 11, que salió de ahí |
 
-La cuarta no repetía una forma escrita: **la escribió**. Y de ella sale la
+La cuarta y la quinta no repetían una forma escrita: **la escribieron**. Y la
+quinta es la primera que **destruyó algo** en vez de solo afirmar mal — la cazó
+mirar qué contenía el commit, no el error en pantalla, **que estaba ahí y no se
+leyó**: la regla 12 aplicada a uno mismo. Y de ella sale la
 formulación que vale para las cuatro: **el síntoma se puede mandar; la causa hay
 que medirla antes de mandarla.**
 
