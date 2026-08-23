@@ -44,7 +44,7 @@ donde `titular` pasa de `"null"` a un objeto entero.
 **Y ése no es un cambio de contrato: es un cambio de fixture.** `GruposController::getShow`
 **no se tocó** en toda la noche (`git diff c2c2a04 main` sobre ese fichero no
 enseña ese método). Lo que cambió es el test: el snapshot viejo se había grabado
-sobre **un grupo al que el fallo del §101 le había borrado el titular**, así que
+sobre **un grupo al que el fallo del §153 le había borrado el titular**, así que
 **guardaba el vaciado como si fuera lo correcto** — que es lo que encontró el
 lote E.
 
