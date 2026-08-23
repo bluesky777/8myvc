@@ -344,6 +344,43 @@ la entrega de este lote. Queda anotado para quien lo recoja.
 
 ---
 
+## Y una ceguera que empuja al revés: `ESCRIBE` no quiere decir «cambió una fila»
+
+La del `{grupo_id}` hacía contar **de menos**. Ésta hace contar **de más**, y las dos
+juntas son lo que impide leer los cinco números como una cuenta exacta.
+
+El barrido marca `ESCRIBE` escuchando con `DB::listen` las sentencias `insert`,
+`update` y `delete` que ejecuta la petición. **`DB::listen` ve la sentencia, no las
+filas afectadas.** Una ruta que ejecuta un `UPDATE ... WHERE id = 0` sale marcada como
+escritura aunque no toque nada.
+
+Medido, con el caso que lo prueba:
+
+```
+DELETE api/requisitos/destroy/0   ->  200 'Eliminado'
+   UPDATE ejecutados que el barrido ve:  1
+   filas borradas antes = 0    despues = 0
+```
+
+El barrido lo listó como `ESCRIBE: update requisitos_matricula` **y a la vez** lo puso
+en su lista de «no medidas: el seed no tiene ninguna fila ajena de esa tabla». Las dos
+cosas eran ciertas y ninguna de las dos es «escribió».
+
+### Y de paso, una respuesta que miente que la herramienta de mentir no puede ver
+
+`DELETE requisitos/destroy/{id}` contesta **200 «Eliminado»** con un id que no existe,
+sin haber borrado nada. Es la familia de `respuestas-que-mienten.py`, que el
+[15 §1](../15-la-noche-en-paralelo.md) dio por agotada —«da un solo sitio, es un
+resultado y no un hueco»—, y **esta no sale ahí**: la herramienta busca métodos que
+**frenan** la escritura y contestan 200 igual, y aquí la escritura **corre** y no
+encuentra a quién. Misma mentira, mecanismo distinto, señal distinta.
+
+No se arregla desde este lote —`RequisitosController` no es suyo— y se anota con la
+distinción escrita, porque «esa serie está agotada» es exactamente la clase de renglón
+que apaga la pregunta.
+
+---
+
 ## Para Joseth
 
 Todo lo de este lote es una decisión suya y ninguna se tomó:
