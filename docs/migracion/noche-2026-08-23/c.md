@@ -97,6 +97,25 @@ tienen en común es **el resultado**, que es lo que decide si un alumno está en
 papelera. Unificar el 400 cambia el contrato de una ruta que los clientes sí
 llaman: **se anota, no se hace**, y no es de este lote.
 
+### 89.5 Y lo que no comprobaba nadie: cuántas puertas hay
+
+Escrito después de cerrar el lote, al pasarle a mis propias conclusiones la
+pregunta *«¿quién se entera si esto cambia?»*.
+
+`BoletinesBorranAlumnosTest` comprueba que **las cuatro puertas rechazan** a quien
+no tiene el criterio. Lo que no comprobaba nadie —ni la §72 ni esta— es **cuántas
+puertas hay**, y ése es exactamente el dato que le faltó a la §72: **no se
+equivocó en el criterio, se equivocó en el censo.**
+
+> Un test que comprueba que las puertas conocidas están cerradas **no dice nada de
+> las que no se contaron.**
+
+Lo cuenta ahora `PuertasDeLaMismaOperacionTest`, leyendo del código los métodos
+que resuelven un alumno por id y lo borran —sin comentarios, porque los docblocks
+de esta misma sección **citan** `Alumno::find($id)` y contarlos sería encontrar lo
+que se escribió sobre el código, que es la §72.5—. Si aparece una quinta, cae **el
+día que se escribe** y no cuando alguien la tropiece.
+
 ### 89.4 Comprobado al revés
 
 Quitando **solo** el guard de `boletines3` caen exactamente dos casos: el suyo del
@@ -333,10 +352,25 @@ detector tiene una frontera que **no es una ceguera de implementación sino su
 definición**:
 
 ```python
-TABLAS = ('notas', 'notas_finales', 'recuperacion_final')
+TABLAS = ('notas', 'notas_finales', 'recuperacion_final')     # el 23 ago a las 00:xx
 ```
 
-**`nota_comportamiento` no está**, ni `NotaComportamiento` en su `MODELOS`. Y esa
+**`nota_comportamiento` no estaba**, ni `NotaComportamiento` en su `MODELOS`.
+
+> **Ya no es así, y esa es la segunda mitad de esta sección.** El apéndice del
+> [lote O](o.md) le añadió la cuarta tabla unas horas después —junto con otras
+> tres fronteras que tenía el mismo recorte—, y este párrafo se quedó afirmando
+> **en presente** algo que había dejado de ser cierto. Lo escribió la misma sesión,
+> la misma noche, y **no se enteró nadie**.
+>
+> Una **anotación** sin condición de caducidad espera a una persona. Una
+> **conclusión** sin condición de caducidad **se sigue citando como si fuera
+> cierta**, que es peor: nadie la está esperando, así que nadie la revisa. Y una
+> cita de código dentro de un documento **es una copia**: envejece sola.
+>
+> Su condición de caducidad es ahora `DefinicionDeLosDetectoresTest`, que fija la
+> definición de la herramienta **y nombra las secciones que la citan**. El día que
+> `TABLAS` vuelva a cambiar, el fallo dice dónde hay que ir a releer. Y esa
 tabla **sí está bajo el mismo candado** por decisión de Joseth del 21 ago 2026 —
 sale en el boletín y el año tiene su conmutador ([05 §40.2](../05-codigo-muerto-y-roto.md)),
 y `PeriodoDeLaFila::deNotaComportamiento` existe justo para eso.
