@@ -71,7 +71,7 @@ Cobertura de rutas: **370 de 539 (69%)**, medida con
 > operación, con sus dos formas de mentir anotadas dentro.
 >
 > **Y la otra mitad de la §70** ([05 §78](05-codigo-muerto-y-roto.md)): **995
-> tests**. Crear un catálogo son veinte rutas que nadie había mirado, y el mismo
+> tests**, cobertura **455 de 539 (84%)**. Crear un catálogo son veinte rutas que nadie había mirado, y el mismo
 > cuerpo vacío saca **cuatro respuestas distintas** de nueve rutas gemelas. Lo que
 > las separa no es el código —los nueve son igual de crédulos— **es el esquema**:
 > las ocho que no escriben tienen una columna `NOT NULL` y `contratos`, que no
