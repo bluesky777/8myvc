@@ -62,14 +62,29 @@ Ordenado por lo que un colegio notaría antes.
 
 **Además**, en **cinco lotes** hay 500 que pasan a ser 404 o 422. No son un cambio
 de capacidad: un id que no lleva a ninguna fila **deja de devolver una traza de
-PHP** y pasa a decir que no existe. Códigos añadidos, contados en el diff:
+PHP** y pasa a decir que no existe.
 
-| Lote | `abort()` añadidos |
-|---|---|
-| E | 5 × 404 · **1 × 403** |
-| D | 5 × 404 · 1 × 422 |
-| A | 1 × 404 |
-| B | 1 × 404 |
+Códigos añadidos, **contando las dos formas** —el `abort()` literal y
+`Autoriza::exigir()`, que hace `abort(403)` por dentro—:
+
+| Lote | 403 | 404 | 422 |
+|---|---|---|---|
+| **E** | **4** (1 `abort` + 3 `exigir`) | 5 | — |
+| **D** | — | 5 | 1 |
+| **C** | **2** (0 `abort` + 2 `exigir`) | — | — |
+| **A** | — | 1 | — |
+| **B** | — | 1 | — |
+| **S** | — | 1 | — |
+
+> **Esta tabla contaba mal hasta ahora, y merece la pena decir cómo**: la primera
+> versión buscaba `abort(403` en el diff y daba **uno**. Pero la forma idiomática
+> de este repo es **`Autoriza::exigir(...)`**, que hace `abort(403)` dentro, así
+> que **cinco de los seis 403 de la noche no llevan la palabra `abort` al lado**.
+>
+> Quien auditara «qué capacidades se quitaron» con un `grep abort(403` encontraría
+> una y concluiría una. Es la **forma 6** del [barrido de cegueras](las-cegueras.md)
+> —*la señal que se busca no es la forma que tiene el fallo*— en el documento que
+> decide qué se avisa antes de desplegar.
 
 ---
 
