@@ -153,13 +153,42 @@ class Profesor extends Model {
 	public static function contratos($year_id)
 	{
 		
-		$consulta = 'SELECT p.id as profesor_id, p.nombres, p.apellidos, concat(p.nombres, " ", p.apellidos) as nombre_completo, p.sexo, p.foto_id, p.tipo_doc,
-					p.num_doc, p.ciudad_doc, p.fecha_nac, p.ciudad_nac, p.titulo,
-					p.estado_civil, p.barrio, p.direccion, p.telefono, p.celular,
-					p.facebook, p.email, p.tipo_profesor, p.user_id, u.username,
-					u.email as email_usu, u.imagen_id, u.is_superuser,
+		// **Esta consulta llevaba la ficha personal completa del docente, y la ruta
+		// que la sirve no pide más que un token.** O sea que `GET api/contratos`
+		// entregaba a cualquier alumno el documento de identidad, la fecha de
+		// nacimiento, el estado civil, el barrio, **el domicilio, el teléfono fijo
+		// y el móvil** de los dieciséis docentes del colegio — y el `is_superuser`
+		// de cada uno, que además dice a quién apuntar. En una sola llamada y sin
+		// tener que nombrar a nadie: la lista viene entera.
+		//
+		// Lo midió `myvc-front-ce` el 24 ago 2026 **entrando con un token de
+		// alumno de verdad**, que es la primera vez que esta ruta se probaba así.
+		// Estaba descrito en la 05 §14.4 desde el 21 ago con el diagnóstico
+		// correcto —*«sólo la usa para pasar de un id a un nombre; lo que hay que
+		// recortar es la respuesta, no la puerta»*— y sin tocar, porque recortar
+		// parecía cambiar el contrato de los dieciséis colegios a la vez.
+		//
+		// **No lo cambia, y eso está medido en los dos clientes y en los dos
+		// llamantes de aquí:**
+		//
+		//   · `myvc_front` — los seis consumidores de `contratos()` leen id,
+		//     nombre y foto. Las pantallas que sí pintan dirección y teléfono
+		//     —`profesoresEdit`, `profesoresNew`, `listadoProfesores`— **no se
+		//     alimentan de aquí**: usan `ProfesoresApi.listado()` y `Api.crear()`;
+		//   · `myvc_flutter` — `DocenteModel` tiene **cuatro campos y ningún
+		//     otro**: `profesor_id`, `nombre_completo`, `foto_nombre`, `user_id`;
+		//   · y `NotasPerdidasController`, el otro llamante de este método, lee
+		//     **sólo `profesor_id`**.
+		//
+		// Once consumidores, y ninguno toca lo que se quita. Por eso esto es
+		// quitar campos que no lee nadie y no un cambio de contrato.
+		//
+		// **Lo personal sigue estando donde ya se pide `auth.personal`**: quien
+		// administra profesores lo ve por su ruta, que es la que lo comprueba.
+		$consulta = 'SELECT p.id as profesor_id, p.nombres, p.apellidos, concat(p.nombres, " ", p.apellidos) as nombre_completo, p.sexo, p.foto_id,
+					p.tipo_profesor, p.user_id,
 					c.id as contrato_id, c.year_id,
-					p.foto_id, IFNULL(i.nombre, IF(p.sexo="F","default_female.png", "default_male.png")) as foto_nombre
+					IFNULL(i.nombre, IF(p.sexo="F","default_female.png", "default_male.png")) as foto_nombre
 				from profesores p
 				inner join contratos c on c.profesor_id=p.id and c.year_id=:year_id and c.deleted_at is null
 				left join users u on p.user_id=u.id and u.deleted_at is null

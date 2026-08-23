@@ -60,12 +60,21 @@ class AsignaturasDatosTest extends CasoDeContrato
     }
 
     /**
-     * Y `GET api/contratos` se queda como está a propósito: su recorte es una
-     * decisión del colegio pendiente (09 §5) porque lo lee la app de Flutter desde
-     * pantallas de familia. Este test fija que **sigue** devolviéndolo, para que
-     * el día que se decida se note que se decidió y no que se arrastró.
+     * Y `GET api/contratos` **dejó de devolver el expediente el 24 ago 2026**.
+     *
+     * Este test fijaba lo contrario —que seguía devolviéndolo— *«para que el día
+     * que se decida se note que se decidió y no que se arrastró»*. Ese día llegó,
+     * así que ahora fija el recorte.
+     *
+     * Lo que lo desbloqueó fue medir el coste que la decisión daba por
+     * desconocido: **los once consumidores leen id, nombre, foto y `user_id`**, y
+     * ninguno toca lo personal. Está en el [09 §10](../../docs/migracion/09-pendientes.md).
+     *
+     * El detalle de qué se quita y por qué vive en `ContratosNoEntregaLaFichaTest`,
+     * que lo comprueba con token de **alumno** y de **acudiente** — que es quien
+     * lo veía y a quien este test, que usa personal, no puede representar.
      */
-    public function test_contratos_sigue_devolviendo_el_expediente(): void
+    public function test_contratos_ya_no_devuelve_el_expediente(): void
     {
         [$grupo, $token] = $this->grupoYPersonal();
 
@@ -75,7 +84,10 @@ class AsignaturasDatosTest extends CasoDeContrato
         $fila = $r->json();
         $fila = isset($fila[0]) ? $fila[0] : $fila;
 
-        $this->assertArrayHasKey('num_doc', $fila,
-            'Si esto falla, alguien recortó `contratos()` sin pasar por la decisión del §5.');
+        $this->assertArrayNotHasKey('num_doc', $fila,
+            'Volvió el expediente a `contratos()`. Esa ruta sólo pide un token, así que '
+            .'lo que se añada ahí lo ve un alumno — ver 09 §10.');
+        $this->assertArrayHasKey('nombre_completo', $fila,
+            'El recorte se llevó el nombre, que es justo lo único que los clientes piden.');
     }
 }
