@@ -704,3 +704,23 @@ cayó al mirarla.
     pegado (`§125–126`). Partir por ahí y buscar solo en el identificador arregla
     las dos a la vez. **Calibrar el ancho no era la salida: era elegir en qué
     dirección fallar.**
+27. **Una herramienta que cruza dos poblaciones tiene dos lados que pueden
+    fallar, y meter algo falso por uno no dice nada del otro.** El `§999` que
+    probó `secciones-citadas.py` entra por el lado de **las citas**; el bug estaba
+    en el de **las declaraciones**. Probé la alarma y el roto estaba en el mapa —y
+    peor: el fallo del mapa era *declarar de más*, o sea justo el que hace que la
+    alarma **calle**. **Se inyecta por el lado que produce el silencio**, y se
+    comprueba **cuánto** aporta cada inyección, no que no reviente: «no revienta»
+    no distingue 1 de 261. Queda puesto en `--autoprueba`.
+28. **Estrechar también es una respuesta, y se justifica igual: por la población
+    medida.** El rango de una sección se escribe en este repo con la raya corta
+    pegada — **93 casos, y 0 con la raya larga o el guion ASCII**—, así que
+    aceptar los otros dos no compra un solo caso real y cuesta 261 secciones
+    fantasma. Es la única vez de la noche en que la salida fue quitar, y no se
+    decidió por intuición sino contando: **93 a 0.**
+29. **Y el bucle que produjo la mitad de esta lista no era «releer»: era
+    «responder».** Diez de estas lecciones salieron después de dar la noche por
+    cerrada dos veces, y **ninguna salió de mirar el propio trabajo otra vez**:
+    salieron de mandarle a otra sesión un número con su comando dentro y de que
+    esa sesión lo corriera. No se replica poniendo una franja al final del plan.
+    Se replica poniendo **dos**, y es más caro.

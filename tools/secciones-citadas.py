@@ -4,6 +4,7 @@ Qué §§ cita el código y no existen en la documentación.
 
     python3 tools/secciones-citadas.py            # solo las huérfanas
     python3 tools/secciones-citadas.py --todas    # y de dónde sale cada cita
+    python3 tools/secciones-citadas.py --autoprueba   # que el patrón sigue leyendo bien
 
 Existe porque **los comentarios de este repo citan secciones de `docs/` por su
 número** —1.254 citas a 227 secciones distintas, medido el 23 ago 2026— y esas
@@ -56,7 +57,17 @@ EXTENSIONES = ('.php', '.py', '.sh')
 # El § al principio del encabezado DECLARA; el § dentro de la frase REFERENCIA.
 # La distinción es por posición, y sin ella el recuento sale ancho — con cara de
 # más cobertura, que es la dirección en la que un número malo no se nota.
-DECLARA = re.compile(r'^#+\s*(?:[\d.]+\s*)?§\s?(\d+)(?:\s*[–—-]\s*(\d+))?')
+# **La raya del rango es la corta (U+2013) y va pegada. Sólo ésa.** Medido en
+# `docs/ app/ tests/ tools/` el 23 ago 2026: **93 rangos con `–` pegada, 0 con `—`
+# larga y 0 con `-` ASCII.** Aceptar las otras dos no compra ningún caso real y
+# cuesta 261 fantasmas el día que alguien escriba `## §NNN—400 en vez de 403` sin
+# espacios — que es lo mismo que ya escribió una vez con ellos. (El ejemplo lleva
+# `NNN` y no un número: **esta herramienta se lee a sí misma**, y un § con dígitos
+# aquí dentro sería una cita más — se cazó sola la primera vez que se escribió.)
+#
+# Es la única vez en todo esto que la respuesta es **estrechar**, y se justifica
+# igual que las demás: **por la población medida, no por la intuición.** 93 a 0.
+DECLARA = re.compile(r'^#+\s*(?:[\d.]+\s*)?§\s?(\d+)(?:–(\d+))?')
 
 # **Y hay dos formas de declarar, no una.** Las secciones de la noche del 22 al 23
 # llevan el § en el encabezado (`## §133 — …`); las anteriores NO lo llevan
@@ -95,6 +106,22 @@ def normaliza(n):
     return '.'.join(str(int(p)) for p in partes)
 
 
+def declara(linea):
+    """Qué secciones declara UN encabezado. Vacío si no declara ninguna."""
+    if not linea.startswith('#'):
+        return []
+    cabecera = identificador(linea)
+    m = DECLARA.match(cabecera)
+    if m:
+        desde = int(m.group(1))
+        hasta = int(m.group(2)) if m.group(2) else desde
+        return [str(n) for n in range(desde, hasta + 1)]
+    m = DECLARA_SIN_SIMBOLO.match(cabecera)
+    if m:
+        return [normaliza(m.group(1))]
+    return []
+
+
 def declaradas():
     vistas = {}
     for base, _, ficheros in os.walk(DOCS):
@@ -103,19 +130,8 @@ def declaradas():
                 continue
             ruta = os.path.join(base, fichero)
             for i, linea in enumerate(open(ruta, encoding='utf-8', errors='replace'), 1):
-                if not linea.startswith('#'):
-                    continue
-                cabecera = identificador(linea)
-                m = DECLARA.match(cabecera)
-                if m:
-                    desde = int(m.group(1))
-                    hasta = int(m.group(2)) if m.group(2) else desde
-                    for n in range(desde, hasta + 1):
-                        vistas.setdefault(str(n), []).append(f'{ruta}:{i}')
-                    continue
-                m = DECLARA_SIN_SIMBOLO.match(cabecera)
-                if m:
-                    vistas.setdefault(normaliza(m.group(1)), []).append(f'{ruta}:{i}')
+                for n in declara(linea):
+                    vistas.setdefault(n, []).append(f'{ruta}:{i}')
     return vistas
 
 
@@ -135,8 +151,50 @@ def citadas():
     return vistas
 
 
+# Cada trampa con **cuántas secciones debe declarar**, que es lo que se comprueba.
+# El número esperado es el dato: «no revienta» no distingue 1 de 261.
+TRAMPAS = [
+    ('## §300 — 500 en vez del boletín', 1, 'raya larga CON espacios: separa título, no declara rango'),
+    ('## §320–322 — un rango de verdad', 3, 'raya corta PEGADA: sí es rango'),
+    ('## §330 – 400 en vez de 403', 1, 'raya corta CON espacios: sigue separando título'),
+    ('## §340—600 raya larga PEGADA', 1, 'la raya larga no marca rango en este repo: 93 a 0'),
+    ('## §350-420 guion ASCII PEGADO', 1, 'el guion ASCII tampoco'),
+    ('## §360 · sin guion ninguno', 1, 'el caso llano'),
+    ('### 27.4 El candado es por (año, periodo)', 1, 'la otra forma de declarar, sin §'),
+    ('Texto suelto que menciona la §370 por la mitad', 0, 'no es encabezado: no declara'),
+]
+
+
+def autoprueba():
+    """Mete cabeceras trampa por el lado de las DECLARACIONES.
+
+    **El `§999` inventado entra por el lado de las citas y no dice nada del otro.**
+    Una herramienta que cruza dos poblaciones tiene **dos lados que pueden
+    fallar**, y aquí el fallo caro es el del mapa —declarar de más—, que es justo
+    el que hace que la alarma **calle**: con 361 secciones fantasma dentro,
+    cualquier cita cae en algo declarado y la salida dice «cero huérfanas».
+    Pasó, y se publicó.
+
+    Así que se inyecta **por el lado que produce el silencio**, y se comprueba el
+    número que aporta cada trampa, no que no reviente.
+    """
+    fallos = 0
+    for linea, esperado, porque in TRAMPAS:
+        dio = len(declara(linea))
+        marca = 'ok ' if dio == esperado else 'MAL'
+        if dio != esperado:
+            fallos += 1
+        print(f'  {marca}  declara {dio:>3} (esperado {esperado:>3})  {linea}')
+        print(f'         {porque}')
+    print('\n  ' + ('todas las trampas dan lo que deben.' if not fallos
+                    else f'{fallos} trampa(s) mal: el mapa está declarando lo que no es.'))
+    return 1 if fallos else 0
+
+
 def main():
     os.chdir(RAIZ)
+    if '--autoprueba' in sys.argv:
+        return autoprueba()
     todas = '--todas' in sys.argv
     dec, cit = declaradas(), citadas()
 
