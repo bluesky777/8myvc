@@ -31,7 +31,7 @@ disparar, no al escribirlo:
 | | `c2c2a04` (partida) | `9492a2b` (cierre) | Δ |
 |---|---|---|---|
 | Tests | **1.006** | **1.276** | **+270** |
-| Aserciones | — | **8.594** | |
+| Aserciones | **6.546** | **8.594** | **+2.048** |
 | Rutas con la respuesta comprobada | **462/539 (85%)** | **535/539 (99%)** | **+73** |
 | Controladores con alguna comprobada | **97/97** | **97/97** | — |
 | Controladores **a medias** | **41** | **4** | **−37** |
@@ -101,7 +101,8 @@ Tres avisos sobre esa tabla, que son la mitad del valor de haberla cruzado:
   decidida, está deducida.** Lo que se decidió en la §27.4 es que **un periodo
   abierto de un año pasado deje escribir notas** —«manda solo el interruptor»— y
   eso cuelga de una herramienta que el colegio ya tiene en la mano. Lo de las
-  escalas es esa decisión **aplicada por analogía anoche**: el «a propósito» está
+  escalas es esa decisión **aplicada por analogía la
+  noche del 22 al 23**: el «a propósito» está
   en un comentario de `EscalasDeValoracionController::deleteDestroy` escrito el 22
   de agosto (`9fa55b5`), citando la §27.4. El argumento es bueno —una escala de
   2024 sigue pintando los boletines de 2024, así que corregirla desde 2026 tiene

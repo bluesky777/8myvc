@@ -7,7 +7,130 @@ completas y lo que trajo cada tanda anterior están en
 
 ---
 
-## Esta tanda: 22 ago 2026
+## Esta tanda: 23 ago 2026
+
+Backend y nada más. **No hay migraciones nuevas**, **no cambia ninguna ruta** y
+**no hay que publicar nada en `myvc_front`, `myvc_front_2` ni en la app de
+Flutter**. Los tres están comprobados, no supuestos, y con el comando al lado
+para recalcularlos el día que este documento envejezca:
+
+| | | comprobado con |
+|---|---|---|
+| Migraciones nuevas | **ninguna** | `git diff c2c2a04 9492a2b -- database/migrations/ database/schema/` sale vacío |
+| Rutas | **539 antes y 539 después** | `git log c2c2a04..9492a2b -- routes/` sale vacío, y `Route::` en `routes/api/` da **538** en los dos extremos (más el `GET /` de `web.php`) |
+| Ficheros de `app/` tocados | **38**, en 47 commits | `git diff --name-only c2c2a04 9492a2b -- app/` |
+
+**Sin rutas nuevas ni migraciones, el orden dentro de la tanda es libre**: ningún
+colegio depende de otro y no hay nada como el `password_reminders` de la tanda del
+20. Pero **no es indiferente**: hay un arreglo que le está pasando a un colegio
+ahora mismo, y va abajo el primero.
+
+> **Antes de empezar, comprobar si la tanda del 22 llegó a desplegarse** —el
+> comando está en *Cómo comprobar qué hay desplegado en un colegio*, en la
+> [referencia](DESPLIEGUE-REFERENCIA.md)—. Si no llegó, **ésta la incluye**: su
+> lista se conserva entera más abajo y hay que leer las dos antes de avisar.
+
+### Lo que hay que avisar antes de desplegar
+
+Son tres, y las tres se notan el primer día:
+
+- **El listado de bitácoras encoge de golpe.** El botón de borrar marcaba la fila
+  y el listado no miraba `deleted_at`, así que lo «borrado» seguía saliendo. Al
+  desplegar, todo eso desaparece a la vez. **Nadie pierde nada** —estaba borrado
+  desde el día que le dieron al botón— pero quien mire esa pantalla tiene que
+  saberlo, porque parece una pérdida de datos y no lo es.
+- **Cuatro cosas que un profesor podía hacer pasan a contestar 403**: mandar la
+  ficha de otro profesor a la papelera, mandar un grupo a la papelera desde la
+  rejilla de Usuarios, y poner la imagen de un tercero en una ficha (tres rutas).
+  **Riesgo bajo, y por la misma razón las cuatro**: *ninguna se alcanza hoy desde
+  una pantalla que el front le enseñe a un profesor* — tres viven en menús `admin`
+  y la cuarta sólo rechaza un cuerpo que ningún botón sabe construir.
+- **La rejilla de comportamiento deja de escribir al abrirse con el periodo
+  cerrado.** Antes, abrirla ponía a cada alumno del grupo el tope de la escala —y
+  en el periodo **del que mira**, no en el del grupo—. **La rejilla se sigue
+  abriendo**: lo que cambia es que ya no escribe, y el 400 al guardar es el mismo
+  que ya daba. El profesor ve lo mismo.
+
+### Lo que enciende, y es lo único que devuelve algo que hoy falta
+
+- **El boletín de una familia vuelve a salir.** En las maquetas 2 y 3, un
+  acudiente que pedía el boletín de su acudido recibía **500**. Es **el único
+  hallazgo de la noche que le está pasando a un colegio ahora mismo**, así que es
+  el que un colegio agradecería primero.
+- **La ficha de un alumno nacido en una ciudad sin país vuelve a abrir**:
+  `ciudades/datosciudad` daba 500 y ahora contesta 200 con el país en null. Se
+  nota en secretaría, y sólo en los colegios que tengan alguna ciudad sin país.
+
+**Todo lo demás previene, no restaura.** Y por eso, lo que el despliegue **no**
+arregla, que conviene decirlo cuando alguien pregunte:
+
+| Lo ya escrito sigue como está |
+|---|
+| Las filas de `change_asked.deleted_at` y `ausencias.created_at` con la hora escrita dos veces (`hora:hora:minutos`) |
+| Las 14 de 17 filas de `dis_ordinales` con `created_at` nulo |
+| Los catálogos y las fichas ya vaciados por un guardado parcial |
+| Las filas de `debugging` ya escritas |
+
+### Lo que deja de pasar
+
+Casi toda la tanda es esto: un guardado silencioso o un 500 cambiados por un
+código honesto. Lo más gordo, por lo que un colegio notaría antes:
+
+- **Una petición a medias dejaba el colegio sin nombre, sin año y sin los nombres
+  de unidad que se imprimen en todos los boletines**, contestando 200. Y otra
+  dejaba **dos años actuales**, con todo el colegio entrando en 2018 al siguiente
+  inicio de sesión.
+- **Corregirle la redacción a un logro cambiaba la nota del boletín**, porque
+  borraba el peso de la unidad. Igual un cuerpo sin `porcentaje` en las
+  subunidades.
+- **Editar un grupo lo movía al año de quien lo editaba**, con sus matrículas
+  dentro — 56 en la medición.
+- **Un cuerpo parcial vaciaba 22 columnas de una ficha de perfil**, ninguna a
+  salvo; y el nombre de cualquiera de **seis catálogos** se quedaba en `''`.
+- **Un acudiente recibía un error después de que su prematrícula sí se hubiera
+  guardado**, y volvía a darle al botón. Es la única de estas escrituras que
+  alcanza a una familia.
+- **Un alumno o acudiente que mandara `is_prof_admin=true` en el cuerpo recibía
+  los eventos que el colegio marca como internos.** Lo que se quita no es un
+  permiso: es que **el cuerpo decida el permiso**.
+- Y **cinco lotes** cambian 500 por 404 o 422: un id que no lleva a ninguna fila
+  deja de devolver una traza de PHP.
+
+La lista entera, fila a fila y con su ruta, está en
+[`que-se-nota-en-un-colegio.md`](migracion/noche-2026-08-23/que-se-nota-en-un-colegio.md);
+los hallazgos completos, en el [05](migracion/05-codigo-muerto-y-roto.md) §81 a
+§167, con su índice por lote al final.
+
+> **Un snapshot cambiado no es una respuesta cambiada.** Quien audite la tanda
+> verá que se movió `grupos-show.json` y tiene que ir a mirar cuál de las dos
+> cosas se movió: aquí **se movió el test**. El snapshot viejo se había grabado
+> sobre un grupo al que un fallo le había borrado el titular, o sea que **guardaba
+> el vaciado como si fuera lo correcto**. `GruposController::getShow` no se tocó.
+
+### Dos cosas que no entran en la tanda y hay que tener delante
+
+- **`definitivas_periodos/calcular-grupo-periodo` sigue reescribiendo la rejilla
+  de un periodo cerrado.** No se ha tocado. El día que se decida cerrarla, ese
+  cambio **sí apaga algo** —abrir el boletín de un grupo desactualizado en periodo
+  cerrado— y **hay que desplegarlo mirando el calendario del colegio**, no en
+  cualquier momento.
+- **Seis fallos que no se notan el día del despliegue y esperan a que alguien haga
+  lo razonable**: añadir `is_superuser` a `perfiles/usuariosall`, crear la carpeta
+  que le falta a `GET api/importar`, que `grados_sig` deje de ser `year + 1`…
+  Ninguna afecta a esta tanda; **todas afectan a quien toque eso después**. Están
+  con su detonante en la
+  [§4.b](migracion/noche-2026-08-23/que-se-nota-en-un-colegio.md), y el aviso que
+  vale para las tres formas es el mismo: **cuando una comprobación de negocio vive
+  en la pantalla, la ruta está abierta y no lo nota nadie.**
+
+> **Sin migraciones, el `migrate --force` del bucle no aplica nada** y se deja
+> donde está: correrlo es idempotente. Si el comportamiento sigue siendo el viejo
+> con el código nuevo en su sitio, lo que hay que mirar es **OPcache**, no el
+> `.env` — trampa 1b de la [referencia](DESPLIEGUE-REFERENCIA.md).
+
+---
+
+## La tanda del 22 ago 2026 — si no llegó a desplegarse
 
 Backend y nada más. **No hay migraciones nuevas** —las tres del 21 ago siguen
 siendo las últimas— y **no hay que publicar nada en `myvc_front`, `myvc_front_2`
