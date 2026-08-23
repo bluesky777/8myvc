@@ -370,10 +370,38 @@ nadie —comprobado en el controlador y en los middlewares—. `nota_default` co
 su recorte a 0 letra por letra. Ningún cliente cambia: `UnidadesCtrl.ts:651` manda
 las cuatro columnas siempre.
 
-`PorcentajeQueSePisaTest` lleva **el caso al revés**, que es la trampa de este
-arreglo: mandar un `0` a propósito sigue poniendo 0. Con un defecto escrito
-`?: $subunidad->porcentaje` ese caso cae, y el arreglo se habría comido un valor
-legítimo.
+`PorcentajeQueSePisaTest` lleva **dos casos al revés**, y el segundo lo señaló el
+lote D al revertir a la solución equivocada que parecía buena y ver que **no caía
+nada**:
+
+| Cuerpo | `input('x', $def)` — el arreglo | `input('x') ?? $def` — el que parece igual |
+|---|---|---|
+| sin la clave | `$def` | `$def` |
+| `0` | `0` | `0` |
+| **`null`** | **`null`** | **`$def`** |
+
+- **Mandar un `0`** sigue poniendo 0. Caza un `?:` o un `empty()`, pero **no
+  distingue las dos columnas de arriba**, porque `0 ?? 50` es `0`.
+- **Mandar `null` a propósito** sí borra. Es el único cuerpo que las separa:
+  `Request::input($clave, $defecto)` devuelve el defecto **sólo si la clave no
+  viene** —por dentro es `Arr::get`, que pregunta por `array_key_exists`—,
+  mientras que `??` mira el valor.
+
+Medido al revés, cambiando el arreglo por el del `??`: **cae exactamente ese
+caso y ningún otro**. O sea que sin él el test habría dado por bueno un arreglo
+distinto del que hay.
+
+Y lo que fija no es un detalle técnico, es la decisión: **no mandar un campo y
+mandarlo vacío no son la misma petición.** Lo primero es un cliente que sólo
+manda lo que cambió; lo segundo es un cliente diciendo «quítalo». Tratarlos igual
+convierte el arreglo de la §68 en un campo que **ya no se puede vaciar nunca** —
+un fallo nuevo con mejor pinta que el viejo.
+
+**Con una condición**, que la sesión del lote E encontró al aplicarla: eso vale
+salvo donde un `merge()` previo ya los ha igualado. En `ProfesoresController`,
+`sanarInputProfesor()` hace `merge(['ciudad_nac' => null])` cuando la clave falta,
+así que el campo ausente y el `null` explícito llegan **idénticos** al
+controlador, y ahí lo que hay que arreglar es el `merge()`, no el defecto.
 
 #### Y su vecino, que parecía igual y no lo es
 

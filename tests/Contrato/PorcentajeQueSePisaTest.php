@@ -116,6 +116,59 @@ class PorcentajeQueSePisaTest extends CasoDeContrato
     }
 
     /**
+     * **Y mandar `null` a propósito sí lo borra**, que es lo que separa este arreglo
+     * del que parece igual.
+     *
+     * `Request::input($clave, $defecto)` devuelve el defecto **sólo si la clave no
+     * viene**: por dentro es `Arr::get`, que pregunta por `array_key_exists`. Una
+     * clave presente con valor `null` devuelve `null`, no el defecto.
+     *
+     * El otro arreglo que se escribe solo —`Request::input('porcentaje') ?? $sub->porcentaje`—
+     * parece lo mismo y **no lo es**: `??` mira el valor y no la presencia, así que
+     * con `null` explícito conservaría el 50. Los dos pasan el caso del `0` de aquí
+     * arriba, porque `0 ?? 50` es `0`. **El único cuerpo que los separa es éste.**
+     *
+     * | Cuerpo | `input('x', $def)` | `input('x') ?? $def` |
+     * |---|---|---|
+     * | sin la clave | `$def` | `$def` |
+     * | `0` | `0` | `0` |
+     * | **`null`** | **`null`** | **`$def`** |
+     *
+     * Se fija la primera columna, y el porqué: **no mandar un campo y mandarlo vacío
+     * no son la misma petición.** Lo primero es un cliente que sólo manda lo que
+     * cambió; lo segundo es un cliente diciendo «quítalo», y tratarlos igual
+     * convierte el arreglo de la §68 en un campo que ya no se puede vaciar. Hoy
+     * ningún cliente manda `null` aquí —`UnidadesCtrl.ts:651` manda las cuatro
+     * columnas con valor—, así que esto no cambia ninguna pantalla y sí decide qué
+     * significa el arreglo.
+     *
+     * Lo encontró el lote D **revirtiendo a la solución equivocada que parecía
+     * buena**, y no cayó nada: un test que no cae al revertir no está probando lo
+     * que uno cree, y sin revertir eso no se ve nunca.
+     */
+    public function test_mandar_null_a_proposito_si_borra_el_porcentaje(): void
+    {
+        $e = $this->profesorConElAnioAbierto();
+
+        $sub = DB::selectOne('SELECT s.id, s.porcentaje FROM subunidades s
+            INNER JOIN unidades u ON u.id = s.unidad_id AND u.deleted_at IS NULL
+            WHERE u.periodo_id = ? AND s.deleted_at IS NULL AND s.porcentaje IS NOT NULL
+            ORDER BY s.id LIMIT 1', [$e->periodo->id]);
+
+        if ($sub === null) {
+            $this->markTestSkipped('El seed no tiene subunidades con porcentaje en el periodo del profesor.');
+        }
+
+        $this->withToken($e->token)->putJson('/api/subunidades/update/'.$sub->id, [
+            'definicion' => 'el cliente pide quitar el porcentaje',
+            'porcentaje' => null,
+        ])->assertStatus(200);
+
+        $this->assertNull(DB::table('subunidades')->where('id', $sub->id)->value('porcentaje'),
+            'Un `null` explícito se trató como «no vino». Entonces el defecto es un `??` y el campo ya no se puede vaciar.');
+    }
+
+    /**
      * **El vecino que parecía igual: `nota_comportamiento/update` no pisa nada**,
      * porque cada asignación va dentro de su `Request::has()`.
      *
