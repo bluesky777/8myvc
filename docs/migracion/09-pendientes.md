@@ -1993,3 +1993,94 @@ Admin.
 > todo. En la primera vuelta probando con **un docente, un alumno y un acudiente
 > de verdad** salieron tres cosas en una tarde. **Verificar con el usuario más
 > poderoso es verificar la mitad** — la hermana de «verificar con el caso bonito».
+
+---
+
+## 10. `GET api/contratos` entrega la ficha personal de los docentes a un alumno — 24 ago 2026
+
+**Está vivo hoy, en los dieciséis colegios.** Es la primera de las tres de la
+[§14.4](05-codigo-muerto-y-roto.md) que se prueba **con un token de alumno de
+verdad**, y contesta 200.
+
+### Lo medido
+
+`myvc-front-ce`, el 24 ago, con las tres sesiones abiertas:
+
+```
+GET api/contratos           ALUMNO 200 · ACUDIENTE 200 · DOCENTE 200    16 filas
+GET api/perfiles/usernames  ALUMNO 200 · ACUDIENTE 200 · DOCENTE 200  2.355 filas
+```
+
+`contratos` no lleva más guard que `auth.token` (`routes/api/estructura.php:79`) y
+devuelve **por cada uno de los 16 docentes**:
+
+```
+tipo_doc · num_doc · fecha_nac · ciudad_nac · ciudad_doc · estado_civil · titulo
+barrio · direccion · telefono · celular · facebook · email · username · email_usu
+tipo_profesor · is_superuser · contrato_id · year_id
+```
+
+**Un alumno de noveno se baja el documento de identidad, el domicilio, el barrio,
+el teléfono fijo y el móvil de sus dieciséis profesores en una sola llamada.** Y
+el `is_superuser` de cada uno.
+
+> **Esto no es de la misma clase que la §9.** Aquella es fuga de información útil
+> fuera del sistema; ésta es **el domicilio y el teléfono de un empleado en manos
+> de un menor**, sin que nadie tenga que pedir nada ni saber a quién nombrar: la
+> lista viene entera.
+
+### Por qué se quedó abierta, y qué ha cambiado
+
+La §14.4 la dejó con el diagnóstico correcto —*«sólo la usa para pasar de un id a
+un nombre; lo que hay que recortar es la respuesta, no la puerta»*— y con el
+motivo de no tocarla: **recortar cambia el contrato de los dieciséis colegios a la
+vez, porque la app de Flutter es una sola.**
+
+Lo que cambia hoy es que **ese coste se puede medir en vez de suponerse**:
+
+**Los seis consumidores de `contratos()` en `myvc_front` leen sólo nombre e id.**
+Comprobado fichero a fichero: `sidebarMenu`, `GruposEditCtrl`, `GradosConfig`,
+`GruposNewCtrl`, `DisciplinaCtrl` y `RequisitosCtrl`. **Ninguno toca `num_doc`,
+`direccion`, `telefono`, `celular`, `estado_civil`, `barrio` ni `facebook`.**
+
+> **Y un aviso de método, porque casi lo mido mal:** el primer intento contó esos
+> campos **por todo el repositorio** y dio treinta y tantos usos, o sea «el front
+> los necesita». Era la [8c](noche-2026-08-23/las-cegueras.md): contaba
+> `profesor.direccion` **de cualquier origen**, no de `contratos`. Acotado a los
+> ficheros que llaman a `contratos()`, **cero**.
+
+Falta el mismo conteo en `myvc_flutter`, que la §14.4 sitúa en `FaltasAlumnoScreen`,
+`AsistenciaClaseScreen`, `UnidadesApi` y `NotasApi`. **Si Flutter también sólo
+mapea id→nombre, el recorte deja de ser un cambio de contrato y pasa a ser quitar
+campos que no lee nadie.**
+
+### La salida propuesta
+
+Recortar `Profesor::contratos()` a lo que se usa —`contrato_id`, `profesor_id`,
+`nombres`, `apellidos`, `tipo_profesor`, `year_id`— y **dejar los datos personales
+para las rutas que ya piden `auth.personal`**.
+
+**No se toca hasta tener el número de Flutter**, por la razón de siempre: la app
+es una para los dieciséis y no se puede escalonar.
+
+### Y la combinación, que es peor que las partes
+
+`perfiles/usernames` devuelve **2.355 nombres de usuario** —todo el colegio— a
+cualquiera con sesión. Solo, es un directorio.
+
+**Combinado con la §9 no**: un **docente** puede pedir `perfiles/username/{u}` de
+cualquiera, así que **con esas dos llamadas recorre las 2.355 cuentas y se lleva
+documento, correo de recuperación, fecha de nacimiento y deuda de todo el
+colegio.** El directorio es lo que convierte *«puedo mirar a quien sepa nombrar»*
+en *«puedo mirarlos a todos»*.
+
+A una familia eso no se le abre: ahí el 403 del 21 ago sí funciona. **La
+combinación mala es la del personal**, y por eso la §9 y ésta se deciden juntas o
+la mitad no sirve.
+
+> La §14.4 ya anotó que el único uso de `usernames` es comprobar si un nombre está
+> libre, y que **ya existe** `GET api/perfiles/comprobarusername/{username}`, que
+> contesta eso en 17 bytes. La salida barata está escrita desde entonces.
+
+> **Nadie ha recorrido nada.** `ce` pidió cada lista una vez, miró los nombres de
+> los campos y paró. No hay ni un valor en ningún mensaje ni en ningún documento.
