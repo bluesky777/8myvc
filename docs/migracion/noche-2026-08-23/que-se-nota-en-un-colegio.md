@@ -19,7 +19,7 @@
 | **Formas de respuesta** | ninguna respuesta pierde ni gana claves |
 | **Capacidades que se quitan** | **cuatro**, todas del lote E — y las cuatro con **riesgo bajo**, por la misma razón |
 | **Cosas que se encienden** | **una** hoy, y **dos con R dentro** — ver la nota de abajo |
-| **Minas que no se notan al desplegar** | **tres**, y las tres esperan a que alguien haga lo razonable (§4.b) |
+| **Minas que no se notan al desplegar** | **seis**, en **tres detonantes**, y las seis esperan a que alguien haga lo razonable (§4.b) |
 
 > **La tanda es casi toda «deja de pasar».** La mayoría de los lotes **no tocan
 > `app/`**, y los que lo tocan cambian, casi siempre, un 500 o un guardado
@@ -152,27 +152,44 @@ primera vez que se abre esa pantalla**.
 
 ---
 
-## 4.b Las tres minas: no se notan al desplegar, y esperan a que alguien haga lo razonable
+## 4.b Las seis minas: no se notan al desplegar, y esperan a que alguien haga lo razonable
 
-**Ninguna de las tres cambia nada el día del despliegue.** Están aquí porque la
-columna que importa de ellas no es «qué se nota» sino **qué enciende el fallo**, y
-las tres lo encienden con un cambio que alguien hará un martes sin relacionarlo
-con esto.
+**Ninguna cambia nada el día del despliegue.** Están aquí porque la columna que
+importa de ellas no es «qué se nota» sino **qué enciende el fallo** — y todas lo
+encienden con un cambio que alguien hará un martes sin relacionarlo con esto.
 
 | Mina | No se nota porque | **Lo que enciende el fallo** | Lote |
 |---|---|---|---|
 | El botón de la rejilla de Usuarios que manda **un grupo** a la papelera | el front lo pinta con `ng-show="row.entity.is_superuser"` y **`perfiles/usuariosall` no devuelve esa columna** | **añadir `is_superuser` a `perfiles/usuariosall`** — lo primero que hace cualquiera que necesite saber quién es administrador | E |
 | `PUT grupos/update` sellaba el grupo con **el año de quien lo edita** *(ya arreglado)* | las dos pantallas que editan grupos solo listan los del año en curso | **una pantalla nueva que liste grupos de otro año**, o un cliente que reutilice `grupos/update` | E |
-| `folios/iniciar` | es idempotente **por la condición de los datos, no por diseño** | que esa condición deje de cumplirse | *(ver su lote)* |
-| `folios/iniciar` **(de nuevo, con su detonante escrito)** | es idempotente por la condición de los datos | **una reescritura que pierda esa condición** | P |
+| `matriculas/prematricular` no mira **el año del grupo ni el estado**, y los dos vienen del cuerpo | **las tres comprobaciones viven en el front**: el desplegable solo ofrece grupos de `year + 1`, el botón se esconde para los estados ya decididos, y manda `estado: 'PREA'` fijo | **que `grados_sig` deje de ser `year + 1`** (`ChangeAskedController:305` y `:428`) — un cambio de una palabra. O cualquier cliente que llame sin esas tres comprobaciones | S |
+| `folios/iniciar` | es idempotente **por la condición de los datos, no por diseño** | **una reescritura que pierda esa condición** | P |
 | `GET api/importar` | **la carpeta que necesita no existe** | **que alguien la cree** | P |
-| `arreglar-duplicados` | lleva su comprobación **dentro del método** | **que alguien le quite el `pueden_modificar_definitivas` creyendo que la ruta ya está protegida** — el error que induce su propia exención mal leída | P |
-| `matriculas/prematricular` no mira **el año del grupo ni el estado**, y los dos vienen del cuerpo | las tres comprobaciones **viven en el front**: el desplegable solo ofrece grupos de `year + 1`, el botón se esconde para los estados ya decididos, y manda `estado: 'PREA'` fijo | **que `grados_sig` deje de ser `year + 1`** (`ChangeAskedController:305` y `:428`) — un cambio de una palabra que hoy nadie relaciona con esto. O cualquier cliente que llame sin esas tres comprobaciones | S |
+| `arreglar-duplicados` | lleva su comprobación **dentro del método** | **que alguien le quite el `pueden_modificar_definitivas` creyendo que la ruta ya está protegida** | P |
 
-> Las tres tienen la misma forma y por eso van juntas: **no se notan al desplegar
-> y esperan a que alguien haga lo razonable.** El aviso no es para el día de la
-> tanda: es para el día que alguien toque `perfiles/usuariosall` o escriba una
-> pantalla de grupos de otro año.
+### Las seis se agrupan en tres detonantes, y eso es lo que hay que recordar
+
+No son seis avisos sueltos. **Son tres maneras de encender un fallo apagado**, y
+las tres son cosas que alguien hará **por hacer bien su trabajo**:
+
+| Detonante | Cuáles | Por qué se hará |
+|---|---|---|
+| **Completar lo que falta** | `is_superuser` en `usuariosall`, la carpeta de `importar` | El fallo está apagado **porque falta algo**. Añadir lo que falta es lo correcto en su propio contexto, y enciende el fallo en otro |
+| **Ampliar lo que hay** | una pantalla de grupos de otro año, `grados_sig` con otro año | El fallo está apagado **porque el alcance de una consulta es estrecho**. Ensancharlo es una mejora, y quita la única barrera |
+| **Quitar lo que sostiene** | el `ng-hide` de los estados decididos, el `pueden_modificar_definitivas` de dentro, la condición de `folios/iniciar` | El fallo está apagado **por algo que parece redundante**. Quitarlo es limpieza, y es lo que lo enciende |
+
+> **El tercero es el más peligroso de los tres**, y `arreglar-duplicados` es su
+> caso puro: se enciende si alguien le quita la comprobación de dentro **creyendo
+> que la ruta ya está protegida** — o sea, **el error lo induce la propia
+> documentación de la ruta**. El aviso ahí no es «no toques esto», es **«lo que
+> vas a leer te va a decir que ya está»**.
+
+Y la razón de que las seis existan es la misma, escrita una vez:
+
+> **Cuando una comprobación de negocio vive en la pantalla, la ruta está abierta y
+> nadie lo nota.** Cinco de las seis son eso. La sexta —`folios/iniciar`— es la
+> variante sin pantalla: la comprobación no vive en ningún sitio, la sostienen
+> los datos.
 
 ---
 
