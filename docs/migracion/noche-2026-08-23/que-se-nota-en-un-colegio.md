@@ -17,8 +17,9 @@
 | **Migraciones nuevas** | **ninguna**, en los trece lotes |
 | **Rutas** | **539 antes y 539 después**. Ninguna nace, ninguna muere |
 | **Formas de respuesta** | ninguna respuesta pierde ni gana claves |
-| **Capacidades que se quitan** | **una sola**, y es del lote E |
+| **Capacidades que se quitan** | **cuatro**, todas del lote E — y las cuatro con **riesgo bajo**, por la misma razón |
 | **Cosas que se encienden** | **una sola**, y es del lote B |
+| **Minas que no se notan al desplegar** | **tres**, y las tres esperan a que alguien haga lo razonable (§4.b) |
 
 > **La tanda es casi toda «deja de pasar».** De trece lotes, **siete no tocan
 > `app/`** y los seis que lo tocan cambian, casi siempre, un 500 o un guardado
@@ -66,16 +67,36 @@ PHP** y pasa a decir que no existe. Códigos añadidos, contados en el diff:
 
 ## 2. Qué capacidad quita, y a quién
 
-**Una sola en toda la tanda**, y hay que avisarla antes de desplegar.
+**Cuatro, y las cuatro del lote E.** Las cuatro pasan de 200 a **403 para los 51
+profesores**.
 
-| Lote | Quién podía | Qué podía | Y ahora |
+> *(Corrección: aquí ponía «una sola». El número era un resumen de coordinación;
+> el recuento es del lote E, que es quien las midió.)*
+
+| § | Ruta | Qué podía cualquiera de los 51 | Riesgo al desplegar |
 |---|---|---|---|
-| **E** | **cualquiera de los 51 profesores** | mandar **la ficha de un profesor a la papelera** (`DELETE profesores/destroy`), y contestaba 200 | **403**: solo superusuario |
+| §97 | `DELETE profesores/destroy` | mandar **la ficha de un profesor** a la papelera | **bajo** — vive en un menú `admin` |
+| §100 | `perfiles/destroy` y `grupos/destroy` | mandar **un grupo** a la papelera desde la rejilla de Usuarios | **bajo** — ver la fila de abajo |
+| §99 | `images-users/cambiar-*` (3 rutas) | poner **la imagen de un tercero** en una ficha | **bajo** — solo rechaza un cuerpo que ningún botón sabe construir |
 
-> Lo que hace defendible el cambio es la asimetría que lo destapó: **las otras
-> tres operaciones de esa misma ficha ya pedían superusuario** —`update` (§37),
-> `restore` (§76) y `forcedelete` (§28.4)—. La que borraba era la única que no
-> pedía nada.
+**Lo que deja las cuatro en riesgo bajo es lo mismo, y hay que escribirlo en vez
+de darlo por sabido:** *ninguna se alcanza hoy desde una pantalla que el front
+enseñe a un profesor.* Tres viven en menús `admin` y la cuarta solo rechaza un
+cuerpo que ningún botón construye.
+
+Lo que hace defendible el §97 es la asimetría que lo destapó: **las otras tres
+operaciones de esa misma ficha ya pedían superusuario** —`update` (§37), `restore`
+(§76) y `forcedelete` (§28.4)—. La que borraba era la única que no pedía nada.
+
+Y el §100 tiene su propia frase, porque lo que se nota **no es lo que parece**:
+
+> «Nada. Ese botón no se puede pulsar hoy: el front lo pinta con una columna que
+> la API no manda.»
+
+Un superusuario **sigue** mandando el grupo a la papelera —el botón sigue haciendo
+lo que no dice, ahora para menos gente—, pero se dibuja con
+`ng-show="row.entity.is_superuser"` y **`perfiles/usuariosall` no devuelve esa
+columna**: la condición es siempre falsa.
 
 **Y una que NO quita capacidad aunque lo parezca**, porque conviene decirlo antes
 de que alguien lo lea al revés:
@@ -118,6 +139,26 @@ primera vez que se abre esa pantalla**.
 
 ---
 
+## 4.b Las tres minas: no se notan al desplegar, y esperan a que alguien haga lo razonable
+
+**Ninguna de las tres cambia nada el día del despliegue.** Están aquí porque la
+columna que importa de ellas no es «qué se nota» sino **qué enciende el fallo**, y
+las tres lo encienden con un cambio que alguien hará un martes sin relacionarlo
+con esto.
+
+| Mina | No se nota porque | **Lo que enciende el fallo** | Lote |
+|---|---|---|---|
+| El botón de la rejilla de Usuarios que manda **un grupo** a la papelera | el front lo pinta con `ng-show="row.entity.is_superuser"` y **`perfiles/usuariosall` no devuelve esa columna** | **añadir `is_superuser` a `perfiles/usuariosall`** — lo primero que hace cualquiera que necesite saber quién es administrador | E |
+| `PUT grupos/update` sellaba el grupo con **el año de quien lo edita** *(ya arreglado)* | las dos pantallas que editan grupos solo listan los del año en curso | **una pantalla nueva que liste grupos de otro año**, o un cliente que reutilice `grupos/update` | E |
+| `folios/iniciar` | es idempotente **por la condición de los datos, no por diseño** | que esa condición deje de cumplirse | *(ver su lote)* |
+
+> Las tres tienen la misma forma y por eso van juntas: **no se notan al desplegar
+> y esperan a que alguien haga lo razonable.** El aviso no es para el día de la
+> tanda: es para el día que alguien toque `perfiles/usuariosall` o escriba una
+> pantalla de grupos de otro año.
+
+---
+
 ## 5. Los lotes que no tocan `app/`
 
 Siete de trece. **No hay nada que avisar de ellos**, y por eso pueden ir en
@@ -141,10 +182,10 @@ cualquier punto de la tanda o quedarse fuera sin coste:
 
 | Lote | Qué falta |
 |---|---|
-| **G** | Su documento cierra con las cuatro veces que mintió un instrumento, y **no trae una sección de «qué se nota»**. Como no toca `app/`, lo he puesto en la tabla de los que no tocan nada — **confírmalo con su sesión** antes de darlo por bueno |
-| **I**, **J** | Igual: sus documentos son de leer y reportar y sus ramas no tocan `app/` (comprobado con `git diff`), pero **ninguno tiene sección de despliegue escrita** |
+| ~~**G**, **I**, **H**~~ | **Cerrado por coordinación**: medido con el `git diff` de sus propios merges, **no tocan `app/` ni `routes/`**. Era ausencia de impacto, no solo ausencia de sección |
+| **J** | Su documento es de leer y reportar y su rama no toca `app/` (comprobado con `git diff`), pero **no tiene sección de despliegue escrita** |
 | **O**, **P** | Abiertos al montar esta tabla. Sus ramas **no tocaban `app/`** en ese momento; si eso cambia, hay que añadirlos |
-| **E** | Su §100 dice que `perfiles/destroy` **borra un grupo** y que el front lo llama con un `user_id`. Está «documentado; su autorización, cerrada». **No sé si eso cambia lo que ve alguien** — su sesión tiene que decir si hay que avisar |
+| ~~**E §100**~~ | **Cerrado**: su sesión lo midió. No se nota nada al desplegar, y **lo que enciende el fallo es añadir `is_superuser` a `perfiles/usuariosall`**. Está en la §4.b |
 | **A** | `definiciones_comportamiento/destroy` y `contratos/destroy` contestaban **200 con `No se encontró` y con `0`**. El diff de A añade un solo `abort(404)`, así que **no las dos**. Su sesión tiene que decir cuál se arregló y qué contesta la otra hoy |
 
 ---
