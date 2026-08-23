@@ -1783,3 +1783,80 @@ demás en este proyecto va al revés porque el backend **añade** capacidades; a
 **Sin decisión, no se toca ninguno.** Y quien la tome debe saber que corregir
 sólo uno de los tres `Retaurada` es la peor opción posible: deja la misma
 operación contestando dos cadenas distintas **dentro del mismo colegio**.
+
+---
+
+## 8. Un acudiente creado en 2018 sigue en 2018 — 24 ago 2026
+
+**Espera una decisión.** Lo levantó `myvc-front-9a` preparando cuentas para
+verificar en el navegador, y está medido en la copia de producción.
+
+### Lo medido
+
+**De los 1.000 acudientes, ninguno está en el año activo.** 992 tienen
+`users.periodo_id = 1` —el periodo 1 de **2018**, o sea la tanda con la que se
+cargó el colegio— y los otros ocho están en periodos de 2019, 2020 y 2021.
+
+Y eso es literalmente lo que ven. Ejecutada la consulta de la rama `Acudiente` de
+`ContextoDeUsuario` tal cual, contra la copia de producción:
+
+```
+acudiente 1562 -> year 2018, periodo 1     (una fila, sin error)
+```
+
+Sus boletines, sus definitivas y sus grupos son los de 2018.
+
+### Por qué no pueden salir de ahí
+
+Dos hechos que por separado parecen menores:
+
+1. **El login no escribe `users.periodo_id`.** El único sitio que lo pone es
+   `LoginController:426`, y es **al CREAR** la cuenta, con el periodo actual **de
+   ese momento**.
+2. **Lo único que lo mueve después es `years/useractive/{year_id}`**, que lleva
+   `auth.personal` — y `ExigirPersonal` declara `FUERA = ['Alumno', 'Acudiente']`.
+
+**Juntos: el año en el que vive un acudiente es el de la fecha en que se creó su
+cuenta, para siempre.** No es que nadie haya mirado la rama del acudiente: es que
+no pueden llegar al año actual.
+
+> **Y el desplegable de año se les pinta igual.** `GET years` no lleva middleware
+> y el selector de `panel.html:38-40` no tiene condición de visibilidad, así que
+> el acudiente lo abre, elige, y recibe «No se pudo cambiar el año. Problema»
+> (`PanelCtrl:161`). Al menos no es silencio; pero no hay otra puerta.
+
+### Al alumno le pasa por la misma puerta y se salva por otra — y esto importa
+
+`Alumno` también está en `FUERA`, así que tampoco puede cambiar de año. Pero **hay
+un auto-arreglo que sólo lo alcanza a él**: cuando el contexto sale vacío,
+`ContextoDeUsuario` busca el periodo desde la matrícula viva, hace `UPDATE users
+SET periodo_id=?` y vuelve a resolver.
+
+**Su consulta sale de `alumnos`.** Consecuencia:
+
+| | Contexto vacío | ¿Se arregla solo? |
+|---|---|---|
+| **Alumno** con `periodo_id` de otro año | **sí** — la rama exige `g.year_id = per.year_id`, y sin coincidencia da cero filas | **sí**, en el primer intento. Medidos **124 de 378** alumnos con matrícula viva del año activo en ese estado, y los 124 se reparan al entrar |
+| **Acudiente** con `periodo_id` de otro año | **no** — su rama no cruza contra ninguna matrícula, así que 2018 devuelve fila | **no**. El auto-arreglo no se dispara nunca |
+
+**Lo que hace grave el caso del acudiente es justo que no falla.** El alumno se
+rompe ruidosamente y por eso se curó; el acudiente devuelve 200 con el colegio de
+hace ocho años.
+
+### Las tres salidas
+
+- **(a)** que el login ponga `periodo_id` al periodo actual **cuando el usuario es
+  Alumno o Acudiente** — los que no pueden cambiarlo. Es el arreglo más pequeño y
+  no toca a nadie más.
+- **(b)** que la rama `Acudiente` resuelva el periodo por `years.actual` en vez de
+  por `users.periodo_id`. Más quirúrgico, pero deja la columna mintiendo.
+- **(c)** ocultar el desplegable a quien no puede usarlo. Arregla el desconcierto
+  y **no** arregla el 2018.
+
+**(a) y (b) no son excluyentes con (c)**, y la (c) es del front.
+
+> **Lo que no está claro es si la puerta cerrada es un fallo o una decisión.**
+> `ExigirPersonal` cita una decisión de Joseth del 18 ago 2026 para cerrarla a
+> alumnos y acudientes, y que un acudiente no ande saltando entre años lectivos
+> suena deliberado. Lo que no parece deliberado es la consecuencia. **Por eso esto
+> no se toca sin contestarlo.**

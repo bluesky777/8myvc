@@ -781,3 +781,50 @@ trabaja sola no tiene frontera que cruzar, así que sus números no se comprueba
 Si alguna vez hay una sola, que la última hora sea escribirle el cierre a alguien
 —aunque ese alguien sea el documento— **con el comando al lado de cada número**.
 Lo que no puede pasar es que el último que mire el número sea el que lo escribió.
+
+---
+
+## Una suite verde no corresponde a ningún commit si el árbol es compartido
+
+Lo señaló `8myvc-d0` el 24 ago 2026, después de darme una corrida limpia y
+**negarse a decir que cubría mi último commit**. La precisión que puso es la
+regla:
+
+> **PHPUnit mide lo que cada fichero era en el instante en que lo cargó**, no un
+> commit. Doce minutos de suite en un árbol compartido son doce minutos durante
+> los cuales otra sesión puede commitear código. Si lo hace, **el «verde» no
+> corresponde a ningún estado que exista en git** — ni al de antes ni al de
+> después.
+
+Ese día no mordió, y la comprobación que lo demostró es la que hay que copiar. La
+corrida arrancó sobre `c99cf6e` y terminó con `HEAD` en `c37ba82`. En vez de decir
+«corrida sobre `c37ba82`» —que habría sido falso— ni «sólo vale para `c99cf6e`»
+—que habría sido inútil—, se comprobó lo que sí se podía afirmar:
+
+```bash
+git log c99cf6e..HEAD --name-only -- app/ routes/ config/ tests/   # sale vacío
+git status --short                                                 # limpio
+```
+
+**Los commits intermedios sólo tocaban documentación, así que el árbol ejecutable
+de las dos puntas es el mismo.** Con eso la corrida vale para las dos, y se puede
+citar diciendo **eso** y no «se corrió sobre X».
+
+**La regla, entonces:**
+
+1. **Corre la suite en tu propia base** (`DB_TEST_DATABASE=…_b`): dos suites
+   contra la misma base dan deadlocks, y eso ya está arriba.
+2. **Anota la punta al arrancar y al terminar.** Si son la misma, no hay nada que
+   pensar.
+3. **Si no lo son, comprueba qué cambió en medio** con el `git log --name-only`
+   acotado a los cuatro caminos ejecutables. Vacío ⇒ la corrida vale para las dos
+   puntas.
+4. **Si en medio entró código, la corrida no vale para ninguna punta.** Repítela.
+
+Y el motivo por el que esto va aquí y no en el [03](03-tests.md): **no es una
+regla de tests, es una de coordinación.** El test no tiene ningún problema; lo
+tiene la frase «la suite está verde» cuando hay dos manos en el mismo árbol.
+
+Es la misma familia que las tres formas de medir mal del
+[02](02-plan-rendimiento.md) y de la [§142](noche-2026-08-23/r.md): **el número es
+honesto y la afirmación que se cuelga de él no lo es.**
