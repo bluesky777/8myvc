@@ -278,6 +278,25 @@ veces esta noche**:
 | §88, «el borrado de una bitácora» | **una** de siete lecturas de la tabla | seis, y **una de ellas NO debe filtrar** | [B](b.md) |
 | §89, la operación de mandar un alumno a la papelera | **dos** de cuatro sitios | los otros dos, en controladores de boletines | [C](c.md) |
 
+### Y la misma idea aplicada a los números, que es donde más barato sale
+
+Una serie se cierra sobre una población. **Un número también sale de una**, y dos
+números de poblaciones distintas puestos uno al lado del otro producen una resta
+que parece un resultado.
+
+| Los dos números | Lo que parecía | Lo que era |
+|---|---|---|
+| **1.272** (suite entera al cerrar) menos **903** (solo `Contrato` al empezar) | **+369 tests** | el 903 es de otra población: contra los **1.006** de la suite entera son **+266**, y cuadra con los 267 métodos añadidos |
+| **535** rutas comprobadas corriendo la suite entera, junto a un **534** de solo `Contrato` | una regresión de una ruta | es **`GET /`**, que solo toca el stub de `laravel new` |
+
+> **Un número no significa nada sin su población, y la población casi nunca está
+> escrita al lado.** El remedio es el mismo que el del sello y cuesta lo mismo:
+> **decir de qué es el número en la misma línea que el número** —«suite entera»,
+> «solo Contrato»—, y no en una nota debajo que se pierde al copiar la cifra.
+
+Los dos casos son de la misma noche y **el segundo se evitó porque el primero ya
+había mordido**.
+
 > **Cerrar una serie no es cerrar la operación.** Y lo que hay que escribir al
 > cerrar no es «arreglado»: es **sobre qué población se cerró**. Las cinco veces,
 > el documento decía la verdad de lo que había mirado y nadie podía saber qué se
