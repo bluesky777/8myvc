@@ -77,6 +77,149 @@ class DisciplinaController extends Controller {
 
 		return ['alumnos' => $alumnos];
 	}
+
+
+	/**
+	 * La ficha de disciplina de un alumno, para **él y para su familia**.
+	 *
+	 * Lo pide la app. Hasta hoy la pantalla de disciplina existía y funcionaba
+	 * para el personal, y el alumno y el acudiente no entraban: los cuatro
+	 * controladores que tocan `dis_procesos` llevan `auth.personal` en **todas**
+	 * sus rutas, que aborta con 403 a `Alumno` y `Acudiente`. No era pudor, era
+	 * que nadie había escrito la puerta de lectura.
+	 *
+	 * ## La guarda ya existía y hace exactamente esto
+	 *
+	 * `boletin.propio:sin-paz-y-salvo`, no `auth.personal`. `ExigirBoletinPropio`
+	 * deja pasar de largo a quien no es alumno ni acudiente, y a los que lo son
+	 * les comprueba que el `alumno_id` pedido sea el suyo o el de un acudido.
+	 *
+	 * **El modo `sin-paz-y-salvo` es el correcto y merece la frase**: retener el
+	 * boletín de quien debe es una cosa, y esconderle a una familia la situación
+	 * disciplinaria de su hijo es otra, y esa nadie la ha pedido. Es la misma
+	 * decisión que ya se tomó para `notas/alumno` y para `matriculas/prematricular`.
+	 *
+	 * **Sin id significa «lo mío»**, y eso lo resuelve este método y no la guarda:
+	 * el middleware, al no ver alumno concreto, deja pasar —no hay nada que
+	 * proteger todavía—. Aquí se traduce a `persona_id` para un `Alumno` y se
+	 * responde 400 a los demás, que es letra por letra lo que hace
+	 * `NotasController::getAlumno`. Un acudiente **tiene** que decir de cuál de
+	 * sus acudidos habla.
+	 *
+	 * ## La forma es la de `PUT disciplina/alumnos`, y es el punto entero
+	 *
+	 * `alumno` sale con las mismas claves que un elemento de aquella respuesta:
+	 * sus `periodoN[]` con sus `proceso_ordinales`, sus `uniformes_perN[]`, sus
+	 * `tardanzas_perN[]` y sus contadores `perN_cant_tN`. **No es comodidad**: así
+	 * la app reutiliza `AlumnoDisciplinaModel` y `FichaDisciplinaScreen` tal cual,
+	 * en modo lectura, y esa pantalla ya está escrita y probada. Con otra forma
+	 * habría que escribir un modelo nuevo y una pantalla nueva para enseñar lo
+	 * mismo. Hay un test que compara las dos respuestas **clave a clave**, porque
+	 * es lo único que sostiene esa promesa cuando alguien toque cualquiera de las
+	 * dos.
+	 *
+	 * `config` y `ordinales` van porque la ficha los necesita para pintar: los
+	 * tres tipos se llaman como los llame el colegio (`falta_tipoN_displayname`) y
+	 * los ordinales de cada situación se resuelven contra el catálogo del año.
+	 * **No van `grupos` ni `descripciones_typeahead`**: eso es del editor, y aquí
+	 * no se escribe nada.
+	 *
+	 * ## Y aquí NO se crea la configuración si falta
+	 *
+	 * Sus dos hermanas —`grupos/con-disciplina` y `ordinales/ordinales`— insertan
+	 * una fila en `dis_configuraciones` cuando el año no la tiene. Aquí no, y es
+	 * deliberado: **esta ruta la abre una familia**, y una lectura que escribe es
+	 * la forma más silenciosa de que un endpoint de sólo lectura deje de serlo.
+	 * Sin fila se devuelve `config: null` y el cliente usa sus valores por
+	 * defecto, que es lo que ya hace hoy cuando la respuesta no la trae.
+	 */
+	public function getMisFichas($alumno_id = '')
+	{
+		$user = User::fromToken();
+
+		if ($alumno_id === '' || $alumno_id === null) {
+			if ($user->tipo == 'Alumno') {
+				$alumno_id = $user->persona_id;
+			}else{
+				return abort(400, 'No hay id de alumno');
+			}
+		}
+
+		$year_id = $user->year_id;
+
+		$alumno = $this->fichaConFormaDeGrupo((int)$alumno_id, (int)$year_id);
+
+		$this->datosAlumno($alumno, $year_id);
+
+		// `SELECT c.*` y no una lista de columnas, igual que sus hermanas: el
+		// colegio renombra los tres tipos desde su pantalla de configuración y la
+		// ficha pinta lo que diga esa fila.
+		$config = DB::select(
+			'SELECT c.* FROM dis_configuraciones c WHERE c.year_id=? and c.deleted_at is null',
+			[$year_id]
+		);
+
+		$ordinales = DB::select(
+			'SELECT c.* FROM dis_ordinales c WHERE c.year_id=? and c.deleted_at is null',
+			[$year_id]
+		);
+
+		return [
+			'alumno' => (array)$alumno,
+			'config' => $config[0] ?? null,
+			'ordinales' => $ordinales,
+		];
+	}
+
+
+	/**
+	 * La ficha de un alumno **con las columnas de `Grupo::alumnos`**.
+	 *
+	 * Existe porque las dos consultas de este repo que devuelven un alumno para la
+	 * pantalla de disciplina **no traen lo mismo**: `Grupo::alumnos` —la que usa
+	 * `putAlumnos`— añade `nro_folio`, `nee`, `nee_descripcion`, `promovido`,
+	 * `promedio`, `cant_asign_perdidas` y `cant_areas_perdidas`, y
+	 * `$consulta_alumno` —la de `fichaDelAlumno`, que usan las tres escrituras— no.
+	 *
+	 * Reusar cualquiera de las dos habría sido más corto y habría roto la promesa:
+	 * el contrato con la app es que esto venga **igual que un elemento de
+	 * `PUT disciplina/alumnos`**, y `fichaDelAlumno` se queda a siete columnas. Se
+	 * copia la lista de `Grupo::alumnos` en vez de llamarla porque aquélla parte
+	 * del grupo y aquí se parte del alumno.
+	 *
+	 * **El año hace falta y no sobra**: un alumno tiene una matrícula por año, y
+	 * sin filtrar saldrían varias filas y la ficha sería la del año que MySQL
+	 * quisiera devolver primero. Se filtra por el año del grupo, que es donde vive.
+	 *
+	 * 404 y no 500 cuando no hay ficha, que es la lección de la §52: el `[0]`
+	 * desnudo de las tres escrituras daba «Undefined array key 0» con un
+	 * `alumno_id` sin matrícula viva.
+	 */
+	private function fichaConFormaDeGrupo(int $alumno_id, int $year_id)
+	{
+		$consulta = 'SELECT m.id as matricula_id, m.alumno_id, a.no_matricula, m.nro_folio, a.nombres, a.apellidos, a.sexo, a.user_id, a.nee, a.nee_descripcion,
+						a.fecha_nac, a.ciudad_nac, a.celular, a.direccion, a.religion, t.tipo as tipo_doc, t.abrev as tipo_doc_abrev, a.documento, a.no_matricula,
+						m.grupo_id, m.estado, m.nuevo, m.repitente, username, m.promovido, m.promedio, m.cant_asign_perdidas, m.cant_areas_perdidas,
+						u.imagen_id, IFNULL(i.nombre, IF(a.sexo="F","default_female.png", "default_male.png")) as imagen_nombre,
+						a.foto_id, IFNULL(i2.nombre, IF(a.sexo="F","default_female.png", "default_male.png")) as foto_nombre
+					FROM alumnos a
+					inner join matriculas m on a.id=m.alumno_id and (m.estado="MATR" or m.estado="ASIS" or m.estado="PREM") and m.deleted_at is null
+					inner join grupos g on g.id=m.grupo_id and g.year_id=? and g.deleted_at is null
+					left join users u on a.user_id=u.id and u.deleted_at is null
+					left join tipos_documentos t on a.tipo_doc=t.id and t.deleted_at is null
+					left join images i on i.id=u.imagen_id and i.deleted_at is null
+					left join images i2 on i2.id=a.foto_id and i2.deleted_at is null
+					where a.id=? and a.deleted_at is null
+					order by m.id desc';
+
+		$alumno = DB::select($consulta, [$year_id, $alumno_id]);
+
+		if (count($alumno) === 0) {
+			abort(404, 'No existe la ficha del alumno pedido.');
+		}
+
+		return $alumno[0];
+	}
 	
 	
 	

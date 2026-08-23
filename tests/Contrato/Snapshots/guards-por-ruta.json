@@ -411,6 +411,7 @@
         "GET api/boletines/detailed-notas-year/{grupo_id}/{periodo_a_calcular?}",
         "GET api/boletines2/detailed-notas-year/{grupo_id}/{periodo_a_calcular?}",
         "GET api/boletines3/detailed-notas-year/{grupo_id}/{periodo_a_calcular?}",
+        "GET api/disciplina/mis-fichas/{alumno_id?} [sin-paz-y-salvo]",
         "GET api/notas/alumno/{alumno_id?}/{grupo_id?} [sin-paz-y-salvo]",
         "PUT api/boletines/detailed-notas-group/{grupo_id}",
         "PUT api/boletines/detailed-notas/{grupo_id}",

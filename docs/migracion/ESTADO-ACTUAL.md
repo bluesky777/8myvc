@@ -129,7 +129,7 @@ la definitiva. Está detallado en el 10, justo antes de la fase 2.
 
 ---
 
-## Y en paralelo: las tres cosas que pidió la app — **1 de 3**
+## Y en paralelo: las tres cosas que pidió la app — **2 de 3**
 
 Joseth las autorizó el **24 ago 2026**. Vienen de
 `~/DESARROLLOS/myvc_flutter/docs/backend-pendiente.md`, que lleva el contrato de
@@ -139,7 +139,7 @@ cada una y la evidencia que la justifica. **No son de la migración**: son lo qu
 | | Qué | Estado |
 |---|---|---|
 | 1 | `PUT notas/lote` — pasar una columna en una petición | **hecho el 24 ago**, 12 tests |
-| 2 | `GET disciplina/mis-fichas/{alumno_id?}` — que el alumno y el acudiente vean lo suyo | pendiente |
+| 2 | `GET disciplina/mis-fichas/{alumno_id?}` — que el alumno y el acudiente vean lo suyo | **hecho el 24 ago**, 10 tests |
 | 3 | Notificaciones: endpoint de temas con HMAC, `notificaciones:enviar` y la entrada de cron | pendiente |
 
 ### 1 — `PUT notas/lote`, hecho
@@ -176,6 +176,44 @@ no está. Ahora **deduplica ella**, en vez de exigírselo a cada llamante.
 > `myvc_flutter` es **una sola app para todos**, así que no hay forma de
 > escalonar el cliente. En el colegio que faltara sería un 404 gastado antes de
 > caer al método viejo. Está en [DESPLIEGUE.md](../DESPLIEGUE.md) §5.b.
+
+### 2 — `GET disciplina/mis-fichas/{alumno_id?}`, hecho
+
+**El alumno y su familia ya pueden ver su situación disciplinaria.** No entraban
+porque los cuatro controladores que tocan `dis_procesos` llevan `auth.personal`
+en **todas** sus rutas, y ése aborta con 403 a `Alumno` y `Acudiente`. No era una
+decisión de privacidad: era que nadie había escrito la puerta de lectura.
+
+La guarda **ya existía** y hace exactamente esto: `boletin.propio:sin-paz-y-salvo`.
+Sin id significa «lo mío» y lo resuelve el controlador —el middleware, al no ver
+alumno concreto, deja pasar—, igual que `notas/alumno`. Un acudiente recibe 400 si
+no dice de cuál de sus acudidos habla.
+
+**El paz y salvo no aplica**, y es la misma decisión de `notas/alumno` y
+`matriculas/prematricular`: retener el boletín de quien debe es una cosa, y
+esconderle a una familia la situación disciplinaria de su hijo es otra, y esa
+nadie la ha pedido. Tiene su test, con la deuda puesta a mano.
+
+Devuelve `{alumno, config, ordinales}`. **`alumno` con la forma exacta de un
+elemento de `PUT disciplina/alumnos`**, y eso no es comodidad: la app reutiliza
+`AlumnoDisciplinaModel` y `FichaDisciplinaScreen` tal cual, en modo lectura, y esa
+pantalla ya está escrita. **El test que lo sostiene compara las dos respuestas
+clave a clave**, no contra una lista escrita a mano — una lista se queda vieja el
+día que alguien añada una columna a `Grupo::alumnos`, y el test seguiría verde con
+la promesa rota. Sin `grupos` ni `descripciones_typeahead`: eso es del editor.
+
+Dos cosas que salieron por el camino:
+
+- **Las dos consultas de este repo que devuelven «un alumno para disciplina» no
+  traen lo mismo.** `Grupo::alumnos` —la del editor— lleva siete columnas que
+  `fichaDelAlumno` —la de las tres escrituras— no. Reusar la segunda habría sido
+  más corto y habría roto el contrato en silencio.
+- **Aquí no se crea la configuración del año si falta.** Sus dos hermanas
+  —`grupos/con-disciplina` y `ordinales/ordinales`— insertan la fila. Ésta la abre
+  una familia, y una lectura que escribe es la forma más silenciosa de que un
+  endpoint de sólo lectura deje de serlo. Sin fila va `config: null` y el cliente
+  usa sus valores por defecto.
+
 
 ---
 

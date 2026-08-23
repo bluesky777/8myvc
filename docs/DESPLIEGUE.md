@@ -183,6 +183,7 @@ Los de esta tanda:
 | Endpoint | Para qué | Si falta en un colegio |
 |---|---|---|
 | `PUT api/notas/lote` | pasar una columna de notas en una petición y una transacción | la app sigue guardando de una en una, tras gastar un 404 |
+| `GET api/disciplina/mis-fichas/{alumno_id?}` | que el alumno y el acudiente vean su situación disciplinaria | la opción del menú no lleva a ninguna parte para las familias de ese colegio |
 
 **Ninguno quita nada**: los tres métodos viejos siguen ahí y siguen siendo el
 camino hasta que la app cambie. O sea que desplegar esto no se nota en ninguna

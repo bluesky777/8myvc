@@ -71,6 +71,12 @@ Route::post('ordinales/store', [OrdinalesController::class, 'postStore'])->middl
 Route::put('ordinales/update', [OrdinalesController::class, 'putUpdate'])->middleware('auth.personal');
 
 // DisciplinaController
+// La ficha en modo lectura para el alumno y su familia. **No lleva
+// `auth.personal`**, que es lo que cierra a Alumno y Acudiente el resto de esta
+// sección: lleva la guarda de propiedad, que comprueba que el alumno pedido sea
+// el suyo o el de un acudido. Sin paz y salvo a propósito — ver el método.
+Route::get('disciplina/mis-fichas/{alumno_id?}', [DisciplinaController::class, 'getMisFichas'])
+    ->middleware('boletin.propio:sin-paz-y-salvo');
 Route::put('disciplina/alumnos', [DisciplinaController::class, 'putAlumnos'])->middleware('auth.personal');
 Route::post('disciplina/asignar-ordinal', [DisciplinaController::class, 'postAsignarOrdinal'])->middleware('auth.personal');
 Route::put('disciplina/cambiar-situacion-derivante', [DisciplinaController::class, 'putCambiarSituacionDerivante'])->middleware('auth.personal');
