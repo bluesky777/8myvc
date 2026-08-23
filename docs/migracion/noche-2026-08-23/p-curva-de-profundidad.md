@@ -8,6 +8,38 @@
 > las que salen caen en `notas_finales`, y ahí el criterio de la noche es que
 > **medir la puerta no toca el cálculo; ejecutarlo, sí.**
 
+> ## ⚠ ERRATAS — 23 ago 2026, madrugada
+>
+> **El total publicado aquí, ~~315~~, lleva dos falsos positivos. Son 313.**
+>
+> `bolfinales/detailed-notas-year` y `-year-group` **no escriben**:
+> `BolfinalesController.php` no tiene ni una escritura —cero `DB::update`, cero
+> `DB::insert`, cero `->save()` en el fichero entero— y sus cuatro llamadas
+> estáticas (`Grupo::alumnos`, `Grupo::datos`, `Nota::puestoAlumno`,
+> `Year::datos`) solo leen.
+>
+> **Lo que NO cambia**: los **300** del escalón 1 —recontados con una
+> implementación independiente, sin recursión—, los hallazgos nominales (§137,
+> §146, §147 y las once del escalón 2, verificados leyendo uno a uno) y **la
+> forma de la curva**: 300 / +11 / +2 / **0 de 4 a 8**. Sigue convergiendo en 3,
+> que era la afirmación que importaba: **el inventario de escrituras se puede
+> cerrar igual**.
+>
+> El 315 se deja tachado y no borrado: estuvo publicado, y una corrección que
+> borra el número anterior no deja ver que hubo corrección.
+>
+> **Y lo que enseña**, que es más caro que el número: antes de publicarlo se
+> sembró el detector con nueve casos ya leídos —seis que escriben, tres que no— y
+> pasó **9/9**, con las profundidades correctas.
+>
+> > Sembrar el detector con casos conocidos prueba que **alcanza**. Leer una
+> > muestra de sus positivos prueba que **acierta**. Un instrumento puede pasar la
+> > siembra 9/9 y seguir inventándose resultados: son dos comprobaciones distintas
+> > y hacen falta las dos.
+>
+> La segunda se hizo **por accidente**, al ir a repartir el trabajo. Debería ser
+> un paso, no una casualidad. El detalle está en el §149.
+
 ## El resultado
 
 Sobre las **539 rutas**, buscando a qué profundidad aparece la **primera**
@@ -16,17 +48,18 @@ escritura del camino:
 | Profundidad | Rutas nuevas | Acumulado |
 |---|---|---|
 | 1 — en el propio método | **300** | 300 |
-| 2 — un salto | **13** | 313 |
-| 3 — dos saltos | **2** | 315 |
-| 4 | 0 | 315 |
-| 5 | 0 | 315 |
-| 6 | 0 | 315 |
-| 7 | 0 | 315 |
-| 8 | 0 | 315 |
+| 2 — un salto | ~~13~~ **11** | ~~313~~ **311** |
+| 3 — dos saltos | **2** | ~~315~~ **313** |
+| 4 | 0 | **313** |
+| 5 | 0 | **313** |
+| 6 | 0 | **313** |
+| 7 | 0 | **313** |
+| 8 | 0 | **313** |
 
 **Converge en 3.** O sea que el inventario de escrituras **se puede cerrar**:
-**315 de 539 rutas de la API escriben** (58%), y **no hay ninguna a más de dos
-saltos**. Es lo que hoy no se podía afirmar de ningún inventario de esta noche.
+**313 de 539 rutas de la API escriben** (58%), y **no hay ninguna a más de dos
+saltos**. (El **~~315~~** de la primera publicación llevaba dos falsos positivos;
+ver las erratas de arriba.) Es lo que hoy no se podía afirmar de ningún inventario de esta noche.
 
 ## Qué cuenta como «salto», que es lo que hay que declarar al lado del número
 
@@ -108,6 +141,13 @@ Un detector «en línea» —el que casi todos escribimos— no ve ninguna de é
 - **`PUT api/boletines/detailed-notas/{grupo_id}`** — la familia del boletín, ya
   conocida y con test propio (`BoletinNoBorraDefinitivasTest`). No es nueva: lo
   que explica la curva es **por qué costó encontrarla**.
+
+> Y aquí está la trampa que dio la errata, porque las dos familias se parecen y
+> **no son la misma**: `boletines/detailed-notas` **sí** escribe y tiene test que
+> lo prueba; **`bolfinales` no**, y su fichero no tiene ni una escritura. Dos
+> nombres a una letra de distancia, uno con antecedentes y el otro sin ellos: es
+> exactamente la clase de vecindad que hace que un falso positivo **se lea como
+> confirmado**.
 
 ## La regla, ya con número detrás
 
