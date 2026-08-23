@@ -193,6 +193,29 @@ Se cuenta porque es la prueba más barata de que estas formas no se evitan
 sabiéndoselas: **el barrido estaba escrito y firmado cuando pasó.** Lo que las
 evita es el hábito de pedirle al instrumento que enseñe el caso concreto.
 
+### Y una que no es una ceguera del instrumento sino de quien lo lee — dos veces en la misma hora
+
+Dos sesiones distintas, con veinte minutos de diferencia, tomaron **el límite
+declarado de un instrumento por un defecto**:
+
+| Instrumento | Lo que se creyó | Lo que dice de sí mismo |
+|---|---|---|
+| `tools/salud-de-las-definitivas.php` | «no respeta `DB_TEST_DATABASE`» | su **cabecera, línea 24**, documenta `-e DB_DATABASE=otrocolegio`: mira la base real **a propósito**, porque es un informe de salud sobre datos de verdad |
+| `AutorizacionTest` | «la red tiene un hueco» | **declara su alcance en su propio comentario** |
+
+> **Un instrumento que declara su alcance no tiene un hueco: tiene un límite.** Y
+> el sitio donde lo declara —su cabecera, su docblock— es **justo el que no se lee
+> cuando uno va a usarlo deprisa**.
+
+Por separado, cada una parece mala suerte. Juntas y en la misma hora, dicen que
+**el hábito que falta no es medir mejor: es leer la cabecera antes de correr**.
+
+Y lo que sí queda del primer caso, con la mitad que era cierta: **`DB_TEST_DATABASE`
+es una convención de `phpunit.xml`, no del proyecto.** Quien traiga puesta la
+costumbre de la noche —«a mis herramientas les pongo mi base»— correrá esa
+herramienta creyendo que mide su base de tests **y estará midiendo el colegio**.
+Se caza leyendo su primera línea, que nombra la base.
+
 ---
 
 ## Forma 6 — La señal que se busca no es la forma que tiene el fallo
