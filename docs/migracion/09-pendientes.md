@@ -62,6 +62,13 @@ Cobertura de rutas: **370 de 539 (69%)**, medida con
 > test al cerrarlo**, y ése es el dato: ninguno fijaba quién podía restaurar — el
 > de `YearsTest` pasaba porque el `Usuario` del seed resulta ser `is_superuser`.
 > Va a la tanda de despliegue.
+>
+> **Y detrás, el botón peligroso** ([05 §77](05-codigo-muerto-y-roto.md)): **992
+> tests**. `detalles/eliminar-notas-periodo` borra notas con un `DELETE` físico y
+> no miraba nada. La §27 no podía verla — **su inventario se hizo de los sitios que
+> ya llamaban al candado**, y un sitio que nunca preguntó no sale en una lista
+> hecha así. Queda `tools/escrituras-en-las-notas.py`, que la rehace por la
+> operación, con sus dos formas de mentir anotadas dentro.
 
 ### Lo primero que hay que hacer, y no es código
 
