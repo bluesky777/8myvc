@@ -7391,3 +7391,101 @@ Y no filtra la papelera: `SELECT * FROM grupos g WHERE g.year_id=:year_id` a sec
 así que un grupo borrado con notas dentro sale igual. Es lo contrario de lo que
 hace la rejilla de grupos del mismo módulo — **la §70.2 otra vez**: catorce
 consultas decidiendo por su cuenta qué hace la papelera.
+
+---
+
+## 78. Crear un catálogo: nueve rutas, el mismo gesto, cuatro respuestas (22 ago 2026)
+
+La [§70](#70) midió **borrar** un catálogo del colegio —qué se lleva por delante y
+quién puede llamarlo— y ahí se quedó. La otra mitad de cada pareja, **crear y
+editar**, no la había mirado nadie: veinte rutas en trece controladores. Es el
+mismo reparto que dejó abierta la papelera (§76) y por la misma razón: una
+revisión mira lo que destruye.
+
+La pregunta que las junta es la más simple que hay: **¿qué contesta un catálogo
+cuando le mandas el cuerpo vacío?** Medido, no leído:
+
+| Catálogo | Respuesta | ¿Escribe? |
+|---|---|---|
+| áreas, grados, niveles educativos, tipos de documento, ciudades | **422** «Datos incorrectos» | no |
+| países, frases, definiciones de comportamiento | **500** con el `SQLSTATE` de MySQL | no |
+| materias | **500** «Trying to access array offset on null» | no |
+| **contratos** | **200 con `[]`** | **sí** |
+
+### 78.1 Lo que separa las cuatro columnas no es el código
+
+**Los nueve controladores son igual de crédulos**: leen `Request::input(...)`,
+llaman a `save()` y no validan nada — que es lo esperable en un proyecto con dos
+validaciones en total (CLAUDE.md). No hay ninguno mejor escrito que otro.
+
+Lo que los separa es **el esquema**:
+
+- las ocho tablas que no escriben tienen una columna `NOT NULL` —`materias.materia`,
+  `areas.nombre`, `paises.pais`, `tipos_documentos.tipo`…— y es MySQL quien rechaza
+  el `INSERT`;
+- las cinco que contestan 422 y las tres que contestan 500 se distinguen sólo por
+  llevar o no un `try/catch` alrededor del `save()`;
+- y **`contratos` es la única de las nueve cuya tabla no tiene ninguna columna
+  `NOT NULL`** —`profesor_id` y `year_id` son las dos nulables—, así que la fila
+  entra.
+
+> **Lo que impide que ocho de los nueve escriban basura no es el código: es el
+> esquema.** Es la misma forma que `putSubunidad` (10 §3.1), donde lo que salvaba
+> las notas era una columna, y es la razón de fondo por la que la ausencia de
+> validaciones en este proyecto casi nunca se nota: las tablas viejas están llenas
+> de `NOT NULL` y hacen de validador. La que no lo tenga, no lo tiene.
+
+### 78.2 El contrato huérfano, y la pantalla que decía que sí
+
+`POST api/contratos` con un `profesor_id` que no existe **escribía la fila igual**.
+El `SELECT` de después une por `profesores`, así que no encontraba nada y devolvía
+**200 con `[]`**.
+
+Y lo que hace el cliente con eso ya estaba escrito, en `ProfesoresCtrl`:
+
+> *«crear devuelve un array de un elemento. Si viniera vacío —que sería un backend
+> distinto del documentado— lo único honrado es no tocar las rejillas: el aviso ya
+> ha salido y el contrato existe.»*
+
+O sea que la pantalla enseñaba **«contratado para este año»** mientras aquí quedaba
+una fila sin profesor: invisible desde cualquier pantalla y por tanto imposible de
+quitar. El front había razonado bien sobre una respuesta que no debería existir, y
+al hacerlo la volvió silenciosa.
+
+**Es una mina, no un fallo vivo, y está medido**: en la copia de producción hay
+**cero contratos huérfanos de 164**. El front siempre manda un id bueno. Se cierra
+porque el día que mande uno malo —una rejilla desactualizada apuntando a un
+profesor ya borrado— la fila que queda no se puede ni ver ni deshacer.
+
+Comprobado al revés de las dos maneras que manda el método. Sin el arreglo caen dos
+tests; **con el atajo** —comprobar que el campo llega, en vez de que el profesor
+exista— pasa el del cuerpo vacío y cae el del id inexistente, que es exactamente
+para lo que ese segundo test está escrito.
+
+### 78.3 Lo que se fija y no se toca
+
+`CrearUnCatalogoTest` deja la tabla de arriba fijada **tal como está**, con los
+cuatro comportamientos. No se unifican los 500 a 422, y no por pereza: son cuatro
+controladores y el front pinta **el mensaje del cuerpo**, así que hoy a un
+administrador se le enseña el `SQLSTATE` entero de MySQL y mañana se le enseñaría
+«Datos incorrectos». Eso se decide, no se arregla de paso. Va al [§5 de 09](09-pendientes.md).
+
+Lo que sí deja el test es que cualquiera de los cuatro que cambie lo diga con
+nombre, y sobre todo que **la última columna no vuelva a moverse**: lo que se
+afirma de verdad no es el código de estado, es que ninguna de las nueve deje una
+fila detrás.
+
+### 78.4 Y una asimetría que se miró y se dejó
+
+`AreasController::putUpdate` **no devuelve nada** —ni siquiera la fila que acaba de
+guardar— mientras `postIndex`, aquí al lado, devuelve el área, y los `putUpdate` de
+grados y niveles educativos devuelven la suya. Parece el mismo descuido de siempre.
+
+No se toca, y la razón es el llamante: `AreasCtrl` hace
+`AreasApi.actualizar(...).then(function(){ ... })` **con la función sin
+argumentos**. No lee la respuesta. Devolver el área sería un cambio de contrato
+para no arreglar nada.
+
+> Van tres esta semana en las que leer el cliente **desactivó** el arreglo obvio: el
+> `if` vacío de ausencias (§75.2), el criterio del `restore` (§76.2) y ésta. **La
+> pregunta «¿quién lo llama?» no es el último paso de la revisión, es el segundo.**
