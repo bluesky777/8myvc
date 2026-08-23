@@ -136,6 +136,7 @@ La más cara, porque **el resultado falso es indistinguible de un hallazgo**.
 | Rojos en familias no tocadas, uno de 53 s | «mis cambios rompieron algo» | **deadlock en `personal_access_tokens`**: dos tandas contra la misma base, y las dos eran suyas | correr esas clases solas y leer el `SQLSTATE` | [C](c.md) |
 | Lo mismo, pero con una tanda ajena | ídem | un `pkill -f "artisan test"` mató **el envoltorio y dejó al hijo vivo**, reparentado a init | `pgrep -f "phpunit.*worktrees/X"` — **el hijo se llama `phpunit`, no `artisan`** | [A](a.md), [B](b.md) |
 | `ps | grep worktrees/e` | «no corre ninguna suite mía» | la línea del proceso es `php artisan test` a secas: el árbol y la base viven en `/proc/<pid>/environ` | leer el `environ` de cada pid | [E](e.md) |
+| `ps` sobre el **proceso padre** | «esa tanda mide el árbol raíz» | el padre es el envoltorio y lleva `--configuration=/app/phpunit.xml`; **el hijo** lleva el del worktree | leer la línea **del hijo**, que es el que mide | cierre |
 | El log que deja de crecer | «la suite murió» | **búfer de bloque**: parado justo en 10.210 bytes | el tamaño exacto del fichero | [E](e.md) |
 | Un `docker exec` muerto por `pkill` | el harness lo resumió como **«completed, exit code 0»** | **exit 143** | escribir `EXIT=$?` dentro del contenedor, junto al log | [B](b.md) |
 | Un snapshot de contrato | «esto está cubierto» | **el snapshot guardaba el fallo como si fuera correcto** | leer lo que afirma, no que exista | [E](e.md) |
@@ -146,6 +147,14 @@ La más cara, porque **el resultado falso es indistinguible de un hallazgo**.
 > El **snapshot** no es un instrumento de medir sino de proteger, y por eso es el
 > peor de la lista: **un test verde que fija un vaciado no avisa de nada y además
 > impide arreglarlo**, porque el arreglo lo pone en rojo.
+>
+> **Las tres del `ps` son la misma trampa con tres caras**, y juntas dicen lo que
+> ninguna dice sola: el `cwd` **no identifica el árbol** —un test se mete en un
+> temporal—, el sufijo **vive en la línea del hijo y no en la del padre**, y
+> mirar el padre **no da un «no lo sé»: da `/app`, que es cierto del padre**.
+>
+> **Una respuesta coherente y falsa es peor que ninguna**, porque no invita a
+> buscar otra.
 >
 > Y `grupos-show.json` tiene algo que no tiene ningún otro de esta tabla: **mintió
 > en las dos direcciones con horas de diferencia.** Primero **escondiendo** un
@@ -218,6 +227,33 @@ costumbre de la noche —«a mis herramientas les pongo mi base»— correrá es
 herramienta creyendo que mide su base de tests **y estará midiendo el colegio**.
 Se caza leyendo su primera línea, que nombra la base.
 
+### Y lo último que encontró la noche, que ninguna de las siete formas podía ver
+
+La corrida de cierre —la primera con **todo** dentro— salió en rojo con un test
+que ninguna de las cinco mediciones anteriores podía encontrar:
+
+```
+YearsTest > apagar el ultimo deja cero y se puede entrar
+  El seed no tiene ningún Usuario que NO sea superusuario en el año actual.
+```
+
+El test **apaga todos los años actuales** y dos líneas después llama a un ayudante
+cuya consulta lleva `INNER JOIN years y ON … AND y.actual = 1`.
+
+> **El ayudante es correcto y el test también lo parece. Cada uno mira una mitad;
+> lo que falla es el orden entre los dos** — y eso no lo ve ni quien escribió el
+> ayudante ni quien escribió el test.
+
+No es una ceguera de detector: **ningún detector podía verlo**, porque no hay nada
+mal escrito en ninguno de los dos sitios. Y tampoco lo veían las mediciones
+parciales: una no tenía el lote que trajo el ayudante, otra no tenía el `main`
+posterior, otra no tenía ninguno de los dos.
+
+> **Hay fallos que no están en ningún sitio: están entre dos sitios**, y el único
+> instrumento que los ve es **correr todo junto una vez, al final.** Esa corrida
+> no es un trámite de confirmación: es la única que mide algo que ninguna otra
+> mide.
+
 ---
 
 ## Forma 6 — La señal que se busca no es la forma que tiene el fallo
@@ -288,14 +324,48 @@ que parece un resultado.
 |---|---|---|
 | **1.272** (suite entera al cerrar) menos **903** (solo `Contrato` al empezar) | **+369 tests** | el 903 es de otra población: contra los **1.006** de la suite entera son **+266**, y cuadra con los 267 métodos añadidos |
 | **535** rutas comprobadas corriendo la suite entera, junto a un **534** de solo `Contrato` | una regresión de una ruta | es **`GET /`**, que solo toca el stub de `laravel new` |
+| **535** (suite entera) menos **461** (solo `Contrato`) | **+74 rutas** | medido el arranque con la suite entera son **462**: **+73** |
+| **97/97** controladores al cerrar, junto a **96/97** al empezar | «la noche cerró el último controlador sin cubrir» | con la suite entera ya eran **97/97 al empezar**. Lo que la noche movió es **de 41 controladores a medias a 4** |
 
 > **Un número no significa nada sin su población, y la población casi nunca está
 > escrita al lado.** El remedio es el mismo que el del sello y cuesta lo mismo:
 > **decir de qué es el número en la misma línea que el número** —«suite entera»,
 > «solo Contrato»—, y no en una nota debajo que se pierde al copiar la cifra.
 
-Los dos casos son de la misma noche y **el segundo se evitó porque el primero ya
-había mordido**.
+Los cuatro son de la misma noche y del mismo par de poblaciones —la suite entera
+y `--testsuite=Contrato`—. **El segundo se evitó porque el primero ya había
+mordido; el tercero y el cuarto solo aparecieron al medir el arranque de verdad**,
+en vez de citarlo.
+
+#### Y la que las cierra todas: los totales son la señal, **los nombres son el hecho**
+
+El desglose de la última medición se explicó dos veces con dos fórmulas distintas
+—«+1 método y +3 casos de proveedor» y «+4 métodos, proveedores quietos»—, y
+**las dos cuadraban con el total**. Solo una era cierta.
+
+> **Cuadrar dos totales con una fórmula da una explicación que encaja y puede ser
+> falsa.** Con dos incógnitas y un solo total **siempre hay una combinación que
+> encaja**. **Comparar las dos listas de nombres no admite esa clase de error: o
+> el caso está o no está, y se puede señalar con el dedo.**
+
+Lo resolvió quien **no cuadró los totales, sino que los nombró**: `+6 casos, −2
+casos`, y los tres «de proveedor» resultaron ser **tres métodos de un fichero que
+no existía en el árbol medido**.
+
+Y de ahí sale la otra mitad, sobre el sello que este mismo documento pide:
+
+> **Un número mal etiquetado es peor que un número sin etiqueta.** Sin sello,
+> quien lo lee **sabe que no sabe**; con el sello equivocado, **la comprobación
+> que debería cazarlo lo confirma**.
+>
+> Por eso el sello se toma con `rev-parse` **al disparar**, no de memoria
+> después: si la suite tarda siete minutos, `main` puede moverse dos veces
+> mientras corre. Esa noche se movió.
+
+> El cuarto es el más caro de los cuatro y el que menos lo parece: *«pasamos de
+> 96/97 a 97/97»* cuenta una historia —la noche cerró el último controlador sin
+> cubrir— **que no ocurrió**. La que ocurrió es **de 41 a medias a 4**, y estaba
+> en la casilla de al lado.
 
 > **Cerrar una serie no es cerrar la operación.** Y lo que hay que escribir al
 > cerrar no es «arreglado»: es **sobre qué población se cerró**. Las cinco veces,
@@ -372,15 +442,27 @@ había mordido**.
     > de la línea siguiente.** Un commit puede salir con un título que anuncia una
     > mejora y un cuerpo que borra veintiuna líneas.
 
-12. **Marcar qué mitad de una salida hay que ignorar, en la propia salida.** Una
+12. **Que el instrumento te dé la razón contra alguien que ya midió es motivo para
+    repetir la medición, no para mandarla.** La última de la noche fue ir a
+    comprobar una corrección ajena —correcta, y hecha comparando nombres— con un
+    bucle que contestó **«no existe en ninguno de los tres»**. Demasiado limpio
+    para lo que había enfrente. Repetirlo sin bucle costó veinte segundos y dio lo
+    contrario.
+
+    > Es el único caso de la noche en que un error propio iba a **destruir un
+    > hallazgo bueno de otro** en vez de solo ensuciar un documento propio. Y lo
+    > que lo evitó no fue desconfiar de nadie: **fue que el resultado era
+    > demasiado redondo**.
+
+13. **Marcar qué mitad de una salida hay que ignorar, en la propia salida.** Una
     comprobación que necesita saberlo y no lo dice fabrica la forma 4 ella sola: el
     lector que desconfía **tiene razón en desconfiar**, porque no le diste con qué
     distinguir.
 
 ### Y la que no es una regla sino el saldo
 
-**Ninguna de estas doce se evita sabiéndosela.** Este documento estaba escrito y
-firmado cuando su propia autora se equivocó **cinco veces**, tres de ellas
+**Ninguna de estas trece se evita sabiéndosela.** Este documento estaba escrito y
+firmado cuando su propia autora se equivocó **ocho veces**, cinco de ellas
 repitiendo formas que el propio documento describe:
 
 | Qué | Cuál |
@@ -390,6 +472,21 @@ repitiendo formas que el propio documento describe:
 | Dos totales de cabecera que no volvió a sumar cuando el documento creció | forma 4 |
 | Publicar una **causa** —«no respeta la variable»— cuando lo medido era un **síntoma** | la regla 8, que salió de ahí |
 | **Borrar su propio trabajo** trayendo el fichero de `main` sin comprobar que lo suyo ya estaba fundido, con el `AssertionError` a la vista y el `commit` corriendo igual | la regla 11, que salió de ahí |
+| Contar **líneas `^+` del `git diff`** para saber cuántos tests se añadieron, y dar un total con un ±1 que no existía | forma 6: **contar la señal en vez del hecho** |
+| Explicar un desglose con **una fórmula que cuadraba** —«+1 método y +3 de proveedor»— siendo **+4 métodos** | los totales son la señal, **los nombres son el hecho** |
+| Ir a comprobar esa corrección **con un bucle de shell** que dijo que un fichero no existía donde sí está — la **tercera** vez que un bucle da una respuesta falsa y coherente | forma 5: **el instrumento escrito para comprobar** |
+
+La sexta es la más limpia de todas como ejemplo de la **forma 6**: para saber
+cuántos métodos de test se habían añadido, contó **las líneas que el `diff` marca
+con `+`** — que es la señal— en vez de **contar los métodos que hay en cada
+extremo**, que es el hecho. El `diff` cuenta de más cuando un método se mueve de
+fichero, y de ahí salió un ±1 que se explicó con una hipótesis razonable —«un
+proveedor rinde un caso menos»— **que tampoco era cierta**. Contados los dos
+extremos: **+266 métodos y +266 tests, exacto**.
+
+> Una señal mal elegida no solo da un número equivocado: **da uno lo bastante
+> cercano como para que la explicación de la diferencia parezca el trabajo bien
+> hecho.**
 
 La cuarta y la quinta no repetían una forma escrita: **la escribieron**. Y la
 quinta es la primera que **destruyó algo** en vez de solo afirmar mal — la cazó
