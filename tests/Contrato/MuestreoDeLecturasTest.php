@@ -60,9 +60,18 @@ class MuestreoDeLecturasTest extends CasoDeContrato
             'api/profesores',
             'api/profesores/conyears',
             'api/profesores/todos',
-            'api/perfiles',
             'api/perfiles/usernames',
             'api/perfiles/usuariosall',
+
+            // Y ésta NO es de personas aunque lo parezca por el prefijo: el índice
+            // de `perfiles` devuelve los GRUPOS del año — se ve en su propio
+            // snapshot, `muestreo-perfiles.json`, que trae `grado_id` y
+            // `titular_id`. Estaba clasificada entre las personas, y una lista que
+            // agrupa por el nombre del recurso hereda el nombre equivocado. Es uno
+            // de los seis métodos de `PerfilesController` que operan sobre grupo
+            // (§130); `AutorizacionTest` ya lo dice en su lista de excepciones de
+            // familia.
+            'api/perfiles',
 
             // Comportamiento y convivencia.
             'api/comportamiento',
