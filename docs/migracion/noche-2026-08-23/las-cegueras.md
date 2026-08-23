@@ -7,7 +7,9 @@
 > Sale un patrón, y sale con población: **siete formas**, y una octava que no es
 > de una herramienta sino de quien lee su salida.
 >
-> **El recuento, contado al cerrar y no al empezar** —la primera versión de este
+> **El recuento, contado al cerrar y no al empezar** — y sellado contra `main` en
+> `7c0e34d`, para que si algún día no cuadra **se vea que es viejo en vez de parecer
+> falso** —la primera versión de este
 > párrafo decía «ocho» y no se volvió a sumar cuando el documento creció, que es
 > justo lo que este documento persigue—:
 >
