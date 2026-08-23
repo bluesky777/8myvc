@@ -170,6 +170,39 @@ Dos cosas quedan dichas y no se tocan:
 
 ---
 
+## §139.1 El renglón que sí acertó
+
+Al arreglar el §137 se puso rojo `CalendarioSoloProfesTest`, del lote J. En su
+docblock, escrito **antes** de que este lote existiera:
+
+> *«Si alguien lo arregla, este test cae, y lo que hay que hacer es cambiar el
+> `assertGreaterThan` por la comprobación contraria. **Que caiga es el aviso.**»*
+
+Esta noche ha coleccionado cinco renglones que apagaban una pregunta: una tabla de
+veredictos que atribuía a una ruta el cierre de su vecina ([§90](c.md)), la
+cabecera de una herramienta que decía «dos» por cuarenta y nueve ([§105](g.md)),
+una columna calculada que llamaba comprobada a una ruta porque validaba un nombre
+de columna ([§107.1](g.md)), una etiqueta que clasificaba un listado de grupos como
+«Personas» ([§132](o.md)) y una lista de tablas escrita antes de la decisión que
+la ampliaba ([§92.0](c.md)).
+
+**Éste es el mismo tipo de renglón y hace lo contrario.** Y la diferencia no es que
+esté mejor escrito:
+
+> Los cinco que fallaron afirmaban **un estado** —«ya está», «son dos», «esto es de
+> personas»—, y un estado envejece en silencio. Éste afirmaba **una condición de
+> caducidad**: *cuando pase esto, este test caerá, y entonces hay que hacer lo
+> otro.* Un veredicto se queda viejo sin avisar; **una condición de caducidad
+> avisa el día que se cumple**, porque quien la cumple es justo el que rompe el
+> test.
+
+Por eso el caso viejo **no se ha borrado**: se le ha dado la vuelta y se conserva
+al lado del nuevo. Lo que uno afirmaba y lo que afirma ahora, juntos, son lo que
+cuenta qué se decidió — que es lo que un `git log` no dice cuando alguien borra un
+caso y escribe otro.
+
+---
+
 ## Lo que se nota en un colegio (para DESPLIEGUE.md)
 
 | Cambio | Antes | Después | Quién lo nota |
