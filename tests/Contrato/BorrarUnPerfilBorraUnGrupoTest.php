@@ -132,6 +132,53 @@ class BorrarUnPerfilBorraUnGrupoTest extends CasoDeContrato
         }
     }
 
+    /**
+     * Y `perfiles/forcedelete` es la tercera puerta al mismo grupo — §100.
+     *
+     * Ésta sí pedía superusuario desde la §28.4, pero **nadie había mirado su
+     * respuesta**: la exención decía quién no pasa y ahí se quedó. Lo que faltaba
+     * es que hace `forceDelete()`, o sea borrado FÍSICO con la cascada de 27
+     * tablas hasta `notas`, y que **solo funciona desde la papelera** — con el
+     * grupo vivo, `onlyTrashed()` no lo encuentra y contesta 404, no 200.
+     *
+     * Se monta un grupo desechable en vez de usar uno del seed: la transacción del
+     * test lo desharía igual, pero un `forceDelete` sobre un grupo de verdad
+     * arrastra una cascada larga y un test no debería depender de que la
+     * transacción la deshaga entera. Es el mismo cuidado que ya tenía
+     * `GruposTest`.
+     */
+    public function test_forcedelete_por_la_puerta_de_perfiles_borra_de_verdad(): void
+    {
+        $jefe = $this->tokenDeUnSuperusuario();
+        $profesor = $this->tokenDe($this->usuarioDeTipo('Profesor')->username);
+
+        $base = DB::selectOne('SELECT year_id, grado_id FROM grupos WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+
+        $id = DB::table('grupos')->insertGetId([
+            'nombre' => 'Grupo desechable del lote E',
+            'abrev' => 'GDE',
+            'year_id' => $base->year_id,
+            'grado_id' => $base->grado_id,
+            'orden' => 998,
+        ]);
+
+        $this->assertSame(403,
+            $this->withToken($profesor)->deleteJson('/api/perfiles/forcedelete/'.$id, [])->status(),
+            'Un profesor cualquiera borró un grupo definitivamente por la puerta de perfiles.');
+
+        // Vivo, no en la papelera: `onlyTrashed()` no lo encuentra.
+        $this->assertSame(404,
+            $this->withToken($jefe)->deleteJson('/api/perfiles/forcedelete/'.$id, [])->status(),
+            'Borró definitivamente un grupo que no estaba en la papelera.');
+
+        DB::update('UPDATE grupos SET deleted_at = ? WHERE id = ?', ['2026-08-23 02:00:00', $id]);
+
+        $this->withToken($jefe)->deleteJson('/api/perfiles/forcedelete/'.$id, [])->assertStatus(200);
+
+        $this->assertNull(DB::table('grupos')->where('id', $id)->first(),
+            'Contestó 200 y dejó la fila: `forcedelete` es borrado físico.');
+    }
+
     /** Igual que en `PapeleraRestaurarTest`: por la columna, que es lo que el código pregunta. */
     private function tokenDeUnSuperusuario(): string
     {

@@ -58,9 +58,27 @@ class PlanillasAusenciasController extends Controller {
 
 
 
+	/**
+	 * Con un id de profesor que no está daba 500 — §98, cuarto y quinto llamante.
+	 *
+	 * `Profesor::detallado()` termina en `$profesor[0]` sobre el resultado de un
+	 * `DB::select`: sin filas es clave indefinida, error fatal en PHP 8. Y no hace
+	 * falta un id inventado — basta uno de la papelera, porque esa consulta filtra
+	 * `deleted_at is null`.
+	 *
+	 * El modelo se deja quieto a propósito: lo llaman **seis** sitios y un
+	 * `?? null` allí convertiría seis 500 en seis comportamientos distintos sin
+	 * haber medido ninguno. Se arregla en cada llamante, con su test.
+	 */
 	public function getShowProfesor($profesor_id)
 	{
 		$user = User::fromToken();
+
+		$existe = DB::selectOne('SELECT id FROM profesores WHERE id = ? AND deleted_at IS NULL', [$profesor_id]);
+
+		if ($existe === null) {
+			abort(404, 'Ese profesor no existe o está en la papelera.');
+		}
 
 		$year 			= Year::datos_basicos($user->year_id);
 		$asignaturas 	= Profesor::asignaturas($user->year_id, $profesor_id);

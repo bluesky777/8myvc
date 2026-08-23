@@ -238,6 +238,85 @@ class ImagenDeOtroEnLaFichaTest extends CasoDeContrato
             'Contestó 200 y la imagen siguió pública.');
     }
 
+    /**
+     * La población entera de «ponerle una imagen a otro», y por qué son dos reglas.
+     *
+     * Greppeada la operación en todo `app/`, hay **siete** métodos que le ponen a
+     * una persona una imagen que llega por el cuerpo, y se parten en dos grupos
+     * que hacen cosas distintas:
+     *
+     * - **Tres cambian de dueño** (`images.user_id = <destino>`): las
+     *   `images-users/cambiar-*`. Ésas son las del §99 y piden que la imagen sea
+     *   de quien la regala, porque el dueño original **la pierde de `myimages`**.
+     * - **Cuatro solo apuntan** (`users.imagen_id`, `alumnos.foto_id`,
+     *   `profesores.foto_id`, `profesores.firma_id`): las `perfiles/cambiar*un*`.
+     *   No se lleva nada nadie, y piden `esAdministrativo` desde la §36.
+     *
+     * Este test fija esa asimetría **a propósito**, porque una asimetría sin
+     * escribir es indistinguible de un descuido y ésta ya se juzgó: lo que separa
+     * a los dos grupos no es quién llama, es **si el dueño original se queda sin
+     * la imagen**. Queda medido, además, que las cuatro de `perfiles` **no
+     * comprueban de quién es la imagen que apuntan** — un administrativo puede
+     * poner la foto privada de un alumno de avatar de otra cuenta. No se cierra
+     * aquí: es la administración de fotos del colegio, y son los diez de siempre.
+     */
+    public function test_las_cuatro_de_perfiles_apuntan_pero_no_se_llevan_la_imagen(): void
+    {
+        $alumno = $this->usuarioDeTipo('Alumno');
+        $suya = $this->imagenPrivadaDe($alumno->id);
+
+        $jefe = DB::selectOne('SELECT u.id, u.username FROM users u
+            INNER JOIN periodos p ON p.id = u.periodo_id
+            WHERE u.is_superuser = 1 AND u.is_active = 1 AND u.deleted_at IS NULL
+            ORDER BY u.id LIMIT 1');
+
+        $this->assertNotNull($jefe, 'El seed no tiene ningún superusuario con contexto completo.');
+
+        $this->withToken($this->tokenDe($jefe->username))->putJson(
+            '/api/perfiles/cambiarimgunusuario/'.$jefe->id,
+            ['imgParaUsuario' => $suya]
+        )->assertStatus(200);
+
+        // Apunta...
+        $this->assertSame($suya,
+            (int) DB::table('users')->where('id', $jefe->id)->value('imagen_id'),
+            '`perfiles/cambiarimgunusuario` dejó de apuntar a la imagen que se le manda.');
+
+        // ...pero no se la lleva: el alumno la conserva.
+        $this->assertSame((int) $alumno->id,
+            (int) DB::table('images')->where('id', $suya)->value('user_id'),
+            '`perfiles/cambiarimgunusuario` empezó a cambiar el dueño: entonces entra en '
+            .'la regla del §99 y hay que cerrarla también.');
+
+        $otraVez = $this->withToken($this->tokenDe($alumno->username))->getJson('/api/myimages');
+        $this->assertContains($suya, $this->idsPrivadas($otraVez->json()),
+            'El alumno perdió su imagen por una ruta que no cambia de dueño.');
+    }
+
+    /** Un profesor cualquiera no llega a ninguna de las cuatro: piden administrativo (§36). */
+    public function test_las_cuatro_de_perfiles_siguen_pidiendo_administrativo(): void
+    {
+        $profesor = $this->usuarioDeTipo('Profesor');
+        $token = $this->tokenDe($profesor->username);
+        $suya = $this->imagenPrivadaDe($profesor->id);
+
+        $fichaProfe = $this->profesorDe($profesor->id);
+        $alumnoId = (int) DB::table('alumnos')->whereNotNull('user_id')->orderBy('id')->value('id');
+
+        $rutas = [
+            'perfiles/cambiarimgunusuario/'.$profesor->id => ['imgParaUsuario' => $suya],
+            'perfiles/cambiarimgunalumno/'.$alumnoId => ['imgOficialAlumno' => $suya],
+            'perfiles/cambiarimgunprofe/'.$fichaProfe => ['imgOficialProfe' => $suya],
+            'perfiles/cambiarfirmaunprofe/'.$fichaProfe => ['imgFirmaProfe' => $suya],
+        ];
+
+        foreach ($rutas as $ruta => $cuerpo) {
+            $this->assertSame(403,
+                $this->withToken($token)->putJson('/api/'.$ruta, $cuerpo)->status(),
+                "`{$ruta}` dejó de pedir administrativo — §36.");
+        }
+    }
+
     /** La ficha de profesor de una cuenta, que es lo que pide `cambiar-firma-un-profe`. */
     private function profesorDe(int $userId): int
     {

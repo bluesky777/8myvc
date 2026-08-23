@@ -100,6 +100,153 @@ class CamposQueSeVacianTest extends CasoDeContrato
     }
 
     /**
+     * Mandar `null` a propósito SÍ vacía, y ésa es la mitad que el arreglo no puede perder.
+     *
+     * «No mandar el campo» y «mandarlo vacío» son dos intenciones distintas, y un
+     * arreglo que las confunda es tan malo como el fallo: dejaría a un colegio sin
+     * poder borrar un teléfono que ya no existe.
+     *
+     * **El caso que separa las dos implementaciones posibles es éste, y no el del
+     * `0`.** Con un `0` en el cuerpo, `Request::input('x', $actual)` y
+     * `Request::input('x') ?? $actual` se comportan igual —`??` solo mira `null`—
+     * y el test pasa con cualquiera de las dos. Con `null` explícito se separan:
+     * `input()` con defecto devuelve **null**, porque la clave existe y
+     * `Arr::exists()` cuenta un null como presente; el `??` devolvería el valor
+     * viejo y **se comería la intención de borrar**. Lo que hay escrito es lo
+     * primero, y esto es lo que lo demuestra.
+     */
+    public function test_mandar_null_a_proposito_si_vacia_el_campo(): void
+    {
+        $alumno = $this->usuarioDeTipo('Alumno');
+        $id = (int) DB::table('alumnos')->where('user_id', $alumno->id)->value('id');
+
+        DB::update('UPDATE alumnos SET celular = ? WHERE id = ?', ['3001234567', $id]);
+
+        $this->withToken($this->tokenDe($alumno->username))->putJson('/api/perfiles/update/'.$id, [
+            'tipo' => 'Alumno',
+            'celular' => null,
+        ])->assertStatus(200);
+
+        $this->assertNull(DB::table('alumnos')->where('id', $id)->value('celular'),
+            'Mandar `celular: null` dejó de vaciarlo: el arreglo del §101 se comió la '
+            .'intención de borrar, que es distinta de no mandar el campo.');
+    }
+
+    /**
+     * Y lo mismo en la rama que usa `CamposQueVinieron`, donde no es evidente.
+     *
+     * Aquí el `null` explícito y el campo ausente llegan **iguales** a la altura de
+     * la asignación, porque `sanarInputProfesor()` mete `null` para las claves que
+     * no vienen. Lo único que los distingue es que `CamposQueVinieron` se captura
+     * **antes** del primer `sanar`, y por eso este test dice qué herramienta hay
+     * puesta de verdad: con el defecto de `input()` daría verde por casualidad, y
+     * con `has()` daría verde siempre.
+     */
+    public function test_mandar_null_a_un_profesor_tambien_vacia(): void
+    {
+        $jefe = $this->tokenDeUnSuperusuario();
+
+        $profesor = DB::selectOne('SELECT id, ciudad_nac FROM profesores
+            WHERE deleted_at IS NULL AND ciudad_nac IS NOT NULL ORDER BY id LIMIT 1');
+
+        $this->assertNotNull($profesor, 'El seed no tiene ningún profesor con ciudad de nacimiento.');
+
+        DB::update('UPDATE profesores SET telefono = ? WHERE id = ?', ['6041234567', $profesor->id]);
+
+        $this->withToken($jefe)->putJson('/api/profesores/update/'.$profesor->id, [
+            'telefono' => null,
+        ])->assertStatus(200);
+
+        $despues = DB::table('profesores')->where('id', $profesor->id)->first();
+
+        $this->assertNull($despues->telefono,
+            'Mandar `telefono: null` dejó de vaciarlo — §101.');
+
+        // Y la de al lado, que NO se mandó, sigue donde estaba: es la misma
+        // petición demostrando las dos mitades a la vez.
+        $this->assertSame($profesor->ciudad_nac, $despues->ciudad_nac,
+            'La misma petición que vació el teléfono se llevó la ciudad de nacimiento — §101.');
+    }
+
+    /**
+     * Y «quítame la ciudad» se sigue pudiendo decir, que es donde la herramienta
+     * podía haber tapado la distinción en vez de conservarla.
+     *
+     * `ciudad_nac` es de las cinco que `sanarInputProfesor()` fusiona como `null`
+     * cuando no vienen, así que **a la altura de la asignación el campo ausente y
+     * el `null` explícito son idénticos**: `Request::has()` dice que sí en los dos
+     * casos y `Request::input()` devuelve `null` en los dos. Si la guarda mirara
+     * ahí, «quítame la ciudad de nacimiento» sería **inexpresable** en este
+     * controlador, y el arreglo del §101 habría cambiado un fallo por otro con
+     * mejor cara.
+     *
+     * No lo es, y el porqué es una línea del propio `CamposQueVinieron`: se
+     * captura con `array_keys(Request::all())` **antes del primer `sanar*`**, o
+     * sea sobre el cuerpo tal como llegó. Este test es la prueba, y va con la
+     * pareja completa —el mismo campo ausente y mandado a null— porque una sola
+     * mitad no distingue las dos implementaciones.
+     */
+    public function test_a_un_profesor_se_le_puede_quitar_la_ciudad_a_proposito(): void
+    {
+        $jefe = $this->tokenDeUnSuperusuario();
+
+        $profesor = DB::selectOne('SELECT id, ciudad_nac FROM profesores
+            WHERE deleted_at IS NULL AND ciudad_nac IS NOT NULL ORDER BY id LIMIT 1');
+
+        $this->assertNotNull($profesor, 'El seed no tiene ningún profesor con ciudad de nacimiento.');
+
+        // 1. Sin la clave: no se toca.
+        $this->withToken($jefe)->putJson('/api/profesores/update/'.$profesor->id, [
+            'nombres' => 'Sigue Igual',
+        ])->assertStatus(200);
+
+        $this->assertSame($profesor->ciudad_nac,
+            DB::table('profesores')->where('id', $profesor->id)->value('ciudad_nac'),
+            'Sin mandar `ciudad_nac` se vació igual — §101.');
+
+        // 2. Con la clave a null: se quita. Misma ruta, mismo campo, otra intención.
+        $this->withToken($jefe)->putJson('/api/profesores/update/'.$profesor->id, [
+            'ciudad_nac' => null,
+        ])->assertStatus(200);
+
+        $this->assertNull(
+            DB::table('profesores')->where('id', $profesor->id)->value('ciudad_nac'),
+            'Mandar `ciudad_nac: null` no la quitó: entonces el arreglo del §101 dejó '
+            .'un campo que ya no se puede vaciar nunca, que es un fallo nuevo con mejor cara.');
+    }
+
+    /**
+     * Y un `0` explícito escribe 0, que es lo que casi se pierde al arreglar esto.
+     *
+     * `caritas` y `cupo` son las dos donde importa: **apagar las caritas es
+     * mandar un 0**, y un arreglo que confundiera «0» con «no vino» dejaría un
+     * grupo de preescolar sin poder volver a la escala numérica. No prueba qué
+     * implementación hay —con un `0` las dos coinciden— pero sí que ninguna se
+     * pasó de lista.
+     */
+    public function test_mandar_cero_a_proposito_escribe_cero(): void
+    {
+        $jefe = $this->tokenDeUnSuperusuario();
+
+        $grupo = DB::selectOne('SELECT * FROM grupos WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+        DB::update('UPDATE grupos SET caritas = 1, cupo = 33 WHERE id = ?', [$grupo->id]);
+
+        $this->withToken($jefe)->putJson('/api/grupos/update', [
+            'id' => $grupo->id,
+            'caritas' => 0,
+            'cupo' => 0,
+        ])->assertStatus(200);
+
+        $despues = DB::table('grupos')->where('id', $grupo->id)->first();
+
+        $this->assertSame(0, (int) $despues->caritas,
+            'Apagar las caritas a propósito dejó de funcionar: el §101 confundió un 0 con un ausente.');
+
+        $this->assertSame(0, (int) $despues->cupo,
+            'Poner el cupo a 0 dejó de funcionar — §101.');
+    }
+
+    /**
      * Editar a un profesor con medio formulario no le borra la hoja de vida.
      *
      * Aquí el arreglo **no puede ser el mismo** que en los dos de arriba, y ésa es
@@ -220,6 +367,93 @@ class CamposQueSeVacianTest extends CasoDeContrato
         $this->assertNotNull($creado, 'No creó la ficha.');
         $this->assertNull($creado->telefono,
             'Un campo no mandado en un ALTA dejó de quedarse nulo: entonces sí hay algo que mirar aquí.');
+    }
+
+    /**
+     * Editar un grupo de otro año **lo mueve al año de quien lo edita**, con sus
+     * matrículas dentro — §102.
+     *
+     * `putUpdate` hace `$grupo->year_id = $user->year_id` **sin leer nunca el
+     * cuerpo**, y el front tampoco lo manda: ni la rejilla (`GruposCtrl`) ni el
+     * formulario (`GruposEditCtrl`) incluyen `year_id`. O sea que lo que se
+     * escribe es siempre el año del que edita, y eso es una de dos cosas:
+     *
+     * - el grupo ya estaba en su año → no pasa nada, que es el 99% de las veces;
+     * - el grupo era de otro año → **se lo lleva**, y las matrículas van dentro
+     *   porque cuelgan del grupo, no del año.
+     *
+     * Corregirle la abreviatura a un grupo del año que viene lo mete en el año en
+     * curso. Nadie ve nada: la respuesta es 200 y el nombre cambiado.
+     *
+     * Lo que este test comprueba es **el año de las matrículas del grupo, no el
+     * del grupo**: la fila de `grupos` es un número que se puede volver a poner,
+     * y lo que importa es de qué año pasan a ser los alumnos que cuelgan de ella.
+     */
+    public function test_editar_un_grupo_de_otro_ano_no_se_lo_lleva_al_tuyo(): void
+    {
+        $jefe = $this->usuarioDeTipo('Usuario');
+        $token = $this->tokenDeUnSuperusuario();
+
+        $suYear = (int) DB::selectOne('SELECT p.year_id FROM periodos p
+            INNER JOIN users u ON u.periodo_id = p.id
+            WHERE u.is_superuser = 1 AND u.is_active = 1 AND u.deleted_at IS NULL
+            ORDER BY u.id LIMIT 1')->year_id;
+
+        $ajeno = DB::selectOne('SELECT g.id, g.year_id, g.nombre, g.abrev, g.grado_id, g.orden,
+                (SELECT COUNT(*) FROM matriculas m WHERE m.grupo_id = g.id AND m.deleted_at IS NULL) AS matriculas
+            FROM grupos g WHERE g.year_id <> ? AND g.deleted_at IS NULL
+            ORDER BY g.id LIMIT 1', [$suYear]);
+
+        if ($ajeno === null) {
+            $this->markTestSkipped('El seed solo trae grupos de un año.');
+        }
+
+        $r = $this->withToken($token)->putJson('/api/grupos/update', [
+            'id' => $ajeno->id,
+            'nombre' => $ajeno->nombre,
+            'abrev' => 'XX',
+            'grado_id' => $ajeno->grado_id,
+            'orden' => $ajeno->orden,
+        ]);
+
+        $this->assertSame(200, $r->status(), 'Editar el grupo de otro año no guardó.');
+
+        $this->assertSame('XX', DB::table('grupos')->where('id', $ajeno->id)->value('abrev'),
+            'No guardó lo que sí se mandó.');
+
+        $this->assertSame((int) $ajeno->year_id,
+            (int) DB::table('grupos')->where('id', $ajeno->id)->value('year_id'),
+            'Cambiarle la abreviatura a un grupo de otro año se lo llevó al del que edita, '
+            ."con sus {$ajeno->matriculas} matrículas dentro — §102.");
+    }
+
+    /**
+     * Y crear un grupo **sí** lo crea en el año del que lo crea, que es lo correcto.
+     *
+     * Esta es la mitad que un arreglo del §102 podría llevarse por delante sin que
+     * nada se pusiera rojo: `postStore` también escribe `year_id` desde el token,
+     * y ahí **es la única fuente posible** —el front no lo manda en ninguna de las
+     * dos rutas—. Lo que cambia entre las dos no es el dato: es que una fila nueva
+     * no tiene año previo y una que existe sí.
+     */
+    public function test_crear_un_grupo_lo_crea_en_el_ano_del_que_lo_crea(): void
+    {
+        $usuario = $this->usuarioDeTipo('Profesor');
+        $token = $this->tokenDe($usuario->username);
+
+        $suYear = (int) DB::selectOne('SELECT p.year_id FROM periodos p
+            INNER JOIN users u ON u.periodo_id = p.id WHERE u.id = ?', [$usuario->id])->year_id;
+
+        $grado = DB::selectOne('SELECT id FROM grados WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+
+        $id = $this->withToken($token)->postJson('/api/grupos/store', [
+            'nombre' => 'Grupo del ano en curso', 'abrev' => 'GAC',
+            'grado' => ['id' => $grado->id], 'orden' => 997,
+            'valormatricula' => 0, 'valorpension' => 0, 'caritas' => 0,
+        ])->json('id');
+
+        $this->assertSame($suYear, (int) DB::table('grupos')->where('id', $id)->value('year_id'),
+            'Crear un grupo dejó de ponerlo en el año de quien lo crea — §102.');
     }
 
     /**

@@ -657,7 +657,19 @@ class GruposController extends Controller {
 
 			$grupo->nombre		=	Request::input('nombre', $grupo->nombre);
 			$grupo->abrev		=	Request::input('abrev', $grupo->abrev);
-			$grupo->year_id		=	$user->year_id;
+			// **El año NO se toca al editar** — §102. Aquí ponía `$user->year_id`, sin
+			// leer nunca el cuerpo, y el front tampoco lo manda: ni la rejilla
+			// (`GruposCtrl`) ni el formulario (`GruposEditCtrl`) incluyen `year_id`.
+			// O sea que lo que se escribía era siempre el año del que edita, y eso
+			// es una de dos cosas: o el grupo ya estaba en su año —el 99% de las
+			// veces, y no pasa nada— o **se lo llevaba**, con sus matrículas dentro,
+			// porque cuelgan del grupo y no del año. Medido: corregirle la
+			// abreviatura a un grupo del año 7 lo pasaba al 8 con **56 matrículas**.
+			//
+			// Y no hay forma de que el cliente lo pida, así que no se le da una: el
+			// año de un grupo se decide al crearlo, y `postStore` lo sigue tomando
+			// del token, que ahí es la única fuente posible. Mover un grupo de año es
+			// otra operación y hoy no existe.
 			$grupo->titular_id	=	$titular_id;
 			$grupo->grado_id	=	$grado_id;
 			$grupo->valormatricula=	Request::input('valormatricula', $grupo->valormatricula);

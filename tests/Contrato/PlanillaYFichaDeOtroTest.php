@@ -37,6 +37,29 @@ class PlanillaYFichaDeOtroTest extends CasoDeContrato
     }
 
     /**
+     * Y las otras dos puertas al mismo 500, que no son de este controlador.
+     *
+     * `Profesor::detallado()` la llaman **seis** sitios, y cuatro no estaban en el
+     * lote: dos de ellos —los dos informes de `Informes/`— no eran de ningún lote,
+     * así que se cerraron aquí. Van en la misma tabla que la de arriba a propósito:
+     * lo que hay que poder ver de un vistazo es **cuántas puertas dan al mismo
+     * fatal y cuántas quedan**. Las dos que faltan son del lote D
+     * (`AsignaturasController:198` y `UnidadesController:163`) y siguen dando 500.
+     */
+    public function test_los_dos_informes_de_un_profesor_que_no_esta_dan_404(): void
+    {
+        $token = $this->tokenDe($this->usuarioDeTipo('Profesor')->username);
+
+        $inexistente = (int) DB::table('profesores')->max('id') + 1000;
+
+        foreach (['planillas-ausencias/show-profesor', 'notas-perdidas/show-profesor'] as $ruta) {
+            $this->assertSame(404,
+                $this->withToken($token)->getJson('/api/'.$ruta.'/'.$inexistente)->status(),
+                "`{$ruta}` con un profesor que no está dejó de dar 404 — §98.");
+        }
+    }
+
+    /**
      * La planilla de un grupo de OTRO año sale, y sale mezclada.
      *
      * `getShowGrupo()` toma el grupo del id de la URL y los periodos del **año del
@@ -76,6 +99,69 @@ class PlanillaYFichaDeOtroTest extends CasoDeContrato
 
         $this->assertNotSame((int) $ajeno->year_id, $suYear,
             'El grupo elegido resultó ser del mismo año: el test no medía nada.');
+    }
+
+    /**
+     * Lo que cuesta la planilla de un profesor, contado — la vecina de la §75.6.
+     *
+     * `getShowProfesor()` recorre **asignatura × alumno × periodo**, y dentro del
+     * bucle más interno hace `Asignatura::find()` y vuelve a pedir las unidades y
+     * las subunidades **para cada alumno y cada periodo**, aunque son las mismas
+     * de la asignatura. La medida ya conocida de su vecina es 1 + 13 + 378
+     * consultas en una petición ([05 §75.6]); ésta nadie la había contado.
+     *
+     * No se optimiza aquí: encoger la respuesta o el número de consultas es
+     * contrato con dieciséis copias del front, y antes de optimizar algo hay que
+     * medirlo — que es lo que hace este test. Lo que fija es **la relación**, no
+     * el número absoluto: cuántas consultas por alumno-periodo. Un número suelto
+     * envejece con el seed; una proporción, no.
+     */
+    public function test_la_planilla_de_un_profesor_cuesta_una_consulta_por_alumno_y_periodo(): void
+    {
+        $usuario = $this->usuarioDeTipo('Profesor');
+        $token = $this->tokenDe($usuario->username);
+
+        // **El profesor del token no vale**: el del seed no tiene asignaturas con
+        // alumnos y el test se saltaba entero, o sea que medía cero y decía verde.
+        // La ruta pide `auth.personal` y no comprueba que sea uno mismo —eso está
+        // fijado arriba—, así que se elige el profesor que SÍ tiene alumnos.
+        $suYear = (int) DB::selectOne('SELECT p.year_id FROM periodos p
+            INNER JOIN users u ON u.periodo_id = p.id WHERE u.id = ?', [$usuario->id])->year_id;
+
+        $conAlumnos = DB::selectOne('SELECT a.profesor_id, COUNT(*) AS cuantas
+            FROM asignaturas a
+            INNER JOIN grupos g ON g.id = a.grupo_id AND g.year_id = ? AND g.deleted_at IS NULL
+            WHERE a.deleted_at IS NULL AND a.profesor_id IS NOT NULL
+            GROUP BY a.profesor_id ORDER BY cuantas DESC, a.profesor_id LIMIT 1', [$suYear]);
+
+        if ($conAlumnos === null) {
+            $this->markTestSkipped('El seed no tiene ningún profesor con asignaturas en el año del token.');
+        }
+
+        $profesorId = (int) $conAlumnos->profesor_id;
+
+        $consultas = 0;
+        DB::listen(function () use (&$consultas) {
+            $consultas++;
+        });
+
+        $r = $this->withToken($token)->getJson('/api/planillas/show-profesor/'.$profesorId);
+        $r->assertStatus(200);
+
+        $asignaturas = $r->json()[1];
+        $alumnos = array_sum(array_map(static fn ($a) => count($a['alumnos']), $asignaturas));
+        $periodos = count($r->json()[0]['periodos']);
+
+        if ($alumnos === 0) {
+            $this->markTestSkipped('El profesor del seed no tiene alumnos en sus asignaturas.');
+        }
+
+        // La cota inferior es la que describe la forma: al menos una consulta por
+        // cada pareja alumno-periodo. Si esto baja, es que alguien sacó del bucle
+        // lo que no dependía de él, y entonces hay que venir a leer esto.
+        $this->assertGreaterThanOrEqual($alumnos * $periodos, $consultas,
+            "La planilla bajó de {$alumnos}×{$periodos} consultas: alguien la optimizó, y eso "
+            .'cambia el contrato de tiempo con dieciséis copias del front. Mídelo y actualiza el §100.');
     }
 
     /**
