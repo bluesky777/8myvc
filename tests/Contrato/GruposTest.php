@@ -260,9 +260,9 @@ class GruposTest extends CasoDeContrato
         // grupo CON titular y lo comprobaba sin él dos líneas después. El snapshot
         // guardaba `titular => null`, o sea que **el contrato tenía dentro el
         // fallo**, que es lo que pasa cuando se fija lo que hay sin preguntarse por
-        // qué es eso. Ver §101 y `CamposQueSeVacianTest`.
+        // qué es eso. Ver §153 y `CamposQueSeVacianTest`.
         $this->assertSame((int) $base->titular_id, (int) $r->json('titular_id'),
-            'Editar un grupo sin mandar el titular volvió a quitárselo — §101.');
+            'Editar un grupo sin mandar el titular volvió a quitárselo — §153.');
 
         $this->compararConInstantanea('grupos-show', $this->formaUnida($r->json()));
     }

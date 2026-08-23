@@ -92,7 +92,7 @@ class PerfilesController extends Controller {
 
 
 	/**
-	 * No devuelve un perfil: devuelve el GRUPO cuyo id coincide — §104.
+	 * No devuelve un perfil: devuelve el GRUPO cuyo id coincide — §156.
 	 *
 	 * Es uno de los cinco métodos de este controlador que operan sobre grupo, y el
 	 * front lo lleva escrito en la cabecera de `PerfilesApi`. **No lo llama ningún
@@ -234,7 +234,7 @@ class PerfilesController extends Controller {
 	}
 
 	/**
-	 * Editar la ficha de una persona. Con medio formulario la vaciaba — §101.
+	 * Editar la ficha de una persona. Con medio formulario la vaciaba — §153.
 	 *
 	 * Las cuatro ramas de aquí son cuatro copias de las mismas seis líneas, y las
 	 * veintidós asignaciones leían `Request::input('x')` **sin defecto**: un campo

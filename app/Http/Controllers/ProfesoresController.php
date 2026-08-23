@@ -345,7 +345,7 @@ class ProfesoresController extends Controller {
 				// con las que puede llegar cada una. Van en una tabla y no en
 				// diecisiete `if` porque lo que hay que poder leer de un vistazo es
 				// que **la regla es la misma para las diecisiete**: si el cliente no
-				// mandó la clave, la columna no se toca. §101.
+				// mandó la clave, la columna no se toca. §153.
 				//
 				// Y aquí hace falta `CamposQueVinieron` y NO el defecto de
 				// `Request::input()`, que es lo que se usó en `perfiles/update` y en

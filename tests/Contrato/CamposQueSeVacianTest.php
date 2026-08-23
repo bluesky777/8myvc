@@ -54,7 +54,7 @@ class CamposQueSeVacianTest extends CasoDeContrato
 
             foreach ($rama['intactas'] as $columna) {
                 $this->assertSame($antes->{$columna}, $despues->{$columna},
-                    "La rama {$nombre} vació `{$columna}` con un formulario que no la traía — §101.");
+                    "La rama {$nombre} vació `{$columna}` con un formulario que no la traía — §153.");
             }
         }
     }
@@ -90,13 +90,13 @@ class CamposQueSeVacianTest extends CasoDeContrato
         $despues = DB::table('grupos')->where('id', $grupo->id)->first();
 
         $this->assertSame(1, (int) $despues->caritas,
-            'Editar el nombre de un grupo apagó sus caritas — §101.');
+            'Editar el nombre de un grupo apagó sus caritas — §153.');
 
         $this->assertSame(33, (int) $despues->cupo,
-            'Editar el nombre de un grupo borró su cupo — §101.');
+            'Editar el nombre de un grupo borró su cupo — §153.');
 
         $this->assertSame(12345.0, (float) $despues->valorpension,
-            'Editar el nombre de un grupo borró su valor de pensión — §101.');
+            'Editar el nombre de un grupo borró su valor de pensión — §153.');
     }
 
     /**
@@ -128,7 +128,7 @@ class CamposQueSeVacianTest extends CasoDeContrato
         ])->assertStatus(200);
 
         $this->assertNull(DB::table('alumnos')->where('id', $id)->value('celular'),
-            'Mandar `celular: null` dejó de vaciarlo: el arreglo del §101 se comió la '
+            'Mandar `celular: null` dejó de vaciarlo: el arreglo del §153 se comió la '
             .'intención de borrar, que es distinta de no mandar el campo.');
     }
 
@@ -160,12 +160,12 @@ class CamposQueSeVacianTest extends CasoDeContrato
         $despues = DB::table('profesores')->where('id', $profesor->id)->first();
 
         $this->assertNull($despues->telefono,
-            'Mandar `telefono: null` dejó de vaciarlo — §101.');
+            'Mandar `telefono: null` dejó de vaciarlo — §153.');
 
         // Y la de al lado, que NO se mandó, sigue donde estaba: es la misma
         // petición demostrando las dos mitades a la vez.
         $this->assertSame($profesor->ciudad_nac, $despues->ciudad_nac,
-            'La misma petición que vació el teléfono se llevó la ciudad de nacimiento — §101.');
+            'La misma petición que vació el teléfono se llevó la ciudad de nacimiento — §153.');
     }
 
     /**
@@ -177,7 +177,7 @@ class CamposQueSeVacianTest extends CasoDeContrato
      * el `null` explícito son idénticos**: `Request::has()` dice que sí en los dos
      * casos y `Request::input()` devuelve `null` en los dos. Si la guarda mirara
      * ahí, «quítame la ciudad de nacimiento» sería **inexpresable** en este
-     * controlador, y el arreglo del §101 habría cambiado un fallo por otro con
+     * controlador, y el arreglo del §153 habría cambiado un fallo por otro con
      * mejor cara.
      *
      * No lo es, y el porqué es una línea del propio `CamposQueVinieron`: se
@@ -202,7 +202,7 @@ class CamposQueSeVacianTest extends CasoDeContrato
 
         $this->assertSame($profesor->ciudad_nac,
             DB::table('profesores')->where('id', $profesor->id)->value('ciudad_nac'),
-            'Sin mandar `ciudad_nac` se vació igual — §101.');
+            'Sin mandar `ciudad_nac` se vació igual — §153.');
 
         // 2. Con la clave a null: se quita. Misma ruta, mismo campo, otra intención.
         $this->withToken($jefe)->putJson('/api/profesores/update/'.$profesor->id, [
@@ -211,7 +211,7 @@ class CamposQueSeVacianTest extends CasoDeContrato
 
         $this->assertNull(
             DB::table('profesores')->where('id', $profesor->id)->value('ciudad_nac'),
-            'Mandar `ciudad_nac: null` no la quitó: entonces el arreglo del §101 dejó '
+            'Mandar `ciudad_nac: null` no la quitó: entonces el arreglo del §153 dejó '
             .'un campo que ya no se puede vaciar nunca, que es un fallo nuevo con mejor cara.');
     }
 
@@ -240,10 +240,10 @@ class CamposQueSeVacianTest extends CasoDeContrato
         $despues = DB::table('grupos')->where('id', $grupo->id)->first();
 
         $this->assertSame(0, (int) $despues->caritas,
-            'Apagar las caritas a propósito dejó de funcionar: el §101 confundió un 0 con un ausente.');
+            'Apagar las caritas a propósito dejó de funcionar: el §153 confundió un 0 con un ausente.');
 
         $this->assertSame(0, (int) $despues->cupo,
-            'Poner el cupo a 0 dejó de funcionar — §101.');
+            'Poner el cupo a 0 dejó de funcionar — §153.');
     }
 
     /**
@@ -287,12 +287,12 @@ class CamposQueSeVacianTest extends CasoDeContrato
         foreach (['ciudad_nac', 'tipo_doc'] as $columna) {
             $this->assertSame($profesor->{$columna}, $despues->{$columna},
                 "Editar el nombre vació `{$columna}`, que es de las que `sanarInputProfesor()` "
-                .'mete como null: el defecto de `Request::input()` no basta aquí — §101.');
+                .'mete como null: el defecto de `Request::input()` no basta aquí — §153.');
         }
 
         foreach (['apellidos', 'num_doc', 'direccion', 'telefono', 'celular', 'titulo'] as $columna) {
             $this->assertSame($profesor->{$columna}, $despues->{$columna},
-                "Editar el nombre de un profesor vació `{$columna}` — §101.");
+                "Editar el nombre de un profesor vació `{$columna}` — §153.");
         }
     }
 
@@ -327,13 +327,13 @@ class CamposQueSeVacianTest extends CasoDeContrato
             'No guardó la observación que sí se mandó.');
 
         $this->assertSame((int) $parentesco->acudiente_id, (int) $despues->acudiente_id,
-            'Cambiar la observación desató al acudiente del alumno — §101.');
+            'Cambiar la observación desató al acudiente del alumno — §153.');
 
         $this->assertSame((int) $parentesco->alumno_id, (int) $despues->alumno_id,
-            'Cambiar la observación desató al alumno de su acudiente — §101.');
+            'Cambiar la observación desató al alumno de su acudiente — §153.');
 
         $this->assertSame($parentesco->parentesco, $despues->parentesco,
-            'Cambiar la observación borró qué parentesco era — §101.');
+            'Cambiar la observación borró qué parentesco era — §153.');
     }
 
     /**
@@ -371,7 +371,7 @@ class CamposQueSeVacianTest extends CasoDeContrato
 
     /**
      * Editar un grupo de otro año **lo mueve al año de quien lo edita**, con sus
-     * matrículas dentro — §102.
+     * matrículas dentro — §154.
      *
      * `putUpdate` hace `$grupo->year_id = $user->year_id` **sin leer nunca el
      * cuerpo**, y el front tampoco lo manda: ni la rejilla (`GruposCtrl`) ni el
@@ -424,13 +424,13 @@ class CamposQueSeVacianTest extends CasoDeContrato
         $this->assertSame((int) $ajeno->year_id,
             (int) DB::table('grupos')->where('id', $ajeno->id)->value('year_id'),
             'Cambiarle la abreviatura a un grupo de otro año se lo llevó al del que edita, '
-            ."con sus {$ajeno->matriculas} matrículas dentro — §102.");
+            ."con sus {$ajeno->matriculas} matrículas dentro — §154.");
     }
 
     /**
      * Y crear un grupo **sí** lo crea en el año del que lo crea, que es lo correcto.
      *
-     * Esta es la mitad que un arreglo del §102 podría llevarse por delante sin que
+     * Esta es la mitad que un arreglo del §154 podría llevarse por delante sin que
      * nada se pusiera rojo: `postStore` también escribe `year_id` desde el token,
      * y ahí **es la única fuente posible** —el front no lo manda en ninguna de las
      * dos rutas—. Lo que cambia entre las dos no es el dato: es que una fila nueva
@@ -453,7 +453,7 @@ class CamposQueSeVacianTest extends CasoDeContrato
         ])->json('id');
 
         $this->assertSame($suYear, (int) DB::table('grupos')->where('id', $id)->value('year_id'),
-            'Crear un grupo dejó de ponerlo en el año de quien lo crea — §102.');
+            'Crear un grupo dejó de ponerlo en el año de quien lo crea — §154.');
     }
 
     /**

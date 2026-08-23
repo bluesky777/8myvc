@@ -481,7 +481,7 @@ where id in (
 
 
 	/**
-	 * Quién es un acudiente de un alumno. Con medio cuerpo lo desataba — §101.
+	 * Quién es un acudiente de un alumno. Con medio cuerpo lo desataba — §153.
 	 *
 	 * Este método tiene **las dos ramas en el mismo sitio**: con
 	 * `parentesco_acudiente_cambiar_id` edita una fila que existe, y sin él crea

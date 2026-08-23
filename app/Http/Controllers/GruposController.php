@@ -614,7 +614,7 @@ class GruposController extends Controller {
 
 
 	/**
-	 * Editar un grupo. Con medio formulario se llevaba por delante el resto — §101.
+	 * Editar un grupo. Con medio formulario se llevaba por delante el resto — §153.
 	 *
 	 * Diez columnas, nueve leídas con `Request::input('x')` **sin defecto**, y la
 	 * décima es la que enseña la trampa: `caritas` tenía defecto —`false`— y por
@@ -657,7 +657,7 @@ class GruposController extends Controller {
 
 			$grupo->nombre		=	Request::input('nombre', $grupo->nombre);
 			$grupo->abrev		=	Request::input('abrev', $grupo->abrev);
-			// **El año NO se toca al editar** — §102. Aquí ponía `$user->year_id`, sin
+			// **El año NO se toca al editar** — §154. Aquí ponía `$user->year_id`, sin
 			// leer nunca el cuerpo, y el front tampoco lo manda: ni la rejilla
 			// (`GruposCtrl`) ni el formulario (`GruposEditCtrl`) incluyen `year_id`.
 			// O sea que lo que se escribía era siempre el año del que edita, y eso
