@@ -100,7 +100,17 @@ class TSubirController extends Controller {
 
 			}else{
 
-				$dt = Carbon::now('America/Bogota')->format('Y-m-d G:H:i');
+				// `'Y-m-d G:H:i'` escribía **la hora dos veces**: `G` y `H` son las dos la
+				// hora del día —una sin cero delante y otra con él—, así que el formato era
+				// hora:hora:minutos y los segundos no llegaban nunca. Las 21:07:33 se
+				// guardaban como 21:21:07. Es el mismo de `ChangeAskedController` (05 §121);
+				// aquí escribe el `created_at` y el `updated_at` de **cada ausencia que sube
+				// el lector de tardanzas**, que es el camino de más volumen de los dos.
+				//
+				// Se arregla y no rompe a nadie porque **no hay quien lo lea así**: el único
+				// sitio que parseaba con ese formato —`AusenciasController:177`— lleva años
+				// dentro de un `/* */`. Ver 05 §123.
+				$dt = Carbon::now('America/Bogota')->format('Y-m-d H:i:s');
 
 				$consulta = 'INSERT INTO ausencias
 								(alumno_id, asignatura_id, cantidad_ausencia, cantidad_tardanza, entrada, tipo, fecha_hora, periodo_id, uploaded, created_by, created_at, updated_at)
