@@ -1,4 +1,4 @@
-# Lote R — El boletín de una familia (§140–143)
+# Lote R — El boletín de una familia (§140–144)
 
 > Sesión `8myvc-06`, árbol `.worktrees/r`, rama `fix/lote-r-boletin-de-la-familia`,
 > base `simonbolivar_testing_r`. Noche del 22 al 23 de agosto de 2026.
@@ -7,7 +7,9 @@
 > mismo**: una familia entra, pide el boletín y recibe un error del servidor.
 
 Dos fallos distintos en los mismos dos ficheros, y los dos tapados por la misma
-cosa: **la maqueta 1 se prueba y las otras dos no**.
+cosa: **la maqueta 1 se prueba y las otras dos no**. Y un tercero, la §144, que
+no venía en el lote: salió de una anotación propia del lote J que quedó escrita
+como *candidato no medido*.
 
 ---
 
@@ -210,6 +212,66 @@ Cuál de las dos es una decisión, y R se abrió por el boletín de una familia.
 Con ruta y roto se documenta.
 
 ---
+
+---
+
+## §144 — Colgar en el muro del colegio la imagen privada de otro
+
+No venía en el lote: venía de **una anotación propia del lote J** que decía,
+literal, *«no afirmo que filtre: afirmo que no lo he mirado»*. Salió del barrido
+de rutas abiertas que ningún candado mira y ningún test juzga, y quedó como
+candidato porque medirla necesitaba la base y había seis `phpunit` vivos.
+
+Medida en cuanto hubo hueco, **y filtra**.
+
+### De punta a punta
+
+1. un alumno manda `imagen: {id: 5, nombre: "imagen-5.jpg"}` — esa imagen tiene
+   `publica IS NULL` y `user_id = 2`, o sea que es **de otra persona**;
+2. la fila entra tal cual: `imagen_id=5, imagen_nombre="imagen-5.jpg"`;
+3. y `publicaciones/ultimas` **le sirve ese nombre a todo el mundo**, comprobado
+   con el token de un profesor que no es el dueño.
+
+**La imagen privada de cualquiera acaba publicada en el muro del colegio sólo con
+nombrar su id.** Es la familia de la [§53](../05-codigo-muerto-y-roto.md) —donde
+`images-users/imagenes-de-usuario` soltaba 162 imágenes privadas— con una
+diferencia que la empeora: **allí se listaban, aquí se publican.**
+
+### La regla no se inventa aquí
+
+**Tuya, o pública.** Es exactamente lo que ya decide la pantalla que elige la
+imagen: `ImagesController::getIndex()` devuelve las privadas del que pregunta y,
+sólo a superusuario o profesor, las `publica = 1`. La comprobación no le quita
+ninguna opción a ningún cliente que use el selector — le quita las que el
+selector nunca le ofreció.
+
+No se reutiliza el guard `persona.propia:imagen_id`: el cuerpo trae `imagen.id`
+**anidado** y no `imagen_id`, así que el middleware no lo encontraría, y cambiar
+la forma del cuerpo es tocar el contrato de cuatro clientes por una comprobación
+que aquí cuesta cinco líneas.
+
+### Va en los dos métodos, y el segundo parecía cubierto
+
+`putGuardarEdicion` **ya llamaba** a `exigeQueLaPublicacionSeaSuya()`. Lo que no
+comprobaba es **de quién es la imagen que le pones**.
+
+> Una comprobación puesta no dice que estén puestas las que faltan.
+
+**Comprobado al revés, dos veces:**
+
+| Qué se probó | Qué cae |
+|---|---|
+| Revertido del todo | 2 de 3 |
+| **Sólo `putStore`**, dejando el hermano sin tocar | pasa el alta y cae **sólo la edición** |
+
+Y la tercera mitad, contra el 403 de más: colgar la imagen **propia** sigue
+llegando al muro, leído con otro usuario.
+
+`ImagenAjenaEnElMuroTest` · commit `0e576ec`
+
+> Lo que hace que esto exista es que el candidato se escribió **como candidato** y
+> no como hallazgo ni como silencio. Un «no lo he mirado» con nombre y ruta se
+> puede volver a coger; un hueco sin anotar, no.
 
 ## Tres veces que el test estuvo mal y el mensaje culpaba al código
 
