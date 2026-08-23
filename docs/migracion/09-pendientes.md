@@ -1727,3 +1727,59 @@ saber el tamaño real del daño en las dieciséis bases antes de tocar código.
   fila que ya existe, lo prepara quien mide; si lo que falta es la **fila**, se
   monta en el test que la necesita — y llevarla al seed es una decisión aparte,
   que se toma cuando compre hallazgos y no solo cobertura.
+
+---
+
+## 7. «Restaurar» contesta tres cosas distintas, y una está mal escrita — 24 ago 2026
+
+**Espera una decisión, y su despliegue va al revés del habitual.** Lo levantó
+`myvc-front-12` avisando de una errata —`Retaurada`, sin la `s`— y midiendo que
+está **replicada en tres controladores**, así que quien la corrija arreglará uno
+y dejará dos. Al ir a mirarlo salió que la errata es la punta.
+
+**Los diez endpoints que restauran de la papelera no contestan lo mismo:**
+
+| Qué devuelve | Cuántos | Dónde |
+|---|---|---|
+| **el objeto restaurado** | **6** | `years`, `grupos`, `alumnos`, `editnota`, `profesores`, `perfiles` |
+| `'Retaurada'` *(mal escrito)* | **3** | `asignaturas/restaurar`, `unidades/restore/{id}`, `subunidades/restore/{id}` |
+| `'Restaurada'` *(bien escrito)* | **1** | `publicaciones/restaurar` |
+
+Los diez están **enrutados y son alcanzables**; ninguno es código muerto.
+
+O sea que la misma operación contesta **un objeto, una cadena bien escrita o una
+cadena mal escrita** según por dónde entres, y **la errata es lo de menos**: un
+cliente no puede tratar «restaurar» de forma uniforme aunque se corrija la `s`.
+Que tres de cada cuatro cadenas estén mal escritas es además la señal de que se
+copiaron entre sí, no de que alguien tecleara mal una vez.
+
+### Por qué no se toca sin decidirlo, y por qué el orden se invierte
+
+**Hay pantallas del front que sólo pueden distinguir dos respuestas por esa
+palabra.** Corregir la cadena en el backend **rompe esas pantallas** en cuanto se
+despliegue, y son dieciséis despliegues escalonados: durante días convivirían
+colegios que dicen `Retaurada` con colegios que dicen `Restaurada`.
+
+Así que **el orden es el contrario del de siempre**:
+
+1. **primero el front**, que pase a aceptar las dos formas —o a no mirar la
+   cadena—, publicado y desplegado;
+2. **y el backend detrás**, cuando ya no haya nadie que dependa de la errata.
+
+Es el único caso conocido en el que la regla «el backend delante» no vale. Todo lo
+demás en este proyecto va al revés porque el backend **añade** capacidades; aquí
+**cambia una respuesta que alguien ya lee**, y eso es una rotura, no una mejora.
+
+### Las tres salidas
+
+1. **Corregir sólo la `s`** en los tres sitios. Barato, y deja la incoherencia de
+   fondo —seis devuelven objeto y cuatro cadena— exactamente igual.
+2. **Unificar a la cadena correcta** en los cuatro que devuelven cadena, y dejar
+   los seis del objeto como están. Es lo que hace que «restaurar» tenga dos
+   contratos en vez de tres.
+3. **Unificar los diez al objeto restaurado.** Es el contrato bueno —el cliente
+   sabe qué fila volvió— y el que más rompe: cuatro pantallas a la vez.
+
+**Sin decisión, no se toca ninguno.** Y quien la tome debe saber que corregir
+sólo uno de los tres `Retaurada` es la peor opción posible: deja la misma
+operación contestando dos cadenas distintas **dentro del mismo colegio**.
