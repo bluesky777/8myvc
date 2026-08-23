@@ -96,9 +96,32 @@ class NotasActualesAlumnosController extends Controller {
 		$response_alumnos = [];
 		
 
+		// **La guarda que a esta copia se le cayó.** Sus ocho hermanas —los tres
+		// boletines, los dos bolfinales, preescolar, certificados y `editnota`—
+		// llevan `if ($requested_alumnos == '')` delante de este bucle; ésta no,
+		// y es la única de las nueve que no lo lleva.
+		//
+		// Sin ella, `foreach` sobre la cadena vacía del parámetro por defecto es
+		// **500 en PHP 8**: «foreach() argument must be of type array|object,
+		// string given». En PHP 5 y 7 no hacía nada y el endpoint devolvía la
+		// lista vacía, así que **el fallo era benigno y alguien construyó
+		// encima**: la pantalla del front documenta que sin la galleta esto
+		// «responde con la lista de alumnos vacía» y decidió no compensarlo. Dejó
+		// de ser cierto con el salto de versión, y nadie relacionó las dos cosas.
+		//
+		// Lo destapó `myvc-front-12` el 24 ago 2026 barriendo 107 rutas en Chrome
+		// con el log del backend delante. Se copia el comportamiento de las ocho
+		// hermanas —sin lista, entran todos— porque es lo que ya hacen las
+		// pantallas equivalentes y aquí el bucle exterior ya recorre el grupo.
 		foreach ($alumnos as $alumno) {
-            
-            
+
+            if ($requested_alumnos == '') {
+                $this->periodosDelAlumno($alumno, $grupo_id, $user, $periodo_a_calcular);
+                array_push($response_alumnos, $alumno);
+
+                continue;
+            }
+
             foreach ($requested_alumnos as $req_alumno) {
                 
                 if ($req_alumno['alumno_id'] == $alumno->alumno_id) {
@@ -127,6 +150,27 @@ class NotasActualesAlumnosController extends Controller {
 
 
 		return array($grupo, $year, $response_alumnos);
+	}
+
+	/**
+	 * Los periodos de un alumno con sus notas, que es lo que las dos ramas de
+	 * `detailedNotasGrupo` necesitan.
+	 *
+	 * Se saca aquí y no se copia porque copiarlo es exactamente lo que dejó a
+	 * este controlador sin la guarda que sus ocho hermanas sí tienen: **nueve
+	 * copias del mismo método, y la novena perdió una línea por el camino.**
+	 */
+	private function periodosDelAlumno(&$alumno, $grupo_id, $user, $periodo_a_calcular): void
+	{
+		$alumno->periodos = Periodo::hastaPeriodoN($user->year_id, $periodo_a_calcular);
+
+		for ($i = 0; $i < count($alumno->periodos); $i++) {
+			$alumno->periodos[$i]->alumno_id = $alumno->alumno_id;
+			$alumno->periodos[$i]->sexo = $alumno->sexo;
+
+			$this->allNotasAlumno($alumno->periodos[$i], $grupo_id, true);
+			$this->asignaturasPerdidasDeAlumno($alumno->periodos[$i], $grupo_id);
+		}
 	}
 
 	public function allNotasAlumno(&$alumno, $grupo_id, $comport_and_frases=false)
