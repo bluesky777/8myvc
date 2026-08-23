@@ -1,4 +1,4 @@
-# Lote E — Personas e imágenes · §97–§153
+# Lote E — Personas e imágenes · §97–100 y §153–156
 
 > Sesión `8myvc-4f`, noche del 22 al 23 de agosto de 2026. Rama
 > `fix/lote-e-personas-imagenes`, árbol `.worktrees/e`, base

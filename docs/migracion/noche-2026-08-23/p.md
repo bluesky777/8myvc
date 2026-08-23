@@ -1,4 +1,4 @@
-# Lote P — Las que escriben sin decirlo · §133–§136
+# Lote P — Las que escriben sin decirlo · §133–137
 
 > Sesión `8myvc-4f`, noche del 22 al 23 de agosto de 2026. Rama
 > `fix/lote-p-las-seis-que-preguntan`, árbol `.worktrees/p`.

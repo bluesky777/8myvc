@@ -1,4 +1,4 @@
-# Lote R — El boletín de una familia (§140–143)
+# Lote R — El boletín de una familia (§140–142 y §166)
 
 > Sesión `8myvc-06`, árbol `.worktrees/r`, rama `fix/lote-r-boletin-de-la-familia`,
 > base `simonbolivar_testing_r`. Noche del 22 al 23 de agosto de 2026.
