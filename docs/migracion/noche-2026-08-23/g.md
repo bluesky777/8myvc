@@ -25,8 +25,10 @@ El **49** ya estaba desde el 21 de agosto en la [§17 del 12](../12-larastan-niv
 así que este lote no lo descubre. Lo que añade son tres cosas:
 
 1. **Por qué nadie lo sabía**: la cabecera de la herramienta decía «dos» (§105).
-2. **Contra qué se midió**, que es lo que hace afirmable «no lo lee nadie» —y
-   faltaban dos corpus enteros, uno de ellos veintiuna ramas (§106).
+2. **Contra qué se midió**, que es lo que hace afirmable «no lo lee nadie». Se
+   había mirado `myvc_front` en `main`, y faltaban **las otras 22 ramas del
+   mismo repositorio** —el front está a mitad de migración— y el bundle
+   construido, que el script se salta por tamaño (§106).
 3. **Cuatro columnas más**, porque aparecer en un cliente no es que el cliente la
    lea; dos de ellas son casillas que alguien enciende y no deciden nada (§107.1).
 
