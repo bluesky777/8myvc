@@ -267,18 +267,37 @@ tests/Unit/DefinicionDeLosDetectoresTest.php:83
 
 La constante es **documentación deliberada** —lleva su porqué al lado: *«una definición
 que alguien está cambiando no necesita un centinela, necesita que le dé tiempo a
-cambiar»*— y dice que entra el día que cierre el lote H. Comprobado antes de opinar:
-**H no ha cerrado**, y la regex `PROPIEDAD` de `identificadores-del-cuerpo.py` **sigue
-con `exig` dentro**. O sea que **la nota no ha vencido**: describe el estado de ahora.
+cambiar»*— y dice que entra el día que cierre el lote H.
 
-No se arregla desde aquí —el fichero es del lote C— y la salida que parece mejor no es
-la que primero se piensa:
+### Y aquí me equivoqué, con la prueba en mi propia pantalla
 
-- **Anotarla en `phpstan.neon`** con nombre, motivo y `count` es lo que manda CLAUDE.md
-  para lo que no se puede arreglar. Pero **la calla**.
-- **Referenciarla desde el propio test** —un caso que afirme que esas herramientas siguen
-  en la lista de «todavía no»— la deja de dejar sin usar **y de paso comprueba que la
-  nota no ha vencido**, que es exactamente lo que aquí hubo que ir a comprobar a mano.
+Escribí que **la nota no había vencido**, apoyándome en dos cosas: que el tablero daba H
+como «tomado» y que **la regex `PROPIEDAD` seguía teniendo `exig` dentro**. Las dos
+observaciones eran ciertas y **la conclusión era falsa**.
+
+`H` cerró y está fundido (`1156dab`). Y `exig` sigue en `PROPIEDAD` **a propósito**: el
+arreglo no estrechó la señal, **excluyó la llamada antes de aplicarla**, nueve líneas más
+abajo —
+
+```python
+NO_ES_PROPIEDAD = re.compile(r'ColumnaSegura::exigir')
+...
+limpio = NO_ES_PROPIEDAD.sub('', COMENTARIOS.sub(' ', src))
+```
+
+— y de paso arregla también la prosa de los comentarios, que la señal leía.
+
+> **Buscar un arreglo por la forma que uno esperaba no es comprobar si está.**
+
+Lo que lo hace peor, y por eso queda escrito: **esas dos líneas estaban en la salida del
+`grep` que yo mismo había impreso minutos antes**. Las leí por encima porque estaba
+contestando «¿sigue `exig` en `PROPIEDAD`?», que es una pregunta cuya respuesta —sí— **no
+dice nada sobre si el problema está resuelto**.
+
+Con H cerrado, **la nota sí ha vencido**, y lo correcto es lo que su autora dejó escrito
+como plan: fijar la definición con el valor nuevo y quitar la constante. Ese día era hoy.
+
+No se arregla desde aquí: el fichero es del lote C.
 
 ---
 
