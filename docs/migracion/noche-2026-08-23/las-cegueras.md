@@ -324,10 +324,19 @@ veces esta noche**:
 ### Y la que no es una regla sino el saldo
 
 **Ninguna de estas once se evita sabiéndosela.** Este documento estaba escrito y
-firmado cuando su propia autora repitió tres de las formas que describe: un `grep`
-sin contexto una hora después de quitarle esa ceguera a un detector, un bucle que
-dijo «doce de doce» mientras auditaba, y dos totales de cabecera que no volvió a
-sumar.
+firmado cuando su propia autora se equivocó **cuatro veces**, tres de ellas
+repitiendo formas que el propio documento describe:
+
+| Qué | Cuál |
+|---|---|
+| Un `grep` sin contexto, **una hora después** de quitarle esa ceguera a un detector | forma 3 |
+| Un bucle que dijo «doce de doce» mientras auditaba si alguien había tocado sus tests | forma 5 |
+| Dos totales de cabecera que no volvió a sumar cuando el documento creció | forma 4 |
+| Publicar una **causa** —«no respeta la variable»— cuando lo medido era un **síntoma** | la regla 8, que salió de ahí |
+
+La cuarta no repetía una forma escrita: **la escribió**. Y de ella sale la
+formulación que vale para las cuatro: **el síntoma se puede mandar; la causa hay
+que medirla antes de mandarla.**
 
 > Lo que las evita no es el conocimiento: es **el hábito de pedirle al instrumento
 > que enseñe el caso concreto** antes de creerse el resumen.
