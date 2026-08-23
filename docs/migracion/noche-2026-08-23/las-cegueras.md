@@ -278,6 +278,25 @@ veces esta noche**:
 | §88, «el borrado de una bitácora» | **una** de siete lecturas de la tabla | seis, y **una de ellas NO debe filtrar** | [B](b.md) |
 | §89, la operación de mandar un alumno a la papelera | **dos** de cuatro sitios | los otros dos, en controladores de boletines | [C](c.md) |
 
+### Y la misma idea aplicada a los números, que es donde más barato sale
+
+Una serie se cierra sobre una población. **Un número también sale de una**, y dos
+números de poblaciones distintas puestos uno al lado del otro producen una resta
+que parece un resultado.
+
+| Los dos números | Lo que parecía | Lo que era |
+|---|---|---|
+| **1.272** (suite entera al cerrar) menos **903** (solo `Contrato` al empezar) | **+369 tests** | el 903 es de otra población: contra los **1.006** de la suite entera son **+266**, y cuadra con los 267 métodos añadidos |
+| **535** rutas comprobadas corriendo la suite entera, junto a un **534** de solo `Contrato` | una regresión de una ruta | es **`GET /`**, que solo toca el stub de `laravel new` |
+
+> **Un número no significa nada sin su población, y la población casi nunca está
+> escrita al lado.** El remedio es el mismo que el del sello y cuesta lo mismo:
+> **decir de qué es el número en la misma línea que el número** —«suite entera»,
+> «solo Contrato»—, y no en una nota debajo que se pierde al copiar la cifra.
+
+Los dos casos son de la misma noche y **el segundo se evitó porque el primero ya
+había mordido**.
+
 > **Cerrar una serie no es cerrar la operación.** Y lo que hay que escribir al
 > cerrar no es «arreglado»: es **sobre qué población se cerró**. Las cinco veces,
 > el documento decía la verdad de lo que había mirado y nadie podía saber qué se
@@ -311,20 +330,57 @@ veces esta noche**:
    sitio donde lo declara es el que no se lee con prisa.
 9. **Sellar todo número que esté en una cabecera** con el commit contra el que se
    midió. Un total sellado deja de ser una afirmación y pasa a ser una medición con
-   fecha: **si un día no cuadra, se ve que es viejo en vez de parecer falso**. Esta
-   misma noche dos totales de estos documentos envejecieron sin avisar.
+   fecha: **si un día no cuadra, se ve que es viejo en vez de parecer falso**.
+
+   Y la regla general que hay detrás, porque en una sola noche pasó **seis veces**:
+
+   > **Lo que se queda viejo no es lo que se edita: es lo que hay encima de lo que
+   > se edita.**
+
+   | Qué se quedó viejo | Qué había cambiado debajo |
+   |---|---|
+   | «ocho instrumentos» en el barrido | el documento creció con dos formas más |
+   | «trece lotes» en la tabla | se fundieron tres más |
+   | Seis «esta noche» en un borrador del 05 | el documento acumula noches |
+   | El rango en el **título** de **tres** lotes | uno por una renumeración hecha con cuidado en el cuerpo y en el código; **los otros dos ni siquiera por eso: por crecer** — siguieron encontrando cosas y el título se quedó donde estaba |
+   | Una subtabla que contaba `abort(403` | la forma idiomática del repo nunca fue ésa |
+   | «esta noche» en un procedimiento del `03` | el `03` es permanente |
+
+   Cabeceras, títulos, totales y resúmenes: **todo lo que está arriba y describe lo
+   de abajo, y que nadie vuelve a mirar cuando cambia lo de abajo.**
+
+   El caso de los títulos es el más limpio, porque **dos de los tres no se
+   estropearon renumerando sino creciendo**: sus lotes siguieron encontrando cosas
+   y el título se quedó donde estaba. Y el tercero se renumeró **con cuidado**
+   —documento y comentario de `app/` en el mismo commit, y la comprobación
+   repetida después— y **aun así el título se quedó**.
+
+   > Por eso esto **no es un fallo de cuidado**: el cuidado se aplica a lo que se
+   > está mirando, y **lo de arriba no se está mirando**. El remedio no es
+   > atención: son las dos cosas mecánicas —**el sello, y repetir la comprobación
+   > después del último merge**—.
 10. **Un documento permanente no puede decir «hoy».** «Esta noche» en un fichero
     que acumula noches no se puede resolver — y es más difícil de ver que un número
     raro, porque **un número raro se nota y un «hoy» no**.
-11. **Marcar qué mitad de una salida hay que ignorar, en la propia salida.** Una
+11. **Antes de traer un fichero de `main` para no pisar lo de otro, comprobar que
+    lo tuyo ya está en `main`.** `git log main..HEAD -- <fichero>`. La disciplina
+    que evita deshacer el trabajo ajeno **deshace el propio** cuando el commit de
+    uno todavía no está fundido — y el `git add -A` de la línea siguiente se lleva
+    la reversión sin que nada falle a la vista.
+
+    > Y su complemento: **un `assert` que corta el script no corta el `git commit`
+    > de la línea siguiente.** Un commit puede salir con un título que anuncia una
+    > mejora y un cuerpo que borra veintiuna líneas.
+
+12. **Marcar qué mitad de una salida hay que ignorar, en la propia salida.** Una
     comprobación que necesita saberlo y no lo dice fabrica la forma 4 ella sola: el
     lector que desconfía **tiene razón en desconfiar**, porque no le diste con qué
     distinguir.
 
 ### Y la que no es una regla sino el saldo
 
-**Ninguna de estas once se evita sabiéndosela.** Este documento estaba escrito y
-firmado cuando su propia autora se equivocó **cuatro veces**, tres de ellas
+**Ninguna de estas doce se evita sabiéndosela.** Este documento estaba escrito y
+firmado cuando su propia autora se equivocó **cinco veces**, tres de ellas
 repitiendo formas que el propio documento describe:
 
 | Qué | Cuál |
@@ -333,8 +389,12 @@ repitiendo formas que el propio documento describe:
 | Un bucle que dijo «doce de doce» mientras auditaba si alguien había tocado sus tests | forma 5 |
 | Dos totales de cabecera que no volvió a sumar cuando el documento creció | forma 4 |
 | Publicar una **causa** —«no respeta la variable»— cuando lo medido era un **síntoma** | la regla 8, que salió de ahí |
+| **Borrar su propio trabajo** trayendo el fichero de `main` sin comprobar que lo suyo ya estaba fundido, con el `AssertionError` a la vista y el `commit` corriendo igual | la regla 11, que salió de ahí |
 
-La cuarta no repetía una forma escrita: **la escribió**. Y de ella sale la
+La cuarta y la quinta no repetían una forma escrita: **la escribieron**. Y la
+quinta es la primera que **destruyó algo** en vez de solo afirmar mal — la cazó
+mirar qué contenía el commit, no el error en pantalla, **que estaba ahí y no se
+leyó**: la regla 12 aplicada a uno mismo. Y de ella sale la
 formulación que vale para las cuatro: **el síntoma se puede mandar; la causa hay
 que medirla antes de mandarla.**
 

@@ -12,7 +12,7 @@
 
 ## Lo primero, porque cambia el orden entero de la tanda
 
-> **Los cinco números de abajo están medidos contra `main` en `7c0e34d`**, y cada uno
+> **Los cinco números de abajo están medidos contra `main` en `f6770d0`**, y cada uno
 > lleva su comando al lado. **No están estimados y no vienen de otro documento.**
 >
 > El sello no es adorno: esta tabla ya ha tenido **dos números de cabecera que
@@ -27,7 +27,7 @@
 | **Rutas** | **539 antes y 539 después**. Ninguna nace, ninguna muere — y no es una suposición: **ningún commit de la noche tocó `routes/`** (`git log c2c2a04..main -- routes/` sale vacío) y el recuento de `Route::` en `routes/api/` da **538 en los dos extremos**, más el `GET /` de `web.php` |
 | **Formas de respuesta** | ninguna respuesta pierde ni gana claves — **comprobado contra los snapshots**, ver la nota de abajo |
 | **Capacidades que se quitan** | **cuatro**, todas del lote E — y las cuatro con **riesgo bajo**, por la misma razón |
-| **Cosas que se encienden** | **una** hoy, y **dos con R dentro** — ver la nota de abajo |
+| **Cosas que se encienden** | **dos**, y son las únicas que **devuelven algo que hoy falta**: el boletín de una familia (R) y la ficha del alumno nacido en ciudad sin país (B) |
 | **Minas que no se notan al desplegar** | **seis**, en **tres detonantes**, y las seis esperan a que alguien haga lo razonable (§4.b) |
 
 > **La tanda es casi toda «deja de pasar».** De los **dieciséis lotes fundidos**,
@@ -37,10 +37,11 @@
 > tanda es libre**: no hay dependencia entre lotes, ni orden obligatorio como el
 > de `password_reminders` de la tanda anterior.
 >
-> **Con R dentro sigue siendo libre, pero deja de ser indiferente.** R es la única
-> cuyo despliegue **devuelve algo que hoy falta** —una familia que no puede ver el
-> boletín de su hijo en las maquetas 2 y 3—, así que es la primera que un colegio
-> agradecería. **Eso es una recomendación de orden, no una dependencia.**
+> **Con R dentro sigue siendo libre, pero deja de ser indiferente.** R es **el
+> único hallazgo de la noche que le estaba pasando a un colegio ahora mismo** —una
+> familia que abre el boletín de su hijo y recibe un 500—, así que es la primera
+> que un colegio agradecería. **Eso es una recomendación de orden, no una
+> dependencia.**
 
 ---
 
@@ -86,6 +87,7 @@ Ordenado por lo que un colegio notaría antes.
 | **K** | Que aceptar o rechazar un pedido escriba **hasta cinco filas de depuración** en `debugging`, una con el texto `ENTROOOOO` | idem |
 | **L** | Lo mismo de la hora, en **cada ausencia que sube el lector de tardanzas** — el camino de más volumen de los dos | `POST tardanzas/subir` |
 | **S** | Que **un acudiente reciba un error después de que su prematrícula sí se haya guardado** — y que vuelva a darle al botón. Es la única escritura que alcanza una familia | `PUT matriculas/prematricular` |
+| **R** | Que `boletines2` y `boletines3` devuelvan **500 a un acudiente** que pide el boletín de su acudido, por `Undefined property: $year_pasado_en_bol` | las maquetas 2 y 3 del boletín |
 | **Q** | Que **un alumno o acudiente que mandara `is_prof_admin=true` en el cuerpo recibiera los eventos que el colegio marca como internos**. Lo que se quita no es un permiso: es que **el cuerpo decida el permiso** | el calendario |
 | **P** | Que **abrir la rejilla de comportamiento escriba la nota de cada alumno del grupo con el tope de la escala** con el periodo cerrado — y en el periodo **del que mira**, no el del grupo | la rejilla de comportamiento |
 
@@ -172,9 +174,11 @@ un resultado, no un descuido.**
 
 | Lote | Qué vuelve a funcionar | Para quién |
 |---|---|---|
+| **R** | **El boletín vuelve a salir.** Una familia que lo abra en las maquetas 2 o 3 **vuelve a recibirlo** en vez de un 500 | **una familia**, y es el único hallazgo de la noche que le estaba pasando a un colegio **ahora mismo** |
 | **B** | **La ficha de un alumno nacido en una ciudad sin país vuelve a abrir.** `ciudades/datosciudad` daba 500 y ahora contesta 200 con el país en null | secretaría, en los colegios que tengan alguna ciudad guardada sin país |
 
-Nada más enciende. **Los demás arreglos previenen, no restauran**: impiden que
+**Las dos son las únicas que devuelven algo que hoy falta.** Los demás arreglos
+**previenen, no restauran**: impiden que
 vuelva a pasar, y no deshacen lo ya escrito. Eso importa para el aviso al colegio:
 
 | Lo que **no** arregla el despliegue |
@@ -211,6 +215,24 @@ encienden con un cambio que alguien hará un martes sin relacionarlo con esto.
 | `folios/iniciar` | es idempotente **por la condición de los datos, no por diseño** | **una reescritura que pierda esa condición** | P |
 | `GET api/importar` | **la carpeta que necesita no existe** | **que alguien la cree** | P |
 | `arreglar-duplicados` | lleva su comprobación **dentro del método** | **que alguien le quite el `pueden_modificar_definitivas` creyendo que la ruta ya está protegida** | P |
+
+### Y un contrapeso, que no es una mina pero pertenece aquí
+
+Ninguna de las seis espera a un descuido: **las seis esperan a que alguien haga
+bien su trabajo**. Y del lote R sale el caso extremo de eso, que no es una mina
+porque no espera a nada — **ya pasó, y lo paró larastan**:
+
+> Al ampliar el arreglo del centinela a las cinco copias, **la quinta recibe una
+> lista de periodos en vez del centinela**. `is_object` habría sido siempre falso
+> y **habría apagado la cabecera de comportamiento del boletín de preescolar en
+> silencio y con los tests en verde**.
+>
+> **Ampliar un arreglo a «todas las copias» sin comprobar qué recibe cada una es
+> la forma de romper la que estaba bien.**
+
+Es el reverso exacto de la lección que más veces salió esta noche —*cerrar una
+serie no es cerrar la operación*—: **cerrarla de más también rompe**, y rompe la
+que funcionaba.
 
 ### Las seis se agrupan en tres detonantes, y eso es lo que hay que recordar
 

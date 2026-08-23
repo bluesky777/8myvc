@@ -70,6 +70,13 @@ Y los huecos que quedan en el rango de esta noche, con lo que son:
 | **§117**, **§128–129** | **números que nadie usó**, no secciones perdidas: quedaron sin asignar al ir abriendo lotes sobre la marcha. **No hay que rellenarlos** |
 | **§138–142**, **§146–149** | **no son huecos**: son los lotes que seguían abiertos al hacer esta comprobación |
 
+> **Esta comprobación caduca en cuanto entra un lote nuevo, y no avisa de que ha
+> caducado.** La primera vez que se corrió daba **cero colisiones y era cierto**;
+> repetida después de fundir el último lote dio **una** —§143, reclamada por dos
+> documentos—. Por eso lleva el sello del commit: **hay que repetirla después del
+> último merge, no antes.** Son treinta segundos y es lo único que separa un 05
+> con la numeración limpia de uno con dos secciones llamadas igual.
+
 > **Y lo primero, porque es lo que hace ir a buscar a alguien**: **un hueco en la
 > numeración no es una sección perdida, es un número que nadie usó.** Quien lea el
 > 05 de corrido y eche en falta la §117 no ha perdido nada: no existe.
