@@ -48,6 +48,39 @@ Y uno que no es de lote: [p-curva-de-profundidad.md](p-curva-de-profundidad.md)
 > reparto: al fundir se renumeró lo que colisionaba. Si buscas una sección por
 > número y no aparece donde esperas, mira el 05, que es la lista buena.
 
+## La numeración, comprobada — contra `main` en `35cf76f`
+
+Extraídas todas las `§NNN` que aparecen **en encabezados** de los diecisiete
+documentos de lote —el encabezado es donde un documento *reclama* una sección, no
+donde la cita—:
+
+| | |
+|---|---|
+| Secciones reclamadas | **68** |
+| Reclamadas por **más de un documento** | **0** |
+
+**Cero colisiones**: la renumeración que se hizo al fundir no dejó nada cruzado.
+
+Y los huecos que quedan en el rango de esta noche, con lo que son:
+
+| Hueco | Qué es |
+|---|---|
+| **§117**, **§128–129** | **números que nadie usó**, no secciones perdidas: quedaron sin asignar al ir abriendo lotes sobre la marcha. **No hay que rellenarlos** |
+| **§138–142**, **§146–149** | **no son huecos**: son los lotes que seguían abiertos al hacer esta comprobación |
+
+> **Y lo primero, porque es lo que hace ir a buscar a alguien**: **un hueco en la
+> numeración no es una sección perdida, es un número que nadie usó.** Quien lea el
+> 05 de corrido y eche en falta la §117 no ha perdido nada: no existe.
+
+> **Un aviso sobre esta misma comprobación, porque su salida se lee entera y solo
+> vale la mitad**: por debajo de §81 da «huecos» que no lo son —§54–80—. Son
+> secciones de noches anteriores que viven en el 05 y que estos documentos solo
+> **citan**; el filtro mira encabezados y algún encabezado cita una sección vieja.
+> **El tramo de abajo es ruido y el de arriba es el que vale**, y por eso está
+> dicho aquí en vez de dejar el número solo.
+
+---
+
 ## Lo que se repite en varios, y por eso está aquí
 
 Cuatro cosas aparecieron en tres o más lotes distintos, cada uno mirando otra
@@ -67,6 +100,16 @@ cosa. Si vas a leer solo un párrafo de cada documento, que sean éstos:
 - **El arreglo evidente puede ser peor que el fallo.** Dos rutas de esta noche
   —`mis-actividades/guardar` y `alumnos/update`— convertirían, «arregladas», un
   error ruidoso en una escritura silenciosa que borra.
+
+## Cómo se corre una tanda de la que te vas a fiar
+
+No está aquí: está en **[03-tests.md](../03-tests.md)**, porque este README caduca
+con la noche y ese procedimiento vale para cualquier tanda. Los tres pasos salen
+de tres tropiezos distintos de esta noche, y cada uno lleva escrito **por qué
+existe** — que es lo único que impide que alguien se salte el que parece
+redundante, que es justo el primero.
+
+---
 
 ## Y una cosa sobre los cuadernos
 

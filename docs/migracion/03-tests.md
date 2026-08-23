@@ -512,6 +512,46 @@ salido en el muestreo P2 porque aquello solo golpeaba lecturas sin parámetro, y
 esta es un POST con un archivo dentro. Queda fijado en `ExcelTest` y descrito en
 [05 §8.4](05-codigo-muerto-y-roto.md).
 
+## Cómo se corre una tanda de la que te vas a fiar
+
+Los tres pasos salen de **tres tropiezos distintos de la noche del 22 al 23 de
+agosto de 2026**, y hasta entonces estaban repartidos por el
+[barrido de cegueras](noche-2026-08-23/las-cegueras.md) sin que ninguno dijera el
+procedimiento entero.
+
+```bash
+# 1. que no haya nadie más contra esa base — el hijo se llama phpunit, NO artisan
+docker exec 8myvc-app-1 sh -c 'pgrep -af "phpunit.*worktrees/X"'
+
+# 2. desacoplada del harness, y con el código de salida DENTRO del contenedor
+docker exec -d -w /app/.worktrees/X -e DB_TEST_DATABASE=simonbolivar_testing_X \
+    -e COBERTURA_RUTAS=/tmp/tocadas-X.txt 8myvc-app-1 \
+    sh -c 'php artisan test > /tmp/suite-X.log 2>&1; echo "EXIT=$?" >> /tmp/suite-X.log'
+
+# 3. esperar al EXIT=, no al texto ni al tamaño del fichero
+until docker exec 8myvc-app-1 sh -c 'grep -q "^EXIT=" /tmp/suite-X.log'; do sleep 25; done
+```
+
+| Paso | El tropiezo del que sale |
+|---|---|
+| **1** | Un `pkill -f "artisan test"` mató el envoltorio y **dejó al hijo vivo**, reparentado a init, corriendo contra la misma base. Buscando `artisan` no aparece: **el hijo se llama `phpunit`**. Dos tandas contra una base chocan en `personal_access_tokens`, y los rojos salen en cualquier familia y con toda la cara de ser un test roto |
+| **2** | Un `docker exec` muerto por ese `pkill` devolvió **exit 143** y el harness lo resumió como **«completed, exit code 0»**. El código de salida escrito **dentro** del contenedor es lo único que no lo hace |
+| **3** | El log **deja de crecer** por el búfer de bloque —parado justo en 10.210 bytes— y parece que la suite murió. El tamaño del fichero no dice nada; el `EXIT=` sí |
+
+> **Y para identificar de quién es un proceso, el `--configuration=` y no el
+> `cwd`**: un test se mete en un directorio temporal y el `cwd` deja de nombrar su
+> árbol. Lo estable es la línea de comandos del hijo.
+
+Y dos que no son pasos pero deciden el número:
+
+- **Para la medición de cobertura va la suite entera, no `--testsuite=Contrato`.**
+  Es la diferencia entre 462 y 461: `GET /` solo la toca
+  `tests/Feature/ExampleTest.php`, el stub que dejó `laravel new`.
+- **`COBERTURA_RUTAS` con un fichero por sesión.** `/tmp` del contenedor está
+  compartido: compartirlo dio una vez *86 de 539 cuando eran 346*.
+
+---
+
 ## Cosas que aparecieron en los datos reales
 
 Encontradas construyendo esto. Ninguna está arreglada.
