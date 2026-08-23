@@ -26,7 +26,7 @@ el día que esto envejezca:
 | | | comprobado con |
 |---|---|---|
 | Migraciones nuevas | **ninguna** | `git diff --name-only a82cec3 HEAD -- database/migrations/ database/schema/` sale vacío. Las últimas siguen siendo las tres del 21 ago |
-| Rutas | **539 antes y 539 después** | `Route::` en `routes/api/` da **538** en los dos extremos, más el `GET /` de `web.php` |
+| Rutas | **539 antes y 542 después** | Tres nuevas, todas del 24 ago y todas para la app: `PUT notas/lote`, `GET disciplina/mis-fichas/{alumno_id?}` y `GET notificaciones/temas`. Ninguna quita ni cambia nada — ver la §5.b, que lleva la condición de publicación del cliente. Comprobable con `tests/Contrato/Snapshots/rutas.json` |
 | Dependencias | **sin tocar** | `git diff --name-only a82cec3 HEAD -- composer.json composer.lock` sale vacío. Tampoco `config/` |
 | Tamaño | **52 ficheros de `app/`**, en 66 commits de 318 | `git diff --name-only a82cec3 HEAD -- app/` |
 
@@ -212,11 +212,23 @@ Los de esta tanda:
 |---|---|---|
 | `PUT api/notas/lote` | pasar una columna de notas en una petición y una transacción | la app sigue guardando de una en una, tras gastar un 404 |
 | `GET api/disciplina/mis-fichas/{alumno_id?}` | que el alumno y el acudiente vean su situación disciplinaria | la opción del menú no lleva a ninguna parte para las familias de ese colegio |
+| `GET api/notificaciones/temas` | dar al teléfono los temas de push a los que puede suscribirse | ese colegio no recibe notificaciones; la app tiene que aguantarlo sin romperse |
 
-**Ninguno quita nada**: los tres métodos viejos siguen ahí y siguen siendo el
-camino hasta que la app cambie. O sea que desplegar esto no se nota en ninguna
-pantalla — lo que hay que vigilar es lo contrario, publicar la app antes de
-tiempo.
+**Ninguno quita nada**: los métodos viejos siguen ahí y siguen siendo el camino
+hasta que la app cambie. O sea que desplegar esto no se nota en ninguna pantalla
+— lo que hay que vigilar es lo contrario, publicar la app antes de tiempo.
+
+Y dos cosas más que trae esta tanda y no son rutas:
+
+- **`config/notificaciones.php`, fichero nuevo.** Es el único cambio de `config/`
+  del rango y **no obliga a tocar ningún `.env`**: sin credenciales de Firebase el
+  comando no manda nada y lo dice, y el secreto con el que se derivan los temas
+  sale de `APP_KEY` si no se pone otro.
+- **`notificaciones:enviar` entra en el scheduler**, cada quince minutos. **No
+  hay cron nuevo que crear**: es el `schedule:run` de cada minuto que ya está
+  documentado aquí, y lo que corre viaja dentro de `app/Console/Kernel.php`. En
+  el colegio que no tenga ese cron puesto, esto simplemente no corre — y ése es
+  el momento de ponerlo, con la línea de siempre.
 
 ---
 

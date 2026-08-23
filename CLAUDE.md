@@ -3,8 +3,11 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 `8myvc` es la API del sistema escolar MyVc: Laravel 13 + PHP 8.4, ~37.000 líneas
-en `app/`, 113 clases de controlador y 539 rutas (medido el 21 ago 2026; los dos
-primeros números se mueven, el de rutas no). El plan, las mediciones y las
+en `app/`, 113 clases de controlador y 542 rutas (medido el 21 ago 2026; el 24 el
+de rutas se movió por primera vez, de 539 a 542, con los tres endpoints que pidió
+`myvc_flutter` — hasta entonces «el de rutas no se mueve» era cierto y sigue
+siéndolo como regla: una ruta nueva es una decisión, no un efecto secundario, y
+mueve tres documentos y dos snapshots). El plan, las mediciones y las
 decisiones ya tomadas viven en `docs/migracion/` y **se leen antes de re-litigar
 nada**.
 

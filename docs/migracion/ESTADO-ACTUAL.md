@@ -16,7 +16,7 @@
 
 Las fases 0–4 del [plan](00-plan-migracion.md) están cerradas, la 5 recortada y la
 6 es continua por diseño. **Laravel 13 sobre PHP 8.4**, con red de seguridad y
-autenticación real. Hoy: **1.284 tests, 8.640 aserciones, 535/539 rutas con la
+autenticación real. Hoy: **1.284 tests, 8.640 aserciones, 535/542 rutas con la
 respuesta comprobada, larastan nivel 7 `[OK]`.** Al empezar había **0 tests** y
 `route:list` estaba roto.
 
@@ -137,7 +137,7 @@ la definitiva. Está detallado en el 10, justo antes de la fase 2.
 
 ---
 
-## Y en paralelo: las tres cosas que pidió la app — **2 de 3**
+## Y en paralelo: las tres cosas que pidió la app — **hechas las tres**
 
 Joseth las autorizó el **24 ago 2026**. Vienen de
 `~/DESARROLLOS/myvc_flutter/docs/backend-pendiente.md`, que lleva el contrato de
@@ -148,7 +148,7 @@ cada una y la evidencia que la justifica. **No son de la migración**: son lo qu
 |---|---|---|
 | 1 | `PUT notas/lote` — pasar una columna en una petición | **hecho el 24 ago**, 12 tests |
 | 2 | `GET disciplina/mis-fichas/{alumno_id?}` — que el alumno y el acudiente vean lo suyo | **hecho el 24 ago**, 10 tests |
-| 3 | Notificaciones: endpoint de temas con HMAC, `notificaciones:enviar` y la entrada de cron | pendiente |
+| 3 | Notificaciones: endpoint de temas con HMAC, `notificaciones:enviar` y la entrada de cron | **hecho el 24 ago**, 19 tests — falta que Joseth cree el proyecto de Firebase |
 
 ### 1 — `PUT notas/lote`, hecho
 
@@ -222,6 +222,64 @@ Dos cosas que salieron por el camino:
   endpoint de sólo lectura deje de serlo. Sin fila va `config: null` y el cliente
   usa sus valores por defecto.
 
+### 3 — Las notificaciones: endpoint, comando y cron
+
+Las tres piezas escritas. Lo que falta **no es código**: es que Joseth cree el
+proyecto de Firebase (ver abajo).
+
+**El endpoint, `GET notificaciones/temas`, es la pieza de seguridad de todo el
+diseño.** Firebase reparte por *temas* y **el teléfono se apunta él mismo**, así
+que el nombre del tema es en la práctica la única puerta: si se llamara
+`alumno_345`, cualquiera con la app se apuntaría al `alumno_346` y recibiría los
+avisos de un menor que no es suyo. Por eso el nombre **no se calcula en el
+teléfono**: se deriva con `HMAC-SHA256(alumno_id, secreto)` y el teléfono lo
+recibe ya hecho, sólo los suyos —los propios si es alumno, los de sus acudidos si
+es acudiente, ninguno si es personal—.
+
+El secreto **es `APP_KEY` por defecto, y es una decisión**: hace falta uno
+distinto por colegio y que no salga del servidor, y `APP_KEY` ya es las dos
+cosas. Así esto funciona sin editar dieciséis `.env`.
+
+**El comando, `notificaciones:enviar`**, saca de `bitacoras`, `ausencias`,
+`dis_procesos` y `publicaciones` lo ocurrido desde la última pasada, **agrupa** y
+publica. Tres decisiones que valen más que el código:
+
+- **Agrupar es lo que lo hace viable y de paso lo hace mejor.** Un docente que
+  pasa una columna genera treinta cambios en dos minutos: sin agrupar son treinta
+  avisos y el acudiente apaga las notificaciones para siempre. Agrupado por
+  alumno y asignatura es uno.
+- **La primera pasada no manda nada**: pone la marca y se va. Sin eso, encender
+  el push en un colegio le manda a cada familia un aviso por cada nota del año.
+- **La marca se guarda después de publicar, no antes.** Si el proceso se cae en
+  medio, la pasada siguiente repite; guardándola antes, lo perdería. Un aviso
+  repetido es una molestia, uno perdido es la función sin cumplir.
+
+Y **ningún aviso lleva el dato dentro**: «hay 4 notas nuevas en Matemáticas»,
+nunca «sacó 45». Se ve en la pantalla bloqueada, con gente al lado. Tiene su
+test, con un valor inconfundible metido a propósito.
+
+**El cron no es el que decía el plan de la app, y es mejor.** Aquel proponía una
+entrada nueva con un bucle por los dieciséis directorios. No hace falta: este
+proyecto ya decidió **un solo cron por colegio** —`schedule:run` cada minuto— y lo
+que corre se decide en `app/Console/Kernel.php`, que **viaja con el `app/`**. Así
+que la tercera pieza son tres líneas ahí, `everyFifteenMinutes()` con
+`withoutOverlapping()`, y **cero visitas a paneles de cPanel**. Ver
+[17-cron.md](17-cron.md).
+
+> **Lo que hace falta de Joseth para que esto llegue a un teléfono**, y hasta
+> entonces el comando corre, no manda nada y lo dice:
+>
+> 1. **Un proyecto de Firebase** y una cuenta de servicio (un JSON).
+> 2. Ese JSON **en `storage/` de cada colegio** —no en el repositorio: `app/` es
+>    copia por colegio pero el repositorio es común, así que meterlo dentro sería
+>    publicar la credencial de push de los dieciséis— y `FCM_PROYECTO` en su
+>    `.env`.
+> 3. Para iOS, una clave de APNs, que pide cuenta de desarrollador de Apple de
+>    pago. Si no la hay, esto sale primero en Android.
+>
+> Se puede probar antes de todo eso con `php artisan notificaciones:enviar --seco`,
+> que dice qué mandaría sin mandar nada y sin mover la marca.
+
 ---
 
 ## Lo que espera una decisión de Joseth
@@ -248,7 +306,8 @@ es **una sola tanda con todo lo pendiente dentro**, del 22 al 24, para desplegar
 una vez cuando Joseth lo decida.
 
 Medido sobre el rango entero, no sumando tanda a tanda: **0 migraciones, 0 cambios
-de esquema, 0 de `config/`, 0 de dependencias, 539 rutas antes y después**, y 52
+de esquema, 0 de dependencias, 1 fichero nuevo en `config/` sin ningún valor
+obligatorio, y **539 rutas antes y 542 después**, y 52
 ficheros de `app/` en 66 commits. Nada que publicar en ningún cliente.
 
 Dentro está **el boletín que hoy devuelve 500 a una familia**, **la ficha de alumno

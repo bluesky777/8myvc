@@ -239,6 +239,10 @@
         "total": 3,
         "con_guard": 3
     },
+    "notificaciones": {
+        "total": 1,
+        "con_guard": 0
+    },
     "observador": {
         "total": 3,
         "con_guard": 3

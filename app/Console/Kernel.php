@@ -39,6 +39,25 @@ class Kernel extends ConsoleKernel
         $schedule->command('sesion:limpiar')
             ->weeklyOn(0, '03:15')
             ->withoutOverlapping();
+
+        // Los avisos push a las familias. **Cada quince minutos y no más
+        // seguido**: agrupar es lo que hace que un docente pasando una columna
+        // de treinta notas genere UN aviso y no treinta, y bajar la frecuencia
+        // rompe justamente eso — con un minuto entre pasadas, la misma columna
+        // se parte en varios avisos y el acudiente apaga las notificaciones.
+        //
+        // `withoutOverlapping` porque la marca de por dónde iba se guarda
+        // DESPUÉS de publicar: dos pasadas solapadas leerían la misma marca y
+        // mandarían el aviso dos veces.
+        //
+        // En el colegio que no tenga credenciales de Firebase esto no hace nada
+        // y lo dice — es lo que va a pasar en los dieciséis hasta que se pongan.
+        // Y no hace falta un cron nuevo: el de `schedule:run` ya está, uno por
+        // colegio, y esa decisión es la que hace que añadir esto sean tres
+        // líneas aquí en vez de dieciséis visitas a paneles de cPanel.
+        $schedule->command('notificaciones:enviar')
+            ->everyFifteenMinutes()
+            ->withoutOverlapping();
     }
 
     /**
