@@ -419,6 +419,13 @@ Y de ahí sale la otra mitad, sobre el sello que este mismo documento pide:
    Cabeceras, títulos, totales y resúmenes: **todo lo que está arriba y describe lo
    de abajo, y que nadie vuelve a mirar cuando cambia lo de abajo.**
 
+   > **Y al lado del sello, el comando.** De los cuatro datos de la tabla de la
+   > tanda, tres llevaban el comando que los produce y uno no — **y el que no
+   > llevaba era el único que no cuadraba**. No es casualidad: **un número sin
+   > comando es un número que nadie ha vuelto a correr, empezando por quien lo
+   > escribió.** El comando no está para el lector de dentro de un año: está para
+   > que **el autor lo verifique al escribirlo**.
+
    El caso de los títulos es el más limpio, porque **dos de los tres no se
    estropearon renumerando sino creciendo**: sus lotes siguieron encontrando cosas
    y el título se quedó donde estaba. Y el tercero se renumeró **con cuidado**

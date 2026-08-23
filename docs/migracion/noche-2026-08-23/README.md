@@ -70,6 +70,17 @@ Y los huecos que quedan en el rango de esta noche, con lo que son:
 | **§117**, **§128–129** | **números que nadie usó**, no secciones perdidas: quedaron sin asignar al ir abriendo lotes sobre la marcha. **No hay que rellenarlos** |
 | **§138–142**, **§146–149** | **no son huecos**: son los lotes que seguían abiertos al hacer esta comprobación |
 
+> **Y hay que repetirla después de cada renumerado, no solo al final.** Es la
+> lección más cara de las tres colisiones que hubo esta noche: **arreglar una
+> crea la siguiente si el número nuevo se elige sin volver a correr la
+> comprobación** — el renumerado es justo el momento en que se inventa un número.
+> Al mover un §143 a §166, el número que quedó libre lo ocupó el §144 de al lado,
+> que ya tenía dueño.
+>
+> Y su hermana: **el título del documento se queda viejo cada vez.** Dos de las
+> tres colisiones fueron un título declarando un rango que su cuerpo ya no tenía,
+> y **la segunda fue en el mismo fichero que la primera**.
+
 > **Esta comprobación caduca en cuanto entra un lote nuevo, y no avisa de que ha
 > caducado.** La primera vez que se corrió daba **cero colisiones y era cierto**;
 > repetida después de fundir el último lote dio **una** —§143, reclamada por dos
