@@ -135,7 +135,21 @@ def declaradas():
     return vistas
 
 
-def citadas():
+# **Esta herramienta se excluye de su propia población, y eso hay que justificarlo
+# porque es un punto ciego a propósito.** Sus `§` son ejemplos *sobre el
+# mecanismo* —`## §125–126`, `## §NNN—400`—, no punteros que alguien vaya a seguir
+# para entender un guard. Dejarla dentro la hizo denunciarse **dos veces**: una
+# por el ejemplo de la cabecera y otra por las trampas de la autoprueba, ocho
+# huérfanas propias impresas debajo de un `0`.
+#
+# Escribir los ejemplos con `S` arreglaba el caso y no la clase: el fichero seguía
+# dentro, y **cualquier ejemplo futuro con el símbolo entero vuelve a ser una
+# cita**. Lo que no se hace es callarse cuántas se dejan fuera — la autoprueba las
+# cuenta e imprime.
+YO = os.path.relpath(os.path.abspath(__file__), RAIZ)
+
+
+def citadas(incluirme=False):
     vistas = collections.defaultdict(list)
     for raiz in CODIGO:
         for base, _, ficheros in os.walk(raiz):
@@ -145,6 +159,8 @@ def citadas():
                 if not fichero.endswith(EXTENSIONES):
                     continue
                 ruta = os.path.join(base, fichero)
+                if ruta == YO and not incluirme:
+                    continue
                 for i, linea in enumerate(open(ruta, encoding='utf-8', errors='replace'), 1):
                     for m in CITA.finditer(linea):
                         vistas[normaliza(m.group(1))].append(f'{ruta}:{i}')
@@ -200,6 +216,14 @@ def autoprueba():
         print(f'         {porque}')
     print('\n  ' + ('todas las trampas dan lo que deben.' if not fallos
                     else f'{fallos} trampa(s) mal: el mapa está declarando lo que no es.'))
+
+    # Lo que se deja fuera se dice, no se calla: una exclusión silenciosa se lee
+    # como «aquí no había nada».
+    mias = sum(len(v) for k, v in citadas(incluirme=True).items()) \
+        - sum(len(v) for v in citadas().values())
+    print(f'\n  {YO} aporta {mias} citas y se excluye de su propia población.')
+    print('  Son ejemplos sobre el mecanismo, no punteros a seguir. Sin la')
+    print('  exclusión, esta herramienta se denuncia a sí misma — ya lo hizo dos veces.')
     return 1 if fallos else 0
 
 

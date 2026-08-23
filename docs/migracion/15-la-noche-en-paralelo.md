@@ -675,7 +675,12 @@ cayó al mirarla.
     bueno era el 75**. Las dos regex leían el primer número del encabezado, y hay
     uno que declara **dos**: `## §125–126 — Lo medido…`. La coincidencia no era
     acuerdo: era **el mismo agujero visto dos veces**. Y no se quedó en el número
-    —publicó el §126 como «hueco que nadie usó» **existiendo**.
+    —publicó el §126 como «hueco que nadie usó» **existiendo**. Al cerrarlo, los
+    dos parsers volvieron a dar 76 por caminos distintos, y **eso vale más pero
+    tampoco vale del todo**: los dos comparten ya la discriminación
+    raya-corta/raya-larga, así que si esa fuera falsa volveríamos a coincidir en
+    el número malo. **Lo que sostiene el 76 es la medición del corpus —93 a 0—,
+    no que dos programas digan lo mismo.**
 23. **Los comentarios del código citan secciones de `docs/` por su número, y
     renumerar deja atrás las citas.** 1.251 citas a 227 secciones, medido el 23 de
     agosto de 2026. Tiene dos agravantes que una colisión dentro de un documento
@@ -724,3 +729,18 @@ cayó al mirarla.
     salieron de mandarle a otra sesión un número con su comando dentro y de que
     esa sesión lo corriera. No se replica poniendo una franja al final del plan.
     Se replica poniendo **dos**, y es más caro.
+30. **Arreglar el caso no es cerrar la clase, y se nota en si el fallo puede
+    volver a entrar por la misma puerta.** `secciones-citadas.py` se denunció a sí
+    misma dos veces —el ejemplo de su cabecera y las trampas de su propia
+    autoprueba, ocho huérfanas propias impresas debajo de un `0`—. Escribir los
+    ejemplos con una variable arreglaba **hoy**; el fichero seguía dentro de la
+    población que lee, así que **cualquier ejemplo futuro con el símbolo entero
+    volvía a ser una cita**. La clase se cierra excluyéndose de su propia
+    población — y **diciendo cuántas se dejan fuera**, porque una exclusión
+    silenciosa se lee como «aquí no había nada».
+31. **Una defensa que no se ha visto fallar no se sabe si defiende.** Los dos
+    guardas de ese patrón parecían redundantes; **quitándolos de uno en uno** se ve
+    que fallan cosas distintas —sin el `split`, las dos formas con espacios; con la
+    raya ancha, las dos pegadas—. Es la comprobación inversa de siempre, la que se
+    le hace a un test para saber si mide algo, aplicada a las mitades de un
+    patrón. Y el día que una sobre, se sabrá igual: quitándola.
