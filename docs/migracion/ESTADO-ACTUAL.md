@@ -85,6 +85,20 @@ es suerte de esta base, no del esquema. Está detallado en el
 **No cambia el orden ni desbloquea nada**: la fase 2 sigue esperando los dieciséis
 números. Lo que cambia es que ahora contestan la pregunta correcta a la primera.
 
+### Y del backend, lo que salió de la fase 4 — 24 ago
+
+- **`putUpdate` devuelve la definitiva recalculada** en su propia respuesta (clave
+  `definitiva`). Ahorra **una petición HTTP por nota tecleada**, no milisegundos
+  de base. Campo añadido: la nota sigue con sus mismas claves.
+- **¿Pesa recalcular en siete sitios? No** — ~4 ms por nota tecleada, contra los
+  ~40–80 ms que cuesta sólo resolver quién pregunta. Medido con
+  `tools/coste-del-recalculo.php`. Y **un 3× que resultó ser la caché** se
+  escribió, se midió y se revirtió: está en el [02](02-plan-rendimiento.md) para
+  que no se reintente.
+- **Apuntado sin arreglar**: si falta `num_periodo`, `DefinitivasPeriodosController::putUpdate`
+  revienta en la guarda de permisos antes que en la del periodo, así que el
+  profesor lee «no tienes permiso» cuando lo que falta es un campo. Debe ser 422.
+
 ### Lo siguiente
 
 1. **La fase 2**: la migración con los dos índices únicos, la limpieza de
@@ -92,9 +106,14 @@ números. Lo que cambia es que ahora contestan la pregunta correcta a la primera
    números de la fase 0** — la herramienta está **y ya mide bien**, hay que
    correrla en el servidor, y es un `for` de una línea que está escrito en el 10.
    La limpieza de `notas` va **sobre la tabla entera**, no sobre las filas vivas.
-2. **La fase 4 es del front** y no de aquí: revertir el valor cuando falla el
-   guardado y no perder la última nota tecleada. *El arreglo de más valor por
-   línea de todo el plan.*
+2. **La fase 4 está HECHA** (24 ago, `myvc_front`, sesión `myvc-front-9a`): los
+   cinco puntos en ocho commits sobre `fase-11/definitivas-9a`, con 415 pruebas
+   —32 nuevas y **25 de ellas comprobadas en negativo**—. **Sin mezclar a la
+   madre.** El punto que depende del backend (`cambiaNotaDef` sin `nf_id`) va
+   **aislado en el último commit**, para que sacarlo sea un `reset --hard`: no
+   entra hasta que esta tanda esté **desplegada**, no fusionada. Detalle y las
+   cinco cosas que el plan daba por ciertas y no lo eran, en el
+   [10](10-definitivas.md).
 3. **La fase 5 —quitar los botones «Calcular definitivas per N»— no antes** de que
    las 1–4 estén **desplegadas** y la fase 0 dé cero discrepancias durante un
    periodo completo. Hoy esos botones son el parche con el que un colegio se
@@ -107,6 +126,56 @@ números. Lo que cambia es que ahora contestan la pregunta correcta a la primera
 **seis están en pantallas vivas sin guarda**. Con el índice puesto, cada choque es
 **un 500 en la pantalla de un profesor** — el peor, `putUpdate`, es el que teclea
 la definitiva. Está detallado en el 10, justo antes de la fase 2.
+
+---
+
+## Y en paralelo: las tres cosas que pidió la app — **1 de 3**
+
+Joseth las autorizó el **24 ago 2026**. Vienen de
+`~/DESARROLLOS/myvc_flutter/docs/backend-pendiente.md`, que lleva el contrato de
+cada una y la evidencia que la justifica. **No son de la migración**: son lo que
+`myvc_flutter` no puede resolver desde su lado.
+
+| | Qué | Estado |
+|---|---|---|
+| 1 | `PUT notas/lote` — pasar una columna en una petición | **hecho el 24 ago**, 12 tests |
+| 2 | `GET disciplina/mis-fichas/{alumno_id?}` — que el alumno y el acudiente vean lo suyo | pendiente |
+| 3 | Notificaciones: endpoint de temas con HMAC, `notificaciones:enviar` y la entrada de cron | pendiente |
+
+### 1 — `PUT notas/lote`, hecho
+
+Una columna de treinta alumnos eran treinta peticiones. Ahora es una, con
+`auth.personal`, el permiso comprobado **una vez y antes de escribir**, las
+escrituras en **una transacción** y **un recálculo por par (asignatura,
+periodo)** al final y fuera de ella. Devuelve `{guardadas, fallidas, definitivas}`
+— las fallidas con su motivo, para que la app reintente sólo ésas.
+
+**Y la justificación que traía escrita era la equivocada, lo cual importa más que
+el endpoint.** El contrato decía que lo caro era la agregación del recálculo. No
+lo es: la sesión de al lado lo midió el mismo día y lo dejó en el
+[02](02-plan-rendimiento.md) — **~1,7 ms**, y el *3×* que parecía haber al
+estrecharla a un alumno **era la caché**. Lo que sí ahorra es otra cosa y es más
+grande:
+
+- **treinta peticiones son treinta veces el coste fijo de resolver quién
+  pregunta**, ~40–80 ms (02 §4). Un orden de magnitud por encima del recálculo, y
+  sin depender de ninguna caché;
+- y **treinta transacciones independientes** dejan, cuando una columna se guarda a
+  medias, definitivas calculadas sobre estados intermedios. Un lote entra entero o
+  no entra. Eso no es velocidad, es la misma familia de fallos que la fase 3.
+
+**De paso, una trampa que estaba esperando a cualquiera**, no sólo al lote:
+`User::aplicarBanderasDelPeriodo` decide con `count($filas) === count($ids)` para
+que un periodo borrado cuente como cerrado. Con la lista **sin deduplicar**,
+treinta notas del mismo periodo son treinta ids contra una fila y **deniega la
+petición entera** con un *«no tienes permiso»* que manda a buscar el fallo donde
+no está. Ahora **deduplica ella**, en vez de exigírselo a cada llamante.
+
+> **La app no puede llamar a `notas/lote` hasta que esté desplegado en los
+> dieciséis**, no cuando esté fusionado: `app/` es copia por colegio y
+> `myvc_flutter` es **una sola app para todos**, así que no hay forma de
+> escalonar el cliente. En el colegio que faltara sería un 404 gastado antes de
+> caer al método viejo. Está en [DESPLIEGUE.md](../DESPLIEGUE.md) §5.b.
 
 ---
 

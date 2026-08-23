@@ -824,6 +824,78 @@ borra unidades y subunidades, así que hereda la fase 3 sin cambios en la app. A
 así: **el guard nuevo tiene que estar desplegado en los dieciséis colegios antes
 de tocar el front**, por lo del §Despliegue.
 
+#### La fase 4 — **hecha el 24 ago 2026**, en `myvc_front`
+
+Los cinco puntos, en ocho commits sobre `fase-11/definitivas-9a`, con **415
+pruebas (32 nuevas) y 25 de esas 32 comprobadas en negativo** —neutralizando cada
+arreglo y viendo la prueba roja—. El punto de `cambiaNotaDef` va **en el último
+commit a propósito**: dejarlo fuera es un `reset --hard`, no un rebase, porque
+depende de que el backend esté desplegado.
+
+**Cinco cosas que este plan daba por ciertas y no lo eran.** Salieron de
+escribirlo, no de leerlo, y por eso quedan aquí:
+
+1. **`$transitions.onBefore` no existe en este repo.** Es de ui-router 1.x y
+   `myvc_front` tiene `angular-ui-router` **0.4.3**. El equivalente es
+   `$rootScope.$on('$stateChangeStart')`, que ya usa `Run.ts`.
+2. **La salida que más notas se comía no estaba en el plan.** Cambiar de
+   asignatura **no es un cambio de estado**: `traerNotasDeAsignatura` repinta con
+   `$state.go(..., {notify: false})`, así que ningún hook de ruta se entera. Un
+   profesor que pasa de una asignatura a otra con la última nota a medio teclear
+   la perdía — y **ésa es la maniobra normal de la pantalla**, no el caso raro.
+   Son **tres** salidas, no dos.
+3. **`NotaRapida.ts` no guarda nada**: no tiene ni una llamada a un `Api`, sólo
+   escribe en `SessionStore`. Quien guarda es `NotasCtrl`
+   (`verifClickNotaRapida`, `columnaNotaRapida`, `filaNotaRapida`), y los dos
+   últimos eran **el caso caro de la §3.2**: la nota rápida pinta la celda
+   **antes** de mandarla, así que un fallo dejaba la columna entera enseñando
+   valores que no están en la base.
+4. **`CambiarNotaModalCtrl.ts` ya estaba bien**: escribe `nota.nota` sólo dentro
+   del `then`. Nunca tuvo la §3.2.
+5. **`DefinitivasPeriodosCtrl.cambiaNotaDef` ya mandaba los ids**, así que la §2.3
+   sólo aplicaba a `NotasCtrl`.
+
+##### Y el campo que hay que mandar es `num_periodo`, no `periodo_id`
+
+Aquí me equivoqué yo dando la indicación, y conviene que quede escrito porque el
+error tenía cara de acierto. La §2.1 dice que `notas_finales.periodo` y
+`notas_finales.periodo_id` se desincronizan, y de ahí salió el consejo de «manda
+`periodo_id`, que es el que no miente». **Pero eso es entre dos columnas de una
+fila, no entre dos campos del cuerpo**, y
+`DefinitivasPeriodosController::putUpdate` **no lee `periodo_id` en ningún
+sitio**: lee `num_periodo`, en la guarda (`:182`) y al resolver el periodo
+(`:215`). Mandar `periodo_id` deja `$num_periodo` en `null`, ninguna fila casa, y
+el profesor recibe **400 «No existe el peridoo.»** al teclear una definitiva.
+
+Los dos valores del front salen de la **misma fila de `periodos`** —
+`ContextoDeUsuario` proyecta `per.id` y `per.numero` juntos—, así que no pueden
+discrepar. El riesgo de la §2.1 no alcanza aquí.
+
+> **Y detrás hay un fallo del backend que sí es nuestro, apuntado para arreglar:**
+> si falta `num_periodo`, el 400 no es lo que sale primero.
+> `PeriodoDeLaFila::porNumero($user, null)` revienta **en la guarda de permisos**,
+> así que el profesor lee **«no tienes permiso»** cuando lo que falta es un campo.
+> Es la §3.4 otra vez —dos fallos distintos con la misma cara— y esta vez el
+> mensaje manda a investigar a la persona equivocada. Debe contestar **422
+> diciendo qué falta**.
+
+##### Lo que el backend puso de su parte
+
+`putUpdate` devuelve ahora **la definitiva recalculada dentro de su propia
+respuesta** (clave `definitiva`, hermana de `id` y `nota`). No ahorra
+milisegundos de base —el recálculo son ~4 ms, medido en el
+[02](02-plan-rendimiento.md)— sino **una petición HTTP entera por nota tecleada**.
+
+Y una decisión que corrigió el front: **no hay rama de «re-pedir la definitiva».**
+La indicación original era re-pedirla cuando el campo no viniera, y es código
+muerto por construcción — el campo y el recálculo viajan en **la misma tanda**,
+así que «no viene el campo» y «no ha habido recálculo» son la misma condición, y
+re-pedir traería el número que ya se tiene. En su lugar la celda se marca **«por
+recalcular»**, que además cubre los disparadores que no devuelven nada (crear o
+borrar una subunidad, copiar un periodo).
+
+---
+
 ### Fase 5 — Quitar los botones
 
 Solo cuando las fases 1-4 estén desplegadas y la fase 0 se pueda volver a correr
