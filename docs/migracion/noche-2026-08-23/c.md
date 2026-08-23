@@ -558,16 +558,27 @@ Tres cosas que se llevan de aquí:
 2. **Un huérfano no da la cara como huérfano.** Da la cara como un test de
    contrato en rojo, en una familia que no has tocado y en un sitio creíble. Es
    la forma de siempre: el instrumento miente con la cara del problema.
-3. **Y el cmdline no distingue las sesiones** —las seis dicen
-   `artisan test --testsuite=Contrato`—, **pero el `cwd` sí**:
+3. **El envoltorio no distingue las sesiones y el `cwd` no aguanta.** Los seis
+   envoltorios dicen `artisan test --testsuite=Contrato`, así que hay que mirar
+   al hijo; y **el `cwd` del hijo cambia**: uno de los huérfanos ya no estaba en
+   su worktree sino en `/tmp/contrato-subidas-<pid>-…`, porque algún test se mete
+   en un directorio temporal. Buscando por `cwd` habría parecido un proceso de
+   nadie — la trampa de siempre, un rato después.
+
+   Lo que sí aguanta es el `--configuration=` del cmdline del hijo, y para saber
+   contra qué base escribe, `DB_TEST_DATABASE` en `/proc/<pid>/environ`:
 
    ```bash
    docker exec 8myvc-app-1 sh -c 'for p in $(pgrep -f phpunit); do
-       echo "$p cwd=$(readlink /proc/$p/cwd) ppid=$(awk "{print \$4}" /proc/$p/stat)"; done'
+       echo "$p ppid=$(awk "{print \$4}" /proc/$p/stat)"
+       tr "\0" "\n" < /proc/$p/environ | grep -E "^DB_TEST_DATABASE="
+       tr "\0" " "  < /proc/$p/cmdline | grep -o -- "--configuration=[^ ]*"
+   done'
    ```
 
-   `ppid=1` es un huérfano. Y para parar lo propio de verdad hay que ir al hijo:
-   `pgrep -f "phpunit.*worktrees/<sufijo>" | xargs -r kill -9`.
+   **`ppid=1` es el discriminador bueno**: nadie lee su salida y sigue
+   escribiendo. Y para parar lo propio de verdad hay que matar al hijo, no al
+   envoltorio.
 
 Lo que lo convierte en apéndice y no en anécdota es cómo empezó: **con un
 `pkill -f "artisan test"` mío dentro del contenedor compartido**. El árbol y la
