@@ -337,6 +337,218 @@ class YearsTest extends CasoDeContrato
         }
     }
 
+    /**
+     * **§93. Un campo que no se manda no es un campo que no cambia: es un campo
+     * que se pisa** — y aquí lo que se pisa es la identidad del colegio.
+     *
+     * `putGuardarCambios` escribía las veintiuna columnas con
+     * `Request::input('x')` a secas, así que un `PUT {"id": 1}` de una línea
+     * dejaba el año **sin nombre de colegio, sin resolución, sin código DANE, sin
+     * rector y sin los nombres de unidad y subunidad** —que salen impresos en el
+     * boletín de todos los alumnos— y contestaba **200**. Es la misma familia que
+     * la [§68](../../docs/migracion/05-codigo-muerto-y-roto.md), con la diferencia
+     * de que allí el que omitía el campo era una pantalla y aquí no lo es ninguna:
+     * es una ruta que cualquiera de los 51 profesores alcanza con `auth.personal`.
+     *
+     * **Se eligió conservar los ausentes y no contestar 422**, y no a ojo: los tres
+     * repos de cliente están al lado y sólo uno la llama —`YearsApi.guardarCambios`
+     * desde `YearsCtrl.guardar_cambios`, con el objeto `year` entero que vino de
+     * `years/colegio`—. Un 422 rompería a cualquier colegio cuya copia de
+     * `myvc_front` sea más vieja y mande veinte de los veintiún campos; conservar
+     * los ausentes no puede romper a nadie, porque quien los manda todos escribe
+     * exactamente lo mismo que antes.
+     */
+    public function test_guardar_cambios_conserva_lo_que_el_cuerpo_no_trae(): void
+    {
+        $token = $this->tokenDelPersonal();
+
+        // `compromiso_familiar_label` viene nula del seed, y una columna que ya vale
+        // null no distingue «se conservó» de «se pisó»: con ella sola el test pasaba
+        // igual con el arreglo revertido. Se le pone un valor antes de medir.
+        DB::table('years')->whereNull('deleted_at')->orderBy('id')->limit(1)
+            ->update(['compromiso_familiar_label' => 'Compromiso de familia']);
+
+        $antes = DB::selectOne('SELECT * FROM years WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+        $this->assertSame('Compromiso de familia', $antes->compromiso_familiar_label);
+
+        $r = $this->withToken($token)->putJson('/api/years/guardar-cambios', ['id' => $antes->id]);
+        $r->assertStatus(200);
+
+        $despues = DB::selectOne('SELECT * FROM years WHERE id = ?', [$antes->id]);
+
+        // Las que imprime el boletín y el certificado, que son las caras.
+        foreach (['year', 'nombre_colegio', 'abrev_colegio', 'resolucion', 'codigo_dane',
+            'rector_id', 'secretario_id', 'tesorero_id', 'telefono', 'celular', 'website',
+            'website_myvc', 'unidad_displayname', 'unidades_displayname', 'genero_unidad',
+            'subunidad_displayname', 'subunidades_displayname', 'genero_subunidad',
+            'alumnos_can_see_notas', 'msg_when_students_blocked',
+            'compromiso_familiar_label'] as $columna) {
+            $this->assertSame($antes->$columna, $despues->$columna,
+                "Un cuerpo que no trae `{$columna}` la dejó en ".var_export($despues->$columna, true).'.');
+        }
+    }
+
+    /**
+     * Y mandarla vacía **sí** la borra: el defecto tapa la clave ausente, no la que
+     * llega. Es la mitad que distingue este arreglo de un `?? ` mal puesto, que
+     * dejaría al colegio sin forma de quitar un campo desde la pantalla.
+     */
+    public function test_mandar_el_compromiso_vacio_si_lo_borra(): void
+    {
+        $token = $this->tokenDelPersonal();
+        DB::table('years')->whereNull('deleted_at')->orderBy('id')->limit(1)
+            ->update(['compromiso_familiar_label' => 'Compromiso de familia']);
+        $year = DB::selectOne('SELECT * FROM years WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+
+        $this->withToken($token)->putJson('/api/years/guardar-cambios',
+            ['id' => $year->id, 'compromiso_familiar_label' => ''])->assertStatus(200);
+
+        $this->assertNull(DB::table('years')->where('id', $year->id)->value('compromiso_familiar_label'));
+    }
+
+    /** Y lo que el cuerpo sí trae se guarda, que es la otra mitad del arreglo. */
+    public function test_guardar_cambios_escribe_lo_que_el_cuerpo_trae(): void
+    {
+        $token = $this->tokenDelPersonal();
+        $antes = DB::selectOne('SELECT * FROM years WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+
+        $this->withToken($token)->putJson('/api/years/guardar-cambios', [
+            'id' => $antes->id,
+            'nombre_colegio' => 'COLEGIO DE PRUEBA',
+            'telefono' => '6040000',
+            'unidad_displayname' => 'Logro',
+        ])->assertStatus(200);
+
+        $despues = DB::selectOne('SELECT * FROM years WHERE id = ?', [$antes->id]);
+        $this->assertSame('COLEGIO DE PRUEBA', $despues->nombre_colegio);
+        $this->assertSame('6040000', $despues->telefono);
+        $this->assertSame('Logro', $despues->unidad_displayname);
+        // Y el resto sigue donde estaba.
+        $this->assertSame($antes->codigo_dane, $despues->codigo_dane);
+        $this->assertSame($antes->resolucion, $despues->resolucion);
+    }
+
+    /**
+     * **§93.2. Lo que no se arregla: un `null` explícito no llega `null` a la fila,
+     * y la respuesta dice que sí.**
+     *
+     * `config/database.php` pone `'strict' => false` en las dos conexiones, o sea
+     * que la sesión de MySQL corre con `sql_mode = NO_ENGINE_SUBSTITUTION` — medido,
+     * no supuesto, y **es el mismo modo en producción**, porque el valor lo fija
+     * Laravel al conectar y no el servidor. Con eso, escribir `null` en una columna
+     * `NOT NULL` **no falla**: MySQL guarda `''` o `0` y avisa. Y el método devuelve
+     * el modelo en memoria, que sí tiene el `null`.
+     *
+     * O sea que **la respuesta contradice a la fila**: dice `nombre_colegio: null`
+     * donde la tabla tiene `''`. Se deja fijado y no se toca, porque cambiarlo es
+     * encender el modo estricto para las 990 consultas crudas del proyecto —eso lo
+     * decide Joseth, está anotado— o releer la fila antes de responder, que es un
+     * cambio de contrato para el único cliente que la llama.
+     */
+    public function test_un_null_explicito_no_llega_null_a_la_fila(): void
+    {
+        $token = $this->tokenDelPersonal();
+        $year = DB::selectOne('SELECT * FROM years WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+
+        $r = $this->withToken($token)->putJson('/api/years/guardar-cambios', [
+            'id' => $year->id,
+            'nombre_colegio' => null,
+            'year' => null,
+            'abrev_colegio' => null,
+        ]);
+        $r->assertStatus(200);
+
+        $this->assertNull($r->json('nombre_colegio'), 'La respuesta devuelve el modelo en memoria.');
+
+        $fila = DB::selectOne('SELECT * FROM years WHERE id = ?', [$year->id]);
+        $this->assertSame('', $fila->nombre_colegio, 'NOT NULL sin modo estricto guarda la cadena vacía.');
+        $this->assertSame(0, (int) $fila->year, 'Y un entero NOT NULL guarda 0.');
+        // La nulable sí queda nula: la diferencia la pone el esquema, no el código.
+        $this->assertNull($fila->abrev_colegio);
+    }
+
+    /**
+     * **§94. El conmutador genérico no puede encender un segundo año actual.**
+     *
+     * `years/toggle-cambiar-valor` es el «guardar un campo suelto» de la rejilla:
+     * recibe `{year_id, campo, valor}` y escribe la columna que le digan, con
+     * `ColumnaSegura` impidiendo la inyección pero **no** limitando cuál. Entre las
+     * columnas de `years` está `actual`, que tiene invariante —uno solo— y una ruta
+     * propia que lo mantiene, `years/set-actual`, la que fija
+     * `test_tildar_la_casilla_deja_uno_solo` justo aquí arriba.
+     *
+     * Medido antes de arreglarlo: `{campo: 'actual', valor: 1}` sobre 2018 dejaba
+     * **2018 y 2025 encendidos a la vez**. Y eso no se queda en la fila:
+     * `Services\Login::ponerEnElPeriodoActual` hace `SELECT ... WHERE actual=1` y se
+     * queda con **el primero, sin `ORDER BY`** —o sea el de id más bajo, 2018—, así
+     * que el siguiente inicio de sesión de **todo el colegio** muda a los usuarios a
+     * un año de hace ocho. Es la [§28](../../docs/migracion/05-codigo-muerto-y-roto.md)
+     * otra vez, alcanzada por otra puerta.
+     */
+    public function test_el_conmutador_generico_no_enciende_el_ano_actual(): void
+    {
+        $token = $this->tokenDelPersonal();
+        $antes = $this->actuales();
+        $this->assertNotEmpty($antes, 'El seed tiene que traer un año actual para que esto mida algo.');
+
+        $apagado = DB::selectOne('SELECT id FROM years
+            WHERE actual = 0 AND deleted_at IS NULL ORDER BY id LIMIT 1');
+
+        $r = $this->withToken($token)->putJson('/api/years/toggle-cambiar-valor',
+            ['year_id' => $apagado->id, 'campo' => 'actual', 'valor' => 1]);
+
+        $this->assertSame(422, $r->status(),
+            'El conmutador genérico no debe poder tocar el año actual: para eso está years/set-actual.');
+        $this->assertSame($antes, $this->actuales(),
+            'Y sobre todo: no puede quedar más de un año actual.');
+    }
+
+    /**
+     * La otra mitad, que **no** cambia: el conmutador sigue escribiendo cualquier
+     * otra columna de `years`, y sigue sin dejar pasar un nombre que no lo sea.
+     *
+     * No es lo que promete el nombre de la ruta —es un «guardar campo» genérico,
+     * como `asignaturas/toggle-dia`—, pero no es un agujero: quien pasa
+     * `auth.personal` ya escribe esas mismas columnas por `years/guardar-cambios`.
+     * Se fija para que el arreglo del `actual` no se lea como «esta ruta está
+     * limitada»: no lo está, y el día que alguien apoye un permiso en eso se
+     * llevará una sorpresa.
+     */
+    public function test_el_conmutador_generico_escribe_las_demas_columnas(): void
+    {
+        $token = $this->tokenDelPersonal();
+        $year = DB::selectOne('SELECT id FROM years WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+
+        $this->withToken($token)->putJson('/api/years/toggle-cambiar-valor',
+            ['year_id' => $year->id, 'campo' => 'codigo_dane', 'valor' => '999'])
+            ->assertStatus(200);
+
+        $this->assertSame('999', DB::table('years')->where('id', $year->id)->value('codigo_dane'));
+
+        foreach (['no_existe', 'codigo_dane = 1, actual', 'deleted_at', 'id'] as $campo) {
+            $r = $this->withToken($token)->putJson('/api/years/toggle-cambiar-valor',
+                ['year_id' => $year->id, 'campo' => $campo, 'valor' => '1']);
+            $this->assertSame(422, $r->status(), "ColumnaSegura dejó pasar `{$campo}`.");
+        }
+
+        $this->assertSame('999', DB::table('years')->where('id', $year->id)->value('codigo_dane'),
+            'Ninguno de los cuatro intentos debe haber escrito nada.');
+    }
+
+    /** Un año que no existe no escribe nada y lo dice, que es lo que hacía ya. */
+    public function test_el_conmutador_generico_con_un_ano_inventado(): void
+    {
+        $token = $this->tokenDelPersonal();
+        $inventado = ((int) DB::table('years')->max('id')) + 1000;
+
+        $r = $this->withToken($token)->putJson('/api/years/toggle-cambiar-valor',
+            ['year_id' => $inventado, 'campo' => 'codigo_dane', 'valor' => '1']);
+
+        $r->assertStatus(200);
+        $this->assertSame('No guardado', $r->getContent(),
+            'Contesta 200 con un texto: es lo que hay, y el front lo pinta tal cual.');
+    }
+
     /** Una familia no toca la configuración del colegio: son de `auth.personal`. */
     public function test_una_familia_no_toca_la_configuracion_del_colegio(): void
     {
