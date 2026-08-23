@@ -32,6 +32,28 @@ class DisciplinaController extends Controller {
 
 
 
+	/**
+	 * La ficha con la que estas tres rutas repintan la pantalla del observador.
+	 *
+	 * El `[0]` de las tres estaba desnudo: con un `alumno_id` del cuerpo que no
+	 * existe —o que existe y no tiene matrícula viva, porque la consulta lleva un
+	 * INNER JOIN a `matriculas`— salía «Undefined array key 0», o sea **500 donde
+	 * tocaba 404** (05 §52, §86). Y lo caro no era el código: para cuando revienta,
+	 * el UPDATE del proceso disciplinario YA SE HIZO, así que el front recibe un
+	 * error sobre una escritura que sí ocurrió y vuelve a mandarla. Medido en
+	 * DisciplinaUpdateTest.
+	 */
+	private function fichaDelAlumno($alumno_id)
+	{
+		$alumno = DB::select($this->consulta_alumno, [$alumno_id]);
+
+		if (count($alumno) === 0) {
+			abort(404, 'No existe la ficha del alumno pedido.');
+		}
+
+		return $alumno[0];
+	}
+
 
 	public function putAlumnos()
 	{
@@ -232,7 +254,7 @@ class DisciplinaController extends Controller {
 		
 		
 		
-		$alumno 	= DB::select($this->consulta_alumno, [$alumno_id])[0];
+		$alumno 	= $this->fichaDelAlumno($alumno_id);
 
 		$this->datosAlumno($alumno, $year_id);
 		
@@ -291,7 +313,13 @@ class DisciplinaController extends Controller {
 		$datos 		= [ $descripcion, $tipo_situacion, $profesor, $fecha_hora_aprox, $testigos, $descargo, $user->user_id, $now, $proceso_id ];
 		DB::update($consulta, $datos);
 		
-		// Modificamos los procesos que llevaron a esta falta
+		// Modificamos los procesos que llevaron a esta falta.
+		// El `is_array` no es defensa por si acaso: `dependencias` es opcional en el
+		// cuerpo, y sin él `count(null)` es un TypeError en PHP 8 — 500 con el UPDATE
+		// de arriba ya escrito. Su hermana `postStore` sí lo preguntaba desde siempre,
+		// y esa asimetría es la que lo escondió. Ver 05 §86.
+		$dependencias = is_array($dependencias) ? $dependencias : [];
+
 		for ($i=0; $i < count($dependencias); $i++) { 
 
 			if (array_key_exists('asignado', $dependencias[$i])) {
@@ -309,7 +337,7 @@ class DisciplinaController extends Controller {
 			
 		}
 		
-		$alumno 	= DB::select($this->consulta_alumno, [$alumno_id])[0];
+		$alumno 	= $this->fichaDelAlumno($alumno_id);
 		$this->datosAlumno($alumno, $year_id);
 
 		return (array)$alumno;
@@ -361,7 +389,7 @@ class DisciplinaController extends Controller {
 		
 		DB::update($consulta, $datos);
 		
-		$alumno 	= DB::select($this->consulta_alumno, [$alumno_id])[0];
+		$alumno 	= $this->fichaDelAlumno($alumno_id);
 
 		$this->datosAlumno($alumno, $user->year_id);
 		
