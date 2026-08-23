@@ -84,6 +84,15 @@ desplegar:
   que no existe contestaba «En papelera» y «Guardado». La pantalla de escalas ya
   tenía rama de error para las dos y no mira el código, así que lo que cambia es
   que enseña el error verdadero en vez de un éxito falso.
+- **El botón «Eliminar todas las notas de este periodo (¡peligroso!)» obedece al
+  interruptor del periodo** ([05 §77](migracion/05-codigo-muerto-y-roto.md)). Es
+  un `DELETE` **físico** —sin papelera y sin vuelta atrás— de todas las notas de
+  un alumno en un grupo y un periodo, y no comprobaba nada. Ahora pide lo mismo
+  que las otras 25 rutas de la §27. **Lo que se nota**: con el periodo cerrado a
+  los profesores, ese botón deja de borrar y contesta «No tienes permiso» —el
+  mismo 400 que ya da el resto de la rejilla de notas—. Con el periodo abierto
+  sigue funcionando igual. Conviene avisar a quien administre, porque es la
+  primera vez que ese botón dice que no.
 - **Sacar de la papelera pasa a pedir superusuario, como borrar de ella**
   ([05 §76](migracion/05-codigo-muerto-y-roto.md)). Son cinco rutas —grupos,
   el mismo grupo por la puerta de `perfiles/`, profesores, años y asignaturas—

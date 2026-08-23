@@ -7283,3 +7283,111 @@ parámetro. El mensaje que le pasé de segundo se lo tragaba sin decir nada, as�
 un rojo dentro de un bucle de cuatro parejas no habría dicho cuál falló. **Una
 comprobación que no puede explicarse cuando falla es media comprobación**, y el
 nivel 7 la encontró por la aridad.
+
+---
+
+## 77. El botón peligroso que la §27 no podía ver (22 ago 2026)
+
+`PUT detalles/eliminar-notas-periodo` hace un `DELETE FROM notas` **físico** —no
+marca `deleted_at`, no hay papelera, no hay de dónde restaurar— de **todas las
+notas de un alumno en un grupo y un periodo**. Toma los tres ids del cuerpo y no
+comprobaba nada: ni el interruptor del periodo, ni de quién es el grupo.
+
+El botón que la llama se llama, en el propio `myvc_front`, *«Eliminar todas las
+notas de este periodo (¡peligroso!)»*.
+
+### 77.1 Por qué no la vio la §27, que es el hallazgo de verdad
+
+La §27 dejó **25 de 26 rutas** pidiendo el permiso del sitio al que escriben. Ésta
+no estaba entre las 26, y no por descuido: aquel inventario se hizo de **los sitios
+que ya llamaban a `User::pueden_editar_notas()`** —26 llamadas en siete
+controladores— y `DetallesController` no llamaba a ninguno.
+
+> **Una lista construida desde la comprobación no puede contener al que nunca
+> comprobó.**
+
+Es una forma distinta de la trampa habitual del detector. No es un detector con
+falsos positivos ni uno ciego a un nombre nuevo (§53): **el detector era exacto y
+el conjunto estaba mal elegido**. Y el resultado tiene la peor cara posible — «25
+de 26» suena a serie cerrada.
+
+La §08 sí la tenía apuntada desde la revisión IDOR, en la tabla de «escrituras
+sobre otro alumno», y nunca se cerró. Van **tres** hallazgos de esta semana que ya
+estaban escritos en algún documento y nadie recogió: el sexto `asked_id` (§53), el
+`if` vacío de ausencias (§75.1) y éste.
+
+### 77.2 Rehecha por la operación
+
+`tools/escrituras-en-las-notas.py`, que parte de **cualquier INSERT/UPDATE/DELETE
+cuyo SQL nombre `notas`, `notas_finales` o `recuperacion_final`**:
+
+```
+13 métodos escriben en las notas
+sin preguntar: 4 de 13
+```
+
+Y los cuatro, leídos uno a uno —que es lo único que convierte una lista en un
+veredicto—:
+
+| Método | Ya estaba |
+|---|---|
+| `DefinitivasPeriodosController::putCalcularGrupoPeriodo` | §71, cortada con 410 |
+| `NotasController::putDetailed` | 10 §3, 05 y 09 |
+| `NotasController::putSubunidad` | 10 §3.1 — no guarda nada, con su test |
+| **`DetallesController::putEliminarNotasPeriodo`** | **nada** |
+
+### 77.3 Las dos veces que el detector mintió, antes de dar el número bueno
+
+Las dos están escritas en la cabecera del script, porque el script se va a volver
+a usar:
+
+- **Sin quitar los comentarios contó los docblocks.** La primera pasada dio 17
+  métodos y 7 sin preguntar; cuatro eran **texto**, no código. Y no repartidos al
+  azar: **tres de los cuatro cayeron en la columna «NO pregunta»**, que es la única
+  que se lee. La razón es estructural y merece quedarse — el docblock que explica
+  un arreglo se escribe **encima** del método que sí escribe, y un recorte por
+  `function` se lo cuelga al método **anterior**, que por construcción es otro. Es
+  la §72.5 con una vuelta más: no sólo cuenta lo que se escribió sobre el código,
+  es que lo cuenta **en el sitio equivocado**.
+- **Corrido desde otro directorio contestó «0 métodos escriben en las notas»** en
+  vez de «no existe la carpeta». Un cero tiene exactamente la misma cara que un
+  arreglo terminado. Va con freno: ahora aborta.
+
+Y una tercera, dentro del test y no del detector: el contador de consultas por
+grupo buscaba `from notas n` en minúsculas contra un SQL que dice `FROM notas n`,
+contó cero y **falló diciendo «el listado ha dejado de preguntar grupo a grupo»** —
+o sea, anunciando una optimización que nadie había hecho. **Un contador que no
+encuentra nada tiene la misma cara que un arreglo.** Tres instrumentos, tres veces,
+en un solo hallazgo.
+
+### 77.4 Qué se hizo, y por qué el candado y no otra cosa
+
+Joseth eligió el candado del periodo con las cuatro opciones y sus costes medidos
+delante. Es la regla ya decidida —**el interruptor cierra las notas**, §40— aplicada
+a una ruta que el inventario se saltó: no es una decisión nueva, es terminar una.
+
+El periodo que se le pasa es el **del cuerpo**, y eso es correcto aquí aunque sea
+literalmente lo que la §27 avisa que no se haga. Allí el problema era que el
+cliente elegía con `num_periodo` **el permiso que se le comprobaba mientras escribía
+en otro sitio**. Aquí `periodo_id` es la misma ligadura que acota el `DELETE`
+—`u.periodo_id=:periodo_id`—, así que pedir permiso para él es pedirlo para
+exactamente lo que se va a borrar. **La regla no es «no leer el periodo del
+cuerpo»: es «pedir permiso para el sitio al que se escribe»**, y cuando el cuerpo
+elige las dos cosas a la vez, leerlo es lo correcto.
+
+Lo que **no** se hizo: cerrarla a superusuario. Habría pasado el test del periodo
+cerrado y apagado la pantalla en dieciséis colegios — lo dice el segundo test, que
+existe para eso. Comprobado: con ese atajo caen tres de los cuatro.
+
+### 77.5 Lo que queda medido de la pantalla, sin tocar
+
+`putGruposPeriodos`, la otra ruta sin comprobar del mismo controlador, alimenta esa
+misma pantalla y **recorre todos los grupos del año preguntando uno a uno si el
+alumno tiene notas**, y por cada grupo con notas los periodos, y por cada periodo
+las asignaturas. Contesta lo que le piden; el coste no estaba medido y ahora lo
+fija el test.
+
+Y no filtra la papelera: `SELECT * FROM grupos g WHERE g.year_id=:year_id` a secas,
+así que un grupo borrado con notas dentro sale igual. Es lo contrario de lo que
+hace la rejilla de grupos del mismo módulo — **la §70.2 otra vez**: catorce
+consultas decidiendo por su cuenta qué hace la papelera.
