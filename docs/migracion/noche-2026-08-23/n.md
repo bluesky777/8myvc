@@ -247,6 +247,41 @@ de permiso sino del año.
 
 ---
 
+## El `stan` no sale `[OK]`, y no es de este lote
+
+Al correr larastan sobre el árbol de N sale **un error**, y hay que decir las dos cosas
+por separado porque son dos afirmaciones distintas:
+
+```
+árbol raíz (main, sin N)   ->  Found 1 error
+.worktrees/n (main + N)    ->  Found 1 error   (el mismo fichero, la misma línea)
+```
+
+**El rojo es de `main` y N no añade ninguno.** Medido por los dos lados y no deducido del
+`git diff`, porque «no lo he tocado» y «no lo he provocado» no son la misma frase.
+
+```
+tests/Unit/DefinicionDeLosDetectoresTest.php:83
+  Constant Tests\Unit\DefinicionDeLosDetectoresTest::NO_SE_FIJA_TODAVIA is unused.
+```
+
+La constante es **documentación deliberada** —lleva su porqué al lado: *«una definición
+que alguien está cambiando no necesita un centinela, necesita que le dé tiempo a
+cambiar»*— y dice que entra el día que cierre el lote H. Comprobado antes de opinar:
+**H no ha cerrado**, y la regex `PROPIEDAD` de `identificadores-del-cuerpo.py` **sigue
+con `exig` dentro**. O sea que **la nota no ha vencido**: describe el estado de ahora.
+
+No se arregla desde aquí —el fichero es del lote C— y la salida que parece mejor no es
+la que primero se piensa:
+
+- **Anotarla en `phpstan.neon`** con nombre, motivo y `count` es lo que manda CLAUDE.md
+  para lo que no se puede arreglar. Pero **la calla**.
+- **Referenciarla desde el propio test** —un caso que afirme que esas herramientas siguen
+  en la lista de «todavía no»— la deja de dejar sin usar **y de paso comprueba que la
+  nota no ha vencido**, que es exactamente lo que aquí hubo que ir a comprobar a mano.
+
+---
+
 ## Lo que este lote **no** puede afirmar
 
 `CasoDeContrato.php` lo heredan **130 ficheros**. Correr sólo los que se editan dice que
