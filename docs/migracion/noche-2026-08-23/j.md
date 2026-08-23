@@ -124,23 +124,76 @@ sitio**. El número a secas no dice nada; lo que dice algo es de dónde sale.
 | `tardanzas/*` (se autentica solo) y `auth/*` (sale del token) | 7 |
 | **abiertas, sin candado y sin declarar en ningún sitio** | **52** |
 
-De esas 52, **47 tienen algún test que no es de barrido**. Y de las 47, en **37**
-alguno de sus tests sí pregunta de quién es la fila. Quedan **10 cubiertas y no
-juzgadas**, que se leyeron una a una:
+De esas 52, **51 tienen algún test que no es de barrido** —medido con el mapa
+de cobertura de la tanda entera de este mismo árbol, no del de al lado; ver
+§116—. Y de las 51, en **43** algún test suyo sí pregunta de quién es la fila.
+
+Quedan **8 cubiertas y no juzgadas**, que se leyeron una a una:
 
 | ruta | veredicto |
 |---|---|
+| **`PUT api/calendario/this-year`** | **mal, y es la §115.1 de abajo**: decide qué enseña con una bandera que manda el cliente |
 | `GET api/myimages` | **bien**: `WHERE user_id = :user_id` del token, y los bloques extra tras `is_superuser \|\| Profesor`. **No acepta ningún identificador**, así que no hay nada que comprobar |
 | `POST api/myimages/store-firma`, `store-intacta-privada` | **bien**: crean, y el dueño sale del token |
 | `PUT api/publicaciones/store` | **bien**: es un `INSERT` con `persona_id` del token. Sus cuatro hermanas que editan y borran sí llaman `exigeQueLaPublicacionSeaSuya()` |
 | `GET api/paises`, `GET api/ciudades/by-departamento`, `GET api/piars-config` | catálogo, sin identificador de persona |
-| `PUT api/calendario/this-year` | lectura del calendario del colegio |
-| `PUT api/alumnos/eps-check`, `PUT api/acudientes/ocupaciones-check` | ya medidas y documentadas en `EscriturasConSoloTokenTest` |
 
-**Nueve de las diez están bien**, y eso es el resultado: entre los dos candados,
-las dos listas de excepciones y la de pre-login, la pregunta de la propiedad está
-cubierta casi del todo. El agujero de esta noche no era una pila de rutas — era
-el candado.
+**Siete de las ocho están bien.** Entre los dos candados, las dos listas de
+excepciones y la de pre-login, la pregunta de la propiedad está cubierta casi del
+todo — y la que faltaba no era una ruta sin test, era una **con** test.
+
+---
+
+## §115.1 — El calendario decide qué te enseña con una bandera que mandas tú
+
+`CalendarioController::putThisYear()`, entero:
+
+```php
+$is_prof_admin = Request::input('is_prof_admin');
+if ($is_prof_admin == 'true') {
+    $eventos = DB::select('SELECT * FROM calendario WHERE deleted_at is null');
+} else {
+    $eventos = DB::select('SELECT * FROM calendario WHERE solo_profes=0 and deleted_at is null');
+}
+```
+
+`solo_profes` es el interruptor con el que el colegio marca un evento como
+interno, y **quien decide si se aplica es el que pregunta**. La ruta lleva
+`auth.token` a secas.
+
+Medido con token de alumno: mandando `is_prof_admin=true` recibe **exactamente
+los 37 eventos** marcados `solo_profes=1` de los 630 del año. El test no compara
+contra un número fijo —eso mediría el seed— sino **las dos respuestas del mismo
+token**, y comprueba además que los que aparecen de más **son exactamente esos
+ids**.
+
+### La otra mitad, que cambia cuál es el arreglo
+
+**Sin la bandera, el interruptor sí se respeta.** No es la
+[§74](../05-codigo-muerto-y-roto.md), donde `para_alumnos` no lo leía nadie: aquí
+la columna funciona exactamente como debe. Lo único que falla es **de dónde sale
+el booleano que decide aplicarla**.
+
+> No hay que enseñar a nadie a leer una columna: hay que mover de sitio un dato.
+
+### Por qué es exactamente el lote J
+
+La ruta **ya estaba cubierta** por
+`MuestreoDeLecturasConContextoTest::test_el_calendario_del_year`, verde, fijando
+la forma de la respuesta. Nadie preguntó de quién son los eventos.
+
+Y no la ve ninguno de los dos candados, **por el motivo simétrico del §114**:
+`calendario/*` tiene 1 de 6 con guard, o sea `$conGuard < 2`, así que **nunca
+entró** en el candado de familia. Es el otro lado del mismo `if`: unas familias
+**se salen** por tener demasiadas abiertas, y otras **nunca entran** por tener
+demasiadas pocas cerradas. El test del §114 declara las primeras y **no cubre las
+segundas** — hueco dejado a sabiendas y escrito aquí.
+
+**Se fija, no se arregla**: el arreglo es de una línea, pero cambia lo que reciben
+los cuatro clientes en una pantalla que todos abren, y `calendario/*` no es de
+ningún lote de esta noche.
+
+`CalendarioSoloProfesTest` · commit `fd1b4e5`
 
 ### Un candidato anotado y NO medido
 
@@ -179,6 +232,27 @@ cubridores y se comprobó cuántos se sabían leer. Esa comprobación —**conta
 cuántas entradas tu propia herramienta no supo procesar**— es lo que ninguna de
 las dos versiones del número decía por sí sola.
 
+### 1.b Y tenía una segunda ceguera, en el sentido contrario
+
+Con el detector arreglado y el mapa fresco salían **14**, y entre ellas las cuatro
+lecturas de `ciudades`. Al ir a leerlas:
+`CiudadesTest::test_un_alumno_solo_ve_el_catalogo_geografico` **sí las juzga** —
+las golpea con token de Alumno **y** de Acudiente y afirma las claves exactas que
+devuelven, con el comentario «ninguna trae a nadie» al lado.
+
+El detector solo reconocía el juicio expresado como **rechazo** —`403`, «ajeno»,
+«propia»— y se perdía el expresado como **«éstas son las únicas claves que
+salen»**.
+
+> Reconocía la forma **débil** del juicio y se perdía la **fuerte** — que además
+> es la buena, porque mira el resultado y no el estado.
+
+Con las dos formas reconocidas: **8**.
+
+La cuenta de las tres versiones del mismo hueco es **16 → 10 → 8**, y las tres
+correcciones salieron de auditar la herramienta, no de que nadie las discutiera.
+**Las tres veces el error fue hacia el lado alarmista.**
+
 ### 2. Un mapa de cobertura caduca en cuanto otra sesión fusiona
 
 El mapa `test → ruta` de este lote salió de la tanda entera del **lote A**, que
@@ -210,6 +284,7 @@ en marcha.
 
 - **Lote F**: `GET api/votaciones/show/{id}` es la única de las 52 sin ningún
   test, medido contra un árbol con B y C fusionados.
+- **Quien coordina / lote L**: `PUT api/calendario/this-year` (§115.1). El arreglo es de una línea —que `is_prof_admin` salga del token— pero toca una pantalla que abren los cuatro clientes.
 - **Lote H (cerrado)**: `PUT api/publicaciones/store` acepta `imagen.id` del
   cuerpo sin comprobar de quién es. Candidato, no medido.
 
