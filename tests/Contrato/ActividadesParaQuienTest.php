@@ -102,9 +102,10 @@ class ActividadesParaQuienTest extends CasoDeContrato
         $this->assertSame(0, (int) DB::table('ws_actividades')->where('id', $actividad)->value('para_acudientes'),
             'El interruptor sí se escribe: lo que no hace es decidir.');
 
+        // Con `para_acudientes` apagado el acudiente sigue abriendo la actividad:
+        // esa es toda la sección, y es el mismo 200 de antes de apagarlo.
         $this->withToken($token)->putJson('/api/mis-actividades/mi-actividad',
-            ['actividad_id' => $actividad])->assertStatus(200,
-                'Con `para_acudientes` apagado el acudiente sigue abriendo la actividad.');
+            ['actividad_id' => $actividad])->assertStatus(200);
     }
 
     /** Y `para_profesores` tampoco le cierra nada a un profesor. */
