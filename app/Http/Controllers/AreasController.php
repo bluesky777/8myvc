@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\DB;
 
 use App\Support\CamposQueVinieron;
+use App\Support\CatalogoEnUso;
 use App\User;
 use App\Models\Area;
 
@@ -99,9 +100,24 @@ class AreasController extends Controller {
 
 	}
 
+	/**
+	 * Un área con materias vivas no se borra — §70 y decisión de Joseth del 23 ago.
+	 *
+	 * Misma forma que `grados`: la materia se queda apuntando a un área en la
+	 * papelera. Se cierra con las mismas dos mitades de siempre —corta y no
+	 * escribe— y **hoy bloquearía en 20 de las 22 áreas vivas**, o sea que las dos
+	 * que quedan libres son las únicas donde esta ruta hacía algo inocuo.
+	 *
+	 * **`niveles_educativos` se dejó fuera a propósito** aunque tiene la misma
+	 * forma: allí bloquearía **4 de 4**, y una ruta enrutada que siempre contesta
+	 * 422 es peor que la que no existe — no dice qué pretendía hacer la pantalla.
+	 */
 	public function deleteDestroy($id)
 	{
 		$areas = Area::findOrFail($id);
+
+		CatalogoEnUso::exigirQueNadieApunte('materias', 'area_id', $areas->id, 'materias');
+
 		$areas->delete();
 
 		return $areas;
