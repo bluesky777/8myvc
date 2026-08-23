@@ -49,7 +49,7 @@ class PedidosDeAsignaturaTest extends CasoDeContrato
      * «No puedes». El criterio no cambia —solo el docente pide cambios de
      * asignatura, porque un superusuario no pide, hace— pero ahora se dice.
      */
-    public function test_un_administrativo_recibe_403_al_pedir_una_materia(): void
+    public function test_ni_un_superusuario_puede_pedir_una_materia(): void
     {
         [$grupo, $materia] = $this->grupoYMateria();
         $antes = DB::table('change_asked_assignment')->count();
@@ -76,7 +76,7 @@ class PedidosDeAsignaturaTest extends CasoDeContrato
         $this->assertSame($antes + 1, DB::table('change_asked_assignment')->count());
     }
 
-    public function test_un_administrativo_recibe_403_al_pedir_que_quiten_una(): void
+    public function test_ni_un_superusuario_puede_pedir_que_quiten_una(): void
     {
         [, , $asignatura] = $this->grupoYMateria();
 

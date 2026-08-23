@@ -170,7 +170,7 @@ class EditnotaBorraAlumnosTest extends CasoDeContrato
     public function test_un_periodos_a_calcular_desconocido_devuelve_vacio_en_200(): void
     {
         $grupo = $this->grupoConAlumnos();
-        $token = $this->tokenDelPersonalDe($grupo->year_id);
+        $token = $this->tokenDelPersonalLlanoDe($grupo->year_id);
 
         $fila = DB::selectOne('SELECT n.alumno_id, u.asignatura_id
             FROM notas n

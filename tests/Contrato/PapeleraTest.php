@@ -21,7 +21,7 @@ class PapeleraTest extends CasoDeContrato
 {
     public function test_forzar_el_borrado_de_una_subunidad_la_borra_de_verdad(): void
     {
-        $usuario = $this->usuarioDeTipo('Usuario');
+        $usuario = $this->usuarioLlanoDelPersonal();
         $this->assertSame(1, (int) $usuario->is_superuser);
         $token = $this->tokenDe($usuario->username);
 

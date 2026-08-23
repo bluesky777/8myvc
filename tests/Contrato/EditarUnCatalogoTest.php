@@ -149,7 +149,7 @@ class EditarUnCatalogoTest extends CasoDeContrato
      */
     public function test_editar_mandando_los_campos_sigue_escribiendo(): void
     {
-        $token = $this->tokenDe($this->usuarioDeTipo('Usuario')->username);
+        $token = $this->tokenDelPersonalLlano();
 
         $area = DB::selectOne('SELECT id FROM areas ORDER BY id LIMIT 1');
         $this->withToken($token)->json('PUT', '/api/areas/update/'.$area->id,

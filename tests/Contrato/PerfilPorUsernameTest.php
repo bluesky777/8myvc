@@ -81,7 +81,7 @@ class PerfilPorUsernameTest extends CasoDeContrato
     /** El personal pasa de largo: el guard solo estrecha a alumnos y acudientes. */
     public function test_el_personal_sigue_viendo_el_de_cualquiera(): void
     {
-        $personal = $this->usuarioDeTipo('Usuario');
+        $personal = $this->usuarioLlanoDelPersonal();
 
         $otro = DB::selectOne('SELECT username FROM users
             WHERE id <> ? AND deleted_at IS NULL AND username <> "" ORDER BY id LIMIT 1', [$personal->id]);

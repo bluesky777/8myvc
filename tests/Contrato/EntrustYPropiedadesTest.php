@@ -32,7 +32,7 @@ class EntrustYPropiedadesTest extends CasoDeContrato
      */
     public function test_crear_los_usuarios_que_faltan_ya_no_revienta(): void
     {
-        $usuario = $this->usuarioDeTipo('Usuario');
+        $usuario = $this->usuarioLlanoDelPersonal();
         $token = $this->tokenDe($usuario->username);
 
         // Un alumno sin cuenta, para que el endpoint tenga trabajo que hacer.

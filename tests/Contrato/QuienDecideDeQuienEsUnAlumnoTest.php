@@ -169,7 +169,7 @@ class QuienDecideDeQuienEsUnAlumnoTest extends CasoDeContrato
      */
     public function test_cualquiera_del_personal_lee_el_historial_de_otro(): void
     {
-        $yo = $this->usuarioDeTipo('Usuario');
+        $yo = $this->usuarioLlanoDelPersonal();
         $otro = DB::selectOne('SELECT id FROM users WHERE id <> ? AND deleted_at IS NULL
             ORDER BY id LIMIT 1', [$yo->id]);
 

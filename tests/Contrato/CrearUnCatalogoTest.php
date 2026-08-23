@@ -121,7 +121,7 @@ class CrearUnCatalogoTest extends CasoDeContrato
      */
     public function test_contratar_a_un_profesor_de_verdad_sigue_devolviendo_su_fila(): void
     {
-        $usuario = $this->usuarioDeTipo('Usuario');
+        $usuario = $this->usuarioLlanoDelPersonal();
         $token = $this->tokenDe($usuario->username);
 
         $year = DB::selectOne('SELECT p.year_id FROM periodos p

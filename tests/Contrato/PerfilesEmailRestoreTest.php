@@ -83,7 +83,7 @@ class PerfilesEmailRestoreTest extends CasoDeContrato
     /** Lo propio se sigue pudiendo, que es para lo que la ruta existe. */
     public function test_cada_uno_cambia_el_suyo(): void
     {
-        $yo = $this->usuarioDeTipo('Usuario');
+        $yo = $this->usuarioLlanoDelPersonal();
 
         $this->withToken($this->tokenDe($yo->username))
             ->putJson('/api/perfiles/cambiaremailrestore/'.$yo->id, [

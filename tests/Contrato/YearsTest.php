@@ -132,7 +132,7 @@ class YearsTest extends CasoDeContrato
 
         $this->assertSame([], $this->actuales());
 
-        $usuario = $this->usuarioDeTipo('Usuario');
+        $usuario = $this->usuarioLlanoDelPersonal();
         $periodoAntes = DB::table('users')->where('id', $usuario->id)->value('periodo_id');
 
         $this->postJson('/api/login/credentials', [
@@ -190,7 +190,7 @@ class YearsTest extends CasoDeContrato
     /** El usuario se muda de año, y eso es otra cosa que el año del colegio. */
     public function test_useractive_muda_al_usuario_y_no_al_colegio(): void
     {
-        $usuario = $this->usuarioDeTipo('Usuario');
+        $usuario = $this->usuarioLlanoDelPersonal();
         $token = $this->tokenDe($usuario->username);
 
         $suyo = DB::table('users')->where('id', $usuario->id)->value('periodo_id');

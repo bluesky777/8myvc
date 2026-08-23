@@ -249,7 +249,7 @@ class PeriodosTest extends CasoDeContrato
      */
     public function test_useractive_a_un_periodo_vivo_de_otro_ano_sigue_valiendo(): void
     {
-        $usuario = $this->usuarioDeTipo('Usuario');
+        $usuario = $this->usuarioLlanoDelPersonal();
         $token = $this->tokenDe($usuario->username);
         $suyo = DB::table('users')->where('id', $usuario->id)->value('periodo_id');
         $suYear = DB::table('periodos')->where('id', $suyo)->value('year_id');

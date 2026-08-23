@@ -132,7 +132,7 @@ class ColumnasQueSoloViajanTest extends CasoDeContrato
         $alumno = DB::selectOne('SELECT id FROM alumnos WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
         $this->assertNotNull($alumno, 'El seed necesita un alumno.');
 
-        $token = $this->tokenDe($this->usuarioDeTipo('Usuario')->username);
+        $token = $this->tokenDelPersonalLlano();
 
         $r = $this->withToken($token)->putJson('/api/enfermeria/datos', ['alumno_id' => $alumno->id]);
 

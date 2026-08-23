@@ -149,7 +149,7 @@ class SesionTest extends CasoDeContrato
      */
     public function test_refrescar_da_un_par_nuevo_sin_matar_el_acceso_anterior(): void
     {
-        $par = $this->entrar($this->usuarioDeTipo('Usuario')->username);
+        $par = $this->entrar($this->usuarioLlanoDelPersonal()->username);
 
         $r = $this->postJson('/api/auth/refresh', [], $this->cab($par['refresco']));
 
@@ -173,7 +173,7 @@ class SesionTest extends CasoDeContrato
      */
     public function test_el_refresco_recien_rotado_se_acepta_durante_la_gracia(): void
     {
-        $par = $this->entrar($this->usuarioDeTipo('Usuario')->username);
+        $par = $this->entrar($this->usuarioLlanoDelPersonal()->username);
 
         $this->postJson('/api/auth/refresh', [], $this->cab($par['refresco']))->assertStatus(200);
 
@@ -346,7 +346,7 @@ class SesionTest extends CasoDeContrato
      */
     public function test_la_ruta_vieja_emite_un_token_largo_y_sin_refresco(): void
     {
-        $usuario = $this->usuarioDeTipo('Usuario');
+        $usuario = $this->usuarioLlanoDelPersonal();
 
         $r = $this->postJson('/api/login/credentials', [
             'username' => $usuario->username,

@@ -195,7 +195,7 @@ class ExcelTest extends CasoDeContrato
      */
     public function test_reimportar_lo_exportado_no_cambia_a_los_alumnos(): void
     {
-        $usuario = $this->usuarioDeTipo('Usuario');
+        $usuario = $this->usuarioLlanoDelPersonal();
         $token = $this->tokenDe($usuario->username);
 
         $year = DB::table('periodos')

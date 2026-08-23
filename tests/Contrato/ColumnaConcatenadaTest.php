@@ -58,7 +58,7 @@ class ColumnaConcatenadaTest extends CasoDeContrato
 
     public function test_una_columna_de_verdad_sigue_funcionando(): void
     {
-        $token = $this->tokenDe($this->usuarioDeTipo('Usuario')->username);
+        $token = $this->tokenDelPersonalLlano();
         $asignatura = $this->asignatura();
         $nuevo = ((int) $asignatura->lunes) === 1 ? 0 : 1;
 

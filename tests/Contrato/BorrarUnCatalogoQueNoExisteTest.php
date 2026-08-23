@@ -113,7 +113,7 @@ class BorrarUnCatalogoQueNoExisteTest extends CasoDeContrato
      */
     public function test_las_dos_que_se_tocaron_siguen_borrando(): void
     {
-        $token = $this->tokenDe($this->usuarioDeTipo('Usuario')->username);
+        $token = $this->tokenDelPersonalLlano();
 
         $def = DB::selectOne('SELECT id FROM definiciones_comportamiento
             WHERE deleted_at IS NULL ORDER BY id LIMIT 1');

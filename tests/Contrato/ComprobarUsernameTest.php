@@ -26,7 +26,7 @@ class ComprobarUsernameTest extends CasoDeContrato
 {
     public function test_un_username_que_existe_se_reporta_como_ocupado(): void
     {
-        $usuario = $this->usuarioDeTipo('Usuario');
+        $usuario = $this->usuarioLlanoDelPersonal();
         $token = $this->tokenDe($usuario->username);
 
         $r = $this->getJson('/api/perfiles/comprobarusername/'.$usuario->username,
@@ -37,7 +37,7 @@ class ComprobarUsernameTest extends CasoDeContrato
 
     public function test_un_username_libre_se_reporta_como_libre(): void
     {
-        $usuario = $this->usuarioDeTipo('Usuario');
+        $usuario = $this->usuarioLlanoDelPersonal();
         $token = $this->tokenDe($usuario->username);
 
         $libre = 'nadie-se-llama-asi-'.$usuario->id;
@@ -59,7 +59,7 @@ class ComprobarUsernameTest extends CasoDeContrato
      */
     public function test_el_username_de_un_usuario_borrado_sigue_ocupado(): void
     {
-        $usuario = $this->usuarioDeTipo('Usuario');
+        $usuario = $this->usuarioLlanoDelPersonal();
         $token = $this->tokenDe($usuario->username);
 
         $victima = DB::table('users')->whereNull('deleted_at')
