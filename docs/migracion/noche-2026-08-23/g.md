@@ -263,6 +263,30 @@ aparecen en los tres clientes:
 O sea que **son 53 y no 49** las columnas que no lee nadie en ninguna parte. Las
 cuatro que faltaban estaban en la mitad limpia de la tabla.
 
+**La columna «lecturas de verdad» de esa tabla es un recuento, no un veredicto**,
+y hay que decirlo porque el recuento tiene la ceguera de la
+[§72.5](../05-codigo-muerto-y-roto.md): cuenta también **lo que se escribió
+sobre** la columna. En `contrario`, de sus 44 «otras», una es una frase de un
+documento del front; en `allDay`, una es el README de `angular-ui-calendar`, que
+es código de terceros; en `caritas`, una es una línea de `PREGUNTAS-MANANA.md`.
+
+Por eso las diecisiete con recuento distinto de cero **se leyeron**, no se
+contaron, empezando por las de recuento más bajo —que son las que un par de
+líneas de prosa podría estar sosteniendo—. Las cinco más ajustadas tienen lectura
+de verdad y sin discusión:
+
+```
+caritas                          ng-show="row.entity.caritas"
+mostrar_puesto_boletin           if ($ctrl.year.mostrar_puesto_boletin && …)
+allDay                           if (!evento.allDay && !evento.end)
+show_subasignaturas_en_finales   ng-if="::year.show_subasignaturas_en_finales …"
+sin_uniforme                     ng-show="uniforme.sin_uniforme"
+```
+
+**El recuento sirvió para ordenar por dónde mirar; el 53 sale de leer.** Es la
+misma regla que el resto de la noche: un detector da sitios donde mirar, nunca
+una lista de fallos.
+
 Y **dos de las cuatro son interruptores con su casilla en pantalla**:
 
 | Interruptor | Dónde se enciende | Qué decide |
