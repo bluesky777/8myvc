@@ -262,10 +262,110 @@ vez. Eso es lo único que no se consigue escribiéndolo en prosa.
 
 ---
 
+## §122 — La séptima de la §81, la que ningún detector podía ver
+
+> El rango del lote era §81–84. Ésta se sale, y quien coordina la numeró
+> **§122**: §85–88 son del lote B, y §122+ queda abierto para lo que se salga de
+> los repartos originales.
+
+`PUT escalas/update` con el cuerpo `{"id":1}`, medido el 23 ago 2026:
+
+```
+SUPERIOR · S · 46-50 · orden 5   ->   '' · '' · 0-0 · orden 0
+```
+
+Seis de las nueve columnas que ese `UPDATE` escribe son `NOT NULL`
+—`desempenio`, `valoracion`, `porc_inicial`, `porc_final`, `orden`, `perdido`—
+y con `strict => false` eso no es un error: es `''` y `0` (§81).
+**`porc_inicial=0, porc_final=0` es la banda colapsada** en la tabla que decide
+cómo se pinta el desempeño en todos los boletines del año.
+
+### Por qué no salió en ninguna de las dos listas que la tenían delante
+
+**El barrido de la operación por todo `app/`** busca un método que resuelva una
+fila existente con `find/findOrFail/first/onlyTrashed` **y** le asigne columnas
+con `Request::input(...)`. Éste no hace ninguna de las dos cosas: comprueba la
+existencia con un `SELECT` dentro de un helper privado y escribe con un
+`DB::update` crudo.
+
+> No es un falso negativo de la clasificación: **es que el método no llegó a ser
+> candidato.** La población de partida no era `app/`, era la parte de `app/` que
+> usa Eloquent — y en este repo hay 990 consultas crudas. El número bueno es
+> «28 **de lo que ese patrón alcanza**», no «28 de `app/`».
+
+Es la trampa que la §53 dejó escrita —*el detector también se queda ciego ante un
+nombre nuevo*— con el nombre nuevo siendo, esta vez, **una escritura que no pasa
+por el ORM**.
+
+**Y en la §81 se cayó de mi propia lista** porque con el cuerpo vacío contesta
+**404**. El 404 es correcto —el id va en el cuerpo, y sin cuerpo no hay id que
+buscar— pero **contesta a otra pregunta**: la de verdad empieza justo después del
+id. Tercera vez esta noche que una respuesta correcta por el motivo equivocado
+tapa lo que parece cubrir. Las otras dos fueron `grados` con su 422 y `materias`
+con su 500, y las tres son de la misma sección.
+
+### El arreglo: el defecto de `input()`, no `CamposQueVinieron`
+
+El discriminador entre las dos herramientas está medido: la clase hace falta
+cuando el controlador tiene un `Request::merge()` o un `sanarInput*` **antes** de
+leer, porque a esa altura `has()` ya no distingue lo que mandó el cliente.
+`EscalasDeValoracionController` no tiene ninguno de los dos (cero coincidencias
+en el fichero), así que basta el defecto.
+
+Y el defecto sale de la fila que ya estaba en la base **sin costar una consulta**:
+`exigirQueLaEscalaExista()` ya hacía ese `SELECT`, sólo que pedía `id`. Ahora
+devuelve la fila entera.
+
+### Comprobado al revés, dos veces — y la segunda es la que importa
+
+| Qué se probó | Qué cae |
+|---|---|
+| Revertido del todo | 1 de 3 |
+| **La solución equivocada que parecía buena**: `?: ` en vez del defecto de `input()` | **sólo el tercero** |
+
+El `?:` pasa «no vacía la escala» y pasa «editar entero sigue escribiendo». Lo
+único que lo caza es el tercer test, porque **los dos ceros de esta tabla son
+legítimos**: `porc_inicial = 0` es el borde inferior de la escala más baja del
+colegio y `perdido = 0` el valor normal de las tres que se aprueban. Un `?:`
+habría convertido «poner la banda a 0» en «no cambiar nada», con los otros dos
+verdes de rigor.
+
+### Y ese tercer test se saltaba entero en su primera versión
+
+Pedía una escala con `porc_inicial <> 0` **y** `perdido <> 0`. En las cuatro
+escalas de cada año la única con `perdido = 1` es BAJO, que es justamente la que
+empieza en `porc_inicial = 0`: cero filas, `markTestSkipped`, y **en la línea de
+resumen un test saltado se lee igual que uno que pasa**. Va en dos filas
+distintas.
+
+Es la misma forma que el verde hueco del §84 —un listado vacío tampoco trae la
+fila ajena— y me ha pasado **dos veces en una noche**, así que va escrito como
+patrón y no como descuido: *afirmar sobre una población que puede estar vacía sin
+comprobar que no lo está.*
+
+`EditarUnaEscalaDeValoracionTest` · commit `57ce228`
+
+### La población de la §81 en mis diez controladores, cerrada con la lista
+
+| Método | Estado |
+|---|---|
+| `Areas::putUpdate`, `Frases::putUpdate`, `Materias::putUpdate`, `NivelesEducativos::putUpdate`, `Grados::putUpdate`, `TipoDocumento::update` | arreglados en §81 |
+| `EscalasDeValoracion::putUpdate` | §122 |
+| `Areas::putUpdateOrden`, `Materias::putUpdateOrden` | descartados: escriben una o dos columnas que **son el contenido del payload** (`orden`, y `area_id` sólo en la rama `partTo`), no campos pisados |
+| `Contratos::postIndex` | descartado: resuelve una fila, pero para un `new Contrato` — el discriminador de la §68 |
+| `DefinicionesComportamiento::update` | ya no existe, borrado en la §82 por estar sin ruta |
+
+**Cero pendientes**, y dicho con la lista delante y no con un «ya está».
+
+---
+
 ## Lo que queda anotado y no se tocó
 
 ### Para Joseth / el colegio
 
+0. **§122 no cambia nada de lo anterior, pero conviene que se lea junto**: la
+   séptima ruta de la §81 estaba en `escalas`, que es una de las tres tablas del
+   §84. Las dos secciones tocan el mismo controlador por motivos distintos.
 1. **Las cinco escrituras del §84**: ¿se pueden editar y borrar frases y
    contratos de años pasados, como ya está decidido para las escalas? Hoy sí, en
    las cinco. Cerrarlo dejaría a un colegio sin poder corregir el banco de frases
@@ -294,3 +394,25 @@ vez. Eso es lo único que no se consigue escribiéndolo en prosa.
   `app/Http/Controllers`, y meter los ocho ficheros ahí es editar un fichero
   compartido por seis sesiones. Acordado con quien coordina que lo hace al
   amanecer, después de fundir. Se escribió respetando el estilo de alrededor.
+
+---
+
+## Una nota sobre los instrumentos, porque esta noche mintieron tres
+
+1. **`| tail -60` sobre la suite** me devolvió el código de salida del `tail` y
+   no el de la suite: un `0` que no significaba nada, con la salida cortada por
+   la F. Es la regla 6 de la noche y me mordió igual.
+2. **Y esa misma tanda estaba contaminada** por un huérfano de `phpunit` corriendo
+   contra mi misma base: un `pkill -f "artisan test"` de otra sesión mató el
+   envoltorio y **dejó al hijo vivo, reparentado a init**. Dos tandas contra una
+   base chocan en `personal_access_tokens` y el rojo sale en cualquier familia
+   con toda la cara de ser un test roto.
+   Para matar lo propio de verdad:
+   `pgrep -f "phpunit.*worktrees/a" | xargs -r kill -9` — y comprobar que queda
+   vacío. **El `cwd` no sirve para identificar el árbol**: un test se mete en un
+   directorio temporal. Lo estable es el `--configuration=` del cmdline.
+3. Las dos, más el `vendor/` enlazado de la cabecera del 15, son la misma forma:
+   **un instrumento que contesta con la cara del problema.**
+
+Todas las mediciones de este documento son de tandas limpias, con `pgrep`
+comprobado vacío antes y el código de salida guardado aparte del texto.
