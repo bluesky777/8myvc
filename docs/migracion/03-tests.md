@@ -596,3 +596,43 @@ Y cuatro más del P1, **las cuatro arregladas el mismo día**:
   `matriculas.estado = 'FORM'`, que pone y cambia `matriculas/prematricular` con
   `estado=FORM` y lee `AlumnosFormularios`. Eran dos mecanismos para el mismo dato,
   uno vivo y otro que nunca llegó a escribir una fila.
+
+---
+
+## Un test que no se ha visto en rojo no prueba nada — 24 ago 2026
+
+La receta es de una línea y es la más barata de este documento:
+
+> **Revierte el arreglo y comprueba que el test se pone rojo.** Si sigue en verde,
+> lo que prueba no es lo que crees.
+
+Ya estaba en el repo con otras palabras —`EditarUnaNotaActualizaLaDefinitiva`
+explica por qué borra la nota antes— y aun así el 24 ago dos sesiones la
+olvidaron teniéndola escrita al lado.
+
+**El caso que la trajo de vuelta**, y es el que la justifica: `8myvc-d0` escribió
+el test de «la sesión sigue abierta cuando el colegio cambia de año», movió el
+periodo del acudiente, pidió la ficha y **pasó**. Al revertir el arreglo, **siguió
+pasando**. El verde no significaba nada: había un tercero en el camino —el login,
+que repara `users.periodo_id`— que su razonamiento no incluía.
+
+Sin esa comprobación, el test se habría quedado ahí **defendiendo un
+comportamiento que nadie había producido**, y de paso confirmando un diagnóstico
+falso que ya se había publicado en el
+[09 §8](09-pendientes.md) como decisión para Joseth.
+
+**Por qué esta comprobación caza lo que ninguna otra:** todas las demás miran el
+test. Ésta mira **la distancia entre el test y el código**, y es la única que
+detecta un verde producido por algo que no es el sujeto — un valor por defecto que
+ya era correcto, una guarda de más arriba, un `catch` que traga, o un servicio que
+repara el estado por el camino.
+
+Es la misma familia que las cuatro formas del [apéndice de
+`las-cegueras.md`](noche-2026-08-23/las-cegueras.md): **la medición no miente; lo
+que miente es lo que se concluye de ella.** Aquí la medición es el test y la
+conclusión es «el arreglo funciona».
+
+> Cuando el negativo no se puede montar —porque revertir es caro o el fallo no se
+> puede reintroducir sin tocar producción— **eso se dice en el test**, en vez de
+> dejarlo en verde como si se hubiera comprobado. Un verde sin negativo es un
+> verde con una nota al pie, no un verde.

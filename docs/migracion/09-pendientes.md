@@ -1786,77 +1786,87 @@ operación contestando dos cadenas distintas **dentro del mismo colegio**.
 
 ---
 
-## 8. Un acudiente creado en 2018 sigue en 2018 — 24 ago 2026
+## 8. El año se queda viejo mientras la sesión sigue abierta — 24 ago 2026
 
-**Espera una decisión.** Lo levantó `myvc-front-9a` preparando cuentas para
-verificar en el navegador, y está medido en la copia de producción.
+> **Este apartado se escribió mal y se reescribió el mismo día.** La primera
+> versión decía que *«un acudiente creado en 2018 sigue en 2018 para siempre»* y
+> que **sus boletines y sus definitivas son las de hace ocho años**. Eso es falso,
+> lo desmontó `8myvc-d0` con el código delante, y **cómo se llegó a afirmarlo está
+> al final** — porque el error de método vale más que el hallazgo.
 
-### Lo medido
+### Lo que es cierto: 992 filas viejas, en reposo
 
-**De los 1.000 acudientes, ninguno está en el año activo.** 992 tienen
-`users.periodo_id = 1` —el periodo 1 de **2018**, o sea la tanda con la que se
-cargó el colegio— y los otros ocho están en periodos de 2019, 2020 y 2021.
+De los 1.000 acudientes, **992 tienen `users.periodo_id = 1`** —el periodo 1 de
+2018, la tanda con la que se cargó el colegio— y los otros ocho apuntan a 2019,
+2020 y 2021. **Ninguno al año activo.** Los alumnos también están repartidos por
+años viejos: sólo 264 de 1.283 en 2025.
 
-Y eso es literalmente lo que ven. Ejecutada la consulta de la rama `Acudiente` de
-`ContextoDeUsuario` tal cual, contra la copia de producción:
+### Lo que NO se sigue de ahí: que alguien vea 2018
 
-```
-acudiente 1562 -> year 2018, periodo 1     (una fila, sin error)
-```
+**`Login::ponerEnElPeriodoActual()` repara esa columna en cada login**
+(`app/Services/Login.php:165`, llamada desde `entrar()`). Mira `years.actual`, y
+si el año del usuario no es ése, hace `UPDATE users SET periodo_id=?` **antes de
+emitir el token**. No hay `switch` por tipo ni ningún `FUERA`: vale igual para un
+acudiente que para un profesor.
 
-Sus boletines, sus definitivas y sus grupos son los de 2018.
+O sea que esas 992 filas están viejas **en reposo**, y **con ese id no llega
+ninguna petición real**: para tener token hay que haber pasado por el login.
 
-### Por qué no pueden salir de ahí
+### Lo que sí queda, y es real — y no es de acudientes
 
-Dos hechos que por separado parecen menores:
+**El colegio pasa de año y la familia no ha vuelto a entrar.**
+`ContextoDeUsuario` lee `users.periodo_id` **en cada petición**, y la reparación
+es sólo del login: **nada lo mueve con la sesión abierta.** Ahí
+`disciplina/mis-fichas` devolvía **404 sobre una ficha que existe**, justo cuando
+la familia abre la app a ver el curso nuevo.
 
-1. **El login no escribe `users.periodo_id`.** El único sitio que lo pone es
-   `LoginController:426`, y es **al CREAR** la cuenta, con el periodo actual **de
-   ese momento**.
-2. **Lo único que lo mueve después es `years/useractive/{year_id}`**, que lleva
-   `auth.personal` — y `ExigirPersonal` declara `FUERA = ['Alumno', 'Acudiente']`.
+Y **es de cualquier sesión que sobreviva al cambio de año**, no de un tipo de
+usuario. `8myvc-d0` lo arregló dentro de su endpoint en `7ce66a9` —el año sale del
+alumno, que es de quien es la ficha—, verificado por los dos lados y **con el
+token tomado antes de mover el periodo**, que es lo único que reproduce «la sesión
+sigue abierta».
 
-**Juntos: el año en el que vive un acudiente es el de la fecha en que se creó su
-cuenta, para siempre.** No es que nadie haya mirado la rama del acudiente: es que
-no pueden llegar al año actual.
+**Queda por decidir si eso se arregla en general o endpoint a endpoint.** En
+general significaría que el contexto deje de confiar en `users.periodo_id` cuando
+`years.actual` dice otra cosa, y eso toca a los cuatro tipos de usuario.
 
-> **Y el desplegable de año se les pinta igual.** `GET years` no lleva middleware
-> y el selector de `panel.html:38-40` no tiene condición de visibilidad, así que
-> el acudiente lo abre, elige, y recibe «No se pudo cambiar el año. Problema»
-> (`PanelCtrl:161`). Al menos no es silencio; pero no hay otra puerta.
+### La puerta cerrada, que sí es una decisión y sigue en pie
 
-### Al alumno le pasa por la misma puerta y se salva por otra — y esto importa
+`years/useractive/{year_id}` lleva `auth.personal`, y `ExigirPersonal` declara
+`FUERA = ['Alumno', 'Acudiente']`, citando una decisión de Joseth del 18 ago 2026.
+Así que **un alumno o un acudiente no puede cambiarse el año** — y el desplegable
+se les pinta igual: `GET years` no lleva middleware y el selector de
+`panel.html:38-40` no tiene condición de visibilidad, así que lo abren, eligen, y
+reciben «No se pudo cambiar el año. Problema» (`PanelCtrl:161`).
 
-`Alumno` también está en `FUERA`, así que tampoco puede cambiar de año. Pero **hay
-un auto-arreglo que sólo lo alcanza a él**: cuando el contexto sale vacío,
-`ContextoDeUsuario` busca el periodo desde la matrícula viva, hace `UPDATE users
-SET periodo_id=?` y vuelve a resolver.
+**Eso es lo único que queda para el front** y es cosmético comparado con lo de
+arriba: ocultar el desplegable a quien no puede usarlo. Está en el
+`PREGUNTAS-MANANA.md` de `myvc_front`.
 
-**Su consulta sale de `alumnos`.** Consecuencia:
+---
 
-| | Contexto vacío | ¿Se arregla solo? |
-|---|---|---|
-| **Alumno** con `periodo_id` de otro año | **sí** — la rama exige `g.year_id = per.year_id`, y sin coincidencia da cero filas | **sí**, en el primer intento. Medidos **124 de 378** alumnos con matrícula viva del año activo en ese estado, y los 124 se reparan al entrar |
-| **Acudiente** con `periodo_id` de otro año | **no** — su rama no cruza contra ninguna matrícula, así que 2018 devuelve fila | **no**. El auto-arreglo no se dispara nunca |
+### Cómo se llegó a afirmar lo falso, que es lo que hay que leer
 
-**Lo que hace grave el caso del acudiente es justo que no falla.** El alumno se
-rompe ruidosamente y por eso se curó; el acudiente devuelve 200 con el colegio de
-hace ocho años.
+Tres pasos, y **cada uno corrigiendo al anterior en la dirección equivocada**:
 
-### Las tres salidas
+1. **Se reprodujo con un test y dio 2025** — o sea, lo correcto. Pero el resultado
+   contradecía el hallazgo, así que se buscó una explicación y se encontró una
+   plausible: *«la base de tests tiene datos sembrados distintos»*. **Se descartó
+   la medición buena por incómoda.**
+2. **Se «corrigió» midiendo el SQL crudo contra la copia de producción**, que dio
+   2018. Ese número es **exacto** — y contesta otra pregunta: cuál es el estado
+   **en reposo**, no qué ve una petición real, que siempre llega después de un
+   login.
+3. **Y se publicó como decisión para Joseth**, con la autoridad de venir de dos
+   mediciones.
 
-- **(a)** que el login ponga `periodo_id` al periodo actual **cuando el usuario es
-  Alumno o Acudiente** — los que no pueden cambiarlo. Es el arreglo más pequeño y
-  no toca a nadie más.
-- **(b)** que la rama `Acudiente` resuelva el periodo por `years.actual` en vez de
-  por `users.periodo_id`. Más quirúrgico, pero deja la columna mintiendo.
-- **(c)** ocultar el desplegable a quien no puede usarlo. Arregla el desconcierto
-  y **no** arregla el 2018.
+Es la [8c y la 8d de `las-cegueras.md`](noche-2026-08-23/las-cegueras.md)
+**encadenadas**: medir bien en el sitio equivocado, y luego contar bien una cosa
+distinta de la que se afirma. Y lo que faltaba era una sola pregunta:
+**¿por dónde llega de verdad esa petición?** El login estaba en el camino y no se
+miró.
 
-**(a) y (b) no son excluyentes con (c)**, y la (c) es del front.
+> Lo cazó `8myvc-d0` **revirtiendo su propio arreglo para ver si el test se ponía
+> rojo**. No se puso. *«Un test que pasa con el código roto no prueba nada, y ahí
+> estaba la pista: algo reparaba el periodo por el camino.»*
 
-> **Lo que no está claro es si la puerta cerrada es un fallo o una decisión.**
-> `ExigirPersonal` cita una decisión de Joseth del 18 ago 2026 para cerrarla a
-> alumnos y acudientes, y que un acudiente no ande saltando entre años lectivos
-> suena deliberado. Lo que no parece deliberado es la consecuencia. **Por eso esto
-> no se toca sin contestarlo.**
