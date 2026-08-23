@@ -146,7 +146,7 @@ suficiente no lo era.
 
 ---
 
-## §143 — La quinta copia que hubo que revertir
+## §143 — La quinta copia que hubo que revertir, y la sospecha que era falsa
 
 `encabezado_comportamiento_boletin()` está copiada en **cinco** controladores de
 `Informes/`, así que se cambiaron las cinco. **Larastan paró la quinta**:
@@ -154,23 +154,38 @@ suficiente no lo era.
 
 Al medir por qué: **esa copia no recibe lo mismo que las otras cuatro.** Su único
 llamante (línea 209) le pasa `$alumno->nota_comportamiento_year`, que sale de
-`NotaComportamiento::notas_comportamiento_year()` y es una **lista de periodos**,
-no el objeto ni el centinela.
+`NotaComportamiento::nota_promedio_year()` y es **siempre un `(int)`** — un
+promedio, o `0` si no hay notas. Nunca es el objeto ni el centinela.
 
-Con una lista, `is_object` es **siempre falso**: el cambio habría apagado la
+Con un número, `is_object` es **siempre falso**: el cambio habría apagado la
 cabecera de comportamiento del boletín de preescolar **en silencio y con los
 tests en verde**. Revertida.
 
 > **Ampliar un arreglo a «todas las copias» sin comprobar qué recibe cada una es
 > la forma de romper la que estaba bien.**
 
-Y lo que destapó estrechar el tipo, anotado y sin tocar: esa quinta copia hace
-`$la_nota = $nota;` donde **las otras cuatro hacen `$la_nota = $nota->nota;`**, y
-ese valor se concatena en el HTML doce líneas más abajo. Es la única de las cinco
-que difiere. Con el seed de hoy las dos rutas de preescolar contestan **200**, así
-que **no está probado que reviente**.
+### Y la sospecha que salió de ahí era falsa, que es la mitad que importa
 
----
+Al revertir se anotó esto como pendiente para otro lote:
+
+> esa quinta copia hace `$la_nota = $nota;` donde las otras cuatro hacen
+> `$la_nota = $nota->nota;`, y ese valor se concatena en el HTML. Es la única de
+> las cinco que difiere.
+
+**Era falso, y se descubrió al medir de dónde viene el valor.** Con `$nota`
+siendo ya la nota —un entero—, `$la_nota = $nota;` es exactamente lo correcto:
+en las otras cuatro `$nota` es la **fila** y hay que sacarle `->nota`; aquí ya
+es la nota. La asimetría es real y **no es un fallo**.
+
+Y el aviso de larastan que la levantó lo estaba provocando **el `is_object` de
+más**, no el código de preescolar. O sea:
+
+> Un aviso del analizador que aparece **junto con tu cambio** describe tu cambio
+> hasta que se demuestre lo contrario. Se anotó como «hay un fallo latente ahí»
+> y lo que había era el arreglo mal ampliado.
+
+Se corrige aquí y no se deja anotado: **una pista falsa en la lista de otro lote
+cuesta más que no escribir nada**, porque llega con la autoridad de venir medida.
 
 ## §142 — Pedir el grupo sin la lista de alumnos es un 500 seguro
 
@@ -226,8 +241,9 @@ que se regenera el seed.
 
 ### Para otros lotes
 
-- **§143**: `BolfinalesPreescolarController` es la única de las cinco copias con
-  `$la_nota = $nota;`. No está probado que reviente.
+- **§143 se retira de esta lista**: se anotó como sospecha y **se midió después
+  que era falsa** — ver arriba. No hay nada que mirar en
+  `BolfinalesPreescolarController`.
 - **`PuestosController:271`** escribe a mano `count($comportamiento) > 0 ?
   $comportamiento[0] : []`: **la misma dualidad en un séptimo sitio**, o sea que
   no es «un modelo con dos formas» sino un modismo del proyecto. No es de este
