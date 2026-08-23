@@ -172,7 +172,19 @@ class User extends Authenticatable
 	 */
 	private static function aplicarBanderasDelPeriodo($user, int|array|null $periodo): void
 	{
-		$ids = array_values(array_filter(is_array($periodo) ? $periodo : [$periodo], fn ($p) => $p !== null));
+		// **Los ids se deduplican aquí y no en el llamante**, y no es cosmético: la
+		// decisión de abajo es `count($filas) === count($ids)`, así que una lista
+		// con el mismo periodo repetido da N ids contra **una** fila y deniega la
+		// petición entera. El caso que lo dispara es el normal —`notas/lote` manda
+		// una columna, o sea treinta notas del mismo periodo—, y el 400 que sale es
+		// «no tienes permiso», que manda a buscar el fallo justo donde no está.
+		//
+		// Exigirle `array_unique` al que llama es un contrato que se rompe con el
+		// primero que no lea el comentario, y el reordenado de subunidades ya pasa
+		// varias filas por aquí.
+		$ids = array_values(array_unique(array_filter(
+			is_array($periodo) ? $periodo : [$periodo], fn ($p) => $p !== null
+		)));
 		
 		if ($ids !== []) {
 			$filas = DB::select(

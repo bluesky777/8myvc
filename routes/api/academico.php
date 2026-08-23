@@ -98,6 +98,9 @@ Route::put('subunidades/update/{id}', [SubunidadesController::class, 'putUpdate'
 Route::put('notas/alumno-periodo-grupo', [NotasController::class, 'putAlumnoPeriodoGrupo'])->middleware('auth.personal');
 Route::put('notas/detailed', [NotasController::class, 'putDetailed'])->middleware('auth.personal');
 Route::put('notas/subunidad', [NotasController::class, 'putSubunidad'])->middleware('auth.personal');
+// Va aquí y no abajo por la regla de la cabecera: sin parámetros antes que con
+// ellos, para que `notas/{algo}` no la tape.
+Route::put('notas/lote', [NotasController::class, 'putLote'])->middleware('auth.personal');
 // Un alumno podía leer las notas de cualquier compañero cambiando el número de
 // la URL, y un acudiente las de cualquier alumno del colegio. El modo `notas`
 // del guard `sin-paz-y-salvo` comprueba la propiedad pero NO el paz y salvo, que hoy solo lo

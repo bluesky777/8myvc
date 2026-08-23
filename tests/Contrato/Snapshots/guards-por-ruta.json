@@ -284,6 +284,7 @@
         "PUT api/notas-perdidas/todos",
         "PUT api/notas/alumno-periodo-grupo",
         "PUT api/notas/detailed",
+        "PUT api/notas/lote",
         "PUT api/notas/subunidad",
         "PUT api/notas/update/{id}",
         "PUT api/observador-horizontal/horizontal/{grupo_id}",

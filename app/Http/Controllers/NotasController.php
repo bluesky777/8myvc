@@ -22,6 +22,17 @@ use App\Support\PeriodoDeLaFila;
 
 class NotasController extends Controller {
 
+	/**
+	 * Cuántas notas admite `putLote` de una vez.
+	 *
+	 * No es una regla del colegio: es el tope que separa un lote de un bucle de
+	 * escrituras sin fin dentro de una transacción abierta. Una columna de un
+	 * grupo grande son cuarenta y cinco notas, así que doscientas dejan margen de
+	 * sobra para que la app agrupe varias columnas si algún día quiere.
+	 */
+	private const LOTE_MAXIMO = 200;
+
+
 
 
 	public function putDetailed()
@@ -359,6 +370,314 @@ class NotasController extends Controller {
 
 		return (array)$nota;
 	}
+
+	/**
+	 * Guardar varias notas de una vez.
+	 *
+	 * ## Lo que ahorra, y lo que NO ahorra
+	 *
+	 * **No ahorra el recálculo**, y va primero porque es el error que este método
+	 * estuvo a punto de llevar escrito en la cabecera. Recalcular es barato:
+	 * `tools/coste-del-recalculo.php` lo midió en **~1,7 ms** la consulta agregada
+	 * y ~4 ms la nota entera. El *3×* que parecía haber al estrechar esa consulta a
+	 * un alumno **era la caché** —una pasada en orden fijo, con la segunda variante
+	 * cobrando el buffer pool que calentó la primera—; medido con medianas y
+	 * alternando el orden queda en 1,26× sobre 1,7 ms, o sea ~0,35 ms por
+	 * pulsación. El estrechamiento se escribió, se midió y **se revirtió**. Está en
+	 * `docs/migracion/02-plan-rendimiento.md`, con las tres lecciones; no se vuelva
+	 * a citar ese ahorro, aquí ni en ningún sitio.
+	 *
+	 * Lo que sí ahorra son **las treinta peticiones**, y ahí el número es otro: una
+	 * columna de treinta alumnos paga treinta veces el coste fijo de **resolver
+	 * quién pregunta**, que la §4 del 02 mide en **~40–80 ms**. Un orden de
+	 * magnitud por encima del recálculo, y sin depender de ninguna caché.
+	 * Recalcular una vez por par en vez de treinta es la consecuencia agradable de
+	 * agrupar, no el motivo.
+	 *
+	 * ## Y lo que de verdad lo justifica no es velocidad, es corrección
+	 *
+	 * **Treinta peticiones son treinta transacciones independientes.** Una columna
+	 * a medio guardar —se cayó la red, expiró el token, el profesor cerró la
+	 * pantalla— deja notas escritas y definitivas calculadas sobre estados
+	 * intermedios, que es la familia de fallos que la
+	 * [fase 3](../../../docs/migracion/10-definitivas.md) vino a cerrar. Un lote es
+	 * **una transacción y un recálculo**: entra entera o no entra.
+	 *
+	 * En un VPS lo primero no se notaría. Lo pide la app porque el hosting es
+	 * compartido; lo segundo se nota en cualquier sitio.
+	 *
+	 * ## Lo que se hace en qué orden, que es casi todo el método
+	 *
+	 * 1. **Se resuelve el destino de cada nota antes de escribir nada**, y de paso
+	 *    se apartan las que no llevan a ninguna unidad viva. Una nota inventada en
+	 *    el cuerpo no puede tumbar el lote entero: el docente perdería las
+	 *    veintinueve que sí eran buenas.
+	 * 2. **El permiso se comprueba una vez, con la lista de periodos, y antes de
+	 *    la primera escritura.** `pueden_editar_notas` acepta un array y lo cruza
+	 *    con AND: si una sola nota cae en un periodo cerrado, no se escribe
+	 *    ninguna. Es lo mismo que hace el reordenado de subunidades, y es lo
+	 *    correcto — escribir media columna es peor que no escribir nada.
+	 * 3. **Las escrituras van en una transacción**, que es lo que `putUpdate` no
+	 *    tiene y aquí importa más: treinta filas a medio guardar dejan una columna
+	 *    que no se corresponde con ninguna pulsación.
+	 * 4. **El recálculo va fuera de la transacción y al final.** Fuera porque
+	 *    `recalcular()` abre la suya y no tiene sentido alargar el bloqueo de las
+	 *    notas mientras se agregan las definitivas; al final porque recalcular
+	 *    entre nota y nota es justo lo que este endpoint viene a no hacer.
+	 *
+	 * ## Los ids de periodo van **únicos**, y no es cosmético
+	 *
+	 * `aplicarBanderasDelPeriodo` decide con `count($filas) === count($ids)`, para
+	 * que un periodo borrado debajo de una fila cuente como cerrado en vez de
+	 * regalar permiso. Pasarle la lista sin deduplicar convierte treinta notas del
+	 * mismo periodo en treinta ids contra **una** fila, y la comprobación deniega
+	 * **el lote entero** con un 400 que no significa nada. O sea que el caso
+	 * normal de este endpoint —una columna, un periodo— sería justo el que nunca
+	 * pasa.
+	 *
+	 * ## El historial se resuelve una vez, y puede faltar
+	 *
+	 * `putUpdate` lo saca con un cross join dentro del mismo SELECT de la nota, así
+	 * que un usuario **sin ninguna sesión registrada** no trae fila, el `[0]`
+	 * revienta y la respuesta es un 422 «no se pudo guardar la nota» sobre una nota
+	 * que se podía guardar perfectamente. Aquí se pide aparte y una sola vez, y si
+	 * no hay va `null`: `bitacoras.historial_id` lo admite, y que falte el rastro
+	 * de la sesión no puede impedir que se guarde la nota **ni** que se anote la
+	 * bitácora, que es lo que el colegio mira cuando alguien reclama.
+	 *
+	 * La bitácora es por lo demás **idéntica** a la de `putUpdate` —mismas
+	 * columnas, mismos valores, una por nota—: es el rastro que lee el historial de
+	 * la app, y un lote no puede dejar un rastro distinto del que deja teclear una
+	 * a una.
+	 *
+	 * ## Despliegue
+	 *
+	 * `app/` es copia por colegio y `myvc_flutter` es **una sola app para los
+	 * dieciséis**, así que la app no puede llamar aquí hasta que esto esté
+	 * desplegado en todos: en el que faltara gastaría un 404 antes de caer al
+	 * método viejo. Ver docs/DESPLIEGUE.md.
+	 */
+	public function putLote()
+	{
+		$user = User::fromToken();
+		$now  = Carbon::now('America/Bogota');
+
+		$pedidas = Request::input('notas');
+
+		if (! is_array($pedidas) || $pedidas === []) {
+			abort(422, 'Hace falta una lista de notas.');
+		}
+
+		// El tope no es una regla de negocio, es lo que separa un lote de una
+		// denegación de servicio: sin él, un cuerpo con cien mil ids es un bucle de
+		// cien mil consultas dentro de una transacción. Doscientas cubren de sobra
+		// la pantalla que lo usa —una columna de un grupo grande son cuarenta y
+		// cinco— y la app ya sabe partir en tandas.
+		if (count($pedidas) > self::LOTE_MAXIMO) {
+			abort(422, 'El lote no puede pasar de '.self::LOTE_MAXIMO.' notas.');
+		}
+
+		$fallidas  = [];
+		$aEscribir = [];
+		$periodos  = [];
+		$pares     = [];
+
+		foreach ($pedidas as $posicion => $pedida) {
+			$id    = is_array($pedida) ? ($pedida['id'] ?? null) : null;
+			$valor = is_array($pedida) && array_key_exists('nota', $pedida) ? $pedida['nota'] : null;
+
+			if (! is_numeric($id)) {
+				$fallidas[] = ['id' => null, 'motivo' => 'La posición '.$posicion.' no trae un id de nota.'];
+
+				continue;
+			}
+
+			$id = (int) $id;
+
+			if (! is_numeric($valor)) {
+				$fallidas[] = ['id' => $id, 'motivo' => 'La nota no es un número.'];
+
+				continue;
+			}
+
+			// El mismo camino que usa el recalculador: la nota no sabe de qué
+			// asignatura ni de qué periodo es —cuelga de la subunidad y ésa de la
+			// unidad—, y aquí hacen falta las dos para agrupar el recálculo.
+			$destino = DB::selectOne(
+				'SELECT n.id, n.nota, n.alumno_id, u.asignatura_id, u.periodo_id
+				   FROM notas n
+				   INNER JOIN subunidades s ON s.id = n.subunidad_id AND s.deleted_at IS NULL
+				   INNER JOIN unidades u ON u.id = s.unidad_id AND u.deleted_at IS NULL
+				  WHERE n.id = ? AND n.deleted_at IS NULL',
+				[$id]
+			);
+
+			if ($destino === null) {
+				$fallidas[] = ['id' => $id, 'motivo' => 'No existe la nota, o su indicador ya no está.'];
+
+				continue;
+			}
+
+			$aEscribir[] = ['id' => $id, 'valor' => $valor, 'destino' => $destino];
+
+			$periodos[(int) $destino->periodo_id] = true;
+			$pares[(int) $destino->asignatura_id.':'.(int) $destino->periodo_id] = [
+				(int) $destino->asignatura_id,
+				(int) $destino->periodo_id,
+			];
+		}
+
+		if ($aEscribir === []) {
+			return ['guardadas' => 0, 'fallidas' => $fallidas];
+		}
+
+		// Antes de la primera escritura, y con los ids **únicos**: ver la nota de
+		// arriba sobre `count($filas) === count($ids)`.
+		User::pueden_editar_notas($user, array_keys($periodos));
+
+		$historial = DB::selectOne(
+			'SELECT id FROM historiales WHERE user_id = ? AND deleted_at IS NULL ORDER BY id DESC LIMIT 1',
+			[$user->user_id]
+		);
+
+		$guardadas = DB::transaction(function () use ($aEscribir, $user, $now, $historial) {
+			$hechas = 0;
+
+			foreach ($aEscribir as $fila) {
+				DB::update(
+					'UPDATE notas SET nota=?, updated_by=?, updated_at=? WHERE id=?',
+					[$fila['valor'], $user->user_id, $now, $fila['id']]
+				);
+
+				DB::insert(
+					'INSERT INTO bitacoras (created_by, historial_id, affected_user_id, affected_person_type,
+						affected_element_type, affected_element_id, affected_element_new_value_int,
+						affected_element_old_value_int, created_at)
+					 VALUES (?, ?, ?, "Al", "Nota", ?, ?, ?, ?)',
+					[
+						$user->user_id,
+						$historial->id ?? null,
+						$fila['destino']->alumno_id,
+						$fila['id'],
+						$fila['valor'],
+						$fila['destino']->nota,
+						$now,
+					]
+				);
+
+				$hechas++;
+			}
+
+			return $hechas;
+		});
+
+		// Y **una sola vez por par**, con la transacción de las notas ya cerrada.
+		// Sin `soloAlumno` a propósito: el lote toca a varios alumnos del mismo
+		// grupo y `calcular()` los agrega a todos en la misma consulta, así que
+		// acotar por alumno sería pedir esa misma agregación una vez por cada uno.
+		foreach ($pares as $par) {
+			DefinitivasDeAsignatura::recalcular($par[0], $par[1], $user->user_id);
+		}
+
+		return [
+			'guardadas' => $guardadas,
+			'fallidas' => $fallidas,
+			'definitivas' => $this->definitivasDelLote($aEscribir),
+		];
+	}
+
+	/**
+	 * Las definitivas con las que quedaron los alumnos que tocó el lote.
+	 *
+	 * **Es el mismo contrato que `putUpdate`, en plural.** Aquélla devuelve
+	 * `definitiva` porque toca a un alumno; un lote es una columna, así que aquí es
+	 * una lista con la misma forma de elemento. Que existan las dos evita que el
+	 * front acabe con dos ideas distintas de lo mismo según por dónde guarde, y
+	 * ahorra lo que ahorraba allí: **una petición más sólo para repintar celdas
+	 * cuyo valor el servidor acaba de calcular**.
+	 *
+	 * **Se lee de la tabla y no de lo calculado**, por la misma razón que allí: el
+	 * servicio respeta las filas `manual` y `recuperada`, así que lo calculado no
+	 * es lo que hay guardado. Devolver lo calculado pintaría un número que la base
+	 * no tiene, y justo en las filas que alguien puso a mano, que son las que más
+	 * se miran.
+	 *
+	 * Y **una consulta por par, no por alumno**: el `IN` es lo que impide que
+	 * devolver esto reintroduzca por la puerta de atrás las treinta consultas que
+	 * el endpoint viene a quitar.
+	 *
+	 * ## El alumno sin fila viene igual, con `nota` en null
+	 *
+	 * Casi siempre la hay: `recalcular()` parte de las matrículas y crea la fila
+	 * de todo el que esté matriculado (§9.1). Pero el lote puede llevar la nota de
+	 * alguien que ya no lo está —un retirado, un `PREM`—, y ése no recibe fila.
+	 *
+	 * **Se manda el elemento con `nota` en null en vez de omitirlo**, y la
+	 * diferencia es del lado del front: omitido, no puede distinguir «este alumno
+	 * no tiene definitiva» de «este alumno no vino en la respuesta», y las dos
+	 * cosas se pintan distinto. Es la misma decisión que tomó `putUpdate`, que
+	 * devuelve `definitiva: null` en vez de no devolver la clave.
+	 *
+	 * @param  array<int, array{id:int, valor:mixed, destino:object}>  $aEscribir
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function definitivasDelLote(array $aEscribir): array
+	{
+		$porPar = [];
+
+		foreach ($aEscribir as $fila) {
+			$clave = (int)$fila['destino']->asignatura_id.':'.(int)$fila['destino']->periodo_id;
+			$porPar[$clave]['asignatura'] = (int)$fila['destino']->asignatura_id;
+			$porPar[$clave]['periodo'] = (int)$fila['destino']->periodo_id;
+			$porPar[$clave]['alumnos'][(int)$fila['destino']->alumno_id] = true;
+		}
+
+		$definitivas = [];
+
+		foreach ($porPar as $par) {
+			$alumnos = array_keys($par['alumnos']);
+
+			$filas = DB::select(
+				'SELECT alumno_id, nota, manual, recuperada FROM notas_finales
+				  WHERE asignatura_id = ? AND periodo_id = ?
+				    AND alumno_id IN ('.implode(',', array_fill(0, count($alumnos), '?')).')
+				  ORDER BY alumno_id, id',
+				array_merge([$par['asignatura'], $par['periodo']], $alumnos)
+			);
+
+			// Sin la clave única de la fase 2 todavía puede haber duplicados. Se
+			// conserva **el primero por id**, que es la misma fila que elige el
+			// servicio con su `ORDER BY id LIMIT 1`: si aquí saliera la otra, la
+			// pantalla pintaría un número distinto del que se acaba de escribir.
+			$guardadas = [];
+
+			foreach ($filas as $fila) {
+				if (! isset($guardadas[(int)$fila->alumno_id])) {
+					$guardadas[(int)$fila->alumno_id] = $fila;
+				}
+			}
+
+			// Se recorren **los alumnos pedidos** y no las filas encontradas, que es
+			// lo que hace que el que no tiene definitiva salga igual.
+			foreach ($alumnos as $alumnoId) {
+				$fila = $guardadas[$alumnoId] ?? null;
+
+				$definitivas[] = [
+					'alumno_id' => $alumnoId,
+					'asignatura_id' => $par['asignatura'],
+					'periodo_id' => $par['periodo'],
+					'nota' => $fila === null ? null : (int)$fila->nota,
+					'manual' => $fila !== null && (bool)$fila->manual,
+					'recuperada' => $fila !== null && (bool)$fila->recuperada,
+				];
+			}
+		}
+
+		return $definitivas;
+	}
+
+
+
 
 
 	/**

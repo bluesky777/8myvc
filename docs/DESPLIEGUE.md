@@ -159,6 +159,38 @@ Conviene tenerlo a mano cuando alguien pregunte: **lo ya escrito sigue como est�
 | Las filas de `debugging` ya escritas |
 | Las **11.988 definitivas que deberían existir y no existen** — eso lo arregla la fase 2, que aún no entra |
 
+### 5.b Los endpoints nuevos que pide la app — **el cliente no se puede escalonar**
+
+Desde el 24 ago la tanda lleva **endpoints nuevos escritos para `myvc_flutter`**,
+y eso cambia una regla del despliegue que hasta ahora no hacía falta:
+
+> **La app no puede empezar a usarlos hasta que estén desplegados en los
+> DIECISÉIS**, no cuando estén fusionados.
+
+`app/` es copia por colegio, pero **`myvc_flutter` es una sola app para todos**.
+No hay versión por colegio, así que no se puede publicar «para los que ya lo
+tienen». Un colegio sin desplegar convierte cada llamada en un **404 gastado**
+antes de que la app caiga al método viejo — y en `notas/lote` eso es un viaje de
+más por cada columna que pase un profesor, justo en el colegio más atrasado.
+
+De ahí el orden, que es al revés del habitual:
+
+1. desplegar el backend en los dieciséis y **comprobarlo colegio a colegio** (paso 2);
+2. **después** publicar la versión de la app que los llama.
+
+Los de esta tanda:
+
+| Endpoint | Para qué | Si falta en un colegio |
+|---|---|---|
+| `PUT api/notas/lote` | pasar una columna de notas en una petición y una transacción | la app sigue guardando de una en una, tras gastar un 404 |
+
+**Ninguno quita nada**: los tres métodos viejos siguen ahí y siguen siendo el
+camino hasta que la app cambie. O sea que desplegar esto no se nota en ninguna
+pantalla — lo que hay que vigilar es lo contrario, publicar la app antes de
+tiempo.
+
+---
+
 ### 6. Lo que no entra en la tanda y hay que tener delante
 
 - **`definitivas_periodos/calcular-grupo-periodo` sigue reescribiendo la rejilla de
