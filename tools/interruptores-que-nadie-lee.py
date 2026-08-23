@@ -121,11 +121,37 @@ def columnas_booleanas():
     return tablas
 
 
+def sin_comentarios(texto):
+    """Quita //, # y /* */ dejando los saltos de línea para no mover las líneas."""
+    def blanquear(m):
+        return re.sub(r'[^\n]', ' ', m.group(0))
+
+    return re.sub(r'/\*.*?\*/|//[^\n]*|(?<!\$)#[^\n]*', blanquear, texto, flags=re.S)
+
+
 def codigo():
+    """El backend **sin comentarios**, y eso no es cosmética.
+
+    Hasta el 23 ago 2026 esto leía los ficheros enteros, así que un **comentario**
+    contaba como código. Costó una clasificación: `ws_actividades_resueltas.timeout`
+    salía en el montón de «alguien decide con ellas» porque en algún docblock la
+    palabra `timeout` iba precedida de un `if` o un `and` dentro de la ventana de
+    120 caracteres —`timeout` es además una palabra corriente en inglés, así que
+    hay varias—. Leídos sus tres sitios de código: se **escribe** (`$res->timeout
+    = 0`), se **sirve** en un SELECT, y no la mira ningún `if`. O sea que no decide
+    nada, y con los clientes delante tampoco la lee ninguno.
+
+    Es la §72.5 dentro de esta herramienta: **un detector que lee el fichero entero
+    encuentra también lo que se escribió sobre él**, y aquí lo encontraba en la
+    dirección tranquilizadora — moviendo una columna al montón de las vivas, que es
+    el que nadie vuelve a mirar.
+
+    El efecto en el número del §105: **49 pasan a 50**, y las 53 del §107.1 a 54.
+    """
     textos = []
     for carpeta in CARPETAS:
         for fichero in sorted((RAIZ / carpeta).rglob('*.php')):
-            textos.append(fichero.read_text(encoding='utf-8', errors='replace'))
+            textos.append(sin_comentarios(fichero.read_text(encoding='utf-8', errors='replace')))
     return '\n'.join(textos)
 
 
@@ -194,6 +220,34 @@ def quienLoMira(porCliente, nombre):
         cliente for cliente, texto in porCliente.items()
         if re.search(r'\b' + re.escape(nombre) + r'\b', texto)
     ]
+
+
+# Nombres que este detector NO PUEDE clasificar, y por qué se dicen en vez de
+# dejarlos caer en un montón cualquiera.
+#
+# El cruce es un `grep` de la palabra, en el backend y en los clientes. Con un
+# nombre compuesto —`profes_pueden_nivelar`— eso es una identificación. Con una
+# palabra corriente en inglés, no: `timeout` sale como «alguien decide con ella»
+# porque algún comentario tiene un `if` cerca, y como «lo mira myvc_front» por
+# las llamadas a `$timeout(...)` de AngularJS y por la cadena
+# `'auth-session-timeout'`. **Los dos errores se compensaban**, así que el número
+# final salía bien por dos equivocaciones.
+#
+# Se probaron dos parches de regex —quitar los comentarios y exigir que no venga
+# precedida de `$`— y el primero es correcto por sí mismo, pero **ninguno de los
+# dos resuelve esto**: `auth-session-timeout` sigue casando. Un tercer parche
+# tampoco lo resolvería; lo que falla no es la expresión, es que **el nombre no
+# identifica a la columna**.
+#
+# Así que se declara. Leído a mano el 23 ago 2026, sus tres apariciones de código:
+# `MisActividadesController:76` la ESCRIBE (`$res->timeout = 0`),
+# `WsActividadResuelta:49` la SIRVE en un SELECT, y ningún `if` la mira. Ningún
+# cliente lee una propiedad `.timeout`. O sea que pertenece al montón de las que
+# **no lee nadie**, y por eso el número del §105 es **50 y no 49**.
+NO_CLASIFICABLES = {
+    'timeout': 'ws_actividades_resueltas — palabra corriente: casa con `$timeout` de Angular y con '
+               '`auth-session-timeout`. Leída a mano: se escribe a 0, se sirve, y no la mira ningún if.',
+}
 
 
 def decide(fuente, nombre):
@@ -283,6 +337,18 @@ def main():
         for nombre in huerfanas:
             print(f'    {nombre}')
         print()
+        if NO_CLASIFICABLES:
+            print()
+            print(f'  NO CLASIFICABLES por el nombre ({len(NO_CLASIFICABLES)}), leídas a mano:')
+            for nombre, porque in sorted(NO_CLASIFICABLES.items()):
+                print(f'    {nombre:<34} {porque}')
+            print(f'\n  Con ellas, las que no lee nadie son {len(huerfanas) + len(NO_CLASIFICABLES)}'
+                  f' — {len(huerfanas)} medidas y {len(NO_CLASIFICABLES)} leída'
+                  f'{"s" if len(NO_CLASIFICABLES) > 1 else ""} a mano.')
+            print('  Se cuentan aparte a propósito: un número medido y uno leído no se suman')
+            print('  en silencio, porque no se comprueban igual.')
+            print()
+
         print('  Esas son las que se pueden afirmar. De las demás solo se sabe que la')
         print('  decisión no está en el backend, y estar en el cliente no es lo mismo')
         print('  que estar bien: `vt_votaciones.locked` la miraba el front —para pintar')

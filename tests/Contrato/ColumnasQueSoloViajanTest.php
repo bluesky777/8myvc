@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\DB;
  * Llegan. **22 de las 48**, todas de `antecedentes`, todas por la misma puerta:
  *
  * ```php
- * // app/Http/Controllers/Matriculas/EnfermeriaController.php:43
+ * // Matriculas\EnfermeriaController::putDatos   (:43 el 23 ago)
  * $consulta = 'SELECT * FROM antecedentes WHERE alumno_id=?';
  * ```
  *

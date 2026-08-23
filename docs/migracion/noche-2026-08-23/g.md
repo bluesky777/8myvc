@@ -81,6 +81,70 @@ ejemplos nombrados como lo que son.
 
 ---
 
+## §105.1 El número salía bien por dos errores que se compensaban
+
+Escrito **después** de cerrar el lote, al intentar ponerle un centinela al censo
+—`CensoDeInterruptoresTest`—. El centinela reimplementa el recuento en PHP y **no
+coincidía con la herramienta**: `48 / 44 / 65` frente a `65 / 28 / 64`. El que
+estaba mal era la herramienta.
+
+### Lo que pasaba
+
+`codigo()` leía los ficheros **enteros**, comentarios incluidos. Así que un
+docblock contaba como código. Con eso, `ws_actividades_resueltas.timeout` caía en
+el montón de «alguien decide con ellas» porque en algún comentario la palabra
+`timeout` va precedida de un `if` o un `and` dentro de la ventana de 120
+caracteres. Es la [§72.5](../05-codigo-muerto-y-roto.md) dentro de esta
+herramienta —**un detector que lee el fichero entero encuentra también lo que se
+escribió sobre él**— y en la dirección tranquilizadora: movía una columna al
+montón de las vivas, que es el que nadie vuelve a mirar.
+
+**Y había un segundo error, del otro lado del cruce.** `quienLoMira` daba
+`timeout` como «lo mira `myvc_front`» por dos cosas que no son la columna: las
+llamadas a **`$timeout(...)`** de AngularJS —`\b` entra dentro de `$timeout`,
+porque `$` no es carácter de palabra— y la cadena `'auth-session-timeout'`.
+
+> **Los dos errores se compensaban.** Uno la sacaba del montón de candidatas y el
+> otro la sacaba de la lista final, así que **el 49 salía bien por dos
+> equivocaciones**. Un número correcto no demuestra que el camino lo sea, y aquí
+> el camino tenía dos agujeros que se tapaban el uno al otro.
+
+### Cómo queda, y qué no se ha parcheado
+
+Lo de los comentarios **sí** se arregla: es correcto por sí mismo y es el mismo
+arreglo que la §72.5 le hizo a su detector. El censo pasa a `157 / 65 / 28 / 64`.
+
+Lo del nombre **no**, y ésa es la parte que importa. Se probó exigir que no venga
+precedido de `$`, y no basta: `auth-session-timeout` sigue casando. Un tercer
+parche tampoco lo resolvería, porque **lo que falla no es la expresión: es que el
+nombre no identifica a la columna.** Con un nombre compuesto —`profes_pueden_nivelar`—
+un grep es una identificación; con una palabra corriente en inglés, no.
+
+Así que se **declara**. La herramienta lleva ahora una lista `NO_CLASIFICABLES` y
+las imprime aparte, con lo que se leyó a mano de cada una. Para `timeout`, sus
+tres apariciones de código: `MisActividadesController:76` la **escribe**
+(`$res->timeout = 0`), `WsActividadResuelta:49` la **sirve** en un `SELECT`, y
+**ningún `if` la mira**; ningún cliente lee una propiedad `.timeout`.
+
+```
+  NO CLASIFICABLES por el nombre (1), leídas a mano:
+    timeout    ws_actividades_resueltas — …
+
+  Con ellas, las que no lee nadie son 50 — 49 medidas y 1 leída a mano.
+```
+
+**Se cuentan aparte y no se suman en silencio**, porque un número medido y uno
+leído no se comprueban igual y juntarlos haría creer que los 50 salen del mismo
+sitio.
+
+### El número corregido
+
+**Son 50, no 49** — y con las cuatro del [§107.1](#1071-y-cuatro-más-porque-aparecer-en-el-cliente-no-es-leerlo),
+**54 y no 53**. La corrección es de una columna y no cambia ninguna conclusión del
+lote; lo que cambia es que ahora se sabe **por qué** cada una está donde está.
+
+---
+
 ## §106. Contra qué se midió, que es lo que hace afirmable la frase
 
 «No lo lee nadie, en ninguna parte» sólo vale lo que valen los ficheros que se
