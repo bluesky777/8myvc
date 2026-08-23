@@ -337,6 +337,31 @@ y `--testsuite=Contrato`—. **El segundo se evitó porque el primero ya había
 mordido; el tercero y el cuarto solo aparecieron al medir el arranque de verdad**,
 en vez de citarlo.
 
+#### Y la que las cierra todas: los totales son la señal, **los nombres son el hecho**
+
+El desglose de la última medición se explicó dos veces con dos fórmulas distintas
+—«+1 método y +3 casos de proveedor» y «+4 métodos, proveedores quietos»—, y
+**las dos cuadraban con el total**. Solo una era cierta.
+
+> **Cuadrar dos totales con una fórmula da una explicación que encaja y puede ser
+> falsa.** Con dos incógnitas y un solo total **siempre hay una combinación que
+> encaja**. **Comparar las dos listas de nombres no admite esa clase de error: o
+> el caso está o no está, y se puede señalar con el dedo.**
+
+Lo resolvió quien **no cuadró los totales, sino que los nombró**: `+6 casos, −2
+casos`, y los tres «de proveedor» resultaron ser **tres métodos de un fichero que
+no existía en el árbol medido**.
+
+Y de ahí sale la otra mitad, sobre el sello que este mismo documento pide:
+
+> **Un número mal etiquetado es peor que un número sin etiqueta.** Sin sello,
+> quien lo lee **sabe que no sabe**; con el sello equivocado, **la comprobación
+> que debería cazarlo lo confirma**.
+>
+> Por eso el sello se toma con `rev-parse` **al disparar**, no de memoria
+> después: si la suite tarda siete minutos, `main` puede moverse dos veces
+> mientras corre. Esa noche se movió.
+
 > El cuarto es el más caro de los cuatro y el que menos lo parece: *«pasamos de
 > 96/97 a 97/97»* cuenta una historia —la noche cerró el último controlador sin
 > cubrir— **que no ocurrió**. La que ocurrió es **de 41 a medias a 4**, y estaba
@@ -425,7 +450,7 @@ en vez de citarlo.
 ### Y la que no es una regla sino el saldo
 
 **Ninguna de estas doce se evita sabiéndosela.** Este documento estaba escrito y
-firmado cuando su propia autora se equivocó **seis veces**, cuatro de ellas
+firmado cuando su propia autora se equivocó **ocho veces**, cinco de ellas
 repitiendo formas que el propio documento describe:
 
 | Qué | Cuál |
@@ -436,6 +461,8 @@ repitiendo formas que el propio documento describe:
 | Publicar una **causa** —«no respeta la variable»— cuando lo medido era un **síntoma** | la regla 8, que salió de ahí |
 | **Borrar su propio trabajo** trayendo el fichero de `main` sin comprobar que lo suyo ya estaba fundido, con el `AssertionError` a la vista y el `commit` corriendo igual | la regla 11, que salió de ahí |
 | Contar **líneas `^+` del `git diff`** para saber cuántos tests se añadieron, y dar un total con un ±1 que no existía | forma 6: **contar la señal en vez del hecho** |
+| Explicar un desglose con **una fórmula que cuadraba** —«+1 método y +3 de proveedor»— siendo **+4 métodos** | los totales son la señal, **los nombres son el hecho** |
+| Ir a comprobar esa corrección **con un bucle de shell** que dijo que un fichero no existía donde sí está — la **tercera** vez que un bucle da una respuesta falsa y coherente | forma 5: **el instrumento escrito para comprobar** |
 
 La sexta es la más limpia de todas como ejemplo de la **forma 6**: para saber
 cuántos métodos de test se habían añadido, contó **las líneas que el `diff` marca
