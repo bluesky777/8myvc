@@ -1,4 +1,4 @@
-# Lote E — Personas e imágenes · §97–§101
+# Lote E — Personas e imágenes · §97–§153
 
 > Sesión `8myvc-4f`, noche del 22 al 23 de agosto de 2026. Rama
 > `fix/lote-e-personas-imagenes`, árbol `.worktrees/e`, base
@@ -16,12 +16,12 @@
 | §98 | `profesores/show` daba **500** con un id que no está | arreglado (404) |
 | §99 | Un profesor se llevaba la **imagen privada de un alumno**, y el alumno la perdía | arreglado, sobre la operación |
 | §100 | `perfiles/destroy` **borra un grupo**, y el front lo llama con un `user_id` | documentado; su autorización, cerrada |
-| §101 | Cinco métodos vaciaban columnas con un cuerpo parcial. El peor: **22 y ninguna a salvo** | arreglado |
-| §102 | Editar un grupo **lo movía al año del que edita**, con sus 56 matrículas dentro | arreglado |
-| §103 | La fila que decide **quién puede ver a quién** la escribe cualquiera del personal, con dos ids del cuerpo | medido y fijado |
-| §104 | Dos copias del mismo método divergían en una palabra: un grupo sin titular era 200 por una puerta y **404 por la otra** | arreglado |
+| §153 | Cinco métodos vaciaban columnas con un cuerpo parcial. El peor: **22 y ninguna a salvo** | arreglado |
+| §154 | Editar un grupo **lo movía al año del que edita**, con sus 56 matrículas dentro | arreglado |
+| §155 | La fila que decide **quién puede ver a quién** la escribe cualquiera del personal, con dos ids del cuerpo | medido y fijado |
+| §156 | Dos copias del mismo método divergían en una palabra: un grupo sin titular era 200 por una puerta y **404 por la otra** | arreglado |
 
-Seis commits: `0f0e965`, `f8d1eb3`, `fc5bbf1`, `446dc8d`, `da15e0a` y el del §102.
+Seis commits: `0f0e965`, `f8d1eb3`, `fc5bbf1`, `446dc8d`, `da15e0a` y el del §154.
 
 ---
 
@@ -160,7 +160,7 @@ Cerradas las dos.
 - `acudientes/ultimos` son ocho, con documento, dirección, teléfono, celular y
   correo. `acudientes/planillas-ausencias` pide los parientes de uno en uno.
 
-## §101 — Un campo que no se manda es un campo que se pisa
+## §153 — Un campo que no se manda es un campo que se pisa
 
 Cinco métodos, 52 columnas, y **dos herramientas distintas porque el
 discriminador se comprobó, no se copió**:
@@ -201,7 +201,7 @@ explícito**: con un `0` en el cuerpo, `input($k, $def)` y `input($k) ?? $def` s
 comportan igual. Con `null`, la primera escribe null —el cuerpo diciendo
 «quítalo»— y la segunda se comería la intención de borrar.
 
-## §102 — Editar un grupo lo mueve de año, con las matrículas dentro
+## §154 — Editar un grupo lo mueve de año, con las matrículas dentro
 
 `GruposController::putUpdate` hacía `$grupo->year_id = $user->year_id` **sin leer
 nunca el cuerpo**. Y el front tampoco lo manda: ni la rejilla (`GruposCtrl`) ni
@@ -243,11 +243,11 @@ mano. Conviene que esté escrito, porque el número —56 matrículas— suena a
 incidente en curso y no lo es, y porque la próxima pantalla que liste grupos de
 otro año lo habría disparado sin que nadie lo relacionara con esto.
 
-Este método es el mismo del §101: en la misma llamada se iban a `null`
+Este método es el mismo del §153: en la misma llamada se iban a `null`
 `titular_id`, `cupo`, `abrev`, `valormatricula`, `valorpension` y `orden`. Las dos
 cosas están arregladas y las dos tienen test.
 
-## §103 — La fila que reparte el acceso, escrita con dos ids del cuerpo
+## §155 — La fila que reparte el acceso, escrita con dos ids del cuerpo
 
 Traspasado por el lote H, y cae en un controlador de éste.
 `PUT acudientes/seleccionar-parentesco` toma `acudiente_id` y `alumno_id` del
@@ -280,10 +280,10 @@ misma clase: **una familia no puede emparejarse a sí misma** —`auth.personal`
 cierra esa puerta— y **quitar el parentesco devuelve el 403**, o sea que la
 pareja dar/quitar pide hoy lo mismo por los dos lados.
 
-Y es el mismo método del §101: cuatro columnas que se pisaban, 0 a salvo. **Mismo
+Y es el mismo método del §153: cuatro columnas que se pisaban, 0 a salvo. **Mismo
 método, dos preguntas.**
 
-## §104 — Los cinco métodos engañosos, y el que se separó de su gemelo
+## §156 — Los cinco métodos engañosos, y el que se separó de su gemelo
 
 `PerfilesApi.ts` avisa de que **cinco** métodos de `PerfilesController` operan
 sobre GRUPO y no sobre persona: `show`, `destroy`, `forcedelete`, `restore` y
@@ -305,7 +305,7 @@ en el seed **no hay ninguna**: los 47 grupos tienen titular hoy.
 
 Alineado con la gemela, que es la que tiene razón: **un grupo sin titular no es
 un grupo que falte.** No lo llama ningún cliente ([§14.2]), o sea que era una
-mina como el §102.
+mina como el §154.
 
 Y `perfiles/trashed` sí es copia fiel de `grupos/trashed`: se fija que **devuelven
 lo mismo**, que es lo único que hace que arreglar una y no la otra deje de ser

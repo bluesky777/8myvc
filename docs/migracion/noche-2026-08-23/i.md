@@ -349,6 +349,51 @@ la entrega de este lote. Queda anotado para quien lo recoja.
 
 ---
 
+## §112.3 · El último 500 del control, y un centinela que no es falsy
+
+De los cuatro 500 que el control no pudo desmentir, tres quedaron explicados arriba.
+El cuarto, `PUT notas-actuales-alumnos/{grupo}`, da **500 con token de acudiente y con
+token de personal**:
+
+```
+Attempt to read property "nota" on array
+   Informes/NotasActualesAlumnosController.php:351
+```
+
+`NotaComportamiento::nota_comportamiento()` devuelve **un objeto** en el camino bueno y
+**`[ "notas_finales" => [] ]` —un array— en su `else`**. Quien lo recibe hace
+`if ($nota) { … $nota->nota }`. **Un array no vacío es truthy**, así que el `if` pasa y
+el `->nota` revienta.
+
+> El `else` está escrito para decir «no hay» y lo dice con un valor que responde «sí».
+> **Un centinela que no es falsy no avisa: se cuela.**
+
+**La población es la de siempre**: seis llamantes del modelo —`AcudientesController:75`,
+`BoletinesController:349`, `Boletines2Controller:275`, `Boletines3Controller:261`,
+`NotasActualesAlumnosController:190`— y el método que lo indexa,
+`encabezado_comportamiento_boletin`, **copiado en cinco controladores**. **Ninguno de
+los seis distingue el array.**
+
+**Lo que está medido y lo que no**: hoy, con este seed, **sólo revienta
+`notas-actuales-alumnos`**. Que los otros cinco revienten depende de que a ese alumno le
+falte la nota de comportamiento de ese periodo. **Es la misma forma, no el mismo fallo
+probado**, y esa distinción es justo la que se pierde cuando una serie se declara
+cerrada sobre la población equivocada.
+
+### Y la pregunta que abre el arreglo, contestada
+
+El dilema es el de `Profesor::detallado()`: o el modelo devuelve `null` —y hay que mirar
+los seis— o cada llamante comprueba `is_object`. Aquí hay un dato extra que allí no
+había, y por eso se buscó antes de proponer nada: **la clave `notas_finales` la lee el
+cliente**, con `ng-repeat`, en **cuatro plantillas de boletín** de `myvc_front`
+(`boletinAlumnoDir.html`, `…Dir2`, `…Dir3`, `…Dir5`). O sea que ese `else` no es un
+centinela improvisado: está moldeado para que la plantilla encuentre una lista vacía.
+
+Quien lo arregle tiene que saberlo. Lo que **no** se afirma aquí es si la plantilla
+aguanta un `comportamiento` nulo: eso hay que verlo en el cliente, no deducirlo.
+
+---
+
 ## Y una ceguera que empuja al revés: `ESCRIBE` no quiere decir «cambió una fila»
 
 La del `{grupo_id}` hacía contar **de menos**. Ésta hace contar **de más**, y las dos
@@ -469,9 +514,21 @@ Undefined property: stdClass::$year_pasado_en_bol
    Boletines3Controller.php:156
 ```
 
-`ContextoDeUsuario` monta `$this->user` con un `switch` de cuatro ramas, y **la del
-Acudiente trae 43 columnas frente a 48 del Profesor, 48 del Alumno y 54 del Usuario**.
-`year_pasado_en_bol` está en las otras tres y **no en la suya**.
+`ContextoDeUsuario` monta `$this->user` con un `switch` de cuatro ramas, y la del
+Acudiente trae menos columnas que las otras tres. `year_pasado_en_bol` está en las otras
+tres y **no en la suya**.
+
+> **Y aquí hay una corrección a mí misma que conviene leer antes que el número.** La
+> primera cuenta salió de **parsear los alias SQL de cada `case`** y dio «43 frente a
+> 48, 48 y 54», con 21 columnas ausentes. Estaba mal: hay propiedades que se ponen en
+> PHP fuera del `switch`, y ésas salían como ausentes sin serlo — `tipo`, con **96
+> lecturas** en `app/`, era una de ellas, y una rama de acudiente sin `tipo` habría roto
+> medio sistema, no un boletín. **Un número que implica algo imposible es la señal de
+> que el instrumento midió otra cosa.**
+>
+> Medido a la salida de `/api/auth/me`, que es el objeto de verdad: **Profesor 48,
+> Usuario 47, Alumno 45, Acudiente 42**, y **14 propiedades** en otra rama y no en la
+> suya.
 
 Lo que lo convierte en el fallo de siempre es el tercer hermano: **`BoletinesController`,
 la maqueta 1, lee esa misma propiedad y funciona** —el control le devolvió 47 KB—,
@@ -496,10 +553,31 @@ contraria**: allí faltaba un candado, aquí sobra un 500.
 el guard `boletin.propio` está en esas rutas precisamente porque las familias llegan.
 
 **No se arregla desde este lote**: `Boletines2Controller` y `Boletines3Controller` son
-del lote C. Se anota con el `isset` de la maqueta 1 delante, que es el arreglo, y con la
-pregunta que va con él: **¿qué más de esas 21 columnas que le faltan a la rama del
-acudiente lee alguien sin `isset`?** De las doce que miré, `year_pasado_en_bol` es la
-única que lee un controlador; las otras once no las lee nadie hoy.
+del lote C. Se anota con el `isset` de la maqueta 1 delante, que es el arreglo.
+
+### ¿Y qué más de las que le faltan lee alguien?
+
+La pregunta se contestó entera, y **la primera respuesta también estaba mal**. Dije «de
+las doce que miré, `year_pasado_en_bol` es la única que lee un controlador». Falso:
+**seis de las catorce se leen** como `$user->X` en `app/`.
+
+| Propiedad ausente | Lecturas | ¿La alcanza un acudiente? |
+|---|---|---|
+| `profes_can_edit_alumnos` | 18 | no — vive detrás de `auth.personal` y se lee con `??` |
+| `profes_pueden_editar_notas` | 4 | no — siempre tras `$user->tipo == 'Profesor'` |
+| `profes_pueden_nivelar` | 4 | no — idem |
+| `profesor_id` | 3 | no — dentro de la rama `Usuario` de `getToMe` |
+| `show_materias_todas` | 2 | no — dentro de las ramas `Usuario` y `Profesor` |
+| **`year_pasado_en_bol`** | **4** | **sí** — y es la que revienta |
+
+O sea que **la conclusión aguanta y el razonamiento con el que la di, no**: sigue siendo
+una gotera con nombre, pero no porque sólo se lea una, sino porque **sólo una se lee en
+un camino que un acudiente alcanza**. Las otras cinco están todas detrás de un
+`tipo == 'Profesor'` o de una rama que un acudiente no pisa.
+
+Las ocho restantes —`deuda`, `fecha_pension`, `firma_id`, `firma_nombre`,
+`mostrar_puesto_boletin`, `msg_when_students_blocked`, `pazysalvo`,
+`puestos_alfabeticamente`— **no las lee nadie** como `$user->X`.
 
 ---
 
