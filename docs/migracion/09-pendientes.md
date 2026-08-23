@@ -163,6 +163,27 @@ borrar un grado también; y las dos del lote M las contestaron los lotes D y E c
 su 404. **Si entran como nuevas, lo pendiente sube sin que haya subido nada, y una
 lista que crece sin motivo deja de leerse.**
 
+### Las ausencias sin fecha: el arreglo es del front, y ya está escrito allí
+
+La coordinadora que reportó que **las ausencias y tardanzas no mostraban la
+fecha** tenía razón, y **no es el formato de la hora** (§121): ese escribe un
+datetime válido con la hora equivocada, nunca una fecha ausente.
+
+Es que **6.681 de 52.146 ausencias tienen `fecha_hora` en NULL** —13%, y 19% en
+tardanzas—, y el motivo está en `myvc_front`: la pantalla `/asistencias` ya se
+arregló el 19 de agosto, pero **la planilla de notas sigue creando faltas sin
+día** desde cuatro sitios, con la línea de la fecha **comentada justo debajo**.
+
+Queda apuntado en el plan del front —`myvc_front/MIGRATION.md` §4b punto **3b**,
+commit `965c9227`— para que lo arregle quien toque esas pantallas en la migración.
+**Aquí no hay nada que hacer**: la API guarda fielmente el `null` que le mandan, y
+poner un `now()` por defecto sería peor —`fecha_hora` es *el día que el alumno
+faltó*, no el día que el profesor lo tecleó—.
+
+> Y el aviso que va con el `UPDATE fecha_hora = created_at` que propone ese mismo
+> plan: **rellenar un hueco con un dato plausible no es recuperarlo, es taparlo —
+> y de forma que ya no se nota que faltaba.**
+
 ### Dónde está lo demás
 
 - **Las secciones nuevas del 05**: §81–§167, con su índice por lote al final de
