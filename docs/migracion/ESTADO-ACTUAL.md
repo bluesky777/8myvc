@@ -8,7 +8,7 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
-**Última actualización: 24 ago 2026** · rama `fix/definitivas-fase-2`
+**Última actualización: 24 ago 2026** · `main`, fundido
 
 ---
 
@@ -25,7 +25,7 @@ decidió hacer después.
 
 ---
 
-## En curso: las definitivas — fase 3
+## En curso: las definitivas — **fase 3 terminada**, la 2 esperando un dato tuyo
 
 **El plan entero está en [10-definitivas.md](10-definitivas.md).** Resumen de por
 qué se hace: seis sitios escriben en `notas_finales` con cinco criterios distintos
@@ -40,10 +40,10 @@ desaparecen, duplicadas, y notas puestas que no aparecen— y son el mismo probl
 | **Fase 0** — medir | **hecha.** `tools/salud-de-las-definitivas.php`, sólo SELECT. Medido en un colegio: **11.988 definitivas que deberían existir y no existen**, 718 que discrepan teniendo notas detrás, 1 duplicado |
 | **Fase 1** — recalculador único | **escrita y probada.** `App\Services\DefinitivasDeAsignatura`, 14 tests de ida y vuelta. **Cableada sólo en el boletín** |
 
-### Lo que se está haciendo ahora — fase 3
+### La fase 3 — hecha el 24 ago 2026
 
-Cablear el recalculador en los seis disparadores que faltan, **y con ellos
-desaparecen los `INSERT` sin guarda** que hoy impiden poner el índice único:
+Los siete disparadores cableados al recalculador único, y con ellos los seis
+escritores de la §0 reducidos a uno:
 
 | Disparador | Estado |
 |---|---|
