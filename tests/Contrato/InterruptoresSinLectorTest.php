@@ -40,7 +40,7 @@ class InterruptoresSinLectorTest extends CasoDeContrato
      * pantalla, porque sin ella la anotación no se puede contestar.
      */
     private const SIN_LECTOR = [
-        'can_upload' => 'ws_actividades — casilla «puede subir archivos» del examen, editarActividad.html:124',
+        'can_upload' => 'ws_actividades — casilla «puede subir archivos» del examen, en editarActividad.html',
         'deriva_de_tardanzas' => 'dis_procesos — formulario del proceso disciplinario',
     ];
 
