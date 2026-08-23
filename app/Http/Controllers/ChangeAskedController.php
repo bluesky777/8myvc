@@ -13,7 +13,6 @@ use App\Models\Alumno;
 use App\Models\Profesor;
 use App\Models\Acudiente;
 use App\Models\Year;
-use App\Models\Debugging;
 use App\Models\ImageModel;
 use App\Models\Ausencia;
 use App\Models\NotaComportamiento;
@@ -931,7 +930,6 @@ class ChangeAskedController extends Controller {
 
 	public function finalizar_si_no_hay_cambios($pedido, $user_id)
 	{
-		Debugging::pin('Pedido');
 		if ( ($pedido->pazysalvo_new===null 	or $pedido->pazysalvo_accepted!==null) and
 			($pedido->foto_id_new===null 		or $pedido->foto_id_accepted!==null) and
 			($pedido->image_id_new===null 		or $pedido->image_id_accepted!==null) and
@@ -943,8 +941,18 @@ class ChangeAskedController extends Controller {
 			($pedido->fecha_nac_new===null 		or $pedido->fecha_nac_accepted!==null)
 			) 
 		{
-			Debugging::pin('Pedido', 'ENTROOOOO');
-			$dt = Carbon::now('America/Bogota')->format('Y-m-d G:H:i');
+			// `'Y-m-d G:H:i'` escribía **la hora dos veces**: `G` y `H` son las dos la
+			// hora del día —una sin cero delante y otra con él—, así que el formato
+			// era hora:hora:minutos y los segundos no llegaban nunca. Medido: las
+			// 21:07:33 se guardaban como **21:21:07**. Lleva mal la hora desde
+			// siempre, así que las filas ya escritas también: quien lea la auditoría
+			// de un pedido de cambio anterior a este arreglo tiene que saberlo.
+			// Ver 05 §121.
+			//
+			// La misma forma está en otros dos sitios que NO son de este lote y
+			// quedan anotados: `Tardanzas/TSubirController:103` la escribe igual, y
+			// `AusenciasController:177` **lee** con ese mismo formato.
+			$dt = Carbon::now('America/Bogota')->format('Y-m-d H:i:s');
 			$consulta = 'UPDATE change_asked SET answered_by=:user_id, deleted_by=:user_id2, deleted_at=:dt WHERE id=:asked_id';
 			DB::update($consulta, [ ':user_id' => $user_id, ':user_id2' => $user_id, ':dt' => $dt, ':asked_id' => $pedido->asked_id ]);
 			return true;
@@ -1042,11 +1050,9 @@ class ChangeAskedController extends Controller {
 		$pedido = ChangeAsked::verificar_pedido_actual($user->user_id, $user->year_id, $user->tipo);
 
 		if ($pedido->data_id) {
-			Debugging::pin('Tiene data_id');
 			if (array_key_exists('nombres', $cambios)) {
 				$consulta = 'UPDATE change_asked_data SET nombres_new=:nombres WHERE id=:data_id';
 				DB::update($consulta, [ ':nombres'	=> $cambios['nombres'], ':data_id'	=> $pedido->data_id ]);
-				Debugging::pin('UPDATE nombres');
 			}
 			if (array_key_exists('apellidos', $cambios)) {
 				$consulta = 'UPDATE change_asked_data SET apellidos_new=:apellidos WHERE id=:data_id';
@@ -1062,7 +1068,6 @@ class ChangeAskedController extends Controller {
 			}
 
 		}else{
-			//Debugging::pin(' NO  Tiene data_id');
 			
 			if (!$this->creado) {
 				if (array_key_exists('nombres', $cambios)) {
@@ -1103,7 +1108,6 @@ class ChangeAskedController extends Controller {
 	
 	public function cambiar_data_id($pedido){
 		$last_id 	= DB::getPdo()->lastInsertId();
-		Debugging::pin('$last_id', $last_id);
 		$consulta 	= 'UPDATE change_asked SET data_id=:data_id WHERE id=:asked_id';
 		DB::update($consulta, [ ':data_id'	=> $last_id, ':asked_id' => $pedido->asked_id ]);
 	}
