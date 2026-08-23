@@ -1,6 +1,8 @@
 <?php namespace App\Http\Controllers;
 
 use Illuminate\Support\Facades\Request;
+use App\Models\Nota;
+use App\Services\DefinitivasDeAsignatura;
 use Illuminate\Support\Facades\DB;
 
 use App\User;
@@ -22,6 +24,16 @@ class SubunidadesController extends Controller {
 		// La subunidad todavía no existe: nace colgada de `unidad_id`, así que el
 		// periodo al que se escribe es el de esa unidad. §27.
 		User::pueden_editar_notas($user, PeriodoDeLaFila::deUnidad(Request::input('unidad_id')));
+
+		// **Una sola transacción para las tres cosas**: la subunidad, sus notas y la
+		// definitiva. Es lo que cierra la §5.1 de verdad — crearlas en el mismo
+		// método pero en escrituras sueltas dejaría la misma ventana, sólo que más
+		// corta, y una petición que muriera en medio dejaría la subunidad sin notas
+		// exactamente igual que hoy.
+		//
+		// `recalcularPorSubunidad` abre la suya dentro; Laravel la resuelve con un
+		// savepoint y no hay que hacer nada.
+		return DB::transaction(function () use ($user, $now) {
 
 		$cant = Subunidad::where('unidad_id', Request::input('unidad_id'))->count();
 
@@ -57,9 +69,36 @@ class SubunidadesController extends Controller {
 					VALUES (?, ?, "Nueva subunidad", ?, ?, ?)';
 
 		DB::insert($consulta, [$bit_by, $bit_hist, $subunidad->id, $bit_new, $now]);
-		
+
+		// §5.1 de 10-definitivas.md — **la subunidad y sus notas nacen juntas.**
+		//
+		// Hasta hoy el alta creaba la subunidad y nada más: las notas las creaba
+		// `Nota::verificarCrearNotas`, y sólo al abrir /notas en el navegador. Entre
+		// las dos cosas queda una ventana en la que **la definitiva se guarda sin el
+		// aporte de la subunidad nueva** — y si el profesor bajó los porcentajes de
+		// las demás para hacerle sitio, baja el doble. Desde Flutter, que crea
+		// subunidades y nunca llama a /notas, **la ventana puede durar días**.
+		//
+		// El grupo no viene del cuerpo: sale de la unidad. Pedírselo al cliente es
+		// la misma dependencia que hacía que el recálculo de unidades no ocurriera
+		// cuando el front no mandaba `asignatura_id`.
+		$grupo = DB::selectOne(
+			'SELECT a.grupo_id
+			   FROM unidades u
+			   INNER JOIN asignaturas a ON a.id = u.asignatura_id
+			  WHERE u.id = ?',
+			[$subunidad->unidad_id]
+		);
+
+		if ($grupo !== null && $grupo->grupo_id) {
+			Nota::verificarCrearNotas($grupo->grupo_id, $subunidad, $user->user_id);
+		}
+
+		DefinitivasDeAsignatura::recalcularPorSubunidad((int) $subunidad->id, $user->user_id);
 
 		return $subunidad;
+
+		});
 	}
 
 
@@ -218,14 +257,13 @@ class SubunidadesController extends Controller {
 		$subunidad->save();
 		
 		
-		if (Request::input('asignatura_id')) {
-			$asignatura_id 	= Request::input('asignatura_id');
-			$periodo_id 	= Request::input('periodo_id');
-			$num_periodo 	= Request::input('num_periodo');
-			
-			NotaFinal::calcularAsignaturaPeriodo($asignatura_id, $periodo_id, $num_periodo);
-
-		}
+		// Fase 3 de 10-definitivas.md: el recálculo lo hace el servicio único, y
+		// **deja de depender de que el cliente mande `asignatura_id`**. Ese
+		// `if (Request::input('asignatura_id'))` era la mitad del problema: si el
+		// front no lo mandaba —y no siempre lo manda— **el peso cambiaba y la
+		// definitiva no**, en 200 y sin avisar. La subunidad sabe de qué asignatura y
+		// periodo es; no hay nada que preguntarle al cuerpo.
+		DefinitivasDeAsignatura::recalcularPorSubunidad((int) $id, $user->user_id);
 
 		return $subunidad;
 	}
@@ -269,14 +307,13 @@ class SubunidadesController extends Controller {
 		}
 		
 		
-		if (Request::input('asignatura_id')) {
-			$asignatura_id 	= Request::input('asignatura_id');
-			$periodo_id 	= Request::input('periodo_id');
-			$num_periodo 	= Request::input('num_periodo');
-			
-			NotaFinal::calcularAsignaturaPeriodo($asignatura_id, $periodo_id, $num_periodo);
-
-		}
+		// Fase 3 de 10-definitivas.md: el recálculo lo hace el servicio único, y
+		// **deja de depender de que el cliente mande `asignatura_id`**. Ese
+		// `if (Request::input('asignatura_id'))` era la mitad del problema: si el
+		// front no lo mandaba —y no siempre lo manda— **el peso cambiaba y la
+		// definitiva no**, en 200 y sin avisar. La subunidad sabe de qué asignatura y
+		// periodo es; no hay nada que preguntarle al cuerpo.
+		DefinitivasDeAsignatura::recalcularPorSubunidad((int) $id, $user->user_id);
 		
 		return $subunidad;
 	

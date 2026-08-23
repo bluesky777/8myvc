@@ -221,14 +221,49 @@ class DefinitivasPeriodosController extends Controller {
 				return abort(400, 'No existe el peridoo.');
 			}
 
-			$consulta = 'INSERT INTO notas_finales(alumno_id, asignatura_id, periodo_id, periodo, nota, recuperada, manual, updated_by, created_at, updated_at) 
-				VALUES(:alumno_id, :asignatura_id, :periodo_id, :periodo, :nota, :recuperada, :manual, :updated_by, :created_at, :updated_at)';
-	
-			DB::insert($consulta, [':alumno_id' => Request::input('alumno_id'), ':asignatura_id' => Request::input('asignatura_id'), ':periodo_id' => $periodo->id, 
-							':periodo' => $num_periodo, ':nota' => Request::input('nota'), ':recuperada' => 0, ':manual' => 1, ':updated_by' => $user->user_id, ':created_at' => $now, ':updated_at' => $now ]);
-			
-			$last_id = DB::getPdo()->lastInsertId();
-			return DB::select('SELECT * FROM notas_finales WHERE id=?', [$last_id]);
+			// **Esto era un INSERT incondicional, y el front llega aquí justo cuando
+			// la fila puede existir ya** — es la rama de «no tengo `nf_id` a mano»
+			// (§2.3). De ahí salen los duplicados auto+manual de la §2, y con la
+			// clave única de la fase 2 sería **un 500 al profesor tecleando una
+			// definitiva**, que es el peor sitio donde ponerlo.
+			//
+			// Ahora decide por existencia, como hace `DefinitivasDeAsignatura`. **No
+			// se usa `ON DUPLICATE KEY UPDATE`**: la clave única todavía no está, así
+			// que esa forma no dispararía nunca y se comportaría como el INSERT de
+			// antes — el mismo error que la fase 1 ya documentó en su propio UPSERT.
+			//
+			// Y va en transacción porque entre el SELECT y el INSERT hay una ventana:
+			// dos profesores tecleando la misma celda a la vez crearían dos filas.
+			return DB::transaction(function () use ($user, $now, $num_periodo, $periodo) {
+
+				$existente = DB::selectOne(
+					'SELECT id FROM notas_finales
+					  WHERE alumno_id = ? AND asignatura_id = ? AND periodo_id = ?
+					  ORDER BY id LIMIT 1 FOR UPDATE',
+					[Request::input('alumno_id'), Request::input('asignatura_id'), $periodo->id]
+				);
+
+				if ($existente !== null) {
+					DB::update(
+						'UPDATE notas_finales
+							SET nota = ?, periodo = ?, manual = 1, updated_by = ?, updated_at = ?
+						  WHERE id = ?',
+						[Request::input('nota'), $num_periodo, $user->user_id, $now, $existente->id]
+					);
+
+					return DB::select('SELECT * FROM notas_finales WHERE id=?', [$existente->id]);
+				}
+
+				$consulta = 'INSERT INTO notas_finales(alumno_id, asignatura_id, periodo_id, periodo, nota, recuperada, manual, updated_by, created_at, updated_at)
+					VALUES(:alumno_id, :asignatura_id, :periodo_id, :periodo, :nota, :recuperada, :manual, :updated_by, :created_at, :updated_at)';
+
+				DB::insert($consulta, [':alumno_id' => Request::input('alumno_id'), ':asignatura_id' => Request::input('asignatura_id'), ':periodo_id' => $periodo->id,
+								':periodo' => $num_periodo, ':nota' => Request::input('nota'), ':recuperada' => 0, ':manual' => 1, ':updated_by' => $user->user_id, ':created_at' => $now, ':updated_at' => $now ]);
+
+				$last_id = DB::getPdo()->lastInsertId();
+
+				return DB::select('SELECT * FROM notas_finales WHERE id=?', [$last_id]);
+			});
 		}
 		
 		

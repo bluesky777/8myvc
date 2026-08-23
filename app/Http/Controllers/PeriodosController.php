@@ -1,6 +1,7 @@
 <?php namespace App\Http\Controllers;
 
 use Illuminate\Support\Facades\DB;
+use App\Services\DefinitivasDeAsignatura;
 use Illuminate\Support\Facades\Request;
 use Carbon\Carbon;
 
@@ -248,6 +249,21 @@ class PeriodosController extends Controller {
 
 		}
 		
+		// Fase 3 de 10-definitivas.md: **copiar mueve unidades y hasta hoy no
+		// avisaba a nadie.** Traer la estructura de otro periodo cambia los pesos
+		// del periodo destino —y con `copiar_notas`, también las notas—, así que
+		// las definitivas de ahí quedaban calculadas con lo que había antes.
+		//
+		// Se recalcula **la asignatura destino entera**, no por alumno: lo que
+		// cambió es la estructura, que afecta a todos los del grupo por igual.
+		if ($asignatura_to_id && $periodo_to_id) {
+			DefinitivasDeAsignatura::recalcular(
+				(int) $asignatura_to_id,
+				(int) $periodo_to_id,
+				$this->user->user_id
+			);
+		}
+
 		$res = new stdClass;
 		$res->unidades_copiadas		= $unidades_copiadas;
 		$res->subunidades_copiadas	= $subunidades_copiadas;

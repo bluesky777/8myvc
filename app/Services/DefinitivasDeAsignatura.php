@@ -85,6 +85,85 @@ class DefinitivasDeAsignatura
      *
      * @return array{escritas:int, creadas:int, respetadas:int, porcentaje_unidades:float}
      */
+    /**
+     * Recalcular la definitiva que depende de una nota, por el id de la nota.
+     *
+     * Existe porque **la nota no sabe de qué asignatura ni de qué periodo es**:
+     * cuelga de la subunidad, la subunidad de la unidad, y la unidad sí lleva las
+     * dos. Ese camino lo necesitan los tres sitios que tocan una nota suelta
+     * —editarla, borrarla y la vía de `putSubunidad`— y tenerlo escrito una vez
+     * evita la tercera copia de un `INNER JOIN` de tres tablas.
+     *
+     * **Recalcula sólo la fila de ese alumno**, que es lo único que pudo cambiar,
+     * y por eso es barato llamarlo en cada nota tecleada. Devuelve `null` si la
+     * nota no lleva a ninguna unidad viva — el llamante no tiene que decidir nada.
+     */
+    public static function recalcularPorNota(int $notaId, ?int $porUsuario = null): ?array
+    {
+        $donde = DB::selectOne(
+            'SELECT u.asignatura_id, u.periodo_id, n.alumno_id
+               FROM notas n
+               INNER JOIN subunidades s ON s.id = n.subunidad_id
+               INNER JOIN unidades u ON u.id = s.unidad_id
+              WHERE n.id = ?',
+            [$notaId]
+        );
+
+        if ($donde === null) {
+            return null;
+        }
+
+        return self::recalcular(
+            (int) $donde->asignatura_id,
+            (int) $donde->periodo_id,
+            $porUsuario,
+            (int) $donde->alumno_id
+        );
+    }
+
+    /**
+     * Recalcular la asignatura y periodo a los que pertenece una **unidad**.
+     *
+     * **No se filtra `deleted_at` a propósito**, igual que hace `PeriodoDeLaFila`:
+     * el caso que más lo necesita es justo el borrado —quitar una unidad cambia
+     * los pesos de todas las demás—, y ahí la fila ya lleva su `deleted_at`
+     * puesto cuando esto se llama.
+     */
+    public static function recalcularPorUnidad(int $unidadId, ?int $porUsuario = null): ?array
+    {
+        $donde = DB::selectOne(
+            'SELECT asignatura_id, periodo_id FROM unidades WHERE id = ?',
+            [$unidadId]
+        );
+
+        if ($donde === null) {
+            return null;
+        }
+
+        return self::recalcular((int) $donde->asignatura_id, (int) $donde->periodo_id, $porUsuario);
+    }
+
+    /**
+     * Lo mismo desde una **subunidad**, que no lleva ni asignatura ni periodo:
+     * cuelga de la unidad y la unidad sí.
+     */
+    public static function recalcularPorSubunidad(int $subunidadId, ?int $porUsuario = null): ?array
+    {
+        $donde = DB::selectOne(
+            'SELECT u.asignatura_id, u.periodo_id
+               FROM subunidades s
+               INNER JOIN unidades u ON u.id = s.unidad_id
+              WHERE s.id = ?',
+            [$subunidadId]
+        );
+
+        if ($donde === null) {
+            return null;
+        }
+
+        return self::recalcular((int) $donde->asignatura_id, (int) $donde->periodo_id, $porUsuario);
+    }
+
     public static function recalcular(
         int $asignaturaId,
         int $periodoId,

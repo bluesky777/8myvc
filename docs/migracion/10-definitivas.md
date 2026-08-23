@@ -615,6 +615,93 @@ Dos apartes del plan, los dos escritos en la clase:
   secas. Lo que sí consigue ya es que **no haya ventana de borrado**: no existe
   ningún instante en el que la definitiva no esté, que es la mitad de la §1.1.
 
+---
+
+### Antes de la fase 2: los once `INSERT` contra el índice único  *(auditado 2026-08-24)*
+
+**El orden del plan dice «las fases 1 y 2 se despliegan juntas», y eso da por hecho
+que la fase 1 sustituyó a los seis escritores. No lo hizo:** el recalculador único
+está escrito y probado, pero **sólo lo llama el boletín**. Los demás siguen
+insertando, y con el índice único puesto **cada `INSERT` que choque es un 500 en la
+pantalla de un profesor**, no un duplicado silencioso.
+
+Auditados los once `INSERT INTO notas_finales` que hay en `app/`:
+
+| Sitio | ¿Protegido? | Qué pasa con el índice |
+|---|---|---|
+| `Services/DefinitivasDeAsignatura:164` | **sí** — decide por existencia en PHP antes de insertar | nada |
+| `Models/NotaFinal:310` (`calcularAsignaturaPeriodo`) | **sí** — `WHERE NOT EXISTS` | nada |
+| `DefinitivasPeriodosController:146` | **sí** — `WHERE NOT EXISTS` | nada |
+| `Models/NotaFinal:176,191,206,222` (`alumnos_grupo_nota_final`) | **no** | 500 al abrir la pantalla de definitivas |
+| `DefinitivasPeriodosController:224` (`putUpdate`, rama sin `nf_id`) | **no** | **500 al teclear una definitiva** |
+| `NotasController:133` (`putDetailed`) | **no** | 500 al abrir /notas |
+| `Alumnos/Definitivas:53,83` | **no** | código muerto — la fase 5 lo borra entero |
+
+**Los cuatro de `alumnos_grupo_nota_final` y el de `putUpdate` son los que
+importan**, y los dos por el mismo motivo: sus `DELETE` previos **excluyen
+`manual` y `recuperada`** —a propósito, para no pisar lo que puso un profesor— y
+después el `INSERT` repone la fila automática **del mismo alumno cuya manual se
+acaba de conservar**. Hoy eso produce el duplicado auto+manual que la §2 describe;
+mañana produce un error de clave duplicada.
+
+`putUpdate` es el peor de los cinco porque **es el que teclea el profesor**: su
+rama sin `nf_id` hace un `INSERT` incondicional, y el front la usa justo cuando no
+tiene el `nf_id` a mano (§2.3) — que es exactamente cuando la fila puede existir ya.
+
+#### Lo que esto cambia del plan
+
+**La fase 2 no puede ir antes que la fase 3, y no es una preferencia de orden: es
+que el índice convierte cinco pantallas en 500.** El orden bueno es:
+
+1. **Fase 3 primero** —o al menos los cinco `INSERT` sin guarda—, sustituyéndolos
+   por el recalculador único o dándoles la misma decisión por existencia que ya
+   tienen los otros tres.
+2. **Fase 2 después**: limpiar, rellenar y poner los dos índices.
+
+Lo que no cambia es que **las dos tienen que llegar juntas a cada colegio**: el
+índice sin el código nuevo rompe, y el código nuevo sin el índice deja el UPSERT de
+la fase 1 comportándose como un INSERT a secas (ya escrito en la fase 1).
+
+> **La comprobación que faltaba no era sobre los datos, era sobre el código.** La
+> fase 0 midió la tabla y encontró **un** duplicado, o sea «la fase 2 es barata».
+> Y lo es, en datos. Lo caro estaba en los once sitios que siguen escribiendo, que
+> no los mira ninguna consulta.
+
+#### Dónde se recalcula hoy, y dónde no
+
+De los siete disparadores que lista la fase 3, **hay uno cableado**:
+
+| Disparador | Estado |
+|---|---|
+| `BoletinesController::putDetailedNotas` | **hecho** — comprueba y recalcula, ya no borra |
+| `NotasController::putUpdate` — al editar una nota | **hecho el 24 ago** — era la petición de origen, y el sitio donde iba tenía un `if` **vacío** |
+| `NotasController::deleteDestroy` — al borrarla | **hecho el 24 ago** — no estaba ni en la lista, y quitar una nota cambia la definitiva igual |
+| `NotasController::putSubunidad` | **hecho el 24 ago**, con la §3.1 arreglada: no guardaba nada **y estaba interpolada** |
+| `Unidades`/`SubunidadesController` | **hecho el 24 ago** — las cuatro, y **sin depender de `asignatura_id` del cuerpo** |
+| `PeriodosController::putCopiar` | **hecho el 24 ago** |
+| `NotasController::putDetailed` — cada carga de /notas | **hecho el 24 ago** — pregunta por el sello antes de escribir |
+| Crear la subunidad y sus notas en la misma transacción | **hecho el 24 ago** — §5.1 cerrada, y en **una** transacción: hacerlo en el mismo método con escrituras sueltas dejaría la misma ventana, sólo que más corta |
+
+> **La fase 3 desbloquea la fase 2, y esto es la comprobación.** Re-auditados los
+> `INSERT INTO notas_finales` el 24 ago, después de cablearlo todo:
+>
+> | Sitio | Estado |
+> |---|---|
+> | el servicio · `NotaFinal:309` · `DefinitivasPeriodosController:146` | protegidos desde antes |
+> | `DefinitivasPeriodosController::putUpdate`, rama sin `nf_id` | **cerrado**: decide por existencia, en transacción y con `FOR UPDATE` para que dos profesores en la misma celda no creen dos filas |
+> | `NotaFinal::alumnos_grupo_nota_final` (los cuatro) | **cerrados**: los sustituye el servicio |
+> | `Alumnos/Definitivas:53,83` | sin guarda **pero inalcanzables** — su ruta responde **410** antes de llegar y al otro método no lo llama nadie. La fase 5 borra la clase |
+>
+> O sea: **ningún `INSERT` alcanzable puede chocar con la clave única.** Lo que
+> queda para la fase 2 no es código, son **los dieciséis números de la fase 0**.
+>
+> Y un aparte que no estaba en el plan: **`putUpdate` de notas no dependía sólo de
+> que no hubiera recálculo, sino de que el cliente mandara `asignatura_id`.** Las
+> cuatro llamadas de unidades y subunidades llevaban `if (Request::input('asignatura_id'))`
+> delante: si el front no lo mandaba —y no siempre lo manda— **el peso cambiaba y
+> la definitiva no**, en 200 y sin avisar. Ahora el controlador lo saca de la
+> propia unidad, que es quien lo sabe.
+
 ### Fase 2 — Cerrar la base
 
 Migración (no phpMyAdmin — [CLAUDE.md](CLAUDE.md), «migración o no existe»), en

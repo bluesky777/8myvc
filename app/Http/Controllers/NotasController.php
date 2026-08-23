@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use App\Services\DefinitivasDeAsignatura;
 
 use App\User;
 use App\Models\Nota;
@@ -128,19 +129,32 @@ class NotasController extends Controller {
 				
 			$nota_final = DB::select($cons_nf, [':asign_id1'=>$asignatura->asignatura_id, ':periodo'=>$user->numero_periodo, ':asign_id2'=>$asignatura->asignatura_id, ':alumno_id'=>$alumno->alumno_id])[0];
 			
-			$now 		= Carbon::now('America/Bogota');
-			
-			$consulta = 'INSERT INTO notas_finales(alumno_id, asignatura_id, periodo_id, periodo, nota, recuperada, manual, updated_by, created_at, updated_at) 
-				VALUES(:alumno_id, :asignatura_id, :periodo_id, :periodo, :nota, :recuperada, :manual, :updated_by, :created_at, :updated_at)';
-		
-			if (!$nota_final->manual && !$nota_final->recuperada) {
-				DB::delete('DELETE FROM notas_finales WHERE id=?', [ $nota_final->nf_id ]);
-				
-				DB::insert($consulta, [':alumno_id' => $alumno->alumno_id, ':asignatura_id' => $asignatura_id, ':periodo_id' => $user->periodo_id, 
-					':periodo' => $user->numero_periodo, ':nota' => round($nota_final->def_materia_auto), ':recuperada' => 0, ':manual' => 0, ':updated_by' => $user->user_id, ':created_at' => $now, ':updated_at' => $now ]);
+			// Fase 3 de 10-definitivas.md. **Aquí había un DELETE+INSERT por alumno
+			// en CADA carga de esta pantalla**, sin preguntar si hacía falta: es el
+			// tercer escritor de la §0 y una de las ventanas por las que se perdían
+			// definitivas —entre el DELETE y el INSERT la fila no existe, y una
+			// petición que muriera en medio la dejaba borrada—.
+			//
+			// Ahora se pregunta primero y **casi siempre no hace falta**: el sello de
+			// versión mira las notas vivas y borradas, las unidades, las subunidades y
+			// las matrículas del grupo, así que sólo recalcula cuando algo de eso se
+			// movió después de la última definitiva.
+			//
+			// Y el `INSERT` que había aquí era **uno de los cinco sin guarda** que
+			// impedían poner la clave única de la fase 2: al desaparecer, esa fase se
+			// acerca un sitio más.
+			if (DefinitivasDeAsignatura::estaDesactualizada(
+				(int) $asignatura_id, (int) $user->periodo_id, (int) $alumno->alumno_id
+			)) {
+				DefinitivasDeAsignatura::recalcular(
+					(int) $asignatura_id,
+					(int) $user->periodo_id,
+					(int) $user->user_id,
+					(int) $alumno->alumno_id
+				);
+
+				$nota_final = DB::select($cons_nf, [':asign_id1'=>$asignatura->asignatura_id, ':periodo'=>$user->numero_periodo, ':asign_id2'=>$asignatura->asignatura_id, ':alumno_id'=>$alumno->alumno_id])[0];
 			}
-				
-			$nota_final = DB::select($cons_nf, [':asign_id1'=>$asignatura->asignatura_id, ':periodo'=>$user->numero_periodo, ':asign_id2'=>$asignatura->asignatura_id, ':alumno_id'=>$alumno->alumno_id])[0];
 			
 			
 
@@ -311,24 +325,61 @@ class NotasController extends Controller {
 		} catch (\Exception $e) {
 			abort(422, 'No se pudo guardar la nota');
 		}
-		
-		
-		if (Request::has('asignatura_id')) {
-			# code...
-		}
 
-		
-	
+		// Fase 3 de docs/migracion/10-definitivas.md: **la definitiva se actualiza
+		// al modificar la nota**, que era la petición de origen. Aquí había un
+		// `if (Request::has('asignatura_id')) { # code... }` vacío — el hueco
+		// donde esto iba a ir y nunca fue.
+		//
+		// **No se pide `asignatura_id` al cliente**: la nota lleva a su unidad y la
+		// unidad sabe de qué asignatura y periodo es. Depender del cuerpo era una
+		// de las formas de que el recálculo no ocurriera, porque el front no
+		// siempre lo manda.
+		//
+		// Va **después** del `try`, no dentro: si la nota no se guardó, no hay nada
+		// que recalcular, y meterlo dentro convertiría un fallo del recálculo en un
+		// «no se pudo guardar la nota» que sería mentira — la nota sí se guardó.
+		DefinitivasDeAsignatura::recalcularPorNota((int) $id, $user->user_id);
+
 		return (array)$nota;
 	}
 
 
+	/**
+	 * Borrar una nota también recalcula: quitar una nota cambia la definitiva
+	 * tanto como cambiarla, y hasta hoy no la tocaba nadie.
+	 *
+	 * El orden importa y por eso se lee el destino **antes** del `DELETE`: éste es
+	 * un borrado **físico**, así que después de ejecutarlo ya no hay forma de saber
+	 * de qué asignatura y periodo era la nota. Es la misma razón por la que el
+	 * sello de versión mira los `deleted_at` de las notas blandas y aquí no sirve
+	 * de nada: no queda fila que sellar.
+	 */
 	public function deleteDestroy($id)
 	{
 		$user 	= User::fromToken();
 		User::pueden_editar_notas($user, PeriodoDeLaFila::deNota($id));
+
+		$donde = DB::selectOne(
+			'SELECT u.asignatura_id, u.periodo_id, n.alumno_id
+			   FROM notas n
+			   INNER JOIN subunidades s ON s.id = n.subunidad_id
+			   INNER JOIN unidades u ON u.id = s.unidad_id
+			  WHERE n.id = ?',
+			[$id]
+		);
+
 		$consulta 	= 'DELETE FROM notas WHERE id=?';
 		DB::delete($consulta, [$id]);
+
+		if ($donde !== null) {
+			DefinitivasDeAsignatura::recalcular(
+				(int) $donde->asignatura_id,
+				(int) $donde->periodo_id,
+				$user->user_id,
+				(int) $donde->alumno_id
+			);
+		}
 
 		return 'Eliminada';
 	}
@@ -366,14 +417,33 @@ class NotasController extends Controller {
 		foreach ($alumnos as $alumno) {
 			
 			if ($sub_id) {
-				$consulta = "INSERT INTO notas(subunidad_id, alumno_id, nota, created_by, created_at, updated_at) 
-						SELECT * FROM 
-						(SELECT '.$sub_id.' as subunidad_id, '.$alumno->alumno_id.' as alumno_id, '.$nota_default.' as nota, '.$user->user_id.' as created_by, '.$now.' as created_at, '.$now.' as updated_at) AS tmp
+				// §3.1 de 10-definitivas.md — **esto no guardaba nada, y de paso era
+				// una inyección.** La cadena estaba entre comillas **dobles** pero
+				// escrita con la sintaxis de concatenación de las simples:
+				//
+				//     "... (SELECT '.$sub_id.' as subunidad_id, ...)"
+				//
+				// En comillas dobles PHP **sí** interpola `$sub_id`, así que lo que
+				// llegaba a MySQL era `'.123.'` — una cadena, no un número—, que en
+				// una columna `int` vale **0** y la clave foránea a `subunidades`
+				// rechaza. Por eso «no guarda nada»: el `WHERE NOT EXISTS` sí iba
+				// parametrizado, así que cuando la nota ya existía no se intentaba
+				// insertar y no se notaba; cuando no existía, reventaba.
+				//
+				// Y la otra mitad: **los cinco valores venían del cuerpo y entraban
+				// interpolados**. Que la comilla de más los rompiera es lo único que
+				// impedía que fuera explotable. Se liga todo.
+				$consulta = 'INSERT INTO notas(subunidad_id, alumno_id, nota, created_by, created_at, updated_at)
+						SELECT * FROM
+						(SELECT ? as subunidad_id, ? as alumno_id, ? as nota, ? as created_by, ? as created_at, ? as updated_at) AS tmp
 							WHERE NOT EXISTS (
 								SELECT * from notas WHERE subunidad_id=? and alumno_id=? and deleted_at is null
-							) LIMIT 1";
-								
-				DB::insert($consulta, [ $sub_id, $alumno->alumno_id ]);
+							) LIMIT 1';
+
+				DB::insert($consulta, [
+					$sub_id, $alumno->alumno_id, $nota_default, $user->user_id, $now, $now,
+					$sub_id, $alumno->alumno_id,
+				]);
 				
 				// Notas
 				$cons = "SELECT n.id, n.nota, n.subunidad_id, n.alumno_id, n.created_by, n.updated_by, n.deleted_by, n.deleted_at, n.created_at, n.updated_at
@@ -418,8 +488,29 @@ class NotasController extends Controller {
 			$alumno->uniformes_count 	= count($uniformes);
 
 		}
-		
-		
+
+		// Fase 3 de 10-definitivas.md. **Una vez al final y no por alumno**: el
+		// bucle de arriba crea la nota por defecto de esa subunidad para todos los
+		// del grupo, así que lo que cambia es la asignatura entera y recalcularla
+		// por alumno serían N consultas agregadas para el mismo resultado.
+		//
+		// El periodo sale de la **subunidad**, no de `$user->periodo_id`: la
+		// subunidad cuelga de la unidad y la unidad sí lo lleva. Es la misma
+		// distinción que hizo falta en el boletín —usar el periodo del que mira en
+		// vez del de la fila es la §1.1—, y aquí es gratis porque `PeriodoDeLaFila`
+		// ya sabe hacer ese camino.
+		if ($sub_id) {
+			$periodoDeLaSubunidad = PeriodoDeLaFila::deSubunidad($sub_id);
+
+			if ($periodoDeLaSubunidad !== null && $asignatura_id) {
+				DefinitivasDeAsignatura::recalcular(
+					(int) $asignatura_id,
+					$periodoDeLaSubunidad,
+					$user->user_id
+				);
+			}
+		}
+
 		return [ 'alumnos'=> $alumnos ];
 	}
 

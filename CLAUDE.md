@@ -4,9 +4,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `8myvc` es la API del sistema escolar MyVc: Laravel 13 + PHP 8.4, ~37.000 líneas
 en `app/`, 113 clases de controlador y 539 rutas (medido el 21 ago 2026; los dos
-primeros números se mueven, el de rutas no). Está en migración desde Laravel 8; el
-plan, las mediciones y las decisiones ya tomadas viven en `docs/migracion/` y
-**se leen antes de re-litigar nada**.
+primeros números se mueven, el de rutas no). El plan, las mediciones y las
+decisiones ya tomadas viven en `docs/migracion/` y **se leen antes de re-litigar
+nada**.
+
+> **Lo primero, antes que este fichero: `docs/migracion/ESTADO-ACTUAL.md`.** Dice
+> qué se está haciendo ahora mismo, qué es lo siguiente y qué espera una decisión
+> de Joseth. Existe para que una sesión nueva continúe **sin que nadie le dé
+> contexto**, así que **se actualiza en el mismo commit que el trabajo** — un
+> commit aparte al final es el que no se hace cuando la sesión se corta.
 
 ## Idioma y convenciones de escritura
 
