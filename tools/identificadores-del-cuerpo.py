@@ -145,6 +145,34 @@ def senal_de_propiedad(src):
         j += 1
     return limpio[i:j].lstrip(':>-')
 
+# --- lo que el guard `persona.propia` ya comprueba por su nombre ----------------
+#
+# La comprobación de propiedad **no siempre está dentro del método**: para ocho de
+# estas rutas la hace `ExigirPersonaPropia`, que recoge del cuerpo y de la URL los
+# identificadores que nombran a una persona y comprueba que sean del que pregunta.
+# Sin cruzarlo, esta herramienta las marcaba «sin comprobar propiedad» teniéndola
+# puesta desde la revisión de IDOR — y son **más falsos positivos que los cinco de
+# `ColumnaSegura::exigir`**.
+#
+# La lista se lee **del propio middleware** y no se copia aquí: lleva tres nombres
+# para una sola cosa —`imagen_id`, `img_id`, `foto_id`— porque cada endpoint que
+# inventó el suyo dejó al guard ciego (05 §15, §53). Una copia a mano se
+# desincronizaría en el siguiente nombre nuevo, que es exactamente el fallo que
+# esta herramienta persigue.
+def claves_del_guard():
+    ruta = 'app/Http/Middleware/ExigirPersonaPropia.php'
+    if not os.path.exists(ruta):
+        return set()
+    src = open(ruta, encoding='utf-8', errors='replace').read()
+    m = re.search(r'private const CLAVES = \[(.*?)\];', src, re.S)
+    if not m:
+        return set()
+    cuerpo_lista = re.sub(r'/\*.*?\*/|//[^\n]*', ' ', m.group(1), flags=re.S)
+    return set(re.findall(r"'([a-z_]+)'", cuerpo_lista))
+
+
+CLAVES_GUARD = claves_del_guard()
+
 filas = []
 for r in rutas:
     uri = r['uri']
@@ -158,16 +186,24 @@ for r in rutas:
 
     escribe   = bool(ESCRIBE.search(src))
     senal     = senal_de_propiedad(src)
-    propiedad = senal is not None
 
-    # de los que entran, cuáles NO se derivan además de una fila
+    mw = [m for m in r['middleware'] if not m.startswith('Illuminate') and m != 'api']
+    lleva_persona_propia = any(m.split(':')[0] == 'persona.propia' for m in mw)
+    cubiertas = CLAVES_GUARD if lleva_persona_propia else set()
+
+    # de los que entran, cuáles NO se derivan de una fila NI los mira el guard
     sueltos = []
     for k in claves:
         if re.search(r'\$[A-Za-z_]\w*->%s\b' % re.escape(k), src):
             continue          # también se lee de una fila: probablemente derivado
+        if k in cubiertas:
+            continue          # lo comprueba `persona.propia` por su nombre
         sueltos.append(k)
 
-    mw = [m for m in r['middleware'] if not m.startswith('Illuminate') and m != 'api']
+    if senal is None and cubiertas & set(claves):
+        senal = 'persona.propia'
+    propiedad = senal is not None
+
     filas.append({
         'uri': uri, 'metodo': r['method'].split('|')[0], 'accion': r['action'].split('\\')[-1],
         'claves': claves, 'sueltos': sueltos, 'escribe': escribe,
