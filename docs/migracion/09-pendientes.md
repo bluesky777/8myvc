@@ -77,11 +77,13 @@ Catorce filas sueltas se posponen; seis decisiones se contestan de una sentada.
 Esto es el cruce de los ocho cuadernos que preguntaban algo, hecho por una sesión
 que **no había escrito ninguno** de ellos.
 
-**Antes de las seis, la que no es una decisión de negocio:**
-`putCambiarClaves` (`alumnos/cambiar-claves`) recibe una clave y un `grupo_id` y
-hace un `UPDATE` sobre **las contraseñas de todos los alumnos del grupo**, con
-`auth.personal` por delante y **ninguna comprobación dentro**. Cualquier profesor
-la alcanza. No pregunta qué debe pasar: pregunta si se cierra ya.
+**Antes de las seis, la que no es una decisión de negocio — CERRADA el 23 ago
+2026:** `putCambiarClaves` (`alumnos/cambiar-claves`) recibía una clave y un
+`grupo_id` y hacía un `UPDATE` sobre **las contraseñas de todos los alumnos del
+grupo**, con `auth.personal` por delante y **ninguna comprobación dentro**.
+**Joseth: a superusuario.** Y no le quita el botón a nadie: el único cliente que
+la llama la pinta en un menú `hasRoleOrPerm(['admin','secretario'])`, y hoy hay
+**10 `is_superuser`, los mismos 10 con rol `Admin` y cero `Secretario`**.
 
 > Y llegó a estar apuntada como *defendida*. La primera medición buscó
 > `Autoriza::` **desde el nombre del método hasta el final del fichero**, sin
@@ -93,7 +95,7 @@ la alcanza. No pregunta qué debe pasar: pregunta si se cierra ya.
 
 | | La decisión | Instancias que cuelgan de ella |
 |---|---|---|
-| **A** | **¿Se puede escribir en un año pasado?** | frases y contratos de años pasados (§84) · ordinales del manual de convivencia de un año cerrado (lote B) · **escalas de valoración, que hoy lo permiten y llevan escrito que es a propósito** |
+| **A** | **¿Se puede escribir en un año pasado?** — [**las cuatro pantallas, en el 16**](16-escribir-en-un-anio-pasado.md) | frases y contratos de años pasados (§84) · ordinales del manual de convivencia de un año cerrado (lote B) · **escalas de valoración, que hoy lo permiten y llevan escrito que es a propósito** |
 | **B** | **Borrar un catálogo al que otra fila apunta: ¿se impide, se avisa o se deja?** | borrar un grado apaga la planilla de sus profesores (§70) · borrar un ordinal deja la falta en pie sin artículo (lote B) |
 | **C** | **La hora mal escrita en filas ya guardadas: ¿migración o nota?** | `change_asked.deleted_at` (§121) · `created_at`/`updated_at` de las ausencias del lector (§123) |
 | **D** | **Los interruptores `para_*`** | `para_acudientes` y `para_profesores` (§104) son los gemelos de `para_alumnos` (§74) |
