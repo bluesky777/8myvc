@@ -136,11 +136,20 @@ La más cara, porque **el resultado falso es indistinguible de un hallazgo**.
 | El log que deja de crecer | «la suite murió» | **búfer de bloque**: parado justo en 10.210 bytes | el tamaño exacto del fichero | [E](e.md) |
 | Un `docker exec` muerto por `pkill` | el harness lo resumió como **«completed, exit code 0»** | **exit 143** | escribir `EXIT=$?` dentro del contenedor, junto al log | [B](b.md) |
 | Un snapshot de contrato | «esto está cubierto» | **el snapshot guardaba el fallo como si fuera correcto** | leer lo que afirma, no que exista | [E](e.md) |
+| **El mismo snapshot, al día siguiente** | «una respuesta cambió de forma» | `grupos-show.json` es el único de los seis que se movió y ya existía, y lo que cambió es **el fixture**: `GruposController::getShow` no se tocó en toda la noche | mirar si se movió la ruta o el test | [S](s.md) |
 | **`git diff main <rama>`** —con dos puntos— para ver qué aporta una rama | «esta rama **borra 8.536 líneas**» | la rama sale de un `main` viejo: ese diff incluye **deshacer los lotes fundidos después**. Lo que aporta son **895 insertions(+), 1 deletion(-)** | `git diff main...<rama>` **o** `git diff $(git merge-base main <rama>) <rama>` — los dos dan lo mismo | [L](l.md) |
 
 > El **snapshot** no es un instrumento de medir sino de proteger, y por eso es el
 > peor de la lista: **un test verde que fija un vaciado no avisa de nada y además
 > impide arreglarlo**, porque el arreglo lo pone en rojo.
+>
+> Y `grupos-show.json` tiene algo que no tiene ningún otro de esta tabla: **mintió
+> en las dos direcciones con horas de diferencia.** Primero **escondiendo** un
+> fallo —verde sobre un grupo al que le habían borrado el titular— y después,
+> arreglado el test, **fingiendo un cambio de contrato que no existe** para quien
+> audite la tanda mirando qué snapshots se movieron. **Un snapshot cambiado no es
+> una respuesta cambiada**, y el mismo fichero enseña las dos lecturas
+> equivocadas.
 >
 > Y el **último** es el que más cerca está de hacer daño esta noche, porque
 > aparece justo en el momento de fundir, **que es cuando menos margen hay**:
