@@ -32,7 +32,17 @@ class EntrustYPropiedadesTest extends CasoDeContrato
      */
     public function test_crear_los_usuarios_que_faltan_ya_no_revienta(): void
     {
-        $usuario = $this->usuarioLlanoDelPersonal();
+        // **Superusuario a propósito, y no por descuido**: `putCreartodoslosusuarios`
+        // lo exige por decisión escrita en su propio comentario —crea las cuentas de
+        // alumnos, profesores y acudientes, y «no crea usuarios» fue textual en el
+        // alcance que decidió Joseth—. El repunte del §158 lo cambió a un `Usuario`
+        // llano y el test se puso en **403**.
+        //
+        // O sea que el rojo no era un hallazgo sobre la ruta: la restricción ya estaba
+        // decidida y documentada. Lo que destapó es el borde del criterio de selección:
+        // **clasificar por el código HTTP no distingue «el personal puede X» de «sólo un
+        // superusuario puede X»**, porque los dos afirman 200. Ver §159.3.
+        $usuario = $this->usuarioDeTipo('Usuario');
         $token = $this->tokenDe($usuario->username);
 
         // Un alumno sin cuenta, para que el endpoint tenga trabajo que hacer.

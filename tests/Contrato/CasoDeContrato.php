@@ -219,14 +219,28 @@ abstract class CasoDeContrato extends TestCase
      */
     protected function usuarioLlanoDelPersonal(): object
     {
+        // **`y.actual = 1` no es un adorno: sin él este ayudante cambia el año en
+        // silencio.** El `Usuario` llano de id más bajo es el 679, y su periodo es del
+        // año **2018**; el que devolvía `usuarioDeTipo('Usuario')` era el 1, del **2025**,
+        // que es el actual. O sea que la primera versión de esto repuntó cuarenta y un
+        // tests y **de paso los mudó siete años atrás**, y sólo uno se quejó: `ExcelTest`,
+        // que importa una hoja del año del usuario y reventó con «La hoja 4 no
+        // corresponde a ningún grupo del año 2018». Los otros cuarenta no se quejaron
+        // porque no miran el año — que no es lo mismo que seguir midiendo lo mismo.
+        //
+        // Es exactamente lo que avisa `tokenDelPersonalDe()` desde que se escribió: con
+        // un sujeto de otro año los listados salen vacíos **en 200** y el test pasa sin
+        // haber calculado nada. Cambiar el sujeto para arreglar quién es y estropear de
+        // paso en qué año está sería cambiar un fallo silencioso por otro.
         $fila = DB::selectOne('SELECT u.* FROM users u
             INNER JOIN periodos p ON p.id = u.periodo_id AND p.deleted_at IS NULL
+            INNER JOIN years y ON y.id = p.year_id AND y.actual = 1 AND y.deleted_at IS NULL
             WHERE u.tipo = "Usuario" AND u.is_active = 1 AND u.deleted_at IS NULL
               AND u.is_superuser = 0
             ORDER BY u.id LIMIT 1');
 
         $this->assertNotNull($fila,
-            "El seed no tiene ningún Usuario que NO sea superusuario.\n"
+            "El seed no tiene ningún Usuario que NO sea superusuario en el año actual.\n"
             .'Sin él, un test que diga «el personal puede X» demuestra «el superusuario '
             ."puede X», que es menos.\n"
             .'Regenérala con: php tools/generar-seed-test.php');

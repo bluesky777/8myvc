@@ -155,6 +155,88 @@ distinto**:
 
 ---
 
+## §159.3 · Lo que dio la corrida: tres rojos, y dos son del propio arreglo
+
+`1.165 pasados, 3 fallidos`. Los tres se miraron uno a uno, porque **dejarlos en el
+mismo saco era lo único que no valía**.
+
+### 1. `ExcelTest` — el arreglo cambió el año en silencio, y es el hallazgo del lote
+
+```
+RuntimeException: La hoja '4' no corresponde a ningún grupo del año 2018
+```
+
+`usuarioLlanoDelPersonal()` devolvía el `Usuario` llano **de id más bajo**, que es el
+679 — y su periodo es de **2018**. El que devolvía `usuarioDeTipo('Usuario')` era el 1,
+de **2025**, que es el año actual.
+
+**O sea que el repunte arregló quién era el sujeto y de paso mudó cuarenta y un tests
+siete años atrás.** Y **sólo uno se quejó**: el que importa una hoja del año del usuario.
+Los otros cuarenta no miran el año — que **no es lo mismo que seguir midiendo lo mismo**.
+
+Es exactamente el fallo del que avisa `tokenDelPersonalDe()` desde que se escribió: con
+un sujeto de otro año los listados salen vacíos **en 200** y el test pasa sin haber
+calculado nada. **Cambiar un sujeto silencioso por otro no es arreglarlo.**
+
+Arreglado anclando el ayudante a `years.actual = 1`.
+
+### 2. `PapeleraTest` — el test fija el sujeto en una aserción
+
+```php
+$usuario = $this->usuarioLlanoDelPersonal();
+$this->assertSame(1, (int) $usuario->is_superuser);   // <- su premisa
+```
+
+El borrado físico es sólo de superusuario ([§28.4](../05-codigo-muerto-y-roto.md)) y esa
+línea es la que lo deja escrito. El repunte lo puso en rojo **en su propia premisa**.
+
+### 3. `EntrustYPropiedades` — la ruta exige superusuario por decisión escrita
+
+`putCreartodoslosusuarios` lo exige en su propio comentario: crea las cuentas de alumnos,
+profesores y acudientes, y «no crea usuarios» fue textual en el alcance que decidió
+Joseth. Con un `Usuario` llano, **403**.
+
+**No era un hallazgo sobre la ruta**: la restricción ya estaba decidida y documentada.
+
+### Lo que los tres juntos enseñan, que es el borde del criterio
+
+> **Clasificar por el código HTTP no distingue «el personal puede X» de «sólo un
+> superusuario puede X»: los dos afirman 200.**
+
+El discriminador no está en el test, está en **si la ruta exige superusuario** — que es
+justo lo que el barrido del [lote I](i.md) mide y lo que la predicción intentaba cruzar.
+Con las tres revertidas quedan **38 repuntados**, y los tres que volvieron atrás llevan
+el porqué dentro.
+
+---
+
+## La predicción falló, y la razón no es la que parecía
+
+Salió el **segundo caso** de la tabla —rojos que no estaban predichos— pero **no por el
+motivo que había escrito**. Al perseguirlo:
+
+```
+el regex que usé   ->  superusuario 147   llano 104   solo super 43
+el correcto        ->  superusuario 313   llano 246   solo super 76
+```
+
+`^  (?:\w+)\s+(api/\S+)` **no casa con las líneas de hallazgo del barrido**, que llevan
+`  200  PUT    api/…`: el `\w+` se comía el código y luego exigía `api/` donde había un
+verbo. Casaba **sólo con la lista de no juzgables**, que sí tiene la forma
+`  VERBO api/…`. **Las 43 «rutas que sólo alcanzó el superusuario» eran otra cosa.**
+
+Con el parseo correcto, `perfiles/creartodoslosusuarios` y `subunidades/forcedelete/{}`
+**sí están** en las 76, y el predictor arreglado **habría acertado dos de los tres
+rojos** — el tercero, `ExcelTest`, no era predecible por esa vía porque no fue un fallo
+de permiso sino del año.
+
+> Es la tercera vez esta noche que el fallo es **una expresión regular que casa con otra
+> cosa y devuelve un número creíble**. La señal, otra vez, estaba a la vista: 43 rutas
+> «solo del superusuario» cuando el barrido daba 170 contra 145, o sea 25 de diferencia.
+> **Un número que no cuadra con otro que ya tienes es la forma barata de cazarlo.**
+
+---
+
 ## Lo que este lote **no** puede afirmar
 
 `CasoDeContrato.php` lo heredan **130 ficheros**. Correr sólo los que se editan dice que
