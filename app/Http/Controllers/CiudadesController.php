@@ -53,23 +53,41 @@ class CiudadesController extends Controller {
 	}
 
 
+	/**
+	 * Lo que abre la pantalla de editar la ficha de un alumno: su ciudad y los
+	 * desplegables con los que se cambia.
+	 *
+	 * El `$pais[0]` estaba desnudo, y una ciudad SIN PAÍS no es hipotética: la
+	 * columna admite NULL y `postGuardarCiudad` escribe `pais_id` tal como llega,
+	 * así que basta guardar una ciudad sin país —dos rutas, ida y vuelta— para que
+	 * esta responda 500 «Undefined array key 0» y la ficha de todo alumno nacido
+	 * ahí deje de abrir. Se midió así, ejecutando las dos, y no leyendo esta.
+	 * Ver 05 §85.
+	 *
+	 * Devuelve la misma forma con el país vacío en vez de reventar: **las seis
+	 * claves se quedan**. Encogerla sería contrato con dieciséis copias del front,
+	 * y quien la llama ya sabe tratar el `[]` de la ciudad que no existe.
+	 */
 	public function getDatosciudad($ciudad_id)
 	{
 		$ciudad = Ciudad::find($ciudad_id);
 		if ($ciudad) {
 			$pais = $this->getPaisdeciudad($ciudad->id);
+			$pais = count($pais) > 0 ? $pais[0] : null;
 
-			$departamentos = $this->getDepartamentos($pais[0]->id);
+			$departamentos = $pais ? $this->getDepartamentos($pais->id) : [];
 			$ciudades = Ciudad::where('departamento' , $ciudad->departamento)->get();
 
 			$result = array('ciudad' => $ciudad, 
 							'ciudades' => $ciudades, 
 							'departamento' => array('departamento'=>$ciudad->departamento), 
 							'departamentos' => $departamentos,
-							'pais'=> $pais[0],
+							'pais'=> $pais,
 							'paises' => Pais::all());
 			return $result;
 		}else{
+			// 200 con [] y no 404: es lo que devuelve desde siempre y lo que el front
+			// distingue de una respuesta con ciudad. No se juzgó; queda fijado.
 			return [];
 		}
 		
