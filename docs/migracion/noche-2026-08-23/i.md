@@ -106,6 +106,11 @@ todas las sesiones**. Va al lote N, el último, con todo fundido.
 
 ## §112 · Lo que alcanza cada tipo, medido
 
+> **Nota sobre las salidas pegadas más abajo**: se produjeron con la etiqueta antigua,
+> `ESCRIBE`. El barrido la llama ahora **`EJECUTA`**, por la razón de más abajo — ve la
+> sentencia, no las filas afectadas—. Es la misma columna con el nombre honrado.
+
+
 Cinco barridos, misma noche, misma base. **El primero es la comprobación, no el
 resultado**: Alumno y Acudiente tienen que reproducir lo que ya se midió el 20 de
 agosto, y lo reproducen.
