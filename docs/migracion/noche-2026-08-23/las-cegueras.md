@@ -341,4 +341,23 @@ que medirla antes de mandarla.**
 > Lo que las evita no es el conocimiento: es **el hábito de pedirle al instrumento
 > que enseñe el caso concreto** antes de creerse el resumen.
 
+### Y no fue una sesión: fueron cinco de las seis
+
+Contado por quien coordinó la noche, que es quien las veía a todas:
+
+| Quién | Qué repitió, después de que estuviera escrito |
+|---|---|
+| Quien escribió este barrido | tres formas, con el documento ya firmado |
+| Quien coordinó | **le dio rango de premisa a un apunte sin verificar** y montó un lote entero sobre él |
+| Otras dos sesiones | **juzgaron un instrumento sin leer su cabecera**, con veinte minutos de diferencia |
+
+> **Cinco de las seis repetimos una forma después de escribirla.** Y **eso, y no
+> las once reglas, es el hallazgo.**
+
+Si una sola persona tropieza con lo que acaba de escribir, es un descuido. Si
+tropiezan cinco de seis en la misma noche, **la lista no es una vacuna: es un
+mapa de dónde se tropieza**. Sirve para reconocer el sitio **después** de caer —
+que es cuando de verdad se usa— y para acortar el rato entre caerse y saber que
+uno se ha caído.
+
 ---
