@@ -442,14 +442,26 @@ Y de ahí sale la otra mitad, sobre el sello que este mismo documento pide:
     > de la línea siguiente.** Un commit puede salir con un título que anuncia una
     > mejora y un cuerpo que borra veintiuna líneas.
 
-12. **Marcar qué mitad de una salida hay que ignorar, en la propia salida.** Una
+12. **Que el instrumento te dé la razón contra alguien que ya midió es motivo para
+    repetir la medición, no para mandarla.** La última de la noche fue ir a
+    comprobar una corrección ajena —correcta, y hecha comparando nombres— con un
+    bucle que contestó **«no existe en ninguno de los tres»**. Demasiado limpio
+    para lo que había enfrente. Repetirlo sin bucle costó veinte segundos y dio lo
+    contrario.
+
+    > Es el único caso de la noche en que un error propio iba a **destruir un
+    > hallazgo bueno de otro** en vez de solo ensuciar un documento propio. Y lo
+    > que lo evitó no fue desconfiar de nadie: **fue que el resultado era
+    > demasiado redondo**.
+
+13. **Marcar qué mitad de una salida hay que ignorar, en la propia salida.** Una
     comprobación que necesita saberlo y no lo dice fabrica la forma 4 ella sola: el
     lector que desconfía **tiene razón en desconfiar**, porque no le diste con qué
     distinguir.
 
 ### Y la que no es una regla sino el saldo
 
-**Ninguna de estas doce se evita sabiéndosela.** Este documento estaba escrito y
+**Ninguna de estas trece se evita sabiéndosela.** Este documento estaba escrito y
 firmado cuando su propia autora se equivocó **ocho veces**, cinco de ellas
 repitiendo formas que el propio documento describe:
 
