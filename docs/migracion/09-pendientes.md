@@ -87,7 +87,7 @@ Cobertura de rutas: **370 de 539 (69%)**, medida con
 > resultado.
 >
 > **Y para cerrar, las dos que le faltaban al candado del periodo**
-> ([05 §80](05-codigo-muerto-y-roto.md)): **1.006 tests**. `periodos/copiar` y
+> ([05 §80](05-codigo-muerto-y-roto.md)): **1.006 tests**, cobertura **462 de 539 (85%)**. `periodos/copiar` y
 > `subunidades/destroy`. La primera no salió en la herramienta de la §77 porque
 > **escribe con Eloquent y el detector sólo miraba SQL** —tres cegueras del mismo
 > detector en un día, todas ya en su cabecera—. La segunda llevaba un mes tapada
