@@ -27,7 +27,7 @@ cuando estos arreglos sean historia.
 | [B](b.md) | Ordinales de disciplina y ciudades | §85–88 |
 | [C](c.md) | La rejilla: **quién escribe una definitiva y con qué candado** | §89–92 |
 | [D](d.md) | La configuración del año | §93–96 |
-| [E](e.md) | Personas e imágenes: **quién ve y quién escribe la ficha de otro** | §97–104, §150–153 |
+| [E](e.md) | Personas e imágenes: **quién ve y quién escribe la ficha de otro** | §97–100, §153–156 |
 | [F](f.md) | PIAR, actividades y votaciones: los interruptores de lo que ve el alumno | §101–104 |
 | [G](g.md) | Los 44 interruptores `tinyint(1)`, **contra los cuatro clientes** | §105–107 |
 | [H](h.md) | Los 230 identificadores del cuerpo | §108–110 |
@@ -35,11 +35,13 @@ cuando estos arreglos sean historia.
 | [J](j.md) | Las rutas **ya cubiertas que nadie ha juzgado** | §114–116 |
 | [K](k.md) | Las columnas que se pisan donde no llegaba ningún lote | §118–121 |
 | [L](l.md) | Las sobras huérfanas | §123–124 |
-| [M](m.md) | Descongelar los dos modelos que se habían congelado | §125–127 |
+| [M](m.md) | Descongelar los dos modelos que se habían congelado | §125, §127 |
 | [O](o.md) | Completar la población de `PerfilesController` | §130–132 |
-| [P](p.md) | **Las que escriben sin decirlo** | §133–136 |
-| [Q](q.md) | El calendario, donde **el cliente decidía si el interruptor se aplicaba** | §139–150 |
+| [P](p.md) | **Las que escriben sin decirlo** | §133–134, §136–137 |
+| [Q](q.md) | El calendario, donde **el cliente decidía si el interruptor se aplicaba** | §150–152 |
+| [R](r.md) | **El boletín de una familia**, y la imagen privada en el muro | §140–142, §166 |
 | [S](s.md) | **La única escritura que alcanza una familia** | §143–145 |
+| [T](t.md) | Lo que destapó la curva de profundidad | §146–149 |
 
 Y uno que no es de lote: [p-curva-de-profundidad.md](p-curva-de-profundidad.md)
 —cuántas rutas escriben, y a qué distancia—.
