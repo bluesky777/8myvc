@@ -36,10 +36,11 @@ cuando estos arreglos sean historia.
 | [K](k.md) | Las columnas que se pisan donde no llegaba ningún lote | §118–121 |
 | [L](l.md) | Las sobras huérfanas | §123–124 |
 | [M](m.md) | Descongelar los dos modelos que se habían congelado | §125, §127 |
+| [N](n.md) | Los ayudantes compartidos de los tests: **lo que devuelve no es lo que promete su nombre** | §157–159 |
 | [O](o.md) | Completar la población de `PerfilesController` | §130–132 |
 | [P](p.md) | **Las que escriben sin decirlo** | §133–134, §136–137 |
 | [Q](q.md) | El calendario, donde **el cliente decidía si el interruptor se aplicaba** | §150–152 |
-| [R](r.md) | **El boletín de una familia**, y la imagen privada en el muro | §140–142, §166 |
+| [R](r.md) | **El boletín de una familia**, y la imagen privada en el muro | §140–142, §166–167 |
 | [S](s.md) | **La única escritura que alcanza una familia** | §143–145 |
 | [T](t.md) | Lo que destapó la curva de profundidad | §146–149 |
 
@@ -67,8 +68,7 @@ Y los huecos que quedan en el rango de esta noche, con lo que son:
 
 | Hueco | Qué es |
 |---|---|
-| **§117**, **§128–129** | **números que nadie usó**, no secciones perdidas: quedaron sin asignar al ir abriendo lotes sobre la marcha. **No hay que rellenarlos** |
-| **§138–142**, **§146–149** | **no son huecos**: son los lotes que seguían abiertos al hacer esta comprobación |
+| **§117**, **§126**, **§128–129**, **§135**, **§138–139**, **§160–165** | **números que nadie usó**, no secciones perdidas: quedaron sin asignar al ir abriendo lotes sobre la marcha. **No hay que rellenarlos** |
 
 > **Y hay que repetirla después de cada renumerado, no solo al final.** Es la
 > lección más cara de las tres colisiones que hubo esta noche: **arreglar una
