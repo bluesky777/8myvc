@@ -89,6 +89,34 @@ use Tests\Contrato\CasoDeContrato;
  * lo que sale sin ser dato personal. `unidades/trashed` devolvía a un alumno la
  * papelera académica del colegio y el barrido la vio pasar, porque su criterio
  * de fuga es la lista `PERSONALES` de arriba. Ver 05 §16.
+ *
+ * **Y dos más, del 23 de agosto, que empujan en direcciones contrarias** — por eso van
+ * juntas: leídas por separado, cada una parece un descargo.
+ *
+ *   - **Cuenta de menos: el `{grupo_id}` ajeno es también «de otro año».** El seed tiene
+ *     **dos grupos vivos, uno por año**, así que el grupo que este barrido elige como
+ *     ajeno nunca es del año del sujeto. Para las rutas que acotan por
+ *     `$user->year_id`, un vacío no distingue «el guard lo impidió» de «el filtro de
+ *     año no encontró nada» — **y el control de {@see control()} tampoco lo separa,
+ *     porque su superusuario está en el mismo año que el sujeto y ve el mismo vacío por
+ *     la misma razón. Un control que comparte el sesgo del sujeto confirma el sesgo, no
+ *     lo desmiente.** Medido: de las 28 rutas con grupo en la URL, 19 no miran el año,
+ *     2 salieron como hallazgo igual y **7 quedaban mudas por esto**. Al montarles un
+ *     grupo del mismo año con un alumno dentro, **seis contestan y cuatro con datos
+ *     personales**; con un administrativo sin rol, las siete.
+ *     {@see GrupoAjenoDelMismoAnioTest}, que lo mide sin tocar esto.
+ *
+ *   - **Cuenta de más: `ESCRIBE` es «ejecutó una escritura», no «cambió una fila».**
+ *     La marca sale de `DB::listen`, que ve **la sentencia y no las filas afectadas**.
+ *     Medido: `DELETE requisitos/destroy/0` ejecuta un `UPDATE ... WHERE id=0`, cambia
+ *     **cero filas**, contesta 200 «Eliminado» y aquí sale como escritura. Ese mismo
+ *     caso aparece **a la vez** en la lista de «no medidas por falta de fila ajena»:
+ *     las dos cosas son ciertas y ninguna es «escribió».
+ *
+ * De paso, esa última es una respuesta que miente que `respuestas-que-mienten.py` **no
+ * puede ver**: esa herramienta busca métodos que **frenan** la escritura y contestan 200
+ * igual, y aquí la escritura **corre y no encuentra a quién**. Misma mentira, mecanismo
+ * distinto, señal distinta — y esa serie estaba dada por agotada.
  */
 #[Group('barrido')]
 class SuperficieDeUnTokenTest extends CasoDeContrato
@@ -351,7 +379,13 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
                 }
 
                 $hallazgo = '  '.str_pad((string) $codigo, 5).str_pad($verbo, 7).str_pad($uri, 58)
-                    .($escribio !== [] ? '  ESCRIBE: '.implode(' | ', $escribio) : '')
+                    // «EJECUTA» y no «ESCRIBE»: `DB::listen` ve la sentencia, no las
+                    // filas afectadas. Un `UPDATE ... WHERE id=0` sale aquí sin haber
+                    // cambiado nada. Cambiar la palabra no arregla la medida —para eso
+                    // habría que contar filas antes y después en 539 rutas— pero deja
+                    // de prometer lo que no mide, que es lo que hacía que se leyera
+                    // como una cuenta de escrituras.
+                    .($escribio !== [] ? '  EJECUTA: '.implode(' | ', $escribio) : '')
                     .($personales !== [] ? '  PERSONALES: '.implode(',', $personales)
                         .' ['.strlen($contenido).' b]' : '')
                     .($forma === 'anidado' ? '  [cuerpo anidado]' : '');
