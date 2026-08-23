@@ -352,10 +352,25 @@ detector tiene una frontera que **no es una ceguera de implementación sino su
 definición**:
 
 ```python
-TABLAS = ('notas', 'notas_finales', 'recuperacion_final')
+TABLAS = ('notas', 'notas_finales', 'recuperacion_final')     # el 23 ago a las 00:xx
 ```
 
-**`nota_comportamiento` no está**, ni `NotaComportamiento` en su `MODELOS`. Y esa
+**`nota_comportamiento` no estaba**, ni `NotaComportamiento` en su `MODELOS`.
+
+> **Ya no es así, y esa es la segunda mitad de esta sección.** El apéndice del
+> [lote O](o.md) le añadió la cuarta tabla unas horas después —junto con otras
+> tres fronteras que tenía el mismo recorte—, y este párrafo se quedó afirmando
+> **en presente** algo que había dejado de ser cierto. Lo escribió la misma sesión,
+> la misma noche, y **no se enteró nadie**.
+>
+> Una **anotación** sin condición de caducidad espera a una persona. Una
+> **conclusión** sin condición de caducidad **se sigue citando como si fuera
+> cierta**, que es peor: nadie la está esperando, así que nadie la revisa. Y una
+> cita de código dentro de un documento **es una copia**: envejece sola.
+>
+> Su condición de caducidad es ahora `DefinicionDeLosDetectoresTest`, que fija la
+> definición de la herramienta **y nombra las secciones que la citan**. El día que
+> `TABLAS` vuelva a cambiar, el fallo dice dónde hay que ir a releer. Y esa
 tabla **sí está bajo el mismo candado** por decisión de Joseth del 21 ago 2026 —
 sale en el boletín y el año tiene su conmutador ([05 §40.2](../05-codigo-muerto-y-roto.md)),
 y `PeriodoDeLaFila::deNotaComportamiento` existe justo para eso.
