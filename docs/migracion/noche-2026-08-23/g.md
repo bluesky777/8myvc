@@ -100,7 +100,15 @@ Así que antes de repetir el 49, se midió **qué se queda fuera del barrido**.
 Los dos se comprobaron uno a uno con las 49 columnas delante:
 
 - **En los ficheros que la extensión deja fuera** (`.mjs`, `.scss`, `.json`,
-  `.md`, `.xml`, `.yaml` de los tres clientes): **ninguna de las 49 aparece.**
+  `.md`, `.xml`, `.yaml` de los tres clientes — **472 ficheros**): **ninguna de
+  las 49 aparece.**
+
+  Y ese cero **tiene su control**, añadido después al repasar el lote y ver que
+  era el único de la noche que no lo tenía: seis columnas conocidas buscadas en
+  ese mismo corpus aparecen todas —`caritas`, `presencial`,
+  `mostrar_puesto_boletin`, `perdido` y `one_by_one` en un fichero cada una,
+  `obligatoria` en cuatro—. O sea que el grep **sí alcanza** esas extensiones, y
+  el cero de las 49 es un cero medido y no un grep que no llegaba.
 - **En el bundle**: ver abajo, y es lo que más aporta.
 
 ### 106.2 El corpus que la herramienta no puede leer, y que sí contesta
