@@ -525,3 +525,64 @@ que es cuando de verdad se usa— y para acortar el rato entre caerse y saber qu
 uno se ha caído.
 
 ---
+
+---
+
+# Apéndice del 24 ago 2026 — cuatro formas más, y ninguna es del detector
+
+Las siete de arriba son **cegueras del instrumento**: mira donde no es, cuenta lo
+que no es, encoge sin decirlo. Las cuatro de este apéndice son otra cosa y por eso
+van aparte: **en las cuatro el número es correcto.** Lo falso es la frase que se
+cuelga de él.
+
+Salieron todas el mismo día, en cinco sesiones distintas —tres de backend y dos de
+front— y ninguna las buscó: aparecieron al medir otra cosa.
+
+| | Qué se hizo | Qué salió | Qué falló |
+|---|---|---|---|
+| **8a. Medir una vez** | una pasada por asignatura, en orden fijo, para comparar dos consultas | **123,8 ms contra 42,5 ms — un 3×** que justificaba una optimización, y se escribió | la **cantidad** de medición. La primera consulta calentaba el buffer pool y la segunda cobraba el beneficio. Alternando el orden y con medianas: **1,26× sobre 1,7 ms** |
+| **8b. Dar por medido lo deducido** | arreglar el único test rojo, sumar uno nuevo y escribir «0 fallan» en el commit | un recuento que **nunca se hizo** | la medición **no existió**. Cuando llegó, había otro rojo |
+| **8c. Contar el síntoma y leer la causa** | barrer `foreach` sobre parámetros con defecto escalar | **nueve sitios**, y los nueve ciertos | lo que se leyó: «nueve **sin guarda**». Ocho la tenían, y el `foreach` hallado en ellas era el de dentro del `else`. **Repetirlo da nueve otra vez** |
+| **8d. Medir bien en el sitio equivocado** | reproducir un hallazgo ajeno con un test | un resultado **limpio y coherente** que lo desmentía | la **base**. El test corre contra la de tests, con datos sembrados; el hallazgo era de la copia de producción. Casi se publica un desmentido |
+
+## Por qué **8d** es la peor de las cuatro
+
+Las otras tres dejan una señal. Medir de menos deja un hueco; contar otra cosa da
+un número raro que invita a mirar; no medir se nota en cuanto alguien pide el
+número.
+
+**8d no deja ninguna.** Da un resultado limpio, coherente, reproducible **y falso**
+—y encima con la autoridad de venir de una medición de verdad—. Y en los dos casos
+del día lo que la cazó no fue ninguna comprobación:
+
+- en el backend, que el número **contradecía a un compañero que había medido
+  bien**, lo bastante como para ir a mirar por qué;
+- en el front, una expresión regular que troceaba un fichero por llaves dio **43
+  entradas de menú, 41 sin condición de visibilidad** —«el menú está abierto a
+  todos»—. A mano son **48 y 42 con condición**. *«No llegó a salir de mi ventana
+  porque no me cuadró con lo que había leído a ojo diez minutos antes, no porque
+  la herramienta avisara.»*
+
+**Las dos se salvaron por incredulidad, no por un control.** Eso no es un método.
+
+## Las tres preguntas que las cierran, y son baratas
+
+Antes de colgar una afirmación de un número:
+
+1. **¿Sobre qué población?** — la regla de `CLAUDE.md`: ninguna herramienta
+   imprime `OK` sin decirlo. Cubre 8b y parte de 8c.
+2. **¿Contra qué base, qué rama y qué árbol?** — cubre 8d, y la variante hermana
+   del [15](../15-la-noche-en-paralelo.md): *una suite verde no corresponde a
+   ningún commit si el árbol es compartido*.
+3. **¿El nombre del detector describe lo que cuenta?** — cubre 8c, y es la única
+   que **no se arregla repitiendo la medición**.
+
+Y la que las resume, que ya estaba escrita arriba con otro traje y el día no hizo
+más que confirmarla: **una herramienta mide lo que sabe leer, no lo que hay.** Lo
+nuevo del 24 es que **quien la lee puede acertar el número y equivocarse igual.**
+
+> **La salida, las cuatro veces, fue la misma y era barata: mirar a las
+> hermanas.** La guarda estaba escrita ocho veces al lado; la asignatura tenía
+> nueve copias comparables; la base de producción estaba a un comando; el menú se
+> podía contar a mano en cinco minutos. **Consultar a la familia es más barato que
+> razonar** — y las cuatro veces se razonó primero.
