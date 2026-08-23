@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\DB;
 
 use App\Support\CamposQueVinieron;
+use App\Support\CatalogoEnUso;
 use App\User;
 use App\Models\Materia;
 
@@ -141,9 +142,19 @@ class MateriasController extends Controller {
 	}
 
 
+	/**
+	 * Una materia con asignaturas vivas no se borra — §70 y decisión del 23 ago.
+	 *
+	 * La asignatura se queda apuntando a una materia en la papelera, y la
+	 * asignatura es lo que cuelga de la planilla del profesor. **Hoy bloquearía en
+	 * 27 de las 35 materias vivas.**
+	 */
 	public function deleteDestroy($id)
 	{
 		$materia = Materia::findOrFail($id);
+
+		CatalogoEnUso::exigirQueNadieApunte('asignaturas', 'materia_id', $materia->id, 'asignaturas');
+
 		$materia->delete();
 
 		return $materia;

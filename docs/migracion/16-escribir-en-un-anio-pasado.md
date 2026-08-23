@@ -1,9 +1,37 @@
-# Escribir en un año pasado — los cuatro catálogos, y qué pantalla usa cada uno
+# Escribir en un año pasado — CONTESTADO: es como tiene que ser
 
-> **Para Joseth, 23 ago 2026.** Está pedido «parar y enseñar las pantallas», así
-> que **aquí no se ha tocado nada**: los cuatro catálogos siguen exactamente como
-> estaban. Esto es lo que hay que tener delante para decidir.
+> ## La respuesta, 24 ago 2026
 >
+> **Joseth, con las pantallas delante:**
+>
+> > «Todos pueden seleccionar un año y moverse por él como si fuera el año actual.
+> > Un profe puede ir a años pasados y editar periodos que no estén bloqueados. Un
+> > usuario con permisos puede ir al año pasado y cambiar las frases y situaciones,
+> > lo mismo que las escalas y todo lo demás.»
+>
+> O sea que **moverse por un año pasado no es un agujero: es el producto**, y **lo
+> que decide si se puede escribir no es el año, es el interruptor del periodo**
+> —el candado de la [§27](05-codigo-muerto-y-roto.md), que ya existe y ya se
+> comprueba—.
+>
+> **No se cierra ninguno de los cuatro.** Y esto es una decisión cerrada, **no
+> pendiente**: la §84 dejó de ser un hallazgo. Lo que describía —«el listado filtra
+> por año y la escritura no»— es la mitad de un mecanismo que se completa cuando
+> el usuario cambia de año: entonces el listado enseña ese año y edita ese año.
+>
+> Se conserva lo de abajo porque **sigue siendo el mapa de las cuatro pantallas** y
+> porque explica por qué la pregunta parecía necesaria. Lo que ya no hay que hacer
+> es contestarla.
+>
+> **Y una consecuencia que sí queda abierta**: si un profesor puede moverse a un
+> año pasado, entonces lo único que lo frena es el interruptor del periodo — así
+> que **la pregunta buena no es «¿qué año?» sino «¿qué periodos deja abiertos cada
+> colegio en los años cerrados?»**, que es operación del colegio y no código.
+
+---
+
+## El mapa de las cuatro pantallas *(escrito el 23 ago, antes de la respuesta)*
+
 > Todo lo de abajo está **medido**, no deducido: la copia de producción para los
 > números, `myvc_front` en el disco para las pantallas. Cada dato lleva de dónde
 > sale.

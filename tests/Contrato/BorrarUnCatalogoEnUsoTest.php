@@ -175,6 +175,66 @@ class BorrarUnCatalogoEnUsoTest extends CasoDeContrato
     }
 
     /**
+     * Un área con materias y una materia con asignaturas, igual — 422 las dos.
+     *
+     * Se cierran el 24 ago 2026, después de ver el número: areas bloquea en 20 de
+     * 22 y materias en 27 de 35. **`niveles_educativos` se queda fuera** porque
+     * bloquearía **4 de 4** — una ruta enrutada que siempre contesta 422 es peor
+     * que la que no existe, porque no dice qué pretendía hacer la pantalla.
+     */
+    public function test_un_area_con_materias_y_una_materia_con_asignaturas_no_se_borran(): void
+    {
+        $token = $this->tokenDelSuperusuario();
+
+        $area = DB::selectOne('SELECT a.id FROM areas a
+            WHERE a.deleted_at IS NULL AND EXISTS (
+                SELECT 1 FROM materias m WHERE m.area_id = a.id AND m.deleted_at IS NULL
+            ) ORDER BY a.id LIMIT 1');
+        $this->assertNotNull($area, 'El seed no tiene ningún área con materias vivas.');
+
+        $this->withToken($token)->deleteJson('/api/areas/destroy/'.$area->id)->assertStatus(422);
+        $this->assertNull(DB::table('areas')->where('id', $area->id)->value('deleted_at'),
+            'Contestó 422 y aun así mandó el área a la papelera.');
+
+        $this->olvidarControladores();
+
+        $materia = DB::selectOne('SELECT m.id FROM materias m
+            WHERE m.deleted_at IS NULL AND EXISTS (
+                SELECT 1 FROM asignaturas x WHERE x.materia_id = m.id AND x.deleted_at IS NULL
+            ) ORDER BY m.id LIMIT 1');
+        $this->assertNotNull($materia, 'El seed no tiene ninguna materia con asignaturas vivas.');
+
+        $this->withToken($token)->deleteJson('/api/materias/destroy/'.$materia->id)->assertStatus(422);
+        $this->assertNull(DB::table('materias')->where('id', $materia->id)->value('deleted_at'),
+            'Contestó 422 y aun así mandó la materia a la papelera.');
+    }
+
+    /**
+     * Y un nivel educativo con grados **sí se sigue borrando**: es la decisión.
+     *
+     * Tiene la misma forma que `grados` y **se dejó fuera por el número**:
+     * bloquearía 4 de 4, o sea que esa ruta no volvería a servir para nada. Si
+     * alguien la cierra «por coherencia», este test cae y le enseña la cuenta.
+     */
+    public function test_un_nivel_educativo_con_grados_se_sigue_borrando(): void
+    {
+        $token = $this->tokenDelSuperusuario();
+
+        $nivel = DB::selectOne('SELECT n.id FROM niveles_educativos n
+            WHERE n.deleted_at IS NULL AND EXISTS (
+                SELECT 1 FROM grados g WHERE g.nivel_educativo_id = n.id AND g.deleted_at IS NULL
+            ) ORDER BY n.id LIMIT 1');
+        $this->assertNotNull($nivel, 'El seed no tiene ningún nivel educativo con grados.');
+
+        $this->withToken($token)->deleteJson('/api/niveles_educativos/destroy/'.$nivel->id)
+            ->assertStatus(200);
+
+        $this->assertNotNull(DB::table('niveles_educativos')->where('id', $nivel->id)->value('deleted_at'),
+            'Se cerró `niveles_educativos` por coherencia con `areas` y `materias`. '
+            .'Bloquearía 4 de 4: esa ruta dejaría de servir para nada.');
+    }
+
+    /**
      * Los tres catálogos que NO se cierran siguen borrándose, y eso es la decisión.
      *
      * `frases` es el caso que enseña el criterio: `definiciones_comportamiento`
