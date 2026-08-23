@@ -51,9 +51,31 @@ Uso, desde la raíz del proyecto:
         --clientes ../myvc_front ../myvc_front_2 ../myvc_flutter
 
 Con `--clientes` la salida separa lo que un cliente sí mira de lo que no mira
-nadie. El 21 ago 2026, con los tres delante, quedaron **dos** columnas que no
-aparecen ni en el backend ni en ningún cliente: `users.can_ask` y
-`matriculas.profes_editar_notas`. Ver docs/migracion/12-larastan-nivel-7.md §17.
+nadie. El 21 ago 2026, con los tres delante, quedaron **49** columnas que no
+aparecen ni en el backend ni en ningún cliente, y el 23 de agosto salieron las
+mismas 49. Ver docs/migracion/12-larastan-nivel-7.md §17.
+
+  ESTA CABECERA DIJO «DOS» DURANTE DOS DÍAS, y ese es el aviso que hay que
+  llevarse. La §17 termina con tres párrafos sobre `users.can_ask` y
+  `matriculas.profes_editar_notas` porque son **las dos que tienen algo que
+  contar** —una encendida en las 2.351 cuentas, la otra hermana de una bandera
+  que espera decisión—, y aquí se escribieron como si fueran el resultado.
+  **Dos suena a «no hay nada»; cuarenta y nueve es una lista.** Lo que se lee
+  antes de decidir si vale la pena correr una herramienta es su cabecera, no el
+  documento que cita. Corregido el 23 ago 2026, lote G — ver
+  docs/migracion/noche-2026-08-23/g.md §105.
+
+Y contra qué se mide, que es lo que hace afirmable «no lo lee nadie»:
+
+  · Los ficheros que este script lee de cada cliente son los de EXTENSIONES, y
+    **lo que no tenga esa extensión no se ha mirado**.
+  · **No lee ningún fichero de más de un mega**, o sea que no lee ningún bundle
+    construido. Con las 49 delante se comprobó a mano el de `../myvc_dist`
+    —3.736.964 bytes—: ninguna de las 49 aparece, y cinco columnas de control
+    que el front sí usa aparecen las cinco. El control es lo que convierte ese
+    cero en una medición. Ver g.md §106.
+  · Lo que se salta por tamaño se **imprime** al final. Un barrido que encoge en
+    silencio se lee igual que uno que no encontró nada.
 """
 
 import collections
@@ -102,7 +124,11 @@ def codigo():
     return '\n'.join(textos)
 
 
-EXTENSIONES = ('.js', '.ts', '.html', '.dart', '.vue')
+# `.mjs` entra el 23 ago 2026: `myvc_front` tiene 30 y no se estaban mirando.
+# Ninguna de las 49 aparecía en ellos —comprobado antes de añadirla, para que el
+# cambio no se justifique solo— pero la lista de extensiones es justo la clase de
+# cosa que se queda corta sin avisar.
+EXTENSIONES = ('.js', '.mjs', '.ts', '.html', '.dart', '.vue')
 
 # Lo compilado no cuenta: `dist/` y `build/` son el mismo código otra vez, y
 # `node_modules` es de otros. Sin esto el barrido de los tres clientes pasa de
@@ -114,6 +140,7 @@ IGNORADAS = {'node_modules', 'dist', 'build', '.git', 'vendor', '.dart_tool',
 def clientes(rutas):
     """El texto de los clientes, por nombre, para poder decir cuál lo mira."""
     porCliente = {}
+    saltados = []
 
     for ruta in rutas:
         carpeta = pathlib.Path(ruta).expanduser()
@@ -128,14 +155,17 @@ def clientes(rutas):
                 continue
             if IGNORADAS & set(fichero.parts):
                 continue
-            # Un minificado de un mega no dice nada que no diga su fuente.
+            # Un minificado de un mega no dice nada que no diga su fuente
+            # — mientras la fuente esté entera delante, que es lo que hay que
+            # comprobar y no suponer. Se salta, pero se dice cuál.
             if fichero.stat().st_size > 1_000_000:
+                saltados.append((fichero, fichero.stat().st_size))
                 continue
             trozos.append(fichero.read_text(encoding='utf-8', errors='replace'))
 
         porCliente[carpeta.name] = '\n'.join(trozos)
 
-    return porCliente
+    return porCliente, saltados
 
 
 def quienLoMira(porCliente, nombre):
@@ -182,7 +212,7 @@ def main():
 
     tablas = columnas_booleanas()
     fuente = codigo()
-    porCliente = clientes(rutasDeClientes) if rutasDeClientes else {}
+    porCliente, saltados = clientes(rutasDeClientes) if rutasDeClientes else ({}, [])
 
     nunca, mudas, vivas = [], [], []
 
@@ -237,6 +267,16 @@ def main():
         print('  decisión no está en el backend, y estar en el cliente no es lo mismo')
         print('  que estar bien: `vt_votaciones.locked` la miraba el front —para pintar')
         print('  un candado— y aun así se podía votar en una votación cerrada.')
+
+        # Lo que se saltó por tamaño, dicho en voz alta. Un barrido que encoge en
+        # silencio se lee igual que uno que no encontró nada, y aquí el silencio
+        # tapaba justo los bundles construidos — que es el código que corre.
+        if saltados:
+            print()
+            print(f'  NO LEÍDOS por pasar de 1 MB ({len(saltados)}). Si la pregunta es «esto no lo')
+            print('  mira nadie», hay que mirarlos a mano, y con columnas de control:')
+            for fichero, tam in sorted(saltados, key=lambda f: -f[1]):
+                print(f'    {tam:>12,} B  {fichero}')
     else:
         print('  Sin --clientes esto es una lista de CANDIDATOS: una columna que aquí no')
         print('  decide nada puede estar decidiendo en myvc_front, myvc_front_2 o')
