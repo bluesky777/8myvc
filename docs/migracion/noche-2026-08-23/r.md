@@ -231,6 +231,40 @@ se distingue del bueno mirando el código.
 > Lo destapó `myvc-front-12` barriendo 107 rutas en Chrome con el log del backend
 > delante: no lo encontró releyendo esto, sino pidiendo el endpoint.
 
+### Y el detector que buscó el síntoma y contó la causa
+
+Al arreglarlo se barrió el patrón por si había más: *«parámetro con defecto
+escalar que se recorre con `foreach`»*. **Dio nueve.** Y nueve era **verdad** —
+las nueve copias recorren ese parámetro—. Lo que no era verdad es lo que se leyó
+en ese nueve: *«nueve sitios sin guarda»*. Ocho la tienen, y el `foreach` que el
+detector encontraba en ellas es el de dentro del `else`.
+
+Estuvo a punto de costar ocho commits arreglando lo que no estaba roto.
+
+**Y es un fallo distinto del de medir poco**, aunque se parezcan:
+
+| | Qué falló | Cómo se arregla |
+|---|---|---|
+| Medir **una** pasada y sacar un 3× que era la caché ([02](../02-plan-rendimiento.md)) | la **cantidad** de medición | repetirla, alternando el orden |
+| Deducir «0 fallan» de haber arreglado el único rojo | la medición **no se hizo** | hacerla |
+| **Contar `foreach` y leer «sin guarda»** | la medición fue **correcta y contestó otra pregunta** | **comprobar que el detector detecta lo que dice su nombre** |
+
+Los dos primeros se arreglan repitiendo. **El tercero no**: repetirlo da nueve
+otra vez, y otra vez parecerá que hay nueve sitios rotos. Un número honesto puede
+sostener una conclusión falsa sin que nada en el número lo delate.
+
+> **Las dos formas de esta página, juntas, porque son la misma con distinto
+> traje:**
+>
+> - **Un centinela que enumera opciones puede dejar fuera la correcta.**
+> - **Un detector que cuenta síntomas puede no estar contando la causa.**
+>
+> Y en los dos casos la salida fue la misma y era barata: **mirar a las
+> hermanas.** La guarda estaba escrita ocho veces al lado, tanto para saber qué
+> debía contestar el endpoint como para saber cuántos sitios estaban rotos. Es lo
+> que dice la §16 sobre la ruta que se queda sola de su familia — **la familia es
+> la fuente de la verdad, y consultarla es más barato que razonar.**
+
 ---
 
 ---

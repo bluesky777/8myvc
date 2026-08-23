@@ -79,6 +79,13 @@ leyendo el código. Cada una lleva su uso en la cabecera.
 > front afirmaba cubrir **385** llamadas cuando había **411**. La segunda mitad de
 > la regla es la que muerde: **el primer sitio donde mirar cuando el número sale
 > raro es el detector**, no el código.
+>
+> Y una segunda forma, que no se arregla repitiendo la medición: **un detector
+> puede contar bien un síntoma y no estar contando la causa.** El barrido de la
+> [§142](noche-2026-08-23/r.md) dio **nueve** sitios y los nueve eran ciertos —
+> pero se leyeron como «nueve sin guarda» y **ocho la tenían**. Repetirlo da nueve
+> otra vez. Ahí lo que hay que comprobar es que **el detector detecta lo que dice
+> su nombre**.
 
 | Herramienta | Contesta |
 |---|---|
