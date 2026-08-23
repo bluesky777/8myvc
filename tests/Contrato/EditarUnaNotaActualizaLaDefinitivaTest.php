@@ -200,6 +200,74 @@ class EditarUnaNotaActualizaLaDefinitivaTest extends CasoDeContrato
      *
      * @param  array<string, mixed>  $ctx
      */
+    /**
+     * Y la definitiva **viaja en la respuesta de `putUpdate`**, para que la
+     * planilla no necesite una petición más por cada nota tecleada.
+     *
+     * Es un campo **añadido**: la nota se sigue devolviendo con sus mismas
+     * claves. Por eso el test comprueba las dos cosas a la vez — que el campo
+     * nuevo está y que lo viejo no se movió—, que es lo que separa «añadir» de
+     * «cambiar» para los cuatro clientes que ya leen esta respuesta.
+     */
+    public function test_la_respuesta_de_editar_trae_la_definitiva_recalculada(): void
+    {
+        [$token, $ctx] = $this->asignaturaConNotas();
+
+        $cuerpo = $this->withToken($token)
+            ->putJson('/api/notas/update/'.$ctx['notas'][0], ['nota' => 40])
+            ->assertStatus(200)
+            ->json();
+
+        // Lo de siempre sigue estando.
+        $this->assertSame($ctx['notas'][0], (int) $cuerpo['id']);
+        $this->assertSame(40, (int) $cuerpo['nota']);
+
+        // Y lo nuevo: la misma definitiva que quedó guardada, sin ir a buscarla.
+        $this->assertNotNull($cuerpo['definitiva'], 'La respuesta no trae la definitiva.');
+        $this->assertSame(25, $cuerpo['definitiva']['nota']);
+        $this->assertSame($ctx['alumno'], $cuerpo['definitiva']['alumno_id']);
+        $this->assertSame($ctx['asignatura'], $cuerpo['definitiva']['asignatura_id']);
+        $this->assertSame($ctx['periodo'], $cuerpo['definitiva']['periodo_id']);
+        $this->assertFalse($cuerpo['definitiva']['manual']);
+
+        $this->assertSame(25.0, $this->definitivaDe($ctx),
+            'La respuesta y la tabla dicen cosas distintas.');
+    }
+
+    /**
+     * Y cuando la definitiva es **manual**, la respuesta trae **la guardada, no
+     * la calculada**. Es la diferencia que hace útil este campo en vez de
+     * peligroso.
+     *
+     * El servicio respeta las filas `manual` y `recuperada`: no las reescribe.
+     * Así que si esto devolviera lo calculado, la pantalla pintaría un número
+     * que la base no tiene — y justo en las filas que alguien puso a mano, que
+     * son las que más se miran. El profesor vería su nota cambiar sola al
+     * teclear en una celda de al lado, y al recargar volvería la suya.
+     */
+    public function test_si_la_definitiva_es_manual_la_respuesta_trae_la_guardada(): void
+    {
+        [$token, $ctx] = $this->asignaturaConNotas();
+
+        DB::table('notas_finales')
+            ->where('alumno_id', $ctx['alumno'])
+            ->where('asignatura_id', $ctx['asignatura'])
+            ->where('periodo_id', $ctx['periodo'])
+            ->update(['nota' => 99, 'manual' => 1]);
+
+        $cuerpo = $this->withToken($token)
+            ->putJson('/api/notas/update/'.$ctx['notas'][0], ['nota' => 40])
+            ->assertStatus(200)
+            ->json();
+
+        $this->assertSame(99, $cuerpo['definitiva']['nota'],
+            'Devolvió lo calculado en vez de lo guardado: la pantalla pintaría un número que no existe.');
+        $this->assertTrue($cuerpo['definitiva']['manual']);
+
+        $this->assertSame(99.0, $this->definitivaDe($ctx),
+            'Y además la escribió, que es lo que el servicio promete no hacer.');
+    }
+
     private function definitivaDe(array $ctx): ?float
     {
         $valor = DB::table('notas_finales')

@@ -177,6 +177,25 @@ class PerfilesController extends Controller {
 		if ($user) {
 			return $user;
 		}else{
+			// La consulta de arriba cubre profesores, alumnos y usuarios sin ficha.
+			// Un **acudiente** no es ninguno de los tres y cae aquí — y aquí había
+			// dos fallos encadenados, de los que el segundo tapaba al primero:
+			//
+			//   · esta consulta **no filtraba por el nombre** —su `WHERE` era solo
+			//     `ac.deleted_at is null`—, así que devolvía **el directorio entero
+			//     de acudientes** con documento, fecha de nacimiento, correo
+			//     personal y correo de recuperación de cada uno;
+			//   · y se le pasaba un `:username` que no aparecía en el SQL, así que
+			//     PDO lanzaba «Invalid parameter number» antes de ejecutarla. **500
+			//     para todo acudiente y todo nombre inventado** — 1.000 de las 1.067
+			//     cuentas de la base local—, y por eso el `abort(400)` del final era
+			//     inalcanzable.
+			//
+			// O sea que lo único que impedía la fuga era el fallo de binding. Y el
+			// arreglo que sugiere el mensaje de error —quitar el parámetro que
+			// sobra— es **justo el que abre la puerta**. El bueno es el otro: poner
+			// el `WHERE` que tienen sus tres consultas hermanas, que es lo que se
+			// hace aquí.
 			$consulta = 'SELECT ac.id as persona_id, ac.nombres, ac.apellidos, ac.user_id, u.username, "" as pazysalvo, "" as deuda, ac.tipo_doc, ac.documento, 
 					("Pr") as tipo, ac.sexo, u.email as email_restore, ac.email as email_persona, ac.fecha_nac, ac.ciudad_nac, ac.ciudad_doc, 
 					u.imagen_id, IFNULL(i.nombre, IF(ac.sexo="F","default_female.png", "default_male.png")) as imagen_nombre, 
@@ -186,7 +205,7 @@ class PerfilesController extends Controller {
 				inner join users u on ac.user_id=u.id
 				left join images i on i.id=u.imagen_id
 				left join images i2 on i2.id=ac.foto_id
-				where ac.deleted_at is null';
+				where ac.deleted_at is null and u.username = :username';
 				
 			$user = DB::select($consulta, array(':username'=>$username));
 			if ($user) {

@@ -2,7 +2,6 @@
 
 namespace Tests\Contrato;
 
-use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -90,55 +89,81 @@ class PerfilPorUsernameTest extends CasoDeContrato
     }
 
     /**
-     * Y lo que hay detrás de la ruta, que no es del guard: **un 500 tapando una
-     * fuga**.
+     * Y lo que había detrás de la ruta, que no era del guard: **un 500 tapando una
+     * fuga**. Arreglado el 24 ago 2026; esto queda fijando el arreglo.
      *
      * La consulta grande cubre profesores, alumnos y usuarios sin ficha. Un
      * username que no sea ninguno de esos —**un acudiente**, o uno que no
-     * existe— cae a una segunda consulta, y esa consulta:
+     * existe— cae a una segunda consulta, y esa consulta tenía dos fallos
+     * encadenados en los que **el segundo tapaba al primero**:
      *
-     *   · no filtra por el nombre: su `WHERE` es solo `ac.deleted_at is null`,
-     *     así que devolvería **los 1.000 acudientes del colegio** con documento,
+     *   · no filtraba por el nombre: su `WHERE` era sólo `ac.deleted_at is null`,
+     *     así que devolvía **los mil acudientes del colegio** con documento,
      *     fecha de nacimiento, correo personal y correo de recuperación;
-     *   · y se le pasa un `:username` que no aparece en el SQL, así que PDO
-     *     lanza «Invalid parameter number» antes de ejecutarla. **500.**
+     *   · y se le pasaba un `:username` que no aparecía en el SQL, así que PDO
+     *     lanzaba «Invalid parameter number» antes de ejecutarla. **500** para
+     *     todo acudiente y todo nombre inventado —1.000 de las 1.067 cuentas de
+     *     la base local—, y por eso el `abort(400)` del final era inalcanzable.
      *
-     * O sea que lo único que hoy impide que esta ruta entregue el directorio
-     * entero de acudientes es un fallo de binding. Y el arreglo evidente —quitar
-     * el parámetro que sobra, que es lo que sugiere el mensaje de error— es
-     * exactamente el que abre la puerta. El que hay que hacer es el otro:
-     * **añadir `and u.username = :username`**, que es lo que hacen sus tres
-     * consultas hermanas.
+     * O sea que **lo único que impedía la fuga era el fallo de binding**, y el
+     * arreglo que sugiere el mensaje de error —quitar el parámetro que sobra— es
+     * exactamente el que abre la puerta. El que se hizo es el otro: añadir
+     * `and u.username = :username`, que es lo que hacen sus tres consultas
+     * hermanas.
      *
-     * Se fija el 500 en vez de arreglarlo porque `PerfilesController` es de otra
-     * sesión, y con la regla del proyecto: con ruta y roto, se documenta. Este
-     * test se pondrá rojo el día que alguien lo toque — que es el día en que hay
-     * que mirar si lo tocó por el lado bueno.
-     *
-     * Ver docs/migracion/12-larastan-nivel-7.md §19.
+     * **Lo que este test mira es el tamaño de la respuesta, no su código.** Un
+     * 200 aquí no distingue «el perfil del acudiente» de «los mil acudientes»:
+     * las dos cosas son 200 con un array dentro. Por eso se cuenta la fila y se
+     * comprueba de quién es — que es el criterio de los tests de contrato, mirar
+     * el resultado y no el estado.
      */
-    public function test_un_acudiente_o_un_nombre_inventado_revientan_en_la_segunda_consulta(): void
+    public function test_un_acudiente_recibe_su_perfil_y_no_el_de_los_demas(): void
     {
-        $personal = $this->usuarioDeTipo('Usuario');
-        $token = $this->tokenDe($personal->username);
-
-        $this->withoutExceptionHandling();
-
         $acudiente = DB::selectOne('SELECT u.username FROM acudientes ac
             INNER JOIN users u ON u.id = ac.user_id AND u.deleted_at IS NULL
             WHERE ac.deleted_at IS NULL AND u.username <> "" LIMIT 1');
 
         $this->assertNotNull($acudiente, 'El seed necesita un acudiente con cuenta.');
 
-        foreach ([$acudiente->username, 'no.existe.'.uniqid()] as $nombre) {
-            try {
-                $this->perfilDe($token, $nombre);
-                $this->fail('La segunda consulta de getUsername dejó de reventar con "'.$nombre.'". '
-                    .'Si el arreglo fue quitar el parámetro que sobra, la ruta acaba de empezar a '
-                    .'devolver los mil acudientes del colegio: hace falta el WHERE por username.');
-            } catch (QueryException $e) {
-                $this->assertStringContainsString('Invalid parameter number', $e->getMessage());
-            }
-        }
+        $cuantos = (int) DB::selectOne('SELECT COUNT(*) AS n FROM acudientes ac
+            INNER JOIN users u ON u.id = ac.user_id AND u.deleted_at IS NULL
+            WHERE ac.deleted_at IS NULL')->n;
+
+        $this->assertGreaterThan(
+            1,
+            $cuantos,
+            'Con un solo acudiente en el seed este test no distingue el arreglo de la fuga.'
+        );
+
+        $personal = $this->usuarioDeTipo('Usuario');
+
+        $cuerpo = $this->perfilDe($this->tokenDe($personal->username), $acudiente->username)
+            ->assertStatus(200)
+            ->json();
+
+        $this->assertCount(
+            1,
+            $cuerpo,
+            'La rama de acudientes volvió a devolver más de una fila: son '.$cuantos.' en la base. '
+            .'Si el WHERE por username se cayó, esta ruta está entregando el directorio entero.'
+        );
+
+        $this->assertSame($acudiente->username, $cuerpo[0]['username']);
+    }
+
+    /**
+     * Y el `abort(400)` del final **se alcanza por primera vez**.
+     *
+     * Se fija el **400** y no el 404 que pediría CLAUDE.md para código nuevo:
+     * esto no es código nuevo, es una respuesta que hasta hoy nadie había visto
+     * porque el 500 llegaba antes. Cambiarla es una decisión sobre lo que ya
+     * leen cuatro clientes, y va aparte.
+     */
+    public function test_un_nombre_inventado_contesta_400_en_vez_de_reventar(): void
+    {
+        $personal = $this->usuarioDeTipo('Usuario');
+
+        $this->perfilDe($this->tokenDe($personal->username), 'no.existe.'.uniqid())
+            ->assertStatus(400);
     }
 }

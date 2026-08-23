@@ -649,3 +649,74 @@ código que va a desaparecer no vale la pena. Lo que queda dicho:
   por fila que evita reprocesar, la idempotencia por documento y la huella sha256
   del contenido. Todo eso está en la §1 de `09-pendientes.md` y no hay que volver
   a averiguarlo.
+
+---
+
+## Recalcular la definitiva en siete sitios: **no pesa** — 24 ago 2026
+
+La pregunta la hizo Joseth al cerrarse la [fase 3 de las
+definitivas](10-definitivas.md), y es la correcta: *«¿no es muy pesado recalcular
+la definitiva en cada uno de estos lugares?»*. Siete disparadores pasaron a
+recalcular, y uno de ellos —`putUpdate`— corre **en cada nota que teclea un
+profesor**.
+
+Medido con [`tools/coste-del-recalculo.php`](../../tools/coste-del-recalculo.php),
+sobre las diez asignaturas con más notas de la copia de desarrollo (hasta 47
+alumnos y 986 notas), medianas de 21 pasadas:
+
+| | media | peor |
+|---|---|---|
+| `calcular()` — la agregada sobre la asignatura | **1,70 ms** | 2,17 ms |
+| `selloDeVersion()` | **1,93 ms** | 3,44 ms |
+| `estaDesactualizada()` | **0,68 ms** | 2,40 ms |
+
+**Una nota tecleada cuesta `calcular` + `sello` + un UPSERT: unos 4 ms**, contra
+los ~40–80 ms que la §4 mide **sólo para resolver quién pregunta**. O sea que el
+recálculo **no es lo caro de esa petición ni de lejos**, y la respuesta a la
+pregunta es que no hace falta tocar nada.
+
+### Y el 3× que no existía, que es la parte que hay que leer
+
+El plan de definitivas dejaba escrita una salida por si salía caro: *«recalcular
+solo la fila de ese alumno, que es lo que cambió»*. Hoy `recalcularPorNota` pide
+un alumno pero `calcular()` agrega el grupo entero y **filtra en PHP**, así que
+parecía dinero tirado.
+
+La primera medición —**una pasada por asignatura, en orden fijo**— dio **123,8 ms
+para el grupo contra 42,5 ms para un alumno**. Un 3× limpio, y se llegó a escribir
+el estrechamiento del SQL.
+
+**Era la caché.** La primera consulta calentaba el buffer pool y la segunda
+cobraba el beneficio. Alternando el orden y tomando medianas:
+
+```
+grupo entero  1,87 ms      un alumno  1,48 ms      →  1,26x
+filas leídas  1.753        filas leídas  1.669     →  5%
+```
+
+Y el `EXPLAIN` dice por qué el 5%: el plan entra por
+`notas_subunidad_id_foreign`, o sea que **recorre las notas de cada subunidad y
+descarta las de los otros alumnos después**. El filtro por alumno no evita la
+lectura, sólo la suma.
+
+O sea que estrechar ahorra **~0,35 ms por pulsación**. Este documento ya decidió
+no encender `CONTEXTO_SEGUNDOS` porque ahorraba **0,75 ms**; por la misma vara,
+esto es ruido. **El estrechamiento se escribió, se midió y se revirtió**, y queda
+aquí para que nadie lo reintente creyendo que hay un 3× esperando.
+
+> Tres lecciones, y la del medio es la cara:
+>
+> 1. **Medir una vez es no medir.** Una sola pasada mide el estado de la caché.
+> 2. **Un orden fijo entre dos variantes las compara con la caché del otro.** La
+>    segunda siempre parece mejor. Hay que alternar.
+> 3. **Las filas leídas no dependen de la caché y el tiempo sí.** Cuando las dos
+>    no cuentan la misma historia, la que miente es la del tiempo.
+
+### Lo que sí quedó, y no es una optimización
+
+`putUpdate` devuelve ahora **la definitiva recalculada dentro de su propia
+respuesta**. Eso no ahorra milisegundos de base: ahorra **una petición HTTP
+entera por nota tecleada**, que es lo que la planilla necesitaba para repintar la
+celda. Es un campo añadido —la nota se sigue devolviendo igual—, y el front tiene
+que seguir sabiendo re-pedirla cuando no venga, porque durante el despliegue
+habrá colegios con el código viejo.

@@ -83,7 +83,13 @@ class DefinitivasDeAsignatura
      * definitivas de treinta alumnos». Recalcularlas sería correcto; hacerlo desde
      * ahí no es lo que nadie espera.
      *
-     * @return array{escritas:int, creadas:int, respetadas:int, porcentaje_unidades:float}
+     * `definitiva` sólo viene cuando se pidió **un solo alumno** (`$soloAlumno`), y
+     * es lo que quedó **guardado**, no lo calculado: si la fila era `manual` o
+     * `recuperada` el bucle la respetó y las dos cosas no coinciden.
+     *
+     * @return array{escritas:int, creadas:int, respetadas:int, porcentaje_unidades:float,
+     *     definitiva:array{alumno_id:int, asignatura_id:int, periodo_id:int, nota:int,
+     *         manual:bool, recuperada:bool}|null}
      */
     /**
      * Recalcular la definitiva que depende de una nota, por el id de la nota.
@@ -177,7 +183,8 @@ class DefinitivasDeAsignatura
             );
 
             if ($periodo === null) {
-                return ['escritas' => 0, 'creadas' => 0, 'respetadas' => 0, 'porcentaje_unidades' => 0.0];
+                return ['escritas' => 0, 'creadas' => 0, 'respetadas' => 0,
+                    'porcentaje_unidades' => 0.0, 'definitiva' => null];
             }
 
             $calculadas = self::calcular($asignaturaId, $periodoId);
@@ -252,11 +259,49 @@ class DefinitivasDeAsignatura
                 $escritas++;
             }
 
+            // Cuando se recalcula **un solo alumno** se devuelve además la
+            // definitiva con la que se quedó. Es para el llamante que acaba de
+            // guardar una nota y tiene que repintar la celda: sin esto la
+            // planilla necesita **una petición HTTP más por nota tecleada** sólo
+            // para leer un entero que aquí ya está.
+            //
+            // **Se lee de la tabla y no de `$calculadas`**, y la diferencia
+            // importa: si la fila era `manual` o `recuperada` el bucle la
+            // respetó, así que lo calculado NO es lo que hay guardado. Devolver
+            // lo calculado haría que la pantalla pintara un valor que la base no
+            // tiene — y justo en las filas que alguien puso a mano, que son las
+            // que más se miran.
+            //
+            // Sin `$soloAlumno` no se devuelve: recalcular una asignatura entera
+            // deja tantas definitivas como alumnos, y no hay «la» definitiva.
+            $definitiva = null;
+
+            if ($soloAlumno !== null) {
+                $guardada = DB::selectOne(
+                    'SELECT nota, manual, recuperada FROM notas_finales
+                      WHERE alumno_id = ? AND asignatura_id = ? AND periodo_id = ?
+                      ORDER BY id LIMIT 1',
+                    [$soloAlumno, $asignaturaId, $periodoId]
+                );
+
+                if ($guardada !== null) {
+                    $definitiva = [
+                        'alumno_id' => $soloAlumno,
+                        'asignatura_id' => $asignaturaId,
+                        'periodo_id' => $periodoId,
+                        'nota' => (int) $guardada->nota,
+                        'manual' => (bool) $guardada->manual,
+                        'recuperada' => (bool) $guardada->recuperada,
+                    ];
+                }
+            }
+
             return [
                 'escritas' => $escritas,
                 'creadas' => $creadas,
                 'respetadas' => $respetadas,
                 'porcentaje_unidades' => self::porcentajeDeLasUnidades($asignaturaId, $periodoId),
+                'definitiva' => $definitiva,
             ];
         });
     }
