@@ -270,6 +270,57 @@ en marcha.
 
 ---
 
+## Vuelto a medir contra `main`, porque este árbol no lo es
+
+Al contestar una pregunta sobre el lote A se descubrió que **`.worktrees/j` no
+desciende del merge de A**:
+
+```
+git merge-base --is-ancestor 8ef89ff HEAD   ->  NO
+main entonces: 4dd4169 (lote L fusionado), nueve merges por delante
+```
+
+Salió de un `main` que tenía **B y C y nada más**, así que todas las cifras de
+arriba estaban medidas contra un árbol viejo. Es la §116 otra vez, y esta vez no
+en el mapa de cobertura sino en **el árbol entero**.
+
+**Recalculado contra `main` en `4dd4169`** —`route:list` desde el árbol raíz, que
+es sólo lectura, y `AutorizacionTest.php` con `git show main:`—:
+
+| | árbol J | main `4dd4169` |
+|---|---|---|
+| abiertas sin guard de propiedad | 118 | **118** |
+| las mira algún candado | 48 | **48** |
+| declaradas en las dos listas | 48 | **48** |
+| pre-login | 11 | **11** |
+| `tardanzas/*` y `auth/*` | 7 | **7** |
+| **abiertas, sin candado y sin declarar** | 52 | **52** |
+| familias que el umbral apaga | 7 | **7**, las mismas |
+| familias a una ruta de apagarse | 6 | **6**, las mismas |
+
+**Ni una cifra se movió**, y tiene explicación: los otros lotes añadieron *tests*,
+no *guards*, así que la topología de la autorización es la misma. El §114 se
+sostiene tal cual contra `main`.
+
+### Lo que sí puede haberse movido, y no se cierra aquí
+
+El **8** del §115 depende de los tests, y ésos sí cambiaron: `main` tiene **152
+ficheros de test de contrato** y este árbol **126**. Tres de las ocho aparecen en
+tests que `main` tiene y J no, y de una está comprobado:
+
+> `ImagenDeOtroEnLaFichaTest` (lote E) golpea `GET /api/myimages` con token de
+> Alumno **y** de Profesor y afirma 403 en sus hermanas. **`GET api/myimages` ya
+> está juzgada en `main`.**
+
+Las otras dos —`GET api/paises` y `GET api/piars-config`— las tocan
+`ColumnasQuePisaElExamenTest`, `ActividadesParaQuienTest` y `PiarEscriturasTest`,
+y si además las **juzgan** sólo lo dice la medición de cobertura del cierre.
+
+Así que **el 8 es un techo, no un número**: contra `main` es como mucho 7, y la
+tanda de cierre lo dejará fijo. Se escribe así a propósito — un techo declarado
+vale, y un número que se presenta como exacto sin serlo es lo que esta misma
+sección persigue.
+
 ## Lo que queda anotado y no se tocó
 
 ### Para Joseth / el colegio
