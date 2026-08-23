@@ -104,6 +104,22 @@ class PeriodosController extends Controller {
 
 	public function putUseractive($periodo_id)
 	{
+		// El periodo tiene que existir **y no estar en la papelera**, y las dos
+		// mitades cuestan distinto. Sin la primera, `users.periodo_id` se lo come
+		// hasta que salta la clave ajena: 500 con el SQLSTATE dentro. La segunda es
+		// la cara: la clave ajena **no filtra `deleted_at`**, así que un periodo
+		// borrado entraba y contestaba 200, y el usuario se quedaba aparcado en un
+		// periodo que no sale en ningún selector. Medido con el mismo token: sus
+		// pantallas se vacían —0 grupos, 0 asignaturas— **en 200**, sin un error que
+		// lo explique. Se sale volviendo a entrar, porque
+		// `Services\Login::ponerEnElPeriodoActual` lo devuelve al periodo actual; eso
+		// no lo adivina nadie desde una pantalla vacía.
+		//
+		// Mudarse a un periodo vivo de OTRO año sigue estando permitido: es lo que
+		// hace el selector de la barra de arriba, y lo llama también la app de
+		// Flutter (`ContextoAcademico.cambiarPeriodo`). Ver §95.
+		Periodo::findOrFail($periodo_id);
+
 		$usuario = User::findOrFail($this->user->user_id);
 		$usuario->periodo_id 	= $periodo_id;
 		$usuario->updated_by 	= 	$this->user->user_id;

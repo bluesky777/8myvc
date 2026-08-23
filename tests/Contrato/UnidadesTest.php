@@ -68,6 +68,177 @@ class UnidadesTest extends CasoDeContrato
     }
 
     /**
+     * **§96. `unidades/update` con un cuerpo parcial borraba un peso de la nota
+     * final, no una descripción.**
+     *
+     * La definitiva sale de `(u.porcentaje/100) * ((s.porcentaje/100) * n.nota)`, y
+     * `NotaFinal::calcularAsignaturaPeriodo` se llama **en este mismo método**, diez
+     * líneas después de guardar. Con `Request::input('porcentaje')` a secas, un
+     * cuerpo que sólo trae `definicion` —corregirle la redacción a un logro— dejaba
+     * el peso en null y **cambiaba la nota que va al boletín**, en 200 y sin avisar.
+     *
+     * Y el de la unidad es el factor de fuera: se lleva por delante **todas** las
+     * subunidades que cuelgan de ella a la vez, no una. Su gemelo de subunidades
+     * tiene el mismo fallo y lo cerró el lote C; éste pesa más por eso.
+     *
+     * Es la [§68](../../docs/migracion/05-codigo-muerto-y-roto.md) otra vez, y aquí
+     * el defecto de `Request::input()` basta: este método no tiene ningún `merge()`
+     * delante, así que la clave ausente se distingue sin `CamposQueVinieron`.
+     */
+    public function test_editar_la_definicion_no_borra_el_porcentaje(): void
+    {
+        $e = $this->escenario();
+        $this->abrirElPeriodo($e->year_id);
+        $id = $this->unidad($e);
+
+        $this->withToken($e->token)->putJson('/api/unidades/update/'.$id,
+            ['definicion' => 'Redacción corregida'])->assertStatus(200);
+
+        $fila = DB::selectOne('SELECT definicion, porcentaje FROM unidades WHERE id = ?', [$id]);
+        $this->assertSame('Redacción corregida', $fila->definicion);
+        $this->assertSame(50, (int) $fila->porcentaje,
+            'El peso de la unidad se pisó a null al corregir la redacción.');
+    }
+
+    /**
+     * Los dos casos al revés, que son lo que separa este arreglo de uno parecido y
+     * peor. **Los dos se midieron, y uno de los dos no medía lo que yo creía.**
+     *
+     * - **Un `0` que se manda es un 0**: un peso de cero es legítimo —una unidad que
+     *   no cuenta— y el defecto no puede comérselo.
+     * - **Un `null` que se manda es un null**: el cuerpo está diciendo «quítale el
+     *   peso», y eso sigue funcionando.
+     *
+     * El primero **no distingue** el arreglo bueno del `?? ` que parece equivalente
+     * —`0 ?? 50` es `0`, porque `??` sólo mira `null`—, y con él solo el test pasaba
+     * igual con las dos versiones. **El que distingue es el segundo**, y ésa es toda
+     * la diferencia entre los dos arreglos: `Request::input('x', $defecto)` tapa la
+     * clave **ausente**, `?? ` tapa además la que llega en `null`. Es la misma
+     * frontera que en `years/guardar-cambios` (§93).
+     */
+    public function test_un_cero_es_un_cero_y_un_null_es_un_null(): void
+    {
+        $e = $this->escenario();
+        $this->abrirElPeriodo($e->year_id);
+
+        $cero = $this->unidad($e);
+        $this->withToken($e->token)->putJson('/api/unidades/update/'.$cero,
+            ['definicion' => 'Unidad que no cuenta', 'porcentaje' => 0])->assertStatus(200);
+        $this->assertSame(0,
+            (int) DB::table('unidades')->where('id', $cero)->value('porcentaje'),
+            'Un peso de cero es un valor, no una ausencia.');
+
+        $nulo = $this->unidad($e);
+        $this->withToken($e->token)->putJson('/api/unidades/update/'.$nulo,
+            ['definicion' => 'Unidad sin peso', 'porcentaje' => null])->assertStatus(200);
+        $this->assertNull(DB::table('unidades')->where('id', $nulo)->value('porcentaje'),
+            'Mandar null es pedir que se quite el peso, y tiene que quitarse.');
+    }
+
+    /**
+     * **§96. Un id que no lleva a ninguna fila es 404, no el aviso de PHP.**
+     *
+     * `PUT unidades/de-asignatura-periodo/{a}/{p}` hacía `DB::select(...)[0]` sobre
+     * una consulta que puede no traer nada, y eso es un aviso que Laravel sube a
+     * excepción: **500 con «Undefined array key 0» dentro de la respuesta**. No hace
+     * falta inventarse un id para llegar: basta **una asignatura de la papelera**,
+     * porque el `INNER JOIN` con `grupos` filtra `deleted_at`. Ese detalle es el que
+     * hace que se le escape a todo el mundo.
+     *
+     * Y esta ruta **no es una lectura: escribe** —crea las unidades por defecto del
+     * año si no hay ninguna—, así que pararlo antes vale doble.
+     */
+    public function test_la_rejilla_de_una_asignatura_que_no_existe_es_404(): void
+    {
+        $e = $this->escenario();
+        $this->abrirElPeriodo($e->year_id);
+        $inventada = ((int) DB::table('asignaturas')->max('id')) + 1000;
+
+        $this->withToken($e->token)
+            ->putJson("/api/unidades/de-asignatura-periodo/{$inventada}/{$e->periodo}")
+            ->assertStatus(404);
+
+        $this->assertSame(0,
+            DB::table('unidades')->where('asignatura_id', $inventada)->count(),
+            'Y sobre todo: no puede haber dejado unidades huérfanas detrás.');
+    }
+
+    /** La mitad que importa: la de la papelera, que es la que se alcanza sin inventar nada. */
+    public function test_la_rejilla_de_una_asignatura_en_la_papelera_es_404(): void
+    {
+        $e = $this->escenario();
+        $this->abrirElPeriodo($e->year_id);
+
+        DB::table('asignaturas')->where('id', $e->asignatura)->update(['deleted_at' => now()]);
+
+        $this->withToken($e->token)
+            ->putJson("/api/unidades/de-asignatura-periodo/{$e->asignatura}/{$e->periodo}")
+            ->assertStatus(404);
+    }
+
+    /**
+     * **`unidades/de-profesor` con un profesor que no existe —o que está en la
+     * papelera— era 500**, por lo mismo: `Profesor::detallado` acaba en
+     * `return $profesor[0];` sin comprobar que la consulta trajera fila, y su `where`
+     * descarta los borrados.
+     *
+     * El modelo lo comparten **seis llamantes de tres dominios**, así que se para en
+     * el llamante y **no** en `App\Models\Profesor`: un `?? null` allí convertiría
+     * seis 500 en seis comportamientos distintos sin haber medido cuál es el correcto
+     * en cada pantalla, que no es arreglar la operación sino mover el fallo a donde
+     * no lo vea un test. Lo encontró el lote E en el suyo y eligió el mismo 404.
+     */
+    public function test_las_unidades_de_un_profesor_que_no_existe_son_404(): void
+    {
+        $e = $this->escenario();
+        $inventado = ((int) DB::table('profesores')->max('id')) + 1000;
+
+        $this->withToken($e->token)->putJson('/api/unidades/de-profesor',
+            ['profesor_id' => $inventado])->assertStatus(404);
+
+        $enPapelera = DB::selectOne('SELECT id FROM profesores WHERE deleted_at IS NOT NULL
+            ORDER BY id LIMIT 1');
+        $this->assertNotNull($enPapelera, 'El seed tiene que traer un profesor en la papelera.');
+
+        $this->withToken($e->token)->putJson('/api/unidades/de-profesor',
+            ['profesor_id' => $enPapelera->id])->assertStatus(404);
+    }
+
+    /**
+     * `unidades/forcedelete` mira el candado del periodo, y sólo alcanza la papelera.
+     *
+     * Las tres mitades: con el periodo cerrado no borra; una unidad **viva** no se
+     * alcanza por aquí —es un `onlyTrashed`, y devuelve 404, que es lo correcto: el
+     * borrado físico es sólo de lo que ya está en la papelera—; y con el periodo
+     * abierto y la unidad dentro de la papelera, la fila desaparece de verdad.
+     */
+    public function test_el_borrado_fisico_de_una_unidad(): void
+    {
+        $e = $this->escenario();
+        $id = $this->unidad($e);
+        DB::table('unidades')->where('id', $id)->update(['deleted_at' => now()]);
+
+        // Periodo cerrado: no.
+        $this->withToken($e->token)->deleteJson('/api/unidades/forcedelete/'.$id)
+            ->assertStatus(400);
+        $this->assertTrue(DB::table('unidades')->where('id', $id)->exists());
+
+        $this->abrirElPeriodo($e->year_id);
+
+        // Una unidad viva no se alcanza por aquí.
+        $viva = $this->unidad($e);
+        $this->withToken($e->token)->deleteJson('/api/unidades/forcedelete/'.$viva)
+            ->assertStatus(404);
+        $this->assertTrue(DB::table('unidades')->where('id', $viva)->exists());
+
+        // Y la de la papelera, con el periodo abierto, se va del todo.
+        $this->withToken($e->token)->deleteJson('/api/unidades/forcedelete/'.$id)
+            ->assertStatus(200);
+        $this->assertFalse(DB::table('unidades')->where('id', $id)->exists(),
+            'Esto es un borrado físico: la fila no debe quedar ni en la papelera.');
+    }
+
+    /**
      * Crear una unidad con el periodo cerrado devolvía **201**, mientras editarla
      * un segundo después devolvía 400. Y su gemelo `subunidades/store` sí lo
      * pedía desde la §27.

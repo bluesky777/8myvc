@@ -97,6 +97,311 @@ class AsignaturasTest extends CasoDeContrato
             (int) DB::table('asignaturas')->where('id', $asignatura->id)->value('creditos'));
     }
 
+    /**
+     * **§96. El conmutador genérico no escribe en una fila que no está.**
+     *
+     * `asignaturas/toggle-dia` es «guardar un campo suelto» de la rejilla, y su
+     * `UPDATE` no llevaba `deleted_at is null` ni ningún `WHERE` que pudiera fallar:
+     * contestaba **'Cambiado' pasara lo que pasara**. Las tres salidas se midieron y
+     * ninguna se notaba desde fuera:
+     *
+     * - **sin `asignatura_id` ninguno**: 200 'Cambiado' y no escribía nada — la
+     *   familia de `respuestas-que-mienten.py`, y la ruta sale además en
+     *   `identificadores-del-cuerpo.py` como identificador del cuerpo sin comprobar;
+     * - **sobre una asignatura de la papelera**: 200 y escribía de verdad, en una
+     *   fila que ninguna pantalla enseña;
+     * - y con `dia: 'profesor_id'`, **reasignaba el profesor** de esa fila, porque
+     *   `ColumnaSegura` valida el nombre de la columna y no limita cuál.
+     *
+     * Esta ruta **ya tenía la respuesta comprobada** por los dos tests de aquí
+     * arriba, escritos mirando la inyección. Medir una ruta no es haberla juzgado:
+     * alguien preguntó qué código devuelve y nadie preguntó de qué fila.
+     */
+    public function test_el_conmutador_de_dia_no_escribe_en_la_papelera(): void
+    {
+        $token = $this->tokenDelPersonal();
+        $asignatura = $this->unaAsignatura();
+
+        // Un valor distinto del que intenta escribir la petición: si fuera el mismo,
+        // el test pasaría también con el arreglo revertido.
+        DB::table('asignaturas')->where('id', $asignatura->id)
+            ->update(['lunes' => 0, 'deleted_at' => now()]);
+
+        $this->withToken($token)->putJson('/api/asignaturas/toggle-dia',
+            ['asignatura_id' => $asignatura->id, 'dia' => 'lunes', 'valor' => 1])
+            ->assertStatus(404);
+
+        $this->assertSame(0,
+            (int) DB::table('asignaturas')->where('id', $asignatura->id)->value('lunes'),
+            'No puede haber escrito en una fila de la papelera.');
+    }
+
+    /** Y sin `asignatura_id` ya no contesta que cambió algo, porque no cambia nada. */
+    public function test_el_conmutador_de_dia_sin_id_ya_no_dice_que_cambio(): void
+    {
+        $token = $this->tokenDelPersonal();
+
+        $r = $this->withToken($token)->putJson('/api/asignaturas/toggle-dia',
+            ['dia' => 'lunes', 'valor' => 1]);
+
+        $this->assertSame(404, $r->status(),
+            'Contestaba 200 «Cambiado» sin escribir nada, que es la peor de las dos.');
+    }
+
+    /**
+     * **§96. Editar una asignatura ya no borra los créditos ni el orden.**
+     *
+     * `putUpdate` escribía las cinco columnas con `Request::input('x')` a secas
+     * excepto `profesor_id` —que ya llevaba defecto—, y **esa asimetría era lo único
+     * que se veía**. Medido: un cuerpo con los tres ids dejaba `creditos` en null,
+     * de 2 a NULL, y contestaba 200.
+     *
+     * Aquí el arreglo **sí** necesita `CamposQueVinieron` y no el defecto de
+     * `Request::input()`, y es el único de los tres del lote que lo necesita:
+     * `fixInputs()` hace tres `Request::merge()` antes de que el método lea nada, así
+     * que a esa altura `has()` ya no distingue lo que mandó el cliente de lo que se
+     * rellenó solo. Es literalmente el motivo por el que esa clase existe (§68).
+     */
+    public function test_editar_una_asignatura_no_borra_los_creditos(): void
+    {
+        $token = $this->tokenDelPersonal();
+        $a = $this->unaAsignatura();
+        DB::table('asignaturas')->where('id', $a->id)->update(['creditos' => 3, 'orden' => 7]);
+
+        $this->withToken($token)->putJson('/api/asignaturas/update/'.$a->id, [
+            'materia_id' => $a->materia_id,
+            'grupo_id' => $a->grupo_id,
+            'profesor_id' => $a->profesor_id,
+        ])->assertStatus(200);
+
+        $fila = DB::selectOne('SELECT * FROM asignaturas WHERE id = ?', [$a->id]);
+        $this->assertSame(3, (int) $fila->creditos, 'Los créditos se pisaron a null.');
+        $this->assertSame(7, (int) $fila->orden, 'El orden se pisó a null.');
+        $this->assertSame((int) $a->materia_id, (int) $fila->materia_id);
+    }
+
+    /** Y lo que el cuerpo sí trae se escribe, incluido un cero y un null explícitos. */
+    public function test_editar_una_asignatura_escribe_lo_que_trae(): void
+    {
+        $token = $this->tokenDelPersonal();
+        $a = $this->unaAsignatura();
+        DB::table('asignaturas')->where('id', $a->id)->update(['creditos' => 3]);
+
+        $this->withToken($token)->putJson('/api/asignaturas/update/'.$a->id,
+            ['creditos' => 0])->assertStatus(200);
+        $this->assertSame(0, (int) DB::table('asignaturas')->where('id', $a->id)->value('creditos'),
+            'Cero créditos es un valor, no una ausencia.');
+
+        $this->withToken($token)->putJson('/api/asignaturas/update/'.$a->id,
+            ['creditos' => null])->assertStatus(200);
+        $this->assertNull(DB::table('asignaturas')->where('id', $a->id)->value('creditos'),
+            'Mandar null es pedir que se quite, y tiene que quitarse.');
+    }
+
+    /**
+     * **La forma anidada del cuerpo ya no revienta cuando la clave no viaja.**
+     *
+     * `fixInputs()` aplana `{profesor: {profesor_id}}` en `{profesor_id}`, y lo hacía
+     * con `Request::input('profesor')['profesor_id']`: **indexar lo que devuelve
+     * `input()` sin saber si es un array**. Con la clave ausente eso es indexar null,
+     * que Laravel sube a excepción (§69) y aquí sale como **500**, porque este método
+     * no está dentro de ningún `try`.
+     *
+     * Se llega desde la pantalla: `AsignaturasCtrl.editar` rellena `row.profesor` con
+     * un `filter` por `profesor_id`, y en una asignatura **sin profesor** —la columna
+     * es nulable— el filtro devuelve vacío y la clave no viaja. **El seed no tiene
+     * ninguna asignatura así**, o sea que la población en producción está sin medir:
+     * la condición se construye aquí, que es lo que hay que hacer cuando el seed no
+     * la trae.
+     */
+    public function test_editar_una_asignatura_sin_profesor_no_revienta(): void
+    {
+        $token = $this->tokenDelPersonal();
+        $a = $this->unaAsignatura();
+        DB::table('asignaturas')->where('id', $a->id)->update(['profesor_id' => null]);
+
+        // Lo que manda la pantalla con `row.profesor` sin resolver: la clave no viaja.
+        $r = $this->withToken($token)->putJson('/api/asignaturas/update/'.$a->id, [
+            'materia_id' => $a->materia_id,
+            'grupo_id' => $a->grupo_id,
+            'profesor_id' => null,
+        ]);
+
+        $r->assertStatus(200);
+        $this->assertNull(DB::table('asignaturas')->where('id', $a->id)->value('profesor_id'));
+    }
+
+    /**
+     * **§96. Un periodo o un profesor que no existen son 404, no un aviso de PHP.**
+     *
+     * `list-asignaturas-year/{profesor}/{periodo}` llamaba a `Year::de_un_periodo`,
+     * que hace `Periodo::find(...)->year_id` sin comprobar la fila; y
+     * `listasignaturas/{persona}` llama a `Profesor::detallado`, que acaba en
+     * `return $profesor[0];`. Los dos daban **500**, y a los dos se llega sin
+     * inventarse nada: con una fila de la **papelera**, que los dos descartan.
+     */
+    public function test_las_asignaturas_de_un_periodo_que_no_existe_son_404(): void
+    {
+        $token = $this->tokenDelPersonal();
+        $profesor = DB::selectOne('SELECT id FROM profesores WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+        $inventado = ((int) DB::table('periodos')->max('id')) + 1000;
+
+        $this->withToken($token)
+            ->getJson("/api/asignaturas/list-asignaturas-year/{$profesor->id}/{$inventado}")
+            ->assertStatus(404);
+
+        $enPapelera = DB::selectOne('SELECT id FROM periodos WHERE deleted_at IS NOT NULL
+            ORDER BY id LIMIT 1');
+        $this->assertNotNull($enPapelera, 'El seed tiene que traer un periodo en la papelera.');
+
+        $this->withToken($token)
+            ->getJson("/api/asignaturas/list-asignaturas-year/{$profesor->id}/{$enPapelera->id}")
+            ->assertStatus(404);
+    }
+
+    /** Y con el par bueno sigue contestando su lista, que es lo que no puede cambiar. */
+    public function test_las_asignaturas_de_un_periodo_bueno_siguen_saliendo(): void
+    {
+        $token = $this->tokenDelPersonal();
+        $par = DB::selectOne('SELECT a.profesor_id, u.periodo_id FROM asignaturas a
+            INNER JOIN unidades u ON u.asignatura_id = a.id AND u.deleted_at IS NULL
+            WHERE a.deleted_at IS NULL AND a.profesor_id IS NOT NULL
+            ORDER BY a.id LIMIT 1');
+        $this->assertNotNull($par, 'El seed no tiene un profesor con unidades en un periodo.');
+
+        $r = $this->withToken($token)
+            ->getJson("/api/asignaturas/list-asignaturas-year/{$par->profesor_id}/{$par->periodo_id}");
+
+        $r->assertStatus(200);
+        $this->assertNotEmpty($r->json(),
+            'El par bueno tiene que traer asignaturas, o el 404 de al lado no mide nada.');
+        $this->assertArrayHasKey('unidades', $r->json()[0]);
+    }
+
+    /** El otro llamante de `Profesor::detallado`, por la misma puerta. */
+    public function test_las_asignaturas_de_un_profesor_que_no_existe_son_404(): void
+    {
+        $token = $this->tokenDelPersonal();
+        $inventado = ((int) DB::table('profesores')->max('id')) + 1000;
+
+        $this->withToken($token)->getJson('/api/asignaturas/listasignaturas/'.$inventado)
+            ->assertStatus(404);
+
+        $enPapelera = DB::selectOne('SELECT id FROM profesores WHERE deleted_at IS NOT NULL
+            ORDER BY id LIMIT 1');
+        $this->withToken($token)->getJson('/api/asignaturas/listasignaturas/'.$enPapelera->id)
+            ->assertStatus(404);
+    }
+
+    /**
+     * Lo que se mide y **no** se toca: `detalle-asignatura` no distingue «no existe»
+     * de «no tiene unidades».
+     *
+     * Con un id inventado, con uno de la papelera y **sin id ninguno** contesta lo
+     * mismo: `{"unidades": [], "cantidad_notas": 0}`, en 200. No es un fallo con
+     * consecuencia medible —la pantalla pinta una rejilla vacía, que es lo que hay—,
+     * pero deja al cliente sin forma de distinguir las dos cosas, y eso es lo que se
+     * fija aquí para que nadie apoye nada en ese vacío.
+     */
+    public function test_el_detalle_no_distingue_lo_que_no_existe_de_lo_vacio(): void
+    {
+        $token = $this->tokenDelPersonal();
+        $inventada = ((int) DB::table('asignaturas')->max('id')) + 1000;
+        $vacio = ['unidades' => [], 'cantidad_notas' => 0];
+
+        foreach ([['asignatura_id' => $inventada], []] as $cuerpo) {
+            $r = $this->withToken($token)->putJson('/api/asignaturas/detalle-asignatura', $cuerpo);
+            $r->assertStatus(200);
+            $this->assertSame($vacio, $r->json());
+        }
+
+        // Y con una de verdad trae sus unidades, o lo de arriba no compara nada.
+        $conUnidades = DB::selectOne('SELECT asignatura_id FROM unidades
+            WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+        $r = $this->withToken($token)->putJson('/api/asignaturas/detalle-asignatura',
+            ['asignatura_id' => $conUnidades->asignatura_id]);
+        $r->assertStatus(200);
+        $this->assertNotEmpty($r->json('unidades'));
+    }
+
+    /**
+     * **§96. Crear una asignatura: las cuatro salidas, y la que de verdad importa.**
+     *
+     * Continúa la serie de la [§78](../../docs/migracion/05-codigo-muerto-y-roto.md),
+     * que midió crear en nueve catálogos y encontró que el mismo cuerpo vacío saca
+     * cuatro respuestas distintas y que **lo que las separa no es el código sino el
+     * esquema**. Aquí pasa lo mismo y con la misma conclusión: `asignaturas` tiene
+     * `materia_id` y `grupo_id` `NOT NULL` con claves ajenas, y es MySQL —no el
+     * controlador, que no valida nada— quien para las tres que hay que parar.
+     *
+     * Los **500 no se unifican a 422**, por la misma razón que allí: el front pinta el
+     * mensaje del cuerpo, así que hoy a un administrador se le enseña el `SQLSTATE`
+     * entero y mañana se le enseñaría «Datos incorrectos». Eso se decide, no se
+     * arregla de paso.
+     *
+     * **Lo que sí se afirma de verdad no es el código de estado: es que ninguna deje
+     * una fila detrás**, que es lo único que no se puede ver ni deshacer desde
+     * ninguna pantalla. Por eso el conteo va en las cinco.
+     *
+     * Y la cuarta fila es la que cambió esta noche: **crear una asignatura sin
+     * profesor da 201 y escribe**. Antes daba 500 en `fixInputs()`, indexando null, y
+     * la columna es nulable desde siempre. Ver §96.3.
+     */
+    public function test_crear_una_asignatura_no_deja_filas_a_medias(): void
+    {
+        $token = $this->tokenDelPersonal();
+        $a = $this->unaAsignatura();
+        $inventado = ((int) DB::table('grupos')->max('id')) + 1000;
+        $cuantas = fn () => DB::table('asignaturas')->count();
+
+        $casos = [
+            // cuerpo,                                                   estado, escribe
+            'vacío' => [[], 500, false],
+            'sin grupo' => [['materia_id' => $a->materia_id], 500, false],
+            'grupo que no existe' => [['materia_id' => $a->materia_id,
+                'grupo_id' => $inventado], 500, false],
+            'anidado, como lo manda la pantalla' => [['materia' => ['id' => $a->materia_id],
+                'grupo' => ['id' => $a->grupo_id],
+                'profesor' => ['profesor_id' => $a->profesor_id]], 201, true],
+            'sin profesor, que la columna es nulable' => [['materia_id' => $a->materia_id,
+                'grupo_id' => $a->grupo_id], 201, true],
+        ];
+
+        $fallos = [];
+
+        foreach ($casos as $nombre => [$cuerpo, $estado, $escribe]) {
+            $antes = $cuantas();
+            $r = $this->withToken($token)->postJson('/api/asignaturas', $cuerpo);
+            $puestas = $cuantas() - $antes;
+
+            // Se acumula en vez de afirmar dentro del bucle: con el `assert` dentro,
+            // el primer caso que falla esconde a los cuatro de después y el test
+            // parece demostrar cinco cuando demuestra uno.
+            if ($r->status() !== $estado) {
+                $fallos[] = "{$nombre}: esperaba {$estado} y dio {$r->status()}";
+            }
+            if ($puestas !== ($escribe ? 1 : 0)) {
+                $fallos[] = "{$nombre}: dejó {$puestas} filas detrás";
+            }
+        }
+
+        $this->assertSame([], $fallos, implode('
+', $fallos));
+    }
+
+    /** Y la que se crea sin profesor queda de verdad sin profesor, no con uno inventado. */
+    public function test_la_asignatura_creada_sin_profesor_queda_sin_profesor(): void
+    {
+        $token = $this->tokenDelPersonal();
+        $a = $this->unaAsignatura();
+
+        $r = $this->withToken($token)->postJson('/api/asignaturas',
+            ['materia_id' => $a->materia_id, 'grupo_id' => $a->grupo_id]);
+
+        $r->assertStatus(201);
+        $this->assertNull(DB::table('asignaturas')->where('id', $r->json('id'))->value('profesor_id'));
+    }
+
     /** La asignatura va a la papelera, aparece en ella y vuelve. */
     public function test_la_asignatura_va_a_la_papelera_y_vuelve(): void
     {

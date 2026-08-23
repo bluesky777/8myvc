@@ -51,7 +51,24 @@ class PrematriculasController extends Controller {
 			return;
 		}
 
-		$sqlYearAnt = 'SELECT id from years where year=:year_ant';
+		// `and deleted_at is null`, que es lo único en lo que este método se
+		// diferenciaba de su gemelo `MatriculasController::putAlumnosGradoAnterior`:
+		// los dos son byte a byte iguales salvo esta cláusula, y viene así desde el
+		// import inicial, no de un arreglo a medias.
+		//
+		// Sin ella, pedir el año anterior por su número puede resolver a un año **de
+		// la papelera**, y entonces la lista trae alumnos de un año que el colegio
+		// borró. Peor con dos filas del mismo número —una viva y una borrada, que es
+		// justo lo que hay en la base y lo que arregla la §28—: `[0]` se queda con la
+		// de id más bajo, y los del año vivo desaparecen de la lista. **La misma
+		// petición contestaba distinto en los dos gemelos, y el que se equivocaba era
+		// el que no llama nadie.**
+		//
+		// Ningún cliente llama a ésta —comprobado en los tres repos; `myvc_front` usa
+		// la de `matriculas/` y lo dice en su propio `PrematriculasApi.ts`—, así que
+		// el arreglo es alinearla con la que sí se usa y no inventar un tercer
+		// comportamiento.
+		$sqlYearAnt = 'SELECT id from years where year=:year_ant and deleted_at is null;';
 		
 		$year_cons = DB::select($sqlYearAnt, [ ':year_ant'	=> $year_ant ]);
 		if (count($year_cons) > 0) {

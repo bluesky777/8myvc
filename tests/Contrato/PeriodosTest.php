@@ -182,6 +182,94 @@ class PeriodosTest extends CasoDeContrato
             'La fila no debe haberse movido: el UPDATE ni llega a ejecutarse.');
     }
 
+    /**
+     * **§95. `periodos/useractive` no aparca al usuario en un periodo que no puede
+     * ver.**
+     *
+     * Es la ruta del selector de la barra de arriba —la llama `myvc_front` y
+     * también la app de Flutter, `ContextoAcademico.cambiarPeriodo`—, y escribe
+     * `users.periodo_id` con lo que le llegue por la URL. Lo que le llegue tenía dos
+     * salidas malas, y la barata no es la que parece:
+     *
+     * - un id que **no existe** reventaba en la clave ajena: **500** con el
+     *   `SQLSTATE` de MySQL dentro de la respuesta;
+     * - un id de la **papelera entraba y contestaba 200**, porque la clave ajena no
+     *   filtra `deleted_at`.
+     *
+     * La segunda es la cara. Medido con el mismo token, sin volver a entrar: el
+     * usuario queda en el periodo borrado y sus pantallas se vacían —**0 grupos, 0
+     * asignaturas, en 200**— sin ningún error que lo explique. Y el periodo borrado
+     * no sale en ningún selector, así que desde la interfaz no hay forma de volver:
+     * lo arregla `Services\Login::ponerEnElPeriodoActual` al **volver a entrar**, que
+     * es justo lo que nadie adivina delante de una pantalla vacía.
+     *
+     * Las dos se cierran con lo mismo, un `findOrFail` que respeta el borrado suave.
+     */
+    public function test_useractive_no_acepta_un_periodo_de_la_papelera(): void
+    {
+        $usuario = $this->usuarioDeTipo('Usuario');
+        $token = $this->tokenDe($usuario->username);
+        $antes = DB::table('users')->where('id', $usuario->id)->value('periodo_id');
+
+        $borrado = DB::selectOne('SELECT id FROM periodos WHERE deleted_at IS NOT NULL
+            ORDER BY id LIMIT 1');
+        $this->assertNotNull($borrado, 'El seed tiene que traer un periodo en la papelera.');
+
+        $this->withToken($token)->putJson('/api/periodos/useractive/'.$borrado->id)
+            ->assertStatus(404);
+
+        $this->assertSame($antes, DB::table('users')->where('id', $usuario->id)->value('periodo_id'),
+            'El usuario no debe haberse movido.');
+    }
+
+    /** Y un periodo que no existe es 404, no el SQLSTATE de la clave ajena. */
+    public function test_useractive_con_un_periodo_inventado_es_404(): void
+    {
+        $usuario = $this->usuarioDeTipo('Usuario');
+        $token = $this->tokenDe($usuario->username);
+        $antes = DB::table('users')->where('id', $usuario->id)->value('periodo_id');
+        $inventado = ((int) DB::table('periodos')->max('id')) + 1000;
+
+        $this->withToken($token)->putJson('/api/periodos/useractive/'.$inventado)
+            ->assertStatus(404);
+
+        $this->assertSame($antes, DB::table('users')->where('id', $usuario->id)->value('periodo_id'));
+    }
+
+    /**
+     * Lo que **sigue** pudiéndose, porque es la función de la ruta: mudarse a un
+     * periodo vivo de otro año.
+     *
+     * Se fija porque es lo que un arreglo de más se llevaría por delante —el
+     * selector de año de la barra y `ContextoAcademico.cambiarPeriodo` de Flutter
+     * dejarían de funcionar—, y porque enseña el precio que sí tiene: con el usuario
+     * en otro año, los listados que filtran por `year_id` salen **vacíos en 200**.
+     * Eso es lo esperado ahí, y es lo que hace que el caso del periodo borrado sea
+     * indistinguible desde la pantalla.
+     */
+    public function test_useractive_a_un_periodo_vivo_de_otro_ano_sigue_valiendo(): void
+    {
+        $usuario = $this->usuarioDeTipo('Usuario');
+        $token = $this->tokenDe($usuario->username);
+        $suyo = DB::table('users')->where('id', $usuario->id)->value('periodo_id');
+        $suYear = DB::table('periodos')->where('id', $suyo)->value('year_id');
+
+        $otro = DB::selectOne('SELECT id, year_id FROM periodos WHERE deleted_at IS NULL
+            AND year_id <> ? ORDER BY id LIMIT 1', [$suYear]);
+        $this->assertNotNull($otro, 'El seed tiene que traer periodos de dos años.');
+
+        $r = $this->withToken($token)->putJson('/api/periodos/useractive/'.$otro->id);
+        $r->assertStatus(200);
+        $this->assertSame((int) $otro->id, (int) $r->json('periodo_id'));
+        $this->assertSame((int) $otro->id,
+            (int) DB::table('users')->where('id', $usuario->id)->value('periodo_id'));
+
+        // Y el precio, que es contrato y no fallo: el año cambia y los listados que
+        // filtran por él salen vacíos, en 200.
+        $this->assertSame([], $this->withToken($token)->getJson('/api/grupos')->json(),
+            'Mudarse de año vacía los listados del año viejo. Es lo que hace el selector.');
+    }
+
     /** Una familia no toca los periodos del colegio. */
     public function test_una_familia_no_toca_los_periodos(): void
     {

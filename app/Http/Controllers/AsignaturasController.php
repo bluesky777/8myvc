@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Request;
 
 use App\User;
 use App\Models\Year;
+use App\Models\Periodo;
 use App\Models\Profesor;
 use App\Models\Asignatura;
 use App\Models\Unidad;
@@ -13,6 +14,7 @@ use Carbon\Carbon;
 
 use App\Http\Controllers\Alumnos\Solicitudes;
 use Illuminate\Support\Facades\Log;
+use App\Support\CamposQueVinieron;
 use App\Support\ColumnaSegura;
 
 
@@ -148,6 +150,27 @@ class AsignaturasController extends Controller {
 		$valor 			= Request::input('valor');
 		$now 			= Carbon::now('America/Bogota');
 		
+		// El `UPDATE` de abajo no lleva `deleted_at is null` ni `WHERE` que falle: sin
+		// esto, la ruta contestaba **'Cambiado' pasara lo que pasara**. Medido, y las
+		// tres salidas eran distintas y ninguna se notaba:
+		//
+		// - sin `asignatura_id` ninguno: 200 'Cambiado' **sin escribir nada** — la
+		//   familia de `respuestas-que-mienten.py`, y sale además en
+		//   `identificadores-del-cuerpo.py` como id del cuerpo que no comprueba nadie;
+		// - sobre una asignatura de la **papelera**: 200 y **escribe**, en una fila que
+		//   ninguna pantalla enseña;
+		// - y como `ColumnaSegura` valida el NOMBRE de la columna pero no limita cuál,
+		//   con `dia: 'profesor_id'` esto **reasigna el profesor** de esa fila.
+		//
+		// Se cierra lo que no puede querer ningún cliente —una fila que no está— y se
+		// deja lo que es decisión tomada: quien pasa `auth.personal` escribe las
+		// asignaturas de todo el colegio, incluidas las de otros años, porque las 44
+		// rutas de escritura de la configuración académica están abiertas a propósito.
+		// §96.
+		if (! Asignatura::where('id', $asignatura_id)->exists()) {
+			abort(404, 'La asignatura no existe o está en la papelera.');
+		}
+
 		$consulta 	= 'UPDATE asignaturas SET '.ColumnaSegura::exigir('asignaturas', $dia).'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:asignatura_id';
 		DB::update($consulta, [$valor, $user->user_id, $now, $asignatura_id]);
 		
@@ -159,30 +182,76 @@ class AsignaturasController extends Controller {
 	{
 		$asignatura = Asignatura::findOrFail($id);
 
+		// **Antes de `fixInputs()`, y aquí sí hace falta la clase.** `fixInputs` hace
+		// tres `Request::merge()`, así que a partir de la línea siguiente
+		// `Request::has('profesor_id')` es cierto aunque el cliente no lo mandara
+		// nunca, y el defecto de `Request::input()` mediría otra cosa. Ése es
+		// exactamente el motivo por el que `CamposQueVinieron` es una clase y no un
+		// `if` — ver su docblock y la §68. En `years/guardar-cambios` y en
+		// `unidades/update` no hay ningún `merge` y el defecto basta: mismo fallo, dos
+		// herramientas, y el discriminador es si hay un `merge` delante.
+		$vinieron = CamposQueVinieron::capturar();
+
 		$this->fixInputs();
 
-		$asignatura->materia_id		=	Request::input('materia_id');
-		$asignatura->grupo_id		=	Request::input('grupo_id');
-		$asignatura->profesor_id	=	Request::input('profesor_id', $asignatura->profesor_id);
-		$asignatura->creditos		=	Request::input('creditos');
-		$asignatura->orden			=	Request::input('orden');
+		// Lo que el cuerpo no trae, no se toca. Antes iba `Request::input('x')` a
+		// secas en cuatro de las cinco —`profesor_id` ya llevaba defecto, y esa
+		// asimetría es lo único que se veía—, así que un cuerpo con los tres ids
+		// dejaba `creditos` y `orden` en null y contestaba 200. Medido: 2 -> NULL. §96.
+		if ($vinieron->trae('materia_id') || $vinieron->trae('materia')) {
+			$asignatura->materia_id	=	Request::input('materia_id');
+		}
+
+		if ($vinieron->trae('grupo_id') || $vinieron->trae('grupo')) {
+			$asignatura->grupo_id	=	Request::input('grupo_id');
+		}
+
+		if ($vinieron->trae('profesor_id') || $vinieron->trae('profesor')) {
+			$asignatura->profesor_id	=	Request::input('profesor_id');
+		}
+
+		if ($vinieron->trae('creditos')) {
+			$asignatura->creditos	=	Request::input('creditos');
+		}
+
+		if ($vinieron->trae('orden')) {
+			$asignatura->orden		=	Request::input('orden');
+		}
 
 		$asignatura->save();
 		return $asignatura;
 	}
 
+	/**
+	 * La pantalla manda `{profesor: {profesor_id}}` o `{profesor_id}`, según por dónde
+	 * se guarde; esto aplana lo primero en lo segundo.
+	 *
+	 * Iba con `Request::input('profesor')['profesor_id']`, o sea **indexando lo que
+	 * devuelve `input()` sin saber si es un array**. Con la clave ausente eso es
+	 * indexar null: un aviso de PHP que Laravel sube a excepción porque
+	 * `HandleExceptions::bootstrap` hace `error_reporting(-1)` — es la §69, y aquí
+	 * salía como **500** en vez del 422 de allí, porque este método no está dentro de
+	 * ningún `try`. Alcanzable desde la pantalla: `AsignaturasCtrl.editar` rellena
+	 * `row.profesor` con un `filter` por `profesor_id`, y en una asignatura **sin
+	 * profesor** —la columna es nulable— ese filtro devuelve vacío y la clave no
+	 * viaja. En el seed hay 0 asignaturas así, o sea que la población en producción
+	 * está sin medir: es una mina, no un fallo vivo comprobado.
+	 *
+	 * La notación con puntos de `input()` es nula-segura y hace lo mismo sin indexar
+	 * nada. §96.
+	 */
 	private function fixInputs()
 	{
-		if (!Request::input('profesor_id') and Request::input('profesor')['profesor_id']) {
-			Request::merge(array('profesor_id' => Request::input('profesor')['profesor_id'] ) );
+		if (!Request::input('profesor_id') and Request::input('profesor.profesor_id')) {
+			Request::merge(array('profesor_id' => Request::input('profesor.profesor_id') ) );
 		}
 
-		if (!Request::input('grupo_id') and Request::input('grupo')['id']) {
-			Request::merge(array('grupo_id' => Request::input('grupo')['id'] ) );
+		if (!Request::input('grupo_id') and Request::input('grupo.id')) {
+			Request::merge(array('grupo_id' => Request::input('grupo.id') ) );
 		}
 
-		if (!Request::input('materia_id') and Request::input('materia')['id']) {
-			Request::merge(array('materia_id' => Request::input('materia')['id'] ) );
+		if (!Request::input('materia_id') and Request::input('materia.id')) {
+			Request::merge(array('materia_id' => Request::input('materia.id') ) );
 		}
 	}
 
@@ -195,6 +264,14 @@ class AsignaturasController extends Controller {
 		if ($persona_id=='') {
 			$persona_id = $user->persona_id;
 		}else{
+			// `Profesor::detallado` acaba en `return $profesor[0];` sin comprobar que
+			// la consulta trajera fila: un id que no existe o uno de la papelera era
+			// 500. Se para en el llamante y **no** en `App\Models\Profesor`, que lo
+			// comparten seis de tres dominios. §96.
+			if (! Profesor::where('id', $persona_id)->exists()) {
+				abort(404, 'El profesor no existe o está en la papelera.');
+			}
+
 			$info_profesor = Profesor::detallado($persona_id);
 		}
 
@@ -327,6 +404,15 @@ class AsignaturasController extends Controller {
 	public function getListAsignaturasYear($profesor_id, $periodo_id)
 	{
 		$user = User::fromToken();
+
+		// `Year::de_un_periodo` hace `Periodo::find(...)->year_id` sin comprobar la
+		// fila: con un periodo que no existe **o uno de la papelera** —`find` respeta
+		// el borrado suave— eso es 500. Se para aquí y no en el modelo aunque hoy sea
+		// su único llamante: el 404 es una decisión de la ruta, y el modelo sólo sabe
+		// de años. Mismo criterio que con `Profesor::detallado`. §96.
+		if (! Periodo::where('id', $periodo_id)->exists()) {
+			abort(404, 'El periodo no existe o está en la papelera.');
+		}
 
 		$year = Year::de_un_periodo($periodo_id);
 

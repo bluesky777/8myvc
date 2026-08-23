@@ -199,18 +199,32 @@ class YearsController extends Controller {
 			if (count($dis_configuraciones) > 0) {
 				$dis = $dis_configuraciones[0];
 				
+				// Los dos `INSERT` de aquí abajo eran los únicos de las cuatro escrituras
+				// que hay en estas dos tablas que **no** ponían fecha: los otros tres
+				// —`GruposController:265` y los dos de `OrdinalesController`— sí. Como
+				// esto sólo corre al crear un año, la fila mal nacía **una vez por año y
+				// por colegio**, y las que hay ya escritas están medidas: en el seed,
+				// **14 de 17 ordinales y 7 de 9 configuraciones** vienen con `created_at`
+				// nulo — o sea todos los años creados por esta ruta, del 3 en adelante.
+				//
+				// Hoy no lo lee nadie: los listados de disciplina ordenan por `ordinal`,
+				// no por fecha, y ningún cliente pide esa columna. Se arregla porque la
+				// pregunta «cuándo apareció esta fila» es la que no se puede contestar
+				// después, y porque tres de cuatro sitios ya lo hacían bien.
+				$now_dis = Carbon::now('America/Bogota');
+
 				DB::insert('INSERT INTO dis_configuraciones(year_id, reinicia_por_periodo, falta_tipo1_displayname, faltas_tipo1_displayname, genero_falta_t1, falta_tipo2_displayname, faltas_tipo2_displayname, genero_falta_t2, 
 					falta_tipo3_displayname, faltas_tipo3_displayname, genero_falta_t3, cant_tard_to_ft1, cant_ft1_to_ft2, cant_ft2_to_ft3,
-					nombre_col1, nombre_col2, nombre_col3, definicion_ft1, definicion_ft2, definicion_ft3) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', 
+					nombre_col1, nombre_col2, nombre_col3, definicion_ft1, definicion_ft2, definicion_ft3, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', 
 					[ $year->id, $dis->reinicia_por_periodo, $dis->falta_tipo1_displayname, $dis->faltas_tipo1_displayname, $dis->genero_falta_t1, $dis->falta_tipo2_displayname, $dis->faltas_tipo2_displayname, $dis->genero_falta_t2, 
 					$dis->falta_tipo3_displayname, $dis->faltas_tipo3_displayname, $dis->genero_falta_t3, $dis->cant_tard_to_ft1, $dis->cant_ft1_to_ft2, $dis->cant_ft2_to_ft3, 
-					$dis->nombre_col1, $dis->nombre_col2, $dis->nombre_col3, $dis->definicion_ft1, $dis->definicion_ft2, $dis->definicion_ft3 ]);
+					$dis->nombre_col1, $dis->nombre_col2, $dis->nombre_col3, $dis->definicion_ft1, $dis->definicion_ft2, $dis->definicion_ft3, $now_dis, $now_dis ]);
 					
 				$dis_ordinales = DB::select('SELECT * FROM dis_ordinales WHERE year_id=? AND deleted_at is null;', [$pasado->id]);
 					
 				foreach ($dis_ordinales as $key => $ord) {
-					DB::insert('INSERT INTO dis_ordinales(year_id, tipo, ordinal, descripcion, pagina) VALUES(?,?,?,?,?)', 
-						[ $year->id, $ord->tipo, $ord->ordinal, $ord->descripcion, $ord->pagina ]);
+					DB::insert('INSERT INTO dis_ordinales(year_id, tipo, ordinal, descripcion, pagina, created_at, updated_at) VALUES(?,?,?,?,?,?,?)', 
+						[ $year->id, $ord->tipo, $ord->ordinal, $ord->descripcion, $ord->pagina, $now_dis, $now_dis ]);
 				}
 			}
 			
@@ -284,34 +298,52 @@ class YearsController extends Controller {
 		$year = Year::findOrFail(Request::input('id'));
 		
 		try {
-			$compromiso_familiar = null;
+			// **Lo que el cuerpo no trae, no se toca.** Antes iba `Request::input('x')`
+			// a secas en las veintiuna, así que un `PUT {"id": 1}` de una línea dejaba
+			// el año sin nombre de colegio, sin resolución, sin código DANE, sin rector
+			// y sin los nombres de unidad y subunidad —que se imprimen en el boletín de
+			// todos los alumnos— y contestaba 200. Es la §68 otra vez: un campo que no
+			// se manda no es un campo que no cambia, es un campo que se pisa. §93.
+			//
+			// Se conserva el valor actual en vez de contestar 422 porque el único
+			// cliente que llama a esto —`YearsCtrl.guardar_cambios`, en `myvc_front`—
+			// manda el objeto `year` entero, y hay dieciséis copias de ese front con
+			// distinta antigüedad: un 422 rompería a la que mande veinte de veintiuno.
+			// Conservar no puede romper a nadie.
+			//
+			// El defecto sólo tapa la clave AUSENTE, no la que llega en `null`: eso es
+			// una petición diciendo «bórralo», y sigue borrando. Lo que hace con ella el
+			// esquema está medido en §93.2 y no es lo que parece.
+			$compromiso_familiar = $year->compromiso_familiar_label;
 
 			if (Request::has('compromiso_familiar_label')) {
+				$compromiso_familiar = null;
+
 				if (Request::input('compromiso_familiar_label') != '' && Request::input('compromiso_familiar_label') != null) {
 					$compromiso_familiar = Request::input('compromiso_familiar_label');
 				}
 			}
 
-			$year->nombre_colegio            = Request::input('nombre_colegio');
-			$year->abrev_colegio             = Request::input('abrev_colegio');
-			$year->year                      = Request::input('year');
-			$year->rector_id                 = Request::input('rector_id');
-			$year->secretario_id             = Request::input('secretario_id');
-			$year->tesorero_id               = Request::input('tesorero_id');
-			$year->resolucion                = Request::input('resolucion');
-			$year->codigo_dane               = Request::input('codigo_dane');
-			$year->telefono                  = Request::input('telefono');
-			$year->celular                   = Request::input('celular');
-			$year->website                   = Request::input('website');
-			$year->website_myvc              = Request::input('website_myvc');
-			$year->msg_when_students_blocked = Request::input('msg_when_students_blocked');
-			$year->unidad_displayname        = Request::input('unidad_displayname');
-			$year->unidades_displayname      = Request::input('unidades_displayname');
-			$year->genero_unidad             = Request::input('genero_unidad');
-			$year->subunidad_displayname     = Request::input('subunidad_displayname');
-			$year->subunidades_displayname   = Request::input('subunidades_displayname');
-			$year->genero_subunidad          = Request::input('genero_subunidad');
-			$year->alumnos_can_see_notas     = Request::input('alumnos_can_see_notas');
+			$year->nombre_colegio            = Request::input('nombre_colegio', $year->nombre_colegio);
+			$year->abrev_colegio             = Request::input('abrev_colegio', $year->abrev_colegio);
+			$year->year                      = Request::input('year', $year->year);
+			$year->rector_id                 = Request::input('rector_id', $year->rector_id);
+			$year->secretario_id             = Request::input('secretario_id', $year->secretario_id);
+			$year->tesorero_id               = Request::input('tesorero_id', $year->tesorero_id);
+			$year->resolucion                = Request::input('resolucion', $year->resolucion);
+			$year->codigo_dane               = Request::input('codigo_dane', $year->codigo_dane);
+			$year->telefono                  = Request::input('telefono', $year->telefono);
+			$year->celular                   = Request::input('celular', $year->celular);
+			$year->website                   = Request::input('website', $year->website);
+			$year->website_myvc              = Request::input('website_myvc', $year->website_myvc);
+			$year->msg_when_students_blocked = Request::input('msg_when_students_blocked', $year->msg_when_students_blocked);
+			$year->unidad_displayname        = Request::input('unidad_displayname', $year->unidad_displayname);
+			$year->unidades_displayname      = Request::input('unidades_displayname', $year->unidades_displayname);
+			$year->genero_unidad             = Request::input('genero_unidad', $year->genero_unidad);
+			$year->subunidad_displayname     = Request::input('subunidad_displayname', $year->subunidad_displayname);
+			$year->subunidades_displayname   = Request::input('subunidades_displayname', $year->subunidades_displayname);
+			$year->genero_subunidad          = Request::input('genero_subunidad', $year->genero_subunidad);
+			$year->alumnos_can_see_notas     = Request::input('alumnos_can_see_notas', $year->alumnos_can_see_notas);
 			$year->compromiso_familiar_label = $compromiso_familiar;
 			$year->updated_by                = $user->user_id;
 
@@ -475,6 +507,21 @@ class YearsController extends Controller {
 		$year_id 	= 	Request::input('year_id');
 		$valor 		= 	Request::input('valor');
 		$campo 		= 	Request::input('campo');
+
+		// `actual` no, y es la única excluida. Esta ruta es el «guardar un campo
+		// suelto» de la rejilla y escribe cualquier columna que exista —eso no es un
+		// agujero: quien pasa `auth.personal` ya las escribe todas por
+		// `years/guardar-cambios`—, pero `actual` tiene invariante (uno solo) y una
+		// ruta propia que lo mantiene, `years/set-actual`, que apaga a los demás.
+		//
+		// Por aquí se podía encender un segundo año actual, y no se queda en la fila:
+		// `Services\Login::ponerEnElPeriodoActual` hace `WHERE actual=1` y se queda con
+		// el primero SIN `ORDER BY`, o sea el de id más bajo. Medido: encender 2018
+		// con 2025 encendido muda a todo el colegio a 2018 en el siguiente inicio de
+		// sesión. Es la §28 alcanzada por otra puerta. §94.
+		if (strtolower(trim((string) $campo)) === 'actual') {
+			abort(422, 'El año actual se cambia con years/set-actual, que apaga a los demás.');
+		}
 
 		$consulta 	= 'UPDATE years SET '.ColumnaSegura::exigir('years', $campo).'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:year_id';
 		$datos 		= [ ':valor' => $valor, ':modificador' => $user->user_id, ':fecha' => $now, ':year_id' => $year_id ];

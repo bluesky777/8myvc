@@ -31,7 +31,19 @@ class UnidadesController extends Controller {
 			INNER JOIN grupos g ON g.id=a.grupo_id and g.deleted_at is null
 			WHERE a.id=:asignatura_id and a.deleted_at is null';
 		
-		$asignatura = DB::select($consulta, [":asignatura_id"=>$asignatura_id])[0];
+		// `[0]` sobre una consulta que no trajo filas es un aviso de PHP que Laravel
+		// sube a excepción: **500 con «Undefined array key 0» dentro**. Pasa con una
+		// asignatura que no existe y también con una que está en la papelera o cuyo
+		// grupo lo está, porque el `INNER JOIN` de arriba filtra `deleted_at`. Un id
+		// que no lleva a ninguna fila es un 404, y este método además **escribe** —
+		// crea las unidades por defecto—, así que conviene pararlo antes. §96.
+		$asignaturas = DB::select($consulta, [":asignatura_id"=>$asignatura_id]);
+
+		if ($asignaturas === []) {
+			abort(404, 'La asignatura no existe o está en la papelera.');
+		}
+
+		$asignatura = $asignaturas[0];
 
 		
 		$consulta 	= 'SELECT p.id, p.numero as numero_periodo, p.year_id, y.year FROM periodos p
@@ -160,6 +172,17 @@ class UnidadesController extends Controller {
 		$periodo_id 	= $user->periodo_id;
 		$profesor_id	= Request::input('profesor_id');
 		
+		// `Profesor::detallado` acaba en `return $profesor[0];` sin comprobar que la
+		// consulta trajera fila: con un id que no existe **o uno de la papelera** —que
+		// su `where` descarta— eso es 500. El modelo lo comparten seis llamantes de
+		// tres dominios distintos, así que se para aquí y no allí: poner un `?? null`
+		// dentro convertiría seis 500 en seis comportamientos distintos sin haber
+		// medido cuál es el correcto en cada pantalla. Lo encontró el lote E en su
+		// llamante y eligió el mismo 404. §96.
+		if (! Profesor::where('id', $profesor_id)->exists()) {
+			abort(404, 'El profesor no existe o está en la papelera.');
+		}
+
 		$info_profesor 	= Profesor::detallado($profesor_id);
 		$asignaturas 	= Profesor::asignaturas($user->year_id, $profesor_id);
 
@@ -247,8 +270,20 @@ class UnidadesController extends Controller {
 		User::pueden_editar_notas($user, PeriodoDeLaFila::deUnidad($id));
 
 		$unidad = Unidad::findOrFail($id);
-		$unidad->definicion		= Request::input('definicion');
-		$unidad->porcentaje		= Request::input('porcentaje');
+		// **`porcentaje` no es un dato descriptivo: es un factor de la definitiva.**
+		// La nota sale de `(u.porcentaje/100) * ((s.porcentaje/100) * n.nota)`, y el
+		// recálculo está diez líneas más abajo, en este mismo método. Con
+		// `Request::input('porcentaje')` a secas, un cuerpo que sólo traía
+		// `definicion` —corregirle la redacción a un logro— dejaba el peso en null y
+		// **cambiaba la nota que va al boletín**, en 200 y sin avisar. Y el de la
+		// unidad es el factor de fuera: se lleva por delante todas las subunidades
+		// que cuelgan de ella de golpe, no una.
+		//
+		// Es la §68 otra vez, y aquí no hace falta `CamposQueVinieron`: este método no
+		// tiene ningún `merge()` delante, así que el defecto de `Request::input()`
+		// distingue igual. §96.
+		$unidad->definicion		= Request::input('definicion', $unidad->definicion);
+		$unidad->porcentaje		= Request::input('porcentaje', $unidad->porcentaje);
 		$unidad->updated_by		= $user->user_id;
 		$unidad->save();
 		
