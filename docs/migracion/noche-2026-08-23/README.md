@@ -27,7 +27,7 @@ cuando estos arreglos sean historia.
 | [B](b.md) | Ordinales de disciplina y ciudades | §85–88 |
 | [C](c.md) | La rejilla: **quién escribe una definitiva y con qué candado** | §89–92 |
 | [D](d.md) | La configuración del año | §93–96 |
-| [E](e.md) | Personas e imágenes: **quién ve y quién escribe la ficha de otro** | §97–104, §150–153 |
+| [E](e.md) | Personas e imágenes: **quién ve y quién escribe la ficha de otro** | §97–100, §153–156 |
 | [F](f.md) | PIAR, actividades y votaciones: los interruptores de lo que ve el alumno | §101–104 |
 | [G](g.md) | Los 44 interruptores `tinyint(1)`, **contra los cuatro clientes** | §105–107 |
 | [H](h.md) | Los 230 identificadores del cuerpo | §108–110 |
@@ -35,11 +35,13 @@ cuando estos arreglos sean historia.
 | [J](j.md) | Las rutas **ya cubiertas que nadie ha juzgado** | §114–116 |
 | [K](k.md) | Las columnas que se pisan donde no llegaba ningún lote | §118–121 |
 | [L](l.md) | Las sobras huérfanas | §123–124 |
-| [M](m.md) | Descongelar los dos modelos que se habían congelado | §125–127 |
+| [M](m.md) | Descongelar los dos modelos que se habían congelado | §125, §127 |
 | [O](o.md) | Completar la población de `PerfilesController` | §130–132 |
-| [P](p.md) | **Las que escriben sin decirlo** | §133–136 |
-| [Q](q.md) | El calendario, donde **el cliente decidía si el interruptor se aplicaba** | §139–150 |
+| [P](p.md) | **Las que escriben sin decirlo** | §133–134, §136–137 |
+| [Q](q.md) | El calendario, donde **el cliente decidía si el interruptor se aplicaba** | §150–152 |
+| [R](r.md) | **El boletín de una familia**, y la imagen privada en el muro | §140–142, §166 |
 | [S](s.md) | **La única escritura que alcanza una familia** | §143–145 |
+| [T](t.md) | Lo que destapó la curva de profundidad | §146–149 |
 
 Y uno que no es de lote: [p-curva-de-profundidad.md](p-curva-de-profundidad.md)
 —cuántas rutas escriben, y a qué distancia—.
@@ -67,6 +69,17 @@ Y los huecos que quedan en el rango de esta noche, con lo que son:
 |---|---|
 | **§117**, **§128–129** | **números que nadie usó**, no secciones perdidas: quedaron sin asignar al ir abriendo lotes sobre la marcha. **No hay que rellenarlos** |
 | **§138–142**, **§146–149** | **no son huecos**: son los lotes que seguían abiertos al hacer esta comprobación |
+
+> **Y hay que repetirla después de cada renumerado, no solo al final.** Es la
+> lección más cara de las tres colisiones que hubo esta noche: **arreglar una
+> crea la siguiente si el número nuevo se elige sin volver a correr la
+> comprobación** — el renumerado es justo el momento en que se inventa un número.
+> Al mover un §143 a §166, el número que quedó libre lo ocupó el §144 de al lado,
+> que ya tenía dueño.
+>
+> Y su hermana: **el título del documento se queda viejo cada vez.** Dos de las
+> tres colisiones fueron un título declarando un rango que su cuerpo ya no tenía,
+> y **la segunda fue en el mismo fichero que la primera**.
 
 > **Esta comprobación caduca en cuanto entra un lote nuevo, y no avisa de que ha
 > caducado.** La primera vez que se corrió daba **cero colisiones y era cierto**;
