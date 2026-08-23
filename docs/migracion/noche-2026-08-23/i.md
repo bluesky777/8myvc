@@ -386,6 +386,89 @@ que apaga la pregunta.
 
 ---
 
+## §112.2 · La otra mitad de la regla del acudiente, comprobada desde el resultado
+
+La regla —**un alumno ve lo suyo; un acudiente, lo suyo y lo completo de sus
+acudidos**— está escrita como cerrada, y el barrido midió qué alcanza un acudiente
+juzgándolo siempre **contra su propio acudido**. Faltaba la otra mitad: **que sobre un
+alumno ajeno no alcance nada.**
+
+`tests/Barrido/AcudienteSobreUnAjenoTest.php` la comprueba sobre las doce rutas que un
+acudiente puede pedir con un alumno concreto, de las 41 que llevan uno de los dos
+guards de propiedad (17 con `boletin.propio`, 24 con `persona.propia`).
+
+El escenario sale del seed sin fabricar nada, y **el alumno ajeno es del mismo grupo** a
+propósito: si fuera de otro grupo o de otro año, un vacío lo explicaría eso y no el
+guard. Los dos alumnos están **a paz y salvo**, para que esa rama del guard tampoco
+confunda el resultado.
+
+**Resultado: 403 en las doce.** La regla se sostiene.
+
+### Pero el resultado sólo vale por su control, y el control no sale entero
+
+Cada caso se repite con **el acudiente de verdad de ese alumno**. Si ahí sale el dato,
+el 403 del otro es del guard; si ahí tampoco sale, el 403 no prueba nada.
+
+**Ocho de los doce controles devuelven el dato** —hasta 47 KB con `documento`,
+`celular`, `direccion` y `fecha_nac`—, así que en esos ocho el 403 está probado.
+**Cuatro contestan 500**, o sea que en esos cuatro el 403 **no está probado por un
+control positivo** y hay que decirlo:
+
+| Ruta | Acudiente propio | Personal |
+|---|---|---|
+| `boletines2/detailed-notas/{grupo}` | **500** | 200 |
+| `boletines3/detailed-notas/{grupo}` | **500** | 200 |
+| `notas-actuales-alumnos/{grupo}` | 500 | 500 |
+| `matriculas/prematricular` | 500 | 500 |
+
+Las dos últimas contestan 500 también con un token de personal, así que **puede ser el
+cuerpo que manda este fichero y no la ruta**: quedan sin juzgar y sin acusar.
+
+### Y las dos primeras sí son un fallo, y es de familia
+
+**`boletines2` y `boletines3` dan 500 a un acudiente y 200 al personal con el mismo
+cuerpo.** El mensaje lo dice entero:
+
+```
+Undefined property: stdClass::$year_pasado_en_bol
+   Boletines2Controller.php:154
+   Boletines3Controller.php:156
+```
+
+`ContextoDeUsuario` monta `$this->user` con un `switch` de cuatro ramas, y **la del
+Acudiente trae 43 columnas frente a 48 del Profesor, 48 del Alumno y 54 del Usuario**.
+`year_pasado_en_bol` está en las otras tres y **no en la suya**.
+
+Lo que lo convierte en el fallo de siempre es el tercer hermano: **`BoletinesController`,
+la maqueta 1, lee esa misma propiedad y funciona** —el control le devolvió 47 KB—,
+porque la lee así:
+
+```php
+if (isset($this->user->year_pasado_en_bol)) {      // BoletinesController:224
+    if ($this->user->year_pasado_en_bol) {
+```
+
+y las otras dos la leen a pelo. **El `isset` está en uno de los tres.** Alguien se topó
+con esto, arregló el fichero que estaba mirando y dejó las dos copias — y es el mismo
+trío del que el docblock de `ExigirBoletinPropio` ya avisa: *«`Boletines2Controller` y
+`Boletines3Controller` son copias del primero con otra maqueta y no tenían ni la
+comprobación escrita, así que arreglar solo el primero habría dejado dos puertas
+abiertas al mismo dato»*. **Misma familia, misma lección, otra propiedad y la dirección
+contraria**: allí faltaba un candado, aquí sobra un 500.
+
+**Qué se nota en un colegio**: una familia que abra el boletín de su hijo en la maqueta
+2 o 3 recibe un 500 en vez del boletín. Las tres maquetas son pantallas de verdad —
+`BoletinesApi` de `myvc_front` reparte cinco pantallas entre los tres controladores— y
+el guard `boletin.propio` está en esas rutas precisamente porque las familias llegan.
+
+**No se arregla desde este lote**: `Boletines2Controller` y `Boletines3Controller` son
+del lote C. Se anota con el `isset` de la maqueta 1 delante, que es el arreglo, y con la
+pregunta que va con él: **¿qué más de esas 21 columnas que le faltan a la rama del
+acudiente lee alguien sin `isset`?** De las doce que miré, `year_pasado_en_bol` es la
+única que lee un controlador; las otras once no las lee nadie hoy.
+
+---
+
 ## Para Joseth
 
 Todo lo de este lote es una decisión suya y ninguna se tomó:
