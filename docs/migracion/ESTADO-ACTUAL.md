@@ -16,7 +16,7 @@
 
 Las fases 0–4 del [plan](00-plan-migracion.md) están cerradas, la 5 recortada y la
 6 es continua por diseño. **Laravel 13 sobre PHP 8.4**, con red de seguridad y
-autenticación real. Hoy: **1.284 tests, 8.640 aserciones, 535/542 rutas con la
+autenticación real. Hoy: **1.344 tests, 9.107 aserciones, 535/542 rutas con la
 respuesta comprobada, larastan nivel 7 `[OK]`.** Al empezar había **0 tests** y
 `route:list` estaba roto.
 
@@ -293,6 +293,27 @@ contestar:
 - **Quién del personal puede qué** — cinco lotes preguntan variantes.
 - **Los dieciséis números de la fase 0** de definitivas: la herramienta está, hay
   que correrla en el servidor colegio por colegio (`for` de una línea en el 10).
+
+### Y cuatro nuevas del 24 ago, las cuatro con la medición delante
+
+- **[§7](09-pendientes.md) — «restaurar» contesta tres cosas distintas.** Diez
+  endpoints: seis devuelven el objeto, tres `'Retaurada'` (mal escrito) y uno
+  `'Restaurada'`. **Corregir sólo uno de los tres es la peor opción**: deja la
+  misma operación contestando dos cadenas dentro del mismo colegio. Y su
+  despliegue va **al revés**: el front delante.
+- **[§8](09-pendientes.md) — el año se queda viejo mientras la sesión sigue
+  abierta.** No es de acudientes: el login repara `users.periodo_id`, pero nada lo
+  mueve con la sesión ya abierta. Decidir si se arregla **en general** o endpoint a
+  endpoint.
+- **[§9](09-pendientes.md) — el personal ve la ficha de cualquiera por su nombre
+  de usuario.** Es la decisión del 21 ago funcionando; lo que nadie llegó a
+  preguntarse es qué debe ver un **docente**. **Pasan 43 cuentas y sólo 10 son
+  Admin**; para las otras 33 no hay pantalla que lleve ahí.
+- **[§10](09-pendientes.md) — `GET api/contratos`. RECORTADO, y la decisión era
+  tuya.** Entregaba el domicilio y el móvil de los dieciséis docentes a cualquier
+  alumno. El §5 reservaba «qué columnas se recortan» y la tomé con la medición
+  delante —los once consumidores leen id, nombre, foto y `user_id`—. **Sin
+  desplegar; revertirlo es un commit.**
 
 ---
 
