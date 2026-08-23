@@ -1,4 +1,4 @@
-# Lote R — El boletín de una familia (§140–142 y §166)
+# Lote R — El boletín de una familia (§140–144)
 
 > Sesión `8myvc-06`, árbol `.worktrees/r`, rama `fix/lote-r-boletin-de-la-familia`,
 > base `simonbolivar_testing_r`. Noche del 22 al 23 de agosto de 2026.
@@ -7,7 +7,9 @@
 > mismo**: una familia entra, pide el boletín y recibe un error del servidor.
 
 Dos fallos distintos en los mismos dos ficheros, y los dos tapados por la misma
-cosa: **la maqueta 1 se prueba y las otras dos no**.
+cosa: **la maqueta 1 se prueba y las otras dos no**. Y un tercero, la §144, que
+no venía en el lote: salió de una anotación propia del lote J que quedó escrita
+como *candidato no medido*.
 
 ---
 
@@ -146,7 +148,7 @@ suficiente no lo era.
 
 ---
 
-## §166 — La quinta copia que hubo que revertir
+## §166 — La quinta copia que hubo que revertir, y la sospecha que era falsa
 
 `encabezado_comportamiento_boletin()` está copiada en **cinco** controladores de
 `Informes/`, así que se cambiaron las cinco. **Larastan paró la quinta**:
@@ -154,23 +156,38 @@ suficiente no lo era.
 
 Al medir por qué: **esa copia no recibe lo mismo que las otras cuatro.** Su único
 llamante (línea 209) le pasa `$alumno->nota_comportamiento_year`, que sale de
-`NotaComportamiento::notas_comportamiento_year()` y es una **lista de periodos**,
-no el objeto ni el centinela.
+`NotaComportamiento::nota_promedio_year()` y es **siempre un `(int)`** — un
+promedio, o `0` si no hay notas. Nunca es el objeto ni el centinela.
 
-Con una lista, `is_object` es **siempre falso**: el cambio habría apagado la
+Con un número, `is_object` es **siempre falso**: el cambio habría apagado la
 cabecera de comportamiento del boletín de preescolar **en silencio y con los
 tests en verde**. Revertida.
 
 > **Ampliar un arreglo a «todas las copias» sin comprobar qué recibe cada una es
 > la forma de romper la que estaba bien.**
 
-Y lo que destapó estrechar el tipo, anotado y sin tocar: esa quinta copia hace
-`$la_nota = $nota;` donde **las otras cuatro hacen `$la_nota = $nota->nota;`**, y
-ese valor se concatena en el HTML doce líneas más abajo. Es la única de las cinco
-que difiere. Con el seed de hoy las dos rutas de preescolar contestan **200**, así
-que **no está probado que reviente**.
+### Y la sospecha que salió de ahí era falsa, que es la mitad que importa
 
----
+Al revertir se anotó esto como pendiente para otro lote:
+
+> esa quinta copia hace `$la_nota = $nota;` donde las otras cuatro hacen
+> `$la_nota = $nota->nota;`, y ese valor se concatena en el HTML. Es la única de
+> las cinco que difiere.
+
+**Era falso, y se descubrió al medir de dónde viene el valor.** Con `$nota`
+siendo ya la nota —un entero—, `$la_nota = $nota;` es exactamente lo correcto:
+en las otras cuatro `$nota` es la **fila** y hay que sacarle `->nota`; aquí ya
+es la nota. La asimetría es real y **no es un fallo**.
+
+Y el aviso de larastan que la levantó lo estaba provocando **el `is_object` de
+más**, no el código de preescolar. O sea:
+
+> Un aviso del analizador que aparece **junto con tu cambio** describe tu cambio
+> hasta que se demuestre lo contrario. Se anotó como «hay un fallo latente ahí»
+> y lo que había era el arreglo mal ampliado.
+
+Se corrige aquí y no se deja anotado: **una pista falsa en la lista de otro lote
+cuesta más que no escribir nada**, porque llega con la autoridad de venir medida.
 
 ## §142 — Pedir el grupo sin la lista de alumnos es un 500 seguro
 
@@ -195,6 +212,66 @@ Cuál de las dos es una decisión, y R se abrió por el boletín de una familia.
 Con ruta y roto se documenta.
 
 ---
+
+---
+
+## §144 — Colgar en el muro del colegio la imagen privada de otro
+
+No venía en el lote: venía de **una anotación propia del lote J** que decía,
+literal, *«no afirmo que filtre: afirmo que no lo he mirado»*. Salió del barrido
+de rutas abiertas que ningún candado mira y ningún test juzga, y quedó como
+candidato porque medirla necesitaba la base y había seis `phpunit` vivos.
+
+Medida en cuanto hubo hueco, **y filtra**.
+
+### De punta a punta
+
+1. un alumno manda `imagen: {id: 5, nombre: "imagen-5.jpg"}` — esa imagen tiene
+   `publica IS NULL` y `user_id = 2`, o sea que es **de otra persona**;
+2. la fila entra tal cual: `imagen_id=5, imagen_nombre="imagen-5.jpg"`;
+3. y `publicaciones/ultimas` **le sirve ese nombre a todo el mundo**, comprobado
+   con el token de un profesor que no es el dueño.
+
+**La imagen privada de cualquiera acaba publicada en el muro del colegio sólo con
+nombrar su id.** Es la familia de la [§53](../05-codigo-muerto-y-roto.md) —donde
+`images-users/imagenes-de-usuario` soltaba 162 imágenes privadas— con una
+diferencia que la empeora: **allí se listaban, aquí se publican.**
+
+### La regla no se inventa aquí
+
+**Tuya, o pública.** Es exactamente lo que ya decide la pantalla que elige la
+imagen: `ImagesController::getIndex()` devuelve las privadas del que pregunta y,
+sólo a superusuario o profesor, las `publica = 1`. La comprobación no le quita
+ninguna opción a ningún cliente que use el selector — le quita las que el
+selector nunca le ofreció.
+
+No se reutiliza el guard `persona.propia:imagen_id`: el cuerpo trae `imagen.id`
+**anidado** y no `imagen_id`, así que el middleware no lo encontraría, y cambiar
+la forma del cuerpo es tocar el contrato de cuatro clientes por una comprobación
+que aquí cuesta cinco líneas.
+
+### Va en los dos métodos, y el segundo parecía cubierto
+
+`putGuardarEdicion` **ya llamaba** a `exigeQueLaPublicacionSeaSuya()`. Lo que no
+comprobaba es **de quién es la imagen que le pones**.
+
+> Una comprobación puesta no dice que estén puestas las que faltan.
+
+**Comprobado al revés, dos veces:**
+
+| Qué se probó | Qué cae |
+|---|---|
+| Revertido del todo | 2 de 3 |
+| **Sólo `putStore`**, dejando el hermano sin tocar | pasa el alta y cae **sólo la edición** |
+
+Y la tercera mitad, contra el 403 de más: colgar la imagen **propia** sigue
+llegando al muro, leído con otro usuario.
+
+`ImagenAjenaEnElMuroTest` · commit `0e576ec`
+
+> Lo que hace que esto exista es que el candidato se escribió **como candidato** y
+> no como hallazgo ni como silencio. Un «no lo he mirado» con nombre y ruta se
+> puede volver a coger; un hueco sin anotar, no.
 
 ## Tres veces que el test estuvo mal y el mensaje culpaba al código
 
@@ -226,8 +303,9 @@ que se regenera el seed.
 
 ### Para otros lotes
 
-- **§166**: `BolfinalesPreescolarController` es la única de las cinco copias con
-  `$la_nota = $nota;`. No está probado que reviente.
+- **§166 se retira de esta lista**: se anotó como sospecha y **se midió después
+  que era falsa** — ver arriba. No hay nada que mirar en
+  `BolfinalesPreescolarController`.
 - **`PuestosController:271`** escribe a mano `count($comportamiento) > 0 ?
   $comportamiento[0] : []`: **la misma dualidad en un séptimo sitio**, o sea que
   no es «un modelo con dos formas» sino un modismo del proyecto. No es de este

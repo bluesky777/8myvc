@@ -241,26 +241,28 @@ class BolfinalesPreescolarController extends Controller {
 			$icono = 'fa-female';
 		}
 		
-		// §166. Esta quinta copia **no se toca**, y el motivo es que no recibe lo
-		// mismo que las otras cuatro: su único llamante (línea 209) le pasa
-		// `$alumno->nota_comportamiento_year`, que sale de
-		// `NotaComportamiento::notas_comportamiento_year()` y es una **lista de
-		// periodos**, no el objeto ni el centinela `["notas_finales" => []]` de
-		// la §141. Aquí no hay array truthy que distinguir.
+		// §166. Esta quinta copia **no se toca, y no hay nada que arreglar aquí**.
 		//
-		// Se llegó a cambiar a `is_object($nota)` al arreglar las otras cuatro, y
-		// se revirtió al medir: con una lista, `is_object` es SIEMPRE falso, así
-		// que habría apagado la cabecera de comportamiento del boletín de
-		// preescolar **en silencio y con los tests en verde**. Ampliar un arreglo
-		// a «todas las copias» sin comprobar qué recibe cada una es la forma de
-		// romper la que estaba bien.
+		// Se llegó a cambiarla a `is_object($nota)` al arreglar las otras cuatro
+		// —la §141, el centinela `["notas_finales" => []]`— y se revirtió. El
+		// motivo: **no recibe lo mismo que ellas.** Su único llamante (línea 209)
+		// le pasa `$alumno->nota_comportamiento_year`, que sale de
+		// `NotaComportamiento::nota_promedio_year()` y es **siempre un `(int)`**
+		// —un promedio, o `0` si no hay notas—. Nunca es el objeto ni el array.
 		//
-		// Lo que sí queda pendiente, y lo señala larastan en la línea de abajo
-		// (`binaryOp.invalid`): **las otras cuatro copias hacen `$la_nota =
-		// $nota->nota;` y ésta hace `$la_nota = $nota;`**, y ese valor se
-		// concatena en el HTML doce líneas más abajo. Es la única de las cinco
-		// que difiere. Con el seed de hoy las dos rutas de preescolar contestan
-		// 200, así que no está probado que reviente: se anota y no se toca.
+		// Con un número, `is_object` es siempre falso: el cambio habría apagado
+		// la cabecera de comportamiento del boletín de preescolar **en silencio
+		// y con los tests en verde**.
+		//
+		// Y por lo mismo, `$la_nota = $nota;` de ocho líneas más abajo **está
+		// bien**, aunque las otras cuatro copias digan `$la_nota = $nota->nota;`:
+		// allí `$nota` es la fila y aquí ya es la nota. La asimetría es real y no
+		// es un fallo — se anotó como sospecha al ver el aviso `binaryOp.invalid`
+		// de larastan, y ese aviso lo estaba provocando el `is_object` de más, no
+		// el código de aquí.
+		//
+		// **Ampliar un arreglo a «todas las copias» sin comprobar qué recibe cada
+		// una es la forma de romper la que estaba bien.**
 		if ($nota) {
 			$clase 		= '';
 			$la_nota 	= '';
