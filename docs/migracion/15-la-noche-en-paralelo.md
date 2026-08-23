@@ -690,3 +690,17 @@ cayó al mirarla.
     los dos patrones da cero. Un cero solo significa algo si la herramienta
     enseña que **falla cuando hay algo que encontrar**: se le pone delante un
     `§999` inventado y se mira que salga.
+25. **Y lo que hace caro a un error de medición no es su tamaño: es su
+    verosimilitud.** El mismo bug de patrón dio dos números esa noche. Uno dio
+    **415 secciones** y murió en la corrida en que nació: nadie se cree 415. El
+    otro dio **75**, sobrevivió una noche entera, se publicó, se «corrigió» a 74 y
+    lo confirmaron dos sesiones desde dos lados. **Un 415 se defiende solo; un 75
+    hay que ir a buscarlo.** Cuando un número sale plausible a la primera es
+    cuando más falta hace correr el comando otra vez.
+26. **Un patrón ancho y uno estrecho son dos maneras de equivocarse mientras no
+    reconozcan la estructura del sitio donde buscan.** Las dos regex de esa noche
+    leían **la línea**; un encabezado no es una línea, es **un identificador y un
+    título separados por un guion largo con espacios** — y el guion de un rango va
+    pegado (`§125–126`). Partir por ahí y buscar solo en el identificador arregla
+    las dos a la vez. **Calibrar el ancho no era la salida: era elegir en qué
+    dirección fallar.**

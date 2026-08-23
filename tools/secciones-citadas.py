@@ -6,7 +6,7 @@ Qué §§ cita el código y no existen en la documentación.
     python3 tools/secciones-citadas.py --todas    # y de dónde sale cada cita
 
 Existe porque **los comentarios de este repo citan secciones de `docs/` por su
-número** —1.239 citas a 226 secciones distintas, medido el 23 ago 2026— y esas
+número** —1.254 citas a 227 secciones distintas, medido el 23 ago 2026— y esas
 citas son la única forma de saber por qué un guard está donde está. Renumerar una
 sección en `docs/` deja atrás las que la citaban desde `app/`, y ahí no las mira
 nadie: **un índice desalineado lo caza quien recorre el índice; un `// §144`
@@ -22,8 +22,13 @@ Salió de un caso real: la noche del 22 al 23 de agosto un `§144` se movió al
 `PublicacionesController`. Salió bien porque quien renumeró se acordó.
 
 ─────────────────────────────────────────────────────────────────────────────
-LAS TRES TRAMPAS DEL PATRÓN, y las tres costaron un número publicado:
+LAS CUATRO TRAMPAS DEL PATRÓN, y las cuatro costaron un número publicado:
 
+0. **Un encabezado no es una línea: es un identificador y un título.** Buscar el
+   número en la línea entera lee `## §140 — 500 en vez del boletín` como el rango
+   140–500: **361 secciones fantasma y un «cero huérfanas» que parecía limpio.**
+   Ver `identificador()`. Va primera porque es la que **tapa a las otras tres**:
+   con ella puesta, ninguna huérfana llega a salir.
 1. **Un encabezado puede declarar un rango**: `## §125–126 — Lo medido…` declara
    **dos**. Un patrón que solo lee el primer número deja el §126 fuera y lo
    publica como «hueco que nadie usó». Pasó, y lo peor no fue el fallo: fue que
@@ -69,6 +74,21 @@ DECLARA_SIN_SIMBOLO = re.compile(r'^#{2,}\s*(\d+(?:\.\d+)*)[.\s—–-]')
 CITA = re.compile(r'§\s?(\d+(?:\.\d+)*)')
 
 
+def identificador(cabecera):
+    """La mitad del encabezado que numera, sin el título.
+
+    **Un encabezado no es una línea: es un identificador y un título, separados
+    por un guion largo con espacios.** Buscar el número en la línea entera es lo
+    que hace que `## §140 — 500 en vez del boletín` se lea como el rango
+    140–500 — **361 secciones fantasma, y un «cero huérfanas» que parecía
+    limpio**. Pasó aquí, en la primera versión de esto.
+
+    El guion de un rango va **pegado** (`§125–126`) y el que separa el título va
+    **con espacios** (`§140 — 500…`). Esa es toda la diferencia, y basta.
+    """
+    return re.split(r'\s+[—–-]\s+', cabecera, maxsplit=1)[0]
+
+
 def normaliza(n):
     """`08` y `8` son el mismo; `112.1` conserva su padre."""
     partes = n.split('.')
@@ -85,14 +105,15 @@ def declaradas():
             for i, linea in enumerate(open(ruta, encoding='utf-8', errors='replace'), 1):
                 if not linea.startswith('#'):
                     continue
-                m = DECLARA.match(linea)
+                cabecera = identificador(linea)
+                m = DECLARA.match(cabecera)
                 if m:
                     desde = int(m.group(1))
                     hasta = int(m.group(2)) if m.group(2) else desde
                     for n in range(desde, hasta + 1):
                         vistas.setdefault(str(n), []).append(f'{ruta}:{i}')
                     continue
-                m = DECLARA_SIN_SIMBOLO.match(linea)
+                m = DECLARA_SIN_SIMBOLO.match(cabecera)
                 if m:
                     vistas.setdefault(normaliza(m.group(1)), []).append(f'{ruta}:{i}')
     return vistas
