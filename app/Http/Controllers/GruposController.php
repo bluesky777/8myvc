@@ -661,9 +661,36 @@ class GruposController extends Controller {
 
 
 
+	/**
+	 * Manda un grupo a la papelera. La mitad que faltaba — §100.
+	 *
+	 * De las cuatro operaciones de papelera de un grupo, `forcedelete` y
+	 * `restore` piden superusuario desde la §28.4 y la §76, y **las dos que
+	 * mandan a la papelera se habían quedado con `auth.personal` a secas**: ésta y
+	 * su duplicada `perfiles/destroy`, que es la misma línea bajo otra URL. Es el
+	 * §97 por tercera vez esta noche: la pareja se cierra entera o no se cierra.
+	 *
+	 * Y aquí el aviso llevaba escrito desde antes, en dos sitios a la vez —el
+	 * docblock del `forcedelete` de `PerfilesController` y la cabecera de
+	 * `PerfilesApi.ts` en el front—, los dos diciendo que cerrar una sola no cierra
+	 * nada. **Un aviso en prosa no defiende**: por eso esto va con su test.
+	 *
+	 * Nadie pierde un botón que hoy vea: la X de la rejilla de grupos
+	 * (`GruposCtrl.eliminar`) vive en «Editar Grupos», que el menú del front
+	 * enseña con `hasRoleOrPerm(['admin'])`, y los diez `Admin` son exactamente
+	 * los diez `is_superuser` (§28.4). Y no se sube a `esAdministrativo` porque
+	 * crear un rol no regala permisos: el alcance del Secretario no nombra dar de
+	 * baja un grupo.
+	 *
+	 * **Población cerrada: las dos.** `perfiles/destroy` en el mismo commit.
+	 */
 	public function deleteDestroy($id)
 	{
 		$user = User::fromToken();
+
+		Autoriza::exigir(Autoriza::esSuperusuario($user),
+			'No tienes permiso para eliminar grupos.');
+
 		$grupo = Grupo::findOrFail($id);
 		$grupo->deleted_by = $user->user_id;
 		$grupo->save();

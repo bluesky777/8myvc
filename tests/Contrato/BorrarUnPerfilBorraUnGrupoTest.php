@@ -85,26 +85,51 @@ class BorrarUnPerfilBorraUnGrupoTest extends CasoDeContrato
     }
 
     /**
-     * La gemela sigue abierta, y se fija para que se vea.
+     * Y la gemela, que era la mitad de verdad — cerrada en el mismo commit.
      *
-     * `grupos/destroy` hace exactamente lo mismo —`Grupo::find($id)->delete()`,
-     * con `auth.personal` y sin autorización— y **`GruposController` no es de
-     * este lote**: se anota y no se toca, que es la regla. Este test es la prueba
-     * de que cerrar una mitad no cierra la operación, escrita en verde para que
-     * el día que se cierre la otra alguien tenga que venir aquí a borrarlo.
+     * `grupos/destroy` hace exactamente lo mismo: `Grupo::find($id)->delete()`
+     * con `auth.personal` y sin autorización. **De las cuatro operaciones de
+     * papelera de un grupo, las dos que borran estaban abiertas y las dos que
+     * deshacen pedían superusuario** — la pareja al revés de como suele salir.
+     *
+     * Hasta el 23 ago 2026 aquí había un test EN VERDE afirmando que seguía
+     * abierta, escrito para que quien la cerrara tuviera que venir a borrarlo.
+     * Esto es lo que lo sustituye, que es como se cierra una población: no
+     * quitando el test, cambiándole el valor esperado.
      */
-    public function test_la_gemela_de_grupos_sigue_abierta_a_cualquier_profesor(): void
+    public function test_la_gemela_de_grupos_tambien_esta_cerrada(): void
     {
         $token = $this->tokenDe($this->usuarioDeTipo('Profesor')->username);
 
         $grupo = DB::selectOne('SELECT id FROM grupos WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
 
-        $this->assertSame(200,
+        $this->assertSame(403,
             $this->withToken($token)->deleteJson('/api/grupos/destroy/'.$grupo->id, [])->status(),
-            'Se cerró `grupos/destroy`: quita este test y anótalo, que es la mitad que faltaba.');
+            'Un profesor cualquiera mandó un grupo a la papelera por `grupos/destroy` — §100.');
 
-        $this->assertNotNull(DB::table('grupos')->where('id', $grupo->id)->value('deleted_at'),
-            'Contestó 200 y no lo mandó a la papelera.');
+        $this->assertNull(DB::table('grupos')->where('id', $grupo->id)->value('deleted_at'),
+            'El rechazo borró el grupo antes de contestar que no.');
+    }
+
+    /**
+     * Y el superusuario sigue borrando por las dos puertas.
+     *
+     * Sin esto, los dos `abort(403)` darían verde arriba y habrían apagado la X
+     * de la rejilla de grupos para los diez que la usan.
+     */
+    public function test_el_superusuario_sigue_borrando_por_las_dos_puertas(): void
+    {
+        $jefe = $this->tokenDeUnSuperusuario();
+
+        foreach (['perfiles', 'grupos'] as $puerta) {
+            $grupo = DB::selectOne('SELECT id FROM grupos WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+
+            $this->withToken($jefe)->deleteJson('/api/'.$puerta.'/destroy/'.$grupo->id, [])
+                ->assertStatus(200);
+
+            $this->assertNotNull(DB::table('grupos')->where('id', $grupo->id)->value('deleted_at'),
+                "`{$puerta}/destroy` contestó 200 y no mandó el grupo a la papelera.");
+        }
     }
 
     /** Igual que en `PapeleraRestaurarTest`: por la columna, que es lo que el código pregunta. */
