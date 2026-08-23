@@ -305,5 +305,31 @@ veces esta noche**:
 7. **Cuando una serie se dé por agotada porque su herramienta «solo da un sitio»,
    escribir de qué definición está agotada.** No es lo mismo «no quedan» que «no
    quedan de la forma que sé ver».
+8. **Leer la cabecera del instrumento antes de correrlo.** Dos sesiones tomaron el
+   límite declarado de uno por un defecto, con veinte minutos de diferencia. **Un
+   instrumento que declara su alcance no tiene un hueco: tiene un límite**, y el
+   sitio donde lo declara es el que no se lee con prisa.
+9. **Sellar todo número que esté en una cabecera** con el commit contra el que se
+   midió. Un total sellado deja de ser una afirmación y pasa a ser una medición con
+   fecha: **si un día no cuadra, se ve que es viejo en vez de parecer falso**. Esta
+   misma noche dos totales de estos documentos envejecieron sin avisar.
+10. **Un documento permanente no puede decir «hoy».** «Esta noche» en un fichero
+    que acumula noches no se puede resolver — y es más difícil de ver que un número
+    raro, porque **un número raro se nota y un «hoy» no**.
+11. **Marcar qué mitad de una salida hay que ignorar, en la propia salida.** Una
+    comprobación que necesita saberlo y no lo dice fabrica la forma 4 ella sola: el
+    lector que desconfía **tiene razón en desconfiar**, porque no le diste con qué
+    distinguir.
+
+### Y la que no es una regla sino el saldo
+
+**Ninguna de estas once se evita sabiéndosela.** Este documento estaba escrito y
+firmado cuando su propia autora repitió tres de las formas que describe: un `grep`
+sin contexto una hora después de quitarle esa ceguera a un detector, un bucle que
+dijo «doce de doce» mientras auditaba, y dos totales de cabecera que no volvió a
+sumar.
+
+> Lo que las evita no es el conocimiento: es **el hábito de pedirle al instrumento
+> que enseñe el caso concreto** antes de creerse el resumen.
 
 ---
