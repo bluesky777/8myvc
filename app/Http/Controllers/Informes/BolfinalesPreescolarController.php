@@ -241,7 +241,7 @@ class BolfinalesPreescolarController extends Controller {
 			$icono = 'fa-female';
 		}
 		
-		// §143. Esta quinta copia **no se toca**, y el motivo es que no recibe lo
+		// §166. Esta quinta copia **no se toca**, y el motivo es que no recibe lo
 		// mismo que las otras cuatro: su único llamante (línea 209) le pasa
 		// `$alumno->nota_comportamiento_year`, que sale de
 		// `NotaComportamiento::notas_comportamiento_year()` y es una **lista de

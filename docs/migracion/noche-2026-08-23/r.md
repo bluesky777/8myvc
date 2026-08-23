@@ -146,7 +146,7 @@ suficiente no lo era.
 
 ---
 
-## §143 — La quinta copia que hubo que revertir
+## §166 — La quinta copia que hubo que revertir
 
 `encabezado_comportamiento_boletin()` está copiada en **cinco** controladores de
 `Informes/`, así que se cambiaron las cinco. **Larastan paró la quinta**:
@@ -226,7 +226,7 @@ que se regenera el seed.
 
 ### Para otros lotes
 
-- **§143**: `BolfinalesPreescolarController` es la única de las cinco copias con
+- **§166**: `BolfinalesPreescolarController` es la única de las cinco copias con
   `$la_nota = $nota;`. No está probado que reviente.
 - **`PuestosController:271`** escribe a mano `count($comportamiento) > 0 ?
   $comportamiento[0] : []`: **la misma dualidad en un séptimo sitio**, o sea que
