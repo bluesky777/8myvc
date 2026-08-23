@@ -2,6 +2,7 @@
 
 namespace Tests\Contrato;
 
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -92,7 +93,7 @@ class PedidoDeCambioLaHoraTest extends CasoDeContrato
         $token = $this->tokenDeSuperusuario();
         $pedido = $this->unPedidoSinNadaPendiente();
 
-        $ahora = \Carbon\Carbon::now('America/Bogota');
+        $ahora = Carbon::now('America/Bogota');
 
         $r = $this->withToken($token)->putJson('/api/ChangesAsked/rechazar',
             ['asked_id' => $pedido, 'tipo' => 'sexo']);
@@ -108,7 +109,7 @@ class PedidoDeCambioLaHoraTest extends CasoDeContrato
         // secas da un instante cinco horas distinto y la comparación fallaría por
         // la zona en vez de por el formato. Las dos zonas conviven a propósito
         // hasta que se unifiquen (09 §2), y este test no es el sitio de decidirlo.
-        $leida = \Carbon\Carbon::parse($guardado, 'America/Bogota');
+        $leida = Carbon::parse($guardado, 'America/Bogota');
 
         $this->assertSame($ahora->format('Y-m-d H'), $leida->format('Y-m-d H'),
             'El día y la hora tienen que coincidir.');
