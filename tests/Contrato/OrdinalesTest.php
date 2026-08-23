@@ -309,14 +309,21 @@ class OrdinalesTest extends CasoDeContrato
     }
 
     /**
-     * §87.4 — Y borrarlo deja la falta en pie, sin el artículo que citaba.
+     * §87.4 — Un ordinal citado por una falta ya no se borra: 422, y la falta
+     * conserva su artículo.
      *
-     * El `LEFT JOIN` de `Models\Disciplina` lleva `o.deleted_at is null`: la falta
-     * **sigue saliendo** y los tres campos del artículo vienen en null. Es la misma
-     * forma que borrar un grado (§70) — se lleva por delante algo que no se nombra
-     * en ninguna pantalla— y como aquella **espera decisión**: aquí solo se fija.
+     * Este test medía el daño y hoy mide que la puerta está cerrada. Lo que medía:
+     * el `LEFT JOIN` de `Models\Disciplina` lleva `o.deleted_at is null`, así que
+     * al borrar el ordinal la falta **seguía saliendo en el observador del alumno**
+     * con `ordinal`, `descrip_ord` y `pagina` en null. Por la regla de la §70.2 eso
+     * es «un hueco visible» y no «esconder la fila» — pero **aquí el hueco es el
+     * contenido**: una falta sin su artículo ya no dice qué norma se incumplió, y
+     * es un registro disciplinario de un menor.
+     *
+     * **Joseth, 23 ago 2026: se impide, y el aviso dice cuántas dependen.** Las dos
+     * mitades: que corta con 422 **y que el alumno sigue viendo su artículo**.
      */
-    public function test_borrar_un_ordinal_deja_la_falta_sin_el_articulo_que_citaba(): void
+    public function test_un_ordinal_citado_por_una_falta_no_se_borra(): void
     {
         [$token, $year] = $this->contextoDelPersonal();
         [$tokenAlumno, $ctx] = $this->alumnoConSuFalta($token, $year);
@@ -324,17 +331,18 @@ class OrdinalesTest extends CasoDeContrato
         $this->assertSame('Artículo 12', $this->situacionesDelAlumno($tokenAlumno)[0]['ordinal']);
 
         $this->withToken($token)->putJson('/api/ordinales/destroy', ['ordinal_id' => $ctx['ordinal']])
-            ->assertStatus(200)->assertSee('Eliminado');
+            ->assertStatus(422);
+
+        $this->assertNull(DB::table('dis_ordinales')->where('id', $ctx['ordinal'])->value('deleted_at'),
+            'Contestó 422 y aun así borró el ordinal.');
 
         $situaciones = $this->situacionesDelAlumno($tokenAlumno);
 
-        $this->assertCount(1, $situaciones, 'La falta no desaparece: el JOIN del artículo es LEFT.');
+        $this->assertCount(1, $situaciones);
         $this->assertSame($ctx['proceso'], (int) $situaciones[0]['id']);
-        $this->assertNull($situaciones[0]['ordinal'], 'Y se queda sin el artículo que citaba.');
-        $this->assertNull($situaciones[0]['descrip_ord']);
-        $this->assertNull($situaciones[0]['pagina']);
+        $this->assertSame('Artículo 12', $situaciones[0]['ordinal'],
+            'La falta perdió su artículo: el 422 llegó después de borrar.');
 
-        // La fila del enlace sigue viva: lo que se perdió es a qué apunta.
         $this->assertSame(1, DB::table('dis_proceso_ordinales')
             ->where('proceso_id', $ctx['proceso'])->whereNull('deleted_at')->count());
     }

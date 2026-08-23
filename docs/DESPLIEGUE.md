@@ -30,6 +30,31 @@ ahora mismo, y va abajo el primero.
 > [referencia](DESPLIEGUE-REFERENCIA.md)—. Si no llegó, **ésta la incluye**: su
 > lista se conserva entera más abajo y hay que leer las dos antes de avisar.
 
+### Y tres decisiones de Joseth aplicadas el 23 ago, que van en esta misma tanda
+
+Entran después de la noche y **se notan más que casi todo lo de abajo**, así que
+van primero:
+
+- **Cambiar las claves de un grupo entero pasa a pedir superusuario.** `PUT
+  alumnos/cambiar-claves` reescribía las contraseñas de todos los alumnos de un
+  grupo con `auth.personal` y nada más. **No le quita el botón a nadie**: el panel
+  «Cambiar claves y usuarios» vive en un menú `hasRoleOrPerm(['admin',
+  'secretario'])`, y hoy hay 10 `is_superuser`, los mismos 10 con rol `Admin` y
+  **cero `Secretario`**. Un profesor que llegara por API recibe 403.
+- **Borrar un grado que tiene grupos deja de poder hacerse — 422 con la cuenta.**
+  Antes apagaba la planilla de todos los profesores de ese grado sin decir nada y
+  sin forma de deshacerlo. **Esto sí se nota y hay que avisar**: en la copia de
+  producción lo bloquearía en **13 de los 14 grados**, o sea que quien tenga la
+  costumbre de borrar grados se va a encontrar el aviso. El mensaje dice cuántos
+  grupos dependen.
+- **Borrar un ordinal del manual de convivencia que alguna falta cite, igual —
+  422.** Antes la falta se quedaba en el observador del alumno **sin el artículo
+  que dice qué se incumplió**. Bloquearía **7 de los 16** ordinales vivos.
+
+> **Lo que NO cambia**, por si alguien lo pregunta: borrar frases del banco, tipos
+> de documento y ciudades sigue funcionando igual — ahí el hijo no pierde nada, y
+> está medido en el [09](migracion/09-pendientes.md).
+
 ### Lo que hay que avisar antes de desplegar
 
 Son tres, y las tres se notan el primer día:

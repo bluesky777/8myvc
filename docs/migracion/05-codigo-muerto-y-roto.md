@@ -6616,7 +6616,24 @@ vacío, a la vista.
 > **Con `left join` la papelera deja un hueco; con `inner join` esconde la fila
 > entera.** Mismo gesto, misma columna, dos consecuencias.
 
-### 70.3 El tamaño, que es lo que hay que decidir
+### 70.3 El tamaño, que es lo que hay que decidir — **DECIDIDO Y APLICADO el 23 ago 2026**
+
+> **Joseth: se impide, y el aviso dice cuántos grupos dependen.** De las dos
+> salidas que se plantean abajo se tomó la primera. Está en
+> `App\Support\CatalogoEnUso` y fijado por `BorrarUnCatalogoEnUsoTest`, con **las
+> dos mitades**: que corta con 422 *y que no escribe*, y que un grado **sin**
+> grupos se sigue borrando — sin esa segunda, un candado que bloquea siempre
+> pasaría por arreglo.
+>
+> **No se aplicó a los demás catálogos, y eso es la parte que hay que leer**: la
+> regla de la §70.2 tiene una segunda mitad que salió al mirar los seis —**no es
+> sólo el tipo de `join`, es si lo que desaparece era el sentido de la fila
+> hija**—. `definiciones_comportamiento` guarda `frase_id` **y `frase`**, con el
+> texto ya copiado, así que bloquear `frases` dejaría **235 de 426** sin poder
+> retirar del banco a cambio de nada. `niveles_educativos`, `areas` y `materias`
+> tienen la misma forma que `grados` y **están sin aplicar a propósito**: bloquear
+> niveles dejaría **4 de 4** sin poder borrarse nunca. Las cuentas están en el 09.
+
 
 Un clic en «eliminar» de la pantalla de grados **apaga la planilla de todos los
 profesores de ese grado**: no ven asignaturas, así que no pueden poner notas. Y no

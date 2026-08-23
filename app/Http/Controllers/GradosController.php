@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\DB;
 
 use App\Support\CamposQueVinieron;
+use App\Support\CatalogoEnUso;
 use App\User;
 use App\Models\NivelEducativo;
 use App\Models\Grado;
@@ -104,9 +105,28 @@ class GradosController extends Controller {
 	}
 
 
+	/**
+	 * §70.3 — mandar un grado a la papelera **apagaba la planilla de todos los
+	 * profesores de ese grado**, sin decir nada y sin forma de deshacerlo.
+	 *
+	 * Lo medido: `Profesor::asignaturas` une por `inner join grados … and
+	 * gr.deleted_at is null`, así que al borrar el grado el profesor **deja de ver
+	 * sus asignaturas y no puede poner notas**; mientras tanto la rejilla de
+	 * `GruposController` une por el mismo grado **sin ese filtro**, así que desde
+	 * administración el grupo sigue apareciendo y no se ve nada raro. Y este
+	 * controlador **no tiene `restore`**: se arregla entrando a la base.
+	 *
+	 * **Joseth, 23 ago 2026: se impide, y el aviso dice cuántos grupos dependen.**
+	 * Hoy lo bloquearía en 13 de los 14 grados vivos de la copia de producción —el
+	 * decimocuarto no tiene grupos—, que es otra forma de decir que **esta ruta
+	 * casi nunca se podía llamar sin romper algo.**
+	 */
 	public function deleteDestroy($id)
 	{
 		$grado = Grado::findOrFail($id);
+
+		CatalogoEnUso::exigirQueNadieApunte('grupos', 'grado_id', $grado->id, 'grupos');
+
 		$grado->delete();
 
 		return 'Eliminado';
