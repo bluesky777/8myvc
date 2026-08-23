@@ -37,7 +37,7 @@ desaparecen, duplicadas, y notas puestas que no aparecen— y son el mismo probl
 
 | | |
 |---|---|
-| **Fase 0** — medir | **hecha.** `tools/salud-de-las-definitivas.php`, sólo SELECT. Medido en un colegio: **11.988 definitivas que deberían existir y no existen**, 718 que discrepan teniendo notas detrás, 1 duplicado |
+| **Fase 0** — medir | **hecha**, y la herramienta **corregida el 24 ago** (medía de menos: ver abajo). `tools/salud-de-las-definitivas.php`, sólo SELECT. Medido en un colegio: **11.988 definitivas que deberían existir y no existen**, 718 que discrepan teniendo notas detrás, 1 duplicado |
 | **Fase 1** — recalculador único | **escrita y probada.** `App\Services\DefinitivasDeAsignatura`, 14 tests de ida y vuelta. **Cableada sólo en el boletín** |
 
 ### La fase 3 — hecha el 24 ago 2026
@@ -65,12 +65,33 @@ otra vez los `INSERT INTO notas_finales`: **ninguno alcanzable queda sin guarda.
 | `NotaFinal::alumnos_grupo_nota_final` (4) | **cerrados el 24 ago** — sustituidos por el servicio |
 | `Alumnos/Definitivas:53,83` | **sin guarda pero inalcanzables**: uno responde 410 antes de llegar, al otro no lo llama nadie. La fase 5 borra la clase entera |
 
+### La herramienta de la fase 0 medía de menos — arreglado el 24 ago
+
+Antes de que ese `for` salga hacia los dieciséis colegios, había que arreglarlo:
+sus bloques 1 y 2 contaban duplicados **dentro del alcance mirado** (con
+`--year`, filtrando `deleted_at`, exigiendo que la subunidad siguiera viva) y **un
+índice único mira la tabla entera**. `notas` usa SoftDeletes, hay **35.796 notas
+colgando de subunidades borradas** sólo en esta base, y `asignaturas.grupo_id` no
+tiene clave foránea. Los tres caminos dejaban fuera filas que el `ALTER TABLE` sí
+encuentra: un colegio podía leer *«se puede poner el índice sin limpiar nada»* y
+que fallara igual.
+
+Ahora los dos bloques dan **dos números** —el de la tabla entera, que es la
+condición de entrada, y el del alcance, que dice a cuántas definitivas cambia
+limpiar— y avisan cuando difieren. En esta base coinciden (1 y 2); que coincidan
+es suerte de esta base, no del esquema. Está detallado en el
+[10](10-definitivas.md), en la fase 0.
+
+**No cambia el orden ni desbloquea nada**: la fase 2 sigue esperando los dieciséis
+números. Lo que cambia es que ahora contestan la pregunta correcta a la primera.
+
 ### Lo siguiente
 
 1. **La fase 2**: la migración con los dos índices únicos, la limpieza de
    duplicados y el relleno de las que faltan. **Necesita antes los dieciséis
-   números de la fase 0** — la herramienta está, hay que correrla en el servidor,
-   y es un `for` de una línea que está escrito en el 10.
+   números de la fase 0** — la herramienta está **y ya mide bien**, hay que
+   correrla en el servidor, y es un `for` de una línea que está escrito en el 10.
+   La limpieza de `notas` va **sobre la tabla entera**, no sobre las filas vivas.
 2. **La fase 4 es del front** y no de aquí: revertir el valor cuando falla el
    guardado y no perder la última nota tecleada. *El arreglo de más valor por
    línea de todo el plan.*

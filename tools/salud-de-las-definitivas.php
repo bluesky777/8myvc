@@ -13,8 +13,17 @@
  *
  * Lo que esto contesta es **si el arreglo hay que acompañarlo de una corrección
  * de datos y de qué tamaño**. Las fases 1 y 2 se despliegan juntas, y la 2 pone
- * un índice único: mientras haya duplicados vivos, ese índice convierte cada uno
- * en un 500. O sea que este número no es informativo, es la condición de entrada.
+ * un índice único: mientras queden duplicados, ese índice convierte cada uno en
+ * un 500. O sea que este número no es informativo, es la condición de entrada.
+ *
+ * Por eso los bloques 1 y 2 dan **dos** números y no uno. El primero es el de la
+ * tabla entera —sin `--year`, sin filtrar borrados, sin joins—, porque es lo que
+ * el `ALTER TABLE` va a encontrar: un índice único no sabe de años, ni de
+ * `deleted_at`, ni de si la subunidad de esa nota sigue viva. El segundo es el
+ * del alcance mirado, que es el que dice **a cuántas definitivas cambia**
+ * limpiar. Se separaron el 24 ago 2026, antes de correrlo en los dieciséis:
+ * mezclados, la herramienta podía decir «se puede poner el índice sin limpiar
+ * nada» y el índice fallar igual.
  *
  * Uso (dentro del contenedor):
  *
@@ -156,19 +165,50 @@ foreach ($duplicados as $d) {
     }
 }
 
+// Y aparte, lo que el `ALTER TABLE` va a rechazar de verdad — que **no** es el
+// conteo de arriba. Aquélla lleva `--year` y dos INNER JOIN, y un índice único
+// no sabe de años ni de joins: es de la tabla entera. Además
+// `asignaturas.grupo_id` **no tiene clave foránea** —está así en el volcado—,
+// así que una asignatura cuyo grupo ya no exista se cae del INNER JOIN y sus
+// duplicados no se cuentan, pero el índice sí los encuentra. Aquí no pasa (0
+// asignaturas huérfanas el 24 ago), y ése es justo el motivo de medirlo en los
+// dieciséis en vez de suponerlo.
+//
+// Las filas con alguna clave a NULL se excluyen porque MySQL admite NULL
+// repetido en un índice único: no bloquean nada.
+$duplicadosTabla = (int) DB::selectOne(
+    'SELECT COUNT(*) AS n FROM (
+        SELECT alumno_id, asignatura_id, periodo_id
+          FROM notas_finales
+         WHERE alumno_id IS NOT NULL
+           AND asignatura_id IS NOT NULL
+           AND periodo_id IS NOT NULL
+         GROUP BY alumno_id, asignatura_id, periodo_id
+        HAVING COUNT(*) > 1
+     ) t'
+)->n;
+
+$fueraDelAlcance = $duplicadosTabla - count($duplicados);
+
 bloqueDeSalud(
     '1. Definitivas duplicadas — (alumno, asignatura, periodo) con más de una fila',
-    count($duplicados),
-    'combinaciones duplicadas · '.
+    $duplicadosTabla,
+    'combinaciones que el índice único rechazaría, en la tabla entera · '.
+        'en el alcance mirado: '.count($duplicados).' · '.
         "auto+auto: {$porTipo['auto+auto']} · ".
         "auto+manual: {$porTipo['auto+manual']} · ".
         "manual+manual: {$porTipo['manual+manual']}",
     array_map(fn ($d) => (array) $d, $duplicados),
-    $duplicados === []
+    $duplicadosTabla === 0
         ? 'La clave única de la fase 2 se puede poner sin limpiar nada.'
         : 'Hay que limpiarlos ANTES del índice único de la fase 2, o cada uno '.
           'de estos se convierte en un 500. Los `manual+manual` son los únicos '.
-          'que necesitan el desempate por `id` de la §9.2.'
+          'que necesitan el desempate por `id` de la §9.2.'.
+          ($fueraDelAlcance > 0
+              ? " Y {$fueraDelAlcance} de ellos NO salen en el reparto por tipo ".
+                'ni en el detalle: el reparto va por el alcance mirado y el '.
+                'índice va por la tabla entera. Ésos hay que limpiarlos igual.'
+              : '')
 );
 
 // ---------------------------------------------------------------------------
@@ -197,15 +237,42 @@ foreach ($notasDup as $n) {
     }
 }
 
+// Lo mismo que en el bloque 1, y aquí el hueco es mayor: la consulta de arriba
+// pide `n.deleted_at IS NULL` y que la subunidad y la unidad estén vivas, y el
+// índice único no pide nada de eso. `notas` usa SoftDeletes —el modelo lo
+// declara—, o sea que una fila borrada sigue en la tabla y sigue chocando; y
+// bajo subunidades borradas hay **35.796 notas** sólo en esta base. Que aquí los
+// dos números coincidan es suerte de esta base, no una propiedad del esquema.
+//
+// `subunidad_id` y `alumno_id` son NOT NULL en el volcado, así que no hay filas
+// que escapen por NULL como en el bloque 1.
+$notasDupTabla = (int) DB::selectOne(
+    'SELECT COUNT(*) AS n FROM (
+        SELECT subunidad_id, alumno_id
+          FROM notas
+         GROUP BY subunidad_id, alumno_id
+        HAVING COUNT(*) > 1
+     ) t'
+)->n;
+
+$notasFueraDelAlcance = $notasDupTabla - count($notasDup);
+
 bloqueDeSalud(
-    '2. Notas duplicadas — (subunidad, alumno) con más de una nota viva',
-    count($notasDup),
-    "combinaciones duplicadas · con valores distintos entre sí: {$discrepan}",
+    '2. Notas duplicadas — (subunidad, alumno) con más de una nota',
+    $notasDupTabla,
+    'combinaciones que el índice único rechazaría, en la tabla entera · '.
+        'vivas y bajo estructura viva: '.count($notasDup).
+        " · con valores distintos entre sí: {$discrepan}",
     array_map(fn ($n) => (array) $n, $notasDup),
-    $notasDup === []
-        ? ''
+    $notasDupTabla === 0
+        ? 'La clave única de la fase 2 se puede poner sin limpiar nada.'
         : 'Las que tienen valores distintos son las que cambian la definitiva al '.
-          'limpiarlas: hoy las dos cuentan en la suma. Gana la más alta (§9.2).'
+          'limpiarlas: hoy las dos cuentan en la suma. Gana la más alta (§9.2).'.
+          ($notasFueraDelAlcance > 0
+              ? " Las otras {$notasFueraDelAlcance} están borradas o cuelgan de ".
+                'una subunidad borrada: no cambian ninguna definitiva, pero '.
+                'bloquean el índice igual y hay que limpiarlas también.'
+              : '')
 );
 
 // ---------------------------------------------------------------------------

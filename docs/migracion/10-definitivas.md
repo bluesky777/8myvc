@@ -457,8 +457,8 @@ segundos:
 
 | # | Qué | Cuántos |
 |---|---|---|
-| 1 | definitivas duplicadas | **1** (auto+auto) |
-| 2 | notas duplicadas vivas | **2**, ninguna con valores distintos |
+| 1 | definitivas duplicadas | **1** (auto+auto) — y 1 en la tabla entera |
+| 2 | notas duplicadas | **2**, ninguna con valores distintos — y 2 en la tabla entera |
 | 3 | definitivas que deberían existir y no existen | **11.988** de 132.865 |
 | 3.1 | automáticas que discrepan del cálculo teniendo notas detrás | **718** |
 | — | automáticas en 0 sin ninguna nota detrás | 1.073 |
@@ -506,6 +506,38 @@ cero y ninguna lleva un id.
 La diferencia importa para la limpieza: **no hay ningún `user_id` que recuperar de
 ahí**. Y es el mismo `strict => false` que la [13 §1](13-actividades.md) encontró
 convirtiendo `null` en cadena vacía — dos capas que eligen callar, otra vez.
+
+#### La herramienta medía de menos, y se arregló antes de los dieciséis *(24 ago 2026)*
+
+Los bloques 1 y 2 contestaban con **el número equivocado para la pregunta que la
+fase 0 existe para contestar**. Los dos contaban duplicados dentro del alcance
+mirado —el bloque 1 con `--year` y dos `INNER JOIN`; el bloque 2 exigiendo
+`n.deleted_at IS NULL` y que la subunidad y la unidad estuvieran vivas—, y **un
+índice único no sabe de nada de eso**: mira la tabla entera. Los tres agujeros,
+medidos:
+
+- **`notas` usa SoftDeletes.** Una nota borrada sigue en la tabla y sigue
+  chocando. Comprobado con una gemela borrada metida en una transacción: el
+  conteo viejo seguía diciendo 2 y el real era 3.
+- **Las notas bajo estructura borrada no se miraban**, y son **35.796 en esta
+  base** —1.586 subunidades y 1.528 unidades borradas—. Aquí ninguna está
+  duplicada; que los dos números coincidan es suerte de esta base, no una
+  propiedad del esquema.
+- **`asignaturas.grupo_id` no tiene clave foránea** —así está en el volcado—, así
+  que una asignatura cuyo grupo ya no exista se cae del `INNER JOIN` del bloque 1
+  y sus duplicados no se cuentan. Aquí hay 0 asignaturas huérfanas; en los otros
+  quince no se sabe, que es justo el motivo de medirlo.
+
+Con la herramienta vieja, un colegio podía leer **«la clave única se puede poner
+sin limpiar nada»** y que el `ALTER TABLE` fallara igual. Ahora los dos bloques
+dan **dos números**: el de la tabla entera, que es la condición de entrada de la
+fase 2, y el del alcance mirado, que es el que dice **a cuántas definitivas
+cambia** limpiar. Los ejemplos de `--detalle` siguen siendo los del alcance, y
+cuando los dos números difieren el bloque lo dice con la diferencia delante.
+
+Importa el orden: esto se arregló **antes** de correr el `for` de abajo. Corrido
+con la herramienta vieja, los dieciséis números habrían contestado otra pregunta
+y el viaje al servidor habría que repetirlo.
 
 #### Lo que falta de esta fase, y necesita a Joseth
 
@@ -715,8 +747,20 @@ este orden y en la misma migración:
    profesor, y hoy las dos cuentan en la definitiva, así que **limpiarlas cambia
    definitivas**. Conviene correr la fase 0 justo antes para saber a cuántas
    afecta.
+
+   **Y la limpieza va sobre la tabla entera, no sobre las filas vivas.** `notas`
+   usa SoftDeletes y hay decenas de miles de filas colgando de subunidades
+   borradas; el índice único las mira todas. Una limpieza que filtre
+   `deleted_at IS NULL` deja atrás justo las que hacen fallar el `ALTER TABLE`.
+   Las borradas no cambian ninguna definitiva —el servicio no las suma—, así que
+   ahí el criterio de la §9.2 da igual: **entre gemelas borradas se queda la de
+   `id` mayor y punto**, y a la bitácora como las demás.
 3. Rellenar `periodo` donde esté NULL o desincronizado, desde `periodo_id`.
-4. `UNIQUE KEY (alumno_id, asignatura_id, periodo_id)` en `notas_finales`.
+4. `UNIQUE KEY (alumno_id, asignatura_id, periodo_id)` en `notas_finales`. Ojo:
+   las tres columnas son `NULL`-ables y MySQL admite `NULL` repetido en un índice
+   único, así que **esas filas no las protege nadie**. Hoy no hay ninguna en la
+   base de desarrollo; si los dieciséis números dicen lo mismo, el paso siguiente
+   es ponerlas `NOT NULL` — pero eso es otra decisión y no bloquea ésta.
 5. `UNIQUE KEY (subunidad_id, alumno_id)` en `notas`.
 6. Rellenar las filas que faltan (§9.1): un alumno matriculado sin definitiva en
    alguna asignatura y periodo la recibe, calculada con el servicio de la fase 1.
