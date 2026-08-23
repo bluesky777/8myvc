@@ -85,6 +85,42 @@ class DefinitivasDeAsignatura
      *
      * @return array{escritas:int, creadas:int, respetadas:int, porcentaje_unidades:float}
      */
+    /**
+     * Recalcular la definitiva que depende de una nota, por el id de la nota.
+     *
+     * Existe porque **la nota no sabe de qué asignatura ni de qué periodo es**:
+     * cuelga de la subunidad, la subunidad de la unidad, y la unidad sí lleva las
+     * dos. Ese camino lo necesitan los tres sitios que tocan una nota suelta
+     * —editarla, borrarla y la vía de `putSubunidad`— y tenerlo escrito una vez
+     * evita la tercera copia de un `INNER JOIN` de tres tablas.
+     *
+     * **Recalcula sólo la fila de ese alumno**, que es lo único que pudo cambiar,
+     * y por eso es barato llamarlo en cada nota tecleada. Devuelve `null` si la
+     * nota no lleva a ninguna unidad viva — el llamante no tiene que decidir nada.
+     */
+    public static function recalcularPorNota(int $notaId, ?int $porUsuario = null): ?array
+    {
+        $donde = DB::selectOne(
+            'SELECT u.asignatura_id, u.periodo_id, n.alumno_id
+               FROM notas n
+               INNER JOIN subunidades s ON s.id = n.subunidad_id
+               INNER JOIN unidades u ON u.id = s.unidad_id
+              WHERE n.id = ?',
+            [$notaId]
+        );
+
+        if ($donde === null) {
+            return null;
+        }
+
+        return self::recalcular(
+            (int) $donde->asignatura_id,
+            (int) $donde->periodo_id,
+            $porUsuario,
+            (int) $donde->alumno_id
+        );
+    }
+
     public static function recalcular(
         int $asignaturaId,
         int $periodoId,

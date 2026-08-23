@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use App\Services\DefinitivasDeAsignatura;
 
 use App\User;
 use App\Models\Nota;
@@ -311,24 +312,61 @@ class NotasController extends Controller {
 		} catch (\Exception $e) {
 			abort(422, 'No se pudo guardar la nota');
 		}
-		
-		
-		if (Request::has('asignatura_id')) {
-			# code...
-		}
 
-		
-	
+		// Fase 3 de docs/migracion/10-definitivas.md: **la definitiva se actualiza
+		// al modificar la nota**, que era la petición de origen. Aquí había un
+		// `if (Request::has('asignatura_id')) { # code... }` vacío — el hueco
+		// donde esto iba a ir y nunca fue.
+		//
+		// **No se pide `asignatura_id` al cliente**: la nota lleva a su unidad y la
+		// unidad sabe de qué asignatura y periodo es. Depender del cuerpo era una
+		// de las formas de que el recálculo no ocurriera, porque el front no
+		// siempre lo manda.
+		//
+		// Va **después** del `try`, no dentro: si la nota no se guardó, no hay nada
+		// que recalcular, y meterlo dentro convertiría un fallo del recálculo en un
+		// «no se pudo guardar la nota» que sería mentira — la nota sí se guardó.
+		DefinitivasDeAsignatura::recalcularPorNota((int) $id, $user->user_id);
+
 		return (array)$nota;
 	}
 
 
+	/**
+	 * Borrar una nota también recalcula: quitar una nota cambia la definitiva
+	 * tanto como cambiarla, y hasta hoy no la tocaba nadie.
+	 *
+	 * El orden importa y por eso se lee el destino **antes** del `DELETE`: éste es
+	 * un borrado **físico**, así que después de ejecutarlo ya no hay forma de saber
+	 * de qué asignatura y periodo era la nota. Es la misma razón por la que el
+	 * sello de versión mira los `deleted_at` de las notas blandas y aquí no sirve
+	 * de nada: no queda fila que sellar.
+	 */
 	public function deleteDestroy($id)
 	{
 		$user 	= User::fromToken();
 		User::pueden_editar_notas($user, PeriodoDeLaFila::deNota($id));
+
+		$donde = DB::selectOne(
+			'SELECT u.asignatura_id, u.periodo_id, n.alumno_id
+			   FROM notas n
+			   INNER JOIN subunidades s ON s.id = n.subunidad_id
+			   INNER JOIN unidades u ON u.id = s.unidad_id
+			  WHERE n.id = ?',
+			[$id]
+		);
+
 		$consulta 	= 'DELETE FROM notas WHERE id=?';
 		DB::delete($consulta, [$id]);
+
+		if ($donde !== null) {
+			DefinitivasDeAsignatura::recalcular(
+				(int) $donde->asignatura_id,
+				(int) $donde->periodo_id,
+				$user->user_id,
+				(int) $donde->alumno_id
+			);
+		}
 
 		return 'Eliminada';
 	}
