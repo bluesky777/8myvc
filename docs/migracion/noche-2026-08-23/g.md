@@ -13,9 +13,22 @@ La pregunta: **de las 44 columnas `tinyint(1)` que en el backend no decide nadie
 [15](../15-la-noche-en-paralelo.md) deja escrita al lado: **las 48 que ni se
 nombran, ¿llegan al cliente por un `SELECT *`?**
 
-Las dos están contestadas, y **las dos ya lo estaban** desde el 21 de agosto en
-la [§17 del 12](../12-larastan-nivel-7.md). Lo que este lote añade no es el
-número: es **por qué nadie lo sabía**, y **contra qué se midió**.
+Las dos están contestadas. La respuesta corta:
+
+| | |
+|---|---|
+| Columnas que **la herramienta** dice que no lee nadie | **49** |
+| Columnas que **de verdad** no lee nadie, medido | **53** |
+| De las 48 que el backend ni nombra, **cuántas sí usa un cliente** | **22**, y son la ficha médica |
+
+El **49** ya estaba desde el 21 de agosto en la [§17 del 12](../12-larastan-nivel-7.md),
+así que este lote no lo descubre. Lo que añade son tres cosas:
+
+1. **Por qué nadie lo sabía**: la cabecera de la herramienta decía «dos» (§105).
+2. **Contra qué se midió**, que es lo que hace afirmable «no lo lee nadie» —y
+   faltaban dos corpus enteros, uno de ellos veintiuna ramas (§106).
+3. **Cuatro columnas más**, porque aparecer en un cliente no es que el cliente la
+   lea; dos de ellas son casillas que alguien enciende y no deciden nada (§107.1).
 
 ---
 
@@ -270,6 +283,35 @@ alguien empezó y no terminó, **cero filas**), las de `default_unidades` /
 
 ---
 
+## §107.2 El test, que es lo único que impide que un cero borre la ficha médica
+
+`ColumnasQueSoloViajanTest`, dos casos, y **ninguno lleva la lista escrita a
+mano**: la derivan del volcado del esquema y del código, igual que la
+herramienta. Una lista a mano se queda vieja el día que alguien añada la columna
+23, que es justo el día en que el test tendría que avisar.
+
+| Caso | Qué mide | Cuándo cae |
+|---|---|---|
+| `la ficha medica trae las columnas que el backend no nombra` | que `PUT enfermeria/datos` las devuelva **todas** | si la **respuesta** encoge |
+| `son veintidos y todas de antecedentes` | cuántas hay | si cambia el **esquema** o alguien empieza a nombrar una |
+
+Van separados a propósito: miden dos cosas distintas y se rompen por motivos
+distintos, y un solo caso que las mezclara diría «cambió algo» sin decir qué.
+
+**Comprobado al revés**, que es lo que convierte un verde en una medición: se
+encogió el `SELECT *` a `SELECT id, alumno_id, observaciones` —o sea, se simuló
+exactamente la limpieza que este test existe para impedir— y **cayó el primer
+caso y sólo el primero**. El segundo siguió verde, porque el esquema no había
+cambiado. Es lo que se esperaba de cada uno.
+
+Lo que el test no puede hacer, y hay que decirlo: **no comprueba que el front las
+use**, sólo que llegan. Si mañana `myvc_front` deja de pintarlas, las 22 pasan a
+ser esquema muerto de verdad y aquí seguiría todo verde. Esa mitad no es
+comprobable desde este repositorio.
+
+
+---
+
 ## PARA JOSETH
 
 ### 1. ¿Qué es `../myvc_dist` y quién lo despliega? (§106.2)
@@ -281,7 +323,19 @@ entonces **es un quinto sitio que consume la API** y ninguna medición de «esto
 lo lee ningún cliente» lo ha mirado nunca —ni ésta, hasta esta noche, y a mano—.
 Si es solo un artefacto de trabajo, no hace falta hacer nada.
 
-### 2. Las 49 columnas: qué se hace con ellas
+### 2. Dos interruptores con casilla en pantalla que no deciden nada (§107.1)
+
+| Interruptor | Dónde se enciende | Qué hace hoy |
+|---|---|---|
+| `ws_actividades.can_upload` | casilla «puede subir archivos» del examen, `editarActividad.html:124` | **nada**: se guarda y no lo lee nadie, ni aquí ni en ningún cliente |
+| `dis_procesos.deriva_de_tardanzas` | formulario del proceso disciplinario | **nada**: se inserta y no lo lee nadie |
+
+Es la [§74](../05-codigo-muerto-y-roto.md) otra vez: alguien enciende una casilla
+creyendo que decide algo. **No se tocan** —encender un interruptor por iniciativa
+propia enciende pantallas en dieciséis colegios, y apagar la casilla es una
+decisión de producto—, pero conviene saber que hoy no hacen nada.
+
+### 3. Las 53 columnas: qué se hace con ellas
 
 Ya está contestado que **no las lee nadie**, y la [§17 del 12](../12-larastan-nivel-7.md)
 ya midió que **casi ninguna tiene datos dentro**. No hay nada que arreglar. Lo
