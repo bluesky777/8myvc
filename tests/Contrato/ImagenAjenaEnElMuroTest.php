@@ -5,7 +5,7 @@ namespace Tests\Contrato;
 use Illuminate\Support\Facades\DB;
 
 /**
- * §144 — Colgar en el muro del colegio la imagen privada de otro.
+ * §167 — Colgar en el muro del colegio la imagen privada de otro.
  *
  * `PublicacionesController::putStore()` y `putGuardarEdicion()` guardaban
  * `imagen.id` y `imagen.nombre` **tal como venían en el cuerpo**, sin preguntar

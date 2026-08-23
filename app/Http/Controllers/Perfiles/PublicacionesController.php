@@ -96,7 +96,7 @@ class PublicacionesController extends Controller {
         $imagen_id      = null;
         $imagen_nom     = null;
         if ($imagen) {
-            // §144. El id de la imagen viene del CUERPO y no lo comprobaba nadie.
+            // §167. El id de la imagen viene del CUERPO y no lo comprobaba nadie.
             $this->exigeQueLaImagenSePuedaColgar($user, $imagen['id']);
 
             $imagen_id  = $imagen['id'];
@@ -164,7 +164,7 @@ class PublicacionesController extends Controller {
         $imagen_id      = null;
         $imagen_nom     = null;
         if ($imagen) {
-            // §144. El id de la imagen viene del CUERPO y no lo comprobaba nadie.
+            // §167. El id de la imagen viene del CUERPO y no lo comprobaba nadie.
             $this->exigeQueLaImagenSePuedaColgar($user, $imagen['id']);
 
             $imagen_id  = $imagen['id'];
@@ -382,7 +382,7 @@ class PublicacionesController extends Controller {
     }
 
     /**
-     * §144 — Colgar en el muro la imagen privada de otro.
+     * §167 — Colgar en el muro la imagen privada de otro.
      *
      * `putStore` y `putGuardarEdicion` guardaban `imagen.id` y `imagen.nombre`
      * **tal como venían en el cuerpo**, sin preguntar de quién es la imagen.

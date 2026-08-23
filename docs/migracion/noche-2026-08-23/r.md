@@ -1,4 +1,4 @@
-# Lote R — El boletín de una familia (§140–144)
+# Lote R — El boletín de una familia (§140–142, §166 y §167)
 
 > Sesión `8myvc-06`, árbol `.worktrees/r`, rama `fix/lote-r-boletin-de-la-familia`,
 > base `simonbolivar_testing_r`. Noche del 22 al 23 de agosto de 2026.
@@ -7,7 +7,7 @@
 > mismo**: una familia entra, pide el boletín y recibe un error del servidor.
 
 Dos fallos distintos en los mismos dos ficheros, y los dos tapados por la misma
-cosa: **la maqueta 1 se prueba y las otras dos no**. Y un tercero, la §144, que
+cosa: **la maqueta 1 se prueba y las otras dos no**. Y un tercero, la §167, que
 no venía en el lote: salió de una anotación propia del lote J que quedó escrita
 como *candidato no medido*.
 
@@ -215,7 +215,7 @@ Con ruta y roto se documenta.
 
 ---
 
-## §144 — Colgar en el muro del colegio la imagen privada de otro
+## §167 — Colgar en el muro del colegio la imagen privada de otro
 
 No venía en el lote: venía de **una anotación propia del lote J** que decía,
 literal, *«no afirmo que filtre: afirmo que no lo he mirado»*. Salió del barrido

@@ -7712,3 +7712,75 @@ sólo una está bien:
 **La regla no es «no leer el periodo del cuerpo»: es pedir permiso para el sitio al
 que se escribe.** Cuando el cuerpo elige las dos cosas a la vez, leerlo es lo
 correcto; cuando elige una y se escribe en otra, es el agujero.
+
+
+---
+
+# La noche del 22 al 23 de agosto de 2026 — §81 a §166
+
+Seis sesiones en paralelo, **un árbol y una base por cada una**, veinte lotes.
+Cada lote dejó su documento en [`noche-2026-08-23/`](noche-2026-08-23/), y **ahí
+viven las secciones con su medición entera**: este apartado no las repite, las
+indexa y recoge lo que ninguna de ellas podía decir sola.
+
+**Por dónde empezar**: [`noche-2026-08-23/README.md`](noche-2026-08-23/README.md)
+dice cuáles son los dos que hay que leer si solo se leen dos —la tabla de
+despliegue y el barrido de cegueras— con la distinción que los ordena: **el
+primero caduca con la tanda; el segundo no.**
+
+## Qué se midió, entre dos medidas y no entre una medida y una cita
+
+Los dos extremos corridos **el mismo día, en la misma máquina, con el mismo
+`vendor`**, bases separadas y el aislamiento comprobado en los dos árboles. La
+suite **entera**, no `--testsuite=Contrato`.
+
+| | `c2c2a04` (partida) | `9492a2b` (cierre) | Δ |
+|---|---|---|---|
+| Tests | **1.006** | **1.276** | **+270** |
+| Aserciones | **6.546** | **8.594** | **+2.048** |
+| Rutas comprobadas | **462/539 (85%)** | **535/539 (99%)** | **+73** |
+| Controladores con alguna | **97/97** | **97/97** | — |
+| Controladores **a medias** | **41** | **4** | **−37** |
+| larastan | nivel 7 `[OK]` | nivel 7 `[OK]` | — |
+
+**Los 97/97 no se mueven: ya estaban al empezar.** Decir «de 96/97 a 97/97» —el
+96 sale de medir solo con Contrato— afirmaría que la noche cerró el último
+controlador sin cubrir, y **no ocurrió**. Lo que la noche movió son los **41
+controladores a medias → 4**, y las cuatro rutas que quedan son de catálogo,
+repartidas en cuatro controladores distintos.
+
+Las dos advertencias que van pegadas a esas cifras y no debajo:
+
+- **`COBERTURA_RUTAS` con fichero propio y sin borrar antes.** Compartirlo dio una
+  vez *86 de 539 cuando eran 346*.
+- **Los dos barridos que la herramienta descuenta** —`AutenticacionTest` (520
+  rutas) y `RutasPreLoginTest` (527)— **no cuentan como comprobar, y hacen bien**:
+  si contaran, el 99% sería 100% y no significaría nada.
+
+## Las secciones, por lote
+
+| Lote | La pregunta | §§ |
+|---|---|---|
+| [A](noche-2026-08-23/a.md) | Los catálogos: editar y borrar | §81–84, §122 |
+| [B](noche-2026-08-23/b.md) | Ordinales de disciplina y ciudades | §85–88 |
+| [C](noche-2026-08-23/c.md) | La rejilla: quién escribe una definitiva y con qué candado | §89–92 |
+| [D](noche-2026-08-23/d.md) | La configuración del año | §93–96 |
+| [E](noche-2026-08-23/e.md) | Personas e imágenes: quién ve y quién escribe la ficha de otro | §97–100, §153–156 |
+| [F](noche-2026-08-23/f.md) | PIAR, actividades y votaciones | §101–104 |
+| [G](noche-2026-08-23/g.md) | Los 44 interruptores, contra los cuatro clientes | §105–107 |
+| [H](noche-2026-08-23/h.md) | Los 230 identificadores del cuerpo | §108–110 |
+| [I](noche-2026-08-23/i.md) | El barrido por tipo de token | §111–113 |
+| [J](noche-2026-08-23/j.md) | Las rutas ya cubiertas que nadie juzgó | §114–116 |
+| [K](noche-2026-08-23/k.md) | Las columnas que se pisan donde no llegaba ningún lote | §118–121 |
+| [L](noche-2026-08-23/l.md) | Las sobras huérfanas | §123–124 |
+| [M](noche-2026-08-23/m.md) | Descongelar los dos modelos congelados | §125–127 |
+| [N](noche-2026-08-23/n.md) | El ayudante que devolvía un superusuario | §157–159 |
+| [O](noche-2026-08-23/o.md) | La población de `PerfilesController` | §130–132 |
+| [P](noche-2026-08-23/p.md) | Las que escriben sin decirlo | §133–134, §136–137 |
+| [Q](noche-2026-08-23/q.md) | El calendario, donde el cliente decidía | §150–152 |
+| [R](noche-2026-08-23/r.md) | El boletín de una familia, y la imagen ajena en el muro | §140–142, §166–167 |
+| [S](noche-2026-08-23/s.md) | La única escritura que alcanza a una familia | §143–145 |
+| [T](noche-2026-08-23/t.md) | Lo que destapó la curva de profundidad | §146–149 |
+
+**Los huecos —§117, §126, §128–129, §135, §138–139— son números que nadie usó**
+al abrir lotes sobre la marcha. Un hueco no es una sección perdida.
