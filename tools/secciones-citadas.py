@@ -153,22 +153,28 @@ def citadas():
 
 # Cada trampa con **cuántas secciones debe declarar**, que es lo que se comprueba.
 # El número esperado es el dato: «no revienta» no distingue 1 de 261.
+#
+# **Las trampas se montan con `S` y no con el símbolo escrito.** Esta herramienta
+# se lee a sí misma —`tools/` está en la lista— y un `§` seguido de dígitos aquí
+# dentro **es una cita**, no un ejemplo: la primera versión de esto se denunció a
+# sí misma ocho veces. Escrito así, el fichero no contiene ninguna.
+S = '\u00a7'
 TRAMPAS = [
-    ('## §300 — 500 en vez del boletín', 1, 'raya larga CON espacios: separa título, no declara rango'),
-    ('## §320–322 — un rango de verdad', 3, 'raya corta PEGADA: sí es rango'),
-    ('## §330 – 400 en vez de 403', 1, 'raya corta CON espacios: sigue separando título'),
-    ('## §340—600 raya larga PEGADA', 1, 'la raya larga no marca rango en este repo: 93 a 0'),
-    ('## §350-420 guion ASCII PEGADO', 1, 'el guion ASCII tampoco'),
-    ('## §360 · sin guion ninguno', 1, 'el caso llano'),
-    ('### 27.4 El candado es por (año, periodo)', 1, 'la otra forma de declarar, sin §'),
-    ('Texto suelto que menciona la §370 por la mitad', 0, 'no es encabezado: no declara'),
+    (f'## {S}300 — 500 en vez del boletín', 1, 'raya larga CON espacios: separa título, no declara rango'),
+    (f'## {S}320–322 — un rango de verdad', 3, 'raya corta PEGADA: sí es rango'),
+    (f'## {S}330 – 400 en vez de 403', 1, 'raya corta CON espacios: sigue separando título'),
+    (f'## {S}340—600 raya larga PEGADA', 1, 'la raya larga no marca rango en este repo: 93 a 0'),
+    (f'## {S}350-420 guion ASCII PEGADO', 1, 'el guion ASCII tampoco'),
+    (f'## {S}360 · sin guion ninguno', 1, 'el caso llano'),
+    ('### 27.4 El candado es por (año, periodo)', 1, 'la otra forma de declarar, sin el símbolo'),
+    (f'Texto suelto que menciona la {S}370 por la mitad', 0, 'no es encabezado: no declara'),
 ]
 
 
 def autoprueba():
     """Mete cabeceras trampa por el lado de las DECLARACIONES.
 
-    **El `§999` inventado entra por el lado de las citas y no dice nada del otro.**
+    **Un `NNN` inventado entra por el lado de las citas y no dice nada del otro.**
     Una herramienta que cruza dos poblaciones tiene **dos lados que pueden
     fallar**, y aquí el fallo caro es el del mapa —declarar de más—, que es justo
     el que hace que la alarma **calle**: con 361 secciones fantasma dentro,
@@ -177,6 +183,12 @@ def autoprueba():
 
     Así que se inyecta **por el lado que produce el silencio**, y se comprueba el
     número que aporta cada trampa, no que no reviente.
+
+    **Y demuestra que los dos guardas hacen falta**, porque parecen redundantes y
+    no lo son. Quitando `identificador()` fallan las dos trampas *con espacios*
+    —201 y 71 fantasmas—; ensanchando la raya de `DECLARA` fallan las dos
+    *pegadas* —261 y 71—. Cada guarda caza exactamente lo que el otro deja pasar,
+    y comprobado quitándolos, no leyéndolos.
     """
     fallos = 0
     for linea, esperado, porque in TRAMPAS:
