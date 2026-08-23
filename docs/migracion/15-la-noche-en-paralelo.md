@@ -555,39 +555,39 @@ cayó al mirarla.
 
 ### Las afirmaciones
 
-5. **Un apunte sin verificar se convierte en premisa en cuanto se copia a una
+7. **Un apunte sin verificar se convierte en premisa en cuanto se copia a una
    instrucción.** Se repartió un lote diciendo que existía un lector del formato
    `'Y-m-d G:H:i'`; el «lector» estaba dentro de un `/* */`. La sesión gastó su
    primera media hora en desmentirlo. La cadena es siempre la misma: **apunte →
    premisa → media hora**, y se corta en el primer paso, que es el barato.
-6. **Cuando una comprobación se salta, no se salta al azar: se salta hacia la
+8. **Cuando una comprobación se salta, no se salta al azar: se salta hacia la
    respuesta que da menos trabajo.** Cinco comprobaciones se cayeron al mirarlas
    de cerca y **las cinco fallaban en esa dirección**; ninguna falló hacia la
    duda. La más cara habría dicho que `alumnos/cambiar-claves` estaba defendida
    —el `Autoriza::` era de otro método más abajo— y habría **encogido la pregunta
    de otro lote con un dato falso, y con la autoridad de venir medido**.
-7. **Quien coordina es quien más ensancha una afirmación**, porque es quien menos
+9. **Quien coordina es quien más ensancha una afirmación**, porque es quien menos
    toca el código y más lejos la manda. Ya estaba escrito en el §6.5 y volvió a
    pasar: **quien escribe la regla se la salta en el sitio donde no está
    mirando.**
-8. **Cuando el tablero y `main` discrepan, gana `main`.** Se le dijo a una sesión
-   que un lote no había cerrado, leyéndolo de un tablero que quien coordina nunca
-   marcó. El tablero es un apunte; el repositorio es el hecho.
+10. **Cuando el tablero y `main` discrepan, gana `main`.** Se le dijo a una sesión
+    que un lote no había cerrado, leyéndolo de un tablero que quien coordina nunca
+    marcó. El tablero es un apunte; el repositorio es el hecho.
 
 ### Los instrumentos
 
-9. **Mirar el padre y concluir sobre el hijo da una respuesta coherente y falsa.**
-   `php artisan test` es un envoltorio: el proceso que corre es
-   `vendor/phpunit/phpunit/phpunit`. Leyendo el `--configuration` del **padre** se
-   dio una falsa alarma sobre una medición que estaba bien.
-10. **Y matar al padre deja huérfano al hijo.** Un `pkill` sobre `artisan test`
+11. **Mirar el padre y concluir sobre el hijo da una respuesta coherente y falsa.**
+    `php artisan test` es un envoltorio: el proceso que corre es
+    `vendor/phpunit/phpunit/phpunit`. Leyendo el `--configuration` del **padre** se
+    dio una falsa alarma sobre una medición que estaba bien.
+12. **Y matar al padre deja huérfano al hijo.** Un `pkill` sobre `artisan test`
     dejó dos phpunit con `ppid=1` **escribiendo en las bases de otros dos lotes
     durante 31 minutos**. Se identificaron por `/proc/<pid>/environ`. Para matar
     de verdad la suite de un árbol:
     ```bash
     pkill -f "phpunit.*worktrees/<sufijo>"
     ```
-11. **Tres suites a la vez como mucho.** Por encima de eso el contenedor se
+13. **Tres suites a la vez como mucho.** Por encima de eso el contenedor se
     arrastra y los tests de contrato empiezan a caer por *deadlock* en el `insert`
     de `personal_access_tokens` —que lo hacen todos, porque todos inician
     sesión—. **Lo que se ve no es un error de infraestructura: son tests en rojo
@@ -598,30 +598,30 @@ cayó al mirarla.
 
 ### La numeración compartida
 
-12. **Arreglar una colisión crea la siguiente si el número nuevo se elige sin
+14. **Arreglar una colisión crea la siguiente si el número nuevo se elige sin
     volver a correr la comprobación.** Hubo tres colisiones y **la tercera la
     creó el arreglo de la segunda**, en el número de al lado. La comprobación va
     **después de cada renumerado**, no sólo al final: el renumerado es justo el
     momento en que se inventa un número.
-13. **Y el título se queda viejo cada vez.** De las tres, dos fueron un título
+15. **Y el título se queda viejo cada vez.** De las tres, dos fueron un título
     que declaraba un rango que su cuerpo ya no tenía —**las dos en el mismo
     fichero**— y una cuarta declaraba de menos, escondiendo una sección de quien
     la buscara por el título. Al renumerar hay que tocar **el cuerpo, el título y
     el índice**, y comprobar los tres.
-14. **La comprobación de colisiones discrimina por la posición del `§`**: un
+16. **La comprobación de colisiones discrimina por la posición del `§`**: un
     título que **abre** con él (tras su numeración) **declara**; un `§` **dentro
     de la frase** **referencia**. Con el criterio mal puesto salían 65 o 73 donde
     había 75, y las dos cifras parecían razonables.
 
 ### El reparto
 
-15. **Deja una franja para releer lo escrito.** Casi todo lo de esta lista se
+17. **Deja una franja para releer lo escrito.** Casi todo lo de esta lista se
     encontró releyendo, no midiendo — y se encontró tarde porque no había hueco
     para ello. La cola creció de ocho lotes a veinte; el registro real de quién
     hizo qué está en
     [`noche-2026-08-23/README.md`](noche-2026-08-23/README.md), y las secciones
     que salieron, en el 05 §81–§167.
-16. **Que revise el cierre alguien que no lo produjo.** La medición final la
+18. **Que revise el cierre alguien que no lo produjo.** La medición final la
     corrió quien coordina y la comprobó una sesión que no había escrito ninguno
     de los documentos que revisaba. Las cuatro pruebas que valió la pena pasarle a
     cada documento acabado: **numeración, aritmética, poblaciones y expresiones
