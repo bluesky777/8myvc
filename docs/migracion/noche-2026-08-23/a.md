@@ -1,4 +1,4 @@
-# Lote A — Catálogos: editar y borrar (§81–84)
+# Lote A — Catálogos: editar y borrar (§81–84 y §122)
 
 > Sesión `8myvc-06`, árbol `.worktrees/a`, rama `fix/lote-a-catalogos`, base
 > `simonbolivar_testing_a`. Noche del 22 al 23 de agosto de 2026.

@@ -11,6 +11,142 @@ desvío respecto al plan es justo lo que no se puede reconstruir después.
 
 ---
 
+## Cierre de la noche del 22 al 23 de agosto de 2026 — veinte lotes en paralelo
+
+**Lee esta sección entera antes de tocar nada.** Es el estado real al cerrar, no
+un resumen de lo hecho: lo hecho está en los veinte cuadernos de
+[`noche-2026-08-23/`](noche-2026-08-23/) y las secciones que salieron de ellos,
+en el [05](05-codigo-muerto-y-roto.md).
+
+> Va sin número a propósito. Las §0.0 y §0.1 se citan **desde el código** —la
+> cabecera de `tools/worktree-de-sesion.sh` manda a las dos—, así que correr la
+> numeración para meter ésta arriba rompería las citas. El orden sigue siendo el
+> de siempre: lo más nuevo, primero.
+
+### El estado, en dos commits sellados
+
+Los dos números se midieron con **la suite entera** y con el commit sellado al
+disparar, no al escribirlo:
+
+| | `c2c2a04` (partida) | `9492a2b` (cierre) | Δ |
+|---|---|---|---|
+| Tests | **1.006** | **1.276** | **+270** |
+| Aserciones | — | **8.594** | |
+| Rutas con la respuesta comprobada | **462/539 (85%)** | **535/539 (99%)** | **+73** |
+| Controladores con alguna comprobada | **97/97** | **97/97** | — |
+| Controladores **a medias** | **41** | **4** | **−37** |
+| Larastan nivel 7 | `[OK]` | `[OK]` | |
+| Rojos · saltados | 0 · 0 | 0 · 0 | |
+
+**Los 97/97 no son el mérito de la noche; los 41 → 4 sí.** Con la suite entera ya
+había un test por controlador antes de empezar: lo que faltaba era **dentro** de
+cada uno. Y las cifras de partida son 462 y 97/97 **porque son de la suite
+entera**; el 461 y el 96/97 que circulan son de correr sólo Contrato, y mezclar
+las dos poblaciones infla la mejora sin que haya mejorado nada.
+
+### Lo que queda sin comprobar tiene nombre: tres métodos y un verbo
+
+No es un resto difuso del 1%. Son cuatro filas de `route:list`, y una de las
+cuatro **no es código sin mirar**:
+
+| ruta | método | |
+|---|---|---|
+| `POST api/escalas/store` | `EscalasDeValoracionController@postStore` | crear |
+| `POST api/definiciones_comportamiento/store-escrita` | `DefinicionesComportamientoController@postStoreEscrita` | crear |
+| `POST api/frases_asignatura/store/{frase_id?}` | `FrasesAsignaturaController@postStore` | crear |
+| `PATCH api/tiposdocumento/{tiposdocumento}` | `TipoDocumentoController@update` | **ya comprobado por `PUT`** |
+
+Las tres primeras son **crear una fila de catálogo**, y no es casualidad: los
+lotes de catálogos midieron **editar y borrar**, que es donde estaban los
+síntomas. La cuarta es `routes/api/catalogos.php:41`, un `patch` registrado
+aparte del `put` de la línea de arriba contra **el mismo `update`**: lo que no
+está comprobado es el verbo, no el método.
+
+> **Que la cobertura cuente rutas y no métodos es correcto —un verbo puede llevar
+> otro guard— pero al leer el resto hay que separar las dos cosas**, o se sale a
+> escribir un test para código que ya tiene uno.
+
+### Lo que hace falta de Joseth, agrupado — y una que no espera a nadie
+
+Catorce filas sueltas se posponen; seis decisiones se contestan de una sentada.
+Esto es el cruce de los ocho cuadernos que preguntaban algo, hecho por una sesión
+que **no había escrito ninguno** de ellos.
+
+**Antes de las seis, la que no es una decisión de negocio:**
+`putCambiarClaves` (`alumnos/cambiar-claves`) recibe una clave y un `grupo_id` y
+hace un `UPDATE` sobre **las contraseñas de todos los alumnos del grupo**, con
+`auth.personal` por delante y **ninguna comprobación dentro**. Cualquier profesor
+la alcanza. No pregunta qué debe pasar: pregunta si se cierra ya.
+
+> Y llegó a estar apuntada como *defendida*. La primera medición buscó
+> `Autoriza::` **desde el nombre del método hasta el final del fichero**, sin
+> acotar dónde termina el método, y se trajo el `Autoriza` de otro método de más
+> abajo. **Cuando una comprobación se salta, no se salta al azar: se salta hacia
+> la respuesta que da menos trabajo.** Fue la quinta de la noche que se cayó al
+> mirarla de cerca, y las cinco fallaron en esa dirección; ninguna falló hacia la
+> duda.
+
+| | La decisión | Instancias que cuelgan de ella |
+|---|---|---|
+| **A** | **¿Se puede escribir en un año pasado?** | frases y contratos de años pasados (§84) · ordinales del manual de convivencia de un año cerrado (lote B) · **escalas de valoración, que hoy lo permiten y llevan escrito que es a propósito** |
+| **B** | **Borrar un catálogo al que otra fila apunta: ¿se impide, se avisa o se deja?** | borrar un grado apaga la planilla de sus profesores (§70) · borrar un ordinal deja la falta en pie sin artículo (lote B) |
+| **C** | **La hora mal escrita en filas ya guardadas: ¿migración o nota?** | `change_asked.deleted_at` (§121) · `created_at`/`updated_at` de las ausencias del lector (§123) |
+| **D** | **Los interruptores `para_*`** | `para_acudientes` y `para_profesores` (§104) son los gemelos de `para_alumnos` (§74) |
+| **E** | **¿Quién del personal puede qué?** | las cinco rutas que un profesor alcanza de verdad · **quién reparte acudientes (§109)** · `bitacoras/*`, leerla y borrarla · `historiales/de-usuario` (§110) · `matriculas/*` 3 de 16 con guard, `alumnos/*` 8 de 17 · quién es el «Secretario» y para qué está `Manager` |
+| **F** | **`strict => false` en las dos conexiones de `config/database.php`** | §81 y §122 son sus dos instancias medidas: el mismo `NULL` sale `Warning 1048` y `''` en un `UPDATE`, y `ERROR 1048` rechazado en un `INSERT` |
+
+Tres avisos sobre esa tabla, que son la mitad del valor de haberla cruzado:
+
+- **La A hay que contestarla junta, y con un aviso sobre la tercera: no está
+  decidida, está deducida.** Lo que se decidió en la §27.4 es que **un periodo
+  abierto de un año pasado deje escribir notas** —«manda solo el interruptor»— y
+  eso cuelga de una herramienta que el colegio ya tiene en la mano. Lo de las
+  escalas es esa decisión **aplicada por analogía anoche**: el «a propósito» está
+  en un comentario de `EscalasDeValoracionController::deleteDestroy` escrito el 22
+  de agosto (`9fa55b5`), citando la §27.4. El argumento es bueno —una escala de
+  2024 sigue pintando los boletines de 2024, así que corregirla desde 2026 tiene
+  que poder hacerse— y vale igual para frases y contratos; pero **frases,
+  contratos y ordinales no tienen interruptor que abrir ni que cerrar**, así que
+  la respuesta no se copia sola. Aun así hay que verlas juntas, porque **la
+  diferencia entre las tres tablas no es una decisión: es dónde se estaba
+  mirando.** Presentadas por separado se pueden contestar distinto sin querer, que
+  es exactamente cómo nació lo que las tres describen.
+- **En la E, `historiales/de-usuario` no va con `bitacoras/*`.** Comprobado: lee
+  `bitacoras`, `historiales`, `notas` **y `notas_finales`**. Si se funden y la
+  respuesta es «sí, el personal puede leer el rastro», esa respuesta **autoriza de
+  paso las calificaciones**, que es una pregunta que no ha hecho nadie. Y dentro
+  de la E, la de los acudientes (§109) es **la única cuya consecuencia es darle a
+  un adulto acceso a los datos de un menor**.
+- **Dos filas se leen como contradicción y no lo son**: un lote dice que un
+  profesor alcanza `profesores/destroy/{id}` por `auth.personal` y otro que está
+  anclada a superusuario. Las dos son ciertas — **el guard deja pasar y el método
+  aborta dentro**. De las seis rutas de esa familia, cinco las puede hacer un
+  profesor de verdad y una contesta 403.
+
+Y **tres filas que parecen nuevas y no lo son**: que `GET api/contratos` mande el
+expediente completo ya está en el §5 de aquí abajo —lo nuevo es que ahora un test
+fija sus quince columnas, así que el día que se recorte se ve qué se movió—;
+borrar un grado también; y las dos del lote M las contestaron los lotes D y E con
+su 404. **Si entran como nuevas, lo pendiente sube sin que haya subido nada, y una
+lista que crece sin motivo deja de leerse.**
+
+### Dónde está lo demás
+
+- **Las secciones nuevas del 05**: §81–§167, con su índice por lote al final de
+  [`05-codigo-muerto-y-roto.md`](05-codigo-muerto-y-roto.md). Los huecos de la
+  numeración son números que nadie llegó a usar, no secciones perdidas.
+- **Lo que se nota en un colegio** —qué de todo esto lo ve un usuario y qué se
+  queda en el código— en
+  [`noche-2026-08-23/que-se-nota-en-un-colegio.md`](noche-2026-08-23/que-se-nota-en-un-colegio.md).
+- **Lo que hay que desplegar**, colegio a colegio, en
+  [`../DESPLIEGUE.md`](../DESPLIEGUE.md). Recordar lo de siempre: **un arreglo
+  fusionado no está desplegado**, y `vendor/` es compartido.
+- **Cómo se trabajó de noche y qué falló**, en
+  [`15-la-noche-en-paralelo.md`](15-la-noche-en-paralelo.md) y en el
+  [`README`](noche-2026-08-23/README.md) de la carpeta de la noche.
+
+---
+
 ## 0.0 Para quien retome esto — cierre del 21 de agosto de 2026
 
 **Lee esta sección entera antes de tocar nada.** Es el estado real al cerrar, no
