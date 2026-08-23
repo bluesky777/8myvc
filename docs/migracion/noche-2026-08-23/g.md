@@ -194,9 +194,20 @@ Y el otro hueco, el de las extensiones, sí se cerró donde era barato:
 que ninguna de las 49 aparecía en ellos, para que el cambio no se justifique a sí
 mismo.
 
-**Lo que esto no dice**, y no se afirma: que `myvc_dist` sea lo que está
-desplegado hoy en los dieciséis colegios. No lo nombran ni `DESPLIEGUE.md` ni
-`DESPLIEGUE-REFERENCIA.md`. Queda como pregunta abajo.
+**De qué es ese build, medido y no supuesto**: su `index.html` abre con
+`<html ng-app="myvcFrontApp">` y el bundle trae `angular.module` **36 veces** y
+cero `@angular/core`. O sea que es la forma construida de **`myvc_front`**, el
+AngularJS — **no** de `myvc_front_2`, que es Angular—. Así que no es un cliente
+más: es el mismo cliente compilado, y por eso su cero vale como confirmación y no
+como corpus nuevo.
+
+**Lo que esto no dice**, y no se afirma: que sea lo que está desplegado hoy en
+los dieciséis colegios. No lo nombran ni `DESPLIEGUE.md` ni
+`DESPLIEGUE-REFERENCIA.md`. Y hay un detalle que conviene tener delante si
+alguien lo usa para decidir algo: **el bundle es del 21 ago 17:45 y `myvc_front`
+lleva 35 commits desde entonces**, así que describe un front de hace dos días.
+Para la pregunta de este lote da igual —una columna que no estaba tampoco está
+ahora— pero para cualquier otra, no. Queda como pregunta abajo.
 
 ---
 
@@ -314,14 +325,19 @@ comprobable desde este repositorio.
 
 ## PARA JOSETH
 
-### 1. ¿Qué es `../myvc_dist` y quién lo despliega? (§106.2)
+### 1. ¿Quién despliega `../myvc_dist`? (§106.2)
 
-Es un repositorio hermano con un bundle construido de 3,7 MB cuyos commits siguen
-las fases de la migración del front. **Ningún documento de despliegue lo nombra.**
-La pregunta importa más allá de este lote: si es lo que corre en los colegios,
-entonces **es un quinto sitio que consume la API** y ninguna medición de «esto no
-lo lee ningún cliente» lo ha mirado nunca —ni ésta, hasta esta noche, y a mano—.
-Si es solo un artefacto de trabajo, no hace falta hacer nada.
+**Qué es, ya está medido**: la forma construida de `myvc_front` —su `index.html`
+lleva `ng-app="myvcFrontApp"` y el bundle trae `angular.module` 36 veces y cero
+`@angular/core`—, versionada en su propio repositorio con `.htaccess` dentro. No
+es un cliente más: es el mismo cliente compilado.
+
+**Lo que no se sabe** es si es lo que corre en los dieciséis colegios. Ningún
+documento de despliegue lo nombra. Si lo es, hay una consecuencia que no es de
+este lote: **el artefacto desplegado es del 21 ago 17:45 y `myvc_front` lleva 35
+commits desde entonces**, o sea que lo que se está midiendo del front estos días
+no es lo que ven los colegios. Si es sólo un artefacto de trabajo, no hay nada
+que hacer.
 
 ### 2. Dos interruptores con casilla en pantalla que no deciden nada (§107.1)
 
