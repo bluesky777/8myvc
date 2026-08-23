@@ -107,8 +107,14 @@ login          0 de 7      enfermeria   1 de 5      piars-config  1 de 2
 tardanzas      0 de 6      auth         0 de 5      … y 10 con una sola ruta
 ```
 
-De esas 50 rutas, **23 son escrituras sin guard de propiedad** (sin contar
-`login/*` y `auth/*`, que son pre-login por diseño).
+De esas 50 rutas, **23 llevan verbo de escritura y no llevan guard de propiedad**
+(sin contar `login/*` y `auth/*`, que son pre-login por diseño).
+
+**Se cuenta por el verbo, y el verbo no es la operación**: al menos tres de las 23
+sólo leen —`PUT api/publicaciones/ultimas`, que es el formulario público de
+prematrícula y va por PUT desde 2024, y las dos `POST api/tardanzas/login/traer-datos*`—.
+Se quedan dentro a propósito: quitarlas a mano convertiría un recuento mecánico en
+una lista curada, y el día que una empiece a escribir de verdad no lo diría nadie.
 
 **Y «sin guard» no es «abierta»**, que es la mitad que hay que decir para que la
 lista no sea peor que no tenerla:
@@ -130,6 +136,19 @@ tardó.
 > entra nunca por tener demasiadas pocas cerradas**. La segunda es más silenciosa:
 > la primera aparece en el snapshot del §114, y la segunda no aparece en ninguna
 > parte, porque el `continue` que la descarta no deja rastro.
+
+### 138.1 Y ahora deja rastro
+
+`FamiliasQueNuncaEntranTest`, dos casos y dos snapshots: **las 18 familias con
+cuántas de sus rutas llevan guard**, y **las 23 rutas** de escritura que viven
+donde el candado no llega.
+
+La lista y no sólo el número: un 18 que sigue siendo 18 porque una familia entró y
+otra nació no diría nada, y es justo el movimiento que hay que ver. Y el número de
+escrituras está escrito con su mensaje: si **sube**, hay una ruta nueva a la que
+ningún mecanismo va a preguntar de quién es la fila que toca; si **baja**, alguien
+puso un guard o la familia llegó a dos hermanas guardadas — bien, y hay que
+actualizar el número.
 
 ---
 
