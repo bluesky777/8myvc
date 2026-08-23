@@ -89,6 +89,62 @@ ESCRIBE  = re.compile(r'\b(UPDATE|DELETE|INSERT)\b|DB::(update|delete|insert|sta
 PROPIEDAD = re.compile(r'exig|pedidoPropio|is_superuser|esSuperusuario|'
                        r'profes_can_edit|PeriodoDeLaFila|pueden_modificar|pueden_editar', re.I)
 
+# Y lo que la raíz `exig` se traga sin ser una comprobación de propiedad.
+#
+# `ColumnaSegura::exigir` valida **un nombre de columna**, no de quién es la fila:
+# es la defensa contra la inyección de las pantallas que guardan un campo suelto
+# mandando {propiedad, valor}. Con la raíz `exig` a secas, esos métodos salían en
+# la mitad limpia de la tabla —`prop = sí`— **sin que nadie comprobara nada**, que
+# es peor que salir marcados: una ruta del lado limpio no la vuelve a mirar nadie.
+#
+# Son CINCO, medidas el 23 ago 2026 sobre las 230: `asignaturas/toggle-dia`,
+# `nota_comportamiento/guardar-libro`, `ordinales/guardar-valor`,
+# `ordinales/guardar-valor-config` y `years/toggle-cambiar-valor`. **No es toda la
+# familia `guardar-valor`**: las demás —alumnos, acudientes, profesores,
+# enfermería, uniformes— tienen además una comprobación de verdad, y su `sí` es
+# correcto. Contarlo antes de escribirlo es lo que separa las dos cosas.
+#
+# Es la §53 girada del revés. Allí el detector se quedó **ciego ante un nombre
+# nuevo** —`exigeQue…` frente a `exigirQue…`— y por eso la raíz es `exig`; aquí
+# **ve un nombre que no es**. Ensanchar una señal para no perder nada la hace
+# tragar de más, y las dos formas del error se pagan en el mismo sitio: una ruta
+# que nadie vuelve a mirar.
+NO_ES_PROPIEDAD = re.compile(r'ColumnaSegura::exigir')
+
+# Y la tercera forma del mismo error: **la señal leía la prosa**.
+#
+# Con la columna nueva puesta, la primera ejecución sacó
+# `definitivas_periodos/update-recuperacion` marcada como comprobada por un
+# token que era `exigen` — la palabra, dentro del comentario «se exigen abiertos
+# todos los periodos». Un método con un docblock que hable de exigir salía del
+# lado limpio sin comprobar nada.
+#
+# Es la misma ceguera que ya se midió en `escrituras-en-las-notas.py`, que
+# también leía prosa de los docblocks. Que dos herramientas distintas caigan en
+# lo mismo es lo que lo convierte en una regla y no en un caso: **un detector que
+# busca una palabra tiene que mirar solo el código.**
+COMENTARIOS = re.compile(r'/\*.*?\*/|//[^\n]*|(?<!:)#[^\n]*', re.S)
+
+
+def senal_de_propiedad(src):
+    """Qué disparó el `prop = sí`, o None. Devolver el token y no un booleano es
+    lo que permite ver el siguiente falso positivo sin volver a medirlo: una
+    columna que dice `sí` afirma; una que dice `Autoriza::exigir` se puede
+    comprobar de un vistazo."""
+    limpio = NO_ES_PROPIEDAD.sub('', COMENTARIOS.sub(' ', src))
+    m = PROPIEDAD.search(limpio)
+    if not m:
+        return None
+
+    # El token entero alrededor de la coincidencia, para que se lea `esSuperusuario`
+    # y no `exig`.
+    i, j = m.start(), m.end()
+    while i > 0 and (limpio[i - 1].isalnum() or limpio[i - 1] in '_:>-'):
+        i -= 1
+    while j < len(limpio) and (limpio[j].isalnum() or limpio[j] == '_'):
+        j += 1
+    return limpio[i:j].lstrip(':>-')
+
 filas = []
 for r in rutas:
     uri = r['uri']
@@ -101,7 +157,8 @@ for r in rutas:
     if CLAVE and CLAVE not in claves: continue
 
     escribe   = bool(ESCRIBE.search(src))
-    propiedad = bool(PROPIEDAD.search(src))
+    senal     = senal_de_propiedad(src)
+    propiedad = senal is not None
 
     # de los que entran, cuáles NO se derivan además de una fila
     sueltos = []
@@ -114,7 +171,7 @@ for r in rutas:
     filas.append({
         'uri': uri, 'metodo': r['method'].split('|')[0], 'accion': r['action'].split('\\')[-1],
         'claves': claves, 'sueltos': sueltos, 'escribe': escribe,
-        'propiedad': propiedad, 'mw': ','.join(mw) or '—',
+        'propiedad': propiedad, 'senal': senal or 'NO', 'mw': ','.join(mw) or '—',
     })
 
 # --- salida --------------------------------------------------------------------
@@ -124,12 +181,12 @@ def peso(f):
 filas.sort(key=peso, reverse=True)
 
 print(f'{len(filas)} rutas leen al menos un identificador del cuerpo.\n')
-print(f'{"ruta":<52} {"guard":<22} {"esc":<4} {"prop":<5} identificadores')
-print('-' * 130)
+print(f'{"ruta":<52} {"guard":<22} {"esc":<4} {"quién comprueba":<26} identificadores')
+print('-' * 150)
 for f in filas:
     marca = ' '.join(('*' + k if k in f['sueltos'] and not f['propiedad'] else k) for k in f['claves'])
     print(f'{f["metodo"]+" "+f["uri"]:<52} {f["mw"]:<22} '
-          f'{"sí" if f["escribe"] else "no":<4} {"sí" if f["propiedad"] else "NO":<5} {marca}')
+          f'{"sí" if f["escribe"] else "no":<4} {f["senal"][:26]:<26} {marca}')
 
 print('\n(*) identificador que entra por el cuerpo, no se lee de ninguna fila y el '
       'método no comprueba propiedad. Es el sitio donde mirar, no el fallo.')
