@@ -127,18 +127,30 @@ La más cara, porque **el resultado falso es indistinguible de un hallazgo**.
 | El log que deja de crecer | «la suite murió» | **búfer de bloque**: parado justo en 10.210 bytes | el tamaño exacto del fichero | [E](e.md) |
 | Un `docker exec` muerto por `pkill` | el harness lo resumió como **«completed, exit code 0»** | **exit 143** | escribir `EXIT=$?` dentro del contenedor, junto al log | [B](b.md) |
 | Un snapshot de contrato | «esto está cubierto» | **el snapshot guardaba el fallo como si fuera correcto** | leer lo que afirma, no que exista | [E](e.md) |
-| `git diff main <rama>` para ver qué aporta una rama | «esta rama **borra 8.536 líneas**» | la rama sale de un `main` viejo: ese diff incluye **deshacer los lotes fundidos después**. Lo que aporta son **846 insertions(+), 1 deletion(-)** | `git diff $(git merge-base main <rama>) <rama>` | [L](l.md) |
+| **`git diff main <rama>`** —con dos puntos— para ver qué aporta una rama | «esta rama **borra 8.536 líneas**» | la rama sale de un `main` viejo: ese diff incluye **deshacer los lotes fundidos después**. Lo que aporta son **895 insertions(+), 1 deletion(-)** | `git diff main...<rama>` **o** `git diff $(git merge-base main <rama>) <rama>` — los dos dan lo mismo | [L](l.md) |
 
 > El **snapshot** no es un instrumento de medir sino de proteger, y por eso es el
 > peor de la lista: **un test verde que fija un vaciado no avisa de nada y además
 > impide arreglarlo**, porque el arreglo lo pone en rojo.
 >
 > Y el **último** es el que más cerca está de hacer daño esta noche, porque
-> aparece justo en el momento de fundir: medido en las tres ramas pendientes, L
-> «borra» 8.536 líneas y H «borra» 14.068, **y las dos aportan menos de 900**.
-> `git merge-tree` dice que ninguna de las tres tiene conflictos; el `diff` contra
-> `main` es el que asusta, y asusta por comparar contra un punto que la rama nunca
-> tuvo.
+> aparece justo en el momento de fundir, **que es cuando menos margen hay**:
+> medido en las tres ramas pendientes, L «borra» 8.536 líneas y H «borra» 14.068,
+> **y las dos aportan menos de 900**. `git merge-tree` dice que ninguna de las
+> tres tiene conflictos; el `diff` contra `main` es el que asusta, y asusta por
+> **comparar contra un punto que la rama nunca tuvo**.
+>
+> Las tres formas, medidas en L:
+>
+> ```
+> git diff --shortstat main fix/lote-l-sobras       57 ficheros, 1014 +, 8536 −   <- la trampa
+> git diff --shortstat main...fix/lote-l-sobras      6 ficheros,  895 +,    1 −
+> git diff --shortstat $(git merge-base …) …         6 ficheros,  895 +,    1 −
+> ```
+>
+> **Los tres puntos dan exactamente lo mismo que la `merge-base`** y son más
+> cortos de escribir; la `merge-base` es más explícita de leer. Lo que hay que
+> marcar como trampa es **el de dos puntos**, que es el que uno teclea sin pensar.
 
 ---
 
