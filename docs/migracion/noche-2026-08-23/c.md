@@ -617,6 +617,39 @@ con dos tandas por base sin saberlo.
 
 ---
 
+## Apéndice 2: las tres afirmaciones sobre los clientes, repetidas contra las 23 ramas
+
+Escrito **después** de cerrar el lote, al aplicar hacia atrás lo que salió en el
+[lote G](g.md) §106.3: los greps de clientes de este documento se hicieron sobre
+`myvc_front` **en `main`**, y ese repositorio tiene **veintidós ramas más**
+—`fase-11/*`, una por worktree— con la migración del front dentro.
+
+Tres afirmaciones de este documento se apoyan en un cero de esos greps, y **un
+cero sin control no es una medición**. Repetidas contra las 23 ramas, con control
+delante:
+
+| Afirmación | Dónde | Control | Resultado |
+|---|---|---|---|
+| «ningún cliente llama a `boletines2/destroy` ni a `boletines3/destroy`» | §89.3 | `detailed-notas`: 13 ficheros en `main`, **24–26 por rama** | **0 en las 23**. El único `destroy` de un fichero de boletines, en todas, es `$scope.$on('$destroy', …)` — el gancho de Angular, no la ruta |
+| «`calcularGrupoPeriodo` se llama en tres sitios, y el tercero decide» | §90, PARA JOSETH | — | **idéntico en las 23**: 6 apariciones en `InformesCtrl.ts` y el mismo `:499` dentro de `verBoletinesGrupo` |
+| «`UnidadesCtrl.ts:651` manda las cuatro columnas siempre» | §92.2 | — | **las 23 mandan `porcentaje:`** en `actualizarSubunidad` |
+
+Las tres **aguantan**. Lo que cambia no es la conclusión: es que antes eran ciertas
+sobre una muestra y ahora lo son sobre el corpus.
+
+> Y el control es lo que lo hace valer: las ramas dan **más** apariciones que
+> `main` —24–26 frente a 13—, así que el grep alcanzaba de sobra y el cero de
+> `boletines2/destroy` es un cero medido. Sin esa comprobación, un cero en las
+> 22 ramas se habría podido explicar igual de bien por un `git grep` que no
+> llegaba.
+
+Se anota aquí y no se toca nada más: **el resultado del lote no cambia**, y lo
+que se lleva es el método — *un grep de clientes vale lo que valen los ficheros
+que mira, y en un repositorio a mitad de migración «los ficheros» no son los del
+directorio: son los de todas sus ramas.*
+
+---
+
 ## PARA JOSETH
 
 ### 1. ¿Se le pone el candado del periodo a «Calcular definitivas per N»? (§90)
