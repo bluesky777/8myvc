@@ -84,6 +84,14 @@ desplegar:
   que no existe contestaba «En papelera» y «Guardado». La pantalla de escalas ya
   tenía rama de error para las dos y no mira el código, así que lo que cambia es
   que enseña el error verdadero en vez de un éxito falso.
+- **Contratar a un profesor que no existe deja de crear un contrato fantasma**
+  ([05 §78.2](migracion/05-codigo-muerto-y-roto.md)). Escribía la fila igual y
+  contestaba 200 con un array vacío, y la pantalla enseñaba «contratado para
+  este año» mientras aquí quedaba un contrato sin profesor — invisible desde
+  cualquier rejilla y por tanto imposible de quitar. **No se nota nada**: en la
+  copia de producción hay cero contratos huérfanos de 164, o sea que el front
+  siempre manda un id bueno. Lo que cambia es que el día que mande uno malo
+  contesta 422 en vez de inventarse una fila.
 - **El botón «Eliminar todas las notas de este periodo (¡peligroso!)» obedece al
   interruptor del periodo** ([05 §77](migracion/05-codigo-muerto-y-roto.md)). Es
   un `DELETE` **físico** —sin papelera y sin vuelta atrás— de todas las notas de

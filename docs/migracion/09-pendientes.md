@@ -69,6 +69,14 @@ Cobertura de rutas: **370 de 539 (69%)**, medida con
 > ya llamaban al candado**, y un sitio que nunca preguntó no sale en una lista
 > hecha así. Queda `tools/escrituras-en-las-notas.py`, que la rehace por la
 > operación, con sus dos formas de mentir anotadas dentro.
+>
+> **Y la otra mitad de la §70** ([05 §78](05-codigo-muerto-y-roto.md)): **995
+> tests**. Crear un catálogo son veinte rutas que nadie había mirado, y el mismo
+> cuerpo vacío saca **cuatro respuestas distintas** de nueve rutas gemelas. Lo que
+> las separa no es el código —los nueve son igual de crédulos— **es el esquema**:
+> las ocho que no escriben tienen una columna `NOT NULL` y `contratos`, que no
+> tiene ninguna, escribía una fila huérfana y contestaba 200. Cero huérfanos en
+> producción, así que era una mina.
 
 ### Lo primero que hay que hacer, y no es código
 
@@ -960,6 +968,7 @@ saber el tamaño real del daño en las dieciséis bases antes de tocar código.
 | **La planilla de la puerta manda el correo de cada alumno, a 392 consultas por petición** | [05 §75.6](05-codigo-muerto-y-roto.md) | Medido el 22 ago 2026: `planillas-ausencias/tardanza-entrada` monta el año entero y llama a `Alumno::userData()` **una vez por alumno** — 1 + 13 + **378** consultas en una sola petición, en un colegio de 378 matriculados. Y esas 378 añaden sobre lo que `Grupo::alumnos()` ya traía **una sola columna: el correo**, a dos hojas para imprimir que del alumno leen `nombres`, `apellidos` y `estado`. Quitar `userData` es un `foreach` menos; lo que hay que decidir es encoger una respuesta que es **contrato con dieciséis copias del front** que no se pueden grepear desde aquí. `PlanillasAusenciasTest` deja el arreglo comprobable: el día que se quite, las consultas por alumno tienen que ser cero |
 | **Quién puede corregir y borrar una falta** | [05 §75](05-codigo-muerto-y-roto.md) | **Contestado el 22 ago 2026: se queda abierto al personal.** No es una pregunta que quede, es una que se cerró — y se deja aquí porque el porqué es lo que no se puede reconstruir. `AusenciasController` calculaba `Role::isCoorDisciplinario()` y lo tiraba en un `if` con el cuerpo vacío, en corregir y en borrar. Rellenarlo parecía el arreglo y era el error: el rol **no gobierna esto en ningún cliente** —el menú de AngularJS enseña «Asistencias» a `profesor`, `crearFaltaModal` repite el botón «Eliminar» tres veces y sólo uno mira el rol, y `myvc_flutter` no mira ninguno—, así que cerrarlo dejaba a los 51 profesores sin poder corregir una falta mal puesta, en dieciséis colegios y por una app que no se publica el mismo día. Lo que sí se cerró es el rastro: **5.684 de 5.689 borrados no tenían autor** |
 | **Si el `Secretario` restaura desde la papelera** | [05 §76.2](05-codigo-muerto-y-roto.md) | Las cinco rutas de `restore` que se cerraron el 22 ago piden `Autoriza::esSuperusuario`, que es **el criterio del gemelo que borra** de cada pareja y no uno nuevo — la regla de la propia clase es que crear un rol no regale permisos, y el alcance del `Secretario` repartido el 21 ago no nombra la papelera. Hoy `esSuperusuario` y `esAdministrativo` son las mismas diez personas, así que no cambia nada; el día que exista el rol, sí. Subirlo a `esAdministrativo` es **una palabra en cinco sitios**, y no se hace desde aquí porque sería concederle algo por la puerta de atrás de un arreglo |
+| **Los nueve catálogos contestan de cuatro maneras al mismo cuerpo vacío** | [05 §78](05-codigo-muerto-y-roto.md) | Medido el 22 ago 2026: cinco dan **422** «Datos incorrectos», tres dan **500** con el `SQLSTATE` de MySQL y uno da **500** por un error de PHP. Ninguno escribe —lo impide el `NOT NULL` del esquema, no el código— y el que sí escribía, `contratos`, ya está cerrado. Unificar los cuatro 500 a 422 son cuatro `try/catch`; lo que hay que decidir es que **el front pinta el mensaje del cuerpo**, así que hoy a un administrador se le enseña el `SQLSTATE` entero y mañana «Datos incorrectos». `CrearUnCatalogoTest` deja la tabla fijada para que el cambio sea deliberado |
 | `Login::ponerEnElPeriodoActual` se queda con el primer año actual, sin `ORDER BY` | [05 §28.3](05-codigo-muerto-y-roto.md) | qué hacer si un colegio tiene dos años marcados como actuales. Los tres caminos que los creaban están cerrados, así que esto solo puede venir de datos de antes; poner `ORDER BY year DESC` es una línea, pero **decide en qué año amanece un colegio** que hoy entra en el otro. Se contesta mirando las dieciséis bases: `SELECT id, year FROM years WHERE actual=1 AND deleted_at IS NULL` |
 
 ---

@@ -37,6 +37,34 @@ class ContratosController extends Controller {
 			return response()->json([ 'contratado'=> true, 'msg'=> 'Profesor ya contratado' ], 400);
 		}
 
+		/*
+		 * Sin este bloque, contratar a un profesor que no existe **escribía la fila
+		 * igual** y contestaba 200 con un array vacío.
+		 *
+		 * De los nueve catálogos del colegio, éste es el único que llega a escribir
+		 * con el cuerpo vacío, y lo que separa a los otros ocho no es su código —es
+		 * el esquema—: todos tienen una columna `NOT NULL` que rechaza el `INSERT`,
+		 * y `contratos` no tiene ninguna (`profesor_id` y `year_id` son nulables).
+		 * Ver 05 §78.
+		 *
+		 * El `SELECT` de después une por `profesores`, así que con un contrato
+		 * huérfano no devuelve nada: 200 con `[]`. Y `ProfesoresCtrl` ya se defendía
+		 * de ese caso —«sería un backend distinto del documentado»— enseñando
+		 * «contratado para este año» y no tocando las rejillas. O sea que la
+		 * pantalla decía que sí mientras aquí quedaba una fila sin profesor.
+		 *
+		 * En la copia de producción hay **cero contratos huérfanos** de 164, así que
+		 * esto era una mina y no un fallo vivo: el front siempre manda un id bueno.
+		 * Se cierra porque el día que un cliente mande uno malo, lo que queda es una
+		 * fila que no se puede ni ver ni quitar desde ninguna pantalla.
+		 */
+		$existe = DB::selectOne('SELECT id FROM profesores WHERE id = ? AND deleted_at IS NULL',
+			[Request::input('profesor_id')]);
+
+		if (! $existe) {
+			return abort(422, 'Ese profesor no existe.');
+		}
+
 		$contrato = new Contrato;
 		$contrato->profesor_id	=	Request::input('profesor_id');
 		$contrato->year_id		=	$user->year_id;
