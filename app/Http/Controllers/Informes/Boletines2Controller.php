@@ -28,6 +28,7 @@ use App\Models\Disciplina;
 
 use Carbon\Carbon;
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
+use App\Support\Autoriza;
 
 
 class Boletines2Controller extends Controller {
@@ -447,8 +448,33 @@ class Boletines2Controller extends Controller {
 	}
 
 
+	/**
+	 * **Manda un ALUMNO a la papelera**, no un boletín. Ver 05 §89.
+	 *
+	 * Es la copia byte a byte de `EditnotaController::deleteDestroy`, que la §72
+	 * cerró el 22 ago 2026 dejando escrito que cerrar una de tres es lo que pasa
+	 * cuando se arregla el sitio que se está mirando y no la operación. La
+	 * operación —`Alumno::find($id)` + `->delete()`— está cuatro veces en `app/`, y
+	 * aquella se cerró sobre la población «este controlador»: éstas dos se
+	 * quedaron abiertas el mismo día.
+	 *
+	 * El criterio no es nuevo: es el que ya usan `AlumnosController::deleteDestroy`
+	 * y la de `editnota`. Y el hueco era real —medido con un token de profesor y
+	 * `profes_can_edit_alumnos` apagada, que es como está en los dieciséis
+	 * colegios—: `alumnos/destroy` contestaba 400 y ésta **200**, con el alumno en
+	 * la papelera.
+	 *
+	 * No apaga ninguna pantalla: `BoletinesApi.ts` es el único sitio de los cuatro
+	 * clientes que nombra `boletines2`, y declara `detailed-notas` y
+	 * `detailed-notas-group`, no `destroy`.
+	 *
+	 * Lo fija `BoletinesBorranAlumnosTest`, con las cuatro puertas en el mismo caso.
+	 */
 	public function deleteDestroy($id)
 	{
+		Autoriza::exigir(Autoriza::puedeEditarAlumnos($this->user),
+			'No tienes permiso para mandar un alumno a la papelera.');
+
 		$alumno = Alumno::find($id);
 		
 		if ($alumno) {

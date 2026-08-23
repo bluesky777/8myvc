@@ -1,0 +1,19 @@
+{
+    "subunidades/eliminadas": {
+        "subunidades": [
+            {
+                "definicion_subunidad": "string",
+                "definicion_unidad": "string",
+                "id": "int",
+                "porcentaje": "int"
+            }
+        ]
+    },
+    "nota_comportamiento/frases-check": {
+        "frases": [
+            {
+                "frase": "string"
+            }
+        ]
+    }
+}
