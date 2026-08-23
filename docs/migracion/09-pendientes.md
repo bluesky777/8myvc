@@ -1929,6 +1929,48 @@ escribe a esa dirección), así que **saberlo no da acceso a nada**. Es fuga de
 información —útil para dirigir un intento de suplantación fuera del sistema—, no
 una vía de entrada.
 
+### Cuántas cuentas pasan de verdad, y eso acota la decisión
+
+Contado por `myvc-front-ce` el 24 ago y **vuelto a contar aquí con un filtro que
+faltaba**:
+
+| | Cuentas | |
+|---|---|---|
+| `Alumno` · `Acudiente` | 1.283 · 1.000 | **las estrecha el guard** |
+| `Profesor` **activos** | **23** | pasan |
+| `Usuario` | **20** | pasan |
+
+**Pasan 43, no 71.** El primer conteo dio 51 docentes, que es el total de la
+tabla; **28 están inactivos** y no pueden llegar: `Login::entrar` corta en
+`:74` y `Sesion` vuelve a comprobarlo en `:323` para un token ya emitido. Es la
+misma familia de las [cegueras](noche-2026-08-23/las-cegueras.md): el número era
+correcto y contaba una población que no es la que pasa por la puerta.
+
+Los 20 `Usuario`, por rol:
+
+```
+Admin                10
+(SIN ROL)             5     <- ni una fila en `role_user`
+Psicólogo             4
+Coord disciplinario   1
+Enfermero             1
+```
+
+**Y el dato que más acota:** de esas 43, **sólo 10 son Admin**. Para las otras 33
+—docentes, psicólogos, enfermería, coordinación y las cinco sin rol— **no hay
+ninguna pantalla que lleve a la ficha de otro**: el docente llega por su propio
+perfil, y los demás roles no tienen entrada de menú a `perfil/:username`. O sea
+que **para 33 de 43 cuentas ese 200 no lo pide ninguna pantalla: sólo se alcanza
+tecleando la dirección.**
+
+Eso hace la salida (a) —recortar columnas— mucho más barata de lo que parecía: lo
+que se recorte no se lo quita a ninguna pantalla viva salvo, quizá, a las diez de
+Admin.
+
+> **Las cinco sin rol son el caso que conviene mirar primero.** Pasan el guard por
+> `tipo = 'Usuario'` sin que ningún rol diga qué son, así que ni siquiera se puede
+> razonar sobre lo que deberían ver: **no hay nada escrito que lo diga.**
+
 ### Las salidas, y ninguna es un guard
 
 - **(a) Recortar la respuesta**, que es la tercera salida de la §14.4 sin tomar.
