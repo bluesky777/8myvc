@@ -101,6 +101,32 @@ tenía escrita aquí, por dos razones que no se ven de entrada:
 > 20 ago 2026. La otra cuenta de cPanel hay que mirarla aparte, y un cron con el
 > PHP viejo **falla en silencio**.
 
+### El criterio, que no es «bucle» ni «uno por colegio»
+
+Al escribirse esto quedaron dos formas de invocar y parecía una contradicción. No
+lo es, y la regla que las ordena la propuso `8myvc-d0` el 24 ago 2026 montando el
+cron de las notificaciones:
+
+> **Lo que produce una salida para leer va en bucle. Lo que produce un efecto
+> dentro del colegio va en el `schedule()`.**
+
+- **En bucle**, desde un solo cron: el parte diario. Su producto es **texto que
+  alguien lee**, y leerlo bien exige verlo todo junto — un número raro se ve al
+  lado de los otros quince, y un colegio que falta se ve como un hueco.
+- **En el `schedule()` de cada colegio**: los avisos, la limpieza de sesiones,
+  cualquier cosa cuyo producto sea **un efecto dentro de esa base**. No necesita
+  panel, llega desplegada con el `app/`, y `withoutOverlapping()` la protege de
+  sí misma.
+
+Puesto así, **añadir una tarea del segundo tipo no cuesta ningún viaje a cPanel**,
+que era el motivo de la decisión de «un solo cron por colegio». Y el primero es
+una excepción con nombre —el parte— y no una segunda costumbre.
+
+> **Y ojo con las horas cuando haya varias.** El parte lleva dentro la
+> herramienta de la fase 0, que mide **61 segundos** en la copia de desarrollo.
+> Si algún día comparte franja con otra tarea pesada, en un hosting compartido se
+> nota. Hoy: avisos cada quince minutos, parte a las 5:30 — no se pisan.
+
 ---
 
 ## Lo que ese parte diario debería decir, por orden de valor

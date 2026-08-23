@@ -27,10 +27,20 @@ el día que esto envejezca:
 |---|---|---|
 | Migraciones nuevas | **ninguna** | `git diff --name-only a82cec3 HEAD -- database/migrations/ database/schema/` sale vacío. Las últimas siguen siendo las tres del 21 ago |
 | Rutas | **539 antes y 542 después** | Tres nuevas, todas del 24 ago y todas para la app: `PUT notas/lote`, `GET disciplina/mis-fichas/{alumno_id?}` y `GET notificaciones/temas`. Ninguna quita ni cambia nada — ver la §5.b, que lleva la condición de publicación del cliente. Comprobable con `tests/Contrato/Snapshots/rutas.json` |
-| Dependencias | **sin tocar** | `git diff --name-only a82cec3 HEAD -- composer.json composer.lock` sale vacío. Tampoco `config/` |
-| Tamaño | **52 ficheros de `app/`**, en 66 commits de 318 | `git diff --name-only a82cec3 HEAD -- app/` |
+| Dependencias | **sin tocar** | `git diff --name-only a82cec3 HEAD -- composer.json composer.lock` sale vacío |
+| `config/` | **un fichero nuevo**, `config/notificaciones.php` | `git diff --name-only a82cec3 HEAD -- config/`. **No obliga a tocar ningún `.env`**: sin credenciales el comando no manda nada y lo dice, y el secreto sale de `APP_KEY` |
+| Tamaño | **61 ficheros de `app/`**, en 73 commits de 330 | `git diff --name-only a82cec3 HEAD -- app/` |
 
-**Nada que publicar en `myvc_front`, `myvc_front_2` ni en la app de Flutter.**
+**Nada que publicar en `myvc_front`, `myvc_front_2` ni en la app de Flutter** —
+las tres rutas nuevas son *para* la app, pero la app no las llama hasta que estén
+desplegadas en los dieciséis (§5.b).
+
+> **Los números de esta tabla se vuelven a medir cuando la tanda crece, no se
+> suman.** Se corrigieron el 24 ago al entrar tres endpoints nuevos: `config/`
+> pasó de «sin tocar» a un fichero, y el tamaño de 52 ficheros en 66 commits a 61
+> en 73. Una tabla que dice «medido» y lleva números viejos es peor que no
+> tenerla — es la misma trampa que este documento describe en el paso 2 con el
+> «Already up to date».
 
 **Sin rutas nuevas, sin migraciones y sin dependencias, el orden es libre**:
 ningún colegio depende de otro. Pero no es indiferente — hay dos arreglos que le
