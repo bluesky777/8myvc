@@ -91,3 +91,78 @@ profesor del seed se crean **cero** filas, porque no da clase en ese grupo.
 
 **Un test escrito con el token de profesor habría dado verde diciendo que no
 escribe.** El token con el que se mide es parte de la medición.
+
+## §148 — Las once del escalón 2, clasificadas
+
+Eran trece. **Dos no sobreviven a leerlas**, y eso es una corrección a un número
+mío que ya estaba fundido — ver §149.
+
+De las once que quedan:
+
+| Ruta | Veredicto |
+|---|---|
+| `GET definitivas_periodos` | ya medida: **§137**, documentada y sin ejecutar |
+| `GET piars-asignaturas/asignaturas/{...}` | **§147** |
+| `GET piars-grupos/contexto-de-grupo/{grupo_id}` | **§147**, y es la que comprueba `nee` |
+| `PUT unidades/de-asignatura-periodo/{...}` | ya decidida por Joseth: **§47.2** |
+| `PUT ChangesAsked/solicitar-cambios` | mecanismo — «solicitar» escribe la solicitud |
+| `POST importar/algo/{year}` | mecanismo — punto de control de una importación |
+| `POST matriculas/matricular-en` | mecanismo, y **se defiende por dentro** |
+| `POST matriculas/matricularuno` | idem |
+| `PUT acudientes/guardar-valor` | mecanismo — «guardar» escribe |
+| `PUT alumnos/guardar-valor` | idem |
+| `PUT alumnos/guardar-valor-varios` | idem |
+
+**Siete son mecanismo, y eso también hay que comprobarlo**, no darlo por hecho
+porque el nombre lo diga. Los dos sitios donde podía haber algo:
+
+- **Los tres `guardar-valor` son setters genéricos** —reciben el nombre de la
+  columna por el cuerpo— y eso es exactamente la forma de una escritura
+  arbitraria. **No lo es**: la rama por defecto pasa por
+  `ColumnaSegura::exigir('alumnos', $propiedad)`, que ya lo cerró otra pasada.
+  Resultado, no hueco.
+- **Las dos de matricular** no llevan guard de ruta y **se defienden por dentro**:
+  `$user->tipo == 'Profesor' && $user->profes_can_edit_alumnos`, o superusuario.
+
+> Y de ahí una fila para el lote J: **`matriculas/matricularuno` y
+> `matricular-en` no están en las exenciones de `AutorizacionTest`**, igual que
+> `acudientes/guardar-valor`. Son la segunda y tercera ruta abierta y defendida
+> por dentro que la comprobación de «exenciones que faltan» no ve. No es un
+> agujero —las tres comprueban— pero **una lista que se cree completa y no lo
+> está** es lo que hace que nadie vuelva a mirar.
+
+## §149 — Erratas de mi propia curva: eran 313, no 315
+
+La curva del lote P publicó **315 rutas que escriben**. Al ir a repartir el
+escalón 2 leí los ficheros destino uno a uno y **`BolfinalesController.php` no
+tiene ni una escritura**: cero `DB::update`, cero `DB::insert`, cero `->save()` en
+el fichero entero. Comprobado hasta el final: `detailedNotasGrupo` llama a
+`Grupo::alumnos`, `Grupo::datos`, `Nota::puestoAlumno` y `Year::datos` —**los
+cuatro solo leen**— y a dos métodos suyos, en un fichero sin escrituras.
+
+**`bolfinales/detailed-notas-year` y `-year-group` no escriben.** El total correcto
+es **313**:
+
+| | |
+|---|---|
+| escalón 1 | **300** — recontado con una implementación **independiente**, sin recursión |
+| escalón 2 | **11** — 8 de 9 ficheros destino verificados a mano |
+| escalón 3 | **2** |
+| **total** | **313** |
+
+**La forma de la curva no cambia**: 300 / +11 / +2 / **0 de 4 a 8**. Sigue
+convergiendo en 3, que era la afirmación que importaba.
+
+### Lo que enseña, que es lo que no quiero que se pierda
+
+Antes de publicar el 315 **sembré el detector** con nueve casos ya leídos —seis
+que escriben, tres que no— y pasó **9/9**, con las profundidades correctas. Y aun
+así el número traía dos inventados.
+
+> **Sembrar el detector con casos conocidos prueba que ALCANZA. Leer una muestra
+> de sus positivos prueba que ACIERTA.** Un instrumento puede pasar la siembra
+> 9/9 y seguir inventándose resultados: son dos comprobaciones distintas y hacen
+> falta las dos.
+
+La segunda la hice por accidente, al ir a repartir el trabajo. Debería ser un
+paso, no una casualidad.
