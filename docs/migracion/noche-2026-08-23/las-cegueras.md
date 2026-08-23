@@ -136,6 +136,7 @@ La más cara, porque **el resultado falso es indistinguible de un hallazgo**.
 | Rojos en familias no tocadas, uno de 53 s | «mis cambios rompieron algo» | **deadlock en `personal_access_tokens`**: dos tandas contra la misma base, y las dos eran suyas | correr esas clases solas y leer el `SQLSTATE` | [C](c.md) |
 | Lo mismo, pero con una tanda ajena | ídem | un `pkill -f "artisan test"` mató **el envoltorio y dejó al hijo vivo**, reparentado a init | `pgrep -f "phpunit.*worktrees/X"` — **el hijo se llama `phpunit`, no `artisan`** | [A](a.md), [B](b.md) |
 | `ps | grep worktrees/e` | «no corre ninguna suite mía» | la línea del proceso es `php artisan test` a secas: el árbol y la base viven en `/proc/<pid>/environ` | leer el `environ` de cada pid | [E](e.md) |
+| `ps` sobre el **proceso padre** | «esa tanda mide el árbol raíz» | el padre es el envoltorio y lleva `--configuration=/app/phpunit.xml`; **el hijo** lleva el del worktree | leer la línea **del hijo**, que es el que mide | cierre |
 | El log que deja de crecer | «la suite murió» | **búfer de bloque**: parado justo en 10.210 bytes | el tamaño exacto del fichero | [E](e.md) |
 | Un `docker exec` muerto por `pkill` | el harness lo resumió como **«completed, exit code 0»** | **exit 143** | escribir `EXIT=$?` dentro del contenedor, junto al log | [B](b.md) |
 | Un snapshot de contrato | «esto está cubierto» | **el snapshot guardaba el fallo como si fuera correcto** | leer lo que afirma, no que exista | [E](e.md) |
@@ -146,6 +147,14 @@ La más cara, porque **el resultado falso es indistinguible de un hallazgo**.
 > El **snapshot** no es un instrumento de medir sino de proteger, y por eso es el
 > peor de la lista: **un test verde que fija un vaciado no avisa de nada y además
 > impide arreglarlo**, porque el arreglo lo pone en rojo.
+>
+> **Las tres del `ps` son la misma trampa con tres caras**, y juntas dicen lo que
+> ninguna dice sola: el `cwd` **no identifica el árbol** —un test se mete en un
+> temporal—, el sufijo **vive en la línea del hijo y no en la del padre**, y
+> mirar el padre **no da un «no lo sé»: da `/app`, que es cierto del padre**.
+>
+> **Una respuesta coherente y falsa es peor que ninguna**, porque no invita a
+> buscar otra.
 >
 > Y `grupos-show.json` tiene algo que no tiene ningún otro de esta tabla: **mintió
 > en las dos direcciones con horas de diferencia.** Primero **escondiendo** un
@@ -288,14 +297,23 @@ que parece un resultado.
 |---|---|---|
 | **1.272** (suite entera al cerrar) menos **903** (solo `Contrato` al empezar) | **+369 tests** | el 903 es de otra población: contra los **1.006** de la suite entera son **+266**, y cuadra con los 267 métodos añadidos |
 | **535** rutas comprobadas corriendo la suite entera, junto a un **534** de solo `Contrato` | una regresión de una ruta | es **`GET /`**, que solo toca el stub de `laravel new` |
+| **535** (suite entera) menos **461** (solo `Contrato`) | **+74 rutas** | medido el arranque con la suite entera son **462**: **+73** |
+| **97/97** controladores al cerrar, junto a **96/97** al empezar | «la noche cerró el último controlador sin cubrir» | con la suite entera ya eran **97/97 al empezar**. Lo que la noche movió es **de 41 controladores a medias a 4** |
 
 > **Un número no significa nada sin su población, y la población casi nunca está
 > escrita al lado.** El remedio es el mismo que el del sello y cuesta lo mismo:
 > **decir de qué es el número en la misma línea que el número** —«suite entera»,
 > «solo Contrato»—, y no en una nota debajo que se pierde al copiar la cifra.
 
-Los dos casos son de la misma noche y **el segundo se evitó porque el primero ya
-había mordido**.
+Los cuatro son de la misma noche y del mismo par de poblaciones —la suite entera
+y `--testsuite=Contrato`—. **El segundo se evitó porque el primero ya había
+mordido; el tercero y el cuarto solo aparecieron al medir el arranque de verdad**,
+en vez de citarlo.
+
+> El cuarto es el más caro de los cuatro y el que menos lo parece: *«pasamos de
+> 96/97 a 97/97»* cuenta una historia —la noche cerró el último controlador sin
+> cubrir— **que no ocurrió**. La que ocurrió es **de 41 a medias a 4**, y estaba
+> en la casilla de al lado.
 
 > **Cerrar una serie no es cerrar la operación.** Y lo que hay que escribir al
 > cerrar no es «arreglado»: es **sobre qué población se cerró**. Las cinco veces,
