@@ -308,6 +308,92 @@ class YearsTest extends CasoDeContrato
             'La fila debe seguir ahí, solo en la papelera.');
     }
 
+    /**
+     * Crear un año copia la disciplina del anterior, y esas filas ya nacen con fecha.
+     *
+     * Los dos `INSERT` de `postStore` eran los únicos de las **cuatro** escrituras que
+     * hay en `dis_configuraciones` y `dis_ordinales` que no ponían `created_at`; los
+     * otros tres —`GruposController:265` y los dos de `OrdinalesController`— sí. Lo
+     * encontró el lote B leyendo lo suyo y no lo tocó, porque el fichero es de éste.
+     *
+     * Como sólo corre al crear un año, la fila mal nacía **una vez por año y por
+     * colegio**. Las que ya están escritas están medidas y no se tocan: en el seed,
+     * **14 de 17 ordinales y 7 de 9 configuraciones** tienen `created_at` nulo — o
+     * sea todos los años creados por esta ruta, del 3 en adelante. Hoy no lo lee
+     * nadie: los listados de disciplina ordenan por `ordinal`. Se arregla porque
+     * «cuándo apareció esta fila» es la pregunta que no se puede contestar después.
+     */
+    public function test_el_ano_nuevo_copia_la_disciplina_con_su_fecha(): void
+    {
+        $token = $this->tokenDelPersonal();
+
+        // **El año de partida se busca vivo, y no con `max(year)` a secas.** `postStore`
+        // hace `Year::where('year', $nuevo - 1)->first()`, que respeta el borrado
+        // suave, y el seed trae un 2026 **en la papelera**: pedir `max(year) + 1` da
+        // 2027, cuyo anterior está borrado, y entonces no se copia nada de nada. El
+        // test pasaba por la razón equivocada y no medía la copia.
+        $ultimo = DB::selectOne('SELECT id, year FROM years WHERE deleted_at IS NULL
+            ORDER BY year DESC LIMIT 1');
+
+        $this->assertGreaterThan(0,
+            DB::table('dis_ordinales')->where('year_id', $ultimo->id)->whereNull('deleted_at')->count(),
+            'El año de partida tiene que traer ordinales, o esto no copia nada.');
+
+        // 200 y no 201, por lo que explica `test_crear_un_ano_respeta_lo_que_se_pide`.
+        $r = $this->withToken($token)->postJson('/api/years/store',
+            $this->cuerpoDeAnioNuevo(((int) $ultimo->year) + 1, false));
+        $r->assertStatus(200);
+        $nuevo = (int) $r->json('id');
+
+        foreach (['dis_ordinales', 'dis_configuraciones'] as $tabla) {
+            $filas = DB::table($tabla)->where('year_id', $nuevo)->get();
+            $this->assertNotEmpty($filas, "El año nuevo no copió ninguna fila de {$tabla}.");
+
+            foreach ($filas as $fila) {
+                $this->assertNotNull($fila->created_at,
+                    "Una fila de {$tabla} del año nuevo nació sin created_at.");
+                $this->assertNotNull($fila->updated_at,
+                    "Una fila de {$tabla} del año nuevo nació sin updated_at.");
+            }
+        }
+    }
+
+    /**
+     * Y lo que se mide y **no** se arregla: si el año anterior está en la papelera,
+     * el año nuevo nace **vacío** y contesta 200 igual.
+     *
+     * `postStore` busca el anterior con `Year::where('year', $nuevo - 1)->first()`,
+     * que respeta el borrado suave. Si no lo encuentra —porque no existe o porque
+     * está borrado— se salta el bloque entero: ni configuración copiada, ni
+     * disciplina, ni grupos, ni asignaturas, ni escalas. El colegio se queda con un
+     * año que hay que configurar entero a mano y nadie se lo dice.
+     *
+     * No se arregla aquí porque la pregunta es del colegio: copiar desde un año que
+     * alguien mandó a la papelera puede ser justo lo que no se quiere. Se fija lo que
+     * hace hoy para que se decida sobre un dato y no sobre una impresión.
+     */
+    public function test_si_el_ano_anterior_esta_en_la_papelera_el_nuevo_nace_vacio(): void
+    {
+        $token = $this->tokenDelPersonal();
+        $ultimo = DB::selectOne('SELECT id, year FROM years WHERE deleted_at IS NULL
+            ORDER BY year DESC LIMIT 1');
+
+        DB::table('years')->where('id', $ultimo->id)->update(['deleted_at' => now()]);
+
+        $r = $this->withToken($token)->postJson('/api/years/store',
+            $this->cuerpoDeAnioNuevo(((int) $ultimo->year) + 1, false));
+        $r->assertStatus(200);
+        $nuevo = (int) $r->json('id');
+
+        foreach (['dis_ordinales', 'dis_configuraciones', 'grupos', 'escalas_de_valoracion'] as $tabla) {
+            $this->assertSame(0, DB::table($tabla)->where('year_id', $nuevo)->count(),
+                "Con el año anterior en la papelera no se copia nada, y {$tabla} trajo filas.");
+        }
+
+        // Lo único que sí nace: su primer periodo, que va antes del bloque.
+        $this->assertSame(1, DB::table('periodos')->where('year_id', $nuevo)->count());
+    }
+
     /** Los conmutadores del boletín guardan lo que dicen que guardan. */
     public function test_los_conmutadores_guardan_lo_que_dicen(): void
     {

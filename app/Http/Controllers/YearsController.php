@@ -199,18 +199,32 @@ class YearsController extends Controller {
 			if (count($dis_configuraciones) > 0) {
 				$dis = $dis_configuraciones[0];
 				
+				// Los dos `INSERT` de aquí abajo eran los únicos de las cuatro escrituras
+				// que hay en estas dos tablas que **no** ponían fecha: los otros tres
+				// —`GruposController:265` y los dos de `OrdinalesController`— sí. Como
+				// esto sólo corre al crear un año, la fila mal nacía **una vez por año y
+				// por colegio**, y las que hay ya escritas están medidas: en el seed,
+				// **14 de 17 ordinales y 7 de 9 configuraciones** vienen con `created_at`
+				// nulo — o sea todos los años creados por esta ruta, del 3 en adelante.
+				//
+				// Hoy no lo lee nadie: los listados de disciplina ordenan por `ordinal`,
+				// no por fecha, y ningún cliente pide esa columna. Se arregla porque la
+				// pregunta «cuándo apareció esta fila» es la que no se puede contestar
+				// después, y porque tres de cuatro sitios ya lo hacían bien.
+				$now_dis = Carbon::now('America/Bogota');
+
 				DB::insert('INSERT INTO dis_configuraciones(year_id, reinicia_por_periodo, falta_tipo1_displayname, faltas_tipo1_displayname, genero_falta_t1, falta_tipo2_displayname, faltas_tipo2_displayname, genero_falta_t2, 
 					falta_tipo3_displayname, faltas_tipo3_displayname, genero_falta_t3, cant_tard_to_ft1, cant_ft1_to_ft2, cant_ft2_to_ft3,
-					nombre_col1, nombre_col2, nombre_col3, definicion_ft1, definicion_ft2, definicion_ft3) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', 
+					nombre_col1, nombre_col2, nombre_col3, definicion_ft1, definicion_ft2, definicion_ft3, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', 
 					[ $year->id, $dis->reinicia_por_periodo, $dis->falta_tipo1_displayname, $dis->faltas_tipo1_displayname, $dis->genero_falta_t1, $dis->falta_tipo2_displayname, $dis->faltas_tipo2_displayname, $dis->genero_falta_t2, 
 					$dis->falta_tipo3_displayname, $dis->faltas_tipo3_displayname, $dis->genero_falta_t3, $dis->cant_tard_to_ft1, $dis->cant_ft1_to_ft2, $dis->cant_ft2_to_ft3, 
-					$dis->nombre_col1, $dis->nombre_col2, $dis->nombre_col3, $dis->definicion_ft1, $dis->definicion_ft2, $dis->definicion_ft3 ]);
+					$dis->nombre_col1, $dis->nombre_col2, $dis->nombre_col3, $dis->definicion_ft1, $dis->definicion_ft2, $dis->definicion_ft3, $now_dis, $now_dis ]);
 					
 				$dis_ordinales = DB::select('SELECT * FROM dis_ordinales WHERE year_id=? AND deleted_at is null;', [$pasado->id]);
 					
 				foreach ($dis_ordinales as $key => $ord) {
-					DB::insert('INSERT INTO dis_ordinales(year_id, tipo, ordinal, descripcion, pagina) VALUES(?,?,?,?,?)', 
-						[ $year->id, $ord->tipo, $ord->ordinal, $ord->descripcion, $ord->pagina ]);
+					DB::insert('INSERT INTO dis_ordinales(year_id, tipo, ordinal, descripcion, pagina, created_at, updated_at) VALUES(?,?,?,?,?,?,?)', 
+						[ $year->id, $ord->tipo, $ord->ordinal, $ord->descripcion, $ord->pagina, $now_dis, $now_dis ]);
 				}
 			}
 			
