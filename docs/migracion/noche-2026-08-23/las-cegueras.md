@@ -227,6 +227,33 @@ costumbre de la noche —«a mis herramientas les pongo mi base»— correrá es
 herramienta creyendo que mide su base de tests **y estará midiendo el colegio**.
 Se caza leyendo su primera línea, que nombra la base.
 
+### Y lo último que encontró la noche, que ninguna de las siete formas podía ver
+
+La corrida de cierre —la primera con **todo** dentro— salió en rojo con un test
+que ninguna de las cinco mediciones anteriores podía encontrar:
+
+```
+YearsTest > apagar el ultimo deja cero y se puede entrar
+  El seed no tiene ningún Usuario que NO sea superusuario en el año actual.
+```
+
+El test **apaga todos los años actuales** y dos líneas después llama a un ayudante
+cuya consulta lleva `INNER JOIN years y ON … AND y.actual = 1`.
+
+> **El ayudante es correcto y el test también lo parece. Cada uno mira una mitad;
+> lo que falla es el orden entre los dos** — y eso no lo ve ni quien escribió el
+> ayudante ni quien escribió el test.
+
+No es una ceguera de detector: **ningún detector podía verlo**, porque no hay nada
+mal escrito en ninguno de los dos sitios. Y tampoco lo veían las mediciones
+parciales: una no tenía el lote que trajo el ayudante, otra no tenía el `main`
+posterior, otra no tenía ninguno de los dos.
+
+> **Hay fallos que no están en ningún sitio: están entre dos sitios**, y el único
+> instrumento que los ve es **correr todo junto una vez, al final.** Esa corrida
+> no es un trámite de confirmación: es la única que mide algo que ninguna otra
+> mide.
+
 ---
 
 ## Forma 6 — La señal que se busca no es la forma que tiene el fallo
