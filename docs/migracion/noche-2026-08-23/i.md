@@ -421,8 +421,42 @@ control positivo** y hay que decirlo:
 | `notas-actuales-alumnos/{grupo}` | 500 | 500 |
 | `matriculas/prematricular` | 500 | 500 |
 
-Las dos últimas contestan 500 también con un token de personal, así que **puede ser el
-cuerpo que manda este fichero y no la ruta**: quedan sin juzgar y sin acusar.
+Las dos últimas contestan 500 también con un token de personal, así que **el 500 no es
+de la ruta: es del cuerpo que manda este fichero**. `notas-actuales-alumnos` queda sin
+juzgar. `matriculas/prematricular` **sí se juzgó**, y lo que salió no es el 500.
+
+#### `matriculas/prematricular`: el 500 era mío, y debajo había otra cosa
+
+Al abrirlo, el 500 se explica entero y no acusa a nadie: el método **escribe primero y
+consulta después**, y la consulta final busca la matrícula del alumno en
+`years.year = <año del usuario> + 1`. En este seed **2026 está en la papelera**, así que
+no la encuentra, hace `[0]` sobre una consulta vacía y revienta. Con el año siguiente
+creado, no pasaría.
+
+Pero midiendo eso salió lo que sí es un hallazgo, y **es la única escritura abierta a
+una familia**:
+
+```
+matriculas ANTES:   id 3179  grupo 98 (2025, el año en curso)  estado MATR  prematriculado null
+    PUT matriculas/prematricular {alumno_id: <mi acudido>, grupo_id: 98}   ->  500
+matriculas DESPUES: id 3179  grupo 98                          estado PREM  prematriculado 2026-08-23  updated_by 488
+```
+
+**La escritura va al año del `grupo_id` que le manden, y el `grupo_id` viene del
+cuerpo.** El guard `boletin.propio:sin-paz-y-salvo` comprueba **de quién es el alumno**
+—y lo comprueba bien, por eso las doce dan 403 con uno ajeno— pero **nadie comprueba de
+qué año es el grupo**. Con su propio acudido, que es lo que el guard permite, un
+acudiente le cambia el estado a la matrícula **del año en curso**: de `MATR` a `PREM`,
+con fecha de prematrícula y su `updated_by`.
+
+Y la respuesta lo tapa: la pantalla recibe un 500 y `AnunciosDir.ts` lee
+`r.matricula.prematriculado` en el `.then`, así que no llega nunca — **la familia ve un
+error después de una escritura que sí ocurrió**, y lo natural es volver a intentarlo.
+
+No se arregla desde este lote: `MatriculasController` no es suyo. El arreglo tiene dos
+mitades y conviene separarlas, porque son decisiones distintas: **que el grupo sea del
+año siguiente** es la regla del negocio, y **que no se conteste 500 después de haber
+escrito** es la §69 otra vez.
 
 ### Y las dos primeras sí son un fallo, y es de familia
 
