@@ -95,6 +95,13 @@ números. Lo que cambia es que ahora contestan la pregunta correcta a la primera
   `tools/coste-del-recalculo.php`. Y **un 3× que resultó ser la caché** se
   escribió, se midió y se revirtió: está en el [02](02-plan-rendimiento.md) para
   que no se reintente.
+- **Tres 500 menos, los tres encontrados por el front verificando en el
+  navegador**: `perfiles/username` reventaba para **todo acudiente** (1.000 de
+  1.067 cuentas) y tapaba una fuga del directorio entero; `Grupo::datos()` daba
+  500 por **diecisiete rutas** con cualquier grupo borrado —el grupo 1 lleva en la
+  papelera desde 2018—; y falta `num_periodo` contestaba «no tienes permiso».
+  **Ninguna suite nuestra los habría encontrado: todos nuestros tests piden ids
+  que existen.**
 - **Arreglado**: si falta `num_periodo`, `DefinitivasPeriodosController::putUpdate`
   reventaba en la guarda de permisos antes que en la del periodo, así que el
   profesor leía «no tienes permiso» cuando lo que faltaba era un campo. Ahora es

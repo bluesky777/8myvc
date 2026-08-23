@@ -80,6 +80,34 @@ guardar**: no guardaba nada, y además era una inyección.
 > seguir enseñando un valor que no se guardó. Es lo de siempre y no lo empeora esta
 > tanda.
 
+### 2.b Tres 500 que dejan de serlo, encontrados el 24 ago
+
+Los tres los destaparon las sesiones del front verificando **en el navegador**, no
+una suite. Van juntos porque comparten la causa de fondo: **ninguna suite nuestra
+los habría encontrado, porque todos nuestros tests piden ids que existen.**
+
+- **`GET perfiles/username/{u}` deja de reventar para todo acudiente** — eran
+  **1.000 de las 1.067 cuentas** de la copia de desarrollo, y el mensaje de «no
+  encontrado» del final era inalcanzable. Debajo había algo peor: la consulta de
+  esa rama **no filtraba por el nombre**, así que devolvía el **directorio entero
+  de acudientes** con documento, fecha de nacimiento, correo personal y correo de
+  recuperación. Lo único que impedía la fuga era el propio fallo que causaba el
+  500.
+- **Pedir un grupo borrado o inexistente contesta 404 y no 500**, por
+  **diecisiete** rutas a la vez — los tres controladores de boletines, planillas,
+  puestos, certificados, PIAR, `editnota`, `bolfinales`—. El grupo 1 de la copia
+  de producción **existe y está en la papelera desde enero de 2018**, así que
+  cualquier pantalla que lo pidiera daba una traza de PHP.
+- **Teclear una definitiva sin decir el periodo contesta 422 nombrando el campo**,
+  no «no tienes permiso». Antes el rechazo salía por la guarda de permisos, así
+  que **el mensaje mandaba a investigar a la persona equivocada**: quien lo recibía
+  miraba los roles del profesor y no el cuerpo de la petición.
+
+> **Lo que se nota de los tres es nada, salvo que dejan de fallar.** Ninguno quita
+> capacidad a nadie: el primero devuelve un perfil donde antes había un error, el
+> segundo cambia una traza por un «no existe» y el tercero cambia un mensaje
+> equivocado por el correcto.
+
 ### 3. Lo que hay que avisar antes de desplegar
 
 Son seis, y todas se notan el primer día:
