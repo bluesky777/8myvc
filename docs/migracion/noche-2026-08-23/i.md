@@ -1,0 +1,249 @@
+# Lote I — El barrido por tipo de token
+
+> Sesión `8myvc-ec`, noche del 22 al 23 de agosto de 2026. Rama
+> `fix/lote-i-barrido-tokens`, árbol `.worktrees/i`, base `simonbolivar_testing_i`.
+>
+> Lee y reporta: no toca ningún controlador. Secciones **§111–113**.
+
+La pregunta del lote era «qué alcanza un token de Profesor, de Acudiente y de
+Usuario». La respuesta empieza por una que no estaba en el enunciado: **el
+instrumento medía a otro sujeto**.
+
+---
+
+## §111 · El barrido de `Usuario` estaba midiendo al superusuario
+
+`SuperficieDeUnTokenTest::sujetoDeBarrido()` delegaba en `CasoDeContrato::usuarioDeTipo()`
+para todo lo que no fuera `Alumno`. Ese ayudante ordena por id y devuelve el primero
+del tipo. Medido:
+
+```
+usuarioDeTipo('Usuario')  ->  usuario 1, users_1, is_superuser = 1, rol Admin
+```
+
+Y el **control** de la segunda pasada del propio barrido —el que repite las rutas
+mudas para separar «un guard lo impidió» de «no había nada que alcanzar»— coge «el
+superusuario de menor id», que es **el mismo usuario 1**.
+
+O sea que `BARRIDO_TIPO=Usuario` comparaba un sujeto consigo mismo: todo lo que
+alcanzara sería «lo suyo» y todo silencio, «no juzgable». **No daba un número malo:
+no medía al sujeto que decía medir.**
+
+### Por qué pasó, que es lo que importa
+
+`usuarioDeTipo()` **no está mal**. Está bien para otra pregunta. Se escribió para los
+tests de contrato, donde lo que se mira es **la forma de la respuesta** y «cualquiera
+del tipo» es exactamente lo correcto —de hecho su docblock explica con cuidado por
+qué no vale cualquiera *dentro* del tipo—. El barrido mira **qué alcanza un token**, y
+ahí «cualquiera» es lo que no vale.
+
+> Un ayudante correcto reutilizado para una pregunta distinta no falla: contesta bien
+> a la pregunta para la que se escribió.
+
+### Lo que se arregló, y sólo eso
+
+En `tests/Barrido/SuperficieDeUnTokenTest.php`:
+
+1. Para `Usuario` se exige **`is_superuser = 0`**, y si el seed no tuviera ninguno el
+   barrido **se cae con nombre** en vez de medir al superusuario y llamarlo Usuario.
+2. **La cabecera imprime `is_superuser` y los roles del sujeto**, y si aun así fuera
+   superusuario lo dice en voz alta. «Usuario 1» no distingue a un administrativo de
+   un superusuario, y esa diferencia es la que decide si el resultado significa algo.
+
+> **Un instrumento que dice a quién midió no puede medir a otro en silencio.**
+
+### Y lo que esto toca fuera del barrido — no se arregla aquí
+
+El mismo ayudante lo usan los tests de contrato como «el personal del colegio»:
+
+```
+usuarioDeTipo('Usuario')   ->  usuario 1    is_superuser = 1
+tokenDelPersonalDe(7)      ->  usuario 685  is_superuser = 0   (un Psicólogo)
+tokenDelPersonalDe(8)      ->  usuario 1    is_superuser = 1
+```
+
+**El mismo ayudante devuelve un superusuario o un administrativo llano según el año
+que le toque**, en silencio. Y ninguna llamada pasa el año literal: todas pasan
+`$grupo->year_id`, así que el sujeto no depende de un número que se pueda leer en el
+test — depende del grupo que ese test eligió.
+
+Lo que acota el daño: **los tests que afirman un rechazo fallan ruidosamente** si les
+toca el superusuario, así que ésos no mienten. **Los que engañan son los que afirman
+un permiso**: «el personal puede X» con el superusuario delante prueba menos de lo que
+su nombre dice, y sale verde.
+
+No se toca desde aquí, y no por territorio: `CasoDeContrato.php` es **el suelo de
+todas las sesiones**. Va al lote N, el último, con todo fundido.
+
+---
+
+## §112 · Lo que alcanza cada tipo, medido
+
+Cinco barridos, misma noche, misma base. **El primero es la comprobación, no el
+resultado**: Alumno y Acudiente tienen que reproducir lo que ya se midió el 20 de
+agosto, y lo reproducen.
+
+| Sujeto | Rutas que alcanza con algo dentro |
+|---|---|
+| Alumno (usuario 2375) | **8** |
+| Acudiente (usuario 488) | **10** |
+| Usuario llano (usuario 679, **cero roles**) | **145** |
+| Profesor (usuario 8, rol Profesor) | **164** |
+| Superusuario (usuario 1, rol Admin) | **170** |
+
+El Acudiente alcanza exactamente **dos más** que el Alumno —`acudientes/mis-acudidos`
+y `ChangesAsked/to-me`—, que son las dos que el 20 de agosto quedaron escritas, y las
+dos siguen devolviendo lo de su acudido: comprobado leyendo la rama `Acudiente` de
+`getToMe()`, que filtra por `parentescos.acudiente_id`, y no el tamaño de la
+respuesta. Los 209 KB son publicaciones, calendario y grados siguientes.
+
+> **Empezar por reproducir lo conocido es lo que da derecho a que te crean lo nuevo.**
+
+### El salto, y dónde no está
+
+De la familia al personal del colegio se multiplica por catorce. Pero el escalón **no
+lo pone el rol**: un administrativo con **cero roles** alcanza 145.
+
+| | Cuántas |
+|---|---|
+| Las alcanzan los tres (profesor, administrativo sin rol, superusuario) | **123** |
+| Sólo el superusuario | **38** |
+| El profesor y no el administrativo | **22** |
+| El administrativo y no el profesor | **3** |
+
+- Las **38** del superusuario son las que uno esperaría que lo fueran: los borrados
+  físicos (`alumnos`, `grupos`, `profesores`, `unidades`, `subunidades`, `notas`), las
+  papeleras, crear administradores, enfermeros y psicólogos, roles y permisos, las
+  definitivas manuales y los uniformes.
+- Las **22** del profesor son actividades, preguntas, opciones, calendario, crear
+  unidades y `definitivas_periodos/calcular-grupo-periodo`.
+- Las **3** del administrativo son enfermería (dos) y una de PIAR.
+
+O sea que **`tipo` y `is_superuser` deciden casi todo, y los once roles casi nada.**
+
+---
+
+## §113 · Por qué los roles no separan: la causa, medida en la base
+
+### 1. `Autoriza::esAdministrativo()` es hoy `is_superuser` a secas
+
+```php
+return (bool) ($user->is_superuser ?? false) || Role::isSecretario($user->user_id);
+```
+
+`Role::isSecretario()` pregunta por un rol llamado **`'Secretario'`**, y en la tabla
+`roles` **no existe**. Los once son: Admin, Profesor, Alumno, Acudiente, Manager,
+Asistente, Enfermero, Coord disciplinario, Coord académico, Rector y Psicólogo.
+
+El docblock del método deja pendiente «quién es el Secretario» —la [§30.2](../05-codigo-muerto-y-roto.md)—
+pero **no dice que el rol al que pregunta no exista**, así que el método se lee como
+si tuviera dos ramas cuando tiene una. Y de ese criterio cuelgan las escrituras de
+alumnos, las de acudientes y los tres `forcedelete`.
+
+### 2. Los 19 permisos cuelgan de un rol que no tiene a nadie
+
+- **16 de los 19** son del rol `Manager`. Los otros tres son los `can_work_like_*` de
+  Profesor, Alumno y Acudiente.
+- **`Manager` tiene 0 usuarios.** También `Asistente`, `Coord académico` y `Rector`.
+- El backend **lee un permiso en un solo sitio**: `RolesController:28`, con
+  `can_edit_usuarios`. Como el único rol que lo tiene está vacío, ese `if` sólo lo pasa
+  un superusuario — que ya salió por el `return` de la línea de arriba.
+
+**El sistema de permisos hoy no decide nada.**
+
+### 3. De los once roles, tres deciden algo
+
+| Rol | Qué decide | Usuarios |
+|---|---|---|
+| `Psicólogo` | dos columnas de la ficha del alumno (`nee`, `nee_descripcion`) | 4 |
+| `Enfermero` | los antecedentes médicos en `EnfermeriaController` | 1 |
+| `Coord disciplinario` | **nada todavía**: su método no tiene llamantes | 1 |
+| `Secretario` | `Autoriza::esAdministrativo` — **pero la fila no existe** | — |
+
+Los tres primeros existen en la tabla. La diferencia con `Secretario` no es que el
+nombre esté mal escrito en un sitio: **es que a ése le falta la fila**.
+
+### Nada de esto se arregla, y el porqué es el de siempre
+
+Crear el rol `Secretario` o darle usuarios a `Manager` **cambia de golpe quién puede
+qué en dieciséis colegios**. Es exactamente lo que el [09 §5](../09-pendientes.md)
+tiene esperando a Joseth, y lo que faltaba allí eran estos números.
+
+Lo que sí queda es `tests/Contrato/LoQueDecideUnRolTest.php`, que **fija que hoy
+`esAdministrativo` ≡ `is_superuser`**, que `Manager` está vacío y que los tres roles
+que deciden existen. El día que alguien cree ese rol, esos tests se ponen rojos y le
+dicen lo que acaba de mover **antes** de que lo descubra en producción.
+
+---
+
+## §112.1 · Las 164 del profesor: por qué no son 164 agujeros
+
+De los 164 hallazgos del token de Profesor, **140 no consultan ningún criterio de
+rol** —ni `Autoriza`, ni `is_superuser`, ni `Role::`, ni un `exig*` privado, ni
+`pueden_editar_notas`— y se apoyan enteros en `auth.personal`. Los otros 24 sí
+consultan algo y aun así pasaron, que para un profesor suele ser lo correcto.
+
+**140 no es el número de agujeros, y decirlo así sería el error que este documento
+persigue.** El barrido lo dice él mismo en su salida: *«cada una hay que mirarla:
+muchas son lo suyo, y eso el barrido no lo sabe»*. Un profesor **debe** crear
+unidades, poner ausencias, escribir disciplina y montar actividades. Lo que la lista
+da es **dónde mirar**, y el discriminador no lo pone la herramienta.
+
+Lo que sí queda separado, y es lo único que este lote afirma:
+
+- **La mayor parte de las 140 ya está decidida.** Las escrituras de `years`,
+  `periodos`, `asignaturas`, `grupos` y `materias` son las 44 rutas que Joseth decidió
+  **no cerrar**, porque cerrarlas dejaría fuera a un coordinador que hoy configura y no
+  tiene el rol — y ahora se ve por qué no lo tiene: **el rol no existiría de todos
+  modos**.
+- **Lo que queda fuera de esa decisión y merece una pregunta**, sin proponer arreglo
+  porque ninguna es de este lote:
+
+  | Ruta | Qué hace |
+  |---|---|
+  | `PUT alumnos/cambiar-claves` | `update users` — cambia contraseñas de alumnos |
+  | `DELETE profesores/destroy/{id}` | manda a otro **profesor** a la papelera |
+  | `PUT detalles/eliminar-matricula-destroy` | `delete matriculas`, borrado **físico** |
+  | `DELETE contratos/destroy/{id}` | los contratos de los docentes |
+  | `GET nota_comportamiento/detailed/{grupo_id}` | un **GET que inserta** en dos tablas |
+  | `PUT ciudades/actualizar-departamento` | 125 filas de golpe, ya medido |
+
+Y una que **no** es hallazgo y conviene decir que no lo es: `GET api/contratos` sale
+en el barrido del alumno **y** en el del acudiente con el expediente entero de los
+nueve docentes. **Ya estaba juzgada** —el 05, `AutorizacionTest:609` y el 09 §5— y
+espera decisión. Que el barrido la reencuentre solo es la señal de que la lista nueva
+es creíble.
+
+---
+
+## Lo que este barrido sigue sin poder medir
+
+Se añade a las cegueras que el propio fichero ya lleva escritas, porque salió mirando
+los identificadores que usa:
+
+**`{grupo_id}` ajeno es también «de otro año», y en este seed no puede no serlo.** Hay
+exactamente **dos grupos vivos, uno por año** —84 en 2024 y 98 en 2025—, así que el
+grupo «ajeno» que elige el barrido es siempre de un año distinto al del sujeto. Para
+las 28 rutas que llevan un grupo en la URL, un vacío no distingue **«el guard lo
+impidió»** de **«el filtro de año no encontró nada»**. La segunda pasada de control lo
+tapa en parte —si el superusuario tampoco saca nada, la ruta se marca no juzgable—,
+pero no separa las dos causas.
+
+`CasoDeContrato::grupoAjenoDelMismoAnio()` existe justo para esto y el barrido no lo
+usa. No se cambia aquí: tocarlo mueve los cinco números de arriba, y esos números son
+la entrega de este lote. Queda anotado para quien lo recoja.
+
+---
+
+## Para Joseth
+
+Todo lo de este lote es una decisión suya y ninguna se tomó:
+
+1. **¿Quién es el «Secretario»?** Su rol no existe, así que `Autoriza::esAdministrativo`
+   es hoy `is_superuser`. Crearlo abre de golpe las escrituras de alumnos y acudientes
+   y los tres `forcedelete` a quien se lo den.
+2. **¿Para qué está `Manager`?** Tiene los 16 permisos del sistema y cero usuarios.
+   Meter a alguien ahí abre 16 puertas a la vez, y sólo una de ellas la lee el backend.
+3. **De las seis rutas de la tabla de arriba** —contraseñas de alumnos, borrar
+   profesores, borrar matrículas físicamente, contratos—, ¿cuáles debería alcanzar un
+   profesor y cuáles no? Hoy las alcanza todas por `auth.personal`.

@@ -218,7 +218,24 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
             }
         });
 
-        $this->salida[] = "Barrido con token de {$tipo} (usuario {$quien->id}).";
+        // La cabecera dice **qué** es el sujeto y no sólo su id. Decir «usuario 1»
+        // no distingue a un administrativo de un superusuario, y esa diferencia es
+        // la que decide si el resultado significa algo: un barrido con un
+        // superusuario mide el control.
+        $roles = implode(', ', array_map(fn ($r) => $r->name, DB::select(
+            'SELECT r.name FROM role_user ru INNER JOIN roles r ON r.id = ru.role_id
+             WHERE ru.user_id = ? ORDER BY r.id', [$quien->id]
+        )));
+
+        $this->salida[] = "Barrido con token de {$tipo} (usuario {$quien->id}, {$quien->username}).";
+        $this->salida[] = '  is_superuser = '.((int) $quien->is_superuser)
+            .'   roles: '.($roles === '' ? 'ninguno' : $roles);
+
+        if ((int) $quien->is_superuser === 1) {
+            $this->salida[] = '  AVISO: este sujeto es superusuario, o sea el mismo que usa el control '
+                .'de más abajo. Lo que alcance no dice nada sobre lo que alcanza su tipo.';
+        }
+
         $this->salida[] = 'Identificadores usados, todos ajenos: '.json_encode($this->ajenos);
         $this->salida[] = '';
     }
@@ -561,6 +578,35 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
      */
     private function sujetoDeBarrido(string $tipo): object
     {
+        // **Un `Usuario` no vale: hay que exigir que NO sea superusuario.** El
+        // seed tiene veinte `Usuario` activos y **diez son superusuario**;
+        // `usuarioDeTipo()` ordena por id y devuelve el 1, que lo es y además
+        // lleva el rol Admin. O sea que el barrido con `BARRIDO_TIPO=Usuario`
+        // estaba midiendo **el mismo sujeto que usa su propio control**: todo lo
+        // que alcanzara sería «lo suyo» y todo silencio, «no juzgable». No es
+        // que diera un número malo — es que no medía al sujeto que dice medir.
+        //
+        // Y no es un detalle de este archivo: `usuarioDeTipo()` se escribió para
+        // los tests de contrato, donde «cualquiera del tipo» está bien porque lo
+        // que se mira es la FORMA de la respuesta. Aquí lo que se mira es qué
+        // alcanza, y ahí «cualquiera» es exactamente lo que no vale.
+        if ($tipo === 'Usuario') {
+            $llano = DB::selectOne('SELECT u.* FROM users u
+                INNER JOIN periodos p ON p.id = u.periodo_id AND p.deleted_at IS NULL
+                WHERE u.tipo = "Usuario" AND u.is_active = 1 AND u.deleted_at IS NULL
+                  AND u.is_superuser = 0
+                ORDER BY u.id LIMIT 1');
+
+            // Si el seed no tuviera ninguno, se cae con nombre en vez de medir al
+            // superusuario y llamarlo Usuario.
+            $this->assertNotNull($llano,
+                'El seed no tiene ningún Usuario que NO sea superusuario, así que este '
+                ."barrido mediría al mismo sujeto que su control.\n"
+                .'Regenera la semilla o elige otro tipo.');
+
+            return $llano;
+        }
+
         if ($tipo !== 'Alumno') {
             return $this->usuarioDeTipo($tipo);
         }
