@@ -178,7 +178,17 @@ Es exactamente el fallo del que avisa `tokenDelPersonalDe()` desde que se escrib
 un sujeto de otro año los listados salen vacíos **en 200** y el test pasa sin haber
 calculado nada. **Cambiar un sujeto silencioso por otro no es arreglarlo.**
 
-Arreglado anclando el ayudante a `years.actual = 1`.
+Arreglado anclando el ayudante a `years.actual = 1`. **Y comprobado que el arreglo
+restaura la paridad en la dimensión que rompió**, que es lo que faltaba para poder decir
+que está arreglado y no sólo cambiado:
+
+```
+el ayudante anclado devuelve:  user 684  is_superuser = 0   año 2025
+el viejo devolvía:             user 1    is_superuser = 1   año 2025
+```
+
+**Mismo año.** Así lo único que cambia para los 38 repuntados es `is_superuser`, que es
+exactamente el cambio que se buscaba — y ninguna otra cosa.
 
 ### 2. `PapeleraTest` — el test fija el sujeto en una aserción
 
