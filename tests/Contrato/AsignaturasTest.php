@@ -324,6 +324,84 @@ class AsignaturasTest extends CasoDeContrato
         $this->assertNotEmpty($r->json('unidades'));
     }
 
+    /**
+     * **§96. Crear una asignatura: las cuatro salidas, y la que de verdad importa.**
+     *
+     * Continúa la serie de la [§78](../../docs/migracion/05-codigo-muerto-y-roto.md),
+     * que midió crear en nueve catálogos y encontró que el mismo cuerpo vacío saca
+     * cuatro respuestas distintas y que **lo que las separa no es el código sino el
+     * esquema**. Aquí pasa lo mismo y con la misma conclusión: `asignaturas` tiene
+     * `materia_id` y `grupo_id` `NOT NULL` con claves ajenas, y es MySQL —no el
+     * controlador, que no valida nada— quien para las tres que hay que parar.
+     *
+     * Los **500 no se unifican a 422**, por la misma razón que allí: el front pinta el
+     * mensaje del cuerpo, así que hoy a un administrador se le enseña el `SQLSTATE`
+     * entero y mañana se le enseñaría «Datos incorrectos». Eso se decide, no se
+     * arregla de paso.
+     *
+     * **Lo que sí se afirma de verdad no es el código de estado: es que ninguna deje
+     * una fila detrás**, que es lo único que no se puede ver ni deshacer desde
+     * ninguna pantalla. Por eso el conteo va en las cinco.
+     *
+     * Y la cuarta fila es la que cambió esta noche: **crear una asignatura sin
+     * profesor da 201 y escribe**. Antes daba 500 en `fixInputs()`, indexando null, y
+     * la columna es nulable desde siempre. Ver §96.3.
+     */
+    public function test_crear_una_asignatura_no_deja_filas_a_medias(): void
+    {
+        $token = $this->tokenDelPersonal();
+        $a = $this->unaAsignatura();
+        $inventado = ((int) DB::table('grupos')->max('id')) + 1000;
+        $cuantas = fn () => DB::table('asignaturas')->count();
+
+        $casos = [
+            // cuerpo,                                                   estado, escribe
+            'vacío' => [[], 500, false],
+            'sin grupo' => [['materia_id' => $a->materia_id], 500, false],
+            'grupo que no existe' => [['materia_id' => $a->materia_id,
+                'grupo_id' => $inventado], 500, false],
+            'anidado, como lo manda la pantalla' => [['materia' => ['id' => $a->materia_id],
+                'grupo' => ['id' => $a->grupo_id],
+                'profesor' => ['profesor_id' => $a->profesor_id]], 201, true],
+            'sin profesor, que la columna es nulable' => [['materia_id' => $a->materia_id,
+                'grupo_id' => $a->grupo_id], 201, true],
+        ];
+
+        $fallos = [];
+
+        foreach ($casos as $nombre => [$cuerpo, $estado, $escribe]) {
+            $antes = $cuantas();
+            $r = $this->withToken($token)->postJson('/api/asignaturas', $cuerpo);
+            $puestas = $cuantas() - $antes;
+
+            // Se acumula en vez de afirmar dentro del bucle: con el `assert` dentro,
+            // el primer caso que falla esconde a los cuatro de después y el test
+            // parece demostrar cinco cuando demuestra uno.
+            if ($r->status() !== $estado) {
+                $fallos[] = "{$nombre}: esperaba {$estado} y dio {$r->status()}";
+            }
+            if ($puestas !== ($escribe ? 1 : 0)) {
+                $fallos[] = "{$nombre}: dejó {$puestas} filas detrás";
+            }
+        }
+
+        $this->assertSame([], $fallos, implode('
+', $fallos));
+    }
+
+    /** Y la que se crea sin profesor queda de verdad sin profesor, no con uno inventado. */
+    public function test_la_asignatura_creada_sin_profesor_queda_sin_profesor(): void
+    {
+        $token = $this->tokenDelPersonal();
+        $a = $this->unaAsignatura();
+
+        $r = $this->withToken($token)->postJson('/api/asignaturas',
+            ['materia_id' => $a->materia_id, 'grupo_id' => $a->grupo_id]);
+
+        $r->assertStatus(201);
+        $this->assertNull(DB::table('asignaturas')->where('id', $r->json('id'))->value('profesor_id'));
+    }
+
     /** La asignatura va a la papelera, aparece en ella y vuelve. */
     public function test_la_asignatura_va_a_la_papelera_y_vuelve(): void
     {
