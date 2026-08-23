@@ -125,6 +125,17 @@ class YearsTest extends CasoDeContrato
     {
         $token = $this->tokenDelPersonal();
 
+        // **El sujeto se resuelve ANTES de apagar los años, y el orden es el arreglo.**
+        // `usuarioLlanoDelPersonal()` exige `years.actual = 1` —para no mudar de año al
+        // repuntar los tests, §157— y este test **apaga todos los años actuales dos
+        // líneas más abajo, que es justo lo que viene a comprobar**. Resolverlo después
+        // deja al ayudante sin ninguno y falla con su propio mensaje.
+        //
+        // Ni el ayudante ni el test están mal: **cada uno mira una mitad, y lo que
+        // choca es el orden entre los dos**. No se ve leyendo ninguno de los dos, sólo
+        // ejecutándolos juntos — por eso salió en la corrida de cierre y no antes.
+        $usuario = $this->usuarioLlanoDelPersonal();
+
         foreach ($this->actuales() as $id) {
             $this->withToken($token)->putJson('/api/years/set-actual',
                 ['year_id' => $id, 'can' => false])->assertStatus(200);
@@ -132,7 +143,6 @@ class YearsTest extends CasoDeContrato
 
         $this->assertSame([], $this->actuales());
 
-        $usuario = $this->usuarioLlanoDelPersonal();
         $periodoAntes = DB::table('users')->where('id', $usuario->id)->value('periodo_id');
 
         $this->postJson('/api/login/credentials', [
