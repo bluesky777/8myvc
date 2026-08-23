@@ -19,6 +19,7 @@
 | §101 | Cinco métodos vaciaban columnas con un cuerpo parcial. El peor: **22 y ninguna a salvo** | arreglado |
 | §102 | Editar un grupo **lo movía al año del que edita**, con sus 56 matrículas dentro | arreglado |
 | §103 | La fila que decide **quién puede ver a quién** la escribe cualquiera del personal, con dos ids del cuerpo | medido y fijado |
+| §104 | Dos copias del mismo método divergían en una palabra: un grupo sin titular era 200 por una puerta y **404 por la otra** | arreglado |
 
 Seis commits: `0f0e965`, `f8d1eb3`, `fc5bbf1`, `446dc8d`, `da15e0a` y el del §102.
 
@@ -281,6 +282,36 @@ pareja dar/quitar pide hoy lo mismo por los dos lados.
 
 Y es el mismo método del §101: cuatro columnas que se pisaban, 0 a salvo. **Mismo
 método, dos preguntas.**
+
+## §104 — Los cinco métodos engañosos, y el que se separó de su gemelo
+
+`PerfilesApi.ts` avisa de que **cinco** métodos de `PerfilesController` operan
+sobre GRUPO y no sobre persona: `show`, `destroy`, `forcedelete`, `restore` y
+`trashed`. El §100 midió y cerró **dos**. Los otros tres se miden aquí, porque
+**medir media población es lo que ha mordido tres veces esta noche**.
+
+De los tres, dos son copias fieles de `GruposController` y **uno no**:
+
+```
+GruposController::getShow    ->  Profesor::find($grupo->titular_id)
+PerfilesController::getShow  ->  Profesor::findOrFail($grupo->titular_id)
+```
+
+`grupos.titular_id` es **nullable** —el formulario de «Nuevo grupo» no obliga a
+elegir titular— así que con esa fila las dos rutas contestaban cosas distintas:
+la de grupos devolvía el grupo con `titular: null`, y la de perfiles **404,
+diciendo que no existe un grupo que sí existe**. Medido creando la fila, porque
+en el seed **no hay ninguna**: los 47 grupos tienen titular hoy.
+
+Alineado con la gemela, que es la que tiene razón: **un grupo sin titular no es
+un grupo que falte.** No lo llama ningún cliente ([§14.2]), o sea que era una
+mina como el §102.
+
+Y `perfiles/trashed` sí es copia fiel de `grupos/trashed`: se fija que **devuelven
+lo mismo**, que es lo único que hace que arreglar una y no la otra deje de ser
+gratis. Tercera vez esta noche que hace falta esa clase de test —
+`store-firma`/`store-intacta-privada` y `perfiles`/`grupos destroy` fueron las
+otras dos.
 
 ---
 
