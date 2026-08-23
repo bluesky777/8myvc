@@ -732,6 +732,118 @@ class AutorizacionTest extends CasoDeContrato
     }
 
     /**
+     * §114 — Las familias a las que el candado de familia deja de mirar, y que
+     * hasta hoy se apagaban en silencio.
+     *
+     * El candado de arriba se salta una familia entera cuando las que no llevan
+     * guard **dejan de ser minoría**:
+     *
+     *     if ($conGuard < 2 || $sinGuard > max(2, intdiv(count($rutas), 4))) continue;
+     *
+     * Y está bien que lo haga: una familia mayoritariamente abierta es otra
+     * pregunta, y meterla en ese `assert` daría sesenta líneas de ruido que
+     * taparían las cinco que importan. Su docblock lo dice y manda esa mitad al
+     * snapshot de `test_cuantas_de_cada_familia_llevan_guard`.
+     *
+     * Lo que no dice —y es lo que mide esta sección— es **cuál de las dos ramas
+     * del `if` se está tomando en cada familia**, y ahí hay dos cosas que el
+     * snapshot de cuentas no puede contestar:
+     *
+     * ## 1. El candado se apaga justo cuando empeora lo que vigila
+     *
+     * `$sinGuard` está en el lado malo de la comparación. Añadir una ruta **sin**
+     * guard a una familia no rompe el test: lo que hace, pasado el umbral, es que
+     * el test **deje de mirar esa familia entera**, con sus excepciones ya
+     * declaradas incluidas. Medido el 23 ago 2026, **seis familias están a una
+     * sola ruta** de que eso pase:
+     *
+     *     asignaturas 11/14 · definitivas_periodos 8/10 · grados 3/5
+     *     niveles_educativos 3/5 · perfiles 17/22 · votos 3/5
+     *
+     * `perfiles/*` es la que más duele: pasó a 17 de 22 con guard el 21 de agosto
+     * y tiene cinco excepciones escritas una a una. **Una ruta nueva sin guard y
+     * las veintidós dejan de comprobarse**, sin que falle nada.
+     *
+     * ## 2. Y su docblock afirma una completitud que no tiene
+     *
+     * Dice, literal: *«Una ruta nueva que nazca sin el guard de sus hermanas rompe
+     * el test el mismo día, que es lo único que impide que la lista vuelva a
+     * crecer sin que nadie lo note.»* Para las siete familias de abajo eso es
+     * falso hoy: son **46 rutas abiertas** que ese `assert` no mira. De ellas, el
+     * candado de hermanas de operación rescata 9, así que **37 no las mira
+     * ninguno de los dos**.
+     *
+     * ## Qué hace este test, que es lo único que se puede hacer sin decidir
+     *
+     * No cierra nada ni cambia el umbral: **declara la lista**. Es el mecanismo
+     * del `count` de `phpstan.neon` — lo que no se puede arreglar se escribe con
+     * nombre y número, nunca en un baseline generado que lo esconda. A partir de
+     * aquí, una familia que se apague rompe el test y hay que escribir por qué.
+     *
+     * @var array<string, string> familia => cuántas abiertas y por qué se sale
+     */
+    private const FAMILIAS_FUERA_DEL_CANDADO = [
+        'acudientes' => '5 abiertas de 14. Cuatro se defienden por dentro y están en EXCEPCIONES_DE_HERMANAS; `guardar-valor` y `mis-acudidos` no las mira nadie',
+        'alumnos' => '9 abiertas de 17. Seis están en EXCEPCIONES_DE_HERMANAS; `eps-check`, `guardar-valor`, `guardar-valor-varios` y `show` no',
+        'ciudades' => '6 abiertas de 11, las seis lecturas de catálogo. Cuatro no las cubre ningún test',
+        'matriculas' => '13 abiertas de 16. Es el módulo de administración que la §17 dejó sin repasar: 3 de 16 con guard',
+        'mis-actividades' => '3 abiertas de 5. Las tres escriben lo del propio alumno; el dueño sale del token',
+        'myimages' => '5 abiertas de 10, las cuatro de subir más el listado. Todas sacan el dueño del token y no aceptan identificador',
+        'votaciones' => '5 abiertas de 15, las cinco lecturas. El flujo de votar está abierto a propósito (05 §18)',
+    ];
+
+    public function test_ninguna_familia_mas_se_sale_del_candado_en_silencio(): void
+    {
+        $familias = [];
+
+        foreach (Route::getRoutes()->getRoutes() as $ruta) {
+            if (! str_starts_with($ruta->uri(), 'api/')) {
+                continue;
+            }
+
+            foreach (array_diff($ruta->methods(), ['HEAD']) as $verbo) {
+                $familias[explode('/', $ruta->uri())[1]][] = $this->llevaGuardDePropiedad($ruta);
+            }
+        }
+
+        ksort($familias);
+
+        $fuera = [];
+
+        foreach ($familias as $prefijo => $guardadas) {
+            $conGuard = count(array_filter($guardadas));
+            $sinGuard = count($guardadas) - $conGuard;
+
+            // La MISMA condición que el candado de familia, y no una copia
+            // parecida: si allí cambia el umbral y aquí no, esta lista deja de
+            // describir lo que pasa y se convierte en otro instrumento que
+            // contesta con la cara del problema.
+            $laSalta = $conGuard < 2 || $sinGuard > max(2, intdiv(count($guardadas), 4));
+
+            // `$conGuard < 2` se deja fuera a propósito: una familia con una sola
+            // hermana con guard no establece ninguna costumbre, así que no
+            // «se sale» del candado — es que nunca entró.
+            if ($laSalta && $conGuard >= 2) {
+                $fuera[$prefijo] = $sinGuard;
+            }
+        }
+
+        $nuevas = array_diff(array_keys($fuera), array_keys(self::FAMILIAS_FUERA_DEL_CANDADO));
+        $yaNo = array_diff(array_keys(self::FAMILIAS_FUERA_DEL_CANDADO), array_keys($fuera));
+
+        $this->assertSame([], array_values($nuevas),
+            "Estas familias han dejado de comprobarse y nadie lo ha escrito. El candado de familia\n"
+            ."ya no mira NINGUNA de sus rutas abiertas, y sus excepciones declaradas tampoco se\n"
+            ."verifican. Míralas y, si está bien así, añádelas a FAMILIAS_FUERA_DEL_CANDADO con\n"
+            .'el motivo y el número.');
+
+        $this->assertSame([], array_values($yaNo),
+            "Estas familias han vuelto al candado —alguien les puso guards— y su entrada en\n"
+            ."FAMILIAS_FUERA_DEL_CANDADO ya no describe nada. Bórrala, o la lista solo puede\n"
+            .'crecer. Es el mismo mecanismo que el `count` de phpstan.neon.');
+    }
+
+    /**
      * Cuántas de cada familia llevan guard, que es lo que el `assert` deja fuera.
      *
      * El test de arriba solo mira la que se quedó sola. Lo contrario —una familia
