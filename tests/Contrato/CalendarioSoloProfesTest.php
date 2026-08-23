@@ -5,7 +5,9 @@ namespace Tests\Contrato;
 use Illuminate\Support\Facades\DB;
 
 /**
- * §115.1 — El calendario decide qué te enseña con una bandera que mandas tú.
+ * §115.1 — El calendario decidía qué te enseña con una bandera que mandabas tú.
+ * **Cerrado por el §150** la madrugada del 23 ago 2026; este test pasó a afirmar
+ * lo contrario, que es lo que su propio docblock pedía.
  *
  * `CalendarioController::putThisYear()`, entero:
  *
@@ -32,30 +34,45 @@ use Illuminate\Support\Facades\DB;
  * > otra cosa.
  *
  * Y no la vio ninguno de los dos candados de `AutorizacionTest`: `calendario/*`
- * tiene 1 de 6 con guard, o sea `$conGuard < 2`, así que **nunca entró** en el
- * candado de familia — ni siquiera está entre las siete que se salen por el
- * umbral (§114). Es el otro lado del mismo `if`.
+ * tiene **0 de 5** con guard —medido con la misma función que usa el candado; este
+ * docblock dijo «1 de 6» hasta el §151—, o sea `$conGuard < 2`, así que **nunca
+ * entró** en el candado de familia, ni siquiera entre las siete que se salen por
+ * el umbral (§114). Es el otro lado del mismo `if`, y desde el §151 las 18
+ * familias que están en esa situación **dejan rastro**:
+ * `FamiliasQueNuncaEntranTest`.
  *
- * ## Lo que este test hace y lo que no
+ * ## Y cayó, que era el aviso
  *
- * **Fija lo que pasa hoy, no lo arregla.** El arreglo es de una línea —sacar el
- * `is_prof_admin` del token en vez del cuerpo— pero cambia lo que reciben los
- * cuatro clientes en una pantalla que todos abren, y `calendario/*` no es de
- * ningún lote de esta noche. Va anotado para quien coordina.
+ * Este test decía: «si alguien lo arregla, este test cae, y lo que hay que hacer
+ * es cambiar la comprobación por la contraria». Pasó exactamente eso —el §150— y
+ * eso es lo que se ha hecho. **La pareja de casos se conserva entera** en vez de
+ * borrar el primero: lo que uno afirmaba y lo que afirma ahora, juntos, es lo que
+ * cuenta qué se decidió.
  *
- * Si alguien lo arregla, este test cae, y lo que hay que hacer es cambiar el
- * `assertGreaterThan` por la comprobación contraria. Que caiga es el aviso.
+ * El criterio elegido **no es nuevo**: es el `($user->tipo == 'Profesor') ||
+ * $user->is_superuser` que ya usaban las otras cuatro rutas del controlador. El
+ * otro candidato —«no es alumno ni acudiente»— se descartó **contando cuentas**:
+ * habría ampliado el calendario interno a diez cuentas administrativas. Ver
+ * docs/migracion/noche-2026-08-23/q.md §150.1.
+ *
+ * Lo que cubre esta clase es **el caso que lo encontró**. Las cinco mitades del
+ * arreglo —profesor, superusuario, administrativo, alumno y acudiente— están en
+ * `CalendarioInternoTest`.
  */
 class CalendarioSoloProfesTest extends CasoDeContrato
 {
     /**
-     * Un alumno que dice ser profesor recibe los eventos internos.
+     * **La bandera del cuerpo ya no le abre nada a un alumno.**
      *
-     * Se comparan **las dos respuestas del mismo token**, y no una contra un
-     * número fijo: lo que se afirma es que **la bandera del cuerpo cambia lo que
-     * sale**, que es la frase exacta del fallo. Un número fijo mediría el seed.
+     * Es el mismo caso, con la afirmación dada la vuelta: se comparan **las dos
+     * respuestas del mismo token** —no una contra un número fijo, que mediría el
+     * seed— y ahora tienen que ser **idénticas**.
+     *
+     * Se conserva la comprobación de los ids además de la de la cuenta: «devuelve
+     * lo mismo» por casualidad no es lo mismo que «no se cuela ninguno de los que
+     * el colegio marcó», y era esa segunda la que convertía esto en un hallazgo.
      */
-    public function test_la_bandera_del_cuerpo_le_abre_a_un_alumno_los_eventos_del_personal(): void
+    public function test_la_bandera_del_cuerpo_ya_no_le_abre_nada_a_un_alumno(): void
     {
         $internos = (int) DB::selectOne('SELECT COUNT(*) n FROM calendario
             WHERE solo_profes = 1 AND deleted_at IS NULL')->n;
@@ -74,26 +91,15 @@ class CalendarioSoloProfesTest extends CasoDeContrato
             ->json('PUT', '/api/calendario/this-year', ['is_prof_admin' => 'true'])
             ->assertStatus(200)->json();
 
-        $this->assertCount(count($comoAlumno) + $internos, $diciendoQueEsProfe,
-            'Ha cambiado lo que devuelve `calendario/this-year` con `is_prof_admin=true`. Si es '
-            .'porque se cerró —o sea, porque la bandera ya sale del token y no del cuerpo—, este '
-            .'test tiene que pasar a afirmar lo contrario: que las dos respuestas son iguales.');
+        $this->assertCount(count($comoAlumno), $diciendoQueEsProfe,
+            'La bandera del cuerpo volvió a cambiar lo que ve un alumno: se deshizo el §150.');
 
-        // Y la parte que lo hace un hallazgo y no una diferencia de cuentas: los
-        // que aparecen de más son EXACTAMENTE los que el colegio marcó como
-        // internos. Sin esto, «devuelve más filas» podría ser cualquier cosa.
         $idsInternos = array_column(DB::select('SELECT id FROM calendario
             WHERE solo_profes = 1 AND deleted_at IS NULL ORDER BY id'), 'id');
 
-        $deMas = array_values(array_diff(
-            array_column($diciendoQueEsProfe, 'id'),
-            array_column($comoAlumno, 'id')
-        ));
-        sort($deMas);
-
-        $this->assertSame($idsInternos, $deMas,
-            'Los eventos que aparecen de más al decir `is_prof_admin=true` ya no son exactamente '
-            .'los marcados con `solo_profes = 1`.');
+        $this->assertSame([], array_values(array_intersect(
+            array_column($diciendoQueEsProfe, 'id'), $idsInternos)),
+            'Un alumno recibió eventos marcados `solo_profes = 1` diciendo en el cuerpo que era profesor.');
     }
 
     /**
