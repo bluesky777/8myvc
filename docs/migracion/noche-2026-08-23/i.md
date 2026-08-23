@@ -514,9 +514,21 @@ Undefined property: stdClass::$year_pasado_en_bol
    Boletines3Controller.php:156
 ```
 
-`ContextoDeUsuario` monta `$this->user` con un `switch` de cuatro ramas, y **la del
-Acudiente trae 43 columnas frente a 48 del Profesor, 48 del Alumno y 54 del Usuario**.
-`year_pasado_en_bol` está en las otras tres y **no en la suya**.
+`ContextoDeUsuario` monta `$this->user` con un `switch` de cuatro ramas, y la del
+Acudiente trae menos columnas que las otras tres. `year_pasado_en_bol` está en las otras
+tres y **no en la suya**.
+
+> **Y aquí hay una corrección a mí misma que conviene leer antes que el número.** La
+> primera cuenta salió de **parsear los alias SQL de cada `case`** y dio «43 frente a
+> 48, 48 y 54», con 21 columnas ausentes. Estaba mal: hay propiedades que se ponen en
+> PHP fuera del `switch`, y ésas salían como ausentes sin serlo — `tipo`, con **96
+> lecturas** en `app/`, era una de ellas, y una rama de acudiente sin `tipo` habría roto
+> medio sistema, no un boletín. **Un número que implica algo imposible es la señal de
+> que el instrumento midió otra cosa.**
+>
+> Medido a la salida de `/api/auth/me`, que es el objeto de verdad: **Profesor 48,
+> Usuario 47, Alumno 45, Acudiente 42**, y **14 propiedades** en otra rama y no en la
+> suya.
 
 Lo que lo convierte en el fallo de siempre es el tercer hermano: **`BoletinesController`,
 la maqueta 1, lee esa misma propiedad y funciona** —el control le devolvió 47 KB—,
@@ -541,10 +553,31 @@ contraria**: allí faltaba un candado, aquí sobra un 500.
 el guard `boletin.propio` está en esas rutas precisamente porque las familias llegan.
 
 **No se arregla desde este lote**: `Boletines2Controller` y `Boletines3Controller` son
-del lote C. Se anota con el `isset` de la maqueta 1 delante, que es el arreglo, y con la
-pregunta que va con él: **¿qué más de esas 21 columnas que le faltan a la rama del
-acudiente lee alguien sin `isset`?** De las doce que miré, `year_pasado_en_bol` es la
-única que lee un controlador; las otras once no las lee nadie hoy.
+del lote C. Se anota con el `isset` de la maqueta 1 delante, que es el arreglo.
+
+### ¿Y qué más de las que le faltan lee alguien?
+
+La pregunta se contestó entera, y **la primera respuesta también estaba mal**. Dije «de
+las doce que miré, `year_pasado_en_bol` es la única que lee un controlador». Falso:
+**seis de las catorce se leen** como `$user->X` en `app/`.
+
+| Propiedad ausente | Lecturas | ¿La alcanza un acudiente? |
+|---|---|---|
+| `profes_can_edit_alumnos` | 18 | no — vive detrás de `auth.personal` y se lee con `??` |
+| `profes_pueden_editar_notas` | 4 | no — siempre tras `$user->tipo == 'Profesor'` |
+| `profes_pueden_nivelar` | 4 | no — idem |
+| `profesor_id` | 3 | no — dentro de la rama `Usuario` de `getToMe` |
+| `show_materias_todas` | 2 | no — dentro de las ramas `Usuario` y `Profesor` |
+| **`year_pasado_en_bol`** | **4** | **sí** — y es la que revienta |
+
+O sea que **la conclusión aguanta y el razonamiento con el que la di, no**: sigue siendo
+una gotera con nombre, pero no porque sólo se lea una, sino porque **sólo una se lee en
+un camino que un acudiente alcanza**. Las otras cinco están todas detrás de un
+`tipo == 'Profesor'` o de una rama que un acudiente no pisa.
+
+Las ocho restantes —`deuda`, `fecha_pension`, `firma_id`, `firma_nombre`,
+`mostrar_puesto_boletin`, `msg_when_students_blocked`, `pazysalvo`,
+`puestos_alfabeticamente`— **no las lee nadie** como `$user->X`.
 
 ---
 
