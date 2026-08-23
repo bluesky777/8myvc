@@ -14,15 +14,16 @@
 
 | | |
 |---|---|
-| **Migraciones nuevas** | **ninguna**, en los trece lotes |
+| **Migraciones nuevas** | **ninguna** — comprobado con `git diff c2c2a04 main -- database/migrations/ database/schema/`, que sale vacío |
 | **Rutas** | **539 antes y 539 después**. Ninguna nace, ninguna muere |
 | **Formas de respuesta** | ninguna respuesta pierde ni gana claves |
 | **Capacidades que se quitan** | **cuatro**, todas del lote E — y las cuatro con **riesgo bajo**, por la misma razón |
 | **Cosas que se encienden** | **una** hoy, y **dos con R dentro** — ver la nota de abajo |
 | **Minas que no se notan al desplegar** | **seis**, en **tres detonantes**, y las seis esperan a que alguien haga lo razonable (§4.b) |
 
-> **La tanda es casi toda «deja de pasar».** La mayoría de los lotes **no tocan
-> `app/`**, y los que lo tocan cambian, casi siempre, un 500 o un guardado
+> **La tanda es casi toda «deja de pasar».** De los **dieciséis lotes fundidos**,
+> **siete no tocan `app/` ni `routes/`** —F, G, H, I, J, M y O— y los **nueve** que
+> sí —A, B, C, D, E, K, L, P, S— cambian, casi siempre, un 500 o un guardado
 > silencioso por un código honesto. Eso significa que **el orden dentro de la
 > tanda es libre**: no hay dependencia entre lotes, ni orden obligatorio como el
 > de `password_reminders` de la tanda anterior.
