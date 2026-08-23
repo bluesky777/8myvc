@@ -11,8 +11,21 @@ La pregunta del lote, tal como la dejó escrita
 [15 §5](../15-la-noche-en-paralelo.md): **¿cuál de estas trece rutas escribe o
 borra en la rejilla sin preguntar por el interruptor del periodo?**
 
-La respuesta corta, medida y no leída: **de las trece, ninguna escribe en las
-notas.** Lo que salió al mirarlas una a una es otra cosa, y es peor.
+La respuesta corta, medida y no leída: **de las trece, las seis que escriben en
+la rejilla preguntan, y preguntan de verdad** — comprobado con el periodo cerrado
+y la fila intacta, no leyendo que la llamada esté escrita en el código (§92.1).
+
+Lo que salió al mirarlas una a una es otra cosa, y en dos sitios es peor:
+
+- **La ruta que sí reescribe la rejilla de un periodo cerrado no estaba entre las
+  trece** (§90). No estaba porque ya tenía un test de contrato entero, escrito
+  para mirar otra cosa.
+- **Dos de las trece no borran lo que dice su nombre**: mandan un alumno a la
+  papelera (§89).
+
+Y una que no es un hallazgo sino la forma en que los tres se escondieron, escrita
+al final del documento: **lo que apaga una pregunta no es un detector callado
+sino un renglón que dice «ya está».**
 
 ---
 
@@ -420,6 +433,82 @@ personal, que es exactamente el punto aplazado. Se fija lo que contestan.
 > filtra por el periodo **del usuario**, no por la asignatura. Se vio mirando el
 > `.json` generado, no leyendo el test — que es la misma forma en la que se
 > descubrió la trampa de `formaDeLaTupla` en la clase base.
+
+
+---
+
+## La respuesta del lote, en una tabla
+
+Las trece rutas que el [15](../15-la-noche-en-paralelo.md) me asignó, con lo que
+contesta cada una hoy y por qué es eso:
+
+| Ruta | Escribe en la rejilla | Pregunta por el candado | Qué salió |
+|---|---|---|---|
+| `DELETE definitivas_periodos/destroy/{id}` | sí | **sí**, por la fila | fijado |
+| `PUT definitivas_periodos/toggle-manual` | sí | **sí**, por la fila | fijado |
+| `PUT definitivas_periodos/toggle-recuperada` | sí | **sí**, por la fila | fijado |
+| `PUT definitivas_periodos/eliminar-recuperada` | sí | **sí**, por el año entero | fijada la otra cara: un periodo cerrado basta |
+| `DELETE notas/destroy/{id}` | sí | **sí** | fijado; es un `DELETE` físico |
+| `POST subunidades` | sí | **sí**, por la unidad | fijado |
+| `PUT nota_comportamiento/guardar-libro` | escribe en `dis_libro_rojo` | **no** | **§91** — y no mira de quién es la fila |
+| `GET notas/show/{nota_id}` | no | — | fijado: devuelve cualquier nota; 200 vacío si está borrada |
+| `PUT nota_comportamiento/frases-check` | no | — | fijado por su forma; catálogo |
+| `PUT puestos/detailed-notas-year` | no | — | **§92.3** — el ranking viaja con la ficha personal |
+| `PUT subunidades/eliminadas/{asignatura_id}` | no | — | fijado por su forma; catálogo |
+| `DELETE boletines2/destroy/{id}` | no toca la rejilla | — | **§89** — manda un alumno a la papelera. **Cerrado** |
+| `DELETE boletines3/destroy/{id}` | ídem | — | **§89**. **Cerrado** |
+
+Y dos que **no estaban entre las trece** y son lo que de verdad contesta la
+pregunta del lote:
+
+| Ruta | Por qué no estaba | Qué salió |
+|---|---|---|
+| `PUT definitivas_periodos/calcular-grupo-periodo` | ya tenía test de contrato — el de la inyección, que miraba otra cosa | **§90** — reescribe la rejilla de un periodo cerrado |
+| `PUT subunidades/update/{id}` | está fuera de los 77 huecos | **§92.2** — un cuerpo parcial le borraba el porcentaje. **Arreglado** |
+
+### Lo que se lleva la noche de aquí
+
+Tres veces, en tres formas distintas, **lo que apagó la pregunta no fue un
+detector callado sino un renglón que decía «ya está»**:
+
+| Sección | Dónde estaba el renglón |
+|---|---|
+| §89 | la `TABLA_DE_ID` del barrido: `boletines2/destroy` estaba medida **con otro propósito** |
+| §90 | la tabla de la §77.2, que le atribuyó a una ruta el 410 de su vecina |
+| §91 | una columna calculada: `prop = sí` porque el método valida un nombre de columna |
+
+Un falso negativo de un detector deja un sitio sin mirar. **Un «ya está» deja a
+todo el mundo convencido de que se miró**, y eso sale más caro: nadie vuelve.
+
+Y la otra, que vale para los cuatro detectores de `tools/` y no sólo para el que
+la produjo: cuando un instrumento tiene una ceguera que mete falsos negativos y
+otra que mete falsos positivos —éste no ve el SQL crudo y no ve el `has()`—,
+
+> **el tamaño de la lista no dice nada sobre el tamaño del problema.**
+
+
+---
+
+## Lo que se nota en un colegio (para DESPLIEGUE.md)
+
+Tres cambios de comportamiento, ninguna migración. Lo escribe quien coordina en
+`docs/DESPLIEGUE.md`; esto es el texto listo para copiar.
+
+| Cambio | Antes | Después | Quién lo nota |
+|---|---|---|---|
+| §89 `DELETE boletines2/destroy/{id}` y `boletines3/destroy/{id}` | cualquiera de los 51 profesores mandaba un **alumno** a la papelera, 200 | **403** | nadie: ninguna pantalla llama a esas dos rutas |
+| §92.2 `PUT subunidades/update/{id}` | un cuerpo sin `porcentaje` lo dejaba en `null` y recalculaba las definitivas con el peso perdido | conserva el valor de la fila | nadie: `UnidadesCtrl.ts:651` manda las cuatro columnas siempre |
+| — | — | — | — |
+
+**Ninguna migración**, así que el orden dentro de la tanda es libre y las bases de
+test de las demás sesiones no se quedan viejas por esto.
+
+**Y una advertencia para el día del despliegue**, que no es un cambio pero se
+nota igual: §90 deja escrito que `definitivas_periodos/calcular-grupo-periodo`
+**sigue reescribiendo la rejilla de un periodo cerrado**. No se ha tocado. Si
+Joseth decide cerrarla, ese cambio **sí** apaga algo —abrir el boletín de un
+grupo desactualizado en periodo cerrado— y entonces hay que desplegarlo mirando
+el calendario del colegio, no en cualquier momento.
 
 
 ---
