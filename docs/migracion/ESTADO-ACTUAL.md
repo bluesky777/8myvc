@@ -53,12 +53,26 @@ desaparecen los `INSERT` sin guarda** que hoy impiden poner el índice único:
 | Unidades y subunidades (crear, editar, borrar) | **hecho** — las cuatro llamadas al calculador viejo, y **ya no dependen de que el cliente mande `asignatura_id`** |
 | Copiar un periodo | **hecho** — traía la estructura y no avisaba a nadie |
 | Cada carga de /notas (`putDetailed`) | **hecho** — era un DELETE+INSERT por alumno en cada carga; ahora pregunta primero |
-| Crear la subunidad y sus notas en la misma transacción | **falta — es lo único que queda de la fase 3** |
+| Crear la subunidad y sus notas en la misma transacción | **hecho** — §5.1 cerrada: nacía sola y la ventana podía durar días desde Flutter |
 
-**Cinco `INSERT` sin guarda menos**: al desaparecer los de `putDetailed` y los del
-calculador viejo, la fase 2 queda más cerca. Lo que sigue sin guarda es
-`DefinitivasPeriodosController::putUpdate` —el profesor tecleando una definitiva—
-y los cuatro de `NotaFinal::alumnos_grupo_nota_final`.
+**La fase 3 está completa.** Y con ella caen **cinco de los seis `INSERT` sin
+guarda** que impedían la fase 2. Lo que queda sin guarda:
+
+| Sitio | Qué pasa con el índice único |
+|---|---|
+| `DefinitivasPeriodosController::putUpdate`, rama sin `nf_id` | **500 al teclear una definitiva** — es el que hay que arreglar primero |
+| `NotaFinal::alumnos_grupo_nota_final` (4 `INSERT`) | 500 al abrir la pantalla de definitivas |
+
+### Lo siguiente
+
+1. **Cerrar esos cinco** —`putUpdate` con un UPSERT, y `alumnos_grupo_nota_final`
+   sustituido por el servicio—. Es lo último que separa de la fase 2.
+2. **La fase 2**: la migración con los dos índices únicos, la limpieza y el
+   relleno. **Necesita antes los dieciséis números de la fase 0**, que hay que
+   correr en el servidor.
+3. **La fase 4 es del front** y no de aquí: revertir el valor cuando falla el
+   guardado y no perder la última nota tecleada. *El arreglo de más valor por
+   línea de todo el plan.*
 
 ### Y el orden, que se corrigió el 24 ago
 

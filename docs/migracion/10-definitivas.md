@@ -680,7 +680,7 @@ De los siete disparadores que lista la fase 3, **hay uno cableado**:
 | `Unidades`/`SubunidadesController` | **hecho el 24 ago** — las cuatro, y **sin depender de `asignatura_id` del cuerpo** |
 | `PeriodosController::putCopiar` | **hecho el 24 ago** |
 | `NotasController::putDetailed` — cada carga de /notas | **hecho el 24 ago** — pregunta por el sello antes de escribir |
-| Crear la subunidad y sus notas en la misma transacción | **falta** — es lo único que queda de la fase 3, y es lo que cierra la §5.1 |
+| Crear la subunidad y sus notas en la misma transacción | **hecho el 24 ago** — §5.1 cerrada, y en **una** transacción: hacerlo en el mismo método con escrituras sueltas dejaría la misma ventana, sólo que más corta |
 
 > **Lo que la fase 3 le compra a la fase 2, contado en `INSERT`:** al sustituir
 > `putDetailed` y las cuatro llamadas al calculador viejo, **cinco de los seis

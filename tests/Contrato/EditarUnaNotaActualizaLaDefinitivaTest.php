@@ -152,6 +152,50 @@ class EditarUnaNotaActualizaLaDefinitivaTest extends CasoDeContrato
     }
 
     /**
+     * §5.1 — **crear una subunidad la crea con sus notas y con la definitiva ya
+     * contándola.** Hasta hoy nacía sola.
+     *
+     * Las notas las creaba `Nota::verificarCrearNotas`, y sólo al abrir /notas en
+     * el navegador. Entre las dos cosas la definitiva quedaba guardada **sin el
+     * aporte de la subunidad nueva** — y si el profesor había bajado los
+     * porcentajes de las demás para hacerle sitio, bajaba el doble. Desde Flutter,
+     * que crea subunidades y nunca llama a /notas, la ventana podía durar días.
+     *
+     * **Lo que se comprueba es el estado inmediatamente después del alta**, sin
+     * pasar por ninguna otra pantalla: si el test pidiera /notas por el camino, la
+     * cerraría él mismo y no mediría nada.
+     */
+    public function test_crear_una_subunidad_la_crea_con_sus_notas_y_su_definitiva(): void
+    {
+        [$token, $ctx] = $this->asignaturaConNotas();
+
+        $unidadId = DB::table('subunidades')
+            ->where('id', DB::table('notas')->where('id', $ctx['notas'][0])->value('subunidad_id'))
+            ->value('unidad_id');
+
+        // La quinta subunidad con nota por defecto 40. Los pesos ya no suman 100 y
+        // eso es a propósito (§9.3: la fórmula no normaliza), así que el aporte
+        // nuevo es 50% de la unidad × 50% de la subunidad × 40 = 10 sobre los 20
+        // que ya había: **30**.
+        $r = $this->withToken($token)->postJson('/api/subunidades', [
+            'unidad_id' => $unidadId,
+            'definicion' => 'SUBUNIDAD NUEVA',
+            'porcentaje' => 50,
+            'nota_default' => 40,
+        ])->assertStatus(201);
+
+        $nuevaId = (int) $r->json('id');
+
+        $this->assertGreaterThan(0, DB::table('notas')
+            ->where('subunidad_id', $nuevaId)->whereNull('deleted_at')->count(),
+            'La subunidad nació sin notas: la ventana de la §5.1 sigue abierta y '
+            .'sólo la cerraría alguien abriendo /notas.');
+
+        $this->assertSame(30.0, $this->definitivaDe($ctx),
+            'La definitiva no cuenta la subunidad recién creada.');
+    }
+
+    /**
      * La definitiva del alumno del montaje, como número.
      *
      * @param  array<string, mixed>  $ctx
