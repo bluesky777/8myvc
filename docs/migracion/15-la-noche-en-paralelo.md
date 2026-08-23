@@ -202,9 +202,18 @@ test del mismo endpoint— hay una carpeta fuera del repo:
 
 ```
 /Users/josethguerrero/DESARROLLOS/8myvc-cola/
-    TABLERO.md      solo lo escribe quien coordina
-    a.md  b.md ...  uno por sesión; cada una escribe SOLO el suyo
+    TABLERO.md          solo lo escribe quien coordina
+    a.md  b.md ...      uno por sesión; cada una escribe SOLO el suyo
+    LOTES.txt           la cola, en orden de servicio
+    tomar-lote.sh       servirse uno, sin carrera — ver abajo
+    refrescar-tablero.sh
+    BRIEFING.md         lo que lee una sesión al entrar
 ```
+
+**Los tres scripts se quedan puestos para la próxima noche**, y el que importa es
+`tomar-lote.sh`: reservar con un `mkdir` es **un solo paso**, mientras que
+servirse «leyendo la tabla y escribiendo debajo» tiene un antes y un después — y
+en ese hueco caben dos sesiones cogiendo lo mismo.
 
 Una línea por cosa: hora, qué coges, qué sueltas. Si añades una migración,
 **va aquí en mayúsculas**: las bases de las demás se quedan viejas y lo que verán
@@ -213,6 +222,12 @@ son tests de contrato en rojo con mensajes creíbles.
 ---
 
 ## 5. La cola
+
+> **Esto es la cola con la que se empezó, y la noche terminó con veinte lotes**:
+> se fueron abriendo sobre la marcha según lo que iba destapando cada uno. El
+> reparto real —quién hizo qué y con qué §§— está en
+> [`noche-2026-08-23/README.md`](noche-2026-08-23/README.md); esta tabla se deja
+> como estaba porque **lo que enseña es el tamaño de un lote**, no cuáles fueron.
 
 Seis lotes de cobertura, disjuntos por controlador, y dos de detector que van
 detrás. **Caben hasta seis sesiones trabajando a la vez** más la que coordina; con
