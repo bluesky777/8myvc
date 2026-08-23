@@ -18,6 +18,7 @@
 | §100 | `perfiles/destroy` **borra un grupo**, y el front lo llama con un `user_id` | documentado; su autorización, cerrada |
 | §101 | Cinco métodos vaciaban columnas con un cuerpo parcial. El peor: **22 y ninguna a salvo** | arreglado |
 | §102 | Editar un grupo **lo movía al año del que edita**, con sus 56 matrículas dentro | arreglado |
+| §103 | La fila que decide **quién puede ver a quién** la escribe cualquiera del personal, con dos ids del cuerpo | medido y fijado |
 
 Seis commits: `0f0e965`, `f8d1eb3`, `fc5bbf1`, `446dc8d`, `da15e0a` y el del §102.
 
@@ -244,6 +245,42 @@ otro año lo habría disparado sin que nadie lo relacionara con esto.
 Este método es el mismo del §101: en la misma llamada se iban a `null`
 `titular_id`, `cupo`, `abrev`, `valormatricula`, `valorpension` y `orden`. Las dos
 cosas están arregladas y las dos tienen test.
+
+## §103 — La fila que reparte el acceso, escrita con dos ids del cuerpo
+
+Traspasado por el lote H, y cae en un controlador de éste.
+`PUT acudientes/seleccionar-parentesco` toma `acudiente_id` y `alumno_id` del
+cuerpo y escribe la fila de `parentescos` que los une. Esa fila **no es un dato
+de contacto**: es de donde `ExigirPersonaPropia` saca los acudidos, o sea **el
+permiso de un adulto sobre los datos de un menor**.
+
+Medido desde donde se ve, que es lo que lo convierte en hallazgo:
+
+```
+1. el acudiente pide los datos de un alumno ajeno       -> 403
+2. un profesor cualquiera hace UNA llamada con dos ids  -> 200
+3. la misma llamada del paso 1                          -> 200
+```
+
+De las 143 rutas que reciben un identificador por el cuerpo, **es la única cuya
+consecuencia es darle a una persona acceso a los datos de otra**. Y estaba a
+media lista, con solo dos identificadores: **ordenar por tamaño no la habría
+encontrado nunca.**
+
+**No se cierra.** Lleva `auth.personal`, así que cae dentro de las 44 rutas de
+configuración que Joseth dejó abiertas a propósito — cerrarlas dejaría fuera a un
+coordinador que hoy las usa y no tiene el rol. Lo que hace el test es que esa
+decisión se tome **con el resultado a la vista** y no con el nombre del endpoint:
+no es «cualquier profesor edita un parentesco», es **cualquier profesor le da a
+un adulto acceso a la ficha de un menor**.
+
+Las dos mitades que evitan que se lea peor de lo que es, y por eso van en la
+misma clase: **una familia no puede emparejarse a sí misma** —`auth.personal`
+cierra esa puerta— y **quitar el parentesco devuelve el 403**, o sea que la
+pareja dar/quitar pide hoy lo mismo por los dos lados.
+
+Y es el mismo método del §101: cuatro columnas que se pisaban, 0 a salvo. **Mismo
+método, dos preguntas.**
 
 ---
 
