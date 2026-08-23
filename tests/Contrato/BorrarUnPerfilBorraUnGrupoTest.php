@@ -179,6 +179,85 @@ class BorrarUnPerfilBorraUnGrupoTest extends CasoDeContrato
             'Contestó 200 y dejó la fila: `forcedelete` es borrado físico.');
     }
 
+    /**
+     * Los cinco métodos engañosos, y el que se separó de su gemelo — §104.
+     *
+     * `PerfilesApi.ts` avisa de que **cinco** métodos de este controlador operan
+     * sobre GRUPO y no sobre persona: `show`, `destroy`, `forcedelete`, `restore`
+     * y `trashed`. Los dos de borrar ya están medidos arriba; éste cierra los tres
+     * que faltaban, porque **medir media población es lo que ha mordido tres veces
+     * esta noche**.
+     *
+     * De los tres, dos son copias fieles de `GruposController` y **uno no**:
+     *
+     * ```
+     * GruposController::getShow    ->  Profesor::find($grupo->titular_id)
+     * PerfilesController::getShow  ->  Profesor::findOrFail($grupo->titular_id)
+     * ```
+     *
+     * `grupos.titular_id` es **nullable** —un grupo puede no tener titular, y el
+     * formulario de «Nuevo grupo» no obliga a elegirlo—, así que con esa fila las
+     * dos rutas contestan cosas distintas: la de grupos devuelve el grupo con
+     * `titular: null`, y la de perfiles **404, diciendo que no existe un grupo que
+     * sí existe**.
+     *
+     * Se alinea con su gemela, que es la que tiene razón: un grupo sin titular no
+     * es un grupo que falte. No lo llama ningún cliente ([§14.2]) — o sea que era
+     * una mina, como el §102 — pero es una palabra y deja la población entera
+     * diciendo lo mismo.
+     */
+    public function test_un_grupo_sin_titular_sale_por_las_dos_puertas(): void
+    {
+        $jefe = $this->tokenDeUnSuperusuario();
+
+        $base = DB::selectOne('SELECT year_id, grado_id FROM grupos WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+
+        // El seed no trae ninguno: `titular_id` es nullable pero hoy están todos
+        // puestos, así que la fila que separa a las dos rutas hay que fabricarla.
+        $sinTitular = DB::table('grupos')->insertGetId([
+            'nombre' => 'Grupo sin titular',
+            'abrev' => 'GST',
+            'year_id' => $base->year_id,
+            'grado_id' => $base->grado_id,
+            'orden' => 996,
+            'titular_id' => null,
+        ]);
+
+        foreach (['grupos', 'perfiles'] as $puerta) {
+            $r = $this->withToken($jefe)->getJson('/api/'.$puerta.'/show/'.$sinTitular);
+
+            $this->assertSame(200, $r->status(),
+                "`{$puerta}/show` contestó ".$r->status().' con un grupo sin titular, que es una '
+                .'fila legítima: `titular_id` es nullable — §104.');
+
+            $this->assertNull($r->json('titular'),
+                "`{$puerta}/show` se inventó un titular para un grupo que no lo tiene.");
+        }
+    }
+
+    /** `perfiles/trashed` es la papelera de GRUPOS, y devuelve lo mismo que su gemela. */
+    public function test_la_papelera_de_perfiles_es_la_de_grupos(): void
+    {
+        $jefe = $this->tokenDeUnSuperusuario();
+
+        $grupo = DB::selectOne('SELECT id FROM grupos WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+        DB::update('UPDATE grupos SET deleted_at = ? WHERE id = ?', ['2026-08-23 03:00:00', $grupo->id]);
+
+        $porPerfiles = $this->withToken($jefe)->getJson('/api/perfiles/trashed');
+        $porGrupos = $this->withToken($jefe)->getJson('/api/grupos/trashed');
+
+        $porPerfiles->assertStatus(200);
+        $porGrupos->assertStatus(200);
+
+        $this->assertSame($porGrupos->json(), $porPerfiles->json(),
+            '`perfiles/trashed` y `grupos/trashed` dejaron de devolver lo mismo: son el mismo '
+            .'método bajo dos URL, y si divergen es que alguien tocó una sola — §104.');
+
+        $this->assertContains((int) $grupo->id,
+            array_map(static fn ($g) => (int) $g['id'], $porPerfiles->json()),
+            'La papelera no trae el grupo que acabamos de mandar allí.');
+    }
+
     /** Igual que en `PapeleraRestaurarTest`: por la columna, que es lo que el código pregunta. */
     private function tokenDeUnSuperusuario(): string
     {

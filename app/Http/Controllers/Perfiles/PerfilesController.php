@@ -91,11 +91,30 @@ class PerfilesController extends Controller {
 	}
 
 
+	/**
+	 * No devuelve un perfil: devuelve el GRUPO cuyo id coincide — §104.
+	 *
+	 * Es uno de los cinco métodos de este controlador que operan sobre grupo, y el
+	 * front lo lleva escrito en la cabecera de `PerfilesApi`. **No lo llama ningún
+	 * cliente** (§14.2), así que lo de abajo era una mina y no un fallo vivo.
+	 *
+	 * `Profesor::findOrFail($grupo->titular_id)` donde su gemela
+	 * `GruposController::getShow` hace `Profesor::find()`. Y `grupos.titular_id`
+	 * es **nullable** —el formulario de «Nuevo grupo» no obliga a elegir titular—,
+	 * así que con esa fila las dos rutas contestaban cosas distintas: la de grupos
+	 * devolvía el grupo con `titular: null` y ésta **404, diciendo que no existe
+	 * un grupo que sí existe**.
+	 *
+	 * Se alinea con la gemela, que es la que tiene razón: **un grupo sin titular
+	 * no es un grupo que falte.** Dos copias del mismo método que divergen en una
+	 * palabra es lo que pasa cuando nadie comprueba que hacen lo mismo — la misma
+	 * lección que `store-firma` y que `perfiles/destroy`.
+	 */
 	public function getShow($id)
 	{
 		$grupo = Grupo::findOrFail($id);
 
-		$profesor = Profesor::findOrFail($grupo->titular_id);
+		$profesor = Profesor::find($grupo->titular_id);
 		$grupo->titular = $profesor;
 
 		$grado = Grado::findOrFail($grupo->grado_id);
@@ -623,9 +642,11 @@ class PerfilesController extends Controller {
 	 * rejilla de Usuarios vive en un menú que el front enseña con
 	 * `hasRoleOrPerm('admin')`, y los diez `Admin` son los diez `is_superuser`.
 	 *
-	 * **Sobre qué población se cierra**: sólo esta. Su gemela `grupos/destroy`
-	 * hace lo mismo y sigue abierta; `GruposController` no es de este lote y va
-	 * anotada, con su propio test en verde para que se vea.
+	 * **Sobre qué población se cierra**: las dos. Su gemela `grupos/destroy` hace
+	 * exactamente lo mismo bajo otra URL y se cerró en el mismo lote, un commit
+	 * después — durante esas horas hubo aquí un test **en verde** afirmando que
+	 * seguía abierta, escrito para que quien la cerrara tuviera que venir a
+	 * borrarlo. No se borró: se le cambió el valor esperado a 403.
 	 */
 	public function deleteDestroy($id)
 	{
