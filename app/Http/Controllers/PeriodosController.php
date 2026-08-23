@@ -136,6 +136,26 @@ class PeriodosController extends Controller {
 	}
 
 
+	/*
+	 * Copiar era la puerta de atrás del candado del periodo, y la única.
+	 *
+	 * Este método crea unidades, subunidades y —si se lo piden— **notas** en
+	 * `periodo_to_id`, que llega en el cuerpo. Las rutas normales que hacen eso
+	 * mismo de una en una sí piden permiso: `unidades/store`, `unidades/update`,
+	 * `subunidades/store` y `subunidades/update` llaman todas a
+	 * `pueden_editar_notas` desde la §27. O sea que un profesor no podía crear una
+	 * unidad en un periodo cerrado a mano, y sí copiando treinta de golpe.
+	 *
+	 * Por eso el permiso se pide para el periodo **destino** y no para el origen:
+	 * del origen sólo se lee. Es la regla de la §27 —el permiso del sitio al que
+	 * se escribe— y la misma que Joseth aplicó el 22 ago a
+	 * `detalles/eliminar-notas-periodo` (§77).
+	 *
+	 * **Lo encontró una herramienta que estaba mal.** `tools/escrituras-en-las-notas.py`
+	 * se escribió esa misma mañana para la §77 y sólo miraba SQL crudo; aquí las
+	 * notas se escriben con `new Nota` y `save()`, así que no la vio. Salió una hora
+	 * después leyendo otra cosa. Ver 05 §80.
+	 */
 	public function putCopiar()
 	{
 		$grupo_from_id 		= Request::input('grupo_from_id');
@@ -147,6 +167,7 @@ class PeriodosController extends Controller {
 		$periodo_to_id		= Request::input('periodo_to_id');
 		$unidades_ids		= Request::input('unidades_ids');
 
+		User::pueden_editar_notas($this->user, $periodo_to_id ? (int) $periodo_to_id : null);
 
 		$unidades_copiadas = 0;
 		$subunidades_copiadas = 0;

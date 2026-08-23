@@ -207,9 +207,31 @@ class SubunidadesController extends Controller {
 
 
 
+	/*
+	 * El 26.º de la §27, y el que se quedó fuera por lo que decía un test.
+	 *
+	 * De los siete métodos que escriben en este controlador, seis piden
+	 * `pueden_editar_notas` desde la §27 y éste no — mientras su gemelo exacto,
+	 * `UnidadesController::deleteDestroy`, sí lo pide. Y no borra poco: borra un
+	 * componente calificable y **recalcula las definitivas de la asignatura** en la
+	 * línea de abajo.
+	 *
+	 * Lo que lo mantuvo abierto un mes es que había una frase que decía lo
+	 * contrario. El docblock de `UnidadesTest::test_no_se_restaura_una_subunidad_con_el_periodo_cerrado`
+	 * dice, para justificar por qué se cerró `subunidades/restore`, que
+	 * «`subunidades/update` y `subunidades/destroy`, en el mismo fichero, sí piden
+	 * el periodo». Uno de los dos sí y el otro no, y nadie volvió a mirarlo porque
+	 * la frase estaba escrita al lado de un test verde. Ver 05 §80.
+	 *
+	 * El periodo se deriva de la fila —la subunidad cuelga de la unidad, que lleva
+	 * `periodo_id`— y no del cuerpo, que es lo que hacen sus seis hermanas.
+	 */
 	public function deleteDestroy($id)
 	{
 		$user = User::fromToken();
+
+		User::pueden_editar_notas($user, PeriodoDeLaFila::deSubunidad($id));
+
 		$subunidad = Subunidad::find($id);
 
 		if ($subunidad) {

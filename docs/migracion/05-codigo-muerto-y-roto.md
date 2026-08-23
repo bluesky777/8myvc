@@ -7614,3 +7614,101 @@ rato:
   `ContextoDeUsuario`, no de la tabla, y CLAUDE.md lo dice. El test lo dio por hecho
   y el SQL reventó — que aquí fue barato porque rompe ruidosamente, pero es la misma
   confusión que en un `UPDATE` escribiría en la fila de otro.
+
+---
+
+## 80. Las dos que faltaban del candado del periodo, y cómo se escondieron (22 ago 2026)
+
+La §77 cerró `detalles/eliminar-notas-periodo` y dejó escrita la lección: la lista
+de la §27 se construyó desde **la comprobación** y por eso no podía contener al que
+nunca comprobó. Para arreglarlo se escribió `tools/escrituras-en-las-notas.py`, que
+parte de la operación.
+
+**Y la herramienta también estaba mal.** Salieron dos más, cada una escondida de
+una forma distinta, y las dos formas valen más que las dos rutas.
+
+### 80.1 La herramienta sólo veía SQL crudo
+
+`PeriodosController::putCopiar` —la pantalla con la que un profesor se trae la
+estructura de otro periodo— crea unidades, subunidades y, si se lo piden, **notas**
+en `periodo_to_id`, que llega en el cuerpo. Y no pedía permiso para nada.
+
+No salió en la lista de la §77 porque **escribe con Eloquent**:
+
+```php
+$nota_new = new Nota;
+$nota_new->nota = $nota->nota;
+$nota_new->save();
+```
+
+y el detector buscaba `INSERT INTO … notas`. CLAUDE.md dice que el repo tiene 990
+consultas crudas y usa los modelos «marginalmente», y **esa frase es exactamente la
+que hace que se te olvide el margen**. Se encontró **una hora después de escribir la
+herramienta**, leyendo otra cosa.
+
+> Van tres formas distintas de ceguera del mismo detector en un día: ciego a los
+> comentarios (contaba docblocks), ciego fuera de su carpeta (contestaba «0») y
+> ciego a Eloquent. Las tres están ahora en su cabecera, que es donde sirven.
+
+**Lo que lo convierte en incoherencia y no en decisión** es el vecindario: las
+cuatro rutas que hacen eso mismo de una en una —`unidades/store`,
+`unidades/update`, `subunidades/store`, `subunidades/update`— piden permiso desde la
+§27. Un profesor no podía crear una unidad en un periodo cerrado a mano, **y sí
+copiar treinta de golpe**.
+
+El permiso se pide para el **destino** y no para el origen, porque del origen sólo
+se lee. Comprobado al revés de las dos maneras: sin el candado cae un test; **con el
+candado puesto sobre el origen caen dos**, y el segundo existe justo para eso —
+copiar *desde* un periodo cerrado tiene que seguir funcionando, que es lo que hace
+un profesor en enero.
+
+### 80.2 La otra estaba tapada por una frase escrita en un test
+
+`SubunidadesController::deleteDestroy` borra un componente calificable **y recalcula
+las definitivas de la asignatura** en la línea siguiente. De los siete métodos que
+escriben en ese controlador, **seis piden el permiso y éste no** — mientras su
+gemelo exacto, `UnidadesController::deleteDestroy`, sí lo pide. En el gemelo lo
+piden los siete de siete.
+
+Es la asimetría más limpia que ha dado la serie: **el mismo nombre de método, en el
+controlador de al lado, uno pregunta y el otro no.** Y aun así llevaba un mes ahí,
+por esto — el docblock de un test verde de `UnidadesTest`:
+
+> *«`subunidades/restore` tenía la misma forma mientras `subunidades/update` y
+> **`subunidades/destroy`**, en el mismo fichero, **sí piden el periodo**.»*
+
+Uno de los dos sí. El otro no. La frase se escribió para justificar por qué había
+que cerrar `restore`, nadie la comprobó, y a partir de ahí `subunidades/destroy`
+constaba cerrado para cualquiera que leyera ese test.
+
+> **Una afirmación sobre el código de al lado envejece igual que el código, y ésta
+> nació ya vieja.** Escrita dentro de un test verde se lee como una medición.
+
+Es la tercera vez esta semana que un verde tapa algo, y las tres son distintas:
+- **§75** — un test fijaba el comportamiento permisivo sin juzgarlo.
+- **§76.5** — un test pasaba porque el token que eligió resultó tener permiso.
+- **§80.2** — el test no tocaba la ruta; **lo que la tapaba era su prosa**.
+
+La frase **no se corrige en silencio**: se deja escrita en el propio docblock con lo
+que era falso, porque la lección es la frase y no la ruta.
+
+### 80.3 Y el candado se pide por la fila, no por el cuerpo
+
+`subunidades/destroy` recibe `periodo_id` en el cuerpo —lo necesita para el
+recálculo de definitivas que hace después—, así que comprobar el permiso con **ese**
+valor es la tentación evidente y es exactamente lo que la §27 existe para no repetir.
+Se deriva con `PeriodoDeLaFila::deSubunidad($id)`, y hay un test que manda en el
+cuerpo un periodo abierto mientras el de la subunidad está cerrado: sigue diciendo
+que no.
+
+La diferencia con la §77 conviene tenerla junta, porque las dos leen del cuerpo y
+sólo una está bien:
+
+| | De dónde sale el periodo | ¿Correcto? |
+|---|---|---|
+| `detalles/eliminar-notas-periodo` (§77) | del cuerpo | **sí** — es la misma ligadura que acota el `DELETE` |
+| `subunidades/destroy` (§80) | de la fila | **sí** — el del cuerpo es de otra cosa, del recálculo |
+
+**La regla no es «no leer el periodo del cuerpo»: es pedir permiso para el sitio al
+que se escribe.** Cuando el cuerpo elige las dos cosas a la vez, leerlo es lo
+correcto; cuando elige una y se escribe en otra, es el agujero.

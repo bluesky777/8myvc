@@ -207,8 +207,16 @@ class UnidadesTest extends CasoDeContrato
     /**
      * El gemelo exacto, que salió del inventario hecho tras encontrar los tres de
      * arriba: `subunidades/restore` tenía la misma forma —`UPDATE ... SET
-     * deleted_at=NULL` a pelo— mientras `subunidades/update` y
-     * `subunidades/destroy`, en el mismo fichero, sí piden el periodo.
+     * deleted_at=NULL` a pelo— mientras `subunidades/update`, en el mismo fichero,
+     * sí pedía el periodo.
+     *
+     * **Este párrafo decía «`subunidades/update` y `subunidades/destroy`» y era
+     * falso**: `destroy` no lo pedía, y se quedó sin pedirlo un mes porque la frase
+     * que decía que sí estaba escrita al lado de un test verde. Se cerró el 22 ago
+     * 2026 (05 §80) y lo fija `SubunidadDestroyTest`. Se deja escrito el error, y no
+     * se corrige en silencio, porque **la lección es la frase, no la ruta**: una
+     * afirmación sobre el código de al lado envejece igual que el código, y aquí
+     * nació ya vieja.
      */
     public function test_no_se_restaura_una_subunidad_con_el_periodo_cerrado(): void
     {
