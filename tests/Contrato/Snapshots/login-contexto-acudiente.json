@@ -55,5 +55,6 @@
     "year": "int",
     "year_actual": "int",
     "year_id": "int",
-    "year_matricula_id": "string"
+    "year_matricula_id": "string",
+    "year_pasado_en_bol": "int"
 }

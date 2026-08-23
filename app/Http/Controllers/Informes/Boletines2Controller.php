@@ -497,7 +497,24 @@ class Boletines2Controller extends Controller {
 			$icono = 'fa-female';
 		}
 		
-		if ($nota) {
+		// §141. `is_object` y no `if ($nota)`: cuando el alumno no tiene nota del
+		// periodo, `NotaComportamiento::nota_comportamiento()` devuelve
+		// `["notas_finales" => []]` — un ARRAY, y un array no vacío es truthy.
+		// El `if` pasaba, y `$nota->nota` de tres líneas más abajo reventaba con
+		// «Attempt to read property "nota" on array»: 500 en el grupo entero por
+		// un alumno al que le falta la nota.
+		//
+		// **El centinela no se toca**, y no por prudencia: ese `["notas_finales"
+		// => []]` está MOLDEADO para las plantillas. `alumno.comportamiento.
+		// notas_finales` lo recorre con `ng-repeat` en cuatro boletines de
+		// `myvc_front` (boletinAlumnoDir, Dir2, Dir3 y Dir5), así que devolver
+		// `null` desde el modelo se lo quitaría a los cuatro. Se para en el
+		// llamante, que es lo mismo que se decidió para `Profesor::detallado()`.
+		//
+		// Está copiada en CINCO controladores de `Informes/` y ninguna de las
+		// cinco distinguía el array. Se arreglan las cinco a la vez: arreglar
+		// sólo la que se está mirando es lo que ha costado tres series esta noche.
+		if (is_object($nota)) {
 			$clase 		= '';
 			$la_nota 	= '';
 			$escala = '';

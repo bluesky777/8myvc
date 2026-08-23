@@ -170,6 +170,11 @@ class ContextoDeUsuario
                                 y.id as year_id, y.year, y.nota_minima_aceptada, y.actual as year_actual, per.actual as periodo_actual,
                                 y.unidad_displayname, y.subunidad_displayname, y.unidades_displayname, y.subunidades_displayname,
                                 y.genero_unidad, y.genero_subunidad, per.fecha_plazo, y.si_recupera_materia_recup_indicador, y.mostrar_nota_comport_boletin, y.alumnos_can_see_notas, y.logo_id,
+                                -- §140. `year_pasado_en_bol` estaba en las otras TRES ramas y no en
+                                -- ésta, y es una configuración del AÑO, no del tipo de usuario: dice
+                                -- si el boletín arrastra el año pasado. Sin ella, las maquetas 2 y 3
+                                -- reventaban con «Undefined property» al pedirlas una familia.
+                                y.year_pasado_en_bol,
                                 y.prematr_antiguos, y.compromiso_familiar_label
                             from acudientes ac
                             left join images i on i.id=:imagen_id

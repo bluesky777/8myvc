@@ -73,7 +73,17 @@ class AcudientesController extends Controller {
 			$ausencias 			= Ausencia::totalDeAlumno($alumnos[$i]->alumno_id, $user->periodo_id);
 
 			$comportamiento 	= NotaComportamiento::nota_comportamiento($alumnos[$i]->alumno_id, $user->periodo_id, $user->year_id, $escalas_val);
-			if ($comportamiento) {
+			// §141. `is_object` y no `if`: sin nota del periodo, el modelo devuelve
+			// `["notas_finales" => []]`, que es un array truthy, y `->id` revienta.
+			// Esta es la pantalla propia de la familia —«mis acudidos»— así que
+			// el 500 le saldría a un acudiente al entrar, no al pedir un informe.
+			//
+			// Con el seed de hoy NO revienta, porque el acudido del seed sí tiene
+			// nota; revienta el día que un colegio tenga un acudido sin ella. Es
+			// la misma FORMA que la de `notas-actuales-alumnos`, no el mismo
+			// fallo probado, y esa distinción es la que se perdió en las series
+			// que hubo que reabrir.
+			if (is_object($comportamiento)) {
 			$comportamiento->definiciones = DefinicionComportamiento::frases($comportamiento->id);
 		}
 
