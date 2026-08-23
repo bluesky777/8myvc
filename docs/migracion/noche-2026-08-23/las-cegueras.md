@@ -313,16 +313,9 @@ veces esta noche**:
    midió. Un total sellado deja de ser una afirmación y pasa a ser una medición con
    fecha: **si un día no cuadra, se ve que es viejo en vez de parecer falso**. Esta
    misma noche dos totales de estos documentos envejecieron sin avisar.
-10. **Un documento permanente no puede decir «hoy».** Y la regla exacta no es «no
-    digas *esta noche*»: es **«no lo digas donde no se puede resolver»**. En
-    `15-la-noche-en-paralelo.md` o en esta misma carpeta está bien —esos documentos
-    *son* de una noche y lo dicen en el título—; en el 05, que **acumula noches**,
-    las tres que había significan **tres noches distintas**. Y es más difícil de
-    ver que un número raro, porque **un número raro se nota y un «hoy» no**.
-
-    > La frase que más se estropea es justo la que más importaba:
-    > *«es la segunda vez esta noche que…»*, que se escribe **porque el patrón
-    > importaba** y deja de significar nada en cuanto pasa la noche.
+10. **Un documento permanente no puede decir «hoy».** «Esta noche» en un fichero
+    que acumula noches no se puede resolver — y es más difícil de ver que un número
+    raro, porque **un número raro se nota y un «hoy» no**.
 11. **Marcar qué mitad de una salida hay que ignorar, en la propia salida.** Una
     comprobación que necesita saberlo y no lo dice fabrica la forma 4 ella sola: el
     lector que desconfía **tiene razón en desconfiar**, porque no le diste con qué
@@ -347,5 +340,24 @@ que medirla antes de mandarla.**
 
 > Lo que las evita no es el conocimiento: es **el hábito de pedirle al instrumento
 > que enseñe el caso concreto** antes de creerse el resumen.
+
+### Y no fue una sesión: fueron cinco de las seis
+
+Contado por quien coordinó la noche, que es quien las veía a todas:
+
+| Quién | Qué repitió, después de que estuviera escrito |
+|---|---|
+| Quien escribió este barrido | tres formas, con el documento ya firmado |
+| Quien coordinó | **le dio rango de premisa a un apunte sin verificar** y montó un lote entero sobre él |
+| Otras dos sesiones | **juzgaron un instrumento sin leer su cabecera**, con veinte minutos de diferencia |
+
+> **Cinco de las seis repetimos una forma después de escribirla.** Y **eso, y no
+> las once reglas, es el hallazgo.**
+
+Si una sola persona tropieza con lo que acaba de escribir, es un descuido. Si
+tropiezan cinco de seis en la misma noche, **la lista no es una vacuna: es un
+mapa de dónde se tropieza**. Sirve para reconocer el sitio **después** de caer —
+que es cuando de verdad se usa— y para acortar el rato entre caerse y saber que
+uno se ha caído.
 
 ---
