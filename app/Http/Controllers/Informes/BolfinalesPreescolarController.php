@@ -241,6 +241,26 @@ class BolfinalesPreescolarController extends Controller {
 			$icono = 'fa-female';
 		}
 		
+		// §143. Esta quinta copia **no se toca**, y el motivo es que no recibe lo
+		// mismo que las otras cuatro: su único llamante (línea 209) le pasa
+		// `$alumno->nota_comportamiento_year`, que sale de
+		// `NotaComportamiento::notas_comportamiento_year()` y es una **lista de
+		// periodos**, no el objeto ni el centinela `["notas_finales" => []]` de
+		// la §141. Aquí no hay array truthy que distinguir.
+		//
+		// Se llegó a cambiar a `is_object($nota)` al arreglar las otras cuatro, y
+		// se revirtió al medir: con una lista, `is_object` es SIEMPRE falso, así
+		// que habría apagado la cabecera de comportamiento del boletín de
+		// preescolar **en silencio y con los tests en verde**. Ampliar un arreglo
+		// a «todas las copias» sin comprobar qué recibe cada una es la forma de
+		// romper la que estaba bien.
+		//
+		// Lo que sí queda pendiente, y lo señala larastan en la línea de abajo
+		// (`binaryOp.invalid`): **las otras cuatro copias hacen `$la_nota =
+		// $nota->nota;` y ésta hace `$la_nota = $nota;`**, y ese valor se
+		// concatena en el HTML doce líneas más abajo. Es la única de las cinco
+		// que difiere. Con el seed de hoy las dos rutas de preescolar contestan
+		// 200, así que no está probado que reviente: se anota y no se toca.
 		if ($nota) {
 			$clase 		= '';
 			$la_nota 	= '';
