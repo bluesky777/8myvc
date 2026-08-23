@@ -425,7 +425,7 @@ en vez de citarlo.
 ### Y la que no es una regla sino el saldo
 
 **Ninguna de estas doce se evita sabiéndosela.** Este documento estaba escrito y
-firmado cuando su propia autora se equivocó **cinco veces**, tres de ellas
+firmado cuando su propia autora se equivocó **seis veces**, cuatro de ellas
 repitiendo formas que el propio documento describe:
 
 | Qué | Cuál |
@@ -435,6 +435,19 @@ repitiendo formas que el propio documento describe:
 | Dos totales de cabecera que no volvió a sumar cuando el documento creció | forma 4 |
 | Publicar una **causa** —«no respeta la variable»— cuando lo medido era un **síntoma** | la regla 8, que salió de ahí |
 | **Borrar su propio trabajo** trayendo el fichero de `main` sin comprobar que lo suyo ya estaba fundido, con el `AssertionError` a la vista y el `commit` corriendo igual | la regla 11, que salió de ahí |
+| Contar **líneas `^+` del `git diff`** para saber cuántos tests se añadieron, y dar un total con un ±1 que no existía | forma 6: **contar la señal en vez del hecho** |
+
+La sexta es la más limpia de todas como ejemplo de la **forma 6**: para saber
+cuántos métodos de test se habían añadido, contó **las líneas que el `diff` marca
+con `+`** — que es la señal— en vez de **contar los métodos que hay en cada
+extremo**, que es el hecho. El `diff` cuenta de más cuando un método se mueve de
+fichero, y de ahí salió un ±1 que se explicó con una hipótesis razonable —«un
+proveedor rinde un caso menos»— **que tampoco era cierta**. Contados los dos
+extremos: **+266 métodos y +266 tests, exacto**.
+
+> Una señal mal elegida no solo da un número equivocado: **da uno lo bastante
+> cercano como para que la explicación de la diferencia parezca el trabajo bien
+> hecho.**
 
 La cuarta y la quinta no repetían una forma escrita: **la escribieron**. Y la
 quinta es la primera que **destruyó algo** en vez de solo afirmar mal — la cazó
