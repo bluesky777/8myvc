@@ -161,6 +161,38 @@ class AlumnosTest extends CasoDeContrato
         }
     }
 
+    /**
+     * Un profesor llano no cambia la contraseña de un grupo entero — 403.
+     *
+     * Iba con `auth.personal` a secas: dos campos del cuerpo y las contraseñas de
+     * treinta alumnos reescritas, sin vuelta atrás porque el hash anterior no se
+     * guarda. Cerrada a superusuario por decisión de Joseth el 23 ago 2026.
+     *
+     * **Lo que fija este test no es el código: es que no escriba.** Un 403 con la
+     * escritura ya hecha detrás es exactamente la forma que tenían la mitad de los
+     * hallazgos de la noche, así que se comprueba el hash del alumno **antes y
+     * después**, que es lo único que distingue «no dejó» de «dijo que no».
+     */
+    public function test_un_profesor_no_cambia_las_claves_de_un_grupo(): void
+    {
+        $token = $this->tokenDelPersonalLlano();
+        [$grupo] = $this->grupoYPersonal();
+
+        $antes = DB::selectOne('SELECT u.id, u.password FROM users u
+            INNER JOIN alumnos a ON a.user_id = u.id AND a.deleted_at IS NULL
+            INNER JOIN matriculas m ON m.alumno_id = a.id AND m.grupo_id = ? AND m.deleted_at IS NULL
+            WHERE u.deleted_at IS NULL ORDER BY u.id LIMIT 1', [$grupo->id]);
+
+        $this->assertNotNull($antes, 'El grupo del seed no tiene alumnos con cuenta.');
+
+        $this->withToken($token)->putJson('/api/alumnos/cambiar-claves',
+            ['clave' => 'no-deberia-entrar', 'grupo_id' => $grupo->id])->assertStatus(403);
+
+        $this->assertSame($antes->password,
+            DB::table('users')->where('id', $antes->id)->value('password'),
+            'Contestó 403 y aun así cambió la contraseña.');
+    }
+
     /** Una familia no llega a ninguna de las de administración de alumnos. */
     public function test_una_familia_no_administra_alumnos(): void
     {

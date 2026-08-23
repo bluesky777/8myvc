@@ -69,8 +69,33 @@ class AlumnosController extends Controller {
 	}
 
 
+	/**
+	 * Cambiar de una vez la contraseña de todos los alumnos de un grupo.
+	 *
+	 * **Pedía `auth.personal` y nada más**, o sea que cualquiera de los 51
+	 * profesores de la copia de producción podía reescribir las contraseñas de un
+	 * grupo entero con dos campos del cuerpo. Se cerró a superusuario por decisión
+	 * de Joseth el 23 ago 2026 (09 §cierre de la noche del 22 al 23).
+	 *
+	 * **No es una restricción nueva de hecho, sino de derecho: nadie pierde un
+	 * botón que hoy vea.** El único cliente que la llama es `myvc_front`, desde el
+	 * panel «Cambiar claves y usuarios» de la pantalla de Alumnos, que el menú
+	 * enseña con `hasRoleOrPerm(['admin', 'secretario'])`; y medido el 23 ago en la
+	 * copia de producción: **10 `is_superuser`, 10 con rol `Admin`, los mismos
+	 * diez, y cero `Secretario`** —el rol existe desde el 21 ago y no lo tiene
+	 * nadie—. Es la misma equivalencia de la §28.4 y el mismo razonamiento del
+	 * §97.
+	 *
+	 * Se ancla a `esSuperusuario` y no a `puedeEditarAlumnos` porque **editar la
+	 * ficha de un alumno y reescribir la contraseña de treinta son dos cosas
+	 * distintas**: lo segundo deja a un grupo entero fuera de su cuenta y no se
+	 * puede deshacer —el hash anterior no se guarda en ningún sitio—.
+	 */
 	public function putCambiarClaves()
 	{
+		Autoriza::exigir(Autoriza::esSuperusuario($this->user),
+			'No tienes permiso para cambiar las contraseñas de un grupo.');
+
 		$clave 		= Request::input('clave');
 		$grupo_id 	= Request::input('grupo_id');
 		$clave 		= Hash::make($clave);
