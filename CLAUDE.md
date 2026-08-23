@@ -21,22 +21,34 @@ medición o de una decisión, y sin el porqué se deshace solo.
 Todo corre dentro del contenedor (`kool` sobre docker compose):
 
 ```bash
-docker exec 8myvc-app-1 php artisan test                       # los 710 del 21 ago
+docker exec 8myvc-app-1 php artisan test                       # 1.006 el 22 ago; 903 son de Contrato
 docker exec 8myvc-app-1 php artisan test --testsuite=Contrato  # solo contrato (necesita BD)
 docker exec 8myvc-app-1 php artisan test --filter=NotasTest    # una clase
 
 # Qué alcanza de verdad un token. No corre con los demás: mide e imprime.
 docker exec -e BARRIDO_TIPO=Alumno 8myvc-app-1 php artisan test --group=barrido
 docker exec 8myvc-app-1 composer run pint                      # formato
-docker exec 8myvc-app-1 composer run stan                      # larastan nivel 5
+docker exec 8myvc-app-1 composer run stan                      # larastan nivel 7
 
 tools/construir-bd-test.sh                                     # crea/reconstruye la BD de tests
 
-# Varias sesiones a la vez: una base por sesión, o se pisan (deadlocks, fallos
-# que no se reproducen). El sufijo es libre mientras lleve _testing dentro.
+# Varias sesiones a la vez: un árbol y una base por sesión. Monta las dos, y
+# comprueba el aislamiento imprimiendo desde dónde carga las clases.
+tools/worktree-de-sesion.sh b fix/lo-que-toque
+docker exec -w /app/.worktrees/b -e DB_TEST_DATABASE=simonbolivar_testing_b \
+    8myvc-app-1 php artisan test
+
+# Solo la base, si de verdad se comparte el árbol (dos suites contra la misma
+# base dan deadlocks). El sufijo es libre mientras lleve _testing dentro.
 DB_TEST_DATABASE=simonbolivar_testing_b tools/construir-bd-test.sh
-docker exec -e DB_TEST_DATABASE=simonbolivar_testing_b 8myvc-app-1 php artisan test
 ```
+
+> **`vendor/` no se enlaza con symlink en un worktree**, aunque sea lo que hace
+> el despliegue: `__DIR__` resuelve los symlinks y el árbol acaba cargando el
+> `app/` del principal —con los tests en verde—. Lo copia con enlaces duros
+> `tools/worktree-de-sesion.sh`, que lleva la medición en la cabecera. El reparto
+> y las reglas de una noche en paralelo están en
+> `docs/migracion/15-la-noche-en-paralelo.md`.
 
 La base de tests **no** se reconstruye entre tests: cada uno corre dentro de una
 transacción. Solo hace falta reconstruirla al cambiar el esquema o el seed.
