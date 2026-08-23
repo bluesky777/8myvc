@@ -89,3 +89,111 @@ llaman: **se anota, no se hace**, y no es de este lote.
 Quitando **solo** el guard de `boletines3` caen exactamente dos casos: el suyo del
 proveedor de datos y el de las cuatro puertas. O sea que los dos caminos están
 cubiertos por separado y no hay uno tapando al otro.
+
+---
+
+## §90. La respuesta del lote: `calcular-grupo-periodo` reescribe la rejilla de un periodo cerrado
+
+La pregunta del lote era **cuál de las trece escribe en la rejilla sin preguntar
+por el interruptor del periodo**. Ninguna de las trece. La que lo hace es una
+ruta que **no está en la lista de trece porque ya tenía test** — el de la
+inyección, [§63](../05-codigo-muerto-y-roto.md), que miraba otra cosa.
+
+> **Medir una ruta no es haberla juzgado.** Es la segunda vez esta noche: en la
+> §89 el dato existía en la `TABLA_DE_ID` del barrido, y aquí existe un test de
+> contrato entero sobre la misma ruta.
+
+### 90.1 Qué hace, medido
+
+Con un token de **profesor**, los cuatro periodos del año cerrados
+(`profes_pueden_editar_notas = 0` y `profes_pueden_nivelar = 0`) y el `periodo_id`
+del periodo cerrado en el cuerpo:
+
+| | |
+|---|---|
+| Respuesta | **200 `Calculado`** |
+| Definitivas del grupo y periodo antes | 463 |
+| Definitivas después | 463 |
+| **Filas que sobrevivieron** | **0** |
+
+Las 463 se borran y se vuelven a insertar: el conteo no se mueve y **los ids
+cambian todos** (el máximo pasó de 7.228.862 a 7.256.524). Contar filas habría
+dicho que no pasó nada, que es justo mirar el estado en vez del resultado. Y cada
+fila nueva lleva `updated_by` del profesor que disparó el botón, así que además
+reescribe la respuesta de «[quién cambió esta definitiva](../05-codigo-muerto-y-roto.md)»
+(§73) para 463 notas de golpe.
+
+Lo que **sí** respeta: el `DELETE` filtra `(manual is null or manual=0) and
+(recuperada is null or recuperada=0)`, así que lo puesto a mano sobrevive — **al
+revés que la §71**, que tenía ese mismo criterio invertido. Medido sobre el grupo
+con 40 manuales y 3 recuperadas: las 43 siguen ahí.
+
+### 90.2 Es la única de las ocho de su controlador que no pregunta
+
+| Rutas de `DefinitivasPeriodosController` | ¿Pregunta? |
+|---|---|
+| `update`, `update-recuperacion`, `toggle-manual`, `toggle-recuperada` | sí |
+| `eliminar-recuperada`, `destroy/{id}`, `arreglar-duplicados` | sí |
+| **`calcular-grupo-periodo`** | **no** |
+
+Y el interruptor **está puesto y funciona**: con el mismo token y el mismo
+periodo cerrado, `definitivas_periodos/update` sobre una definitiva de ese
+periodo contesta **400** y no la cambia. O sea que no es que el candado esté roto:
+es que hay una puerta que no lo consulta, y es la que escribe más filas de una vez
+que ninguna de las que sí lo consultan.
+
+### 90.3 Cómo se escondió, que es la parte que se repite
+
+No fue un detector ciego. `tools/escrituras-en-las-notas.py` la lista como
+**«NO pregunta» desde que existe**. Lo que falló es la tabla que convierte esa
+lista en veredictos, la de la [§77.2](../05-codigo-muerto-y-roto.md):
+
+| Método | Ya estaba (según la §77.2) |
+|---|---|
+| `DefinitivasPeriodosController::putCalcularGrupoPeriodo` | «§71, cortada con 410» |
+
+**La cortada con 410 es la vecina.** La §71 cortó
+`putCalcularNotasFinalesAsignatura`, que es la línea siguiente del mismo fichero
+de rutas:
+
+```
+academico.php:124  PUT definitivas_periodos/calcular-grupo-periodo              <-- viva, escribe
+academico.php:125  PUT definitivas_periodos/calcular-notas-finales-asignatura   <-- 410 desde la §71
+```
+
+Mismo controlador, mismo `auth.personal`, nombres que empiezan igual y una línea
+de distancia. La §77.2 leyó cuatro métodos «uno a uno —que es lo único que
+convierte una lista en un veredicto—» y en uno de los cuatro el veredicto se le
+atribuyó al de al lado.
+
+> **Un detector que acierta no basta si el veredicto se escribe en una tabla a
+> mano.** La lista estuvo bien las dos veces; lo que se equivocó es el renglón
+> que decía que ya estaba resuelta. Y un renglón que dice «ya está» es más caro
+> que un falso negativo del detector, porque **apaga la pregunta**.
+
+Por eso el último caso del test golpea **las dos rutas en la misma petición** y
+compara los dos códigos en un solo `assertSame`: `200` y `410`, uno al lado del
+otro. Dos números en la misma línea no se confunden; una fila de una tabla, sí.
+
+### 90.4 Qué se ha hecho y qué no
+
+**Hecho**: `CalcularGrupoPeriodoTest`, cuatro casos, que fijan lo que hay hoy
+—200, cero supervivientes, las manuales a salvo, la hermana en 400 y la vecina en
+410— con el porqué al lado de cada valor. Un test que fija lo que hay fija también
+lo que está mal: el día que se cierre, caen dos de los cuatro y ahí está escrito
+qué se decidió.
+
+**No hecho, y no por falta de tiempo**: ponerle el candado. Ver `## PARA JOSETH`.
+
+### 90.5 Y una vecina más, anotada al pasar
+
+`GET api/definitivas_periodos/arreglar-duplicados` es un **GET que hace `DELETE
+FROM notas_finales`**, y su ruta **no lleva `auth.personal`**: va con el guard por
+defecto, `auth.token`. Lo único que la cierra es
+`User::pueden_modificar_definitivas` dentro del controlador, que aborta 400 para
+quien no sea profesor o superusuario — o sea que hoy **no** hay hueco. Se anota
+porque la protección está en el sitio frágil: el día que alguien mueva esa
+llamada de sitio, la ruta queda abierta a cualquier token, alumnos incluidos, y
+borra filas de `notas_finales`. Es de mi lote y no lo toco porque cambiar el guard
+de una ruta que hoy no tiene hueco es ruido en una noche de seis sesiones; queda
+dicho aquí.
