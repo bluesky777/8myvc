@@ -145,7 +145,10 @@ class DisciplinaController extends Controller {
 			}
 		}
 
-		$year_id = $user->year_id;
+		// **El año sale del alumno, no de quien pregunta**, y esto no es un detalle
+		// de estilo: es lo único que hace que este endpoint sirva para un
+		// acudiente. Ver `anoDeLaFicha()`.
+		$year_id = $this->anoDeLaFicha((int)$alumno_id, $user);
 
 		$alumno = $this->fichaConFormaDeGrupo((int)$alumno_id, (int)$year_id);
 
@@ -169,6 +172,60 @@ class DisciplinaController extends Controller {
 			'config' => $config[0] ?? null,
 			'ordinales' => $ordinales,
 		];
+	}
+
+
+	/**
+	 * De qué año es la ficha: **del alumno, no de quien la pide**.
+	 *
+	 * Lo natural es `$user->year_id`, y era lo que ponía aquí. Falla en un caso
+	 * concreto y frecuente: **el colegio pasa de año y la familia no ha vuelto a
+	 * entrar.** `users.periodo_id` sigue apuntando al año viejo,
+	 * `ContextoDeUsuario` lo lee **en cada petición**, y con él la ficha se
+	 * buscaba en un año donde el alumno no tiene matrícula: **404 sobre una ficha
+	 * que existe**, y justo cuando la familia abre la app a ver el curso nuevo.
+	 *
+	 * `Login::ponerEnElPeriodoActual()` lo repara, pero **sólo al entrar**, y no
+	 * hay nada que lo mueva con la sesión abierta. Vale para los cuatro tipos: no
+	 * es un problema de los acudientes, es de cualquier sesión que sobreviva al
+	 * cambio de año.
+	 *
+	 * > **Cuidado con el test que lo fija.** La primera versión pedía el token
+	 * > *después* de mover el periodo, así que el login lo reparaba y el caso
+	 * > pasaba en verde **con el fallo dentro**. Hay que tomar el token primero.
+	 *
+	 * Y hay un problema mayor detrás que **esto no resuelve ni pretende**:
+	 * `09-pendientes.md` §8 lleva medidos sobre producción los mil acudientes con
+	 * `periodo_id = 1` —el periodo 1 de 2018— y espera una decisión de Joseth,
+	 * porque toca boletines, notas y definitivas. Aquí sólo se hace que la ficha
+	 * **no dependa de eso**.
+	 *
+	 * No es un parche, además: **la ficha es del alumno, así que su año es el del
+	 * alumno.** Para quien tiene el `year_id` bien —que es el caso normal— da
+	 * exactamente lo mismo.
+	 *
+	 * Se prefiere el año **activo** si el alumno tiene matrícula viva en él, y si
+	 * no, el más reciente — que es lo que hace que la ficha de un egresado siga
+	 * saliendo en vez de dar 404.
+	 */
+	private function anoDeLaFicha(int $alumno_id, $user)
+	{
+		$fila = DB::selectOne(
+			'SELECT g.year_id
+			   FROM matriculas m
+			   INNER JOIN grupos g ON g.id = m.grupo_id AND g.deleted_at IS NULL
+			   INNER JOIN years y ON y.id = g.year_id AND y.deleted_at IS NULL
+			  WHERE m.alumno_id = ? AND m.deleted_at IS NULL
+			    AND (m.estado = "MATR" OR m.estado = "ASIS" OR m.estado = "PREM")
+			  ORDER BY y.actual DESC, y.year DESC
+			  LIMIT 1',
+			[$alumno_id]
+		);
+
+		// Sin matrícula viva no hay año del que tirar, y se vuelve al del usuario:
+		// `fichaConFormaDeGrupo` responderá 404, que es la respuesta correcta y la
+		// que ya tiene su test.
+		return $fila->year_id ?? $user->year_id;
 	}
 
 

@@ -295,6 +295,62 @@ class FichaDisciplinaPropiaTest extends CasoDeContrato
     }
 
     /**
+     * **Con el año ya cambiado y la sesión todavía abierta, la ficha sigue
+     * llegando.**
+     *
+     * El caso: el colegio pasa de año —`years.actual` se mueve— y el acudiente
+     * **no ha vuelto a entrar**. Su `users.periodo_id` sigue apuntando al año
+     * viejo, y `ContextoDeUsuario` lo lee **en cada petición**, así que su
+     * `year_id` es el del año pasado hasta que cierre sesión y vuelva.
+     *
+     * `Login::ponerEnElPeriodoActual()` lo repara, pero **sólo al entrar**: no
+     * hay nada que lo mueva con la sesión abierta. Y es justo cuando una familia
+     * abre la app a ver el año nuevo.
+     *
+     * Con el año sacado de `$user->year_id`, esto era un **404 sobre una ficha
+     * que existe**. Por eso el token se toma **antes** de mover el periodo: si se
+     * pidiera después, el login lo repararía y el test pasaría con el fallo
+     * dentro — que es exactamente lo que le pasó a la primera versión de este
+     * caso.
+     *
+     * El problema de fondo es mayor y no es de aquí: `09-pendientes.md` §8 lleva
+     * los mil acudientes con `periodo_id = 1` medidos sobre producción, y toca
+     * boletines, notas y definitivas. Esto sólo hace que la ficha no dependa de
+     * eso.
+     */
+    public function test_con_el_ano_cambiado_y_la_sesion_abierta_la_ficha_sigue_llegando(): void
+    {
+        [$token, $suyo] = $this->acudienteConAcudido();
+
+        $otroAno = DB::selectOne('SELECT p.id FROM periodos p
+            INNER JOIN years y ON y.id = p.year_id AND y.deleted_at IS NULL
+            WHERE p.deleted_at IS NULL AND y.actual = 0
+              AND y.id <> (SELECT g.year_id FROM matriculas m
+                           INNER JOIN grupos g ON g.id = m.grupo_id
+                           WHERE m.alumno_id = ? AND m.deleted_at IS NULL LIMIT 1)
+            ORDER BY y.year LIMIT 1', [$suyo->alumno_id]);
+
+        $this->assertNotNull($otroAno, 'El seed necesita un año distinto del de la matrícula.');
+
+        // **Después de tener el token**, que es lo que reproduce «la sesión sigue
+        // abierta». `acudienteConAcudido()` ya entró, así que aquí se le mueve el
+        // periodo por debajo sin que vuelva a pasar por el login.
+        DB::table('users')->where('username', $suyo->username)
+            ->update(['periodo_id' => $otroAno->id]);
+
+        $ficha = $this->withToken($token)
+            ->getJson('/api/disciplina/mis-fichas/'.$suyo->alumno_id)
+            ->assertStatus(200)
+            ->json('alumno');
+
+        $this->assertSame((int) $suyo->alumno_id, (int) $ficha['alumno_id'],
+            'Con la sesión abierta y el año movido, la ficha dio 404 por algo que existe.');
+
+        $this->assertArrayHasKey('periodo1', $ficha,
+            'La ficha llegó sin periodos: se resolvió contra el año del acudiente y no el del alumno.');
+    }
+
+    /**
      * Un alumno sin matrícula viva en el año es **404 y no 500**.
      *
      * Es la lección de la §52: el `[0]` desnudo de las tres escrituras de este
