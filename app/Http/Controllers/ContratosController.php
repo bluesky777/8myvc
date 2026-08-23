@@ -89,9 +89,40 @@ class ContratosController extends Controller {
 
 
 
+	/**
+	 * §82. La otra mitad de `postIndex`, y la que se quedó abierta cuando se
+	 * cerró aquélla.
+	 *
+	 * `Contrato::destroy($id)` devuelve **cuántas filas borró**, así que un id
+	 * que no existe contestaba **200 con el cuerpo `0`**. Un cuerpo que es el
+	 * número cero: el front lo lee como respuesta buena —es un 200— y quita al
+	 * profesor de la rejilla de contratados sin que se haya borrado nada.
+	 *
+	 * Es exactamente la asimetría que dejó la §78: arriba se cerró que contratar
+	 * a un profesor inexistente escribiera una fila huérfana, y aquí abajo
+	 * descontratar un contrato inexistente seguía diciendo que sí. **Cerrar una
+	 * serie sobre una población no la cierra sobre la de al lado** — la misma
+	 * lección que la papelera de la §76.
+	 *
+	 * Se mira `deleted_at` a propósito: un contrato ya en la papelera no está, y
+	 * volver a borrarlo tampoco es «hecho». Es el criterio que ya usa
+	 * `EscalasDeValoracionController::exigirQueLaEscalaExista`.
+	 *
+	 * §84 — **lo que sigue sin comprobar, y no se cierra aquí**: `getIndex`
+	 * lista los contratos de `$user->year_id` y esto borra el de cualquier año.
+	 * Medido: un usuario del año 8 borra el contrato 124, que es del año 7, y
+	 * recibe 200. Escribir en años pasados **está decidido a propósito** en esta
+	 * API (05 §27.4), así que queda fijado por un test y anotado, no cerrado.
+	 */
 	public function deleteDestroy($id)
 	{
 		$user = User::fromToken();
+
+		$existe = DB::selectOne('SELECT id FROM contratos WHERE id = ? AND deleted_at IS NULL', [$id]);
+
+		if (! $existe) {
+			abort(404, 'Ese contrato no existe.');
+		}
 
 		$contr = Contrato::destroy($id);
 		return $contr;

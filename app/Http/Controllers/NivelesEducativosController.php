@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\DB;
 
+use App\Support\CamposQueVinieron;
 use App\User;
 use App\Models\NivelEducativo;
 
@@ -37,13 +38,26 @@ class NivelesEducativosController extends Controller {
 	}
 
 
+	/**
+	 * §81, la misma de `AreasController::putUpdate`: con el cuerpo vacío dejaba
+	 * `nombre` en `''` —es `NOT NULL`— y contestaba **200 devolviendo el nivel
+	 * ya vacío**. Son cuatro filas en todo el colegio y de ellas cuelgan los
+	 * catorce grados.
+	 *
+	 * El `try/catch` de aquí abajo **no lo impedía y no podía impedirlo**: con
+	 * `strict => false` el `UPDATE` no lanza nada que catchear, sólo un aviso
+	 * 1048. Es la diferencia con `postStore`, donde el mismo `try/catch` sí ve
+	 * el error porque el `INSERT` sí lo lanza (05 §78).
+	 */
 	public function putUpdate($id)
 	{
+		$vinieron = CamposQueVinieron::capturar();
+
 		$nivel = NivelEducativo::findOrFail($id);
 		try {
-			$nivel->nombre	=	Request::input('nombre');
-			$nivel->abrev	=	Request::input('abrev');
-			$nivel->orden	=	Request::input('orden');
+			if ($vinieron->trae('nombre')) { $nivel->nombre = Request::input('nombre'); }
+			if ($vinieron->trae('abrev'))  { $nivel->abrev  = Request::input('abrev'); }
+			if ($vinieron->trae('orden'))  { $nivel->orden  = Request::input('orden'); }
 
 			$nivel->save();
 			return $nivel;
