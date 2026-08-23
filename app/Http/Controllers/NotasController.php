@@ -339,7 +339,23 @@ class NotasController extends Controller {
 		// Va **después** del `try`, no dentro: si la nota no se guardó, no hay nada
 		// que recalcular, y meterlo dentro convertiría un fallo del recálculo en un
 		// «no se pudo guardar la nota» que sería mentira — la nota sí se guardó.
-		DefinitivasDeAsignatura::recalcularPorNota((int) $id, $user->user_id);
+		$recalculo = DefinitivasDeAsignatura::recalcularPorNota((int) $id, $user->user_id);
+
+		// Y la definitiva resultante viaja **en esta misma respuesta**, como campo
+		// nuevo. Sin ella la planilla necesita una petición más por cada nota
+		// tecleada sólo para leer un entero que aquí ya está calculado: en una
+		// rejilla de treinta alumnos por asignatura eso es el doble de viajes.
+		//
+		// **Es un campo añadido, no un cambio**: la nota se sigue devolviendo con
+		// las mismas claves, así que los cuatro clientes que ya la leen no se
+		// enteran. Y el front tiene que seguir tolerando que no venga, porque
+		// `app/` es copia por colegio y durante el despliegue habrá colegios con
+		// el código viejo — ahí este campo no existe.
+		//
+		// Puede venir `null` con la petición en 200: es cuando no hay fila en
+		// `notas_finales` para ese alumno, que hoy son 11.988 sólo en la copia de
+		// desarrollo. Rellenarlas es la fase 2.
+		$nota->definitiva = $recalculo['definitiva'] ?? null;
 
 		return (array)$nota;
 	}
