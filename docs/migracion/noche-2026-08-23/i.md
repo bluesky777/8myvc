@@ -349,6 +349,51 @@ la entrega de este lote. Queda anotado para quien lo recoja.
 
 ---
 
+## §112.3 · El último 500 del control, y un centinela que no es falsy
+
+De los cuatro 500 que el control no pudo desmentir, tres quedaron explicados arriba.
+El cuarto, `PUT notas-actuales-alumnos/{grupo}`, da **500 con token de acudiente y con
+token de personal**:
+
+```
+Attempt to read property "nota" on array
+   Informes/NotasActualesAlumnosController.php:351
+```
+
+`NotaComportamiento::nota_comportamiento()` devuelve **un objeto** en el camino bueno y
+**`[ "notas_finales" => [] ]` —un array— en su `else`**. Quien lo recibe hace
+`if ($nota) { … $nota->nota }`. **Un array no vacío es truthy**, así que el `if` pasa y
+el `->nota` revienta.
+
+> El `else` está escrito para decir «no hay» y lo dice con un valor que responde «sí».
+> **Un centinela que no es falsy no avisa: se cuela.**
+
+**La población es la de siempre**: seis llamantes del modelo —`AcudientesController:75`,
+`BoletinesController:349`, `Boletines2Controller:275`, `Boletines3Controller:261`,
+`NotasActualesAlumnosController:190`— y el método que lo indexa,
+`encabezado_comportamiento_boletin`, **copiado en cinco controladores**. **Ninguno de
+los seis distingue el array.**
+
+**Lo que está medido y lo que no**: hoy, con este seed, **sólo revienta
+`notas-actuales-alumnos`**. Que los otros cinco revienten depende de que a ese alumno le
+falte la nota de comportamiento de ese periodo. **Es la misma forma, no el mismo fallo
+probado**, y esa distinción es justo la que se pierde cuando una serie se declara
+cerrada sobre la población equivocada.
+
+### Y la pregunta que abre el arreglo, contestada
+
+El dilema es el de `Profesor::detallado()`: o el modelo devuelve `null` —y hay que mirar
+los seis— o cada llamante comprueba `is_object`. Aquí hay un dato extra que allí no
+había, y por eso se buscó antes de proponer nada: **la clave `notas_finales` la lee el
+cliente**, con `ng-repeat`, en **cuatro plantillas de boletín** de `myvc_front`
+(`boletinAlumnoDir.html`, `…Dir2`, `…Dir3`, `…Dir5`). O sea que ese `else` no es un
+centinela improvisado: está moldeado para que la plantilla encuentre una lista vacía.
+
+Quien lo arregle tiene que saberlo. Lo que **no** se afirma aquí es si la plantilla
+aguanta un `comportamiento` nulo: eso hay que verlo en el cliente, no deducirlo.
+
+---
+
 ## Y una ceguera que empuja al revés: `ESCRIBE` no quiere decir «cambió una fila»
 
 La del `{grupo_id}` hacía contar **de menos**. Ésta hace contar **de más**, y las dos
