@@ -97,6 +97,25 @@ tienen en común es **el resultado**, que es lo que decide si un alumno está en
 papelera. Unificar el 400 cambia el contrato de una ruta que los clientes sí
 llaman: **se anota, no se hace**, y no es de este lote.
 
+### 89.5 Y lo que no comprobaba nadie: cuántas puertas hay
+
+Escrito después de cerrar el lote, al pasarle a mis propias conclusiones la
+pregunta *«¿quién se entera si esto cambia?»*.
+
+`BoletinesBorranAlumnosTest` comprueba que **las cuatro puertas rechazan** a quien
+no tiene el criterio. Lo que no comprobaba nadie —ni la §72 ni esta— es **cuántas
+puertas hay**, y ése es exactamente el dato que le faltó a la §72: **no se
+equivocó en el criterio, se equivocó en el censo.**
+
+> Un test que comprueba que las puertas conocidas están cerradas **no dice nada de
+> las que no se contaron.**
+
+Lo cuenta ahora `PuertasDeLaMismaOperacionTest`, leyendo del código los métodos
+que resuelven un alumno por id y lo borran —sin comentarios, porque los docblocks
+de esta misma sección **citan** `Alumno::find($id)` y contarlos sería encontrar lo
+que se escribió sobre el código, que es la §72.5—. Si aparece una quinta, cae **el
+día que se escribe** y no cuando alguien la tropiece.
+
 ### 89.4 Comprobado al revés
 
 Quitando **solo** el guard de `boletines3` caen exactamente dos casos: el suyo del
