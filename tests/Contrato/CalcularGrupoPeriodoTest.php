@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\DB;
  *
  * ## Por qué nadie había vuelto: la vecina de al lado sí está cerrada
  *
- * `academico.php:124` y `:125` son estas dos, en este orden:
+ * En `routes/api/academico.php` son estas dos, **seguidas** (:124 y :125 el 23 ago):
  *
  * ```
  * PUT definitivas_periodos/calcular-grupo-periodo             <-- viva, escribe
