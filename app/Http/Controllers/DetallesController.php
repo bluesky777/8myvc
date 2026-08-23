@@ -168,6 +168,28 @@ class DetallesController extends Controller {
 
 
 
+	/*
+	 * Borrar todas las notas de un periodo obedece al interruptor del periodo, y
+	 * hasta el 22 ago 2026 no obedecía a nada.
+	 *
+	 * Es un `DELETE` **físico**: no marca `deleted_at`, no hay papelera y no hay
+	 * de dónde restaurar. El botón que la llama se llama, en el propio front,
+	 * «Eliminar todas las notas de este periodo (¡peligroso!)».
+	 *
+	 * La §27 dejó 25 de 26 rutas comprobando el permiso del sitio al que escriben
+	 * y ésta no estaba entre las 26 — **su inventario se hizo de los sitios que ya
+	 * llamaban a `pueden_editar_notas`, no de los que escriben en las notas**, y
+	 * un sitio que nunca preguntó no aparece en una lista construida así. La §08
+	 * sí la tenía apuntada desde la revisión IDOR, en «escrituras sobre otro
+	 * alumno», y nunca se cerró.
+	 *
+	 * El periodo que se le pasa es el del **cuerpo** y eso es correcto aquí, que
+	 * es justo lo contrario de lo que avisa la §27: allí el problema era que el
+	 * cliente elegía con `num_periodo` el permiso que se le comprobaba mientras
+	 * escribía en otro sitio. Aquí `periodo_id` es la misma ligadura que acota el
+	 * `DELETE` —`u.periodo_id=:periodo_id`—, así que pedir permiso para él es
+	 * pedirlo para exactamente lo que se va a borrar.
+	 */
 	public function putEliminarNotasPeriodo()
 	{
 
@@ -176,6 +198,8 @@ class DetallesController extends Controller {
 		$periodo_id 	= Request::input('periodo_id');
 		$alumno_id 		= Request::input('alumno_id');
 		$grupo_id 		= Request::input('grupo_id');
+
+		User::pueden_editar_notas($user, $periodo_id ? (int) $periodo_id : null);
 
 		$consulta 	= 'DELETE n FROM notas n
 						inner join subunidades s on s.id=n.subunidad_id
