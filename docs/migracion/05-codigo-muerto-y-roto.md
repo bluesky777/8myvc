@@ -7489,3 +7489,128 @@ para no arreglar nada.
 > Van tres esta semana en las que leer el cliente **desactivó** el arreglo obvio: el
 > `if` vacío de ausencias (§75.2), el criterio del `restore` (§76.2) y ésta. **La
 > pregunta «¿quién lo llama?» no es el último paso de la revisión, es el segundo.**
+
+---
+
+## 79. Lo que alcanza un token cualquiera: las escrituras sin `auth.personal` (22 ago 2026)
+
+El guard va por defecto a toda la API y `auth.personal` se pone **ruta a ruta**, así
+que las que llevan sólo `auth.token` las alcanzan las **2.321 cuentas**, alumnos y
+acudientes incluidos. El barrido de agosto midió qué **devuelven** esas rutas. Lo
+que faltaba era la otra mitad: qué **escriben**.
+
+Salen cuatro comportamientos y **sólo uno es un problema**, lo cual es en sí un
+resultado: dos rechazan bien con `Autoriza` dentro del método —por eso su ruta no
+lleva `auth.personal` y aun así están cerradas—, una obedece al token y no al
+cuerpo, y una hace exactamente lo que le pidan.
+
+### 79.1 Un alumno se queda con el correo de otra cuenta, y con su enlace
+
+`PUT perfiles/guardar-mi-email-restore` escribe `users.email` y **no valida nada**.
+Medido con un token de alumno:
+
+```
+email_restore='no-es-un-correo'      -> 200  guardado='no-es-un-correo'
+email_restore=''                     -> 200  guardado=NULL
+email_restore='victima@ejemplo.test' -> 200  guardado='victima@ejemplo.test'
+```
+
+Y `users.email` **no es un dato de perfil: es la llave de la cuenta** (§36.1). Se
+comprobó de un lado: es la única columna del sistema que gobierna algo —
+`postRecuperarClave` manda ahí el enlace— y en todos los demás sitios sólo se
+muestra.
+
+**El viaje entero, que es lo único que lo hace visible:**
+
+1. el alumno (id 1223) se pone el correo de otra cuenta (id 1224);
+2. la dueña de ese correo pide **su** reseteo;
+3. `password_reminders` guarda `username = users_1223`.
+
+O sea: **a la víctima le llega a su buzón un enlace que cambia la contraseña de un
+desconocido**, y ella no puede recuperar la suya nunca. `postRecuperarClave` se
+queda con `$persona[0]`, la cuenta de id más bajo del grupo, y eso ya estaba
+documentado — lo que no estaba es que **cualquiera puede meterse en ese grupo**.
+
+**No es robo de cuenta**, y la distinción importa: el correo llega al buzón de la
+víctima, no al del alumno. Es **quitarle la recuperación**, a cualquiera con un id
+más alto que el tuyo. Y es el mismo mecanismo que la [§13 del 12](12-larastan-nivel-7.md)
+midió como accidente —ocho hermanos con el correo de un padre, y las ocho segundas
+sin recuperación— con la diferencia de que aquí se hace a propósito y con un solo
+PUT.
+
+El formato libre es además una de las vías por las que se llenan las **677 cuentas
+cuyo «correo no es una dirección»** del §9 del 12, que están dentro del 91% que no
+puede recuperar la contraseña.
+
+**Joseth decidió no tocarlo y medirlo** (22 ago 2026). El coste de cerrarlo estaba
+en la otra columna: rechazar un correo repetido dejaría a una familia sin poder
+poner la dirección del padre en dos cuentas desde esa pantalla. Va al
+[§5 de 09](09-pendientes.md), y el test fija **el agujero, no el arreglo** — el día
+que alguien ponga la validación, falla y le cuenta qué pasaba antes.
+
+### 79.2 «Guardar valor varios» guarda uno, y es una mina con fecha
+
+`AlumnosController::putGuardarValorVarios` tiene dos ramas que hacen lo mismo con
+una diferencia de una línea:
+
+| Rama | El `return` | Qué guarda de N alumnos |
+|---|---|---|
+| administrativo (`Autoriza::esAdministrativo`) | **fuera** del bucle | los N |
+| profesor (`years.profes_can_edit_alumnos`) | **dentro** del bucle | **el primero** |
+
+De N alumnos guarda el primero, contesta 200 y **tira los demás sin decir nada**. Y
+si el profesor no es titular del grupo del primero, contesta 400 y no guarda
+ninguno — aunque fuera titular de los otros.
+
+**Es una mina y tiene fecha**: la rama del profesor cuelga de
+`years.profes_can_edit_alumnos`, apagada en los dieciséis colegios y cuya decisión
+está aplazada a después de la migración ([§29.1](#291)). El día que se encienda,
+esa pantalla empieza a guardar uno de cada N.
+
+Se fija con el test **encendiendo la bandera dentro de la transacción**, que es lo
+único que hace medible una mina antes de que estalle, y con **dos alumnos mirando
+las dos filas**: con uno solo el fallo no existe, y mirando el 200 no se ve nunca.
+
+> **La asimetría entre las dos ramas de un mismo método** va por la tercera esta
+> semana —§69 (`postStore` contra `putUpdate`), §75 (`getPapelera` contra su
+> restore) y ésta—. Y las tres tienen la misma forma: **una de las dos ramas se
+> escribió después, copiando la otra, y la copia se desvió en una línea.**
+
+### 79.3 Los dos autocompletados, que se fijan y no se cierran
+
+`alumnos/eps-check` y `acudientes/ocupaciones-check` son `LIKE '%texto%'` sobre una
+columna de **todos** los alumnos y de **todos** los acudientes, con sólo
+`auth.token`. Con el texto vacío el patrón es `%%` y devuelven la lista entera del
+colegio a un alumno.
+
+Lo que los deja fuera de la §34 es que devuelven **`distinct`**: sale el conjunto de
+EPS que usa el colegio, no la EPS de nadie. El test fija justo eso —**una sola
+columna por fila**— para que el día que alguien añada `a.nombres` a ese `SELECT`,
+que es el cambio de una palabra, deje de ser un conjunto y falle.
+
+### 79.4 Y las tres que no tenían nada, que también es un resultado
+
+`alumnos/guardar-valor-varios` y `alumnos/forcedelete/{id}` comprueban con
+`Autoriza` **dentro del método**, así que su ruta no lleva `auth.personal` y aun así
+un alumno se queda en 400 — y la fila sigue ahí después del rechazo, comprobado.
+`acudientes/mis-acudidos` liga por `$user->persona_id` del token y **no mira el id
+del cuerpo**, comprobado mandándole el de otro acudiente.
+
+> Un barrido que sale limpio no es una tarde perdida: dice que ese trozo está
+> cubierto y que no hay que volver. Es lo mismo que dejó escrito la §54 con las
+> veintidós rutas de `auth.token`.
+
+### 79.5 Las dos veces que el instrumento volvió a mentir
+
+Van con el hallazgo porque son la misma familia de siempre y las dos costaron un
+rato:
+
+- **La sonda mandó `ruta: 'x'` a `recuperar-clave` y recibió 422**, que leído en
+  frío parecía «el sistema rechaza el correo compartido» — o sea, parecía que el
+  agujero no existía. No era del correo: `ruta_frontend_segura()` rechaza una ruta
+  de retorno que no sea del propio host. **Un rechazo correcto por otro motivo es
+  la forma más convincente de que un fallo parezca cerrado.**
+- **`users.persona_id` no existe como columna.** Es del `stdClass` que monta
+  `ContextoDeUsuario`, no de la tabla, y CLAUDE.md lo dice. El test lo dio por hecho
+  y el SQL reventó — que aquí fue barato porque rompe ruidosamente, pero es la misma
+  confusión que en un `UPDATE` escribiría en la fila de otro.
