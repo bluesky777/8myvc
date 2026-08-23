@@ -214,6 +214,33 @@ class PerfilesController extends Controller {
 		return $perfil;
 	}
 
+	/**
+	 * Editar la ficha de una persona. Con medio formulario la vaciaba — §101.
+	 *
+	 * Las cuatro ramas de aquí son cuatro copias de las mismas seis líneas, y las
+	 * veintidós asignaciones leían `Request::input('x')` **sin defecto**: un campo
+	 * que el cliente no manda llegaba como `null` y se escribía encima. Era el
+	 * peor del repo en proporción —22 columnas, ninguna a salvo— y justo sobre la
+	 * ficha de una persona: apellidos, sexo, fecha de nacimiento, celular y
+	 * correo.
+	 *
+	 * Es la §68 otra vez: **un campo que no se manda no es un campo que no cambia,
+	 * es un campo que se pisa.** Allí el que se pisaba era `is_active` y devolvía
+	 * la entrada al sistema; aquí lo que se pierde es el dato con el que el
+	 * colegio llama a una familia.
+	 *
+	 * Se arregla con **el defecto de `Request::input()`** y no con
+	 * `CamposQueVinieron`, y el discriminador está medido, no copiado: esa clase
+	 * hace falta cuando el controlador hace `Request::merge()` o `sanarInput*`
+	 * antes de leer, porque a esa altura `has()` ya no distingue lo que mandó el
+	 * cliente de lo que se rellenó solo. **Aquí no hay ni uno ni otro**, así que
+	 * el defecto basta y es una palabra por línea. En `ProfesoresController`, que
+	 * sí tiene `sanarInput*`, toca la clase.
+	 *
+	 * El defecto es **el valor que ya tiene la fila**, no una constante: mandar el
+	 * campo vacío a propósito sigue vaciándolo, que es una intención distinta de
+	 * no mandarlo.
+	 */
 	public function putUpdate($id)
 	{
 		$user = User::fromToken();
@@ -224,12 +251,12 @@ class PerfilesController extends Controller {
 			
 			try {
 
-				$perfil->nombres	=	Request::input('nombres');
-				$perfil->apellidos	=	Request::input('apellidos');
-				$perfil->sexo		=	Request::input('sexo');
-				$perfil->fecha_nac	=	Request::input('fecha_nac');
-				$perfil->celular	=	Request::input('celular');
-				$perfil->email		=	Request::input('email_persona');
+				$perfil->nombres	=	Request::input('nombres', $perfil->nombres);
+				$perfil->apellidos	=	Request::input('apellidos', $perfil->apellidos);
+				$perfil->sexo		=	Request::input('sexo', $perfil->sexo);
+				$perfil->fecha_nac	=	Request::input('fecha_nac', $perfil->fecha_nac);
+				$perfil->celular	=	Request::input('celular', $perfil->celular);
+				$perfil->email		=	Request::input('email_persona', $perfil->email);
 
 				$perfil->save();
 				return $perfil;
@@ -243,12 +270,12 @@ class PerfilesController extends Controller {
 			
 			try {
 
-				$perfil->nombres	=	Request::input('nombres');
-				$perfil->apellidos	=	Request::input('apellidos');
-				$perfil->sexo		=	Request::input('sexo');
-				$perfil->fecha_nac	=	Request::input('fecha_nac');
-				$perfil->celular	=	Request::input('celular');
-				$perfil->email		=	Request::input('email');
+				$perfil->nombres	=	Request::input('nombres', $perfil->nombres);
+				$perfil->apellidos	=	Request::input('apellidos', $perfil->apellidos);
+				$perfil->sexo		=	Request::input('sexo', $perfil->sexo);
+				$perfil->fecha_nac	=	Request::input('fecha_nac', $perfil->fecha_nac);
+				$perfil->celular	=	Request::input('celular', $perfil->celular);
+				$perfil->email		=	Request::input('email', $perfil->email);
 
 				$perfil->save();
 				return $perfil;
@@ -262,12 +289,12 @@ class PerfilesController extends Controller {
 			
 			try {
 
-				$perfil->nombres	=	Request::input('nombres');
-				$perfil->apellidos	=	Request::input('apellidos');
-				$perfil->sexo		=	Request::input('sexo');
-				$perfil->fecha_nac	=	Request::input('fecha_nac');
-				$perfil->celular	=	Request::input('celular');
-				$perfil->email		=	Request::input('email');
+				$perfil->nombres	=	Request::input('nombres', $perfil->nombres);
+				$perfil->apellidos	=	Request::input('apellidos', $perfil->apellidos);
+				$perfil->sexo		=	Request::input('sexo', $perfil->sexo);
+				$perfil->fecha_nac	=	Request::input('fecha_nac', $perfil->fecha_nac);
+				$perfil->celular	=	Request::input('celular', $perfil->celular);
+				$perfil->email		=	Request::input('email', $perfil->email);
 
 				$perfil->save();
 				return $perfil;
@@ -281,10 +308,10 @@ class PerfilesController extends Controller {
 			
 			try {
 
-				$perfil->sexo		=	Request::input('sexo');
-				$perfil->fecha_nac	=	Request::input('fecha_nac');
-				$perfil->celular	=	Request::input('celular');
-				$perfil->email		=	Request::input('email');
+				$perfil->sexo		=	Request::input('sexo', $perfil->sexo);
+				$perfil->fecha_nac	=	Request::input('fecha_nac', $perfil->fecha_nac);
+				$perfil->celular	=	Request::input('celular', $perfil->celular);
+				$perfil->email		=	Request::input('email', $perfil->email);
 
 				$perfil->save();
 				return $perfil;

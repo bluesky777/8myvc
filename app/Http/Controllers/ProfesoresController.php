@@ -341,23 +341,50 @@ class ProfesoresController extends Controller {
 			
 			$profesor = Profesor::findOrFail($id);
 			try {
-				$profesor->nombres		=	Request::input('nombres_profesor', Request::input('nombres'));
-				$profesor->apellidos	=	Request::input('apellidos_profesor', Request::input('apellidos'));
-				$profesor->sexo			=	Request::input('sexo');
-				$profesor->tipo_doc		=	Request::input('tipo_doc');
-				$profesor->num_doc		=	Request::input('num_doc');
-				$profesor->ciudad_doc	=	Request::input('ciudad_doc');
-				$profesor->fecha_nac	=	Request::input('fecha_nac');
-				$profesor->ciudad_nac	=	Request::input('ciudad_nac');
-				$profesor->titulo		=	Request::input('titulo');
-				$profesor->estado_civil	=	Request::input('estado_civil');
-				$profesor->barrio		=	Request::input('barrio');
-				$profesor->direccion	=	Request::input('direccion');
-				$profesor->telefono		=	Request::input('telefono');
-				$profesor->celular		=	Request::input('celular');
-				$profesor->facebook		=	Request::input('facebook');
-				$profesor->email		=	Request::input('email_usu');
-				$profesor->tipo_profesor	=	Request::input('tipo_profesor'); // Catedrático o Tiempo completo
+				// Las diecisiete columnas de la ficha, con la clave —o las dos claves—
+				// con las que puede llegar cada una. Van en una tabla y no en
+				// diecisiete `if` porque lo que hay que poder leer de un vistazo es
+				// que **la regla es la misma para las diecisiete**: si el cliente no
+				// mandó la clave, la columna no se toca. §101.
+				//
+				// Y aquí hace falta `CamposQueVinieron` y NO el defecto de
+				// `Request::input()`, que es lo que se usó en `perfiles/update` y en
+				// `grupos/update`. El discriminador está medido:
+				// `sanarInputProfesor()` corre unas líneas más arriba y hace
+				// `Request::merge(['ciudad_nac' => null])` —y lo mismo con
+				// `ciudad_doc`, `tipo_doc`, `estado_civil` y `foto_id`— cuando la
+				// clave no viene. O sea que a esta altura **la clave existe y vale
+				// null**, y un defecto no se dispara nunca: `input('ciudad_nac', $x)`
+				// devolvería el null recién metido. Copiar aquí la solución de
+				// `perfiles` habría dado un arreglo en verde que no arregla nada.
+				$deLaFicha = [
+					'nombres'		=> ['nombres_profesor', 'nombres'],
+					'apellidos'		=> ['apellidos_profesor', 'apellidos'],
+					'sexo'			=> ['sexo'],
+					'tipo_doc'		=> ['tipo_doc'],
+					'num_doc'		=> ['num_doc'],
+					'ciudad_doc'	=> ['ciudad_doc'],
+					'fecha_nac'		=> ['fecha_nac'],
+					'ciudad_nac'	=> ['ciudad_nac'],
+					'titulo'		=> ['titulo'],
+					'estado_civil'	=> ['estado_civil'],
+					'barrio'		=> ['barrio'],
+					'direccion'		=> ['direccion'],
+					'telefono'		=> ['telefono'],
+					'celular'		=> ['celular'],
+					'facebook'		=> ['facebook'],
+					'email'			=> ['email_usu'],
+					'tipo_profesor'	=> ['tipo_profesor'], // Catedrático o Tiempo completo
+				];
+
+				foreach ($deLaFicha as $columna => $claves) {
+					foreach ($claves as $clave) {
+						if ($vinieron->trae($clave)) {
+							$profesor->setAttribute($columna, Request::input($clave));
+							break;
+						}
+					}
+				}
 
 				$profesor->save();
 

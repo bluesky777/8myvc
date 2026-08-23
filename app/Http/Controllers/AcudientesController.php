@@ -480,6 +480,23 @@ where id in (
 	}
 
 
+	/**
+	 * Quién es un acudiente de un alumno. Con medio cuerpo lo desataba — §101.
+	 *
+	 * Este método tiene **las dos ramas en el mismo sitio**: con
+	 * `parentesco_acudiente_cambiar_id` edita una fila que existe, y sin él crea
+	 * una. Las cuatro asignaciones eran `Request::input('x')` sin defecto, y en la
+	 * rama de editar eso vacía: cambiar la observación de un parentesco le
+	 * borraba el `acudiente_id` y el `alumno_id`, o sea **desataba a la familia
+	 * del alumno dejando la fila viva**.
+	 *
+	 * El defecto es el valor que ya tiene la fila, y por eso una sola expresión
+	 * vale para las dos ramas: en la de crear, `$parentesco->acudiente_id` es
+	 * `null` y el defecto es exactamente el `null` que había antes. Aquí basta el
+	 * defecto de `Request::input()` porque este controlador **no tiene ningún
+	 * `Request::merge()` ni `sanarInput*`**; en `ProfesoresController`, que sí,
+	 * hace falta `CamposQueVinieron`. Comprobado en cada uno, no copiado.
+	 */
 	public function putSeleccionarParentesco()
 	{
 		if (Request::has('parentesco_acudiente_cambiar_id')) {
@@ -490,10 +507,10 @@ where id in (
 			$parentesco->created_by		=	$this->user->user_id;
 		}
 		
-		$parentesco->acudiente_id		=	Request::input('acudiente_id');
-		$parentesco->alumno_id			=	Request::input('alumno_id');
-		$parentesco->parentesco			=	Request::input('parentesco');
-		$parentesco->observaciones	=	Request::input('observaciones');
+		$parentesco->acudiente_id		=	Request::input('acudiente_id', $parentesco->acudiente_id);
+		$parentesco->alumno_id			=	Request::input('alumno_id', $parentesco->alumno_id);
+		$parentesco->parentesco			=	Request::input('parentesco', $parentesco->parentesco);
+		$parentesco->observaciones	=	Request::input('observaciones', $parentesco->observaciones);
 		$parentesco->save();
 
 		$acudiente = DB::select($this->consulta_pariente, [ $parentesco->id ]);

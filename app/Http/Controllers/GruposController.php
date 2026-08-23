@@ -613,6 +613,25 @@ class GruposController extends Controller {
 	}
 
 
+	/**
+	 * Editar un grupo. Con medio formulario se llevaba por delante el resto — §101.
+	 *
+	 * Diez columnas, nueve leídas con `Request::input('x')` **sin defecto**, y la
+	 * décima es la que enseña la trampa: `caritas` tenía defecto —`false`— y por
+	 * eso salía como «a salvo» en el barrido, **pero ese defecto la apaga**. Es la
+	 * §68 con casco: el `is_active` de aquella también tenía defecto, y por eso el
+	 * que se pisaba era justo ése.
+	 *
+	 * Y las caritas no son cosméticas: deciden si el grupo se califica con la
+	 * escala de preescolar en vez de con números. Corregirle el nombre a un grupo
+	 * de preescolar le cambiaba la forma de evaluar.
+	 *
+	 * El defecto es el valor que ya tiene la fila, no una constante: mandar el
+	 * campo vacío a propósito sigue vaciándolo. `titular_id` y `grado_id` se
+	 * dejan como estaban —su cadena de `if` ya distingue tres formas de nombrarlos
+	 * y tocarla es otro arreglo—, pero con el suyo como último recurso en vez de
+	 * `null`.
+	 */
 	public function putUpdate()
 	{
 		$user = User::fromToken();
@@ -620,15 +639,12 @@ class GruposController extends Controller {
 
 		try {
 
-			$titular_id = null;
-			$grado_id = null;
-
 			if (Request::input('titular_id')) {
 				$titular_id = Request::input('titular_id');
 			}else if (Request::input('titular')) {
 				$titular_id = Request::input('titular')['profesor_id'];
 			}else{
-				$titular_id = null;
+				$titular_id = $grupo->titular_id;
 			}
 
 			if (Request::input('grado_id')) {
@@ -636,19 +652,19 @@ class GruposController extends Controller {
 			}else if (Request::input('grado')) {
 				$grado_id = Request::input('grado')['id'];
 			}else{
-				$grado_id = null;
+				$grado_id = $grupo->grado_id;
 			}
 
-			$grupo->nombre		=	Request::input('nombre');
-			$grupo->abrev		=	Request::input('abrev');
+			$grupo->nombre		=	Request::input('nombre', $grupo->nombre);
+			$grupo->abrev		=	Request::input('abrev', $grupo->abrev);
 			$grupo->year_id		=	$user->year_id;
 			$grupo->titular_id	=	$titular_id;
 			$grupo->grado_id	=	$grado_id;
-			$grupo->valormatricula=	Request::input('valormatricula');
-			$grupo->valorpension=	Request::input('valorpension');
-			$grupo->orden		=	Request::input('orden');
-			$grupo->caritas		=	Request::input('caritas', false);
-			$grupo->cupo		=	Request::input('cupo');
+			$grupo->valormatricula=	Request::input('valormatricula', $grupo->valormatricula);
+			$grupo->valorpension=	Request::input('valorpension', $grupo->valorpension);
+			$grupo->orden		=	Request::input('orden', $grupo->orden);
+			$grupo->caritas		=	Request::input('caritas', $grupo->caritas);
+			$grupo->cupo		=	Request::input('cupo', $grupo->cupo);
 			$grupo->updated_by	=	$user->user_id;
 
 			$grupo->save();
