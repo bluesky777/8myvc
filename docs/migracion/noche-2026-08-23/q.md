@@ -4,11 +4,11 @@
 > `.worktrees/q`, rama `fix/lote-q-calendario`, base `simonbolivar_testing_q`,
 > arrancada de `93ec58a`.
 >
-> Secciones asignadas del 05: **§137–139**.
+> Secciones asignadas del 05: **§150–139**.
 
 ---
 
-## §137. `solo_profes` funcionaba; lo que llegaba del cuerpo era el permiso
+## §150. `solo_profes` funcionaba; lo que llegaba del cuerpo era el permiso
 
 `PUT api/calendario/this-year` —`auth.token` y nada más— empezaba así:
 
@@ -85,7 +85,7 @@ conteste, el caso del administrativo es el que cae y dice qué se decidió.
 
 ---
 
-## §138. Por qué no lo vio ningún candado: las 18 familias que **nunca entran**
+## §151. Por qué no lo vio ningún candado: las 18 familias que **nunca entran**
 
 El candado de familia de `AutorizacionTest` —«si un prefijo tiene dos o más rutas
 con guard de propiedad y alguna sin él, esa alguna se mira»— tiene dos puertas de
@@ -152,7 +152,7 @@ actualizar el número.
 
 ---
 
-## §139. Las otras cuatro del calendario, medidas de paso
+## §152. Las otras cuatro del calendario, medidas de paso
 
 Las cuatro escrituras —`crear-evento`, `guardar-evento`, `eliminar-evento` y
 `sincronizar-cumples`— comprueban **todas** `($user->tipo == 'Profesor') ||
@@ -165,14 +165,14 @@ Dos cosas quedan dichas y no se tocan:
   ni siquiera público. Es de antes de esta noche y no lo cambia este lote; se
   anota porque la secretaría del colegio es justo quien pondría las fechas.
 - `guardar-evento` y `crear-evento` aceptan `solo_profes` del cuerpo, y **eso está
-  bien**: ahí el que escribe es el que decide si su evento es interno. La §137 no
+  bien**: ahí el que escribe es el que decide si su evento es interno. La §150 no
   va de quién marca el interruptor, sino de quién decide si se le aplica.
 
 ---
 
-## §139.1 El renglón que sí acertó
+## §152.1 El renglón que sí acertó
 
-Al arreglar el §137 se puso rojo `CalendarioSoloProfesTest`, del lote J. En su
+Al arreglar el §150 se puso rojo `CalendarioSoloProfesTest`, del lote J. En su
 docblock, escrito **antes** de que este lote existiera:
 
 > *«Si alguien lo arregla, este test cae, y lo que hay que hacer es cambiar el
@@ -207,6 +207,6 @@ caso y escribe otro.
 
 | Cambio | Antes | Después | Quién lo nota |
 |---|---|---|---|
-| §137 `PUT api/calendario/this-year` | un alumno o un acudiente que mandara `is_prof_admin=true` recibía los eventos marcados **solo para profesores** | los recibe el personal, según el token | **nadie de las pantallas**: el front manda ese campo desde un solo sitio y con el mismo predicado. Lo que cambia es que ya no se puede pedir a mano |
+| §150 `PUT api/calendario/this-year` | un alumno o un acudiente que mandara `is_prof_admin=true` recibía los eventos marcados **solo para profesores** | los recibe el personal, según el token | **nadie de las pantallas**: el front manda ese campo desde un solo sitio y con el mismo predicado. Lo que cambia es que ya no se puede pedir a mano |
 
 Ninguna migración.

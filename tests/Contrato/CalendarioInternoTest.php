@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * **El calendario interno del colegio: quien preguntaba decidía si el interruptor
- * se le aplicaba.** §137.
+ * se le aplicaba.** §150.
  *
  * `PUT api/calendario/this-year` —sin middleware propio, o sea `auth.token`—
  * empezaba así:

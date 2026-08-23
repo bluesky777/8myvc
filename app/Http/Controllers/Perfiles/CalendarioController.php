@@ -23,7 +23,7 @@ use Illuminate\Support\Facades\Request;
 class CalendarioController extends Controller
 {
     /**
-     * **Quién ve los eventos internos lo decide el token, no el cuerpo.** Ver 05 §137.
+     * **Quién ve los eventos internos lo decide el token, no el cuerpo.** Ver 05 §150.
      *
      * `calendario.solo_profes` es el interruptor con el que el colegio marca un
      * evento como interno, y hasta hoy el booleano que decidía si se aplicaba

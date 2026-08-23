@@ -3,7 +3,7 @@
 namespace Tests\Contrato;
 
 /**
- * **Las familias que el candado de familia no mira nunca.** §138.
+ * **Las familias que el candado de familia no mira nunca.** §151.
  *
  * `AutorizacionTest::test_ninguna_ruta_se_queda_sola_sin_el_guard_de_su_familia`
  * es el candado que encontró los cinco agujeros de la §16, y tiene **dos puertas
@@ -25,7 +25,7 @@ namespace Tests\Contrato;
  * > silenciosa, porque no aparece en ningún sitio.
  *
  * Ahí estaba `calendario/this-year`, que decidía por el cuerpo si aplicaba
- * `solo_profes` (§137).
+ * `solo_profes` (§150).
  *
  * ## Lo que este caso NO dice
  *
@@ -150,7 +150,7 @@ class FamiliasQueNuncaEntranTest extends CasoDeContrato
             "Cambió cuántas escrituras viven en familias que el candado de familia no mira nunca.\n".
             "Si SUBIÓ, hay una ruta nueva que ningún mecanismo va a preguntar de quién es la fila que toca.\n".
             "Si BAJÓ, alguien puso un guard o la familia llegó a dos hermanas guardadas y entró en el candado: bien, y hay que actualizar el número.\n".
-            'Ver docs/migracion/noche-2026-08-23/q.md §138.');
+            'Ver docs/migracion/noche-2026-08-23/q.md §151.');
 
         $this->compararConInstantanea('escrituras-donde-el-candado-no-llega', $escrituras);
     }

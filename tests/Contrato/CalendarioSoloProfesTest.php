@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * §115.1 — El calendario decidía qué te enseña con una bandera que mandabas tú.
- * **Cerrado por el §137** la madrugada del 23 ago 2026; este test pasó a afirmar
+ * **Cerrado por el §150** la madrugada del 23 ago 2026; este test pasó a afirmar
  * lo contrario, que es lo que su propio docblock pedía.
  *
  * `CalendarioController::putThisYear()`, entero:
@@ -35,16 +35,16 @@ use Illuminate\Support\Facades\DB;
  *
  * Y no la vio ninguno de los dos candados de `AutorizacionTest`: `calendario/*`
  * tiene **0 de 5** con guard —medido con la misma función que usa el candado; este
- * docblock dijo «1 de 6» hasta el §138—, o sea `$conGuard < 2`, así que **nunca
+ * docblock dijo «1 de 6» hasta el §151—, o sea `$conGuard < 2`, así que **nunca
  * entró** en el candado de familia, ni siquiera entre las siete que se salen por
- * el umbral (§114). Es el otro lado del mismo `if`, y desde el §138 las 18
+ * el umbral (§114). Es el otro lado del mismo `if`, y desde el §151 las 18
  * familias que están en esa situación **dejan rastro**:
  * `FamiliasQueNuncaEntranTest`.
  *
  * ## Y cayó, que era el aviso
  *
  * Este test decía: «si alguien lo arregla, este test cae, y lo que hay que hacer
- * es cambiar la comprobación por la contraria». Pasó exactamente eso —el §137— y
+ * es cambiar la comprobación por la contraria». Pasó exactamente eso —el §150— y
  * eso es lo que se ha hecho. **La pareja de casos se conserva entera** en vez de
  * borrar el primero: lo que uno afirmaba y lo que afirma ahora, juntos, es lo que
  * cuenta qué se decidió.
@@ -53,7 +53,7 @@ use Illuminate\Support\Facades\DB;
  * $user->is_superuser` que ya usaban las otras cuatro rutas del controlador. El
  * otro candidato —«no es alumno ni acudiente»— se descartó **contando cuentas**:
  * habría ampliado el calendario interno a diez cuentas administrativas. Ver
- * docs/migracion/noche-2026-08-23/q.md §137.1.
+ * docs/migracion/noche-2026-08-23/q.md §150.1.
  *
  * Lo que cubre esta clase es **el caso que lo encontró**. Las cinco mitades del
  * arreglo —profesor, superusuario, administrativo, alumno y acudiente— están en
@@ -92,7 +92,7 @@ class CalendarioSoloProfesTest extends CasoDeContrato
             ->assertStatus(200)->json();
 
         $this->assertCount(count($comoAlumno), $diciendoQueEsProfe,
-            'La bandera del cuerpo volvió a cambiar lo que ve un alumno: se deshizo el §137.');
+            'La bandera del cuerpo volvió a cambiar lo que ve un alumno: se deshizo el §150.');
 
         $idsInternos = array_column(DB::select('SELECT id FROM calendario
             WHERE solo_profes = 1 AND deleted_at IS NULL ORDER BY id'), 'id');
