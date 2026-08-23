@@ -138,7 +138,7 @@ class PorcentajeQueSePisaTest extends CasoDeContrato
      * no son la misma petición.** Lo primero es un cliente que sólo manda lo que
      * cambió; lo segundo es un cliente diciendo «quítalo», y tratarlos igual
      * convierte el arreglo de la §68 en un campo que ya no se puede vaciar. Hoy
-     * ningún cliente manda `null` aquí —`UnidadesCtrl.ts:651` manda las cuatro
+     * ningún cliente manda `null` aquí —`UnidadesCtrl.ts::actualizarSubunidad` manda las cuatro
      * columnas con valor—, así que esto no cambia ninguna pantalla y sí decide qué
      * significa el arreglo.
      *
