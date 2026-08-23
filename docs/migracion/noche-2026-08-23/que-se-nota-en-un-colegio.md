@@ -18,14 +18,19 @@
 | **Rutas** | **539 antes y 539 después**. Ninguna nace, ninguna muere |
 | **Formas de respuesta** | ninguna respuesta pierde ni gana claves |
 | **Capacidades que se quitan** | **cuatro**, todas del lote E — y las cuatro con **riesgo bajo**, por la misma razón |
-| **Cosas que se encienden** | **una sola**, y es del lote B |
+| **Cosas que se encienden** | **una** hoy, y **dos con R dentro** — ver la nota de abajo |
 | **Minas que no se notan al desplegar** | **tres**, y las tres esperan a que alguien haga lo razonable (§4.b) |
 
-> **La tanda es casi toda «deja de pasar».** De trece lotes, **siete no tocan
-> `app/`** y los seis que lo tocan cambian, casi siempre, un 500 o un guardado
+> **La tanda es casi toda «deja de pasar».** La mayoría de los lotes **no tocan
+> `app/`**, y los que lo tocan cambian, casi siempre, un 500 o un guardado
 > silencioso por un código honesto. Eso significa que **el orden dentro de la
 > tanda es libre**: no hay dependencia entre lotes, ni orden obligatorio como el
 > de `password_reminders` de la tanda anterior.
+>
+> **Con R dentro sigue siendo libre, pero deja de ser indiferente.** R es la única
+> cuyo despliegue **devuelve algo que hoy falta** —una familia que no puede ver el
+> boletín de su hijo en las maquetas 2 y 3—, así que es la primera que un colegio
+> agradecería. **Eso es una recomendación de orden, no una dependencia.**
 
 ---
 
@@ -50,7 +55,8 @@ Ordenado por lo que un colegio notaría antes.
 | **B** | Que **borrar el rastro no deje rastro**: el borrado de una bitácora no se firmaba | `DELETE bitacoras/destroy/{id}` |
 | **K** | Que el cierre de un pedido de cambio se guarde con **la hora escrita dos veces** (`hora:hora:minutos`) | `PUT ChangesAsked/rechazar` y `aceptar-alumno` |
 | **K** | Que aceptar o rechazar un pedido escriba **hasta cinco filas de depuración** en `debugging`, una con el texto `ENTROOOOO` | idem |
-| **L** *(sin fundir)* | Lo mismo de la hora, en **cada ausencia que sube el lector de tardanzas** — el camino de más volumen de los dos | `POST tardanzas/subir` |
+| **L** | Lo mismo de la hora, en **cada ausencia que sube el lector de tardanzas** — el camino de más volumen de los dos | `POST tardanzas/subir` |
+| **S** | Que **un acudiente reciba un error después de que su prematrícula sí se haya guardado** — y que vuelva a darle al botón. Es la única escritura que alcanza una familia | `PUT matriculas/prematricular` |
 
 **Además**, en **cinco lotes** hay 500 que pasan a ser 404 o 422. No son un cambio
 de capacidad: un id que no lleva a ninguna fila **deja de devolver una traza de
@@ -151,6 +157,7 @@ con esto.
 | El botón de la rejilla de Usuarios que manda **un grupo** a la papelera | el front lo pinta con `ng-show="row.entity.is_superuser"` y **`perfiles/usuariosall` no devuelve esa columna** | **añadir `is_superuser` a `perfiles/usuariosall`** — lo primero que hace cualquiera que necesite saber quién es administrador | E |
 | `PUT grupos/update` sellaba el grupo con **el año de quien lo edita** *(ya arreglado)* | las dos pantallas que editan grupos solo listan los del año en curso | **una pantalla nueva que liste grupos de otro año**, o un cliente que reutilice `grupos/update` | E |
 | `folios/iniciar` | es idempotente **por la condición de los datos, no por diseño** | que esa condición deje de cumplirse | *(ver su lote)* |
+| `matriculas/prematricular` no mira **el año del grupo ni el estado**, y los dos vienen del cuerpo | las tres comprobaciones **viven en el front**: el desplegable solo ofrece grupos de `year + 1`, el botón se esconde para los estados ya decididos, y manda `estado: 'PREA'` fijo | **que `grados_sig` deje de ser `year + 1`** (`ChangeAskedController:305` y `:428`) — un cambio de una palabra que hoy nadie relaciona con esto. O cualquier cliente que llame sin esas tres comprobaciones | S |
 
 > Las tres tienen la misma forma y por eso van juntas: **no se notan al desplegar
 > y esperan a que alguien haga lo razonable.** El aviso no es para el día de la
@@ -183,8 +190,7 @@ cualquier punto de la tanda o quedarse fuera sin coste:
 | Lote | Qué falta |
 |---|---|
 | ~~**G**, **I**, **H**~~ | **Cerrado por coordinación**: medido con el `git diff` de sus propios merges, **no tocan `app/` ni `routes/`**. Era ausencia de impacto, no solo ausencia de sección |
-| **J** | Su documento es de leer y reportar y su rama no toca `app/` (comprobado con `git diff`), pero **no tiene sección de despliegue escrita** |
-| **O**, **P** | Abiertos al montar esta tabla. Sus ramas **no tocaban `app/`** en ese momento; si eso cambia, hay que añadirlos |
+| **P**, **Q**, **R** | Abiertos al escribir esto. **R es el único hallazgo de la noche que le pasa a un colegio ahora mismo** —una familia recibe un 500 en vez del boletín en las maquetas 2 y 3—, así que su fila irá en la sección 3 y no en la 1 |
 | ~~**E §100**~~ | **Cerrado**: su sesión lo midió. No se nota nada al desplegar, y **lo que enciende el fallo es añadir `is_superuser` a `perfiles/usuariosall`**. Está en la §4.b |
 | **A** | `definiciones_comportamiento/destroy` y `contratos/destroy` contestaban **200 con `No se encontró` y con `0`**. El diff de A añade un solo `abort(404)`, así que **no las dos**. Su sesión tiene que decir cuál se arregló y qué contesta la otra hoy |
 
