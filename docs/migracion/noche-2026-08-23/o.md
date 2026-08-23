@@ -137,3 +137,88 @@ cambia dónde está escrita, y por qué.
 
 **Nada.** Este lote no cambia una línea de `app/` ni de `routes/`: dos tests y un
 documento.
+
+---
+
+# Apéndice — `escrituras-en-las-notas.py`: cuatro fronteras, y el detector se iba quedando ciego solo
+
+> **Esto no es el lote O.** Es el encargo que coordinación repartió al salir de la
+> §92 del [lote C](c.md): ampliar el detector con `nota_comportamiento` y volver a
+> correrlo guardando el antes y el después. Va en esta rama por no montar un árbol
+> para tres ficheros; el controlador de ese hallazgo es del lote P.
+
+## El antes y el después
+
+```
+antes:    14 métodos escriben en las notas   ·  sin preguntar: 3 de 14
+después:  18 métodos escriben en las notas   ·  sin preguntar: 5 de 18
+          + una sección nueva con 4 métodos de MODELO y quién los llama
+```
+
+## Las cuatro fronteras, y sólo una era un bug
+
+Ampliar `TABLAS` era el encargo, y resultó ser **la primera de cuatro**. Las cuatro
+estaban en el mismo recorte y ninguna daba error: **el detector contestaba menos y
+con la misma cara.**
+
+| # | Frontera | Qué escondía | Qué es |
+|---|---|---|---|
+| 1 | `TABLAS` sin `nota_comportamiento` | los dos escritores directos de esa tabla | **una decisión**, tomada el 22 sobre un candado decidido el 21 |
+| 2 | `RAIZ = 'app/Http/Controllers'` | todo lo que escribe desde un modelo | **una decisión**: mirar dónde se pide el candado, no dónde se escribe |
+| 3 | el recorte no aceptaba `static` | casi todos los métodos de modelo | sintaxis |
+| 4 | el recorte sólo aceptaba **tabuladores** | los ficheros formateados con pint | sintaxis, **y la peor** |
+
+### La cuarta es la que hay que contar
+
+El recorte de métodos empezaba por `\n\t*`: **sólo veía la indentación con
+tabuladores**. `app/Models/NotaFinal.php` va con cuatro espacios porque lo formateó
+pint, y por eso `alumnos_grupo_nota_final` —que hace `DELETE FROM notas_finales`—
+no aparecía.
+
+Y pint, en este repo, **se pasa fichero a fichero el día que se toca cada uno**
+(CLAUDE.md). O sea:
+
+> **El detector se iba quedando ciego solo, al ritmo de la migración, y
+> justamente sobre los ficheros recién tocados** — los que más falta hace mirar.
+
+No es un instrumento que mienta: es uno que **encoge**, sin avisar y en la
+dirección tranquilizadora. La lista se hacía más corta según avanzaba el trabajo.
+
+## Lo que apareció al arreglar las cuatro
+
+**Dos escritores nuevos en controladores, los dos sin preguntar:**
+
+- `Alumnos\Definitivas::calcular_notas_finales_asignatura` y `…_periodo`. Es el
+  cuerpo de la ruta que la [§71](../05-codigo-muerto-y-roto.md) cortó con un 410.
+  **No los llama nadie** —comprobado: sus únicas apariciones en `app/` son sus
+  propias definiciones y un docblock—, así que hoy son inertes. Se anotan porque
+  el código sigue ahí y borrar el cuerpo de una ruta cortada es una decisión.
+
+**Y la sección nueva de modelos, que es donde estaba lo que se buscaba:**
+
+| Modelo | Llamante | ¿Pregunta? |
+|---|---|---|
+| `Nota::verificarCrearNotas` | `NotasController::putDetailed` | **NO** — ya documentado y congelado (10 §3) |
+| `NotaComportamiento::crearVerifNota` | `NotaComportamientoController::getDetailed` | **NO** — el caso que abrió esto; es del lote P |
+| **`NotaFinal::alumnos_grupo_nota_final`** | **`DefinitivasPeriodosController::getIndex`** | **NO** |
+| `NotaFinal::calcularAsignaturaPeriodo` | `Subunidades`/`Unidades` `putUpdate` y `deleteDestroy` | **sí, los cuatro** |
+
+La tercera fila es nueva y no es de nadie: **`GET api/definitivas_periodos`** —el
+índice, con `auth.token` y nada más— llama a `alumnos_grupo_nota_final`, que hace
+un `DELETE FROM notas_finales` por alumno y vuelve a insertar. Es **el segundo GET
+que escribe en la rejilla** después de `arreglar-duplicados`, y a diferencia de
+aquél **no pregunta por el candado**. Está en la lista de excepciones de
+`AutorizacionTest` como «rota: `$profe_id` no se define para este tipo de usuario»
+— o sea que se juzgó **por lo que falla**, no por lo que escribe cuando no falla.
+Pasado a coordinación.
+
+Y la cuarta fila es la buena noticia que también hay que decir: `calcularAsignatura
+Periodo`, uno de los seis escritores de `notas_finales` del
+[10 §0](../10-definitivas.md), **lo llaman cuatro sitios y los cuatro preguntan**.
+
+## Lo que queda montado
+
+No es la línea nueva de `TABLAS`: es la costumbre. **Cuando una decisión mete una
+tabla bajo un candado, hay que releer la definición de los detectores que miran ese
+candado.** Y cuando un detector recorta código con una expresión regular, esa
+expresión es una frontera más — que aquí, además, **se movía sola**.

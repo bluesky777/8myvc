@@ -52,25 +52,74 @@ def sin_comentarios(texto):
 
 def metodos(texto):
     """(nombre, cuerpo) de cada método, cortando en el siguiente `function`."""
-    ms = list(re.finditer(r'\n\t*(?:public|protected|private)?\s*function\s+(\w+)\s*\(', texto))
+    # `static` en medio: sin él, este recorte **no ve ningún método estático**, y en
+    # este repo los de los modelos lo son casi todos —`NotaFinal::calcularAsignatura
+    # Periodo`, `Nota::verificarCrearNotas`, `NotaComportamiento::crearVerifNota`—.
+    # En los controladores no se notaba porque ahí todo es `public function`, así
+    # que la ceguera sólo aparece al mirar los modelos. Es la tercera frontera de
+    # este script y la única puramente sintáctica: las otras dos son decisiones
+    # (qué tablas y qué carpeta).
+    # Dos arreglos del 23 ago 2026, y el segundo es el que más asusta:
+    #
+    # 1. `static` en medio: sin él **no se ve ningún método estático**, y en los
+    #    modelos de este repo lo son casi todos. En los controladores no se
+    #    notaba porque ahí todo es `public function`.
+    # 2. `[ \t]*` en vez de `\t*`: el recorte **sólo veía la indentación con
+    #    tabuladores**. `app/Models/NotaFinal.php` va con cuatro espacios —lo
+    #    formateó pint— y por eso `alumnos_grupo_nota_final`, que hace un
+    #    `DELETE FROM notas_finales`, no aparecía. Y esto es peor que una
+    #    ceguera fija: **pint reformatea fichero a fichero según se van tocando**
+    #    (CLAUDE.md), así que el detector se iba quedando ciego a medida que
+    #    avanzaba la migración, y siempre sobre los ficheros recién tocados —los
+    #    que más falta hace mirar.
+    ms = list(re.finditer(r'\n[ \t]*(?:public|protected|private)?\s*(?:static\s+)?function\s+(\w+)\s*\(', texto))
     for i, m in enumerate(ms):
         fin = ms[i + 1].start() if i + 1 < len(ms) else len(texto)
         yield m.group(1), texto[m.start():fin]
 
 
-TABLAS = ('notas', 'notas_finales', 'recuperacion_final')
+# `nota_comportamiento` entra el 23 ago 2026, y por qué faltaba merece leerse: no
+# era una ceguera de implementación, era **la definición**. Esta lista se escribió
+# el 22 con las tres tablas de la rejilla, y el candado sobre
+# `nota_comportamiento` lo decidió Joseth **el 21** —sale en el boletín y el año
+# tiene su conmutador (05 §40.2); `PeriodoDeLaFila::deNotaComportamiento` existe
+# justo para eso—. La decisión es anterior a la herramienta y nadie volvió a la
+# lista.
+#
+#     Un detector no falla sólo por mirar mal: falla por mirar **lo que se
+#     decidió mirar antes de que cambiara la decisión.**
+#
+# Es la única de las formas que encontró la noche del 22 al 23 que ningún cuidado
+# al medir habría evitado, así que lo que hay que dejar montado no es esta línea:
+# es releer esta lista cada vez que se meta una tabla bajo el candado.
+TABLAS = ('notas', 'notas_finales', 'recuperacion_final', 'nota_comportamiento')
 ESCRITURA = re.compile(r'\b(INSERT\s+INTO|UPDATE|DELETE)\b', re.I)
 
 # La otra mitad: los modelos que escriben en esas mismas tablas. `new Nota` +
 # `save()`, `Nota::create(...)`, `Nota::destroy(...)`. Se pide que el `save()` o
 # el `delete()` esté en el mismo método, para no contar una lectura con
 # `Nota::find()`.
-MODELOS = {'Nota': 'notas', 'NotaFinal': 'notas_finales'}
+MODELOS = {'Nota': 'notas', 'NotaFinal': 'notas_finales',
+           'NotaComportamiento': 'nota_comportamiento'}
 ELOQUENT = re.compile(r'new\s+(' + '|'.join(MODELOS) + r')\b'
                       r'|(' + '|'.join(MODELOS) + r')::(create|destroy|forceCreate)\b')
 GUARDA = re.compile(r'->(save|delete|forceDelete)\s*\(')
-CANDADOS = ('pueden_editar_notas', 'pueden_modificar_definitivas')
+CANDADOS = ('pueden_editar_notas', 'pueden_modificar_definitivas', 'permiteEditarNotas')
 RAIZ = 'app/Http/Controllers'
+
+# La segunda frontera de la definición, y la que escondía el caso que abrió esto:
+# **sólo se miraban los controladores**. Una escritura que vive en un método de
+# modelo llamado desde un controlador no la ve nadie, y hay al menos una que
+# importa: `NotaComportamiento::crearVerifNota()` hace `firstOrNew` + `save()`, y
+# su único llamante —`NotaComportamientoController::getDetailed`, un GET— no
+# pregunta por el candado.
+#
+# Ampliar `ELOQUENT` no bastaba: reconoce `new Modelo` y `Modelo::create`, y esto
+# es `Modelo::unMetodoCualquiera()`. Así que se miran también los modelos, y de
+# cada método de modelo que escriba se dice **quién lo llama y si el llamante
+# pregunta** — que es la pregunta de verdad, porque el candado se pide en el
+# controlador y no en el modelo.
+RAIZ_MODELOS = 'app/Models'
 
 if not os.path.isdir(RAIZ):
     sys.exit(f'No existe {RAIZ}: hay que correrlo desde la raíz del repo.')
@@ -107,3 +156,61 @@ for c, m, t, p in filas:
     print(f'{c:34s} {m:36s} {t:40s} {"sí" if p else "NO"}')
 print(f'\nsin preguntar: {sum(1 for r in filas if not r[3])} de {len(filas)}'
       '   (sitios donde mirar, no fallos)')
+
+
+# --- los modelos, y quién los llama ------------------------------------------
+#
+# El candado se pide en el controlador, así que de un método de modelo que
+# escriba lo único que importa es **si el que lo llama pregunta**. Un modelo que
+# escribe no es un fallo; un controlador que lo llama sin preguntar, sí es un
+# sitio donde mirar.
+modelos = []
+
+if os.path.isdir(RAIZ_MODELOS):
+    for raiz, _, ficheros in os.walk(RAIZ_MODELOS):
+        for f in sorted(ficheros):
+            if not f.endswith('.php'):
+                continue
+            texto = sin_comentarios(open(os.path.join(raiz, f), encoding='utf-8').read())
+            for nombre, cuerpo in metodos(texto):
+                escribe = set()
+                for sent in ESCRITURA.finditer(cuerpo):
+                    trozo = cuerpo[sent.start():sent.start() + 400]
+                    escribe |= {t for t in TABLAS if re.search(r'\b' + t + r'\b', trozo)}
+
+                via = 'SQL' if escribe else ''
+                # Dentro de un modelo, `$x->save()` sobre su propia clase basta:
+                # `firstOrNew(...)` + `save()` es la forma de `crearVerifNota`, y
+                # no la reconoce ELOQUENT porque no es `new` ni `::create`.
+                propio = f[:-4]
+                if propio in MODELOS and re.search(r'\b' + propio + r'::(firstOrNew|firstOrCreate|updateOrCreate|create)\b', cuerpo) \
+                        and GUARDA.search(cuerpo):
+                    escribe.add(MODELOS[propio])
+                    via = (via + '+Eloquent') if via else 'Eloquent'
+
+                if escribe:
+                    modelos.append((propio, nombre, ','.join(sorted(escribe)) + ' (' + via + ')'))
+
+if modelos:
+    # Los llamantes se buscan en los controladores, con el candado del llamante.
+    fuente = {}
+    for raiz, _, ficheros in os.walk(RAIZ):
+        for f in sorted(ficheros):
+            if f.endswith('.php'):
+                fuente[f[:-4]] = sin_comentarios(open(os.path.join(raiz, f), encoding='utf-8').read())
+
+    print('\nY en los MODELOS, con el candado del que los llama:\n')
+    print(f'{"modelo::método":40s} {"tabla (por dónde)":34s} llamantes')
+    for modelo, metodo, tabla in modelos:
+        llamantes = []
+        for ctrl, texto in sorted(fuente.items()):
+            for nombre, cuerpo in metodos(texto):
+                if re.search(r'\b' + modelo + r'::' + metodo + r'\b', cuerpo):
+                    pregunta = 'sí' if any(c in cuerpo for c in CANDADOS) else 'NO'
+                    llamantes.append(f'{ctrl}::{nombre} ({pregunta})')
+        cola = ', '.join(llamantes) if llamantes else 'ninguno en app/Http/Controllers'
+        print(f'{modelo + "::" + metodo:40s} {tabla:34s} {cola}')
+
+    sinPreguntar = sum(1 for _, _, _ in modelos)
+    print('\n  Un modelo que escribe no es un fallo. Lo que hay que mirar es el (NO)'
+          ' de sus llamantes:\n  el candado se pide en el controlador, no en el modelo.')
