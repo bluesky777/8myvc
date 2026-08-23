@@ -12,6 +12,15 @@
 
 ## Lo primero, porque cambia el orden entero de la tanda
 
+> **Los cinco números de abajo están medidos contra `main` en `7c0e34d`**, y cada uno
+> lleva su comando al lado. **No están estimados y no vienen de otro documento.**
+>
+> El sello no es adorno: esta tabla ya ha tenido **dos números de cabecera que
+> envejecieron sin avisar** —«ocho instrumentos» cuando eran dieciocho, «trece
+> lotes» cuando eran dieciséis— porque el documento creció y el resumen no. Con el
+> sello puesto, un número que ya no cuadra **se ve que es viejo en vez de parecer
+> falso**, y se recalcula con el comando de al lado.
+
 | | |
 |---|---|
 | **Migraciones nuevas** | **ninguna** — comprobado con `git diff c2c2a04 main -- database/migrations/ database/schema/`, que sale vacío |
