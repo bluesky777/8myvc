@@ -67,10 +67,37 @@ que le toque**, en silencio. Y ninguna llamada pasa el año literal: todas pasan
 `$grupo->year_id`, así que el sujeto no depende de un número que se pueda leer en el
 test — depende del grupo que ese test eligió.
 
-Lo que acota el daño: **los tests que afirman un rechazo fallan ruidosamente** si les
-toca el superusuario, así que ésos no mienten. **Los que engañan son los que afirman
-un permiso**: «el personal puede X» con el superusuario delante prueba menos de lo que
-su nombre dice, y sale verde.
+**Cuánto daño hace eso se midió, y no es lo que parecía.** La primera lectura fue
+«los que afirman un rechazo fallan ruidosamente, así que ésos no mienten». Al abrirlos
+uno por uno resulta que **no fallan: prueban de más**. El ejemplo con nombre es
+
+    PedidosDeAsignaturaTest::test_un_administrativo_recibe_403_al_pedir_una_materia
+
+cuyo sujeto es el superusuario y que pasa **porque esa ruta rechaza incluso a un
+superusuario**. El test es verdad y **su nombre es falso**: no demuestra «un
+administrativo recibe 403», demuestra algo más fuerte. Repuntarlo a un administrativo
+llano lo **debilitaría**.
+
+Clasificados los 87 métodos que usan uno de los dos ayudantes:
+
+| Lo que afirma con ese sujeto | Cuántos | Qué hay que hacer |
+|---|---|---|
+| Sólo un **permiso** (200/201/204) | **37** | **repuntar**: el superusuario prueba menos de lo que dice el nombre |
+| Sólo un **rechazo** (401/403/404/422) | 12 | dejarlo y **corregir el nombre**: prueba más |
+| Las dos cosas | 11 | idem |
+| Ningún código | 27 | **no tocar**: son de forma, y cambiarle el sujeto a un snapshot lo invalida |
+
+O sea que **el trabajo son 37 métodos, no 87**. De ellos, **31 van por
+`usuarioDeTipo('Usuario')`** —siempre el usuario 1, deterministas— y **6 por
+`tokenDelPersonalDe()`**, que hoy dicen dos cosas distintas según el grupo que el test
+eligió.
+
+Y siete de los 37 **se autoacusan por el nombre**, porque dicen «el personal» y
+demuestran «el superusuario». Los tres que más pesan están en
+`SuperficieDeUnAlumnoTest`, que es donde viven los candados de la §16 y siguientes: su
+mitad positiva —«el personal sigue pudiendo»— es justo la que sujeta que un candado no
+se pasó de frenada, y **si esa mitad la firma un superusuario, un candado que dejara
+fuera a todo el personal no superusuario pasaría igual**.
 
 No se toca desde aquí, y no por territorio: `CasoDeContrato.php` es **el suelo de
 todas las sesiones**. Va al lote N, el último, con todo fundido.
@@ -93,9 +120,26 @@ agosto, y lo reproducen.
 
 El Acudiente alcanza exactamente **dos más** que el Alumno —`acudientes/mis-acudidos`
 y `ChangesAsked/to-me`—, que son las dos que el 20 de agosto quedaron escritas, y las
-dos siguen devolviendo lo de su acudido: comprobado leyendo la rama `Acudiente` de
-`getToMe()`, que filtra por `parentescos.acudiente_id`, y no el tamaño de la
-respuesta. Los 209 KB son publicaciones, calendario y grados siguientes.
+dos siguen devolviendo lo de su acudido.
+
+**Esa frase no se dio por buena leyendo el controlador: se midió**, porque el barrido
+marca `ChangesAsked/to-me` con **209 KB y siete columnas personales**, y 209 KB no se
+parecen a «lo de su acudido». Desglosado:
+
+```
+alumnos          1 elemento     4.424 b     <- su único acudido, alumno_id 460
+publicaciones    2 elementos      833 b
+eventos        593 elementos  204.584 b     <- el 97% de la respuesta
+grados_sig       0 elementos        2 b
+```
+
+**El único `alumno_id` que aparece en toda la respuesta es el de su acudido**, y
+`grados_sig`, `publicaciones` y `eventos` no traen ninguna columna personal con valor.
+Los 209 KB son **el calendario del colegio**: 593 eventos. Las siete columnas
+personales que ve el barrido salen de la ficha del acudido, que es la regla.
+
+> Un tamaño no es una fuga, y una lista de columnas personales tampoco: las dos hay
+> que abrirlas. Ésta se abrió y confirmó lo que ya estaba escrito.
 
 > **Empezar por reproducir lo conocido es lo que da derecho a que te crean lo nuevo.**
 
