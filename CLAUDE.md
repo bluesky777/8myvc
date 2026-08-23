@@ -71,6 +71,15 @@ transacción. Solo hace falta reconstruirla al cambiar el esquema o el seed.
 Ninguna se ejecuta sola; todas contestan una pregunta que no se puede contestar
 leyendo el código. Cada una lleva su uso en la cabecera.
 
+> **Ninguna imprime `OK` sin decir su población.** Un «0 encontrados» no
+> distingue *«revisé 466 y ninguno lo era»* de *«no revisé nada»*, y de las dos
+> lecturas la falsa es la que hace archivar el asunto. Pasó dos veces el 24 ago
+> 2026 en direcciones opuestas: una herramienta contaba duplicados **vivos**
+> cuando el índice que iba a rechazarlos mira la tabla entera, y un detector del
+> front afirmaba cubrir **385** llamadas cuando había **411**. La segunda mitad de
+> la regla es la que muerde: **el primer sitio donde mirar cuando el número sale
+> raro es el detector**, no el código.
+
 | Herramienta | Contesta |
 |---|---|
 | `cobertura-de-rutas.py` | qué rutas tienen la respuesta comprobada por algún test |
@@ -83,6 +92,7 @@ leyendo el código. Cada una lleva su uso en la cabecera.
 | `interruptores-que-nadie-lee.py` | qué columnas `tinyint(1)` no decide nadie — con `--clientes`, tampoco los cuatro fronts |
 | `identificadores-del-cuerpo.py` | qué rutas reciben un id por el cuerpo que no comprueba nadie |
 | `escrituras-en-las-notas.py` | qué métodos escriben en las notas sin preguntar por el interruptor del periodo |
+| `coste-del-recalculo.php` | qué cuesta recalcular una definitiva, sobre las asignaturas reales |
 | `secciones-citadas.py` | qué §§ cita el código y ya no existen en `docs/` — se corre **después de cada renumerado** |
 
 Y una que **no** está en `tools/` y contesta la pregunta contraria:

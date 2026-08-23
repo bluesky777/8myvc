@@ -114,7 +114,16 @@ foreach ($ficheros as $ruta) {
     }
 }
 
-echo ($seco ? '[dry-run] ' : '')."$cambios imports cambiados en $tocados ficheros\n";
+// **Se dice sobre cuántos ficheros, no sólo cuántos cambiaron.** «0 imports
+// cambiados en 0 ficheros» no distingue «revisé 293 y ninguno lo necesitaba» de
+// «no revisé nada» —un iterador que no encuentra la carpeta da exactamente lo
+// mismo—, y la primera lectura de las dos es la que hace archivar el asunto.
+//
+// Es la regla que propuso `myvc-front-12` el 24 ago 2026 después de que su
+// detector de textos afirmara cubrir 385 llamadas de 411: **que ninguna
+// herramienta imprima OK sin decir su población.**
+echo ($seco ? '[dry-run] ' : '').
+    "$cambios imports cambiados en $tocados ficheros, de ".count($ficheros)." revisados\n";
 
 foreach ($conAs as $alias => $importe) {
     echo "  $alias conserva su nombre local:  $importe\n";
