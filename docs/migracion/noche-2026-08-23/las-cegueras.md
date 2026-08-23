@@ -7,7 +7,9 @@
 > Sale un patrón, y sale con población: **siete formas**, y una octava que no es
 > de una herramienta sino de quien lee su salida.
 >
-> **El recuento, contado al cerrar y no al empezar** —la primera versión de este
+> **El recuento, contado al cerrar y no al empezar** — y sellado contra `main` en
+> `7c0e34d`, para que si algún día no cuadra **se vea que es viejo en vez de parecer
+> falso** —la primera versión de este
 > párrafo decía «ocho» y no se volvió a sumar cuando el documento creció, que es
 > justo lo que este documento persigue—:
 >
@@ -112,6 +114,7 @@ Lo que **no** se midió, sin decirlo.
 | El barrido de rutas sin test buscaba `profesores/show/{id}` **con las llaves dentro** | 26 rutas «sin comprobar» que sí lo estaban | [E](e.md) |
 | El detector de tests que juzgan cortaba por `« con data set »` — **PHPUnit lo escribe en inglés** | 16 rutas sin juzgar donde había **10** | [J](j.md) |
 | El seed vacío: `bitacoras`, `ws_actividades`, `piars_*`, `change_asked`, `debugging` **sin una fila** | un test que busca la condición pasa **sin medir nada** | [B](b.md), [F](f.md), [K](k.md), [L](l.md) |
+| `columnas-en-los-modelos.php` avisa **en cada ejecución** de que `App\Models\Disciplina` no tiene tabla | es cierto y es benigno —no es un modelo Eloquent, es el contenedor de las tres consultas de convivencia—, pero **un aviso que sale siempre se deja de leer**: el día que falte de verdad la tabla de un modelo, la línea será indistinguible | [S](s.md) |
 
 El arreglo que el lote G le puso al suyo es el que vale para todos, y es el mismo
 que la columna «quién comprueba» del lote H:
@@ -137,6 +140,7 @@ La más cara, porque **el resultado falso es indistinguible de un hallazgo**.
 | Un `docker exec` muerto por `pkill` | el harness lo resumió como **«completed, exit code 0»** | **exit 143** | escribir `EXIT=$?` dentro del contenedor, junto al log | [B](b.md) |
 | Un snapshot de contrato | «esto está cubierto» | **el snapshot guardaba el fallo como si fuera correcto** | leer lo que afirma, no que exista | [E](e.md) |
 | **El mismo snapshot, al día siguiente** | «una respuesta cambió de forma» | `grupos-show.json` es el único de los seis que se movió y ya existía, y lo que cambió es **el fixture**: `GruposController::getShow` no se tocó en toda la noche | mirar si se movió la ruta o el test | [S](s.md) |
+| **`DB_TEST_DATABASE` en `tools/salud-de-las-definitivas.php`** | «esto mide mi base de tests, como todo lo demás de la noche» | esa herramienta lee la conexión por defecto —`DB_DATABASE`—, **a propósito y documentado en su cabecera**: es un informe de salud de un colegio de verdad. Con `DB_TEST_DATABASE` puesto, su primera línea dice `base simonbolivar` | leer la primera línea de su salida, que **nombra la base** | [S](s.md) |
 | **`git diff main <rama>`** —con dos puntos— para ver qué aporta una rama | «esta rama **borra 8.536 líneas**» | la rama sale de un `main` viejo: ese diff incluye **deshacer los lotes fundidos después**. Lo que aporta son **895 insertions(+), 1 deletion(-)** | `git diff main...<rama>` **o** `git diff $(git merge-base main <rama>) <rama>` — los dos dan lo mismo | [L](l.md) |
 
 > El **snapshot** no es un instrumento de medir sino de proteger, y por eso es el
@@ -190,6 +194,29 @@ un hallazgo**.
 Se cuenta porque es la prueba más barata de que estas formas no se evitan
 sabiéndoselas: **el barrido estaba escrito y firmado cuando pasó.** Lo que las
 evita es el hábito de pedirle al instrumento que enseñe el caso concreto.
+
+### Y una que no es una ceguera del instrumento sino de quien lo lee — dos veces en la misma hora
+
+Dos sesiones distintas, con veinte minutos de diferencia, tomaron **el límite
+declarado de un instrumento por un defecto**:
+
+| Instrumento | Lo que se creyó | Lo que dice de sí mismo |
+|---|---|---|
+| `tools/salud-de-las-definitivas.php` | «no respeta `DB_TEST_DATABASE`» | su **cabecera, línea 24**, documenta `-e DB_DATABASE=otrocolegio`: mira la base real **a propósito**, porque es un informe de salud sobre datos de verdad |
+| `AutorizacionTest` | «la red tiene un hueco» | **declara su alcance en su propio comentario** |
+
+> **Un instrumento que declara su alcance no tiene un hueco: tiene un límite.** Y
+> el sitio donde lo declara —su cabecera, su docblock— es **justo el que no se lee
+> cuando uno va a usarlo deprisa**.
+
+Por separado, cada una parece mala suerte. Juntas y en la misma hora, dicen que
+**el hábito que falta no es medir mejor: es leer la cabecera antes de correr**.
+
+Y lo que sí queda del primer caso, con la mitad que era cierta: **`DB_TEST_DATABASE`
+es una convención de `phpunit.xml`, no del proyecto.** Quien traiga puesta la
+costumbre de la noche —«a mis herramientas les pongo mi base»— correrá esa
+herramienta creyendo que mide su base de tests **y estará midiendo el colegio**.
+Se caza leyendo su primera línea, que nombra la base.
 
 ---
 
