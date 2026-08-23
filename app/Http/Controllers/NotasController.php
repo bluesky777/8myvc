@@ -527,8 +527,13 @@ class NotasController extends Controller {
 			];
 		}
 
+		// **Con las tres claves, aunque no haya nada que devolver dentro.** Una
+		// respuesta a la que le falta `definitivas` obliga al front a distinguir
+		// «vacío» de «no vino», y las dos cosas se pintan distinto: es la misma
+		// razón por la que el alumno sin fila viaja con `nota: null` en vez de
+		// omitirse.
 		if ($aEscribir === []) {
-			return ['guardadas' => 0, 'fallidas' => $fallidas];
+			return ['guardadas' => 0, 'fallidas' => $fallidas, 'definitivas' => []];
 		}
 
 		// Antes de la primera escritura, y con los ids **únicos**: ver la nota de

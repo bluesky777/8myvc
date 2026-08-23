@@ -306,9 +306,14 @@ es **una sola tanda con todo lo pendiente dentro**, del 22 al 24, para desplegar
 una vez cuando Joseth lo decida.
 
 Medido sobre el rango entero, no sumando tanda a tanda: **0 migraciones, 0 cambios
-de esquema, 0 de dependencias, 1 fichero nuevo en `config/` sin ningún valor
-obligatorio, y **539 rutas antes y 542 después**, y 52
-ficheros de `app/` en 66 commits. Nada que publicar en ningún cliente.
+de esquema, 0 de dependencias**, **1 fichero nuevo en `config/`** sin ningún valor
+obligatorio, y **539 rutas antes y 542 después** — las tres nuevas son las de la
+app y ninguna quita ni cambia nada.
+
+**Nada que publicar hoy en ningún cliente, y una condición nueva para mañana:**
+la app de Flutter es **una sola para los dieciséis**, así que no puede empezar a
+usar los tres endpoints nuevos hasta que estén **desplegados en todos**, no
+fusionados. Está en [DESPLIEGUE.md](../DESPLIEGUE.md) §5.b.
 
 Dentro está **el boletín que hoy devuelve 500 a una familia**, **la ficha de alumno
 que no guarda nunca** y **la fase 3 de las definitivas** — o sea, lo que se pidió:

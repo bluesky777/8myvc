@@ -423,6 +423,37 @@ class GuardarNotasEnLoteTest extends CasoDeContrato
     }
 
     /**
+     * **La respuesta trae siempre las tres claves**, incluso cuando no se guardó
+     * ninguna nota.
+     *
+     * Un cuerpo al que le falta `definitivas` obliga al front a distinguir
+     * «vacío» de «no vino en la respuesta», y las dos cosas se pintan distinto.
+     * Es la misma razón por la que el alumno sin fila viaja con `nota: null` en
+     * vez de omitirse.
+     *
+     * El caso lo dispara un lote **entero de ids inventados**: es el que sale por
+     * la puerta de atrás del método, antes de comprobar permisos y de escribir
+     * nada, y por eso es el que se dejaba una clave por el camino.
+     */
+    public function test_la_respuesta_trae_las_tres_claves_aunque_no_se_guarde_nada(): void
+    {
+        [$token] = $this->asignaturaConNotas();
+
+        $inventada = 1 + (int) DB::table('notas')->max('id');
+
+        $cuerpo = $this->withToken($token)->putJson('/api/notas/lote', [
+            'notas' => [['id' => $inventada, 'nota' => 40]],
+        ])->assertStatus(200)->json();
+
+        $this->assertSame(['guardadas', 'fallidas', 'definitivas'], array_keys($cuerpo),
+            'La respuesta cambió de claves cuando no se guardó nada.');
+
+        $this->assertSame(0, $cuerpo['guardadas']);
+        $this->assertCount(1, $cuerpo['fallidas']);
+        $this->assertSame([], $cuerpo['definitivas']);
+    }
+
+    /**
      * Cuántas veces corrió la agregación de `calcular()` mientras se hacía algo.
      */
     private function agregadosDurante(callable $accion): int

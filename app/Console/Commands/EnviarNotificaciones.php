@@ -138,6 +138,16 @@ class EnviarNotificaciones extends Command
             return 0;
         }
 
+        // **Un tope que recorta tiene que decirlo.** Si se alcanza, la marca avanza
+        // igual hasta el final del tramo, así que lo que quedó fuera no se avisa
+        // nunca — y sin esta línea el comando diría «mandados 300» y parecería que
+        // los mandó todos. Con quince minutos entre pasadas no debería pasar; si
+        // pasa, es que la marca se perdió (un `cache:clear`) y hay que mirarlo.
+        if (count($resultado['avisos']) >= self::TOPE_POR_FUENTE) {
+            $this->warn("[$fuente] se alcanzó el tope de ".self::TOPE_POR_FUENTE
+                .' avisos: lo que pasara de ahí NO se avisa y la marca avanza igual.');
+        }
+
         $mandados = 0;
 
         foreach ($resultado['avisos'] as $aviso) {

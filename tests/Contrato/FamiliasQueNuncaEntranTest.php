@@ -38,6 +38,19 @@ namespace Tests\Contrato;
  * Lo que ningún mecanismo les pregunta nunca es la otra mitad: **de quién es la
  * fila que tocan**. Esta lista es el sitio donde mirar esa pregunta, no una lista
  * de fallos.
+ *
+ * ## Una que entró el 24 ago y contesta esa pregunta sin guard
+ *
+ * `notificaciones/temas` (0 de 1) entra aquí y **está bien así**, que es
+ * exactamente el matiz que este caso existe para poder escribir: no lleva guard
+ * de propiedad porque **no acepta ningún id**. No se le pide de quién son los
+ * temas, se contesta quién eres — un alumno recibe los suyos, un acudiente los de
+ * sus acudidos, el personal ninguno—, y eso lo decide el controlador con el
+ * `tipo` del token. Ponerle `boletin.propio` sería pedirle que comprobara un
+ * `alumno_id` que la ruta no tiene.
+ *
+ * Lo fija `TemasDeNotificacionTest`, que comprueba que cada quien recibe **sólo
+ * lo suyo** contando sus acudidos y comparando.
  */
 class FamiliasQueNuncaEntranTest extends CasoDeContrato
 {
