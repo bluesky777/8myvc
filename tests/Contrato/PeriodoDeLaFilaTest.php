@@ -137,6 +137,41 @@ class PeriodoDeLaFilaTest extends CasoDeContrato
     }
 
     /**
+     * Y sin `nf_id` ni `num_periodo`, **422 diciendo qué falta** — no un 403.
+     *
+     * Hasta el 24 ago 2026 un cuerpo así llegaba a
+     * `PeriodoDeLaFila::porNumero($user, null)`, no resolvía ningún periodo, y el
+     * rechazo salía **por la guarda de permisos**: el profesor leía «no tienes
+     * permiso para modificar definitivas» cuando lo que pasaba era que faltaba un
+     * dato.
+     *
+     * Es la §3.4 del [10](../../docs/migracion/10-definitivas.md) —dos fallos
+     * distintos con la misma cara— y de los caros, porque el mensaje **manda a
+     * investigar a la persona equivocada**: quien lo recibe va a mirar los roles
+     * del profesor, no el cuerpo de la petición.
+     *
+     * **Este test comprueba el código Y que no se escribió nada.** Un 422 con la
+     * fila escrita sería peor que el 403: la única forma de distinguir «rechazó»
+     * de «rechazó después de escribir» es contar filas, no leer la respuesta.
+     */
+    public function test_sin_periodo_dice_que_falta_el_periodo_y_no_que_falta_permiso(): void
+    {
+        $e = $this->escenario();
+
+        $antes = (int) DB::table('notas_finales')->count();
+
+        $respuesta = $this->withToken($e->token)->putJson('/api/definitivas_periodos/update', [
+            'nota' => 5,
+        ]);
+
+        $respuesta->assertStatus(422);
+        $respuesta->assertSee('num_periodo', false);
+
+        $this->assertSame($antes, (int) DB::table('notas_finales')->count(),
+            'Rechazó por falta de periodo pero escribió una fila igual.');
+    }
+
+    /**
      * Un reordenado que toca dos periodos no pasa por el que esté abierto.
      *
      * `subunidades/update-orden-varias` mueve subunidades entre dos unidades, y

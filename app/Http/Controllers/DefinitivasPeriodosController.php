@@ -179,6 +179,25 @@ class DefinitivasPeriodosController extends Controller {
 		//   - sin `nf_id` se INSERTA una fila nueva con `periodo_id` sacado de
 		//     `num_periodo` veinte líneas más abajo. Ahí declarar y escribir son la
 		//     misma cosa, así que comprobar el declarado sí es comprobar el escrito.
+		// Y antes de la guarda, comprobar que **viene el campo con el que se va a
+		// decidir**. Sin esto, un cuerpo sin `nf_id` ni `num_periodo` llega a
+		// `PeriodoDeLaFila::porNumero($user, null)`, no resuelve ningún periodo y
+		// el rechazo sale **por la guarda de permisos**: el profesor lee «no
+		// tienes permiso para modificar definitivas» cuando lo que pasa es que
+		// falta un dato.
+		//
+		// Es la §3.4 de docs/migracion/10-definitivas.md —el backend contesta el
+		// mismo error para dos fallos distintos— y aquí es de los caros, porque el
+		// mensaje **manda a investigar a la persona equivocada**: quien lo reciba
+		// va a mirar los roles del profesor y no el cuerpo de la petición.
+		//
+		// Lo destapó `myvc-front-9a` el 24 ago 2026, escribiendo la fase 4: yo le
+		// dije que mandara `periodo_id` —que este método no lee— y fue a
+		// comprobarlo antes de mandarlo.
+		if (! Request::input('nf_id') && Request::input('num_periodo') === null) {
+			abort(422, 'Falta `num_periodo`: sin `nf_id` hay que decir en qué periodo se escribe.');
+		}
+
 		User::pueden_modificar_definitivas($user, Request::input('nf_id')
 			? PeriodoDeLaFila::deNotaFinal(Request::input('nf_id'))
 			: PeriodoDeLaFila::porNumero($user, Request::input('num_periodo')));

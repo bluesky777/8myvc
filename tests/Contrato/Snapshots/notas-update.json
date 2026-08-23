@@ -2,6 +2,14 @@
     "alumno_id": "int",
     "created_at": "string",
     "created_by": "int",
+    "definitiva": {
+        "alumno_id": "int",
+        "asignatura_id": "int",
+        "manual": "bool",
+        "nota": "int",
+        "periodo_id": "int",
+        "recuperada": "bool"
+    },
     "deleted_at": "null",
     "deleted_by": "null",
     "history_id": "int",

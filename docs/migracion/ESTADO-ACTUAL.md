@@ -95,9 +95,10 @@ números. Lo que cambia es que ahora contestan la pregunta correcta a la primera
   `tools/coste-del-recalculo.php`. Y **un 3× que resultó ser la caché** se
   escribió, se midió y se revirtió: está en el [02](02-plan-rendimiento.md) para
   que no se reintente.
-- **Apuntado sin arreglar**: si falta `num_periodo`, `DefinitivasPeriodosController::putUpdate`
-  revienta en la guarda de permisos antes que en la del periodo, así que el
-  profesor lee «no tienes permiso» cuando lo que falta es un campo. Debe ser 422.
+- **Arreglado**: si falta `num_periodo`, `DefinitivasPeriodosController::putUpdate`
+  reventaba en la guarda de permisos antes que en la del periodo, así que el
+  profesor leía «no tienes permiso» cuando lo que faltaba era un campo. Ahora es
+  **422 nombrando el campo**, comprobado antes de la guarda.
 
 ### Lo siguiente
 
@@ -213,7 +214,6 @@ Dos cosas que salieron por el camino:
   una familia, y una lectura que escribe es la forma más silenciosa de que un
   endpoint de sólo lectura deje de serlo. Sin fila va `config: null` y el cliente
   usa sus valores por defecto.
-
 
 ---
 

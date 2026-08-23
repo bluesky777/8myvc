@@ -871,13 +871,18 @@ Los dos valores del front salen de la **misma fila de `periodos`** —
 `ContextoDeUsuario` proyecta `per.id` y `per.numero` juntos—, así que no pueden
 discrepar. El riesgo de la §2.1 no alcanza aquí.
 
-> **Y detrás hay un fallo del backend que sí es nuestro, apuntado para arreglar:**
-> si falta `num_periodo`, el 400 no es lo que sale primero.
-> `PeriodoDeLaFila::porNumero($user, null)` revienta **en la guarda de permisos**,
-> así que el profesor lee **«no tienes permiso»** cuando lo que falta es un campo.
-> Es la §3.4 otra vez —dos fallos distintos con la misma cara— y esta vez el
-> mensaje manda a investigar a la persona equivocada. Debe contestar **422
-> diciendo qué falta**.
+> **Y detrás había un fallo del backend que sí era nuestro — arreglado el 24 ago
+> 2026.** Si faltaba `num_periodo`, el 400 no era lo que salía primero:
+> `PeriodoDeLaFila::porNumero($user, null)` no resolvía ningún periodo y el
+> rechazo salía **por la guarda de permisos**, así que el profesor leía **«no
+> tienes permiso»** cuando lo que faltaba era un campo. Es la §3.4 otra vez —dos
+> fallos distintos con la misma cara— y de los caros, porque el mensaje **manda a
+> investigar a la persona equivocada**: quien lo recibe mira los roles del
+> profesor y no el cuerpo de la petición.
+>
+> Ahora contesta **422 nombrando el campo que falta**, comprobado **antes** de la
+> guarda. El test que lo fija cuenta además las filas de `notas_finales`: un 422
+> con la fila escrita sería peor que el 403, y eso no se ve en la respuesta.
 
 ##### Lo que el backend puso de su parte
 
