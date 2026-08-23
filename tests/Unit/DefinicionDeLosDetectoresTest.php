@@ -29,6 +29,23 @@ use PHPUnit\Framework\TestCase;
  * —eso es una decisión— sino que **si cambia, alguien tenga que ir a mirar las
  * secciones que la citan**.
  *
+ * ## La entrada que faltaba, y cómo entró
+ *
+ * Aquí hubo una constante `NO_SE_FIJA_TODAVIA` con la señal de propiedad de
+ * `identificadores-del-cuerpo.py` dentro y este motivo al lado: *«una definición
+ * que alguien está cambiando no necesita un centinela, necesita que le dé tiempo
+ * a cambiar»* — el lote H la estaba arreglando, y fijarla habría hecho que el
+ * arreglo de otra sesión rompiera este test.
+ *
+ * **H cerró, y la nota se convirtió en dos entradas.** Es la única de las
+ * condiciones de caducidad de esta noche que **se ha cumplido dentro de la propia
+ * noche**, y por eso vale la pena que quede escrito: una anotación con caducidad
+ * no se queda para siempre, **se gasta**.
+ *
+ * Y se gastó dejando algo que la nota no podía dejar: la señal resultó ser
+ * **dos** —`PROPIEDAD` y `NO_ES_PROPIEDAD`, lo que cuenta y lo que se resta—, así
+ * que un centinela puesto antes de tiempo habría fijado sólo la mitad.
+ *
  * Vive en `tests/Unit` a propósito: no necesita base de datos, y así corre también
  * en las tandas que no la tienen.
  */
@@ -56,6 +73,30 @@ class DefinicionDeLosDetectoresTest extends TestCase
             'citada_en' => 'g.md §106.1 (contra qué se midió el 49) y la cabecera del propio script',
         ],
 
+        // La señal de propiedad, y su resta. **Entró el día que el lote H cerró**,
+        // que es lo que decía la nota que había aquí: «una definición que alguien
+        // está cambiando no necesita un centinela, necesita que le dé tiempo a
+        // cambiar». H le dio tiempo, arregló lo que citaban g.md §107.1 y c.md §91
+        // —la raíz `exig` se tragaba `ColumnaSegura::exigir`, que valida un nombre
+        // de columna y no comprueba de quién es la fila— y la nota se convierte en
+        // esto: dos entradas que se comprueban.
+        //
+        // Van las **dos**, y ése es el punto: la señal ya no es una regex, son dos
+        // —lo que cuenta y lo que se resta—, así que una definición que se citara
+        // sólo por la primera volvería a quedarse corta.
+        'tools/identificadores-del-cuerpo.py (PROPIEDAD)' => [
+            'fichero' => 'tools/identificadores-del-cuerpo.py',
+            'patron' => "/PROPIEDAD = re\.compile\(r'(.+?)'\s*$/m",
+            'esperado' => 'exig|pedidoPropio|is_superuser|esSuperusuario|',
+            'citada_en' => 'g.md §107.1 y c.md §91 (las cinco rutas que se colaban por ColumnaSegura::exigir)',
+        ],
+        'tools/identificadores-del-cuerpo.py (NO_ES_PROPIEDAD)' => [
+            'fichero' => 'tools/identificadores-del-cuerpo.py',
+            'patron' => "/NO_ES_PROPIEDAD = re\.compile\(r'(.+?)'\)/",
+            'esperado' => 'ColumnaSegura::exigir',
+            'citada_en' => 'g.md §107.1 — es la resta que el lote H añadió para que esas cinco dejaran de colarse',
+        ],
+
         // El umbral por el que una familia entra o no en el candado. El §151
         // cuenta 18 familias y 23 rutas **con este umbral**: cambiarlo cambia
         // los dos números y el sentido del snapshot que los guarda.
@@ -66,28 +107,12 @@ class DefinicionDeLosDetectoresTest extends TestCase
         ],
     ];
 
-    /**
-     * **Y una que NO se fija a propósito**, porque fijarla sería estorbar.
-     *
-     * `identificadores-del-cuerpo.py` tiene su señal de propiedad —la raíz `exig`—
-     * citada en g.md §107.1 y en c.md §91, y **está siendo arreglada por el lote
-     * H**: se traga `ColumnaSegura::exigir`, que valida un nombre de columna y no
-     * comprueba propiedad de nada. Ponerla aquí haría que el arreglo de otra
-     * sesión rompiera este test, y un test que se rompe cuando alguien hace bien
-     * su trabajo se acaba borrando.
-     *
-     * Entra el día que H cierre, y entonces con el valor nuevo. Se deja escrito
-     * aquí para que no parezca un olvido: **una definición que alguien está
-     * cambiando no necesita un centinela, necesita que le dé tiempo a cambiar.**
-     */
-    private const NO_SE_FIJA_TODAVIA = [
-        'tools/identificadores-del-cuerpo.py' => 'la regex PROPIEDAD; la está arreglando el lote H',
-    ];
-
     public function test_las_definiciones_citadas_por_el_05_no_han_cambiado(): void
     {
         foreach (self::DEFINICIONES as $herramienta => $d) {
-            $ruta = dirname(__DIR__, 2).'/'.$herramienta;
+            // La clave puede llevar una etiqueta entre paréntesis —hay ficheros
+            // con más de una definición citada—, así que el fichero va aparte.
+            $ruta = dirname(__DIR__, 2).'/'.($d['fichero'] ?? $herramienta);
 
             $this->assertFileExists($ruta, "La herramienta {$herramienta} cambió de sitio o de nombre.");
 
