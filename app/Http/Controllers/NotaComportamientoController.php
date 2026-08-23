@@ -50,7 +50,36 @@ class NotaComportamientoController extends Controller {
 			$alumno->escrita 		= 'escribir';
 			$alumno->tipo_frase 	= ['tipo_frase' => 'Todas'];
 
-			$nota = NotaComportamiento::crearVerifNota($alumno->alumno_id, $user->periodo_id, $nota_max);
+			// **Esta rejilla no se lee: se fabrica.** `crearVerifNota()` crea la nota
+			// de comportamiento del alumno si no existe, y hasta hoy lo hacía
+			// **también con el periodo cerrado** — era la única de las cinco
+			// escrituras de este controlador que no preguntaba por el interruptor,
+			// mientras `postStore`, `putUpdate`, `putCrear` y `deleteDestroy` sí.
+			// Ver 05 §133.
+			//
+			// El criterio no se inventa aquí y no lleva `abort()`: es **el mismo que
+			// decidió Joseth para `unidades/de-asignatura-periodo`** (§47.2), que es
+			// exactamente la misma forma —un GET que lee y de paso crea—. Allí quedó
+			// escrito: *«enseña lo que hay y no crea nada»*. Un `abort()` aquí
+			// apagaría la LECTURA de la rejilla en un periodo cerrado, que es justo
+			// la que un profesor va a querer consultar cuando esté cerrado.
+			//
+			// Por eso `permiteEditarNotas()` —booleana— y no `pueden_editar_notas()`.
+			//
+			// Y la nota sin crear no rompe al cliente: el front **ya distingue el
+			// caso**, con un `if (nota.id) actualizar(); else crear();` en
+			// `NotasAlumnoCtrl` y en `PromocionarNotasCtrl`. Sin `id` toma la rama de
+			// crear, que con el periodo cerrado recibe su 400 de `putCrear` — el
+			// mismo aviso que recibía antes al intentar guardar, pero sin haber
+			// escrito nada por el camino.
+			$puedeEscribir = User::permiteEditarNotas($user, (int) $user->periodo_id);
+
+			$nota = $puedeEscribir
+				? NotaComportamiento::crearVerifNota($alumno->alumno_id, $user->periodo_id, $nota_max)
+				: NotaComportamiento::firstOrNew([
+					'alumno_id' => $alumno->alumno_id,
+					'periodo_id' => $user->periodo_id,
+				]);
 
 			$consulta = 'SELECT * FROM (
 							SELECT d.id as definicion_id, d.comportamiento_id, d.frase_id, 

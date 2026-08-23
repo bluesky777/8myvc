@@ -88,18 +88,24 @@ class UnGetQueEscribeTest extends CasoDeContrato
     }
 
     /**
-     * Y escribe **también con el periodo cerrado**, que es lo que la separa de sus
-     * cuatro hermanas.
+     * Con el periodo cerrado: se lee y **no se escribe**. Hasta hoy sí escribía.
      *
      * `profes_pueden_editar_notas` es el interruptor con el que el colegio cierra
-     * la rejilla. Con él apagado, `nota_comportamiento/update`, `/store`,
-     * `/frases-check` y `/guardar-libro` contestan **400** —lo hace
-     * `User::pueden_editar_notas()`— y `detailed` contesta 200 **y escribe**.
+     * la rejilla. Con él apagado, `nota_comportamiento/store`, `/update`,
+     * `/crear` y `/destroy` contestan **400** —lo hace `User::pueden_editar_notas()`—
+     * y `detailed` contestaba **200 y escribía** las filas: era la única de las
+     * cinco que no preguntaba.
      *
      * Se comprueban las dos en la misma petición de test a propósito: lo que hay
-     * que ver no es que una escriba, es que **la de al lado no puede**.
+     * que ver no es que una escribiera, es que **la de al lado no podía**.
+     *
+     * El arreglo no lleva `abort()`, y ése es el fondo del asunto: apagar la
+     * lectura para arreglar la escritura habría sido peor que el fallo. El
+     * criterio es el que ya decidió Joseth para `unidades/de-asignatura-periodo`
+     * (§47.2), que es la misma forma exacta — *«enseña lo que hay y no crea
+     * nada»*—, con `permiteEditarNotas()` booleana en vez de la que aborta.
      */
-    public function test_con_el_periodo_cerrado_las_hermanas_frenan_y_el_get_escribe(): void
+    public function test_con_el_periodo_cerrado_se_lee_la_rejilla_y_no_se_escribe(): void
     {
         $usuario = $this->usuarioDeTipo('Profesor');
         $token = $this->tokenDe($usuario->username);
@@ -127,16 +133,63 @@ class UnGetQueEscribeTest extends CasoDeContrato
             'Con el periodo cerrado, `nota_comportamiento/store` dejó de frenar: entonces el '
             .'interruptor no está donde este test cree y hay que volver a medirlo.');
 
-        // Y el GET, que no pregunta: pasa y escribe.
-        $this->withToken($token)->getJson('/api/nota_comportamiento/detailed/'.$grupo->id)
-            ->assertStatus(200);
+        // Y el GET **sigue dejando leer**, que es la mitad que un `abort()` habría
+        // apagado: con el periodo cerrado es justo la rejilla que el profesor va a
+        // querer consultar.
+        $r = $this->withToken($token)->getJson('/api/nota_comportamiento/detailed/'.$grupo->id);
+        $r->assertStatus(200);
 
         $escritas = DB::table('nota_comportamiento')->whereIn('alumno_id', $ids)
             ->where('periodo_id', $periodo)->count();
 
-        $this->assertGreaterThan(0, $escritas,
-            'El GET dejó de escribir con el periodo cerrado — si se arregló, aquí va el porqué '
-            .'y qué se decidió devolver cuando la nota no existe. §133');
+        $this->assertSame(0, $escritas,
+            'Con el periodo cerrado el GET volvió a escribir notas de comportamiento — §133.');
+
+        // Y la respuesta sigue trayendo a los alumnos, con su nota **sin `id`**,
+        // que es la rama que el front ya distingue (`if (nota.id) actualizar; else
+        // crear`). Si esto se vacía, la rejilla se queda en blanco y el arreglo
+        // habría roto la lectura para arreglar la escritura.
+        $alumnosEnLaRespuesta = $r->json()[1];
+
+        $this->assertNotEmpty($alumnosEnLaRespuesta,
+            'Con el periodo cerrado la rejilla se quedó sin alumnos: se rompió la lectura.');
+
+        $this->assertNull($alumnosEnLaRespuesta[0]['nota']['id'] ?? null,
+            'Con el periodo cerrado la nota vino con `id`: entonces se creó la fila — §133.');
+    }
+
+    /**
+     * Y con el periodo ABIERTO sigue creando, que es la mitad que se apaga sola.
+     *
+     * Sin esto, cambiar `permiteEditarNotas` por un `false` fijo daría verde el
+     * test de arriba y habría dejado la rejilla sin poder inicializarse **nunca**.
+     * Es la comprobación al revés escrita como test.
+     */
+    public function test_con_el_periodo_abierto_la_rejilla_se_sigue_inicializando(): void
+    {
+        $usuario = $this->usuarioDeTipo('Profesor');
+        $token = $this->tokenDe($usuario->username);
+        $grupo = $this->grupoConAlumnos();
+        $periodo = (int) DB::table('users')->where('id', $usuario->id)->value('periodo_id');
+
+        DB::table('periodos')->where('id', $periodo)->update(['profes_pueden_editar_notas' => 1]);
+
+        $alumnos = DB::select('SELECT m.alumno_id FROM matriculas m
+            WHERE m.grupo_id = ? AND m.deleted_at IS NULL
+              AND m.estado IN ("MATR","ASIS","PREM")', [$grupo->id]);
+        $ids = array_map(static fn ($a) => (int) $a->alumno_id, $alumnos);
+
+        DB::table('nota_comportamiento')->whereIn('alumno_id', $ids)
+            ->where('periodo_id', $periodo)->delete();
+
+        $this->withToken($token)->getJson('/api/nota_comportamiento/detailed/'.$grupo->id)
+            ->assertStatus(200);
+
+        $this->assertGreaterThan(0,
+            DB::table('nota_comportamiento')->whereIn('alumno_id', $ids)
+                ->where('periodo_id', $periodo)->count(),
+            'Con el periodo abierto la rejilla dejó de inicializarse: el arreglo del §133 se '
+            .'pasó de largo y ahora no se puede calificar el comportamiento de nadie.');
     }
 
     /**
@@ -197,6 +250,52 @@ class UnGetQueEscribeTest extends CasoDeContrato
                 'La nota con la que nace una fila dejó de ser la máxima de la escala: es la nota '
                 .'de partida de todos los alumnos y cambiarla es una decisión del colegio — §133.');
         }
+    }
+
+    /**
+     * Las dos de `importar` están rotas, y por dónde — §135.
+     *
+     * `GET api/importar` no recibe ningún fichero: lee una **ruta fija dentro del
+     * propio código**, `app/Http/Controllers/Alumnos/archivos/alumnos.xls`, y a
+     * partir de ahí **crea alumnos y cuentas de usuario en masa**. Esa carpeta no
+     * existe en el repositorio, así que la ruta no puede funcionar.
+     *
+     * Se fija el error exacto en vez de borrarlas porque **tienen ruta**, y borrar
+     * un endpoint enrutado convierte un 500 en un 404 sin decirle a nadie qué
+     * pretendía hacer esa pantalla. Y lo que pretendía importa: es la única
+     * importación del sistema que **no recibe el fichero del cliente**, o sea un
+     * resto de una migración hecha a mano que quedó enchufada a la API.
+     *
+     * Lo peligroso no es que esté rota: es **lo que haría si alguien creara esa
+     * carpeta**. Un `GET` con `auth.personal` que da de alta alumnos y cuentas es
+     * la peor forma posible de una importación, y hoy solo lo impide un fichero
+     * ausente.
+     */
+    public function test_las_dos_de_importar_estan_rotas_y_por_donde(): void
+    {
+        $token = $this->tokenDe($this->usuarioDeTipo('Profesor')->username);
+
+        $alumnosAntes = DB::table('alumnos')->count();
+        $usuariosAntes = DB::table('users')->count();
+
+        $r = $this->withToken($token)->getJson('/api/importar');
+
+        $this->assertSame(500, $r->status(),
+            'La importación de ruta fija dejó de dar 500: si alguien creó '
+            .'`app/Http/Controllers/Alumnos/archivos/`, **esta ruta ya da de alta alumnos y '
+            .'cuentas por un GET** y hay que cerrarla hoy — §135.');
+
+        $this->assertSame($alumnosAntes, DB::table('alumnos')->count(),
+            'La importación rota alcanzó a crear alumnos antes de reventar.');
+
+        $this->assertSame($usuariosAntes, DB::table('users')->count(),
+            'La importación rota alcanzó a crear cuentas antes de reventar.');
+
+        $year = DB::table('years')->where('actual', 1)->value('year');
+
+        $this->assertSame(500,
+            $this->withToken($token)->getJson('/api/importar/modificar/'.$year)->status(),
+            '`importar/modificar` dejó de dar 500 — mídela otra vez, escribe con `DB::update`.');
     }
 
     /**

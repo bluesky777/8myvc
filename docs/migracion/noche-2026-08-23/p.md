@@ -97,15 +97,42 @@ controlador.
   periodo con el comportamiento entero y se le baja. Ese valor es una decisión
   del colegio escrita en el código y queda fijado.
 
-### Lo que NO se arregla, y por qué
+### El arreglo evidente era peor que el fallo — y el bueno ya estaba decidido
 
-**El arreglo evidente es peor que el fallo.** Meterle `pueden_editar_notas()` al
-GET haría que **leer** la rejilla diera 400 con el periodo cerrado: rompería la
-lectura para arreglar la escritura.
+Meterle `pueden_editar_notas()` al GET habría hecho que **leer** la rejilla diera
+400 con el periodo cerrado: rompería la lectura para arreglar la escritura. Y con
+el periodo cerrado es **justo la rejilla que un profesor va a querer consultar**.
 
-Lo que hay que decidir es **qué devolver cuando la nota no existe y no se puede
-crear**, y eso cambia el contrato: hoy el front recibe siempre un `nota.id`. Va a
-la lista de Joseth.
+Empezó como una decisión para Joseth. **No lo era: ya la había tomado**, y la
+respuesta estaba a una ruta de distancia — en la sexta de mi propia lista.
+`unidades/de-asignatura-periodo` es **la misma forma exacta** (un GET que lee y
+de paso crea) y la §47.2 la resolvió así, con esta frase dentro del código:
+
+> *«Esta ruta lee y de paso escribe, así que no puede llevar el `abort()` de sus
+> hermanas: sería apagarle al profesor la vista de un periodo cerrado, que es
+> justo la que va a querer consultar cuando esté cerrado. Decidido por Joseth:
+> **enseña lo que hay y no crea nada**.»*
+
+Por eso el arreglo usa `User::permiteEditarNotas()` —**booleana, sin `abort()`**—
+y no su hermana que corta. Es la misma pieza que ya existía para esto.
+
+**Y el contrato tampoco era una incógnita: el front ya distingue el caso.**
+`NotasAlumnoCtrl` y `PromocionarNotasCtrl` hacen
+`if (nota.id) { actualizar() } else { crear() }`. Sin `id` toman la rama de crear,
+que con el periodo cerrado recibe su 400 de `putCrear` — **el mismo aviso que
+recibían antes al intentar guardar, pero sin haber escrito nada por el camino**.
+
+O sea que lo que parecía «esto necesita una decisión del colegio» eran **dos
+comprobaciones**: buscar el precedente y leer el cliente. Las dos costaban diez
+minutos y las dos dijeron que no hacía falta decidir nada.
+
+### Lo que se deja escrito y no se toca
+
+El segundo `INSERT`, el de **`dis_libro_rojo`**, sigue ocurriendo en el GET. No se
+toca a propósito: el interruptor `profes_pueden_editar_notas` gobierna **las
+notas**, y el libro rojo es disciplina —Joseth ya separó una vez esas dos cosas al
+decidir que el interruptor cierra las notas y no la asistencia—. Meterlo en el
+mismo `if` sería colar una decisión dentro de un arreglo. Queda medido y anotado.
 
 ## §134 — Un GET que renumera las matrículas del colegio
 
