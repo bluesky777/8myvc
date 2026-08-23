@@ -85,6 +85,15 @@ Cobertura de rutas: **370 de 539 (69%)**, medida con
 > quedarse con el correo de recuperación de cualquier cuenta con id más alto que la
 > suya, y con su enlace. Las otras tres salen limpias, y eso también es un
 > resultado.
+>
+> **Y para cerrar, las dos que le faltaban al candado del periodo**
+> ([05 §80](05-codigo-muerto-y-roto.md)): **1.006 tests**. `periodos/copiar` y
+> `subunidades/destroy`. La primera no salió en la herramienta de la §77 porque
+> **escribe con Eloquent y el detector sólo miraba SQL** —tres cegueras del mismo
+> detector en un día, todas ya en su cabecera—. La segunda llevaba un mes tapada
+> por **una frase escrita en el docblock de un test verde** que decía que esa ruta
+> sí pedía el periodo. La frase se deja escrita con su error, porque la lección es
+> la frase y no la ruta.
 
 ### Lo primero que hay que hacer, y no es código
 

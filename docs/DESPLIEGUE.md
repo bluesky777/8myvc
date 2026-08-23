@@ -84,6 +84,13 @@ desplegar:
   que no existe contestaba «En papelera» y «Guardado». La pantalla de escalas ya
   tenía rama de error para las dos y no mira el código, así que lo que cambia es
   que enseña el error verdadero en vez de un éxito falso.
+- **Copiar unidades a un periodo cerrado, y borrar una subunidad en uno cerrado,
+  dejan de funcionar** ([05 §80](migracion/05-codigo-muerto-y-roto.md)). Son las
+  dos que le faltaban al candado de la §27. **Se nota, y hay que avisar**:
+  `panel.copiar` deja de traer la estructura a un periodo cerrado —copiar *desde*
+  uno cerrado sigue funcionando, que es lo de enero— y el botón de borrar una
+  subunidad de la rejilla de unidades dice que no. Las dos hacían por la puerta
+  de atrás lo que sus vecinas de la misma pantalla ya no dejaban hacer de frente.
 - **Contratar a un profesor que no existe deja de crear un contrato fantasma**
   ([05 §78.2](migracion/05-codigo-muerto-y-roto.md)). Escribía la fila igual y
   contestaba 200 con un array vacío, y la pantalla enseñaba «contratado para
