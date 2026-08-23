@@ -224,6 +224,23 @@ año es otra operación y hoy no existe.
 > crea**. Lo que cambia entre las dos rutas no es el dato — es que una fila nueva
 > no tiene año previo y una que existe sí.
 
+### Y lo que se nota en un colegio: nada, porque era una mina
+
+Buscado en el front antes de afirmarlo. Las dos pantallas que editan un grupo
+—la rejilla de `GruposCtrl` y el formulario de `GruposEditCtrl`— se alimentan de
+`GET api/grupos`, que filtra `g.year_id = <el del token>`. **Solo enseñan grupos
+del año en curso**, así que el sello del año era ahí un no-op.
+
+Sí existen `grupos/next-year` y `grupos/con-paises-tipos-next-year`, pero lo que
+los consume es `AlumnosNewCtrl` —un **desplegable** de prematrícula—, no una
+rejilla que edite.
+
+O sea que **por el front no se podía disparar**: era una mina esperando a una
+pantalla nueva, a un cliente que reutilizara `grupos/update`, o a una llamada a
+mano. Conviene que esté escrito, porque el número —56 matrículas— suena a
+incidente en curso y no lo es, y porque la próxima pantalla que liste grupos de
+otro año lo habría disparado sin que nadie lo relacionara con esto.
+
 Este método es el mismo del §101: en la misma llamada se iban a `null`
 `titular_id`, `cupo`, `abrev`, `valormatricula`, `valorpension` y `orden`. Las dos
 cosas están arregladas y las dos tienen test.
