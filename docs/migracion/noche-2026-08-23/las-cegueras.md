@@ -4,10 +4,13 @@
 > lotes fueron encontrando por separado. **Ninguna de estas cegueras estaba
 > escrita entera en un sitio**: cada lote apuntó la suya y siguió.
 >
-> Sale un patrón, y sale con población. Este repo lleva diez herramientas de
-> medición y **esta noche mintieron ocho instrumentos distintos**. No es que las
-> herramientas sean malas: es que **una herramienta que busca una señal encuentra
-> la señal, no el hecho**, y la distancia entre las dos tiene formas fijas.
+> Sale un patrón, y sale con población: **siete formas**, y una octava que no es
+> de una herramienta sino de quien lee su salida. Este repo lleva diez
+> herramientas de medición y **esta noche mintieron ocho instrumentos distintos**.
+>
+> No es que las herramientas sean malas: es que **una herramienta que busca una
+> señal encuentra la señal, no el hecho**, y la distancia entre las dos tiene
+> formas fijas. Ésas son las que están aquí.
 
 ## Lo primero, porque es lo que decide qué hacer con esto
 
@@ -131,7 +134,52 @@ La más cara, porque **el resultado falso es indistinguible de un hallazgo**.
 
 ---
 
-## Y la sexta, que no es de una herramienta: **la población**
+## Forma 6 — La señal que se busca no es la forma que tiene el fallo
+
+Distinta de las cinco anteriores: aquí el detector **funciona bien** y su
+definición **no alcanza** al caso. No hay nada que arreglarle; hay que saber qué
+no cubre.
+
+| El detector | Qué busca | El caso que no cabe | Lote |
+|---|---|---|---|
+| `respuestas-que-mienten.py` | métodos que **frenan** la escritura y contestan 200 igual | `alumnos/update` sin `username`: **no hay nada que frene**, el `save()` sencillamente no está en ese camino. Contesta 200 con los cambios en el JSON y no escribe | [K](k.md) |
+| El mismo | ídem | Cuatro rutas de ordinales que contestan «Cambiado» / «Eliminado» sin tocar una fila: **el `WHERE` no casa**. La escritura **corre y no encuentra a quién** | [B](b.md) |
+| `identificadores-del-cuerpo.py`, columna `escribe` | que el método contenga `UPDATE`/`DELETE`/`->save()` | **ve la sentencia, no las filas**: `ESCRIBE` no quiere decir «cambió algo» | [E](e.md), [H](h.md) |
+
+> **La señal que se busca no es la forma que tiene el fallo.** Y el aviso
+> práctico: cuando una serie se dé por agotada porque su herramienta «solo da un
+> sitio», lo que está agotado es **la forma que la herramienta sabe ver**.
+>
+> `respuestas-que-mienten.py` empezó dando catorce sitios y ahora da uno. Es un
+> resultado — **para su definición**. Esta noche aparecieron **cinco respuestas
+> que mienten** por caminos que esa definición no nombra.
+
+---
+
+## Forma 7 — El control comparte el sesgo del sujeto
+
+La única sin arreglo barato, y por eso va aparte. Del [lote I](i.md).
+
+El barrido por tipo de token comprueba sus vacíos con **una segunda pasada de
+superusuario**: si el superusuario ve lo mismo que el sujeto, el vacío no era del
+guard. Pero ese superusuario **está en el mismo año que el sujeto** —los cuatro de
+esta noche salieron con `year_id = 8`—, así que **ve el mismo vacío por la misma
+razón**.
+
+> **Un control que comparte el sesgo del sujeto confirma el sesgo, no lo
+> desmiente.**
+
+Lo único que se puede hacer es lo que hizo su lote: **medir cuánto mide**. De las
+28 rutas con `{grupo_id}` en la URL, 19 no miran el año para nada, 9 lo nombran y
+**7 quedan mudas sin explicación** — alrededor del **4%** de las ~190 mudas de
+cada pasada. Y al medir esas siete, **seis no estaban cerradas**.
+
+> **Una ceguera sin tamaño se lee como un descargo.** Con el tamaño escrito, se
+> lee como lo que es: un límite conocido.
+
+---
+
+## Y la última, que no es de una herramienta: **la población**
 
 No es una ceguera de detector. Es la de quien lee su salida, y **apareció cinco
 veces esta noche**:
@@ -168,20 +216,8 @@ veces esta noche**:
 6. **Antes de diagnosticar un rojo, comprobar que la tanda estaba sola**:
    `pgrep -f "phpunit.*worktrees/X"` —el hijo se llama `phpunit`— y el código de
    salida escrito **dentro** del contenedor con `EXIT=$?`.
+7. **Cuando una serie se dé por agotada porque su herramienta «solo da un sitio»,
+   escribir de qué definición está agotada.** No es lo mismo «no quedan» que «no
+   quedan de la forma que sé ver».
 
 ---
-
-## Y la que no tiene arreglo barato
-
-Del [lote I](i.md), y es de otra clase:
-
-> **Un control que comparte el sesgo del sujeto confirma el sesgo, no lo
-> desmiente.** El barrido comprueba sus vacíos con una segunda pasada de
-> superusuario — y ese superusuario **está en el mismo año que el sujeto**, así
-> que ve el mismo vacío por la misma razón.
-
-Lo único que se puede hacer con ésa es lo que hizo su lote: **medir cuánto mide**.
-Siete rutas de las ~190 mudas de cada pasada, alrededor del 4%.
-
-> **Una ceguera sin tamaño se lee como un descargo.** Con el tamaño escrito, se
-> lee como lo que es: un límite conocido.
