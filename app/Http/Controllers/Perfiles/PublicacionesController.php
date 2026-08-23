@@ -96,6 +96,9 @@ class PublicacionesController extends Controller {
         $imagen_id      = null;
         $imagen_nom     = null;
         if ($imagen) {
+            // §144. El id de la imagen viene del CUERPO y no lo comprobaba nadie.
+            $this->exigeQueLaImagenSePuedaColgar($user, $imagen['id']);
+
             $imagen_id  = $imagen['id'];
             $imagen_nom = $imagen['nombre'];
         }
@@ -161,6 +164,9 @@ class PublicacionesController extends Controller {
         $imagen_id      = null;
         $imagen_nom     = null;
         if ($imagen) {
+            // §144. El id de la imagen viene del CUERPO y no lo comprobaba nadie.
+            $this->exigeQueLaImagenSePuedaColgar($user, $imagen['id']);
+
             $imagen_id  = $imagen['id'];
             $imagen_nom = $imagen['nombre'];
         }
@@ -372,6 +378,54 @@ class PublicacionesController extends Controller {
 
         if (! $visible) {
             abort(403, 'Esa publicación no es para ti');
+        }
+    }
+
+    /**
+     * §144 — Colgar en el muro la imagen privada de otro.
+     *
+     * `putStore` y `putGuardarEdicion` guardaban `imagen.id` y `imagen.nombre`
+     * **tal como venían en el cuerpo**, sin preguntar de quién es la imagen.
+     * Medido de punta a punta el 23 ago 2026:
+     *
+     *   1. un alumno manda `imagen: {id: 5, nombre: "imagen-5.jpg"}`, que es una
+     *      imagen con `publica IS NULL` y `user_id = 2` — de otra persona;
+     *   2. la fila entra: `imagen_id=5, imagen_nombre="imagen-5.jpg"`;
+     *   3. y `publicaciones/ultimas` **le sirve ese nombre a todo el mundo** —
+     *      comprobado con un token de profesor distinto del dueño.
+     *
+     * O sea que la imagen privada de cualquiera se publica en el muro del
+     * colegio nombrando su id. Es la familia de la §53, donde
+     * `images-users/imagenes-de-usuario` soltaba 162 imágenes privadas, sólo que
+     * aquí no se listan: **se publican**.
+     *
+     * La regla es la que ya usa la pantalla que elige la imagen: **tuya, o
+     * pública**. `ImagesController::getIndex` devuelve las privadas del que
+     * pregunta y, sólo a superusuario o profesor, las `publica = 1`; así que
+     * esto no le quita ninguna opción a ningún cliente que use el selector.
+     *
+     * No se reutiliza el guard `persona.propia:imagen_id` a propósito: el cuerpo
+     * trae `imagen.id` anidado y no `imagen_id`, así que el middleware no lo
+     * encontraría — y cambiar la forma del cuerpo es cambiar el contrato de
+     * cuatro clientes por una comprobación que aquí cuesta cinco líneas.
+     *
+     * Va en los DOS métodos. Comprobado quitándola de `putGuardarEdicion` y
+     * dejándola en `putStore`: el test del alta pasa y sólo cae el de la
+     * edición. Arreglar el que se está mirando y dejar al hermano es lo que ha
+     * costado cuatro series esta noche.
+     */
+    private function exigeQueLaImagenSePuedaColgar(object $user, $imagenId): void
+    {
+        if ($user->is_superuser) {
+            return;
+        }
+
+        $suya = DB::selectOne('SELECT id FROM images
+            WHERE id = ? AND deleted_at IS NULL AND (user_id = ? OR publica = 1)',
+            [$imagenId, $user->user_id]);
+
+        if ($suya === null) {
+            abort(403, 'Esa imagen no es tuya.');
         }
     }
 
