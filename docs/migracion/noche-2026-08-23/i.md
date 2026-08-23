@@ -298,10 +298,39 @@ PUT api/observador-horizontal/horizontal/{grupo_id}
 PUT api/puestos/detailed-notas-periodo/{grupo_id}
 ```
 
-**Siete de las ~190 mudas de cada pasada**, o sea alrededor del 4%. No invalida los
-cinco números —los hallazgos son hallazgos y las 19 legibles se leen—, pero esas siete
-**no están medidas**, y hoy se cuentan como «no juzgable», que suena a resultado. Son
-un «no medido» con nombre.
+**Siete de las ~190 mudas de cada pasada**, o sea alrededor del 4%.
+
+### Y al medirlas, seis de las siete no estaban cerradas
+
+Un «no medido» con nombre se puede medir, así que se midió, en
+`tests/Barrido/GrupoAjenoDelMismoAnioTest.php` y **sin tocar el barrido grande**: se
+monta el caso que en el seed no existe —un grupo del **mismo año** del profesor, con un
+alumno matriculado dentro y **cero asignaturas suyas**— y se golpean sólo esas siete.
+
+```
+GET  api/boletines/detailed-notas-year/103/1      200    6.738 b   PERSONALES: fecha_nac,email
+GET  api/boletines2/detailed-notas-year/103/1     200    6.738 b   PERSONALES: fecha_nac,email
+GET  api/boletines3/detailed-notas-year/103/1     200    6.738 b   PERSONALES: fecha_nac,email
+GET  api/observador/vertical/103/10               200   21.599 b
+GET  api/piars-asignaturas/asignaturas/103/460    200        2 b
+PUT  api/observador-horizontal/horizontal/103     200    3.880 b   PERSONALES: documento,celular,direccion,fecha_nac,email,barrio
+PUT  api/puestos/detailed-notas-periodo/103       200    3.676 b   PERSONALES: documento,celular,direccion,fecha_nac
+```
+
+**Seis de las siete contestan, y cuatro con datos personales dentro.** Su silencio en
+el barrido grande no era «no hay nada que alcanzar»: era **el año**. Sólo
+`piars-asignaturas` se queda muda de verdad.
+
+**Esto no es un agujero nuevo**, y decirlo lo sería: es la misma decisión de Joseth
+sobre `auth.personal` —el personal del colegio ve el colegio entero— aplicada a seis
+rutas más. Lo que sí es, y por eso va aquí y no en la lista de sospechosas:
+
+> **El barrido estaba contando seis rutas alcanzables dentro de «no juzgable»**, que es
+> el cajón que se lee como «cerrada». La cifra honrada del profesor es **164 más al
+> menos seis**, y el cajón de las no juzgables, seis más pequeño.
+
+Es la misma forma que este documento persigue desde la primera línea, aplicada a sí
+mismo: **un silencio no es una respuesta hasta que se sabe por qué está callado.**
 
 `CasoDeContrato::grupoAjenoDelMismoAnio()` existe justo para esto y el barrido no lo
 usa. No se cambia aquí: tocarlo mueve los cinco números de arriba, y esos números son
