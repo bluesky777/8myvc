@@ -595,36 +595,62 @@ cayó al mirarla.
     raíz y comparando las tablas de las dos bases, no leyendo el controlador.
     Cuando el contenedor está cargado, se reparten **lotes de leer y reportar**,
     que no necesitan suite.
+14. **Una comprobación no vale más que su patrón, y el patrón se mide contra uno
+    más ancho — no se lee.** Los dos errores existen y no cuestan lo mismo: **un
+    patrón estrecho declara limpio lo que no ha mirado; uno ancho declara
+    cobertura que no existe.** El primero se nota en cuanto alguien mete la mano;
+    **el segundo no se nota nunca, porque va a favor de lo que uno quería creer.**
+    Los dos de esta noche fueron anchos y los dos dieron **de más**: el conteo de
+    secciones dio 75 donde había 74 —los subapartados `§112.1` contados como
+    secciones nuevas—, y `interruptores-que-nadie-lee.py` con rutas relativas dio
+    **50 donde la buena da 49**, o sea con cara de mejor hallazgo. **Un patrón
+    ancho no falla en proporción a lo ancho que sea: falla donde el dato no lo
+    tapa**, y por eso el número que da es siempre creíble.
 
 ### La numeración compartida
 
-14. **Arreglar una colisión crea la siguiente si el número nuevo se elige sin
+15. **Arreglar una colisión crea la siguiente si el número nuevo se elige sin
     volver a correr la comprobación.** Hubo tres colisiones y **la tercera la
     creó el arreglo de la segunda**, en el número de al lado. La comprobación va
     **después de cada renumerado**, no sólo al final: el renumerado es justo el
     momento en que se inventa un número.
-15. **Y el título se queda viejo cada vez.** De las tres, dos fueron un título
+16. **Y el título se queda viejo cada vez.** De las tres, dos fueron un título
     que declaraba un rango que su cuerpo ya no tenía —**las dos en el mismo
     fichero**— y una cuarta declaraba de menos, escondiendo una sección de quien
     la buscara por el título. Al renumerar hay que tocar **el cuerpo, el título y
     el índice**, y comprobar los tres.
-16. **La comprobación de colisiones discrimina por la posición del `§`**: un
+17. **La comprobación de colisiones discrimina por la posición del `§`**: un
     título que **abre** con él (tras su numeración) **declara**; un `§` **dentro
     de la frase** **referencia**. Con el criterio mal puesto salían 65 o 73 donde
     había 75, y las dos cifras parecían razonables.
 
 ### El reparto
 
-17. **Deja una franja para releer lo escrito.** Casi todo lo de esta lista se
+18. **Deja una franja para releer lo escrito.** Casi todo lo de esta lista se
     encontró releyendo, no midiendo — y se encontró tarde porque no había hueco
     para ello. La cola creció de ocho lotes a veinte; el registro real de quién
     hizo qué está en
     [`noche-2026-08-23/README.md`](noche-2026-08-23/README.md), y las secciones
     que salieron, en el 05 §81–§167.
-18. **Que revise el cierre alguien que no lo produjo.** La medición final la
+19. **Que revise el cierre alguien que no lo produjo.** La medición final la
     corrió quien coordina y la comprobó una sesión que no había escrito ninguno
     de los documentos que revisaba. Las cuatro pruebas que valió la pena pasarle a
     cada documento acabado: **numeración, aritmética, poblaciones y expresiones
     que envejecen** — un «anoche» en un documento que acumula noches no se puede
     resolver, y un «hoy» que describe el estado del código sí, porque deja de ser
     cierto cuando el código cambia.
+20. **Cualquier afirmación cuyo sujeto sea el momento de medirla lleva fecha de
+    caducidad y no la lleva escrita.** El caso puro de esta noche: «*§138–142 no
+    son huecos: son los lotes que seguían abiertos al hacer esta comprobación*».
+    Cerraron, y la frase se volvió falsa **manteniendo el mismo aspecto de
+    verdad** — un lector de diciembre no tiene forma de saber que hablaba de un
+    martes. **No se marchitan como un «hoy»: se quedan igual de bien escritas.**
+    Se buscan por su propia forma: «al hacer esto», «por ahora», «los que siguen
+    abiertos».
+21. **Y una corrección a la 19, que si no se lee como una técnica y no lo es:**
+    mandar el comando dentro de la corrección **no desarma a nadie** — sólo
+    desarma a quien piensa correrlo. La misma corrección, con el mismo comando
+    dentro, se contestó esa noche explicando por qué el número seguía siendo bueno
+    **sin haberlo ejecutado**. Lo que hace que la revisión externa sirva no es el
+    comando: es que **quien lo recibe lo corra**. Contra un coordinador que
+    discute el dato en vez de correr el comando, revisar es teatro.
