@@ -127,10 +127,18 @@ La más cara, porque **el resultado falso es indistinguible de un hallazgo**.
 | El log que deja de crecer | «la suite murió» | **búfer de bloque**: parado justo en 10.210 bytes | el tamaño exacto del fichero | [E](e.md) |
 | Un `docker exec` muerto por `pkill` | el harness lo resumió como **«completed, exit code 0»** | **exit 143** | escribir `EXIT=$?` dentro del contenedor, junto al log | [B](b.md) |
 | Un snapshot de contrato | «esto está cubierto» | **el snapshot guardaba el fallo como si fuera correcto** | leer lo que afirma, no que exista | [E](e.md) |
+| `git diff main <rama>` para ver qué aporta una rama | «esta rama **borra 8.536 líneas**» | la rama sale de un `main` viejo: ese diff incluye **deshacer los lotes fundidos después**. Lo que aporta son **846 insertions(+), 1 deletion(-)** | `git diff $(git merge-base main <rama>) <rama>` | [L](l.md) |
 
-> El último no es un instrumento de medir sino de proteger, y por eso es el peor
-> de la lista: **un test verde que fija un vaciado no avisa de nada y además
+> El **snapshot** no es un instrumento de medir sino de proteger, y por eso es el
+> peor de la lista: **un test verde que fija un vaciado no avisa de nada y además
 > impide arreglarlo**, porque el arreglo lo pone en rojo.
+>
+> Y el **último** es el que más cerca está de hacer daño esta noche, porque
+> aparece justo en el momento de fundir: medido en las tres ramas pendientes, L
+> «borra» 8.536 líneas y H «borra» 14.068, **y las dos aportan menos de 900**.
+> `git merge-tree` dice que ninguna de las tres tiene conflictos; el `diff` contra
+> `main` es el que asusta, y asusta por comparar contra un punto que la rama nunca
+> tuvo.
 
 ---
 
