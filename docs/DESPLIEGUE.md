@@ -18,7 +18,7 @@ para recalcularlos el día que este documento envejezca:
 |---|---|---|
 | Migraciones nuevas | **ninguna** | `git diff c2c2a04 9492a2b -- database/migrations/ database/schema/` sale vacío |
 | Rutas | **539 antes y 539 después** | `git log c2c2a04..9492a2b -- routes/` sale vacío, y `Route::` en `routes/api/` da **538** en los dos extremos (más el `GET /` de `web.php`) |
-| Ficheros de `app/` tocados | **38**, en 47 commits | `git diff --name-only c2c2a04 9492a2b -- app/` |
+| Ficheros de `app/` tocados | **38**, en **46** commits | `git diff --name-only c2c2a04 9492a2b -- app/` y `git log --oneline c2c2a04..9492a2b -- app/` |
 
 **Sin rutas nuevas ni migraciones, el orden dentro de la tanda es libre**: ningún
 colegio depende de otro y no hay nada como el `password_reminders` de la tanda del

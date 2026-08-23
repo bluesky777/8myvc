@@ -514,3 +514,117 @@ En este orden, y el primero no es opcional:
    cuesta y la próxima noche las reutiliza el script.
 5. En el 09, la sección de cierre — **el estado real, no el resumen de lo hecho**,
    que es lo que ha servido cada mañana.
+
+---
+
+## 8. Lo que enseñó la noche del 22 al 23 — para la que venga
+
+Todo esto se pagó una vez. Lo que sigue **no son buenas prácticas**: cada línea
+tiene detrás media hora perdida, un número publicado mal o una afirmación que se
+cayó al mirarla.
+
+### Los números
+
+1. **Sella el commit al disparar, no al escribir el número.** Una medición se
+   publicó como de `da48e28` y había corrido sobre `f6770d0`. Se cazó porque una
+   sesión comparó **listas de nombres** entre los dos registros y encontró tres
+   casos de un fichero que no existía en el commit medido — comparando **totales**
+   no se habría visto nunca. **Un número mal etiquetado es peor que un número sin
+   etiqueta**: el segundo se vuelve a medir, el primero se cita.
+2. **Cada suite mide el commit que tiene debajo, no el que uno tiene en la
+   cabeza.** Se le dijo a una sesión que la corrida de otra cubría sus commits;
+   era falso, el árbol de la otra estaba en el suyo. Con un árbol por sesión, «la
+   suite ya pasó» **nunca** es una afirmación sobre el trabajo de otro.
+3. **No mezcles poblaciones.** Suite entera y sólo Contrato dan 462 y 461, 97/97 y
+   96/97, 1.276 y 1.272. Cualquier delta entre las dos **inventa mejora**. Estuvo
+   a punto de publicarse un «96/97 → 97/97» que era exactamente eso: un mérito
+   fabricado por cambiar de población a mitad de la resta.
+4. **Antes de publicar una mejora, pregunta cuál de los dos números se movió por
+   el trabajo y cuál por la forma de medir.** Es la misma pregunta que la 3, pero
+   se hace en el sitio donde no duele: antes de escribir la tabla.
+5. **Un número sin su comando al lado es un número que nadie ha vuelto a correr,
+   empezando por quien lo escribió.** De los cuatro datos de la cabecera de la
+   tanda, el único sin comando —«47 commits»— era el único equivocado, y lo cazó
+   quien revisaba precisamente por eso. **El comando no está para el lector de
+   dentro de un año: está para que el autor lo verifique al escribirlo.**
+6. **Y sella con el sha, nunca con el nombre de la rama.** Ese 47 salió de
+   `c2c2a04..main` mientras la etiqueta decía `9492a2b`: entre los dos había un
+   commit de documentación que **tocaba un fichero de `app/`** al renumerar una
+   sección. `main` se mueve debajo del número mientras se escribe el párrafo — y
+   la diferencia fue de uno, que es justo el tamaño que no llama la atención.
+
+### Las afirmaciones
+
+5. **Un apunte sin verificar se convierte en premisa en cuanto se copia a una
+   instrucción.** Se repartió un lote diciendo que existía un lector del formato
+   `'Y-m-d G:H:i'`; el «lector» estaba dentro de un `/* */`. La sesión gastó su
+   primera media hora en desmentirlo. La cadena es siempre la misma: **apunte →
+   premisa → media hora**, y se corta en el primer paso, que es el barato.
+6. **Cuando una comprobación se salta, no se salta al azar: se salta hacia la
+   respuesta que da menos trabajo.** Cinco comprobaciones se cayeron al mirarlas
+   de cerca y **las cinco fallaban en esa dirección**; ninguna falló hacia la
+   duda. La más cara habría dicho que `alumnos/cambiar-claves` estaba defendida
+   —el `Autoriza::` era de otro método más abajo— y habría **encogido la pregunta
+   de otro lote con un dato falso, y con la autoridad de venir medido**.
+7. **Quien coordina es quien más ensancha una afirmación**, porque es quien menos
+   toca el código y más lejos la manda. Ya estaba escrito en el §6.5 y volvió a
+   pasar: **quien escribe la regla se la salta en el sitio donde no está
+   mirando.**
+8. **Cuando el tablero y `main` discrepan, gana `main`.** Se le dijo a una sesión
+   que un lote no había cerrado, leyéndolo de un tablero que quien coordina nunca
+   marcó. El tablero es un apunte; el repositorio es el hecho.
+
+### Los instrumentos
+
+9. **Mirar el padre y concluir sobre el hijo da una respuesta coherente y falsa.**
+   `php artisan test` es un envoltorio: el proceso que corre es
+   `vendor/phpunit/phpunit/phpunit`. Leyendo el `--configuration` del **padre** se
+   dio una falsa alarma sobre una medición que estaba bien.
+10. **Y matar al padre deja huérfano al hijo.** Un `pkill` sobre `artisan test`
+    dejó dos phpunit con `ppid=1` **escribiendo en las bases de otros dos lotes
+    durante 31 minutos**. Se identificaron por `/proc/<pid>/environ`. Para matar
+    de verdad la suite de un árbol:
+    ```bash
+    pkill -f "phpunit.*worktrees/<sufijo>"
+    ```
+11. **Tres suites a la vez como mucho.** Por encima de eso el contenedor se
+    arrastra y los tests de contrato empiezan a caer por *deadlock* en el `insert`
+    de `personal_access_tokens` —que lo hacen todos, porque todos inician
+    sesión—. **Lo que se ve no es un error de infraestructura: son tests en rojo
+    con mensajes creíbles**, y se diagnostica corriendo un control en el árbol
+    raíz y comparando las tablas de las dos bases, no leyendo el controlador.
+    Cuando el contenedor está cargado, se reparten **lotes de leer y reportar**,
+    que no necesitan suite.
+
+### La numeración compartida
+
+12. **Arreglar una colisión crea la siguiente si el número nuevo se elige sin
+    volver a correr la comprobación.** Hubo tres colisiones y **la tercera la
+    creó el arreglo de la segunda**, en el número de al lado. La comprobación va
+    **después de cada renumerado**, no sólo al final: el renumerado es justo el
+    momento en que se inventa un número.
+13. **Y el título se queda viejo cada vez.** De las tres, dos fueron un título
+    que declaraba un rango que su cuerpo ya no tenía —**las dos en el mismo
+    fichero**— y una cuarta declaraba de menos, escondiendo una sección de quien
+    la buscara por el título. Al renumerar hay que tocar **el cuerpo, el título y
+    el índice**, y comprobar los tres.
+14. **La comprobación de colisiones discrimina por la posición del `§`**: un
+    título que **abre** con él (tras su numeración) **declara**; un `§` **dentro
+    de la frase** **referencia**. Con el criterio mal puesto salían 65 o 73 donde
+    había 75, y las dos cifras parecían razonables.
+
+### El reparto
+
+15. **Deja una franja para releer lo escrito.** Casi todo lo de esta lista se
+    encontró releyendo, no midiendo — y se encontró tarde porque no había hueco
+    para ello. La cola creció de ocho lotes a veinte; el registro real de quién
+    hizo qué está en
+    [`noche-2026-08-23/README.md`](noche-2026-08-23/README.md), y las secciones
+    que salieron, en el 05 §81–§167.
+16. **Que revise el cierre alguien que no lo produjo.** La medición final la
+    corrió quien coordina y la comprobó una sesión que no había escrito ninguno
+    de los documentos que revisaba. Las cuatro pruebas que valió la pena pasarle a
+    cada documento acabado: **numeración, aritmética, poblaciones y expresiones
+    que envejecen** — un «anoche» en un documento que acumula noches no se puede
+    resolver, y un «hoy» que describe el estado del código sí, porque deja de ser
+    cierto cuando el código cambia.
