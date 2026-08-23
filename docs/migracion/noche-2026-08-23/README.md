@@ -101,38 +101,13 @@ cosa. Si vas a leer solo un párrafo de cada documento, que sean éstos:
   —`mis-actividades/guardar` y `alumnos/update`— convertirían, «arregladas», un
   error ruidoso en una escritura silenciosa que borra.
 
-## Apéndice — cómo se corre una tanda de la que te vas a fiar
+## Cómo se corre una tanda de la que te vas a fiar
 
-Los tres pasos salen de **tres tropiezos distintos de esta noche**, y hasta ahora
-estaban repartidos por el [barrido de cegueras](las-cegueras.md) sin que ninguno
-dijera el procedimiento entero.
-
-```bash
-# 1. que no haya nadie más contra esa base — el hijo se llama phpunit, NO artisan
-docker exec 8myvc-app-1 sh -c 'pgrep -af "phpunit.*worktrees/X"'
-
-# 2. desacoplada del harness, y con el código de salida DENTRO del contenedor
-docker exec -d -w /app/.worktrees/X -e DB_TEST_DATABASE=simonbolivar_testing_X \
-    -e COBERTURA_RUTAS=/tmp/tocadas-X.txt 8myvc-app-1 \
-    sh -c 'php artisan test > /tmp/suite-X.log 2>&1; echo "EXIT=$?" >> /tmp/suite-X.log'
-
-# 3. esperar al EXIT=, no al texto ni al tamaño del fichero
-until docker exec 8myvc-app-1 sh -c 'grep -q "^EXIT=" /tmp/suite-X.log'; do sleep 25; done
-```
-
-| Paso | El tropiezo del que sale |
-|---|---|
-| **1** | Un `pkill -f "artisan test"` mató el envoltorio y **dejó al hijo vivo**, reparentado a init, corriendo contra la misma base. Buscando `artisan` no aparece: **el hijo se llama `phpunit`**. Dos tandas contra una base chocan en `personal_access_tokens` y los rojos salen en cualquier familia |
-| **2** | Un `docker exec` muerto por ese `pkill` devolvió **exit 143** y el harness lo resumió como **«completed, exit code 0»**. El código de salida escrito **dentro** del contenedor es lo único que no lo hace |
-| **3** | El log **deja de crecer** por el búfer de bloque —parado justo en 10.210 bytes— y parece que la suite murió. El tamaño del fichero no dice nada; el `EXIT=` sí |
-
-Y dos que no son pasos pero deciden el número:
-
-- **Para la medición de cobertura va la suite entera, no `--testsuite=Contrato`.**
-  Es la diferencia entre 462 y 461: `GET /` solo la toca
-  `tests/Feature/ExampleTest.php`, el stub que dejó `laravel new`.
-- **`COBERTURA_RUTAS` con un fichero por sesión.** `/tmp` del contenedor está
-  compartido: compartirlo dio una vez *86 de 539 cuando eran 346*.
+No está aquí: está en **[03-tests.md](../03-tests.md)**, porque este README caduca
+con la noche y ese procedimiento vale para cualquier tanda. Los tres pasos salen
+de tres tropiezos distintos de esta noche, y cada uno lleva escrito **por qué
+existe** — que es lo único que impide que alguien se salte el que parece
+redundante, que es justo el primero.
 
 ---
 
