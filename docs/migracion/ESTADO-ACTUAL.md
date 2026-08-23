@@ -126,10 +126,20 @@ contestar:
 
 ## Lo que está fusionado y NO desplegado
 
-**Fusionado no es desplegado**, y `app/` es copia por colegio. En
-[DESPLIEGUE.md](../DESPLIEGUE.md) hay una tanda entera sin salir: la noche del 22
-al 23 más las decisiones del 23 y el 24. Dentro está **el boletín que hoy devuelve
-500 a una familia**.
+**Fusionado no es desplegado**, y `app/` es copia por colegio.
+[DESPLIEGUE.md](../DESPLIEGUE.md) **se vació y se rehízo el 24 ago**: llevaba dos
+tandas apiladas —la del 22 y la del 23—, cada una diciendo «si la anterior no llegó
+a desplegarse», y para saber qué se nota había que leer las dos y cruzarlas. Ahora
+es **una sola tanda con todo lo pendiente dentro**, del 22 al 24, para desplegar de
+una vez cuando Joseth lo decida.
+
+Medido sobre el rango entero, no sumando tanda a tanda: **0 migraciones, 0 cambios
+de esquema, 0 de `config/`, 0 de dependencias, 539 rutas antes y después**, y 52
+ficheros de `app/` en 66 commits. Nada que publicar en ningún cliente.
+
+Dentro está **el boletín que hoy devuelve 500 a una familia**, **la ficha de alumno
+que no guarda nunca** y **la fase 3 de las definitivas** — o sea, lo que se pidió:
+que la definitiva se actualice al cambiar la nota.
 
 Y en `myvc_front` queda apuntado, sin hacer, el arreglo de **las cuatro altas de
 la planilla de notas que no mandan `fecha_hora`** (`MIGRATION.md` §4b.3b).
