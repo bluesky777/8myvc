@@ -8527,3 +8527,58 @@ permiso**.
 > Y la lección, que es de quien coordina: **la mitad de datos de la hipótesis era lo
 > primero que había que comprobar y se comprobó al final.** Se pidió que la
 > desmintieran, y la desmintió el propio número con el que se había construido.
+
+### §176.2. El barrido del año en curso, y la prueba que sale de él sin necesitar una copia
+
+`8myvc-7b`, sólo `SELECT`. **Son doce grupos, no once**, y **ninguno tiene poco
+hueco**: van del **50% al 100%**. Total del año: **8.739 de 16.469 (53,1%)**.
+
+```
+ 94 Transición    28 de     28  100,0%      98 Cuarto      776 de 1.480   52,4%
+ 96 Segundo      408 de    640   63,8%     104 Décimo      909 de 1.800   50,5%
+101 Séptimo      945 de  1.640   57,6%      99 Quinto      783 de 1.560   50,2%
+103 Noveno       759 de  1.321   57,5%     105 Once      1.144 de 2.280   50,2%
+102 Octavo       946 de  1.720   55,0%      95 Primero     420 de   840   50,0%
+100 Sexto        861 de  1.640   52,5%      97 Tercero     760 de 1.520   50,0%
+```
+
+**Se cumple la rama mala de la §176.1** —no hay ningún grupo del año en curso con
+poco hueco, así que **ningún par separa «es el hueco» de «es el año 8» por
+porcentaje**—. **Pero la copia deja de ser la única salida**, y eso quita de la
+lista el bloqueante más caro:
+
+> **Se buscaba variar el porcentaje, y lo que hay que variar es el trabajo
+> absoluto.**
+
+| grupo | pct | **ausentes** |
+|---|---|---|
+| 95 Primero | 50,0% | **420** |
+| 97 Tercero | 50,0% | **760** |
+| 105 Once | 50,2% | **1.144** — 2,7× el trabajo del 95 |
+
+**Mismo porcentaje, hasta 2,7 veces el número absoluto.** Si el coste crece con las
+definitivas que faltan, los tres tienen que ordenarse **95 < 97 < 105**; si los tres
+tardan lo mismo, **el hueco no es lo que manda**.
+
+**Y el 94 «Transición» es el caso extremo regalado: 100% de hueco con sólo 28
+ausentes.** Si mandara el porcentaje, sería el peor de todos; si manda el trabajo
+absoluto, tiene que ser instantáneo. **Un solo grupo que distingue las dos
+lecturas.** Cuatro peticiones —94, 95, 97, 105—, sin copia y sin tocar datos.
+
+**Y la puerta de los retirados queda cerrada, no entornada:** año 8 en curso →
+`MATR 377 · RETI 116 · ASIS 1`; año 7 cerrado → `MATR 358 · RETI 110`.
+**Prácticamente idénticos**, así que **el 50% de hueco no se explica por movimiento
+de alumnos.**
+
+### §176.3. Y la sexta del «instrumento correcto sobre el objeto equivocado»
+
+Una suite dio **1.257 fallos de 1.374**, y no era el código: la base de test tenía
+**79 tablas y 0 usuarios** — la reconstrucción se había quedado a medias en la
+ventana del OOM y la suite se lanzó encima sin mirar. Lo cuenta quien lo hizo, con
+la agravante que lo hace útil: **ya había escrito dos veces esa misma noche sobre
+esa forma exacta de fallo.** Saberla no basta; hay que tener el paso puesto.
+
+> **Antes de cualquier suite, contar tablas y usuarios de la base de test.** Es una
+> línea y caza las dos variantes que ya mordieron esta noche: **la base a medio
+> construir** y **el `construir-bd-test.sh` sin `-w`, que migra el árbol principal
+> sin decirlo** (92 tablas en vez de 93, y con muy buena cara).
