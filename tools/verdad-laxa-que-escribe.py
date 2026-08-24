@@ -23,9 +23,34 @@ cincuenta y seis sitios no es una lista: es otro censo.*
 
 ## CONTROL POSITIVO
 
-Tiene que encontrar `Informes/BolfinalesController:85-86` —el contador de
-certificados, medido valor a valor en la §231—. Si no sale ahi, el detector esta
-roto y su lista no vale.
+Tiene que encontrar el `if` del contador de certificados dentro de
+`Informes/BolfinalesController::detailedNotasGrupo()` —medido valor a valor en la
+§231—. Si no sale ahi, el detector esta roto y su lista no vale.
+
+**Se cita por el NOMBRE DEL METODO y no por el numero de linea, y eso costo un
+susto.** La primera version decia `BolfinalesController:85-86`. El 25 ago, con las
+cuatro ramas de la noche fundidas, el `if` estaba en la **156** y las lineas 85-86
+eran el docblock y la firma de `periodosDelAnio()`. El detector funcionaba —lo
+encontraba en la 156 antes y despues del arreglo—; lo roto era **la cita de su
+control**, y muerde justo donde no debe: **la unica instruccion que este fichero da
+para desconfiar de si mismo apuntaba a un sitio que no era**, asi que el dia que de
+verdad se rompa, el control no lo dira.
+
+Un numero de linea envejece con cada commit del fichero que cita. Un nombre de
+metodo tambien puede morir, pero **muere ruidosamente**: no lo encuentras.
+Lo levanto `8myvc-e0`, que fue a usar el control antes de fiarse del detector.
+
+## POBLACION MEDIDA — 25 ago 2026
+
+Sobre las mismas 112 fuentes:
+
+    main                       980 `if` mirados   ->  21 cumplen las tres
+    con el arreglo de CERT-1   983 `if` mirados   ->  20
+
+El -1 es el `== true` del contador, arreglado; el +3 son los `if` de la validacion
+nueva, ninguno laxo. **Se anota la poblacion y no solo el resultado**: un «20» sin
+los 983 al lado no distingue «revise novecientos y sobrevivio uno menos» de «mire
+otra cosa».
 
 ## LO QUE NO VE
 
