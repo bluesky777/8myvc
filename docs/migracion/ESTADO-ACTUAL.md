@@ -8,7 +8,8 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
-**Última actualización: 24 ago 2026** · `main`, fundido
+**Última actualización: 25 ago 2026, de madrugada** · `main`, **las cuatro ramas de
+la noche del 24 fundidas dentro** · coordina `8myvc-94`
 
 ---
 
@@ -58,6 +59,9 @@ una está en el 05 o en el 09; aquí sólo lo que decide.
 | **1** | **Abrir el certificado de periodo quema un número consecutivo, y la lectura+escritura del contador no está en transacción.** Dos personas abriéndolo a la vez → **dos certificados con el mismo número** ([05 §195](05-codigo-muerto-y-roto.md)) | Sigue pasando. **El disparador es abrir la pantalla**, y en secretaría en cierre de periodo dos a la vez **es el caso normal**. Un número saltado se justifica; **uno repetido, no**. *(**El test rojo ya está escrito y cae hoy**: `tests/Contrato/ConsecutivoDeCertificadosTest.php`, grupo `rojo`, excluido de la suite normal — [05 §225](05-codigo-muerto-y-roto.md). Demuestra la carrera **sin hilos y sin depender de tiempos**, y al caer dice «las dos leyeron 115 y las dos escribieron 116». **El arreglo ya tiene red; falta tu decisión, no el test.** Y la pregunta «¿cuántos números se han quemado ya?» **no se puede contestar**: NINGUNA TABLA guarda un certificado emitido —`config_certificados` es maquetación—, así que **un número quemado por abrir es indistinguible de uno emitido**, dos certificados con el mismo número no se detectan después, y *«¿cuántos emitimos este año y a quién?»* **hoy no tiene respuesta ni con acceso total a la base** ([05 §231](05-codigo-muerto-y-roto.md)). **Eso es peor que la carrera.** Lo bueno: el servidor sólo sube cuando se lo piden, así que **la cura está entera en el front y no toca los dieciséis despliegues** — pero el front tiene que **OMITIR la clave**, porque mandar la cadena `"false"` **quema un número igual** (`== true` es cierto para cualquier cadena no vacía).)* |
 | **2** | **`PUT bolfinales/cambiar-contador-certificados` fija el consecutivo a lo que venga en el cuerpo, sin validación, con `auth.personal`** — **y son DOS: `cambiar-contador-folios` es la misma línea sobre otra columna, con el mismo guard y sin validación** ([05 §225](05-codigo-muerto-y-roto.md)). Los dos contestan **200 y escriben** cuando se les manda `'no soy un número'`; los dos tienen su test rojo | **Cualquiera de los 51 profesores puede fijar el número de certificados del colegio** — y el de folios. **Esto no necesita que coincidan dos personas como la carrera: lo hace una sola, a propósito o con un cuerpo mal formado** |
 | **2bis** | **¿Manda el backend `version_minima_app` en la respuesta de `/login`?** Tú ya dijiste **sí a que la app bloquee**; **la app ya lo tiene escrito y probado** (414 pruebas), enganchado en los tres sitios por los que pasa una respuesta de `/login` —incluido el refresco, que es el único punto en el que se entera **sin que el usuario salga y vuelva**—. **El campo es `version_minima_app` y el valor es el `versionCode` (el `+N`), no la versión con puntos**; se lee **tolerante** (`"12"` como cadena también vale). **Y hay un plazo:** si se prefiere otro nombre, **hay que decirlo antes de que se publique una versión de la app leyendo éste** — después, cambiarlo obliga a mandar **los dos campos** durante un tiempo | **Sin ese campo, lo de la app es código dormido**: con el fallo abierto por defecto no bloquea a nadie mientras nadie lo mande. **El día que se mande, empieza a bloquear** — y **es lo único que hoy permitiría retirar un endpoint** en los dieciséis. Con la carga dicha: **subir ese número es una ceremonia de despliegue**, porque **desde el cliente no se distingue un `.env` mal puesto de un colegio exigente** |
+| **2ter** | **`c47ab50` vacía cuatro columnas de la rejilla de docentes de la web vieja** —`username`, `fecha_nac`, `email_usu`, `celular`—. El recorte está bien hecho (`GET contratos` entregaba la hoja de vida de los 47 docentes a cualquier sesión válida, la de un alumno incluida) y **no se deshace**; lo que faltó fue el censo de consumidores, que **se dejó fuera la rejilla vieja** — la que está desplegada. Lo midió `myvc-front-4c` | **Hay ventana y se cierra sola con el próximo despliegue.** Medido: `c47ab50` **no está desplegado en ningún colegio** —el último despliegue es `a82cec3`, del 21 ago, y éste cae en la tanda pendiente—, así que hoy esas columnas están **llenas** en los dieciséis. El front las repinta desde `GET profesores` (con `auth.personal`, sin una petición extra) y **sale esta noche**: si llega antes que el despliegue, el usuario no ve nada. Si no, se le vacían cuatro columnas sin que nadie haya tocado su front |
+| **2quater** | **`app2` se rompe la primera vez que alguien pulsa F5, y el arreglo vive en un repositorio que no documenta nadie.** La vieja usa rutas con almohadilla (`html5Mode` comentado) y **por eso este fallo no puede existir en ella**; `app2` usa rutas de camino y **el `.htaccess` no tiene reescritura**. Servido el build real con un servidor estático: `/` da 200, `/alumnos` y `/panel` dan **404**. Lo midió `myvc-front-3b` | **Aparece el primer día de producción de la nueva, no antes**, y en la forma peor: arranca bien, se navega bien, y **se cae al recargar, al abrir un marcador o un enlace compartido**. En los dieciséis. Dos salidas, las dos costeadas por el front: `RewriteRule` en el `.htaccess` (probada **al revés** también, que un `.js` o el logo no se los trague la regla) o `withHashLocation()` — **cambia todas las URLs, así que es decisión tuya**. Y el argumento *«la almohadilla conserva los marcadores»* **probablemente es falso**: la vieja usa `/#/panel/alumnos` y la nueva usaría `/#/alumnos` |
+| **2quinquies** | **El despliegue del front no está escrito en ningún sitio, y ése es el motivo de la casilla anterior.** Comprobado: `DESPLIEGUE.md` y `DESPLIEGUE-REFERENCIA.md` **no nombran `myvc_dist` ni `.htaccess` ni una sola vez**, y el `.htaccess` real —24.139 bytes, HTML5 Boilerplate tal cual— está versionado en `myvc_dist`, idéntico al de `myvc_front/app/public/`. Sus únicas reescrituras son quitar el `www.` y bloquear los ficheros que empiezan por punto | **No es que la herramienta esté en el sitio equivocado: es que el sitio no tiene herramienta.** Ninguna puerta del front puede ver esto y ninguna cantidad de pruebas tampoco — no está en el código, está en el hueco entre el código y el servidor que lo sirve. **Y hay una segunda consecuencia sin costear:** `app2/public/` **no lleva `.htaccess`**, así que un build de la nueva hoy no desplegaría **ninguno** y se perdería también el bloqueo de los ficheros que empiezan por punto que hoy sí existe. **No hacer nada tampoco es neutral** |
 | **3** | **Publicar lo terminado.** `7b` y `f8` cerraron sin empujar, y hacen bien | Cinco lotes cerrados esta noche siguen sin salir. **Fusionado no es desplegado** |
 | **4** | **La firma del profesor: dos endpoints, permisos distintos, y sólo uno comprueba de quién es la imagen** ([05 §168](05-codigo-muerto-y-roto.md), §182) | La mina sigue puesta. **Y los dos criterios no se contienen**, así que *«cuál gana»* **no se puede contestar eligiendo el más restrictivo** |
 
@@ -158,26 +162,123 @@ arriba y no en la línea.
 
 ---
 
-## Dónde está cada cosa al cerrar la noche — **verificado, no recordado**
+## Todo está en `main`, y nada está publicado — 25 ago, de madrugada
 
-Contado con `git rev-list --count 0dc21d7..<rama>` sobre el commit con el que arrancó la
-noche. **Cero ficheros sin commitear en los cuatro árboles, cero procesos en el
-contenedor, turno libre.**
+**Joseth pidió unirlo todo y limpiar el espacio de trabajo, y está hecho.** Las
+cuatro ramas de la noche del 24 están dentro de `main`; los tres worktrees
+huérfanos, fuera; las tres ramas fundidas, borradas; y **ocho workers de larastan
+que llevaban vivos desde las 05:11 de un worktree que ya no existía**, muertos.
 
-| Rama | Commits | Qué lleva | Estado |
-|---|---|---|---|
-| **`main`** | **75** | los cinco lotes de las sesiones del árbol raíz **y todo el registro de la noche** (05 §168–§218, 09 §15, `DESPLIEGUE.md`, este documento) | **sin publicar** — `push` espera a Joseth |
-| `feat/auditoria-tabla-y-escritor` | **28** | la tabla `auditoria` y su escritor único, el barrido de los cuatro roles, la fase 0 de los dieciséis, los 49 interruptores | sin fundir |
-| `feat/boletin-independiente-esqueleto` | **16** | el esqueleto (3 migraciones), el inventario de las 140 lecturas, los 34 métodos sin camino | sin fundir |
-| `medicion/lote-y-cobertura` | **15** | cobertura 542/542, el cronómetro del lote, HIST-1, las dos listas de «quién escribe de verdad» | sin fundir |
+| Rama | Qué llevaba | Estado |
+|---|---|---|
+| `perf/hermanas-de-asignaturas-perdidas` | las tres herramientas nuevas, seis tests, 05 §219–§233 | **fundida** (`b995d03`) |
+| `medicion/lote-y-cobertura` | cobertura 542/542, el cronómetro del lote, HIST-1 | **fundida** (`911b214`) |
+| `feat/boletin-independiente-esqueleto` | el esqueleto, el inventario de las 144 lecturas, los 34 métodos sin camino | **fundida** (`3bfe0ce`) |
+| `feat/auditoria-tabla-y-escritor` | la tabla `auditoria` y su escritor único, la fase 0 de los dieciséis | **fundida** (`5912997`) |
 
-> **Nada está desplegado y nada está publicado.** Y el `main` local lleva dentro **todo el
-> registro**, así que quien lo publique publica también el porqué de cada cosa.
+**Un solo conflicto en las cuatro**, y de los buenos: `12` y `ad` sacaron **la misma
+consulta invariante del bucle del boletín final por caminos distintos, y las dos con
+test**. No se eligió una: **se conservan las dos** —se clonan los periodos que el
+llamador ya trae resueltos, y se cae al memo de `periodosDelAnio()` cuando no los
+pasa—. Verificado después por `8myvc-12` con sus propios instrumentos, no leyendo:
+**755 consultas y 1 invariante, idéntico a antes de fundir**, y el test del `clone`
+—el que caza la versión ingenua— en verde.
 
-**Y una cifra que se corrigió al contarla:** una sesión reportó 15 commits y son 16.
-*Contar commits es gratis, y aun así fue el sexto número de esa sesión que estaba mal por
-haberlo recordado en vez de medirlo.* **El criterio de esta noche se aplica también a las
-cifras que se dan de pasada, no sólo a las que se defienden.**
+> **Y el motivo que esta coordinación escribió al resolverlo era falso.** Dije que el
+> fallback cubría llamadas de tres argumentos *«como lo llaman sus gemelos»*, y los
+> gemelos **tienen cada uno su propia copia** del método dentro de su clase: a éste
+> sólo lo llama una línea y pasa los cinco. Lo cazó `8myvc-12` leyendo el comentario
+> que le dejé sobre su propio código. Corregido en `6f9e734`, **en el sitio y no en
+> un documento**: la razón escrita al lado es lo que alguien va a creer dentro de
+> seis meses.
+
+### Los dos fallos que sólo existen cuando las cuatro ramas están en el mismo árbol
+
+La suite entera sobre el `main` fundido —**1 fallo de 1.433 tests, 10.087
+aserciones, 830 s**, con la base contada antes: **94 tablas, 2.351 usuarios**— y
+larastan con **1 error**. Los dos son de la fusión y **ninguna rama podía verlos
+sola**:
+
+1. **El censo de interruptores se movió**, y el centinela saltó con razón:
+   `matriculas.profes_editar_notas` pasó de «ni se nombran» a «no deciden nada»
+   porque `9e` cambió tres `SELECT m.*` por la lista de columnas nombradas, y
+   **nombrar no es leer**. El guardián venía de `39`. **El 49 y el 53 del §105 no se
+   mueven**: los dos montones que cambiaron son las dos mitades de lo mismo y su
+   suma —93— es idéntica, que es lo que aquel número cruza con los clientes. Queda
+   afirmado aparte.
+2. **`assertStatus()` recibe un parámetro y allí había dos.** El mensaje no lo leía
+   nadie: el test pasaba en verde y el día que ese 200 se rompiera el fallo habría
+   salido pelado.
+
+Los dos arreglados en `3a27c4e`. **Suite y larastan en verde, pint PASS.**
+
+> **Nada está desplegado y nada está publicado.** `main` va **72 commits por delante
+> de `origin`** y lleva dentro todo el registro, así que quien lo publique publica
+> también el porqué de cada cosa. **El último despliegue real sigue siendo el del 21
+> ago (`a82cec3`).**
+
+---
+
+## La noche del 25: en curso mientras lees esto
+
+**Coordina `8myvc-94` en `8myvc` y `myvc-front-1f` en el front**, con una sola
+interfaz entre las dos. El reparto vive fuera de git, en
+`8myvc-cola/noche-2026-08-25/` — con su `BRIEFING.md`, su `TABLERO.md` y una ficha
+por lote en `lotes/`.
+
+| Sesión | Lote | Qué contesta |
+|---|---|---|
+| `8myvc-e0` | **CERT-1** | el consecutivo de certificados: la carrera en transacción con `FOR UPDATE`, y la validación de `cambiar-contador-certificados`. **El permiso NO entra: es tuyo** |
+| `8myvc-9a` | **AUD-4** | los diez `INSERT INTO bitacoras` al servicio único, y las cinco familias que hoy no graban nada |
+| `8myvc-79` | **GEMELO-1** | el gemelo vivo de `BolfinalesController`: **3.820 consultas y 11,4 s para dar un 500**. El 500 primero |
+| `8myvc-12` | **BI-2** | acotar las lecturas de `unidades`/`subunidades` que BI-1 dejó clasificadas |
+| `myvc-front-*` (6) | los reparte `myvc-front-1f` | su tablero |
+
+En cola, en este orden: **PUB-1** (tres números distintos para las rutas públicas:
+`CLAUDE.md` dice quince, el test enumera siete y `routes/` tiene diecinueve líneas),
+**LOGIN-VER** (`version_minima_app` en `/login`, inerte hasta que un `.env` lo
+rellene), **VERBOS-1** (los seis `DB::select` que escriben), **AUD-2** (la sesión
+atada al token) y **AUD-5** (el permiso de la auditoría, que espera tu palabra).
+
+### Lo que ya enseñó esta noche, y no es una anécdota
+
+- **El clasificador decide por el filtro más grueso, y eso mueve etiquetas sin mover
+  riesgo.** El arreglo del 504 (`2837171`) añadió `a.grupo_id = ?` a dos consultas
+  para poder agregar, y con ello **cuatro lecturas cambiaron de «bien por
+  construcción» a «hay que acotar»** — sin que ninguna perdiera el alcance: el
+  alumno sigue en el `WHERE` y en el `GROUP BY` de las dos. **Esta coordinación lo
+  publicó como «el arreglo perdió el alcance» y lo retiró `8myvc-12` antes de que
+  costara nada**, que es la tercera retractación seguida hecha por quien trajo el
+  hallazgo. *La versión vistosa habría mandado a alguien a acotar dos consultas que
+  ya estaban acotadas.*
+- **Y la que sí queda de ahí, que es de otra forma: la clasificación es por lectura
+  y no ve que una lectura segura entregue su resultado a una insegura.**
+  `SubunidadesController:86` deriva el grupo desde la unidad —lectura impecable— y
+  llama a `Nota::verificarCrearNotas($grupo->grupo_id, …)`, que **crea notas para el
+  grupo entero**: el día que una unidad sea de un solo alumno, **añadirle una
+  subunidad le crea notas a los treinta**. Y `DefinitivasDeAsignatura::recalcularPorUnidad`
+  lee la unidad por id y llama a `recalcular($asignatura_id, $periodo_id)`. **El
+  alcance no se pierde en la lectura: se pierde en el traspaso**, y ninguno de los
+  dos está en las 59 del lote.
+- **Un rojo que no puede volverse verde no es una red, es un párrafo con
+  paréntesis.** `8myvc-e0` encontró que el test de la carrera del consecutivo
+  ejecuta **su propia copia** del `SELECT`+`UPDATE` en vez de llamar al endpoint, así
+  que **seguiría rojo con el arreglo puesto** — y encima `DatabaseTransactions` usa
+  una sola conexión, donde un `FOR UPDATE` no se bloquea contra sí mismo. El sitio
+  donde eso se detecta es preguntando **qué objeto mide el test**, no si pasa.
+- **Un censo de consumidores mira los clientes que alguien listó, y la lista se hace
+  de memoria.** El de `c47ab50` acertó con `myvc_flutter` y **falló con la web
+  vieja**, o sea justo con lo que está desplegado.
+- **Una lista de lo que dejaron las sesiones no cubre lo que dejan los guiones.**
+  Ocho workers de larastan de un worktree borrado por este lado, y un `ng serve` de
+  dieciocho horas sirviendo el `dist` de otro worktree borrado por el del front —
+  **ése no lo dejó una sesión, lo dejó un guion, y por eso no estaba en ninguna
+  lista**. `lsof -d cwd` sí los ve.
+- **Empujar tu rama de trabajo no es publicar, y las dos coordinaciones lo teníamos
+  distinto.** En `myvc_front` se empuja la rama propia y está bien. **En `8myvc` no
+  se empuja nada**, y no por simetría: de `origin/main` es de donde tiran los
+  despliegues de los dieciséis, así que aquí un `push` está a un paso de ser un
+  despliegue.
 
 ---
 
@@ -191,7 +292,7 @@ reparto vive fuera de git, en `8myvc-cola/noche-2026-08-24/`. **Lo hecho:**
 |---|---|
 | **AUD-1 + ESC** (`7b`) | el `Reloj` único con centinela y su vuelta (`desdeTexto`), y **la escala validada en el servidor** — Joseth lo pidió esa noche. Cambia respuestas: `notas/update` puede dar **422** donde daba 200 |
 | **AUD-3** (`39`) | la tabla `auditoria` y `App\Services\Auditoria`, append-only, **con la primera regla puesta en la forma de la clase** — no tiene dónde recibir «cuántas filas salieron» |
-| **BI-1** (`9e`) | el esqueleto del boletín independiente: cuatro migraciones y **el inventario de las 146 lecturas de `unidades`/`subunidades`** (88 bien por construcción, 57 a acotar, 1 sin saber) |
+| **BI-1** (`9e`) | el esqueleto del boletín independiente: cuatro migraciones y **el inventario de las 144 lecturas de `unidades`/`subunidades`** (88 bien por construcción, 55 a acotar, 1 sin saber — *corregido el 25: el documento decía 146 y 57, y el total nunca fue 146*) |
 | **MED-1** (`ad`) | **cobertura al 100%: 542/542 rutas**; `notas/lote` cronometrado (**3,8×–5,9×**, **717→220 consultas**) y el **429 de la §1 confirmado en la petición 121 de 135** |
 | **EXP-1 + PROFES-1** (`d2`) | dos exportaciones **vivas y rotas** desde el salto a Laravel Excel 3.x, y `profesores/update`, que **renombraba y degradaba la cuenta al corregir un teléfono** |
 

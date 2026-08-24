@@ -203,7 +203,60 @@ favor de meter la regla en la función y no en sus llamantes.**
 
 ---
 
-## §5 — El inventario: 146 lecturas en 24 ficheros
+## §5 — El inventario: 144 lecturas en 24 ficheros
+
+> **CORRECCIÓN del 25 ago 2026, al fundir: eran 144 y no 146, y el total nunca fue
+> 146.** Lo separó `8myvc-12` con el instrumento sobre los dos objetos, que es lo
+> único que distingue *«el detector derivó»* de *«el código cambió»* de *«el
+> documento se equivocó»*:
+>
+> | | |
+> |---|---|
+> | herramienta de **entonces** sobre código de **entonces** (`de42d90`) | 74 + 70 = **144** |
+> | herramienta de **hoy** sobre código de **entonces** | 74 + 70 = **144** |
+> | herramienta de **hoy** sobre código de **hoy** (`main` fundido) | 74 + 70 = **144** |
+>
+> Las tres dan lo mismo: **es un error de este documento**, no deriva. Y el reparto
+> reproduce **88 / 55 / 1**, no 88 / 57 / 1 — o sea que **el cajón que este
+> documento acertó es el que más importaba** (un falso «bien por construcción» no
+> falla nunca y no lo ve nadie jamás) **y el que falló es el de trabajo**.
+>
+> **Y el reparto de hoy ya no es el de entonces:** sobre el `main` fundido son
+> **84 bien / 59 acotar / 1**. Cuatro lecturas cambiaron de cajón, y no las movió
+> nadie a mano — las movió el arreglo del 504 (`2837171`).
+>
+> **RETRACTADA la lectura de esas cuatro, por quien la trajo y antes de que
+> costara nada.** La primera versión de esta corrección decía que aquel arreglo
+> había *perdido el alcance* al convertir dos bucles por-nota en dos agregaciones
+> por grupo. **No lo perdió.** Leídas enteras, `perdidasPorAlumnoDelGrupo` y
+> `perdidasPorDefinitivaDelGrupo` llevan `n.alumno_id IN (los del grupo)` en el
+> `WHERE` y `n.alumno_id` en el `GROUP BY`, y el mapa se consume con
+> `$perdidasDelGrupo[$alumno->alumno_id]`: **el alumno sigue siendo el ancla.**
+> Lo que cambió es que el arreglo **añadió `a.grupo_id = ?`** para poder agregar,
+> y **el clasificador decide por el filtro más grueso**: ve `grupo`/`asignatura`
+> y etiqueta `por-asignatura` sin ver que el alumno sigue en los dos sitios.
+>
+> **El descuadre 88/55 → 84/59 es real; lo falso era qué significaba.** La versión
+> que se sostiene, que es más pequeña y menos vistosa que la que se retiró:
+>
+> > **Un cambio de forma que no toca el alcance puede mover una lectura de cajón,
+> > porque el clasificador decide por el filtro más grueso.** Cuatro de las 144 lo
+> > hicieron con el arreglo del 504, y **ninguna de las cuatro perdió el alcance**.
+>
+> La que se retira decía *«una optimización que quita el 80% de las consultas puede
+> mover cuatro lecturas de un cajón al otro»* — cierta de las etiquetas y **falsa
+> del riesgo**: publicada así, manda a alguien a acotar dos consultas que ya están
+> acotadas. **Es la familia entera de la noche mordiendo a quien la estaba
+> aplicando: el predicado reconoce una forma, no una semántica.**
+>
+> **La lista de trabajo de BI-2 son 59**, y van separadas: 55 heredadas de aquí y
+> **4 movidas de etiqueta la noche del 24**, que se comprueban como las demás y de
+> las que ya se sabe que no van a dar nada.
+>
+> **Y el cajón de las 84 se sostiene:** muestra de **12, elegidas por variedad de
+> forma y no al azar** —7 `por-nota`, 5 `por-id`, nueve ficheros—, **rederivadas
+> leyendo el SQL sin volver a llamar al detector**. Las doce anclan de verdad. No
+> hay que recensarlo.
 
 **Ésta es la parte que se pidió y la que más costó, y no por el recuento.**
 
@@ -278,7 +331,8 @@ llega a la unidad de su dueño **sin que nadie escriba un alcance**.
 | `Models/Unidad.php` | 9 | 1 | 8 | 0 |
 | `Services/DefinitivasDeAsignatura.php` | 13 | 5 | 8 | 0 |
 | `Support/PeriodoDeLaFila.php` | 5 | 5 | 0 | 0 |
-| **Total** | **146** | **88** | **57** | **1** |
+| **Total** *(medido entonces; ver la corrección de la §5)* | **144** | **88** | **55** | **1** |
+| **Total sobre `main` fundido, 25 ago** | **144** | **84** | **59** | **1** |
 
 ### Comprobado a mano por el lado que importa
 
@@ -333,7 +387,7 @@ fallos**:
    una nota concreta. La marca porque el enlace es `n.id = b.affected_element_id`
    —columna, no parámetro— y la comprobación pide un parámetro. **Falso positivo
    de la definición, no del código.**
-2. **`HistorialesController:135 putSesion`**, la única `mas-ancho` de las 146: lee
+2. **`HistorialesController:135 putSesion`**, la única `mas-ancho` de las 144: lee
    `subunidades` desde `bitacoras` sin pasar por `unidades` en ningún momento. No
    sé clasificarla sin decidir antes qué tiene que enseñar esa pantalla, y esa
    decisión es del [18](../18-auditoria.md), no de aquí.
@@ -585,8 +639,9 @@ nombra sus columnas dentro de la subconsulta, así que no filtra nada.
 
 **El bug NO contaminó el inventario de la §5**, y comprobarlo era la mitad del
 trabajo: `main()` filtra los literales con `\bunidades\b`, y ese `\b` ya excluía
-`unidades_por_defecto` —`s` y `_` son los dos `\w`, no hay frontera—. **Las 146
-lecturas siguen siendo 146.** El bicho mordía sólo en el barrido de los `SELECT *`,
+`unidades_por_defecto` —`s` y `_` son los dos `\w`, no hay frontera—. **Las lecturas
+no se movieron con aquel arreglo**: eran 144 entonces y son 144 hoy (ver la
+corrección de la §5). El bicho mordía sólo en el barrido de los `SELECT *`,
 escrito aparte y sin ese filtro. *Encontrar un fallo en la herramienta* y *que el
 número no valga* son dos cosas distintas, y la diferencia es ir a ver hasta dónde
 llegaba.

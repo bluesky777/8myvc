@@ -43,10 +43,42 @@ class CensoDeInterruptoresTest extends TestCase
      */
     private const CENSO = [
         'columnas tinyint(1) distintas' => 157,
-        'ni se nombran' => 65,
-        'no deciden nada' => 28,
+        'ni se nombran' => 64,
+        'no deciden nada' => 29,
         'alguien decide con ellas' => 64,
     ];
+
+    /**
+     * **Movido el 25 ago 2026 al fundir las cuatro ramas de la noche del 24, y el
+     * centinela hizo exactamente lo que tenía que hacer: saltó.**
+     *
+     * Se movió **una sola columna, `matriculas.profes_editar_notas`**, de «ni se
+     * nombran» a «no deciden nada». No la escribió nadie a mano: `9e` cambió tres
+     * `SELECT m.*` sobre `matriculas` por la lista de columnas nombradas
+     * (`c6acfe3`, la fase 1 del boletín independiente), y **nombrar no es leer** —
+     * la columna viaja en el `SELECT` y sigue sin decidir nada en ningún sitio.
+     *
+     * **Ninguna de las dos ramas lo habría visto sola:** el censo lo mueve el
+     * código de `9e` y el guardián vino de `39`. Sólo salta cuando las dos están
+     * en el mismo árbol, que es el argumento para correr la suite entera **al
+     * fundir** y no sólo dentro de cada rama.
+     *
+     * ## Y por qué el 49 y el 53 del §105 NO se mueven con esto
+     *
+     * Los dos montones que cambiaron son **las dos mitades de lo mismo**: «el
+     * backend no decide nada con ella». Su suma —**93**— es idéntica antes y
+     * después, y **es esa suma, no el reparto, lo que el §105 cruza con los cuatro
+     * clientes** para llegar al 49 y al 53. Así que aquí hay un cambio real que
+     * este centinela debe registrar **y** dos números del documento que siguen
+     * hablando de la misma población.
+     *
+     * Se deja el `assertSame` sobre los cuatro números **y no sobre la suma**, a
+     * propósito: la suma sola habría dejado pasar esto en silencio, y el día que
+     * una columna cruce de verdad a «alguien decide con ella» quiero verlo. El
+     * precio es este comentario cada vez que se mueva el reparto; es más barato que
+     * un guardián que no distingue.
+     */
+    private const SIN_LECTOR_EN_EL_BACKEND = 93;
 
     /** Las `tinyint(1)` del volcado, con las tablas donde están. Igual que la herramienta. */
     private function columnasBooleanas(): array
@@ -130,6 +162,17 @@ class CensoDeInterruptoresTest extends TestCase
             'no deciden nada' => $mudas,
             'alguien decide con ellas' => $vivas,
         ];
+
+        // **La suma que el §105 cruza con los clientes, afirmada aparte.** Si un
+        // día el reparto se mueve y esta suma no, el 49 y el 53 siguen hablando de
+        // la misma población; si se mueve ésta, no. Son dos preguntas distintas y
+        // por eso son dos aserciones y no una — el 25 ago la primera saltó y la
+        // segunda no, y saberlo es lo que evitó volver a medir contra cuatro
+        // repositorios que no están aquí.
+        $this->assertSame(self::SIN_LECTOR_EN_EL_BACKEND, $nunca + $mudas,
+            'Cambió cuántas columnas `tinyint(1)` no lee NADIE en el backend, que es la población '
+            .'con la que el §105 llega al 49 y al 53. Esos dos hay que volver a medirlos contra los '
+            .'cuatro clientes: ningún test de este repositorio puede hacerlo.');
 
         $this->assertSame(self::CENSO, $este,
             "Cambió el censo de interruptores del esquema.\n".
