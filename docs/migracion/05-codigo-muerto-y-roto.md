@@ -11193,3 +11193,702 @@ Las cuatro correcciones de ese último intercambio —dos de cada lado— **sali
 dato que venía de fuera, ninguna de releer con más cuidado.** Y es la explicación de por
 qué esta noche encontró lo que encontró: **no hubo más rigor por sesión que otras noches.
 Hubo catorce sesiones preguntándose cosas distintas sobre el mismo código.**
+
+## §224. El gemelo vivo ya tiene número: 3.820 consultas y 11,4 s para devolver un 500
+
+La [§218](#) dejó `app/Http/Controllers/BolfinalesController.php` **vivo y sin medir**, y
+con eso la lista de Joseth pasó de un camino a dos. Ya está medido, y **el número cambia
+qué hay que hacer con él** — que es la razón de medirlo antes de curarlo.
+
+Medido con `tests/Barrido/CosteDelGemeloDeLaRaizTest.php`, **las tres rutas en la misma
+corrida y en la misma máquina**, porque una cifra de otro día no se puede restar de nada:
+
+| ruta | consultas | de «los periodos del año» | tiempo | responde |
+|---|---|---|---|---|
+| `GET certificados-estudio/certificado-grupo/{g}` | **3.820** | **408** | **11.433 ms** | **500** |
+| `GET certificados-estudio/certificado-alumno/{g}` | 5 | 0 | 5 ms | 500 |
+| `PUT bolfinales/detailed-notas-year-group/{g}` *(el ya curado, referencia)* | 755 | 1 | 1.016 ms | 200 |
+
+Grupo 98 del seed: **37 alumnos × 10 asignaturas**, carga 1,42.
+
+### Lo que dice la primera fila, y no es «hay que optimizarlo»
+
+**El gemelo cuesta más que el original antes de curarlo.** En el mismo grupo del seed, el
+`Informes/` de antes de [`2837171`](#) hacía **3.763**; éste hace **3.820**. O sea que el
+camino que quedó fuera del arreglo **es el más caro de los dos**, y ahí están las **408**
+consultas de la invariante, en la forma de Eloquent que la §218 anotó línea a línea. El
+reparto lo confirma sin dejar hueco: **1.480 + 1.480** son los dos bucles anidados —los
+mismos dos—, **408** la invariante, **370** una por (alumno × asignatura).
+
+**Y el 500 no ahorra nada.** `detailedNotasGrupo` corre **entero** y sólo después revienta
+`View::make('certificados.estudio')`. O sea que este camino **paga un boletín final completo
+—el más caro que hay— y no devuelve nada**, en los dieciséis colegios.
+
+> **La vista no existe, y no es que falte en un colegio: no está en el repositorio.**
+> `resources/views/certificados/` no existe y `certificados.estudio` sólo aparece nombrada
+> en las dos líneas que la piden. **El 500 es del 100% de las llamadas**, no de un caso
+> raro.
+
+**Por eso agregar sus consultas sería el trabajo equivocado.** Sería tocar `app/` —dieciséis
+despliegues— para que un endpoint que **siempre** devuelve 500 lo devuelva más rápido.
+Lo que hay debajo es una decisión de Joseth y son dos, no una:
+
+1. **si la pantalla debe existir**, hay que escribir la vista **y** curar el patrón, porque
+   el día que devuelva 200 será la página más cara del sistema — más que la que dio el 504;
+2. **si no debe existir**, la ruta se retira, y entonces **no hay nada que optimizar**.
+
+Mientras tanto **no se borra**, por la regla de la casa: *con ruta y roto se documenta*.
+Borrarlo convertiría el 500 en un 404 sin decirle a nadie qué pretendía esa pantalla.
+
+### La otra mitad del barrido: el gemelo de peor pinta está muerto
+
+El detector de profundidad de bucle señaló a `Informes/CertificadosPersonaController` como
+**el peor de los nueve** —ocho consultas dentro de bucles, **dos a profundidad 2**, las
+mismas dos que se curaron—. **No tiene camino:** su controlador tiene **una sola ruta**
+(`PUT certificados-persona → putIndex`), que devuelve matrículas y **no llama** a
+`detailedNotasGrupo`, y **nadie lo instancia con `new`**. Confirma la [§211](#) por el
+camino contrario al de la §218: *aquí el peor número estaba en código muerto y el problema
+de verdad en el que no llamaba la atención.*
+
+**El resto de las nueve, con su profundidad medida** (dentro del método; el multiplicador
+de fuera no lo ve el detector, ver el límite de abajo):
+
+| fichero | consultas en bucle | a profundidad 2 |
+|---|---|---|
+| `Informes/CertificadosPersonaController` | 8 | 2 | **muerto** |
+| `BolfinalesController` (raíz) | 3 | 2 | **vivo — es esta §** |
+| `PromovidosController` | 4 | 1 | escribe: `DB::update` en bucle |
+| `Informes/BolfinalesPreescolarController` | 3 | 0 | |
+| `EditnotaController` | 3 | 0 | |
+| `Informes/BoletinesController` | 1 | 0 | |
+| `Informes/Boletines2Controller` | 1 | 0 | |
+| `Informes/NotasActualesAlumnosController` | 1 | 1 | |
+| `Informes/Boletines3Controller` | **0** | 0 | |
+
+> **Y una cifra del mensaje de `2837171` que hay que afinar:** dice «las otras **ocho**
+> copias de `asignaturasPerdidasDeAlumno`» y nombra ocho ficheros, pero **`PromovidosController`
+> no tiene ese método** — tiene `definitivasMateriasXPeriodo` y
+> `asignaturasPerdidasDeAlumnoPorPeriodo`. Copias de `asignaturasPerdidasDeAlumno` quedan
+> **siete**. La lista de ficheros es correcta; el nombre del método bajo el que se agrupan,
+> no. *No cambia ninguna conclusión, y se anota porque una cifra de pasada que nadie
+> comprueba es exactamente lo que la [§220](#) dice que no se hace.*
+
+### El detector dio cero dos veces antes de dar un número
+
+**Y las dos veces el cero era creíble.** El primero: cerraba cada método **en su propia
+línea de declaración**, porque comparaba el contador de llaves antes de contar la llave del
+cuerpo — **0 consultas sobre un fichero con 13 `DB::select`**. El segundo, ya con eso
+arreglado: **26 consultas y 0 en bucle**, porque descartaba cada bucle en la misma línea en
+que lo abría; la cabecera de un `foreach` **no abre nivel por sí misma, lo abre su `{`**, que
+puede estar en la línea siguiente.
+
+**Lo que lo cazó no fue releerlo: fue tener una respuesta conocida delante.** Se corrió
+primero sobre `Informes/BolfinalesController` **antes y después de `2837171`**, donde ya se
+sabe qué tiene que salir. La versión buena enseña **10 consultas en bucle antes y 4 después**,
+con las dos de profundidad 2 desapareciendo — que es exactamente lo que hizo aquel arreglo.
+*Un detector nuevo sin control positivo es una opinión con formato de tabla.*
+
+**Lo que este detector NO ve, y hay que decirlo pegado a la tabla:** cuenta la profundidad
+**dentro del método**, no la del programa. `definitivasMateriasXPeriodo` se llama **desde un
+`foreach` de alumnos**, así que una consulta que aquí sale a profundidad 2 se ejecuta en
+realidad una vez por **(alumno × asignatura × periodo)**. Los números de la tabla **ordenan
+candidatos; no son coste**. El coste es la primera tabla, y ésa se midió ejecutando.
+
+## §225. El consecutivo ya tiene su rojo, y son dos endpoints y no uno
+
+La [§195](#) dejó las cuatro consecuencias del contador de certificados medidas y
+esperando decisión. Lo que faltaba —y se había pedido por escrito— era **que esa
+decisión se tome mañana delante de una prueba en rojo y no delante de un párrafo**.
+Está en `tests/Contrato/ConsecutivoDeCertificadosTest.php`, **tres tests, los tres
+rojos hoy**, y **ninguno arregla nada**.
+
+### La carrera, demostrada sin hilos
+
+Un test con concurrencia de verdad **dependería de que el planificador cruce los
+hilos**, o sea que fallaría a veces — y *un test que falla a veces se acaba
+desactivando*. Éste ejecuta las dos sentencias del controlador **en el orden exacto
+que produce la concurrencia real** —leer A, leer B, escribir A, escribir B—, que es
+determinista y suficiente. Lo que imprime al caer:
+
+    Dos aperturas consumieron un solo número: las dos leyeron 115 y las dos
+    escribieron 116. En papel eso son DOS CERTIFICADOS CON EL MISMO CONSECUTIVO.
+
+**Con `FOR UPDATE` dentro de una transacción ese intercalado no podría ocurrir**, así
+que el test no comprueba una casualidad de tiempos: comprueba **la propiedad que hoy
+no se sostiene**.
+
+### Y la puerta abierta son DOS
+
+La lista de Joseth nombra `PUT bolfinales/cambiar-contador-certificados`. **También
+está `PUT bolfinales/cambiar-contador-folios`**: la misma línea sobre otra columna,
+el mismo `auth.personal`, la misma ausencia de validación. Los dos contestan **200 y
+escriben** cuando se les manda `'no soy un número'`.
+
+*Es la pregunta «¿quién más hace esto mismo?» aplicada al sitio donde se encontró, y
+por tercera vez esta noche la respuesta no era «uno».* Van como **dos tests separados
+y no como un `dataProvider`** a propósito: si mañana se arregla uno solo, esto tiene
+que seguir en rojo **diciendo cuál falta**; un caso de datos compartido daría un único
+fallo y se leería como «el arreglo no entró».
+
+### Por qué el rojo va en un grupo excluido
+
+**Un rojo permanente dentro de la suite convierte el verde en ruido.** A la tercera
+corrida nadie distingue «el rojo de siempre» de uno nuevo, y **el siguiente fallo de
+verdad entra sin que salte nada** — que es exactamente lo que la [§220](#) dice de un
+`[OK]` que nadie vuelve a comprobar. Se añade el grupo `rojo` a la exclusión de
+`phpunit.xml`, al lado de `barrido`, con el motivo escrito dentro.
+
+**El día que se arreglen se les quita el grupo y pasan a la suite.** Eso es lo que los
+convierte en **la red del arreglo** y no en una queja archivada — y es la mitad que
+distingue esto de anotar el fallo en un documento.
+
+## §226. El único del patrón que escribe: sin transacción, pero idempotente — y eso cambia la gravedad
+
+`PUT promovidos/calcular-grupo` es el único de las nueve copias del patrón de la
+[§224](#) que además de leer **escribe**, y lo que escribe es `matriculas.promovido`:
+**quién pasa el año**. Un `DB::update` **dentro del bucle de alumnos**, `auth.personal`.
+
+Con eso, la pregunta correcta no es el coste —*un `DB::update` en un bucle no es un
+problema de coste, es un problema de qué pasa si se corta a la mitad*—. Medido con
+`tests/Barrido/CosteYAtomicidadDePromovidosTest.php`, grupo 98 del seed:
+
+| | consultas | `UPDATE matriculas` | tiempo | filas distintas después |
+|---|---|---|---|---|
+| **primera llamada** | 528 | **37** | 830 ms | **37** |
+| **segunda llamada seguida** | 527 | **37** | 694 ms | **0** |
+
+**Sin transacción** —no hay ni una en `PromovidosController`—, o sea **37 escrituras
+sueltas**. Una petición que muera en el alumno 20 deja **veinte matrículas
+recalculadas y diecisiete con el valor viejo**, y desde fuera **eso no se distingue de
+un grupo entero recalculado**: no queda marca de que se cortó.
+
+### Y aquí está lo que cambia la respuesta: **es idempotente**
+
+La segunda llamada **reescribe las 37 filas y no mueve ninguna**. O sea que el daño de
+un corte a la mitad es **«hay que volver a darle»**, no «reconstruye a mano quién pasó
+el año». *Eso baja la gravedad de esto por debajo del consecutivo de la [§225](#), que
+no se puede deshacer, y de las definitivas del [10](10-definitivas.md), que borran antes
+de reconstruir.*
+
+**No es una excusa para no poner la transacción; es la diferencia entre ponerla ahora y
+ponerla el día que se toque el fichero.** Y el aserto de idempotencia queda **dentro del
+barrido**: si algún día deja de serlo, el corte a la mitad pasa a ser irreparable y esta
+§ deja de valer — por eso es lo único que ese test afirma además del falso verde.
+
+> **Lo que el número no dice y hay que decir:** el grupo tiene **68 matrículas** y se
+> escriben **37**. La diferencia no es un fallo — `Grupo::alumnos` trae sólo las
+> matriculadas vivas—, pero **el que lea «37 escrituras» sobre un grupo de 68 y suponga
+> que faltan 31 se equivoca**, y es la lectura natural.
+
+### Dos notas al pie que se comprobaron y NO son hallazgos
+
+**La guarda `promovido NOT LIKE '%(manual)%'` es frágil en SQL y aquí no puede fallar.**
+`NULL NOT LIKE '…'` da **NULL**, o sea falsy, o sea que **una fila con `promovido` nulo
+se saltaría en silencio** — comprobado contra MySQL, no razonado. Pero
+`matriculas.promovido` es **`varchar(100) NOT NULL DEFAULT 'Automático'`**, así que no
+puede haber nulos: en el seed hay **0 de 124**. *Se deja escrito porque lo que protege
+esa fila es el esquema y no el `WHERE`, y el día que alguien haga la columna nullable el
+`WHERE` no avisará.*
+
+**La vecina no está cortada.** Los tests hablan de `putCalcularGrupoPeriodo` «cortada con
+410»; hoy responde, y hace **`DELETE` y reconstruye sin transacción** — pero eso **ya es
+el asunto del [10-definitivas](10-definitivas.md)** («seis sitios escriben en
+`notas_finales` con cinco criterios distintos de qué borrar, ninguno transaccional»), no
+un hallazgo nuevo de este barrido. Se nombra para que nadie lo cuente dos veces.
+
+## §227. La guarda está, funciona, y no es la que uno cree — tercera vez en una noche
+
+El front midió (**§230** suya) que `PUT mis-actividades/datos` con `{"alumno_id": null}`
+o `0` contesta **200 con datos de otra asignatura y otro grupo**, y concluyó: *«no es una
+fuga: el sustituto es la persona de la sesión, así que nadie ve datos ajenos — ve los
+suyos con la etiqueta de otro»*.
+
+**La conclusión es correcta. El motivo no, y el motivo es lo único que decide qué pasa
+mañana.**
+
+### Aquella medición se hizo con la única cuenta que no puede ver el guard
+
+La ruta lleva `persona.propia`, y `ExigirPersonaPropia::handle()` empieza así:
+
+    if ($usuario->tipo !== 'Alumno' && $usuario->tipo !== 'Acudiente') {
+        return $next($request);
+    }
+
+Se midió con `administrador`. **Un administrador no es que no pueda distinguir las dos
+lecturas: es que ejerce un camino donde el guard no existe.** Con esa cuenta, un id
+ajeno válido se sirve porque el administrador puede verlo — no porque nadie lo sustituya.
+
+### Medido con la cuenta que importa: predicho antes, y acertado
+
+Predicho por escrito antes de ejecutar nada, y comprobado en
+`tests/Contrato/MisActividadesIdAjenoTest.php` (5 verdes):
+
+| con token de **alumno** | predicho | medido |
+|---|---|---|
+| `{"alumno_id": <otro>}` | 403 + fila en `bitacoras` | **403 + fila** |
+| `{"alumno_id": null}` y sin la clave | 200 con lo suyo, e idénticos | **200, idénticos** |
+| `{"alumno_id": 0}` | **403**, no 200 | **403** |
+| acudiente por un **no** acudido | 403 | **403** |
+
+**El tercero es el que separa las dos lecturas.** `null` y `0` son **el mismo `falsy`**
+para el `if` del controlador, y dan **respuestas opuestas**: el guard salta los nulos a
+propósito —*«sin identificador se deja pasar: significa lo mío»*— pero su filtro es
+`!== null && !== '' && is_scalar`, así que **el `0` sí llega a `esSuyo()`** y no es de
+nadie. Si mandara la sustitución, los dos darían lo mismo.
+
+### Lo que hay que dejar escrito
+
+**Lo que protege esa ruta es el middleware, no la sustitución.** El
+`if (!$alumno_id) { $alumno_id = $user->persona_id; }` **sólo actúa cuando no hay id**,
+que es justo el caso en que no hay nada que proteger; con un id ajeno **válido** no
+llega a entrar, y la consulta filtra por `mt.alumno_id = ?` con lo que le den, **sin
+comprobar nada**.
+
+**El día que alguien le quite `persona.propia` a esa ruta, el controlador no tiene
+defensa ninguna y nada avisaría.** Por eso los cinco casos son un test de contrato y no
+una nota: incluido el que fija que **el personal atraviesa el guard**, que no es un fallo
+—la cabecera del middleware lo declara— sino **la explicación de por qué aquella medición
+salió del revés**, y sin test es una frase que nadie vuelve a comprobar.
+
+> **Tercera de la misma familia esta noche**, con el `NOT LIKE` de la [§226](#) —protegido
+> por el esquema y no por el `WHERE`— y la guarda del front que vigilaba «no cargó» en vez
+> de «cargó otra cosa». **La guarda está, funciona, y no es la que uno cree.** Tres en una
+> noche deja de ser anécdota: lo que hay que preguntarle a una guarda no es *«¿funciona?»*
+> sino *«¿de qué protege, y qué queda si se la quitan?»*.
+
+### Y el instrumento volvió a mentir, esta vez con la cara del hallazgo
+
+La primera versión del test dio **200 para un acudiente pidiendo por un alumno ajeno**, o
+sea **exactamente la fuga que se estaba buscando**. Era falso: `usuarioDeTipo()` devuelve
+una fila de `users`, que **no tiene `persona_id`**; leerla dio `null`, coaccionó a `0`, y
+con `acudiente_id = 0` la subconsulta **no excluyó a nadie**, así que el «alumno ajeno»
+elegido **era acudido suyo**.
+
+*Un instrumento roto que contesta lo que uno fue a buscar es el más caro de todos, porque
+no despierta ninguna sospecha.* Lo cazó que el test hermano petara en la misma propiedad
+inexistente. Ahora el test **exige que el acudiente tenga acudidos** antes de medir: sin
+esa condición, cualquier alumno sería «ajeno» y el verde no ejercería la regla.
+
+### Lo de `PreguntasController:140-141` no era lo que parecía
+
+Se planteó como *«sustituir el resultado de un examen por un cero por defecto»*. **No es
+un resultado de examen.** Los dos `if (!$x) { $x = 0; }` están en
+**`putDuplicarPregunta`**, y `ws_preguntas.puntos` es **cuánto vale la pregunta**, no lo
+que sacó nadie; `opcion_otra` es un interruptor. El resultado de un alumno vive en
+`WsActividadResuelta` y **ahí no hay ningún valor por defecto**.
+
+**Quién puede provocarlo:** la ruta es `auth.personal` — **ningún alumno**. Y lo que hace
+el `if` es impedir un `NULL` en una columna `NOT NULL DEFAULT '0'`, o sea **evitar un
+500**. Lo que sí deja: **duplicar una pregunta sin mandar `puntos` la crea valiendo 0**,
+en silencio. Real, pequeño, y sólo al alcance del personal.
+
+## §228. Barrido de `persona.propia`: 17 de 24 rutas no tienen defensa propia — y por qué eso no es una alarma
+
+La [§227](#) preguntó de una ruta *«¿de qué protege esta guarda, y qué queda si se la
+quitan?»*. Esto es la misma pregunta sobre **las 24 que la llevan**.
+
+**Población, y contada dos veces por caminos distintos:** `php artisan route:list` da
+**542 rutas, 24 con `persona.propia`**; el snapshot `guards-por-ruta.json` que compara
+`AutorizacionTest` dice **24** para ese guard. *Las dos cuentas coinciden, y una es la
+tabla de rutas viva y la otra un fichero congelado — que es la única forma de que un
+número de éstos valga algo.*
+
+**Las 24 se leyeron.** Trece enteras; las once restantes por inspección dirigida de
+**todas** sus líneas que nombran la identidad de la sesión (`$user->persona_id`,
+`user_id`, `tipo`) o cortan con `abort(`.
+
+### El reparto
+
+**17 desnudas** — el middleware es lo único que hay entre la petición y el dato; el
+controlador coge el id del cuerpo o de la URL y consulta:
+
+| | |
+|---|---|
+| `acudientes/de-persona` · `alumnos/years-con-notas` · `detalles/alumno` | `alumno_id` del cuerpo → acudientes, años con notas, ficha completa |
+| `frases_asignatura/show/{alumno_id}/{asignatura_id}` | usa `$user->periodo_id`, **que es alcance y no propiedad** |
+| `enfermeria/datos` | el `user_id` propio se escribe como autor; el `alumno_id` viene del cuerpo |
+| `mis-actividades/datos` | demostrado en la [§227](#) |
+| `myimages/datos-imagen` | **`$user = User::fromToken()` está COMENTADO**: la fuente de propiedad, desactivada en el fichero |
+| `myimages/privatizar-imagen` · `images-users/cambiar-imagen-un-usuario` | el id propio sólo alimenta `updated_by` |
+| `images-users/rotarimagen` · `rotar-imagen-izquierda` | `findOrFail($imagen_id)` y rota. Nada más |
+| `images-users/destroy/{id}` | borra el fichero **y anula referencias en cinco tablas** |
+| `images-users/move-img-to-me` | el destino sí es uno mismo; **de quién es la imagen de origen, no se pregunta** |
+| `images-users/cambiar-imagen-oficial` · `cambiar-imagen-perfil` | operan sobre el `{user_id}` de la URL |
+| `perfiles/update/{id}` | sus cuatro `abort` son **`422 Datos incorrectos`**: validan formato, no propiedad |
+| `perfiles/username/{username}` | cualquier nombre de usuario → documento, correo, fecha de nacimiento y grupo |
+
+**5 con defensa propia de verdad**, que sobrevivirían a perder el middleware:
+
+- `perfiles/cambiarpassword/{id}` — **exige la contraseña antigua** (`Hash::check` → 400);
+- `perfiles/cambiaremailrestore/{id}` — `(int) $id === (int) $user->user_id || esSuperusuario`;
+- `perfiles/guardar-username/{id}` — lo mismo, más un permiso explícito para el caso ajeno;
+- `myimages/destroy/{id}` — `$img->created_by != $user->user_id and ! $user->is_superuser`;
+- `myimages/publicar-imagen` — 403 a alumno y acudiente.
+
+**2 parciales**, que se defienden **por tipo y no por propiedad**:
+`asignaturas/listasignaturas` y `piars-asignaturas/asignaturas` ramifican en
+`$user->tipo` y resuelven lo suyo desde el token en la rama de la familia.
+
+### Y aquí está lo que evita que esto sea una alarma
+
+**Quitarle `persona.propia` a una ruta NO pasa en silencio: rompe `AutorizacionTest`**,
+que compara el mapa entero de guards contra `Snapshots/guards-por-ruta.json`. O sea que
+la respuesta a *«¿qué queda si se la quitan?»* no es «nada»: es **un test rojo**.
+
+**La red no es de código, es de procedimiento** — y por eso tiene una forma concreta de
+fallar: *el snapshot se puede regenerar*. Quien quite el guard y regenere la instantánea
+en el mismo commit no rompe nada. **Lo que protege esas 17 rutas es que actualizar ese
+fichero sea un acto deliberado que alguien tenga que justificar en un diff.**
+
+> **Ésa es la conclusión del barrido, y no el 17.** El número solo diría «hay 17 sitios
+> frágiles»; lo que hay es **17 sitios cuya única defensa es una línea de `routes/` y un
+> fichero de instantánea**. Y de ahí sale qué mirar en una revisión: **no el controlador
+> — el diff de `routes/api/*.php` y el de `guards-por-ruta.json`, juntos.** Un cambio en
+> el segundo sin una razón escrita es la señal.
+
+### Lo que este barrido NO contesta
+
+- **No dice que las 17 estén mal.** `ExigirPersonaPropia` declara en su cabecera que
+  centraliza esto a propósito; defender otra vez dentro de cada controlador sería
+  duplicar la regla en diecisiete sitios, que es peor. **Es una descripción de dónde
+  está el punto único de fallo, no una propuesta de moverlo.**
+- **No mira las rutas que deberían llevar el guard y no lo llevan.** Es la pregunta
+  espejo, cuesta lo mismo y no está hecha.
+- **No ejerce las 17.** Sólo `mis-actividades/datos` tiene sus cinco casos ejecutados
+  ([§227](#)); de las demás se leyó el código. *Leer no es medir, y aquí está dicho cuál
+  de las dos se hizo.*
+
+### El detector marcó una de más, y el motivo importa
+
+Su primera versión reconocía como freno sólo `abort(403|404|401)`, y marcó **desnuda a
+`perfiles/cambiarpassword`** — que se defiende exigiendo la contraseña antigua y cortando
+con **`abort(400)`**, porque el legacy de al lado devuelve 400 para todo.
+
+**Un detector de guardas que sólo reconoce el código HTTP correcto es ciego justo en el
+código que este repo usa.** Corregido a cualquier `abort(`, las desnudas bajaron de 11 a
+8 antes de la lectura a mano. *Y la lectura subió el número a 17 —los `abort(422)` de
+`perfiles/update` validan formato y el detector los contaba como freno—, o sea que se
+equivocó en las dos direcciones.*
+
+## §229. Las tres que más parecían un agujero: cerradas, y por una guarda que protege de MÁS de lo que dice su nombre
+
+Tres de las 17 «sin defensa propia» de la [§228](#) se leían peor que las demás, y la
+coordinación del front pidió medirlas por si una era fuga real. **Predicho por escrito
+que las tres estarían cerradas, y acertado**
+(`tests/Contrato/ImagenAjenaYPerfilAjenoTest.php`, 4 verdes):
+
+| con token de alumno | medido |
+|---|---|
+| `images-users/move-img-to-me` con la imagen de otro | **403**, y la imagen **no cambia de dueño** |
+| `myimages/datos-imagen` con una imagen ajena | **403** |
+| `perfiles/update/{id}` de otro alumno | **403**, y el nombre del otro **no se pisa** |
+
+**Las tres las para el middleware, y ninguna el controlador.** Los tres asertos llevan
+además la comprobación del efecto —que el `UPDATE` no ocurrió—, porque *un 403 que llegue
+después de escribir no vale de nada*.
+
+### Lo que esto deja escrito no es «no hay fuga»
+
+**`ExigirPersonaPropia` no vigila sólo identificadores de persona.** Su lista lleva
+`imagen_id`, `img_id` y `foto_id`, y `esSuyo()` los resuelve **contra el dueño de la
+imagen**. Y `move-img-to-me` es **literalmente el endpoint que hizo añadir `img_id` a esa
+lista** ([§15](#)): *ya estuvo abierta, y el arreglo fue ampliar la lista de nombres.*
+
+> **Una guarda que protege de MÁS de lo que su nombre sugiere**, y es la primera de esa
+> dirección: las tres anteriores de esta noche —el `NOT LIKE` de la [§226](#), la
+> sustitución de la [§227](#), la del front que vigilaba «no cargó»— protegían **de otra
+> cosa**. Ésta protege **de más**.
+
+Y eso es lo que hace que las 17 de la §228 sean **menos frágiles de lo que su tabla
+sugería**: el punto único de fallo cubre más superficie de la que se le supone leyendo su
+nombre.
+
+**Por eso el cuarto test no sobra:** fija que `imagen_id`, `img_id` y `foto_id` siguen en
+`CLAVES`. Es **la premisa de los otros tres** — si alguien saca uno de esos nombres, las
+tres rutas se abren de golpe y **nada más avisaría**, porque los controladores no
+defienden. Ya pasó una vez, por ese nombre exacto.
+
+### El fallo de comunicación, que se anota porque volverá a pasar
+
+La fila *«comprueba el destino y no de quién es la imagen de origen»* estaba en una tabla
+titulada **«el controlador no se defiende solo»**. Es cierta ahí y se leyó como *«nadie lo
+comprueba»* — hasta el punto de casi mandar a medir una fuga inexistente.
+
+> **Una fila de tabla se lee siempre fuera de su encabezado.** Si la fila sola puede
+> leerse como una acusación, el encabezado no la salva.
+
+**Y la otra mitad, que es la que ahorra el trabajo:** la hipótesis *«el guard valida ids
+de persona, aquí viaja una imagen»* costaba **un minuto** de comprobar —abrir el
+middleware y leer `CLAVES`— y se mandó a medir sin comprobarla. *Comprobar la premisa de
+un encargo es más barato que ejecutarlo, y la comprobación va antes del reparto, no
+después.*
+
+### Y una que sigue mereciendo su línea aunque dé 403
+
+**`myimages/datos-imagen` tiene el `User::fromToken()` comentado.** La fuente de propiedad
+está **apagada a propósito y el código sigue ahí para leerse como si estuviera**. Hoy
+sobra porque el middleware la cubre. **El día que alguien mueva esa ruta a otro grupo de
+middleware, no** — y quien lo haga verá una línea comentada que parece un descuido en vez
+de una dependencia.
+
+## §230. La pregunta espejo ya tenía herramienta, y la respuesta cabe en siete líneas
+
+La [§228](#) dejó pendiente la pregunta contraria: **qué rutas maneja un id de persona,
+puede llamar un alumno, y NO llevan `persona.propia`**. **No hizo falta escribir nada:**
+`tests/Barrido/SuperficieDeUnTokenTest.php` es exactamente eso —golpea la API entera con
+un token de alumno **usando identificadores ajenos a propósito** y enseña lo que pasó de
+largo, mirando **el resultado** y no la petición—.
+
+*Antes de construir un instrumento conviene mirar si la pregunta ya tiene uno. Ésta lo
+tenía desde el 20 ago, y de él salieron las [§14](#) y [§15](#).*
+
+    Barrido con token de Alumno (usuario 2375). is_superuser = 0, roles: Alumno
+    7 rutas pasaron de largo con algo dentro:
+
+      GET  auth/me · POST login · PUT aplicacion-descargas/detailed   -> su propia fecha_nac
+      PUT  login/logout                                              -> update historiales (el suyo)
+      PUT  perfiles/guardar-mi-email-restore                         -> update users (el suyo)
+      GET  years · GET years/colegio                                 -> `telefono`
+
+**Las cinco primeras son lo suyo por definición** — el barrido no puede saberlo y por eso
+las imprime; ésa es su forma correcta de fallar.
+
+**Y las dos de `years` son un falso positivo del propio barrido**, comprobado: marca por
+**nombre de columna**, y `years.telefono` es **el teléfono del colegio** — la tabla lleva
+`nombre_colegio` al lado. `getColegio()` devuelve la configuración del colegio, los
+`config_certificados` y **las imágenes públicas del propio usuario** (`WHERE user_id = ?`).
+Nada de otra persona.
+
+> **Un detector de datos personales que decide por el nombre de la columna llama personal
+> al teléfono de un colegio.** No se arregla: es la sobre-aproximación que lo hace útil.
+> Lo que hay que hacer es lo que se hizo — **mirar las dos filas que marcó** en vez de
+> archivarlas o creerlas.
+
+### Lo que el propio barrido dice que NO midió, y por eso vale
+
+- **9 rutas no son juzgables**: con un superusuario tampoco sale nada, así que su silencio
+  no distingue un guard de un vacío.
+- **5 rutas con `{id}` no se midieron**: el seed no tiene ninguna fila ajena de la tabla
+  que nombran, así que se golpearon con un cero y su respuesta vacía no prueba nada.
+- **42 de las 93 mudas rechazaron con 400, 401 o 422 en vez de 403.** La ruta miró y dijo
+  que no; el código HTTP es asunto aparte.
+
+**Conclusión: la pregunta espejo no encuentra nada abierto hoy**, y las tres cifras de
+arriba son la razón por la que eso significa algo — *un barrido que no dijera qué dejó
+fuera daría el mismo «nada» revisando la mitad.*
+
+## §231. «¿Cuántos números se han quemado?» no se puede contestar — y eso es peor que la carrera
+
+La [§225](#) dejó el consecutivo en rojo, y lo que faltaba para poder **priorizarlo** era
+un número: *contador menos certificados emitidos = números quemados por mirar*. Se fue a
+hacer esa resta.
+
+**No hay minuendo que restar: `M` no existe.**
+
+**Ninguna tabla guarda un certificado emitido.** Se preguntó al esquema vivo, no al
+volcado —`information_schema`, buscando `%certificad%` y `%folio%`— y sale **una sola
+tabla**: `config_certificados`, que es **maquetación** (imágenes de encabezado y pie,
+márgenes, qué página lleva cada una). No hay fecha de emisión, ni a quién se le emitió, ni
+quién lo emitió, ni qué número le tocó.
+
+> **El único rastro de que se emitió un certificado es que un contador subió.** Y ese
+> contador es **un `varchar` que cualquiera de los 51 profesores puede fijar a lo que
+> quiera** ([§225](#)), **sin que se escriba una línea en `bitacoras`** —
+> `putCambiarContadorCertificados` no está entre los cuatro ficheros que auditan.
+
+De ahí salen tres cosas que la carrera no decía:
+
+1. **Un número quemado por abrir la pantalla es indistinguible de uno emitido.** No es que
+   sea difícil: **no hay dato que los separe.**
+2. **Dos certificados con el mismo número tampoco se detectan después.** El fallo de la
+   §225 no deja huella comprobable ni siquiera cuando ocurre.
+3. **La pregunta que un colegio haría en una auditoría —«¿cuántos certificados emitimos
+   este año y a quién?»— hoy no tiene respuesta**, ni con acceso total a la base.
+
+*La carrera es un fallo; esto es la ausencia del registro que permitiría verla. Y por eso
+la resta que no se pudo hacer informa la decisión más que el número que buscaba.*
+
+### Lo que sí se midió, y decide DÓNDE está la cura
+
+`tests/Barrido/QuemaDelConsecutivoTest.php`, valor a valor sobre el endpoint real:
+
+| lo que manda el cliente | ¿sube? |
+|---|---|
+| **no mandar la clave** | no sube |
+| `true` (booleano) · `"true"` | **SUBE** |
+| `false` (booleano) · `"0"` · `0` | no sube |
+| **`"false"` (cadena)** | **SUBE** |
+| `"si"` (cualquier cadena no vacía) | **SUBE** |
+
+**El servidor sólo sube cuando se lo piden**, así que **la cura está entera en el front y
+no toca los dieciséis despliegues** — que era la pregunta abierta sobre el coste de la
+salida.
+
+**Pero con una condición que nadie adivina leyendo el endpoint:** el incremento está
+detrás de `Request::input('aumentar_contador') == true`, con `==` y no `===`, y **en PHP
+cualquier cadena no vacía que no sea `'0'` es cierta**. Un cliente que mande la **cadena**
+`"false"` creyendo que dice «no subas» **quema un folio oficial**. La instrucción segura
+para el front es **omitir la clave**, no mandar `false`.
+
+> Es **la misma comparación laxa que ya se corrigió doce líneas más arriba en el mismo
+> fichero** (`year_selected`, donde `0 == 'true'` era cierto). *Se arregló la de al lado y
+> no ésta, porque la de al lado daba un síntoma visible y ésta sólo gasta un número que
+> nadie echa en falta.*
+
+Queda fijado en rojo junto a los otros tres: `ConsecutivoDeCertificadosTest`, grupo
+`rojo`, **cuatro rojos** ahora.
+
+### Y el límite de esta medición, que hay que leer con el número
+
+**Todo esto se midió contra la base de tests, que es un seed y no producción.** La tabla
+de valores **no depende de los datos** —es la semántica de PHP y vale igual en los
+dieciséis—, pero **«cuántos números se han quemado en cada colegio» sigue sin saberse, y
+no por falta de acceso: porque el dato no existe en ninguna parte.** Con acceso a las
+dieciséis bases, la respuesta sería la misma.
+
+## §232. ¿Quién más deja que una cadena cualquiera valga por «sí» y con eso escriba? Tres sitios
+
+La pregunta de siempre aplicada al fallo de la [§231](#). **No es el censo de `== true`
+del repo** —ése es largo y casi todo inofensivo—: es la intersección de **tres**
+condiciones, y la intersección es lo que la hace corta.
+
+> una comparación **laxa**, sobre un valor que viene del **cliente**, que decide si se
+> ejecuta un **`INSERT`, `UPDATE` o `DELETE`**.
+
+**Población: 112 ficheros, 980 sentencias `if`, 21 cumplen las tres.** De esas 21, **tres
+sitios tienen consecuencia real**; el resto son `->save()` donde el test laxo elige entre
+dos campos, no si se escribe.
+
+> **El filtro se estrechó una vez y hay que decir por qué.** Con `== ''` y `== 1` dentro
+> salían **56**. Pero `if ($x == '')` **falla de otra manera** —«vino o no vino»— y **no
+> convierte un «no» en un «sí»**, que es el fallo del que trata esto. Sólo tests de
+> verdad: `if ($x)`, `if (!$x)`, `== true`, `!empty()`. *Un filtro que devuelve cincuenta
+> y seis sitios no es una lista: es otro censo.*
+>
+> Y el detector **encuentra el caso conocido** —`Informes/BolfinalesController:85-86`—,
+> que es su control positivo. Sin eso, sus 21 no valen nada.
+
+### Los tres, ordenados por lo que se pierde si el cliente manda `"false"`
+
+**1. `PUT bolfinales/detailed-notas-year-group` — el de la [§231](#).** `auth.personal`.
+Quema **un número de folio oficial**, irrecuperable y sin registro que lo distinga de uno
+emitido. Ya medido valor a valor.
+
+**2. `PUT periodos/copiar` — copia NOTAS que nadie pidió.** `auth.personal`.
+
+    $copiar_notas = Request::input('copiar_notas');       // PeriodosController:182
+    ...
+    if ($copiar_notas and $grupo_to_id == $grupo_from_id) // :229
+        → new Nota; ... $nota_new->save();
+
+Un cliente que mande `copiar_notas: "false"` **crea notas de alumnos en el periodo
+destino**. No es un contador: es **la tabla `notas`**, que es de lo que trata el
+[plan de definitivas](10-definitivas.md) entero. Y **no hay forma de distinguir después
+una nota copiada de una puesta a mano**.
+
+**3. `PUT votaciones/set-actual` y `PUT votaciones/set-in-action` — aquí no se salta la
+escritura: se INVIERTE.** `auth.personal`.
+
+    $actual = Request::input('actual', true);   // OJO: por defecto true
+    if ($actual) { ...UPDATE ... SET actual=true...  } else { ...SET actual=false... }
+
+**Las dos ramas escriben**, así que `"false"` no deja de escribir: **escribe lo
+contrario de lo que el cliente pidió**. Manda «desactiva» y **activa** — y de paso
+desactiva todas las demás votaciones del usuario. *Un cliente que mande cadenas **no
+tiene forma de apagarlo**: `"false"` lo enciende, y sólo `false`, `"0"` o `0` lo apagan.*
+Además `Request::input('actual', true)` **por defecto activa**, así que omitir la clave
+tampoco sirve.
+
+> **Es una forma peor que la del contador y no la teníamos nombrada.** En el contador, el
+> valor laxo hace que ocurra **una escritura de más**. Aquí hace que ocurra **la escritura
+> contraria**, y el endpoint contesta `'Cambiado true'` — o sea que **el cliente recibe
+> confirmación de lo que no pidió**.
+
+### Lo que este barrido NO contesta
+
+- **Sólo mira dentro del método.** Un flag que se pasa a otro método y se evalúa allí no
+  lo sigue.
+- **No prueba que ningún cliente mande hoy esas cadenas.** Dice que **si las manda, pasa
+  esto**. Lo primero es una pregunta para los cuatro fronts, no para este repo.
+- **Las 21 se ordenaron a mano.** El detector no distingue un `->save()` de un `DELETE`
+  de notas, y esa distinción es la que deja tres de veintiuna.
+
+## §233. No son dos: son diez, y `ColumnaSegura` sólo vio una de las dos formas de escribirlo
+
+Un carril del front avisó de que **`GuardarAlumno::valor` interpola `$propiedad` en el SQL
+en dos de sus tres ramas**, sin `ColumnaSegura`. **Verificado y cierto.** Y verificado
+también lo que decía de que **no es un fallo vivo**: a esas dos ramas sólo se llega con
+uno de los literales del `switch`.
+
+**Pero la pregunta «¿quién más?» da diez, no dos.** Todo sitio de `app/` que mete una
+variable como **nombre de columna** en un `UPDATE`:
+
+| sitio | qué lo protege hoy |
+|---|---|
+| `Alumnos/GuardarAlumno:44` → `users` | `switch` con **3** `case` literales |
+| `Alumnos/GuardarAlumno:76` → `matriculas` | `switch` con **13** `case` literales |
+| `ProfesoresController:252` → `users` | `if (… == 'is_active')` **y sólo superusuario** |
+| `UniformesController:87` → `uniformes` | **nada** — pero `$propiedad` **no existe**: el método está roto desde antes de la migración ([§6.5](#), [§27.2](#)) |
+| `Piars/PiarsAlumnos:84, 115, 180` | `in_array($field, $validFields)` — **lista blanca explícita** |
+| `Piars/PiarsAsignaturas:69` | ídem |
+| `ChangeAsked:901` | **los cuatro literales del sitio de llamada** (`'nombres'`, `'apellidos'`, `'sexo'`, `'fecha_nac'`); es un método privado |
+| `Console/LimpiarHtmlPiar:133` | comando de consola: **no hay cliente** |
+
+**Cero fallos vivos.** Y **cinco mecanismos distintos**, de los cuales `ColumnaSegura`
+—la clase que existe para esto— **no es ninguno**.
+
+### El hallazgo no es la lista: es por qué la lista tiene diez y el barrido dijo tres
+
+La cabecera de `App\Support\ColumnaSegura` dice:
+
+> *«en diez sitios no se validaba… **Tres de los sitios que comparten esta forma** sí
+> estaban a salvo, porque la propiedad venía restringida por un switch con casos
+> literales. Esos no se tocan.»*
+
+**«Esta forma» es literal, y ahí está el hueco.** Contando por sintaxis:
+
+    concatenacion   SET '.$x.'     4 sitios   (los 3 «a salvo» + Uniformes, roto)
+    interpolacion   SET $x=        6 sitios   (Piars x4, ChangeAsked, el comando)
+
+**El barrido que produjo `ColumnaSegura` vio la concatenación y no vio la interpolación
+entre comillas dobles**, que es *la misma construcción escrita de otra manera*. Sus tres
+«a salvo» cuadran exactamente con los de la primera forma. **Los seis de la segunda no es
+que se descartaran: no se miraron.**
+
+Salieron seguros —listas blancas y literales en el sitio de llamada—, **pero eso se sabe
+hoy y no se sabía entonces**. *El barrido tuvo suerte, y la suerte no es una propiedad del
+código.*
+
+> Es la misma familia que llevaba toda la noche: **el detector cuenta bien lo que su patrón
+> reconoce, y el patrón es una decisión que nadie vuelve a mirar.** Aquí no falló un
+> número: **faltó un `grep` con la otra sintaxis.**
+
+### Y la asimetría que sí hay que dejar dicha
+
+**`valorAcudiente()`, doce líneas más abajo en el mismo fichero, resuelve el mismo problema
+sin interpolar nada:**
+
+    case 'username':   'UPDATE users SET username=:valor …'          // el literal, escrito
+    case 'parentesco': 'UPDATE parentescos SET parentesco=:valor …'
+    default:           'UPDATE acudientes SET '.ColumnaSegura::exigir('acudientes', $propiedad).'…'
+
+**El método hermano no necesita guarda en sus ramas enumeradas porque no concatena.** Su
+gemelo `valor()` sí concatena, y por eso su seguridad depende de la forma del `switch`.
+
+**No se arregla aquí**: son dos líneas de `app/`, o sea dieciséis despliegues, y **no hay
+fallo vivo que justifique moverlos esta noche**. Lo que falta —y es lo barato— es **que
+esas dos líneas digan que la protección vive arriba**, para que quien toque el `switch`
+sepa qué está sosteniendo. Hoy sólo lo señala la asimetría con la clase de al lado, que es
+como salió la mitad de lo de esta noche.
+
+### El contrato de `ColumnaSegura`, para quien lo comprueba desde un cliente
+
+- **Cuando la columna no vale: `abort(422, 'Propiedad no válida.')`.**
+- **Las columnas válidas salen del esquema EN VIVO** (`Schema::getColumnListing`), cacheadas
+  por tabla en el proceso — **no de una lista escrita a mano**, y eso es deliberado: *una
+  lista a mano se quedaría corta el día que alguien añada un campo, y el arreglo de
+  seguridad se convertiría en una avería.*
+- Además: una lista negra (`id`, `created_*`, `updated_*`, `deleted_*`) y un
+  `^[a-zA-Z][a-zA-Z0-9_]*$` — sin comillas, espacios, paréntesis, comas ni punto y coma.
+- Devuelve el nombre **ya entre acentos graves**, *para que no se pueda validar y concatenar
+  la variable sin validar por descuido.*

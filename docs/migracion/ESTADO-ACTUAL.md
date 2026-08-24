@@ -55,11 +55,33 @@ una está en el 05 o en el 09; aquí sólo lo que decide.
 
 | | Qué | Si no se contesta |
 |---|---|---|
-| **1** | **Abrir el certificado de periodo quema un número consecutivo, y la lectura+escritura del contador no está en transacción.** Dos personas abriéndolo a la vez → **dos certificados con el mismo número** ([05 §195](05-codigo-muerto-y-roto.md)) | Sigue pasando. **El disparador es abrir la pantalla**, y en secretaría en cierre de periodo dos a la vez **es el caso normal**. Un número saltado se justifica; **uno repetido, no**. *(Se pidió el test que falle hoy: si sale rojo, el arreglo entra con red. Si no se puede escribir, la decisión es tuya.)* |
-| **2** | **`PUT bolfinales/cambiar-contador-certificados` fija el consecutivo a lo que venga en el cuerpo, sin validación, con `auth.personal`** | **Cualquiera de los 51 profesores puede fijar el número de certificados del colegio** |
+| **1** | **Abrir el certificado de periodo quema un número consecutivo, y la lectura+escritura del contador no está en transacción.** Dos personas abriéndolo a la vez → **dos certificados con el mismo número** ([05 §195](05-codigo-muerto-y-roto.md)) | Sigue pasando. **El disparador es abrir la pantalla**, y en secretaría en cierre de periodo dos a la vez **es el caso normal**. Un número saltado se justifica; **uno repetido, no**. *(**El test rojo ya está escrito y cae hoy**: `tests/Contrato/ConsecutivoDeCertificadosTest.php`, grupo `rojo`, excluido de la suite normal — [05 §225](05-codigo-muerto-y-roto.md). Demuestra la carrera **sin hilos y sin depender de tiempos**, y al caer dice «las dos leyeron 115 y las dos escribieron 116». **El arreglo ya tiene red; falta tu decisión, no el test.** Y la pregunta «¿cuántos números se han quemado ya?» **no se puede contestar**: NINGUNA TABLA guarda un certificado emitido —`config_certificados` es maquetación—, así que **un número quemado por abrir es indistinguible de uno emitido**, dos certificados con el mismo número no se detectan después, y *«¿cuántos emitimos este año y a quién?»* **hoy no tiene respuesta ni con acceso total a la base** ([05 §231](05-codigo-muerto-y-roto.md)). **Eso es peor que la carrera.** Lo bueno: el servidor sólo sube cuando se lo piden, así que **la cura está entera en el front y no toca los dieciséis despliegues** — pero el front tiene que **OMITIR la clave**, porque mandar la cadena `"false"` **quema un número igual** (`== true` es cierto para cualquier cadena no vacía).)* |
+| **2** | **`PUT bolfinales/cambiar-contador-certificados` fija el consecutivo a lo que venga en el cuerpo, sin validación, con `auth.personal`** — **y son DOS: `cambiar-contador-folios` es la misma línea sobre otra columna, con el mismo guard y sin validación** ([05 §225](05-codigo-muerto-y-roto.md)). Los dos contestan **200 y escriben** cuando se les manda `'no soy un número'`; los dos tienen su test rojo | **Cualquiera de los 51 profesores puede fijar el número de certificados del colegio** — y el de folios. **Esto no necesita que coincidan dos personas como la carrera: lo hace una sola, a propósito o con un cuerpo mal formado** |
 | **2bis** | **¿Manda el backend `version_minima_app` en la respuesta de `/login`?** Tú ya dijiste **sí a que la app bloquee**; **la app ya lo tiene escrito y probado** (414 pruebas), enganchado en los tres sitios por los que pasa una respuesta de `/login` —incluido el refresco, que es el único punto en el que se entera **sin que el usuario salga y vuelva**—. **El campo es `version_minima_app` y el valor es el `versionCode` (el `+N`), no la versión con puntos**; se lee **tolerante** (`"12"` como cadena también vale). **Y hay un plazo:** si se prefiere otro nombre, **hay que decirlo antes de que se publique una versión de la app leyendo éste** — después, cambiarlo obliga a mandar **los dos campos** durante un tiempo | **Sin ese campo, lo de la app es código dormido**: con el fallo abierto por defecto no bloquea a nadie mientras nadie lo mande. **El día que se mande, empieza a bloquear** — y **es lo único que hoy permitiría retirar un endpoint** en los dieciséis. Con la carga dicha: **subir ese número es una ceremonia de despliegue**, porque **desde el cliente no se distingue un `.env` mal puesto de un colegio exigente** |
 | **3** | **Publicar lo terminado.** `7b` y `f8` cerraron sin empujar, y hacen bien | Cinco lotes cerrados esta noche siguen sin salir. **Fusionado no es desplegado** |
 | **4** | **La firma del profesor: dos endpoints, permisos distintos, y sólo uno comprueba de quién es la imagen** ([05 §168](05-codigo-muerto-y-roto.md), §182) | La mina sigue puesta. **Y los dos criterios no se contienen**, así que *«cuál gana»* **no se puede contestar eligiendo el más restrictivo** |
+
+### Y un hecho administrativo, que se apunta porque no lo vio nadie
+
+**La noche del 24 al 25 se quedó sin coordinación en `8myvc`.** El briefing
+(`8myvc-cola/noche-2026-08-24/BRIEFING.md`) dice que coordina `8myvc-34` y que **`main` no lo
+mueve nadie más que quien coordina, y sólo en el árbol raíz**. `8myvc-34` **dejó de estar viva
+en algún momento de la madrugada**, y el documento siguió escrito **sin nadie que lo
+administrara**: el turno, la tabla de ficheros cogidos y quién mueve `main` quedaron congelados
+en la foto de hace horas.
+
+**Lo que sí funcionó, y por eso esto es un apunte y no un incidente:** las dos sesiones vivas de
+`8myvc` se preguntaron entre ellas y lo cerraron —`main` lo movía `8myvc-7b`, con autorización
+tuya en persona y con sus motivos escritos, no una sesión fantasma—, y la coordinación de
+`myvc_front` **declaró que no tenía autoridad aquí** en cuanto se le preguntó, en vez de ocupar
+el hueco.
+
+> **Un briefing escrito sin nadie que lo administre es un hecho que se deja por escrito, no un
+> hueco que se ocupa porque está vacío.** Ninguna de las dos sesiones se postuló para coordinar,
+> y eso fue lo correcto: **nadie hereda una autorización por ser el que queda**.
+
+Se apunta aquí para que mañana leas *«faltó coordinación en `8myvc` esta noche»* y no
+*«nadie se dio cuenta»*.
 
 ### Disciplina, certificados e interruptores ([09 §15](09-pendientes.md))
 
@@ -91,10 +113,40 @@ una está en el 05 o en el 09; aquí sólo lo que decide.
 
 | | Qué |
 |---|---|
-| **9** | **El boletín final tarda 24–63 s y se cae bajo carga**, y ya está medido de dónde viene: **2.602 de 3.355 consultas por petición — el 78% — son dos bucles anidados**: **1.480 en `asignaturasPerdidasDeAlumno`** y **1.122 en `definitivasMateriasXPeriodo:415`** *(corregido: esta coordinación las había bautizado con otros dos métodos y la etiqueta se propagó sin comprobar)*. **Arreglarlo es una agregación por grupo, o sea un frente**, y no lo abre nadie sin ti. **Y son DOS caminos vivos, no uno:** el mismo problema está en `app/Http/Controllers/BolfinalesController.php` —alcanzable por `new` desde `certificados-estudio/certificado-grupo`, con las tres invariantes en Eloquent (líneas 67, 86 y 267)— **sin medir**. *(Y va corregido lo que esta coordinación escribió antes: sacar la consulta invariante del bucle **quita 407 consultas y no mueve el tiempo**, así que **la fase 2 de definitivas sigue siendo el bloqueante**, no deja de serlo.)* |
+| **9** | **El boletín final tarda 24–63 s y se cae bajo carga**, y ya está medido de dónde viene: **2.602 de 3.355 consultas por petición — el 78% — son dos bucles anidados**: **1.480 en `asignaturasPerdidasDeAlumno`** y **1.122 en `definitivasMateriasXPeriodo:415`** *(corregido: esta coordinación las había bautizado con otros dos métodos y la etiqueta se propagó sin comprobar)*. **Arreglarlo es una agregación por grupo, o sea un frente**, y no lo abre nadie sin ti. **Y son DOS caminos vivos, no uno:** el mismo problema está en `app/Http/Controllers/BolfinalesController.php` —alcanzable por `new` desde `certificados-estudio/certificado-grupo`, con las tres invariantes en Eloquent (líneas 67, 86 y 267)—, **y ya está medido: 3.820 consultas y 11,4 s para devolver un 500** ([05 §224](05-codigo-muerto-y-roto.md)). **Cuesta más que el que dio el 504 antes de curarlo** (3.763) **y no devuelve nada**: la vista `certificados.estudio` no existe en el repositorio, así que el 500 es del 100% de las llamadas, y `detailedNotasGrupo` corre entero antes de reventar. **Por eso no se optimiza**: sería tocar `app/` en dieciséis despliegues para que un 500 llegue antes. **La decisión es tuya y son dos ramas:** *si esa pantalla debe existir*, hay que escribir la vista **y** curar el patrón —y entonces será **la página más cara del sistema, más que la que dio el 504**—; *si no debe existir*, se retira la ruta y **no hay nada que optimizar**. **Mientras tanto no se borra: con ruta y roto se documenta** — borrarla convertiría el 500 en un 404 sin decirle a nadie qué pretendía esa pantalla. *(Y va corregido lo que esta coordinación escribió antes: sacar la consulta invariante del bucle **quita 407 consultas y no mueve el tiempo**, así que **la fase 2 de definitivas sigue siendo el bloqueante**, no deja de serlo.)* |
 | **10** | **Los seis `DB::select` que escriben** ([05 §191](05-codigo-muerto-y-roto.md)). Una palabra por sitio, **ningún cambio de conducta hoy** — y **ningún test rojo delante**, dos ficheros cogidos, y uno corre en cada petición |
 | **11** | **Las dos del boletín independiente** ([19](19-boletin-independiente.md) §2): quién marca a un alumno, y qué puesto lleva su boletín |
 | **12** | **Unificar los cuatro informes de puestos con los ocho de impresión**: les cambia la conducta a cuatro que hoy no preguntan nada |
+
+### Dos escrituras que el cliente puede invertir con una cadena ([05 §232](05-codigo-muerto-y-roto.md))
+
+Salieron de preguntar **quién más** hace lo del contador de certificados: una comparación
+**laxa**, sobre un valor del **cliente**, que decide si se **escribe**. **De 980 `if` del
+proyecto, 21 cumplen las tres condiciones y tres tienen consecuencia.** El tercero
+—`bolfinales`— ya es el punto 1.
+
+| | Qué | Si no se contesta |
+|---|---|---|
+| **16** | **`PUT periodos/copiar` crea NOTAS que nadie pidió.** `if ($copiar_notas and …)` → `new Nota; save()`. Un cliente que mande `copiar_notas: "false"` **escribe en la tabla `notas`** — la del [plan de definitivas](10-definitivas.md) — y **después no hay forma de distinguir una nota copiada de una puesta a mano** | El front midió que **hoy ningún cliente manda esas cadenas** (11 llamadas, 0 cadenas), así que **no es un fallo vivo**: es una puerta abierta que **basta un control nuevo para cruzar** |
+| **17** | **`PUT votaciones/set-actual` y `set-in-action` no se saltan la escritura: la INVIERTEN.** Las dos ramas escriben, así que `"false"` **activa** la votación, desactiva las demás del usuario, y contesta `'Cambiado true'` — **el cliente recibe confirmación de lo que no pidió**. Y `Request::input('actual', true)` por defecto **activa**, así que **omitir la clave tampoco salva** | **Es una forma peor que la del contador y no estaba nombrada**: allí el valor laxo produce una escritura **de más**; aquí produce la **contraria** |
+
+> **Y la precisión del front, que estrecha el triaje:** *«manda una cadena» no es la
+> condición*. En PHP `'0'` es falsy y `'1'` truthy, así que **las dos formas que un
+> checkbox de AngularJS produce de verdad se comportan bien, por accidente**. La única
+> cadena fatal es una no vacía distinta de `'0'` — `"false"`, `"off"`, `"no"`.
+
+### Una nota que NO es una decisión, y por eso va al final ([05 §233](05-codigo-muerto-y-roto.md))
+
+**Diez sitios de `app/` meten una variable como nombre de columna en un `UPDATE`, y los
+diez son seguros hoy** — por **cinco mecanismos distintos**, de los cuales `ColumnaSegura`
+—la clase que existe para esto— **no es ninguno**. **Cero fallos vivos, nada que decidir.**
+
+Va escrito porque **el barrido que creó `ColumnaSegura` sólo vio una de las dos sintaxis**:
+la concatenación `SET '.$x.'` (4 sitios) y no la interpolación `SET $x=` (6). *Los seis no
+se descartaron: no se miraron*, y salieron seguros por listas blancas y literales — **eso se
+sabe hoy y no se sabía entonces**. Lo único barato que falta, **el día que se toque ese
+fichero por otra cosa**: dos comentarios que digan que la protección vive en el `switch` de
+arriba y no en la línea.
 
 ### Y tres números viejos en documentos que no toco sin ti
 
