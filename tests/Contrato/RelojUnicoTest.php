@@ -106,6 +106,60 @@ class RelojUnicoTest extends TestCase
         );
     }
 
+    /**
+     * El camino de vuelta, que es el que faltaba.
+     *
+     * Lo encontró `8myvc-39` con **17.999 segundos** de diferencia —las cinco
+     * horas al segundo— leyendo `auditoria.ocurrido_en` con `strtotime()`. Una
+     * cadena `DATETIME` **no lleva la zona dentro** y `config/app.php` está en
+     * UTC, así que quien la lea sin decirla la mueve cinco horas y devuelve algo
+     * que parece correcto.
+     */
+    #[Test]
+    public function el_texto_vuelve_en_la_misma_hora_en_la_que_salio(): void
+    {
+        $salida = Reloj::ahoraTexto();
+        $vuelta = Reloj::desdeTexto($salida);
+
+        $this->assertNotNull($vuelta);
+        $this->assertSame(Reloj::ZONA, $vuelta->timezoneName);
+        $this->assertSame($salida, $vuelta->format('Y-m-d H:i:s.v'),
+            'La ida y la vuelta no dan la misma hora: el viaje redondo está roto.');
+
+        // Y la comparación que de verdad muerde: leerlo mal mueve cinco horas.
+        //
+        // El signo importa y me lo comí a la primera: Bogotá es **UTC−5**, así que
+        // la misma hora de pared leída como UTC es un instante ANTERIOR, no
+        // posterior. `$vuelta` (bien) va 18.000 segundos por delante de `$mal`.
+        $mal = Carbon::createFromFormat('Y-m-d H:i:s.v', $salida);   // sin zona -> UTC
+        $this->assertSame(
+            5 * 3600,
+            (int) round($vuelta->getTimestamp() - $mal->getTimestamp()),
+            'Si esto deja de ser 18.000 segundos, o cambió la zona o cambió '.
+            '`config/app.php`, y las dos cosas obligan a revisar el 18.'
+        );
+    }
+
+    /** Una columna vacía o corrupta no se convierte en una hora plausible. */
+    #[Test]
+    public function un_texto_que_no_es_una_fecha_devuelve_null(): void
+    {
+        $this->assertNull(Reloj::desdeTexto(null));
+        $this->assertNull(Reloj::desdeTexto(''));
+        $this->assertNull(Reloj::desdeTexto('vete a saber'));
+    }
+
+    /** Y las columnas viejas, que son DATETIME sin milisegundos. */
+    #[Test]
+    public function tambien_lee_las_columnas_sin_milisegundos(): void
+    {
+        $fecha = Reloj::desdeTexto('2026-08-24 03:51:13');
+
+        $this->assertNotNull($fecha);
+        $this->assertSame('2026-08-24 03:51:13', $fecha->format('Y-m-d H:i:s'));
+        $this->assertSame(Reloj::ZONA, $fecha->timezoneName);
+    }
+
     #[Test]
     public function no_hay_relojes_sin_zona_nuevos(): void
     {

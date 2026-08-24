@@ -82,4 +82,60 @@ final class Reloj
     {
         return self::ahora()->format('Y-m-d H:i:s.v');
     }
+
+    /**
+     * El camino de vuelta: leer una de estas columnas sin equivocarse de zona.
+     *
+     * **Faltaba, y la trampa que deja es peor que la de ida.** Lo encontró
+     * `8myvc-39` el 24 ago con una diferencia de **17.999 segundos** —las cinco
+     * horas, al segundo— en un test que leía `auditoria.ocurrido_en` con
+     * `strtotime()`.
+     *
+     * El porqué es que **las decisiones 1 y 2 del [18](../../docs/migracion/18-auditoria.md),
+     * que son correctas por separado, dejan juntas un hueco en la vuelta:**
+     *
+     * - La 1 guarda **hora de pared de Bogotá** en un `DATETIME`, que es lo que
+     *   hace que lo escrito sea lo leído en phpMyAdmin y en los dieciséis.
+     * - La 2 deja `config/app.php` en **UTC**.
+     * - Y una cadena `'2026-08-24 03:51:13.000'` **no lleva la zona dentro**.
+     *
+     * Así que cualquier PHP que la lea sin decir la zona —`strtotime()`,
+     * `Carbon::parse()`, `new Carbon($fila->columna)`— **la interpreta como UTC y
+     * la mueve cinco horas**, y devuelve algo que parece una fecha correcta. El
+     * mismo argumento que justifica `ahoraTexto()` vale doble aquí: existe para
+     * que no haya que acordarse del formato, y quien lee tenía que acordarse del
+     * formato **y además de la zona**.
+     *
+     * Importa sobre todo para la **fase 5**, que va a leer `ocurrido_en` en cuatro
+     * endpoints: un ingreso pintado cinco horas movido, en la pantalla que se pidió
+     * justamente porque «salen horas extrañas», sería el peor sitio para repetirlo.
+     *
+     * Devuelve `null` si el texto no tiene la forma esperada, en vez de inventar
+     * una fecha: una columna vacía o corrupta no debe convertirse en una hora
+     * plausible.
+     */
+    public static function desdeTexto(?string $texto): ?Carbon
+    {
+        if ($texto === null || $texto === '') {
+            return null;
+        }
+
+        // Con y sin milisegundos: `ocurrido_en` es DATETIME(3), pero las columnas
+        // viejas que esto también lee son DATETIME a secas.
+        //
+        // Con `try`/`catch` y no con `!== false`: esta versión de Carbon **lanza**
+        // `InvalidFormatException` en vez de devolver `false` como hacía el
+        // `DateTime` de PHP. Escrito con la comprobación de `false` —que es lo que
+        // dice media internet— un texto corrupto no devolvía `null`: reventaba la
+        // petición entera con un 500.
+        foreach (['Y-m-d H:i:s.v', 'Y-m-d H:i:s'] as $formato) {
+            try {
+                return Carbon::createFromFormat($formato, $texto, self::ZONA);
+            } catch (\Throwable) {
+                continue;
+            }
+        }
+
+        return null;
+    }
 }
