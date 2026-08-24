@@ -571,7 +571,11 @@ nadie mira esos campos al día siguiente**.
 
 **Con esta marca se ve al día siguiente y en la pantalla de otro**: el alumno
 sigue apareciendo entre los normales de la planilla y la ficha jura que está
-marcado. Es de la familia de la §28 —`WHERE actual=1` quedándose con el primero
+marcado. Y el front lo afinó todavía más (`myvc-front-10`): **el sitio donde se
+ve no es la ficha, es la planilla de OTRO docente**, sin ninguna marca, y **quien
+lo note no tiene forma de relacionarlo con un interruptor que alguien tocó en otra
+pantalla**. Por eso va en la fase 2 y no después: con la pantalla ya hecha, el
+primer informe sería *«el interruptor no guarda»* y se buscaría en el front. Es de la familia de la §28 —`WHERE actual=1` quedándose con el primero
 sin `ORDER BY`— y se arregla igual: **una sola regla de cuál es la matrícula del
 año, compartida por la lectura y la escritura**, con su test de un alumno con dos
 matrículas. Va en la fase 2, antes de que exista la primera pantalla.
