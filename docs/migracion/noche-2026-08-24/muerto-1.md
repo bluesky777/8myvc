@@ -147,6 +147,81 @@ un test lento: **un centinela que se dispara solo enseña a ignorarlo.**
 
 ---
 
+## §5.bis — El precio de la regla gruesa, medido — y un camino vivo que la valida
+
+Lo cruzó `8myvc-ad` por **(clase, método)** y no por nombre —imprescindible:
+`detailedNotasGrupo` está en dos clases y `asignaturasPerdidasDeAlumnoPorPeriodo`
+en ocho—: **cero contradicciones con sus dos listas.**
+
+Y de paso midió lo que a esta herramienta le faltaba: **el radio de la
+sobre-aproximación del `new`**.
+
+> **16 de las 113 clases de controlador se instancian con `new` en algún sitio de
+> `app/`.** Fuera de esas 16, la regla gruesa **no puede actuar**: el resto se
+> decide por `$this->`, `Clase::` y las rutas, que son exactos.
+
+Ésas son: `BolfinalesController`, `CalcPerdidasDefinitivas`, `Definitivas`,
+`DisciplinaController`, `GuardarAlumno`, `HistorialCalc`, `ImporterFixer`,
+`OperacionesAlumnos`, `PuestosController`, `Solicitudes`, las tres `Piars*Utils` y
+las tres del importador de Excel.
+
+### Y el caso que la valida no es hipotético
+
+`ad` fue a mirar lo que parecía una inconsistencia de esta lista —marca muerto
+`Informes/BolfinalesController::periodosPerdidosDeAlumno` y **no** su callee del
+mismo fichero— y encontró **un camino vivo que ninguna ruta nombra**:
+
+```
+GET certificados-estudio/certificado-grupo/{grupo_id}   (auth.personal)
+  → CertificadosEstudioController::getCertificadoGrupo
+    → new BolfinalesController          ← sin `use`: resuelve al de App\Http\Controllers
+      → $bol->detailedNotasGrupo(...)   ← llamada real, no sólo la arista gruesa
+```
+
+Comprobado aquí: `CertificadosEstudioController.php:1` declara
+`namespace App\Http\Controllers;` y **no importa ningún `BolfinalesController`**,
+así que el `new` de sus líneas 22 y 39 resuelve al **de la raíz**, no al de
+`Informes/`.
+
+> **El `BolfinalesController` de la raíz está VIVO aunque ninguna ruta lo nombre.**
+> Con un criterio fino, ese controlador entero habría salido como candidato a
+> borrar — y borrarlo rompe `certificados-estudio/certificado-grupo`.
+
+**Es la mejor defensa posible de la asimetría**: equivocarse hacia «vivo» cuesta
+una revisión; hacia «muerto», un endpoint.
+
+### Y comprobado que la lista no cambia
+
+Que ese camino esté vivo **no rescata a ninguno de los 34**, y esto se verificó en
+vez de suponerse: el `detailedNotasGrupo` de la raíz llama a
+`definitivasMateriasXPeriodo` y a `asignaturasPerdidasDeAlumno` —**los dos ya
+contados como alcanzables**— y **no llama a `periodosPerdidosDeAlumno`**, que por
+eso sigue siendo candidato con razón.
+
+### Los dos errores simétricos de `ad`, que valen como calibración
+
+| Sobre | Dijo | Era |
+|---|---|---|
+| `Informes/CertificadosPersonaController` | «hay que arreglarle las tres consultas» | **muerto** |
+| `BolfinalesController` (raíz) | «no está enrutado, da igual» | **vivo por un `new`** |
+
+Las dos veces juzgó la alcanzabilidad **buscando la clase en `routes/`** en vez de
+**seguir las llamadas**:
+
+> **Una clase sin ruta puede estar viva por un `new` desde una que sí la tiene, y
+> una con ruta puede tener 400 líneas que nadie alcanza.**
+
+### Y un pendiente que no es mío, anotado para que no se pierda
+
+`ad` midió que el `BolfinalesController` **de la raíz** tiene **las mismas tres
+consultas invariantes** que arreglaron en el gemelo de `Informes/`, escritas con
+Eloquent —`Periodo::where('year_id', …)->get()` en las líneas 67, 86 y **267, una
+por alumno × asignatura**—. **Mismo problema, camino distinto, sin medir.** No es
+de este lote y no se toca aquí; queda escrito porque **el camino que lo alcanza lo
+acaba de descubrir esta comprobación.**
+
+---
+
 ## §6 — Lo que este detector NO contesta
 
 - **Sigue llamadas, no ramas.** Un método invocado sólo dentro de un `if` que nunca

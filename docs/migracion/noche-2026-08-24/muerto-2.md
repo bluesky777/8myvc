@@ -125,6 +125,15 @@ llama nadie: `AusenciasController::getIndex`, `PermissionsController` (`getShow`
 front diciendo que ya lo miró.** Pero borrarlos **invalida documentación viva de
 otro repositorio**, y eso se avisa, no se descubre.
 
+**Avisado el 24 ago** en la sección C de
+`~/DESARROLLOS/myvc_front/PANTALLAS-HISTORIAL-Y-BOLETIN.md`, y **escrito como
+cortesía y no como alarma** —si se lee como alarma, el front busca un fallo que no
+existe—. Con una mitad que se les debía: **su aviso de que el
+`BolfinalesController` de la raíz «no está enrutado» es correcto en la letra y
+engañoso en la conclusión** — no tiene ruta, pero está **vivo** por el
+`new BolfinalesController` de `CertificadosEstudioController` (§5.bis de
+[muerto-1.md](muerto-1.md)).
+
 ### C · Subárbol — **enteros o nada** (11)
 
 - **`periodosPerdidosDeAlumno`**: definido en **5** controladores, **sin camino en
