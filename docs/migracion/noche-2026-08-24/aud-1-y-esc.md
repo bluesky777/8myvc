@@ -170,6 +170,50 @@ contra la escala del año en curso rechazaría notas correctas de un año viejo.
 
 ---
 
+## §2.bis El cabo suelto que dejo medido: el centinela vigila quién escribe, no quién lee
+
+Lo encontró `8myvc-39` fundiendo el reloj, con **17.999 segundos** de diferencia
+en un test suyo —las cinco horas al segundo— leyendo `auditoria.ocurrido_en` con
+`strtotime()`.
+
+**Son dos decisiones correctas que juntas dejan una trampa en la vuelta:**
+
+- la **decisión 1** guarda hora de pared de Bogotá en un `DATETIME`, que es lo que
+  hace que lo escrito sea lo leído en phpMyAdmin y en los dieciséis;
+- la **decisión 2** deja `config/app.php` en UTC;
+- y una cadena `'2026-08-24 03:51:13.000'` **no lleva la zona dentro**.
+
+Así que cualquier PHP que la lea sin decirla la interpreta como UTC y **la mueve
+cinco horas, devolviendo algo que parece una fecha correcta**.
+
+Cerrada la mitad que se podía cerrar: **`Reloj::desdeTexto()`** existe y hace el
+viaje de vuelta bien, con tres tests —incluido uno que comprueba que la diferencia
+sigue siendo de **18.000 segundos exactos**, porque si deja de serlo es que cambió
+la zona o cambió `config/app.php`, y las dos cosas obligan a revisar el 18—.
+
+**Lo que queda abierto: nada obliga a usarlo.** Medido:
+
+| | |
+|---|---|
+| `strtotime()` / `Carbon::parse()` / `new Carbon()` en `app/` | **42** |
+| De ésos, peligrosos | los que leen una **columna de fecha y hora** de la base |
+| Inofensivos | los que parsean **entrada del usuario** o columnas de **sólo fecha** (`fecha_nac`), donde la zona no desplaza nada |
+
+**No se escribe el centinela de lectura aquí, y el motivo no es pereza:** un
+detector sobre las 42 daría sobre todo falsos positivos, y la [§142](../noche-2026-08-23/r.md)
+enseñó lo que cuesta un detector que cuenta bien el síntoma y no la causa.
+**Cabe en la fase 5**, que es la que va a leer estas columnas de verdad y tendrá
+la lista corta de las que importan.
+
+> **Y la asimetría merece quedarse escrita aparte del caso**, porque se va a
+> repetir: `RelojUnicoTest` se escribió para vigilar **quién escribe** con el
+> reloj equivocado. La mitad de lectura ni siquiera se pensó. Un centinela que
+> cubre una dirección de un problema de dos **parece** que cubre el problema — y
+> lo demostró fallando: el reloj estaba bien, el test del reloj estaba verde, y la
+> hora salía cinco horas movida igual.
+
+---
+
 ## §3. Lo que cambia para los clientes
 
 Por el §1.8 del briefing, porque **esto cambia respuestas**:
