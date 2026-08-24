@@ -158,9 +158,11 @@ class DefinitivasPeriodosController extends Controller {
 			// `notas_finales`, que es la tabla de la que va la mitad del plan. Un censo de
 			// «qué escribe» hecho por el nombre del método los dejaba fuera justo ahí.
 			//
-			// Y en este mismo método queda `:108` pendiente: su lectura de `unidades` no
-			// tiene alcance del boletín independiente y sale de BI-2 con ciclo propio,
-			// porque acotarla SÍ cambia qué filas devuelve y esto no puede cambiar nada.
+			// Y la otra mitad de este método **ya está hecha**: su lectura de `unidades`
+			// se acotó al boletín independiente en DEF-108, en su propia pasada y su
+			// propio commit. **Fueron dos y no una a propósito**: cambiar la palabra no
+			// mueve la conducta y acotar la lectura sí, y mezclarlas habría quitado la
+			// única propiedad que hacía seguro este cambio.
 			DB::insert($consulta, [
 				$defi_autos[$i]->alumno_id, $defi_autos[$i]->asignatura_id,
 				$defi_autos[$i]->periodo_id, $num_periodo,
