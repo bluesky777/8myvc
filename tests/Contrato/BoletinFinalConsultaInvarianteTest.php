@@ -48,13 +48,69 @@ use PHPUnit\Framework\Attributes\DataProvider;
 class BoletinFinalConsultaInvarianteTest extends CasoDeContrato
 {
     /**
-     * La firma de la consulta que no depende del bucle.
+     * ¿Esta consulta es «los periodos de un año», y sólo eso?
      *
-     * Casa las **dos** formas —con `numero<=?` y sin él, según venga
-     * `periodo_a_calcular`— porque las dos son la misma invariante. Y se elige el
-     * `FROM … WHERE` y no un `SELECT *`: `SELECT *` sale en media API.
+     * Las tres condiciones están las tres porque **las tres primeras versiones de
+     * este predicado estaban mal, cada una en una dirección distinta**, y las tres
+     * daban un número creíble:
+     *
+     * | versión | qué hacía | qué daba |
+     * |---|---|---|
+     * | `'FROM periodos WHERE year_id'` | subcadena del SQL crudo | **se le escapaba Eloquent**: `Periodo::where('year_id', …)->get()` genera `` select * from `periodos` where `year_id` = ? `` —comillas invertidas, minúsculas, otro espaciado— y ninguna subcadena del literal aparece ahí |
+     * | `from periodos` + `year_id` | ancha | **408 → 38**, y las 37 nuevas eran **falsas**: la consulta de comportamiento hace `FROM periodos p LEFT JOIN nota_comportamiento …`, o sea que **pasa por `periodos` sin ser «los periodos del año»** |
+     * | ídem **sin `join`** | ésta | 408 → 1, igual que la primera, **y además vería la forma de Eloquent** |
+     *
+     * **Estrechar y ensanchar son dos maneras de equivocarse mientras el predicado
+     * no reconozca la estructura de lo que busca.** Lo que separa la invariante de
+     * la de comportamiento no es cómo se escribe `periodos`: es que **la invariante
+     * no une con nada**. Ése es el discriminador, y es el que faltaba.
+     *
+     * No es una precaución teórica: el gemelo
+     * `app/Http/Controllers/BolfinalesController.php` tiene **las mismas tres
+     * consultas invariantes escritas con Eloquent** (líneas 67, 86 y 267, la última
+     * una vez por alumno × asignatura) **y es código vivo** — se alcanza por
+     * `GET certificados-estudio/certificado-grupo/{grupo_id}` →
+     * `new BolfinalesController` → `->detailedNotasGrupo(...)`. Con la primera
+     * versión del predicado, este test daría verde sobre ese camino con el problema
+     * entero dentro.
      */
-    private const FIRMA = 'FROM periodos WHERE year_id';
+    private static function esDeLosPeriodosDelAnio(string $sql): bool
+    {
+        return preg_match('~\bfrom\s+`?periodos`?\b~i', $sql) === 1
+            && stripos($sql, 'year_id') !== false
+            && stripos($sql, 'join') === false;
+    }
+
+    /**
+     * Y el predicado se comprueba a sí mismo, con las tres formas reales.
+     *
+     * Va como test y no como comentario porque **un predicado de conteo que nadie
+     * ejerce es la mitad de la medición sin comprobar**: si mañana alguien lo
+     * estrecha o lo ensancha, la cota de arriba sigue en verde y el número cambia
+     * sin que nada avise. Los tres SQL son los de verdad, copiados de la salida de
+     * `DB::listen`.
+     */
+    public function test_el_predicado_reconoce_las_dos_formas_y_rechaza_la_del_join(): void
+    {
+        $this->assertTrue(self::esDeLosPeriodosDelAnio(
+            'SELECT * FROM periodos WHERE year_id=? and deleted_at is null'),
+            'Dejó de reconocer el SQL crudo, que es el que hay en el controlador de `Informes/`.');
+
+        $this->assertTrue(self::esDeLosPeriodosDelAnio(
+            'SELECT * FROM periodos WHERE year_id=? and numero<=? and deleted_at is null'),
+            'Dejó de reconocer la rama de `periodo_a_calcular`.');
+
+        $this->assertTrue(self::esDeLosPeriodosDelAnio(
+            'select * from `periodos` where `year_id` = ? and `periodos`.`deleted_at` is null'),
+            'Dejó de reconocer la forma de Eloquent, que es la que tiene el gemelo VIVO '
+            .'de `app/Http/Controllers/BolfinalesController.php`.');
+
+        $this->assertFalse(self::esDeLosPeriodosDelAnio(
+            'SELECT n.nota as nota_comportamiento, n.id, p.numero FROM periodos p '
+            .'LEFT JOIN nota_comportamiento n ON n.periodo_id=p.id WHERE p.year_id=?'),
+            'Volvió a contar la consulta de comportamiento, que pasa por `periodos` sin '
+            .'ser «los periodos del año». Son 37 falsos positivos por petición.');
+    }
 
     /**
      * Cuántas veces puede pedir el año sus periodos en una sola llamada.
@@ -123,7 +179,7 @@ class BoletinFinalConsultaInvarianteTest extends CasoDeContrato
         DB::listen(function ($consulta) use (&$deLaInvariante, &$todas) {
             $todas++;
 
-            if (str_contains($consulta->sql, self::FIRMA)) {
+            if (self::esDeLosPeriodosDelAnio($consulta->sql)) {
                 $deLaInvariante++;
             }
         });

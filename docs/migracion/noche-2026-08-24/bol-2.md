@@ -86,6 +86,29 @@ que el oyente haya visto consultas**. Con una cota de tipo «no más de N», **c
 el mejor resultado posible**, así que un `DB::listen` desenganchado deja el test en
 verde sin medir nada.
 
+### El predicado del conteo estuvo mal tres veces, cada una en una dirección
+
+El número **408 → 1** es correcto, pero **la firma con la que se midió no lo era**,
+y se vio al cruzarlo con el gemelo:
+
+| versión | qué daba |
+|---|---|
+| `'FROM periodos WHERE year_id'`, subcadena del SQL crudo | 408 → 1 (**bien**), pero **ciega a Eloquent**: `Periodo::where('year_id', …)->get()` genera `` select * from `periodos` where `year_id` = ? `` y ninguna subcadena del literal aparece ahí |
+| `from periodos` + `year_id`, ancha | 408 → **38**, y **las 37 nuevas eran falsas**: la consulta de comportamiento hace `FROM periodos p LEFT JOIN nota_comportamiento …`, o sea **pasa por `periodos` sin ser «los periodos del año»** |
+| ídem **más «sin `join`»** | **408 → 1**, y además reconoce la forma de Eloquent |
+
+> **Estrechar y ensanchar son dos maneras de equivocarse mientras el predicado no
+> reconozca la estructura de lo que busca.** Lo que separa la invariante de la de
+> comportamiento no es cómo se escriba `periodos`: es que **la invariante no une con
+> nada**. Ése era el discriminador que faltaba, y es la misma forma que la de las
+> tres vistas del texto en [MED-4 §6](med-4.md).
+
+Y **el predicado se comprueba a sí mismo**, con los tres SQL reales copiados de
+`DB::listen` y el del `JOIN` como negativo. Va como test y no como comentario
+porque un predicado de conteo que nadie ejerce es **la mitad de la medición sin
+comprobar**: si mañana alguien lo estrecha, la cota sigue verde y el número cambia
+sin que nada avise.
+
 ### El segundo test es el que impide el arreglo ingenuo
 
 `test_cada_asignatura_perdida_conserva_su_propia_cuenta`, escrito **antes** de
@@ -214,11 +237,33 @@ ficheros de fuera del ámbito de Pint no se les pasa Pint**, aunque los toques.
   optimización pendiente. Y **no se borra en esta sesión**: cuatrocientas líneas
   son una decisión, y la regla de CLAUDE.md —*sin ruta y roto se borra*— pide
   antes comprobar que ningún cliente llame a algo que resucite ese camino;
-- **el otro `BolfinalesController`** —hay dos clases con ese nombre,
-  `app/Http/Controllers/BolfinalesController.php` y la de `Informes/`— **no está
-  enrutado**. Lo enrutado es el de `Informes/`. Se dice porque un índice por nombre
-  corto de clase resuelve a uno de los dos, y el mío resolvía al segundo por orden
-  alfabético: **acertó por suerte.**
+- **el otro `BolfinalesController` NO está enrutado pero SÍ está vivo**, y esto es
+  una corrección de lo que decía este documento. Hay dos clases con ese nombre
+  —`app/Http/Controllers/BolfinalesController.php` y la de `Informes/`—, y de la
+  primera no sale ninguna ruta; **pero se alcanza igual**:
+
+  ```
+  GET certificados-estudio/certificado-grupo/{grupo_id}   (auth.personal)
+    → CertificadosEstudioController::getCertificadoGrupo
+      → new BolfinalesController          (sin `use`: resuelve al de App\Http\Controllers)
+        → $bol->detailedNotasGrupo($grupo_id, $user)
+  ```
+
+  Y **tiene las mismas tres consultas invariantes, escritas con Eloquent**:
+  `Periodo::where('year_id', …)->get()` en las líneas **67** (una por llamada),
+  **86** (una por alumno) y **267** (una por alumno × asignatura). O sea **el mismo
+  problema, en código vivo, en un camino que este arreglo no toca.**
+
+  > **Dos errores míos con la misma raíz, en direcciones opuestas.** Con
+  > `CertificadosPersonaController` dije «hay que arreglarlo» y estaba muerto; con
+  > este gemelo dije «está muerto» y está vivo. Las dos veces juzgué la
+  > alcanzabilidad **mirando `routes/` en busca de la clase**, en vez de **seguir
+  > las llamadas**. Una clase sin ruta puede estar viva por un `new` desde una que
+  > sí la tiene, y una clase con ruta puede tener 400 líneas que nadie alcanza.
+  >
+  > Lo cruzado con `tools/metodos-sin-camino.py` de `9e`, que parte del método y no
+  > del enrutado: **coincidimos en el sitio y no compartimos el supuesto**, que es lo
+  > que hace que la coincidencia valga.
 
 ## §6 — Lo que se lleva de método
 
@@ -238,7 +283,13 @@ ficheros de fuera del ámbito de Pint no se les pasa Pint**, aunque los toques.
    **tres** tests, dos de ellos anteriores a este trabajo. Sin comprobarlo, este
    documento habría dicho que su test era el único que lo impedía, y eso era falso.
 7. **Dos ficheros que son copia uno del otro no son el mismo problema: lo decide
-   qué los alcanza, no lo que contienen.** Reporté el gemelo
+   qué los alcanza, no lo que contienen.** Y el corolario que me costó los dos
+   errores simétricos: **la alcanzabilidad no se juzga buscando la clase en
+   `routes/`**. Una clase sin ruta puede estar viva por un `new` desde una que sí
+   la tiene; una clase con ruta puede tener 400 líneas que nadie alcanza.
+8. **Un predicado de conteo es un instrumento y hay que ejercerlo.** El mío estuvo
+   mal tres veces —ciego, ancho, y por fin con el discriminador— y las tres daban un
+   número creíble. Ahora tiene su propio test con un negativo dentro. Reporté el gemelo
    `CertificadosPersonaController` como «la misma línea que hay que arreglar»
    después de comparar el **código**, y al comprobar el **enrutado** resultó que
    sus tres consultas viven en un subárbol de 400 líneas que no llama nadie.
