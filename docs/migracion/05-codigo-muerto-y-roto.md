@@ -10015,3 +10015,56 @@ y reconoce solo el reguardado sin cambio; o **no auditarla** y dejar escrito que
 **Límite declarado por quien midió:** *no se golpeó con los cuatro roles*. Leer las
 puertas dice más que un token, **pero no sustituye al barrido con los cuatro**, que
 sería la comprobación cruzada por un camino que no comparte supuesto. **No está hecha.**
+
+## §202. La cabecera que describe un futuro como presente
+
+`NotasController`, el tope del lote: *«…y la app ya sabe partir en tandas.»* **No lo sabe.
+Cero llamadas a `notas/lote` en los CUATRO árboles** —`myvc_front`, `myvc_front_2`,
+**`myvc_front-fase11`** (donde vive `app2`) y `myvc_flutter`—. *La primera comprobación
+miró tres y se acordó del cuarto quien la verificó.*
+
+**Es la sexta cabecera vencida de la noche entre los dos repositorios, y la única de su
+clase.** Las otras cinco **describían el pasado**; ésta describe **un futuro como
+presente**. Y eso la hace indetectable por los medios de este lado:
+
+> **Una cabecera que afirma una capacidad de otro repositorio no se puede verificar
+> leyendo este repositorio.** No hay relectura, ni test, ni centinela de este lado que la
+> cace: **sólo medir el cliente.**
+>
+> Y como **se volverá cierta sola algún día**, **el incentivo para comprobarla desaparece
+> justo cuando más falsa es**: hoy es falsa, mañana no, **así que nadie la mira**.
+
+**Es la contrapartida exacta de la [§190](#):** allí el problema era que **la regla vive
+en la cabeza**; aquí, que **el hecho vive en otro repositorio**. **Las dos se arreglan
+igual** — el paso tiene que estar en el procedimiento, y aquí el paso es **medir el
+cliente antes de escribir una frase sobre el cliente**: cuatro `grep`, treinta segundos.
+
+**Lo que la hacía cara, y por eso no era cosmética:** ese 200 **está elegido dando por
+hecha una capacidad que no existe**, y **pasar del tope no avisa: aborta el lote entero
+con 422**. Quien lo mueva mañana pensando que el cliente se adapta **rompe al cliente en
+silencio hasta que un grupo pase del tope**. Corregida a *«el cliente tendrá que partir
+en tandas»*, con el tope y su justificación intactos.
+
+*(Y el docblock de arriba del mismo fichero **estaba bien**: decía «si algún día quiere».
+**Dos frases sobre lo mismo, una cierta y otra no**, a cuatrocientas líneas de
+distancia.)*
+
+### §202.1. Y lo que viaja de un comentario no es la línea: es el motivo
+
+Tres devoluciones del front sobre `notas/lote`, y las tres salieron de **leer el
+controlador y no la descripción** —que es literalmente lo que acaba de cazar la cabecera
+vencida—:
+
+- **el orden permiso-antes-que-escala lo respetan porque el comentario dice el porqué**
+  (*«al revés, un dato fuera de escala tapaba una respuesta de autorización»*). Y de ahí
+  sacaron algo que **no estaba escrito**: **hay tres desenlaces y no dos** —todo
+  guardado · algo guardado con `fallidas` · **nada guardado por respuesta de error**— y
+  **el tercero es el que un cliente colapsa sin darse cuenta**;
+- **`fallidas` con `id: null` no es el fallo de una nota: es el fallo del lote.** Sin ese
+  caso, *«un cliente ingenuo se lo come en silencio o revienta pintándolo»*;
+- y confirma que **devolver las tres claves siempre, aunque vayan vacías**, valía la
+  pena: sin eso **el cliente tiene que distinguir «vacío» de «no vino», y las dos se
+  pintan distinto**.
+
+> **Lo que viajó de aquel arreglo no fue la línea: fue el motivo.** Quien lo escribió lo
+> hizo **después de introducir el bug y de que un test que ya existía se lo cazara.**
