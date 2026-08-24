@@ -11569,3 +11569,64 @@ código que este repo usa.** Corregido a cualquier `abort(`, las desnudas bajaro
 8 antes de la lectura a mano. *Y la lectura subió el número a 17 —los `abort(422)` de
 `perfiles/update` validan formato y el detector los contaba como freno—, o sea que se
 equivocó en las dos direcciones.*
+
+## §229. Las tres que más parecían un agujero: cerradas, y por una guarda que protege de MÁS de lo que dice su nombre
+
+Tres de las 17 «sin defensa propia» de la [§228](#) se leían peor que las demás, y la
+coordinación del front pidió medirlas por si una era fuga real. **Predicho por escrito
+que las tres estarían cerradas, y acertado**
+(`tests/Contrato/ImagenAjenaYPerfilAjenoTest.php`, 4 verdes):
+
+| con token de alumno | medido |
+|---|---|
+| `images-users/move-img-to-me` con la imagen de otro | **403**, y la imagen **no cambia de dueño** |
+| `myimages/datos-imagen` con una imagen ajena | **403** |
+| `perfiles/update/{id}` de otro alumno | **403**, y el nombre del otro **no se pisa** |
+
+**Las tres las para el middleware, y ninguna el controlador.** Los tres asertos llevan
+además la comprobación del efecto —que el `UPDATE` no ocurrió—, porque *un 403 que llegue
+después de escribir no vale de nada*.
+
+### Lo que esto deja escrito no es «no hay fuga»
+
+**`ExigirPersonaPropia` no vigila sólo identificadores de persona.** Su lista lleva
+`imagen_id`, `img_id` y `foto_id`, y `esSuyo()` los resuelve **contra el dueño de la
+imagen**. Y `move-img-to-me` es **literalmente el endpoint que hizo añadir `img_id` a esa
+lista** ([§15](#)): *ya estuvo abierta, y el arreglo fue ampliar la lista de nombres.*
+
+> **Una guarda que protege de MÁS de lo que su nombre sugiere**, y es la primera de esa
+> dirección: las tres anteriores de esta noche —el `NOT LIKE` de la [§226](#), la
+> sustitución de la [§227](#), la del front que vigilaba «no cargó»— protegían **de otra
+> cosa**. Ésta protege **de más**.
+
+Y eso es lo que hace que las 17 de la §228 sean **menos frágiles de lo que su tabla
+sugería**: el punto único de fallo cubre más superficie de la que se le supone leyendo su
+nombre.
+
+**Por eso el cuarto test no sobra:** fija que `imagen_id`, `img_id` y `foto_id` siguen en
+`CLAVES`. Es **la premisa de los otros tres** — si alguien saca uno de esos nombres, las
+tres rutas se abren de golpe y **nada más avisaría**, porque los controladores no
+defienden. Ya pasó una vez, por ese nombre exacto.
+
+### El fallo de comunicación, que se anota porque volverá a pasar
+
+La fila *«comprueba el destino y no de quién es la imagen de origen»* estaba en una tabla
+titulada **«el controlador no se defiende solo»**. Es cierta ahí y se leyó como *«nadie lo
+comprueba»* — hasta el punto de casi mandar a medir una fuga inexistente.
+
+> **Una fila de tabla se lee siempre fuera de su encabezado.** Si la fila sola puede
+> leerse como una acusación, el encabezado no la salva.
+
+**Y la otra mitad, que es la que ahorra el trabajo:** la hipótesis *«el guard valida ids
+de persona, aquí viaja una imagen»* costaba **un minuto** de comprobar —abrir el
+middleware y leer `CLAVES`— y se mandó a medir sin comprobarla. *Comprobar la premisa de
+un encargo es más barato que ejecutarlo, y la comprobación va antes del reparto, no
+después.*
+
+### Y una que sigue mereciendo su línea aunque dé 403
+
+**`myimages/datos-imagen` tiene el `User::fromToken()` comentado.** La fuente de propiedad
+está **apagada a propósito y el código sigue ahí para leerse como si estuviera**. Hoy
+sobra porque el middleware la cubre. **El día que alguien mueva esa ruta a otro grupo de
+middleware, no** — y quien lo haga verá una línea comentada que parece un descuido en vez
+de una dependencia.
