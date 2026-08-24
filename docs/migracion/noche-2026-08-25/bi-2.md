@@ -456,3 +456,102 @@ premisa se cayó**, en vez de dar un verde que no significa nada.
 
 *Es la respuesta al problema que tienen todos los tests de este lote: hoy pasan por el
 estado de los datos, no por el arreglo.*
+
+---
+
+## §10. Mi previsión de las cuatro que entraban: **ninguna entra**
+
+Escribí que `EnviarNotificaciones:195`, `Informes:107`, `ChangeAsked:511` y
+`Subunidades:345` eran «mecánicas, el criterio decide solo». **Leídas, las cuatro salen
+del otro lado**, y una por un motivo que vale más que el lote.
+
+| sitio | qué es de verdad |
+|---|---|
+| `EnviarNotificaciones:195` | **ya acotada por el ancla — y acotarla sería un riesgo** |
+| `Informes:107` `grupos_desactualizados` | **no entra, inocuo** — mismo caso que `selloDeVersion` |
+| `ChangeAsked:511` | **se anota** — es la pregunta de `porcentajeDeLasUnidades` por profesor |
+| `Subunidades:345` `putEliminadas` | **se anota** — vista de papelera |
+
+### `EnviarNotificaciones:195` es el QUINTO falso positivo del detector, y del mismo tipo
+
+Su cadena es **pura por id**:
+
+    INNER JOIN notas n        ON n.id = b.affected_element_id
+    INNER JOIN subunidades s  ON s.id = n.subunidad_id
+    INNER JOIN unidades u     ON u.id = s.unidad_id
+
+Una bitácora nombra **una** nota, que cuelga de **una** subunidad, que cuelga de **una**
+unidad. **No hay nada que elegir.** El detector la etiqueta `por-asignatura` por el
+`asig.id = u.asignatura_id` de más abajo, que sólo sirve para llegar al nombre de la
+materia — **el filtro más grueso decidiendo otra vez**.
+
+**Y aquí acotarla no sería sólo innecesario: sería un riesgo.** Si la unidad de esa nota
+tuviera un dueño distinto del que resuelva el alcance, la condición **quitaría la fila** y
+el alumno **dejaría de recibir el aviso de su propia nota**, sin ningún error.
+
+> **Van cinco de los 25 mal etiquetados por el mismo mecanismo** —las cuatro de la
+> [§2](#2-una-conclusión-mía-retirada-media-hora-después-de-escribirla) y ésta—, y en los
+> cinco el ancla real está en el `WHERE` o en un `JOIN` por id, tapada por un filtro más
+> grueso que el predicado ve primero. **El «59» está inflado**, y no se sabe en cuánto: lo
+> que se sabe es que **el detector ordena y no concluye**, que es lo que su propia cabecera
+> dice desde BI-1.
+
+---
+
+## §11. Las anotadas — la decisión, no el análisis
+
+Cuatro líneas por sitio: **qué se ve hoy · qué se vería con alcance · qué se vería sin él
+· quién decide.** Todas comparten una sola decisión de fondo, y por eso van juntas.
+
+### La decisión, una para las ocho
+
+> **Cuando una pantalla enseña «las unidades de esta asignatura» y en el grupo hay un
+> alumno con boletín propio, ¿enseña las del grupo, las de él, o las dos?**
+
+No hay respuesta técnica: las tres son coherentes y las tres rompen algo distinto. Es del
+[19 §2](../19-boletin-independiente.md).
+
+| sitio | qué es esa pantalla |
+|---|---|
+| `NotasController:71` | **las columnas de la planilla del profesor** |
+| `AsignaturasController:55` | el detalle de la asignatura, con sus unidades y cuántas notas tiene cada una |
+| `Models/Unidad:73` `deAsignatura` · `:184` | **el lector genérico — 17 llamadores en 13 ficheros** (→ BI-4) |
+| `ChangeAsked:1232` `asignaturas_dia` | las unidades que viajan al pedido de cambio |
+| `Periodos:274` `putCopiar` | lo que se devuelve tras copiar un periodo |
+| `Unidades:64` | las unidades de **otros años** que se ofrecen como plantilla |
+| `Unidades:359` `putEliminadas` · `:398` `getTrashed` · `Subunidades:345` | **la papelera** |
+| `ChangeAsked:511` | «¿los porcentajes suman 100?» **por profesor** — la [§6](#6-porcentajedelasunidades--se-anota-y-no-por-su-firma) otra vez |
+
+**Y las tres consecuencias, que son las mismas en las ocho:**
+
+    hoy            salen todas las unidades de la asignatura -> con un independiente,
+                   las del grupo Y las suyas mezcladas, sin nada que las distinga
+    con alcance    la pantalla enseña UN boletín. En la planilla eso significa que al
+                   independiente NO SE LE PUEDE PONER NOTA desde la rejilla del grupo
+    sin alcance    la rejilla deja de ser un rectángulo y los porcentajes de una
+                   asignatura pueden sumar 140
+
+**Las dos de la papelera tienen su propia arruga**: acotarlas **esconde** lo borrado de un
+boletín, y una papelera que esconde es peor que una que enseña de más. *Ahí la respuesta
+probablemente sea «no se acotan», pero no la doy yo.*
+
+---
+
+## §12. Cierre de BI-2
+
+    25 sitios distintos · 25 con veredicto · 6 acotadas · 1 aparte · 2 a BI-4
+
+| | |
+|---|---|
+| **acotadas** | `calcular()` · `NotasPerdidas` ×4 · `NotasController:148` |
+| **no entran, y acotarlas sería un fallo** | `selloDeVersion` · `Informes:107` · `EnviarNotificaciones:195` |
+| **se anotan — decisión del 19 §2** | 8, arriba |
+| **sin camino** | `NotaFinal:267` |
+| **aparte, escribe** | `DefinitivasPeriodos:108` |
+| **BI-4** | `Models/Unidad:73`, `:184` — 17 llamadores |
+| **eran falsos positivos** | 5, [§2](#2-una-conclusión-mía-retirada-media-hora-después-de-escribirla) y [§10](#10-mi-previsión-de-las-cuatro-que-entraban-ninguna-entra) |
+
+**Seis acotadas de veinticinco no es poco trabajo hecho: es que el lote era otro.** De las
+diecinueve que no entran, **tres se romperían si se acotan**, **cinco no había que acotar**
+y **ocho esperan una decisión que ninguna sesión puede tomar**. *Lo que este lote produce
+para la mañana no son seis consultas: son ocho preguntas con su caso delante.*
