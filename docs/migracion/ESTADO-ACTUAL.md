@@ -46,6 +46,53 @@ decidió hacer después.
 
 ---
 
+## LO QUE ESPERA TU RESPUESTA — la lista de la mañana del 25, por consecuencia
+
+**Ordenada por lo que pasa si no se contesta**, no por antigüedad. El detalle de cada
+una está en el 05 o en el 09; aquí sólo lo que decide.
+
+### Papel oficial y cuentas — lo primero
+
+| | Qué | Si no se contesta |
+|---|---|---|
+| **1** | **Abrir el certificado de periodo quema un número consecutivo, y la lectura+escritura del contador no está en transacción.** Dos personas abriéndolo a la vez → **dos certificados con el mismo número** ([05 §195](05-codigo-muerto-y-roto.md)) | Sigue pasando. **El disparador es abrir la pantalla**, y en secretaría en cierre de periodo dos a la vez **es el caso normal**. Un número saltado se justifica; **uno repetido, no**. *(Se pidió el test que falle hoy: si sale rojo, el arreglo entra con red. Si no se puede escribir, la decisión es tuya.)* |
+| **2** | **`PUT bolfinales/cambiar-contador-certificados` fija el consecutivo a lo que venga en el cuerpo, sin validación, con `auth.personal`** | **Cualquiera de los 51 profesores puede fijar el número de certificados del colegio** |
+| **3** | **Publicar lo terminado.** `7b` y `f8` cerraron sin empujar, y hacen bien | Cinco lotes cerrados esta noche siguen sin salir. **Fusionado no es desplegado** |
+| **4** | **La firma del profesor: dos endpoints, permisos distintos, y sólo uno comprueba de quién es la imagen** ([05 §168](05-codigo-muerto-y-roto.md), §182) | La mina sigue puesta. **Y los dos criterios no se contienen**, así que *«cuál gana»* **no se puede contestar eligiendo el más restrictivo** |
+
+### Disciplina, certificados e interruptores ([09 §15](09-pendientes.md))
+
+| | Qué | Si no se contesta |
+|---|---|---|
+| **5** | **`dis_procesos.firma_alumno` / `firma_acudiente`**: módulo vivo, **nadie las lee** | **Hoy el sistema no puede contestar si un proceso disciplinario se firmó** — el dato que hace falta meses después, cuando alguien reclama. **¿Abandonada o sin terminar?** |
+| **6** | **Dos interruptores de `config_certificados` que se marcan y no se aplican** | Un documento que se entrega firmado **sale distinto de lo que el colegio pidió, y quien lo marcó no tiene forma de saberlo** |
+| **7** | **Seis tablas `df_*` sin una sola referencia** | Nada, hasta que alguien las borre: **es una migración destructiva en dieciséis producciones** |
+
+### Servidor — cuatro `for` que ahora son uno
+
+| | Qué | Si no se contesta |
+|---|---|---|
+| **8** | **`php tools/fase-cero-de-los-dieciseis.php --csv $(cat colegios.txt) > fase0.csv`** — junta los cuatro `for` pendientes en **una visita y un formato** | **La fase 2 de las definitivas sigue bloqueada**, que es lo que pediste desde el principio. Y de paso: **el esquema congelado se da por igual en los dieciséis y nunca se ha comprobado** |
+
+### Frentes nuevos que nadie ha abierto porque no los pediste
+
+| | Qué |
+|---|---|
+| **9** | **BOL-1**: el boletín final tarda **24–31 s** y se cae bajo carga. `7b` se negó a empezarlo porque es un frente que no pediste, **y tenía razón**. Lo que hace falta son **cuatro peticiones**, no un experimento con copia |
+| **10** | **Los seis `DB::select` que escriben** ([05 §191](05-codigo-muerto-y-roto.md)). Una palabra por sitio, **ningún cambio de conducta hoy** — y **ningún test rojo delante**, dos ficheros cogidos, y uno corre en cada petición |
+| **11** | **Las dos del boletín independiente** ([19](19-boletin-independiente.md) §2): quién marca a un alumno, y qué puesto lleva su boletín |
+| **12** | **Unificar los cuatro informes de puestos con los ocho de impresión**: les cambia la conducta a cuatro que hoy no preguntan nada |
+
+### Y tres números viejos en documentos que no toco sin ti
+
+| | |
+|---|---|
+| **13** | **`CLAUDE.md` dice que las excepciones públicas son quince y son once**, y **`RutasPreLoginTest` no es un inventario**: enumera once y **no comprueba que ninguna otra sea pública** |
+| **14** | **Una decisión mía, revertible en un commit**: congelar ocho `SELECT *` para que la migración del boletín independiente **no mueva ninguna respuesta**. La alternativa —regenerar instantáneas— **era tuya**, porque obliga a avisar al front y a Flutter |
+| **15** | **La §12 de arriba y la §14** del 09 siguen esperando desde el 24 |
+
+---
+
 ## La noche del 24 al 25: catorce sesiones, tres repositorios, dos coordinaciones
 
 **Coordinó `8myvc-34` en `8myvc` y `myvc-front-98` en el front**, con una sola

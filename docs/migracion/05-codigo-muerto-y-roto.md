@@ -9852,3 +9852,22 @@ Y las tres las trajo quien las había escrito:
 
 **La herramienta se arregla y la comprobación se hereda intacta**, porque es lo que se
 usa para comprobar y nadie la comprueba.
+
+### §199.1. Las dos formas de la misma regla
+
+De coordinar con el front salió que los dos lados habían llegado a la misma regla por
+caminos opuestos:
+
+> **Aquí: no se toca código vivo sin un test rojo delante.** Y su salida escrita, que es
+> lo que la hace una línea y no una excusa: *si no se puede escribir un test que falle,
+> el cambio se apoya en un razonamiento y no en una medición, y eso va a Joseth.* **No
+> es «no lo arreglo»: es «no lo arreglo a ciegas, y si no se puede ver, que lo decida
+> quien manda».**
+>
+> **Allí: no se publica una guarda sin haber visto su prueba en rojo.** Dos guardas
+> nuevas nacieron **sin cobertura** —la suite seguía verde al quitarlas— y **sólo se
+> supo mutando**.
+
+**Es la misma regla con el orden invertido** —el rojo antes de tocar, el rojo antes de
+publicar— y **las dos evitan lo mismo: un arreglo con una prueba al lado que no tiene
+nada que ver con el arreglo.**
