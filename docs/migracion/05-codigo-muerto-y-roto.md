@@ -9555,3 +9555,85 @@ los endpoints cuyo nombre o verbo no dice que escriben** — las **23 escritoras
 cruzadas con «su verbo o su nombre sugiere lectura». Ésa es la que sirve para montar un
 cortafuegos, una réplica de lectura, o una pasada de verificación **sin dejar filas
 detrás**.
+
+## §193. El comando de control con el mismo fallo que el detector que acababa de arreglar
+
+`tools/unidades-sin-alcance.py` decía **«4 escrituras»** y son **6**:
+`UnidadesController::getDeAsignaturaPeriodo:122` y `:131` hacen
+`INSERT INTO unidades(...)` y `INSERT INTO subunidades(...)`. **`PUT
+unidades/de-asignatura-periodo` escribe y no lo dice ni el verbo ni el nombre del
+método** — la cuarta de la [§192](#).
+
+**Y no las encontró su autor: las encontró otra sesión midiendo rendimiento.**
+
+**El fallo del detector es de los buenos:** su guardia contra llamadas a función
+—`(?!\w*\s*\()`— **rechazaba `INSERT INTO unidades(definicion, …)` porque el paréntesis
+va pegado al nombre**. O sea que **rechazaba por la señal que confirma**: esa lista de
+columnas es justo lo que distingue un `INSERT` de una llamada.
+
+**Pero lo que hay que llevarse es lo otro:**
+
+> El `grep` con el que lo comprobó a mano **le dio un tercer `INSERT INTO unidades` que
+> era `unidades_por_defecto`** — **la falta de frontera de palabra que él mismo había
+> arreglado en la herramienta una hora antes**, repetida en el comando de control.
+>
+> **No basta arreglar el detector si el comando con el que lo verificas tiene el mismo
+> fallo.**
+
+Es la forma más fina de la [§190](#) —*saber la regla no la aplica*—: la regla estaba
+aprendida, arreglada **en el código**, y volvió a aparecer **en la comprobación**,
+que es donde nadie la busca porque es lo que se usa para buscar.
+
+## §194. Dos guardianes de esta noche que se comportan bien al romperse
+
+Los dos son de la misma forma y por eso van juntos: **al romperse dejan de medir en vez
+de pasar a mentir.**
+
+**1. La transacción de sólo lectura que se comprueba a sí misma.**
+`tools/fase-cero-de-los-dieciseis.php` abre cada colegio en
+`START TRANSACTION READ ONLY` y **luego intenta escribir y exige que falle** —
+`UPDATE users SET id = id WHERE 1 = 0`, que la rechaza la transacción **y** que si se
+ejecutara no tocaría ninguna fila—. **Si el servidor la dejara pasar, ese colegio no se
+mide.**
+
+> **Un `START TRANSACTION READ ONLY` escrito y no comprobado es exactamente el
+> comentario que esto viene a no ser:** si alguien lo borra refactorizando, el guion
+> **deja de medir** en vez de pasar a escribir en silencio.
+
+Y roto a mano, una a una: sin la transacción **deja de medir**; con un `UPDATE` colado
+en un bloque, lo **rechaza por nombre**; con un colegio que no abre, `medido = NO` con
+el motivo y **código de salida 2**.
+
+**2. Y el CSV largo en vez de ancho**, con la columna que no es documentación:
+
+```
+colegio,bloque,clave,valor,limite
+"con alguna fila en 1","1","una tabla vacia da 0 y no significa apagado: significa sin datos"
+```
+
+**`limite` dice qué NO contesta ese número, en la misma fila.** Un CSV **ancho** parece
+más cómodo y **se rompe en cuanto un bloque gana un campo**: las dieciséis dejan de
+tener la misma forma. En largo, juntar dieciséis es `cat`.
+
+**Y el aviso que cierra el bucle de los ceros:** *un colegio NO MEDIDO no es un colegio
+limpio* — se cuentan aparte y el resumen lo dice.
+
+**De regalo, algo que nadie había preguntado:** antes de contar, comprueba que **cada
+par columna/tabla exista en el esquema de ESE colegio**. **El esquema congelado se da
+por igual en los dieciséis y eso nunca se ha comprobado.** (En la prueba local: 53
+pares, 0 ausentes.)
+
+### §194.1. Y el estado que viaja con el número
+
+Del experimento del boletín, y sirve para cualquier medición sobre un objeto que la
+medición cambia: con el hueco medido **antes y después** de cada petición, cada punto
+lleva **`(hueco antes, tiempo, hueco después)`**.
+
+> **Eso es mejor que repetible: es autodescriptivo.** Quien lo lea mañana **no necesita
+> que el estado siga existiendo, porque el estado está en el dato.**
+
+Y su corolario, que devuelve al experimento dos grupos que se daban por perdidos: **si
+el eje se mide un segundo antes, un grupo «contaminado» no es un punto sesgado — es un
+punto de otro valor.** La contaminación **deja de ser un sesgo y pasa a ser un
+desplazamiento ya contabilizado**. Lo único que sigue prohibido es **repetir el mismo
+grupo**.
