@@ -10214,3 +10214,54 @@ estaban infravalorados**.
 a los retirados en el denominador; allá de menos metiéndolos en el numerador.** *Los dos
 lados tropezaron con los retirados, en direcciones opuestas, con horas de diferencia, y
 ninguno lo vio hasta que un caso extremo lo obligó.*
+
+## §206. Existen cuatro y la suite ejerce dos — y el que falta está vivo detrás de un interruptor
+
+La pasada «esquema nuevo + código viejo» se corrió limpia —**la primera clase pasó**, las
+**9 rojas agrupadas en los boletines** y no marchando por el alfabeto, **ningún test por
+encima de 20 s** contra los 79,58 s de la void— y dio **42 ocurrencias de `1052 …
+alumno_id … is ambiguous`** y **2 instantáneas movidas**, exactamente las previstas.
+
+**Pero el hallazgo no es el 42:**
+
+> **Se predijeron 4 predicados ambiguos. Existen 4. La suite ejerció 2.**
+
+| Predicado | ¿lo ejerce la suite? |
+|---|---|
+| `Unidad:119` — rama `con_desempenio` · `Unidad:137` — rama por defecto | **sí** |
+| `Unidad:97` — rama **`fortaleza_debilidad`** | **NO** — y está **VIVA** |
+| `Subunidad:141` — `perdidasDeAsignatura` | **NO** — y es **código muerto** |
+
+**La rama viva la alcanza `Boletines2Controller:228` cuando el año tiene
+`years.show_fortaleza_bol = 1`**, y **la base de test tiene 1 de 8 años con ese
+interruptor encendido… y ningún test usa ese año.**
+
+> **Un colegio con ese interruptor puesto recibe un 500 que la pasada no ve.** Y no es que
+> esté mal hecha: **su alcance es el de la suite, no el del código.**
+
+**De ahí el cambio de procedimiento**, fundido en [DESPLIEGUE.md](../DESPLIEGUE.md): **se
+publica con dos números** —lo que la suite encuentra y lo que existe— y **un `0` significa
+«la suite no encontró nada», nunca «no hay nada»**.
+
+**Y el interruptor por colegio es el patrón general:** misma familia que
+`mostrar_puesto_boletin` (1 de 8 años a 0) y que la excepción por colegio del front.
+**Lo que un interruptor apaga, la suite no lo prueba** — y hay **dieciséis colegios con
+dieciséis combinaciones**.
+
+### Tres bugs más en los instrumentos, y éstos salieron ANALIZANDO el resultado
+
+Lo que los hace peores que los anteriores: **no aparecieron al medir, sino al leer lo
+medido.**
+
+| Dónde | Qué |
+|---|---|
+| la lista de sitios | la clase `[A-Za-z/]` **sin dígitos** se comía `Boletines2Controller` y `Boletines3Controller`: **4 sitios de 18 — el 22% — y la lista salía corta sin decirlo** |
+| el centinela de lentos | contaba la línea `Duration: 517.76s` como «un test de 517 s», **así que se disparaba siempre** |
+| el reparto de snapshots | contaba **2 líneas por fallo** y publicaba «4» donde hay 2 |
+
+**El primero es literalmente la misma falta que el `\b` del nombre de tabla y que la
+clase que no excluía `_por_defecto`: una clase de caracteres que omite justo lo que hace
+falta. Van tres esta noche.**
+
+Y el segundo es de los que salen más caros a la larga: **un centinela que se dispara solo
+enseña a ignorarlo, que es peor que no tenerlo.**

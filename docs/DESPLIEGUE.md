@@ -466,3 +466,38 @@ la otra**:
 > `unidades` de `unidades_por_defecto` —el falso positivo que se comió una medición
 > esa noche, porque los ocho primeros caracteres coinciden— y que **no cuenta
 > subconsultas**, que fue el cuarto falso positivo y sólo se vio leyendo.
+
+#### La pasada se publica con DOS números, no con uno — medido el 25 ago
+
+El procedimiento de arriba —correr la suite con el esquema nuevo y el código viejo— se
+ejecutó, y **su resultado obliga a cambiar cómo se publica**:
+
+```
+predicados ambiguos que EXISTEN ......... 4   (barrido estático del patrón, sin correr nada)
+predicados que la SUITE ejerce ........... 2
+```
+
+**Los dos que no ejerce no son el mismo caso:**
+
+- `Subunidad::perdidasDeAsignatura` es **código muerto** —los diez llamantes usan
+  `perdidasDeUnidad`, que es **otro método**—;
+- **la rama `fortaleza_debilidad` de `Unidad` está VIVA y detrás de un interruptor por
+  colegio**: la alcanza `Boletines2Controller:228` cuando el año tiene
+  `years.show_fortaleza_bol = 1`, y **la base de test tiene 1 de 8 años con ese
+  interruptor encendido… y ningún test usa ese año**.
+
+> **Un colegio con `show_fortaleza_bol` puesto recibe un 500 que esa pasada no ve.**
+> Y no es que esté mal hecha: **su alcance es el de la suite, no el del código.**
+
+**Por eso se publica con los dos números, y un `0` significa «la suite no encontró
+nada», nunca «no hay nada».** El guion `tools/esquema-nuevo-codigo-viejo.sh` lo lleva en
+su cabecera, que es donde lo leerá quien lo corra.
+
+**Y el interruptor por colegio es el patrón general, no la anécdota de este caso:** es la
+misma familia que `mostrar_puesto_boletin` (**1 de 8 años a 0**) y que la excepción por
+colegio que avisó el front.
+
+> **Lo que un interruptor apaga, la suite no lo prueba** — y hay **dieciséis colegios con
+> dieciséis combinaciones**. Antes de un `ALTER TABLE`, la pregunta no es sólo *«¿qué
+> rompe?»* sino **«¿qué rompe en la combinación de interruptores que la suite no
+> tiene?»**
