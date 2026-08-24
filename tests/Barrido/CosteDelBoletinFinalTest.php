@@ -126,6 +126,13 @@ class CosteDelBoletinFinalTest extends CasoDeContrato
 
         $carga = trim(explode(' ', (string) @file_get_contents('/proc/loadavg'))[0]);
 
+        // El `@var` no es decoración y su motivo es el mismo que el del fallo del
+        // oyente: **larastan no ve que el cierre escriba aquí.** El único write que
+        // reconoce es el `= []` del bucle, así que da el array por vacío y avisa de
+        // `foreach.emptyArray` — un aviso correcto sobre una premisa que no puede
+        // comprobar. Se anota en vez de silenciarse en `phpstan.neon`, que es donde
+        // este proyecto pone lo que no se puede arreglar y esto sí se puede decir.
+        /** @var array<string, int> $porFirma */
         arsort($porFirma);
         $reparto = '';
         $mostradas = 0;
