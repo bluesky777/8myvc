@@ -140,6 +140,53 @@ class CentinelaDeLosEscritoresDeBitacoraTest extends TestCase
     }
 
     /**
+     * **Un comentario que menciona `INSERT INTO bitacoras` NO es un escritor.**
+     *
+     * Va con su propio test porque la primera versión de esto contaba con
+     * `preg_match_all` sobre el texto del fichero, comentarios incluidos, y eso
+     * **falló de verdad el 24 ago 2026**: `8myvc-39` escribió
+     * `App\Services\Auditoria` con un docblock que explicaba por qué existe
+     * —*«hoy hay 10 INSERT INTO bitacoras repartidos en 8 ficheros»*— y este
+     * centinela cantó **once**.
+     *
+     * **La documentación del escritor único contaba como el escritor número
+     * once.** Y el número era correcto: había once coincidencias. Lo que no había
+     * era once escritores.
+     *
+     * Es el mismo error que dio **257 en vez de 256** unas horas antes, y por eso
+     * la respuesta es la que este repo ya pagó: **contar sobre tokens y no con
+     * una regex.** Los comentarios llegan como `T_COMMENT`/`T_DOC_COMMENT` y una
+     * expresión regular no sabe la diferencia; `token_get_all()` sí.
+     */
+    #[Test]
+    public function un_comentario_que_lo_menciona_no_cuenta_como_escritor(): void
+    {
+        $conComentario = <<<'PHP'
+            <?php
+            // Aquí antes había un INSERT INTO bitacoras y se quitó.
+            /** Ver los INSERT INTO bitacoras del proyecto. */
+            class X {
+                public function y() {
+                    DB::insert('INSERT INTO bitacoras (created_by) VALUES (?)', [1]);
+                }
+            }
+            PHP;
+
+        $this->assertSame(1, $this->contarEnCodigo($conComentario),
+            'Cuenta menciones en vez de consultas: es el fallo del 24 ago, cuando '.
+            'el docblock de `App\Services\Auditoria` contó como el escritor once.');
+
+        $soloComentarios = <<<'PHP'
+            <?php
+            // INSERT INTO bitacoras
+            /* INSERT INTO bitacoras */
+            /** INSERT INTO bitacoras */
+            PHP;
+
+        $this->assertSame(0, $this->contarEnCodigo($soloComentarios));
+    }
+
+    /**
      * Los `INSERT INTO bitacoras` que hay ahora mismo, por fichero.
      *
      * Cuenta sobre `app/` y no sobre el resultado de una petición a propósito:
@@ -162,8 +209,7 @@ class CentinelaDeLosEscritoresDeBitacoraTest extends TestCase
                 continue;
             }
 
-            $codigo = (string) file_get_contents($fichero->getPathname());
-            $cuantos = preg_match_all('/INSERT\s+INTO\s+bitacoras/i', $codigo);
+            $cuantos = $this->contarEnCodigo((string) file_get_contents($fichero->getPathname()));
 
             if ($cuantos > 0) {
                 $relativa = str_replace(base_path().'/', '', $fichero->getPathname());
@@ -172,5 +218,37 @@ class CentinelaDeLosEscritoresDeBitacoraTest extends TestCase
         }
 
         return $encontrados;
+    }
+
+    /**
+     * Cuántas consultas —no menciones— hay en un trozo de código.
+     *
+     * Sólo mira **cadenas literales**: `T_CONSTANT_ENCAPSED_STRING` (las
+     * comillas simples y dobles, que es donde vive el SQL de este repo) y
+     * `T_ENCAPSED_AND_WHITESPACE` (heredocs y cadenas interpoladas). Los
+     * comentarios son `T_COMMENT` y `T_DOC_COMMENT` y **no entran**, que es todo
+     * el arreglo.
+     *
+     * Es método aparte y no un `private` enterrado en el bucle **para que se
+     * pueda probar con un trozo de código a mano**, que es lo que permite fijar
+     * el caso del docblock sin necesitar un fichero trampa dentro de `app/`.
+     */
+    private function contarEnCodigo(string $codigo): int
+    {
+        $cuantos = 0;
+
+        foreach (token_get_all($codigo) as $token) {
+            if (! is_array($token)) {
+                continue;
+            }
+
+            if (! in_array($token[0], [T_CONSTANT_ENCAPSED_STRING, T_ENCAPSED_AND_WHITESPACE], true)) {
+                continue;
+            }
+
+            $cuantos += preg_match_all('/INSERT\s+INTO\s+bitacoras/i', $token[1]);
+        }
+
+        return $cuantos;
     }
 }
