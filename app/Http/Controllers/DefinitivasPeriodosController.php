@@ -17,8 +17,10 @@ use App\Http\Controllers\Alumnos\Definitivas;
 use \Log;
 
 use App\Http\Controllers\Alumnos\Solicitudes;
+use App\Services\Auditoria;
 use App\Support\EscalaDeNotas;
 use App\Support\PeriodoDeLaFila;
+use App\Support\NombreDelAlumno;
 
 
 class DefinitivasPeriodosController extends Controller {
@@ -233,6 +235,29 @@ class DefinitivasPeriodosController extends Controller {
 
 			DB::insert($consulta, [$bit_by, $bit_hist, $nota->alumno_id, $nf_id, $bit_new, $bit_old, $now]);
 
+			// El rastro nuevo, al lado del viejo (18 §4). `nota_final` y no
+			// `"NF_UPDATE"`: en `bitacoras` esta columna es texto libre y hoy
+			// conviven ahí `Nota`, `NF_UPDATE`, `Nueva subunidad` y
+			// `AlumnoPideAjeno:user_id`, así que agrupar por tipo obliga a
+			// conocerse la lista de memoria.
+			//
+			// **Esta línea es la mitad humana de una distinción que hoy no
+			// existe.** La misma fila de `notas_finales` la escribe también
+			// `DefinitivasDeAsignatura::recalcular`, y ésa es del sistema: sin
+			// separarlas, la pantalla se llena de recálculos automáticos y la
+			// definitiva que alguien tecleó deja de poder encontrarse. Aquí es una
+			// persona, y por eso el actor sale del contexto y no de
+			// `porElSistema()`.
+			$alumnoDeLaLinea = $nota->alumno_id === null ? null : (int) $nota->alumno_id;
+
+			Auditoria::registrar()
+				->editar('nota_final', (int) $nf_id)
+				->deAlumno($alumnoDeLaLinea, NombreDelAlumno::de($alumnoDeLaLinea))
+				->en(periodo: $nota->periodo_id === null ? null : (int) $nota->periodo_id)
+				->de($bit_old)
+				->a($bit_new)
+				->guardar();
+
 			return 'Cambiada';
 		}else{
 
@@ -267,8 +292,13 @@ class DefinitivasPeriodosController extends Controller {
 
 			return DB::transaction(function () use ($user, $now, $num_periodo, $periodo) {
 
+				// `nota` además de `id`: la fila ya se está bloqueando con `FOR
+				// UPDATE`, así que traer la columna no cuesta una consulta más y es
+				// lo que permite que la línea de auditoría diga **de qué a qué**.
+				// Sin ella el rastro contaría que alguien tocó la definitiva pero no
+				// qué había antes, que es la mitad de la pregunta.
 				$existente = DB::selectOne(
-					'SELECT id FROM notas_finales
+					'SELECT id, nota FROM notas_finales
 					  WHERE alumno_id = ? AND asignatura_id = ? AND periodo_id = ?
 					  ORDER BY id LIMIT 1 FOR UPDATE',
 					[Request::input('alumno_id'), Request::input('asignatura_id'), $periodo->id]
@@ -282,6 +312,30 @@ class DefinitivasPeriodosController extends Controller {
 						[Request::input('nota'), $num_periodo, $user->user_id, $now, $existente->id]
 					);
 
+					/*
+					 * **Esta rama no escribía en `bitacoras` y no lo hacía nadie
+					 * por ella**: no es uno de los diez escritores, es un hueco.
+					 *
+					 * Lo señaló `tools/escrituras-sin-auditoria.php` al volver a
+					 * correrlo con los diez ya traducidos — el método pasó a
+					 * «audita menos veces de las que escribe», que es la única
+					 * pregunta que el detector contesta bien y que no se puede
+					 * contestar leyendo la lista de los diez.
+					 *
+					 * Y es la rama que el front usa de verdad cuando no tiene
+					 * `nf_id` a mano (§2.3), o sea que una definitiva tecleada a
+					 * mano por aquí era **invisible** para el colegio.
+					 */
+					$alumnoDeLaLinea = (int) Request::input('alumno_id');
+
+					Auditoria::registrar()
+						->editar('nota_final', (int) $existente->id)
+						->deAlumno($alumnoDeLaLinea, NombreDelAlumno::de($alumnoDeLaLinea))
+						->en(asignatura: (int) Request::input('asignatura_id'), periodo: (int) $periodo->id)
+						->de($existente->nota)
+						->a(Request::input('nota'))
+						->guardar();
+
 					return DB::select('SELECT * FROM notas_finales WHERE id=?', [$existente->id]);
 				}
 
@@ -292,6 +346,20 @@ class DefinitivasPeriodosController extends Controller {
 								':periodo' => $num_periodo, ':nota' => Request::input('nota'), ':recuperada' => 0, ':manual' => 1, ':updated_by' => $user->user_id, ':created_at' => $now, ':updated_at' => $now ]);
 
 				$last_id = DB::getPdo()->lastInsertId();
+
+				// La otra mitad del mismo hueco: aquí la definitiva **nace**, y sin
+				// esta línea la pantalla enseñaría ediciones de una fila cuyo
+				// origen no consta. `crear` y no `editar`, y sin `de()`: no había
+				// valor anterior, que es distinto de que el anterior fuera null
+				// (18 §5.3).
+				$alumnoDeLaLinea = (int) Request::input('alumno_id');
+
+				Auditoria::registrar()
+					->crear('nota_final', (int) $last_id)
+					->deAlumno($alumnoDeLaLinea, NombreDelAlumno::de($alumnoDeLaLinea))
+					->en(asignatura: (int) Request::input('asignatura_id'), periodo: (int) $periodo->id)
+					->a(Request::input('nota'))
+					->guardar();
 
 				return DB::select('SELECT * FROM notas_finales WHERE id=?', [$last_id]);
 			});
@@ -351,6 +419,25 @@ class DefinitivasPeriodosController extends Controller {
 
 			DB::insert($consulta, [$bit_by, $bit_hist, $nota->alumno_id, $rf_id, $bit_new, $bit_old, $now]);
 
+			// El rastro nuevo, al lado del viejo (18 §4).
+			//
+			// `en(year: ...)` y no `periodo:`, y ésa es la única diferencia con su
+			// gemela de arriba: **`recuperacion_final` no tiene `periodo_id`**,
+			// guarda `year` directo —lo dice la cabecera del método y lo usa la
+			// comprobación de escala tres líneas más arriba—. Pasarle el periodo
+			// del profesor habría rellenado la columna con un dato que no es de
+			// esta fila, que es la forma de mentira que más caro sale en una tabla
+			// que se lee años después.
+			$alumnoDeLaLinea = $nota->alumno_id === null ? null : (int) $nota->alumno_id;
+
+			Auditoria::registrar()
+				->editar('recuperacion_final', (int) $rf_id)
+				->deAlumno($alumnoDeLaLinea, NombreDelAlumno::de($alumnoDeLaLinea))
+				->en(year: $nota->year === null ? null : (int) $nota->year)
+				->de($bit_old)
+				->a($bit_new)
+				->guardar();
+
 			return 'Cambiada';
 		}else{
 
@@ -362,6 +449,20 @@ class DefinitivasPeriodosController extends Controller {
 							':year' => $user->year, ':nota' => Request::input('nota'), ':updated_by' => $user->user_id, ':created_at' => $now, ':updated_at' => $now ]);
 			
 			$last_id = DB::getPdo()->lastInsertId();
+
+			// El mismo hueco que su gemela de arriba, y por el mismo camino: la
+			// recuperación final que se crea a mano no dejaba rastro en ninguna de
+			// las dos tablas. `$user->year` y no un periodo: esta tabla guarda el
+			// año directo.
+			$alumnoDeLaLinea = (int) Request::input('alumno_id');
+
+			Auditoria::registrar()
+				->crear('recuperacion_final', (int) $last_id)
+				->deAlumno($alumnoDeLaLinea, NombreDelAlumno::de($alumnoDeLaLinea))
+				->en(asignatura: (int) Request::input('asignatura_id'), year: is_numeric($user->year) ? (int) $user->year : null)
+				->a(Request::input('nota'))
+				->guardar();
+
 			return (array)DB::select('SELECT * FROM recuperacion_final WHERE id=?', [$last_id])[0];
 		}
 		

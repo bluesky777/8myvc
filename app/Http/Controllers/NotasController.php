@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use App\Services\Auditoria;
 use App\Services\DefinitivasDeAsignatura;
 
 use App\User;
@@ -19,6 +20,7 @@ use App\Http\Controllers\Informes\PuestosController;
 use \Log;
 use App\Support\EscalaDeNotas;
 use App\Support\PeriodoDeLaFila;
+use App\Support\NombreDelAlumno;
 
 
 class NotasController extends Controller {
@@ -371,6 +373,25 @@ class NotasController extends Controller {
 						VALUES (?, ?, ?, "Al", "Nota", ?, ?, ?, ?)';
 
 			DB::insert($consulta, [$bit_by, $bit_hist, $nota->alumno_id, $id, $bit_new, $bit_old, $now]);
+
+			// El rastro nuevo, al lado del viejo (18 §4), y **dentro del mismo
+			// `try` que el UPDATE**, que es donde dice que vaya la regla: después
+			// de la escritura y después de la guarda (`pueden_editar_notas` está
+			// arriba). Auditar antes de la guarda dejaría registrada una escritura
+			// que nunca ocurrió.
+			//
+			// El periodo sale de `$periodoDeLaNota` —el de la fila— y no de
+			// `$user->periodo_id`, que es el del profesor y puede no ser el mismo:
+			// es la distinción que `$bit_per` tenía calculada arriba y nunca usó.
+			$alumnoDeLaLinea = $nota->alumno_id === null ? null : (int) $nota->alumno_id;
+
+			Auditoria::registrar()
+				->editar('nota', (int) $id)
+				->deAlumno($alumnoDeLaLinea, NombreDelAlumno::de($alumnoDeLaLinea))
+				->en(periodo: $periodoDeLaNota)
+				->de($bit_old)
+				->a($bit_new)
+				->guardar();
 			
 		} catch (\Exception $e) {
 			abort(422, 'No se pudo guardar la nota');
@@ -634,6 +655,12 @@ class NotasController extends Controller {
 			[$user->user_id]
 		);
 
+		// Los nombres de las notas del lote, **en una consulta y fuera de la
+		// transacción**: dentro del bucle `de()` ya no consulta. Fuera y no dentro
+		// porque es una lectura que no necesita estar en la transacción, y meterla
+		// alargaría lo que la transacción tiene abierto sin ninguna ganancia.
+		NombreDelAlumno::deVarios(array_map(fn ($f) => $f['destino']->alumno_id, $aEscribir));
+
 		$guardadas = DB::transaction(function () use ($aEscribir, $user, $now, $historial) {
 			$hechas = 0;
 
@@ -658,6 +685,24 @@ class NotasController extends Controller {
 						$now,
 					]
 				);
+
+				// El rastro nuevo, al lado del viejo (18 §4), y **dentro de la
+				// transacción del lote**: si el lote se deshace, las líneas se
+				// deshacen con él. Es la propiedad que `Auditoria` tiene por no
+				// abrir transacción propia, y la que hoy le falta a `putUpdate`.
+				//
+				// Una línea por nota y no una por lote: el lote es un detalle del
+				// transporte —el front manda una petición por rejilla—, y la
+				// pregunta que la tabla contesta es «quién tocó ESTA nota».
+				$alumnoDeLaLinea = $fila['destino']->alumno_id === null ? null : (int) $fila['destino']->alumno_id;
+
+				Auditoria::registrar()
+					->editar('nota', (int) $fila['id'])
+					->deAlumno($alumnoDeLaLinea, NombreDelAlumno::de($alumnoDeLaLinea))
+					->en(periodo: (int) $fila['destino']->periodo_id)
+					->de($fila['destino']->nota)
+					->a($fila['valor'])
+					->guardar();
 
 				$hechas++;
 			}

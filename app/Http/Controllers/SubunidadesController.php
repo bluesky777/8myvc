@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Request;
 use App\Models\Nota;
+use App\Services\Auditoria;
 use App\Services\DefinitivasDeAsignatura;
 use Illuminate\Support\Facades\DB;
 
@@ -69,6 +70,21 @@ class SubunidadesController extends Controller {
 					VALUES (?, ?, "Nueva subunidad", ?, ?, ?)';
 
 		DB::insert($consulta, [$bit_by, $bit_hist, $subunidad->id, $bit_new, $now]);
+
+		// El rastro nuevo, al lado del viejo (18 §4). `crear` y no `editar`: es el
+		// único de los diez que da de alta una fila, y `bitacoras` lo escribía con
+		// `affected_element_type = "Nueva subunidad"` —texto libre, tercera
+		// convención de nombre de las tres que conviven en esa columna—.
+		//
+		// El valor va como estructura y no como la cadena `'X -- 30%'` que arma
+		// `$bit_new`: `valor_nuevo` es `json`, y una definición y un porcentaje son
+		// dos cosas. Pegadas con ` -- ` no se pueden volver a separar cuando la
+		// definición lleva un guión dentro, que es texto escrito a mano.
+		Auditoria::registrar()
+			->crear('subunidad', (int) $subunidad->id)
+			->en(periodo: $user->periodo_id)
+			->a(['definicion' => $subunidad->definicion, 'porcentaje' => $subunidad->porcentaje])
+			->guardar();
 
 		// §5.1 de 10-definitivas.md — **la subunidad y sus notas nacen juntas.**
 		//

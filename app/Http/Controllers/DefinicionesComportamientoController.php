@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\DB;
 
 use App\User;
 use App\Models\DefinicionComportamiento;
+use App\Services\Auditoria;
 
 /**
  * §82. Aquí vivían `show($id)` —cuerpo vacío— y `update($id)`, y **ninguno de
@@ -32,6 +33,14 @@ class DefinicionesComportamientoController extends Controller {
 
 		$def->save();
 
+		// Una definición de comportamiento es una frase pegada al observador de un
+		// alumno, y **esta ruta no comprueba nada**: ni periodo ni año (§82). El
+		// rastro es lo único que queda, igual que en las ausencias.
+		Auditoria::registrar()
+			->crear('definicion_comportamiento', (int) $def->id)
+			->a(['comportamiento_id' => $def->comportamiento_id, 'frase_id' => $def->frase_id])
+			->guardar();
+
 		return $def;
 	}
 
@@ -43,6 +52,15 @@ class DefinicionesComportamientoController extends Controller {
 		//$def->fecha			=	Request::input('fecha');
 
 		$def->save();
+
+		// La gemela de arriba, con la frase escrita a mano en vez de elegida del
+		// catálogo. Se audita igual y con la misma entidad: para quien lea el
+		// observador dentro de tres años son la misma cosa, y `valor_nuevo` ya
+		// distingue cuál de las dos columnas se rellenó.
+		Auditoria::registrar()
+			->crear('definicion_comportamiento', (int) $def->id)
+			->a(['comportamiento_id' => $def->comportamiento_id, 'frase' => $def->frase])
+			->guardar();
 
 		return $def;
 	}
@@ -67,6 +85,18 @@ class DefinicionesComportamientoController extends Controller {
 	public function deleteDestroy($id)
 	{
 		$def = DefinicionComportamiento::findOrFail($id);
+
+		// Antes del `delete()`: lo que se borró del observador de un alumno es
+		// justo lo que hay que poder leer después de que se borre.
+		Auditoria::registrar()
+			->borrar('definicion_comportamiento', (int) $def->id)
+			->de([
+				'comportamiento_id' => $def->comportamiento_id,
+				'frase_id' => $def->frase_id,
+				'frase' => $def->frase,
+			])
+			->guardar();
+
 		$def->delete();
 
 		return $def;
