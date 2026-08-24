@@ -100,13 +100,21 @@ Una petición cuesta, antes de tocar la nota:
 | arranque del framework con OPcache | ~28 ms ([02 §1](02-plan-rendimiento.md)) |
 | resolver **quién pregunta** (`fromToken`, 5–8 consultas) | 40–80 ms ([02 §4](02-plan-rendimiento.md)) |
 
-O sea **~70–110 ms que se pagan enteros por cada nota**, contra los **~4 ms** que
-cuesta la nota en sí —`calcular` 1,70 ms + `sello` 1,93 ms + el UPSERT
-([coste-del-recalculo.php](../../tools/coste-del-recalculo.php))—. Guardar una
-columna de 45 notas de una en una gasta ese coste fijo **45 veces**; en lote, una.
+O sea **~70–110 ms que se pagan enteros por cada nota**. Guardar una columna de 45
+notas de una en una gasta ese coste fijo **45 veces**; en lote, una.
 
-**Estimado a partir de las partes medidas** (y por eso va marcado como estimación:
-nadie ha cronometrado `putLote` todavía, ver la §7.c):
+> **Aquí decía además que «el recálculo no es lo caro, ~4 ms», y eso venció.** Es
+> cierto de `calcular()` —1,70 ms
+> ([coste-del-recalculo.php](../../tools/coste-del-recalculo.php))— y **falso del
+> recálculo entero**: `recalcularPorNota` son ~6 consultas por nota, así que a
+> escala de columna pesa tanto como el camino común. El desglose está en la §7.c y
+> en el [02](02-plan-rendimiento.md). No cambia ninguna decisión —el lote se lleva
+> las dos— pero citar «el recálculo no cuenta» manda al sitio equivocado al
+> primero que quiera ahorrar más.
+
+**Medido la noche del 24 por `8myvc-ad`** (era una estimación hasta entonces; el
+detalle, la población y las condiciones están en el
+[02](02-plan-rendimiento.md)):
 
 | Una columna de 45 notas | Hoy | En lote |
 |---|---|---|
@@ -114,7 +122,14 @@ nadie ha cronometrado `putLote` todavía, ver la §7.c):
 | veces que se resuelve quién pregunta | 45 | 1 |
 | recálculos de la asignatura | 45 | **1** |
 | transacciones | 45 | 1 |
-| tiempo de ranura acumulado | **~4,5 s** | unas décimas |
+| **consultas** | **717** | **220** |
+| **tiempo** | — | **3,8×–5,9× más rápido** |
+
+**La razón es cota inferior, no una cifra optimista.** Los milisegundos se
+duplicaron entre corridas —la máquina estaba cargada— y la razón aguantó con las
+consultas idénticas al dígito: la carga se suma **igual a los dos lados** y acerca
+cualquier razón a 1, o sea que **esconde la ventaja en vez de exagerarla**. Es la
+misma lección de la §«medir una vez es no medir» del 02, por el lado bueno.
 
 ### Pero lo que de verdad muerde es la simultaneidad
 
