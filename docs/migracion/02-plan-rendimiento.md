@@ -851,6 +851,14 @@ ventana, mediana.**
 medido con un bloque de control (45 × `GET periodos`, la misma ruta del §4), sale
 **6 consultas por petición** y el **47%–69%** del tiempo de una `notas/update`.
 
+> **⚠️ Este reparto no cuadra y está sin resolver.** Se publicó como *«de las **497**
+> consultas que el lote ahorra, ~264 son el camino común y ~260 el recálculo: mitad y
+> mitad»* — **y 264 + 260 = 524, no 497: sobran 27.** El **497** sí cierra
+> (**717 − 220**), así que **el que falla es uno de los dos sumandos**. Lo encontró
+> `8myvc-f8` revisando el documento; **no se toca ninguno de los dos porque adivinar cuál
+> mover sería inventar**, y la medición es de otra sesión. **El reparto «mitad y mitad»
+> sobrevive como orden de magnitud; los dos números exactos, no.**
+
 **Corrige** una frase que ya circulaba: *«lo caro no es el recálculo, son 1,7 ms»*
 es cierto de `calcular()` y **falso del recálculo entero** —`recalcularPorNota` son
 ~6 consultas por nota—. De las **497 consultas que el lote ahorra, ~264 son el

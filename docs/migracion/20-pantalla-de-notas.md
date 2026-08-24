@@ -459,7 +459,15 @@ El detalle, la población y las condiciones están en el
 - **El 429 de la §1 deja de ser sospecha.** Medido con el limitador puesto: **la
   petición número 121 de 135 devolvió 429**. Tres columnas de 45 contra los
   120/min de `throttle:api`. En lote, esas tres columnas son **tres** peticiones.
-- **Y una cabecera de este documento vence antes de tiempo.** La §2 dice que lo
+- > **⚠️ Este reparto no cuadra y está sin resolver.** Se publicó como *«de las **497**
+> consultas que el lote ahorra, ~264 son el camino común y ~260 el recálculo: mitad y
+> mitad»* — **y 264 + 260 = 524, no 497: sobran 27.** El **497** sí cierra
+> (**717 − 220**), así que **el que falla es uno de los dos sumandos**. Lo encontró
+> `8myvc-f8` revisando el documento; **no se toca ninguno de los dos porque adivinar cuál
+> mover sería inventar**, y la medición es de otra sesión. **El reparto «mitad y mitad»
+> sobrevive como orden de magnitud; los dos números exactos, no.**
+
+**Y una cabecera de este documento vence antes de tiempo.** La §2 dice que lo
   caro no es el recálculo. Es cierto de `calcular()` —1,7 ms— y **falso del
   recálculo entero**: `recalcularPorNota` son ~6 consultas por nota. De las **497
   consultas que el lote ahorra, ~264 son el camino común y ~260 el recálculo**:
