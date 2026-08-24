@@ -160,6 +160,26 @@ los que escriben `historial_id`:
 
 Así que no hay ninguna atribución fiable en la tabla: **las hay adivinadas y las
 hay NULL.**
+
+> **Y los nueve no son nueve iguales — son siete y dos.** Lo señaló `8myvc-d2` el
+> 24 ago, y es la forma de fallo que este repo tiene catalogada en CLAUDE.md: *un
+> detector puede contar bien un síntoma y no estar contando la causa*. Comprobado
+> leyendo los dos:
+>
+> - **Siete son controladores** y usan el `historial_id` para atribuir una
+>   escritura: *«quién hizo esto»*.
+> - **Dos son middlewares** —`ExigirPersonaPropia:291`, `ExigirBoletinPropio:160`—
+>   y anotan un intento **rechazado**: *«a quién le dijimos que no»*. No hay
+>   `affected_element_id` ni valor viejo ni valor nuevo, porque no se escribió
+>   nada.
+>
+> **El arreglo sí es el mismo para los nueve** —los dos middlewares corren después
+> de `auth.token`, así que tienen el `$usuario` resuelto y la sesión es igual de
+> conocible—. Lo que cambia es **la fila**: un intento denegado no es una
+> escritura, y por eso `accion` tiene un quinto valor, `denegado` (§4.2). Contarlos
+> como nueve idénticos habría metido dos denegaciones disfrazadas de edición en la
+> pantalla de «qué hizo en este ingreso», que es justo lo contrario de lo que
+> pasó.
 El token de sesión (`TokenDeSesion`) y la fila de `historiales` no se conocen: se
 crean en el mismo login y luego nunca vuelven a hablarse. Consecuencias reales:
 
@@ -274,7 +294,10 @@ CREATE TABLE `auditoria` (
   `actor_intentado`  varchar(120)    DEFAULT NULL,   -- el username tecleado en un login fallido
 
   -- Qué. Los dos son de vocabulario cerrado, con constantes en el código.
-  `accion`           varchar(20)     NOT NULL,       -- crear|editar|borrar|restaurar
+  -- crear|editar|borrar|restaurar son escrituras. `denegado` NO lo es: es un
+  -- intento rechazado, y lo graban los dos middlewares (§2). Sin él no cabrían
+  -- en la tabla, o entrarían disfrazados de escritura que nunca ocurrió.
+  `accion`           varchar(20)     NOT NULL,       -- crear|editar|borrar|restaurar|denegado
   `entidad`          varchar(40)     NOT NULL,       -- nota|nota_final|ausencia|...
   `entidad_id`       bigint unsigned DEFAULT NULL,
 
@@ -345,7 +368,22 @@ El servicio resuelve solo: el actor y la sesión (del contexto), la hora (§4.5)
 ruta y la IP (de la petición), y el `resumen` legible. **Quien llama no decide
 ninguna de esas cosas** — son justo las que hoy cada sitio decide distinto.
 
-Dos reglas de escritura, las dos aprendidas ya en este repo:
+**Y una que hay que decir antes que las otras, porque es la que se hace mal por
+defecto:** el servicio decide que la escritura ocurrió **por que no hubo
+excepción**, nunca por las filas afectadas. `DB::update` devuelve filas
+**afectadas**, y MySQL devuelve **0 cuando el UPDATE no cambia ningún valor** —
+guardar 85 encima de 85 es un guardado correcto con 0 filas—. Colgar la auditoría
+de un `if ($res)` registraría esa escritura **como fallida teniendo el estado
+correcto**. Es la [§13](09-pendientes.md) que midió `8myvc-dd` el 24 ago: **4
+sitios y 6 rutas** contestan hoy `'No guardado'` con 200 por exactamente ese
+motivo, y la auditoría se estaría enganchando al mismo error.
+
+Un reguardado sin cambio **sí se registra** —alguien tocó esa nota, y «quién la
+tocó» es la pregunta que la tabla existe para contestar—, y se reconoce solo
+porque `valor_anterior` y `valor_nuevo` son iguales. No hace falta columna nueva:
+la pantalla puede filtrarlos y el rastro no pierde nada.
+
+Dos reglas más de escritura, las dos aprendidas ya en este repo:
 
 - **Dentro de la misma transacción que el cambio.** Si el cambio no se guardó, no
   hay línea; si se guardó, la línea existe. Hoy la bitácora de `putUpdate` está
@@ -384,6 +422,125 @@ dieciséis colegios. Si algún día hay un colegio fuera de Colombia, esto se
 revisa — y por eso el `Reloj` es un solo sitio.
 
 ---
+
+### §4.5.1 Los decimales: la nota es un `int`, y no sólo en la bitácora
+
+Vino de `myvc_flutter` a través de `myvc-front-10` el 24 ago: su
+`HistorialNotaApi.dart` lleva escrito que la bitácora guarda las notas como
+enteros y que **un 85,5 quedó registrado como 85**, así que la app no enseña
+decimales para no inventarlos. El aviso era que la tabla nueva, con `valor_nuevo`
+en JSON, sí podría guardarlos — y entonces el historial viejo y el nuevo dejarían
+de ser comparables.
+
+**Comprobado en el esquema, y el efecto es real pero la causa está antes:**
+
+    notas.nota           int NOT NULL DEFAULT '0'
+    notas_finales.nota   int NOT NULL DEFAULT '0'
+    bitacoras.affected_element_new_value_int   int
+
+**La nota es un entero en la tabla, no sólo en el registro.** La bitácora no
+pierde nada respecto a lo guardado: es fiel. Quien pierde el 85,5 es
+`notas.nota`, y lo pierde **para todo el mundo** — el boletín, la definitiva y la
+planilla ven 85, no sólo el historial.
+
+Dos consecuencias, y la segunda no es de este plan:
+
+1. **Para `auditoria` no hay discontinuidad.** `valor_nuevo` en JSON copiará lo
+   que haya en la columna, y ahí hay un entero. Mientras `notas.nota` sea `int`,
+   el historial nuevo y el viejo **son comparables**. El aviso de Flutter estaba
+   bien traído y la respuesta es que no aplica todavía.
+2. **Pero si algún día `notas.nota` pasa a decimal, sí lo habría** — y entonces la
+   pantalla tendría que decir desde cuándo el número es exacto, que es justo lo
+   que pedía el front. Queda anotado aquí para que quien haga ese cambio lo
+   encuentre.
+
+#### Y de paso, lo que esto destapó — que es más gordo que la auditoría
+
+Nada valida ni redondea la nota al entrar: `Request::input('nota')` va directo a
+una columna `int` y **MySQL trunca en silencio**, sin aviso ni error. Preguntado
+al front el 24 ago, y **contestado que sí en las cuatro pantallas**:
+
+    app2, planilla       paginas/notas/planilla-notas.html:154      type="number" SIN step
+    app2, definitivas    promocionar-notas/panel-de-notas.html:18,65,121   sin nzPrecision
+    la vieja, planilla   app/scripts/notas/notas.html:108 y :116    SIN step
+    la vieja, detalle    app/scripts/notas/notaFinalDetalleModal.html:44   SIN step
+
+Un `type="number"` **sin `step` acepta decimales tecleados** —el `step` sólo
+gobierna las flechas— y del lado del código tampoco hay red: `planilla-notas.ts`
+manda la cadena tal cual y sólo comprueba el máximo de la escala.
+
+**Y por qué nadie lo ha reportado en veinte años, que es la parte que lo explica
+todo** (`planilla-notas.ts:253`):
+
+    next: () => this.aviso.success(`Cambiada: ${nota.nota}`)
+
+**El aviso repite el número que se TECLEÓ, no el que quedó guardado.** Quien
+escriba `85,5` lee **«Cambiada: 85,5»** en verde y en la columna hay `85`. Al
+recargar ve 85 y lo natural es pensar que se equivocó al teclear. La pantalla le
+da la razón al profesor en el instante exacto en que el dato se pierde. Es la
+familia de los «200 que mienten», con el agravante de que aquí **el servidor no
+miente: miente el cliente al repetir lo tecleado**. El front lo arregla por su
+lado, y lo arregla aunque el backend no cambie nada.
+
+**Lo que hace falta para saber si esto es cosmético o grave es la escala, y sólo
+lo puede contestar el backend.** Medido en la base que hay aquí:
+
+| | |
+|---|---|
+| Escala de este colegio | **0 a 50** — la banda SUPERIOR es 46–50 |
+| `porc_inicial` / `porc_final` | **`int` las dos**: la escala misma no puede expresar un límite decimal |
+| Configurable | **por colegio y por año** (`escalas_de_valoracion.year_id`) |
+
+**No es de 0 a 100**, que es lo que suponía el front. En una escala de 0 a 50 un
+entero es el 2% del rango, así que el decimal pesa **el doble** que en una de 100.
+
+> **Y aquí no se puede generalizar desde una base, que es el error contra el que
+> avisa CLAUDE.md.** La escala es configurable por colegio y por año, y sólo se ve
+> una. Si en alguno de los dieciséis fuera de **1 a 5** —donde el decimal no es un
+> capricho sino la forma normal de calificar— la pregunta deja de ser «¿teclean
+> decimales?» y pasa a ser **«¿cuántos años llevan perdiéndolos?»**. Se contesta
+> con el mismo `for` de la fase 0:
+>
+> ```sql
+> SELECT year_id, MIN(porc_inicial) AS min, MAX(porc_final) AS max
+>   FROM escalas_de_valoracion WHERE deleted_at IS NULL GROUP BY year_id;
+> ```
+>
+#### Y una tercera, que sí es del backend
+
+Mirando el front con una escala de 50 delante, `myvc-front-10` encontró un
+`[nzMax]="100"` escrito a mano en `panel-de-notas.html:126` — en un colegio de 0 a
+50 ese campo acepta **el doble** de la máxima. Es suyo y lo arreglan ellos. Pero
+al comprobarlo por mi lado sale algo que es mío:
+
+**Nada en el backend rechaza una nota por pasarse de la escala.** Comprobado: hay
+**diez** sitios que comparan contra `porc_inicial`/`porc_final` y **los diez son
+para pintar la banda** —SUPERIOR, ALTO, BÁSICO— no para rechazar. Ninguno aborta.
+En todo el proyecto hay **2 validaciones** (CLAUDE.md) y ninguna es ésta.
+
+O sea que **el único guardián de la escala es el cliente**, y de las tres
+pantallas hermanas dos tienen guarda y una no. Con dos agravantes que puso el
+front y que son ciertos:
+
+- El límite se resuelve con `escalaMaxima() ?? 100`, así que **un fallo de la
+  caché de escalas afloja el límite en vez de apretarlo**. Lo seguro sería
+  negarse a guardar — que es justo lo que sí hace la definitiva.
+- Si algún día el backend valida, **esos campos son por donde entra lo que hoy
+  pasa callando**: un 422 haría visible mañana lo que hoy se guarda sin ruido.
+
+No lo arreglo aquí y no lo propongo en este plan: meter la primera validación de
+escala del proyecto es una decisión con su propia medición —cuántas notas fuera de
+rango hay ya guardadas en los dieciséis, y qué se hace con ellas—. Queda escrito
+porque **una nota fuera de la escala es un dato que la auditoría va a registrar
+como si fuera normal**, y quien lea el rastro mañana merece saber que el sistema
+nunca lo impidió.
+
+> **Nada de esto es de la auditoría y no se arregla aquí.** Está escrito en este
+> documento porque es donde salió, y porque el rastro de cómo se encontró vale
+> tanto como el hallazgo: **lo destapó Flutter avisando de un detalle de
+> pantalla**, siguió con una escala que resultó no ser la que todos suponíamos, y
+> acabó en que el sistema de calificación entero está construido sobre enteros y
+> sin guardas en el servidor. Ninguna de las tres se buscaba.
 
 ### §4.6 Los cuatro clientes — lo que este plan no miraba
 
@@ -674,15 +831,51 @@ corresponde.
 
 ### Fase 7 — retirar lo viejo, y no antes de tiempo
 
-Lo último, y **su condición de entrada no es «desplegado en los dieciséis» sino
-«Flutter publicado y adoptado»**, que es un dato de tienda y no del repo:
+**Esta fase no tiene fecha, y no es lo mismo que tenerla lejos.** Lo corrigió
+`myvc-flutter-fe` vía `myvc-front-10` el 24 ago, y es el hallazgo que más cambia
+cómo se planifica.
 
-| Qué se retira | Qué hay que tener antes |
-|---|---|
-| `historiales/nota-detalle` y `nota-final-detalle` | los dos modales del front migrados **y** `myvc_flutter` publicado en tiendas |
-| `historiales/de-usuario` y `sesion` | `mis-sesiones` migrada |
-| `GET bitacoras/{user_id?}` | decidido qué pasa con `/panel/bitacora` — **es la decisión 4** |
-| `DELETE bitacoras/destroy/{id}` | los **dos botones** que hay encima tienen sustituto |
+**Cada ruta vieja tiene su propia lista de clientes y su propia condición de
+salida.** Ponerles una condición común —como estaba escrito— retira de más o
+espera de más:
+
+| Qué se retira | Quién la llama hoy | Condición de salida |
+|---|---|---|
+| `historiales/nota-detalle` | `app/` **desplegada** · `app2` · **Flutter** | Flutter publicado **y adoptado** |
+| `historiales/nota-final-detalle` | `app/` **desplegada** · `app2` | que `app2` sustituya a `app/` — **Flutter no la llama** |
+| `historiales/de-usuario` y `sesion` | `mis-sesiones` | esa pantalla migrada |
+| `GET bitacoras/{user_id?}` | `/panel/bitacora` | **la decisión 4** |
+| `DELETE bitacoras/destroy/{id}` | **dos** botones | que los dos tengan sustituto |
+
+Medido por Flutter: **cero referencias a `nota-final-detalle` en su `lib/`**, sólo
+`nota-detalle`. Y `nota-final-detalle` la retiene `app/`, que es **la versión que
+corre hoy en los dieciséis** —`app2` aún no se publica—. O sea: Flutter suelta una
+y el front retiene la otra, por motivos distintos y con calendarios distintos.
+
+#### Por qué «adoptada» no es una fecha que llegue sola
+
+`myvc_flutter` está en `1.0.0+1`, sin publicar, y necesita doce probadores catorce
+días seguidos antes de poder pedir producción. **Esa es la parte fácil.** La otra:
+
+> **La app no comprueba versión mínima en ninguna parte de `lib/`.** No hay forma
+> de obligar a nadie a actualizarse, así que **un teléfono con la versión vieja
+> seguirá llamando a `nota-detalle` indefinidamente y nadie se entera.**
+
+Y eso convierte la condición de entrada de esta fase en algo que **hoy no se puede
+comprobar**. Sólo hay dos maneras de que llegue a serlo:
+
+1. **Que la app aprenda a exigir versión mínima** — trabajo de Flutter más un
+   endpoint diminuto de este lado. Es la que deja el problema resuelto.
+2. **Decidir la retirada mirando el reparto por versión de Play Console**, que es
+   un dato de tienda y lo tiene Joseth. Sirve una vez, no arregla la próxima.
+
+> **Y esto es más grande que este plan, aunque salga en este plan.** Mientras no
+> exista la comprobación de versión mínima, **la retirada de cualquier endpoint
+> depende de la buena voluntad de dieciséis colegios.** La fase 7 es el primer
+> sitio donde se ve, no el único que lo tiene: le pasa igual a toda la Fase 5 del
+> [00](00-plan-migracion.md) y a cualquier cambio de contrato futuro. Se anota
+> aquí porque aquí se encontró, y quien planifique una retirada después debería
+> leer esto antes de poner una fecha.
 
 Sobre el borrado, que es el que más cuidado necesita: la tabla nueva es
 append-only y **no tiene equivalente de `destroy`** (§4.4), pero hoy hay dos
@@ -703,26 +896,38 @@ eliminada'` en `text/html`, y el front ya se comió ese fallo y va por
 | **2** | ¿Mover `config/app.php` a `America/Bogota`? | **No, por ahora.** El `Reloj` es la única fuente para lo que se guarda. Evita arrastrar una medición de expiraciones de sesión, `jobs` y cachés que la auditoría no necesita. Los 17 usos UTC se anotan con su motivo y el `RelojUnicoTest` impide que crezcan |
 | **3** | ¿Quién ve la auditoría? | **Las tres cosas a la vez**: permiso `can_view_auditoria` por rol · sembrado sólo a rector y coordinación · y cada quien ve siempre lo suyo sin permiso. Detallado en la fase 5 |
 
-### La cuarta, abierta desde el 24 ago — la trajo el front
+### La cuarta, contestada el 24 ago — la trajo el front
 
-**[DECISIÓN 4] `/panel/bitacora`: ¿se jubila o se queda?**
+**[DECISIÓN 4] `/panel/bitacora` SE JUBILA.** La pantalla nueva de la fase 5
+ocupa su sitio en el menú.
 
-La pantalla vive en `paginas/bitacora/bitacora.ts`, va con el permiso `califica`,
-y usa `GET bitacoras/{user_id?}` más el botón de borrar. La pantalla nueva de la
-fase 5 dice servir para lo mismo, mejor. De la respuesta depende una cosa que el
-front no puede decidir solo: **dónde cae la pantalla nueva en el menú** — si
-`/panel/bitacora` se jubila, la nueva ocupa su sitio; si se queda, hay dos
-pantallas que dicen servir para lo mismo y **una de las dos miente**.
+La vieja vive en `paginas/bitacora/bitacora.ts`, va con el permiso `califica`, y
+usa `GET bitacoras/{user_id?}` más el botón de borrar. Se jubila porque la nueva
+sirve para lo mismo y mejor, y porque mantener las dos deja **dos pantallas que
+dicen servir para lo mismo, y una de las dos miente** — el argumento es del front
+y es el que decidió.
 
-Va con una pregunta pegada, porque se contestan juntas: **después de retirar
-`bitacoras/destroy`, ¿quién borra un intento fallido?** Hay dos botones encima de
-esa ruta. Las opciones son (a) nadie, la auditoría no se borra y los botones
-desaparecen —es lo coherente con el append-only de la §4.4—, (b) sólo rectoría, y
-el borrado queda a su vez auditado, o (c) se quedan como están y `bitacoras` no se
-retira nunca.
+**Consecuencias, y la primera es una obligación del front, no una sugerencia:**
 
-> Esta decisión **no bloquea nada hasta la fase 7**. Las fases 0 a 6 se hacen
-> enteras sin contestarla.
+- **`myvc_front` retira `/panel/bitacora`** y pone la pantalla nueva en su sitio
+  del menú. Está escrito como **tarea obligatoria** en la sección C de
+  `myvc_front/PANTALLAS-HISTORIAL-Y-BOLETIN.md`, no como una nota — se avisó el
+  24 ago y era lo único que les bloqueaba.
+- **`GET bitacoras/{user_id?}` se retira con ella**, en la fase 7, y no antes: la
+  pantalla vieja sigue viva hasta que la nueva esté desplegada en los dieciséis.
+- **El permiso `califica` deja de gobernar quién ve el rastro.** Pasa a
+  `can_view_auditoria` (decisión 3), que es más estrecho: hoy `califica` lo tiene
+  cualquiera que ponga notas. **Eso es un endurecimiento, y hay que decirlo en voz
+  alta** — un profesor que hoy entra a `/panel/bitacora` puede dejar de poder. Si
+  el colegio quiere que sigan entrando, la respuesta no es dejar la pantalla
+  vieja: es sembrar el permiso más ancho.
+
+**Y queda una pregunta pegada, que sube con las demás:** después de retirar
+`bitacoras/destroy` hay **dos botones** encima de esa ruta —el de `mis-sesiones` y
+el de la rejilla que se jubila—. Hay que decir qué hace el que sobreviva.
+
+> Nada de esto **bloquea las fases 0 a 6**. Se ejecutan enteras con la decisión
+> tomada o sin ella; lo que desbloquea es el trabajo del front.
 
 **Lo demás no espera a nadie.** Lo siguiente es la fase 0: correr
 `tools/salud-de-la-bitacora.php` colegio por colegio, igual que el `for` de una
