@@ -8369,3 +8369,52 @@ inventada, un `cd` que dejó el shell en el árbol de otros, `vendor/` con symli
 > **El instrumento correcto sobre el objeto equivocado.** Ninguna se ve mirando el
 > resultado, porque el resultado es correcto. Sólo se ven preguntando **sobre qué**
 > se midió.
+
+### §173.1. Corrección: los tres síntomas no tienen la misma causa, y sólo hay **un** pisotón
+
+Lo midió `8myvc-d2` leyendo los nueve ficheros del cruce, **y comprobando al revés**:
+revertido el arreglo caen **4 de 5** tests, **y el que no cae es el del correo**.
+
+**«Corregir el teléfono desde la rejilla pierde el correo de recuperación» sólo
+ocurre si la rejilla manda `email2`.** Con un cuerpo que no lo manda, el correo
+estaba **a salvo desde la [§68](#)**: la guarda `trae('email2')` ya existía y
+funciona. Lo que el pisotón rompe es **el caso en que el cliente manda su valor y
+llega sustituido**. El renombrado y la degradación sí son del cuerpo parcial, que
+es lo que decía la §173.
+
+*(Y ese matiz es lo que hay que decirle al front: **su rejilla sí manda `email2`**,
+y ése es el dato que explica el síntoma que midieron.)*
+
+### §173.2. Y la pregunta grande se contesta que **no**: es un arreglo, no una decisión
+
+La §173 dejaba abierto si `CamposQueVinieron` tenía que contestar también *«¿es
+éste el valor que vino?»* — lo que habría tocado quince ficheros. **Medido: no.**
+
+```
+usan la clase ............................ 14   (el 15º era la propia clase)
+con merge o sanador ....................... 9
+  solape merge × trae ..................... 5
+  de ésos, PISOTÓN DE VERDAD .............. 2    <- Profesores y Alumnos, los dos `email2`
+```
+
+**Los otros tres solapes no son pisotones, y por eso el número no bastaba:**
+
+- **Asignaturas** (`profesor_id`, `grupo_id`) y **Grados** (`nivel`): sus merges van
+  **guardados por ausencia** —`if (!Request::input('x') and …)`—, así que cuando
+  `trae('x')` es cierto **el merge no corrió**. Correctos.
+- **Materias** (`area`): el merge **normaliza** el objeto a su id bajo la misma
+  clave. Es una transformación deliberada, no una sustitución.
+
+O sea que **el patrón de la casa ya es correcto**: los merges o preguntan antes o
+normalizan. El único pisotón real es **una condición muerta** —`if (!Request::input('email1'))`,
+con `email1` sin aparecer en ninguno de los cuatro clientes— que corre siempre.
+
+**Arreglo entero: una palabra en el sanador** (`email1` → `email2`, que es lo que
+la condición quería decir) **y dos `trae()`** en los campos que no los tenían. **La
+clase no se toca y los quince ficheros no se mueven.**
+
+> Y el método que lo decidió es el que lo hace fiable: **el 9 era un número de
+> sitios donde mirar y se leyó como tal.** Los cinco solapes hubo que abrirlos uno
+> a uno para que aparecieran los dos que importaban — *un detector da sitios donde
+> mirar, nunca una lista de fallos*, esta vez con el signo bueno: **el patrón
+> estaba mejor de lo que el número sugería.**
