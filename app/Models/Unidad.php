@@ -88,6 +88,29 @@ class Unidad extends Model {
 	public static function deAsignaturaCalculada($alumno_id, $asignatura_id, $periodo_id, $con_desempenio='sin_desempenio', $year_id=0, $nota_minima=70)
 	{
 
+		/*
+		 * De quién son las unidades que hay que traer. Es la fase 1 de
+		 * docs/migracion/19-boletin-independiente.md, y esta llamada es **la
+		 * puerta de los tres boletines**: `BoletinesController:303`,
+		 * `Boletines2Controller:226,228` y `Boletines3Controller:238` pasan por
+		 * aquí, y también `Informes/NotasActualesAlumnosController:187`, que el
+		 * plan no nombraba y son cuatro consumidores, no tres.
+		 *
+		 * `null` mientras nadie esté marcado —que es siempre hoy—, y entonces
+		 * `u.alumno_id <=> NULL` selecciona exactamente las filas de antes: por
+		 * eso esto entra sin regenerar un solo snapshot.
+		 *
+		 * **`<=>` y no `=`**: el igual null-safe empareja NULL con NULL, así que
+		 * una condición cubre las dos ramas. Con `=` a secas el alumno normal no
+		 * empareja nada y su definitiva sale 0, sin un error en el log.
+		 *
+		 * `Subunidad::deUnidadCalculada`, que es lo que se llama justo después
+		 * en los cuatro sitios, **no necesita nada**: va por `s.unidad_id` y la
+		 * unidad ya viene elegida de aquí. El plan hablaba de «dos funciones» y
+		 * medida son una y la que hereda de ella.
+		 */
+		$alcance = \App\Services\BoletinIndependiente::alcance((int) $alumno_id, (int) $periodo_id);
+
 		if($con_desempenio==='fortaleza_debilidad'){
 			
 			$consulta = 'SELECT u.id as unidad_id, u.definicion as definicion_unidad, u.porcentaje as porcentaje_unidad, IF(ROUND(sum((n.nota*s.porcentaje/100))) < :nota_minima, "Debilidad", "Fortaleza") as desempenio,
@@ -95,7 +118,7 @@ class Unidad extends Model {
 						FROM unidades u
 						left join subunidades s ON s.unidad_id=u.id and s.deleted_at is null
 						left join notas n ON n.subunidad_id=s.id and n.deleted_at is null and alumno_id=:alumno_id
-						where u.asignatura_id=:asignatura_id and u.periodo_id=:periodo_id and u.deleted_at is null
+						where u.asignatura_id=:asignatura_id and u.periodo_id=:periodo_id and u.deleted_at is null and u.alumno_id <=> :alcance
 						group by u.id 
 						order by u.orden, u.id';
 
@@ -103,7 +126,8 @@ class Unidad extends Model {
 				':nota_minima'		=> $nota_minima,
 				':alumno_id'		=> $alumno_id,
 				':asignatura_id'	=> $asignatura_id,
-				':periodo_id'		=> $periodo_id
+				':periodo_id'		=> $periodo_id,
+				':alcance'			=> $alcance
 			]);
 
 
@@ -117,7 +141,7 @@ class Unidad extends Model {
 						FROM unidades u
 						left join subunidades s ON s.unidad_id=u.id and s.deleted_at is null
 						left join notas n ON n.subunidad_id=s.id and n.deleted_at is null and alumno_id=:alumno_id
-						where u.asignatura_id=:asignatura_id and u.periodo_id=:periodo_id and u.deleted_at is null
+						where u.asignatura_id=:asignatura_id and u.periodo_id=:periodo_id and u.deleted_at is null and u.alumno_id <=> :alcance
 						group by u.id ) r1
 						left join escalas_de_valoracion e ON e.porc_inicial<=r1.nota_unidad and e.porc_final>=r1.nota_unidad and e.deleted_at is null and e.year_id=:year_id
 						order by r1.orden_unidad, r1.unidad_id';
@@ -126,6 +150,7 @@ class Unidad extends Model {
 				':alumno_id'		=> $alumno_id,
 				':asignatura_id'	=> $asignatura_id,
 				':periodo_id'		=> $periodo_id,
+				':alcance'			=> $alcance,
 				':year_id'			=> $year_id,
 			]);
 			
@@ -135,14 +160,15 @@ class Unidad extends Model {
 						FROM unidades u
 						left join subunidades s ON s.unidad_id=u.id and s.deleted_at is null
 						left join notas n ON n.subunidad_id=s.id and n.deleted_at is null and alumno_id=:alumno_id
-						where u.asignatura_id=:asignatura_id and u.periodo_id=:periodo_id and u.deleted_at is null
+						where u.asignatura_id=:asignatura_id and u.periodo_id=:periodo_id and u.deleted_at is null and u.alumno_id <=> :alcance
 						group by u.id 
 						order by u.orden, u.id';
 
 			$unidades = DB::select($consulta, [
 				':alumno_id'		=> $alumno_id,
 				':asignatura_id'	=> $asignatura_id,
-				':periodo_id'		=> $periodo_id
+				':periodo_id'		=> $periodo_id,
+				':alcance'			=> $alcance
 			]);
 		}
 
