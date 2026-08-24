@@ -2,6 +2,7 @@
 
 namespace Tests\Contrato;
 
+use App\Support\Autoriza;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\DB;
@@ -405,6 +406,50 @@ abstract class CasoDeContrato extends TestCase
             (function () {
                 $this->controller = null;
             })->call($ruta);
+        }
+    }
+
+    /**
+     * Le da `can_view_auditoria` a un usuario, por la vía real: permiso → rol → usuario.
+     *
+     * Vive aquí y no en un test porque lo necesitan tres clases: la del propio
+     * lote AUD-5, `BitacorasTest` y `QuienDecideDeQuienEsUnAlumnoTest`, que antes
+     * leían el rastro de otro **sin nada** y ahora tienen que pedirlo.
+     *
+     * **Lo monta el test y no el seed, y no es comodidad.**
+     * `database/dumps/test-seed.sql` hace `TRUNCATE TABLE permissions`,
+     * `permission_role`, `roles` y `role_user` antes de insertar, y las
+     * migraciones corren **antes** del seed en `tools/construir-bd-test.sh`: **lo
+     * que siembra la migración no sobrevive a construir la base.** Un test que se
+     * apoyara en ello estaría comprobando el seed y no el código.
+     *
+     * Va por rol y no inventando una columna porque **así es como el permiso llega
+     * al contexto**: `ContextoDeUsuario` junta los permisos de todos los roles en
+     * `perms`, y `Autoriza::puedeVerAuditoria()` mira esa lista. Un atajo aquí
+     * comprobaría un camino que en producción no existe.
+     */
+    protected function darPermisoDeAuditoria(int $userId): void
+    {
+        $permiso = DB::table('permissions')->where('name', Autoriza::PERMISO_AUDITORIA)->value('id')
+            ?? DB::table('permissions')->insertGetId([
+                'name' => Autoriza::PERMISO_AUDITORIA,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+        $rol = DB::table('roles')->where('name', 'AuditorDePrueba')->value('id')
+            ?? DB::table('roles')->insertGetId([
+                'name' => 'AuditorDePrueba',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+        if (! DB::table('permission_role')->where('permission_id', $permiso)->where('role_id', $rol)->exists()) {
+            DB::table('permission_role')->insert(['permission_id' => $permiso, 'role_id' => $rol]);
+        }
+
+        if (! DB::table('role_user')->where('user_id', $userId)->where('role_id', $rol)->exists()) {
+            DB::table('role_user')->insert(['user_id' => $userId, 'role_id' => $rol]);
         }
     }
 

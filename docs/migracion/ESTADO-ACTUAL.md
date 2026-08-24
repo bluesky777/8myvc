@@ -179,6 +179,74 @@ arriba y no en la línea.
 
 ---
 
+## AUD-5 hecha — el rastro de la auditoría deja de leerlo cualquiera del personal
+
+**Rama `feat/auditoria-permiso`, árbol `.worktrees/48`.** Es la **decisión 3** de
+[18-auditoria.md](18-auditoria.md), abierta con el visto bueno expreso de Joseth —la
+ficha del lote lo exigía porque **cambia quién ve qué**—. El detalle entero, con lo
+que quedó fuera y por qué, en [`noche-2026-08-25/aud-5.md`](noche-2026-08-25/aud-5.md).
+
+**Lo que había:** las seis rutas viejas de la auditoría iban con `auth.personal` **y
+nada más**. Cualquiera del personal leía la bitácora de un compañero —o la de su
+rector— poniendo su número en la URL, y `historiales/de-usuario` cogía el `user_id`
+**del cuerpo** y devolvía sus sesiones **y sus intentos de login fallidos** sin
+mirar de quién eran: `$user` se resolvía y no se usaba.
+
+**Lo que hay:** lo propio siempre y sin permiso; lo de otro sólo con
+`can_view_auditoria`, sembrado por migración a `Rector` y `Coord académico`.
+
+> **Esto QUITA algo, y hay que decirlo en voz alta porque llega a los dieciséis.**
+> Un profesor que hoy abre `/panel/bitacora` o «quién cambió esta nota» **puede
+> dejar de poder**: eso lo gobernaba `califica`, que tiene cualquiera que ponga
+> notas. Es el endurecimiento que la decisión 4 ya había escrito, no un efecto
+> colateral. **Si un colegio quiere que sigan entrando, se les siembra el permiso** —
+> la respuesta no es revertir esto.
+
+**Ninguna ruta nueva** (siguen **542**), ningún cuerpo cambia de forma, ningún campo
+se retira. Lo único que cambia es **quién recibe 403 donde antes recibía 200**.
+
+### La decisión que tomé y que se tumba con una fila
+
+**`Coord disciplinario` NO recibe el permiso.** La decisión 3 dice «rector y
+coordinación» y en `roles` hay **dos** coordinaciones. Quien lleva la disciplina no
+es obviamente quien puede ver quién cambió una nota, y eso lo decide el colegio.
+Queda en el lado seguro; **añadirlo es una fila en `permission_role`**, sin
+migración y sin desplegar.
+
+### Y lo que enseñó, que no es una anécdota
+
+**Cuatro tests que ya existían se pusieron rojos, y dos estaban ahí justamente para
+eso.** `BitacorasTest` decía *«se mide y se fija; quién puede leer el rastro de
+quién es decisión del colegio»* y `QuienDecideDeQuienEsUnAlumnoTest` decía *«sigue
+abierto en las dos»*. **No comprobaban que algo estuviera bien: fijaban un agujero
+medido mientras esperaba una decisión.** Cuando la decisión llegó, **se pusieron
+rojos solos y señalaron los dos sitios exactos** — sin que nadie tuviera que
+acordarse de ellos. Se invierten y conservan dentro la frase que decían antes: *un
+caso que desaparece se lleva el motivo por el que existió*.
+
+Y de los otros dos sale una regla que no es la misma para los dos: **cuando una
+guarda nueva pone rojo un test que no va de guardas, la pregunta es si ese test
+NECESITABA el privilegio o sólo lo usaba de paso.** Uno leía el listado de otro sin
+que ese fuera su asunto —se le quita la dependencia— y el otro necesita llegar a
+`nota-detalle` de verdad —se le siembra el permiso—. *Concederlo siempre es lo
+cómodo, y es lo que convierte una suite en una que ya no puede encontrar el
+agujero.*
+
+### Lo que NO entra, y no es olvido
+
+- **`DELETE bitacoras/destroy/{id}` se queda como está**, o sea que **hoy cualquiera
+  del personal sigue pudiendo borrar el registro que lo vigila, incluido el suyo**.
+  No se cuelga del permiso porque **ya está decidido y es otra cosa**: la decisión 4
+  dice que **nadie borra** y que la ruta **se retira en la fase 7**. *Borrar la
+  auditoría no es verla.* **El agujero sigue abierto entre hoy y la fase 7**, y por
+  eso queda escrito aquí y no sólo en el documento del lote.
+- **Ninguna ruta que lea la tabla `auditoria`**: no hay ninguna todavía —medido,
+  cero `FROM`/`JOIN` en `app/Http/Controllers/`—. Son la fase 5.
+- **La pregunta grande sigue siendo grande.** Con `GET profesores` y sus hermanas
+  sirviendo la ficha del profesorado a cualquier docente, y con el rol sin cambiar
+  nada en lectura de fichas ([FICHAS-1](noche-2026-08-25/fichas-1.md)), **cerrar la
+  auditoría no cierra el resto**: las casillas `8bis`–`8quater` siguen esperando.
+
 ## AUD-2 fundida — 25 ago, y trae una migración que deja viejas las bases de test
 
 **`merge(9a)` en `e5b5c59`.** La fase 2 de la [auditoría](18-auditoria.md): el

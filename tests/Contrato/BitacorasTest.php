@@ -87,20 +87,35 @@ class BitacorasTest extends CasoDeContrato
     }
 
     /**
-     * Con un id en la URL, el listado es el de ese usuario — sin más preguntas.
+     * Con un id en la URL, el listado es el de ese usuario — **y ahora hay que poder**.
      *
-     * `bitacoras/{user_id?}` solo pide `auth.personal`: cualquiera de los 51
-     * profesores lee el rastro de actividad de cualquier usuario del colegio, con
-     * los nombres de las personas afectadas dentro. **Se mide y se fija; quién
-     * puede leer el rastro de quién es decisión del colegio.**
+     * **Este test decía lo contrario, y decirlo era su trabajo.** Fijaba que
+     * `bitacoras/{user_id?}` iba con `auth.personal` y nada más, o sea que
+     * cualquiera de los 51 profesores leía el rastro de cualquier usuario del
+     * colegio —con los nombres de las personas afectadas dentro— y lo dejaba
+     * escrito así: *«se mide y se fija; quién puede leer el rastro de quién es
+     * decisión del colegio»*.
+     *
+     * **La decisión llegó** —la 3 de `18-auditoria.md`, cableada en el lote AUD-5—
+     * y es: lo propio siempre, lo de otro sólo con `can_view_auditoria`. Así que el
+     * caso se invierte en vez de borrarse: las dos mitades en el mismo sitio, para
+     * que se vea que lo que cambió fue la respuesta y no la pregunta.
      */
-    public function test_cualquiera_del_personal_lee_el_rastro_de_otro(): void
+    public function test_el_rastro_de_otro_ya_no_lo_lee_cualquiera(): void
     {
         $yo = $this->usuarioLlanoDelPersonal();
         $otro = $this->otroUsuario((int) $yo->id);
         $ajena = $this->bitacoraDe((int) $otro->id);
+        $token = $this->tokenDe($yo->username);
 
-        $filas = $this->withToken($this->tokenDe($yo->username))
+        // Sin el permiso: 403, donde hasta el 25 ago 2026 había un 200 con nombres.
+        $this->withToken($token)->getJson('/api/bitacoras/'.$otro->id)->assertStatus(403);
+
+        // Con el permiso: lo de siempre, incluido el nombre de la persona afectada
+        // — que es lo que hace que esto importe, y por eso se sigue comprobando.
+        $this->darPermisoDeAuditoria((int) $yo->id);
+
+        $filas = $this->withToken($token)
             ->getJson('/api/bitacoras/'.$otro->id)->assertStatus(200)->json();
 
         $this->assertContains($ajena, array_column($filas, 'id'));
@@ -136,19 +151,25 @@ class BitacorasTest extends CasoDeContrato
     {
         $yo = $this->usuarioLlanoDelPersonal();
         $token = $this->tokenDe($yo->username);
-        $otro = $this->otroUsuario((int) $yo->id);
-        $ajena = $this->bitacoraDe((int) $otro->id);
 
-        $antes = count($this->withToken($token)->getJson('/api/bitacoras/'.$otro->id)->json());
+        // **Sobre la PROPIA, y eso lo cambió AUD-5.** Este caso usaba la de otro
+        // usuario y su listado ajeno, que desde el 25 ago 2026 contesta 403 sin
+        // `can_view_auditoria`. Lo que mide no es quién puede leer —eso tiene sus
+        // dos casos aparte— sino **que borrar la saque del listado**, y eso se ve
+        // igual de bien en el de uno mismo. Sembrarle el permiso aquí habría
+        // metido en este test una condición que no es la suya.
+        $mia = $this->bitacoraDe((int) $yo->id);
 
-        $this->withToken($token)->deleteJson('/api/bitacoras/destroy/'.$ajena)
+        $antes = count($this->withToken($token)->getJson('/api/bitacoras')->json());
+
+        $this->withToken($token)->deleteJson('/api/bitacoras/destroy/'.$mia)
             ->assertStatus(200)->assertSee('Bitácora eliminada');
 
         $this->assertSame($antes - 1,
-            count($this->withToken($token)->getJson('/api/bitacoras/'.$otro->id)->json()),
+            count($this->withToken($token)->getJson('/api/bitacoras')->json()),
             'El listado desde el que se borra tiene que dejar de enseñarla.');
 
-        $fila = DB::table('bitacoras')->where('id', $ajena)->first();
+        $fila = DB::table('bitacoras')->where('id', $mia)->first();
         $this->assertNotNull($fila, 'El borrado es blando: la fila se queda.');
         $this->assertNotNull($fila->deleted_at);
     }
@@ -186,6 +207,13 @@ class BitacorasTest extends CasoDeContrato
     {
         $yo = $this->usuarioLlanoDelPersonal();
         $token = $this->tokenDe($yo->username);
+
+        // `historiales/nota-detalle` pide `can_view_auditoria` desde AUD-5: la
+        // pregunta es por una NOTA y contesta quién la cambió, así que no tiene
+        // mitad «lo tuyo» que dejar abierta. Lo que este caso mide sigue siendo
+        // otra cosa —que borrar la bitácora NO borre el rastro de la nota—, así
+        // que se le da el permiso y se mide lo de siempre.
+        $this->darPermisoDeAuditoria((int) $yo->id);
 
         $nota = DB::table('notas')->whereNull('deleted_at')->orderBy('id')->first();
         $this->assertNotNull($nota, 'El seed no tiene notas.');

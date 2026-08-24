@@ -826,8 +826,20 @@ resuelve y no se usa—. Está en la [08](08-revision-idor.md) y en el lote E de
 pregunta puede preguntar por ese usuario hace falta con cualquier respuesta que se
 dé a «quién ve la auditoría».
 
-**Quién puede verlo, decidido el 24 ago.** No es un detalle: la pantalla dice qué
-hizo cada persona minuto a minuto. Las tres piezas, y van juntas:
+**Quién puede verlo, decidido el 24 ago — y CABLEADO el 25.** No es un detalle: la
+pantalla dice qué hizo cada persona minuto a minuto. Las tres piezas, y van juntas:
+
+> **Las tres están hechas ya**, sobre las **seis rutas viejas**, en el lote
+> [AUD-5](noche-2026-08-25/aud-5.md): el criterio en `App\Support\Autoriza`, la
+> migración `2026_08_25_200000_create_permiso_can_view_auditoria` —que **sí
+> siembra**, al revés que la del Secretario, porque este permiso **cierra** en vez
+> de abrir— y las cinco rutas de lectura comprobando **en el sitio donde se sabe de
+> quién es el dato**. Las cuatro rutas nuevas de esta fase **nacen ya con el
+> criterio disponible**: no hay que volver a decidirlo, sólo llamarlo.
+>
+> Y **`Coord disciplinario` se dejó fuera a propósito**: «coordinación» son **dos**
+> roles en la tabla, y quién lleva la disciplina no es obviamente quién ve quién
+> cambió una nota. Es una fila en `permission_role` el día que el colegio lo diga.
 
 1. **Un permiso nuevo, `can_view_auditoria`.** Sigue la convención de los 19 que ya
    existen (`can_edit_notas`, `can_edit_unidades_subunidades`): verbo en inglés,
@@ -944,7 +956,7 @@ eliminada'` en `text/html`, y el front ya se comió ese fallo y va por
 |---|---|---|
 | **1** | Zona de `ocurrido_en` | **`DATETIME` en hora de Bogotá.** Colombia no tiene horario de verano y `DATETIME` no convierte: lo escrito es lo leído. Se revisa el día que haya un colegio fuera de Colombia, y por eso el `Reloj` es un único sitio |
 | **2** | ¿Mover `config/app.php` a `America/Bogota`? | **No, por ahora.** El `Reloj` es la única fuente para lo que se guarda. Evita arrastrar una medición de expiraciones de sesión, `jobs` y cachés que la auditoría no necesita. Los 17 usos UTC se anotan con su motivo y el `RelojUnicoTest` impide que crezcan |
-| **3** | ¿Quién ve la auditoría? | **Las tres cosas a la vez**: permiso `can_view_auditoria` por rol · sembrado sólo a rector y coordinación · y cada quien ve siempre lo suyo sin permiso. Detallado en la fase 5 |
+| **3** | ¿Quién ve la auditoría? | **Las tres cosas a la vez**: permiso `can_view_auditoria` por rol · sembrado sólo a rector y coordinación · y cada quien ve siempre lo suyo sin permiso. Detallado en la fase 5. **HECHA el 25 ago 2026** sobre las seis rutas viejas (lote AUD-5, `noche-2026-08-25/aud-5.md`); las cuatro rutas nuevas la heredarán al escribirse |
 
 ### La cuarta, contestada el 24 ago — la trajo el front
 
