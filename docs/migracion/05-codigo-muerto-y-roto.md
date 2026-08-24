@@ -11630,3 +11630,49 @@ está **apagada a propósito y el código sigue ahí para leerse como si estuvie
 sobra porque el middleware la cubre. **El día que alguien mueva esa ruta a otro grupo de
 middleware, no** — y quien lo haga verá una línea comentada que parece un descuido en vez
 de una dependencia.
+
+## §230. La pregunta espejo ya tenía herramienta, y la respuesta cabe en siete líneas
+
+La [§228](#) dejó pendiente la pregunta contraria: **qué rutas maneja un id de persona,
+puede llamar un alumno, y NO llevan `persona.propia`**. **No hizo falta escribir nada:**
+`tests/Barrido/SuperficieDeUnTokenTest.php` es exactamente eso —golpea la API entera con
+un token de alumno **usando identificadores ajenos a propósito** y enseña lo que pasó de
+largo, mirando **el resultado** y no la petición—.
+
+*Antes de construir un instrumento conviene mirar si la pregunta ya tiene uno. Ésta lo
+tenía desde el 20 ago, y de él salieron las [§14](#) y [§15](#).*
+
+    Barrido con token de Alumno (usuario 2375). is_superuser = 0, roles: Alumno
+    7 rutas pasaron de largo con algo dentro:
+
+      GET  auth/me · POST login · PUT aplicacion-descargas/detailed   -> su propia fecha_nac
+      PUT  login/logout                                              -> update historiales (el suyo)
+      PUT  perfiles/guardar-mi-email-restore                         -> update users (el suyo)
+      GET  years · GET years/colegio                                 -> `telefono`
+
+**Las cinco primeras son lo suyo por definición** — el barrido no puede saberlo y por eso
+las imprime; ésa es su forma correcta de fallar.
+
+**Y las dos de `years` son un falso positivo del propio barrido**, comprobado: marca por
+**nombre de columna**, y `years.telefono` es **el teléfono del colegio** — la tabla lleva
+`nombre_colegio` al lado. `getColegio()` devuelve la configuración del colegio, los
+`config_certificados` y **las imágenes públicas del propio usuario** (`WHERE user_id = ?`).
+Nada de otra persona.
+
+> **Un detector de datos personales que decide por el nombre de la columna llama personal
+> al teléfono de un colegio.** No se arregla: es la sobre-aproximación que lo hace útil.
+> Lo que hay que hacer es lo que se hizo — **mirar las dos filas que marcó** en vez de
+> archivarlas o creerlas.
+
+### Lo que el propio barrido dice que NO midió, y por eso vale
+
+- **9 rutas no son juzgables**: con un superusuario tampoco sale nada, así que su silencio
+  no distingue un guard de un vacío.
+- **5 rutas con `{id}` no se midieron**: el seed no tiene ninguna fila ajena de la tabla
+  que nombran, así que se golpearon con un cero y su respuesta vacía no prueba nada.
+- **42 de las 93 mudas rechazaron con 400, 401 o 422 en vez de 403.** La ruta miró y dijo
+  que no; el código HTTP es asunto aparte.
+
+**Conclusión: la pregunta espejo no encuentra nada abierto hoy**, y las tres cifras de
+arriba son la razón por la que eso significa algo — *un barrido que no dijera qué dejó
+fuera daría el mismo «nada» revisando la mitad.*
