@@ -393,6 +393,27 @@ mano en el servidor**. Es la que va a ocurrir de verdad.
 >   habría llegado a ningún colegio**, porque el glob `**/*` de `angular.json` **no
 >   casa con ficheros que empiezan por punto**. *Correcto, revisado, commiteado y
 >   mudo.*
+>
+> #### El ensayo: **pasó**, y con eso esta casilla deja de ser teórica
+>
+> Montado un colegio de verdad —Apache 2.4.66 con los módulos de los colegios,
+> `up/` con el build nuevo y su `.htaccess` dentro, y **este backend real por
+> `ProxyPass`**— y conducido en Chrome: entrar con `administrador`, cuatro
+> pantallas con datos, **F5 en cada una**, enlace profundo sin sesión, salir y
+> volver. **Cero errores y cero recursos en 404 en todas.**
+>
+> **Contra un servidor de mentira habría dado el mismo verde sin probar nada**:
+> que fuera el backend real es lo que lo hace utilizable.
+>
+> **Lo que NO se probó, dicho para que no se dé por probado:** el refresco
+> silencioso del par acceso/refresco, y **las pantallas de impresión e informes
+> pesados** —que son justo las que este documento tiene fichadas por dar 504 y
+> 500—. La caducidad por inactividad sí se vio, pero **por accidente**.
+>
+> Y un aviso para quien monte otro ensayo: **con un puerto que no sea el 80,
+> `app2` apunta la API a un sitio que no existe** — `entorno.ts` compone la URL
+> con `location.hostname` **sin puerto**. En producción da igual; **un colegio de
+> ensayo en un puerto raro parece otra cosa**.
 
 ### Los dieciséis de `micolev1`, y el que no entra
 
