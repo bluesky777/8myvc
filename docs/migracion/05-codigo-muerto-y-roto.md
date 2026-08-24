@@ -9637,3 +9637,70 @@ el eje se mide un segundo antes, un grupo «contaminado» no es un punto sesgado
 punto de otro valor.** La contaminación **deja de ser un sesgo y pasa a ser un
 desplazamiento ya contabilizado**. Lo único que sigue prohibido es **repetir el mismo
 grupo**.
+
+## §195. CORRECCIÓN a §191 y §192: el boletín final **no** escribe definitivas
+
+**Retirado por quien lo trajo, y con la confusión nombrada:** se dijo que
+`PUT bolfinales/detailed-notas-year-group` escribía definitivas y que un 504 podía
+dejarlas a medias. **Era especulación, y encima mezclaba dos rutas parecidas:**
+
+| ruta | qué escribe |
+|---|---|
+| `PUT boletines/detailed-notas/{grupo}` | **sí** recalcula definitivas (`ponerAlDiaLasDefinitivas` → `recalcular`) |
+| `PUT bolfinales/detailed-notas-year-group/{grupo}` | **no.** Su único `UPDATE` es `years.contador_certificados` |
+
+El `[DB::update]` que el detector marcó en `bolfinales` **era el contador de
+certificados**, no `notas_finales`. **Así que la §192 se queda con dos capas, no
+tres** — el historial de la nota y la ficha del alumno—, y el boletín sale de esa
+tabla.
+
+### Y la medición que lo confirma, con control positivo
+
+Los seis grupos, **idénticos al dígito** antes y después de las seis llamadas de la
+noche (97, 98, 105, 91, y los controles 84 y 79 que nunca se llamaron): **diff 0 en
+todos.**
+
+**Y un cero en todas partes no basta**, así que se preguntó si la tabla se mueve:
+`notas_finales` tiene **128.015 filas**, **8 creadas y 85 tocadas en 12 h**. **La tabla
+se mueve y la consulta lo vería: el instrumento responde.** *Seis diffs a cero no
+distinguen «no escribió nada» de «mi consulta no puede moverse» — y esa distinción se
+compra con un control positivo, no con más controles negativos.*
+
+### Lo que el 504 sí deja, y es peor de lo que parecía
+
+La escritura de `bolfinales` **es una fila, una columna, y ocurre ANTES de la parte
+lenta** —`UPDATE years SET contador_certificados`, condicional a que el cuerpo traiga
+`aumentar_contador`—. Así que no deja trabajo a medias. Deja esto:
+
+1. **un número de certificado gastado.** Ese contador es **el consecutivo visible del
+   certificado** —en la copia local: `007`, `021`, `022`, `037`, `044`, `045`, `060`, y
+   el año actual en `143`— y **el valor nuevo viaja en la respuesta que nunca llega**.
+   **Cada reintento quema otro número**, y en el grupo que revienta siempre, tres
+   reintentos son **tres folios perdidos**;
+2. **una carrera de lectura-escritura**: `SELECT … WHERE actual=1` y después `UPDATE`,
+   **sin transacción y sin `FOR UPDATE`**. Dos personas imprimiendo a la vez leen 143 y
+   escriben 144 las dos → **dos certificados con el mismo número**, que **en un
+   documento oficial es peor que saltarse uno**;
+3. **el incremento pierde el relleno de ceros**: `(int)'007' + 1` es `8` sobre una
+   columna `VARCHAR`, así que queda `'8'` — y **siete de los ocho años están rellenados
+   a tres dígitos**, o sea que la convención existe. *El `(int)` es correcto y
+   necesario* —sin él `'' + 1` lanza `TypeError` en PHP 8— así que **esto es
+   consecuencia de un arreglo bueno, no un error suyo.**
+
+**Y una cuarta, al lado y para la lista de Joseth:** `PUT bolfinales/cambiar-contador-certificados`
+**pone el consecutivo a lo que venga en el cuerpo, sin validación y con
+`auth.personal`** — o sea que **cualquiera de los 51 profesores puede fijar el número
+de certificados del colegio**.
+
+### Y las 77 definitivas que sí se movieron, sin ser ninguna de las dos
+
+**Cero creadas en los seis grupos** —así que el hueco no se pudo mover y no se movió—
+pero **77 definitivas de 97, 98 y 105 actualizadas**, en tres tandas
+(23 ago 19:02, 24 ago 00:34, 24 ago 03:45), con `updated_by` **1** y **675**.
+
+Y **675 es la misma cuenta de las once notas de la [§172](#)**, editadas a las 20:38 de
+esa noche. O sea que **no hace falta buscar un proceso misterioso**: es la verificación
+de pantallas contra la copia de desarrollo, y **la fase 3 recalcula la definitiva al
+editar una nota**, así que **pisa las filas que ya existen sin crear ninguna** — que es
+exactamente el patrón observado. **La §192 otra vez: quien verifica abre pantallas, y
+abrir pantallas escribe.**
