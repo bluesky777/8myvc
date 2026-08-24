@@ -10880,3 +10880,82 @@ como ruta. Los métodos están escritos y no registrados.»*
 - **no prueba que otra sesión no esté añadiendo un `Route::` a uno de los 34 ahora mismo**:
   el cierre parte de `routes/` **en su árbol**;
 - y sigue en pie lo de la [§216](#): **sigue llamadas, no ramas.**
+
+## §218. El gemelo del raíz está VIVO, y el mismo error se cometió en las dos direcciones
+
+**Se había escrito que `app/Http/Controllers/BolfinalesController.php` (el del raíz, no el de
+`Informes/`) no está enrutado. No lo está, y se alcanza igual:**
+
+```
+GET certificados-estudio/certificado-grupo/{grupo_id}   (auth.personal)
+  → CertificadosEstudioController::getCertificadoGrupo
+    → new BolfinalesController          (sin `use`: resuelve al de App\Http\Controllers)
+      → $bol->detailedNotasGrupo($grupo_id, $user)
+```
+
+**Y tiene las mismas tres consultas invariantes, escritas con Eloquent** —
+`Periodo::where('year_id', …)->get()` en las líneas **67** (una por llamada), **86** (una
+por alumno) y **267** (**una por alumno × asignatura**). **El mismo problema, en código
+vivo, en un camino que el arreglo de la [§210](#) no toca.**
+
+> **Dos errores con la misma raíz y en direcciones opuestas:** con
+> `CertificadosPersonaController` se dijo *«hay que arreglarlo»* **y estaba muerto**
+> ([§211](#)); con este gemelo se dijo *«está muerto»* **y está vivo**. Las dos veces se
+> juzgó la alcanzabilidad **buscando la clase en `routes/`** en vez de **seguir las
+> llamadas**.
+>
+> **Una clase sin ruta puede estar viva por un `new` desde una que sí la tiene, y una con
+> ruta puede tener 400 líneas que nadie alcanza.**
+
+**No se arregla:** es otro camino, otro controlador, **sin medir**, y *replicar un arreglo
+cuyo beneficio se midió en cero sería peor aún donde ni se ha medido el camino*. Queda con
+las líneas exactas, **y va a la lista de Joseth dentro de la misma entrada**, porque
+**cambia el tamaño del frente que tiene que decidir**: son **dos caminos vivos**, no uno.
+
+### El cruce de los dos inventarios: cero contradicciones
+
+Cruzados los 34 candidatos **por (clase, método) y no por nombre** —porque
+`detailedNotasGrupo` existe en dos clases y `asignaturasPerdidasDeAlumnoPorPeriodo` en
+ocho—: **ninguno de los 34 está en ninguna de las otras listas.** Y la tabla distingue por
+**ruta de fichero**, así que marca muertos los del **raíz** y no los de `Informes/`.
+
+Y la aparente inconsistencia que se fue a mirar **no era un fallo: era su regla gruesa del
+`new` funcionando como se diseñó** — y ahora **con su radio medido**:
+`CertificadosEstudioController` hace **`new BolfinalesController` dos veces**, así que
+**todo método de esa clase llamado con `->m(` en cualquier parte pasa a vivo**. *Saber
+dónde le cuesta a un detector su sobre-aproximación vale más que quitársela.*
+
+### Y el predicado del conteo: estrechar y ensanchar son dos formas de equivocarse
+
+| versión | qué daba |
+|---|---|
+| subcadena del SQL crudo | 408 → 1 **bien**, pero **ciega a Eloquent** |
+| `from periodos` + `year_id`, ancha | 408 → **38**, y **las 37 nuevas eran falsas** |
+| ídem **más «sin `join`»** | **408 → 1**, y ve además la forma de Eloquent |
+
+Las 37 falsas eran la consulta de comportamiento —`FROM periodos p LEFT JOIN nota_comportamiento …`—,
+o sea **pasa por `periodos` sin ser «los periodos del año»**. *Casi se publica un «quedan
+38 invariantes» que habría mandado a alguien a buscar 37 que no existen.*
+
+> **Estrechar y ensanchar son dos maneras de equivocarse mientras el predicado no reconozca
+> la estructura de lo que busca.** Lo que separa la invariante de la de comportamiento **no
+> es cómo se escriba `periodos`: es que la invariante no une con nada.** Ése era el
+> discriminador.
+
+**Y el predicado tiene ahora su propio test**, con los tres SQL reales y el del `JOIN` como
+negativo: *un predicado de conteo que nadie ejerce es la mitad de la medición sin
+comprobar* — **si alguien lo estrecha mañana, la cota sigue verde y el número cambia sin
+que nada avise.**
+
+### §218.1. Y una atribución mía que se propagó como hecho
+
+**El «78% está en la segunda capa» se mantiene; el nombre del sitio era mío y estaba mal.**
+Las **1.480** son de `asignaturasPerdidasDeAlumno` (leído y confirmado), pero las **1.122
+salen de `definitivasMateriasXPeriodo`, línea 415** — **no** de
+`Unidad::deAsignatura`/`Subunidad::perdidasDeUnidad`, que es como esta coordinación las
+había bautizado.
+
+> **Yo puse el nombre «segunda capa» y otra sesión lo repitió sin comprobarlo, porque venía
+> de quien coordina.** El número era suyo y medido; **la etiqueta era mía y de segunda
+> mano.** Y **estaba a punto de entrar en la lista de decisiones con el método
+> equivocado.**
