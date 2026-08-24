@@ -405,6 +405,32 @@ pasada de larastan**). Eso lo encontró otra sesión y lo lleva quien tiene el
 fichero. **Y ninguna entrada de `phpstan.neon` se toca**: no había nada que
 arreglar ahí.
 
+## §4.c — Comprobado al revés: los cuatro tests caen cuando deben
+
+Un test de contrato en verde no dice que vigile nada. Así que se rompieron **a
+propósito** las cuatro cosas que dicen vigilar, **las cuatro a la vez y en una
+sola corrida**, para ver si cae cada una por su lado:
+
+| Mutación | Qué se esperaba | Qué pasó |
+|---|---|---|
+| que `escalas/store` **sí** lea el cuerpo | cae «ignora el cuerpo» | **cayó** |
+| que `store-escrita` guarde además un `frase_id` | cae «el texto a mano y no del catálogo» | **cayó** |
+| que el `if ($frase_id=='')` sea siempre verdadero | cae «por las dos puertas» | **cayó** |
+| que `update` asigne sin `CamposQueVinieron` | cae «el PATCH edita igual que el PUT» | **cayó** |
+
+```
+Tests:    4 failed, 2 passed (46 assertions)
+```
+
+**Y los dos que no tenían que caer no cayeron** —«con el cuerpo vacío no deja
+fila» y «con el periodo cerrado no se crea la frase»—, que es la mitad que hace
+útil la comprobación: cuatro mutaciones que tumbaran los seis tests dirían que
+los tests miran el estado general y no lo que cada uno afirma.
+
+Revertidas las cuatro, los seis vuelven a verde (59 aserciones). **El árbol no se
+queda con nada de esto**: las mutaciones se aplicaron, se midieron y se
+deshicieron con `git checkout --`.
+
 ## §5 — Lo que se lleva de método
 
 1. **Un cronómetro que no puede distinguir el caso roto del caso rápido no es un
