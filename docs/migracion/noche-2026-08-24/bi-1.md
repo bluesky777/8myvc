@@ -223,22 +223,40 @@ favor de meter la regla en la función y no en sus llamantes.**
 >
 > **Y el reparto de hoy ya no es el de entonces:** sobre el `main` fundido son
 > **84 bien / 59 acotar / 1**. Cuatro lecturas cambiaron de cajón, y no las movió
-> nadie a mano — las movió el arreglo del 504 (`2837171`), que al convertir dos
-> bucles por-nota en dos agregaciones por grupo (`perdidasPorAlumnoDelGrupo` y
-> `perdidasPorDefinitivaDelGrupo`) **cambió el eje del alcance de por-nota a
-> por-asignatura**. Hoy no falla porque `unidades.alumno_id` es NULL para todo el
-> mundo; **el día que una unidad tenga dueño, esas dos agregaciones mezclan las del
-> grupo con las de los independientes y devuelven definitivas infladas sin un solo
-> error en el log** — que es exactamente el escenario que este proyecto viene a
-> crear.
+> nadie a mano — las movió el arreglo del 504 (`2837171`).
 >
-> Lo levantó quien había medido ese arreglo y no lo vio, y por eso vale:
-> **una optimización que quita el 80% de las consultas puede mover cuatro lecturas
-> de un cajón al otro, y ninguna cota de consultas lo enseña.** Un guardián de
-> coste no es un guardián de alcance.
+> **RETRACTADA la lectura de esas cuatro, por quien la trajo y antes de que
+> costara nada.** La primera versión de esta corrección decía que aquel arreglo
+> había *perdido el alcance* al convertir dos bucles por-nota en dos agregaciones
+> por grupo. **No lo perdió.** Leídas enteras, `perdidasPorAlumnoDelGrupo` y
+> `perdidasPorDefinitivaDelGrupo` llevan `n.alumno_id IN (los del grupo)` en el
+> `WHERE` y `n.alumno_id` en el `GROUP BY`, y el mapa se consume con
+> `$perdidasDelGrupo[$alumno->alumno_id]`: **el alumno sigue siendo el ancla.**
+> Lo que cambió es que el arreglo **añadió `a.grupo_id = ?`** para poder agregar,
+> y **el clasificador decide por el filtro más grueso**: ve `grupo`/`asignatura`
+> y etiqueta `por-asignatura` sin ver que el alumno sigue en los dos sitios.
+>
+> **El descuadre 88/55 → 84/59 es real; lo falso era qué significaba.** La versión
+> que se sostiene, que es más pequeña y menos vistosa que la que se retiró:
+>
+> > **Un cambio de forma que no toca el alcance puede mover una lectura de cajón,
+> > porque el clasificador decide por el filtro más grueso.** Cuatro de las 144 lo
+> > hicieron con el arreglo del 504, y **ninguna de las cuatro perdió el alcance**.
+>
+> La que se retira decía *«una optimización que quita el 80% de las consultas puede
+> mover cuatro lecturas de un cajón al otro»* — cierta de las etiquetas y **falsa
+> del riesgo**: publicada así, manda a alguien a acotar dos consultas que ya están
+> acotadas. **Es la familia entera de la noche mordiendo a quien la estaba
+> aplicando: el predicado reconoce una forma, no una semántica.**
 >
 > **La lista de trabajo de BI-2 son 59**, y van separadas: 55 heredadas de aquí y
-> **4 nacidas la noche del 24** en el fichero más caliente de las dos noches.
+> **4 movidas de etiqueta la noche del 24**, que se comprueban como las demás y de
+> las que ya se sabe que no van a dar nada.
+>
+> **Y el cajón de las 84 se sostiene:** muestra de **12, elegidas por variedad de
+> forma y no al azar** —7 `por-nota`, 5 `por-id`, nueve ficheros—, **rederivadas
+> leyendo el SQL sin volver a llamar al detector**. Las doce anclan de verdad. No
+> hay que recensarlo.
 
 **Ésta es la parte que se pidió y la que más costó, y no por el recuento.**
 

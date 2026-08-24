@@ -240,15 +240,24 @@ atada al token) y **AUD-5** (el permiso de la auditoría, que espera tu palabra)
 
 ### Lo que ya enseñó esta noche, y no es una anécdota
 
-- **Un guardián de coste no es un guardián de alcance.** El arreglo del 504
-  (`2837171`) convirtió dos bucles por-nota en dos agregaciones por grupo y con ello
-  **movió cuatro lecturas de «bien por construcción» a «hay que acotar»**: dejaron de
-  estar acotadas por la nota y pasaron a estarlo por la asignatura. Hoy no falla
-  porque `unidades.alumno_id` es NULL para todo el mundo; **el día que una unidad
-  tenga dueño, esas dos agregaciones devuelven definitivas infladas sin un solo error
-  en el log**. Lo levantó `8myvc-12`, que es quien había medido ese arreglo y no lo
-  vio: *una optimización que quita el 80% de las consultas puede mover cuatro
-  lecturas de un cajón al otro, y ninguna cota de consultas lo enseña.*
+- **El clasificador decide por el filtro más grueso, y eso mueve etiquetas sin mover
+  riesgo.** El arreglo del 504 (`2837171`) añadió `a.grupo_id = ?` a dos consultas
+  para poder agregar, y con ello **cuatro lecturas cambiaron de «bien por
+  construcción» a «hay que acotar»** — sin que ninguna perdiera el alcance: el
+  alumno sigue en el `WHERE` y en el `GROUP BY` de las dos. **Esta coordinación lo
+  publicó como «el arreglo perdió el alcance» y lo retiró `8myvc-12` antes de que
+  costara nada**, que es la tercera retractación seguida hecha por quien trajo el
+  hallazgo. *La versión vistosa habría mandado a alguien a acotar dos consultas que
+  ya estaban acotadas.*
+- **Y la que sí queda de ahí, que es de otra forma: la clasificación es por lectura
+  y no ve que una lectura segura entregue su resultado a una insegura.**
+  `SubunidadesController:86` deriva el grupo desde la unidad —lectura impecable— y
+  llama a `Nota::verificarCrearNotas($grupo->grupo_id, …)`, que **crea notas para el
+  grupo entero**: el día que una unidad sea de un solo alumno, **añadirle una
+  subunidad le crea notas a los treinta**. Y `DefinitivasDeAsignatura::recalcularPorUnidad`
+  lee la unidad por id y llama a `recalcular($asignatura_id, $periodo_id)`. **El
+  alcance no se pierde en la lectura: se pierde en el traspaso**, y ninguno de los
+  dos está en las 59 del lote.
 - **Un rojo que no puede volverse verde no es una red, es un párrafo con
   paréntesis.** `8myvc-e0` encontró que el test de la carrera del consecutivo
   ejecuta **su propia copia** del `SELECT`+`UPDATE` en vez de llamar al endpoint, así
