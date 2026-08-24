@@ -137,8 +137,26 @@ Usuario). Lo monta `App\Services\ContextoDeUsuario`; el token lo valida
 ### Rutas y autorización
 
 `routes/api/*.php`, un fichero por dominio. **El guard va por defecto a toda la
-API** y las excepciones públicas se marcan una a una — son quince y son un test
-(`RutasPreLoginTest`). Middlewares propios en `app/Http/Middleware/`:
+API** y las excepciones públicas se marcan una a una — son
+**`RutasPreLoginTest::TOTAL_PUBLICAS`, hoy once**, y son un test que las ata por las
+dos direcciones: que la lista no tenga de más y que el router no tenga de menos.
+
+> **Ese número no se cuenta con un `grep`, y aquí está el porqué porque ya costó
+> tres cifras.** Hay **18** rutas sin `auth.token` en `routes/`, y **siete
+> contestan 401 igual** porque se defienden dentro del método: **quitarle el guard
+> a una ruta no la hace pública**. Once es del **resultado** —quién recibe datos sin
+> presentar token—, no del mecanismo.
+>
+> Este fichero decía **quince**, el docblock del test decía **siete** y `grep` da
+> **diecinueve** (una es un comentario). Ninguno era una cifra que hubiera
+> envejecido: **los tres nacieron mal**, y se demuestra con que las 18 sin guard de
+> hace cinco días **son exactamente las mismas de hoy** — el código no se movió. El
+> «siete» se escribió cuando el modelo era el contrario (el guard se ponía ruta a
+> ruta y `withoutMiddleware` no existía), así que **la pregunta no tenía todavía un
+> conjunto que contar**. Medido y desglosado commit a commit en
+> [`noche-2026-08-25/pub-1.md`](docs/migracion/noche-2026-08-25/pub-1.md).
+
+Middlewares propios en `app/Http/Middleware/`:
 
 | Guard | Qué exige |
 |---|---|
