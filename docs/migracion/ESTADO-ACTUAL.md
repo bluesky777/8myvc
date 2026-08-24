@@ -46,6 +46,57 @@ decidió hacer después.
 
 ---
 
+## La noche del 24 al 25: catorce sesiones, tres repositorios, dos coordinaciones
+
+**Coordinó `8myvc-34` en `8myvc` y `myvc-front-98` en el front**, con una sola
+interfaz entre las dos y ninguna mandando lotes a las sesiones de la otra. El
+reparto vive fuera de git, en `8myvc-cola/noche-2026-08-24/`. **Lo hecho:**
+
+| Lote | Qué quedó |
+|---|---|
+| **AUD-1 + ESC** (`7b`) | el `Reloj` único con centinela y su vuelta (`desdeTexto`), y **la escala validada en el servidor** — Joseth lo pidió esa noche. Cambia respuestas: `notas/update` puede dar **422** donde daba 200 |
+| **AUD-3** (`39`) | la tabla `auditoria` y `App\Services\Auditoria`, append-only, **con la primera regla puesta en la forma de la clase** — no tiene dónde recibir «cuántas filas salieron» |
+| **BI-1** (`9e`) | el esqueleto del boletín independiente: cuatro migraciones y **el inventario de las 146 lecturas de `unidades`/`subunidades`** (88 bien por construcción, 57 a acotar, 1 sin saber) |
+| **MED-1** (`ad`) | **cobertura al 100%: 542/542 rutas**; `notas/lote` cronometrado (**3,8×–5,9×**, **717→220 consultas**) y el **429 de la §1 confirmado en la petición 121 de 135** |
+| **EXP-1 + PROFES-1** (`d2`) | dos exportaciones **vivas y rotas** desde el salto a Laravel Excel 3.x, y `profesores/update`, que **renombraba y degradaba la cuenta al corregir un teléfono** |
+
+**Trece secciones nuevas en el [05](05-codigo-muerto-y-roto.md), §168 a §180.** Las
+dos que más lejos llegan: **86 escrituras crudas** que ningún detector de esta fase
+mira —buscan asignaciones de Eloquent y una `UPDATE … SET` no tiene ninguna— y
+**115 rutas no-`GET` que no escriben nada**, que a la auditoría le importa porque
+**lo que clasifique «qué escribe» por el método HTTP mete esas 115 en el cajón
+equivocado**.
+
+### Lo que esta noche enseñó, y no es una anécdota
+
+**Siete instrumentos mintieron, y ninguno mirando el resultado**: un `PDO` con la
+contraseña inventada, un `cd` que dejó el shell en el árbol de otros, dos suites de
+la misma sesión escribiendo en el mismo fichero, una base a medio construir, una
+caché de larastan a medio llenar, `construir-bd-test.sh` sin `-w`, y un `ng serve`
+sirviendo un árbol **borrado** y contestando **200**. La forma general:
+
+> **El instrumento correcto sobre el objeto equivocado.** No se ve mirando el
+> resultado, porque el resultado es correcto. Sólo se ve preguntando **sobre qué**
+> se midió.
+
+Y las dos reglas hermanas, que explican por qué **las siete tenían a alguien que ya
+lo sabía**: **una medición no es un guardián** —dice que el índice sirve, no que siga
+ahí— y **un aviso no es un control**: *«saberla no basta, hay que tener el paso
+puesto»*, dicho por quien se comió la trampa **después de avisar dos veces esa misma
+noche de esa forma exacta**. **Cinco de las siete se cierran con un paso en el
+procedimiento, no con más conocimiento**, y por eso las reglas que quedaron caben en
+una línea: contar tablas y usuarios antes de correr, `ps` **dentro** del contenedor,
+`git rev-parse` antes del commit, y **nombrar los ficheros uno a uno**.
+
+**Tres conclusiones se retiraron, las tres por quien las trajo**, y las tres más
+baratas que el trabajo que habrían mandado hacer al sitio equivocado. La más caras
+de las tres: *«tres peticiones colgadas tumban el backend entero»* —refutada por el
+reloj de nginx— y **los porcentajes de hueco de definitivas, que eran míos**: mi
+denominador daba por hecho que toda combinación debe existir, y **de 1.196
+«ausentes» unos 400 eran de alumnos que se habían ido**.
+
+---
+
 ## En curso: las definitivas — **fase 3 terminada**, la 2 esperando un dato tuyo
 
 **El plan entero está en [10-definitivas.md](10-definitivas.md).** Resumen de por
