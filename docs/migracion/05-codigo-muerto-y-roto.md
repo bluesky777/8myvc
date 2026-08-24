@@ -7801,3 +7801,92 @@ Las dos advertencias que van pegadas a esas cifras y no debajo:
 
 **Los huecos —§117, §128–129, §138–139 y §160–165— son números que nadie usó**
 al abrir lotes sobre la marcha. Un hueco no es una sección perdida.
+
+---
+
+# La noche del 24 de agosto de 2026 — §168 en adelante
+
+Esta noche trabajan **catorce sesiones en tres repositorios**, con dos
+coordinaciones —`myvc-front-98` en el front, `8myvc-34` aquí— y una sola interfaz
+entre ellas. El reparto y el tablero están fuera de git, en
+`8myvc-cola/noche-2026-08-24/`. Aquí van sólo los hallazgos.
+
+## §168. La firma del profesor: dos endpoints hermanos, tres diferencias y un borrado silencioso
+
+**Lo trajo `myvc-front-89` desde el front, midiendo su propio contrato**, y lo que
+reportaron era cierto: los dos hermanos leen **claves distintas** para lo mismo.
+Comprobado aquí, hay **tres** diferencias y la del cuerpo es la menos grave.
+
+| | `Perfiles/PerfilesController::putCambiarfirmaunprofe:941` | `Perfiles/ImagesUsuariosController::putCambiarFirmaUnProfe:186` |
+|---|---|---|
+| Ruta | `PUT perfiles/cambiarfirmaunprofe/{profeelegido}` | `PUT images-users/cambiar-firma-un-profe/{profe_id}` |
+| Campo del cuerpo | **`imgFirmaProfe`** | **`imagen_id`** |
+| Quién puede | `Autoriza::esAdministrativo` | `tipo == 'Profesor' \|\| is_superuser` |
+| ¿De quién es la imagen? | **no lo pregunta** | `exigeQueLaImagenSeaSuyaODelColegio` |
+| `updated_by` | no lo escribe | lo escribe |
+
+**El borrado silencioso.** La primera asigna sin preguntar si el campo vino:
+
+```php
+$profesor->firma_id = Request::input('imgFirmaProfe');   // null si viene la otra clave
+$profesor->save();
+return ImageModel::find($profesor->firma_id);            // find(null) -> null, con 200
+```
+
+Una llamada con la clave de la hermana pone **`firma_id = null`**, guarda, y
+contesta **200 con cuerpo `null`**. La firma desaparece del boletín —la leen
+`Year::datos()` para rector y secretaria, y `Grupo` para el titular— **y nadie ve
+un error**. Es la misma forma que el 200 que miente de la [§48.2](#), sólo que
+aquí lo dispara **un nombre de campo equivocado**, no una rama sin salida.
+
+**No está disparado hoy, y por qué importa saberlo:** el front viejo —el que corre
+en los dieciséis— manda `imgFirmaProfe` (`FileManagerCtrl.ts:476`), así que el
+camino vivo funciona. El tipo nuevo de `app2` declaraba `imagen_id`, y **la
+pantalla de imágenes de `app2` llama a la hermana buena**, no a ésta. O sea que
+esto no es un incendio: es una mina puesta. El front la desactiva por su lado
+mandando `imgFirmaProfe` —**lo que lee el backend desplegado, no el fusionado**— y
+lo deja escrito en la cabecera para que nadie lo «arregle» al revés dentro de seis
+meses.
+
+**Lo que hay que decidir aquí es cuál de las dos gana**, y la respuesta no es
+«la que llama el front»: la que llama el front es **la que no comprueba de quién es
+la imagen**. Las dos escriben la misma columna de la misma tabla con dos criterios
+de permiso distintos, y ésa es la familia del [§14](09-pendientes.md) —dos nombres
+casi iguales que no son la misma condición—, no un problema de nombres de campo.
+
+**El arreglo del borrado ya está escrito en este repo y por eso no hace falta
+inventarlo:** `App\Support\CamposQueVinieron` distingue *«el campo no vino»* de
+*«el campo vino vacío»*, y va por **15 ficheros**. Ésta es la 16.ª.
+
+## §169. `puestoAlumno` son dos funciones, en dos repos, con un desfase de uno — y la muerta es la de fuera
+
+Salió de una discrepancia entre `myvc-front-98` y esta sesión que **parecía que
+una de las dos estaba equivocada, y no lo estaba ninguna**:
+
+```
+8myvc   app/Models/Nota.php:122                        Nota::puestoAlumno   -> $puesto = 1
+front   app/scripts/informes/PuestoAlumnoFilter.ts:57  filtro puestoAlumno  -> let puesto = 0
+```
+
+**El mismo nombre, la misma idea —contar cuántos te ganan, para que los empatados
+compartan puesto— y un desfase de uno.** Cada una citó su fuente y las dos eran
+ciertas; lo que fallaba era dar por hecho que un nombre igual en dos repositorios
+es la misma función.
+
+Lo que lo hace peligroso es lo que se midió después: **el filtro del front está
+muerto** —ninguna plantilla de `app/scripts` lo llama, y por eso no se tradujo a
+`app2`—. Queda un **cadáver 0-based con el mismo nombre que un método vivo
+1-based**. El día que alguien lo resucite «para que cuadre», mete un desfase de uno
+**en un papel que se entrega a las familias**, y se leerá como *«el backend cambió
+el puesto»*.
+
+**Y de paso deja limpio lo que separa a los dos caminos vivos**, que es lo que hay
+que escribir en el plan del boletín independiente: las cuatro rutas de puestos no
+calculan nada —el front pinta `$index + 1`— y los ocho impresores llaman a
+`Nota::puestoAlumno`. Los dos son 1-based, **así que la única diferencia aparece
+con empates**: posición `1,2,3,4` · puesto `1,1,3,4`. Un test del interruptor **sin
+un empate dentro no distingue los dos caminos** y pasa sin probar nada.
+
+> La regla que deja esta noche, y es de método: **una cifra sobrevivió tres veces
+> sólo porque alguien fue a mirar el código en vez de fiarse del texto — y las tres
+> veces el texto era nuestro.**
