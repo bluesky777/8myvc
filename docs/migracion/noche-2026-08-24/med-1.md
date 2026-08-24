@@ -193,8 +193,70 @@ recalcularPorNota()     6 consultas   ← el recálculo de una nota
 PUT notas/update       16 consultas   ← las dos anteriores + 4 suyas
 ```
 
-De las **497 consultas que el lote ahorra** (717 → 220): **~264 son el camino
-común** (44 × 6) y **~260 el recálculo por nota** (44 × 6). **Mitad y mitad.**
+### El reparto, medido firma a firma — **y no es mitad y mitad**
+
+Aquí este documento decía *«de las 497 que el lote ahorra, ~264 son el camino común
+y ~260 el recálculo: mitad y mitad»*. **Esos dos números no suman 497 sino 524**, y
+lo encontró `8myvc-f8` leyendo el documento donde estaban fundidos.
+
+**El fallo no es de cálculo, es de método**: el **497 es una resta de dos totales
+medidos** (717 − 220) y los dos sumandos eran **estimaciones** —dos tasas
+redondeadas multiplicadas por 44—. Mezclar una resta medida con dos productos
+estimados **no puede cerrar**, y presentarlos juntos hacía creer que los tres eran
+lo mismo.
+
+Medido de verdad, restando **firma a firma** lo que ejecuta cada bloque:
+
+| grupo | consultas ahorradas | qué es |
+|---|---|---|
+| **el camino común** | **308** | 7 firmas × 44: el token, el usuario, la consulta del contexto, los roles, los permisos, y las dos de `pueden_editar_notas` (el interruptor del periodo y el periodo de la nota) |
+| **el recálculo** | **100** | la agregada y el porcentaje (44 cada una) y la lectura de la definitiva (45), **menos lo que el lote sí hace**: un recálculo por par, que le cuesta 16 + 16 + 1 |
+| **localizar y escribir la nota** | **89** | las tres de 45 —el periodo de la fila, el `SELECT` de `putUpdate` y el que sitúa la nota— **menos las 45 del `destino` que el lote hace igual** y menos el historial |
+| **total** | **497** | y cuadra con 717 − 220 |
+
+```
+  suelt   lote  ahorro   consulta
+     45      0      45   SELECT u.periodo_id FROM notas n INNER …
+     45      0      45   SELECT n.*, h.id as history_id FROM notas n, …
+     45      0      45   SELECT u.asignatura_id, u.periodo_id, n.alumno_id …
+     45      0      45   SELECT nota, manual, recuperada FROM notas_finales …
+     45      1      44   select * from `personal_access_tokens` …
+     45      1      44   select * from `users` where `users`.`id` = ? …
+     45      1      44   SELECT p.id as persona_id, p.nombres, … (el contexto)
+     45      1      44   SELECT r.* FROM roles r INNER …
+     45      1      44   SELECT pmr.role_id, pm.name from permission_role …
+     45      1      44   SELECT profes_pueden_editar_notas, profes_pueden_niv…
+     45      1      44   SELECT id, numero FROM periodos WHERE id = ? …
+     45      1      44   SELECT m.alumno_id, CAST(COALESC… (la agregada)
+     45      1      44   SELECT COALESCE(SUM(porcentaje), 0) AS suma FROM uni…
+      0      1      -1   SELECT id FROM historiales …
+      0      1      -1   SELECT alumno_id, nota, manual, recuperada FROM nota…
+     21     37     -16   SELECT id, manual, recuperada FROM notas_finales …
+     21     37     -16   UPDATE notas_finales SET…
+      0     45     -45   SELECT n.id, n.nota, n.alumno_id, u.asignatura_id, u…
+  ------------------------------------------------------------------------
+                  497   TOTAL (y 717 − 220 = 497)
+```
+
+### Y esto **retira mi corrección al plan 20**
+
+Con el «mitad y mitad» le dije a quien coordina que la §2 del 20 —*«lo caro no es
+el recálculo sino el coste fijo de resolver quién pregunta»*— era **demasiado
+fuerte**. Medido firma a firma: **el camino común son 308 de 497, el 62%; el
+recálculo, 100, el 20%.**
+
+> **El plan tenía razón y mi corrección estaba mal.** Y el motivo de que estuviera
+> mal es el que más veces ha salido esta noche: **un número derivado de otros dos
+> redondeados se defiende igual de bien que uno medido, y no es lo mismo.** El 62 /
+> 20 / 18 sale de restar dos listas; el «mitad y mitad» salía de multiplicar dos
+> tasas.
+
+Lo que **sí sigue en pie** de aquella corrección, porque se midió aparte y no se
+derivó: **`recalcularPorNota` no es sólo la agregada** —son varias consultas por
+nota, y `coste-del-recalculo.php` mide la agregada sola en 1,70 ms—. O sea que la
+frase del plan es correcta **y su justificación numérica hay que citarla con
+cuidado**: el recálculo entero es más que la agregada, pero aun así es la quinta
+parte del ahorro y no la mitad.
 
 ### Lo que esto le corrige al plan 20
 

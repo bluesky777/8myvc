@@ -145,6 +145,7 @@ class CosteDelLoteDeNotasTest extends CasoDeContrato
 
         $n = count($ctx['columna']);
 
+        $firmas = [];
         $medidas = ['sueltas' => [], 'lote' => [], 'control' => [], 'recalculo' => []];
         $consultas = ['sueltas' => [], 'lote' => [], 'control' => [], 'recalculo' => []];
         $agregados = ['sueltas' => [], 'lote' => [], 'control' => [], 'recalculo' => []];
@@ -186,10 +187,12 @@ class CosteDelLoteDeNotasTest extends CasoDeContrato
                 $medidas[$bloque][] = $resultado['ms'];
                 $consultas[$bloque][] = $resultado['consultas'];
                 $agregados[$bloque][] = $resultado['agregados'];
+                $firmas[$bloque] ??= $resultado['firmas'];
             }
         }
 
         $this->tabla($n, $medidas, $consultas, $agregados);
+        $this->descomposicion($n, $firmas);
         $this->lectura($n, $medidas, $consultas);
         $this->medirElLimite($token, $ctx['columna']);
 
@@ -349,29 +352,42 @@ class CosteDelLoteDeNotasTest extends CasoDeContrato
      * depende de la caché. `hrtime()` y no `microtime()`: es monótono, así que un
      * ajuste de reloj a mitad de la pasada no puede dar un tiempo negativo.
      *
-     * @return array{ms: float, consultas: int, agregados: int}
+     * @return array{ms: float, consultas: int, agregados: int, firmas: array<string, int>}
      */
     private function cronometrar(callable $accion): array
     {
         $consultas = 0;
         $agregados = 0;
+        $porFirma = [];
 
         // No hay `DB::unlisten`. El oyente se queda hasta el final del test, así
         // que los contadores se pasan por referencia y se leen al momento: cada
         // llamada tiene los suyos y los de las llamadas anteriores ya no se miran.
-        DB::listen(function ($consulta) use (&$consultas, &$agregados) {
+        //
+        // **Aquí sí es correcto registrar uno por llamada**, al revés que en
+        // `CosteDelBoletinFinalTest` —donde hacerlo contaba el doble—, y la
+        // diferencia es la que hay que ver: allí los contadores se **reasignaban**
+        // al principio de cada pasada, así que los oyentes viejos seguían sumando en
+        // las mismas variables; aquí cada llamada declara **variables nuevas** y las
+        // anteriores ya no se leen. Lo que importa no es dónde se registra el
+        // oyente: es **si el que sobrevive puede escribir en lo que vas a leer**.
+        DB::listen(function ($consulta) use (&$consultas, &$agregados, &$porFirma) {
             $consultas++;
 
             if (str_contains($consulta->sql, self::FIRMA_DEL_AGREGADO)) {
                 $agregados++;
             }
+
+            $firma = preg_replace('/\s+/', ' ', substr(ltrim($consulta->sql), 0, 52));
+            $porFirma[$firma] = ($porFirma[$firma] ?? 0) + 1;
         });
 
         $desde = hrtime(true);
         $accion();
         $ms = (hrtime(true) - $desde) / 1e6;
 
-        return ['ms' => $ms, 'consultas' => $consultas, 'agregados' => $agregados];
+        return ['ms' => $ms, 'consultas' => $consultas, 'agregados' => $agregados,
+            'firmas' => $porFirma];
     }
 
     /**
@@ -626,6 +642,56 @@ class CosteDelLoteDeNotasTest extends CasoDeContrato
         $this->linea(sprintf('  Carga · después: %s', $this->carga()));
         $this->linea('  Si esta carga y la de la cabecera son muy distintas, los bloques no midieron en la');
         $this->linea('  misma ventana y **la razón tampoco vale**: hay que repetirlo.');
+    }
+
+    /**
+     * **De qué están hechas las 497 consultas que el lote ahorra.**
+     *
+     * Existe porque el reparto publicado —«~264 el camino común y ~260 el
+     * recálculo»— **no sumaba 497 sino 524**, y lo encontró otra sesión leyendo el
+     * documento donde estaba fundido. Los dos sumandos eran **estimaciones**
+     * —multiplicar dos tasas redondeadas por 44— mientras que el 497 es una **resta
+     * de dos totales medidos**: mezclar las dos cosas es lo que impide que cierre.
+     *
+     * Aquí no se estima: se resta **firma a firma** lo que ejecuta cada bloque.
+     *
+     * @param  array<string, array<string, int>>  $firmas
+     */
+    private function descomposicion(int $n, array $firmas): void
+    {
+        $sueltas = $firmas['sueltas'] ?? [];
+        $lote = $firmas['lote'] ?? [];
+
+        $todas = array_unique(array_merge(array_keys($sueltas), array_keys($lote)));
+        $diferencias = [];
+
+        foreach ($todas as $firma) {
+            $ahorro = ($sueltas[$firma] ?? 0) - ($lote[$firma] ?? 0);
+
+            if ($ahorro !== 0) {
+                $diferencias[$firma] = $ahorro;
+            }
+        }
+
+        arsort($diferencias);
+
+        $this->linea('');
+        $this->linea('  De qué están hechas las consultas que el lote ahorra');
+        $this->linea('  '.str_repeat('-', 86));
+        $this->linea(sprintf('  %6s %6s %7s   %s', 'suelt', 'lote', 'ahorro', 'consulta'));
+
+        $suma = 0;
+
+        foreach ($diferencias as $firma => $ahorro) {
+            $suma += $ahorro;
+            $this->linea(sprintf('  %6d %6d %7d   %s…',
+                $sueltas[$firma] ?? 0, $lote[$firma] ?? 0, $ahorro, $firma));
+        }
+
+        $this->linea('  '.str_repeat('-', 86));
+        $this->linea(sprintf('  %20d   TOTAL AHORRADO (y %d − %d = %d)',
+            $suma, array_sum($sueltas), array_sum($lote),
+            array_sum($sueltas) - array_sum($lote)));
     }
 
     /** @param list<float> $valores */
