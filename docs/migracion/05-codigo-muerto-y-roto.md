@@ -10116,3 +10116,45 @@ dos guards para dos rutas, más piezas para menos claridad**. Lo que queda escri
 *(Y una corrección de camino: casi se cita un comentario de `notificaciones.php:22` como
 prueba de que el paso franco había estorbado. **Leído entero, no dice eso** — dice que
 esa ruta no acepta `alumno_id`. **Es otra razón, y se descartó.**)*
+
+## §204. El barrido tiene guardián para un tipo y no para el otro, y hoy lo tapa la suerte del seed
+
+`SuperficieDeUnTokenTest` acepta los cuatro tipos, y **para `Usuario` tiene un guardián
+explícito** con el motivo escrito por su autor:
+
+> *De los veinte `Usuario` activos, **diez son superusuario**, y `usuarioDeTipo()` devuelve
+> el 1, que lo es y además lleva el rol `Admin`. O sea que el barrido con
+> `BARRIDO_TIPO=Usuario` estaba midiendo **el mismo sujeto que usa su propio control**.
+> No es que diera un número malo — **es que no medía al sujeto que dice medir**.*
+
+**Ese guardián no existe para `Profesor`**, que cae por la rama de «cualquiera del tipo»
+— literalmente lo que la propia cabecera dice que **aquí no vale**: *«lo que se mira es
+qué alcanza, y ahí "cualquiera" es exactamente lo que no vale»*.
+
+**Medido antes de medir, y sale bien por casualidad:**
+
+```
+Profesor activos: 19   ·   de ellos superusuario: 0
+sujeto que elegiría: user 8 — is_superuser=0, único rol «Profesor»
+Acudiente:           user 488 — is_superuser=0
+```
+
+> **La medición de esta noche es válida y se puede decir por qué: cero de diecinueve.
+> Pero eso es una propiedad de ESTE SEED, no del código.** En un colegio con un
+> `Profesor` que además sea superusuario, **el barrido mediría a un superusuario y lo
+> llamaría `Profesor`** — el mismo fallo que el guardián de `Usuario` viene a impedir,
+> **en el tipo que no lo tiene**.
+
+Y el agravante ya está medido aquí: la [09 §14](09-pendientes.md) dice que **los diez
+`is_superuser` son los diez con rol `Admin`** *en un colegio*, y que **eso es un colegio
+y no vale como respuesta**. El bloque 3 de `tools/fase-cero-de-los-dieciseis.php` es
+justo el que lo contestaría.
+
+**Y no se arregla ahora, por una razón que vale como regla:**
+
+> **Cambiar el instrumento y medir con él a la vez es mover el instrumento y la pieza al
+> mismo tiempo.**
+
+Lo que se hace en su lugar: **decir en el parte quién fue el sujeto de cada pasada, con
+su `id` y su `is_superuser`**, para que el resultado **se pueda leer sin fiarse del
+nombre del tipo**.
