@@ -701,10 +701,21 @@ class BolfinalesController extends Controller {
 			// consulta del bucle por caminos distintos y las dos con test.** Cuando el
 			// llamador ya los tiene resueltos —el camino del boletín— se clonan los
 			// suyos; cuando llama alguien que no los pasa, `periodosDelAnio()` los
-			// memoiza en la petición y devuelve clones igual. **Se conservan las dos
-			// porque el parámetro es opcional**: quedarse sólo con la de main haría
-			// `array_map()` sobre `null` en cuanto alguien llame al método con tres
-			// argumentos, que es como lo llaman sus gemelos.
+			// memoiza en la petición y devuelve clones igual. El parámetro es
+			// opcional y el método es `public`, así que el segundo camino cubre a un
+			// llamador que no los pase; **hoy no hay ninguno** — la única llamada es
+			// la de la línea 281 y pasa los cinco argumentos.
+			//
+			// **Y el motivo que esta coordinación escribió aquí al fundir era falso:**
+			// decía «así los llaman sus gemelos». No los llaman: `Boletines`,
+			// `Boletines2`, `Boletines3`, `Editnota`, `Promovidos`,
+			// `CertificadosPersona`, `NotasActuales` y el `BolfinalesController` de la
+			// raíz **tienen cada uno su propia copia** del método dentro de su clase
+			// —nueve definiciones, [05 §224](../../../../docs/migracion/05-codigo-muerto-y-roto.md)—.
+			// Lo corrigió `8myvc-12` leyendo el comentario, y se arregla aquí y no en
+			// un documento porque **la razón escrita al lado es lo que alguien va a
+			// creer dentro de seis meses**: con la anterior, se habría puesto a buscar
+			// llamadas de tres argumentos que no existen.
 			$asignatura->periodos = $periodosDelAnio !== null
 				? array_map(fn ($p) => clone $p, $periodosDelAnio)
 				: $this->periodosDelAnio($year_id);
