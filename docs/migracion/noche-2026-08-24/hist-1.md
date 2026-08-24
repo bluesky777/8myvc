@@ -146,9 +146,14 @@ Lo único que las tumba es que su `affected_user_id` no sea un alumno vivo.
 > un id que exista en `notas`, sale en la pantalla como una nota.
 
 Hay un test que lo fija **hoy, con el borde abierto**, para que el día que se
-cumpla ya esté escrito qué pasa — y que además avisa al revés: si algún día ese
-test falla porque la fila ajena **no** sale, es que alguien puso el filtro por
-tipo, y hay que venir a leer esto.
+cumpla ya esté escrito qué pasa — y que además **avisa al revés**. Los dos modos en
+que puede fallar dicen cosas distintas, y por eso lleva dos mensajes:
+
+- **la fila ajena no vuelve** → alguien filtró por tipo **y además** dejó los
+  `INNER JOIN`;
+- **vuelve sin `definicion`** → alguien filtró por tipo y pasó a `LEFT JOIN`. Es lo
+  que de verdad ocurre con el arreglo probable, comprobado en el §6.b: la mala
+  atribución desaparece y la fila sale, pero muda.
 
 ## §5 — El segundo motivo del encargo: el `PUT` que no escribe
 
@@ -200,6 +205,38 @@ quiere.** Un alumno retirado quizá no deba salir. Lo que no puede ser es que **
 decida un `INNER JOIN`** y que la pantalla no distinga «no hay rastro» de «hay
 rastro de alguien a quien no te enseño».
 
+## §6.b — Comprobado al revés: el arreglo probable tumba los cinco
+
+Un test que fija el estado actual sólo vale si **cae cuando el estado cambia**. Así
+que se aplicó el arreglo candidato —los tres `INNER JOIN` a `LEFT JOIN` **y** el
+filtro `AND b.affected_element_type = "Nota"` en el join de `notas`— y se corrió:
+
+```
+⨯ al borrar la nota su bitacora desaparece de la sesion aunque siga en la tabla
+⨯ una bitacora que no es de una nota no sale en la sesion
+⨯ una subunidad borrada se lleva la bitacora de sus notas
+⨯ un alumno borrado se lleva su rastro de la sesion
+⨯ una bitacora ajena con alumno vivo sale atribuida a otra nota
+✓ pedir el detalle de una sesion solo escribe la marca del token
+
+Tests: 5 failed, 1 passed
+```
+
+**Los cinco de comportamiento caen y el de las escrituras no**, que es la forma
+correcta: si el arreglo hubiera tumbado los seis, los tests estarían mirando el
+estado general y no lo que cada uno afirma.
+
+Y el quinto cayó **por su segundo mensaje**, no por el primero: *«la fila ajena
+vuelve SIN el nombre de la subunidad»*. O sea que con ese arreglo la mala
+atribución **se cierra** —la fila sale muda en vez de disfrazada de nota—, que es
+justo el dato que hacía falta para poder decidir. La mutación se revirtió con
+`git checkout --`; los seis vuelven a verde.
+
+> Lo que esto convierte en un hecho, y es el argumento para tocar la consulta:
+> **el arreglo de una línea —el filtro por tipo— cierra a la vez la causa 1 y la
+> mala atribución.** Lo que queda por decidir sigue siendo de negocio: si esas
+> filas mudas deben aparecer, y con qué texto.
+
 ## §7 — Lo que se lleva de método
 
 1. **«Dos motivos» era el suelo, no el techo.** El encargo traía dos causas y la
@@ -214,3 +251,14 @@ rastro de alguien a quien no te enseño».
 4. **Un aserto de «cero» es frágil en las dos direcciones.** Cero escrituras no
    distingue «no escribe» de «el oyente no está enganchado». Se afirma **qué** hay,
    no sólo cuánto.
+5. **Un test que fija el estado actual hay que romperlo a propósito antes de
+   creerlo**, y hay que mirar **cuál** de sus mensajes salta: el del §4 tenía dos
+   modos de fallo previstos y el que se dispara con el arreglo probable es el
+   segundo. Saber cuál salta es lo que hace que el mensaje sirva de indicación a
+   quien lo encuentre en rojo dentro de seis meses.
+6. **A `tools/` no se le pasa Pint**, y no por gusto: no está en la lista del
+   `composer.json`, y su regla `fully_qualified_strict_types` acortó la clase del
+   kernel y puso el `use` **debajo** de la línea que la usa. PHP lo resolvería —los
+   `use` no son sentencias— pero el contenedor recibe la cadena literal y revienta
+   con `Class "Kernel" does not exist`. Larastan lo cazó primero, como un
+   `class.notFound` que parecía un error del fichero y era del **orden**.
