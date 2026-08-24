@@ -26,172 +26,82 @@ class SimatController extends Controller {
 
 	public function getAlumnos()
 	{
+        // **El segundo 500 vivo de la API 2.x, y el que el barrido del front no
+        // vio.** Su aviso señalaba la llamada de `getAlumnosExportar` como código
+        // muerto —cierto: está detrás del `return` de abajo— pero en este fichero
+        // hay DOS `Excel::create`, y ésta no tiene nada delante. Está enrutada en
+        // `informes.php:99` y la llama `myvc_front` desde `InformesCtrl.ts:700`.
+        //
+        // Es la diferencia entre barrer la pantalla y barrer el patrón: la
+        // población real era **3 llamadas en 2 ficheros**, de las cuales **2
+        // vivas y rotas**, no una.
+        //
+        // Y la reutiliza tal cual: `AlumnosExport` monta exactamente lo que este
+        // método montaba —los grupos del año, sus alumnos con acudientes, una
+        // hoja por grupo titulada con su `abrev` y la vista `simat`—, así que
+        // escribir un export nuevo habría sido una segunda copia de la misma
+        // consulta. Lo único que cambia es el nombre del fichero, que es lo que
+        // distinguía a las dos rutas.
+        //
+        // Se pierde el `setBorder`/`setWidth`/`setHeight` del original, igual que
+        // se perdió el día que se migró `getAlumnosExportar`. Nadie tiene un
+        // fichero reciente con esos bordes: esto no salía.
         $user = User::fromToken();
-        
-        $host = parse_url(request()->headers->get('referer'), PHP_URL_HOST);
-        if ($host == '0.0.0.0' || $host == 'localhost' || $host == '127.0.0.1') {
-            $extension = 'xls';
-        }else{
-            $extension = 'xlsx';
-        }
 
-		Excel::create('Alumnos con acudientes '.$user->year, function($excel) use ($user) {
-
-            $consulta = 'SELECT g.id, g.nombre, g.abrev, g.orden, gra.orden as orden_grado, g.grado_id, g.year_id, g.titular_id,
-                p.nombres as nombres_titular, p.apellidos as apellidos_titular, p.titulo,
-                g.created_at, g.updated_at, gra.nombre as nombre_grado 
-                from grupos g
-                inner join grados gra on gra.id=g.grado_id and g.year_id=:year_id 
-                left join profesores p on p.id=g.titular_id
-                where g.deleted_at is null
-                order by g.orden';
-
-            $grupos = DB::select($consulta, [':year_id'=> $user->year_id] );
-            
-            for ($i=0; $i < count($grupos); $i++) { 
-                $grupo = $grupos[$i];
-
-                $excel->sheet($grupos[$i]->abrev, function($sheet) use ($grupo) {
-                    
-                    $consulta   = Matricula::$consulta_asistentes_o_matriculados_simat;
-                    $alumnos    = DB::select($consulta, [ ':grupo_id' => $grupo->id ] );
-                    
-                    $sheet->setBorder('A3:BL'.(count($alumnos)+5), 'thin', "D8572C");
-                    $sheet->getStyle('A3:BL3')->getAlignment()->setWrapText(true); 
-                    $sheet->mergeCells('A2:E2');
-                    
-                    $this->Comentarios($sheet, 3);
-                    
-                    $opera = new OperacionesAlumnos;
-                    $opera->recorrer_y_dividir_nombres($alumnos);
-                    
-                    // Traigo los acudientes de 
-		            $cantA = count($alumnos);
-                    for ($i=0; $i < $cantA; $i++) { 
-                        $consulta                   = Matricula::$consulta_parientes;
-                        $acudientes                 = DB::select($consulta, [ $alumnos[$i]->alumno_id ]);
-                        
-                        if (count($acudientes) == 0) {
-                            $acu1       = (object)Acudiente::$acudiente_vacio;
-                            //$acu1->id   = -1;
-                            array_push($acudientes, $acu1);
-                            
-                            $acu2       = (object)Acudiente::$acudiente_vacio;
-                            //$acu2->id   = 0;
-                            array_push($acudientes, $acu2);
-                        }else if (count($acudientes) == 1) {
-                            $acu1 = (object)Acudiente::$acudiente_vacio;
-                            //$acu1->id = -1;
-                            array_push($acudientes, $acu1);
-                        }
-                        $alumnos[$i]->acudientes    = $acudientes;
-                    }
-                    
-                    $sheet->loadView('simat', compact('alumnos', 'grupo') )->mergeCells('A1:E1');
-                    
-                    //$sheet->setAutoFilter();
-                    $sheet->setWidth(['A'=>5, 'B'=>5, 'C'=>10, 'D'=>11, 'E'=>10, 'F'=>16, 'P'=>13, 'Q'=>7, 'R'=>11, 'S'=>11, 'T'=>7, 'Y'=>14, 'Z'=>5, 'AA'=>7, 'X'=>10, 'AB'=>5, 'AD'=>10, 
-                                        'AF'=>12, 'AG'=>12, 'AH'=>6, 'AL'=>11, 'AN'=>14, 'AO'=>11, 'AP'=>11, 'AU'=>17,
-                                        'AW'=>12, 'AX'=>12, 'AY'=>6, 'BC'=>11, 'BE'=>14, 'BF'=>11, 'BG'=>11, 'BL'=>17,]);
-                    $sheet->setHeight(3, 30);
-                    
-                });
-
-            }
-
-            
-        
-        })->download($extension, ['Access-Control-Allow-Origin' => '*']);
-
-
+        return Excel::download(new AlumnosExport,
+            'Alumnos con acudientes '.$user->year.'.xlsx');
     }
-    
-    
+
 
 	public function getAlumnosExportar()
 	{
+        // **Detrás de este `return` había 80 líneas muertas**, y lo estaban desde
+        // que alguien puso el `Excel::download` delante sin borrar lo de abajo.
+        // Se van hoy porque eran la tercera y última llamada a la API 2.x de
+        // `maatwebsite/excel` que quedaba en `app/`, y dejarlas obliga al
+        // centinela de `ExportacionesExcelTest` a llevar una excepción — un
+        // centinela con excepciones no es un centinela.
+        //
+        // Es código inalcanzable, no una ruta rota: la regla del repo —«sin ruta
+        // y roto se borra; con ruta y roto se documenta»— protege el endpoint, y
+        // el endpoint sigue aquí y funcionando. Lo que se borra es lo que no
+        // puede ejecutarse nunca.
+        //
+        // Lo que se llevan, por si alguien lo echa de menos: el `setBorder`, el
+        // `setWidth`, el `setHeight` y el `Comentarios()` que pintaba la fila de
+        // ayudas. Nada de eso sale hoy en el fichero —lo que sale es
+        // `AlumnosExport`, sin estilos— así que no se pierde nada que un usuario
+        // esté viendo. Está en git si hace falta: `git show 0dc21d7 -- ` este
+        // fichero.
         return Excel::download(new AlumnosExport, 'alumnos.xlsx');
-        $user = User::fromToken();
-        
-        $host = parse_url(request()->headers->get('referer'), PHP_URL_HOST);
-        if ($host == '0.0.0.0' || $host == 'localhost' || $host == '127.0.0.1') {
-            $extension = 'xls';
-        }else{
-            $extension = 'xlsx';
-        }
-
-		Excel::create('Alumnos a importar '.$user->year, function($excel) {
-
-            $consulta = 'SELECT g.id, g.nombre, g.abrev, g.orden, gra.orden as orden_grado, g.grado_id, g.year_id, g.titular_id,
-                p.nombres as nombres_titular, p.apellidos as apellidos_titular, p.titulo,
-                g.created_at, g.updated_at, gra.nombre as nombre_grado 
-                from grupos g
-                inner join grados gra on gra.id=g.grado_id and g.year_id=:year_id 
-                left join profesores p on p.id=g.titular_id
-                where g.deleted_at is null
-                order by g.orden';
-
-            $grupos = DB::select($consulta, [':year_id'=> Year::actual()->id] );
-            
-            for ($i=0; $i < count($grupos); $i++) { 
-                $grupo = $grupos[$i];
-
-                $excel->sheet($grupos[$i]->abrev, function($sheet) use ($grupo) {
-                    
-                    $consulta   = Matricula::$consulta_asistentes_o_matriculados_simat;
-                    $alumnos    = DB::select($consulta, [ ':grupo_id' => $grupo->id ] );
-                    
-                    $sheet->setBorder('A1:BL'.(count($alumnos)+5), 'thin', "D8572C");
-                    $sheet->getStyle('A1:BL1')->getAlignment()->setWrapText(true); 
-                    //$sheet->mergeCells('A2:E2');
-                    
-                    $this->Comentarios($sheet, 1);
-                    
-                    $opera = new OperacionesAlumnos;
-                    $opera->recorrer_y_dividir_nombres($alumnos);
-                    
-                    // Traigo los acudientes de 
-		            $cantA = count($alumnos);
-                    for ($i=0; $i < $cantA; $i++) { 
-                        $consulta                   = Matricula::$consulta_parientes;
-                        $acudientes                 = DB::select($consulta, [ $alumnos[$i]->alumno_id ]);
-                        
-                        if (count($acudientes) == 0) {
-                            $acu1       = (object)Acudiente::$acudiente_vacio;
-                            //$acu1->id   = -1;
-                            array_push($acudientes, $acu1);
-                            
-                            $acu2       = (object)Acudiente::$acudiente_vacio;
-                            //$acu2->id   = 0;
-                            array_push($acudientes, $acu2);
-                        }else if (count($acudientes) == 1) {
-                            $acu1 = (object)Acudiente::$acudiente_vacio;
-                            //$acu1->id = -1;
-                            array_push($acudientes, $acu1);
-                        }
-                        $alumnos[$i]->acudientes    = $acudientes;
-                    }
-                    
-                    $sheet->loadView('alumnosexportar', compact('alumnos', 'grupo') );
-                    
-                    //$sheet->setAutoFilter();
-                    $sheet->setWidth(['A'=>5, 'B'=>5, 'C'=>10, 'D'=>11, 'E'=>10, 'F'=>16, 'P'=>13, 'Q'=>7, 'R'=>11, 'S'=>11, 'T'=>7, 'Y'=>14, 'Z'=>5, 'AA'=>7, 'X'=>10, 'AB'=>5, 'AD'=>10, 
-                                        'AF'=>12, 'AG'=>12, 'AH'=>6, 'AL'=>11, 'AN'=>14, 'AO'=>11, 'AP'=>11, 'AU'=>17,
-                                        'AW'=>12, 'AX'=>12, 'AY'=>6, 'BC'=>11, 'BE'=>14, 'BF'=>11, 'BG'=>11, 'BL'=>17,]);
-                    $sheet->setHeight(1, 30);
-                    
-                });
-
-            }
-
-            
-        
-        })->download($extension, ['Access-Control-Allow-Origin' => '*']);
-
-
-    }
-    
-    
+    }    /**
+     * **NO SE BORRA, aunque no la llame nadie.** Y estuvo borrada media hora.
+     *
+     * Al quitar el bloque muerto de `getAlumnosExportar` este método se quedó sin
+     * llamantes, así que se fue con él — privado, cero usos, borrado limpio. Mal:
+     * `phpstan.neon` llevaba desde el 19 ago 2026 una anotación explicando
+     * exactamente por qué seguía aquí, y no la leí antes de borrar.
+     *
+     * Lo que hay dentro **es la especificación de la plantilla del SIMAT**: qué
+     * espera cada columna de la hoja que la secretaría rellena y devuelve
+     * —«Coloque: MATR, ASIS, RETI, DESE», «¿Es urbano? SI o NO», «Coloque "No
+     * aplica" si no tiene SISBEN»—. Eso es lo que `ImporterFixer`, que **sí está
+     * vivo**, lee de vuelta. El export 3.x (`AlumnosSheet`) no escribe esas
+     * ayudas, así que la plantilla sale hoy sin instrucciones y **este método es
+     * el único sitio del repositorio donde están**.
+     *
+     * O sea que borrarlo no habría roto ningún test —no lo llama nadie— y habría
+     * dejado al importador vivo sin su especificación escrita. Es la forma de
+     * fallo de la casa otra vez, en el sentido contrario: **el detector tenía
+     * razón (código muerto) y aun así la acción era la equivocada**, porque la
+     * razón para conservarlo no estaba en el código sino anotada al lado.
+     *
+     * Lo que hay que hacer con esto algún día, y no es este lote: llevar estas
+     * ayudas al `AlumnosSheet` con `WithEvents`/`AfterSheet`, para que la
+     * plantilla vuelva a salir con ellas y la especificación viva donde se usa.
+     * Mientras tanto se queda aquí, sin llamantes y a propósito.
+     * Ver 05-codigo-muerto-y-roto.md §12.2 y noche-2026-08-24/exp-1.md.
+     */
     private function Comentarios(&$sheet, $numero=1){
         
         $sheet->getComment('A'.$numero)->getText()->createTextRun('Sólo lectura (ignore esta columna)');
@@ -232,6 +142,4 @@ class SimatController extends Controller {
         $sheet->getComment('BL'.$numero)->getText()->createTextRun('Comentarios sobre este acudiente del alumno');
         
     }
-
-
 }

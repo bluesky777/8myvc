@@ -55,55 +55,122 @@ class ExcelTest extends CasoDeContrato
     }
 
     /**
-     * `GET api/simat/alumnos-exportar` funciona, al contrario de lo que decía
-     * `phpstan.neon`.
+     * Las tres exportaciones salen — y dos de ellas no salían hasta el 24 ago 2026.
      *
-     * La anotación que silencia ahí el `Excel::create()` de `SimatController`
-     * nombra a esta ruta. Es la equivocada: el `Excel::create()` de ese fichero
-     * está en la línea 123 y el `return` de la 113 se ejecuta antes, así que ese
-     * bloque no se alcanza nunca. La que sí llega a la API 2.x es
-     * `GET api/simat/alumnos`, que es la de abajo.
+     * **Aquí había tres tests que fijaban el 500 como contrato**, y estaban bien
+     * puestos: `Excel::create()` es la API de `maatwebsite/excel` 2.x, la 3.x la
+     * quitó, y el plan había dejado los exports fuera de alcance con el motivo
+     * escrito en `phpstan.neon` — *«reescribir estos dos a la API nueva es rehacer
+     * el informe, no arreglarlo»*.
      *
-     * Importa porque la lista de «endpoints rotos que se documentan en vez de
-     * arreglarse» solo sirve si nombra los correctos: quien vaya a arreglar el
-     * SIMAT iría a mirar la ruta que ya funciona.
+     * **Ese motivo resultó ser falso, y es lo único que cambió.** No hubo que
+     * rehacer ningún informe: `simat/alumnos` monta exactamente lo que
+     * `App\Exports\AlumnosExport` ya montaba —los grupos del año, sus alumnos con
+     * acudientes, la vista `simat`— así que **se reutiliza tal cual**; y el
+     * listado de docentes son sesenta líneas copiando la consulta y la vista que
+     * ya existían. Lo caro que el plan supuso no estaba.
+     *
+     * Lo que sí se pierde son los bordes y los anchos de columna, y va dicho en
+     * el doc del lote: estas hojas llevaban años sin salir, así que nadie tiene un
+     * fichero con esos bordes al que comparar.
+     *
+     * Ver docs/migracion/noche-2026-08-24/exp-1.md.
      */
-    public function test_la_ruta_de_simat_que_esta_rota_es_la_otra(): void
-    {
-        $token = $this->tokenDe($this->usuarioDeTipo('Usuario')->username);
-
-        $this->get('/api/simat/alumnos-exportar', ['Authorization' => 'Bearer '.$token])
-            ->assertStatus(200);
-
-        $this->get('/api/simat/alumnos', ['Authorization' => 'Bearer '.$token])
-            ->assertStatus(500);
-    }
-
-    /**
-     * Los dos que llaman de verdad a `Excel::create()`, la API de
-     * `maatwebsite/excel` 2.x que la 3.x quitó.
-     *
-     * Están enrutados y responden 500 desde que el proyecto pasó a la 3.x, que
-     * fue antes de esta migración. Se documentan en vez de arreglarse, y este
-     * test es lo que impide que se arreglen sin querer y nadie se entere: si
-     * alguno empieza a responder otra cosa, hay que actualizar `phpstan.neon` y
-     * los documentos con él.
-     */
-    public static function exportsRotos(): array
+    public static function exportsArreglados(): array
     {
         return [
             'simat, listado de alumnos' => ['api/simat/alumnos'],
             'listado de docentes' => ['api/excel-docentes/docentes/2025/8'],
+            'simat, alumnos a importar' => ['api/simat/alumnos-exportar'],
         ];
     }
 
-    #[DataProvider('exportsRotos')]
-    public function test_los_exports_de_la_api_vieja_siguen_rotos(string $ruta): void
+    /**
+     * **Se mira dentro del fichero, no el 200**, que es lo que este fichero venía
+     * haciendo con `compararConInstantanea` y lo que los tres tests de 500 no
+     * podían hacer. Un `.xlsx` es un zip: empieza por `PK`. Y un libro con una
+     * tabla dentro no baja de unos pocos kB, que es lo que separa «salió el
+     * fichero» de «salió un libro vacío».
+     */
+    #[DataProvider('exportsArreglados')]
+    public function test_los_exports_de_la_api_vieja_ya_salen(string $ruta): void
     {
         $token = $this->tokenDe($this->usuarioDeTipo('Usuario')->username);
 
-        $this->get('/'.$ruta, ['Authorization' => 'Bearer '.$token])
-            ->assertStatus(500);
+        $r = $this->get('/'.$ruta, ['Authorization' => 'Bearer '.$token]);
+
+        $r->assertStatus(200);
+
+        $bytes = file_get_contents($this->archivoDescargado($r));
+
+        $this->assertSame('PK', substr($bytes, 0, 2),
+            "Lo que devuelve {$ruta} no es un .xlsx: un zip empieza por PK.");
+
+        $this->assertGreaterThan(3000, strlen($bytes),
+            "El libro de {$ruta} pesa menos que una hoja con una tabla dentro.");
+    }
+
+    /**
+     * El centinela: que no vuelva a entrar la API 2.x en `app/`.
+     *
+     * Sin esto el arreglo dura hasta que alguien copie uno de los ejemplos viejos
+     * que siguen circulando. Dos cosas que costaron un rojo cada una y valen más
+     * que el test:
+     *
+     * **Se quitan los comentarios antes de buscar.** La primera versión hacía
+     * `str_contains` sobre el fichero entero y encontró tres — y las tres eran
+     * los comentarios que explican el arreglo, uno de ellos en este mismo
+     * fichero. Un detector que suma la mención a la llamada no detecta lo que
+     * dice su nombre. Es el mismo `sinComentarios()` que ya usan
+     * `GuardsDestructivosTest` y `UsuarioPerezosoTest`.
+     *
+     * **Y se afirma la población antes del cero.** Un «0 encontrados» sin decir
+     * sobre cuántos ficheros significa a la vez «no hay» y «el iterador no
+     * encontró la carpeta», y de las dos lecturas la falsa es la que archiva el
+     * asunto.
+     */
+    public function test_no_queda_ni_una_llamada_a_la_api_vieja(): void
+    {
+        $encontradas = [];
+        $ficheros = 0;
+
+        $it = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator(app_path(), \FilesystemIterator::SKIP_DOTS)
+        );
+
+        foreach ($it as $f) {
+            if ($f->getExtension() !== 'php') {
+                continue;
+            }
+
+            $ficheros++;
+            $codigo = '';
+
+            foreach (token_get_all(file_get_contents($f->getPathname())) as $token) {
+                if (is_array($token) && in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
+                    continue;
+                }
+
+                $codigo .= is_array($token) ? $token[1] : $token;
+            }
+
+            foreach (['Excel::create', 'Excel::load'] as $patron) {
+                if (str_contains($codigo, $patron)) {
+                    $encontradas[] = basename($f->getPathname()).': '.$patron;
+                }
+            }
+        }
+
+        // 220 el 24 ago 2026 (`find app -name '*.php' | wc -l`). El umbral va
+        // holgado: detecta «el iterador no encontró la carpeta», no cuenta
+        // ficheros. Lo puse en 300 la primera vez y saltó — el umbral estaba mal,
+        // no el iterador, y sólo se supo porque el guardián obligó a ir a
+        // contarlos.
+        $this->assertGreaterThan(150, $ficheros,
+            "Sólo se revisaron {$ficheros} ficheros de app/: el iterador no está mirando donde cree.");
+
+        $this->assertSame([], $encontradas,
+            'Volvió a entrar la API 2.x de maatwebsite/excel, que en la 3.x es un 500.');
     }
 
     /**
