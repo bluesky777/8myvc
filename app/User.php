@@ -7,6 +7,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
+use App\Models\TokenDeSesion;
 use App\Services\ContextoDeUsuario;
 use App\Services\Sesion;
 use Illuminate\Support\Facades\Request;
@@ -127,7 +128,70 @@ class User extends Authenticatable
 			? $sesion->exigirDeToken($already_parsed)
 			: $sesion->exigirUsuario(Request::instance());
 
-		return app(ContextoDeUsuario::class)->para($userTemp);
+		$contexto = app(ContextoDeUsuario::class)->para($userTemp);
+
+		if ($contexto !== null) {
+			self::atarLaSesion($contexto, $userTemp);
+		}
+
+		return $contexto;
+	}
+
+	/**
+	 * Cuelga del contexto **de qué ingreso viene esta petición** — fase 2 de
+	 * docs/migracion/18-auditoria.md.
+	 *
+	 * Sin esto, los nueve sitios que escriben `historial_id` lo resuelven con
+	 * `order by id desc limit 1` sobre `historiales`, o sea **el último login de
+	 * esa persona y no la sesión que está haciendo el cambio**. Con el refresco
+	 * viviendo catorce días y rotando en cada uso, eso puede ser un ingreso de
+	 * hace meses.
+	 *
+	 * **No cuesta ninguna consulta**: `Sesion::resolverDeVerdad()` devuelve el
+	 * usuario con `withAccessToken($token)`, así que la fila del token ya está
+	 * resuelta y `historial_id` viene dentro.
+	 *
+	 * ## Por qué `sesion_id` e `historial_id` llevan hoy el mismo número
+	 *
+	 * `auditoria` tiene las dos columnas y son dos preguntas distintas: el
+	 * **ingreso** (la fila de `historiales`) y la **sesión** (la familia de tokens
+	 * que sobrevive a las rotaciones). **Hoy son 1:1** — cada login crea una fila
+	 * de `historiales` y una familia de tokens, y la familia arrastra ese id en
+	 * cada rotación—, así que el mismo número contesta las dos.
+	 *
+	 * Se escriben las dos y no una porque el índice `aud_sesion (sesion_id, id)`
+	 * está **medido con EXPLAIN** para la pregunta «qué hizo en este ingreso»
+	 * (aud-3 §3): dejar `sesion_id` en NULL dejaría esa pantalla sin índice, y
+	 * además `Auditoria` sólo pone `atribucion = 'sesion'` cuando `sesion_id`
+	 * viene (18 §5.2) — sin él, todas las líneas seguirían diciendo «aproximada»
+	 * teniendo la atribución cierta.
+	 *
+	 * **El día que dejen de ser 1:1** —una sesión que sobreviva a varios ingresos,
+	 * o al revés— esto es la única línea que cambia. Está aquí y no repartido por
+	 * los nueve sitios justamente para que sea una línea.
+	 */
+	private static function atarLaSesion(object $contexto, self $userTemp): void
+	{
+		// `currentAccessToken()` no consulta nada: `Sesion::resolverDeVerdad()`
+		// devuelve el usuario con `withAccessToken($token)`, así que la fila ya
+		// está resuelta y `historial_id` viene dentro. Es null por el camino de
+		// consola y por el del token que no es de Sanctum.
+		// `instanceof` y no `!== null`: `currentAccessToken()` promete devolver un
+		// `PersonalAccessToken` de Sanctum, pero **`historial_id` es de nuestra
+		// subclase** — y en el camino de consola no hay token en absoluto, aunque
+		// su firma diga que sí. Las dos cosas se comprueban de una vez.
+		$token = $userTemp->currentAccessToken();
+
+		$ingreso = $token instanceof TokenDeSesion && $token->historial_id !== null
+			? (int) $token->historial_id
+			: null;
+
+		// NULL cuando el token es anterior a la migración de la fase 2, y NULL se
+		// queda: `Auditoria` lo lee como «no se sabe» y escribe
+		// `atribucion = 'aproximada'`. **No se adivina**, que es de lo que se
+		// viene.
+		$contexto->historial_id = $ingreso;
+		$contexto->sesion_id = $ingreso;
 	}
 
 	// Todos los permisos de un usuario, con el objeto permiso, o solo con el string name del permiso

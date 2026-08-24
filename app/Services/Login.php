@@ -36,7 +36,7 @@ class Login
      * Comprueba las credenciales, apunta la entrada en `historiales` y pone al
      * usuario en el periodo actual si se había quedado en otro año.
      *
-     * @return array{usuario: User, cambia_anio: int|null}
+     * @return array{usuario: User, cambia_anio: int|null, historial_id: int}
      */
     public function entrar(Request $peticion): array
     {
@@ -75,7 +75,7 @@ class Login
             abort(400, 'Usuario invalidado');
         }
 
-        $this->anotarEntrada($fila, $ahora);
+        $historialId = $this->anotarEntrada($fila, $ahora);
 
         // El `(int)` no es cosmético: sin él, `$fila->id` es `mixed` y `find()`
         // podría estar devolviendo una Collection —la firma la contempla—, que es
@@ -89,6 +89,10 @@ class Login
         return [
             'usuario' => $usuario,
             'cambia_anio' => $this->ponerEnElPeriodoActual($fila),
+            // El ingreso que acaba de nacer. Quien abra la sesión lo graba en los
+            // tokens, y a partir de ahí **cada petición sabe de qué ingreso viene**
+            // sin tener que adivinarlo (fase 2 de 18-auditoria.md).
+            'historial_id' => $historialId,
         ];
     }
 
@@ -149,7 +153,11 @@ class Login
             ->guardar();
     }
 
-    private function anotarEntrada(object $fila, Carbon $ahora): void
+    /**
+     * Apunta la entrada y **devuelve el id de la fila**, que es lo que ata el
+     * token a este ingreso y no al último de esta persona (fase 2).
+     */
+    private function anotarEntrada(object $fila, Carbon $ahora): int
     {
         DB::insert(
             'INSERT INTO historiales(user_id, tipo, ip, browser_name, browser_version, browser_family, browser_engine, entorno, platform_name, platform_family, device_family, device_model, device_grade, updated_at, created_at)
@@ -172,6 +180,8 @@ class Login
                 ':created_at' => $ahora,
             ]
         );
+
+        return (int) DB::getPdo()->lastInsertId();
     }
 
     /**

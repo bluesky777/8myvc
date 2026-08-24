@@ -217,14 +217,27 @@ class DefinitivasPeriodosController extends Controller {
 		if (Request::input('nf_id')) {
 			$nf_id 		= Request::input('nf_id');
 			
-			$consulta 	= 'SELECT n.*, h.id as history_id FROM notas_finales n, 
-								(select * from historiales where user_id=? and deleted_at is null order by id desc limit 1 ) h 
-							WHERE n.id=? ';
+			// **El producto cartesiano con `historiales` se va entero**, y con él dos
+			// cosas: la adivinanza del ingreso y un fallo latente.
+			//
+			// La adivinanza es la fase 2 de 18-auditoria.md — era el último login de
+			// esta persona, no la sesión que hace el cambio.
+			//
+			// El fallo latente es la forma de la consulta: **si el usuario no tenía
+			// ninguna fila en `historiales`, el cruce devolvía CERO filas** y el `[0]`
+			// de abajo reventaba con «Undefined array key 0». O sea que la escritura
+			// fallaba por no encontrar un INGRESO, no por nada de la propia fila.
+			//
+			// Ahora la consulta pregunta sólo por lo que quiere saber: la fila de
+			// `notas_finales`.
+			$consulta 	= 'SELECT n.* FROM notas_finales n WHERE n.id=? ';
 
-			$nota 		= DB::select($consulta, [$user->user_id, $nf_id])[0];
+			$nota 		= DB::select($consulta, [$nf_id])[0];
 
 			$bit_by 	= $user->user_id;
-			$bit_hist 	= $nota->history_id;
+			$bit_hist 	= isset($user->historial_id) && is_numeric($user->historial_id)
+				? (int) $user->historial_id
+				: null;
 			$bit_old 	= $nota->nota; 				// Guardo la nota antigua
 			// La definitiva tecleada a mano pasa por la misma escala que una nota
 			// suelta: es el otro sitio por donde entra un número a pelo. 18 §4.5.1.
@@ -398,14 +411,27 @@ class DefinitivasPeriodosController extends Controller {
 		if (Request::input('rf_id')) {
 			$rf_id 		= Request::input('rf_id');
 			
-			$consulta 	= 'SELECT n.*, h.id as history_id FROM recuperacion_final n, 
-								(select * from historiales where user_id=? and deleted_at is null order by id desc limit 1 ) h 
-							WHERE n.id=? ';
+			// **El producto cartesiano con `historiales` se va entero**, y con él dos
+			// cosas: la adivinanza del ingreso y un fallo latente.
+			//
+			// La adivinanza es la fase 2 de 18-auditoria.md — era el último login de
+			// esta persona, no la sesión que hace el cambio.
+			//
+			// El fallo latente es la forma de la consulta: **si el usuario no tenía
+			// ninguna fila en `historiales`, el cruce devolvía CERO filas** y el `[0]`
+			// de abajo reventaba con «Undefined array key 0». O sea que la escritura
+			// fallaba por no encontrar un INGRESO, no por nada de la propia fila.
+			//
+			// Ahora la consulta pregunta sólo por lo que quiere saber: la fila de
+			// `recuperacion_final`.
+			$consulta 	= 'SELECT n.* FROM recuperacion_final n WHERE n.id=? ';
 
-			$nota 		= DB::select($consulta, [$user->user_id, $rf_id])[0];
+			$nota 		= DB::select($consulta, [$rf_id])[0];
 
 			$bit_by 	= $user->user_id;
-			$bit_hist 	= $nota->history_id;
+			$bit_hist 	= isset($user->historial_id) && is_numeric($user->historial_id)
+				? (int) $user->historial_id
+				: null;
 			$bit_old 	= $nota->nota; 				// Guardo la nota antigua
 
 			// La recuperación final es una nota como las demás y se teclea igual:

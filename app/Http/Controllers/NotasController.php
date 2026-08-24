@@ -356,14 +356,39 @@ class NotasController extends Controller {
 
 		try {
 
-			$consulta 	= 'SELECT n.*, h.id as history_id FROM notas n, 
-								(select * from historiales where user_id=? and deleted_at is null order by id desc limit 1 ) h 
-							WHERE n.id=? and n.deleted_at is null ';
+			// **El producto cartesiano con `historiales` se va entero**, y con él dos
+			// cosas: la adivinanza del ingreso y un fallo latente.
+			//
+			// La adivinanza es la fase 2 de 18-auditoria.md — era el último login de
+			// esta persona, no la sesión que hace el cambio.
+			//
+			// El fallo latente es la forma de la consulta: **si el usuario no tenía
+			// ninguna fila en `historiales`, el cruce devolvía CERO filas** y el `[0]`
+			// de abajo reventaba con «Undefined array key 0». O sea que la escritura
+			// fallaba por no encontrar un INGRESO, no por nada de la propia fila.
+			//
+			// Ahora la consulta pregunta sólo por lo que quiere saber: la fila de
+			// `notas`.
+			$consulta 	= 'SELECT n.* FROM notas n WHERE n.id=? and n.deleted_at is null';
 
-			$nota 		= DB::select($consulta, [$user->user_id, $id])[0];
+			$nota 		= DB::select($consulta, [$id])[0];
 
 			$bit_by 	= $user->user_id;
-			$bit_hist 	= $nota->history_id;
+			$bit_hist 	= isset($user->historial_id) && is_numeric($user->historial_id)
+				? (int) $user->historial_id
+				: null;
+			// **`history_id` se vuelve a colgar de la fila, y no es cosmético: este
+			// método DEVUELVE `$nota`**, así que esa columna viajaba en el cuerpo de
+			// `PUT notas/update/{id}` — llegaba de rebote, por el `SELECT n.*, h.id`
+			// del cruce, pero llegaba. Quitarla habría sido retirarle un campo a
+			// cuatro clientes sin decírselo.
+			//
+			// Lo cazó el snapshot `notas-update`, que es para lo que está. Lo que sí
+			// cambia es **el valor**: antes era el último ingreso de esta persona y
+			// ahora es el de esta sesión —o null mientras el token sea anterior a la
+			// migración—. Eso va en el parte.
+			$nota->history_id = $bit_hist;
+
 			$bit_old 	= $nota->nota; 				// Guardo la nota antigua
 			$bit_new 	= Request::input('nota'); 	// Guardo la nota nueva
 			$bit_per 	= $user->periodo_id;
@@ -656,10 +681,11 @@ class NotasController extends Controller {
 			return ['guardadas' => 0, 'fallidas' => $fallidas, 'definitivas' => []];
 		}
 
-		$historial = DB::selectOne(
-			'SELECT id FROM historiales WHERE user_id = ? AND deleted_at IS NULL ORDER BY id DESC LIMIT 1',
-			[$user->user_id]
-		);
+		// El ingreso sale del token (fase 2 de 18-auditoria.md), y con él se va una
+		// consulta por lote.
+		$historialId = isset($user->historial_id) && is_numeric($user->historial_id)
+			? (int) $user->historial_id
+			: null;
 
 		// Los nombres de las notas del lote, **en una consulta y fuera de la
 		// transacción**: dentro del bucle `de()` ya no consulta. Fuera y no dentro
@@ -667,7 +693,7 @@ class NotasController extends Controller {
 		// alargaría lo que la transacción tiene abierto sin ninguna ganancia.
 		NombreDelAlumno::deVarios(array_map(fn ($f) => $f['destino']->alumno_id, $aEscribir));
 
-		$guardadas = DB::transaction(function () use ($aEscribir, $user, $now, $historial) {
+		$guardadas = DB::transaction(function () use ($aEscribir, $user, $now, $historialId) {
 			$hechas = 0;
 
 			foreach ($aEscribir as $fila) {
@@ -683,7 +709,7 @@ class NotasController extends Controller {
 					 VALUES (?, ?, ?, "Al", "Nota", ?, ?, ?, ?)',
 					[
 						$user->user_id,
-						$historial->id ?? null,
+						$historialId,
 						$fila['destino']->alumno_id,
 						$fila['id'],
 						$fila['valor'],

@@ -49,7 +49,10 @@ class SesionController extends Controller
 
         $usuario = $entrada['usuario'];
 
-        $respuesta = app(Sesion::class)->abrir($usuario, $this->origen($peticion));
+        // El ingreso que acaba de crear `entrar()` viaja a los dos tokens: es lo
+        // que ata cada petición futura a ESTA sesión y no al último login de esta
+        // persona (fase 2 de 18-auditoria.md).
+        $respuesta = app(Sesion::class)->abrir($usuario, $this->origen($peticion), $entrada['historial_id']);
 
         if ($entrada['cambia_anio'] !== null) {
             $respuesta['cambia_anio'] = $entrada['cambia_anio'];
