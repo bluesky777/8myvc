@@ -48,12 +48,35 @@ celda sin id, el lote no es el camino para esa celda.**
 
 **Y no devuelve `updated_at`, que `notas/update` sí devolvía.** No se pierde nada:
 el front lo asigna sobre sí mismo (`NotasCtrl.ts:619`, anotado allí como no-op
-desde antes de la migración). Se escribe porque **esta pantalla no lee ninguna
-fecha de la base**, y por tanto **no le aplica `Reloj::desdeTexto()`** — la
-lectura que desplaza cinco horas cuando nadie declara la zona
-(`8myvc-39`/`8myvc-7b`, noche del 24). Si algún día el lote empieza a devolver
-una marca de tiempo, esa exención se acaba: `RelojUnicoTest` vigila a **quien
-escribe**, no a quien lee, así que ahí no hay red.
+desde antes de la migración).
+
+### Las fechas de esta pantalla: exenta el camino de guardado, no la pantalla
+
+**El camino que toca este plan —teclear, agrupar, guardar— no lee ni una fecha**,
+así que no le aplica `Reloj::desdeTexto()` (la lectura que desplaza cinco horas
+cuando nadie declara la zona; `8myvc-39`/`8myvc-7b`, noche del 24).
+
+**Pero la pantalla sí muestra fechas, y la primera versión de esta nota decía que
+no.** El doble clic sobre una nota abre `notaDetalleModal.html`, que imprime
+`created_at`, `updated_at` y el `created_at` de cada línea del historial; su
+gemelo `notaFinalDetalleModal.html` hace lo mismo con la definitiva.
+
+**Hoy están a salvo, y por accidente**: se interpolan **en crudo**
+—`{{ $ctrl.nota.created_at }}`—, y una cadena impresa tal cual no se reinterpreta.
+Lo que las rompería es el cambio cosmético más obvio que se le puede hacer a esa
+pantalla: **añadir `| date:'short'`**. Ahí Angular la parsea con `new Date()`, que
+sin desfase dentro la lee en la zona del equipo del que mira, y salen **cinco
+horas de diferencia con cara de fecha correcta**.
+
+Es la misma forma que el fondo del input de la §5: **correcto hoy porque nadie lo
+ha declarado, no porque alguien lo haya decidido.** Y el arreglo no es de este
+plan — es la decisión de contrato que `8myvc-39` dejó abierta en la fase 5 de la
+[auditoría](18-auditoria.md): o la hora viaja con su desfase dentro
+(`…T03:51:13.000-05:00`), o va la zona aparte y se dice.
+
+Lo que sí queda fijado aquí: **si el lote empieza a devolver una marca de tiempo,
+la exención de arriba se acaba.** `RelojUnicoTest` vigila a **quien escribe**, no
+a quien lee, así que ahí no hay red.
 
 ---
 
