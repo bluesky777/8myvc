@@ -203,7 +203,42 @@ favor de meter la regla en la función y no en sus llamantes.**
 
 ---
 
-## §5 — El inventario: 146 lecturas en 24 ficheros
+## §5 — El inventario: 144 lecturas en 24 ficheros
+
+> **CORRECCIÓN del 25 ago 2026, al fundir: eran 144 y no 146, y el total nunca fue
+> 146.** Lo separó `8myvc-12` con el instrumento sobre los dos objetos, que es lo
+> único que distingue *«el detector derivó»* de *«el código cambió»* de *«el
+> documento se equivocó»*:
+>
+> | | |
+> |---|---|
+> | herramienta de **entonces** sobre código de **entonces** (`de42d90`) | 74 + 70 = **144** |
+> | herramienta de **hoy** sobre código de **entonces** | 74 + 70 = **144** |
+> | herramienta de **hoy** sobre código de **hoy** (`main` fundido) | 74 + 70 = **144** |
+>
+> Las tres dan lo mismo: **es un error de este documento**, no deriva. Y el reparto
+> reproduce **88 / 55 / 1**, no 88 / 57 / 1 — o sea que **el cajón que este
+> documento acertó es el que más importaba** (un falso «bien por construcción» no
+> falla nunca y no lo ve nadie jamás) **y el que falló es el de trabajo**.
+>
+> **Y el reparto de hoy ya no es el de entonces:** sobre el `main` fundido son
+> **84 bien / 59 acotar / 1**. Cuatro lecturas cambiaron de cajón, y no las movió
+> nadie a mano — las movió el arreglo del 504 (`2837171`), que al convertir dos
+> bucles por-nota en dos agregaciones por grupo (`perdidasPorAlumnoDelGrupo` y
+> `perdidasPorDefinitivaDelGrupo`) **cambió el eje del alcance de por-nota a
+> por-asignatura**. Hoy no falla porque `unidades.alumno_id` es NULL para todo el
+> mundo; **el día que una unidad tenga dueño, esas dos agregaciones mezclan las del
+> grupo con las de los independientes y devuelven definitivas infladas sin un solo
+> error en el log** — que es exactamente el escenario que este proyecto viene a
+> crear.
+>
+> Lo levantó quien había medido ese arreglo y no lo vio, y por eso vale:
+> **una optimización que quita el 80% de las consultas puede mover cuatro lecturas
+> de un cajón al otro, y ninguna cota de consultas lo enseña.** Un guardián de
+> coste no es un guardián de alcance.
+>
+> **La lista de trabajo de BI-2 son 59**, y van separadas: 55 heredadas de aquí y
+> **4 nacidas la noche del 24** en el fichero más caliente de las dos noches.
 
 **Ésta es la parte que se pidió y la que más costó, y no por el recuento.**
 
@@ -278,7 +313,8 @@ llega a la unidad de su dueño **sin que nadie escriba un alcance**.
 | `Models/Unidad.php` | 9 | 1 | 8 | 0 |
 | `Services/DefinitivasDeAsignatura.php` | 13 | 5 | 8 | 0 |
 | `Support/PeriodoDeLaFila.php` | 5 | 5 | 0 | 0 |
-| **Total** | **146** | **88** | **57** | **1** |
+| **Total** *(medido entonces; ver la corrección de la §5)* | **144** | **88** | **55** | **1** |
+| **Total sobre `main` fundido, 25 ago** | **144** | **84** | **59** | **1** |
 
 ### Comprobado a mano por el lado que importa
 
@@ -333,7 +369,7 @@ fallos**:
    una nota concreta. La marca porque el enlace es `n.id = b.affected_element_id`
    —columna, no parámetro— y la comprobación pide un parámetro. **Falso positivo
    de la definición, no del código.**
-2. **`HistorialesController:135 putSesion`**, la única `mas-ancho` de las 146: lee
+2. **`HistorialesController:135 putSesion`**, la única `mas-ancho` de las 144: lee
    `subunidades` desde `bitacoras` sin pasar por `unidades` en ningún momento. No
    sé clasificarla sin decidir antes qué tiene que enseñar esa pantalla, y esa
    decisión es del [18](../18-auditoria.md), no de aquí.
@@ -585,8 +621,9 @@ nombra sus columnas dentro de la subconsulta, así que no filtra nada.
 
 **El bug NO contaminó el inventario de la §5**, y comprobarlo era la mitad del
 trabajo: `main()` filtra los literales con `\bunidades\b`, y ese `\b` ya excluía
-`unidades_por_defecto` —`s` y `_` son los dos `\w`, no hay frontera—. **Las 146
-lecturas siguen siendo 146.** El bicho mordía sólo en el barrido de los `SELECT *`,
+`unidades_por_defecto` —`s` y `_` son los dos `\w`, no hay frontera—. **Las lecturas
+no se movieron con aquel arreglo**: eran 144 entonces y son 144 hoy (ver la
+corrección de la §5). El bicho mordía sólo en el barrido de los `SELECT *`,
 escrito aparte y sin ese filtro. *Encontrar un fallo en la herramienta* y *que el
 número no valga* son dos cosas distintas, y la diferencia es ir a ver hasta dónde
 llegaba.
