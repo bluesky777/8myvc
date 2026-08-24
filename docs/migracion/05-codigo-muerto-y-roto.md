@@ -8762,8 +8762,24 @@ once coincidencias. Lo que no había era once escritores.
 ya reconoce los diez **por su consulta y sobre tokens**, y coincide en 10.
 
 Con la ironía que merece quedar escrita: **el centinela nació de un recuento a mano
-que publicó 9 en vez de 10**, y sigue contando por el método que produce esa clase de
-error — sólo que **hacia el otro lado**.
+que publicó 9 en vez de 10**, y seguía contando por el método que produce esa clase de
+error — sólo que **hacia el otro lado**: de 9 por sumar mal a 11 por contar
+comentarios.
+
+Y la frase con la que se queda la sección, de quien lo escribió:
+
+> **Un centinela hereda la forma de error de quien lo escribe.** Ese centinela se
+> escribió **después** de que su autor hubiera escrito en dos documentos la regla de
+> que *un detector puede contar bien el síntoma y no la causa* — y se escribió con
+> una regex sobre el texto del fichero. **La regla estaba en su cabeza y no en el
+> código**, que es la [§179.1](#) otra vez.
+>
+> Por eso el arreglo **no fue cambiar la regex por otra mejor: fue cambiar de
+> instrumento** —`token_get_all()`, donde los comentarios son `T_COMMENT` y no
+> entran— **y ponerle un test al instrumento**: uno con el caso exacto que falló
+> (un docblock que menciona la consulta más una consulta de verdad) y otro con
+> **sólo** comentarios que tiene que dar cero. Sin eso el arreglo estaría cambiado
+> y no comprobado, y este centinela ya demostró que *«parece correcto»* no basta.
 
 ### §181.1. Dos guardianes con un número recordado dentro, y la forma que se sostiene sola
 
