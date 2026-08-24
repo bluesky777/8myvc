@@ -340,6 +340,46 @@ son 10.
 definitivas, y con esos números decidir si la historia vieja se reinterpreta o se
 da por perdida.
 
+### Lo que la noche del 24 añadió al plan — vino de las otras sesiones
+
+El documento pasó de 740 a ~880 líneas hablando con `myvc-front-10`, `8myvc-dd`,
+`8myvc-d2` y (vía el front) `myvc-flutter-fe`. **Los cuatro hallazgos eran ciertos
+y los cuatro apuntaban un poco al lado**; se verificaron todos contra el código
+antes de aceptarlos, y dos corrigieron el esquema:
+
+| Vino de | Qué era | Qué cambió |
+|---|---|---|
+| `front` | el plan **no mencionaba `myvc_front` ni una vez** y las fases 5–6 tocaban 6 pantallas vivas | **§4.6 nueva**; las rutas nuevas son **aditivas**; la retirada se va a una **fase 7** |
+| `front`/`flutter` | los `intento_login` los pinta `mis-sesiones` | destapó que **`actor_user_id NOT NULL` era un error**: un login fallido no tiene actor (hoy `created_by = 0`) |
+| `dd` ([§13](09-pendientes.md)) | `DB::update` devuelve filas **afectadas**, y son 0 si el valor no cambia | **primera regla del escritor**: la escritura ocurrió porque no hubo excepción, no por filas. Y un reguardado sin cambio **sí se registra** |
+| `d2` | el `order by id desc limit 1` está en **9 sitios**, no en 2 | la §2 reescrita — y **son 7 + 2**: dos son middlewares que anotan un intento **rechazado**. Mismo arreglo, **fila distinta**: `accion` gana un quinto valor, `denegado` |
+
+Y **la fase 7 pasó a estar sin fecha, que no es lo mismo que lejana**:
+`myvc_flutter` **no comprueba versión mínima en ninguna parte**, así que un
+teléfono viejo llama indefinidamente y nadie se entera. Mientras eso no exista,
+**retirar cualquier endpoint depende de la buena voluntad de dieciséis colegios** —
+le pasa igual a la Fase 5 del [00](00-plan-migracion.md), no sólo a esto.
+
+### Y tres cosas que NO son de la auditoría y salieron de camino
+
+Ninguna se buscaba y ninguna estaba en la pregunta original. **No se arreglan en
+el 18** — están escritas en su §4.5.1 con la medición, y esperan decisión:
+
+1. **Se pueden teclear decimales en las cuatro pantallas de notas y nada los
+   valida** — `notas.nota` es `int` y MySQL trunca en silencio. Y por eso no lo ha
+   reportado nadie en veinte años: el aviso verde **repite el número tecleado, no
+   el guardado** (`planilla-notas.ts:253`). El profesor lee «Cambiada: 85,5» y hay
+   85.
+2. **La escala de este colegio es de 0 a 50**, no de 0 a 100 como se suponía, y
+   `porc_inicial`/`porc_final` son `int`: el sistema de calificación entero está
+   construido sobre enteros. **Es configurable por colegio y por año**, así que si
+   en alguno fuera de 1 a 5 la pregunta pasa a ser cuántos años llevan
+   perdiéndolos. Se mide con el `for` de la fase 0.
+3. **Nada en el backend rechaza una nota por pasarse de la escala.** Diez sitios
+   comparan contra `porc_final` y **los diez son para pintar la banda**; ninguno
+   aborta. El único guardián es el cliente, y de tres pantallas hermanas **dos
+   guardan y una no**.
+
 ---
 
 ## Y lo último que pidieron los colegios: el boletín independiente — **plan escrito, sin código**
@@ -389,6 +429,63 @@ tanda de DESPLIEGUE.md salga: tiene cuatro cosas congeladas detrás.
 
 ---
 
+## Y la planilla de notas por lotes — **plan escrito, y el endpoint ya estaba**
+
+**[20-pantalla-de-notas.md](20-pantalla-de-notas.md).** Lo pidió Joseth el 24 ago:
+que el docente teclee varias notas seguidas sin esperar a cada guardado, que cada
+celda diga por sí misma si ya viajó, y que la nota rápida deje de mandar una
+petición por nota.
+
+**La noticia que abarata el plan entero: el endpoint del backend ya existe.**
+`PUT notas/lote` se escribió el 24 ago *para `myvc_flutter`* y sirve igual para la
+planilla web sin tocar una línea — recibe ids de nota sueltos, así que una
+columna, una fila y un puñado de celdas recién tecleadas son **el mismo
+endpoint**. Casi todo el trabajo es de `myvc_front`.
+
+Lo que el plan deja escrito y no era evidente:
+
+- **El error que sale hoy al pulsar la nota rápida es, con toda probabilidad, un
+  `429`**: `throttle:api` son 120/min por usuario y tres columnas de 45 son 135.
+  El arreglo es el lote, **no subir el límite**.
+- **Un docente pulsando una columna ocupa hasta seis `Entry Processes` a la vez**
+  (el navegador abre ~6 conexiones por dominio) y las repone hasta acabar las 45.
+  Ocho docentes a la vez, que es lo que pasa en cierre de periodo, son 48 de 50.
+  Con lotes, un docente es **una** ranura.
+- **El borde no es un borde**: es un elemento flotante **detrás del input y un
+  poco más grande**, del que sólo asoma el reborde. Así el input hace de máscara
+  —no hay que recortar ningún anillo—, nada queda por encima del campo y
+  `box-sizing` ni entra en la conversación. Y tiene que ser así porque
+  `_estado-notas.scss` **ya usa el `border-color` del input** para decir *perdida*
+  (rojo), *superior* (azul) y *hover de nota rápida* (ámbar), y una nota recién
+  tecleada puede ser perdida **y** estar sin guardar a la vez.
+- **El truco depende de que el input sea opaco, y hoy lo es por accidente**:
+  `input.input-nota` no declara `background-color` — el blanco es el valor por
+  defecto del navegador. Se declara como parte del trabajo, o un tema oscuro
+  forzado convierte el reborde en un relleno.
+- **«El borde se queda pero la animación quieta» es una sola propiedad**:
+  `animation-play-state: paused`.
+- **Ya hay un temporizador puesto que hay que contar**: el input trae
+  `ng-model-options` con `debounce: 1000`, así que el modelo se entera un segundo
+  tarde. Con los 2 s del agrupador son **3 s** hasta el PUT, y el halo saldría un
+  segundo después de teclear si el estado cuelga de `ng-change`.
+- **Y una carrera que está abierta hoy**: `DefinitivasDeAsignatura::recalcular`
+  decide crear o actualizar con un `SELECT … ORDER BY id LIMIT 1` **sin `FOR
+  UPDATE`**, así que dos recálculos concurrentes del mismo par pueden insertar los
+  dos. El flood de 45 peticiones simultáneas de hoy **ya la está ejerciendo**. El
+  lote la mitiga; **lo que la cierra es la clave única de la
+  [fase 2](10-definitivas.md)**, y una mitigación en uno de los cuatro clientes no
+  protege a los otros tres.
+
+**Aquí el front sí se puede escalonar**, al revés que las tres cosas de la app:
+`myvc_front` es copia por colegio, así que se publica en el colegio cuyo backend
+ya lo tiene.
+
+Falta una medición y está anotada como tal: **nadie ha cronometrado `putLote`**
+(tiene 13 tests y ninguna medida). La tabla de la §2 del plan dice «estimado»
+hasta que exista.
+
+---
+
 ## Lo que espera una decisión de Joseth
 
 Están en [09-pendientes.md](09-pendientes.md), agrupadas. Las que quedan sin
@@ -400,8 +497,16 @@ contestar:
 - **Quién del personal puede qué** — cinco lotes preguntan variantes.
 - **Los dieciséis números de la fase 0** de definitivas: la herramienta está, hay
   que correrla en el servidor colegio por colegio (`for` de una línea en el 10).
-> Las tres de la auditoría se contestaron el 24 ago y están cerradas en el
-> [18](18-auditoria.md). No quedan abiertas.
+- **Las tres primeras de la auditoría** se contestaron el 24 ago y están cerradas
+  en el [18](18-auditoria.md). Quedaron abiertas **cuatro** después:
+  **(a)** `/panel/bitacora`, ¿se jubila o se queda? —de ahí depende dónde cae la
+  pantalla nueva en el menú del front, y es lo único que les bloquea a ellos—;
+  **(b)** tras retirar `bitacoras/destroy`, ¿quién borra un intento fallido? hay
+  dos botones encima; **(c)** ¿se persigue lo de los decimales? la consulta de
+  escalas en los dieciséis dice si es cosmético o si un colegio lleva años
+  perdiéndolos; **(d)** ¿validación de escala en el servidor? es la que cierra el
+  agujero de verdad y la más cara — necesita su propia medición.
+  **Ninguna de las cuatro bloquea las fases 0 a 6.**
 
 - **[§13](09-pendientes.md) — «No guardado» con 200 cuando sí se guardó.** Salió
   de coordinar el 19 con el front. `DB::update` devuelve filas **afectadas** y

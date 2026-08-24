@@ -182,7 +182,21 @@ class ProfesoresController extends Controller {
 			Request::merge(array('username' => $name));
 		}
 
-		if (!Request::input('email1')) {
+		// **`email1` no existe. Cero apariciones en los cuatro clientes**
+		// —comprobado el 24 ago 2026 en `myvc_front`, `myvc_front-fase11`,
+		// `myvc_front_2` y `myvc_flutter`—, así que esta rama corría SIEMPRE y
+		// **pisaba el `email2` que el cliente sí manda** con el correo de la ficha
+		// o con `usuario@myvc.com`.
+		//
+		// Y era invisible desde arriba: el escritor guarda ese campo con
+		// `$vinieron->trae('email2')`, que contesta *«¿vino la clave?»* —sí, vino—
+		// y no *«¿es éste el valor que vino?»*. La guarda estaba puesta y el valor
+		// llegaba pisado igual.
+		//
+		// La condición correcta es la que el `email1` quería decir: **derivar un
+		// correo sólo si no hay ninguno**. Cambia una palabra y la rama pasa de
+		// muerta a útil, en vez de quitarla y perder el defecto del alta.
+		if (!Request::input('email2')) {
 
 			if (Request::input('email')) {
 				Request::merge(array('email2' => Request::input('email') ));
@@ -388,13 +402,40 @@ class ProfesoresController extends Controller {
 
 				$profesor->save();
 
-				if ($profesor->user_id and Request::input('username')) {
-					
-					$this->checkOrChangeUsername($profesor->user_id);
+				// **`Request::input('username')` en la condición era siempre cierto**, y
+				// eso escondía las dos escrituras de abajo: `sanarInputUser()` acaba de
+				// FABRICAR `username` a partir de `nombres` si no venía, así que la
+				// rejilla que sólo corrige un teléfono entraba aquí igual. Ahora la
+				// puerta es tener cuenta, y cada campo se guarda por su cuenta —que es
+				// lo que ya hacían `is_active` y `email2` desde la §68.
+				if ($profesor->user_id) {
 
 					$usuario = User::find($profesor->user_id);
-					$usuario->username		=	Request::input('username');
-					$usuario->is_superuser	=	Autoriza::concederSuperusuario($this->user, Request::input('is_superuser'));
+
+					// **Renombraba al docente al corregirle el teléfono.** El
+					// `username` fabricado se escribía encima del real: `ZZTestFirma`
+					// pasaba a `ZZTest`, o sea el nombre sin espacios. Con
+					// `users.username` UNIQUE eso deja a alguien fuera del sistema, que
+					// es exactamente lo que cierra la §11 por la otra puerta —allí era
+					// QUIÉN puede renombrar; aquí es que se renombra sin que nadie lo
+					// pida—. Medido por `myvc-front-89` contra el docker, tres pasadas.
+					//
+					// `checkOrChangeUsername` sólo tiene sentido si de verdad se va a
+					// cambiar: busca colisiones del nombre que se va a escribir.
+					if ($vinieron->trae('username')) {
+						$this->checkOrChangeUsername($profesor->user_id);
+						$usuario->username = Request::input('username');
+					}
+
+					// **Y lo degradaba.** `sanarInputUser()` mete `is_superuser = false`
+					// cuando no viene, y la rejilla no lo manda: un superusuario perdía
+					// el privilegio cada vez que alguien le tocaba la ficha. La guarda
+					// de `Autoriza::concederSuperusuario` estaba bien puesta —un permiso
+					// no se concede a sí mismo— pero no protege de esto: aquí no se
+					// concedía de más, se quitaba sin pedirlo.
+					if ($vinieron->trae('is_superuser')) {
+						$usuario->is_superuser = Autoriza::concederSuperusuario($this->user, Request::input('is_superuser'));
+					}
 
 					// Esta cuenta YA EXISTE, así que lo que el cuerpo no trae no se toca.
 					// Escribir el valor por defecto aquí es lo que reactivaba cuentas

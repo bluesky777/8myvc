@@ -17,6 +17,7 @@ use App\Http\Controllers\Alumnos\Definitivas;
 use \Log;
 
 use App\Http\Controllers\Alumnos\Solicitudes;
+use App\Support\EscalaDeNotas;
 use App\Support\PeriodoDeLaFila;
 
 
@@ -216,6 +217,10 @@ class DefinitivasPeriodosController extends Controller {
 			$bit_by 	= $user->user_id;
 			$bit_hist 	= $nota->history_id;
 			$bit_old 	= $nota->nota; 				// Guardo la nota antigua
+			// La definitiva tecleada a mano pasa por la misma escala que una nota
+			// suelta: es el otro sitio por donde entra un número a pelo. 18 §4.5.1.
+			EscalaDeNotas::comprobar(Request::input('nota'), PeriodoDeLaFila::deNotaFinal($nf_id));
+
 			$bit_new 	= Request::input('nota'); 	// Guardo la nota nueva
 			$bit_per 	= $user->periodo_id;
 
@@ -253,6 +258,13 @@ class DefinitivasPeriodosController extends Controller {
 			//
 			// Y va en transacción porque entre el SELECT y el INSERT hay una ventana:
 			// dos profesores tecleando la misma celda a la vez crearían dos filas.
+			// La tercera puerta por la que entra una definitiva a pelo, y la que
+			// más fácil se queda fuera: no tiene `nf_id`, así que la escala se
+			// resuelve por el periodo que se acaba de comprobar arriba. Va ANTES
+			// de la transacción — abortar dentro haría un rollback de una
+			// transacción que no llegó a escribir nada. 18 §4.5.1.
+			EscalaDeNotas::comprobar(Request::input('nota'), (int) $periodo->id);
+
 			return DB::transaction(function () use ($user, $now, $num_periodo, $periodo) {
 
 				$existente = DB::selectOne(
@@ -320,6 +332,14 @@ class DefinitivasPeriodosController extends Controller {
 			$bit_by 	= $user->user_id;
 			$bit_hist 	= $nota->history_id;
 			$bit_old 	= $nota->nota; 				// Guardo la nota antigua
+
+			// La recuperación final es una nota como las demás y se teclea igual:
+			// si no cabe en la escala, tampoco cabe aquí. Pero **esta tabla no
+			// tiene `periodo_id`** —guarda `year` directo, como explica la
+			// cabecera del método—, así que la escala se resuelve por el año de la
+			// propia fila y no por un periodo inventado. 18 §4.5.1.
+			EscalaDeNotas::comprobarEnAnio(Request::input('nota'), $nota->year === null ? null : (int) $nota->year);
+
 			$bit_new 	= Request::input('nota'); 	// Guardo la nota nueva
 
 			

@@ -720,3 +720,91 @@ entera por nota tecleada**, que es lo que la planilla necesitaba para repintar l
 celda. Es un campo añadido —la nota se sigue devolviendo igual—, y el front tiene
 que seguir sabiendo re-pedirla cuando no venga, porque durante el despliegue
 habrá colegios con el código viejo.
+
+---
+
+## El contador que tumbaba los colegios era `Entry Processes` — 24 ago 2026
+
+**Confirmado por Joseth**, que lo miró en el panel durante las caídas. Lo escribe
+aquí porque cambia qué se optimiza y en qué orden, y porque hasta hoy la causa de
+aquellos meses era una impresión sin nombre.
+
+### Qué mide, y por qué llegaba al 100%
+
+La cuenta es CloudLinux (se reconoce por `/opt/alt/php84/`, ver el §1), y ahí
+cada cuenta de cPanel vive dentro de una **LVE** con varios límites a la vez:
+
+| Contador | Qué cuenta | El límite de esta cuenta |
+|---|---|---|
+| **Entry Processes** | peticiones HTTP **dentro de PHP en este instante**. Suma 1 al entrar, resta 1 al salir la respuesta | **50** |
+| Number of Processes | *todos* los procesos del usuario: hijos de PHP-FPM incluidos los ociosos, cron, una sesión SSH | 75 |
+
+Cuando se pasa de 50, el servidor contesta **508 Resource Limit Reached** a
+**todo lo de esa cuenta** — que es por qué se caían los dieciséis a la vez y
+costaba entrar al propio cPanel.
+
+**Y no mide usuarios: mide `llegadas por segundo × duración de cada petición`.**
+Con 50 ranuras, una petición de 250 ms satura a 200 peticiones/s y una de 3 s
+satura a 16. **La palanca es la duración**, no el tráfico.
+
+> **El medidor en reposo no dice nada.** `0 / 50 (0%)` es una lectura
+> instantánea: marca 0 siempre que en ese milisegundo no haya ninguna petición
+> ejecutándose. Lo que sí queda es el histórico de *faults* por límite en
+> *Resource Usage* del panel, y ahí se distingue EP de NPROC de CPU de IO.
+
+### Por qué hoy es otra conversación
+
+Todo lo cerrado en este documento **era, sin saberlo, trabajo sobre ese
+contador**, porque todo él acorta lo que dura una petición:
+
+| | Antes | Ahora |
+|---|---|---|
+| arranque, que paga **cada** petición (§1, OPcache) | 250 ms | **28 ms** |
+| `AdvancedRoute`: 97 controladores reflexionados y 1.076 rutas por petición (§2) | sí | eliminado |
+| doble autenticación y N+1 de permisos (§4, pasos 7 y 8) | 5–8 consultas | reducidas |
+| una tanda de boletines, con los tres índices del 20 ago (paso 12) | 970 ms | **44 ms** |
+
+El primero solo divide por nueve la parte que paga toda petición. **El tráfico
+que llenaba las cincuenta ranuras entonces ocupa hoy una fracción.**
+
+Y lo estructural, que Joseth ya resolvió comprando el segundo alojamiento: **el
+límite es por cuenta de cPanel, no por sitio.** Dieciséis colegios en una cuenta
+comparten las mismas cincuenta ranuras, así que el que importaba el Excel tumbaba
+a los otros quince. La regla que queda: **si un colegio es pesado, lo que
+necesita es su propia cuenta, no sólo su propia base de datos.**
+
+### La regla que se lleva, y que reordena lo que viene
+
+> **En `Entry Processes`, quitar una petición vale más que hacerla rápida.**
+
+Una petición ocupa su ranura desde que entra hasta que sale, valga 4 ms o 400. Por
+eso cuentan como mejora de recursos dos cosas que no ahorran ni un milisegundo de
+base de datos: `putUpdate` devolviendo la definitiva en su propia respuesta, y
+`putLote` sustituyendo cuarenta y cinco peticiones por una. La segunda es el
+[plan 20](20-pantalla-de-notas.md).
+
+### El orden decidido, 24 ago 2026
+
+Joseth lo fijó el mismo día. **No se re-litiga:**
+
+| | Qué | Dónde |
+|---|---|---|
+| 1 | **Historiales y bitácora** | [18-auditoria.md](18-auditoria.md) |
+| 2 | **Las llamadas del panel de inicio** — `GET api/ChangesAsked/to-me` recorre `bitacoras` entera (`type=ALL, possible_keys=NULL`) en la primera pantalla del superusuario y del profesor, y esa tabla crece un intento de login fallido cada vez | la sección «Las dos series se tapan una a la otra» de este documento |
+| — | La **planilla de notas por lotes** no depende de ninguna de las dos y puede ir en paralelo | [20-pantalla-de-notas.md](20-pantalla-de-notas.md) |
+
+**El paso 2 va después del 1 a propósito y no por capricho de orden:** lo que el
+plan de auditoría decida sobre `bitacoras` —si se sustituye, si se purga, si
+cambia de forma— decide también qué índice tiene sentido crear para esa pantalla.
+Crearlo antes es indexar una tabla que quizá deje de existir.
+
+### El importador de alumnos: fuera de esta conversación
+
+Puede retener una ranura hasta **300 s** (el `max_execution_time` de la cuenta),
+que es lo más largo que hay en toda la aplicación. **Y aun así no es prioritario:
+Joseth confirmó el 24 ago 2026 que importar alumnos se hace una vez al año.** Una
+ranura de cincuenta, unos días al año, no es lo que tumbó nada.
+
+Sigue en pie lo ya decidido: **ese importador no se optimiza, se rehace** (ver
+«El paso 3 sigue apagado» más arriba, y la [§1 de 09-pendientes](09-pendientes.md)
+con lo que hay que traer a la mesa ese día). La importación reanudable no se toca.

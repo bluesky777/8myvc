@@ -75,9 +75,14 @@ class GuardarNotasEnLoteTest extends CasoDeContrato
         $this->assertSame(4, $sueltas,
             'El montaje ya no mide lo que cree: cuatro `notas/update` tienen que dar cuatro agregados.');
 
+        // 45 y no 60. El 60 era un número cualquiera —sólo tenía que diferir del
+        // 40 de arriba— y desde el 24 ago **no cabe en la escala**: la de este
+        // colegio va de 0 a 50 y `EscalaDeNotas` rechaza lo que se pase, así que
+        // el lote entero caía en `fallidas` y recalculaba cero veces. El test
+        // seguía siendo correcto; el dato dejó de serlo.
         $enLote = $this->agregadosDurante(function () use ($token, $ctx) {
             $this->withToken($token)->putJson('/api/notas/lote', [
-                'notas' => array_map(fn ($id) => ['id' => $id, 'nota' => 60], $ctx['notas']),
+                'notas' => array_map(fn ($id) => ['id' => $id, 'nota' => 45], $ctx['notas']),
             ])->assertStatus(200);
         });
 
