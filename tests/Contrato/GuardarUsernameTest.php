@@ -210,7 +210,11 @@ class GuardarUsernameTest extends CasoDeContrato
 
         $this->withToken($this->tokenDe($jefe->username))
             ->putJson('/api/perfiles/guardar-username/'.$victima->id, ['username' => $ocupado])
-            ->assertStatus(422);
+            ->assertStatus(422)
+            // La FORMA, no solo el código: el front lee `message` —la de Laravel— y
+            // una prueba suya llegó a esperar `msg`. Se fija aquí para que la
+            // pregunta no haya que volver a hacerla. Lo pidió `myvc-front-10`.
+            ->assertJson(['message' => 'Ese nombre de usuario ya está en uso.']);
 
         $this->assertSame($antes, $this->usernameDe((int) $victima->id));
     }
