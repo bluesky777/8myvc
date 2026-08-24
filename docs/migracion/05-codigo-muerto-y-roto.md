@@ -8951,3 +8951,53 @@ números de ahí toda la noche.
 > rojo de esa comparación **lo dio la versión NUEVA**, con el mismo error del
 > `networkidle` **repetido dentro del arreglo que venía a corregirlo**. Las cuatro se
 > han sabido **porque el que la incumplió lo dijo**.
+
+## §184. Una medición dada por nula en vez de publicada, y la forma correcta de un guardián
+
+**La medición deliberada del `ALTER TABLE`** —correr la suite con el esquema nuevo y
+el código viejo, que la [§9.2 del 19](19-boletin-independiente.md) convirtió en
+procedimiento— **terminó y se dio por NULA por quien la corrió**. Y eso es el
+hallazgo:
+
+```
+141 tests en rojo empezando alfabéticamente por AceptarCambiosTest
+tests de 0,5 s tardando 79,58 s / 62,36 s / 54,98 s, y a partir de ahí sin tiempo
+```
+
+**Eso no es el 1052: es el entorno.** Cayó en la ventana de dos suites huérfanas
+propias y su cola murió en el reinicio. **No se publicó «141 rompe el `ALTER
+TABLE`»**, que habría sido *«el número sin definición»* que este documento lleva
+toda la noche cazando. Lo único que sobrevive es que las dos predichas estaban entre
+las rojas —**y con 141 alrededor eso no distingue nada**.
+
+> **Que empiecen alfabéticamente por la primera clase es la firma de una causa
+> común externa**, igual que los tres «66 s iguales» de la [§176](#): **un patrón que
+> sigue al orden del instrumento no es un patrón del fenómeno.**
+
+### Y de paso, tres huérfanas propias explicaron un fallo que se había achacado a la carga
+
+Se había reportado un *«deadlock transitorio en `personal_access_tokens`»* culpando al
+contenedor cargado. **Era falso: eran tres suites propias contra la misma base**, o
+sea el *«dos tandas contra la misma base dan deadlocks»* de `CLAUDE.md` — **con las
+dos siendo de la misma sesión**, y sin verse porque **el `ps` del host decía que no
+había ninguna**. Y el árbol de procesos completo: `TaskStop` en el host, el host
+dice cero, y dentro siguen vivos **el `php artisan test` y su `phpunit`**.
+
+### La forma correcta de un guardián, medida
+
+Aplicada la regla corregida de la [§181.1](#) —comparar contra algo medible ahora—
+sobre **28 bases `_testing`**:
+
+```
+26 con 92 tablas · 2 con 93 · 2.351 usuarios en las 28, sin una excepción
+  _9e -> 93 con `bol_ind_periodos`, sin `auditoria`
+  _39 -> 93 con `auditoria`, sin `bol_ind_periodos`
+```
+
+**Las dos diferencias se explican por nombre, no por cuenta**, y eso es lo que hace
+que el guardián sirva: *«93»* habría dado por buena una y por rota cualquiera de 92.
+
+Y una coincidencia que confirma que el fallo era del instrumento y no del que lo usa:
+**el mismo `PDO` a mano falló en dos sesiones distintas por lo mismo** —`using
+password: NO`, credenciales escritas de memoria en vez de leídas del `.env`—. **La
+forma que funciona es arrancar el kernel y preguntar por `DB::`.**
