@@ -410,11 +410,28 @@ porque «salen horas extrañas».
 > de cuatro rutas que todavía no existen— pero queda escrito **antes** de que
 > alguien elija por omisión, que es como se eligió la primera vez.
 >
-> Salió al cerrar con `8myvc-f8` el 24 ago: fue a comprobar si su
-> [20-pantalla-de-notas.md](../20-pantalla-de-notas.md) leía alguna fecha de la
-> base —**no lee ninguna**, y lo dejó escrito con la condición de caducidad de esa
-> exención—. Mirando esa exención se ve que la de la fase 5 **ya está caducada de
-> nacimiento**: sus cuatro endpoints existen precisamente para mandar horas. Propuesto a `8myvc-7b`, que es de quien es el
+> Salió al cerrar con `8myvc-f8` el 24 ago, y en dos vueltas. La primera: fue a
+> comprobar si su [20-pantalla-de-notas.md](../20-pantalla-de-notas.md) leía alguna
+> fecha de la base, y de ahí se vio que la exención de la fase 5 **ya está caducada
+> de nacimiento** — sus cuatro endpoints existen precisamente para mandar horas.
+>
+> **La segunda vuelta le puso nombre al gatillo, y es lo que hace esta decisión
+> urgente en vez de teórica.** Al mirar la pantalla entera y no sólo el camino de
+> guardado, resultó que `notaDetalleModal.html` y `notaFinalDetalleModal.html` **sí
+> imprimen** `created_at` y `updated_at`. Hoy están a salvo **por accidente**: se
+> interpolan en crudo —`{{ $ctrl.nota.created_at }}`— y una cadena impresa tal cual
+> no se reinterpreta.
+>
+> **Lo que las rompe es añadir `| date:'short'`** para que se vean bonitas: ahí
+> Angular la parsea con `new Date()`, la lee en la zona del equipo del que mira, y
+> salen cinco horas con cara de fecha correcta. **El disparador es el cambio
+> cosmético más obvio que se le puede hacer a esa pantalla**, y nadie lo
+> clasificaría como riesgo.
+>
+> Por eso la decisión del contrato no es sólo para las rutas nuevas: **si la fase 5
+> envía la hora con su desfase dentro, ese `| date` funciona bien el día que
+> alguien lo escriba.** Si envía la cadena pelada, hereda la trampa y además la
+> arma. Propuesto a `8myvc-7b`, que es de quien es el
 fichero: al `Reloj` le falta la mitad de vuelta —un `desdeTexto()`— por el mismo
 argumento con el que su cabecera justifica `ahoraTexto()`, que existe *para que no
 haya que acordarse del formato*. Quien lee tiene que acordarse del formato **y
