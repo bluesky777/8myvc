@@ -524,8 +524,15 @@ código comentado. Pero su propio comentario dice que se **descomenta** cuando h
 falta, así que existe como herramienta de guardia — y mientras está descomentada,
 cualquiera que sepa la ruta le pone la contraseña que quiera al usuario 1.
 
-No se toca desde aquí: no es de este lote, y el `05` es de coordinación. Queda
-avisado a `8myvc-34`.
+> **Y lo peor no es lo que hace: es su procedimiento.** Lo señaló `8myvc-34` al
+> registrarlo, y es la mitad que se me pasó: *«se descomenta a mano y se vuelve a
+> comentar»* **depende de que alguien se acuerde de la segunda mitad**, en
+> **dieciséis copias distintas de `app/`** —que es copia por colegio, no
+> compartida—. **Nadie sabría decir hoy si en alguna quedó descomentada**, y ésa es
+> una pregunta que no se puede contestar desde este repositorio.
+
+No se toca desde aquí: no es de este lote, y el `05` es de coordinación. Registrado
+por `8myvc-34` con el párrafo de arriba dentro.
 
 ---
 
@@ -574,16 +581,86 @@ hoy.** Cero avisos para los cuatro clientes.
 ## 9. Estado
 
 `tests/Contrato/AuditoriaEscritorUnicoTest.php`, **20 métodos, 156 aserciones,
-los veinte en verde** con el `Reloj` fundido (`33c3db8`, de `8myvc-7b`; merge
-limpio, sin un conflicto).
-
-Antes de fundirlo pasaban 9 y fallaban 10, **los diez por
-`Class "App\Support\Reloj" not found` y por nada más** — los diez que llaman a
-`guardar()`. Se deja escrito porque ese rojo no era una avería: era la dependencia
-declarada, y con ella la comprobación en vivo de la §4.3.
+los veinte en verde**, medidos en **corrida aislada** con `--filter` y con el
+`Reloj` fundido (`33c3db8` y `73e3b79`, de `8myvc-7b`; los dos merges limpios).
 
 | | |
 |---|---|
+| Los 20 del lote | **verde**, en corrida aislada |
 | `pint` | **PASS**, 267 ficheros |
-| `stan` nivel 7 | de los 6 errores del primer informe, **cuatro eran el `Reloj` ausente** y dos eran míos de verdad — un `method_exists()` que phpstan sabía siempre cierto y un `Log::shouldHaveReceived()` sobre la facade en vez de sobre el spy. Corregidos |
+| `stan` nivel 7, **caché limpia** | **1 error, y no es de este lote** — ver abajo |
 | `secciones-citadas.py` | **0 huérfanas** sobre 1.306 citas |
+| `escrituras-sin-auditoria.php --autoprueba` | **7 de 7** |
+| **La suite completa** | **debida.** Ver abajo |
+
+### 9.1 Lo que se debe, dicho como deuda y no como hueco
+
+**La suite completa no se ha podido correr limpia**, y eso no es un verde que
+falte: es un número que no existe. Se intentó tres veces:
+
+1. La primera se cortó con `context canceled`.
+2. La segunda dio **16 fallos en 8 clases** —`ActasEvaluacionTest`, `AlumnosTest`,
+   `AsignaturasTest`, `AusenciasTest`…— que **no eran de este lote**: coincidieron
+   con `8myvc-database-1` muriendo con `Exited (137)`.
+3. La tercera arrancó con **una corrida anterior todavía viva**, y las dos
+   escribían **al mismo fichero con `>` y contra la misma base**. Lo que se leyó de
+   ahí —«94 tests, cero en rojo»— era una mezcla imposible de separar, y se
+   **retiró**: la conclusión de que los 16 fallos eran del OOM se sostiene por otra
+   vía —coinciden con la muerte del contenedor y caen en clases que una tabla
+   nueva no toca—, pero **el número que la respaldaba no vale**.
+
+Lo que hay medido en su lugar: los veinte del lote en verde, en corrida aislada,
+sobre una base reconstruida con las migraciones aplicadas (93 tablas).
+
+### 9.2 El `stan` que queda en rojo no es de aquí, y cómo se supo
+
+Con la caché de phpstan **compartida** (`/tmp` es común a los catorce árboles del
+contenedor) salía un `ignore.unmatched` en `PiarsConfigController`. Con la caché
+borrada **desaparece**: era la caché, no el código. Es la misma familia que todo
+lo demás de esta noche.
+
+Limpia, queda **un** error, en `app/Http/Controllers/ProfesoresController.php:473`
+(*«Negated boolean expression is always true»*), que **no es de este lote**:
+es uno de los ficheros que un commit mío arrastró a `main` sin querer (§9.3), y
+llegó allí **sin la pasada de larastan de su autor**. Ninguno de los cuatro
+ficheros de AUD-3 aparece.
+
+### 9.3 Y el error propio que hay que dejar escrito
+
+Un commit de esta sesión —`9cb4409`— **fue a parar a `main`**, no a esta rama, y
+se llevó dentro el trabajo sin commitear de cinco sesiones bajo un mensaje que
+hablaba de otra cosa. El contenido no se perdió; la firma sí. No se reescribe —de
+ese historial cuelgan tres árboles vivos— y la autoría quedó anotada con
+`git notes`.
+
+**El mecanismo importa más que el error**, porque es el mismo que mordió a cuatro
+sesiones esa noche por caminos distintos: un `cd` al árbol raíz dejó **el shell**
+allí mientras el `docker exec -w` seguía apuntando a este worktree. **Los tests
+siguieron diciendo la verdad sobre el sitio equivocado.** Nada se puso rojo.
+
+De ahí salieron tres reglas, ya en las órdenes permanentes:
+
+- **Se commitea nombrando los ficheros uno a uno.** Nunca `git add -A`, ni en tu
+  propio árbol.
+- **Antes de commitear, `git rev-parse --abbrev-ref HEAD`.** Si no dice tu rama,
+  estás en el árbol de otros — y un `docker exec -w` correcto no dice nada del
+  sitio donde está tu shell.
+- **Antes de lanzar una suite, mira si ya tienes una viva** — y **dentro del
+  contenedor**: `docker exec 8myvc-app-1 ps -ax | grep phpunit`. Un `ps` del host
+  no ve esos procesos, y matar el `docker exec` **no mata el `php` de dentro**.
+
+Y el diagnóstico que salió de tirar de ese hilo, que es de la máquina y no de este
+lote: `8myvc-database-1` **no tiene límite de memoria propio**
+(`HostConfig.Memory: 0`), así que **no puede pasarse**: cuando la VM de Docker
+—7,65 GiB para todo— se queda sin memoria, el kernel elige a la víctima más gorda
+y ésa es siempre MySQL. Cada muerte deja `phpunit` huérfanos dentro del contenedor
+—**15 vivos, 2.187 MB**, de nueve a cuarenta y nueve minutos— y con menos memoria
+libre la siguiente muerte llega antes. **Es realimentación**, y explica por qué
+reiniciar la base no arreglaba nada.
+
+> **La frase que resume las seis de la noche**, y no es de este lote sino de todas:
+> el `cd` de aquí, el `PDO` con credencial inventada de coordinación, el `vendor/`
+> con symlink, el `construir-bd-test.sh` sin `-w`, las dos suites simultáneas y el
+> `ps` del host. **El instrumento correcto sobre el objeto equivocado.** Ninguna se
+> ve mirando el resultado, porque el resultado es correcto; sólo se ven
+> preguntando **sobre qué** se midió.
