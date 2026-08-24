@@ -40,7 +40,16 @@ class CertificadosPersonaController extends Controller {
 		
 		$alumno_id = Request::get('alumno_id');
 
-		$matriculas = DB::select('SELECT * FROM matriculas m 
+		// `m.*` explícito y luego `g.*`, y NO se vuelve al `SELECT *` de antes: con
+		// él, `matriculas.boletin_independiente` (24 ago 2026,
+		// 19-boletin-independiente.md) sale en esta respuesta y **no hay instantánea
+		// que lo cace**. §5.ter de noche-2026-08-24/bi-1.md.
+		//
+		// El orden se conserva a propósito: `SELECT *` daba primero las columnas de
+		// `matriculas` y después las de `grupos`, y en las repetidas —`id`,
+		// `created_at`…— gana la última, o sea `grupos`. Invertirlo cambiaría
+		// `id` sin tocar una sola clave del cuerpo.
+		$matriculas = DB::select('SELECT m.id, m.alumno_id, m.grupo_id, m.estado, m.prematriculado, m.fecha_retiro, m.fecha_matricula, m.fecha_pension, m.razon_retiro, m.programar, m.descripcion_recomendacion, m.efectuar_una, m.descripcion_efectuada, m.profes_editar_notas, m.nuevo, m.repitente, m.promovido, m.promedio, m.cant_asign_perdidas, m.cant_areas_perdidas, m.anios_in_cole, m.nro_folio, m.created_by, m.updated_by, m.deleted_by, m.deleted_at, m.created_at, m.updated_at, g.* FROM matriculas m 
 			INNER JOIN grupos g ON g.id=m.grupo_id and g.deleted_at is null
 			WHERE m.deleted_at is null and m.alumno_id=?', [$alumno_id]);
 

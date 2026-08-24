@@ -118,31 +118,32 @@ class BoletinIndependienteEsqueleto extends Migration
         });
 
         /*
-         * 4. El interruptor de los puestos, con el valor de hoy por defecto.
+         * 4. El interruptor de los puestos NO entra aquí: se va a la fase 2.
          *
-         * **CUIDADO: ésta es la TERCERA columna de `years` que habla de
-         * puestos**, y las otras dos son anteriores a todo esto:
+         * Estaba escrito y medido, y se saca **por lo que costaba, no por lo que
+         * valía**: `years.puestos_con_bol_independiente` movía las tres
+         * instantáneas de `MuestreoDeLecturasTest` —`api/years`,
+         * `api/years/colegio` y `api/years/trashed`— porque `YearsController:27`
+         * y `:43` leen con `SELECT *`. Es la §5.ter de
+         * ../../docs/migracion/noche-2026-08-24/bi-1.md.
          *
-         *   `mostrar_puesto_boletin`   (default 1) — si el puesto se IMPRIME
-         *   `puestos_alfabeticamente`  (default 0) — cómo se ORDENA la lista
-         *   `puestos_con_bol_independiente` (ésta) — si el independiente CUENTA
+         * **Y se puede sacar porque no lo consume nada**: los ocho sitios que
+         * copian `Nota::puestoAlumno` son de la fase 6, y las cuatro rutas de
+         * puestos no calculan puesto —devuelven `promedio` y el front pinta la
+         * posición de fila—. Así que aquí el interruptor sería una columna que
+         * nadie lee moviendo tres respuestas vivas.
          *
-         * No son la misma pregunta y **no se funden**. Pero sí se cruzan, y el
-         * cruce está medido esta noche sobre esta base: **1 de los 8 años vivos
-         * tiene `mostrar_puesto_boletin = 0`**, y en ese año toda la §7 del plan
-         * —imprimir `—`, el puesto de un tercero que se mueve— **no se ve por
-         * ninguna parte** y este interruptor es peso muerto. No cambia cómo se
-         * implementa; cambia cómo se le explica a un rector. Lo avisó
-         * `myvc-front-98` desde el front, que ya lee `mostrar_puesto_boletin`
-         * hoy, y el plan no lo nombraba ni una vez.
+         * **Entra con quien lo escriba**, que es lo coherente: un servicio que
+         * decide sobre una columna que nadie escribe todavía tiene la mitad
+         * positiva sin comprobar.
          *
-         * Nace en 1 = lo de hoy, así que ponerlo a 0 es una decisión del colegio
-         * con efecto visible, no un ajuste de pantalla.
+         * Y la regla que ya está pagada, para cuando vuelva: **el servicio
+         * contesta «¿está activado el interruptor?» y NUNCA «¿se enseña el
+         * puesto?»**. El front esconde el puesto al `Acudiente` y al `Alumno`
+         * aunque el año lo tenga activado; contestar lo segundo o le filtraría el
+         * puesto a las familias por su cuenta o dejaría muerta esa regla, las dos
+         * en silencio.
          */
-        Schema::table('years', function (Blueprint $tabla) {
-            $tabla->boolean('puestos_con_bol_independiente')
-                ->default(1)->after('puestos_alfabeticamente');
-        });
     }
 
     public function down()
@@ -155,10 +156,6 @@ class BoletinIndependienteEsqueleto extends Migration
          * y vuelven a leerse como del grupo. Mientras nadie esté marcado
          * —que es todo lo que hay esta noche— es exactamente reversible.
          */
-        Schema::table('years', function (Blueprint $tabla) {
-            $tabla->dropColumn('puestos_con_bol_independiente');
-        });
-
         Schema::dropIfExists('bol_ind_periodos');
 
         Schema::table('matriculas', function (Blueprint $tabla) {

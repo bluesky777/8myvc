@@ -21,13 +21,14 @@ rutas nuevas, sin pantallas, sin tocar `notas` ni `notas_finales`.
 
 | | Qué | Estado |
 |---|---|---|
-| 1 | Las cuatro migraciones de la §3 del plan | **hecho** — un solo fichero, `2026_08_24_100000_boletin_independiente_esqueleto.php` |
+| 1 | Las migraciones de la §3 del plan | **tres de las cuatro.** `years.puestos_con_bol_independiente` **se movió a la fase 2** — §5.ter |
 | 2 | `App\Services\BoletinIndependiente`, el servicio único | **hecho** — sin `copiar()`, que necesita las rutas |
 | 3 | El alcance en la puerta de los boletines | **hecho** — y son **una función, no dos**: ver §4 |
-| 4 | El interruptor de puestos leído en un servicio | **hecho** — y con una corrección de premisa: ver §6 |
+| 4 | El interruptor de puestos leído en un servicio | **movido a la fase 2**, no sin hacer — §5.ter y §6 |
 | 5 | **El inventario clasificado de las 74 + 70 consultas** | **hecho** — §5, y es lo que más movió |
 | 6 | `tools/unidades-sin-alcance.py`, la fase 0 | **hecho** — no existía |
 | 7 | Cuatro consultas que el `ALTER TABLE` rompía con un 500 | **arregladas** — §5.bis, y no estaban previstas |
+| 8 | Ocho `SELECT *` que metían la columna nueva en respuestas vivas | **arregladas** — §5.ter. Dos quedan **pedidas** a otras sesiones |
 
 **Lo que NO entra, y por qué:**
 
@@ -46,47 +47,86 @@ rutas nuevas, sin pantallas, sin tocar `notas` ni `notas_finales`.
 
 ---
 
-## §2 — El criterio de aceptación: **todavía sin confirmar**
+## §2 — El criterio de aceptación: **NO se cumple. Cinco snapshots se mueven**
 
 > **Con las migraciones puestas y nadie marcado, los 1.344 tests pasan sin
 > regenerar un solo snapshot.**
 
-**Esto NO está comprobado todavía, y el esqueleto no está dado por desplegable.**
-`8myvc-database-1` murió por OOM la madrugada del 24 —`Exited (137)`, la máquina
-en load 23–26 y 15,1 GB de 16,4 en swap— **mientras corría la tanda completa**.
-Una corrida hecha contra una base agonizando **no vale ni para bien ni para
-mal**, así que la doy por no hecha y hay que repetirla con la base sana. Lo que
-alcanzó a escribir traía un rojo en `BanderasDeUnBitTest` que no toca nada de
-esto y encaja con los 16 fallos que otra sesión vio en la misma ventana.
+**Medido en máquina limpia el 24 ago: `Tests: 5 failed, 1358 passed (9182
+assertions), 593,20 s`.** El esqueleto **mueve cinco snapshots**, así que **no es
+aditivo y no está desplegable**. No he regenerado ninguno y no es mío decidirlo:
+regenerarlos rompe la promesa con la que se justificó desplegar el backend antes
+de que exista una pantalla, y eso hay que decírselo al front y a `myvc_flutter`,
+que es **una sola app para los dieciséis**.
 
-**Lo que sí vale**, porque es una corrida dirigida y anterior al apagón:
-`BoletinNoBorraDefinitivasTest` **en verde con la migración puesta**, que es el
-test que cazó el 1052 de la §5.bis y el que confirma que está arreglado. Y la
-precondición está comprobada con una sola conexión: 93 tablas, las cuatro
-columnas donde tienen que estar y **0 matrículas marcadas**.
+La corrida vale, y eso hay que justificarlo porque dos anteriores no valieron:
+máquina **sin un solo `phpunit` huérfano dentro del contenedor**, base comparada
+**contra las otras 27** (26 con 92 tablas, la mía con 93 por `bol_ind_periodos`,
+la de otra sesión con 93 por `auditoria`; **2.351 usuarios en las 28**), fichero
+de salida con fecha en el nombre, y **tiempos normales de 0,25–0,78 s** en los
+cinco rojos. Las dos corridas descartadas están en la §2.1.
 
-**No he regenerado ningún snapshot.** Si hubiera hecho falta, paraba y lo decía: un
-snapshot que se mueve en la fase 1 no es un snapshot que se regenera, es una
-consulta a la que se le olvidó el alcance — y dejaría de ser aditivo, que es lo
-único que permite desplegar esto en dieciséis colegios antes de que exista una
-pantalla.
+### Los cinco, con la columna que mueve cada uno
 
-Lo que lo hace cierto es una línea de MySQL y conviene que esté escrita:
-`alcance()` devuelve `null` para todo el mundo mientras
-`matriculas.boletin_independiente` sea 0 —que es como nace—, y
-`u.alumno_id <=> NULL` selecciona **exactamente** las filas de hoy.
+| Test | Columna | Por dónde entra |
+|---|---|---|
+| `ActasEvaluacionTest > la forma del detalle del acta` | `matriculas.boletin_independiente` | `Informes/ActasEvaluacionController:793` — `SELECT y.year, m.*, …` |
+| `MuestreoDeLecturasTest > api/years` | `years.puestos_con_bol_independiente` | `YearsController:27` |
+| `MuestreoDeLecturasTest > api/years/colegio` | idem | `YearsController:43` |
+| `MuestreoDeLecturasTest > api/years/trashed` | idem | idem |
+| **`NotasTest > la forma de la rejilla del profesor`** | **`unidades.alumno_id`** | **`NotasController:49` — `SELECT * FROM unidades u`** |
 
-**`<=>` y no `=`.** Con el igual a secas la rama del alumno normal no empareja
-NULL y devuelve cero filas: **todas las definitivas del colegio se van a 0** sin
-un solo error en el log. Es el fallo más caro que esta fase podía introducir y no
-da ninguna señal, así que está escrito en el servicio, en la migración y aquí.
+**El último no es una sospecha.** `Snapshots/notas-detailed-profesor.json` fija la
+lista exacta de claves de cada unidad —`asignatura_id, created_at, created_by,
+definicion, deleted_at, deleted_by, fecha, id, obligatoria, orden, periodo_id,
+por_defecto, porcentaje, subunidades`— y `alumno_id` añade una decimoquinta. Un
+`SELECT * FROM unidades` y una instantánea que fija las claves de `unidades` **no
+pueden coexistir con una columna nueva**.
+
+Y es el peor de los cinco porque es **la planilla**: la pantalla que más se usa.
+
+### Lo que sí vale de aquí
+
+**Los 7 tests de `BolIndependienteAlcanceTest` pasan**, así que el servicio hace
+lo que dice en los dos sentidos —con nadie marcado y con alguien marcado—, y el
+interruptor del periodo **no borra una sola fila**. Y los cuatro rojos del 1052 de
+la §5.bis **ya no están**: ese arreglo está confirmado.
+
+### §2.1 — Las dos corridas que NO valieron, y por qué se dicen
+
+Porque **una medición contaminada no se interpreta, se descarta**, y las dos se
+parecían mucho a un resultado:
+
+1. **La del OOM.** `8myvc-database-1` murió por `Exited (137)` —máquina en load
+   23–26 y 15,1 GB de 16,4 en swap— **con la tanda dentro**. Traía un
+   `BanderasDeUnBitTest` rojo que no toca nada de esto.
+2. **La de los huérfanos**, que era la medición deliberada de la §5.bis: **141
+   rojos empezando alfabéticamente por la A**, con tests de 0,5 s tardando **79,58
+   s**. Corría contra la misma base que **dos suites huérfanas mías**, y de ahí el
+   *«deadlock transitorio»* que había achacado a la carga del contenedor. No era
+   carga ajena: era yo tres veces.
+
+**La trampa que las explica, y es la que hay que llevarse:** un `ps` del **host**
+no ve los procesos del contenedor, y **matar el `docker exec` del host no mata el
+`php` de dentro**. La comprobación buena es
+`docker exec 8myvc-app-1 ps -ax | grep phpunit`, y de mis dos huérfanos uno tenía
+`PPid: 1` y del otro **sobrevivía el árbol entero**, padre incluido.
 
 ---
 
+
 ## §3 — Las migraciones, y el choque que el plan no veía
 
-Las cuatro de la §3 del 19, en un solo fichero y sin cambiarles nada… **salvo un
-aviso que hay que leer antes de desplegar.**
+**Tres de las cuatro** de la §3 del 19, en un solo fichero:
+`unidades.alumno_id` (+ índice `(asignatura_id, periodo_id, alumno_id)` + clave
+foránea), `matriculas.boletin_independiente` y la tabla `bol_ind_periodos` con su
+clave única de nacimiento.
+
+**La cuarta —`years.puestos_con_bol_independiente`— se movió a la fase 2**, y no
+por prudencia: movía tres respuestas vivas y no la consumía nada. El motivo
+completo está en la §5.ter. Lo de abajo se escribió cuando aún entraba, y **se
+conserva porque es lo que hará falta el día que vuelva** — el choque con las dos
+columnas que ya existen no caduca.
 
 ### `years` ya tenía DOS interruptores de puestos
 
@@ -97,7 +137,7 @@ en el esquema congelado (`database/schema/mysql-schema.sql:2211-2212`):
 |---|---|---|
 | `mostrar_puesto_boletin` | 1 | si el puesto **se imprime** en el boletín |
 | `puestos_alfabeticamente` | 0 | cómo **se ordena** la lista |
-| `puestos_con_bol_independiente` | 1 | *(nueva)* si el independiente **cuenta** |
+| `puestos_con_bol_independiente` | 1 | *(fase 2)* si el independiente **cuenta** |
 
 **No son la misma pregunta y no se funden.** Pero se cruzan, y lo medí porque una
 recomendación sin número no sirve:
@@ -106,7 +146,8 @@ recomendación sin número no sirve:
 
 En ese año, **toda la §7 del plan no se ve por ninguna parte**: ni el `—` del
 independiente, ni el puesto de un tercero que se mueve. El interruptor nuevo es
-peso muerto ahí. No cambia cómo se implementa; cambia **cómo se le explica a un
+peso muerto ahí — y esa medida es la primera mitad del argumento por el que acabó
+yéndose a la fase 2. No cambia cómo se implementa; cambia **cómo se le explica a un
 rector**, y por eso va en la §7 del 19 y no en un comentario. `grep -c
 mostrar_puesto_boletin` sobre el 19 daba **0**: el plan no lo nombraba ni una vez.
 
@@ -343,6 +384,150 @@ respecto del código viejo, y el orden dentro de cada colegio es *primero el
 cero. **El detector no la habría encontrado**: buscaba consultas sin alcance, y
 éstas fallan por una razón que no tiene que ver con el alcance. La encontró
 **mirar el resultado y no el estado**, que es la regla de `tests/Contrato/`.
+
+---
+
+## §5.ter — La cuarta forma de fallar: el `SELECT *`
+
+**Es la que rompe el criterio de aceptación, y es distinta de las tres del plan
+en algo que cambia el procedimiento.**
+
+| | Forma | Señal | Con qué código aparece |
+|---|---|---|---|
+| 1 | de más — suma las unidades de otro | **silenciosa** | el nuevo |
+| 2 | de menos — boletín en blanco | **silenciosa** | el nuevo |
+| 3 | `1052 ambiguous` (§5.bis) | **500** | **el viejo** |
+| 4 | **`SELECT *` mete la columna nueva en la respuesta** | **cambia la forma del cuerpo** | **los dos** |
+
+La 3 la rompe el `ALTER TABLE` contra el **código viejo**; la 4 **no depende de
+qué código haya delante** — depende de que la consulta diga `*`—. Así que:
+
+> **Son dos pasadas y ninguna encuentra la de la otra.**
+>
+> - esquema nuevo + código **viejo** → la forma 3 (`1052`): **4 consultas**
+> - esquema nuevo + código **nuevo** → la forma 4 (`SELECT *`): **5 snapshots**
+
+Eso es el procedimiento que `DESPLIEGUE.md` recoge, y **no depende de ninguno de
+los dos números**: depende de que sean dos pasadas.
+
+### El barrido, y cómo bajó de 17 a 14 sin cambiar una línea de `app/`
+
+| Paso | `SELECT *` sobre mis tres tablas |
+|---|---|
+| primer barrido | 17 |
+| menos los que eran **`unidades_por_defecto`** (bug del detector) | 14 |
+| menos el que es un `SELECT *` **de una subconsulta** (`Models/Unidad:137`) | **13 reales** |
+
+Los tres primeros los quitó **un arreglo del detector**: a `unidades` le faltaba
+un `(?![\w])` detrás, así que casaba con los ocho primeros caracteres de
+`unidades_por_defecto` —otra tabla, que no lleva `alumno_id` ni lo llevará—. Hay
+**cuatro** tablas que empiezan igual. El cuarto lo quitó **leer**: `Models/Unidad:137`
+nombra sus columnas dentro de la subconsulta, así que no filtra nada.
+
+**El bug NO contaminó el inventario de la §5**, y comprobarlo era la mitad del
+trabajo: `main()` filtra los literales con `\bunidades\b`, y ese `\b` ya excluía
+`unidades_por_defecto` —`s` y `_` son los dos `\w`, no hay frontera—. **Las 146
+lecturas siguen siendo 146.** El bicho mordía sólo en el barrido de los `SELECT *`,
+escrito aparte y sin ese filtro. *Encontrar un fallo en la herramienta* y *que el
+número no valga* son dos cosas distintas, y la diferencia es ir a ver hasta dónde
+llegaba.
+
+### Lo hecho, y por qué nombrar columnas no necesita permiso
+
+**Cinco de las seis de `unidades`**, con la lista de columnas sacada del esquema
+congelado y no escrita a mano: `UnidadesController` (`$cons_unidades`,
+`putDeAsignaturaPeriodo`, `putEliminadas`),
+`AsignaturasController::putDetalleAsignatura` y
+`ChangeAskedController::asignaturas_dia`. Cada una lleva escrito **por qué** van
+nombradas y que **volver a `*` reintroduce el fallo** — sin eso, el primero que
+pase «simplificando» lo deshace.
+
+**Nombrar las columnas no cambia la respuesta: la congela.** Y lo demuestran los
+mismos tests que cazaron el problema: `UnidadesTest`, `AsignaturasTest`,
+`CopiarUnidadesTest`, `PapeleraTest`, `ReordenarTest`, `PorcentajeQueSePisaTest` y
+los 7 de `BolIndependienteAlcanceTest` → **119 en verde, 806 aserciones, sin
+regenerar una sola instantánea.** Un cambio cuya corrección la comprueba un test
+que ya existe y que ya estaba rojo por lo contrario es de los que se demuestran,
+no de los que se prometen.
+
+### Las dos que faltan, dichas como faltan
+
+- **`NotasController:49`** — la que mueve `notas-detailed-profesor`, o sea **la
+  planilla**. El fichero es de otra sesión esta noche: **pedida, no hecha**.
+- **`DefinitivasPeriodosController:377`** — de otra sesión también. Filtra
+  `boletin_independiente` y **hoy no la ve ningún test**, que es peor que verla.
+
+### Lo decidido, y quién lo decidió
+
+`8myvc-34` autorizó dos cosas el 24 ago, y el razonamiento de por qué podía
+autorizarlas vale más que la decisión:
+
+- **nombrar columnas no cambia comportamiento: lo impide.** Convertir un `SELECT *`
+  en la lista que la instantánea ya fija **deja la respuesta byte a byte igual**, y
+  **lo demuestran los mismos snapshots que cazaron el problema**: si siguen verdes
+  *sin regenerarlos*, no cambió nada. Un cambio cuya corrección la comprueba un
+  test que ya existe y que ya estaba rojo por lo contrario no es de los que
+  necesitan permiso;
+- **sacar de la fase lo que la fase no necesita** tampoco promete nada nuevo;
+- **regenerar snapshots sí es de Joseth**, sin discusión: añade claves a respuestas
+  vivas y obliga a avisar al front y a `myvc_flutter`, que es **una sola app para
+  los dieciséis**.
+
+Y una distinción suya que conviene no perder, porque desde fuera parecen el mismo
+caso: a otra sesión le dijo **no** a nombrar columnas en `subunidades` y aquí
+**sí** en `matriculas`. La diferencia es que **`subunidades` no recibe columna
+nueva en esta fase** —sería arreglar un fallo hipotético de un `ALTER` futuro— y
+`matriculas` sí, con **tres respuestas cambiando hoy**.
+
+**Ocho consultas congeladas en total** —cinco de `unidades`, tres de `matriculas`—
+y **dos pedidas**: `NotasController:49` (de `8myvc-7b`, es la planilla) y
+`DefinitivasPeriodosController:377`.
+
+> **Y la razón de congelar las que NO tienen test es la que más importa.** La §4
+> no dice *«no mueve ningún snapshot»*: dice **«no mueve ninguna respuesta»**. Un
+> snapshot que no existe no vuelve cierta una respuesta que cambió. Congelar las
+> ocho es cumplir la promesa; congelar sólo las que tienen test es cumplir la
+> medición.
+
+### La trampa dentro de la trampa: un `SELECT *` sobre un join
+
+`CertificadosPersonaController:43` no era un `m.*`, era un **`SELECT *` a secas
+sobre `FROM matriculas m INNER JOIN grupos g`**. Ahí `*` significa *las columnas
+de las dos tablas, en ese orden*, y **en las repetidas —`id`, `created_at`…— gana
+la última, o sea `grupos`**. Así que:
+
+- convertirlo en la lista de `matriculas` a secas **habría borrado de la respuesta
+  todas las columnas de `grupos`**;
+- y poner `g.*` **delante** habría cambiado el valor de `id` **sin tocar una sola
+  clave del cuerpo** — o sea sin que ninguna comprobación de forma lo viera.
+
+Va como `m.<28 columnas>, g.*`: mismo conjunto y mismo orden. Está escrito en el
+comentario porque es exactamente lo que alguien deshace «simplificando».
+
+### Y el que no se puede posponer
+
+`matriculas.boletin_independiente` **no se puede sacar de esta fase**, y
+recomendarlo fue un error mío: `BoletinIndependiente::consultar()` y `::delGrupo()`
+la leen, y `consultar()` es lo que hay detrás de `alcance()`, que está llamado
+desde `Unidad::deAsignaturaCalculada`. **Sin la columna, los cuatro boletines dan
+500** — no un test rojo, la pantalla. Lo dije mirando los entregables en vez de mi
+propio código.
+
+`years.puestos_con_bol_independiente` **sí** se puede, y **se ha ido a la fase
+2**: no lo consume nada —`puestosCuentanIndependientes()` no lo llamaba nadie, los
+ocho sitios de impresión son fase 6, y las cuatro rutas de puestos no calculan
+puesto— así que aquí era **una columna que nadie lee moviendo tres respuestas
+vivas**. Se lleva con ella el método del servicio y sus dos tests.
+
+**Es un entregable movido, no un entregable sin hacer**, y la diferencia importa
+para quien lea el plan mañana: el interruptor **entra con quien lo escriba**. Un
+servicio que decide sobre una columna que nadie escribe todavía tiene la mitad
+positiva sin comprobar, que es la misma objeción que se le pone a dejar
+`alcance()` devolviendo `null` a mano.
+
+Lo que queda guardado en su sitio, y hace falta cuando vuelva: **contesta «¿está
+activado el interruptor?» y nunca «¿se enseña el puesto?»**, y **el empate es el
+único caso que distingue** el puesto calculado de la posición de fila.
 
 ---
 

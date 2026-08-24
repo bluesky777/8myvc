@@ -5,8 +5,7 @@ namespace App\Services;
 use Illuminate\Support\Facades\DB;
 
 /**
- * El único sitio que decide de quién es una unidad, y si un independiente cuenta
- * para el puesto.
+ * El único sitio que decide de quién es una unidad.
  *
  * Es la **fase 1** de [docs/migracion/19-boletin-independiente.md](../../docs/migracion/19-boletin-independiente.md),
  * y la medida de la noche está en
@@ -45,8 +44,10 @@ use Illuminate\Support\Facades\DB;
  *   boletín).
  * - **No escribe nada.** Ni la marca, ni el interruptor por periodo. Eso es la
  *   fase 2 y la 4.
- * - **No decide si el puesto se enseña**, sólo si el interruptor está activado.
- *   Ver `puestosCuentanIndependientes()`.
+ * - **El interruptor de los puestos tampoco está**: se fue a la fase 2 con su
+ *   columna, porque `years.puestos_con_bol_independiente` movía tres respuestas
+ *   vivas y no lo consumía nada. El comentario de más abajo guarda la regla que
+ *   tiene que llevar cuando vuelva.
  */
 class BoletinIndependiente
 {
@@ -145,36 +146,30 @@ class BoletinIndependiente
         return $salida;
     }
 
-    /**
-     * ¿El colegio ha dicho que los independientes cuentan para el puesto?
+    /*
+     * `puestosCuentanIndependientes()` estaba aquí y se ha ido a la FASE 2, con
+     * su columna `years.puestos_con_bol_independiente`. No está sin hacer: está
+     * movida, y la diferencia importa para quien lea el plan.
      *
-     * **Contesta «¿está activado el interruptor?» y nunca «¿se enseña el
-     * puesto?», y la diferencia no es de estilo.** El front aplica una segunda
-     * regla que este lado no ve: esconde el puesto al `Acudiente` y al `Alumno`
-     * aunque el año lo tenga activado (`boletines-periodo.spec.ts:222-243`, «el
-     * puesto no sale fuera del colegio»). Si este método contestara «se enseña»,
-     * o le filtraría el puesto a las familias por su cuenta o dejaría muerta la
-     * regla del front — las dos, en silencio. Lo avisó `myvc-front-98` el 24 ago.
+     * Por qué se movió: la columna movía las tres instantáneas de
+     * `MuestreoDeLecturasTest` —`YearsController:27` y `:43` leen con `SELECT *`—
+     * y **no la consume nada todavía**: los ocho sitios que copian
+     * `Nota::puestoAlumno` son de la fase 6, y las cuatro rutas de puestos no
+     * calculan puesto (devuelven `promedio`; el front pinta `$index + 1`). O sea
+     * que aquí era una columna que nadie lee moviendo tres respuestas vivas.
      *
-     * **Y hay una tercera columna de `years` que también habla de puestos y es
-     * anterior a todo esto: `mostrar_puesto_boletin`.** No es la misma pregunta
-     * —aquélla dice si el puesto se imprime, ésta si el independiente cuenta— y
-     * no se funden. Pero se cruzan: medido el 24 ago sobre esta base, **1 de los
-     * 8 años vivos tiene `mostrar_puesto_boletin = 0`**, y en ese año este
-     * interruptor no se ve por ninguna parte.
+     * **Y la regla que hay que conservar cuando vuelva, que ya está pagada:**
+     * ese método contesta **«¿está activado el interruptor?»** y **nunca «¿se
+     * enseña el puesto?»**. El front esconde el puesto al `Acudiente` y al
+     * `Alumno` aunque el año lo tenga activado
+     * (`boletines-periodo.spec.ts:222-243`). Si contestara lo segundo, o le
+     * filtraría el puesto a las familias por su cuenta o dejaría muerta la regla
+     * del front — las dos en silencio, y las dos son dos sitios decidiendo lo
+     * mismo con criterios distintos, que es de lo que salió el recalculador
+     * único.
+     *
+     * Ver la §5.ter y la §6 de docs/migracion/noche-2026-08-24/bi-1.md.
      */
-    public static function puestosCuentanIndependientes(int $yearId): bool
-    {
-        $fila = DB::select(
-            'SELECT puestos_con_bol_independiente FROM years WHERE id = ?',
-            [$yearId]
-        );
-
-        // Sin año no se inventa un «no»: lo de hoy —y el valor por defecto de la
-        // columna— es que cuentan, y un año que no se encuentra no es una orden
-        // del colegio de sacar a nadie de la lista.
-        return $fila === [] || (bool) $fila[0]->puestos_con_bol_independiente;
-    }
 
     /** Se llama entre tests: la memoria es por petición y una suite es un proceso. */
     public static function olvidar(): void

@@ -3,6 +3,7 @@
 namespace Tests\Contrato;
 
 use App\Services\BoletinIndependiente;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -165,35 +166,19 @@ class BolIndependienteAlcanceTest extends CasoDeContrato
 
         $insertar(1);
 
-        $this->expectException(\Illuminate\Database\UniqueConstraintViolationException::class);
+        $this->expectException(UniqueConstraintViolationException::class);
         $insertar(0);
     }
 
-    /**
-     * El interruptor de puestos contesta «¿está activado?», nunca «¿se enseña?».
+    /*
+     * Los dos tests del interruptor de puestos se han ido con su columna a la
+     * FASE 2 (ver el comentario en `App\Services\BoletinIndependiente`). No se
+     * borran por molestos: la columna que probaban ya no existe en esta fase.
      *
-     * La segunda regla —el front esconde el puesto al `Acudiente` y al `Alumno`
-     * aunque el año lo active— vive en el front y **tiene que seguir viviendo
-     * sólo ahí**: dos sitios decidiendo lo mismo con criterios distintos es de lo
-     * que salió el recalculador único.
+     * Cuando vuelvan, el caso que los hace valer algo **es el empate**:
+     * `Nota::puestoAlumno` arranca en 1 y suma 1 por cada promedio estrictamente
+     * mayor, así que es 1-based **igual que la posición de fila que pinta el
+     * front**. Sin empates los dos caminos dan el mismo número y el test pasa sin
+     * probar nada; con empates, la fila da `1,2,3,4` y el puesto da `1,1,3,4`.
      */
-    public function test_el_interruptor_de_puestos_nace_encendido_y_se_puede_apagar(): void
-    {
-        $year = DB::selectOne('SELECT id FROM years WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
-        $this->assertNotNull($year, 'El seed no tiene años vivos.');
-
-        $this->assertTrue(BoletinIndependiente::puestosCuentanIndependientes((int) $year->id),
-            'Nace en 1 = lo de hoy. Que naciera en 0 sacaría alumnos de los puestos '
-            .'de dieciséis colegios el día del despliegue.');
-
-        DB::update('UPDATE years SET puestos_con_bol_independiente = 0 WHERE id = ?', [$year->id]);
-
-        $this->assertFalse(BoletinIndependiente::puestosCuentanIndependientes((int) $year->id));
-    }
-
-    /** Un año que no existe no es una orden del colegio de sacar a nadie de la lista. */
-    public function test_un_year_desconocido_no_apaga_los_puestos(): void
-    {
-        $this->assertTrue(BoletinIndependiente::puestosCuentanIndependientes(999999999));
-    }
 }
