@@ -275,6 +275,23 @@ atada al token) y **AUD-5** (el permiso de la auditoría, que espera tu palabra)
   dieciocho horas sirviendo el `dist` de otro worktree borrado por el del front —
   **ése no lo dejó una sesión, lo dejó un guion, y por eso no estaba en ninguna
   lista**. `lsof -d cwd` sí los ve.
+- **La parte menos vigilada del sistema no es el código ni el instrumento: es qué
+  pregunta se le hace y qué trozo de la respuesta se lee.** El hallazgo de que
+  `GET profesores` entrega la ficha de los 47 empleados a cualquier docente
+  **llevaba impreso desde la noche del 24** en la salida del barrido de un token —
+  su constante `PERSONALES` es exactamente esa lista—. El informe de aquella pasada
+  tabuló *«93 escrituras alcanzadas»* para el rol `Profesor` **y no la otra
+  columna**. No es un detector roto ni una medición que falte: **es una salida
+  correcta leída para otra pregunta, y el informe que la perdió es un informe
+  bueno.** Hizo falta que alguien llegara desde el front comparando **dos sesiones**
+  para que se viera. *De las formas registradas esta noche, ninguna es «el
+  instrumento falló».*
+- **Y su hermana, del otro lado: un guarda que acusa a quien no debe.** Toda la
+  noche se cazaron guardianes que dejan pasar; el de CERT-1 iba a **rechazar el caso
+  bueno** —`filter_var('007', FILTER_VALIDATE_INT)` es `false`, el `<input>` del
+  front no es `type="number"` y **7 de los 8 years llevan el consecutivo relleno a
+  tres dígitos**—. Y **el dato que lo decide vive en el repositorio del front**, no
+  en éste.
 - **Empujar tu rama de trabajo no es publicar, y las dos coordinaciones lo teníamos
   distinto.** En `myvc_front` se empuja la rama propia y está bien. **En `8myvc` no
   se empuja nada**, y no por simetría: de `origin/main` es de donde tiran los
