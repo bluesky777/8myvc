@@ -105,6 +105,29 @@ una está en el 05 o en el 09; aquí sólo lo que decide.
 
 ---
 
+## Dónde está cada cosa al cerrar la noche — **verificado, no recordado**
+
+Contado con `git rev-list --count 0dc21d7..<rama>` sobre el commit con el que arrancó la
+noche. **Cero ficheros sin commitear en los cuatro árboles, cero procesos en el
+contenedor, turno libre.**
+
+| Rama | Commits | Qué lleva | Estado |
+|---|---|---|---|
+| **`main`** | **75** | los cinco lotes de las sesiones del árbol raíz **y todo el registro de la noche** (05 §168–§218, 09 §15, `DESPLIEGUE.md`, este documento) | **sin publicar** — `push` espera a Joseth |
+| `feat/auditoria-tabla-y-escritor` | **28** | la tabla `auditoria` y su escritor único, el barrido de los cuatro roles, la fase 0 de los dieciséis, los 49 interruptores | sin fundir |
+| `feat/boletin-independiente-esqueleto` | **16** | el esqueleto (3 migraciones), el inventario de las 140 lecturas, los 34 métodos sin camino | sin fundir |
+| `medicion/lote-y-cobertura` | **15** | cobertura 542/542, el cronómetro del lote, HIST-1, las dos listas de «quién escribe de verdad» | sin fundir |
+
+> **Nada está desplegado y nada está publicado.** Y el `main` local lleva dentro **todo el
+> registro**, así que quien lo publique publica también el porqué de cada cosa.
+
+**Y una cifra que se corrigió al contarla:** una sesión reportó 15 commits y son 16.
+*Contar commits es gratis, y aun así fue el sexto número de esa sesión que estaba mal por
+haberlo recordado en vez de medirlo.* **El criterio de esta noche se aplica también a las
+cifras que se dan de pasada, no sólo a las que se defienden.**
+
+---
+
 ## La noche del 24 al 25: catorce sesiones, tres repositorios, dos coordinaciones
 
 **Coordinó `8myvc-34` en `8myvc` y `myvc-front-98` en el front**, con una sola
