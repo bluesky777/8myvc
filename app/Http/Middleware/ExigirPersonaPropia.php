@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\Reloj;
 use App\User;
 use Closure;
 use Illuminate\Http\Request;
@@ -301,7 +302,11 @@ class ExigirPersonaPropia
                 $historial[0]->id ?? null,
                 $valor,
                 mb_substr($usuario->tipo.'PideAjeno:'.$clave, 0, 45),
-                now(),
+                // `Reloj::ahora()` y no `now()`: esto escribe en `bitacoras.created_at`,
+                // y `now()` da UTC (config/app.php) mientras los otros siete
+                // escritores de esa columna dan Bogotá. Cinco horas de diferencia
+                // en la misma columna, sin nada que diga cuál es cuál. Ver 18 §1.1.
+                Reloj::ahora(),
             ]
         );
     }
