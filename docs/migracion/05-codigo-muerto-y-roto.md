@@ -10446,3 +10446,92 @@ que releer**, y ahora tienen nombre propio.
 > **El clasificador no puede llamar avería a lo que hizo el instrumento** — y un `ROTA`
 > es **exactamente lo que alguien reportaría**. Ya tiene estado propio:
 > `BLOQUEADA (escribe)`.
+
+## §210. La consulta invariante NO era el 504 — y el 78% está donde no se podía tocar
+
+**Medido, con el par de números que pedía el encargo:**
+
+| | antes | después |
+|---|---|---|
+| consultas de la petición | **3.762** | **3.355** |
+| de ésas, la invariante | **408** | **1** |
+| tiempo (mediana, ventana estable) | **1.960,7 ms** | **1.953,2 ms** |
+
+> **Quita 407 consultas y no mueve el tiempo de forma medible.** Es el **10,8%** de las
+> consultas, así que los 63 s del grupo 105 pasarían a ~56 s: **sigue siendo un 504.**
+
+**Y eso tumba lo que esta coordinación había escrito:** *«si con una línea baja de 63 s a
+algo razonable, la fase 2 de definitivas deja de ser el bloqueante de esta pantalla»*.
+**No baja. La fase 2 sigue donde estaba.**
+
+**Con una retractación de quien midió, y es la tercera vez que aparece esta forma:** su
+primera medición daba **3,4×** —6.471,6 ms contra 1.892,4—, y alternando antes/después
+/antes/después la pareja estable es **1.960,7 / 1.953,2, indistinguible**. El 6.471
+llevaba el aviso dentro: **varianza de 4.437 a 8.521 ms** contra 1.902–1.973 en las
+limpias.
+
+> **Si hubiera medido una vez, habría publicado un 3,4× que no existe.** Es el «3× que
+> resultó ser la caché» por tercera vez esta noche, con la misma forma: **el número bueno
+> era el aburrido.**
+
+### Dónde está el 504, con el número delante
+
+De las 3.355 que quedan, en una petición sobre **37 alumnos × 10 asignaturas**:
+
+```
+1.480  SELECT distinct n.nota, …          ← alumnos × asignaturas × periodos
+1.122  SELECT COUNT(n.id) as notas_perdidas … ← la segunda capa
+  370  SELECT nf.*, … DefMateria          ← alumnos × asignaturas
+  ...
+3.355  (21 firmas distintas)
+```
+
+**1.480 + 1.122 = 2.602 de 3.355 — el 78% — son los dos bucles anidados**, la segunda capa
+que quedó prohibida a propósito. **Ahí está el 504.** Bajarlo es **una agregación por
+grupo en vez de 2.602 consultas por petición**: un orden de magnitud, **o sea un frente**,
+y ahora con el número para decidirlo.
+
+### El segundo test, que es el que impide el arreglo ingenuo
+
+Escrito **antes** de tocar nada: sacar la consulta del bucle y **dar el mismo resultado a
+todas las asignaturas comparte los objetos `periodo`, y el bucle los muta**
+(`cantNotasPerdidas` en uno, `cant_perdidas` en el otro) → **todas mostrarían la cuenta de
+la última**.
+
+> **Eso no lo ve ninguna cota de consultas: mismo número de consultas, resultado
+> distinto.** De ahí el `array_map(clone)`.
+
+Y el primer test cuenta **el trabajo y no el tiempo**, que es lo único que sirve aquí —*la
+misma suite tardó 2.132 s y 593 s esta noche y el número de consultas no se movió*— con el
+aserto en **dos mitades**, porque con una cota de «no más de N» **cero es el mejor
+resultado posible** y un `DB::listen` desenganchado dejaría el test verde sin medir.
+
+### Tres fallos de instrumento, y el primero es de arquitectura
+
+1. **Un memo en una propiedad privada del controlador sobrevivía a la petición.**
+   `Route::getController()` **memoiza la instancia**, que vive en la colección del router,
+   así que **sobrevive a cualquier proceso que atienda más de una petición**: en fpm no se
+   nota, **en la suite sí** — y **un memo de periodos que cruza peticiones sirve datos
+   viejos**. Movido a los `attributes` de la petición, que es **donde este proyecto ya
+   había decidido que viven** (02 §4: *«y no en una propiedad del servicio, que
+   sobreviviría a la petición bajo Octane»*).
+2. **`DB::listen` registrado dentro del bucle** → **816 invariantes donde había 408**. No
+   hay `unlisten`, los contadores se reasignaban cada iteración y **los cierres los
+   capturaron por referencia**, así que todos los oyentes vivos sumaban en las mismas
+   variables. **Factor 2 exacto y perfectamente creíble** — y **lo cazó tener dos medidas
+   del mismo trabajo**, no que el cronómetro dudara de sí mismo.
+3. **El histograma no se reseteaba por pasada**: 13.421 bajo un total de 3.355, con la
+   cabecera diciendo «de la última pasada».
+
+### Y una regla que se rompió y se deshizo
+
+**Se le pasó Pint a un controlador que no está en el ámbito de Pint** —`app/Http/Controllers/`
+sólo entra por `Concerns`— y **convirtió el fichero entero de tabuladores a espacios: 952
+líneas para un arreglo de una consulta**, o sea exactamente el «diff ilegible» que
+`CLAUDE.md` prohíbe. **Revertido y el cambio rehecho a mano.**
+
+> **A un fichero de fuera del ámbito de Pint no se le pasa Pint, aunque lo toques.**
+
+*(Y un dato de intendencia: **hay dos clases `BolfinalesController`** —la de `Informes/`,
+enrutada, y una no enrutada—. Un índice que resuelve por nombre corto **acertó por orden
+alfabético**, o sea por suerte.)*

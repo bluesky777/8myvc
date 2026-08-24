@@ -78,7 +78,7 @@ una está en el 05 o en el 09; aquí sólo lo que decide.
 
 | | Qué |
 |---|---|
-| **9** | **BOL-1**: el boletín final tarda **24–31 s** y se cae bajo carga. `7b` se negó a empezarlo porque es un frente que no pediste, **y tenía razón**. Lo que hace falta son **cuatro peticiones**, no un experimento con copia |
+| **9** | **El boletín final tarda 24–63 s y se cae bajo carga**, y ya está medido de dónde viene: **2.602 de 3.355 consultas por petición — el 78% — son dos bucles anidados** (`alumnos × asignaturas × periodos`). **Arreglarlo es una agregación por grupo, o sea un frente**, y no lo abre nadie sin ti. *(Y va corregido lo que esta coordinación escribió antes: sacar la consulta invariante del bucle **quita 407 consultas y no mueve el tiempo**, así que **la fase 2 de definitivas sigue siendo el bloqueante**, no deja de serlo.)* |
 | **10** | **Los seis `DB::select` que escriben** ([05 §191](05-codigo-muerto-y-roto.md)). Una palabra por sitio, **ningún cambio de conducta hoy** — y **ningún test rojo delante**, dos ficheros cogidos, y uno corre en cada petición |
 | **11** | **Las dos del boletín independiente** ([19](19-boletin-independiente.md) §2): quién marca a un alumno, y qué puesto lleva su boletín |
 | **12** | **Unificar los cuatro informes de puestos con los ocho de impresión**: les cambia la conducta a cuatro que hoy no preguntan nada |
