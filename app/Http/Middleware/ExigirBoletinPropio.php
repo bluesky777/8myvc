@@ -159,10 +159,17 @@ class ExigirBoletinPropio
      */
     private function anotar(object $usuario, string $tipo, ?int $alumnoId = null): void
     {
-        $historial = DB::select(
-            'SELECT id FROM historiales WHERE user_id=? and deleted_at is null order by id desc limit 1',
-            [$usuario->user_id]
-        );
+        // **El ingreso sale del token, no del último login de esta persona.**
+        // Era `order by id desc limit 1` sobre `historiales`, que con el refresco
+        // viviendo catorce días puede señalar un ingreso de hace meses (fase 2 de
+        // 18-auditoria.md). Ahora viene en el contexto que ya resolvió
+        // `auth.token`, y **no cuesta ninguna consulta**.
+        //
+        // Null si el token es anterior a la migración: NULL dice «no se sabe», y
+        // la adivinanza decía «fue ése» y se equivocaba sin avisar.
+        $historialId = isset($usuario->historial_id) && is_numeric($usuario->historial_id)
+            ? (int) $usuario->historial_id
+            : null;
 
         DB::insert(
             'INSERT INTO bitacoras (created_by, historial_id, affected_user_id, affected_person_type,
@@ -170,7 +177,7 @@ class ExigirBoletinPropio
              VALUES (?, ?, ?, "Al", ?, ?)',
             [
                 $usuario->user_id,
-                $historial[0]->id ?? null,
+                $historialId,
                 $alumnoId,
                 $tipo,
                 // Ver el mismo comentario en ExigirPersonaPropia: `now()` es UTC y

@@ -13,6 +13,7 @@
     "genero_subunidad": "string",
     "genero_unidad": "string",
     "grupo_id": "string",
+    "historial_id": "int",
     "imagen_nombre": "string",
     "is_superuser": "int",
     "logo_id": "int",
@@ -46,6 +47,7 @@
             "updated_by": "null"
         }
     ],
+    "sesion_id": "int",
     "sexo": "string",
     "show_materias_todas": "int",
     "si_recupera_materia_recup_indicador": "int",

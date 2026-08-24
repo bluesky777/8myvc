@@ -351,11 +351,14 @@ class YearsController extends Controller {
 			$year->save();
 			
 			
-			$consulta 	= 'SELECT id as history_id FROM historiales WHERE user_id=? and deleted_at is null order by id desc limit 1';
-			$his 		= DB::select($consulta, [$user->user_id])[0];
-
+			// El ingreso sale del token (fase 2 de 18-auditoria.md). El `[0]` que
+			// había reventaba para quien no tuviera ninguna sesión anotada, y aquí
+			// eso caía en el `catch` de abajo: 422 «Datos incorrectos» **con el año
+			// ya guardado**.
 			$bit_by 	= $user->user_id;
-			$bit_hist 	= $his->history_id;
+			$bit_hist 	= isset($user->historial_id) && is_numeric($user->historial_id)
+				? (int) $user->historial_id
+				: null;
 
 			$consulta 	= 'INSERT INTO bitacoras (created_by, historial_id, affected_element_type, affected_element_id, created_at, affected_element_new_value_string) 
 					VALUES (?,?,?,?,?,?)';

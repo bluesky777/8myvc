@@ -238,12 +238,21 @@ class RutasPreLoginTest extends CasoDeContrato
         $this->getJson('/api/ciudades', ['Authorization' => 'Bearer '.$caducado])
             ->assertStatus(401);
 
-        $fila = DB::table('historiales')->insertGetId([
-            'user_id' => $usuario->id,
-            'tipo' => $usuario->tipo,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        // El ingreso de ESTE token. Antes este caso insertaba una fila suelta de
+        // `historiales` y comprobaba que la salida caía ahí, porque `putLogout`
+        // marcaba «la última de esta persona». Desde la fase 2 de
+        // 18-auditoria.md el token sabe de qué ingreso salió y se marca **ése**,
+        // así que una fila inventada después ya no es la que se cierra — y no
+        // debe serlo: es de otra sesión.
+        //
+        // Lo que este caso viene a comprobar no cambia: **con el token caducado la
+        // salida se registra igual**, que es el caso normal de quien vuelve al día
+        // siguiente y pulsa salir.
+        $fila = DB::table('personal_access_tokens')
+            ->where('id', explode('|', $caducado)[0])
+            ->value('historial_id');
+
+        $this->assertNotNull($fila, 'El token no sabe de qué ingreso salió: el caso no mide nada.');
 
         $this->putJson('/api/login/logout', [], ['Authorization' => 'Bearer '.$caducado])
             ->assertStatus(200);

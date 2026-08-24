@@ -87,7 +87,12 @@ class LoginController extends Controller {
 	{
 		$entrada = app(Login::class)->entrar($request);
 
-		$res = [ 'el_token' => app(Sesion::class)->abrirLegado($entrada['usuario']) ];
+		// El ingreso también viaja por la ruta vieja, que es la que llama
+		// `myvc_flutter`: si sólo lo hiciera la nueva, la app —una sola para los
+		// dieciséis colegios— seguiría escribiendo atribuciones adivinadas.
+		$res = [ 'el_token' => app(Sesion::class)->abrirLegado(
+			$entrada['usuario'], 'legado', $entrada['historial_id']
+		) ];
 
 		if ($entrada['cambia_anio'] !== null) {
 			$res['cambia_anio'] = $entrada['cambia_anio'];
@@ -136,8 +141,15 @@ class LoginController extends Controller {
 		$sesion = app(Sesion::class);
 		$token  = $sesion->tokenDe($request, true);
 
+		$ingreso = null;
+
 		if ($token !== null) {
 			$userId = (int) $token->tokenable_id;
+
+			// El ingreso de ESTE token, leído **antes** de `cerrar()`, que borra la
+			// fila. Es lo que permite marcar la salida en la sesión que de verdad se
+			// está cerrando (fase 2 de 18-auditoria.md).
+			$ingreso = $token->historial_id === null ? null : (int) $token->historial_id;
 
 			// Esto es la Fase 3 en una línea. Hasta ahora cerrar sesión solo
 			// escribía la hora en `historiales` y el JWT seguía valiendo 24 h:
@@ -156,7 +168,32 @@ class LoginController extends Controller {
 		// Sin token identificable no hay sesión que registrar. Se responde igual:
 		// el front tiene que poder limpiar su estado pase lo que pase aquí.
 		if ($userId !== null) {
-			$consulta = 'UPDATE historiales SET logout_at=? where user_id=? and deleted_at is null order by id desc limit 1';
+			/*
+			 * **La salida se marca en el ingreso de este token, no en el último de
+			 * esta persona.** Con dos aparatos abiertos —lo normal desde que hay
+			 * app— el `order by id desc limit 1` cerraba la sesión equivocada:
+			 * salir en el móvil le ponía la hora de salida a la del navegador, que
+			 * seguía abierta. Y al revés, la que sí se cerraba se quedaba sin hora
+			 * para siempre.
+			 *
+			 * Es el noveno de los nueve sitios con esa forma, y **el único que
+			 * ESCRIBE**: los otros ocho la usan para leer un id. Por eso no sale en
+			 * un barrido de `SELECT ... FROM historiales`.
+			 *
+			 * La rama de abajo es la de transición y se apaga sola: sólo la toman
+			 * los tokens emitidos ANTES de la migración de la fase 2, que viven como
+			 * mucho lo que dure su refresco (14 días). Aquí sí se conserva la
+			 * adivinanza vieja —a diferencia de la auditoría, donde se escribe NULL—
+			 * porque `logout_at` no atribuye a nadie lo que hizo: no marcarlo
+			 * perdería el dato en vez de dejarlo en «no se sabe».
+			 */
+			if ($ingreso !== null) {
+				$consulta = 'UPDATE historiales SET logout_at=? WHERE id=? and deleted_at is null';
+				$datos    = [ $now, $ingreso ];
+			} else {
+				$consulta = 'UPDATE historiales SET logout_at=? where user_id=? and deleted_at is null order by id desc limit 1';
+				$datos    = [ $now, $userId ];
+			}
 
 			// Antes esto acababa en `[0]`. DB::update() devuelve un entero —las
 			// filas afectadas—, y aplicarle un índice reventaba: "Trying to
@@ -167,7 +204,7 @@ class LoginController extends Controller {
 			// hasta PHP 7.3 indexar un entero devolvía null en silencio. Desde
 			// 7.4 es un warning, y Laravel los convierte en excepción: se rompió
 			// solo al subir de versión, sin que nadie tocara el fichero.
-			DB::update($consulta, [ $now, $userId ]);
+			DB::update($consulta, $datos);
 		}
 
 		return 'Deslogueado';

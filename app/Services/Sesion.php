@@ -53,18 +53,18 @@ class Sesion
      *
      * @return array{el_token: string, refresco: string, expira_en: int, version_minima_app?: int}
      */
-    public function abrir(User $usuario, string $origen = 'web'): array
+    public function abrir(User $usuario, string $origen = 'web', ?int $historialId = null): array
     {
         $this->limpiarCaducados($usuario);
 
         $sesion = $origen.':'.Str::uuid()->toString();
 
         [$acceso, $accesoPlano] = $this->emitir(
-            $usuario, $sesion, [TokenDeSesion::ACCESO], (int) config('sesion.acceso_ttl')
+            $usuario, $sesion, [TokenDeSesion::ACCESO], (int) config('sesion.acceso_ttl'), $historialId
         );
 
         [, $refrescoPlano] = $this->emitir(
-            $usuario, $sesion, [TokenDeSesion::REFRESCO], (int) config('sesion.refresco_ttl')
+            $usuario, $sesion, [TokenDeSesion::REFRESCO], (int) config('sesion.refresco_ttl'), $historialId
         );
 
         // El campo `version_minima_app`, si este colegio exige una. Va aquí —en
@@ -90,7 +90,7 @@ class Sesion
      * su sesión dure lo mismo que hoy, este token vive lo que vivía el JWT
      * (24 h) en vez de una hora.
      */
-    public function abrirLegado(User $usuario, string $origen = 'legado'): string
+    public function abrirLegado(User $usuario, string $origen = 'legado', ?int $historialId = null): string
     {
         $this->limpiarCaducados($usuario);
 
@@ -98,7 +98,8 @@ class Sesion
             $usuario,
             $origen.':'.Str::uuid()->toString(),
             [TokenDeSesion::ACCESO],
-            (int) config('sesion.legado_ttl')
+            (int) config('sesion.legado_ttl'),
+            $historialId
         );
 
         return $plano;
@@ -169,12 +170,21 @@ class Sesion
 
         $sesion = $token->name;
 
+        // **El ingreso se arrastra de la rotación, no se vuelve a buscar.** Es la
+        // mitad que hace que la fase 2 sirva de algo: el refresco vive 14 días y
+        // rota en cada uso, así que sin arrastrarlo el par nuevo perdería el
+        // ingreso al primer refresco y todo lo demás daría igual.
+        //
+        // Y si el token venía de antes de la migración, `historial_id` es null y
+        // el par nuevo también lo hereda: **no se adivina uno** (18 §5.2).
+        $historialId = $token->historial_id === null ? null : (int) $token->historial_id;
+
         [$acceso, $accesoPlano] = $this->emitir(
-            $usuario, $sesion, [TokenDeSesion::ACCESO], (int) config('sesion.acceso_ttl')
+            $usuario, $sesion, [TokenDeSesion::ACCESO], (int) config('sesion.acceso_ttl'), $historialId
         );
 
         [$refresco, $refrescoPlano] = $this->emitir(
-            $usuario, $sesion, [TokenDeSesion::REFRESCO], (int) config('sesion.refresco_ttl')
+            $usuario, $sesion, [TokenDeSesion::REFRESCO], (int) config('sesion.refresco_ttl'), $historialId
         );
 
         $gracia = Carbon::now()->addSeconds((int) config('sesion.gracia_refresco'));
@@ -438,12 +448,16 @@ class Sesion
         return $token instanceof TokenDeSesion ? $token : null;
     }
 
-    private function emitir(User $usuario, string $sesion, array $habilidades, int $minutos): array
+    private function emitir(User $usuario, string $sesion, array $habilidades, int $minutos, ?int $historialId = null): array
     {
         $plano = Str::random(40);
 
         $token = $usuario->tokens()->create([
             'name' => $sesion,
+            // El ingreso del que sale este token. Va en **los dos** —acceso y
+            // refresco— y se arrastra en cada rotación, que es lo que hace que la
+            // atribución siga siendo cierta a los catorce días.
+            'historial_id' => $historialId,
             'token' => hash('sha256', $plano),
             'abilities' => $habilidades,
             'expires_at' => Carbon::now()->addMinutes($minutos),

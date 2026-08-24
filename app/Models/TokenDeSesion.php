@@ -8,9 +8,14 @@ use Laravel\Sanctum\PersonalAccessToken;
 /**
  * Una fila de `personal_access_tokens`: un token de acceso o uno de refresco.
  *
- * Extiende el modelo de Sanctum solo para añadir las dos columnas que su tabla
- * no trae y esta sí —`expires_at` y `reemplazado_por`—. Ver la migración para
- * el porqué de cada una.
+ * Extiende el modelo de Sanctum solo para añadir las columnas que su tabla no
+ * trae y esta sí —`expires_at`, `reemplazado_por` y `historial_id`—. Ver la
+ * migración para el porqué de cada una.
+ *
+ * `historial_id` es el ingreso del que salió este token (fase 2 de
+ * 18-auditoria.md). Es **nullable a propósito**: los tokens emitidos antes de esa
+ * migración no lo tienen, y ahí NULL significa «no se sabe» — que es lo único
+ * honesto y lo que `Auditoria` ya sabe interpretar.
  *
  * Se registra como el modelo de Sanctum en AppServiceProvider, así que
  * `$user->tokens()` y `$user->createToken()` devuelven esto.
@@ -27,6 +32,7 @@ class TokenDeSesion extends PersonalAccessToken
 
     protected $fillable = [
         'name',
+        'historial_id',
         'token',
         'abilities',
         'expires_at',

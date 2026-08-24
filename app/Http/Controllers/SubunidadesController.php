@@ -57,12 +57,13 @@ class SubunidadesController extends Controller {
 		$subunidad->save();
 
 
-		$consulta 	= 'SELECT id as history_id FROM historiales where user_id=? and deleted_at is null order by id desc limit 1';
-
-		$histo 		= DB::select($consulta, [$user->user_id])[0];
-
+		// El ingreso sale del token (fase 2 de 18-auditoria.md), no del último
+		// login de esta persona. Y de paso se va un `[0]` que reventaba con
+		// "Undefined array key 0" para quien no tuviera ninguna sesión anotada.
 		$bit_by 	= $user->user_id;
-		$bit_hist 	= $histo->history_id;
+		$bit_hist 	= isset($user->historial_id) && is_numeric($user->historial_id)
+			? (int) $user->historial_id
+			: null;
 		$bit_new 	= $subunidad->definicion . ' -- ' . $subunidad->porcentaje . '%'; 	// Guardo la nota nueva
 		$bit_per 	= $user->periodo_id;
 
