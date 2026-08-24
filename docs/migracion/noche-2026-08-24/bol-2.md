@@ -100,6 +100,37 @@ asignaturas acabarían mostrando la cuenta de la última**.
 > test es lo que lo obliga. Es exactamente la versión que sale sola al leer «saca
 > la consulta del bucle».
 
+### Comprobado al revés — y cae más de lo que este documento afirmaba
+
+Decir *«este test caza el arreglo ingenuo»* **es una afirmación, y estaba sin
+comprobar**: es la mitad positiva sin ejercer, en el sitio donde más cuesta
+—justo en la prueba que justifica el `clone`—. Así que se quitó el `clone`,
+devolviendo el array cacheado tal cual, y se corrió:
+
+```
+⨯ cada asignatura perdida conserva su propia cuenta
+⨯ la forma del boletin final de un alumno with data set "bolfinales"
+⨯ la forma del boletin final del grupo with data set "bolfinales"
+✓ los otros 17
+
+Tests: 3 failed, 17 passed
+```
+
+**Cae el test dedicado, y caen además dos snapshots de `BoletinesTest`.** O sea
+que la condición del encargo —*«los snapshots verdes sin regenerarlos, y si
+alguno se mueve, para»*— **no era una formalidad: era una red que funciona sola**.
+El arreglo ingenuo cambia la respuesta, y el cambio **se ve en el snapshot**.
+
+Dos cosas que esto añade a lo que el documento decía:
+
+- **el `clone` está protegido por tres tests, no por uno**, y dos de ellos son
+  anteriores a este trabajo. La afirmación *«sin mi test, el arreglo ingenuo
+  pasaba»* **habría sido falsa**;
+- y **caen los data sets de `bolfinales` y no los de `bolfinales-preescolar` ni
+  los de `boletines`**, que es la firma de que el fallo está justo en este camino
+  y no en otro. Un fallo que tumbara los veinte diría que el montaje mide otra
+  cosa.
+
 ## §3 — Y el arreglo tuvo un fallo que encontró un número que no cuadraba
 
 La primera versión guardaba el memo en `private array $periodosPorAnio`. El
@@ -202,7 +233,11 @@ ficheros de fuera del ámbito de Pint no se les pasa Pint**, aunque los toques.
    de sí mismo.
 5. **Y decir en qué rama se contó es parte del número**, o el número se usa mañana
    para justificar otra cosa.
-6. **Dos ficheros que son copia uno del otro no son el mismo problema: lo decide
+6. **«Este test caza X» es una afirmación y hay que verla caer.** Cuesta tres
+   segundos y aquí devolvió más de lo que se afirmaba: el arreglo ingenuo lo cazan
+   **tres** tests, dos de ellos anteriores a este trabajo. Sin comprobarlo, este
+   documento habría dicho que su test era el único que lo impedía, y eso era falso.
+7. **Dos ficheros que son copia uno del otro no son el mismo problema: lo decide
    qué los alcanza, no lo que contienen.** Reporté el gemelo
    `CertificadosPersonaController` como «la misma línea que hay que arreglar»
    después de comparar el **código**, y al comprobar el **enrutado** resultó que
