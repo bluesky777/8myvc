@@ -8701,3 +8701,28 @@ Con `rm -rf` de verdad: **`[OK] No errors`**. **No hay nada que arreglar en
 
 De paso, una medida del apagón que sirve de referencia: **la misma suite tardó
 2.132 s en la ventana mala y 848 s con la máquina limpia** — dos veces y media.
+
+### §176.4. El protocolo del experimento, escrito antes de ejecutarlo
+
+Se deja aquí porque **quien lo ejecute puede ser otra sesión u otra noche**, y un
+experimento cuyo protocolo se decide mientras se mide **no es un experimento**.
+
+**Cuatro peticiones: 94, 95, 97, 105.** Predicción escrita **antes**: si el coste
+crece con las definitivas que faltan, **95 < 97 < 105** (mismo 50%, 420 → 760 →
+1.144 ausentes) y **el 94 es instantáneo** (100% de hueco, 28 ausentes). Si los
+tres primeros tardan lo mismo, **el hueco no manda**; si el 94 es el peor, **manda
+el porcentaje y no el trabajo**.
+
+Y las cinco condiciones, cada una comprada con un error de esta noche:
+
+| Condición | Qué error la compró |
+|---|---|
+| **canario `auth/me` antes y después** de cada medición | los 500 que se leyeron como agotamiento de php-fpm y eran la base muriendo (§176) |
+| **el control (91) medido justo antes y justo después** del caso | el 91 dio 7 s dos veces y luego 133 s: *medir el fallo cambió el entorno de la medición siguiente* |
+| **mismo plazo para los cuatro, a ciegas** | ajustar la espera a lo que se espera de cada uno es fabricar la confirmación |
+| **el orden alterado a propósito** —no 94→95→97→105— | **una tendencia que coincide con el orden de medición no es una tendencia** |
+| **la máquina y la base tranquilas, con turno** | quince suites huérfanas y dos muertes de MySQL (§178) |
+
+> Y la regla que el front dejó sobre los números de cobertura, que vale para todos
+> los de este documento: **un 100% que dice qué no incluye es un 100%; uno que no lo
+> dice es propaganda.**
