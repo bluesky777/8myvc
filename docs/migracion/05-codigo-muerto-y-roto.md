@@ -9094,3 +9094,97 @@ comentarios**, y la regla del «93 tablas» — que no fue un número mal record
 **un número medido bien en el árbol equivocado**.
 
 > **Si un detector lee texto, su propia documentación entra en la población.**
+
+## §186. El historial de la sesión enseña 4 de 34: cuatro causas, y la grande no era el `INNER JOIN`
+
+`PUT historiales/sesion` sale de una consulta con **tres `INNER JOIN`** y **ningún
+filtro por `affected_element_type`**. Ese último es el grande, y **no estaba en el
+encargo**: `affected_element_id` es un id **de la tabla que diga el tipo** —de
+`subunidades` en «Nueva subunidad», de `users` en `AlumnoPideAjeno`, de
+`notas_finales` en `NF_UPDATE`— y **la consulta lo une con `notas` para todos**.
+
+Medido con `tools/historial-que-cuenta-de-menos.php` (nueva, sólo lee):
+
+```
+POBLACIÓN  3.273 sesiones · 86 bitácoras vivas · 34 con sesión detrás · 18 sesiones con algo
+TOTAL  34 filas  ->  vuelven 4      (las 4 de tipo `Nota`)
+```
+
+> **La pantalla no cuenta de menos las notas —ésas las cuenta bien— sino LA SESIÓN**,
+> que es lo que dice su nombre. Un profesor que creó una subunidad, abrió dos
+> boletines y cambió una nota **aparece como si sólo hubiera hecho lo último**.
+
+Y de ahí lo accionable: **arreglar los `INNER JOIN` sin poner el filtro por tipo no
+cambia lo que ve el usuario** en la mayoría de las sesiones.
+
+**Con el aviso de población puesto por quien midió:** 34 bitácoras es diminuto y casi
+todas las escribieron nuestras pruebas, así que **las proporciones no son las de
+producción**. Lo que generaliza son las precondiciones, y ésas van sobre las tablas
+grandes: **35.796 notas de 1.165.565 (3,07%)** colgando de subunidades borradas, **39
+alumnos borrados de 1.284 (3,04%)**.
+
+### La causa que no se puede medir, ni aquí ni en el servidor
+
+**`notas/destroy` es un `DELETE FROM notas` — borrado DURO**, aunque el modelo use
+SoftDeletes. La bitácora sobrevive y su nota no: **la pantalla que existe para saber
+quién tocó una nota se calla justo el caso que más se reclama.**
+
+Y la segunda mitad: **el borrado duro no deja rastro contable.**
+`COUNT(*) FROM notas WHERE deleted_at IS NOT NULL` da **cero**, y ese cero **no dice
+«no se borran notas»: dice «las borradas no están»**. Es la única de las causas cuya
+frecuencia **no se puede medir**. Por eso se demuestra en un **test** y no en la
+herramienta: la única forma de verla es borrar una nota, y lo único que hace eso
+inocuo es la transacción.
+
+### Y una quinta que no es contar de menos: contar MAL
+
+**15 de las 34 ya pasan los joins** —su `affected_element_id`, que es un id de otra
+tabla, **existe en `notas`**, y `notas` tiene 1,16 M de filas— y lo único que las
+tumba es que su `affected_user_id` no sea un alumno vivo.
+
+> Que hoy no salga ninguna mal atribuida **no es por diseño: es por accidente**, y el
+> accidente caduca — **`AcudientePideAjeno:alumno_id` ya lleva un alumno en esa
+> columna**. El día que caiga sobre un id que exista en `notas`, **sale en pantalla
+> con el nombre del alumno y la definición de la subunidad de otra cosa**.
+
+**Y el filtro por tipo, una línea, cierra a la vez la causa grande y la mala
+atribución**: la fila sale **muda en vez de disfrazada de nota**. Ése es el argumento
+para tocar la consulta, y salió del **recontraste**: aplicado el arreglo candidato
+cayeron **cinco de seis** tests, y el quinto cayó **por su segundo mensaje** —*«la fila
+ajena vuelve SIN el nombre de la subunidad»*—. Si hubieran caído los seis, estarían
+mirando el estado general y no lo que cada uno afirma.
+
+### Lo que NO se toca, y la decisión que va a Joseth
+
+**Cambiar esa consulta es cambiarle la respuesta a una pantalla desplegada en dieciséis
+colegios**, y antes hay que decidir **qué debe enseñar una bitácora que no es de una
+nota**: ¿una línea genérica —«creó una subunidad»— sin nombre de alumno ni de columna?
+¿o se filtra por tipo y la pantalla pasa a llamarse **«las notas que tocó esta
+sesión»**? **Son dos pantallas distintas y la diferencia es de negocio, no de SQL** —
+y **la de hoy ya es la segunda, sólo que sin decirlo.**
+
+Y una que **parece un error y no lo es**: el join de `alumnos` va por `a.id` y al lado
+hay un bloque comentado que dice *«se supone que debe ser con el `user_id`, pero la
+embarré»*. **La versión viva es la correcta** —los escritores de bitácora de notas
+ponen `notas.alumno_id` ahí—. **Quien lea el comentario y lo cambie, lo rompe.**
+
+### §186.1. Y la §175 queda afinada: las 115 sí escriben una fila, y no es del método
+
+El test se escribió esperando **cero** escrituras y salió **una**:
+
+```sql
+update `personal_access_tokens` set `last_used_at` = ?, `updated_at` = ? where `id` = ?
+```
+
+**No es del endpoint: es la contabilidad del token, y la hace toda petición
+autenticada.** No contradice la [§175](#) —`verbos-que-mienten.py` busca marcas
+**dentro del método**, así que por diseño no puede verla, y su número sigue
+contestando lo que dice— **pero afina para qué sirve**:
+
+- para clasificar *«qué escribe este endpoint»*: **correcto**;
+- para montar **una réplica de sólo lectura** o un cortafuegos: **las 115 escriben una
+  fila igual**, y un `PUT` que «no escribe» **revienta contra una réplica**.
+
+Por eso el aserto no es un cero, sino *«esta escritura y ninguna más»* **más** un
+segundo aserto de que la del token **sí está**: **un `DB::listen` que no se engancha
+da cero escrituras y parece un éxito.**
