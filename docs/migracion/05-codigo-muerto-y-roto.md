@@ -8726,3 +8726,41 @@ Y las cinco condiciones, cada una comprada con un error de esta noche:
 > Y la regla que el front dejó sobre los números de cobertura, que vale para todos
 > los de este documento: **un 100% que dice qué no incluye es un 100%; uno que no lo
 > dice es propaganda.**
+
+## §181. El centinela contó su propia documentación como el escritor número once
+
+La suite completa de la fase 3 de la auditoría dio **1.017 verdes y 2 rojos**, los
+dos de `CentinelaDeLosEscritoresDeBitacoraTest`: *«los escritores de bitácora siguen
+siendo diez»* y *«cada escritor sigue estando donde estaba»*.
+
+**La causa:** el centinela cuenta con
+
+```php
+preg_match_all('/INSERT\s+INTO\s+bitacoras/i', $codigo)
+```
+
+**sobre el texto del fichero, comentarios incluidos.** Y el docblock de
+`App\Services\Auditoria` —la clase nueva— explicaba por qué existe con la frase
+*«hoy hay 10 `INSERT INTO bitacoras` repartidos en 8 ficheros»*. O sea que **la
+documentación del escritor único contaba como el escritor número once**.
+
+El centinela dijo *«han pasado de 10 a 11»* y **tenía razón en el número**: había
+once coincidencias. Lo que no había era once escritores.
+
+### La lectura útil es la contraria de la que parece
+
+> **El centinela hizo su trabajo.** El número se movió y avisó. Que la causa fuera
+> un falso positivo suyo **no lo invalida** — **lo que habría sido grave es que no
+> se hubiera movido.**
+
+### Y el arreglo de fondo ya existe en esta misma fase
+
+**Cuenta menciones, no llamadas**, y es exactamente el error que dio **257 en vez de
+256** unas horas antes y por el que el detector de la fase 3 se escribió **en PHP con
+`token_get_all()` y no en Python con una regex**: los comentarios llegan como
+`T_COMMENT` y **una regex no sabe la diferencia**. `tools/escrituras-sin-auditoria.php`
+ya reconoce los diez **por su consulta y sobre tokens**, y coincide en 10.
+
+Con la ironía que merece quedar escrita: **el centinela nació de un recuento a mano
+que publicó 9 en vez de 10**, y sigue contando por el método que produce esa clase de
+error — sólo que **hacia el otro lado**.
