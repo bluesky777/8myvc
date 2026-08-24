@@ -8242,11 +8242,18 @@ de marcas. Confirmar es leer el método; la herramienta dice dónde.
 
 ## §176. El boletín final que no vuelve — lo establecido, y una conclusión grave que se retiró en veinte minutos
 
-`PUT bolfinales/detailed-notas-year-group/{grupo}` **da 504 tras 60 s** en el grupo
-97, y los 60 s son **el plazo de nginx, no el de la consulta**: puede tardar mucho
-más, o no terminar. Lo midió `myvc-front-89` en Chrome. **Lo llama `app/`, la
-aplicación desplegada hoy en los dieciséis**, así que **no lo hemos introducido
-nosotros y no espera a ningún despliegue: ya está pasando.**
+> **TITULAR CORREGIDO — lee la [§176.5](#) antes que el resto de esta sección.**
+> Esta sección se escribió diciendo *«esa ruta da 504»* y **es falso**: da **200 en
+> 24–31 s**. El 504 era **nginx cortando a los 60 s con la máquina apretando**. La
+> frase buena es **«ruta lenta que se cae bajo carga»**, y tiene otro arreglo.
+
+`PUT bolfinales/detailed-notas-year-group/{grupo}` **tarda 24–31 s** en el grupo 97 —y
+**dio 504** en la ventana en que la máquina estaba en 154 MB libres, porque nginx corta
+a los 60 s—. Lo midió `myvc-front-89` en Chrome. **Lo llama `app/`, la aplicación
+desplegada hoy en los dieciséis**, así que **no lo hemos introducido nosotros y no
+espera a ningún despliegue: ya está pasando.** Y sigue siendo grave por lo que es:
+**veinticuatro segundos para un informe que alguien está esperando**, y una ruta que
+**se cae cuando el servidor aprieta** — en un colegio, cierre de periodo.
 
 ### Lo establecido
 
@@ -8891,3 +8898,56 @@ Con una corrección de quien midió: dijo que `--clientes` *«no hacía nada»* 
 falso — **el flag lleva las rutas como argumentos** y lo llamó sin ellas, así que no
 escaneó ningún cliente. **El pie de la herramienta decía la verdad**; quien leyó mal
 fue el lector.
+
+
+### §176.5. Ni 504 ni caída: 200 en 24 s — y el eje pasa a ser medible
+
+Medido con la máquina en calma, base `healthy`, **canario antes (401 en 0,08 s) y
+después (401 en 0,22 s)**:
+
+```
+05:07:48  PUT bolfinales/detailed-notas-year-group/97  ->  200
+          ~24 s · 38 boletines · 494 filas · 54.408 caracteres · cero avisos
+```
+
+**Así que el 504 de las 04:25 era el entorno, no la ruta.** Tercera corrección de
+esta sección, y **las tres las trajo quien las había afirmado**.
+
+**Y la hipótesis no se debilita: se le vuelve el eje medible.** Ya no hay que medir
+*«revienta o no revienta»*, que es un sí/no dentro del plazo de nginx:
+
+```
+grupo 91    14 ausentes  ( 0%)  ->   7 s
+grupo 97   760 ausentes  (50%)  ->  24 s
+```
+
+Los cuatro del [protocolo](#) —94 con 28 ausentes, 95 con 420, 97 con 760, 105 con
+1.144— **pasan de cuatro sí/no a una curva**. Y **el 94 sigue distinguiendo las dos
+lecturas él solo**: 100% de hueco con 28 ausentes **tiene que ser instantáneo** si
+manda el trabajo absoluto.
+
+**Condición nueva del protocolo:** *si el plazo del guion se rinde antes que nginx,
+no se puede ver ni un 504 ni una pantalla que sí carga en 31 s.* El del front va a
+150 s; **cualquier cronómetro nuestro que mida desde fuera necesita lo mismo.**
+
+### §176.6. Y el instrumento que contestaba al azar: peor que un 504
+
+El guion que produjo la foto de las 107 rutas del front **usa `networkidle`, que se
+rinde a los 30 s**, y luego espera 1,2 s fijos: **fotografía en pleno vuelo**. Misma
+ruta, dos pasadas seguidas, guion sin tocar:
+
+```
+pasada 1   31,2 s   494 filas   «38 boletines del grupo Tercero»
+pasada 2   31,3 s     0 filas   «Trayendo los boletines...»  (el PUT ni sale)
+```
+
+**Una moneda al aire.** Y es **peor que un 504** por un motivo preciso: **un 504 deja
+huella en nginx; una moneda al aire deja una foto internamente coherente.** Arreglado
+—esperar **a la cosa** y no al reloj— pero **cualquier cifra de esa foto que
+corresponda a una pantalla lenta hay que darla por no medida**, y aquí se han leído
+números de ahí toda la noche.
+
+> **Y la cuarta vez que alguien incumple la regla que él mismo escribió:** el falso
+> rojo de esa comparación **lo dio la versión NUEVA**, con el mismo error del
+> `networkidle` **repetido dentro del arreglo que venía a corregirlo**. Las cuatro se
+> han sabido **porque el que la incumplió lo dijo**.
