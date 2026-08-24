@@ -10158,3 +10158,59 @@ justo el que lo contestaría.
 Lo que se hace en su lugar: **decir en el parte quién fue el sujeto de cada pasada, con
 su `id` y su `is_superuser`**, para que el resultado **se pueda leer sin fiarse del
 nombre del tipo**.
+
+## §205. El experimento decidido: **manda el hueco**, y la discrepancia del 84 era una asignatura entera
+
+**El par que decide, medido con la máquina limpia, una pasada por grupo y canario a los
+dos lados:**
+
+| grupo | celdas (alu × asig) | ausentes | tiempo |
+|---|---|---|---|
+| **84** | **280** (28 × 10) | **112** | **3,8 s** |
+| **95** | **210** (21 × 10) | **420** | **29,8 s** |
+
+**El 84 es más grande y es 7,8× más rápido.** *Si mandara el tamaño, tenía que ser igual
+o más lento; si manda el hueco, tenía que ser rápido.* **La hipótesis del tamaño está
+descartada: manda el hueco.** Con el 94 (28 ausentes → 3,0 s) y el 84 en un extremo, y el
+95/97/105 (420–1.144 → 28–63 s) en el otro.
+
+**Y las dos vías apuntan al mismo sitio por caminos distintos**, que es lo más fuerte que
+dio la noche: *los cinco puntos dicen que el coste sigue al hueco; que la causa sea esa
+consulta concreta lo dice el código, no el cronómetro.*
+
+### La discrepancia del 84 —112 contra 0— y por qué el número nuestro es el bueno
+
+**Medido por asignatura**, y sale de una pieza:
+
+```
+asignatura 1333 (materia 8) ->  0 filas · 0 alumnos     <- las 112
+las otras nueve             ->  143-165 filas cada una
+112 = 28 alumnos x 1 asignatura x 4 periodos
+```
+
+> **El hueco del 84 no está repartido: es una asignatura ENTERA sin una sola
+> definitiva.** Nueve completas y una vacía.
+
+**Y eso afina la conclusión en vez de sólo cerrarla:** el 84 es rápido **con un hueco
+concentrado en una asignatura**, y el 95/97/105 son lentos **con el hueco repartido**.
+Encaja con el mecanismo —el bucle recorre **las asignaturas perdidas de cada alumno**—:
+una asignatura sin definitivas **no multiplica**; el hueco repartido, sí. **La forma del
+hueco importa, no sólo su tamaño.**
+
+### Y los retirados tumbaron los dos ejes, en direcciones opuestas
+
+**Su cuenta daba −363 ausentes en el 84**, y ese imposible es lo que lo destapó: contaba
+**todas** las filas del grupo contra las esperadas de los alumnos **vivos**, así que
+**las filas de los 28 retirados restaban del hueco de los 28 vivos** — *los dos lados de
+la resta hablaban de personas distintas*. Corregido, **reproduce nuestras cifras al
+dígito** en los otros cuatro (420, 760, 1.144, 28), y **los cuatro publicados antes
+estaban infravalorados**.
+
+> **Un número imposible es la única clase de error que se delata solo.** El mismo sesgo
+> con dos retirados no dice nada — **habría pasado desapercibido para siempre**; lo
+> destapó **un grupo con la mitad de la clase retirada**.
+
+**Y es el error simétrico del de aquí** ([§176.1](#)): **allí se contaba de más metiendo
+a los retirados en el denominador; allá de menos metiéndolos en el numerador.** *Los dos
+lados tropezaron con los retirados, en direcciones opuestas, con horas de diferencia, y
+ninguno lo vio hasta que un caso extremo lo obligó.*
