@@ -839,13 +839,28 @@ cómo se planifica.
 salida.** Ponerles una condición común —como estaba escrito— retira de más o
 espera de más:
 
-| Qué se retira | Quién la llama hoy | Condición de salida |
-|---|---|---|
-| `historiales/nota-detalle` | `app/` **desplegada** · `app2` · **Flutter** | Flutter publicado **y adoptado** |
-| `historiales/nota-final-detalle` | `app/` **desplegada** · `app2` | que `app2` sustituya a `app/` — **Flutter no la llama** |
-| `historiales/de-usuario` y `sesion` | `mis-sesiones` | esa pantalla migrada |
-| `GET bitacoras/{user_id?}` | `/panel/bitacora` | **la decisión 4** |
-| `DELETE bitacoras/destroy/{id}` | **dos** botones | que los dos tengan sustituto |
+| Qué se retira | Quién la llama hoy | **Qué front la retiene** | Condición de salida |
+|---|---|---|---|
+| `historiales/nota-detalle` | `app/` · `app2` · **Flutter** | `app/` **y** Flutter | Flutter publicado **y adoptado** |
+| `historiales/nota-final-detalle` | `app/` · `app2` | **`app/`** | que `app2` sustituya a `app/` — Flutter **no** la llama |
+| `historiales/de-usuario` y `sesion` | `mis-sesiones` | `app/` | esa pantalla migrada en los dieciséis |
+| `GET bitacoras/{user_id?}` | `/panel/bitacora` ×2 | **`app/`**, `BitacoraCtrl.ts` | **que `app2` sustituya a `app/`** — no basta con jubilar la de `app2` |
+| `DELETE bitacoras/destroy/{id}` | **dos** botones | `app/` | que el superviviente tenga sustituto |
+
+> **La columna «qué front la retiene» no es decorado: es la que evita el error que
+> se cometió tres veces esta noche.** «La pantalla» significa dos cosas según quién
+> la nombre — la de `app2`, que no se ha publicado, y la de `app/`, que **es la que
+> corre hoy en los dieciséis colegios**. Jubilar `/panel/bitacora` (decisión 4) es
+> una decisión sobre `app2`; el endpoint lo retiene `app/scripts/bitacora/BitacoraCtrl.ts`
+> con **dos** entradas de menú, y ése no se va hasta que `app2` sustituya a `app/`.
+> **Dos pantallas con el mismo nombre y dos calendarios distintos.** Lo corrigió
+> `myvc-front-10` sobre una fila que yo tenía mal.
+
+> **Y una red del front que juega a favor**, apuntada aquí porque afecta al orden:
+> `cascara/menu/cobertura.spec.ts` cruza el menú con las rutas y afirma la lista
+> entera de pantallas sin puerta, así que **quitar la ruta dejando la entrada —o
+> estrenar la nueva sin entrada— pone su prueba en rojo**. Esa prueba nació porque
+> `bitacora` estuvo hecha y sin forma de entrar a ella.
 
 Medido por Flutter: **cero referencias a `nota-final-detalle` en su `lib/`**, sólo
 `nota-detalle`. Y `nota-final-detalle` la retiene `app/`, que es **la versión que
