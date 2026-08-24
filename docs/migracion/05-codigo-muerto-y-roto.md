@@ -9465,7 +9465,7 @@ de las marcas que la primera busca.
 |---|---|
 | escriben **por un ayudante** | **18**, con el camino de llamadas escrito |
 | **sólo lectura** hasta donde se ve | **86** |
-| **no decidibles** | **6**, con su motivo — decididas a mano: **23 escritoras / 87 lectoras** |
+| **no decidibles** | **6**, con su motivo — decididas a mano: **21 escritoras / 89 lectoras** *(corregido en [§200](#): se publicó 23/87 y era una suma mal hecha — 21 + 89 = 110)* |
 
 Tres que importan:
 
@@ -9871,3 +9871,83 @@ caminos opuestos:
 **Es la misma regla con el orden invertido** —el rojo antes de tocar, el rojo antes de
 publicar— y **las dos evitan lo mismo: un arreglo con una prueba al lado que no tiene
 nada que ver con el arreglo.**
+
+## §200. La lista que hacía falta: los endpoints cuyo nombre promete una lectura y escriben
+
+Pedida por `myvc-front-98` con el argumento que la justifica: **«lo que nos hace daño no
+es no saber cuáles escriben: es creer que sabemos cuáles no.»**
+
+**Corrección de aritmética primero, porque estaba publicada mal:** eran *«23 escritoras
+y 87 lectoras»* y son **21 y 89**. 18 + 3 = 21, 86 + 3 = 89, **y 21 + 89 = 110 es la
+comprobación que no se hizo antes de publicarlo**. No es otra medición: **es una suma
+mal hecha**, en el lote que le venía pidiendo cuentas a los demás.
+
+**Población: las 326 rutas no-`GET` que escriben** —308 de cuerpo propio + 18 por
+ayudante—, no sólo las candidatas: *una de las 308 llamada `getAlgo` engaña igual*.
+
+### Son DOS listas, y la diferencia es a quién engañan
+
+**7 engañan al CLIENTE — la URI promete una lectura:**
+
+| ruta | qué escribe |
+|---|---|
+| **`PUT alumnos/show`** | → `comprobar_alumno_con_grupos` → `traer_requisitos_detalle` → **`DB::insert`** |
+| `PUT boletines/detailed-notas/{grupo}` | → `ponerAlDiaLasDefinitivas` → `recalcular` |
+| `PUT bolfinales/detailed-notas-year-group/{grupo}` · `…-year/{grupo}` | el contador de certificados ([§195](#)) |
+| `PUT notas/detailed` | → `recalcular` |
+| `POST login/ver-pass` | en su propio cuerpo |
+| `PUT years/mostrar-todas-materias` | en su propio cuerpo |
+
+**`PUT alumnos/show` es la peor de todas: el verbo dice escribir, el nombre dice leer, y
+lo que hace es insertar a dos saltos. Los dos indicios apuntan a sitios distintos y
+ninguno acierta.** Y `POST login/ver-pass` → `postRecuperarClave` es el caso puro:
+**la URI miente y el nombre del método no.**
+
+**9 engañan a QUIEN LEE EL CÓDIGO, no al cliente:** nueve `postIndex` —`POST areas`,
+`asignaturas`, `asistencias`, `asistencias-app`, `contratos`, `materias`, `subunidades`,
+`unidades`, `tardanzas/subir`—. **Su URI no promete nada** y el `Index` es la convención
+vieja de la casa. **Van aparte porque al cliente no le engañan, y mezclarlas habría dado
+una lista de 16 en la que las que importan se pierden.**
+
+### La regla que separa 26 de 7
+
+La primera versión buscaba la ficha **en cualquier parte del nombre** y daba **26 de
+326**. Las falsas eran de una forma muy concreta:
+
+```
+years/toggle-mostrar-puestos-en-boletin  -> la operación es TOGGLE; `mostrar` es lo que se conmuta
+mis-actividades/guardar                  -> la operación es GUARDAR
+votaciones/set-permiso-ver-results       -> la operación es SET
+```
+
+**Ninguna engaña a nadie: dicen que escriben.** Es *«un detector puede contar bien un
+síntoma y no estar contando la causa»* con el síntoma —*la palabra `mostrar` aparece*—
+**bien contado** y la causa en otro sitio.
+
+> **Una ficha sólo cuenta si es el VERBO del nombre, no uno de sus sustantivos.**
+
+Y las tres decisiones de la lista de fichas van **impresas en la salida**, para que se
+discutan en vez de creerse: **fuera `mis-`/`mi-`** (posesivos, no verbos); **fuera
+`datos`, `info`, `lista`, `consulta`** (sustantivos — *`PUT enfermeria/datos` no promete
+leer: promete escribir esos datos*, y **una lista de avisos con falsos dentro deja de
+leerse**); **dentro `detailed` y `detalle`**, que aquí nombran una vista y son justo lo
+que hace que `PUT notas/detailed` se lea como lectura.
+
+### Y una que se arregla sin decidir nada de negocio
+
+**`PUT years/mostrar-todas-materias` tiene tres hermanas que hacen lo mismo** —poner una
+bandera del año— llamadas `years/toggle-mostrar-anio-pasado-en-boletin`,
+`…-nota-comport-…` y `…-puestos-…`. **Las tres empiezan por `toggle` y ésta no**, así que
+es **la única de las cuatro que se lee como una lectura**. *La misma operación nombrada
+de dos maneras, y la inconsistencia es lo que engaña.* Aquí no hay que cambiar
+comportamiento: **hay que cambiar un nombre** — y con cuatro clientes, **incluso eso es
+una ruta nueva y una vieja que conviven**.
+
+### §200.1. Y el login que no deja rastro
+
+**Las tres rutas de `tardanzas/login` no escriben nada**, o sea que **ese login no anota
+nada**. El principal sí: `Services\Login::anotarIntentoFallido` escribe una bitácora de
+`intento_login`. **El de la aplicación de tardanzas entra y no anota.**
+
+No se sabe si es decisión o descuido — pero **si el plan de auditoría cuenta «quién ha
+intentado entrar», esas tres puertas no cuentan.** Va al [18](18-auditoria.md).
