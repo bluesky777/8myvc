@@ -8317,3 +8317,55 @@ aguantara una consulta pesada.
 **Lo que sigue valiendo aunque el mecanismo grave se cayera:** una consulta que no
 vuelve **es mala por sí sola**. Un límite de tiempo o una cola se justifican con
 eso, sin necesidad de la historia grande.
+
+## §177. Dos suites de la misma sesión: la base por sesión no basta, y el fichero de salida miente sin avisar
+
+La regla de las noches en paralelo es **una base por sesión**, porque dos tandas
+contra la misma dan deadlocks y, con `DatabaseTransactions`, una ve a medias lo que
+la otra escribe ([15](15-la-noche-en-paralelo.md)). **Lo que esa regla no cubre es
+dos tandas de la MISMA sesión**, y eso fue la mitad no contada del OOM de la noche
+del 24. Lo destapó `8myvc-39` mirando sus propios procesos:
+
+```
+50569 … php artisan test > .worktrees/39/storage/suite-39.txt   <- viva desde hace 21 min
+63292 … php artisan test > .worktrees/39/storage/suite-39.txt   <- la nueva
+```
+
+**Misma base y mismo fichero de salida.** Las dos lo abrieron con `>` —truncando—
+y **cada una lleva su propio desplazamiento**: la nueva truncó al arrancar y la
+vieja siguió escribiendo donde iba. Lo que se estaba leyendo —*«94 tests, cero en
+rojo»*— **era una mezcla de las dos, y no se puede separar después**.
+
+Así que la corrida nueva no era *una medición limpia con un vecino ruidoso*:
+**llevaba a la vieja dentro desde el primer test**. Dejarla terminar habría sido
+peor que matarla, **porque habría dado un número**.
+
+### Por qué no se vio, y de dónde salió la suite fantasma
+
+La vieja se lanzó **antes** del OOM y **no murió con la base**: se quedó esperando.
+Y quien la lanzó estaba **esperando su fichero de salida, que ya no se iba a
+llenar**. Es la forma más barata de la enfermedad de esta noche: **una suite
+colgada no se ve morir y se parece exactamente a una que avanza**.
+
+Con dos sesiones en la misma situación —una de 21 minutos y otra de 15—, **cuando
+se calculó la carga que mató a MySQL no se contó ninguna de las dos.**
+
+### Lo que se retiró por esto, y es lo que hace útil el hallazgo
+
+La lectura *«94 tests, cero en rojo»* se había usado como prueba de que los 16
+fallos anteriores eran del OOM. **Esa prueba se retira**: salía del fichero
+mezclado. La conclusión **sigue en pie por otra vía** —los 16 coincidieron con el
+`Exited (137)` y son de clases que la migración no toca—, pero **el número que la
+respaldaba no vale**, y se dice.
+
+> **La regla, tal como la dejó `39`:** antes de lanzar, `ps` mirando si ya tienes
+> una viva. **Y si la tienes, la nueva no es una medición con ruido: es una
+> medición contaminada**, porque comparten base y fichero de salida.
+
+Y la forma general, que nombra las cinco de la noche —un `PDO` con la contraseña
+inventada, un `cd` que dejó el shell en el árbol de otros, `vendor/` con symlink,
+`construir-bd-test.sh` sin `-w`, y estas dos suites—:
+
+> **El instrumento correcto sobre el objeto equivocado.** Ninguna se ve mirando el
+> resultado, porque el resultado es correcto. Sólo se ven preguntando **sobre qué**
+> se midió.
