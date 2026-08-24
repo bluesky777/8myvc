@@ -10618,3 +10618,55 @@ herramienta de verificar.** Van **cuatro** esta noche.
 *(Y `unAlumnoDe` se **copió** en vez de subirse a `CasoDeContrato`: subirlo habría tocado
 los tests de otra sesión en una noche con varias vivas. **Duplicación consciente y
 dicha**, que es distinto de duplicación.)*
+
+## §213. Ochenta y siete endpoints que escriben, con un token sin un solo rol
+
+Barrido con los cuatro tipos, en el año 8 y con los interruptores dichos:
+
+| Rol | Rutas que **escribieron** | `GET` de ellas |
+|---|---|---|
+| `Alumno` | **2** (las dos suyas) | 0 |
+| `Acudiente` | **2** (las dos suyas) | 0 |
+| `Profesor` | **93** | 3 |
+| **`Usuario` activo, no superusuario, SIN UN SOLO ROL** | **87** | **4** |
+
+**Ochenta y siete endpoints que escriben, sin un rol**: años, periodos, escalas, ciudades,
+materias, asignaturas, ausencias, disciplina, certificados, votaciones, contratos,
+enfermería. **No es un agujero: es `auth.personal` haciendo exactamente lo que dice.**
+
+> Esto **mide** lo que la [§201](#) había **leído**, y le pone el número que le faltaba a
+> *«quién del personal puede qué»*: **hoy la respuesta es casi todo.**
+
+**Y el matiz que nadie esperaba: 93 contra 87 son seis rutas de diferencia.**
+
+> **Tener el rol de profesor no es lo que abre la API.**
+
+**Cuatro `GET` que escriben**, sólo con tokens del personal — y uno **inserta en tres
+tablas**: `GET piars-grupos/contexto-de-grupo/{grupo_id}` → `piars_grupos`,
+`piars_alumnos`, `piars_actas_acuerdo`. **Es el contraejemplo exacto de la decisión que se
+tomó en `disciplina/mis-fichas` para NO hacer eso** ([§192](#)).
+
+### Y el resultado no es «coincide»: es que el barrido no puede opinar de seis filas
+
+**Y su punto ciego está exactamente en las dos filas que motivaron la comprobación
+cruzada:**
+
+| Punto ciego | Filas sin veredicto |
+|---|---|
+| **no imprime los 403** —lo dice su cabecera— **y los dos middlewares escriben en el camino rechazado** | `ExigirBoletinPropio`, `ExigirPersonaPropia` |
+| **las escrituras del login ocurren en su montaje**, no en la medición | `Login::anotarEntrada`, `anotarIntentoFallido`, `Sesion::anotarReutilizacion` |
+| **golpea con lo AJENO, y `arreglarOrden` sólo escribe sobre lo tuyo** | `Unidad::arreglarOrden` |
+
+> **La comprobación cruzada tiene su punto ciego justo donde más falta hacía. Su silencio
+> ahí no es evidencia de nada**, y la lectura de las puertas sigue siendo la única prueba
+> de esas dos. **Las otras ocho sí coinciden.**
+
+**Y `notas/detailed` no desmiente las 12,7 escrituras por carga**: no aparece porque **con
+una asignatura ajena la lista de unidades sale vacía y el bucle recorre cero**. Las 12,7
+se calcularon **sobre las unidades que existen**, o sea *cuando la pantalla se carga con lo
+propio*. **Los dos números son ciertos y de objetos distintos** — otra vez.
+
+*(Y uno que casi se lee mal: `POST api/login` sale **200 y sin escribir**, lo que parecía
+desmentir que entrar anote en `historiales`. Son **1.358 bytes, el mismo tamaño que
+`auth/me`**: es la rama que devuelve el contexto con el token que ya lleva. **No escribe
+porque no está entrando.**)*

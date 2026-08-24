@@ -68,6 +68,12 @@ una está en el 05 o en el 09; aquí sólo lo que decide.
 | **6** | **Dos interruptores de `config_certificados` que se marcan y no se aplican** | Un documento que se entrega firmado **sale distinto de lo que el colegio pidió, y quien lo marcó no tiene forma de saberlo** |
 | **7** | **Seis tablas `df_*` sin una sola referencia** | Nada, hasta que alguien las borre: **es una migración destructiva en dieciséis producciones** |
 
+### Y una que ya tiene su número, medida esta madrugada
+
+| | Qué | Por qué decide |
+|---|---|---|
+| **7bis** | **«Quién del personal puede qué»: hoy la respuesta es casi todo.** Un token de `Usuario` **activo, no superusuario y sin un solo rol** escribe en **87 endpoints** —años, periodos, escalas, materias, asignaturas, ausencias, disciplina, certificados, contratos, enfermería—. Un `Profesor` escribe en **93**: **seis de diferencia** ([05 §213](05-codigo-muerto-y-roto.md)) | **Tener el rol de profesor no es lo que abre la API**: la abre `auth.personal`, haciendo lo que dice. Esa pregunta llevaba días esperando **sin número**; ahora lo tiene. **Y cuatro de esos endpoints son `GET` que escriben** — uno **inserta en tres tablas**, que es el contraejemplo exacto de la decisión que se tomó para `disciplina/mis-fichas` |
+
 ### Servidor — cuatro `for` que ahora son uno
 
 | | Qué | Si no se contesta |
