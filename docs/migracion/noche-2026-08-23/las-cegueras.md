@@ -565,6 +565,50 @@ del día lo que la cazó no fue ninguna comprobación:
 
 **Las dos se salvaron por incredulidad, no por un control.** Eso no es un método.
 
+### La señal que sí deja la 8d, y la encontró quien la sufrió tres veces
+
+Arriba dice que la 8d **no deja ninguna señal** y que las dos veces del 24 ago se
+salvó por incredulidad, «y eso no es un método». **Sí deja una**, y la nombró
+`myvc-front-89` al comparar sus tres tropiezos con el mío:
+
+> **La medida correcta sobre el universo equivocado no se distingue de la medida
+> buena por dentro. Sólo la delata que el número sea demasiado redondo.**
+
+Los cuatro casos de esa noche, puestos en fila:
+
+```
+cero definitivas reescritas      ← filtrando por el día equivocado (la base escribe NOW() en otro huso)
+cinco de cinco coincidiendo      ← comparadas contra sí mismas
+dos de dos «cabe»                ← el mismo universo por los dos lados
+el acudiente ve 2025             ← medido en la base de tests, no en la copia de producción
+```
+
+**Los cuatro son ceros y unos limpios.** Un cero redondo, un «todos», un «ninguno»
+o un 100% son justo lo que produce preguntarle a un universo que no contiene el
+caso: **el conjunto vacío contesta que sí a casi todo.**
+
+No es una prueba —hay ceros legítimos, y este mismo documento celebra varios—,
+pero **sirve de disparador**: cuando el número sale perfecto, la pregunta no es
+«¿está bien medido?» sino **«¿es éste el universo?»**. Y esa pregunta es gratis.
+
+### Y una quinta, que sale de medir el daño de una escritura
+
+Al informar de once escrituras accidentales, `89` contó **la bitácora** —que era
+lo que tenía delante— y dio el informe por completo. Faltaban tres cosas:
+`notas.updated_at` movido, `recalcularPorNota` disparado, y **una definitiva
+reescrita**.
+
+> **Medir lo que ha hecho una escritura exige saber qué HACE el endpoint, no qué
+> responde.** Un `PUT` que contesta la nota escribe además la bitácora, mueve dos
+> columnas de sello y dispara un recálculo en otra tabla. Nada de eso está en la
+> respuesta, así que **quien mida por la respuesta mide una fracción y la
+> presenta como el total.**
+
+Es la misma familia que la 8c —contar bien una cosa distinta de la que se
+afirma—, pero con una diferencia práctica: aquí **el que mide no puede saber lo
+que le falta**, porque lo que falta está en un código que no es el suyo. La salida
+no es medir mejor: es **preguntarle al dueño del endpoint**.
+
 ## Las tres preguntas que las cierran, y son baratas
 
 Antes de colgar una afirmación de un número:
