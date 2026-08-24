@@ -462,6 +462,80 @@ cero. **El detector no la habría encontrado**: buscaba consultas sin alcance, y
 
 ---
 
+## §5.quater — BI-2: qué rompe el `ALTER TABLE` a solas
+
+**Medido el 24 ago en máquina limpia**, con el esquema nuevo y el código de
+`0dc21d7` —o sea sin ninguno de los arreglos de esta noche—:
+`Tests: 20 failed, 1341 passed (9137 aserciones), 517,76 s`.
+
+La corrida **vale**, y por qué vale va antes del número: la primera clase de la
+tanda **pasó** (`Tests\Unit\ActaEvaluacionConteosTest`), las 9 rojas están
+**agrupadas alrededor de los boletines** y no marchan desde la A, y **ningún test
+pasa de 20 s** —el máximo real es 9,89 s—. La corrida void que precedió a ésta
+tenía a *todas* las clases desde la A en rojo y tests de 0,5 s tardando 79 s.
+
+### El reparto por causa, que es lo único que aísla la pregunta
+
+| Causa | Cuánto |
+|---|---|
+| **`1052 … alumno_id … is ambiguous`** (forma 3) | **42 ocurrencias** |
+| **instantánea movida** (forma 4) | **2**: `actas-evaluacion-detalle` y `notas-detailed-profesor` |
+
+Los 2 snapshots son exactamente los previstos, y **no salieron los tres de
+`MuestreoDeLecturasTest`** porque la columna de `years` ya no está en la
+migración. La predicción se cumplió.
+
+### Y el hallazgo, que no es el 42
+
+**Predije 4 predicados ambiguos. Existen 4. La suite ejerció 2.**
+
+| Predicado (en `0dc21d7`) | ¿Lo ejerce la suite? |
+|---|---|
+| `Unidad.php:119` — rama `con_desempenio` | **sí** |
+| `Unidad.php:137` — rama por defecto | **sí** |
+| `Unidad.php:97` — rama **`fortaleza_debilidad`** | **NO** |
+| `Subunidad.php:141` — `perdidasDeAsignatura` | **NO** |
+
+Y los dos que no se ejercen no son el mismo caso:
+
+- **`Subunidad::perdidasDeAsignatura` es código muerto.** Los diez llamantes usan
+  `perdidasDeUnidad`, que es otro método. **Nadie llama al ambiguo.**
+- **La rama `fortaleza_debilidad` está viva y detrás de un interruptor por
+  colegio.** La alcanza `Boletines2Controller:228` cuando el año tiene
+  `years.show_fortaleza_bol = 1`, y **la base de test tiene 1 de 8 años con ese
+  interruptor encendido… y ningún test usa ese año.**
+
+> **Ahí está lo que importa: un colegio con `show_fortaleza_bol` puesto recibe un
+> 500 que esta pasada no ve.** No porque la pasada esté mal hecha, sino porque
+> **su alcance es el de la suite, no el del código.**
+
+Así que la respuesta a *«¿qué rompe el `ALTER TABLE` a solas?»* tiene dos mitades
+y **hay que publicar las dos**:
+
+- **lo que la suite encuentra: 2 de 4**;
+- **lo que existe: 4**, y sale de un barrido estático del patrón, no de correr nada.
+
+Un `0` en esta pasada significa **«la suite no encontró nada»**, nunca «no hay
+nada». Va escrito en la cabecera de `tools/esquema-nuevo-codigo-viejo.sh`, que es
+donde lo va a leer quien la corra.
+
+### Tres bugs más en mis propios instrumentos, y los tres del mismo patrón
+
+Salieron **al analizar el resultado**, no al producirlo, que es lo que los hace
+peores:
+
+| Dónde | Qué |
+|---|---|
+| la lista de sitios del guion | la clase de caracteres `[A-Za-z/]` **sin dígitos** se comía `Boletines2Controller` y `Boletines3Controller` — **4 sitios de 18, el 22%**, y la lista salía corta **sin decirlo** |
+| el centinela de los lentos | contaba la línea `Duration: 517.76s` como «un test de 517 s», así que **se disparaba siempre**. Un centinela que se dispara solo enseña a ignorarlo |
+| el reparto de snapshots | contaba **2 líneas por fallo** y publicaba «4» donde había 2 |
+
+El primero es **literalmente la misma falta** que el `\b` que faltaba en el
+nombre de la tabla y que la clase que no incluía `_por_defecto`: **una clase de
+caracteres que omite justo lo que hace falta.** Van tres esta noche.
+
+---
+
 ## §5.ter — La cuarta forma de fallar: el `SELECT *`
 
 **Es la que rompe el criterio de aceptación, y es distinta de las tres del plan
