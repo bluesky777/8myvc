@@ -217,3 +217,56 @@ salidas son defendibles y **ninguna es la de no mirarlo**:
 - **No golpea con tokens.** Se leyeron las puertas, que dice más — pero **no
   sustituye** a un barrido con los cuatro roles, que sería la comprobación cruzada y
   no está hecha.
+
+---
+
+## 6. Y la pregunta de las dos puertas idénticas: **sí deben serlo**, y por qué eso importa poco
+
+Que `ExigirBoletinPropio:68` y `ExigirPersonaPropia:82` lleven **el mismo `if`
+palabra por palabra** es un dato. Si **deben** llevarlo es otra pregunta, y se
+contesta leyendo **las rutas que los usan**, no el `if`.
+
+Leídas: **18 rutas** con `boletin.propio` y **26** con `persona.propia`, 17 de ellas
+en `perfiles.php`. Las dos puertas dicen lo mismo —*«la familia está acotada, el
+personal no»*— y en las 44 rutas esa política es la que corresponde: un boletín, un
+certificado o una ficha los ve cualquiera del colegio, y eso es la regla confirmada
+del proyecto.
+
+**Así que la identidad no es un olor. Lo interesante es lo otro:**
+
+### 6.1 En la ruta más delicada de las 44, el middleware no es lo que protege
+
+`PUT perfiles/cambiarpassword/{id}` lleva `persona.propia`. Con el paso franco,
+**cualquier `Profesor` atraviesa el guard**. Lo que impide que le cambie la
+contraseña a otro no es el middleware:
+
+```php
+if (! Hash::check((string) Request::input('oldpassword'), $perfil->password))
+    abort(400, 'Contraseña antigua es incorrecta');
+```
+
+**Es la contraseña vieja.** El guard acota a la familia; al personal lo acota una
+comprobación **de dentro del método**, independiente y de otra naturaleza. O sea que
+en esa ruta el middleware **no es load-bearing**, y quien lo leyera para saber qué
+permite se llevaría la mitad.
+
+### 6.2 Hay tres políticas en uso y el middleware sólo sabe expresar una
+
+| Política | Dónde vive |
+|---|---|
+| «la familia acotada, el personal no» | los dos middlewares — 44 rutas |
+| «el personal también acotado» | **dentro del método** (`Hash::check` de la contraseña vieja) |
+| «el personal **nada**» | **dentro del controlador** — `GET notificaciones/temas`, y su propio comentario dice que `boletin.propio` no le sirve porque *«no se pide de quién, se contesta quién eres»* |
+
+**Las dos políticas que el middleware no sabe decir viven en controladores.** Eso
+convierte la lista de guards en una respuesta incompleta a *«¿qué permite esta
+ruta?»*, y es la misma forma que el §4 de este documento, girada:
+
+> **El inventario de escrituras de un dominio no es el de su controlador** — y
+> **la política de una ruta no es su guard.** En los dos casos, lo que falta está
+> justo en el sitio donde nadie mira porque la herramienta que se usa mira otro.
+
+**No se propone nada.** Que las dos puertas sean iguales es correcto, y sacar las
+otras dos políticas a un middleware sería inventar dos guards para dos rutas — más
+piezas para menos claridad. Lo que queda escrito es que **la lista de guards no
+contesta la pregunta entera**, para que nadie la cite como si lo hiciera.
