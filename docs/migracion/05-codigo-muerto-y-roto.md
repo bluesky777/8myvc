@@ -10265,3 +10265,52 @@ falta. Van tres esta noche.**
 
 Y el segundo es de los que salen más caros a la larga: **un centinela que se dispara solo
 enseña a ignorarlo, que es peor que no tenerlo.**
+
+## §207. El turno se coge, no se concede: preguntar y lanzar son dos pasos
+
+**Fallo de coordinación, y es mío.** El turno del docker se pedía a quien coordina, que
+mira `ps` y contesta «libre». **Y funcionó hasta que no:** se dio el turno a una sesión
+con la máquina a cero, y **cuando fue a comprobarlo ella misma, otra llevaba 49 segundos
+corriendo** — la que tenía el turno *«detrás»*.
+
+> **Entre la comprobación de quien coordina y el lanzamiento de la sesión cabe otra
+> sesión entera.** *Preguntar y lanzar son dos pasos*, y **toda secuencia de dos pasos
+> tiene un antes y un después.**
+
+**Es exactamente el agujero que `tomar-lote.sh` cerró la noche del 23 una capa más
+arriba** —servirse «leyendo la tabla y anotando debajo»— y **se cierra igual**:
+`8myvc-cola/noche-2026-08-24/turno.sh`, donde **la reserva es un `mkdir`**: o crea el
+directorio o falla, **y no hay estado intermedio en el que dos lo tengan**.
+
+**Y lo que el turno NO sustituye, escrito en la propia salida del script:** *impide que
+OTRO arranque; no impide que quede algo de antes*. La comprobación de
+`docker exec … ps -ax | grep phpunit` **sigue haciendo falta** — son dos cosas distintas
+y confundirlas fue justamente el error.
+
+**Lo que lo evitó esta vez fue que la sesión no se creyó el permiso:** comprobó la máquina
+antes de lanzar, encontró a la otra, **y no lanzó encima** — *«contaminarlas sería peor
+para él que para mí»*, porque el lote del otro necesita un número de antes y después.
+**El permiso venía de quien coordina y la comprobación de quien iba a actuar; la buena era
+la segunda.**
+
+### Y de esperar salieron dos cosas que el barrido necesitaba
+
+**1. El año de la medición no es el que tienen los sujetos.** Los tres están en años
+viejos —2021, 2018, 2018— **y ese dato no vale**: `Services\Login` **reescribe
+`users.periodo_id` al periodo del año actual al entrar**, así que se mide en **2025**.
+*Reportarlo sin leer esa nota habría dicho «medido en 2018» de una medición hecha en
+2025.*
+
+**2. Los quince interruptores del año en que se va a medir**, capturados antes de entrar.
+Dos importan:
+
+- **`show_fortaleza_bol = 0`** — **confirma lo de la [§206](#) desde el otro camino**: ni
+  la suite ni el barrido ejercen lo que ese interruptor abre. **Ese trozo no lo prueba
+  nadie.**
+- **`alumnos_can_see_notas = 0`** — y éste es peor de leer: la pasada de `Alumno` mide
+  **con las notas apagadas**, así que **un «no alcanza» puede ser el guard o puede ser el
+  interruptor**, y **eso no se distingue mirando la salida**.
+
+> **Lo que un interruptor apaga, la suite no lo prueba — y el barrido tampoco, con el
+> añadido de que el barrido no puede decir cuál de los dos fue.** Atribuir a la puerta lo
+> que hizo el conmutador es la forma que queda cuando ya se han cerrado las demás.
