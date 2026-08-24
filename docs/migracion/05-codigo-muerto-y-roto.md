@@ -11395,3 +11395,89 @@ esa fila es el esquema y no el `WHERE`, y el día que alguien haga la columna nu
 el asunto del [10-definitivas](10-definitivas.md)** («seis sitios escriben en
 `notas_finales` con cinco criterios distintos de qué borrar, ninguno transaccional»), no
 un hallazgo nuevo de este barrido. Se nombra para que nadie lo cuente dos veces.
+
+## §227. La guarda está, funciona, y no es la que uno cree — tercera vez en una noche
+
+El front midió (**§230** suya) que `PUT mis-actividades/datos` con `{"alumno_id": null}`
+o `0` contesta **200 con datos de otra asignatura y otro grupo**, y concluyó: *«no es una
+fuga: el sustituto es la persona de la sesión, así que nadie ve datos ajenos — ve los
+suyos con la etiqueta de otro»*.
+
+**La conclusión es correcta. El motivo no, y el motivo es lo único que decide qué pasa
+mañana.**
+
+### Aquella medición se hizo con la única cuenta que no puede ver el guard
+
+La ruta lleva `persona.propia`, y `ExigirPersonaPropia::handle()` empieza así:
+
+    if ($usuario->tipo !== 'Alumno' && $usuario->tipo !== 'Acudiente') {
+        return $next($request);
+    }
+
+Se midió con `administrador`. **Un administrador no es que no pueda distinguir las dos
+lecturas: es que ejerce un camino donde el guard no existe.** Con esa cuenta, un id
+ajeno válido se sirve porque el administrador puede verlo — no porque nadie lo sustituya.
+
+### Medido con la cuenta que importa: predicho antes, y acertado
+
+Predicho por escrito antes de ejecutar nada, y comprobado en
+`tests/Contrato/MisActividadesIdAjenoTest.php` (5 verdes):
+
+| con token de **alumno** | predicho | medido |
+|---|---|---|
+| `{"alumno_id": <otro>}` | 403 + fila en `bitacoras` | **403 + fila** |
+| `{"alumno_id": null}` y sin la clave | 200 con lo suyo, e idénticos | **200, idénticos** |
+| `{"alumno_id": 0}` | **403**, no 200 | **403** |
+| acudiente por un **no** acudido | 403 | **403** |
+
+**El tercero es el que separa las dos lecturas.** `null` y `0` son **el mismo `falsy`**
+para el `if` del controlador, y dan **respuestas opuestas**: el guard salta los nulos a
+propósito —*«sin identificador se deja pasar: significa lo mío»*— pero su filtro es
+`!== null && !== '' && is_scalar`, así que **el `0` sí llega a `esSuyo()`** y no es de
+nadie. Si mandara la sustitución, los dos darían lo mismo.
+
+### Lo que hay que dejar escrito
+
+**Lo que protege esa ruta es el middleware, no la sustitución.** El
+`if (!$alumno_id) { $alumno_id = $user->persona_id; }` **sólo actúa cuando no hay id**,
+que es justo el caso en que no hay nada que proteger; con un id ajeno **válido** no
+llega a entrar, y la consulta filtra por `mt.alumno_id = ?` con lo que le den, **sin
+comprobar nada**.
+
+**El día que alguien le quite `persona.propia` a esa ruta, el controlador no tiene
+defensa ninguna y nada avisaría.** Por eso los cinco casos son un test de contrato y no
+una nota: incluido el que fija que **el personal atraviesa el guard**, que no es un fallo
+—la cabecera del middleware lo declara— sino **la explicación de por qué aquella medición
+salió del revés**, y sin test es una frase que nadie vuelve a comprobar.
+
+> **Tercera de la misma familia esta noche**, con el `NOT LIKE` de la [§226](#) —protegido
+> por el esquema y no por el `WHERE`— y la guarda del front que vigilaba «no cargó» en vez
+> de «cargó otra cosa». **La guarda está, funciona, y no es la que uno cree.** Tres en una
+> noche deja de ser anécdota: lo que hay que preguntarle a una guarda no es *«¿funciona?»*
+> sino *«¿de qué protege, y qué queda si se la quitan?»*.
+
+### Y el instrumento volvió a mentir, esta vez con la cara del hallazgo
+
+La primera versión del test dio **200 para un acudiente pidiendo por un alumno ajeno**, o
+sea **exactamente la fuga que se estaba buscando**. Era falso: `usuarioDeTipo()` devuelve
+una fila de `users`, que **no tiene `persona_id`**; leerla dio `null`, coaccionó a `0`, y
+con `acudiente_id = 0` la subconsulta **no excluyó a nadie**, así que el «alumno ajeno»
+elegido **era acudido suyo**.
+
+*Un instrumento roto que contesta lo que uno fue a buscar es el más caro de todos, porque
+no despierta ninguna sospecha.* Lo cazó que el test hermano petara en la misma propiedad
+inexistente. Ahora el test **exige que el acudiente tenga acudidos** antes de medir: sin
+esa condición, cualquier alumno sería «ajeno» y el verde no ejercería la regla.
+
+### Lo de `PreguntasController:140-141` no era lo que parecía
+
+Se planteó como *«sustituir el resultado de un examen por un cero por defecto»*. **No es
+un resultado de examen.** Los dos `if (!$x) { $x = 0; }` están en
+**`putDuplicarPregunta`**, y `ws_preguntas.puntos` es **cuánto vale la pregunta**, no lo
+que sacó nadie; `opcion_otra` es un interruptor. El resultado de un alumno vive en
+`WsActividadResuelta` y **ahí no hay ningún valor por defecto**.
+
+**Quién puede provocarlo:** la ruta es `auth.personal` — **ningún alumno**. Y lo que hace
+el `if` es impedir un `NULL` en una columna `NOT NULL DEFAULT '0'`, o sea **evitar un
+500**. Lo que sí deja: **duplicar una pregunta sin mandar `puntos` la crea valiendo 0**,
+en silencio. Real, pequeño, y sólo al alcance del personal.
