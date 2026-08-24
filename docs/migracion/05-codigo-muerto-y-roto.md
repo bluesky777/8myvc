@@ -9496,3 +9496,62 @@ Y el cuerpo del método se delimita **contando llaves** y no cortando hasta la
 siguiente `function`: eso **mete el docblock de al lado y parte el cuerpo** si hay una
 función anidada. Contar llaves obliga a **saltarse las cadenas** — con 990 consultas
 crudas de varias líneas, algunas con `{` dentro, **eso no es teórico**.
+
+## §192. Tres capas, la misma forma: **el acto de mirar escribe**
+
+Tres apariciones en una noche, en tres capas que no se hablan:
+
+| Qué se abre | Qué escribe | Cómo se encontró |
+|---|---|---|
+| **el historial de una nota** (doble clic) | **guarda la nota** — el `(blur)` crudo del DOM en 20 sitios | el front, mirando el DOM |
+| **el boletín final** de un grupo | **escribe definitivas** — y si nginx corta a los 60 s, **la respuesta se corta y la escritura sigue**, porque no hay transacción | cruzando dos detectores nuestros |
+| **la ficha de un alumno** | **`INSERT INTO requisitos_alumno`**, a dos saltos | `quien-escribe-de-verdad.py` |
+
+**La tercera, verificada aquí, cadena completa:**
+
+```
+PUT alumnos/show  (AlumnosController:529, id en el CUERPO)
+  -> comprobar_alumno_con_grupos(…, con_grupos)      :639
+     -> traer_requisitos_detalle($alumno_id, $matri) :724
+        -> INSERT INTO requisitos_alumno(...)        :753
+```
+
+Y **`con_grupos: true` es lo que manda la ficha**, o sea **el camino largo**. La
+cabecera del front explica que el verbo y el nombre mienten —*«`PUT`, no `GET`, y el
+id va en el cuerpo»*— **pero da por hecho que es una lectura**: dice que `con_grupos`
+*«cuesta una consulta más»*, no que escriba.
+
+### Lo que las tres comparten, y es lo que las hace caras
+
+**Ni la pantalla, ni el verbo, ni el nombre dicen que escriben** — `show`, `historial`,
+`detailed-notas`. Y de ahí la consecuencia que las convierte en un problema de método
+y no de tres endpoints:
+
+> **Quien verifica abre pantallas. Es exactamente el trabajo que produce las
+> escrituras.** Un cortafuegos de medición que intercepte «lo que escribe» **no habría
+> tenido `alumnos/show` en su lista**.
+
+### Y cierra un círculo con una decisión de esta misma semana
+
+`GET disciplina/mis-fichas` se escribió **negándose a crear la fila de configuración
+del año si falta**, al revés que sus dos hermanas, con este motivo:
+
+> *«una lectura que escribe es la forma más silenciosa de que un endpoint de sólo
+> lectura deje de serlo»*
+
+**Esa decisión estaba bien tomada y no sabía que describía algo que ya pasaba tres
+veces en el sistema.** Lo que aquí crea filas no es un caso raro: es **la creación
+diferida al leer**, y la ficha del alumno la lleva haciendo siempre.
+
+### La lista que hace falta, y no es la que teníamos
+
+El front lo pide mejor de lo que se había planteado, y tiene razón:
+
+> **«Lo que nos hace daño no es no saber cuáles escriben: es creer que sabemos cuáles
+> no.»**
+
+Así que el entregable útil **no es la lista de las 110 que no escriben**, es **la de
+los endpoints cuyo nombre o verbo no dice que escriben** — las **23 escritoras**
+cruzadas con «su verbo o su nombre sugiere lectura». Ésa es la que sirve para montar un
+cortafuegos, una réplica de lectura, o una pasada de verificación **sin dejar filas
+detrás**.
