@@ -23,6 +23,14 @@
   <groups>
     <exclude>
       <group>barrido</group>
+      <!-- Tests ROJOS a proposito: fijan un fallo que espera una decision de
+               Joseth, no un arreglo pendiente de escribir. Se excluyen porque un
+               rojo permanente dentro de la suite convierte el verde en ruido y el
+               siguiente fallo de verdad entra sin que salte nada. Se corren
+               pidiendo el grupo `rojo` a artisan test, y el dia que se arreglen se
+               les quita el grupo y pasan a la suite: eso es lo que los hace la red
+               del arreglo y no una queja archivada. -->
+      <group>rojo</group>
     </exclude>
   </groups>
   <php>

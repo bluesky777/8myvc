@@ -11293,3 +11293,51 @@ con las dos de profundidad 2 desapareciendo — que es exactamente lo que hizo a
 `foreach` de alumnos**, así que una consulta que aquí sale a profundidad 2 se ejecuta en
 realidad una vez por **(alumno × asignatura × periodo)**. Los números de la tabla **ordenan
 candidatos; no son coste**. El coste es la primera tabla, y ésa se midió ejecutando.
+
+## §225. El consecutivo ya tiene su rojo, y son dos endpoints y no uno
+
+La [§195](#) dejó las cuatro consecuencias del contador de certificados medidas y
+esperando decisión. Lo que faltaba —y se había pedido por escrito— era **que esa
+decisión se tome mañana delante de una prueba en rojo y no delante de un párrafo**.
+Está en `tests/Contrato/ConsecutivoDeCertificadosTest.php`, **tres tests, los tres
+rojos hoy**, y **ninguno arregla nada**.
+
+### La carrera, demostrada sin hilos
+
+Un test con concurrencia de verdad **dependería de que el planificador cruce los
+hilos**, o sea que fallaría a veces — y *un test que falla a veces se acaba
+desactivando*. Éste ejecuta las dos sentencias del controlador **en el orden exacto
+que produce la concurrencia real** —leer A, leer B, escribir A, escribir B—, que es
+determinista y suficiente. Lo que imprime al caer:
+
+    Dos aperturas consumieron un solo número: las dos leyeron 115 y las dos
+    escribieron 116. En papel eso son DOS CERTIFICADOS CON EL MISMO CONSECUTIVO.
+
+**Con `FOR UPDATE` dentro de una transacción ese intercalado no podría ocurrir**, así
+que el test no comprueba una casualidad de tiempos: comprueba **la propiedad que hoy
+no se sostiene**.
+
+### Y la puerta abierta son DOS
+
+La lista de Joseth nombra `PUT bolfinales/cambiar-contador-certificados`. **También
+está `PUT bolfinales/cambiar-contador-folios`**: la misma línea sobre otra columna,
+el mismo `auth.personal`, la misma ausencia de validación. Los dos contestan **200 y
+escriben** cuando se les manda `'no soy un número'`.
+
+*Es la pregunta «¿quién más hace esto mismo?» aplicada al sitio donde se encontró, y
+por tercera vez esta noche la respuesta no era «uno».* Van como **dos tests separados
+y no como un `dataProvider`** a propósito: si mañana se arregla uno solo, esto tiene
+que seguir en rojo **diciendo cuál falta**; un caso de datos compartido daría un único
+fallo y se leería como «el arreglo no entró».
+
+### Por qué el rojo va en un grupo excluido
+
+**Un rojo permanente dentro de la suite convierte el verde en ruido.** A la tercera
+corrida nadie distingue «el rojo de siempre» de uno nuevo, y **el siguiente fallo de
+verdad entra sin que salte nada** — que es exactamente lo que la [§220](#) dice de un
+`[OK]` que nadie vuelve a comprobar. Se añade el grupo `rojo` a la exclusión de
+`phpunit.xml`, al lado de `barrido`, con el motivo escrito dentro.
+
+**El día que se arreglen se les quita el grupo y pasan a la suite.** Eso es lo que los
+convierte en **la red del arreglo** y no en una queja archivada — y es la mitad que
+distingue esto de anotar el fallo en un documento.
