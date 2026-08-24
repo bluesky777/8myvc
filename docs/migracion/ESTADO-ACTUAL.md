@@ -8,8 +8,10 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
-**Última actualización: 25 ago 2026, de madrugada** · `main`, **las cuatro ramas de
-la noche del 24 fundidas dentro** · coordina `8myvc-94`
+**Última actualización: 25 ago 2026** · `main`, **las cuatro ramas de la noche del
+24 y AUD-2 fundidas dentro** · **sin coordinación**: `8myvc-94` ya no está y nadie
+ha ocupado su sitio, así que **nadie está mirando el conjunto** — quien llegue,
+que lo lea entero antes de coger nada
 
 ---
 
@@ -176,6 +178,67 @@ arriba y no en la línea.
 | **15** | **La §12 de arriba y la §14** del 09 siguen esperando desde el 24 |
 
 ---
+
+## AUD-2 fundida — 25 ago, y trae una migración que deja viejas las bases de test
+
+**`merge(9a)` en `e5b5c59`.** La fase 2 de la [auditoría](18-auditoria.md): el
+ingreso sale del token en vez de un `order by id desc limit 1` sobre `historiales`.
+La escribió `8myvc-9a`; la cerró y la fundió `8myvc-48`, que recogió el relevo con
+los dos deberes de cierre abiertos.
+
+> **Lo primero, porque muerde a la siguiente sesión que corra tests:** trae
+> `ALTER TABLE personal_access_tokens ADD historial_id`. **No añade ninguna tabla
+> —siguen siendo 94—, así que contar tablas NO demuestra que esté aplicada.** Quien
+> no reconstruya verá `Unknown column 'historial_id'` con muy buena cara:
+>
+> ```bash
+> DB_TEST_DATABASE=simonbolivar_testing_<sufijo> \
+> PHP_EXEC="docker exec -w /app/.worktrees/<sufijo> -i 8myvc-app-1" \
+>     tools/construir-bd-test.sh
+> ```
+
+**El número, medido EN EL ÁRBOL FUNDIDO y no heredado de la rama:** **1.483
+pasados, 10.646 aserciones, 0 fallos, 499 s**, suite entera sin `--testsuite`
+(Unit + Feature + Contrato). **Larastan `[OK]`, 505 ficheros. Pint PASS, 302
+ficheros.** Base reconstruida antes, con la columna comprobada en
+`information_schema` — no con el recuento de tablas.
+
+**Los dos números de esta fusión, y por qué son dos.** La rama daba **1.479 /
+10.556** y el árbol fundido da **1.483 / 10.646**: los cuatro tests y las noventa
+aserciones de diferencia son de los 18 commits que `main` tenía delante. *El verde
+de una rama no es el verde de la fusión*, y esta vez la fusión salió bien — pero se
+corrió para saberlo, no para confirmarlo.
+
+**Qué cambia para un cliente**, y esto va al buzón de los fronts: ningún cuerpo se
+rompe, pero **el contexto gana dos claves aditivas —`sesion_id` e `historial_id`—
+y el contexto se serializa entero**, así que salen en `auth/me`, en `auth/login` y
+en `POST /login`. Seis instantáneas regeneradas y **el diff son doce líneas, las
+doce `+`**. Además `bitacoras.historial_id` pasa a ser cierto en vez de adivinado y
+**puede venir NULL** durante la ventana de despliegue —hasta 14 días, se cierra
+sola—, `logout_at` se marca en la sesión que se cierra y no en la última de la
+persona, y una petición que antes daba **422 por no encontrar un ingreso** ahora
+guarda.
+
+### Y dos cosas que el cierre corrigió, las dos de método
+
+- **`--testsuite=Contrato` no era el criterio, y aquí se ve por qué.** El test
+  propio del lote sí vivía en `Contrato`; lo que `Contrato` sola se saltaba era
+  `app/User.php` —66 líneas cambiadas— y su guardián `tests/Unit/UsuarioPerezosoTest.php`.
+  **Fuera de `Contrato` no hay ni un test que nombre `historial_id` ni `sesion_id`:**
+  la cobertura que aporta la suite entera es **por fichero, no por nombre**, y
+  buscarla por el nombre de lo tocado habría contestado «ninguno», en falso.
+- **«Pint verde» no es «el lote formateado».** El scope del `composer.json` deja
+  fuera los seis controladores que toca, `app/Models/TokenDeSesion.php` y
+  `app/User.php`. No es un hueco —CLAUDE.md lo decide así—, pero la frase corta se
+  lee como una cobertura que no tiene.
+
+> **Y el detector de la auditoría está dicho corto en su propia cabecera**, en la
+> dirección mala: `escrituras-sin-auditoria.php` **no cuenta de menos** a
+> `Ausencias`, `Frases`, `FrasesAsignatura` y `DefinicionesComportamiento` — **no
+> puede verlos**. Tienen **9 `Auditoria::registrar()` entre los cuatro y CERO
+> `DB::insert/update/delete/statement`**, y él sólo cuenta formas `DB::`. «32 donde
+> había 52» era el síntoma; la causa es que cuatro dominios caen **fuera de su
+> universo entero**.
 
 ## Todo está en `main`, y nada está publicado — 25 ago, de madrugada
 
