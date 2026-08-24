@@ -462,6 +462,110 @@ def autoprueba():
     return fallos
 
 
+# ── Las que ENGAÑAN: escriben y su nombre dice que leen ─────────────────────
+#
+# Lo pidió el carril del front con una frase que es el criterio entero: **«lo que
+# nos hace daño no es no saber cuáles escriben: es creer que sabemos cuáles no»**.
+# La §175 avisa de que el **verbo** no dice si escribe; ésta cruza el otro lado —el
+# **nombre**— porque quien instrumenta esta API no lee `routes/`: lee la llamada
+# que tiene delante, y ahí lo que ve es `PUT .../show`.
+#
+# La lista de fichas va impresa a propósito, para que el criterio se pueda discutir
+# en vez de creer. No entran `boletin`, `informe` ni `certificado`: nombran un
+# documento, no una operación, y meterlos infla la lista con rutas cuyo nombre no
+# promete nada.
+# **Sólo verbos, y los sustantivos fuera a propósito.** `PUT enfermeria/datos` no
+# promete leer: promete **escribir esos datos**, y lo mismo `lista`, `consulta` e
+# `info`. Meterlos metía en la lista rutas que dicen exactamente lo que hacen, que
+# es la forma de que una lista de avisos deje de leerse.
+#
+# `detailed` y `detalle` **sí** entran aunque no sean verbos: en esta API nombran
+# una vista —«la rejilla detallada»— y son justamente lo que hace que
+# `PUT notas/detailed` se lea como una lectura.
+FICHAS_DE_LECTURA = ('get', 'show', 'index', 'detailed', 'detalle', 'ver',
+                     'consultar', 'listar', 'traer', 'buscar', 'mostrar')
+
+# Se cuentan aparte, para que la decisión de dejarlas fuera sea visible en la
+# salida en vez de estar sólo en este comentario.
+FICHAS_DESCARTADAS = ('datos', 'info', 'lista', 'consulta')
+
+VERBOS_DE_RUTA = ('get', 'post', 'put', 'patch', 'delete')
+
+
+def _operacion(palabras):
+    """La primera palabra que no sea el verbo HTTP: la OPERACIÓN del nombre."""
+    for pal in palabras:
+        if pal and pal not in VERBOS_DE_RUTA:
+            return pal
+    return ''
+
+
+def operacion_del_metodo(metodo):
+    """`putToggleMostrarPuestos` → `toggle`. `putShow` → `show`."""
+    return _operacion(re.sub(r'(?<!^)(?=[A-Z])', ' ', metodo).lower().split())
+
+
+def operacion_de_la_ruta(uri):
+    """`years/toggle-mostrar-puestos` → `toggle`. `boletines/detailed-notas/{g}` → `detailed`.
+
+    Se toma **el último segmento que no sea un parámetro** y, dentro de él, su
+    primera palabra. El último segmento es lo que nombra la operación en esta API
+    —`alumnos/show`, `notas/detailed`, `escalas/update`—; los de delante nombran el
+    recurso, y buscar la ficha en ellos es lo que metía `mis-actividades/guardar`
+    en una lista de «suena a lectura» cuando lo que dice es *guardar*.
+    """
+    trozos = [t for t in uri.split('/') if t and not t.startswith('{')]
+
+    return _operacion(re.split(r'[_\-]+', trozos[-1].lower())) if trozos else ''
+
+
+def suena_a_lectura(uri, metodo):
+    """Si el nombre de esta ruta promete una lectura, por dónde lo promete.
+
+    ── **La regla, y es la que separa 26 de 7** ────────────────────────────────
+    **Una ficha sólo cuenta si es el VERBO del nombre, no uno de sus
+    sustantivos.** La primera versión buscaba la ficha en cualquier parte y sacaba
+    26 de 326, con la mayoría falsas de una forma muy concreta:
+
+      `years/toggle-mostrar-puestos-en-boletin`  → la operación es **toggle**;
+                                                    `mostrar` es lo que se conmuta
+      `mis-actividades/guardar`                  → la operación es **guardar**
+      `votaciones/set-permiso-ver-results`       → la operación es **set**
+      `perfiles/guardar-mi-email-restore`        → la operación es **guardar**
+
+    Ninguna de esas cuatro engaña a nadie: **dicen que escriben**. Contarlas es el
+    fallo del que avisa CLAUDE.md —*un detector puede contar bien un síntoma y no
+    estar contando la causa*—: el síntoma «la palabra `mostrar` aparece» estaba bien
+    contado, y la causa era otra.
+
+    ── **Y se devuelven por separado los dos lados que engañan** ───────────────
+    No es lo mismo, y a quien pregunta le importa la diferencia:
+
+      **ruta**   — lo engaña al **cliente**, que sólo ve la URI y el verbo;
+      **método** — lo engaña a **quien lee el código**, que ve el nombre.
+
+    `POST login/ver-pass` → `postRecuperarClave` es el caso puro del primero: **la
+    URI miente y el nombre del método no**. Y los diez `postIndex` son el caso puro
+    del segundo: su URI no promete nada (`POST areas`), y el `Index` del nombre es
+    la convención vieja de este repositorio, no una promesa de lectura.
+
+    Fuera de las fichas quedan **`mis-` y `mi-`** a propósito: son posesivos, no
+    verbos de lectura. `PUT mis-actividades/mi-actividad` no promete leer.
+    """
+    op_ruta = operacion_de_la_ruta(uri)
+    op_metodo = operacion_del_metodo(metodo)
+
+    for ficha in FICHAS_DE_LECTURA:
+        if op_ruta == ficha:
+            return ('ruta', ficha)
+
+    for ficha in FICHAS_DE_LECTURA:
+        if op_metodo == ficha:
+            return ('método', ficha)
+
+    return None
+
+
 if '--autoprueba' in sys.argv:
     sys.exit(1 if autoprueba() else 0)
 
@@ -540,6 +644,60 @@ if por_select:
     for clase, metodo, sql in por_select:
         marca = '  (ruta no-GET)' if (clase, metodo) in enrutadas else ''
         print(f'    {clase}::{metodo}  [{sql}]{marca}')
+
+if '--enganosas' in sys.argv:
+    # La población es **todas las rutas no-GET que escriben**, no sólo las
+    # candidatas: las 308 que escriben en su propio cuerpo también tienen nombres,
+    # y una de ellas llamada `getAlgo` engaña igual que una de las 18.
+    escritoras = []
+
+    for rf in sorted((RAIZ / 'routes').rglob('*.php')):
+        for verbo, uri, clase, metodo in RE_RUTA.findall(rf.read_text(errors='replace')):
+            if verbo == 'get':
+                continue
+            info = clases.get(clase)
+            if info is None or metodo not in info['metodos']:
+                continue
+            if escribe_directo(info['metodos'][metodo]):
+                escritoras.append((verbo.upper(), uri, clase, metodo, 'en su propio cuerpo'))
+                continue
+            estado, detalle = veredicto(clases, clase, metodo)
+            if estado == 'escribe':
+                escritoras.append((verbo.upper(), uri, clase, metodo, detalle))
+
+    enganosas = [(v, u, c, m, d, f) for v, u, c, m, d in escritoras
+                 if (f := suena_a_lectura(u, m)) is not None]
+
+    por_ruta = [e for e in enganosas if e[5][0] == 'ruta']
+    por_metodo = [e for e in enganosas if e[5][0] == 'método']
+
+    print()
+    print('LAS QUE ENGAÑAN: escriben, y su nombre dice que leen')
+    print('  ' + '-' * 74)
+    print(f'  rutas no-GET que escriben (población) ............ {len(escritoras)}')
+    print(f'  con la OPERACIÓN de la URI sonando a lectura ..... {len(por_ruta)}'
+          '   <- engaña al CLIENTE')
+    print(f'  con la operación del MÉTODO sonando a lectura .... {len(por_metodo)}'
+          '   <- engaña a quien lee el código')
+    descartadas = [(v, u, c, m) for v, u, c, m, d in escritoras
+                   if suena_a_lectura(u, m) is None
+                   and (operacion_de_la_ruta(u) in FICHAS_DESCARTADAS
+                        or operacion_del_metodo(m) in FICHAS_DESCARTADAS)]
+
+    print('  fichas: ' + ', '.join(FICHAS_DE_LECTURA))
+    print('  fuera a propósito (son sustantivos, no verbos de lectura): '
+          + ', '.join(FICHAS_DESCARTADAS)
+          + f' — {len(descartadas)} rutas')
+    print('  (una ficha sólo cuenta si es el VERBO del nombre, no uno de sus')
+    print('   sustantivos: `toggle-mostrar-puestos` es un toggle. Ver suena_a_lectura)')
+
+    for titulo, lista in [('  ── ENGAÑAN AL CLIENTE — la URI promete una lectura', por_ruta),
+                          ('  ── ENGAÑAN AL CÓDIGO — el nombre del método la promete', por_metodo)]:
+        print()
+        print(titulo)
+        for verbo, uri, clase, metodo, detalle, (donde, ficha) in sorted(lista, key=lambda x: x[1]):
+            print(f'  {verbo:<6} {uri:<48} {clase}::{metodo}')
+            print(f'         «{ficha}» en el {donde}   ·   escribe {detalle}')
 
 if '--rutas' in sys.argv:
     for nombre, titulo in [

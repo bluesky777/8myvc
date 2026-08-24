@@ -163,8 +163,19 @@ Leídas a mano, que es lo que la herramienta deja hacer al bajar la lista de 110
   —`User::where(...)->first()` y `Hash::check`— así que la duda es sólo formal.
   Lo que hagan después esas tres es otra cosa y no está resuelto.
 
-O sea que el reparto real, con las seis decididas a mano, es **23 escritoras y 87
-lectoras** de las 110 candidatas.
+O sea que el reparto real, con las seis decididas a mano, es **21 escritoras y 89
+lectoras** de las 110 candidatas: 18 + 3 y 86 + 3.
+
+> **Aquí escribí «23 y 87» en el primer parte y era una suma mal hecha**, no una
+> medición distinta. Queda dicho porque es exactamente lo que este documento le
+> pide a los demás: 18 + 3 = 21, y 21 + 89 = 110, que es la comprobación que no
+> hice antes de mandarlo.
+
+Y una que sale de decidir esas seis y no estaba en la pregunta: **las tres de
+`tardanzas/login` no escriben nada**, o sea que **ese login no deja rastro**. El
+login principal sí —`Services\Login::anotarIntentoFallido` escribe una bitácora—;
+éste, que es el de la aplicación de tardanzas, entra y no anota. Queda apuntado
+para el plan de [auditoría](../18-auditoria.md), que es de quien es.
 
 ## §5 — Y ninguna de las 87 es de sólo lectura **a nivel de petición**
 
@@ -216,6 +227,84 @@ busca.** `--autoprueba` lleva las siete trampas.
 > anidada con nombre, dejando el resto sin mirar. Contar llaves obliga a saltarse
 > cadenas, y aquí eso no es teórico: **990 consultas crudas** en cadenas de varias
 > líneas, algunas con `{` dentro.
+
+## §6.b — Las que engañan: escriben y su nombre dice que leen
+
+Lo pidió el carril del front con la frase que es el criterio entero: **«lo que nos
+hace daño no es no saber cuáles escriben: es creer que sabemos cuáles no»**. La
+§175 avisa de que **el verbo** no dice si escribe; esto cruza el otro lado, **el
+nombre**, porque quien instrumenta esta API no lee `routes/`: lee la llamada que
+tiene delante.
+
+Población: **las 326 rutas no-`GET` que escriben** —las 308 de cuerpo propio más
+las 18 por ayudante—, no sólo las candidatas: una de las 308 llamada `getAlgo`
+engaña igual.
+
+### Las 7 que engañan al CLIENTE — la URI promete una lectura
+
+| ruta | escribe |
+|---|---|
+| `PUT alumnos/show` | → `comprobar_alumno_con_grupos` → `traer_requisitos_detalle` **`DB::insert`** |
+| `PUT boletines/detailed-notas/{grupo}` | → `ponerAlDiaLasDefinitivas` → `recalcular` |
+| `PUT bolfinales/detailed-notas-year-group/{grupo}` | → `detailedNotasGrupo` **`DB::update`** (el contador, [MED-5 §4](med-5.md)) |
+| `PUT bolfinales/detailed-notas-year/{grupo}` | ídem |
+| `PUT notas/detailed` | → `recalcular` |
+| `POST login/ver-pass` | en su propio cuerpo |
+| `PUT years/mostrar-todas-materias` | en su propio cuerpo |
+
+**`PUT alumnos/show` es la peor**: el verbo dice escribir, el nombre dice leer, y
+lo que hace es **insertar** a dos saltos de distancia. Los dos indicios apuntan a
+sitios distintos y ninguno acierta.
+
+**`POST login/ver-pass` es el caso puro de que los dos lados no coinciden**: la URI
+dice `ver` y el método se llama `postRecuperarClave`. **La URI miente y el nombre
+del método no.**
+
+Y **`PUT years/mostrar-todas-materias` tiene tres hermanas** que hacen lo mismo
+—poner una bandera del año— y se llaman `years/toggle-mostrar-anio-pasado-en-boletin`,
+`…-nota-comport-…` y `…-puestos-…`. Las tres empiezan por `toggle` y **ésta no**,
+así que es la única de las cuatro que se lee como una lectura. **La misma operación
+nombrada de dos maneras, y la inconsistencia es lo que engaña**; no hace falta
+cambiar nada más que el nombre.
+
+### Las 9 que engañan a QUIEN LEE EL CÓDIGO — el método promete la lectura
+
+Nueve `postIndex`: `POST areas`, `asignaturas`, `asistencias`, `asistencias-app`,
+`contratos`, `materias`, `subunidades`, `unidades` y `tardanzas/subir`. **Su URI no
+promete nada** —`POST areas` es lo que parece— y el `Index` es la convención vieja
+de este repositorio. Van en su propia lista porque **al cliente no le engañan**:
+sólo a quien lee `AreasController::postIndex` y espera un listado.
+
+### La regla que separa 26 de 7, y por qué era necesaria
+
+La primera versión buscaba la ficha **en cualquier parte del nombre** y sacaba **26
+de 326**. La mayoría eran falsas de una forma muy concreta:
+
+```
+years/toggle-mostrar-puestos-en-boletin   → la operación es TOGGLE; `mostrar` es lo que se conmuta
+mis-actividades/guardar                   → la operación es GUARDAR
+votaciones/set-permiso-ver-results        → la operación es SET
+perfiles/guardar-mi-email-restore         → la operación es GUARDAR
+```
+
+**Ninguna de esas cuatro engaña a nadie: dicen que escriben.** Es el fallo del que
+avisa CLAUDE.md —*un detector puede contar bien un síntoma y no estar contando la
+causa*— con el síntoma «la palabra `mostrar` aparece» **bien contado** y la causa
+en otro sitio. La regla que lo arregla: **una ficha sólo cuenta si es el VERBO del
+nombre, no uno de sus sustantivos**, tomando el último segmento de la URI que no
+sea un parámetro y su primera palabra.
+
+Y dos decisiones de la lista de fichas, dichas en la salida y no sólo aquí:
+
+- **fuera `mis-` y `mi-`**: son posesivos. `PUT mis-actividades/mi-actividad` no
+  promete leer;
+- **fuera `datos`, `info`, `lista` y `consulta`**: son **sustantivos**. `PUT
+  enfermeria/datos` no promete leer, promete **escribir esos datos**. Con ellas
+  dentro entraba una ruta más que dice exactamente lo que hace, y **una lista de
+  avisos con falsos dentro deja de leerse**;
+- **dentro `detailed` y `detalle`** aunque no sean verbos: en esta API nombran una
+  vista —«la rejilla detallada»— y son justo lo que hace que `PUT notas/detailed`
+  se lea como una lectura.
 
 ## §7 — Lo que NO se hace aquí
 
