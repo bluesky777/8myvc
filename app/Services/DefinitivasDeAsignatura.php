@@ -320,6 +320,30 @@ class DefinitivasDeAsignatura
      */
     public static function calcular(int $asignaturaId, int $periodoId): array
     {
+        // **El alcance del boletín independiente, BI-2.** Esta consulta resuelve el
+        // grupo entero de una vez y no puede preguntar alumno por alumno, así que
+        // usa la forma que `BoletinIndependiente` dejó para eso: el `LEFT JOIN` con
+        // `bol_ind_periodos` y la expresión `ALCANCE`, que da el id del alumno si va
+        // por independiente en ese periodo y `NULL` si no.
+        //
+        // **La derivada agrupa además por `u.alumno_id` y el emparejamiento es
+        // `<=>`.** Sin el `GROUP BY` extra, las unidades del grupo y las de un
+        // independiente caerían en la misma suma y le inflarían la definitiva a los
+        // treinta; sin el `<=>` —con `=` a secas— el alumno normal no emparejaría
+        // nada y **todas las definitivas del colegio se irían a 0 sin un error en el
+        // log**, que es el fallo más caro que este fichero puede introducir.
+        //
+        // **Hoy no mueve nada y es comprobable:** `matriculas.boletin_independiente`
+        // es 0 en todas las filas y `unidades.alumno_id` es NULL en todas, así que
+        // `c.dueno <=> ALCANCE` es `NULL <=> NULL` para todo el mundo y selecciona
+        // exactamente las filas de antes. Lo fija
+        // `Tests\Contrato\DefinitivaConAlcanceTest`, que compara la definitiva de
+        // todo un grupo antes y después con la unidad marcada y sin marcar.
+        //
+        // El `bip.periodo_id` va con parámetro y no con `u.periodo_id` como la
+        // constante `JOIN_ESTADO`, porque aquí `u` vive dentro de la derivada y no
+        // está en el ámbito de la consulta de fuera. Es la excepción que la cabecera
+        // de `BoletinIndependiente` pide declarar en vez de copiar a mano.
         return DB::select(
             'SELECT m.alumno_id,
                     CAST(COALESCE(c.suma, 0) AS DECIMAL(4,0)) AS nota,
@@ -328,19 +352,21 @@ class DefinitivasDeAsignatura
                INNER JOIN grupos g ON g.id = a.grupo_id AND g.deleted_at IS NULL
                INNER JOIN matriculas m ON m.grupo_id = g.id AND m.deleted_at IS NULL
                     AND m.estado IN ("MATR", "ASIS")
+               LEFT JOIN bol_ind_periodos bip
+                    ON bip.alumno_id = m.alumno_id AND bip.periodo_id = ?
                LEFT JOIN (
-                    SELECT n.alumno_id,
+                    SELECT n.alumno_id, u.alumno_id AS dueno,
                            SUM((u.porcentaje / 100) * ((s.porcentaje / 100) * n.nota)) AS suma,
                            COUNT(*) AS notas
                       FROM unidades u
                       INNER JOIN subunidades s ON s.unidad_id = u.id AND s.deleted_at IS NULL
                       INNER JOIN notas n ON n.subunidad_id = s.id AND n.deleted_at IS NULL
                      WHERE u.asignatura_id = ? AND u.periodo_id = ? AND u.deleted_at IS NULL
-                     GROUP BY n.alumno_id
-               ) c ON c.alumno_id = m.alumno_id
+                     GROUP BY n.alumno_id, u.alumno_id
+               ) c ON c.alumno_id = m.alumno_id AND c.dueno <=> '.BoletinIndependiente::ALCANCE.'
               WHERE a.id = ? AND a.deleted_at IS NULL
               GROUP BY m.alumno_id, c.suma, c.notas',
-            [$asignaturaId, $periodoId, $asignaturaId]
+            [$periodoId, $asignaturaId, $periodoId, $asignaturaId]
         );
     }
 
@@ -369,6 +395,23 @@ class DefinitivasDeAsignatura
      * sin subunidades y sin matrículas. Eso es «no hay nada que calcular», y no
      * «está al día».
      */
+
+    // **BI-2: esto NO se acota, y acotarlo sería un fallo.** Es una de las 25
+    // lecturas de `unidades` sin alcance del boletín independiente, y la única
+    // donde el criterio del lote —«acotar es más correcto»— mete el error.
+    //
+    // Esto es un SELLO DE CACHÉ: dice si hay que recalcular. Su modo de fallo NO
+    // es simétrico:
+    //
+    //   sin acotar  el sello cambia cuando un independiente toca SU unidad
+    //               -> recalcula de más. Cuesta tiempo. Nunca sirve un dato viejo.
+    //   acotado     deja de moverse cuando cambia el boletín de ese alumno
+    //               -> sirve un dato VIEJO, y sin un solo error en el log.
+    //
+    // **La sobre-aproximación no es un defecto que se tolera aquí: es lo que lo
+    // hace correcto.** Si alguien viene en la pasada siguiente aplicando el
+    // criterio del lote a las que faltan, ésta hay que saltársela — y por eso el
+    // porqué vive aquí y no sólo en `docs/migracion/noche-2026-08-25/bi-2.md` §6.bis.
     public static function selloDeVersion(int $asignaturaId, int $periodoId): ?string
     {
         $fila = DB::selectOne(
@@ -456,6 +499,30 @@ class DefinitivasDeAsignatura
      */
     public static function porcentajeDeLasUnidades(int $asignaturaId, int $periodoId): float
     {
+        // **BI-2: ésta es la única de las 59 lecturas que NO se acota, y no por
+        // pereza.** Contesta «¿las unidades de esta asignatura suman 100?» y
+        // devuelve UN `float`. Con boletines independientes esa pregunta **deja de
+        // tener una sola respuesta**: hay un reparto por boletín —el del grupo y el
+        // de cada alumno marcado—, así que lo correcto no es un número sino uno por
+        // boletín. Eso no es añadir una condición: es cambiar qué devuelve, y qué
+        // significa «suman 100» con dos boletines es de las dos preguntas del
+        // 19 §2, **que son de Joseth**.
+        //
+        // **Hoy no lo consume nadie**, y ése es el matiz que decide dónde ponerle la
+        // red: `recalcular()` lo devuelve en `porcentaje_unidades`, `NotasController:392`
+        // —el único que guarda ese retorno— lee sólo `definitiva`, y los tres repos
+        // de cliente en disco no lo mencionan ni una vez. Su consumidor está
+        // PREVISTO y no construido: la cabecera de esta clase dice que se devuelve
+        // «para que quien pinte la planilla pueda señalarla en vez de taparla».
+        //
+        // O sea que **el primero que se rompe es un consumidor que aún no existe**, y
+        // ésos no salen en ningún censo de llamadores. Por eso el rojo está puesto:
+        // `Tests\Contrato\PorcentajeDeUnidadesConIndependienteTest`, grupo `rojo`.
+        //
+        // **Qué lo pondría verde:** que reciba el alcance y devuelva el reparto de
+        // ESE boletín —`(int $asignaturaId, int $periodoId, ?int $alcance)`— o un
+        // mapa `[alcance => float]`. Con eso `recalcular()` puede decir de qué
+        // boletín es el número, y la planilla señalar la asignatura de un alumno.
         $fila = DB::selectOne(
             'SELECT COALESCE(SUM(porcentaje), 0) AS suma FROM unidades
               WHERE asignatura_id = ? AND periodo_id = ? AND deleted_at IS NULL',

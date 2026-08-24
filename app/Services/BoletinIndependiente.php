@@ -73,6 +73,79 @@ class BoletinIndependiente
         'IF(m.boletin_independiente = 1 AND COALESCE(bip.aplica, 1) = 1, m.alumno_id, NULL)';
 
     /**
+     * El alcance como **subconsulta escalar correlacionada**, para las consultas que
+     * NO tienen `matriculas` en el ámbito.
+     *
+     * `$alumno` es la expresión que da el id del alumno (`n.alumno_id`, `a.id`…) y
+     * `$unidad` el alias de `unidades`. Se usa así:
+     *
+     *     ... and u.alumno_id <=> '.BoletinIndependiente::alcanceCorrelacionado('a.id', 'u')
+     *
+     * ## Por qué existe, y no es una comodidad
+     *
+     * La forma normal —`JOIN_ESTADO` + `ALCANCE`— necesita `m` en el ámbito. Cuando no
+     * está, la salida obvia es **traer `matriculas` con un `JOIN`, y eso puede DUPLICAR
+     * FILAS**: `matriculas` tiene `PRIMARY KEY (id)` y sendas claves por `alumno_id` y
+     * `grupo_id`, pero **ninguna única sobre el par** — nada impide dos matrículas vivas
+     * del mismo alumno en el mismo grupo. Medido el 24 ago 2026 sobre la base de
+     * desarrollo: **0 pares de 3.542**, o sea que hoy no pasa **aquí** — y son dieciséis
+     * colegios, con quince bases que nadie ha mirado.
+     *
+     * En una consulta con `GROUP BY` eso dobla un `SUM()`; en una que devuelve filas,
+     * las repite. **Una subconsulta escalar no puede hacer ninguna de las dos**: da un
+     * valor o `NULL`.
+     *
+     * *No se elige esta forma porque hoy los datos no dupliquen —eso sería una medición
+     * usada como guardián, y aquí eso ya costó una noche—: se elige porque el esquema no
+     * lo impide.*
+     *
+     * ## Y correlaciona el PERIODO, que es la otra mitad
+     *
+     * `bip.periodo_id = '.$unidad.'.periodo_id` y no un periodo bindeado: `bol_ind_periodos`
+     * es **por periodo**, y hay consultas que abarcan varios (`p.numero <= N` en
+     * `NotasPerdidasController`). Un alumno puede ir por independiente en el 3 y no en el
+     * 2; con un valor bindeado una sola vez, **el resto de periodos se resolvería con el
+     * alcance del equivocado y no habría ningún error que lo señalara**.
+     *
+     * El `LIMIT 1` es por la misma falta de clave única de arriba: sin él, dos matrículas
+     * del mismo par convertirían la subconsulta escalar en un error de ejecución en vez
+     * de en un valor. **Con `LIMIT 1` degrada a «una de las dos» en vez de reventar**, y
+     * eso es lo correcto aquí: este lote no puede cambiar la respuesta, y decidir cuál de
+     * dos matrículas manda es de quien lleve las matrículas duplicadas.
+     */
+    public static function alcanceCorrelacionado(string $alumno, string $unidad = 'u'): string
+    {
+        // **Es `consultar()` palabra por palabra, correlacionado por el periodo de la
+        // unidad.** Y eso no es copiar: es que la elección de la matrícula es UNA
+        // regla y este fichero existe para que no haya dos.
+        //
+        // La primera versión de este método se saltó las dos mitades de esa regla
+        // —el año del periodo y el desempate— y hacía `WHERE mbi.alumno_id = ?
+        // LIMIT 1`. Con un alumno que tiene matrícula en más de un año, el `LIMIT 1`
+        // elegía una cualquiera: podía leer el interruptor de 2024 para un periodo
+        // de 2026. **Lo cazó `AlcanceCorrelacionadoPorPeriodoTest`, no la revisión.**
+        //
+        //   - **el año**: se entra por `periodos` y se baja a `grupos` del MISMO
+        //     `year_id`, porque una nota de 2024 pregunta por el estado de ese año
+        //     aunque el token vaya por 2026;
+        //   - **el desempate**: la más reciente de las vivas, `created_at DESC, id
+        //     DESC`. Un `ORDER BY` con empates elige al azar.
+        //
+        // Si `consultar()` cambia, esto cambia con él. Están a veinte líneas para
+        // que se vean juntas.
+        return '(SELECT IF(mbi.boletin_independiente = 1 AND COALESCE(bipc.aplica, 1) = 1, mbi.alumno_id, NULL)
+                   FROM periodos pbi
+                   INNER JOIN grupos gbi     ON gbi.year_id = pbi.year_id AND gbi.deleted_at IS NULL
+                   INNER JOIN matriculas mbi ON mbi.grupo_id = gbi.id AND mbi.alumno_id = '.$alumno.'
+                                            AND mbi.deleted_at IS NULL
+                   LEFT JOIN bol_ind_periodos bipc
+                          ON bipc.alumno_id = mbi.alumno_id AND bipc.periodo_id = pbi.id
+                  WHERE pbi.id = '.$unidad.'.periodo_id AND pbi.deleted_at IS NULL
+                  ORDER BY mbi.created_at DESC, mbi.id DESC
+                  LIMIT 1)';
+    }
+
+    /**
      * Lo ya preguntado en esta petición, por (alumno, periodo).
      *
      * No es una optimización preventiva de las que prohíbe el 02: un boletín

@@ -58,7 +58,8 @@ class NotasPerdidasController extends Controller {
 			inner join subunidades s on s.id=n.subunidad_id and s.deleted_at is null 
 			inner join unidades u on u.id=s.unidad_id and u.asignatura_id=:asignatura_id and u.deleted_at is null 
 			inner join periodos p on p.id=u.periodo_id and ".$periodo_sql." and p.deleted_at is null 
-			where a.deleted_at is null
+			".\App\Services\BoletinIndependiente::JOIN_ESTADO."
+			where a.deleted_at is null and u.alumno_id <=> ".\App\Services\BoletinIndependiente::ALCANCE."
 			group by a.id order by a.apellidos";
 
 		$consulta_subs = "SELECT a.id as alumno_id, a.nombres, a.apellidos, a.sexo, a.user_id, a.celular, a.email, a.foto_id, a.pazysalvo,
@@ -70,7 +71,8 @@ class NotasPerdidasController extends Controller {
 			inner join subunidades s on s.id=n.subunidad_id and s.deleted_at is null 
 			inner join unidades u on u.id=s.unidad_id and u.asignatura_id=:asignatura_id and u.deleted_at is null 
 			inner join periodos p on p.id=u.periodo_id and ".$periodo_sql." and p.deleted_at is null 
-			where a.id=:alumno_id and a.deleted_at is null";
+			where a.id=:alumno_id and a.deleted_at is null
+			  and u.alumno_id <=> ".\App\Services\BoletinIndependiente::alcanceCorrelacionado('a.id', 'u');
 
 
 		for ($i=0; $i < $cant_gr_all; $i++) { 
@@ -273,7 +275,8 @@ class NotasPerdidasController extends Controller {
 						inner join subunidades s on s.id=n.subunidad_id and s.deleted_at is null 
 						inner join unidades u on u.id=s.unidad_id and u.asignatura_id=:asignatura_id and u.deleted_at is null 
 						inner join periodos p on p.id=u.periodo_id and ".$periodo_sql." and p.deleted_at is null 
-						where a.deleted_at is null
+						".\App\Services\BoletinIndependiente::JOIN_ESTADO."
+						where a.deleted_at is null and u.alumno_id <=> ".\App\Services\BoletinIndependiente::ALCANCE."
 						group by a.id order by a.apellidos";
 
 					$alumn_all 		= DB::select($consulta, [ ':grupo_id' => $grupos_all[$i]->grupo_id, ':nota_minima_aceptada' => $user->nota_minima_aceptada, ':asignatura_id' => $asign_all[$j]->asignatura_id, 'periodo' => $periodo_a_calcular ]);
@@ -290,7 +293,8 @@ class NotasPerdidasController extends Controller {
 							inner join subunidades s on s.id=n.subunidad_id and s.deleted_at is null 
 							inner join unidades u on u.id=s.unidad_id and u.asignatura_id=:asignatura_id and u.deleted_at is null 
 							inner join periodos p on p.id=u.periodo_id and ".$periodo_sql." and p.deleted_at is null 
-							where a.id=:alumno_id and a.deleted_at is null";
+							where a.id=:alumno_id and a.deleted_at is null
+							  and u.alumno_id <=> ".\App\Services\BoletinIndependiente::alcanceCorrelacionado('a.id', 'u');
 
 						$notas 		= DB::select($consulta, [':nota_minima_aceptada' => $user->nota_minima_aceptada, ':asignatura_id' => $asign_all[$j]->asignatura_id, 
 																'periodo' => $periodo_a_calcular, ':alumno_id' => $alumn_all[$k]->alumno_id ]);

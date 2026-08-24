@@ -141,9 +141,15 @@ class NotasController extends Controller {
 						INNER JOIN subunidades s ON s.id=n.subunidad_id and s.deleted_at is null
 						INNER JOIN unidades u ON u.id=s.unidad_id and u.deleted_at is null and u.periodo_id=:per_id
 						INNER JOIN asignaturas asi ON asi.id=u.asignatura_id and asi.deleted_at is null and asi.grupo_id=:grupo_id
-						WHERE n.alumno_id=:alumno_id and asi.id=:asignatura_id
+						WHERE n.alumno_id=:alumno_id and asi.id=:asignatura_id and u.alumno_id <=> :alcance
 						order by u.orden, s.orden;";
-			$notas = DB::select($cons, [":per_id" => $user->periodo_id, ':grupo_id' => $asignatura->grupo_id, ':alumno_id' => $alumno->alumno_id, ':asignatura_id' => $asignatura->asignatura_id ]);
+
+			// **BI-2.** Un solo periodo (`:per_id` es `$user->periodo_id`) y un solo
+			// alumno, así que aquí SÍ vale el valor bindeado: no hay varios periodos
+			// que puedan tener alcances distintos. Las de `NotasPerdidasController`
+			// abarcan `p.numero <= N` y por eso allí va correlacionado.
+			$notas = DB::select($cons, [":per_id" => $user->periodo_id, ':grupo_id' => $asignatura->grupo_id, ':alumno_id' => $alumno->alumno_id, ':asignatura_id' => $asignatura->asignatura_id,
+				':alcance' => \App\Services\BoletinIndependiente::alcance((int) $alumno->alumno_id, (int) $user->periodo_id) ]);
 			
 			
 			// Traemos las Definitivas
