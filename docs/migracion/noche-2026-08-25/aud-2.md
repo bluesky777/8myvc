@@ -331,3 +331,94 @@ vez de NULL.
 - **`Tardanzas/TLoginController`** tiene su propia entrada y no pasa por
   `Services\Login`; queda como estaba. No escribe `historial_id` en ninguna parte,
   así que no hay nada que atar todavía.
+
+---
+
+## 8. El cierre, medido por otra sesión — `8myvc-48`, 25 ago 2026
+
+Lo de abajo lo corrió el relevo, no quien escribió el lote. Va aquí y no en un
+parte aparte porque **el número de cierre pertenece al documento del lote**: quien
+lea esto dentro de tres meses necesita saber con qué se midió, no que fue verde.
+
+### Los tres números, con su población
+
+| Qué | Número | Con qué |
+|---|---|---|
+| Suite **entera**, sin `--testsuite` | **1.479 pasados, 10.556 aserciones**, 0 fallos, 484 s | Unit (8) + Feature (4) + Contrato (193), sobre `3f61bf6`, base `simonbolivar_testing_9a` |
+| Larastan nivel 7 | **`[OK] No errors`**, 505 ficheros | sobre `3f61bf6`, o sea **con la FK y este documento dentro** |
+| Pint | **PASS**, 299 ficheros | alcance real abajo — no es «el lote formateado» |
+
+**El delta contra el número de la rama cuadra, y por eso el número vale.** Esta
+sesión midió antes **1.374 / 10.346** con `--testsuite=Contrato`; la diferencia es
+**105 tests y 210 aserciones**, que es exactamente Unit+Feature. Los dos números
+son correctos y **miden cosas distintas** — que es justo lo que la [§5.bis del
+briefing](../../../../8myvc-cola/noche-2026-08-25/BRIEFING.md) pide no confundir.
+
+### §5.bis: el entregable sí tenía suite, y aun así faltaba una
+
+Este documento se cerró creyendo que incumplía §5.bis. **Lo cumplía a medias ya:**
+su test propio, `tests/Contrato/SesionDelTokenTest.php`, vive en `Contrato`.
+
+Lo que `Contrato` sola se saltaba es otra cosa, y ésa sí importaba: la fase 2
+cambia **`app/User.php` en 66 líneas**, y el test que guarda el invariante de ese
+fichero —que el usuario se resuelva **en la primera lectura y no en el
+constructor**, porque un constructor que lo resuelva rompe `route:list`— es
+`tests/Unit/UsuarioPerezosoTest.php`. **Ése es el único que no corre con
+`--testsuite=Contrato`.**
+
+> **Y el matiz que generaliza:** fuera de `Contrato` **no hay ni un test que nombre
+> `historial_id`, `sesion_id` ni `atarLaSesion`**. La cobertura que aporta correr la
+> suite entera **no es por nombre, es por fichero** — protege `User.php` de un
+> cambio que nadie escribió pensando en ella. Buscar «qué test cubre mi lote» por el
+> nombre de lo que toqué habría contestado «ninguno» y habría sido falso.
+
+### «Pint verde» no quiere decir «el lote formateado»
+
+El `composer.json` limita pint a `app/Console`, `app/Http/Middleware`,
+`app/Http/Controllers/Concerns`, `app/Mail`, `app/Services`, `app/Support`,
+`routes`, `tests` y `database/migrations`. De lo que toca la fase 2, eso **cubre**
+los dos middlewares, `Services/Login.php`, `Services/Sesion.php`, la migración y
+los tests; y **no cubre** los seis controladores, `app/Models/TokenDeSesion.php` ni
+`app/User.php`.
+
+**No es un hueco** —CLAUDE.md decide a propósito que se formatea el día que se toca
+cada fichero, porque reformatear los 113 de golpe da un diff ilegible—. Es que la
+frase corta «pint verde» se lee como una cobertura que no tiene, y en un lote que
+toca seis controladores esa lectura es del 100% de lo que uno cree y del 0% de lo
+que hay.
+
+### Lo que el relevo comprobó en vez de creérselo
+
+Las cuatro salieron como decía este documento. Se listan porque **un dato que llega
+de otra sesión se verifica antes de reenviarlo**, y porque una de ellas resultó
+estar dicha corta.
+
+- **La migración está aplicada de verdad**, leído de `information_schema` y no del
+  hecho de que los tests pasen: `historial_id int unsigned NULL` y FK
+  `pat_historial -> historiales`. **94 tablas** — que es exactamente lo que el §0
+  avisa que NO lo demuestra, y por eso se miró la columna.
+- **El `[OK]` de larastan no está comprado**: `phpstan.neon` **no aparece** entre
+  los ficheros que toca el lote, así que no hay ningún ignore nuevo sosteniéndolo.
+- **Las seis instantáneas son aditivas**, y esto es lo que se le promete al front:
+  el diff son **doce líneas y las doce son `+`**, dos claves por fichero. Ni un `-`,
+  ni un renombre, ni un cambio de tipo.
+- **El detector ciego del §«tres cosas que me costaron» está dicho corto, y en la
+  dirección mala.** Los cuatro controladores tienen **9 `Auditoria::registrar()`
+  entre ellos y CERO `DB::insert/update/delete/statement`**. O sea que
+  `escrituras-sin-auditoria.php` **no los cuenta de menos: no puede verlos**, porque
+  sólo cuenta formas `DB::` y ahí no hay ninguna. «32 donde había 52» describe el
+  síntoma; la causa es que **cuatro dominios caen fuera de su universo entero**.
+
+### El estado contra `main`, que esta rama no podía mirar
+
+Al cerrar, `main` estaba **18 commits por delante**. `git merge-tree` da **cero
+conflictos**. Un solo fichero se toca por los dos lados —
+`DefinitivasPeriodosController.php`, por DEF-108 en `main` y por la fase 2 aquí— y
+**la limpieza es real y no suerte del diff**: DEF-108 acota una lectura de
+`unidades` en `:116`/`:158`, y la fase 2 quita el producto cartesiano en
+`:217`/`:411`. Métodos distintos, asuntos distintos, sin interacción.
+
+> **Lo que estos números NO dicen, y es la mitad que se olvida:** el verde es el de
+> **la rama**, no el de la fusión. Dieciocho commits de otras cuatro sesiones no
+> heredan un verde — **se vuelve a correr en el árbol fundido**, y ése es el número
+> que se publica.
