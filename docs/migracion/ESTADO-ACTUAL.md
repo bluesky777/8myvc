@@ -16,7 +16,7 @@
 
 Las fases 0–4 del [plan](00-plan-migracion.md) están cerradas, la 5 recortada y la
 6 es continua por diseño. **Laravel 13 sobre PHP 8.4**, con red de seguridad y
-autenticación real. Hoy: **1.344 tests, 9.107 aserciones, 535/542 rutas con la
+autenticación real. Hoy: **1.344 tests, 9.107 aserciones, 538/542 rutas con la
 respuesta comprobada, larastan nivel 7 `[OK]`.** Al empezar había **0 tests** y
 `route:list` estaba roto.
 

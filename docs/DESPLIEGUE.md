@@ -382,3 +382,44 @@ despliegue como el de hoy.
    Si un `artisan` de la cadena no imprime su `INFO`, no corrió.
 3. **`config:cache` antes de tocar el `.env`** deja al colegio sirviendo la
    configuración anterior, sin ningún síntoma que lo delate.
+
+---
+
+## Una regla de orden que sale del boletín independiente, para cuando esa tanda salga
+
+**Todavía no hay nada que desplegar de esto** —la fase 1 del
+[19](migracion/19-boletin-independiente.md) es de la noche del 24 y no está
+fusionada—, pero la regla se escribe ahora porque **contradice el orden que este
+documento usó la última vez** y no conviene descubrirlo el día del despliegue.
+
+La migración de esa fase añade `unidades.alumno_id`. Con la columna puesta y
+**nadie marcado**, cuatro consultas de boletines empiezan a dar **500**:
+
+```
+SQLSTATE[23000]: 1052 Column 'alumno_id' in on clause is ambiguous
+```
+
+Cuatro predicados nombraban `alumno_id` **sin alias delante** dentro de consultas
+que unen `unidades`. Hasta hoy no había ambigüedad —`notas` era la única tabla del
+join con esa columna—, así que escribirlo desnudo **llevaba veinte años
+funcionando**. En cuanto `unidades` tiene la suya, MySQL no puede elegir y aborta.
+
+**Lo que importa no es el arreglo —ya está hecho— sino cuándo se rompe:**
+
+> **La rompe el `ALTER TABLE`, no el código.**
+
+Y `app/` es **copia por colegio**. En un colegio donde la migración corra **antes**
+de que llegue el `app/` nuevo, **los boletines dan 500 durante esa ventana**. Así
+que **dentro de cada colegio va primero el `app/` y después el `ALTER TABLE`**, al
+revés que la tanda de `password_reminders`, donde la migración iba delante.
+
+**No hay un orden universal, y ésa es la regla que se lleva:** la migración va
+delante cuando el código nuevo **la necesita** para funcionar; va detrás cuando es
+la migración la que **rompe el código viejo**. Antes de cada tanda con esquema hay
+que preguntarse cuál de los dos casos es — y la forma de saberlo es la que lo
+encontró aquí: **correr la suite con la migración puesta y el código viejo**.
+
+Lo encontró `8myvc-9e` la noche del 24, **y lo encontró la suite, no un detector**.
+Es además el tercer modo de fallo de la §9.2 del plan, y el único bueno: los otros
+dos —contar de más y contar de menos— **son silenciosos**; éste revienta en el
+primer test en vez de imprimir un boletín equivocado.
