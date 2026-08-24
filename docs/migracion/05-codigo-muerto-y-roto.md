@@ -11676,3 +11676,72 @@ Nada de otra persona.
 **Conclusión: la pregunta espejo no encuentra nada abierto hoy**, y las tres cifras de
 arriba son la razón por la que eso significa algo — *un barrido que no dijera qué dejó
 fuera daría el mismo «nada» revisando la mitad.*
+
+## §231. «¿Cuántos números se han quemado?» no se puede contestar — y eso es peor que la carrera
+
+La [§225](#) dejó el consecutivo en rojo, y lo que faltaba para poder **priorizarlo** era
+un número: *contador menos certificados emitidos = números quemados por mirar*. Se fue a
+hacer esa resta.
+
+**No hay minuendo que restar: `M` no existe.**
+
+**Ninguna tabla guarda un certificado emitido.** Se preguntó al esquema vivo, no al
+volcado —`information_schema`, buscando `%certificad%` y `%folio%`— y sale **una sola
+tabla**: `config_certificados`, que es **maquetación** (imágenes de encabezado y pie,
+márgenes, qué página lleva cada una). No hay fecha de emisión, ni a quién se le emitió, ni
+quién lo emitió, ni qué número le tocó.
+
+> **El único rastro de que se emitió un certificado es que un contador subió.** Y ese
+> contador es **un `varchar` que cualquiera de los 51 profesores puede fijar a lo que
+> quiera** ([§225](#)), **sin que se escriba una línea en `bitacoras`** —
+> `putCambiarContadorCertificados` no está entre los cuatro ficheros que auditan.
+
+De ahí salen tres cosas que la carrera no decía:
+
+1. **Un número quemado por abrir la pantalla es indistinguible de uno emitido.** No es que
+   sea difícil: **no hay dato que los separe.**
+2. **Dos certificados con el mismo número tampoco se detectan después.** El fallo de la
+   §225 no deja huella comprobable ni siquiera cuando ocurre.
+3. **La pregunta que un colegio haría en una auditoría —«¿cuántos certificados emitimos
+   este año y a quién?»— hoy no tiene respuesta**, ni con acceso total a la base.
+
+*La carrera es un fallo; esto es la ausencia del registro que permitiría verla. Y por eso
+la resta que no se pudo hacer informa la decisión más que el número que buscaba.*
+
+### Lo que sí se midió, y decide DÓNDE está la cura
+
+`tests/Barrido/QuemaDelConsecutivoTest.php`, valor a valor sobre el endpoint real:
+
+| lo que manda el cliente | ¿sube? |
+|---|---|
+| **no mandar la clave** | no sube |
+| `true` (booleano) · `"true"` | **SUBE** |
+| `false` (booleano) · `"0"` · `0` | no sube |
+| **`"false"` (cadena)** | **SUBE** |
+| `"si"` (cualquier cadena no vacía) | **SUBE** |
+
+**El servidor sólo sube cuando se lo piden**, así que **la cura está entera en el front y
+no toca los dieciséis despliegues** — que era la pregunta abierta sobre el coste de la
+salida.
+
+**Pero con una condición que nadie adivina leyendo el endpoint:** el incremento está
+detrás de `Request::input('aumentar_contador') == true`, con `==` y no `===`, y **en PHP
+cualquier cadena no vacía que no sea `'0'` es cierta**. Un cliente que mande la **cadena**
+`"false"` creyendo que dice «no subas» **quema un folio oficial**. La instrucción segura
+para el front es **omitir la clave**, no mandar `false`.
+
+> Es **la misma comparación laxa que ya se corrigió doce líneas más arriba en el mismo
+> fichero** (`year_selected`, donde `0 == 'true'` era cierto). *Se arregló la de al lado y
+> no ésta, porque la de al lado daba un síntoma visible y ésta sólo gasta un número que
+> nadie echa en falta.*
+
+Queda fijado en rojo junto a los otros tres: `ConsecutivoDeCertificadosTest`, grupo
+`rojo`, **cuatro rojos** ahora.
+
+### Y el límite de esta medición, que hay que leer con el número
+
+**Todo esto se midió contra la base de tests, que es un seed y no producción.** La tabla
+de valores **no depende de los datos** —es la semántica de PHP y vale igual en los
+dieciséis—, pero **«cuántos números se han quemado en cada colegio» sigue sin saberse, y
+no por falta de acceso: porque el dato no existe en ninguna parte.** Con acceso a las
+dieciséis bases, la respuesta sería la misma.

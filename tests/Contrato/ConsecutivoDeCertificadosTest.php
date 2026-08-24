@@ -180,4 +180,53 @@ class ConsecutivoDeCertificadosTest extends CasoDeContrato
         $this->assertSame($valorPrevio, $despues,
             'El contador de folios quedó en «'.$despues.'», por la misma puerta que el de certificados.');
     }
+
+    /**
+     * Mandar `"false"` **quema un número**.
+     *
+     * El incremento está detrás de `Request::input('aumentar_contador') == true`,
+     * con `==` y no `===`. En PHP **cualquier cadena no vacía que no sea `'0'` es
+     * cierta**, así que la cadena `"false"` —que es lo que manda un cliente que
+     * cree estar diciendo «no subas»— entra en el `if`.
+     *
+     * Medido, valor a valor, en `Tests\Barrido\QuemaDelConsecutivoTest`:
+     *
+     *     sin la clave    no sube        "true"    SUBE
+     *     true (bool)     SUBE           "false"   SUBE   <- éste
+     *     false (bool)    no sube        "0"       no sube
+     *     0 (entero)      no sube        "si"      SUBE
+     *
+     * **Y esto decide dónde está la cura**, que era la pregunta abierta: el
+     * servidor sólo sube cuando se lo piden, así que **el front puede arreglarlo
+     * solo y sin tocar los dieciséis despliegues** — pero **no le basta con mandar
+     * `false`: tiene que mandar el booleano, no la cadena, o mejor OMITIR la
+     * clave**. Es una regla que **nadie puede adivinar leyendo el endpoint**, y por
+     * eso está aquí escrita en vez de en la cabeza de quien lo midió.
+     *
+     * Es la misma comparación laxa que ya se corrigió **doce líneas más arriba en
+     * el mismo fichero** (`year_selected`, donde `0 == 'true'` era cierto). *Se
+     * arregló la de al lado y no ésta, porque la de al lado dio un síntoma visible
+     * y ésta sólo gasta un número que nadie echa en falta.*
+     */
+    public function test_la_cadena_false_no_deberia_quemar_un_numero(): void
+    {
+        $this->withoutMiddleware(ThrottleRequests::class);
+
+        [$grupo, $token] = $this->grupoYPersonal();
+
+        $lee = fn () => (int) DB::selectOne(
+            'SELECT contador_certificados FROM years WHERE deleted_at is null and actual=1'
+        )->contador_certificados;
+
+        $antes = $lee();
+
+        $this->putJson('/api/bolfinales/detailed-notas-year-group/'.$grupo->id,
+            ['aumentar_contador' => 'false'],
+            ['Authorization' => 'Bearer '.$token])->assertStatus(200);
+
+        $this->assertSame($antes, $lee(),
+            'Mandar la CADENA "false" subió el consecutivo de '.$antes.' a '.$lee().'. '
+            .'`== true` es cierto para cualquier cadena no vacía que no sea "0", así que un '
+            .'cliente que cree estar diciendo «no subas» quema un folio oficial.');
+    }
 }
