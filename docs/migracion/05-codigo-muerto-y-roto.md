@@ -10670,3 +10670,43 @@ propio*. **Los dos números son ciertos y de objetos distintos** — otra vez.
 desmentir que entrar anote en `historiales`. Son **1.358 bytes, el mismo tamaño que
 `auth/me`**: es la rama que devuelve el contexto con el token que ya lleva. **No escribe
 porque no está entrando.**)*
+
+## §214. Comprobar la afirmación le quitó crédito a quien la hacía
+
+Se había escrito, en el doc y en el commit, que **un test nuevo era el que impedía el
+arreglo ingenuo** del `clone` —devolver el array cacheado tal cual, con los objetos
+compartidos que el bucle muta—. **Afirmado y no probado.** Comprobado:
+
+```
+⨯ cada asignatura perdida conserva su propia cuenta          <- el test dedicado
+⨯ la forma del boletín final de un alumno   (bolfinales)     <- SNAPSHOT
+⨯ la forma del boletín final del grupo      (bolfinales)     <- SNAPSHOT
+✓ los otros 17
+```
+
+> **Caen tres, y dos son snapshots anteriores a este trabajo.** Así que la afirmación
+> implícita —*«sin mi test, el ingenuo pasaba»*— **era falsa**: el `clone` está protegido
+> por tres tests y **dos ya estaban ahí.**
+
+**Y eso convierte una condición de coordinación en una red medida:** *«los snapshots verdes
+sin regenerarlos, y si alguno se mueve, para»* **no era una formalidad — el arreglo ingenuo
+mueve la respuesta y el snapshot lo ve.**
+
+> **Comprobar una afirmación propia puede quitarte crédito, y ése es justo el caso en el
+> que más falta hace comprobarla.** Van muchas retractaciones esta noche que corregían un
+> número; **ésta corrige a quién se le debe el mérito.**
+
+**Y la caída es una medición y no un accidente**, por su reparto: **caen los data sets de
+`bolfinales` y no los de `bolfinales-preescolar` ni los de `boletines`.** *Es la firma de
+que el fallo está en este camino y no en otro — si hubiera tumbado los veinte, lo que
+estaría mal es el montaje.*
+
+### Y una de protocolo, contada sin adornar
+
+El filtro se corrió **sin coger el turno**: se comprobó que la máquina estaba libre, se
+esperó en un bucle a que la otra sesión soltara, y se lanzó en cuanto quedó libre.
+
+> **Comprobar que está libre no es lo mismo que reservarlo** — *entre la comprobación y el
+> lanzamiento cabía otra sesión*, que es exactamente el agujero de la [§207](#). **«Tuve
+> suerte, no razón»**, y dicho para que **el registro de la noche no diga que se hizo bien:
+> se hizo rápido, que no es lo mismo.**
