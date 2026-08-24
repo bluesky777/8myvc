@@ -282,6 +282,113 @@ que la tercera pieza son tres líneas ahí, `everyFifteenMinutes()` con
 
 ---
 
+## Lo siguiente que se pidió: la auditoría — **plan escrito, sin código**
+
+**[18-auditoria.md](18-auditoria.md).** Salió de tres peticiones que resultaron ser
+el mismo problema: un historial fiable de notas modificadas, unas horas que no
+salgan raras, y una pantalla de «qué hizo este usuario en este ingreso».
+
+Lo medido el 24 ago, que es lo que decide el plan:
+
+- **10 `INSERT INTO bitacoras` contra 256 escrituras de datos** en 56 controladores.
+  Cinco de los diez son de seguridad. **Asistencia, comportamiento, disciplina,
+  situaciones y frases no graban nada** — la pantalla pedida no se puede construir
+  hoy porque no hay filas que mostrar.
+- **Las horas raras son tres causas a la vez**: 118 sitios escriben en Bogotá y
+  **17 en UTC** (`config/app.php` dice `UTC`) **sobre la misma columna**; las columnas son
+  `TIMESTAMP` y nadie fija la zona de la conexión (`@@session.time_zone = SYSTEM`),
+  así que **la lectura depende del hosting de cada colegio**; y conviven
+  `TIMESTAMP` con `DATETIME` en la misma tabla.
+- **`historial_id` es una adivinanza**: se resuelve con `order by id desc limit 1`
+  sobre `historiales`, o sea **el último login del usuario, no la sesión que hizo
+  el cambio**. Con el móvil y el navegador abiertos, la pantalla mostraría una
+  lista falsa sin ningún error visible. El token y el ingreso no se conocen.
+- **La auditoría se puede borrar**: `DELETE bitacoras/destroy/{id}` va con
+  `auth.personal`.
+- Y `PUT historiales/sesion` **ya intenta ser esa pantalla**, pero sólo trae notas
+  y con `INNER JOIN`, así que una nota borrada desaparece del historial.
+
+El plan: tabla `auditoria` nueva (`bitacoras` se congela, no se migra sobre
+dieciséis producciones), un solo escritor `App\Services\Auditoria`, append-only,
+`DATETIME(3)` con un `Reloj` único y su test, y **la sesión atada al token** antes
+de nada. Seis fases; las dos primeras —el reloj y la sesión— **no dependen de
+ninguna decisión y ya mejoran la bitácora vieja**.
+
+**Las tres decisiones que lo bloqueaban están contestadas** (24 ago): `ocurrido_en`
+en hora de Bogotá con `DATETIME`; `config/app.php` **se queda en UTC** y el `Reloj`
+es la única fuente de lo que se guarda; y la auditoría se ve con un permiso nuevo
+`can_view_auditoria`, **sembrado sólo a rector y coordinación**, con la regla
+añadida de que **cada quien ve siempre lo suyo** sin permiso. Eso obliga a cerrar
+en la misma fase las seis rutas viejas que hoy van con `auth.personal` — dejarlas
+abiertas convertiría el permiso nuevo en decoración.
+
+**La fase 0 ya tiene herramienta**: `tools/salud-de-la-bitacora.php` (sólo
+`SELECT`, diez bloques, `--csv` para juntar los dieciséis). Corrida sobre el seed
+da **18 de 3.229 ingresos con algo que enseñar** (99,4% vacíos), **12 filas en UTC
+contra 74 en Bogotá** en la misma columna, y **67,6% de las atribuciones a un
+ingreso sin poder comprobar**. Sus bloques 3 y 4 se cruzan solos —clasifican por
+caminos que no comparten supuesto— y **coincidieron: 12 y 12**, así que el
+desfase de cinco horas está confirmado y no supuesto.
+
+Su lista de escritores es a mano y por eso lleva centinela:
+`CentinelaDeLosEscritoresDeBitacoraTest` fija que sigan siendo diez, en los mismos
+ficheros, **y que los tres de UTC no cambien de reloj** — lo que ningún conteo
+vería. Cazó un error en su primera ejecución: se habían publicado 9 escritores y
+son 10.
+
+**Lo siguiente es correrla en los dieciséis**, como el `for` de la fase 0 de
+definitivas, y con esos números decidir si la historia vieja se reinterpreta o se
+da por perdida.
+
+---
+
+## Y lo último que pidieron los colegios: el boletín independiente — **plan escrito, sin código**
+
+**[19-boletin-independiente.md](19-boletin-independiente.md).** Un alumno se
+puede marcar como PIAR; los colegios quieren marcarlo además como **«requiere
+boletín independiente»**: sale de las planillas normales, tiene una pantalla
+propia donde su docente le escribe **sus** unidades y subunidades del periodo,
+y en el boletín aparece como todos pero con las suyas.
+
+Lo medido el 24 ago, que es lo que decide el diseño:
+
+- **74 consultas leen `unidades` y 70 leen `subunidades`** en `app/`, repartidas
+  en 24 ficheros, y **todas dan por hecho que una unidad es de la asignatura y de
+  nadie más**. El diseño es `unidades.alumno_id` (NULL = del grupo), así que en
+  cuanto exista, **cada una de esas 74 está corregida o equivocada** — y una
+  consulta sin alcance no falla: devuelve las filas de otro.
+- **`notas` y `notas_finales` no se tocan.** La nota del independiente es una
+  nota normal colgada de una subunidad normal, así que `notas/update`,
+  `notas/lote`, la bitácora y el recalculador único **funcionan sin cambio**, y
+  el alumno sale en puestos, finales, actas y certificados sin escribir nada.
+- **Los tres boletines se cubren en dos funciones**: `Unidad::deAsignaturaCalculada`
+  y `Subunidad::deUnidadCalculada`.
+- **`Nota::puestoAlumno` está copiado en ocho sitios**, así que el interruptor de
+  los puestos se lee en un servicio y preguntan los ocho.
+
+**Cuatro decisiones tomadas** (todas las asignaturas · la marca en `matriculas`,
+por año · el interruptor de puestos en `years` · copiar estructura y preguntar
+por las notas) y **la regla que lo hace desplegable**: con las migraciones
+puestas y nadie marcado, **los 1.344 tests pasan sin regenerar un solo
+snapshot**. Tres rutas nuevas, de 542 a 545.
+
+**El canal con el front es `myvc_front/PANTALLAS-HISTORIAL-Y-BOLETIN.md`, sección
+C**, no este repo: lo pidió Joseth el 24 ago porque **el front no lee `8myvc` por
+su cuenta** y este plan estuvo un día escrito sin que nadie lo viera. Toda
+decisión que cambie un cuerpo, un nombre de campo o una ruta se escribe **ahí
+además de aquí**.
+
+**Comunicado a `myvc_front` el 24 ago** para hacerlo conjuntamente, en dos vueltas
+—`myvc-front-12` y `myvc-front-10`, ésta con el inventario de pantallas—. Sus
+siete avisos y preguntas están dentro del plan y contestados en su buzón; **uno de
+ellos destapó un fallo vivo que no era el que preguntaban** (§9.5: la ficha lee de
+una matrícula y escribe en otra cuando hay dos del mismo año) —el más útil, que **un vacío tiene que decir por
+qué está vacío**, arregló el punto más flojo (§6.1)—. El front no publica hasta
+que esto esté **desplegado** en los dieciséis, y espera además el aviso de que la
+tanda de DESPLIEGUE.md salga: tiene cuatro cosas congeladas detrás.
+
+---
+
 ## Lo que espera una decisión de Joseth
 
 Están en [09-pendientes.md](09-pendientes.md), agrupadas. Las que quedan sin
@@ -293,6 +400,24 @@ contestar:
 - **Quién del personal puede qué** — cinco lotes preguntan variantes.
 - **Los dieciséis números de la fase 0** de definitivas: la herramienta está, hay
   que correrla en el servidor colegio por colegio (`for` de una línea en el 10).
+> Las tres de la auditoría se contestaron el 24 ago y están cerradas en el
+> [18](18-auditoria.md). No quedan abiertas.
+
+- **[§13](09-pendientes.md) — «No guardado» con 200 cuando sí se guardó.** Salió
+  de coordinar el 19 con el front. `DB::update` devuelve filas **afectadas** y
+  MySQL devuelve 0 cuando el UPDATE no cambia nada: **guardar el valor que ya
+  estaba contesta «No guardado» y el estado es correcto**. Medido: **4 sitios, 6
+  rutas**, entre ellas las ~20 propiedades de la ficha del alumno y la rejilla de
+  configuración del colegio. **Es el reverso de los «200 que mienten»** —allí el
+  tipo, aquí el texto— y **no se arregla en un solo lado**: cambia el cuerpo de
+  seis rutas vivas y `myvc_flutter` es una sola app para los dieciséis.
+
+- **Las dos del boletín independiente** ([19](19-boletin-independiente.md) §2):
+  **quién puede marcar a un alumno** —hoy la propiedad de matrícula la escriben
+  titular y administrativo, y `nee` la escribe además el psicólogo: la propuesta
+  es igualarlas— y **qué puesto lleva el boletín de un independiente** cuando el
+  interruptor dice que no cuentan (la propuesta es `—`, no un puesto calculado
+  sobre una lista de la que se le sacó).
 
 ### Y cuatro nuevas del 24 ago, las cuatro con la medición delante
 

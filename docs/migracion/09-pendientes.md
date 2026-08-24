@@ -2281,3 +2281,75 @@ no rompe nada: `myvc_front` enseña un texto fijo suyo y no mira el cuerpo
 
 Dos tests nuevos en `SecretarioTest`, los dos en negativo: que el conteo cuadra con
 los matriculados del grupo, y que **a un retirado no le cambia la contraseña**.
+
+---
+
+## 13. «No guardado» con 200 cuando sí se guardó — 24 ago 2026
+
+**Lo encontró el front preguntando otra cosa.** Coordinando el plan del
+[19](19-boletin-independiente.md), `myvc-front-12` preguntó si el backend
+aceptaría una propiedad nueva en `guardar-valor` o si el fallo sería *«un No
+guardado silencioso»*. La respuesta a su pregunta es que **no**: una propiedad
+que no existe corta con **422** (`ColumnaSegura::exigir`). Pero al ir a
+comprobarlo apareció lo otro, que estaba vivo y nadie había mirado.
+
+### Lo que hace
+
+```php
+$res = DB::update($consulta, $datos);
+
+if($res)
+    return 'Guardado';
+else
+    return 'No guardado';
+```
+
+**`DB::update` devuelve filas AFECTADAS, y MySQL devuelve 0 cuando el UPDATE no
+cambia ningún valor** — no cuando no encuentra la fila. Así que **guardar el
+valor que ya estaba contesta «No guardado» con la petición en 200 y el estado
+correcto**. Es el mismo mecanismo que costó un test en rojo en
+`DefinitivasDeAsignatura` (el UPSERT que dejaba tres filas), leído aquí al revés.
+
+### La población, medida el 24 ago
+
+**Cuatro sitios** devuelven esa cadena, alcanzados por **seis rutas**:
+
+| Sitio | Por dónde se llega |
+|---|---|
+| `Alumnos/GuardarAlumno.php:103` (`valor`) | `PUT alumnos/guardar-valor`, `PUT alumnos/guardar-valor-varios` — **las ~20 propiedades de la ficha del alumno**, entre ellas `nee` |
+| `Alumnos/GuardarAlumno.php:147` (`valorAcudiente`) | `PUT acudientes/guardar-valor` |
+| `Alumnos/ImporterFixer.php:210` | el reparador de la importación de Excel |
+| `YearsController.php:533` (`putToggleCambiarValor`) | `PUT years/toggle-cambiar-valor` — **la rejilla de configuración del colegio** |
+
+**Y el cuarto es de esta casa**: el interruptor `puestos_con_bol_independiente`
+del [19](19-boletin-independiente.md) §7 se guarda por ahí. Un rector que reintenta
+tras un timeout, o que apaga lo que ya estaba apagado, lee «No guardado» **justo
+después de una acción que sí funcionó**.
+
+### Por qué no se arregla solo en el backend
+
+Lo dijo el front, y tiene razón: **es el reverso exacto de los «200 que
+mienten»** que este proyecto lleva dos semanas barriendo
+(`tools/respuestas-que-mienten.py`, [05](05-codigo-muerto-y-roto.md)). Allí un
+fallo se disfrazaba de éxito **por el tipo de la respuesta**; aquí un éxito se
+lee como fallo **por el texto**, y el texto lo interpreta el cliente. Sus §212–216
+dicen que *con estos endpoints, 200 es éxito y el cuerpo no se interpreta*.
+
+**Las dos mitades a la vez, o se rompe una.** Si el backend deja de mandar «No
+guardado» y el front sigue interpretando la palabra, la pantalla se queda muda;
+si el front deja de interpretarla y el backend sigue mandándola, no pasa nada
+— pero el día que un UPDATE falle de verdad, nadie se entera.
+
+### Las opciones
+
+- **A. Distinguir en el backend**: preguntar si la fila existe antes de escribir,
+  y contestar `404` cuando no está y `'Guardado'` cuando está y no cambió nada.
+  Es correcta y es la que deja el contrato sano. Toca cuatro sitios y **cambia
+  el cuerpo de seis rutas vivas**, así que va con el front delante.
+- **B. Que el cliente deje de leer el cuerpo** y se quede con el código de
+  estado. Es la mitad del front de todas formas, y sin A no arregla nada: sigue
+  sin haber forma de saber que un UPDATE no encontró la fila.
+- **C. A y B, en ese orden y con despliegue escalonado.** Es lo que se propone.
+
+**No lo decide una sesión**: cambia el cuerpo de seis rutas que llaman los cuatro
+clientes, y `myvc_flutter` es **una sola app para los dieciséis**.
