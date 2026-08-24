@@ -8134,3 +8134,63 @@ con `is_active = 0` y contestando *«Usuario invalidado»*, **y con `is_superuse
 No la borró porque `deleteDestroy` de perfiles borra **un grupo**, no un perfil, y
 llamarlo con 2447 habría tocado el grupo 2447. Queda escrito aquí, que es donde se
 mira lo que se le hizo a `simonbolivar` y no está en git.
+
+## §174. Dos exportaciones rotas, una razón para aplazar que caducó sola, y un método que casi se borra bien
+
+`Excel::create` es la API de Laravel Excel **2.x** y aquí hay la **3.1.70**. Lo midió
+`myvc-front-98` desde el front —comprobándolo método a método contra
+`vendor/maatwebsite/excel/src/Excel.php`— y lo cerró `8myvc-d2`.
+
+### El barrido, con su población
+
+```
+Excel::create en app/ ................... 3 llamadas en 2 ficheros
+  vivas y rotas ......................... 2
+  inalcanzable tras un return ........... 1
+Excel::load / ->setTitle( / ->export( ... 0
+```
+
+**Dos vivas, no una** — y la segunda estaba **en el mismo fichero que la muerta**:
+`SimatController::getAlumnos` (`simat/alumnos`), sin nada delante. El aviso que
+circuló decía que la de ese fichero era código muerto, y era cierto **para una de
+las dos**. Es exactamente la diferencia entre **barrer la pantalla y barrer el
+patrón**, y es lo que compró preguntar *«¿quién más hace esto mismo?»*.
+
+Las dos tienen botón en `myvc_front`, la aplicación desplegada hoy en los dieciséis
+(`InformesCtrl.ts:626` y `:700`, las dos por `DownloadServ.download`). Ninguna la
+llama `myvc_flutter`. Arregladas copiando el patrón de las tres que funcionan
+—`Excel::download(new XExport, …)` con hojas `FromView`—, no inventando uno nuevo.
+
+### La razón para aplazar que envejeció sin que nadie volviera a mirarla
+
+**Esto vale más que los dos endpoints.** El proyecto **ya lo sabía y lo aplazó por
+escrito el 19 ago 2026**: `phpstan.neon` llevaba tres anotaciones y `ExcelTest`
+tenía tres casos **que fijaban el 500 como contrato esperado**. No lo destapó una
+búsqueda: lo destapó **larastan fallando con *«Ignored error pattern … was not
+matched»*** después del arreglo.
+
+El motivo anotado era, textual: *«reescribir estos dos a la API nueva es rehacer el
+informe, no arreglarlo»*. **Falso**: `simat/alumnos` reutiliza `AlumnosExport`, que
+ya existía y monta lo mismo, y el listado de docentes son sesenta líneas copiando la
+consulta y la vista de siempre.
+
+> **Una razón para aplazar también caduca, y ésta no llevaba fecha de revisión.**
+> Es un caso más fuerte que *«nadie se quejó»* ([§170](#)): aquí alguien lo midió, lo
+> escribió, **decidió razonablemente** — y la decisión envejeció sola. Lo que faltaba
+> no era criterio: era **una fecha en la que volver a mirarla**.
+
+### Y el método que casi se borra con toda la razón
+
+Al quitar el bloque muerto, el helper privado `Comentarios()` se quedó **privado, sin
+llamantes y sin ningún test en rojo**. Se borró. **Estaba mal.** Otra anotación de
+`phpstan.neon` explicaba por qué seguía ahí: lo que escribe son **las instrucciones
+de cada columna de la plantilla del SIMAT**, o sea la especificación que
+`ImporterFixer` —vivo— **lee de vuelta** de la hoja que devuelve la secretaría.
+`AlumnosSheet` no las escribe: ese método es **el único sitio del repositorio donde
+están**. Restaurado, con el porqué en su docblock.
+
+> Y ésta es **el reverso** de la regla de los detectores, que decía *«un detector da
+> sitios donde mirar, nunca una lista de fallos»*: aquí **el detector tenía razón y
+> aun así la acción era la equivocada**, porque la razón para conservar el código no
+> vivía en el código, sino anotada al lado. En una frase: **un «esto no lo usa nadie»
+> no es todavía un «esto se puede borrar».**
