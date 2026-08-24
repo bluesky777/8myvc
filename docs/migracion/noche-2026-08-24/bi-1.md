@@ -27,6 +27,7 @@ rutas nuevas, sin pantallas, sin tocar `notas` ni `notas_finales`.
 | 4 | El interruptor de puestos leído en un servicio | **hecho** — y con una corrección de premisa: ver §6 |
 | 5 | **El inventario clasificado de las 74 + 70 consultas** | **hecho** — §5, y es lo que más movió |
 | 6 | `tools/unidades-sin-alcance.py`, la fase 0 | **hecho** — no existía |
+| 7 | Cuatro consultas que el `ALTER TABLE` rompía con un 500 | **arregladas** — §5.bis, y no estaban previstas |
 
 **Lo que NO entra, y por qué:**
 
@@ -252,6 +253,55 @@ fallos**:
 ninguna necesita alcance: quien tiene el id ya tiene la fila de su dueño. Lo que
 sí necesitan es **guarda de autorización**, y ésa es una pregunta anterior a esta
 función y no la abro aquí.
+
+---
+
+## §5.bis — La tercera forma de fallar, que el plan no nombra
+
+**Es lo más importante que encontré, y lo encontró la suite, no el detector.**
+
+La §9.2 del 19 dice que una consulta sin alcance «no falla: devuelve las filas de
+otro», y describe **dos** formas —de más y de menos—. Hay una tercera, y **sale
+antes que las otras dos**:
+
+```
+SQLSTATE[23000]: 1052 Column 'alumno_id' in on clause is ambiguous
+```
+
+Con la migración puesta y **nadie marcado**, `BoletinNoBorraDefinitivasTest` y
+`BoletinDeLaFamiliaTest` se pusieron en rojo con **500**. La causa:
+
+```sql
+left join notas n ON n.subunidad_id=s.id and n.deleted_at is null and alumno_id=:alumno_id
+--                                                                     ^^^^^^^^^ sin alias
+```
+
+Hasta hoy **no había ambigüedad**: `notas` era la única tabla del join con una
+columna `alumno_id`, así que escribirlo desnudo funcionaba y llevaba veinte años
+funcionando. En cuanto `unidades` tiene la suya, MySQL no puede elegir y aborta.
+
+**Cuatro predicados**, ya corregidos: `Unidad::deAsignaturaCalculada` (×3) y
+`Subunidad::perdidasDeAsignatura`. De paso quedaron calificados los otros dos de
+`Subunidad` que hoy **no** son ambiguos —`deUnidad2` y `deUnidadCalculada`, que no
+unen `unidades`—: dejar dos sin calificar al lado de uno calificado invita a
+suponer que la forma desnuda vale.
+
+**De las tres formas de fallar, ésta es la buena**: es ruidosa, sale en el primer
+test y no imprime un boletín equivocado. Lo que la hace peligrosa es **cuándo**:
+
+> **La rompe el `ALTER TABLE`, no el código.**
+
+`app/` es copia por colegio (CLAUDE.md). En un colegio donde la migración corra
+antes de que llegue el `app/` nuevo, **los boletines dan 500 durante esa
+ventana** — y son los boletines, o sea la pantalla que mira una familia. Eso
+**cambia la §10 del plan**: la migración de esta fase no es puramente aditiva
+respecto del código viejo, y el orden dentro de cada colegio es *primero el
+`app/`, después el `ALTER TABLE`*, no al revés.
+
+`tools/unidades-sin-alcance.py` vigila la clase entera desde ahora, y hoy dice
+cero. **El detector no la habría encontrado**: buscaba consultas sin alcance, y
+éstas fallan por una razón que no tiene que ver con el alcance. La encontró
+**mirar el resultado y no el estado**, que es la regla de `tests/Contrato/`.
 
 ---
 

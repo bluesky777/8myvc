@@ -74,7 +74,7 @@ class Subunidad extends Model {
 								<span ", IF(n.nota<:min_aceptada, "class=\"nota-perdida-bold\" ", ""), " uib-tooltip=\"Valor nota: {{::subunidad.valor_nota}}\">", n.nota,"</div>
 						</div>") as fila_subunidad
 					FROM subunidades s
-					left join notas n ON n.subunidad_id=s.id and n.deleted_at is null and alumno_id=:alumno_id
+					left join notas n ON n.subunidad_id=s.id and n.deleted_at is null and n.alumno_id=:alumno_id
 					left join escalas_de_valoracion e ON e.porc_inicial<=n.nota and e.porc_final>=n.nota and e.deleted_at is null and e.year_id=:year_id
 					where s.unidad_id=:unidad_id and s.deleted_at is null
 					order by s.orden';
@@ -94,7 +94,7 @@ class Subunidad extends Model {
 						s.nota_default, s.orden as orden_subunidad, s.inicia_at, s.finaliza_at, ROUND((n.nota*s.porcentaje/100), 1) as valor_nota, n.nota, e.desempenio, 
 						s.definicion, s.porcentaje, e.desempenio, IF(n.nota<:min_aceptada, "nota-perdida-bold", "") as clase_perdida, n.nota
 					FROM subunidades s
-					left join notas n ON n.subunidad_id=s.id and n.deleted_at is null and alumno_id=:alumno_id
+					left join notas n ON n.subunidad_id=s.id and n.deleted_at is null and n.alumno_id=:alumno_id
 					left join escalas_de_valoracion e ON e.porc_inicial<=n.nota and e.porc_final>=n.nota and e.deleted_at is null and e.year_id=:year_id
 					where s.unidad_id=:unidad_id and s.deleted_at is null
 					order by s.orden';
@@ -138,7 +138,7 @@ class Subunidad extends Model {
 						u.asignatura_id, u.orden as orden_unidad, u.periodo_id, count(n.nota) as cant_perdidas
 					FROM unidades u
 					left join subunidades s ON s.unidad_id=u.id and s.deleted_at is null
-					left join notas n ON n.subunidad_id=s.id and n.deleted_at is null and alumno_id=:alumno_id and n.nota<:nota_minima
+					left join notas n ON n.subunidad_id=s.id and n.deleted_at is null and n.alumno_id=:alumno_id and n.nota<:nota_minima
 					where u.asignatura_id=:asignatura_id and u.periodo_id=:periodo_id and u.deleted_at is null
 					group by u.id 
 					order by u.orden, u.id';

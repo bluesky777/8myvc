@@ -358,6 +358,38 @@ VEREDICTO = {
 CLASES = ('por-id', 'por-nota', 'por-alumno', 'por-asignatura', 'mas-ancho')
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# La tercera forma de fallar, que el plan no nombra y es la que aparece primero.
+#
+# La §9.2 del 19 dice que una consulta sin alcance «no falla: devuelve las filas
+# de otro», y describe dos formas —de más y de menos—. **Hay una tercera, y se ve
+# antes que las otras dos: la consulta revienta con un 500.**
+#
+#     SQLSTATE[23000]: 1052 Column 'alumno_id' in on clause is ambiguous
+#
+# Pasa cuando el SQL nombra `alumno_id` **sin alias delante** dentro de una
+# consulta que une `unidades`. Hasta hoy no había ambigüedad —`notas` era la
+# única tabla del join con esa columna— así que escribirlo desnudo funcionaba.
+# En cuanto `unidades` tiene la suya, MySQL no puede elegir y aborta.
+#
+# Lo encontró la suite el 24 ago 2026, en `BoletinNoBorraDefinitivasTest`, con la
+# migración puesta y **nadie marcado**: cuatro predicados en `Unidad::
+# deAsignaturaCalculada` y `Subunidad::perdidasDeAsignatura`.
+#
+# **Y de las tres formas de fallar, ésta es la buena**: es ruidosa, sale en el
+# primer test y no imprime un boletín equivocado. Lo que la hace peligrosa es
+# **cuándo** aparece: la rompe el `ALTER TABLE`, no el código. Un colegio donde
+# la migración corra antes de que llegue el `app/` nuevo —y `app/` es copia por
+# colegio— tiene los boletines en 500 en esa ventana. Va en la §10 del plan.
+def desnudas(sql):
+    """Cada `alumno_id` sin alias que se COMPARA (no el `as alumno_id` de un SELECT)."""
+    if not re.search(r'\bunidades\b', sql, re.I):
+        return []
+    return [m.group(0) for m in re.finditer(
+        r'(?<![\w.:])alumno_id\s*(?:=|<=>|<|>|\bin\b)|(?:=|<=>)\s*(?<![\w.])alumno_id\b',
+        sql, re.I)]
+
+
 def main():
     csv_out = '--csv' in sys.argv
     detalle = '--detalle' in sys.argv
@@ -414,16 +446,18 @@ def main():
                             'estado': estado, 'via': via, 'elige': elige,
                             'veredicto': VEREDICTO[elige],
                             'servicio': 'si' if usa_servicio else 'no',
+                            'desnudas': len(desnudas(sql)),
                             'sql': ' '.join(sql.split()),
                         })
 
     lecturas = [h for h in hallazgos if h['verbo'] in ('from', 'join', ',')]
+    ambiguas = [h for h in hallazgos if h['desnudas']]
     escrituras = [h for h in hallazgos if h['verbo'] in ('into', 'update')]
 
     if csv_out:
         w = csv.DictWriter(sys.stdout, fieldnames=[
             'fichero', 'linea', 'metodo', 'tabla', 'verbo', 'alias', 'estado',
-            'via', 'elige', 'veredicto', 'servicio'])
+            'via', 'elige', 'veredicto', 'servicio', 'desnudas'])
         w.writeheader()
         for h in hallazgos:
             w.writerow({k: v for k, v in h.items() if k != 'sql'})
@@ -450,6 +484,18 @@ def main():
         print(f'== escrituras (INSERT/UPDATE): {len(escrituras)} ==')
         for h in escrituras:
             print(f'   {h["fichero"]}:{h["linea"]}  {h["metodo"]}  {h["verbo"]} {h["tabla"]}')
+        print()
+
+    vistas = {(h['fichero'], h['linea']) for h in ambiguas}
+    if vistas:
+        print(f'*** {len(vistas)} consultas comparan `alumno_id` SIN ALIAS uniendo '
+              '`unidades`: son un 500 (1052 ambiguous), no una fila de más. ***')
+        for f, l in sorted(vistas):
+            print(f'      {f}:{l}')
+        print()
+    else:
+        print('Ninguna consulta compara `alumno_id` sin alias uniendo `unidades` '
+              '(la tercera forma de fallar; ver la cabecera).')
         print()
 
     print('== Cómo elige cada lectura su conjunto de filas ==')
