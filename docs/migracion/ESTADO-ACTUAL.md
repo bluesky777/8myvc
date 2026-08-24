@@ -114,6 +114,12 @@ Se apunta aquí para que mañana leas *«faltó coordinación en `8myvc` esta no
 |---|---|---|
 | **8** | **`php tools/fase-cero-de-los-dieciseis.php --csv $(cat colegios.txt) > fase0.csv`** — junta los cuatro `for` pendientes en **una visita y un formato** | **La fase 2 de las definitivas sigue bloqueada**, que es lo que pediste desde el principio. Y de paso: **el esquema congelado se da por igual en los dieciséis y nunca se ha comprobado** |
 
+### Y el frente que abrió el front esta noche, que es de los de contestar
+
+| | Qué |
+|---|---|
+| **8bis** | **Nadie ha censado «personal contra personal», y `auth.personal` la contesta que sí.** El [08](08-revision-idor.md) revisó la autorización horizontal **con un alumno como sujeto**, y su herramienta marcaba las rutas que reciben un identificador del cliente **y no tienen `auth.personal`** — así que **todo lo que ese guard protege quedó fuera por construcción**. Frente a un alumno están cerradas; **un `Profesor` es personal del colegio.** Medido por `myvc-front-94` con dos sesiones delante: **`GET profesores` devuelve a un docente exactamente lo mismo que al administrador** —47 empleados, `num_doc` de 35, `username` de 20, `direccion` de 11— **y el menú del docente no le ofrece esa pantalla**, así que la puerta la abre el endpoint. Es la hermana de `GET contratos`: **se curó aquélla sobre aquella ruta y nadie censó la familia.** Y `GET bitacoras/{user_id?}` es el patrón: sin parámetro da lo tuyo, con parámetro da **la bitácora de cualquiera**, detrás de `auth.personal` y sin `persona.propia`. Lote `FICHAS-1`, **que mide y propone: no recorta nada** |
+
 ### Frentes nuevos que nadie ha abierto porque no los pediste
 
 | | Qué |
