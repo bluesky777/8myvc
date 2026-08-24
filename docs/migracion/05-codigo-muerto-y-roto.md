@@ -9034,3 +9034,63 @@ es lo que dice si hay que rehacer la foto entera o tres filas.
 > mintieron —siete de un lado, dos del otro— y las nueve las contó quien las
 > cometió.** Ninguna salió de que alguien vigilara a nadie: salió de que **decirlo no
 > costaba nada**.
+
+## §185. El correo de la cuenta que se perdía en cada guardado de una ficha de alumno
+
+**El único de los cuatro de esta noche que no era una mina ni un caso raro: estaba
+disparado, en los dieciséis, desde siempre.**
+
+`AlumnosEditCtrl.ts:122` hace `$ctrl.alumno.email2 = alumno.user.email` —la pantalla
+**manda de vuelta** el correo de la cuenta— **y** manda `username`, que abre el
+bloque. Los dos en el mismo cuerpo. Y con la llave muerta de la [§173](#)
+—`if (!Request::input('email1'))`, y `email1` no lo manda ningún cliente— el
+saneador **regenera `email2`** desde el correo de la **ficha**.
+
+> **Cada guardado de una ficha de alumno sustituía el correo de la cuenta por el de
+> la ficha.** Y el correo de la cuenta es con el que se recupera la contraseña.
+
+En Profesores había que provocarlo mandando la clave de la hermana; **aquí lo
+disparaba la pantalla normal**.
+
+### Y «gemelo» era la palabra equivocada: el mismo defecto, otro arreglo
+
+`AlumnosController` **no reproduce el renombrado ni la degradación**, y no por suerte:
+
+```
+Profesores:  sanarInputUser() ANTES y FUERA del bloque · if (… and Request::input('username'))
+Alumnos:     sanarInputUser() DENTRO, tras la puerta   · if (… and Request::has('username'))
+```
+
+**Con el saneador dentro, la puerta la decide el cliente y no la fabricación.** Un
+cuerpo sin `username` no entra, así que **no hay nada que pisar**. Y `is_superuser` no
+se fabrica: se escribe `0` a pelo, que es correcto en la cuenta de un alumno.
+
+**El arreglo de tres cambios de allí es de una línea aquí.** Tratarlo como copia
+habría metido dos guardas que no hacen falta y movido una condición que estaba bien:
+**tocar código sano dentro de un arreglo.**
+
+> **Dos sitios con el mismo defecto no tienen el mismo arreglo si el orden de las
+> llamadas difiere.** La llave muerta era idéntica; la estructura alrededor, no.
+
+### La trampa que apareció en los tests, y esta vez estaba en los nombres
+
+Ya existía `test_editar_un_alumno_no_muda_el_correo_de_la_cuenta`, **y por poco se
+trata como duplicado**:
+
+| | qué manda | qué mitad prueba |
+|---|---|---|
+| el que ya estaba | `unset($cuerpo['email2'])` | la **AUSENCIA** — la cubre la guarda de la §68.3 |
+| el nuevo | `email2` correcto | la **PRESENCIA** — la pisa el `merge` |
+
+Renombrado el nuevo y **cruzados los dos en sus docblocks con la tabla de qué prueba
+cada uno**. *Dos nombres casi iguales que no son la misma cosa* es lo que esta noche
+lleva ocho apariciones — y ésta estaba **dentro de los tests**.
+
+### Y la tercera vez que un detector se cuenta a sí mismo
+
+Van tres, en tres sesiones que no se hablaban: el centinela de bitácora contando **el
+docblock de la clase nueva** (§181), un centinela de EXP-1 contando **sus propios
+comentarios**, y la regla del «93 tablas» — que no fue un número mal recordado sino
+**un número medido bien en el árbol equivocado**.
+
+> **Si un detector lee texto, su propia documentación entra en la población.**
