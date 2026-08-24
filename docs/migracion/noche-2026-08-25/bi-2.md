@@ -7,6 +7,30 @@ cuatro ramas de la noche del 24 fundidas.
 
 ---
 
+## §0. El criterio que decide cada una de las 59
+
+> **Una consulta que calcula algo POR ALUMNO tiene alcance decision-free** — es el suyo,
+> y no hay nada que preguntar. **Una que construye una VISTA DE GRUPO, no**: qué ve el
+> profesor en la rejilla cuando uno de los treinta lleva boletín propio es del
+> [19 §2](../19-boletin-independiente.md), y eso es de Joseth.
+
+**No es un criterio de una tanda: es el del lote entero**, y explica hacia atrás todo lo
+que ya está decidido:
+
+| | |
+|---|---|
+| `calcular()` | por alumno → **entró sin preguntar nada** |
+| `porcentajeDeLasUnidades()` | un número para toda la asignatura → **se anota** |
+| `NotasController:71` | las columnas de la planilla del grupo → **se anota** |
+| `NotasPerdidas` ×4, `NotasController:148` | por alumno → **entran** |
+
+Y hay **una excepción que no se deduce del criterio** y por eso va aquí al lado:
+`selloDeVersion` calcula por asignatura y **aun así no se acota**, porque su modo de fallo
+no es simétrico ([§6.bis](#6bis-el-criterio-del-lote-aplicado-a-ciegas-mete-un-fallo)).
+*El criterio ordena; no sustituye a mirar qué calcula la consulta.*
+
+---
+
 ## §1. Lo primero fue el detector, y no cuadraba
 
 La ficha del lote avisa: *«antes de fiarte de un número suyo, comprueba que su población
@@ -377,3 +401,58 @@ maneras de romperlo:
 > aunque su veredicto sea el mismo: necesita su propio test de ida y vuelta **con un alumno
 > de dos matrículas dentro de la transacción**, y ése es el caso que ninguna de las 1.329
 > pruebas de hoy ejerce.
+
+---
+
+## §9. La tercera trampa, que no estaba en el análisis y me la hice yo
+
+Las dos trampas de la [§8](#8-la-tanda-siguiente-analizada-antes-de-tocarla) se vieron
+leyendo. **Ésta sólo se vio escribiendo**, y es la que más lejos llega.
+
+Dos de las cuatro de `NotasPerdidas` **no tienen `matriculas` en el ámbito**, así que
+`JOIN_ESTADO` no valía y traerla con un `JOIN` es la trampa 2. Para eso añadí al servicio
+`alcanceCorrelacionado()`: una **subconsulta escalar**, que da un valor o `NULL` y **no
+puede multiplicar** — ni doblar un `SUM()` ni repetir filas en una lista.
+
+**Y mi primera versión hacía esto:**
+
+    WHERE mbi.alumno_id = ? AND mbi.deleted_at IS NULL LIMIT 1
+
+Se saltó **las dos mitades** de la regla que `consultar()` tiene escrita a veinte líneas:
+entrar por `periodos → grupos del MISMO year_id`, y desempatar por `created_at DESC, id
+DESC`. Con un alumno con matrícula en más de un año, ese `LIMIT 1` elegía una cualquiera:
+**podía leer el interruptor de 2024 para un periodo de 2026**.
+
+> **Y es lo que ese fichero existe para impedir.** Su docblock dice que la elección de la
+> matrícula vive ahí *«para no añadir una tercera regla distinta»* — **y yo estaba
+> añadiendo la tercera**, escribiendo en el mismo fichero, veinte líneas más abajo.
+>
+> **Un fichero puede llevar escrito en su cabecera exactamente el error que vas a cometer
+> y no impedírtelo.** La versión operativa, que es la que sirve a quien no ha leído nada:
+> **si necesitas la matrícula, no escribas cómo se elige — usa la que ya está escrita.**
+
+Arreglado replicando `consultar()` palabra por palabra, correlacionado por `u.periodo_id`,
+**con la nota de que si `consultar()` cambia esto cambia con él** y los dos a veinte líneas
+para que se vean juntos. *El arreglo importa menos que esa nota.*
+
+### Y el orden decide, que es la regla que sale de aquí
+
+**Lo cazó el test, no la revisión.**
+
+> **Si hubiera escrito las cinco acotadas y luego el test, habría tenido cinco consultas
+> mal y un verde.** Con todo a `NULL`, mi regla equivocada acierta igual.
+
+**Un test escrito DESPUÉS del arreglo puede no discriminar nada.** Cuando el estado de hoy
+hace que la forma correcta y la incorrecta den el mismo resultado, el test **acompaña al
+arreglo en vez de juzgarlo**. En el 99% de los lotes el orden es estilo; **en éste decide**,
+y no se nota — que es lo que lo hace peligroso a las cuatro de la mañana.
+
+### El control va DENTRO del test
+
+Por lo mismo. `AlcanceCorrelacionadoPorPeriodoTest` corre además la misma consulta **con el
+alcance bindeado una sola vez** —la forma ingenua— y **exige que dé un resultado
+equivocado**. Si algún día las dos coincidieran, **el test falla diciendo que su propia
+premisa se cayó**, en vez de dar un verde que no significa nada.
+
+*Es la respuesta al problema que tienen todos los tests de este lote: hoy pasan por el
+estado de los datos, no por el arreglo.*
