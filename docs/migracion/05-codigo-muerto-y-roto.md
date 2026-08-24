@@ -8582,3 +8582,50 @@ esa forma exacta de fallo.** Saberla no basta; hay que tener el paso puesto.
 > línea y caza las dos variantes que ya mordieron esta noche: **la base a medio
 > construir** y **el `construir-bd-test.sh` sin `-w`, que migra el árbol principal
 > sin decirlo** (92 tablas en vez de 93, y con muy buena cara).
+
+## §179. Comprobar al revés la fase 3 de la auditoría: dos garantías documentadas que nadie probaba
+
+`8myvc-39` rompió **diez garantías del esquema una a una, nunca dos a la vez** —el
+punto no es que caiga algo, es **qué** cae— y contó los tests. Ocho tenían guardián.
+**Dos daban cero.**
+
+| Se rompe | Caen |
+|---|---|
+| *(nada — línea base)* | 0 |
+| `ocurrido_en` → `TIMESTAMP(3)` · sin milésimas | 1 · 2 |
+| aparece `updated_at` / `deleted_at` | 1 / 1 |
+| `actor_user_id` → `NOT NULL DEFAULT 0` | **7** |
+| `atribucion` → `DEFAULT 'sesion'` | 1 |
+| **`valor_anterior` → `varchar(255)`** | **0** |
+| **`DROP INDEX aud_sesion`** | **0** |
+
+**1. El tipo de `valor_anterior`/`valor_nuevo`.** Había un test del *null* de SQL
+contra el de JSON, y **no valía: comprueba lo que hace el servicio, no de qué tipo
+es la columna.** Y el tipo decide algo real — un `json` aguanta lo que un
+`varchar(255)` no, así que cuando la fase 4 instrumente disciplina y frases, **una
+escritura grande sería una excepción que el servicio se traga: la línea perdida, en
+silencio, justo en las más grandes**. Y la fase 5 va a consultar dentro con
+`JSON_EXTRACT`.
+
+**2. Los cinco índices.** Estaban **medidos con `EXPLAIN` sobre 200.000 filas** y
+escritos en el documento. Y aun así:
+
+> **Una medición no es un guardián.** Nada impedía que el siguiente `ALTER` se
+> llevara un índice y «qué hizo en este ingreso» pasara a recorrer la tabla entera
+> **sin que nada se quejara**. La medición dice que el índice **sirve**; no dice que
+> **siga ahí**.
+
+Los dos tests nuevos **verificados rompiendo otra vez**: las tres roturas que daban
+0 ahora dan 1 cada una, y sin romper nada siguen dando 0.
+
+**Y dos avisos del propio ejercicio:**
+
+- **El `NOT NULL` tumba siete tests**, o sea que su guardián es **ancho**. No se
+  estrecha —cazar de más no es un fallo— pero queda escrito, porque *«siete tests
+  protegen esa columna»* sería falso.
+- **La primera vuelta entera no valía**: daba «caen 20» en las cuatro roturas,
+  incluidos tests sin relación, porque **la base estaba vacía** —su reconstrucción
+  hizo el `DROP` y murió antes de cargar el esquema, con MySQL cayéndose en medio—.
+  El arnés lleva ahora esa comprobación dentro: **si la salida menciona la base
+  vacía, aborta en vez de imprimir un número.** Con la heurística que lo resolvió:
+  **cuando cae todo, la causa casi nunca es lo que acabas de romper.**
