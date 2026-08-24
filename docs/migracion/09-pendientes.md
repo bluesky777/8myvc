@@ -1996,6 +1996,32 @@ Admin.
 
 ---
 
+## 9.b El informe de notas perdidas manda el móvil y el correo de cada alumno — 24 ago 2026
+
+Salió al recortar `contratos` y **no es lo mismo**, por eso va aparte: aquella
+ruta la alcanza un alumno; ésta pide `auth.personal`, o sea las 43 cuentas.
+
+`NotasPerdidasController` monta sus tres listas con consultas que traen
+`a.celular`, `a.email` y `a.fecha_nac` **de cada alumno**, y las incrusta en la
+respuesta. Se ve en `Snapshots/muestreo-notas-perdidas-*.json`.
+
+**Lo que hay que decidir es si un informe de notas perdidas necesita el móvil de
+cada alumno.** Si es para llamar a la familia del que va perdiendo, sí y es su
+razón de ser; si es para imprimir un listado, no. **Es una pregunta de para qué
+sirve la pantalla, no de código** — quitarlo son tres columnas de tres `SELECT`.
+
+> **De paso, ese mismo método incrustaba la fila entera del docente** —era el
+> mismo `Profesor::contratos()` de la [§10](#10-get-apicontratos-entrega-la-ficha-personal-de-los-docentes-a-un-alumno--24-ago-2026)—
+> y eso **sí quedó arreglado** al recortarla. Lo que queda es lo de los alumnos.
+>
+> Y una lección de método que costó un susto: al comprobar quién usaba
+> `contratos()` se vio que este controlador **sólo lee `profesor_id`**, y era
+> cierto — pero **empujaba el objeto entero a la respuesta**. *Leer* un campo y
+> *devolver* una fila son cosas distintas, y buscar lo primero no encuentra lo
+> segundo.
+
+---
+
 ## 10. `GET api/contratos` entrega la ficha personal de los docentes a un alumno — 24 ago 2026
 
 **Está vivo hoy, en los dieciséis colegios.** Es la primera de las tres de la
