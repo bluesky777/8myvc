@@ -8061,3 +8061,76 @@ escritor único la herede.
 > `now()` = 03:54) y esas notas se escriben en **Bogotá**. O sea que **el bicho del
 > que trata la auditoría muerde a quien va a medirlo**, y contesta con un cero
 > limpio y creíble.
+
+## §173. `sanarInputUser` fabrica tres campos antes de la guarda — y dos de ellos nadie los protege
+
+Lo midió `myvc-front-89` **contra el docker, en tres pasadas, con un profesor de
+usar y tirar y el cuerpo transcrito del código del front con un script**. Verificado
+aquí línea a línea: **es cierto entero, y la causa es más precisa que el aviso**.
+
+### Lo que pasa hoy al corregirle el teléfono a un docente desde la rejilla
+
+```
+PUT profesores/update/52  ->  200
+username      ZZTestFirma  -> ZZTest              RENOMBRA
+is_superuser  1            -> 0                   DEGRADA
+email_usu     …@example    -> ZZTest@myvc.com     y el correo de la cuenta se pierde
+```
+
+### La causa, y por qué la guarda no lo tapa
+
+`ProfesoresController::sanarInputUser` **fabrica tres campos** cuando el cliente no
+los manda: `username` a partir de `nombres`, `is_superuser` a `false`, y `email2`
+con el correo de la ficha o `username@myvc.com`. Y la llave que decide lo del
+correo es ésta:
+
+```php
+if (!Request::input('email1')) {   // ningún cliente manda `email1`. Nunca.
+```
+
+**Comprobado en los tres clientes: `email1` no aparece en un solo fichero de
+`myvc_front`, `myvc_flutter` ni `myvc_front_2`.** Cero. O sea que **esa rama corre
+siempre** y el `email2` del cliente se pierde **en todo `profesores/update`**, venga
+de la rejilla o del formulario. El front tenía escrito un remedio —«mandar `email2`
+evita que lo pise»— que **no funciona**, y por eso lo midieron.
+
+`CamposQueVinieron` está bien usada y en el sitio correcto —`capturar()` va **antes**
+de los dos `sanar*`, y su propio docblock ya avisaba de esto—, pero:
+
+- **`is_active` y `email2` sí van guardados con `trae()`**; y
+- **`username` y `is_superuser` NO** (`ProfesoresController::putUpdate`): cuelgan de
+  `if ($profesor->user_id and Request::input('username'))`, y como `sanarInputUser`
+  **acaba de fabricar** `username`, esa condición **es cierta siempre**. De ahí el
+  renombrado y la degradación.
+
+### Y la grieta de método, que es lo que hay que llevarse
+
+**`CamposQueVinieron` protege contra la AUSENCIA de una clave, no contra que un
+`merge()` PISE una clave presente.** Cuando el formulario **sí** manda `email2`,
+`trae('email2')` es **cierto** —vino— y lo que se escribe es **el valor fabricado**:
+la guarda pasa y el dato se pierde igual. La clase contesta *«¿vino?»*; no contesta
+*«¿es éste el valor que vino?»*.
+
+### El tamaño, medido aquí, con lo que el número no dice
+
+```
+220 ficheros de app/ leídos
+  definen un sanador ............................ 2   (Profesores, Alumnos)
+  con Request::merge() .......................... 10 ficheros, 51 llamadas
+                                                  (21 Profesores, 17 Alumnos)
+  usan CamposQueVinieron ........................ 15
+  de ésos, con un merge o un sanador delante .... 9   <- sitios donde mirar
+```
+
+**Uno de los diez era la propia `CamposQueVinieron.php`**, señalada por mi detector
+porque su docblock **explica** el problema: un falso positivo de manual, y por eso
+el cruce son **9 y no 10**. Y «tiene un `merge` en el fichero» no es «ese `merge`
+pisa un campo guardado»: **hay que leer los nueve**.
+
+### Lo que dejó en la base local, avisado por quien lo hizo
+
+Profesor 52 borrado suave; **la cuenta `users` 2447 (`ZZTestFirma`) sigue viva**,
+con `is_active = 0` y contestando *«Usuario invalidado»*, **y con `is_superuser = 1`**.
+No la borró porque `deleteDestroy` de perfiles borra **un grupo**, no un perfil, y
+llamarlo con 2447 habría tocado el grupo 2447. Queda escrito aquí, que es donde se
+mira lo que se le hizo a `simonbolivar` y no está en git.
