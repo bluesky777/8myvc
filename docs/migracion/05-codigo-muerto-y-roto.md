@@ -9368,3 +9368,50 @@ autoprueba** —seis trampas con su número esperado, corridas antes de creerse 
 Y la trampa 1 con el detalle que importa: **`\b` no basta**, porque `_` es carácter de
 palabra y `unidades\b` casa con el principio de `unidades_por_defecto`; hace falta
 `(?![a-z_])`.
+
+### §189.1. La trampa dentro de la trampa: `SELECT *` sobre un join no es `tabla.*`
+
+Al congelar las consultas de `matriculas`, una **no era un `m.*`**: era un
+`SELECT *` **a secas sobre un join** (`FROM matriculas m INNER JOIN grupos g`).
+
+**Ahí `*` significa las columnas de las dos tablas, en ese orden** — y en las
+repetidas (`id`, `created_at`…) **gana la última, o sea `grupos`**.
+
+- convertirlo en la lista de `matriculas` **habría borrado todas las columnas de
+  `grupos`** de la respuesta;
+- poner `g.*` **delante** habría cambiado el `id` **sin tocar una sola clave del
+  cuerpo** — o sea, un cambio invisible para cualquier comprobación de forma.
+
+Va como `m.<28 columnas>, g.*`: **el mismo conjunto y el mismo orden.** Y con el
+porqué en el comentario, **porque es exactamente lo que alguien deshace
+«simplificando»**.
+
+> **Congelar una consulta no es escribir sus columnas: es reproducir lo que `*`
+> resolvía**, y en un join eso incluye **el orden y quién gana en los nombres
+> repetidos.**
+
+## §190. La cuarta regla, que es la que une a las otras tres
+
+Las tres que salieron por separado dicen **qué** hay que tener puesto:
+
+> **Una medición no es un guardián** ([§179](#)) · **un aviso no es un control**
+> ([§179.1](#)) · **un detector sin autoprueba es una medición que no se ha medido**
+> ([§189](#)).
+
+Falta la que dice **por qué no basta con haberlas entendido**, y la trae quien fue el
+caso **dos veces la misma noche**:
+
+> **Saber la regla no la aplica.**
+>
+> Escribió *«un detector cuenta el síntoma y no la causa»* en dos documentos **y
+> después** escribió un centinela con una regex sobre el texto del fichero ([§181](#)).
+> Avisó dos veces de *«el instrumento correcto sobre el objeto equivocado»* **y
+> después** lanzó una suite contra una base de 79 tablas ([§176.3](#)).
+
+**Hasta que el paso está en el procedimiento** —la autoprueba antes del número, el
+conteo de tablas antes de la suite, `git rev-parse` antes del commit— **la regla vive
+en la cabeza del que ya la sabe, y ése es precisamente quien va a saltársela por
+confianza.**
+
+Y por eso las reglas útiles de esta noche **no son las cuatro frases: son las cuatro
+líneas de comando** en las que acabaron.
