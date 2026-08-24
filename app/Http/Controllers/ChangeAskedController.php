@@ -1226,7 +1226,10 @@ class ChangeAskedController extends Controller {
 		
 		for ($i=0; $i < count($asignaturas); $i++) { 
 			
-			$consulta 		= 'SELECT * FROM unidades WHERE asignatura_id=? and periodo_id=? and deleted_at is null';
+			// Columnas nombradas, no `*`: `unidades.alumno_id` existe desde el 24 ago 2026
+			// (19-boletin-independiente.md) y con `*` entra en la respuesta. No volver a
+			// `*`. §5.bis de noche-2026-08-24/bi-1.md.
+			$consulta 		= 'SELECT id, definicion, porcentaje, periodo_id, asignatura_id, obligatoria, orden, por_defecto, fecha, created_by, updated_by, deleted_by, deleted_at, created_at, updated_at FROM unidades WHERE asignatura_id=? and periodo_id=? and deleted_at is null';
 			$unidades 		= DB::select($consulta, [$asignaturas[$i]->asignatura_id, $periodo_id]);
 			
 			foreach ($unidades as $unidad) {
