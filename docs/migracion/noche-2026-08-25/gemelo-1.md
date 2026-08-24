@@ -256,6 +256,35 @@ este arreglo toca.
 Lo mismo con el tiempo: los milisegundos de este test **no se comparan con los
 11,4 s** de la §224, porque este test no descarta la pasada en frío y aquél sí.
 
+### El número comparable 1:1 con la §224
+
+`CosteDelGemeloDeLaRaizTest`, que mide **las tres rutas por HTTP en la misma
+corrida y descarta una pasada en frío por ruta** — o sea el mismo instrumento y
+el mismo tramo que la tabla de la §224. Grupo 98, base
+`simonbolivar_testing_79`:
+
+| ruta | consultas | de la invariante | tiempo | responde |
+|---|---|---|---|---|
+| `certificado-grupo` **antes** ([§224](../05-codigo-muerto-y-roto.md)) | 3.820 | 408 | 11.433 ms | 500 |
+| `certificado-grupo` **ahora** | **455** | **1** | **969 ms** | 500 |
+| `certificado-alumno` | 5 → 5 | 0 | 5 → 4 ms | 500 |
+| `detailed-notas-year-group` *(el hermano, referencia)* | 755 → **755** | 1 | 1.016 → 783 ms | 200 |
+
+**455 es exactamente lo que predecía la reconciliación de arriba**, y ésa es la
+demostración de que los 450 y los 3.820 medían tramos distintos y no había nada
+roto: `3.820 − 3.368 + 3 = 455`, y **455 es lo que salió**.
+
+**La fila del hermano es la que hay que mirar para creerse las otras:** 755 antes
+y **755 ahora**, sin moverse ni una consulta. Es el control de que este arreglo
+tocó el gemelo y **sólo** el gemelo.
+
+> **El tiempo, con su advertencia.** Los 969 ms se midieron con **carga 4,82** y
+> los 11.433 ms de la §224 con **carga 1,42** — tres veces más carga y once veces
+> menos tiempo—. Va en la dirección buena, pero **el número que sostiene esto es
+> el de consultas, no el de milisegundos**: es el criterio con el que se midió la
+> invariante desde el principio, porque un aserto de milisegundos depende de la
+> máquina y el de consultas no.
+
 ### Y un instrumento que mintió, que es de este documento y no de otro
 
 La primera corrida imprimió **3.412 consultas del boletín**, y **el número era
@@ -269,3 +298,73 @@ que el recálculo a mano hubiera metido sus 2.960 en la misma variable.
 sirvió»* — y eso no se ve mirando el resultado, sólo preguntando **sobre qué** se
 midió. Se arregla congelando el contador justo después de la llamada, y así está
 escrito en el test con su porqué.
+
+## §7bis. Las redes, sobre el árbol ya fundido con `main`
+
+`main` se fundió **en esta rama** —no al revés— antes de dar nada por bueno, con
+CERT-1 y AUD-4 dentro. **Sin conflictos**: lo único que rozaba era
+`Informes/BolfinalesController` —el hermano, que no es de este lote— y los
+documentos de `e0` y `9a`.
+
+**La fusión no trajo migraciones ni tocó el seed**, comprobado antes de decidir:
+por eso la base **no se reconstruyó**. Reconstruirla «por si acaso» habría sido
+ceremonia; no hacerlo porque se miró es lo otro.
+
+| red | resultado |
+|---|---|
+| `--testsuite=Contrato` completa | **1.355 pasan, 10.783 asertos** |
+| `GemeloDelBoletinFinalTest` | 3 pasan, 627 asertos |
+| `EquivalenciaDelGemeloTest` (grupo `barrido`) | 1 pasa, 9 asertos |
+| `CosteDelGemeloDeLaRaizTest` (grupo `barrido`) | 1 pasa — la tabla de arriba |
+| `composer run pint` | 292 ficheros, **1 arreglo de estilo** (alineación en el test de barrido) |
+| `composer run stan` (larastan nivel 7) | **`[OK] No errors`** |
+
+> **El larastan se corrió dos veces, y la primera no cuenta.** Avisó de que
+> `TMPDIR=/tmp/stan-79` **no existía**, o sea que cayó al `/tmp/phpstan`
+> compartido — el mismo que usan los demás árboles del contenedor—. Dio `[OK]`,
+> pero **un `[OK]` que puede venir de la caché de otro árbol no es un `[OK] de
+> este árbol`**, y es exactamente la forma de error que persigue todo este
+> documento: el instrumento correcto sobre el objeto equivocado. Se creó el
+> directorio y se repitió; el `[OK]` que se cita arriba es el de la segunda.
+
+**Y el alcance de estas redes, dicho para que no se estire:** están corridas
+contra `main` **en el punto en que se fundió** (CERT-1 y AUD-4 dentro). `main`
+sigue moviéndose esta noche —hay al menos una migración nueva en camino—, así que
+esto no dice nada sobre lo que entre después.
+
+## §8. Los cuatro números de este lote, y cuál sobrevivió
+
+De los cuatro números que salieron de aquí, **tres hubo que retirarlos o
+acotarlos**, y los tres los escribió esta sesión:
+
+| número | qué le pasaba |
+|---|---|
+| **3.412** consultas | correcto, **tramo equivocado**: el contador de `DB::listen` seguía sumando las 2.960 del recálculo. 452 + 2.960 |
+| **452** consultas | **aritmética, no medida** — y cuadraba, que es lo que la hacía peligrosa |
+| **1.852 / 3.319 ms** | sin descartar la pasada en frío, o sea **no comparables** con los 11,4 s |
+| **455** consultas | **sobrevivió entero** |
+
+**El único que sobrevivió salió del instrumento que esta sesión NO escribió**:
+`CosteDelGemeloDeLaRaizTest`, de `12`.
+
+Y no es casualidad ni suerte. **Un instrumento que escribes para medir tu propio
+arreglo comparte predicado con él**: las preguntas que se te ocurre hacerle son
+las mismas que te hiciste al escribir el arreglo, así que **sus puntos ciegos y
+los tuyos son los mismos**. Los tres huecos de arriba no se pasaron por prisa —
+se pasaron porque **ya se había decidido que no importaban** al escribir el
+código que se iba a medir.
+
+Es la misma forma que ya está escrita para otra cosa: *lo mismo que hace bueno un
+censo lo hace mal verificador de sí mismo.*
+
+> **Y lo que salva al ajeno no es sólo ser ajeno: es tener una cicatriz.** La
+> cabecera de `CosteDelGemeloDeLaRaizTest` cuenta que ya se comió **«816 donde
+> había 408, un factor 2 exacto y perfectamente creíble»**, y por eso lleva el
+> oyente único fuera del bucle y el contador reiniciado por ruta. **Un
+> instrumento con una trampa documentada vale más que uno nuevo y limpio**,
+> porque el limpio todavía no ha enseñado dónde falla.
+
+Y por eso la fila del hermano —**755 antes y 755 después**— es la que sostiene
+las otras dos: es el **control positivo** que la §224 echaba de menos cuando
+escribió que *un detector nuevo sin control positivo es una opinión con formato
+de tabla*.

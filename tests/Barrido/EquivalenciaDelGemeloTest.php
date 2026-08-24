@@ -151,9 +151,9 @@ class EquivalenciaDelGemeloTest extends CasoDeContrato
             'El oyente no contó ninguna consulta: el informe de abajo no mide nada.');
 
         // ---------------------------------------------------------- lo observado
-        $observadoPerdidas    = [];
+        $observadoPerdidas = [];
         $observadoDefinitivas = [];
-        $conPerdidas          = [];
+        $conPerdidas = [];
 
         foreach ($alumnos as $alumno) {
             $alu = (int) $alumno->alumno_id;
@@ -195,9 +195,9 @@ class EquivalenciaDelGemeloTest extends CasoDeContrato
             [$user->year_id]
         );
 
-        $esperadoPerdidas    = [];
+        $esperadoPerdidas = [];
         $esperadoDefinitivas = [];
-        $consultasAMano      = 0;
+        $consultasAMano = 0;
         $conPerdidasEsperado = [];
 
         foreach ($alumnos as $alumno) {
@@ -210,23 +210,23 @@ class EquivalenciaDelGemeloTest extends CasoDeContrato
                     $per = (int) $periodo->id;
 
                     $filas = DB::select(self::SQL_VIEJO_PERDIDAS, [
-                        ':periodo_id'    => $per,
+                        ':periodo_id' => $per,
                         ':asignatura_id' => $asig,
-                        ':alumno_id'     => $alu,
-                        ':nota_minima'   => User::$nota_minima_aceptada,
+                        ':alumno_id' => $alu,
+                        ':nota_minima' => User::$nota_minima_aceptada,
                     ]);
                     $consultasAMano++;
 
                     if (count($filas) > 0) {
                         $esperadoPerdidas[$alu][$asig][$per] = count($filas);
-                        $conPerdidasEsperado[$alu]           = true;
+                        $conPerdidasEsperado[$alu] = true;
                     }
 
                     $def = DB::select(self::SQL_VIEJO_DEFINITIVAS, [
-                        ':periodo_id'    => $per,
+                        ':periodo_id' => $per,
                         ':asignatura_id' => $asig,
-                        ':nota_minima'   => User::$nota_minima_aceptada,
-                        ':alumno_id'     => $alu,
+                        ':nota_minima' => User::$nota_minima_aceptada,
+                        ':alumno_id' => $alu,
                     ]);
                     $consultasAMano++;
 
