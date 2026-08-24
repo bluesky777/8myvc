@@ -74,6 +74,12 @@ una está en el 05 o en el 09; aquí sólo lo que decide.
 |---|---|---|
 | **7bis** | **«Quién del personal puede qué»: hoy la respuesta es casi todo.** Un token de `Usuario` **activo, no superusuario y sin un solo rol** escribe en **87 endpoints** —años, periodos, escalas, materias, asignaturas, ausencias, disciplina, certificados, contratos, enfermería—. Un `Profesor` escribe en **93**: **seis de diferencia** ([05 §213](05-codigo-muerto-y-roto.md)) | **Tener el rol de profesor no es lo que abre la API**: la abre `auth.personal`, haciendo lo que dice. Esa pregunta llevaba días esperando **sin número**; ahora lo tiene. **Y cuatro de esos endpoints son `GET` que escriben** — uno **inserta en tres tablas**, que es el contraejemplo exacto de la decisión que se tomó para `disciplina/mis-fichas` |
 
+### Código muerto: 34 métodos, 1.019 líneas — **con sus límites pegados al número**
+
+| | Qué | Y qué NO prueba |
+|---|---|---|
+| **7ter** | **34 métodos públicos de controlador sin ningún camino desde una ruta: 1.019 líneas.** Revisados **8.351 ficheros en once árboles de cliente** —incluidas las seis worktrees del front y `tardanzasMyvc-old`, que **es** un cliente— **y ningún cliente los llama**. Tres cajones: **25 que nadie nombra**, **4 que la documentación del front cita** (borrarlos **invalida documentación viva de otro repositorio**, ya avisado en su buzón), y **11 en dos subárboles que se borran enteros o no se borran** ([05 §216](05-codigo-muerto-y-roto.md), §217) | **no ve ramas de cliente que no estén en disco**; **no prueba que nadie esté añadiendo un `Route::` a uno de los 34 ahora mismo**; y **sigue llamadas, no ramas**, así que un método invocado sólo dentro de un `if` que nunca se cumple **cuenta como vivo**. *Sin estas tres líneas, esto sería una decisión tomada sobre una certeza que no tenemos.* |
+
 ### Servidor — cuatro `for` que ahora son uno
 
 | | Qué | Si no se contesta |

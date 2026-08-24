@@ -10959,3 +10959,24 @@ había bautizado.
 > de quien coordina.** El número era suyo y medido; **la etiqueta era mía y de segunda
 > mano.** Y **estaba a punto de entrar en la lista de decisiones con el método
 > equivocado.**
+
+### §218.2. Acotar una sobre-aproximación es la otra mitad de justificarla
+
+La regla gruesa del `new` —*si una clase se instancia en código alcanzable, sus métodos
+llamados con `->m(` pasan a vivos*— estaba **justificada** por la asimetría
+(*equivocarse hacia «vivo» cuesta una revisión; hacia «muerto» cuesta un endpoint*) **y no
+estaba acotada**. Medido: **su radio son 16 de las 113 clases** — las que alguien instancia
+con `new`. **Fuera de ésas la sobre-aproximación no puede actuar.**
+
+> **Justificar una regla gruesa sin acotarla es media justificación.** Y saber **dónde le
+> cuesta** a un detector su sobre-aproximación **vale más que quitársela**.
+
+Y el cruce se cerró **verificando la cadena del otro inventario en vez de aceptarla**
+—`namespace App\Http\Controllers;` sin `use`, así que el `new` resuelve al de la raíz— y
+comprobando **si rescataba a alguno de los 34: no.** El `detailedNotasGrupo` de la raíz
+llama a dos métodos **ya alcanzables** y **no a `periodosPerdidosDeAlumno`**, que sigue
+siendo candidato **por razón comprobada y no por omisión.**
+
+**Y la mitad que se le devolvió al front:** su aviso de que ese controlador *«no está
+enrutado»* es **correcto en la letra y engañoso en la conclusión** — *de ahí se deduce
+fácil que no se ejecuta, y sí se ejecuta.*
