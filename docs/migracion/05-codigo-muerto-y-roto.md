@@ -8239,3 +8239,81 @@ de marcas. Confirmar es leer el método; la herramienta dice dónde.
    va a reescribir. Un `DELETE` que no borra y cien `PUT` que no escriben no son
    una rareza de nomenclatura: son **cien clasificaciones mal hechas** esperando a
    quien mida por el verbo.
+
+## §176. El boletín final que no vuelve — lo establecido, y una conclusión grave que se retiró en veinte minutos
+
+`PUT bolfinales/detailed-notas-year-group/{grupo}` **da 504 tras 60 s** en el grupo
+97, y los 60 s son **el plazo de nginx, no el de la consulta**: puede tardar mucho
+más, o no terminar. Lo midió `myvc-front-89` en Chrome. **Lo llama `app/`, la
+aplicación desplegada hoy en los dieciséis**, así que **no lo hemos introducido
+nosotros y no espera a ningún despliegue: ya está pasando.**
+
+### Lo establecido
+
+| | |
+|---|---|
+| grupo 97 (year 8) | **504** tras 60 s |
+| grupo 91 (year 7), **en la misma ventana** | **200**, 31.716 bytes, 40 boletines, **7 s** |
+
+**Ese par es lo más sólido que hay, y por una razón de diseño**: el 91 es un
+**control interno**. Si la base hubiera estado caída, habría reventado también.
+No lo hizo — así que **el 504 del 97 se midió con la base viva, demostrado sin
+mirar el docker.** *Medir un caso que debe funcionar al lado del que falla no es
+rigor de más: es lo que hace que un resultado sobreviva a que el entorno se rompa
+después.*
+
+### La causa candidata, y por qué la tabla que la sugería no la probaba
+
+No es el tamaño: el grupo que revienta es **más pequeño** que el que responde
+(2.040 contra 2.580 de alumnos × asignaturas × periodos). Lo que los separa son
+**las definitivas que faltan**: 97 → **1.196 de 2.040 (59%)**; 91 → **14 de 2.580
+(1%)**. Y `detailedNotasGrupo` son 185 líneas con **bucles anidados y consultas
+dentro**, así que **una definitiva que falta cuesta trabajo, no lo ahorra**.
+
+**Pero la primera tabla comparaba entre años, y ahí las dos causas viajan juntas**:
+los once grupos del year 8 tienen entre 53% y 79% de hueco y **ningún año pasado
+pasa del 45%**. Con esa muestra, *«revienta el año en curso»* y *«revienta donde
+faltan definitivas»* **predicen lo mismo en todos los casos**. Lo vio
+`myvc-front-98`: *una tanda que no puede salir mal no mide nada*.
+
+**La prueba que decide está dentro del mismo año**: grupo **84** (year 7, 34% de
+hueco) contra el **91** (year 7, 1%). Si el 84 revienta, manda el hueco; si
+responde rápido, la hipótesis se cae. Pendiente, y se mide con turno.
+
+**Si se confirma, la [fase 2 de las definitivas](10-definitivas.md) apaga esto sin
+tocar el informe** — y explicaría por qué lleva años así sin reportarse de forma
+reconocible: **un colegio con el año cerrado y las definitivas puestas no lo ve.**
+
+### Y la conclusión grave que se afirmó y se retiró en veinte minutos
+
+Llegó, y yo la reenvié como hallazgo, que **tres peticiones colgadas dejaban al
+backend entero sirviendo 500** —o sea *una pantalla desde la que una secretaria
+tumba su colegio*—. **Refutada por los datos de quien la trajo**, con el reloj:
+
+```
+04:25:47 bolfinales/97 -> 504 · 04:25:54 auth/me -> 200   <- sano, 7 s después
+04:26:55 bolfinales/98 -> 504 · 04:27:01 auth/me -> 200   <- sano, 6 s después
+04:28:02 bolfinales/105 -> 504 · 04:28:39 auth/me -> 500
+04:29:50 el contenedor de la BASE termina (OOM)
+```
+
+**`auth/me` contestó 200 entre los 504, dos veces**: si los trabajadores se
+hubieran agotado, eso no habría podido pasar. **Los 500 son la base cayéndose**,
+un minuto antes de que el contenedor muriera. Queda **plausible y no probado** que
+esas consultas contribuyeran al OOM.
+
+> **El salto fue de *«veo 500 después de mis 504»* a *«mis 504 causaron los 500»*
+> sin comprobar el eslabón — y el eslabón estaba en el mismo log ya abierto.**
+> Se amplificó **porque era grave y encajaba**. Una historia grave se comprueba
+> **más**, no menos.
+
+**Dos números del instrumento que parecían del fenómeno**, y por eso se anotan:
+los tres **«66 s iguales»** no son firma de causa común —66 s es el plazo de nginx
+más lo que tarda el navegador en rendirse, así que **cualquier cosa colgada da
+66 s**—; y **`auth/me` es un control barato, no fuerte**: toca la base para
+resolver el usuario, así que su 200 dice que **la base contestaba**, no que
+aguantara una consulta pesada.
+
+**Lo que sigue valiendo aunque el mecanismo grave se cayera:** una consulta que no
+vuelve **es mala por sí sola**. Un límite de tiempo o una cola se justifican con
+eso, sin necesidad de la historia grande.
