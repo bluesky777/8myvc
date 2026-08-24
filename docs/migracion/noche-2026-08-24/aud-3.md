@@ -395,7 +395,26 @@ Carbon::createFromFormat('Y-m-d H:i:s.v', $fila->ocurrido_en, Reloj::ZONA)
 
 **Dónde sí haría daño: la fase 5.** Sus cuatro endpoints leen esta columna, y un
 ingreso pintado cinco horas movido saldría justamente en la pantalla que se pidió
-porque «salen horas extrañas». Propuesto a `8myvc-7b`, que es de quien es el
+porque «salen horas extrañas».
+
+> **Y hay una segunda vuelta, que es la del cliente y todavía no la vigila nadie.**
+> La fase 5 no sólo **lee** `ocurrido_en`: **la manda al navegador**. Y ahí el
+> problema se repite un piso más arriba — una cadena `2026-08-24 03:51:13.000`
+> **tampoco lleva la zona dentro cuando llega a JavaScript**, y `new Date(...)`
+> sobre ella la interpreta en la zona del equipo del que mira. El mismo desplazamiento,
+> el mismo síntoma, y la misma cara de fecha correcta.
+>
+> Así que **la decisión es del contrato, no del front**: o la fase 5 envía la hora
+> con su desfase dentro (`2026-08-24T03:51:13.000-05:00`, que ya no admite dos
+> lecturas) o **manda la zona aparte y se lo dice**. No se decide aquí —es el cuerpo
+> de cuatro rutas que todavía no existen— pero queda escrito **antes** de que
+> alguien elija por omisión, que es como se eligió la primera vez.
+>
+> Salió al cerrar con `8myvc-f8` el 24 ago: fue a comprobar si su
+> [20-pantalla-de-notas.md](../20-pantalla-de-notas.md) leía alguna fecha de la
+> base —**no lee ninguna**, y lo dejó escrito con la condición de caducidad de esa
+> exención—. Mirando esa exención se ve que la de la fase 5 **ya está caducada de
+> nacimiento**: sus cuatro endpoints existen precisamente para mandar horas. Propuesto a `8myvc-7b`, que es de quien es el
 fichero: al `Reloj` le falta la mitad de vuelta —un `desdeTexto()`— por el mismo
 argumento con el que su cabecera justifica `ahoraTexto()`, que existe *para que no
 haya que acordarse del formato*. Quien lee tiene que acordarse del formato **y
