@@ -16,13 +16,15 @@
 
 Las fases 0–4 del [plan](00-plan-migracion.md) están cerradas, la 5 recortada y la
 6 es continua por diseño. **Laravel 13 sobre PHP 8.4**, con red de seguridad y
-autenticación real. Hoy: **1.344 tests, 9.107 aserciones, 538/542 rutas con la
-respuesta comprobada, larastan nivel 7 `[OK]`.**
+autenticación real. Hoy: **1.374 tests, 9.275 aserciones, 538/542 rutas con la
+respuesta comprobada, larastan nivel 7 `[OK]`, pint PASS.**
 
-> **Ojo, y se quita cuando se arregle:** ese `[OK]` **no es cierto ahora mismo**.
-> `main` tiene el nivel 7 **en rojo** en `ProfesoresController.php:473`, que llegó
-> ahí dentro de un commit que arrastró trabajo de cinco sesiones —o sea **sin la
-> pasada de larastan de su autor**—. Está en arreglo. Ver [05 §178](05-codigo-muerto-y-roto.md). Al empezar había **0 tests** y
+> Ese `[OK]` estuvo **en rojo** un rato la noche del 24: `ProfesoresController:473`
+> llegó a `main` dentro de un commit que arrastró trabajo de cinco sesiones, **sin
+> la pasada de larastan de su autor** ([05 §178](05-codigo-muerto-y-roto.md)).
+> Arreglado en `955125a`, y **verde comprobado con la base contada antes de medir**
+> —92 tablas, 2.351 usuarios—, que es el paso que la [§176.3](05-codigo-muerto-y-roto.md)
+> convirtió en obligatorio. Al empezar había **0 tests** y
 `route:list` estaba roto.
 
 Lo que sigue **no son fases pendientes de la migración**: es el trabajo que se

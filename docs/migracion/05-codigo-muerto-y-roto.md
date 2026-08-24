@@ -8629,3 +8629,35 @@ Los dos tests nuevos **verificados rompiendo otra vez**: las tres roturas que da
   El arnés lleva ahora esa comprobación dentro: **si la salida menciona la base
   vacía, aborta en vez de imprimir un número.** Con la heurística que lo resolvió:
   **cuando cae todo, la causa casi nunca es lo que acabas de romper.**
+
+### §179.1. Lo que ordena las siete de esta noche: un aviso no es un control
+
+Las dos frases que salieron por separado son la misma:
+
+> **Una medición no es un guardián** ([§179](#)) — dice que el índice sirve, no que
+> siga ahí.
+> **Un aviso no es un control** ([§176.3](#)) — *«saberla no basta: hay que tener el
+> paso puesto»*.
+
+La segunda la trae quien se comió la trampa **después de haber escrito dos avisos
+sobre esa forma exacta la misma noche**, y su diagnóstico es el que generaliza:
+**la regla vivía en su cabeza y no en su procedimiento** — *avisar a otros no pone
+el paso en tu propio flujo*.
+
+Y eso explica las **siete** de la noche, porque **todas tenían a alguien que ya lo
+sabía**:
+
+| | Lo que se sabía | Lo que faltaba |
+|---|---|---|
+| `vendor/` con symlink | documentado en `worktree-de-sesion.sh` | — (ahí sí hay control: el script lo copia) |
+| un `cd` que dejó el shell en el árbol de otros | — | `git rev-parse` antes de commitear |
+| un `PDO` con la contraseña inventada | — | usar el `.env`, no la memoria |
+| dos suites de la misma sesión | «una base por sesión» estaba escrito | `ps` **dentro** del contenedor |
+| `construir-bd-test.sh` sin `-w` | lo avisó quien lo sufrió | contar tablas antes de correr |
+| la base a medio construir | **había avisado dos veces esa noche** | el mismo paso |
+| los índices medidos con `EXPLAIN` | escrito en el documento | un test que los afirme |
+
+**Cinco de las siete se cierran con un paso en el procedimiento, no con más
+conocimiento.** Y por eso las reglas de la noche que valen son las que caben en una
+línea de comando: **contar tablas y usuarios**, **`ps` dentro del contenedor**,
+**`git rev-parse` antes del commit**, **nombrar los ficheros uno a uno**.
