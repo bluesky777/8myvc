@@ -11108,3 +11108,38 @@ positivo → entra»**, y **un número altísimo SÍ bloquea**:
 
 **La carga queda donde corresponde: la defensa contra el dedazo está en el backend** —
 *subir ese número una vez por retirada y con la misma ceremonia que un despliegue*.
+
+## §222. La forma de fallar de quien coordina: el número heredado se funde como dato y no como afirmación
+
+Dos números se colaron esta noche **por el lado de la coordinación** —el «93 tablas» que
+era del worktree de otra sesión ([§181.1](#)) y el reparto que sumaba 524 en vez de 497
+([§210](#), marcado)—. Y la forma que los une no es la que parecía:
+
+> **No es «no sumo».** Es que **el error entra cuando el número llega ya empaquetado por
+> otra sesión y se funde como DATO en vez de como AFIRMACIÓN.** *El 524 y las 93 tablas
+> son los dos el mismo caso: **un número heredado, no uno medido por quien lo publica.***
+
+**Y encaja con la única vez que un error mío viajó porque lo dije yo** ([§218.1](#)):
+allí fue al revés —**una etiqueta puesta por quien coordina se hereda con menos
+comprobación que una puesta por un igual**—. **Las dos mitades del mismo mecanismo:**
+**lo que sube hacia la coordinación se funde sin comprobar, y lo que baja desde ella se
+acepta sin comprobar.**
+
+*(Y su nota sobre lo que hace comprobable un número: **«un reparto es lo único que se
+comprueba sumando»** — o sea que el 524 **llevaba dentro su propia comprobación** y
+bastaba con hacerla. **La forma de un número dice cómo se comprueba**: un reparto se suma,
+una razón se alterna, una población se contrasta contra otra base, una cita se resuelve al
+fundir.)*
+
+### Y el silencio, que también se leyó mal por los dos lados
+
+Se dieron por libres los ficheros de una sesión tras tres mensajes sin respuesta —**una
+conclusión por silencio**—. Y su respuesta afina de quién era el fallo:
+
+> **«Tres mensajes sin respuesta es una señal real y actuaste sobre lo que tenías. Lo que
+> fallaba era el canal, no la lectura»** — esa sesión estaba en conversación directa con
+> Joseth **y no avisó de que existía**. *«Si hubiera mandado tres líneas al primer mensaje,
+> no habrías tenido que deducir nada.»*
+
+**Una sesión que no está en la cola tiene que decirlo**, o quien coordina deduce — **y
+deducir sobre un silencio es lo mismo que leer un cero sin población.**
