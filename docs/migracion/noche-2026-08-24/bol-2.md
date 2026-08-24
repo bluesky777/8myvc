@@ -156,10 +156,33 @@ ficheros de fuera del ámbito de Pint no se les pasa Pint**, aunque los toques.
 
 - **la segunda capa** (`Unidad::deAsignatura`, `Subunidad::perdidasDeUnidad`): es el
   78% de las consultas y es un rediseño. Medido y escrito en la §1;
-- **`Informes/CertificadosPersonaController`** tiene **la misma estructura y las
-  mismas tres consultas invariantes** (líneas 85/88, 149/151, 406/408). No se toca
-  porque no estaba en el encargo, pero **queda dicho**: el arreglo de aquí no le
-  llega, y es la misma línea;
+- **`Informes/CertificadosPersonaController`: las mismas tres consultas
+  invariantes, y NO hay nada que arreglar — están en código que no alcanza
+  nadie.** Comprobado después de haberlo reportado mal, y así queda escrito:
+
+  | | |
+  |---|---|
+  | rutas que apuntan a la clase | **una**: `PUT certificados-persona` → `putIndex` |
+  | qué hace `putIndex` | doce líneas: **una** consulta de `matriculas`, y devolverlas |
+  | ¿llama a `detailedNotasGrupo`? | **no**, ni él ni nadie: el método está definido en la línea 53 y **no lo llama nada** — ni el fichero, ni otra clase (`grep` en `app/` entero) |
+  | tamaño | **510 líneas, de las que ~12 son alcanzables** |
+
+  Las tres invariantes están en 85/88, 149/151 y 406/408, o sea **dentro de ese
+  subárbol muerto**. La primera versión de este documento decía *«la misma
+  estructura, y el arreglo de aquí no le llega, y es la misma línea»*: lo de la
+  estructura es cierto —es una copia del `Bolfinales`— y **lo de que haga falta
+  arreglarlo es falso**, porque no se ejecuta.
+
+  > **El aviso que se lleva de esto:** dos ficheros pueden ser copia uno del otro
+  > y **no ser el mismo problema**, porque lo que decide no es el contenido sino
+  > qué lo alcanza. Comparé el código y no el enrutado, y estuve a punto de meter
+  > un arreglo en la lista de decisiones de Joseth **para código que nadie
+  > ejecuta**.
+
+  Va al [05](../05-codigo-muerto-y-roto.md) como código muerto, no aquí como
+  optimización pendiente. Y **no se borra en esta sesión**: cuatrocientas líneas
+  son una decisión, y la regla de CLAUDE.md —*sin ruta y roto se borra*— pide
+  antes comprobar que ningún cliente llame a algo que resucite ese camino;
 - **el otro `BolfinalesController`** —hay dos clases con ese nombre,
   `app/Http/Controllers/BolfinalesController.php` y la de `Informes/`— **no está
   enrutado**. Lo enrutado es el de `Informes/`. Se dice porque un índice por nombre
@@ -179,3 +202,10 @@ ficheros de fuera del ámbito de Pint no se les pasa Pint**, aunque los toques.
    de sí mismo.
 5. **Y decir en qué rama se contó es parte del número**, o el número se usa mañana
    para justificar otra cosa.
+6. **Dos ficheros que son copia uno del otro no son el mismo problema: lo decide
+   qué los alcanza, no lo que contienen.** Reporté el gemelo
+   `CertificadosPersonaController` como «la misma línea que hay que arreglar»
+   después de comparar el **código**, y al comprobar el **enrutado** resultó que
+   sus tres consultas viven en un subárbol de 400 líneas que no llama nadie.
+   Estuvo a punto de entrar en la lista de decisiones de Joseth un arreglo para
+   código que no se ejecuta.
