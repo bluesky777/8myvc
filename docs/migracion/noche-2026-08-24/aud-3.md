@@ -55,6 +55,7 @@ DB_TEST_DATABASE=simonbolivar_testing_<sufijo> tools/construir-bd-test.sh
 | La migración | `database/migrations/2026_08_24_120000_create_auditoria_table.php` |
 | El escritor único | `app/Services/Auditoria.php` |
 | Los tests de contrato | `tests/Contrato/AuditoriaEscritorUnicoTest.php` |
+| **El detector** | `tools/escrituras-sin-auditoria.php` — la tercera pata de la fase 3 (§6) |
 
 **No lo llama nadie todavía, y es a propósito** — igual que
 `DefinitivasDeAsignatura` estuvo escrita y sin cablear entre su fase 1 y su fase
@@ -299,7 +300,7 @@ descubrirlo.
 
 ---
 
-## 5. Las tres decisiones del escritor que no estaban escritas en el plan
+## 5. Lo del escritor que no estaba escrito en el plan
 
 ### 5.1 De dónde sale el actor: del contexto ya resuelto, y con test del acoplamiento
 
@@ -358,9 +359,177 @@ y no la ausencia de valor, así que `valor_anterior IS NULL` dejaría de
 encontrarlo. Son dos cosas distintas —«se creó, no había valor antes» contra «el
 valor de antes era null»— y la pantalla filtra por la segunda. Con su test.
 
+### 5.4 Y lo que encontró el único test que falló al fundir el `Reloj`
+
+Merecería estar arriba, porque no lo buscaba nadie y afecta a la fase 5.
+
+Con el `Reloj` ya fundido, diecinueve de los veinte tests pasaron a la primera.
+El que falló fue `test_la_hora_escrita_es_la_del_reloj`, con una diferencia de
+**17.999 segundos**: las cinco horas, al segundo. Y **no era el `Reloj`**: era el
+test leyendo la columna con `strtotime()`.
+
+El razonamiento, que es lo que importa:
+
+`ocurrido_en` guarda **hora de pared de Bogotá** en un `DATETIME`. Eso es la
+decisión 1, y es lo que hace que lo escrito sea lo leído en phpMyAdmin y en los
+dieciséis colegios. El precio no estaba escrito en ninguna parte: **la columna no
+se describe a sí misma.** La cadena `2026-08-24 03:51:13.000` no lleva la zona
+dentro, y `config/app.php` sigue en UTC por la decisión 2 — así que **cualquier
+PHP que la lea sin decir la zona la interpreta como UTC y la desplaza cinco
+horas**.
+
+> **La decisión 1 y la decisión 2 son correctas cada una por su lado, y juntas
+> dejan una trampa en el camino de vuelta.** El `Reloj` cierra la **ida**: todo lo
+> que se guarda sale de un sitio. La **vuelta** está abierta, y no la vigila nadie:
+> `RelojUnicoTest` caza a quien **escribe** con el reloj equivocado, no a quien
+> **lee**. Un `strtotime()` o un `new Carbon($fila->ocurrido_en)` sobre esta
+> columna no lo detecta ninguna herramienta de hoy, y falla dando **una fecha que
+> parece correcta**.
+
+Aquí se reprodujo dentro de un test, que es el único sitio donde no hace daño. Se
+arregló leyendo con la zona explícita:
+
+```php
+Carbon::createFromFormat('Y-m-d H:i:s.v', $fila->ocurrido_en, Reloj::ZONA)
+```
+
+**Dónde sí haría daño: la fase 5.** Sus cuatro endpoints leen esta columna, y un
+ingreso pintado cinco horas movido saldría justamente en la pantalla que se pidió
+porque «salen horas extrañas». Propuesto a `8myvc-7b`, que es de quien es el
+fichero: al `Reloj` le falta la mitad de vuelta —un `desdeTexto()`— por el mismo
+argumento con el que su cabecera justifica `ahoraTexto()`, que existe *para que no
+haya que acordarse del formato*. Quien lee tiene que acordarse del formato **y
+además de la zona**, que es peor. No se escribe desde aquí porque sería un segundo
+sitio decidiendo lo mismo, que es de lo que se viene.
+
 ---
 
-## 6. La dependencia: `App\Support\Reloj` (AUD-1)
+## 6. El detector — y los dos números del plan que corrige
+
+La fase 3 del [18](../18-auditoria.md) son tres cosas, no dos: la tabla, el
+servicio y **el detector** que compara las escrituras de `app/` con las que
+llaman al servicio. No estaba en el encargo de este lote pero sí en la fase, y es
+lo que da **la lista de trabajo de la fase 4** y lo que dirá cuándo está
+terminada. Va aquí.
+
+### 6.1 Es `.php` y el plan lo nombraba `.py`, y hay una razón con número
+
+La pregunta *«¿esto es una escritura?»* la contesta **exacta** el analizador de
+PHP y **aproximada** una expresión regular, y la diferencia se cobró antes de la
+primera línea:
+
+```
+grep -rnE "DB::(insert|update|delete|statement)\(" app/ | wc -l   ->  257
+```
+
+y el plan decía **256**. Con `token_get_all()` los comentarios llegan como
+`T_COMMENT` y el SQL como `T_CONSTANT_ENCAPSED_STRING`, así que ni un
+`// DB::update()` ni un `'DELETE FROM notas'` se cuentan como llamadas. **No hay
+que acordarse de la diferencia: el analizador ya la sabe.**
+
+### 6.2 Las escrituras no son 256: son **252**
+
+Las cinco de diferencia se miraron **una a una** —la regla del repo es que un
+detector da sitios donde mirar, no una lista de fallos— y **las cinco están
+dentro de comentarios**:
+
+| Sitio | Qué es |
+|---|---|
+| `LoginController:147` | un comentario que **habla** de `DB::update()` |
+| `LoginController:383` | dentro de `/* */`: un `INSERT INTO matriculas` desactivado |
+| `PerfilesController:970` | dentro de `/* */` |
+| `Nota.php:61` | dentro de `/* */`: `crearNotas()` entero, comentado |
+| `NotaFinal.php:253` | dentro de `/* */`, en `calcularAsignaturaPeriodo` |
+
+**No cambia el argumento del §0** —10 contra 252 cuenta la misma historia que 10
+contra 256— pero el número que se publica es el que se cita después, y éste es el
+bueno.
+
+### 6.3 Y un número del plan que sale **confirmado, no corregido**
+
+El detector encuentra **10 `INSERT INTO bitacoras` en 10 métodos**, exactamente
+los diez del §0. Vale la pena decirlo porque **ese número se contó a mano y se
+publicó mal la primera vez** (se dijeron 9, y lo cazó
+`CentinelaDeLosEscritoresDeBitacoraTest`). Ahora hay dos caminos que no comparten
+supuesto —una lista escrita a mano con centinela, y un recuento por tokens que
+reconoce la tabla **por la consulta**— y dan lo mismo. Es lo más cerca de una
+comprobación que hay aquí.
+
+### 6.4 Qué imprime, y las dos cosas que dice de sí mismo
+
+```
+ficheros de app/ revisados ....... 219
+escrituras de datos .............. 252
+de ellas, `INSERT INTO bitacoras`  10
+métodos que escriben ............. 159
+  con rastro NUEVO (Auditoria) ... 0
+  con rastro VIEJO (bitacoras) ... 10   <- traducir al servicio
+  SIN NINGUNO .................... 149   <- decidir qué se graba
+```
+
+**Separar «rastro viejo» de «ningún rastro» no es cosmética**: son dos trabajos
+distintos. Diez métodos hay que **traducirlos** —el rastro existe y hay que
+moverlo al servicio—; en ciento cuarenta y nueve hay que **decidir qué se graba**
+en un dominio donde nunca se grabó nada. Juntarlos daría un número más grande y
+una lista peor.
+
+Y las dos advertencias que la herramienta lleva dentro, porque un cero suyo tiene
+que poder leerse:
+
+- **La unidad es el método, no la sentencia.** Un método que escribe tres veces la
+  misma fila es **un** cambio para quien lee el historial, no tres líneas.
+- **Y por eso no demuestra que cada escritura esté auditada.** Que un método llame
+  al servicio dice que alguien pensó en el rastro ahí, no que lo haya puesto en
+  las tres ramas. Por eso imprime `escrituras:auditorías` de cada método: un
+  **`5:1` es un sitio donde mirar**, y el que mire decide. Es la segunda mitad de
+  la regla del repo, dicha en la salida en vez de esperar a que alguien lea nueve
+  y entienda otra cosa.
+
+### 6.5 La trampa que encontró su propia autoprueba
+
+El primer recuento dio **una** escritura «fuera de cualquier método»,
+`LimpiarHtmlPiar.php:132` — que está dentro de un método de toda la vida. Un uno
+es lo bastante pequeño para archivarlo como rareza. **Era el detector**, y el
+fallo es bonito:
+
+En `"UPDATE {$tabla} SET …"`, el `}` de cierre llega como el token suelto `'}'`
+—igual que el que cierra un método— pero el `{$` de apertura llega como
+`T_CURLY_OPEN`, que es un token **de array**. Contando sólo los literales,
+**cada variable interpolada resta una llave sin haber sumado ninguna**, y a partir
+de ahí la profundidad va corrida.
+
+Lo peor de ese fallo es dónde aparece: no en el método que tiene la
+interpolación, sino en **el siguiente**. Por eso la autoprueba tiene ahora dos
+métodos seguidos —uno con llaves interpoladas y otro detrás— y comprueba **el de
+detrás**, que es el que se rompería.
+
+`--autoprueba` pasa las **siete** trampas: el comentario de línea, el bloque
+`/* */`, el SQL dentro de una cadena, el `closure` anónimo, las llaves
+interpoladas, el método siguiente, y el rastro viejo de `bitacoras`. **Mientras no
+las reconozca, ningún número suyo vale**, y lo dice él mismo al fallar.
+
+### 6.6 Y algo que salió de camino, y no es mío
+
+Mirando las cinco discrepancias apareció
+`PerfilesController::getQuieroCambiarContrasenia`, comentado, con su comentario
+encima: *«Para recuperar una contraseña en caso de emergencia. Volver
+comentario.»* Lo que hace es
+
+```sql
+UPDATE users SET password=? WHERE id=1
+```
+
+sin comprobar nada, desde un `GET`. **Hoy no está enrutado y no es una fuga**: es
+código comentado. Pero su propio comentario dice que se **descomenta** cuando hace
+falta, así que existe como herramienta de guardia — y mientras está descomentada,
+cualquiera que sepa la ruta le pone la contraseña que quiera al usuario 1.
+
+No se toca desde aquí: no es de este lote, y el `05` es de coordinación. Queda
+avisado a `8myvc-34`.
+
+---
+
+## 7. La dependencia: `App\Support\Reloj` (AUD-1)
 
 `app/Support/Reloj.php` y `tests/Contrato/RelojUnicoTest.php` los lleva
 `8myvc-7b`. **No se han tocado y no se han copiado**: copiarlos habría metido
@@ -386,7 +555,7 @@ necesita entrar en la lista de excepciones de `RelojUnicoTest`. Confirmado por
 
 ---
 
-## 7. Lo que este lote NO hace, y por qué cada cosa
+## 8. Lo que este lote NO hace, y por qué cada cosa
 
 | | Por qué |
 |---|---|
@@ -402,14 +571,19 @@ hoy.** Cero avisos para los cuatro clientes.
 
 ---
 
-## 8. Estado de los tests
+## 9. Estado
 
-`tests/Contrato/AuditoriaEscritorUnicoTest.php`, 19 métodos.
+`tests/Contrato/AuditoriaEscritorUnicoTest.php`, **20 métodos, 156 aserciones,
+los veinte en verde** con el `Reloj` fundido (`33c3db8`, de `8myvc-7b`; merge
+limpio, sin un conflicto).
 
-**Sin el `Reloj` en el árbol: 9 pasan, 10 fallan**, y los diez fallan por lo
-mismo y sólo por eso —`Class "App\Support\Reloj" not found`, con la fila entera en
-el log—. No es un verde fingido ni un rojo que esconda otra cosa: son los diez
-que llaman a `guardar()`.
+Antes de fundirlo pasaban 9 y fallaban 10, **los diez por
+`Class "App\Support\Reloj" not found` y por nada más** — los diez que llaman a
+`guardar()`. Se deja escrito porque ese rojo no era una avería: era la dependencia
+declarada, y con ella la comprobación en vivo de la §4.3.
 
-En cuanto la rama de `8myvc-7b` esté fundida se corre la tanda entera y este
-apartado se cierra con el número de verdad.
+| | |
+|---|---|
+| `pint` | **PASS**, 267 ficheros |
+| `stan` nivel 7 | de los 6 errores del primer informe, **cuatro eran el `Reloj` ausente** y dos eran míos de verdad — un `method_exists()` que phpstan sabía siempre cierto y un `Log::shouldHaveReceived()` sobre la facade en vez de sobre el spy. Corregidos |
+| `secciones-citadas.py` | **0 huérfanas** sobre 1.306 citas |

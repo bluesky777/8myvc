@@ -507,10 +507,37 @@ class AuditoriaEscritorUnicoTest extends CasoDeContrato
             "`ocurrido_en` salió como '{$fila->ocurrido_en}'. Sin las milésimas, dos notas ".
             'tecleadas en el mismo segundo no se pueden ordenar.');
 
-        $escrita = strtotime($fila->ocurrido_en);
+        /*
+         * **Se lee con `Reloj::ZONA`, y esto es la mitad importante del test.**
+         *
+         * `ocurrido_en` guarda hora de pared de Bogotá en un `DATETIME`, que es
+         * la decisión 1 del plan y lo que hace que lo escrito sea lo leído en
+         * phpMyAdmin y en los dieciséis colegios. El precio es que **la columna no
+         * se describe a sí misma**: la cadena `2026-08-24 03:51:13.000` no dice en
+         * qué zona está, y `config/app.php` sigue en UTC (decisión 2), así que un
+         * `strtotime()` a secas la interpreta como UTC y sale **cinco horas
+         * movida**.
+         *
+         * No es teoría: la primera versión de este test hacía exactamente eso y
+         * falló con 17.999 segundos de diferencia — las cinco horas, al segundo.
+         * O sea que el fallo que este documento entero viene a arreglar se
+         * reprodujo aquí dentro, en el único sitio donde ya no puede hacer daño.
+         *
+         * **Quien lea esta columna en la fase 5 tiene el mismo problema**, y por eso
+         * la vuelta también sale del `Reloj`: `desdeTexto()` la lee con
+         * `Reloj::ZONA` puesta, para que la zona no la ponga quien pase por ahí.
+         * La añadió `8myvc-7b` al levantarle esto (`73e3b79`), y de paso cerró una
+         * segunda trampa que este test tenía escrita: esta versión de Carbon
+         * **lanza** `InvalidFormatException` con un texto que no encaja, en vez de
+         * devolver `false` como el `DateTime` de PHP — así que comprobar `!== false`
+         * no habría dado `null`, habría dado un 500.
+         */
+        $escrita = Reloj::desdeTexto($fila->ocurrido_en);
 
-        $this->assertGreaterThanOrEqual($antes->getTimestamp() - 1, $escrita);
-        $this->assertLessThanOrEqual($despues->getTimestamp() + 1, $escrita,
+        $this->assertNotNull($escrita, 'La hora guardada no tiene el formato del Reloj.');
+
+        $this->assertGreaterThanOrEqual($antes->getTimestamp() - 1, $escrita->getTimestamp());
+        $this->assertLessThanOrEqual($despues->getTimestamp() + 1, $escrita->getTimestamp(),
             'La hora guardada no está entre las dos lecturas del Reloj que la rodean. '.
             'Si va cinco horas movida, la columna es TIMESTAMP o alguien no pasó por el Reloj.');
     }

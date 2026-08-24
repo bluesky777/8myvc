@@ -391,6 +391,19 @@ final class Auditoria
              *
              * `valor_anterior` y `valor_nuevo` ya van en JSON aquí, así que el
              * log no lleva ninguna estructura que no cupiera en la columna.
+             *
+             * **Y no lleva nada que no fuera a estar en la base de todos modos**,
+             * que es la pregunta que hay que hacerse antes de escribir una fila
+             * entera en el disco: por aquí no pasa ninguna credencial —esta clase
+             * no ve contraseñas— y lo más sensible que puede llevar es una nota,
+             * que es exactamente lo que la fila iba a guardar. La regla que dejó
+             * `ConsultasLentas` en su cabecera —un `Log::info($token)` dejó tokens
+             * de sesión en texto plano— no se rompe aquí.
+             *
+             * Si algún día un colegio despliega sin correr la migración, esto
+             * escribe una línea por cada escritura del sistema. Es ruidoso a
+             * propósito: el modo de fallo que no se puede permitir es el
+             * silencioso.
              */
             Log::error('Auditoría no escrita: '.$e->getMessage(), ['fila' => $this->fila]);
 
