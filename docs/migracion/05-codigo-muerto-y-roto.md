@@ -11073,3 +11073,38 @@ permite**. Quien los sufrió **la rechazó a su costa**:
 
 Y con el matiz que cierra: **usar `cd` absoluto en cada comando es el remiendo; `git -C` y
 rutas absolutas es el arreglo.**
+
+## §221. El arreglo obvio de los decimales es peor que el fallo
+
+Medido por `myvc-flutter-fe` al arreglarlo en la app, y **circulado al front antes de que
+toque sus campos**:
+
+> **Si al filtrar se BORRAN los caracteres que no valen en vez de RECHAZAR la edición,
+> pegar `85.5` deja `855`** — que es **una nota real, distinta, y que pasa cualquier
+> validación de «es un número».**
+
+El fallo original es el de la [§4.5.1 del 18](18-auditoria.md): se teclea `85,5`, se manda
+`85.5`, `notas.nota` es `int` y **queda 85 mientras la pantalla sigue enseñando 85,5 hasta
+recargar**. **El arreglo va por el teclado, no redondeando** — decisión de Joseth, con su
+motivo: *redondear es la app cambiando un número que escribió una persona.*
+
+**Y en el front el daño sería mayor que en la app**, porque allí están las dos mitades: su
+aviso verde **repite el número tecleado y no el guardado**, así que con el filtro
+destructivo **el profesor leería «Cambiada: 855» y habría 855** — deja de ser un fallo
+silencioso y pasa a ser **una nota inventada que nadie va a cuestionar**.
+
+*(Y con la escala validada en el servidor desde esta noche, **855 daría 422 donde 85
+pasaba**: el síntoma cambiaría de «se guardó otra cosa» a «no se guardó», **sin que nadie
+relacione las dos**.)*
+
+### Y una precisión al contrato de la versión mínima: «absurdo» no se puede programar
+
+El contrato decía *«negativo o absurdo → entra»*. Lo implementable es **«no es un entero
+positivo → entra»**, y **un número altísimo SÍ bloquea**:
+
+> **Desde el cliente no hay forma de distinguir un `.env` mal puesto de un colegio que de
+> verdad exige la última versión**, y adivinarlo **sería lo contrario de lo que hace segura
+> la comprobación.**
+
+**La carga queda donde corresponde: la defensa contra el dedazo está en el backend** —
+*subir ese número una vez por retirada y con la misma ceremonia que un despliegue*.
