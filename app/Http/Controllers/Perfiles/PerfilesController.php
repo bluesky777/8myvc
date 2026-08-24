@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Controller;
 use App\Support\Autoriza;
+use App\Support\CamposQueVinieron;
 use App\Support\ClaveNueva;
 
 use Illuminate\Support\Facades\Request;
@@ -945,10 +946,41 @@ class PerfilesController extends Controller {
 		// backend pedía solo `auth.personal`. Es la situación de la §29.3 —el
 		// backend dos escalones por debajo de su propia pantalla— y se cierra con
 		// aquella decisión, no con una nueva. Ver 05 §36.
+		// **Antes de cualquier lectura del cuerpo**, que es la regla de la clase.
+		// Aquí no hay `sanar*` que mergee, pero capturar al principio es lo que
+		// hace que siga siendo cierto el día que alguien añada uno.
+		$vinieron = CamposQueVinieron::capturar();
+
 		Autoriza::exigir(Autoriza::esAdministrativo(User::fromToken()),
 			'No tienes permiso para cambiar la imagen de otra persona.');
 		
 		$profesor = Profesor::findOrFail($profeElegido);
+
+		// **Esto borraba la firma en silencio y contestaba 200.** La línea era
+		// `$profesor->firma_id = Request::input('imgFirmaProfe')` a pelo, así que
+		// una llamada con la clave de la hermana —`imagen_id`, que es la que lee
+		// `ImagesUsuariosController::putCambiarFirmaUnProfe`— ponía `firma_id =
+		// null`, guardaba, y devolvía `ImageModel::find(null)`, o sea **200 con
+		// cuerpo `null`**. La firma desaparece del boletín —la leen
+		// `Year::datos()` para rector y secretaria, y `Grupo` para el titular— y
+		// nadie ve un error. Es la familia del 200 que miente de la §48.2, sólo
+		// que aquí lo dispara **un nombre de campo equivocado**.
+		//
+		// No estaba disparado: el front desplegado manda `imgFirmaProfe`. Era una
+		// mina puesta, no un incendio, y lo trajo `myvc-front-89` midiendo su
+		// propio contrato. Ver 05 §168.
+		//
+		// **422 y no un salto en silencio**, que era la otra salida: un cuerpo sin
+		// el campo es una llamada mal formada, y responder 200 sin hacer nada es
+		// exactamente el fallo que se viene a cerrar. Y **422 y no rechazar el
+		// vacío**: `CamposQueVinieron` distingue *«no vino»* de *«vino vacío»*, y
+		// vaciar la firma a propósito es una operación legítima —su hermana la
+		// admite con `$img_id ? $img_id : null`—. Sin esa distinción, cerrar el
+		// borrado accidental cerraría también el borrado querido.
+		if (! $vinieron->trae('imgFirmaProfe')) {
+			return abort(422, 'Falta el campo imgFirmaProfe.');
+		}
+
 		$profesor->firma_id = Request::input('imgFirmaProfe');
 		$profesor->save();
 		$img = ImageModel::find($profesor->firma_id);

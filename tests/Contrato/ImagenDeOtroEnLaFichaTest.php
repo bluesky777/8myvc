@@ -317,6 +317,90 @@ class ImagenDeOtroEnLaFichaTest extends CasoDeContrato
         }
     }
 
+    /**
+     * La clave de la hermana ya no borra la firma en silencio — §168.
+     *
+     * `perfiles/cambiarfirmaunprofe` lee `imgFirmaProfe`; su hermana
+     * `images-users/cambiar-firma-un-profe` lee `imagen_id`. Una llamada a la
+     * primera con la clave de la segunda hacía
+     * `$profesor->firma_id = Request::input('imgFirmaProfe')` → **null**, guardaba,
+     * y devolvía `ImageModel::find(null)`: **200 con cuerpo `null`**. La firma
+     * desaparece del boletín —la leen `Year::datos()` para rector y secretaria, y
+     * `Grupo` para el titular— y nadie ve un error.
+     *
+     * **Se comprueba en negativo**: no basta con que la respuesta sea 422, hay que
+     * ver que `firma_id` **no cambió**. Un guard que aborta después de escribir
+     * responde 422 igual, y aquí lo que importa es la columna.
+     */
+    public function test_la_clave_de_la_hermana_no_borra_la_firma(): void
+    {
+        $admin = $this->tokenDelAdministrativo();
+        $profesor = $this->usuarioDeTipo('Profesor');
+        $ficha = $this->profesorDe($profesor->id);
+        $imagen = $this->imagenPrivadaDe($profesor->id);
+
+        // Se le pone una firma de verdad primero: sin nada que perder, el caso no
+        // se ve.
+        $this->withToken($admin)
+            ->putJson('/api/perfiles/cambiarfirmaunprofe/'.$ficha, ['imgFirmaProfe' => $imagen])
+            ->assertStatus(200);
+
+        $antes = DB::table('profesores')->where('id', $ficha)->value('firma_id');
+        $this->assertNotNull($antes, 'No se pudo dejar una firma puesta para el caso.');
+
+        $this->withToken($admin)
+            ->putJson('/api/perfiles/cambiarfirmaunprofe/'.$ficha, ['imagen_id' => $imagen])
+            ->assertStatus(422);
+
+        $this->assertSame($antes, DB::table('profesores')->where('id', $ficha)->value('firma_id'),
+            'La clave de la hermana borró la firma de todas formas.');
+    }
+
+    /**
+     * Y la otra mitad, que es la que hace que el arreglo no sea un candado:
+     * **vaciar la firma a propósito sigue funcionando.**
+     *
+     * `CamposQueVinieron` distingue «no vino» de «vino vacío», y su hermana admite
+     * el vaciado con `$img_id ? $img_id : null`. Sin este test, cerrar el borrado
+     * accidental habría cerrado también el querido y nadie se enteraría hasta que
+     * alguien necesitara quitar una firma.
+     *
+     * **Pasa también con el código viejo, y se dice a propósito**: comprobado al
+     * revés, de los once cae **uno** —el de arriba— y éste no. No fija el fallo:
+     * fija que el arreglo no se convierta en un candado.
+     */
+    public function test_vaciar_la_firma_a_proposito_sigue_pudiendose(): void
+    {
+        $admin = $this->tokenDelAdministrativo();
+        $profesor = $this->usuarioDeTipo('Profesor');
+        $ficha = $this->profesorDe($profesor->id);
+        $imagen = $this->imagenPrivadaDe($profesor->id);
+
+        $this->withToken($admin)
+            ->putJson('/api/perfiles/cambiarfirmaunprofe/'.$ficha, ['imgFirmaProfe' => $imagen])
+            ->assertStatus(200);
+
+        $this->withToken($admin)
+            ->putJson('/api/perfiles/cambiarfirmaunprofe/'.$ficha, ['imgFirmaProfe' => null])
+            ->assertStatus(200);
+
+        $this->assertNull(DB::table('profesores')->where('id', $ficha)->value('firma_id'),
+            'Vaciar la firma a propósito dejó de funcionar.');
+    }
+
+    /** El superusuario del seed con contexto completo, que es quien pasa `esAdministrativo`. */
+    private function tokenDelAdministrativo(): string
+    {
+        $jefe = DB::selectOne('SELECT u.username FROM users u
+            INNER JOIN periodos p ON p.id = u.periodo_id
+            WHERE u.is_superuser = 1 AND u.is_active = 1 AND u.deleted_at IS NULL
+            ORDER BY u.id LIMIT 1');
+
+        $this->assertNotNull($jefe, 'El seed no tiene ningún superusuario con contexto completo.');
+
+        return $this->tokenDe($jefe->username);
+    }
+
     /** La ficha de profesor de una cuenta, que es lo que pide `cambiar-firma-un-profe`. */
     private function profesorDe(int $userId): int
     {
