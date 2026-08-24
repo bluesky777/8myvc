@@ -11143,3 +11143,53 @@ conclusión por silencio**—. Y su respuesta afina de quién era el fallo:
 
 **Una sesión que no está en la cola tiene que decirlo**, o quien coordina deduce — **y
 deducir sobre un silencio es lo mismo que leer un cero sin población.**
+
+## §223. El espejo de la §222, y lo que cierra el registro de esta noche
+
+**La [§222](#) nombró la forma de fallar de quien coordina: el número heredado se funde
+como dato y no como afirmación.** Esta es la misma forma **en la dirección contraria**, y
+la trajo quien la cometió:
+
+> `med-5` citaba **«la §175 y la §191»** como apoyo de su titular. **Esas dos secciones no
+> están en su árbol** —su `05` llega a la §174—: **las citó desde un mensaje de
+> coordinación, sin haberlas leído**, y **ponerlas como apoyo es lo que las hacía sonar
+> comprobadas**.
+
+**Y la regla que deja es más estrecha —y por eso más útil— que «comprobar mejor»:**
+
+> **Un dato que llega de otra sesión se cita como lo que es —*«me lo dice `34`»*— o se
+> comprueba antes de escribirlo como propio.** Escribirlo sin ninguna de las dos cosas
+> **lo convierte en una medición propia sin haberla medido**.
+
+**El titular se sostenía sin las citas y se reescribió con lo que sí sostiene:** que un
+barrido de controladores no pueda encontrar esas escrituras **es de construcción**, porque
+**dos de las quince no tienen ningún método de controlador de por medio** —corren en un
+middleware, antes—, **así que no hay nada que un recorrido de `app/Http/Controllers/`
+pueda mirar.**
+
+### Y dos que salieron bien de la misma revisión
+
+- **`int-1` aguanta al alcance ancho**: las seis tablas `df_*` no las nombra tampoco
+  `config/`, `database/`, `tests/` ni `tools/` — sólo el volcado del esquema, el seed y la
+  herramienta que las lista. **No son referencias de código.**
+- **Y una sube de leída a medida**: *«ninguna de las nueve es fuga»* estaba **leído** —del
+  403 de `auth.personal`— y **`bar-1` lo midió después sin buscarlo**: con token de
+  `Alumno` y de `Acudiente`, **las únicas rutas que escribieron fueron las dos suyas**.
+  **La lectura y la medición coinciden, por dos caminos que no comparten supuesto.**
+
+### Y la frase con la que se cierra el registro de la noche
+
+De las **223 secciones**, **nueve instrumentos que mintieron, seis cruces de autoría, y una
+docena larga de retractaciones —todas de quien traía el hallazgo—**, lo que queda es esto,
+dicho por una sesión al cerrar el suyo:
+
+> **«Estas tres no las caza una sesión sola por cuidadosa que sea. Las caza que otra traiga
+> una pregunta que tú no tenías.»**
+>
+> **Releer el propio texto no encuentra nada: se comprobó lo que se comprobó, y sigue
+> siendo correcto.** Lo que lo abre **es que llegue otra pregunta.**
+
+Las cuatro correcciones de ese último intercambio —dos de cada lado— **salieron todas de un
+dato que venía de fuera, ninguna de releer con más cuidado.** Y es la explicación de por
+qué esta noche encontró lo que encontró: **no hubo más rigor por sesión que otras noches.
+Hubo catorce sesiones preguntándose cosas distintas sobre el mismo código.**
