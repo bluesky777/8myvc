@@ -11481,3 +11481,91 @@ que sacó nadie; `opcion_otra` es un interruptor. El resultado de un alumno vive
 el `if` es impedir un `NULL` en una columna `NOT NULL DEFAULT '0'`, o sea **evitar un
 500**. Lo que sí deja: **duplicar una pregunta sin mandar `puntos` la crea valiendo 0**,
 en silencio. Real, pequeño, y sólo al alcance del personal.
+
+## §228. Barrido de `persona.propia`: 17 de 24 rutas no tienen defensa propia — y por qué eso no es una alarma
+
+La [§227](#) preguntó de una ruta *«¿de qué protege esta guarda, y qué queda si se la
+quitan?»*. Esto es la misma pregunta sobre **las 24 que la llevan**.
+
+**Población, y contada dos veces por caminos distintos:** `php artisan route:list` da
+**542 rutas, 24 con `persona.propia`**; el snapshot `guards-por-ruta.json` que compara
+`AutorizacionTest` dice **24** para ese guard. *Las dos cuentas coinciden, y una es la
+tabla de rutas viva y la otra un fichero congelado — que es la única forma de que un
+número de éstos valga algo.*
+
+**Las 24 se leyeron.** Trece enteras; las once restantes por inspección dirigida de
+**todas** sus líneas que nombran la identidad de la sesión (`$user->persona_id`,
+`user_id`, `tipo`) o cortan con `abort(`.
+
+### El reparto
+
+**17 desnudas** — el middleware es lo único que hay entre la petición y el dato; el
+controlador coge el id del cuerpo o de la URL y consulta:
+
+| | |
+|---|---|
+| `acudientes/de-persona` · `alumnos/years-con-notas` · `detalles/alumno` | `alumno_id` del cuerpo → acudientes, años con notas, ficha completa |
+| `frases_asignatura/show/{alumno_id}/{asignatura_id}` | usa `$user->periodo_id`, **que es alcance y no propiedad** |
+| `enfermeria/datos` | el `user_id` propio se escribe como autor; el `alumno_id` viene del cuerpo |
+| `mis-actividades/datos` | demostrado en la [§227](#) |
+| `myimages/datos-imagen` | **`$user = User::fromToken()` está COMENTADO**: la fuente de propiedad, desactivada en el fichero |
+| `myimages/privatizar-imagen` · `images-users/cambiar-imagen-un-usuario` | el id propio sólo alimenta `updated_by` |
+| `images-users/rotarimagen` · `rotar-imagen-izquierda` | `findOrFail($imagen_id)` y rota. Nada más |
+| `images-users/destroy/{id}` | borra el fichero **y anula referencias en cinco tablas** |
+| `images-users/move-img-to-me` | el destino sí es uno mismo; **de quién es la imagen de origen, no se pregunta** |
+| `images-users/cambiar-imagen-oficial` · `cambiar-imagen-perfil` | operan sobre el `{user_id}` de la URL |
+| `perfiles/update/{id}` | sus cuatro `abort` son **`422 Datos incorrectos`**: validan formato, no propiedad |
+| `perfiles/username/{username}` | cualquier nombre de usuario → documento, correo, fecha de nacimiento y grupo |
+
+**5 con defensa propia de verdad**, que sobrevivirían a perder el middleware:
+
+- `perfiles/cambiarpassword/{id}` — **exige la contraseña antigua** (`Hash::check` → 400);
+- `perfiles/cambiaremailrestore/{id}` — `(int) $id === (int) $user->user_id || esSuperusuario`;
+- `perfiles/guardar-username/{id}` — lo mismo, más un permiso explícito para el caso ajeno;
+- `myimages/destroy/{id}` — `$img->created_by != $user->user_id and ! $user->is_superuser`;
+- `myimages/publicar-imagen` — 403 a alumno y acudiente.
+
+**2 parciales**, que se defienden **por tipo y no por propiedad**:
+`asignaturas/listasignaturas` y `piars-asignaturas/asignaturas` ramifican en
+`$user->tipo` y resuelven lo suyo desde el token en la rama de la familia.
+
+### Y aquí está lo que evita que esto sea una alarma
+
+**Quitarle `persona.propia` a una ruta NO pasa en silencio: rompe `AutorizacionTest`**,
+que compara el mapa entero de guards contra `Snapshots/guards-por-ruta.json`. O sea que
+la respuesta a *«¿qué queda si se la quitan?»* no es «nada»: es **un test rojo**.
+
+**La red no es de código, es de procedimiento** — y por eso tiene una forma concreta de
+fallar: *el snapshot se puede regenerar*. Quien quite el guard y regenere la instantánea
+en el mismo commit no rompe nada. **Lo que protege esas 17 rutas es que actualizar ese
+fichero sea un acto deliberado que alguien tenga que justificar en un diff.**
+
+> **Ésa es la conclusión del barrido, y no el 17.** El número solo diría «hay 17 sitios
+> frágiles»; lo que hay es **17 sitios cuya única defensa es una línea de `routes/` y un
+> fichero de instantánea**. Y de ahí sale qué mirar en una revisión: **no el controlador
+> — el diff de `routes/api/*.php` y el de `guards-por-ruta.json`, juntos.** Un cambio en
+> el segundo sin una razón escrita es la señal.
+
+### Lo que este barrido NO contesta
+
+- **No dice que las 17 estén mal.** `ExigirPersonaPropia` declara en su cabecera que
+  centraliza esto a propósito; defender otra vez dentro de cada controlador sería
+  duplicar la regla en diecisiete sitios, que es peor. **Es una descripción de dónde
+  está el punto único de fallo, no una propuesta de moverlo.**
+- **No mira las rutas que deberían llevar el guard y no lo llevan.** Es la pregunta
+  espejo, cuesta lo mismo y no está hecha.
+- **No ejerce las 17.** Sólo `mis-actividades/datos` tiene sus cinco casos ejecutados
+  ([§227](#)); de las demás se leyó el código. *Leer no es medir, y aquí está dicho cuál
+  de las dos se hizo.*
+
+### El detector marcó una de más, y el motivo importa
+
+Su primera versión reconocía como freno sólo `abort(403|404|401)`, y marcó **desnuda a
+`perfiles/cambiarpassword`** — que se defiende exigiendo la contraseña antigua y cortando
+con **`abort(400)`**, porque el legacy de al lado devuelve 400 para todo.
+
+**Un detector de guardas que sólo reconoce el código HTTP correcto es ciego justo en el
+código que este repo usa.** Corregido a cualquier `abort(`, las desnudas bajaron de 11 a
+8 antes de la lectura a mano. *Y la lectura subió el número a 17 —los `abort(422)` de
+`perfiles/update` validan formato y el detector los contaba como freno—, o sea que se
+equivocó en las dos direcciones.*
