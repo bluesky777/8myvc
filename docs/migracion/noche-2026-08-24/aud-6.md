@@ -44,8 +44,26 @@ cada vez.
 **El precio, dicho: no es una conexión por colegio, son tres.** Lo que se compra no
 es una conexión: es **una visita y un formato**, que es lo que faltaba.
 
-Y su salida se emite **verbatim**: este guion no la interpreta, así que no puede
-equivocarse al interpretarla.
+Y sus **números** se emiten sin tocarse. Lo único que este guion hace con su salida
+es **emparejar la cabecera de su CSV con su fila**, para que no viaje un CSV de
+veintiuna columnas **dentro de una celda del mío** —sin eso, juntar dieciséis
+colegios deja de ser `cat` y pasa a ser `cat` más partir celdas a mano, que es lo
+que se viene a quitar—.
+
+> **Y eso no es «interpretar su medición», que es lo que se prometió no hacer.** Hay
+> dos cosas distintas y la diferencia es todo: **retéclear sus consultas** sería una
+> segunda medición que puede discrepar; **leer el CSV que ellas publican** es usar
+> el formato que existe para eso.
+>
+> **Y no supone la forma: la comprueba.** Sólo expande si hay **exactamente dos
+> líneas con datos**, la cabecera y la fila **tienen el mismo número de campos**, y
+> los nombres de la cabecera **parecen nombres de columna** (`^[a-z0-9_]+$`) y no
+> prosa. Si mañana una herramienta cambia de forma, esto **no adivina**: su salida
+> vuelve a salir verbatim línea a línea, y **el CSV lo dice**, porque las filas
+> pasan a llamarse «linea N» en vez de por su nombre. Degrada, no rompe.
+>
+> Comprobado: la salida de texto de `definitivas` tiene **53 líneas con datos**, así
+> que el guardián no la expande — y con `--csv` tiene dos y sí.
 
 ## 3. Que no pueda escribir — tres capas, y la tercera se comprueba
 
@@ -71,8 +89,10 @@ colegio**. No es lo mismo que «no escribe», y por eso está escrito.
 
 ## 4. El CSV es **largo**, no ancho
 
-`colegio,bloque,clave,valor,limite` — una fila por dato. 78 filas para un colegio,
-así que ~1.250 para dieciséis.
+`colegio,bloque,clave,valor,limite` — una fila por dato. **54 filas para un
+colegio** con los cinco bloques tabulados —5 de identidad, 8 de población, 3 de
+interruptores, 4 del rol `Admin`, 22 de bitácora y 11 de definitivas—, así que unas
+**865 para dieciséis** y juntarlas es `cat`.
 
 Un CSV **ancho** —una fila por colegio, una columna por dato— parece más cómodo y
 **se rompe en cuanto un bloque gana un campo**: las dieciséis dejan de tener la
@@ -136,12 +156,24 @@ En la base de prueba: 53 pares revisados, 0 ausentes.
 
 ## 7. Lo que hay que pedir, y lo que falta
 
-- **`salud-de-las-definitivas.php` no tiene `--csv`.** Es la única de las cinco
-  cuya salida no es concatenable, y es la que desbloquea la fase 2 — o sea la que
-  más falta hace en CSV. Su salida se captura **verbatim, línea a línea**, con lo
-  que el CSV sale correcto pero no tabulado para ese bloque. **Añadirle `--csv` es
-  una línea y no lo hago**: es una herramienta compartida y no es de este lote. Va
-  propuesto a coordinación.
+- **`salud-de-las-definitivas.php` ya tiene `--csv`** (commit aparte, `7fd802c`,
+  autorizado por coordinación). Era la única de las cinco cuya salida no se
+  tabulaba, **y la que desbloquea la fase 2**, o sea el hueco estaba justo donde más
+  cuesta. Con eso **las cinco salidas son tabulables y juntar dieciséis colegios es
+  `cat`**.
+
+  Dos detalles que valen más que el flag:
+
+  - **El CSV sale de los mismos bloques que el texto.** `bloqueDeSalud()` es la
+    única que conoce cada cifra, así que en modo CSV la misma llamada que imprimiría
+    la línea guarda el número. Releer las variables al final habría sido una segunda
+    lectura de lo mismo, y dos lecturas de lo mismo acaban discrepando. **Así no hay
+    otra mitad.**
+  - **Y con la salida vieja comprobada byte a byte**: las 63 líneas de medición
+    tienen el mismo `sha256` antes y después. Lo único que se movió es **una línea
+    de ayuda al final, después de todos los datos**, anunciando el flag — igual que
+    hace la hermana en su pie. Se dice así en vez de afirmar «no se movió nada»,
+    que habría sido falso por una línea.
 - **Este guion no se ha corrido.** Es servidor. Se entrega con el comando exacto
   en la cabecera y probado contra una base local tratada como colegio.
 

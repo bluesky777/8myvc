@@ -191,8 +191,14 @@ foreach ($colegios as $colegio) {
     bloqueIdentidad($csv, $colegio);
     bloqueInterruptores($csv, $colegio);
     bloqueAdmin($csv, $colegio);
-    bloqueDelegado($csv, $colegio, 'bitacora', 'salud-de-la-bitacora.php', ['--csv']);
-    bloqueDelegado($csv, $colegio, 'definitivas', 'salud-de-las-definitivas.php', []);
+    // A las dos se les pide `--csv` cuando este guion va en CSV: así las cinco
+    // salidas son tabulables y juntar dieciséis colegios es `cat`. El de
+    // `definitivas` se añadió el 24 ago 2026 —era la única de las cinco sin
+    // tabular, y la que desbloquea la fase 2—; si se corriera contra una copia
+    // vieja de la herramienta, el flag sale ignorado y su bloque vuelve a salir
+    // como texto, que es degradar y no romper.
+    bloqueDelegado($csv, $colegio, 'bitacora', 'salud-de-la-bitacora.php', $csv ? ['--csv'] : []);
+    bloqueDelegado($csv, $colegio, 'definitivas', 'salud-de-las-definitivas.php', $csv ? ['--csv'] : []);
 
     DB::rollBack();
 }
@@ -454,6 +460,10 @@ function bloqueDelegado(bool $csv, string $colegio, string $bloque, string $herr
             ? 'crea y borra una TEMPORARY de su propia sesion: escribe, pero nunca en los datos'
             : 'solo lectura');
 
+    if (expandirCsvDelegado($csv, $colegio, $bloque, $salida)) {
+        return;
+    }
+
     foreach ($salida as $i => $linea) {
         if (trim($linea) === '') {
             continue;
@@ -461,4 +471,58 @@ function bloqueDelegado(bool $csv, string $colegio, string $bloque, string $herr
 
         emitir($csv, $colegio, $bloque, 'linea '.($i + 1), trim($linea));
     }
+}
+
+/**
+ * Convierte el CSV de una herramienta delegada en filas `clave,valor` de este CSV.
+ *
+ * ## Por qué esto NO es «interpretar su medición», que es lo que dije que no haría
+ *
+ * Hay dos cosas distintas y la diferencia es todo: **retéclear sus consultas** sería
+ * una segunda medición que puede discrepar; **leer el CSV que ellas publican** es
+ * usar el formato que existe para eso. Sus números pasan por aquí **sin tocarse**:
+ * lo único que se hace es emparejar cabecera con fila.
+ *
+ * Sin esto, su CSV viaja **dentro de una celda del mío** —«linea 1» con veintiuna
+ * columnas dentro—, y entonces juntar dieciséis colegios ya no es `cat`: es `cat` y
+ * después partir celdas a mano, que es justo lo que este guion viene a quitar.
+ *
+ * ## Y no supone la forma: la comprueba
+ *
+ * Sólo expande si hay **exactamente dos líneas con datos** y **la cabecera y la
+ * fila tienen el mismo número de campos**. Si la herramienta cambia de forma
+ * mañana, esto **no adivina**: devuelve `false` y su salida sale verbatim, línea a
+ * línea, como antes. Degrada, no rompe — y el CSV lo dice, porque las filas pasan
+ * a llamarse «linea N» en vez de por su nombre.
+ *
+ * @param  list<string>  $salida
+ */
+function expandirCsvDelegado(bool $csv, string $colegio, string $bloque, array $salida): bool
+{
+    $lineas = array_values(array_filter(array_map('trim', $salida), static fn (string $l): bool => $l !== ''));
+
+    if (count($lineas) !== 2) {
+        return false;
+    }
+
+    $cabecera = explode(',', $lineas[0]);
+    $valores = explode(',', $lineas[1]);
+
+    if (count($cabecera) !== count($valores) || count($cabecera) < 2) {
+        return false;
+    }
+
+    // Una cabecera de CSV no lleva espacios ni acentos; si los lleva, esto es
+    // texto y no una cabecera, y expandirlo sería inventarse columnas.
+    foreach ($cabecera as $campo) {
+        if (! preg_match('/^[a-z0-9_]+$/', $campo)) {
+            return false;
+        }
+    }
+
+    foreach ($cabecera as $i => $campo) {
+        emitir($csv, $colegio, $bloque, $campo, $valores[$i]);
+    }
+
+    return true;
 }
