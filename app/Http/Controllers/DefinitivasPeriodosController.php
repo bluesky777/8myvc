@@ -151,7 +151,14 @@ class DefinitivasPeriodosController extends Controller {
 							SELECT id FROM notas_finales WHERE alumno_id=? and asignatura_id=? and periodo_id=?
 						) LIMIT 1';
 
-			DB::select($consulta, [
+			// **Uno de los DOS que el censo del 05 §191 no listaba** — y los dos escriben
+			// `notas_finales`, que es la tabla de la que va la mitad del plan. Un censo de
+			// «qué escribe» hecho por el nombre del método los dejaba fuera justo ahí.
+			//
+			// Y en este mismo método queda `:108` pendiente: su lectura de `unidades` no
+			// tiene alcance del boletín independiente y sale de BI-2 con ciclo propio,
+			// porque acotarla SÍ cambia qué filas devuelve y esto no puede cambiar nada.
+			DB::insert($consulta, [
 				$defi_autos[$i]->alumno_id, $defi_autos[$i]->asignatura_id,
 				$defi_autos[$i]->periodo_id, $num_periodo,
 				$nota_asignatura, $user->user_id, $now, $now,

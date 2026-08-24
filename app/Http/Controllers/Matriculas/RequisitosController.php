@@ -61,7 +61,7 @@ class RequisitosController extends Controller {
 		$now 		= Carbon::now('America/Bogota');
 		
 		$consulta = 'UPDATE requisitos_matricula SET requisito=?, descripcion=?, updated_by=?, updated_at=? WHERE id=?';
-		DB::select($consulta, [$requ, $descrip, $this->user->user_id, $now, $id]);
+		DB::update($consulta, [$requ, $descrip, $this->user->user_id, $now, $id]);
 		
 		return 'Actualizado';
 	}
@@ -78,7 +78,7 @@ class RequisitosController extends Controller {
 		
 		$consulta = 'UPDATE requisitos_alumno
 		 SET estado=?, descripcion=?, updated_by=?, updated_at=? WHERE id=?';
-		DB::select($consulta, [ $estado, $descrip, $this->user->user_id, $now, $id ]);
+		DB::update($consulta, [ $estado, $descrip, $this->user->user_id, $now, $id ]);
 		
 		return 'Actualizado';
 	}
