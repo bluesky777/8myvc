@@ -10314,3 +10314,37 @@ Dos importan:
 > **Lo que un interruptor apaga, la suite no lo prueba — y el barrido tampoco, con el
 > añadido de que el barrido no puede decir cuál de los dos fue.** Atribuir a la puerta lo
 > que hizo el conmutador es la forma que queda cuando ya se han cerrado las demás.
+
+### §207.1. Y el arreglo se podía usar mal de la misma forma
+
+El script del turno tiene un `ver` y un `coger`, y **usarlos en ese orden reintroduce el
+hueco entero**:
+
+```bash
+turno.sh ver          # ¿LIBRE?
+turno.sh coger …      # pues lo cojo      <-- DOS PASOS otra vez
+```
+
+Lo encontró **quien iba a usarlo, leyéndolo antes de correrlo**. La forma correcta **no
+consulta**:
+
+```bash
+until turno.sh coger 8myvc-39 "BAR-1, las cuatro pasadas"; do sleep 20; done
+```
+
+> **El `mkdir` sólo vale si es el ÚNICO paso.** No se consulta antes: **se intenta y se
+> deja que falle** — y `coger` ya dice quién lo tiene cuando falla, **así que la consulta
+> no aporta nada que no venga con el intento**.
+
+**Está en la cabecera del script**, que es donde lo va a leer el siguiente: *`ver` es para
+mirar, nunca para decidir.*
+
+**Y la otra mitad, también suya:** el candado es **el turno, no el número de procesos**.
+Con el turno cogido y `ps` a **0**, su dueño **está leyendo resultados o a punto de
+repetir** — *no se le quita*. Es la misma distinción que el script escribe al concederlo:
+**impide que otro arranque; no impide que quede algo de antes**, y tampoco **obliga a
+estar corriendo**.
+
+> Van dos capas de la misma forma en veinte minutos: **la coordinación con `ps`, y el
+> script con `ver`.** Cerrar un agujero de dos pasos **crea la oportunidad de abrirlo otra
+> vez en la herramienta que lo cierra.**
