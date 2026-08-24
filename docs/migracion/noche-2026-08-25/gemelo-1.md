@@ -199,3 +199,73 @@ Eloquent por SQL crudo**. Queda escrita en el código, al lado del `if`.
   se documenta*.
 - **No se tocó `Informes/BolfinalesController`** ni ninguna de las otras siete
   copias de este patrón: un fichero, un dueño.
+
+## §7. La medición
+
+Base `simonbolivar_testing_79`, árbol `.worktrees/79`, reconstruida antes de mirar
+ningún número: **94 tablas y 2.351 usuarios**, que es lo que tiene `main`.
+
+Grupo **98** del seed: **37 alumnos × 10 asignaturas × 4 periodos**, el mismo
+grupo sobre el que la [05 §224](../05-codigo-muerto-y-roto.md) midió las 3.820.
+
+### Lo que prueba que la respuesta no se movió
+
+`tests/Barrido/EquivalenciaDelGemeloTest.php`, en verde:
+
+- **465 pares (alumno, asignatura, periodo) con notas perdidas**, recalculados uno
+  a uno con el SQL viejo —**2.960 consultas**— y **coincidiendo valor a valor** con
+  lo que producen los dos `GROUP BY`.
+- **37 alumnos con `asignaturas_perdidas`** en el informe, el mismo conjunto antes
+  y después. Ése era el daño que no se ve en un número: una asignatura sin
+  periodos perdidos se borra con `unset`, y con ella el alumno se queda sin la
+  propiedad y **sale del informe entero**.
+
+`tests/Contrato/GemeloDelBoletinFinalTest.php`, en verde, **627 asertos**: ninguna
+asignatura perdida comparte objeto de periodo con otra ni con `$year->periodos`.
+
+### El número, y por qué NO se resta del 3.820 de la §224
+
+Medido, con el contador congelado justo después de la llamada:
+
+| | consultas |
+|---|---|
+| `detailedNotasGrupo()` **después** del arreglo | **450** |
+| el recálculo a mano con el SQL viejo, para comprobarlo | 2.960 |
+
+**Y aquí hay que parar antes de restar.** «3.820 → 450» sería una resta entre dos
+cosas que no se midieron sobre lo mismo: **la §224 midió una petición HTTP entera**
+—`GET certificados-estudio/certificado-grupo/{g}`, con la resolución del contexto
+de usuario dentro— y **este test llama al método directamente**, con el usuario ya
+resuelto fuera de la ventana del oyente.
+
+La cuenta cuadra en cuanto se dice sobre qué se midió cada una:
+
+- lo que el arreglo quita son **408 + 1.480 + 1.480 = 3.368**, y añade **3** (el memo
+  y los dos `GROUP BY`);
+- o sea que la petición entera debería quedar en **3.820 − 3.368 + 3 = 455**;
+- y **455 − 450 = 5**, que es exactamente lo que cuesta una petición de este
+  controlador sin llegar al boletín: **la fila `certificado-alumno` de la §224, que
+  mide 5 consultas**, es esa misma resolución de contexto.
+
+**Los dos números son correctos y no se pueden restar entre sí.** El número
+comparable 1:1 con la §224 sale de `CosteDelGemeloDeLaRaizTest`, que mide **las
+tres rutas por HTTP en la misma corrida y descartando una pasada en frío**, y es
+el que se cita en la tabla de abajo. El de aquí mide **el método**, que es lo que
+este arreglo toca.
+
+Lo mismo con el tiempo: los milisegundos de este test **no se comparan con los
+11,4 s** de la §224, porque este test no descarta la pasada en frío y aquél sí.
+
+### Y un instrumento que mintió, que es de este documento y no de otro
+
+La primera corrida imprimió **3.412 consultas del boletín**, y **el número era
+correcto: lo que estaba mal era el tramo sobre el que se contó.** El contador
+entra en la clausura de `DB::listen` **por referencia**, `DB::listen` no se puede
+quitar —no hay `unlisten`—, y el informe lo leía **al final**, o sea después de
+que el recálculo a mano hubiera metido sus 2.960 en la misma variable.
+
+**Lo que lo hacía peligroso es que 3.412 es creíble**: se parece muchísimo a las
+3.820 de antes del arreglo, así que la lectura falsa era *«el desanidado apenas
+sirvió»* — y eso no se ve mirando el resultado, sólo preguntando **sobre qué** se
+midió. Se arregla congelando el contador justo después de la llamada, y así está
+escrito en el test con su porqué.

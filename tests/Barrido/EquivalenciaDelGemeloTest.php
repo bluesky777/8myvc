@@ -134,7 +134,20 @@ class EquivalenciaDelGemeloTest extends CasoDeContrato
         [, , $alumnos] = (new BolfinalesController)->detailedNotasGrupo($grupo->id, $user);
         $ms = (hrtime(true) - $desde) / 1e6;
 
-        $this->assertGreaterThan(0, $consultasDelBoletin,
+        // **Se congela AQUÍ, y no se lee al final.** El contador entra en la clausura
+        // **por referencia**, y `DB::listen` no se puede quitar —no hay `unlisten`—:
+        // el recálculo a mano de más abajo son 2.960 consultas más que siguen cayendo
+        // en la misma variable. Leerla en el informe daba **3.412 «consultas del
+        // boletín»** cuando el boletín hacía 452 y el resto era el propio test
+        // midiéndose a sí mismo.
+        //
+        // El número era correcto; lo que estaba mal era **sobre qué tramo se contó**,
+        // y eso no se ve mirando el resultado, porque 3.412 es perfectamente creíble
+        // —se parece muchísimo a las 3.820 de antes del arreglo, que es justo lo que
+        // lo hacía pasar por bueno—.
+        $delBoletin = $consultasDelBoletin;
+
+        $this->assertGreaterThan(0, $delBoletin,
             'El oyente no contó ninguna consulta: el informe de abajo no mide nada.');
 
         // ---------------------------------------------------------- lo observado
@@ -227,7 +240,7 @@ class EquivalenciaDelGemeloTest extends CasoDeContrato
             }
         }
 
-        $this->informe($grupo, $user, $alumnos, $consultasDelBoletin, $consultasAMano, $ms,
+        $this->informe($grupo, $user, $alumnos, $delBoletin, $consultasAMano, $ms,
             $esperadoPerdidas, $conPerdidas);
 
         // ------------------------------------------------------------- los asertos

@@ -215,11 +215,21 @@ class GemeloDelBoletinFinalTest extends CasoDeContrato
         $this->assertGreaterThan(0, $conteo['total'],
             'El oyente no contó ninguna consulta: la cota de abajo no mide nada.');
 
-        $this->assertLessThanOrEqual(1, $conteo['periodos'],
-            'La consulta invariante de los periodos volvió a entrar en un bucle: '
+        // **Exactamente 1, y no «no más de 1», que es lo que pedía el reflejo.**
+        // Una cota `<=` dejaría pasar el CERO, y cero aquí no es «mejor todavía»:
+        // significaría que el memo **sobrevivió a la petición anterior** y que esta
+        // llamada está sirviendo los periodos que leyó otra. Es el fallo que cazó al
+        // hermano —daba 0 donde tenía que haber 1— y el que hizo que el memo se
+        // mudara de una propiedad de la clase a los `attributes` de la petición.
+        //
+        // Con `assertSame` el aserto vigila **las dos direcciones**: que no crezca
+        // con el grupo, y que siga preguntando una vez.
+        $this->assertSame(1, $conteo['periodos'],
+            'La invariante de los periodos no se pidió exactamente una vez: '
             .$conteo['periodos'].' ejecuciones sobre '.$forma->alumnos.' alumnos × '
-            .$forma->asignaturas.' asignaturas. Si crece con el grupo, el memo de '
-            .'`periodosDelAnio()` dejó de servir.');
+            .$forma->asignaturas.' asignaturas. Si es MÁS, volvió a entrar en un bucle. '
+            .'Si es CERO, el memo de `periodosDelAnio()` cruzó la frontera de la petición '
+            .'y esta llamada está leyendo lo que preguntó otra.');
     }
 
     /**
