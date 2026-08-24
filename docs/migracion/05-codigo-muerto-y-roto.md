@@ -7992,3 +7992,72 @@ los distingue es que además escriben crudo con lo que llega.
 > coordinaciones lo habría visto sola: aquí no hay nada que grepear, y desde el
 > front no se ve qué hace el backend con lo que se le manda. **Lo vio quien miró
 > desde el otro lado de la llamada.**
+
+## §172. Once notas cambiadas y ni una fila de bitácora — medido, y la causa **no** es la que parecía
+
+Lo trajo `myvc-front-98` desde el front, medido en Chrome sin dejar una escritura.
+Traía **tres afirmaciones**: que `putUpdate` registra cambios que no existieron, que
+hay once escrituras sin rastro, y que la causa es un `[0]` sobre una subconsulta
+vacía. **La segunda está confirmada, la primera también, y la tercera se cae** —y
+que se caiga importa, porque arreglarla no habría arreglado nada.
+
+### Lo confirmado, con los números
+
+```
+notas 1165610…1145850  ·  once, alumno 1003, updated_by 675
+                          2026-08-23 20:38:36 → 20:38:49, una por segundo
+bitácoras de esas once notas ................. 2, las dos del 17 de agosto
+bitácoras borradas en toda la tabla .......... 0 de 86
+```
+
+Once notas cambiadas, **ni una fila de bitácora**, y **ninguna se borró después**.
+Los ids van de 38 en 38: no es calificar, es **alguien tabulando por la fila de un
+alumno** — una sesión verificando esa pantalla.
+
+### Por qué el `[0]` no puede ser la causa, y qué es de verdad
+
+El diagnóstico que llegaba era: la subconsulta de `historiales` no devuelve fila,
+el `[0]` revienta, y el 422 sale **después** del `UPDATE`. **Dos cosas no encajan:**
+
+1. **El `[0]` está antes del `UPDATE`**, no después (`NotasController::putUpdate`,
+   el `SELECT` abre el `try` y el `UPDATE` viene nueve líneas más abajo). Cuando
+   revienta, la nota **no se guarda** y el «no se pudo guardar la nota» **es
+   verdad**.
+2. **`carolina` (675) sí tiene historial**: dos filas. La subconsulta le devuelve
+   fila, así que a ella el `[0]` no le reventó.
+
+**Y la población que lo acompañaba dice otra cosa de la que parece.** *«8 usuarios
+con fila en `historiales` de 2.355»* es cierto **en la copia local**, y de ahí no
+sale «2.347 usuarios rotos»: `Services/Login.php:136` **inserta una fila en cada
+login**, así que en producción cualquiera que haya entrado tiene la suya. Lo que
+mide ese 8 es cuánta gente ha entrado **en esta base de desarrollo**. El `[0]` es
+una mina real —y la cura está escrita **dos métodos más abajo**, `putLote` hace
+`$historial->id ?? null`—, pero su radio no es el que sugería el número.
+
+### Lo que sí queda abierto, y es lo que hay que mirar
+
+**Sólo dos funciones de `app/` hacen `UPDATE` sobre `notas` y las dos insertan
+bitácora.** Así que o el `INSERT` falló **después** de que el `UPDATE` ya estaba
+escrito —y ahí está el fallo de verdad: **`putUpdate` no abre transacción**, así
+que un fallo al registrar deja la nota guardada, sin rastro, y contesta 422
+diciendo que no se guardó—, o **hay un escritor que mi detector no ve**. Las dos
+posibilidades son de la misma familia y las dos importan para la auditoría.
+
+### Y la primera afirmación, que sí es de diseño
+
+**`putUpdate` inserta en `bitacoras` sin comparar el valor viejo con el nuevo.**
+El front encontró además que `app2` dispara `PUT notas/update` al **salir de una
+celda sin teclear nada** y al **abrir el historial con doble clic** —usa el `blur`
+crudo del DOM donde la vieja usaba `ng-change`, 20 sitios—. Aunque el front lo
+arregle, **cualquier cliente que reenvíe el mismo valor fabrica un cambio en la
+auditoría**: la tabla que existe para saber quién cambió una nota registra cambios
+que no ocurrieron. Es la otra cara de la [regla del escritor](18-auditoria.md) —*un
+reguardado sin cambio sí se registra*—, y hay que decidirla **antes** de que el
+escritor único la herede.
+
+> **Y el aviso de método, que me lo llevé yo mismo midiendo esto:** mi primera
+> consulta preguntó por las notas de **hoy** con `curdate()` y contestó **cero**,
+> con doce delante. MySQL cuenta el día en **UTC** (`@@session.time_zone = SYSTEM`,
+> `now()` = 03:54) y esas notas se escriben en **Bogotá**. O sea que **el bicho del
+> que trata la auditoría muerde a quien va a medirlo**, y contesta con un cero
+> limpio y creíble.
