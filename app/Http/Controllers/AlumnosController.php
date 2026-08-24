@@ -473,7 +473,26 @@ class AlumnosController extends Controller {
 			}
 		}
 
-		if (!Request::input('email1')) {
+		// **`email1` no existe: cero apariciones en los cuatro clientes**, comprobado
+		// el 24 ago 2026. Así que esta rama corría SIEMPRE y pisaba el `email2` que
+		// el cliente sí manda con el correo de la FICHA —dos columnas de dos tablas—
+		// o con `usuario@myvc.com`.
+		//
+		// Y la guarda de arriba no lo paraba: `$vinieron->trae('email2')` contesta
+		// *«¿vino la clave?»* —sí, vino— y no *«¿es éste el valor que vino?»*. La
+		// §68.3 cerró el caso de que el campo NO viniera; éste es el de que venga y
+		// llegue sustituido.
+		//
+		// **Y aquí estaba disparado**, al contrario que en el gemelo de profesores:
+		// `AlumnosEditCtrl.ts:122` hace `$ctrl.alumno.email2 = alumno.user.email`, o
+		// sea que la pantalla manda el correo de la cuenta de vuelta **y** el
+		// `username` que abre el bloque. En cada guardado de una ficha de alumno.
+		//
+		// La condición correcta es la que `email1` quería decir: derivar un correo
+		// **sólo si no hay ninguno**. Cambia una palabra, y el defecto del alta
+		// —cuenta nueva sin correo— se conserva. Ver 05 §173.2 y
+		// noche-2026-08-24/profes-1.md.
+		if (!Request::input('email2')) {
 
 			if (Request::input('email')) {
 				Request::merge(array('email2' => Request::input('email') ));

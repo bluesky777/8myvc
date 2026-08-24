@@ -128,10 +128,60 @@ de la §68 sigue cubierto.
   OOM**: el límite es el contenedor. Y `ps` en el host no ve los procesos de
   dentro.
 
-## §7. Lo que queda
+## §7. El gemelo de `AlumnosController` — hecho, y NO era el mismo caso
 
-- **`AlumnosController` tiene el mismo sanador y el mismo `email1` muerto.** Es el
-  segundo pisotón de la tabla y va en su propio commit.
+Cerrado en su propio commit, como pedía el lote. **Y al abrirlo resultó que
+«gemelo» era la palabra equivocada en la mitad que importa.**
+
+### Lo que NO tiene
+
+`AlumnosController` **no reproduce el renombrado ni la degradación**, y no por
+suerte: su bloque está construido distinto.
+
+```
+Profesores:  if ($profesor->user_id and Request::input('username'))   <- tras el sanador
+             sanarInputUser() corre ANTES, fuera del bloque
+
+Alumnos:     if ($alumno->user_id and Request::has('username'))       <- clave del CLIENTE
+             sanarInputUser() corre DENTRO, después de la puerta
+```
+
+Con el sanador dentro, **la puerta la decide el cliente y no la fabricación**: un
+cuerpo sin `username` no entra, así que no hay nada que pisar. Y `is_superuser` no
+se fabrica aquí — se escribe `0` a pelo, que en la cuenta de un alumno es correcto.
+
+**O sea que el arreglo de tres cambios de Profesores es de una línea aquí.** Dar
+por hecho que un gemelo es idéntico habría metido dos guardas que no hacen falta y
+movido una condición que estaba bien.
+
+### Lo que SÍ tiene, y es peor que en Profesores
+
+El mismo `if (!Request::input('email1'))`, la misma llave muerta, el mismo pisotón
+de `email2`. **Con una diferencia que cambia la urgencia: aquí estaba disparado.**
+
+`AlumnosEditCtrl.ts:122` hace `$ctrl.alumno.email2 = alumno.user.email` — la
+pantalla manda el correo de la cuenta de vuelta— **y** manda `username`, que es lo
+que abre el bloque. Los dos van en el mismo cuerpo. Así que **cada guardado de una
+ficha de alumno sustituía el correo de la cuenta por el de la ficha**, en los
+dieciséis colegios, desde siempre.
+
+En Profesores era una condición que había que provocar. Aquí es la pantalla normal.
+
+### El test se escribió en rojo primero
+
+Y hacía falta construir la condición: los dos correos tienen que **diferir**, o el
+test pasa sin distinguir el arreglo de la sustitución. Con eso puesto, rojo antes y
+verde después.
+
+**Y apareció un test con nombre casi idéntico ya escrito**
+—`test_editar_un_alumno_no_muda_el_correo_de_la_cuenta`—. No era duplicado: aquél
+hace `unset($cuerpo['email2'])`, o sea la mitad de la **ausencia**, que es la que
+cubre la guarda de la §68.3. El nuevo es la mitad de la **presencia pisada**. Se
+renombró el nuevo y se cruzaron los dos en sus docblocks, porque dos tests con
+nombre casi igual que prueban cosas distintas es la familia de fallo que esta noche
+se ha pasado corrigiendo.
+
+## §8. Lo que queda
 - **El front tiene que dejar de mandar `username` e `is_superuser`** desde esa
   rejilla. Con este arreglo ya no hacen daño, pero mandarlos sigue siendo mandar
   algo que esa pantalla no edita.

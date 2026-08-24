@@ -243,6 +243,62 @@ class CamposQueSePisanTest extends CasoDeContrato
     }
 
     /**
+     * **El correo de la cuenta del alumno se sustituía por el de la ficha, en cada
+     * guardado, con el `email2` correcto delante.** §173.2 aplicada al gemelo.
+     *
+     * `sanarInputUser()` de `AlumnosController` tiene la misma llave muerta que su
+     * gemelo de profesores: `if (!Request::input('email1'))`, y **`email1` no
+     * aparece en ninguno de los cuatro clientes** —cero ficheros, comprobado—. Así
+     * que esa rama corre siempre y mergea `email2` con el correo de la PERSONA.
+     *
+     * Y la guarda que ya existía no lo paraba: `$vinieron->trae('email2')` contesta
+     * *«¿vino la clave?»* —sí, vino— y escribe el valor **ya sustituido**. Es la
+     * grieta de la §173.2, aquí en el otro hermano.
+     *
+     * **Esto sí estaba disparado, al contrario que la firma de la §182**:
+     * `AlumnosEditCtrl.ts:122` hace `$ctrl.alumno.email2 = alumno.user.email`, o sea
+     * que la pantalla de edición manda el correo de la cuenta de vuelta — y también
+     * `username`, que es lo que abre el bloque. Los dos campos van en el mismo
+     * cuerpo, en cada guardado.
+     *
+     * **Va en pareja con `test_editar_un_alumno_no_muda_el_correo_de_la_cuenta`**, y
+     * los dos hacen falta porque son las dos mitades de la misma pregunta:
+     *
+     *     aquél: el cuerpo NO trae email2  -> lo cubre la guarda `trae()` de la §68.3
+     *     éste:  el cuerpo SÍ trae email2  -> lo pisa el merge, y la guarda no lo ve
+     *
+     * Los nombres se parecían demasiado y se separaron a propósito: dos tests con
+     * nombre casi igual que prueban cosas distintas es de la familia que esta noche
+     * se ha pasado corrigiendo.
+     */
+    public function test_el_email2_del_alumno_no_se_pisa_con_el_de_la_ficha(): void
+    {
+        $token = $this->tokenDeSuperusuario();
+        $alumno = $this->alumnoConCuentaApagada();
+
+        // **La condición se construye**: los dos correos tienen que DIFERIR, o el
+        // test pasa sin distinguir el arreglo de la sustitución. Es lo mismo que
+        // hace `test_la_ficha_de_alumno_guarda_de_verdad` con la ciudad.
+        DB::update('UPDATE users SET email = ? WHERE id = ?',
+            ['cuenta@ejemplo.test', $alumno->user_id]);
+        DB::update('UPDATE alumnos SET email = ? WHERE id = ?',
+            ['ficha@ejemplo.test', $alumno->id]);
+
+        $cuerpo = $this->cuerpoDeLaPantallaDeAlumno($alumno, [
+            'email2' => 'cuenta@ejemplo.test',   // el de la CUENTA, como lo manda el front
+            'email' => 'ficha@ejemplo.test',     // el de la FICHA, en el mismo cuerpo
+        ]);
+
+        $this->withToken($token)->putJson('/api/alumnos/update/'.$alumno->id, $cuerpo)
+            ->assertStatus(200);
+
+        $ahora = DB::selectOne('SELECT email FROM users WHERE id = ?', [$alumno->user_id])->email;
+
+        $this->assertSame('cuenta@ejemplo.test', $ahora,
+            'El correo de la ficha pisó al de la cuenta: es la llave muerta de `email1`.');
+    }
+
+    /**
      * La casilla de contraseña de `alumnosEdit.html:229` está atada a `$ctrl.alumno`,
      * que es el objeto entero que se manda. Vaciarla después de escribir en ella
      * manda `password: ''` — y con la condición invertida de
@@ -358,6 +414,9 @@ class CamposQueSePisanTest extends CasoDeContrato
      */
     public function test_editar_un_alumno_no_muda_el_correo_de_la_cuenta(): void
     {
+        // Éste es la mitad de la AUSENCIA —`unset($cuerpo['email2'])`—, que cubre la
+        // guarda `trae('email2')` de la §68.3. La mitad de la PRESENCIA está en
+        // `test_el_email2_del_alumno_no_se_pisa_con_el_de_la_ficha`.
         $token = $this->tokenDeSuperusuario();
         $alumno = $this->alumnoConCuentaApagada();
 
