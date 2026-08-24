@@ -315,6 +315,37 @@ contestar:
   delante —los once consumidores leen id, nombre, foto y `user_id`—. **Sin
   desplegar; revertirlo es un commit.**
 
+### Y una de las dos del 24 ago por la tarde sigue abierta — la otra se cerró
+
+- **[§12](09-pendientes.md) — las masivas de cuentas: elegiste la C (por alcance)
+  y hecha está la mitad de abajo.** `alumnos/cambiar-claves` pasa a
+  `esAdministrativo`. **La mitad de arriba está parada a propósito**: bajar las
+  cuatro `cambiar-usuarios/*` a `esSuperusuario` **reversaría una decisión tuya
+  del 21 ago** —«puede cambiarle la contraseña/username a los alumnos y acudientes
+  solamente», citada literal en `SecretarioTest`—, y la C se propuso sin ese dato
+  delante. Las dos salidas que quedan están en el 09. **Nada se toca hasta que
+  contestes.**
+
+  > Falló el método, no la conclusión: el barrido miró `Autoriza`, los
+  > controladores y sus docblocks, y **no miró los tests**, que es donde vivía tu
+  > frase. Aquí una decisión tuya puede estar anotada en un test y no en el código
+  > que la aplica.
+
+- **[§11](09-pendientes.md) — cualquier profesor renombraba cualquier cuenta.
+  ARREGLADO, no espera nada.** Está aquí sólo para que se despliegue: con
+  `users.username` UNIQUE, dejaba a un superusuario fuera del sistema en una
+  petición. Lo encontró la sesión de `myvc_flutter` leyendo la ruta que su pantalla
+  nueva iba a consumir, y avisó en vez de cablearla.
+
+- **Y lo que espera de la pantalla de cuentas de la app**: ocho endpoints nuevos
+  que aún **no están autorizados**. El detalle, con lo que ya existe y lo que de
+  verdad falta, en el 09 §12 y en
+  `~/DESARROLLOS/myvc_flutter/docs/backend-pendiente.md`.
+
+> **La copia local tiene cuatro cuentas con contraseña de prueba y once bitácoras
+> borradas** — lo que se le hizo a `simonbolivar` no está en git:
+> [15](15-la-noche-en-paralelo.md).
+
 ---
 
 ## Lo que está fusionado y NO desplegado

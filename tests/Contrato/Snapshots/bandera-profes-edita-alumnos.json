@@ -47,6 +47,9 @@
     "app/Http/Controllers/Matriculas/MatriculasController.php::putToggleNuevo": [
         "PUT api/matriculas/toggle-nuevo"
     ],
+    "app/Http/Controllers/Perfiles/PerfilesController.php::putGuardarUsername": [
+        "PUT api/perfiles/guardar-username/{id}"
+    ],
     "app/Http/Controllers/Perfiles/PerfilesController.php::putResetPassword": [
         "PUT api/perfiles/reset-password/{id}"
     ],

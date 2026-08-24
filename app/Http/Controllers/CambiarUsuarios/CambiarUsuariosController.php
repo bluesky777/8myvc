@@ -20,9 +20,21 @@ class CambiarUsuariosController extends Controller {
 	{
 		// Las cuatro rutas reescriben la cuenta de TODOS los alumnos o de todos
 		// los acudientes del colegio. Con `auth.personal` a secas las disparaba
-		// cualquiera de los 51 profesores. Mismo criterio que la papelera de
-		// grupos y profesores, que es la misma clase de operación: de colegio, no
-		// de aula. Ver app/Support/Autoriza.php.
+		// cualquiera de los 51 profesores.
+		//
+		// **`esAdministrativo` es una decisión de Joseth, no una herencia**, y hay
+		// que decirlo aquí porque el que lea esto va a querer bajarlo: «puede
+		// cambiarle la contraseña/username a los alumnos y acudientes solamente»
+		// —21 ago 2026—, que es literalmente lo que hacen estas cuatro. La frase
+		// está citada en SecretarioTest::test_las_masivas_de_alumnos_y_acudientes_si_son_suyas,
+		// que es el test que la fija.
+		//
+		// El comentario que había aquí decía «mismo criterio que la papelera de
+		// grupos y profesores», y **eso era falso**: esa papelera está en
+		// `esSuperusuario` (GruposController:719,749,783). El guard era el
+		// correcto y el precedente citado el equivocado, que es peor que no citar
+		// ninguno — invita a «corregir» el guard hacia el precedente falso.
+		// Corregido el 24 ago 2026 (09 §12). Ver app/Support/Autoriza.php.
 		Autoriza::exigir(Autoriza::esAdministrativo($this->user),
 			'Solo un administrativo puede cambiar las cuentas de todo el colegio.');
 
@@ -42,9 +54,21 @@ class CambiarUsuariosController extends Controller {
 	{
 		// Las cuatro rutas reescriben la cuenta de TODOS los alumnos o de todos
 		// los acudientes del colegio. Con `auth.personal` a secas las disparaba
-		// cualquiera de los 51 profesores. Mismo criterio que la papelera de
-		// grupos y profesores, que es la misma clase de operación: de colegio, no
-		// de aula. Ver app/Support/Autoriza.php.
+		// cualquiera de los 51 profesores.
+		//
+		// **`esAdministrativo` es una decisión de Joseth, no una herencia**, y hay
+		// que decirlo aquí porque el que lea esto va a querer bajarlo: «puede
+		// cambiarle la contraseña/username a los alumnos y acudientes solamente»
+		// —21 ago 2026—, que es literalmente lo que hacen estas cuatro. La frase
+		// está citada en SecretarioTest::test_las_masivas_de_alumnos_y_acudientes_si_son_suyas,
+		// que es el test que la fija.
+		//
+		// El comentario que había aquí decía «mismo criterio que la papelera de
+		// grupos y profesores», y **eso era falso**: esa papelera está en
+		// `esSuperusuario` (GruposController:719,749,783). El guard era el
+		// correcto y el precedente citado el equivocado, que es peor que no citar
+		// ninguno — invita a «corregir» el guard hacia el precedente falso.
+		// Corregido el 24 ago 2026 (09 §12). Ver app/Support/Autoriza.php.
 		Autoriza::exigir(Autoriza::esAdministrativo($this->user),
 			'Solo un administrativo puede cambiar las cuentas de todo el colegio.');
 
@@ -64,9 +88,21 @@ class CambiarUsuariosController extends Controller {
 	{
 		// Las cuatro rutas reescriben la cuenta de TODOS los alumnos o de todos
 		// los acudientes del colegio. Con `auth.personal` a secas las disparaba
-		// cualquiera de los 51 profesores. Mismo criterio que la papelera de
-		// grupos y profesores, que es la misma clase de operación: de colegio, no
-		// de aula. Ver app/Support/Autoriza.php.
+		// cualquiera de los 51 profesores.
+		//
+		// **`esAdministrativo` es una decisión de Joseth, no una herencia**, y hay
+		// que decirlo aquí porque el que lea esto va a querer bajarlo: «puede
+		// cambiarle la contraseña/username a los alumnos y acudientes solamente»
+		// —21 ago 2026—, que es literalmente lo que hacen estas cuatro. La frase
+		// está citada en SecretarioTest::test_las_masivas_de_alumnos_y_acudientes_si_son_suyas,
+		// que es el test que la fija.
+		//
+		// El comentario que había aquí decía «mismo criterio que la papelera de
+		// grupos y profesores», y **eso era falso**: esa papelera está en
+		// `esSuperusuario` (GruposController:719,749,783). El guard era el
+		// correcto y el precedente citado el equivocado, que es peor que no citar
+		// ninguno — invita a «corregir» el guard hacia el precedente falso.
+		// Corregido el 24 ago 2026 (09 §12). Ver app/Support/Autoriza.php.
 		Autoriza::exigir(Autoriza::esAdministrativo($this->user),
 			'Solo un administrativo puede cambiar las cuentas de todo el colegio.');
 
@@ -85,9 +121,21 @@ class CambiarUsuariosController extends Controller {
 	{
 		// Las cuatro rutas reescriben la cuenta de TODOS los alumnos o de todos
 		// los acudientes del colegio. Con `auth.personal` a secas las disparaba
-		// cualquiera de los 51 profesores. Mismo criterio que la papelera de
-		// grupos y profesores, que es la misma clase de operación: de colegio, no
-		// de aula. Ver app/Support/Autoriza.php.
+		// cualquiera de los 51 profesores.
+		//
+		// **`esAdministrativo` es una decisión de Joseth, no una herencia**, y hay
+		// que decirlo aquí porque el que lea esto va a querer bajarlo: «puede
+		// cambiarle la contraseña/username a los alumnos y acudientes solamente»
+		// —21 ago 2026—, que es literalmente lo que hacen estas cuatro. La frase
+		// está citada en SecretarioTest::test_las_masivas_de_alumnos_y_acudientes_si_son_suyas,
+		// que es el test que la fija.
+		//
+		// El comentario que había aquí decía «mismo criterio que la papelera de
+		// grupos y profesores», y **eso era falso**: esa papelera está en
+		// `esSuperusuario` (GruposController:719,749,783). El guard era el
+		// correcto y el precedente citado el equivocado, que es peor que no citar
+		// ninguno — invita a «corregir» el guard hacia el precedente falso.
+		// Corregido el 24 ago 2026 (09 §12). Ver app/Support/Autoriza.php.
 		Autoriza::exigir(Autoriza::esAdministrativo($this->user),
 			'Solo un administrativo puede cambiar las cuentas de todo el colegio.');
 

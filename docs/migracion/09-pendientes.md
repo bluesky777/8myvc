@@ -2110,3 +2110,174 @@ la mitad no sirve.
 
 > **Nadie ha recorrido nada.** `ce` pidió cada lista una vez, miró los nombres de
 > los campos y paró. No hay ni un valor en ningún mensaje ni en ningún documento.
+
+---
+
+## 11. Cualquier profesor renombra cualquier cuenta — **arreglado el 24 ago 2026**
+
+**Estaba vivo en los dieciséis colegios.** `PUT perfiles/guardar-username/{id}` no
+comprobaba a quién apunta: **cualquiera de los 51 profesores le cambiaba el nombre
+de usuario a cualquier cuenta, incluida la de un superusuario.**
+
+Y como `users.username` es UNIQUE (esquema, línea 1888), eso no es una molestia
+cosmética: **deja a alguien fuera del sistema sin conocer su contraseña.** No hay
+que tomar la cuenta de nadie, basta quitarle el nombre con el que entra.
+
+### Por qué pasaba, que es lo que hay que leer
+
+Los tres sitios, y ninguno estaba mal por sí solo:
+
+| | |
+|---|---|
+| `routes/api/perfiles.php:51` | la ruta lleva `persona.propia:user_id`, o sea *parece* protegida |
+| `ExigirPersonaPropia.php:80-82` | ese guard hace `if ($usuario->tipo !== 'Alumno' && $usuario->tipo !== 'Acudiente') return $next($request);` — **está escrito para atar a las familias, y a nadie más** |
+| `PerfilesController.php:243` | el método resolvía `$user`… **y no lo volvía a usar**. Solo miraba que el nombre no viniera vacío |
+
+**La forma de fallo es la de un guard que contesta una pregunta distinta de la que
+el lector cree.** `persona.propia` significa *«una familia solo se toca a sí
+misma»*, y se leyó como *«esta ruta está protegida»*. Es la misma familia que la
+[§142](noche-2026-08-23/r.md) del CLAUDE.md: el detector detectaba bien, pero no
+detectaba lo que su nombre sugiere.
+
+### Y es la §29 sin terminar
+
+En `putResetPassword` —el hermano, en este mismo fichero— **el mismo agujero se
+cerró el 20 ago anclando la comprobación AL OBJETIVO**
+(`PerfilesController.php:496`). Aquí no. Cambiarle a una cuenta el nombre con el
+que entra y cambiarle la contraseña con la que entra son la misma operación sobre
+la misma cuenta, y que una pidiera más que la otra solo enseñaba por dónde
+colarse.
+
+> **Lo encontró la sesión de `myvc_flutter`**, leyendo la ruta que su pantalla
+> nueva de administración de cuentas iba a consumir, y **avisó en vez de
+> cablearla**. Merece quedar escrito porque es el orden correcto: el cliente que
+> descubre una puerta abierta no la usa y luego avisa.
+
+### Lo que se hizo
+
+Copiado el criterio del hermano, para que las dos digan lo mismo:
+
+- superusuario, cualquiera;
+- **el caso propio se conserva** —el guard ya dejaba que un alumno cambiara SU
+  nombre de usuario, y quitarlo sería un cambio de comportamiento escondido dentro
+  de un arreglo de seguridad—;
+- docente con `profes_can_edit_alumnos`, **solo sobre un alumno**;
+- todo lo demás, 403.
+
+Y de paso, **un nombre ocupado es 422 y no un 500 de MySQL**: la columna es UNIQUE
+y no lo comprobaba nadie, así que pedir uno ocupado reventaba con un SQLSTATE
+23000 que el front enseña como error genérico.
+
+`tests/Contrato/GuardarUsernameTest.php`, 7 casos, **todos comprobados en
+negativo**: no basta con que la respuesta sea 403, se mira que el username **no
+cambió**. Un guard que aborta después de escribir responde 403 igual.
+
+### Lo que hay que hacer con esto
+
+**Desplegarlo.** No hace falta tocar ningún cliente: hoy nadie llama a esa ruta
+más que el front web con un superusuario, y la app de Flutter la tiene **escrita y
+apagada** detrás de `PendientesUsuarios.cambiarUsername = false`, con una prueba
+suya que falla si alguien la enciende sin darse cuenta.
+
+---
+
+## 12. La misma operación pide más cuanto menos alcanza — decidida la C el 24 ago 2026
+
+Dos rutas de la misma clase, con los guardas al revés de su alcance:
+
+| Ruta | Alcance | Pedía |
+|---|---|---|
+| `alumnos/cambiar-claves` | **un grupo**, ~30 alumnos | `esSuperusuario` |
+| `cambiar-usuarios/poner-password-todos-alumnos` y sus tres hermanas | **el colegio**, 1.280 | `esAdministrativo` (superusuario **o** Secretario) |
+
+**La operación de treinta pedía más que la de mil doscientos.** Las dos son
+irreversibles por la misma razón —el hash anterior no se guarda en ningún sitio—,
+así que no hay nada que justifique el orden.
+
+Lo vio la sesión de `myvc_flutter` comparando las dos guardas al escribir la
+pantalla que aprieta los dos botones.
+
+### Hoy no se nota, y por eso llevaba ahí
+
+Cero `Secretario` en la base —el rol existe desde el 21 ago y no lo tiene nadie— y
+los 10 `Admin` son los mismos 10 `is_superuser` (§28.4). O sea que **los dos
+criterios devuelven hoy exactamente el mismo conjunto de personas.** La asimetría
+está dormida hasta que alguien cree el primer Secretario, que es justo lo que la
+pantalla nueva necesita.
+
+### La decisión: C, por alcance
+
+Joseth, 24 ago 2026, de tres salidas planteadas:
+
+- **(A)** las cuatro bajan a `esSuperusuario` — coherente con el patrón, pero deja
+  a la pantalla sin el Secretario que se pidió para ella;
+- **(B)** todas suben a `esAdministrativo` — es lo que se pidió, pero le da a un
+  Secretario reescribir 1.280 contraseñas de una vez;
+- **(C) por alcance: lo de un grupo, `esAdministrativo`; lo de colegio entero,
+  `esSuperusuario`.** ← **elegida**
+
+La regla que deja enunciada, y que es lo que vale más que el cambio: **el criterio
+se ordena por radio de daño, no por antigüedad.** Es lo único de las tres que cabe
+en una frase, y una regla que no cabe en una frase vuelve a divergir en seis meses.
+
+### Hecha la mitad de abajo, PARADA la de arriba — y esto es lo que espera respuesta
+
+**Hecho el 24 ago**: `alumnos/cambiar-claves` pasa a `esAdministrativo`. Nadie gana
+un botón hoy (cero Secretario), y coincide además con lo que Joseth ya había dicho
+el 21 ago.
+
+**NO hecho, y a propósito: bajar las cuatro `cambiar-usuarios/*` a
+`esSuperusuario`.** Al ir a tocarlas apareció que **eso reversaría una decisión
+suya, tomada y anotada**:
+
+> «Puede cambiarle la contraseña/username a los alumnos y acudientes solamente»
+> — Joseth, 21 ago 2026, citado literal en
+> `SecretarioTest::test_las_masivas_de_alumnos_y_acudientes_si_son_suyas`.
+
+Y las cuatro `cambiar-usuarios/*` son **exactamente** eso: la contraseña y el
+username de alumnos y acudientes. No hay ninguna de profesores ni de
+administrativos. O sea que su `esAdministrativo` **no es un descuido: es esa
+decisión, implementada.**
+
+**La C se propuso sin ese dato delante y hay que volver a preguntarla.** Falló el
+método, no la conclusión: el barrido miró `Autoriza`, los controladores y sus
+docblocks, y **no miró los tests**, que es donde vivía la frase de Joseth. En este
+repositorio una decisión suya puede estar anotada en un test y no en el código que
+la aplica — es la forma de fallo de la [§8c](noche-2026-08-23/las-cegueras.md)
+otra vez: medir bien sobre la población equivocada.
+
+> Lo que **sí** era un descuido, y sigue siéndolo: el comentario de
+> `CambiarUsuariosController:19-23` justifica su `esAdministrativo` diciendo
+> *«mismo criterio que la papelera de grupos y profesores»*, y **esa papelera está
+> en `esSuperusuario`** (`GruposController:719,749,783`;
+> `ProfesoresController:528,548,580`). El guard es correcto por la decisión del 21
+> ago; el precedente que cita, no. Se corrige el comentario, no el guard.
+
+**Las dos salidas que quedan, y ninguna se toca sin que Joseth conteste:**
+
+1. **Se queda como está** —masivas de colegio en `esAdministrativo`— y entonces C
+   se enuncia distinto: no «por alcance» sino «por a quién alcanza: las cuentas de
+   familias las lleva el administrativo, cualquiera sea el tamaño». Es coherente
+   con el 21 ago y con la mitad ya hecha, y deja las dos rutas diciendo lo mismo,
+   que era el objetivo.
+2. **Se aplica C entera** y las cuatro bajan a `esSuperusuario`, revocando
+   explícitamente la frase del 21 ago. Hay que decirlo en voz alta y cambiar el
+   test que la cita, no dejarlo caer.
+
+### Y dos defectos de la consulta, arreglados de paso
+
+`alumnos/cambiar-claves` no filtraba `m.estado` ni `u.deleted_at`, así que
+reescribía la contraseña de **retirados del grupo y de cuentas en la papelera**.
+Que era descuido y no criterio lo dice el vecino: la masiva de colegio entero sí
+lleva `u.deleted_at is null`, y `alumnos/de-grupo` sí filtra MATR/ASIS. El docblock
+discutía a quién se le permite llamar y no decía una palabra sobre a quién
+alcanza: **se decidió el guard y no se miró la consulta.**
+
+Y ahora **devuelve cuántas cambió** (`{resultado, cambiadas}`), que es lo que
+permite decir «cambiadas 31» en vez de un «Listo» a ciegas sobre algo
+irreversible. Comprobado en los dos clientes que la llaman que el cambio de forma
+no rompe nada: `myvc_front` enseña un texto fijo suyo y no mira el cuerpo
+(`AlumnosCtrl.ts:454`), y `myvc_flutter` solo mira el código de estado.
+
+Dos tests nuevos en `SecretarioTest`, los dos en negativo: que el conteo cuadra con
+los matriculados del grupo, y que **a un retirado no le cambia la contraseña**.

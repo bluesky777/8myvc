@@ -157,6 +157,92 @@ class SecretarioTest extends CasoDeContrato
     }
 
     /**
+     * Y la contraseña de UN GRUPO de alumnos también, desde el 24 ago 2026.
+     *
+     * `alumnos/cambiar-claves` pedía `esSuperusuario` y las cuatro masivas de
+     * colegio entero pedían `esAdministrativo`: la operación de treinta pedía más
+     * que la de mil doscientos. Joseth lo resolvió por alcance (opción C), y de
+     * paso vuelve a coincidir con lo que ya había dicho el 21 ago —«puede
+     * cambiarle la contraseña/username a los alumnos y acudientes solamente»—.
+     *
+     * Se comprueba **en negativo**, mirando el hash: un guard que denegara después
+     * de escribir daría 200 igual.
+     */
+    public function test_la_contrasena_de_un_grupo_de_alumnos_es_suya(): void
+    {
+        $token = $this->tokenDe($this->secretario()->username);
+
+        $grupo = DB::selectOne('SELECT m.grupo_id, count(*) as cuantos
+            FROM matriculas m
+            INNER JOIN alumnos a ON a.id = m.alumno_id AND a.deleted_at IS NULL
+            INNER JOIN users u ON u.id = a.user_id AND u.deleted_at IS NULL
+            WHERE m.deleted_at IS NULL AND m.estado IN ("MATR","ASIS")
+            GROUP BY m.grupo_id ORDER BY cuantos DESC LIMIT 1');
+
+        $this->assertNotNull($grupo, 'El seed no tiene ningún grupo con alumnos con cuenta.');
+
+        $antes = DB::selectOne('SELECT u.password FROM users u
+            INNER JOIN alumnos a ON a.user_id = u.id
+            INNER JOIN matriculas m ON m.alumno_id = a.id AND m.grupo_id = ?
+              AND m.deleted_at IS NULL AND m.estado IN ("MATR","ASIS")
+            ORDER BY u.id LIMIT 1', [$grupo->grupo_id]);
+
+        $respuesta = $this->withToken($token)
+            ->putJson('/api/alumnos/cambiar-claves',
+                ['clave' => 'delgrupo-9876', 'grupo_id' => $grupo->grupo_id])
+            ->assertStatus(200);
+
+        $despues = DB::selectOne('SELECT u.password FROM users u
+            INNER JOIN alumnos a ON a.user_id = u.id
+            INNER JOIN matriculas m ON m.alumno_id = a.id AND m.grupo_id = ?
+              AND m.deleted_at IS NULL AND m.estado IN ("MATR","ASIS")
+            ORDER BY u.id LIMIT 1', [$grupo->grupo_id]);
+
+        $this->assertNotSame($antes->password, $despues->password,
+            'Respondió 200 y no cambió ninguna contraseña.');
+
+        // El número, que antes no venía: la pantalla tiene que poder decir
+        // «cambiadas 31» en vez de un «Listo» a ciegas sobre algo irreversible.
+        $this->assertSame((int) $grupo->cuantos, $respuesta->json('cambiadas'),
+            'El conteo no cuadra con los alumnos matriculados del grupo.');
+    }
+
+    /**
+     * Y lo que ese conteo hace visible: la operación NO alcanza a los retirados.
+     *
+     * La consulta no filtraba `m.estado` ni `u.deleted_at`, así que reescribía
+     * también la contraseña de quien ya no está en el grupo y de cuentas de la
+     * papelera. Que era un descuido lo dice el vecino de colegio entero, que sí
+     * lleva `u.deleted_at is null`.
+     */
+    public function test_la_contrasena_del_grupo_no_alcanza_a_un_retirado(): void
+    {
+        $token = $this->tokenDe($this->secretario()->username);
+
+        $fila = DB::selectOne('SELECT m.id as matricula_id, m.grupo_id, u.id as user_id, u.password
+            FROM matriculas m
+            INNER JOIN alumnos a ON a.id = m.alumno_id AND a.deleted_at IS NULL
+            INNER JOIN users u ON u.id = a.user_id AND u.deleted_at IS NULL
+            WHERE m.deleted_at IS NULL AND m.estado IN ("MATR","ASIS")
+            ORDER BY m.id LIMIT 1');
+
+        $this->assertNotNull($fila, 'El seed no tiene matrículas vivas.');
+
+        // Se le retira del grupo dentro de la transacción del test.
+        DB::update('UPDATE matriculas SET estado = "RETI" WHERE id = ?', [$fila->matricula_id]);
+
+        $this->withToken($token)
+            ->putJson('/api/alumnos/cambiar-claves',
+                ['clave' => 'delgrupo-9877', 'grupo_id' => $fila->grupo_id])
+            ->assertStatus(200);
+
+        $despues = DB::selectOne('SELECT password FROM users WHERE id = ?', [$fila->user_id]);
+
+        $this->assertSame($fila->password, $despues->password,
+            'Le cambió la contraseña a un alumno retirado del grupo.');
+    }
+
+    /**
      * El psicólogo escribe las necesidades educativas especiales, y antes no.
      *
      * La rama existía desde 2019 comparando `tipo` con `'Psicólogo'`, que `tipo`

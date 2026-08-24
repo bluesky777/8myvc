@@ -238,17 +238,67 @@ class PerfilesController extends Controller {
 		return $usernames;
 	}
 
+	/**
+	 * Cambiar el nombre de usuario de una cuenta.
+	 *
+	 * **La comprobación se ancla al OBJETIVO, no a quien pide**, y hasta hoy no
+	 * había ninguna. La ruta lleva `persona.propia:user_id`, pero ese guard solo
+	 * ata a Alumno y Acudiente: `ExigirPersonaPropia:80` devuelve `next()` para
+	 * todos los demás, así que llegaban aquí los 51 profesores con cualquier
+	 * `{id}`, y el método solo miraba que el nombre no viniera vacío. Con
+	 * `users.username` UNIQUE, eso es **renombrar la cuenta de un superusuario y
+	 * dejarlo fuera del sistema en una petición**. No hace falta saber su
+	 * contraseña: basta quitarle el nombre con el que entra.
+	 *
+	 * Es la §29 otra vez —`putResetPassword`, en este mismo fichero, línea 496—,
+	 * donde el mismo agujero se cerró anclando al objetivo y este hermano se
+	 * quedó atrás. Se copia aquel criterio a propósito, para que las dos digan lo
+	 * mismo: cambiarle a una cuenta el nombre con el que entra y cambiarle la
+	 * contraseña con la que entra son la misma operación sobre la misma cuenta, y
+	 * que una pida más que la otra solo enseña por dónde colarse.
+	 *
+	 * **Se conserva el caso propio.** El guard ya deja hoy que un alumno cambie
+	 * SU nombre de usuario, y quitárselo sería un cambio de comportamiento que
+	 * nadie ha pedido, escondido dentro de un arreglo de seguridad.
+	 *
+	 * Lo encontró la sesión de `myvc_flutter` el 24 ago 2026 leyendo la ruta que
+	 * su pantalla nueva iba a consumir, y avisó en vez de cablearla.
+	 */
 	public function putGuardarUsername($id)
 	{
 		$user = User::fromToken();
 
-		if (Request::input('username')=='') {
+		$perfil = User::findOrFail($id);
+
+		if (! $user->is_superuser && (int) $id !== (int) $user->user_id) {
+			Autoriza::exigir(($user->tipo ?? '') === 'Profesor' && (bool) ($user->profes_can_edit_alumnos ?? false),
+				'No tienes permiso para cambiar el nombre de usuario de otra cuenta.');
+
+			Autoriza::exigir($perfil->tipo === 'Alumno',
+				'Un docente solo puede cambiar el nombre de usuario de un alumno.');
+		}
+
+		$nombre = trim((string) Request::input('username', ''));
+
+		if ($nombre === '') {
 			return abort(400, 'El nombre de usuario no puede estar vació');
 		}
-		
-		$perfil = User::findOrFail($id);
-		$perfil->username = Request::input('username');
+
+		// **422 y no un 500 de MySQL.** `users.username` es UNIQUE (esquema, línea
+		// 1888) y aquí no lo comprobaba nadie, así que pedir un nombre ocupado
+		// reventaba con un SQLSTATE 23000 que el front enseña como error genérico.
+		// Se mira también entre los borrados, por lo mismo que
+		// `getComprobarusername`: el nombre de una cuenta borrada sigue ocupado.
+		$ocupado = DB::selectOne('SELECT id FROM users WHERE username = ? AND id != ? LIMIT 1',
+			[$nombre, $perfil->id]);
+
+		if ($ocupado !== null) {
+			return abort(422, 'Ese nombre de usuario ya está en uso.');
+		}
+
+		$perfil->username = $nombre;
 		$perfil->save();
+
 		return $perfil;
 	}
 

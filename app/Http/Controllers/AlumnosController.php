@@ -86,32 +86,73 @@ class AlumnosController extends Controller {
 	 * nadie—. Es la misma equivalencia de la §28.4 y el mismo razonamiento del
 	 * §97.
 	 *
-	 * Se ancla a `esSuperusuario` y no a `puedeEditarAlumnos` porque **editar la
+	 * Se ancla a `esAdministrativo` y no a `puedeEditarAlumnos` porque **editar la
 	 * ficha de un alumno y reescribir la contraseña de treinta son dos cosas
 	 * distintas**: lo segundo deja a un grupo entero fuera de su cuenta y no se
 	 * puede deshacer —el hash anterior no se guarda en ningún sitio—.
+	 *
+	 * **Y `esAdministrativo`, no `esSuperusuario`, desde el 24 ago 2026.** El
+	 * cierre del 23 la trajo desde `auth.personal` —cualquiera de los 51
+	 * profesores— y eligió el criterio más estrecho de los dos sin compararlo con
+	 * el de al lado. Comparados, salía al revés de lo razonable: esto alcanza a
+	 * **un grupo**, y las cuatro `cambiar-usuarios/*`, que alcanzan al **colegio
+	 * entero**, piden `esAdministrativo`, o sea menos. La operación pequeña pedía
+	 * más que la grande.
+	 *
+	 * Joseth lo resolvió **por alcance** (opción C, 24 ago): quien puede lo de un
+	 * grupo es el administrativo, y lo irreversible de 1.280 se reserva. Además
+	 * coincide con lo que ya había dicho el 21 ago —«puede cambiarle la
+	 * contraseña/username a los alumnos y acudientes solamente»—, que es
+	 * literalmente esto.
+	 *
+	 * Hoy no le da un botón a nadie que no lo tuviera: cero `Secretario` en la
+	 * base y los 10 `Admin` son los mismos 10 `is_superuser` (§28.4).
 	 */
 	public function putCambiarClaves()
 	{
-		Autoriza::exigir(Autoriza::esSuperusuario($this->user),
+		Autoriza::exigir(Autoriza::esAdministrativo($this->user),
 			'No tienes permiso para cambiar las contraseñas de un grupo.');
 
 		$clave 		= Request::input('clave');
 		$grupo_id 	= Request::input('grupo_id');
 		$clave 		= Hash::make($clave);
 		
+		// **`m.estado` y `u.deleted_at` faltaban, y no era una decisión.** Sin el
+		// primero alcanzaba a los retirados que siguen colgando del grupo, y sin
+		// el segundo a cuentas de la papelera. Que fue un descuido y no un
+		// criterio lo dice el vecino: la masiva de colegio entero
+		// —`CambiarUsuariosController:31`— sí lleva `u.deleted_at is null`, y
+		// `alumnos/de-grupo` sí filtra MATR/ASIS. El docblock de arriba discute
+		// A QUIÉN se le permite llamar y no dice ni una palabra sobre a quién
+		// alcanza: se decidió el guard y no se miró la consulta.
+		//
+		// Lo vio la sesión de `myvc_flutter` el 24 ago comparando esta consulta
+		// con la de `alumnos/de-grupo`, que es la que su pantalla usa para pintar
+		// la lista sobre la que se aprieta este botón. Sin esto, la pantalla
+		// enseña 30 alumnos y la operación toca 34.
 		$consulta = 'UPDATE users u 
 			INNER JOIN alumnos a ON a.user_id=u.id and a.deleted_at is null
 			INNER JOIN matriculas m ON a.id=m.alumno_id and m.deleted_at is null
 			SET u.password=:clave
-			WHERE m.grupo_id=:grupo_id';
+			WHERE m.grupo_id=:grupo_id and m.estado in ("MATR","ASIS") and u.deleted_at is null';
 
-		DB::select($consulta, [
+		// `DB::update` y no `DB::select`: devuelve las filas tocadas, y la pantalla
+		// necesita decir «cambiadas 31» en vez de un «Listo» a ciegas. Con
+		// `DB::select` el número no existe y nadie puede comprobar el alcance de
+		// una operación irreversible.
+		$cambiadas = DB::update($consulta, [
 			':clave'			=> $clave,
 			':grupo_id'			=> $grupo_id
 		]);
 
-		return 'Cambiadas';
+		// **Cambiar la forma aquí no rompe a nadie, comprobado en los dos clientes
+		// que la llaman**: `myvc_front` hace `.then(() => toastr.success('Claves
+		// cambiadas'))` con un texto fijo suyo y no mira el cuerpo
+		// (`AlumnosCtrl.ts:454`), y `myvc_flutter` solo mira el código de estado
+		// —su propio docblock anota «no devuelve cuántas cambió», que es justo lo
+		// que se arregla aquí—. Se conserva la palabra por si algún colegio tiene
+		// una copia vieja del front que sí la lea.
+		return [ 'resultado' => 'Cambiadas', 'cambiadas' => $cambiadas ];
 	}
 
 
