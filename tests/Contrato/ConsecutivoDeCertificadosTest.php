@@ -4,101 +4,222 @@ namespace Tests\Contrato;
 
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\DB;
-use PHPUnit\Framework\Attributes\Group;
 
 /**
- * El consecutivo de los certificados: **estos tests están ROJOS a propósito.**
+ * El consecutivo de los certificados: **la red del arreglo, y ya en verde.**
  *
- * Es el punto **1** de la lista de la mañana de Joseth
- * ([ESTADO-ACTUAL](../../docs/migracion/ESTADO-ACTUAL.md), [05 §195](../../docs/migracion/05-codigo-muerto-y-roto.md)),
- * y **la decisión de qué hacer no es de ninguna sesión**. Lo que sí se pidió por
- * escrito —*«el test que falle hoy: si sale rojo, el arreglo entra con red»*— es
- * esto: **que mañana la decisión se tome delante de una prueba en rojo y no
- * delante de un párrafo.**
+ * Nacieron **rojos a proposito** —el punto 1 de la lista de la manana de Joseth,
+ * [05 §195](../../docs/migracion/05-codigo-muerto-y-roto.md) y [§225](../../docs/migracion/05-codigo-muerto-y-roto.md)—
+ * para que la decision se tomara delante de una prueba y no de un parrafo. El
+ * arreglo entro la noche del 25 (`docs/migracion/noche-2026-08-25/cert-1.md`), asi
+ * que **se les quito `#[Group('rojo')]` y pasaron a la suite**. Ese paso es lo que
+ * los convierte en la red y no en una queja archivada.
  *
- * **No arreglan nada, no cambian conducta y no tocan datos** (cada test corre en
- * su transacción). Sólo dicen, en lenguaje ejecutable, qué tendría que pasar y
- * hoy no pasa.
+ * ## Lo que vigila cada uno
  *
- *     docker exec -w /app/.worktrees/12 -e DB_TEST_DATABASE=simonbolivar_testing_12 \
- *         8myvc-app-1 php artisan test --group=rojo
+ * 1. **la carrera** — que la lectura del consecutivo salga con `FOR UPDATE` y
+ *    dentro de la transaccion del controlador;
+ * 2. **la consecuencia** — dos aperturas seguidas, dos numeros distintos;
+ * 3. **por que hace falta** — el patron sin bloqueo, ejecutado a mano, pierde un
+ *    incremento. **Ese ejecuta su propia copia y no el codigo**, y lo dice en su
+ *    primera linea;
+ * 4. **`cambiar-contador-certificados` sin validacion**, y **5.** su hermano de
+ *    folios, **que no habia nombrado nadie**: la lista de la manana habla solo de
+ *    certificados. Van como dos tests y no como un `dataProvider` a proposito —
+ *    si manana se arregla uno solo, esto tiene que decir **cual falta**;
+ * 6. **que la validacion no rompa el caso bueno** — la pantalla manda `'007'`, y
+ *    la primera version la habria rechazado con 422;
+ * 7. **que valores queman un folio y cuales no**, valor por valor.
  *
- * ## Por qué van en un grupo excluido de la corrida normal
+ * ## El que estaba aqui y no podia existir
  *
- * Un test rojo permanente dentro de la suite **convierte el verde en ruido**: a
- * la tercera corrida nadie distingue «el rojo de siempre» de uno nuevo, y el
- * siguiente fallo de verdad entra sin que salte nada. Es el mismo motivo por el
- * que `barrido` está excluido, y por eso `rojo` se añade al lado en
- * `phpunit.xml` en vez de dejar estos tres sueltos.
+ * El test original de la carrera ejecutaba el `SELECT` y los dos `UPDATE` **crudos,
+ * copiados a mano desde el controlador**, y afirmaba que subian 2. Era el
+ * instrumento correcto sobre el objeto equivocado: **no llamaba al endpoint, asi
+ * que ningun arreglo del controlador podia ponerlo en verde** — y copiarle el
+ * `FOR UPDATE` tampoco, porque `CasoDeContrato` usa `DatabaseTransactions`, o sea
+ * **una sola conexion**, y un `FOR UPDATE` no se bloquea contra si mismo.
  *
- * **El día que se arreglen, se quita `#[Group('rojo')]` y pasan a la suite.** Eso
- * es lo que los convierte en la red del arreglo y no en una queja archivada.
- *
- * ## Lo que fija cada uno
- *
- * 1. **la carrera**, demostrada sin hilos y sin depender de tiempos;
- * 2. **`PUT bolfinales/cambiar-contador-certificados` sin validación**;
- * 3. **`PUT bolfinales/cambiar-contador-folios`, que es la misma puerta** y que
- *    no había nombrado nadie — el punto 2 de la lista de Joseth habla sólo de
- *    certificados. *Son dos endpoints con el mismo fallo, no uno: la pregunta
- *    «¿quién más hace esto mismo?» aplicada al sitio donde se encontró.*
+ * Queda escrito aqui para que nadie lo vuelva a intentar dentro de dos meses:
+ * **un rojo que no puede volverse verde no es una red, es un parrafo con
+ * parentesis** — y el sitio donde eso se detecta es **preguntando que objeto mide
+ * el test**, no si el test pasa.
  */
-#[Group('rojo')]
 class ConsecutivoDeCertificadosTest extends CasoDeContrato
 {
     /**
-     * Dos personas abriendo el certificado a la vez se llevan el MISMO número.
+     * La lectura del consecutivo sale **dentro de transaccion y con `FOR UPDATE`**.
      *
-     * ## Esto no necesita concurrencia para ser cierto, y por eso el test no la usa
+     * ## Por que este test no es el que habia aqui
      *
-     * El controlador hace **leer, sumar en PHP, escribir**
-     * (`Informes/BolfinalesController:86-99`):
+     * El que habia ejecutaba el `SELECT` y los dos `UPDATE` **crudos, copiados a
+     * mano desde el controlador**, dentro del propio test: leer A, leer B, escribir
+     * A, escribir B. El intercalado era real y el mensaje que imprimia era cierto
+     * —dos aperturas gastando un solo numero son dos folios oficiales con el mismo
+     * consecutivo— pero **medía su propia copia del patron, no el codigo**. Poner
+     * `FOR UPDATE` en `BolfinalesController` lo dejaba **exactamente igual de
+     * rojo**, y aunque se le hubiera copiado tambien el `FOR UPDATE` tampoco
+     * pasaria: `CasoDeContrato` usa `DatabaseTransactions`, o sea **una sola
+     * conexion**, y un `FOR UPDATE` no se bloquea contra si mismo.
      *
-     *     SELECT id, contador_certificados FROM years WHERE deleted_at is null and actual=1
-     *     UPDATE years SET contador_certificados=? WHERE id=?      // (int)$leido + 1
+     * Era **el instrumento correcto sobre el objeto equivocado**: un rojo que no
+     * podia volverse verde lo arreglara quien lo arreglara, o sea **no una red**.
      *
-     * **sin transacción y sin `FOR UPDATE`**. Un test con hilos de verdad
-     * dependería de que el planificador los cruce, o sea que **fallaría a veces**
-     * — y un test que falla a veces se acaba desactivando. Aquí se ejecutan las
-     * mismas dos sentencias **en el orden exacto que produce la concurrencia
-     * real** (leer A, leer B, escribir A, escribir B), que es determinista y
-     * suficiente: si dos lecturas ven el mismo valor, las dos escrituras escriben
-     * el mismo valor, y **un incremento se pierde**.
+     * ## Lo que mira este, que si distingue el antes del despues
      *
-     * Con un `FOR UPDATE` dentro de una transacción, la segunda lectura esperaría
-     * y este intercalado **no podría ocurrir**. O sea que el test no comprueba una
-     * casualidad de tiempos: comprueba **la propiedad que hoy no se sostiene**.
+     * Llama al endpoint **de verdad** y escucha con `DB::listen` la consulta que
+     * lee el contador. Dos cosas, y **cada una se puede cumplir sin la otra**:
      *
-     * **Y la consecuencia no es un número saltado, que se justifica: son dos
-     * folios oficiales con el mismo consecutivo**, que es lo que no se justifica.
+     *   1. que la consulta lleve `FOR UPDATE` —sin el, las dos lecturas ven el
+     *      mismo valor y un incremento se pierde—;
+     *   2. que se emita con `transactionLevel() > 1` — el 1 es la transaccion del
+     *      propio test; **el segundo nivel es el que abre el controlador**. Un
+     *      `FOR UPDATE` fuera de transaccion suelta el bloqueo al acabar la
+     *      sentencia y no protege nada.
+     *
+     * No depende de tiempos ni del planificador, asi que no puede fallar «a
+     * veces» — y un test que falla a veces se acaba desactivando.
+     *
+     * ## Y el matiz honesto, que va aqui y no en una nota al pie
+     *
+     * **Esto afirma sobre el MECANISMO, no sobre el resultado.** El resultado que
+     * de verdad importa —*«dos peticiones simultaneas no repiten numero»*— **no es
+     * observable en esta suite**, porque `DatabaseTransactions` da **una sola
+     * conexion** y la exclusion mutua necesita dos. Lo que este test garantiza es
+     * que el bloqueo esta pedido y en el sitio correcto; que MySQL lo respeta es
+     * cosa de MySQL.
+     *
+     * Se escribe asi a proposito: **un guardian que promete mas de lo que puede ver
+     * es justo lo que este fichero acaba de quitar de en medio.**
      */
-    public function test_dos_lecturas_a_la_vez_no_pueden_gastar_el_mismo_numero(): void
+    public function test_el_consecutivo_se_lee_bloqueado_y_dentro_de_transaccion(): void
+    {
+        $this->withoutMiddleware(ThrottleRequests::class);
+
+        [$grupo, $token] = $this->grupoYPersonal();
+
+        $lecturas = [];
+
+        // Solo la consulta que nos importa: esta peticion emite miles (05 §210).
+        DB::listen(function ($consulta) use (&$lecturas) {
+            if (stripos($consulta->sql, 'contador_certificados') !== false
+                && stripos($consulta->sql, 'select') !== false) {
+                $lecturas[] = [
+                    'sql' => $consulta->sql,
+                    'nivel' => DB::transactionLevel(),
+                ];
+            }
+        });
+
+        $this->putJson('/api/bolfinales/detailed-notas-year-group/'.$grupo->id,
+            ['aumentar_contador' => true],
+            ['Authorization' => 'Bearer '.$token])->assertStatus(200);
+
+        $this->assertNotEmpty($lecturas,
+            'El endpoint no leyo `contador_certificados`: este test no esta midiendo el '
+            .'incremento, asi que un verde suyo no diria nada.');
+
+        $conBloqueo = array_values(array_filter($lecturas,
+            fn ($l) => stripos($l['sql'], 'for update') !== false));
+
+        $this->assertNotEmpty($conBloqueo,
+            'La lectura del consecutivo salio SIN `FOR UPDATE`: '.$lecturas[0]['sql'].' — dos '
+            .'secretarias abriendo el certificado a la vez leen el mismo numero y escriben el '
+            .'mismo numero, y eso son DOS CERTIFICADOS CON EL MISMO CONSECUTIVO.');
+
+        $this->assertGreaterThan(1, $conBloqueo[0]['nivel'],
+            'La lectura lleva `FOR UPDATE` pero se emitio en el nivel de transaccion '
+            .$conBloqueo[0]['nivel'].', que es el del propio test: el controlador no abrio la '
+            .'suya. Un `FOR UPDATE` sin transaccion suelta el bloqueo al acabar la sentencia y '
+            .'la carrera sigue abierta.');
+    }
+
+    /**
+     * Y el viaje de ida y vuelta: **dos aperturas, dos numeros distintos**.
+     *
+     * El test de arriba comprueba el mecanismo; este comprueba la consecuencia que
+     * le importa a secretaria, llamando al endpoint dos veces. No demuestra la
+     * exclusion mutua —para eso harian falta dos conexiones de verdad, y esta suite
+     * tiene una— pero **si cae si alguien rompe el incremento** al tocar la
+     * transaccion nueva, que es justo lo que un arreglo puede romper sin querer.
+     */
+    public function test_dos_aperturas_seguidas_gastan_dos_numeros_distintos(): void
+    {
+        $this->withoutMiddleware(ThrottleRequests::class);
+
+        [$grupo, $token] = $this->grupoYPersonal();
+
+        $lee = fn () => (int) DB::selectOne(
+            'SELECT contador_certificados FROM years WHERE deleted_at is null and actual=1'
+        )->contador_certificados;
+
+        $antes = $lee();
+
+        for ($i = 0; $i < 2; $i++) {
+            $this->putJson('/api/bolfinales/detailed-notas-year-group/'.$grupo->id,
+                ['aumentar_contador' => true],
+                ['Authorization' => 'Bearer '.$token])->assertStatus(200);
+        }
+
+        $this->assertSame($antes + 2, $lee(),
+            'Dos aperturas del certificado dejaron el consecutivo en '.$lee().' partiendo de '
+            .$antes.'. Tienen que gastar un numero cada una: un numero saltado se justifica '
+            .'ante quien reclama, uno repetido no.');
+    }
+
+    /**
+     * **Este test ejecuta su propia copia del patron, NO el codigo de produccion.**
+     *
+     * Esa primera linea es la mitad del test. Lo que hace es correr a mano el
+     * `SELECT` y los dos `UPDATE` **sin bloqueo**, en el orden exacto que produce la
+     * concurrencia real —leer A, leer B, escribir A, escribir B— y **afirmar que se
+     * pierde un incremento**. O sea que documenta **la consecuencia** en lenguaje
+     * ejecutable, que es mas de lo que hace un parrafo:
+     *
+     *     las dos leen 115 y las dos escriben 116
+     *     -> DOS CERTIFICADOS CON EL MISMO CONSECUTIVO
+     *
+     * **Lo que NO hace es vigilar `BolfinalesController`.** Antes estaba escrito al
+     * reves —afirmando que subia 2, o sea rojo— y asi **no podia volverse verde lo
+     * arreglara quien lo arreglara**, porque no llamaba al endpoint. Un rojo que no
+     * puede volverse verde no es una red: es un parrafo con parentesis, y ademas
+     * habria dejado a los demas de esta clase fuera de la suite para siempre.
+     *
+     * La vigilancia del codigo esta en
+     * `test_el_consecutivo_se_lee_bloqueado_y_dentro_de_transaccion`. Esto es la
+     * explicacion de por que aquel importa.
+     */
+    public function test_el_patron_sin_bloqueo_pierde_un_incremento(): void
     {
         $lectura = 'SELECT id, contador_certificados FROM years WHERE deleted_at is null and actual=1';
 
         $antes = DB::select($lectura);
 
         $this->assertNotEmpty($antes,
-            'El seed no tiene un year `actual=1`: sin eso este test no mide la carrera, no mide nada.');
+            'El seed no tiene un year `actual=1`: sin eso este test no demuestra la carrera, '
+            .'no demuestra nada.');
 
         $partida = (int) $antes[0]->contador_certificados;
         $yearId = $antes[0]->id;
 
-        // Secretaría A abre la pantalla. Secretaría B abre la pantalla.
+        // Secretaria A abre la pantalla. Secretaria B abre la pantalla.
         $leeA = (int) DB::select($lectura)[0]->contador_certificados;
         $leeB = (int) DB::select($lectura)[0]->contador_certificados;
 
-        // Cada una escribe lo que leyó, más uno. Tal cual lo hace el controlador.
+        // Cada una escribe lo que leyo, mas uno.
         DB::update('UPDATE years SET contador_certificados=? WHERE id=?', [$leeA + 1, $yearId]);
         DB::update('UPDATE years SET contador_certificados=? WHERE id=?', [$leeB + 1, $yearId]);
 
         $final = (int) DB::select($lectura)[0]->contador_certificados;
 
-        $this->assertSame($partida + 2, $final,
-            'Dos aperturas consumieron un solo número: las dos leyeron '.$leeA.' y las dos '
-            .'escribieron '.($leeA + 1).'. En papel eso son DOS CERTIFICADOS CON EL MISMO '
-            .'CONSECUTIVO. Falta la transacción con `FOR UPDATE` alrededor de la lectura y '
-            .'la escritura de `years.contador_certificados`.');
+        $this->assertSame($leeA, $leeB,
+            'Las dos lecturas sin bloqueo vieron valores distintos ('.$leeA.' y '.$leeB.'): '
+            .'este test ya no esta reproduciendo el intercalado que pretende reproducir.');
+
+        $this->assertSame($partida + 1, $final,
+            'Dos aperturas y un solo numero gastado es lo que este test demuestra que pasa '
+            .'SIN bloqueo. Si aqui salen dos, el intercalado dejo de reproducirse y quien '
+            .'lea esto ya no tiene delante la consecuencia que justifica el `FOR UPDATE`.');
     }
 
     /**
@@ -182,33 +303,76 @@ class ConsecutivoDeCertificadosTest extends CasoDeContrato
     }
 
     /**
-     * Mandar `"false"` **quema un número**.
+     * **La validacion no puede romper el caso bueno**, y este casi se rompe.
      *
-     * El incremento está detrás de `Request::input('aumentar_contador') == true`,
-     * con `==` y no `===`. En PHP **cualquier cadena no vacía que no sea `'0'` es
-     * cierta**, así que la cadena `"false"` —que es lo que manda un cliente que
-     * cree estar diciendo «no subas»— entra en el `if`.
+     * `certificadoEstudioDir.html` es un `<input ng-model="year.contador_certificados">`
+     * **sin `type="number"`**: AngularJS manda **la cadena tal cual la trajo el
+     * backend**. Y el relleno esta ahi: en `simonbolivar_testing_e0`, **7 de los 8
+     * years vivos** llevan ceros a la izquierda —`007`, `021`, `022`, `037`, `044`,
+     * `045`, `060`— y el octavo es el actual, que solo se libra por haber pasado de
+     * tres digitos. O sea que la pantalla que hoy funciona manda `'007'`, y `007` es
+     * literalmente el year id=1.
      *
-     * Medido, valor a valor, en `Tests\Barrido\QuemaDelConsecutivoTest`:
+     * La primera version de esta validacion usaba `FILTER_VALIDATE_INT`, y
+     * **`filter_var('007', FILTER_VALIDATE_INT)` es `false`**: habria contestado
+     * **422 a la pantalla buena** en todos los colegios con relleno. Una validacion
+     * que rechaza el caso que venia a proteger es peor que no tenerla, porque
+     * ademas parece que funciona -- el test del cuerpo invalido sigue verde.
      *
-     *     sin la clave    no sube        "true"    SUBE
-     *     true (bool)     SUBE           "false"   SUBE   <- éste
-     *     false (bool)    no sube        "0"       no sube
-     *     0 (entero)      no sube        "si"      SUBE
-     *
-     * **Y esto decide dónde está la cura**, que era la pregunta abierta: el
-     * servidor sólo sube cuando se lo piden, así que **el front puede arreglarlo
-     * solo y sin tocar los dieciséis despliegues** — pero **no le basta con mandar
-     * `false`: tiene que mandar el booleano, no la cadena, o mejor OMITIR la
-     * clave**. Es una regla que **nadie puede adivinar leyendo el endpoint**, y por
-     * eso está aquí escrita en vez de en la cabeza de quien lo midió.
-     *
-     * Es la misma comparación laxa que ya se corrigió **doce líneas más arriba en
-     * el mismo fichero** (`year_selected`, donde `0 == 'true'` era cierto). *Se
-     * arregló la de al lado y no ésta, porque la de al lado dio un síntoma visible
-     * y ésta sólo gasta un número que nadie echa en falta.*
+     * Este test es el que lo impide, y por eso comprueba **las dos mitades**: que
+     * entra, y que **el relleno se conserva** — devolver el entero convertiria
+     * `'007'` en `'7'` y eso cambia el numero impreso en un papel oficial.
      */
-    public function test_la_cadena_false_no_deberia_quemar_un_numero(): void
+    public function test_el_consecutivo_relleno_de_ceros_sigue_entrando(): void
+    {
+        $this->withoutMiddleware(ThrottleRequests::class);
+
+        [$grupo, $token] = $this->grupoYPersonal();
+        $cab = ['Authorization' => 'Bearer '.$token];
+
+        foreach (['contador-certificados' => 'contador_certificados',
+            'contador-folios' => 'contador_folios'] as $ruta => $columna) {
+
+            $this->putJson('/api/bolfinales/cambiar-'.$ruta, ['contador' => '007'], $cab)
+                ->assertStatus(200);
+
+            $guardado = DB::selectOne(
+                "SELECT {$columna} v FROM years WHERE deleted_at is null and actual=1"
+            )->v;
+
+            $this->assertSame('007', $guardado,
+                'La pantalla mando «007» a `'.$ruta.'` y quedo «'.$guardado.'». Siete de los '
+                .'ocho years estan rellenados a tres digitos: perder el relleno cambia el '
+                .'numero impreso, y rechazarlo con 422 rompe la pantalla que hoy funciona.');
+        }
+    }
+
+    /**
+     * **Que quema un folio y que no, valor por valor.** La tabla es el guardian.
+     *
+     * Antes esto era un solo caso —la cadena `"false"`— y en rojo. Un `filter_var`
+     * suelto no dice nada dentro de seis meses; lo que hay que poder leer de un
+     * vistazo es **la frontera entera**, porque el arreglo se defiende por su forma
+     * y no por su linea:
+     *
+     * **El cambio es estrictamente asimetrico hacia el lado seguro.** Con `== true`
+     * quemaba cualquier cadena no vacia que no fuera `"0"` — incluida `"false"`, que
+     * es lo que manda un cliente creyendo decir «no subas». Con
+     * `FILTER_VALIDATE_BOOLEAN` quema solo lo que significa «si». **Todo lo que deja
+     * de quemar dejaba de deber quemarse, y no hay ni un solo valor que hoy no queme
+     * y manana si.** En papel oficial la direccion irreversible es quemar: un folio
+     * no quemado se quema despues, uno quemado no vuelve.
+     *
+     * Por eso el aserto va en **las dos direcciones**: si manana alguien «simplifica»
+     * esto de vuelta, cae por la mitad de arriba; si alguien lo endurece de mas y el
+     * certificado deja de gastar numero, cae por la de abajo. Un test que solo
+     * mirara la mitad segura pasaria con un endpoint que ya no incrementa nunca.
+     *
+     * **No sustituye la cura del front** (05 §225: tiene que OMITIR la clave, no
+     * mandar `false`). La respalda — las copias de `myvc_front` desplegadas en los
+     * dieciseis colegios pueden ir a versiones distintas.
+     */
+    public function test_que_valores_queman_un_folio_y_cuales_no(): void
     {
         $this->withoutMiddleware(ThrottleRequests::class);
 
@@ -218,15 +382,56 @@ class ConsecutivoDeCertificadosTest extends CasoDeContrato
             'SELECT contador_certificados FROM years WHERE deleted_at is null and actual=1'
         )->contador_certificados;
 
-        $antes = $lee();
+        // true = tiene que gastar un numero; false = no puede gastarlo.
+        $esperado = [
+            'true (bool)' => [true, true],
+            '1 (entero)' => [1, true],
+            '"1" (cadena)' => ['1', true],
+            '"true" (cadena)' => ['true', true],
+            '"yes"' => ['yes', true],
+            '"on"' => ['on', true],
 
-        $this->putJson('/api/bolfinales/detailed-notas-year-group/'.$grupo->id,
-            ['aumentar_contador' => 'false'],
-            ['Authorization' => 'Bearer '.$token])->assertStatus(200);
+            'false (bool)' => [false, false],
+            '0 (entero)' => [0, false],
+            '"0" (cadena)' => ['0', false],
+            '"false" (cadena)' => ['false', false],
+            '"" (vacia)' => ['', false],
+            '"si" (cualquier cadena)' => ['si', false],
+            'null' => [null, false],
+        ];
 
-        $this->assertSame($antes, $lee(),
-            'Mandar la CADENA "false" subió el consecutivo de '.$antes.' a '.$lee().'. '
-            .'`== true` es cierto para cualquier cadena no vacía que no sea "0", así que un '
-            .'cliente que cree estar diciendo «no subas» quema un folio oficial.');
+        $quemaron = [];
+        $noQuemaron = [];
+
+        foreach ($esperado as $etiqueta => [$valor, $deberiaQuemar]) {
+            $antes = $lee();
+
+            $this->putJson('/api/bolfinales/detailed-notas-year-group/'.$grupo->id,
+                ['aumentar_contador' => $valor],
+                ['Authorization' => 'Bearer '.$token])->assertStatus(200);
+
+            $subio = $lee() - $antes;
+            if ($subio > 0) {
+                $quemaron[] = $etiqueta;
+            } else {
+                $noQuemaron[] = $etiqueta;
+            }
+
+            $this->assertSame($deberiaQuemar, $subio > 0,
+                $deberiaQuemar
+                    ? 'Mandar '.$etiqueta.' NO gasto un numero, y significa «si»: el '
+                        .'certificado saldria con el consecutivo del anterior.'
+                    : 'Mandar '.$etiqueta.' gasto un folio oficial. `'.$etiqueta.'` no '
+                        .'significa «si», y un numero quemado no vuelve.');
+        }
+
+        // Sin esto, un fallo que impidiera llegar al endpoint dejaria trece «no
+        // quemo» que se leerian como «la puerta esta cerrada».
+        $this->assertCount(6, $quemaron,
+            'Quemaron '.count($quemaron).' valores ('.implode(', ', $quemaron).'): la '
+            .'frontera se movio y hay que volver a mirarla, no actualizar el numero.');
+
+        $this->assertCount(7, $noQuemaron,
+            'No quemaron '.count($noQuemaron).' valores: idem.');
     }
 }
