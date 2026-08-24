@@ -9188,3 +9188,82 @@ contestando lo que dice— **pero afina para qué sirve**:
 Por eso el aserto no es un cero, sino *«esta escritura y ninguna más»* **más** un
 segundo aserto de que la del token **sí está**: **un `DB::listen` que no se engancha
 da cero escrituras y parece un éxito.**
+
+## §187. Las quince rutas con dos identificadores sin comprobar se reducen a una decisión ya pedida
+
+Leídas una a una, que es lo único que las clasifica. **Ninguna es fuga confirmada**, y
+el reparto importa más que el número:
+
+- **Seis no admiten la pregunta.** Sus dos identificadores nombran **catálogo del
+  colegio** —una actividad, un grupo, un ordinal, una situación derivante, una opción
+  de examen, una frase—. *«Comprobar propiedad» no significa nada sobre una fila que
+  no es de nadie.*
+- **Una es pública a propósito, y lo decide el fichero de rutas, no el detector.**
+  `PUT api/tardanzas/subir/poner-ausencia` lleva `->withoutMiddleware('auth.token')`:
+  **es el lector de la puerta**, un aparato que no puede conservar un token, así que
+  manda usuario y contraseña en cada petición y **se autentica dentro del método**
+  exigiendo `Profesor` o superusuario. **No es una ruta sin autenticar: es una que
+  autentica en otro sitio.**
+- **Las nueve restantes son una sola pregunta, y ya está pedida.** `auth.personal`
+  aborta con 403 a `Alumno` y `Acudiente`, así que **ninguna es alcanzable por una
+  familia** y la regla confirmada del proyecto no se rompe. Lo que queda abierto es
+  **«quién del personal puede qué»**, que ya espera respuesta de Joseth.
+
+> **Lo que aporta no es una lista de fallos: es que las quince se reducen a una
+> decisión que ya estaba pedida.** Es lo contrario de lo que sugiere el «15» leído
+> solo.
+
+**Y su consecuencia para la fase 4:** las nueve **son exactamente** sus dominios 4, 5
+y 6. Instrumentarlas no cierra su hueco, y **si el `alumno_id` de la línea saliera del
+mismo input sin comprobar, el rastro repetiría la afirmación del que llamó**. Tiene
+que salir de la fila insertada — que es la regla del [§183](#).
+
+### El 29 explicado, y una medición propia retirada
+
+`identificadores-del-cuerpo.py` ya imprime **cuatro números y ninguno es una
+constante**: 230 rutas, 177 que escriben, 15 con dos o más sin comprobar, **72
+familias** de las que **28 tienen alguna ruta sin comprobar**. Ahí estaba el 29: **la
+lista de familias salta las que no tienen ninguna ruta sin comprobar**, así que su
+recuento **no era el número de familias**. Nadie podía notarlo porque **ninguno de los
+dos se imprimía**.
+
+Y quien lo midió **retira su propio 86**: lo había contado por fuera **cortando la
+columna en un offset fijo**, que se rompe con las rutas largas y **se traga texto del
+guard como si fuera un identificador**. *«Mi medición era una regex con otro nombre»* —
+la cuarta de la noche.
+
+### Tres números que no coinciden, y uno está en `CLAUDE.md`
+
+| | |
+|---|---|
+| **17** | rutas que no resuelven al usuario (`auditar-autenticacion.php`): 8 escriben, 9 sólo leen |
+| **11** | las que `RutasPreLoginTest` afirma que funcionan sin token, **contadas** |
+| **15** | lo que dicen **`CLAUDE.md`** y la cabecera de la propia herramienta |
+
+**El 15 está viejo en los dos sitios**, y es de los que no fallan nunca **porque suena
+a dato cerrado**. Los otros dos no se contradicen —miden cosas distintas— pero eso
+sólo se sabe leyendo los dos ficheros.
+
+**Y lo que hacía falta decir: `RutasPreLoginTest` no es un inventario.** Enumera once y
+comprueba que **ésas** funcionan sin token; **no comprueba que ninguna otra sea
+pública**. Quien lea *«las excepciones públicas son quince y son un test»* está
+leyendo **una promesa que ese fichero no hace**.
+
+> **`CLAUDE.md` no se corrige aquí.** Es el fichero de instrucciones del proyecto y
+> **no se toca porque otra sesión lo reporte**: va a la lista de Joseth con el número
+> medido y la línea exacta. Lo mismo la cabecera de la herramienta, que la comparten
+> catorce sesiones.
+
+### Y el arreglo cuyo test dice lo que no prueba
+
+`YearsController` deriva ya `affected_element_id` de `$year->id`: **con eso los diez
+escritores derivan el sujeto de la fila leída**. Pero comprobado al revés, **revertido
+el arreglo el test sigue pasando**: con `strict => false` un `id` no numérico se
+convierte en silencio en la columna `int`, y **no hay cuerpo alcanzable que distinga
+las dos formas**.
+
+Lo que el arreglo quita es un **fallo latente**: con el modo estricto puesto, la vieja
+lanzaría **después de `$year->save()`**, y como el `catch` contesta 422 el resultado
+sería **el año cambiado, el cliente leyendo que falló, y del rastro nada**. Así que el
+test es **la red que impide devolverlo al cuerpo, no la prueba de que hiciera falta
+cambiarlo** — y está dicho así dentro.
