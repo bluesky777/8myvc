@@ -109,6 +109,66 @@ corridas: no midieron el mismo mundo.
 > misma ventana** en vez de un tiempo suelto: lo que el plan 20 afirma es una
 > **comparación**, y una comparación sobrevive a la carga.
 
+### La corrida limpia — **ésta es la que se cita** (24 ago, madrugada)
+
+Cuando la máquina quedó libre —cero `phpunit` huérfanos comprobados **dentro del
+contenedor**, `load 1,94`, base propia verificada contra las otras 27 (92 tablas,
+2.351 usuarios)— se repitió entera. **La suite completa había bajado de 2.132 s a
+593 s y este cronómetro de 322 s a 16 s**, que es la medida de lo que era aquella
+ventana.
+
+|  | valor |
+|---|---|
+| 45 × `PUT notas/update` | **344,4 ms** (mejor 290,9 · peor 644,8) |
+| 1 × `PUT notas/lote` | **64,8 ms** (mejor 54,4 · peor 264,7) |
+| **razón** | **5,3×** — y **5,3× también entre las mejores pasadas** |
+| consultas | **717 → 220** |
+| carga antes / después | 1,94 / 2,26 — la misma ventana |
+
+**La predicción escrita antes de medir se cumple**: dije que la razón subiría y que
+si salía por debajo de 3,8× habría algo que no entendería. Salió **5,3×**, por
+encima de las dos medianas contaminadas (3,8× y 4,5×) y dentro del rango que ya
+apuntaban sus mejores pasadas (7,2× y 5,9×).
+
+Y **`717 → 220` salió idéntico las tres veces**, con la máquina al 97% de swap y
+sin ella. Es el número que no depende de nada.
+
+#### El reparto, ya sin contaminación
+
+```
+Una `notas/update` cuesta 7,65 ms, y se reparte así:
+  el camino común (resolver quién pregunta y volver)    4,06 ms    53%
+  recalcular la definitiva de esa nota                  2,68 ms    35%
+  lo demás (UPDATE, bitácora, enrutar, serializar)      0,91 ms    12%
+```
+
+Dos cosas que esto **corrige de lo que yo mismo escribí arriba**, y las dos en la
+dirección de que la contaminación golpeaba más fuerte a lo que más toca la base:
+
+- el recálculo por nota salía **42,9 ms** en la corrida sucia y son **2,68 ms**: un
+  factor 16. Y ese 2,68 **cuadra con
+  [`coste-del-recalculo.php`](../../../tools/coste-del-recalculo.php)**, que midió
+  `calcular()` en 1,70 ms. O sea que la corrida limpia **valida esa herramienta** y
+  la sucia no medía el recálculo, medía el swap;
+- el camino común salía **134,3 ms** y son **4,06 ms**.
+
+> **Y eso último toca una cifra publicada que no es mía: los ~40–80 ms de la
+> [§4 del 02](../02-plan-rendimiento.md) para «resolver quién pregunta».** Aquí, en
+> máquina limpia, ese camino cuesta **4,06 ms** — un orden de magnitud menos. No
+> digo que el 02 esté mal: **son dos máquinas y dos entornos**, y aquí no se paga el
+> arranque del framework, que es lo que el 02 cuenta aparte. Lo que sí digo es que
+> **el número absoluto de esa sección no se puede citar como si fuera de esta
+> máquina**, y que lo que mi medición establece es **el reparto** —53 / 35 / 12— no
+> los milisegundos.
+
+#### Lo que el reparto le hace al plan 20
+
+La §2 del 20 dice que lo caro **no** es el recálculo sino el coste fijo. Con los
+números limpios: el coste fijo **es** el término mayor (53%), pero el recálculo es
+**un tercio largo** (35%) y en consultas la cosa está **mitad y mitad** —de las 497
+que el lote ahorra, ~264 son el camino común y ~260 el recálculo—. La frase sigue
+siendo cierta de `calcular()` y sigue siendo demasiado fuerte del recálculo entero.
+
 ### De dónde sale el coste, que es la pregunta de verdad
 
 «El lote es más rápido» no hacía falta medirlo. Lo que había que confirmar o
