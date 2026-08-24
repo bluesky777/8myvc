@@ -411,6 +411,52 @@ def desnudas(sql):
         sql, re.I)]
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Y la mitad que el SQL crudo NO ve: Eloquent.
+#
+# `CLAUDE.md` dice que este repo tiene 990 consultas crudas y usa los modelos
+# «marginalmente», **y esa frase es justo la que hace que se te olvide el
+# margen**. `escrituras-en-las-notas.py` lo lleva escrito en su cabecera porque
+# le pasó a él primero; a este detector le pasó igual el 24 ago 2026: publicó
+# **6 escrituras** —las de SQL crudo— cuando hay **12 métodos más** que escriben
+# `Unidad`/`Subunidad` con `new … ->save()`, `->delete()` y `->forceDelete()`.
+#
+# **Y las tres que más importan para el boletín independiente están en esta
+# mitad**, no en la otra:
+#
+#   UnidadesController::postIndex        `POST unidades` — es donde tiene que
+#                                        entrar `alumno_id` (§6.5 del plan)
+#   SubunidadesController::postIndex     tiene que crear las notas de UN alumno
+#                                        y no las del grupo cuando la unidad
+#                                        tiene dueño (§6.5)
+#   PeriodosController::putCopiar        tiene que copiar también las unidades
+#                                        con dueño (§9.4), o el periodo nuevo
+#                                        empieza con los independientes sin nada
+#
+# Un inventario que sólo mirara el SQL crudo diría que el camino de escritura no
+# se toca, y **las tres piezas centrales de la función viven ahí**.
+#
+# La búsqueda es por método y no por línea: lo que importa es «este método
+# escribe el modelo», y el `new` y el `->save()` suelen estar a diez líneas.
+# `(Unidad|Subunidad)::` va sin cerrar a `find` a propósito —
+# `Unidad::onlyTrashed()->findOrFail($id)` se le escapaba a la versión estrecha,
+# y eran justo los dos `forcedelete`.
+ELOQUENT_MODELO = re.compile(r'\bnew\s+(Unidad|Subunidad)\b|\b(Unidad|Subunidad)::')
+ELOQUENT_ESCRIBE = re.compile(r'->(save|delete|forceDelete|restore|update|push)\s*\(')
+
+
+def escrituras_eloquent(texto):
+    """(metodo, modelos, operaciones) de cada método que escribe por Eloquent."""
+    for nombre, ini, fin in metodos(texto):
+        cuerpo = texto[ini:fin]
+        modelos = {m.group(1) or m.group(2) for m in ELOQUENT_MODELO.finditer(cuerpo)}
+        if not modelos:
+            continue
+        ops = sorted({m.group(1) for m in ELOQUENT_ESCRIBE.finditer(cuerpo)})
+        if ops:
+            yield nombre, texto.count('\n', 0, ini) + 1, sorted(modelos), ops
+
+
 def main():
     csv_out = '--csv' in sys.argv
     detalle = '--detalle' in sys.argv
@@ -422,6 +468,7 @@ def main():
         sys.exit(f'ERROR: no existe ./{RAIZ}/ — se corre desde la raíz del repo.')
 
     hallazgos = []
+    eloquent = []
     ficheros_vistos = 0
 
     for base, _dirs, ficheros in os.walk(RAIZ):
@@ -433,6 +480,9 @@ def main():
             texto = sin_comentarios(open(ruta, encoding='utf-8', errors='replace').read())
             ms = list(metodos(texto))
             usa_servicio = 'BoletinIndependiente' in texto
+
+            for nombre, linea_e, modelos, ops in escrituras_eloquent(texto):
+                eloquent.append((ruta, linea_e, nombre, '/'.join(modelos), ','.join(ops)))
 
             for ini, fin, sql in literales(texto):
                 if not re.search(r'\b(sub)?unidades\b', sql, re.I):
@@ -501,11 +551,19 @@ def main():
                 print(f'     de ésas, «{v}»: {len([h for h in propias if h["via"] == v])}')
         print()
 
-    if escrituras:
-        print(f'== escrituras (INSERT/UPDATE): {len(escrituras)} ==')
-        for h in escrituras:
-            print(f'   {h["fichero"]}:{h["linea"]}  {h["metodo"]}  {h["verbo"]} {h["tabla"]}')
-        print()
+    # Las dos mitades juntas y etiquetadas, para que nadie lea una por el total.
+    print(f'== escrituras: {len(escrituras)} en SQL crudo + {len(eloquent)} por Eloquent '
+          f'= {len(escrituras) + len(eloquent)} ==')
+    for h in escrituras:
+        print(f'   [sql]      {h["fichero"]}:{h["linea"]}  {h["metodo"]}  '
+              f'{h["verbo"]} {h["tabla"]}')
+    for ruta, linea_e, nombre, modelos, ops in sorted(eloquent):
+        print(f'   [eloquent] {ruta}:{linea_e}  {nombre}  {modelos} ->{ops}')
+    print('   Las tres que decide el plan están en la mitad de Eloquent: '
+          'UnidadesController::postIndex (alumno_id en el cuerpo, §6.5),')
+    print('   SubunidadesController::postIndex (notas de UN alumno, §6.5) y '
+          'PeriodosController::putCopiar (§9.4).')
+    print()
 
     vistas = {(h['fichero'], h['linea']) for h in ambiguas}
     if vistas:

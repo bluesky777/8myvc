@@ -328,44 +328,88 @@ fallos**:
    sé clasificarla sin decidir antes qué tiene que enseñar esa pantalla, y esa
    decisión es del [18](../18-auditoria.md), no de aquí.
 
-### Las 6 escrituras — y eran 4 hasta que otra sesión midió otra cosa
+### Las escrituras: **6 en SQL crudo + 12 por Eloquent = 18**
 
-`Unidad::arreglarOrden` (×2), `SubunidadesController::putRestore`,
-`UnidadesController::putRestore` … **y las dos que faltaban**:
+**Este documento dijo «4» y luego «6», y las dos veces estaba mirando media
+pregunta.** El recorrido completo, porque el recorrido es el hallazgo:
 
-| Sitio | Qué escribe |
+| Dijo | Por qué faltaba lo que faltaba |
 |---|---|
-| `UnidadesController::getDeAsignaturaPeriodo:122` | `INSERT INTO unidades(...)` |
-| `UnidadesController::getDeAsignaturaPeriodo:131` | `INSERT INTO subunidades(...)` |
+| **4** | el detector rechazaba `INSERT INTO unidades(` — ver abajo |
+| **6** | arreglado eso, salieron los dos `INSERT`… pero seguía mirando **sólo SQL crudo** |
+| **18** | **12 métodos escriben `Unidad`/`Subunidad` por Eloquent** y ningún detector de SQL los ve |
 
-**Este documento decía «4 escrituras» y son 6.** Las dos que faltaban las
-encontró `8myvc-ad` midiendo el rendimiento de otra cosa, y de ahí sale lo que
-merece guardarse:
+#### Las dos que faltaban en el SQL crudo, y quién las encontró
 
-> **`PUT unidades/de-asignatura-periodo` escribe, y no lo dice ni el verbo
-> (`PUT`) ni el nombre del método (`getDeAsignaturaPeriodo`).** Cuando no hay
-> unidades y el profesor puede escribir, **crea las del año por defecto** —y sus
-> subunidades— dentro de una petición que se lee como una consulta.
+`UnidadesController::getDeAsignaturaPeriodo:122` y `:131`, y **no las encontré yo:
+las encontró `8myvc-ad` midiendo el rendimiento de otra cosa**. Lo que merece
+guardarse es por qué se esconden:
 
-Y **mi detector tampoco las veía**, por una razón que es la misma familia de todo
-lo demás: el guardia contra las llamadas a función, `(?!\w*\s*\()`, rechazaba
-`INSERT INTO unidades(definicion, porcentaje, …)` **porque el paréntesis va pegado
-al nombre**. O sea que rechazaba por la señal que confirma: esa lista de columnas
-es justo lo que distingue un `INSERT` de una llamada. Arreglado, y ahora el `INTO`
-va por su propia rama.
+> **`PUT unidades/de-asignatura-periodo` escribe, y no lo dice ni el verbo (`PUT`)
+> ni el nombre del método (`getDeAsignaturaPeriodo`).** Cuando no hay unidades y el
+> profesor puede escribir, **crea las del año por defecto** —y sus subunidades—
+> dentro de una petición que se lee como una consulta.
 
-**De paso, el mismo bicho me mordió en la comprobación a mano**, que es lo que lo
-hace didáctico: mi `grep` de control encontró un tercer `INSERT INTO unidades` en
-`YearsController:193` y **era `unidades_por_defecto`** — la misma falta de
-frontera de palabra que había arreglado en la herramienta una hora antes, repetida
-en el comando con el que la comprobaba.
+Mi detector tampoco las veía: el guardia contra llamadas a función,
+`(?!\w*\s*\()`, rechazaba `INSERT INTO unidades(definicion, …)` **porque el
+paréntesis va pegado al nombre**. O sea que **rechazaba por la señal que
+confirma** — esa lista de columnas es justo lo que distingue un `INSERT` de una
+llamada.
 
-**Para el alcance, las 6 están bien**: las cuatro `UPDATE` van por `WHERE id = ?`,
-y los dos `INSERT` **no nombran `alumno_id`**, así que nacen con `NULL` = del
-grupo, que es exactamente lo que tienen que ser — son las unidades por defecto del
-año. Lo que sí les toca es **la fase 4**: cuando un independiente entre en una
-asignatura sin montar, este camino le crearía las del grupo y no las suyas. Es la
-§9.1 del plan por una puerta que el plan no nombra.
+**Y el mismo bicho de la frontera de palabra me mordió en el `grep` con el que lo
+comprobaba a mano**: me dio un tercer `INSERT INTO unidades` en
+`YearsController:193` y era **`unidades_por_defecto`** — la falta que había
+arreglado en la herramienta una hora antes, repetida en el comando de control.
+**No basta arreglar el detector si el comando con el que lo verificas tiene el
+mismo fallo.**
+
+#### Los 6 de SQL crudo, cruzados con un detector que no comparte supuesto
+
+`8myvc-ad` busca **la forma de la sentencia** (`INSERT\s+INTO`, `DELETE\s+FROM`,
+`UPDATE … SET`) en vez del nombre de la tabla, así que **le da igual qué venga
+pegado detrás del nombre** — que es justo lo que rompió mi guardia. Corridos los
+dos sobre `app/`: **6 y 6, los mismos seis sitios.** Dos detectores que no
+comparten supuesto y coinciden valen mucho más que uno repetido.
+
+#### Los 12 de Eloquent, que son la mitad que decide
+
+`CLAUDE.md` dice que el repo tiene 990 consultas crudas y usa los modelos
+«marginalmente», **y esa frase es justo la que hace que se te olvide el margen**.
+`escrituras-en-las-notas.py` lo lleva escrito en su cabecera porque le pasó a él
+primero. Me pasó igual.
+
+| Fichero | Métodos |
+|---|---|
+| `UnidadesController` | `postIndex`, `putUpdateOrden`, `putUpdate`, `deleteDestroy`, `deleteForcedelete` |
+| `SubunidadesController` | `postIndex`, `putUpdateOrden`, `putUpdateOrdenVarias`, `putUpdate`, `deleteDestroy`, `deleteForcedelete` |
+| `PeriodosController` | `putCopiar` |
+
+**Y las tres piezas centrales de esta función están aquí, no en el SQL crudo:**
+
+| Método | Qué le pide el plan |
+|---|---|
+| `UnidadesController::postIndex` | es **`POST unidades`**, donde tiene que entrar `alumno_id` en el cuerpo (§6.5) |
+| `SubunidadesController::postIndex` | crear las notas de **UN alumno** y no las del grupo cuando la unidad tiene dueño (§6.5) |
+| `PeriodosController::putCopiar` | copiar **también las unidades con dueño** (§9.4), o el periodo nuevo empieza con los independientes sin nada |
+
+> **Un inventario que sólo mirara el SQL crudo diría que el camino de escritura no
+> se toca.** Y las tres piezas que sostienen la función viven ahí.
+
+Mi probe de Eloquent tuvo además **su propio punto ciego**, y va dicho porque es
+el mismo patrón: pedía `(Unidad|Subunidad)::(find|findOrFail|create)` y
+`Unidad::onlyTrashed()->findOrFail($id)` **no casa**. Eran **los dos
+`deleteForcedelete`**: 10 en vez de 12. Arreglado pidiendo `(Unidad|Subunidad)::`
+a secas y **leyendo los doce a mano**, que es la última pasada que no hace ninguna
+herramienta.
+
+#### Para el alcance, y qué les toca
+
+Las cuatro `UPDATE` van por `WHERE id = ?` y los dos `INSERT` **no nombran
+`alumno_id`**, así que nacen `NULL` = del grupo — correcto para las unidades por
+defecto del año. Lo que sí les toca es **la fase 4**: cuando un alumno marcado
+entre en una asignatura sin montar, `getDeAsignaturaPeriodo` le crearía **las del
+grupo y no las suyas**, y nadie recibiría un error. **Es la §9.1 del plan por una
+puerta que el plan no nombra.**
 
 ---
 
