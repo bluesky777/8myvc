@@ -741,6 +741,72 @@ menos que mantener y un predicado menos en el `ALTER`.
 
 ---
 
+## §5.sexies — El test de la rama sin guardián
+
+**La única de las cuatro consultas ambiguas que estaba viva y sin cubrir ya tiene
+test**: `BoletinFortalezaDebilidadTest`, 2 tests.
+
+Existe **por el interruptor y no por la consulta**, y eso está escrito en su
+docblock a propósito: si alguien lo lee sin esa frase lo mueve a `BoletinesTest`
+por «duplicado del boletín» y **con eso vuelve el agujero**.
+
+### El discriminador falso, que es el hallazgo
+
+Lo primero que escribí fue *«con el interruptor encendido trae `desempenio`»*.
+**Era falso.** La rama de al lado hace `SELECT *` sobre un `left join` con
+`escalas_de_valoracion`, y **esa tabla tiene su propia columna `desempenio`**. Las
+dos ramas lo traen, así que ese test habría pasado **ejerciendo la rama de
+siempre**: *el fallo que viene a cubrir, cometido al cubrirlo.*
+
+**Y cómo se vio importa más que qué se vio: leyendo la instantánea, no el
+código.** En `Snapshots/boletines2-detailed-notas.json`, `desempenio` sale al lado
+de `valoracion`, `porc_final` e `icono_adolescente` — todas de la escala. **El
+snapshot sabía algo que el código no dejaba ver**, que es lo que este proyecto
+dice de sus tests de contrato aplicado a **diseñar** uno en vez de a comprobarlo.
+
+El discriminador de verdad es **estructural**: la rama `fortaleza_debilidad` **no
+une `escalas_de_valoracion`**, así que devuelve ocho claves y **`valoracion` no
+está entre ellas**; y su `desempenio` es literal, del `IF(… , "Debilidad",
+"Fortaleza")` de dentro del SQL. La mitad en negativo —**apagado: `valoracion`
+presente**— es la que impide que el interruptor se vuelva decoración sin que nadie
+lo note.
+
+### La comprobación al revés, y qué probó exactamente
+
+| | Resultado |
+|---|---|
+| el test tal cual | **2 passed (17 aserciones)** |
+| revirtiendo el predicado de esa rama a `alumno_id` sin alias | **el de encendido CAE** con el `1052`, y **el de apagado sigue verde** |
+
+Las dos mitades importan. Que caiga **prueba que cubre**; que **sólo caiga esa
+mitad** prueba que el revert tocó **la rama que dice** y no otra cosa — la traza lo
+confirma: `Boletines2Controller:228 → deAsignaturaCalculada(…, 'fortaleza_debil…')`.
+
+### Tres errores propios de camino, y el que más costó
+
+1. **`unAlumnoDe` es `private` en `BoletinesTest`**, así que mi clase no lo tenía:
+   el fallo era un *undefined method* en la línea del `putJson`, y yo leí «no
+   contestó 200». Copiado a mi clase — **no subido a `CasoDeContrato`**, que sería
+   tocar los tests de otra sesión.
+2. **La respuesta es un array POSICIONAL** —`array($grupo, $year, $alumnos,
+   $escalas)`—: los alumnos son el índice **2**, no la clave `alumnos`. La clave
+   sale del `posiciones()` que nombra los índices al hacer la instantánea.
+3. **`boletines2` mete un nivel de `areas`** entre el alumno y sus asignaturas, que
+   `boletines` no tiene. Por eso el helper **busca en profundidad** en vez de
+   escribir la ruta: escribirla ata el test a una de las tres familias.
+
+Y el que más costó no fue ninguno de los tres: **mi propio guion cortaba la salida
+con `| tail -14`** y el *undefined method* quedaba fuera de los últimos catorce
+renglones. **Un turno entero gastado en no ver el error que ya tenía delante**, con
+la regla de la casa —ningún comando que termine en un número lleva tubo que
+corte— aplicada por mí a otro guion una hora antes y rota en éste.
+
+> **La primera pasada no falló por el código: falló por el test, y las dos mitades
+> cayeron igual.** Que el filtro 2 caiga **igual que** el filtro 1 no es una
+> confirmación: es la señal de que la comprobación al revés **no probó nada**.
+
+---
+
 ## §6 — Los puestos: la premisa del plan es falsa, y no lo he «arreglado»
 
 El plan dice que `Nota::puestoAlumno` está copiado en ocho sitios y que **el
