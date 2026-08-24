@@ -11341,3 +11341,57 @@ verdad entra sin que salte nada** — que es exactamente lo que la [§220](#) di
 **El día que se arreglen se les quita el grupo y pasan a la suite.** Eso es lo que los
 convierte en **la red del arreglo** y no en una queja archivada — y es la mitad que
 distingue esto de anotar el fallo en un documento.
+
+## §226. El único del patrón que escribe: sin transacción, pero idempotente — y eso cambia la gravedad
+
+`PUT promovidos/calcular-grupo` es el único de las nueve copias del patrón de la
+[§224](#) que además de leer **escribe**, y lo que escribe es `matriculas.promovido`:
+**quién pasa el año**. Un `DB::update` **dentro del bucle de alumnos**, `auth.personal`.
+
+Con eso, la pregunta correcta no es el coste —*un `DB::update` en un bucle no es un
+problema de coste, es un problema de qué pasa si se corta a la mitad*—. Medido con
+`tests/Barrido/CosteYAtomicidadDePromovidosTest.php`, grupo 98 del seed:
+
+| | consultas | `UPDATE matriculas` | tiempo | filas distintas después |
+|---|---|---|---|---|
+| **primera llamada** | 528 | **37** | 830 ms | **37** |
+| **segunda llamada seguida** | 527 | **37** | 694 ms | **0** |
+
+**Sin transacción** —no hay ni una en `PromovidosController`—, o sea **37 escrituras
+sueltas**. Una petición que muera en el alumno 20 deja **veinte matrículas
+recalculadas y diecisiete con el valor viejo**, y desde fuera **eso no se distingue de
+un grupo entero recalculado**: no queda marca de que se cortó.
+
+### Y aquí está lo que cambia la respuesta: **es idempotente**
+
+La segunda llamada **reescribe las 37 filas y no mueve ninguna**. O sea que el daño de
+un corte a la mitad es **«hay que volver a darle»**, no «reconstruye a mano quién pasó
+el año». *Eso baja la gravedad de esto por debajo del consecutivo de la [§225](#), que
+no se puede deshacer, y de las definitivas del [10](10-definitivas.md), que borran antes
+de reconstruir.*
+
+**No es una excusa para no poner la transacción; es la diferencia entre ponerla ahora y
+ponerla el día que se toque el fichero.** Y el aserto de idempotencia queda **dentro del
+barrido**: si algún día deja de serlo, el corte a la mitad pasa a ser irreparable y esta
+§ deja de valer — por eso es lo único que ese test afirma además del falso verde.
+
+> **Lo que el número no dice y hay que decir:** el grupo tiene **68 matrículas** y se
+> escriben **37**. La diferencia no es un fallo — `Grupo::alumnos` trae sólo las
+> matriculadas vivas—, pero **el que lea «37 escrituras» sobre un grupo de 68 y suponga
+> que faltan 31 se equivoca**, y es la lectura natural.
+
+### Dos notas al pie que se comprobaron y NO son hallazgos
+
+**La guarda `promovido NOT LIKE '%(manual)%'` es frágil en SQL y aquí no puede fallar.**
+`NULL NOT LIKE '…'` da **NULL**, o sea falsy, o sea que **una fila con `promovido` nulo
+se saltaría en silencio** — comprobado contra MySQL, no razonado. Pero
+`matriculas.promovido` es **`varchar(100) NOT NULL DEFAULT 'Automático'`**, así que no
+puede haber nulos: en el seed hay **0 de 124**. *Se deja escrito porque lo que protege
+esa fila es el esquema y no el `WHERE`, y el día que alguien haga la columna nullable el
+`WHERE` no avisará.*
+
+**La vecina no está cortada.** Los tests hablan de `putCalcularGrupoPeriodo` «cortada con
+410»; hoy responde, y hace **`DELETE` y reconstruye sin transacción** — pero eso **ya es
+el asunto del [10-definitivas](10-definitivas.md)** («seis sitios escriben en
+`notas_finales` con cinco criterios distintos de qué borrar, ninguno transaccional»), no
+un hallazgo nuevo de este barrido. Se nombra para que nadie lo cuente dos veces.
