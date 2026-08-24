@@ -497,13 +497,24 @@ El detalle, la población y las condiciones están en el
 - **El 429 de la §1 deja de ser sospecha.** Medido con el limitador puesto: **la
   petición número 121 de 135 devolvió 429**. Tres columnas de 45 contra los
   120/min de `throttle:api`. En lote, esas tres columnas son **tres** peticiones.
-- > **⚠️ Este reparto no cuadra y está sin resolver.** Se publicó como *«de las **497**
-> consultas que el lote ahorra, ~264 son el camino común y ~260 el recálculo: mitad y
-> mitad»* — **y 264 + 260 = 524, no 497: sobran 27.** El **497** sí cierra
-> (**717 − 220**), así que **el que falla es uno de los dos sumandos**. Lo encontró
-> `8myvc-f8` revisando el documento; **no se toca ninguno de los dos porque adivinar cuál
-> mover sería inventar**, y la medición es de otra sesión. **El reparto «mitad y mitad»
-> sobrevive como orden de magnitud; los dos números exactos, no.**
+- > **RESUELTO — y la corrección se retira.** El reparto se midió **restando firma a firma**
+> con el histograma del barrido, y cierra: **camino común 308 (62%), recálculo 100 (20%),
+> localizar y escribir la nota 89 (18%) — total 497 = 717 − 220.**
+>
+> **Así que la §2 del [20](20-pantalla-de-notas.md) tenía razón y la corrección que se le
+> hizo estaba mal:** *lo caro **sí** es el coste fijo de resolver quién pregunta*, con el
+> **62%** del ahorro, y **el recálculo es la quinta parte, no la mitad**.
+>
+> **Por qué no cerraba, que es lo que hay que llevarse:** el **497 es una resta de dos
+> totales medidos** y los dos sumandos eran **dos tasas redondeadas multiplicadas por 44**.
+> **Mezclar una resta medida con dos productos estimados no puede cerrar** — y ponerlos en
+> la misma frase hacía creer que los tres eran de la misma clase. **Un número derivado de
+> otros dos redondeados se defiende igual de bien que uno medido, y no es lo mismo.**
+>
+> **Lo que sí sigue en pie, porque se midió aparte y no se derivó:** `recalcularPorNota`
+> **no es sólo la consulta agregada** —`coste-del-recalculo.php` mide la agregada sola en
+> 1,70 ms y el recálculo entero son varias consultas—. **La frase del plan es correcta y su
+> justificación numérica hay que citarla con cuidado.**
 
 **Y una cabecera de este documento vence antes de tiempo.** La §2 dice que lo
   caro no es el recálculo. Es cierto de `calcular()` —1,7 ms— y **falso del
