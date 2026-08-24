@@ -2430,3 +2430,38 @@ SELECT count(*) FROM role_user ru
 **Hasta que se conteste, el front no despliega su rejilla dando por hecho que está
 a salvo.** En el peor caso son 403 por celda, no pérdida de datos, y revertir la
 guarda de la §11 es un commit.
+
+---
+
+## §15 — Los interruptores que no lee nadie, clasificados (noche del 24)
+
+**Población: 157 columnas `tinyint(1)` en el esquema; 49 medidas como no leídas por
+nadie** —ni `app/`, ni `routes/`, ni `config/`, ni `database/`, ni los tres clientes—
+en **16 tablas**. *(La herramienta cuenta aparte una 50.ª leída a mano: **un número
+medido y uno leído no se suman**.)*
+
+**Ninguna está encendida a mano.** `users.can_ask` sale a **1 en 2.351 de 2.351**, que
+parece una decisión del colegio entero — **y es el `DEFAULT '1'` del esquema**. Nació
+encendida y **nadie la ha tocado ni podría**: ningún cliente la nombra. *Sin mirar el
+`DEFAULT` se habría reportado «alguien encendió esto» —una decisión— cuando lo que hay
+es **una ausencia de decisión**.*
+
+**Límite declarado:** **44 de las 49 caen sobre tablas vacías** en esta base, y el seed
+es **un** colegio de dieciséis. **De esas 44 no se puede decir nada desde aquí.**
+
+### Lo que espera tu respuesta
+
+| | Qué | Por qué no lo decidimos nosotros |
+|---|---|---|
+| **a** | **`config_certificados`: dos interruptores que se marcan y no se aplican.** El colegio pide el encabezado sólo en la primera página, **el certificado lo ignora** | **Es un documento que se entrega firmado.** Y quien lo marcó **no tiene forma de saber que no se aplicó**: el certificado sale, sólo sale distinto de lo que pidió |
+| **b** | **`dis_procesos.firma_alumno` y `firma_acudiente`**: dicen si el alumno y su acudiente **firmaron** el proceso. Módulo **vivo** —`DisciplinaController` nombra `dis_procesos` nueve veces— y **nadie las lee** | Significa que **hoy el sistema no puede contestar si un proceso disciplinario se firmó**, que es justo el dato que hace falta meses después cuando alguien reclama. **¿Función abandonada o sin terminar?** No se adivina |
+| **c** | **Seis tablas `df_*` enteras** —`df_alumnos`, `df_asignaturas`, `df_grupos`, `df_notas_finales`, `df_subunidades`, `df_unidades`—: **cero referencias en `app/` y `routes/`**, y vacías aquí | No son 13 columnas muertas: **son seis tablas muertas**, y clasificar sus columnas es mirar las hojas. **Borrarlas es una migración destructiva en dieciséis producciones**, y antes hay que saber si allí tienen filas |
+| **d** | **El `for` de sólo lectura en los dieciséis**: ¿alguna de las 44 está encendida en algún colegio? | Servidor. Es la misma forma que las otras fases 0 |
+
+### Y una que no espera decisión pero engaña al que la lea
+
+**`matriculas.profes_editar_notas` está muerta y SERVIDA**: viaja en
+`actas-evaluacion-detalle` por un `SELECT *`, y **tiene un hermano vivo que se parece**
+—`years.profes_can_edit_alumnos`, leído en doce ficheros y con test propio—. **Quien vea
+ese nombre en la respuesta puede creer razonablemente que hay un permiso por alumno. No
+lo hay.**

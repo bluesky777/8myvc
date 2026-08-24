@@ -9311,3 +9311,60 @@ de que el front lo encontrara esta noche por el lado de la pantalla.
 **Juntas son que el profesor lee «Cambiada: 85,5» y hay 85.** Ninguno de los dos lados
 tenía el fallo entero, y **el que lo tenía escrito no sabía que lo tenía**. Va cruzado
 con la §4.5.1 del [18](18-auditoria.md).
+
+## §188. Los 49 interruptores, y las dos veces que la clasificación se salvó mirando la otra mitad
+
+Clasificados los **49** (población: 157 `tinyint(1)`, 16 tablas). **43 columna muerta,
+6 interruptor que espera decisión**, y las decisiones en el [09 §15](09-pendientes.md).
+Lo que vale para el método son las tres veces que **el reparto habría sido otro sin un
+segundo paso**:
+
+1. **`users.can_ask` a 1 en 2.351 de 2.351** parecía «alguien encendió un permiso para
+   el colegio entero». **Es el `DEFAULT '1'` del esquema.** Nació encendida y **nadie
+   la ha tocado ni podría**. *Sin mirar el `DEFAULT`, se reporta una **decisión** donde
+   hay una **ausencia de decisión** — y eso manda a buscar a otro sitio.*
+2. **Las 19 `*_accepted` están muertas por las DOS mitades**, y esto casi se va como
+   promesa incumplida: el mecanismo de aceptación por campo **sí está vivo**
+   (`nombres_accepted`, `apellidos_accepted`…). Pero cada campo tiene `X_new` **y**
+   `X_accepted`, y en las 19 **no se toca ninguna de las dos**, mientras los hermanos
+   vivos tienen las dos. **Esos campos nunca entraron en el flujo** — y la diferencia
+   **sólo se ve mirando la otra mitad del par**.
+3. **Los 13 `df_*` no son 13 columnas: son SEIS TABLAS** sin una sola referencia.
+   **Clasificar sus columnas una a una es mirar las hojas.**
+
+**Y la sexta vez que un `grep` casa con el nombre y no con la cosa:** `nota_new` estuvo
+a punto de colarse como la única asimetría —el único con «1 fichero»— y es
+`$nota_new = new Nota;`, **una variable local**. *(Y la comprobación al revés esta vez
+**confirmó** la herramienta en vez de cazarla: un `grep` de `barrio_accepted` sí
+devuelve un fichero, pero es el bloque `@property` **generado**, o sea un comentario.
+**La herramienta mira código; el `grep` no.**)*
+
+## §189. Las tablas calientes: 35, y `unidades` era la decimoséptima
+
+`tools/tablas-calientes.php` cruza **las consultas que dicen `SELECT *`** —las que
+devuelven **lo que haya** en la tabla, no lo que el código pidió— con **las tablas cuya
+forma fija una instantánea**. Donde se cortan, **una columna nueva aparece sola en la
+respuesta y mueve una pantalla que nadie tocó**.
+
+```
+220 ficheros · 251 consultas con SELECT * (360 resueltas, 57 tablas) · 121 instantáneas
+47 tablas con la forma fijada  ->  35 CALIENTES        (umbral impreso: 80%, mín. 5)
+```
+
+Las de más peso: `periodos` (19 consultas), `images` (14), `escalas_de_valoracion` (13),
+`grupos` y `profesores` (11) — y **`years` con 64 columnas** y **`alumnos` con 39**, que
+son las que más asustan. **`unidades`, el caso que disparó todo, es la decimoséptima.**
+
+> **Y el alcance queda decidido al revés de lo que invita el número:** *no* se nombran
+> columnas en las 251. Sería la refactorización rechazada en la [§186.2](#), y **en 247
+> de ellas no hay ningún test rojo delante**. Lo que la lista permite es lo contrario:
+> **no tocar nada hoy y consultarla el día que alguien vaya a añadir una columna** — el
+> coste cae **en el momento del `ALTER`, que es cuando hay alguien mirando.**
+
+**Y la segunda trampa la falló su autor a la primera:** la guarda de subconsultas
+miraba si había un `FROM (` **y** si no había salido ninguna tabla, así que
+`SELECT * FROM (SELECT id, nota FROM notas) t` **devolvía `notas`**. **La cazó su propia
+autoprueba** —seis trampas con su número esperado, corridas antes de creerse nada—.
+Y la trampa 1 con el detalle que importa: **`\b` no basta**, porque `_` es carácter de
+palabra y `unidades\b` casa con el principio de `unidades_por_defecto`; hace falta
+`(?![a-z_])`.
