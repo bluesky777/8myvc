@@ -423,3 +423,46 @@ Lo encontró `8myvc-9e` la noche del 24, **y lo encontró la suite, no un detect
 Es además el tercer modo de fallo de la §9.2 del plan, y el único bueno: los otros
 dos —contar de más y contar de menos— **son silenciosos**; éste revienta en el
 primer test en vez de imprimir un boletín equivocado.
+
+### El paso que va ANTES de escribir un `ALTER TABLE` — `tools/tablas-calientes.php`
+
+La regla de arriba dice **en qué orden** desplegar una migración. Ésta dice **si esa
+migración mueve una respuesta**, que es la pregunta que había que hacerse primero y
+**no tenía respuesta en ninguna parte**.
+
+```
+ficheros de app/ revisados ......... 220
+consultas con SELECT * ............. 251   (resueltas a 360 sobre 57 tablas)
+instantáneas leídas ................ 121
+tablas con la forma fijada ......... 47
+>>> CALIENTES ...................... 35
+```
+
+**Caliente** = la tabla tiene alguna consulta que dice `SELECT *` **y** su forma está
+fijada por una instantánea. En esas 35, **añadir una columna aparece sola en la
+respuesta y mueve una pantalla que nadie tocó** — y hay que avisar a los cuatro
+clientes, con `myvc_flutter` siendo **una sola app para los dieciséis**.
+
+Las de más consultas incluyen `dis_ordinales`, `historiales`, **`years` (64
+columnas)**, `tipos_documentos`, `unidades`, `dis_configuraciones`,
+`config_certificados`, `recuperacion_final`, `contratos`, `areas`, `dis_libro_rojo` y
+**`alumnos` (39 columnas)**.
+
+**Por qué es la peor de detectar, y por eso va como paso y no como consejo:** las
+otras formas de romper **dependen de qué código haya delante** —un `1052 ambiguous`
+rompe contra el código viejo—; **ésta no depende del código: depende de que la
+consulta diga `*`**, así que **un `ALTER` la dispara contra el viejo y contra el nuevo
+a la vez**.
+
+Y de ahí que la comprobación con la suite sean **dos pasadas y ninguna encuentre la de
+la otra**:
+
+| Pasada | Encuentra | Medido el 24 ago |
+|---|---|---|
+| esquema nuevo + código **viejo** | el `1052 ambiguous` | 4 consultas |
+| esquema nuevo + código **nuevo** | el `SELECT *` | 5 snapshots |
+
+> La herramienta lleva `--autoprueba`, **y se corre primero**: comprueba que distingue
+> `unidades` de `unidades_por_defecto` —el falso positivo que se comió una medición
+> esa noche, porque los ocho primeros caracteres coinciden— y que **no cuenta
+> subconsultas**, que fue el cuarto falso positivo y sólo se vio leyendo.
