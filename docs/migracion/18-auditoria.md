@@ -996,3 +996,37 @@ línea de la fase 0 del [10](10-definitivas.md).
 - `HistorialesController::putSesion` lleva un `inner join ... b.affected_user_id=a.id`
   con la versión correcta comentada al lado y un *«la embarré»*. Se reescribe en
   la fase 5.
+
+
+---
+
+## La regla del sujeto, medida la noche del 24 (§183 del 05)
+
+**El id que se le pasa a `Auditoria` es el que salió de la fila escrita, nunca el
+que entró por el cuerpo.** `$nota->alumno_id`, no `Request::input('alumno_id')`.
+**El servicio no puede distinguirlos y no debe poder** — si pudiera, cada llamante
+tendría que acordarse, y de eso ya sabemos cómo acaba.
+
+Sale de haber medido una premisa que resultó falsa: se temía que un identificador
+del cuerpo sin comprobar **falseara el actor**. No puede: **nueve de los diez
+escritores sacan el actor del token y el décimo es el literal `0`** del intento
+fallido. **El actor no se pide, se resuelve.**
+
+Lo que sí ocurre es lo que hay que tener escrito antes de instrumentar nada:
+
+> Un profesor manda el `alumno_id` de un alumno que no es suyo. La fila dice *«X
+> editó la nota N del alumno Y»* y **todos sus campos son ciertos**. Lo que no puede
+> decir es que **X no tenía derecho**. El rastro **no distingue una acción autorizada
+> de una que nadie comprobó**.
+
+**Y el corolario, que evita prometer lo que esta fase no da:**
+
+> **Instrumentar un método NO cierra su hueco de autorización.** Le pone un registro
+> fiel encima. Si el método no comprueba de quién es el id, la fase 4 lo deja **igual
+> de abierto y mejor documentado.**
+
+**Nueve de los diez escritores viejos ya cumplen la regla** —derivan el sujeto de la
+fila leída— y eso es la [§50](05-codigo-muerto-y-roto.md) contestada por sus autores
+sin saberlo. **El que falta es `YearsController:359`**, que escribe
+`affected_element_id = Request::input('id')` tal cual; y `id` es **la peor familia de
+las 28: 35 rutas, 30 sin comprobar propiedad**.

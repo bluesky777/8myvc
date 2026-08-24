@@ -8814,3 +8814,64 @@ Secretario puede por una puerta y no por la otra, y un docente al contrario.** A
 que *«cuál gana»* **no se puede contestar eligiendo el más restrictivo** — hay que
 decidir **a la vez** quién puede firmar a otro **y** si hace falta que la imagen sea
 suya.
+
+## §183. MED-2: la premisa era falsa, y lo que salió es peor de leer
+
+El encargo suponía que **un identificador del cuerpo sin comprobar podía falsear el
+actor** de una fila de auditoría. **Falso, y medido:** de los diez escritores de
+bitácora, **nueve sacan el actor del token** (`$user->user_id`) y **uno es el
+literal `0`** de `Login.php`, el intento fallido sin actor. **Cero del cuerpo.** El
+actor no se pide: **se resuelve**. Y en la tabla nueva menos aún — quien llama **no
+tiene dónde ponerlo**.
+
+**Lo que sí pasa:**
+
+> Un profesor manda el `alumno_id` de un alumno que no es suyo. La escritura ocurre.
+> La fila dice *«el profesor X editó la nota N del alumno Y»* y **todos sus campos
+> son ciertos**. Lo que la fila no puede decir es que **X no tenía derecho a tocar a
+> Y**. **El rastro no distingue una acción autorizada de una que nadie comprobó** —
+> no porque esté mal escrito, sino porque esa comprobación **no ocurrió en ninguna
+> parte** y no hay nada que registrar.
+
+**Y la vuelta sale mejor de lo esperado:** **nueve de diez derivan el sujeto de la
+fila leída** (`$nota->alumno_id`, `$subunidad->id`) y no del cuerpo — que es
+exactamente la lección de la [§50](#), contestada por quien escribió esas nueve
+probablemente sin saber que la contestaba. **El que falta es `YearsController:359`**,
+que escribe `affected_element_id = Request::input('id')` tal cual. Y `id` es **la
+peor familia de las 28: 35 rutas, 30 sin comprobar propiedad**.
+
+### La regla que esto deja para la fase 4
+
+> Al instrumentar un dominio, el id que se le pasa a `Auditoria` es **el que salió
+> de la fila escrita**, nunca el que entró por el cuerpo. `$nota->alumno_id`, no
+> `Request::input('alumno_id')`. **El servicio no puede distinguirlos y no debe
+> poder.**
+>
+> Y su corolario, que evita una expectativa falsa: **instrumentar un método NO
+> cierra su hueco de autorización.** Le pone un registro fiel encima. Si el método
+> no comprueba de quién es el id, la fase 4 lo deja **igual de abierto y mejor
+> documentado.**
+
+### Los números, y la diferencia entre las dos discrepancias
+
+| | medido | decía antes |
+|---|---|---|
+| rutas que leen id del cuerpo | **230** | 230 ✓ |
+| de ellas, **escriben** | **177** | — |
+| familias de identificador | **28** | 29 |
+| rutas que escriben con **2+** sin comprobar | **15** | — |
+| interruptores que no mira nadie, ni aquí ni en los tres clientes | **49** | 44 |
+
+**Y la diferencia entre las dos discrepancias es la lección:**
+
+- **el 49 lo imprime la herramienta ella misma**, y un conteo a mano por otro camino
+  (43 + 6) **coincide**: dos caminos, mismo número;
+- **el 28 no lo imprime nadie.** `identificadores-del-cuerpo.py` imprime su total de
+  rutas **pero no el de familias**, así que ese número **sólo se saca contando la
+  lista a mano** — que es exactamente cómo se publicó un 9 en vez de un 10. **Es una
+  línea de código.**
+
+Con una corrección de quien midió: dijo que `--clientes` *«no hacía nada»* y era
+falso — **el flag lleva las rutas como argumentos** y lo llamó sin ellas, así que no
+escaneó ningún cliente. **El pie de la herramienta decía la verdad**; quien leyó mal
+fue el lector.
