@@ -49,10 +49,19 @@ asignaturas:
   3355  (21 firmas distintas)
 ```
 
-**1.480 + 1.122 = 2.602 de 3.355, el 78%, son los dos bucles anidados** —
-`Unidad::deAsignatura` y `Subunidad::perdidasDeUnidad`, la «segunda capa» que este
-lote tenía prohibido tocar, más el `SELECT distinct` de notas perdidas por
-(alumno, asignatura, periodo).
+**1.480 + 1.122 = 2.602 de 3.355, el 78%, son dos bucles anidados** — y **aquí hay
+que corregir a qué código pertenecen**, porque la primera versión de este documento
+lo daba de segunda mano:
+
+| consultas | de dónde salen **de verdad** |
+|---|---|
+| **1.480** | `asignaturasPerdidasDeAlumno` — el `SELECT distinct n.nota …` de su bucle de periodos, o sea **alumnos × asignaturas × periodos** (37 × 10 × 4). Leído y confirmado |
+| **1.122** | **`definitivasMateriasXPeriodo`, línea 415** (`SELECT COUNT(n.id) as notas_perdidas …`), no `Unidad::deAsignatura` ni `Subunidad::perdidasDeUnidad` |
+
+Escribí «la segunda capa, `Unidad::deAsignatura` y `Subunidad::perdidasDeUnidad`»
+repitiendo el nombre con el que me llegó el encargo, **sin comprobar de qué método
+salen las consultas**. El 78% se mantiene y la conclusión no cambia; **el nombre del
+sitio sí**, y es el que alguien va a abrir el día que ataque esto.
 
 **Ahí está el 504, y bajarlo es rediseñar el informe, no arreglarlo.** Queda
 escrito con su número para que la decisión se tome con él delante: **una agregación
@@ -287,7 +296,11 @@ ficheros de fuera del ámbito de Pint no se les pasa Pint**, aunque los toques.
    errores simétricos: **la alcanzabilidad no se juzga buscando la clase en
    `routes/`**. Una clase sin ruta puede estar viva por un `new` desde una que sí
    la tiene; una clase con ruta puede tener 400 líneas que nadie alcanza.
-8. **Un predicado de conteo es un instrumento y hay que ejercerlo.** El mío estuvo
+8. **Un nombre heredado del encargo no es una medición.** Llamé «`Unidad::deAsignatura`
+   y `Subunidad::perdidasDeUnidad`» a las 1.122 consultas porque así me llegó el
+   encargo, y salen de `definitivasMateriasXPeriodo`. El porcentaje estaba medido; la
+   atribución, copiada.
+9. **Un predicado de conteo es un instrumento y hay que ejercerlo.** El mío estuvo
    mal tres veces —ciego, ancho, y por fin con el discriminador— y las tres daban un
    número creíble. Ahora tiene su propio test con un negativo dentro. Reporté el gemelo
    `CertificadosPersonaController` como «la misma línea que hay que arreglar»
