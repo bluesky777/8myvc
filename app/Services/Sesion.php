@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\TokenDeSesion;
 use App\Support\Reloj;
+use App\Support\VersionMinimaDeLaApp;
 use App\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -47,7 +48,10 @@ class Sesion
     /**
      * Abre una sesión: par de tokens nuevo.
      *
-     * @return array{el_token: string, refresco: string, expira_en: int}
+     * `version_minima_app` sólo está cuando el colegio la exige; sin configurar,
+     * la clave no viaja.
+     *
+     * @return array{el_token: string, refresco: string, expira_en: int, version_minima_app?: int}
      */
     public function abrir(User $usuario, string $origen = 'web'): array
     {
@@ -63,11 +67,19 @@ class Sesion
             $usuario, $sesion, [TokenDeSesion::REFRESCO], (int) config('sesion.refresco_ttl')
         );
 
-        return [
+        // El campo `version_minima_app`, si este colegio exige una. Va aquí —en
+        // el sitio donde se arma la respuesta— y no en el controlador, porque
+        // `abrir()` y `rotar()` devuelven exactamente la misma forma y **el
+        // refresco es el único punto donde la app se entera de un mínimo nuevo
+        // sin que el usuario salga y vuelva a entrar**. Ponerlo sólo en el login
+        // dejaría fuera al que no cierra sesión en catorce días.
+        //
+        // Sin valor configurado la clave **no está** y esta línea no cambia nada.
+        return VersionMinimaDeLaApp::adjuntarA([
             'el_token' => $accesoPlano,
             'refresco' => $refrescoPlano,
             'expira_en' => $acceso->segundosDeVida(),
-        ];
+        ]);
     }
 
     /**
@@ -135,7 +147,10 @@ class Sesion
      *
      * Pasada la gracia, el mismo token es un 401 y queda anotado.
      *
-     * @return array{el_token: string, refresco: string, expira_en: int}
+     * `version_minima_app` sólo está cuando el colegio la exige; sin configurar,
+     * la clave no viaja.
+     *
+     * @return array{el_token: string, refresco: string, expira_en: int, version_minima_app?: int}
      */
     public function rotar(TokenDeSesion $token): array
     {
@@ -173,11 +188,19 @@ class Sesion
                 : $gracia,
         ])->save();
 
-        return [
+        // El campo `version_minima_app`, si este colegio exige una. Va aquí —en
+        // el sitio donde se arma la respuesta— y no en el controlador, porque
+        // `abrir()` y `rotar()` devuelven exactamente la misma forma y **el
+        // refresco es el único punto donde la app se entera de un mínimo nuevo
+        // sin que el usuario salga y vuelva a entrar**. Ponerlo sólo en el login
+        // dejaría fuera al que no cierra sesión en catorce días.
+        //
+        // Sin valor configurado la clave **no está** y esta línea no cambia nada.
+        return VersionMinimaDeLaApp::adjuntarA([
             'el_token' => $accesoPlano,
             'refresco' => $refrescoPlano,
             'expira_en' => $acceso->segundosDeVida(),
-        ];
+        ]);
     }
 
     /** Cierra la sesión a la que pertenece este token: borra el par entero. */
