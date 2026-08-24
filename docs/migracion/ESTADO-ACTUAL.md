@@ -118,6 +118,36 @@ Se apunta aquí para que mañana leas *«faltó coordinación en `8myvc` esta no
 | **11** | **Las dos del boletín independiente** ([19](19-boletin-independiente.md) §2): quién marca a un alumno, y qué puesto lleva su boletín |
 | **12** | **Unificar los cuatro informes de puestos con los ocho de impresión**: les cambia la conducta a cuatro que hoy no preguntan nada |
 
+### Dos escrituras que el cliente puede invertir con una cadena ([05 §232](05-codigo-muerto-y-roto.md))
+
+Salieron de preguntar **quién más** hace lo del contador de certificados: una comparación
+**laxa**, sobre un valor del **cliente**, que decide si se **escribe**. **De 980 `if` del
+proyecto, 21 cumplen las tres condiciones y tres tienen consecuencia.** El tercero
+—`bolfinales`— ya es el punto 1.
+
+| | Qué | Si no se contesta |
+|---|---|---|
+| **16** | **`PUT periodos/copiar` crea NOTAS que nadie pidió.** `if ($copiar_notas and …)` → `new Nota; save()`. Un cliente que mande `copiar_notas: "false"` **escribe en la tabla `notas`** — la del [plan de definitivas](10-definitivas.md) — y **después no hay forma de distinguir una nota copiada de una puesta a mano** | El front midió que **hoy ningún cliente manda esas cadenas** (11 llamadas, 0 cadenas), así que **no es un fallo vivo**: es una puerta abierta que **basta un control nuevo para cruzar** |
+| **17** | **`PUT votaciones/set-actual` y `set-in-action` no se saltan la escritura: la INVIERTEN.** Las dos ramas escriben, así que `"false"` **activa** la votación, desactiva las demás del usuario, y contesta `'Cambiado true'` — **el cliente recibe confirmación de lo que no pidió**. Y `Request::input('actual', true)` por defecto **activa**, así que **omitir la clave tampoco salva** | **Es una forma peor que la del contador y no estaba nombrada**: allí el valor laxo produce una escritura **de más**; aquí produce la **contraria** |
+
+> **Y la precisión del front, que estrecha el triaje:** *«manda una cadena» no es la
+> condición*. En PHP `'0'` es falsy y `'1'` truthy, así que **las dos formas que un
+> checkbox de AngularJS produce de verdad se comportan bien, por accidente**. La única
+> cadena fatal es una no vacía distinta de `'0'` — `"false"`, `"off"`, `"no"`.
+
+### Una nota que NO es una decisión, y por eso va al final ([05 §233](05-codigo-muerto-y-roto.md))
+
+**Diez sitios de `app/` meten una variable como nombre de columna en un `UPDATE`, y los
+diez son seguros hoy** — por **cinco mecanismos distintos**, de los cuales `ColumnaSegura`
+—la clase que existe para esto— **no es ninguno**. **Cero fallos vivos, nada que decidir.**
+
+Va escrito porque **el barrido que creó `ColumnaSegura` sólo vio una de las dos sintaxis**:
+la concatenación `SET '.$x.'` (4 sitios) y no la interpolación `SET $x=` (6). *Los seis no
+se descartaron: no se miraron*, y salieron seguros por listas blancas y literales — **eso se
+sabe hoy y no se sabía entonces**. Lo único barato que falta, **el día que se toque ese
+fichero por otra cosa**: dos comentarios que digan que la protección vive en el `switch` de
+arriba y no en la línea.
+
 ### Y tres números viejos en documentos que no toco sin ti
 
 | | |
