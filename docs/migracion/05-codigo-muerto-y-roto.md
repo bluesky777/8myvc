@@ -7942,3 +7942,53 @@ borra**: el endpoint sigue vivo en los dieciséis hasta que se retire aquí. **C
 se retire hay que avisar al front para que lo limpie entonces** — sin ese aviso se
 queda un método muerto apuntando a una ruta que ya no existe, que es la forma en
 que estas retiradas dejan basura detrás.
+
+## §171. El punto ciego: 86 escrituras crudas que ninguna herramienta de esta fase mira
+
+**Lo destapó `myvc-front-98` desde el front**, midiendo sus propios consumidores, y
+es el hallazgo con más recorrido de la noche porque **no señala un fallo: señala
+que llevamos toda la fase mirando con un instrumento que no alcanza ahí**.
+
+Todo el trabajo de «campos que se asignan sin condición» —`App\Support\CamposQueVinieron`,
+15 ficheros, la §168— busca **asignaciones de Eloquent**, `$x->campo = …`. Y este
+repo tiene **990 consultas crudas**. Una `UPDATE … SET` cruda **no tiene ninguna
+asignación que grepear**: el `null` entra como *binding* y **la columna se vacía
+igual**. Mismo borrado silencioso, por el camino que nadie estaba mirando.
+
+### La medición, con su método y sus dos límites
+
+`tools/escrituras-crudas-con-entrada.py` (nueva, sólo lee):
+
+```
+POBLACIÓN: 220 ficheros de app/ leídos, 130 llamadas a DB::update dentro de una función
+  con un SET en la misma función ................... 128
+  y además con entrada del cliente en la función ...  86   <- sitios donde mirar
+  repartidos en 30 ficheros
+```
+
+Los cinco primeros: `ChangeAskedController` (**21**), `DefinitivasPeriodosController` (7),
+`Disciplina/DisciplinaController` (6), `Perfiles/ImagesUsuariosController` (5),
+`Perfiles/PublicacionesController` (4).
+
+**Y el número dice menos de lo que parece, escrito aquí para que nadie lo cite de
+más:** el detector afirma *«en esta función hay un `SET` crudo y además se lee del
+cliente»*, **no** *«este binding viene del cliente»*. Así que **cuenta de más** —el
+valor puede venir de una variable ya comprobada, o el `SET` puede no usarlo— y
+puede contar **de menos** si el valor llega por un ayudante de otro fichero.
+**Clasificar es leer los 86**; el detector sólo dice dónde.
+
+**Y las dos cifras de esta noche no se suman ni se cruzan:** el front midió **38
+endpoints suyos** que escriben así, y aquí salen **86 sitios de llamada**. Son
+poblaciones distintas —consumidores contra puntos de escritura— y leerlas como la
+misma daría una discrepancia que no existe. Es la lección de la [§169](#) otra vez:
+el mismo nombre no garantiza la misma cosa.
+
+**Por dónde entrar, que ya está apuntado desde el front:** `uniformes/actualizar` y
+`disciplina/update` son **los dos que no tienen ni un `validate`** — y en todo el
+proyecto hay **2 validaciones**, así que eso no los distingue de casi nadie; lo que
+los distingue es que además escriben crudo con lo que llega.
+
+> **Y el mérito del hallazgo es de método, no de suerte.** Ninguna de las dos
+> coordinaciones lo habría visto sola: aquí no hay nada que grepear, y desde el
+> front no se ve qué hace el backend con lo que se le manda. **Lo vio quien miró
+> desde el otro lado de la llamada.**
