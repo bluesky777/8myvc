@@ -39,6 +39,12 @@ DB_TEST_DATABASE=simonbolivar_testing_<sufijo> tools/construir-bd-test.sh
 > No se arregla el script aquí porque no es de este lote y lo comparten catorce
 > sesiones. Queda escrito porque falla **en silencio**: 92 tablas en vez de 93 y
 > ningún error.
+>
+> **Y el 93 solo no demostraría nada** — podría ser esta tabla o cualquier otra
+> cosa del árbol. Lo cierra el número de al lado: `8myvc-7b`, trabajando en el
+> árbol raíz y **sin esta migración**, midió **92** en su base aislada. Dos
+> mediciones que no comparten supuesto y difieren en exactamente uno; eso atribuye
+> la diferencia, que es lo que un número solo no hace.
 
 ---
 
@@ -269,6 +275,27 @@ Tres salidas para los casos que no son «una persona editando»:
 
 `->denegado(...)` es la quinta acción y **no admite valor viejo ni valor nuevo**,
 porque en un intento rechazado no se escribió nada.
+
+### 4.6 Dónde va la llamada — un aviso para la fase 4, que no es de la 3
+
+Lo trajo `8myvc-7b` la misma noche desde su lote: había puesto la validación de
+escala **antes** de la comprobación de permisos en `putLote`, y con un periodo
+cerrado las notas caían en `fallidas` y la respuesta salía **200 con la lista en
+vez del 400 del guard** — un dato fuera de escala tapaba una respuesta de
+autorización. Su regla: *la forma se valida antes del permiso sólo cuando no
+depende de datos; lo que mira la base va después.*
+
+**A la fase 3 no le aplica** —`Auditoria` no comprueba permisos y no valida nada
+del cliente: sólo escribe—. **Pero la misma familia está esperando a la fase 4**,
+que es quien va a meter la llamada dentro de esos métodos, y girada queda así:
+
+> **El rastro va después de la escritura, dentro de su transacción, y nunca antes
+> de la guarda.** Auditar antes de la guarda deja registrada una escritura que
+> **nunca ocurrió**, en la única tabla que existe para contestar qué ocurrió — que
+> es peor que no auditarla, porque una línea falsa se lee igual que una cierta.
+
+Queda escrito aquí para que quien haga la fase 4 se lo encuentre puesto en vez de
+descubrirlo.
 
 ---
 

@@ -503,7 +503,7 @@ final class Auditoria
 
         $ruta = $peticion->route();
 
-        if ($ruta !== null && method_exists($ruta, 'uri')) {
+        if ($ruta !== null) {
             $this->fila['ruta'] = $this->recortar(
                 $peticion->method().' '.preg_replace('#^api/#', '', $ruta->uri()),
                 120

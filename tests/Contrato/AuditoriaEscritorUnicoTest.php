@@ -116,6 +116,36 @@ class AuditoriaEscritorUnicoTest extends CasoDeContrato
             'tecleado va en `actor_intentado` y no aquí.');
     }
 
+    /**
+     * El DEFAULT de `atribucion` es **`aproximada`**, no `sesion`.
+     *
+     * Es una desviación del §4.2, que lo dibujaba al revés, y va con test porque
+     * es lo único de la tabla que **el escritor no ejercita nunca**: `Auditoria`
+     * siempre escribe la columna explícita, así que sin esta prueba el default
+     * podría cambiar sin que nada se pusiera rojo.
+     *
+     * El motivo: un DEFAULT es lo que recibe **la fila de quien se olvidó de
+     * ponerlo**, y quien se olvidó es justo aquel cuya atribución no hay que
+     * creerse. `DEFAULT 'sesion'` afirmaría *«esto lo hizo esa sesión»* sin que
+     * nadie lo haya comprobado — un instrumento que falla hacia el lado que
+     * tranquiliza, que es la familia de fallo que este repositorio lleva
+     * catalogada. Por eso el INSERT de este test va **crudo y sin el servicio**:
+     * es exactamente el caso que el default existe para cubrir.
+     */
+    public function test_quien_no_dice_la_atribucion_no_la_da_por_cierta(): void
+    {
+        DB::insert(
+            'INSERT INTO auditoria (accion, entidad, ocurrido_en) VALUES (?, ?, ?)',
+            ['editar', 'nota', '2026-08-24 10:00:00.000']
+        );
+
+        $fila = DB::selectOne('SELECT atribucion FROM auditoria ORDER BY id DESC LIMIT 1');
+
+        $this->assertSame('aproximada', $fila->atribucion,
+            'Una fila escrita sin decir de qué sesión salió no puede afirmar que se sabe. '.
+            'El §4.2 lo dibujaba `DEFAULT \'sesion\'`; aquí va al revés a propósito.');
+    }
+
     // ─────────────────────────────────────────────────────────────────────
     // Append-only: lo que ningún esquema puede fijar
     // ─────────────────────────────────────────────────────────────────────
@@ -281,16 +311,18 @@ class AuditoriaEscritorUnicoTest extends CasoDeContrato
     /** Una acción que no está en la lista no escribe nada, y lo dice en el log. */
     public function test_una_accion_desconocida_no_escribe_nada(): void
     {
-        Log::spy();
+        $log = Log::spy();
 
         $antes = DB::table('auditoria')->count();
 
-        $id = (new ReflectionClass(Auditoria::class));
-        $constructor = $id->getMethod('accion');
-        $constructor->setAccessible(true);
+        // Por reflexión porque la API pública no deja construir una acción
+        // inventada — que es justamente lo que se quiere. Lo que se comprueba
+        // aquí es la red de debajo: que si alguien la esquiva, no escribe.
+        $ponerAccion = (new ReflectionClass(Auditoria::class))->getMethod('accion');
+        $ponerAccion->setAccessible(true);
 
         $linea = Auditoria::registrar();
-        $constructor->invoke($linea, 'inventada', 'nota', 1);
+        $ponerAccion->invoke($linea, 'inventada', 'nota', 1);
 
         $this->assertNull($linea->guardar(),
             'Una acción fuera del vocabulario no puede escribir una línea.');
@@ -298,13 +330,13 @@ class AuditoriaEscritorUnicoTest extends CasoDeContrato
         $this->assertSame($antes, DB::table('auditoria')->count(),
             'No se escribió nada, y eso incluye no escribir una línea a medias.');
 
-        Log::shouldHaveReceived('error')->once();
+        $log->shouldHaveReceived('error');
     }
 
     /** Y una entidad que no está en la lista, igual: no escribe y no revienta la petición. */
     public function test_una_entidad_desconocida_no_escribe_nada(): void
     {
-        Log::spy();
+        $log = Log::spy();
 
         $antes = DB::table('auditoria')->count();
 
@@ -315,7 +347,7 @@ class AuditoriaEscritorUnicoTest extends CasoDeContrato
 
         $this->assertSame($antes, DB::table('auditoria')->count());
 
-        Log::shouldHaveReceived('error')->once();
+        $log->shouldHaveReceived('error');
     }
 
     // ─────────────────────────────────────────────────────────────────────
