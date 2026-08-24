@@ -9267,3 +9267,47 @@ lanzaría **después de `$year->save()`**, y como el `catch` contesta 422 el res
 sería **el año cambiado, el cliente leyendo que falló, y del rastro nada**. Así que el
 test es **la red que impide devolverlo al cuerpo, no la prueba de que hiciera falta
 cambiarlo** — y está dicho así dentro.
+
+### §186.2. La guarda puesta, el snapshot verde sin tocarlo, y la bomba de al lado
+
+`NotasController:49` nombra ya sus columnas. **La prueba de que era una guarda y no un
+cambio de contrato es que `NotasTest > la forma de la rejilla del profesor` quedó verde
+con la instantánea SIN TOCAR** (`git status Snapshots/` limpio). Si hubiera hecho falta
+regenerarla, eso ya era decisión de Joseth.
+
+**Y un número corregido, que aquí es el asunto entero:** `unidades` tiene **15
+columnas**, no 14 — la instantánea lleva **16 claves**: las 15 más `subunidades`, que
+la añade el código. Contado **contra el volcado del esquema y contra las claves del
+snapshot**, y las dos listas coinciden. Así que `alumno_id` sería la **decimosexta**.
+*(Con catorce se habría quedado una fuera y el snapshot habría cantado — pero mejor no
+depender de eso.)*
+
+**La bomba de al lado, medida y NO tocada:** la línea siguiente hace
+`SELECT * FROM subunidades s`, y `subunidades` **también sale en esa instantánea**. Hoy
+no la rompe nadie —la fase 1 sólo añade `unidades.alumno_id`— pero **es la misma bomba
+con otro reloj**: el día que alguien añada una columna a `subunidades`, mueve la misma
+pantalla.
+
+> **No se tocó, y eso es la decisión correcta:** un cambio no pedido en una consulta
+> viva es lo que esta noche ha estado pagando. Y endurecer un `SELECT *` porque está al
+> lado del que sí había que arreglar **convierte un arreglo en una refactorización**.
+> Lo que corresponde no es esa línea: es **medir la clase entera** —cuántos `SELECT *`
+> hay sobre tablas cuya forma está fijada por una instantánea— y decidir el patrón,
+> no el caso.
+
+### §186.3. Y los decimales ya estaban fijados desde el backend, sin que nadie lo supiera
+
+`NotasTest > una nota con decimales se redondea sin avisar` **ya existía**. O sea que
+el truncado silencioso **estaba medido y documentado como comportamiento** desde antes
+de que el front lo encontrara esta noche por el lado de la pantalla.
+
+**Y las dos mitades por separado no alarmaban:**
+
+- desde el backend: *«`notas.nota` es `int` y MySQL trunca; queda fijado»* — un
+  comportamiento conocido;
+- desde el front: *«el aviso verde repite el número tecleado, no el guardado»* — un
+  detalle de interfaz.
+
+**Juntas son que el profesor lee «Cambiada: 85,5» y hay 85.** Ninguno de los dos lados
+tenía el fallo entero, y **el que lo tenía escrito no sabía que lo tenía**. Va cruzado
+con la §4.5.1 del [18](18-auditoria.md).
