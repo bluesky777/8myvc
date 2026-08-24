@@ -40,11 +40,26 @@ barre `app/` **entero** y no sólo los controladores:
 | **Métodos que escriben y NO están en un controlador** | **15** |
 | Sentencias de escritura en esos 15 | **18** |
 
-> **Ningún barrido de controladores encuentra esas 15**, y eso incluye los de este
-> repositorio: la §175, la §191 y el propio detector de la fase 3 —cuando se lee su
-> lista por dominios— **miran métodos de controlador**. Las 15 salen porque el
-> detector recorre `app/` y no `app/Http/Controllers/`, que es una diferencia de una
-> línea y de todo.
+> **Un barrido de controladores no puede encontrar esas 15**, y eso no es una
+> observación sobre ninguna herramienta concreta: es de construcción. Dos de las
+> quince no tienen **ningún** método de controlador de por medio —corren en un
+> middleware, antes—, así que no hay nada que un recorrido de
+> `app/Http/Controllers/` pueda mirar.
+>
+> Del **detector de la fase 3** sí se puede afirmar más, porque es mío y lo he
+> comprobado: las quince salen **porque recorre `app/` y no
+> `app/Http/Controllers/`** — una diferencia de una línea y de todo. Cuando se lee
+> su **lista por dominios**, en cambio, se vuelve a mirar por controlador y las
+> quince se pierden otra vez.
+>
+> **Y una corrección de esto mismo, hecha después de escribirlo:** la primera
+> versión decía *«y eso incluye los de este repositorio: la §175 y la §191 miran
+> métodos de controlador»*. **Esas dos secciones no están en este árbol** —el 05 que
+> tengo llega a la §174— así que **cité como apoyo dos cosas que no he leído**,
+> tomadas de un mensaje. La afirmación de arriba se sostiene sin ellas; la de abajo
+> no se sostenía y por eso se ha ido. Es la forma que este documento tiene en el
+> §6: **una afirmación escrita con el alcance del sujeto y no con el de lo
+> comprobado.**
 
 ---
 

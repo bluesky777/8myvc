@@ -167,6 +167,12 @@ asignatura y en cualquier periodo.
   suyo y lo completo de sus acudidos»*, y **`auth.personal` aborta con 403 a
   `Alumno` y a `Acudiente`**. Ninguna de las nueve es alcanzable por una familia.
   La del lector exige `Profesor` o superusuario dentro del método.
+
+  > **Esto se escribió leyendo, y después se midió** ([bar-1.md](bar-1.md)): barrida
+  > la API entera con un token de `Alumno` y otro de `Acudiente`, **las rutas que
+  > escribieron fueron dos, y las dos son suyas** —`login/logout` y
+  > `perfiles/guardar-mi-email-restore`—. Ninguna de las nueve disparó. La lectura y
+  > la medición coinciden, por dos caminos que no comparten supuesto.
 - **Pública a propósito: una** —la del lector—, y con su test que lo dice.
 - **No se sabe: las nueve, y las seis del §2.1 con ellas.** Lo que queda abierto es
   **si un miembro del personal puede escribir sobre un alumno que no es suyo**, y
