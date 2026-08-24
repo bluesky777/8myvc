@@ -11745,3 +11745,70 @@ de valores **no depende de los datos** —es la semántica de PHP y vale igual e
 dieciséis—, pero **«cuántos números se han quemado en cada colegio» sigue sin saberse, y
 no por falta de acceso: porque el dato no existe en ninguna parte.** Con acceso a las
 dieciséis bases, la respuesta sería la misma.
+
+## §232. ¿Quién más deja que una cadena cualquiera valga por «sí» y con eso escriba? Tres sitios
+
+La pregunta de siempre aplicada al fallo de la [§231](#). **No es el censo de `== true`
+del repo** —ése es largo y casi todo inofensivo—: es la intersección de **tres**
+condiciones, y la intersección es lo que la hace corta.
+
+> una comparación **laxa**, sobre un valor que viene del **cliente**, que decide si se
+> ejecuta un **`INSERT`, `UPDATE` o `DELETE`**.
+
+**Población: 112 ficheros, 980 sentencias `if`, 21 cumplen las tres.** De esas 21, **tres
+sitios tienen consecuencia real**; el resto son `->save()` donde el test laxo elige entre
+dos campos, no si se escribe.
+
+> **El filtro se estrechó una vez y hay que decir por qué.** Con `== ''` y `== 1` dentro
+> salían **56**. Pero `if ($x == '')` **falla de otra manera** —«vino o no vino»— y **no
+> convierte un «no» en un «sí»**, que es el fallo del que trata esto. Sólo tests de
+> verdad: `if ($x)`, `if (!$x)`, `== true`, `!empty()`. *Un filtro que devuelve cincuenta
+> y seis sitios no es una lista: es otro censo.*
+>
+> Y el detector **encuentra el caso conocido** —`Informes/BolfinalesController:85-86`—,
+> que es su control positivo. Sin eso, sus 21 no valen nada.
+
+### Los tres, ordenados por lo que se pierde si el cliente manda `"false"`
+
+**1. `PUT bolfinales/detailed-notas-year-group` — el de la [§231](#).** `auth.personal`.
+Quema **un número de folio oficial**, irrecuperable y sin registro que lo distinga de uno
+emitido. Ya medido valor a valor.
+
+**2. `PUT periodos/copiar` — copia NOTAS que nadie pidió.** `auth.personal`.
+
+    $copiar_notas = Request::input('copiar_notas');       // PeriodosController:182
+    ...
+    if ($copiar_notas and $grupo_to_id == $grupo_from_id) // :229
+        → new Nota; ... $nota_new->save();
+
+Un cliente que mande `copiar_notas: "false"` **crea notas de alumnos en el periodo
+destino**. No es un contador: es **la tabla `notas`**, que es de lo que trata el
+[plan de definitivas](10-definitivas.md) entero. Y **no hay forma de distinguir después
+una nota copiada de una puesta a mano**.
+
+**3. `PUT votaciones/set-actual` y `PUT votaciones/set-in-action` — aquí no se salta la
+escritura: se INVIERTE.** `auth.personal`.
+
+    $actual = Request::input('actual', true);   // OJO: por defecto true
+    if ($actual) { ...UPDATE ... SET actual=true...  } else { ...SET actual=false... }
+
+**Las dos ramas escriben**, así que `"false"` no deja de escribir: **escribe lo
+contrario de lo que el cliente pidió**. Manda «desactiva» y **activa** — y de paso
+desactiva todas las demás votaciones del usuario. *Un cliente que mande cadenas **no
+tiene forma de apagarlo**: `"false"` lo enciende, y sólo `false`, `"0"` o `0` lo apagan.*
+Además `Request::input('actual', true)` **por defecto activa**, así que omitir la clave
+tampoco sirve.
+
+> **Es una forma peor que la del contador y no la teníamos nombrada.** En el contador, el
+> valor laxo hace que ocurra **una escritura de más**. Aquí hace que ocurra **la escritura
+> contraria**, y el endpoint contesta `'Cambiado true'` — o sea que **el cliente recibe
+> confirmación de lo que no pidió**.
+
+### Lo que este barrido NO contesta
+
+- **Sólo mira dentro del método.** Un flag que se pasa a otro método y se evalúa allí no
+  lo sigue.
+- **No prueba que ningún cliente mande hoy esas cadenas.** Dice que **si las manda, pasa
+  esto**. Lo primero es una pregunta para los cuatro fronts, no para este repo.
+- **Las 21 se ordenaron a mano.** El detector no distingue un `->save()` de un `DELETE`
+  de notas, y esa distinción es la que deja tres de veintiuna.

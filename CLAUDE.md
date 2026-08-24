@@ -103,6 +103,7 @@ leyendo el código. Cada una lleva su uso en la cabecera.
 | `secciones-citadas.py` | qué §§ cita el código y ya no existen en `docs/` — se corre **después de cada renumerado** |
 | `consultas-en-bucle.py` | en qué profundidad de bucle vive cada consulta — **ordena candidatos, no mide coste**; trae su propio control (`--control`) |
 | `guardas-sin-respaldo.py` | qué métodos dependen enteros del middleware de su ruta — **ordena candidatos, y se equivocó en las dos direcciones**: cada fila se lee |
+| `verdad-laxa-que-escribe.py` | dónde una cadena cualquiera del cliente vale por «sí» **y gobierna una escritura** — 21 de 980 `if`, tres con consecuencia |
 
 Y una que **no** está en `tools/` y contesta la pregunta contraria:
 `tests/Barrido/SuperficieDeUnTokenTest.php` golpea la API entera con un token y
