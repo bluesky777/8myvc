@@ -229,6 +229,33 @@ llega a la unidad de su dueño **sin que nadie escriba un alcance**.
 | `Support/PeriodoDeLaFila.php` | 5 | 5 | 0 | 0 |
 | **Total** | **146** | **88** | **57** | **1** |
 
+### Comprobado a mano por el lado que importa
+
+**Un falso «hay que acotarla» cuesta media hora; un falso «bien por
+construcción» imprime un boletín en blanco.** Así que la comprobación a mano fue
+del lado de los buenos, sobre los cuatro bloques más grandes —44 de las 88
+lecturas seguras, la mitad—:
+
+| Bloque | `notas` por `INNER JOIN`/`FROM` | por `LEFT JOIN` | consultas con el alumno fijado |
+|---|---|---|---|
+| `Informes/CalcPerdidasDefinitivas` (20) | 10 | **0** | 4 de 4 |
+| `Informes/PuestosController` (10) | 5 | **0** | 5 de 5 |
+| `DetallesController` (8) | 4 | **0** | 4 de 4 |
+| `AlumnosController` (6) | 3 | **0** | 3 de 3 |
+
+Ni un `LEFT JOIN` y el alumno fijado en todas: el conjunto llega ya reducido a
+una persona antes de tocar `unidades`, así que la unidad que sobrevive es la que
+sostiene una nota **suya**. Y el contraejemplo sale por el otro lado, que es lo
+que hace la comprobación válida en vez de circular:
+
+| | `INNER` | `LEFT` | Clase |
+|---|---|---|---|
+| `Unidad::deAsignaturaCalculada` (×3) | 0 | **1 cada una** | `por-alumno` → **hay que acotarla** |
+
+**Es la única de las cinco que usa `LEFT JOIN`, y es la única que había que
+acotar.** Si el criterio estuviera mal, ésta habría salido buena — y es la puerta
+de los cuatro boletines.
+
 ### Las que hay que acotar, con nombre
 
 **De las 35 lecturas de `unidades` que quedan por acotar, tres ya lo están** —las
