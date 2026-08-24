@@ -2353,3 +2353,80 @@ si el front deja de interpretarla y el backend sigue mandándola, no pasa nada
 
 **No lo decide una sesión**: cambia el cuerpo de seis rutas que llaman los cuatro
 clientes, y `myvc_flutter` es **una sola app para los dieciséis**.
+
+---
+
+## 14. El rol `Admin` no lo mira ninguna guarda del backend — 24 ago 2026
+
+**Esperando decisión de Joseth.** No es un fallo introducido esta noche: es una
+divergencia entre el front y el backend que lleva ahí desde que existe el rol, y
+que se destapó al arreglar la §11.
+
+### Lo medido, en la copia local
+
+```
+roles con gente:  Admin 10 · Profesor 51 · Alumno 1284 · Acudiente 999
+                  Enfermero 1 · Coord disciplinario 1 · Psicólogo 4 · Secretario 0
+
+is_superuser vivos:               10
+con rol Admin:                    10
+Admin SIN is_superuser:        ninguno
+is_superuser SIN rol Admin:    ninguno
+```
+
+**En `simonbolivar` los dos son exactamente el mismo conjunto de diez personas.**
+
+### La divergencia
+
+| | condición real |
+|---|---|
+| `Autoriza::esAdministrativo` (backend) | `is_superuser \|\| Role::isSecretario(...)` |
+| `esAdmin` (front, `cascara/menu/visibilidad.ts:33`) | `tieneAlgunRol(['admin'])` |
+
+**Ninguna guarda del backend mira el rol `Admin`.** Se llaman casi igual, protegen
+las mismas pantallas y no son la misma condición. Lo comprobó `myvc-front-10`
+desde su lado al preguntar si su rejilla de usuarios (`app2`,
+`paginas/usuarios/usuarios.ts:228`, ruta guardada con `esAdmin`) se quedaría sin
+poder editar una celda con el 403 nuevo de la §11.
+
+### Lo que esto significa si en algún colegio hay un `Admin` sin `is_superuser`
+
+**No es que pierda una celda: es que hoy ya está rebotando en los once sitios que
+piden `esAdministrativo`**, y desde mucho antes de esta noche. La §11 sólo lo
+haría visible en un sitio más.
+
+Por eso **la pregunta no es «¿revierto la guarda de la §11?»** —esa está bien y no
+se toca— sino **«¿el rol `Admin` debe contar como administrativo?»**.
+
+### Lo que falta para poder decidir, y es un dato, no una opinión
+
+**Correr esto en los dieciséis colegios.** Es el mismo `for` de una línea de la
+fase 0 de definitivas, y contesta lo único que importa:
+
+```sql
+SELECT count(*) FROM role_user ru
+  INNER JOIN roles r ON r.id = ru.role_id
+  INNER JOIN users u ON u.id = ru.user_id
+ WHERE r.name = "Admin" AND u.is_superuser = 0 AND u.deleted_at IS NULL;
+```
+
+> **El `10 = 10` de arriba es de UN colegio y no vale como respuesta.** Los roles
+> se asignan a mano en cada base —`Secretario` sale a 0 aquí precisamente por
+> eso— y no hay nada en el esquema que imponga la equivalencia. Es la misma forma
+> de fallo que este repositorio ya tiene catalogada dos veces: un número medido
+> bien sobre la población equivocada, leído como si valiera para todas.
+
+### Las salidas
+
+1. **Si el `for` da cero en los dieciséis**: no hay nada que hacer hoy. Se anota
+   que la equivalencia es un hecho de las bases y no del esquema, y se deja el
+   centinela que avise si algún día deja de serlo.
+2. **Si da distinto de cero en algún colegio**: o `esAdministrativo` pasa a mirar
+   también el rol `Admin` —y entonces hay que repasar los once sitios que cuelgan
+   de él, por la regla de que crear un rol no regala permisos—, o el front cierra
+   esa columna a quien no sea superusuario. **Lo segundo quita una capacidad que
+   hoy existe**, así que es decisión de Joseth y no del front.
+
+**Hasta que se conteste, el front no despliega su rejilla dando por hecho que está
+a salvo.** En el peor caso son 403 por celda, no pérdida de datos, y revertir la
+guarda de la §11 es un commit.

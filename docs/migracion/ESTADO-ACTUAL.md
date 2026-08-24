@@ -462,6 +462,60 @@ contestar:
   petición. Lo encontró la sesión de `myvc_flutter` leyendo la ruta que su pantalla
   nueva iba a consumir, y avisó en vez de cablearla.
 
+- **[§14](09-pendientes.md) — ninguna guarda del backend mira el rol `Admin`.**
+  `Autoriza::esAdministrativo` es `is_superuser || Secretario`; el `esAdmin` del
+  front es `tieneAlgunRol(['admin'])`. **Se llaman casi igual, protegen las mismas
+  pantallas y no son la misma condición**, y eso es anterior a todo lo de esta
+  noche. En la copia local coinciden —10 y 10, ni uno suelto por ningún lado—
+  **pero eso es un colegio y no lo impone el esquema**. Si en alguno hay un `Admin`
+  sin `is_superuser`, hoy ya está rebotando en los **once** sitios que piden
+  `esAdministrativo`. **Falta el `for` de los dieciséis**; la consulta está escrita
+  en el 09.
+
+### El relevo de la sesión de guardas de cuentas (`8myvc-d2`), 24 ago noche
+
+Lo que dejo cerrado, lo que dejo a medias y por qué, para que no haya que
+reconstruirlo:
+
+**Commiteado en `fix/username-y-simetria-de-guardas`** (sin publicar, sin fusionar,
+sin desplegar): `0e7208c` la §11 y la mitad de abajo de la §12; `8e4d089` la forma
+del 422; `e7632cf` los cuatro ficheros de `7b` y `dd` que sólo estaban en el árbol.
+
+**Lo que NO hice y no es un olvido:**
+
+- **La mitad de arriba de la §12** —bajar las cuatro `cambiar-usuarios/*` a
+  `esSuperusuario`—. Joseth eligió la C, pero la C se le propuso **sin saber que
+  reversaba una decisión suya del 21 ago** que vivía citada en un test y en ningún
+  otro sitio. Hay que volver a preguntársela; las dos salidas están en el 09 §12.
+- **Los ocho endpoints de la pantalla de cuentas de la app.** Sin autorizar.
+  `myvc-flutter-fe` avisa de que **cada uno tiene su interruptor y se encienden por
+  separado**, así que se pueden autorizar sueltos y no hace falta el paquete.
+- **El `for` de la §14.** Necesita servidor.
+
+**Lo que hay que decirle al front cuando esto se despliegue**, porque no se entera
+solo:
+
+1. `PUT alumnos/cambiar-claves` **cambia de forma** —`"Cambiadas"` pasa a
+   `{resultado, cambiadas}`— y `app2` la lee con `responseType: 'text'`
+   (`datos/alumnos.ts:90-93`, con su prueba en `alumnos.spec.ts:122-130`). **Se
+   migra el día del despliegue y no antes**: en un colegio sin desplegar sigue
+   llegando texto.
+2. Esa misma ruta **ya no alcanza a retirados ni a cuentas borradas**, así que la
+   N que `panel-alumnos.ts:684-696` promete antes de apretar deja de coincidir con
+   las que cambian. Por eso ahora devuelve el número.
+3. `myvc_flutter` tiene **tres interruptores apagados** esperando el despliegue, no
+   la fusión.
+
+> **Y una advertencia de método que costó cara esta noche, escrita aquí porque es
+> donde la va a leer quien releve:** llegó el aviso de que una sesión se había
+> cerrado dejando trabajo sin commitear, y se leyó como *«todo lo que no está
+> trackeado es huérfano»*. No lo era: dos de esos ficheros los estaban escribiendo
+> sesiones vivas y uno había crecido 10 KB en veinte minutos. **Lo caro no fue
+> commitearlo —eso dejó el trabajo a salvo— sino repetirlo**: el error llegó al
+> front, que se lo dijo a los dos autores, y un plan que circula como huérfano lo
+> re-litiga cualquiera desde cero. **Lo que una sesión te cuenta del árbol se
+> comprueba en el árbol**, y costaba un `git status`.
+
 - **Y lo que espera de la pantalla de cuentas de la app**: ocho endpoints nuevos
   que aún **no están autorizados**. El detalle, con lo que ya existe y lo que de
   verdad falta, en el 09 §12 y en
