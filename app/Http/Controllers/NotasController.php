@@ -511,7 +511,23 @@ class NotasController extends Controller {
 		// denegación de servicio: sin él, un cuerpo con cien mil ids es un bucle de
 		// cien mil consultas dentro de una transacción. Doscientas cubren de sobra
 		// la pantalla que lo usa —una columna de un grupo grande son cuarenta y
-		// cinco— y la app ya sabe partir en tandas.
+		// cinco— y el cliente **tendrá que** partir en tandas por encima de eso.
+		//
+		// **Decía «la app ya sabe partir en tandas» y no lo sabe.** Medido el 24 ago
+		// 2026 en los cuatro árboles —`myvc_front`, `myvc_front_2`, la fase 11 y
+		// `myvc_flutter`—: **cero llamadas a `notas/lote`**. Ninguno lo llama
+		// todavía; la app tiene su interruptor apagado esperando despliegue y el
+		// front está escribiendo su agrupador ahora.
+		//
+		// **Y pasar del tope no avisa: aborta el lote entero con 422.** Por eso la
+		// frase importaba más de lo que parece: el número estaba justificado dando
+		// por hecha una capacidad del cliente que no existe, así que quien lo suba o
+		// lo baje mañana creyendo que el cliente se adapta **rompe al cliente**, y
+		// en silencio hasta que un grupo pase del tope.
+		//
+		// El tope se queda en 200. Lo que cambia es que la cabecera diga lo que hay.
+		// Lo trajo `myvc-front-98` leyendo este controlador antes de diseñar contra
+		// él — no releyendo la descripción, que es lo que no lo habría encontrado.
 		if (count($pedidas) > self::LOTE_MAXIMO) {
 			abort(422, 'El lote no puede pasar de '.self::LOTE_MAXIMO.' notas.');
 		}
