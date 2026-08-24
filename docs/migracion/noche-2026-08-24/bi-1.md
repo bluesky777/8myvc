@@ -211,11 +211,21 @@ favor de meter la regla en la función y no en sus llamantes.**
 
 - **218 ficheros `.php` recorridos** bajo `app/`;
 - **24 nombran una de las dos tablas**;
-- **75 lecturas de `unidades`** y **71 de `subunidades`** — 146 en total;
+- **74 lecturas de `unidades`** y **70 de `subunidades`** — 144 en total, después
+  de borrar el método muerto de la §5.quinquies. Antes del borrado eran **75 y
+  71**;
 - más **4 escrituras** (`UPDATE`), que son otra pregunta y están al final.
 
-**El plan decía 74 y 70. Cuento 75 y 71, y la diferencia no es un hallazgo: es
-una definición.** Aquí se cuenta **cada referencia a la tabla**, y
+**El plan decía 74 y 70. Yo contaba 75 y 71, y tras borrar el método muerto
+cuento 74 y 70 — los mismos números del plan.**
+
+> **Y eso NO confirma nada, así que va dicho antes de que alguien lo lea al
+> revés.** Son dos definiciones distintas que han acabado dando el mismo número
+> por aritmética: el plan contaba **consultas**, yo cuento **referencias**, y las
+> dos diferencias que me separaban de él —una referencia doble de más en
+> `ChangeAskedController:511` y una de menos por el método borrado— se han
+> cancelado. **Coincidir no vuelve correcta ninguna de las dos cuentas**; sigue
+> siendo cierto que hay que decir cuál se está usando. Aquí se cuenta **cada referencia a la tabla**, y
 `ChangeAskedController:511` nombra `unidades` **dos veces en la misma consulta**
 —una en el `FROM` y otra dentro de una subconsulta—. Con el criterio «una
 consulta, una fila» salen 74; con «una referencia, una fila» salen 75. Las dos
@@ -677,6 +687,57 @@ positiva sin comprobar, que es la misma objeción que se le pone a dejar
 Lo que queda guardado en su sitio, y hace falta cuando vuelva: **contesta «¿está
 activado el interruptor?» y nunca «¿se enseña el puesto?»**, y **el empate es el
 único caso que distingue** el puesto calculado de la posición de fila.
+
+---
+
+## §5.quinquies — Borrado `Subunidad::perdidasDeAsignatura`
+
+**Muerto, y por la regla de la casa: sin ruta y muerto se borra.** Autorizado por
+`8myvc-34` con la condición de decir la población, que es la mitad del borrado:
+
+| Dónde se buscó | Ficheros |
+|---|---|
+| este repo — `app/` 218, `tests/` 193, `config/` 20, `routes/` 18, `database/` 15, `resources/` 9 (blades incluidos) | **473** |
+| `myvc_front` | 672 |
+| `myvc_front_2` | 118 |
+| `myvc_flutter` | 167 |
+| **total revisado** | **1.430** |
+
+**Cero llamantes.** La única aparición en código era su propia definición. Las
+blades entran a propósito: un método de modelo puede llamarse desde una vista, y
+ahí no llega un `grep` que sólo mire controladores.
+
+### Lo que NO se ha borrado, y por qué se dice
+
+**`perdidasDeUnidad` está justo encima, está VIVO y tiene diez llamantes.** Los
+nombres se parecen y las funciones **no son la misma**:
+
+| | Devuelve | Elegida por | Llamantes |
+|---|---|---|---|
+| `perdidasDeUnidad` (**vive**) | **subunidades** | `s.unidad_id` | **10** |
+| `perdidasDeAsignatura` (borrada) | **unidades**, con `count(n.nota)` | `(asignatura_id, periodo_id)` | **0** |
+
+Sin esa frase en el commit y en el código, el siguiente que lea el borrado va a
+creer que se quitó el que se usa. **Van seis pares de nombres parecidos que no
+eran la misma cosa esta noche.**
+
+Y **estaba mal colocada además de muerta**: vivía en `Subunidad` y devolvía filas
+de `unidades`.
+
+### Y no se pierde ninguna capacidad
+
+El `cant_perdidas` que calculaba **está escrito a mano en once sitios más** —diez
+controladores y `Models/Periodo.php`—. **No la sustituyó un método mejor: la misma
+cuenta se copió dentro de cada pantalla y ésta se quedó atrás.** Eso la hace
+borrable sin discusión, y de paso dice dónde está el trabajo real si alguien
+quiere unificar esa cuenta algún día.
+
+### Lo que compra
+
+Era **uno de los cuatro predicados `alumno_id` ambiguos** que el `ALTER TABLE`
+rompía con un 1052 (§5.bis, §5.quater), **y era el que estaba muerto**. Quedan
+tres, los tres en `Unidad::deAsignaturaCalculada` y los tres calificados. Un sitio
+menos que mantener y un predicado menos en el `ALTER`.
 
 ---
 
