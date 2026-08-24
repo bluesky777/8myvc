@@ -435,11 +435,22 @@ consultas en una petición**. Es una petición larga, o sea ranura ocupada mucho
 rato, que es lo que llena el contador. **No se toca en este plan** —hace otra
 cosa que guardar— pero queda anotado como candidato con nombre y línea.
 
-**c. Falta cronometrar `putLote`.** Tiene 13 tests y ninguna medición. La §2 de
-este documento estima a partir de las partes medidas, y **este repo distingue lo
-estimado de lo medido**. Es barato: la suite ya construye lotes de varios
-alumnos; basta cronometrar uno de 45 contra 45 llamadas a `notas/update`. Hasta
-que eso exista, la tabla de la §2 dice «estimado» y así se queda.
+**c. ~~Falta cronometrar `putLote`.~~ MEDIDO — noche del 24, `8myvc-ad`.** Ya no
+es estimado: **una columna de 45 notas es entre 3,8× y 5,9× más rápida en un
+`PUT notas/lote` que en 45 `PUT notas/update`, y pasa de 717 consultas a 220.**
+El detalle, la población y las condiciones están en el
+[02](02-plan-rendimiento.md); aquí sólo lo que cambia este plan:
+
+- **El 429 de la §1 deja de ser sospecha.** Medido con el limitador puesto: **la
+  petición número 121 de 135 devolvió 429**. Tres columnas de 45 contra los
+  120/min de `throttle:api`. En lote, esas tres columnas son **tres** peticiones.
+- **Y una cabecera de este documento vence antes de tiempo.** La §2 dice que lo
+  caro no es el recálculo. Es cierto de `calcular()` —1,7 ms— y **falso del
+  recálculo entero**: `recalcularPorNota` son ~6 consultas por nota. De las **497
+  consultas que el lote ahorra, ~264 son el camino común y ~260 el recálculo**:
+  **mitad y mitad**. No cambia ninguna decisión —el lote se lleva las dos— pero
+  citado como *«el recálculo no cuenta»* manda al sitio equivocado al primero que
+  quiera ahorrar más.
 
 **d. La clave única de la [fase 2](10-definitivas.md) sigue siendo lo que cierra
 la carrera del §4.3.** Este plan la mitiga en un cliente; no la cierra.

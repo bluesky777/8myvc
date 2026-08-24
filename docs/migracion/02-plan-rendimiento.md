@@ -808,3 +808,51 @@ ranura de cincuenta, unos días al año, no es lo que tumbó nada.
 Sigue en pie lo ya decidido: **ese importador no se optimiza, se rehace** (ver
 «El paso 3 sigue apagado» más arriba, y la [§1 de 09-pendientes](09-pendientes.md)
 con lo que hay que traer a la mesa ese día). La importación reanudable no se toca.
+
+## `PUT notas/lote` cronometrado — noche del 24 ago 2026
+
+Lo midió `8myvc-ad`. Cierra el hueco que el [20](20-pantalla-de-notas.md) §5.c
+declaraba como *«estimado»*, y **la forma de medirlo importa tanto como el número**,
+porque se tomó en una máquina que estaba al 97% de swap.
+
+**Una columna de 45 notas: entre 3,8× y 5,9× más rápida en un lote que en 45
+peticiones sueltas. Y de 717 consultas a 220.**
+
+| | corrida 1 | corrida 2 |
+|---|---|---|
+| 45 × `notas/update` | 3.845 ms | 8.729 ms |
+| 1 × `notas/lote` | 1.018 ms | 1.928 ms |
+| **razón (mediana)** | **3,8×** | **4,5×** |
+| consultas | **717 → 220** | **717 → 220** |
+
+Población: 45 notas = una subunidad × 45 alumnos, grupo `Cuarto`, asignatura 1239,
+periodo 31, base propia. **11 pasadas, cuatro bloques rotando de orden en la misma
+ventana, mediana.**
+
+### Las tres cosas de método, que es lo que hace releíble el número
+
+1. **Los milisegundos absolutos se duplicaron entre las dos corridas y la razón
+   aguantó, con las consultas idénticas al dígito.** Ésa es la demostración de por
+   qué aquí se compara contra uno mismo en la misma ventana: **la razón sobrevive a
+   la carga y el absoluto no**, y `717 → 220` no depende del swap en absoluto.
+2. **La carga no exagera esta ventaja: la esconde.** Se suma casi igual a los dos
+   lados, y una suma igual a los dos lados **acerca cualquier razón a 1**. Todo lo
+   de arriba es **cota inferior** — y además por CLI no se paga el arranque del
+   framework por petición (~28 ms × 45 contra × 1), ni php-fpm, ni la red.
+   *(Y los absolutos están contaminados por otra cosa: en esa ventana había cinco
+   `ng test` de `myvc_front` vivos a la vez. Las razones, no.)*
+3. **El limitador se apagó durante el cronómetro a propósito**, porque **un 429 es
+   rapidísimo** y con él puesto **el caso roto habría sido el que mejor midiera**.
+   Se mide en su propio bloque, y cada respuesta del bloque suelto se comprueba 200.
+
+### Lo que confirma del plan, y lo que le corrige
+
+**Confirma** que el coste fijo de resolver quién pregunta es el término grande:
+medido con un bloque de control (45 × `GET periodos`, la misma ruta del §4), sale
+**6 consultas por petición** y el **47%–69%** del tiempo de una `notas/update`.
+
+**Corrige** una frase que ya circulaba: *«lo caro no es el recálculo, son 1,7 ms»*
+es cierto de `calcular()` y **falso del recálculo entero** —`recalcularPorNota` son
+~6 consultas por nota—. De las **497 consultas que el lote ahorra, ~264 son el
+camino común y ~260 el recálculo**: **mitad y mitad**. No cambia ninguna decisión;
+cambia dónde mirará el próximo que quiera ahorrar consultas.
