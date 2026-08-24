@@ -16,9 +16,17 @@ use Throwable;
  * [docs/migracion/18-auditoria.md](../../docs/migracion/18-auditoria.md); la
  * primera es la migración de la tabla. Se escriben juntas porque **la tabla sin
  * el escritor volvería a tener diez criterios distintos**, que es exactamente de
- * lo que se viene: hoy hay 10 `INSERT INTO bitacoras` repartidos en 8 ficheros,
- * con tres convenciones de nombre para el tipo, dos relojes distintos y nueve
- * formas de adivinar de qué ingreso salió la escritura.
+ * lo que se viene: hoy hay **diez escrituras de bitácora repartidas en ocho
+ * ficheros**, con tres convenciones de nombre para el tipo, dos relojes distintos
+ * y nueve formas de adivinar de qué ingreso salió la escritura.
+ *
+ * (Ese «diez» va escrito con letra y sin la sentencia SQL entera **a propósito**:
+ * `CentinelaDeLosEscritoresDeBitacoraTest` cuenta los escritores con un
+ * `preg_match_all` de `INSERT\s+INTO\s+bitacoras` **sobre el texto del fichero**,
+ * comentarios incluidos. Escrita aquí de la forma natural, esta explicación
+ * contaba como un escritor más y ponía el centinela en rojo con «han pasado de 10
+ * a 11». Lo cazó él, que es para lo que está; queda dicho para que nadie lo
+ * reescriba de la forma natural otra vez.)
  *
  * Es el mismo movimiento que `DefinitivasDeAsignatura` hizo con las definitivas
  * ([10](../../docs/migracion/10-definitivas.md)): seis escritores con cinco

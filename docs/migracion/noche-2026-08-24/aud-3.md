@@ -591,26 +591,55 @@ los veinte en verde**, medidos en **corrida aislada** con `--filter` y con el
 | `stan` nivel 7, **caché limpia** | **1 error, y no es de este lote** — ver abajo |
 | `secciones-citadas.py` | **0 huérfanas** sobre 1.306 citas |
 | `escrituras-sin-auditoria.php --autoprueba` | **7 de 7** |
-| **La suite completa** | **debida.** Ver abajo |
+| **La suite completa** | **1.396 tests, 9.445 aserciones, en verde.** Pagada — y encontró uno. Ver §9.1 |
 
-### 9.1 Lo que se debe, dicho como deuda y no como hueco
+### 9.1 La suite completa, pagada — y encontró un rojo que era mío
 
-**La suite completa no se ha podido correr limpia**, y eso no es un verde que
-falte: es un número que no existe. Se intentó tres veces:
+**1.396 tests, 9.445 aserciones, 543 s, en verde.** Corrida limpia, con lo que las
+tres corridas anteriores enseñaron: `ps` **dentro del contenedor** antes (0
+huérfanos), la población de la base impresa primero (93 tablas, 2.351 usuarios,
+`auditoria` en 0 filas), y **un fichero de salida propio de esa corrida**.
 
-1. La primera se cortó con `context canceled`.
-2. La segunda dio **16 fallos en 8 clases** —`ActasEvaluacionTest`, `AlumnosTest`,
-   `AsignaturasTest`, `AusenciasTest`…— que **no eran de este lote**: coincidieron
-   con `8myvc-database-1` muriendo con `Exited (137)`.
-3. La tercera arrancó con **una corrida anterior todavía viva**, y las dos
-   escribían **al mismo fichero con `>` y contra la misma base**. Lo que se leyó de
-   ahí —«94 tests, cero en rojo»— era una mezcla imposible de separar, y se
-   **retiró**: la conclusión de que los 16 fallos eran del OOM se sostiene por otra
-   vía —coinciden con la muerte del contenedor y caen en clases que una tabla
-   nueva no toca—, pero **el número que la respaldaba no vale**.
+Los tres intentos anteriores fueron tumbados por la máquina y no por el lote —uno
+se cortó con `context canceled`, otro coincidió con `Exited (137)` de la base, y el
+tercero arrancó con una corrida anterior **todavía viva** escribiendo al mismo
+fichero con `>` y contra la misma base—. De ahí se retiró el «94 tests, cero en
+rojo» que se había reportado: la conclusión se sostenía por otra vía, pero el
+número era una mezcla imposible de separar.
 
-Lo que hay medido en su lugar: los veinte del lote en verde, en corrida aislada,
-sobre una base reconstruida con las migraciones aplicadas (93 tablas).
+**Y la corrida buena encontró dos rojos, los dos de este lote.** Merece quedar
+escrito porque durante horas se dijo que este trabajo no rompía nada, y no estaba
+medido:
+
+```
+⨯ los escritores de bitacora siguen siendo diez
+⨯ cada escritor sigue estando donde estaba
+      +    'app/Services/Auditoria.php' => 1
+```
+
+`CentinelaDeLosEscritoresDeBitacoraTest` cuenta los escritores con
+`preg_match_all('/INSERT\s+INTO\s+bitacoras/i', $codigo)` **sobre el texto del
+fichero, comentarios incluidos**. Y el docblock de `App\Services\Auditoria`
+explicaba por qué existe la clase con esa frase dentro. **La documentación contaba
+como el escritor número once.**
+
+El centinela tenía razón en el número: había once coincidencias. Lo que no había
+era once escritores.
+
+Arreglado por este lado —la frase va con letra y sin la sentencia entera, con una
+nota dentro para que nadie la reescriba «de la forma natural» otra vez— y el
+centinela vuelve a dar **3 verdes**.
+
+> **Y la lectura útil es la contraria de la que parece: el centinela hizo su
+> trabajo.** El número se movió y avisó. Que la causa fuera un falso positivo suyo
+> no lo invalida — lo que habría sido grave es que **no** se hubiera movido.
+>
+> Su fragilidad es real y no se toca desde aquí: es de AUD-1 y un fichero tiene un
+> dueño. Está avisada, con la ironía que le corresponde — **el centinela nació de un
+> recuento a mano que publicó 9 en vez de 10, y sigue contando por el método que
+> produce ese tipo de error**, sólo que hacia el otro lado. El arreglo ya existe
+> escrito en esta misma fase: `tools/escrituras-sin-auditoria.php` los reconoce
+> **por su consulta y sobre tokens**, y coincide en 10.
 
 ### 9.2 El `stan` que queda en rojo no es de aquí, y cómo se supo
 
