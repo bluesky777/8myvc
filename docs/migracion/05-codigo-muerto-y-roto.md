@@ -8764,3 +8764,53 @@ ya reconoce los diez **por su consulta y sobre tokens**, y coincide en 10.
 Con la ironía que merece quedar escrita: **el centinela nació de un recuento a mano
 que publicó 9 en vez de 10**, y sigue contando por el método que produce esa clase de
 error — sólo que **hacia el otro lado**.
+
+### §181.1. Dos guardianes con un número recordado dentro, y la forma que se sostiene sola
+
+El paso obligatorio de la [§176.3](#) nació con un número prestado: decía **«93
+tablas»**, y **el 93 era del worktree de una sesión con una migración de tabla nueva
+sin fundir**. Medido en `main`: **92 en las cuatro bases de test, con cero
+diferencia entre ellas**, y ninguna migración de `auditoria` en `main`.
+
+**La regla funcionó** —hizo parar a quien la aplicó, que comparó contra las otras
+bases antes de correr nada— **pero su número la habría hecho parar en falso a las
+cinco sesiones siguientes**. Y es el segundo de la noche: un centinela exigía *«más
+de 300 ficheros en `app/`»* y **son 220** — el umbral estaba mal, no el iterador, y
+también saltó contra su autor.
+
+> **Un guardián se compara contra algo medible ahora, no contra un número
+> recordado.** *«Las bases de test tienen todas el mismo número de tablas»* se
+> sostiene sola el día que entre una migración; *«93»* caduca ese mismo día.
+
+Es la tercera cara de lo mismo: **una medición no es un guardián** (§179), **un
+aviso no es un control** (§179.1), y **un guardián con una constante dentro es una
+medición disfrazada de guardián.**
+
+## §182. La firma de otro: la mina desactivada, y por qué las dos salidas fáciles eran malas
+
+`FIRMA-1` cerrado (§168). La 16.ª aplicación de `CamposQueVinieron`, y **la elección
+importa más que el arreglo** porque las dos alternativas parecían razonables:
+
+- **saltar en silencio si el campo no vino** → el endpoint contesta 200 sin hacer
+  nada: **el mismo fallo que se venía a cerrar**;
+- **rechazar el vacío** → cierra también el **vaciado a propósito**, que es legítimo
+  y que la hermana admite (`$img_id ? $img_id : null`).
+
+Lo que permite elegir bien es exactamente lo que la clase sabe distinguir: **422
+nombrando el campo cuando no vino, vaciar cuando vino vacío.** Sin esa distinción no
+hay salida buena. Comprobado al revés: revertida la guarda **cae uno de once, el que
+debe**; y el segundo test **pasa en los dos casos y lo dice en su docblock** — no
+fija el fallo, **fija que el arreglo no sea un candado**.
+
+### Y la decisión que va a Joseth cambia de forma: los dos criterios no se contienen
+
+```
+esAdministrativo                  = is_superuser || Secretario   -> NO incluye al docente
+tipo == 'Profesor' || is_superuser                               -> NO incluye al administrativo sin superusuario
+```
+
+**Ninguno de los dos contiene al otro.** No es que uno sea más estricto: **hoy un
+Secretario puede por una puerta y no por la otra, y un docente al contrario.** Así
+que *«cuál gana»* **no se puede contestar eligiendo el más restrictivo** — hay que
+decidir **a la vez** quién puede firmar a otro **y** si hace falta que la imagen sea
+suya.
