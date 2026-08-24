@@ -101,7 +101,15 @@ class BoletinFortalezaDebilidadTest extends CasoDeContrato
             'requested_alumnos' => [$this->unAlumnoDe($grupo->id)],
         ], ['Authorization' => 'Bearer '.$token]);
 
-        $r->assertStatus(200, "boletines2 con show_fortaleza_bol={$interruptor} no contestó 200. "
+        // **`assertStatus()` recibe UN parámetro, no dos.** El mensaje que había aquí
+        // como segundo argumento no lo leía nadie: PHP lo aceptaba, el test pasaba
+        // en verde y el día que este 200 se rompiera el fallo habría salido pelado,
+        // sin la línea que dice qué buscar. Lo cazó larastan al fundir, y es el
+        // mismo modo de fallo que la noche del 24 llamó «el instrumento correcto
+        // sobre el objeto equivocado»: aquí la aserción era correcta y el mensaje
+        // caía al suelo.
+        $this->assertSame(200, $r->getStatusCode(),
+            "boletines2 con show_fortaleza_bol={$interruptor} no contestó 200. "
             .'Con el predicado `alumno_id` sin alias esto era un 500 (1052 ambiguous).');
 
         return (array) $r->json();
