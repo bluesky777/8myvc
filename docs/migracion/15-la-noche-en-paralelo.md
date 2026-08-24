@@ -828,3 +828,68 @@ tiene la frase «la suite está verde» cuando hay dos manos en el mismo árbol.
 Es la misma familia que las tres formas de medir mal del
 [02](02-plan-rendimiento.md) y de la [§142](noche-2026-08-23/r.md): **el número es
 honesto y la afirmación que se cuelga de él no lo es.**
+
+---
+
+## El estado de la copia local, que no está en git y ninguna sesión hereda
+
+La base `simonbolivar` del docker **es una copia de producción y varias sesiones
+escriben en ella**. Lo que se le haya hecho no viaja en el repositorio, así que si
+no está escrito aquí, la sesión siguiente no lo sabe. Esto es lo que se le hizo el
+**24 ago 2026** y sigue puesto.
+
+### Cuatro cuentas con contraseña de prueba
+
+Para poder **entrar en el navegador con cada rol**, que hasta ese día no se podía:
+la única contraseña conocida era la de `administrador`, y **el administrador puede
+verlo todo, así que ninguna comprobación hecha con él distingue «correcto» de
+«abierto»**. En la primera vuelta con roles reales salieron cuatro fallos en una
+tarde, uno de ellos la fuga de la [09 §10](09-pendientes.md).
+
+| id | usuario | tipo | |
+|---|---|---|---|
+| 2343 | `DANIEL1` | Profesor | |
+| 675 | `carolina` | Profesor | la de la asignatura 1233, que es donde están las notas con historial |
+| 2400 | `JuanEsteban2` | Alumno | matrícula viva en «Noveno», paz y salvo |
+| 1562 | `39428524` | Acudiente | dos acudidos matriculados; **se le movió `periodo_id` a 31** |
+
+**Contraseña: `verificar2026`.** Son cuentas de **personas reales** en una copia de
+producción: no salen de la máquina.
+
+> **Al acudiente hubo que moverle el periodo a mano** y conviene saber por qué:
+> `years/useractive` lleva `auth.personal`, y `ExigirPersonal` declara
+> `FUERA = ['Alumno','Acudiente']`, así que **no puede cambiarse el año él mismo**.
+> El login se lo repara solo al entrar ([09 §8](09-pendientes.md)), pero para
+> montar la sesión desde fuera hay que ponerlo.
+
+**Los hashes originales están en `~/.myvc-local/hashes-originales.txt`**, fuera del
+repositorio a propósito —son hashes de cuentas reales—. Para dejar la base como
+estaba, se reponen desde ahí. Se sacaron del scratchpad de la sesión, que se borra.
+
+### Once bitácoras borradas, y por qué se borraron
+
+Una sesión del front pulsó en la planilla sin comprobar una precondición y disparó
+**doce `PUT notas/update`**. Ninguna nota cambió de valor, pero quedaron **once
+filas nuevas en `bitacoras`**. Se borraron —copia en
+`~/.myvc-local/bitacoras-borradas.txt`— porque distorsionaban una medida que se
+estaba citando: en esa base hay **4 filas de bitácora de tipo `Nota`**, y con las
+once eran 15.
+
+**Lo que NO se revirtió, y el motivo importa:** las once notas conservan el
+`updated_at`/`updated_by` movidos, y hay **una definitiva reescrita** con el mismo
+valor. Restaurar un `updated_at` exigiría saber el anterior, **y se perdió al
+sobrescribirlo**. Uno movido es ruido; **uno inventado es un dato falso que parece
+bueno.**
+
+> Y la regla que salió de ahí, que vale para cualquier sesión que verifique en el
+> navegador: **una guarda que se comprueba y no se obedece no es una guarda.** El
+> guion buscó el interruptor, obtuvo «0 encontrados» **y siguió pulsando**.
+> Comprobarlo así es peor que no comprobarlo: deja constancia de que se sabía.
+
+### Bases de tests que se usaron
+
+Además de `simonbolivar_testing`, están creadas de la `_a` a la `_t` y la `_z`. El
+24 ago se usó la **`_z`** para poder correr tests mientras otra sesión tenía la
+suite entera en la `_b`. **Dos suites contra la misma base dan deadlocks**, y eso
+ya está arriba; lo que hay que recordar es que **las letras están libres y son
+gratis**.
