@@ -10980,3 +10980,46 @@ siendo candidato **por razón comprobada y no por omisión.**
 **Y la mitad que se le devolvió al front:** su aviso de que ese controlador *«no está
 enrutado»* es **correcto en la letra y engañoso en la conclusión** — *de ahí se deduce
 fácil que no se ejecuta, y sí se ejecuta.*
+
+## §219. Dos lotes con el mismo nombre, y la comprobación de citas pertenece al merge
+
+**Sexto cruce de autoría de la noche, y el segundo que llega al historial.** `e2b0a72` se
+hizo **sobre `main` sin autorización** —el `cwd` había vuelto al árbol raíz y el
+`git add -A` corrió allí— **y se llevó dentro el estrechamiento del `SELECT *` de
+`matriculas` que había hecho otra sesión**, con su comentario de doce líneas. **Su autor
+perdió esos cambios de su árbol y están en `main` bajo un mensaje ajeno.**
+
+**No se reescribe `main`:** hay tres commits encima y catorce sesiones vivas, y **partir el
+commit cambiaría un problema de memoria por uno de trabajo perdido**. Va **`git notes`**
+sobre el commit, como el primero. *La firma no se arregla; la memoria sí, y es la que se
+consulta.*
+
+### Y la colisión de nombres era de coordinación
+
+**`med-5.md` existía dos veces con contenidos distintos** —el de la medición del hueco en
+`main`, y el de «las escrituras que no viven en un controlador» en la rama de auditoría—
+porque **esta coordinación bautizó MED-5 el lote de una sesión cuando la otra ya había
+usado ese nombre de fichero**. **Quien fundiera esa rama se llevaba un conflicto que no es
+de contenido incompatible: son dos documentos distintos que quieren el mismo sitio.**
+Renombrado el que estaba fuera de su rama.
+
+### Y la que vale más: `secciones-citadas.py` da falsos positivos en una noche en paralelo
+
+**Tres huérfanas en un worktree, y las tres falsas:** §175, §176 y §186.1 se citan desde su
+código **y no existen en su rama** — existen en `main`, que lleva **74 commits que esa rama
+no tiene**.
+
+> **La comprobación de las citas pertenece al merge, no a la rama.** En una noche de
+> catorce sesiones, **quien cita secciones escritas por otra siempre verá huérfanas** — y
+> **el falso positivo va en la dirección en que se actúa: quien vea «3 huérfanas» borra
+> citas correctas.**
+
+`CLAUDE.md` dice que se corre *«después de cada renumerado»*; **en paralelo hay que leerlo
+como «después de fundir»**. Lo mismo con los enlaces relativos a documentos que **no
+estaban en git** cuando se montó el worktree: **salen roto en la rama y resuelven en el
+árbol fundido.**
+
+> Y **lo bueno de esto es cómo se encontró**: no mirando `git log`, sino **comprobando los
+> enlaces relativos de sus propios documentos**. Un `FileNotFoundError` de un detalle
+> cosmético **destapó un incidente de coordinación** — y sin esa comprobación, **se
+> descubre en el merge**.
