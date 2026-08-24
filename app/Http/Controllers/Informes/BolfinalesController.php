@@ -154,21 +154,68 @@ class BolfinalesController extends Controller {
 		
 		
 		if (Request::has('aumentar_contador')) {
-			if (Request::input('aumentar_contador') == true) {
-				$contador = DB::select('SELECT id, contador_certificados FROM years WHERE deleted_at is null and actual=1')[0];
-				// La tabla years tiene la PK en `id`, no en `year_id`. El parametro ya era
-				// $contador->id, solo la columna del WHERE estaba mal: el UPDATE lanzaba
-				// "Unknown column 'year_id'" y devolvia 500. Solo se notaba en el
-				// "Certificado periodos", porque es el unico que manda aumentar_contador.
+			// **`==` quemaba un folio oficial por creer que le decian «si».** En PHP
+			// cualquier cadena no vacia que no sea `'0'` es cierta, asi que la cadena
+			// `"false"` -- que es lo que manda un cliente que cree estar diciendo «no
+			// subas» -- entraba aqui y gastaba un numero. Es la misma comparacion laxa
+			// que ya se corrigio DOCE LINEAS MAS ARRIBA en este fichero (`year_selected`,
+			// donde `0 == 'true'` era cierto): se arreglo la de al lado porque dio un
+			// sintoma visible, y esta solo gastaba un numero que nadie echa en falta.
+			//
+			// **El cambio es estrictamente asimetrico hacia el lado seguro, y ese es el
+			// motivo por el que entra sin esperar a nadie.** `FILTER_VALIDATE_BOOLEAN`
+			// quema con `true`, `1`, `'1'`, `'true'`, `'yes'`, `'on'`; deja de quemar con
+			// `'false'`, `'0'`, `''`, `'si'` y cualquier otra cadena. **Todo lo que deja
+			// de quemar, dejaba de deber quemarse, y no hay ni un solo valor que hoy no
+			// queme y manana si.** En una cuenta de papel oficial la direccion irreversible
+			// es quemar: un folio no quemado se quema despues, uno quemado no vuelve.
+			//
+			// Esto **no sustituye la cura del front** que pide la 05 §225 -- que tiene que
+			// OMITIR la clave, no mandar `false` --: la respalda, porque las copias de
+			// `myvc_front` desplegadas en los dieciseis colegios pueden ir a versiones
+			// distintas y esta medicion no las ve.
+			if (filter_var(Request::input('aumentar_contador'), FILTER_VALIDATE_BOOLEAN)) {
+				// **Leer y escribir el consecutivo van en UNA transaccion, con `FOR UPDATE`
+				// sobre la fila del year.** Sin eso son dos sentencias sueltas: dos
+				// secretarias abriendo el "Certificado periodos" a la vez leen las dos 143 y
+				// escriben las dos 144, y se llevan **dos folios oficiales con el mismo
+				// consecutivo** (05 §195.2 y §225). Un numero saltado se justifica ante quien
+				// reclama; uno repetido, no -- por eso esto no es un problema de coste.
 				//
-				// El cast a int no es cosmetico. years.contador_certificados es VARCHAR y en
-				// varios clientes vale '' (cadena vacia), que YearsController copia de un year
-				// al siguiente al crearlo, asi que se propaga desde el primer year. Desde PHP 8
-				// ('' + 1) lanza TypeError: Unsupported operand types, no un warning, de modo
-				// que el endpoint devolvia 500 antes incluso de ejecutar el UPDATE -- el array
-				// de argumentos se evalua primero. (int)'' es 0, asi que el contador arranca
-				// en 1 donde estaba vacio, y (int)'12' sigue siendo 12 donde ya tenia valor.
-				DB::update('UPDATE years SET contador_certificados=? WHERE id=?', [(int)$contador->contador_certificados+1, $contador->id]);
+				// El patron es el mismo que la fase 3 de las definitivas dejo puesto en
+				// `DefinitivasPeriodosController::putUpdate`: `DB::transaction` + `SELECT ...
+				// FOR UPDATE` sobre la fila que se va a pisar. Se copia de ahi a proposito y
+				// no se inventa otro.
+				DB::transaction(function () {
+					// Sigue siendo `DB::select(...)[0]` y no `selectOne`: si no hubiera year
+					// `actual=1` esto falla igual que antes. Cambiarlo a un null-check haria
+					// que el endpoint contestara 200 sin subir el contador, que es una
+					// conducta nueva -- y arreglar la carrera no es el sitio donde estrenarla.
+					//
+					// El `ORDER BY id LIMIT 1` SI es nuevo, y hace falta para que `FOR UPDATE`
+					// signifique algo: sin orden, dos peticiones que encontraran mas de un year
+					// `actual=1` podrian bloquear filas distintas -- cada una la «suya»-- y el
+					// bloqueo no las excluiria. Con orden fijo las dos piden la misma primero,
+					// que es lo que convierte el bloqueo en exclusion. Es tambien lo que hace
+					// `DefinitivasPeriodosController::putUpdate`, de donde viene el patron.
+					// (Medido en la base de test: un solo year `actual=1`, asi que hoy elige la
+					// misma fila que el `[0]` de antes; el orden esta por lo que garantiza
+					// cuando eso no se cumpla, no por lo que cambia hoy.)
+					$contador = DB::select('SELECT id, contador_certificados FROM years WHERE deleted_at is null and actual=1 ORDER BY id LIMIT 1 FOR UPDATE')[0];
+					// La tabla years tiene la PK en `id`, no en `year_id`. El parametro ya era
+					// $contador->id, solo la columna del WHERE estaba mal: el UPDATE lanzaba
+					// "Unknown column 'year_id'" y devolvia 500. Solo se notaba en el
+					// "Certificado periodos", porque es el unico que manda aumentar_contador.
+					//
+					// El cast a int no es cosmetico. years.contador_certificados es VARCHAR y en
+					// varios clientes vale '' (cadena vacia), que YearsController copia de un year
+					// al siguiente al crearlo, asi que se propaga desde el primer year. Desde PHP 8
+					// ('' + 1) lanza TypeError: Unsupported operand types, no un warning, de modo
+					// que el endpoint devolvia 500 antes incluso de ejecutar el UPDATE -- el array
+					// de argumentos se evalua primero. (int)'' es 0, asi que el contador arranca
+					// en 1 donde estaba vacio, y (int)'12' sigue siendo 12 donde ya tenia valor.
+					DB::update('UPDATE years SET contador_certificados=? WHERE id=?', [(int)$contador->contador_certificados+1, $contador->id]);
+				});
 			}
 		}
 		
@@ -793,20 +840,94 @@ class BolfinalesController extends Controller {
 
 	
 	
+	/**
+	 * El consecutivo que va impreso en el certificado, fijado a mano.
+	 *
+	 * Antes esto era **una linea sin comprobar nada**: metia
+	 * `Request::input('contador')` en la columna y contestaba 200. Mandarle
+	 * `'no soy un numero'` dejaba eso escrito en el consecutivo del colegio, y de
+	 * ahi sale el siguiente certificado -- `(int)'no soy un numero'` es 0, o sea que
+	 * la numeracion oficial se reiniciaba en 1 (05 §195.4 y §225).
+	 *
+	 * `contador` es **VARCHAR en el esquema**, asi que la base no lo iba a parar:
+	 * la comprobacion tiene que estar aqui.
+	 */
 	public function putCambiarContadorCertificados()
 	{
-		//if (Request::input('contador') == true) {
-			DB::update('UPDATE years SET contador_certificados=? WHERE actual=1 and deleted_at is null', [ Request::input('contador') ]);
-		//}
+		$contador = $this->consecutivoValidado();
+
+		DB::update('UPDATE years SET contador_certificados=? WHERE actual=1 and deleted_at is null', [ $contador ]);
+
 		return 'Cambiado';
 	}
 
+	/**
+	 * La misma puerta sobre la otra columna, y **no la habia nombrado nadie**: la
+	 * lista de la manana habla solo del de certificados. Es la pregunta «¿quien mas
+	 * hace esto mismo?» aplicada al sitio donde se encontro, y la respuesta no era
+	 * «uno» (05 §225).
+	 */
 	public function putCambiarContadorFolios()
 	{
-		//if (Request::input('contador') == true) {
-			DB::update('UPDATE years SET contador_folios=? WHERE actual=1 and deleted_at is null', [ Request::input('contador') ]);
-		//}
+		$contador = $this->consecutivoValidado();
+
+		DB::update('UPDATE years SET contador_folios=? WHERE actual=1 and deleted_at is null', [ $contador ]);
+
 		return 'Cambiado';
+	}
+
+	/**
+	 * El `contador` del cuerpo, o **422** si no es un consecutivo.
+	 *
+	 * 422 y no 400, que es lo que devuelve el legacy de al lado: en codigo nuevo van
+	 * los codigos correctos. Y **aborta antes de escribir**, porque las dos mitades
+	 * se pueden cumplir por separado -- un 422 que igualmente escribe deja el
+	 * consecutivo roto y ademas miente.
+	 *
+	 * ## Por que `^\d+$` y no `FILTER_VALIDATE_INT`, que era lo primero que se puso
+	 *
+	 * Porque **`filter_var('007', FILTER_VALIDATE_INT)` es `false`**, y `'007'` es
+	 * exactamente lo que manda la pantalla: `certificadoEstudioDir.html` es un
+	 * `<input ng-model="year.contador_certificados">` **sin `type="number"`**, o sea
+	 * que AngularJS manda **la cadena tal cual la trajo el backend**, y el relleno
+	 * esta ahi: en `simonbolivar_testing_e0`, **7 de los 8 years vivos** llevan ceros
+	 * a la izquierda (`007`, `021`, `022`, `037`, `044`, `045`, `060`) y el octavo es
+	 * el actual, que solo se libra por haber pasado de tres digitos. Validar con
+	 * `FILTER_VALIDATE_INT` habria contestado **422 a la pantalla que hoy funciona**
+	 * en todos los colegios con relleno -- una validacion que rompe el caso bueno.
+	 *
+	 * `^\d+$` dice las tres cosas a la vez y sin ese efecto: **digitos**, **entero**
+	 * y **no negativo** -- un negativo no existe en un talonario, y `'-1'` no casa.
+	 * De paso rechaza lo que `is_numeric` habria dejado pasar (`'1.5'`, `'1e3'`), que
+	 * tampoco son consecutivos de papel oficial.
+	 *
+	 * Se admite **0** (y `'000'`): es como arranca un colegio nuevo, y
+	 * `YearsController` lo copia de un year al siguiente.
+	 *
+	 * ## Y por que devuelve la cadena y no el entero
+	 *
+	 * La columna es `VARCHAR` y el relleno a tres digitos **es la convencion**. Que
+	 * este metodo devolviera un `int` convertiria `'007'` en `'7'` **en un sitio
+	 * donde hoy no pasa**, y eso es cambiar el numero impreso en un papel oficial:
+	 * decision de formato, no de validacion. Va anotada en el documento del lote.
+	 */
+	private function consecutivoValidado(): string
+	{
+		$contador = Request::input('contador');
+
+		// El bool va aparte: PHP castea `true` a `'1'`, asi que sin esto un cuerpo con
+		// `contador: true` fijaria el consecutivo del colegio en 1.
+		if (is_bool($contador) || is_array($contador) || $contador === null) {
+			abort(422, 'El consecutivo debe ser un numero entero.');
+		}
+
+		$contador = trim((string) $contador);
+
+		if (! preg_match('/^\d+$/', $contador)) {
+			abort(422, 'El consecutivo debe ser un numero entero no negativo.');
+		}
+
+		return $contador;
 	}
 
 
