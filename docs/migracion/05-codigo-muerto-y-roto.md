@@ -11023,3 +11023,53 @@ estaban en git** cuando se montó el worktree: **salen roto en la rama y resuelv
 > enlaces relativos de sus propios documentos**. Un `FileNotFoundError` de un detalle
 > cosmético **destapó un incidente de coordinación** — y sin esa comprobación, **se
 > descubre en el merge**.
+
+## §220. Un `[OK]` en un mensaje de commit es la afirmación que nadie vuelve a comprobar
+
+**Un commit de esta noche decía «larastan nivel 7 `[OK]`» y ese `[OK]` era de antes del
+último cambio.** Después de escribirlo se corrió pint y los tests, **no stan** — y al
+pasarlo por costumbre, **estaba en rojo**.
+
+> **Es exactamente lo que esta noche lleva señalando en otros sitios: una comprobación que
+> se cita sin haberla repetido después del último cambio.** Y **es peor que un número mal:
+> es una afirmación de calidad en un mensaje de commit, que es donde nadie va a volver a
+> mirar.**
+
+El error, además, es de la familia de la noche: `foreach.emptyArray` sobre un array que
+**sólo escribe el cierre de un `DB::listen`**, y **larastan no puede ver eso** — el único
+write que reconoce es el `= []` del bucle. **Aviso correcto sobre una premisa que no puede
+comprobar.** Anotado con `@var` **en el fichero y con el porqué**, no en `phpstan.neon`:
+*ahí va lo que no se puede arreglar, y esto sí se podía decir.*
+
+### Y por eso se verificó `main` antes de entregarlo
+
+`ESTADO-ACTUAL.md` afirma **`larastan nivel 7 [OK]` y `pint PASS`**, y esta coordinación lo
+llevaba citando toda la noche **sin correrlo**. Corrido sobre `main`:
+
+```
+[OK] No errors        (471 ficheros)
+pint: PASS            (269 ficheros)
+```
+
+**Y la primera pasada no valía**: el `TMPDIR` propio **no existía**, así que corrió con la
+caché por defecto — *la trampa que otra sesión se había comido tres horas antes*. Repetido
+creando el directorio primero. **El aviso estaba en la salida y había que leerlo.**
+
+### La profundidad de un enlace relativo depende de dónde vive el fichero
+
+De 38 enlaces comprobados, **uno real**: desde `app/Http/Controllers/Informes/` la raíz
+está a **cuatro** niveles y había tres. **Y no se ve leyendo**, porque los tres estilos son
+correctos en su sitio: **dos niveles en `tests/Contrato/`, tres en
+`docs/migracion/noche-…/`, cuatro en `Controllers/Informes/`** — *y los tres aparecían en
+ficheros de la misma sesión, con dos mal.*
+
+### Y una excusa ofrecida y rechazada
+
+Esta coordinación atribuyó los tres desvíos de `cwd` de la noche a que **la herramienta lo
+permite**. Quien los sufrió **la rechazó a su costa**:
+
+> *«La primera vez lo detecté porque me obligué a mirar `git status` antes de tocar nada, y
+> la segunda no lo hice. **No fue la herramienta la que cambió entre una vez y otra.**»*
+
+Y con el matiz que cierra: **usar `cd` absoluto en cada comando es el remiendo; `git -C` y
+rutas absolutas es el arreglo.**
