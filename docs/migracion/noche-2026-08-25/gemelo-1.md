@@ -312,11 +312,11 @@ ceremonia; no hacerlo porque se miró es lo otro.
 
 | red | resultado |
 |---|---|
-| `--testsuite=Contrato` completa | **1.355 pasan, 10.783 asertos** |
-| `GemeloDelBoletinFinalTest` | 3 pasan, 627 asertos |
+| `--testsuite=Contrato` completa | **1.356 pasan, 10.797 asertos** |
+| `GemeloDelBoletinFinalTest` | **4 pasan, 640 asertos** |
 | `EquivalenciaDelGemeloTest` (grupo `barrido`) | 1 pasa, 9 asertos |
 | `CosteDelGemeloDeLaRaizTest` (grupo `barrido`) | 1 pasa — la tabla de arriba |
-| `composer run pint` | 292 ficheros, **1 arreglo de estilo** (alineación en el test de barrido) |
+| `composer run pint` | 292 ficheros, **PASS** |
 | `composer run stan` (larastan nivel 7) | **`[OK] No errors`** |
 
 > **El larastan se corrió dos veces, y la primera no cuenta.** Avisó de que
@@ -368,3 +368,76 @@ Y por eso la fila del hermano —**755 antes y 755 después**— es la que sosti
 las otras dos: es el **control positivo** que la §224 echaba de menos cuando
 escribió que *un detector nuevo sin control positivo es una opinión con formato
 de tabla*.
+
+## §9. La comprobación al revés: romper el arreglo y ver si la red lo nota
+
+Los tests de la §4 **afirmaban** cazar tres fallos, y esa afirmación **no estaba
+comprobada**. Se comprobó rompiendo el arreglo a propósito, en este árbol, sin
+commitear los sabotajes y con `trap` para que un corte no dejara el fichero roto.
+
+| sabotaje | primera vuelta | ahora |
+|---|---|---|
+| **A** — quitar el `clone` | cae, **con el diagnóstico equivocado** | cae, y el mensaje señala el `clone` |
+| **B** — copiar el `m.estado = "MATR"` del hermano | **NO CAÍA** | **cae**, nombrando la causa |
+| **C** — fundir los dos mapas en uno | cae, con el mensaje exacto | igual |
+
+Con el arreglo limpio: **4 pasan, 640 asertos**.
+
+### B: el hallazgo contra este propio lote
+
+**El sabotaje B pasaba en verde**, con sus nueve asertos y su recálculo de 2.960
+consultas. La causa no era el test: **`simonbolivar_testing` tiene CERO matrículas
+vivas en `ASIS`** —`MATR 65`, `RETI 59`, y nada más—, así que
+`(m.estado="MATR" OR m.estado="ASIS")` y `m.estado="MATR"` **devuelven lo mismo
+sobre este seed y ningún test que se limite a leerlo puede distinguirlos**.
+
+> **Y no es un estado teórico.** La base de desarrollo (3.542 matrículas) tiene
+> `MATR 3060 · RETI 479 · DESE 1 · PREM 1 · **ASIS 1**`. O sea que **el estado
+> existe y el seed no lo representa** — que es la diferencia entre «el seed es
+> pobre» y un hallazgo. *(La cifra de desarrollo es de `8myvc-94`, medida sobre
+> otra base; aquí sólo se cita. La de tests es la de este documento.)*
+>
+> Y el alcance es mucho mayor que este fichero: **`ASIS` aparece 82 veces en 43
+> ficheros de `app/`**, casi siempre en esa misma disyunción —dato de
+> [`03-tests.md` (`8226885`)](../03-tests.md), no medido aquí—. **Un arreglo que
+> «limpie» cualquiera de esos `or` pasa la suite entera en verde.**
+
+**O sea que lo único que sostenía esa protección era haber escrito bien el SQL.**
+Esta §, y no la §3, es la que la deja sostenida por algo.
+
+### Y el primer arreglo tampoco bastó: la fabricación que no fabricaba
+
+Escrito el test que pasa un alumno a `ASIS` dentro de la transacción, **el
+sabotaje B seguía sin caer**. La causa es una propiedad de la consulta que no se
+había visto: el `JOIN` con matrículas es `m.alumno_id = n.alumno_id` y **no filtra
+`m.grupo_id`**. Al alumno se le vaciaban las matrículas *del grupo 98* y le
+quedaban vivas las de **otros años en `MATR`**, así que el `JOIN` le seguía
+valiendo por ahí.
+
+**El test creía haber creado el caso y no lo había creado, y daba verde con el
+fallo puesto.** Se arregla vaciando **todas** sus matrículas vivas — y sobre todo
+**comprobando después que no le queda ninguna en `MATR`**:
+
+> **Una guarda de material tiene que comprobar que el material se creó, no
+> suponerlo.** El aserto que faltaba no era sobre el resultado: era **sobre la
+> fabricación**.
+
+*(La consulta original tampoco filtraba el grupo. No se toca —la respuesta no se
+mueve—; queda anotado en el test.)*
+
+### A: caía bien y explicaba mal
+
+Sin el `clone`, las asignaturas comparten la Collection, el `unset` de una vacía
+la de las siguientes y **las asignaturas se caen del resultado**, así que ningún
+alumno llega a tener dos y saltaba la guarda `assertGreaterThan(0, $comparadas)`
+diciendo *«el seed no dio ningún alumno con dos asignaturas perdidas»*.
+
+**Cazaba el fallo y mandaba a mirar el seed.** Es un rojo verdadero con la
+explicación invertida, y cuesta lo mismo que un falso rojo: manda a la persona al
+sitio equivocado con toda la autoridad de un test que cae. El mensaje ahora
+enumera las dos causas, **pone primero la del código** e imprime la población que
+las separa (`37 alumnos, 1 con asignaturas_perdidas`).
+
+> **Una guarda de material y un aserto de conducta no pueden compartir mensaje.**
+> Es la misma puerta por la que salieron los otros dos: *«el material no da»* y
+> *«el código está roto»* no son la misma frase.

@@ -165,9 +165,25 @@ class GemeloDelBoletinFinalTest extends CasoDeContrato
         // **La mitad que impide el falso verde.** Sin alumnos con dos asignaturas
         // perdidas no se comparó nada, y «0 comparaciones y ningún fallo» se lee
         // igual que «todo bien». Es la trampa de la §186.1.
+        //
+        // **Y el mensaje separa las dos causas a propósito, porque salían por la
+        // misma puerta y una de ellas mandaba a mirar al sitio equivocado.** Medido
+        // rompiendo el arreglo: al quitar el `clone`, las asignaturas comparten la
+        // Collection, el `unset` de la primera se la vacía a las siguientes y **las
+        // asignaturas se caen del resultado**, así que ningún alumno llega a tener
+        // dos y este aserto salta. Cazaba el fallo y lo diagnosticaba como «el seed
+        // no da material»: un rojo verdadero con la explicación equivocada, que es
+        // tan caro como un falso rojo porque manda a revisar el seed en vez del
+        // `clone`.
         $this->assertGreaterThan(0, $comparadas,
-            'El seed no dio ningún alumno con dos asignaturas perdidas, así que este test '
-            .'no comparó ni un solo par de objetos: no está midiendo nada.');
+            "Este test no comparó ni un solo par de objetos, y hay DOS causas posibles:\n"
+            ."  (a) el arreglo está roto: sin el `clone` en `periodosDelAnio()` las asignaturas\n"
+            ."      comparten la Collection, el `unset` de una vacía la de las demás y las\n"
+            ."      asignaturas se caen del resultado. MIRA ESTO PRIMERO.\n"
+            ."  (b) el seed no tiene ningún alumno con dos asignaturas perdidas.\n"
+            .'Alumnos en el informe: '.count($alumnos).'; con `asignaturas_perdidas`: '
+            .count(array_filter($alumnos, fn ($a) => isset($a->asignaturas_perdidas))).'. '
+            .'Si el segundo número es alto y aun así no se comparó nada, es (a).');
     }
 
     /**
@@ -230,6 +246,148 @@ class GemeloDelBoletinFinalTest extends CasoDeContrato
             .$forma->asignaturas.' asignaturas. Si es MÁS, volvió a entrar en un bucle. '
             .'Si es CERO, el memo de `periodosDelAnio()` cruzó la frontera de la petición '
             .'y esta llamada está leyendo lo que preguntó otra.');
+    }
+
+    /**
+     * Un alumno en **`ASIS`** sigue contando sus notas perdidas.
+     *
+     * ## Este test existe porque el seed NO puede probar esto solo
+     *
+     * Medido el 25: **la base de tests tiene CERO matrículas en `ASIS`** —cero en
+     * toda la base, no cero en este grupo—. El grupo 98 tiene 37 en `MATR` y 31 en
+     * `RETI`, y nada más.
+     *
+     * Eso hace que `(m.estado="MATR" OR m.estado="ASIS")` y `m.estado="MATR"`
+     * **devuelvan exactamente lo mismo** sobre este seed, y por tanto que
+     * **ningún** test que se limite a leerlo pueda distinguirlos. Se comprobó
+     * rompiendo el arreglo a propósito: copiando el `m.estado = "MATR"` del hermano
+     * sobre `perdidasPorAlumnoDelGrupo()`, `EquivalenciaDelGemeloTest`
+     * **pasaba en verde**, con sus nueve asertos y su recálculo de 2.960 consultas.
+     *
+     * O sea que la diferencia entre los gemelos —la que más trabajo dio de
+     * respetar— **no la sostenía ninguna red: sólo la sostenía haberla escrito
+     * bien**. El día que alguien «limpie» esto copiando el SQL del hermano, sin
+     * este test no se pone nada en rojo y **los alumnos en `ASIS` desaparecen del
+     * informe**.
+     *
+     * ## Por eso fabrica la fila, en vez de buscarla
+     *
+     * `DatabaseTransactions` hace que el `UPDATE` no sobreviva al test, así que es
+     * inocuo. **Fabricar el caso que el seed no tiene es lo único que puede cerrar
+     * este agujero**, y es más honesto que un `markTestSkipped`: un test que se
+     * salta a sí mismo cuenta como verde en el resumen.
+     *
+     * El aserto mira **el resultado**: que el alumno siga en el informe con sus
+     * asignaturas perdidas y **con las mismas cuentas** que tenía en `MATR`. Con
+     * `MATR` a secas su mapa queda vacío, sus asignaturas se caen con el `unset` y
+     * **el alumno entero sale del informe**.
+     */
+    public function test_un_alumno_en_asis_sigue_contando_sus_notas_perdidas(): void
+    {
+        $grupo = $this->grupoConAlumnos();
+
+        [$user, $bol] = $this->contextoYControlador($grupo);
+
+        [, , $antes] = $bol->detailedNotasGrupo($grupo->id, $user);
+
+        // Un alumno que HOY tenga asignaturas perdidas: si eligiéramos uno sin
+        // ellas, el test daría verde con el fallo puesto (no habría nada que perder).
+        $conPerdidas = array_values(array_filter($antes, fn ($a) => isset($a->asignaturas_perdidas)));
+
+        $this->assertNotSame([], $conPerdidas,
+            'Ningún alumno del grupo tiene asignaturas perdidas, así que pasar uno a ASIS '
+            .'no puede demostrar nada. Este test no está midiendo.');
+
+        $elegido = $conPerdidas[0];
+        $cuentaAntes = $this->cuentasPorAsignaturaYPeriodo($elegido);
+
+        $this->assertNotSame([], $cuentaAntes,
+            'El alumno elegido tiene `asignaturas_perdidas` pero ninguna cuenta dentro.');
+
+        // La fila que el seed no tiene. Vive dentro de la transacción del test.
+        //
+        // **SIN `grupo_id`, y esto costó una vuelta.** La primera versión sólo pasaba
+        // a ASIS las matrículas de ESTE grupo, y con eso **el sabotaje seguía sin
+        // caer**: la consulta une `matriculas` por `m.alumno_id = n.alumno_id` **y no
+        // filtra el grupo**, así que a un alumno con una matrícula viva en `MATR` en
+        // cualquier otro grupo —otro año, por ejemplo— el `JOIN` le sigue valiendo y
+        // el `MATR` a secas no se nota. Es la consulta original, que tampoco filtraba
+        // el grupo; el arreglo la conserva tal cual y por eso el test tiene que
+        // vaciar **todas** sus matrículas vivas, no las de aquí.
+        $tocadas = DB::update(
+            'UPDATE matriculas SET estado = "ASIS" WHERE alumno_id = ? AND deleted_at IS NULL',
+            [$elegido->alumno_id]
+        );
+
+        $this->assertGreaterThan(0, $tocadas,
+            'No se pasó a ASIS ninguna matrícula: sin eso el test vuelve a medir el caso MATR.');
+
+        // **Y se comprueba que la fabricación de verdad quitó todos los `MATR`.**
+        // Sin esto, un alumno con una matrícula viva en otro grupo dejaría el test
+        // en verde con el fallo puesto — que es exactamente lo que pasó la primera vez.
+        $quedan = DB::selectOne(
+            'SELECT COUNT(*) n FROM matriculas WHERE alumno_id = ? AND deleted_at IS NULL AND estado = "MATR"',
+            [$elegido->alumno_id]
+        );
+
+        $this->assertSame(0, (int) $quedan->n,
+            'Al alumno '.$elegido->alumno_id.' le quedan '.$quedan->n.' matrículas vivas en MATR, '
+            .'así que el `JOIN` con `matriculas` le sigue valiendo por ahí y este test NO puede '
+            .'ver la diferencia entre `MATR` y `(MATR or ASIS)`. No está midiendo lo que dice.');
+
+        // Y el controlador se pregunta otra vez, con una petición nueva: el memo de
+        // `periodosDelAnio()` vive en los `attributes` de la anterior, y reutilizarla
+        // mediría la respuesta vieja.
+        [$user2, $bol2] = $this->contextoYControlador($grupo);
+        [, , $despues] = $bol2->detailedNotasGrupo($grupo->id, $user2);
+
+        $mismo = null;
+        foreach ($despues as $alumno) {
+            if ((int) $alumno->alumno_id === (int) $elegido->alumno_id) {
+                $mismo = $alumno;
+                break;
+            }
+        }
+
+        $this->assertNotNull($mismo,
+            'El alumno '.$elegido->alumno_id.' desapareció del informe al pasar a ASIS. '
+            .'`Grupo::alumnos()` trae MATR, ASIS y PREM, así que esto no es el listado: '
+            .'es que algo de abajo dejó de reconocer ASIS.');
+
+        $this->assertTrue(isset($mismo->asignaturas_perdidas),
+            'El alumno '.$elegido->alumno_id.' se quedó SIN `asignaturas_perdidas` sólo por '
+            .'pasar a ASIS. Es el síntoma exacto de haber copiado el `m.estado = "MATR"` del '
+            .'hermano sobre `perdidasPorAlumnoDelGrupo()`: el mapa se queda vacío para él, sus '
+            .'asignaturas se caen con el `unset` y el alumno sale del informe entero.');
+
+        $this->assertSame($cuentaAntes, $this->cuentasPorAsignaturaYPeriodo($mismo),
+            'Las notas perdidas del alumno '.$elegido->alumno_id.' cambiaron al pasarlo a ASIS, '
+            .'y no deberían: la consulta original cuenta MATR y ASIS por igual.');
+    }
+
+    /**
+     * `[asignatura_id][periodo_id] => cantNotasPerdidas` de un alumno del informe.
+     *
+     * @return array<int, array<int, int>>
+     */
+    private function cuentasPorAsignaturaYPeriodo(object $alumno): array
+    {
+        $cuentas = [];
+
+        foreach ($alumno->asignaturas_perdidas ?? [] as $asignatura) {
+            foreach ($asignatura->periodos as $periodo) {
+                $cuentas[(int) $asignatura->asignatura_id][(int) $periodo->id]
+                    = (int) $periodo->cantNotasPerdidas;
+            }
+        }
+
+        ksort($cuentas);
+        foreach ($cuentas as $k => $v) {
+            ksort($v);
+            $cuentas[$k] = $v;
+        }
+
+        return $cuentas;
     }
 
     /**
