@@ -16,6 +16,7 @@ use Carbon\Carbon;
 use App\User;
 use App\Services\Login;
 use App\Services\Sesion;
+use App\Support\VersionMinimaDeLaApp;
 use App\Services\VotacionesPendientes;
 use App\Models\VtVotacion;
 use App\Models\Periodo;
@@ -51,7 +52,16 @@ class LoginController extends Controller {
 
 		$user = app(VotacionesPendientes::class)->adjuntarA($user);
 
-		return json_decode(json_encode($user), true);
+		// La segunda llamada de la app (`lib/Http/Server.dart:43`) y la única de
+		// `myvc_front_2`. Esta ruta devuelve el CONTEXTO del usuario y no un
+		// token, así que no es «una respuesta de login» en el sentido estricto —
+		// pero es el endpoint que se llama `/login` y la app lo lee.
+		//
+		// Va aquí porque el coste de ponerlo de más es una clave que nadie mira, y
+		// el de ponerlo de menos es que el bloqueo **no se entere nunca** por el
+		// camino que la app usa de verdad. Cuál de las cuatro lee la app está
+		// preguntado; sobra la que sobre, y quitarla es una línea.
+		return VersionMinimaDeLaApp::adjuntarA(json_decode(json_encode($user), true));
 	}
 
 
@@ -83,7 +93,11 @@ class LoginController extends Controller {
 			$res['cambia_anio'] = $entrada['cambia_anio'];
 		}
 
-		return $res;
+		// **Ésta es la que llama `myvc_flutter`**, no `auth/login`: está leído en
+		// su código y anotado en 07-sesion.md §«no se retiran»
+		// (`lib/Http/Server.dart:36`). Por eso el campo tiene que estar aquí
+		// aunque esta ruta sea la vieja y no devuelva refresco.
+		return VersionMinimaDeLaApp::adjuntarA($res);
 	}
 
 
