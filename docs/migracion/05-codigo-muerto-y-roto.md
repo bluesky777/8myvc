@@ -10582,3 +10582,39 @@ que nadie lo cite como si lo estuviera.
 enrutado** —los nueve `postIndex` tienen ruta, verificado al construirla desde
 `routes/`— y **la otra no**. Saber cuál de tus listas descansa en qué es la mitad de
 poder usarlas.)*
+
+## §212. Que la comprobación al revés caiga igual que la de ida no confirma: avisa
+
+El test de la rama `fortaleza_debilidad` quedó con **las dos mitades**, y cada una prueba
+algo distinto:
+
+| | Resultado |
+|---|---|
+| el test tal cual | **2 passed (17 aserciones)** |
+| revirtiendo el predicado de esa rama | **el de encendido CAE** con el `1052`, **y el de apagado sigue VERDE** |
+
+**Que caiga prueba que cubre; que sólo caiga esa mitad prueba que el revert tocó la rama
+que dice** y no otra cosa. Con la traza cerrando el hueco:
+`Boletines2Controller:228 → deAsignaturaCalculada(857, 1244, 31, 'fortaleza_debil…', 8, '30')`.
+
+**Y la primera pasada falló por el test y no por el código, con las dos mitades cayendo
+igual:**
+
+> **Que el filtro 2 caiga IGUAL que el filtro 1 no es una confirmación: es la señal de que
+> la comprobación al revés no probó nada.**
+
+**Y la causa raíz no fue ninguno de los tres bugs del test**, sino esto:
+
+> **El guion de comprobación cortaba la salida con `| tail -14`**, y el *undefined method*
+> quedaba fuera de los últimos catorce renglones. **Un turno entero gastado en no ver el
+> error que tenía delante** — con la regla de la casa, *ningún comando que termine en un
+> número lleva tubo que corte*, **aplicada por él a otro guion una hora antes y rota en el
+> guion con el que la comprobaba.**
+
+Es la misma forma que el `grep` sin frontera de la [§193](#) y que el `PDO` con la
+contraseña inventada: **la regla se aprende en el código y se hereda intacta en la
+herramienta de verificar.** Van **cuatro** esta noche.
+
+*(Y `unAlumnoDe` se **copió** en vez de subirse a `CasoDeContrato`: subirlo habría tocado
+los tests de otra sesión en una noche con varias vivas. **Duplicación consciente y
+dicha**, que es distinto de duplicación.)*
