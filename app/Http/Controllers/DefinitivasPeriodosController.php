@@ -394,7 +394,22 @@ class DefinitivasPeriodosController extends Controller {
 			$grupo = $grupos[$i];
 
 
-			$consulta = 'SELECT * FROM matriculas m WHERE m.grupo_id=? and m.deleted_at is null';
+			// **Una columna, no las veintiocho.** De la fila de `matriculas` este
+			// método usa **sólo `alumno_id`** —cuatro bucles más abajo, en la
+			// consulta de `notas_finales`— y el `SELECT *` traía las 28 por cada
+			// alumno de cada grupo del año.
+			//
+			// Vino por el aviso de que `matriculas.boletin_independiente` (fase 1
+			// del boletín independiente) se filtraría por aquí. **Comprobado: por
+			// aquí NO se filtra** — el método devuelve `$res`, que son conteos de
+			// `DELETE`, y estas filas no salen nunca hacia el cliente. Así que el
+			// motivo bueno no es el contrato: es que **pedir 28 columnas para leer
+			// una, dentro de un bucle sobre todos los grupos del año, es trabajo
+			// que no hace falta**.
+			//
+			// Y con la columna nombrada la otra preocupación se cierra igual y para
+			// siempre: **volver a `*` la reabre**, así que esto no es estilo.
+			$consulta = 'SELECT m.alumno_id FROM matriculas m WHERE m.grupo_id=? and m.deleted_at is null';
 			$alumnos = DB::select($consulta, [$grupo->id]);
 			$canti_alum = count($alumnos);
 
