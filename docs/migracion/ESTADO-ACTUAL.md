@@ -181,7 +181,20 @@ arriba y no en la línea.
 
 ## AUD-5 hecha — el rastro de la auditoría deja de leerlo cualquiera del personal
 
-**Rama `feat/auditoria-permiso`, árbol `.worktrees/48`.** Es la **decisión 3** de
+**Fundida en `main` — `merge(48)` en `847137a`.** Rama `feat/auditoria-permiso`,
+árbol `.worktrees/48`.
+
+> **El número, medido EN EL ÁRBOL FUNDIDO:** **1.500 pasados, 10.702 aserciones, 0
+> fallos, 497 s** (suite entera, sin `--testsuite`). **Larastan `[OK]`, 505
+> ficheros. Pint PASS, 304 ficheros.** Base reconstruida antes, con la migración
+> corriendo dentro.
+>
+> **Y aquí el número de la rama y el de la fusión salen IGUALES —1.500 / 10.702—,
+> al revés que en AUD-2**, donde eran 1.479 y 1.483. No es que esta vez no hiciera
+> falta correrlo: es que **`main` no se movió** entre ramificar y fundir, así que no
+> había nada que pudiera romperse. *Lo que decide si el número de la fusión importa
+> no es el lote: es cuántos commits ajenos entraron por debajo*, y eso sólo se sabe
+> mirándolo. Es la **decisión 3** de
 [18-auditoria.md](18-auditoria.md), abierta con el visto bueno expreso de Joseth —la
 ficha del lote lo exigía porque **cambia quién ve qué**—. El detalle entero, con lo
 que quedó fuera y por qué, en [`noche-2026-08-25/aud-5.md`](noche-2026-08-25/aud-5.md).
