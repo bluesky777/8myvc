@@ -136,6 +136,34 @@ reparación**, no en el camino normal. No se ejecuta en cada petición. Decirlo
 importa porque «cada petición hace un UPDATE por select» sería más llamativo y
 falso.
 
+## §3.b — Y esa lista de seis, comprobada contra el enrutado
+
+De las listas de este documento, **la de los seis `DB::select` que escriben es la
+única que no sale de `routes/`**: barre `app/` entero, así que **puede contener
+código que nadie ejecuta** — que es justo lo que le pasó al gemelo
+`CertificadosPersonaController` en [BOL-2](bol-2.md), donde tres consultas
+invariantes vivían en un subárbol de 400 líneas sin llamador.
+
+Comprobado uno a uno:
+
+| método | alcanzable por |
+|---|---|
+| `EnfermeriaController::postCrearSuceso` | `POST enfermeria/crear-suceso` |
+| `EnfermeriaController::putDatos` | `PUT enfermeria/datos` |
+| `RequisitosController::postAlumno` | `POST requisitos/alumno` |
+| `RequisitosController::putUpdate` | `PUT requisitos/update` |
+| `RolesController::putAddroletouser` | `PUT roles/addroletouser/{role_id}` |
+| `ContextoDeUsuario::construir` | ninguna ruta, pero `construir` ← `para` ← `User::fromToken()` (`User.php:130`), o sea **el camino de toda petición autenticada** |
+
+**Las seis se ejecutan. La lista no necesita ajuste.**
+
+> **Y lo que sí queda sin medir, dicho como tal:** las 18 «escriben por un
+> ayudante» dan por hecho que **la línea que llama al ayudante se ejecuta**. Mi
+> detector sigue llamadas, **no ramas**: un ayudante invocado sólo dentro de un `if`
+> que nunca se cumple contaría igual. Es una pregunta distinta de la del gemelo
+> —aquélla era entre métodos, ésta es dentro de uno— y **no la he medido**. No se
+> cite como medida.
+
 ## §4 — Las 6 que no se pueden decidir, y por qué eso se imprime
 
 Una herramienta de esta familia falla llamando **«sólo lectura»** a lo que en
