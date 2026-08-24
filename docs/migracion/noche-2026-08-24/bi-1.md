@@ -46,12 +46,26 @@ rutas nuevas, sin pantallas, sin tocar `notas` ni `notas_finales`.
 
 ---
 
-## §2 — El criterio de aceptación: se cumple
+## §2 — El criterio de aceptación: **todavía sin confirmar**
 
 > **Con las migraciones puestas y nadie marcado, los 1.344 tests pasan sin
 > regenerar un solo snapshot.**
 
-**No he regenerado ninguno.** Si hubiera hecho falta, paraba y lo decía: un
+**Esto NO está comprobado todavía, y el esqueleto no está dado por desplegable.**
+`8myvc-database-1` murió por OOM la madrugada del 24 —`Exited (137)`, la máquina
+en load 23–26 y 15,1 GB de 16,4 en swap— **mientras corría la tanda completa**.
+Una corrida hecha contra una base agonizando **no vale ni para bien ni para
+mal**, así que la doy por no hecha y hay que repetirla con la base sana. Lo que
+alcanzó a escribir traía un rojo en `BanderasDeUnBitTest` que no toca nada de
+esto y encaja con los 16 fallos que otra sesión vio en la misma ventana.
+
+**Lo que sí vale**, porque es una corrida dirigida y anterior al apagón:
+`BoletinNoBorraDefinitivasTest` **en verde con la migración puesta**, que es el
+test que cazó el 1052 de la §5.bis y el que confirma que está arreglado. Y la
+precondición está comprobada con una sola conexión: 93 tablas, las cuatro
+columnas donde tienen que estar y **0 matrículas marcadas**.
+
+**No he regenerado ningún snapshot.** Si hubiera hecho falta, paraba y lo decía: un
 snapshot que se mueve en la fase 1 no es un snapshot que se regenera, es una
 consulta a la que se le olvidó el alcance — y dejaría de ser aditivo, que es lo
 único que permite desplegar esto en dieciséis colegios antes de que exista una
@@ -393,6 +407,8 @@ buenas, y la segunda es la que imprime el boletín.
    §6, **es un cambio de conducta**. Decisión de Joseth, vía `8myvc-34`.
 3. **El tamaño de `unidades` en el colegio más grande**, antes del `ALTER TABLE`.
    Servidor.
+3.bis. **Repetir la tanda completa con la base sana** — es lo único que separa
+   esto de estar dado por desplegable. Ver la §2.
 4. **La §9.5 —una sola regla de cuál es la matrícula del año— sigue viva.** El
    servicio implementa **una** regla (la más reciente de las vivas, con desempate
    por `id`) y lo dice en su docblock, para no añadir **una tercera**. Unificarla
