@@ -26,7 +26,7 @@ accidente.
 ## §1 — La consulta, y por qué son cuatro cosas y no una
 
 Las bitácoras de la sesión salen de una sola consulta
-([HistorialesController:135](../../app/Http/Controllers/Historiales/HistorialesController.php#L135)):
+([HistorialesController:135](../../../app/Http/Controllers/Historiales/HistorialesController.php#L135)):
 
 ```sql
 SELECT b.*, a.nombres, a.apellidos, s.definicion FROM bitacoras b

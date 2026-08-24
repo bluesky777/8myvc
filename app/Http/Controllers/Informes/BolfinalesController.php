@@ -71,7 +71,7 @@ class BolfinalesController extends Controller {
 	 * Los `attributes` de la petición son el sitio que este proyecto ya eligió para
 	 * esto, y por la misma razón escrita: `User::fromToken()` guarda ahí el contexto
 	 * **y no en una propiedad del servicio, que sobreviviría a la petición bajo
-	 * Octane** ([02 §4](../../../docs/migracion/02-plan-rendimiento.md)).
+	 * Octane** ([02 §4](../../../../docs/migracion/02-plan-rendimiento.md)).
 	 *
 	 * Lo encontró un número que no cuadraba: **0 donde tenía que haber 1**, con dos
 	 * medidas del mismo trabajo dando cosas distintas.

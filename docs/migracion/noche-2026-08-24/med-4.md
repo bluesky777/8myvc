@@ -274,7 +274,7 @@ engaña igual.
 |---|---|
 | `PUT alumnos/show` | → `comprobar_alumno_con_grupos` → `traer_requisitos_detalle` **`DB::insert`** |
 | `PUT boletines/detailed-notas/{grupo}` | → `ponerAlDiaLasDefinitivas` → `recalcular` |
-| `PUT bolfinales/detailed-notas-year-group/{grupo}` | → `detailedNotasGrupo` **`DB::update`** (el contador, [MED-5 §4](med-5.md)) |
+| `PUT bolfinales/detailed-notas-year-group/{grupo}` | → `detailedNotasGrupo` **`DB::update`** (el contador, [«el hueco y el contador» §4](hueco-y-contador.md)) |
 | `PUT bolfinales/detailed-notas-year/{grupo}` | ídem |
 | `PUT notas/detailed` | → `recalcular` |
 | `POST login/ver-pass` | en su propio cuerpo |
@@ -362,3 +362,46 @@ Y dos decisiones de la lista de fichas, dichas en la salida y no sólo aquí:
 4. **Buscar texto en código son tres vistas y no una**: con todo, sin cadenas ni
    comentarios, y sin comentarios pero con cadenas. Cada cosa que se busca vive en
    una distinta, y usar la vista equivocada falla **sin fallar**.
+
+---
+
+## §9 — Mantenimiento de lo escrito esta noche (espera activa)
+
+Con el lote cerrado, se repasaron los dos detalles que nadie repasa y que **sólo se
+pueden repasar desde dentro**: las citas de sección y los enlaces relativos de lo
+que esta sesión escribió. Los dos dieron algo, y uno de los dos destapó un
+incidente de coordinación que se cuenta en el 05.
+
+### Los enlaces: **38 comprobados, un error real**
+
+| | |
+|---|---|
+| `app/Http/Controllers/Informes/BolfinalesController.php:74` | `../../../docs/…` resolvía a **`app/docs/…`**: desde `Controllers/Informes/` la raíz está a **cuatro** niveles, no a tres. Corregido |
+| `hist-1.md:29` | `../../app/…` resolvía a **`docs/app/…`**: desde `noche-2026-08-24/` la raíz está a **tres**, no a dos. Corregido |
+| 3 más | apuntan bien y **su destino no está en esta rama** (`20-pantalla-de-notas.md`, que no estaba en git al montar el worktree, y el documento renombrado). Resuelven en el árbol fundido y **no se tocan** |
+
+**La profundidad correcta depende de dónde vive el fichero, y por eso el error no
+se ve leyendo**: en `tests/Contrato/` dos niveles **son** la raíz y están bien; en
+`docs/migracion/noche-.../` hacen falta tres; en `app/Http/Controllers/Informes/`,
+cuatro. **Los tres estilos aparecían en ficheros míos de esta noche y dos estaban
+mal.** No es cosmético: un enlace que resuelve a `app/docs/` manda a nadie.
+
+### Las citas de sección: **3 huérfanas, y las tres son falsas**
+
+`tools/secciones-citadas.py` en esta rama da 3 huérfanas —§175, §176 y §186.1,
+citadas desde código escrito esta noche—. **Las tres secciones existen**: están en
+`main`, que lleva **74 commits que esta rama no tiene**.
+
+> **La comprobación de las citas pertenece al merge, no a la rama.** En una noche de
+> catorce sesiones, **quien cita secciones escritas por otra sesión siempre verá
+> huérfanas** hasta que las ramas se fundan. Y el falso positivo **va en la
+> dirección en que se actúa**: quien vea «3 huérfanas» borra citas correctas.
+>
+> `CLAUDE.md` dice que la herramienta *«se corre después de cada renumerado»*; en
+> trabajo paralelo hay que leerlo como **«después de fundir»**. Corrida por rama,
+> puede equivocarse **en las dos direcciones**: marca huérfana una cita cuya
+> sección está en otra rama, y **no** marca la que quedará huérfana cuando se funda
+> el borrado de una sección que esta rama todavía tiene.
+
+**No se corrige nada por esto.** Borrar las citas para que el número baje sería
+exactamente el fallo del que avisa el párrafo de arriba.
