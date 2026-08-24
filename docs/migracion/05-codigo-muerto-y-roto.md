@@ -10535,3 +10535,50 @@ líneas para un arreglo de una consulta**, o sea exactamente el «diff ilegible�
 *(Y un dato de intendencia: **hay dos clases `BolfinalesController`** —la de `Informes/`,
 enrutada, y una no enrutada—. Un índice que resuelve por nombre corto **acertó por orden
 alfabético**, o sea por suerte.)*
+
+## §211. El gemelo no era el mismo problema: 510 líneas de las que ~12 son alcanzables
+
+Se había pasado `Informes/CertificadosPersonaController` como *«la misma estructura y las
+mismas tres consultas invariantes; el arreglo de aquí no le llega y es la misma línea»*,
+con las líneas exactas. **Las líneas son exactas y la estructura es cierta —es una copia
+del `Bolfinales`—. Lo falso es que haya nada que arreglar.**
+
+| | |
+|---|---|
+| rutas que apuntan a la clase | **una**: `PUT certificados-persona` → `putIndex` |
+| qué hace `putIndex` | **doce líneas**: una consulta de `matriculas` y devolverlas |
+| ¿llama a `detailedNotasGrupo`? | **no** — ni él, ni el resto del fichero, **ni otra clase en todo `app/`** |
+| tamaño | **510 líneas, de las que ~12 son alcanzables** |
+
+`detailedNotasGrupo` está **definido en la línea 53 y no lo llama nada**, y **las tres
+invariantes viven dentro de ese subárbol muerto**. Así que el «no» de coordinación era
+correcto **por una razón más fuerte que la que se dio**: no es que el arreglo compre poco,
+es que **no hay nada que ejecutar**.
+
+> **Dos ficheros pueden ser copia uno del otro y no ser el mismo problema, porque lo que
+> decide no es el contenido sino qué los alcanza.** Se comparó **el código** y no **el
+> enrutado**, y estuvo a punto de entrar en la lista de decisiones **un arreglo para
+> código que nadie ejecuta.**
+
+Es la misma forma que todo lo demás de la noche: **un detector que dice «aquí hay una
+consulta en un bucle» no dice si ese bucle corre.**
+
+**Va aquí como código muerto, no a la lista como optimización pendiente. Y no se borra
+esta sesión:** cuatrocientas líneas son una decisión, y la regla —*sin ruta y roto se
+borra*— pide antes comprobar que **ningún cliente llame a algo que resucite ese camino**.
+
+### El punto ciego que esto le descubre a la herramienta
+
+`quien-escribe-de-verdad.py` **sigue las llamadas desde el método enrutado hacia abajo**,
+así que **no reporta código muerto — pero tampoco lo distingue**: un método público que
+nadie llama **simplemente no aparece en su salida, y eso se lee igual que «no hay problema
+ahí»**.
+
+**Lo que faltaría es la pregunta contraria —qué métodos públicos no alcanza ninguna
+ruta— y eso NO está medido.** Dicho por quien escribió la herramienta, y dicho así para
+que nadie lo cite como si lo estuviera.
+
+*(Y la nota de alcance que la acompaña: de sus dos listas, **la de las 7+9 descansa en el
+enrutado** —los nueve `postIndex` tienen ruta, verificado al construirla desde
+`routes/`— y **la otra no**. Saber cuál de tus listas descansa en qué es la mitad de
+poder usarlas.)*
