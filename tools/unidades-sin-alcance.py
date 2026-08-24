@@ -156,12 +156,26 @@ def referencias(sql, tabla):
     # habrían salido en el inventario como trabajo que hacer sobre una tabla que
     # no cambia. Hay cuatro tablas cuyo nombre empieza igual: `unidades`,
     # `unidades_por_defecto`, `subunidades` y `subunidades_por_defecto`.
+    # Y el `(?!\w*\s*\()` —el guardia contra las llamadas a función— **no puede
+    # aplicarse al `INSERT INTO`**, que es el segundo fallo pagado de esta misma
+    # línea. `INSERT INTO unidades(definicion, porcentaje, …)` lleva el paréntesis
+    # pegado al nombre, así que el guardia rechazaba la referencia y el detector
+    # decía **4 escrituras cuando son 6**: se le escapaban los dos `INSERT` de
+    # `UnidadesController::getDeAsignaturaPeriodo`. Esa lista de columnas es
+    # justo lo que distingue un `INSERT` de una llamada, o sea que el guardia
+    # rechazaba por la señal que confirma.
+    #
+    # Lo destapó `8myvc-ad` midiendo otra cosa: ese endpoint **escribe** aunque
+    # no lo diga ni el verbo (`PUT`) ni el nombre (`getDeAsignaturaPeriodo`).
     patron = re.compile(
-        r'\b(from|join|,|into|update)\s+`?' + tabla + r'`?(?![\w])\s*(?:as\s+)?(?!\w*\s*\()(\w+)?',
+        r'\b(?:(into)\s+`?' + tabla + r'`?(?![\w])\s*(\w+)?'
+        r'|(from|join|,|update)\s+`?' + tabla + r'`?(?![\w])\s*(?:as\s+)?'
+        r'(?!\w*\s*\()(\w+)?)',
         re.I | re.S)
     for m in patron.finditer(sql):
-        verbo = m.group(1).lower()
-        alias = m.group(2)
+        # Dos ramas: la del `INSERT INTO` (grupos 1-2) y la de las demás (3-4).
+        verbo = (m.group(1) or m.group(3)).lower()
+        alias = m.group(2) if m.group(1) else m.group(4)
         # `where`, `on`, `set`… no son alias: es que la tabla iba sin alias.
         if alias and alias.lower() in (
                 'where', 'on', 'set', 'group', 'order', 'left', 'right', 'inner',

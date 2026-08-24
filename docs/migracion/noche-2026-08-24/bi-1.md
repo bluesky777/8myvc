@@ -328,13 +328,44 @@ fallos**:
    sé clasificarla sin decidir antes qué tiene que enseñar esa pantalla, y esa
    decisión es del [18](../18-auditoria.md), no de aquí.
 
-### Las 4 escrituras, que son otra pregunta
+### Las 6 escrituras — y eran 4 hasta que otra sesión midió otra cosa
 
-`Unidad::arreglarOrden` (×2), `SubunidadesController::putRestore` y
-`UnidadesController::putRestore`. **Las cuatro van por `WHERE id = ?`**, así que
-ninguna necesita alcance: quien tiene el id ya tiene la fila de su dueño. Lo que
-sí necesitan es **guarda de autorización**, y ésa es una pregunta anterior a esta
-función y no la abro aquí.
+`Unidad::arreglarOrden` (×2), `SubunidadesController::putRestore`,
+`UnidadesController::putRestore` … **y las dos que faltaban**:
+
+| Sitio | Qué escribe |
+|---|---|
+| `UnidadesController::getDeAsignaturaPeriodo:122` | `INSERT INTO unidades(...)` |
+| `UnidadesController::getDeAsignaturaPeriodo:131` | `INSERT INTO subunidades(...)` |
+
+**Este documento decía «4 escrituras» y son 6.** Las dos que faltaban las
+encontró `8myvc-ad` midiendo el rendimiento de otra cosa, y de ahí sale lo que
+merece guardarse:
+
+> **`PUT unidades/de-asignatura-periodo` escribe, y no lo dice ni el verbo
+> (`PUT`) ni el nombre del método (`getDeAsignaturaPeriodo`).** Cuando no hay
+> unidades y el profesor puede escribir, **crea las del año por defecto** —y sus
+> subunidades— dentro de una petición que se lee como una consulta.
+
+Y **mi detector tampoco las veía**, por una razón que es la misma familia de todo
+lo demás: el guardia contra las llamadas a función, `(?!\w*\s*\()`, rechazaba
+`INSERT INTO unidades(definicion, porcentaje, …)` **porque el paréntesis va pegado
+al nombre**. O sea que rechazaba por la señal que confirma: esa lista de columnas
+es justo lo que distingue un `INSERT` de una llamada. Arreglado, y ahora el `INTO`
+va por su propia rama.
+
+**De paso, el mismo bicho me mordió en la comprobación a mano**, que es lo que lo
+hace didáctico: mi `grep` de control encontró un tercer `INSERT INTO unidades` en
+`YearsController:193` y **era `unidades_por_defecto`** — la misma falta de
+frontera de palabra que había arreglado en la herramienta una hora antes, repetida
+en el comando con el que la comprobaba.
+
+**Para el alcance, las 6 están bien**: las cuatro `UPDATE` van por `WHERE id = ?`,
+y los dos `INSERT` **no nombran `alumno_id`**, así que nacen con `NULL` = del
+grupo, que es exactamente lo que tienen que ser — son las unidades por defecto del
+año. Lo que sí les toca es **la fase 4**: cuando un independiente entre en una
+asignatura sin montar, este camino le crearía las del grupo y no las suyas. Es la
+§9.1 del plan por una puerta que el plan no nombra.
 
 ---
 
