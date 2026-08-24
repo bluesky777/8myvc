@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Disciplina;
 
 use App\Http\Controllers\Controller;
+use App\Services\Auditoria;
 use App\Support\CatalogoEnUso;
 use App\Support\ColumnaSegura;
 use App\User;
@@ -36,6 +37,20 @@ class OrdinalesController extends Controller
         if (count($config) > 0) {
             $config = $config[0];
         } else {
+            /*
+             * **Aquí no va llamada a `Auditoria`, y la ausencia es la decisión.**
+             *
+             * `dis_configuraciones` **no está en `Auditoria::ENTIDADES`**, y añadir
+             * un nombre a esa constante es editar el vocabulario cerrado del
+             * servicio: una decisión, no un `string` suelto (18 §2.3). Es la misma
+             * razón por la que `dis_proceso_ordinales` tampoco tiene entrada.
+             *
+             * Las tres tablas que se quedan fuera de esta fase están listadas en
+             * aud-4 §5, con lo que costaría entrarlas. Inventarles un nombre aquí
+             * las metería en la pantalla con una etiqueta que nadie ha acordado, y
+             * un tipo mal escrito se pierde en silencio — que es el cuarto problema
+             * de `bitacoras` y justo de lo que se viene.
+             */
             $consulta = 'INSERT INTO dis_configuraciones(year_id, created_at, updated_at) VALUES(?,?,?)';
             DB::insert($consulta, [$year_id, $now, $now]);
 
@@ -79,7 +94,37 @@ class OrdinalesController extends Controller
 
         $ordinal = DB::select($consulta, [$last_id])[0];
 
+        // Un ordinal es un artículo del manual de convivencia del colegio, escrito
+        // a mano y citado por las faltas. Hasta hoy darlo de alta no dejaba rastro.
+        Auditoria::registrar()
+            ->crear('dis_ordinal', (int) $last_id)
+            ->en(year: is_numeric($ordinal->year_id) ? (int) $ordinal->year_id : null)
+            ->a([
+                'ordinal' => $ordinal->ordinal,
+                'tipo' => $ordinal->tipo,
+                'descripcion' => $ordinal->descripcion,
+                'pagina' => $ordinal->pagina,
+            ])
+            ->guardar();
+
         return (array) $ordinal;
+    }
+
+    /**
+     * La foto de un ordinal del manual de convivencia, por clave primaria.
+     *
+     * Sólo las cuatro columnas que un ordinal ES. La línea de auditoría tiene que
+     * poder leerse cuando el ordinal ya se borró — que es exactamente el caso que
+     * `putDestroy` documenta: una falta que cita un artículo que ya no está.
+     */
+    private function fotoDelOrdinal($ordinalId): ?array
+    {
+        $fila = DB::selectOne(
+            'SELECT year_id, ordinal, tipo, descripcion, pagina FROM dis_ordinales WHERE id = ?',
+            [$ordinalId]
+        );
+
+        return $fila === null ? null : (array) $fila;
     }
 
     public function putUpdate()
@@ -98,7 +143,27 @@ class OrdinalesController extends Controller
             $now,
             $ordinal_id,
         ];
+
+        $antes = $this->fotoDelOrdinal($ordinal_id);
+
         DB::update($consulta, $datos);
+
+        Auditoria::registrar()
+            ->editar('dis_ordinal', is_numeric($ordinal_id) ? (int) $ordinal_id : null)
+            ->en(year: isset($antes['year_id']) && is_numeric($antes['year_id']) ? (int) $antes['year_id'] : null)
+            ->de($antes === null ? null : [
+                'ordinal' => $antes['ordinal'],
+                'tipo' => $antes['tipo'],
+                'descripcion' => $antes['descripcion'],
+                'pagina' => $antes['pagina'],
+            ])
+            ->a([
+                'ordinal' => Request::input('ordinal'),
+                'tipo' => Request::input('tipo'),
+                'descripcion' => Request::input('descripcion'),
+                'pagina' => Request::input('pagina'),
+            ])
+            ->guardar();
 
         return 'Cambiado';
     }
@@ -117,7 +182,20 @@ class OrdinalesController extends Controller
             ':fecha' => $now,
             ':ordinal_id' => $ordinal_id,
         ];
+
+        $antes = $this->fotoDelOrdinal($ordinal_id);
+
         DB::update($consulta, $datos);
+
+        // Una celda suelta: la línea guarda **sólo la propiedad tocada**, no la
+        // fila entera. Así la pantalla puede decir «cambió la página del artículo
+        // 12» en vez de enseñar cuatro campos de los que tres son iguales.
+        Auditoria::registrar()
+            ->editar('dis_ordinal', is_numeric($ordinal_id) ? (int) $ordinal_id : null)
+            ->en(year: isset($antes['year_id']) && is_numeric($antes['year_id']) ? (int) $antes['year_id'] : null)
+            ->de([$propiedad => $antes[$propiedad] ?? null])
+            ->a([$propiedad => Request::input('valor')])
+            ->guardar();
 
         return 'Cambiado';
     }
@@ -166,7 +244,21 @@ class OrdinalesController extends Controller
         $consulta = 'UPDATE dis_ordinales SET deleted_at=?, deleted_by=? WHERE id=?';
         $datos = [$now, $user->user_id, Request::input('ordinal_id')];
 
+        // **Antes** del borrado, y aquí el motivo está escrito en la cabecera de
+        // este método: una falta que cita un ordinal borrado sale en el observador
+        // del alumno con `descripcion` y `pagina` en null — el hueco ES el
+        // contenido. `CatalogoEnUso` impide borrar los que alguien cita, pero los
+        // que no cita nadie sí se van, y con esta línea el texto del artículo
+        // sobrevive al borrado en un sitio que no se puede editar.
+        $antes = $this->fotoDelOrdinal(Request::input('ordinal_id'));
+
         DB::delete($consulta, $datos);
+
+        Auditoria::registrar()
+            ->borrar('dis_ordinal', is_numeric(Request::input('ordinal_id')) ? (int) Request::input('ordinal_id') : null)
+            ->en(year: isset($antes['year_id']) && is_numeric($antes['year_id']) ? (int) $antes['year_id'] : null)
+            ->de($antes)
+            ->guardar();
 
         return 'Eliminado';
     }

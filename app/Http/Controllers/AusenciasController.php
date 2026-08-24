@@ -9,8 +9,10 @@ use App\User;
 use App\Models\Alumno;
 use App\Models\Grupo;
 use App\Models\Ausencia;
+use App\Services\Auditoria;
 use App\Models\Asignatura;
 use Carbon\Carbon;
+use App\Support\NombreDelAlumno;
 
 
 /*
@@ -68,6 +70,52 @@ class AusenciasController extends Controller {
 		return $resultado;
 	}
 
+	/**
+	 * La línea de auditoría de una falta, que es idéntica en las seis rutas.
+	 *
+	 * Se saca a un ayudante y no se copia seis veces por el motivo que este
+	 * módulo ya conoce: `crearFaltaModal` repite el mismo botón «Eliminar» tres
+	 * veces y **solo uno mira el rol**, que es exactamente lo que pasa cuando la
+	 * misma decisión se escribe en varios sitios. Seis copias de esto acabarían
+	 * siendo seis criterios, que es de lo que viene la fase 3 entera.
+	 *
+	 * El nombre del alumno **se congela dentro de la línea**, y cuesta una consulta
+	 * por petición: cada una de estas seis rutas escribe **una** falta, así que no
+	 * hay bucle que multiplicarlo. (Los dos caminos que sí escriben en bucle —el
+	 * lector de tardanzas y `notas/lote`— resuelven el lote entero de una vez con
+	 * `NombreDelAlumno::deVarios()`.)
+	 *
+	 * No es adorno: sin el nombre, la frase de serie dice «Fulano borró ausencia
+	 * 4821» —un verbo, una entidad y un id—, y **una línea cuya descripción no se
+	 * puede leer no cuenta como cableada**. Es lo que le pasa hoy a `bitacoras`,
+	 * medido contra el cuerpo crudo: manda `descripcion: null` en las 22 filas.
+	 */
+	private function anotar(string $accion, Ausencia $aus): void
+	{
+		$alumnoDeLaLinea = $aus->alumno_id === null ? null : (int) $aus->alumno_id;
+
+		$linea = Auditoria::registrar()
+			->deAlumno($alumnoDeLaLinea, NombreDelAlumno::de($alumnoDeLaLinea))
+			->en(asignatura: $aus->asignatura_id === null ? null : (int) $aus->asignatura_id,
+				periodo: $aus->periodo_id === null ? null : (int) $aus->periodo_id);
+
+		$valor = [
+			'tipo' => $aus->tipo,
+			'fecha_hora' => (string) $aus->fecha_hora,
+			'cantidad_ausencia' => $aus->cantidad_ausencia,
+			'cantidad_tardanza' => $aus->cantidad_tardanza,
+		];
+
+		match ($accion) {
+			Auditoria::CREAR => $linea->crear('ausencia', (int) $aus->id)->a($valor),
+			Auditoria::BORRAR => $linea->borrar('ausencia', (int) $aus->id)->de($valor),
+			default => $linea->editar('ausencia', (int) $aus->id)->a($valor),
+		};
+
+		$linea->guardar();
+	}
+
+
 	public function postStore()
 	{
 		$user = User::fromToken();
@@ -93,6 +141,11 @@ class AusenciasController extends Controller {
 		}
 
 		$aus->save();
+		// Hasta hoy anotar una falta no dejaba rastro de ningún tipo: ni en
+		// `bitacoras` ni en ninguna otra parte. Una falta que sale en el boletín
+		// y en el observador, y nadie sabía quién la había puesto.
+		$this->anotar(Auditoria::CREAR, $aus);
+
 		return $aus;
 	}
 
@@ -113,6 +166,9 @@ class AusenciasController extends Controller {
 		$aus->tipo 				= 'ausencia';
 
 		$aus->save();
+
+		$this->anotar(Auditoria::CREAR, $aus);
+
 		return $aus;
 	}
 
@@ -132,6 +188,9 @@ class AusenciasController extends Controller {
 		$aus->tipo 				= 'tardanza';
 
 		$aus->save();
+
+		$this->anotar(Auditoria::CREAR, $aus);
+
 		return $aus;
 	}
 
@@ -183,6 +242,12 @@ class AusenciasController extends Controller {
 		$aus->updated_by		= $user->user_id;
 
 		$aus->save();
+
+		// Corregir el día de una falta lo puede hacer cualquiera del personal —es
+		// una decisión tomada, no un olvido (ver la cabecera de este método)—, y
+		// justamente por eso el rastro es lo único que queda.
+		$this->anotar(Auditoria::EDITAR, $aus);
+
 		return $aus;
 	}
 
@@ -204,6 +269,9 @@ class AusenciasController extends Controller {
 		
 		$aus->updated_by		= $user->user_id;
 		$aus->save();
+
+		$this->anotar(Auditoria::EDITAR, $aus);
+
 		return $aus;
 	}
 
@@ -231,7 +299,20 @@ class AusenciasController extends Controller {
 		$aus = Ausencia::findOrFail($id);
 		$aus->deleted_by = $user->user_id;
 		$aus->save();
+
+		// **Antes** del `delete()`, y con `de(...)`: la línea guarda lo que la
+		// falta ERA. Después del borrado suave la fila sigue ahí, pero la
+		// pregunta que el colegio hace cuando alguien reclama es «qué falta se
+		// borró», y eso es el valor viejo.
+		//
+		// Es la mitad que faltaba de lo que se cerró el 22 ago: `deleted_by` dice
+		// quién, y en la copia de producción de ese día había **5.689 ausencias
+		// borradas y 5.684 sin autor**. `deleted_by` no dice cuándo ni qué; esta
+		// línea sí, y no se puede borrar.
+		$this->anotar(Auditoria::BORRAR, $aus);
+
 		$aus->delete();
+
 		return $aus;
 	}
 

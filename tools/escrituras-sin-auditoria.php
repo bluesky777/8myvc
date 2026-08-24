@@ -15,6 +15,36 @@
  * es el titular del documento, y esto es lo que la vuelve a medir sola.
  *
  * ─────────────────────────────────────────────────────────────────────────────
+ * LO QUE NO VE, Y CASI CIERRA UN LOTE A MEDIAS — 25 ago 2026
+ *
+ * **Sólo cuenta `DB::insert/update/delete/statement`. NO ve las escrituras de
+ * Eloquent** —`$modelo->save()`, `Model::create()`, `->update()`, `->delete()`—.
+ *
+ * Medido al cerrar AUD-4: este detector dice **32** donde el lote tenía **52**
+ * llamadas a `Auditoria::registrar()` en 21 ficheros. Los dos números son
+ * correctos; **miden cosas distintas**. Y lo que lo hace peligroso no es el hueco,
+ * es de qué lado cae:
+ *
+ *     `AusenciasController`, `FrasesController`, `FrasesAsignaturaController` y
+ *     `DefinicionesComportamientoController` NO APARECEN NUNCA en su listado.
+ *
+ * O sea que **trabajar desde su lista habría cerrado la fase sin las ausencias y
+ * sin dos de las tres familias de frases — y este detector habría dado luz
+ * verde**. Un detector que no ve un dominio entero no lo marca como pendiente: lo
+ * marca como hecho.
+ *
+ * Es la regla de la casa aplicada aquí: **un detector da sitios donde mirar, nunca
+ * una lista de fallos**, y su reverso, que es el que muerde — **un «no sale en la
+ * lista» no es un «no está»**.
+ *
+ * Y una segunda, de uso y no de código: **vuelve a correrlo después de cada
+ * mitad.** Un detector cambia lo que ve cuando cambia el código que mira. Las tres
+ * últimas cosas que encontró AUD-4 —las dos ramas de crear de
+ * `DefinitivasPeriodosController`, que escribían una definitiva sin rastro en
+ * ninguna de las dos tablas, y los bucles de `dependencias` de
+ * `DisciplinaController`— salieron de la segunda pasada, no de la primera.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
  * POR QUÉ ESTO ES `.php` Y NO EL `.py` QUE NOMBRA EL PLAN
  *
  * Porque la pregunta «¿esto es una escritura?» la contesta **exacta** el

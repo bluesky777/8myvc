@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Disciplina\DisciplinaController;
 use App\User;
 use App\Models\NotaComportamiento;
+use App\Services\Auditoria;
 use App\Models\Grupo;
 use App\Models\Alumno;
 use App\Models\Frase;
@@ -15,6 +16,7 @@ use App\Models\Matricula;
 use \Log;
 
 use Carbon\Carbon;
+use App\Support\NombreDelAlumno;
 
 
 class ComportamientoController extends Controller {
@@ -105,6 +107,11 @@ class ComportamientoController extends Controller {
 		$consulta   = Matricula::$consulta_asistentes_o_matriculados_simat;
 		$alumnos 	= DB::select($consulta, [$grupo->id]);
 
+		// Una consulta para el grupo entero, antes del bucle: este observador puede
+		// crear el libro rojo de los cuarenta alumnos en la primera visita y cada
+		// alta lleva su línea con el nombre congelado dentro.
+		NombreDelAlumno::deVarios(array_column($alumnos, 'alumno_id'));
+
 		for ($j=0; $j < count($alumnos); $j++) { 
 			// Datos de disciplina (situaciones, tardanzas)
 			$discCtrl->datosAlumno($alumnos[$j], $user->year_id);
@@ -168,6 +175,27 @@ class ComportamientoController extends Controller {
 			}else{
 				$consulta_crear = 'INSERT INTO dis_libro_rojo (alumno_id, year_id, updated_by) VALUES (?,?,?)';
 				DB::insert($consulta_crear, [ $alumno->alumno_id, $user->year_id, $user->user_id ]);
+
+				// `porElSistema()`, igual que en `NotaComportamientoController`: el
+				// libro rojo nace solo al abrir el observador, y quien lo abrió no
+				// decidió crearlo. Anotarlo como suyo llenaría la pantalla de la
+				// fase 5 de altas automáticas y taparía las de verdad.
+				//
+				// Este bloque es idéntico al de `putObservadorPeriodo` y al de
+				// `NotaComportamientoController::getDetailed` —tres copias de la
+				// misma creación perezosa, que ya estaban así— y las tres se
+				// instrumentan igual. Unificarlas es otro lote: aquí sólo se añade
+				// el rastro.
+				$alumnoDeLaLinea = $alumno->alumno_id === null ? null : (int) $alumno->alumno_id;
+
+				Auditoria::registrar()
+					->crear('dis_libro_rojo', (int) DB::getPdo()->lastInsertId())
+					->porElSistema()
+					->deAlumno($alumnoDeLaLinea, NombreDelAlumno::de($alumnoDeLaLinea))
+					->en(year: (int) $user->year_id)
+					->resumen('El libro rojo se creó al abrir el observador')
+					->guardar();
+
 				$consulta 	= 'SELECT d.* FROM dis_libro_rojo d 
 					WHERE alumno_id=? and d.year_id=? and d.deleted_at is null';
 					
@@ -230,6 +258,11 @@ class ComportamientoController extends Controller {
 		
 		$consulta   = Matricula::$consulta_asistentes_o_matriculados_simat;
 		$alumnos 	= DB::select($consulta, [$grupo->id]);
+
+		// Una consulta para el grupo entero, antes del bucle: este observador puede
+		// crear el libro rojo de los cuarenta alumnos en la primera visita y cada
+		// alta lleva su línea con el nombre congelado dentro.
+		NombreDelAlumno::deVarios(array_column($alumnos, 'alumno_id'));
 
 		for ($j=0; $j < count($alumnos); $j++) { 
 			// Datos de disciplina (situaciones, tardanzas)
@@ -294,6 +327,27 @@ class ComportamientoController extends Controller {
 			}else{
 				$consulta_crear = 'INSERT INTO dis_libro_rojo (alumno_id, year_id, updated_by) VALUES (?,?,?)';
 				DB::insert($consulta_crear, [ $alumno->alumno_id, $user->year_id, $user->user_id ]);
+
+				// `porElSistema()`, igual que en `NotaComportamientoController`: el
+				// libro rojo nace solo al abrir el observador, y quien lo abrió no
+				// decidió crearlo. Anotarlo como suyo llenaría la pantalla de la
+				// fase 5 de altas automáticas y taparía las de verdad.
+				//
+				// Este bloque es idéntico al de `putObservadorPeriodo` y al de
+				// `NotaComportamientoController::getDetailed` —tres copias de la
+				// misma creación perezosa, que ya estaban así— y las tres se
+				// instrumentan igual. Unificarlas es otro lote: aquí sólo se añade
+				// el rastro.
+				$alumnoDeLaLinea = $alumno->alumno_id === null ? null : (int) $alumno->alumno_id;
+
+				Auditoria::registrar()
+					->crear('dis_libro_rojo', (int) DB::getPdo()->lastInsertId())
+					->porElSistema()
+					->deAlumno($alumnoDeLaLinea, NombreDelAlumno::de($alumnoDeLaLinea))
+					->en(year: (int) $user->year_id)
+					->resumen('El libro rojo se creó al abrir el observador')
+					->guardar();
+
 				$consulta 	= 'SELECT d.* FROM dis_libro_rojo d 
 					WHERE alumno_id=? and d.year_id=? and d.deleted_at is null';
 					

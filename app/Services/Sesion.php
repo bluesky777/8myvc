@@ -490,5 +490,30 @@ class Sesion
                 (int) $token->tokenable_id,
             ]
         );
+
+        /*
+         * El rastro nuevo, al lado del viejo (18 §4). Y la decisión que hay
+         * detrás de `sinActor`, que es lo único no obvio de esta línea:
+         *
+         * `bitacoras` escribe arriba `created_by = $token->tokenable_id`, o sea
+         * **afirma que el dueño del token fue quien lo presentó**. Eso es
+         * exactamente lo contrario de lo que este suceso significa: un refresco ya
+         * rotado presentado de nuevo es la señal de que el token **puede estar en
+         * otras manos**, y atribuirlo a su dueño convierte la única fila que
+         * documenta el robo en una fila que acusa a la víctima.
+         *
+         * Lo que sí se sabe es de quién es el token, y eso es una identidad
+         * *pretendida*, no comprobada: va a `actor_intentado`, que es la columna
+         * que existe para eso. La consulta extra es de un `SELECT` por id sobre
+         * `users` y sólo ocurre en un suceso de seguridad, que por definición es
+         * raro; a cambio, la fila se puede leer sin salir a buscar a nadie.
+         */
+        $dueno = DB::selectOne('SELECT username FROM users WHERE id = ?', [(int) $token->tokenable_id]);
+
+        Auditoria::registrar()
+            ->denegado('refresco_reutilizado', (int) $token->getKey())
+            ->sinActor($dueno->username ?? null)
+            ->resumen('Refresco ya rotado presentado de nuevo. Sesión: '.$token->name)
+            ->guardar();
     }
 }

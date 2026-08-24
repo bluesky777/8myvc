@@ -201,7 +201,7 @@ dirección tranquilizadora. La lista se hacía más corta según avanzaba el tra
 | `Nota::verificarCrearNotas` | `NotasController::putDetailed` | **NO** — ya documentado y congelado (10 §3) |
 | `NotaComportamiento::crearVerifNota` | `NotaComportamientoController::getDetailed` | **NO** — el caso que abrió esto; es del lote P |
 | **`NotaFinal::alumnos_grupo_nota_final`** | **`DefinitivasPeriodosController::getIndex`** | **NO** |
-| `NotaFinal::calcularAsignaturaPeriodo` | `Subunidades`/`Unidades` `putUpdate` y `deleteDestroy` | **sí, los cuatro** |
+| `NotaFinal::calcularAsignaturaPeriodo` | ~~`Subunidades`/`Unidades` `putUpdate` y `deleteDestroy`~~ · **hoy: ninguno** | ~~**sí, los cuatro**~~ · *las cuatro llamadas se quitaron al cablear el recalculador único (fase 3). Comprobado el 25 ago: cero llamadas en `app/`. Ver [10 §0](../10-definitivas.md)* |
 
 La tercera fila es nueva y no es de nadie: **`GET api/definitivas_periodos`** —el
 índice, con `auth.token` y nada más— llama a `alumnos_grupo_nota_final`, que hace

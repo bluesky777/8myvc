@@ -25,7 +25,7 @@ el día que esto envejezca:
 
 | | | comprobado con |
 |---|---|---|
-| Migraciones nuevas | **ninguna** | `git diff --name-only a82cec3 HEAD -- database/migrations/ database/schema/` sale vacío. Las últimas siguen siendo las tres del 21 ago |
+| Migraciones nuevas | **DOS, y una es bloqueante** | `git diff --name-only a82cec3 HEAD -- database/migrations/ database/schema/` da `2026_08_24_100000_boletin_independiente_esqueleto` y `2026_08_24_120000_create_auditoria_table`. **Esta fila decía «ninguna» hasta el 25 ago y era el número más peligroso del documento**: se midió antes de fundir las cuatro ramas de la noche del 24 y nadie la volvió a medir. Ver el aviso de debajo |
 | Rutas | **539 antes y 542 después** | Tres nuevas, todas del 24 ago y todas para la app: `PUT notas/lote`, `GET disciplina/mis-fichas/{alumno_id?}` y `GET notificaciones/temas`. Ninguna quita ni cambia nada — ver la §5.b, que lleva la condición de publicación del cliente. Comprobable con `tests/Contrato/Snapshots/rutas.json` |
 | Dependencias | **sin tocar** | `git diff --name-only a82cec3 HEAD -- composer.json composer.lock` sale vacío |
 | `config/` | **un fichero nuevo**, `config/notificaciones.php` | `git diff --name-only a82cec3 HEAD -- config/`. **No obliga a tocar ningún `.env`**: sin credenciales el comando no manda nada y lo dice, y el secreto sale de `APP_KEY` |
@@ -281,11 +281,139 @@ done
 Repítelo en la otra cuenta de cPanel (`lalvirtual.edu.co`) con su propia ruta: es
 otro login, así que el `for` no la alcanza.
 
-> **Sin migraciones, el `migrate --force` no aplica nada** y se deja donde está:
-> correrlo es idempotente y el día que haya una, el orden ya es el bueno. Si el
-> comportamiento sigue siendo el viejo con el código nuevo en su sitio, lo que hay
-> que mirar es **OPcache**, no el `.env` — trampa 1b de la
+> ## AVISO: **el `migrate --force` de este bucle ya no es opcional** — 25 ago
+>
+> Hasta el 24 esta tanda no traía migraciones y el `migrate` estaba puesto por
+> higiene. **Ya no.** `2026_08_24_100000_boletin_independiente_esqueleto` crea
+> `bol_ind_periodos`, y **el código que va en la misma tanda la consulta en un
+> camino vivo**: `App\Models\Unidad:112` llama a
+> `BoletinIndependiente::alcance()`, que hace `LEFT JOIN bol_ind_periodos`. Los
+> boletines pasan por ahí.
+>
+> **Un colegio que reciba el código y no la migración devuelve 500 en las pantallas
+> de boletines**, con este mensaje y no otro:
+>
+> ```
+> SQLSTATE[42S02]: Base table or view not found: 1146
+> Table '<colegio>.bol_ind_periodos' doesn't exist
+> ```
+>
+> **Comprobado, no supuesto**: la base de desarrollo `simonbolivar` tiene el código
+> fundido y **no** la tabla, y da exactamente ese 500. Lo encontró
+> `myvc-front-94` abriendo la pantalla en Chrome — **ninguna suite nuestra lo
+> habría visto**, porque las bases de test sí llevan la migración.
+>
+> Consecuencias para el bucle, y las tres importan:
+>
+> 1. **El `migrate --force` va donde está —justo después del `git pull`— y no se
+>    salta.** Entre las dos líneas hay una ventana en la que ese colegio da 500;
+>    es de segundos, pero existe, así que **no se hace el bucle en horario de
+>    clase si se puede evitar**.
+> 2. **Si el `git pull` de un colegio falla y el `migrate` no**, o al revés, ese
+>    colegio queda con las dos mitades desparejadas. **Para en seco y arréglalo
+>    antes de pasar al siguiente**: el bucle es idempotente, volver a entrar no
+>    hace daño.
+> 3. **Y esta fila se vuelve a medir cada vez que crece la tanda.** Decía
+>    «ninguna» porque se midió antes de fundir cuatro ramas, y **una tabla que
+>    dice «medido» con un número viejo es peor que no tenerla** — el propio
+>    documento lo dice dos párrafos más arriba, y aun así pasó.
+>
+> Si el comportamiento sigue siendo el viejo con el código nuevo en su sitio, lo
+> que hay que mirar es **OPcache**, no el `.env` — trampa 1b de la
 > [referencia](DESPLIEGUE-REFERENCIA.md).
+
+### El bucle del front (`up/`) — escrito el 25 ago, **con dos huecos marcados**
+
+**No estaba en este documento y llevaba tres semanas sin estarlo.** No porque
+faltara la información —la estructura `<colegio>/{8myvc,up}` está en la
+[referencia](DESPLIEGUE-REFERENCIA.md), líneas 25 y 202— sino porque **nadie había
+escrito el bucle**. Lo levantó la coordinación del front buscando dónde poner una
+casilla y encontrando que no existía; **la escribieron ellos y va aquí, que es
+donde la busca quien despliega.** Un procedimiento de despliegue viviendo en el
+documento de otro repositorio es un procedimiento que nadie encuentra el día del
+despliegue.
+
+**No es el bucle de arriba con la ruta cambiada, y esa era la trampa.**
+`myvc_dist` es un repositorio con remoto propio
+(`git@github.com:bluesky777/myvc_dist.git`, rama única `main`), así que **`up/` es
+un `git pull` de un artefacto ya construido**: no hay `migrate`, no hay
+`config:cache` ni `route:cache`. **Un `sed` de `/8myvc` a `/up` habría dejado
+dentro cuatro `php artisan` fallando colegio por colegio.**
+
+```bash
+# 1. construir UNA vez, en local, y meterlo en myvc_dist
+npm --prefix app2 run build          # sale en app2/dist/browser/, con --base-href /up/
+# copiar dist/browser/* al repo myvc_dist, commit y push
+#    OJO: images/Logo_Colegio_Header.gif NO se versiona (es de cada colegio)
+
+# 2. traerlo en cada colegio
+for d in /home/micolev1/*.micolevirtual.com/up; do
+  echo "=== $d"; cd "$d" || continue
+  git pull
+done
+
+# 3. repetir a mano en la SEGUNDA cuenta de cPanel (lalvirtual.edu.co):
+#    es otro login y el `for` de arriba no la alcanza.
+```
+
+**Si un `git pull` imprime algo inesperado, para en seco** — arriba eso es
+`composer.lock`; **aquí es un conflicto en el `dist`, o sea que alguien editó a
+mano en el servidor**. Es la que va a ocurrir de verdad.
+
+> #### Los dos huecos, y están marcados porque son huecos
+>
+> 1. **¿La ruta es exactamente `…/up`?** La estructura documentada dice que sí y
+>    **nadie ha corrido este bucle**, así que nadie lo ha visto.
+> 2. **¿Quién copia `dist/browser/*` a `myvc_dist`, y con qué?** **No hay guion, ni
+>    hook, ni README en ese repositorio**; los commits son de Joseth y ponen
+>    `build: …`. **Es el único paso de toda la cadena de despliegue —backend y
+>    front— que no existe fuera de su cabeza**, y por eso está en la lista de la
+>    mañana como pregunta directa y no como observación.
+>
+> Un hueco escrito como hueco cuesta una pregunta; un hueco rellenado a ojo cuesta
+> dieciséis colegios.
+
+> #### Y antes de la primera tanda de `app2`, dos cosas que hoy lo impiden
+>
+> Las dos medidas por la coordinación del front contra Apache de verdad y el build
+> de verdad, y las dos **cerradas en su repositorio pero sin desplegar**:
+>
+> - **`app2` no arrancaba desde `up/`**: llevaba `<base href="/">` y pedía sus
+>   `chunk` contra la raíz del dominio — once recursos en 404 y pantalla en blanco,
+>   **no «se rompe al recargar»**. Cerrado con `--base-href /up/`, verificado en el
+>   artefacto (`dist/browser/` con `<base href="/up/">`).
+> - **La reescritura de una sola página va dentro de `up/`, nunca en la raíz.** El
+>   contrafactual está montado y visto fallar: con la regla en la raíz,
+>   `GET /8myvc/public/api/login` devuelve **200 `text/html`** con la aplicación
+>   Angular donde tenía que ir JSON. **Un fallo que llega como 200 con el cuerpo
+>   equivocado se diagnostica muchísimo peor que uno que llega como 404**: para el
+>   cliente no es un error de red, es JSON inválido, y eso manda a mirar a todas
+>   partes menos al `.htaccess`.
+> - Y la trampa que casi se lleva las dos: **el `.htaccess` estaba commiteado y no
+>   habría llegado a ningún colegio**, porque el glob `**/*` de `angular.json` **no
+>   casa con ficheros que empiezan por punto**. *Correcto, revisado, commiteado y
+>   mudo.*
+>
+> #### El ensayo: **pasó**, y con eso esta casilla deja de ser teórica
+>
+> Montado un colegio de verdad —Apache 2.4.66 con los módulos de los colegios,
+> `up/` con el build nuevo y su `.htaccess` dentro, y **este backend real por
+> `ProxyPass`**— y conducido en Chrome: entrar con `administrador`, cuatro
+> pantallas con datos, **F5 en cada una**, enlace profundo sin sesión, salir y
+> volver. **Cero errores y cero recursos en 404 en todas.**
+>
+> **Contra un servidor de mentira habría dado el mismo verde sin probar nada**:
+> que fuera el backend real es lo que lo hace utilizable.
+>
+> **Lo que NO se probó, dicho para que no se dé por probado:** el refresco
+> silencioso del par acceso/refresco, y **las pantallas de impresión e informes
+> pesados** —que son justo las que este documento tiene fichadas por dar 504 y
+> 500—. La caducidad por inactividad sí se vio, pero **por accidente**.
+>
+> Y un aviso para quien monte otro ensayo: **con un puerto que no sea el 80,
+> `app2` apunta la API a un sitio que no existe** — `entorno.ts` compone la URL
+> con `location.hostname` **sin puerto**. En producción da igual; **un colegio de
+> ensayo en un puerto raro parece otra cosa**.
 
 ### Los dieciséis de `micolev1`, y el que no entra
 
