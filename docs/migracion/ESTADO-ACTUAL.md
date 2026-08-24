@@ -195,12 +195,32 @@ mirar de quién eran: `$user` se resolvía y no se usaba.
 **Lo que hay:** lo propio siempre y sin permiso; lo de otro sólo con
 `can_view_auditoria`, sembrado por migración a `Rector` y `Coord académico`.
 
-> **Esto QUITA algo, y hay que decirlo en voz alta porque llega a los dieciséis.**
-> Un profesor que hoy abre `/panel/bitacora` o «quién cambió esta nota» **puede
-> dejar de poder**: eso lo gobernaba `califica`, que tiene cualquiera que ponga
-> notas. Es el endurecimiento que la decisión 4 ya había escrito, no un efecto
-> colateral. **Si un colegio quiere que sigan entrando, se les siembra el permiso** —
-> la respuesta no es revertir esto.
+> **Esto QUITA algo, y cae en la pantalla principal del docente — no en un rincón.**
+> Lo corrigió `myvc-front-23` grepeando los dos frontales, y va aquí porque **yo lo
+> había escrito mal en la dirección que subestima**: dije `/panel/bitacora`, y esa
+> pantalla **no llama** a las dos rutas de 403-siempre (usa `GET bitacoras`, la que
+> conserva la mitad «lo tuyo»). Quien las llama es **la planilla de notas**
+> (`nota-detalle`) y **promocionar notas** (`nota-final-detalle`), detrás de «Ver
+> historial» + doble clic en la celda. **Y el disparador no es un permiso, es una
+> bandera de `localStorage`** —`historial_activado`— que enciende cualquiera: para
+> un docente sin `can_view_auditoria` el 403 es **garantizado y repetible, en su
+> herramienta de todos los días**.
+>
+> No cambia la decisión 4 —esas dos preguntan por una **nota** y contestan quién la
+> cambió, con nombre, así que no hay mitad «lo tuyo»—, **cambia el volumen y dónde
+> mirar cuando llegue el reporte**. Si un colegio quiere que sigan entrando, **se les
+> siembra el permiso**; la respuesta no es revertir esto.
+>
+> **El hueco dura minutos, no semanas:** el reparto a `Rector` y `Coord académico`
+> corre **dentro de la migración**, así que en cada colegio el permiso existe y está
+> dado en el mismo `migrate` que trae el guard. No hay ventana con el guard puesto y
+> el permiso ausente.
+>
+> > **Y la lección, que es de esta casa:** el radio de impacto de un cambio de
+> > autorización **no se mide en el repositorio que lo hace**. Até el 403 a la
+> > pantalla que tenía a mano —la de auditoría, que es de la que iba el lote— y la que
+> > lo recibe es **de otro dominio entero**. Misma forma que el detector que no ve
+> > Eloquent: *el universo de lo que miras no es el universo de lo que pasa*.
 
 **Ninguna ruta nueva** (siguen **542**), ningún cuerpo cambia de forma, ningún campo
 se retira. Lo único que cambia es **quién recibe 403 donde antes recibía 200**.

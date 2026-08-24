@@ -234,3 +234,70 @@ Y el ayudante que los tres necesitan —`darPermisoDeAuditoria()`— vive en
 `CasoDeContrato` y **monta permiso, rol y asignación por la vía real**, no
 inventando una columna: es como el permiso llega a `perms` en el contexto. Un atajo
 ahí comprobaría un camino que en producción no existe.
+
+---
+
+## 9. El radio de impacto era otro, y lo corrigió el front — 25 ago
+
+**Este documento decía que el que pierde algo es «un profesor que hoy entra a
+`/panel/bitacora`». Es falso, y falso en la dirección que subestima.** Lo midió
+`myvc-front-23` grepeando **los dos frontales**, que es donde estaba la respuesta y
+no en este repositorio.
+
+**`/panel/bitacora` no llama a `nota-detalle` ni a `nota-final-detalle`.** Usa `GET
+bitacoras` y `GET bitacoras/{id}` — o sea **la primera fila de la tabla del §4, la
+que sí conserva la mitad «lo tuyo»**. Los cuatro únicos llamantes de las dos rutas
+de 403-siempre son otros:
+
+| Ruta | Quién la llama de verdad |
+|---|---|
+| `PUT historiales/nota-detalle` | **la planilla de notas** — `app/scripts/notas/NotasCtrl.ts:1310` y `app2/…/paginas/notas/detalle-nota.ts:123` |
+| `PUT historiales/nota-final-detalle` | **promocionar notas** — `app/scripts/alumnos/PromocionarNotasCtrl.ts:601` y `app2/…/paginas/promocionar-notas/detalle-definitiva.ts:89` |
+
+**O sea que el 403 no cae en una pantalla de auditoría a la que se entra de vez en
+cuando: cae en la pantalla principal del docente**, detrás de «Ver historial» + doble
+clic en la celda.
+
+**Y el disparador no es un permiso, es una bandera de `localStorage`.**
+`historial_activado` (`NotasCtrl.ts:344`, `planilla-notas.ts:156`) la enciende
+cualquiera. Así que para un docente sin `can_view_auditoria` el 403 no es un caso
+raro: es **garantizado y repetible, en su herramienta de todos los días**.
+
+> **Lo que esto NO cambia:** el razonamiento de la decisión 4 sigue entero — esas
+> dos rutas preguntan por una **nota** y contestan **quién la cambió, con nombre**,
+> así que no hay mitad «lo tuyo» que dejar abierta. **Lo que cambia es el volumen y
+> el sitio donde mirar cuando llegue el reporte**, y eso es justo lo que hay que
+> saber antes de desplegar, no después.
+>
+> **Y la lección de método, que es de esta casa:** el radio de impacto de un cambio
+> de autorización **no se mide en el repositorio que lo hace**. Yo até el 403 a la
+> pantalla que tenía a mano —la de auditoría, que es de la que iba el lote— y la
+> pantalla que lo recibe **es de otro dominio entero**. Es la misma forma que el
+> detector que no ve Eloquent: *el universo de lo que miras no es el universo de lo
+> que pasa*.
+
+### Y la degradación elegante ya estaba escrita, que es lo que hace que duela
+
+Los cuatro sitios **ya capturan el fallo** —`toastr.warning('No se pudo traer el
+historial.')` en la vieja, `aviso.error(...)` en la nueva— así que nadie va a ver un
+error de red crudo. **El problema es el texto**: está escrito para un fallo
+**ocasional**, y tras esto pasa a ser un **estado permanente** para todo docente sin
+el permiso. *«No se pudo traer el historial» repetido cada vez se lee como «el
+sistema está roto», no como «no tienes acceso».* El arreglo es del front y ellos lo
+tienen anotado.
+
+### La pregunta que hicieron, contestada: el sembrado NO es un paso manual
+
+Preguntaron si el reparto a `Rector` y `Coord académico` corre en la migración o
+queda como paso manual por colegio, porque con dieciséis despliegues **eso decide si
+el hueco dura minutos o semanas**.
+
+**Corre dentro de la migración** (`up()`, §3 de este documento). En cada colegio, el
+permiso existe y está repartido **en el mismo `php artisan migrate` que trae el
+cambio**: no hay ventana en la que el guard esté puesto y el permiso no exista. Es
+exactamente la razón por la que esta migración siembra y la del Secretario no.
+
+**Y ellos hacen bien en no gatear el botón todavía.** Ocultarlo por
+`can_view_auditoria` **hoy**, antes de que la migración corra, lo escondería **a todo
+el mundo, rector incluido** — el permiso aún no existe sembrado en ningún colegio.
+Es la trampa inversa, y la vieron solos.
