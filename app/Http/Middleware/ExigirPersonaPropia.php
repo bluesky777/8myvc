@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\Auditoria;
 use App\Support\Reloj;
 use App\User;
 use Closure;
@@ -309,5 +310,26 @@ class ExigirPersonaPropia
                 Reloj::ahora(),
             ]
         );
+
+        /*
+         * El rastro nuevo, **al lado del viejo y sin quitarlo**: `bitacoras`
+         * sigue escribiéndose hasta que el front deje de leerla y eso va detrás
+         * del despliegue (18 §4, JUB-1).
+         *
+         * `denegado` y no una de las cuatro escrituras, que es la distinción que
+         * `bitacoras` no sabe hacer: aquí **no se guardó nada**, se rechazó. Con
+         * `affected_element_type = 'AlumnoPideAjeno:user_id'` la fila vieja se lee
+         * igual que una edición, y en la pantalla de «qué hizo en este ingreso»
+         * aparecería diciendo lo contrario de lo que pasó.
+         *
+         * El `?: null` no es cosmético: la rama del tipo declarado llama con
+         * `$valor = 0` —no hay id que señalar— y un 0 en `entidad_id` es un id
+         * que no existe disfrazado de id que sí, que es justo lo que hacía
+         * `Login.php` con `created_by = 0`.
+         */
+        Auditoria::registrar()
+            ->denegado('persona', $valor ?: null)
+            ->resumen($usuario->tipo.' pidió `'.$clave.'` de otra persona')
+            ->guardar();
     }
 }

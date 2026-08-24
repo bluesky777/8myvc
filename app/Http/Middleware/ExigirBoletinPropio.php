@@ -2,6 +2,8 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\Auditoria;
+use App\Support\NombreDelAlumno;
 use App\Support\Reloj;
 use App\User;
 use Closure;
@@ -176,5 +178,21 @@ class ExigirBoletinPropio
                 Reloj::ahora(),
             ]
         );
+
+        /*
+         * Igual que en `ExigirPersonaPropia`: se añade el rastro nuevo y **no se
+         * retira el viejo**.
+         *
+         * `$alumnoId` puede ser null —las dos rutas `-group` piden el grupo
+         * entero y no nombran a nadie—, y ahí `deAlumno(null)` es la respuesta
+         * honesta: se pidió de más, no se pidió de alguien.
+         */
+        $alumnoDeLaLinea = $alumnoId;
+
+        Auditoria::registrar()
+            ->denegado('boletin', $alumnoId)
+            ->deAlumno($alumnoDeLaLinea, NombreDelAlumno::de($alumnoDeLaLinea))
+            ->resumen($tipo)
+            ->guardar();
     }
 }

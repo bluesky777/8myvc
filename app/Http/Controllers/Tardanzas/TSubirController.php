@@ -10,9 +10,11 @@ use App\Models\Debugging;
 use App\Support\Credenciales;
 use App\User;
 use App\Models\Ausencia;
+use App\Services\Auditoria;
 
 use Carbon\Carbon;
 use \DateTime;
+use App\Support\NombreDelAlumno;
 
 
 class TSubirController extends Controller {
@@ -85,6 +87,15 @@ class TSubirController extends Controller {
 
 		$ausencias_to_create = Request::input('ausencias_to_create');
 
+		// Los nombres de todo el lote **en una sola consulta**, antes de entrar al
+		// bucle. Cada línea de auditoría congela el nombre del alumno dentro (18
+		// §2.4), y éste es el camino de más volumen del módulo: el lector sube el
+		// recreo entero en una petición. Resolverlos de uno en uno duplicaría el
+		// coste del endpoint — dentro del bucle `de()` ya no consulta nada.
+		NombreDelAlumno::deVarios(array_column(
+			is_array($ausencias_to_create) ? $ausencias_to_create : [], 'alumno_id'
+		));
+
 		foreach ($ausencias_to_create as $key => $ausencia_to) {
 
 			if ($ausencia_to['uploaded'] == 'to_delete') {
@@ -94,6 +105,25 @@ class TSubirController extends Controller {
 					$aus->uploaded 		= 'deleted';
 					$aus->deleted_by 	= $user->id;
 					$aus->save();
+
+					// Una línea por falta y no una por subida: el lector sube el
+					// recreo entero de una vez, y la pregunta que el colegio hace es
+					// «quién borró ESTA falta».
+					$alumnoDeLaLinea = $aus->alumno_id === null ? null : (int) $aus->alumno_id;
+
+					Auditoria::registrar()
+						->borrar('ausencia', (int) $aus->id)
+						->deAlumno($alumnoDeLaLinea, NombreDelAlumno::de($alumnoDeLaLinea))
+						->en(asignatura: $aus->asignatura_id === null ? null : (int) $aus->asignatura_id,
+							periodo: $aus->periodo_id === null ? null : (int) $aus->periodo_id)
+						->de([
+							'tipo' => $aus->tipo,
+							'fecha_hora' => (string) $aus->fecha_hora,
+							'cantidad_ausencia' => $aus->cantidad_ausencia,
+							'cantidad_tardanza' => $aus->cantidad_tardanza,
+						])
+						->guardar();
+
 					$aus->delete();
 				}
 				
@@ -132,6 +162,30 @@ class TSubirController extends Controller {
 					':updated_at'			=> $dt,
 				]);
 
+				// El camino de más volumen de los dos: el lector de tardanzas sube
+				// todas las faltas del recreo en una petición. Se audita **dentro
+				// del bucle**, con el id que acaba de dar la base — auditar la
+				// subida entera daría una línea por petición y buscar una falta
+				// concreta no encontraría nada.
+				//
+				// El valor sale del cuerpo y no de una relectura, y aquí sí es lo
+				// correcto: releer cada fila costaría una consulta por falta en el
+				// camino que más filas escribe.
+				$alumnoDeLaLinea = isset($ausencia_to['alumno_id']) ? (int) $ausencia_to['alumno_id'] : null;
+
+				Auditoria::registrar()
+					->crear('ausencia', (int) DB::getPdo()->lastInsertId())
+					->deAlumno($alumnoDeLaLinea, NombreDelAlumno::de($alumnoDeLaLinea))
+					->en(asignatura: isset($ausencia_to['asignatura_id']) ? (int) $ausencia_to['asignatura_id'] : null,
+						periodo: isset($ausencia_to['periodo_id']) ? (int) $ausencia_to['periodo_id'] : null)
+					->a([
+						'tipo' => $ausencia_to['tipo'] ?? null,
+						'fecha_hora' => $ausencia_to['fecha_hora'] ?? null,
+						'cantidad_ausencia' => $ausencia_to['cantidad_ausencia'] ?? null,
+						'cantidad_tardanza' => $ausencia_to['cantidad_tardanza'] ?? null,
+					])
+					->guardar();
+
 			}
 			
 
@@ -155,7 +209,32 @@ class TSubirController extends Controller {
 		$ausencia->uploaded 	= 'deleted';
 		$ausencia->deleted_by 	= $user->id;
 		$ausencia->save();
+
+		// **Antes** del `delete()` y con `de(...)`: la línea guarda lo que la falta
+		// ERA, que es lo que el colegio pregunta cuando alguien reclama.
+		//
+		// Y ésta es la pregunta que ningún detector de escrituras encuentra: no es
+		// *«quién escribe aquí»* sino ***«quién puede quitar de aquí»***. Borrar una
+		// falta lo puede hacer cualquiera del personal —decidido el 22 ago 2026, y
+		// a propósito—, así que el rastro es lo único que queda; `deleted_by` dice
+		// quién y no dice qué.
+		$alumnoDeLaLinea = $ausencia->alumno_id === null ? null : (int) $ausencia->alumno_id;
+
+		Auditoria::registrar()
+			->borrar('ausencia', (int) $ausencia->id)
+			->deAlumno($alumnoDeLaLinea, NombreDelAlumno::de($alumnoDeLaLinea))
+			->en(asignatura: $ausencia->asignatura_id === null ? null : (int) $ausencia->asignatura_id,
+				periodo: $ausencia->periodo_id === null ? null : (int) $ausencia->periodo_id)
+			->de([
+				'tipo' => $ausencia->tipo,
+				'fecha_hora' => (string) $ausencia->fecha_hora,
+				'cantidad_ausencia' => $ausencia->cantidad_ausencia,
+				'cantidad_tardanza' => $ausencia->cantidad_tardanza,
+			])
+			->guardar();
+
 		$ausencia->delete();
+
 		return 'Eliminada';
 
 	}
@@ -190,6 +269,29 @@ class TSubirController extends Controller {
 		$id = DB::getPdo()->lastInsertId();
 
 		$ausencia = Ausencia::findOrFail($id);
+
+		// El rastro de la falta, que hasta hoy no dejaba ninguno (18 §4, fase 4).
+		//
+		// Va **después** del `findOrFail`, y eso hace que la línea guarde lo que
+		// quedó ESCRITO en la fila y no lo que venía en el cuerpo. No es lo mismo:
+		// `tipo` y las dos cantidades entran a pelo desde la petición, sin
+		// validación —hay 2 validaciones en todo el proyecto—, y la columna las
+		// convierte en silencio. Auditar el cuerpo contaría lo que se pidió; esto
+		// cuenta lo que pasó.
+		$alumnoDeLaLinea = $ausencia->alumno_id === null ? null : (int) $ausencia->alumno_id;
+
+		Auditoria::registrar()
+			->crear('ausencia', (int) $ausencia->id)
+			->deAlumno($alumnoDeLaLinea, NombreDelAlumno::de($alumnoDeLaLinea))
+			->en(asignatura: $ausencia->asignatura_id === null ? null : (int) $ausencia->asignatura_id,
+				periodo: $ausencia->periodo_id === null ? null : (int) $ausencia->periodo_id)
+			->a([
+				'tipo' => $ausencia->tipo,
+				'fecha_hora' => (string) $ausencia->fecha_hora,
+				'cantidad_ausencia' => $ausencia->cantidad_ausencia,
+				'cantidad_tardanza' => $ausencia->cantidad_tardanza,
+			])
+			->guardar();
 
 		return $ausencia;
 

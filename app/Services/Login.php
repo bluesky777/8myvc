@@ -128,6 +128,25 @@ class Login
              VALUES (?, ?, "intento_login", ?, 0)',
             [$maquina, $username, $ahora]
         );
+
+        /*
+         * El rastro nuevo, al lado del viejo (18 §4).
+         *
+         * `sinActor($username)` es la línea entera del cambio: el `created_by = 0`
+         * de arriba es **un id de usuario que no existe disfrazado de uno que sí**,
+         * y cualquier `JOIN users` sobre `bitacoras` lo pierde o lo cuenta mal. Un
+         * login fallido no tiene actor por definición —si lo tuviera, habría
+         * entrado—, y lo único que se sabe es el nombre que se tecleó: eso va a
+         * `actor_intentado`, que existe para no tener que mentir en `actor_nombre`.
+         *
+         * Sin `$ahora`: la hora la pone el servicio con el `Reloj`, que es una de
+         * las cinco cosas que quien llama no decide (18 §4.5).
+         */
+        Auditoria::registrar()
+            ->denegado('intento_login')
+            ->sinActor($username)
+            ->resumen($maquina)
+            ->guardar();
     }
 
     private function anotarEntrada(object $fila, Carbon $ahora): void

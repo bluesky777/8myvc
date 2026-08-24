@@ -11,11 +11,13 @@ use Illuminate\Support\Facades\DB;
 use App\Models\Debugging;
 use App\User;
 use App\Models\Ausencia;
+use App\Services\Auditoria;
 use App\Models\Grupo;
 use App\Models\Alumno;
 
 use Carbon\Carbon;
 use \DateTime;
+use App\Support\NombreDelAlumno;
 
 
 class AsistenciasAppController extends Controller {
@@ -169,6 +171,21 @@ class AsistenciasAppController extends Controller {
 			':updated_at'			=> $now,
 		];
 
+		/*
+		 * **Aquí no va la llamada a `Auditoria`, y la ausencia es la decisión.**
+		 *
+		 * Este método no escribe: el INSERT declara `:asignatura_id` y el array de
+		 * valores no lo trae, así que la consulta revienta antes de tocar la
+		 * tabla; y si llegara a pasar, la línea de abajo hace `$datos->id` sobre un
+		 * **array**, que en PHP 8 es un Error. Está medido y enrutado en
+		 * [05 §](../../../../docs/migracion/05-codigo-muerto-y-roto.md) — con ruta
+		 * y roto se documenta, no se borra.
+		 *
+		 * Instrumentarlo escribiría una línea de auditoría en un camino por el que
+		 * no pasa nadie, y la fase 5 lo enseñaría como una falta que se puso. El
+		 * día que se decida qué es `asignatura_id` en una asistencia, la llamada va
+		 * aquí y es la misma que la de `putPonerAusencia`.
+		 */
 		$ausenc = DB::insert($consulta, $datos);
 
 		$id         = DB::getPdo()->lastInsertId();
@@ -193,7 +210,32 @@ class AsistenciasAppController extends Controller {
 		$ausencia->uploaded 	= 'deleted';
 		$ausencia->deleted_by 	= $user->user_id;
 		$ausencia->save();
+
+		// **Antes** del `delete()` y con `de(...)`: la línea guarda lo que la falta
+		// ERA, que es lo que el colegio pregunta cuando alguien reclama.
+		//
+		// Y ésta es la pregunta que ningún detector de escrituras encuentra: no es
+		// *«quién escribe aquí»* sino ***«quién puede quitar de aquí»***. Borrar una
+		// falta lo puede hacer cualquiera del personal —decidido el 22 ago 2026, y
+		// a propósito—, así que el rastro es lo único que queda; `deleted_by` dice
+		// quién y no dice qué.
+		$alumnoDeLaLinea = $ausencia->alumno_id === null ? null : (int) $ausencia->alumno_id;
+
+		Auditoria::registrar()
+			->borrar('ausencia', (int) $ausencia->id)
+			->deAlumno($alumnoDeLaLinea, NombreDelAlumno::de($alumnoDeLaLinea))
+			->en(asignatura: $ausencia->asignatura_id === null ? null : (int) $ausencia->asignatura_id,
+				periodo: $ausencia->periodo_id === null ? null : (int) $ausencia->periodo_id)
+			->de([
+				'tipo' => $ausencia->tipo,
+				'fecha_hora' => (string) $ausencia->fecha_hora,
+				'cantidad_ausencia' => $ausencia->cantidad_ausencia,
+				'cantidad_tardanza' => $ausencia->cantidad_tardanza,
+			])
+			->guardar();
+
 		$ausencia->delete();
+
 		return 'Eliminada';
 
 	}
@@ -228,6 +270,29 @@ class AsistenciasAppController extends Controller {
 		$id = DB::getPdo()->lastInsertId();
 
 		$ausencia = Ausencia::findOrFail($id);
+
+		// El rastro de la falta, que hasta hoy no dejaba ninguno (18 §4, fase 4).
+		//
+		// Va **después** del `findOrFail`, y eso hace que la línea guarde lo que
+		// quedó ESCRITO en la fila y no lo que venía en el cuerpo. No es lo mismo:
+		// `tipo` y las dos cantidades entran a pelo desde la petición, sin
+		// validación —hay 2 validaciones en todo el proyecto—, y la columna las
+		// convierte en silencio. Auditar el cuerpo contaría lo que se pidió; esto
+		// cuenta lo que pasó.
+		$alumnoDeLaLinea = $ausencia->alumno_id === null ? null : (int) $ausencia->alumno_id;
+
+		Auditoria::registrar()
+			->crear('ausencia', (int) $ausencia->id)
+			->deAlumno($alumnoDeLaLinea, NombreDelAlumno::de($alumnoDeLaLinea))
+			->en(asignatura: $ausencia->asignatura_id === null ? null : (int) $ausencia->asignatura_id,
+				periodo: $ausencia->periodo_id === null ? null : (int) $ausencia->periodo_id)
+			->a([
+				'tipo' => $ausencia->tipo,
+				'fecha_hora' => (string) $ausencia->fecha_hora,
+				'cantidad_ausencia' => $ausencia->cantidad_ausencia,
+				'cantidad_tardanza' => $ausencia->cantidad_tardanza,
+			])
+			->guardar();
 
 		return $ausencia;
 

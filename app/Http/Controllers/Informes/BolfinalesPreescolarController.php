@@ -22,6 +22,7 @@ use App\Models\EscalaDeValoracion;
 use App\Models\Debugging;
 use App\Models\NotaComportamiento;
 use App\Models\Area;
+use App\Services\Auditoria;
 use \Log;
 
 
@@ -302,6 +303,16 @@ class BolfinalesPreescolarController extends Controller {
 		
 		$last_id = DB::getPdo()->lastInsertId();
 		$res = DB::select('SELECT * FROM frases_preescolar WHERE id=?;', [ $last_id ])[0];
+
+		// La frase nace vacía —el `''` de arriba— y se rellena en `putGuardarFrase`,
+		// así que el alta y el texto son dos líneas distintas del historial. Está
+		// bien que lo sean: en el boletín de preescolar **no hay notas, hay frases**,
+		// y quién escribió cada una es la pregunta entera.
+		Auditoria::registrar()
+			->crear('frase_preescolar', (int) $last_id)
+			->en(asignatura: is_numeric($res->asignatura_id) ? (int) $res->asignatura_id : null)
+			->a(['definicion' => $res->definicion])
+			->guardar();
 		
 		return (array)$res;
 	}
@@ -316,7 +327,19 @@ class BolfinalesPreescolarController extends Controller {
 		$definicion 	= Request::input('definicion');
 		$id 			= Request::input('id');
 		
+		// El texto de antes, leído antes de pisarlo: lo que se reescribe aquí es
+		// texto escrito a mano por un profesor y que sale impreso en el boletín de
+		// un niño. Sin `de(...)` la línea diría que alguien lo cambió y no desde qué.
+		$antes = DB::selectOne('SELECT asignatura_id, definicion FROM frases_preescolar WHERE id = ?', [$id]);
+
 		DB::update('UPDATE frases_preescolar SET asignatura_id=?, definicion=? WHERE id=? AND deleted_at IS NULL;', [ $asignatura_id, $definicion, $id ]);
+
+		Auditoria::registrar()
+			->editar('frase_preescolar', is_numeric($id) ? (int) $id : null)
+			->en(asignatura: is_numeric($asignatura_id) ? (int) $asignatura_id : null)
+			->de($antes === null ? null : ['asignatura_id' => $antes->asignatura_id, 'definicion' => $antes->definicion])
+			->a(['asignatura_id' => $asignatura_id, 'definicion' => $definicion])
+			->guardar();
 		
 		return 'Cambiada';
 	}
@@ -344,8 +367,21 @@ class BolfinalesPreescolarController extends Controller {
 		
 		$id 			= Request::input('id');
 		
+		// **Antes** del borrado, y con el texto dentro. Este método responde
+		// `'ELIMINADA'` aunque el id no exista (14 §7.1), así que la respuesta no
+		// distingue haber borrado de no haber borrado nada: la línea de auditoría
+		// **sí**, porque `de(...)` sale de la fila leída y queda en null cuando no
+		// había fila. Es la diferencia entre mirar el resultado y mirar el 200.
+		$antes = DB::selectOne('SELECT asignatura_id, definicion FROM frases_preescolar WHERE id = ? AND deleted_at IS NULL', [$id]);
+
 		DB::update('UPDATE frases_preescolar SET deleted_at=? WHERE id=? AND deleted_at IS NULL;',
 			[ Carbon::now('America/Bogota'), $id ]);
+
+		Auditoria::registrar()
+			->borrar('frase_preescolar', is_numeric($id) ? (int) $id : null)
+			->en(asignatura: $antes !== null && is_numeric($antes->asignatura_id) ? (int) $antes->asignatura_id : null)
+			->de($antes === null ? null : ['asignatura_id' => $antes->asignatura_id, 'definicion' => $antes->definicion])
+			->guardar();
 		
 		return 'ELIMINADA';
 	}

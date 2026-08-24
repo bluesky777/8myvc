@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Request;
 
 use App\User;
 use App\Models\Year;
+use App\Services\Auditoria;
 use App\Support\Autoriza;
 use App\Models\Periodo;
 use App\Models\ConfigCertificado;
@@ -380,6 +381,27 @@ class YearsController extends Controller {
 			// el año quedaría **cambiado**, el cliente leería «Datos incorrectos» y del
 			// rastro no quedaría nada. Era un fallo latente que la configuración tapa.
 			DB::insert($consulta, [ $bit_by, $bit_hist, 'YEAR CONFIGURACION', $year->id, $now, (string) $year ]);
+
+			// El rastro nuevo, al lado del viejo (18 §4). El décimo escritor, y el
+			// que ya traía arreglado el sujeto: `$year->id` sale de la fila leída
+			// con `findOrFail`, no de `Request::input('id')`.
+			//
+			// `(string) $year` y no `$year->toArray()`: el modelo se serializa a
+			// JSON al convertirlo a cadena, así que lo que entra en `valor_nuevo`
+			// ya es la estructura entera y no un `"[object]"`. Es la misma cadena
+			// que recibe `bitacoras`, y aquí sí cabe entera —`valor_nuevo` es
+			// `json`— mientras que allí va a un `varchar`.
+			//
+			// **Sin `de()`, y eso es una ausencia con motivo**: la fila vieja ya se
+			// perdió doce líneas más arriba, cuando el modelo se fue rellenando
+			// campo a campo con `Request::input(..., $year->…)`. Recuperarla exige
+			// releer el año antes de tocarlo, y eso es un cambio de forma del
+			// método que no es de este lote; queda anotado en aud-4 §5.
+			Auditoria::registrar()
+				->editar('year_config', (int) $year->id)
+				->en(year: (int) $year->id)
+				->a((string) $year)
+				->guardar();
 
 			return $year;
 		} catch (\Exception $e) {

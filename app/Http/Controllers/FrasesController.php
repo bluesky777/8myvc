@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\DB;
 use App\Support\CamposQueVinieron;
 use App\User;
 use App\Models\Frase;
+use App\Services\Auditoria;
 
 
 class FrasesController extends Controller {
@@ -28,6 +29,12 @@ class FrasesController extends Controller {
 		$frase->tipo_frase	= Request::input('tipo_frase');
 		$frase->year_id		= $user->year_id;
 		$frase->save();
+
+		Auditoria::registrar()
+			->crear('frase', (int) $frase->id)
+			->en(year: (int) $frase->year_id)
+			->a(['frase' => $frase->frase, 'tipo_frase' => $frase->tipo_frase])
+			->guardar();
 
 		return $frase;
 	}
@@ -57,10 +64,24 @@ class FrasesController extends Controller {
 
 		$frase = Frase::findOrFail($id);
 
+		// El texto de antes, capturado **antes** de los dos `if`. Son 426 frases en
+		// la copia de producción, escritas a mano por el colegio una a una y que no
+		// se regeneran de ningún sitio (§81): reescribir una es un cambio que hay
+		// que poder deshacer leyendo el rastro.
+		$antes = ['frase' => $frase->frase, 'tipo_frase' => $frase->tipo_frase];
+
 		if ($vinieron->trae('frase'))      { $frase->frase      = Request::input('frase'); }
 		if ($vinieron->trae('tipo_frase')) { $frase->tipo_frase = Request::input('tipo_frase'); }
 
 		$frase->save();
+
+		Auditoria::registrar()
+			->editar('frase', (int) $frase->id)
+			->en(year: (int) $frase->year_id)
+			->de($antes)
+			->a(['frase' => $frase->frase, 'tipo_frase' => $frase->tipo_frase])
+			->guardar();
+
 		return $frase;
 	}
 
@@ -70,7 +91,16 @@ class FrasesController extends Controller {
 		$user = User::fromToken();
 
 		$frase = Frase::findOrFail($id);
+
+		// Antes del `delete()`: el texto es lo que hay que poder leer después.
+		Auditoria::registrar()
+			->borrar('frase', (int) $frase->id)
+			->en(year: (int) $frase->year_id)
+			->de(['frase' => $frase->frase, 'tipo_frase' => $frase->tipo_frase])
+			->guardar();
+
 		$frase->delete();
+
 		return $frase;
 	}
 

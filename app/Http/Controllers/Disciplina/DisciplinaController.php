@@ -7,11 +7,13 @@ use Illuminate\Support\Facades\Log;
 
 use App\User;
 use App\Models\NotaComportamiento;
+use App\Services\Auditoria;
 use App\Models\Grupo;
 use App\Models\Alumno;
 use App\Models\Frase;
 
 use Carbon\Carbon;
+use App\Support\NombreDelAlumno;
 
 
 class DisciplinaController extends Controller {
@@ -430,6 +432,44 @@ class DisciplinaController extends Controller {
 		
 		// Traemos el proceso
 		$last_id = DB::getPdo()->lastInsertId();
+
+		/*
+		 * El alta del proceso disciplinario, que hasta hoy no dejaba rastro de
+		 * ninguna clase — ni en `bitacoras` ni en ninguna otra parte.
+		 *
+		 * **Los ordinales van dentro de `valor_nuevo` y no como líneas propias**, y
+		 * es una decisión, no un atajo: `dis_proceso_ordinales` **no está en
+		 * `Auditoria::ENTIDADES`**. Añadir un nombre a esa constante es editar el
+		 * vocabulario cerrado del servicio, y eso es una decisión que no abre un
+		 * lote solo (18 §2.3: el vocabulario se cierra en el servicio justamente
+		 * para que ampliarlo sea un acto y no un `string` suelto). Queda anotado en
+		 * aud-4 §5.
+		 *
+		 * Y para la pantalla no se pierde nada: los ordinales de un proceso son
+		 * parte de lo que ese proceso es, no filas que alguien consulte por su
+		 * cuenta.
+		 */
+		$alumnoDeLaLinea = is_numeric($alumno_id) ? (int) $alumno_id : null;
+
+		Auditoria::registrar()
+			->crear('dis_proceso', (int) $last_id)
+			->deAlumno($alumnoDeLaLinea, NombreDelAlumno::de($alumnoDeLaLinea))
+			->en(periodo: is_numeric($periodo_id) ? (int) $periodo_id : null,
+				year: is_numeric($year_id) ? (int) $year_id : null)
+			->a([
+				'descripcion' => $descripcion,
+				'tipo_situacion' => $tipo_situacion,
+				'testigos' => $testigos,
+				'descargo' => $descargo,
+				'profesor_id' => $profesor_id,
+				'fecha_hora_aprox' => $fecha_hora_aprox instanceof Carbon ? $fecha_hora_aprox->toDateTimeString() : null,
+				'deriva_de_tardanzas' => $deriva_de_tardanzas,
+				'ordinales' => array_map(
+					fn ($o) => $o['id'] ?? null,
+					is_array(Request::input('selected_ordinales')) ? Request::input('selected_ordinales') : []
+				),
+			])
+			->guardar();
 		
 		
 		// Insertamos cada ordinal
@@ -446,8 +486,29 @@ class DisciplinaController extends Controller {
 		// Modificamos las faltas de las que depende de este proceso
 		if (is_array($dependencias)) {
 			for ($i=0; $i < count($dependencias); $i++) { 
+				// **Cada dependencia es OTRA falta**, y esta línea cuelga de ella y no
+				// del proceso nuevo. Es la diferencia entera: al ver el historial de
+				// la falta de octubre hay que poder leer que en noviembre se la
+				// declaró derivante de otra — mirando el proceso nuevo eso no se ve.
+				//
+				// Lo señaló el detector, no la lectura: `postStore` salió como «audita
+				// menos veces de las que escribe», que es la pregunta que una lista de
+				// métodos no contesta.
+				$antesDep = $this->fotoDelProceso($dependencias[$i]['id']);
+
 				$consulta = 'UPDATE dis_procesos SET become_id=? WHERE id=?';
 				DB::update($consulta, [ $last_id, $dependencias[$i]['id'] ]);
+
+				$alumnoDeLaLinea = isset($antesDep['alumno_id']) && is_numeric($antesDep['alumno_id']) ? (int) $antesDep['alumno_id'] : null;
+
+				Auditoria::registrar()
+					->editar('dis_proceso', is_numeric($dependencias[$i]['id']) ? (int) $dependencias[$i]['id'] : null)
+					->deAlumno($alumnoDeLaLinea, NombreDelAlumno::de($alumnoDeLaLinea))
+					->en(periodo: isset($antesDep['periodo_id']) && is_numeric($antesDep['periodo_id']) ? (int) $antesDep['periodo_id'] : null)
+					->de(['become_id' => $antesDep['become_id'] ?? null])
+					->a(['become_id' => $last_id])
+					->resumen('Esta falta pasó a derivar en la '.$last_id)
+					->guardar();
 			}
 		}
 		
@@ -463,6 +524,26 @@ class DisciplinaController extends Controller {
 
 
 
+	/**
+	 * La foto de un proceso disciplinario, para poder decir «de qué a qué».
+	 *
+	 * Una consulta por clave primaria, y sólo las columnas que un proceso ES: la
+	 * descripción, la situación, el testigo, el descargo y de qué falta deriva.
+	 * No se trae la ficha del alumno ni los ordinales — eso es lo que hace que la
+	 * línea siga leyéndose cuando esas filas ya no existan (18 §2.4).
+	 */
+	private function fotoDelProceso($procesoId): ?array
+	{
+		$fila = DB::selectOne(
+			'SELECT alumno_id, periodo_id, year_id, descripcion, tipo_situacion,
+					testigos, descargo, profesor_id, fecha_hora_aprox, become_id
+			   FROM dis_procesos WHERE id = ?',
+			[$procesoId]
+		);
+
+		return $fila === null ? null : (array) $fila;
+	}
+
 	public function putCambiarSituacionDerivante()
 	{
 		$user 	        	= User::fromToken();
@@ -472,10 +553,28 @@ class DisciplinaController extends Controller {
 		$become_id     		= Request::input('become_id');
 
 
+		// **Esta ruta no escribe ni `updated_by` ni `updated_at`** —lo dice el
+		// comentario de al lado, y es la decisión de quien lo escribió—, así que
+		// hasta hoy cambiar de qué falta deriva una situación **no dejaba ni
+		// siquiera un autor en la propia fila**. La línea de auditoría es todo el
+		// rastro que hay, y por eso aquí importa más que en sus vecinas.
+		$antes = $this->fotoDelProceso($id);
+
 		$consulta 	= 'UPDATE dis_procesos SET become_id=? WHERE id=?'; // No creo que sea chévere poner la fecha y modificador
 		$datos 		= [ $become_id, $id ];
 		
 		DB::update($consulta, $datos);
+
+		$alumnoDeLaLinea = isset($antes['alumno_id']) && is_numeric($antes['alumno_id']) ? (int) $antes['alumno_id'] : null;
+
+		Auditoria::registrar()
+			->editar('dis_proceso', is_numeric($id) ? (int) $id : null)
+			->deAlumno($alumnoDeLaLinea, NombreDelAlumno::de($alumnoDeLaLinea))
+			->en(periodo: isset($antes['periodo_id']) && is_numeric($antes['periodo_id']) ? (int) $antes['periodo_id'] : null)
+			->de(['become_id' => $antes['become_id'] ?? null])
+			->a(['become_id' => $become_id])
+			->resumen('Cambió de qué situación deriva la falta '.$id)
+			->guardar();
 		
 		return 'Guardado';
 	}
@@ -507,11 +606,42 @@ class DisciplinaController extends Controller {
 		}
 		
 
+		// La foto de antes, leída **antes** del UPDATE. Es la única forma de que la
+		// línea diga de qué a qué: la descripción y el descargo de un proceso
+		// disciplinario son texto escrito a mano, y reescribirlos es exactamente lo
+		// que un acudiente puede reclamar.
+		$antes = $this->fotoDelProceso($proceso_id);
+
 		$consulta = 'UPDATE dis_procesos SET descripcion=?, tipo_situacion=?,
 			profesor_id=?, fecha_hora_aprox=?, testigos=?, descargo=?, updated_by=?, updated_at=? WHERE id=?';
 		
 		$datos 		= [ $descripcion, $tipo_situacion, $profesor, $fecha_hora_aprox, $testigos, $descargo, $user->user_id, $now, $proceso_id ];
 		DB::update($consulta, $datos);
+
+		$alumnoDeLaLinea = is_numeric($alumno_id) ? (int) $alumno_id : null;
+
+		Auditoria::registrar()
+			->editar('dis_proceso', is_numeric($proceso_id) ? (int) $proceso_id : null)
+			->deAlumno($alumnoDeLaLinea, NombreDelAlumno::de($alumnoDeLaLinea))
+			->en(periodo: isset($antes['periodo_id']) && is_numeric($antes['periodo_id']) ? (int) $antes['periodo_id'] : null,
+				year: is_numeric($year_id) ? (int) $year_id : null)
+			->de($antes === null ? null : [
+				'descripcion' => $antes['descripcion'],
+				'tipo_situacion' => $antes['tipo_situacion'],
+				'testigos' => $antes['testigos'],
+				'descargo' => $antes['descargo'],
+				'profesor_id' => $antes['profesor_id'],
+				'fecha_hora_aprox' => $antes['fecha_hora_aprox'],
+			])
+			->a([
+				'descripcion' => $descripcion,
+				'tipo_situacion' => $tipo_situacion,
+				'testigos' => $testigos,
+				'descargo' => $descargo,
+				'profesor_id' => $profesor,
+				'fecha_hora_aprox' => $fecha_hora_aprox instanceof Carbon ? $fecha_hora_aprox->toDateTimeString() : null,
+			])
+			->guardar();
 		
 		// Modificamos los procesos que llevaron a esta falta.
 		// El `is_array` no es defensa por si acaso: `dependencias` es opcional en el
@@ -533,7 +663,29 @@ class DisciplinaController extends Controller {
 				$datos 		= [ $dependencias[$i]['id'] ];
 				
 			}
+
+			// El mismo caso que en `postStore`, y aquí con las dos direcciones: la
+			// rama de arriba ata esta falta al proceso y la de abajo **la desata**.
+			// Desatarla es la que no deja ningún otro rastro —esta ruta no escribe
+			// ni `updated_by`— y es la que borra una relación entre dos faltas
+			// disciplinarias de un menor.
+			$antesDep = $this->fotoDelProceso($dependencias[$i]['id']);
+			$nuevoBecome = array_key_exists('asignado', $dependencias[$i]) ? $proceso_id : null;
+
 			DB::update($consulta, $datos);
+
+			$alumnoDeLaLinea = isset($antesDep['alumno_id']) && is_numeric($antesDep['alumno_id']) ? (int) $antesDep['alumno_id'] : null;
+
+			Auditoria::registrar()
+				->editar('dis_proceso', is_numeric($dependencias[$i]['id']) ? (int) $dependencias[$i]['id'] : null)
+				->deAlumno($alumnoDeLaLinea, NombreDelAlumno::de($alumnoDeLaLinea))
+				->en(periodo: isset($antesDep['periodo_id']) && is_numeric($antesDep['periodo_id']) ? (int) $antesDep['periodo_id'] : null)
+				->de(['become_id' => $antesDep['become_id'] ?? null])
+				->a(['become_id' => $nuevoBecome])
+				->resumen($nuevoBecome === null
+					? 'Esta falta dejó de derivar en ninguna otra'
+					: 'Esta falta pasó a derivar en la '.$nuevoBecome)
+				->guardar();
 			
 		}
 		
@@ -554,6 +706,23 @@ class DisciplinaController extends Controller {
 		$datos 		= [ $now, $user->user_id, $proceso_id, $ordinal_id ];
 		
 		DB::update($consulta, $datos);
+
+		// La línea cuelga del **proceso** y no del ordinal quitado, por lo mismo
+		// que en `postStore`: `dis_proceso_ordinales` no está en el vocabulario, y
+		// ampliarlo es una decisión de otro lote. Colgarla del proceso además es lo
+		// que la pantalla quiere — quitarle un ordinal a una falta es un cambio de
+		// esa falta, y así sale en su historial y no en uno aparte.
+		$proceso = $this->fotoDelProceso($proceso_id);
+
+		$alumnoDeLaLinea = isset($proceso['alumno_id']) && is_numeric($proceso['alumno_id']) ? (int) $proceso['alumno_id'] : null;
+
+		Auditoria::registrar()
+			->editar('dis_proceso', is_numeric($proceso_id) ? (int) $proceso_id : null)
+			->deAlumno($alumnoDeLaLinea, NombreDelAlumno::de($alumnoDeLaLinea))
+			->en(periodo: isset($proceso['periodo_id']) && is_numeric($proceso['periodo_id']) ? (int) $proceso['periodo_id'] : null)
+			->de(['ordinal_id' => $ordinal_id])
+			->resumen('Quitó el ordinal '.$ordinal_id.' de la falta '.$proceso_id)
+			->guardar();
 		
 		return 'Quitado';
 	}
@@ -572,6 +741,21 @@ class DisciplinaController extends Controller {
 		
 		$last_id = DB::getPdo()->lastInsertId();
 		$ordinal = DB::select('SELECT * FROM dis_proceso_ordinales WHERE id=?', [$last_id])[0]; 
+
+		// La simétrica de `putQuitarOrdinal`, y colgada del mismo sitio: poner y
+		// quitar el mismo ordinal tienen que salir en el mismo historial o no se
+		// pueden leer como lo que son.
+		$proceso = $this->fotoDelProceso($proceso_id);
+
+		$alumnoDeLaLinea = isset($proceso['alumno_id']) && is_numeric($proceso['alumno_id']) ? (int) $proceso['alumno_id'] : null;
+
+		Auditoria::registrar()
+			->editar('dis_proceso', is_numeric($proceso_id) ? (int) $proceso_id : null)
+			->deAlumno($alumnoDeLaLinea, NombreDelAlumno::de($alumnoDeLaLinea))
+			->en(periodo: isset($proceso['periodo_id']) && is_numeric($proceso['periodo_id']) ? (int) $proceso['periodo_id'] : null)
+			->a(['ordinal_id' => $ordinal_id])
+			->resumen('Asignó el ordinal '.$ordinal_id.' a la falta '.$proceso_id)
+			->guardar();
 		
 		return (array)$ordinal;
 	}
@@ -584,10 +768,26 @@ class DisciplinaController extends Controller {
 		$alumno_id     		= Request::input('alumno_id');
 		
 		
+		// **Antes** del borrado: lo que se borró es lo que hay que poder leer
+		// después. Y es la pregunta que ningún detector de escrituras encuentra —no
+		// «quién escribe aquí» sino «quién puede quitar de aquí»—: borrar una falta
+		// disciplinaria la quita de la ficha del alumno, y `deleted_by` dice quién
+		// pero no dice qué.
+		$antes = $this->fotoDelProceso($proceso_id);
+
 		$consulta 	= 'UPDATE dis_procesos SET deleted_at=?, deleted_by=? WHERE id=?'; 
 		$datos 		= [ $now, $user->user_id, $proceso_id ];
 		
 		DB::update($consulta, $datos);
+
+		$alumnoDeLaLinea = is_numeric($alumno_id) ? (int) $alumno_id : null;
+
+		Auditoria::registrar()
+			->borrar('dis_proceso', is_numeric($proceso_id) ? (int) $proceso_id : null)
+			->deAlumno($alumnoDeLaLinea, NombreDelAlumno::de($alumnoDeLaLinea))
+			->en(periodo: isset($antes['periodo_id']) && is_numeric($antes['periodo_id']) ? (int) $antes['periodo_id'] : null)
+			->de($antes)
+			->guardar();
 		
 		$alumno 	= $this->fichaDelAlumno($alumno_id);
 
