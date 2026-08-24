@@ -74,11 +74,28 @@ corrida 2   antes: load 30,41 · swap 23.915 MB de 26.624
             después: load 28,44 · swap 27.765 MB de 28.672
 ```
 
-Durante esa ventana había **cinco `ng test` vivos a la vez** de un carril de
-`myvc_front` —cada vez que uno se quedaba en «Building…» lanzaban otro y el
-anterior seguía vivo— más seis `ng serve` de horas. Lo encontró `myvc-front-98`
-después de que yo midiera. **Los milisegundos absolutos de arriba son de esta
-máquina con cinco suites de otro repositorio encima; no son de esta máquina.**
+Y lo que había dentro de esa ventana, que se supo **después** de medir y que hay
+que nombrar entero:
+
+- **cinco `ng test` vivos a la vez** de un carril de `myvc_front` — cada vez que
+  uno se quedaba en «Building…» lanzaban otro y el anterior seguía vivo—, más
+  seis `ng serve` de horas. Lo encontró `myvc-front-98`;
+- **`8myvc-database-1` acabó muriendo por OOM** (`Exited (137)`) poco después, y
+  se volvió a morir tras el primer arranque;
+- y **tres peticiones colgadas de `bolfinales/detailed-notas-year-group`** que
+  dejaron al backend sirviendo **500 a todo** durante unos minutos, con un grupo
+  que había contestado en 7 s quedándose 133 s sin contestar.
+
+**Los milisegundos absolutos de arriba son de esta máquina con cinco suites de
+otro repositorio encima y un MySQL a punto de morir; no son de esta máquina.**
+Casi con seguridad es también la explicación del factor de dos entre las dos
+corridas: no midieron el mismo mundo.
+
+> **Y la lección de turnos que sale de ahí, que vale para todo lo que venga:
+> una medición contra el docker compite con las suites y con la base aunque no
+> sea una suite.** Toda la noche estuvimos pisándonos sin saberlo, cada uno
+> mirando el swap y diciéndole al otro que mirara el suyo — **y el swap éramos
+> nosotros**.
 
 > **Y aun así no hay que repetir la medición, por una razón que conviene que
 > sobreviva a este documento: la carga no exagera esta ventaja, la esconde.** Se
@@ -307,6 +324,48 @@ haber medido la dirección que la herramienta no cubre.
   buzón del front por este lado. Lo único con destinatario es el número del §1,
   que ya salió suelto.
 
+## §4.b — Un hallazgo de paso: `larastan` no está `[OK]` en `0dc21d7`
+
+No es de este lote y por eso va aparte, pero salió corriendo `composer run stan`
+sobre lo que escribí y **no se puede callar**: `ESTADO-ACTUAL.md` dice «larastan
+nivel 7 `[OK]`» y en un árbol aislado, con su `TMPDIR` propio, da **un error**.
+
+```
+app/Http/Controllers/AppMobile/AsistenciasAppController.php
+Ignored error pattern #^Cannot access property \$id on array<string, mixed>\.$#
+in path .../AsistenciasAppController.php was not matched in reported errors.
+```
+
+Es `phpstan.neon:334-337`, y **no es mío**: mis dos commits añaden dos ficheros
+en `tests/`. (La primera corrida dio **dos** errores; el otro sí era mío —un
+`match` sin `default` en el cronómetro— y está arreglado. El `default` no es
+ceremonia: un bloque nuevo sin su rama saldría en la tabla con **tiempo cero**,
+que es un número plausible y falso.)
+
+Lo que hace el caso interesante, y por qué queda escrito en vez de arreglado:
+
+- **el fichero tiene un gemelo y el gemelo sí casa.** `phpstan.neon` lleva las
+  dos entradas seguidas, idénticas salvo la ruta: la de
+  `Tardanzas/AsistenciasController.php` casa y la de `AppMobile` no;
+- **`diff` de los dos ficheros da cuatro diferencias**: el `namespace`, el nombre
+  de la clase, y `a.created_at` de más en cuatro `SELECT`. **El `$datos->id =
+  $id;` del que sale el error es byte a byte el mismo en los dos.**
+
+O sea que dos ficheros prácticamente iguales dan resultados distintos, y **no
+tengo una explicación que me convenza**. Lo que sí se puede afirmar es que el
+`[OK]` del estado está viejo —nadie ha corrido larastan desde el commit que dejó
+esa entrada obsoleta— y que **no se arregla desde aquí**: `phpstan.neon` es
+configuración compartida y la regla de CLAUDE.md dice que sus entradas van «con
+nombre, motivo y `count`». Quitar una es una decisión, no una limpieza.
+
+> **Y no es la caché de `/tmp/phpstan`**, que era la primera sospecha por ser el
+> modo de fallo que `TMPDIR` por sesión existe para evitar: sale igual con la
+> caché fría y con la caliente. Descartarlo costó una corrida y valía la pena —
+> el primer sitio donde mirar cuando el número sale raro es el detector, y aquí
+> el detector estaba bien.
+
+---
+
 ## §5 — Lo que se lleva de método
 
 1. **Un cronómetro que no puede distinguir el caso roto del caso rápido no es un
@@ -325,3 +384,16 @@ haber medido la dirección que la herramienta no cubre.
 6. **`| head` en un comando que termina en un número lo corta.** Me lo cobró esta
    misma noche: un `| head` mató el lanzamiento de la suite entera y el fichero
    de salida no llegó a existir. Es la regla del briefing, y no es teórica.
+7. **Para saber si tienes una suite viva, `ps` no vale: se llaman todas igual.**
+   Ocho `php artisan test` en el mismo contenedor y ninguno dice de quién es. El
+   entorno sí:
+
+   ```bash
+   docker exec -u 0 8myvc-app-1 sh -c 'for p in /proc/[0-9]*; do
+     tr "\0" "\n" < $p/environ 2>/dev/null | grep -q "^DB_TEST_DATABASE=simonbolivar_testing_<sufijo>$" \
+       && echo "VIVA ${p#/proc/}"; done'
+   ```
+
+   Es lo que permite matar **la tuya** sin tocar las de las otras cinco sesiones,
+   que es la única forma de que la regla «no lances una suite con otra viva» se
+   pueda cumplir de verdad.

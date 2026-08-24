@@ -169,6 +169,10 @@ class CosteDelLoteDeNotasTest extends CasoDeContrato
                     'lote' => $this->cronometrar(fn () => $this->guardarEnLote($token, $ctx['columna'], $valor)),
                     'control' => $this->cronometrar(fn () => $this->pedirNVeces($token, $n)),
                     'recalculo' => $this->cronometrar(fn () => $this->recalcularNVeces($ctx['columna'], (int) $ctx['profesor'])),
+                    // El `default` no es ceremonia de larastan: un bloque nuevo en
+                    // `$orden` sin su rama aquí saldría en la tabla con tiempo cero,
+                    // que es un número plausible y falso. Que reviente.
+                    default => throw new \LogicException('Bloque sin cronómetro: '.$bloque),
                 };
 
                 // **La primera pasada entera se descarta**: es la que paga la
