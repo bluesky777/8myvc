@@ -9704,3 +9704,91 @@ de pantallas contra la copia de desarrollo, y **la fase 3 recalcula la definitiv
 editar una nota**, así que **pisa las filas que ya existen sin crear ninguna** — que es
 exactamente el patrón observado. **La §192 otra vez: quien verifica abre pantallas, y
 abrir pantallas escribe.**
+
+## §196. «¿Este endpoint escribe?» es la pregunta equivocada
+
+Tres correcciones seguidas la reordenaron, y las tres las trajo quien las había dicho
+mal.
+
+**1. `PUT alumnos/show` inserta SIEMPRE, no sólo con `con_grupos`.**
+
+```
+:666   $matriculas[$i]->requisitos = $this->traer_requisitos_detalle(...)   <- INSERTA
+:671   $year_ult->requisitos       = $this->traer_requisitos_detalle(...)   <- INSERTA
+:694   if ($con_grupos) {                                                   <- la condición, DESPUÉS
+```
+
+Se había escrito que *«`con_grupos: true` es el camino que llega ahí»*. **Era falso y
+era cómodo, porque acotaba el problema a una llamada concreta.** Si se hubiera quedado
+así, **cualquiera que llame a `obtener(id)` para «sólo mirar» —un informe, una
+comprobación, una prueba— se habría creído a salvo.**
+
+> Es la mentira de la cabecera vieja **desplazada un metro**: no *«esto es una
+> lectura»*, sino *«esto escribe **sólo si**…»* — **y el «sólo si» es el que
+> tranquiliza.**
+
+**2. Una lectura manual con el mismo punto ciego que su detector.** El carril del front
+siguió la cadena a mano y concluyó *«es una lectura: `putShow` hace `DB::select` y
+`comprobar_alumno_con_grupos` hace seis y nada más»*, y **estuvo a punto de no meterlo
+en su cortafuegos**. Se le escapó que **`comprobar_alumno_con_grupos` llama dos veces a
+`traer_requisitos_detalle`**. *Su lectura manual tenía el mismo punto ciego que su
+detector automático —no ve las escrituras a dos saltos—, **límite que él mismo había
+escrito en la cabecera de su herramienta una hora antes**.*
+
+**3. Y la que reordena la pregunta:** la escritura de
+`bolfinales/detailed-notas-year-group` **no está en el controlador: está en el
+middleware `ExigirBoletinPropio:68`, y sólo dispara si quien pide es `Alumno` o
+`Acudiente`** — con salida temprana antes de anotar. **Entrando como `Usuario`, ni el
+middleware anota.** Ningún barrido de controladores la encuentra.
+
+> **«¿Este endpoint escribe?» es la pregunta equivocada. La buena es «¿escribe cuando
+> lo llamo YO?»**
+
+Y con eso, la lista que hacía falta —los endpoints cuyo nombre o verbo no dice que
+escriben— **necesita una tercera columna: bajo qué rol.**
+
+## §197. La regla escrita no bastó: el quinto cruce ocurrió DESPUÉS de ponerla
+
+`e2b0a72` se llevó dentro `DefinitivasPeriodosController.php`, que era de otra sesión.
+**Verificado en el árbol**, contenido íntegro, nadie pidió revertir. **Es el quinto de
+la noche — y el primero que ocurre con la regla del §1.3 ya publicada.**
+
+Que es la [§190](#) aplicada a quien la escribió: **saber la regla no la aplica.** Y el
+paso que faltaba lo propone quien lo sufrió dos veces:
+
+> **La única forma de que no dependa de la memoria de quien commitea es que alguien lo
+> verifique DESPUÉS:** un `git show --stat` del último commit contra la lista de
+> dueños. **Diez segundos por commit**, y lo hace quien coordina.
+
+**Puesto en marcha**, y en su primera pasada encontró exactamente este caso. *Un control
+que se ejecuta después no depende de que el que actúa se acuerde* — que es la diferencia
+entre una regla y un procedimiento.
+
+## §198. Un porqué equivocado es peor que ninguno
+
+Se pidió congelar `DefinitivasPeriodosController` con este motivo: *«filtra
+`boletin_independiente` donde no hay quien lo note»*. **La premisa era falsa**, y quien
+lo hizo la corrigió antes de escribir nada:
+
+- **la línea era la 397, no la 377** —la 377 es un `Carbon::now()`—;
+- y **por ahí no se filtra nada**: `getArreglarDuplicados` devuelve **conteos de
+  `DELETE`**, y las filas de `matriculas` **no salen nunca hacia el cliente**. De las 28
+  columnas el método usa **una**.
+
+**Lo hizo igual y mejor de lo pedido:** `SELECT m.alumno_id` en vez de las 28 —*nombrar
+28 para leer 1 habría dejado el ancho intacto y sólo cerrado el `ALTER`*— con el motivo
+bueno escrito: **pedir 28 columnas para leer una, dentro de un bucle sobre todos los
+grupos del año, es trabajo que no hace falta.** Y el `ALTER` queda cerrado igual.
+
+> Y lo que dejó escrito **explícitamente** en el código es lo que más vale: **que por
+> ahí NO se filtra.** Sin eso, la próxima sesión que lea *«cerrado por el boletín
+> independiente»* creería que el contrato estaba en juego.
+>
+> **Un porqué equivocado es peor que ninguno: manda a buscar el problema donde no
+> está.** Es la enfermedad de esta noche **en su forma más barata de introducir.**
+
+**Cabo suelto que dejó sin tocar, y pesa más que todo lo anterior:** dos líneas más
+abajo, **`SELECT * FROM asignaturas` está DENTRO del bucle de alumnos siendo invariante
+por grupo** — una consulta por alumno donde bastaba una por grupo, en un método que
+recorre **todos los grupos del año**. **Es el mismo animal que `detailedNotasGrupo`**,
+185 líneas construidas así, que es el candidato del boletín lento.
