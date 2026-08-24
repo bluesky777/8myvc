@@ -85,10 +85,35 @@ use Tests\Contrato\CasoDeContrato;
  * contaban como cerradas. Ahora se golpea con las dos formas, porque la misma
  * clave se lee de las dos maneras en sitios distintos. Salieron cinco. Ver 05 §23.
  *
- * Y una cosa que este archivo **no** puede encontrar, demostrada el mismo día:
- * lo que sale sin ser dato personal. `unidades/trashed` devolvía a un alumno la
- * papelera académica del colegio y el barrido la vio pasar, porque su criterio
- * de fuga es la lista `PERSONALES` de arriba. Ver 05 §16.
+ * **Los dos sesgos de la columna `PERSONALES`, y van juntos porque por separado
+ * cada uno parece un descargo** (el segundo, 25 ago 2026):
+ *
+ *   - **No ve: lo que sale sin ser dato personal.** `unidades/trashed` devolvía a un
+ *     alumno la papelera académica del colegio y el barrido la vio pasar, porque su
+ *     criterio de fuga es la lista `PERSONALES` de arriba. Ver 05 §16.
+ *   - **Cuenta de más: lo TUYO, porque marca por nombre de campo y no por dueño.**
+ *     `datosPersonalesEn()` es un `preg_match` que busca `num_doc`, `celular`,
+ *     `fecha_nac`… **en el JSON**, y no sabe de quién es el dato. Un `GET` que le
+ *     devuelva a un alumno **su propia** ficha —o la de su acudido, que le
+ *     corresponde— cuenta exactamente igual que uno que le dé la del vecino.
+ *
+ * La constante de arriba lo dice sin decirlo: *«el dato personal **de alguien**»*.
+ * **Ese «de alguien» está haciendo todo el trabajo**, y hasta el 25 de agosto nadie
+ * lo había leído como una limitación.
+ *
+ * **Consecuencia para cualquier número que salga de esta columna:** es **cota baja
+ * por un lado y cota alta por el otro**, con causas distintas que **no se cancelan**.
+ * No es un intervalo y no se le puede coger el centro. Separar lo propio de lo ajeno
+ * **hay que hacerlo a mano, fila a fila** — esto da sitios donde mirar, no un censo
+ * de fugas.
+ *
+ * *Y el hecho, sin la explicación: la columna de al lado ya se había curado de lo
+ * mismo —«EJECUTA» y no «ESCRIBE», nueve líneas más arriba— y **nadie miró si la
+ * vecina tenía la misma enfermedad**. El informe de la noche del 24 tabuló la
+ * primera y no la segunda. **Por qué se saltó ésa y no la otra no se sabe**, y la
+ * explicación bonita que hay a mano —que el nombre preciso se lee y el ambiguo se
+ * pasa por alto— es una hipótesis con n=1: está en el documento del lote marcada
+ * como tal, no aquí.*
  *
  * **Y dos más, del 23 de agosto, que empujan en direcciones contrarias** — por eso van
  * juntas: leídas por separado, cada una parece un descargo.
@@ -271,6 +296,21 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
     public function test_que_alcanza_este_token(): void
     {
         $encontrado = 0;
+
+        // **Las dos preguntas se cuentan por separado, y esto no es cosmetica.**
+        // Hasta la noche del 25 el resumen daba UN solo numero -«N rutas pasaron de
+        // largo con algo dentro»- que mezclaba «que escribio» y «que datos ajenos
+        // saco». El informe de la noche del 24 tabulo las escrituras del rol
+        // `Profesor` y **la columna PERSONALES quedo en la salida sin leer**: no
+        // fallo el detector ni falto la medicion, fue **una salida correcta leida
+        // para otra pregunta**. Con dos bloques y dos cuentas no se puede copiar un
+        // numero sin ver que el otro existe.
+        $conEscritura = 0;
+        $conPersonales = 0;
+        $proyecciones = [];
+        $golpeadas = 0;
+        $con200 = 0;
+
         $sinValor = [];
         $sinMedir = [];
         $sinFila = [];
@@ -364,6 +404,12 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
 
                 // Sin código no hubo respuesta: saltó la excepción, y ya está impresa.
                 // Y el 403 es la respuesta correcta, así que tampoco se imprime.
+                $golpeadas++;
+
+                if ($codigo === 200) {
+                    $con200++;
+                }
+
                 if ($codigo === 0 || $codigo === 403) {
                     continue;
                 }
@@ -371,6 +417,25 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
                 $personales = $escribio === [] && $codigo === 200
                     ? $this->datosPersonalesEn($contenido)
                     : [];
+
+                if ($escribio !== []) {
+                    $conEscritura++;
+                }
+
+                if ($personales !== []) {
+                    $conPersonales++;
+
+                    // **La combinacion de campos, no la ruta.** Este repositorio esta
+                    // lleno de gemelos -`boletines`/`2`/`3`, con su propia copia de
+                    // todo- asi que N rutas pueden ser muchas menos COSAS. Lo que un
+                    // colegio tiene que decidir no son 52 endpoints: son las
+                    // proyecciones distintas que salen sin mirar quien pregunta, y la
+                    // que sale por mas rutas es la que hay que mirar primero, porque
+                    // arreglarla una vez arregla varias.
+                    sort($personales);
+                    $clave = implode(',', $personales);
+                    $proyecciones[$clave][] = $verbo.' '.$uri;
+                }
 
                 if ($escribio === [] && $personales === []) {
                     $ultimaMuda = [$verbo, $pedida, $uri, $codigo, $forma];
@@ -406,6 +471,106 @@ class SuperficieDeUnTokenTest extends CasoDeContrato
         $this->salida[] = '';
         $this->salida[] = "{$encontrado} rutas pasaron de largo con algo dentro.";
         $this->salida[] = 'Cada una hay que mirarla: muchas son lo suyo, y eso el barrido no lo sabe.';
+
+        // **El resumen va por PREGUNTA y no solo por ruta.** Un bloque ausente se
+        // lee como un cero, y un cero sin poblacion no distingue «revise y no hay»
+        // de «no mire»: por eso los dos bloques se imprimen SIEMPRE, tambien
+        // cuando la cuenta es 0, y los dos dicen sobre cuantas rutas se midio.
+        $tipoDelBarrido = getenv('BARRIDO_TIPO') ?: 'Alumno';
+
+        $this->salida[] = '';
+        $this->salida[] = str_repeat('=', 74);
+        $this->salida[] = "RESUMEN POR PREGUNTA — token de tipo `{$tipoDelBarrido}`";
+        $this->salida[] = str_repeat('=', 74);
+        $this->salida[] = "  poblacion: {$golpeadas} peticiones llegaron a contestar; {$con200} dieron 200.";
+        $this->salida[] = '';
+
+        $this->salida[] = $conEscritura > 0
+            ? "  1. RUTAS QUE EJECUTARON UNA ESCRITURA: {$conEscritura}"
+            : '  1. RUTAS QUE EJECUTARON UNA ESCRITURA: ninguna. Se golpearon '
+                .$golpeadas.' rutas y ninguna ejecuto INSERT, UPDATE ni DELETE.';
+        $this->salida[] = '     («EJECUTA» en el listado. `DB::listen` ve la sentencia, no las filas:';
+        $this->salida[] = '      un UPDATE que no cambio nada cuenta aqui igual.)';
+        $this->salida[] = '';
+
+        // **«CAMPOS PERSONALES» y no «DATOS DE TERCEROS», y la diferencia es el
+        // hallazgo:** `datosPersonalesEn()` es un `preg_match` sobre el NOMBRE del
+        // campo en el JSON -`num_doc`, `celular`, `fecha_nac`...- y **no mira de
+        // quien es el dato**. Un endpoint que te devuelve TU PROPIA ficha cuenta
+        // aqui igual que uno que te da la del vecino.
+        //
+        // Es exactamente el mismo fallo que ya se corrigio en la otra columna de
+        // este fichero -«EJECUTA» en vez de «ESCRIBE», porque `DB::listen` ve la
+        // sentencia y no las filas-, **y seguia entero en esta**. La pregunta «¿quien
+        // mas hace esto mismo?» aplicada al sitio donde se encontro, y la respuesta
+        // no era «uno».
+        //
+        // Por eso este numero **no es un censo de fugas**: es una lista de sitios
+        // donde mirar. Separar lo propio de lo ajeno **hay que hacerlo a mano, fila
+        // a fila**, y el barrido no lo sabe hacer.
+        $this->salida[] = $conPersonales > 0
+            ? "  2. RUTAS QUE DEVOLVIERON CAMPOS PERSONALES (de quien sea): {$conPersonales}"
+            : '  2. RUTAS QUE DEVOLVIERON CAMPOS PERSONALES (de quien sea): ninguna. Se '
+                .'golpearon '.$golpeadas.' rutas, '.$con200.' contestaron 200, y ninguna '
+                .'trajo campos de la lista PERSONALES.';
+        $this->salida[] = '     («PERSONALES» en el listado, con el tamano de la respuesta.)';
+        $this->salida[] = '     OJO: marca por NOMBRE DE CAMPO, no por dueno. Tu propia ficha';
+        $this->salida[] = '     cuenta igual que la del vecino: son sitios donde mirar, no fugas.';
+
+        // **Cuantas COSAS son esas rutas.** Un numero de rutas no es accionable en un
+        // repositorio con gemelos; un numero de proyecciones si -es lo que hay que
+        // decidir una vez cada uno-. Van ordenadas por cuantas rutas las repiten,
+        // porque la que sale por mas rutas es la que arreglar primero.
+        if ($proyecciones !== []) {
+            uasort($proyecciones, fn ($a, $b) => count($b) <=> count($a));
+
+            $this->salida[] = '';
+            $this->salida[] = '  2b. Y CUANTAS COSAS SON: '.count($proyecciones).' proyecciones distintas '
+                .'para esas '.$conPersonales.' rutas.';
+            $this->salida[] = '      (misma combinacion de campos = misma decision que tomar una vez)';
+            $this->salida[] = '';
+
+            foreach ($proyecciones as $campos => $rutas) {
+                $this->salida[] = sprintf('      x%-3d %s', count($rutas), $campos);
+
+                foreach ($rutas as $r) {
+                    $this->salida[] = '           '.$r;
+                }
+            }
+        }
+        $this->salida[] = '';
+        $this->salida[] = '  **Las dos preguntas son distintas y este barrido contesta LAS DOS.**';
+        $this->salida[] = '  La noche del 24 se tabulo la primera y la segunda quedo en la salida';
+        $this->salida[] = '  sin leer: no fallo el detector, fallo la lectura. Si vas a copiar un';
+        $this->salida[] = '  numero de aqui, di CUAL de los dos es.';
+        $this->salida[] = '';
+        $this->salida[] = '  Y LO QUE ESTE BARRIDO NO PUEDE VER, que se deduce de la suma de arriba:';
+        $this->salida[] = '  los dos conjuntos son DISJUNTOS por construccion -`$personales` solo se';
+        $this->salida[] = '  calcula si la ruta NO escribio-, asi que **una ruta que escribe Y ademas';
+        $this->salida[] = '  devuelve fichas ajenas sale aqui solo como escritura**. El 2 es una cota';
+        $this->salida[] = '  BAJA, no un censo.';
+        $this->salida[] = str_repeat('=', 74);
+
+        // **Las dos cuentas tienen que sumar el total, y si no suman es que una de
+        // las dos dejo de medir.** Es la comprobacion interna del resumen: sin ella,
+        // un `continue` mal puesto en el bucle daria dos numeros pequenos y
+        // creibles, que es peor que un fallo. Vale exactamente porque los conjuntos
+        // son disjuntos (ver el aviso de arriba); el dia que dejen de serlo, esto
+        // salta y obliga a mirar por que.
+        $this->assertSame($encontrado, $conEscritura + $conPersonales,
+            'El resumen por pregunta no cuadra con el listado: '.$conEscritura.' escrituras + '
+            .$conPersonales.' con campos personales != '.$encontrado.' rutas con hallazgo.'
+            ."\n\nANTES DE ARREGLAR NADA, LEE ESTO: hay DOS motivos y piden cosas contrarias."
+            ."\n  (a) UN CONTADOR SE ROMPIO -- un `continue` mal puesto, un `break` de mas."
+            .' Eso es un bug y se arregla, y es lo que este aserto viene a cazar: sin el'
+            .' saldrian dos numeros pequenos y creibles, que es peor que un fallo.'
+            ."\n  (b) LOS CONJUNTOS DEJARON DE SER DISJUNTOS a proposito -- alguien hizo que"
+            .' `$personales` se calcule tambien cuando la ruta escribio, que es una MEJORA'
+            .' pedida desde el 25 ago (hoy una ruta que escribe Y filtra fichas sale solo'
+            .' como escritura, asi que la cuenta de personales es una cota baja).'
+            ."\n\nEn el caso (b) esto NO dice «hay un bug»: dice «esto ya no es lo que era»,"
+            .' y lo que hay que cambiar es el aserto, no el cambio. Revertir una mejora'
+            .' buena porque un guardian se leyo como bug ya paso una vez en este repo.');
 
         $this->control($mudas);
 
