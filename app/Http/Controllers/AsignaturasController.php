@@ -49,7 +49,10 @@ class AsignaturasController extends Controller {
 	{
 		//$user = User::fromToken();
 
-		$cons_unidades 		= 'SELECT u.*, p.numero as numero_periodo FROM unidades u
+		// Columnas nombradas, no `u.*`: `unidades.alumno_id` existe desde el 24 ago
+		// 2026 (19-boletin-independiente.md) y con `*` entraría en la respuesta,
+		// moviendo la instantánea de contrato. §5.bis de noche-2026-08-24/bi-1.md.
+		$cons_unidades 		= 'SELECT u.id, u.definicion, u.porcentaje, u.periodo_id, u.asignatura_id, u.obligatoria, u.orden, u.por_defecto, u.fecha, u.created_by, u.updated_by, u.deleted_by, u.deleted_at, u.created_at, u.updated_at, p.numero as numero_periodo FROM unidades u
 			INNER JOIN periodos p ON u.periodo_id=p.id and p.deleted_at is null
 			WHERE u.asignatura_id=? and u.deleted_at is null order by p.numero, u.orden, u.id';
 

@@ -644,8 +644,13 @@ class AlumnosController extends Controller {
 		$consulta = 'SELECT y.id, y.id as year_id, y.year, y.actual FROM years y WHERE y.deleted_at is null ORDER BY y.year desc limit 1';
 		$year_ult = DB::select($consulta)[0];
 		
+		// Las 28 columnas de `matriculas` van nombradas y NO se vuelve a `m.*`:
+		// `matriculas.boletin_independiente` existe desde el 24 ago 2026
+		// (19-boletin-independiente.md) y con `*` entra en esta respuesta. Aquí no
+		// hay instantánea que lo cace, que es peor y no mejor. La lista sale del
+		// esquema congelado, no escrita a mano. §5.ter de noche-2026-08-24/bi-1.md.
 		$consulta = 'SELECT m.id as matricula_id, m.alumno_id, a.no_matricula, a.nombres, a.apellidos, g.nombre as grupo_nombre, g.abrev as grupo_abrev, 
-				m.*, y.year, g.year_id, m.estado
+				m.id, m.alumno_id, m.grupo_id, m.estado, m.prematriculado, m.fecha_retiro, m.fecha_matricula, m.fecha_pension, m.razon_retiro, m.programar, m.descripcion_recomendacion, m.efectuar_una, m.descripcion_efectuada, m.profes_editar_notas, m.nuevo, m.repitente, m.promovido, m.promedio, m.cant_asign_perdidas, m.cant_areas_perdidas, m.anios_in_cole, m.nro_folio, m.created_by, m.updated_by, m.deleted_by, m.deleted_at, m.created_at, m.updated_at, y.year, g.year_id, m.estado
 			FROM alumnos a 
 			inner join matriculas m on a.id=m.alumno_id and a.id=:alumno_id 
 			INNER JOIN grupos g ON g.id=m.grupo_id AND g.deleted_at is null

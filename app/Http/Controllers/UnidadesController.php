@@ -19,7 +19,11 @@ use App\Support\PeriodoDeLaFila;
 class UnidadesController extends Controller {
 
 
-	private $cons_unidades 		= 'SELECT * FROM unidades WHERE asignatura_id=? and periodo_id=? and deleted_at is null order by orden, id';
+	// Las columnas van nombradas y NO se vuelve a `*`: `unidades.alumno_id` existe
+	// desde el 24 ago 2026 (19-boletin-independiente.md) y un `*` la mete en la
+	// respuesta, moviendo la instantánea de contrato de la ruta que use esto.
+	// Es la §5.bis de noche-2026-08-24/bi-1.md.
+	private $cons_unidades 		= 'SELECT id, definicion, porcentaje, periodo_id, asignatura_id, obligatoria, orden, por_defecto, fecha, created_by, updated_by, deleted_by, deleted_at, created_at, updated_at FROM unidades WHERE asignatura_id=? and periodo_id=? and deleted_at is null order by orden, id';
 	private $cons_subunidades 	= 'SELECT * FROM subunidades WHERE unidad_id=? and deleted_at is null order by orden, id';
 
 
@@ -54,7 +58,10 @@ class UnidadesController extends Controller {
 		$periodos = DB::select($consulta, [ ":numero"=>$user->numero_periodo, ":year_id"=>$user->year_id ]);
 
 		for ($i=0; $i < count($periodos); $i++) {
-			$consulta = 'SELECT u.*
+			// Columnas nombradas, no `u.*`: con `*`, `unidades.alumno_id` (24 ago 2026,
+			// 19-boletin-independiente.md) entra en la respuesta y mueve la instantánea.
+			// Ver §5.bis de noche-2026-08-24/bi-1.md. No volver a `*`.
+			$consulta = 'SELECT u.id, u.definicion, u.porcentaje, u.periodo_id, u.asignatura_id, u.obligatoria, u.orden, u.por_defecto, u.fecha, u.created_by, u.updated_by, u.deleted_by, u.deleted_at, u.created_at, u.updated_at
 				FROM unidades u
 				INNER JOIN asignaturas a ON u.asignatura_id=a.id and a.materia_id=? and u.deleted_at is null
 				INNER JOIN grupos g ON g.id=a.grupo_id and g.grado_id=? and g.deleted_at is null
@@ -348,7 +355,8 @@ class UnidadesController extends Controller {
 	{
 		$user = User::fromToken();
 		
-		$cons_unidades 		= 'SELECT * FROM unidades WHERE asignatura_id=? and periodo_id=? and deleted_at is not null';
+		// Columnas nombradas, no `*` — ver el comentario de `$cons_unidades` arriba.
+		$cons_unidades 		= 'SELECT id, definicion, porcentaje, periodo_id, asignatura_id, obligatoria, orden, por_defecto, fecha, created_by, updated_by, deleted_by, deleted_at, created_at, updated_at FROM unidades WHERE asignatura_id=? and periodo_id=? and deleted_at is not null';
 		$cons_subunidades 	= 'SELECT * FROM subunidades WHERE unidad_id=? and deleted_at is null';
 
 		$unidades = DB::select($cons_unidades, [$asignatura_id, $user->periodo_id]);

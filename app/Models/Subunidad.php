@@ -74,7 +74,7 @@ class Subunidad extends Model {
 								<span ", IF(n.nota<:min_aceptada, "class=\"nota-perdida-bold\" ", ""), " uib-tooltip=\"Valor nota: {{::subunidad.valor_nota}}\">", n.nota,"</div>
 						</div>") as fila_subunidad
 					FROM subunidades s
-					left join notas n ON n.subunidad_id=s.id and n.deleted_at is null and alumno_id=:alumno_id
+					left join notas n ON n.subunidad_id=s.id and n.deleted_at is null and n.alumno_id=:alumno_id
 					left join escalas_de_valoracion e ON e.porc_inicial<=n.nota and e.porc_final>=n.nota and e.deleted_at is null and e.year_id=:year_id
 					where s.unidad_id=:unidad_id and s.deleted_at is null
 					order by s.orden';
@@ -94,7 +94,7 @@ class Subunidad extends Model {
 						s.nota_default, s.orden as orden_subunidad, s.inicia_at, s.finaliza_at, ROUND((n.nota*s.porcentaje/100), 1) as valor_nota, n.nota, e.desempenio, 
 						s.definicion, s.porcentaje, e.desempenio, IF(n.nota<:min_aceptada, "nota-perdida-bold", "") as clase_perdida, n.nota
 					FROM subunidades s
-					left join notas n ON n.subunidad_id=s.id and n.deleted_at is null and alumno_id=:alumno_id
+					left join notas n ON n.subunidad_id=s.id and n.deleted_at is null and n.alumno_id=:alumno_id
 					left join escalas_de_valoracion e ON e.porc_inicial<=n.nota and e.porc_final>=n.nota and e.deleted_at is null and e.year_id=:year_id
 					where s.unidad_id=:unidad_id and s.deleted_at is null
 					order by s.orden';
@@ -132,26 +132,34 @@ class Subunidad extends Model {
 	
 	
 	
-	public static function perdidasDeAsignatura($asignatura_id, $alumno_id, $periodo_id)
-	{
-		$consulta = 'SELECT u.id as unidad_id, u.definicion as definicion_unidad, u.porcentaje as porcentaje_unidad, 
-						u.asignatura_id, u.orden as orden_unidad, u.periodo_id, count(n.nota) as cant_perdidas
-					FROM unidades u
-					left join subunidades s ON s.unidad_id=u.id and s.deleted_at is null
-					left join notas n ON n.subunidad_id=s.id and n.deleted_at is null and alumno_id=:alumno_id and n.nota<:nota_minima
-					where u.asignatura_id=:asignatura_id and u.periodo_id=:periodo_id and u.deleted_at is null
-					group by u.id 
-					order by u.orden, u.id';
+	/*
+	 * Aquí vivía `perdidasDeAsignatura($asignatura_id, $alumno_id, $periodo_id)`,
+	 * borrado el 24 ago 2026 por la regla de la casa: **sin ruta y muerto se
+	 * borra**. Población de la comprobación, que es la mitad del borrado:
+	 * **1.430 ficheros revisados y cero llamantes** — 473 de este repo
+	 * (`app/` 218, `tests/` 193, `config/` 20, `routes/` 18, `database/` 15,
+	 * `resources/` 9, blades incluidos) y 957 de los tres clientes
+	 * (`myvc_front` 672, `myvc_front_2` 118, `myvc_flutter` 167). La única
+	 * aparición era su propia definición.
+	 *
+	 * **NO confundir con `perdidasDeUnidad`, que está justo encima y está VIVO
+	 * con diez llamantes.** Los nombres se parecen y las funciones no son la
+	 * misma: aquélla devuelve **subunidades**, fijada por `s.unidad_id`; ésta
+	 * devolvía **unidades** con un `count(n.nota)`, elegidas por
+	 * `(asignatura_id, periodo_id)`. Sin esta nota, el siguiente que lea el
+	 * borrado va a creer que se quitó el que se usa.
+	 *
+	 * **Y no se pierde nada**: el `cant_perdidas` que calculaba está escrito a
+	 * mano en once sitios más —diez controladores y `Models/Periodo.php`—. No la
+	 * sustituyó un método mejor: la misma cuenta se copió dentro de cada
+	 * pantalla y ésta se quedó atrás.
+	 *
+	 * **Lo que compra el borrado**: era **uno de los cuatro predicados
+	 * `alumno_id` ambiguos** que el `ALTER TABLE` de `unidades.alumno_id` rompía
+	 * con un 1052 (bi-1.md §5.bis y §5.quater). Queda un sitio menos que
+	 * mantener y un predicado menos en el `ALTER`.
+	 */
 
-		$subunidades = DB::select($consulta, array(
-			':alumno_id'	=> $alumno_id,
-			':nota_minima'	=> User::$nota_minima_aceptada,
-			':asignatura_id'=> $asignatura_id,
-			':periodo_id'	=> $periodo_id,
-		));
-
-		return $subunidades;
-	}
 	
 	
 }

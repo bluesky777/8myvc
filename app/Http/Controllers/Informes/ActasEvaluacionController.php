@@ -790,7 +790,11 @@ class ActasEvaluacionController extends Controller {
         $alumnos = DB::select($consulta, [ Request::input('grupo_id') ]);
 
 		// Años de estadía
-		$consulta = 'SELECT y.year, m.*, g.nombre, m.id as matricula_id
+		// Las 28 columnas de `matriculas` nombradas, NO `m.*`: con `*`,
+		// `matriculas.boletin_independiente` (24 ago 2026) entra aquí y mueve la
+		// instantánea `actas-evaluacion-detalle`. Fue el primero de los cinco que
+		// cazó el criterio de la §4. §5.ter de noche-2026-08-24/bi-1.md.
+		$consulta = 'SELECT y.year, m.id, m.alumno_id, m.grupo_id, m.estado, m.prematriculado, m.fecha_retiro, m.fecha_matricula, m.fecha_pension, m.razon_retiro, m.programar, m.descripcion_recomendacion, m.efectuar_una, m.descripcion_efectuada, m.profes_editar_notas, m.nuevo, m.repitente, m.promovido, m.promedio, m.cant_asign_perdidas, m.cant_areas_perdidas, m.anios_in_cole, m.nro_folio, m.created_by, m.updated_by, m.deleted_by, m.deleted_at, m.created_at, m.updated_at, g.nombre, m.id as matricula_id
 			FROM matriculas m
 			INNER JOIN alumnos a ON a.id=m.alumno_id and m.deleted_at is null and a.deleted_at is null
 			INNER JOIN grupos g ON g.id=m.grupo_id and g.deleted_at is null
