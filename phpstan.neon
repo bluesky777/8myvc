@@ -210,26 +210,21 @@ parameters:
         # El nivel 0 no los veía porque `Model` y las facades resuelven por
         # `__call`, y para el análisis la clase «podría» responder.
 
-        # GET api/excel-docentes/docentes/{year}/{year_id} · GET api/simat/alumnos
-        # `Excel::create()` es la API de maatwebsite/excel 2.x. La 3.x la quitó,
-        # y este proyecto lleva en la 3.x desde antes de esta migración. Los
-        # exports están fuera de alcance por decisión del plan (§5): reescribir
-        # estos dos a la API nueva es rehacer el informe, no arreglarlo.
+        # Aquí estaban las dos anotaciones de `Excel::create()` —la API 2.x sobre
+        # una instalación 3.x, o sea un 500— de `ExcelListadoDocentesController` y
+        # `SimatController`. **Arregladas el 24 ago 2026**, así que se van: una
+        # anotación que ya no corresponde a nada la caza larastan sola
+        # («Ignored error pattern … was not matched»), y así fue como se supo que
+        # el proyecto ya tenía esto medido desde el 19 ago.
         #
-        # Las dos rutas de arriba estaban mal escritas hasta el 19 ago 2026:
-        # decían `api/informes/listado-docentes-excel`, que no existe, y
-        # `api/simat/alumnos-exportar`, que sí existe y FUNCIONA —su
-        # `Excel::create()` está detrás de un `return`, así que no se alcanza—.
-        # La que llega a la API vieja es `api/simat/alumnos`. Las tres las fija
-        # ahora ExcelTest, golpeándolas.
-        -
-            message: '#^Call to an undefined static method Maatwebsite\\Excel\\Facades\\Excel::create\(\)\.$#'
-            path: app/Http/Controllers/Informes/ExcelListadoDocentesController.php
-            count: 1
-        -
-            message: '#^Call to an undefined static method Maatwebsite\\Excel\\Facades\\Excel::create\(\)\.$#'
-            path: app/Http/Controllers/Informes/SimatController.php
-            count: 1
+        # Merece quedar escrito por qué no se arreglaron entonces, porque el
+        # motivo estaba aquí y era falso: decía *«reescribir estos dos a la API
+        # nueva es rehacer el informe, no arreglarlo»*. No hubo que rehacer nada
+        # — `simat/alumnos` reutiliza `App\Exports\AlumnosExport`, que ya existía y
+        # monta exactamente lo mismo, y el listado de docentes son sesenta líneas
+        # copiando la consulta y la vista de siempre. **Una razón para aplazar
+        # también caduca, y ésta no llevaba fecha de revisión.**
+        # Ver docs/migracion/noche-2026-08-24/exp-1.md.
 
         # GET api/candidatos/conaspiraciones
         # `VtVotacion::actualInscrito()` no existe. Lo que hay es
@@ -383,19 +378,26 @@ parameters:
             path: app/Http/Controllers/AplicacionDescargas/InicioController.php
             count: 1
 
-        # GET api/simat/alumnos-exportar
-        # La ruta funciona: devuelve `Excel::download(new AlumnosExport, ...)`.
-        # Debajo, sin ejecutarse, está la implementación de maatwebsite 2.x, y
-        # con ella el `Comentarios()` que escribe las instrucciones de cada
-        # columna de la plantilla del SIMAT —«Coloque: MATR, ASIS, RETI, DESE»,
-        # «¿Es urbano? SI o NO», «Coloque "No aplica" … si no tiene SISBEN»—.
-        # **Eso es la especificación del importador que sí está vivo**: es lo que
-        # `ImporterFixer` lee de la hoja que devuelve la secretaría. El export
-        # 3.x (`AlumnosSheet`) no las escribe, así que hoy la plantilla sale sin
-        # instrucciones y este bloque muerto es el único sitio donde están.
-        # 05-codigo-muerto-y-roto.md §12.2.
+        # GET api/simat/alumnos-exportar — la anotación de aquí se retiró el 24
+        # ago 2026 porque el bloque inalcanzable que silenciaba ya no existe: era
+        # la implementación de maatwebsite 2.x y se borró con el arreglo (EXP-1).
+        #
+        # **Lo que decía sigue importando y por eso no se pierde aquí**: dentro de
+        # ese bloque estaba el `Comentarios()` que escribe las instrucciones de
+        # cada columna de la plantilla del SIMAT, que es **la especificación que
+        # `ImporterFixer` lee de vuelta**. Ese método SÍ se conserva —sin
+        # llamantes y a propósito—, y el porqué está ahora en su propio docblock,
+        # que es donde lo va a leer quien vaya a borrarlo. Casi se pierde: se
+        # borró y hubo que restaurarlo al encontrar esta anotación.
+        # Ver 05-codigo-muerto-y-roto.md §12.2 y noche-2026-08-24/exp-1.md.
+        #
+        # Y su consecuencia, que es esta anotación: quitado el bloque muerto,
+        # `Comentarios()` se queda sin llamantes y larastan lo dice. **Es cierto y
+        # se conserva igual**, por lo de arriba. Se anota aquí con nombre y motivo
+        # —y no con un `@phpstan-ignore` suelto en el fichero— para que salga en
+        # la lista de lo que este proyecto se guarda a propósito.
         -
-            message: '#^Unreachable statement - code above always terminates\.$#'
+            message: '#^Method App\\Http\\Controllers\\Informes\\SimatController::Comentarios\(\) is unused\.$#'
             path: app/Http/Controllers/Informes/SimatController.php
             count: 1
 

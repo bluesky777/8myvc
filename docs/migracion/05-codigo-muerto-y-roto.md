@@ -7801,3 +7801,336 @@ Las dos advertencias que van pegadas a esas cifras y no debajo:
 
 **Los huecos —§117, §128–129, §138–139 y §160–165— son números que nadie usó**
 al abrir lotes sobre la marcha. Un hueco no es una sección perdida.
+
+---
+
+# La noche del 24 de agosto de 2026 — §168 en adelante
+
+Esta noche trabajan **catorce sesiones en tres repositorios**, con dos
+coordinaciones —`myvc-front-98` en el front, `8myvc-34` aquí— y una sola interfaz
+entre ellas. El reparto y el tablero están fuera de git, en
+`8myvc-cola/noche-2026-08-24/`. Aquí van sólo los hallazgos.
+
+## §168. La firma del profesor: dos endpoints hermanos, tres diferencias y un borrado silencioso
+
+**Lo trajo `myvc-front-89` desde el front, midiendo su propio contrato**, y lo que
+reportaron era cierto: los dos hermanos leen **claves distintas** para lo mismo.
+Comprobado aquí, hay **tres** diferencias y la del cuerpo es la menos grave.
+
+| | `Perfiles/PerfilesController::putCambiarfirmaunprofe:941` | `Perfiles/ImagesUsuariosController::putCambiarFirmaUnProfe:186` |
+|---|---|---|
+| Ruta | `PUT perfiles/cambiarfirmaunprofe/{profeelegido}` | `PUT images-users/cambiar-firma-un-profe/{profe_id}` |
+| Campo del cuerpo | **`imgFirmaProfe`** | **`imagen_id`** |
+| Quién puede | `Autoriza::esAdministrativo` | `tipo == 'Profesor' \|\| is_superuser` |
+| ¿De quién es la imagen? | **no lo pregunta** | `exigeQueLaImagenSeaSuyaODelColegio` |
+| `updated_by` | no lo escribe | lo escribe |
+
+**El borrado silencioso.** La primera asigna sin preguntar si el campo vino:
+
+```php
+$profesor->firma_id = Request::input('imgFirmaProfe');   // null si viene la otra clave
+$profesor->save();
+return ImageModel::find($profesor->firma_id);            // find(null) -> null, con 200
+```
+
+Una llamada con la clave de la hermana pone **`firma_id = null`**, guarda, y
+contesta **200 con cuerpo `null`**. La firma desaparece del boletín —la leen
+`Year::datos()` para rector y secretaria, y `Grupo` para el titular— **y nadie ve
+un error**. Es la misma forma que el 200 que miente de la [§48.2](#), sólo que
+aquí lo dispara **un nombre de campo equivocado**, no una rama sin salida.
+
+**No está disparado hoy, y por qué importa saberlo:** el front viejo —el que corre
+en los dieciséis— manda `imgFirmaProfe` (`FileManagerCtrl.ts:476`), así que el
+camino vivo funciona. El tipo nuevo de `app2` declaraba `imagen_id`, y **la
+pantalla de imágenes de `app2` llama a la hermana buena**, no a ésta. O sea que
+esto no es un incendio: es una mina puesta. El front la desactiva por su lado
+mandando `imgFirmaProfe` —**lo que lee el backend desplegado, no el fusionado**— y
+lo deja escrito en la cabecera para que nadie lo «arregle» al revés dentro de seis
+meses.
+
+**Lo que hay que decidir aquí es cuál de las dos gana**, y la respuesta no es
+«la que llama el front»: la que llama el front es **la que no comprueba de quién es
+la imagen**. Las dos escriben la misma columna de la misma tabla con dos criterios
+de permiso distintos, y ésa es la familia del [§14](09-pendientes.md) —dos nombres
+casi iguales que no son la misma condición—, no un problema de nombres de campo.
+
+**El arreglo del borrado ya está escrito en este repo y por eso no hace falta
+inventarlo:** `App\Support\CamposQueVinieron` distingue *«el campo no vino»* de
+*«el campo vino vacío»*, y va por **15 ficheros**. Ésta es la 16.ª.
+
+## §169. `puestoAlumno` son dos funciones, en dos repos, con un desfase de uno — y la muerta es la de fuera
+
+Salió de una discrepancia entre `myvc-front-98` y esta sesión que **parecía que
+una de las dos estaba equivocada, y no lo estaba ninguna**:
+
+```
+8myvc   app/Models/Nota.php:122                        Nota::puestoAlumno   -> $puesto = 1
+front   app/scripts/informes/PuestoAlumnoFilter.ts:57  filtro puestoAlumno  -> let puesto = 0
+```
+
+**El mismo nombre, la misma idea —contar cuántos te ganan, para que los empatados
+compartan puesto— y un desfase de uno.** Cada una citó su fuente y las dos eran
+ciertas; lo que fallaba era dar por hecho que un nombre igual en dos repositorios
+es la misma función.
+
+Lo que lo hace peligroso es lo que se midió después: **el filtro del front está
+muerto** —ninguna plantilla de `app/scripts` lo llama, y por eso no se tradujo a
+`app2`—. Queda un **cadáver 0-based con el mismo nombre que un método vivo
+1-based**. El día que alguien lo resucite «para que cuadre», mete un desfase de uno
+**en un papel que se entrega a las familias**, y se leerá como *«el backend cambió
+el puesto»*.
+
+**Y de paso deja limpio lo que separa a los dos caminos vivos**, que es lo que hay
+que escribir en el plan del boletín independiente: las cuatro rutas de puestos no
+calculan nada —el front pinta `$index + 1`— y los ocho impresores llaman a
+`Nota::puestoAlumno`. Los dos son 1-based, **así que la única diferencia aparece
+con empates**: posición `1,2,3,4` · puesto `1,1,3,4`. Un test del interruptor **sin
+un empate dentro no distingue los dos caminos** y pasa sin probar nada.
+
+> La regla que deja esta noche, y es de método: **una cifra sobrevivió tres veces
+> sólo porque alguien fue a mirar el código en vez de fiarse del texto — y las tres
+> veces el texto era nuestro.**
+
+## §170. El botón de borrar la bitácora llevaba años mudo — y eso es la evidencia que sostiene su retirada
+
+Joseth decidió esta noche que **nadie borra un intento de login fallido y el botón
+desaparece**. `myvc-front-98` fue a medir el lote para entregarlo con fichero y
+línea, y encontró lo que faltaba en el expediente:
+
+**En la aplicación vieja ese botón no borraba.** Su `cellTemplate` llamaba a
+`eliminar(row.entity)` y **el controlador no definía ningún `eliminar`**: estaban
+la ruta del backend y el método del repositorio, **faltaba el de en medio**
+(escrito por quien lo tradujo, en `app2/src/app/paginas/bitacora/bitacora.ts:137-142`).
+Pulsarlo no hacía nada y no lo decía. Se conectó en la **fase 8** de la migración
+del front, y a `app2` llegó ya funcionando.
+
+**O sea que ese botón lleva años mudo en dieciséis colegios y nadie lo reportó
+jamás.** Es el mismo patrón que `boletines/detailed-notas` dando 500 durante cinco
+años sin una queja, **sólo que aquí juega a favor**: la ausencia de quejas sobre
+una función que no funciona **mide cuánta falta hace**. Si algún día hay que
+defender la retirada ante un colegio, ése es el argumento y tiene fecha.
+
+Y la vuelta, que conviene decir en voz alta para que nadie lo lea como trabajo
+tirado: **la migración arregló ese botón y ahora se retira.** No se perdió el
+trabajo — **fue el arreglo el que puso el asunto delante de alguien que podía
+decidir.** Mudo, nadie lo habría mirado nunca.
+
+### Lo que se comprobó aquí antes de meterlo en la cola, que es lo que faltaba
+
+**Ningún otro cliente llama a `DELETE bitacoras/destroy/{id}`.** Importa porque
+`myvc_flutter` es **una sola app para los dieciséis** y una retirada no se puede
+escalonar: si la llamara, la retirada sería un 404 en todos a la vez. No la llama
+—su única mención a `bitacoras` es un comentario en `HistorialNotaApi.dart:8`, y
+sus borrados son `ausencias`, `frases_asignatura`, `notas`, `unidades` y
+`subunidades`—. `myvc_front_2` (el PIAR) tampoco.
+
+**Y el primer detector mintió, en la dirección de siempre.** Un
+`grep -rn "bitacoras/destroy"` sobre los cuatro clientes devolvió **un solo
+resultado y era un comentario**, o sea *«no la llama nadie»*. Falso: la URL se
+arma por concatenación —`api.del(RECURSO + '/destroy/' + id)`,
+`services/api/BitacorasApi.ts:29`— y la cadena completa **no existe en el código**.
+La conclusión final coincide, pero por el camino corto habría sido una casualidad:
+**el primer sitio donde mirar cuando el número sale limpio también es el detector.**
+
+### Orden de retirada, y el hilo que queda suelto
+
+**El front va delante**: quita los dos botones (`mis-sesiones` y la rejilla de
+`/panel/bitacora`), y sus dos pruebas **no se borran, se dan la vuelta** — pasan a
+afirmar que el botón **no está**, que es lo que impide que vuelva por descuido.
+`eliminar()` de `datos/bitacoras.ts` **se queda sin consumidores y tampoco se
+borra**: el endpoint sigue vivo en los dieciséis hasta que se retire aquí. **Cuando
+se retire hay que avisar al front para que lo limpie entonces** — sin ese aviso se
+queda un método muerto apuntando a una ruta que ya no existe, que es la forma en
+que estas retiradas dejan basura detrás.
+
+## §171. El punto ciego: 86 escrituras crudas que ninguna herramienta de esta fase mira
+
+**Lo destapó `myvc-front-98` desde el front**, midiendo sus propios consumidores, y
+es el hallazgo con más recorrido de la noche porque **no señala un fallo: señala
+que llevamos toda la fase mirando con un instrumento que no alcanza ahí**.
+
+Todo el trabajo de «campos que se asignan sin condición» —`App\Support\CamposQueVinieron`,
+15 ficheros, la §168— busca **asignaciones de Eloquent**, `$x->campo = …`. Y este
+repo tiene **990 consultas crudas**. Una `UPDATE … SET` cruda **no tiene ninguna
+asignación que grepear**: el `null` entra como *binding* y **la columna se vacía
+igual**. Mismo borrado silencioso, por el camino que nadie estaba mirando.
+
+### La medición, con su método y sus dos límites
+
+`tools/escrituras-crudas-con-entrada.py` (nueva, sólo lee):
+
+```
+POBLACIÓN: 220 ficheros de app/ leídos, 130 llamadas a DB::update dentro de una función
+  con un SET en la misma función ................... 128
+  y además con entrada del cliente en la función ...  86   <- sitios donde mirar
+  repartidos en 30 ficheros
+```
+
+Los cinco primeros: `ChangeAskedController` (**21**), `DefinitivasPeriodosController` (7),
+`Disciplina/DisciplinaController` (6), `Perfiles/ImagesUsuariosController` (5),
+`Perfiles/PublicacionesController` (4).
+
+**Y el número dice menos de lo que parece, escrito aquí para que nadie lo cite de
+más:** el detector afirma *«en esta función hay un `SET` crudo y además se lee del
+cliente»*, **no** *«este binding viene del cliente»*. Así que **cuenta de más** —el
+valor puede venir de una variable ya comprobada, o el `SET` puede no usarlo— y
+puede contar **de menos** si el valor llega por un ayudante de otro fichero.
+**Clasificar es leer los 86**; el detector sólo dice dónde.
+
+**Y las dos cifras de esta noche no se suman ni se cruzan:** el front midió **38
+endpoints suyos** que escriben así, y aquí salen **86 sitios de llamada**. Son
+poblaciones distintas —consumidores contra puntos de escritura— y leerlas como la
+misma daría una discrepancia que no existe. Es la lección de la [§169](#) otra vez:
+el mismo nombre no garantiza la misma cosa.
+
+**Por dónde entrar, que ya está apuntado desde el front:** `uniformes/actualizar` y
+`disciplina/update` son **los dos que no tienen ni un `validate`** — y en todo el
+proyecto hay **2 validaciones**, así que eso no los distingue de casi nadie; lo que
+los distingue es que además escriben crudo con lo que llega.
+
+> **Y el mérito del hallazgo es de método, no de suerte.** Ninguna de las dos
+> coordinaciones lo habría visto sola: aquí no hay nada que grepear, y desde el
+> front no se ve qué hace el backend con lo que se le manda. **Lo vio quien miró
+> desde el otro lado de la llamada.**
+
+## §172. Once notas cambiadas y ni una fila de bitácora — medido, y la causa **no** es la que parecía
+
+Lo trajo `myvc-front-98` desde el front, medido en Chrome sin dejar una escritura.
+Traía **tres afirmaciones**: que `putUpdate` registra cambios que no existieron, que
+hay once escrituras sin rastro, y que la causa es un `[0]` sobre una subconsulta
+vacía. **La segunda está confirmada, la primera también, y la tercera se cae** —y
+que se caiga importa, porque arreglarla no habría arreglado nada.
+
+### Lo confirmado, con los números
+
+```
+notas 1165610…1145850  ·  once, alumno 1003, updated_by 675
+                          2026-08-23 20:38:36 → 20:38:49, una por segundo
+bitácoras de esas once notas ................. 2, las dos del 17 de agosto
+bitácoras borradas en toda la tabla .......... 0 de 86
+```
+
+Once notas cambiadas, **ni una fila de bitácora**, y **ninguna se borró después**.
+Los ids van de 38 en 38: no es calificar, es **alguien tabulando por la fila de un
+alumno** — una sesión verificando esa pantalla.
+
+### Por qué el `[0]` no puede ser la causa, y qué es de verdad
+
+El diagnóstico que llegaba era: la subconsulta de `historiales` no devuelve fila,
+el `[0]` revienta, y el 422 sale **después** del `UPDATE`. **Dos cosas no encajan:**
+
+1. **El `[0]` está antes del `UPDATE`**, no después (`NotasController::putUpdate`,
+   el `SELECT` abre el `try` y el `UPDATE` viene nueve líneas más abajo). Cuando
+   revienta, la nota **no se guarda** y el «no se pudo guardar la nota» **es
+   verdad**.
+2. **`carolina` (675) sí tiene historial**: dos filas. La subconsulta le devuelve
+   fila, así que a ella el `[0]` no le reventó.
+
+**Y la población que lo acompañaba dice otra cosa de la que parece.** *«8 usuarios
+con fila en `historiales` de 2.355»* es cierto **en la copia local**, y de ahí no
+sale «2.347 usuarios rotos»: `Services/Login.php:136` **inserta una fila en cada
+login**, así que en producción cualquiera que haya entrado tiene la suya. Lo que
+mide ese 8 es cuánta gente ha entrado **en esta base de desarrollo**. El `[0]` es
+una mina real —y la cura está escrita **dos métodos más abajo**, `putLote` hace
+`$historial->id ?? null`—, pero su radio no es el que sugería el número.
+
+### Lo que sí queda abierto, y es lo que hay que mirar
+
+**Sólo dos funciones de `app/` hacen `UPDATE` sobre `notas` y las dos insertan
+bitácora.** Así que o el `INSERT` falló **después** de que el `UPDATE` ya estaba
+escrito —y ahí está el fallo de verdad: **`putUpdate` no abre transacción**, así
+que un fallo al registrar deja la nota guardada, sin rastro, y contesta 422
+diciendo que no se guardó—, o **hay un escritor que mi detector no ve**. Las dos
+posibilidades son de la misma familia y las dos importan para la auditoría.
+
+### Y la primera afirmación, que sí es de diseño
+
+**`putUpdate` inserta en `bitacoras` sin comparar el valor viejo con el nuevo.**
+El front encontró además que `app2` dispara `PUT notas/update` al **salir de una
+celda sin teclear nada** y al **abrir el historial con doble clic** —usa el `blur`
+crudo del DOM donde la vieja usaba `ng-change`, 20 sitios—. Aunque el front lo
+arregle, **cualquier cliente que reenvíe el mismo valor fabrica un cambio en la
+auditoría**: la tabla que existe para saber quién cambió una nota registra cambios
+que no ocurrieron. Es la otra cara de la [regla del escritor](18-auditoria.md) —*un
+reguardado sin cambio sí se registra*—, y hay que decidirla **antes** de que el
+escritor único la herede.
+
+> **Y el aviso de método, que me lo llevé yo mismo midiendo esto:** mi primera
+> consulta preguntó por las notas de **hoy** con `curdate()` y contestó **cero**,
+> con doce delante. MySQL cuenta el día en **UTC** (`@@session.time_zone = SYSTEM`,
+> `now()` = 03:54) y esas notas se escriben en **Bogotá**. O sea que **el bicho del
+> que trata la auditoría muerde a quien va a medirlo**, y contesta con un cero
+> limpio y creíble.
+
+## §173. `sanarInputUser` fabrica tres campos antes de la guarda — y dos de ellos nadie los protege
+
+Lo midió `myvc-front-89` **contra el docker, en tres pasadas, con un profesor de
+usar y tirar y el cuerpo transcrito del código del front con un script**. Verificado
+aquí línea a línea: **es cierto entero, y la causa es más precisa que el aviso**.
+
+### Lo que pasa hoy al corregirle el teléfono a un docente desde la rejilla
+
+```
+PUT profesores/update/52  ->  200
+username      ZZTestFirma  -> ZZTest              RENOMBRA
+is_superuser  1            -> 0                   DEGRADA
+email_usu     …@example    -> ZZTest@myvc.com     y el correo de la cuenta se pierde
+```
+
+### La causa, y por qué la guarda no lo tapa
+
+`ProfesoresController::sanarInputUser` **fabrica tres campos** cuando el cliente no
+los manda: `username` a partir de `nombres`, `is_superuser` a `false`, y `email2`
+con el correo de la ficha o `username@myvc.com`. Y la llave que decide lo del
+correo es ésta:
+
+```php
+if (!Request::input('email1')) {   // ningún cliente manda `email1`. Nunca.
+```
+
+**Comprobado en los tres clientes: `email1` no aparece en un solo fichero de
+`myvc_front`, `myvc_flutter` ni `myvc_front_2`.** Cero. O sea que **esa rama corre
+siempre** y el `email2` del cliente se pierde **en todo `profesores/update`**, venga
+de la rejilla o del formulario. El front tenía escrito un remedio —«mandar `email2`
+evita que lo pise»— que **no funciona**, y por eso lo midieron.
+
+`CamposQueVinieron` está bien usada y en el sitio correcto —`capturar()` va **antes**
+de los dos `sanar*`, y su propio docblock ya avisaba de esto—, pero:
+
+- **`is_active` y `email2` sí van guardados con `trae()`**; y
+- **`username` y `is_superuser` NO** (`ProfesoresController::putUpdate`): cuelgan de
+  `if ($profesor->user_id and Request::input('username'))`, y como `sanarInputUser`
+  **acaba de fabricar** `username`, esa condición **es cierta siempre**. De ahí el
+  renombrado y la degradación.
+
+### Y la grieta de método, que es lo que hay que llevarse
+
+**`CamposQueVinieron` protege contra la AUSENCIA de una clave, no contra que un
+`merge()` PISE una clave presente.** Cuando el formulario **sí** manda `email2`,
+`trae('email2')` es **cierto** —vino— y lo que se escribe es **el valor fabricado**:
+la guarda pasa y el dato se pierde igual. La clase contesta *«¿vino?»*; no contesta
+*«¿es éste el valor que vino?»*.
+
+### El tamaño, medido aquí, con lo que el número no dice
+
+```
+220 ficheros de app/ leídos
+  definen un sanador ............................ 2   (Profesores, Alumnos)
+  con Request::merge() .......................... 10 ficheros, 51 llamadas
+                                                  (21 Profesores, 17 Alumnos)
+  usan CamposQueVinieron ........................ 15
+  de ésos, con un merge o un sanador delante .... 9   <- sitios donde mirar
+```
+
+**Uno de los diez era la propia `CamposQueVinieron.php`**, señalada por mi detector
+porque su docblock **explica** el problema: un falso positivo de manual, y por eso
+el cruce son **9 y no 10**. Y «tiene un `merge` en el fichero» no es «ese `merge`
+pisa un campo guardado»: **hay que leer los nueve**.
+
+### Lo que dejó en la base local, avisado por quien lo hizo
+
+Profesor 52 borrado suave; **la cuenta `users` 2447 (`ZZTestFirma`) sigue viva**,
+con `is_active = 0` y contestando *«Usuario invalidado»*, **y con `is_superuser = 1`**.
+No la borró porque `deleteDestroy` de perfiles borra **un grupo**, no un perfil, y
+llamarlo con 2447 habría tocado el grupo 2447. Queda escrito aquí, que es donde se
+mira lo que se le hizo a `simonbolivar` y no está en git.

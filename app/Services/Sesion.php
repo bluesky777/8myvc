@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\TokenDeSesion;
+use App\Support\Reloj;
 use App\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -474,7 +475,18 @@ class Sesion
             [
                 'Refresco ya rotado presentado de nuevo. Sesión: '.$token->name,
                 '',
-                Carbon::now(),
+                // La ÚNICA de este fichero que cambia de reloj, y por eso lleva nota:
+                // las demás `Carbon::now()` de aquí gobiernan expiraciones que sólo
+                // se comparan consigo mismas y pueden seguir en UTC. Ésta escribe
+                // en `bitacoras.created_at`, que es de todos. Ver 18 §1.1.
+                //
+                // Y el motivo por el que las otras se QUEDAN, que es lo que impide
+                // que alguien las «unifique» dentro de seis meses (lo apuntó
+                // `8myvc-d2`): `last_used_at` se compara contra
+                // `Carbon::now()->subMinutes(5)` **en el mismo proceso**, así que
+                // moverla a Bogotá no cambiaría nada hoy — pero rompería la
+                // comparación el día que uno de los dos lados se lea de la base.
+                Reloj::ahora(),
                 (int) $token->tokenable_id,
             ]
         );

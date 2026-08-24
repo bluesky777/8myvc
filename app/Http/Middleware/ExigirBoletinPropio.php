@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\Reloj;
 use App\User;
 use Closure;
 use Illuminate\Http\Request;
@@ -170,7 +171,9 @@ class ExigirBoletinPropio
                 $historial[0]->id ?? null,
                 $alumnoId,
                 $tipo,
-                now(),
+                // Ver el mismo comentario en ExigirPersonaPropia: `now()` es UTC y
+                // esta columna la escriben otros siete en Bogotá. 18 §1.1.
+                Reloj::ahora(),
             ]
         );
     }
