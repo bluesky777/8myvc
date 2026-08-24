@@ -10826,3 +10826,57 @@ nombres parecidos que no son la misma cosa** esta noche.
 **Y la pregunta del otro inventario contestada como se pidió: NO.** *«Mi barrido sigue
 llamadas, no ramas. Su pregunta es de dentro de un método; la mía es entre métodos. No la
 contesta, y no la contesta ni de paso.»*
+
+## §217. La precondición del borrado: once árboles de cliente, no cuatro
+
+> **34 candidatos, 1.019 líneas, revisados 8.351 ficheros en once árboles de cliente, y
+> ningún cliente llama a ninguno.**
+
+**Coordinación dijo cuatro árboles. Hay once**, y los dos que faltaban son los que muerden:
+
+- **`myvc_front` tiene SEIS worktrees**, cuatro de ellos ramas de **las sesiones de esta
+  misma noche**. *Una mención escrita hace dos horas sólo existe en una de ellas.*
+- **`tardanzasMyvc-old` ES un cliente**: 137 ficheros, **10 llaman a esta API** — y **dos
+  de los 34 están en `Tardanzas/TLoginController`**. **Se llama «old», que es exactamente
+  lo que hace que no se mire.**
+
+**Buscar sólo en `myvc_front` habría mirado 587 de 8.351 ficheros: el 7%.**
+
+### Un cliente no llama métodos, así que fueron dos comprobaciones
+
+**De los 22 nombres distintos, 10 son genéricos y buscarlos no dice nada** —`update` sale
+**1.815** veces, `index` **1.683**—. Para ésos lo que vale es **si algún cliente llama el
+camino que ese método serviría**, porque **si lo llama está recibiendo un 404 hoy**, y eso
+*no es riesgo de resurrección: es un fallo vivo*. **Cero.**
+
+### Los dos nombres que sí aparecen son el front documentando la muerte
+
+| Nombre | Qué dice la documentación del front |
+|---|---|
+| `calcular_notas_finales_asignatura` | *«NO SE DECLARA … Y ES A PROPÓSITO … el método del backend no puede funcionar»* — `count()` sobre variable no definida, **500 siempre** |
+| `detailedNotasGrupo` | *«hay DOS ficheros llamados `BolfinalesController.php` … sólo el de `Informes/` está enrutado»* |
+
+**El segundo es la trampa 2 del propio detector, encontrada desde el otro repositorio** —
+con el aviso de que *leyendo el equivocado, ese `[3]` parece un fallo y no lo es*. **Y una
+tercera confirmación independiente**: *«`paises/actualizar` y `paises/destroy` no existen
+como ruta. Los métodos están escritos y no registrados.»*
+
+> **Tres veces desde el front, mientras esto se medía desde el backend por cierre
+> transitivo.** Es la confirmación cruzada que la noche llevaba persiguiendo, **y esta vez
+> son medidas de repositorios distintos.**
+
+### Los tres cajones
+
+| | Cuántos | Qué |
+|---|---|---|
+| **A** | **25** | **nadie los nombra.** Borrables cuando Joseth lo diga |
+| **B** | **4** | **hay documentación del front apuntándoles** — y **ninguno es riesgo de que alguien los cablee: los cuatro son el front diciendo que ya lo miró**. Pero borrarlos **invalida documentación viva de otro repositorio, y eso se avisa, no se descubre** |
+| **C** | **11** | **dos subárboles** — `periodosPerdidosDeAlumno` (en 5, sin camino en 5) y `asignaturasPerdidasDeAlumnoPorPeriodo` (en 8, sin camino en 6), **y el primero es el único llamante del segundo**. **Enteros o nada** |
+
+### Y lo que NO prueba, para que no se cite de más
+
+- **no ve ramas de cliente que no estén en disco** — las seis worktrees son las de esta
+  máquina;
+- **no prueba que otra sesión no esté añadiendo un `Route::` a uno de los 34 ahora mismo**:
+  el cierre parte de `routes/` **en su árbol**;
+- y sigue en pie lo de la [§216](#): **sigue llamadas, no ramas.**
