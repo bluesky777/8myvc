@@ -9951,3 +9951,67 @@ nada**. El principal sí: `Services\Login::anotarIntentoFallido` escribe una bit
 
 No se sabe si es decisión o descuido — pero **si el plan de auditoría cuenta «quién ha
 intentado entrar», esas tres puertas no cuentan.** Va al [18](18-auditoria.md).
+
+## §201. El inventario de escrituras de un dominio no es el de su controlador
+
+**De 252 escrituras en 159 métodos, 15 métodos y 18 escrituras no están en un
+controlador.** Y salen porque el detector recorre `app/` y no
+`app/Http/Controllers/` — **una diferencia de una línea y de todo**.
+
+**Medido leyendo la puerta de cada sitio, no golpeando con tokens**, y la razón importa:
+*golpear demuestra lo que hace **ese** rol; leer el `if` demuestra lo que hacen
+**todos**.*
+
+| Dónde corre | Métodos | **Quién lo dispara** |
+|---|---|---|
+| antes del controlador (middleware) | 2 | **sólo `Alumno` y `Acudiente`** |
+| durante el login o el refresco | 4 | uno **sin actor**; los otros, cualquiera que entre |
+| debajo del controlador (modelos, servicios) | 8 | quien pase el guard del controlador que los llama |
+| sin HTTP (consola) | 1 | nadie |
+
+**Y la puerta es idéntica en los dos middlewares, a catorce líneas de distancia** —
+`ExigirBoletinPropio:68` y `ExigirPersonaPropia:82`, el mismo `if` palabra por palabra.
+
+> **La regla para la fase 4: el inventario de escrituras de un dominio no es el de su
+> controlador.** Hay que mirar además **el middleware de sus rutas, los modelos que toca
+> y los servicios que llama.**
+
+### Dos correcciones al §0 del [18](18-auditoria.md)
+
+- **`ExigirBoletinPropio` no escribe un tipo: escribe cinco.** Cuatro sitios llaman a
+  `anotar()` y uno es un ternario. La tabla decía `AlumnoVerBoletin`.
+- **El de `ExigirPersonaPropia` no es una lista: es una plantilla.**
+  `mb_substr($usuario->tipo.'PideAjeno:'.$clave, 0, 45)` — **el tipo se construye en
+  ejecución con la clave que mandó el cliente**, recortado a 45. **Su vocabulario no
+  está acotado por nada.**
+
+Y de rebote queda comprobado **por primera vez contra el código** que el diseño de la
+fase 3 **ya las absorbe**: ahí son `accion='denegado'` con `entidad` en
+`persona|boletin` y la clave en `valor_anterior`. **El vocabulario cerrado no se rompe
+con ellas**, que era el riesgo real.
+
+### `Unidad::arreglarOrden`: doce escrituras por cada carga de la pantalla de notas
+
+**Escribe sin condición** —un `UPDATE` por unidad y otro por subunidad, **cada vez, sin
+ningún `if`**— y la llama `NotasController:78` dentro de `putDetailed()`, o sea
+**`PUT notas/detailed`: cada carga de la pantalla de notas.**
+
+```
+UPDATE por carga, media ... 12,7      peor caso ... 20      pares (asignatura, periodo) ... 58
+```
+
+**Y casi ninguno cambia nada**, por la regla de las filas afectadas. **Estaba escrito en
+un comentario y nadie lo había contado.**
+
+**Lo que obliga a decidir en la fase 4, no a programar:** instrumentar el controlador del
+dominio 2 coge las ediciones explícitas y **no coge las doce reescrituras por carga**.
+Las dos salidas son defendibles —**auditarla**, y el escritor ya tiene `->porElSistema()`
+y reconoce solo el reguardado sin cambio; o **no auditarla** y dejar escrito que
+`unidades.orden` cambia sin rastro—. **Ninguna es no mirarlo.**
+
+*(Y de paso: `NotaFinal::calcularAsignaturaPeriodo` **no la llama nadie** en todo `app/`
+— su `DB::delete` es inalcanzable. Es de las definitivas.)*
+
+**Límite declarado por quien midió:** *no se golpeó con los cuatro roles*. Leer las
+puertas dice más que un token, **pero no sustituye al barrido con los cuatro**, que
+sería la comprobación cruzada por un camino que no comparte supuesto. **No está hecha.**
