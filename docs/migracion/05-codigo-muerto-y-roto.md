@@ -7890,3 +7890,55 @@ un empate dentro no distingue los dos caminos** y pasa sin probar nada.
 > La regla que deja esta noche, y es de método: **una cifra sobrevivió tres veces
 > sólo porque alguien fue a mirar el código en vez de fiarse del texto — y las tres
 > veces el texto era nuestro.**
+
+## §170. El botón de borrar la bitácora llevaba años mudo — y eso es la evidencia que sostiene su retirada
+
+Joseth decidió esta noche que **nadie borra un intento de login fallido y el botón
+desaparece**. `myvc-front-98` fue a medir el lote para entregarlo con fichero y
+línea, y encontró lo que faltaba en el expediente:
+
+**En la aplicación vieja ese botón no borraba.** Su `cellTemplate` llamaba a
+`eliminar(row.entity)` y **el controlador no definía ningún `eliminar`**: estaban
+la ruta del backend y el método del repositorio, **faltaba el de en medio**
+(escrito por quien lo tradujo, en `app2/src/app/paginas/bitacora/bitacora.ts:137-142`).
+Pulsarlo no hacía nada y no lo decía. Se conectó en la **fase 8** de la migración
+del front, y a `app2` llegó ya funcionando.
+
+**O sea que ese botón lleva años mudo en dieciséis colegios y nadie lo reportó
+jamás.** Es el mismo patrón que `boletines/detailed-notas` dando 500 durante cinco
+años sin una queja, **sólo que aquí juega a favor**: la ausencia de quejas sobre
+una función que no funciona **mide cuánta falta hace**. Si algún día hay que
+defender la retirada ante un colegio, ése es el argumento y tiene fecha.
+
+Y la vuelta, que conviene decir en voz alta para que nadie lo lea como trabajo
+tirado: **la migración arregló ese botón y ahora se retira.** No se perdió el
+trabajo — **fue el arreglo el que puso el asunto delante de alguien que podía
+decidir.** Mudo, nadie lo habría mirado nunca.
+
+### Lo que se comprobó aquí antes de meterlo en la cola, que es lo que faltaba
+
+**Ningún otro cliente llama a `DELETE bitacoras/destroy/{id}`.** Importa porque
+`myvc_flutter` es **una sola app para los dieciséis** y una retirada no se puede
+escalonar: si la llamara, la retirada sería un 404 en todos a la vez. No la llama
+—su única mención a `bitacoras` es un comentario en `HistorialNotaApi.dart:8`, y
+sus borrados son `ausencias`, `frases_asignatura`, `notas`, `unidades` y
+`subunidades`—. `myvc_front_2` (el PIAR) tampoco.
+
+**Y el primer detector mintió, en la dirección de siempre.** Un
+`grep -rn "bitacoras/destroy"` sobre los cuatro clientes devolvió **un solo
+resultado y era un comentario**, o sea *«no la llama nadie»*. Falso: la URL se
+arma por concatenación —`api.del(RECURSO + '/destroy/' + id)`,
+`services/api/BitacorasApi.ts:29`— y la cadena completa **no existe en el código**.
+La conclusión final coincide, pero por el camino corto habría sido una casualidad:
+**el primer sitio donde mirar cuando el número sale limpio también es el detector.**
+
+### Orden de retirada, y el hilo que queda suelto
+
+**El front va delante**: quita los dos botones (`mis-sesiones` y la rejilla de
+`/panel/bitacora`), y sus dos pruebas **no se borran, se dan la vuelta** — pasan a
+afirmar que el botón **no está**, que es lo que impide que vuelva por descuido.
+`eliminar()` de `datos/bitacoras.ts` **se queda sin consumidores y tampoco se
+borra**: el endpoint sigue vivo en los dieciséis hasta que se retire aquí. **Cuando
+se retire hay que avisar al front para que lo limpie entonces** — sin ese aviso se
+queda un método muerto apuntando a una ruta que ya no existe, que es la forma en
+que estas retiradas dejan basura detrás.
