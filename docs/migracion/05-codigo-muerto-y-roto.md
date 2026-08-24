@@ -8194,3 +8194,48 @@ están**. Restaurado, con el porqué en su docblock.
 > aun así la acción era la equivocada**, porque la razón para conservar el código no
 > vivía en el código, sino anotada al lado. En una frase: **un «esto no lo usa nadie»
 > no es todavía un «esto se puede borrar».**
+
+## §175. En esta API el verbo no dice si escribe: **115 rutas no-`GET` que no escriben nada**
+
+Lo trajo `myvc-front-98` **por haberse equivocado y haberlo mirado**: su carril de
+Chrome montó un cortafuegos de medición que bloqueaba *«todo lo que no fuera
+`GET`»* para poder ver el muro sin escribir, y **bloqueó una lectura** — la única
+llamada del muro **sin sesión**, la que pinta el login. La medición no se movió,
+**pero por casualidad**, y fueron a ver por qué.
+
+Su norma corregida vale para cualquiera que instrumente esto: **se intercepta por
+nombre de endpoint, nunca por verbo, y se imprime lo que se bloquea** — porque
+**un cortafuegos silencioso deja la pantalla medida a través de una puerta cerrada
+sin decirlo**.
+
+### La medición, con `tools/verbos-que-mienten.py` (nueva, sólo lee)
+
+```
+POBLACIÓN: 541 rutas leídas de routes/, 418 no son GET
+  método no resuelto ............................... 0
+  sin ninguna marca de escritura en el método ..... 115   <- candidatas, no confirmadas
+  por verbo: PUT 100, POST 14, DELETE 1
+```
+
+**El detector reproduce solos los cinco que el front encontró a mano** —los cuatro
+de `historiales` y `publicaciones/ultimas`— y añade **110 más**. Los controladores
+con más: `Acudientes` (9), `Alumnos` (8), `Sesion`, `Requisitos`, `Matriculas` e
+`Historiales` (4 cada uno).
+
+**Lo que el número no es:** *candidatas a sólo lectura*. **Cuenta de más** si el
+método llama a un servicio o a un modelo que sí escribe —aquí `User::`, `Nota::` y
+compañía escriben— y **de menos** si escribe por un camino que no está en la lista
+de marcas. Confirmar es leer el método; la herramienta dice dónde.
+
+### Por qué esto no es una curiosidad
+
+1. **Cualquiera que instrumente esta API va a asumir que `PUT` escribe**, porque es
+   lo que significa en todas partes menos aquí. El error no se caza: se repite.
+   Los cuatro de `historiales` ya estaban avisados en el buzón del front —*«son
+   `PUT` porque llevan cuerpo»*—; **el quinto se encontró chocando contra él.**
+2. **Y le entra de lleno a la auditoría**: cualquier cosa que clasifique *«qué
+   escribe»* **por el método HTTP** mete estas 115 en el cajón equivocado. Cuatro
+   de ellas son justo las de `historiales`, que es lo que la [fase 5](18-auditoria.md)
+   va a reescribir. Un `DELETE` que no borra y cien `PUT` que no escriben no son
+   una rareza de nomenclatura: son **cien clasificaciones mal hechas** esperando a
+   quien mida por el verbo.
