@@ -8479,3 +8479,51 @@ del commit que arrastró trece ficheros de cinco sesiones, o sea **sin la pasada
 larastan de su autor, porque quien lo commiteó no sabía que lo estaba
 commiteando**. La firma no fue el único precio: **el control de calidad de un
 fichero se lo saltó alguien que ni siquiera sabía que lo tenía delante.**
+
+### §176.1. Corrección: los porcentajes de hueco de la §176 eran míos y estaban mal
+
+Los midió `8myvc-7b` con `tools/salud-de-las-definitivas.php`, que aplica la regla
+real —**matrículas vivas y con estado `MATR`/`ASIS`** × asignaturas del grupo ×
+periodos—, sólo `SELECT`:
+
+| grupo | year | deberían | faltan | **pct real** | *(la cifra a ojo de la §176)* |
+|---|---|---|---|---|---|
+| 84 | 7 | 1.120 | 112 | **10,0%** | *no medida* |
+| 91 | 7 | 2.400 | **0** | **0,0%** | *14 de 2.580 (1%)* |
+| 79 | 6 | 2.340 | **0** | **0,0%** | *163 de 2.520 (6%)* |
+| 26 | 2 | 2.812 | 357 | **12,7%** | *410 de 2.888 (14%)* |
+| 97 | 8 | 1.520 | 760 | **50,0%** | *1.196 de 2.040 (59%)* |
+| 98 | 8 | 1.480 | 776 | **52,4%** | *1.923 de 2.720 (71%)* |
+| 105 | 8 | 2.280 | 1.144 | **50,2%** | *1.528 de 2.700 (57%)* |
+
+**Por qué la cuenta a ojo salía mal:** su denominador era `alumnos × asignaturas ×
+periodos` y **daba por hecho que toda combinación debe existir**. En el grupo 97
+contaba **51 alumnos y son 38**: las otras 13 son **retirados y trasladados**, y sus
+definitivas **no faltan — no deben existir**. De los 1.196 «ausentes», unos 400 eran
+de gente que se había ido.
+
+**Lo que la corrección refuerza:** los tres grupos del año en curso están al
+**50–52%** y **ningún otro año pasa del 12,7%**. Y el 79 y el 91 **no están «casi
+sin huecos»: están a CERO**. O sea que la forma no es *«el año en curso tiene
+más»*, es **«los años cerrados no tienen ninguno y el año en curso tiene la
+mitad»** — más fuerte, y encaja mejor con por qué nadie lo reporta: **un colegio
+con el año cerrado no ve este fallo nunca.**
+
+**Lo que la corrección rompe:** la prueba decisiva propuesta. El contraste dentro
+del año 7 pasa de *34 contra 1* a **10 contra 0**, sobre **112** definitivas
+ausentes en absoluto. **Si el 84 tarda poco ya no distingue nada**: puede ser que
+el hueco no importe, o que 112 sea demasiado poco para verse. **La prueba hay que
+rediseñarla antes de gastar una sola petición**, y por eso se paró al front con el
+experimento montado.
+
+**Lo siguiente, en orden:** barrer los once grupos del año 8 buscando uno con poco
+hueco —ése contra el 97 sería la prueba buena—. Y si los once están al 50%, eso es
+un **resultado**: en esta base **la hipótesis del hueco no se puede distinguir de
+«es el año 8» con ningún par de grupos**, y la única salida es **rellenar las
+definitivas de un grupo en una copia y volver a medir**, que ataca la causa en vez
+del correlato. Eso ya no es una medición: es un experimento con copia y **necesita
+permiso**.
+
+> Y la lección, que es de quien coordina: **la mitad de datos de la hipótesis era lo
+> primero que había que comprobar y se comprobó al final.** Se pidió que la
+> desmintieran, y la desmintió el propio número con el que se había construido.
