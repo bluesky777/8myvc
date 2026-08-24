@@ -47,7 +47,36 @@ class NotasController extends Controller {
 		$resultado = [];
 		
 		// Unidades con Subunidades
-		$unidadesT 			= DB::select('SELECT * FROM unidades u WHERE u.asignatura_id=? and u.deleted_at is null and u.periodo_id=? order by u.orden, u.id', [$asignatura_id, $user->periodo_id]);
+		// **Las quince columnas nombradas, y NO `SELECT *`.** Volver al asterisco
+		// reintroduce el fallo, así que esto no es estilo: es la guarda.
+		//
+		// `notas-detailed-profesor.json` fija **las quince claves de cada unidad**
+		// —la instantánea las lleva todas, más `subunidades` que añade el código—,
+		// y esta consulta las devuelve tal cual al cliente. Así que **cualquier
+		// columna nueva en `unidades` aparece sola en la respuesta**: la de la fase
+		// 1 del boletín independiente (`alumno_id`) sería la decimosexta, y movería
+		// la planilla del profesor sin que nadie lo hubiera pedido.
+		//
+		// Y es una forma de romper distinta de las otras tres del plan: **no
+		// depende de qué código haya delante, depende de que la consulta diga
+		// `*`.** Un `ALTER TABLE` la dispara contra el código viejo Y contra el
+		// nuevo. Lo encontró `8myvc-9e` el 24 ago, midiendo su propia migración
+		// contra los snapshots.
+		//
+		// La prueba de que esto está bien hecho es que el snapshot queda verde
+		// **sin regenerarlo**: si hubiera que regenerarlo, la respuesta habría
+		// cambiado y eso ya no es una guarda, es un cambio de contrato — y ése es
+		// de Joseth, porque obliga a avisar al front y a Flutter.
+		$unidadesT 			= DB::select(
+			'SELECT u.id, u.definicion, u.porcentaje, u.periodo_id, u.asignatura_id,
+					u.obligatoria, u.orden, u.por_defecto, u.fecha,
+					u.created_by, u.updated_by, u.deleted_by,
+					u.deleted_at, u.created_at, u.updated_at
+			   FROM unidades u
+			  WHERE u.asignatura_id=? and u.deleted_at is null and u.periodo_id=?
+			  order by u.orden, u.id',
+			[$asignatura_id, $user->periodo_id]
+		);
 		$unidades 			= [];
 		$orden_duplicado 	= false;
 		$orden_anterior 	= -5;
