@@ -322,6 +322,78 @@ otro login, así que el `for` no la alcanza.
 > que hay que mirar es **OPcache**, no el `.env` — trampa 1b de la
 > [referencia](DESPLIEGUE-REFERENCIA.md).
 
+### El bucle del front (`up/`) — escrito el 25 ago, **con dos huecos marcados**
+
+**No estaba en este documento y llevaba tres semanas sin estarlo.** No porque
+faltara la información —la estructura `<colegio>/{8myvc,up}` está en la
+[referencia](DESPLIEGUE-REFERENCIA.md), líneas 25 y 202— sino porque **nadie había
+escrito el bucle**. Lo levantó la coordinación del front buscando dónde poner una
+casilla y encontrando que no existía; **la escribieron ellos y va aquí, que es
+donde la busca quien despliega.** Un procedimiento de despliegue viviendo en el
+documento de otro repositorio es un procedimiento que nadie encuentra el día del
+despliegue.
+
+**No es el bucle de arriba con la ruta cambiada, y esa era la trampa.**
+`myvc_dist` es un repositorio con remoto propio
+(`git@github.com:bluesky777/myvc_dist.git`, rama única `main`), así que **`up/` es
+un `git pull` de un artefacto ya construido**: no hay `migrate`, no hay
+`config:cache` ni `route:cache`. **Un `sed` de `/8myvc` a `/up` habría dejado
+dentro cuatro `php artisan` fallando colegio por colegio.**
+
+```bash
+# 1. construir UNA vez, en local, y meterlo en myvc_dist
+npm --prefix app2 run build          # sale en app2/dist/browser/, con --base-href /up/
+# copiar dist/browser/* al repo myvc_dist, commit y push
+#    OJO: images/Logo_Colegio_Header.gif NO se versiona (es de cada colegio)
+
+# 2. traerlo en cada colegio
+for d in /home/micolev1/*.micolevirtual.com/up; do
+  echo "=== $d"; cd "$d" || continue
+  git pull
+done
+
+# 3. repetir a mano en la SEGUNDA cuenta de cPanel (lalvirtual.edu.co):
+#    es otro login y el `for` de arriba no la alcanza.
+```
+
+**Si un `git pull` imprime algo inesperado, para en seco** — arriba eso es
+`composer.lock`; **aquí es un conflicto en el `dist`, o sea que alguien editó a
+mano en el servidor**. Es la que va a ocurrir de verdad.
+
+> #### Los dos huecos, y están marcados porque son huecos
+>
+> 1. **¿La ruta es exactamente `…/up`?** La estructura documentada dice que sí y
+>    **nadie ha corrido este bucle**, así que nadie lo ha visto.
+> 2. **¿Quién copia `dist/browser/*` a `myvc_dist`, y con qué?** **No hay guion, ni
+>    hook, ni README en ese repositorio**; los commits son de Joseth y ponen
+>    `build: …`. **Es el único paso de toda la cadena de despliegue —backend y
+>    front— que no existe fuera de su cabeza**, y por eso está en la lista de la
+>    mañana como pregunta directa y no como observación.
+>
+> Un hueco escrito como hueco cuesta una pregunta; un hueco rellenado a ojo cuesta
+> dieciséis colegios.
+
+> #### Y antes de la primera tanda de `app2`, dos cosas que hoy lo impiden
+>
+> Las dos medidas por la coordinación del front contra Apache de verdad y el build
+> de verdad, y las dos **cerradas en su repositorio pero sin desplegar**:
+>
+> - **`app2` no arrancaba desde `up/`**: llevaba `<base href="/">` y pedía sus
+>   `chunk` contra la raíz del dominio — once recursos en 404 y pantalla en blanco,
+>   **no «se rompe al recargar»**. Cerrado con `--base-href /up/`, verificado en el
+>   artefacto (`dist/browser/` con `<base href="/up/">`).
+> - **La reescritura de una sola página va dentro de `up/`, nunca en la raíz.** El
+>   contrafactual está montado y visto fallar: con la regla en la raíz,
+>   `GET /8myvc/public/api/login` devuelve **200 `text/html`** con la aplicación
+>   Angular donde tenía que ir JSON. **Un fallo que llega como 200 con el cuerpo
+>   equivocado se diagnostica muchísimo peor que uno que llega como 404**: para el
+>   cliente no es un error de red, es JSON inválido, y eso manda a mirar a todas
+>   partes menos al `.htaccess`.
+> - Y la trampa que casi se lleva las dos: **el `.htaccess` estaba commiteado y no
+>   habría llegado a ningún colegio**, porque el glob `**/*` de `angular.json` **no
+>   casa con ficheros que empiezan por punto**. *Correcto, revisado, commiteado y
+>   mudo.*
+
 ### Los dieciséis de `micolev1`, y el que no entra
 
 Leídos del servidor el 21 ago 2026, con el bucle de arriba. Los cinco que
