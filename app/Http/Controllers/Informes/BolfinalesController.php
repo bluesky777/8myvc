@@ -29,6 +29,77 @@ class BolfinalesController extends Controller {
 
 	private $escalas_val = [];
 
+	/**
+	 * Los periodos del año — **una consulta por petición, no una por alumno por
+	 * asignatura**.
+	 *
+	 * Es la causa medida del §176: `PUT bolfinales/detailed-notas-year-group` daba
+	 * **504 tras 60 s** en el grupo 97, y no era el tamaño —el grupo que revienta
+	 * es más pequeño que el que responde—. Esta consulta estaba dentro del bucle de
+	 * asignaturas, que a su vez está dentro del de alumnos, y **no depende ni del
+	 * alumno ni de la asignatura: sólo del año**. Medido en la base de tests con un
+	 * grupo de 37 alumnos × 10 asignaturas: **408 ejecuciones en una sola llamada**,
+	 * de 3.763 consultas de la petición. Con esto, **una**.
+	 *
+	 * ## Devuelve COPIAS, y eso no es una precaución: es el arreglo
+	 *
+	 * `array_map(clone)` y no el array cacheado tal cual, porque **quien recibe
+	 * estos objetos les escribe encima**: `asignaturasPerdidasDeAlumno` pone
+	 * `$periodo->cantNotasPerdidas` en cada uno, y el bucle de alumnos pone
+	 * `$periodoAlone->cant_perdidas`. Compartir los objetos haría que **todas las
+	 * asignaturas mostraran la cuenta de la última**, y eso **no lo ve ninguna cota
+	 * de consultas**: es un cambio de resultado con el mismo número de consultas.
+	 *
+	 * Lo fija `BoletinFinalConsultaInvarianteTest::test_cada_asignatura_perdida_conserva_su_propia_cuenta`,
+	 * escrito **antes** que este método justamente para impedir la versión sin
+	 * `clone` — que es la que sale sola al leer «saca la consulta del bucle».
+	 *
+	 * El `clone` es superficial y basta: son filas de `periodos`, o sea `stdClass`
+	 * con escalares dentro.
+	 *
+	 * ## Y el memo vive en los `attributes` de la petición, no en una propiedad
+	 *
+	 * **La primera versión lo guardaba en `private array $periodosPorAnio` y estaba
+	 * mal.** `Illuminate\Routing\Route::getController()` **memoiza la instancia del
+	 * controlador** en el objeto `Route`, que vive en la colección del router: o sea
+	 * que el controlador **sobrevive a la petición** en cualquier proceso que atienda
+	 * más de una. Hoy en php-fpm cada petición es un proceso y no se nota; **en la
+	 * suite sí**, y ahí se vio — el informe daba **0 consultas** en vez de 1 porque la
+	 * pasada descartada ya había llenado el memo, y un memo de periodos que cruza
+	 * peticiones sirve datos viejos en cuanto alguien edita un periodo.
+	 *
+	 * Los `attributes` de la petición son el sitio que este proyecto ya eligió para
+	 * esto, y por la misma razón escrita: `User::fromToken()` guarda ahí el contexto
+	 * **y no en una propiedad del servicio, que sobreviviría a la petición bajo
+	 * Octane** ([02 §4](../../../../docs/migracion/02-plan-rendimiento.md)).
+	 *
+	 * Lo encontró un número que no cuadraba: **0 donde tenía que haber 1**, con dos
+	 * medidas del mismo trabajo dando cosas distintas.
+	 *
+	 * `array<object>` y no `list<object>` en la anotación: `DB::select` devuelve
+	 * `array` sin prometer claves consecutivas, así que larastan no puede probar
+	 * que sea una lista y el nivel 7 lo dice. Prometer más de lo que se sabe es lo
+	 * que hace que una anotación mienta.
+	 *
+	 * @return array<object>
+	 */
+	private function periodosDelAnio($year_id)
+	{
+		// El tope viene del cuerpo, así que entra en la clave: una misma petición no
+		// lo cambia a mitad, pero dos años en la misma petición sí son dos consultas.
+		$hasta 		= Request::input('periodo_a_calcular');
+		$clave 		= 'bolfinales.periodos.'.$year_id.':'.($hasta ?: '');
+		$peticion 	= Request::instance();
+
+		if (! $peticion->attributes->has($clave)) {
+			$peticion->attributes->set($clave, $hasta
+				? DB::select('SELECT * FROM periodos WHERE year_id=? and numero<=? and deleted_at is null', [$year_id, $hasta])
+				: DB::select('SELECT * FROM periodos WHERE year_id=? and deleted_at is null', [$year_id]));
+		}
+
+		return array_map(static fn ($periodo) => clone $periodo, $peticion->attributes->get($clave));
+	}
+
 
 
 	public function putDetailedNotasYearGroup($grupo_id)
@@ -116,13 +187,9 @@ class BolfinalesController extends Controller {
 		
 		$periodo_a_calcular = Request::input('periodo_a_calcular');
 		
-		if ($periodo_a_calcular) {
-			$year->periodos = DB::select('SELECT * FROM periodos WHERE year_id=? and numero<=? and deleted_at is null', [$user->year_id, $periodo_a_calcular]);
-			//$year->periodos = Periodo::where('year_id', $user->year_id)->where('numero', '<=', $periodo_a_calcular)->get();
-		}else{
-			$year->periodos = DB::select('SELECT * FROM periodos WHERE year_id=? and deleted_at is null', [$user->year_id]);
-			//$year->periodos = Periodo::where('year_id', $user->year_id)->get();
-		}
+		// Las dos ramas viven ahora en periodosDelAnio(), que además cachea: era la
+		// misma consulta que los bucles de más abajo repetían 407 veces.
+		$year->periodos = $this->periodosDelAnio($user->year_id);
 
 		// **El recuento de notas perdidas, UNA vez por grupo y no una por
 		// (alumno x asignatura x periodo).** Ver 05 §210: de las 3.763 consultas
@@ -629,7 +696,18 @@ class BolfinalesController extends Controller {
 			// No lo ve ninguna cota de consultas —mismo número de consultas,
 			// resultado distinto— y por eso tiene su propio test, escrito antes de
 			// tocar esto y verificado cayendo: `BoletinFinalConsultaInvarianteTest`.
-			$asignatura->periodos = array_map(fn ($p) => clone $p, $periodosDelAnio);
+			//
+			// **Las dos ramas son de la fusión de `12` y `ad`, que sacaron esta misma
+			// consulta del bucle por caminos distintos y las dos con test.** Cuando el
+			// llamador ya los tiene resueltos —el camino del boletín— se clonan los
+			// suyos; cuando llama alguien que no los pasa, `periodosDelAnio()` los
+			// memoiza en la petición y devuelve clones igual. **Se conservan las dos
+			// porque el parámetro es opcional**: quedarse sólo con la de main haría
+			// `array_map()` sobre `null` en cuanto alguien llame al método con tres
+			// argumentos, que es como lo llaman sus gemelos.
+			$asignatura->periodos = $periodosDelAnio !== null
+				? array_map(fn ($p) => clone $p, $periodosDelAnio)
+				: $this->periodosDelAnio($year_id);
 
 			$asignatura->cantTotal = 0;
 
