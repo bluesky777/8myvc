@@ -165,15 +165,21 @@ misma lección de la §«medir una vez es no medir» del 02, por el lado bueno.
 
 ### Pero lo que de verdad muerde es la simultaneidad
 
-`$http` de AngularJS no limita nada por su cuenta; el navegador abre unas **seis
-conexiones a la vez** por dominio, así que **un docente pulsando una columna
-ocupa hasta seis de las cincuenta ranuras**, y las va reponiendo hasta acabar las
-45.
+`$http` de AngularJS **no limita nada por su cuenta**: las 45 salen a la vez y
+quien decide cuántas viajan en paralelo es el navegador. Con HTTP/1.1 son **unas
+seis** por dominio; **con HTTP/2 no hay tal tope** —se multiplexan sobre una sola
+conexión— y pueden ir muchas más.
 
-Ocho docentes haciendo eso a la vez —que es exactamente lo que pasa en cierre de
-periodo, todos el mismo día y a la misma hora— son **48 de 50**. Ahí es donde el
-contador llega al 100% y el servidor empieza a contestar **508** a todo el
-colegio.
+> **Cuál de las dos es no está comprobado**, y lo digo porque el número de esta
+> sección depende de ello. Se resuelve mirando el protocolo de una petición en la
+> pestaña de red contra un colegio. **El sentido no cambia con la respuesta: HTTP/2
+> hace el problema mayor, no menor.** Seis es la cota baja, no la cifra.
+
+Con la cota baja, un docente pulsando una columna ocupa **seis de las cincuenta
+ranuras** y las va reponiendo hasta acabar las 45. Ocho docentes a la vez —que es
+lo que pasa en cierre de periodo, todos el mismo día y a la misma hora— son **48
+de 50**. Ahí es donde el contador llega al 100% y el servidor empieza a contestar
+**508** a todo el colegio.
 
 **Con lotes, un docente ocupa una ranura, una vez, y la suelta.** Ocho docentes
 son ocho. Ése es el cambio, y es de forma, no de porcentaje: deja de haber una
