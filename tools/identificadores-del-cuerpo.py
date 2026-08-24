@@ -216,7 +216,43 @@ def peso(f):
 
 filas.sort(key=peso, reverse=True)
 
-print(f'{len(filas)} rutas leen al menos un identificador del cuerpo.\n')
+# --- la población, antes de cualquier lista -----------------------------------
+#
+# **Los cuatro números que alguien va a citar de esta herramienta, y hasta el 24
+# ago 2026 sólo imprimía el primero.** Los otros tres había que sacarlos contando
+# las listas de abajo a mano, y eso ya salió mal dos veces en este repositorio: la
+# §0 del 18 publicó **9** escritores de bitácora cuando eran **10**, y a esta
+# herramienta se le citaron **29** familias cuando las que imprime son **28** y
+# las que existen son **72**.
+#
+# Ese **72** costó una tercera equivocación que vale la pena dejar escrita, porque
+# es la misma de siempre: al medirlo por fuera —cortando la columna de
+# identificadores de la tabla de abajo en un offset fijo— salían **86**. El offset
+# se rompe con las rutas largas y se traga texto del guard como si fuera un
+# identificador. La cifra buena es la que sale de `f['claves']`, que es la lista
+# parseada; la de fuera era una regex con otro nombre.
+#
+# La regla de CLAUDE.md por el lado que no se ve: no basta con que la herramienta
+# imprima SU población —«230 rutas»—, tiene que imprimir la de **cada número que
+# de ella se va a citar**. Un número que sólo se puede obtener contando a mano se
+# queda viejo, y falla hacia el lado que tranquiliza.
+#
+# **Y sale de contar, no de una constante.** Una cifra escrita aquí arriba sería
+# exactamente lo que se viene a arreglar: se queda vieja el día que cambien las
+# rutas, y nadie lo nota porque no falla nada.
+familias_todas = {k for f in filas for k in f['claves']}
+familias_con_hueco = {k for f in filas if not f['propiedad'] for k in f['sueltos']}
+escriben = [f for f in filas if f['escribe']]
+escriben_con_dos = [f for f in escriben if not f['propiedad'] and len(f['sueltos']) >= 2]
+
+print(f'{len(filas)} rutas leen al menos un identificador del cuerpo.')
+print(f'  de ellas, escriben (UPDATE/DELETE/INSERT) .......... {len(escriben)}')
+print(f'  y escriben con DOS O MÁS sin comprobar ............. {len(escriben_con_dos)}'
+      f'   <- la forma de la §49: comprueba uno y escribe con los otros')
+print(f'familias de identificador distintas ................... {len(familias_todas)}')
+print(f'  de ellas, con al menos una ruta sin comprobar ...... {len(familias_con_hueco)}'
+      f'   <- las que se listan abajo')
+print()
 print(f'{"ruta":<52} {"guard":<22} {"esc":<4} {"quién comprueba":<26} identificadores')
 print('-' * 150)
 for f in filas:
