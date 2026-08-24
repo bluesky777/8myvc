@@ -10752,3 +10752,77 @@ de los dos está mal y hace falta una tercera medición.**
 
 > **Dos inventarios que se contradicen valen más que uno que convence** — es lo mismo que
 > cazó los 816 del `DB::listen`.
+
+## §216. 34 métodos públicos de controlador sin ningún camino desde una ruta — y cuatro inventarios que contaban de más
+
+Ámbito **`app/Http/Controllers/` y nada más**, por lo de la [§215](#): *«sin ruta» no es
+«muerto»*, y un servicio en el camino de todas habría sido ruido.
+
+```
+112 ficheros · 114 clases · 722 métodos (657 públicos)
+pares en routes/ ............................ 539
+rutas a métodos que NO existen ...............   0
+alcanzables por cierre transitivo ........... 678
+públicos SIN camino .......................... 41  (1.129 líneas)
+  de ésos, interfaces de vendor/ .............. 7
+>>> CANDIDATOS ............................... 34  (1.019 líneas)
+```
+
+### El entregable es una corrección a su propio inventario
+
+> **De las 144 lecturas de `unidades`/`subunidades`, 4 están dentro de métodos
+> inalcanzables.** Las que se ejecutan son **140 → 72 + 68**, no 74 + 70.
+
+**Tercera corrección a esa cifra en una noche** —74/70 → 75/71 → 74/70 → **72/68**— **y las
+tres por una definición distinta de qué se cuenta, no por un cambio en `app/`**. Y las
+**57 «hay que acotarlas» no se mueven**: ninguna de las cuatro estaba ahí.
+
+**Y confirma dos cosas por caminos que no comparten supuesto:**
+
+- **los dos `Definitivas::calcular_notas_finales_*` escriben en `notas_finales` y son
+  inalcanzables** — lo que `ESTADO-ACTUAL` ya afirmaba, **ahora medido desde el otro
+  lado**;
+- **ninguno de los 34 llama a una guarda**, así que **los inventarios de autorización de
+  esta noche no cuentan código muerto**. *Ésa era la mitad tranquilizadora, y conviene
+  decirla igual.*
+
+**El cruce no se contradice, por construcción** —las semillas **son** los pares de
+`routes/`— y lo que podía fallar era **que faltara una arista**. Faltó: `GuardarAlumno::valor`
+salía inalcanzable. **Y coincide con la medición del otro lado**: `CertificadosPersonaController::detailedNotasGrupo`
+sale con **150 líneas**, y **445 de las 1.019 están en ese controlador** — que encaja con
+las *«510 líneas, unas 12 alcanzables»* medidas por el enrutado. **Dos medidas
+independientes, mismo sitio.**
+
+### Cinco trampas, las cinco del detector, y el recorrido **15 → 48 → 67 → 41 → 34**
+
+| | Qué | El número mal |
+|---|---|---|
+| 1 | un fichero con **cuatro clases** | inventaba *«4 rutas a métodos que no existen»*. **Son 0** |
+| 2 | dos clases con el **mismo nombre corto** | la clave colapsaba una: **646** en vez de 657 |
+| 3 | **`$this->x()` es por clase, no global** | el repo copia el método en ocho controladores: **15** en vez de 48 |
+| 4 | **`new C(); $v->m()`** | **`GuardarAlumno::valor` salía inalcanzable** |
+| 5 | interfaces de `vendor/` | 7 falsos muertos |
+
+**La 4 es la que asusta, porque el falso positivo era el método que este proyecto lleva
+toda la noche discutiendo.** De ahí que se resuelva **grueso a propósito**, con la
+asimetría escrita:
+
+> **Equivocarse hacia «vivo» cuesta una revisión; hacia «muerto» cuesta un endpoint.**
+
+*(Y otro centinela que se disparaba solo: el de llamadas dinámicas contaba los
+`$fila->{...}` de **acceso a propiedades** —seis— y saltaba siempre. Exigiendo el
+paréntesis da **0**: no hay despacho dinámico y **el cierre vale**.)*
+
+### El subárbol, que era el punto que importaba
+
+**`asignaturasPerdidasDeAlumnoPorPeriodo` está definido en 8 controladores y sin camino en
+6**; **`periodosPerdidosDeAlumno` en 5 y sin camino en los 5**, y es **el único llamante
+del primero** donde existe. **Un subárbol entero, no hojas sueltas.**
+
+Con la trampa de siempre al lado: **`asignaturasPerdidasDeAlumno` (vivo, 17 llamadas)
+contra `asignaturasPerdidasDeAlumnoPorPeriodo` (sin camino en 6 de 8)** — **séptimo par de
+nombres parecidos que no son la misma cosa** esta noche.
+
+**Y la pregunta del otro inventario contestada como se pidió: NO.** *«Mi barrido sigue
+llamadas, no ramas. Su pregunta es de dentro de un método; la mía es entre métodos. No la
+contesta, y no la contesta ni de paso.»*
