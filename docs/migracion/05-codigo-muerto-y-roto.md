@@ -10710,3 +10710,45 @@ esperó en un bucle a que la otra sesión soltara, y se lanzó en cuanto quedó 
 > lanzamiento cabía otra sesión*, que es exactamente el agujero de la [§207](#). **«Tuve
 > suerte, no razón»**, y dicho para que **el registro de la noche no diga que se hizo bien:
 > se hizo rápido, que no es lo mismo.**
+
+## §215. «Sin ruta» no es «muerto»: el servicio del camino de cada petición no tiene ruta propia
+
+**El cruce con el inventario de código inalcanzable se adelanta desde un lado, y el
+resultado es que no hay nada que ajustar — con la razón por construcción:**
+
+> **Las listas que salen de `routes/` no pueden contener código muerto: su punto de
+> entrada es una ruta.** Eso cubre las 110 candidatas, las 18 escritoras por ayudante y
+> las 7+9 que engañan.
+
+**La única que podía estar inflada era la de los seis `DB::select` que escriben** —porque
+**ésa no sale de `routes/`: barre `app/` entero**, que es la puerta por la que entró el
+error del gemelo ([§211](#))—. Comprobadas una a una: **las seis se ejecutan.** Cinco por
+su ruta, y la sexta:
+
+```
+ContextoDeUsuario::construir  ←  ninguna ruta
+                              ←  `construir` ← `para` ← `User::fromToken()` (User.php:130)
+                              ←  el camino de TODA petición autenticada
+```
+
+> **«Sin ruta» no es «muerto»**: un servicio en el camino de cada petición **no tiene ruta
+> propia y es lo más vivo que hay**.
+
+**Y eso es un aviso operativo para el inventario contrario que se está midiendo:** si
+clasifica por *«no alcanza ninguna ruta»* **a secas**, `ContextoDeUsuario::construir` **le
+va a salir dentro, y sería un falso positivo**. Cursado antes de que lo publique —*le
+ahorra el mismo susto por el otro lado*.
+
+### Y lo que de esas listas queda SIN medir, dicho como tal
+
+**Las 18 «escriben por un ayudante» dan por hecho que la línea que llama al ayudante se
+ejecuta.** El detector sigue **llamadas, no ramas**: *un ayudante invocado sólo dentro de
+un `if` que nunca se cumple contaría igual*. **Es una pregunta distinta de la del gemelo
+—aquélla era entre métodos, ésta es dentro de uno— y no está medida.**
+
+**Y el cruce se reduce a una sola comprobación cuando el otro inventario salga:** que **no
+marque como inalcanzable nada que esté en un camino desde `routes/`**. Si lo marca, **uno
+de los dos está mal y hace falta una tercera medición.**
+
+> **Dos inventarios que se contradicen valen más que uno que convence** — es lo mismo que
+> cazó los 816 del `DB::listen`.
