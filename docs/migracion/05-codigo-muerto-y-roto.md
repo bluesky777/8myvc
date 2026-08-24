@@ -10389,3 +10389,60 @@ lea al revés:
 > **El peligro no es sólo el número sin definición: es el número que coincide con otro que
 > tampoco la tenía.** *«Ahora cuadran, luego los dos estaban bien»* es la forma más fácil
 > de cerrar mal un asunto medido.
+
+## §209. Corrección a la §195: `boletines/detailed-notas` **escribe condicionalmente**, y ninguno de los dos «escribe definitivas» sin más
+
+La §195 decía, por corrección de la propia sesión que había especulado antes:
+*«`boletines/detailed-notas` **sí** recalcula definitivas; `bolfinales/detailed-notas-year-group`
+no»*. **El front lo propagó a su cortafuegos como hecho, fue a comprobarlo, y volvió con
+que tampoco escribe.** Verificado aquí, y **las dos afirmaciones son demasiado fuertes**:
+
+```
+grep de escrituras SQL en Informes/BoletinesController.php  ->  0
+pero  :167  $this->ponerAlDiaLasDefinitivas(...)
+      :190  if (! DefinitivasDeAsignatura::estaDesactualizada(...))  continue;
+      :197  DefinitivasDeAsignatura::recalcular(...)     <- escribe, por el SERVICIO
+```
+
+> **Cero escrituras en el fichero y una escritura en el camino.** El `grep` del
+> controlador dice la verdad y **contesta otra pregunta**: la escritura vive en el
+> servicio, **a un salto**. Es la [§192](#) otra vez —*las escrituras a dos saltos*— con
+> el añadido de que aquí **la del medio es una guarda**.
+
+**Y por eso la medición de conducta del front no lo contradice, lo precisa:** el hueco del
+grupo 95 **siguió en 420 después de que el censo abriera sus boletines**, porque
+`estaDesactualizada` **dijo que no hacía falta**. *Eso no prueba que el endpoint no
+escriba: prueba que no escribió esta vez* — que es exactamente lo que la fase 3 vino a
+conseguir (§«pregunta primero»).
+
+**La frase correcta, y la que se queda:**
+
+> **`boletines/detailed-notas` escribe definitivas cuando están desactualizadas, y no
+> escribe cuando no lo están.** `bolfinales/detailed-notas-year-group` **no escribe
+> definitivas nunca**; su único write es **el contador de certificados**, y sólo con
+> `aumentar_contador`.
+
+*(Y de las tres afirmaciones que ha tenido este asunto en una noche —«escribe y puede
+dejar a medias», «no escribe», «escribe condicionalmente»— **la tercera es la primera que
+sale de mirar el camino entero en vez de un extremo**.)*
+
+### §209.1. El censo cerró, y la alarma era más grande que la medición
+
+```
+105 rutas · mediana 3,2 s · máximo 90,8 s
+LENTAS (>= 28 s): UNA  ->  /reset-password, que además nunca se estabiliza
+```
+
+**Así que la alarma de «la foto puede estar al azar» sólo podía serlo en una fila**, y va
+corregida **con el mismo énfasis con que se dio** — que es la parte difícil.
+
+**Lo que sí cambia son los cubos: cinco `ERROR EN PANTALLA` que el clasificador viejo
+mandaba a `sin rejilla`**, el cubo que se lee como normal. **Ésas son las filas que había
+que releer**, y ahora tienen nombre propio.
+
+**Y una del instrumento, simétrica de las nuestras:** el cortafuegos **clasificaba como
+`ROTA` las rutas que él mismo bloqueaba**.
+
+> **El clasificador no puede llamar avería a lo que hizo el instrumento** — y un `ROTA`
+> es **exactamente lo que alguien reportaría**. Ya tiene estado propio:
+> `BLOQUEADA (escribe)`.
