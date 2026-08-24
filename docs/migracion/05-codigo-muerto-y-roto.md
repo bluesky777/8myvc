@@ -9792,3 +9792,63 @@ abajo, **`SELECT * FROM asignaturas` está DENTRO del bucle de alumnos siendo in
 por grupo** — una consulta por alumno donde bastaba una por grupo, en un método que
 recorre **todos los grupos del año**. **Es el mismo animal que `detailedNotasGrupo`**,
 185 líneas construidas así, que es el candidato del boletín lento.
+
+## §199. **4 → 6 → 18** en una noche, sin que cambiara una línea de `app/`
+
+La misma cifra —cuántos sitios **escriben** `unidades`/`subunidades`— tres veces, y las
+tres correcciones las trajo quien las había publicado:
+
+| | Por qué subía |
+|---|---|
+| **4 → 6** | el guardia contra llamadas a función **rechazaba `INSERT INTO unidades(` por la señal que confirma**: el paréntesis pegado al nombre, que es justo lo que distingue un `INSERT` de una llamada ([§193](#)) |
+| **6 → 18** | **el detector miraba una sola forma de escribir.** Hay **12 métodos que escriben por Eloquent** —`new … ->save()`, `->delete()`, `->forceDelete()`— y **ningún detector de SQL crudo los ve** |
+
+**Y la advertencia ya estaba escrita en el repositorio.** `CLAUDE.md` dice que hay 990
+consultas crudas y que los modelos se usan «marginalmente» — **y esa frase es justo la
+que hace que se te olvide el margen**. `escrituras-en-las-notas.py` lo lleva en su
+cabecera **porque le pasó a él primero**.
+
+### Y no es cosmético: las tres piezas centrales de la función viven en la mitad invisible
+
+| Método (Eloquent) | Qué le pide el plan del boletín independiente |
+|---|---|
+| `UnidadesController::postIndex` | es **`POST unidades`**, donde entra **`alumno_id` en el cuerpo** (§6.5) |
+| `SubunidadesController::postIndex` | crear las notas de **UN alumno** y no las del grupo cuando la unidad tiene dueño (§6.5) |
+| `PeriodosController::putCopiar` | copiar **también las unidades con dueño** (§9.4), o el periodo nuevo empieza con los independientes sin nada |
+
+> **Un inventario que sólo mirara el SQL crudo diría que el camino de escritura no se
+> toca.** Y ahí viven las tres piezas que sostienen la función. **Lo que cambia no es
+> el número: es de quién es el trabajo de la fase 4** — no de las 57 consultas de
+> lectura, sino de estos tres métodos.
+
+### El cruce que sí valió, y qué no podía probar
+
+Los 6 de SQL crudo se cruzaron con el detector de otra sesión, que busca **la forma de
+la sentencia** (`INSERT INTO`, `DELETE FROM`, `UPDATE … SET`) **en vez del nombre de la
+tabla** — así **le da igual qué venga pegado detrás**, que es exactamente lo que había
+roto la primera guardia. **6 y 6, los mismos seis sitios.**
+
+**Dos detectores que no comparten supuesto y coinciden valen mucho más que uno
+repetido** — es el patrón de los bloques 3 y 4 de `salud-de-la-bitacora`. Pero:
+
+> **Lo que ese cruce no podía dar era la mitad de Eloquent: los dos miran SQL.**
+> **Coincidir confirma el método compartido, no la cobertura.**
+
+**Y el probe de Eloquent tenía su propio punto ciego**, dicho por quien lo escribió:
+pedía `(Unidad|Subunidad)::(find|findOrFail|create)` y `Unidad::onlyTrashed()->findOrFail($id)`
+**no casa** — eran los dos `forceDelete`, así que dio **10 en vez de 12**. Arreglado
+pidiendo `(Unidad|Subunidad)::` a secas **y leyendo los doce a mano**: *la última pasada
+no la hace ninguna herramienta.*
+
+### Tres comprobaciones de la noche que no probaban lo que decían
+
+Y las tres las trajo quien las había escrito:
+
+1. el `grep` de control con **la falta de frontera de palabra ya arreglada en la
+   herramienta una hora antes** ([§193](#));
+2. **doce `/proc` legibles de veinticinco** sin `-u 0`, o sea un recuento de procesos
+   que miraba la mitad;
+3. el probe de Eloquent que pedía tres formas de llamada y **había cuatro**.
+
+**La herramienta se arregla y la comprobación se hereda intacta**, porque es lo que se
+usa para comprobar y nadie la comprueba.
