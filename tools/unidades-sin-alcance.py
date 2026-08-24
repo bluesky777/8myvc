@@ -149,8 +149,15 @@ def referencias(sql, tabla):
     `FROM notas n, unidades u`, y una lista de tablas separada por comas es un
     join con todas las letras. Un detector que sólo mire `JOIN` no ve ésos.
     """
+    # El `(?![\w])` DETRÁS del nombre no es defensivo, es un fallo pagado: sin él,
+    # `unidades` casa con los ocho primeros caracteres de **`unidades_por_defecto`**
+    # —otra tabla, que no lleva `alumno_id` y nunca lo llevará— y `_por_defecto`
+    # se cuenta como si fuera el alias. Eran **3 referencias de 146**, y las tres
+    # habrían salido en el inventario como trabajo que hacer sobre una tabla que
+    # no cambia. Hay cuatro tablas cuyo nombre empieza igual: `unidades`,
+    # `unidades_por_defecto`, `subunidades` y `subunidades_por_defecto`.
     patron = re.compile(
-        r'\b(from|join|,|into|update)\s+`?' + tabla + r'`?\s*(?:as\s+)?(?!\w*\s*\()(\w+)?',
+        r'\b(from|join|,|into|update)\s+`?' + tabla + r'`?(?![\w])\s*(?:as\s+)?(?!\w*\s*\()(\w+)?',
         re.I | re.S)
     for m in patron.finditer(sql):
         verbo = m.group(1).lower()
