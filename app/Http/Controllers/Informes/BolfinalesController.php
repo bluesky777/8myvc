@@ -124,6 +124,26 @@ class BolfinalesController extends Controller {
 			//$year->periodos = Periodo::where('year_id', $user->year_id)->get();
 		}
 
+		// **El recuento de notas perdidas, UNA vez por grupo y no una por
+		// (alumno x asignatura x periodo).** Ver 05 §210: de las 3.763 consultas
+		// de esta petición, **2.602 —el 78%— eran estos dos bucles anidados**, y de
+		// ahí salía el 504 de 60 s del grupo 105. Un grupo de 38 alumnos x 15
+		// asignaturas x 4 periodos son 2.280 consultas que contestan lo que una
+		// sola `GROUP BY` contesta entera.
+		//
+		// **No va en una propiedad de la clase, y eso no es estilo:** la §210
+		// registró que un memo en propiedad privada **sobrevive a la petición**
+		// porque `Route::getController()` memoiza la instancia, así que la segunda
+		// petición leería el recuento de la primera. Va por parámetro.
+		$perdidasDelGrupo = $this->perdidasPorAlumnoDelGrupo($grupo_id, $alumnos, $year->periodos);
+
+		// **El segundo bucle anidado, y su consulta NO es la misma que la de
+		// arriba** — filtra `deleted_at` en subunidades y unidades, y no une con
+		// `matriculas`. Dos mapas y no uno, a propósito: fundirlos daría números
+		// distintos de los de hoy, y este lote no puede cambiar la respuesta.
+		// Eran 1.122 consultas de las 1.876 que quedaban.
+		$perdidasPorDefinitiva = $this->perdidasPorDefinitivaDelGrupo($grupo_id, $alumnos);
+
 		$cons = 'SELECT c.*, i.nombre as encabezado_nombre, i2.nombre as piepagina_nombre 
 				FROM config_certificados c 
 				left join images i on i.id=c.encabezado_img_id and i.deleted_at is null
@@ -158,7 +178,7 @@ class BolfinalesController extends Controller {
 		foreach ($alumnos as $alumno) {
 
 			// Todas las materias con sus unidades y subunides
-			$this->definitivasMateriasXPeriodo($alumno, $grupo_id, $user->year_id, $year->periodos, $periodo_a_calcular, $user->si_recupera_materia_recup_indicador );
+			$this->definitivasMateriasXPeriodo($alumno, $grupo_id, $user->year_id, $year->periodos, $periodo_a_calcular, $user->si_recupera_materia_recup_indicador, $perdidasPorDefinitiva );
 
 			
 			
@@ -191,18 +211,25 @@ class BolfinalesController extends Controller {
 			$alumno->cant_lost_asig = $alumno->cant_lost_asig - count($alumno->recuperaciones);
 
 	
-			$asignaturas_perdidas = $this->asignaturasPerdidasDeAlumno($alumno, $grupo_id, $user->year_id);
+			$asignaturas_perdidas = $this->asignaturasPerdidasDeAlumno($alumno, $grupo_id, $user->year_id, $perdidasDelGrupo, $year->periodos);
 
 			if (count($asignaturas_perdidas) > 0) {
 				
 				$alumno->asignaturas_perdidas = $asignaturas_perdidas;
 				$alumno->notas_perdidas_year = 0;
 				
-				if ($periodo_a_calcular) {
-					$alumno->periodos_con_perdidas = DB::select('SELECT * FROM periodos WHERE year_id=? and numero<=? and deleted_at is null', [$user->year_id, $periodo_a_calcular]);
-				}else{
-					$alumno->periodos_con_perdidas = DB::select('SELECT * FROM periodos WHERE year_id=? and deleted_at is null', [$user->year_id]);
-				}
+				// **La misma consulta que `$year->periodos`, una vez por alumno.**
+				// Era la segunda mitad de la invariante: la primera estaba en el
+				// bucle de asignaturas —408 veces— y ésta en el de alumnos, 38.
+				// Idéntica en las dos ramas, así que se reutiliza la ya resuelta.
+				//
+				// **Con `clone`, por lo mismo que en `asignaturasPerdidasDeAlumno`:**
+				// el bucle de abajo escribe `cant_perdidas` DENTRO de cada periodo,
+				// así que compartir los objetos entre alumnos haría que todos
+				// acumularan sobre la cuenta del anterior. Aquí el fallo sería peor
+				// que allí —números crecientes, no repetidos— y tampoco lo vería
+				// ninguna cota de consultas.
+				$alumno->periodos_con_perdidas = array_map(fn ($p) => clone $p, $year->periodos);
 
 				foreach ($alumno->periodos_con_perdidas as $keyPerA => $periodoAlone) {
 
@@ -253,8 +280,13 @@ class BolfinalesController extends Controller {
 		return [$grupo, $year, $response_alumnos, $this->escalas_val];
 	}
 
-	public function definitivasMateriasXPeriodo(&$alumno, $grupo_id, $year_id, $periodos, $per_calcular=null, $si_recupera_materia_recup_indicador=false)
+	/**
+	 * @param  array<int, array<int, array<int, int>>>|null  $perdidasPorDefinitiva  ver perdidasPorDefinitivaDelGrupo()
+	 */
+	public function definitivasMateriasXPeriodo(&$alumno, $grupo_id, $year_id, $periodos, $per_calcular=null, $si_recupera_materia_recup_indicador=false, $perdidasPorDefinitiva=null)
 	{
+		$deEsteAlumno = $perdidasPorDefinitiva[(int) $alumno->alumno_id] ?? [];
+
 
 		$alumno->asignaturas	= Grupo::detailed_materias($grupo_id);
 
@@ -346,23 +378,18 @@ class BolfinalesController extends Controller {
 					// No se cuentan las notas perdidas
 				}else{
 					
-					// Cuantas notas tiene perdidas por cada definitiva
-					$consul = 'SELECT COUNT(n.id) as notas_perdidas
-						from notas n
-						inner join subunidades s on s.id=n.subunidad_id and s.deleted_at is null
-						inner join unidades u on u.id=s.unidad_id and u.periodo_id=:periodo_id and u.asignatura_id=:asignatura_id and u.deleted_at is null
-						where n.nota < :nota_minima and n.alumno_id=:alumno_id;';
+					// Cuántas notas tiene perdidas por cada definitiva, del mapa del
+					// grupo. Era una consulta por (alumno x asignatura x definitiva):
+					// 1.122 en una sola petición.
+					//
+					// **Un par sin fila es 0, y eso NO es un atajo**: `COUNT()`
+					// devuelve siempre exactamente una fila, así que el original
+					// entraba siempre en el `if` y asignaba el número — incluidos los
+					// periodos ficticios con `periodo_id = -1`, que daban 0. Dejarlo
+					// sin asignar cambiaría la respuesta.
+					$definitiva->notas_perdidas = $deEsteAlumno[(int) $asignatura->asignatura_id][(int) $definitiva->periodo_id] ?? 0;
 
-					$definitiva->notas_perdidas = DB::select($consul, array(
-											':periodo_id'	=> $definitiva->periodo_id,
-											':asignatura_id'=> $asignatura->asignatura_id,
-											':nota_minima'	=> User::$nota_minima_aceptada,
-											':alumno_id'	=> $alumno->alumno_id ));
-
-					if (count($definitiva->notas_perdidas) > 0) {
-						$definitiva->notas_perdidas = $definitiva->notas_perdidas[0]->notas_perdidas;
-						$notas_perd += $definitiva->notas_perdidas;
-					}
+					$notas_perd += $definitiva->notas_perdidas;
 				}
 				
 			}
@@ -480,41 +507,138 @@ class BolfinalesController extends Controller {
 
 
 
-	public function asignaturasPerdidasDeAlumno($alumno, $grupo_id, $year_id)
+	/**
+	 * El recuento de notas perdidas de TODO el grupo, en una sola consulta.
+	 *
+	 * Sustituye a las 2.280 que hacía el bucle anidado —una por (alumno x
+	 * asignatura x periodo)—, que eran **el 78% de las 3.763 consultas** de esta
+	 * petición y de donde salía el **504 de 60 s** del grupo 105 (05 §210).
+	 *
+	 * **La consulta es la misma, agregada.** No se «mejoró» de paso: mismos
+	 * `JOIN`, mismo `m.estado="MATR"` sin filtro de grupo, mismas tablas sin
+	 * `deleted_at`. Lo único que cambia es `COUNT(DISTINCT n.id)` en vez de traer
+	 * las filas y contarlas en PHP — y el `DISTINCT` **hace falta por lo mismo que
+	 * lo hacía antes**: el `JOIN` con `matriculas` multiplica cuando un alumno
+	 * tiene varias matrículas, y el original lo deduplicaba con `SELECT distinct`.
+	 * Quitarlo cambiaría los números, que es justo lo que este lote no puede hacer.
+	 *
+	 * @param  array<int, object>  $alumnos
+	 * @param  array<int, object>  $periodos
+	 * @return array<int, array<int, array<int, int>>>  [alumno_id][asignatura_id][periodo_id] => perdidas
+	 */
+	private function perdidasPorAlumnoDelGrupo($grupo_id, $alumnos, $periodos)
+	{
+		$alumnoIds  = array_values(array_filter(array_map(fn ($a) => (int) ($a->alumno_id ?? 0), $alumnos)));
+		$periodoIds = array_values(array_filter(array_map(fn ($p) => (int) ($p->id ?? 0), $periodos)));
+
+		// Sin alumnos o sin periodos no hay nada que contar, y una `IN ()` vacía es
+		// un error de sintaxis en MySQL — no una consulta que devuelve nada.
+		if ($alumnoIds === [] || $periodoIds === []) {
+			return [];
+		}
+
+		$huecosAlu = implode(',', array_fill(0, count($alumnoIds), '?'));
+		$huecosPer = implode(',', array_fill(0, count($periodoIds), '?'));
+
+		$filas = DB::select(
+			'SELECT n.alumno_id, u.asignatura_id, u.periodo_id, COUNT(DISTINCT n.id) AS perdidas
+			   FROM notas n, subunidades s, unidades u, asignaturas a, matriculas m
+			  WHERE n.subunidad_id = s.id AND s.unidad_id = u.id
+				AND u.asignatura_id = a.id AND a.grupo_id = ?
+				AND m.alumno_id = n.alumno_id AND m.deleted_at IS NULL AND m.estado = "MATR"
+				AND n.alumno_id IN ('.$huecosAlu.')
+				AND u.periodo_id IN ('.$huecosPer.')
+				AND n.nota < ?
+			  GROUP BY n.alumno_id, u.asignatura_id, u.periodo_id',
+			array_merge([$grupo_id], $alumnoIds, $periodoIds, [User::$nota_minima_aceptada])
+		);
+
+		$mapa = [];
+
+		foreach ($filas as $fila) {
+			$mapa[(int) $fila->alumno_id][(int) $fila->asignatura_id][(int) $fila->periodo_id] = (int) $fila->perdidas;
+		}
+
+		return $mapa;
+	}
+
+	/**
+	 * El recuento de notas perdidas **por definitiva**, de todo el grupo, en una
+	 * consulta.
+	 *
+	 * **Es un mapa distinto del de `perdidasPorAlumnoDelGrupo()` porque la
+	 * consulta original es distinta**, aunque las dos cuenten «notas perdidas»:
+	 * ésta filtra `deleted_at` en subunidades y unidades y **no une con
+	 * `matriculas`**. Fundir las dos daría números distintos de los de hoy en las
+	 * filas que difieren, y este lote no puede cambiar la respuesta.
+	 *
+	 * `COUNT(n.id)` y no `COUNT(DISTINCT n.id)`: aquí no hay `matriculas` que
+	 * multiplique, y el original tampoco deduplicaba.
+	 *
+	 * @param  array<int, object>  $alumnos
+	 * @return array<int, array<int, array<int, int>>>  [alumno_id][asignatura_id][periodo_id] => perdidas
+	 */
+	private function perdidasPorDefinitivaDelGrupo($grupo_id, $alumnos)
+	{
+		$alumnoIds = array_values(array_filter(array_map(fn ($a) => (int) ($a->alumno_id ?? 0), $alumnos)));
+
+		if ($alumnoIds === []) {
+			return [];
+		}
+
+		$huecos = implode(',', array_fill(0, count($alumnoIds), '?'));
+
+		$filas = DB::select(
+			'SELECT n.alumno_id, u.asignatura_id, u.periodo_id, COUNT(n.id) AS notas_perdidas
+			   FROM notas n
+			   INNER JOIN subunidades s ON s.id = n.subunidad_id AND s.deleted_at IS NULL
+			   INNER JOIN unidades u ON u.id = s.unidad_id AND u.deleted_at IS NULL
+			   INNER JOIN asignaturas a ON a.id = u.asignatura_id AND a.grupo_id = ?
+			  WHERE n.nota < ? AND n.alumno_id IN ('.$huecos.')
+			  GROUP BY n.alumno_id, u.asignatura_id, u.periodo_id',
+			array_merge([$grupo_id, User::$nota_minima_aceptada], $alumnoIds)
+		);
+
+		$mapa = [];
+
+		foreach ($filas as $fila) {
+			$mapa[(int) $fila->alumno_id][(int) $fila->asignatura_id][(int) $fila->periodo_id] = (int) $fila->notas_perdidas;
+		}
+
+		return $mapa;
+	}
+
+	/**
+	 * @param  array<int, array<int, array<int, int>>>  $perdidasDelGrupo  ver perdidasPorAlumnoDelGrupo()
+	 * @param  array<int, object>  $periodosDelAnio
+	 */
+	public function asignaturasPerdidasDeAlumno($alumno, $grupo_id, $year_id, $perdidasDelGrupo = null, $periodosDelAnio = null)
 	{
 		$asignaturas	= Grupo::detailed_materias($grupo_id);
 
+		$deEsteAlumno = $perdidasDelGrupo[(int) $alumno->alumno_id] ?? [];
 
 		foreach ($asignaturas as $keyAsig => $asignatura) {
-			$periodo_a_calcular = Request::input('periodo_a_calcular');
-			
-			if ($periodo_a_calcular) {
-				$asignatura->periodos = DB::select('SELECT * FROM periodos WHERE year_id=? and numero<=? and deleted_at is null', [$year_id, $periodo_a_calcular]);
-			}else{
-				$asignatura->periodos = DB::select('SELECT * FROM periodos WHERE year_id=? and deleted_at is null', [$year_id]);;
-			}
-			
-			
+			// **`clone` y no el mismo objeto, y esto no es prudencia.** El bucle de
+			// abajo escribe `cantNotasPerdidas` DENTRO del periodo, así que compartir
+			// los objetos entre asignaturas haría que todas mostraran la cuenta de la
+			// última. Antes no pasaba porque cada asignatura hacía su propio
+			// `DB::select` y recibía objetos nuevos; al sacar la consulta del bucle,
+			// el clon es lo que conserva ese comportamiento.
+			//
+			// No lo ve ninguna cota de consultas —mismo número de consultas,
+			// resultado distinto— y por eso tiene su propio test, escrito antes de
+			// tocar esto y verificado cayendo: `BoletinFinalConsultaInvarianteTest`.
+			$asignatura->periodos = array_map(fn ($p) => clone $p, $periodosDelAnio);
 
 			$asignatura->cantTotal = 0;
 
 			foreach ($asignatura->periodos as $keyPer => $periodo) {
 
-				
-				$consulta = 'SELECT distinct n.nota, n.id as nota_id, n.alumno_id,  s.id as subunidad_id, s.definicion, u.id as unidad_id, u.periodo_id
-						from notas n, subunidades s, unidades u, asignaturas a, matriculas m
-						where n.subunidad_id=s.id and s.unidad_id=u.id and u.periodo_id=:periodo_id 
-						and u.asignatura_id=a.id and m.alumno_id=n.alumno_id and m.deleted_at is null and m.estado="MATR"
-						and a.id=:asignatura_id and n.alumno_id=:alumno_id and n.nota < :nota_minima;';
-
-				$notas_perdidas = DB::select($consulta, array(
-									':periodo_id'		=> $periodo->id, 
-									':asignatura_id'	=> $asignatura->asignatura_id, 
-									':alumno_id'		=> $alumno->alumno_id,
-									':nota_minima'		=> User::$nota_minima_aceptada
-								));
-
-				$periodo->cantNotasPerdidas = count($notas_perdidas);
+				// Del mapa del grupo, no de una consulta por periodo. Un par sin
+				// fila en el `GROUP BY` es cero perdidas, que es lo mismo que
+				// devolvía `count()` sobre un resultado vacío.
+				$periodo->cantNotasPerdidas = $deEsteAlumno[(int) $asignatura->asignatura_id][(int) $periodo->id] ?? 0;
 
 				$asignatura->cantTotal += $periodo->cantNotasPerdidas;
 
