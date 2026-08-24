@@ -607,7 +607,7 @@ en el cuerpo. Sin ella el aviso es impintable.
 | | Qué | Depende de |
 |---|---|---|
 | **0** | Medir en los dieciséis | — |
-| **1** | El reloj único y su test | — |
+| **1** | El reloj único y su test | — · **hecha el 24 ago** |
 | **2** | La sesión de verdad: atar `historiales` al token | — |
 | **3** | La tabla, el servicio y el detector | 1, 2 |
 | **4** | Instrumentar los dominios pedidos | 3 |
@@ -678,15 +678,50 @@ Contesta:
 > caza el cambio que ningún conteo ve, que alguien le ponga la zona a un `now()`
 > y el reparto pase a mentir sin que se mueva un solo número.
 
-### Fase 1 — el reloj único
+### Fase 1 — el reloj único — **hecha el 24 ago 2026**
 
-`App\Support\Reloj`, los **17** usos UTC revisados uno a uno, y `RelojUnicoTest`. **No
-se cambia `config/app.php`** en esta fase: mover `'timezone'` de UTC a Bogotá
-desplazaría de golpe las expiraciones de `Services/Sesion.php`, los `jobs` y las
-cachés, y eso es un cambio con su propia medición. **Se decidió no moverlo**
-(24 ago): el `Reloj` es la única fuente para lo que se guarda, y así esta fase no
-arrastra una medición que la auditoría no necesita. Los 17 usos sueltos quedan
-anotados uno a uno con su motivo, y el `RelojUnicoTest` impide que crezcan.
+`App\Support\Reloj::ahora()` en hora de Bogotá, y `RelojUnicoTest` fijándolo.
+
+**Movidos: los tres que escribían `bitacoras.created_at` con el reloj
+equivocado** — `ExigirPersonaPropia`, `ExigirBoletinPropio` y `Sesion.php:477`.
+Con eso la columna queda **uniforme a partir del despliegue**: los otros siete
+escritores ya estaban en Bogotá, y las 12 filas UTC históricas se quedan como
+están, documentadas y sin forma de distinguirlas — por eso la fase 0 se corre
+antes de decidir si se reinterpretan.
+
+**No movidos, y con el motivo escrito uno a uno en el test**: los trece usos
+restantes no guardan una fecha que alguien vaya a leer —o se restan consigo
+mismos (expiraciones de token, el corte de `LimpiarSesiones`) o son un TTL
+relativo (la caché de FCM)—. Ése es el criterio para quedarse en UTC, y el único.
+
+Con una excepción declarada: **`PuntoDeControlDeImportacion` sí guarda fechas y
+se queda**. Su propia cabecera documenta desde antes que `importaciones.inicio` y
+`fin` sólo se restan entre sí, así que unificar la zona no cambiaría ningún
+resultado — **sólo desplazaría cinco horas lo que se lee en pantalla**. O sea que
+moverlo arregla la pantalla y a cambio deja *esa* tabla con dos relojes en su
+historia, que es la enfermedad que esta fase viene a curar. Elegir entre las dos
+cosas no es de la fase 1: es de quien lleve las importaciones, y está anotado en
+el test para que se encuentre.
+
+Un número corregido de paso: los usos de reloj sin zona eran **16 líneas, 19
+llamadas, 7 ficheros**. Antes en este documento ponía 17, contado con un filtro
+que mezclaba líneas y llamadas.
+
+#### Lo que la fase 1 NO arregla, y hay que decirlo
+
+**La mitad de las horas raras es del esquema, no del código.** Las columnas
+`created_at` son `TIMESTAMP`, que convierte al leer con la zona de la sesión de
+MySQL, y ésa sigue sin fijarse (`@@session.time_zone = SYSTEM`). El `Reloj`
+garantiza que lo que *escribimos* es una sola hora; no garantiza que lo que se
+*lee* en un colegio sea la misma. Eso se cierra en la tabla nueva, que es
+`DATETIME(3)` — y para `bitacoras` no se cierra nunca, porque se congela.
+
+**`config/app.php` no se tocó**, según la decisión 2: sigue en UTC, así que
+`now()` y `Carbon::now()` siguen dando UTC. Lo que separa esta fase es **lo que
+se guarda** —que pasa por el `Reloj`— de **lo que se compara consigo mismo**, que
+puede seguir en UTC mientras sea coherente. Mover la configuración habría
+desplazado de golpe expiraciones, `jobs` y cachés, y eso es un cambio con su
+propia medición que la auditoría no necesita.
 
 ### Fase 2 — la sesión de verdad
 
@@ -937,9 +972,12 @@ y es el que decidió.
   el colegio quiere que sigan entrando, la respuesta no es dejar la pantalla
   vieja: es sembrar el permiso más ancho.
 
-**Y queda una pregunta pegada, que sube con las demás:** después de retirar
-`bitacoras/destroy` hay **dos botones** encima de esa ruta —el de `mis-sesiones` y
-el de la rejilla que se jubila—. Hay que decir qué hace el que sobreviva.
+**Y la pregunta pegada, contestada también el 24 ago: NADIE borra, y el botón
+desaparece.** Tras retirar `bitacoras/destroy` no hay sustituto y el control se
+quita de `mis-sesiones`. Es lo coherente con el append-only de la §4.4, y cierra
+de paso lo que la §3 llamaba el cuarto problema del esquema viejo: hoy
+**cualquier miembro del personal puede borrar el registro que lo vigila, incluido
+el suyo**. La auditoría deja de tener botón de borrar en ninguna parte.
 
 > Nada de esto **bloquea las fases 0 a 6**. Se ejecutan enteras con la decisión
 > tomada o sin ella; lo que desbloquea es el trabajo del front.

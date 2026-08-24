@@ -17,6 +17,7 @@ use App\Models\Bitacora;
 use App\Models\FraseAsignatura;
 use App\Http\Controllers\Informes\PuestosController;
 use \Log;
+use App\Support\EscalaDeNotas;
 use App\Support\PeriodoDeLaFila;
 
 
@@ -305,8 +306,17 @@ class NotasController extends Controller {
 		
 		// La nota no lleva periodo: cuelga de la subunidad y esa de la unidad,
 		// que sí. Es una de las dos que la §27.1 daba por difíciles.
-		User::pueden_editar_notas($user, PeriodoDeLaFila::deNota($id));
-		
+		$periodoDeLaNota = PeriodoDeLaFila::deNota($id);
+
+		User::pueden_editar_notas($user, $periodoDeLaNota);
+
+		// Que el número quepa en la escala del colegio. No lo comprobaba nadie:
+		// los diez sitios que miran `porc_final` son para pintar la banda, no
+		// para rechazar, así que el único guardián era el navegador — y de sus
+		// tres pantallas hermanas una no guarda. En esta base hay 92 notas
+		// fuera de rango por eso. Ver 18 §4.5.1.
+		EscalaDeNotas::comprobar(Request::input('nota'), $periodoDeLaNota);
+
 		try {
 
 			$consulta 	= 'SELECT n.*, h.id as history_id FROM notas n, 
@@ -539,6 +549,40 @@ class NotasController extends Controller {
 		// Antes de la primera escritura, y con los ids **únicos**: ver la nota de
 		// arriba sobre `count($filas) === count($ids)`.
 		User::pueden_editar_notas($user, array_keys($periodos));
+
+		// La escala, y **después del permiso, no antes**. Ponerla en el bucle de
+		// arriba parecía natural —está al lado de las otras dos validaciones de
+		// forma— y era un fallo de verdad: con un periodo cerrado, las notas caían
+		// en `fallidas` y la respuesta salía **200 con la lista** en vez del 400
+		// del guard. O sea que un dato fuera de escala tapaba una respuesta de
+		// autorización. Lo cazó `test_con_el_periodo_cerrado_el_lote_no_escribe_nada`,
+		// que ya llevaba escrito «el permiso se está comprobando tarde».
+		//
+		// La regla, que vale para el resto de la fase 4: **la forma se valida
+		// antes del permiso sólo cuando no depende de datos; lo que mira la base
+		// va después.** Ver 18 §4.5.1.
+		$conEscala = [];
+
+		foreach ($aEscribir as $fila) {
+			$noCabe = EscalaDeNotas::motivoSiNoCabe($fila['valor'], (int) $fila['destino']->periodo_id);
+
+			if ($noCabe !== null) {
+				$fallidas[] = ['id' => $fila['id'], 'motivo' => $noCabe];
+
+				continue;
+			}
+
+			$conEscala[] = $fila;
+		}
+
+		$aEscribir = $conEscala;
+
+		// Y otra vez el corte, porque la escala puede haberse llevado el lote
+		// entero: sin esto se abriría una transacción para escribir cero notas y
+		// se recalcularía una definitiva que nadie ha tocado.
+		if ($aEscribir === []) {
+			return ['guardadas' => 0, 'fallidas' => $fallidas, 'definitivas' => []];
+		}
 
 		$historial = DB::selectOne(
 			'SELECT id FROM historiales WHERE user_id = ? AND deleted_at IS NULL ORDER BY id DESC LIMIT 1',
