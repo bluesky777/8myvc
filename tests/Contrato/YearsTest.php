@@ -502,6 +502,66 @@ class YearsTest extends CasoDeContrato
         $this->assertNull(DB::table('years')->where('id', $year->id)->value('compromiso_familiar_label'));
     }
 
+    /**
+     * El rastro apunta a la fila que se guardó, no al id que mandó el cliente.
+     *
+     * `putGuardarCambios` era **el único de los diez escritores de bitácora** que
+     * derivaba el sujeto de la fila del **cuerpo** —`affected_element_id =
+     * Request::input('id')`— en vez de la fila leída. Los otros nueve ya usan
+     * `$nota->alumno_id` o `$subunidad->id`, que es la lección de la §50 del
+     * [05](../../docs/migracion/05-codigo-muerto-y-roto.md): *«¿qué MÁS lee este
+     * identificador del cuerpo?»*. Medido en
+     * [med-2.md](../../docs/migracion/noche-2026-08-24/med-2.md).
+     *
+     * ## Lo que este test prueba y lo que NO, dicho antes de que alguien lo cite
+     *
+     * Prueba que **el rastro apunta a la fila escrita**, que es el contrato que la
+     * fase 4 va a necesitar en los siete dominios.
+     *
+     * **No** prueba el arreglo: con el código viejo también pasaba. Y no por estar
+     * mal escrito, sino porque `config/database.php` lleva `strict => false`, así
+     * que un `id` no numérico se convierte **en silencio** al entrar en la columna
+     * `int` y las dos formas guardan el mismo número. **No hay ningún cuerpo
+     * alcanzable hoy que las distinga**, y se buscó: con espacios, con ceros
+     * delante, con decimales y con texto detrás.
+     *
+     * Lo que el arreglo quita es un fallo **latente**: con el modo estricto puesto
+     * —un endurecimiento razonable y no descartado— la versión vieja lanzaría
+     * **después** de `$year->save()`, y como el `catch` contesta `abort(422)`, el
+     * año quedaría cambiado, el cliente leería «Datos incorrectos» y del rastro no
+     * quedaría nada. Eso no se puede comprobar sin tocar la configuración de la
+     * conexión, y tocarla en un test mediría otra base que la de producción.
+     *
+     * O sea: este test es la red que impide que alguien lo devuelva al cuerpo, no
+     * la prueba de que hacía falta cambiarlo.
+     */
+    public function test_la_bitacora_del_ano_apunta_a_la_fila_guardada(): void
+    {
+        $token = $this->tokenDelPersonal();
+        $year = DB::selectOne('SELECT * FROM years WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+
+        $antes = DB::table('bitacoras')->where('affected_element_type', 'YEAR CONFIGURACION')->count();
+
+        $this->withToken($token)->putJson('/api/years/guardar-cambios', [
+            'id' => $year->id,
+            'telefono' => '6012345678',
+        ])->assertStatus(200);
+
+        $linea = DB::selectOne(
+            "SELECT * FROM bitacoras WHERE affected_element_type = 'YEAR CONFIGURACION'
+             ORDER BY id DESC LIMIT 1"
+        );
+
+        $this->assertSame($antes + 1,
+            DB::table('bitacoras')->where('affected_element_type', 'YEAR CONFIGURACION')->count(),
+            'La llamada tiene que dejar UNA línea de bitácora. Si no la deja, lo que este '
+            .'test comprueba abajo es una fila vieja de otra corrida.');
+
+        $this->assertSame((int) $year->id, (int) $linea->affected_element_id,
+            'El rastro tiene que apuntar al año que se guardó, y ese id sale de la fila '
+            .'—`$year->id`—, nunca de `Request::input(\'id\')`.');
+    }
+
     /** Y lo que el cuerpo sí trae se guarda, que es la otra mitad del arreglo. */
     public function test_guardar_cambios_escribe_lo_que_el_cuerpo_trae(): void
     {

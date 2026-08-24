@@ -80,7 +80,7 @@ $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
 use Illuminate\Support\Facades\DB;
 
-$opciones = getopt('', ['year::', 'detalle', 'help']);
+$opciones = getopt('', ['year::', 'detalle', 'csv', 'help']);
 
 if (isset($opciones['help'])) {
     echo file_get_contents(__FILE__, false, null, 0, 3200), PHP_EOL;
@@ -90,13 +90,44 @@ if (isset($opciones['help'])) {
 $soloYear = isset($opciones['year']) ? (int) $opciones['year'] : null;
 $detalle = isset($opciones['detalle']);
 
+/*
+ * `--csv`: una línea por base, para juntar los dieciséis.
+ *
+ * Es la hermana de `salud-de-la-bitacora.php --csv`, que lo tiene desde el
+ * principio, y faltaba justo aquí — o sea en la única de las dos que **desbloquea
+ * una fase**: la 2 del [10] necesita estos números de los dieciséis colegios, y sin
+ * CSV juntarlos es leer dieciséis informes a mano.
+ *
+ * **Es opt-in y no cambia ni un carácter de la salida de siempre**: quien la llame
+ * sin el flag ve exactamente lo mismo que antes. Comprobado contra la salida vieja
+ * byte a byte, no de vista.
+ *
+ * ## Y sale de los mismos bloques que el texto, a propósito
+ *
+ * `bloqueDeSalud()` es la única que conoce cada cifra, así que en modo CSV **la
+ * misma llamada que imprimiría la línea guarda el número**. La alternativa —volver
+ * a leer las variables al final y armar el CSV con ellas— sería una **segunda
+ * lectura de lo mismo**, y dos lecturas de lo mismo acaban discrepando el día que
+ * alguien cambie un bloque y no la otra mitad. Así no hay otra mitad.
+ */
+$csv = isset($opciones['csv']);
+
+/**
+ * Lo que cada bloque guardó, en orden, cuando va en CSV.
+ *
+ * @var list<array{titulo: string, cuantos: int, unidad: string}>
+ */
+$bloquesParaCsv = [];
+
 $base = DB::connection()->getDatabaseName();
 $filtroYear = $soloYear !== null ? ' AND g.year_id = '.$soloYear : '';
 
-echo PHP_EOL;
-echo "Salud de `notas_finales` — base `{$base}`";
-echo $soloYear !== null ? ", año {$soloYear}" : ', todos los años';
-echo PHP_EOL.str_repeat('=', 78).PHP_EOL.PHP_EOL;
+if (! $csv) {
+    echo PHP_EOL;
+    echo "Salud de `notas_finales` — base `{$base}`";
+    echo $soloYear !== null ? ", año {$soloYear}" : ', todos los años';
+    echo PHP_EOL.str_repeat('=', 78).PHP_EOL.PHP_EOL;
+}
 
 /**
  * Imprime un bloque con su título, su número y —si se pidió— sus primeras filas.
@@ -109,7 +140,13 @@ echo PHP_EOL.str_repeat('=', 78).PHP_EOL.PHP_EOL;
  */
 function bloqueDeSalud(string $titulo, int $cuantos, string $unidad, array $ejemplos = [], string $nota = ''): void
 {
-    global $detalle;
+    global $detalle, $csv, $bloquesParaCsv;
+
+    if ($csv) {
+        $bloquesParaCsv[] = ['titulo' => $titulo, 'cuantos' => $cuantos, 'unidad' => $unidad];
+
+        return;
+    }
 
     $marca = $cuantos === 0 ? '  ok ' : ' >>> ';
     echo $marca.$titulo.PHP_EOL;
@@ -531,6 +568,83 @@ bloqueDeSalud(
     'así que lo que importa es su evolución y su reparto, no el número suelto.'
 );
 
-echo str_repeat('=', 78).PHP_EOL;
-echo 'Sin --detalle solo se ven los conteos. Con él salen las primeras filas de'.PHP_EOL;
-echo 'cada bloque, que es lo que hace falta para ir a mirar un caso de verdad.'.PHP_EOL.PHP_EOL;
+if (! $csv) {
+    echo str_repeat('=', 78).PHP_EOL;
+    echo 'Sin --detalle solo se ven los conteos. Con él salen las primeras filas de'.PHP_EOL;
+    echo 'cada bloque, que es lo que hace falta para ir a mirar un caso de verdad.'.PHP_EOL.PHP_EOL;
+    echo 'Con --csv sale una línea por base, para juntar los dieciséis en una tabla.'.PHP_EOL.PHP_EOL;
+}
+
+// ---------------------------------------------------------------------------
+// Salida CSV: una línea por base, para juntar los dieciséis.
+// ---------------------------------------------------------------------------
+if ($csv) {
+    /*
+     * Título de bloque -> nombre de columna. Es una lista a mano, así que lleva
+     * guardián: si aparece un bloque nuevo sin entrada aquí, esto **falla y lo
+     * dice** en vez de imprimir una fila a la que le falta una columna.
+     *
+     * Y ese modo de fallo es el que hay que evitar sobre dieciséis bases: dieciséis
+     * filas con una columna de menos no se ven raras — se ven completas.
+     */
+    $columnas = [
+        '1. Definitivas duplicadas' => 'definitivas_duplicadas',
+        '2. Notas duplicadas' => 'notas_duplicadas',
+        '3. Definitivas contra el cálculo' => 'definitivas_que_faltan',
+        '3.1 De las que sí existen' => 'definitivas_que_discrepan',
+        '4. `periodo` que no concuerda' => 'periodo_descuadrado',
+        '5. `created_at` imposible' => 'created_at_imposible',
+        '6. Porcentajes que no suman' => 'porcentajes_malos',
+        '7. Subunidades vivas sin nota' => 'subunidades_sin_nota',
+    ];
+
+    $campos = ['base' => $base, 'year' => $soloYear ?? 'todos'];
+    $sinColumna = [];
+
+    foreach ($bloquesParaCsv as $b) {
+        $clave = null;
+
+        foreach ($columnas as $prefijo => $nombre) {
+            if (str_starts_with($b['titulo'], $prefijo)) {
+                $clave = $nombre;
+                break;
+            }
+        }
+
+        if ($clave === null) {
+            $sinColumna[] = $b['titulo'];
+
+            continue;
+        }
+
+        $campos[$clave] = $b['cuantos'];
+    }
+
+    if ($sinColumna !== []) {
+        fwrite(STDERR, 'ABORTO: hay bloques sin columna en el CSV, así que la fila saldría'.PHP_EOL);
+        fwrite(STDERR, 'incompleta y parecería completa. Añádeles su nombre en $columnas:'.PHP_EOL);
+
+        foreach ($sinColumna as $t) {
+            fwrite(STDERR, '  - '.$t.PHP_EOL);
+        }
+
+        exit(1);
+    }
+
+    /*
+     * Y la comprobación contraria: que no falte ninguna columna esperada. Un
+     * bloque que dejara de ejecutarse —porque alguien lo comentó, o porque su
+     * consulta murió— haría desaparecer su columna, y entonces las dieciséis filas
+     * no tendrían la misma forma. Con esto, falta un bloque y se sabe.
+     */
+    $faltan = array_diff(array_values($columnas), array_keys($campos));
+
+    if ($faltan !== []) {
+        fwrite(STDERR, 'ABORTO: estos bloques no se ejecutaron, así que su columna no existe: '
+            .implode(', ', $faltan).PHP_EOL);
+        exit(1);
+    }
+
+    echo implode(',', array_keys($campos)).PHP_EOL;
+    echo implode(',', array_map(static fn ($v): string => (string) $v, $campos)).PHP_EOL;
+}
