@@ -8418,3 +8418,64 @@ clase no se toca y los quince ficheros no se mueven.**
 > a uno para que aparecieran los dos que importaban — *un detector da sitios donde
 > mirar, nunca una lista de fallos*, esta vez con el signo bueno: **el patrón
 > estaba mejor de lo que el número sugería.**
+
+## §178. Por qué MySQL se murió dos veces: no era la carga, era la realimentación
+
+Lo midió `8myvc-39` después de que el contenedor de la base muriera **dos veces**,
+la segunda tras once minutos vivo. **MySQL es la víctima, no el culpable.**
+
+```
+HostConfig.Memory: 0          <- el contenedor NO tiene límite propio
+OOMKilled: true               <- lo mata el kernel de la VM, no su propio cgroup
+VM de Docker: ~7,65 GiB para TODO
+```
+
+**Sin límite propio, MySQL no puede «pasarse»**: cuando la VM entera se queda sin
+memoria, **el kernel elige a la víctima más gorda, y ésa es siempre él**. Por eso
+muere él, y por eso **reiniciarlo no arreglaba nada**.
+
+### Lo que llenaba la VM: quince suites huérfanas *dentro* del contenedor
+
+**15 procesos `phpunit`, 2.187 MB**, de 9 a 49 minutos de edad — 7 del árbol raíz,
+4 de un worktree, 3 de otro, 1 de otro. Suites que **se colgaron cuando la base
+murió y no murieron con ella**.
+
+> **Y ahí está el bucle: cada muerte de MySQL deja huérfanos, los huérfanos ocupan
+> memoria, y con menos memoria libre la siguiente muerte llega antes.** No es mala
+> suerte repetida: es realimentación.
+
+Con la consecuencia que corrige a quien coordinaba: **repartir turnos no lo arregla
+solo.** Aunque lance uno cada vez, **si los anteriores no mueren la memoria no
+vuelve** — se estaban administrando turnos sobre una máquina que no se vaciaba.
+
+### Y la trampa que impidió verlo, que es la tercera de su clase en una noche
+
+> **Un `ps` en el host NO ve los procesos del contenedor**, y **matar el
+> `docker exec` del host NO mata el `php` de dentro.**
+
+El gestor de tareas dijo *«Successfully stopped»*, el `ps` del host dijo **cero**, y
+cuatro `phpunit` seguían vivos — **uno de ellos el que se acababa de matar**. Se
+informó de *«0 suites vivas»* de buena fe y quien coordinaba se lo creyó, porque el
+instrumento contestaba con seguridad. La comprobación que sí vale:
+
+```bash
+docker exec 8myvc-app-1 ps -ax | grep phpunit
+```
+
+Y para distinguir **la tuya** de las otras siete, que se llaman todas igual, no hay
+más camino que el entorno:
+
+```bash
+docker exec -u 0 8myvc-app-1 sh -c 'for p in /proc/[0-9]*; do
+  tr "\0" "\n" < $p/environ 2>/dev/null | grep -q "^DB_TEST_DATABASE=simonbolivar_testing_<sufijo>$" \
+    && echo "VIVA ${p#/proc/}"; done'
+```
+
+### El precio del `git add -A`, que resultó tener una segunda mitad
+
+`main` **quedó con larastan nivel 7 en rojo** —`ProfesoresController.php:473`,
+*«Negated boolean expression is always true»*—. Ese fichero llegó a `main` dentro
+del commit que arrastró trece ficheros de cinco sesiones, o sea **sin la pasada de
+larastan de su autor, porque quien lo commiteó no sabía que lo estaba
+commiteando**. La firma no fue el único precio: **el control de calidad de un
+fichero se lo saltó alguien que ni siquiera sabía que lo tenía delante.**
