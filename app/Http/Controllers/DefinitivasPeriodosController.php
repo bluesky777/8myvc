@@ -116,6 +116,7 @@ class DefinitivasPeriodosController extends Controller {
 					inner join notas n on n.subunidad_id=s.id and n.deleted_at is null
 					inner join asignaturas asi2 on asi2.id=u.asignatura_id and asi2.deleted_at is null and asi2.grupo_id=:grupo_id
 					where  u.deleted_at is null
+					  and u.alumno_id <=> '.\App\Services\BoletinIndependiente::alcanceCorrelacionado('n.alumno_id', 'u').'
 					group by n.alumno_id, u.id, s.id
 				) nt ON asi.id=nt.asignatura_id and asi.grupo_id=:grupo_id2 
 				where asi.deleted_at is null
