@@ -101,6 +101,20 @@ class ProfesorQueSePisaTest extends CasoDeContrato
             'Perdió el superusuario al corregirle el teléfono.');
     }
 
+    /**
+     * **Éste pasa TAMBIÉN con el código roto, y se queda a propósito.**
+     *
+     * Comprobado al revés —revirtiendo el arreglo y contando—: de los cinco caen
+     * cuatro, y este no. No es que no cace nada: es que **el síntoma que fija ya
+     * estaba arreglado** por la guarda `trae('email2')` de la §68, que cubre el
+     * caso de que el cliente NO mande el campo.
+     *
+     * Importa porque corrige la medición de partida: el parte decía que corregir
+     * el teléfono pierde el correo de recuperación, y **eso sólo pasa si la
+     * rejilla SÍ manda `email2`** —el caso del último test de este fichero, que
+     * sí cae—. Con un cuerpo que no lo manda, el correo estaba a salvo desde el
+     * 21 ago. Los tres síntomas reportados no tenían la misma causa.
+     */
     public function test_corregir_el_telefono_no_pierde_el_correo_de_recuperacion(): void
     {
         $p = $this->profesorConCuenta();

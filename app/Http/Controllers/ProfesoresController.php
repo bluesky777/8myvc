@@ -470,7 +470,18 @@ class ProfesoresController extends Controller {
 					$profesor->save();
 
 					$profesor->user = $usuario;
-				} else if (!$profesor->user_id and Request::input('username')) {
+				// El `!$profesor->user_id` que había aquí sobra desde que la puerta de
+				// arriba es sólo `if ($profesor->user_id)`: estar en el `else` ya lo
+				// dice. Lo señaló larastan («Negated boolean expression is always
+				// true»), que es la clase de sobra que aparece justo cuando se
+				// simplifica una condición y nadie mira la de al lado.
+				//
+				// Aquí sí se crea la cuenta —`new User`—, así que `sanarInputUser` y
+				// los valores fabricados son lo correcto: una cuenta que NACE con un
+				// username derivado del nombre y sin superusuario está bien. Es el
+				// discriminador que la propia `CamposQueVinieron` documenta:
+				// `new User` contra `User::find()`.
+				} else if (Request::input('username')) {
 					
 					$this->sanarInputUser();
 					$this->checkOrChangeUsername($profesor->user_id);
