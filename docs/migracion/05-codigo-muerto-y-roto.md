@@ -10068,3 +10068,51 @@ vencida—:
 
 > **Lo que viajó de aquel arreglo no fue la línea: fue el motivo.** Quien lo escribió lo
 > hizo **después de introducir el bug y de que un test que ya existía se lo cazara.**
+
+## §203. La política de una ruta no es su guard
+
+Las dos puertas idénticas de `ExigirBoletinPropio` y `ExigirPersonaPropia` **sí deben
+serlo**: **18** rutas con `boletin.propio` y **26** con `persona.propia` (17 en
+`perfiles.php`), y en las 44 la política —*«la familia acotada, el personal no»*— **es la
+que corresponde**. **La identidad no era un olor.** Contestado **leyendo las rutas y no
+el `if`**.
+
+**Pero leerlas dio dos cosas mejores que la respuesta.**
+
+**1. En la ruta más delicada de las 44, el middleware no es lo que protege.**
+`PUT perfiles/cambiarpassword/{id}` lleva `persona.propia`, así que **con el paso franco
+cualquier `Profesor` atraviesa el guard**. Lo que impide que le cambie la contraseña a
+otro está **dentro del método**:
+
+```php
+if (! Hash::check((string) Request::input('oldpassword'), $perfil->password))
+    abort(400, 'Contraseña antigua es incorrecta');
+```
+
+**Es la contraseña vieja.** El guard acota a la familia; **al personal lo acota una
+comprobación independiente y de otra naturaleza**. Ahí el middleware **no es
+load-bearing**, y **quien leyera la lista de guards para saber qué permite se llevaría la
+mitad.**
+
+**2. Hay tres políticas en uso y el middleware sabe expresar una:**
+
+| Política | Dónde vive |
+|---|---|
+| «la familia acotada, el personal no» | los dos middlewares — **44 rutas** |
+| «el personal **también** acotado» | **dentro del método** (`Hash::check`) |
+| «el personal **nada**» | **dentro del controlador** — `GET notificaciones/temas` |
+
+Y la tercera **la documenta su propio autor**: `boletin.propio` **no le sirve** porque
+*«no se pide de quién, se contesta quién eres»*.
+
+> **El inventario de escrituras de un dominio no es el de su controlador** ([§201](#))
+> — **y la política de una ruta no es su guard.** En los dos casos **lo que falta está
+> justo donde nadie mira, porque la herramienta que se usa mira otro sitio.**
+
+**No se propone nada:** sacar las otras dos políticas a un middleware sería **inventar
+dos guards para dos rutas, más piezas para menos claridad**. Lo que queda escrito es que
+**la lista de guards no contesta la pregunta entera**.
+
+*(Y una corrección de camino: casi se cita un comentario de `notificaciones.php:22` como
+prueba de que el paso franco había estorbado. **Leído entero, no dice eso** — dice que
+esa ruta no acepta `alumno_id`. **Es otra razón, y se descartó.**)*
