@@ -159,15 +159,22 @@ class QuienDecideDeQuienEsUnAlumnoTest extends CasoDeContrato
     }
 
     /**
-     * §110 — `historiales/de-usuario` es la gemela de `bitacoras/{user_id?}`.
+     * §110 — `historiales/de-usuario` es la gemela de `bitacoras/{user_id?}`, **y
+     * las dos se cerraron a la vez**.
      *
      * Mismo `user_id` del cuerpo sin comprobar, mismo `auth.personal`, y **la
      * misma consulta detrás**: `HistorialCalc` es lo que también lee
-     * `ChangesAsked/to-me`. Lo que se cerró en la [§88](b.md) fue el borrado de
-     * una bitácora; **quién puede leer el rastro de quién sigue abierto en las
-     * dos**, y ahora está medido en las dos.
+     * `ChangesAsked/to-me`. Este caso medía que el rastro de otro **salía con sólo
+     * pedirlo por su id** y lo dejaba anotado como abierto: *«quién puede leer el
+     * rastro de quién sigue abierto en las dos»*.
+     *
+     * **Ya no.** La decisión 3 de `18-auditoria.md` se cableó en el lote AUD-5 y
+     * las dos gemelas piden ahora `can_view_auditoria` para lo ajeno. El caso se
+     * invierte y conserva sus dos comprobaciones de siempre —que con permiso el
+     * rastro sale de verdad, y que a una familia le está cerrado—, porque un 403
+     * a secas no distingue «la guarda funciona» de «la ruta está rota».
      */
-    public function test_cualquiera_del_personal_lee_el_historial_de_otro(): void
+    public function test_el_historial_de_otro_ya_no_lo_lee_cualquiera(): void
     {
         $yo = $this->usuarioLlanoDelPersonal();
         $otro = DB::selectOne('SELECT id FROM users WHERE id <> ? AND deleted_at IS NULL
@@ -178,14 +185,26 @@ class QuienDecideDeQuienEsUnAlumnoTest extends CasoDeContrato
             'created_at' => now(), 'updated_at' => now(),
         ]);
 
-        $r = $this->withToken($this->tokenDe($yo->username))
+        $token = $this->tokenDe($yo->username);
+
+        // Sin el permiso: 403, donde hasta el 25 ago 2026 salía el rastro entero.
+        $this->withToken($token)
+            ->putJson('/api/historiales/de-usuario', ['user_id' => $otro->id])
+            ->assertStatus(403);
+
+        // Con el permiso: sale, y sale con contenido — si no, el 403 de arriba no
+        // demostraría nada sobre la guarda.
+        $this->darPermisoDeAuditoria((int) $yo->id);
+
+        $r = $this->withToken($token)
             ->putJson('/api/historiales/de-usuario', ['user_id' => $otro->id]);
 
         $r->assertStatus(200);
         $this->assertNotEmpty($r->json('historial') ?? $r->json(),
-            'El rastro de sesiones de otro usuario sale con solo pedirlo por su id.');
+            'Con el permiso, el rastro de sesiones de otro tiene que salir de verdad.');
 
-        // Y a una familia sí le está cerrado, como en bitácoras.
+        // Y a una familia sí le está cerrado, como en bitácoras — y por el guard,
+        // no por el permiso: `auth.personal` las para antes de llegar aquí.
         foreach (['Alumno', 'Acudiente'] as $tipo) {
             $this->withToken($this->tokenDe($this->usuarioDeTipo($tipo)->username))
                 ->putJson('/api/historiales/de-usuario', ['user_id' => $otro->id])

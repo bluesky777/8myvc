@@ -1,5 +1,6 @@
 <?php namespace App\Http\Controllers;
 
+use App\Support\Autoriza;
 use App\User;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -22,6 +23,13 @@ class BitacorasController extends Controller {
 		if ($user_id=='') {
 			$user_id = $user->user_id;
 		}
+
+		// **Sin id te da lo tuyo; CON id te daba la de cualquiera.** Iba con
+		// `auth.personal` y nada más, así que los 51 profesores podían leer la
+		// bitácora de un compañero — o la de su rector — poniendo su número en la
+		// URL. Decisión 3 de 18-auditoria.md: lo propio siempre, lo de otro con
+		// `can_view_auditoria`. AUD-5.
+		Autoriza::exigirVerAuditoriaDe($user, $user_id);
 
 		// El `deleted_at is null` no estaba, y sin él el borrado de la línea de
 		// abajo no borraba NADA de lo que se ve: la fila quedaba marcada y seguía

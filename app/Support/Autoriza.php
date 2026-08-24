@@ -29,6 +29,14 @@ use App\Models\Role;
 class Autoriza
 {
     /**
+     * El nombre exacto de la fila de `permissions`. Lo crea
+     * `2026_08_25_200000_create_permiso_can_view_auditoria` y lo lee
+     * `puedeVerAuditoria()`; si los dos no dicen la misma cadena, el permiso
+     * existe y no lo tiene nadie **sin que falle nada**.
+     */
+    public const PERMISO_AUDITORIA = 'can_view_auditoria';
+
+    /**
      * Superusuario o Secretario. El criterio de secretaría, ya con dueño.
      *
      * Hasta el 21 ago 2026 esto valía exactamente `is_superuser`, porque el rol
@@ -157,6 +165,60 @@ class Autoriza
     public static function concederSuperusuario($user, $pedido): int
     {
         return (self::esSuperusuario($user) && $pedido) ? 1 : 0;
+    }
+
+    /**
+     * Ver la auditoría **de otra persona**: sus ingresos, sus intentos fallidos
+     * de entrar y quién cambió una nota.
+     *
+     * Es la pieza 1 de la **decisión 3** de `docs/migracion/18-auditoria.md`, y
+     * las tres van juntas: permiso por rol, sembrado sólo a rectoría y
+     * coordinación, y **lo propio se ve siempre sin permiso** (eso lo hace
+     * `exigirVerAuditoriaDe`, no este método).
+     *
+     * **Por qué el criterio vive aquí y no en un middleware.** Las seis rutas
+     * viejas reciben el identificador de tres sitios distintos —la URL, el
+     * cuerpo con `user_id`, y el cuerpo con `historial_id`, que ni siquiera es
+     * un usuario— así que un middleware tendría que saber de qué ruta viene
+     * para saber dónde mirar. El motivo por el que esta clase existe es que el
+     * criterio estaba copiado a mano en unos controladores y ausente en otros;
+     * repartirlo otra vez, aunque fuera en un middleware, es el mismo error con
+     * otra forma.
+     */
+    public static function puedeVerAuditoria($user): bool
+    {
+        if (self::esSuperusuario($user)) {
+            return true;
+        }
+
+        // `perms` es la lista plana de nombres que arma `ContextoDeUsuario` con
+        // los permisos de TODOS los roles del usuario, y viaja dentro del
+        // contexto: retirar el permiso tiene efecto sin tocar la sesión.
+        return in_array(self::PERMISO_AUDITORIA, (array) ($user->perms ?? []), true);
+    }
+
+    /**
+     * Lo propio siempre; lo de otro sólo con el permiso.
+     *
+     * **El `null` no es «cualquiera», es «otro».** Cuatro de las seis rutas
+     * reciben el identificador por el cuerpo, y un cuerpo sin esa clave llega
+     * aquí como `null`. Si `null` cayera del lado de «es lo suyo», bastaría con
+     * no mandar el campo para saltarse la comprobación — que es exactamente la
+     * forma del agujero que esto viene a cerrar. Por eso la comparación es
+     * contra un id concreto y todo lo demás exige permiso.
+     */
+    public static function exigirVerAuditoriaDe($user, $idDeUsuario): void
+    {
+        $propio = $user->user_id ?? null;
+
+        if ($idDeUsuario !== null && $propio !== null && (int) $idDeUsuario === (int) $propio) {
+            return;
+        }
+
+        self::exigir(
+            self::puedeVerAuditoria($user),
+            'No tiene permiso para ver la auditoría de otras personas'
+        );
     }
 
     /**
