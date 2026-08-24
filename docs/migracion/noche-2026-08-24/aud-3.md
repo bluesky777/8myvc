@@ -664,3 +664,94 @@ reiniciar la base no arreglaba nada.
 > `ps` del host. **El instrumento correcto sobre el objeto equivocado.** Ninguna se
 > ve mirando el resultado, porque el resultado es correcto; sólo se ven
 > preguntando **sobre qué** se midió.
+
+---
+
+## 10. La comprobación al revés — y las dos garantías que no estaban probadas
+
+La §1.1 de las órdenes de la noche pide comprobar al revés lo hecho: **romper el
+arreglo y contar cuántos tests caen.** Se hizo garantía por garantía, rompiéndola
+a mano en la base de esta sesión, corriendo los tests del lote y revirtiendo. Diez
+roturas, una a una y nunca dos a la vez, porque el punto es **la atribución**: no
+que caiga algo, sino **qué** cae.
+
+| Se rompe | Caen | Quién lo caza |
+|---|---|---|
+| *(nada — línea base)* | **0** | — |
+| `ocurrido_en` → `TIMESTAMP(3)` | 1 | la hora no la convierte el hosting |
+| `ocurrido_en` → `DATETIME` sin milésimas | 2 | la del tipo **y** la de la hora escrita |
+| aparece `updated_at` | 1 | la tabla no tiene dónde editarse ni borrarse |
+| aparece `deleted_at` | 1 | idem |
+| `actor_user_id` → `NOT NULL DEFAULT 0` | 7 | un intento de login cabe sin actor, **y otros seis** |
+| `atribucion` → `DEFAULT 'sesion'` | 1 | quien no dice la atribución no la da por cierta |
+| **`valor_anterior` → `varchar(255)`** | **0** | **nadie — hallazgo** |
+| **`DROP INDEX aud_sesion`** | **0** | **nadie — hallazgo** |
+
+Los siete primeros están probados: la rotura cae, y cae donde debe. Y **el caso del
+`NOT NULL` enseña la otra cara**: tumba siete tests, o sea que su guardián es
+ancho. No se estrecha —cazar de más no es un fallo—, pero queda dicho para que
+nadie lea «siete tests protegen `actor_user_id`».
+
+### 10.1 Los dos huecos, y por qué no se veían
+
+**`valor_anterior` y `valor_nuevo` como `json`.** Había un test del *null* de SQL
+contra el de JSON, y **no valía para esto**: comprueba lo que hace el **servicio**,
+no de qué tipo es la **columna**. Con `valor_anterior` convertido a `varchar(255)`
+seguía verde. Y el tipo importa por dos motivos que no son teóricos:
+
+- **El tamaño.** Un `json` de MySQL aguanta lo que un `LONGTEXT`; un `varchar(255)`
+  no. `valor_nuevo` va a llevar filas enteras cuando la fase 4 instrumente
+  disciplina y frases, y con la columna estrecha eso es una excepción que este
+  servicio **se traga** — la línea perdida, en silencio, **justo en las escrituras
+  más grandes**.
+- **La fase 5 consulta dentro** (`JSON_EXTRACT`, `->>`) para pintar el antes y el
+  después. Sobre texto no se puede.
+
+**Los cinco índices.** Estaban **medidos** con `EXPLAIN` sobre 200.000 filas y
+escritos en la §3, pero **una medición no es un guardián**: nada impedía que el
+siguiente `ALTER` se llevara uno y «qué hizo en este ingreso» pasara a recorrer la
+tabla entera sin que nada se quejara. La medición dice que el índice **sirve**; no
+dice que **siga ahí**.
+
+### 10.2 Los dos tests nuevos, y comprobados al revés otra vez
+
+`test_los_dos_valores_son_json_y_aguantan_una_fila_entera` y
+`test_los_cinco_indices_de_las_cinco_preguntas_siguen_ahi`. Con ellos, las mismas
+roturas ya no pasan:
+
+| Se rompe | Antes | Ahora |
+|---|---|---|
+| `valor_anterior` → `varchar(255)` | 0 | **1** |
+| `valor_nuevo` → `varchar(255)` | 0 | **1** |
+| `DROP INDEX aud_sesion` | 0 | **1** |
+| *(nada)* | 0 | **0** |
+
+El de los valores comprueba **el tipo y el viaje de ida y vuelta** de algo que no
+cabría en 255 caracteres —y afirma primero que no cabe, porque si cupiera no
+mediría nada—. El de los índices dice **dentro de sí mismo lo que no promete**:
+fija que los cinco existan, **no** que el planificador los use, y no puede — en la
+base de tests `auditoria` está vacía y con cero filas MySQL no elige ningún
+índice. Esa mitad se midió con la tabla poblada y vive en la §3. Decir aquí que se
+comprueba sería la afirmación de más contra la que este repositorio escribe sus
+detectores.
+
+**Total: 22 tests, 170 aserciones.**
+
+### 10.3 Y una trampa del propio arnés, que costó la primera vuelta entera
+
+La primera pasada dio **«caen 20»** en las cuatro roturas, incluidos tests que no
+tienen nada que ver con lo roto. Eso no es un resultado: es el arnés.
+
+Lo que pasaba: la reconstrucción de la base anterior había hecho su
+`DROP DATABASE` y **había muerto antes de cargar el esquema** —MySQL se cayó en
+medio—, así que la base existía y estaba **vacía**. Los veinte fallaban en el
+`setUp`.
+
+Se vio rápido por una razón que merece nombre: **`CasoDeContrato` ya tenía la
+guarda**, y falla con la frase exacta —*«La base 'simonbolivar_testing_39' está
+vacía. Constrúyela con: tools/construir-bd-test.sh»*— en vez de dejar veinte
+fallos de aserción sin explicación. Un veinte redondo también ayudó: cuando cae
+**todo**, la causa casi nunca es lo que acabas de romper.
+
+El arnés lleva ahora esa comprobación dentro: si la salida menciona la base vacía,
+**aborta y dice que la medición no vale** en vez de imprimir un número.

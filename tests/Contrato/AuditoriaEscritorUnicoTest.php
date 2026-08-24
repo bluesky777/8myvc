@@ -89,6 +89,94 @@ class AuditoriaEscritorUnicoTest extends CasoDeContrato
     }
 
     /**
+     * Los dos valores son `json`, y esto es un test porque **al comprobarlo al
+     * revés no caía nada.**
+     *
+     * Ya había un test del `null` de SQL contra el de JSON, y **no vale para
+     * esto**: comprueba lo que hace el *servicio*, no de qué tipo es la
+     * *columna* — con `valor_anterior` convertido a `varchar(255)` seguía en
+     * verde. Se vio rompiendo la garantía a mano y contando: **cero**.
+     *
+     * Y sí importa, por dos motivos que no son teóricos:
+     *
+     * - **El tamaño.** Un `json` de MySQL aguanta lo que un `LONGTEXT`; un
+     *   `varchar(255)` no. `valor_nuevo` va a llevar filas enteras cuando la fase
+     *   4 instrumente disciplina y frases, y con la columna estrecha eso es una
+     *   excepción que este servicio **se traga** — o sea la línea perdida, en
+     *   silencio, justo en las escrituras más grandes.
+     * - **La fase 5 va a consultar dentro** (`JSON_EXTRACT`, `->>`) para pintar el
+     *   antes y el después. Sobre texto no se puede.
+     *
+     * Se comprueba el tipo **y** el viaje de ida y vuelta de algo que no cabría en
+     * 255 caracteres, porque el tipo solo no demuestra que quepa.
+     */
+    public function test_los_dos_valores_son_json_y_aguantan_una_fila_entera(): void
+    {
+        foreach (['valor_anterior', 'valor_nuevo'] as $columna) {
+            $this->assertSame('json', strtolower($this->tipoDeColumna('auditoria', $columna)),
+                "`auditoria.{$columna}` tiene que ser `json`. Con un varchar, una escritura ".
+                'grande revienta y el servicio se traga la excepción: la línea se pierde en silencio.');
+        }
+
+        $grande = ['observacion' => str_repeat('situación tipo II con acta de acuerdo. ', 40)];
+
+        $this->assertGreaterThan(255, strlen((string) json_encode($grande)),
+            'Este test se apoya en que el valor NO cabe en un varchar(255). Si cabe, no mide nada.');
+
+        $fila = $this->fila(
+            Auditoria::registrar()->editar('dis_proceso', 7)->de(null)->a($grande)->guardar()
+        );
+
+        $this->assertSame($grande, json_decode((string) $fila->valor_nuevo, true),
+            'La fila entera tiene que volver igual que entró.');
+    }
+
+    /**
+     * Los cinco índices siguen existiendo, **por nombre**.
+     *
+     * También sale de la comprobación al revés: se tiró `aud_sesion` y **no cayó
+     * nada**. Los cinco son las cinco preguntas que la pantalla hace (§4.2 del
+     * [18](../../docs/migracion/18-auditoria.md)) y están medidos con `EXPLAIN`
+     * sobre 200.000 filas —los cinco usados, ningún `type: ALL`, ningún
+     * `filesort`—, pero **una medición no es un guardián**: nada impedía que el
+     * siguiente `ALTER` se llevara uno y la pantalla de «qué hizo en este ingreso»
+     * pasara a recorrer la tabla entera sin que ningún test se quejara.
+     *
+     * **Lo que este test fija y lo que no**: fija que los cinco existan. **No**
+     * fija que el planificador los use, y no puede: en la base de tests
+     * `auditoria` está vacía, y con cero filas MySQL no elige índice ninguno. Esa
+     * mitad se midió con la tabla poblada y vive en el documento del lote — decir
+     * aquí que se comprueba sería exactamente el tipo de afirmación de más contra
+     * la que este repositorio escribe sus detectores.
+     */
+    public function test_los_cinco_indices_de_las_cinco_preguntas_siguen_ahi(): void
+    {
+        $esperados = [
+            'aud_sesion' => 'qué hizo en este ingreso',
+            'aud_actor' => 'qué ha hecho este profe',
+            'aud_alumno' => 'qué le han hecho a este alumno',
+            'aud_entidad' => 'quién cambió esta nota',
+            'aud_fecha' => 'barrido por rango, para la retención',
+        ];
+
+        $presentes = array_column(DB::select(
+            'SELECT DISTINCT INDEX_NAME AS nombre FROM information_schema.STATISTICS
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?', ['auditoria']
+        ), 'nombre');
+
+        $this->assertContains('PRIMARY', $presentes,
+            'Si no está ni la clave primaria, esta consulta no está mirando la tabla que dice.');
+
+        foreach ($esperados as $indice => $pregunta) {
+            $this->assertContains($indice, $presentes,
+                "Falta el índice `{$indice}`, que es el que contesta «{$pregunta}».
+".
+                'Sin él esa consulta recorre la tabla entera. Si la pregunta ya no se hace, '.
+                'quita el índice Y esta línea; si se hace, el índice vuelve.');
+        }
+    }
+
+    /**
      * `actor_user_id` NULLABLE, y esto es un test y no un comentario porque el
      * plan lo tuvo mal escrito hasta que el front lo destapó.
      *
