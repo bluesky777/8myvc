@@ -359,7 +359,27 @@ class YearsController extends Controller {
 			$consulta 	= 'INSERT INTO bitacoras (created_by, historial_id, affected_element_type, affected_element_id, created_at, affected_element_new_value_string) 
 					VALUES (?,?,?,?,?,?)';
 
-			DB::insert($consulta, [ $bit_by, $bit_hist, 'YEAR CONFIGURACION', Request::input('id'), $now, (string) $year ]);
+			// `$year->id` y no `Request::input('id')`, que es lo que había. Es el
+			// **único de los diez escritores de bitácora** que derivaba el sujeto de
+			// la fila del CUERPO en vez de la fila leída; los otros nueve ya usan
+			// `$nota->alumno_id` o `$subunidad->id`. Medido en
+			// docs/migracion/noche-2026-08-24/med-2.md, y es la lección de la §50:
+			// *«qué MÁS lee este identificador del cuerpo»*.
+			//
+			// La fila está garantizada desde la línea 298 —`Year::findOrFail(...)`,
+			// fuera del `try`, así que un id que no existe es 404 antes de llegar
+			// aquí—, o sea que `$year->id` es el id de la fila que se acaba de
+			// guardar. No hay que fiarse de nada.
+			//
+			// **Hoy no cambia ningún resultado, y por eso hay que decir qué arregla:**
+			// `config/database.php` lleva `strict => false`, así que un `id` no
+			// numérico se convierte en silencio al entrar en la columna `int` y las
+			// dos formas guardan lo mismo. Con el modo estricto puesto —que es un
+			// endurecimiento razonable y no está descartado— la vieja lanzaría **después
+			// de `$year->save()`**, y como el `catch` de abajo contesta `abort(422)`,
+			// el año quedaría **cambiado**, el cliente leería «Datos incorrectos» y del
+			// rastro no quedaría nada. Era un fallo latente que la configuración tapa.
+			DB::insert($consulta, [ $bit_by, $bit_hist, 'YEAR CONFIGURACION', $year->id, $now, (string) $year ]);
 
 			return $year;
 		} catch (\Exception $e) {
