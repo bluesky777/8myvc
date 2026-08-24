@@ -97,7 +97,7 @@ class BoletinIndependiente
      */
     public static function alcance(int $alumnoId, int $periodoId): ?int
     {
-        $clave = $alumnoId . ':' . $periodoId;
+        $clave = $alumnoId.':'.$periodoId;
 
         if (! array_key_exists($clave, self::$memoria)) {
             self::$memoria[$clave] = self::consultar($alumnoId, $periodoId);
