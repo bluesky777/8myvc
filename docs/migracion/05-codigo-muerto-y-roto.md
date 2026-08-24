@@ -9001,3 +9001,36 @@ Y una coincidencia que confirma que el fallo era del instrumento y no del que lo
 **el mismo `PDO` a mano falló en dos sesiones distintas por lo mismo** —`using
 password: NO`, credenciales escritas de memoria en vez de leídas del `.env`—. **La
 forma que funciona es arrancar el kernel y preguntar por `DB::`.**
+
+### §176.7. Qué números de la noche se mantienen y cuáles quedan por no medidos
+
+Repasados **por instrumento**, que es la pregunta que decide. Lo pidió esta
+coordinación y lo contestó `myvc-front-98` uno a uno.
+
+**Se mantienen:** el **91 → 200 en 7 s** (guion propio, con canario al lado, no sale
+del barrido de 107); el **97 → 200 en ~24 s** (guion arreglado, máquina en calma,
+canario antes y después); y los positivos con datos ricos — 38 boletines y sus
+gráficas, 40 asignaturas con unidades, el diálogo del historial cuadrando con la base
+al dígito.
+
+> **El criterio que los salva:** *un positivo lleno de datos correctos es su propio
+> control.* Una pantalla fotografiada en pleno vuelo da **cero filas**, no 494 con
+> los nombres bien. **La moneda al aire sólo puede falsear hacia el vacío**, así que
+> **envenena los negativos, no los positivos.**
+
+**Quedan por NO medidos:** el **105 → 504** y el **91 → 133 s** (ventana del OOM, ya
+marcados); los tres tiempos de boletines de periodo —55,4 / 20,1 / 29,5 s— marcados
+desde el principio como *«referencia, no dato»* por los cinco `ng test` vivos; y **el
+98 → 504, que no estaba marcado y se marca ahora**: su canario estaba sano, **pero el
+guion era el del `networkidle`**.
+
+**Y las dos cifras de estructura de la foto de 107 rutas —«veinte vacías», «treinta y
+cinco sin rejilla»— son huecos, no números**, por dos motivos independientes: el
+clasificador mandaba los errores al cubo «sin rejilla», **y** el reloj decidía al azar
+en las lentas. Lo que se está midiendo ahora es **cuántas de las 107 son lentas**, que
+es lo que dice si hay que rehacer la foto entera o tres filas.
+
+> Y el recuento de la noche entre las dos coordinaciones: **nueve instrumentos
+> mintieron —siete de un lado, dos del otro— y las nueve las contó quien las
+> cometió.** Ninguna salió de que alguien vigilara a nadie: salió de que **decirlo no
+> costaba nada**.
