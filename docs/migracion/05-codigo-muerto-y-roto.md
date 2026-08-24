@@ -10348,3 +10348,44 @@ estar corriendo**.
 > Van dos capas de la misma forma en veinte minutos: **la coordinación con `ps`, y el
 > script con `ver`.** Cerrar un agujero de dos pasos **crea la oportunidad de abrirlo otra
 > vez en la herramienta que lo cierra.**
+
+## §208. El número que coincide con otro que tampoco tenía definición
+
+Borrado `Subunidad::perdidasDeAsignatura`, con la población dicha antes del resultado:
+**1.430 ficheros** —473 de este repo (incluidas **9 blades**, porque *un método de modelo
+puede llamarse desde una vista y ahí no llega un `grep` de controladores*), 672 de
+`myvc_front`, 118 de `myvc_front_2`, 167 de `myvc_flutter`—. **Cero llamantes: la única
+aparición en código era su propia definición.**
+
+| | Devuelve | Elegida por | Llamantes |
+|---|---|---|---|
+| `perdidasDeUnidad` **(vive)** | **subunidades** | `s.unidad_id` | **10** |
+| `perdidasDeAsignatura` (borrada) | **unidades**, con `count(n.nota)` | `(asignatura_id, periodo_id)` | **0** |
+
+**Estaba mal colocada además de muerta**: vivía en `Subunidad` y devolvía filas de
+`unidades`. Y **no se pierde ninguna capacidad**, que es lo que la hace borrable sin
+discusión: **el `cant_perdidas` que calculaba está escrito a mano en once sitios más**
+—diez controladores y `Models/Periodo.php`—. **No la sustituyó un método mejor: la misma
+cuenta se copió dentro de cada pantalla y ésta se quedó atrás.**
+
+**Lo que compra:** era **el muerto de los cuatro predicados ambiguos**. Quedan tres, los
+tres en `deAsignaturaCalculada` y los tres calificados.
+
+### Y el remate de la serie de los cuatro números
+
+Con el borrado, el inventario baja a **74 lecturas de `unidades` y 70 de `subunidades`**
+— **exactamente los números del plan**. Y quien lo midió lo avisa antes de que alguien lo
+lea al revés:
+
+> **No confirma nada.** Son **dos definiciones distintas dando el mismo número por
+> aritmética**: el plan cuenta **consultas**, el detector cuenta **referencias**, y las
+> dos diferencias se han cancelado —una **de más** por la doble de
+> `ChangeAskedController:511`, una **de menos** por el método borrado—. **Coincidir no
+> vuelve correcta ninguna de las dos cuentas.**
+
+**Y ése es el remate de la serie que empezó con cuatro números para la misma pregunta
+([§199](#)):**
+
+> **El peligro no es sólo el número sin definición: es el número que coincide con otro que
+> tampoco la tenía.** *«Ahora cuadran, luego los dos estaban bien»* es la forma más fácil
+> de cerrar mal un asunto medido.
