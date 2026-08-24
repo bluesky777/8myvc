@@ -9,7 +9,7 @@ que nadie lo hubiera tomado.**
 | | La pregunta | La respuesta |
 |---|---|---|
 | **1** | ¿cuánto tarda de verdad `PUT notas/lote`? | **entre 3,8× y 5,9× más rápido** que N peticiones sueltas, y **717 → 220 consultas** |
-| **2** | ¿cuáles son las rutas sin comprobar? | **cuatro, no siete** — y las cuatro ya tenían nombre en el 09. Cerradas |
+| **2** | ¿cuáles son las rutas sin comprobar? | **cuatro, no siete** — y las cuatro ya tenían nombre en el 09. Cerradas: **542/542** |
 | **3** | ¿qué §§ cita el código y ya no existen? | **cero**, sobre 1.304 citas. Y comprobé la dirección que la herramienta no mira |
 
 ---
@@ -260,6 +260,33 @@ Tres cosas que salieron al escribirlos y que no estaban escritas en ninguna part
 > repetirlo sería escribir un test para código que ya tiene uno. La distinción es
 > la que el propio 09 pide que se haga al leer el resto.
 
+### Y con las cuatro dentro: **542 de 542**
+
+Corrida entera en máquina ya libre —`848 s` contra los `2.132 s` de la de antes,
+que es otra medida de lo que era aquella ventana—, base propia y
+`COBERTURA_RUTAS` propio:
+
+```
+Rutas: 542/542 con la respuesta comprobada (100%)
+Controladores: 98/98 con alguna comprobada
+--- 0 controladores donde nadie mira ninguna respuesta ---
+--- 0 controladores a medias ---
+
+Tests: 1362 passed (9223 assertions)
+```
+
+**Los dos barridos siguen sin contar como comprobar**, que es lo que hace que el
+100% signifique algo: `AutenticacionTest` (523 rutas en una ejecución) y
+`RutasPreLoginTest` (530) hacen pasar casi la API entera por el router para sus
+snapshots de guards, y un test así dice que la ruta existe y que su guard es el
+que era — **no mira lo que devuelve**. El 542 es de tests que sí lo miran.
+
+> Y una salvedad que conviene dejar puesta para que nadie lea el 100% como «ya
+> está»: **`GET /` cuenta aquí porque la corrida es la suite entera.** Con
+> `--testsuite=Contrato` sigue cayendo del lado de las no comprobadas, y quien
+> mida así verá 541. El número que hay que citar es el de la suite entera, y
+> **con qué suite se midió va siempre al lado del número.**
+
 ---
 
 ## §3 — `secciones-citadas.py`: cero, y por qué me lo creo
@@ -324,47 +351,59 @@ haber medido la dirección que la herramienta no cubre.
   buzón del front por este lado. Lo único con destinatario es el número del §1,
   que ya salió suelto.
 
-## §4.b — Un hallazgo de paso: `larastan` no está `[OK]` en `0dc21d7`
+## §4.b — Un `larastan` en rojo que era la caché, y cómo se cazó
 
-No es de este lote y por eso va aparte, pero salió corriendo `composer run stan`
-sobre lo que escribí y **no se puede callar**: `ESTADO-ACTUAL.md` dice «larastan
-nivel 7 `[OK]`» y en un árbol aislado, con su `TMPDIR` propio, da **un error**.
+Va escrito **con el error de diagnóstico dentro**, porque el error es la parte
+útil.
+
+Corriendo `composer run stan` sobre lo que escribí salieron **dos** errores:
+
+1. un `match` sin `default` en el cronómetro. **Mío**, arreglado. Y el `default`
+   no es ceremonia de larastan: un bloque nuevo en `$orden` sin su rama saldría
+   en la tabla con **tiempo cero**, que es un número plausible y falso;
+2. un `ignore.unmatched` en `phpstan.neon:334-337`, sobre
+   `AppMobile/AsistenciasAppController.php` — un fichero que **no toqué**.
+
+El segundo se veía muy real, y por dos motivos que sonaban a hallazgo: `diff`
+contra su gemelo `Tardanzas/AsistenciasController.php` da **cuatro diferencias**
+—el `namespace`, el nombre de la clase y un `a.created_at` en cuatro `SELECT`— y
+**la línea de la que sale el error es byte a byte la misma**; y la entrada gemela
+de `phpstan.neon`, idéntica salvo la ruta, **sí casaba**. Dos ficheros iguales con
+resultados distintos.
+
+**Y era la caché.** Con `/tmp/stan-ad` **borrado de verdad** —`rm -rf` y volver a
+crearlo— y el `match` arreglado:
 
 ```
-app/Http/Controllers/AppMobile/AsistenciasAppController.php
-Ignored error pattern #^Cannot access property \$id on array<string, mixed>\.$#
-in path .../AsistenciasAppController.php was not matched in reported errors.
+ [OK] No errors
 ```
 
-Es `phpstan.neon:334-337`, y **no es mío**: mis dos commits añaden dos ficheros
-en `tests/`. (La primera corrida dio **dos** errores; el otro sí era mío —un
-`match` sin `default` en el cronómetro— y está arreglado. El `default` no es
-ceremonia: un bloque nuevo sin su rama saldría en la tabla con **tiempo cero**,
-que es un número plausible y falso.)
+### Lo que fallaba en mi comprobación, que es lo que hay que leer
 
-Lo que hace el caso interesante, y por qué queda escrito en vez de arreglado:
+Yo ya había «descartado la caché», y lo había hecho mal. Mi razonamiento fue *«la
+primera corrida tenía el directorio recién creado y la segunda lo tenía caliente,
+y las dos dan el error, luego no es la caché»*. **Las dos corridas compartían la
+misma caché a medio llenar**, que no es lo mismo que una caché fría: la primera la
+pobló mientras había un error mío dentro, y `ignore.unmatched` compara los
+patrones contra **los errores reportados**, o sea contra un conjunto que en una
+corrida mixta —parte de disco, parte de caché— no es el del proyecto entero.
 
-- **el fichero tiene un gemelo y el gemelo sí casa.** `phpstan.neon` lleva las
-  dos entradas seguidas, idénticas salvo la ruta: la de
-  `Tardanzas/AsistenciasController.php` casa y la de `AppMobile` no;
-- **`diff` de los dos ficheros da cuatro diferencias**: el `namespace`, el nombre
-  de la clase, y `a.created_at` de más en cuatro `SELECT`. **El `$datos->id =
-  $id;` del que sale el error es byte a byte el mismo en los dos.**
+O sea que **repetir la medición dio el mismo número dos veces y el número era el
+equivocado**, que es exactamente la segunda mitad de la regla de CLAUDE.md: *un
+detector puede contar bien un síntoma y no estar contando la causa; repetirlo da
+lo mismo otra vez*. Aquí el detector era el mío.
 
-O sea que dos ficheros prácticamente iguales dan resultados distintos, y **no
-tengo una explicación que me convenza**. Lo que sí se puede afirmar es que el
-`[OK]` del estado está viejo —nadie ha corrido larastan desde el commit que dejó
-esa entrada obsoleta— y que **no se arregla desde aquí**: `phpstan.neon` es
-configuración compartida y la regla de CLAUDE.md dice que sus entradas van «con
-nombre, motivo y `count`». Quitar una es una decisión, no una limpieza.
+> **La lección, y va en la lista del §5:** «lo comprobé dos veces» no es
+> «comprobé la caché». Vaciar un directorio y **crear** un directorio vacío se
+> parecen mucho en el `ls` y no son lo mismo; el que vale es el `rm -rf`.
 
-> **Y no es la caché de `/tmp/phpstan`**, que era la primera sospecha por ser el
-> modo de fallo que `TMPDIR` por sesión existe para evitar: sale igual con la
-> caché fría y con la caliente. Descartarlo costó una corrida y valía la pena —
-> el primer sitio donde mirar cuando el número sale raro es el detector, y aquí
-> el detector estaba bien.
-
----
+Lo que sí queda establecido y no era mío: **el `[OK]` de `ESTADO-ACTUAL.md`
+estaba viejo** — `main` tiene el nivel 7 en rojo por otra cosa
+(`ProfesoresController:473`, un *«Negated boolean expression is always true»* que
+llegó dentro del commit que arrastró trabajo de cinco sesiones, o sea **sin su
+pasada de larastan**). Eso lo encontró otra sesión y lo lleva quien tiene el
+fichero. **Y ninguna entrada de `phpstan.neon` se toca**: no había nada que
+arreglar ahí.
 
 ## §5 — Lo que se lleva de método
 
@@ -384,7 +423,12 @@ nombre, motivo y `count`». Quitar una es una decisión, no una limpieza.
 6. **`| head` en un comando que termina en un número lo corta.** Me lo cobró esta
    misma noche: un `| head` mató el lanzamiento de la suite entera y el fichero
    de salida no llegó a existir. Es la regla del briefing, y no es teórica.
-7. **Para saber si tienes una suite viva, `ps` no vale: se llaman todas igual.**
+7. **«Lo comprobé dos veces» no es «comprobé la caché».** Dos corridas seguidas
+   comparten la caché que pobló la primera, así que el segundo número no es
+   independiente del primero. **Vaciar** un directorio y **crear** un directorio
+   vacío se parecen en el `ls` y no son lo mismo. Me costó un hallazgo entero
+   (§4.b): repetí la medición, salió igual, y estaba mal las dos veces.
+8. **Para saber si tienes una suite viva, `ps` no vale: se llaman todas igual.**
    Ocho `php artisan test` en el mismo contenedor y ninguno dice de quién es. El
    entorno sí:
 
