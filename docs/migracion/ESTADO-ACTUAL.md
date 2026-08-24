@@ -16,8 +16,22 @@
 
 Las fases 0–4 del [plan](00-plan-migracion.md) están cerradas, la 5 recortada y la
 6 es continua por diseño. **Laravel 13 sobre PHP 8.4**, con red de seguridad y
-autenticación real. Hoy: **1.374 tests, 9.275 aserciones, 538/542 rutas con la
-respuesta comprobada, larastan nivel 7 `[OK]`, pint PASS.**
+autenticación real. Hoy: **542/542 rutas con la respuesta comprobada — el 100% —,
+98/98 controladores, larastan nivel 7 `[OK]`, pint PASS.**
+
+> **Y con qué suite se midió, que aquí decide el número:** las 542 salen de la
+> **suite entera** (`medicion/lote-y-cobertura`, 1.362 tests, 9.223 aserciones,
+> 848 s). Con `--testsuite=Contrato` se ven **541**, porque `GET /` sólo la toca el
+> stub de `laravel new` y ahí cae siempre del lado de las no comprobadas. **El
+> número citable es el de la suite entera**, y no es lo mismo que el de Contrato.
+>
+> **Los dos barridos siguen sin contar como comprobar** —`AutenticacionTest` toca
+> 523 rutas en una ejecución y `RutasPreLoginTest` 530— y eso es lo que hace que el
+> 100% signifique algo.
+>
+> El total de tests **varía por rama esta noche**: hay cuatro sin fundir. `7b` cerró
+> con 1.374 en la suya y `ad` con 1.362 en la suya; **no se suman**, y el de `main`
+> se cuenta el día que se fundan.
 
 > Ese `[OK]` estuvo **en rojo** un rato la noche del 24: `ProfesoresController:473`
 > llegó a `main` dentro de un commit que arrastró trabajo de cinco sesiones, **sin

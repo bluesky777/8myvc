@@ -8661,3 +8661,43 @@ sabía**:
 conocimiento.** Y por eso las reglas de la noche que valen son las que caben en una
 línea de comando: **contar tablas y usuarios**, **`ps` dentro del contenedor**,
 **`git rev-parse` antes del commit**, **nombrar los ficheros uno a uno**.
+
+## §180. Las cuatro últimas rutas sin comprobar, y tres cosas que aparecieron al escribirlas
+
+Con esto la cobertura llega a **542 de 542, y 98 de 98 controladores** (`8myvc-ad`,
+suite entera, base propia). Las tres cosas salieron **de escribir los tests**, no de
+buscarlas:
+
+1. **`escalas/store` ignora el cuerpo entero** y escribe siempre la misma plantilla
+   —es un «añadir renglón» de rejilla—. Se fija con un cuerpo **contrario** a la
+   plantilla y no con uno vacío, porque *con el vacío, «no lee el cuerpo» y «el
+   cuerpo venía vacío» dan el mismo resultado*. Y la consecuencia que hay que tener
+   escrita: **el día que alguien le ponga validación al cuerpo, esta ruta deja de
+   funcionar sin que el cuerpo haya cambiado.**
+2. **`definiciones_comportamiento/store-escrita` contesta 201**, no 200, y sus
+   hermanas de catálogo contestan 200: devuelve el modelo recién guardado y Laravel
+   lo traduce a *Created*. **Un front que compare `=== 200` trata este éxito como un
+   fallo.** Va al buzón del front.
+3. **`frases_asignatura/store/{frase_id?}` tiene dos puertas y el `if` es un `else`,
+   no un `and`**: con parámetro engancha el catálogo y **descarta el texto del
+   cuerpo**. **Un test de una sola puerta pasaría con las ramas cambiadas.**
+
+### §180.1. Y la caché de larastan: repetir la medición dio dos veces el número equivocado
+
+El `ignore.unmatched` que parecía un problema real **era la caché**, y el
+razonamiento que lo descartó está escrito porque es el que hay que reconocer:
+*«la primera corrida tenía el directorio recién creado y la segunda lo tenía
+caliente, y las dos dan el error, luego no es la caché»*. **Las dos compartían la
+misma caché a medio llenar** —la primera la pobló con un error propio dentro, y
+`ignore.unmatched` compara los patrones contra los errores **reportados**, que en
+una corrida mixta no son los del proyecto entero—.
+
+> **«Lo comprobé dos veces» no es «comprobé la caché».** Y *vaciar* un directorio y
+> *crear* un directorio vacío **se parecen en el `ls` y no son lo mismo** (`rm -rf`
+> contra `mkdir`).
+
+Con `rm -rf` de verdad: **`[OK] No errors`**. **No hay nada que arreglar en
+`phpstan.neon`**, y las dos entradas gemelas se quedan.
+
+De paso, una medida del apagón que sirve de referencia: **la misma suite tardó
+2.132 s en la ventana mala y 848 s con la máquina limpia** — dos veces y media.
