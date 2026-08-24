@@ -46,6 +46,15 @@ carga de la planilla, así que toda celda pintada ya tiene su fila y su id. Qued
 escrito porque es el borde del contrato: **si algún día la planilla pinta una
 celda sin id, el lote no es el camino para esa celda.**
 
+**Y no devuelve `updated_at`, que `notas/update` sí devolvía.** No se pierde nada:
+el front lo asigna sobre sí mismo (`NotasCtrl.ts:619`, anotado allí como no-op
+desde antes de la migración). Se escribe porque **esta pantalla no lee ninguna
+fecha de la base**, y por tanto **no le aplica `Reloj::desdeTexto()`** — la
+lectura que desplaza cinco horas cuando nadie declara la zona
+(`8myvc-39`/`8myvc-7b`, noche del 24). Si algún día el lote empieza a devolver
+una marca de tiempo, esa exención se acaba: `RelojUnicoTest` vigila a **quien
+escribe**, no a quien lee, así que ahí no hay red.
+
 ---
 
 ## §1 — Lo que hace el front hoy, leído
