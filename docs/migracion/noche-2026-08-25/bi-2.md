@@ -315,3 +315,65 @@ entonces **cada uno de los diecisiete decide qué pasarle**:
 > exactamente el «lote que se redefine a mitad y no se cierra». **Va con su censo de
 > llamadores a un lote propio**, y este documento deja la lista hecha para que quien lo
 > coja no la rehaga.
+
+
+---
+
+## §8. La tanda siguiente, analizada antes de tocarla
+
+Seis sitios leídos. **Cinco entran, uno se anota** — y dos de los que entran traen una
+trampa que se escribe **antes** de tocar el SQL, no después.
+
+### El criterio que separó la tanda, y sirve para las que quedan
+
+> **Una consulta que calcula algo POR ALUMNO tiene alcance decision-free** —es el suyo, y
+> no hay nada que preguntar—. **Una que construye una vista DE GRUPO, no**: qué ve el
+> profesor en la rejilla cuando uno de los treinta lleva boletín propio es del
+> [19 §2](../19-boletin-independiente.md).
+
+Es la línea que separa `calcular()` —entró sin preguntar nada— de `porcentajeDeLasUnidades`
+—se anotó—, y ahora también parte esta tanda.
+
+| sitio | veredicto |
+|---|---|
+| `Informes/NotasPerdidas:54` · `:269` | **ENTRA** — la fila es (alumno, nota), y el alumno sale de `matriculas` del grupo |
+| `Informes/NotasPerdidas:64` · `:284` | **ENTRA** — `where a.id=:alumno_id`, un alumno concreto |
+| `NotasController:148` | **ENTRA** — dentro del bucle por alumno (`n.alumno_id=:alumno_id`) |
+| `NotasController:71` | **SE ANOTA** — construye las columnas de la rejilla del grupo |
+| `DefinitivasPeriodos:108` | **ENTRA, con cuidado: escribe** |
+
+### `NotasController:71` — por qué no entra aunque parezca la más fácil
+
+Lista `unidades WHERE asignatura_id = ? AND periodo_id = ?`: **son las columnas de la
+planilla del profesor**. Acotarla a `<=> NULL` conserva el significado de hoy —las del
+grupo— y es demostrablemente neutra, **pero decide un producto**: con esa acotación, las
+unidades propias de un independiente **no aparecen en la rejilla y el profesor no puede
+ponerle nota**. Sin ella, aparecen mezcladas y la rejilla deja de ser un rectángulo.
+
+**Las dos opciones son decisiones, no acotaciones.** Se anota.
+
+### Las dos trampas, escritas antes de tocar nada
+
+**1. `NotasPerdidas` puede abarcar VARIOS periodos.** Su `$periodo_sql` es a veces
+`p.numero <= N`, y `bol_ind_periodos` es **por periodo**: un alumno puede ir por
+independiente en el 3 y no en el 2. Así que **`alcance($alumno, $periodo)` bindeado una
+vez no vale** — hace falta la forma con `JOIN_ESTADO`, que correlaciona por
+`bip.periodo_id = u.periodo_id`. *Bindear un solo valor daría el alcance del periodo
+equivocado para el resto, y nada lo señalaría.*
+
+**2. `DefinitivasPeriodos:108` escribe, y la forma obvia de acotarlo puede DUPLICAR.**
+Es un `DELETE` + reconstrucción de `notas_finales`. Su consulta interior no une con
+`matriculas`, así que para comparar con `ALCANCE` hay que traerla — y ahí están las dos
+maneras de romperlo:
+
+    INNER JOIN matriculas  ->  deja fuera al alumno con notas y sin matrícula en ese grupo
+                               (hoy los hay: es la §1.1 del 10, lo que este proyecto vino a
+                               arreglar) — la respuesta SE MUEVE
+    LEFT JOIN matriculas   ->  no deja a nadie fuera, pero un alumno con DOS matrículas en
+                               el mismo grupo multiplica las filas y la `SUM()` SE DOBLA
+
+> **Acotar una consulta que agrega no es añadir una condición: es cambiarle el conjunto de
+> filas a un `SUM()`.** Por eso ésta no entra en la misma pasada que las otras cuatro
+> aunque su veredicto sea el mismo: necesita su propio test de ida y vuelta **con un alumno
+> de dos matrículas dentro de la transacción**, y ése es el caso que ninguna de las 1.329
+> pruebas de hoy ejerce.
