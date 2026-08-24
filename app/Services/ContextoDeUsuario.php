@@ -241,7 +241,13 @@ class ContextoDeUsuario
                     if (count($periodos) > 0) {
 
                         $consulta = 'UPDATE users SET periodo_id=? WHERE id=?';
-                        $periodos = DB::select($consulta, [$periodos[0]->id, $userTemp->id]);
+                        // **La palabra, y la asignación fuera.** Hoy decía
+                        // `$periodos = DB::select(UPDATE…)`, o sea que **pisaba el array de
+                        // periodos con el resultado de un UPDATE** — el nombre de la variable
+                        // mentía sobre lo que contenía. Está muerta: la línea siguiente es el
+                        // `return`, y `$periodos` no vuelve a leerse en el fichero (lo único
+                        // que aparece después es la cadena 'user_inactivo_por_falta_periodos').
+                        DB::update($consulta, [$periodos[0]->id, $userTemp->id]);
 
                         // Con el periodo ya arreglado, volver a resolver.
                         // Antes se llamaba y se tiraba el resultado: quien

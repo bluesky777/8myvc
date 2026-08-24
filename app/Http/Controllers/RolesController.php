@@ -95,7 +95,9 @@ class RolesController extends Controller {
 		}else{
 			$consulta = 'INSERT INTO role_user(user_id, role_id) 
 				VALUES(:user_id, :role_id)';
-			$roles = DB::select($consulta, array(
+			// Asignación muerta: el método devuelve `$user` y `$roles` no se vuelve a leer.
+			// Y `putRemoveroletouser` :128, en este mismo fichero, ya usa `DB::delete`.
+			DB::insert($consulta, array(
 				':user_id'		=> $user->id,
 				':role_id'		=> $rol->id,
 			));

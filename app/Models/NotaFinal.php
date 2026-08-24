@@ -312,6 +312,19 @@ class NotaFinal extends Model {
 							SELECT id FROM notas_finales WHERE alumno_id=? and asignatura_id=? and periodo_id=?
 						) LIMIT 1';
 
+			// **VERBOS-1 no lo tocó, y no es un olvido.** Éste es un `DB::select` que
+			// ESCRIBE, uno de los ocho, y se queda con la palabra vieja **porque el método
+			// que lo contiene no lo llama nadie**: `calcularAsignaturaPeriodo` no tiene un
+			// solo camino en todo `app/` (comprobado en BI-2, y antes en el 05 y en
+			// noche-2026-08-24/med-5). Cambiarle la palabra sería mover código muerto, y la
+			// regla de la casa para lo que no tiene ruta es otra: la decide Joseth con los
+			// otros 34 métodos sin camino.
+			//
+			// **Lo que sí hay que saber si algún día se resucita:** este INSERT es COPIA
+			// PALABRA POR PALABRA del de `DefinitivasPeriodosController:147`, que sí está
+			// vivo y **ya se arregló** — allí es `DB::insert`. Si vuelves a poner en pie
+			// este método, trae la palabra de allí: si no, resucitas la versión vieja y el
+			// censo de «qué escribe» vuelve a tener un agujero justo en `notas_finales`.
 			DB::select($consulta, [
 				$defi_autos[$i]->alumno_id, $asignatura_id, $periodo_id, $num_periodo,
 				$defi_autos[$i]->def_materia_auto, $user->user_id, $now,

@@ -45,7 +45,8 @@ class EnfermeriaController extends Controller {
 		
 		if (count($antecedentes) == 0) {
 			$consulta          = 'INSERT INTO antecedentes(alumno_id, updated_by, created_at, updated_at) VALUES(?,?,?,?)';
-			$antecedentes      = DB::select($consulta, [Request::input('alumno_id'), $this->user->user_id, $now, $now ]);
+			// La asignación era muerta: la línea de abajo la pisa con el SELECT.
+			DB::insert($consulta, [Request::input('alumno_id'), $this->user->user_id, $now, $now ]);
 			
 			$consulta          = 'SELECT * FROM antecedentes WHERE alumno_id=?';
 			$antecedentes      = DB::select($consulta, [Request::input('alumno_id')]);
@@ -106,7 +107,10 @@ class EnfermeriaController extends Controller {
 			$consulta          = 'INSERT INTO registros_enfermeria
 				(alumno_id, fecha_suceso, signo_fc, signo_fr, signo_t, signo_glu, signo_spo2, signo_pa_dia, signo_pa_sis, asignatura, motivo_consulta, descripcion_suceso, created_by, created_at, updated_at) 
 				VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)';
-			$antecedentes      = DB::select($consulta, [ Request::input('alumno_id'), Request::input('fecha_suceso'), Request::input('signo_fc'), 
+			// Asignación muerta: `$antecedentes` no se lee hasta que :135 lo reasigna —y
+			// esa línea, doce más abajo, YA usa `DB::update`. La forma correcta estaba al
+			// lado en el mismo fichero.
+			DB::insert($consulta, [ Request::input('alumno_id'), Request::input('fecha_suceso'), Request::input('signo_fc'), 
 				Request::input('signo_fr'), Request::input('signo_t'), Request::input('signo_glu'), Request::input('signo_spo2'), 
 				Request::input('signo_pa_dia'), Request::input('signo_pa_sis'), Request::input('asignatura'), Request::input('motivo_consulta'), Request::input('descripcion_suceso'), $this->user->user_id, $now, $now ]);
 				
