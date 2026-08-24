@@ -25,7 +25,7 @@ el día que esto envejezca:
 
 | | | comprobado con |
 |---|---|---|
-| Migraciones nuevas | **ninguna** | `git diff --name-only a82cec3 HEAD -- database/migrations/ database/schema/` sale vacío. Las últimas siguen siendo las tres del 21 ago |
+| Migraciones nuevas | **DOS, y una es bloqueante** | `git diff --name-only a82cec3 HEAD -- database/migrations/ database/schema/` da `2026_08_24_100000_boletin_independiente_esqueleto` y `2026_08_24_120000_create_auditoria_table`. **Esta fila decía «ninguna» hasta el 25 ago y era el número más peligroso del documento**: se midió antes de fundir las cuatro ramas de la noche del 24 y nadie la volvió a medir. Ver el aviso de debajo |
 | Rutas | **539 antes y 542 después** | Tres nuevas, todas del 24 ago y todas para la app: `PUT notas/lote`, `GET disciplina/mis-fichas/{alumno_id?}` y `GET notificaciones/temas`. Ninguna quita ni cambia nada — ver la §5.b, que lleva la condición de publicación del cliente. Comprobable con `tests/Contrato/Snapshots/rutas.json` |
 | Dependencias | **sin tocar** | `git diff --name-only a82cec3 HEAD -- composer.json composer.lock` sale vacío |
 | `config/` | **un fichero nuevo**, `config/notificaciones.php` | `git diff --name-only a82cec3 HEAD -- config/`. **No obliga a tocar ningún `.env`**: sin credenciales el comando no manda nada y lo dice, y el secreto sale de `APP_KEY` |
@@ -281,10 +281,45 @@ done
 Repítelo en la otra cuenta de cPanel (`lalvirtual.edu.co`) con su propia ruta: es
 otro login, así que el `for` no la alcanza.
 
-> **Sin migraciones, el `migrate --force` no aplica nada** y se deja donde está:
-> correrlo es idempotente y el día que haya una, el orden ya es el bueno. Si el
-> comportamiento sigue siendo el viejo con el código nuevo en su sitio, lo que hay
-> que mirar es **OPcache**, no el `.env` — trampa 1b de la
+> ## AVISO: **el `migrate --force` de este bucle ya no es opcional** — 25 ago
+>
+> Hasta el 24 esta tanda no traía migraciones y el `migrate` estaba puesto por
+> higiene. **Ya no.** `2026_08_24_100000_boletin_independiente_esqueleto` crea
+> `bol_ind_periodos`, y **el código que va en la misma tanda la consulta en un
+> camino vivo**: `App\Models\Unidad:112` llama a
+> `BoletinIndependiente::alcance()`, que hace `LEFT JOIN bol_ind_periodos`. Los
+> boletines pasan por ahí.
+>
+> **Un colegio que reciba el código y no la migración devuelve 500 en las pantallas
+> de boletines**, con este mensaje y no otro:
+>
+> ```
+> SQLSTATE[42S02]: Base table or view not found: 1146
+> Table '<colegio>.bol_ind_periodos' doesn't exist
+> ```
+>
+> **Comprobado, no supuesto**: la base de desarrollo `simonbolivar` tiene el código
+> fundido y **no** la tabla, y da exactamente ese 500. Lo encontró
+> `myvc-front-94` abriendo la pantalla en Chrome — **ninguna suite nuestra lo
+> habría visto**, porque las bases de test sí llevan la migración.
+>
+> Consecuencias para el bucle, y las tres importan:
+>
+> 1. **El `migrate --force` va donde está —justo después del `git pull`— y no se
+>    salta.** Entre las dos líneas hay una ventana en la que ese colegio da 500;
+>    es de segundos, pero existe, así que **no se hace el bucle en horario de
+>    clase si se puede evitar**.
+> 2. **Si el `git pull` de un colegio falla y el `migrate` no**, o al revés, ese
+>    colegio queda con las dos mitades desparejadas. **Para en seco y arréglalo
+>    antes de pasar al siguiente**: el bucle es idempotente, volver a entrar no
+>    hace daño.
+> 3. **Y esta fila se vuelve a medir cada vez que crece la tanda.** Decía
+>    «ninguna» porque se midió antes de fundir cuatro ramas, y **una tabla que
+>    dice «medido» con un número viejo es peor que no tenerla** — el propio
+>    documento lo dice dos párrafos más arriba, y aun así pasó.
+>
+> Si el comportamiento sigue siendo el viejo con el código nuevo en su sitio, lo
+> que hay que mirar es **OPcache**, no el `.env` — trampa 1b de la
 > [referencia](DESPLIEGUE-REFERENCIA.md).
 
 ### Los dieciséis de `micolev1`, y el que no entra
