@@ -24,7 +24,7 @@ final.
 | Sitio | Cuándo corre | Qué hace |
 |---|---|---|
 | `Informes/BoletinesController::putDetailedNotas:132` | al abrir/imprimir **un** boletín individual | DELETE masivo + INSERT parcial, **sin comprobar nada** |
-| `Models/NotaFinal::calcularAsignaturaPeriodo:248` | al crear/editar/borrar unidad o subunidad (`UnidadesController:221,249`, `SubunidadesController:160,189`) | DELETE masivo + INSERT parcial |
+| `Models/NotaFinal::calcularAsignaturaPeriodo:248` | ~~al crear/editar/borrar unidad o subunidad (`UnidadesController:221,249`, `SubunidadesController:160,189`)~~ · **hoy: no lo llama nadie** | DELETE masivo + INSERT parcial |
 | `NotasController::putDetailed:132-140` | en **cada carga** de la pantalla /notas | DELETE+INSERT por alumno |
 | `Models/NotaFinal::alumnos_grupo_nota_final:174-226` | al abrir la pantalla de definitivas | DELETE+INSERT por alumno y periodo, este sí mirando la marca de desactualizada |
 | `DefinitivasPeriodosController::putCalcularGrupoPeriodo:92` | los botones «Calcular definitivas per N» | DELETE masivo + INSERT parcial |
@@ -32,6 +32,23 @@ final.
 
 Seis escritores, cinco criterios distintos de «qué borro», tres formas distintas
 de identificar la fila (`id`, `periodo_id`, `periodo`). Ninguno abre transacción.
+
+> **Esta tabla es el mapa del punto de partida y se conserva como tal, pero un
+> renglón ya no describe el presente y hay que decirlo aquí y no sólo abajo:** las
+> **cuatro** llamadas a `calcularAsignaturaPeriodo` —las dos de `UnidadesController`
+> y las dos de `SubunidadesController`— **se quitaron al cablear el recalculador
+> único en la fase 3**. Medido el 25 ago: `grep -rn calcularAsignaturaPeriodo app/`
+> **no devuelve ni una llamada**; la única mención que queda en todo el árbol es un
+> docblock de `tests/Contrato/UnidadesTest.php:75`.
+>
+> Se anota y no se borra la fila porque **el mapa de seis escritores es lo que
+> explica por qué existe el proyecto**; borrarla dejaría el «seis» sin sus seis. Lo
+> levantó `8myvc-12` al pasar por ahí midiendo otra cosa, y es **el tercer número
+> de esta noche que era correcto cuando se escribió y que nadie volvió a mirar**
+> —los otros dos: las «146 lecturas» de `bi-1.md`, que eran 144, y «migraciones
+> nuevas: ninguna» en `DESPLIEGUE.md`, que eran dos—. La forma se repite lo
+> bastante como para tener nombre: **un documento no envejece cuando se equivoca,
+> envejece cuando acierta y el código sigue andando.**
 
 ---
 
