@@ -442,6 +442,44 @@ que la necesita. Llevarla al seed es una decisión aparte, y se toma cuando comp
 hallazgos y no solo cobertura. Ver [09 §6](09-pendientes.md).
 
 
+#### El seed sólo tiene dos estados de matrícula, y eso ciega a una familia entera — 25 ago 2026
+
+Medido sobre `simonbolivar_testing`, matrículas vivas:
+
+```
+MATR   65
+RETI   59
+ASIS    0      <- y DESE, PREM y el resto: 0
+```
+
+**Cero `ASIS`.** Y no es que ese estado no exista: la base de desarrollo tiene 1
+`ASIS`, 1 `DESE` y 1 `PREM` entre sus 3.542 — o sea que **son reales y el seed se
+quedó con dos**.
+
+**La consecuencia es más ancha que un test.** `ASIS` aparece **82 veces en 43
+ficheros** de `app/`, casi siempre en la forma `(m.estado="MATR" or m.estado="ASIS")`.
+**Sobre este seed, ese predicado y `m.estado="MATR"` a secas devuelven exactamente
+lo mismo**, así que:
+
+> **Ningún test que corra contra este seed puede distinguir los dos.** Un arreglo
+> que «limpie» un `(MATR or ASIS)` dejándolo en `MATR` **pasa la suite entera en
+> verde** y deja fuera del informe a los alumnos asistentes en los dieciséis
+> colegios.
+
+Lo encontró `8myvc-79` **saboteando su propio código a propósito** para comprobar si
+sus tests lo cazaban: el sabotaje que sustituía el predicado **no puso nada en
+rojo**. Sus tests no estaban mal escritos — *lo único que sostenía esa protección
+era que el SQL se había escrito bien*.
+
+**Qué hacer con esto**, y es la regla de arriba aplicada: `ASIS` es **estado de una
+fila que ya existe**, así que **lo prepara quien mide, dentro de su transacción**
+—pasar a `ASIS` la matrícula de un alumno con notas y comprobar que sigue
+apareciendo—. Llevarlo al seed es una decisión aparte.
+
+Y la parte que no se arregla con un test: **un test que no puede ver algo tiene que
+decirlo.** Cualquier medición sobre esa familia se escribe con esta línea al lado
+—*este seed tiene 0 `ASIS`*— o afirma una cobertura que no tiene.
+
 Un snapshot describe la forma de lo que vino, así que **una lista vacía se
 describe como vacía y a partir de ahí pasa siempre**. El mapa completo de eso
 —31 snapshots, más de cien claves— lo mantiene `HuecosDelSeedTest`, que lo lee de
