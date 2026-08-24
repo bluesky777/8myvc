@@ -294,6 +294,23 @@ atada al token) y **AUD-5** (el permiso de la auditoría, que espera tu palabra)
   bueno.** Hizo falta que alguien llegara desde el front comparando **dos sesiones**
   para que se viera. *De las formas registradas esta noche, ninguna es «el
   instrumento falló».*
+- **Curar donde se vio el síntoma y no preguntar quién más hace lo mismo — con el
+  hermano a nueve líneas.** El barrido de un token tenía **dos** columnas que
+  prometían más de lo que medían. Una está curada, y con su porqué escrito:
+  *«"EJECUTA" y no "ESCRIBE": `DB::listen` ve la sentencia, no las filas afectadas…
+  deja de prometer lo que no mide»*. **La de al lado tenía la misma enfermedad y
+  nadie la miró**: `PERSONALES` marca **por nombre de campo, no por dueño del
+  dato** —un `preg_match` sobre el JSON—, así que **un endpoint que te devuelve tu
+  propia ficha cuenta igual que uno que te da la del vecino**. Quien vio la
+  enfermedad la nombró bien y la curó **en la columna donde la vio**.
+- **Y el efecto sobre el número, que es lo que hay que saber antes de citarlo:** las
+  52 rutas del `Usuario` sin rol **no son «rutas que devuelven datos de terceros»**,
+  son «rutas que devuelven campos personales de alguien», **con dos sesgos de signo
+  contrario y magnitud desconocida**: cota **baja** porque las 93 con escritura
+  nunca se miraron por esa pregunta, y cota **alta** porque lo propio cuenta como
+  ajeno. **No es un censo: es una lista de sitios donde mirar**, y separar lo propio
+  de lo ajeno se hace **a mano, fila a fila**. Eso es el lote `FICHAS-1`, no un
+  número que se copie.
 - **Y su hermana, del otro lado: un guarda que acusa a quien no debe.** Toda la
   noche se cazaron guardianes que dejan pasar; el de CERT-1 iba a **rechazar el caso
   bueno** —`filter_var('007', FILTER_VALIDATE_INT)` es `false`, el `<input>` del
