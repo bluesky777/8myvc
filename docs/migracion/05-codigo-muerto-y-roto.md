@@ -11812,3 +11812,83 @@ tampoco sirve.
   esto**. Lo primero es una pregunta para los cuatro fronts, no para este repo.
 - **Las 21 se ordenaron a mano.** El detector no distingue un `->save()` de un `DELETE`
   de notas, y esa distinción es la que deja tres de veintiuna.
+
+## §233. No son dos: son diez, y `ColumnaSegura` sólo vio una de las dos formas de escribirlo
+
+Un carril del front avisó de que **`GuardarAlumno::valor` interpola `$propiedad` en el SQL
+en dos de sus tres ramas**, sin `ColumnaSegura`. **Verificado y cierto.** Y verificado
+también lo que decía de que **no es un fallo vivo**: a esas dos ramas sólo se llega con
+uno de los literales del `switch`.
+
+**Pero la pregunta «¿quién más?» da diez, no dos.** Todo sitio de `app/` que mete una
+variable como **nombre de columna** en un `UPDATE`:
+
+| sitio | qué lo protege hoy |
+|---|---|
+| `Alumnos/GuardarAlumno:44` → `users` | `switch` con **3** `case` literales |
+| `Alumnos/GuardarAlumno:76` → `matriculas` | `switch` con **13** `case` literales |
+| `ProfesoresController:252` → `users` | `if (… == 'is_active')` **y sólo superusuario** |
+| `UniformesController:87` → `uniformes` | **nada** — pero `$propiedad` **no existe**: el método está roto desde antes de la migración ([§6.5](#), [§27.2](#)) |
+| `Piars/PiarsAlumnos:84, 115, 180` | `in_array($field, $validFields)` — **lista blanca explícita** |
+| `Piars/PiarsAsignaturas:69` | ídem |
+| `ChangeAsked:901` | **los cuatro literales del sitio de llamada** (`'nombres'`, `'apellidos'`, `'sexo'`, `'fecha_nac'`); es un método privado |
+| `Console/LimpiarHtmlPiar:133` | comando de consola: **no hay cliente** |
+
+**Cero fallos vivos.** Y **cinco mecanismos distintos**, de los cuales `ColumnaSegura`
+—la clase que existe para esto— **no es ninguno**.
+
+### El hallazgo no es la lista: es por qué la lista tiene diez y el barrido dijo tres
+
+La cabecera de `App\Support\ColumnaSegura` dice:
+
+> *«en diez sitios no se validaba… **Tres de los sitios que comparten esta forma** sí
+> estaban a salvo, porque la propiedad venía restringida por un switch con casos
+> literales. Esos no se tocan.»*
+
+**«Esta forma» es literal, y ahí está el hueco.** Contando por sintaxis:
+
+    concatenacion   SET '.$x.'     4 sitios   (los 3 «a salvo» + Uniformes, roto)
+    interpolacion   SET $x=        6 sitios   (Piars x4, ChangeAsked, el comando)
+
+**El barrido que produjo `ColumnaSegura` vio la concatenación y no vio la interpolación
+entre comillas dobles**, que es *la misma construcción escrita de otra manera*. Sus tres
+«a salvo» cuadran exactamente con los de la primera forma. **Los seis de la segunda no es
+que se descartaran: no se miraron.**
+
+Salieron seguros —listas blancas y literales en el sitio de llamada—, **pero eso se sabe
+hoy y no se sabía entonces**. *El barrido tuvo suerte, y la suerte no es una propiedad del
+código.*
+
+> Es la misma familia que llevaba toda la noche: **el detector cuenta bien lo que su patrón
+> reconoce, y el patrón es una decisión que nadie vuelve a mirar.** Aquí no falló un
+> número: **faltó un `grep` con la otra sintaxis.**
+
+### Y la asimetría que sí hay que dejar dicha
+
+**`valorAcudiente()`, doce líneas más abajo en el mismo fichero, resuelve el mismo problema
+sin interpolar nada:**
+
+    case 'username':   'UPDATE users SET username=:valor …'          // el literal, escrito
+    case 'parentesco': 'UPDATE parentescos SET parentesco=:valor …'
+    default:           'UPDATE acudientes SET '.ColumnaSegura::exigir('acudientes', $propiedad).'…'
+
+**El método hermano no necesita guarda en sus ramas enumeradas porque no concatena.** Su
+gemelo `valor()` sí concatena, y por eso su seguridad depende de la forma del `switch`.
+
+**No se arregla aquí**: son dos líneas de `app/`, o sea dieciséis despliegues, y **no hay
+fallo vivo que justifique moverlos esta noche**. Lo que falta —y es lo barato— es **que
+esas dos líneas digan que la protección vive arriba**, para que quien toque el `switch`
+sepa qué está sosteniendo. Hoy sólo lo señala la asimetría con la clase de al lado, que es
+como salió la mitad de lo de esta noche.
+
+### El contrato de `ColumnaSegura`, para quien lo comprueba desde un cliente
+
+- **Cuando la columna no vale: `abort(422, 'Propiedad no válida.')`.**
+- **Las columnas válidas salen del esquema EN VIVO** (`Schema::getColumnListing`), cacheadas
+  por tabla en el proceso — **no de una lista escrita a mano**, y eso es deliberado: *una
+  lista a mano se quedaría corta el día que alguien añada un campo, y el arreglo de
+  seguridad se convertiría en una avería.*
+- Además: una lista negra (`id`, `created_*`, `updated_*`, `deleted_*`) y un
+  `^[a-zA-Z][a-zA-Z0-9_]*$` — sin comillas, espacios, paréntesis, comas ni punto y coma.
+- Devuelve el nombre **ya entre acentos graves**, *para que no se pueda validar y concatenar
+  la variable sin validar por descuido.*
