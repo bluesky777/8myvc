@@ -9415,3 +9415,84 @@ confianza.**
 
 Y por eso las reglas útiles de esta noche **no son las cuatro frases: son las cuatro
 líneas de comando** en las que acabaron.
+
+## §191. `DB::select` que escribe: en esta API tampoco dice la verdad el nombre del método de la base
+
+**Seis métodos de `app/` tienen SQL de escritura cuyo único ejecutor es `select`.**
+Funciona porque **PDO no mira el verbo**: `prepare` + `execute`, y `fetchAll()`
+devuelve un array vacío.
+
+```
+ContextoDeUsuario::construir            [UPDATE users SET]
+EnfermeriaController::postCrearSuceso   [INSERT INTO]
+EnfermeriaController::putDatos          [INSERT INTO]
+RequisitosController::postAlumno        [UPDATE requisitos_alumno SET]
+RequisitosController::putUpdate         [UPDATE requisitos_matricula SET]
+RolesController::putAddroletouser       [INSERT INTO role_user]
+```
+
+> **En esta API no sólo miente el verbo HTTP: miente el nombre del método de la
+> base.** La [§175](#) dice que un `PUT` no dice si escribe; esto dice que un `select`
+> tampoco.
+
+**Y a qué le entra de lleno, que es lo que lo saca de curiosidad:** una separación
+lectura/escritura enruta **por nombre de método**, así que **esas seis irían al
+lector**. La peor lo es por dónde vive: `ContextoDeUsuario` **resuelve `$this->user`
+en cada petición**, y su `UPDATE` está en la rama que **repara** el `periodo_id` de un
+alumno cuyo periodo no es de su año. Si esa reparación va al lector, **no ocurre
+nunca**, y el alumno vuelve al bucle del «200 con el cuerpo vacío» que ese mismo
+comentario dice que se arregló. **Un fallo que aparece el día que alguien monte la
+réplica, en el sitio donde nadie iría a buscarlo.**
+
+**Matiz que hay que conservar**, y lo pone quien lo midió: ese `UPDATE` está en la
+**rama de reparación**, no en el camino normal. *«Cada petición hace un UPDATE por
+select»* sería más llamativo **y falso**.
+
+**No se arregla esta noche**, y es decisión de coordinación: es **cambiar una palabra
+por sitio y no altera ningún comportamiento hoy** —de ahí que sea tentador hacerlo sin
+pedir permiso— pero **toca seis ficheros, dos cogidos, y uno corre en cada petición**.
+**Cambio pequeño, radio grande, y ningún test rojo delante.** Va a la lista.
+
+### §191.1. Y las 115 quedan decididas: eran 110
+
+`tools/quien-escribe-de-verdad.py` (nueva, sólo lee ficheros). **La lista nueva es un
+subconjunto estricto de la de [§175](#)** —cero rutas que no estén en aquélla— que es
+la señal de que **las dos miran lo mismo y una mira más lejos**. Las cinco de
+diferencia, reconciliadas una a una: **escriben SQL crudo en una cadena**, sin ninguna
+de las marcas que la primera busca.
+
+| | |
+|---|---|
+| escriben **por un ayudante** | **18**, con el camino de llamadas escrito |
+| **sólo lectura** hasta donde se ve | **86** |
+| **no decidibles** | **6**, con su motivo — decididas a mano: **23 escritoras / 87 lectoras** |
+
+Tres que importan:
+
+- **`PUT alumnos/show` inserta**, a dos saltos: **el nombre y el verbo mienten los
+  dos**;
+- **`PUT bolfinales/detailed-notas-year-group/{grupo}` escribe** — y es el de la
+  [§176](#). **Un plazo agotado sobre un endpoint que escribe no es lo mismo que sobre
+  una lectura: nginx corta la respuesta y la escritura sigue**, porque no hay
+  transacción alrededor. **Quien mida esa §176 tiene que contar también qué escribió.**
+
+### §191.2. Los tres fallos del detector antes de dar un número
+
+Los tres son la misma clase: **buscar texto en código son tres vistas y no una** —con
+todo, sin cadenas ni comentarios, y sin comentarios pero con cadenas—.
+
+1. las marcas se buscaban en el texto crudo, así que un `"…'DB::insert' es texto"`
+   contaba: **el detector movía rutas al cajón «escribe» por hablar de escribir**;
+2. arreglado eso, el SQL crudo dejó de encontrarse —vive en una cadena— y buscarlo en
+   el texto entero contó **un comentario que explica una limpieza hecha a mano una
+   vez**;
+3. el «no decidible» empezó en **11**: siete eran `Model::where` heredado —que **no
+   añade incertidumbre**, porque lo que decide es su llamada final y ésa ya se busca—
+   y **`app(Sesion::class)->abrir()` era una cuarta forma de llamada** que no seguía,
+   por lo que **`auth/login` salía sin decidir siendo el escritor más obvio de la
+   API**. Lo encontró **el propio informe al bajar la lista a seis y poder leerlas**.
+
+Y el cuerpo del método se delimita **contando llaves** y no cortando hasta la
+siguiente `function`: eso **mete el docblock de al lado y parte el cuerpo** si hay una
+función anidada. Contar llaves obliga a **saltarse las cadenas** — con 990 consultas
+crudas de varias líneas, algunas con `{` dentro, **eso no es teórico**.

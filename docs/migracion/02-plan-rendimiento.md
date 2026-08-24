@@ -856,3 +856,45 @@ es cierto de `calcular()` y **falso del recálculo entero** —`recalcularPorNot
 ~6 consultas por nota—. De las **497 consultas que el lote ahorra, ~264 son el
 camino común y ~260 el recálculo**: **mitad y mitad**. No cambia ninguna decisión;
 cambia dónde mirará el próximo que quiera ahorrar consultas.
+
+### La corrida limpia: **5,3×**, y el reparto que corrige a la sucia — 25 ago 2026
+
+Repetido con **cero huérfanos comprobados dentro del contenedor** y `load 1,94–2,26`.
+**El propio cronómetro bajó de 322 s a 16 s**, que es otra medida de lo que era la
+ventana mala.
+
+| | |
+|---|---|
+| 45 × `PUT notas/update` | **344,4 ms** |
+| 1 × `PUT notas/lote` | **64,8 ms** |
+| **razón** | **5,3×** (y 5,3× también entre las mejores pasadas) |
+| consultas | **717 → 220**, idéntico en las tres corridas |
+
+**La predicción estaba escrita antes de medir** —*«la razón subirá, y por debajo de
+3,8× hay algo que no entiendo»*— y salió **5,3×**. Y `717 → 220` **salió igual con la
+máquina al 97% de swap y sin ella**: la razón y las consultas sobreviven a la carga,
+los milisegundos no.
+
+```
+Una `notas/update` cuesta 7,65 ms:
+  resolver quién pregunta ..................... 4,06 ms   53%
+  recalcular la definitiva de esa nota ........ 2,68 ms   35%
+  lo demás (UPDATE, bitácora, serializar) ..... 0,91 ms   12%
+```
+
+**Y la corrida limpia corrige a la sucia por un factor de 16:** el recálculo por nota
+que se había reportado como **42,9 ms** son **2,68 ms** — y ese 2,68 **cuadra con
+`coste-del-recalculo.php`** (1,70 ms el agregado). O sea que **la corrida sucia no
+medía el recálculo: medía el swap**, y la limpia **valida esa herramienta**.
+
+> ### Aviso sobre los ~40–80 ms de la §4
+>
+> Esa cifra es de **otro entorno** y **no se puede citar como si fuera de esta
+> máquina**: aquí el camino de resolver quién pregunta cuesta **4,06 ms**, un orden de
+> magnitud menos. No es que la §4 esté mal —son dos entornos, y aquí **no se paga el
+> arranque del framework**, que la §4 cuenta aparte, ni php-fpm, ni la red—. **Lo que
+> la medición limpia establece es el reparto (53 / 35 / 12), no los milisegundos.**
+>
+> Y con eso, la corrección al [20](20-pantalla-de-notas.md) sigue en pie con números
+> limpios: **el coste fijo es el término mayor, pero el recálculo es un tercio largo**,
+> y **en consultas está mitad y mitad**.
