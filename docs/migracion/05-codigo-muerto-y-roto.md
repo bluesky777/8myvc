@@ -11193,3 +11193,103 @@ Las cuatro correcciones de ese último intercambio —dos de cada lado— **sali
 dato que venía de fuera, ninguna de releer con más cuidado.** Y es la explicación de por
 qué esta noche encontró lo que encontró: **no hubo más rigor por sesión que otras noches.
 Hubo catorce sesiones preguntándose cosas distintas sobre el mismo código.**
+
+## §224. El gemelo vivo ya tiene número: 3.820 consultas y 11,4 s para devolver un 500
+
+La [§218](#) dejó `app/Http/Controllers/BolfinalesController.php` **vivo y sin medir**, y
+con eso la lista de Joseth pasó de un camino a dos. Ya está medido, y **el número cambia
+qué hay que hacer con él** — que es la razón de medirlo antes de curarlo.
+
+Medido con `tests/Barrido/CosteDelGemeloDeLaRaizTest.php`, **las tres rutas en la misma
+corrida y en la misma máquina**, porque una cifra de otro día no se puede restar de nada:
+
+| ruta | consultas | de «los periodos del año» | tiempo | responde |
+|---|---|---|---|---|
+| `GET certificados-estudio/certificado-grupo/{g}` | **3.820** | **408** | **11.433 ms** | **500** |
+| `GET certificados-estudio/certificado-alumno/{g}` | 5 | 0 | 5 ms | 500 |
+| `PUT bolfinales/detailed-notas-year-group/{g}` *(el ya curado, referencia)* | 755 | 1 | 1.016 ms | 200 |
+
+Grupo 98 del seed: **37 alumnos × 10 asignaturas**, carga 1,42.
+
+### Lo que dice la primera fila, y no es «hay que optimizarlo»
+
+**El gemelo cuesta más que el original antes de curarlo.** En el mismo grupo del seed, el
+`Informes/` de antes de [`2837171`](#) hacía **3.763**; éste hace **3.820**. O sea que el
+camino que quedó fuera del arreglo **es el más caro de los dos**, y ahí están las **408**
+consultas de la invariante, en la forma de Eloquent que la §218 anotó línea a línea. El
+reparto lo confirma sin dejar hueco: **1.480 + 1.480** son los dos bucles anidados —los
+mismos dos—, **408** la invariante, **370** una por (alumno × asignatura).
+
+**Y el 500 no ahorra nada.** `detailedNotasGrupo` corre **entero** y sólo después revienta
+`View::make('certificados.estudio')`. O sea que este camino **paga un boletín final completo
+—el más caro que hay— y no devuelve nada**, en los dieciséis colegios.
+
+> **La vista no existe, y no es que falte en un colegio: no está en el repositorio.**
+> `resources/views/certificados/` no existe y `certificados.estudio` sólo aparece nombrada
+> en las dos líneas que la piden. **El 500 es del 100% de las llamadas**, no de un caso
+> raro.
+
+**Por eso agregar sus consultas sería el trabajo equivocado.** Sería tocar `app/` —dieciséis
+despliegues— para que un endpoint que **siempre** devuelve 500 lo devuelva más rápido.
+Lo que hay debajo es una decisión de Joseth y son dos, no una:
+
+1. **si la pantalla debe existir**, hay que escribir la vista **y** curar el patrón, porque
+   el día que devuelva 200 será la página más cara del sistema — más que la que dio el 504;
+2. **si no debe existir**, la ruta se retira, y entonces **no hay nada que optimizar**.
+
+Mientras tanto **no se borra**, por la regla de la casa: *con ruta y roto se documenta*.
+Borrarlo convertiría el 500 en un 404 sin decirle a nadie qué pretendía esa pantalla.
+
+### La otra mitad del barrido: el gemelo de peor pinta está muerto
+
+El detector de profundidad de bucle señaló a `Informes/CertificadosPersonaController` como
+**el peor de los nueve** —ocho consultas dentro de bucles, **dos a profundidad 2**, las
+mismas dos que se curaron—. **No tiene camino:** su controlador tiene **una sola ruta**
+(`PUT certificados-persona → putIndex`), que devuelve matrículas y **no llama** a
+`detailedNotasGrupo`, y **nadie lo instancia con `new`**. Confirma la [§211](#) por el
+camino contrario al de la §218: *aquí el peor número estaba en código muerto y el problema
+de verdad en el que no llamaba la atención.*
+
+**El resto de las nueve, con su profundidad medida** (dentro del método; el multiplicador
+de fuera no lo ve el detector, ver el límite de abajo):
+
+| fichero | consultas en bucle | a profundidad 2 |
+|---|---|---|
+| `Informes/CertificadosPersonaController` | 8 | 2 | **muerto** |
+| `BolfinalesController` (raíz) | 3 | 2 | **vivo — es esta §** |
+| `PromovidosController` | 4 | 1 | escribe: `DB::update` en bucle |
+| `Informes/BolfinalesPreescolarController` | 3 | 0 | |
+| `EditnotaController` | 3 | 0 | |
+| `Informes/BoletinesController` | 1 | 0 | |
+| `Informes/Boletines2Controller` | 1 | 0 | |
+| `Informes/NotasActualesAlumnosController` | 1 | 1 | |
+| `Informes/Boletines3Controller` | **0** | 0 | |
+
+> **Y una cifra del mensaje de `2837171` que hay que afinar:** dice «las otras **ocho**
+> copias de `asignaturasPerdidasDeAlumno`» y nombra ocho ficheros, pero **`PromovidosController`
+> no tiene ese método** — tiene `definitivasMateriasXPeriodo` y
+> `asignaturasPerdidasDeAlumnoPorPeriodo`. Copias de `asignaturasPerdidasDeAlumno` quedan
+> **siete**. La lista de ficheros es correcta; el nombre del método bajo el que se agrupan,
+> no. *No cambia ninguna conclusión, y se anota porque una cifra de pasada que nadie
+> comprueba es exactamente lo que la [§220](#) dice que no se hace.*
+
+### El detector dio cero dos veces antes de dar un número
+
+**Y las dos veces el cero era creíble.** El primero: cerraba cada método **en su propia
+línea de declaración**, porque comparaba el contador de llaves antes de contar la llave del
+cuerpo — **0 consultas sobre un fichero con 13 `DB::select`**. El segundo, ya con eso
+arreglado: **26 consultas y 0 en bucle**, porque descartaba cada bucle en la misma línea en
+que lo abría; la cabecera de un `foreach` **no abre nivel por sí misma, lo abre su `{`**, que
+puede estar en la línea siguiente.
+
+**Lo que lo cazó no fue releerlo: fue tener una respuesta conocida delante.** Se corrió
+primero sobre `Informes/BolfinalesController` **antes y después de `2837171`**, donde ya se
+sabe qué tiene que salir. La versión buena enseña **10 consultas en bucle antes y 4 después**,
+con las dos de profundidad 2 desapareciendo — que es exactamente lo que hizo aquel arreglo.
+*Un detector nuevo sin control positivo es una opinión con formato de tabla.*
+
+**Lo que este detector NO ve, y hay que decirlo pegado a la tabla:** cuenta la profundidad
+**dentro del método**, no la del programa. `definitivasMateriasXPeriodo` se llama **desde un
+`foreach` de alumnos**, así que una consulta que aquí sale a profundidad 2 se ejecuta en
+realidad una vez por **(alumno × asignatura × periodo)**. Los números de la tabla **ordenan
+candidatos; no son coste**. El coste es la primera tabla, y ésa se midió ejecutando.

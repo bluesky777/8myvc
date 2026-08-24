@@ -101,6 +101,7 @@ leyendo el código. Cada una lleva su uso en la cabecera.
 | `escrituras-en-las-notas.py` | qué métodos escriben en las notas sin preguntar por el interruptor del periodo |
 | `coste-del-recalculo.php` | qué cuesta recalcular una definitiva, sobre las asignaturas reales |
 | `secciones-citadas.py` | qué §§ cita el código y ya no existen en `docs/` — se corre **después de cada renumerado** |
+| `consultas-en-bucle.py` | en qué profundidad de bucle vive cada consulta — **ordena candidatos, no mide coste**; trae su propio control (`--control`) |
 
 Y una que **no** está en `tools/` y contesta la pregunta contraria:
 `tests/Barrido/SuperficieDeUnTokenTest.php` golpea la API entera con un token y
