@@ -31,6 +31,36 @@ use Illuminate\Support\Facades\Route;
 class RutasPreLoginTest extends CasoDeContrato
 {
     /**
+     * **El numero que se publica fuera de este fichero.**
+     *
+     * Existe para que `CLAUDE.md` pueda citar una cifra que **un test defiende**:
+     * `test_el_numero_publicado_sale_de_la_lista_y_no_de_la_memoria` falla si esta
+     * constante y `PRE_LOGIN` dejan de coincidir, y
+     * `test_el_inventario_de_publicas_no_tiene_de_mas_ni_de_menos` falla si
+     * `PRE_LOGIN` deja de coincidir con lo que el router hace de verdad.
+     *
+     * Encadenados, los dos hacen que **el numero de `CLAUDE.md` no pueda envejecer
+     * en silencio**, que es lo unico que le pasaba: decia quince, este docblock
+     * decia siete y `grep withoutMiddleware routes/` daba diecinueve.
+     *
+     * ## Y esto, antes de «verificarlo» con un `grep` y darlo por roto
+     *
+     * **Once es el numero del RESULTADO, no del mecanismo.** Hay **18** rutas sin
+     * `auth.token` en `routes/`, y **no son 18 publicas**: llamadas sin cabecera,
+     * **siete contestan 401 igual** —`auth/refresh` y las seis de `tardanzas/*`—
+     * porque se defienden en el metodo, donde `User::fromToken()` aborta.
+     *
+     * **Quitarle el guard a una ruta no la hace publica.** Asi que **ningun `grep`
+     * puede dar este numero**, ni el que cuenta 19 ni el que cuenta 18 bien: miden
+     * el mecanismo, y la pregunta es sobre el resultado. Si alguien encuentra 18 y
+     * cree haber pillado un error, esto es lo que tiene que leer antes.
+     *
+     * La auditoria commit a commit de los tres numeros viejos:
+     * `docs/migracion/noche-2026-08-25/pub-1.md`.
+     */
+    public const TOTAL_PUBLICAS = 11;
+
+    /**
      * Verbo y URI tal y como las llama el frontend.
      *
      * `publicaciones/ultimas` va por PUT aunque solo lea. No es un error de esta
@@ -271,53 +301,104 @@ class RutasPreLoginTest extends CasoDeContrato
     }
 
     /**
-     * El invariante fuerte: **nadie sin token recibe datos, salvo estas 7**.
+     * **El invariante fuerte, y ahora cerrado por las DOS direcciones.**
      *
-     * Recorre TODAS las rutas de la API sin cabecera de autenticación y
-     * comprueba que ninguna responde 2xx. Da igual cómo se defienda cada una
-     * —middleware, `User::fromToken()` en el método, o en el constructor—: lo
-     * que se afirma aquí es el resultado, no el mecanismo.
+     * Recorre TODAS las rutas de la API sin cabecera de autenticacion y compara el
+     * conjunto que contesta **algo distinto de 401** con `PRE_LOGIN`. Da igual como
+     * se defienda cada una —middleware, `User::fromToken()` en el metodo, o en el
+     * constructor—: lo que se afirma aqui es **el resultado, no el mecanismo**.
      *
-     * Antes no se podía escribir: `password/*` (scaffolding de Laravel 4) y
-     * `estados_civiles` (sin cliente) ensuciaban la cuenta. Al borrarlos, la
-     * superficie sin autenticar quedó siendo exactamente la lista de arriba.
+     * ## Por que las dos direcciones, y no solo «ninguna otra responde»
      *
-     * Las llamadas se hacen dentro de la transacción del test, así que si alguna
+     * Antes esto solo miraba **de mas**: que ninguna ruta fuera de la lista
+     * contestara 2xx. Con eso, `PRE_LOGIN` podia envejecer **de menos** sin que
+     * nada saltara — una ruta de la lista que dejara de ser publica seguia
+     * figurando como tal, y el numero que se cita en `CLAUDE.md` salia de contarla.
+     *
+     * Y eso no es hipotetico: **es exactamente lo que habia pasado.** El docblock
+     * de esta clase decia «salvo estas **7**» al lado de una lista de **11**, y
+     * `CLAUDE.md` decia **quince**. Tres sitios, tres numeros, y ninguno se podia
+     * comprobar sin volver a contar a mano.
+     *
+     * ## Por que «no 401» y no «2xx»
+     *
+     * Porque los `{parametros}` se sustituyen por `1` y varias contestan 422 o 500
+     * por el parametro, no por la sesion. **Un criterio de 2xx contaria como
+     * cerrada una ruta que esta abierta y solo se quejo del cuerpo** — que es
+     * precisamente el error que este test existe para no cometer.
+     *
+     * ## Y lo que este test NO dice
+     *
+     * **Que una ruta conteste sin token no significa que deba.** Esto cuenta y
+     * fija; no juzga. Abrir o cerrar una ruta es otra decision y no la toma un
+     * test. Ver `docs/migracion/noche-2026-08-25/pub-1.md`.
+     *
+     * Las llamadas se hacen dentro de la transaccion del test, asi que si alguna
      * ruta desprotegida llegara a escribir, se deshace al terminar.
      */
-    public function test_ninguna_otra_ruta_responde_sin_token(): void
+    public function test_el_inventario_de_publicas_no_tiene_de_mas_ni_de_menos(): void
     {
         $this->withoutMiddleware(ThrottleRequests::class);
 
-        $publicas = [];
+        $declaradas = [];
 
         foreach (self::PRE_LOGIN as [$verbo, $uri]) {
-            $publicas[$verbo.' api/'.$uri] = true;
+            $declaradas[$verbo.' api/'.$uri] = true;
         }
 
-        $sirven = [];
+        $abiertas = [];
 
         foreach (Route::getRoutes()->getRoutes() as $ruta) {
             foreach ($ruta->methods() as $verbo) {
-                // Solo la API. `routes/web.php` sirve la página de bienvenida
-                // de Laravel en `/`, que es pública por definición.
-                if ($verbo === 'HEAD'
-                    || ! str_starts_with($ruta->uri(), 'api/')
-                    || isset($publicas[$verbo.' '.$ruta->uri()])) {
+                // Solo la API. `routes/web.php` sirve la pagina de bienvenida de
+                // Laravel en `/`, que es publica por definicion.
+                if ($verbo === 'HEAD' || ! str_starts_with($ruta->uri(), 'api/')) {
                     continue;
                 }
 
                 $uri = preg_replace('/\{[^}]+\}/', '1', $ruta->uri());
-                $codigo = $this->json($verbo, '/'.$uri)->getStatusCode();
 
-                if ($codigo >= 200 && $codigo < 300) {
-                    $sirven[] = sprintf('%-7s %-52s %d', $verbo, $uri, $codigo);
+                if ($this->json($verbo, '/'.$uri)->getStatusCode() !== 401) {
+                    $abiertas[$verbo.' '.$ruta->uri()] = true;
                 }
             }
         }
 
-        $this->assertSame([], $sirven,
-            "Estas rutas responden a quien no presenta token:\n  ".implode("\n  ", $sirven));
+        $deMas = array_keys(array_diff_key($abiertas, $declaradas));
+        $deMenos = array_keys(array_diff_key($declaradas, $abiertas));
+
+        sort($deMas);
+        sort($deMenos);
+
+        $this->assertSame([], $deMas,
+            "Estas rutas contestan a quien no presenta token y NO estan en `PRE_LOGIN`:\n  "
+            .implode("\n  ", $deMas)
+            ."\n\nSi es correcto que sean publicas, van a la lista con su motivo al lado. "
+            .'Si no lo es, es un agujero: no se cierra desde aqui.');
+
+        $this->assertSame([], $deMenos,
+            "Estas estan en `PRE_LOGIN` pero YA NO contestan sin token:\n  "
+            .implode("\n  ", $deMenos)
+            ."\n\nO se les puso guard sin querer -y entonces la entrada al sistema esta rota-, "
+            .'o dejaron de existir y la lista arrastra un fantasma que alguien cuenta.');
+    }
+
+    /**
+     * **El numero se deriva, no se escribe.**
+     *
+     * Este es el test que impide que vuelva a pasar lo que motivo el lote: tres
+     * sitios con tres numeros. `contarPublicas()` es la unica fuente, y el
+     * docblock de la clase se lee con ella al lado.
+     *
+     * *Un numero escrito a mano al lado de una lista es el que alguien cita
+     * manana, y no envejece ruidosamente: envejece en silencio.*
+     */
+    public function test_el_numero_publicado_sale_de_la_lista_y_no_de_la_memoria(): void
+    {
+        $this->assertSame(self::TOTAL_PUBLICAS, count(self::PRE_LOGIN),
+            'La constante `TOTAL_PUBLICAS` dice '.self::TOTAL_PUBLICAS.' y `PRE_LOGIN` tiene '
+            .count(self::PRE_LOGIN).'. Es exactamente el fallo que este fichero vino a cerrar: '
+            .'un numero al lado de una lista de otra longitud.');
     }
 
     /**
