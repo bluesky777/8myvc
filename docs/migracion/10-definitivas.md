@@ -101,7 +101,7 @@ notas. Un alumno sin notas en esa asignatura pierde la definitiva.
 Se dispara desde `UnidadesController` y `SubunidadesController`, en update y en
 destroy, y lo llaman **los dos clientes**: AngularJS y también Flutter
 ([UnidadesApi.dart:227,297](../../myvc_flutter/lib/Http/UnidadesApi.dart)), que
-es una sola app para los dieciséis colegios.
+es una sola app para los quince colegios.
 
 Además, su INSERT tiene las columnas desalineadas:
 
@@ -838,7 +838,7 @@ Con `ConsultasPorPeticionTest` ya hay dónde fijarlo.
 
 Flutter no escribe notas —`MisNotasScreen` es de solo lectura—, pero **sí** crea y
 borra unidades y subunidades, así que hereda la fase 3 sin cambios en la app. Aun
-así: **el guard nuevo tiene que estar desplegado en los dieciséis colegios antes
+así: **el guard nuevo tiene que estar desplegado en los quince colegios antes
 de tocar el front**, por lo del §Despliegue.
 
 #### La fase 4 — **hecha el 24 ago 2026**, en `myvc_front`

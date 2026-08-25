@@ -216,7 +216,10 @@ a nadie qué pretendía hacer esa pantalla. Los que están rotos a propósito
 
 ## Despliegue: lo copiado y lo compartido van al revés de lo que parece
 
-Dieciséis colegios, cada uno con su subdominio, su base de datos y su copia.
+Quince colegios, cada uno con su subdominio, su base de datos y su copia.
+(Eran dieciséis hasta el 25 ago 2026, cuando uno se dio de baja y se borró entero
+del servidor. **Las cifras fechadas antes de ese día dicen dieciséis y así se quedan**,
+porque se midieron sobre dieciséis: lo que se actualizó fue lo que sigue vivo.)
 
 - `app/`, `routes/`, `config/`, `.env`: **copia real en cada colegio**. Un
   arreglo fusionado **no está desplegado**; llega colegio a colegio.

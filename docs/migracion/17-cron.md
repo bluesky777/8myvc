@@ -25,7 +25,7 @@ La respuesta intuitiva a «¿para qué un cron?» es *«para mover al fondo lo q
 tarda»* — importar el Excel, generar boletines. Eso está analizado en
 [02 §5](02-plan-rendimiento.md) y **sigue bloqueado por algo que no es el cron**:
 encolar cambia el contrato con **cuatro clientes**, uno de ellos una app de
-Flutter que es **una sola para los dieciséis colegios**. No se puede escalonar, y
+Flutter que es **una sola para los quince colegios**. No se puede escalonar, y
 el problema que resolvería —los timeouts en los imports— **todavía no lo ha
 medido nadie**.
 
@@ -33,7 +33,7 @@ El jugo está en otra cosa, y se ve leyendo los incidentes de este repo en fila:
 
 | Lo que pasó | Cuánto tardó en saberse |
 |---|---|
-| **`instival` no recibe ni código ni migraciones** — no hay repositorio ni aplicación en su carpeta | semanas. Se supo por accidente, y **el cierre del 19 ago que dio los 16 por desplegados no lo comprobó** |
+| **Un colegio sin repositorio ni aplicación en su carpeta no recibe ni código ni migraciones** | semanas. Se supo por accidente, y **el cierre del 19 ago que dio los colegios por desplegados no lo comprobó** |
 | **«Already up to date» no significa desplegado** — cada colegio apunta a su propio remoto | los dieciséis lo dijeron minutos después de un `push`, y sólo el hash lo distinguía |
 | **11.988 definitivas que deberían existir y no existen** | medido en **un** colegio, y la [fase 2](10-definitivas.md) lleva días esperando el mismo número de los otros quince |
 | **El boletín de una familia devuelve 500** | lo encontró un barrido, no un reporte |
@@ -72,7 +72,7 @@ Así que la receta es un **segundo cron**, diario, **sin** `>/dev/null`:
 # El de cada minuto, como está hoy — uno por colegio y callado a propósito
 * * * * * /usr/local/bin/php /home/micolev1/COLEGIO.micolevirtual.com/artisan schedule:run >/dev/null 2>&1
 
-# Y el parte diario: UNA línea para los dieciséis, y SÍ habla
+# Y el parte diario: UNA línea para los quince, y SÍ habla
 30 5 * * * for d in /home/micolev1/*.micolevirtual.com/8myvc; do echo "=== $d"; /usr/local/bin/php "$d/artisan" colegio:parte; done
 ```
 
@@ -84,8 +84,8 @@ tenía escrita aquí, por dos razones que no se ven de entrada:
    abrir.** Y lo que hace útil a este parte es comparar los colegios entre sí — un
    número raro se ve **al lado** de los otros quince, no en un correo suelto.
 2. **Un colegio que falta se nota.** Con dieciséis correos, el que no llega es un
-   correo que no llega, y eso no se ve. En un solo listado, `instival` aparece como
-   un hueco con su `=== ruta` y nada debajo. **Es exactamente el fallo que tardó
+   correo que no llega, y eso no se ve. En un solo listado, el colegio caído aparece
+   como un hueco con su `=== ruta` y nada debajo. **Es exactamente el fallo que tardó
    semanas en descubrirse**, y así se descubre solo el primer día.
 
 > **La otra cuenta de cPanel (`lalvirtual.edu.co`) necesita su propia línea**: es
@@ -150,7 +150,7 @@ segundos**, y ahí es donde muerde el hosting compartido. Va de madrugada, y si 
 algún colegio se pasa de tiempo, la salida es acotarla con `--year` al año en
 curso, no quitarla.
 
-### 2. Qué está sirviendo este colegio — `instival` nunca más
+### 2. Qué está sirviendo cada colegio — que no vuelva a tardarse semanas
 
 Cuatro líneas que ningún viaje puede dar mejor:
 
@@ -159,10 +159,9 @@ Cuatro líneas que ningún viaje puede dar mejor:
 - la versión de PHP con la que corre **de verdad**;
 - y si `config:cache` y `route:cache` están puestos.
 
-Con esto, un colegio que se quede atrás **lo dice él mismo al día siguiente**, y
-uno que no mande parte es un colegio que no tiene cron o no tiene aplicación —
-que es exactamente el caso de `instival`, y se habría visto en 24 horas en vez de
-en semanas.
+Con esto, un colegio que se quede atrás **lo dice él mismo al día siguiente**, y uno
+que no mande parte es un colegio que no tiene cron o no tiene aplicación. **Ese caso
+ya se dio y tardó semanas en saberse**; con el parte se habría visto en 24 horas.
 
 ### 3. Las consultas lentas, por ventanas
 

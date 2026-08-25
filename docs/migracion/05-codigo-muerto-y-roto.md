@@ -1133,7 +1133,7 @@ guard sin romper una pantalla que una familia sí usa**. Van al
   alumno y de acudiente (`FaltasAlumnoScreen`, `AsistenciaClaseScreen`,
   `UnidadesApi`, `NotasApi`) y **solo la usa para pasar de un id a un nombre**.
   Lo que hay que recortar es la respuesta, no la puerta — y eso cambia el
-  contrato de los dieciséis colegios a la vez, porque la app es una sola.
+  contrato de los quince colegios a la vez, porque la app es una sola.
 - **`GET api/perfiles/usernames`** — los 2.351 nombres de usuario del colegio.
   Lo pide `UserConfiguracionCtrl`, la pantalla de configuración **del propio
   usuario**, que un alumno alcanza, y solo para saber si el nombre que escribe
@@ -2081,7 +2081,7 @@ rama derecha lanza en cuanto se evalúa. Con el `||` en corto, el resultado es q
 incluido el autor borrando el suyo.
 
 No es un agujero: es un botón que no funciona para nadie. Y arreglarlo **enciende**
-en los dieciséis colegios una función que hoy no existe, que es una decisión y no
+en los quince colegios una función que hoy no existe, que es una decisión y no
 un arreglo — la misma forma que `candidatos/conaspiraciones` de la
 [§18.4](#18-el-cuerpo-lleno-y-el-módulo-de-votaciones-20-ago-2026). Se queda
 documentado y con su ruta, según la regla.
@@ -2320,7 +2320,7 @@ pregunta era «¿y las rutas que no tienen cerradura porque abren con otra llave
 
 `usuarioAutenticado()` admite **Profesor y Usuario**, que son exactamente los dos
 que el `switch` de los otros dos métodos ya sabía servir. Así no cambia nada de lo
-que hoy funciona en los dieciséis colegios: lo único que se mueve es que Alumno y
+que hoy funciona en los quince colegios: lo único que se mueve es que Alumno y
 Acudiente reciben 403 donde recibían 500 en dos rutas y 200 en la tercera.
 
 Dos cosas de `TSubirController` **no** se copiaron, y las dos a propósito:
@@ -2331,7 +2331,7 @@ Dos cosas de `TSubirController` **no** se copiaron, y las dos a propósito:
   gente que hoy entra. **Queda una pregunta para Joseth**, en 09 §5.
 - **Su `abort(400, 'No tienes permiso')`.** El candado nuevo devuelve **403**,
   que es la regla para código nuevo. El 400 de TSubir se queda: es una respuesta
-  que el lector ya recibe hoy, y cambiarla se ve desde los dieciséis colegios sin
+  que el lector ya recibe hoy, y cambiarla se ve desde los quince colegios sin
   arreglar nada.
 
 ### 25.4 Lo que sale de aquí y no se arregla
@@ -2664,7 +2664,7 @@ La alternativa era exigir además `years.actual`.
 **Joseth: manda solo el interruptor.** Un colegio cierra un año pasado bloqueando
 sus periodos, que es la herramienta que ya tiene; si dejó uno abierto es porque
 quiere poder corregir ahí. Añadir `years.actual` habría apagado las correcciones
-de enero en los dieciséis colegios.
+de enero en los quince colegios.
 
 Y por eso hay test, que es lo único que hacía falta escribir en código:
 `test_un_periodo_abierto_de_un_ano_pasado_deja_escribir_...` en
@@ -3053,7 +3053,7 @@ próxima vez que se cree un rol:
 > criterio compartido y no estaba en la lista se ancla explícitamente a donde ya
 > estaba de hecho.
 
-Sin esa pasada, el rol habría llegado a los dieciséis colegios con el poder de
+Sin esa pasada, el rol habría llegado a los quince colegios con el poder de
 borrar profesores en cascada, y **nadie lo habría escrito en ninguna parte**:
 habría sido un efecto de una fila en una tabla.
 
@@ -3914,7 +3914,7 @@ formas** en que una actividad llega a un grupo:
 
 Comprobar solo la primera habría **apagado el compartir entre grupos**, que es una
 función viva —es de donde saca sus grupos la pantalla de corregir— y que se habría
-roto en los dieciséis colegios sin que ningún test lo dijera. Tiene su propio caso.
+roto en los quince colegios sin que ningún test lo dijera. Tiene su propio caso.
 
 De paso, un `actividad_id` que no existe era **500 con el intento ya escrito**,
 porque `datosActividadConRespuestas()` indexa con `[0]` el resultado de la
@@ -4695,7 +4695,7 @@ la §14.4 esperando una decisión del colegio en el §5 de
 [09-pendientes.md](09-pendientes.md).
 
 Recortar el método compartido habría sido cómodo —una consulta en vez de dos— y
-habría metido esa decisión **por la puerta de atrás y en los dieciséis colegios a
+habría metido esa decisión **por la puerta de atrás y en los quince colegios a
 la vez**, que es exactamente lo que el §5 existe para impedir. Dos consultas
 parecidas conviviendo es el precio de que la decisión siga siendo de quien le toca.
 
@@ -5204,7 +5204,7 @@ el barrido mira quién entra; `inventario-autorizacion.py` mira la firma.
 
 Los dos están fijados por `tests/Contrato/VotacionesBorradoTest.php` —cuatro
 tests, 34 aserciones— **describiendo lo que hacen hoy**, no lo que deberían
-hacer. Son endpoints vivos en los dieciséis colegios y las dos correcciones son
+hacer. Son endpoints vivos en los quince colegios y las dos correcciones son
 decisiones, no arreglos:
 
 - En `participantes`, o se le añade la columna a la tabla —migración, y el
@@ -5445,7 +5445,7 @@ O sea: 500 siempre, sin escribir nada.
 
 **Lo primero que se pensó de esto era falso, y por eso se escribe.** El
 controlador vive en `app/Http/Controllers/AppMobile/`, así que se dio por hecho
-que era una ruta de `myvc_flutter` —la app única de los dieciséis colegios— y
+que era una ruta de `myvc_flutter` —la app única de los quince colegios— y
 que el fallo era de producción. No lo es.
 
 Que no la llama nadie es **comprobado, no supuesto**, y por quién y cómo importa
@@ -5476,7 +5476,7 @@ que un cliente móvil futuro volvería a necesitar.
 **Lo que queda sin comprobar, dicho como tal**: que hoy nadie la llame no
 significa que nunca la llamara. `myvc_flutter` se actualiza por tienda, y la
 versión instalada en un móvil no tiene por qué ser la del repositorio. Eso no lo
-puede contestar el código: solo el log de alguno de los dieciséis, buscando
+puede contestar el código: solo el log de alguno de los quince, buscando
 `POST /api/asistencias-app` con 500.
 
 ---
@@ -5619,7 +5619,7 @@ condenados —son dos de los seis escritores que la fase 3 de
 `App\Services\DefinitivasDeAsignatura`— y aun así se arreglan, por una razón que
 conviene tener escrita para la próxima vez que aparezca la duda: **el criterio no
 es «va a morir» sino «cuándo muere»**. La fase 3 no tiene fecha y esto está
-desplegado en los dieciséis colegios. Si la fase 3 estuviera lista para
+desplegado en los quince colegios. Si la fase 3 estuviera lista para
 desplegarse, lo correcto habría sido dejarlo morir.
 
 ### Los otros tres sitios del dominio, que no lo son
@@ -5800,7 +5800,7 @@ caso límite, es un martes.
 Sin `grupo_id` en el cuerpo pasa lo mismo: `Request::input()` devuelve `null`, la
 consulta no casa y se llega al mismo `[0]`. **500 donde CLAUDE.md pide un 422.**
 
-Se fija y no se arregla: son endpoints vivos en los dieciséis colegios y cambiar
+Se fija y no se arregla: son endpoints vivos en los quince colegios y cambiar
 el 500 por un 404 cambia lo que ve una pantalla.
 
 ### 62.3. Cuatro `[0]` más, señalados y sin cubrir
@@ -5850,7 +5850,7 @@ cabecera de `PerfilesApi.ts`, escrita por quien migró el front.
 
 Esta sección lo mide desde este lado. **Los tres se fijan y no se arreglan**, por
 la misma razón que `preguntas/edicion`: arreglar el primero **enciende** un
-guardado que lleva años apagado en los dieciséis colegios, y eso lo decide el
+guardado que lleva años apagado en los quince colegios, y eso lo decide el
 colegio. Fijado por `PerfilesEscribeEnOtraTablaTest`, seis casos.
 
 ### 65.1 `putUpdate` no guarda nunca desde la pantalla de perfil
@@ -6098,7 +6098,7 @@ de la [§26](#26) y merece su propia pregunta.
 
 Esta sección **no trae un arreglo, trae una recomendación medida**. El fallo es
 real; el arreglo evidente —ponerle el guard que llevan sus vecinas— habría roto
-los dieciséis colegios; y la salida que sí sirve apareció **escribiendo esta
+los quince colegios; y la salida que sí sirve apareció **escribiendo esta
 sección**, no investigando el fallo. Está contada en ese orden a propósito,
 porque lo que frenaba esto no era código.
 
@@ -6141,7 +6141,7 @@ al lado?**».
 
 ### 61.3 Por qué no se cierra, y no es prudencia genérica
 
-Ponerle `auth.personal` es una línea. **Rompe los dieciséis colegios**, y la
+Ponerle `auth.personal` es una línea. **Rompe los quince colegios**, y la
 prueba la dio la sesión que coordinaba el árbol de `myvc_front` esa noche, con
 fichero y línea:
 
@@ -6189,7 +6189,7 @@ mismo filo por el otro lado: **un guard del backend no se cierra hasta que el
 front que llamaba a esa ruta esté desplegado, no solo fusionado.**
 
 Y aquí muerde especialmente, porque `myvc_front` **está congelado por decisión
-del colegio, ni siquiera correcciones**, y sigue desplegado en los dieciséis. El
+del colegio, ni siquiera correcciones**, y sigue desplegado en los quince. El
 sustituto llegará cuando la pantalla `usuarios/` se reescriba en Angular — o sea,
 por la aplicación nueva y colegio a colegio.
 
@@ -6232,7 +6232,7 @@ Lo comprobó la sesión del árbol de `myvc_front`, y no de memoria:
 
   Cada vez que esa petición falla en producción, **la pantalla ya corre con la
   lista vacía, y nadie lo ha reportado nunca como pantalla rota**. No es una
-  predicción: es el caso vacío funcionando en los dieciséis colegios desde
+  predicción: es el caso vacío funcionando en los quince colegios desde
   siempre.
 
 #### El contrato, que hay que respetar al pie de la letra
@@ -6800,7 +6800,7 @@ operaciones existen en `AlumnosController`, con criterio**:
 ### 72.1 El hueco era real, no teórico
 
 `puedeEditarAlumnos` es superusuario **o** profesor con
-`profes_can_edit_alumnos`, y esa bandera está **apagada en los dieciséis colegios**
+`profes_can_edit_alumnos`, y esa bandera está **apagada en los quince colegios**
 —por seguridad, no por olvido ([§29.1](#291))—. Así que hasta hoy:
 
 > Un profesor **no** podía mandar un alumno a la papelera por `alumnos/destroy`, y
@@ -7000,7 +7000,7 @@ alumno que ya tiene el enlace la sigue abriendo.
 Hacer que `para_alumnos` cierre es una línea en `exigirQueLaActividadLeCorresponda`.
 Y es justo lo que no se decide desde aquí: **hoy los alumnos abren exámenes que ese
 interruptor dice que no son para ellos**, así que encenderlo **esconde de golpe
-actividades que hoy se ven**, en los dieciséis colegios y a mitad de periodo. Es la
+actividades que hoy se ven**, en los quince colegios y a mitad de periodo. Es la
 misma forma que `oportunidades` —la de los intentos ilimitados— y va en la misma
 fila del §5.
 
@@ -7063,7 +7063,7 @@ para saberlo hubo que ir a los cuatro clientes:
 
 O sea que el rol **no gobierna esto en ningún sitio**, y rellenar el `if` dejaba a
 los 51 profesores sin poder corregir una falta mal puesta — de golpe, en dieciséis
-colegios, y por una app que es **una sola para los dieciséis** y no se publica el
+colegios, y por una app que es **una sola para los quince** y no se publica el
 mismo día que el backend.
 
 Joseth lo decidió con eso medido delante: **se queda abierto**, en la misma línea
@@ -7580,7 +7580,7 @@ si el profesor no es titular del grupo del primero, contesta 400 y no guarda
 ninguno — aunque fuera titular de los otros.
 
 **Es una mina y tiene fecha**: la rama del profesor cuelga de
-`years.profes_can_edit_alumnos`, apagada en los dieciséis colegios y cuya decisión
+`years.profes_can_edit_alumnos`, apagada en los quince colegios y cuya decisión
 está aplazada a después de la migración ([§29.1](#291)). El día que se encienda,
 esa pantalla empieza a guardar uno de cada N.
 
@@ -7840,7 +7840,7 @@ un error**. Es la misma forma que el 200 que miente de la [§48.2](#), sólo que
 aquí lo dispara **un nombre de campo equivocado**, no una rama sin salida.
 
 **No está disparado hoy, y por qué importa saberlo:** el front viejo —el que corre
-en los dieciséis— manda `imgFirmaProfe` (`FileManagerCtrl.ts:476`), así que el
+en los quince— manda `imgFirmaProfe` (`FileManagerCtrl.ts:476`), así que el
 camino vivo funciona. El tipo nuevo de `app2` declaraba `imagen_id`, y **la
 pantalla de imágenes de `app2` llama a la hermana buena**, no a ésta. O sea que
 esto no es un incendio: es una mina puesta. El front la desactiva por su lado
@@ -7918,7 +7918,7 @@ decidir.** Mudo, nadie lo habría mirado nunca.
 ### Lo que se comprobó aquí antes de meterlo en la cola, que es lo que faltaba
 
 **Ningún otro cliente llama a `DELETE bitacoras/destroy/{id}`.** Importa porque
-`myvc_flutter` es **una sola app para los dieciséis** y una retirada no se puede
+`myvc_flutter` es **una sola app para los quince** y una retirada no se puede
 escalonar: si la llamara, la retirada sería un 404 en todos a la vez. No la llama
 —su única mención a `bitacoras` es un comentario en `HistorialNotaApi.dart:8`, y
 sus borrados son `ausencias`, `frases_asignatura`, `notas`, `unidades` y
@@ -7938,7 +7938,7 @@ La conclusión final coincide, pero por el camino corto habría sido una casuali
 `/panel/bitacora`), y sus dos pruebas **no se borran, se dan la vuelta** — pasan a
 afirmar que el botón **no está**, que es lo que impide que vuelva por descuido.
 `eliminar()` de `datos/bitacoras.ts` **se queda sin consumidores y tampoco se
-borra**: el endpoint sigue vivo en los dieciséis hasta que se retire aquí. **Cuando
+borra**: el endpoint sigue vivo en los quince hasta que se retire aquí. **Cuando
 se retire hay que avisar al front para que lo limpie entonces** — sin ese aviso se
 queda un método muerto apuntando a una ruta que ya no existe, que es la forma en
 que estas retiradas dejan basura detrás.
@@ -8156,7 +8156,7 @@ circuló decía que la de ese fichero era código muerto, y era cierto **para un
 las dos**. Es exactamente la diferencia entre **barrer la pantalla y barrer el
 patrón**, y es lo que compró preguntar *«¿quién más hace esto mismo?»*.
 
-Las dos tienen botón en `myvc_front`, la aplicación desplegada hoy en los dieciséis
+Las dos tienen botón en `myvc_front`, la aplicación desplegada hoy en los quince
 (`InformesCtrl.ts:626` y `:700`, las dos por `DownloadServ.download`). Ninguna la
 llama `myvc_flutter`. Arregladas copiando el patrón de las tres que funcionan
 —`Excel::download(new XExport, …)` con hojas `FromView`—, no inventando uno nuevo.
@@ -8250,7 +8250,7 @@ de marcas. Confirmar es leer el método; la herramienta dice dónde.
 `PUT bolfinales/detailed-notas-year-group/{grupo}` **tarda 24–31 s** en el grupo 97 —y
 **dio 504** en la ventana en que la máquina estaba en 154 MB libres, porque nginx corta
 a los 60 s—. Lo midió `myvc-front-89` en Chrome. **Lo llama `app/`, la aplicación
-desplegada hoy en los dieciséis**, así que **no lo hemos introducido nosotros y no
+desplegada hoy en los quince**, así que **no lo hemos introducido nosotros y no
 espera a ningún despliegue: ya está pasando.** Y sigue siendo grave por lo que es:
 **veinticuatro segundos para un informe que alguien está esperando**, y una ruta que
 **se cae cuando el servidor aprieta** — en un colegio, cierre de periodo.
@@ -9038,7 +9038,7 @@ es lo que dice si hay que rehacer la foto entera o tres filas.
 ## §185. El correo de la cuenta que se perdía en cada guardado de una ficha de alumno
 
 **El único de los cuatro de esta noche que no era una mina ni un caso raro: estaba
-disparado, en los dieciséis, desde siempre.**
+disparado, en los quince, desde siempre.**
 
 `AlumnosEditCtrl.ts:122` hace `$ctrl.alumno.email2 = alumno.user.email` —la pantalla
 **manda de vuelta** el correo de la cuenta— **y** manda `username`, que abre el
@@ -9620,7 +9620,7 @@ limpio* — se cuentan aparte y el resumen lo dice.
 
 **De regalo, algo que nadie había preguntado:** antes de contar, comprueba que **cada
 par columna/tabla exista en el esquema de ESE colegio**. **El esquema congelado se da
-por igual en los dieciséis y eso nunca se ha comprobado.** (En la prueba local: 53
+por igual en los quince y eso nunca se ha comprobado.** (En la prueba local: 53
 pares, 0 ausentes.)
 
 ### §194.1. Y el estado que viaja con el número
@@ -11222,7 +11222,7 @@ mismos dos—, **408** la invariante, **370** una por (alumno × asignatura).
 
 **Y el 500 no ahorra nada.** `detailedNotasGrupo` corre **entero** y sólo después revienta
 `View::make('certificados.estudio')`. O sea que este camino **paga un boletín final completo
-—el más caro que hay— y no devuelve nada**, en los dieciséis colegios.
+—el más caro que hay— y no devuelve nada**, en los quince colegios.
 
 > **La vista no existe, y no es que falte en un colegio: no está en el repositorio.**
 > `resources/views/certificados/` no existe y `certificados.estudio` sólo aparece nombrada
@@ -11721,7 +11721,7 @@ la resta que no se pudo hacer informa la decisión más que el número que busca
 | `"si"` (cualquier cadena no vacía) | **SUBE** |
 
 **El servidor sólo sube cuando se lo piden**, así que **la cura está entera en el front y
-no toca los dieciséis despliegues** — que era la pregunta abierta sobre el coste de la
+no toca los quince despliegues** — que era la pregunta abierta sobre el coste de la
 salida.
 
 **Pero con una condición que nadie adivina leyendo el endpoint:** el incremento está

@@ -74,7 +74,7 @@ y las seis están cerradas por una razón que ya se pagó una vez.
 | **Larastan nivel 6** | Saltado a propósito, con la medición delante: 1.940 errores, **ninguno señala código que pueda fallar**, y el 68% cae en los controladores. Es la misma deuda que pint y se paga igual. Está en `phpstan.neon` con su porqué |
 | **Rector** | Configurado y sin correr **a propósito**: va por carpeta y revisando cada diff, que es trabajo de decisión, no de noche |
 | **Unificar las fechas en `-05`** ([09 §2](09-pendientes.md)) | No es una línea de config: cambia lo que `Carbon::now()` devuelve **para lo ya escrito**, y los `expires_at` de `personal_access_tokens` vivirían cinco horas de más sin que falle nada. Necesita una ventana en la que se puedan invalidar todas las sesiones vivas |
-| **Colas para importadores e informes** ([09 §3](09-pendientes.md)) | Cambia el contrato de los cuatro clientes, y uno es la app de Flutter, **una sola para los dieciséis colegios**: no se puede escalonar |
+| **Colas para importadores e informes** ([09 §3](09-pendientes.md)) | Cambia el contrato de los cuatro clientes, y uno es la app de Flutter, **una sola para los quince colegios**: no se puede escalonar |
 | **El cálculo de las definitivas** ([10-definitivas.md](10-definitivas.md)) | Parado por decisión de Joseth hasta que termine la migración, para no tener dos frentes sobre `notas_finales`. **Ojo al matiz**: lo congelado es el cálculo. La autorización y el candado del periodo de esas mismas rutas **sí** se han seguido tocando (§71, §73, §77) y siguen en juego — ver el lote C |
 | **La tabla del [§5 de 09](09-pendientes.md)** | Diecisiete filas que **esperan una respuesta de Joseth o del colegio**, no código. Encenderlas por iniciativa propia enciende pantallas en dieciséis colegios. Si tu lote roza una, se anota y se deja |
 | **Desplegar** | Es de Joseth, y hay una tanda entera esperando: diez y pico arreglos de autorización y **tres migraciones**, una de ellas con orden obligatorio (`password_reminders` **antes** que `app/`). [DESPLIEGUE.md](../DESPLIEGUE.md) |
@@ -109,14 +109,14 @@ $ git check-ignore -v .worktrees/d     # exit=1: no está ignorado
 O sea que un `git add -A` desde la raíz se los encuentra delante, y quien
 coordina verifica el índice con un número (`git diff --cached --stat`) que esto
 mueve. Se arregla con `/.worktrees/` en **`.git/info/exclude` del árbol raíz** —
-local, y no en `.gitignore`, que se copia a los dieciséis colegios. Hecho el 22
+local, y no en `.gitignore`, que se copia a los quince colegios. Hecho el 22
 de agosto de 2026. Lo encontró la sesión del lote D mirando su `git status`, que
 es lo que nadie hace cuando el documento ya afirma que sale limpio.
 
 ### `vendor/` no se puede enlazar, y eso costó encontrarlo
 
 Lo primero que se prueba es un symlink a `vendor/`, que es exactamente lo que
-hace el despliegue con los dieciséis colegios (CLAUDE.md). **Aquí miente.**
+hace el despliegue con los quince colegios (CLAUDE.md). **Aquí miente.**
 `autoload_psr4.php` calcula su raíz con `dirname(__DIR__)`, y `__DIR__` en PHP
 resuelve los symlinks: con `vendor` enlazado, la raíz sale `/app` y el worktree
 **carga el `app/` del árbol principal**. Medido:

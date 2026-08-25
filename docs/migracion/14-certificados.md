@@ -282,7 +282,7 @@ patrón dice «aquí hay un id sin comprobar» y tiene razón, pero no dice que 
 método esté muerto por otro motivo.
 
 El arreglo es cambiar una letra, y **por eso mismo no se hace aquí**: enciende en
-los dieciséis colegios una pantalla que hoy no existe, y eso es una decisión del
+los quince colegios una pantalla que hoy no existe, y eso es una decisión del
 colegio —la misma familia de la [05 §18.4](05-codigo-muerto-y-roto.md) y la
 [§22.3](05-codigo-muerto-y-roto.md)—. Fijado por
 `test_editar_una_pregunta_es_500_exista_o_no`.
@@ -325,7 +325,7 @@ equivocada al escribir un guard nuevo; aquí ya está escrito y lleva años
 contestando que no.
 
 El arreglo es cambiar el argumento, y **enciende una pantalla que hoy responde
-vacía en los dieciséis colegios** — con lo cual va a la lista de decisiones, no a
+vacía en los quince colegios** — con lo cual va a la lista de decisiones, no a
 la de arreglos, igual que la §8.
 
 ### §9.2. Y cualquiera ve las sesiones de cualquiera, con IP y dispositivo

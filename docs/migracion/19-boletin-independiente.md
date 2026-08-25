@@ -205,7 +205,7 @@ en 1. **Los 1.344 tests y sus snapshots tienen que seguir verdes sin regenerar
 ni uno.** Un snapshot que haya que regenerar en la fase 1 no es un snapshot que
 se regenera: es una consulta a la que se le olvidó el alcance.
 
-Eso es lo que permite desplegar el backend en los dieciséis colegios **antes**
+Eso es lo que permite desplegar el backend en los quince colegios **antes**
 de que exista una sola pantalla, que es como tiene que ir (§10).
 
 ---
@@ -221,7 +221,7 @@ de que exista una sola pantalla, que es como tiene que ir (§10).
 | **4** | **La pantalla nueva.** Las tres rutas de la §6 | 1, 2 |
 | **5** | **Los boletines.** Las dos funciones de `Unidad`/`Subunidad` con alcance — ya hechas en la fase 1 si el barrido fue completo; aquí sólo se **prueban en negativo** con un alumno marcado | 1 |
 | **6** | **Los puestos** y el interruptor de `years` | 1, 2 |
-| **7** | **El front.** Ver §8. **No se publica hasta que la 1–6 estén DESPLEGADAS** en los dieciséis, no fusionadas | todo lo anterior desplegado |
+| **7** | **El front.** Ver §8. **No se publica hasta que la 1–6 estén DESPLEGADAS** en los quince, no fusionadas | todo lo anterior desplegado |
 
 Las fases 1 a 6 son de este repo y se pueden fusionar en una sola tanda de
 despliegue. La 7 es de `myvc_front`.
@@ -585,7 +585,7 @@ matrículas. Va en la fase 2, antes de que exista la primera pantalla.
 ## §10 — Despliegue y orden
 
 - **Esto lleva migraciones de esquema, y son las primeras en tocar tablas de
-  producción de los dieciséis colegios.** `unidades`, `matriculas` y `years` son
+  producción de los quince colegios.** `unidades`, `matriculas` y `years` son
   tablas grandes y vivas: un `ALTER TABLE` sobre `unidades` bloquea la escritura
   de notas mientras dura. Hay que medir el tamaño real de `unidades` en el
   colegio más grande **antes**, con el mismo `for` de una línea de la fase 0 de
@@ -600,7 +600,7 @@ matrículas. Va en la fase 2, antes de que exista la primera pantalla.
 - **El front no publica hasta que el backend esté DESPLEGADO**, no fusionado. En
   un colegio sin desplegar, la pantalla nueva es un 404 y el interruptor de la
   ficha un «No guardado» silencioso.
-- **`myvc_flutter` es una sola app para los dieciséis.** Hoy la app crea
+- **`myvc_flutter` es una sola app para los quince.** Hoy la app crea
   subunidades y pone notas: mientras no sepa de esto, a un alumno marcado le
   seguirá enseñando la planilla del grupo. **No se rompe** —las unidades del
   grupo siguen existiendo— pero enseña una planilla incompleta. Hay que

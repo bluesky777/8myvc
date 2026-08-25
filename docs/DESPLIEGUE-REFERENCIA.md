@@ -35,7 +35,7 @@ copiada, y se comportan al revés.** Confirmado por Joseth el 18 ago 2026.
 | | Cómo está | Un cambio llega a… |
 |---|---|---|
 | `app/`, `routes/`, `config/`, `.env` | **Copia real en cada colegio** | …solo al colegio donde se despliega |
-| `vendor/` | **Depende del colegio.** 5 apuntan por symlink a `/home/micolev1/laravel_compartido`; los otros 11 tienen carpeta propia | …a los 5 del symlink de golpe. A los demás, solo si se les toca uno por uno |
+| `vendor/` | **Depende del colegio.** 5 apuntan por symlink a `/home/micolev1/laravel_compartido`; los otros 10 tienen carpeta propia | …a los 5 del symlink de golpe. A los demás, solo si se les toca uno por uno |
 
 Lo que era falso era la creencia de que `app/` también se compartía por symlink
 —un proyecto llamado `coal` común a todos—. `app/` es copia real.
@@ -52,10 +52,7 @@ Sacado del servidor, no supuesto. Los 16 colegios tienen el mismo commit de `app
 |---|---|---|
 | Symlink a `/home/micolev1/laravel_compartido`, al día | 5 | `coal`, `colbosque`, `comad-san-andres`, `eal`, `maranathaarauca` |
 | Carpeta propia, al día | 2 | `amiguitosdejesus`, `semillitasdedios` |
-| **Carpeta propia, congelada en 2021** | **9** | `bethelexplora`, `cads-itagui`, `casb-medellin`, `caz-zaragoza`, `coabsaravena`, `coljordan`, `fortul`, `inseaq`, `instival` |
-
-`instival` además **no es un repositorio git**, así que no recibe `git pull`: es el
-único colegio que sigue sin la PR #6.
+| **Carpeta propia, congelada en 2021** | **8** | `bethelexplora`, `cads-itagui`, `casb-medellin`, `caz-zaragoza`, `coabsaravena`, `coljordan`, `fortul`, `inseaq` |
 
 > **Cerrado el 19 ago 2026: los 16 colegios están desplegados y con el `vendor/`
 > igualado.** La tabla de arriba es el estado del 18 de agosto y se deja como
@@ -859,6 +856,59 @@ hacerlos seguidos, con los cinco `git pull` preparados.
 Volver atrás en esos cinco también es todo o nada. Los de `vendor/` propio se
 despliegan y se revierten uno a uno, sin ataduras.
 
+## Lo que trajo la tanda del 22–25 ago 2026 — desplegada el 25 ago en `eb95cbc`
+
+**Comprobada por Joseth con el mismo hash en los quince.** Esa cifra se escribió primero como
+«dieciséis» y era falsa: uno de ellos no tenía repositorio git ni aplicación, así que **nunca
+pudo devolver un hash** y no estuvo en ninguna tanda. Ese colegio se dio de baja y se borró del
+servidor ese mismo día, y por eso desde el 25 ago son quince. Es la primera tanda desde
+la Fase 4 que lleva migraciones a producción: las cuatro son aditivas y **se quedan
+puestas al volver atrás**.
+
+| | |
+|---|---|
+| Migraciones | `bol_ind_periodos` + `unidades.alumno_id` + `matriculas.boletin_independiente`; `auditoria`; `personal_access_tokens.historial_id`; el permiso `can_view_auditoria` |
+| Rutas | 539 → 542: `PUT notas/lote`, `GET disciplina/mis-fichas/{alumno_id?}`, `GET notificaciones/temas` — las tres para `myvc_flutter`, ninguna quita nada |
+| `config/` | `config/notificaciones.php`, y `notificaciones:enviar` entra en el scheduler cada quince minutos (no hay cron nuevo: viaja en el `schedule:run` de cada minuto) |
+| Lo que se nota | [`que-se-nota-en-un-colegio.md`](migracion/noche-2026-08-23/que-se-nota-en-un-colegio.md) |
+
+### Lo que este despliegue ABRIÓ, y sigue abierto
+
+**`c47ab50` recortó `Profesor::contratos()` y con eso vació cuatro columnas de la rejilla
+«Docentes contratados»** —la de abajo de `/panel/profesores` en la web vieja—: Usuario
+(`username`), Nacimiento (`fecha_nac`), Email (`email_usu`) y Celular (`celular`),
+declaradas en `ProfesoresCtrl.ts:266-269` y alimentadas por `ContratosApi.listar()`.
+
+**El recorte está bien hecho y no se deshace:** `GET contratos` es la única ruta de su
+controlador **sin `auth.personal`**, así que entregaba el documento, el domicilio y el
+móvil de los docentes a cualquier sesión válida —la de un alumno incluida—.
+
+Lo que falló fue el censo de consumidores del propio commit, que dice «once consumidores y
+ninguno toca lo que se quita»: **acertó con Flutter y se dejó esta rejilla.** Lo midió la
+coordinación del front (`myvc_front/RELEVO-DEUDAS.md §1`) contra el docker.
+
+> **Y una que salió bien por haber ido en la misma tanda, no por diseño.** Esa rejilla
+> guarda **la fila entera** al editar cualquier celda
+> (`ProfesoresApi.actualizar(profesor_id, rowEntity)`), y la fila ya no trae esos cuatro
+> campos. Con el código del 21 ago eso los habría **borrado en la base** — y `users.username`
+> es UNIQUE, o sea dejar a un docente fuera del sistema. No ocurre porque
+> `ProfesoresController::putUpdate` guarda las diecisiete columnas de la ficha y las cinco de
+> la cuenta detrás de `$vinieron->trae(...)`: **lo que el cuerpo no trae no se toca**. Ese
+> arreglo iba en esta misma tanda. **Separar los dos commits en dos despliegues habría
+> borrado datos**, y eso es un argumento de orden que nadie planteó.
+
+**Decisión pendiente de Joseth:** llenar las cuatro columnas con un `valueGetter` que cruce
+con la rejilla de arriba —cuesta **cero peticiones**, los cuatro campos ya están en memoria
+vía `GET profesores`, y **no deshace el recorte** porque esa ruta sí lleva `auth.personal`—
+o quitarlas.
+
+### Lo que este despliegue DESBLOQUEÓ
+
+- **La versión de `myvc_flutter`** que llama a las tres rutas nuevas: la condición era estar
+  en todos, y ya lo está.
+- **El typo de `PapeleraCtrl:62`** en `myvc_front`, que era lo único que tapaba
+  `grupos/forcedelete` desde la interfaz: su guard ya está desplegado.
+
 ## Lo que trajeron las tandas ya desplegadas (19–21 ago 2026)
 
 Se conserva porque explica **qué se notó** en cada una: es lo que se mira cuando
@@ -888,10 +938,9 @@ le queda al **91% de las cuentas** para recuperar su clave.
 
 Y dos cosas que enseñó el despliegue en sí, las dos ya recogidas en
 [DESPLIEGUE.md](DESPLIEGUE.md): que **«Already up to date» no significa
-desplegado** —los dieciséis lo dijeron minutos después de un `push`, porque cada
-colegio apunta a su propio remoto, y sólo el hash lo distingue— y que **`instival`
-no recibe nada**: no hay repositorio ni aplicación en esa carpeta, así que se
-quedó sin estos arreglos como sin los anteriores.
+desplegado** —los colegios lo dijeron minutos después de un `push`, porque cada uno
+apunta a su propio remoto, y sólo el hash lo distingue— y que **una carpeta sin
+repositorio ni aplicación no recibe nada** y se queda sin los arreglos sin decirlo.
 
 ### La importación de alumnos, reanudable (20 ago 2026)
 
@@ -1020,7 +1069,7 @@ Dos trampas de esta pantalla, y las dos se pagan caro:
 
 1. **`>/dev/null 2>&1` no es opcional.** cPanel manda un correo con la salida
    **en cada ejecución**, y esto corre cada minuto: son 1.440 correos al día por
-   colegio, y con dieciséis, 23.000. La propia página lo avisa en letra pequeña.
+   colegio, y con quince, 21.600. La propia página lo avisa en letra pequeña.
 2. **`/usr/local/bin/php` es el PHP por defecto de la cuenta, no necesariamente
    el 8.4.** Laravel 13 no arranca con menos. Compruébalo antes de guardar el
    cron:
@@ -1058,6 +1107,47 @@ git remote prune origin
 
 grep -o 'assets/index-[^"]*\.js' index.html
 ```
+
+### El bucle de `app2` que había en DESPLIEGUE.md SUSTITUÍA el legacy — corregido el 25 ago
+
+Decía: construir `app2` con `--base-href /up/`, copiarlo a `myvc_dist` y pullear en
+`up/`. Pero **`up/` es el legacy** (`myvc_front`) y **`myvc_dist` es su bundle
+construido**, así que ese bucle no estrena el front nuevo: **lo pone encima del viejo
+en los quince**. El ensayo que pasó lo probó sustituyendo.
+
+**La decisión de Joseth (25 ago) es la contraria: los dos vivos y el usuario elige.**
+El legacy se queda en `up/` y el nuevo va en una carpeta hermana. De ahí cuelga todo
+lo demás, y **el artefacto de hoy no sirve**: lleva `<base href="/up/">` dentro.
+
+Lo que hay que hacer antes de la primera tanda de `app2`, todo en el repo del front:
+
+1. **El nombre de la carpeta, y no debería llevar `+`.** `up+` es legal en una ruta
+   pero se decodifica como espacio en demasiados sitios —mod_rewrite, el
+   `<base href>`, el router— y el fallo parecerá otra cosa. `up2` no cuesta nada.
+2. **Reconstruir con `--base-href /up2/`.** Sin esto: pantalla en blanco y once
+   recursos en 404, ya medido contra Apache de verdad.
+3. **`RewriteBase /up2/`** en el `.htaccess` de dentro. **La reescritura nunca en la
+   raíz**: el contrafactual está montado y visto fallar — `GET /8myvc/public/api/login`
+   devolvía **200 `text/html`** con Angular donde iba JSON, y un 200 con el cuerpo
+   equivocado se diagnostica muchísimo peor que un 404.
+4. **Comprobar que el `.htaccess` viaja al renombrar.** El glob `**/*` de
+   `angular.json` no casa ficheros que empiezan por punto; se cerró una vez y mover la
+   carpeta lo vuelve a abrir.
+5. **`app2` necesita su propio repo de dist.** `myvc_dist` está ocupado por el legacy y
+   no puede llevar los dos.
+
+**Y el hueco que no cierra nadie más que Joseth, ahora por duplicado: quién copia
+`dist/browser/*` al repo de dist, y con qué.** No hay guion, ni hook, ni README; los
+commits son suyos y ponen `build: …`. Es el único paso de toda la cadena —backend y
+front— que no existe por escrito.
+
+Del backend **no hace falta nada**: mismo subdominio, misma API bajo
+`/8myvc/public/api`, mismo origen (CORS no entra) y varias sesiones simultáneas del
+mismo usuario ya funcionan (`app/Services/Sesion.php:493` solo limpia caducados). La
+pregunta que sí abre este plan es del front: **los dos comparten `localStorage`** por
+compartir origen, así que si usan la misma clave para el token la sesión se comparte
+al saltar de uno a otro, y si usan claves distintas quedan dos sesiones vivas y
+cerrar una no cierra la otra.
 
 ## Comprobar, la lista larga
 
@@ -1158,3 +1248,122 @@ done
 
 **`plus/` es otro repositorio** (`myvc_front_2`, el Angular del PIAR) y solo lo
 tienen seis colegios: `casb`, `coab`, `cads`, `coljordan`, `lal` y `coal`.
+
+---
+
+# El orden entre el `ALTER` y el `app/`
+
+Movido desde `DESPLIEGUE.md` el 25 ago 2026 al vaciarlo: son decisiones y
+mediciones, no comandos de la tanda que toca.
+
+## No hay un orden universal, y ésa es la regla
+
+La migración del boletín independiente añade `unidades.alumno_id`. Con la columna
+puesta y **nadie marcado**, cuatro consultas de boletines empiezan a dar **500**:
+
+```
+SQLSTATE[23000]: 1052 Column 'alumno_id' in on clause is ambiguous
+```
+
+Cuatro predicados nombraban `alumno_id` **sin alias delante** dentro de consultas
+que unen `unidades`. Hasta hoy no había ambigüedad —`notas` era la única tabla del
+join con esa columna—, así que escribirlo desnudo **llevaba veinte años
+funcionando**. En cuanto `unidades` tiene la suya, MySQL no puede elegir y aborta.
+
+Lo que importa no es el arreglo —ya está hecho— sino cuándo se rompe:
+
+> **La rompe el `ALTER TABLE`, no el código.**
+
+Y `app/` es **copia por colegio**. En un colegio donde la migración corra **antes**
+de que llegue el `app/` nuevo, los boletines dan 500 durante esa ventana. Así que
+ahí va primero el `app/` y después el `ALTER`, **al revés que la tanda de
+`password_reminders`**, donde la migración iba delante.
+
+> **La migración va delante cuando el código nuevo LA NECESITA para funcionar; va
+> detrás cuando es la migración la que ROMPE el código viejo.** Antes de cada tanda
+> con esquema hay que preguntarse cuál de los dos casos es, y la forma de saberlo
+> es la que lo encontró aquí: **correr la suite con la migración puesta y el código
+> viejo**.
+
+Lo encontró `8myvc-9e` la noche del 24, **y lo encontró la suite, no un detector**.
+Es el tercer modo de fallo de la §9.2 del plan, y el único bueno: los otros dos
+—contar de más y contar de menos— son silenciosos; éste revienta en el primer test
+en vez de imprimir un boletín equivocado.
+
+## El paso que va ANTES de escribir un `ALTER TABLE` — `tools/tablas-calientes.php`
+
+La regla de arriba dice **en qué orden** desplegar una migración. Ésta dice **si esa
+migración mueve una respuesta**, que es la pregunta que había que hacerse primero y
+no tenía respuesta en ninguna parte.
+
+```
+ficheros de app/ revisados ......... 220
+consultas con SELECT * ............. 251   (resueltas a 360 sobre 57 tablas)
+instantáneas leídas ................ 121
+tablas con la forma fijada ......... 47
+>>> CALIENTES ...................... 35
+```
+
+**Caliente** = la tabla tiene alguna consulta que dice `SELECT *` **y** su forma está
+fijada por una instantánea. En esas 35, añadir una columna **aparece sola en la
+respuesta y mueve una pantalla que nadie tocó** — y hay que avisar a los cuatro
+clientes, con `myvc_flutter` siendo una sola app para los quince.
+
+Las de más consultas: `dis_ordinales`, `historiales`, **`years` (64 columnas)**,
+`tipos_documentos`, `unidades`, `dis_configuraciones`, `config_certificados`,
+`recuperacion_final`, `contratos`, `areas`, `dis_libro_rojo` y **`alumnos` (39
+columnas)**.
+
+**Por qué es la peor de detectar, y por eso va como paso y no como consejo:** las
+otras formas de romper dependen de qué código haya delante —un `1052 ambiguous`
+rompe contra el código viejo—; **ésta no depende del código: depende de que la
+consulta diga `*`**, así que un `ALTER` la dispara contra el viejo y contra el nuevo
+a la vez.
+
+De ahí que la comprobación con la suite sean **dos pasadas y ninguna encuentre la de
+la otra**:
+
+| Pasada | Encuentra | Medido el 24 ago |
+|---|---|---|
+| esquema nuevo + código **viejo** | el `1052 ambiguous` | 4 consultas |
+| esquema nuevo + código **nuevo** | el `SELECT *` | 5 snapshots |
+
+> La herramienta lleva `--autoprueba`, **y se corre primero**: comprueba que distingue
+> `unidades` de `unidades_por_defecto` —el falso positivo que se comió una medición
+> esa noche, porque los ocho primeros caracteres coinciden— y que **no cuenta
+> subconsultas**, que fue el cuarto falso positivo y sólo se vio leyendo.
+
+## La pasada se publica con DOS números, no con uno — medido el 25 ago
+
+Correr la suite con el esquema nuevo y el código viejo se ejecutó, y **su resultado
+obliga a cambiar cómo se publica**:
+
+```
+predicados ambiguos que EXISTEN ......... 4   (barrido estático del patrón, sin correr nada)
+predicados que la SUITE ejerce ........... 2
+```
+
+**Los dos que no ejerce no son el mismo caso:**
+
+- `Subunidad::perdidasDeAsignatura` es **código muerto** —los diez llamantes usan
+  `perdidasDeUnidad`, que es **otro método**—;
+- **la rama `fortaleza_debilidad` de `Unidad` está VIVA y detrás de un interruptor por
+  colegio**: la alcanza `Boletines2Controller:228` cuando el año tiene
+  `years.show_fortaleza_bol = 1`, y **la base de test tiene 1 de 8 años con ese
+  interruptor encendido… y ningún test usa ese año**.
+
+> **Un colegio con `show_fortaleza_bol` puesto recibe un 500 que esa pasada no ve.**
+> Y no es que esté mal hecha: **su alcance es el de la suite, no el del código.**
+
+Por eso se publica con los dos números, y **un `0` significa «la suite no encontró
+nada», nunca «no hay nada»**. El guion `tools/esquema-nuevo-codigo-viejo.sh` lo lleva
+en su cabecera, que es donde lo leerá quien lo corra.
+
+Y el interruptor por colegio es **el patrón general, no la anécdota de este caso**: es
+la misma familia que `mostrar_puesto_boletin` (1 de 8 años a 0) y que la excepción por
+colegio que avisó el front.
+
+> **Lo que un interruptor apaga, la suite no lo prueba** — y hay quince colegios con
+> quince combinaciones. Antes de un `ALTER TABLE`, la pregunta no es sólo *«¿qué
+> rompe?»* sino **«¿qué rompe en la combinación de interruptores que la suite no
+> tiene?»**

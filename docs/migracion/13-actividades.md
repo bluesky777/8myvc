@@ -8,7 +8,7 @@ que son con las que un profesor crea el examen, lo edita, lo comparte y lo borra
 
 Fijado por `tests/Contrato/ActividadesTest.php` (10 casos),
 `tests/Contrato/PreguntasTest.php` (6) y `tests/Contrato/RespuestasTest.php` (7). Ninguno exige lo correcto: **fijan lo que
-hace hoy**, porque son endpoints vivos en los dieciséis colegios.
+hace hoy**, porque son endpoints vivos en los quince colegios.
 
 Las diecinueve rutas llevan `auth.personal`, así que ninguna familia las alcanza
 y la pregunta de **quién entra** estaba contestada. La que no había mirado nadie

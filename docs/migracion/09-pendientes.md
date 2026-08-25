@@ -721,7 +721,7 @@ eso es justo lo que había que aprender.
    PIAR, y lo que se encontró allí cambió la pregunta — está en la [§35](05-codigo-muerto-y-roto.md).
 4. **El hash del lector de tardanzas** ([05 §25.4](05-codigo-muerto-y-roto.md)) →
    **quitarlo del `SELECT`**, en `tardanzas/login` y en `traer-datos`.
-5. **Los años actuales de los dieciséis colegios**
+5. **Los años actuales de los quince colegios**
    ([05 §28.3](05-codigo-muerto-y-roto.md)) → **un comando de diagnóstico**, en vez
    de una consulta suelta que hay que pegar dieciséis veces. Y con contexto nuevo
    que Joseth dio al contestar y que no estaba escrito en ninguna parte:
@@ -754,7 +754,7 @@ sin haber ningún controlador a cero.
 | El rol `Secretario` existe, y el `Psicólogo` gobierna por fin algo | [05 §30.3–30.5](05-codigo-muerto-y-roto.md) |
 | La bandera del periodo que se comprueba es la del periodo al que se escribe, en 25 de 26 llamadas | [05 §27.1.1](05-codigo-muerto-y-roto.md) |
 | La recuperación final es del año, así que pide los cuatro periodos abiertos | [05 §27.1.1](05-codigo-muerto-y-roto.md) |
-| `php artisan anios:actuales`, para los dieciséis | [05 §28.3](05-codigo-muerto-y-roto.md) |
+| `php artisan anios:actuales`, para los quince | [05 §28.3](05-codigo-muerto-y-roto.md) |
 
 **Y lo que salió de seguir mirando, que fueron cuatro cosas más:**
 
@@ -911,7 +911,7 @@ el otro grupo *suyo*— y es la **tercera** vez que muerde después de la §16 y
    2026**: si lo que se toca es del año, el permiso se pide para el año. Las dos
    rutas de recuperación exigen ahora **los cuatro periodos abiertos**. Con uno
    cerrado no se puede tocar la recuperación final, y eso se eligió a sabiendas.
-5. **Correr `php artisan anios:actuales` en los dieciséis**, antes de la copia de
+5. **Correr `php artisan anios:actuales` en los quince**, antes de la copia de
    octubre. En desarrollo ya sale un aviso: el 2026 encendido en la papelera.
 6. ~~**Confirmar los superusuarios de cada colegio**~~ — **contestado el 21 ago
    2026: se queda.** Ni se apagan ni se sale a correr el comando ahora. Se deja
@@ -1102,7 +1102,7 @@ Ya no es un problema de infraestructura: un worker es `queue:work
 encolar **cambia el contrato de los cuatro clientes** —hoy el importador
 responde con el resultado; encolado responde con un identificador y hay que
 preguntar—, y uno de esos clientes es la app de Flutter, que es **una sola para
-los dieciséis colegios** y por tanto no se puede escalonar.
+los quince colegios** y por tanto no se puede escalonar.
 
 Y sigue faltando el número: «los imports dan timeout» es una impresión, y el
 techo real son cinco minutos. Ver [02-plan-rendimiento.md](02-plan-rendimiento.md) §5.
@@ -1163,8 +1163,8 @@ saber el tamaño real del daño en las dieciséis bases antes de tocar código.
 | `GET api/perfiles/usernames` devuelve los 2.351 usuarios del colegio | [05 §14.4](05-codigo-muerto-y-roto.md) | apuntar `UserConfiguracionCtrl` a `comprobarusername/{username}`, que ya existe, **y desplegar el front antes** de cerrar la ruta |
 | `GET api/perfiles/username/{username}` no comprueba que el usuario sea el tuyo | [05 §14.4](05-codigo-muerto-y-roto.md) | si `ExigirPersonaPropia` aprende a resolver un nombre de usuario, o si la ruta deja de aceptar parámetro y lo saca del token |
 | `GET api/asignaturas/listasignaturas-alone` le da a un alumno las asignaturas del profesor con su mismo id | [05 §16.6](05-codigo-muerto-y-roto.md) | es la misma pregunta que Joseth dejó abierta en [05 §11.2](05-codigo-muerto-y-roto.md): si esa pantalla debe enseñarle sus asignaturas de verdad. Cerrarla con `auth.personal` es de una línea; decidir qué ve el alumno, no |
-| `PUT api/publicaciones/borrar-comentario` responde 500 a todo el que no sea superusuario | [05 §22.3](05-codigo-muerto-y-roto.md) | si se arregla. Hoy nadie borra un comentario suyo; arreglarlo enciende esa función en los dieciséis colegios de golpe |
-| `GET api/candidatos/conaspiraciones` responde 500 a alumnos y acudientes desde siempre | [05 §18.4](05-codigo-muerto-y-roto.md) | qué votación es «la suya» cuando hay varias en curso. Y que arreglarlo **enciende** para los alumnos una pantalla que hoy no funciona en los dieciséis colegios, que es una decisión y no un arreglo |
+| `PUT api/publicaciones/borrar-comentario` responde 500 a todo el que no sea superusuario | [05 §22.3](05-codigo-muerto-y-roto.md) | si se arregla. Hoy nadie borra un comentario suyo; arreglarlo enciende esa función en los quince colegios de golpe |
+| `GET api/candidatos/conaspiraciones` responde 500 a alumnos y acudientes desde siempre | [05 §18.4](05-codigo-muerto-y-roto.md) | qué votación es «la suya» cuando hay varias en curso. Y que arreglarlo **enciende** para los alumnos una pantalla que hoy no funciona en los quince colegios, que es una decisión y no un arreglo |
 | El lector de Tardanzas devuelve el hash bcrypt del usuario | [05 §25.4](05-codigo-muerto-y-roto.md) | **solo decir que sí.** Se temía que el lector validara contra ese hash estando sin red; se fue a mirarlo (`tardanzasMyvc-old`) y no: `insertUser()` hace `user.password = localStorage.password` antes de guardar, así que la columna local lleva la contraseña **en claro**, y el login sin red compara contra eso. El único sitio que conserva el hash es `localStorage.USER`, que nadie lee. Ningún otro cliente llama a estas rutas |
 | Un `Usuario` administrativo sin `is_superuser` lee en Tardanzas pero no puede subir | [05 §25.3](05-codigo-muerto-y-roto.md) | si el `if` de `TSubirController::user()` debe decir `Profesor o Usuario` como el de lectura, o si dejar fuera al administrativo era la intención. Hoy entra al lector, ve los datos y recibe 400 al subir |
 | `years.profes_can_edit_alumnos` decide más cosas de las que dice su nombre | [05 §29.1](05-codigo-muerto-y-roto.md) · [12 §20](12-larastan-nivel-7.md) | **Contestado el 21 ago 2026, y aplazado a propósito.** No es un permiso que se desbordó: es un **módulo** —una pantalla parecida a la tabla de Alumnos donde los profesores editan alumnos para ayudar a la secretaria—, y la bandera es su interruptor, así que las 19 rutas son el módulo entero y ese es el tamaño que le toca. Recontado antes de preguntar: 25 apariciones y 19 rutas, catorce de ellas el módulo de matrículas completo. **Hoy está apagada en todos los colegios por seguridad**, no por olvido, así que no hay nadie esperando la respuesta: qué debe poder hacer un docente con ella encendida **se decide después de la migración**. La superficie queda medida y fijada por `BanderaProfesEditaAlumnosTest`, que es lo que había que dejar hecho |
@@ -1177,7 +1177,7 @@ saber el tamaño real del daño en las dieciséis bases antes de tocar código.
 | **Si el `Secretario` restaura desde la papelera** | [05 §76.2](05-codigo-muerto-y-roto.md) | Las cinco rutas de `restore` que se cerraron el 22 ago piden `Autoriza::esSuperusuario`, que es **el criterio del gemelo que borra** de cada pareja y no uno nuevo — la regla de la propia clase es que crear un rol no regale permisos, y el alcance del `Secretario` repartido el 21 ago no nombra la papelera. Hoy `esSuperusuario` y `esAdministrativo` son las mismas diez personas, así que no cambia nada; el día que exista el rol, sí. Subirlo a `esAdministrativo` es **una palabra en cinco sitios**, y no se hace desde aquí porque sería concederle algo por la puerta de atrás de un arreglo |
 | **Los nueve catálogos contestan de cuatro maneras al mismo cuerpo vacío** | [05 §78](05-codigo-muerto-y-roto.md) | Medido el 22 ago 2026: cinco dan **422** «Datos incorrectos», tres dan **500** con el `SQLSTATE` de MySQL y uno da **500** por un error de PHP. Ninguno escribe —lo impide el `NOT NULL` del esquema, no el código— y el que sí escribía, `contratos`, ya está cerrado. Unificar los cuatro 500 a 422 son cuatro `try/catch`; lo que hay que decidir es que **el front pinta el mensaje del cuerpo**, así que hoy a un administrador se le enseña el `SQLSTATE` entero y mañana «Datos incorrectos». `CrearUnCatalogoTest` deja la tabla fijada para que el cambio sea deliberado |
 | **Cualquiera puede quedarse con el correo de recuperación de otra cuenta** | [05 §79.1](05-codigo-muerto-y-roto.md) | **Contestado el 22 ago 2026: no se toca, se mide.** `perfiles/guardar-mi-email-restore` escribe `users.email` —la llave de la cuenta— sin validar nada, y sólo pide token: las 2.321 cuentas la alcanzan. Demostrado el viaje entero: un alumno se pone el correo de otra cuenta con id más alto, la dueña pide su reseteo y el enlace sale **a nombre del alumno**. No es robo de cuenta —el correo llega al buzón de la víctima— pero le quita la recuperación para siempre. Cerrarlo son dos `if`; lo que frena es el coste medido del segundo: rechazar un correo repetido deja a una familia sin poder poner la dirección del padre en dos cuentas, que es el caso legítimo de la [§13 del 12](12-larastan-nivel-7.md). `EscriturasConSoloTokenTest` fija el agujero, no el arreglo |
-| **`alumnos/guardar-valor-varios` guardará uno de cada N el día que se encienda la bandera** | [05 §79.2](05-codigo-muerto-y-roto.md) | Mina con fecha: la rama del profesor tiene el `return` **dentro** del bucle y la del administrativo fuera. Cuelga de `years.profes_can_edit_alumnos`, apagada en los dieciséis y con su decisión aplazada a después de la migración (§29.1), así que hoy no muerde. Va en la misma fila que esa bandera: el día que se decida encenderla, esto se arregla antes |
+| **`alumnos/guardar-valor-varios` guardará uno de cada N el día que se encienda la bandera** | [05 §79.2](05-codigo-muerto-y-roto.md) | Mina con fecha: la rama del profesor tiene el `return` **dentro** del bucle y la del administrativo fuera. Cuelga de `years.profes_can_edit_alumnos`, apagada en los quince y con su decisión aplazada a después de la migración (§29.1), así que hoy no muerde. Va en la misma fila que esa bandera: el día que se decida encenderla, esto se arregla antes |
 | `Login::ponerEnElPeriodoActual` se queda con el primer año actual, sin `ORDER BY` | [05 §28.3](05-codigo-muerto-y-roto.md) | qué hacer si un colegio tiene dos años marcados como actuales. Los tres caminos que los creaban están cerrados, así que esto solo puede venir de datos de antes; poner `ORDER BY year DESC` es una línea, pero **decide en qué año amanece un colegio** que hoy entra en el otro. Se contesta mirando las dieciséis bases: `SELECT id, year FROM years WHERE actual=1 AND deleted_at IS NULL` |
 
 ---
@@ -1616,7 +1616,7 @@ saber el tamaño real del daño en las dieciséis bases antes de tocar código.
     sintaxis de JavaScript en PHP** —`$user.persona_id==comentario.persona_id`—, así
     que con el `||` en corto un superusuario borra cualquier comentario y todos los
     demás reciben un 500. No es un agujero, es un botón que no funciona; arreglarlo
-    **enciende** una función en los dieciséis colegios, que es decisión y no arreglo.
+    **enciende** una función en los quince colegios, que es decisión y no arreglo.
 
 - **El cuerpo anidado, hecho el 20 ago 2026.** Las 57 no juzgables de la §22
   estaban infladas: el bucle salta los 403 por ser la respuesta correcta, pero
@@ -1985,7 +1985,7 @@ Admin.
 
 > **Un guard en el front no vale**, y es lo que hace que esto sea del backend:
 > evitaría abrir la pantalla, pero **el endpoint seguiría contestando 200 a quien
-> llame por su cuenta** — y `app/`, la que corre hoy en los dieciséis colegios,
+> llame por su cuenta** — y `app/`, la que corre hoy en los quince colegios,
 > llama a los mismos sitios.
 
 > **De paso, lo que este hallazgo dice del método:** con la cuenta de
@@ -2024,7 +2024,7 @@ sirve la pantalla, no de código** — quitarlo son tres columnas de tres `SELEC
 
 ## 10. `GET api/contratos` entrega la ficha personal de los docentes a un alumno — 24 ago 2026
 
-**Está vivo hoy, en los dieciséis colegios.** Es la primera de las tres de la
+**Está vivo hoy, en los quince colegios.** Es la primera de las tres de la
 [§14.4](05-codigo-muerto-y-roto.md) que se prueba **con un token de alumno de
 verdad**, y contesta 200.
 
@@ -2059,7 +2059,7 @@ el `is_superuser` de cada uno.
 
 La §14.4 la dejó con el diagnóstico correcto —*«sólo la usa para pasar de un id a
 un nombre; lo que hay que recortar es la respuesta, no la puerta»*— y con el
-motivo de no tocarla: **recortar cambia el contrato de los dieciséis colegios a la
+motivo de no tocarla: **recortar cambia el contrato de los quince colegios a la
 vez, porque la app de Flutter es una sola.**
 
 Lo que cambia hoy es que **ese coste se puede medir en vez de suponerse**:
@@ -2087,7 +2087,7 @@ Recortar `Profesor::contratos()` a lo que se usa —`contrato_id`, `profesor_id`
 para las rutas que ya piden `auth.personal`**.
 
 **No se toca hasta tener el número de Flutter**, por la razón de siempre: la app
-es una para los dieciséis y no se puede escalonar.
+es una para los quince y no se puede escalonar.
 
 ### Y la combinación, que es peor que las partes
 
@@ -2115,7 +2115,7 @@ la mitad no sirve.
 
 ## 11. Cualquier profesor renombra cualquier cuenta — **arreglado el 24 ago 2026**
 
-**Estaba vivo en los dieciséis colegios.** `PUT perfiles/guardar-username/{id}` no
+**Estaba vivo en los quince colegios.** `PUT perfiles/guardar-username/{id}` no
 comprobaba a quién apunta: **cualquiera de los 51 profesores le cambiaba el nombre
 de usuario a cualquier cuenta, incluida la de un superusuario.**
 
@@ -2352,7 +2352,7 @@ si el front deja de interpretarla y el backend sigue mandándola, no pasa nada
 - **C. A y B, en ese orden y con despliegue escalonado.** Es lo que se propone.
 
 **No lo decide una sesión**: cambia el cuerpo de seis rutas que llaman los cuatro
-clientes, y `myvc_flutter` es **una sola app para los dieciséis**.
+clientes, y `myvc_flutter` es **una sola app para los quince**.
 
 ---
 
@@ -2400,7 +2400,7 @@ se toca— sino **«¿el rol `Admin` debe contar como administrativo?»**.
 
 ### Lo que falta para poder decidir, y es un dato, no una opinión
 
-**Correr esto en los dieciséis colegios.** Es el mismo `for` de una línea de la
+**Correr esto en los quince colegios.** Es el mismo `for` de una línea de la
 fase 0 de definitivas, y contesta lo único que importa:
 
 ```sql
@@ -2418,7 +2418,7 @@ SELECT count(*) FROM role_user ru
 
 ### Las salidas
 
-1. **Si el `for` da cero en los dieciséis**: no hay nada que hacer hoy. Se anota
+1. **Si el `for` da cero en los quince**: no hay nada que hacer hoy. Se anota
    que la equivalencia es un hecho de las bases y no del esquema, y se deja el
    centinela que avise si algún día deja de serlo.
 2. **Si da distinto de cero en algún colegio**: o `esAdministrativo` pasa a mirar
@@ -2455,8 +2455,8 @@ es **un** colegio de dieciséis. **De esas 44 no se puede decir nada desde aquí
 |---|---|---|
 | **a** | **`config_certificados`: dos interruptores que se marcan y no se aplican.** El colegio pide el encabezado sólo en la primera página, **el certificado lo ignora** | **Es un documento que se entrega firmado.** Y quien lo marcó **no tiene forma de saber que no se aplicó**: el certificado sale, sólo sale distinto de lo que pidió |
 | **b** | **`dis_procesos.firma_alumno` y `firma_acudiente`**: dicen si el alumno y su acudiente **firmaron** el proceso. Módulo **vivo** —`DisciplinaController` nombra `dis_procesos` nueve veces— y **nadie las lee** | Significa que **hoy el sistema no puede contestar si un proceso disciplinario se firmó**, que es justo el dato que hace falta meses después cuando alguien reclama. **¿Función abandonada o sin terminar?** No se adivina |
-| **c** | **Seis tablas `df_*` enteras** —`df_alumnos`, `df_asignaturas`, `df_grupos`, `df_notas_finales`, `df_subunidades`, `df_unidades`—: **cero referencias en `app/` y `routes/`**, y vacías aquí | No son 13 columnas muertas: **son seis tablas muertas**, y clasificar sus columnas es mirar las hojas. **Borrarlas es una migración destructiva en dieciséis producciones**, y antes hay que saber si allí tienen filas |
-| **d** | **El `for` de sólo lectura en los dieciséis**: ¿alguna de las 44 está encendida en algún colegio? | Servidor. Es la misma forma que las otras fases 0 |
+| **c** | **Seis tablas `df_*` enteras** —`df_alumnos`, `df_asignaturas`, `df_grupos`, `df_notas_finales`, `df_subunidades`, `df_unidades`—: **cero referencias en `app/` y `routes/`**, y vacías aquí | No son 13 columnas muertas: **son seis tablas muertas**, y clasificar sus columnas es mirar las hojas. **Borrarlas es una migración destructiva en quince producciones**, y antes hay que saber si allí tienen filas |
+| **d** | **El `for` de sólo lectura en los quince**: ¿alguna de las 44 está encendida en algún colegio? | Servidor. Es la misma forma que las otras fases 0 |
 
 ### Y una que no espera decisión pero engaña al que la lea
 
