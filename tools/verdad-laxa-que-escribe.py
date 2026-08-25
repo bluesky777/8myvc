@@ -64,7 +64,7 @@ otra cosa».
     un `auth.personal` que quema un folio no es lo mismo que uno que alcanza un
     alumno.
 """
-import re, sys, pathlib
+import re, sys, pathlib, pathlib
 
 METODO = re.compile(r'^\s*(?:public|private|protected|static|\s)*function\s+(\w+)\s*\(')
 DEL_CLIENTE = re.compile(r'Request::(input|get|has|all)\s*\(|\$request->(input|get|has|all)\s*\(')
@@ -125,7 +125,83 @@ def analizar(ruta):
                               sorted({e[0] if isinstance(e, tuple) else e for e in esc})))
     return hallazgos, nif
 
+def control():
+    """El control positivo, EJECUTABLE y anclado en un CASO SINTETICO.
+
+    Hasta CONTROLES-1 esto era prosa que no corria nadie. Y al hacerlo ejecutable
+    salio ROJO — pero **ni el detector estaba roto ni la cita estaba vieja**:
+
+    > **El fallo que citaba se habia ARREGLADO.** La cabecera apuntaba al `if` del
+    > contador de certificados de `Informes/BolfinalesController`, y el commit
+    > `0473a9b` lo paso a `filter_var(..., FILTER_VALIDATE_BOOLEAN)` — o sea que el
+    > detector dejo de encontrarlo **porque ya no esta**, que es exactamente lo que
+    > tiene que pasar.
+
+    **Un control positivo anclado en un fallo VIVO muere cuando alguien arregla el
+    fallo, y entonces parece que el detector se rompio.** El siguiente en pasar
+    "arregla" el detector. Es una tercera forma de fallo, distinta de las dos que se
+    conocian —el detector roto y la cita vieja— y la mas cara, porque **castiga
+    justo a quien arregla el codigo**.
+
+    Por eso el caso va aqui dentro y no en `app/`: **lo que este control tiene que
+    comprobar es que el DETECTOR reconoce la forma, no que el repositorio siga
+    teniendo el fallo.**
+
+    Salidas: 0 pasa · 1 falla · 2 no concluyente.
+    """
+    import tempfile, os
+
+    caso = """<?php
+class CasoDelControl {
+    public function conFormaLaxa() {
+        $bandera = Request::input('bandera');
+        if ($bandera) {
+            DB::update('UPDATE cosas SET x=1');
+        }
+    }
+    public function conFormaEstricta() {
+        if (filter_var(Request::input('bandera'), FILTER_VALIDATE_BOOLEAN)) {
+            DB::update('UPDATE cosas SET x=1');
+        }
+    }
+    public function laxaQueNoEscribe() {
+        if (Request::input('otra')) {
+            $x = 1;
+        }
+    }
+}
+"""
+    fd, ruta = tempfile.mkstemp(suffix='.php')
+    with os.fdopen(fd, 'w') as fh:
+        fh.write(caso)
+    try:
+        metodos = {h[0] for h in analizar(ruta)[0]}
+    finally:
+        os.unlink(ruta)
+
+    fallos = []
+    if 'conFormaLaxa' not in metodos:
+        fallos.append('NO reconoce la forma laxa que escribe — su lista se queda corta')
+    if 'conFormaEstricta' in metodos:
+        fallos.append('marca la forma ESTRICTA, que ya no es el fallo — su lista sobra')
+    if 'laxaQueNoEscribe' in metodos:
+        fallos.append('marca una laxa que NO escribe — le falta la tercera condicion')
+
+    if not fallos:
+        print('  OK — reconoce la laxa que escribe, y solo esa.')
+        return 0
+
+    print('  ROTO:')
+    for f in fallos:
+        print(f'    - {f}')
+    print(f'  Encontro: {sorted(metodos) or "nada"}.')
+    return 1
+
+
 if __name__ == '__main__':
+    if '--control' in sys.argv[1:]:
+        sys.exit(control())
+
     tot_f = tot_if = 0; todos = []
     for ruta in sys.argv[1:]:
         h, nif = analizar(ruta); tot_f += 1; tot_if += nif
