@@ -395,7 +395,7 @@ La tabla `jobs` existe y está vacía. La infraestructura está; nadie la usó.
 > **2. Cambia el contrato con los clientes, y son cuatro.** Hoy el importador
 > responde con el resultado; encolado responde con un identificador y el cliente
 > tiene que preguntar. Eso es trabajo en `myvc_front`, en `myvc_front_2` y en la
-> app de Flutter —que es **una sola para los dieciséis colegios**, así que no se
+> app de Flutter —que es **una sola para los quince colegios**, así que no se
 > puede escalonar—. No es una optimización interna: es una funcionalidad nueva
 > con pantalla.
 >
@@ -768,7 +768,7 @@ El primero solo divide por nueve la parte que paga toda petición. **El tráfico
 que llenaba las cincuenta ranuras entonces ocupa hoy una fracción.**
 
 Y lo estructural, que Joseth ya resolvió comprando el segundo alojamiento: **el
-límite es por cuenta de cPanel, no por sitio.** Dieciséis colegios en una cuenta
+límite es por cuenta de cPanel, no por sitio.** Quince colegios en una cuenta
 comparten las mismas cincuenta ranuras, así que el que importaba el Excel tumbaba
 a los otros quince. La regla que queda: **si un colegio es pesado, lo que
 necesita es su propia cuenta, no sólo su propia base de datos.**

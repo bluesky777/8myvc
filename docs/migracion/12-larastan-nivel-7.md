@@ -155,7 +155,7 @@ Y ese es el hallazgo lateral de escribirlo: **la copia de desarrollo tiene cero
 matrículas en la papelera** y 479 retiros vivos con `estado = 'RETI'`. O sea que
 en este colegio los retiros no borran la fila, la marcan — así que el bucle roto
 no llegaba a entrar y el daño aquí es nulo. Es perfectamente posible que varios
-de los dieciséis salgan limpios, y por eso el comando dice primero cuántas hay
+de los quince salgan limpios, y por eso el comando dice primero cuántas hay
 en la papelera y solo después mira a quién le falta: **la pregunta barata va
 delante de la cara**.
 
@@ -390,7 +390,7 @@ Las tres decisiones que hacen que esto sea un arreglo y no un parche:
   solo que teniendo que acertar— y encima *parecería* arreglado.
 - **Los tokens emitidos antes de la migración se rechazan.** Quedan con
   `username` nulo y no hay forma de saber a quién iban; caer al comportamiento
-  viejo reabriría el agujero durante una hora en los dieciséis colegios, y una
+  viejo reabriría el agujero durante una hora en los quince colegios, y una
   puerta trasera con fecha de caducidad sigue siendo una puerta. El coste real es
   que quien pidiera el enlace justo antes del despliegue lo pida otra vez.
 - **La columna es nullable para siempre**, no por comodidad de la migración.
@@ -575,7 +575,7 @@ decisión y toca a los cuatro clientes:
   ese buzón; leerlo **al canjear** era dejar que el que llama eligiera qué cuenta
   abre un token que ya tiene. Lo primero no alcanza a ninguna cuenta cuyo correo
   no controles; lo segundo sí. Pero el front hoy no lo manda, así que sin tocar
-  `myvc_front` **y la app de Flutter, que es una para los dieciséis**, el cambio
+  `myvc_front` **y la app de Flutter, que es una para los quince**, el cambio
   no hace nada.
 - **Darles correo propio**, que es lo que el comando recomienda y lo único que
   además saca a un superusuario de un buzón de familia si algún colegio tiene ese
@@ -714,7 +714,7 @@ el único roto es el vacío de 2019 — una fila, y ahora sin sucesores.
 cuenta de alguien es del colegio.**
 
 > **Decidido por Joseth el 21 ago 2026: se queda.** Ni se apagan ni se sale a
-> correr el comando en los dieciséis ahora mismo. Queda medido, con su test, y el
+> correr el comando en los quince ahora mismo. Queda medido, con su test, y el
 > comando lo vuelve a decir cada vez que alguien lo ejecute — que es lo que
 > convierte esto en un dato disponible en vez de en un hallazgo perdido.
 
@@ -940,7 +940,7 @@ salen en unas pantallas y no en otras, y eso se reporta como «la aplicación va
 mal», no como esto.
 
 Así que lo que se hace es imprimirlo. `php artisan matriculas:huerfanas` —que ya
-había que correr en los dieciséis— dice ahora también en qué estados está cada
+había que correr en los quince— dice ahora también en qué estados está cada
 colegio y señala los tres ambiguos:
 
 ```
@@ -1116,7 +1116,7 @@ escrita a mano decía dos y son diecinueve— pero la conclusión no era «hay q
 recortar esto», sino **«esto es una función del producto y nadie sabía cuánta
 superficie ocupa»**. Ahora se sabe, y la fija el test.
 
-**Y hoy no la usa nadie, por seguridad.** Está apagada en los dieciséis a
+**Y hoy no la usa nadie, por seguridad.** Está apagada en los quince a
 propósito, no por olvido. Así que la pregunta que quedaba —qué debe poder hacer un
 docente con la bandera encendida— **se aplaza a después de la migración**: no
 frena nada, no hay nadie esperándola, y decidirla ahora sería abrir un frente de

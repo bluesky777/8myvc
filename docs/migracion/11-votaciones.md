@@ -17,7 +17,7 @@ con tres sesiones trabajando a la vez sobre el mismo árbol. **Enlázalo desde e
 Todo lo de aquí está fijado por `tests/Contrato/VotacionesTest.php`. **La §1 está
 arreglada** —se miró el front, y lo que se vio allí cambió cuál era el arreglo—;
 las otras tres fijan lo que hace hoy sin exigir lo correcto, porque son endpoints
-vivos en los dieciséis colegios y tocarlos enciende o apaga pantallas.
+vivos en los quince colegios y tocarlos enciende o apaga pantallas.
 
 ---
 
@@ -85,7 +85,7 @@ Ninguna otra app lo llama: `myvc_flutter` no toca `votos/show`.
 
 Lo primero que se propuso —quitar `|| Request::input('permitir')`— **era la
 opción mala, y solo se supo después de mirar el front**: apagaría el tarjetón en
-los dieciséis colegios, porque sin `permitir` una votación con
+los quince colegios, porque sin `permitir` una votación con
 `can_see_results=0` no devuelve aspiraciones y la papeleta sale en blanco.
 
 Se separaron las dos decisiones que el `if` mezclaba:
@@ -467,7 +467,7 @@ convierte en un descuido y no en una decisión, que no es lo mismo a la hora de
 arreglarla.
 
 Sigue sin arreglarse por lo que ya decía la §18.4 —mover ese `if` **enciende en
-los dieciséis colegios** una pantalla que hoy no funciona—, y ahora se sabe que
+los quince colegios** una pantalla que hoy no funciona—, y ahora se sabe que
 es la misma pregunta que la §5.4 por el otro lado: para contestar qué ve un
 alumno cuando no hay elección suya hay que saber antes **cuál es la suya**.
 
@@ -504,7 +504,7 @@ abiertas están contestadas** (21 ago 2026). Lo que queda es trabajo, no criteri
 - **`actualesInscrito()` no se acota por dueño** (§5.4). Acotarla apagaría la
   votación general del colegio, que es la que funciona.
 - Los tres endpoints rotos de la §4 y la §7.2 siguen documentados y sin arreglar:
-  encenderlos cambia pantallas en los dieciséis colegios y eso es despliegue, no
+  encenderlos cambia pantallas en los quince colegios y eso es despliegue, no
   código.
 
 Una cosa menor y de otro orden: **decidir si la votación de aula se termina o se

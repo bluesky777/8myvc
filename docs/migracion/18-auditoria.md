@@ -407,7 +407,7 @@ por fila.
 
 Un `App\Support\Reloj` con un único `Reloj::ahora()`, y la regla en un sitio.
 Todo `auditoria.ocurrido_en` sale de ahí. Como es `DATETIME(3)`, lo que se escribe
-es lo que se lee, en los dieciséis colegios y pase lo que pase con el hosting.
+es lo que se lee, en los quince colegios y pase lo que pase con el hosting.
 
 Y un test de contrato —`RelojUnicoTest`— que recorra `app/` y **falle si aparece
 un `Carbon::now()` o un `now()` nuevo** en un sitio que escriba una fecha en la
@@ -496,7 +496,7 @@ entero es el 2% del rango, así que el decimal pesa **el doble** que en una de 1
 
 > **Y aquí no se puede generalizar desde una base, que es el error contra el que
 > avisa CLAUDE.md.** La escala es configurable por colegio y por año, y sólo se ve
-> una. Si en alguno de los dieciséis fuera de **1 a 5** —donde el decimal no es un
+> una. Si en alguno de los quince fuera de **1 a 5** —donde el decimal no es un
 > capricho sino la forma normal de calificar— la pregunta deja de ser «¿teclean
 > decimales?» y pasa a ser **«¿cuántos años llevan perdiéndolos?»**. Se contesta
 > con el mismo `for` de la fase 0:
@@ -530,7 +530,7 @@ front y que son ciertos:
 
 No lo arreglo aquí y no lo propongo en este plan: meter la primera validación de
 escala del proyecto es una decisión con su propia medición —cuántas notas fuera de
-rango hay ya guardadas en los dieciséis, y qué se hace con ellas—. Queda escrito
+rango hay ya guardadas en los quince, y qué se hace con ellas—. Queda escrito
 porque **una nota fuera de la escala es un dato que la auditoría va a registrar
 como si fuera normal**, y quien lea el rastro mañana merece saber que el sistema
 nunca lo impidió.
@@ -556,7 +556,7 @@ contra este repo: los seis consumidores existen y las rutas son las que dice.
 | `paginas/promocionar-notas/detalle-definitiva.ts` | `nota-final-detalle` | la fase 5 la sustituía |
 | `paginas/mis-sesiones/*` | `de-usuario`, `sesion`, `DELETE bitacoras/destroy/{id}` | la fase 6 le quitaba el botón **y los `intento_login`** |
 | `paginas/bitacora/bitacora.ts` | `GET bitacoras/{user_id?}` + destroy | la fase 6 la dejaba sin las dos |
-| **`myvc_flutter`** `HistorialNotaApi.dart` | `historiales/nota-detalle` | **una sola app para los dieciséis** |
+| **`myvc_flutter`** `HistorialNotaApi.dart` | `historiales/nota-detalle` | **una sola app para los quince** |
 
 De ahí salen cuatro reglas que ya están metidas en las fases, y una decisión que
 sube a Joseth.
@@ -564,7 +564,7 @@ sube a Joseth.
 **1. Nada viejo se retira en la fase 5.** Las rutas nuevas son **aditivas**. La
 frase original —*«sustituye a `historiales/nota-detalle` y `nota-final-detalle`»*—
 daba por hecho que eran dos consumidores y son **tres**: el tercero es Flutter,
-que se publica en tiendas y es una sola app para los dieciséis. Retirar las viejas
+que se publica en tiendas y es una sola app para los quince. Retirar las viejas
 antes de que Flutter publique deja el historial de notas del móvil en 404 **en
 dieciséis colegios a la vez**. La retirada es su propia fase (la 7) y su condición
 de entrada no es «fusionado» ni «desplegado»: es **«Flutter publicado y adoptado»**,
@@ -606,7 +606,7 @@ en el cuerpo. Sin ella el aviso es impintable.
 
 | | Qué | Depende de |
 |---|---|---|
-| **0** | Medir en los dieciséis | — |
+| **0** | Medir en los quince | — |
 | **1** | El reloj único y su test | — · **hecha el 24 ago** |
 | **2** | La sesión de verdad: atar `historiales` al token | — |
 | **3** | La tabla, el servicio y el detector | 1, 2 |
@@ -615,7 +615,7 @@ en el cuerpo. Sin ella el aviso es impintable.
 | **6** | Retención y archivado de `auditoria` | 5 desplegado |
 | **7** | Retirar lo viejo — `bitacoras` y las rutas de `historiales/*` | **Flutter publicado**, no sólo desplegado |
 
-### Fase 0 — medir en los dieciséis, antes de tocar nada — **la herramienta ya está**
+### Fase 0 — medir en los quince, antes de tocar nada — **la herramienta ya está**
 
 `tools/salud-de-la-bitacora.php`, escrita el 24 ago 2026. Sólo `SELECT`, diez
 bloques, e imprime su población en el primero porque todos los ceros de abajo son
@@ -862,8 +862,8 @@ pantalla dice qué hizo cada persona minuto a minuto. Las tres piezas, y van jun
 > el permiso nuevo en decoración.
 
 Y una consecuencia de la topología que no se puede olvidar: `myvc_flutter` es
-**una sola app para los dieciséis colegios**. La pantalla no se publica hasta que
-las rutas estén **desplegadas** en los dieciséis, no fusionadas. En el que faltara
+**una sola app para los quince colegios**. La pantalla no se publica hasta que
+las rutas estén **desplegadas** en los quince, no fusionadas. En el que faltara
 sería un 404.
 
 ### Fase 6 — retención
@@ -890,14 +890,14 @@ espera de más:
 |---|---|---|---|
 | `historiales/nota-detalle` | `app/` · `app2` · **Flutter** | `app/` **y** Flutter | Flutter publicado **y adoptado** |
 | `historiales/nota-final-detalle` | `app/` · `app2` | **`app/`** | que `app2` sustituya a `app/` — Flutter **no** la llama |
-| `historiales/de-usuario` y `sesion` | `mis-sesiones` | `app/` | esa pantalla migrada en los dieciséis |
+| `historiales/de-usuario` y `sesion` | `mis-sesiones` | `app/` | esa pantalla migrada en los quince |
 | `GET bitacoras/{user_id?}` | `/panel/bitacora` ×2 | **`app/`**, `BitacoraCtrl.ts` | **que `app2` sustituya a `app/`** — no basta con jubilar la de `app2` |
 | `DELETE bitacoras/destroy/{id}` | **dos** botones | `app/` | que el superviviente tenga sustituto |
 
 > **La columna «qué front la retiene» no es decorado: es la que evita el error que
 > se cometió tres veces esta noche.** «La pantalla» significa dos cosas según quién
 > la nombre — la de `app2`, que no se ha publicado, y la de `app/`, que **es la que
-> corre hoy en los dieciséis colegios**. Jubilar `/panel/bitacora` (decisión 4) es
+> corre hoy en los quince colegios**. Jubilar `/panel/bitacora` (decisión 4) es
 > una decisión sobre `app2`; el endpoint lo retiene `app/scripts/bitacora/BitacoraCtrl.ts`
 > con **dos** entradas de menú, y ése no se va hasta que `app2` sustituya a `app/`.
 > **Dos pantallas con el mismo nombre y dos calendarios distintos.** Lo corrigió
@@ -911,7 +911,7 @@ espera de más:
 
 Medido por Flutter: **cero referencias a `nota-final-detalle` en su `lib/`**, sólo
 `nota-detalle`. Y `nota-final-detalle` la retiene `app/`, que es **la versión que
-corre hoy en los dieciséis** —`app2` aún no se publica—. O sea: Flutter suelta una
+corre hoy en los quince** —`app2` aún no se publica—. O sea: Flutter suelta una
 y el front retiene la otra, por motivos distintos y con calendarios distintos.
 
 #### Por qué «adoptada» no es una fecha que llegue sola
@@ -976,7 +976,7 @@ y es el que decidió.
   `myvc_front/PANTALLAS-HISTORIAL-Y-BOLETIN.md`, no como una nota — se avisó el
   24 ago y era lo único que les bloqueaba.
 - **`GET bitacoras/{user_id?}` se retira con ella**, en la fase 7, y no antes: la
-  pantalla vieja sigue viva hasta que la nueva esté desplegada en los dieciséis.
+  pantalla vieja sigue viva hasta que la nueva esté desplegada en los quince.
 - **El permiso `califica` deja de gobernar quién ve el rastro.** Pasa a
   `can_view_auditoria` (decisión 3), que es más estrecho: hoy `califica` lo tiene
   cualquiera que ponga notas. **Eso es un endurecimiento, y hay que decirlo en voz

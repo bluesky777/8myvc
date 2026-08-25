@@ -463,7 +463,7 @@ lo mismo**, así que:
 
 > **Ningún test que corra contra este seed puede distinguir los dos.** Un arreglo
 > que «limpie» un `(MATR or ASIS)` dejándolo en `MATR` **pasa la suite entera en
-> verde** y deja fuera del informe a los alumnos asistentes en los dieciséis
+> verde** y deja fuera del informe a los alumnos asistentes en los quince
 > colegios.
 
 Lo encontró `8myvc-79` **saboteando su propio código a propósito** para comprobar si

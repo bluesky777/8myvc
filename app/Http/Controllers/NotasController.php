@@ -260,7 +260,18 @@ class NotasController extends Controller {
 		}
 		
 
-		$datos = Nota::alumnoPeriodosDetailed($alumno_id, $user->year_id, $profesor_id);
+		// El cuarto argumento es lo que arregla «en notas de alumno no se pueden
+		// editar notas»: con el usuario en la mano, `alumnoPeriodosDetailed` CREA
+		// las filas de `notas` que falten, con la nota por defecto de la subunidad,
+		// igual que lleva haciendo `notas/detailed` desde siempre. Sin fila no hay
+		// `id`, y sin `id` el front acababa mandando `notas/update/undefined`.
+		//
+		// Quién crea y en qué periodo lo decide `Nota::quienCreaLasNotas`, no esto:
+		// un alumno mirando su boletín no siembra nada, y con el periodo cerrado
+		// sólo el superusuario. Está razonado ahí. Aquí se pasa **el usuario**, no
+		// su id, para que la decisión no dependa de que el llamante se acuerde —ver
+		// `alumnoPeriodoDetalle`, por donde entra también `alumno-periodo-grupo`—.
+		$datos = Nota::alumnoPeriodosDetailed($alumno_id, $user->year_id, $profesor_id, $user);
 
 		
 		// Definitivas hasta el tercer periodo para calcular nota faltante
@@ -311,10 +322,20 @@ class NotasController extends Controller {
 			$profesor_id = $user->persona_id;
 		}
 		
-		$periodo 	= DB::select('SELECT * FROM periodos WHERE id=? and deleted_at is null', [ $periodo_id ])[0]; 
+		$periodo 	= DB::select('SELECT * FROM periodos WHERE id=? and deleted_at is null', [ $periodo_id ])[0];
 
 
-		Nota::alumnoPeriodoDetalle($periodo, $grupo_id, $alumno_id, $periodo->year_id, $profesor_id);
+		// El séptimo argumento por el mismo motivo que en `getAlumno`, y **es el
+		// otro camino de 05 §47.2**: esta ruta la pide «Promocionar notas»
+		// (`PromocionarNotasCtrl`, `app2/paginas/promocionar-notas`), que pinta las
+		// mismas casillas y las guarda con el mismo `NotasApi.actualizar(nota.id)`.
+		// O sea que arreglar sólo `notas/alumno` dejaba el `notas/update/undefined`
+		// vivo en la pantalla gemela, que es justo donde más se nota: ahí se copian
+		// las notas al periodo de destino, y el destino es el que no tiene filas.
+		//
+		// Quién crea lo decide `Nota::quienCreaLasNotas` con ESTE periodo —el del
+		// cuerpo, que aquí sí es explícito—, no el del contexto del usuario.
+		Nota::alumnoPeriodoDetalle($periodo, $grupo_id, $alumno_id, $periodo->year_id, $profesor_id, null, $user);
 
 
 		return ['notas' => $periodo];
