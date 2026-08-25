@@ -784,6 +784,18 @@ este orden y en la misma migración:
    Es lo que devuelve a la planilla a los alumnos que hoy no salen (§6.2) y
    deshace los ceros del puesto (§6.1).
 
+> **Y un escritor más sobre `notas`, desde el 25 ago.** El arreglo del
+> `notas/update/undefined` ([05 §234](05-codigo-muerto-y-roto.md)) siembra la fila
+> que falte al abrir **notas de alumno** y **promocionar notas**, con el mismo
+> `WHERE NOT EXISTS (… deleted_at IS NULL)` que ya usaba `verificarCrearNotas`. Ese
+> filtro y **el índice del punto 5 no miran lo mismo**: una fila creada encima de
+> una borrada blandamente hace fallar el `ALTER TABLE`, y después convierte el alta
+> en un 500. **Población hoy en la base de desarrollo: cero pares con fila borrada y
+> sin fila viva**, de 1.165.685 notas — o sea que no bloquea nada, pero **lo que
+> cambió es la frecuencia**: esa escritura pasó de correr al dar de alta una
+> subunidad a correr **en cada carga de dos pantallas**. Quien vaya a poner el
+> índice cuenta esos pares en su colegio **antes**, y con la tabla entera.
+
 Ojo con el despliegue: son dieciséis bases, y `app/` es copia por colegio.
 El único índice y el código que lo respeta tienen que llegar **juntos** a cada
 colegio; el índice solo, con el código viejo, convierte los duplicados en 500.

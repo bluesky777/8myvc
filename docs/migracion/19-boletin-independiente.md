@@ -580,6 +580,39 @@ sin `ORDER BY`— y se arregla igual: **una sola regla de cuál es la matrícula
 año, compartida por la lectura y la escritura**, con su test de un alumno con dos
 matrículas. Va en la fase 2, antes de que exista la primera pantalla.
 
+### 9.6 · Un escritor nuevo puesto encima de una lectura que aún no ha pasado por la fase 1 — 25 ago
+
+`Unidad::deAsignatura` **no filtra `unidades.alumno_id`**. Su hermana
+`deAsignaturaCalculada` sí —lleva el `u.alumno_id <=> :alumno_id` de la fase 1, y
+por ahí pasan los tres boletines y los informes—, pero **la que usa
+`Nota::alumnoPeriodoDetalle` es la otra**.
+
+Mientras esa lectura fuera **sólo lectura**, la consecuencia era la de siempre: la
+pantalla enseña unidades de más. **Desde el 25 ago no es sólo lectura.** El arreglo
+del `notas/update/undefined` ([05 §234](05-codigo-muerto-y-roto.md)) le colgó una
+siembra: por ahí entran ahora `notas/alumno` y `notas/alumno-periodo-grupo`, y las
+dos **crean la fila que falte**. Con el boletín independiente encendido, eso es
+**crear notas del alumno pedido en unidades cuyo dueño es otro**.
+
+Es exactamente la familia de
+[`SubunidadDeUnaUnidadConDuenoTest`](../../tests/Contrato/SubunidadDeUnaUnidadConDuenoTest.php)
+—el alcance se pierde **al traspasarlo**, no al leerlo—, con la diferencia de que
+esta vez el escritor lo pusimos nosotros y **encima de una lectura que el censo de
+la fase 1 todavía no había tocado**.
+
+**Hoy es inerte**: `unidades.alumno_id` es `NULL` en todas las filas de los quince
+colegios, y `<=> NULL` seleccionaría exactamente lo mismo que hay ahora. **Se arma
+solo el día que alguien marque al primer alumno**, que es el objeto de este
+documento. Va aquí y no en el 05 porque **la fase 1 es quien lo cierra**: cuando
+`deAsignatura` reciba el alumno como su hermana, esto desaparece sin tocar el
+arreglo de las notas.
+
+> Y la lección, que es de método y no de este caso: **el censo de lecturas de la
+> fase 1 clasificó lo que había el día que se corrió.** Un arreglo posterior puede
+> convertir una lectura clasificada como inocua en un escritor sin que el censo se
+> entere. **Antes de encender la fase 1, el censo se vuelve a correr** — no por si
+> se equivocó, sino por lo que se escribió después.
+
 ---
 
 ## §10 — Despliegue y orden

@@ -183,6 +183,84 @@ arriba y no en la línea.
 
 ---
 
+## Notas de alumno: la casilla que no existía — **hecha, sin fundir, y toca los quince**
+
+**Rama `fix/notas-alumno-crea-las-notas-que-faltan`, sin fundir** (25 ago, tarde).
+Vino de un parte real —*«en notas de alumno no se pueden editar notas»*— que
+arrancó en el front y acabó siendo del backend. El detalle entero está en
+[05 §234](05-codigo-muerto-y-roto.md); aquí lo que decide.
+
+> **Y una advertencia sobre el commit, que es de las que este documento existe para
+> dar.** El código entró en **`60e4fa9`**, y **su mensaje no describe lo que ese
+> commit contiene**: dice *«1.504 pruebas»* y *«las cuatro nuevas de `NotasTest`»*
+> cuando el árbol que commiteó tiene **1.507 y siete**. No es un descuido de
+> redacción — es el árbol compartido: **la revisión estaba sin commitear en el
+> mismo directorio** cuando esa sesión hizo `checkout -b` y `commit`, y se llevó
+> dentro los tres arreglos de abajo sin verlos. No se reescribe el commit —es de
+> otra sesión y estaba viva—, **se corrige por escrito**, que es lo que dice la
+> regla de las cifras. *Quien lea `60e4fa9` a secas se lleva tres cambios que su
+> mensaje no menciona.*
+
+**Qué era.** `notas/alumno` **sólo leía**: si la fila de `notas` no existía, la
+subunidad viajaba sin la clave `nota`, el front pintaba la casilla vacía y al
+teclear mandaba `PUT notas/update/undefined` → 422 «No se pudo guardar la nota».
+La planilla del profesor no lo sufría porque `notas/detailed` **siembra antes de
+devolver**. **240 casillas** así en la copia de desarrollo, 228 en el tercer
+periodo, 40 alumnos — sobre todo **el que entra a mitad de año**.
+
+**Qué se hizo.** `Nota::alumnoPeriodoDetalle` recibe **el usuario** y le pregunta a
+`Nota::quienCreaLasNotas` **periodo a periodo**: superusuario siempre, profesor sólo
+con el periodo abierto, alumno y acudiente **nunca**. No es una decisión nueva —es
+`User::permiteEditarNotas` y la [§47.2](05-codigo-muerto-y-roto.md) aplicadas a otra
+ruta que lee y de paso escribe.
+
+### Lo que añadió la revisión, y es lo que importa para el relevo
+
+- **El segundo camino.** El arreglo entró resolviendo el `user_id` en `getAlumno`,
+  o sea **sólo para el llamante que se acordó**. Por `alumnoPeriodoDetalle` entran
+  **dos** rutas, y la otra —`PUT notas/alumno-periodo-grupo`, la pantalla
+  **«Promocionar notas»**— guarda con el mismo `NotasApi.actualizar(nota.id)`
+  (`PromocionarNotasCtrl:463`, `app2/paginas/promocionar-notas:429`). **Seguía
+  rota**, y ahí duele más: lo que se pide es el **periodo de destino**, que es
+  justo el que no tiene filas. Es la §47.2 mordiéndonos en nuestro propio arreglo.
+- **`DB::insert()` no cuenta filas.** `verificarCrearNota` devolvía «la creé»
+  **siempre**: `DB::insert` devuelve el bool de «la sentencia se ejecutó». Medido:
+  `DB::insert(...)` → `true`, `DB::affectingStatement(...)` → `0`, misma consulta,
+  cero filas. Cambiado, y con test — el único de los tres que no se puede
+  comprobar por HTTP.
+- **Comprobado al revés uno a uno.** Quitando el séptimo argumento cae
+  *promocionar*; con `DB::insert` cae *dice que creó*; tapándole el periodo cerrado
+  al superusuario cae *el superusuario siembra*. **Cada uno cae solo.**
+
+**El número: 1.507 pasados, 10.751 aserciones, 0 fallos** (1.504 antes de la
+revisión, 1.500 en `eb95cbc`). `larastan [OK]`, `pint PASS`.
+
+### Lo que espera y no lo decide una sesión
+
+1. **No está desplegado, y `app/` es copia por colegio.** Hasta que llegue a los
+   quince, **lo único que protege al profesor es la guarda del front** —el
+   `if (!nota.id)` de `NotasAlumnoCtrl`, también sin commitear—. Y esa guarda le
+   dice *«se crea desde la planilla de la asignatura»*, que **en el caso que
+   sobrevive al arreglo —periodo cerrado— es falso**: ahí la planilla tampoco
+   puede crearla (400). Es texto del front, pero **el que lo sabe es el backend**.
+2. **Dos escrituras nuevas en rutas de lectura**, y las dos en pantallas que se
+   abren a diario. Está acotado por permiso y por periodo, pero **es un cambio de
+   forma**: quien mire consultas lentas después del despliegue lo verá.
+3. **La gemela borrada, para quien ponga la clave única de la fase 2 del
+   [10](10-definitivas.md).** El `NOT EXISTS` filtra `deleted_at IS NULL`; el
+   índice **mira la tabla entera**. Población hoy: **cero** pares con fila borrada
+   y sin fila viva, de 1.165.685 notas. Lo que cambia es la frecuencia: de
+   ejecutarse **al dar de alta una subunidad** a hacerlo **en cada carga de dos
+   pantallas**.
+4. **Para el censo de la fase 1 del [19](19-boletin-independiente.md):**
+   `Unidad::deAsignatura` **no filtra `unidades.alumno_id`** —al revés que
+   `deAsignaturaCalculada`, que ya lleva el `<=>`—. Hoy inerte porque la columna es
+   `NULL` en los quince; el día que alguien marque al primer alumno, **este camino
+   sembraría notas del alumno pedido en unidades de otro**. Es un **escritor nuevo
+   puesto sobre una lectura que aún no ha pasado por la fase 1**.
+
+---
+
 ## AUD-5 hecha — el rastro de la auditoría deja de leerlo cualquiera del personal
 
 **Fundida en `main` — `merge(48)` en `847137a`.** Rama `feat/auditoria-permiso`,

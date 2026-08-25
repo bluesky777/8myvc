@@ -11892,3 +11892,116 @@ como salió la mitad de lo de esta noche.
   `^[a-zA-Z][a-zA-Z0-9_]*$` — sin comillas, espacios, paréntesis, comas ni punto y coma.
 - Devuelve el nombre **ya entre acentos graves**, *para que no se pueda validar y concatenar
   la variable sin validar por descuido.*
+
+---
+
+## §234. «En notas de alumno no se pueden editar notas» — y el segundo camino, que estuvo a punto de quedarse fuera (25 ago 2026)
+
+El parte llegó desde el front con una captura que sólo ponía *«No pudimos guardar
+la nota 78»*. Lo que había debajo:
+
+`notas/alumno/{alumno}/{grupo}` **sólo leía**. `Nota::alumnoPeriodoDetalle` cuelga
+`subunidad.nota` únicamente **cuando ya existe la fila en `notas`**; si no existe,
+la propiedad no viaja. El front pintaba la casilla vacía, el profesor tecleaba, y
+`ng-model="subunidad.nota.nota"` se inventaba el objeto intermedio: `{nota: 78}`,
+**sin `id`**. De ahí salía `PUT notas/update/undefined`, que muere en el `catch` de
+`putUpdate` con un 422 que no explica nada.
+
+**La planilla del profesor no lo sufría** porque su ruta, `notas/detailed`, llama a
+`Nota::verificarCrearNotas` y **crea las filas que falten antes de devolver nada**.
+Dos pantallas sobre la misma tabla, y sólo una sembraba.
+
+Medido en la copia de desarrollo: **240 casillas** sin fila en el año 8 —228 en el
+tercer periodo—, repartidas en 40 alumnos. Le toca sobre todo **al que entra a
+mitad de año**, que es justo a quien se viene a poner notas a esa pantalla.
+
+### Quién siembra, y por qué no es una cautela nueva
+
+La ruta pasa a **leer y de paso escribir**, que es exactamente la forma de la
+[§47.2](#472). Así que la decisión no se vuelve a tomar: se reusa
+`User::permiteEditarNotas()` —la que existe para preguntar sin abortar— y sale
+sola en `Nota::quienCreaLasNotas`:
+
+| Quién | Periodo abierto | Periodo cerrado |
+|---|---|---|
+| superusuario | crea | **crea** — es quien arregla la ficha del que llegó tarde |
+| profesor | crea | **no**: con el periodo cerrado tampoco podría guardarla después (400), y la casilla no llevaría a ningún sitio |
+| alumno · acudiente | **nunca** | **nunca** — vienen a mirar, y `created_by` es con lo que se contesta «quién puso esto» |
+
+Y es **de UN alumno**, no del grupo: aquí se sabe de quién es la petición, así que
+sembrarle el grupo entero a quien viene a mirar una ficha es escribir treinta veces
+de más. Ésa es, de paso, la firma que le falta a `verificarCrearNotas` para que
+[`SubunidadDeUnaUnidadConDuenoTest`](../../tests/Contrato/SubunidadDeUnaUnidadConDuenoTest.php)
+se ponga en verde: **recibir el alcance en vez de derivarlo**.
+
+### El segundo camino, que es la §47.2 mordiéndonos en nuestro propio arreglo
+
+El arreglo entró por `getAlumno`, resolviendo el `user_id` en el controlador y
+pasándoselo hecho al modelo. **Con eso quedaba arreglado el llamante que se acordó,
+y sólo ése.**
+
+Por `Nota::alumnoPeriodoDetalle` entran **dos** rutas:
+
+    GET  notas/alumno/{alumno}/{grupo}      -> notas de alumno
+    PUT  notas/alumno-periodo-grupo         -> PROMOCIONAR NOTAS
+
+Y la segunda tiene el mismo cableado del lado del cliente:
+`PromocionarNotasCtrl:463` y `app2/paginas/promocionar-notas:429` guardan las dos
+con `NotasApi.actualizar(nota.id)`. O sea que **el `notas/update/undefined` seguía
+vivo en la pantalla gemela** — y ahí duele más, porque lo que se pide es el
+**periodo de destino**, que es precisamente el que no tiene filas.
+
+Arreglado moviendo la decisión: `alumnoPeriodoDetalle` recibe **el usuario**, no un
+`user_id` ya resuelto, y le pregunta a `quienCreaLasNotas` **periodo a periodo**
+—el candado es de cada periodo, no del año—. Así la reciben las dos rutas, y la
+tercera que aparezca.
+
+> Es literalmente la lección de la §47.2 —*al tapar un camino hay que preguntarse
+> cuál es el otro*— aplicada al arreglo escrito una hora antes, que es la forma
+> más fácil de que vuelva a pasar.
+
+### `DB::insert()` no cuenta filas, y el método afirmaba haber creado lo que no creó
+
+`verificarCrearNota` devolvía `(bool) DB::insert(...)`. **`DB::insert()` devuelve el
+bool de `statement()`** —«la sentencia se ejecutó»—, no las filas afectadas, así que
+con su propio `WHERE NOT EXISTS` bloqueando el alta contestaba `true` igual. Medido
+contra la base, misma consulta:
+
+    DB::insert(...)             -> bool(true)
+    DB::affectingStatement(...) -> int(0)
+
+Hoy no cambiaba ninguna pantalla —el valor sólo gobierna si se relee la fila, y las
+dos ramas pintan lo mismo—, pero **un método que informa de lo que hizo no puede
+informar de otra cosa**. Cambiado a `affectingStatement` y fijado por
+`NotasTest::test_verificar_crear_nota_solo_dice_que_creo_cuando_creo`, que es el
+único de los tres nuevos que no se puede comprobar por HTTP.
+
+### Dos cosas que quedan dichas y no se tocan
+
+**La gemela borrada, y la fase 2 del [10](10-definitivas.md).** El `NOT EXISTS`
+filtra `deleted_at IS NULL` —heredado de `verificarCrearNotas`, y a propósito: una
+nota borrada blandamente no cuenta y la casilla vuelve a nacer—, pero **la clave
+única que la fase 2 planea poner sobre `(subunidad_id, alumno_id)` mira la tabla
+entera**. Una fila creada encima de una borrada la haría fallar. Población hoy en
+la base de desarrollo: **cero** pares con fila borrada y sin fila viva, de
+**1.165.685** notas; y **dos** pares ya duplicados, que son los que la fase 0 ya
+cuenta. Lo que cambia no es el riesgo sino su frecuencia: esto pasa de ejecutarse
+**al dar de alta una subunidad** a ejecutarse **en cada carga de dos pantallas**.
+Va aquí para que quien ponga el índice lo mire, no para arreglarlo hoy.
+
+**El boletín independiente, [19](19-boletin-independiente.md).**
+`Unidad::deAsignatura` —la que usa este camino— **no filtra `unidades.alumno_id`**,
+al revés que `deAsignaturaCalculada`, que ya lleva el `<=>` de la fase 1. Hoy es
+inerte porque la columna es `NULL` en todas las filas de los quince colegios; el día
+que alguien marque al primer alumno, **este camino sembraría notas del alumno pedido
+en unidades de otro**. Es la misma familia que `SubunidadDeUnaUnidadConDuenoTest`, y
+hay que añadirlo al censo de la fase 1: **es un escritor nuevo puesto sobre una
+lectura que aún no ha pasado por ahí**.
+
+### Qué lo fija
+
+`NotasTest`, siete casos —cuatro de la sesión del front, tres de la revisión—, y
+**comprobados al revés uno a uno**: quitando el séptimo argumento de
+`alumno-periodo-grupo` cae *promocionar*; volviendo a `DB::insert` cae *dice que
+creó*; tapándole el periodo cerrado al superusuario cae *el superusuario siembra*.
+Cada uno cae **solo**, que es lo que dice que mide lo que dice su nombre.
