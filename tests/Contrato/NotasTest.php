@@ -2,6 +2,7 @@
 
 namespace Tests\Contrato;
 
+use App\Models\Nota;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -119,6 +120,233 @@ class NotasTest extends CasoDeContrato
             $this->assertEquals($subunidad->nota_default, $nota->nota,
                 'Una nota recién creada arranca en el valor por defecto de su subunidad.');
         }
+    }
+
+    // ------------------------------------------- La ficha de UN alumno siembra
+
+    /**
+     * `notas/alumno` también crea las que falten. Antes NO lo hacía, y ése era el
+     * parte «en notas de alumno no se pueden editar notas».
+     *
+     * Sin fila en `notas` la subunidad viajaba sin la clave `nota`, el front
+     * pintaba la casilla vacía, y al teclear mandaba `notas/update/undefined` —que
+     * muere en el `catch` de `putUpdate` con un 422 que no explica nada—. La
+     * rejilla del profesor no lo sufría porque `putDetailed` sí sembraba; ésta es
+     * la misma siembra, para un alumno solo.
+     *
+     * Se borran las notas de UNA subunidad y se pide la ficha: tienen que volver,
+     * y sólo las de ese alumno.
+     */
+    public function test_la_ficha_de_un_alumno_crea_las_notas_que_faltan(): void
+    {
+        $asignatura = $this->contexto();
+        $this->permitiendoEditarNotas($asignatura);
+        $token = $this->tokenDe($asignatura->username);
+
+        $subunidad = $this->unaSubunidadDe($asignatura);
+        $alumno = $this->unAlumnoDe($asignatura);
+
+        DB::table('notas')->where('subunidad_id', $subunidad->id)->delete();
+
+        $this->getJson("/api/notas/alumno/{$alumno->alumno_id}/{$asignatura->grupo_id}",
+            ['Authorization' => 'Bearer '.$token])->assertStatus(200);
+
+        $recreada = DB::table('notas')->where('subunidad_id', $subunidad->id)
+            ->where('alumno_id', $alumno->alumno_id)->whereNull('deleted_at')->first();
+
+        $this->assertNotNull($recreada, 'La ficha del alumno no creó la nota que faltaba.');
+        $this->assertEquals($subunidad->nota_default, $recreada->nota,
+            'Una nota recién creada arranca en el valor por defecto de su subunidad.');
+        $this->assertEquals($asignatura->user_id, $recreada->created_by,
+            'La nota se firma con quien pidió la ficha.');
+
+        $this->assertEquals(1, DB::table('notas')->where('subunidad_id', $subunidad->id)
+            ->whereNull('deleted_at')->count(),
+            'Es la ficha de UN alumno: no puede sembrarle la subunidad al grupo entero.');
+    }
+
+    /** Pedirla dos veces no duplica: el INSERT lleva su propio WHERE NOT EXISTS. */
+    public function test_pedir_la_ficha_dos_veces_no_duplica_notas(): void
+    {
+        $asignatura = $this->contexto();
+        $this->permitiendoEditarNotas($asignatura);
+        $token = $this->tokenDe($asignatura->username);
+
+        $subunidad = $this->unaSubunidadDe($asignatura);
+        $alumno = $this->unAlumnoDe($asignatura);
+
+        DB::table('notas')->where('subunidad_id', $subunidad->id)->delete();
+
+        for ($i = 0; $i < 2; $i++) {
+            $this->getJson("/api/notas/alumno/{$alumno->alumno_id}/{$asignatura->grupo_id}",
+                ['Authorization' => 'Bearer '.$token])->assertStatus(200);
+        }
+
+        $this->assertEquals(1, DB::table('notas')->where('subunidad_id', $subunidad->id)
+            ->where('alumno_id', $alumno->alumno_id)->whereNull('deleted_at')->count());
+    }
+
+    /**
+     * Con el periodo cerrado, a un profesor no se le siembra nada.
+     *
+     * Es la decisión de 05 §47.2 —enseñar lo que hay y no crear— aplicada aquí, y
+     * no es cosmética: con el periodo cerrado tampoco podría GUARDAR la nota
+     * después (`pueden_editar_notas` le contesta 400, el test de arriba). Crear la
+     * fila sería dejarle una casilla que no lleva a ningún sitio.
+     */
+    public function test_con_el_periodo_cerrado_la_ficha_no_siembra_notas_al_profesor(): void
+    {
+        $asignatura = $this->contexto();
+        $token = $this->tokenDe($asignatura->username);
+
+        $subunidad = $this->unaSubunidadDe($asignatura);
+        $alumno = $this->unAlumnoDe($asignatura);
+
+        DB::table('notas')->where('subunidad_id', $subunidad->id)->delete();
+        DB::table('periodos')->where('id', $asignatura->periodo_id)
+            ->update(['profes_pueden_editar_notas' => 0]);
+
+        $this->getJson("/api/notas/alumno/{$alumno->alumno_id}/{$asignatura->grupo_id}",
+            ['Authorization' => 'Bearer '.$token])->assertStatus(200);
+
+        $this->assertEquals(0, DB::table('notas')->where('subunidad_id', $subunidad->id)
+            ->whereNull('deleted_at')->count(),
+            'Con el periodo cerrado la ficha enseña lo que hay y no crea nada.');
+    }
+
+    /**
+     * Un alumno mirando sus propias notas no siembra ninguna.
+     *
+     * Viene a mirar. Si su lectura creara filas quedarían firmadas con SU usuario
+     * en `created_by`, que es la columna con la que se responde «quién puso esto».
+     */
+    public function test_un_alumno_mirando_sus_notas_no_siembra_ninguna(): void
+    {
+        $asignatura = $this->contexto();
+        $this->permitiendoEditarNotas($asignatura);
+        $this->notasVisiblesParaAlumnos(true);
+
+        $subunidad = $this->unaSubunidadDe($asignatura);
+        $alumno = $this->unAlumnoDe($asignatura);
+
+        $usuario = DB::selectOne('SELECT u.* FROM users u
+            INNER JOIN alumnos a ON a.user_id = u.id AND a.id = ? AND a.deleted_at IS NULL
+            WHERE u.is_active = 1 AND u.deleted_at IS NULL', [$alumno->alumno_id]);
+
+        $this->assertNotNull($usuario, 'El alumno elegido necesita usuario para pedir sus notas.');
+
+        DB::table('notas')->where('subunidad_id', $subunidad->id)->delete();
+
+        $this->getJson('/api/notas/alumno', ['Authorization' => 'Bearer '.$this->tokenDe($usuario->username)])
+            ->assertStatus(200);
+
+        $this->assertEquals(0, DB::table('notas')->where('subunidad_id', $subunidad->id)
+            ->whereNull('deleted_at')->count(),
+            'La lectura de un alumno no puede sembrar filas firmadas con su usuario.');
+    }
+
+    /**
+     * Al superusuario **sí** se le siembra con el periodo cerrado, y por eso está
+     * escrito aquí y no solo en un docblock.
+     *
+     * Es la otra mitad de la decisión de 05 §47.2, y la que aguanta el caso del
+     * parte: el alumno que llega a mitad de año no tiene filas de los periodos
+     * anteriores, que están cerrados, y quien va a ponérselas es el superusuario.
+     * Si sólo se comprobara el «no siembra», cerrar de más pasaría en verde.
+     */
+    public function test_el_superusuario_siembra_aunque_el_periodo_este_cerrado(): void
+    {
+        $asignatura = $this->contexto();
+        $superusuario = $this->unSuperusuarioDe($asignatura);
+
+        $subunidad = $this->unaSubunidadDe($asignatura);
+        $alumno = $this->unAlumnoDe($asignatura);
+
+        DB::table('notas')->where('subunidad_id', $subunidad->id)->delete();
+        DB::table('periodos')->where('id', $asignatura->periodo_id)
+            ->update(['profes_pueden_editar_notas' => 0]);
+
+        $this->getJson("/api/notas/alumno/{$alumno->alumno_id}/{$asignatura->grupo_id}",
+            ['Authorization' => 'Bearer '.$this->tokenDe($superusuario->username)])->assertStatus(200);
+
+        $this->assertEquals(1, DB::table('notas')->where('subunidad_id', $subunidad->id)
+            ->where('alumno_id', $alumno->alumno_id)->whereNull('deleted_at')->count(),
+            'Con el periodo cerrado el superusuario sigue creando: es quien arregla la ficha '
+            .'del alumno que llegó tarde, y sin esto el arreglo no sirve para el caso del parte.');
+    }
+
+    /**
+     * **El otro camino.** «Promocionar notas» no pasa por `notas/alumno` sino por
+     * `PUT notas/alumno-periodo-grupo`, y guarda con el mismo
+     * `NotasApi.actualizar(nota.id)` (`PromocionarNotasCtrl:463`,
+     * `app2/paginas/promocionar-notas:429`). O sea que tenía el mismo
+     * `notas/update/undefined`, y ahí duele más: lo que se pide es **el periodo de
+     * destino**, que es justo el que no tiene filas.
+     *
+     * Es la lección de 05 §47.2 aplicada a nuestro propio arreglo — al tapar un
+     * camino, preguntar cuál es el otro—. Este test es lo que impide que el
+     * segundo se quede fuera otra vez.
+     */
+    public function test_promocionar_notas_tambien_crea_las_que_faltan(): void
+    {
+        $asignatura = $this->contexto();
+        $this->permitiendoEditarNotas($asignatura);
+        $token = $this->tokenDe($asignatura->username);
+
+        $subunidad = $this->unaSubunidadDe($asignatura);
+        $alumno = $this->unAlumnoDe($asignatura);
+
+        DB::table('notas')->where('subunidad_id', $subunidad->id)->delete();
+
+        $this->putJson('/api/notas/alumno-periodo-grupo', [
+            'alumno_id' => $alumno->alumno_id,
+            'periodo_id' => $asignatura->periodo_id,
+            'grupo_id' => $asignatura->grupo_id,
+        ], ['Authorization' => 'Bearer '.$token])->assertStatus(200);
+
+        $recreada = DB::table('notas')->where('subunidad_id', $subunidad->id)
+            ->where('alumno_id', $alumno->alumno_id)->whereNull('deleted_at')->first();
+
+        $this->assertNotNull($recreada,
+            'La pantalla de promocionar es el otro camino a `alumnoPeriodoDetalle` y sigue '
+            .'devolviendo casillas sin `id`: el front las guarda con `notas/update/undefined`.');
+        $this->assertEquals($subunidad->nota_default, $recreada->nota);
+    }
+
+    /**
+     * `verificarCrearNota` dice «la creé» **sólo cuando la creó**.
+     *
+     * Se comprueba llamando al método y no por HTTP porque no hay respuesta que lo
+     * enseñe: el valor de retorno sólo gobierna si se relee la fila, y las dos
+     * ramas pintan lo mismo. Está fijado igual porque **estaba mal y en verde**:
+     * `DB::insert()` devuelve el bool de «la sentencia se ejecutó», no las filas
+     * afectadas, así que con el `NOT EXISTS` bloqueando el alta contestaba `true`
+     * y el método afirmaba haber creado una fila que no existía.
+     *
+     * Es la regla de la cabecera de CLAUDE.md en versión pequeña: **un método que
+     * informa de lo que hizo no puede informar de otra cosa**, aunque lo que
+     * cuelgue de él hoy no note la diferencia.
+     */
+    public function test_verificar_crear_nota_solo_dice_que_creo_cuando_creo(): void
+    {
+        $asignatura = $this->contexto();
+        $subunidad = $this->unaSubunidadDe($asignatura);
+        $alumno = $this->unAlumnoDe($asignatura);
+
+        DB::table('notas')->where('subunidad_id', $subunidad->id)->delete();
+
+        $this->assertTrue(
+            Nota::verificarCrearNota($alumno->alumno_id, $subunidad->id,
+                $subunidad->nota_default, $asignatura->user_id),
+            'La primera vez no había fila: tiene que decir que la creó.');
+
+        $this->assertFalse(
+            Nota::verificarCrearNota($alumno->alumno_id, $subunidad->id,
+                $subunidad->nota_default, $asignatura->user_id),
+            'La segunda no insertó nada —lo impide su propio NOT EXISTS— y no puede decir que sí.');
+
+        $this->assertEquals(1, DB::table('notas')->where('subunidad_id', $subunidad->id)
+            ->where('alumno_id', $alumno->alumno_id)->whereNull('deleted_at')->count());
     }
 
     // -------------------------------------------------------------- Guardar
@@ -389,6 +617,52 @@ class NotasTest extends CasoDeContrato
         $this->assertNotNull($nota, 'El seed necesita alguna nota en esa asignatura.');
 
         return $nota;
+    }
+
+    private function unaSubunidadDe(object $asignatura): object
+    {
+        $subunidad = DB::selectOne('SELECT s.id, s.nota_default FROM subunidades s
+            INNER JOIN unidades un ON un.id = s.unidad_id AND un.asignatura_id = ? AND un.periodo_id = ?
+            WHERE s.deleted_at IS NULL AND un.deleted_at IS NULL ORDER BY s.id LIMIT 1',
+            [$asignatura->asignatura_id, $asignatura->periodo_id]);
+
+        $this->assertNotNull($subunidad, 'El seed necesita una subunidad en esa asignatura y periodo.');
+
+        return $subunidad;
+    }
+
+    private function unAlumnoDe(object $asignatura): object
+    {
+        $alumno = DB::selectOne('SELECT m.alumno_id FROM matriculas m
+            WHERE m.grupo_id = ? AND m.estado IN ("MATR", "ASIS", "PREM") AND m.deleted_at IS NULL
+            ORDER BY m.alumno_id LIMIT 1', [$asignatura->grupo_id]);
+
+        $this->assertNotNull($alumno, 'El grupo de la asignatura necesita algún alumno matriculado.');
+
+        return $alumno;
+    }
+
+    /**
+     * Un superusuario **del mismo año** que la asignatura.
+     *
+     * El año importa y no se ve: `alumnoPeriodosDetailed` recorre los periodos de
+     * `$user->year_id` y `Alumno::alumnoData` busca la matrícula en ese año, así
+     * que un superusuario de otro año no siembra nada — y el test daría verde por
+     * el motivo equivocado, que es la §157 otra vez.
+     */
+    private function unSuperusuarioDe(object $asignatura): object
+    {
+        $usuario = DB::selectOne('SELECT u.username FROM users u
+            INNER JOIN periodos p ON p.id = u.periodo_id AND p.deleted_at IS NULL
+            INNER JOIN grupos g ON g.id = ? AND g.year_id = p.year_id AND g.deleted_at IS NULL
+            WHERE u.is_superuser = 1 AND u.is_active = 1 AND u.deleted_at IS NULL
+            ORDER BY u.id LIMIT 1', [$asignatura->grupo_id]);
+
+        $this->assertNotNull($usuario,
+            'El seed no tiene ningún superusuario en el año de esta asignatura: sin eso el '
+            .'caso «con el periodo cerrado sí siembra» no ejerce nada.');
+
+        return $usuario;
     }
 
     private function permitiendoEditarNotas(object $contexto): void
