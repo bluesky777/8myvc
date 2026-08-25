@@ -31,20 +31,44 @@ otra cosa.
 
 ---
 
-## §2. El «no concluyente» es un hallazgo, y es mío
+## §2. El «no concluyente» era un hallazgo, y la causa que le puse estaba mal — corregido al fundir
 
 `consultas-en-bucle.py --control` compara el mismo fichero **antes y después de un
-commit**, y para eso llama a `git show`. **Dentro del contenedor eso no funciona en un
-worktree**: el `.git` de un árbol de trabajo es un fichero que apunta a una ruta **del
-host**, que no existe en `/app`. `git` contesta *«not a git repository»*.
+commit**, y para eso llama a `git show`. Lo marqué NO CONCLUYENTE con este motivo:
+*«dentro del contenedor eso no funciona»*, y de ahí la moraleja que escribí — *«lo
+verifiqué en el host y la suite corre dentro»*.
 
-**O sea que escribí ese control y lo verifiqué en el host, y la suite corre dentro.** El
-instrumento correcto sobre el objeto equivocado, esta vez dentro del control mismo.
+**No es el contenedor. Es el worktree.** Medido en los dos sitios y **los dos dentro**:
 
-**Lo que lo salva es que devuelve 2 y lo dice**, en vez de un `OK` indistinguible de uno
-real. Por eso el runner tiene tres salidas y no dos: el 2 no es aprobado **ni** fallo, y
-la lista de los no concluyentes **se fija**, así que el día que una que hoy concluye deje
-de hacerlo, el caso cae.
+    docker exec 8myvc-app-1 python3 /app/tools/consultas-en-bucle.py --control
+      -> «antes de 2837171: 10 … despues: 4 … OK — el detector reconoce un arreglo
+          que ya se sabe que ocurrio», exit 0
+
+    docker exec -w /app/.worktrees/12 8myvc-app-1 python3 …/consultas-en-bucle.py --control
+      -> «CONTROL NO CONCLUYENTE: no se pudo leer 2837171^ (¿worktree sin ese commit?)»
+
+El `.git` de un árbol de trabajo es un **fichero** que apunta a una ruta del host
+(`gitdir: /Users/.../8myvc/.git/worktrees/12`); el del árbol principal es un
+directorio. **La diferencia no es dónde corre: es desde qué árbol.**
+
+Y eso cambia la conclusión entera. No era *«un control que la suite no puede ejercer»*
+—eso lo habría dejado sin comprobar para siempre, con su excepción escrita y con razón
+aparente—, era *«un control que **sólo la noche en paralelo** no puede ejercer»*.
+
+### Cómo se cayó, que es lo que hay que quedarse
+
+**No lo vio nadie leyendo: lo tiró la fusión.** En esta rama, medido desde
+`.worktrees/12`, el caso pasaba en verde —salía 2, estaba en la lista, `skipped`—. Al
+fundir en `main` sale **0** y el caso cae, con su propio mensaje: *«está apuntada como
+NO CONCLUYENTE y hoy concluye — quítala de la lista»*.
+
+**El runner funcionó el primer día, y contra su autor.** Que es exactamente para lo que
+se puso: el 2 no es aprobado **ni** fallo, y la lista de excepciones **se fija** para que
+una que sobra avise en vez de quedarse.
+
+> Es la regla de la cabecera de `CLAUDE.md` en su segunda forma, la que no se arregla
+> repitiendo la medición: **el detector contaba bien el síntoma y la causa que le puse al
+> lado era otra.** Repetir la medición desde el worktree da 2 otra vez, para siempre.
 
 ---
 
@@ -146,7 +170,7 @@ carril»*— **no sirve contra esto**. Quien tenía los carriles no tenía forma
 ## §6. Cierre
 
     5 autopruebas ejecutables (eran 4) · 5 cableadas al suite (eran 0)
-    1 marcada NO CONCLUYENTE, con su motivo escrito
+    0 marcadas NO CONCLUYENTE — era 1, y se cayó al fundir (§2)
     controles nuevos rotos a propósito y vistos caer por su razón: 3
 
 **Y una consecuencia que vale más que el número:** ahora que se ejecutan, **un control que

@@ -30,33 +30,60 @@ use PHPUnit\Framework\TestCase;
  * que hoy concluye deja de hacerlo, este caso cae — que es justo lo que un control
  * sin runner nunca podría avisar.
  *
- * ## Y el no concluyente de hoy es un hallazgo de este mismo lote
+ * ## Hoy no hay ninguna no concluyente, y cómo se cayó la que había
  *
  * `consultas-en-bucle.py --control` compara el mismo fichero **antes y después de un
- * commit**, y para eso llama a `git show`. **Dentro del contenedor eso no funciona en
- * un worktree**: el `.git` de un árbol de trabajo es un fichero que apunta a una ruta
- * **del host** (`/Users/.../8myvc/.git/worktrees/12`), que no existe en `/app`. `git`
- * contesta *«not a git repository»*.
+ * commit**, y para eso llama a `git show`. Entró aquí marcada NO CONCLUYENTE con este
+ * motivo: *«dentro del contenedor eso no funciona»*.
  *
- * **O sea que ese control se escribió y se verificó en el host, y la suite corre
- * dentro.** Es el instrumento correcto sobre el objeto equivocado, otra vez, y esta
- * vez en el control mismo. Lo que lo salva es que **devuelve 2 y lo dice**, en vez de
- * un `OK` que nadie podría distinguir de uno real.
+ * **Y el motivo estaba mal.** No es el contenedor: es el **worktree**. El `.git` de un
+ * árbol de trabajo es un fichero que apunta a una ruta **del host**
+ * (`gitdir: /Users/.../8myvc/.git/worktrees/12`), que no existe en `/app`; el del árbol
+ * principal es un directorio de verdad. Medido en los dos sitios, los dos **dentro** del
+ * contenedor:
+ *
+ *     docker exec 8myvc-app-1 python3 /app/tools/consultas-en-bucle.py --control
+ *       -> «antes de 2837171: 10 … despues: 4 … OK», exit 0
+ *
+ *     docker exec -w /app/.worktrees/12 8myvc-app-1 python3 …/consultas-en-bucle.py --control
+ *       -> «CONTROL NO CONCLUYENTE: no se pudo leer 2837171^ (¿worktree sin ese commit?)»
+ *
+ * **La diferencia no es dónde corre, es desde qué árbol.** Y eso cambia la conclusión
+ * entera: no era un control que la suite no puede ejercer —eso lo habría dejado sin
+ * comprobar para siempre—, era uno que **sólo la noche en paralelo no puede ejercer**.
+ *
+ * ## Y no lo encontró nadie leyendo: lo encontró la fusión
+ *
+ * En la rama, medida desde `.worktrees/12`, el caso pasaba —salía 2, estaba en la
+ * lista, `skipped`—. **En `main` sale 0 y el caso cae**, que es exactamente lo que este
+ * runner se puso a hacer: *«si mañana una que hoy no concluye empieza a concluir, la
+ * excepción sobra»*. Funcionó el primer día, contra su propio autor.
+ *
+ * Es la regla de la cabecera de CLAUDE.md otra vez, y en su segunda forma —la que no se
+ * arregla repitiendo la medición—: **el detector contaba bien el síntoma y la causa que
+ * le puso al lado era otra.** Repetirlo en el worktree da 2 otra vez, para siempre.
  */
 class AutopruebasDeLasHerramientasTest extends TestCase
 {
     /**
-     * Las que hoy no pueden concluir dentro del contenedor, con su motivo.
+     * Las que hoy no pueden concluir donde corre la suite, con su motivo.
      *
-     * **Es una lista corta a propósito.** Cada entrada es una autoprueba que no se
-     * está ejerciendo donde corre la suite, o sea una herramienta cuyo número nadie
-     * está comprobando de verdad.
+     * **Vacía, y que lo esté es el resultado — no un descuido.** Cada entrada sería una
+     * autoprueba que no se está ejerciendo, o sea una herramienta cuyo número nadie
+     * comprueba de verdad; la única que hubo se cayó al fundir (ver la cabecera).
+     *
+     * **Una que salga 2 desde aquí falla con nombre**, que es lo que se quiere: la
+     * alternativa —apuntarla y seguir— es cómo se llega a una lista de excepciones que
+     * nadie vuelve a mirar.
+     *
+     * > **Y si alguien la ve caer corriendo desde un worktree, el sitio donde mirar es
+     * > el árbol, no la herramienta.** `consultas-en-bucle.py --control` necesita
+     * > `git show`, y en un worktree el `.git` es un fichero que apunta al host. La
+     * > suite de una noche en paralelo corre ahí (`docs/migracion/15-la-noche-en-paralelo.md`).
+     *
+     * @var array<string, string>
      */
-    private const NO_CONCLUYENTES = [
-        'consultas-en-bucle.py' => 'usa `git show` para comparar dos versiones del mismo '
-            .'fichero, y en un worktree el `.git` apunta a una ruta del host que no existe '
-            .'dentro del contenedor.',
-    ];
+    private const NO_CONCLUYENTES = [];
 
     /** @return array<string, array{0: string, 1: string}> */
     public static function autopruebas(): array
