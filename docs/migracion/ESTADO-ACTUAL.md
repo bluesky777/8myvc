@@ -8,14 +8,31 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
-**Última actualización: 25 ago 2026, después del despliegue** · `main` en `eb95cbc`
-**desplegado y comprobado en los quince** — es la primera tanda con migraciones en
-producción desde la Fase 4 · **un colegio dado de baja y borrado del servidor el 25 ago: son
-QUINCE, no dieciséis** — las cifras fechadas antes del 25 ago dicen dieciséis y **así se
-quedan**, porque se midieron sobre dieciséis; lo que se actualizó es lo que sigue vivo ·
-**las cuatro ramas de la noche del 24 y AUD-2 fundidas dentro** · **sin coordinación**: `8myvc-94` ya no está y nadie
-ha ocupado su sitio, así que **nadie está mirando el conjunto** — quien llegue,
-que lo lea entero antes de coger nada
+**Última actualización: 25 ago 2026, noche — TODO FUNDIDO Y NO QUEDA NINGUNA RAMA** ·
+`main` en `2de6c1d`, subido · **1.516 pruebas, 11.401 aserciones, larastan nivel 7
+`[OK]`, pint PASS**, medido **en la fusión** y no en ninguna rama · **un colegio dado
+de baja y borrado del servidor el 25 ago: son QUINCE, no dieciséis** — las cifras
+fechadas antes del 25 ago dicen dieciséis y **así se quedan**, porque se midieron sobre
+dieciséis; lo que se actualizó es lo que sigue vivo · **sin coordinación**: `8myvc-94`
+ya no está y nadie ha ocupado su sitio, así que **nadie está mirando el conjunto** —
+quien llegue, que lo lea entero antes de coger nada
+
+> **Ya no hay ramas ni worktrees: `main` es lo único que hay.** Se cerró la noche en
+> paralelo por decisión de Joseth. Lo que entró de una vez, además de lo que ya estaba:
+> **notas de alumno** (con su revisión), **CONTROLES-1** y **GEMELO-1**. Las trece ramas
+> que ya estaban fundidas se borraron sin perder nada; las cinco carpetas de
+> `.worktrees/` se quitaron.
+>
+> **Y tres tests sin trackear se rescataron antes de quitar sus árboles**, porque eran
+> trabajo vivo de dos sesiones y no estaban en ningún commit. Están en
+> `8myvc-cola/rescatado-2026-08-25/`, **fuera del repo**:
+> `DiagnosticoPrematriculaTest.php` (de `.worktrees/79`),
+> `AlumnoEnAsisSigueSaliendoTest.php` y `CensoDelAsisTest.php` (de `.worktrees/e0`).
+> **Nadie los ha ejecutado ni revisado**: quien los quiera, los mueve a `tests/` y los
+> corre — no se metieron en `main` a ciegas.
+>
+> **La fusión encontró un rojo que ninguna rama tenía**, y es el aval de que medir en la
+> fusión no es ceremonia: [ver abajo](#controles-1-y-gemelo-1-fundidas--y-un-rojo-que-solo-existia-en-main).
 
 ---
 
@@ -180,6 +197,49 @@ arriba y no en la línea.
 | **13** | **`CLAUDE.md` dice que las excepciones públicas son quince y son once**, y **`RutasPreLoginTest` no es un inventario**: enumera once y **no comprueba que ninguna otra sea pública** |
 | **14** | **Una decisión mía, revertible en un commit**: congelar ocho `SELECT *` para que la migración del boletín independiente **no mueva ninguna respuesta**. La alternativa —regenerar instantáneas— **era tuya**, porque obliga a avisar al front y a Flutter |
 | **15** | **La §12 de arriba y la §14** del 09 siguen esperando desde el 24 |
+
+---
+
+## CONTROLES-1 y GEMELO-1 fundidas — y un rojo que sólo existía en `main`
+
+**GEMELO-1** (`merge(79)`): el gemelo vivo de `BolfinalesController`, de **3.820
+consultas y 11,4 s para dar un 500** a **455**, con su control positivo. **CONTROLES-1**
+(`merge(12)`): las autopruebas que `tools/` llevaba escritas en las cabeceras **y que no
+corría nadie** pasan a ser un test.
+
+### El rojo, que es lo que hay que quedarse
+
+Al fundir, `AutopruebasDeLasHerramientasTest` cayó. Traía a `consultas-en-bucle.py`
+marcada **NO CONCLUYENTE** con este motivo: *«dentro del contenedor `git show` no
+funciona»*. En `main` sale **exit 0** y el caso cae con su propio mensaje — *«está
+apuntada como no concluyente y hoy concluye: quítala de la lista»*.
+
+**El motivo estaba mal, y no por poco.** Medido en los dos sitios y **los dos dentro**
+del contenedor:
+
+    /app                  ->  «antes de 2837171: 10 … despues: 4 … OK»,  exit 0
+    /app/.worktrees/12    ->  «CONTROL NO CONCLUYENTE: no se pudo leer 2837171^»
+
+El `.git` de un árbol de trabajo es un **fichero** que apunta a una ruta del host; el del
+árbol principal es un directorio. **La diferencia no es dónde corre: es desde qué árbol.**
+Y eso cambia la conclusión entera: no era *«un control que la suite no puede ejercer»*
+—que lo habría dejado sin comprobar para siempre, con su excepción escrita y con razón
+aparente— sino *«uno que **sólo la noche en paralelo** no puede ejercer»*.
+
+Tres cosas que deja:
+
+1. **El runner funcionó el primer día, y contra su propio autor.** Es para lo que se
+   puso: la lista de excepciones **se fija**, así que una que sobra avisa.
+2. **Es la regla de `CLAUDE.md` en su segunda forma** —la que no se arregla repitiendo la
+   medición—: el detector contaba bien el síntoma y **la causa que llevaba al lado era
+   otra**. Repetirlo desde el worktree da 2 otra vez, para siempre.
+3. **Vaciar la lista puso a larastan en rojo, y también tenía razón**: con una constante
+   vacía deduce `array{}` y da por muerta la rama del `skip`. Cierto *mientras la lista
+   esté vacía* — y por eso convierte «hoy no hay ninguna» en «no puede haber ninguna».
+   Pasó a método con el tipo declarado: el mecanismo sigue en pie y volver a apuntar una
+   es añadir una línea.
+
+**Lista de no concluyentes: 0, era 1.** Las cinco autopruebas concluyen.
 
 ---
 
