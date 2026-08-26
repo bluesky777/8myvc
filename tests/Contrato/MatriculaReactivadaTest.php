@@ -73,10 +73,19 @@ class MatriculaReactivadaTest extends CasoDeContrato
         $this->assertNull($fila->deleted_at, 'La matrícula siguió en la papelera.');
         $this->assertSame('MATR', $fila->estado, 'La matrícula revivió pero no quedó matriculada.');
 
-        $anio = DB::selectOne('SELECT year FROM years WHERE id = ?', [$grupo->year_id])->year;
-
-        $this->assertSame("{$anio}-{$matricula->alumno_id}", $fila->nro_folio,
-            'El folio no se le puso a la matrícula que revivió.');
+        // **Y el folio NO se le pone, que es lo contrario de lo que este test pedía.**
+        // Decisión de Joseth del 26 ago 2026: `{año}-{alumno_id}` **no es un folio** —un
+        // folio es la hoja del libro de matrículas, y lo que se imprime en la constancia
+        // está para que quien la lea vaya a comprobarla al archivo—. Medido: 1.612
+        // fabricados así y **257 que nombran a otro alumno**
+        // (docs/migracion/21-certificados-y-folios.md §2.2).
+        //
+        // El aserto se conserva **dado la vuelta** en vez de borrarse: esta clase existe
+        // por un 500 en la rama de la papelera, y que esa rama toque o no el folio es
+        // justo lo que hay que poder leer aquí dentro de seis meses.
+        $this->assertNull($fila->nro_folio,
+            'Revivir la matrícula le fabricó el folio «'.$fila->nro_folio.'», y nadie lo '
+            .'escribió. Se llena a mano o se queda vacío; lo vigila `FolioQueNoSeFabricaTest`.');
     }
 
     /**

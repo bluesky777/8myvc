@@ -203,7 +203,28 @@ class BolfinalesController extends Controller {
 					// (Medido en la base de test: un solo year `actual=1`, asi que hoy elige la
 					// misma fila que el `[0]` de antes; el orden esta por lo que garantiza
 					// cuando eso no se cumpla, no por lo que cambia hoy.)
-					$contador = DB::select('SELECT id, contador_certificados FROM years WHERE deleted_at is null and actual=1 ORDER BY id LIMIT 1 FOR UPDATE')[0];
+					$contador = DB::select('SELECT id, contador_certificados, usa_consecutivo_certificados FROM years WHERE deleted_at is null and actual=1 ORDER BY id LIMIT 1 FOR UPDATE')[0];
+
+					/*
+					 * **El colegio que no numera sus constancias no quema nada.** Decision de
+					 * Joseth del 26 ago 2026: el consecutivo pasa a ser opcional por colegio
+					 * (docs/migracion/21-certificados-y-folios.md).
+					 *
+					 * **El interruptor no estrena la conducta: le pone nombre a la que habia.**
+					 * El front ya ocultaba el «No.» cuando `contador_certificados` estaba vacio
+					 * --`hidden-print` sobre `.length == 0`--, y la migracion deriva el
+					 * interruptor de justo eso, colegio a colegio. Lo que SI cambia, y es el
+					 * arreglo: hasta hoy un colegio que no imprimia el numero **seguia
+					 * gastandolo** en cada apertura, o sea que su contador subia solo y nadie lo
+					 * miraba nunca.
+					 *
+					 * Va DENTRO de la transaccion, despues del `FOR UPDATE`, y no fuera: si se
+					 * mirara antes, dos peticiones podrian leer el interruptor a la vez que
+					 * alguien lo apaga. Cuesta lo mismo -- la fila ya esta leida.
+					 */
+					if (! $contador->usa_consecutivo_certificados) {
+						return;
+					}
 					// La tabla years tiene la PK en `id`, no en `year_id`. El parametro ya era
 					// $contador->id, solo la columna del WHERE estaba mal: el UPDATE lanzaba
 					// "Unknown column 'year_id'" y devolvia 500. Solo se notaba en el
@@ -907,6 +928,8 @@ class BolfinalesController extends Controller {
 
 		$year = $this->yearDelConsecutivo('contador_certificados');
 
+		$this->exigirQueElColegioLoUse($year, 'certificados');
+
 		DB::update('UPDATE years SET contador_certificados=? WHERE actual=1 and deleted_at is null', [ $contador ]);
 
 		$this->anotarElConsecutivo($year, 'certificados', $contador);
@@ -925,6 +948,8 @@ class BolfinalesController extends Controller {
 		$contador = $this->consecutivoValidado();
 
 		$year = $this->yearDelConsecutivo('contador_folios');
+
+		$this->exigirQueElColegioLoUse($year, 'folios');
 
 		DB::update('UPDATE years SET contador_folios=? WHERE actual=1 and deleted_at is null', [ $contador ]);
 
@@ -1045,8 +1070,8 @@ class BolfinalesController extends Controller {
 	private function yearDelConsecutivo(string $columna)
 	{
 		$sql = match ($columna) {
-			'contador_certificados' => 'SELECT id, contador_certificados AS valor FROM years WHERE actual=1 and deleted_at is null ORDER BY id LIMIT 1',
-			'contador_folios'       => 'SELECT id, contador_folios AS valor FROM years WHERE actual=1 and deleted_at is null ORDER BY id LIMIT 1',
+			'contador_certificados' => 'SELECT id, contador_certificados AS valor, usa_consecutivo_certificados AS usa FROM years WHERE actual=1 and deleted_at is null ORDER BY id LIMIT 1',
+			'contador_folios'       => 'SELECT id, contador_folios AS valor, usa_folio_certificados AS usa FROM years WHERE actual=1 and deleted_at is null ORDER BY id LIMIT 1',
 			// El `default` no es ceremonia de larastan: **dice en voz alta lo que la lista
 			// significa**. Una columna que no este aqui no se lee -- no se cuela en el SQL
 			// y no devuelve null en silencio, que seria dejar la escritura sin rastro sin
@@ -1055,6 +1080,32 @@ class BolfinalesController extends Controller {
 		};
 
 		return DB::selectOne($sql);
+	}
+
+	/**
+	 * **409 si este colegio no lleva ese contador.**
+	 *
+	 * Decision de Joseth del 26 ago 2026: los contadores del certificado son **opcionales
+	 * por colegio** (docs/migracion/21-certificados-y-folios.md). Si el interruptor esta
+	 * apagado, el numero no se imprime en el papel, asi que fijarlo no significa nada --
+	 * y dejarlo pasar guardaria un valor que nadie va a ver y que el dia que se encienda
+	 * el interruptor apareceria impreso sin que nadie lo pusiera ahi a proposito.
+	 *
+	 * **409 y no 403**: no es que quien llama no pueda, es que **la operacion no aplica en
+	 * este colegio**. Y no es 422 --el de al lado, para un contador que no es un numero--
+	 * porque el cuerpo puede estar perfectamente bien: lo que no encaja es el estado del
+	 * sistema, que es literalmente lo que significa un conflicto.
+	 *
+	 * **Sin year `actual=1` no aborta**, y es a proposito: ahi el `UPDATE` no escribe nada
+	 * y quien decide que hacer con eso es la conducta de siempre, no este metodo nuevo.
+	 *
+	 * @param  object|null  $year  la fila leida por `yearDelConsecutivo()`
+	 */
+	private function exigirQueElColegioLoUse($year, string $cual): void
+	{
+		if ($year !== null && ! $year->usa) {
+			abort(409, 'Este colegio no lleva contador de '.$cual.' en sus certificados.');
+		}
 	}
 
 	/**

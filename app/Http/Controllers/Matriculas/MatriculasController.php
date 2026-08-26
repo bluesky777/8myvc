@@ -67,7 +67,7 @@ class MatriculasController extends Controller {
 			
 			$matri 				= Matricula::findOrFail($matricula_id);
 			$matri->estado 		= 'MATR';
-			if ($matri->nro_folio == null) $matri->nro_folio = $this->user->year . '-' . $matri->alumno_id;
+			// Idem: el folio no se fabrica (21 §2.2).
 			$matri->updated_by 	= $this->user->user_id;
 			
 			$matri->save();

@@ -285,6 +285,16 @@ class BoletinesTest extends CasoDeContrato
         [$grupo, $token] = $this->grupoYPersonal();
         $cab = ['Authorization' => 'Bearer '.$token];
 
+        // Desde el 26 ago 2026 los dos contadores son **opcionales por colegio**
+        // (docs/migracion/21-certificados-y-folios.md): con el interruptor apagado los
+        // endpoints contestan 409, porque guardar un numero que nadie imprime lo deja
+        // esperando a que alguien encienda la casilla. El seed los deja apagados --las
+        // migraciones corren antes del seed y el seed reinserta `years`--, asi que un test
+        // que los use tiene que decir que este colegio los lleva. **Eso no es andamiaje: es
+        // la configuracion, y ahora se ve.**
+        DB::update('UPDATE years SET usa_consecutivo_certificados=1, usa_folio_certificados=1
+            WHERE id = ?', [$grupo->year_id]);
+
         $casos = [
             'cambiar-contador-certificados' => 'contador_certificados',
             'cambiar-contador-folios' => 'contador_folios',

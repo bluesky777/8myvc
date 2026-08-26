@@ -195,3 +195,44 @@ Es la mitad que queda de la segunda respuesta de Joseth, y las dos son de las de
    colegios van a versiones distintas** y esta medición no las ve.
 
 **Y va cuando se despliegue, no cuando se funda**: `app/` es copia por colegio.
+
+> **Escrito ya donde lo van a leer, el 26 ago por la tarde y a petición de Joseth:**
+> `~/DESARROLLOS/myvc_front/TAREAS-AUDITORIA-CERTIFICADOS.md`. Lleva los dos avisos de
+> arriba, **las cinco lecturas de auditoría que ya piden `can_view_auditoria` y que están
+> DESPLEGADAS desde el 25** —eso no era un aviso de futuro y nadie se lo había dicho—, lo
+> que hay que diseñar de la pantalla de la fase 5, y **el hallazgo de las N copias con el
+> mismo número** (§7 de aquí abajo). Con los ganchos exactos de cada app, no con el
+> nombre del endpoint a secas.
+
+
+---
+
+## 7. Y lo que salió al ir a diseñar la tabla de emitidos: **un número, N papeles**
+
+Joseth reabrió la tabla de certificados emitidos (§5.1) al terminar esto, y lo primero que
+había que medir era **qué es «un certificado emitido»**. La respuesta cambia el diseño
+entero, y no la sabía nadie:
+
+- El backend incrementa el consecutivo **una vez por petición**, dentro de la transacción
+  con `FOR UPDATE` de la §2 de [cert-1](../noche-2026-08-25/cert-1.md).
+- La respuesta es la tupla `[grupo, year, alumnos, escalas]`: **un solo `year`** y **N
+  alumnos**.
+- `$year` se lee **después** del incremento (`BolfinalesController:263`), así que trae el
+  número **nuevo**.
+- Las dos plantillas del front repiten sobre los alumnos y le pasan **el mismo `year`** a
+  cada uno —`certificadosEstudio.html:1` (`ng-repeat`) y `certificados-estudio.html:25`
+  (`@for`)— y el papel imprime `No {{ year.contador_certificados }}`.
+
+> **Abrir el certificado de periodo de un grupo de 37 quema UN número e imprime 37
+> papeles, los 37 con el mismo número encima.**
+
+**Eso no se arregla en una línea y no es nuestro para decidirlo:** *¿el consecutivo numera
+el papel o numera la tanda?* Si numera el papel hacen falta N números por apertura y el
+backend cambia; si numera la tanda, el papel no debería decir *«No 144»* como si fuera
+suyo. **Lo que decide es qué escribe secretaría en el libro**, y eso lo contesta el
+colegio.
+
+**Y por eso la tabla de emitidos no se puede diseñar todavía**: no se sabe si su clave es
+un papel o una apertura. Es una pregunta que hay que contestar **antes** de una migración
+en quince producciones, no dentro de ella. Queda en el front
+(`TAREAS-AUDITORIA-CERTIFICADOS.md` §4) y aquí.

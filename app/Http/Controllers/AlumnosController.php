@@ -373,7 +373,8 @@ class AlumnosController extends Controller {
 				if ($grupo_id){
 					$matricula = new Matricula;
 					$matricula->alumno_id		=	$alumno->id;
-					$matricula->nro_folio		=	$this->user->year . '-' . $alumno->id;
+					// El folio ya no se fabrica: `anio-alumno_id` no es la hoja de ningun libro
+					// (21 §2.2, y `Models\Matricula` lo explica entero). Se llena a mano.
 					$matricula->grupo_id		=	$grupo_id;
 					$matricula->nuevo			=	Request::input('nuevo');
 					$matricula->repitente		=	Request::input('repitente');

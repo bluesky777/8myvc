@@ -19,6 +19,23 @@ Las cuatro son la misma forma: **el colegio expresó una intención por un camin
 que el código no mira.** Este script busca el subconjunto de esa forma que sí es
 mecánico — las columnas booleanas — y deja el resto para el ojo.
 
+LO QUE ESTE BARRIDO NO VE, y hay que leerlo pegado a su salida
+-------------------------------------------------------------
+Su población es `database/schema/mysql-schema.sql`, o sea **el volcado congelado
+de producción**. Las columnas que añade una MIGRACIÓN no están ahí, así que
+**para este script no existen**: no salen ni en el montón A ni en ninguno, y su
+ausencia se lee como «no hay problema».
+
+Medido el 26 ago 2026: **cuatro columnas booleanas** viven hoy sólo en
+migraciones y son invisibles aquí —`matriculas.boletin_independiente` y
+`bol_ind_periodos.aplica` (24 ago), `years.usa_consecutivo_certificados` y
+`years.usa_folio_certificados` (26 ago)—. Y el número sólo puede crecer: el
+volcado no se actualiza, las migraciones sí.
+
+Cuando esto importe, la salida hay que completarla a mano con
+`git diff --name-only <volcado> HEAD -- database/migrations/`. Va escrito aquí y
+no en un documento porque **el sitio donde se cree el «cero» es esta cabecera**.
+
 Tres montones:
 
   A. NI SE NOMBRAN        el nombre no aparece en app/, routes/, config/ ni

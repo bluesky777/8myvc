@@ -366,27 +366,40 @@ class UnGetQueEscribeTest extends CasoDeContrato
     }
 
     /**
-     * `folios/iniciar` es un GET que reescribe las matrículas del colegio entero.
+     * `folios/iniciar` **era** un GET que reescribía las matrículas del colegio entero.
+     * **Ya no escribe: contesta 409.** La mina de la §134 está desactivada.
      *
-     * `UPDATE matriculas ... SET nro_folio = CONCAT(year, "-", alumno_id)` sobre
-     * **todas** las del año en curso a las que les falte el folio, con
-     * `auth.personal` — o sea cualquiera de los 51 profesores, y por un verbo que
-     * un navegador puede repetir solo.
+     * ## Lo que era, porque el test no puede perderlo al cambiar
      *
-     * Lo que salva a ésta de ser destructiva es que **solo toca las vacías**
-     * (`nro_folio is null OR nro_folio=""`), así que repetirla no cambia nada: es
-     * idempotente por la condición, no por el diseño. Se fija eso, que es lo que
-     * hay que no perder si alguien la reescribe — y se mide que **no la llama
-     * ningún cliente**, así que hoy es una mina y no un fallo vivo.
+     * `UPDATE matriculas ... SET nro_folio = CONCAT(year, "-", alumno_id)` sobre **todas**
+     * las del año en curso a las que les faltara el folio, con `auth.personal` —o sea
+     * cualquiera de los 51 profesores— y por un verbo que un navegador puede repetir solo.
+     * Lo único que la salvaba de ser destructiva es que **solo tocaba las vacías**: era
+     * idempotente por la condición, no por el diseño.
+     *
+     * ## Por qué deja de escribir, que no es una decisión de esta clase
+     *
+     * Porque lo que escribía **no era un folio**. Un folio es la hoja del libro de
+     * matrículas, y lo que se imprime en la constancia está para que quien la lea vaya a
+     * comprobarla al archivo; `2025-1234` es el id del alumno con el año delante y no lleva
+     * a ninguna parte. **Este endpoint es la máquina que fabricó 1.612 de ellos**
+     * (docs/migracion/21-certificados-y-folios.md §2.2). Decisión de Joseth del 26 ago 2026.
+     *
+     * ## Y por qué el test se queda aquí en vez de borrarse
+     *
+     * Esta clase es el censo de **los GET que escriben**. Que uno deje de escribir es
+     * justamente lo que hay que poder leer en ella dentro de seis meses: borrar el test
+     * dejaría la §134 contada como una mina viva en el documento y sin nada que la
+     * contradiga. Lo que se comprueba ahora es lo contrario de antes —**que NO escribe**— y
+     * eso también es un contrato.
+     *
+     * La otra mitad —que la respuesta sea 409 y no 404, y que no llegue con el `UPDATE` ya
+     * hecho— vive en `FolioQueNoSeFabricaTest`, junto con el barrido que impide que alguien
+     * vuelva a fabricar folios por cualquiera de los otros seis sitios.
      */
-    public function test_folios_iniciar_solo_rellena_los_vacios_y_repetirlo_no_cambia_nada(): void
+    public function test_folios_iniciar_ya_no_escribe_nada(): void
     {
         $token = $this->tokenDe($this->usuarioDeTipo('Profesor')->username);
-
-        $conFolio = DB::selectOne('SELECT m.id, m.nro_folio FROM matriculas m
-            INNER JOIN grupos g ON g.id = m.grupo_id AND g.deleted_at IS NULL
-            INNER JOIN years y ON y.id = g.year_id AND y.actual = 1
-            WHERE m.nro_folio IS NOT NULL AND m.nro_folio <> "" LIMIT 1');
 
         $sinFolio = DB::selectOne('SELECT m.id FROM matriculas m
             INNER JOIN grupos g ON g.id = m.grupo_id AND g.deleted_at IS NULL
@@ -395,22 +408,15 @@ class UnGetQueEscribeTest extends CasoDeContrato
 
         $this->assertNotNull($sinFolio, 'El seed no tiene matrículas en el año actual.');
 
-        // Se vacía una a propósito para que haya algo que rellenar.
+        // Se vacía una a propósito: sin nada que rellenar, «no rellenó» y «no había nada
+        // que rellenar» dan el mismo verde, y de las dos lecturas la falsa es la que hace
+        // archivar el asunto.
         DB::table('matriculas')->where('id', $sinFolio->id)->update(['nro_folio' => null]);
 
-        $this->withToken($token)->getJson('/api/folios/iniciar')->assertStatus(200);
+        $this->withToken($token)->getJson('/api/folios/iniciar')->assertStatus(409);
 
-        $this->assertNotNull(DB::table('matriculas')->where('id', $sinFolio->id)->value('nro_folio'),
-            'Un GET dejó de rellenar los folios vacíos — §134.');
-
-        if ($conFolio !== null) {
-            $this->assertSame($conFolio->nro_folio,
-                DB::table('matriculas')->where('id', $conFolio->id)->value('nro_folio'),
-                'Empezó a pisar folios que ya estaban puestos: eso sí sería destructivo — §134.');
-        }
-
-        // Repetirlo no toca nada: la condición es la que lo hace idempotente.
-        $r = $this->withToken($token)->getJson('/api/folios/iniciar');
-        $r->assertStatus(200);
+        $this->assertNull(DB::table('matriculas')->where('id', $sinFolio->id)->value('nro_folio'),
+            'Contestó 409 y aun así rellenó el folio: llegó con el `UPDATE` ya hecho, que es '
+            .'el mismo modo de fallo que la §136 —rechazar después de escribir—.');
     }
 }

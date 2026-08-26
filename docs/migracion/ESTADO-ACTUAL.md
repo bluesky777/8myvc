@@ -16,6 +16,26 @@ del 25 estaba vieja en sus dos primeras filas**: la carrera y la validación ent
 noche del 25 y sus tests llevan desde entonces verdes dentro de la suite — quien retome
 esto, **abra el test antes que el documento**
 
+> ## ⚠️ LA SUITE ESTÁ EN ROJO A PROPÓSITO, Y ES UNA DECISIÓN TUYA
+>
+> **13 tests de instantánea de `BoletinesTest`**, más los mismos de `GruposTest`,
+> `MuestreoDeLecturas*` y `RejillaLasQueFaltabanTest`. **Todos por la misma causa y ninguno
+> por un fallo:** la migración de los interruptores añade dos columnas a `years`, y
+> cualquier `SELECT *` o `Year::datos()` las arrastra a la respuesta. **Es aditivo** —no
+> quita ni cambia ningún campo—, pero **mover la forma de una respuesta obliga a avisar al
+> front y a Flutter**, y eso ya quedó fijado como decisión tuya en la §14 de más abajo. Por
+> eso no las regenero yo.
+>
+> **Se arregla con un comando** en cuanto lo digas: borrar esas instantáneas y volver a
+> correr; el propio fallo imprime cuál borrar. **Lo demás está verde**: las cinco clases del
+> lote dan 51 en verde, larastan nivel 7 `[OK]` y pint PASS.
+>
+> *(Y dos rojos de `DisciplinaTest`/`DisciplinaUpdateTest` que se vieron en una corrida
+> **no eran reales**: eran deadlocks por tener dos suites a la vez contra
+> `simonbolivar_testing`, culpa de esta sesión por lanzar la segunda sin esperar la primera.
+> Corridas solas dan 13 en verde. Es exactamente lo que avisa `CLAUDE.md` y se cayó en ello
+> igual.)*
+
 **Antes de eso: TODO FUNDIDO, NINGUNA RAMA, Y EL CI
 OTRA VEZ EN VERDE** · `main` subido · **1.516 pruebas, 11.401 aserciones, larastan nivel 7
 `[OK]`, pint PASS**, medido **en la fusión** y no en ninguna rama · **el CI llevaba tres
@@ -240,6 +260,91 @@ Se revirtió cada mitad por separado sobre el árbol de verdad: sin el guard cae
 docente **y el del Secretario sigue verde** —que es lo correcto: `abort(403)` a secas
 también habría pasado el primero, y habría cerrado la pantalla a secretaría—; sin cada
 anotación cae su rastro. **11 tests** en la clase.
+
+### Y la tabla de emitidos no se puede diseñar todavía — **lo primero que se midió lo frenó**
+
+Al reabrirla salió la pregunta que había que contestar antes: **qué es «un certificado
+emitido»**. Medido en las dos partes: el backend quema **un número por petición**, la
+respuesta trae **un `year` y N alumnos**, y las dos plantillas le pasan **el mismo `year`**
+a cada alumno. O sea:
+
+> **Abrir el certificado de periodo de un grupo de 37 quema UN número e imprime 37 papeles,
+> los 37 con el mismo número encima.**
+
+**No se puede diseñar la tabla sin saber si su clave es un papel o una apertura**, y eso no
+lo decide el código: *¿el consecutivo numera el papel o numera la tanda?* Lo que manda es
+qué escribe secretaría en el libro. **Es una pregunta que se contesta antes de una
+migración en quince producciones, no dentro de ella.** Detalle en
+[cert-2 §7](noche-2026-08-26/cert-2.md).
+
+### Y las tareas del front quedaron escritas donde las van a leer
+
+`~/DESARROLLOS/myvc_front/TAREAS-AUDITORIA-CERTIFICADOS.md`, a petición tuya. Dentro va lo
+de los certificados, lo de la pantalla de la fase 5 y **una que nadie les había dicho: las
+cinco lecturas de auditoría ya exigen `can_view_auditoria` y están DESPLEGADAS desde el
+25** — no es un aviso de futuro, es algo que ya les está contestando 403 hoy. Con los
+ganchos exactos de cada app dentro. **Y hay una sesión viva ahí, que se lo llevó dentro
+de su commit.** No lo commiteé yo: a las 15:45 `c1029fcb` —§237 de `PREGUNTAS-MANANA.md`, un
+lote suyo que no tiene nada que ver— **barrió el fichero con un `add -A`** y se llevó dentro
+la versión de diez minutos antes. La mejora que le hice después —los ganchos exactos de cada
+app— **quedó suelta en su árbol**, y está respaldada fuera, en el scratchpad de esta sesión.
+
+> **Es el fallo del 24 ago en el otro sentido**, y por eso se apunta: allí una sesión
+> commiteó documentos de otras dos creyéndolos huérfanos; aquí un `add -A` de una sesión se
+> lleva un fichero que otra estaba escribiendo. **Con dos sesiones en un árbol, `git add -A`
+> no es «lo mío».** Y lo que lo destapó fue mirar `git status` **dos veces, con diez minutos
+> de diferencia** — la primera decía doce ficheros de `app2` modificados y la segunda, uno
+> solo y con mi nombre.
+>
+> **Se resolvió solo y conviene decirlo**: media hora después su historia se había rehecho
+> —tres commits nuevos— y **el fichero ya no está en ninguno**, o sea que aquella sesión lo
+> sacó de su lote. Vuelve a estar sin trackear en su árbol, con el contenido al día. **No
+> hizo falta tocarles nada.** Se deja escrito por el método, no por el daño: el respaldo
+> fuera del árbol es lo que hacía que esto fuera un apunte y no una pérdida.
+
+### Y el folio: preguntaste qué era y resultó no ser un contador — [21](21-certificados-y-folios.md)
+
+Documento nuevo, con la norma por un lado y **lo medido en la copia local** por otro, que es
+lo que decide. Los tres números que importan:
+
+- **`contador_certificados` funciona**: es un consecutivo por año y en 2025 va por **143**.
+- **`contador_folios` no es un contador: es un interruptor.** Nadie lo incrementa, el
+  endpoint que lo fija **no lo llama ninguna pantalla viva**, `YearsController` lo copia de
+  un año al siguiente —por eso lleva **congelado en 249 desde 2021**— y el front sólo mira
+  **si está vacío o no**, para decidir si imprime el bloque «Folio:». El valor daría igual
+  que fuera `1`.
+- **`nro_folio` son cuatro poblaciones y sólo una es un folio**: 1.440 vacías, **1.612
+  automáticas** (`año-alumno_id`, que no es la hoja de ningún libro), **257 que nombran a
+  OTRO alumno** y **233 folios de verdad**, una práctica que **se murió sola en 2023**.
+
+**Y la decisión ya la tomaste**: *«hay colegios a los que no les importa llevar esos
+contadores o folios; que tengan la opción. Los que sí, que funcionen con la opción A»*.
+Hecho el 26 ago, y salió más barato de lo que parecía porque **los dos interruptores ya
+existían escondidos**: el front oculta cada casilla cuando su columna está vacía, así que
+esto **no estrena una conducta, le pone nombre a la que había**.
+
+- **Migración `2026_08_26_100000_interruptores_de_certificados`**: `usa_consecutivo_certificados`
+  y `usa_folio_certificados` en `years` —que es donde vive la configuración del colegio—, y
+  `YearsController` los copia al año siguiente. **Sin valor por defecto**: se derivan de
+  `contador <> ''`, colegio a colegio, así que **ninguno imprime nada distinto el día del
+  despliegue**.
+- **Lo que sí cambia, y es el arreglo:** un colegio que no imprimía el número **seguía
+  gastándolo** en cada apertura. Ya no. Y los dos endpoints contestan **409** ahí.
+- **El folio deja de fabricarse**: fuera los **siete** sitios que escribían `año-alumno_id`,
+  y `GET folios/iniciar` —el que llenaba todos los huecos del año de una sentencia, y que
+  **no llama ningún cliente de los siete árboles**— contesta 409.
+- Lo ata `FolioQueNoSeFabricaTest`, cuyo tercer test barre los 224 ficheros de `app/` **con
+  control positivo dentro**. Y ahí el detector se equivocó primero: cazaba `m.nro_folio,` en
+  la lista de columnas de dos `SELECT` que **leen** el folio. Lo que separa leer de fabricar
+  es **construir el valor**.
+
+**Lo que NO entró:** los **1.869 folios ya escritos** —1.612 fabricados + 257 que nombran a
+otro alumno— se quedan; borrarlos cambia lo que hoy sale impreso y es un `UPDATE` y una
+decisión tuya.
+
+**Y sigue esperando la pregunta que bloquea la tabla de emitidos**: *cuando se sacan
+constancias para un grupo entero, ¿se anota un renglón o treinta y siete?* Decide si su
+clave es el papel o la emisión, y sin eso se construye mal.
 
 ### Lo que sigue siendo tuyo y lo apartaste a propósito
 

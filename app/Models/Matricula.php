@@ -165,10 +165,23 @@ class Matricula extends Model {
 				$matri = Matricula::onlyTrashed()->where('id', $matriculas[$i]->id)->first();
 
 				if ($matri) {
+					/*
+					 * **Aqui ya NO se fabrica `nro_folio`, y en otros tres sitios de este
+					 * fichero tampoco.** Escribia `anio-alumno_id` --`2025-1234`--, y eso
+					 * **no es la hoja de ningun libro**: un folio es una posicion en el libro
+					 * de matriculas, y lo que se imprime en la constancia sirve para que quien
+					 * la lea vaya a comprobarla al archivo. Medido en la copia local: **1.612
+					 * folios fabricados asi, y otros 257 con esa forma que nombran a OTRO
+					 * alumno** (docs/migracion/21-certificados-y-folios.md §2.2). Un folio en
+					 * blanco es honesto; uno inventado no.
+					 *
+					 * Decision de Joseth del 26 ago 2026. Lo fija `FolioQueNoSeFabricaTest`:
+					 * si alguien lo vuelve a poner, cae.
+					 */
+
 					// `$matri`, no `$matricula`: era una copia de la línea del bucle de abajo
 					// con el nombre sin cambiar, y `$matricula` vale `false` en la primera
 					// vuelta. Ver docs/migracion/12-larastan-nivel-7.md §1.
-					if ($matri->nro_folio == null) $matri->nro_folio = $year->year . '-' . $alumno_id;
 					if ($matricula) { // Si ya he encontrado en un elemento anterior una matrícula identica, es porque ya la he activado, no debo activar más. Por el contrario, debo borrarlas
 						$matri->deleted_by		= $user_id;
 						$matri->save();
@@ -192,7 +205,6 @@ class Matricula extends Model {
 
 					$matri = Matricula::where('id', $matriculas[$i]->id)->first();
 					if ($matri) {
-						if ($matri->nro_folio == null) $matri->nro_folio = $year->year . '-' . $alumno_id;
 						if ($matricula) { // Si ya he encontrado en un elemento anterior una matrícula identica, es porque ya la he activado, no debo activar más. Por el contrario, debo borrarlas
 							$matri->deleted_by		= $user_id;
 							$matri->save();
@@ -214,7 +226,6 @@ class Matricula extends Model {
 		try {
 			if (!$matricula) {
 				$matricula = new Matricula;
-				$matricula->nro_folio 	= $year->year . '-' . $alumno_id;
 				$matricula->alumno_id 	= $alumno_id;
 				$matricula->grupo_id	= $grupo_id;
 				$matricula->estado 		= 'MATR';
@@ -234,7 +245,6 @@ class Matricula extends Model {
 			// se supone que esto nunca va a ocurrir, ya que eliminé todas las matrículas 
 			// excepto la que concordara con el grupo, poniéndola en estado=MATR
 			$matricula 				= Matricula::where('alumno_id', $alumno_id)->where('grupo_id', $grupo_id)->first();
-			if ($matricula->nro_folio == null) $matricula->nro_folio = $year->year . '-' . $alumno_id;
 			$matricula->estado 		= 'MATR';
 			$matricula->updated_by	= $user_id;
 			$matricula->save();

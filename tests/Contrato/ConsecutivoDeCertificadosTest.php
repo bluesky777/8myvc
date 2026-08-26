@@ -96,6 +96,8 @@ class ConsecutivoDeCertificadosTest extends CasoDeContrato
     {
         $this->withoutMiddleware(ThrottleRequests::class);
 
+        $this->encenderConsecutivo();
+
         [$grupo, $token] = $this->grupoYPersonal();
 
         $lecturas = [];
@@ -146,6 +148,8 @@ class ConsecutivoDeCertificadosTest extends CasoDeContrato
     public function test_dos_aperturas_seguidas_gastan_dos_numeros_distintos(): void
     {
         $this->withoutMiddleware(ThrottleRequests::class);
+
+        $this->encenderConsecutivo();
 
         [$grupo, $token] = $this->grupoYPersonal();
 
@@ -243,6 +247,8 @@ class ConsecutivoDeCertificadosTest extends CasoDeContrato
     {
         $this->withoutMiddleware(ThrottleRequests::class);
 
+        $this->encenderConsecutivo();
+
         [$grupo, $token] = $this->grupoYPersonal();
 
         $antes = DB::select('SELECT contador_certificados FROM years WHERE deleted_at is null and actual=1');
@@ -281,6 +287,9 @@ class ConsecutivoDeCertificadosTest extends CasoDeContrato
     public function test_cambiar_contador_folios_tiene_exactamente_la_misma_puerta(): void
     {
         $this->withoutMiddleware(ThrottleRequests::class);
+
+        $this->encenderConsecutivo();
+        $this->encenderFolio();
 
         [$grupo, $token] = $this->grupoYPersonal();
 
@@ -326,6 +335,9 @@ class ConsecutivoDeCertificadosTest extends CasoDeContrato
     public function test_el_consecutivo_relleno_de_ceros_sigue_entrando(): void
     {
         $this->withoutMiddleware(ThrottleRequests::class);
+
+        $this->encenderConsecutivo();
+        $this->encenderFolio();
 
         [$grupo, $token] = $this->grupoYPersonal();
         $cab = ['Authorization' => 'Bearer '.$token];
@@ -375,6 +387,8 @@ class ConsecutivoDeCertificadosTest extends CasoDeContrato
     public function test_que_valores_queman_un_folio_y_cuales_no(): void
     {
         $this->withoutMiddleware(ThrottleRequests::class);
+
+        $this->encenderConsecutivo();
 
         [$grupo, $token] = $this->grupoYPersonal();
 
@@ -459,6 +473,9 @@ class ConsecutivoDeCertificadosTest extends CasoDeContrato
     {
         $this->withoutMiddleware(ThrottleRequests::class);
 
+        $this->encenderConsecutivo();
+        $this->encenderFolio();
+
         $token = $this->tokenDelPersonalLlano();
 
         foreach (['contador-certificados' => 'contador_certificados',
@@ -503,6 +520,9 @@ class ConsecutivoDeCertificadosTest extends CasoDeContrato
     {
         $this->withoutMiddleware(ThrottleRequests::class);
 
+        $this->encenderConsecutivo();
+        $this->encenderFolio();
+
         $token = $this->tokenDeUnSecretario();
 
         foreach (['contador-certificados' => 'contador_certificados',
@@ -539,6 +559,8 @@ class ConsecutivoDeCertificadosTest extends CasoDeContrato
     public function test_fijar_el_consecutivo_a_mano_deja_rastro(): void
     {
         $this->withoutMiddleware(ThrottleRequests::class);
+
+        $this->encenderConsecutivo();
 
         [, $token] = $this->grupoYPersonal();
 
@@ -587,6 +609,8 @@ class ConsecutivoDeCertificadosTest extends CasoDeContrato
     {
         $this->withoutMiddleware(ThrottleRequests::class);
 
+        $this->encenderConsecutivo();
+
         [$grupo, $token] = $this->grupoYPersonal();
 
         $previo = DB::selectOne(
@@ -615,6 +639,117 @@ class ConsecutivoDeCertificadosTest extends CasoDeContrato
         $this->assertStringContainsString('Quemo', (string) $lineas[0]->resumen,
             'El resumen no distingue una quema de un cambio a mano, y esa es la distincion '
             .'entera: la pantalla que las lea tiene que poder separarlas.');
+    }
+
+    /**
+     * **El colegio que no numera sus constancias no quema ni un numero.**
+     *
+     * Decision de Joseth del 26 ago 2026: *«hay colegios a los que no les importa llevar
+     * esos contadores o folios; que tengan la opcion»*
+     * (`docs/migracion/21-certificados-y-folios.md`).
+     *
+     * **Lo que este test arregla de verdad, y no se ve mirando la pantalla:** hasta hoy un
+     * colegio que **no imprimia** el numero --el front ya ocultaba el «No.» cuando la
+     * columna estaba vacia-- **seguia gastandolo** en cada apertura del certificado. Su
+     * contador subia solo, nadie lo miraba, y el dia que alguien encendiera esa casilla
+     * habria aparecido un numero que no correspondia a ningun papel emitido.
+     *
+     * Aqui **no se enciende el interruptor**, que es justo el punto: el seed los deja
+     * apagados, asi que este test mide el estado de un colegio que no los usa.
+     */
+    public function test_si_el_colegio_no_usa_consecutivo_no_se_quema_nada(): void
+    {
+        $this->withoutMiddleware(ThrottleRequests::class);
+
+        [$grupo, $token] = $this->grupoYPersonal();
+
+        $lee = fn () => DB::selectOne(
+            'SELECT contador_certificados v FROM years WHERE deleted_at is null and actual=1'
+        )->v;
+
+        $antes = $lee();
+        $desde = (int) DB::table('auditoria')->max('id');
+
+        $this->putJson('/api/bolfinales/detailed-notas-year-group/'.$grupo->id,
+            ['aumentar_contador' => true],
+            ['Authorization' => 'Bearer '.$token])->assertStatus(200);
+
+        $this->assertSame($antes, $lee(),
+            'El colegio no lleva consecutivo de certificados y abrir el certificado le gasto '
+            .'un numero igual: paso de «'.$antes.'» a «'.$lee().'».');
+
+        // Y la otra mitad, que se puede incumplir sin la primera: si no se quemo nada,
+        // tampoco puede haber quedado escrito que se quemo algo.
+        $this->assertCount(0, DB::select(
+            'SELECT id FROM auditoria WHERE id > ? AND entidad = ?', [$desde, 'year_config']),
+            'No se quemo ningun numero pero quedo una linea de auditoria diciendo que si.');
+    }
+
+    /**
+     * Y los dos endpoints contestan **409** en ese colegio, cada uno por su interruptor.
+     *
+     * **409 y no 403**: no es que quien llama no pueda --el sujeto de este test es
+     * administrativo y en un colegio que los use entraria--, es que **la operacion no
+     * aplica aqui**. Y no es 422 porque el cuerpo esta bien: `'815'` es un consecutivo
+     * perfectamente valido; lo que no encaja es el estado del sistema.
+     *
+     * Van los dos en el mismo test **con asertos separados y mensaje propio**, porque los
+     * interruptores son dos y uno puede quedarse sin cablear.
+     */
+    public function test_si_el_colegio_no_los_usa_los_dos_endpoints_contestan_409(): void
+    {
+        $this->withoutMiddleware(ThrottleRequests::class);
+
+        [, $token] = $this->grupoYPersonal();
+
+        foreach (['contador-certificados' => 'contador_certificados',
+            'contador-folios' => 'contador_folios'] as $ruta => $columna) {
+
+            $lee = fn () => DB::selectOne(
+                "SELECT {$columna} v FROM years WHERE deleted_at is null and actual=1"
+            )->v;
+
+            $antes = $lee();
+
+            $r = $this->putJson('/api/bolfinales/cambiar-'.$ruta, ['contador' => '815'],
+                ['Authorization' => 'Bearer '.$token]);
+
+            $this->assertSame(409, $r->getStatusCode(),
+                '`'.$ruta.'` contesto '.$r->getStatusCode().' en un colegio que no lleva ese '
+                .'contador. Guardar ahi un numero que nadie imprime lo deja esperando a que '
+                .'alguien encienda la casilla.');
+
+            $this->assertSame($antes, $lee(),
+                'El 409 de `'.$ruta.'` llego con la columna ya movida a «'.$lee().'».');
+
+            $this->olvidarControladores();
+        }
+    }
+
+    /**
+     * **Enciende el consecutivo en el year actual, dentro de la transaccion del test.**
+     *
+     * Hace falta explicitamente y **eso no es un inconveniente: es la conducta**. Desde el
+     * 26 ago 2026 numerar las constancias es **opcional por colegio**
+     * (`docs/migracion/21-certificados-y-folios.md`), asi que un test que quema un numero
+     * sin decir que el colegio los lleva estaria midiendo una configuracion y no el codigo.
+     *
+     * Y hace falta **ademas** por donde corren las cosas: `construir-bd-test.sh` ejecuta las
+     * migraciones **antes** del seed, y el seed reinserta `years`, asi que la derivacion que
+     * hace la migracion --encender el interruptor donde el contador no esta vacio-- **se la
+     * lleva por delante el seed** y todos los years quedan en 0. Es exactamente lo que ya
+     * dejo documentado `create_permiso_can_view_auditoria`, y por eso los tests se montan su
+     * propia configuracion en vez de depender de la que traiga la copia.
+     */
+    private function encenderConsecutivo(): void
+    {
+        DB::update('UPDATE years SET usa_consecutivo_certificados=1 WHERE actual=1 and deleted_at is null');
+    }
+
+    /** Lo mismo para el folio, que es el otro interruptor y va por separado. */
+    private function encenderFolio(): void
+    {
+        DB::update('UPDATE years SET usa_folio_certificados=1 WHERE actual=1 and deleted_at is null');
     }
 
     /**

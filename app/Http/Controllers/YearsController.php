@@ -137,6 +137,12 @@ class YearsController extends Controller {
 			$year->cant_asignatura_pierde_year   = $pasado->cant_asignatura_pierde_year;
 			$year->contador_certificados         = $pasado->contador_certificados;
 			$year->contador_folios               = $pasado->contador_folios;
+			// Los dos interruptores del certificado van con sus contadores: un colegio que
+			// numera sus constancias las sigue numerando en el anio nuevo sin volver a
+			// configurarlo (21 §2.3). Sin esta copia nacerian apagados y el certificado del
+			// anio nuevo saldria sin numero, que es un cambio en papel oficial que nadie pidio.
+			$year->usa_consecutivo_certificados  = $pasado->usa_consecutivo_certificados;
+			$year->usa_folio_certificados        = $pasado->usa_folio_certificados;
 			$year->nota_minima_aceptada          = $pasado->nota_minima_aceptada;
 			$year->resolucion                    = $pasado->resolucion;
 			$year->codigo_dane                   = $pasado->codigo_dane;

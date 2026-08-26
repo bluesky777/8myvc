@@ -297,11 +297,22 @@ class MatriculasTest extends CasoDeContrato
     /**
      * Re-matricular pone el número de folio si no lo tenía, y no lo pisa si lo tenía.
      *
-     * El folio es `{año}-{alumno_id}` y es lo que el colegio escribe en el libro
-     * de matrícula. Que no se sobrescriba importa: un folio ya asignado apunta a
-     * una página de un libro físico.
+     * **CORREGIDO el 26 ago 2026, y la corrección es de fondo:** este docblock decía que
+     * `{año}-{alumno_id}` «es lo que el colegio escribe en el libro de matrícula», y **era
+     * falso**. Un folio **es** la hoja de un libro físico —eso sí— pero `2025-856` no es
+     * ninguna hoja: es el id del alumno con el año delante. Medido en la copia local:
+     * **1.612 fabricados así y 257 que llevan esa forma nombrando a OTRO alumno**
+     * (docs/migracion/21-certificados-y-folios.md §2.2).
+     *
+     * O sea que la frase acertaba en lo que un folio es y se equivocaba en creer que el
+     * sistema lo estaba escribiendo. Por decisión de Joseth **ya no se fabrica**: se llena
+     * a mano o se queda vacío, y vacío la constancia no lo imprime.
+     *
+     * **La segunda mitad del test sigue viva y vale más que antes**: que re-matricular **no
+     * pise un folio ya puesto**. Ahora que los únicos folios que hay son los que escribió
+     * una persona, pisar uno es perder el único dato real que existía.
      */
-    public function test_re_matricular_asigna_el_folio_solo_si_falta(): void
+    public function test_re_matricular_no_fabrica_folio_y_no_pisa_el_que_haya(): void
     {
         $grupo = $this->grupoConAlumnos();
         $token = $this->superusuario((int) $grupo->year_id);
@@ -314,11 +325,11 @@ class MatriculasTest extends CasoDeContrato
             ->assertStatus(200);
 
         $folio = DB::selectOne('SELECT nro_folio f FROM matriculas WHERE id = ?', [$matricula->id])->f;
-        $anio = DB::selectOne('SELECT y.year FROM matriculas m
-            INNER JOIN grupos g ON g.id = m.grupo_id INNER JOIN years y ON y.id = g.year_id
-            WHERE m.id = ?', [$matricula->id])->year;
 
-        $this->assertSame("{$anio}-{$matricula->alumno_id}", $folio);
+        $this->assertNull($folio,
+            'Re-matricular fabricó el folio «'.$folio.'», y nadie lo escribió. Lo vigila '
+            .'`FolioQueNoSeFabricaTest`, que además barre `app/` entera por si vuelve a '
+            .'aparecer en cualquiera de los siete sitios de los que se quitó.');
 
         DB::update('UPDATE matriculas SET nro_folio = "NO-TOCAR" WHERE id = ?', [$matricula->id]);
 

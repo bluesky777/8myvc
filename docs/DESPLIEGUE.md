@@ -13,14 +13,23 @@ y con el mismo hash comprobado en los quince. Qué se le notó a un colegio, fil
 
 | | | recalcular con |
 |---|---|---|
-| Migraciones | **ninguna** | `git diff --name-only eb95cbc HEAD -- database/migrations/` |
+| Migraciones | **UNA**, y **no es opcional** | `git diff --name-only eb95cbc HEAD -- database/migrations/` |
 | Rutas | **542, sin mover** | `tests/Contrato/Snapshots/rutas.json` |
 | Dependencias | sin tocar | `git diff --name-only eb95cbc HEAD -- composer.json composer.lock` |
 | `config/` | sin tocar | `git diff --name-only eb95cbc HEAD -- config/` |
-| `app/` | **tres ficheros** | `BolfinalesController`, `NotasController`, `Models/Nota` |
+| `app/` | **ocho ficheros** | `Informes/BolfinalesController`, `Alumnos/FoliosController`, `AlumnosController`, `Matriculas/MatriculasController`, `YearsController`, `NotasController`, `Models/Year`, `Models/Nota` |
 
-**Sin migraciones, el `migrate --force` del bucle no hace nada y se puede dejar** — pero se deja
-puesto igual, porque es idempotente y el bucle es el mismo para todas las tandas.
+> **La migración es bloqueante, como la del 25.** `2026_08_26_100000_interruptores_de_certificados`
+> añade `usa_consecutivo_certificados` y `usa_folio_certificados` a `years`, y **el código de
+> esta misma tanda las consulta en un camino vivo** —`Year::datos()`, que es de donde sale
+> cualquier boletín y cualquier certificado—. **Con el código y sin la migración: 500 en todo.**
+> El `migrate --force` va **entre el `pull` y el `config:cache`**, que es donde ya está en el
+> bucle del paso 1.
+>
+> **Y lo que hace que sea segura: no siembra ningún valor por defecto.** Deriva los dos
+> interruptores de lo que cada colegio hace hoy —`contador <> ''`, que es la condición que el
+> front ya usaba para ocultar cada casilla—, así que **ningún colegio imprime nada distinto el
+> día del despliegue**.
 
 ### Qué se le nota a un colegio
 
@@ -30,6 +39,8 @@ puesto igual, porque es idempotente y el bucle es el mismo para todas las tandas
 | **La ficha del alumno crea las notas que faltan** — 240 huecos medidos | `05 §234` |
 | **Fijar el consecutivo de certificados pasa a ser de secretaría**, y contesta **403** al resto del personal | [`cert-2`](migracion/noche-2026-08-26/cert-2.md) |
 | **Mover el consecutivo deja rastro en `auditoria`**, tanto al quemarlo abriendo el certificado como al fijarlo a mano | [`cert-2 §3`](migracion/noche-2026-08-26/cert-2.md) |
+| **El consecutivo y el folio pasan a ser OPCIONALES por colegio.** Nada cambia de aspecto: cada colegio arranca como está hoy. Lo que cambia es que **el que no imprime el número deja de gastarlo** — hasta ahora su contador subía solo en cada apertura | [`21 §4`](migracion/21-certificados-y-folios.md) |
+| **El folio deja de fabricarse.** Ya no se escribe `año-alumno_id` al matricular, y `GET folios/iniciar` —que llenaba todos los huecos del año de una sentencia, y **no lo llama ningún cliente**— contesta 409. Los folios ya escritos **se quedan**: borrarlos cambia lo impreso y es decisión aparte | [`21 §4.3`](migracion/21-certificados-y-folios.md) |
 
 ### Lo que hay que decirle al front el día que esto se despliegue
 
@@ -41,7 +52,13 @@ puesto igual, porque es idempotente y el bucle es el mismo para todas las tandas
    vieja y `certificados-estudio.ts` de `app2`— **enseñan el control sin mirar el rol**, así que un
    docente verá «Contador no guardado». Lo que toca allí es **esconder el control**, no cambiar la
    llamada. *(`-folios` no lo llama nadie vivo.)*
-2. `aumentar_contador` hay que **OMITIRLO**, no mandar `false`. El backend ya no quema con la
+2. **Hay dos interruptores nuevos que configurar**, `usa_consecutivo_certificados` y
+   `usa_folio_certificados`, y **viajan ya en la respuesta de `Year::datos()`**. El front
+   tiene que (a) ocultar las dos casillas por el interruptor en vez de por «la columna está
+   vacía», y (b) ofrecerlos en la pantalla de configuración de certificados, que es donde el
+   colegio los va a buscar. Hasta que lo haga **no se rompe nada**: la derivación deja a cada
+   colegio como estaba.
+3. `aumentar_contador` hay que **OMITIRLO**, no mandar `false`. El backend ya no quema con la
    cadena `"false"` desde el 25, pero **las copias de `myvc_front` de los quince colegios van a
    versiones distintas** y esa medición no las ve.
 
