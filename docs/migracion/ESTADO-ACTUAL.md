@@ -1003,8 +1003,8 @@ cada una y la evidencia que la justifica. **No son de la migración**: son lo qu
 
 | | Qué | Estado |
 |---|---|---|
-| 1 | `PUT notas/lote` — pasar una columna en una petición | **hecho el 24 ago**, 12 tests |
-| 2 | `GET disciplina/mis-fichas/{alumno_id?}` — que el alumno y el acudiente vean lo suyo | **hecho el 24 ago**, 10 tests |
+| 1 | `PUT notas/lote` — pasar una columna en una petición | **hecho el 24 ago**, 12 tests · **desplegado en los quince el 25** (`eb95cbc`) · **la app lo deja APAGADO a propósito, y espera a Joseth** — ver abajo |
+| 2 | `GET disciplina/mis-fichas/{alumno_id?}` — que el alumno y el acudiente vean lo suyo | **hecho el 24 ago** · **desplegado el 25** · **encendido en la app el 26** · **son 11 tests, no 10**: contados ejecutando (`--filter=FichaDisciplinaPropiaTest`, 11 en verde, 73 aserciones) |
 | 3 | Notificaciones: endpoint de temas con HMAC, `notificaciones:enviar` y la entrada de cron | **hecho el 24 ago**, 19 tests — falta que Joseth cree el proyecto de Firebase |
 
 ### 1 — `PUT notas/lote`, hecho
@@ -1036,11 +1036,23 @@ treinta notas del mismo periodo son treinta ids contra una fila y **deniega la
 petición entera** con un *«no tienes permiso»* que manda a buscar el fallo donde
 no está. Ahora **deduplica ella**, en vez de exigírselo a cada llamante.
 
-> **La app no puede llamar a `notas/lote` hasta que esté desplegado en los
-> dieciséis**, no cuando esté fusionado: `app/` es copia por colegio y
-> `myvc_flutter` es **una sola app para todos**, así que no hay forma de
-> escalonar el cliente. En el colegio que faltara sería un 404 gastado antes de
-> caer al método viejo. Está en [DESPLIEGUE.md](../DESPLIEGUE.md) §5.b.
+> **CUMPLIDA el 25 ago, y la condición estaba mal escrita.** Decía «los
+> **dieciséis**», y desde el 25 ago **son quince** — o sea que tal como estaba
+> **no se podía cumplir nunca** y dejaba el interruptor en `false` para siempre
+> esperando a un colegio dado de baja. La razón de fondo sigue valiendo entera:
+> `app/` es copia por colegio y `myvc_flutter` es **una sola app para todos**, así
+> que no hay forma de escalonar el cliente, y en el colegio que faltara sería un
+> 404 gastado antes de caer al método viejo. Está en
+> [DESPLIEGUE.md](../DESPLIEGUE.md) §5.b.
+>
+> **Lo que la app hizo el 26 con las tres, avisada de que ya estaban en los
+> quince:** encendió `disciplinaMisFichas` y `cambiarUsername` (y un tercero suyo,
+> `cambiarClavesArreglado`, que va en el mismo `0e7208c`), y **dejó
+> `notasLote` APAGADO a propósito** — *«toca la pantalla del trabajo diario de un
+> docente, pasar una columna de treinta notas, y eso lo decide Joseth, no lo
+> encendemos de paso»*. **Así que el endpoint está desplegado y sin usar, y lo que
+> falta no es técnico: es que Joseth diga que sí.** Cuando lo diga, piden una
+> comprobación fina antes de encender.
 
 ### 2 — `GET disciplina/mis-fichas/{alumno_id?}`, hecho
 
