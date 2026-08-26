@@ -80,6 +80,13 @@ class AutopruebasDeLasHerramientasTest extends TestCase
      * > el árbol, no la herramienta.** `consultas-en-bucle.py --control` necesita
      * > `git show`, y en un worktree el `.git` es un fichero que apunta al host. La
      * > suite de una noche en paralelo corre ahí (`docs/migracion/15-la-noche-en-paralelo.md`).
+     * >
+     * > **Y hay un tercer árbol donde pasó lo mismo por un tercer motivo: el CI.**
+     * > `actions/checkout` clona **superficial** de serie, así que `2837171^` no existía
+     * > y el control salía 2 en los tres pushes del 25 ago 2026 — la suite entera en
+     * > rojo por correo, con 1.515 casos en verde. Arreglado con `fetch-depth: 0` en
+     * > `.github/workflows/ci.yml`, no aquí: **la herramienta nunca estuvo mal**, y las
+     * > tres veces la respuesta fue la misma —*mira desde qué árbol corre*—.
      *
      * **Método y no `const`**, y es por el análisis: con una constante vacía larastan
      * deduce `array{}` y da por muerta la rama del `skip` entera —tiene razón mientras

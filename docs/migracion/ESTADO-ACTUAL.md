@@ -8,9 +8,11 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
-**Última actualización: 25 ago 2026, noche — TODO FUNDIDO Y NO QUEDA NINGUNA RAMA** ·
-`main` en `2de6c1d`, subido · **1.516 pruebas, 11.401 aserciones, larastan nivel 7
-`[OK]`, pint PASS**, medido **en la fusión** y no en ninguna rama · **un colegio dado
+**Última actualización: 26 ago 2026, madrugada — TODO FUNDIDO, NINGUNA RAMA, Y EL CI
+OTRA VEZ EN VERDE** · `main` subido · **1.516 pruebas, 11.401 aserciones, larastan nivel 7
+`[OK]`, pint PASS**, medido **en la fusión** y no en ninguna rama · **el CI llevaba tres
+pushes en rojo** por un control que el clon superficial de Actions no podía ejercer
+([abajo](#y-un-tercer-árbol-tres-pushes-después-el-ci-llevaba-tres-correos-en-rojo)) · **un colegio dado
 de baja y borrado del servidor el 25 ago: son QUINCE, no dieciséis** — las cifras
 fechadas antes del 25 ago dicen dieciséis y **así se quedan**, porque se midieron sobre
 dieciséis; lo que se actualizó es lo que sigue vivo · **sin coordinación**: `8myvc-94`
@@ -240,6 +242,33 @@ Tres cosas que deja:
    es añadir una línea.
 
 **Lista de no concluyentes: 0, era 1.** Las cinco autopruebas concluyen.
+
+### Y un tercer árbol, tres pushes después: el CI llevaba tres correos en rojo
+
+El mismo control volvió a salir **2** en GitHub Actions, y por un tercer motivo que no
+es ninguno de los dos anteriores: **`actions/checkout` clona superficial de serie**
+(`fetch-depth: 1`), así que `2837171^` no existe en el runner. Los tres pushes desde que
+`CONTROLES-1` entró en `main` (`be05a28`, `2de6c1d`, `e66e99e`) mandaron correo de fallo
+con **1.515 casos en verde y uno rojo**.
+
+Reproducido en vez de deducido, que es lo que separa esto de la primera vez:
+
+    git clone --depth 1  ->  «CONTROL NO CONCLUYENTE: no se pudo leer 2837171^»
+    árbol completo       ->  «antes de 2837171: 10 … despues: 4 … OK»,  exit 0
+
+**Arreglado en `.github/workflows/ci.yml` con `fetch-depth: 0`, no en la herramienta ni
+en la lista de excepciones.** Apuntarla como no concluyente habría apagado el correo
+dejando el detector sin comprobar — exactamente lo que el runner se puso a impedir. Son
+999 commits y 25 MB: el clon entero cuesta segundos.
+
+**Tres árboles, tres causas, una sola respuesta: *mira desde qué árbol corre*.** Worktree
+(`.git` que apunta al host), fusión (el commit sí estaba) y CI (clon superficial). Las
+tres veces la herramienta estuvo bien. Queda escrito en la cabecera del test para que la
+cuarta no se investigue desde cero.
+
+> **Lo que no se tocó:** el aviso de que `actions/checkout@v4` y `actions/cache@v4` van
+> a Node 20 deprecado. No es lo que rompía nada, y las últimas son **v7** y **v6** —tres
+> majors de salto—, así que subirlas es su propio commit o no se sabrá cuál fue.
 
 ---
 

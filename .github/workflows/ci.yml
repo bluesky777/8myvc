@@ -29,6 +29,18 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Historial completo, no el clon superficial de serie. `consultas-en-bucle.py
+          # --control` compara el mismo fichero antes y después de `2837171` con
+          # `git show`, y con el `fetch-depth: 1` de serie ese commit no está en el
+          # árbol: el control sale NO CONCLUYENTE (exit 2) y las autopruebas de
+          # `tools/` tumban la suite entera — haciendo justo lo que se les pidió,
+          # avisar de que un control dejó de ejercerse. **La causa es el árbol, no la
+          # herramienta**, igual que en el worktree (ver la cabecera de
+          # `tests/Unit/AutopruebasDeLasHerramientasTest.php`). Son 999 commits y
+          # 25 MB: traerlos entero cuesta segundos, y es lo único que hace que ese
+          # control se ejerza de verdad aquí.
+          fetch-depth: 0
 
       - name: Preparar PHP
         uses: shivammathur/setup-php@v2
