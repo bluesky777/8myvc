@@ -138,6 +138,8 @@
             "unidades_displayname": "string",
             "updated_at": "string",
             "updated_by": "int|null",
+            "usa_consecutivo_certificados": "int",
+            "usa_folio_certificados": "int",
             "website": "null|string",
             "website_myvc": "null",
             "year": "int",

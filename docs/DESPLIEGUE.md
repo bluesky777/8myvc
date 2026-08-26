@@ -57,7 +57,7 @@ y con el mismo hash comprobado en los quince. Qué se le notó a un colegio, fil
 | | aviso | estado |
 |---|---|---|
 | **A** | los dos 403 de `cambiar-contador-*` | **PENDIENTE** |
-| **B** | los dos interruptores nuevos en `Year::datos()` | **PENDIENTE** |
+| **B** | **veintiún respuestas cambian de forma**: les llegan dos campos nuevos | **PENDIENTE** |
 | **C** | `aumentar_contador`: omitir la clave | **PENDIENTE** |
 
 **Ninguno se entera solo, y A y B son de las de «quién puede llamarla».** El detalle en
@@ -70,7 +70,15 @@ backend y qué les toca a ellos en `myvc_front/TAREAS-AUDITORIA-CERTIFICADOS.md`
    docente verá «Contador no guardado». Lo que toca allí es **esconder el control**, no cambiar la
    llamada. *(`-folios` no lo llama nadie vivo.)*
 2. **Hay dos interruptores nuevos que configurar**, `usa_consecutivo_certificados` y
-   `usa_folio_certificados`, y **viajan ya en la respuesta de `Year::datos()`**. El front
+   `usa_folio_certificados`, y **cambian la forma de veintiún respuestas** —las
+   instantáneas de contrato lo fijan—. **El cambio es aditivo: no quita ni renombra ningún
+   campo**, así que ningún cliente se rompe por recibirlos; pero conviene saber dónde caen:
+
+   | endpoints | qué significa para vosotros |
+   |---|---|
+   | `GET years` · `years/colegio` · `years/trashed` | **aquí os vienen bien**: es de donde la pantalla de configuración los va a leer |
+   | los 13 de `boletines/*` y `bolfinales/*` | el objeto `year` viaja dentro del boletín y del certificado; es donde tenéis que mirar el interruptor para esconder las casillas |
+   | `informes/datos` · `piars-config` · `grupos-con-disciplina` · `notas/actuales-alumnos` | por arrastre, no os toca nada | El front
    tiene que (a) ocultar las dos casillas por el interruptor en vez de por «la columna está
    vacía», y (b) ofrecerlos en la pantalla de configuración de certificados, que es donde el
    colegio los va a buscar. Hasta que lo haga **no se rompe nada**: la derivación deja a cada

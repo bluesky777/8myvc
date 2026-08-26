@@ -61,6 +61,8 @@
         "unidades_displayname": "string",
         "updated_at": "string",
         "updated_by": "null",
+        "usa_consecutivo_certificados": "int",
+        "usa_folio_certificados": "int",
         "website": "null",
         "website_myvc": "null",
         "year": "int",

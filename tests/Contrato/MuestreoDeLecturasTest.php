@@ -95,7 +95,6 @@ class MuestreoDeLecturasTest extends CasoDeContrato
             'api/ChangesAsked/to-me',
             'api/auth/me',
             'api/certificados',
-            'api/folios/iniciar',
             'api/grupos/con-paises-tipos-next-year',
             'api/piars-config',
             'api/publicaciones/ultimas',
@@ -213,6 +212,53 @@ class MuestreoDeLecturasTest extends CasoDeContrato
             $this->traeDatos(json_decode($r->getContent(), true)),
             "'{$uri}' ya trae datos, y estaba anotada como vacía porque {$motivo}.\n".
             'Muévela a lecturasConDatos() para que se le guarde la forma.'
+        );
+    }
+
+    /**
+     * Las que **dejaron de hacer lo que hacían, a propósito**. No es lo mismo que rotas.
+     *
+     * `lecturasRotas()` dice de sí misma que *«ninguna es reciente; las cuatro llevan rotas
+     * desde que se escribieron»*, y meter aquí dentro una retirada a mano volvería falsa esa
+     * frase. La distinción es la de `CLAUDE.md` —*sin ruta y roto se borra; con ruta se
+     * documenta*— y es la que hay que poder leer dentro de seis meses: **una rota es una
+     * deuda; una retirada es una decisión**.
+     *
+     * Se fija el mensaje y no solo el código, por lo mismo que la de al lado: un 409 que
+     * llegara por otro motivo no diría nada.
+     *
+     * @return array<string, array{string, int, string}>
+     */
+    public static function lecturasRetiradas(): array
+    {
+        return [
+            'folios/iniciar fabricaba folios en masa y se retiró el 26 ago 2026' => [
+                'api/folios/iniciar', 409, 'El folio ya no se genera automaticamente',
+            ],
+        ];
+    }
+
+    /**
+     * Una retirada contesta lo que se decidió, **y no escribe**.
+     *
+     * La segunda mitad la lleva `FolioQueNoSeFabricaTest`, que además comprueba que no
+     * llegue con el `UPDATE` ya hecho. Aquí basta con que el barrido de lecturas la conozca:
+     * sin esta entrada, `folios/iniciar` desaparecería del muestreo y **nadie volvería a
+     * mirarla**.
+     */
+    #[DataProvider('lecturasRetiradas')]
+    public function test_la_lectura_retirada_sigue_retirada(string $uri, int $codigo, string $error): void
+    {
+        [$grupo, $token] = $this->grupoYPersonal();
+
+        $r = $this->withToken($token)->getJson('/'.$uri);
+
+        $r->assertStatus($codigo);
+
+        $this->assertStringContainsString(
+            $error,
+            (string) (json_decode($r->getContent(), true)['message'] ?? ''),
+            "'{$uri}' ya no contesta 200, pero por otro motivo que el que se anotó."
         );
     }
 

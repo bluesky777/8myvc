@@ -16,25 +16,31 @@ del 25 estaba vieja en sus dos primeras filas**: la carrera y la validación ent
 noche del 25 y sus tests llevan desde entonces verdes dentro de la suite — quien retome
 esto, **abra el test antes que el documento**
 
-> ## ⚠️ LA SUITE ESTÁ EN ROJO A PROPÓSITO, Y ES UNA DECISIÓN TUYA
+> ## ✅ VERDE OTRA VEZ: 1.525 pruebas, 11.458 aserciones
 >
-> **13 tests de instantánea de `BoletinesTest`**, más los mismos de `GruposTest`,
-> `MuestreoDeLecturas*` y `RejillaLasQueFaltabanTest`. **Todos por la misma causa y ninguno
-> por un fallo:** la migración de los interruptores añade dos columnas a `years`, y
-> cualquier `SELECT *` o `Year::datos()` las arrastra a la respuesta. **Es aditivo** —no
-> quita ni cambia ningún campo—, pero **mover la forma de una respuesta obliga a avisar al
-> front y a Flutter**, y eso ya quedó fijado como decisión tuya en la §14 de más abajo. Por
-> eso no las regenero yo.
+> El `ROJO A PROPÓSITO` de `acd189b` está **arreglado, no explicado**. Joseth decidió
+> regenerar, y se regeneraron **21 instantáneas** — las nombró el propio fallo, no se
+> borraron a ojo las que contenían el objeto `year`.
 >
-> **Se arregla con un comando** en cuanto lo digas: borrar esas instantáneas y volver a
-> correr; el propio fallo imprime cuál borrar. **Lo demás está verde**: las cinco clases del
-> lote dan 51 en verde, larastan nivel 7 `[OK]` y pint PASS.
+> **Y se comprobó el diff antes de aceptarlo, que es lo que hace que regenerar no sea firmar
+> en blanco**: **0 líneas quitadas, 42 añadidas**, que son `usa_consecutivo_certificados` y
+> `usa_folio_certificados` × 21 ficheros. **Ni un campo cambiado ni renombrado**, así que
+> ningún cliente se rompe por recibir dos campos de más. El aviso al front va en
+> [DESPLIEGUE.md](../DESPLIEGUE.md) **con estado y con los endpoints exactos**.
 >
-> *(Y dos rojos de `DisciplinaTest`/`DisciplinaUpdateTest` que se vieron en una corrida
-> **no eran reales**: eran deadlocks por tener dos suites a la vez contra
-> `simonbolivar_testing`, culpa de esta sesión por lanzar la segunda sin esperar la primera.
-> Corridas solas dan 13 en verde. Es exactamente lo que avisa `CLAUDE.md` y se cayó en ello
-> igual.)*
+> De los dos fallos que quedaron al regenerar, **sólo uno era real**:
+>
+> - `HuecosDelSeedTest` **no lo era**: corrió mientras el fichero estaba borrado, así que el
+>   hueco faltaba **por el orden de la regeneración**. Recalculado sobre el fichero
+>   regenerado, coincide exactamente. *Se comprobó replicando el detector, no suponiéndolo.*
+> - `MuestreoDeLecturasTest` **sí**: el barrido de lecturas esperaba 200 de `folios/iniciar`.
+>   Se sacó de ahí, **y no se metió en `lecturasRotas()`** —esa lista dice de sí misma que
+>   «ninguna es reciente», y meter una retirada a mano volvería falsa esa frase—. Tiene
+>   proveedor propio, `lecturasRetiradas()`: **una rota es una deuda, una retirada es una
+>   decisión**, que es la distinción de `CLAUDE.md`. Sin esa entrada `folios/iniciar`
+>   desaparecía del muestreo y no volvía a mirarla nadie.
+>
+> larastan nivel 7 `[OK]`, pint PASS.
 
 **Antes de eso: TODO FUNDIDO, NINGUNA RAMA, Y EL CI
 OTRA VEZ EN VERDE** · `main` subido · **1.516 pruebas, 11.401 aserciones, larastan nivel 7

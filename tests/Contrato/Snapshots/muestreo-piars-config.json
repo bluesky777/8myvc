@@ -79,6 +79,8 @@
         "solo_escalas_valorativas": "int",
         "texto_acta_eval": "null",
         "titulo_rector": "null",
+        "usa_consecutivo_certificados": "int",
+        "usa_folio_certificados": "int",
         "year": "int",
         "year_id": "int"
     }
