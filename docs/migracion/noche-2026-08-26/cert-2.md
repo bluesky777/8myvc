@@ -196,6 +196,14 @@ Es la mitad que queda de la segunda respuesta de Joseth, y las dos son de las de
 
 **Y va cuando se despliegue, no cuando se funda**: `app/` es copia por colegio.
 
+> **Los dos llevan estado en [DESPLIEGUE.md](../../DESPLIEGUE.md), y el paso 3 de ese
+> procedimiento los cierra en el mismo commit que anota la tanda.** No es ceremonia: el
+> bloque equivalente de la tanda anterior seguía diciendo «esperando el despliegue»
+> **después** de desplegar, y la sesión de `myvc_flutter` planificó sobre eso una vuelta
+> entera —fusionar una rama que no existía y escribir un endpoint que llevaba tres días en
+> los quince—. **Un pendiente escrito en futuro no envejece a «hecho»: envejece a mentira.**
+> Lo midió `8myvc-43` el 26 ago (`f5f6235`).
+
 > **Escrito ya donde lo van a leer, el 26 ago por la tarde y a petición de Joseth:**
 > `~/DESARROLLOS/myvc_front/TAREAS-AUDITORIA-CERTIFICADOS.md`. Lleva los dos avisos de
 > arriba, **las cinco lecturas de auditoría que ya piden `can_view_auditoria` y que están

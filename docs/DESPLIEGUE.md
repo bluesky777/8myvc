@@ -3,7 +3,7 @@
 **Los comandos de la tanda que toca, y nada más.** Topología, inventario, las siete trampas, el
 bucle del front y lo que trajo cada tanda: [DESPLIEGUE-REFERENCIA.md](DESPLIEGUE-REFERENCIA.md).
 
-## La tanda pendiente: del 25 ago (`eb95cbc`) a hoy — **tres ficheros, y ni una migración**
+## La tanda pendiente: del 25 ago (`eb95cbc`) a hoy — **ocho ficheros y UNA migración bloqueante**
 
 **La anterior, del 22 al 25 ago, se desplegó el 25 ago en `eb95cbc`**, con sus cuatro migraciones
 y con el mismo hash comprobado en los quince. Qué se le notó a un colegio, fila a fila:
@@ -44,8 +44,25 @@ y con el mismo hash comprobado en los quince. Qué se le notó a un colegio, fil
 
 ### Lo que hay que decirle al front el día que esto se despliegue
 
-**No se entera solo, y las dos son de las de «quién puede llamarla».** El detalle en
-[`cert-2 §6`](migracion/noche-2026-08-26/cert-2.md):
+> **Cada aviso lleva un estado, y no está en futuro por una razón que costó un día entero.**
+> El bloque equivalente de la tanda anterior decía *«`myvc_flutter` tiene tres interruptores
+> esperando el despliegue»* **y seguía diciéndolo después de desplegar**: Flutter acabó
+> pidiendo que se fusionara y desplegara una rama que no existía, y que se escribiera un
+> endpoint que llevaba tres días en los quince. **Un pendiente escrito en futuro no envejece a
+> «hecho»: envejece a mentira.** Lo midió `8myvc-43` el 26 ago (`f5f6235`).
+>
+> **Por eso el paso 3 de abajo cierra estos avisos en el mismo commit que anota el
+> despliegue.** Si alguno se queda en `PENDIENTE` después de desplegar, está mintiendo.
+
+| | aviso | estado |
+|---|---|---|
+| **A** | los dos 403 de `cambiar-contador-*` | **PENDIENTE** |
+| **B** | los dos interruptores nuevos en `Year::datos()` | **PENDIENTE** |
+| **C** | `aumentar_contador`: omitir la clave | **PENDIENTE** |
+
+**Ninguno se entera solo, y A y B son de las de «quién puede llamarla».** El detalle en
+[`cert-2 §6`](migracion/noche-2026-08-26/cert-2.md) y el reparto completo de qué hace el
+backend y qué les toca a ellos en `myvc_front/TAREAS-AUDITORIA-CERTIFICADOS.md`:
 
 1. `PUT bolfinales/cambiar-contador-certificados` y `-folios` **contestan 403 a quien no sea
    administrativo**. Las dos pantallas que llaman a la primera —`certificadoEstudioDir.html` de la
@@ -116,7 +133,27 @@ Y a mano en un colegio cualquiera, de lo más usado a lo más raro: **guardar un
 **cambiar una nota y ver moverse la definitiva** · **enfermería sin el permiso**, que debe dar
 mensaje y dejarte dentro · **login de personal y de alumno**.
 
-## Paso 3. Volver atrás
+## Paso 3. Cerrar los avisos — **en el mismo commit, no en uno aparte**
+
+**El despliegue no ha terminado cuando los quince tienen el hash.** Termina cuando el
+documento deja de prometer cosas que ya ocurrieron.
+
+En el **mismo commit** que anota la tanda como desplegada:
+
+1. **Cada aviso de la tabla de arriba pasa de `PENDIENTE` a `DADO el <fecha>`**, o se borra
+   si dejó de aplicar. No se deja «para luego»: un commit aparte al final es el que no se
+   hace cuando la sesión se corta.
+2. **Lo mismo en `ESTADO-ACTUAL.md`**, que lleva su propia copia de los avisos.
+3. **Y si un aviso era para un cliente concreto, se le dice a ese cliente** — que se entere el
+   documento no es que se entere quien tiene que publicar.
+
+> **Por qué esto es un paso del procedimiento y no una buena costumbre:** ya falló una vez, y
+> el coste no fue la línea desactualizada. Fue que la sesión de `myvc_flutter` planificó una
+> vuelta entera —fusionar una rama, desplegarla, escribir un endpoint— **sobre trabajo que
+> llevaba tres días en producción**. El documento no estaba viejo: estaba diciendo algo falso
+> con la cara de un pendiente.
+
+## Paso 4. Volver atrás
 
 ```bash
 cd "$d" && git checkout <commit-anterior>
@@ -127,7 +164,7 @@ php artisan config:cache && php artisan route:cache
 **Las migraciones del 25 ago se quedan puestas y por eso esto vale:** son aditivas y el código
 viejo las ignora. **No corras el `down`.**
 
-## Paso 4. Las tres trampas que muerden aquí
+## Paso 5. Las tres trampas que muerden aquí
 
 | Trampa | Qué pasa |
 |---|---|
