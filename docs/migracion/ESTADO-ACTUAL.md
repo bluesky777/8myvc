@@ -1459,6 +1459,44 @@ solo:
 3. `myvc_flutter` tiene **tres interruptores apagados** esperando el despliegue, no
    la fusión.
 
+> **CERRADO el 26 ago 2026: los tres avisos de arriba ya se dieron, porque esa tanda
+> se desplegó.** El punto 3 era el que se quedaba viejo de la peor manera —decía
+> «esperando el despliegue» **después** de que el despliegue ocurriera—, y costó una
+> vuelta entera: la sesión de `myvc_flutter` pidió el 26 ago que se fusionara y
+> desplegara una rama con la guarda de `guardar-username` y el alcance de
+> `cambiar-claves`, **y pidió además que se escribiera `GET disciplina/mis-fichas`**.
+> Las tres cosas llevaban tres días desplegadas.
+>
+> **No había ninguna rama**: `0e7208c` (las dos de cuentas, el mismo commit) y
+> `83bf717` (`mis-fichas`) son **ancestros de `eb95cbc`**, o sea que entraron en los
+> quince el 25 ago. Comprobado con `git merge-base --is-ancestor`, y `git diff
+> eb95cbc HEAD` da **cero líneas** en esos tres métodos: lo que corre en producción
+> es byte a byte lo que hay en `main`. `mis-fichas` es además **una de las tres que
+> subieron el contador de 539 a 542** en esa misma tanda, así que estuvo a punto de
+> escribirse por cuarta vez una ruta que ya existía — lo que lo evitó fue mirar
+> `routes/` antes de escribir el método, y no la memoria de nadie.
+>
+> **Qué lo escondió, que es lo reutilizable:** el aviso está redactado en futuro
+> («cuando esto se despliegue») y **nada lo mueve el día que se despliega**. Un
+> pendiente escrito en futuro no envejece a «hecho», envejece a **mentira**, y el
+> lector de enfrente no tiene cómo saberlo. Lo mismo vale para la lista de arriba:
+> los puntos 1 y 2 —la forma de `cambiar-claves` y su alcance— **también se dieron
+> ya**. Cuando una tanda se despliegue, **el mismo commit que lo anota aquí cierra
+> sus avisos**.
+>
+> **Y una cifra suya que hay que corregirles y no es cosmética:** sus tres
+> interruptores tienen la condición de encendido escrita como «los dieciséis
+> colegios». Desde el 25 ago **son quince**, así que esa condición **no se puede
+> cumplir nunca** y los dejaba en `false` para siempre esperando a un colegio que ya
+> no existe. Avisados el 26 ago, junto con tres cosas del código desplegado que su
+> contrato contradecía —un acudiente **sin `alumno_id` recibe 400** y no la ficha
+> (deliberado, con test propio: «lo mío» no significa nada para quien tiene varios
+> acudidos), **`config` llega como objeto o `null`** y no como lista, y el año de la
+> ficha **sale del alumno y no de quien pregunta**—. La recomendación de encender no
+> se dejó apoyada en la lectura: `FichaDisciplinaPropiaTest` (11) y
+> `GuardarUsernameTest` (7), **18 en verde y 114 aserciones**, ejecutados contra el
+> esquema real.
+
 > **Y una advertencia de método que costó cara esta noche, escrita aquí porque es
 > donde la va a leer quien releve:** llegó el aviso de que una sesión se había
 > cerrado dejando trabajo sin commitear, y se leyó como *«todo lo que no está
