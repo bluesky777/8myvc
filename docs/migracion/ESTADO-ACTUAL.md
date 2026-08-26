@@ -342,9 +342,18 @@ esto **no estrena una conducta, le pone nombre a la que había**.
 otro alumno— se quedan; borrarlos cambia lo que hoy sale impreso y es un `UPDATE` y una
 decisión tuya.
 
-**Y sigue esperando la pregunta que bloquea la tabla de emitidos**: *cuando se sacan
-constancias para un grupo entero, ¿se anota un renglón o treinta y siete?* Decide si su
-clave es el papel o la emisión, y sin eso se construye mal.
+**Y la pregunta que la bloqueaba la contestaste el 26 ago: un número POR PAPEL.** El plan
+está en el [21 §7](21-certificados-y-folios.md) —**sin código y sin migración**, esperando tu
+visto bueno—, y lo que trae de nuevo es que **no es sólo una tabla**: numerar por papel obliga
+a dar N números por emisión donde hoy se da uno, y eso **mueve la forma de la respuesta y toca
+a los cuatro clientes**.
+
+> **Y sale una que hay que arreglar ANTES o esto multiplica un fallo por 37.** Hoy el
+> disparador de la quema es **abrir** la pantalla: recargar gasta un número. Con un número
+> por papel, **recargar gasta N** — treinta y siete de golpe cada vez que alguien pulsa F5.
+> Así que el orden que propongo no es tabla → números → botón, sino al revés: **primero que
+> el número se queme al EMITIR y no al MIRAR**, que es barato y ya arregla algo que hoy está
+> mal. Si esto se queda a medias, que se quede después de ese paso.
 
 ### Lo que sigue siendo tuyo y lo apartaste a propósito
 
@@ -1346,9 +1355,16 @@ contestar:
 - **Los quince números de la fase 0** de definitivas: la herramienta está, hay
   que correrla en el servidor colegio por colegio (`for` de una línea en el 10).
 - **Las tres primeras de la auditoría** se contestaron el 24 ago y están cerradas
-  en el [18](18-auditoria.md). Quedaron abiertas **cuatro** después:
-  **(a)** `/panel/bitacora`, ¿se jubila o se queda? —de ahí depende dónde cae la
-  pantalla nueva en el menú del front, y es lo único que les bloquea a ellos—;
+  en el [18](18-auditoria.md). Quedaron abiertas **tres** después (eran cuatro hasta que se comprobó que la (a) ya
+  estaba contestada):
+  **(a)** ~~`/panel/bitacora`, ¿se jubila o se queda?~~ **CERRADA, y esta lista estaba mal:
+  llevaba contestada desde el 24 ago.** El [18](18-auditoria.md) la tiene como **DECISIÓN 4
+  — se jubila**, con sus tres consecuencias escritas y la tarea puesta como obligatoria en
+  `myvc_front/PANTALLAS-HISTORIAL-Y-BOLETIN.md`, que la nombra 13 veces. Joseth la volvió a
+  contestar el 26 ago —«se jubila cuando llegue la nueva»— **y dijo lo mismo**, así que no
+  hay conflicto de fondo: lo que había era **una lista que no se releyó**, y de paso
+  **decía que bloqueaba al front cuando ellos ya tenían la tarea escrita**. *Dos fuentes
+  que discrepan son un hallazgo, y aquí la equivocada era ésta*;
   **(b)** tras retirar `bitacoras/destroy`, ¿quién borra un intento fallido? hay
   dos botones encima; **(c)** ¿se persigue lo de los decimales? la consulta de
   escalas en los quince dice si es cosmético o si un colegio lleva años

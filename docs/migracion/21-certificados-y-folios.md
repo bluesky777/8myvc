@@ -372,3 +372,95 @@ mejor que la C**, porque una casilla vacía es mejor que una llena de mentira.
 > **se murió sola en 2023**. Reactivarla exige que alguien en secretaría se comprometa a
 > hacerlo. Si eso no va a pasar, **apagar el interruptor es mejor que la C** — una casilla que
 > no se imprime es mejor que una que imprime un número que no lleva a ninguna parte.
+
+
+---
+
+## 7. La tabla de certificados emitidos — **plan, sin código y sin migración**
+
+Joseth, 26 ago 2026, sobre la pregunta del §2.4: **«diseña asumiendo un número por papel»**.
+Esto es el plan para que lo apruebes o lo tumbes; **no hay una línea escrita** y la migración
+no se toca hasta que lo digas.
+
+### 7.1 Lo primero, porque cambia el coste: **esto no es sólo una tabla**
+
+Con un número por papel, **el backend tiene que dar N números por emisión y hoy da uno**. Eso
+arrastra tres cosas que la tabla sola no arregla:
+
+| | qué cambia |
+|---|---|
+| el incremento | de `contador += 1` a **`contador += N`**, repartiendo `n+1 … n+N` entre los alumnos **en el orden en que se imprimen** |
+| la respuesta | el número deja de vivir en `year.contador_certificados` y pasa a **cada alumno** |
+| el papel | la plantilla imprime `alumno.consecutivo` en vez de `year.contador_certificados` — **cambio del front, en las dos aplicaciones** |
+
+**O sea que mueve la forma de una respuesta y toca a los cuatro clientes.** No es caro de
+escribir; es caro de coordinar, y esa es la parte que hay que ver antes de empezar.
+
+### 7.2 Y una cosa que hay que arreglar ANTES, o esto multiplica un fallo por 37
+
+**Hoy el disparador de la quema es abrir la pantalla.** Recargar el «Certificado periodos»
+gasta un número. Con un número por papel, **recargar gasta N** — treinta y siete de golpe en
+un grupo de 37, cada vez que alguien pulsa F5.
+
+> **La numeración por papel no se puede montar encima del disparador actual.** Primero el
+> número se quema al **emitir** —un botón explícito, «Emitir e imprimir»— y no al **mirar**.
+> Es un cambio del front con una condición del backend: que `aumentar_contador` deje de
+> llegar en la carga del informe y llegue en una acción aparte.
+>
+> Esto ya es cierto hoy, sólo que hoy cuesta un número y nadie lo nota. **Es la razón por la
+> que la §231 no pudo contestar cuántos se han quemado**: no hay forma de distinguir un
+> número gastado por mirar de uno gastado por emitir. Con la tabla **sí la hay** —lo emitido
+> queda escrito— pero sólo si el disparador es la emisión.
+
+### 7.3 La tabla
+
+`certificados_emitidos`, **una fila por papel**:
+
+| columna | por qué |
+|---|---|
+| `year_id`, `periodo_id` | el periodo va nulo en el certificado de año |
+| `tipo` | `'periodo'` \| `'anio'` — son dos documentos distintos y hoy comparten pantalla |
+| `alumno_id`, `alumno_nombre`, `grupo_id` | **el nombre congelado dentro**, como hace `Auditoria`: el alumno se puede borrar y el papel sigue existiendo |
+| `consecutivo` (int) | el número, **entero** |
+| `consecutivo_texto` (varchar) | **lo que se imprimió de verdad**, con su relleno de ceros. Son dos columnas y no una a propósito: el entero es para contar y ordenar, el texto es para comparar contra un papel que alguien trae en la mano |
+| `emitido_por`, `emitido_por_nombre`, `emitido_en` | quién y cuándo, con el reloj único de la [18 §4.5](18-auditoria.md) |
+| `ip`, `ruta` | lo mismo que ya resuelve `Auditoria`, y por el mismo motivo |
+| `anulado_en`, `anulado_por`, `anulado_motivo` | **hace falta y no es opcional**: un papel se atasca en la impresora y ese número no se puede reusar ni desaparecer. Se anula, con motivo. **No se borra la fila** |
+
+**Sin `deleted_at`.** Un libro radicador no pierde renglones: por eso la anulación es un
+estado y no un borrado. Es la misma regla que la [§4.4 de la 18](18-auditoria.md), y conviene
+que la fije un test como allí.
+
+### 7.4 Lo que sí contesta, que es la prueba de que vale la pena
+
+- *«¿Cuántas constancias emitimos este año, y de qué grupos?»*
+- *«¿A quién se le emitió el número 144?»* — hoy **no tiene respuesta ni con acceso total a
+  la base**.
+- *«¿Este número se repitió?»* — hoy **no se detecta ni cuando ocurre**.
+- *«Este papel que me traen, ¿salió de aquí?»*
+
+### 7.5 Lo que hay que decidir antes de escribir la migración
+
+1. **El histórico no existe y no se puede reconstruir.** De las 143 constancias de 2025 no
+   queda más que el número 143. El libro **empieza el día que se despliegue**, y eso hay que
+   poder explicárselo a un colegio que pregunte por marzo. *(Alternativa costeada: sembrar
+   una fila «apertura del libro» con el consecutivo de partida, para que el primer número
+   nuevo no parezca el primero de la historia.)*
+2. **El relleno de ceros** ([cert-1 §6.1](noche-2026-08-25/cert-1.md)), que sigue abierto
+   desde el 25. Con una sola columna daba igual; **con `consecutivo_texto` hay que decidir
+   qué se escribe**, y ahí el ancho cambia al pasar de 999.
+3. **Los colegios con el interruptor apagado no emiten nada** y su tabla queda vacía. Es
+   correcto y es gratis, pero conviene decirlo antes de que alguien lo lea como un fallo.
+
+### 7.6 El orden que propongo, y por qué
+
+**No es tabla → números → botón. Es al revés:**
+
+1. **El botón de emitir** (§7.2), que es lo único que hace que numerar por papel no sea una
+   trampa. Sin código de tabla: sólo mover el disparador.
+2. **Los N números y la fila por papel**, juntos — la tabla sin los N números no sirve de
+   nada, y los N números sin la tabla son una regresión.
+3. **La pantalla del libro**, que es lo que el colegio va a querer en cuanto exista.
+
+**El 1 es barato y ya arregla algo que hoy está mal.** Si esto se queda a medias, que se
+quede después del 1 y no después del 2.
