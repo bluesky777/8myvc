@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\DB;
 
 use App\User;
+use App\Services\Auditoria;
+use App\Support\Autoriza;
 use App\Models\Year;
 use App\Models\Grupo;
 use App\Models\Periodo;
@@ -214,7 +216,43 @@ class BolfinalesController extends Controller {
 					// que el endpoint devolvia 500 antes incluso de ejecutar el UPDATE -- el array
 					// de argumentos se evalua primero. (int)'' es 0, asi que el contador arranca
 					// en 1 donde estaba vacio, y (int)'12' sigue siendo 12 donde ya tenia valor.
-					DB::update('UPDATE years SET contador_certificados=? WHERE id=?', [(int)$contador->contador_certificados+1, $contador->id]);
+					$anterior = $contador->contador_certificados;
+					$nuevo    = (int)$anterior + 1;
+
+					DB::update('UPDATE years SET contador_certificados=? WHERE id=?', [$nuevo, $contador->id]);
+
+					// **El rastro de la quema, que es lo que hoy no existe en ninguna parte.**
+					//
+					// La 05 §231 fue a restar *contador - certificados emitidos* y **no encontro
+					// minuendo**: ninguna tabla guarda un certificado emitido -- `config_certificados`
+					// es maquetacion --, asi que **un numero quemado por abrir la pantalla es
+					// indistinguible de uno emitido**, dos certificados con el mismo consecutivo no
+					// se detectan despues, y *«¿cuantos emitimos este anio y a quien?»* no tiene
+					// respuesta ni con acceso total a la base. Eso es peor que la carrera de la §225,
+					// que esta linea de arriba ya cierra.
+					//
+					// Esta linea no la contesta entera -- para eso hace falta la tabla de emitidos,
+					// que es decision de Joseth -- pero **separa las dos mitades de la pregunta**:
+					// desde hoy queda escrito **quien, cuando, desde donde y de que numero a cual**
+					// cada vez que se quema uno. A lo que sigue sin contestar es a quien se le
+					// entrego el papel.
+					//
+					// Va **dentro de la transaccion** a proposito: `Auditoria` no abre ninguna suya,
+					// asi que la linea entra en esta. Si el incremento se deshace, el rastro se
+					// deshace con el -- un rastro de algo que no ocurrio es peor que ninguno.
+					//
+					// `valor_anterior` va **crudo** y `valor_nuevo` va como entero, que es
+					// exactamente lo que paso: la columna es VARCHAR y el `(int)` **pierde el
+					// relleno de ceros** (`'007'` -> `8`). Es la §6.1 de `noche-2026-08-25/cert-1.md`,
+					// que no se toco porque es formato del papel y no un fallo; el rastro lo deja ver
+					// en vez de taparlo escribiendo los dos igual.
+					Auditoria::registrar()
+						->editar('year_config', (int) $contador->id)
+						->en(year: (int) $contador->id)
+						->de($anterior)
+						->a($nuevo)
+						->resumen('Quemo un consecutivo de certificado: '.$anterior.' -> '.$nuevo)
+						->guardar();
 				});
 			}
 		}
@@ -867,7 +905,11 @@ class BolfinalesController extends Controller {
 	{
 		$contador = $this->consecutivoValidado();
 
+		$year = $this->yearDelConsecutivo('contador_certificados');
+
 		DB::update('UPDATE years SET contador_certificados=? WHERE actual=1 and deleted_at is null', [ $contador ]);
+
+		$this->anotarElConsecutivo($year, 'certificados', $contador);
 
 		return 'Cambiado';
 	}
@@ -882,7 +924,11 @@ class BolfinalesController extends Controller {
 	{
 		$contador = $this->consecutivoValidado();
 
+		$year = $this->yearDelConsecutivo('contador_folios');
+
 		DB::update('UPDATE years SET contador_folios=? WHERE actual=1 and deleted_at is null', [ $contador ]);
+
+		$this->anotarElConsecutivo($year, 'folios', $contador);
 
 		return 'Cambiado';
 	}
@@ -924,6 +970,41 @@ class BolfinalesController extends Controller {
 	 */
 	private function consecutivoValidado(): string
 	{
+		/*
+		 * **Fijar el consecutivo del colegio es de secretaria.** Decision de Joseth del
+		 * 26 ago 2026; estaba escrita como un si o un no en `noche-2026-08-25/cert-1.md` §5
+		 * y es la unica de las cuatro consecuencias de la 05 §195 que faltaba.
+		 *
+		 * Hasta hoy los dos endpoints llevaban solo `auth.personal`, o sea que **cualquiera
+		 * del personal docente podia fijar el numero que va impreso en un papel oficial**.
+		 * Restringirlo **le quita un control a alguien que hoy lo tiene delante** -- y por
+		 * eso no entro con el resto del arreglo: ahi no habia asimetria y la decision era
+		 * suya, a diferencia del `FILTER_VALIDATE_BOOLEAN` de la quema, que solo podia mover
+		 * el resultado hacia el lado recuperable.
+		 *
+		 * **No hace falta guard nuevo ni permiso nuevo**, y eso es lo que la hace barata:
+		 * `Autoriza::esAdministrativo()` -- superusuario o rol `Secretario` -- ya es
+		 * literalmente *«la secretaria administra la estructura del colegio»*. Va aqui y no
+		 * en las rutas **porque cubre los dos endpoints a la vez**: los dos pasan por este
+		 * metodo, asi que no puede arreglarse uno y olvidarse el otro -- que es como
+		 * `cambiar-contador-folios` se habia quedado sin nombrar hasta la §225.
+		 *
+		 * Y no se aprovecha para mover ninguna otra llamada de `esAdministrativo`: la regla
+		 * de la casa es que **crear un rol no regala permisos**.
+		 *
+		 * **A quien se le nota, medido en los cuatro clientes** (8.351 ficheros de once
+		 * arboles; poblacion en el documento del lote): `cambiar-contador-certificados` lo
+		 * llaman dos pantallas, las dos de `myvc_front` -- la vieja
+		 * (`certificadoEstudioDir.html`, un `<input>` con `ng-change`) y `app2`
+		 * (`certificados-estudio.ts`) --, y **ninguna de las dos esconde el control por rol**,
+		 * asi que un docente que hoy escriba ahi vera «Contador no guardado» en vez de
+		 * escribir. `cambiar-contador-folios` **no lo llama nadie vivo**: el «Folio» de la
+		 * pantalla vieja escribe `alumnos/guardar-valor` sobre `nro_folio`, que es otra cosa.
+		 * `myvc_front_2` y `myvc_flutter`: cero sitios.
+		 */
+		Autoriza::exigir(Autoriza::esAdministrativo(User::fromToken()),
+			'Fijar el consecutivo del colegio es de secretaria.');
+
 		$contador = Request::input('contador');
 
 		// El bool va aparte: PHP castea `true` a `'1'`, asi que sin esto un cuerpo con
@@ -941,7 +1022,72 @@ class BolfinalesController extends Controller {
 		return $contador;
 	}
 
+	/**
+	 * El year `actual` y **el valor que el consecutivo tenia antes de pisarlo**.
+	 *
+	 * Se lee antes del `UPDATE` porque `valor_anterior` no se puede reconstruir despues:
+	 * el `UPDATE` ya lo piso y **no queda en ningun otro sitio** (05 §231 -- ninguna tabla
+	 * guarda un certificado emitido).
+	 *
+	 * `ORDER BY id LIMIT 1` y no `[0]` suelto por lo mismo que el bloque de la quema: fija
+	 * **cual** fila se nombra si algun colegio tuviera mas de un year `actual=1`. Y ahi hay
+	 * un limite que conviene decir en vez de esconder: el `UPDATE` de abajo **no lleva
+	 * LIMIT**, asi que en ese caso escribiria en todas y esta linea nombraria una. En la
+	 * base de tests hay **un solo year `actual=1`**, que es donde esto se midio.
+	 *
+	 * **La columna sale de esta lista, no del parametro.** Es la 05 §233: diez sitios de
+	 * `app/` meten una variable como nombre de columna en un SQL y los diez son seguros
+	 * hoy por cinco mecanismos distintos, **ninguno de los cuales es `ColumnaSegura`**, la
+	 * clase que existe para eso. Aqui el mecanismo es el `match` -- la proteccion vive en
+	 * estas dos lineas y **no** en la del `SELECT` --, y queda escrito porque esa § pedia
+	 * exactamente eso: que el dia que alguien lea la linea sepa donde mirar.
+	 */
+	private function yearDelConsecutivo(string $columna)
+	{
+		$sql = match ($columna) {
+			'contador_certificados' => 'SELECT id, contador_certificados AS valor FROM years WHERE actual=1 and deleted_at is null ORDER BY id LIMIT 1',
+			'contador_folios'       => 'SELECT id, contador_folios AS valor FROM years WHERE actual=1 and deleted_at is null ORDER BY id LIMIT 1',
+			// El `default` no es ceremonia de larastan: **dice en voz alta lo que la lista
+			// significa**. Una columna que no este aqui no se lee -- no se cuela en el SQL
+			// y no devuelve null en silencio, que seria dejar la escritura sin rastro sin
+			// que fallara nada. Hoy es inalcanzable: los dos llamadores pasan literales.
+			default => throw new \LogicException('Columna de consecutivo no permitida: '.$columna),
+		};
 
+		return DB::selectOne($sql);
+	}
 
+	/**
+	 * El rastro de haber fijado un consecutivo a mano.
+	 *
+	 * Hasta hoy esto **no escribia en ninguna bitacora**: `putCambiarContadorCertificados`
+	 * no esta entre los ficheros que auditan, asi que *«el consecutivo del colegio esta en
+	 * 500 y ayer estaba en 143»* no tenia a quien preguntarle. Y no es un detalle de
+	 * higiene: el unico rastro de que se emitio un certificado **es que un contador subio**
+	 * (05 §231), o sea que quien mueve el contador a mano borra la unica cuenta que hay.
+	 *
+	 * Va por `Auditoria` y no por `bitacoras` porque es **el unico escritor** del rastro
+	 * nuevo (18 §4) y porque los cinco campos que aqui importan --quien, cuando, desde
+	 * donde, que ruta y de que valor a cual-- los resuelve el, que es justo lo que cada
+	 * sitio decidia distinto.
+	 *
+	 * **Sin year `actual=1` no se anota nada, y es correcto**: el `UPDATE` tampoco escribio
+	 * ninguna fila. Un rastro de un cambio que no ocurrio es peor que no tenerlo.
+	 *
+	 * @param  object|null  $year  la fila leida ANTES del `UPDATE`
+	 */
+	private function anotarElConsecutivo($year, string $cual, string $contador): void
+	{
+		if ($year === null) {
+			return;
+		}
 
+		Auditoria::registrar()
+			->editar('year_config', (int) $year->id)
+			->en(year: (int) $year->id)
+			->de($year->valor)
+			->a($contador)
+			->resumen('Fijo a mano el contador de '.$cual.': '.$year->valor.' -> '.$contador)
+			->guardar();
+	}
 }

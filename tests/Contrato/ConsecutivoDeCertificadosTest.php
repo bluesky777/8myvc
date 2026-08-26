@@ -434,4 +434,210 @@ class ConsecutivoDeCertificadosTest extends CasoDeContrato
         $this->assertCount(7, $noQuemaron,
             'No quemaron '.count($noQuemaron).' valores: idem.');
     }
+
+    /**
+     * **Fijar el consecutivo pasa a ser de secretaria.** Decision de Joseth, 26 ago 2026.
+     *
+     * Era lo unico que le faltaba a esta familia: la carrera, la validacion y la quema
+     * entraron la noche del 25 (`noche-2026-08-25/cert-1.md`), y el permiso quedo escrito
+     * ahi como un si o un no **porque no era simetrico** -- a diferencia del
+     * `FILTER_VALIDATE_BOOLEAN`, restringir esto **le quita un control a alguien que hoy
+     * lo tiene delante**, y eso no lo decide una sesion.
+     *
+     * El sujeto es un `Usuario` **activo, del anio actual y sin `is_superuser`**, que es
+     * exactamente el caso que hoy pasaba: `auth.personal` lo dejaba entrar.
+     *
+     * ## Las dos mitades, porque se cumplen por separado
+     *
+     * Un 403 que igualmente escribe deja el consecutivo movido **y ademas miente**; un 200
+     * que no escribe se leeria como que la puerta sigue abierta. Se comprueban las dos, y
+     * **en los dos endpoints**: `cambiar-contador-folios` es la hermana que no habia
+     * nombrado nadie hasta la §225, y la forma de que no se vuelva a quedar fuera es que
+     * el guard viva en `consecutivoValidado()`, por donde pasan los dos.
+     */
+    public function test_un_docente_corriente_ya_no_fija_el_consecutivo(): void
+    {
+        $this->withoutMiddleware(ThrottleRequests::class);
+
+        $token = $this->tokenDelPersonalLlano();
+
+        foreach (['contador-certificados' => 'contador_certificados',
+            'contador-folios' => 'contador_folios'] as $ruta => $columna) {
+
+            $lee = fn () => DB::selectOne(
+                "SELECT {$columna} v FROM years WHERE deleted_at is null and actual=1"
+            )->v;
+
+            $antes = $lee();
+
+            $r = $this->putJson('/api/bolfinales/cambiar-'.$ruta, ['contador' => '999'],
+                ['Authorization' => 'Bearer '.$token]);
+
+            $this->assertSame(403, $r->getStatusCode(),
+                '`'.$ruta.'` contesto '.$r->getStatusCode().' a alguien del personal que no es '
+                .'administrativo. El numero que va impreso en un papel oficial lo fija '
+                .'secretaria.');
+
+            $this->assertSame($antes, $lee(),
+                'El 403 de `'.$ruta.'` llego con la columna ya movida a «'.$lee().'»: un 403 '
+                .'que igualmente escribe deja el consecutivo roto y ademas miente.');
+
+            $this->olvidarControladores();
+        }
+    }
+
+    /**
+     * Y la otra mitad del permiso: **un `Secretario` sin `is_superuser` si entra**.
+     *
+     * **Es la misma persona que el test de arriba**, y esa es toda la gracia: lo unico que
+     * cambia entre el 403 y el 200 es la fila de `role_user`. Sin este test, poner
+     * `abort(403)` a secas tambien pasaria el anterior -- y habria cerrado la pantalla a
+     * secretaria, que es justo a quien se le abre.
+     *
+     * El rol se fabrica aqui dentro, como en `SecretarioTest`: `construir-bd-test.sh`
+     * hace `TRUNCATE TABLE roles` antes del seed, asi que la fila de
+     * `2026_08_21_100000_create_rol_secretario` no sobrevive -- y aunque sobreviviera,
+     * **no se la dio a nadie**, que es el caso que hay que comprobar.
+     */
+    public function test_el_secretario_sin_superusuario_si_lo_fija(): void
+    {
+        $this->withoutMiddleware(ThrottleRequests::class);
+
+        $token = $this->tokenDeUnSecretario();
+
+        foreach (['contador-certificados' => 'contador_certificados',
+            'contador-folios' => 'contador_folios'] as $ruta => $columna) {
+
+            $this->putJson('/api/bolfinales/cambiar-'.$ruta, ['contador' => '007'],
+                ['Authorization' => 'Bearer '.$token])
+                ->assertStatus(200);
+
+            $this->assertSame('007', DB::selectOne(
+                "SELECT {$columna} v FROM years WHERE deleted_at is null and actual=1"
+            )->v, 'El Secretario recibio 200 de `'.$ruta.'` y la columna no se movio.');
+
+            $this->olvidarControladores();
+        }
+    }
+
+    /**
+     * **Fijar el consecutivo a mano deja rastro.** Antes no lo dejaba en ninguna parte.
+     *
+     * La 05 §231 lo dijo con todas las letras: `putCambiarContadorCertificados` **no
+     * escribe en `bitacoras`**, asi que *«el consecutivo esta en 500 y ayer estaba en
+     * 143»* no tenia a quien preguntarle. Y no es higiene: **el unico rastro de que se
+     * emitio un certificado es que un contador subio**, o sea que quien lo mueve a mano
+     * borra la unica cuenta que hay.
+     *
+     * Esto **no** contesta *«¿cuantos emitimos y a quien?»* -- para eso hace falta la tabla
+     * de emitidos, que es una migracion en quince producciones y decision de Joseth. Lo que
+     * hace es separar las dos mitades de la pregunta: desde hoy **la mano se ve**.
+     *
+     * Se afirma sobre los dos valores y no sobre el numero de lineas: `valor_anterior` es
+     * lo unico que no se puede reconstruir despues, porque el `UPDATE` ya lo piso.
+     */
+    public function test_fijar_el_consecutivo_a_mano_deja_rastro(): void
+    {
+        $this->withoutMiddleware(ThrottleRequests::class);
+
+        [, $token] = $this->grupoYPersonal();
+
+        $previo = DB::selectOne(
+            'SELECT contador_certificados v FROM years WHERE deleted_at is null and actual=1'
+        )->v;
+
+        $desde = (int) DB::table('auditoria')->max('id');
+
+        $this->putJson('/api/bolfinales/cambiar-contador-certificados', ['contador' => '815'],
+            ['Authorization' => 'Bearer '.$token])->assertStatus(200);
+
+        $lineas = DB::select('SELECT * FROM auditoria WHERE id > ? AND entidad = ? ORDER BY id',
+            [$desde, 'year_config']);
+
+        $this->assertCount(1, $lineas,
+            'Fijar el consecutivo a mano dejo '.count($lineas).' lineas de auditoria. Tiene que '
+            .'dejar exactamente una: es el unico sitio donde queda que alguien movio la cuenta.');
+
+        $this->assertSame('editar', $lineas[0]->accion);
+
+        $this->assertSame($previo, json_decode((string) $lineas[0]->valor_anterior, true),
+            'La linea no se llevo dentro el valor que habia antes, y es el unico que no se '
+            .'puede reconstruir: el `UPDATE` ya lo piso.');
+
+        $this->assertSame('815', json_decode((string) $lineas[0]->valor_nuevo, true));
+
+        $this->assertNotNull($lineas[0]->actor_user_id,
+            'La linea no dice quien lo hizo, que es la pregunta entera.');
+    }
+
+    /**
+     * Y el rastro de **quemar** uno, que es el que la §231 echaba en falta de verdad.
+     *
+     * Abrir el «Certificado periodos» gasta un numero. Hasta hoy eso no dejaba nada
+     * escrito, asi que **un numero quemado por abrir la pantalla era indistinguible de uno
+     * emitido** -- no dificil: **no habia dato que los separara**. Con esta linea quedan
+     * separados: la quema se ve, con quien y de que numero a cual.
+     *
+     * La linea va **dentro de la transaccion del incremento**, asi que si el incremento se
+     * deshace el rastro se deshace con el. Este test no puede ver esa propiedad --haria
+     * falta forzar el rollback-- y por eso no la afirma: mira lo que si es observable,
+     * que la quema quedo escrita y con los dos valores.
+     */
+    public function test_quemar_un_folio_deja_rastro(): void
+    {
+        $this->withoutMiddleware(ThrottleRequests::class);
+
+        [$grupo, $token] = $this->grupoYPersonal();
+
+        $previo = DB::selectOne(
+            'SELECT contador_certificados v FROM years WHERE deleted_at is null and actual=1'
+        )->v;
+
+        $desde = (int) DB::table('auditoria')->max('id');
+
+        $this->putJson('/api/bolfinales/detailed-notas-year-group/'.$grupo->id,
+            ['aumentar_contador' => true],
+            ['Authorization' => 'Bearer '.$token])->assertStatus(200);
+
+        $lineas = DB::select('SELECT * FROM auditoria WHERE id > ? AND entidad = ? ORDER BY id',
+            [$desde, 'year_config']);
+
+        $this->assertCount(1, $lineas,
+            'Abrir el certificado quemo un numero y dejo '.count($lineas).' lineas. Sin una '
+            .'linea por quema, un numero gastado por mirar sigue siendo indistinguible de uno '
+            .'emitido, que es lo que la 05 §231 fue a medir y no pudo.');
+
+        $this->assertSame($previo, json_decode((string) $lineas[0]->valor_anterior, true));
+
+        $this->assertSame((int) $previo + 1, json_decode((string) $lineas[0]->valor_nuevo, true),
+            'La linea no dice a que numero subio.');
+
+        $this->assertStringContainsString('Quemo', (string) $lineas[0]->resumen,
+            'El resumen no distingue una quema de un cambio a mano, y esa es la distincion '
+            .'entera: la pantalla que las lea tiene que poder separarlas.');
+    }
+
+    /**
+     * Un `Usuario` del personal **sin `is_superuser`** y con el rol `Secretario` puesto.
+     *
+     * El mismo sujeto que `tokenDelPersonalLlano()` -- se le pide a el su fila para que el
+     * 403 y el 200 sean la misma persona con y sin la fila de `role_user`.
+     */
+    private function tokenDeUnSecretario(): string
+    {
+        $usuario = $this->usuarioLlanoDelPersonal();
+
+        $rol = DB::table('roles')->where('name', 'Secretario')->first();
+
+        DB::table('role_user')->insert([
+            'user_id' => $usuario->id,
+            'role_id' => (int) ($rol->id ?? DB::table('roles')->insertGetId([
+                'name' => 'Secretario',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ])),
+        ]);
+
+        return $this->tokenDe($usuario->username);
+    }
 }

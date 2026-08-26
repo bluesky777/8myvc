@@ -3,22 +3,52 @@
 **Los comandos de la tanda que toca, y nada más.** Topología, inventario, las siete trampas, el
 bucle del front y lo que trajo cada tanda: [DESPLIEGUE-REFERENCIA.md](DESPLIEGUE-REFERENCIA.md).
 
-## No hay tanda pendiente
+## La tanda pendiente: del 25 ago (`eb95cbc`) a hoy — **tres ficheros, y ni una migración**
 
-**La del 22 al 25 ago se desplegó el 25 ago en `eb95cbc`**, con sus cuatro migraciones y con el
-mismo hash comprobado en los quince. Qué se le nota a un colegio, fila a fila:
+**La anterior, del 22 al 25 ago, se desplegó el 25 ago en `eb95cbc`**, con sus cuatro migraciones
+y con el mismo hash comprobado en los quince. Qué se le notó a un colegio, fila a fila:
 [`que-se-nota-en-un-colegio.md`](migracion/noche-2026-08-23/que-se-nota-en-un-colegio.md).
 
-Lo de abajo son los comandos de cualquier tanda, y la tabla es **cómo se mide la siguiente** (con
-las del 25 ago de ejemplo). **Se remide cuando la tanda crece, no se suma:** esa fila decía
-«ninguna migración» con cuatro dentro, medida antes de fundir cuatro ramas.
+**Lo que hay desde entonces**, medido sobre el rango entero y no sumando commit a commit:
 
 | | | recalcular con |
 |---|---|---|
-| Migraciones | cuatro, una bloqueante | `git diff --name-only <desplegado> HEAD -- database/migrations/` |
-| Rutas | 539 → 542, aditivas | `tests/Contrato/Snapshots/rutas.json` |
-| Dependencias | sin tocar | `git diff --name-only <desplegado> HEAD -- composer.json composer.lock` |
-| `config/` | uno nuevo, `notificaciones.php` | `git diff --name-only <desplegado> HEAD -- config/` |
+| Migraciones | **ninguna** | `git diff --name-only eb95cbc HEAD -- database/migrations/` |
+| Rutas | **542, sin mover** | `tests/Contrato/Snapshots/rutas.json` |
+| Dependencias | sin tocar | `git diff --name-only eb95cbc HEAD -- composer.json composer.lock` |
+| `config/` | sin tocar | `git diff --name-only eb95cbc HEAD -- config/` |
+| `app/` | **tres ficheros** | `BolfinalesController`, `NotasController`, `Models/Nota` |
+
+**Sin migraciones, el `migrate --force` del bucle no hace nada y se puede dejar** — pero se deja
+puesto igual, porque es idempotente y el bucle es el mismo para todas las tandas.
+
+### Qué se le nota a un colegio
+
+| | |
+|---|---|
+| **El boletín final va de 3.820 consultas a 455** (GEMELO-1). Es la queja de los 24–63 s y las caídas bajo carga | `docs/migracion/noche-2026-08-25/gemelo-1.md` |
+| **La ficha del alumno crea las notas que faltan** — 240 huecos medidos | `05 §234` |
+| **Fijar el consecutivo de certificados pasa a ser de secretaría**, y contesta **403** al resto del personal | [`cert-2`](migracion/noche-2026-08-26/cert-2.md) |
+| **Mover el consecutivo deja rastro en `auditoria`**, tanto al quemarlo abriendo el certificado como al fijarlo a mano | [`cert-2 §3`](migracion/noche-2026-08-26/cert-2.md) |
+
+### Lo que hay que decirle al front el día que esto se despliegue
+
+**No se entera solo, y las dos son de las de «quién puede llamarla».** El detalle en
+[`cert-2 §6`](migracion/noche-2026-08-26/cert-2.md):
+
+1. `PUT bolfinales/cambiar-contador-certificados` y `-folios` **contestan 403 a quien no sea
+   administrativo**. Las dos pantallas que llaman a la primera —`certificadoEstudioDir.html` de la
+   vieja y `certificados-estudio.ts` de `app2`— **enseñan el control sin mirar el rol**, así que un
+   docente verá «Contador no guardado». Lo que toca allí es **esconder el control**, no cambiar la
+   llamada. *(`-folios` no lo llama nadie vivo.)*
+2. `aumentar_contador` hay que **OMITIRLO**, no mandar `false`. El backend ya no quema con la
+   cadena `"false"` desde el 25, pero **las copias de `myvc_front` de los quince colegios van a
+   versiones distintas** y esa medición no las ve.
+
+### Y la tabla de arriba se remide, no se suma
+
+**Se recalcula cuando la tanda crece.** La del 25 decía «ninguna migración» con cuatro dentro,
+porque se había medido antes de fundir cuatro ramas.
 
 > **El `migrate --force` dejó de ser higiene el 25 ago y no vuelve a serlo.** `2026_08_24_100000`
 > creó `bol_ind_periodos` y el código de la misma tanda la consulta en un camino vivo

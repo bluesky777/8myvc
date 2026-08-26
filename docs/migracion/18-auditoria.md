@@ -780,6 +780,16 @@ que se ha encontrado en este repo.
 El resto de los 56 controladores (matrículas, perfiles, roles, importaciones) va
 después, con el detector de la fase 3 como lista.
 
+> **Uno se adelantó a la cola el 26 ago 2026, y con motivo escrito: el consecutivo de
+> los certificados.** No es ninguno de los siete dominios, pero es el único sitio del
+> sistema donde **la ausencia de rastro no es una pérdida de información: es la pérdida
+> del dato entero.** El único indicio de que se emitió un certificado **es que un
+> contador subió** ([05 §231](05-codigo-muerto-y-roto.md)), o sea que quien mueve el
+> contador a mano borra la única cuenta que hay. Se instrumentaron los **dos** sitios que
+> lo mueven —abrir el certificado (la quema) y los dos `cambiar-contador-*` (a mano)— con
+> resúmenes distintos, porque no son el mismo suceso. Entidad `year_config`, que ya
+> estaba. Detalle en [`noche-2026-08-26/cert-2.md`](noche-2026-08-26/cert-2.md).
+
 ### Fase 5 — la pantalla
 
 Cuatro rutas nuevas. **Cuatro rutas nuevas son una decisión, no un efecto

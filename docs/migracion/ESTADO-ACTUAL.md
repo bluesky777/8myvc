@@ -8,7 +8,15 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
-**Última actualización: 26 ago 2026, madrugada — TODO FUNDIDO, NINGUNA RAMA, Y EL CI
+**Última actualización: 26 ago 2026, mañana — CERT-2: EL PUNTO 1 DE LA LISTA YA NO
+ESPERA NADA** · el consecutivo de certificados **pasa a ser de secretaría** y **deja
+rastro por primera vez**, con las tres respuestas de Joseth de esta mañana delante
+([`noche-2026-08-26/cert-2.md`](noche-2026-08-26/cert-2.md)) · y **la lista de la mañana
+del 25 estaba vieja en sus dos primeras filas**: la carrera y la validación entraron la
+noche del 25 y sus tests llevan desde entonces verdes dentro de la suite — quien retome
+esto, **abra el test antes que el documento**
+
+**Antes de eso: TODO FUNDIDO, NINGUNA RAMA, Y EL CI
 OTRA VEZ EN VERDE** · `main` subido · **1.516 pruebas, 11.401 aserciones, larastan nivel 7
 `[OK]`, pint PASS**, medido **en la fusión** y no en ninguna rama · **el CI llevaba tres
 pushes en rojo** por un control que el clon superficial de Actions no podía ejercer
@@ -81,8 +89,8 @@ una está en el 05 o en el 09; aquí sólo lo que decide.
 
 | | Qué | Si no se contesta |
 |---|---|---|
-| **1** | **Abrir el certificado de periodo quema un número consecutivo, y la lectura+escritura del contador no está en transacción.** Dos personas abriéndolo a la vez → **dos certificados con el mismo número** ([05 §195](05-codigo-muerto-y-roto.md)) | Sigue pasando. **El disparador es abrir la pantalla**, y en secretaría en cierre de periodo dos a la vez **es el caso normal**. Un número saltado se justifica; **uno repetido, no**. *(**El test rojo ya está escrito y cae hoy**: `tests/Contrato/ConsecutivoDeCertificadosTest.php`, grupo `rojo`, excluido de la suite normal — [05 §225](05-codigo-muerto-y-roto.md). Demuestra la carrera **sin hilos y sin depender de tiempos**, y al caer dice «las dos leyeron 115 y las dos escribieron 116». **El arreglo ya tiene red; falta tu decisión, no el test.** Y la pregunta «¿cuántos números se han quemado ya?» **no se puede contestar**: NINGUNA TABLA guarda un certificado emitido —`config_certificados` es maquetación—, así que **un número quemado por abrir es indistinguible de uno emitido**, dos certificados con el mismo número no se detectan después, y *«¿cuántos emitimos este año y a quién?»* **hoy no tiene respuesta ni con acceso total a la base** ([05 §231](05-codigo-muerto-y-roto.md)). **Eso es peor que la carrera.** Lo bueno: el servidor sólo sube cuando se lo piden, así que **la cura está entera en el front y no toca los quince despliegues** — pero el front tiene que **OMITIR la clave**, porque mandar la cadena `"false"` **quema un número igual** (`== true` es cierto para cualquier cadena no vacía).)* |
-| **2** | **`PUT bolfinales/cambiar-contador-certificados` fija el consecutivo a lo que venga en el cuerpo, sin validación, con `auth.personal`** — **y son DOS: `cambiar-contador-folios` es la misma línea sobre otra columna, con el mismo guard y sin validación** ([05 §225](05-codigo-muerto-y-roto.md)). Los dos contestan **200 y escriben** cuando se les manda `'no soy un número'`; los dos tienen su test rojo | **Cualquiera de los 51 profesores puede fijar el número de certificados del colegio** — y el de folios. **Esto no necesita que coincidan dos personas como la carrera: lo hace una sola, a propósito o con un cuerpo mal formado** |
+| **1** | ~~**Abrir el certificado quema un consecutivo, y la lectura+escritura no está en transacción.**~~ **CERRADO.** La carrera y el `FOR UPDATE` entraron la **noche del 25** ([cert-1](noche-2026-08-25/cert-1.md)); **el rastro, el 26** ([cert-2](noche-2026-08-26/cert-2.md)) | Nada. Los tests llevan verdes en la suite desde el 25, y **desde el 26 cada quema deja escrito quién, cuándo y de qué número a cuál** — que era la mitad de la [05 §231](05-codigo-muerto-y-roto.md) que se podía cerrar sin migración. **Lo que sigue abierto y es tuyo: la tabla de certificados emitidos**, o sea *«¿cuántos emitimos este año y a quién?»*, que apartaste a propósito |
+| **2** | ~~**`cambiar-contador-certificados` y `-folios` fijan el consecutivo sin validación, con `auth.personal`.**~~ **CERRADO.** La validación (`^\d+$`, 422) el 25; **el permiso, el 26**: elegiste `esAdministrativo` y es una línea en `consecutivoValidado()`, que cubre los dos endpoints porque los dos pasan por ahí | Nada aquí. **Pero abre una del front, que no se entera solo**: las dos pantallas que llaman a `-certificados` —la vieja y `app2`— **enseñan el control sin mirar el rol**, así que un docente verá «Contador no guardado». Está en [cert-2 §6](noche-2026-08-26/cert-2.md) con lo que hay que decirles. *(Y `-folios` **no lo llama nadie vivo**: el «Folio» de la pantalla vieja escribe `nro_folio` por `alumnos/guardar-valor`, que es otra cosa.)* |
 | **2bis** | **¿Manda el backend `version_minima_app` en la respuesta de `/login`?** Tú ya dijiste **sí a que la app bloquee**; **la app ya lo tiene escrito y probado** (414 pruebas), enganchado en los tres sitios por los que pasa una respuesta de `/login` —incluido el refresco, que es el único punto en el que se entera **sin que el usuario salga y vuelva**—. **El campo es `version_minima_app` y el valor es el `versionCode` (el `+N`), no la versión con puntos**; se lee **tolerante** (`"12"` como cadena también vale). **Y hay un plazo:** si se prefiere otro nombre, **hay que decirlo antes de que se publique una versión de la app leyendo éste** — después, cambiarlo obliga a mandar **los dos campos** durante un tiempo | **Sin ese campo, lo de la app es código dormido**: con el fallo abierto por defecto no bloquea a nadie mientras nadie lo mande. **El día que se mande, empieza a bloquear** — y **es lo único que hoy permitiría retirar un endpoint** en los quince. Con la carga dicha: **subir ese número es una ceremonia de despliegue**, porque **desde el cliente no se distingue un `.env` mal puesto de un colegio exigente** |
 | **1bis** | **La prematrícula pública deja escrita la ficha de un menor sin matrícula y sin usuario, y no hay transacción.** Medido, determinista, **no es una carrera**: en `PUT login/crear-prematricula` —**una de las once rutas públicas**, la llama alguien **sin cuenta**— si falta `grupo_id` o es uno que no existe, **el `INSERT` de `alumnos` ya pasó** y revienta el de `matriculas`. Queda escrito **nombres, apellidos, documento y celular de un menor**, huérfano. *Y las tres primeras filas de la matriz dicen lo contrario y también importan: si falta `nombres` o `sexo` no escribe nada — **el daño no es «cuerpo incompleto», es «llegó a `matriculas`»**.* · **Y el reintento es peor que el fallo: el segundo intento no da otro 500, da un 200 que MIENTE.** Encuentra la ficha huérfana y contesta *«Ya existe el alumno. Entre con su cuenta»* — **y esa cuenta nunca se creó**, porque el `INSERT` de `users` va después del que reventó. **El padre queda fuera del formulario para siempre para ese hijo**, mandado a una puerta que no existe y **sin ningún error que reportar**. Predicho por escrito antes de medirlo. Y **es el camino normal**: el front no tiene `ng-disabled` en ese botón y **el formulario sigue relleno tras el error** | **Hay dos cosas que decidir y son distintas.** **(a) El mecanismo**: se cierra con una transacción, y eso no espera a nadie. **(b) Lo que ya haya escrito en los quince**: eso **no lo decide ninguna sesión**, y hoy **no lo sabe nadie** — la consulta de sólo lectura que lo cuenta está escrita y **no se ha corrido en ningún colegio**: `SELECT COUNT(*) FROM alumnos a LEFT JOIN matriculas m ON m.alumno_id=a.id WHERE m.id IS NULL AND a.deleted_at IS NULL AND a.user_id IS NULL`. · **Y la exposición está sin medir, no en cero:** en la base de desarrollo **`prematr_nuevos = 0` en los ocho años**, así que **ahí la pantalla ni se enseña** — pero *cuáles de los quince la tienen encendida no lo sabe nadie*, y ésa es otra pregunta para la fase 0. · **Y un pendiente viejo gana un camino público:** el [01](01-plan-seguridad.md) tiene sin verificar *«con debug on, un error filtra el `.env` entero»* y el [09](09-pendientes.md) dice «comprobarlo colegio a colegio». **El hallazgo no es que filtre —eso depende del `.env` de cada uno— sino que esta ruta le da a ese pendiente un camino público y sin autenticar**: el cuerpo del 500 trae `Host`, `Port` y `Database`. Medido con `APP_DEBUG=true`, que es lo del contenedor; **en producción depende de cada colegio y nadie lo ha mirado**. · **El censo de huérfanos en la base de tests da 0 y NO vale**: tiene 68 alumnos y **cero matrículas en `PREA`**, o sea que por ese endpoint no ha pasado nunca una prematrícula ahí. *No distingue «no ocurre» de «no ha ocurrido en esta copia».* |
 | **2ter** | **Cuatro columnas en blanco en la rejilla «Docentes contratados»** —la de abajo de `/panel/profesores` en la web vieja—: Usuario (`username`), Nacimiento (`fecha_nac`), Email (`email_usu`) y Celular (`celular`), en `ProfesoresCtrl.ts:266-269`. Las vació `c47ab50` al recortar `Profesor::contratos()`. El recorte está bien hecho (`GET contratos` es la única ruta de su controlador **sin `auth.personal`** y entregaba el documento, el domicilio y el móvil de los docentes a cualquier sesión válida) y **no se deshace**; lo que falló fue el censo de consumidores del propio commit, que acertó con Flutter y **se dejó esta rejilla** | **YA NO ES UNA VENTANA FUTURA: está abierta.** Joseth desplegó el backend el 25 ago (`eb95cbc`, mismo hash comprobado en los quince), así que **esas cuatro columnas están vacías ahora mismo en todos**. La comparación la da la propia pantalla: la rejilla de ARRIBA sigue llena, porque viene de `GET profesores` —con `auth.personal`—. **Llenarlas cuesta cero peticiones** (un `valueGetter` cruzando por `profesor_id`; los cuatro campos ya están en memoria) **y no deshace el recorte**, porque el dato volvería por la ruta que sí lleva guard. La otra salida es quitar las cuatro columnas. **Decide Joseth.** · *Y una que salió bien sin que nadie lo planeara: esa rejilla guarda la FILA ENTERA al editar cualquier celda, así que con el código del 21 ago habría BORRADO esos cuatro campos en la base —y `users.username` es UNIQUE—. No pasa porque `putUpdate` los guarda detrás de `$vinieron->trae(...)`, y ese arreglo iba en la MISMA tanda. Separar los dos commits en dos despliegues habría borrado datos.* |
@@ -199,6 +207,49 @@ arriba y no en la línea.
 | **13** | **`CLAUDE.md` dice que las excepciones públicas son quince y son once**, y **`RutasPreLoginTest` no es un inventario**: enumera once y **no comprueba que ninguna otra sea pública** |
 | **14** | **Una decisión mía, revertible en un commit**: congelar ocho `SELECT *` para que la migración del boletín independiente **no mueva ninguna respuesta**. La alternativa —regenerar instantáneas— **era tuya**, porque obliga a avisar al front y a Flutter |
 | **15** | **La §12 de arriba y la §14** del 09 siguen esperando desde el 24 |
+
+---
+
+## CERT-2 — el consecutivo ya no lo mueve cualquiera, y por primera vez deja rastro (26 ago)
+
+Detalle en [`noche-2026-08-26/cert-2.md`](noche-2026-08-26/cert-2.md). **Cierra el punto 1
+de la lista de la mañana del 25**, que era lo primero por consecuencia.
+
+**Lo que contestaste esta mañana y lo que se hizo con cada respuesta:**
+
+| contestaste | qué entró |
+|---|---|
+| **validar el entero + `esAdministrativo`** | la validación ya estaba (25 ago). El permiso es **una línea** en `consecutivoValidado()`, y va ahí y no en la ruta **porque cubre los dos endpoints**: los dos pasan por ese método |
+| **backend estricto + avisar al front** | el backend estricto **ya estaba hecho** (`FILTER_VALIDATE_BOOLEAN`, 25 ago). Queda viva **la otra mitad**: avisar, y está escrita en [DESPLIEGUE.md](../DESPLIEGUE.md) para el día del despliegue |
+| **bitácora en los contadores, ya** | **los dos** sitios que mueven el contador anotan en `auditoria` — la quema al abrir el certificado y el cambio a mano —, con resúmenes distintos porque **no son el mismo suceso** |
+
+### Lo que hay que quedarse, y no es el arreglo
+
+**La lista de la mañana del 25 estaba vieja en sus dos primeras filas.** Daba los puntos 1
+y 2 por enteros pendientes cuando la carrera, el `FOR UPDATE` y la validación **habían
+entrado esa misma noche** y sus tests llevaban desde entonces verdes dentro de la suite.
+
+No es una cifra que envejeciera: **es una lista que nadie releyó después de que su propio
+punto se hiciera.** Y el sitio donde eso se ve en dos segundos **es el test**, no el
+documento — `ConsecutivoDeCertificadosTest` lo decía en la primera línea de su docblock.
+*Antes de coger un punto de esta lista, abre su test.*
+
+### Los controles, porque un verde no dice nada hasta que se le ha visto ponerse rojo
+
+Se revirtió cada mitad por separado sobre el árbol de verdad: sin el guard cae el test del
+docente **y el del Secretario sigue verde** —que es lo correcto: `abort(403)` a secas
+también habría pasado el primero, y habría cerrado la pantalla a secretaría—; sin cada
+anotación cae su rastro. **11 tests** en la clase.
+
+### Lo que sigue siendo tuyo y lo apartaste a propósito
+
+- **La tabla de certificados emitidos.** El rastro nuevo dice **quién movió el número**, no
+  **a quién se le entregó el papel**: *«¿cuántos emitimos este año y a quién?»* **sigue sin
+  respuesta**. Es una migración en quince producciones y trae dentro una pregunta sin
+  contestar — qué se hace con el histórico, que no existe y **no se puede reconstruir**.
+  Candidato natural de **AUD-4**.
+- **El relleno de ceros** (`'007'` → `8` al quemar). Formato del papel, no fallo. Una línea
+  (`str_pad`) y una decisión de colegio. El rastro ahora **lo deja ver** en vez de taparlo.
 
 ---
 
@@ -1327,25 +1378,25 @@ solo:
 ## Lo que está fusionado y NO desplegado
 
 **Fusionado no es desplegado**, y `app/` es copia por colegio.
-[DESPLIEGUE.md](../DESPLIEGUE.md) **se vació y se rehízo el 24 ago**: llevaba dos
-tandas apiladas —la del 22 y la del 23—, cada una diciendo «si la anterior no llegó
-a desplegarse», y para saber qué se nota había que leer las dos y cruzarlas. Ahora
-es **una sola tanda con todo lo pendiente dentro**, del 22 al 24, para desplegar de
-una vez cuando Joseth lo decida.
 
-Medido sobre el rango entero, no sumando tanda a tanda: **0 migraciones, 0 cambios
-de esquema, 0 de dependencias**, **1 fichero nuevo en `config/`** sin ningún valor
-obligatorio, y **539 rutas antes y 542 después** — las tres nuevas son las de la
-app y ninguna quita ni cambia nada.
+**La tanda del 22 al 25 ago se desplegó el 25** (`eb95cbc`, mismo hash en los quince).
+**Lo de después no**, y ya hay una tanda nueva medida en
+[DESPLIEGUE.md](../DESPLIEGUE.md) — que hasta hoy decía «no hay tanda pendiente» y era
+falso desde que se fundieron GEMELO-1 y las notas de alumno.
 
-**Nada que publicar hoy en ningún cliente, y una condición nueva para mañana:**
-la app de Flutter es **una sola para los quince**, así que no puede empezar a
-usar los tres endpoints nuevos hasta que estén **desplegados en todos**, no
-fusionados. Está en [DESPLIEGUE.md](../DESPLIEGUE.md) §5.b.
+Medido sobre el rango entero (`eb95cbc..HEAD`), no sumando commit a commit: **0
+migraciones, 0 cambios de esquema, 0 de dependencias, 0 en `config/`, las 542 rutas sin
+mover**, y **tres ficheros de `app/`**: `Informes/BolfinalesController`, `NotasController`
+y `Models/Nota`.
 
-Dentro está **el boletín que hoy devuelve 500 a una familia**, **la ficha de alumno
-que no guarda nunca** y **la fase 3 de las definitivas** — o sea, lo que se pidió:
-que la definitiva se actualice al cambiar la nota.
+Dentro está **el boletín final de 3.820 consultas a 455** —la queja de los 24–63 s—, **la
+ficha del alumno que crea las notas que faltan** y **lo del consecutivo de certificados**.
 
-Y en `myvc_front` queda apuntado, sin hacer, el arreglo de **las cuatro altas de
-la planilla de notas que no mandan `fecha_hora`** (`MIGRATION.md` §4b.3b).
+**Y trae dos cosas que hay que decirle al front el día que se despliegue**, las dos de
+las de *«quién puede llamarla»*: el 403 de `cambiar-contador-*` a quien no sea
+administrativo —las dos pantallas que lo llaman enseñan el control sin mirar el rol— y
+que `aumentar_contador` hay que **omitirlo**, no mandar `false`. Están en
+[DESPLIEGUE.md](../DESPLIEGUE.md) y en [cert-2 §6](noche-2026-08-26/cert-2.md).
+
+Y en `myvc_front` queda apuntado, sin hacer, el arreglo de **las cuatro altas de la
+planilla de notas que no mandan `fecha_hora`** (`MIGRATION.md` §4b.3b).

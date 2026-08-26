@@ -12005,3 +12005,38 @@ lectura que aún no ha pasado por ahí**.
 `alumno-periodo-grupo` cae *promocionar*; volviendo a `DB::insert` cae *dice que
 creó*; tapándole el periodo cerrado al superusuario cae *el superusuario siembra*.
 Cada uno cae **solo**, que es lo que dice que mide lo que dice su nombre.
+
+## §235. Cerrada la primera mitad de la §231: la quema deja rastro, y fijar el contador es de secretaría (26 ago 2026)
+
+La [§231](#) fue a restar *contador − certificados emitidos*, **no encontró minuendo** y
+dejó tres cosas escritas. La primera —*«un número quemado por abrir la pantalla es
+indistinguible de uno emitido»*— ya no es cierta. Las otras dos siguen en pie.
+
+**Lo que cambió**, con las respuestas de Joseth del 26 ago delante y el detalle en
+[`noche-2026-08-26/cert-2.md`](noche-2026-08-26/cert-2.md):
+
+1. **Los dos sitios que mueven el contador anotan en `auditoria`**, con resúmenes
+   distintos a propósito: `Quemo un consecutivo…` al abrir el certificado y
+   `Fijo a mano el contador de…` en los dos `cambiar-contador-*`. **No son el mismo
+   suceso** y una pantalla que los mezcle no sirve. La entidad es `year_config`, que ya
+   estaba en `Auditoria::ENTIDADES`: no se tocó el vocabulario.
+2. **Fijar el consecutivo pasa a `Autoriza::esAdministrativo`.** Era el último punto de
+   la §195 sin cerrar, y estaba escrito como un sí o un no en
+   [cert-1 §5](noche-2026-08-25/cert-1.md) precisamente porque **no era simétrico**:
+   restringirlo le quita un control a alguien que hoy lo tiene delante.
+
+### Lo que esta § **no** cierra, y hay que leerlo pegado a lo de arriba
+
+- ***«¿Cuántos certificados emitimos este año y a quién?»* sigue sin respuesta.** El
+  rastro dice **quién movió el número**, no **a quién se le entregó el papel**. Para eso
+  hace falta la tabla de emitidos, que Joseth apartó: es una migración en quince
+  producciones y **tiene dentro una pregunta sin contestar** — qué se hace con el
+  histórico, que no existe y no se puede reconstruir.
+- **Y el rastro empieza el día que se despliegue.** Lo anterior no se recupera: no
+  estaba escrito en ninguna parte, que es la § entera.
+
+> **Y el motivo por el que esta § existe además del documento del lote:** la lista de la
+> mañana del 25 daba los puntos 1 y 2 por enteros pendientes **cuando la mitad había
+> entrado esa misma noche**. No era una cifra envejecida — era una lista que nadie
+> releyó después de que su propio punto se hiciera. **El sitio donde eso se ve es el
+> test**: `ConsecutivoDeCertificadosTest` lo decía en su primer docblock.
