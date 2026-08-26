@@ -81,9 +81,18 @@ class AutopruebasDeLasHerramientasTest extends TestCase
      * > `git show`, y en un worktree el `.git` es un fichero que apunta al host. La
      * > suite de una noche en paralelo corre ahí (`docs/migracion/15-la-noche-en-paralelo.md`).
      *
-     * @var array<string, string>
+     * **Método y no `const`**, y es por el análisis: con una constante vacía larastan
+     * deduce `array{}` y da por muerta la rama del `skip` entera —tiene razón mientras
+     * la lista esté vacía, pero eso convierte «hoy no hay ninguna» en «no puede haber
+     * ninguna»—. Con el tipo de retorno declarado, el mecanismo sigue en pie y **volver
+     * a apuntar una es añadir una línea aquí**, sin tocar nada más.
+     *
+     * @return array<string, string>
      */
-    private const NO_CONCLUYENTES = [];
+    private static function noConcluyentes(): array
+    {
+        return [];
+    }
 
     /** @return array<string, array{0: string, 1: string}> */
     public static function autopruebas(): array
@@ -114,15 +123,19 @@ class AutopruebasDeLasHerramientasTest extends TestCase
         $texto = implode("\n", array_slice($salida, -6));
 
         if ($codigo === 2) {
-            $this->assertArrayHasKey($nombre, self::NO_CONCLUYENTES,
+            // `?? null` porque la lista puede estar vacía —hoy lo está—: sin entrada, este
+            // camino muere en la aserción de abajo, que es lo que se quiere.
+            $motivo = self::noConcluyentes()[$nombre] ?? null;
+
+            $this->assertNotNull($motivo,
                 "`{$nombre}` salió NO CONCLUYENTE y no está en la lista de las que no pueden "
                 .'concluir aquí. Eso significa que su control **dejó de ejercerse** y nadie '
                 ."está comprobando su número.\n\n".$texto);
 
-            $this->markTestSkipped($nombre.': no concluyente — '.self::NO_CONCLUYENTES[$nombre]);
+            $this->markTestSkipped($nombre.': no concluyente — '.$motivo);
         }
 
-        $this->assertArrayNotHasKey($nombre, self::NO_CONCLUYENTES,
+        $this->assertArrayNotHasKey($nombre, self::noConcluyentes(),
             "`{$nombre}` está apuntada como NO CONCLUYENTE y hoy concluye (exit {$codigo}). "
             .'Quítala de la lista: una excepción que ya no hace falta esconde la siguiente.');
 
