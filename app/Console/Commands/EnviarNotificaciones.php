@@ -312,8 +312,17 @@ class EnviarNotificaciones extends Command
     /**
      * Publicaciones nuevas del muro: **un solo aviso para todo el colegio**.
      *
-     * No se agrupa por alumno porque no es de nadie, y por eso su tema no lleva
-     * HMAC — `colegio_muro` es público a propósito: no dice nada de ningún menor.
+     * No se agrupa por alumno porque no es de nadie, y **su contenido sigue siendo
+     * público a propósito**: «hay 3 publicaciones nuevas» no dice nada de ningún
+     * menor.
+     *
+     * **Pero el tema sí lleva HMAC, y hasta el 26 ago 2026 no lo llevaba.** Este
+     * docblock decía que no hacía falta, y razonaba una sola de las dos cosas que
+     * hace ese hash: esconder de quién es —que aquí no hace falta— y **separar un
+     * colegio de otro** —que sí—. El proyecto de Firebase es uno para los quince,
+     * así que `colegio_muro` a secas era el mismo tema para todos. Lo encontró
+     * `myvc_flutter` leyendo el contrato antes de cablearlo. Ver
+     * `TemasDeNotificacion::delColegio()`.
      *
      * **Sólo las que son para alumnos o acudientes.** El muro tiene interruptores
      * por destinatario, y avisar a las familias de una publicación marcada sólo
@@ -336,7 +345,7 @@ class EnviarNotificaciones extends Command
 
         if ($cuantas > 0) {
             $avisos[] = [
-                'tema' => 'colegio_muro',
+                'tema' => TemasDeNotificacion::delColegio('colegio_muro'),
                 'titulo' => 'Novedades del colegio',
                 'cuerpo' => $cuantas === 1
                     ? 'Hay una publicación nueva.'

@@ -32,11 +32,12 @@ del 25 estaba vieja en sus dos primeras filas**: la carrera y la validación ent
 noche del 25 y sus tests llevan desde entonces verdes dentro de la suite — quien retome
 esto, **abra el test antes que el documento**
 
-> ## ✅ VERDE: 1.536 pruebas, 11.502 aserciones
+> ## ✅ VERDE: 1.539 pruebas, 11.510 aserciones
 >
-> **1.525 eran esta mañana.** Los once de más son de la tarde: **siete** de la prematrícula
-> pública ([§236](05-codigo-muerto-y-roto.md)) y **cuatro** del acotado al dueño
-> ([§237](05-codigo-muerto-y-roto.md)). La suite entera, no el filtro.
+> **1.525 eran esta mañana.** Los catorce de más son de la tarde: **siete** de la prematrícula
+> pública ([§236](05-codigo-muerto-y-roto.md)), **cuatro** del acotado al dueño
+> ([§237](05-codigo-muerto-y-roto.md)) y **tres** del tema del muro
+> ([§238](05-codigo-muerto-y-roto.md)). La suite entera, no el filtro.
 >
 > El `ROJO A PROPÓSITO` de `acd189b` está **arreglado, no explicado**. Joseth decidió
 > regenerar, y se regeneraron **21 instantáneas** — las nombró el propio fallo, no se
@@ -253,6 +254,60 @@ arriba y no en la línea.
 | **13** | **`CLAUDE.md` dice que las excepciones públicas son quince y son once**, y **`RutasPreLoginTest` no es un inventario**: enumera once y **no comprueba que ninguna otra sea pública** |
 | **14** | **Una decisión mía, revertible en un commit**: congelar ocho `SELECT *` para que la migración del boletín independiente **no mueva ninguna respuesta**. La alternativa —regenerar instantáneas— **era tuya**, porque obliga a avisar al front y a Flutter |
 | **15** | **La §12 de arriba y la §14** del 09 siguen esperando desde el 24 |
+
+---
+
+## NOTIFICACIONES — el tema del muro era el mismo en los quince (26 ago, tarde)
+
+Detalle en [05 §238](05-codigo-muerto-y-roto.md). **Lo encontró la sesión de `myvc_flutter`**,
+no ésta, y ahí está lo que hay que quedarse.
+
+`TemasDeNotificacion::DEL_COLEGIO` eran dos cadenas literales —`colegio_muro` y
+`colegio_avisos`— sin nada que dijera de qué colegio. **El proyecto de Firebase es UNO para
+los quince**: una sola app, un solo `google-services.json`. Un tema llamado igual en dos
+colegios **es el mismo tema**, así que el muro de uno le habría llegado a las familias de los
+otros catorce.
+
+### No es fuga de contenido, y por eso es peor de lo que suena
+
+El cuerpo es genérico a propósito —«hay 3 publicaciones nuevas»— así que no se filtra nada de
+ningún menor. Lo que pasa es **el aviso equivocado a la familia equivocada**: quince veces más
+avisos del muro de los que le tocan, y catorce llevándola a un muro donde no hay nada nuevo.
+**Multiplicado por quince, la función es ruido y la gente la apaga.**
+
+### Por qué se escapó, y la explicación es mejor que «se olvidó»
+
+El docblock lo razonaba, y razonaba bien **una de las dos cosas**. **El HMAC del tema del
+alumno hace dos trabajos a la vez**: esconder *de quién* es, y separar *un colegio de otro*.
+Se descartó el primero —con razón— **y con él se fue el segundo**.
+
+> **Y no había forma de verlo desde este repositorio.** La premisa que convierte esas dos
+> cadenas en un fallo —*un solo proyecto de Firebase*— **vive en `myvc_flutter`**. Aquí
+> `colegio_muro` es un nombre perfectamente razonable. Lo vieron **leyendo el contrato antes de
+> cablearlo**, que es la única postura desde la que se veía.
+
+### Hecho, y con una forma distinta de la que pidieron
+
+`c_` + HMAC del nombre lógico con el secreto del colegio — mismo aspecto que el del alumno.
+Ellos proponían HMAC del *identificador del colegio*; es lo mismo con un dato de menos, porque
+`secreto()` **ya es el `APP_KEY` de cada colegio**, y ese identificador **no existe en
+`config/`**: meterlo obligaría a editar quince `.env`, que es justo lo que
+`config/notificaciones.php` dice que no se le puede pedir a un despliegue.
+
+**Cambia la forma de la respuesta** de `GET notificaciones/temas`: `colegio` pasa de **lista** a
+**objeto** `nombre lógico → tema`. Aviso **E** en [DESPLIEGUE.md](../DESPLIEGUE.md). No rompe a
+nadie hoy: la app no está publicada y ellos escribieron que no suscriben esos dos temas hasta
+que llevaran prefijo. **Es el único cliente de ese endpoint.**
+
+Tres tests nuevos y **el control visto rojo**: volviendo al literal caen dos, y **no** cae el
+del endpoint — que es correcto, porque mide *«entrega lo que el servicio compone»* y no el
+nombre. Las dos preguntas viven en tests distintos a propósito.
+
+### Y lo que queda para ti, que es una sola cosa
+
+**`colegio_avisos` está declarado y no lo publica nadie.** Se queda —componerlo no cuesta nada—
+pero `myvc_flutter` pregunta si esa función va a existir. **Si no va a existir, se retira de los
+dos lados a la vez**, y eso no lo decide una sesión.
 
 ---
 

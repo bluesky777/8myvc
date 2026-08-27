@@ -12287,3 +12287,100 @@ Va con su desglose por fichero y con la trampa de su propio recuento: `grep -rn
 de un comentario** de `DefinitivasPeriodosController:269`.
 
 Red: `tests/Contrato/RecalculoAcotadoAlDuenoTest.php`.
+
+---
+
+## §238. El tema del muro era el mismo en los quince colegios — y no había forma de verlo desde aquí (26 ago 2026)
+
+`TemasDeNotificacion::DEL_COLEGIO` eran **dos cadenas literales**, `colegio_muro` y
+`colegio_avisos`, sin nada que dijera de qué colegio. `GET notificaciones/temas` se las
+entregaba así a la app y `EnviarNotificaciones:339` publicaba en el literal.
+
+**El proyecto de Firebase es UNO para los quince colegios**: una sola app, un solo
+`com.micolevirtual.app`, un solo `google-services.json`. Los temas viven en un espacio de
+nombres compartido, así que **un tema llamado `colegio_muro` es el mismo tema para los
+quince**. En cuanto dos colegios tuvieran la app instalada, una publicación del muro de uno le
+llegaría a las familias de los otros catorce.
+
+No es fuga de contenido —el cuerpo es genérico a propósito— sino **el aviso equivocado a la
+familia equivocada**: una familia recibiría quince veces más avisos del muro de los que le
+tocan, y catorce la llevarían a un muro donde no hay nada nuevo. Multiplicado por quince, la
+función se convierte en ruido y la gente la apaga.
+
+### Por qué se escapó, y la explicación es mejor que «se olvidó»
+
+El docblock de `avisosDelMuro` lo razonaba, y razonaba bien **una de las dos cosas**:
+
+> No se agrupa por alumno porque no es de nadie, y por eso su tema no lleva HMAC —
+> `colegio_muro` es público a propósito: no dice nada de ningún menor.
+
+**El HMAC del tema del alumno hace dos trabajos a la vez**: esconder *de quién* es, y separar
+*un colegio de otro*. Aquí se descartó el primero —con razón, «hay 3 publicaciones nuevas» no
+dice nada de nadie— **y con él se fue el segundo**, que sí hacía falta. Los temas por alumno
+nunca colisionaron porque su HMAC lleva el secreto del colegio; el par del colegio entero se
+quedó fuera de esa propiedad sin que nadie lo notara.
+
+> **Y esto es lo que hay que quedarse: no había forma de verlo desde este repositorio.** La
+> premisa que convierte esas dos cadenas en un fallo —*un solo proyecto de Firebase para los
+> quince*— **vive en `myvc_flutter`**. Aquí `colegio_muro` es un nombre perfectamente
+> razonable. Lo encontró la sesión de la app **leyendo el contrato antes de cablearlo**, que es
+> la única postura desde la que se veía.
+
+### La forma elegida, y por qué NO es la que pidieron
+
+`myvc_flutter` proponía `c_` + HMAC del **identificador del colegio**, y decía que le valía
+cualquiera mientras el endpoint entregara el nombre ya compuesto. Se hizo `c_` + HMAC del
+**nombre lógico del tema**, con el secreto del colegio:
+
+```php
+return 'c_'.substr(hash_hmac('sha256', $tema, self::secreto()), 0, 32);
+```
+
+Es lo mismo con un dato de menos. `secreto()` **ya es distinto en cada colegio** —es su
+`APP_KEY`, que `key:generate` hace por instalación— así que separa igual, y **el identificador
+de colegio no existe hoy en `config/`**: meterlo obligaría a editar quince `.env`, que es
+exactamente lo que la cabecera de `config/notificaciones.php` dice que no se puede pedir a un
+despliegue.
+
+> **Y la letra pequeña, que va escrita porque es la del diseño entero y no la de este cambio:**
+> si dos colegios compartieran `APP_KEY` —un `.env` copiado al crear uno nuevo, que es como se
+> crean— sus temas colisionarían. **Eso no lo introduce esta función**: el tema de alumno
+> depende del mismo secreto desde el primer día. Lo que cambia es que ahora el fallo sería el
+> mismo en los dos sitios y no sólo en uno.
+
+### Lo que cambia de forma en la respuesta, y hay que decirlo entero
+
+`GET notificaciones/temas` devolvía en `colegio` una **lista**; ahora devuelve un **objeto**
+`nombre lógico → tema`:
+
+| antes | ahora |
+|---|---|
+| `"colegio": ["colegio_muro", "colegio_avisos"]` | `"colegio": {"colegio_muro": "c_1a2b…", "colegio_avisos": "c_3c4d…"}` |
+
+**No rompe a nadie hoy**: la app no está publicada y `myvc_flutter` dijo por escrito que no
+suscribe esos dos temas hasta que lleven prefijo. Es el único cliente de este endpoint.
+
+Y **el nombre viaja hecho**: el teléfono no deriva nada. Lo pidieron así y coincide con lo que
+ya hacía el resto de la clase — si derivara la app habría dos sitios donde puede escribirse mal
+y **uno no da error**, porque publicar en un tema vacío es válido en FCM y el aviso se pierde
+en silencio.
+
+### El control
+
+`TemasDeNotificacionTest` gana tres. Volviendo al literal, caen **dos**:
+
+- `test_el_tema_del_colegio_cambia_con_el_colegio` — el que prueba lo que se vino a arreglar;
+- `test_la_forma_del_tema_del_colegio` — `c_` y 32 hex.
+
+Y **no cae** `test_un_alumno_recibe_sus_tres_temas`, que compara el cuerpo con
+`todosLosDelColegio()`: **es correcto que no caiga**, porque mide *«el endpoint entrega lo que
+el servicio compone»*, no el nombre. Las dos preguntas viven en tests distintos a propósito.
+
+### Y lo que queda para Joseth, que es una sola cosa
+
+`colegio_avisos` **está declarado y no lo publica nadie todavía**. Se queda: componerlo no
+cuesta nada y quitarlo obligaría a volver a añadirlo. Lo pregunta `myvc_flutter` y **la
+respuesta es suya, no de una sesión**: si esa función no va a existir, se retira de los dos
+lados a la vez.
+
+Red: `tests/Contrato/TemasDeNotificacionTest.php` y `tests/Contrato/EnviarNotificacionesTest.php`.

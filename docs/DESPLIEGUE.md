@@ -68,6 +68,7 @@ y con el mismo hash comprobado en los quince. Qué se le notó a un colegio, fil
 | **B** | **veintiún respuestas cambian de forma**: les llegan dos campos nuevos | **PENDIENTE** |
 | **C** | `aumentar_contador`: omitir la clave | **PENDIENTE** |
 | **D** | `login/crear-prematricula` **cambia el 500 por un 422** con mensaje | **NO REQUIERE TRABAJO DEL FRONT** — medido, no supuesto |
+| **E** | `GET notificaciones/temas`: **`colegio` pasa de lista a objeto**, y sus dos temas ahora llevan hash por colegio | **ES DE FLUTTER, y lo pidieron ellos** — no afecta a `myvc_front` ni a `app2` |
 
 **Ninguno se entera solo, y A y B son de las de «quién puede llamarla».** El detalle en
 [`cert-2 §6`](migracion/noche-2026-08-26/cert-2.md) y el reparto completo de qué hace el
@@ -102,6 +103,12 @@ backend y qué les toca a ellos en `myvc_front/TAREAS-AUDITORIA-CERTIFICADOS.md`
    que cambia es **a mejor**: con el 500 salía el texto genérico, porque 500 **no** está en esa
    lista. *(Y de paso: un grupo **en la papelera** también da 422 ahora. Antes pasaba y dejaba
    la prematrícula colgada de un grupo borrado.)*
+
+5. `GET notificaciones/temas` devolvía `"colegio": ["colegio_muro", "colegio_avisos"]` y ahora
+   devuelve `"colegio": {"colegio_muro": "c_1a2b…", "colegio_avisos": "c_3c4d…"}` — **de lista a
+   objeto, y con el tema ya compuesto**. Es de `myvc_flutter` y **no lo toca ningún front web**.
+   **No rompe a nadie hoy**: la app no está publicada y ellos dijeron por escrito que no
+   suscriben esos dos temas hasta que llevaran prefijo. El porqué, en [05 §238](migracion/05-codigo-muerto-y-roto.md).
 
    > **Y de camino salieron dos cosas del front que NO son de esta tanda: ARREGLADAS**, las dos
    > en `myvc_front`, commit `8321f9a5` — **commiteado en su `main`, sin subir y sin publicar**.

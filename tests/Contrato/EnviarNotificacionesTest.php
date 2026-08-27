@@ -223,11 +223,20 @@ class EnviarNotificacionesTest extends CasoDeContrato
     }
 
     /**
-     * Una publicación del muro es **un solo aviso para el colegio**, y su tema no
-     * lleva HMAC.
+     * Una publicación del muro es **un solo aviso para el colegio**, y su tema **sí
+     * lleva HMAC** desde el 26 ago 2026.
      *
-     * No es de nadie, así que no hay a quién derivar: `colegio_muro` es público a
-     * propósito porque no dice nada de ningún menor.
+     * Este docblock decía lo contrario —*«no es de nadie, así que no hay a quién
+     * derivar»*— y razonaba una sola de las dos cosas que hace ese hash: esconder de
+     * quién es —que aquí no hace falta, el cuerpo es genérico— y **separar un colegio
+     * de otro** —que sí—. **El proyecto de Firebase es uno para los quince**, así que
+     * `colegio_muro` a secas era el mismo tema para todos y el muro de uno le habría
+     * llegado a las familias de los otros catorce. Lo encontró `myvc_flutter`.
+     *
+     * El tema **se pide al servicio y no se escribe a mano**, que es lo que hace que
+     * este test siga midiendo el envío y no una cadena: si el nombre cambiara, el
+     * test cambia con él y lo que se comprueba —un aviso, no dos— no se mueve.
+     * Que sea **distinto en cada colegio** lo prueba `TemasDeNotificacionTest`.
      */
     public function test_el_muro_avisa_una_vez_al_colegio(): void
     {
@@ -246,7 +255,7 @@ class EnviarNotificacionesTest extends CasoDeContrato
 
         $this->correr();
 
-        $delMuro = $this->mandadosAlTema('colegio_muro');
+        $delMuro = $this->mandadosAlTema(TemasDeNotificacion::delColegio('colegio_muro'));
 
         $this->assertCount(1, $delMuro, 'Dos publicaciones dieron dos avisos en vez de uno.');
         $this->assertStringContainsString('2 publicaciones nuevas', $delMuro[0]['cuerpo']);
@@ -277,7 +286,7 @@ class EnviarNotificacionesTest extends CasoDeContrato
 
         $this->correr();
 
-        $this->assertSame([], $this->mandadosAlTema('colegio_muro'),
+        $this->assertSame([], $this->mandadosAlTema(TemasDeNotificacion::delColegio('colegio_muro')),
             'Se avisó a las familias de una publicación que no es para ellas.');
     }
 

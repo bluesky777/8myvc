@@ -135,7 +135,10 @@ class TemasDeNotificacionTest extends CasoDeContrato
             $cuerpo['alumnos'][0]['temas']['notas']
         );
 
-        $this->assertSame(['colegio_muro', 'colegio_avisos'], $cuerpo['colegio']);
+        $this->assertSame(['colegio_muro', 'colegio_avisos'], array_keys($cuerpo['colegio']),
+            'Los dos temas del colegio siguen siendo los mismos, y con su nombre lógico de clave.');
+        $this->assertSame(TemasDeNotificacion::todosLosDelColegio(), $cuerpo['colegio'],
+            'El endpoint tiene que entregar el tema YA COMPUESTO: el teléfono no deriva nada.');
     }
 
     /**
@@ -199,7 +202,10 @@ class TemasDeNotificacionTest extends CasoDeContrato
             ->json();
 
         $this->assertSame([], $cuerpo['alumnos']);
-        $this->assertSame(['colegio_muro', 'colegio_avisos'], $cuerpo['colegio']);
+        $this->assertSame(['colegio_muro', 'colegio_avisos'], array_keys($cuerpo['colegio']),
+            'Los dos temas del colegio siguen siendo los mismos, y con su nombre lógico de clave.');
+        $this->assertSame(TemasDeNotificacion::todosLosDelColegio(), $cuerpo['colegio'],
+            'El endpoint tiene que entregar el tema YA COMPUESTO: el teléfono no deriva nada.');
     }
 
     /**
@@ -237,5 +243,69 @@ class TemasDeNotificacionTest extends CasoDeContrato
     public function test_sin_token_no_hay_temas(): void
     {
         $this->getJson('/api/notificaciones/temas')->assertStatus(401);
+    }
+
+    /**
+     * **El tema del colegio es distinto en cada colegio**, y es lo que este fichero
+     * no probaba.
+     *
+     * Hasta el 26 ago 2026 `colegio_muro` y `colegio_avisos` eran esas dos cadenas
+     * literales. Aquí ninguna prueba se quejaba, y no podía: **la premisa que las
+     * convierte en fallo vive en el otro repositorio** —el proyecto de Firebase es
+     * **uno** para los quince colegios, una sola app y un solo `google-services.json`—,
+     * así que un tema llamado igual en dos colegios **es el mismo tema** y el muro de
+     * uno le llega a las familias de los otros catorce. Lo encontró `myvc_flutter`
+     * leyendo el contrato antes de cablearlo.
+     *
+     * Se comprueba cambiando el secreto, que es lo único que distingue un colegio de
+     * otro: `secreto` sale de `APP_KEY` y `key:generate` la hace por instalación.
+     */
+    public function test_el_tema_del_colegio_cambia_con_el_colegio(): void
+    {
+        $deEsteColegio = TemasDeNotificacion::todosLosDelColegio();
+
+        config(['notificaciones.secreto' => 'la-APP_KEY-de-otro-colegio']);
+        $deOtroColegio = TemasDeNotificacion::todosLosDelColegio();
+
+        foreach (TemasDeNotificacion::DEL_COLEGIO as $tema) {
+            $this->assertNotSame($deEsteColegio[$tema], $deOtroColegio[$tema],
+                "El tema `{$tema}` sale igual en dos colegios. El proyecto de Firebase es uno "
+                .'para los quince: dos temas con el mismo nombre son EL MISMO tema, y el aviso '
+                .'de un colegio llega a las familias de los otros catorce.');
+        }
+    }
+
+    /**
+     * Y su forma, que es contrato con la app: `c_` y 32 hex, como el del alumno.
+     *
+     * `c_` y no un hash pelado porque **FCM exige que el nombre empiece por letra** y
+     * un hash puede empezar por dígito — el mismo motivo que el `a_` de `deAlumno`, y
+     * un fallo que no daría error: publicar en un tema inválido no revienta, el aviso
+     * se pierde.
+     */
+    public function test_la_forma_del_tema_del_colegio(): void
+    {
+        foreach (TemasDeNotificacion::todosLosDelColegio() as $logico => $tema) {
+            $this->assertMatchesRegularExpression('/^c_[0-9a-f]{32}$/', $tema,
+                "El tema de `{$logico}` no tiene la forma que la app espera.");
+        }
+
+        // Y los dos no son el mismo: apagar los avisos no puede apagar el muro.
+        $this->assertCount(2, array_unique(TemasDeNotificacion::todosLosDelColegio()));
+    }
+
+    /**
+     * Un nombre que no existe **revienta**, no compone un tema fantasma.
+     *
+     * Es la misma decisión que en `de()`: publicar en un tema que no existe **es
+     * válido en FCM**, así que un nombre mal escrito no da error en ninguna parte y
+     * el aviso se pierde en silencio. Es el fallo más caro que este diseño puede
+     * tener, y por eso se prefiere reventar.
+     */
+    public function test_un_tema_de_colegio_inventado_revienta(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        TemasDeNotificacion::delColegio('colegio_inventado');
     }
 }

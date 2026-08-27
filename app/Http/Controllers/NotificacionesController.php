@@ -84,7 +84,12 @@ class NotificacionesController extends Controller
 
         return [
             'alumnos' => $temas,
-            'colegio' => TemasDeNotificacion::DEL_COLEGIO,
+            // **Ya compuesto**, no la lista de nombres lógicos: el teléfono no
+            // deriva ningún tema. Hasta el 26 ago 2026 aquí salían las dos cadenas
+            // literales, iguales en los quince colegios y por tanto **el mismo tema
+            // de Firebase para todos** — el proyecto es uno solo. Ver
+            // `TemasDeNotificacion::delColegio()`.
+            'colegio' => TemasDeNotificacion::todosLosDelColegio(),
         ];
     }
 
