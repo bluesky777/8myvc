@@ -430,7 +430,7 @@ class Boletines2Controller extends Controller {
 
 		foreach ($asignaturas as $keyAsig => $asignatura) {
 
-			$asignatura->unidades = Unidad::deAsignatura($asignatura->asignatura_id, $periodo_id);
+			$asignatura->unidades = Unidad::deAsignatura($asignatura->asignatura_id, $periodo_id, $alumno_id);
 
 			foreach ($asignatura->unidades as $keyUni => $unidad) {
 				$unidad->subunidades = Subunidad::perdidasDeUnidad($unidad->unidad_id, $alumno_id);

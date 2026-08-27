@@ -56,7 +56,7 @@ class EditnotaController extends Controller {
 		foreach ($periodos as $keyPer => $periodo) {
 
 			$asigna = new stdClass();
-			$asigna->unidades = Unidad::deAsignatura($asignatura_id, $periodo->id);
+			$asigna->unidades = Unidad::deAsignatura($asignatura_id, $periodo->id, $alumno_id);
 
 			$nota_asignatura = 0;
 
@@ -241,7 +241,7 @@ class EditnotaController extends Controller {
 		$asignaturas	= Grupo::detailed_materias($grupo_id);
 
 		foreach ($asignaturas as $asignatura) {
-			$asignatura->unidades = Unidad::deAsignatura($asignatura->asignatura_id, $periodo_id);
+			$asignatura->unidades = Unidad::deAsignatura($asignatura->asignatura_id, $periodo_id, $alumno->alumno_id);
 
 			foreach ($asignatura->unidades as $unidad) {
 				$unidad->subunidades = Subunidad::deUnidad($unidad->unidad_id);
@@ -324,7 +324,7 @@ class EditnotaController extends Controller {
 			foreach ($periodos as $keyPer => $periodo) {
 
 				$periodo->cantNotasPerdidas = 0;
-				$periodo->unidades = Unidad::deAsignatura($asignatura->asignatura_id, $periodo->id);
+				$periodo->unidades = Unidad::deAsignatura($asignatura->asignatura_id, $periodo->id, $alumno->alumno_id);
 
 
 				foreach ($periodo->unidades as $keyUni => $unidad) {
@@ -398,7 +398,7 @@ class EditnotaController extends Controller {
 
 		foreach ($asignaturas as $keyAsig => $asignatura) {
 
-			$asignatura->unidades = Unidad::deAsignatura($asignatura->asignatura_id, $periodo_id);
+			$asignatura->unidades = Unidad::deAsignatura($asignatura->asignatura_id, $periodo_id, $alumno_id);
 
 			foreach ($asignatura->unidades as $keyUni => $unidad) {
 				$unidad->subunidades = Subunidad::perdidasDeUnidad($unidad->unidad_id, $alumno_id);

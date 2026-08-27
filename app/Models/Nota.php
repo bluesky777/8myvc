@@ -286,7 +286,7 @@ class Nota extends Model {
 				unset($asignaturas[$keyAsig]);
 			}else{
 
-				$asignatura->unidades = Unidad::deAsignatura($asignatura->asignatura_id, $periodo->id);
+				$asignatura->unidades = Unidad::deAsignatura($asignatura->asignatura_id, $periodo->id, $alumno_id);
 
 				foreach ($asignatura->unidades as $unidad) {
 					$unidad->subunidades = Subunidad::deUnidad($unidad->unidad_id);
@@ -406,7 +406,7 @@ class Nota extends Model {
 			foreach ($periodos as $keyPer => $periodo) {
 
 				$asigna = new stdClass();
-				$asigna->unidades = Unidad::deAsignatura($asignatura->asignatura_id, $periodo->id);
+				$asigna->unidades = Unidad::deAsignatura($asignatura->asignatura_id, $periodo->id, $alumno_id);
 
 				foreach ($asigna->unidades as $unidad) {
 					$unidad->subunidades = Subunidad::deUnidad($unidad->unidad_id);

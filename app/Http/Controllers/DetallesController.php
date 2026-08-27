@@ -115,7 +115,7 @@ class DetallesController extends Controller {
 
 							if ($cantNotasAsi > 0) {
 
-								$asignatura->unidades = Unidad::deAsignatura($asignatura->asignatura_id, $periodo->id);
+								$asignatura->unidades = Unidad::deAsignatura($asignatura->asignatura_id, $periodo->id, $alumno_id);
 
 								foreach ($asignatura->unidades as $unidad) {
 									$unidad->subunidades = Subunidad::deUnidad($unidad->unidad_id);

@@ -68,17 +68,64 @@ class Unidad extends Model {
 
 
 	
-	public static function deAsignatura($asignatura_id, $periodo_id)
+	/**
+	 * Las unidades de una asignatura **para un alumno**, con el alcance del boletín
+	 * independiente puesto.
+	 *
+	 * ## Por qué el alumno es OBLIGATORIO y va el último
+	 *
+	 * Obligatorio porque **los diecisiete llamadores lo tienen a mano** —13 por
+	 * parámetro, 3 dentro de un `foreach` de alumnos y 1 por `Request::input`— y
+	 * **los diecisiete calculan algo de un alumno concreto**: ninguno pinta la
+	 * estructura del grupo en la respuesta. Censados uno a uno el 26 ago 2026, no
+	 * deducidos. Con un `= null` por defecto, un sitio nuevo que se olvidara de
+	 * pasarlo **se acotaría al grupo en silencio** y le escondería sus unidades a un
+	 * independiente; siendo obligatorio, revienta con `ArgumentCountError` en el
+	 * primer test que pase por ahí.
+	 *
+	 * **El último, y no el primero como en `deAsignaturaCalculada`.** La consistencia
+	 * pierde contra la seguridad: si fuera el primero, un llamador sin actualizar
+	 * seguiría teniendo tres argumentos válidos —alumno donde va la asignatura— y
+	 * **devolvería filas equivocadas sin un solo error**. Al final, faltar se nota.
+	 *
+	 * ## Y por qué NO se sustituyó por `deAsignaturaCalculada`
+	 *
+	 * Porque **no es «el mismo método con el alcance puesto»**, que es lo que decía
+	 * la lista de pendientes y resultó ser falso al abrirlo. Aquélla hace `left join`
+	 * a `subunidades` y a `notas`, agrupa, y devuelve además `nota_unidad` —y en una
+	 * de sus tres ramas, `desempenio` y las columnas de la escala—. Cambiar un
+	 * llamador de ésta a aquélla **le cambiaría la forma de la respuesta y le metería
+	 * un join por alumno** en los mismos boletines que ya están fichados por tardar
+	 * 24–63 s. Son dos consultas distintas: ésta es la estructura, aquélla la
+	 * estructura con notas.
+	 *
+	 * ## El alcance
+	 *
+	 * `null` mientras nadie esté marcado —que es siempre hoy— y entonces
+	 * `u.alumno_id <=> NULL` selecciona **exactamente las filas de antes**: por eso
+	 * esto entra sin regenerar un solo snapshot.
+	 *
+	 * **`<=>` y no `=`**: el igual null-safe empareja NULL con NULL, así que una
+	 * condición cubre las dos ramas. Con `=` a secas el alumno normal no empareja
+	 * nada y **se queda sin unidades**, sin un error en el log.
+	 *
+	 * @param  int|string  $alumno_id  de quién es la vista que se está calculando
+	 */
+	public static function deAsignatura($asignatura_id, $periodo_id, $alumno_id)
 	{
+		$alcance = \App\Services\BoletinIndependiente::alcance((int) $alumno_id, (int) $periodo_id);
+
 		$consulta = 'SELECT u.id as unidad_id, u.definicion as definicion_unidad, u.porcentaje as porcentaje_unidad, 
 						u.asignatura_id, u.orden as orden_unidad, u.periodo_id
 					FROM unidades u
 					where u.asignatura_id=:asignatura_id and u.periodo_id=:periodo_id and u.deleted_at is null
+						and u.alumno_id <=> :alcance
 					order by u.orden, u.id';
 
 		$unidades = DB::select($consulta, array(
 			':asignatura_id'	=> $asignatura_id,
-			':periodo_id'		=> $periodo_id
+			':periodo_id'		=> $periodo_id,
+			':alcance'			=> $alcance
 		));
 
 		return $unidades;

@@ -12384,3 +12384,95 @@ respuesta es suya, no de una sesión**: si esa función no va a existir, se reti
 lados a la vez.
 
 Red: `tests/Contrato/TemasDeNotificacionTest.php` y `tests/Contrato/EnviarNotificacionesTest.php`.
+
+---
+
+## §239. Los diecisiete de `Unidad::deAsignatura`, acotados — y el mecanismo que la lista prometía no existía (26 ago 2026)
+
+`Unidad::deAsignatura` traía **todas** las unidades de una asignatura, incluidas las que tienen
+dueño. La hermana `deAsignaturaCalculada` lleva el alcance del boletín independiente desde BI-2;
+ésta no, con **diecisiete llamadores**.
+
+El día que una unidad tenga dueño, esos diecisiete le dan **al independiente las unidades de los
+otros treinta** — y, en la dirección que nadie miraba, **la unidad privada de uno se cuela en la
+rejilla de los demás**.
+
+### El censo se comprobó y acertó; el mecanismo que proponía, no
+
+La lista decía **17 llamadores, 13 por parámetro, 3 en un `foreach` y 1 por `Request::input`**.
+**Los cuatro números son exactos**, recontados uno a uno: el `Request::input` es
+`DetallesController:54`, y los tres del `foreach` son los tres `getShowProfesor` —`Planillas`,
+`PlanillasAusencias`, `NotasPerdidas`—, que son copia carbón unos de otros.
+
+Lo que no se sostuvo es la frase de al lado:
+
+> **El mecanismo también existe ya —`Unidad::deAsignaturaCalculada()` es el mismo método con el
+> alcance puesto—, así que acotarlos es mecánico.**
+
+**No es el mismo método.** La hermana hace `left join` a `subunidades` y a `notas`, agrupa por
+unidad, y devuelve además `nota_unidad` —y en una de sus tres ramas, `desempenio` y las columnas
+de la escala—. Son **la estructura** y **la estructura con notas**. Cambiar los diecisiete a la
+hermana les habría **cambiado la forma de la respuesta** y les habría metido **un join por
+alumno** en los mismos boletines que ya están fichados por tardar 24–63 s ([§224](#)).
+
+> **Es la tercera vez esta semana que una lista acierta el conteo y falla el arreglo.** La
+> [§237](#) fue igual —cinco sitios ciertos, «cinco arreglos» falso—. **La parte de una lista
+> que hay que volver a comprobar no es el número: es el verbo.**
+
+### Lo que se hizo
+
+El alcance entra en `deAsignatura`, y el alumno pasa a ser **el tercer parámetro y obligatorio**.
+
+**Obligatorio** porque los diecisiete lo tienen a mano y un `= null` por defecto haría que un
+sitio nuevo que se olvidara **se acotara al grupo en silencio**. Siendo obligatorio, larastan
+nivel 7 lo caza como `arguments.count` — y lo cazó: dos llamadas de
+`UnidadDeAsignaturaConAlcanceTest` que se me habían pasado salieron en `composer run stan`.
+
+**El tercero y no el primero**, aunque la hermana lo lleve delante. La consistencia pierde
+contra la seguridad: si fuera el primero, un llamador sin actualizar **seguiría teniendo tres
+argumentos válidos** —el alumno donde va la asignatura— y devolvería filas equivocadas **sin un
+solo error**. Al final, faltar se nota.
+
+### Las tres preguntas, y cada una la contesta otra cosa
+
+| pregunta | quién |
+|---|---|
+| ¿el alcance funciona? | `UnidadDeAsignaturaConAlcanceTest`, en el modelo |
+| ¿se le pasó el alumno a los diecisiete? | **larastan nivel 7**, que es una puerta de `composer run stan` |
+| **¿se le pasó el alumno BUENO?** | `BoletinDelIndependienteTest`, por HTTP |
+
+La tercera es la única que **ninguna herramienta puede contestar sola**: pasar
+`$alumno->alumno_id` donde tocaba `$alumno_id` compila, pasa larastan y devuelve un número
+creíble. Y **hoy sólo se ve marcando a alguien**, porque con `alumno_id` NULL en todas las filas
+pasar un alumno u otro da exactamente lo mismo.
+
+### Tres cosas que enseñó montar ese test por HTTP, y ninguna estaba prevista
+
+1. **El boletín no era el sitio.** Sus unidades ya venían de `deAsignaturaCalculada` —acotada
+   desde BI-2—, así que **por ahí no pasa ninguno de los diecisiete**. Y el `deAsignatura` que
+   `BoletinesController` sí tiene, en `asignaturasPerdidasDeAlumnoPorPeriodo:501`, **no lo llama
+   nadie en ese controlador**: es una de las copias muertas de la [§216](#). El sitio bueno es
+   `PUT editnota/detailed-notas/{grupo}`, la rejilla donde un docente teclea notas.
+2. **El periodo del token es la mitad del escenario.** `detailedNotasGrupo` pide las unidades con
+   `$user->periodo_id`, no con el del grupo. Eligiendo el grupo por su cuenta salía uno de 2025
+   con el token en otro año: **200 y ni una unidad dentro**. Los tres tests fallaban por el
+   montaje. Lo distinguió tener un `assertNotEmpty` en cada uno.
+3. **Y un extractor demasiado ancho da un FALSO POSITIVO.** Un `array_walk_recursive` buscando
+   `definicion_unidad` recogía también las de `asignaturas_perdidas`, que salen de
+   `EditnotaController:327` y **están filtradas por las notas perdidas de cada alumno**: difieren
+   de un alumno a otro **con razón y sin nadie marcado**. El control lo leía como «la respuesta se
+   movió» y acusaba al acotado de algo que no había hecho. Se apunta al camino exacto.
+
+### Los controles
+
+Quitando el `<=>` de la consulta y dejando todo lo demás, de los cinco tests caen **dos**, y son
+los dos que nombran el acotado: `deasignatura_se_separa_segun_a_quien_se_le_pregunte` y
+`la_unidad_privada_no_sale_en_el_boletin_del_companero`.
+
+**Y los que NO caen son la otra mitad del control**: `sin_nadie_marcado_las_dos_formas_traen_lo_mismo`
+y `sin_nadie_marcado_los_dos_ven_lo_mismo` siguen verdes, que es lo que dice que **esto no le
+mueve la respuesta a ningún colegio hoy**.
+
+Red: `tests/Contrato/UnidadDeAsignaturaConAlcanceTest.php` (reescrito: comparaba `deAsignatura`
+con su hermana y ahora compara `deAsignatura` **consigo misma** con dos alumnos) y
+`tests/Contrato/BoletinDelIndependienteTest.php` (nuevo).

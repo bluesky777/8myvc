@@ -9,18 +9,34 @@ use Illuminate\Support\Facades\DB;
 /**
  * `Unidad::deAsignatura` con el alcance del boletin independiente.
  *
- * **Este test se escribio ANTES de acotar nada**, y no es una preferencia de
- * estilo: es lo unico que discrimina. Con `boletin_independiente` a 0 en todas las
- * matriculas y `alumno_id` NULL en todas las unidades, **la forma correcta y la
- * incorrecta dan el mismo verde** — un test escrito despues del arreglo aqui no
- * comprueba el arreglo, comprueba que nada se movio, que es otra cosa.
+ * **Este test se escribio ANTES de acotar nada**, y por eso sirve: con
+ * `boletin_independiente` a 0 en todas las matriculas y `alumno_id` NULL en todas
+ * las unidades, **la forma correcta y la incorrecta dan el mismo verde**. Un test
+ * escrito despues del arreglo no comprueba el arreglo: comprueba que nada se movio,
+ * que es otra cosa.
+ *
+ * > **Actualizado el 26 ago 2026, cuando el arreglo entro** (05 §239). Lo que
+ * > cambia no es lo que mide sino **contra que lo compara**: antes la segunda mitad
+ * > exigia que `deAsignatura` y `deAsignaturaCalculada` **se separaran** —porque una
+ * > acotaba y la otra no—; ahora exige que **coincidan cuando se les pasa el mismo
+ * > alumno** y que `deAsignatura` **se separe de si misma** segun a quien se le
+ * > pregunte. La pregunta que discrimina sigue siendo la misma; el sujeto cambio.
  *
  * ## Lo que hace que esto no sea inventar una regla nueva
  *
- * El alcance **ya esta escrito** en `BoletinIndependiente::alcance()`, y el metodo
- * hermano de este —`Unidad::deAsignaturaCalculada`, cinco llamadas— **ya lo usa**
- * (`Unidad:111`), con el `<=>` y su porque encima. `deAsignatura` es el mismo
- * metodo sin acotar, con **diecisiete** llamadores.
+ * El alcance **ya estaba escrito** en `BoletinIndependiente::alcance()`, y el metodo
+ * hermano de este —`Unidad::deAsignaturaCalculada`, cinco llamadas— **ya lo usaba**,
+ * con el `<=>` y su porque encima. `deAsignatura` tiene **diecisiete** llamadores y
+ * desde el 26 ago 2026 lo usa tambien.
+ *
+ * **Lo que este docblock decia y era falso: que `deAsignatura` es «el mismo metodo
+ * sin acotar».** No lo es, y se vio al abrirlo para arreglarlo: la hermana hace
+ * `left join` a `subunidades` y a `notas`, agrupa, y devuelve ademas `nota_unidad`
+ * —y en una de sus tres ramas, `desempenio` y las columnas de la escala—. Son la
+ * estructura y la estructura con notas. Por eso el arreglo **no fue cambiar los
+ * diecisiete llamadores a la hermana** —les habria cambiado la forma de la respuesta
+ * y les habria metido un join por alumno en los mismos boletines fichados por tardar
+ * 24-63 s— sino **ponerle el alcance a esta**.
  *
  * *No se escribe como se elige la matricula: se usa la que ya esta escrita.* Es la
  * regla que BI-2 pago con un `LIMIT 1` que leia el interruptor de 2024 para un
@@ -41,11 +57,14 @@ use Illuminate\Support\Facades\DB;
  *
  * ## Lo que este fichero NO es
  *
- * **No es la red de ninguna acotada.** Compara `deAsignatura` con
- * `deAsignaturaCalculada` —los dos metodos del modelo— y **ningun llamador pasa
- * por aqui**. Fija que el arreglo se puede hacer y que hoy no mueve nada; la red
- * de cada llamador acotado es un test propio, con la respuesta del endpoint
- * delante, y va en el commit de esa acotada.
+ * **No es la red de ningun llamador.** Vive en el modelo y **ningun endpoint pasa
+ * por aqui**. Fija que el alcance funciona y que hoy no mueve nada.
+ *
+ * Lo que cubre a los diecisiete llamadores son otras dos cosas, y hay que saber cual
+ * hace cual: **larastan nivel 7** contesta *«¿se le paso el alumno?»* —el parametro
+ * es obligatorio y un sitio olvidado es `arguments.count`, que es una puerta de
+ * `composer run stan`— y **`BoletinDelIndependienteTest`** contesta *«¿se le paso el
+ * alumno BUENO?»*, que es la que ninguna herramienta puede contestar sola.
  */
 class UnidadDeAsignaturaConAlcanceTest extends CasoDeContrato
 {
@@ -61,43 +80,43 @@ class UnidadDeAsignaturaConAlcanceTest extends CasoDeContrato
 
         [$alumnoId, $asignaturaId, $periodoId] = $this->unAlumnoConUnidades();
 
-        $sinAcotar = $this->ids(Unidad::deAsignatura($asignaturaId, $periodoId));
+        $estructura = $this->ids(Unidad::deAsignatura($asignaturaId, $periodoId, $alumnoId));
         $acotada = $this->ids(Unidad::deAsignaturaCalculada($alumnoId, $asignaturaId, $periodoId));
 
-        $this->assertSame($sinAcotar, $acotada,
+        $this->assertSame($estructura, $acotada,
             'Con nadie marcado como boletin independiente, `deAsignatura` y '
             .'`deAsignaturaCalculada` tienen que traer LAS MISMAS unidades. Si no coinciden, '
-            .'acotar `deAsignatura` NO es un no-op y hay que medir que respuesta se mueve '
-            .'antes de tocar los diecisiete llamadores.');
+            .'el alcance NO es un no-op hoy y hay una respuesta moviendose en los quince.');
 
-        $this->assertNotEmpty($sinAcotar,
+        $this->assertNotEmpty($estructura,
             'Ninguna de las dos trajo unidades: el seed no ejerce nada y las dos mitades de '
             .'este test se cumplirian por vacio.');
     }
 
     /**
-     * **EL CONTROL de la premisa. Y NO esta en rojo: pasa hoy, a proposito.**
+     * **La mitad que discrimina: `deAsignatura` se separa DE SI MISMA segun a quien
+     * se le pregunte.**
      *
-     * Esto hay que decirlo antes que nada porque el docblock de este metodo decia
-     * «la mitad que hoy esta en rojo» **antes de correrlo**, y es falso. Lo que
-     * este test fija es **la premisa del lote** —que el alcance ya esta escrito y
-     * sabe separar— **no la red de ninguna acotada**: compara los dos metodos del
-     * modelo entre si, y ninguno de los diecisiete llamadores pasa por aqui.
+     * Antes del 26 ago esta mitad comparaba `deAsignatura` con
+     * `deAsignaturaCalculada` y exigia que **se separaran** —una acotaba y la otra
+     * no—. Ahora las dos acotan, asi que esa comparacion ya no discrimina nada: el
+     * sujeto pasa a ser el mismo metodo con dos alumnos distintos.
      *
-     * **La red de cada acotada es otro test y va con ella**, uno por commit. Este
-     * es el que dice que el arreglo *se puede* hacer y que hoy *no mueve nada*.
+     * Con un alumno marcado y una unidad que es suya:
      *
-     * Con un alumno marcado y una unidad que es suya, la forma acotada tiene que
-     * traer **la suya** y la sin acotar sigue trayendo **las del grupo**. Ese es
-     * exactamente el fallo que el alcance viene a impedir: el dia que una unidad
-     * tenga dueno, los diecisiete llamadores de `deAsignatura` **le dan al
-     * independiente las unidades de los otros treinta**.
+     *   - preguntando **por el**, tiene que salir **la suya**;
+     *   - preguntando **por un companero suyo sin marcar**, tienen que salir **las
+     *     del grupo**, y la del marcado NO puede estar entre ellas.
      *
-     * **Si las dos formas coincidieran aqui, el test cae diciendo que su premisa se
-     * cayo** —que `deAsignaturaCalculada` sabe separar— y entonces el problema no
-     * seria `deAsignatura`: seria el alcance, y tendria otro arreglo.
+     * La segunda es la que importa y es nueva: es el fallo al reves —que la unidad
+     * privada de un alumno se le cuele en el boletin de los otros treinta—, y la
+     * version anterior de este test **no lo comprobaba**, porque su forma «sin
+     * acotar» las traia todas por definicion.
+     *
+     * **Si las dos preguntas coincidieran, el alcance no esta llegando a la
+     * consulta** y los diecisiete llamadores estan dando lo mismo a todo el mundo.
      */
-    public function test_con_un_alumno_marcado_la_forma_acotada_se_separa(): void
+    public function test_deasignatura_se_separa_segun_a_quien_se_le_pregunte(): void
     {
         BoletinIndependiente::olvidar();
 
@@ -118,19 +137,50 @@ class UnidadDeAsignaturaConAlcanceTest extends CasoDeContrato
 
         BoletinIndependiente::olvidar();
 
-        $delGrupo = $this->ids(Unidad::deAsignatura($asignaturaId, $periodoId));
-        $delAlumno = $this->ids(Unidad::deAsignaturaCalculada($alumnoId, $asignaturaId, $periodoId));
+        $suya = (int) DB::selectOne(
+            'SELECT id FROM unidades WHERE alumno_id = ? AND asignatura_id = ? AND periodo_id = ?',
+            [$alumnoId, $asignaturaId, $periodoId])->id;
 
-        // CONTROL: la premisa es que la forma acotada SABE separar. Si no separa,
-        // este test no esta midiendo `deAsignatura`.
-        $this->assertNotSame($delGrupo, $delAlumno,
-            'CONTROL CAIDO, y esto NO es el fallo que este test persigue: con el alumno '
-            .$alumnoId.' marcado y una unidad suya, `deAsignaturaCalculada` trajo LO MISMO '
-            .'que la sin acotar. La premisa de este lote —que el alcance ya esta escrito y '
-            .'funciona— seria falsa, y el arreglo no seria pasar el alcance a los diecisiete.');
+        $companero = $this->unCompaneroSinMarcar($alumnoId, $asignaturaId);
 
-        $this->assertNotEmpty($delAlumno,
-            'La forma acotada no trajo ninguna unidad para el alumno marcado.');
+        $paraElMarcado = $this->ids(Unidad::deAsignatura($asignaturaId, $periodoId, $alumnoId));
+        $paraElCompanero = $this->ids(Unidad::deAsignatura($asignaturaId, $periodoId, $companero));
+
+        $this->assertNotSame($paraElCompanero, $paraElMarcado,
+            'Preguntando por el alumno '.$alumnoId.' —marcado, y con una unidad suya— y por su '
+            .'companero '.$companero.' salio LO MISMO. El alcance no esta llegando a la '
+            .'consulta y los diecisiete llamadores dan lo mismo a todo el mundo.');
+
+        $this->assertSame([$suya], $paraElMarcado,
+            'Al marcado tienen que salirle SUS unidades y solo las suyas.');
+
+        $this->assertNotContains($suya, $paraElCompanero,
+            'La unidad privada del alumno '.$alumnoId.' se le colo al companero '.$companero
+            .'. Es el fallo al reves, y es el que ningun test cubria antes: no es que al '
+            .'independiente le falten unidades, es que las suyas entran en el boletin de los '
+            .'otros treinta.');
+
+        $this->assertNotEmpty($paraElCompanero,
+            'Al companero no le salio ninguna unidad del grupo: el test no distingue nada.');
+    }
+
+    /** Otro alumno de la misma asignatura, sin marcar: es contra quien se compara. */
+    private function unCompaneroSinMarcar(int $alumnoId, int $asignaturaId): int
+    {
+        $fila = DB::selectOne(
+            'SELECT m.alumno_id
+               FROM asignaturas a
+              INNER JOIN matriculas m ON m.grupo_id = a.grupo_id AND m.deleted_at IS NULL
+                    AND m.boletin_independiente = 0
+              WHERE a.id = ? AND m.alumno_id <> ?
+              ORDER BY m.alumno_id LIMIT 1',
+            [$asignaturaId, $alumnoId]);
+
+        $this->assertNotNull($fila,
+            'El seed necesita un segundo alumno en ese grupo: con uno solo, «lo suyo» y «lo de '
+            .'todos» son lo mismo y este test no distingue nada.');
+
+        return (int) $fila->alumno_id;
     }
 
     /** Un alumno del seed con unidades en alguna asignatura suya, o el test no mide. */

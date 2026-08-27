@@ -141,7 +141,7 @@ class PlanillasController extends Controller {
 
 					// Unidades y subunidades de la asignatura en el periodo
 					$asignaturaTemp = Asignatura::find($asignatura->asignatura_id);
-					$asignaturaTemp->unidades = Unidad::deAsignatura($asignaturaTemp->id, $periodo->id);
+					$asignaturaTemp->unidades = Unidad::deAsignatura($asignaturaTemp->id, $periodo->id, $alumno->alumno_id);
 
 					foreach ($asignaturaTemp->unidades as $unidad) {
 						$unidad->subunidades = Subunidad::deUnidad($unidad->unidad_id);
