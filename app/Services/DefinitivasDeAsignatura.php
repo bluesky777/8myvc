@@ -15,12 +15,31 @@ use Illuminate\Support\Facades\DB;
  * mismo problema: definitivas que desaparecen, definitivas duplicadas y notas
  * que los profesores juraban haber puesto.
  *
- * **Esta clase todavía no la llama nadie**, y es a propósito. Sustituir los seis
- * escritores es la fase 3, y va detrás de la fase 2 —la migración que limpia y
- * pone las claves únicas—, que a su vez no se puede desplegar sola: el índice con
- * el código viejo convierte cada duplicado en un 500. Se escribe antes para que
- * lo que llegue a producción llegue ya medido y con sus tests, no para que se
- * quede aquí.
+ * **Esta clase la llaman 18 sitios de seis ficheros**, y hasta el 26 ago 2026 esta
+ * línea decía *«todavía no la llama nadie»*. Era cierta el día que se escribió y la
+ * fase 3 la dejó vieja sin que nadie volviera a leerla:
+ *
+ * | fichero | llamadas |
+ * |---|---|
+ * | `Models/NotaFinal` | 4 |
+ * | `NotasController` | 6 — 4 a `recalcular`, 1 a `recalcularPorNota`, 1 a `estaDesactualizada` |
+ * | `SubunidadesController` | 3 |
+ * | `UnidadesController` | 2 |
+ * | `Informes/BoletinesController` | 2 |
+ * | `PeriodosController` | 1 |
+ *
+ * Se recuenta con `grep -rn 'DefinitivasDeAsignatura::' app/`, **que da 19 y no 18**:
+ * el sobrante es una **mención dentro de un comentario** de
+ * `DefinitivasPeriodosController:269`, no una llamada.
+ *
+ * Lo que **sigue** pendiente es la **fase 2** —la migración que limpia y pone las
+ * claves únicas—, que no se puede desplegar sola: el índice con el código viejo
+ * convierte cada duplicado en un 500. Y sigue bloqueada por el mismo dato de
+ * siempre, los números de la fase 0 de los quince colegios.
+ *
+ * > **La cabecera de una clase es lo que más se lee y lo que menos se releé.**
+ * > Ésta afirmaba lo contrario de lo que hacía el fichero, y quien la creyera
+ * > habría dado por seguro tocar aquí lo que hoy corre en quince producciones.
  *
  * ## Las cinco reglas, y de dónde sale cada una
  *
@@ -138,7 +157,7 @@ class DefinitivasDeAsignatura
     public static function recalcularPorUnidad(int $unidadId, ?int $porUsuario = null): ?array
     {
         $donde = DB::selectOne(
-            'SELECT asignatura_id, periodo_id FROM unidades WHERE id = ?',
+            'SELECT asignatura_id, periodo_id, alumno_id FROM unidades WHERE id = ?',
             [$unidadId]
         );
 
@@ -146,7 +165,12 @@ class DefinitivasDeAsignatura
             return null;
         }
 
-        return self::recalcular((int) $donde->asignatura_id, (int) $donde->periodo_id, $porUsuario);
+        return self::recalcular(
+            (int) $donde->asignatura_id,
+            (int) $donde->periodo_id,
+            $porUsuario,
+            self::duenoDeLaUnidad($donde)
+        );
     }
 
     /**
@@ -156,7 +180,7 @@ class DefinitivasDeAsignatura
     public static function recalcularPorSubunidad(int $subunidadId, ?int $porUsuario = null): ?array
     {
         $donde = DB::selectOne(
-            'SELECT u.asignatura_id, u.periodo_id
+            'SELECT u.asignatura_id, u.periodo_id, u.alumno_id
                FROM subunidades s
                INNER JOIN unidades u ON u.id = s.unidad_id
               WHERE s.id = ?',
@@ -167,7 +191,46 @@ class DefinitivasDeAsignatura
             return null;
         }
 
-        return self::recalcular((int) $donde->asignatura_id, (int) $donde->periodo_id, $porUsuario);
+        return self::recalcular(
+            (int) $donde->asignatura_id,
+            (int) $donde->periodo_id,
+            $porUsuario,
+            self::duenoDeLaUnidad($donde)
+        );
+    }
+
+    /**
+     * El alumno al que hay que acotar la ESCRITURA, o `null` si la unidad es del grupo.
+     *
+     * ## Por qué el alcance se lee aquí y no se lo pasa el llamante
+     *
+     * Porque **ninguno de los cinco llamadores tiene un alumno a mano, y no es un
+     * descuido suyo**: los cinco editan o borran una unidad o una subunidad
+     * —`UnidadesController::putUpdate` y `deleteDestroy`, y los tres de
+     * `SubunidadesController`—, y una unidad del grupo **le cambia la definitiva a
+     * los treinta**, así que ahí recalcular entero es lo correcto. Pedirles el
+     * alumno sería pedirles un dato que su petición no tiene.
+     *
+     * Lo que distingue los dos casos no está en el llamante: está en la unidad.
+     * `unidades.alumno_id` —la columna que trajo el boletín independiente— dice de
+     * quién es. Si tiene dueño, **esa unidad sólo entra en el cálculo de ese
+     * alumno** (lo hace `calcular()`, con su `c.dueno <=> ALCANCE`), y reescribir a
+     * los demás no es que sea caro: es que **`recalcular()` crea la fila que falta**
+     * —los alumnos salen de `matriculas`, regla 1— y aparecerían definitivas a
+     * cero donde no había ninguna, firmadas por quien editó la unidad de otro.
+     *
+     * ## Hoy no cambia nada, y eso es comprobable
+     *
+     * `unidades.alumno_id` es NULL en todas las filas mientras nadie esté marcado,
+     * así que esto devuelve `null` siempre y `recalcular()` hace exactamente lo de
+     * antes. **No espera a la decisión de a quién se marca**: es la red puesta antes
+     * de que haya con qué caerse.
+     *
+     * @param  object  $unidad  con `alumno_id` dentro
+     */
+    private static function duenoDeLaUnidad(object $unidad): ?int
+    {
+        return $unidad->alumno_id === null ? null : (int) $unidad->alumno_id;
     }
 
     public static function recalcular(

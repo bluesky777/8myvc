@@ -12211,3 +12211,79 @@ rojos**: quitando la comprobación del grupo caen 2 de 7 y quitando la reposici�
 > mirando y que no dan señal de ninguna clase**. El censo de consumidores paga dos veces.
 
 Red: `tests/Contrato/PrematriculaPublicaNoDejaHuerfanosTest.php`.
+
+---
+
+## §237. El acotado que a dos puertas se les pasó — y el detector contaba el síntoma, no la causa (26 ago 2026)
+
+`DefinitivasDeAsignatura::recalcular()` acepta un cuarto argumento, `$soloAlumno`, que **acota
+la escritura sin tocar el cálculo**. De sus tres puertas, `recalcularPorNota` lo pasaba y las
+otras dos —`recalcularPorUnidad` y `recalcularPorSubunidad`— no. **No era que no se pudiera
+acotar: es que a dos se les pasó.**
+
+### El arreglo NO está donde la lista decía que estaba
+
+La lista de la mañana lo daba como **cinco sitios sin acotar**: dos de `UnidadesController` y
+tres de `SubunidadesController`. Se fue a arreglarlos y **ninguno de los cinco tiene un alumno
+a mano** — y no es un descuido suyo: los cinco editan o borran una unidad o una subunidad, y
+**una unidad del grupo le cambia la definitiva a los treinta**, así que ahí recalcular entero
+**es lo correcto**. Pedirles el alumno sería pedirles un dato que su petición no tiene.
+
+Lo que distingue los dos casos no está en el llamante: **está en la unidad**.
+`unidades.alumno_id` —la columna que trajo el boletín independiente— dice de quién es. Así que
+el arreglo es **uno y vive dos capas más abajo**, en `duenoDeLaUnidad()`, y las dos puertas ya
+consultaban `unidades`: sólo faltaba traerse la columna.
+
+> **Es la §142 otra vez, y por eso va escrita.** El `CLAUDE.md` avisa de que *un detector puede
+> contar bien un síntoma y no estar contando la causa*. Aquí el detector acertó —cinco sitios
+> pasan a una dimensión más ancha, y es verdad— y **la lista que produjo llevaba dentro una
+> conclusión falsa**: «hay cinco arreglos». Hay uno. Repetir la medición da cinco otra vez.
+
+### Qué se rompe si no está, y por qué hoy no se ve
+
+Una unidad con dueño **sólo entra en el cálculo de ese alumno** — lo hace `calcular()` con su
+`c.dueno <=> ALCANCE`, que BI-2 dejó bien puesto. Recalcular la asignatura entera desde ahí no
+es que sea caro:
+
+- **`recalcular()` crea la fila que falta.** Los alumnos salen de `matriculas` (regla 1), así
+  que aparecen definitivas **a cero donde no había ninguna**.
+- **Firmadas por quien editó la unidad de otro**, porque `updated_by` es el del que llamó.
+- Y sin **un error en el log**, que es lo que lo hace caro de encontrar meses después.
+
+Hoy no pasa porque `unidades.alumno_id` es NULL en todas las filas de los quince. **Es la red
+puesta antes de que haya con qué caerse**, y por eso el test **fabrica el dueño**: no lo hay en
+ningún seed y no lo va a haber hasta que Joseth conteste a quién se marca ([19](19-boletin-independiente.md) §2).
+
+### Los controles, y el que importa es el que NO cae
+
+Cuatro tests. Quitando el acotado y dejando todo lo demás:
+
+| test | sin el arreglo |
+|---|---|
+| `una_unidad_del_grupo_sigue_recalculando_a_todos` | **verde** — y tiene que seguirlo, es el caso que corre hoy en los quince |
+| `una_unidad_con_dueno_solo_escribe_la_de_su_dueno` | **rojo** |
+| `por_subunidad_tambien_se_acota` | **rojo** |
+| `acotar_no_cambia_el_numero_del_dueno` | **verde** — mide otra propiedad, y que no se moviera es la señal de que la mide |
+
+**El primero es el control de verdad.** Un acotado que se comiera el caso normal dejaría a los
+quince colegios sin reponer la definitiva del grupo al cambiar un porcentaje, y eso **no daría
+ningún test rojo** si el fichero sólo probara el caso nuevo.
+
+Y el cuarto dice la mitad que se olvida: **acotar la escritura no puede mover el número.**
+`$soloAlumno` filtra lo que se guarda, nunca lo que se calcula; si el valor del dueño saliera
+distinto al acotar, esto estaría cambiando definitivas en el despliegue.
+
+### Y de camino, la cabecera de la clase mentía
+
+Decía **«Esta clase todavía no la llama nadie»**. La llaman **18 sitios de seis ficheros**. Era
+cierta el día que se escribió y **la fase 3 la dejó vieja sin que nadie volviera a leerla**.
+
+> **La cabecera de una clase es lo que más se lee y lo que menos se releé.** Ésta afirmaba lo
+> contrario de lo que hacía el fichero, y quien la creyera habría dado por seguro tocar aquí lo
+> que hoy corre en quince producciones.
+
+Va con su desglose por fichero y con la trampa de su propio recuento: `grep -rn
+'DefinitivasDeAsignatura::' app/` da **19 y no 18**, porque el sobrante es una **mención dentro
+de un comentario** de `DefinitivasPeriodosController:269`.
+
+Red: `tests/Contrato/RecalculoAcotadoAlDuenoTest.php`.
