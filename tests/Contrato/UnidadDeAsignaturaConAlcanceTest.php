@@ -26,15 +26,16 @@ use Illuminate\Support\Facades\DB;
  *
  * El alcance **ya estaba escrito** en `BoletinIndependiente::alcance()`, y el metodo
  * hermano de este —`Unidad::deAsignaturaCalculada`, cinco llamadas— **ya lo usaba**,
- * con el `<=>` y su porque encima. `deAsignatura` tiene **diecisiete** llamadores y
- * desde el 26 ago 2026 lo usa tambien.
+ * con el `<=>` y su porque encima. `deAsignatura` lo usa tambien desde el 26 ago 2026,
+ * en todos sus llamadores. *(Cuantos son se recuenta en el docblock del metodo; el
+ * numero no sostiene nada, la propiedad si.)*
  *
  * **Lo que este docblock decia y era falso: que `deAsignatura` es «el mismo metodo
  * sin acotar».** No lo es, y se vio al abrirlo para arreglarlo: la hermana hace
  * `left join` a `subunidades` y a `notas`, agrupa, y devuelve ademas `nota_unidad`
  * —y en una de sus tres ramas, `desempenio` y las columnas de la escala—. Son la
  * estructura y la estructura con notas. Por eso el arreglo **no fue cambiar los
- * diecisiete llamadores a la hermana** —les habria cambiado la forma de la respuesta
+ * llamadores a la hermana** —les habria cambiado la forma de la respuesta
  * y les habria metido un join por alumno en los mismos boletines fichados por tardar
  * 24-63 s— sino **ponerle el alcance a esta**.
  *
@@ -60,7 +61,7 @@ use Illuminate\Support\Facades\DB;
  * **No es la red de ningun llamador.** Vive en el modelo y **ningun endpoint pasa
  * por aqui**. Fija que el alcance funciona y que hoy no mueve nada.
  *
- * Lo que cubre a los diecisiete llamadores son otras dos cosas, y hay que saber cual
+ * Lo que cubre a los llamadores son otras dos cosas, y hay que saber cual
  * hace cual: **larastan nivel 7** contesta *«¿se le paso el alumno?»* —el parametro
  * es obligatorio y un sitio olvidado es `arguments.count`, que es una puerta de
  * `composer run stan`— y **`BoletinDelIndependienteTest`** contesta *«¿se le paso el
@@ -114,7 +115,7 @@ class UnidadDeAsignaturaConAlcanceTest extends CasoDeContrato
      * acotar» las traia todas por definicion.
      *
      * **Si las dos preguntas coincidieran, el alcance no esta llegando a la
-     * consulta** y los diecisiete llamadores estan dando lo mismo a todo el mundo.
+     * consulta** y todos sus llamadores estan dando lo mismo a todo el mundo.
      */
     public function test_deasignatura_se_separa_segun_a_quien_se_le_pregunte(): void
     {
@@ -149,7 +150,7 @@ class UnidadDeAsignaturaConAlcanceTest extends CasoDeContrato
         $this->assertNotSame($paraElCompanero, $paraElMarcado,
             'Preguntando por el alumno '.$alumnoId.' —marcado, y con una unidad suya— y por su '
             .'companero '.$companero.' salio LO MISMO. El alcance no esta llegando a la '
-            .'consulta y los diecisiete llamadores dan lo mismo a todo el mundo.');
+            .'consulta y todos sus llamadores dan lo mismo a todo el mundo.');
 
         $this->assertSame([$suya], $paraElMarcado,
             'Al marcado tienen que salirle SUS unidades y solo las suyas.');

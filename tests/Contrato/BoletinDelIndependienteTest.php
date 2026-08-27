@@ -12,13 +12,13 @@ use Illuminate\Support\Facades\DB;
  * ## Por qué este fichero existe además de `UnidadDeAsignaturaConAlcanceTest`
  *
  * Porque contestan preguntas distintas y **ninguna de las dos vale por la otra**.
- * `Unidad::deAsignatura` ganó un tercer parámetro obligatorio, el alumno, y hay
- * diecisiete llamadores. De ahí salen tres preguntas:
+ * `Unidad::deAsignatura` ganó un tercer parámetro obligatorio, el alumno, y lo tuvo que
+ * ganar en todos sus llamadores. De ahí salen tres preguntas:
  *
  * | pregunta | quién la contesta |
  * |---|---|
  * | ¿el alcance funciona? | `UnidadDeAsignaturaConAlcanceTest`, en el modelo |
- * | ¿se le pasó el alumno a los diecisiete? | **larastan nivel 7** — el parámetro es obligatorio, así que un sitio olvidado es `arguments.count` y `composer run stan` es una puerta |
+ * | ¿se le pasó el alumno en todos? | **larastan nivel 7** — el parámetro es obligatorio, así que un sitio olvidado es `arguments.count` y `composer run stan` es una puerta |
  * | **¿se le pasó el alumno BUENO?** | **esto** |
  *
  * La tercera es la única que ninguna herramienta puede contestar sola: pasar
@@ -122,7 +122,7 @@ class BoletinDelIndependienteTest extends CasoDeContrato
      * que sólo se ven abriendo el código:
      *
      *   - sus **unidades** ya venían de `deAsignaturaCalculada`, que llevaba el
-     *     alcance desde BI-2: por ahí no pasa ninguno de los diecisiete;
+     *     alcance desde BI-2: por ahí no pasa ninguno de los llamadores acotados;
      *   - y el `deAsignatura` que sí tiene —`BoletinesController:501`, dentro de
      *     `asignaturasPerdidasDeAlumnoPorPeriodo`— **no lo llama nadie en ese
      *     controlador**: es una de las copias muertas de la §216.
@@ -216,8 +216,8 @@ class BoletinDelIndependienteTest extends CasoDeContrato
      * **El control que no puede faltar: sin marcar a nadie, nada se mueve.**
      *
      * Es el criterio de aceptación de todo el boletín independiente —la fase 1 es
-     * aditiva— y aquí, además, es lo que dice que el cambio de los diecisiete
-     * llamadores **no le movió la respuesta a ningún colegio hoy**.
+     * aditiva— y aquí, además, es lo que dice que acotar los llamadores
+     * **no le movió la respuesta a ningún colegio hoy**.
      */
     public function test_sin_nadie_marcado_los_dos_ven_lo_mismo(): void
     {
@@ -230,7 +230,7 @@ class BoletinDelIndependienteTest extends CasoDeContrato
         $this->assertNotEmpty($delMarcado, 'Sin unidades, este control no controla nada.');
         $this->assertSame($delMarcado, $delCompanero,
             'Con nadie marcado, dos alumnos del mismo grupo tienen que ver las mismas unidades. '
-            .'Si esto cae, acotar los diecisiete llamadores NO fue un no-op y hay una respuesta '
+            .'Si esto cae, acotar los llamadores NO fue un no-op y hay una respuesta '
             .'moviéndose en los quince colegios.');
     }
 }

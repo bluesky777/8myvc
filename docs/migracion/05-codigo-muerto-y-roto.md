@@ -12477,6 +12477,29 @@ Red: `tests/Contrato/UnidadDeAsignaturaConAlcanceTest.php` (reescrito: comparaba
 con su hermana y ahora compara `deAsignatura` **consigo misma** con dos alumnos) y
 `tests/Contrato/BoletinDelIndependienteTest.php` (nuevo).
 
+### Coda: el «diecisiete» salió de estos ficheros el mismo día que entró
+
+Esta § y sus dos tests decían **«los diecisiete llamadores»** doce veces, y **ninguna de las
+doce decía cómo recontarlos**. Lo señaló `myvc_flutter`, que había ido a auditar sus propios
+documentos después de esta conversación y encontró dos cifras rotas —«cinco pruebas» de un
+fichero con ocho, «once» de uno con trece—, **las dos ciertas al escribirlas y rotas por quien
+añadió las siguientes, que fue la misma sesión unas horas después**. Su conclusión, y es la
+buena: *no hace falta que venga nadie de fuera a desactualizar un documento, basta con seguir
+trabajando.*
+
+Así que el número **se quitó de los tests y se dejó en un solo sitio** —el docblock del método—
+con dos cosas al lado: **cómo recontarlo** (`grep -rn 'deAsignatura(' app/ | grep -v
+deAsignaturaCalculada`) y, sobre todo, **por qué no sostiene nada**:
+
+> Lo que hace segura esta decisión no es que hoy sean diecisiete: es que **el parámetro es
+> obligatorio**. Un llamador nuevo que se olvide del alumno **no produce un documento
+> desactualizado, produce `arguments.count` en `composer run stan`**.
+
+**Un número en un documento envejece solo; una propiedad que obliga el compilador, no.** Cuando
+se puede elegir entre los dos, escribir el número es escribir la parte que caduca. Y cuando el
+número hace falta de verdad —los censos de la fase 0, las 92 notas de la [§240](#)— va **con la
+consulta que lo reproduce pegada**, que es lo mismo que hace `tools/` desde el principio.
+
 ---
 
 ## §240. La validación de la escala se encendió sin su comprobación previa — y la base de desarrollo no es una muestra limpia (26 ago 2026)

@@ -74,14 +74,20 @@ class Unidad extends Model {
 	 *
 	 * ## Por qué el alumno es OBLIGATORIO y va el último
 	 *
-	 * Obligatorio porque **los diecisiete llamadores lo tienen a mano** —13 por
-	 * parámetro, 3 dentro de un `foreach` de alumnos y 1 por `Request::input`— y
-	 * **los diecisiete calculan algo de un alumno concreto**: ninguno pinta la
-	 * estructura del grupo en la respuesta. Censados uno a uno el 26 ago 2026, no
-	 * deducidos. Con un `= null` por defecto, un sitio nuevo que se olvidara de
-	 * pasarlo **se acotaría al grupo en silencio** y le escondería sus unidades a un
-	 * independiente; siendo obligatorio, revienta con `ArgumentCountError` en el
-	 * primer test que pase por ahí.
+	 * Obligatorio porque **todos sus llamadores lo tienen a mano** y **todos calculan
+	 * algo de un alumno concreto**: ninguno pinta la estructura del grupo en la
+	 * respuesta. Censados uno a uno el 26 ago 2026 —eran **diecisiete**: 13 por
+	 * parámetro, 3 dentro de un `foreach` de alumnos y 1 por `Request::input`—, no
+	 * deducidos.
+	 *
+	 * > **Ese diecisiete es una foto de aquel día y no hay que creérselo.** Se recuenta
+	 * > con `grep -rn 'deAsignatura(' app/ | grep -v deAsignaturaCalculada`, y **lo que
+	 * > sostiene la decisión no es el número: es la propiedad**, y la propiedad la
+	 * > obliga el compilador. Un llamador nuevo que se olvide del alumno no es un
+	 * > documento desactualizado: es `arguments.count` en `composer run stan`.
+	 *
+	 * Con un `= null` por defecto nada de eso pasaría: un sitio nuevo **se acotaría al
+	 * grupo en silencio** y le escondería sus unidades a un independiente.
 	 *
 	 * **El último, y no el primero como en `deAsignaturaCalculada`.** La consistencia
 	 * pierde contra la seguridad: si fuera el primero, un llamador sin actualizar
