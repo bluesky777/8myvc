@@ -10,6 +10,7 @@ use App\Models\Alumno;
 use App\Models\Grupo;
 use App\Models\Ausencia;
 use App\Services\Auditoria;
+use App\Support\Reloj;
 use App\Models\Asignatura;
 use Carbon\Carbon;
 use App\Support\NombreDelAlumno;
@@ -126,7 +127,19 @@ class AusenciasController extends Controller {
 		$aus->periodo_id		= $user->periodo_id;
 		$aus->cantidad_ausencia	= Request::input('cantidad_ausencia', null);
 		$aus->cantidad_tardanza	= Request::input('cantidad_tardanza', null);
-		$aus->fecha_hora		= Request::input('fecha_hora', null);
+		// Sin fecha, la falta es de hoy. Una `fecha_hora` en null deja una falta
+		// que cuenta en los totales y no está en ningún día: no sale al filtrar por
+		// fecha ni se puede saber después a cuál era. El cliente que no manda el
+		// campo está anotando la de ahora, que es lo que ya hacen sus dos vecinas
+		// —`agregar-ausencia` y `agregar-tardanza`, donde `Carbon::parse(null)` es
+		// ahora—. Se deja pasar el valor recibido tal cual para no cambiarle el
+		// formato a quien sí lo manda.
+		//
+		// `Reloj::ahora()` y no `Carbon::now()`: esto acaba en una columna, y la
+		// aplicación guarda en Bogotá aunque `config/app.php` siga en UTC (18,
+		// decisión 1). Lo cazó `RelojUnicoTest` — con `Carbon::now()` la falta
+		// anotada después de las 19:00 se habría escrito con la fecha de mañana.
+		$aus->fecha_hora		= Request::input('fecha_hora') ?: Reloj::ahora();
 		$aus->entrada			= Request::input('entrada', 0);
 		$aus->created_by		= $user->user_id;
 		

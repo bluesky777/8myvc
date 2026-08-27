@@ -3,7 +3,7 @@
 **Los comandos de la tanda que toca, y nada más.** Topología, inventario, las siete trampas, el
 bucle del front y lo que trajo cada tanda: [DESPLIEGUE-REFERENCIA.md](DESPLIEGUE-REFERENCIA.md).
 
-## La tanda pendiente: del 25 ago (`eb95cbc`) a hoy — **ocho ficheros y UNA migración bloqueante**
+## La tanda pendiente: del 25 ago (`eb95cbc`) a hoy — **veintisiete ficheros y UNA migración bloqueante**
 
 **La anterior, del 22 al 25 ago, se desplegó el 25 ago en `eb95cbc`**, con sus cuatro migraciones
 y con el mismo hash comprobado en los quince. Qué se le notó a un colegio, fila a fila:
@@ -17,14 +17,33 @@ y con el mismo hash comprobado en los quince. Qué se le notó a un colegio, fil
 | Rutas | **542, sin mover** | `tests/Contrato/Snapshots/rutas.json` |
 | Dependencias | sin tocar | `git diff --name-only eb95cbc HEAD -- composer.json composer.lock` |
 | `config/` | sin tocar | `git diff --name-only eb95cbc HEAD -- config/` |
-| `app/` | **once ficheros** | `Informes/BolfinalesController`, **`BolfinalesController`** (el gemelo del raíz), `Alumnos/FoliosController`, `AlumnosController`, `Matriculas/MatriculasController`, `YearsController`, `NotasController`, **`LoginController`**, `Models/Year`, `Models/Nota`, **`Models/Matricula`** |
+| `app/` | **veintisiete ficheros** — se listan abajo | `git diff --name-only eb95cbc HEAD -- app/` |
 
-> **Y esa fila decía ocho, y eran diez antes de tocar nada.** Faltaban
-> `BolfinalesController` **del raíz** —**308 líneas, el fichero que más se movió de toda la
-> tanda**, que es justo el desanidado de GEMELO-1 que la tabla de abajo anuncia— y
-> `Models/Matricula`. No es una cifra envejecida: **la lista se escribió a mano y el `git diff`
-> de su propia columna derecha da diez**. Se recalcula, no se suma:
-> `git diff --name-only eb95cbc HEAD -- app/`.
+> **Esa fila decía ocho, se corrigió a once, y su propia columna derecha da VEINTISÉIS.**
+> (Veintisiete con `AusenciasController`, del 27.) La corrección de once **también se hizo a
+> mano**, y por eso se quedó a quince ficheros del número real: quien la escribió añadió los dos
+> que había visto, no los que da el comando. **Un número recalculado a ojo no es un número
+> recalculado.** Por eso la columna derecha ya no lleva una lista escrita a mano sino **el
+> comando**, y la lista va debajo, pegada de su salida:
+>
+> ```
+> Console/Commands/EnviarNotificaciones          Informes/CertificadosPersonaController
+> Controllers/Alumnos/FoliosController           Informes/NotasPerdidasController
+> Controllers/AlumnosController                  Informes/PlanillasAusenciasController
+> Controllers/AusenciasController                Controllers/LoginController
+> Controllers/BolfinalesController               Matriculas/MatriculasController
+> Controllers/DetallesController                 Controllers/NotasController
+> Controllers/EditnotaController                 Controllers/NotificacionesController
+> Informes/Boletines2Controller                  Controllers/PlanillasController
+> Informes/Boletines3Controller                  Controllers/PromovidosController
+> Informes/BoletinesController                   Controllers/YearsController
+> Informes/BolfinalesController                  Models/Matricula · Models/Nota
+>                                                Models/Unidad · Models/Year
+> Services/DefinitivasDeAsignatura               Services/Notificaciones/TemasDeNotificacion
+> ```
+>
+> **El despliegue no cambia por esto**: el bucle del paso 1 hace `git pull` del árbol entero, no
+> fichero a fichero. Lo que cambia es lo que se puede afirmar al revisar un colegio a mano.
 
 > **La migración es bloqueante, como la del 25.** `2026_08_26_100000_interruptores_de_certificados`
 > añade `usa_consecutivo_certificados` y `usa_folio_certificados` a `years`, y **el código de
@@ -48,6 +67,7 @@ y con el mismo hash comprobado en los quince. Qué se le notó a un colegio, fil
 | **Mover el consecutivo deja rastro en `auditoria`**, tanto al quemarlo abriendo el certificado como al fijarlo a mano | [`cert-2 §3`](migracion/noche-2026-08-26/cert-2.md) |
 | **El consecutivo y el folio pasan a ser OPCIONALES por colegio.** Nada cambia de aspecto: cada colegio arranca como está hoy. Lo que cambia es que **el que no imprime el número deja de gastarlo** — hasta ahora su contador subía solo en cada apertura | [`21 §4`](migracion/21-certificados-y-folios.md) |
 | **La prematrícula pública deja de escribir la ficha de un menor a medias.** Con un grupo que falta o que no existe contestaba **500 con la ficha ya escrita** —sin matrícula y sin cuenta—, y **el reintento daba un 200 mintiendo**: *«Ya existe el alumno, entre con su cuenta»* por una cuenta que nunca se creó. Ahora es **422 antes de escribir nada**, y las cuatro escrituras van en transacción. *Los huérfanos ya escritos **no los toca**: eso es del colegio* | `05 §236` |
+| **Una falta anotada sin fecha deja de quedarse sin día.** Contaba en los totales del boletín y no salía en ningún listado por día —el calendario de la app la descarta—. Sólo las nuevas: **las 5.071 que ya hay en la copia de un colegio no las toca** | `05 §242` |
 | **El folio deja de fabricarse.** Ya no se escribe `año-alumno_id` al matricular, y `GET folios/iniciar` —que llenaba todos los huecos del año de una sentencia, y **no lo llama ningún cliente**— contesta 409. Los folios ya escritos **se quedan**: borrarlos cambia lo impreso y es decisión aparte | [`21 §4.3`](migracion/21-certificados-y-folios.md) |
 
 ### Lo que hay que decirle al front el día que esto se despliegue
@@ -69,6 +89,7 @@ y con el mismo hash comprobado en los quince. Qué se le notó a un colegio, fil
 | **C** | `aumentar_contador`: omitir la clave | **PENDIENTE** |
 | **D** | `login/crear-prematricula` **cambia el 500 por un 422** con mensaje | **NO REQUIERE TRABAJO DEL FRONT** — medido, no supuesto |
 | **E** | `GET notificaciones/temas`: **`colegio` pasa de lista a objeto**, y sus dos temas ahora llevan hash por colegio | **ES DE FLUTTER, y lo pidieron ellos** — no afecta a `myvc_front` ni a `app2` |
+| **F** | `POST ausencias/store` **rellena `fecha_hora` cuando no se manda**, y la contesta **en ISO** | **NO REQUIERE TRABAJO DEL FRONT** — `app2` ya lee los dos formatos, y con su prueba |
 
 **Ninguno se entera solo, y A y B son de las de «quién puede llamarla».** El detalle en
 [`cert-2 §6`](migracion/noche-2026-08-26/cert-2.md) y el reparto completo de qué hace el

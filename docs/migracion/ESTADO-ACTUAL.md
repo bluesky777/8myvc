@@ -8,7 +8,23 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
-**Última actualización: 26 ago 2026, tarde — LA PREMATRÍCULA PÚBLICA YA NO DEJA HUÉRFANO
+**Última actualización: 27 ago 2026 — UNA FALTA SIN FECHA YA NO SE PUEDE ESCRIBIR POR
+`ausencias/store`** · el endpoint guardaba `fecha_hora` a null cuando el cliente no la mandaba, y
+una falta sin día **cuenta en los totales del boletín y no sale en ningún listado por día** — el
+calendario de Flutter la descarta con `esDelDia()`. Ahora se rellena con `Reloj::ahora()`
+([05 §242](05-codigo-muerto-y-roto.md)) · **en la copia de un colegio hay 5.071 así, de 46.470
+vivas (10,9%)**, y **las 5.071 llevan `uploaded` a null**, que es lo que señala a esta puerta y no
+a los tres `poner-ausencia` · **y el front ya lo daba por hecho**: `myvc_front` tiene commiteado
+(`eb0b4d25`) un comentario que dice *«desde el 2026-08-27 el backend rellena la que no se manda»*
+y una prueba que lee **los dos formatos** en que llega esa columna
+
+> **Lo que NO cierra, y es lo tuyo, Joseth:** las **5.071 ya escritas se quedan**. Rellenarlas con
+> su `created_at` es inventar un día plausible —cuándo se tecleó no es cuándo faltó el alumno—, y
+> eso es mejor que null para el calendario y peor para quien crea que el dato es cierto. **Y los
+> tres `poner-ausencia` siguen aceptando null**: no escribieron ninguna de las 5.071, pero la
+> puerta está abierta. Las dos cosas, con su medición, en la [§242](05-codigo-muerto-y-roto.md).
+
+**Anterior: 26 ago 2026, tarde — LA PREMATRÍCULA PÚBLICA YA NO DEJA HUÉRFANO
 AL MENOR** · el `1bis(a)` estaba escrito como *«se cierra con una transacción, y eso no
 espera a nadie»*, y **eso es exactamente lo que se hizo**: las cuatro escrituras en
 transacción, y **422 delante de todo** para que el 500 —que en una ruta **pública y sin
@@ -24,7 +40,7 @@ se ha corrido en ningún colegio**
 > la propia tabla de al lado anuncia. Corregida a once. **La lista se escribió a mano; el
 > `git diff` de su columna derecha la desmiente.**
 
-**Anterior: 26 ago 2026, mañana — CERT-2: EL PUNTO 1 DE LA LISTA YA NO
+**Y antes, el 26 por la mañana — CERT-2: EL PUNTO 1 DE LA LISTA YA NO
 ESPERA NADA** · el consecutivo de certificados **pasa a ser de secretaría** y **deja
 rastro por primera vez**, con las tres respuestas de Joseth de esta mañana delante
 ([`noche-2026-08-26/cert-2.md`](noche-2026-08-26/cert-2.md)) · y **la lista de la mañana
@@ -32,9 +48,13 @@ del 25 estaba vieja en sus dos primeras filas**: la carrera y la validación ent
 noche del 25 y sus tests llevan desde entonces verdes dentro de la suite — quien retome
 esto, **abra el test antes que el documento**
 
-> ## ✅ VERDE: 1.542 pruebas, 11.534 aserciones
+> ## ✅ VERDE: 1.543 pruebas, 11.542 aserciones
 >
-> **1.525 eran esta mañana.** Los diecisiete de más son de la tarde: **siete** de la
+> **La de más es la de la [§242](05-codigo-muerto-y-roto.md)**, y hizo falta la suite entera:
+> con el `--filter` del módulo el arreglo salía verde con `Carbon::now()` dentro, que es
+> justo lo que `RelojUnicoTest` existe para impedir. **1.542 eran el 26 por la tarde.**
+>
+> **1.525 eran la mañana del 26.** Los diecisiete de más son de la tarde: **siete** de la
 > prematrícula pública ([§236](05-codigo-muerto-y-roto.md)), **cuatro** del acotado al dueño
 > ([§237](05-codigo-muerto-y-roto.md)), **tres** del tema del muro
 > ([§238](05-codigo-muerto-y-roto.md)) y **tres** del boletín del independiente

@@ -2,6 +2,7 @@
 
 namespace Tests\Contrato;
 
+use App\Support\Reloj;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -74,6 +75,48 @@ class AusenciasTest extends CasoDeContrato
             'La ausencia no se escribió en el periodo del profesor.');
         $this->assertSame('ausencia', $fila->tipo,
             'El tipo se deduce de la cantidad y dejó de deducirse.');
+    }
+
+    /**
+     * Sin `fecha_hora` en el cuerpo, la falta se anota **hoy** y no en ninguna parte.
+     *
+     * Esta era la única de las tres rutas que anotan una falta que aceptaba el
+     * campo vacío: sus dos vecinas —`agregar-ausencia` y `agregar-tardanza`—
+     * pasan lo que reciban por `Carbon::parse()`, y con null eso ya era ahora.
+     * Una fila con `fecha_hora` en null cuenta en los totales del boletín y no
+     * aparece en ningún listado por día, así que el hueco solo se ve al buscar
+     * por qué no cuadran los dos números.
+     */
+    public function test_una_falta_sin_fecha_se_anota_hoy(): void
+    {
+        $c = $this->contexto();
+
+        $r = $this->withToken($c->token)->postJson('/api/ausencias/store', [
+            'alumno_id' => $c->alumno_id,
+            'asignatura_id' => $c->asignatura->id,
+            'cantidad_ausencia' => 1,
+        ]);
+
+        $r->assertStatus(201);
+
+        $fila = DB::table('ausencias')->where('id', $r->json('id'))->first();
+
+        $this->assertNotNull($fila->fecha_hora,
+            'Una falta sin fecha volvió a quedarse sin día.');
+        // `Reloj::ahora()` y no `now()`: el día de un colegio es el de Bogotá, y
+        // entre las 00:00 y las 05:00 UTC los dos no son el mismo. Comprobarlo
+        // contra `now()` habría dejado un test que falla de madrugada.
+        $this->assertStringStartsWith(Reloj::ahora()->toDateString(), (string) $fila->fecha_hora,
+            'La falta sin fecha no se anotó hoy, en hora de Bogotá.');
+
+        // Y **la respuesta la trae en ISO**, no en el texto de MySQL que devuelve
+        // cuando el cliente sí la manda: el modelo no declara casts, así que el
+        // `Carbon` sobrevive hasta la serialización. La misma columna llega en dos
+        // formatos según el camino, y se fija aquí porque `app2` ya lee los dos
+        // —`fechaCortaDeFalta`, con su prueba— y eso es lo que lo hace una
+        // diferencia y no una rotura.
+        $this->assertStringContainsString('T', (string) $r->json('fecha_hora'),
+            'El alta sin fecha dejó de contestar la fecha en ISO.');
     }
 
     /** Y una tardanza es una fila de tipo `tardanza` con cantidad 1. */

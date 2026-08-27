@@ -12647,3 +12647,104 @@ Y lo que este barrido **no** dice:
 > el número redondo escondía: son **16 `.php` y 17 `.py`**, y **`tools/` tiene 37 ficheros**, así
 > que los tres `.sh` y la carpeta de plantillas **no entraron en este barrido**. Ninguno saca
 > números de datos, pero eso hay que decirlo, no dejarlo dentro de un «32».
+
+---
+
+## §242. Una falta sin fecha cuenta en el boletín y no está en ningún día — la última puerta que las escribía (27 ago 2026)
+
+`POST ausencias/store` guardaba `fecha_hora` con `Request::input('fecha_hora', null)`. **El
+cliente que no mandaba el campo escribía una falta sin día**, y la columna es `datetime DEFAULT
+NULL`, así que la base la aceptaba sin decir nada.
+
+**Lo que produce eso no es una fila incompleta: son dos números que no cuadran.** La falta
+**cuenta en los totales** —el boletín y el observador cuentan filas— y **no sale en ningún
+listado por día**. `myvc_flutter` agrupa el calendario con `esDelDia()`, que devuelve `false`
+cuando la fecha es nula: la falta existe en el total y no está en ninguna casilla del mes. Quien
+lo mire ve que sobran faltas y no encuentra cuáles.
+
+### Cuánto había, y por qué puerta entró
+
+En la copia de desarrollo de **un** colegio (`simonbolivar`, 27 ago 2026):
+
+| | |
+|---|---|
+| faltas vivas | **46.470** |
+| **sin `fecha_hora`** | **5.071** (10,9%) |
+| de ellas, con `uploaded` a null | **5.071 — todas** |
+
+**Esa última fila es la que señala la puerta.** Los tres `poner-ausencia` escriben
+`uploaded = 'created'` en su `INSERT`; las **5.071** no lo llevan, así que **ninguna vino de
+ahí**. De los caminos que usan Eloquent, `postAgregarAusencia` y `postAgregarTardanza` pasan lo
+suyo por `Carbon::parse()` —y `Carbon::parse(null)` es *ahora*, nunca null—, con lo que **sólo
+queda `store`**. Por años de alta: 3.112 en 2018, 1.214 en 2025, y goteo entre medias.
+
+> **Las tres de 2026 son de hoy y son mías**: `created_by = 1` sobre la copia de desarrollo,
+> de probar esto. **No son tráfico de un colegio** y no se cuentan como tal.
+
+### El front ya había cerrado su mitad, y ya escribió el código que da esto por hecho
+
+No es un arreglo que llegue solo. `myvc_front` **empezó a mandar `fecha_hora` el 23 ago** en sus
+cinco altas —`AsistenciasCtrl` y los cuatro sitios de la planilla de notas—, y su `MIGRATION.md`
+§3b lo dejó escrito con el porqué: *«las faltas puestas desde la planilla no salían en el
+calendario de la app, aunque sí contaran en sus totales»*.
+
+Y **`app2` ya lleva commiteado el código que asume el arreglo de hoy**, en `eb0b4d25`:
+
+- `cuenta-de-faltas.ts` declara `fecha_hora` en `FilaDeFalta` diciendo *«desde el 2026-08-27 el
+  backend rellena la que no se manda»*;
+- `fecha-de-falta.spec.ts` fija que **la misma columna llega en dos formatos** y que sabe leer
+  los dos.
+
+**Ese segundo punto es exacto y conviene entenderlo antes de tocar esta línea.** El modelo
+`Ausencia` no declara casts, así que el `Carbon` que pone el backend **sobrevive hasta la
+serialización** y la respuesta del alta trae la fecha en **ISO** (`2026-08-27T…Z`), mientras que
+la misma columna leída de la tabla viene en **texto de MySQL** (`2026-08-27 07:00:00`). Al ISO
+no se le pueden cambiar los guiones por barras, que es el apaño de Safari que el front tenía
+para el otro formato. **Lo midieron ellos y aquí se fija con un test**, para que la diferencia
+sea una diferencia y no una rotura.
+
+### El arreglo, y la trampa que casi se cuela
+
+```php
+$aus->fecha_hora = Request::input('fecha_hora') ?: Reloj::ahora();
+```
+
+Dos decisiones dentro de una línea:
+
+- **`?:` y no `??`.** El front puede mandar `fecha_hora: ""` igual que puede no mandarlo, y las
+  dos cosas significan lo mismo. Con `??` la cadena vacía habría seguido llegando a la columna.
+- **El valor recibido pasa tal cual, sin `Carbon::parse()`.** Quien sí manda la fecha guarda
+  exactamente lo que guardaba ayer: **no se le cambia el formato a nadie por arreglar el caso
+  vacío**.
+
+> **Y la trampa: la primera versión decía `Carbon::now()`.** Lo cazó `RelojUnicoTest`, no yo —y
+> no lo habría cazado el `--filter` de este módulo, que fue con lo que se comprobó primero: hizo
+> falta la suite entera. **Esto acaba en una columna**, y lo que se guarda sale de
+> `App\Support\Reloj` porque `config/app.php` sigue en UTC (18, decisión 1). Con `Carbon::now()`
+> **una falta anotada después de las 19:00 se habría escrito con la fecha de mañana** — que es
+> exactamente la clase de fila que esta § viene a dejar de crear.
+
+### Lo que esto NO cierra, y es la mitad más grande
+
+1. **Las 5.071 ya escritas se quedan.** Rellenarlas con su `created_at` es una escritura sobre
+   datos de un colegio, y **eso es decisión de Joseth**, no efecto secundario de este arreglo.
+   Además `created_at` **no es** `fecha_hora` —cuándo se tecleó no es cuándo faltó el alumno—,
+   así que rellenar es *inventar un día plausible*: mejor que null para el calendario, peor que
+   null para quien crea que el dato es cierto. Las dos lecturas son defendibles y por eso no se
+   elige aquí.
+2. **Los tres `poner-ausencia` siguen escribiendo lo que les llegue**, null incluido:
+   `Tardanzas/AsistenciasController:262`, `AppMobile/AsistenciasAppController:262` y
+   `Tardanzas/TSubirController:261`, los tres con `Request::input('fecha_hora')` a pelo dentro
+   de un `INSERT` de doce columnas. **No las escribieron ellas** —el `uploaded` de las 5.071 lo
+   demuestra—, pero **la puerta está abierta**. Se deja fuera a propósito: son otra ruta, otro
+   controlador y otro cliente (el lector de tardanzas), y meterlas aquí habría convertido un
+   arreglo comprobado en tres sin comprobar.
+
+### El control
+
+`AusenciasTest::test_una_falta_sin_fecha_se_anota_hoy`: POST sin el campo, y sobre **la fila**
+—no sobre el 201— que `fecha_hora` no es nula y empieza por el día de hoy **en hora de Bogotá**.
+Comprobarlo contra `now()` habría dejado un test que falla de madrugada, entre las 00:00 y las
+05:00 UTC. Y una segunda aserción sobre **la respuesta**, que fija el ISO del párrafo de arriba.
+
+Red: `tests/Contrato/AusenciasTest.php`.
