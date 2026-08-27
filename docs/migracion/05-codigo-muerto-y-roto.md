@@ -12589,3 +12589,54 @@ Lo apuntó también `myvc_flutter` para sus propios commits. **Ninguno de los do
 inocente en esto** — y este documento tampoco: el commit `3c9ce88` **decía llevar esta sección
 dentro y no la llevaba**, porque el parche falló y el `commit` corrió detrás igual. Se arregla
 en el siguiente, que es lo que hay que hacer con un mensaje que promete de más.
+
+---
+
+## §241. «¿De qué copia salió este número?» — barrido de `tools/`, y sale limpio (26 ago 2026)
+
+Viene de `myvc_flutter`, que al aplicarse la regla de los números encontró **cinco cifras suyas
+citadas catorce veces sin decir de cuál de los quince colegios salían** — todas de una misma
+medición sobre **uno**, leídas desde entonces como constantes del sistema. Su conclusión, que es
+más afilada que la que teníamos: **un censo que no dice de qué copia sale es peor que no
+tenerlo, porque el número redondo da la falsa sensación de que alguien lo comprobó.**
+
+Aquí hay **quince colegios, una base de desarrollo y una de tests**, así que la pregunta muerde
+más que en su repositorio. Y hoy mismo mordió dos veces: el censo de huérfanos de la
+[§236](#) daba 0 en la base de tests **y no valía**, y el de la [§240](#) daba 15 notas en el
+año actual **que eran rastro de desarrollo**.
+
+### Lo medido, y el resultado
+
+Barridas las **32 herramientas** de `tools/`, separando las que sacan un número **de datos** de
+las que lo sacan **del código** —para éstas la «copia» es el árbol de git, que es inequívoco—.
+De las que consultan datos, **todas resuelven la pregunta**, y por uno de dos caminos:
+
+| camino | quién |
+|---|---|
+| **estampan la copia en cada fila** | `fase-cero-de-los-dieciseis.php`, cuya primera columna del CSV es el colegio |
+| **reciben la base por `DB_DATABASE` y la nombran** | `salud-de-la-bitacora.php`, `salud-de-las-definitivas.php`, `historial-que-cuenta-de-menos.php`, `coste-del-recalculo.php`, `generar-seed-test.php` |
+
+Y una lo hace **mejor que estampar la copia**: `indices-que-faltan.php` **argumenta por qué la
+copia no cambia la respuesta** —busca `possible_keys` vacío, que es propiedad del esquema y no
+del volumen, así que el seed pequeño enseña el mismo hecho que un colegio con un millón de
+notas—. Eso es la forma fuerte de la regla:
+
+> **La regla no es «estampar la copia en todo número». Es: o se dice de qué copia salió, o se
+> dice por qué la copia no cambia la respuesta.** La segunda es mejor cuando se puede, porque
+> no caduca al cambiar de base.
+
+### Los límites de este barrido, que son los de siempre
+
+**El detector se equivocó dos veces, y en la dirección que acusa de más.** Marcó como
+«consulta datos» a `escrituras-sin-auditoria.php` —cuyo `DB::select` está dentro de **su propio
+control**, una clase falsa que se analiza a sí misma— y a `quien-escribe-de-verdad.py`, que
+nombra `DB::select` en comentarios y en su salida **porque el tema de la herramienta es
+`DB::select`**. Los dos leen código, no datos.
+
+Y lo que este barrido **no** dice:
+
+- **no revisa los números escritos en `docs/`**, que son cientos y son otro barrido;
+- **no comprueba que la copia estampada sea la correcta**, sólo que se diga cuál es;
+- y **sale limpio en `tools/` precisamente porque `tools/` ya tenía la disciplina** —«ninguna
+  imprime `OK` sin decir su población»— desde antes. **Un verde aquí no dice que el repositorio
+  entero la tenga.**
