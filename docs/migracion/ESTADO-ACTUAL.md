@@ -338,12 +338,25 @@ toque una línea.**
 > el fichero del front en vez de deducirlo del síntoma. Se apunta porque el error iba en la
 > dirección cara: **un aviso que pide trabajo que no hace falta gasta a otro equipo.**
 
-**Y de camino salieron dos cosas del front que no son de esta tanda**, las dos en
-`myvc_front/app/scripts/login/` y las dos escritas en la fila D: el desplegable de grupo
-lleva `allow-clear="true"` y el controlador hace `year.grupo_prematr.id` sin comprobar nada
-—limpiar el grupo y pulsar es un `TypeError` dentro del `ng-click`, **botón muerto y
-callado**—, y `$ctrl.guardando` se pone a `true` al enviar y **no lo lee nadie**: era el
-`ng-disabled` que falta, a medio poner.
+**Y de camino salieron dos cosas del front, y las dos están ARREGLADAS** —`myvc_front`,
+`8321f9a5`, **commiteado en su `main`, sin subir y sin publicar**—:
+
+| | qué era | cómo se veía |
+|---|---|---|
+| **a** | el desplegable de grupo lleva `allow-clear="true"` y el controlador hacía `year.grupo_prematr.id` **sin comprobar nada** | `TypeError` dentro del `ng-click`: **botón mudo**. Ni petición, ni aviso, ni error en consola |
+| **b** | `$ctrl.guardando` se ponía a `true` al enviar y **no lo leía nadie** | era el `ng-disabled` que falta, a medio poner: nada frenaba el segundo clic |
+
+La (a) **es el mismo fallo que ese fichero ya había arreglado doce líneas más arriba, en el
+campo de al lado** — y el tipo era parte del fallo: `grupo_prematr: { id: number }`
+obligatorio hacía que compilara. Ahora es opcional, que es lo que el backend manda de verdad.
+
+Siete pruebas nuevas y **los dos controles vistos rojos**: quitando la comprobación caen 2 de
+7 y quitando la reposición caen otras 2, cada una las suyas. En el front: **488 pruebas, 49
+ficheros, typecheck, lint y las 22 puertas de `npm run check` en verde.**
+
+> **Su despliegue es otro bucle** —`up/`, un `git pull` de `myvc_dist`—, así que el 422 del
+> backend y estos dos **no tienen que salir juntos**: son independientes en las dos
+> direcciones.
 
 ---
 

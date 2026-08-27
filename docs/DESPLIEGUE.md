@@ -103,15 +103,20 @@ backend y qué les toca a ellos en `myvc_front/TAREAS-AUDITORIA-CERTIFICADOS.md`
    lista. *(Y de paso: un grupo **en la papelera** también da 422 ahora. Antes pasaba y dejaba
    la prematrícula colgada de un grupo borrado.)*
 
-   > **Y de camino salieron dos cosas del front que NO son de esta tanda y se dejan dichas**,
-   > las dos en `myvc_front/app/scripts/login/`. **(a)** El desplegable de grupo lleva
-   > `allow-clear="true"` (`login.html:160`) y el controlador hace `year.grupo_prematr.id`
-   > (`LoginCtrl:196`) **sin comprobar nada**: limpiar el grupo y pulsar «Prematricular» es un
-   > `TypeError` dentro del `ng-click` — **el botón no hace nada y no dice nada**, que es el
-   > mismo fallo que ese fichero ya arregló para `$ctrl.year` doce líneas más arriba, en el
-   > campo de al lado. **(b)** `$ctrl.guardando` se pone a `true` al enviar y **no lo lee
-   > nadie**: no está en la plantilla ni en ningún otro sitio. Era el `ng-disabled` que falta,
-   > y se quedó a medio poner.
+   > **Y de camino salieron dos cosas del front que NO son de esta tanda: ARREGLADAS**, las dos
+   > en `myvc_front`, commit `8321f9a5` — **commiteado en su `main`, sin subir y sin publicar**.
+   > **(a)** El desplegable de grupo lleva `allow-clear="true"` (`login.html`) y el controlador
+   > hacía `year.grupo_prematr.id` **sin comprobar nada**: limpiar el grupo y pulsar
+   > «Prematricular» era un `TypeError` dentro del `ng-click` — **botón mudo**, el mismo fallo
+   > que ese fichero ya había arreglado para `$ctrl.year` doce líneas más arriba, en el campo de
+   > al lado. **(b)** `$ctrl.guardando` se ponía a `true` al enviar y **no lo leía nadie**: era
+   > el `ng-disabled` que falta, a medio poner. Ahora lo lee el botón y se repone en las cuatro
+   > salidas. Siete pruebas nuevas (`test/login/prematriculaDelLogin.test.js`) y **los dos
+   > controles vistos rojos**: cada arreglo tiene sus dos, y ninguno tapa al otro.
+   >
+   > **Ojo al orden, que aquí sí importa:** esto es del front y **su despliegue es otro bucle**
+   > —`up/`, un `git pull` de `myvc_dist`—. El 422 del backend y estos dos arreglos **no tienen
+   > que salir juntos**: son independientes en las dos direcciones.
 
 ### Y la tabla de arriba se remide, no se suma
 

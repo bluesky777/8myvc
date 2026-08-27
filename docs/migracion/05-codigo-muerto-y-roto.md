@@ -12183,16 +12183,31 @@ Y el 422 **le mejora la pantalla al front sin que toque una línea**: `mensajeEr
 > porque **el error iba en la dirección cara**: un aviso que pide trabajo que no hace falta se
 > lo gasta otro equipo.
 
-### Dos cosas del front que salieron de camino y NO son de esta §
+### Dos cosas del front que salieron de camino — **arregladas**, en su repositorio
 
-Las dos en `myvc_front/app/scripts/login/`, dichas aquí porque nadie las estaba mirando:
+Las dos en `myvc_front/app/scripts/login/`, commit `8321f9a5` de su `main`, **sin subir y sin
+publicar**. Ninguna daba error en ninguna consola nuestra:
 
-1. **El botón puede quedarse mudo.** El desplegable de grupo lleva `allow-clear="true"`
-   (`login.html:160`) y el controlador hace `year.grupo_prematr.id` (`LoginCtrl:196`) **sin
-   comprobar nada**: limpiar el grupo y pulsar «Prematricular» es un `TypeError` dentro del
-   `ng-click`. **Es el mismo fallo que ese fichero ya arregló doce líneas más arriba** para
-   `$ctrl.year`, en el campo de al lado — y el comentario del arreglo está ahí, explicándolo.
-2. **`$ctrl.guardando` no lo lee nadie.** Se pone a `true` al enviar y no aparece en la
-   plantilla ni en ningún otro sitio. **Era el `ng-disabled` que falta**, a medio poner.
+1. **El botón se quedaba mudo.** `grupo_prematr` **no lo manda el backend** —`putUltimas()`
+   devuelve `{ id, prematr_nuevos, year }` y, si acaso, `grados_sig`—: lo escribe el
+   `ui-select` de `login.html`, que lleva `allow-clear="true"`. Elegir grupo y volver a
+   limpiarlo dejaba `year.grupo_prematr` en `undefined`, y `.id` sobre eso es un **`TypeError`
+   dentro del `ng-click`**, que AngularJS se traga. **Es el mismo fallo que ese fichero ya
+   había arreglado doce líneas más arriba** para `$ctrl.year`, en el campo de al lado, con su
+   comentario explicándolo. **Y el tipo era parte del fallo**: `grupo_prematr: { id: number }`
+   obligatorio hacía que compilara; ahora es opcional y el compilador exige la comprobación.
+2. **`$ctrl.guardando` no lo leía nadie.** Se ponía a `true` al enviar y no aparecía en la
+   plantilla ni en ningún otro sitio: **era el `ng-disabled` que falta**, a medio poner. Ahora
+   lo lee el botón y se repone en las cuatro salidas — la del error es la que importa, porque
+   el formulario **sigue relleno tras un fallo** y sin reponerlo el botón quedaría muerto.
+
+Siete pruebas en `test/login/prematriculaDelLogin.test.js`, **con sus dos controles vistos
+rojos**: quitando la comprobación del grupo caen 2 de 7 y quitando la reposición de
+`guardando` caen otras 2 — cada arreglo tiene los suyos y **ninguno tapa al otro**.
+
+> **Y una nota de método, que es lo que hizo que esto apareciera:** estos dos no se buscaron.
+> Salieron de **censar quién llama al endpoint** para saber si el 422 rompía algo. La pregunta
+> era «¿a quién le cambia la respuesta?» y la respuesta trajo dos fallos que **nadie estaba
+> mirando y que no dan señal de ninguna clase**. El censo de consumidores paga dos veces.
 
 Red: `tests/Contrato/PrematriculaPublicaNoDejaHuerfanosTest.php`.
