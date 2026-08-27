@@ -12123,10 +12123,44 @@ WHERE m.id IS NULL AND a.deleted_at IS NULL AND a.user_id IS NULL
 > en `PREA`**: por ese endpoint no ha pasado nunca una prematrícula ahí. *No distingue
 > «no ocurre» de «no ha ocurrido en esta copia».*
 
-**Y la exposición está sin medir, no en cero:** en la base de desarrollo
-`prematr_nuevos = 0` en los ocho años, o sea que ahí la pantalla ni se enseña — pero
-**cuáles de los quince la tienen encendida no lo sabe nadie**. Es otra pregunta para la
-fase 0 ([`tools/fase-cero-de-los-dieciseis.php`](../../tools/fase-cero-de-los-dieciseis.php)).
+**Contarlos ya no espera a una visita aparte: es el bloque 4 de la fase 0**
+([`tools/fase-cero-de-los-dieciseis.php`](../../tools/fase-cero-de-los-dieciseis.php)), que
+pasó de cuatro preguntas a cinco. Sale con el `for` que ya estaba pendiente.
+
+**Y son DOS formas, que es lo que la consulta de la lista no veía.** El `INSERT` que reventaba
+podía ser el segundo o el tercero:
+
+| forma | qué reventó | ¿la ve la consulta de arriba? |
+|---|---|---|
+| ficha **sin matrícula** | `matriculas` | **sí** |
+| ficha **con matrícula `PREA` y sin cuenta** | `users` o el rol, ya con la matrícula puesta | **no** |
+
+La segunda es la que produce el *«ya existe, entre con su cuenta»* **con la matrícula
+delante**. Contar sólo la primera daba un número tranquilizador.
+
+### Y el número no se puede atribuir entero a este endpoint — con su control
+
+Una ficha sin matrícula y sin cuenta **la puede dejar otra pantalla**, así que el bloque emite
+tres cifras y no una: la **cota alta** (todas), la **cota baja** (`tipo_doc = 3`, que este
+endpoint escribe fijo — está literal en su `INSERT`) y la que **explica el hueco**: las que no
+tienen ni `tipo_doc`, ni `documento`, ni `celular`, que este endpoint no puede haber escrito.
+
+**Control ejecutado antes de darlo por bueno**, porque un `0` de un detector que no detecta es
+peor que no medir: fabricado un huérfano dentro de una transacción y deshecho después, la cota
+alta va **4 → 5** y la baja **0 → 1**; al ponerle matrícula `PREA`, la fila **se muda** —ancho
+vuelve a 4 y `PREA`-sin-cuenta sube a 1—, que es la demostración de que las dos formas son
+disjuntas y de que hacen falta las dos.
+
+**Primer dato real, de la copia de desarrollo: 4 huérfanas de 1.245 alumnos, y las cuatro NO
+son de este endpoint.** La cota baja da 0 y la fila del hueco da 4 — son de 2018 y 2020, tres
+de ellas con 34 segundos entre sí. Encaja con que `prematr_nuevos = 0` en sus ocho años: ahí
+el formulario no se ha enseñado nunca. **Es una copia y no vale por los quince**; lo que deja
+demostrado es que **las dos cotas hacen falta**, porque con sólo la ancha ese colegio se
+habría reportado con «4 fichas de menores» y ninguna lo era.
+
+**Y la exposición sigue sin medir, no en cero:** cuáles de los quince tienen la pantalla
+encendida no lo sabe nadie, y por eso el bloque emite también `prematr_nuevos` — el de los
+years vivos y el del actual, que es el único que decide si el formulario se enseña hoy.
 
 ### El censo de clientes, que es lo que dice si el 422 rompe algo
 

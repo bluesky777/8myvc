@@ -24,7 +24,7 @@
  * cuatro veces el trabajo de una: son la diferencia entre hacerse y no hacerse.
  * Esto es una.
  *
- * ## Las cuatro preguntas
+ * ## Las CINCO preguntas — eran cuatro
  *
  *   1. **Identidad y población** del colegio. Va primero porque **todos los ceros
  *      de abajo son ambiguos sin ella**: dieciséis ceros sin población se leen como
@@ -36,7 +36,12 @@
  *      mira el rol `Admin`, así que un `Admin` sin `is_superuser` **no puede entrar
  *      a las once rutas que piden `esAdministrativo`**. En un colegio salió 10 = 10;
  *      eso es un colegio y no vale como respuesta.
- *   4. **Salud de las definitivas** (fase 0 del 10) y **salud de la bitácora**
+ *   4. **Lo que dejó escrito la prematrícula pública** antes de arreglarla el 26 ago
+ *      (05 §236): fichas de menores huérfanas, sin matrícula y sin cuenta. **El
+ *      arreglo no toca lo ya escrito** —eso es del colegio— y hoy **no sabe cuántas
+ *      son nadie**. Añadida aquí y no en un `for` aparte por lo de arriba: una quinta
+ *      visita al servidor es una que no se hace.
+ *   5. **Salud de las definitivas** (fase 0 del 10) y **salud de la bitácora**
  *      (fase 0 del 18), **delegadas a sus herramientas**. Ver abajo por qué.
  *
  * ## POR QUÉ LAS DOS ÚLTIMAS SE DELEGAN Y NO SE RETECLEAN
@@ -191,6 +196,7 @@ foreach ($colegios as $colegio) {
     bloqueIdentidad($csv, $colegio);
     bloqueInterruptores($csv, $colegio);
     bloqueAdmin($csv, $colegio);
+    bloquePrematricula($csv, $colegio);
     // A las dos se les pide `--csv` cuando este guion va en CSV: así las cinco
     // salidas son tabulables y juntar dieciséis colegios es `cat`. El de
     // `definitivas` se añadió el 24 ago 2026 —era la única de las cinco sin
@@ -430,7 +436,99 @@ function bloqueAdmin(bool $csv, string $colegio): void
 }
 
 /**
- * Bloques 4 y 5 — delegados, no reteclados.
+ * Bloque 4 — lo que la prematrícula pública dejó escrito **antes** de arreglarla.
+ *
+ * `PUT login/crear-prematricula` escribía en cuatro sitios sin transacción, así que
+ * un fallo a medias dejaba la ficha de un menor huérfana. El arreglo entró el 26 ago
+ * 2026 ([05 §236](../docs/migracion/05-codigo-muerto-y-roto.md)) y **no toca nada de
+ * lo ya escrito**: qué hacer con esas fichas —adoptarlas, crearles la cuenta,
+ * borrarlas— es del colegio. Esto sólo cuenta.
+ *
+ * ## Son DOS formas, y contar una sola habría dado un número tranquilizador
+ *
+ * El `INSERT` que reventaba podía ser el segundo o el tercero, y cada uno deja una
+ * ficha distinta:
+ *
+ *   - **sin matrícula**: reventó `matriculas` — es la forma medida y reproducida;
+ *   - **con matrícula `PREA` y sin cuenta**: reventó `users` o el rol, después de que
+ *     la matrícula ya estuviera puesta. **Esta ficha no sale en el censo de la (b)**,
+ *     que sólo mira las que no tienen matrícula, y es la que produce el 200 mentiroso
+ *     de *«entre con su cuenta»* con la matrícula delante.
+ *
+ * ## Y el número no se puede atribuir entero a este endpoint
+ *
+ * Una ficha sin matrícula y sin cuenta **también la puede dejar otra pantalla**. Por
+ * eso va al lado el subconjunto con `tipo_doc = 3`, que es lo que este endpoint
+ * escribe fijo —está literal en su `INSERT`— y lo más cerca de una firma que hay.
+ * **Ni el ancho es todo suyo ni el estrecho es sólo suyo**: son dos cotas, y la
+ * columna `limite` lo dice en la misma fila.
+ *
+ * ## La segunda pregunta: ¿está la pantalla encendida?
+ *
+ * `years.prematr_nuevos` decide si el formulario se enseña. En la base de desarrollo
+ * está a 0 en los ocho años, o sea que **ahí** ni se ve — y eso no dice nada de los
+ * otros catorce. Un censo alto en un colegio con la pantalla apagada hoy significa
+ * que **estuvo encendida**, que es otra conversación.
+ */
+function bloquePrematricula(bool $csv, string $colegio): void
+{
+    if (! $csv) {
+        echo "\n-- 4. lo que dejó escrito la prematrícula pública (05 §236)\n";
+    }
+
+    // La población primero: un 0 sin ella no distingue «ninguna» de «base vacía».
+    emitir($csv, $colegio, 'prematricula', 'alumnos vivos',
+        (int) leer('SELECT COUNT(*) AS n FROM alumnos WHERE deleted_at IS NULL')[0]->n,
+        'denominador: sin el, un 0 no distingue ninguna de base vacia');
+
+    // La (b) del 1bis, literal: la consulta escrita el 25 ago y nunca corrida.
+    emitir($csv, $colegio, 'prematricula', 'fichas sin matricula y sin cuenta',
+        (int) leer('SELECT COUNT(*) AS n FROM alumnos a
+             LEFT JOIN matriculas m ON m.alumno_id = a.id
+            WHERE m.id IS NULL AND a.deleted_at IS NULL AND a.user_id IS NULL')[0]->n,
+        'COTA ALTA: otra pantalla tambien puede dejar una ficha asi');
+
+    emitir($csv, $colegio, 'prematricula', 'de esas, con tipo_doc=3',
+        (int) leer('SELECT COUNT(*) AS n FROM alumnos a
+             LEFT JOIN matriculas m ON m.alumno_id = a.id
+            WHERE m.id IS NULL AND a.deleted_at IS NULL AND a.user_id IS NULL
+              AND a.tipo_doc = 3')[0]->n,
+        'COTA BAJA: tipo_doc=3 es lo que este endpoint escribe fijo, no una firma');
+
+    // Lo que hace legible el hueco entre las dos cotas **sin salir del CSV**: este
+    // endpoint escribe `tipo_doc = 3` siempre, y el formulario del front exige
+    // documento y celular no vacíos. Una ficha huérfana sin ninguno de los tres no
+    // salió de aquí. En la copia de desarrollo las CUATRO son de esta clase —dos de
+    // 2018 y tres de 2020 con 34 segundos entre ellas—, o sea que allí la cota alta
+    // vale 4 y **lo atribuible a este endpoint es 0**.
+    emitir($csv, $colegio, 'prematricula', 'de esas, sin tipo_doc ni documento ni celular',
+        (int) leer('SELECT COUNT(*) AS n FROM alumnos a
+             LEFT JOIN matriculas m ON m.alumno_id = a.id
+            WHERE m.id IS NULL AND a.deleted_at IS NULL AND a.user_id IS NULL
+              AND a.tipo_doc IS NULL AND a.documento IS NULL AND a.celular IS NULL')[0]->n,
+        'estas NO son de este endpoint: el escribe tipo_doc=3 y el formulario exige los otros dos');
+
+    // La segunda forma, que el censo de la (b) NO ve.
+    emitir($csv, $colegio, 'prematricula', 'con matricula PREA y sin cuenta',
+        (int) leer('SELECT COUNT(*) AS n FROM alumnos a
+            INNER JOIN matriculas m ON m.alumno_id = a.id AND m.estado = "PREA" AND m.deleted_at IS NULL
+            WHERE a.deleted_at IS NULL AND a.user_id IS NULL')[0]->n,
+        'la otra mitad: revento el INSERT de users, con la matricula ya puesta');
+
+    // ¿Se llega siquiera a la pantalla?
+    emitir($csv, $colegio, 'prematricula', 'years vivos con prematr_nuevos=1',
+        (int) leer('SELECT COUNT(*) AS n FROM years WHERE prematr_nuevos = 1 AND deleted_at IS NULL')[0]->n,
+        'si es 0 hoy pero el censo de arriba no lo es, es que estuvo encendida');
+
+    $actual = leer('SELECT prematr_nuevos FROM years WHERE actual = 1 AND deleted_at IS NULL')[0] ?? null;
+
+    emitir($csv, $colegio, 'prematricula', 'prematr_nuevos en el year actual',
+        $actual === null ? 'SIN YEAR ACTUAL' : (int) $actual->prematr_nuevos,
+        'es el unico que decide si el formulario se enseña HOY');
+}
+
+/**
+ * Bloques 5 y 6 — delegados, no reteclados.
  *
  * Se ejecutan en su propio proceso con `DB_DATABASE` puesto, que es como están
  * documentados. Su salida se emite **verbatim**: este guion no la interpreta, y por

@@ -191,7 +191,7 @@ Se apunta aquí para que mañana leas *«faltó coordinación en `8myvc` esta no
 
 | | Qué | Si no se contesta |
 |---|---|---|
-| **8** | **`php tools/fase-cero-de-los-dieciseis.php --csv $(cat colegios.txt) > fase0.csv`** — junta los cuatro `for` pendientes en **una visita y un formato** | **La fase 2 de las definitivas sigue bloqueada**, que es lo que pediste desde el principio. Y de paso: **el esquema congelado se da por igual en los quince y nunca se ha comprobado** |
+| **8** | **`php tools/fase-cero-de-los-dieciseis.php --csv $(cat colegios.txt) > fase0.csv`** — junta los `for` pendientes en **una visita y un formato**. **Eran cuatro y desde el 26 ago por la tarde son cinco**: le entró el censo de la prematrícula, que es la (b) del `1bis` | **La fase 2 de las definitivas sigue bloqueada**, que es lo que pediste desde el principio. Y de paso: **el esquema congelado se da por igual en los quince y nunca se ha comprobado** — y **cuántas fichas de menores quedaron huérfanas tampoco lo sabe nadie** |
 
 ### Y el frente que abrió el front esta noche, que es de los de contestar
 
@@ -290,14 +290,38 @@ en `$role[0]['id']` con la ficha, la matrícula y el usuario ya escritos.
 de los siete cae **exactamente ése**. Los otros seis siguen verdes — que es la demostración
 de que el resto del fichero no prueba lo que dice su nombre.
 
-### Lo que sigue siendo tuyo, y es la (b) entera
+### La (b): ya no hace falta una visita aparte para contarlos — bloque 4 de la fase 0
 
-**Los huérfanos ya escritos en los quince.** Para ellos el 200 mentiroso sigue siendo el que
-sale, y **hoy no sabe cuántos son nadie**: la consulta de sólo lectura que los cuenta está
-escrita desde ayer y **no se ha corrido en ningún colegio**. Va en la fase 0
-(`tools/fase-cero-de-los-dieciseis.php`), junto con *«¿cuáles tienen encendida la pantalla?»*
-— porque `prematr_nuevos = 0` en la base de desarrollo dice que **ahí** no se enseña, y no
-dice nada de los otros catorce.
+**Los huérfanos ya escritos en los quince** siguen siendo tuyos: para ellos el 200 mentiroso
+es el que sale, y qué se hace con ellos —adoptarlos, crearles la cuenta, borrarlos— lo decide
+el colegio. Lo que ya no espera es **contarlos**: entró en
+`tools/fase-cero-de-los-dieciseis.php` como **bloque 4**, así que sale con el mismo `for` que
+ya estaba pendiente. **Cinco preguntas en una visita, no seis en dos.**
+
+**Y son DOS formas, que es lo que la consulta de la lista no veía.** El `INSERT` que reventaba
+podía ser el segundo o el tercero:
+
+| forma | qué reventó | ¿la ve el censo de la lista? |
+|---|---|---|
+| ficha **sin matrícula** | `matriculas` | **sí** — es la consulta escrita el 25 |
+| ficha **con matrícula `PREA` y sin cuenta** | `users` o el rol, ya con la matrícula puesta | **no** |
+
+La segunda es justo la que produce el *«ya existe, entre con su cuenta»* **con la matrícula
+delante**. Contar sólo la primera habría dado un número tranquilizador.
+
+### Y el primer dato real, que es el de la copia de desarrollo
+
+**4 fichas huérfanas de 1.245 alumnos — y las cuatro NO son de este endpoint.** Se ve sin
+salir del CSV: la cota estrecha (`tipo_doc = 3`, que este endpoint escribe fijo) da **0**, y
+la fila que explica el hueco —sin `tipo_doc`, sin `documento` y sin `celular`— da **4**. Son
+de 2018 y de 2020, tres de ellas con **34 segundos entre sí**. Y encaja con que
+`prematr_nuevos = 0` en los ocho años de esa base: **ahí el formulario no se ha enseñado
+nunca**.
+
+> **Eso es un dato de UNA copia y no vale por los quince**, que es exactamente el motivo por
+> el que la pregunta va al `for`. Lo que sí deja demostrado es que **las dos cotas hacen
+> falta**: con sólo la ancha, ese colegio se habría reportado con «4 fichas de menores» y
+> ninguna lo era.
 
 > **Y lo único que estrecha, fijado a propósito:** un grupo **en la papelera** ahora da 422.
 > Antes pasaba —la clave foránea sólo mira que el id exista— y dejaba la prematrícula
