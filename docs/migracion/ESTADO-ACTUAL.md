@@ -194,7 +194,7 @@ Se apunta aquí para que mañana leas *«faltó coordinación en `8myvc` esta no
 
 | | Qué | Si no se contesta |
 |---|---|---|
-| **8** | **`php tools/fase-cero-de-los-dieciseis.php --csv $(cat colegios.txt) > fase0.csv`** — junta los `for` pendientes en **una visita y un formato**. **Eran cuatro y desde el 26 ago por la tarde son cinco**: le entró el censo de la prematrícula, que es la (b) del `1bis` | **La fase 2 de las definitivas sigue bloqueada**, que es lo que pediste desde el principio. Y de paso: **el esquema congelado se da por igual en los quince y nunca se ha comprobado** — y **cuántas fichas de menores quedaron huérfanas tampoco lo sabe nadie** |
+| **8** | **`php tools/fase-cero-de-los-dieciseis.php --csv $(cat colegios.txt) > fase0.csv`** — junta los `for` pendientes en **una visita y un formato**. **Eran cuatro y desde el 26 ago por la tarde son SEIS**: le entraron el censo de la prematrícula —la (b) del `1bis`— y el de las notas fuera de escala, que es la comprobación previa que la validación desplegada el 25 **nunca tuvo** ([05 §240](05-codigo-muerto-y-roto.md), lo cazó `myvc_flutter`) | **La fase 2 de las definitivas sigue bloqueada**, que es lo que pediste desde el principio. Y de paso: **el esquema congelado se da por igual en los quince y nunca se ha comprobado** — y **cuántas fichas de menores quedaron huérfanas tampoco lo sabe nadie** |
 
 ### Y el frente que abrió el front esta noche, que es de los de contestar
 

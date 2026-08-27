@@ -12476,3 +12476,69 @@ mueve la respuesta a ningún colegio hoy**.
 Red: `tests/Contrato/UnidadDeAsignaturaConAlcanceTest.php` (reescrito: comparaba `deAsignatura`
 con su hermana y ahora compara `deAsignatura` **consigo misma** con dos alumnos) y
 `tests/Contrato/BoletinDelIndependienteTest.php` (nuevo).
+
+---
+
+## §240. La validación de la escala se encendió sin su comprobación previa — y la base de desarrollo no es una muestra limpia (26 ago 2026)
+
+`App\Support\EscalaDeNotas` rechaza con **422** una nota por encima del techo de la escala del
+año, y **`9cb4409` lleva desplegado en los quince desde el 25 ago** — comprobado: es ancestro de
+`eb95cbc`. Antes no lo comprobaba nadie en el servidor.
+
+Lo que justificó encenderlo fue una medición: **92 notas fuera de rango** en la base de
+desarrollo, «todas en los años 1 a 5 y **cero en los cuatro más recientes**, que es lo que hizo
+razonable ponerlo ahora: cierra la puerta sin romper nada vivo».
+
+**Esa medición nunca se corrió contra ningún colegio.** El plan la pedía como precondición y la
+validación se encendió igual. Lo cazó la sesión de `myvc_flutter` revisando su propio mapa de
+despliegue, y su lectura es la que se sigue aquí: **probablemente no lo nota nadie** —una nota de
+hace cinco años no se reescribe— **pero deja de ser una precaución y pasa a ser un diagnóstico**.
+Si un colegio dice que un docente no puede guardar una nota vieja, esto lo contesta en vez de
+mandar a buscar un fallo nuevo.
+
+### Es el bloque 5 de la fase 0, y cuesta cero visitas más
+
+Entra en [`tools/fase-cero-de-los-dieciseis.php`](../../tools/fase-cero-de-los-dieciseis.php),
+que pasa de cinco preguntas a seis. Sale con el `for` que ya estaba pendiente.
+
+El techo se saca **igual que `EscalaDeNotas::maximo()`** —`MAX(porc_final)` por año, y no la
+banda más alta por `orden`—: si el censo se separa de la validación, mide otra cosa que la que
+se quiere diagnosticar.
+
+**Y el desglose por año es lo que decide.** Un total suelto no distingue «92 de hace cinco años»
+de «92 del año en curso», y sólo las del año actual están donde alguien las va a reescribir. Van
+también los años **sin escala configurada**, porque ahí la validación **deja pasar a propósito**
+y su cero significa «no se está mirando», no «no hay».
+
+### Tres cifras sobre la MISMA base, y las tres son ciertas
+
+| | |
+|---|---|
+| **42** | fuera de rango **con cadena viva** — subunidad y unidad sin borrar |
+| **123** | fuera de rango **planas** |
+| **92** | lo que dice el docblock de `EscalaDeNotas`, medido el 24 ago |
+
+Y se reconcilian enteras:
+
+- **123 − 42 = 81** cuelgan de una subunidad o una unidad **en la papelera**. No se abren desde
+  ninguna pantalla, así que **no se pueden reescribir**: por eso las dos cifras hacen falta —una
+  contesta *«¿cuántas puede encontrarse un docente?»* y la otra *«¿cuántas hay?»*—.
+- **123 − 92 = 31** se **crearon el 24 ago 2026**, el mismo día de aquella medición: quince notas
+  de `80` y dieciséis de `89`, todas nuevas. Son **rastro de desarrollo sobre la base de
+  desarrollo**.
+
+### Lo que eso significa, que es lo contrario de lo que parecía
+
+Al ver **15 fuera de rango en 2025 —el año actual—** donde el docblock decía «cero en los cuatro
+más recientes», lo primero fue *«ese docblock nació mal o envejeció»*. **Las fechas dicen que
+no**: esas quince son exactamente las que se crearon el 24 ago, o sea **después** —o durante— la
+medición que dice cero.
+
+> **El docblock estaba bien; la base es la que se movió.** Y la conclusión útil no es sobre ese
+> docblock: es que **la base de desarrollo no es una muestra limpia de un colegio**, porque el
+> trabajo de desarrollo escribe en ella. Eso **refuerza** la petición de Flutter en vez de
+> contradecirla: la pregunta hay que hacérsela a los quince, no a esta copia.
+
+Es la misma forma que la [§236](#): allí el censo de huérfanos daba 0 en la base de tests y **no
+valía** porque por ese endpoint no había pasado nunca una prematrícula. **Un número de la copia
+equivocada no es un número pequeño: es otra pregunta.**

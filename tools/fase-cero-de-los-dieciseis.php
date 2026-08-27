@@ -24,7 +24,7 @@
  * cuatro veces el trabajo de una: son la diferencia entre hacerse y no hacerse.
  * Esto es una.
  *
- * ## Las CINCO preguntas — eran cuatro
+ * ## Las SEIS preguntas — eran cuatro
  *
  *   1. **Identidad y población** del colegio. Va primero porque **todos los ceros
  *      de abajo son ambiguos sin ella**: dieciséis ceros sin población se leen como
@@ -41,7 +41,13 @@
  *      arreglo no toca lo ya escrito** —eso es del colegio— y hoy **no sabe cuántas
  *      son nadie**. Añadida aquí y no en un `for` aparte por lo de arriba: una quinta
  *      visita al servidor es una que no se hace.
- *   5. **Salud de las definitivas** (fase 0 del 10) y **salud de la bitácora**
+ *   5. **Notas que ya no caben en la escala de su año** (05 §240). La validación de
+ *      `EscalaDeNotas` **lleva desplegada desde el 25 ago** y la comprobación previa
+ *      que su plan pedía —cuántas notas viejas quedan fuera de rango— **nunca se
+ *      corrió contra ningún colegio**. Lo cazó `myvc_flutter`. Ya no es una
+ *      precaución: es el diagnóstico de *«un docente no puede guardar una nota
+ *      vieja»*.
+ *   6. **Salud de las definitivas** (fase 0 del 10) y **salud de la bitácora**
  *      (fase 0 del 18), **delegadas a sus herramientas**. Ver abajo por qué.
  *
  * ## POR QUÉ LAS DOS ÚLTIMAS SE DELEGAN Y NO SE RETECLEAN
@@ -197,6 +203,7 @@ foreach ($colegios as $colegio) {
     bloqueInterruptores($csv, $colegio);
     bloqueAdmin($csv, $colegio);
     bloquePrematricula($csv, $colegio);
+    bloqueEscala($csv, $colegio);
     // A las dos se les pide `--csv` cuando este guion va en CSV: así las cinco
     // salidas son tabulables y juntar dieciséis colegios es `cat`. El de
     // `definitivas` se añadió el 24 ago 2026 —era la única de las cinco sin
@@ -528,7 +535,127 @@ function bloquePrematricula(bool $csv, string $colegio): void
 }
 
 /**
- * Bloques 5 y 6 — delegados, no reteclados.
+ * Bloque 5 — notas que **ya no caben** en la escala de su año.
+ *
+ * `App\Support\EscalaDeNotas` rechaza con 422 una nota por encima del techo de la
+ * escala desde `9cb4409`, **que lleva desplegado en los quince desde el 25 ago**
+ * (es ancestro de `eb95cbc`). Antes no lo comprobaba nadie en el servidor: los diez
+ * sitios que miran `porc_final` eran para pintar la banda, y el único guardián era
+ * el navegador.
+ *
+ * ## Por qué esto se mide DESPUÉS y no antes, que es lo que falló
+ *
+ * El plan pedía una comprobación previa que **no era de código**: se midieron **92
+ * notas fuera de rango** en la base de desarrollo —escala de 0 a 50, notas de 100—,
+ * todas en los años 1 a 5 y **ninguna en los cuatro más recientes**, y de ahí salió
+ * el *«no rompe nada vivo»* que hizo razonable encenderlo. **Esa medición nunca se
+ * corrió contra ningún colegio**, y la validación se encendió igual.
+ *
+ * Lo cazó la sesión de `myvc_flutter` revisando su propio mapa de despliegue, y su
+ * conclusión es la que se sigue aquí: **probablemente no lo nota nadie** —una nota de
+ * hace cinco años no se reescribe— **pero deja de ser una precaución y pasa a ser un
+ * diagnóstico**. Si un colegio dice que un docente no puede guardar una nota vieja,
+ * esto lo contesta en vez de mandar a buscar un fallo nuevo.
+ *
+ * ## Lo que se emite y por qué el desglose por año es lo que decide
+ *
+ * Un total suelto no distingue *«92 notas de hace cinco años»* de *«92 notas del año
+ * en curso»*, y **la diferencia lo es todo**: sólo las del año actual están donde
+ * alguien las va a reescribir. Por eso van los dos, y también los años **sin escala
+ * configurada** — ahí la validación **deja pasar a propósito**, así que un cero suyo
+ * no significa «no hay notas malas», significa «no se está mirando».
+ *
+ * ## Y una advertencia sobre el número, aprendida al escribir esto
+ *
+ * En la base de desarrollo esto da **42 con cadena viva y 123 planas**, y el docblock
+ * de `EscalaDeNotas` dice **92**. Las tres son ciertas y no se contradicen:
+ *
+ * - **123 − 42 = 81** cuelgan de una subunidad o una unidad **en la papelera**;
+ * - **123 − 92 = 31** se **crearon el 24 ago 2026**, el mismo día de aquella
+ *   medición, y son **rastro de desarrollo sobre la base de desarrollo**, no notas de
+ *   un colegio.
+ *
+ * O sea: **el «cero en los cuatro años más recientes» de aquel docblock no envejeció
+ * mal, y la base de desarrollo no es una muestra limpia.** Que es exactamente el
+ * motivo por el que esta pregunta va al `for` de los quince y no se contesta aquí.
+ */
+function bloqueEscala(bool $csv, string $colegio): void
+{
+    if (! $csv) {
+        echo "\n-- 5. notas que ya no caben en su escala (Support\\EscalaDeNotas)\n";
+    }
+
+    emitir($csv, $colegio, 'escala', 'notas vivas',
+        (int) leer('SELECT COUNT(*) AS n FROM notas WHERE deleted_at IS NULL')[0]->n,
+        'denominador: sin el, un 0 no distingue ninguna de base vacia');
+
+    // El techo se saca igual que `EscalaDeNotas::maximo()`: MAX(porc_final) por año,
+    // y NO la banda más alta por `orden` —el orden es de presentación y nada
+    // garantiza que la de arriba sea la del número mayor—. Si esto se separa de
+    // aquello, el censo mide otra cosa que la validación.
+    $porAnio = leer('SELECT y.id, y.year, y.actual, e.mx,
+                (SELECT COUNT(*) FROM notas n
+                   INNER JOIN subunidades s ON s.id = n.subunidad_id AND s.deleted_at IS NULL
+                   INNER JOIN unidades u ON u.id = s.unidad_id AND u.deleted_at IS NULL
+                   INNER JOIN periodos p ON p.id = u.periodo_id AND p.year_id = y.id
+                  WHERE n.deleted_at IS NULL AND e.mx IS NOT NULL AND n.nota > e.mx) AS fuera
+           FROM years y
+           LEFT JOIN (SELECT year_id, MAX(porc_final) AS mx FROM escalas_de_valoracion
+                       WHERE deleted_at IS NULL GROUP BY year_id) e ON e.year_id = y.id
+          WHERE y.deleted_at IS NULL
+          ORDER BY y.year');
+
+    $totalFuera = 0;
+    $sinEscala = 0;
+
+    foreach ($porAnio as $y) {
+        if ($y->mx === null) {
+            $sinEscala++;
+        }
+
+        $totalFuera += (int) $y->fuera;
+
+        if ((int) $y->fuera === 0 && $y->mx !== null && ! $y->actual) {
+            continue; // Un año viejo y limpio no aporta una fila.
+        }
+
+        emitir($csv, $colegio, 'escala', 'year '.$y->year,
+            $y->mx === null ? 'SIN ESCALA' : $y->fuera.' fuera de 0-'.$y->mx,
+            ($y->actual ? 'ES EL ACTUAL: aqui es donde alguien las reescribe. ' : '')
+            .($y->mx === null ? 'sin escala la validacion DEJA PASAR: el 0 no dice que no haya' : ''));
+    }
+
+    emitir($csv, $colegio, 'escala', 'total fuera de rango', $totalFuera,
+        'CON CADENA VIVA: solo estas son alcanzables desde una pantalla');
+
+    /*
+     * **La cuenta plana, y va al lado porque las dos discrepan a lo bestia.**
+     *
+     * La de arriba atribuye cada nota a su año subiendo por `subunidades` y
+     * `unidades`, y **exige que las dos estén vivas**. En la base de desarrollo eso
+     * da **42** de **123**: las otras **81 cuelgan de una subunidad o una unidad que
+     * está en la papelera**.
+     *
+     * Ninguna de las dos cifras sobra. La de arriba contesta *«¿cuántas puede
+     * encontrarse un docente?»* —una nota bajo una unidad borrada no se abre desde
+     * ninguna pantalla— y ésta contesta *«¿cuántas hay?»*. **Un censo con sólo la
+     * primera diría 42 y sonaría a que no hay más.**
+     *
+     * Se compara contra el techo del año que se pueda atribuir, y contra el máximo
+     * de la base para las que no: no es exacto, y por eso es la cota alta.
+     */
+    emitir($csv, $colegio, 'escala', 'total fuera de rango (plano)',
+        (int) leer('SELECT COUNT(*) AS n FROM notas
+                    WHERE deleted_at IS NULL
+                      AND nota > (SELECT MAX(porc_final) FROM escalas_de_valoracion WHERE deleted_at IS NULL)')[0]->n,
+        'COTA ALTA: incluye las que cuelgan de una unidad o subunidad BORRADA, que no se abren desde ninguna pantalla');
+
+    emitir($csv, $colegio, 'escala', 'years vivos SIN escala', $sinEscala,
+        'ahi la validacion no bloquea nada, a proposito');
+}
+
+/**
+ * Bloques 6 y 7 — delegados, no reteclados.
  *
  * Se ejecutan en su propio proceso con `DB_DATABASE` puesto, que es como están
  * documentados. Su salida se emite **verbatim**: este guion no la interpreta, y por
