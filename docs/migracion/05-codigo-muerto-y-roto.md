@@ -12542,3 +12542,27 @@ medición que dice cero.
 Es la misma forma que la [§236](#): allí el censo de huérfanos daba 0 en la base de tests y **no
 valía** porque por ese endpoint no había pasado nunca una prematrícula. **Un número de la copia
 equivocada no es un número pequeño: es otra pregunta.**
+
+### Y una de higiene, porque estuvo a punto de costar el hallazgo entero
+
+**`9cb4409` casi se descarta por su mensaje de commit.** Se llama *«test(auditoría fase 3): los
+veinte en verde, y las cinco horas que salieron del único rojo»* y **no nombra la escala por
+ninguna parte** — siendo el commit que introdujo `app/Support/EscalaDeNotas.php`. Lo que lo
+salvó fue no fiarse del mensaje y preguntárselo a git:
+
+```bash
+# ¿dónde entró este fichero?
+git log --oneline --diff-filter=A -- app/Support/EscalaDeNotas.php
+
+# ¿está desplegado?
+git merge-base --is-ancestor 9cb4409 eb95cbc && echo "sí"
+```
+
+> **Un commit con dos cosas dentro esconde una de las dos**, y la esconde justo de quien busca
+> la que no da nombre al mensaje. `git log --oneline` es un índice de **títulos**, no de
+> contenidos.
+
+Lo apuntó también `myvc_flutter` para sus propios commits. **Ninguno de los dos repositorios es
+inocente en esto** — y este documento tampoco: el commit `3c9ce88` **decía llevar esta sección
+dentro y no la llevaba**, porque el parche falló y el `commit` corrió detrás igual. Se arregla
+en el siguiente, que es lo que hay que hacer con un mensaje que promete de más.
