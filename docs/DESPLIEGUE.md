@@ -193,6 +193,16 @@ En el **mismo commit** que anota la tanda como desplegada:
 3. **Y si un aviso era para un cliente concreto, se le dice a ese cliente** — que se entere el
    documento no es que se entere quien tiene que publicar.
 
+### Los dos que `myvc_flutter` pidió por su nombre, y por eso están aquí y no en un mensaje
+
+Los dos son **acciones nuestras con fecha en el futuro**, y una promesa que sólo vive en un
+mensaje entre sesiones es una promesa que se cae en cuanto la sesión se cierra.
+
+| cuándo | qué hay que hacer |
+|---|---|
+| el día que **`b369020`** entre en una tanda desplegada | **decirles el hash desplegado.** Su `temasDelColegio` está detrás de un interruptor apagado esperando exactamente eso: los temas del colegio pasan de literal a `c_`+HMAC, y hasta que el backend esté en los quince suscribirse sería apuntarse al tema viejo. Ellos leen las dos formas, así que **no hay ventana rota**: sólo hay un interruptor que encender |
+| el día que se corra el **`for` de la fase 0** | **pasarles el desglose por año del bloque 5** (notas fuera de escala). No tienen que hacer nada con él: es el dato que decide si aquello fue *«una precaución razonable»* o *«un susto»*, y la pregunta la abrieron ellos. Ver [05 §240](migracion/05-codigo-muerto-y-roto.md) |
+
 > **Por qué esto es un paso del procedimiento y no una buena costumbre:** ya falló una vez, y
 > el coste no fue la línea desactualizada. Fue que la sesión de `myvc_flutter` planificó una
 > vuelta entera —fusionar una rama, desplegarla, escribir un endpoint— **sobre trabajo que
