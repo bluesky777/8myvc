@@ -12607,8 +12607,8 @@ año actual **que eran rastro de desarrollo**.
 
 ### Lo medido, y el resultado
 
-Barridas las **32 herramientas** de `tools/`, separando las que sacan un número **de datos** de
-las que lo sacan **del código** —para éstas la «copia» es el árbol de git, que es inequívoco—.
+Barridos los **33 guiones** de `tools/` —**16 `.php` y 17 `.py`**—, separando los que sacan un
+número **de datos** de los que lo sacan **del código** —para éstas la «copia» es el árbol de git, que es inequívoco—.
 De las que consultan datos, **todas resuelven la pregunta**, y por uno de dos caminos:
 
 | camino | quién |
@@ -12640,3 +12640,10 @@ Y lo que este barrido **no** dice:
 - y **sale limpio en `tools/` precisamente porque `tools/` ya tenía la disciplina** —«ninguna
   imprime `OK` sin decir su población»— desde antes. **Un verde aquí no dice que el repositorio
   entero la tenga.**
+
+> **Y la § se equivocó en su propia cifra antes de publicarse, que es la mejor prueba que puede
+> dar de sí misma.** Decía «las 32 herramientas» y `ls tools/*.php tools/*.py | wc -l` da **33**
+> — conté a ojo la salida de mi propio barrido. Se corrige y se deja escrito, con dos avisos que
+> el número redondo escondía: son **16 `.php` y 17 `.py`**, y **`tools/` tiene 37 ficheros**, así
+> que los tres `.sh` y la carpeta de plantillas **no entraron en este barrido**. Ninguno saca
+> números de datos, pero eso hay que decirlo, no dejarlo dentro de un «32».
