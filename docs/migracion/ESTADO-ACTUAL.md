@@ -248,13 +248,23 @@ sabe hoy y no se sabía entonces**. Lo único barato que falta, **el día que se
 fichero por otra cosa**: dos comentarios que digan que la protección vive en el `switch` de
 arriba y no en la línea.
 
-### Y tres números viejos en documentos que no toco sin ti
+### Y tres números viejos en documentos que no toco sin ti — **uno ya no lo era**
+
+> **Repasados los tres el 26 ago por la tarde, y el 13 estaba cerrado desde antes.** No es que
+> envejeciera la cifra: es que **el pendiente se arregló y nadie volvió a esta tabla**. Es la
+> misma forma que la [§235](05-codigo-muerto-y-roto.md) —la lista de la mañana dando por
+> enteros dos puntos cuya mitad había entrado esa noche— y la que `DESPLIEGUE.md` avisa: **un
+> pendiente escrito en futuro no envejece a «hecho», envejece a mentira.**
+>
+> **Y el sitio donde se vio fue el test, no el documento.** Los otros dos se repasaron igual y
+> **siguen abiertos de verdad**, que es lo que hace que este repaso valga: si los tres hubieran
+> salido cerrados, lo sospechoso sería el método.
 
 | | |
 |---|---|
-| **13** | **`CLAUDE.md` dice que las excepciones públicas son quince y son once**, y **`RutasPreLoginTest` no es un inventario**: enumera once y **no comprueba que ninguna otra sea pública** |
+| **13** | ~~**`CLAUDE.md` dice que las excepciones públicas son quince y son once**, y **`RutasPreLoginTest` no es un inventario**~~ **CERRADO POR LAS DOS MITADES, y la lista no lo sabía.** `CLAUDE.md:141` dice **once** y cita `RutasPreLoginTest::TOTAL_PUBLICAS`; y el test **sí es un inventario** — `test_el_inventario_de_publicas_no_tiene_de_mas_ni_de_menos` recorre **todas** las rutas de `api/`, las llama **sin token** y ata el conjunto por las dos direcciones: *de más* («contesta sin token y no está en la lista») y *de menos* («está en la lista y ya no contesta»). **Comprobado corriéndolo, no leyéndolo**: los once verdes, 51 aserciones. Es exactamente la forma que este documento lleva todo el día pidiendo — **un número que un test obliga no envejece** |
 | **14** | **Una decisión mía, revertible en un commit**: congelar ocho `SELECT *` para que la migración del boletín independiente **no mueva ninguna respuesta**. La alternativa —regenerar instantáneas— **era tuya**, porque obliga a avisar al front y a Flutter |
-| **15** | **La §12 de arriba y la §14** del 09 siguen esperando desde el 24 |
+| **15** | **La §12 de arriba y la §14** del 09 siguen esperando desde el 24 — **repasadas hoy y las dos siguen abiertas de verdad**: la [§12](09-pendientes.md) porque *«la C se propuso sin ese dato delante y hay que volver a preguntarla»* —las cuatro `cambiar-usuarios/*` **ya son** una decisión tuya del 21 ago, anotada en un test y no en el código—, y la §14 porque **su número lo trae la fase 0** (bloque 3, `Admin` sin `is_superuser`) |
 
 ---
 
