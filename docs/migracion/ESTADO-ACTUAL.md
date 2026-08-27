@@ -8,7 +8,23 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
-**Última actualización: 26 ago 2026, mañana — CERT-2: EL PUNTO 1 DE LA LISTA YA NO
+**Última actualización: 26 ago 2026, tarde — LA PREMATRÍCULA PÚBLICA YA NO DEJA HUÉRFANO
+AL MENOR** · el `1bis(a)` estaba escrito como *«se cierra con una transacción, y eso no
+espera a nadie»*, y **eso es exactamente lo que se hizo**: las cuatro escrituras en
+transacción, y **422 delante de todo** para que el 500 —que en una ruta **pública y sin
+autenticar** trae `Host`, `Port` y `Database` en el cuerpo— deje de ser alcanzable
+([05 §236](05-codigo-muerto-y-roto.md)) · **el `1bis(b)` sigue entero y es tuyo**: los
+huérfanos ya escritos en los quince, que **hoy no sabe contar nadie porque la consulta no
+se ha corrido en ningún colegio**
+
+> **Y el aviso al front sube a cuatro** (`DESPLIEGUE.md`, fila **D**): esa ruta cambia el
+> 500 por un 422 con mensaje. · **De paso, la fila `app/` de la tanda decía «ocho ficheros»
+> y eran diez antes de tocar nada** — faltaba `BolfinalesController` **del raíz**, que con
+> **308 líneas es el que más se movió de toda la tanda** y es el desanidado de GEMELO-1 que
+> la propia tabla de al lado anuncia. Corregida a once. **La lista se escribió a mano; el
+> `git diff` de su columna derecha la desmiente.**
+
+**Anterior: 26 ago 2026, mañana — CERT-2: EL PUNTO 1 DE LA LISTA YA NO
 ESPERA NADA** · el consecutivo de certificados **pasa a ser de secretaría** y **deja
 rastro por primera vez**, con las tres respuestas de Joseth de esta mañana delante
 ([`noche-2026-08-26/cert-2.md`](noche-2026-08-26/cert-2.md)) · y **la lista de la mañana
@@ -16,7 +32,10 @@ del 25 estaba vieja en sus dos primeras filas**: la carrera y la validación ent
 noche del 25 y sus tests llevan desde entonces verdes dentro de la suite — quien retome
 esto, **abra el test antes que el documento**
 
-> ## ✅ VERDE OTRA VEZ: 1.525 pruebas, 11.458 aserciones
+> ## ✅ VERDE: 1.532 pruebas, 11.488 aserciones
+>
+> **1.525 eran esta mañana; los siete de más son los de la prematrícula pública.** La suite
+> entera, no el filtro.
 >
 > El `ROJO A PROPÓSITO` de `acd189b` está **arreglado, no explicado**. Joseth decidió
 > regenerar, y se regeneraron **21 instantáneas** — las nombró el propio fallo, no se
@@ -118,7 +137,7 @@ una está en el 05 o en el 09; aquí sólo lo que decide.
 | **1** | ~~**Abrir el certificado quema un consecutivo, y la lectura+escritura no está en transacción.**~~ **CERRADO.** La carrera y el `FOR UPDATE` entraron la **noche del 25** ([cert-1](noche-2026-08-25/cert-1.md)); **el rastro, el 26** ([cert-2](noche-2026-08-26/cert-2.md)) | Nada. Los tests llevan verdes en la suite desde el 25, y **desde el 26 cada quema deja escrito quién, cuándo y de qué número a cuál** — que era la mitad de la [05 §231](05-codigo-muerto-y-roto.md) que se podía cerrar sin migración. **Lo que sigue abierto y es tuyo: la tabla de certificados emitidos**, o sea *«¿cuántos emitimos este año y a quién?»*, que apartaste a propósito |
 | **2** | ~~**`cambiar-contador-certificados` y `-folios` fijan el consecutivo sin validación, con `auth.personal`.**~~ **CERRADO.** La validación (`^\d+$`, 422) el 25; **el permiso, el 26**: elegiste `esAdministrativo` y es una línea en `consecutivoValidado()`, que cubre los dos endpoints porque los dos pasan por ahí | Nada aquí. **Pero abre una del front, que no se entera solo**: las dos pantallas que llaman a `-certificados` —la vieja y `app2`— **enseñan el control sin mirar el rol**, así que un docente verá «Contador no guardado». Está en [cert-2 §6](noche-2026-08-26/cert-2.md) con lo que hay que decirles. *(Y `-folios` **no lo llama nadie vivo**: el «Folio» de la pantalla vieja escribe `nro_folio` por `alumnos/guardar-valor`, que es otra cosa.)* |
 | **2bis** | **¿Manda el backend `version_minima_app` en la respuesta de `/login`?** Tú ya dijiste **sí a que la app bloquee**; **la app ya lo tiene escrito y probado** (414 pruebas), enganchado en los tres sitios por los que pasa una respuesta de `/login` —incluido el refresco, que es el único punto en el que se entera **sin que el usuario salga y vuelva**—. **El campo es `version_minima_app` y el valor es el `versionCode` (el `+N`), no la versión con puntos**; se lee **tolerante** (`"12"` como cadena también vale). **Y hay un plazo:** si se prefiere otro nombre, **hay que decirlo antes de que se publique una versión de la app leyendo éste** — después, cambiarlo obliga a mandar **los dos campos** durante un tiempo | **Sin ese campo, lo de la app es código dormido**: con el fallo abierto por defecto no bloquea a nadie mientras nadie lo mande. **El día que se mande, empieza a bloquear** — y **es lo único que hoy permitiría retirar un endpoint** en los quince. Con la carga dicha: **subir ese número es una ceremonia de despliegue**, porque **desde el cliente no se distingue un `.env` mal puesto de un colegio exigente** |
-| **1bis** | **La prematrícula pública deja escrita la ficha de un menor sin matrícula y sin usuario, y no hay transacción.** Medido, determinista, **no es una carrera**: en `PUT login/crear-prematricula` —**una de las once rutas públicas**, la llama alguien **sin cuenta**— si falta `grupo_id` o es uno que no existe, **el `INSERT` de `alumnos` ya pasó** y revienta el de `matriculas`. Queda escrito **nombres, apellidos, documento y celular de un menor**, huérfano. *Y las tres primeras filas de la matriz dicen lo contrario y también importan: si falta `nombres` o `sexo` no escribe nada — **el daño no es «cuerpo incompleto», es «llegó a `matriculas`»**.* · **Y el reintento es peor que el fallo: el segundo intento no da otro 500, da un 200 que MIENTE.** Encuentra la ficha huérfana y contesta *«Ya existe el alumno. Entre con su cuenta»* — **y esa cuenta nunca se creó**, porque el `INSERT` de `users` va después del que reventó. **El padre queda fuera del formulario para siempre para ese hijo**, mandado a una puerta que no existe y **sin ningún error que reportar**. Predicho por escrito antes de medirlo. Y **es el camino normal**: el front no tiene `ng-disabled` en ese botón y **el formulario sigue relleno tras el error** | **Hay dos cosas que decidir y son distintas.** **(a) El mecanismo**: se cierra con una transacción, y eso no espera a nadie. **(b) Lo que ya haya escrito en los quince**: eso **no lo decide ninguna sesión**, y hoy **no lo sabe nadie** — la consulta de sólo lectura que lo cuenta está escrita y **no se ha corrido en ningún colegio**: `SELECT COUNT(*) FROM alumnos a LEFT JOIN matriculas m ON m.alumno_id=a.id WHERE m.id IS NULL AND a.deleted_at IS NULL AND a.user_id IS NULL`. · **Y la exposición está sin medir, no en cero:** en la base de desarrollo **`prematr_nuevos = 0` en los ocho años**, así que **ahí la pantalla ni se enseña** — pero *cuáles de los quince la tienen encendida no lo sabe nadie*, y ésa es otra pregunta para la fase 0. · **Y un pendiente viejo gana un camino público:** el [01](01-plan-seguridad.md) tiene sin verificar *«con debug on, un error filtra el `.env` entero»* y el [09](09-pendientes.md) dice «comprobarlo colegio a colegio». **El hallazgo no es que filtre —eso depende del `.env` de cada uno— sino que esta ruta le da a ese pendiente un camino público y sin autenticar**: el cuerpo del 500 trae `Host`, `Port` y `Database`. Medido con `APP_DEBUG=true`, que es lo del contenedor; **en producción depende de cada colegio y nadie lo ha mirado**. · **El censo de huérfanos en la base de tests da 0 y NO vale**: tiene 68 alumnos y **cero matrículas en `PREA`**, o sea que por ese endpoint no ha pasado nunca una prematrícula ahí. *No distingue «no ocurre» de «no ha ocurrido en esta copia».* |
+| **1bis** | ~~**La prematrícula pública deja escrita la ficha de un menor sin matrícula y sin usuario, y no hay transacción.**~~ **LA (a) CERRADA el 26 ago por la tarde** ([05 §236](05-codigo-muerto-y-roto.md)); **la (b) sigue entera y es tuya.** Medido, determinista, **no es una carrera**: en `PUT login/crear-prematricula` —**una de las once rutas públicas**, la llama alguien **sin cuenta**— si falta `grupo_id` o es uno que no existe, **el `INSERT` de `alumnos` ya pasó** y revienta el de `matriculas`. Queda escrito **nombres, apellidos, documento y celular de un menor**, huérfano. *Y las tres primeras filas de la matriz dicen lo contrario y también importan: si falta `nombres` o `sexo` no escribe nada — **el daño no es «cuerpo incompleto», es «llegó a `matriculas`»**.* · **Y el reintento es peor que el fallo: el segundo intento no da otro 500, da un 200 que MIENTE.** Encuentra la ficha huérfana y contesta *«Ya existe el alumno. Entre con su cuenta»* — **y esa cuenta nunca se creó**, porque el `INSERT` de `users` va después del que reventó. **El padre queda fuera del formulario para siempre para ese hijo**, mandado a una puerta que no existe y **sin ningún error que reportar**. Predicho por escrito antes de medirlo. Y **es el camino normal**: el front no tiene `ng-disabled` en ese botón y **el formulario sigue relleno tras el error** | **Hay dos cosas que decidir y son distintas.** ~~**(a) El mecanismo**: se cierra con una transacción, y eso no espera a nadie.~~ **HECHO**: las cuatro escrituras en transacción **y** `grupoQueExiste()` con **422 delante de todo** — las dos, porque la transacción quita el huérfano pero **deja el 500 intacto**, y el 500 de una ruta pública y sin autenticar es el camino nuevo al pendiente del `.env`. Siete tests, y **el control visto rojo**: quitando la transacción y dejando el guard cae **exactamente uno** de los siete, que es el que la nombra — los otros seis pasaban sin ella. **(b) Lo que ya haya escrito en los quince**: eso **no lo decide ninguna sesión**, y hoy **no lo sabe nadie** — la consulta de sólo lectura que lo cuenta está escrita y **no se ha corrido en ningún colegio**: `SELECT COUNT(*) FROM alumnos a LEFT JOIN matriculas m ON m.alumno_id=a.id WHERE m.id IS NULL AND a.deleted_at IS NULL AND a.user_id IS NULL`. · **Y la exposición está sin medir, no en cero:** en la base de desarrollo **`prematr_nuevos = 0` en los ocho años**, así que **ahí la pantalla ni se enseña** — pero *cuáles de los quince la tienen encendida no lo sabe nadie*, y ésa es otra pregunta para la fase 0. · **Y un pendiente viejo gana un camino público:** el [01](01-plan-seguridad.md) tiene sin verificar *«con debug on, un error filtra el `.env` entero»* y el [09](09-pendientes.md) dice «comprobarlo colegio a colegio». **El hallazgo no es que filtre —eso depende del `.env` de cada uno— sino que esta ruta le da a ese pendiente un camino público y sin autenticar**: el cuerpo del 500 trae `Host`, `Port` y `Database`. Medido con `APP_DEBUG=true`, que es lo del contenedor; **en producción depende de cada colegio y nadie lo ha mirado**. · **El censo de huérfanos en la base de tests da 0 y NO vale**: tiene 68 alumnos y **cero matrículas en `PREA`**, o sea que por ese endpoint no ha pasado nunca una prematrícula ahí. *No distingue «no ocurre» de «no ha ocurrido en esta copia».* |
 | **2ter** | **Cuatro columnas en blanco en la rejilla «Docentes contratados»** —la de abajo de `/panel/profesores` en la web vieja—: Usuario (`username`), Nacimiento (`fecha_nac`), Email (`email_usu`) y Celular (`celular`), en `ProfesoresCtrl.ts:266-269`. Las vació `c47ab50` al recortar `Profesor::contratos()`. El recorte está bien hecho (`GET contratos` es la única ruta de su controlador **sin `auth.personal`** y entregaba el documento, el domicilio y el móvil de los docentes a cualquier sesión válida) y **no se deshace**; lo que falló fue el censo de consumidores del propio commit, que acertó con Flutter y **se dejó esta rejilla** | **YA NO ES UNA VENTANA FUTURA: está abierta.** Joseth desplegó el backend el 25 ago (`eb95cbc`, mismo hash comprobado en los quince), así que **esas cuatro columnas están vacías ahora mismo en todos**. La comparación la da la propia pantalla: la rejilla de ARRIBA sigue llena, porque viene de `GET profesores` —con `auth.personal`—. **Llenarlas cuesta cero peticiones** (un `valueGetter` cruzando por `profesor_id`; los cuatro campos ya están en memoria) **y no deshace el recorte**, porque el dato volvería por la ruta que sí lleva guard. La otra salida es quitar las cuatro columnas. **Decide Joseth.** · *Y una que salió bien sin que nadie lo planeara: esa rejilla guarda la FILA ENTERA al editar cualquier celda, así que con el código del 21 ago habría BORRADO esos cuatro campos en la base —y `users.username` es UNIQUE—. No pasa porque `putUpdate` los guarda detrás de `$vinieron->trae(...)`, y ese arreglo iba en la MISMA tanda. Separar los dos commits en dos despliegues habría borrado datos.* |
 | **2quater** | **`app2` se rompe la primera vez que alguien pulsa F5, y el arreglo vive en un repositorio que no documenta nadie.** La vieja usa rutas con almohadilla (`html5Mode` comentado) y **por eso este fallo no puede existir en ella**; `app2` usa rutas de camino y **el `.htaccess` no tiene reescritura**. Servido el build real con un servidor estático: `/` da 200, `/alumnos` y `/panel` dan **404**. Lo midió `myvc-front-3b` | **Aparece el primer día de producción de la nueva, no antes**, y en la forma peor: arranca bien, se navega bien, y **se cae al recargar, al abrir un marcador o un enlace compartido**. En los quince. Dos salidas, las dos costeadas por el front: `RewriteRule` en el `.htaccess` (probada **al revés** también, que un `.js` o el logo no se los trague la regla) o `withHashLocation()` — **cambia todas las URLs, así que es decisión tuya**. Y el argumento *«la almohadilla conserva los marcadores»* **probablemente es falso**: la vieja usa `/#/panel/alumnos` y la nueva usaría `/#/alumnos` |
 | **2quinquies** | **`app2` no arranca desde `up/`: pantalla en blanco, y no es el F5.** Medido con Apache 2.4 de verdad y el build de verdad: `GET /up/` da 200, pero el navegador pide `/chunk-….js` **en la raíz del dominio** y recibe 404 — el fichero está en `/up/chunk-….js`. En Chrome: título «MyVC», **texto visible vacío, `app-root` inexistente, once recursos fallidos**. La vieja funciona desde `up/` porque usa rutas relativas y lleva el `<base href>` comentado; **`app2` lleva `<base href="/">`** | **Degrada la casilla anterior: no es «se rompe al recargar», es que no arranca nunca, ni la primera vez.** Y mata el último argumento de la almohadilla: `<base href="/">` rompe igual con `#` que sin él. **La primera decisión ya no es «reescritura o almohadilla»: es «¿`app2` vive en `up/` o en la raíz del dominio?»**, y de ahí cuelgan el `base href`, la `RewriteBase` y todas las URLs. **Desde el backend hay una razón dura para `up/`**: la API se sirve en **el mismo subdominio, bajo `/8myvc/public/api`** (`DESPLIEGUE-REFERENCIA.md:232`), así que **un `RewriteRule . /index.html` en la raíz se tragaría las llamadas a la API** salvo que alguien acierte a excluirlas. En `up/`, con `RewriteBase /up/`, eso no puede pasar **por construcción**. El front ya escribe todo para `/up/`, y **el ensayo pasó**: un colegio de mentira con Apache 2.4.66, `up/` con el build nuevo y **este backend real por `ProxyPass`**, conducido en Chrome —entrar, cuatro pantallas con datos, **F5 en cada una**, enlace profundo, salir y volver— **con cero errores y cero recursos en 404**. Sin probar, y dicho para que no se dé por probado: el refresco silencioso y **las pantallas de impresión e informes pesados**, que son justo las fichadas por dar 504 y 500 |
@@ -233,6 +252,74 @@ arriba y no en la línea.
 | **13** | **`CLAUDE.md` dice que las excepciones públicas son quince y son once**, y **`RutasPreLoginTest` no es un inventario**: enumera once y **no comprueba que ninguna otra sea pública** |
 | **14** | **Una decisión mía, revertible en un commit**: congelar ocho `SELECT *` para que la migración del boletín independiente **no mueva ninguna respuesta**. La alternativa —regenerar instantáneas— **era tuya**, porque obliga a avisar al front y a Flutter |
 | **15** | **La §12 de arriba y la §14** del 09 siguen esperando desde el 24 |
+
+---
+
+## PREMATRÍCULA — la mitad que no esperaba a nadie, cerrada (26 ago, tarde)
+
+Detalle en [05 §236](05-codigo-muerto-y-roto.md). **Cierra la (a) del `1bis`**, que estaba
+escrita como *«se cierra con una transacción, y eso no espera a nadie»*.
+
+`PUT login/crear-prematricula` es **la única de las once rutas públicas que escribe**, y la
+llama alguien **sin cuenta**. Escribía en cuatro sitios sin transacción, así que con un
+`grupo_id` que faltara o que no existiera quedaba escrita la ficha de un menor —nombres,
+apellidos, documento y celular— **sin matrícula y sin cuenta**, y **el reintento contestaba
+200 mintiendo**: *«Ya existe el alumno. Entre con su cuenta»* por una cuenta que nunca se
+creó.
+
+### Son dos arreglos y no se contienen — por eso van los dos
+
+| | Qué cubre | Qué NO cubre |
+|---|---|---|
+| **La transacción** | **cualquiera** de los cuatro `INSERT` que falle | el **500**, que sigue siendo un 500 |
+| **`grupoQueExiste()`, 422 delante de todo** | el 500 —y con él, el cuerpo que trae `Host`, `Port` y `Database` con `APP_DEBUG=true`— | un fallo que no sea el del grupo |
+
+La segunda no es cosmética: esta ruta le daba al pendiente del [01](01-plan-seguridad.md)
+—*«con debug on, un error filtra el `.env` entero»*— **un camino público y sin autenticar**.
+La transacción sola lo dejaba abierto.
+
+### El control, porque seis de los siete tests pasan sin la transacción
+
+Los que mandan un grupo malo pasan **sólo con el 422**: frenan antes del primer `INSERT`, y
+su verde no distingue *«la transacción funciona»* de *«no se llegó a escribir»*. Hace falta
+un fallo **después** del `INSERT` de `alumnos`, y hay uno:
+`test_un_fallo_a_media_escritura_tampoco_deja_la_ficha` renombra el rol `Alumno` y revienta
+en `$role[0]['id']` con la ficha, la matrícula y el usuario ya escritos.
+
+**Visto rojo antes de darlo por bueno**: quitando el `DB::transaction` y dejando el guard,
+de los siete cae **exactamente ése**. Los otros seis siguen verdes — que es la demostración
+de que el resto del fichero no prueba lo que dice su nombre.
+
+### Lo que sigue siendo tuyo, y es la (b) entera
+
+**Los huérfanos ya escritos en los quince.** Para ellos el 200 mentiroso sigue siendo el que
+sale, y **hoy no sabe cuántos son nadie**: la consulta de sólo lectura que los cuenta está
+escrita desde ayer y **no se ha corrido en ningún colegio**. Va en la fase 0
+(`tools/fase-cero-de-los-dieciseis.php`), junto con *«¿cuáles tienen encendida la pantalla?»*
+— porque `prematr_nuevos = 0` en la base de desarrollo dice que **ahí** no se enseña, y no
+dice nada de los otros catorce.
+
+> **Y lo único que estrecha, fijado a propósito:** un grupo **en la papelera** ahora da 422.
+> Antes pasaba —la clave foránea sólo mira que el id exista— y dejaba la prematrícula
+> colgada de un grupo borrado, donde no la ve nadie.
+
+### El aviso al front es el primero que NO pide trabajo, y eso se comprobó
+
+Fila **D** de [DESPLIEGUE.md](../DESPLIEGUE.md). `mensajeError.ts` lleva **422** en su lista
+`CON_MENSAJE`, así que `LoginCtrl:217` **ya** pinta el texto del servidor. El 500 **no** está
+en esa lista: hasta hoy salía el genérico. **El cambio le mejora la pantalla al front sin que
+toque una línea.**
+
+> **Lo escribí primero como *«hay que enseñar el mensaje»* y era falso.** Lo desmintió mirar
+> el fichero del front en vez de deducirlo del síntoma. Se apunta porque el error iba en la
+> dirección cara: **un aviso que pide trabajo que no hace falta gasta a otro equipo.**
+
+**Y de camino salieron dos cosas del front que no son de esta tanda**, las dos en
+`myvc_front/app/scripts/login/` y las dos escritas en la fila D: el desplegable de grupo
+lleva `allow-clear="true"` y el controlador hace `year.grupo_prematr.id` sin comprobar nada
+—limpiar el grupo y pulsar es un `TypeError` dentro del `ng-click`, **botón muerto y
+callado**—, y `$ctrl.guardando` se pone a `true` al enviar y **no lo lee nadie**: era el
+`ng-disabled` que falta, a medio poner.
 
 ---
 

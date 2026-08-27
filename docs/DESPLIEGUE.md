@@ -17,7 +17,14 @@ y con el mismo hash comprobado en los quince. Qué se le notó a un colegio, fil
 | Rutas | **542, sin mover** | `tests/Contrato/Snapshots/rutas.json` |
 | Dependencias | sin tocar | `git diff --name-only eb95cbc HEAD -- composer.json composer.lock` |
 | `config/` | sin tocar | `git diff --name-only eb95cbc HEAD -- config/` |
-| `app/` | **ocho ficheros** | `Informes/BolfinalesController`, `Alumnos/FoliosController`, `AlumnosController`, `Matriculas/MatriculasController`, `YearsController`, `NotasController`, `Models/Year`, `Models/Nota` |
+| `app/` | **once ficheros** | `Informes/BolfinalesController`, **`BolfinalesController`** (el gemelo del raíz), `Alumnos/FoliosController`, `AlumnosController`, `Matriculas/MatriculasController`, `YearsController`, `NotasController`, **`LoginController`**, `Models/Year`, `Models/Nota`, **`Models/Matricula`** |
+
+> **Y esa fila decía ocho, y eran diez antes de tocar nada.** Faltaban
+> `BolfinalesController` **del raíz** —**308 líneas, el fichero que más se movió de toda la
+> tanda**, que es justo el desanidado de GEMELO-1 que la tabla de abajo anuncia— y
+> `Models/Matricula`. No es una cifra envejecida: **la lista se escribió a mano y el `git diff`
+> de su propia columna derecha da diez**. Se recalcula, no se suma:
+> `git diff --name-only eb95cbc HEAD -- app/`.
 
 > **La migración es bloqueante, como la del 25.** `2026_08_26_100000_interruptores_de_certificados`
 > añade `usa_consecutivo_certificados` y `usa_folio_certificados` a `years`, y **el código de
@@ -40,6 +47,7 @@ y con el mismo hash comprobado en los quince. Qué se le notó a un colegio, fil
 | **Fijar el consecutivo de certificados pasa a ser de secretaría**, y contesta **403** al resto del personal | [`cert-2`](migracion/noche-2026-08-26/cert-2.md) |
 | **Mover el consecutivo deja rastro en `auditoria`**, tanto al quemarlo abriendo el certificado como al fijarlo a mano | [`cert-2 §3`](migracion/noche-2026-08-26/cert-2.md) |
 | **El consecutivo y el folio pasan a ser OPCIONALES por colegio.** Nada cambia de aspecto: cada colegio arranca como está hoy. Lo que cambia es que **el que no imprime el número deja de gastarlo** — hasta ahora su contador subía solo en cada apertura | [`21 §4`](migracion/21-certificados-y-folios.md) |
+| **La prematrícula pública deja de escribir la ficha de un menor a medias.** Con un grupo que falta o que no existe contestaba **500 con la ficha ya escrita** —sin matrícula y sin cuenta—, y **el reintento daba un 200 mintiendo**: *«Ya existe el alumno, entre con su cuenta»* por una cuenta que nunca se creó. Ahora es **422 antes de escribir nada**, y las cuatro escrituras van en transacción. *Los huérfanos ya escritos **no los toca**: eso es del colegio* | `05 §236` |
 | **El folio deja de fabricarse.** Ya no se escribe `año-alumno_id` al matricular, y `GET folios/iniciar` —que llenaba todos los huecos del año de una sentencia, y **no lo llama ningún cliente**— contesta 409. Los folios ya escritos **se quedan**: borrarlos cambia lo impreso y es decisión aparte | [`21 §4.3`](migracion/21-certificados-y-folios.md) |
 
 ### Lo que hay que decirle al front el día que esto se despliegue
@@ -59,6 +67,7 @@ y con el mismo hash comprobado en los quince. Qué se le notó a un colegio, fil
 | **A** | los dos 403 de `cambiar-contador-*` | **PENDIENTE** |
 | **B** | **veintiún respuestas cambian de forma**: les llegan dos campos nuevos | **PENDIENTE** |
 | **C** | `aumentar_contador`: omitir la clave | **PENDIENTE** |
+| **D** | `login/crear-prematricula` **cambia el 500 por un 422** con mensaje | **NO REQUIERE TRABAJO DEL FRONT** — medido, no supuesto |
 
 **Ninguno se entera solo, y A y B son de las de «quién puede llamarla».** El detalle en
 [`cert-2 §6`](migracion/noche-2026-08-26/cert-2.md) y el reparto completo de qué hace el
@@ -86,6 +95,23 @@ backend y qué les toca a ellos en `myvc_front/TAREAS-AUDITORIA-CERTIFICADOS.md`
 3. `aumentar_contador` hay que **OMITIRLO**, no mandar `false`. El backend ya no quema con la
    cadena `"false"` desde el 25, pero **las copias de `myvc_front` de los quince colegios van a
    versiones distintas** y esa medición no las ve.
+4. `PUT login/crear-prematricula` **contesta 422** —y no 500— cuando el `grupo_id` no existe, no
+   viene o no es un id, **con el texto en `message`**. **Al front no le toca nada, y eso está
+   comprobado y no supuesto**: `mensajeError.ts` lleva `422` en su lista `CON_MENSAJE`, así que
+   `LoginCtrl:217` ya pinta el texto del servidor en el toast *«No se pudo prematricular»*. Lo
+   que cambia es **a mejor**: con el 500 salía el texto genérico, porque 500 **no** está en esa
+   lista. *(Y de paso: un grupo **en la papelera** también da 422 ahora. Antes pasaba y dejaba
+   la prematrícula colgada de un grupo borrado.)*
+
+   > **Y de camino salieron dos cosas del front que NO son de esta tanda y se dejan dichas**,
+   > las dos en `myvc_front/app/scripts/login/`. **(a)** El desplegable de grupo lleva
+   > `allow-clear="true"` (`login.html:160`) y el controlador hace `year.grupo_prematr.id`
+   > (`LoginCtrl:196`) **sin comprobar nada**: limpiar el grupo y pulsar «Prematricular» es un
+   > `TypeError` dentro del `ng-click` — **el botón no hace nada y no dice nada**, que es el
+   > mismo fallo que ese fichero ya arregló para `$ctrl.year` doce líneas más arriba, en el
+   > campo de al lado. **(b)** `$ctrl.guardando` se pone a `true` al enviar y **no lo lee
+   > nadie**: no está en la plantilla ni en ningún otro sitio. Era el `ng-disabled` que falta,
+   > y se quedó a medio poner.
 
 ### Y la tabla de arriba se remide, no se suma
 

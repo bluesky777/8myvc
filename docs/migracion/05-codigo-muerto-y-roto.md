@@ -12040,3 +12040,125 @@ indistinguible de uno emitido»*— ya no es cierta. Las otras dos siguen en pie
 > entrado esa misma noche**. No era una cifra envejecida — era una lista que nadie
 > releyó después de que su propio punto se hiciera. **El sitio donde eso se ve es el
 > test**: `ConsecutivoDeCertificadosTest` lo decía en su primer docblock.
+
+---
+
+## §236. La prematrícula pública ya no deja huérfano al menor — y lo que queda escrito en los quince no lo cierra esto (26 ago 2026)
+
+`PUT login/crear-prematricula` es **la única de las once rutas públicas que escribe**, y
+la llama alguien **sin cuenta**: un padre rellenando el formulario de su hijo. Escribía
+en cuatro sitios sin transacción —`alumnos`, `matriculas`, `users` y la vuelta de
+`alumnos.user_id`—, así que con un `grupo_id` que faltara o que no existiera **el
+`INSERT` de `alumnos` ya había pasado** cuando reventaba el de `matriculas`.
+
+Quedaba escrita la ficha de un menor **con nombres, apellidos, documento y celular**,
+sin matrícula y sin usuario. No es una carrera: es determinista.
+
+### Lo que se arregló, y son dos cosas que no se contienen
+
+| | Qué | Qué cubre |
+|---|---|---|
+| **La transacción** | las cuatro escrituras, o ninguna | **cualquier fallo de los cuatro `INSERT`**, no sólo el del grupo |
+| **`grupoQueExiste()`** | 422 delante de todo, antes de escribir nada | el **500**, que la transacción deja intacto |
+
+La segunda no es cosmética y por eso va aparte. Esta ruta es **pública y sin
+autenticar**, y el cuerpo de su 500 con `APP_DEBUG=true` trae `Host`, `Port` y
+`Database` — medido, y copiado del propio fallo del test antes de arreglarlo:
+
+```
+SQLSTATE[23000] … Column 'grupo_id' cannot be null (Connection: mysql_testing,
+Host: database, Port: 3306, Database: simonbolivar_testing, SQL: INSERT INTO matriculas…)
+```
+
+El [01](01-plan-seguridad.md) lleva sin verificar *«con debug on, un error filtra el
+`.env` entero»* y el [09](09-pendientes.md) dice «comprobarlo colegio a colegio». **El
+hallazgo no es que filtre —eso depende del `.env` de cada uno— sino que esta ruta le
+daba a ese pendiente un camino público.** La transacción sola lo dejaba abierto.
+
+### El reintento era peor que el fallo, y ésa es la parte que dolía
+
+El segundo intento no daba otro 500: daba un **200 que mentía**. La primera consulta del
+método encontraba la ficha huérfana y contestaba, literal:
+
+> `Ya existe el alumno. Entre con su cuenta para poder prematricularc correctamente`
+
+**Y esa cuenta nunca se creó**, porque el `INSERT` de `users` va después del que reventó.
+El padre quedaba fuera del formulario **para siempre para ese hijo**, mandado a una
+puerta que no existe y **sin ningún error que reportar**. Y es el camino normal: el front
+no tiene `ng-disabled` en ese botón y el formulario sigue relleno tras el error.
+
+### El control, porque tres de los siete tests pasan sin la transacción
+
+Los dos que mandan un grupo malo pasan **sólo con el 422**: frenan antes del primer
+`INSERT`, así que su verde no distingue *«la transacción funciona»* de *«no se llegó a
+escribir»*. Hace falta un fallo **después** del `INSERT` de `alumnos`, y
+`test_un_fallo_a_media_escritura_tampoco_deja_la_ficha` lo produce renombrando el rol
+`Alumno`: revienta en `$role[0]['id']` con la ficha, la matrícula y el usuario ya
+escritos.
+
+**Visto rojo antes de darlo por bueno**: quitando el `DB::transaction` y dejando el
+guard, de los siete **cae exactamente ése** y los otros seis siguen verdes. Que es la
+demostración de que el resto del fichero no prueba la transacción.
+
+### Lo único que estrecha, y va fijado a propósito
+
+Un grupo **en la papelera** ahora da 422; antes pasaba, porque la clave foránea sólo
+mira que el id exista. Dejaba la prematrícula colgada de un grupo borrado, donde no la
+ve nadie. Está en `test_un_grupo_en_la_papelera_tambien_se_para`.
+
+### Lo que esta § NO cierra, y no lo decide una sesión
+
+**Los huérfanos ya escritos en los quince colegios.** Para ellos el 200 mentiroso sigue
+siendo el que sale, y qué hacer con ellos —adoptarlos, crearles la cuenta, borrarlos— es
+del colegio. La consulta que los cuenta está escrita, **no escribe nada, y no se ha
+corrido en ningún colegio**:
+
+```sql
+SELECT COUNT(*) FROM alumnos a
+LEFT JOIN matriculas m ON m.alumno_id = a.id
+WHERE m.id IS NULL AND a.deleted_at IS NULL AND a.user_id IS NULL
+```
+
+> **Y el censo en la base de tests da 0 y NO vale.** Tiene 68 alumnos y **cero matrículas
+> en `PREA`**: por ese endpoint no ha pasado nunca una prematrícula ahí. *No distingue
+> «no ocurre» de «no ha ocurrido en esta copia».*
+
+**Y la exposición está sin medir, no en cero:** en la base de desarrollo
+`prematr_nuevos = 0` en los ocho años, o sea que ahí la pantalla ni se enseña — pero
+**cuáles de los quince la tienen encendida no lo sabe nadie**. Es otra pregunta para la
+fase 0 ([`tools/fase-cero-de-los-dieciseis.php`](../../tools/fase-cero-de-los-dieciseis.php)).
+
+### El censo de clientes, que es lo que dice si el 422 rompe algo
+
+**Dos, y ninguno se rompe.** Buscado el literal `crear-prematricula` en los cinco árboles de
+cliente que hay en disco:
+
+| cliente | lo llama |
+|---|---|
+| `myvc_front` (AngularJS, la vieja) | **sí**, `LoginApi.ts:101` desde `LoginCtrl:198` |
+| `myvc_dist` (el build que vive en `up/`) | **sí**, es el build de la anterior |
+| `myvc_front/app2` | **no** — el fichero lo nombra en un comentario **para decir que no está convertida** |
+| `myvc_front_2` (el PIAR) · `myvc_flutter` · `tardanzasMyvc-old` | **no** |
+
+Y el 422 **le mejora la pantalla al front sin que toque una línea**: `mensajeError.ts` lleva
+`422` en su lista `CON_MENSAJE` y `LoginCtrl:217` ya pinta el texto del servidor en el toast.
+**El 500 no está en esa lista**, así que hasta hoy salía el genérico.
+
+> **Esto se escribió primero al revés** —*«al front le toca enseñar el mensaje»*— y era falso.
+> Lo desmintió abrir el fichero del front en lugar de deducirlo del síntoma. Va apuntado
+> porque **el error iba en la dirección cara**: un aviso que pide trabajo que no hace falta se
+> lo gasta otro equipo.
+
+### Dos cosas del front que salieron de camino y NO son de esta §
+
+Las dos en `myvc_front/app/scripts/login/`, dichas aquí porque nadie las estaba mirando:
+
+1. **El botón puede quedarse mudo.** El desplegable de grupo lleva `allow-clear="true"`
+   (`login.html:160`) y el controlador hace `year.grupo_prematr.id` (`LoginCtrl:196`) **sin
+   comprobar nada**: limpiar el grupo y pulsar «Prematricular» es un `TypeError` dentro del
+   `ng-click`. **Es el mismo fallo que ese fichero ya arregló doce líneas más arriba** para
+   `$ctrl.year`, en el campo de al lado — y el comentario del arreglo está ahí, explicándolo.
+2. **`$ctrl.guardando` no lo lee nadie.** Se pone a `true` al enviar y no aparece en la
+   plantilla ni en ningún otro sitio. **Era el `ng-disabled` que falta**, a medio poner.
+
+Red: `tests/Contrato/PrematriculaPublicaNoDejaHuerfanosTest.php`.

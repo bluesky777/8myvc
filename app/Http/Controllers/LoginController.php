@@ -389,6 +389,46 @@ class LoginController extends Controller {
 
 
 
+	/**
+	 * La prematrícula pública: un padre **sin cuenta** deja la ficha de su hijo.
+	 *
+	 * Es **la única de las once rutas públicas que escribe**, y escribe en cuatro
+	 * sitios: `alumnos`, `matriculas`, `users` y la vuelta de `alumnos.user_id`.
+	 * Hasta hoy iban sueltos, así que con un `grupo_id` que faltara o que no
+	 * existiera **el `INSERT` de `alumnos` ya había pasado** cuando reventaba el de
+	 * `matriculas` —la columna es `NOT NULL` y tiene clave foránea a `grupos`— y
+	 * quedaba escrita la ficha de un menor, con nombres, apellidos, documento y
+	 * celular, sin matrícula y sin usuario.
+	 *
+	 * **Y el reintento era peor que el fallo**: el segundo intento no daba otro
+	 * 500, daba un **200 que mentía**. La primera consulta encontraba la ficha
+	 * huérfana y contestaba *«Ya existe el alumno. Entre con su cuenta»* — y esa
+	 * cuenta nunca se creó, porque el `INSERT` de `users` va después del que
+	 * reventó. El padre quedaba fuera del formulario **para siempre para ese
+	 * hijo**, mandado a una puerta que no existe y sin ningún error que reportar.
+	 *
+	 * El arreglo son dos cosas y hacen falta las dos:
+	 *
+	 * - **La transacción**, que es lo que quita el huérfano — y lo quita para
+	 *   cualquiera de los cuatro `INSERT`, no sólo para el del grupo.
+	 * - **La comprobación del grupo delante de todo**, que convierte un 500 en un
+	 *   422 con mensaje. Importa aparte porque **esta ruta es pública y sin
+	 *   autenticar**: con `APP_DEBUG=true` el cuerpo del 500 trae `Host`, `Port` y
+	 *   `Database` —medido—, y `docs/migracion/01-plan-seguridad.md`
+	 *   lleva sin verificar «con debug on, un error filtra el `.env` entero» colegio
+	 *   a colegio. La transacción sola dejaba ese camino abierto.
+	 *
+	 * **Lo que esto NO arregla, y no lo decide una sesión**: los huérfanos **ya
+	 * escritos** en los quince colegios. Para ellos el 200 mentiroso sigue siendo el
+	 * que sale, y qué hacer con ellos —adoptarlos, crearles la cuenta, borrarlos— es
+	 * del colegio. Contarlos, sin escribir nada:
+	 *
+	 *     SELECT COUNT(*) FROM alumnos a
+	 *     LEFT JOIN matriculas m ON m.alumno_id = a.id
+	 *     WHERE m.id IS NULL AND a.deleted_at IS NULL AND a.user_id IS NULL
+	 *
+	 * Ver `docs/migracion/05-codigo-muerto-y-roto.md` §236.
+	 */
 	public function putCrearPrematricula(Request $request){
 		$now 			= Carbon::now('America/Bogota');
 
@@ -400,9 +440,8 @@ class LoginController extends Controller {
 		$grupo_id 		= $request->input('grupo_id');
 		$anio 			= $request->input('year');
 		$estado 		= 'PREA';
-	
 
-
+		$grupo_id = $this->grupoQueExiste($grupo_id);
 
 		$consulta 	= 'SELECT id, nombres FROM alumnos WHERE nombres=? and apellidos=? and documento=?';
 		$alumno 	= DB::select($consulta, [ $nombres, $apellidos, $documento ]);
@@ -438,6 +477,18 @@ class LoginController extends Controller {
 			}
 
 		} else {
+
+			/*
+			 * Las cuatro escrituras, o ninguna. Sin esto, un fallo en cualquiera de
+			 * las tres últimas dejaba escrita la ficha de un menor —huérfana, sin
+			 * matrícula y sin cuenta— y **el reintento contestaba 200 mintiendo**.
+			 * Ver el docblock del método.
+			 *
+			 * El cuerpo **no se re-indenta a propósito**: son 45 líneas que no cambian
+			 * y sangrarlas convierte un diff de dos líneas en uno de cuarenta y siete,
+			 * justo en el fichero que Pint no toca.
+			 */
+			return DB::transaction(function () use ($nombres, $apellidos, $sexo, $documento, $celular, $grupo_id, $estado, $now) {
 
 			$consulta 	= 'INSERT INTO alumnos(nombres, apellidos, sexo, documento, celular, tipo_doc, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?)';
 			DB::insert($consulta, [$nombres, $apellidos, $sexo, $documento, $celular, 3, $now, $now]);
@@ -489,7 +540,44 @@ class LoginController extends Controller {
 
 			return [ 'estado' => 'Alumno y Prematricula creados. Usuario: ' . $usuario->username
 				. ' - Contraseña: ' . $password_inicial . ' (anótala, no se vuelve a mostrar)' ];
+
+			});
 		}
+	}
+
+	/**
+	 * El `grupo_id` del cuerpo, o **422** si no existe un grupo vivo con ese id.
+	 *
+	 * Va **delante de todas las escrituras** por dos motivos distintos, y el
+	 * segundo es el que obliga a que sea una comprobación y no sólo una
+	 * transacción: la transacción quita el huérfano, pero **el 500 lo deja igual**,
+	 * y ésta es una ruta **pública y sin autenticar** cuyo 500 con `APP_DEBUG=true`
+	 * trae `Host`, `Port` y `Database` en el cuerpo.
+	 *
+	 * 422 y no 400 —que es lo que devuelve el legacy de al lado— porque en código
+	 * nuevo van los códigos correctos. Aquí no se pisa ningún contrato: lo que
+	 * había antes era un 500, y **nadie lee un 500 a propósito**.
+	 *
+	 * También cubre la rama del alumno que ya existe, que hace un `UPDATE` con este
+	 * mismo `grupo_id` y reventaba igual por la clave foránea.
+	 */
+	private function grupoQueExiste($grupo_id): int
+	{
+		// Un cuerpo JSON puede traer un array donde se espera un id, y eso reventaba
+		// en PDO **antes de llegar a la consulta**: otro 500 público por el mismo
+		// sitio. Se descarta aquí y no dentro del `if` de abajo porque no es «no
+		// existe», es «no es un id».
+		if (! is_scalar($grupo_id)) {
+			abort(422, 'El grupo indicado no existe. Vuelva a elegirlo en la lista.');
+		}
+
+		$grupo = DB::selectOne('SELECT id FROM grupos WHERE id=? and deleted_at is null', [ $grupo_id ]);
+
+		if ($grupo === null) {
+			abort(422, 'El grupo indicado no existe. Vuelva a elegirlo en la lista.');
+		}
+
+		return (int) $grupo->id;
 	}
 
 
