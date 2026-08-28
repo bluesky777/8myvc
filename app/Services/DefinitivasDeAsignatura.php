@@ -626,6 +626,184 @@ class DefinitivasDeAsignatura
     }
 
     /**
+     * El estado de las definitivas de un grupo entero y un periodo, en UNA consulta.
+     *
+     * Es `estaDesactualizada()` preguntado por todo el grupo a la vez, y existe por
+     * lo que cuesta la otra forma: `estaDesactualizada()` es **por alumno y
+     * asignatura** y cada llamada gasta dos consultas —la fila y el sello, que a su
+     * vez son cuatro subconsultas—. Un boletín de grupo son ~12 asignaturas × ~30
+     * alumnos, o sea **~720 consultas sólo para preguntar si hace falta recalcular**,
+     * sobre la pantalla que ya tarda 24–63 s. Ésta contesta lo mismo en una.
+     *
+     * **No la llama nadie todavía, y es deliberado.** El punto 2 del plan de
+     * informes —qué hace un informe cuando descubre que sus definitivas están por
+     * detrás: repararlas o avisar— es una decisión de Joseth, y se toma con el coste
+     * medido delante. Lo que hace falta en las dos ramas es este número, así que se
+     * escribe antes que la decisión y no después.
+     *
+     * ## Qué devuelve, y por qué una fila por asignatura y no un bool
+     *
+     * Un bool por grupo contestaría «algo está desactualizado» y **eso no basta para
+     * ninguna de las dos ramas**: la que repara necesita saber QUÉ recalcular —
+     * recalcular el grupo entero es volver al botón—, y la que avisa necesita
+     * nombrar la asignatura. Por eso una fila por asignatura viva del grupo, con:
+     *
+     * - `alumnos`: los matriculados que se miraron. **Va aunque salga todo al día**,
+     *   por la regla del CLAUDE.md: un «0 desactualizadas» sin población no
+     *   distingue *«revisé treinta y ninguna lo estaba»* de *«no revisé nada»*, y de
+     *   las dos lecturas la falsa es la que hace archivar el asunto;
+     * - `faltan`: matriculados **sin fila** — la §9.1 dice que la fila existe
+     *   siempre que exista la matrícula, así que «no está» es un estado que hay que
+     *   reparar, no uno que haya que respetar. Son las 11.988 de la fase 0;
+     * - `atrasadas`: filas automáticas cuyo `updated_at` no alcanza al sello;
+     * - `sello`: el mismo de `selloDeVersion()`, para que quien pinte el aviso pueda
+     *   decir desde cuándo.
+     *
+     * ## Los tres sitios donde tenía que coincidir con `estaDesactualizada()`
+     *
+     * Un detector que conteste *parecido* al método que dice replicar es peor que no
+     * tenerlo, así que los tres criterios se copian y no se reinterpretan:
+     *
+     * 1. **Los alumnos salen de `matriculas` con `estado IN ("MATR","ASIS")` y el
+     *    grupo vivo**, que es de donde los saca `calcular()`. Con cualquier otro
+     *    conjunto, `faltan` contaría alumnos a los que el recalculador **no les
+     *    escribe nunca** y la asignatura saldría desactualizada para siempre: un
+     *    informe que repara entraría en un recálculo en cada carga sin arreglar nada.
+     * 2. **`manual` y `recuperada` no cuentan como atrasadas**, porque no se
+     *    recalculan (regla 4).
+     * 3. **Con el sello a NULL nada está atrasado** —no hay unidades, ni
+     *    subunidades, ni notas de las que depender—, que es lo que contesta
+     *    `estaDesactualizada()` en ese caso. Y **en el empate se cuenta como
+     *    atrasada** (`<=`), que es la comparación conservadora de la §4.5: recalcular
+     *    de más cuesta tiempo, declararla al día sin serlo es el fallo que esto viene
+     *    a quitar.
+     *
+     * Eso lo ata `test_el_estado_del_grupo_dice_lo_mismo_que_preguntar_una_a_una`,
+     * que compara las dos formas asignatura por asignatura y alumno por alumno. Es
+     * el control que importa: **la consulta agregada es rápida por ser otra
+     * consulta, y por eso hay que demostrar que contesta la misma pregunta.**
+     *
+     * ## Dos cosas que NO hace, a propósito
+     *
+     * **No acota por el boletín independiente**, igual que `selloDeVersion()` y por
+     * el mismo motivo escrito allí: un sello que se sobre-aproxima recalcula de más
+     * —cuesta tiempo—, y uno acotado sirve un dato viejo sin un error en el log.
+     *
+     * **No cuenta duplicados.** Mira la fila de `id` menor, que es la que mira
+     * `estaDesactualizada()` con su `ORDER BY id LIMIT 1`; contar duplicados es de
+     * `tools/salud-de-las-definitivas.php`, y mezclarlo aquí haría que las dos
+     * formas dejaran de coincidir justo en las filas que la fase 2 va a limpiar.
+     *
+     * @return array<int, array{asignatura_id:int, sello:string|null, alumnos:int,
+     *     faltan:int, atrasadas:int, desactualizada:bool}>
+     */
+    public static function estadoDelGrupo(int $grupoId, int $periodoId): array
+    {
+        // **El centinela es una FECHA y no un `0`, y esto costó los dos primeros
+        // rojos del test de equivalencia.** `selloDeVersion()` escribe
+        // `COALESCE(x, 0)` y le funciona porque devuelve el valor a PHP, que lo
+        // compara con `strtotime`. Aquí la comparación ocurre **dentro de MySQL**, y
+        // con un `0` entre los argumentos el `GREATEST` pasa a comparar **como
+        // números**: `2026-08-28 04:16:41` vale **2026**, cualquier `updated_at`
+        // vale catorce cifras, y `updated_at <= sello` es falso siempre.
+        //
+        // El modo de fallo es el peor posible para un detector: **cero
+        // desactualizadas, siempre**, sin un error en el log y con la columna
+        // imprimiéndose como la fecha correcta —lo que delata el tipo es que
+        // `CAST(sello AS DATETIME)` sale NULL—. Un informe cableado a esto habría
+        // dicho «todo al día» sobre un grupo entero por detrás.
+        //
+        // `1000-01-01 00:00:00` es el mínimo que admite `DATETIME`, así que hace de
+        // «no hay nada» sin poder confundirse con una fecha real, y el `NULLIF` lo
+        // vuelve a convertir en el `null` que ya devuelve `selloDeVersion()`.
+        $filas = DB::select(
+            'SELECT asignatura_id,
+                    sello,
+                    COUNT(*) AS alumnos,
+                    SUM(nf_id IS NULL) AS faltan,
+                    SUM(nf_id IS NOT NULL AND automatica = 1 AND sello IS NOT NULL
+                        AND (nf_updated_at IS NULL OR nf_updated_at <= sello)) AS atrasadas
+               FROM (
+                    SELECT a.id AS asignatura_id,
+                           CAST(NULLIF(GREATEST(
+                               COALESCE(sn.sello, CAST("1000-01-01 00:00:00" AS DATETIME)),
+                               COALESCE(su.sello, CAST("1000-01-01 00:00:00" AS DATETIME)),
+                               COALESCE(ss.sello, CAST("1000-01-01 00:00:00" AS DATETIME)),
+                               COALESCE(sm.sello, CAST("1000-01-01 00:00:00" AS DATETIME))
+                           ), CAST("1000-01-01 00:00:00" AS DATETIME)) AS DATETIME) AS sello,
+                           nf.id AS nf_id,
+                           nf.updated_at AS nf_updated_at,
+                           ((nf.manual IS NULL OR nf.manual = 0)
+                                AND (nf.recuperada IS NULL OR nf.recuperada = 0)) AS automatica
+                      FROM asignaturas a
+                      INNER JOIN grupos g ON g.id = a.grupo_id AND g.deleted_at IS NULL
+                      INNER JOIN matriculas m ON m.grupo_id = g.id AND m.deleted_at IS NULL
+                           AND m.estado IN ("MATR", "ASIS")
+                      LEFT JOIN (
+                            SELECT nf2.alumno_id, nf2.asignatura_id, MIN(nf2.id) AS id
+                              FROM notas_finales nf2
+                              INNER JOIN asignaturas aa ON aa.id = nf2.asignatura_id
+                             WHERE aa.grupo_id = ? AND nf2.periodo_id = ?
+                             GROUP BY nf2.alumno_id, nf2.asignatura_id
+                      ) primera ON primera.alumno_id = m.alumno_id AND primera.asignatura_id = a.id
+                      LEFT JOIN notas_finales nf ON nf.id = primera.id
+                      LEFT JOIN (
+                            SELECT u.asignatura_id,
+                                   CAST(MAX(GREATEST(COALESCE(n.updated_at, CAST("1000-01-01 00:00:00" AS DATETIME)), COALESCE(n.deleted_at, CAST("1000-01-01 00:00:00" AS DATETIME)))) AS DATETIME) AS sello
+                              FROM notas n
+                              INNER JOIN subunidades s ON s.id = n.subunidad_id
+                              INNER JOIN unidades u ON u.id = s.unidad_id
+                              INNER JOIN asignaturas aa ON aa.id = u.asignatura_id
+                             WHERE aa.grupo_id = ? AND u.periodo_id = ?
+                             GROUP BY u.asignatura_id
+                      ) sn ON sn.asignatura_id = a.id
+                      LEFT JOIN (
+                            SELECT u.asignatura_id,
+                                   CAST(MAX(GREATEST(COALESCE(u.updated_at, CAST("1000-01-01 00:00:00" AS DATETIME)), COALESCE(u.deleted_at, CAST("1000-01-01 00:00:00" AS DATETIME)))) AS DATETIME) AS sello
+                              FROM unidades u
+                              INNER JOIN asignaturas aa ON aa.id = u.asignatura_id
+                             WHERE aa.grupo_id = ? AND u.periodo_id = ?
+                             GROUP BY u.asignatura_id
+                      ) su ON su.asignatura_id = a.id
+                      LEFT JOIN (
+                            SELECT u.asignatura_id,
+                                   CAST(MAX(GREATEST(COALESCE(s.updated_at, CAST("1000-01-01 00:00:00" AS DATETIME)), COALESCE(s.deleted_at, CAST("1000-01-01 00:00:00" AS DATETIME)))) AS DATETIME) AS sello
+                              FROM subunidades s
+                              INNER JOIN unidades u ON u.id = s.unidad_id
+                              INNER JOIN asignaturas aa ON aa.id = u.asignatura_id
+                             WHERE aa.grupo_id = ? AND u.periodo_id = ?
+                             GROUP BY u.asignatura_id
+                      ) ss ON ss.asignatura_id = a.id
+                      LEFT JOIN (
+                            SELECT m2.grupo_id, MAX(m2.created_at) AS sello
+                              FROM matriculas m2
+                             WHERE m2.grupo_id = ? AND m2.deleted_at IS NULL
+                             GROUP BY m2.grupo_id
+                      ) sm ON sm.grupo_id = g.id
+                     WHERE a.grupo_id = ? AND a.deleted_at IS NULL
+               ) f
+              GROUP BY asignatura_id, sello
+              ORDER BY asignatura_id',
+            [$grupoId, $periodoId, $grupoId, $periodoId, $grupoId, $periodoId,
+                $grupoId, $periodoId, $grupoId, $grupoId]
+        );
+
+        return array_map(static function ($fila): array {
+            $faltan = (int) $fila->faltan;
+            $atrasadas = (int) $fila->atrasadas;
+
+            return [
+                'asignatura_id' => (int) $fila->asignatura_id,
+                'sello' => $fila->sello === null ? null : (string) $fila->sello,
+                'alumnos' => (int) $fila->alumnos,
+                'faltan' => $faltan,
+                'atrasadas' => $atrasadas,
+                'desactualizada' => $faltan > 0 || $atrasadas > 0,
+            ];
+        }, $filas);
+    }
+
+    /**
      * La suma real de los porcentajes de las unidades de una asignatura y periodo.
      *
      * Vale 100 cuando está bien configurada. **Se devuelve en vez de corregirse**

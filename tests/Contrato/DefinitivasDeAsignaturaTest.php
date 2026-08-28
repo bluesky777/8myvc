@@ -462,4 +462,256 @@ class DefinitivasDeAsignaturaTest extends CasoDeContrato
         $this->assertSame(80.0, $mal['porcentaje_unidades'],
             'La suma se normalizó o se corrigió, y la §9.3 dice que se vea.');
     }
+
+    /**
+     * Empuja el sello diez segundos hacia atrás, como hace
+     * `test_una_definitiva_recien_escrita_esta_al_dia` y por lo mismo: la
+     * definitiva y lo que la produce caen en el mismo segundo, y **el empate se
+     * resuelve recalculando** (§4.5). Sin separarlos, «recién recalculada» sale
+     * desactualizada y el test no mide lo que dice medir.
+     */
+    private function envejecerElSello(): void
+    {
+        $subunidades = [$this->ids['sub11'], $this->ids['sub12'],
+            $this->ids['sub21'], $this->ids['sub22']];
+
+        DB::table('notas')->whereIn('subunidad_id', $subunidades)->update([
+            'updated_at' => DB::raw('DATE_SUB(NOW(), INTERVAL 10 SECOND)'),
+        ]);
+        DB::table('unidades')->where('asignatura_id', $this->ids['asignatura'])->update([
+            'updated_at' => DB::raw('DATE_SUB(NOW(), INTERVAL 10 SECOND)'),
+        ]);
+        DB::table('subunidades')->whereIn('id', $subunidades)->update([
+            'updated_at' => DB::raw('DATE_SUB(NOW(), INTERVAL 10 SECOND)'),
+        ]);
+        DB::table('matriculas')->where('grupo_id', $this->ids['grupo'])->update([
+            'created_at' => DB::raw('DATE_SUB(NOW(), INTERVAL 10 SECOND)'),
+        ]);
+    }
+
+    /**
+     * Los alumnos que el recalculador mira: matriculados vivos del grupo, MATR o
+     * ASIS. Es el mismo conjunto de `calcular()`, y comparar contra otro haría que
+     * este test dijera que las dos formas discrepan cuando lo que discrepa es el
+     * test.
+     *
+     * @return array<int, int>
+     */
+    private function matriculadosDelGrupo(): array
+    {
+        return array_map('intval', DB::table('matriculas')
+            ->where('grupo_id', $this->ids['grupo'])
+            ->whereIn('estado', ['MATR', 'ASIS'])
+            ->whereNull('deleted_at')
+            ->pluck('alumno_id')
+            ->all());
+    }
+
+    /**
+     * El control que importa: la consulta agregada tiene que contestar **la misma
+     * pregunta** que preguntar alumno por alumno.
+     *
+     * `estadoDelGrupo()` es rápida por ser otra consulta, no por ser la misma
+     * escrita mejor, así que la equivalencia no se puede dar por buena: se compara
+     * asignatura por asignatura contra `estaDesactualizada()`, que es el método que
+     * ya usa el boletín y el que define qué significa «desactualizada».
+     *
+     * Se monta a propósito un grupo con las dos cosas dentro —una asignatura recién
+     * recalculada y otra con una nota puesta después— para que la comparación no sea
+     * entre dos listas de todo-verde, que coincidirían aunque el detector estuviera
+     * roto.
+     */
+    public function test_el_estado_del_grupo_dice_lo_mismo_que_preguntar_una_a_una(): void
+    {
+        $this->montarAsignatura();
+
+        $this->ponerNota('sub11', $this->ids['alumno1'], 4);
+        DefinitivasDeAsignatura::recalcular($this->ids['asignatura'], $this->ids['periodo']);
+
+        // Y una nota puesta DESPUÉS del recálculo: la asignatura vuelve a estar por
+        // detrás, y el grupo queda con casos en las dos direcciones.
+        $this->ponerNota('sub12', $this->ids['alumno2'], 3);
+
+        $estado = DefinitivasDeAsignatura::estadoDelGrupo($this->ids['grupo'], $this->ids['periodo']);
+        $alumnos = $this->matriculadosDelGrupo();
+
+        $this->assertNotEmpty($estado, 'El grupo del seed no tiene asignaturas vivas: sin población, esto no comprueba nada.');
+        $this->assertNotEmpty($alumnos, 'El grupo del seed no tiene matriculados vivos.');
+
+        foreach ($estado as $fila) {
+            $unaAUna = false;
+
+            foreach ($alumnos as $alumnoId) {
+                if (DefinitivasDeAsignatura::estaDesactualizada(
+                    $fila['asignatura_id'], $this->ids['periodo'], $alumnoId
+                )) {
+                    $unaAUna = true;
+                    break;
+                }
+            }
+
+            $this->assertSame($unaAUna, $fila['desactualizada'],
+                "La asignatura {$fila['asignatura_id']} sale distinta preguntada de las dos formas.");
+        }
+    }
+
+    /**
+     * Y la población va en la respuesta, porque un «0 desactualizadas» sin ella no
+     * distingue «revisé treinta» de «no revisé nada».
+     */
+    public function test_el_estado_del_grupo_dice_a_cuantos_alumnos_miro(): void
+    {
+        $this->montarAsignatura();
+
+        $estado = DefinitivasDeAsignatura::estadoDelGrupo($this->ids['grupo'], $this->ids['periodo']);
+        $mia = $this->laDeLaAsignaturaMontada($estado);
+
+        $this->assertSame(count($this->matriculadosDelGrupo()), $mia['alumnos']);
+    }
+
+    /**
+     * Lo que cuesta cada forma, medido y no supuesto.
+     *
+     * Medido el 27 ago 2026 sobre la base de tests: **1 consulta** la agregada
+     * contra **506** preguntando una a una en ese grupo —10 asignaturas × 28
+     * alumnos—. No son 560 porque `estaDesactualizada()` corta antes cuando no hay
+     * fila: la mitad de los pares gasta una consulta en vez de dos. En un grupo real
+     * de secundaria (~12 × ~30) el orden es el mismo, y es lo que hace inviable
+     * cablear `estaDesactualizada()` en un informe de grupo.
+     *
+     * La aserción es sobre la **relación**, no sobre el número: los números de un
+     * grupo dependen del seed y envejecen; que preguntar una a una cueste más de una
+     * consulta por par es una propiedad del código.
+     */
+    public function test_el_estado_del_grupo_cuesta_una_sola_consulta(): void
+    {
+        $this->montarAsignatura();
+        $this->ponerNota('sub11', $this->ids['alumno1'], 4);
+
+        $alumnos = $this->matriculadosDelGrupo();
+
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+        $estado = DefinitivasDeAsignatura::estadoDelGrupo($this->ids['grupo'], $this->ids['periodo']);
+        $agregada = count(DB::getQueryLog());
+
+        DB::flushQueryLog();
+        foreach ($estado as $fila) {
+            foreach ($alumnos as $alumnoId) {
+                DefinitivasDeAsignatura::estaDesactualizada(
+                    $fila['asignatura_id'], $this->ids['periodo'], $alumnoId
+                );
+            }
+        }
+        $unaAUna = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        $this->assertSame(1, $agregada,
+            'El estado del grupo dejó de ser una sola consulta: revisar antes de cablearlo a un informe.');
+        $this->assertGreaterThan($agregada, $unaAUna,
+            "Preguntar una a una costó {$unaAUna} consultas y la agregada {$agregada}: si ya no hay diferencia, este método sobra.");
+    }
+
+    /**
+     * Sin recalcular, todas las filas faltan — y faltar es estar desactualizada.
+     *
+     * Es la §9.1 vista desde el otro lado: la fila existe siempre que exista la
+     * matrícula, así que un matriculado sin fila no es «todavía no hay nota», es un
+     * estado que hay que reparar. Son las 11.988 que midió la fase 0.
+     */
+    public function test_los_matriculados_sin_fila_cuentan_como_que_faltan(): void
+    {
+        $this->montarAsignatura();
+        $this->ponerNota('sub11', $this->ids['alumno1'], 4);
+
+        $mia = $this->laDeLaAsignaturaMontada(
+            DefinitivasDeAsignatura::estadoDelGrupo($this->ids['grupo'], $this->ids['periodo'])
+        );
+
+        $this->assertSame(count($this->matriculadosDelGrupo()), $mia['faltan']);
+        $this->assertTrue($mia['desactualizada']);
+
+        DefinitivasDeAsignatura::recalcular($this->ids['asignatura'], $this->ids['periodo']);
+        $this->envejecerElSello();
+
+        $despues = $this->laDeLaAsignaturaMontada(
+            DefinitivasDeAsignatura::estadoDelGrupo($this->ids['grupo'], $this->ids['periodo'])
+        );
+
+        $this->assertSame(0, $despues['faltan']);
+        $this->assertFalse($despues['desactualizada'],
+            'Recién recalculada y sigue saliendo desactualizada: un informe que repare entraría en bucle.');
+    }
+
+    /**
+     * Y al borrar una nota vuelve a salir desactualizada.
+     *
+     * Es la §4.2 —el `MAX` de hoy es ciego a los borrados— comprobada sobre el grupo
+     * entero, que es donde va a mirar un informe.
+     */
+    public function test_al_borrar_una_nota_el_grupo_vuelve_a_salir_desactualizado(): void
+    {
+        $this->montarAsignatura();
+
+        $borrable = $this->ponerNota('sub11', $this->ids['alumno1'], 4);
+        DefinitivasDeAsignatura::recalcular($this->ids['asignatura'], $this->ids['periodo']);
+        $this->envejecerElSello();
+
+        $this->assertFalse($this->laDeLaAsignaturaMontada(
+            DefinitivasDeAsignatura::estadoDelGrupo($this->ids['grupo'], $this->ids['periodo'])
+        )['desactualizada']);
+
+        DB::table('notas')->where('id', $borrable)->update(['deleted_at' => now()]);
+
+        $this->assertTrue($this->laDeLaAsignaturaMontada(
+            DefinitivasDeAsignatura::estadoDelGrupo($this->ids['grupo'], $this->ids['periodo'])
+        )['desactualizada'], 'Borrar una nota dejó la definitiva declarada al día: es exactamente la §4.2.');
+    }
+
+    /**
+     * Una definitiva puesta a mano no cuenta como atrasada.
+     *
+     * No se recalcula nunca (regla 4), así que preguntar si está por detrás no
+     * significa nada para ella. Si contara, un informe que repare la miraría en cada
+     * carga y no la arreglaría jamás.
+     */
+    public function test_una_definitiva_manual_no_sale_atrasada(): void
+    {
+        $this->montarAsignatura();
+
+        $this->ponerNota('sub11', $this->ids['alumno1'], 4);
+        DefinitivasDeAsignatura::recalcular($this->ids['asignatura'], $this->ids['periodo']);
+
+        // Todas a mano, y una nota nueva detrás que movería el sello.
+        DB::table('notas_finales')
+            ->where('asignatura_id', $this->ids['asignatura'])
+            ->where('periodo_id', $this->ids['periodo'])
+            ->update(['manual' => 1]);
+
+        $this->ponerNota('sub12', $this->ids['alumno1'], 1);
+
+        $mia = $this->laDeLaAsignaturaMontada(
+            DefinitivasDeAsignatura::estadoDelGrupo($this->ids['grupo'], $this->ids['periodo'])
+        );
+
+        $this->assertSame(0, $mia['atrasadas']);
+        $this->assertFalse($mia['desactualizada']);
+    }
+
+    /**
+     * La fila de la asignatura que monta este test, de entre las del grupo.
+     *
+     * @param  array<int, array{asignatura_id:int, sello:string|null, alumnos:int, faltan:int, atrasadas:int, desactualizada:bool}>  $estado
+     * @return array{asignatura_id:int, sello:string|null, alumnos:int, faltan:int, atrasadas:int, desactualizada:bool}
+     */
+    private function laDeLaAsignaturaMontada(array $estado): array
+    {
+        foreach ($estado as $fila) {
+            if ($fila['asignatura_id'] === $this->ids['asignatura']) {
+                return $fila;
+            }
+        }
+
+        $this->fail('La asignatura montada no salió en el estado del grupo.');
+    }
 }

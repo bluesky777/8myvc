@@ -930,6 +930,91 @@ borrar una subunidad, copiar un periodo).
 
 ---
 
+### Antes de la fase 5: los informes leen a ciegas  *(27 ago 2026)*
+
+**Los botones no siguen ahí porque falte quitarlos: siguen ahí porque ningún
+informe sabe si lo que va a imprimir está al día.** Se pulsan *antes* de imprimir,
+y eso es lo que los convierte en un paso del trabajo diario en vez de en la
+herramienta de mantenimiento que la fase 5 quiere que sean.
+
+Censado el 27 ago: **dieciocho ficheros de `app/Http/Controllers/` nombran
+`notas_finales`** y el único que pregunta por el sello antes de pintar es
+[`Informes/BoletinesController`](../../app/Http/Controllers/Informes/BoletinesController.php)
+—y sólo en el boletín individual—. `Boletines2`, `Boletines3`, `Bolfinales`,
+`BolfinalesPreescolar`, `NotasActualesAlumnos`, `Puestos`, `Planillas`,
+`Promovidos`, `Historiales`, `Editnota`, `CertificadosPersona` y
+`CalcPerdidasDefinitivas` imprimen lo que haya.
+
+**Y en `app2` pesa más que en la vieja, al revés de lo que parece.** La vieja llama
+a `calcular-grupo-periodo` en **tres** sitios y sólo dos son el botón: el tercero,
+`InformesCtrl::verBoletinesGrupo`, recalcula **solo** al abrir los boletines de un
+grupo marcado como desactualizado. `app2` se trajo el botón y no ese tercero
+—`informes/tablero/tablero.ts` es su única llamada—, así que ahí **la única defensa
+es que alguien se acuerde de pulsarlo**. De paso, eso deshace la objeción que dejó
+abierta la [§90](noche-2026-08-23/c.md): lo que impedía ponerle el candado del
+periodo al botón era que un 400 dejaría a un profesor sin abrir el boletín de un
+grupo, y ese camino en `app2` no existe.
+
+#### `estadoDelGrupo()`: preguntarlo por el grupo entero cuesta una consulta
+
+`estaDesactualizada()` es por **alumno y asignatura**, y cada llamada gasta dos
+consultas —la fila y el sello, que a su vez son cuatro subconsultas—. Medido el 27
+ago sobre la base de tests, en un grupo de **10 asignaturas × 28 alumnos**: **506
+consultas** preguntando una a una contra **1** con
+`DefinitivasDeAsignatura::estadoDelGrupo()`. No son 560 porque `estaDesactualizada()`
+corta antes cuando no hay fila. Sobre una pantalla que ya tarda 24–63 s, ése era el
+motivo real de que esto no se pudiera cablear en un informe de grupo.
+
+Devuelve una fila por asignatura viva del grupo con `alumnos` —la población, por la
+regla del CLAUDE.md: un «0 desactualizadas» sin ella no distingue *«revisé
+veintiocho»* de *«no revisé nada»*—, `faltan` (matriculados sin fila: las 11.988 que
+midió la fase 0), `atrasadas` y el `sello`. **No la llama nadie todavía**, y es
+deliberado: qué hace un informe con esa respuesta es la decisión de abajo, y se toma
+con el coste medido delante.
+
+> **Y la consulta nació con un fallo que sólo se ve comparándola con la otra.**
+> `selloDeVersion()` escribe `COALESCE(x, 0)` y le funciona porque devuelve el valor
+> a PHP, que lo compara con `strtotime`. Dentro de MySQL ese `0` entre los argumentos
+> hace que `GREATEST` compare **como números**: `2026-08-28 04:16:41` vale **2026**,
+> cualquier `updated_at` vale catorce cifras, y `updated_at <= sello` es falso
+> siempre.
+>
+> El modo de fallo es el peor que puede tener un detector —**cero desactualizadas,
+> siempre**—, no deja una línea en el log y **la columna se imprime como la fecha
+> correcta**; lo que lo delata es que `CAST(sello AS DATETIME)` sale NULL. Se cura con
+> un centinela `CAST("1000-01-01 00:00:00" AS DATETIME)`, y **la cadena sin castear no
+> basta**: sin el `CAST` la comparación vuelve a ser numérica y el fallo vuelve entero.
+>
+> Lo cazó `test_el_estado_del_grupo_dice_lo_mismo_que_preguntar_una_a_una`, que
+> compara la agregada contra `estaDesactualizada()` asignatura por asignatura. Es el
+> control que hay que escribir siempre que una consulta se sustituya por otra más
+> rápida: **la rápida lo es por ser otra consulta, así que hay que demostrar que
+> contesta la misma pregunta.** Un test que sólo comprobara «sale una fila por
+> asignatura» habría pasado en verde con el fallo dentro.
+
+#### PARA JOSETH: qué hace un informe cuando descubre que está por detrás
+
+Tres formas, y no dan igual:
+
+1. **Repararlo antes de pintar**, como ya hace el boletín individual. Es lo único que
+   quita el botón de verdad. Contrapartida: un informe que escribe —la familia de la
+   §1.1— y, por `boletin.propio`, quien lo dispara puede ser un acudiente. Con el
+   servicio de la fase 1 ya no borra nada (UPSERT en transacción), así que lo que se
+   arriesga es **coste, no pérdida**.
+2. **Avisar y no escribir**: el informe sale marcando qué asignaturas están por
+   detrás. Honesto y barato, pero **no quita el botón**: lo deja en la misma mano con
+   mejor información.
+3. **Reparar sólo el periodo abierto** y avisar en los cerrados — la regla del
+   [16](16-escribir-en-un-anio-pasado.md) aplicada aquí: imprimir un histórico no
+   debería reescribir definitivas de hace tres años.
+
+Y una que **no** es una forma de esto y conviene dejar cerrada: **un cron que
+recalcule de madrugada**. Está descartado y medido en el [17](17-cron.md) — sería el
+séptimo escritor masivo, justo lo que la fase 3 quitó, y no hace falta porque el
+recálculo cuesta ~4 ms por nota.
+
+---
+
 ### Fase 5 — Quitar los botones
 
 Solo cuando las fases 1-4 estén desplegadas y la fase 0 se pueda volver a correr
