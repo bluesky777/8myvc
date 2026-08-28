@@ -8,7 +8,51 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
-**Última actualización: 27 ago 2026 — UNA FALTA SIN FECHA YA NO SE PUEDE ESCRIBIR POR
+**Última actualización: 28 ago 2026, noche — EL BOLETÍN DEJA DE INVENTAR EL CERO, Y LA FASE 3
+VUELVE A CUBRIR A LOS RETIRADOS** · dos escrituras vivas en los quince y **van juntas**: por
+separado, la segunda sin la primera ensancha a los retirados el sembrado de ceros que la primera
+quita ([`noche-2026-08-28/desact-1.md`](noche-2026-08-28/desact-1.md)) · **(1)** `DefinitivasDeAsignatura`
+ya no escribe fila cuando la asignatura **no tiene ninguna unidad viva** en el periodo — su regla 1
+escribía *una definitiva a cero por cada matriculado* sobre un periodo sin montar, y llegaba por una
+puerta que nadie miraba: `UnidadesController::deleteDestroy` llama a `recalcularPorUnidad` **después**
+del borrado, así que **borrar la última unidad escribía treinta ceros** firmados por quien la borró
+· **(2)** fuera el `m.estado IN ("MATR","ASIS")` de `calcular()`, que al sustituir al botón le quitaba
+la definitiva a **6.435 pares de 314 retirados** sin un solo error · **cambia el contrato del boletín**:
+`PUT boletines` devuelve `null` en seis campos en **9.648 celdas de 10.532**, snapshot regenerado a
+propósito, y los cuatro clientes medidos por el front — ninguno se rompe · siete tests en dos clases
+
+> **Dos cosas de Joseth que hay que leer antes de tocar esto.** **No es «como los informes»**: el
+> boletín y `Grupo::alumnos` admiten `MATR`, `ASIS` y `PREM` y **ninguno enseña a los retirados**, así
+> que la (2) es *más* que los informes y está elegido a sabiendas — «alinearlo con los informes» sería
+> deshacerlo. Y aprobó el `null` **con una condición**: *«si el usuario edita el input vacío espero que
+> pueda crear y guardar el nuevo valor manual»*, cuya mitad de backend es la **rama sin `nf_id` de
+> `putUpdate`** — antes casi nunca hacía falta porque el boletín sembraba la fila al abrirse, y ahora
+> es la **única** puerta por la que nace la definitiva de una casilla vacía. Atada con test.
+>
+> **Lo que NO se hizo y no está autorizado:** limpiar las **884 celdas** que ya tienen su cero
+> sembrado. Se quedan, y convivirán con las vacías hasta que el botón pase por su grupo.
+
+**Anterior: 28 ago 2026 — `users.profesor_id` DEJA DE SER UNA COLUMNA QUE SÓLO SE
+LEE** · `PUT users/mi-docente` (ruta **543**, y la primera desde las tres de Flutter del 24) escribe
+qué docente mira una cuenta administrativa · **la columna existía y no la escribía nadie**: las
+dieciséis cuentas de tipo `Usuario` la tienen en `NULL`, y los cuatro `UPDATE users` del repositorio
+son de contraseña, correo, username y `periodo_id` — mientras que **leerla la leen dos sitios vivos**,
+`ContextoDeUsuario` (viaja dentro de la sesión) y `ChangeAskedController::getToMe` (el horario de hoy
+y el de mañana) · sólo `tipo = 'Usuario'` (un profesor recibe **403**) y sólo un profesor **contratado
+en el año en curso** (si no, **422**: la columna no tiene clave foránea) · `tests/Contrato/MiDocenteTest.php`,
+cinco casos
+
+> **Lo pidió Joseth para el panel de `app2`**, donde el saludo de la portada se cambió por un botón
+> con el nombre del docente y un diálogo con las caras. **`app2` ya llama a esta ruta**, así que
+> este backend va **antes** que ese front en cada colegio: sin él, elegir docente funciona en
+> pantalla y avisa de que no quedó guardado (404). Está como aviso **G** en
+> [`DESPLIEGUE.md`](../DESPLIEGUE.md).
+>
+> **Y el efecto secundario que se quiso y hay que saber:** con la columna puesta, **el panel VIEJO
+> le empieza a pintar a esa cuenta el horario de ese docente**. Es la mitad de la función que ya
+> estaba escrita esperando a que alguien rellenara el dato.
+
+**Anterior: 27 ago 2026 — UNA FALTA SIN FECHA YA NO SE PUEDE ESCRIBIR POR
 `ausencias/store`** · el endpoint guardaba `fecha_hora` a null cuando el cliente no la mandaba, y
 una falta sin día **cuenta en los totales del boletín y no sale en ningún listado por día** — el
 calendario de Flutter la descarta con `esDelDia()`. Ahora se rellena con `Reloj::ahora()`
@@ -24,7 +68,7 @@ y una prueba que lee **los dos formatos** en que llega esa columna
 > tres `poner-ausencia` siguen aceptando null**: no escribieron ninguna de las 5.071, pero la
 > puerta está abierta. Las dos cosas, con su medición, en la [§242](05-codigo-muerto-y-roto.md).
 
-**Anterior: 26 ago 2026, tarde — LA PREMATRÍCULA PÚBLICA YA NO DEJA HUÉRFANO
+**Y antes, el 26 ago 2026, tarde — LA PREMATRÍCULA PÚBLICA YA NO DEJA HUÉRFANO
 AL MENOR** · el `1bis(a)` estaba escrito como *«se cierra con una transacción, y eso no
 espera a nadie»*, y **eso es exactamente lo que se hizo**: las cuatro escrituras en
 transacción, y **422 delante de todo** para que el 500 —que en una ruta **pública y sin
@@ -1181,6 +1225,32 @@ números. Lo que cambia es que ahora contestan la pregunta correcta a la primera
   profesor leía «no tienes permiso» cuando lo que faltaba era un campo. Ahora es
   **422 nombrando el campo**, comprobado antes de la guarda.
 
+### Por qué el botón sigue haciendo falta: los informes leen a ciegas — 27 ago
+
+**No sigue ahí porque falte quitarlo, sino porque ningún informe sabe si lo que va
+a imprimir está al día**, así que se pulsa *antes* de imprimir. Censado: **dieciocho
+ficheros de `app/Http/Controllers/` nombran `notas_finales`** y el único que
+pregunta por el sello antes de pintar es `Informes/BoletinesController`, y sólo en
+el boletín individual.
+
+**Y en `app2` pesa más que en la vieja.** La vieja llama a `calcular-grupo-periodo`
+en tres sitios y sólo dos son el botón: el tercero recalcula solo al abrir los
+boletines de un grupo desactualizado. `app2` se trajo el botón y no ese tercero, así
+que **la única defensa allí es acordarse de pulsarlo**.
+
+**Hecho hoy, y sin cablear a propósito**: `DefinitivasDeAsignatura::estadoDelGrupo()`
+contesta lo mismo que `estaDesactualizada()` pero por el grupo entero en **una
+consulta** — medido, **506 → 1** en un grupo de 10 asignaturas × 28 alumnos. Seis
+tests nuevos, y **uno de ellos cazó un fallo de la propia consulta**: con
+`COALESCE(x, 0)` dentro de `GREATEST`, MySQL compara **como números** y
+`2026-08-28 04:16:41` vale 2026, o sea **cero desactualizadas siempre** y sin una
+línea en el log. Detalle y el porqué del centinela, en el [10](10-definitivas.md).
+
+**Lo que espera decisión tuya** es qué hace un informe cuando descubre que está por
+detrás: repararlo antes de pintar (lo único que quita el botón), avisar y no
+escribir, o reparar sólo el periodo abierto. Las tres, con sus contrapartidas, en el
+[10](10-definitivas.md).
+
 ### Lo siguiente
 
 1. **La fase 2**: la migración con los dos índices únicos, la limpieza de
@@ -1199,7 +1269,9 @@ números. Lo que cambia es que ahora contestan la pregunta correcta a la primera
 3. **La fase 5 —quitar los botones «Calcular definitivas per N»— no antes** de que
    las 1–4 estén **desplegadas** y la fase 0 dé cero discrepancias durante un
    periodo completo. Hoy esos botones son el parche con el que un colegio se
-   arregla; quitarlos antes deja el problema y quita el parche.
+   arregla; quitarlos antes deja el problema y quita el parche. **Y falta una condición
+   más, que se vio el 27 ago**: mientras los informes lean a ciegas, el botón es lo
+   único que los pone al día antes de imprimir — la casilla de arriba.
 
 ### Y el orden, que se corrigió el 24 ago
 
@@ -1772,10 +1844,31 @@ solo:
 [DESPLIEGUE.md](../DESPLIEGUE.md) — que hasta hoy decía «no hay tanda pendiente» y era
 falso desde que se fundieron GEMELO-1 y las notas de alumno.
 
-Medido sobre el rango entero (`eb95cbc..HEAD`), no sumando commit a commit: **0
-migraciones, 0 cambios de esquema, 0 de dependencias, 0 en `config/`, las 542 rutas sin
-mover**, y **tres ficheros de `app/`**: `Informes/BolfinalesController`, `NotasController`
-y `Models/Nota`.
+Medido sobre el rango entero (`eb95cbc..HEAD`), no sumando commit a commit: **0 de
+dependencias, 0 en `config/`, 0 en `routes/` — las 542 rutas sin mover**, y **27 ficheros
+de `app/`**. El volcado congelado (`database/schema/`) tampoco se movió, pero **eso no
+significa que no haya cambio de esquema**: hay **UNA migración y es bloqueante**,
+`2026_08_26_100000_interruptores_de_certificados`.
+
+> **Este párrafo decía «0 migraciones, 0 cambios de esquema y tres ficheros de `app/`», y
+> el despliegue se decide leyéndolo.** Esta vez la cifra sí envejeció, que es el caso que
+> no cubre la regla de las cifras que nacen mal: era **cierta al escribirse** en `5e4ec63`
+> —entonces el rango de verdad no tenía migraciones— y **se quedó ahí veinte commits**,
+> entre ellos `acd189b`, que es justo el que añade la migración.
+>
+> **La cifra peligrosa era «0 migraciones»**, porque de este párrafo sale la respuesta a
+> *«¿este despliegue lleva `migrate --force`?»*. Con el código y sin la migración,
+> `Year::datos()` pide `y.usa_consecutivo_certificados` y contesta **500 en todo lo que
+> cuelga de ella** —los trece de `boletines/*` y `bolfinales/*`, `informes/datos`,
+> `piars-config`, `grupos-con-disciplina` y `notas/actuales-alumnos`—, en los quince
+> colegios a la vez. `DESPLIEGUE.md` lo decía bien mientras este lo decía al revés, y
+> **de dos documentos que se contradicen el que se lee primero es este**.
+>
+> **Lo cazó `myvc-front-a2` el 27 ago 2026** chocando de frente con el 500 en su docker
+> —`Unknown column 'y.usa_consecutivo_certificados'`, con el menú Informes de `app2` en
+> blanco—, no leyendo el documento. **Un rango sin desplegar se vuelve a medir entero cada
+> vez que se le añade un commit**, no una vez: lo que envejece no es el commit nuevo, es
+> el resumen del rango.
 
 Dentro está **el boletín final de 3.820 consultas a 455** —la queja de los 24–63 s—, **la
 ficha del alumno que crea las notas que faltan** y **lo del consecutivo de certificados**.
