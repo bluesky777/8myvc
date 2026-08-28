@@ -518,6 +518,7 @@
     "PUT api/uniformes/agregar": "App\\Http\\Controllers\\UniformesController@putAgregar",
     "PUT api/uniformes/eliminar": "App\\Http\\Controllers\\UniformesController@putEliminar",
     "PUT api/uniformes/guardar-cambios": "App\\Http\\Controllers\\UniformesController@putGuardarCambios",
+    "PUT api/users/mi-docente": "App\\Http\\Controllers\\UsersController@putMiDocente",
     "PUT api/users/usernames-check": "App\\Http\\Controllers\\UsersController@putUsernamesCheck",
     "PUT api/votaciones/set-actual": "App\\Http\\Controllers\\VtVotacionesController@putSetActual",
     "PUT api/votaciones/set-in-action": "App\\Http\\Controllers\\VtVotacionesController@putSetInAction",

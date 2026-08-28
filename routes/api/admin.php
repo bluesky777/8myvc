@@ -26,6 +26,7 @@ Route::post('users/crear-administrador', [UsersController::class, 'postCrearAdmi
 Route::post('users/crear-enfermero', [UsersController::class, 'postCrearEnfermero'])->middleware('auth.personal');
 Route::post('users/crear-psicologo', [UsersController::class, 'postCrearPsicologo'])->middleware('auth.personal');
 Route::get('users/export', [UsersController::class, 'getExport'])->middleware('auth.personal');
+Route::put('users/mi-docente', [UsersController::class, 'putMiDocente'])->middleware('auth.personal');
 Route::put('users/usernames-check', [UsersController::class, 'putUsernamesCheck'])->middleware('auth.personal');
 
 // CambiarUsuariosController

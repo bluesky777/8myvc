@@ -34,6 +34,81 @@ class UsersController extends Controller {
 	}
 
 
+	/**
+	 * QUÉ DOCENTE MIRA UNA CUENTA ADMINISTRATIVA, escrito en su propia fila.
+	 *
+	 * `users.profesor_id` existe desde siempre y **nadie la escribía**: las
+	 * dieciséis cuentas de tipo `Usuario` del colegio la tienen en `NULL`, y los
+	 * únicos `UPDATE users` del repositorio tocan contraseña, correo, username y
+	 * `periodo_id`. La columna sí se LEE, y en dos sitios que importan:
+	 * `ContextoDeUsuario` la manda dentro de la sesión —de ahí la lee el front—
+	 * y `ChangeAskedController::getToMe` la usa para pintarle a esa cuenta el
+	 * horario de hoy y el de mañana. O sea que la mitad de la función estaba
+	 * escrita y la puerta para rellenarla no existía. Ésta es esa puerta.
+	 *
+	 * **Por qué se guarda en el servidor y no en el navegador**: el administrador
+	 * entra desde el ordenador de secretaría y desde el suyo, y elegir docente en
+	 * cada uno es la clase de trabajo repetido que la migración existe para
+	 * quitar. Decisión de Joseth, 28 ago 2026.
+	 *
+	 * ────────────────────────────────────────────────────────────────────────
+	 * LAS DOS COMPROBACIONES, Y POR QUÉ NO BASTA CON `auth.personal`
+	 *
+	 *   1. **Sólo `tipo === 'Usuario'`.** Un profesor tiene su identidad en
+	 *      `profesores.id` --por ahí sale su `persona_id`-- y `users.profesor_id`
+	 *      no se mira nunca para él: dejarle escribirla guardaría un dato que no
+	 *      lee nadie y que en la siguiente lectura contradice al que sí se lee.
+	 *   2. **Sólo un profesor CONTRATADO en el año en curso**, con la misma
+	 *      consulta de `ContratosController::postIndex`. Sin esto la columna
+	 *      admite cualquier entero --no hay clave foránea-- y un id inventado
+	 *      dejaría la cuenta apuntando a un profesor que no existe, que es
+	 *      exactamente el contrato huérfano de la §78 con otro nombre.
+	 *
+	 * `null` es una respuesta legítima y no un error: es «ya no miro a nadie», y
+	 * el selector del panel lo manda al limpiarse.
+	 */
+	public function putMiDocente()
+	{
+		$user = User::fromToken();
+
+		if ($user->tipo !== 'Usuario') {
+			return abort(403, 'Sólo una cuenta administrativa elige docente');
+		}
+
+		$pedido 	= Request::input('profesor_id');
+		$profesorId = null;
+
+		if ($pedido !== null && $pedido !== '') {
+			$consulta = 'SELECT p.id
+				from profesores p
+				inner join contratos c on c.profesor_id=p.id and c.year_id=:year_id and c.deleted_at is null
+				where p.id=:profesor_id and p.deleted_at is null';
+
+			$contratado = DB::select($consulta, [
+				':year_id' 		=> $user->year_id,
+				':profesor_id' 	=> $pedido,
+			]);
+
+			if (count($contratado) == 0) {
+				// 422 y no 404: la fila que no está no es la que se pide en la
+				// URL, es la que trae el cuerpo. Es la familia de la §54 al
+				// revés, y el front lo distingue para decir «ese docente no da
+				// clase este año» en vez de «no se pudo guardar».
+				return response()->json([ 'message' => 'Ese docente no está contratado en el año en curso' ], 422);
+			}
+
+			$profesorId = (int) $contratado[0]->id;
+		}
+
+		$now = Carbon::now('America/Bogota');
+
+		DB::update('UPDATE users SET profesor_id=?, updated_by=?, updated_at=? WHERE id=?',
+			[$profesorId, $user->user_id, $now, $user->user_id]);
+
+		return [ 'profesor_id' => $profesorId ];
+	}
+
+
 	public function postCrearAdministrador()
 	{
 		$user 		= User::fromToken();

@@ -358,6 +358,7 @@
         "PUT api/uniformes/agregar",
         "PUT api/uniformes/eliminar",
         "PUT api/uniformes/guardar-cambios",
+        "PUT api/users/mi-docente",
         "PUT api/users/usernames-check",
         "PUT api/votaciones/set-actual",
         "PUT api/votaciones/set-in-action",

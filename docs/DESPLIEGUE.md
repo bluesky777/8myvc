@@ -3,7 +3,7 @@
 **Los comandos de la tanda que toca, y nada más.** Topología, inventario, las siete trampas, el
 bucle del front y lo que trajo cada tanda: [DESPLIEGUE-REFERENCIA.md](DESPLIEGUE-REFERENCIA.md).
 
-## La tanda pendiente: del 25 ago (`eb95cbc`) a hoy — **veintisiete ficheros y UNA migración bloqueante**
+## La tanda pendiente: del 25 ago (`eb95cbc`) a hoy — **veintiocho ficheros, UNA ruta nueva y UNA migración bloqueante**
 
 **La anterior, del 22 al 25 ago, se desplegó el 25 ago en `eb95cbc`**, con sus cuatro migraciones
 y con el mismo hash comprobado en los quince. Qué se le notó a un colegio, fila a fila:
@@ -14,10 +14,10 @@ y con el mismo hash comprobado en los quince. Qué se le notó a un colegio, fil
 | | | recalcular con |
 |---|---|---|
 | Migraciones | **UNA**, y **no es opcional** | `git diff --name-only eb95cbc HEAD -- database/migrations/` |
-| Rutas | **542, sin mover** | `tests/Contrato/Snapshots/rutas.json` |
+| Rutas | **543** — una nueva, `PUT users/mi-docente` (28 ago) | `tests/Contrato/Snapshots/rutas.json` |
 | Dependencias | sin tocar | `git diff --name-only eb95cbc HEAD -- composer.json composer.lock` |
 | `config/` | sin tocar | `git diff --name-only eb95cbc HEAD -- config/` |
-| `app/` | **veintisiete ficheros** — se listan abajo | `git diff --name-only eb95cbc HEAD -- app/` |
+| `app/` | **veintiocho ficheros** — se listan abajo | `git diff --name-only eb95cbc HEAD -- app/` |
 
 > **Esa fila decía ocho, se corrigió a once, y su propia columna derecha da VEINTISÉIS.**
 > (Veintisiete con `AusenciasController`, del 27.) La corrección de once **también se hizo a
@@ -40,6 +40,7 @@ y con el mismo hash comprobado en los quince. Qué se le notó a un colegio, fil
 > Informes/BolfinalesController                  Models/Matricula · Models/Nota
 >                                                Models/Unidad · Models/Year
 > Services/DefinitivasDeAsignatura               Services/Notificaciones/TemasDeNotificacion
+> Controllers/UsersController
 > ```
 >
 > **El despliegue no cambia por esto**: el bucle del paso 1 hace `git pull` del árbol entero, no
@@ -68,6 +69,7 @@ y con el mismo hash comprobado en los quince. Qué se le notó a un colegio, fil
 | **El consecutivo y el folio pasan a ser OPCIONALES por colegio.** Nada cambia de aspecto: cada colegio arranca como está hoy. Lo que cambia es que **el que no imprime el número deja de gastarlo** — hasta ahora su contador subía solo en cada apertura | [`21 §4`](migracion/21-certificados-y-folios.md) |
 | **La prematrícula pública deja de escribir la ficha de un menor a medias.** Con un grupo que falta o que no existe contestaba **500 con la ficha ya escrita** —sin matrícula y sin cuenta—, y **el reintento daba un 200 mintiendo**: *«Ya existe el alumno, entre con su cuenta»* por una cuenta que nunca se creó. Ahora es **422 antes de escribir nada**, y las cuatro escrituras van en transacción. *Los huérfanos ya escritos **no los toca**: eso es del colegio* | `05 §236` |
 | **Una falta anotada sin fecha deja de quedarse sin día.** Contaba en los totales del boletín y no salía en ningún listado por día —el calendario de la app la descarta—. Sólo las nuevas: **las 5.071 que ya hay en la copia de un colegio no las toca** | `05 §242` |
+| **La cuenta administrativa puede decir qué docente mira, y queda guardado en su fila.** `users.profesor_id` existía y **no la escribía nadie** —las dieciséis cuentas de tipo `Usuario` la tienen en `NULL`—; ahora `PUT users/mi-docente` la rellena. **Efecto secundario querido, y hay que saberlo: el panel VIEJO le empezará a pintar a esa cuenta el horario de hoy y el de mañana de ese docente**, porque `ChangeAskedController::getToMe` ya leía esa columna | `UsersController::putMiDocente` |
 | **El folio deja de fabricarse.** Ya no se escribe `año-alumno_id` al matricular, y `GET folios/iniciar` —que llenaba todos los huecos del año de una sentencia, y **no lo llama ningún cliente**— contesta 409. Los folios ya escritos **se quedan**: borrarlos cambia lo impreso y es decisión aparte | [`21 §4.3`](migracion/21-certificados-y-folios.md) |
 
 ### Lo que hay que decirle al front el día que esto se despliegue
@@ -90,6 +92,7 @@ y con el mismo hash comprobado en los quince. Qué se le notó a un colegio, fil
 | **D** | `login/crear-prematricula` **cambia el 500 por un 422** con mensaje | **NO REQUIERE TRABAJO DEL FRONT** — medido, no supuesto |
 | **E** | `GET notificaciones/temas`: **`colegio` pasa de lista a objeto**, y sus dos temas ahora llevan hash por colegio | **ES DE FLUTTER, y lo pidieron ellos** — no afecta a `myvc_front` ni a `app2` |
 | **F** | `POST ausencias/store` **rellena `fecha_hora` cuando no se manda**, y la contesta **en ISO** | **NO REQUIERE TRABAJO DEL FRONT** — `app2` ya lee los dos formatos, y con su prueba |
+| **G** | **`PUT users/mi-docente` es NUEVA**, y `app2` ya la llama desde la portada del panel | **EL FRONT YA ESTÁ ESCRITO Y ESPERA A ESTO** — hasta que el colegio tenga este despliegue, elegir docente **funciona en pantalla y avisa de que no quedó guardado** (404). Ver abajo |
 
 **Ninguno se entera solo, y A y B son de las de «quién puede llamarla».** El detalle en
 [`cert-2 §6`](migracion/noche-2026-08-26/cert-2.md) y el reparto completo de qué hace el
@@ -145,6 +148,19 @@ backend y qué les toca a ellos en `myvc_front/TAREAS-AUDITORIA-CERTIFICADOS.md`
    > **Ojo al orden, que aquí sí importa:** esto es del front y **su despliegue es otro bucle**
    > —`up/`, un `git pull` de `myvc_dist`—. El 422 del backend y estos dos arreglos **no tienen
    > que salir juntos**: son independientes en las dos direcciones.
+
+6. **`PUT users/mi-docente` es una ruta NUEVA** —la primera desde las tres de `myvc_flutter` del
+   24— y escribe `users.profesor_id` de la cuenta que la llama. **Sólo cuentas de tipo `Usuario`**
+   (un profesor recibe 403: su identidad sale de `profesores.id`, no de esa columna) y **sólo un
+   profesor contratado en el año en curso** (si no, 422 — la columna no tiene clave foránea, así
+   que la comprobación tiene que estar aquí).
+
+   > **El orden aquí SÍ importa, y al revés que el del 422 de arriba:** `app2` **ya la llama**,
+   > desde el botón de docente de la portada del panel. En un colegio con el front nuevo y sin
+   > este despliegue, elegir docente **funciona en pantalla** —se ven sus asignaturas— y sale un
+   > aviso de que no quedó guardado, porque la ruta contesta 404. No se rompe nada más; lo que
+   > no dura es la elección. **Este backend va antes que ese front, o el aviso lo ve el
+   > administrador el primer día.**
 
 ### Y la tabla de arriba se remide, no se suma
 

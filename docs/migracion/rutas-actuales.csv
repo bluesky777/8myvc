@@ -104,6 +104,7 @@ POST,users/crear-administrador,"App\Http\Controllers\UsersController",postCrearA
 POST,users/crear-enfermero,"App\Http\Controllers\UsersController",postCrearEnfermero
 POST,users/crear-psicologo,"App\Http\Controllers\UsersController",postCrearPsicologo
 GET,users/export,"App\Http\Controllers\UsersController",getExport
+PUT,users/mi-docente,"App\Http\Controllers\UsersController",putMiDocente
 PUT,users/usernames-check,"App\Http\Controllers\UsersController",putUsernamesCheck
 PUT,cambiar-usuarios/poner-documento-como-username-acudientes,"App\Http\Controllers\CambiarUsuarios\CambiarUsuariosController",putPonerDocumentoComoUsernameAcudientes
 PUT,cambiar-usuarios/poner-documento-como-username-alumnos,"App\Http\Controllers\CambiarUsuarios\CambiarUsuariosController",putPonerDocumentoComoUsernameAlumnos
