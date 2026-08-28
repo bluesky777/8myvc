@@ -326,6 +326,30 @@ class Nota extends Model {
 					}
 				}
 
+				// **El divisor son TODAS las asignaturas, monten unidades o no, y eso
+				// es una decisión de Joseth del 28 ago 2026** — no el descuido que
+				// parece.
+				//
+				// Se le planteó separando los dos casos, porque no son el mismo: (a) la
+				// asignatura está montada y este alumno no tiene nota, y (b) **nadie
+				// montó el periodo en esa asignatura**, así que no hay nada que
+				// calificar para nadie del grupo. Su regla es que **las dos bajan el
+				// promedio**, sin distinguir por qué falta la definitiva. Descartó
+				// expresamente «si no hay unidades, no cuenta».
+				//
+				// O sea que el promedio de los treinta baja por una asignatura que el
+				// docente no montó, y está elegido con eso escrito delante.
+				//
+				// **Filtrar aquí por «las que tienen nota» deshace esa decisión**, y es
+				// lo que uno hace al leer esta línea sin el contexto. Si algún día hay
+				// que cambiarlo, se cambia con una frase suya nueva, no con este
+				// comentario.
+				//
+				// Nada de esto lo movió la guarda de «sin unidades no se escribe» del
+				// 28 ago (`DefinitivasDeAsignatura`): `Grupo::detailed_materias_notafinal`
+				// es un `LEFT JOIN`, así que la asignatura sigue en la lista aunque su
+				// definitiva ya no exista, y un `null` suma 0 igual que el cero que antes
+				// se inventaba. **Mismo numerador, mismo divisor, mismo número.**
 				$sumatoria_asignaturas_per += $asignatura->nota_asignatura; // Para sacar promedio del periodo
 				
 				$asignatura->ausencias	= Ausencia::deAlumno($asignatura->asignatura_id, $alumno_id, $periodo->id);

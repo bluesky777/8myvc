@@ -250,7 +250,55 @@ class DefinitivasDeAsignatura
                     'porcentaje_unidades' => 0.0, 'definitiva' => null];
             }
 
-            $calculadas = self::calcular($asignaturaId, $periodoId);
+            // **Sin unidades no se escribe nada.** Decisión de Joseth, 28 ago 2026,
+            // y es lo que separa la regla 1 de su efecto secundario.
+            //
+            // La regla 1 —los alumnos salen de `matriculas`, no de `notas`— existe
+            // para que **un alumno sin ninguna nota conserve su fila**, que es lo que
+            // los seis escritores viejos no hacen. Pero cuando la asignatura no tiene
+            // NINGUNA unidad en el periodo, esa misma regla escribe **una definitiva a
+            // cero por cada matriculado** sobre un periodo que nadie ha montado.
+            //
+            // Y no es hipotético: `UnidadesController::deleteDestroy` llama a
+            // `recalcularPorUnidad` **después** del borrado —a propósito, porque quitar
+            // una unidad cambia los pesos de las demás—, así que **borrar la última
+            // unidad de un periodo escribía treinta ceros firmados por quien la borró**.
+            // Medido el 28 ago 2026 sobre la asignatura 1300 del grupo 104:
+            // `escritas=30`, las 31 definitivas del periodo a cero. Lo cuenta entero
+            // `docs/migracion/noche-2026-08-28/desact-1.md` §5.
+            //
+            // **Los dos casos se distinguen aquí y hay que no confundirlos**, porque dan
+            // el mismo síntoma —una definitiva a cero— por motivos opuestos:
+            //
+            //   - *no hay unidades*        -> no se escribe. Esto.
+            //   - *hay unidades y este alumno no tiene notas* -> **se escribe el cero**,
+            //     que es la regla 1 y sigue intacta.
+            //
+            // **Se pregunta por las unidades y NO por `porcentajeDeLasUnidades()`**,
+            // aunque la decisión se enunciara como «porcentaje 0» y hoy las dos den lo
+            // mismo (0 pares de 3.930 con unidades vivas sumando 0). Por dos razones, y
+            // ninguna es el dato:
+            //
+            //   1. **el esquema no impide `porcentaje = 0`**, y una medición usada como
+            //      guardián es lo que este repositorio ya pagó una noche;
+            //   2. ese método es **la única de las 59 lecturas sin acotar** al boletín
+            //      independiente, con su rojo puesto en
+            //      `PorcentajeDeUnidadesConIndependienteTest`. Colgar de él la decisión
+            //      de escribir sería atar una escritura a un número que ya se sabe que
+            //      con dos boletines no tiene una sola respuesta.
+            //
+            // **No borra lo que ya hubiera**: la decisión fue «sin unidades no se
+            // escribe», no «se limpia». La limpieza de lo viejo la hace el botón de
+            // Informes, que ya la hace.
+            $hayUnidades = DB::selectOne(
+                'SELECT EXISTS (SELECT 1 FROM unidades
+                    WHERE asignatura_id = ? AND periodo_id = ? AND deleted_at IS NULL) AS hay',
+                [$asignaturaId, $periodoId]
+            );
+
+            $calculadas = $hayUnidades->hay
+                ? self::calcular($asignaturaId, $periodoId)
+                : [];
 
             if ($soloAlumno !== null) {
                 $calculadas = array_values(array_filter(
@@ -413,8 +461,33 @@ class DefinitivasDeAsignatura
                     COALESCE(c.notas, 0) AS notas
                FROM asignaturas a
                INNER JOIN grupos g ON g.id = a.grupo_id AND g.deleted_at IS NULL
+               -- **Sin filtro de `m.estado`, y es una decisión de Joseth del 28 ago 2026**,
+               -- no un descuido: *«el recálculo debe cubrir a todos los alumnos, incluidos
+               -- los que se fueron»*. Aquí decía `m.estado IN ("MATR","ASIS")`.
+               --
+               -- Lo que lo trajo: el botón `calcular-grupo-periodo` **borra** las
+               -- automáticas del grupo sin mirar la matrícula y **repone** a todo el que
+               -- tenga notas, así que hoy cubre a los retirados. Esta clase es la fase 3 —
+               -- la que lo sustituye—, y con el filtro puesto la sustitución le quitaba la
+               -- definitiva a **6.435 pares (alumno, asignatura) de 314 retirados** sin un
+               -- solo error: sólo un alumno que deja de tener nota. Medido y contado en
+               -- `docs/migracion/noche-2026-08-28/desact-1.md` §6.
+               --
+               -- **Y NO es «igual que los informes», aunque así se enunciara.** Se le
+               -- planteó con la medición delante: el boletín (`BoletinesController:435`) y
+               -- `Grupo::alumnos` admiten `MATR`, `ASIS` y `PREM` — **los informes no
+               -- enseñan a los retirados**. Esto es *más* que los informes, elegido a
+               -- sabiendas: la definitiva de quien se fue se conserva aunque su boletín no
+               -- se imprima. Quien venga a «alinearlo con los informes» estaría
+               -- deshaciendo la decisión, no completándola.
+               --
+               -- **El duplicado que esto podría abrir, medido**: `matriculas` no tiene
+               -- clave única sobre `(alumno_id, grupo_id)`, así que sin el filtro de estado
+               -- un alumno con dos matrículas vivas en el mismo grupo daría dos filas aquí.
+               -- Hoy son **0 pares de 3.542**, con el filtro y sin él. Y no se apoya en ese
+               -- dato: `recalcular()` decide **por si la fila existe**, así que la segunda
+               -- vuelta actualiza en vez de insertar y no puede nacer una gemela.
                INNER JOIN matriculas m ON m.grupo_id = g.id AND m.deleted_at IS NULL
-                    AND m.estado IN ("MATR", "ASIS")
                LEFT JOIN bol_ind_periodos bip
                     ON bip.alumno_id = m.alumno_id AND bip.periodo_id = ?
                LEFT JOIN (
