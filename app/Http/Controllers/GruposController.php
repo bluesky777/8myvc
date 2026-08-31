@@ -328,6 +328,26 @@ class GruposController extends Controller {
 	}
 
 
+	/**
+	 * Los grupos con su cantidad de alumnos, el desglose por sexo y el movimiento
+	 * de cada periodo.
+	 *
+	 * LOS TRES CONTADORES CUENTAN LO MISMO --ASIS y MATR-- Y ESO ES EL ARREGLO
+	 * del 31 ago 2026. Hasta hoy los tres sumaban tambien PREM mientras
+	 * `getCantAlumnos` no lo hacia, y la portada de `app2` junta las dos
+	 * respuestas: la columna «Alumnos» de la primera con «Hom» y «Muj» de esta.
+	 * En lal eso pintaba 199 matriculados y 126+95=221 por sexo --los 22
+	 * prematriculados-- y no habia forma de verlo desde la pantalla.
+	 *
+	 * Se quito de los tres, no solo de los dos del sexo: el informe impreso
+	 * «Cantidad de alumnos por grupos» pinta las tres cifras en la MISMA hoja, y
+	 * dejar `cant_alumnos` con PREM habria trasladado el descuadre ahi. El precio
+	 * es que ese informe baja 22 alumnos en lal, que es la cifra correcta.
+	 *
+	 * Lo que NO se toco: `periodos_matr` no filtra por estado --cuenta hasta los
+	 * RETI y los FORM-- y usa `>` y `<` estrictos donde los totales usan `>=` y
+	 * `<=`. Son dos decisiones distintas y ninguna es esta.
+	 */
 	public function putConCantidadAlumnos()
 	{
 		$user = User::fromToken();
@@ -336,7 +356,7 @@ class GruposController extends Controller {
 						g.created_at, g.updated_at, count(m.id) as cant_alumnos,
 						p.foto_id, IFNULL(i.nombre, IF(p.sexo="F","default_female.png", "default_male.png")) as foto_nombre 
 					from grupos g
-					INNER JOIN matriculas m ON m.grupo_id=g.id and m.deleted_at is null and (m.estado="PREM" or m.estado="ASIS" or m.estado="MATR")
+					INNER JOIN matriculas m ON m.grupo_id=g.id and m.deleted_at is null and (m.estado="ASIS" or m.estado="MATR")
 					INNER JOIN alumnos a ON a.id=m.alumno_id and a.deleted_at is null
 					left join profesores p on p.id=g.titular_id
 					LEFT JOIN images i on i.id=p.foto_id and i.deleted_at is null
@@ -392,7 +412,7 @@ class GruposController extends Controller {
 			// Cantidad de hombres
 			$consulta = 'SELECT count(m.id) as cant_alumnos, g.nombre, g.id
 				from grupos g
-				INNER JOIN matriculas m ON m.grupo_id=g.id and m.deleted_at is null and (m.estado="PREM" or m.estado="MATR" or m.estado="ASIS")
+				INNER JOIN matriculas m ON m.grupo_id=g.id and m.deleted_at is null and (m.estado="MATR" or m.estado="ASIS")
 				INNER JOIN alumnos a ON a.id=m.alumno_id and a.deleted_at is null and a.sexo="M"
 				where g.deleted_at is null and g.id=?';
 						
@@ -404,7 +424,7 @@ class GruposController extends Controller {
 			// Cantidad de mujeres
 			$consulta = 'SELECT count(m.id) as cant_alumnos, g.nombre, g.id
 				from grupos g
-				INNER JOIN matriculas m ON m.grupo_id=g.id and m.deleted_at is null and (m.estado="PREM" or m.estado="MATR" or m.estado="ASIS")
+				INNER JOIN matriculas m ON m.grupo_id=g.id and m.deleted_at is null and (m.estado="MATR" or m.estado="ASIS")
 				INNER JOIN alumnos a ON a.id=m.alumno_id and a.deleted_at is null and a.sexo="F"
 				where g.deleted_at is null and g.id=?';
 						

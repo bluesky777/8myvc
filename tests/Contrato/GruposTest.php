@@ -23,8 +23,8 @@ class GruposTest extends CasoDeContrato
      * columnas, y cada pantalla usa la suya. Ponerlas en un proveedor es lo que
      * hace visible que `getIndex`, `getCantAlumnos` y `putConCantidadAlumnos`
      * devuelven listas de grupos con columnas distintas: la primera no trae
-     * `cant_alumnos`, la segunda cuenta solo ASIS y MATR, y la tercera cuenta
-     * también PREM y añade la foto del titular.
+     * `cant_alumnos`, y la tercera añade el desglose por sexo y la foto del
+     * titular. Las dos que cuentan cuentan lo mismo desde el 31 ago 2026.
      */
     public static function lecturas(): array
     {
@@ -121,18 +121,30 @@ class GruposTest extends CasoDeContrato
     }
 
     /**
-     * Las tres listas de grupos cuentan poblaciones distintas, y a propósito.
+     * Las dos cuentas de alumnos cuentan lo mismo, y un PREM no suma en ninguna.
      *
-     * `cant-alumnos` cuenta ASIS y MATR; `con-cantidad-alumnos` cuenta además
-     * PREM. Dos números con el mismo nombre en dos pantallas distintas es
-     * exactamente lo que hace que alguien diga «los datos no cuadran», así que
-     * la diferencia queda escrita en vez de deducirse leyendo dos SQL de quince
-     * líneas.
+     * Hasta el 31 ago 2026 no era así: `con-cantidad-alumnos` sumaba también los
+     * prematriculados y `cant-alumnos` no, y este test fijaba esa diferencia como
+     * deliberada. La portada de `app2` junta las dos respuestas —la columna
+     * «Alumnos» de una con «Hom» y «Muj» de la otra—, así que en lal la tabla
+     * decía 199 matriculados y 126+95=221 por sexo. Dos números con el mismo
+     * nombre en la misma fila no es una diferencia que nadie pueda sostener
+     * leyendo la pantalla: se unificaron los tres contadores a ASIS y MATR.
+     *
+     * Se comprueban las dos direcciones, porque una sola no basta: que el PREM no
+     * entre en ninguna de las dos cuentas, y que dentro de la segunda el
+     * desglose por sexo sume exactamente su propio total —que es la resta que
+     * hizo visible el fallo—.
      */
-    public function test_las_dos_cuentas_de_alumnos_no_cuentan_lo_mismo(): void
+    public function test_las_dos_cuentas_de_alumnos_cuentan_lo_mismo(): void
     {
         [$grupo, $token] = $this->grupoYPersonal();
         $cab = ['Authorization' => 'Bearer '.$token];
+
+        $antes = collect($this->getJson('/api/grupos/cant-alumnos', $cab)->json())
+            ->firstWhere('id', $grupo->id)['cant_alumnos'];
+
+        $this->assertGreaterThan(0, $antes, 'El grupo del seed necesita alumnos para este test.');
 
         DB::update('UPDATE matriculas SET estado = "PREM"
             WHERE id = (SELECT id FROM (SELECT MIN(m.id) id FROM matriculas m
@@ -144,11 +156,15 @@ class GruposTest extends CasoDeContrato
 
         // Esta devuelve {grupos, periodos_total}, no una lista: es la única de las
         // tres que además trae el movimiento por periodo de cada grupo.
-        $conPrem = collect($this->putJson('/api/grupos/con-cantidad-alumnos', [], $cab)->json('grupos'))
-            ->firstWhere('id', $grupo->id)['cant_alumnos'];
+        $fila = collect($this->putJson('/api/grupos/con-cantidad-alumnos', [], $cab)->json('grupos'))
+            ->firstWhere('id', $grupo->id);
 
-        $this->assertSame($sinPrem + 1, $conPrem,
-            'Las dos cuentas de alumnos dejaron de diferenciarse en los prematriculados.');
+        $this->assertSame($antes - 1, $sinPrem,
+            'Prematricular a un alumno tiene que restarlo de cant-alumnos.');
+        $this->assertSame($sinPrem, $fila['cant_alumnos'],
+            'Las dos cuentas de alumnos volvieron a contar poblaciones distintas.');
+        $this->assertSame($fila['cant_alumnos'], $fila['cant_hombres'] + $fila['cant_mujeres'],
+            'El desglose por sexo no suma el total del propio grupo.');
     }
 
     // ------------------------------------------------------------- El listado
