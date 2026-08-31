@@ -146,17 +146,26 @@ class LoQueDecideUnRolTest extends CasoDeContrato
         $this->assertNotNull($sinRol,
             'El seed tiene que traer un Usuario sin superusuario y sin ningún rol.');
 
-        // `GET api/profesores` lleva `auth.personal`, comprobado en `routes/api/`
+        // `GET api/roles` lleva `auth.personal`, comprobado en `routes/api/admin.php`
         // y no supuesto: el primer intento de este test usó `GET api/grupos`, que
         // **no lo lleva** —es uno de los catálogos que el 08 dejó abiertos a la
         // espera de decisión, y `AutorizacionTest` ya lo tiene anotado así—. Con
         // ella el caso salía 200 para un alumno y parecía que el guard no existía.
+        //
+        // **Era `GET api/profesores` hasta la §243**, y dejó de servir el día que esa
+        // ruta pasó a exigir además `esAdministrativo`: el sujeto de este test es un
+        // `Usuario` **sin ningún rol y sin superusuario**, o sea exactamente quien la
+        // §243 empezó a rechazar. El test no medía mal —medía otra cosa desde el
+        // momento en que su ruta dejó de ser sólo `auth.personal`—, y la pregunta que
+        // sí quiere contestar es si el guard del personal mira roles. Se cambia por un
+        // catálogo que **no es una ficha de personas**, para que la próxima tanda de la
+        // familia del §234 no vuelva a moverlo: `roles` no tiene a quién exponer.
         $this->withToken($this->tokenDe($sinRol->username))
-            ->getJson('/api/profesores')->assertStatus(200);
+            ->getJson('/api/roles')->assertStatus(200);
 
         foreach (['Alumno', 'Acudiente'] as $tipo) {
             $this->withToken($this->tokenDe($this->usuarioDeTipo($tipo)->username))
-                ->getJson('/api/profesores')->assertStatus(403);
+                ->getJson('/api/roles')->assertStatus(403);
         }
     }
 }

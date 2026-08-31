@@ -115,7 +115,16 @@ class Asignatura extends Model {
 		}
 
 
-		$asignatura->nota_asignatura = round($nota_asignatura); // Definitiva de la materia
+		// Sin `round()` desde la migración `2026_08_30_200000_notas_finales_en_decimal`.
+		//
+		// Este método **no escribe**: lo llaman seis lectores —planillas, detalles,
+		// editnota, notas perdidas, planillas de ausencias y `Nota::alumnoAsignaturas`—
+		// y aun así el redondeo de aquí es el mismo defecto una planta más arriba:
+		// `Nota:439` suma esta definitiva de los cuatro periodos y la divide, así que
+		// redondear **antes** de promediar volvía a empatar el promedio del año igual
+		// que lo hacía la columna. Y es lo que hacía que la planilla y el boletín
+		// dijeran números distintos del mismo alumno.
+		$asignatura->nota_asignatura = $nota_asignatura; // Definitiva de la materia
 
 		return $asignatura;
 	}

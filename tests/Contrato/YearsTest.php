@@ -180,8 +180,10 @@ class YearsTest extends CasoDeContrato
         $this->assertSame($antes, $this->actuales(),
             'Crear un año que no es el actual no debe tocar cuál lo es.');
 
-        // Y el año nuevo nace con su primer periodo, que es lo que lo hace usable.
-        $this->assertSame(1, DB::table('periodos')->where('year_id', $r->json('id'))->count());
+        // Y el año nuevo nace con sus cuatro periodos, que es lo que lo hace usable.
+        // Era **uno** hasta el 30 ago 2026; lo que traen dentro lo mide
+        // `test_el_ano_nuevo_nace_con_cuatro_periodos`.
+        $this->assertSame(4, DB::table('periodos')->where('year_id', $r->json('id'))->count());
     }
 
     /** Y pidiéndolo actual, se queda solo él. */
@@ -400,8 +402,14 @@ class YearsTest extends CasoDeContrato
                 "Con el año anterior en la papelera no se copia nada, y {$tabla} trajo filas.");
         }
 
-        // Lo único que sí nace: su primer periodo, que va antes del bloque.
-        $this->assertSame(1, DB::table('periodos')->where('year_id', $nuevo)->count());
+        // Lo único que sí nace: sus cuatro periodos, que están fuera del bloque. Eran
+        // **uno** hasta el 30 ago 2026, y sin fechas; ahora son cuatro y con las que
+        // calcula `CalendarioDePeriodos` — sin año del que copiar, calendario A, que
+        // es el defecto del esquema.
+        $this->assertSame(4, DB::table('periodos')->where('year_id', $nuevo)->count());
+        $this->assertSame(0, DB::table('periodos')->where('year_id', $nuevo)
+            ->where(fn ($q) => $q->whereNull('fecha_inicio')->orWhereNull('fecha_fin'))->count(),
+            'Un año creado sin anterior del que copiar también tiene que traer sus cuatro fechas.');
     }
 
     /** Los conmutadores del boletín guardan lo que dicen que guardan. */
@@ -722,5 +730,402 @@ class YearsTest extends CasoDeContrato
 
         $this->assertSame((int) $year->actual,
             (int) DB::table('years')->where('id', $year->id)->value('actual'));
+    }
+
+    /** Los cuatro periodos del año nuevo, tal como salen de la base. @return list<object> */
+    private function periodosDe(int $year_id): array
+    {
+        return DB::select('SELECT * FROM periodos WHERE year_id=? AND deleted_at IS NULL ORDER BY numero', [$year_id]);
+    }
+
+    /** El id del año creado a partir del último vivo. */
+    private function crearElAnioSiguiente(): int
+    {
+        $ultimo = DB::selectOne('SELECT id, year FROM years WHERE deleted_at IS NULL ORDER BY year DESC LIMIT 1');
+
+        $r = $this->withToken($this->tokenDelPersonal())->postJson('/api/years/store',
+            $this->cuerpoDeAnioNuevo(((int) $ultimo->year) + 1, false));
+        $r->assertStatus(200);
+
+        return (int) $r->json('id');
+    }
+
+    /** Le pone al año `$year_id` cuatro periodos con las fechas dadas, y jubila los que tuviera. */
+    private function ponerleElCalendario(int $year_id, array $rangos): void
+    {
+        // A la papelera, y no `delete()`: `users.periodo_id` cuelga de `periodos` con
+        // `ON DELETE CASCADE`, así que borrar un periodo de verdad **se lleva por
+        // delante a los usuarios que estén parados en él** y ahí choca contra la clave
+        // ajena de `alumnos`. Y da igual para lo que se mide: `postStore` lee los del
+        // año anterior filtrando `deleted_at`, que es lo mismo que hacen todos.
+        DB::table('periodos')->where('year_id', $year_id)->update(['deleted_at' => now()]);
+
+        foreach ($rangos as $i => [$inicio, $fin]) {
+            DB::table('periodos')->insert([
+                'numero' => $i + 1,
+                'fecha_inicio' => $inicio,
+                'fecha_fin' => $fin,
+                'actual' => $i === 0 ? 1 : 0,
+                'year_id' => $year_id,
+            ]);
+        }
+    }
+
+    /**
+     * Crear un año crea **cuatro** periodos, y hasta el 30 ago 2026 creaba uno.
+     *
+     * `postStore` insertaba `numero=1, actual=1` y nada más: ni fechas, ni
+     * `created_at`, ni `created_by`. El resultado está en la base del colegio del
+     * seed — sus ocho años viejos tienen los cuatro periodos, puestos a mano uno a
+     * uno después, y **el único año creado por esta ruta tiene uno**—, y de ahí sale
+     * lo demás: `years/useractive` contesta 400 «Año sin ningún periodo» en cuanto
+     * alguien borra ese único, y el acta de evaluación no puede repartir una sola
+     * falta porque reparte contra `fecha_inicio` y `fecha_fin`.
+     *
+     * Cuatro es decisión de Joseth (30 ago 2026), no una lectura del año anterior.
+     */
+    public function test_el_ano_nuevo_nace_con_cuatro_periodos(): void
+    {
+        $nuevo = $this->crearElAnioSiguiente();
+        $periodos = $this->periodosDe($nuevo);
+
+        $this->assertCount(4, $periodos);
+        $this->assertSame([1, 2, 3, 4], array_map(fn ($p) => (int) $p->numero, $periodos));
+
+        // Uno solo actual, y el primero. Con un periodo esto se cumplía solo; con
+        // cuatro hay que decirlo, porque dos actuales dejan a
+        // `Login::ponerEnElPeriodoActual` eligiendo por el orden en que salgan.
+        $this->assertSame([1, 0, 0, 0], array_map(fn ($p) => (int) $p->actual, $periodos));
+
+        foreach ($periodos as $periodo) {
+            $this->assertNotNull($periodo->fecha_inicio, "El periodo {$periodo->numero} nació sin fecha de inicio.");
+            $this->assertNotNull($periodo->fecha_fin, "El periodo {$periodo->numero} nació sin fecha de fin.");
+            $this->assertNotNull($periodo->created_at, "El periodo {$periodo->numero} nació sin created_at.");
+            $this->assertNotNull($periodo->created_by, "El periodo {$periodo->numero} nació sin created_by.");
+            $this->assertLessThan($periodo->fecha_fin, $periodo->fecha_inicio);
+        }
+
+        // En orden y sin solaparse: el acta de evaluación mete cada falta en el
+        // periodo cuyo rango la contiene, y con dos rangos solapados la metería en el
+        // primero que mire.
+        for ($i = 1; $i < 4; $i++) {
+            $this->assertGreaterThan($periodos[$i - 1]->fecha_fin, $periodos[$i]->fecha_inicio,
+                "El periodo {$periodos[$i]->numero} empieza antes de que acabe el anterior.");
+        }
+    }
+
+    /**
+     * La respuesta trae los periodos, que es lo que la pantalla necesita para pintar
+     * el año que acaba de crear.
+     *
+     * `YearsCtrl.crearNewYear` hace `$ctrl.years.push(r)` con la respuesta tal cual, y
+     * `years.html` recorre `year.periodos`. Hasta hoy la respuesta no traía ninguno
+     * —los creaba y no los devolvía—, así que el año recién creado aparecía en la
+     * lista **sin periodos** hasta recargar la pantalla. `getIndex` sí los adjunta.
+     */
+    public function test_la_respuesta_de_crear_trae_los_periodos(): void
+    {
+        $ultimo = DB::selectOne('SELECT id, year FROM years WHERE deleted_at IS NULL ORDER BY year DESC LIMIT 1');
+
+        $r = $this->withToken($this->tokenDelPersonal())->postJson('/api/years/store',
+            $this->cuerpoDeAnioNuevo(((int) $ultimo->year) + 1, false));
+
+        $r->assertStatus(200);
+        $this->assertCount(4, $r->json('periodos'));
+        $this->assertSame([1, 2, 3, 4], array_map('intval', array_column($r->json('periodos'), 'numero')));
+    }
+
+    /**
+     * Si el año anterior tiene su calendario completo, se traslada: mismo día de la
+     * semana y misma duración, no un `+1 año` a secas.
+     *
+     * Un `+1 año` literal mueve el día de la semana —365 días son 52 semanas y **un
+     * día**—, así que el periodo que empezaba lunes empezaría martes, al año siguiente
+     * miércoles, y al cabo de tres el año lectivo arrancaría en sábado.
+     */
+    public function test_los_periodos_heredan_el_calendario_del_ano_anterior(): void
+    {
+        $ultimo = DB::selectOne('SELECT id, year FROM years WHERE deleted_at IS NULL ORDER BY year DESC LIMIT 1');
+
+        // Lunes a viernes las cuatro, para que el traslado se pueda comprobar a ojo.
+        $rangos = [
+            ['2025-01-20', '2025-03-28'],
+            ['2025-03-31', '2025-06-13'],
+            ['2025-07-07', '2025-09-19'],
+            ['2025-09-22', '2025-11-28'],
+        ];
+        DB::table('years')->where('id', $ultimo->id)->update(['year' => 2025]);
+        $this->ponerleElCalendario((int) $ultimo->id, $rangos);
+
+        $r = $this->withToken($this->tokenDelPersonal())->postJson('/api/years/store',
+            $this->cuerpoDeAnioNuevo(2026, false));
+        $r->assertStatus(200);
+
+        $periodos = $this->periodosDe((int) $r->json('id'));
+        $this->assertCount(4, $periodos);
+
+        foreach ($periodos as $i => $periodo) {
+            [$inicio_ant, $fin_ant] = $rangos[$i];
+
+            $inicio = new \DateTimeImmutable($periodo->fecha_inicio);
+            $fin = new \DateTimeImmutable($periodo->fecha_fin);
+
+            $this->assertSame('2026', $inicio->format('Y'), 'El periodo se quedó en el año viejo.');
+            $this->assertSame((new \DateTimeImmutable($inicio_ant))->format('N'), $inicio->format('N'),
+                "El periodo {$periodo->numero} cambió de día de la semana al trasladarse.");
+            $this->assertSame((new \DateTimeImmutable($fin_ant))->format('N'), $fin->format('N'));
+
+            // Y la duración exacta, al día: es lo que se pierde si cada fecha se ajusta
+            // por su cuenta y una de las dos cruza el 29 de febrero y la otra no.
+            $this->assertSame(
+                (new \DateTimeImmutable($inicio_ant))->diff(new \DateTimeImmutable($fin_ant))->days,
+                $inicio->diff($fin)->days,
+                "El periodo {$periodo->numero} cambió de duración al trasladarse.");
+        }
+    }
+
+    /**
+     * Y si el año anterior **no** tiene fechas, se calculan. Es el caso normal: de los
+     * nueve años del seed, sólo tres las tienen, y ninguno desde 2021.
+     */
+    public function test_sin_fechas_en_el_anterior_el_calendario_se_calcula(): void
+    {
+        $ultimo = DB::selectOne('SELECT id, year FROM years WHERE deleted_at IS NULL ORDER BY year DESC LIMIT 1');
+
+        DB::table('years')->where('id', $ultimo->id)->update(['year' => 2025, 'calendario' => 'A']);
+        DB::table('periodos')->where('year_id', $ultimo->id)
+            ->update(['fecha_inicio' => null, 'fecha_fin' => null]);
+
+        $r = $this->withToken($this->tokenDelPersonal())->postJson('/api/years/store',
+            $this->cuerpoDeAnioNuevo(2026, false));
+        $r->assertStatus(200);
+
+        $periodos = $this->periodosDe((int) $r->json('id'));
+
+        // Calendario A: del tercer lunes de enero al último viernes de noviembre,
+        // partido en cuatro con dos semanas de receso entre el segundo y el tercero.
+        $this->assertSame(
+            [['2026-01-19', '2026-04-03'], ['2026-04-06', '2026-06-19'],
+                ['2026-07-06', '2026-09-18'], ['2026-09-21', '2026-11-27']],
+            array_map(fn ($p) => [$p->fecha_inicio, $p->fecha_fin], $periodos));
+    }
+
+    /**
+     * Un calendario **a medias** en el año anterior se calcula entero, no se traslada
+     * a medias.
+     *
+     * En la base hay años exactamente así: uno tiene un periodo con `fecha_inicio`
+     * puesta y `fecha_fin` en NULL, y los otros tres vacíos. Trasladar eso dejaría al
+     * año nuevo con un periodo fechado y tres sin fechas — o sea con el agujero que
+     * esto viene a tapar.
+     */
+    public function test_un_calendario_a_medias_se_calcula_entero(): void
+    {
+        $ultimo = DB::selectOne('SELECT id, year FROM years WHERE deleted_at IS NULL ORDER BY year DESC LIMIT 1');
+
+        DB::table('years')->where('id', $ultimo->id)->update(['year' => 2025, 'calendario' => 'A']);
+        $this->ponerleElCalendario((int) $ultimo->id, [
+            ['2025-01-20', '2025-03-28'],
+            ['2025-03-31', '2025-06-13'],
+            ['2025-07-07', null],
+            [null, null],
+        ]);
+
+        $r = $this->withToken($this->tokenDelPersonal())->postJson('/api/years/store',
+            $this->cuerpoDeAnioNuevo(2026, false));
+        $r->assertStatus(200);
+
+        $periodos = $this->periodosDe((int) $r->json('id'));
+
+        // Las calculadas, no las trasladadas: el traslado del P1 habría dado
+        // 2026-01-19 → 2026-03-27, y el calculado acaba el 3 de abril.
+        $this->assertSame('2026-01-19', $periodos[0]->fecha_inicio);
+        $this->assertSame('2026-04-03', $periodos[0]->fecha_fin);
+
+        foreach ($periodos as $periodo) {
+            $this->assertNotNull($periodo->fecha_fin, "El periodo {$periodo->numero} se quedó sin fecha de fin.");
+        }
+    }
+
+    /** El colegio de calendario B empieza en agosto, y no en enero. */
+    public function test_el_calendario_b_arranca_en_agosto(): void
+    {
+        $ultimo = DB::selectOne('SELECT id, year FROM years WHERE deleted_at IS NULL ORDER BY year DESC LIMIT 1');
+
+        DB::table('years')->where('id', $ultimo->id)->update(['year' => 2025, 'calendario' => 'B']);
+        DB::table('periodos')->where('year_id', $ultimo->id)
+            ->update(['fecha_inicio' => null, 'fecha_fin' => null]);
+
+        $r = $this->withToken($this->tokenDelPersonal())->postJson('/api/years/store',
+            $this->cuerpoDeAnioNuevo(2026, false));
+        $r->assertStatus(200);
+
+        // La letra se copia del año anterior, y por eso las fechas la respetan: si
+        // los periodos se crearan antes de esa copia, este colegio estrenaría el año
+        // con el calendario A.
+        $this->assertSame('B', DB::table('years')->where('id', $r->json('id'))->value('calendario'));
+
+        $periodos = $this->periodosDe((int) $r->json('id'));
+        $this->assertSame('2026-08-17', $periodos[0]->fecha_inicio);
+        $this->assertSame('2027-06-25', $periodos[3]->fecha_fin);
+    }
+
+    /**
+     * Los dos interruptores del periodo se heredan del año anterior, y no nacen
+     * abiertos.
+     *
+     * `profes_pueden_editar_notas` decide si la planilla de notas de ese periodo está
+     * abierta a los docentes. El defecto del esquema es `1`, y en el seed hay años
+     * con los cuatro periodos **cerrados**: nacer abiertos abriría la planilla de un
+     * año lectivo entero a los 51 docentes sin que nadie lo pidiera.
+     */
+    public function test_los_periodos_heredan_los_interruptores_del_anterior(): void
+    {
+        $ultimo = DB::selectOne('SELECT id, year FROM years WHERE deleted_at IS NULL ORDER BY year DESC LIMIT 1');
+
+        DB::table('periodos')->where('year_id', $ultimo->id)
+            ->update(['profes_pueden_editar_notas' => 0, 'profes_pueden_nivelar' => 0]);
+        DB::table('periodos')->where('year_id', $ultimo->id)->where('numero', 2)
+            ->update(['profes_pueden_editar_notas' => 1]);
+
+        $periodos = $this->periodosDe($this->crearElAnioSiguiente());
+
+        $this->assertSame([0, 1, 0, 0], array_map(fn ($p) => (int) $p->profes_pueden_editar_notas, $periodos));
+        $this->assertSame([0, 0, 0, 0], array_map(fn ($p) => (int) $p->profes_pueden_nivelar, $periodos));
+    }
+
+    /**
+     * Las diez columnas del año que no se copiaban, y cuatro de ellas se imprimen.
+     *
+     * `caracter`, `calendario` y `jornada` salen literalmente en el certificado de
+     * estudio —«de carácter X, calendario Y, jornada Z»— y las tres tienen defecto en
+     * el esquema, así que el año nuevo no salía en blanco: salía diciendo «Privado»,
+     * «A» y «Mañana y tarde» fuera cual fuera el colegio, que es peor que vacío porque
+     * nadie lo nota. `frase_final_certificado` es la frase de cierre de ese papel y sí
+     * nacía vacía.
+     */
+    public function test_el_ano_nuevo_copia_las_diez_columnas_que_faltaban(): void
+    {
+        $ultimo = DB::selectOne('SELECT id, year FROM years WHERE deleted_at IS NULL ORDER BY year DESC LIMIT 1');
+
+        $puestas = [
+            'genero_colegio' => 'M',
+            'caracter' => 'Oficial',
+            'calendario' => 'B',
+            'jornada' => 'Única',
+            'frase_final_certificado' => 'Se expide en La Guajira.',
+            'texto_acta_eval' => 'Reunido el consejo académico...',
+            'show_materias_todas' => 0,
+            'prematr_antiguos' => 1,
+            'prematr_nuevos' => 1,
+        ];
+        DB::table('years')->where('id', $ultimo->id)->update($puestas);
+
+        $nuevo = DB::table('years')->where('id', $this->crearElAnioSiguiente())->first();
+
+        foreach ($puestas as $columna => $valor) {
+            $this->assertSame((string) $valor, (string) $nuevo->$columna,
+                "El año nuevo no copió {$columna} del anterior.");
+        }
+
+        // La décima, `img_encabezado_id`, va aparte porque es una imagen: se copia el
+        // id igual que ya se copiaba el del logo, y las dos apuntan a la misma tabla
+        // `images`, que no es por año.
+        $this->assertSame(
+            DB::table('years')->where('id', $ultimo->id)->value('img_encabezado_id'),
+            $nuevo->img_encabezado_id);
+    }
+
+    /**
+     * Los requisitos de matrícula se copian, y eran la única tabla de configuración
+     * por año que no se copiaba.
+     *
+     * El año nuevo nacía sin ninguno y la pantalla de matrículas salía vacía, con el
+     * colegio volviendo a escribir la misma lista todos los años. No se copia
+     * `editable_por_profe_id`: apunta a una persona de la planta, y **cuando se crea
+     * el año no hay ni un contrato en él**.
+     */
+    public function test_el_ano_nuevo_copia_los_requisitos_de_matricula(): void
+    {
+        $ultimo = DB::selectOne('SELECT id, year FROM years WHERE deleted_at IS NULL ORDER BY year DESC LIMIT 1');
+
+        // El seed no trae ninguno: sin esto el test pasaría contando cero contra
+        // cero, que es la lectura falsa de un «0 encontrados».
+        foreach ([['Fotocopia del documento', 1], ['Certificado médico', 2]] as [$requisito, $orden]) {
+            DB::table('requisitos_matricula')->insert([
+                'year_id' => $ultimo->id,
+                'orden' => $orden,
+                'requisito' => $requisito,
+                'descripcion' => 'Traer '.$requisito,
+                'editable_por_profe_id' => 1,
+            ]);
+        }
+
+        $copiados = DB::select('SELECT * FROM requisitos_matricula WHERE year_id=? AND deleted_at IS NULL ORDER BY orden',
+            [$this->crearElAnioSiguiente()]);
+
+        $this->assertCount(2, $copiados);
+        $this->assertSame(['Fotocopia del documento', 'Certificado médico'],
+            array_map(fn ($r) => $r->requisito, $copiados));
+        $this->assertSame('Traer Fotocopia del documento', $copiados[0]->descripcion);
+
+        foreach ($copiados as $copiado) {
+            $this->assertNull($copiado->editable_por_profe_id,
+                'El requisito copiado se trajo un docente que no tiene contrato en el año nuevo.');
+            $this->assertNotNull($copiado->created_at);
+        }
+    }
+
+    /**
+     * La asignatura del año nuevo se lleva su docente; el grupo **no** se lleva su
+     * titular. Son las dos direcciones y las dos son decisión de Joseth (30 ago 2026).
+     *
+     * El docente sí, porque cuando se crea el año no hay ni un contrato en él y eso es
+     * justo lo que lo hace inocuo: la columna «Profesor» de la rejilla resuelve el
+     * nombre **filtrando la lista de contratados** (`AsignaturasCtrl`, alimentada por
+     * `Profesor::paraElegirEnAsignaturas`), así que la celda sale en blanco hasta que
+     * se le hace el contrato y entonces **aparece sola**. El reparto del año pasado
+     * queda de borrador y se materializa según se contrata. Es lo que ya hacía
+     * `POST asignaturas/copiar` de grupo a grupo; esta ruta era la única que no.
+     *
+     * El titular no, porque su listado hace `left join profesores p on p.id=g.titular_id`
+     * **sin pasar por `contratos`**: copiado sale con nombre y apellidos, como si
+     * estuviera en la planta del año nuevo. No es un borrador, es un dato que se ve y
+     * parece cierto.
+     */
+    public function test_la_asignatura_hereda_su_docente_y_el_grupo_no_hereda_su_titular(): void
+    {
+        $ultimo = DB::selectOne('SELECT id, year FROM years WHERE deleted_at IS NULL ORDER BY year DESC LIMIT 1');
+
+        $grupo = DB::selectOne('SELECT id FROM grupos WHERE year_id=? AND deleted_at IS NULL ORDER BY id LIMIT 1',
+            [$ultimo->id]);
+        $this->assertNotNull($grupo, 'El año de partida tiene que traer grupos, o esto no copia nada.');
+
+        $docente = DB::table('profesores')->whereNull('deleted_at')->orderBy('id')->value('id');
+        DB::table('grupos')->where('id', $grupo->id)->update(['titular_id' => $docente]);
+        DB::table('asignaturas')->where('grupo_id', $grupo->id)->whereNull('deleted_at')
+            ->update(['profesor_id' => $docente]);
+
+        $repartidas = DB::table('asignaturas')->where('grupo_id', $grupo->id)->whereNull('deleted_at')->count();
+        $this->assertGreaterThan(0, $repartidas,
+            'El grupo de partida tiene que traer asignaturas: si no, esto cuenta cero contra cero.');
+
+        $nuevo = $this->crearElAnioSiguiente();
+
+        $copiadas = DB::select('SELECT a.profesor_id FROM asignaturas a
+            INNER JOIN grupos g ON g.id=a.grupo_id
+            WHERE g.year_id=? AND a.deleted_at IS NULL AND g.deleted_at IS NULL', [$nuevo]);
+
+        $this->assertCount($repartidas, $copiadas);
+
+        foreach ($copiadas as $asignatura) {
+            $this->assertSame((int) $docente, (int) $asignatura->profesor_id,
+                'La asignatura del año nuevo perdió el docente que traía la del anterior.');
+        }
+
+        foreach (DB::select('SELECT titular_id FROM grupos WHERE year_id=? AND deleted_at IS NULL', [$nuevo]) as $g) {
+            $this->assertNull($g->titular_id,
+                'El grupo del año nuevo se trajo un titular que no está en la planta de ese año.');
+        }
     }
 }

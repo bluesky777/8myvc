@@ -345,6 +345,35 @@ class User extends Authenticatable
 		return (bool) ($user->is_superuser ?? false) || $user->tipo == 'Profesor';
 	}
 
+	/**
+	 * **Sólo la mitad del periodo**: ¿está abierto para lo que gobierna
+	 * `profes_pueden_editar_notas`? Sin decidir nada sobre QUIÉN es el que llama.
+	 *
+	 * Es la diferencia con las dos de arriba, y es toda la razón de que exista.
+	 * Aquéllas responden dos preguntas a la vez —«¿está abierto?» y «¿eres de los
+	 * que escriben notas?»— y por eso su rama final **contesta 403 a cualquiera
+	 * que no sea profesor ni superusuario**. Ponerlas en asistencias habría
+	 * cerrado la puerta a la secretaría, que hoy pasa asistencia y no toca una
+	 * nota en su vida: un efecto que nadie pidió, escondido dentro de un cambio
+	 * que sí se pidió.
+	 *
+	 * Así que ésta comprueba **una cosa sola**, y quien la llama sigue decidiendo
+	 * el resto de su autorización como la tenía. La condición es literalmente la
+	 * primera rama de `pueden_editar_notas()`, con el mismo 400 —el front ya lo
+	 * traduce— y con el mismo trato al profesor que además es superusuario: la
+	 * bandera es del periodo, no del despacho.
+	 *
+	 * @param  int|array<int>|null  $periodo
+	 */
+	public static function exigirPeriodoAbiertoParaNotas($user, int|array|null $periodo = null): void
+	{
+		self::aplicarBanderasDelPeriodo($user, $periodo);
+
+		if ($user->tipo == 'Profesor' && $user->profes_pueden_editar_notas == 0) {
+			abort(400, 'El periodo está bloqueado y no se puede modificar.');
+		}
+	}
+
 	public static function pueden_editar_notas($user, int|array|null $periodo = null)
 	{
 		self::aplicarBanderasDelPeriodo($user, $periodo);

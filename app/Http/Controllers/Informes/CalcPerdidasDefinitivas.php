@@ -7,12 +7,12 @@ class CalcPerdidasDefinitivas {
 	
 	
 	
-	public $consulta_per4 = 'SELECT a.nombres, a.id, (IFNULL(nf1.nota, 0) + IFNULL(nf2.nota,0) + IFNULL(nf3.nota,0) + IFNULL(nf4.nota,0))/4 as definitiva_year,
+	public $consulta_per4 = 'SELECT a.nombres, a.id, CAST((IFNULL(nf1.nota, 0) + IFNULL(nf2.nota,0) + IFNULL(nf3.nota,0) + IFNULL(nf4.nota,0))/4 AS DOUBLE) as definitiva_year,
 						(IFNULL(cant_perdidas_1, 0) + IFNULL(cant_perdidas_2, 0) + IFNULL(cant_perdidas_3, 0) + IFNULL(cant_perdidas_4, 0)) as cant_perdidas_year,
-						nf1.nota as nota_final_per1, nf1.id as nf_id_1, nf1.recuperada as recuperada_1, nf1.manual as manual_1,
-						nf2.nota as nota_final_per2, nf2.id as nf_id_2, nf2.recuperada as recuperada_2, nf2.manual as manual_2,
-						nf3.nota as nota_final_per3, nf3.id as nf_id_3, nf3.recuperada as recuperada_3, nf3.manual as manual_3,
-						nf4.nota as nota_final_per4, nf4.id as nf_id_4, nf4.recuperada as recuperada_4, nf4.manual as manual_4,
+						CAST(nf1.nota AS DOUBLE) as nota_final_per1, nf1.id as nf_id_1, nf1.recuperada as recuperada_1, nf1.manual as manual_1,
+						CAST(nf2.nota AS DOUBLE) as nota_final_per2, nf2.id as nf_id_2, nf2.recuperada as recuperada_2, nf2.manual as manual_2,
+						CAST(nf3.nota AS DOUBLE) as nota_final_per3, nf3.id as nf_id_3, nf3.recuperada as recuperada_3, nf3.manual as manual_3,
+						CAST(nf4.nota AS DOUBLE) as nota_final_per4, nf4.id as nf_id_4, nf4.recuperada as recuperada_4, nf4.manual as manual_4,
 						cant_perdidas_1, cant_perdidas_2, cant_perdidas_3, cant_perdidas_4
 						
 					FROM alumnos a 
@@ -79,11 +79,11 @@ class CalcPerdidasDefinitivas {
 					where a.deleted_at is null and a.id=:alu5';
 	
 	
-	public $consulta_per3 = 'SELECT a.nombres, a.id, (IFNULL(nf1.nota, 0) + IFNULL(nf2.nota,0) + IFNULL(nf3.nota,0))/3 as definitiva_year,
+	public $consulta_per3 = 'SELECT a.nombres, a.id, CAST((IFNULL(nf1.nota, 0) + IFNULL(nf2.nota,0) + IFNULL(nf3.nota,0))/3 AS DOUBLE) as definitiva_year,
 						(IFNULL(cant_perdidas_1, 0) + IFNULL(cant_perdidas_2, 0) + IFNULL(cant_perdidas_3, 0)) as cant_perdidas_year,
-						nf1.nota as nota_final_per1, nf1.id as nf_id_1, nf1.recuperada as recuperada_1, nf1.manual as manual_1,
-						nf2.nota as nota_final_per2, nf2.id as nf_id_2, nf2.recuperada as recuperada_2, nf2.manual as manual_2,
-						nf3.nota as nota_final_per3, nf3.id as nf_id_3, nf3.recuperada as recuperada_3, nf3.manual as manual_3,
+						CAST(nf1.nota AS DOUBLE) as nota_final_per1, nf1.id as nf_id_1, nf1.recuperada as recuperada_1, nf1.manual as manual_1,
+						CAST(nf2.nota AS DOUBLE) as nota_final_per2, nf2.id as nf_id_2, nf2.recuperada as recuperada_2, nf2.manual as manual_2,
+						CAST(nf3.nota AS DOUBLE) as nota_final_per3, nf3.id as nf_id_3, nf3.recuperada as recuperada_3, nf3.manual as manual_3,
 						cant_perdidas_1, cant_perdidas_2, cant_perdidas_3
 						
 					FROM alumnos a 
@@ -135,10 +135,10 @@ class CalcPerdidasDefinitivas {
 					where a.deleted_at is null and a.id=:alu5';
 	
 	
-	public $consulta_per2 = 'SELECT a.nombres, a.id, (IFNULL(nf1.nota, 0) + IFNULL(nf2.nota,0))/2 as definitiva_year,
+	public $consulta_per2 = 'SELECT a.nombres, a.id, CAST((IFNULL(nf1.nota, 0) + IFNULL(nf2.nota,0))/2 AS DOUBLE) as definitiva_year,
 						(IFNULL(cant_perdidas_1, 0) + IFNULL(cant_perdidas_2, 0)) as cant_perdidas_year,
-						nf1.nota as nota_final_per1, nf1.id as nf_id_1, nf1.recuperada as recuperada_1, nf1.manual as manual_1,
-						nf2.nota as nota_final_per2, nf2.id as nf_id_2, nf2.recuperada as recuperada_2, nf2.manual as manual_2,
+						CAST(nf1.nota AS DOUBLE) as nota_final_per1, nf1.id as nf_id_1, nf1.recuperada as recuperada_1, nf1.manual as manual_1,
+						CAST(nf2.nota AS DOUBLE) as nota_final_per2, nf2.id as nf_id_2, nf2.recuperada as recuperada_2, nf2.manual as manual_2,
 						cant_perdidas_1, cant_perdidas_2
 						
 					FROM alumnos a 
@@ -177,9 +177,9 @@ class CalcPerdidasDefinitivas {
 	
 	
 	
-	public $consulta_per1 = 'SELECT a.nombres, a.id, IFNULL(nf1.nota, 0) as definitiva_year,
+	public $consulta_per1 = 'SELECT a.nombres, a.id, CAST(IFNULL(nf1.nota, 0) AS DOUBLE) as definitiva_year,
 						(IFNULL(cant_perdidas_1, 0)) as cant_perdidas_year,
-						nf1.nota as nota_final_per1, nf1.id as nf_id_1, nf1.recuperada as recuperada_1, nf1.manual as manual_1,
+						CAST(nf1.nota AS DOUBLE) as nota_final_per1, nf1.id as nf_id_1, nf1.recuperada as recuperada_1, nf1.manual as manual_1,
 						cant_perdidas_1
 						
 					FROM alumnos a 

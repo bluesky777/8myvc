@@ -134,7 +134,7 @@
             "nombres": "string",
             "orden": "int",
             "pazysalvo": "int",
-            "promedio_year": "float|int",
+            "promedio_year": "float",
             "religion": "null|string",
             "sexo": "string",
             "sub_perdidas_year": "int",

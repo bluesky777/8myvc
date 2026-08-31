@@ -114,7 +114,7 @@ class HistorialesController extends Controller {
 		// false eso es `SQLSTATE[HY093]: Invalid parameter number`: la pantalla «quién
 		// cambió esta definitiva» contestaba **500 a todo el mundo, siempre**. Medido
 		// el 22 ago 2026; ver 05 §73.
-		$consulta 	= 'SELECT n.*, u2.username as modificado_por
+		$consulta 	= 'SELECT n.*, CAST(n.nota AS DOUBLE) AS nota, u2.username as modificado_por
 							FROM notas_finales n 
 							left join users u2 on u2.id=n.updated_by
 							where n.id=?';

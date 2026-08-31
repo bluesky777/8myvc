@@ -92,7 +92,7 @@ class EditnotaController extends Controller {
 
 			$periodo->nota_asignatura_calc 	= $nota_asignatura; // Definitiva de la materia en este periodo
 			
-			$nota_asignatura 		= DB::select('SELECT * FROM notas_finales WHERE alumno_id=? and asignatura_id=? and periodo_id=?',
+			$nota_asignatura 		= DB::select('SELECT *, CAST(nota AS DOUBLE) AS nota FROM notas_finales WHERE alumno_id=? and asignatura_id=? and periodo_id=?',
 													[$alumno_id, $asignatura_id, $periodo->id]);
 													
 			if (count($nota_asignatura) > 0) {

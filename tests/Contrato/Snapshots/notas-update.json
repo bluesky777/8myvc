@@ -6,7 +6,7 @@
         "alumno_id": "int",
         "asignatura_id": "int",
         "manual": "bool",
-        "nota": "int",
+        "nota": "float",
         "periodo_id": "int",
         "recuperada": "bool"
     },

@@ -481,7 +481,7 @@ class BolfinalesController extends Controller {
 
 			$alumno->total_creditos += $asignatura->creditos;
 						
-			$consulta = 'SELECT nf.*, nf.nota as DefMateria, aus.cantidad_ausencia, tar.cantidad_tardanza
+			$consulta = 'SELECT nf.*, CAST(nf.nota AS DOUBLE) AS nota, CAST(nf.nota AS DOUBLE) as DefMateria, aus.cantidad_ausencia, tar.cantidad_tardanza
 						FROM notas_finales nf
 						INNER JOIN periodos p on p.year_id=:year_id and p.id=nf.periodo_id '.$sqlPeriodo.' and p.deleted_at is null
 						left join (

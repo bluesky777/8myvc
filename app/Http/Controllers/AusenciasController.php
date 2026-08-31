@@ -17,18 +17,43 @@ use App\Support\NombreDelAlumno;
 
 
 /*
- * Las ausencias **no las cierra el interruptor del periodo**, y es una decisión.
+ * Las ausencias **las cierra el interruptor del periodo**, y es una decisión —la
+ * segunda sobre lo mismo, que revoca la primera—.
  *
- * Hasta el 21 ago 2026 tres de estas rutas —guardar cambios, cambiar el tipo y
- * borrar— llamaban a `User::pueden_editar_notas()` y las dos que anotan no, así
- * que con el periodo cerrado un profesor podía apuntar una falta pero no
- * corregirla. Se le preguntó a Joseth cuál de las dos mitades estaba mal y
- * contestó la contraria de la que se esperaba: **«que poner asistencias no se
- * bloquee al bloquear periodos»**, y las tres que faltaban se liberaron también
- * —excusar una falta cuando el alumno trae la excusa es el mismo trabajo de
- * asistencia, no calificar—.
+ * LA HISTORIA COMPLETA, porque aquí ya se ha decidido dos veces y en sentidos
+ * contrarios, y quien lea esto dentro de un año merece no tener que adivinar:
  *
- * `profes_pueden_editar_notas` es lo que dice su nombre: notas. Ver
+ *   hasta el 21 ago 2026   tres rutas —guardar cambios, cambiar el tipo y borrar—
+ *                          llamaban a `pueden_editar_notas()` y las dos que anotan
+ *                          no. O sea que con el periodo cerrado un profesor podía
+ *                          apuntar una falta pero no corregirla: incoherente, y
+ *                          nadie lo había decidido así.
+ *   21 y 22 ago 2026       Joseth deshizo el empate por el lado abierto —«que poner
+ *                          asistencias no se bloquee al bloquear periodos»— y las
+ *                          tres llamadas se retiraron.
+ *   29 ago 2026            Joseth lo cambia: **«la asistencia no se puede modificar
+ *                          en un periodo que esté bloqueado para editar notas»**.
+ *                          Las cinco rutas que escriben lo comprueban ahora.
+ *
+ * Lo que se conserva de agosto es el sitio donde estaba la razón: el interruptor
+ * es del PERIODO, así que la pregunta se le hace al periodo de la falta que se
+ * toca —no al que el profesor tenga puesto— igual que hace `notas/lote` con el
+ * periodo de cada nota. Corregir una falta de un periodo cerrado y anotar en el
+ * periodo abierto son cosas distintas, y así se distinguen.
+ *
+ * NO SE USA `pueden_editar_notas()` AUNQUE SEA LA MISMA BANDERA, y esa línea es la
+ * que hay que leer antes de «simplificar» esto: aquélla contesta **403 a quien no
+ * es profesor ni superusuario**, y la secretaría pasa asistencia sin tocar una
+ * nota en su vida. Lo que se pidió fue cerrar el periodo, no cerrar la puerta a
+ * la secretaría. `exigirPeriodoAbiertoParaNotas()` comprueba sólo el periodo; el
+ * porqué está entero en `User.php`.
+ *
+ * LO QUE ESTO ALCANZA NO ES SÓLO LA WEB: `myvc_flutter` es **una sola app para los
+ * dieciséis colegios** y escribe por estas mismas rutas —`store`,
+ * `agregar-ausencia`, `agregar-tardanza`, `destroy`—. A partir de aquí, un
+ * profesor con el periodo cerrado recibe 400 también desde el móvil. Es lo pedido,
+ * pero la app no lo dice con palabras suyas hasta que se publique una versión que
+ * lo entienda: hasta entonces enseñará su error genérico. Ver
  * docs/migracion/05-codigo-muerto-y-roto.md §40.
  */
 class AusenciasController extends Controller {
@@ -120,7 +145,11 @@ class AusenciasController extends Controller {
 	public function postStore()
 	{
 		$user = User::fromToken();
-		
+
+		// La falta se escribe en `$user->periodo_id` —tres líneas más abajo—, así
+		// que es a ESE periodo al que hay que preguntarle si está abierto.
+		User::exigirPeriodoAbiertoParaNotas($user, (int) $user->periodo_id);
+
 		$aus = new Ausencia;
 		$aus->alumno_id 		= Request::input('alumno_id');
 		$aus->asignatura_id 	= Request::input('asignatura_id', null);
@@ -167,7 +196,9 @@ class AusenciasController extends Controller {
 	public function postAgregarAusencia()
 	{
 		$user = User::fromToken();
-		
+
+		User::exigirPeriodoAbiertoParaNotas($user, (int) $user->periodo_id);
+
 		$aus = new Ausencia;
 		$aus->alumno_id 		= Request::input('alumno_id');
 		$aus->asignatura_id 	= Request::input('asignatura_id', null);
@@ -189,7 +220,9 @@ class AusenciasController extends Controller {
 	public function postAgregarTardanza()
 	{
 		$user = User::fromToken();
-		
+
+		User::exigirPeriodoAbiertoParaNotas($user, (int) $user->periodo_id);
+
 		$aus = new Ausencia;
 		$aus->alumno_id 		= Request::input('alumno_id');
 		$aus->asignatura_id 	= Request::input('asignatura_id', null);
@@ -229,11 +262,18 @@ class AusenciasController extends Controller {
 	 * mal puesta, en dieciséis colegios y de golpe, por una app que no se puede
 	 * publicar el mismo día.
 	 *
-	 * Joseth lo decidió el 22 ago 2026: **se queda abierto**, en la misma línea
-	 * que el interruptor del periodo de la cabecera —corregir una falta es
-	 * trabajo de asistencia—. Lo que se cerró en su lugar fue el rastro: ver
-	 * `deleteDestroy`. Lo fija `AusenciasTest`, que además cuenta qué habría que
-	 * publicar antes si algún día se cierra.
+	 * Joseth lo decidió el 22 ago 2026: **se queda abierto**. Lo que se cerró en
+	 * su lugar fue el rastro: ver `deleteDestroy`. Lo fija `AusenciasTest`, que
+	 * además cuenta qué habría que publicar antes si algún día se cierra.
+	 *
+	 * ESTO SIGUE EN PIE Y NO LO TOCA EL CAMBIO DEL 29 ago, aunque se apoyaba en él
+	 * al escribirse: aquella frase decía «en la misma línea que el interruptor del
+	 * periodo», y ese interruptor ahora sí cierra la asistencia. **Son dos
+	 * preguntas distintas y sólo cambió una.** Quién puede corregir una falta —
+	 * cualquier profesor, sobre cualquier falta— sigue abierto por lo que dice el
+	 * párrafo de arriba, que no ha dejado de ser cierto: los 51 profesores de los
+	 * dieciséis colegios y una app que no se publica el mismo día. Lo que se cerró
+	 * es CUÁNDO: en un periodo bloqueado, ni él ni nadie.
 	 *
 	 * `Role::isCoorDisciplinario()` se queda sin llamantes con esto, y es el
 	 * cuarto rol de la familia que no gobierna nada — tras Psicólogo y Enfermero
@@ -251,6 +291,19 @@ class AusenciasController extends Controller {
 		}
 		*/
 		$aus = Ausencia::findOrFail(Request::input('ausencia_id'));
+
+		// EL PERIODO DE LA FALTA, no el que el profesor tenga puesto: se está
+		// tocando una fila que ya existe y que pertenece a un periodo concreto.
+		// Con el periodo del usuario, corregir una falta de un periodo cerrado
+		// pasaría sólo con cambiar de periodo en la barra. Es el mismo criterio
+		// que `notas/lote`, que saca el periodo de cada nota por sus unidades.
+		//
+		// `?:` y no `??`: hay filas antiguas con `periodo_id` a 0 además de a
+		// null, y las dos significan lo mismo aquí —no se sabe de qué periodo
+		// es—. Sin id, la guarda cae en el periodo del usuario, que es el lado
+		// prudente: la que decide es la bandera que ese profesor tiene delante.
+		User::exigirPeriodoAbiertoParaNotas($user, (int) ($aus->periodo_id ?: $user->periodo_id));
+
 		$aus->fecha_hora		= Request::input('fecha_hora', null);
 		$aus->updated_by		= $user->user_id;
 
@@ -269,7 +322,9 @@ class AusenciasController extends Controller {
 		$user = User::fromToken();
 		
 		$aus = Ausencia::findOrFail(Request::input('ausencia_id'));
-		
+
+		User::exigirPeriodoAbiertoParaNotas($user, (int) ($aus->periodo_id ?: $user->periodo_id));
+
 		if (Request::input('new_tipo') == 'tardanza') {
 			$aus->tipo					= 'tardanza';
 			$aus->cantidad_tardanza		= $aus->cantidad_ausencia;
@@ -310,6 +365,9 @@ class AusenciasController extends Controller {
 		$user = User::fromToken();
 
 		$aus = Ausencia::findOrFail($id);
+
+		User::exigirPeriodoAbiertoParaNotas($user, (int) ($aus->periodo_id ?: $user->periodo_id));
+
 		$aus->deleted_by = $user->user_id;
 		$aus->save();
 

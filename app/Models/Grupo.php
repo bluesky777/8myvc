@@ -190,7 +190,7 @@ class Grupo extends Model {
 				m.materia, m.alias as alias_materia, m.area_id, ar.nombre as area_nombre, ar.alias as area_alias, a.materia_id, 
 				p.nombres as nombres_profesor, p.apellidos as apellidos_profesor,
 				p.foto_id, IFNULL(i.nombre, IF(p.sexo="F","default_female.png", "default_male.png")) as foto_nombre, 
-				n.nota as nota_asignatura, n.created_at, n.recuperada, n.manual, e.desempenio, n.id as nf_id
+				CAST(n.nota AS DOUBLE) as nota_asignatura, n.created_at, n.recuperada, n.manual, e.desempenio, n.id as nf_id
 			FROM asignaturas a 
 			inner join materias m on m.id=a.materia_id and m.deleted_at is null
 			left join areas ar on ar.id=m.area_id and ar.deleted_at is null
@@ -224,7 +224,7 @@ class Grupo extends Model {
 								nf.nota_final_per1, nf.nf_id_1, nf.nf_updated_at1, e.desempenio 
 							FROM (SELECT @rownum:=0) r, periodos pe 
 							inner join (
-								select distinct nf.asignatura_id, nf.alumno_id, nf.nota as nota_final_per1, nf.id as nf_id_1, nf.updated_at as nf_updated_at1, nf.periodo, nf.periodo_id  from notas_finales nf order by nf.id desc
+								select distinct nf.asignatura_id, nf.alumno_id, CAST(nf.nota AS DOUBLE) as nota_final_per1, nf.id as nf_id_1, nf.updated_at as nf_updated_at1, nf.periodo, nf.periodo_id  from notas_finales nf order by nf.id desc
 							)nf on nf.alumno_id=:al1 and pe.numero=1 and pe.id=nf.periodo_id and pe.year_id=:year_id1 and pe.deleted_at is null
 							left join escalas_de_valoracion e ON e.porc_inicial<=nf.nota_final_per1 and e.porc_final>=nf.nota_final_per1 and e.deleted_at is null and e.year_id=:year_id5
 							right join asignaturas a on a.id=nf.asignatura_id and a.deleted_at is null
@@ -250,7 +250,7 @@ class Grupo extends Model {
 							nf.nota_final_per1, nf.nf_id_1, nf.nf_updated_at1 
 						FROM periodos pe 
 						inner join (
-							select distinct nf.asignatura_id, nf.alumno_id, nf.nota as nota_final_per1, nf.id as nf_id_1, nf.updated_at as nf_updated_at1, nf.periodo, nf.periodo_id  from notas_finales nf order by nf.id desc
+							select distinct nf.asignatura_id, nf.alumno_id, CAST(nf.nota AS DOUBLE) as nota_final_per1, nf.id as nf_id_1, nf.updated_at as nf_updated_at1, nf.periodo, nf.periodo_id  from notas_finales nf order by nf.id desc
 						)nf on nf.alumno_id=:al1 and pe.numero=1 and pe.id=nf.periodo_id and pe.year_id=:year_id1 and pe.deleted_at is null
 						right join asignaturas a on a.id=nf.asignatura_id and a.deleted_at is null
 						inner join materias m on m.id=a.materia_id and m.deleted_at is null
@@ -263,7 +263,7 @@ class Grupo extends Model {
 					left join 
 						(SELECT nf.nota_final_per2, nf.nf_id_2, nf.nf_updated_at2, nf.asignatura_id, e.desempenio FROM periodos p 
 						inner join (
-								select distinct nf.asignatura_id, nf.alumno_id, nf.nota as nota_final_per2, nf.id as nf_id_2, nf.updated_at as nf_updated_at2, nf.periodo, nf.periodo_id  from notas_finales nf order by nf.id desc
+								select distinct nf.asignatura_id, nf.alumno_id, CAST(nf.nota AS DOUBLE) as nota_final_per2, nf.id as nf_id_2, nf.updated_at as nf_updated_at2, nf.periodo, nf.periodo_id  from notas_finales nf order by nf.id desc
 							)nf on nf.alumno_id=:al2 and p.numero=2 and p.id=nf.periodo_id and p.year_id=:year_id2 and p.deleted_at is null
 							left join escalas_de_valoracion e ON e.porc_inicial<=nf.nota_final_per2 and e.porc_final>=nf.nota_final_per2 and e.deleted_at is null and e.year_id=:year_id5
 						)r2 on r1.asignatura_id=r2.asignatura_id
@@ -284,7 +284,7 @@ class Grupo extends Model {
 							nf.nota_final_per1, nf.nf_id_1, nf.nf_updated_at1 
 						FROM periodos pe 
 						inner join (
-							select distinct nf.asignatura_id, nf.alumno_id, nf.nota as nota_final_per1, nf.id as nf_id_1, nf.updated_at as nf_updated_at1, nf.periodo, nf.periodo_id  from notas_finales nf order by nf.id desc
+							select distinct nf.asignatura_id, nf.alumno_id, CAST(nf.nota AS DOUBLE) as nota_final_per1, nf.id as nf_id_1, nf.updated_at as nf_updated_at1, nf.periodo, nf.periodo_id  from notas_finales nf order by nf.id desc
 						)nf on nf.alumno_id=:al1 and pe.numero=1 and pe.id=nf.periodo_id and pe.year_id=:year_id1 and pe.deleted_at is null
 						right join asignaturas a on a.id=nf.asignatura_id and a.deleted_at is null
 						inner join materias m on m.id=a.materia_id and m.deleted_at is null
@@ -297,13 +297,13 @@ class Grupo extends Model {
 					left join 
 						(SELECT nf.nota_final_per2, nf.nf_id_2, nf.nf_updated_at2, nf.asignatura_id FROM periodos p 
 						inner join (
-								select distinct nf.asignatura_id, nf.alumno_id, nf.nota as nota_final_per2, nf.id as nf_id_2, nf.updated_at as nf_updated_at2, nf.periodo, nf.periodo_id  from notas_finales nf order by nf.id desc
+								select distinct nf.asignatura_id, nf.alumno_id, CAST(nf.nota AS DOUBLE) as nota_final_per2, nf.id as nf_id_2, nf.updated_at as nf_updated_at2, nf.periodo, nf.periodo_id  from notas_finales nf order by nf.id desc
 							)nf on nf.alumno_id=:al2 and p.numero=2 and p.id=nf.periodo_id and p.year_id=:year_id2 and p.deleted_at is null
 						)r2 on r1.asignatura_id=r2.asignatura_id
 					left join 
 						(SELECT nf.nota_final_per3, nf.nf_id_3, nf.nf_updated_at3, nf.asignatura_id, e.desempenio FROM periodos p 
 						inner join (
-								select distinct nf.asignatura_id, nf.alumno_id, nf.nota as nota_final_per3, nf.id as nf_id_3, nf.updated_at as nf_updated_at3, nf.periodo, nf.periodo_id  from notas_finales nf order by nf.id desc
+								select distinct nf.asignatura_id, nf.alumno_id, CAST(nf.nota AS DOUBLE) as nota_final_per3, nf.id as nf_id_3, nf.updated_at as nf_updated_at3, nf.periodo, nf.periodo_id  from notas_finales nf order by nf.id desc
 							)nf on nf.alumno_id=:al3 and p.numero=3 and p.id=nf.periodo_id and p.year_id=:year_id3 and p.deleted_at is null
 							left join escalas_de_valoracion e ON e.porc_inicial<=nf.nota_final_per3 and e.porc_final>=nf.nota_final_per3 and e.deleted_at is null and e.year_id=:year_id5
 						)r3 on r2.asignatura_id=r3.asignatura_id
@@ -325,7 +325,7 @@ class Grupo extends Model {
 							nf.nota_final_per1, nf.nf_id_1, nf.nf_updated_at1 
 						FROM periodos pe 
 						inner join (
-							select distinct nf.asignatura_id, nf.alumno_id, nf.nota as nota_final_per1, nf.id as nf_id_1, nf.updated_at as nf_updated_at1, nf.periodo, nf.periodo_id  from notas_finales nf order by nf.id desc
+							select distinct nf.asignatura_id, nf.alumno_id, CAST(nf.nota AS DOUBLE) as nota_final_per1, nf.id as nf_id_1, nf.updated_at as nf_updated_at1, nf.periodo, nf.periodo_id  from notas_finales nf order by nf.id desc
 						)nf on nf.alumno_id=:al1 and pe.numero=1 and pe.id=nf.periodo_id and pe.year_id=:year_id1 and pe.deleted_at is null
 						right join asignaturas a on a.id=nf.asignatura_id and a.deleted_at is null
 						inner join materias m on m.id=a.materia_id and m.deleted_at is null
@@ -338,19 +338,19 @@ class Grupo extends Model {
 					left join 
 						(SELECT nf.nota_final_per2, nf.nf_id_2, nf.nf_updated_at2, nf.asignatura_id FROM periodos p 
 						inner join (
-								select distinct nf.asignatura_id, nf.alumno_id, nf.nota as nota_final_per2, nf.id as nf_id_2, nf.updated_at as nf_updated_at2, nf.periodo, nf.periodo_id  from notas_finales nf order by nf.id desc
+								select distinct nf.asignatura_id, nf.alumno_id, CAST(nf.nota AS DOUBLE) as nota_final_per2, nf.id as nf_id_2, nf.updated_at as nf_updated_at2, nf.periodo, nf.periodo_id  from notas_finales nf order by nf.id desc
 							)nf on nf.alumno_id=:al2 and p.numero=2 and p.id=nf.periodo_id and p.year_id=:year_id2 and p.deleted_at is null
 						)r2 on r1.asignatura_id=r2.asignatura_id
 					left join 
 						(SELECT nf.nota_final_per3, nf.nf_id_3, nf.nf_updated_at3, nf.asignatura_id FROM periodos p 
 						inner join (
-								select distinct nf.asignatura_id, nf.alumno_id, nf.nota as nota_final_per3, nf.id as nf_id_3, nf.updated_at as nf_updated_at3, nf.periodo, nf.periodo_id  from notas_finales nf order by nf.id desc
+								select distinct nf.asignatura_id, nf.alumno_id, CAST(nf.nota AS DOUBLE) as nota_final_per3, nf.id as nf_id_3, nf.updated_at as nf_updated_at3, nf.periodo, nf.periodo_id  from notas_finales nf order by nf.id desc
 							)nf on nf.alumno_id=:al3 and p.numero=3 and p.id=nf.periodo_id and p.year_id=:year_id3 and p.deleted_at is null
 						)r3 on r2.asignatura_id=r3.asignatura_id
 					left join 
 						(SELECT nf.nota_final_per4, nf.nf_id_4, nf.nf_updated_at4, nf.asignatura_id, e.desempenio FROM periodos p 
 						inner join (
-								select distinct nf.asignatura_id, nf.alumno_id, nf.nota as nota_final_per4, nf.id as nf_id_4, nf.updated_at as nf_updated_at4, nf.periodo, nf.periodo_id  from notas_finales nf order by nf.id desc
+								select distinct nf.asignatura_id, nf.alumno_id, CAST(nf.nota AS DOUBLE) as nota_final_per4, nf.id as nf_id_4, nf.updated_at as nf_updated_at4, nf.periodo, nf.periodo_id  from notas_finales nf order by nf.id desc
 							)nf on nf.alumno_id=:al4 and p.numero=4 and p.id=nf.periodo_id and p.year_id=:year_id4 and p.deleted_at is null
 						left join escalas_de_valoracion e ON e.porc_inicial<=nf.nota_final_per4 and e.porc_final>=nf.nota_final_per4 and e.deleted_at is null and e.year_id=:year_id5
 						)r4 on r3.asignatura_id=r4.asignatura_id

@@ -17,6 +17,7 @@ use App\Models\Frase;
 use App\Models\Unidad;
 use Carbon\Carbon;
 use App\Support\ColumnaSegura;
+use App\Services\CalendarioDePeriodos;
 
 
 class YearsController extends Controller {
@@ -69,7 +70,8 @@ class YearsController extends Controller {
 
 	public function postStore()
 	{
-		$user = User::fromToken();
+		$user  = User::fromToken();
+		$ahora = Carbon::now('America/Bogota');
 
 		$year = new Year;
 
@@ -115,8 +117,10 @@ class YearsController extends Controller {
 		$year->created_by 	= $user->user_id;
 		$year->save();
 
-		// Creamos un periodo
-		DB::insert('INSERT INTO periodos(numero, actual, year_id) VALUES(1, 1, ?)', [$year->id]);
+		// Los periodos se crean **al final**, y no aquí, que es donde estaban. El
+		// motivo es el orden: sus fechas se calculan desde `years.calendario`, y esa
+		// columna la copia del año anterior el bloque de abajo. Creándolos antes, un
+		// colegio de calendario B estrenaba el año con las fechas del A.
 
 		// NECESITARÉ MUCHO DEL AÑO ANTERIOR
 		$year_ante = $year->year - 1;
@@ -162,6 +166,34 @@ class YearsController extends Controller {
 			$year->year_pasado_en_bol 			 = $pasado->year_pasado_en_bol;
 			$year->titulo_rector 				 = $pasado->titulo_rector;
 
+			// Las diez que faltaban (30 ago 2026). No es una lista de deseos: son las
+			// diez columnas de `years` que ni pide el cuerpo ni copiaba este bloque, o
+			// sea las diez que el año nuevo perdía **cada vez**, y cuatro de ellas se
+			// imprimen en papel oficial.
+			//
+			// `caracter`, `calendario` y `jornada` salen literalmente en el certificado
+			// de estudio —«de carácter {{ caracter }}, calendario {{ calendario }},
+			// jornada {{ jornada }}», en `certificadoEstudioDir.html`—, y como las tres
+			// tienen defecto en el esquema, el año nuevo no salía en blanco: salía
+			// diciendo «Privado», «A» y «Mañana y tarde» **fuera cual fuera el colegio**,
+			// que es peor que vacío porque nadie lo nota. `frase_final_certificado` es la
+			// frase de cierre de ese mismo papel y sí nacía vacía.
+			//
+			// `texto_acta_eval` es el texto del acta de evaluación y promoción, y
+			// `prematr_nuevos` decide si el login enseña el enlace público de
+			// prematrícula del año siguiente. `calendario`, además, es de la que salen
+			// las fechas de los cuatro periodos de más abajo.
+			$year->genero_colegio     = $pasado->genero_colegio;
+			$year->img_encabezado_id  = $pasado->img_encabezado_id;
+			$year->caracter           = $pasado->caracter;
+			$year->calendario         = $pasado->calendario;
+			$year->jornada            = $pasado->jornada;
+			$year->frase_final_certificado = $pasado->frase_final_certificado;
+			$year->texto_acta_eval    = $pasado->texto_acta_eval;
+			$year->show_materias_todas = $pasado->show_materias_todas;
+			$year->prematr_antiguos   = $pasado->prematr_antiguos;
+			$year->prematr_nuevos     = $pasado->prematr_nuevos;
+
 			$year->save();
 			
 			/// COPIAREMOS LAS ESCALAS DE VALORACIÓN
@@ -201,6 +233,24 @@ class YearsController extends Controller {
 					[$unidad->definicion, $unidad->porcentaje, $year->id, $unidad->obligatoria, $unidad->orden, $unidad->created_by]);
 			}
 
+			/// COPIAREMOS LOS REQUISITOS DE MATRÍCULA
+			// `requisitos_matricula` es por año igual que las escalas y las frases, y
+			// era la única de las tablas de configuración que no se copiaba: el año
+			// nuevo nacía sin ningún requisito y la pantalla de matrículas salía vacía,
+			// con el colegio volviendo a escribir la misma lista todos los años.
+			//
+			// No se copia `editable_por_profe_id`, que es lo mismo que se decidió con
+			// el docente de las asignaturas y por el mismo motivo: apunta a una persona
+			// de la planta, y **cuando se crea el año no hay ni un contrato en él**.
+			// Además, ningún método de `Matriculas\RequisitosController` la escribe, así
+			// que lo que hubiera ahí se puso a mano en la base.
+			$requisitos_ant = DB::select('SELECT * FROM requisitos_matricula WHERE year_id=? AND deleted_at is null ORDER BY orden, id;', [$pasado->id]);
+
+			foreach ($requisitos_ant as $requisito) {
+				DB::insert('INSERT INTO requisitos_matricula(year_id, orden, requisito, descripcion, updated_by, created_at, updated_at) VALUES(?,?,?,?,?,?,?)',
+					[ $year->id, $requisito->orden, $requisito->requisito, $requisito->descripcion, $user->user_id, $ahora, $ahora ]);
+			}
+
 			/// COPIAREMOS LAS CONFIGURACIONES DE DISCIPLINA Y ORDINALES
 			$dis_configuraciones = DB::select('SELECT * FROM dis_configuraciones WHERE year_id=? AND deleted_at is null;', [$pasado->id]);
 			if (count($dis_configuraciones) > 0) {
@@ -218,7 +268,7 @@ class YearsController extends Controller {
 				// no por fecha, y ningún cliente pide esa columna. Se arregla porque la
 				// pregunta «cuándo apareció esta fila» es la que no se puede contestar
 				// después, y porque tres de cuatro sitios ya lo hacían bien.
-				$now_dis = Carbon::now('America/Bogota');
+				$now_dis = $ahora;
 
 				DB::insert('INSERT INTO dis_configuraciones(year_id, reinicia_por_periodo, falta_tipo1_displayname, faltas_tipo1_displayname, genero_falta_t1, falta_tipo2_displayname, faltas_tipo2_displayname, genero_falta_t2, 
 					falta_tipo3_displayname, faltas_tipo3_displayname, genero_falta_t3, cant_tard_to_ft1, cant_ft1_to_ft2, cant_ft2_to_ft3,
@@ -236,6 +286,15 @@ class YearsController extends Controller {
 			}
 			
 			/// AHORA COPIAMOS LOS GRUPOS Y ASIGNATURAS DEL AÑO PASADO AL NUEVO AÑO.
+			//
+			// El grupo va **sin `titular_id`**, y eso no es un olvido (30 ago 2026). El
+			// listado de grupos hace `left join profesores p on p.id=g.titular_id` —join
+			// directo, sin pasar por `contratos`—, así que un titular copiado no sale en
+			// blanco: sale **con nombre y apellidos**, como si estuviera en la planta del
+			// año nuevo. Y `GruposEditCtrl` lo lee del grupo cargado y no de la lista de
+			// contratados, así que se conserva al guardar. Un dato que se ve y parece
+			// cierto no es un borrador pendiente. Decisión de Joseth; el docente de la
+			// asignatura, doce líneas más abajo, se copia justo por lo contrario.
 			$grupos_ant = Grupo::where('year_id', $pasado->id)->get();
 			
 			foreach ($grupos_ant as $key => $grupo) {
@@ -259,13 +318,113 @@ class YearsController extends Controller {
 					$newAsig->grupo_id 		= $newGr->id;
 					$newAsig->creditos 		= $asigs_ant[$i]->creditos;
 					$newAsig->orden 		= $asigs_ant[$i]->orden;
+					// El docente y su suplente SÍ se copian (30 ago 2026), y es lo que ya
+					// hacía `POST asignaturas/copiar` de grupo a grupo: esta ruta era la
+					// única de las dos que no lo hacía.
+					//
+					// Cuando se crea el año no hay ni un contrato en él, así que el docente
+					// copiado no está contratado todavía — y ahí está la gracia, no el
+					// problema. La columna «Profesor» de la rejilla resuelve el nombre
+					// **filtrando la lista de contratados** (`AsignaturasCtrl`, y esa lista
+					// sale de `Profesor::paraElegirEnAsignaturas`), así que la celda sale en
+					// blanco hasta que se le hace el contrato, y entonces **aparece sola**.
+					// El reparto del año pasado queda de borrador y se va materializando
+					// según se contrata, en vez de perderse.
+					//
+					// Es al revés que el titular del grupo, que se copiaría **visible** y por
+					// eso no se copia. Y no cambia la lección de la medición: en el seed, 1 de
+					// 10 asignaturas heredaría un docente sin contrato — lo que cambia es que
+					// eso ya no es un dato equivocado en silencio, es uno pendiente.
+					$newAsig->profesor_id 	= $asigs_ant[$i]->profesor_id;
+					$newAsig->nuevo_responsable_id = $asigs_ant[$i]->nuevo_responsable_id;
 					$newAsig->save();
 				}
 				$grupo->asigs_ant = $asigs_ant;
 			}
 			$year->grupos_ant = $grupos_ant;
 		}
+
+		$year->periodos = $this->crearLosPeriodos($year, $pasado, $user->user_id, $ahora);
+
 		return $year;
+	}
+
+
+	/**
+	 * Los cuatro periodos del año recién creado, con fechas.
+	 *
+	 * Hasta el 30 ago 2026 aquí se insertaba **uno**, con `numero=1`, `actual=1`, sin
+	 * fechas, sin `created_at` y sin `created_by`. La consecuencia se ve en la base
+	 * del colegio del seed: sus ocho años viejos tienen los cuatro periodos —puestos
+	 * a mano, uno a uno, después— y **el único año creado por esta ruta tiene uno**.
+	 * Cuatro es decisión de Joseth (`CalendarioDePeriodos::CANTIDAD`).
+	 *
+	 * De dónde salen las fechas está explicado en `CalendarioDePeriodos`. Que salgan
+	 * de algún sitio importa más de lo que parece: `ActasEvaluacionController` reparte
+	 * las ausencias por periodo **contra `fecha_inicio` y `fecha_fin`**, y con las
+	 * cuatro en NULL el acta manda todas las faltas al balde `fuera_calendario`.
+	 *
+	 * Los dos interruptores del periodo —`profes_pueden_editar_notas` y
+	 * `profes_pueden_nivelar`— se copian del periodo del mismo número del año
+	 * anterior, y sólo caen al `1` del esquema cuando no hay de dónde copiarlos. No
+	 * es un detalle: en el seed hay años con los cuatro periodos **cerrados** a la
+	 * edición, y nacer abiertos abre la planilla de notas de todo un año lectivo a
+	 * los 51 docentes sin que nadie lo haya pedido.
+	 *
+	 * @return list<Periodo>
+	 */
+	private function crearLosPeriodos(Year $year, ?Year $pasado, int $user_id, Carbon $ahora): array
+	{
+		$del_anterior = $pasado
+			? DB::select('SELECT * FROM periodos WHERE year_id=? AND deleted_at is null ORDER BY numero, id;', [$pasado->id])
+			: [];
+
+		$interruptores = [];
+
+		foreach ($del_anterior as $periodo) {
+			$interruptores[(int) $periodo->numero] ??= [
+				'editar'  => (int) $periodo->profes_pueden_editar_notas,
+				'nivelar' => (int) $periodo->profes_pueden_nivelar,
+			];
+		}
+
+		$fechas = CalendarioDePeriodos::para(
+			(int) $year->year,
+			$pasado ? (int) $pasado->year : null,
+			$del_anterior,
+			$year->calendario,
+		);
+
+		$periodos = [];
+
+		foreach ($fechas as $fecha) {
+			$numero = $fecha['numero'];
+
+			$periodo                             = new Periodo;
+			$periodo->numero                     = $numero;
+			$periodo->fecha_inicio               = $fecha['fecha_inicio'];
+			$periodo->fecha_fin                  = $fecha['fecha_fin'];
+			$periodo->fecha_plazo                = $fecha['fecha_plazo'];
+			// El primero, y sólo el primero: un año con dos periodos actuales deja a
+			// `Login::ponerEnElPeriodoActual` eligiendo por el orden en que salgan de
+			// la base. Antes esto se cumplía solo, porque el periodo era uno.
+			$periodo->actual                     = $numero === 1 ? 1 : 0;
+			$periodo->profes_pueden_editar_notas = $interruptores[$numero]['editar']  ?? 1;
+			$periodo->profes_pueden_nivelar      = $interruptores[$numero]['nivelar'] ?? 1;
+			$periodo->year_id                    = $year->id;
+			$periodo->created_by                 = $user_id;
+			// Explícitas y en Bogotá, como las de `dis_configuraciones` de aquí arriba:
+			// la app corre en UTC (`config/app.php`), así que dejárselas a Eloquent
+			// pondría estas cuatro filas cinco horas por delante de las que escribe el
+			// resto de este mismo método.
+			$periodo->created_at                 = $ahora;
+			$periodo->updated_at                 = $ahora;
+			$periodo->save();
+
+			$periodos[] = $periodo;
+		}
+
+		return $periodos;
 	}
 
 

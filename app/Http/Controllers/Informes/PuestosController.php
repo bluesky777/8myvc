@@ -35,7 +35,7 @@ class PuestosController extends Controller {
                 inner join materias m on m.id=a.materia_id and m.deleted_at is null and a.deleted_at is null and a.grupo_id=:gr_id
                 inner join areas ar on ar.id=m.area_id and ar.deleted_at is null
                 left join (
-                    select nf.asignatura_id, (sum(nf.nota)/4) as nota_final_year from notas_finales nf
+                    select nf.asignatura_id, CAST(sum(nf.nota)/4 AS DOUBLE) as nota_final_year from notas_finales nf
                     inner join asignaturas a on a.id=nf.asignatura_id and a.deleted_at is null and nf.alumno_id=:alu_id
                     inner join periodos p on p.id=nf.periodo_id and p.deleted_at is null and p.year_id=:year_id
                     group by a.id
@@ -59,7 +59,7 @@ class PuestosController extends Controller {
                 inner join materias m on m.id=a.materia_id and m.deleted_at is null and a.deleted_at is null and a.grupo_id=:gr_id
                 inner join areas ar on ar.id=m.area_id and ar.deleted_at is null
                 left join (
-                    select nf.asignatura_id, (sum(nf.nota)/3) as nota_final_year from notas_finales nf
+                    select nf.asignatura_id, CAST(sum(nf.nota)/3 AS DOUBLE) as nota_final_year from notas_finales nf
                     inner join asignaturas a on a.id=nf.asignatura_id and a.deleted_at is null and nf.alumno_id=:alu_id
                     inner join periodos p on p.id=nf.periodo_id and (p.numero=1 or p.numero=2 or p.numero=3) and p.deleted_at is null and p.year_id=:year_id
                     group by a.id
@@ -83,7 +83,7 @@ class PuestosController extends Controller {
                 inner join materias m on m.id=a.materia_id and m.deleted_at is null and a.deleted_at is null and a.grupo_id=:gr_id
                 inner join areas ar on ar.id=m.area_id and ar.deleted_at is null
                 left join (
-                    select nf.asignatura_id, (sum(nf.nota)/2) as nota_final_year from notas_finales nf
+                    select nf.asignatura_id, CAST(sum(nf.nota)/2 AS DOUBLE) as nota_final_year from notas_finales nf
                     inner join asignaturas a on a.id=nf.asignatura_id and a.deleted_at is null and nf.alumno_id=:alu_id
                     inner join periodos p on p.id=nf.periodo_id and (p.numero=1 or p.numero=2) and p.deleted_at is null and p.year_id=:year_id
                     group by a.id
@@ -107,7 +107,7 @@ class PuestosController extends Controller {
                 inner join materias m on m.id=a.materia_id and m.deleted_at is null and a.deleted_at is null and a.grupo_id=:gr_id
                 inner join areas ar on ar.id=m.area_id and ar.deleted_at is null
                 left join (
-                    select nf.asignatura_id, avg(nf.nota) as nota_final_year from notas_finales nf
+                    select nf.asignatura_id, CAST(avg(nf.nota) AS DOUBLE) as nota_final_year from notas_finales nf
                     inner join asignaturas a on a.id=nf.asignatura_id and a.deleted_at is null and nf.alumno_id=:alu_id
                     inner join periodos p on p.id=nf.periodo_id and p.numero=1 and p.deleted_at is null and p.year_id=:year_id
                     group by a.id
@@ -133,7 +133,7 @@ class PuestosController extends Controller {
             inner join materias m on m.id=a.materia_id and m.deleted_at is null and a.deleted_at is null and a.grupo_id=:gr_id
             inner join areas ar on ar.id=m.area_id and ar.deleted_at is null
             left join (
-                select nf.asignatura_id, avg(nf.nota) as nota_asignatura, nf.manual from notas_finales nf
+                select nf.asignatura_id, CAST(avg(nf.nota) AS DOUBLE) as nota_asignatura, nf.manual from notas_finales nf
                 inner join asignaturas a on a.id=nf.asignatura_id and a.deleted_at is null and nf.alumno_id=:alu_id
                 inner join periodos p on p.id=nf.periodo_id and p.numero=:num_periodo and p.deleted_at is null and p.year_id=:year_id
                 group by a.id
@@ -187,8 +187,12 @@ class PuestosController extends Controller {
 
 			foreach ($alumno->notas_asig as $keyAsig => $asignatura) {
                 
+                // El `round()` de aquí **no movía el promedio** —la suma es la línea de
+                // arriba, y por eso el encargo daba esta cadena por buena—: era un
+                // redondeo de presentación. Se quita porque presentar es del front, que
+                // pidió los decimales crudos para poder desempatar, y un redondeo hecho
+                // aquí es el único que allí no se puede deshacer.
                 $sumatoria_asignaturas_year += $asignatura->nota_final_year;
-                $asignatura->nota_final_year = round($asignatura->nota_final_year);
                 $perdidos_year += $asignatura->cant_perdidas;
 
 			}
@@ -275,8 +279,9 @@ class PuestosController extends Controller {
 
 			foreach ($alumno->asignaturas as $keyAsig => $asignatura) {
                 
+                // Mismo caso que en `putDetailedNotas`: redondeo de presentación que el
+                // front deshace solo, y que aquí le tapaba los decimales.
                 $sumatoria_asignaturas += $asignatura->nota_asignatura;
-                $asignatura->nota_asignatura = round($asignatura->nota_asignatura);
                 $perdidos_year += $asignatura->cant_perdidas;
 			}
 

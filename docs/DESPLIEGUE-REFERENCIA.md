@@ -27,6 +27,70 @@ Hay **dos alojamientos compartidos con cPanel**. A cada colegio o cliente se le 
 
 Y **su propia base de datos**, separada de la de los demás.
 
+> **Y de los dos, uno está planeado para desaparecer.** `lal` es el único colegio
+> que vive en la segunda cuenta —bajo su propio dominio, `lalvirtual.edu.co`— y por
+> eso es el único que **queda fuera de todos los bucles**: el de despliegue, el del
+> paso 0, el de los hashes del front y el del cron, que hoy dicen «repetir a mano en
+> la otra cuenta». El plan para traerlo **sin que le cambie la URL**, con lo que hay
+> que medir antes y lo que hay que corregir aquí después, está en
+> [TRASLADO-LAL.md](TRASLADO-LAL.md). **Escrito, no hecho.**
+
+### La carpeta NO se llama como el host — la tabla, medida el 30 ago 2026
+
+Esto ha costado dos mediciones falsas: el barrido de hashes del 29 dio a `lal` por
+caído preguntando por un subdominio que no existe, y el de storage del 30 dejó siete
+colegios en blanco por el mismo motivo. **Los bucles van por carpeta; las
+comprobaciones, por host, y no coinciden.** Sacado de `uapi DomainInfo list_domains`.
+
+| Carpeta en `/home/micolev1/` | Se sirve como |
+|---|---|
+| `cads-itagui` · `casb-medellin` · `caz-zaragoza` · `coabsaravena` · `comad-san-andres` · `maranathaarauca` | `cads` · `casb` · `caz` · `coab` · `comad` · `maranatha` |
+| **`fortul`** | **`coaf`** |
+| `bethelexplora` | `bethelexplora` **y** `bethel` — dos hosts, el mismo colegio (mismo bundle) |
+| `amiguitosdejesus` · `coal` · `colbosque` · `coljordan` · `eal` · `inseaq` · `semillitasdedios` · `demo` | igual que la carpeta |
+| *(`lal`, en la otra cuenta)* | `lalvirtual.edu.co` |
+
+Y en la misma cuenta, **sin ser colegios**: `app` (la **build web de `myvc_flutter`**,
+`flutter_bootstrap.js`), `ws`, `edilson`, `calculadora` (403) y `lal` (el subdominio de
+pruebas del traslado).
+
+**Dos restos que no servían nada:** `hermosa.micolevirtual.com/` (13 M), una carpeta sin
+subdominio —no resolvía, no estaba en `list_domains`—, **borrada el 30 ago 2026**; y
+`lalvirtual.edu.co/` (32 K, enero 2021), un docroot huérfano: ese dominio **no** está
+dado de alta en esta cuenta (`addon_domains: []`).
+
+> **Y la trampa que casi muerde: la base `micolev1_la_hermosa` NO se fue con la carpeta,
+> porque es la de `eal`.** El nombre coincidía, la carpeta sobraba y la base no. Ver el
+> apartado siguiente.
+
+### Y la base tampoco se llama como la carpeta — **NINGUNA BASE SE PUEDE BORRAR**
+
+Tercer nombre distinto para la misma cosa, y el que más caro sale equivocar. Las bases
+llevan **la ciudad**, no el colegio. Confirmado por Joseth el 30 ago 2026; el mapa
+definitivo lo imprime:
+
+```bash
+for d in /home/micolev1/*.micolevirtual.com/8myvc; do
+  printf '%-38s %s\n' "$(basename $(dirname $d))" "$(grep -m1 '^DB_DATABASE=' $d/.env 2>/dev/null)"
+done
+```
+
+**Las dos que no se adivinan por el nombre, y las dos parecían bases huérfanas:**
+
+| Carpeta | Base | |
+|---|---|---|
+| **`eal`** | **`micolev1_la_hermosa`** | había además una carpeta `hermosa.micolevirtual.com/` sin subdominio —**el nombre viejo del mismo colegio**—, borrada el 30 ago. **La base se queda: la usa `eal`** |
+| **`inseaq`** | **`micolev1_quibdo_db`** | 424 MB |
+
+Las demás se dejan leer (`coal` → `coal_bucara`, `casb-medellin` → `simonbolivar_medellin`,
+`bethelexplora` → `bethel_arauquita`, `fortul` → `fortul_adventista`, `maranathaarauca` →
+`arauca_maranatha`…), pero **se leen, no se adivinan**: el bucle de arriba es la fuente.
+
+> **De las 18 bases de la cuenta, NINGUNA sobra:** quince colegios + `demo` + `edilson`
+> + la nueva de `lal`. **No hay ninguna base que borrar**, y las dos que más lo parecían
+> —`la_hermosa` y `quibdo_db`— son las de dos colegios vivos. Lo que sí se puede archivar
+> y borrar es **la carpeta** `hermosa.micolevirtual.com/`, que no sirve nada.
+
 ### Qué está copiado y qué está compartido por symlink
 
 **Aquí no basta con "cada colegio tiene lo suyo": hay una parte compartida y una
@@ -51,6 +115,11 @@ Sacado del servidor, no supuesto. Los 16 colegios tienen el mismo commit de `app
 | Estado de `vendor/` | Cuántos | Colegios |
 |---|---|---|
 | Symlink a `/home/micolev1/laravel_compartido`, al día | 5 | `coal`, `colbosque`, `comad-san-andres`, `eal`, `maranathaarauca` |
+
+> **Desde el 30 ago 2026 son SEIS: entra `lal`.** Al montarlo en la cuenta de
+> `micolev1` (traslado, [TRASLADO-LAL.md](TRASLADO-LAL.md)) Joseth eligió el symlink,
+> así que `lal` **se despliega y se revierte con el bloque** y **nunca se corre
+> `composer` dentro de su carpeta**: seguiría el symlink y cambiaría a los otros cinco.
 | Carpeta propia, al día | 2 | `amiguitosdejesus`, `semillitasdedios` |
 | **Carpeta propia, congelada en 2021** | **8** | `bethelexplora`, `cads-itagui`, `casb-medellin`, `caz-zaragoza`, `coabsaravena`, `coljordan`, `fortul`, `inseaq` |
 
@@ -446,8 +515,22 @@ php artisan correo:probar tu-correo@ejemplo.com
 Estado completo del entorno en `PHP-BASELINE.md`.
 
 **Confirmar que salió de verdad:** cPanel → *Rastreo de entrega*. `correo:probar`
-solo garantiza que Exim aceptó el mensaje, no que llegara. Ahí se vería un
-problema de SPF con `lalvirtual.com`.
+solo garantiza que Exim aceptó el mensaje, no que llegara.
+
+> **Y esto decía «ahí se vería un problema de SPF con `lalvirtual.com`», que estaba
+> mal planteado. Medido el 30 ago 2026: `lalvirtual.com` NO EXISTE.** `dig` da
+> **NXDOMAIN** y `whois` contesta *No match for domain "LALVIRTUAL.COM"* — no está mal
+> configurado, **no está registrado por nadie**. Y es el dominio del
+> `MAIL_FROM_ADDRESS` que este mismo apartado manda poner **en los quince colegios**,
+> y el que iba incrustado en las cabeceras del `mail()` viejo.
+>
+> No hay «problema de SPF»: **un dominio que no existe no puede publicar SPF**, y para
+> el receptor eso no es un SPF que falla, es *sender domain does not exist* — un motivo
+> de rechazo bastante más duro. Nadie lo vio porque el síntoma es correo que no llega y
+> el reseteo se usa **menos de una vez al día**. Los tres caminos —remitente de un
+> dominio que sí exista, registrar `lalvirtual.com`, o dejarlo sabiéndolo— y qué medir
+> antes de elegir, en [TRASLADO-LAL §9.1](TRASLADO-LAL.md). **Toca el `.env` de los
+> quince: es una tanda, no un `sed`.**
 
 **Dato de la comprobación local, por si ayuda a interpretar un fallo:** en el
 contenedor de desarrollo `mail()` **ya devolvía `false`** — `sendmail` es un
@@ -856,6 +939,166 @@ hacerlos seguidos, con los cinco `git pull` preparados.
 Volver atrás en esos cinco también es todo o nada. Los de `vendor/` propio se
 despliegan y se revierten uno a uno, sin ataduras.
 
+## Lo que trae la tanda del 25–28 ago 2026 — del 25 ago (`eb95cbc`) a `HEAD`
+
+El procedimiento y el estado de los avisos están en [DESPLIEGUE.md](DESPLIEGUE.md); aquí
+está el porqué de cada fila.
+
+| | | recalcular con |
+|---|---|---|
+| Migraciones | **UNA**, y **no es opcional** | `git diff --name-only eb95cbc HEAD -- database/migrations/` |
+| Rutas | **543** — una nueva, `PUT users/mi-docente` (28 ago) | `tests/Contrato/Snapshots/rutas.json` |
+| Dependencias | sin tocar | `git diff --name-only eb95cbc HEAD -- composer.json composer.lock` |
+| `config/` | sin tocar | `git diff --name-only eb95cbc HEAD -- config/` |
+| `app/` | **veintiocho ficheros** | `git diff --name-only eb95cbc HEAD -- app/` |
+
+> **Esa última fila decía ocho, se corrigió a once, y su propia columna derecha daba
+> veintiséis.** La corrección de once **también se hizo a mano**, y por eso se quedó a quince
+> ficheros del número real: quien la escribió añadió los dos que había visto, no los que da el
+> comando. **Un número recalculado a ojo no es un número recalculado.** Por eso la columna
+> derecha lleva **el comando** y no una lista escrita a mano.
+>
+> **El despliegue no cambia por esto**: el bucle hace `git pull` del árbol entero, no fichero a
+> fichero. Lo que cambia es lo que se puede afirmar al revisar un colegio a mano.
+
+### La migración es bloqueante, como la del 25
+
+`2026_08_26_100000_interruptores_de_certificados` añade `usa_consecutivo_certificados` y
+`usa_folio_certificados` a `years`, y **el código de esta misma tanda las consulta en un camino
+vivo** —`Year::datos()`, que es de donde sale cualquier boletín y cualquier certificado—. **Con
+el código y sin la migración: 500 en todo.** Por eso el `migrate --force` va **entre el `pull` y
+el `config:cache`**.
+
+**Y lo que hace que sea segura: no siembra ningún valor por defecto.** Deriva los dos
+interruptores de lo que cada colegio hace hoy —`contador <> ''`, que es la condición que el front
+ya usaba para ocultar cada casilla—, así que **ningún colegio imprime nada distinto el día del
+despliegue**.
+
+> **El `migrate --force` dejó de ser higiene el 25 ago y no vuelve a serlo.** `2026_08_24_100000`
+> creó `bol_ind_periodos` y el código de la misma tanda la consulta en `Unidad:112`: con el
+> código y sin la migración, **500 en todos los boletines**.
+
+### Qué se le nota a un colegio
+
+| | |
+|---|---|
+| **El boletín final va de 3.820 consultas a 455** (GEMELO-1). Es la queja de los 24–63 s y las caídas bajo carga | `docs/migracion/noche-2026-08-25/gemelo-1.md` |
+| **La ficha del alumno crea las notas que faltan** — 240 huecos medidos | `05 §234` |
+| **Fijar el consecutivo de certificados pasa a ser de secretaría**, y contesta **403** al resto del personal | [`cert-2`](migracion/noche-2026-08-26/cert-2.md) |
+| **Mover el consecutivo deja rastro en `auditoria`**, tanto al quemarlo abriendo el certificado como al fijarlo a mano | [`cert-2 §3`](migracion/noche-2026-08-26/cert-2.md) |
+| **El consecutivo y el folio pasan a ser OPCIONALES por colegio.** Nada cambia de aspecto: cada colegio arranca como está hoy. Lo que cambia es que **el que no imprime el número deja de gastarlo** — hasta ahora su contador subía solo en cada apertura | [`21 §4`](migracion/21-certificados-y-folios.md) |
+| **La prematrícula pública deja de escribir la ficha de un menor a medias.** Con un grupo que falta o que no existe contestaba **500 con la ficha ya escrita** —sin matrícula y sin cuenta—, y **el reintento daba un 200 mintiendo**: *«Ya existe el alumno, entre con su cuenta»* por una cuenta que nunca se creó. Ahora es **422 antes de escribir nada**, y las cuatro escrituras van en transacción. *Los huérfanos ya escritos **no los toca**: eso es del colegio* | `05 §236` |
+| **Una falta anotada sin fecha deja de quedarse sin día.** Contaba en los totales del boletín y no salía en ningún listado por día —el calendario de la app la descarta—. Sólo las nuevas: **las 5.071 que ya hay en la copia de un colegio no las toca** | `05 §242` |
+| **La cuenta administrativa puede decir qué docente mira, y queda guardado en su fila.** `users.profesor_id` existía y **no la escribía nadie** —las dieciséis cuentas de tipo `Usuario` la tienen en `NULL`—; ahora `PUT users/mi-docente` la rellena. **Efecto secundario querido, y hay que saberlo: el panel VIEJO le empezará a pintar a esa cuenta el horario de hoy y el de mañana de ese docente**, porque `ChangeAskedController::getToMe` ya leía esa columna | `UsersController::putMiDocente` |
+| **El folio deja de fabricarse.** Ya no se escribe `año-alumno_id` al matricular, y `GET folios/iniciar` —que llenaba todos los huecos del año de una sentencia, y **no lo llama ningún cliente**— contesta 409. Los folios ya escritos **se quedan**: borrarlos cambia lo impreso y es decisión aparte | [`21 §4.3`](migracion/21-certificados-y-folios.md) |
+
+### Los siete avisos al front, en detalle
+
+> **Cada aviso lleva un estado, y no está en futuro por una razón que costó un día entero.**
+> El bloque equivalente de la tanda anterior decía *«`myvc_flutter` tiene tres interruptores
+> esperando el despliegue»* **y seguía diciéndolo después de desplegar**: Flutter acabó pidiendo
+> que se fusionara y desplegara una rama que no existía, y que se escribiera un endpoint que
+> llevaba tres días en los quince. **Un pendiente escrito en futuro no envejece a «hecho»:
+> envejece a mentira.** Lo midió `8myvc-43` el 26 ago (`f5f6235`).
+
+**A y B son de las de «quién puede llamarla».** El detalle en
+[`cert-2 §6`](migracion/noche-2026-08-26/cert-2.md) y el reparto completo de qué hace el backend
+y qué les toca a ellos en `myvc_front/TAREAS-AUDITORIA-CERTIFICADOS.md`.
+
+**A.** `PUT bolfinales/cambiar-contador-certificados` y `-folios` **contestan 403 a quien no sea
+administrativo**. Las dos pantallas que llaman a la primera —`certificadoEstudioDir.html` de la
+vieja y `certificados-estudio.ts` de `app2`— **enseñan el control sin mirar el rol**, así que un
+docente verá «Contador no guardado». Lo que toca allí es **esconder el control**, no cambiar la
+llamada. *(`-folios` no lo llama nadie vivo.)*
+
+**B.** Hay **dos interruptores nuevos que configurar**, `usa_consecutivo_certificados` y
+`usa_folio_certificados`, y **cambian la forma de veintiuna respuestas** —las instantáneas de
+contrato lo fijan—. **El cambio es aditivo: no quita ni renombra ningún campo**, así que ningún
+cliente se rompe por recibirlos; pero conviene saber dónde caen:
+
+| endpoints | qué significa para el front |
+|---|---|
+| `GET years` · `years/colegio` · `years/trashed` | **aquí les vienen bien**: es de donde la pantalla de configuración los va a leer |
+| los 13 de `boletines/*` y `bolfinales/*` | el objeto `year` viaja dentro del boletín y del certificado; es donde tienen que mirar el interruptor para esconder las casillas |
+| `informes/datos` · `piars-config` · `grupos-con-disciplina` · `notas/actuales-alumnos` | por arrastre, no les toca nada |
+
+El front tiene que (a) ocultar las dos casillas por el interruptor en vez de por «la columna está
+vacía», y (b) ofrecerlos en la pantalla de configuración de certificados, que es donde el colegio
+los va a buscar. Hasta que lo haga **no se rompe nada**: la derivación deja a cada colegio como
+estaba.
+
+**C.** `aumentar_contador` hay que **OMITIRLO**, no mandar `false`. El backend ya no quema con la
+cadena `"false"` desde el 25, pero **las copias de `myvc_front` de los quince colegios van a
+versiones distintas** y esa medición no las ve.
+
+**D.** `PUT login/crear-prematricula` **contesta 422** —y no 500— cuando el `grupo_id` no existe,
+no viene o no es un id, **con el texto en `message`**. **Al front no le toca nada, y eso está
+comprobado y no supuesto**: `mensajeError.ts` lleva `422` en su lista `CON_MENSAJE`, así que
+`LoginCtrl:217` ya pinta el texto del servidor en el toast *«No se pudo prematricular»*. Lo que
+cambia es **a mejor**: con el 500 salía el texto genérico, porque 500 **no** está en esa lista.
+*(Y de paso: un grupo **en la papelera** también da 422 ahora. Antes pasaba y dejaba la
+prematrícula colgada de un grupo borrado.)*
+
+> **Y de camino salieron dos cosas del front que NO son de esta tanda: ARREGLADAS**, las dos en
+> `myvc_front`, commit `8321f9a5` — **commiteado en su `main`, sin subir y sin publicar**.
+> **(a)** El desplegable de grupo lleva `allow-clear="true"` (`login.html`) y el controlador hacía
+> `year.grupo_prematr.id` **sin comprobar nada**: limpiar el grupo y pulsar «Prematricular» era un
+> `TypeError` dentro del `ng-click` — **botón mudo**, el mismo fallo que ese fichero ya había
+> arreglado para `$ctrl.year` doce líneas más arriba, en el campo de al lado. **(b)**
+> `$ctrl.guardando` se ponía a `true` al enviar y **no lo leía nadie**: era el `ng-disabled` que
+> falta, a medio poner. Ahora lo lee el botón y se repone en las cuatro salidas. Siete pruebas
+> nuevas (`test/login/prematriculaDelLogin.test.js`) y **los dos controles vistos rojos**: cada
+> arreglo tiene sus dos, y ninguno tapa al otro.
+>
+> **Ojo al orden, que aquí sí importa:** esto es del front y **su despliegue es otro bucle**
+> —`up/`, un `git pull` de `myvc_dist`—. El 422 del backend y estos dos arreglos **no tienen que
+> salir juntos**: son independientes en las dos direcciones.
+
+**E.** `GET notificaciones/temas` devolvía `"colegio": ["colegio_muro", "colegio_avisos"]` y ahora
+devuelve `"colegio": {"colegio_muro": "c_1a2b…", "colegio_avisos": "c_3c4d…"}` — **de lista a
+objeto, y con el tema ya compuesto**. Es de `myvc_flutter` y **no lo toca ningún front web**. **No
+rompe a nadie hoy**: la app no está publicada y ellos dijeron por escrito que no suscriben esos
+dos temas hasta que llevaran prefijo. El porqué, en
+[05 §238](migracion/05-codigo-muerto-y-roto.md).
+
+**F.** `POST ausencias/store` **rellena `fecha_hora` cuando no se manda**, y la contesta **en
+ISO**. No requiere trabajo del front: `app2` ya lee los dos formatos, y con su prueba.
+
+**G.** **`PUT users/mi-docente` es una ruta NUEVA** —la primera desde las tres de `myvc_flutter`
+del 24— y escribe `users.profesor_id` de la cuenta que la llama. **Sólo cuentas de tipo
+`Usuario`** (un profesor recibe 403: su identidad sale de `profesores.id`, no de esa columna) y
+**sólo un profesor contratado en el año en curso** (si no, 422 — la columna no tiene clave
+foránea, así que la comprobación tiene que estar aquí).
+
+> **El orden aquí SÍ importa, y al revés que el del 422 de arriba:** `app2` **ya la llama**, desde
+> el botón de docente de la portada del panel. En un colegio con el front nuevo y sin este
+> despliegue, elegir docente **funciona en pantalla** —se ven sus asignaturas— y sale un aviso de
+> que no quedó guardado, porque la ruta contesta 404. No se rompe nada más; lo que no dura es la
+> elección. **Este backend va antes que ese front, o el aviso lo ve el administrador el primer
+> día.**
+
+### Los dos que `myvc_flutter` pidió por su nombre
+
+Los dos son **acciones nuestras con fecha en el futuro**, y una promesa que sólo vive en un
+mensaje entre sesiones es una promesa que se cae en cuanto la sesión se cierra. Por eso están
+escritas aquí y en el paso 3 del procedimiento.
+
+| cuándo | qué hay que hacer |
+|---|---|
+| el día que **`b369020`** entre en una tanda desplegada | **decirles el hash desplegado.** Su `temasDelColegio` está detrás de un interruptor apagado esperando exactamente eso: los temas del colegio pasan de literal a `c_`+HMAC, y hasta que el backend esté en los quince suscribirse sería apuntarse al tema viejo. Ellos leen las dos formas, así que **no hay ventana rota**: sólo hay un interruptor que encender |
+| el día que se corra el **`for` de la fase 0** | **pasarles el desglose por año del bloque 5** (notas fuera de escala). No tienen que hacer nada con él: es el dato que decide si aquello fue *«una precaución razonable»* o *«un susto»*, y la pregunta la abrieron ellos. Ver [05 §240](migracion/05-codigo-muerto-y-roto.md) |
+
+> **Por qué cerrar los avisos es un paso del procedimiento y no una buena costumbre:** ya falló
+> una vez, y el coste no fue la línea desactualizada. Fue que la sesión de `myvc_flutter` planificó
+> una vuelta entera —fusionar una rama, desplegarla, escribir un endpoint— **sobre trabajo que
+> llevaba tres días en producción**. El documento no estaba viejo: estaba diciendo algo falso con
+> la cara de un pendiente.
+
+### Y la tabla de arriba se remide, no se suma
+
+**Se recalcula cuando la tanda crece.** La del 25 decía «ninguna migración» con cuatro dentro,
+porque se había medido antes de fundir cuatro ramas.
+
 ## Lo que trajo la tanda del 22–25 ago 2026 — desplegada el 25 ago en `eb95cbc`
 
 **Comprobada por Joseth con el mismo hash en los quince.** Esa cifra se escribió primero como
@@ -1108,6 +1351,21 @@ git remote prune origin
 grep -o 'assets/index-[^"]*\.js' index.html
 ```
 
+> **`demo` no está en la lista de colegios de este documento, y el 29 ago 2026 se descubrió
+> atrasada a mano.** Ni en el `for` de comprobación ni en el recuento. Al ponerla al día salió
+> además un `if` cableado en `app.ts` del front (`indexOf('demo') > 0` → `demo/5myvc/public/`)
+> que manda el login de ese colegio a la API vieja, **en un bundle que comparten los quince**.
+> Las tres decisiones que abre —arreglo en el front o parche local, si `demo` entra en las
+> listas, y `coljordan` atrasado con `lal` sin contestar— están en la casilla **2septies** de
+> [`ESTADO-ACTUAL.md`](migracion/ESTADO-ACTUAL.md#lo-que-espera-tu-respuesta--la-lista-de-la-mañana-del-25-por-consecuencia),
+> **esperando a Joseth**.
+>
+> **Y una trampa nueva del `checkout -f`:** el bundle de `up/` puede llevar un parche a mano, y
+> el `checkout -f` se lo lleva **sin que se pueda leer qué era** — minificado es una línea, así
+> que `git diff --stat` da `1 insertion(+), 1 deletion(-)` igual para un carácter que para el
+> fichero entero. Si `git pull` se queja de un `assets/index-*.js` modificado, **cópialo antes**
+> (`cp assets/index-*.js ~/index.antes-del-parche`), que es el único modo de saber qué se pierde.
+
 ### El bucle de `app2` que había en DESPLIEGUE.md SUSTITUÍA el legacy — corregido el 25 ago
 
 Decía: construir `app2` con `--base-href /up/`, copiarlo a `myvc_dist` y pullear en
@@ -1135,6 +1393,13 @@ Lo que hay que hacer antes de la primera tanda de `app2`, todo en el repo del fr
    carpeta lo vuelve a abrir.
 5. **`app2` necesita su propio repo de dist.** `myvc_dist` está ocupado por el legacy y
    no puede llevar los dos.
+   > **CONTESTADO el 30 ago 2026, y ya existe: `myvc_dist2`.** Está clonado en la
+   > carpeta **`up2/`** de cada colegio —`git remote` de `lal` medido en el servidor,
+   > `HEAD` en `ef42e3e` del 29 ago— y **`/up2/` contesta 200 en los dieciséis**: los
+   > quince colegios, `demo` y `lal`. O sea que **`app2` no está por desplegar: está
+   > desplegado en todos**, con `<base href="/up2/">`, que es el valor que le
+   > corresponde a esa carpeta. Son **cinco** carpetas por colegio —`8myvc`, `up`,
+   > `up2`, `plus`, `landing`— y no cuatro.
 
 **Y el hueco que no cierra nadie más que Joseth, ahora por duplicado: quién copia
 `dist/browser/*` al repo de dist, y con qué.** No hay guion, ni hook, ni README; los

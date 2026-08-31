@@ -154,8 +154,8 @@ class NotasController extends Controller {
 			
 			// Traemos las Definitivas
 			$cons_nf  = 'SELECT a.id as alumno_id, a.no_matricula, nf1.periodo, u.username as updated_by_username,
-							nf1.nota as nota_final, nf1.id as nf_id, nf1.recuperada, nf1.manual, nf1.updated_by, nf1.created_at, nf1.updated_at,
-							cast(r1.DefMateria as decimal(4,1)) as def_materia_auto, r1.updated_at as updated_at_def, IF(nf1.updated_at > r1.updated_at, FALSE, TRUE) AS nfinal_desactualizada 
+							CAST(nf1.nota AS DOUBLE) as nota_final, nf1.id as nf_id, nf1.recuperada, nf1.manual, nf1.updated_by, nf1.created_at, nf1.updated_at,
+							cast(r1.DefMateria as decimal(7,4)) as def_materia_auto, r1.updated_at as updated_at_def, IF(nf1.updated_at > r1.updated_at, FALSE, TRUE) AS nfinal_desactualizada 
 						FROM alumnos a 
 						left join notas_finales nf1 on nf1.alumno_id=a.id and nf1.asignatura_id=:asign_id1 and nf1.periodo=:periodo
 						left join users u on u.id=nf1.updated_by 
@@ -858,7 +858,11 @@ class NotasController extends Controller {
 					'alumno_id' => $alumnoId,
 					'asignatura_id' => $par['asignatura'],
 					'periodo_id' => $par['periodo'],
-					'nota' => $fila === null ? null : (int)$fila->nota,
+					// `(float)`: la columna es `DECIMAL` desde
+					// `2026_08_30_200000_notas_finales_en_decimal` y PDO la trae como
+					// cadena. `(int)` truncaba hacia abajo; el `(float)` conserva los
+					// decimales **y** deja el valor como número en el JSON.
+					'nota' => $fila === null ? null : (float)$fila->nota,
 					'manual' => $fila !== null && (bool)$fila->manual,
 					'recuperada' => $fila !== null && (bool)$fila->recuperada,
 				];

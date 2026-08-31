@@ -12748,3 +12748,359 @@ Comprobarlo contra `now()` habría dejado un test que falla de madrugada, entre 
 05:00 UTC. Y una segunda aserción sobre **la respuesta**, que fija el ISO del párrafo de arriba.
 
 Red: `tests/Contrato/AusenciasTest.php`.
+
+---
+
+## §243. Un docente se llevaba la hoja de vida de los 47 empleados — y el censo de la familia, que sigue abierto (28 ago 2026)
+
+`GET api/profesores` iba con `auth.personal` y **nada más**, así que **un docente cualquiera
+recibía exactamente lo mismo que un administrador**: no parecido, **las mismas 28 claves y los
+mismos 47 registros**.
+
+Lo midió `myvc-front-6b` el **25 ago 2026** conduciendo la aplicación en Chrome con un token de
+docente de verdad (`DANIEL1`), y **es la primera vez en toda la fase 11 que alguien usa la
+aplicación con un usuario que no es `administrador`**. Lo autorizó Joseth el **28 ago**.
+
+> **Cuidado con el número: es la §234 del front, no la de aquí.** `PREGUNTAS-MANANA.md` de
+> `myvc_front` numera en su propio espacio, y en este documento la §234 y la §235 son otras dos
+> cosas (las notas de alumno y el consecutivo de certificados). El aviso vale para todo lo que
+> llegue por ese canal: **al citar un §§ del front hay que decir de qué repositorio es.**
+
+### Qué salía, medido con un token de Profesor sobre el seed
+
+| campo | con dato |
+|---|---|
+| `num_doc` | **35 / 47** — documento de identidad |
+| `fecha_nac` | 41 / 47 |
+| `email` | 24 / 47 |
+| `username` | 19 / 47 — media credencial |
+| `celular` | 16 / 47 |
+| `estado_civil` | 12 / 47 |
+| `direccion` | **11 / 47** — domicilio |
+| `barrio` | 10 / 47 |
+| `is_superuser` | 19 / 47 — **y además dice a quién apuntar** |
+
+**Y esto es el seed, con la base a medio llenar.** En los colegios esos campos están más
+completos.
+
+### Por qué no se veía: la pantalla no existe para ese rol
+
+**El menú del docente no ofrece «Profesores» en ninguno de los dos fronts.** El front no abre esa
+puerta — la abre el endpoint, que no miraba quién preguntaba. Es la forma que comparte con la
+bitácora del front (su §235): *la pantalla no existe para ese rol y el endpoint abre igual, así
+que **esconder un botón no niega nada***.
+
+Ninguna de las veinte puertas del front podía verlo. **Es autorización de API.**
+
+### Por qué se cierra la puerta y no se recorta la respuesta
+
+Es la decisión que separa esto del recorte de `Profesor::contratos()` (§14.4), y **no es la
+misma respuesta porque no es la misma pregunta**:
+
+| | `contratos()` | `GET profesores` |
+|---|---|---|
+| consumidores | **once**, en tres clientes | **tres pantallas, las tres de administración** |
+| ¿alguno lee lo sensible? | ninguno | la de **editar la ficha** |
+| qué se hizo | recortar la respuesta | **cerrar la puerta** |
+
+Medido en los cuatro clientes, no supuesto:
+
+- `myvc_front` — sólo `ProfesoresCtrl` (`ProfesoresApi.listar()`);
+- `app2` — sólo `profesores/` y `profesores/editar/{id}`;
+- `myvc_flutter` y `myvc_front_2` — **no la llaman**.
+
+**Una respuesta recortada llegaría justo a la pantalla de editar**, que es la que escribe la ficha
+de vuelta. Recortar aquí sería mover el problema a la mesa de al lado.
+
+### El criterio, y por qué ése
+
+`Autoriza::esAdministrativo` —superusuario o `Secretario`—, que es el que **ya gobierna la
+escritura de este mismo controlador**: `putUpdate`, `putGuardarValor` y los tres borrados exigen
+superusuario. Lo que había era la asimetría entera: **el expediente no se podía editar sin ser
+superusuario y se podía leer siendo cualquiera del personal.**
+
+Coincide además con lo que gobierna la pantalla en los dos fronts, comprobado en su código:
+
+- la vieja pide `can_work_like_admin`, **que no existe en la tabla `permissions`** (están los
+  veinte y ése no es ninguno), así que allí sólo entra un `is_superuser`;
+- `app2` pide rol `Admin` o `Secretario`.
+
+#### La coincidencia que no es un criterio, y que hay que comprobar antes de desplegar
+
+`esAdministrativo` es `is_superuser || Role::isSecretario`. **El rol `Admin` no está dentro.**
+Coincide con lo que abre `app2` porque en la base medida los diez `Admin` son **exactamente** los
+diez `is_superuser` —cero `Admin` sin superusuario, medido por `myvc-front-6b` y confirmado aquí—,
+pero eso es una **coincidencia de población, no un criterio**: un colegio que le haya puesto el rol
+`Admin` a alguien sin superusuario lo separa, y esa persona **pierde la pantalla de Docentes**.
+
+**Y eso no se puede medir desde aquí: cada colegio tiene su propia base.** Por eso el despliegue
+lleva ahora un **paso 0** ([`DESPLIEGUE.md`](../DESPLIEGUE.md)) que corre el `SELECT` en los quince
+y tiene que dar cero; si alguno no lo da, **se para y lo decide Joseth**.
+
+**No se ensancha `esAdministrativo` para taparlo**, y es la misma regla que dejó escrita
+`create_rol_secretario`: ese método lo leen **seis sitios más** —las masivas de
+`cambiar-usuarios/*` entre ellas—, así que meterle el rol `Admin` repartiría permisos que nadie ha
+pedido en cinco puertas que no son ésta. **Ensanchar un criterio no puede regalar permisos por la
+puerta de atrás.** Si hay que hacerlo, se decide y se repasan las seis.
+
+> **Lo mismo, escrito al revés en el otro repositorio:** `PANTALLA-USUARIOS.md` de `myvc_front`
+> afirmaba que su `administraCuentas` «es el mismo criterio que `Autoriza::esAdministrativo`», y
+> **no lo es** por esta misma línea — el front incluye `Admin`. Lo encontró `myvc-front-6b` con
+> este mismo `SELECT` y lo corrige allí. **Dos mitades de un criterio que se describen igual y se
+> calculan distinto es la clase de fallo que sólo aparece en el colegio que rompe la
+> coincidencia.**
+
+Se deja **más ancho que la escritura** a propósito: una secretaria puede necesitar consultar la
+ficha del personal sin poder editarla.
+
+### Un test que ya no medía lo que decía, y hubo que moverlo
+
+`LoQueDecideUnRolTest::test_el_guard_del_personal_no_mira_ningun_rol` usaba `GET api/profesores`
+como ejemplo de ruta con `auth.personal` y **nada más**, y su sujeto es un `Usuario` **sin ningún
+rol y sin superusuario** — o sea, exactamente a quien esta §243 empieza a rechazar.
+
+**El test no estaba mal: dejó de medir su pregunta en el momento en que su ruta dejó de ser sólo
+`auth.personal`.** Se repunta a `GET api/roles`, que es un catálogo y **no una ficha de personas**,
+para que la próxima tanda de esta familia no vuelva a moverlo: `roles` no tiene a quién exponer.
+
+### LO QUE NO CIERRA ESTO, Y ES LA PARTE QUE HAY QUE LEER
+
+**`GET profesores` era una de cuatro.** El censo de la familia —que la propia ficha del front pedía
+en su punto C, *«se curó una, ha aparecido la segunda, y nadie ha hecho el censo»*— se hizo, y
+**sigue abierto todo lo demás**. Medido con el mismo token de Profesor:
+
+| ruta | registros | claves | lo sensible que entrega |
+|---|---|---|---|
+| `GET profesores` | 47 | 28 | **CERRADA hoy** |
+| `GET profesores/todos` | 19 | **28** | `num_doc` 19, `direccion` 5, `username` 19, `is_superuser` 19 |
+| `PUT profesores/listado` | 9 | **37** | `num_doc` 9, `direccion` 2 |
+| `GET profesores/show/{id}` | 1 | 24 | la ficha completa de **cualquier** profesor, por id |
+| `GET profesores/conyears` | 47 | 12 | sólo `email` (24) — leve |
+| `GET profesores/trashed` | — | — | **500** |
+
+**No se tocan, y no por olvido.** Joseth autorizó la §234 del front, que es `GET profesores`; y hay
+una medición que dice que cerrarlas con este mismo criterio **rompería una pantalla**:
+
+> **`PUT profesores/listado` lo consume el informe «listado de profesores», y en `app2` esa ruta
+> va con el permiso `informes`, que es `esAdmin || esSecretario || esCoordDisciplinario`.** Un
+> **`Coord disciplinario` no es `esAdministrativo`**, así que cerrarla con el criterio de hoy le
+> quitaría el informe. Es una decisión del colegio, no un arreglo.
+
+**Y el radio de ese riesgo se midió después de escribir esto, y lo abarata mucho.** En
+`simonbolivar` hay **un solo `Coord disciplinario`** —id 687, `convivencia2019(inhabilitado)`— y
+**es `is_superuser`**, así que ya pasa `esAdministrativo` por la otra rama: cerrar `listado` con
+este criterio **no le quitaría el informe a nadie ahí**. La población entera, para que se vea que
+el 1 no es un residuo de una consulta mal hecha:
+
+    Alumno 1284 · Acudiente 999 · Profesor 53 · Admin 10 · Psicólogo 4 · Coord disciplinario 1 · Enfermero 1
+
+> **Es una base de quince, y eso no es una cautela retórica.** Lo midió `myvc-front-6b` contra el
+> docker local, que es hasta donde alcanza — y lo dijo **antes de que nadie tomara su «1» por «uno
+> en toda la red»**. Cada colegio corre su propia base: esto dice que en `simonbolivar` no rompe
+> nada y **no dice nada de los otros catorce**. El `SELECT` que lo contestaría de verdad es el del
+> paso 0 de [`DESPLIEGUE.md`](../DESPLIEGUE.md), con `'Coord disciplinario'` en vez de `'Admin'`.
+
+**Y `GET profesores/trashed` da 500**, o sea que está rota además de abierta: cae en la regla de
+«con ruta y roto se documenta».
+
+### Lo que esto enseña, y no es «el instrumento falló»
+
+El censo de IDOR del [08](08-revision-idor.md) **ya tenía estas rutas** y no las cerró, por un
+motivo que se repite: **se corrió con un token de ALUMNO, y su herramienta deja fuera todo lo que
+lleva `auth.personal` — y un Profesor ES personal.** Se preguntó *«¿un alumno ve lo de otro?»* y se
+contestó bien. **Nadie preguntó «¿personal ve lo de otro del personal?»**.
+
+**El detector no falló y el censo no estaba mal hecho: la pregunta era otra.** Es la misma forma
+que la cabecera del `CLAUDE.md` ya describe para la §142 — *un detector puede contar bien un
+síntoma y no estar contando la causa*—, y aquí la variante es **el sujeto**: un barrido de
+autorización sólo mide los roles con los que se corre.
+
+> **Lo que queda pedido, y es lo que evita el tercer caso:** volver a correr el censo de IDOR **con
+> un rol del personal**. Dos endpoints de esta clase aparecieron en una sola noche —`profesores` y
+> la bitácora— y los dos por mirar con un rol que el censo no usaba. No hay motivo para pensar que
+> son los dos únicos.
+
+### Y la que ya estaba cerrada antes de que la midieran
+
+La bitácora (§235 **del front**: `GET bitacoras/{user_id?}` entregando la del administrador a un
+docente) **no necesitaba arreglo: ya la cerró `abaf6b2` el 24 ago**, un día antes de que se
+midiera, con el permiso `can_view_auditoria` (AUD-5, [18](18-auditoria.md) decisión 3).
+Comprobado aquí con un token de **Profesor** —el rol con el que se midió, y que no es el que
+cubrían los tests de AUD-5, todos sobre `tipo = 'Usuario'`—: **403**.
+
+> **La medición del front era correcta y la conclusión no**, y el motivo es el que más veces se ha
+> repetido en esta migración: **midió un entorno que no era el que tenía el arreglo.** Antes de
+> abrir un lote por un hallazgo que llega de otro repositorio, **el primer paso es reproducirlo
+> aquí** — cuesta un test y evita un lote entero.
+
+---
+
+## §244. Crear un año lo entregaba a medio montar: un periodo sin fechas y diez columnas perdidas (30 ago 2026)
+
+`POST years/store` es la ruta que abre el año lectivo del colegio. Copiaba del año
+anterior treinta y tantas columnas, las escalas de valoración, las frases, las
+unidades por defecto, la disciplina, los grupos y las asignaturas — y aun así
+entregaba un año que había que terminar a mano.
+
+### Lo que hacía, y la cifra que lo demuestra sin discutir
+
+```php
+// Creamos un periodo
+DB::insert('INSERT INTO periodos(numero, actual, year_id) VALUES(1, 1, ?)', [$year->id]);
+```
+
+**Un** periodo. Sin fechas, sin `created_at` y sin `created_by`. No hace falta
+razonar sobre las consecuencias porque están escritas en la base del colegio del
+seed:
+
+| Año | Periodos | Fechas |
+|---|---|---|
+| 2018, 2019, 2020 | 4 | sí |
+| 2021 … 2025 | 4 | **ninguna** |
+| el creado por esta ruta | **1** | ninguna |
+
+Los ocho años viejos tienen sus cuatro periodos porque alguien los fue creando
+uno a uno con `POST periodos/store/{year_id}` después. **El único que salió de
+esta ruta tiene uno.** Y las fechas: de nueve años, **tres** las tienen, y
+**ninguno desde 2021**.
+
+### Que las fechas estén en NULL no es cosmético
+
+`Informes\ActasEvaluacionController` reparte las ausencias por periodo **contra
+`fecha_inicio` y `fecha_fin`**, y su propio comentario ya lo decía —«hay colegios
+con el calendario sin llenar»—: las fechas que no caen en ningún periodo van al
+balde `fuera_calendario`. Con los cuatro periodos sin fechas, **el balde se lo
+lleva todo**. El acta de evaluación y promoción es un documento que se firma.
+
+Y hay una segunda: `years/useractive` contesta `400, 'Año sin ningún periodo'` en
+cuanto alguien borra el único que había.
+
+### Las diez columnas, y las cuatro que se imprimen
+
+El bloque `if ($pasado)` copiaba treinta y tantas columnas de `years`. Estas diez
+no las copiaba **ni las pedía el cuerpo**, o sea que el año nuevo las perdía
+**todas las veces**:
+
+| Columna | Dónde se ve |
+|---|---|
+| `caracter`, `calendario`, `jornada` | **certificado de estudio**: «de carácter X, calendario Y, jornada Z» (`certificadoEstudioDir.html`) |
+| `frase_final_certificado` | la frase de cierre del mismo certificado |
+| `texto_acta_eval` | el texto del acta de evaluación y promoción |
+| `prematr_nuevos` | el enlace público «Prematricular {{year+1}}» del login |
+| `prematr_antiguos` | el aviso de prematrícula del panel de familias |
+| `genero_colegio`, `img_encabezado_id`, `show_materias_todas` | encabezados y el interruptor de materias del docente |
+
+**Y las tres primeras tienen defecto en el esquema**, que es lo que lo hacía
+invisible: el certificado del año nuevo no salía en blanco, salía diciendo
+«Privado», «A» y «Mañana y tarde» **fuera cual fuera el colegio**. Un campo vacío
+se nota; uno relleno con el defecto de otro no.
+
+`requisitos_matricula` era la misma historia en una tabla: por año, como las
+escalas y las frases, y la única que no se copiaba.
+
+### Lo que hace ahora, y lo que decidió Joseth
+
+Cuatro periodos, numerados 1–4, **sólo el primero `actual`**, con `created_by`,
+con los dos interruptores del periodo heredados —hay años en el seed con los
+cuatro **cerrados** a la edición, y nacer abiertos abre la planilla de un año
+lectivo entero a los 51 docentes—, y con fechas. Las fechas salen de
+`App\Services\CalendarioDePeriodos`, y son dos caminos con el orden puesto:
+
+1. **Si el año anterior trae los cuatro completos, se trasladan**: `+1 año` y
+   después **cuadrado al mismo día de la semana**. Un `+1` literal mueve el día
+   —365 días son 52 semanas y **un día**—, así que el curso que empezaba lunes
+   empezaría martes, y al tercer año arrancaría en sábado. El ajuste se calcula
+   **una vez por periodo, sobre la fecha de inicio**, y los mismos días se le
+   aplican al fin: como ese desplazamiento es múltiplo de siete, las dos fechas
+   conservan su día **y la duración del periodo no cambia ni en un día**.
+   Ajustando cada extremo por su cuenta, un periodo se alarga o se encoge una
+   semana según de qué lado del 29 de febrero caiga cada uno.
+2. **Si no, se calculan** desde `years.calendario` — la misma letra que el
+   certificado imprime. **A**: tercer lunes de enero → último viernes de
+   noviembre. **B**: tercer lunes de agosto → último viernes de junio del
+   siguiente. Cuatro tramos de lunes a viernes con dos semanas de receso entre el
+   segundo y el tercero. Para 2026 y calendario A: 19 ene→3 abr, 6 abr→19 jun,
+   6 jul→18 sep, 21 sep→27 nov.
+
+**O los cuatro o ninguno**, y ésa es la regla que costó pensar: si al año anterior
+le falta una sola fecha de las ocho, se calcula el calendario **entero**. En la
+base hay años exactamente así —uno tiene un periodo con `fecha_inicio` puesta y
+`fecha_fin` en NULL, y los otros tres vacíos—, y trasladar eso deja al año nuevo
+con un periodo fechado y tres sin fechas: **el agujero que esto viene a tapar**.
+
+Nada de esto es la verdad del colegio: es un punto de partida editable con
+`periodos/cambiar-fecha-inicio` y `-fecha-fin`, que es como se llenaron las de
+2018-2020. Lo que arregla es que **hoy el punto de partida es *ninguna fecha***.
+
+### El docente de la asignatura SÍ se copia, y el titular del grupo no
+
+Aquí me equivoqué primero y lo corrigió Joseth, así que va la corrección y no la
+versión limpia — el razonamiento fallido es la parte útil.
+
+**Lo que argumenté:** copiar `asignaturas.profesor_id` es peligroso porque cuando se
+crea el año **no hay ni un contrato en él**, y
+`Profesor::paraElegirEnAsignaturas($year_id)` —el desplegable de «asignar
+docente»— lista sólo docentes con contrato. Medido en el seed: **9 de 10 docentes
+siguen** y **1 de 10 asignaturas** heredaría uno sin contrato. Lo llamé *«queda mal
+en silencio»*.
+
+**Lo que faltaba:** ese silencio **se deshace solo**. La columna «Profesor» de la
+rejilla resuelve el nombre **filtrando esa misma lista de contratados**
+(`AsignaturasCtrl.ts`, el `cellFilter` y su `editDropdownOptionsArray`), así que la
+celda sale **en blanco** — no con un nombre equivocado. Y `profesor_id` **sigue en
+la fila**: se le hace el contrato al docente, se vuelve a la pantalla y **aparece**.
+No es un dato erróneo, es uno **pendiente**, y el reparto del año pasado queda de
+borrador que se materializa según se contrata la planta.
+
+La cifra no cambia —sigue siendo 1 de 10—; lo que cambia es qué significa. **Medir
+el síntoma correcto no basta si se le atribuye la consecuencia equivocada**, que es
+la segunda forma de fallo que ya avisa `CLAUDE.md` sobre los detectores.
+
+Y hay una prueba de que la decisión no es nueva: **`POST asignaturas/copiar` ya
+copiaba `profesor_id`** de grupo a grupo, junto con `nuevo_responsable_id`. De las
+dos rutas que duplican asignaturas, ésta era **la única que no lo hacía**. Ahora
+copia las dos columnas, con la misma forma.
+
+**El titular del grupo va al revés, y por eso NO se copia.** `GruposController`
+lista los grupos con `left join profesores p on p.id=g.titular_id` — **join directo,
+sin pasar por `contratos`**. Un titular copiado no sale en blanco: sale **con
+nombre y apellidos**, como si estuviera en la planta del año nuevo. Y
+`GruposEditCtrl` lo lee del grupo cargado y no de la lista de contratados, así que
+se conserva al guardar. **Un dato que se ve y parece cierto no es un borrador
+pendiente.**
+
+La regla que queda, y que no es «copiar o no copiar»: **se copia la referencia a una
+persona cuando el cliente la resuelve contra la planta del año** —y entonces se
+esconde sola hasta que la planta la incluya—, y **no se copia cuando el cliente la
+resuelve contra la tabla de personas** —y entonces se muestra sin más—. Es la misma
+pregunta de siempre: *qué ve quien mira*, no *qué hay en la fila*.
+
+Por lo mismo tampoco se copia `requisitos_matricula.editable_por_profe_id`, que
+además no la escribe ningún método de `Matriculas\RequisitosController`.
+
+### Y lo que queda propuesto (rutas nuevas, lote aparte)
+
+Lo pidió Joseth el 30 ago: **«copiar la carga académica de un docente a otro»**,
+para el que se fue o cambió de materias. Es lo que hoy no tiene forma de hacerse en
+una pantalla — `POST asignaturas/copiar` copia de **grupo a grupo**, no de docente a
+docente.
+
+Lo que **ya no hace falta** es la otra mitad que había propuesto aquí —«heredar la
+carga del año pasado» corrida después de los contratos—: con el `profesor_id`
+copiado al crear el año, la herencia **ya ocurre**, y el contrato es lo que la hace
+visible. Queda una pregunta menor abierta por si algún día molesta: **no hay ninguna
+pantalla que liste las asignaturas cuyo docente copiado sigue sin contrato**, que es
+la lista de «a quién falta contratar». Hoy se ve por descarte, mirando las celdas en
+blanco.
+
+### Lo que cambia para el front, y es aditivo
+
+La respuesta de `POST years/store` **ahora trae `periodos`**.
+`YearsCtrl.crearNewYear` hace `$ctrl.years.push(r)` con la respuesta tal cual y
+`years.html` recorre `year.periodos`, que hasta hoy llegaba vacío y obligaba a
+recargar la pantalla para ver el año recién creado con sus periodos. `getIndex` ya
+los adjuntaba. Ningún cliente pierde una clave.
+
+**La ruta no se mueve: siguen siendo 543.** Doce casos nuevos en
+`tests/Contrato/YearsTest.php`, y dos que ya existían pasaron de afirmar `1`
+periodo a afirmar `4`.

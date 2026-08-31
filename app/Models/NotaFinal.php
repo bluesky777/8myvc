@@ -30,6 +30,19 @@ use Illuminate\Support\Facades\DB;
  * @property ?string $created_at
  * @property ?string $updated_at
  * --- fin de las columnas generadas ---
+ *
+ * > **`$nota` ya NO es un `int`, y el bloque de arriba no puede saberlo.**
+ * > `2026_08_30_200000_notas_finales_en_decimal` la pasó a `DECIMAL(7,4)`, y PDO
+ * > devuelve un `DECIMAL` como **cadena** (`"43.7500"`). El bloque se genera desde
+ * > `database/schema/mysql-schema.sql`, que es el volcado **congelado de
+ * > producción** y por diseño no lleva lo que añaden las migraciones — así que
+ * > regenerarlo con `tools/columnas-en-los-modelos.php` vuelve a escribir `int` y
+ * > **no es un error del script**: es que producción todavía va por detrás.
+ * >
+ * > Lo que importa para quien escriba código aquí: **no castees a `(int)`**, que
+ * > trunca hacia abajo (`(int)"43.7500"` es 43, no 44). Si el valor va al JSON,
+ * > sale de la consulta con `CAST(... AS DOUBLE)` para que siga siendo un número;
+ * > si llega crudo, `(float)`.
  */
 
 
@@ -56,16 +69,16 @@ class NotaFinal extends Model {
 	
 	public static $consulta_alumnos_grupo_nota_final = 'SELECT m.id as matricula_id, m.alumno_id, a.no_matricula, a.nombres, a.apellidos, a.sexo, a.user_id, 
 							a.fecha_nac, a.ciudad_nac, a.celular, a.direccion, a.religion, m.grupo_id, m.estado, 
-							nf1.nota as nota_final_per1, nf1.id as nf_id_1, nf1.recuperada as recuperada_1, nf1.manual as manual_1, nf1.updated_by as updated_by_1, nf1.created_at as created_at_1, nf1.updated_at as updated_at_1,
-							nf2.nota as nota_final_per2, nf2.id as nf_id_2, nf2.recuperada as recuperada_2, nf2.manual as manual_2, nf2.updated_by as updated_by_2, nf2.created_at as created_at_2, nf2.updated_at as updated_at_2,
-							nf3.nota as nota_final_per3, nf3.id as nf_id_3, nf3.recuperada as recuperada_3, nf3.manual as manual_3, nf3.updated_by as updated_by_3, nf3.created_at as created_at_3, nf3.updated_at as updated_at_3,
-							nf4.nota as nota_final_per4, nf4.id as nf_id_4, nf4.recuperada as recuperada_4, nf4.manual as manual_4, nf4.updated_by as updated_by_4, nf4.created_at as created_at_4, nf4.updated_at as updated_at_4,
+							CAST(nf1.nota AS DOUBLE) as nota_final_per1, nf1.id as nf_id_1, nf1.recuperada as recuperada_1, nf1.manual as manual_1, nf1.updated_by as updated_by_1, nf1.created_at as created_at_1, nf1.updated_at as updated_at_1,
+							CAST(nf2.nota AS DOUBLE) as nota_final_per2, nf2.id as nf_id_2, nf2.recuperada as recuperada_2, nf2.manual as manual_2, nf2.updated_by as updated_by_2, nf2.created_at as created_at_2, nf2.updated_at as updated_at_2,
+							CAST(nf3.nota AS DOUBLE) as nota_final_per3, nf3.id as nf_id_3, nf3.recuperada as recuperada_3, nf3.manual as manual_3, nf3.updated_by as updated_by_3, nf3.created_at as created_at_3, nf3.updated_at as updated_at_3,
+							CAST(nf4.nota AS DOUBLE) as nota_final_per4, nf4.id as nf_id_4, nf4.recuperada as recuperada_4, nf4.manual as manual_4, nf4.updated_by as updated_by_4, nf4.created_at as created_at_4, nf4.updated_at as updated_at_4,
                             rf.id as recu_id, rf.year as recu_year, rf.nota as recu_nota, rf.updated_at as recu_updated_at, rf.updated_by as recu_updated_by,
                             
-                            cast(r1.DefMateria as decimal(4,1)) as def_materia_auto_1, r1.updated_at as updated_at_def_1, IF(nf1.updated_at > r1.updated_at, FALSE, TRUE) AS nfinal1_desactualizada, r1.periodo_id as periodo_id1, 
-                            cast(r2.DefMateria as decimal(4,1)) as def_materia_auto_2, r2.updated_at as updated_at_def_2, IF(nf2.updated_at > r2.updated_at, FALSE, TRUE) AS nfinal2_desactualizada, r2.periodo_id as periodo_id2, 
-                            cast(r3.DefMateria as decimal(4,1)) as def_materia_auto_3, r3.updated_at as updated_at_def_3, IF(nf3.updated_at > r3.updated_at, FALSE, TRUE) AS nfinal3_desactualizada, r3.periodo_id as periodo_id3, 
-                            cast(r4.DefMateria as decimal(4,1)) as def_materia_auto_4, r4.updated_at as updated_at_def_4, IF(nf4.updated_at > r4.updated_at, FALSE, TRUE) AS nfinal4_desactualizada, r4.periodo_id as periodo_id4, 
+                            cast(r1.DefMateria as decimal(7,4)) as def_materia_auto_1, r1.updated_at as updated_at_def_1, IF(nf1.updated_at > r1.updated_at, FALSE, TRUE) AS nfinal1_desactualizada, r1.periodo_id as periodo_id1, 
+                            cast(r2.DefMateria as decimal(7,4)) as def_materia_auto_2, r2.updated_at as updated_at_def_2, IF(nf2.updated_at > r2.updated_at, FALSE, TRUE) AS nfinal2_desactualizada, r2.periodo_id as periodo_id2, 
+                            cast(r3.DefMateria as decimal(7,4)) as def_materia_auto_3, r3.updated_at as updated_at_def_3, IF(nf3.updated_at > r3.updated_at, FALSE, TRUE) AS nfinal3_desactualizada, r3.periodo_id as periodo_id3, 
+                            cast(r4.DefMateria as decimal(7,4)) as def_materia_auto_4, r4.updated_at as updated_at_def_4, IF(nf4.updated_at > r4.updated_at, FALSE, TRUE) AS nfinal4_desactualizada, r4.periodo_id as periodo_id4, 
                             
 							u.imagen_id, IFNULL(i.nombre, IF(a.sexo="F","default_female.png", "default_male.png")) as imagen_nombre, 
 							a.foto_id, IFNULL(i2.nombre, IF(a.sexo="F","default_female.png", "default_male.png")) as foto_nombre
@@ -265,7 +278,7 @@ class NotaFinal extends Model {
         
 
 		$consulta = 'SELECT r1.alumno_id,
-			    cast(r1.DefMateria as decimal(4,0)) as def_materia_auto, r1.updated_at, r1.periodo_id
+			    cast(r1.DefMateria as decimal(7,4)) as def_materia_auto, r1.updated_at, r1.periodo_id
 			FROM (
 				SELECT df1.alumno_id, df1.periodo_id, MAX(df1.updated_at) as updated_at, df1.numero_periodo, sum( df1.ValorUnidad ) DefMateria 
 				FROM(

@@ -36,9 +36,13 @@ class DefinitivasDeAsignaturaTest extends CasoDeContrato
      * y dos alumnos matriculados.
      *
      * Los pesos se eligen así para que la aritmética sea comprobable de cabeza:
-     * cada nota pesa un cuarto. Con 4, 3, 5 y 2 la definitiva es 3,5 → **4** al
-     * redondear, y ese redondeo es el del código (`decimal(4,0)`), no una elección
-     * de este test.
+     * cada nota pesa un cuarto. Con 4, 3, 5 y 2 la definitiva es **3,5**.
+     *
+     * Este bloque decía «3,5 → **4** al redondear, y ese redondeo es el del código
+     * (`decimal(4,0)`)». Era cierto y **dejó de serlo** con la migración
+     * `2026_08_30_200000_notas_finales_en_decimal`: la columna es `DECIMAL(7,4)` y
+     * el cálculo ya no redondea. El 4 era el defecto que empataba los puestos, así
+     * que los números de estos tests bajan a su valor exacto **a propósito**.
      */
     private function montarAsignatura(): void
     {
@@ -137,7 +141,42 @@ class DefinitivasDeAsignaturaTest extends CasoDeContrato
 
         DefinitivasDeAsignatura::recalcular($this->ids['asignatura'], $this->ids['periodo']);
 
-        $this->assertSame(4, (int) $this->definitivaDe($this->ids['alumno1'])->nota);
+        // 4 y 3 al 50% dan 3,5 en la unidad 1; 5 y 2, otro 3,5 en la 2; las dos al
+        // 50% → **3,5**. Antes de la migración esto valía 4, y ese 4 es el que
+        // hacía que dos alumnos distintos compartieran puesto.
+        $this->assertSame(3.5, (float) $this->definitivaDe($this->ids['alumno1'])->nota);
+    }
+
+    /**
+     * Y los decimales que se guardan son **cuatro**, no dos.
+     *
+     * Este test existe para que la escala de la columna no se pueda aflojar sin que
+     * algo se ponga rojo. `DECIMAL(6,2)` era la propuesta que llegó con el encargo,
+     * y sobre la base real **volvía a redondear 21.148 de 125.352 definitivas**
+     * (16,9 %): el mismo defecto por la puerta de atrás y ya sin nadie mirando.
+     *
+     * La fórmula es `SUM(nota * pct_sub * pct_uni / 10000)` con los tres factores
+     * enteros, así que **cuatro decimales es exacto y no un margen**. Aquí se monta
+     * el caso que lo enseña: con la unidad al 33 % y la subunidad al 33 %, un 4 vale
+     * `4 × 33 × 33 / 10000` = **0,4356**. En `int` era 0; en `(6,2)`, 0,44.
+     */
+    public function test_la_definitiva_guarda_cuatro_decimales(): void
+    {
+        $this->montarAsignatura();
+
+        DB::table('unidades')->where('id', $this->ids['unidad1'])->update(['porcentaje' => 33]);
+        DB::table('unidades')->where('id', $this->ids['unidad2'])->update(['porcentaje' => 67]);
+        DB::table('subunidades')->where('id', $this->ids['sub11'])->update(['porcentaje' => 33]);
+        DB::table('subunidades')->where('id', $this->ids['sub12'])->update(['porcentaje' => 67]);
+
+        $this->ponerNota('sub11', $this->ids['alumno1'], 4);
+        $this->ponerNota('sub12', $this->ids['alumno1'], 0);
+        $this->ponerNota('sub21', $this->ids['alumno1'], 0);
+        $this->ponerNota('sub22', $this->ids['alumno1'], 0);
+
+        DefinitivasDeAsignatura::recalcular($this->ids['asignatura'], $this->ids['periodo']);
+
+        $this->assertSame(0.4356, (float) $this->definitivaDe($this->ids['alumno1'])->nota);
     }
 
     /**
@@ -145,7 +184,8 @@ class DefinitivasDeAsignaturaTest extends CasoDeContrato
      *
      * Es el caso de la §4.2 —el `MAX` de hoy es ciego a los borrados y declara la
      * definitiva al día con un valor que ya no corresponde—, comprobado por el
-     * número y no por la bandera. Sin la nota de 5, quedan 4, 3 y 2 → 2,25 → 2.
+     * número y no por la bandera. Sin la nota de 5, quedan 4, 3 y 2 → **2,25**.
+     * (Decía «→ 2»: ese último salto es el que quitó la migración.)
      */
     public function test_al_borrar_una_nota_la_definitiva_baja(): void
     {
@@ -157,12 +197,12 @@ class DefinitivasDeAsignaturaTest extends CasoDeContrato
         $this->ponerNota('sub22', $this->ids['alumno1'], 2);
 
         DefinitivasDeAsignatura::recalcular($this->ids['asignatura'], $this->ids['periodo']);
-        $this->assertSame(4, (int) $this->definitivaDe($this->ids['alumno1'])->nota);
+        $this->assertSame(3.5, (float) $this->definitivaDe($this->ids['alumno1'])->nota);
 
         DB::table('notas')->where('id', $borrable)->update(['deleted_at' => now()]);
 
         DefinitivasDeAsignatura::recalcular($this->ids['asignatura'], $this->ids['periodo']);
-        $this->assertSame(2, (int) $this->definitivaDe($this->ids['alumno1'])->nota);
+        $this->assertSame(2.25, (float) $this->definitivaDe($this->ids['alumno1'])->nota);
     }
 
     /**
@@ -170,7 +210,7 @@ class DefinitivasDeAsignaturaTest extends CasoDeContrato
      *
      * §4.3: cambiar el peso de una unidad cambia la definitiva y **no toca ninguna
      * nota**, así que la comprobación de hoy no lo ve. Con la unidad 1 al 100% y
-     * la 2 al 0%, sólo cuentan 4 y 3 → 3,5 → 4. Se elige ese reparto porque da un
+     * la 2 al 0%, sólo cuentan 4 y 3 → **3,5**. Se elige ese reparto porque da un
      * número distinto del de partida en las dos direcciones que importan.
      */
     public function test_al_cambiar_un_porcentaje_la_definitiva_cambia(): void
@@ -183,15 +223,15 @@ class DefinitivasDeAsignaturaTest extends CasoDeContrato
         $this->ponerNota('sub22', $this->ids['alumno1'], 0);
 
         DefinitivasDeAsignatura::recalcular($this->ids['asignatura'], $this->ids['periodo']);
-        // (4+3)/4 + (1+0)/4 = 1,75 + 0,25 = 2
-        $this->assertSame(2, (int) $this->definitivaDe($this->ids['alumno1'])->nota);
+        // (4+3)/4 + (1+0)/4 = 1,75 + 0,25 = 2 — aquí el exacto ya era entero
+        $this->assertSame(2.0, (float) $this->definitivaDe($this->ids['alumno1'])->nota);
 
         DB::table('unidades')->where('id', $this->ids['unidad1'])->update(['porcentaje' => 100]);
         DB::table('unidades')->where('id', $this->ids['unidad2'])->update(['porcentaje' => 0]);
 
         DefinitivasDeAsignatura::recalcular($this->ids['asignatura'], $this->ids['periodo']);
-        // (4+3)/2 = 3,5 → 4
-        $this->assertSame(4, (int) $this->definitivaDe($this->ids['alumno1'])->nota);
+        // (4+3)/2 = 3,5, y ahora se guarda 3,5
+        $this->assertSame(3.5, (float) $this->definitivaDe($this->ids['alumno1'])->nota);
     }
 
     /**

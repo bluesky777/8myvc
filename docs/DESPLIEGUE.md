@@ -1,185 +1,70 @@
 # Desplegar
 
-**Los comandos de la tanda que toca, y nada más.** Topología, inventario, las siete trampas, el
-bucle del front y lo que trajo cada tanda: [DESPLIEGUE-REFERENCIA.md](DESPLIEGUE-REFERENCIA.md).
+**Los comandos, y nada más.** El porqué de cada fila —topología, las siete trampas, qué trajo
+cada tanda, el bucle del front— está en [DESPLIEGUE-REFERENCIA.md](DESPLIEGUE-REFERENCIA.md).
 
-## La tanda pendiente: del 25 ago (`eb95cbc`) a hoy — **veintiocho ficheros, UNA ruta nueva y UNA migración bloqueante**
-
-**La anterior, del 22 al 25 ago, se desplegó el 25 ago en `eb95cbc`**, con sus cuatro migraciones
-y con el mismo hash comprobado en los quince. Qué se le notó a un colegio, fila a fila:
-[`que-se-nota-en-un-colegio.md`](migracion/noche-2026-08-23/que-se-nota-en-un-colegio.md).
-
-**Lo que hay desde entonces**, medido sobre el rango entero y no sumando commit a commit:
-
-| | | recalcular con |
-|---|---|---|
-| Migraciones | **UNA**, y **no es opcional** | `git diff --name-only eb95cbc HEAD -- database/migrations/` |
-| Rutas | **543** — una nueva, `PUT users/mi-docente` (28 ago) | `tests/Contrato/Snapshots/rutas.json` |
-| Dependencias | sin tocar | `git diff --name-only eb95cbc HEAD -- composer.json composer.lock` |
-| `config/` | sin tocar | `git diff --name-only eb95cbc HEAD -- config/` |
-| `app/` | **veintiocho ficheros** — se listan abajo | `git diff --name-only eb95cbc HEAD -- app/` |
-
-> **Esa fila decía ocho, se corrigió a once, y su propia columna derecha da VEINTISÉIS.**
-> (Veintisiete con `AusenciasController`, del 27.) La corrección de once **también se hizo a
-> mano**, y por eso se quedó a quince ficheros del número real: quien la escribió añadió los dos
-> que había visto, no los que da el comando. **Un número recalculado a ojo no es un número
-> recalculado.** Por eso la columna derecha ya no lleva una lista escrita a mano sino **el
-> comando**, y la lista va debajo, pegada de su salida:
->
-> ```
-> Console/Commands/EnviarNotificaciones          Informes/CertificadosPersonaController
-> Controllers/Alumnos/FoliosController           Informes/NotasPerdidasController
-> Controllers/AlumnosController                  Informes/PlanillasAusenciasController
-> Controllers/AusenciasController                Controllers/LoginController
-> Controllers/BolfinalesController               Matriculas/MatriculasController
-> Controllers/DetallesController                 Controllers/NotasController
-> Controllers/EditnotaController                 Controllers/NotificacionesController
-> Informes/Boletines2Controller                  Controllers/PlanillasController
-> Informes/Boletines3Controller                  Controllers/PromovidosController
-> Informes/BoletinesController                   Controllers/YearsController
-> Informes/BolfinalesController                  Models/Matricula · Models/Nota
->                                                Models/Unidad · Models/Year
-> Services/DefinitivasDeAsignatura               Services/Notificaciones/TemasDeNotificacion
-> Controllers/UsersController
-> ```
->
-> **El despliegue no cambia por esto**: el bucle del paso 1 hace `git pull` del árbol entero, no
-> fichero a fichero. Lo que cambia es lo que se puede afirmar al revisar un colegio a mano.
-
-> **La migración es bloqueante, como la del 25.** `2026_08_26_100000_interruptores_de_certificados`
-> añade `usa_consecutivo_certificados` y `usa_folio_certificados` a `years`, y **el código de
-> esta misma tanda las consulta en un camino vivo** —`Year::datos()`, que es de donde sale
-> cualquier boletín y cualquier certificado—. **Con el código y sin la migración: 500 en todo.**
-> El `migrate --force` va **entre el `pull` y el `config:cache`**, que es donde ya está en el
-> bucle del paso 1.
->
-> **Y lo que hace que sea segura: no siembra ningún valor por defecto.** Deriva los dos
-> interruptores de lo que cada colegio hace hoy —`contador <> ''`, que es la condición que el
-> front ya usaba para ocultar cada casilla—, así que **ningún colegio imprime nada distinto el
-> día del despliegue**.
-
-### Qué se le nota a un colegio
+## La tanda: del 25 ago (`eb95cbc`) a `HEAD`
 
 | | |
 |---|---|
-| **El boletín final va de 3.820 consultas a 455** (GEMELO-1). Es la queja de los 24–63 s y las caídas bajo carga | `docs/migracion/noche-2026-08-25/gemelo-1.md` |
-| **La ficha del alumno crea las notas que faltan** — 240 huecos medidos | `05 §234` |
-| **Fijar el consecutivo de certificados pasa a ser de secretaría**, y contesta **403** al resto del personal | [`cert-2`](migracion/noche-2026-08-26/cert-2.md) |
-| **Mover el consecutivo deja rastro en `auditoria`**, tanto al quemarlo abriendo el certificado como al fijarlo a mano | [`cert-2 §3`](migracion/noche-2026-08-26/cert-2.md) |
-| **El consecutivo y el folio pasan a ser OPCIONALES por colegio.** Nada cambia de aspecto: cada colegio arranca como está hoy. Lo que cambia es que **el que no imprime el número deja de gastarlo** — hasta ahora su contador subía solo en cada apertura | [`21 §4`](migracion/21-certificados-y-folios.md) |
-| **La prematrícula pública deja de escribir la ficha de un menor a medias.** Con un grupo que falta o que no existe contestaba **500 con la ficha ya escrita** —sin matrícula y sin cuenta—, y **el reintento daba un 200 mintiendo**: *«Ya existe el alumno, entre con su cuenta»* por una cuenta que nunca se creó. Ahora es **422 antes de escribir nada**, y las cuatro escrituras van en transacción. *Los huérfanos ya escritos **no los toca**: eso es del colegio* | `05 §236` |
-| **Una falta anotada sin fecha deja de quedarse sin día.** Contaba en los totales del boletín y no salía en ningún listado por día —el calendario de la app la descarta—. Sólo las nuevas: **las 5.071 que ya hay en la copia de un colegio no las toca** | `05 §242` |
-| **La cuenta administrativa puede decir qué docente mira, y queda guardado en su fila.** `users.profesor_id` existía y **no la escribía nadie** —las dieciséis cuentas de tipo `Usuario` la tienen en `NULL`—; ahora `PUT users/mi-docente` la rellena. **Efecto secundario querido, y hay que saberlo: el panel VIEJO le empezará a pintar a esa cuenta el horario de hoy y el de mañana de ese docente**, porque `ChangeAskedController::getToMe` ya leía esa columna | `UsersController::putMiDocente` |
-| **El folio deja de fabricarse.** Ya no se escribe `año-alumno_id` al matricular, y `GET folios/iniciar` —que llenaba todos los huecos del año de una sentencia, y **no lo llama ningún cliente**— contesta 409. Los folios ya escritos **se quedan**: borrarlos cambia lo impreso y es decisión aparte | [`21 §4.3`](migracion/21-certificados-y-folios.md) |
+| Migraciones | **UNA, y bloqueante.** `2026_08_26_100000_interruptores_de_certificados`. Con el código y sin ella: **500 en todo boletín y todo certificado** |
+| Rutas | **543** — una nueva, `PUT users/mi-docente` |
+| Dependencias · `config/` | sin tocar |
+| `app/` | **veintinueve** ficheros |
 
-### Lo que hay que decirle al front el día que esto se despliegue
+Recalcular si la tanda crece —**se remide, no se suma**:
 
-> **Cada aviso lleva un estado, y no está en futuro por una razón que costó un día entero.**
-> El bloque equivalente de la tanda anterior decía *«`myvc_flutter` tiene tres interruptores
-> esperando el despliegue»* **y seguía diciéndolo después de desplegar**: Flutter acabó
-> pidiendo que se fusionara y desplegara una rama que no existía, y que se escribiera un
-> endpoint que llevaba tres días en los quince. **Un pendiente escrito en futuro no envejece a
-> «hecho»: envejece a mentira.** Lo midió `8myvc-43` el 26 ago (`f5f6235`).
->
-> **Por eso el paso 3 de abajo cierra estos avisos en el mismo commit que anota el
-> despliegue.** Si alguno se queda en `PENDIENTE` después de desplegar, está mintiendo.
+```bash
+git diff --name-only eb95cbc HEAD -- database/migrations/ composer.lock config/
+git diff --name-only eb95cbc HEAD -- app/ | wc -l
+```
 
-| | aviso | estado |
-|---|---|---|
-| **A** | los dos 403 de `cambiar-contador-*` | **PENDIENTE** |
-| **B** | **veintiún respuestas cambian de forma**: les llegan dos campos nuevos | **PENDIENTE** |
-| **C** | `aumentar_contador`: omitir la clave | **PENDIENTE** |
-| **D** | `login/crear-prematricula` **cambia el 500 por un 422** con mensaje | **NO REQUIERE TRABAJO DEL FRONT** — medido, no supuesto |
-| **E** | `GET notificaciones/temas`: **`colegio` pasa de lista a objeto**, y sus dos temas ahora llevan hash por colegio | **ES DE FLUTTER, y lo pidieron ellos** — no afecta a `myvc_front` ni a `app2` |
-| **F** | `POST ausencias/store` **rellena `fecha_hora` cuando no se manda**, y la contesta **en ISO** | **NO REQUIERE TRABAJO DEL FRONT** — `app2` ya lee los dos formatos, y con su prueba |
-| **G** | **`PUT users/mi-docente` es NUEVA**, y `app2` ya la llama desde la portada del panel | **EL FRONT YA ESTÁ ESCRITO Y ESPERA A ESTO** — hasta que el colegio tenga este despliegue, elegir docente **funciona en pantalla y avisa de que no quedó guardado** (404). Ver abajo |
+**Qué se le nota a un colegio** y el detalle de los avisos:
+[referencia § tanda del 25–28 ago](DESPLIEGUE-REFERENCIA.md#lo-que-trae-la-tanda-del-2528-ago-2026--del-25-ago-eb95cbc-a-head).
 
-**Ninguno se entera solo, y A y B son de las de «quién puede llamarla».** El detalle en
-[`cert-2 §6`](migracion/noche-2026-08-26/cert-2.md) y el reparto completo de qué hace el
-backend y qué les toca a ellos en `myvc_front/TAREAS-AUDITORIA-CERTIFICADOS.md`:
+## Paso 0. La comprobación que va ANTES de esta tanda — un `SELECT`, quince veces
 
-1. `PUT bolfinales/cambiar-contador-certificados` y `-folios` **contestan 403 a quien no sea
-   administrativo**. Las dos pantallas que llaman a la primera —`certificadoEstudioDir.html` de la
-   vieja y `certificados-estudio.ts` de `app2`— **enseñan el control sin mirar el rol**, así que un
-   docente verá «Contador no guardado». Lo que toca allí es **esconder el control**, no cambiar la
-   llamada. *(`-folios` no lo llama nadie vivo.)*
-2. **Hay dos interruptores nuevos que configurar**, `usa_consecutivo_certificados` y
-   `usa_folio_certificados`, y **cambian la forma de veintiún respuestas** —las
-   instantáneas de contrato lo fijan—. **El cambio es aditivo: no quita ni renombra ningún
-   campo**, así que ningún cliente se rompe por recibirlos; pero conviene saber dónde caen:
+Sólo por el aviso **H**: `GET profesores` pasa a exigir `Autoriza::esAdministrativo`, que es
+`is_superuser || Role::isSecretario`. **El rol `Admin` NO está dentro**, y `app2` sí le abre la
+pantalla de Docentes a un `Admin`. Hoy eso no rompe nada **porque en la base medida los diez
+`Admin` son exactamente los diez `is_superuser`** — es una coincidencia, no un criterio, y basta
+un colegio que le haya puesto el rol `Admin` a alguien sin superusuario para que ese alguien
+**pierda la pantalla** el día del despliegue.
 
-   | endpoints | qué significa para vosotros |
-   |---|---|
-   | `GET years` · `years/colegio` · `years/trashed` | **aquí os vienen bien**: es de donde la pantalla de configuración los va a leer |
-   | los 13 de `boletines/*` y `bolfinales/*` | el objeto `year` viaja dentro del boletín y del certificado; es donde tenéis que mirar el interruptor para esconder las casillas |
-   | `informes/datos` · `piars-config` · `grupos-con-disciplina` · `notas/actuales-alumnos` | por arrastre, no os toca nada | El front
-   tiene que (a) ocultar las dos casillas por el interruptor en vez de por «la columna está
-   vacía», y (b) ofrecerlos en la pantalla de configuración de certificados, que es donde el
-   colegio los va a buscar. Hasta que lo haga **no se rompe nada**: la derivación deja a cada
-   colegio como estaba.
-3. `aumentar_contador` hay que **OMITIRLO**, no mandar `false`. El backend ya no quema con la
-   cadena `"false"` desde el 25, pero **las copias de `myvc_front` de los quince colegios van a
-   versiones distintas** y esa medición no las ve.
-4. `PUT login/crear-prematricula` **contesta 422** —y no 500— cuando el `grupo_id` no existe, no
-   viene o no es un id, **con el texto en `message`**. **Al front no le toca nada, y eso está
-   comprobado y no supuesto**: `mensajeError.ts` lleva `422` en su lista `CON_MENSAJE`, así que
-   `LoginCtrl:217` ya pinta el texto del servidor en el toast *«No se pudo prematricular»*. Lo
-   que cambia es **a mejor**: con el 500 salía el texto genérico, porque 500 **no** está en esa
-   lista. *(Y de paso: un grupo **en la papelera** también da 422 ahora. Antes pasaba y dejaba
-   la prematrícula colgada de un grupo borrado.)*
+**Eso no se puede medir desde el repositorio: cada colegio tiene su propia base.** Se mide aquí,
+y tiene que dar **cero en los quince**:
 
-5. `GET notificaciones/temas` devolvía `"colegio": ["colegio_muro", "colegio_avisos"]` y ahora
-   devuelve `"colegio": {"colegio_muro": "c_1a2b…", "colegio_avisos": "c_3c4d…"}` — **de lista a
-   objeto, y con el tema ya compuesto**. Es de `myvc_flutter` y **no lo toca ningún front web**.
-   **No rompe a nadie hoy**: la app no está publicada y ellos dijeron por escrito que no
-   suscriben esos dos temas hasta que llevaran prefijo. El porqué, en [05 §238](migracion/05-codigo-muerto-y-roto.md).
+```bash
+for d in /home/micolev1/*.micolevirtual.com/8myvc; do
+  printf '%-52s ' "$d"
+  (cd "$d" && php artisan tinker --execute="echo DB::table('role_user')
+    ->join('users','users.id','=','role_user.user_id')
+    ->join('roles','roles.id','=','role_user.role_id')
+    ->where('roles.name','Admin')->where('users.is_superuser',0)
+    ->whereNull('users.deleted_at')->count();")
+  echo
+done            # repetir en la otra cuenta de cPanel (lalvirtual.edu.co)
+```
 
-   > **Y de camino salieron dos cosas del front que NO son de esta tanda: ARREGLADAS**, las dos
-   > en `myvc_front`, commit `8321f9a5` — **commiteado en su `main`, sin subir y sin publicar**.
-   > **(a)** El desplegable de grupo lleva `allow-clear="true"` (`login.html`) y el controlador
-   > hacía `year.grupo_prematr.id` **sin comprobar nada**: limpiar el grupo y pulsar
-   > «Prematricular» era un `TypeError` dentro del `ng-click` — **botón mudo**, el mismo fallo
-   > que ese fichero ya había arreglado para `$ctrl.year` doce líneas más arriba, en el campo de
-   > al lado. **(b)** `$ctrl.guardando` se ponía a `true` al enviar y **no lo leía nadie**: era
-   > el `ng-disabled` que falta, a medio poner. Ahora lo lee el botón y se repone en las cuatro
-   > salidas. Siete pruebas nuevas (`test/login/prematriculaDelLogin.test.js`) y **los dos
-   > controles vistos rojos**: cada arreglo tiene sus dos, y ninguno tapa al otro.
-   >
-   > **Ojo al orden, que aquí sí importa:** esto es del front y **su despliegue es otro bucle**
-   > —`up/`, un `git pull` de `myvc_dist`—. El 422 del backend y estos dos arreglos **no tienen
-   > que salir juntos**: son independientes en las dos direcciones.
+- **Todo ceros** → despliega sin más; el aviso **H** no le quita la pantalla a nadie.
+- **Algún colegio con un número** → **para**, y son esas personas exactamente las que se quedan
+  sin Docentes. Las salidas son dos y las dos son de Joseth: darles `Secretario` (una fila, sin
+  migración) o ensanchar el criterio. **No se despliega H a ciegas en ese colegio.**
 
-6. **`PUT users/mi-docente` es una ruta NUEVA** —la primera desde las tres de `myvc_flutter` del
-   24— y escribe `users.profesor_id` de la cuenta que la llama. **Sólo cuentas de tipo `Usuario`**
-   (un profesor recibe 403: su identidad sale de `profesores.id`, no de esa columna) y **sólo un
-   profesor contratado en el año en curso** (si no, 422 — la columna no tiene clave foránea, así
-   que la comprobación tiene que estar aquí).
+> **Por qué se comprueba y no se ensancha `esAdministrativo` de una vez:** ese método lo leen seis
+> sitios más —las masivas de `cambiar-usuarios/*` entre ellas—, así que meterle el rol `Admin`
+> reparte permisos que nadie ha pedido en cinco puertas que no son ésta. Es literalmente lo que
+> `create_rol_secretario` dejó escrito: **crear o ensanchar un criterio no puede regalar permisos
+> por la puerta de atrás.** Si hay que ensancharlo, se decide y se repasan las seis.
 
-   > **El orden aquí SÍ importa, y al revés que el del 422 de arriba:** `app2` **ya la llama**,
-   > desde el botón de docente de la portada del panel. En un colegio con el front nuevo y sin
-   > este despliegue, elegir docente **funciona en pantalla** —se ven sus asignaturas— y sale un
-   > aviso de que no quedó guardado, porque la ruta contesta 404. No se rompe nada más; lo que
-   > no dura es la elección. **Este backend va antes que ese front, o el aviso lo ve el
-   > administrador el primer día.**
-
-### Y la tabla de arriba se remide, no se suma
-
-**Se recalcula cuando la tanda crece.** La del 25 decía «ninguna migración» con cuatro dentro,
-porque se había medido antes de fundir cuatro ramas.
-
-> **El `migrate --force` dejó de ser higiene el 25 ago y no vuelve a serlo.** `2026_08_24_100000`
-> creó `bol_ind_periodos` y el código de la misma tanda la consulta en un camino vivo
-> (`Unidad:112`): con el código y sin la migración, **500 en todos los boletines**.
-
-| Lo que dejó abierto, al 25 ago | Estado |
-|---|---|
-| **Cuatro columnas en blanco en la rejilla «Docentes contratados»** de la web vieja (`/panel/profesores`, la de abajo): Usuario, Nacimiento, Email y Celular | **ABIERTO en todos desde el despliegue.** El recorte de `c47ab50` está bien hecho y no se deshace; falta que `myvc_front` las repinte cruzando con la rejilla de arriba, que ya tiene los cuatro campos en memoria. La decisión —llenarlas o quitarlas— es de Joseth |
-| **La versión de `myvc_flutter` que llama a las tres rutas nuevas** | **Desbloqueada**: ya están en todos, que era la condición. Es una sola app para todos, por eso no podía salir antes |
-| **El typo de `PapeleraCtrl:62`** en `myvc_front` | **Desbloqueado**: era lo único que tapaba `grupos/forcedelete` y su guard ya está desplegado |
+El dato de partida, medido por `myvc-front-6b` y confirmado aquí sobre `simonbolivar`: **cero**
+`Admin` sin superusuario, y el único `Coord disciplinario` (id 687, `convivencia2019(inhabilitado)`)
+**es superusuario**, así que tampoco pierde el informe de la §243. **Es una base de quince.**
 
 ## Paso 1. Los colegios
 
-**Si un `git pull` imprime `composer.lock`, para en seco**: ese colegio venía atrasado y `vendor/` tiene su propio procedimiento. Lo demás es idempotente.
+**Si un `git pull` imprime `composer.lock`, para en seco**: ese colegio venía atrasado y
+`vendor/` tiene su propio procedimiento. Lo demás es idempotente.
 
 ```bash
 for d in /home/micolev1/*.micolevirtual.com/8myvc; do
@@ -192,8 +77,9 @@ done
 ```
 
 - Repítelo en la otra cuenta de cPanel (`lalvirtual.edu.co`): otro login, el `for` no la alcanza.
-  Y los cinco de `vendor/` compartido —`coal`, `colbosque`, `comad-san-andres`, `eal`,
-  `maranathaarauca`— van primero: son los que no se pueden escalonar.
+- Los **seis** de `vendor/` compartido —`coal`, `colbosque`, `comad-san-andres`, `eal`,
+  `maranathaarauca` y **`lal`** (desde el 30 ago 2026, al montarlo en la cuenta de
+  `micolev1`)— van **primero**: son los que no se pueden escalonar.
 - **Entre el `pull` y el `migrate` ese colegio da 500**: segundos, pero existen, así que no en
   horario de clase. **Si falla una de las dos mitades, para y arréglalo antes de seguir.**
 
@@ -208,8 +94,8 @@ done            # el mismo hash en todos, y el mismo conteo
 ```
 
 **Mira el hash, no el conteo.** «Already up to date» sólo dice que ese colegio está donde apunta
-**su** remoto, que no tiene por qué ser el `origin/main` recién actualizado: el 21 ago los
-dieciséis lo dijeron minutos después de un `push`. Si no coincide, `remote -v` y `branch -vv`.
+**su** remoto, que no tiene por qué ser el `origin/main` recién actualizado. Si no coincide,
+`remote -v` y `branch -vv`.
 
 Y a mano en un colegio cualquiera, de lo más usado a lo más raro: **guardar una ficha de alumno**
 —y volver a mirarla— · **abrir un boletín y volver a la planilla, también como acudiente** ·
@@ -218,33 +104,54 @@ mensaje y dejarte dentro · **login de personal y de alumno**.
 
 ## Paso 3. Cerrar los avisos — **en el mismo commit, no en uno aparte**
 
-**El despliegue no ha terminado cuando los quince tienen el hash.** Termina cuando el
-documento deja de prometer cosas que ya ocurrieron.
+**El despliegue no ha terminado cuando los quince tienen el hash.** Termina cuando el documento
+deja de prometer cosas que ya ocurrieron: *un pendiente escrito en futuro no envejece a «hecho»,
+envejece a mentira*. Cada fila pasa a `DADO el <fecha>` o se borra, y **se le dice al cliente**:
+que se entere el documento no es que se entere quien tiene que publicar.
 
-En el **mismo commit** que anota la tanda como desplegada:
+| | aviso | a quién | estado |
+|---|---|---|---|
+| **A** | los dos 403 de `cambiar-contador-*` — esconder el control, no cambiar la llamada | `myvc_front` · `app2` | **PENDIENTE** |
+| **B** | veintiuna respuestas llevan dos campos nuevos; hay dos interruptores que ofrecer en configuración | `myvc_front` · `app2` | **PENDIENTE** |
+| **C** | `aumentar_contador`: **omitir** la clave, no mandar `false` | `myvc_front` | **PENDIENTE** |
+| **D** | `login/crear-prematricula` cambia el 500 por un 422 con mensaje | — | **NO REQUIERE TRABAJO** — medido |
+| **E** | `notificaciones/temas`: `colegio` pasa de lista a objeto | `myvc_flutter` | **LO PIDIERON ELLOS** |
+| **F** | `ausencias/store` rellena `fecha_hora` y la contesta en ISO | — | **NO REQUIERE TRABAJO** — medido |
+| **G** | `PUT users/mi-docente` es NUEVA y `app2` **ya la llama**: sin este despliegue, elegir docente avisa de que no quedó guardado (404) | `app2` | **EL FRONT YA ESPERA A ESTO** |
+| **H** | **Lleva el paso 0 delante.** `GET profesores` pasa a exigir **superusuario o `Secretario`**: un docente que la llamara recibe **403** donde recibía los 47 expedientes ([05 §243](migracion/05-codigo-muerto-y-roto.md)). **Ninguna pantalla de las tres que la consumen cambia** —las tres son de administración, medido en los cuatro clientes—, así que **no requiere trabajo del front**; va escrito porque **cambia quién recibe qué** y eso no se despliega en silencio | `myvc_front` · `app2` | **PENDIENTE** — avisar, sin trabajo |
+| **I** | **Crear un año lectivo pasa de entregar UN periodo sin fechas a entregar CUATRO con fechas** ([05 §244](migracion/05-codigo-muerto-y-roto.md)), y copia diez columnas del año anterior que se perdían — tres de ellas se **imprimen en el certificado de estudio** y hasta hoy salían con el defecto del esquema («Privado», «A», «Mañana y tarde») fuera cual fuera el colegio. La respuesta de `POST years/store` **añade** `periodos`, que es lo que `years.html` ya recorre: hoy el año recién creado aparece sin periodos hasta recargar, y con esto aparece montado. Las asignaturas se copian ahora **con su `profesor_id`**, como ya hacía `asignaturas/copiar`: el docente sale en blanco en la rejilla hasta que se le haga el contrato del año nuevo, y entonces aparece solo. **Aditivo: ningún cliente pierde una clave**, así que no requiere trabajo del front — va escrito porque **cambia lo que el colegio recibe al abrir el año**, y eso no se despliega en silencio | `myvc_front` | **PENDIENTE** — avisar, sin trabajo |
 
-1. **Cada aviso de la tabla de arriba pasa de `PENDIENTE` a `DADO el <fecha>`**, o se borra
-   si dejó de aplicar. No se deja «para luego»: un commit aparte al final es el que no se
-   hace cuando la sesión se corta.
-2. **Lo mismo en `ESTADO-ACTUAL.md`**, que lleva su propia copia de los avisos.
-3. **Y si un aviso era para un cliente concreto, se le dice a ese cliente** — que se entere el
-   documento no es que se entere quien tiene que publicar.
+| **J** | **La definitiva de una materia deja de ser un entero: `notas_finales.nota` pasa a `DECIMAL(7,4)`** y el cálculo deja de redondear. Sobre la base real son **96.608 de 125.352 definitivas (77,1 %)** las que hoy se guardan redondeadas, así que **el primer boletín después del despliegue traerá puestos distintos** a los del periodo anterior **sin que haya cambiado ninguna nota** — es el arreglo, no un efecto secundario: `Nota::puestoAlumno` cuenta a cuántos les gana el promedio, y los empates salían de la columna. **Ninguna clave se añade, se quita ni se renombra**: los siete campos afectados (`nota`, `nota_asignatura`, `nota_final`, `nota_final_year`, `DefMateria`, `sumatoria`, `promedio_year`) **siguen viajando como número**, y eso costó castear ~40 lecturas — sin los `CAST`, PDO devuelve `DECIMAL` como **cadena** y el JSON habría pasado de `45` a `"43.7500"` en 17 respuestas. **FLUTTER NO LANZA EXCEPCIÓN — ESTA FILA DECÍA QUE SÍ Y ERA MÍO EL ERROR.** Escribí que `json['nota'] as int` reventaría: el hecho de Dart es cierto, pero **lo apliqué a un código que no había mirado**. Medido en `myvc_flutter/lib` (112 clases): **cero `as int`, cero `as double`**, los tres `toInt()` guardados por `is num`, las notas leídas por `_decimal()` —que traga `num` **y** cadena— y los campos declarados `double`. Lo midió `myvc-front-b8` y lo confirmé contra el fichero. **Así que no bloquea.** Lo que sí necesita trabajo de Flutter —**después de esta migración, nunca antes; ver el orden bajo la tabla**— y por una razón más seria que pintar, es esto: **`LibroNotasApi.dart:439` replica en Dart el `cast` que esta migración cambia** —su propio comentario dice *«el backend … castea a `DECIMAL(4,0)`. Aquí se hace lo mismo para que lo que se ve sea lo que hay guardado y no una aproximación parecida»*— y hace `promedio.roundToDouble()` al guardar una nota. Con la migración puesta, la app enseñaría **44** mientras el servidor guarda **43,75**: exactamente la «aproximación parecida» que ese código existe para evitar, sin error y hasta la siguiente recarga. **Y el pintado, que es lo cosmético:** hay **cinco** formateadores; **tres** dan un decimal (`toStringAsFixed(1)` → `43.8` donde hoy `44`) y **dos** —`LibroNotasApi:841` y `UnidadesScreen:1027`— caen en `toString()` y sacarían **`43.75` entero**. **PERO EL DE `LibroNotasApi:841` NO SE ARREGLA EN EL FORMATEADOR, Y ESTA FILA LO LLEGÓ A SUGERIR:** se llama `notaEscrita`, va emparejado con `notaLeida` y su docblock dice que es *«cómo se escribe una nota **dentro de un campo**»* — alimenta **seis `TextEditingController`** (`PlanillaScreen:149,211`, `FichaAlumnoNotasScreen:135,142,262`, `NotasPerdidasScreen:177`) y sólo **dos** usos de pintar (`LibroAsignaturaScreen:453`, y el aviso «Guardada:» de `NotasPerdidasScreen:199`). **Redondearlo ahí reintroduciría desde el cliente justo el redondeo que esta migración quita**: abrir la planilla y guardar convertiría un 43,75 en 44. **El sitio a mirar es quien lo llama para pintar —`LibroAsignaturaScreen:453`, la definitiva en grande—, no el formateador**, que ahí es lo único que está bien. Lo señaló `myvc-front-b8` con la sesión de Flutter delante; verificado aquí contra el fichero, y son **seis** casillas de edición, no cuatro. `myvc_flutter` es **una sola app para los quince** | `myvc_flutter` (**DESPUÉS del backend, ver el orden**) · `myvc_front` · `app2` (**hecho**: pipe `\| nota`) | **PENDIENTE** — no bloquea; **el orden importa más que la prisa** |
 
-### Los dos que `myvc_flutter` pidió por su nombre, y por eso están aquí y no en un mensaje
+### El orden del aviso **J**, y va al revés de lo que parece
 
-Los dos son **acciones nuestras con fecha en el futuro**, y una promesa que sólo vive en un
-mensaje entre sesiones es una promesa que se cae en cuanto la sesión se cierra.
+**Hoy el cliente y el servidor redondean los dos, así que coinciden.** Ése es el único motivo por el
+que `trasRecalcularse` no está mal hoy: **está atada a un contrato que hoy sigue vigente**. Así que
+el orden no es una preferencia, es lo que decide quién ve un número falso y cuántos:
 
-| cuándo | qué hay que hacer |
-|---|---|
-| el día que **`b369020`** entre en una tanda desplegada | **decirles el hash desplegado.** Su `temasDelColegio` está detrás de un interruptor apagado esperando exactamente eso: los temas del colegio pasan de literal a `c_`+HMAC, y hasta que el backend esté en los quince suscribirse sería apuntarse al tema viejo. Ellos leen las dos formas, así que **no hay ventana rota**: sólo hay un interruptor que encender |
-| el día que se corra el **`for` de la fase 0** | **pasarles el desglose por año del bloque 5** (notas fuera de escala). No tienen que hacer nada con él: es el dato que decide si aquello fue *«una precaución razonable»* o *«un susto»*, y la pregunta la abrieron ellos. Ver [05 §240](migracion/05-codigo-muerto-y-roto.md) |
+| | qué | por qué ahí |
+|---|---|---|
+| **1** | `app2` | independiente y **ya hecho**: el pipe redondea igual antes que después, no abre ninguna ventana |
+| **2** | **este backend**, en los quince, **verificado** | mientras rueda, la app sigue redondeando como hoy: tras guardar una nota puede enseñar `44` con `43,75` guardado, **hasta la siguiente recarga**. Es la ventana mala **pequeña**, y es inevitable |
+| **3** | `myvc_flutter`: quitar el `roundToDouble()` | **sólo con el 2 confirmado**, y contra **el hash de la tanda, no contra `main`** |
 
-> **Por qué esto es un paso del procedimiento y no una buena costumbre:** ya falló una vez, y
-> el coste no fue la línea desactualizada. Fue que la sesión de `myvc_flutter` planificó una
-> vuelta entera —fusionar una rama, desplegarla, escribir un endpoint— **sobre trabajo que
-> llevaba tres días en producción**. El documento no estaba viejo: estaba diciendo algo falso
-> con la cara de un pendiente.
+**Hacer el 3 antes que el 2 es el error caro, y por poco lo escribo yo.** El cliente enseñaría
+`43,75` con el servidor guardando `44` — la misma divergencia en el otro sentido, pero **de golpe en
+los quince colegios**: `myvc_flutter` es **una sola app publicada por Play**, mientras que esto son
+**quince despliegues** que tardan días. La ventana del 2 la abre un colegio cada vez y se cierra
+recargando; la del 3-antes-que-2 la abren todos a la vez y no se cierra sola.
+
+Por eso Flutter propone escribir ya la línea sin redondeo **detrás de un interruptor apagado** —como
+`PendientesUsuarios`— y encenderlo cuando el 2 esté comprobado. Lo corrigieron ellos: el orden que
+esta sección decía antes («backend y Flutter primero») era el que abre la ventana grande.
+
+Y los dos que `myvc_flutter` pidió por su nombre:
+
+- **`b369020` entra en esta tanda → decirles el hash desplegado.** Tienen un interruptor apagado
+  esperándolo. No hay ventana rota: leen las dos formas.
+- **El día que se corra el `for` de la fase 0 → pasarles el desglose por año del bloque 5.**
+
+Lo mismo en `docs/migracion/ESTADO-ACTUAL.md`, que lleva su propia copia.
 
 ## Paso 4. Volver atrás
 
@@ -254,8 +161,8 @@ php artisan config:clear && php artisan route:clear
 php artisan config:cache && php artisan route:cache
 ```
 
-**Las migraciones del 25 ago se quedan puestas y por eso esto vale:** son aditivas y el código
-viejo las ignora. **No corras el `down`.**
+**Las migraciones se quedan puestas y por eso esto vale:** son aditivas y el código viejo las
+ignora. **No corras el `down`.**
 
 ## Paso 5. Las tres trampas que muerden aquí
 
@@ -269,6 +176,7 @@ Y si el comportamiento sigue siendo el viejo con el código en su sitio: **OPcac
 
 ## El front
 
-El bucle de `up/` y **la corrección del de `app2`** —el que había aquí sustituía el legacy en vez
-de convivir con él, al revés de lo decidido el 25 ago— están en la
+Otro bucle, y esta tanda **no lo necesita**: los arreglos de `myvc_front` que salieron de camino
+(`8321f9a5`) son independientes en las dos direcciones. El bucle de `up/` y la corrección del de
+`app2` están en la
 [referencia](DESPLIEGUE-REFERENCIA.md#front-up--solo-las-tandas-que-publican-front).

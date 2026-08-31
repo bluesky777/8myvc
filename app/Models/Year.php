@@ -88,6 +88,7 @@ use App\Models\Periodo;
  * escrito en vez de callarse con todos.
  *
  * @property \Illuminate\Database\Eloquent\Collection<int, \App\Models\Grupo> $grupos_ant  los grupos del año anterior, para el traspaso de año
+ * @property list<\App\Models\Periodo> $periodos  los periodos que `YearsController::postStore` acaba de crear, para que la respuesta traiga el año montado
  */
 
 

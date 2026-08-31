@@ -38,7 +38,7 @@
                             "fecha_inicio": "null",
                             "fecha_plazo": "null",
                             "id": "int",
-                            "nota_asignatura": "int",
+                            "nota_asignatura": "float|int",
                             "numero": "int",
                             "profes_pueden_editar_notas": "int",
                             "profes_pueden_nivelar": "int",
@@ -84,7 +84,7 @@
                     "numero": "int",
                     "profes_pueden_editar_notas": "int",
                     "profes_pueden_nivelar": "int",
-                    "sumatoria": "int",
+                    "sumatoria": "float|int",
                     "updated_at": "string",
                     "updated_by": "int|null",
                     "year_id": "int"

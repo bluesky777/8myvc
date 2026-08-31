@@ -28,7 +28,7 @@
                     "asignatura_id": "int",
                     "cant_perdidas": "int|null",
                     "materia": "string",
-                    "nota_final_year": "int"
+                    "nota_final_year": "float|int"
                 }
             ],
             "nro_folio": "string",

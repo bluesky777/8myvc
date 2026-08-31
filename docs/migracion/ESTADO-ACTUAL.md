@@ -8,7 +8,258 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
-**Última actualización: 28 ago 2026, noche — EL BOLETÍN DEJA DE INVENTAR EL CERO, Y LA FASE 3
+**Última actualización: 30 ago 2026 — LA DEFINITIVA DE UNA MATERIA DEJA DE SER UN ENTERO** ·
+`notas_finales.nota` pasa a **`DECIMAL(7,4)`** y el cálculo deja de redondear
+(`2026_08_30_200000_notas_finales_en_decimal`) · encargo de Joseth por la sesión del front
+`myvc-front-b8`, que ya hizo su mitad: la planilla de puestos numeraba filas (`$index + 1`) y decía
+otra cosa que el boletín, y al arreglarlo apareció lo de fondo · **sobre la base real son 96.608 de
+125.352 definitivas (77,1 %) las que hoy se guardan redondeadas** — tres de cada cuatro — y de ahí
+salen los empates de puesto, porque `Nota::puestoAlumno` cuenta a cuántos les gana el promedio ·
+**la aritmética no perdía nada y el techo era la columna**: el promedio ya se calculaba sin
+redondear y `puestoAlumno` compara con `>` a secas · **verde: 1.578 pruebas, 11.846 aserciones,
+pint PASS, larastan nivel 7 `[OK]`**
+
+> **COMITEADO el 30 ago 2026 con el OK expreso de Joseth**, que era justo lo que este aviso estaba
+> esperando. **Comiteado no es desplegado:** la migración corre en quince producciones y **le cambia
+> el puesto a alumnos reales**, así que el despliegue sigue siendo una decisión aparte.
+>
+> **Y la trampa que se llevó diez minutos al verificarlo, apuntada para el siguiente:** esta rama
+> **da seis rojos contra la base de tests por defecto**. No es una regresión — es que
+> `simonbolivar_testing` sigue con `notas_finales.nota` en `int` y la columna redondea (`35` donde
+> se calculó `34`). El verde de 1.578 es contra una base con la migración puesta:
+> `docker exec -e DB_TEST_DATABASE=simonbolivar_testing_dec …`, o reconstruir la de por defecto con
+> `tools/construir-bd-test.sh`. **El primer sitio donde mirar cuando el número sale raro es el
+> instrumento**, y aquí lo era.
+>
+> **`DECIMAL(7,4)` y no `(6,2)`, y se decidió con el cálculo delante, no con la corazonada que traía
+> el encargo.** La fórmula es `SUM(nota × pct_sub × pct_uni / 10000)` con los tres factores enteros,
+> así que **cada sumando tiene exactamente 4 decimales**. Contado sobre las 125.352: con 2 decimales
+> **no caben 21.148 (16,9 %)**, con 3 no caben 3.371, **con 4 no cabe fuera ninguna**. `(6,2)` habría
+> vuelto a redondear una de cada seis por la puerta de atrás. Lo fija
+> `test_la_definitiva_guarda_cuatro_decimales`, que monta el caso 33 % × 33 % → **0,4356** y se pone
+> rojo si alguien afloja la escala.
+>
+> **EL HALLAZGO QUE NO ESTABA EN EL ENCARGO Y ERA EL QUE PODÍA ROMPER LOS QUINCE: el tipo del JSON.**
+> PDO devuelve un `DECIMAL` como **cadena**, así que la migración a pelo cambiaba `45` por
+> `"43.7500"` en **17 respuestas** (boletines, notas, puestos, promovidos, planillas) — un cambio de
+> **tipo**, no de decimales. Lo destapó la suite de contrato, que guarda **el tipo de cada campo** en
+> sus instantáneas: es exactamente el instrumento que hacía falta y por eso los 20 rojos del primer
+> intento fueron el sistema funcionando. Se cerró casteando **~40 lecturas** (`CAST(... AS DOUBLE)`
+> en SQL, `(float)` en los dos sitios de PHP), y el marcador fue **20 → 14 → 7 → 0**. Los siete
+> últimos eran regeneración legítima: **9 líneas en 7 ficheros, todas ensanchando `int` → `float`,
+> ni un campo añadido, quitado ni renombrado**.
+>
+> **Y `(int)` era peor que el `round()` que quitábamos**, en dos sitios que van al JSON
+> (`DefinitivasDeAsignatura:403`, `NotasController:861`): `(int)"43.7500"` **trunca** a 43, no
+> redondea a 44. Un sesgo sistemático hacia abajo, justo donde el front lee.
+>
+> **LO QUE NO SE HIZO, Y ES DECISIÓN TOMADA, NO OLVIDO: `notas.nota` se queda en `int`.** El encargo
+> pedía las dos columnas. Medido aquí: se escribe **sólo** desde `Request::input('nota')` y desde
+> `subunidades.nota_default`, y **no hay un solo `round()` en ese camino** — el redondeo que empata
+> los puestos ocurre **al guardar la definitiva**, no al guardar la nota, así que migrarla no
+> desempata a nadie.
+>
+> **Y aquí por poco escribo una falsedad, que es el aviso que vale la pena guardar.** Iba a razonarlo
+> con *«el docente teclea un entero y se guarda un entero»*. **Es mentira, y la verdad no está en este
+> repositorio**: las cuatro pantallas de los dos fronts llevan `<input type="number">` **sin `step`**
+> y ninguna valida, así que **sí se puede teclear `85,5`** — lo midió `myvc-front-10` el 23 ago 2026
+> en `myvc_front/PANTALLAS-HISTORIAL-Y-BOLETIN.md`. Lo que no hay es un `round()` **de PHP**; quien
+> redondea es **MySQL al meterlo en un `int`**. Lo encontré leyendo el fichero del front **después**
+> de haber escrito mi conclusión, y sólo porque la memoria dice que ese fichero existe. **Un camino
+> de escritura no se declara limpio mirando sólo el backend: el cliente es parte del camino.**
+>
+> **Corrección al front, y va en la dirección contraria a la suya:** esa entrada dice que «MySQL
+> trunca en silencio» y que un `85,5` deja `85`. **Redondea, no trunca.** Medido contra el
+> contenedor, ligado y como literal: `85.5 → 86`, `85.4 → 85`, `43.75 → 44`.
+>
+> **La columna se queda porque la decisión ya está tomada y es la contraria:** el 23 ago 2026 Joseth
+> decidió cerrar esa puerta **en el teclado, no redondeando al guardar** —*«si un 85,5 tiene que ser
+> 86, lo decide quien pone la nota»*—, y `myvc_flutter` ya lo hizo (`lib/Utils/TecladoDeNota.dart`).
+> Volver decimal la columna sería **deshacer esa decisión por la puerta de atrás**, y arrastraría la
+> escala de la definitiva a `4 + d`. Confirmado con Joseth el 30 ago. **Lo que sigue abierto y es del
+> front:** los dos Angular no tienen todavía el arreglo del teclado que Flutter sí tiene.
+>
+> **FLUTTER: NO BLOQUEA, Y ESTE PÁRRAFO DECÍA QUE SÍ.** Escribí que `json['nota'] as int` lanzaría
+> excepción. **El hecho de Dart es cierto y lo apliqué a un código que no había mirado** — que es
+> justo el error que este documento lleva dos semanas nombrando en otras formas. Lo midió
+> `myvc-front-b8` y lo confirmé contra el fichero: en las 112 clases de `myvc_flutter/lib` hay **cero
+> `as int` y cero `as double`**, los tres `toInt()` van guardados por `is num`, las notas se leen por
+> `_decimal()` —que traga `num` **y** cadena— y los campos son `double`. Hay además una capa
+> tolerante entera (`Utils/JsonBackend.dart`) escrita para exactamente este problema. **El caso
+> estaba previsto en el otro repositorio y yo no fui a mirarlo.**
+>
+> **PERO SÍ HAY TRABAJO DE FLUTTER ANTES DEL DESPLIEGUE, Y ES MÁS SERIO QUE PINTAR — no lo teníamos
+> ninguno de los dos.** `LibroNotasApi.dart:439` **replica en Dart el `CAST` que esta migración
+> cambia**, y lo dice su propio comentario: *«el backend … castea a `DECIMAL(4,0)`. Aquí se hace lo
+> mismo para que lo que se ve sea lo que hay guardado y no una aproximación parecida»*. Hace
+> `promedio.roundToDouble()` al guardar una nota, así que con la migración puesta **la app enseña 44
+> mientras el servidor guarda 43,75**: la «aproximación parecida» que ese código existe para evitar,
+> **sin error y hasta la siguiente recarga**. Es el quinto disparador de [[canal-con-el-front]] en
+> vivo — **la premisa del fallo vivía en el otro repositorio**, cableada por nombre.
+>
+> **Y lo cosmético, medido:** hay **cinco** formateadores de nota en `lib/`; **tres** dan un decimal
+> (`43.8` donde hoy `44`) y **dos** —`LibroNotasApi:841`, `UnidadesScreen:1027`— caen en `toString()`
+> y sacarían **`43.75` entero**. `myvc-front-b8` lo describió como «un `toString()` suelto»; medido,
+> **ese `toString()` es la rama else del formateador**, no un caso aparte, y su predicado es
+> `valor == valor.roundToDouble()` y no el `% 1 == 0` que citaban — **`% 1 == 0` no aparece ni una vez
+> en `lib/`**. La conclusión de ambos aguanta; el reparto no era el que decía el mensaje.
+>
+> **Y a mí me corrigieron a continuación, con razón: ese quinto NO se arregla donde yo lo puse.** Lo
+> llamé «el peor de los cinco» y lo listé junto a los otros cuatro — una tabla que invita a meterle
+> un `toStringAsFixed(0)`. Se llama **`notaEscrita`**, va emparejado con `notaLeida` y su docblock
+> dice que es *«cómo se escribe una nota **dentro de un campo**»*: alimenta **seis
+> `TextEditingController`** y sólo **dos** usos de pintar. **Redondearlo ahí reintroduciría desde el
+> cliente el redondeo que esta migración quita** — abrir la planilla y guardar convertiría un 43,75
+> en 44. Se parte en dos, y es de Flutter. (Ellos dijeron cuatro casillas; verificado, son **seis**.)
+> **Una lista de sitios «que sacan el mismo síntoma» no es una lista de sitios que se arreglan
+> igual**: la misma trampa que el `CLAUDE.md` nombra en las herramientas — *contar bien el síntoma no
+> es haber contado la causa*. La fila de `DESPLIEGUE.md` ya señala **a quien lo llama para pintar**
+> (`LibroAsignaturaScreen:453`) y no al formateador.
+>
+> **EL ORDEN DE DESPLIEGUE VA AL REVÉS DE LO QUE YO ESCRIBÍ, Y ÉSTE ERA EL ERROR CARO.** Dejé en la
+> fila «el `roundToDouble` primero» —queriendo decir «antes que lo cosmético»— y **se lee como «antes
+> que el backend»**. Lo corrigió la sesión de Flutter con el argumento bueno: **hoy el cliente y el
+> servidor redondean los dos y coinciden**, así que esa línea no está mal — está atada a un contrato
+> que hoy sigue vigente. Quitarla antes de que la migración esté desplegada deja al cliente
+> enseñando `43,75` con el servidor guardando `44`, **de golpe en los quince**, porque `myvc_flutter`
+> es **una sola app publicada por Play** mientras que esto son **quince despliegues que tardan
+> días**. El orden bueno es **`app2` → backend en los quince, verificado → Flutter**, con la línea
+> sin redondeo escrita ya **detrás de un interruptor apagado** y encendida **contra el hash de la
+> tanda, no contra `main`**. Está como sección propia bajo la tabla de
+> [`DESPLIEGUE.md`](../DESPLIEGUE.md).
+>
+> **Y la ventana que el orden NO cierra, que hay que saber:** mientras el backend rueda por los
+> quince, un colegio ya migrado con la app todavía redondeando enseñará `44` con `43,75` guardado
+> **tras guardar una nota y hasta recargar**. Es inevitable y es la pequeña: la abre un colegio cada
+> vez y se cierra sola. La otra la abren los quince a la vez y no.
+>
+> **Y DOS COSAS MÁS QUE SON TUYAS.** **(1)** Las dos columnas de valor de `bitacoras` son `int`, así
+> que el rastro **viejo** de una definitiva a mano guarda 44 donde el valor es 43,75. Se redondea
+> ahí **a propósito y explícitamente**, porque con `sql_mode` vacío —el del contenedor— MySQL lo
+> hacía en silencio y **con `STRICT_TRANS_TABLES` lo habría rechazado**, o sea un 500 al guardar; y
+> no sabemos el `sql_mode` de los quince cPanel. **El decimal exacto no se pierde**: el rastro nuevo
+> (`auditoria`) lo guarda en columnas **JSON**. Ensanchar `bitacoras` es otra migración con su propia
+> decisión — esas dos columnas las comparten `Nota`, `Nueva subunidad` y `AlumnoPideAjeno:user_id`.
+> **(2)** **Los porcentajes mal configurados quedan como están**, que es la regla 2 de
+> `DefinitivasDeAsignatura` y es deliberada: hay **25 unidades de 16.931** cuyas subunidades no suman
+> 100 y **15 pares (asignatura, periodo) de 3.930** cuyas unidades tampoco. Antes el redondeo tapaba
+> parte de ese sesgo; ahora se verá en la planilla, que es justo lo que esa regla quiere.
+
+**Anterior: 30 ago 2026 — CREAR UN AÑO DEJA DE ENTREGARLO A MEDIO MONTAR** ·
+`POST years/store` creaba **un** periodo —`numero=1, actual=1`, sin fechas, sin `created_at` y sin
+`created_by`— y se dejaba **diez columnas de `years`** sin copiar del año anterior · el resultado
+está en la base del colegio del seed y no hay que deducirlo: sus **ocho años viejos tienen los
+cuatro periodos**, puestos a mano uno a uno después, y **el único año creado por esta ruta tiene
+uno** · ahora nacen **cuatro**, numerados 1–4, sólo el primero `actual`, con `created_by` y con
+fechas · decisiones de Joseth (30 ago): **siempre cuatro**; si el año anterior trae su calendario
+**completo** se traslada `+1 año ajustando al mismo día de la semana` —un `+1` literal mueve el día
+de la semana, y al tercer año el curso arrancaría en sábado—, y si no, se calculan desde
+`years.calendario` (**A**: 3er lunes de enero → último viernes de noviembre; **B**: agosto → junio),
+en cuatro tramos con dos semanas de receso entre el 2º y el 3º · las asignaturas se llevan además su **docente**, que era la única de las dos rutas que duplican asignaturas que no lo copiaba · **o los cuatro o ninguno**: un
+calendario a medias en el año anterior se calcula entero, porque trasladarlo a trozos deja
+exactamente el agujero que esto tapa · `app/Services/CalendarioDePeriodos.php`, y doce casos nuevos
+en `tests/Contrato/YearsTest.php`
+
+> **Que las fechas estén en NULL no era cosmético.** `Informes\ActasEvaluacionController` reparte
+> las ausencias por periodo **contra `fecha_inicio` y `fecha_fin`**, y ya llevaba escrito que «hay
+> colegios con el calendario sin llenar»: las que no caen en ningún periodo van al balde
+> `fuera_calendario`. Con los cuatro periodos sin fechas, el balde se lo lleva **todo**. En el seed,
+> de nueve años **tres** tienen fechas —2018, 2019 y 2020— y **ninguno desde 2021**.
+>
+> **Y cuatro de las diez columnas se imprimen en papel oficial.** `caracter`, `calendario` y
+> `jornada` salen literalmente en el certificado de estudio —«de carácter X, calendario Y, jornada
+> Z», en `certificadoEstudioDir.html`— y las tres tienen **defecto en el esquema**, así que el año
+> nuevo no salía en blanco: salía diciendo «Privado», «A» y «Mañana y tarde» **fuera cual fuera el
+> colegio**, que es peor que vacío porque nadie lo nota. `frase_final_certificado` es la frase de
+> cierre de ese mismo papel y sí nacía vacía. Las otras seis: `genero_colegio`, `img_encabezado_id`,
+> `texto_acta_eval` (el acta de evaluación), `show_materias_todas`, `prematr_antiguos` y
+> `prematr_nuevos` (el enlace público de prematrícula del login). También se copian ahora los
+> **requisitos de matrícula**, la única tabla de configuración por año que no se copiaba, y los dos
+> interruptores de cada periodo —`profes_pueden_editar_notas` y `profes_pueden_nivelar`—, que nacían
+> en el `1` del esquema: hay años en el seed con los cuatro **cerrados**, y nacer abiertos abre la
+> planilla de un año lectivo entero a los 51 docentes sin que nadie lo pida.
+>
+> **La ruta no se mueve: siguen siendo 543.** Esto es todo dentro de `POST years/store`. Lo único
+> que cambia en la respuesta es que ahora **trae `periodos`** — `YearsCtrl.crearNewYear` hace
+> `$ctrl.years.push(r)` y `years.html` recorre `year.periodos`, que hasta hoy llegaba vacío y
+> obligaba a recargar. Es aditivo; ningún cliente pierde una clave.
+>
+> **EL DOCENTE DE LA ASIGNATURA SÍ SE COPIA, Y EL TITULAR DEL GRUPO NO — y la primera mitad va
+> escrita porque me equivoqué y la corrigió Joseth.** Argumenté que copiar `profesor_id` era
+> peligroso: cuando se crea el año **no hay ni un contrato en él**, y
+> `Profesor::paraElegirEnAsignaturas` lista **sólo docentes con contrato**, así que el copiado no
+> sale en el desplegable — «queda mal en silencio», dije, con **1 de 10 asignaturas** medidas en el
+> seed. **Lo que faltaba es que ese silencio se deshace solo**: la columna «Profesor» de la rejilla
+> resuelve el nombre **filtrando esa misma lista**, así que la celda sale **en blanco** —no con un
+> nombre falso— y `profesor_id` **sigue en la fila**; se le hace el contrato y **aparece**. No es un
+> dato erróneo, es uno **pendiente**, y el reparto del año pasado queda de borrador que se
+> materializa según se contrata. La cifra no cambia; cambia lo que significa. **Medir bien el
+> síntoma no basta si se le atribuye la consecuencia equivocada.** Y había una pista delante:
+> **`POST asignaturas/copiar` ya copiaba `profesor_id`** de grupo a grupo — de las dos rutas que
+> duplican asignaturas, ésta era la única que no.
+>
+> **El titular va al revés y por eso no se copia:** `GruposController` lista los grupos con
+> `left join profesores p on p.id=g.titular_id`, **join directo, sin pasar por `contratos`**, así
+> que un titular copiado sale **con nombre y apellidos**, como si estuviera en la planta. Un dato
+> que se ve y parece cierto no es un borrador pendiente. **La regla que queda**: se copia la
+> referencia a una persona **cuando el cliente la resuelve contra la planta del año** —y entonces se
+> esconde sola hasta que la planta la incluya—, y no se copia **cuando la resuelve contra la tabla
+> de personas**. Es *qué ve quien mira*, no *qué hay en la fila*.
+>
+> **Y lo que queda propuesto, en un lote aparte porque es una ruta nueva** (y una ruta nueva es una
+> decisión, no un efecto secundario): **«copiar la carga académica de un docente a otro»**, para el
+> que se fue o cambió de materias — lo pidió Joseth el 30 ago, y hoy no hay forma de hacerlo:
+> `POST asignaturas/copiar` copia de **grupo a grupo**, no de docente a docente. La otra mitad que
+> había propuesto —«heredar la carga del año pasado» corrida después de los contratos— **ya no hace
+> falta**: la herencia ocurre al crear el año, y el contrato es lo que la hace visible.
+
+---
+
+**Última actualización: 28 ago 2026, noche — LA HOJA DE VIDA DE LOS 47 EMPLEADOS DEJA DE
+LEERLA CUALQUIERA DEL PERSONAL** · `GET profesores` iba con `auth.personal` y nada más, y le daba a
+**un docente cualquiera las mismas 28 claves y los mismos 47 registros** que a un administrador:
+35 documentos de identidad, 41 fechas de nacimiento, 11 domicilios y el `is_superuser` de cada uno
+—que además dice a quién apuntar— ([05 §243](05-codigo-muerto-y-roto.md)) · lo midió
+`myvc-front-6b` conduciendo Chrome con un token de docente, **la primera vez en la fase 11 que
+alguien usa la aplicación sin ser `administrador`**, y lo autorizó Joseth · ahora exige
+`Autoriza::esAdministrativo` —superusuario o `Secretario`—, que es **el criterio que ya gobernaba
+la escritura de este mismo controlador**: la asimetría era que el expediente no se podía editar sin
+ser superusuario y se podía leer siendo cualquiera del personal · **se cierra la puerta y no se
+recorta la respuesta**, al revés que en `contratos()`, porque las tres pantallas que la consumen
+son de administración y una de ellas es la de **editar la ficha** · aviso **H** en
+[`DESPLIEGUE.md`](../DESPLIEGUE.md), sin trabajo del front · `tests/Contrato/FichaDelPersonalTest.php`,
+cinco casos
+
+> **Y la bitácora, que era la otra mitad del encargo, NO necesitaba arreglo: ya la cerró `abaf6b2`
+> el 24 ago**, un día antes de que la midieran. Reproducido aquí con un token de **Profesor** —el
+> rol con el que se midió, y que no es el que cubrían los tests de AUD-5, todos sobre
+> `tipo = 'Usuario'`—: **403**. La medición del front era correcta y la conclusión no, porque
+> **midió un entorno que no tenía el arreglo**. Antes de abrir un lote por un hallazgo que llega de
+> otro repositorio: **reproducirlo aquí primero**, que cuesta un test.
+>
+> **LO QUE NO CIERRA, Y ES TUYO, JOSETH:** `GET profesores` era **una de cuatro**. El censo de la
+> familia está hecho y en la [§243](05-codigo-muerto-y-roto.md): `profesores/todos` (19 registros,
+> **las mismas 28 claves**), `PUT profesores/listado` (**37 claves**), `profesores/show/{id}` (la
+> ficha de cualquiera, por id) y `profesores/conyears` (leve). **No se tocan porque cerrarlas con
+> este mismo criterio podría romper una pantalla:** el informe «listado de profesores» va en `app2`
+> con el permiso `informes`, que incluye a **`Coord disciplinario`** — y un coordinador
+> disciplinario **no** es `esAdministrativo`. **Medido después: en `simonbolivar` ese rol lo tiene
+> una sola persona y además es superusuaria**, así que ahí no rompería nada — pero es **una base de
+> quince**. Y **`profesores/trashed` da 500**: está rota además de abierta.
+>
+> **Y hay un paso 0 nuevo en [`DESPLIEGUE.md`](../DESPLIEGUE.md), que va ANTES de esta tanda.**
+> `esAdministrativo` es `is_superuser || Secretario` y **no incluye el rol `Admin`**, al que `app2`
+> sí le abre la pantalla de Docentes: coinciden sólo porque los diez `Admin` medidos son los diez
+> `is_superuser`. **Es una coincidencia de población, no un criterio**, y un colegio que la rompa
+> deja a esa persona sin la pantalla. Como no se puede medir desde el repositorio —cada colegio
+> tiene su base—, el despliegue corre el `SELECT` en los quince y **para si alguno no da cero**.
+>
+> **Y lo que evita el tercer caso:** el censo de IDOR del [08](08-revision-idor.md) **ya tenía
+> estas rutas** y no las cerró porque **se corrió con un token de alumno**, y su herramienta deja
+> fuera todo lo que lleva `auth.personal` — **un Profesor ES personal**. El detector no falló: la
+> pregunta era otra. **Hay que volver a correrlo con un rol del personal.**
+
+**Anterior: 28 ago 2026, noche — EL BOLETÍN DEJA DE INVENTAR EL CERO, Y LA FASE 3
 VUELVE A CUBRIR A LOS RETIRADOS** · dos escrituras vivas en los quince y **van juntas**: por
 separado, la segunda sin la primera ensancha a los retirados el sembrado de ceros que la primera
 quita ([`noche-2026-08-28/desact-1.md`](noche-2026-08-28/desact-1.md)) · **(1)** `DefinitivasDeAsignatura`
@@ -92,11 +343,22 @@ del 25 estaba vieja en sus dos primeras filas**: la carrera y la validación ent
 noche del 25 y sus tests llevan desde entonces verdes dentro de la suite — quien retome
 esto, **abra el test antes que el documento**
 
-> ## ✅ VERDE: 1.543 pruebas, 11.542 aserciones
+> ## ✅ VERDE: 1.566 pruebas, 11.703 aserciones
 >
-> **La de más es la de la [§242](05-codigo-muerto-y-roto.md)**, y hizo falta la suite entera:
-> con el `--filter` del módulo el arreglo salía verde con `Carbon::now()` dentro, que es
-> justo lo que `RelojUnicoTest` existe para impedir. **1.542 eran el 26 por la tarde.**
+> **Cinco son de la [§243](05-codigo-muerto-y-roto.md)**, y las otras dieciocho llevaban tres
+> commits sin contarse: **este bloque decía 1.543, y en HEAD ya eran 1.561.** El desglose, que es
+> lo que hace que la corrección sea comprobable y no otra cifra escrita a mano — `850a76e` **+7**,
+> `9e8aa96` **+5**, `e906064` **+6**; suman los dieciocho exactos, y `50b0f10`, que **es el commit
+> de este mismo documento**, no tocó ninguno.
+>
+> **La regla que falló no es «actualizar el estado»: es que el número se copió en vez de
+> medirse.** `docs(estado)` se escribió al día en todo menos en la única línea que sale de correr
+> algo. Se remide con la suite entera, nunca con `--filter`:
+> `docker exec 8myvc-app-1 php artisan test | tail -3`.
+>
+> **La de la [§242](05-codigo-muerto-y-roto.md) hizo falta la suite entera**: con el `--filter` del
+> módulo el arreglo salía verde con `Carbon::now()` dentro, que es justo lo que `RelojUnicoTest`
+> existe para impedir.
 >
 > **1.525 eran la mañana del 26.** Los diecisiete de más son de la tarde: **siete** de la
 > prematrícula pública ([§236](05-codigo-muerto-y-roto.md)), **cuatro** del acotado al dueño
@@ -207,8 +469,12 @@ una está en el 05 o en el 09; aquí sólo lo que decide.
 | **1bis** | ~~**La prematrícula pública deja escrita la ficha de un menor sin matrícula y sin usuario, y no hay transacción.**~~ **LA (a) CERRADA el 26 ago por la tarde** ([05 §236](05-codigo-muerto-y-roto.md)); **la (b) sigue entera y es tuya.** Medido, determinista, **no es una carrera**: en `PUT login/crear-prematricula` —**una de las once rutas públicas**, la llama alguien **sin cuenta**— si falta `grupo_id` o es uno que no existe, **el `INSERT` de `alumnos` ya pasó** y revienta el de `matriculas`. Queda escrito **nombres, apellidos, documento y celular de un menor**, huérfano. *Y las tres primeras filas de la matriz dicen lo contrario y también importan: si falta `nombres` o `sexo` no escribe nada — **el daño no es «cuerpo incompleto», es «llegó a `matriculas`»**.* · **Y el reintento es peor que el fallo: el segundo intento no da otro 500, da un 200 que MIENTE.** Encuentra la ficha huérfana y contesta *«Ya existe el alumno. Entre con su cuenta»* — **y esa cuenta nunca se creó**, porque el `INSERT` de `users` va después del que reventó. **El padre queda fuera del formulario para siempre para ese hijo**, mandado a una puerta que no existe y **sin ningún error que reportar**. Predicho por escrito antes de medirlo. Y **es el camino normal**: el front no tiene `ng-disabled` en ese botón y **el formulario sigue relleno tras el error** | **Hay dos cosas que decidir y son distintas.** ~~**(a) El mecanismo**: se cierra con una transacción, y eso no espera a nadie.~~ **HECHO**: las cuatro escrituras en transacción **y** `grupoQueExiste()` con **422 delante de todo** — las dos, porque la transacción quita el huérfano pero **deja el 500 intacto**, y el 500 de una ruta pública y sin autenticar es el camino nuevo al pendiente del `.env`. Siete tests, y **el control visto rojo**: quitando la transacción y dejando el guard cae **exactamente uno** de los siete, que es el que la nombra — los otros seis pasaban sin ella. **(b) Lo que ya haya escrito en los quince**: eso **no lo decide ninguna sesión**, y hoy **no lo sabe nadie** — la consulta de sólo lectura que lo cuenta está escrita y **no se ha corrido en ningún colegio**: `SELECT COUNT(*) FROM alumnos a LEFT JOIN matriculas m ON m.alumno_id=a.id WHERE m.id IS NULL AND a.deleted_at IS NULL AND a.user_id IS NULL`. · **Y la exposición está sin medir, no en cero:** en la base de desarrollo **`prematr_nuevos = 0` en los ocho años**, así que **ahí la pantalla ni se enseña** — pero *cuáles de los quince la tienen encendida no lo sabe nadie*, y ésa es otra pregunta para la fase 0. · **Y un pendiente viejo gana un camino público:** el [01](01-plan-seguridad.md) tiene sin verificar *«con debug on, un error filtra el `.env` entero»* y el [09](09-pendientes.md) dice «comprobarlo colegio a colegio». **El hallazgo no es que filtre —eso depende del `.env` de cada uno— sino que esta ruta le da a ese pendiente un camino público y sin autenticar**: el cuerpo del 500 trae `Host`, `Port` y `Database`. Medido con `APP_DEBUG=true`, que es lo del contenedor; **en producción depende de cada colegio y nadie lo ha mirado**. · **El censo de huérfanos en la base de tests da 0 y NO vale**: tiene 68 alumnos y **cero matrículas en `PREA`**, o sea que por ese endpoint no ha pasado nunca una prematrícula ahí. *No distingue «no ocurre» de «no ha ocurrido en esta copia».* |
 | **2ter** | **Cuatro columnas en blanco en la rejilla «Docentes contratados»** —la de abajo de `/panel/profesores` en la web vieja—: Usuario (`username`), Nacimiento (`fecha_nac`), Email (`email_usu`) y Celular (`celular`), en `ProfesoresCtrl.ts:266-269`. Las vació `c47ab50` al recortar `Profesor::contratos()`. El recorte está bien hecho (`GET contratos` es la única ruta de su controlador **sin `auth.personal`** y entregaba el documento, el domicilio y el móvil de los docentes a cualquier sesión válida) y **no se deshace**; lo que falló fue el censo de consumidores del propio commit, que acertó con Flutter y **se dejó esta rejilla** | **YA NO ES UNA VENTANA FUTURA: está abierta.** Joseth desplegó el backend el 25 ago (`eb95cbc`, mismo hash comprobado en los quince), así que **esas cuatro columnas están vacías ahora mismo en todos**. La comparación la da la propia pantalla: la rejilla de ARRIBA sigue llena, porque viene de `GET profesores` —con `auth.personal`—. **Llenarlas cuesta cero peticiones** (un `valueGetter` cruzando por `profesor_id`; los cuatro campos ya están en memoria) **y no deshace el recorte**, porque el dato volvería por la ruta que sí lleva guard. La otra salida es quitar las cuatro columnas. **Decide Joseth.** · *Y una que salió bien sin que nadie lo planeara: esa rejilla guarda la FILA ENTERA al editar cualquier celda, así que con el código del 21 ago habría BORRADO esos cuatro campos en la base —y `users.username` es UNIQUE—. No pasa porque `putUpdate` los guarda detrás de `$vinieron->trae(...)`, y ese arreglo iba en la MISMA tanda. Separar los dos commits en dos despliegues habría borrado datos.* |
 | **2quater** | **`app2` se rompe la primera vez que alguien pulsa F5, y el arreglo vive en un repositorio que no documenta nadie.** La vieja usa rutas con almohadilla (`html5Mode` comentado) y **por eso este fallo no puede existir en ella**; `app2` usa rutas de camino y **el `.htaccess` no tiene reescritura**. Servido el build real con un servidor estático: `/` da 200, `/alumnos` y `/panel` dan **404**. Lo midió `myvc-front-3b` | **Aparece el primer día de producción de la nueva, no antes**, y en la forma peor: arranca bien, se navega bien, y **se cae al recargar, al abrir un marcador o un enlace compartido**. En los quince. Dos salidas, las dos costeadas por el front: `RewriteRule` en el `.htaccess` (probada **al revés** también, que un `.js` o el logo no se los trague la regla) o `withHashLocation()` — **cambia todas las URLs, así que es decisión tuya**. Y el argumento *«la almohadilla conserva los marcadores»* **probablemente es falso**: la vieja usa `/#/panel/alumnos` y la nueva usaría `/#/alumnos` |
-| **2quinquies** | **`app2` no arranca desde `up/`: pantalla en blanco, y no es el F5.** Medido con Apache 2.4 de verdad y el build de verdad: `GET /up/` da 200, pero el navegador pide `/chunk-….js` **en la raíz del dominio** y recibe 404 — el fichero está en `/up/chunk-….js`. En Chrome: título «MyVC», **texto visible vacío, `app-root` inexistente, once recursos fallidos**. La vieja funciona desde `up/` porque usa rutas relativas y lleva el `<base href>` comentado; **`app2` lleva `<base href="/">`** | **Degrada la casilla anterior: no es «se rompe al recargar», es que no arranca nunca, ni la primera vez.** Y mata el último argumento de la almohadilla: `<base href="/">` rompe igual con `#` que sin él. **La primera decisión ya no es «reescritura o almohadilla»: es «¿`app2` vive en `up/` o en la raíz del dominio?»**, y de ahí cuelgan el `base href`, la `RewriteBase` y todas las URLs. **Desde el backend hay una razón dura para `up/`**: la API se sirve en **el mismo subdominio, bajo `/8myvc/public/api`** (`DESPLIEGUE-REFERENCIA.md:232`), así que **un `RewriteRule . /index.html` en la raíz se tragaría las llamadas a la API** salvo que alguien acierte a excluirlas. En `up/`, con `RewriteBase /up/`, eso no puede pasar **por construcción**. El front ya escribe todo para `/up/`, y **el ensayo pasó**: un colegio de mentira con Apache 2.4.66, `up/` con el build nuevo y **este backend real por `ProxyPass`**, conducido en Chrome —entrar, cuatro pantallas con datos, **F5 en cada una**, enlace profundo, salir y volver— **con cero errores y cero recursos en 404**. Sin probar, y dicho para que no se dé por probado: el refresco silencioso y **las pantallas de impresión e informes pesados**, que son justo las fichadas por dar 504 y 500 |
+| **2quinquies** | **`app2` no arranca desde `up/`: pantalla en blanco, y no es el F5.** Medido con Apache 2.4 de verdad y el build de verdad: `GET /up/` da 200, pero el navegador pide `/chunk-….js` **en la raíz del dominio** y recibe 404 — el fichero está en `/up/chunk-….js`. En Chrome: título «MyVC», **texto visible vacío, `app-root` inexistente, once recursos fallidos**. La vieja funciona desde `up/` porque usa rutas relativas y lleva el `<base href>` comentado; **`app2` lleva `<base href="/">`** | **Degrada la casilla anterior: no es «se rompe al recargar», es que no arranca nunca, ni la primera vez.** Y mata el último argumento de la almohadilla: `<base href="/">` rompe igual con `#` que sin él. **La primera decisión ya no es «reescritura o almohadilla»: es «¿`app2` vive en `up/` o en la raíz del dominio?»**, y de ahí cuelgan el `base href`, la `RewriteBase` y todas las URLs. **Desde el backend hay una razón dura para `up/`**: la API se sirve en **el mismo subdominio, bajo `/8myvc/public/api`** (`DESPLIEGUE-REFERENCIA.md:232`), así que **un `RewriteRule . /index.html` en la raíz se tragaría las llamadas a la API** salvo que alguien acierte a excluirlas. En `up/`, con `RewriteBase /up/`, eso no puede pasar **por construcción**. El front ya escribe todo para `/up/`, y **el ensayo pasó**: un colegio de mentira con Apache 2.4.66, `up/` con el build nuevo y **este backend real por `ProxyPass`**, conducido en Chrome —entrar, cuatro pantallas con datos, **F5 en cada una**, enlace profundo, salir y volver— **con cero errores y cero recursos en 404**. Sin probar, y dicho para que no se dé por probado: el refresco silencioso y **las pantallas de impresión e informes pesados**, que son justo las fichadas por dar 504 y 500 · ***MEDIDO EL 30 AGO, Y LA PREGUNTA YA TIENE RESPUESTA EN PRODUCCIÓN: `app2` NO vive ni en `up/` ni en la raíz — vive en `up2/`, y está desplegado en los DIECISÉIS.*** *`/up2/` contesta 200 en los quince colegios, en `demo` y en `lal`; la carpeta es un clone de **`myvc_dist2`** (`ef42e3e`, 29 ago) y sirve `<base href="/up2/">`, que es el valor correcto para esa ruta. **La decisión de dónde vive está tomada de hecho**; lo que sigue abierto es la reescritura del `.htaccess` para el F5, que es otra cosa. [TRASLADO-LAL §2B](../TRASLADO-LAL.md)* |
 | **2sexies** | **Y la casilla que sí falta es pequeña: no hay bucle escrito para `up/`.** *(Corrección: escribí que «el despliegue del front no está escrito en ningún sitio» y **era falso** — `DESPLIEGUE-REFERENCIA.md:25 y 202` documentan que el front vive en la carpeta `up` de cada subdominio y `myvc_front_2` en `plus`. Mis dos `grep` daban cero porque busqué `myvc_dist`, y **aquí eso se llama `up`**: un `grep` contesta por el nombre y la pregunta era por la cosa. Lo encontró `myvc-front-3b`.)* | El bucle de `DESPLIEGUE.md:272` es de `/8myvc` y **no hay ninguno escrito para `up/`**. **Y no es el mismo con la ruta cambiada:** `up/` es un `git pull` del repositorio construido (`myvc_dist`, con remoto propio en GitHub) — **sin `migrate`, sin `config:cache`, sin `route:cache`**, que es la mitad del bucle del backend. Lo que sí se repite igual: **la segunda cuenta de cPanel (`lalvirtual.edu.co`) que el `for` no alcanza** y hoy se hace a mano |
+| **2septies** | **`demo` no está en ninguna lista de despliegue, y su login lo rompe un `if` cableado en el front** (29 ago 2026, medido en el servidor con Joseth). Joseth vio que `demo` iba atrasada; el `git pull` de su `up/` abortó por una modificación local del bundle y **no se pudo leer qué era**: un bundle minificado es **una sola línea**, así que `1 insertion(+), 1 deletion(-)` vale igual para un carácter que para el fichero entero — el `--stat` no distinguía nada. Se descartó con el `checkout -f` documentado y **acto seguido el login empezó a dar 404** contra `…/8myvc/public/demo/5myvc/public/auth/login`. La causa está en `app.ts` de `myvc_front`: `if(location.href.indexOf('demo') > 0) { server = dominio + 'demo/5myvc/public/'; }` — **concatena en vez de sustituir**, apunta a la API vieja y **a una carpeta que ya no existe** (`~/demo.micolevirtual.com` sólo tiene `8myvc/`, `up/` y `up2/`). Encaja con que la modificación descartada fuera ese mismo parche a mano, aunque **no se puede probar: el contenido ya no existe** | **Tres decisiones, y son distintas.** **(a) El arreglo del `if`.** Borrarlo en el repo del front es una línea y deja a `demo` en el `server = dominio + 'api/'` de todos — pero **mueve el hash del bundle en los quince** y se convierte en tanda de front. El `sed` en el `up/` de `demo` desbloquea hoy sin mover a nadie, y **muere en el siguiente `checkout -f`**, que es exactamente lo que acaba de pasar. **(b) Si `demo` entra en las listas como uno más**: hoy no está ni en el `for` de comprobación ni en el recuento de quince, y por eso se quedó atrás **sin que nada lo señalara**. **(c) Dos colegios que destapó el barrido de hashes**: `coljordan` sirve `index-DDM1FZCB.js` —atrasado— y **`lal` no contestó al `curl`**, que no es lo mismo que ir atrasado. ***CONTESTADO el 30 ago, y `lal` sale limpio:*** *`lal.micolevirtual.com` da **NXDOMAIN** —ese subdominio **no existe**, `lal` es el único colegio que vive en la otra cuenta, bajo `lalvirtual.edu.co`— y por su URL de verdad sirve **`index-Bermvdik.js`, el mismo que `casb`, `coab`, `cads` y `coal`**. **El que sigue atrasado es `coljordan`, y sólo él.** El barrido no falló: preguntó por una dirección que nunca ha existido, y un `curl` mudo se leyó como «colegio que no contesta» en vez de como «URL que no existe». [TRASLADO-LAL §9.2](../TRASLADO-LAL.md).* · **Y la condición mira la URL entera, no el host** (`indexOf('demo') > 0`): el defecto **viaja en el bundle compartido a los quince** y hoy sólo dispara donde la cadena `demo` aparece en la URL. · *Lo que se descartó por el camino y NO hay que volver a mirar: el backend de `demo` está al día (`50b0f10`, desplegado el 28); el **302** de `POST api/auth/login` **no es un fallo** —`curl` sin `Accept: application/json`, y `casb` da el mismo—; y el `<base href="http://localhost:9000/">` **está comentado**, mi `grep '<base[^>]*>'` casó dentro del comentario y lo leí como etiqueta viva.*
+| **2nonies** | **`storage/logs/laravel.log` SE LEE DESDE INTERNET, Y NO ES SOLO DE `lal`** (30 ago 2026, medido con `curl` desde fuera). `https://<colegio>/8myvc/storage/logs/laravel.log` devuelve **200 con el contenido del log** en **`lal`, `casb`, `coab`, `cads`, `coljordan` y `coal`** — seis de seis probados; `demo` da 404, probablemente porque no hay fichero. Lo que sale son trazas de excepción con rutas absolutas del servidor (`/home/micolevi/public_html/8myvc/vendor/...`) y lo que la aplicación haya registrado. **La causa es la topología, no el código**: `8myvc/` cuelga entero del docroot y sólo `public/` debería ser alcanzable. · ***Lo que NO es, y lo comprobé porque era mi primera sospecha:*** *los `.php` **se ejecutan, no se descargan** — `bootstrap/cache/config.php` da 200 con **cuerpo vacío** y `config/database.php` da 500. **Las credenciales no se filtran por ahí.** Y `.env` da **403** por la regla de dotfiles del servidor.* | **Dos arreglos, y son de riesgo muy distinto.** **(a) El de hoy, sin riesgo: un `.htaccess` con `Require all denied` DENTRO de `8myvc/storage/`.** Laravel nunca sirve ficheros de ahí por HTTP —los entrega por PHP—, así que denegarlo **no puede romper nada**, y cierra esto en un colegio con una línea. **(b) El completo, que puede tumbar a los quince si sale mal:** `Require all denied` en la raíz de `8myvc/` más `Require all granted` al principio de `public/.htaccess` — que es un fichero **versionado**, así que llegaría por `git pull` a todos. Es lo correcto y **hay que probarlo con Apache de verdad antes**, porque si el `granted` no surte efecto **la API entera da 403**. · **Mide primero cuánto hay expuesto**, en el servidor y no descargándolo: `ls -lh 8myvc/storage/logs/` y `grep -c` por nivel. Si el log lleva años, lo que hay dentro decide si además hay que avisar · **HECHO el 30 ago 2026 con `tools/proteger-storage.sh`:** 16 rutas en `micolev1` —los colegios y `demo`—, **`ya estaban: 0`** (o sea que la exposición era universal, ninguno tenía `.htaccess`), y **comprobado por URL: 15 pasan de 200 a 403 y la API sigue dando 401**, que es lo que no podía romperse. **Queda `lal`**, que está en la otra cuenta y ningún glob alcanza: se corre allí con `--aplicar ~/public_html/8myvc`. **Falta el arreglo (b)**, el completo, que sigue sin probar |
+| **2decies** | **Las cifras de colegios no cuadran, y lo medido dice DIECISÉIS** (30 ago 2026). En `micolev1` hay **quince** carpetas de colegio con `8myvc/storage` —más `demo`—, y **`lal` es la dieciseisava**, en la otra cuenta. *(Lo que parecía una anomalía no lo era: la carpeta `fortul.micolevirtual.com` **se sirve como `coaf.micolevirtual.com`**, lo dijo Joseth; contesta, y da 403 y 401 como los demás. Es un caso más de «la carpeta no se llama como el host», junto con `casb`, `coab`, `cads`, `caz`, `comad` y `maranatha`.)* **Y el conjunto de quince es IDÉNTICO, nombre a nombre, al inventario de `vendor/` del 18 ago** que hay en [DESPLIEGUE-REFERENCIA](../DESPLIEGUE-REFERENCIA.md): cero altas, cero bajas. | **CLAUDE.md dice que el 25 ago un colegio se dio de baja y «se borró entero del servidor», y en `micolev1` no se borró nada.** Las salidas son dos y **decide Joseth cuál es**: *(a)* el colegio que se fue **no vivía en `micolev1`** — y entonces la pregunta es dónde vivía, porque **el `~` de la cuenta vieja tiene 31 entradas y sólo se ha inventariado `public_html`**: si ahí hay más sitios, **la baja del alojamiento se los lleva también** y el plan de traslado está incompleto; *(b)* la baja no se ejecutó en el disco, y entonces sobra un colegio entero en un volumen al 99% **al que todos los bucles siguen haciendo `git pull` y `migrate --force`**. Se contesta con un `ls -la ~` en `micolevi` y mirando qué colegio fue |
+| **2octies** | **Trasladar `lal` a la cuenta de `micolevirtual.com` y dar de baja el segundo alojamiento** (pedido por Joseth el 29 ago 2026; **plan escrito, nada ejecutado**: [TRASLADO-LAL.md](../TRASLADO-LAL.md)). Su plan de partida era dejar un `index.html` que redirigiera al subdominio, y **eso no consigue lo que pide**: un redirect **cambia la URL** —que es justo lo que quiere evitar—, **necesita el alojamiento viejo vivo** para servirlo, **no cubre `/8myvc/public/api`** —así que rompe a todo el que tenga `lalvirtual.edu.co` guardado como servidor en la app de Flutter, que no se despliega por colegio— y **apaga el logo del correo de recuperación de los quince**, porque `reset-password.blade.php:23` lo pide a `https://lalvirtual.edu.co/up/images/`. La forma que sí: **el dominio se queda y sólo cambia la IP a la que apunta** —dominio adicional en la cuenta de `micolev1`, mismo document root—, con lo que **no cambia una línea de código, de `.env` ni de los tres front** | **No corre prisa y no bloquea nada, pero tiene una trampa que hay que contestar ANTES de pedir la baja: si la zona DNS del dominio la sirven los nameservers de esa misma cuenta, darla de baja no deja el sitio raro, deja el dominio SIN RESOLVER.** Es la 0.1 del plan y es lo primero que hay que mirar. · **Y lo que se gana no es el dinero:** hoy `lal` es el único colegio fuera de todos los bucles —despliegue, paso 0, hashes del front, cron—, y cada uno dice «repetir a mano en la otra cuenta». *Lo que se hace a mano es lo que un día no se hace*, que es literalmente lo que le pasó a `demo` en la casilla de arriba. · **A cambio empeora una cosa**: los quince quedan en una sola cuenta de cPanel, y un problema de la cuenta pasa de afectar a catorce a afectar a quince. · **Ya decidiste dos cosas y quedan dos por mirar:** la URL **se queda en `lalvirtual.edu.co` para siempre** —de ahí que el traslado no toque código— y **hay buzones `@lalvirtual.edu.co` en uso**; falta saber **si están en ese cPanel o en un Google Workspace** (se contesta con un `dig MX`, §2 bis del plan) y **dónde vive la zona DNS**. · **MEDIDO TODO el 30 ago, y las dos salieron con respuesta:** la zona la sirven `ns1..ns4.a2hosting.com` —**los mismos nameservers para los dos dominios, mismo proveedor**—, así que no hay que emigrar a otro DNS: **hay que pedirle al proveedor que mueva el dominio de una cuenta a la otra**, y eso desatasca de paso el «el dominio ya existe» de cPanel. Y **no hay Google Workspace**: `MX` al propio servidor, SPF de A2, DKIM `default._domainkey` — **los 16 buzones (~341 MB) están dentro de la cuenta que se da de baja y se borran con ella**, así que el traslado tiene dos mitades. · **Y salieron tres cosas que nadie buscaba:** `lal.micolevirtual.com` **no existe** (NXDOMAIN), la raíz de `lalvirtual.edu.co` **redirige a un `/landing/`** que no está en ningún inventario y que huele a WordPress, y **`lalvirtual.com` —el `MAIL_FROM_ADDRESS` de los quince— NO ESTÁ REGISTRADO**, que es la [§9.1](../TRASLADO-LAL.md) y es más importante que el traslado |
 | **3** | ~~**Publicar lo terminado.**~~ **HECHO el 25 ago**: `eb95cbc` desplegado en los quince con sus cuatro migraciones, comprobado con el mismo hash en todos | Lo que abrió y lo que desbloqueó, en [DESPLIEGUE-REFERENCIA.md](../DESPLIEGUE-REFERENCIA.md#lo-que-trajo-la-tanda-del-2225-ago-2026--desplegada-el-25-ago-en-eb95cbc). **Desbloqueadas dos cosas de otros repositorios**: la versión de `myvc_flutter` que llama a las tres rutas nuevas —la condición era estar en los quince— y el typo de `PapeleraCtrl:62`, que era lo único que tapaba `grupos/forcedelete` desde la interfaz |
 | **4** | **La firma del profesor: dos endpoints, permisos distintos, y sólo uno comprueba de quién es la imagen** ([05 §168](05-codigo-muerto-y-roto.md), §182) | La mina sigue puesta. **Y los dos criterios no se contienen**, así que *«cuál gana»* **no se puede contestar eligiendo el más restrictivo** |
 

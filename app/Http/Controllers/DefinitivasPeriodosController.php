@@ -107,7 +107,15 @@ class DefinitivasPeriodosController extends Controller {
 					WHERE (nf.manual is null or nf.manual=0) and (nf.recuperada is null or nf.recuperada=0) and nf.periodo_id=?', 
 					[ $grupo_id, $periodo_id ]);
 		
-		$consulta = 'SELECT nt.alumno_id, asi.id as asignatura_id, nt.periodo_id, cast(sum(nt.ValorNota) as decimal(4,0)) as nota_asignatura
+		// `decimal(7,4)` y no `decimal(4,0)`: es el **gemelo** del `CAST` de
+		// `DefinitivasDeAsignatura`, y los dos escriben la misma columna. Dejarlo en
+		// entero aquí sería peor que no haber migrado nada — la definitiva tendría
+		// decimales o no según **por qué botón** se hubiera recalculado, y el propio
+		// alumno cambiaría de puesto al pulsar el otro. Este método está condenado
+		// (es uno de los seis escritores que la fase 3 de 10-definitivas.md sustituye)
+		// pero sigue desplegado en los quince colegios, que es lo que obliga a
+		// moverlo hoy.
+		$consulta = 'SELECT nt.alumno_id, asi.id as asignatura_id, nt.periodo_id, cast(sum(nt.ValorNota) as decimal(7,4)) as nota_asignatura
 				FROM asignaturas asi 
 				inner join 
 					(select u.asignatura_id, n.alumno_id, u.periodo_id, sum( ((u.porcentaje/100)*((s.porcentaje/100)*n.nota)) ) ValorNota
@@ -256,7 +264,22 @@ class DefinitivasPeriodosController extends Controller {
 			$consulta 	= 'INSERT INTO bitacoras (created_by, historial_id, affected_user_id, affected_person_type, affected_element_type, affected_element_id, affected_element_new_value_int, affected_element_old_value_int, created_at) 
 						VALUES (?, ?, ?, "Al", "NF_UPDATE", ?, ?, ?, ?)';
 
-			DB::insert($consulta, [$bit_by, $bit_hist, $nota->alumno_id, $nf_id, $bit_new, $bit_old, $now]);
+			// **Los dos valores van redondeados A PROPÓSITO, y sólo aquí.**
+			// `affected_element_new_value_int` y `_old_value_int` son columnas `int`, y
+			// desde que `notas_finales.nota` es `DECIMAL(7,4)` lo que llega es `43.7500`.
+			// Meter eso en un `int` no es inocuo: **con `sql_mode` vacío —el del
+			// contenedor— MySQL lo redondea en silencio a 44, y con `STRICT_TRANS_TABLES`
+			// lo rechaza**, o sea un 500 al guardar una definitiva a mano. Como no
+			// sabemos el `sql_mode` de los quince cPanel, se decide aquí y no allí.
+			//
+			// El decimal exacto **no se pierde**: el rastro nuevo de tres líneas más
+			// abajo guarda `valor_anterior`/`valor_nuevo` en columnas **JSON**, así que
+			// la verdad queda en `auditoria` y en `bitacoras` queda el entero de siempre.
+			// Ensanchar las dos columnas de `bitacoras` sería lo correcto, pero las
+			// comparten `Nota`, `Nueva subunidad` y `AlumnoPideAjeno:user_id`: es una
+			// migración con su propia decisión, no un efecto secundario de ésta.
+			DB::insert($consulta, [$bit_by, $bit_hist, $nota->alumno_id, $nf_id,
+				(int) round((float) $bit_new), (int) round((float) $bit_old), $now]);
 
 			// El rastro nuevo, al lado del viejo (18 §4). `nota_final` y no
 			// `"NF_UPDATE"`: en `bitacoras` esta columna es texto libre y hoy
@@ -359,7 +382,7 @@ class DefinitivasPeriodosController extends Controller {
 						->a(Request::input('nota'))
 						->guardar();
 
-					return DB::select('SELECT * FROM notas_finales WHERE id=?', [$existente->id]);
+					return DB::select('SELECT *, CAST(nota AS DOUBLE) AS nota FROM notas_finales WHERE id=?', [$existente->id]);
 				}
 
 				$consulta = 'INSERT INTO notas_finales(alumno_id, asignatura_id, periodo_id, periodo, nota, recuperada, manual, updated_by, created_at, updated_at)
@@ -384,7 +407,7 @@ class DefinitivasPeriodosController extends Controller {
 					->a(Request::input('nota'))
 					->guardar();
 
-				return DB::select('SELECT * FROM notas_finales WHERE id=?', [$last_id]);
+				return DB::select('SELECT *, CAST(nota AS DOUBLE) AS nota FROM notas_finales WHERE id=?', [$last_id]);
 			});
 		}
 		

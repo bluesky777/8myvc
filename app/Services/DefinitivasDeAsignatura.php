@@ -52,10 +52,14 @@ use Illuminate\Support\Facades\DB;
  *    definitiva rara es la intención — es lo que la delata en la planilla. Por
  *    eso `recalcular()` devuelve además `porcentaje_unidades`, para que quien
  *    pinte la planilla pueda señalarla en vez de taparla.
- * 3. **El redondeo es el del código**: `cast(... as decimal(4,0))`, o sea entero,
- *    porque `notas_finales.nota` es un `int`. Cambiarlo aquí movería todas las
- *    definitivas del colegio en el despliegue, que no es lo que esta fase viene a
- *    hacer.
+ * 3. **Ya no hay redondeo**: `cast(... as decimal(7,4))`, que es lo que cabe en la
+ *    columna desde la migración `2026_08_30_200000_notas_finales_en_decimal`.
+ *    Decía «el redondeo es el del código, `decimal(4,0)`, porque la columna es un
+ *    `int`» — y añadía que cambiarlo movería todas las definitivas del colegio, que
+ *    **sigue siendo verdad y ahora es el objetivo**: los empates de puesto salían de
+ *    aquí. Los cuatro decimales no son un margen elegido a ojo, son los que hacen el
+ *    cálculo **exacto** (`nota * pct_sub * pct_uni / 10000`, los tres enteros);
+ *    medido en la cabecera de esa migración, 0 de 125.352 filas se salen.
  * 4. **`manual` y `recuperada` no se tocan**, en un único punto y no en cinco.
  * 5. **La fila se identifica por `periodo_id`**, nunca por `periodo`, que queda
  *    como columna derivada. Es la §2.1: hoy el SELECT busca por una columna y el
@@ -400,7 +404,16 @@ class DefinitivasDeAsignatura
                         'alumno_id' => $soloAlumno,
                         'asignatura_id' => $asignaturaId,
                         'periodo_id' => $periodoId,
-                        'nota' => (int) $guardada->nota,
+                        // `(float)` y no `(int)`, y no es cosmético: desde que la
+                        // columna es `DECIMAL`, PDO la devuelve como **cadena**
+                        // (`"43.7500"`), y `(int)` de eso **trunca** —43, no 44—.
+                        // O sea que dejarlo en `(int)` no sólo tiraba los decimales
+                        // que esta migración viene a conservar: los tiraba **hacia
+                        // abajo**, que es peor que el `round()` que había antes.
+                        // El `(float)` además mantiene el valor como número en el
+                        // JSON; la cadena cruda lo convertiría en `"43.7500"` y le
+                        // cambiaría el tipo al front.
+                        'nota' => (float) $guardada->nota,
                         'manual' => (bool) $guardada->manual,
                         'recuperada' => (bool) $guardada->recuperada,
                     ];
@@ -457,7 +470,7 @@ class DefinitivasDeAsignatura
         // de `BoletinIndependiente` pide declarar en vez de copiar a mano.
         return DB::select(
             'SELECT m.alumno_id,
-                    CAST(COALESCE(c.suma, 0) AS DECIMAL(4,0)) AS nota,
+                    CAST(COALESCE(c.suma, 0) AS DECIMAL(7,4)) AS nota,
                     COALESCE(c.notas, 0) AS notas
                FROM asignaturas a
                INNER JOIN grupos g ON g.id = a.grupo_id AND g.deleted_at IS NULL

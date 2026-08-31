@@ -18,8 +18,57 @@ use App\Http\Controllers\Concerns\ResuelveElUsuario;
 class ProfesoresController extends Controller {
 	use ResuelveElUsuario;
 
+	/**
+	 * La ficha del personal del colegio — **la lee quien lo administra, no cualquiera**.
+	 *
+	 * Iba con `auth.personal` y nada más, así que **un docente cualquiera se llevaba
+	 * la hoja de vida de los 47 empleados**: `num_doc`, `fecha_nac`, `direccion`,
+	 * `barrio`, `celular`, `username` y el `is_superuser` de cada uno —que además
+	 * dice a quién apuntar—. No parecido a lo del administrador: **las mismas 28
+	 * claves y los mismos 47 registros**. Medido con un token de Profesor de verdad,
+	 * no leído: 35 documentos de identidad, 41 fechas de nacimiento, 11 domicilios.
+	 *
+	 * **Y la pantalla no existe para ese rol**, que es lo que lo mantenía invisible:
+	 * el menú del docente no ofrece «Profesores» en ninguno de los dos fronts. La
+	 * abría el endpoint, que no miraba quién preguntaba — esconder un botón no niega
+	 * nada. Lo encontró `myvc-front-6b` poniendo dos roles uno al lado del otro.
+	 *
+	 * **Por qué se cierra la puerta y no se recorta la respuesta**, al revés que en
+	 * `Profesor::contratos()` (05 §14.4): aquélla la consumen once sitios de tres
+	 * clientes, así que quitarle campos no rompía a nadie y cerrarla sí. Ésta la
+	 * consumen **tres pantallas y las tres son de administración** —`ProfesoresCtrl`
+	 * en `myvc_front`, y `profesores/` y `profesores/editar/{id}` en `app2`—, y una
+	 * respuesta recortada llegaría justo a la pantalla de EDITAR la ficha. Medido en
+	 * los cuatro clientes: `myvc_flutter` y `myvc_front_2` no la llaman.
+	 *
+	 * **El criterio es el que ya gobierna la escritura de este mismo controlador**
+	 * —`putUpdate`, `putGuardarValor` y los tres borrados exigen superusuario— y el
+	 * que gobierna la pantalla en los dos fronts: la vieja pide `can_work_like_admin`,
+	 * que **no existe en la tabla `permissions`**, así que allí sólo entra un
+	 * superusuario; `app2` pide rol `Admin` o `Secretario`.
+	 *
+	 * **Y aquí hay una coincidencia que no es un criterio, y conviene no leerla como
+	 * tal:** `esAdministrativo` es `is_superuser || Role::isSecretario` — **el rol
+	 * `Admin` NO está dentro**. Coincide con lo que abre `app2` sólo porque en la base
+	 * medida los diez `Admin` son **exactamente** los diez `is_superuser` (cero `Admin`
+	 * sin superusuario). Un colegio que le ponga el rol `Admin` a alguien que no lo sea
+	 * los separa, y esa persona **pierde la pantalla**. Es una base de quince, así que
+	 * se comprueba en el despliegue antes de que llegue: paso 0 de `docs/DESPLIEGUE.md`.
+	 *
+	 * No se ensancha `esAdministrativo` para taparlo porque lo leen seis sitios más
+	 * —las masivas de `cambiar-usuarios/*` entre ellas—: ensanchar el criterio aquí
+	 * repartiría permisos que nadie pidió en cinco puertas que no son ésta.
+	 *
+	 * Se deja más ancho que la escritura a propósito: una secretaria puede necesitar
+	 * consultar la ficha del personal sin poder editarla.
+	 *
+	 * Ver 05 §243.
+	 */
 	public function getIndex()
 	{
+		Autoriza::exigir(Autoriza::esAdministrativo($this->user),
+			'No tienes permiso para ver la ficha del personal del colegio.');
+
 		$consulta = 'SELECT p.id, p.nombres, p.apellidos, p.sexo, p.foto_id, p.tipo_doc,
 					p.num_doc, p.ciudad_doc, p.fecha_nac, p.ciudad_nac, p.titulo,
 					p.estado_civil, p.barrio, p.direccion, p.telefono, p.celular,
