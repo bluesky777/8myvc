@@ -891,3 +891,143 @@ Más dos cosas que **ninguna corrida enseña**:
 > es copiar a `/tmp` primero —que es lo que hice en la segunda vuelta—, y es la
 > misma lección que el árbol y la shell: **el instrumento con el que compruebas
 > también te puede borrar lo que compruebas.**
+
+## 16. Remedida de `salud-de-las-definitivas.php` — y el 11.988 ES un suelo
+
+> **Medir, no arreglar.** No se ha tocado ni un dato, ni el plan de las
+> definitivas, ni la herramienta.
+
+| | |
+|---|---|
+| Árbol | `.worktrees/g`, limpio |
+| Commit | **`ca88a85`** (= `main`) |
+| Fecha | **1 sep 2026, 16:20 -0500** |
+| Base | **`simonbolivar`** — la de desarrollo, **NO uno de los quince colegios** |
+| Instrumento | `tools/salud-de-las-definitivas.php` con el `--control` de `bf3d807` |
+
+### 16.1 · Las cifras de hoy, y las de agosto al lado
+
+| | 24 ago 2026 | **hoy** |
+|---|---|---|
+| Definitivas que deberían existir y no existen | 11.988 | **12.320** (de 133.070 combinaciones) |
+| Discrepan del cálculo teniendo notas | 718 | **699** |
+| Duplicadas | 1 | **1** |
+| Notas duplicadas | — | **2** (0 con valores distintos) |
+| Con 0 y sin ninguna nota | — | 876 |
+| Manuales (no se comparan) | — | 6.626 |
+| `created_at` imposible | — | 700 |
+
+> **Las dos primeras se movieron y NO digo por qué**, porque no lo he medido. Las
+> causas plausibles son varias —otra base, la base de desarrollo movida desde
+> agosto, o un criterio distinto— y **poner una causa plausible encima de un hecho
+> real es la forma que ya ha fallado cuatro veces esta noche.** Lo que haría falta
+> para contestarlo es la coordenada que a la medida de agosto le faltaba:
+> **contra qué base se midió**. La de hoy la lleva arriba.
+
+### 16.2 · La fila duplicada, que es la que decide
+
+    alumno_id=547  asignatura_id=1293  periodo_id=31   ->  2 filas, 0 manuales
+
+    id=7248184  nota=0.0000  manual=0  recuperada=0  periodo=2  created=2025-04-11 19:01:27
+    id=7249491  nota=0.0000  manual=0  recuperada=0  periodo=2  created=2025-04-18 00:32:33
+
+**LONDOÑO MENDEZ JERONIMO**, grupo **Noveno**, año **2025**, **Ciencias Naturales
+y Educación Ambiental**, **periodo 2**.
+
+- **Es `auto+auto`**, no `manual+manual`: **no necesita el desempate por `id` de
+  la §9.2**, que es la distinción que `clasificarDuplicados()` ancla.
+- **Y las dos filas valen exactamente lo mismo (`0.0000`)**, con el mismo
+  `updated_by` (675) y siete días de diferencia. O sea que **no hay ninguna
+  decisión de negocio dentro**: ninguna definitiva cambia de valor se quede la que
+  se quede. *(Es un hecho medido, no una recomendación de qué hacer: eso es del
+  plan de las definitivas y no de esta sesión.)*
+
+### 16.3 · ¿Es el 11.988 un suelo? **SÍ, y no por poco**
+
+No hace falta suponerlo: **la herramienta y el código no cuentan el mismo
+conjunto.** El conjunto de partida del bloque 3 filtra
+
+    WHERE m.deleted_at IS NULL AND m.estado IN ("MATR", "ASIS")
+
+y `DefinitivasDeAsignatura::calcular` **no filtra estado en absoluto**, por
+decisión de Joseth del 28 ago 2026 escrita en ese mismo fichero: *«el recálculo
+debe cubrir a todos los alumnos, **incluidos los que se fueron**»* — y añade que
+*la definitiva de quien se fue se conserva aunque su boletín no se imprima*.
+
+Medido hoy, mismo `LEFT JOIN`, cambiando sólo el filtro de estado:
+
+| Criterio | Faltan |
+|---|---|
+| `MATR`, `ASIS` — **lo que cuenta la herramienta** | **12.320** |
+| `MATR`, `ASIS`, `PREM` — lo que ven el boletín y `Grupo::alumnos` | **12.455** |
+| **todos los estados — lo que cubre el recálculo (decisión del 28 ago)** | **26.221** |
+
+Lo que queda fuera, por estado: **`RETI` 13.660**, `PREM` 135, `FORM` 50,
+`PREA` 30, `DESE` 26.
+
+> **Así que la cifra es una cota inferior, con las mismas palabras que el otro
+> detector: el número de esta herramienta nunca es el daño total; es un suelo.**
+> Y el hueco no es un margen: **con el criterio del propio recálculo son más del
+> doble.**
+>
+> **Y hay algo debajo que no es una carencia de la herramienta: son dos criterios
+> vivos para el mismo conjunto.** La §9.1 dice *«la fila existe siempre que exista
+> la matrícula»*; el código dice *todas*; la herramienta dice *MATR y ASIS*. **Los
+> tres no pueden ser el mismo conjunto.** Cuál es el correcto no lo decide una
+> sesión — es del plan de las definitivas y de Joseth.
+
+### 16.4 · La respuesta corta
+
+**`veredictoDelIndiceUnico()` dice HAY QUE LIMPIAR.** Hay 1 duplicada en la tabla
+entera —la del §16.2— y **la fase 2 pone un índice único**, así que ese `ALTER
+TABLE` falla hoy en esta base. Y son **quince colegios**: esta medida es de
+`simonbolivar` y **no dice nada de los otros catorce**, igual que la de la §9.1.
+La medición de verdad son **quince corridas**.
+
+## 17. Cierre del lote G — qué está fundido y qué no
+
+Escrito el **1 sep 2026** al quedarse la noche sin coordinación: `8myvc-cb` dejó
+de resolver, y `8myvc-ab` —que tiene a Joseth delante— confirma que **no le
+consta que coordine nadie** y que el último traspaso escrito sigue siendo el de
+`8myvc-2a` a `8myvc-c1`.
+
+> **Que un nombre no resuelva no es una medición de que la sesión haya muerto**
+> —los nombres cambian solos, y ya se dio por muerta una que estaba viva—, así que
+> esto se lee como *«no la veo»*, no como *«no está»*.
+
+### Lo fundido en `main` (`ca88a85`)
+
+Los quince commits del lote: las **seis cegueras** del detector con su `--control`
+y su registro, el **centinela de `postStore`**, `independientes-sin-estructura.php`
+(§9.1), el **skip medido** del runner, el **`gitdir` relativo**, el **censo de la
+fase 1**, el **censo de las herramientas**, los **dos huérfanos** y los **dos
+controles** de la clase (A). Suite verde en cada tanda; la última,
+**1698 passed, exit=0**.
+
+### Lo que NO está fundido, y es lo único
+
+**`f82ca6b` — la remedida de las definitivas (§16)**, commiteada después de que la
+coordinación dejara de responder. Medido, no supuesto:
+
+    ¿f82ca6b es ancestro de main?   NO
+    ¿main es ancestro de mi HEAD?   SÍ
+    commits míos fuera de main:      1
+
+**No lo fundo yo**: `main` lo mueve quien coordina, desde la raíz. Mientras no se
+funda, **la §16 no está en `main`** y una sesión que se ponga al día leyendo
+`main` no la encuentra. *(Una sesión de esta noche leyó `git branch -av` diez
+minutos antes y afirmó que sí estaba: **una lectura vieja no describe una rama que
+otra sesión está moviendo**, y se corrigió remidiendo.)*
+
+### Y cuál de las dos cosas corre prisa, que no es la mía
+
+**Que falte fundir un documento se arregla en un minuto y no caduca. El `ALTER
+TABLE` que falla sí caduca**: en cuanto el plan de las definitivas avance, esa
+migración entra a los quince colegios y **el duplicado de la §16.2 la para a mitad
+del bucle**.
+
+### Por qué esta sesión para aquí
+
+Porque **la cola la da quien coordina** (§1.7 del reparto) y ahora mismo no consta
+que coordine nadie. Parar con **el árbol limpio y el estado escrito** es lo
+contrario de lo que costó las tres sesiones que cerraron con el árbol lleno.
