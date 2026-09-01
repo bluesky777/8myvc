@@ -69,6 +69,19 @@ class NotasController extends Controller {
 		// **sin regenerarlo**: si hubiera que regenerarlo, la respuesta habría
 		// cambiado y eso ya no es una guarda, es un cambio de contrato — y ése es
 		// de Joseth, porque obliga a avisar al front y a Flutter.
+		// **BI-1: `u.alumno_id IS NULL`, porque esta rejilla es la DEL GRUPO.** Es
+		// la forma de acotar de la §1.5 del reparto —«si una consulta quiere a
+		// propósito las del grupo, lo correcto es `IS NULL`, que sí es alcance»—, y
+		// aquí no hay ambigüedad: la planilla del profesor enseña el reparto del
+		// curso, y el del independiente se edita por `PUT boletin-independiente/planilla`.
+		//
+		// **Y esto no pinta de más: escribe de más.** Estas unidades son las que
+		// alimentan a `Nota::verificarCrearNotas` doce líneas más abajo, que siembra
+		// **una nota a cada alumno del grupo por cada subunidad que reciba**. Sin la
+		// condición, una sola unidad de un independiente le mete a los treinta una
+		// fila en `notas` dentro de las subunidades de ese alumno, y de ahí sale la
+		// forma «de más» de la §9.2 con la definitiva inflada. No hace falta que
+		// nadie mire la pantalla dos veces: la primera carga ya lo dejó escrito.
 		$unidadesT 			= DB::select(
 			'SELECT u.id, u.definicion, u.porcentaje, u.periodo_id, u.asignatura_id,
 					u.obligatoria, u.orden, u.por_defecto, u.fecha,
@@ -76,6 +89,7 @@ class NotasController extends Controller {
 					u.deleted_at, u.created_at, u.updated_at
 			   FROM unidades u
 			  WHERE u.asignatura_id=? and u.deleted_at is null and u.periodo_id=?
+			    and u.alumno_id is null
 			  order by u.orden, u.id',
 			[$asignatura_id, $user->periodo_id]
 		);
@@ -111,6 +125,51 @@ class NotasController extends Controller {
 
 		// alumnos con sus notas
 		$alumnos = Grupo::alumnos($asignatura->grupo_id);
+
+		// **FASE 3 del 19: esta planilla deja de enseñar a los independientes.**
+		// Es la petición literal del colegio —*«que no aparezca en esa planilla de
+		// notas normales»*— y sin ella el docente les pondría notas en la rejilla
+		// del curso creyendo que son las suyas.
+		//
+		// **Y se devuelve `independientes` para que la pantalla lo diga.** Un alumno
+		// que desaparece de una lista sin explicación es un alumno que el docente da
+		// por perdido y va a buscar a secretaría; con el array, la planilla puede
+		// escribir «hay 1 alumno con boletín aparte» y no hay nada que buscar.
+		//
+		// **Sin `aplica` dentro**: este array lista justo a los que tienen alcance,
+		// así que `aplica` valdría `true` por construcción. Un campo constante no es
+		// un campo pobre — es uno sobre el que alguien ramificará sin que su rama
+		// muerta se note nunca (§6.4).
+		//
+		// **Las dos listas se parten de una sola pasada sobre `$alumnos`**, y eso es
+		// lo que garantiza que sean complementarias. Preguntarle la lista de
+		// independientes a otra consulta —`BoletinIndependiente::delGrupo()`— habría
+		// metido una segunda población en juego: ésa cuenta `MATR` y `ASIS`, y
+		// `Grupo::alumnos()` trae además los `PREM`. Dos fuentes que pueden
+		// discrepar acaban discrepando, y aquí discrepar es un alumno que no sale en
+		// ninguna de las dos.
+		//
+		// Los campos van **tal como vienen** de `Grupo::alumnos()`, sin castear: así
+		// `independientes[].alumno_id` tiene por construcción el mismo tipo que
+		// `alumnos[].alumno_id`, en vez de que lo decida un `(int)` de aquí.
+		$independientes = [];
+		$del_grupo      = [];
+
+		foreach ($alumnos as $alumno) {
+			if (\App\Services\BoletinIndependiente::aplica((int) $alumno->alumno_id, (int) $user->periodo_id)) {
+				$independientes[] = [
+					'alumno_id' => $alumno->alumno_id,
+					'nombres'   => $alumno->nombres,
+					'apellidos' => $alumno->apellidos,
+				];
+
+				continue;
+			}
+
+			$del_grupo[] = $alumno;
+		}
+
+		$alumnos = $del_grupo;
 
 		foreach ($alumnos as $alumno) {
 
@@ -152,6 +211,24 @@ class NotasController extends Controller {
 				':alcance' => \App\Services\BoletinIndependiente::alcance((int) $alumno->alumno_id, (int) $user->periodo_id) ]);
 			
 			
+			// **BI-1.** La definitiva automática que esta pantalla pinta al lado de la
+			// guardada. Sin alcance le suma a un marcado **las notas que conserva en
+			// las subunidades del grupo** —marcar no las borra, y eso es la petición
+			// literal del colegio— **más** las de sus unidades propias: la columna
+			// «automática» sale inflada justo al lado de la correcta, o sea acusando
+			// de estar mal a la que está bien, y quien pulse «actualizar» guarda el
+			// número inflado. Es el mismo fallo que se cerró en
+			// `NotaFinal::consultaAlumnosGrupoNotaFinal`, por la otra pantalla.
+			//
+			// **Correlacionado y no `JOIN_ESTADO`**: dentro de la derivada no hay
+			// `matriculas`, y el alumno lo da `n.alumno_id`. Y va al `WHERE` porque
+			// `notas n` entra DESPUÉS de `unidades u` — un `ON` no puede nombrar una
+			// tabla que todavía no está en el ámbito.
+			//
+			// Aquí sí hace falta aunque `$alumnos` ya no traiga independientes: la
+			// derivada agrupa por `n.alumno_id` **sobre la asignatura entera** y
+			// luego se une por `r1.alumno_id=a.id`, así que quien filtra fuera no
+			// filtra dentro.
 			// Traemos las Definitivas
 			$cons_nf  = 'SELECT a.id as alumno_id, a.no_matricula, nf1.periodo, u.username as updated_by_username,
 							CAST(nf1.nota AS DOUBLE) as nota_final, nf1.id as nf_id, nf1.recuperada, nf1.manual, nf1.updated_by, nf1.created_at, nf1.updated_at,
@@ -170,6 +247,7 @@ class NotasController extends Controller {
 								inner join notas n on n.subunidad_id=s.id and n.deleted_at is null
 								inner join periodos p1 on p1.numero='.$user->numero_periodo.' and p1.id=u.periodo_id and p1.deleted_at is null
 								where asi.deleted_at is null and asi.id=:asign_id2
+								  and u.alumno_id <=> '.\App\Services\BoletinIndependiente::alcanceCorrelacionado('n.alumno_id', 'u').'
 								group by n.alumno_id, s.unidad_id, s.id
 							)df1
 							group by df1.alumno_id, df1.periodo_id
@@ -224,6 +302,7 @@ class NotasController extends Controller {
 		
 		$resultado['asignatura'] 	= $asignatura;
 		$resultado['alumnos'] 		= $alumnos;
+		$resultado['independientes'] = $independientes;
 		$resultado['unidades'] 		= $unidades;
 		
 

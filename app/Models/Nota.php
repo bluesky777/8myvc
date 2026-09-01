@@ -10,6 +10,7 @@ use App\Models\Unidad;
 use App\Models\Subunidad;
 use App\Models\Asignatura;
 use App\Models\Debugging;
+use App\Services\BoletinIndependiente;
 // `App\User` y no `App\Models\User`: el modelo de usuario no se mudó a Models/.
 use App\User;
 use \stdClass;
@@ -67,13 +68,84 @@ class Nota extends Model {
 	}
 	*/
 
-	// Verificar cada alumno si tiene nota en la subunidad
+	/**
+	 * Siembra la nota por defecto de una subunidad a quien le toque.
+	 *
+	 * ## FASE 3 del [19](../../docs/migracion/19-boletin-independiente.md): esto decide **A QUIÉN**
+	 *
+	 * Hasta hoy la respuesta era «al grupo entero», y con dos boletines eso rompe
+	 * por los dos lados a la vez:
+	 *
+	 * - **de más** — la subunidad es del grupo y al independiente se le crea la
+	 *   casilla igual, así que la planilla que él no debería estar mirando le suma
+	 *   notas y su definitiva sale con el reparto del curso dentro;
+	 * - **de más otra vez, y ésta es la cara** — la subunidad cuelga de una unidad
+	 *   **con dueño** y se le siembra a los treinta: veintinueve alumnos acaban con
+	 *   una fila de `notas` dentro del boletín de otro, y esas filas cuentan.
+	 *
+	 * **Quién manda es la unidad, no el grupo ni el token.** `unidades.alumno_id`
+	 * dice de quién es la subunidad y `unidades.periodo_id` dice en qué periodo se
+	 * pregunta la marca — las dos columnas están en la misma fila, y por eso la
+	 * decisión se toma aquí dentro y no en los dos llamadores. Es la §6.5 del plan
+	 * («`SubunidadesController::postIndex` crea las notas de un solo alumno cuando
+	 * la unidad tiene dueño») resuelta en el sitio que no se puede copiar mal.
+	 *
+	 * ## Por qué `aplica()` alumno a alumno y NO `delGrupo()` de una consulta
+	 *
+	 * Parece al revés y está medido. **`delGrupo()` cuenta `MATR` y `ASIS`, y
+	 * `Grupo::alumnos()` trae además los `PREM`**: un prematriculado no saldría en
+	 * ninguna de sus dos listas, así que clasificarlo por ausencia lo dejaría fuera
+	 * de la planilla o dentro del boletín ajeno según de qué lista se partiera. Es
+	 * el mismo descuadre de poblaciones del modal de «Alumnos por grupo» del 31 ago.
+	 *
+	 * Y de paso sale más barato aquí: `alcance()` **memoriza por (alumno, periodo)
+	 * durante la petición**, así que una planilla con cuatro unidades y doce
+	 * subunidades paga treinta consultas **una vez** y las once llamadas siguientes
+	 * cero; `delGrupo()` pagaría una consulta **por subunidad**, sin memoria.
+	 */
 	public static function verificarCrearNotas($grupo_id, $subunidad, $user_id)
 	{
+		// El dueño y el periodo salen de la unidad y no de los parámetros: el
+		// llamador sabe el grupo, pero de quién es la subunidad sólo lo sabe su
+		// unidad. Una fila por subunidad, al lado de un `Grupo::alumnos()` que son
+		// treinta — no es lo caro de este método.
+		$unidad = DB::selectOne(
+			'SELECT alumno_id, periodo_id FROM unidades WHERE id = ?',
+			[$subunidad->unidad_id]
+		);
+
+		if ($unidad === null) {
+			return;
+		}
+
+		// La unidad tiene dueño: la subunidad es suya y la nota también. Una fila y
+		// no treinta. Es la §6.5, y es la mitad que se ve al crear una subunidad
+		// dentro del boletín de un independiente.
+		if ($unidad->alumno_id !== null) {
+			self::verificarCrearNota(
+				(int) $unidad->alumno_id,
+				$subunidad->id,
+				$subunidad->nota_default,
+				$user_id
+			);
+
+			return;
+		}
+
+		$periodo_id = (int) $unidad->periodo_id;
 		$alumnos 	= Grupo::alumnos($grupo_id);
 		$now 		= Carbon::now('America/Bogota');
 
 		foreach ($alumnos as $alumno) {
+			// La subunidad es del grupo y este alumno va aparte en este periodo: su
+			// planilla es otra. No se le borra lo que ya tuviera —marcar no borra
+			// nada, y eso es la petición literal del colegio—, sólo se deja de
+			// sembrar. Cuando se le desmarque, la carga siguiente se lo crea otra vez
+			// por esta misma rama (§9.3).
+			if (BoletinIndependiente::aplica((int) $alumno->alumno_id, $periodo_id)) {
+				continue;
+			}
+
 			$consulta = "INSERT INTO notas(subunidad_id, alumno_id, nota, created_by, created_at, updated_at) 
 				SELECT ?, ?, ?, ?, ?, ? FROM dual
 				WHERE NOT EXISTS (

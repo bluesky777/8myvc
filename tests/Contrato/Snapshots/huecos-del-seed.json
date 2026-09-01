@@ -170,7 +170,8 @@
     ],
     "notas-detailed-profesor": [
         "alumnos.frases",
-        "alumnos.tardanzas"
+        "alumnos.tardanzas",
+        "independientes"
     ],
     "prematriculas-alumnos-con-grado-anterior": [
         "AlumnosFormularios",
