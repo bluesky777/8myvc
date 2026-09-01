@@ -1,7 +1,11 @@
 # La cola, a mitad de la noche — 31 ago 2026
 
-> **Esto existe porque las cinco sesiones de lote murieron a la vez**, con dos de
-> ellas sin commitear. Lo que sigue es lo que una sesión nueva necesita para
+> **Esto existe porque CUATRO de las cinco sesiones de lote murieron a la vez**, con
+> una de ellas sin commitear. *(La coordinación escribió «las cinco» y se equivocó: el
+> lote D estaba vivo y lo dijo él. Su trabajo se commiteó dándolo por perdido, y el
+> commit resultó ser exactamente sus doce ficheros — pero **la comprobación de que una
+> sesión ha muerto era «su nombre ya no resuelve», y eso no es una medición**: los
+> nombres de sesión cambian solos.)* Lo que sigue es lo que una sesión nueva necesita para
 > continuar **sin preguntar nada**: qué está fundido, qué está en una rama, qué
 > falta y de quién era. Coordina `8myvc-c1`.
 >
@@ -30,9 +34,11 @@ lo que traiga la tanda.
 | `fix/bi-lote-d` | `78f7be1` | **dos rojos sin explicar**, ver §4. El código está verificado por ficheros y sus instantáneas miradas una a una |
 | `fix/bi-lote-a` | `d62520e` + merge de `main` | el arreglo del seed (el rol `Secretario`). **Al fundirlo, las demás sesiones tienen que reconstruir su base** |
 
-Las dos primeras las commiteó la coordinación **sin tocar una línea**, porque sus
-sesiones cerraron con el trabajo en el árbol: *lo que no está commiteado es lo
-que se pierde*. La autoría está en el mensaje de cada commit.
+Las dos primeras las commiteó la coordinación **sin tocar una línea**, con el trabajo
+en el árbol y sin su sesión: *lo que no está commiteado es lo que se pierde*. La
+autoría está en el mensaje de cada commit. **La del lote D se commiteó por error**
+—esa sesión seguía viva— y ella misma verificó después que el commit son sus doce
+ficheros y su mensaje en sustancia.
 
 ## 3. Lo que falta, en orden y con dueño
 
