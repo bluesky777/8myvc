@@ -73,6 +73,7 @@
         "GET api/grupos/next-year",
         "GET api/grupos/show/{id}",
         "GET api/grupos/trashed",
+        "GET api/grupos/{grupo_id}/alumnos-de/{que}",
         "GET api/importar",
         "GET api/importar/modificar/{year}",
         "GET api/nota_comportamiento/detailed/{grupo_id}",

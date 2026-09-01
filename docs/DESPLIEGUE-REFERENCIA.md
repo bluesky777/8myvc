@@ -939,29 +939,80 @@ hacerlos seguidos, con los cinco `git pull` preparados.
 Volver atrás en esos cinco también es todo o nada. Los de `vendor/` propio se
 despliegan y se revierten uno a uno, sin ataduras.
 
-## Lo que trae la tanda del 25–28 ago 2026 — del 25 ago (`eb95cbc`) a `HEAD`
+## Lo que trajo la tanda del 25–30 ago 2026 — desplegada el 31 ago en `9474b50`
 
-El procedimiento y el estado de los avisos están en [DESPLIEGUE.md](DESPLIEGUE.md); aquí
-está el porqué de cada fila.
+**Desplegada el 31 ago 2026**: los quince del bucle de `micolev1` **y** la cuenta de
+`lalvirtual.edu.co`, con el front de la misma vuelta. El estado de los avisos y el procedimiento
+están en [DESPLIEGUE.md](DESPLIEGUE.md); aquí está el porqué de cada fila.
 
 | | | recalcular con |
 |---|---|---|
-| Migraciones | **UNA**, y **no es opcional** | `git diff --name-only eb95cbc HEAD -- database/migrations/` |
+| Migraciones | **DOS**, y ninguna es opcional | `git diff --name-only eb95cbc 9474b50 -- database/migrations/` |
 | Rutas | **543** — una nueva, `PUT users/mi-docente` (28 ago) | `tests/Contrato/Snapshots/rutas.json` |
-| Dependencias | sin tocar | `git diff --name-only eb95cbc HEAD -- composer.json composer.lock` |
-| `config/` | sin tocar | `git diff --name-only eb95cbc HEAD -- config/` |
-| `app/` | **veintiocho ficheros** | `git diff --name-only eb95cbc HEAD -- app/` |
+| Dependencias | sin tocar | `git diff --name-only eb95cbc 9474b50 -- composer.json composer.lock` |
+| `config/` | sin tocar | `git diff --name-only eb95cbc 9474b50 -- config/` |
+| `app/` | **treinta y ocho ficheros** | `git diff --name-only eb95cbc 9474b50 -- app/` |
 
-> **Esa última fila decía ocho, se corrigió a once, y su propia columna derecha daba
-> veintiséis.** La corrección de once **también se hizo a mano**, y por eso se quedó a quince
-> ficheros del número real: quien la escribió añadió los dos que había visto, no los que da el
-> comando. **Un número recalculado a ojo no es un número recalculado.** Por eso la columna
-> derecha lleva **el comando** y no una lista escrita a mano.
+> **Esa última fila decía ocho, se corrigió a once, luego a veintiocho, y el día del despliegue
+> eran treinta y ocho.** Las dos primeras correcciones se hicieron **a mano** —quien las escribió
+> añadió los que había visto, no los que da el comando— y por eso la de once se quedó a quince
+> ficheros del número real. **Un número recalculado a ojo no es un número recalculado.** Por eso
+> la columna derecha lleva **el comando** y no una lista escrita a mano.
+>
+> **La fila de migraciones envejeció de otra forma, y es la que hay que saber distinguir: decía
+> UNA y no estaba mal cuando se escribió.** La tanda **creció** —entró
+> `2026_08_30_200000_notas_finales_en_decimal` cuatro días después—, así que no era una cifra
+> vieja: era una cifra medida sobre una tanda que ya no era la misma. Ésa es exactamente la
+> diferencia entre *remedir* y *sumar*, y la que hace que el recálculo vaya **el día del
+> despliegue** y no el día en que se escribe la tabla.
 >
 > **El despliegue no cambia por esto**: el bucle hace `git pull` del árbol entero, no fichero a
 > fichero. Lo que cambia es lo que se puede afirmar al revisar un colegio a mano.
 
-### La migración es bloqueante, como la del 25
+### La segunda migración: la definitiva deja de ser un entero
+
+`2026_08_30_200000_notas_finales_en_decimal` pasa `notas_finales.nota` a **`DECIMAL(7,4)`** y el
+cálculo deja de redondear. **Es bloqueante en el mismo sentido que la otra**: el código de la
+tanda lee la columna esperando la escala nueva, y **sin la migración las definitivas se siguen
+guardando redondeadas** aunque el código ya no redondee — o sea, el arreglo no llega.
+
+**Lo que se le nota al colegio, y es el arreglo y no un efecto secundario:** de las 125.352
+definitivas medidas, **96.608 (77,1 %) se guardaban redondeadas**, y de ahí salían los empates de
+puesto. **El primer boletín después del despliegue trae puestos distintos sin que nadie haya
+tocado una nota.** Ningún cliente pierde una clave: los siete campos afectados siguen viajando
+como número, y eso costó castear ~40 lecturas — sin los `CAST`, PDO devuelve `DECIMAL` como
+**cadena** y 17 respuestas habrían pasado de `45` a `"43.7500"`, que es un cambio de **tipo**.
+
+### El `SELECT` que fue delante del bucle, el 31 ago (aviso H)
+
+`GET profesores` pasó a exigir `Autoriza::esAdministrativo` —`is_superuser || Role::isSecretario`—
+y **el rol `Admin` NO está dentro**, mientras `app2` sí le abre la pantalla de Docentes a un
+`Admin`. En la base medida los diez `Admin` eran exactamente los diez `is_superuser`, **pero eso
+es una coincidencia, no un criterio**: bastaba un colegio que le hubiera puesto `Admin` a alguien
+sin superusuario para que ese alguien perdiera la pantalla el día del despliegue.
+
+**Y eso no se puede medir desde el repositorio: cada colegio tiene su propia base.** Por eso el
+`SELECT` fue colegio a colegio **antes** del bucle, exigiendo cero en los quince:
+
+```bash
+for d in /home/micolev1/*.micolevirtual.com/8myvc; do
+  printf '%-52s ' "$d"
+  (cd "$d" && php artisan tinker --execute="echo DB::table('role_user')
+    ->join('users','users.id','=','role_user.user_id')
+    ->join('roles','roles.id','=','role_user.role_id')
+    ->where('roles.name','Admin')->where('users.is_superuser',0)
+    ->whereNull('users.deleted_at')->count();")
+  echo
+done            # repetir en la otra cuenta de cPanel (lalvirtual.edu.co)
+```
+
+**Por qué se comprobó y no se ensanchó `esAdministrativo` de una vez, que es lo reutilizable:** ese
+método lo leen seis sitios más —las masivas de `cambiar-usuarios/*` entre ellas—, así que meterle
+el rol `Admin` habría repartido permisos que nadie pidió en cinco puertas que no eran ésta. Es
+literalmente lo que `create_rol_secretario` dejó escrito: **crear o ensanchar un criterio no puede
+regalar permisos por la puerta de atrás.**
+
+### La migración de los certificados es bloqueante, como la del 25
 
 `2026_08_26_100000_interruptores_de_certificados` añade `usa_consecutivo_certificados` y
 `usa_folio_certificados` a `years`, y **el código de esta misma tanda las consulta en un camino
@@ -992,7 +1043,13 @@ despliegue**.
 | **La cuenta administrativa puede decir qué docente mira, y queda guardado en su fila.** `users.profesor_id` existía y **no la escribía nadie** —las dieciséis cuentas de tipo `Usuario` la tienen en `NULL`—; ahora `PUT users/mi-docente` la rellena. **Efecto secundario querido, y hay que saberlo: el panel VIEJO le empezará a pintar a esa cuenta el horario de hoy y el de mañana de ese docente**, porque `ChangeAskedController::getToMe` ya leía esa columna | `UsersController::putMiDocente` |
 | **El folio deja de fabricarse.** Ya no se escribe `año-alumno_id` al matricular, y `GET folios/iniciar` —que llenaba todos los huecos del año de una sentencia, y **no lo llama ningún cliente**— contesta 409. Los folios ya escritos **se quedan**: borrarlos cambia lo impreso y es decisión aparte | [`21 §4.3`](migracion/21-certificados-y-folios.md) |
 
-### Los siete avisos al front, en detalle
+### Los avisos al front, en detalle — **los diez cerrados el 31 ago 2026**
+
+> **Cerrados al desplegar.** A, B y C salieron en el front de la misma vuelta; D y F no
+> requerían trabajo (medido); E lo habían pedido ellos; G, H e I se avisaron. **Lo único que
+> sigue vivo es el paso 3 del aviso J —`myvc_flutter`—, que el despliegue no cierra: lo
+> DESBLOQUEA.** El estado al día está en el paso 3 de [DESPLIEGUE.md](DESPLIEGUE.md); lo que
+> sigue es el porqué de cada uno, que no caduca.
 
 > **Cada aviso lleva un estado, y no está en futuro por una razón que costó un día entero.**
 > El bloque equivalente de la tanda anterior decía *«`myvc_flutter` tiene tres interruptores
@@ -1085,7 +1142,7 @@ escritas aquí y en el paso 3 del procedimiento.
 
 | cuándo | qué hay que hacer |
 |---|---|
-| el día que **`b369020`** entre en una tanda desplegada | **decirles el hash desplegado.** Su `temasDelColegio` está detrás de un interruptor apagado esperando exactamente eso: los temas del colegio pasan de literal a `c_`+HMAC, y hasta que el backend esté en los quince suscribirse sería apuntarse al tema viejo. Ellos leen las dos formas, así que **no hay ventana rota**: sólo hay un interruptor que encender |
+| **YA** — `b369020` entró en la tanda desplegada el 31 ago, comprobado con `git merge-base --is-ancestor b369020 9474b50` | **decirles el hash desplegado: `9474b50`.** Su `temasDelColegio` está detrás de un interruptor apagado esperando exactamente eso: los temas del colegio pasan de literal a `c_`+HMAC, y hasta que el backend esté en los quince suscribirse sería apuntarse al tema viejo. Ellos leen las dos formas, así que **no hay ventana rota**: sólo hay un interruptor que encender |
 | el día que se corra el **`for` de la fase 0** | **pasarles el desglose por año del bloque 5** (notas fuera de escala). No tienen que hacer nada con él: es el dato que decide si aquello fue *«una precaución razonable»* o *«un susto»*, y la pregunta la abrieron ellos. Ver [05 §240](migracion/05-codigo-muerto-y-roto.md) |
 
 > **Por qué cerrar los avisos es un paso del procedimiento y no una buena costumbre:** ya falló

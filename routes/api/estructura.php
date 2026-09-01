@@ -57,6 +57,12 @@ Route::put('grupos/restore/{id}', [GruposController::class, 'putRestore'])->midd
 // por eso ningún inventario de autorización lo señaló. No la llama ningún
 // cliente. §14 del mismo documento.
 Route::get('grupos/show/{id}', [GruposController::class, 'getShow'])->middleware('auth.personal');
+// Los alumnos detrás de cada número de «Alumnos por grupo» en el panel de `app2`:
+// `{que}` es `alumnos|hombres|mujeres|retirados|matriculados`, y los dos últimos
+// piden además `?periodo=N`. Va la ÚLTIMA del bloque a propósito: es la única que
+// empieza por un comodín, y Laravel sirve la primera que casa. Con cuatro
+// segmentos hoy no tapa a ninguna, pero una `grupos/{id}/algo` futura sí.
+Route::get('grupos/{grupo_id}/alumnos-de/{que}', [GruposController::class, 'getAlumnosDe'])->middleware('auth.personal');
 
 // ProfesoresController
 // El listado es la única ruta de este controlador que no llevaba `auth.personal`,

@@ -3,13 +3,19 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 `8myvc` es la API del sistema escolar MyVc: Laravel 13 + PHP 8.4, ~37.000 líneas
-en `app/`, 113 clases de controlador y 543 rutas (medido el 21 ago 2026; el 24 el
+en `app/`, 113 clases de controlador y 544 rutas (medido el 21 ago 2026; el 24 el
 de rutas se movió por primera vez, de 539 a 542, con los tres endpoints que pidió
-`myvc_flutter`, y el 28 a 543 con `PUT users/mi-docente`, que pidió Joseth para el
-panel de `app2` — «el de rutas no se mueve» sigue siendo la regla: una ruta nueva
-es una decisión, no un efecto secundario, y mueve tres documentos y dos snapshots). El plan, las mediciones y las
-decisiones ya tomadas viven en `docs/migracion/` y **se leen antes de re-litigar
-nada**.
+`myvc_flutter`, el 28 a 543 con `PUT users/mi-docente`, que pidió Joseth para el
+panel de `app2`, y el 31 a 544 con
+`GET grupos/{grupo_id}/alumnos-de/{que}`, que pidió el front para el modal de
+«Alumnos por grupo» del mismo panel — «el de rutas no se mueve» sigue siendo la
+regla: una ruta nueva es una decisión, no un efecto secundario, y mueve este
+documento y **tres** snapshots, no dos: `rutas.json`, `guards-por-ruta.json` y
+`guard-por-familia.json`, que cuenta cuántas rutas tiene cada familia y cuántas
+llevan guard. Las tablas de `DESPLIEGUE.md` **no** se tocan al añadirla: son lo
+que se midió el día de un despliegue, y se remiden el día del siguiente). El plan,
+las mediciones y las decisiones ya tomadas viven en `docs/migracion/` y **se leen
+antes de re-litigar nada**.
 
 > **Lo primero, antes que este fichero: `docs/migracion/ESTADO-ACTUAL.md`.** Dice
 > qué se está haciendo ahora mismo, qué es lo siguiente y qué espera una decisión

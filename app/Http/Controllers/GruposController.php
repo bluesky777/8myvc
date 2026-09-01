@@ -344,9 +344,19 @@ class GruposController extends Controller {
 	 * dejar `cant_alumnos` con PREM habria trasladado el descuadre ahi. El precio
 	 * es que ese informe baja 22 alumnos en lal, que es la cifra correcta.
 	 *
-	 * Lo que NO se toco: `periodos_matr` no filtra por estado --cuenta hasta los
-	 * RETI y los FORM-- y usa `>` y `<` estrictos donde los totales usan `>=` y
-	 * `<=`. Son dos decisiones distintas y ninguna es esta.
+	 * Y LAS FECHAS DE PERIODO DEJARON DE SER ESTRICTAS la noche del 31 ago 2026,
+	 * que es el segundo arreglo del mismo dia y una decision de Joseth. Los dos
+	 * contadores comparaban con `>` y `<` mientras los totales de mas abajo
+	 * comparaban con `>=` y `<=`, asi que quien se matriculaba o se retiraba EL
+	 * PRIMER DIA de un periodo no aparecia en ninguna de las dos cifras del grupo
+	 * --ni en la columna ni, por tanto, en el listado que la explica--. Se cambio
+	 * en las dos consultas Y en `getAlumnosDe` a la vez: tocar una sola es
+	 * descuadrar la celda con su listado, que es lo unico que ese endpoint
+	 * garantiza. Efecto esperado: estas columnas SUBEN en algunos colegios, y no es
+	 * una regresion; es gente que hoy no se contaba en ningun sitio.
+	 *
+	 * Lo que sigue SIN tocarse: `periodos_matr` no filtra por estado --cuenta hasta
+	 * los RETI y los FORM--. Es otra decision y no es esta.
 	 */
 	public function putConCantidadAlumnos()
 	{
@@ -381,7 +391,7 @@ class GruposController extends Controller {
 							from grupos g
 							INNER JOIN matriculas m ON m.grupo_id=g.id and m.deleted_at is null and (m.estado="RETI" or m.estado="DESE")
 							INNER JOIN alumnos a ON a.id=m.alumno_id and a.deleted_at is null
-							where g.deleted_at is null and g.id=? and m.fecha_retiro>? and m.fecha_retiro<? 
+							where g.deleted_at is null and g.id=? and m.fecha_retiro>=? and m.fecha_retiro<=? 
 							order by g.orden';
 							
 				$cant_reti 			= DB::select($consulta, [$grupos[$j]->id, $periodos[$i]->fecha_inicio, $periodos[$i]->fecha_fin] )[0];
@@ -398,7 +408,7 @@ class GruposController extends Controller {
 							from grupos g
 							INNER JOIN matriculas m ON m.grupo_id=g.id and m.deleted_at is null 
 							INNER JOIN alumnos a ON a.id=m.alumno_id and a.deleted_at is null
-							where g.deleted_at is null and g.id=? and m.fecha_matricula>? and m.fecha_matricula<?
+							where g.deleted_at is null and g.id=? and m.fecha_matricula>=? and m.fecha_matricula<=?
 							order by g.orden';
 							
 				$cant_matr 			= DB::select($consulta, [$grupos[$j]->id, $periodos[$i]->fecha_inicio, $periodos[$i]->fecha_fin] )[0];
@@ -571,6 +581,125 @@ class GruposController extends Controller {
 		$list = DB::select($consulta, array(':grupo_id'=>$grupo_id));
 		
 		return $list;
+	}
+
+
+	/**
+	 * Los alumnos que hay DETRÁS de cada número de «Alumnos por grupo».
+	 *
+	 * La tabla del panel de `app2` pinta por grupo la cantidad de alumnos, el
+	 * desglose por sexo y el movimiento de cada periodo, y hasta hoy no había
+	 * forma de ver QUIÉNES son. `grupos/listado/{grupo_id}` no sirve para eso:
+	 * incluye los PREM y ninguno de estos cinco contadores los cuenta —desde el 31
+	 * ago 2026, ver el docblock de `putConCantidadAlumnos`—, así que el listado no
+	 * cuadraría con el número. Y un listado que no cuadra con la cifra que lo abrió
+	 * es peor que no tener listado.
+	 *
+	 * POR ESO CADA CASO REPITE EL `WHERE` DE SU CONTADOR Y SOLO LE CAMBIA EL
+	 * `SELECT`. Los contadores están arriba, en `getCantAlumnos` y
+	 * `putConCantidadAlumnos`; si alguno se toca, este método se toca en el mismo
+	 * commit. Lo ata `tests/Contrato/AlumnosDetrasDelNumeroTest.php`, que compara
+	 * cada cifra con la longitud de su listado, grupo a grupo y periodo a periodo:
+	 * es un test de CUADRE, no de forma, y es el único motivo de que este método
+	 * duplique SQL en vez de reutilizar el de al lado.
+	 *
+	 * Lo que se copia tal cual **aunque parezca un fallo**, porque arreglarlo aquí
+	 * y no en el contador es exactamente descuadrarlos:
+	 *
+	 * - `matriculados` no filtra por estado: cuenta hasta los RETI y los FORM.
+	 * - Un alumno con dos matrículas vivas en el mismo grupo sale dos veces, igual
+	 *   que lo cuenta dos veces el `count(m.id)` de la celda. Deduplicar aquí
+	 *   rompería el cuadre, que es lo único que este método garantiza.
+	 *
+	 * El `g.year_id` sí se añade a los cinco, y no rompe la copia: cuatro de los
+	 * contadores no lo llevan en su `WHERE` porque la lista de grupos sobre la que
+	 * iteran ya venía filtrada por el año de quien pregunta. Sobre los grupos que
+	 * la pantalla pinta filtra lo mismo; sin él, esta ruta contestaría por grupos
+	 * de otros años que esa tabla no enseña.
+	 */
+	public function getAlumnosDe($grupo_id, $que)
+	{
+		$user = User::fromToken();
+
+		// El estado y el sexo van colgados del `ON` del `INNER JOIN`, como en los
+		// contadores. Sobre un `INNER JOIN` filtran igual que en el `WHERE`, y
+		// dejarlos donde están es lo que permite comparar las dos consultas línea
+		// a línea el día que alguien toque una.
+		$casos = [
+			'alumnos' => [
+				'estado' => 'and (m.estado="ASIS" or m.estado="MATR")',
+				'sexo'   => '',
+				'rango'  => '',
+				'extra'  => '',
+			],
+			'hombres' => [
+				'estado' => 'and (m.estado="MATR" or m.estado="ASIS")',
+				'sexo'   => 'and a.sexo="M"',
+				'rango'  => '',
+				'extra'  => '',
+			],
+			'mujeres' => [
+				'estado' => 'and (m.estado="MATR" or m.estado="ASIS")',
+				'sexo'   => 'and a.sexo="F"',
+				'rango'  => '',
+				'extra'  => '',
+			],
+			'retirados' => [
+				'estado' => 'and (m.estado="RETI" or m.estado="DESE")',
+				'sexo'   => '',
+				'rango'  => ' and m.fecha_retiro>=? and m.fecha_retiro<=?',
+				'extra'  => ', m.fecha_retiro',
+			],
+			'matriculados' => [
+				'estado' => '',
+				'sexo'   => '',
+				'rango'  => ' and m.fecha_matricula>=? and m.fecha_matricula<=?',
+				'extra'  => ', m.fecha_matricula',
+			],
+		];
+
+		if (! isset($casos[$que])) {
+			abort(422, 'No hay listado «'.$que.'»: los que hay son '.implode(', ', array_keys($casos)).'.');
+		}
+
+		$caso 			= $casos[$que];
+		$parametros 	= [$grupo_id, $user->year_id];
+
+		if ($caso['rango'] !== '') {
+			// Las fechas se comparan con `>=` y `<=`, y hasta la noche del 31 ago 2026
+			// eran `>` y `<` en los dos contadores. Se arreglaron los tres a la vez
+			// —los dos de `putConCantidadAlumnos` y éste—, que era la condición: quien
+			// se matricula el primer día de un periodo no estaba en ninguna cifra.
+			//
+			// El índice del periodo es el que pinta la cabecera Ret1/Mat1, que es la
+			// POSICIÓN en `Periodo::delYear` (`Per = $i + 1`) y no `periodos.numero`.
+			// Se resuelve igual aquí para que el N que manda el front sea el mismo N.
+			$periodos 	= Periodo::delYear($user->year_id);
+			$numero 	= Request::input('periodo');
+
+			if (! is_numeric($numero) || (int) $numero < 1 || (int) $numero > count($periodos)) {
+				abort(422, 'El periodo tiene que ser un número entre 1 y '.count($periodos).'.');
+			}
+
+			$periodo 		= $periodos[(int) $numero - 1];
+			$parametros[] 	= $periodo->fecha_inicio;
+			$parametros[] 	= $periodo->fecha_fin;
+		}
+
+		// La foto se resuelve como en `getListado`: la imagen del alumno, y si no
+		// tiene, el maniquí que le toque por sexo.
+		$consulta = 'SELECT m.alumno_id, a.nombres, a.apellidos, a.sexo, m.estado,
+						a.foto_id, IFNULL(i.nombre, IF(a.sexo="F","default_female.png", "default_male.png")) as foto_nombre'.$caso['extra'].'
+					from grupos g
+					INNER JOIN matriculas m ON m.grupo_id=g.id and m.deleted_at is null '.$caso['estado'].'
+					INNER JOIN alumnos a ON a.id=m.alumno_id and a.deleted_at is null '.$caso['sexo'].'
+					left join images i on i.id=a.foto_id
+					where g.deleted_at is null and g.id=? and g.year_id=?'.$caso['rango'].'
+					order by a.apellidos, a.nombres';
+
+		// Un array plano, como `getListado`. Un grupo sin nadie devuelve `[]` y no
+		// un 404: hay grupos abiertos con cero matriculados y esa celda dice 0.
+		return DB::select($consulta, $parametros);
 	}
 
 

@@ -1,0 +1,12 @@
+[
+    {
+        "alumno_id": "int",
+        "apellidos": "string",
+        "estado": "string",
+        "fecha_matricula": "string",
+        "foto_id": "null",
+        "foto_nombre": "string",
+        "nombres": "string",
+        "sexo": "string"
+    }
+]

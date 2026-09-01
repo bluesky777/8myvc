@@ -36,14 +36,16 @@ que no se puede invertir:** `artisan down` en el viejo → volcado y `rsync` de 
 | Hashes hoy | `8myvc` **`50b0f10`** (main) · `up` **`52a0cdd`** (main) · `landing` **`528ce16`** (master) |
 | Cron | **NO HAY** — `crontab -l` vacío en las dos cuentas |
 | DNS | `ns1..ns4.a2hosting.com` — **los mismos para los dos dominios** |
-| Viajan | `8myvc/` (926 M) · `up/` (46 M) · `landing/` (49 M) · `up2/` (13 M, **`app2`**, `<base href="/up2/">`) · `plus/` (1,4 M, PIAR) · `concurso/` + `concurso10-11/` (40 K, dan 200) · `index.php` · `.htaccess` · `favicon.ico` · `robots.txt` · `ms87615257.txt` |
+| Viajan | `8myvc/` · `up/` (46 M) · `landing/` (49 M) · `up2/` (13 M, **`app2`**, `<base href="/up2/">`) · `plus/` (1,4 M, PIAR) · `concurso/` + `concurso10-11/` (40 K) · `index.php` · `.htaccess` · `favicon.ico` · `robots.txt` · `ms87615257.txt` |
+| **Lo que no está en git** | **`8myvc/public/images/` — 591 MB**: fotos de perfil, **membretes** y el tema legacy · `8myvc/storage/` — 14 MB. *(`public/uploads` NO existe: nadie ha subido documentos del PIAR en `lal`.)* |
 | **No viajan** | `5myvc/` (265 M, **da 500**) · `wissenLaravel5.3/` (115 M) · `app/` (38 M) · `6myvc/` (816 K) · `comanditos/` · `node/` (vacío) — **418 MB**, todos 403 o rotos. Se archivan, no se mudan |
 | `landing/` | [`bluesky777/landingLAL`](https://github.com/bluesky777/landingLAL), rama **`master`**, 40,7 MB |
 | Correo | **en el cPanel viejo** (no hay Google Workspace) · **16 buzones, ~341 MB** |
 | Hash del front hoy | `index-Bermvdik.js` — el mismo que `casb`, `coab`, `cads`, `coal` |
 
 **Decisiones que faltan:** `vendor/` compartido o propio (paso 2E) · correo copiado
-o a un Workspace (paso 3) · a nombre de quién está el dominio (paso 4).
+o a un Workspace (paso 3 — **el Workspace de Education ya existe y está dormido**,
+contacto `admin@lalvirtual.edu.co`) · a nombre de quién está el dominio (paso 4).
 
 ---
 
@@ -135,11 +137,25 @@ D=micolev1@mi3-ss55.a2hosting.com
 N=/home/micolev1/lal.micolevirtual.com
 V=~/public_html
 
-rsync -avz "$V/8myvc/storage/" "$D:$N/8myvc/storage/"    # 239 MB, lo insustituible
-rsync -avz "$V/plus" "$V/concurso" "$V/concurso10-11" "$D:$N/"
-rsync -avz "$V/index.php" "$V/favicon.ico" "$V/robots.txt" "$V/ms87615257.txt" "$D:$N/"
-rsync -avz "$V/8myvc/.env"     "$D:$N/8myvc/.env"        # se EDITA después (E)
+rsync -avz -e 'ssh -p 7822' "$V/8myvc/public/images/" "$D:$N/8myvc/public/images/"   # 591 MB
+rsync -avz -e 'ssh -p 7822' "$V/8myvc/storage/"       "$D:$N/8myvc/storage/"         # 14 MB
+rsync -avz -e 'ssh -p 7822' "$V/plus" "$V/concurso" "$V/concurso10-11" "$D:$N/"
+rsync -avz -e 'ssh -p 7822' "$V/index.php" "$V/favicon.ico" "$V/robots.txt" "$V/ms87615257.txt" "$D:$N/"
+rsync -avz -e 'ssh -p 7822' "$V/8myvc/.env" "$D:$N/8myvc/.env"                       # se EDITA después (E)
 ```
+
+> **`public/images` es lo que más pesa y el inventario del paso A NO lo veía**, porque
+> `.gitignore` lo excluye a propósito —*«contenido de cada servidor, sin excepción»*—.
+> Ahí están además **los membretes**, que son lo que sale impreso en boletines y
+> certificados. La lista definitiva de lo que git no lleva la da el propio git:
+>
+> ```bash
+> cd ~/public_html/8myvc && git status --ignored --short | grep '^!!'
+> ```
+>
+> De esa lista **no** viajan: `vendor/` (en el nuevo es symlink a la compartida),
+> `.env` (ya puesto), `bootstrap/cache/*` (**copiarlo serviría la configuración del
+> colegio viejo**) y `storage/framework/{views,sessions}` (se rehacen solos).
 
 > **El `.htaccess` NO se copia en el ensayo.** Fuerza HTTPS con
 > `RewriteRule ^(.*)$ https://lalvirtual.edu.co/$1`, o sea que en
@@ -250,28 +266,65 @@ verificar**, así que se pide con semanas de antelación.
 Mirar antes, con cualquiera de las dos: reenvíos y filtros (no viajan con el Maildir)
 · `grado9@` tiene la cuota en 50 MB y los demás en 250 · `glo@` está a 0 bytes.
 
-> ### PENDIENTE — verificar el 31 ago 2026: puede que el Workspace YA EXISTA
+> ### RESUELTO el 31 ago 2026: el Workspace EXISTE, y es de Education
 >
-> En un buzón de `@lalvirtual.edu.co` hay un correo de **The Google Workspace Team** del
-> 16 feb 2023, *«Dear EDU Administrator»*, sobre los términos de **Workspace for
-> Education**, y el pie dice que llega **por ser contacto principal o secundario de una
-> cuenta de Workspace**. O sea que en 2023 existía un tenant con una dirección de este
-> dominio como administrador.
+> Ya no es una sospecha por el correo de feb 2023. Las cabeceras del último aviso de Google
+> lo fijan:
 >
-> **Hoy no está en uso**, medido: el `MX` apunta al propio servidor, el SPF es el de A2
-> sin `include:_spf.google.com`, y **no hay ningún `google-site-verification`** en los TXT.
-> Pero **un dominio reclamado sigue reclamado**: si el tenant existe, dar de alta uno
-> nuevo fallará con «el dominio ya está en uso por otra organización».
+> | | |
+> |---|---|
+> | Contacto de administrador | **`admin@lalvirtual.edu.co`** (`To:` y `Delivered-To:`) |
+> | Organización | **Liceo Adventista Libertad** (así la nombra Google en sus correos) |
+> | Alta | **27 oct 2020** — el buzón `admin@` nació ese día (`dovecot-uidvalidity.5f982f91`, que es ese *timestamp*) |
+> | Rastro | avisos **sólo de administrador** de 2020 a 2025 sin interrupción: Vault, Hangouts→Chat, Takeout, *search history*, `[Legal Notice] Workspace for Education Storage Policy` |
+> | Último aviso | **15 jul 2025** · `workspace-noreply@google.com` · *«Dear Google Workspace for Education administrator»* (Gemini/NotebookLM) |
+> | Edición | **Education** — la verificación educativa de 2020 sigue en pie |
+> | Entregado en | `mi3-ss54`, el cPanel **viejo**: ese buzón es la llave |
 >
-> **Los tres pasos, en orden:**
-> 1. Mirar el `Para:` de ese correo — dice cuál de los 16 buzones es el contacto.
-> 2. `admin.google.com` con esa dirección, opción *«¿olvidaste la contraseña?»*: si Google
->    la reconoce, el tenant existe.
-> 3. Si no, empezar el alta de Education Fundamentals con `lalvirtual.edu.co`: el paso de
->    verificación del dominio da la respuesta definitiva.
+> Google manda esos avisos a los contactos de administrador de cuentas **existentes**, así
+> que en jul 2025 el tenant estaba vivo. Y sigue **sin usarse para correo**, que es justo lo
+> que medía el DNS: el `MX` apunta al propio servidor, el SPF es el de A2 y no hay ningún
+> `google-site-verification`. Cuenta dormida, no borrada — y **un dominio reclamado sigue
+> reclamado**: dar de alta uno nuevo fallaría con «el dominio ya está en uso por otra
+> organización». Así que la vía es **recuperar, no solicitar**; los documentos de
+> acreditación sólo harán falta si Google pide re-verificar al reactivarla.
 >
-> **Mientras esto esté abierto, no borrar ni renombrar esos buzones**: si son el contacto
-> de una cuenta de Google, son por donde llega cualquier recuperación.
+> **La cronología del buzón `admin@` (30 mensajes, medida el 31 ago 2026) cuenta la
+> historia entera:**
+>
+> | Cuándo | Qué |
+> |---|---|
+> | 27 oct 2020, 14:32 | cPanel: *«Email configuration settings for `admin@lalvirtual.edu.co`»* — el buzón se acaba de crear |
+> | 27 oct 2020, 15:27 | Google: **«Cumple los criterios para obtener precios…»** — la aprobación, 55 minutos después |
+> | 20 nov · 20 dic 2020 · 19 ene 2021 | «Compre una suscripción para seguir usando los…» — **la prueba de pago caduca** |
+> | jun 2021 → jul 2025 | **ni un aviso de cobro más**, y sí avisos de administrador **de Education**: Storage Policy, *age-based setting by Sept 1 2021*, Hangouts→Chat, Takeout, Gemini/NotebookLM |
+>
+> Que la cadena de cobro pare en seco en ene 2021 y los avisos de Education sigan cuatro
+> años más apunta a que **la aprobación educativa entró y la cuenta quedó en Education
+> Fundamentals, que es gratis**. Hay que confirmarlo dentro de la consola, pero significa
+> que **no hay nada que pagar ni que volver a solicitar**: sólo entrar.
+>
+> No fue un alta que se quedó a medias: hubo un tenant operado durante años. El buzón está
+> en **mdbox** (`~/mail/lalvirtual.edu.co/admin/storage/m.*`), con las cabeceras en claro y
+> **los cuerpos en base64** — un `grep` de contenido da cero y no significa nada.
+>
+> **Los pasos, en orden:**
+> 1. `accounts.google.com/signin/recovery` con `admin@lalvirtual.edu.co`. Lo que ofrezca
+>    —teléfono o correo de recuperación, enmascarados— dice qué se configuró en 2020.
+> 2. Si no hay ninguno utilizable: **recuperación por propiedad del dominio**, publicando en
+>    la zona el `TXT`/`CNAME` que da Google. Los nameservers son nuestros: no hace falta ni
+>    el proveedor ni soporte de Google.
+> 3. Ya dentro: **Facturación → Suscripciones** (edición y licencias), **Usuarios** (qué se
+>    creó en 2020) y **Dominios** — sin `google-site-verification` en los TXT es probable que
+>    pida re-verificar. Y lo primero de todo: **correo y teléfono de recuperación, y un
+>    segundo superadministrador**. Eso es lo que faltó desde 2020 y lo que ha costado esta
+>    arqueología.
+>
+> **Dos cosas que no se pueden invertir:**
+> - **No tocar `admin@`**: ni borrarlo, ni renombrarlo, ni vaciarlo. Es por donde llega
+>   cualquier recuperación, y su Maildir lleva el histórico desde 2020.
+> - **La recuperación va ANTES de que el proveedor mueva el dominio de cuenta (paso 4).**
+>   El día que recreen la zona, ese correo puede dejar de entrar justo cuando hace falta.
 
 ---
 
@@ -305,10 +358,33 @@ que hace el cambio instantáneo y la vuelta atrás de cinco minutos.
 
 ---
 
-## Paso 5 — La ventana (de noche)
+## Paso 5 — La ventana: **el domingo**, cuando el proveedor mueva el dominio
+
+> **Lo que hay que pedirle, y no es «cambia el DNS».** Cambiar sólo el registro `A`
+> deja el dominio apuntando a un servidor **que no sabe quién es**: serviría
+> `micolevirtual.com` o un error. Lo que se pide es **mover el dominio de la cuenta
+> `micolevi` a la cuenta `micolev1`** y darlo de alta ahí con document root
+> `/home/micolev1/lal.micolevirtual.com`. El `A` cambia como consecuencia.
+>
+> Y **el TTL de `@`, `www` y `mail` a 300 segundos con días de antelación**: es lo que
+> hace el cambio instantáneo y la vuelta atrás de cinco minutos.
 
 1. `cd <viejo>/8myvc && php artisan down` — nadie escribe ya en la base vieja.
-2. Repetir **2C** (`storage/`), **2D** (volcado bueno) y el Maildir del paso 3.
+2. Repetir **2C** (`public/images/` y `storage/` — sólo mandan diferencias), **2D** y
+   el Maildir del paso 3. **La base se VACÍA antes de importar**, no se importa encima:
+   ```bash
+   mysql -u micolev1_todo -p -N -e "SELECT CONCAT('DROP TABLE IF EXISTS \`',table_name,'\`;') FROM information_schema.tables WHERE table_schema='micolev1_lal_db'" > ~/drops.sql
+   ( echo "SET FOREIGN_KEY_CHECKS=0;"; cat ~/drops.sql ) | mysql -u micolev1_todo -p micolev1_lal_db
+   zcat ~/lal-final-*.sql.gz | mysql -u micolev1_todo -p micolev1_lal_db
+   ```
+   Un volcado trae `DROP TABLE IF EXISTS`, pero **sólo de las tablas que lleva dentro**:
+   una que quedara de la copia anterior se quedaría de fantasma.
+   **Y la comprobación que demuestra que llegaron los DATOS, no sólo la estructura** —
+   los mismos cuatro números en los dos lados:
+   ```sql
+   SELECT 'users',COUNT(*) FROM users UNION SELECT 'matriculas',COUNT(*) FROM matriculas
+   UNION SELECT 'notas_finales',COUNT(*) FROM notas_finales UNION SELECT 'ausencias',COUNT(*) FROM ausencias;
+   ```
 3. Alta de `lalvirtual.edu.co` y `www` en el cPanel nuevo, **document root el de
    `lal`** (el mismo que sirve `lal.micolevirtual.com`).
 4. DNS: `A` de `@`, `www` y **`mail`** → `70.32.23.72`. El `MX` sigue diciendo
