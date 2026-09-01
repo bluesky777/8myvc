@@ -229,3 +229,81 @@ array_map(fn ($periodo) => (int) $periodo->id, $year->periodos)
 El método pone `puesto` en cada fila y `null` en las de quien no cuenta. **No saca a
 nadie de `$alumnos`**: la fila del independiente sigue viajando con sus notas y su
 boletín, y lo único que le falta es el puesto.
+
+---
+
+## 5 · El mismo nombre viaja con DOS TIPOS, y está así a propósito
+
+Lo levantó la coordinación comparando entre sí las cuatro instantáneas que este
+lote regenera. **No es un fallo y no se arregla esta noche, pero hay que saberlo
+antes de tocarlo**, porque es la forma exacta de lo que se pagó el 30 ago con las
+definitivas decimales: PDO devolviendo un tipo por una puerta y otro por otra, y
+**diecisiete respuestas cambiando de tipo sin que nadie lo pidiera**.
+
+| Respuesta | Campo | Tipo | De dónde sale |
+|---|---|---|---|
+| `api/years` · `api/years/colegio` · `api/years/trashed` | `puestos_con_bol_independiente` | **`int`** | la columna cruda, por los dos `SELECT *` de `YearsController:27` y `:43` |
+| `puestos/detailed-notas-year` · `…-periodo` | `puestos_con_bol_independiente` | **`bool`** | `BoletinIndependiente::puestosCuentanIndependientes()`, casteado a propósito |
+| `puestos/…` (cada alumno) | `bol_independiente_periodo` | **`bool`** | `aplicaEnAlguno()`, ídem |
+
+**EL QUE EL FRONT LEE ES EL `bool` DE LOS PUESTOS.** Es el que la §7 puso en la
+respuesta para que las cuatro pantallas de puestos no tuvieran que preguntar cada
+una por su cuenta. El `int` de `api/years` **no lo consume nadie para esto**: se
+cuela porque esas tres lecturas son `SELECT *`, igual que se colaría cualquier otra
+columna que se añada a `years` — que es literalmente por lo que esta columna se
+retiró el 24 ago y volvió el 31 con quien la consume.
+
+**Y por eso NO se igualan aquí, en ninguna de las dos direcciones:**
+
+- **Castear los tres `SELECT *` de `years`** es otra faena y no es la de este lote:
+  tocaría **todas** las columnas de esas tres respuestas, no la mía, y movería las
+  tres instantáneas otra vez y por un motivo distinto.
+- **Devolver el `int` crudo en los puestos** sería peor: el front recibe hoy un
+  booleano de verdad y ramifica con él.
+
+> **La trampa para quien venga a igualarlos dentro de tres meses: el sitio que hay
+> que tocar es el `SELECT *` de `years`, no el casteo de los puestos.** Los dos
+> parecen «el mismo campo con el tipo mal», y sólo uno de los dos tiene un cliente
+> leyéndolo. Cambiar el de puestos es cambiar el que funciona.
+
+---
+
+## 6 · Lo que esta noche me enseñó de los instrumentos, con el marcador
+
+**De los números que saqué con instrumentos, cinco nacieron mal, y tres me habrían
+hecho actuar.** Van escritos porque el patrón se repite y el `CLAUDE.md` ya lo
+nombra: *el primer sitio donde mirar cuando el número sale raro es el detector*.
+
+1. **El `exit=0` que era del `tail`.** Dos corridas completas murieron con
+   **SIGTERM (`exit=143`)** a los ~10 minutos, y la primera me dio `exit=0` porque
+   lo que leí era el código del `tail` del final de la tubería, no el de PHPUnit.
+   **Media suite en verde y ni una línea diciendo que se había muerto.** La regla
+   que queda: **una suite sin línea `Tests:` al final no es una suite verde, es una
+   suite muerta**, y el `exit=` se mira siempre.
+2. **Los zombis.** Matar un `docker exec` mata **al cliente, no al proceso de
+   dentro**. Mis dos corridas muertas seguían vivas 31 y 18 minutos después,
+   corriendo contra `simonbolivar_testing_e` mientras yo lanzaba una tercera:
+   `1213 Deadlock found`, tres rojos, **y los rojos cambiando de sitio entre
+   corridas**, que era la pista. La forma que no lo sufre es `docker exec -d`, sin
+   cliente que matar.
+3. **El paréntesis del mensaje del control.** `AutopruebasDeLasHerramientasTest`
+   dice *«no se pudo leer 2837171^ (¿worktree sin ese commit?)»* — y **la hipótesis
+   del paréntesis es la equivocada**, que es lo que hace que se archive como ruido.
+   El commit se lee perfectamente; lo que no funciona es **`git` dentro del
+   contenedor**, porque `.worktrees/<x>/.git` es un fichero que apunta a una ruta
+   **del host**. Falla igual en los cinco árboles y no es de nadie.
+4. **El regex que no admitía tabuladores**, midiendo qué columnas escribe
+   `postStore`: **50 en vez de 60**, y las diez de diferencia son las líneas
+   alineadas con tabulador. La lista falsa de columnas perdidas **tenía toda la
+   pinta de ser cierta**.
+5. **El volcado congelado.** `mysql-schema.sql` tiene **64** columnas de `years` y
+   la tabla viva **68** — y **las cuatro de diferencia son justo las candidatas**,
+   porque entraron por migración. Medir contra el volcado es medir contra el sitio
+   donde ninguna existe.
+
+Y el que no es un número pero es el mismo error: **el árbol es parte del
+instrumento.** Dos ficheros míos acabaron editados en la raíz (`main`) en vez de en
+`.worktrees/e`, y lo que lo destapó fue que **dos tests no aparecían**: 34 métodos
+en el fichero y 32 corriendo. Lo cerró comparar el `md5` del host con el del
+contenedor. Es la §0 del reparto —*editas tus ficheros y pruebas los de otra
+sesión, con los tests en verde*— con el agravante de que la raíz está en `main`.
