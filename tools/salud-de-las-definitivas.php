@@ -73,6 +73,184 @@
  * donde mirar cuando el número sale enorme es el detector.
  */
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Las dos decisiones de este fichero que pueden equivocarse EN SILENCIO, sacadas
+// del flujo para poder ejercerlas sin base.
+//
+// Esta herramienta no da un dato informativo: **de su número sale si la fase 2
+// lleva corrección de datos**, y esa fase pone un índice único, así que cada
+// duplicado que no cuente se convierte en un `ALTER TABLE` que falla — y, por lo
+// aprendido la noche del 31 ago 2026, en un colegio a mitad del bucle de quince.
+//
+// **Ya se equivocó una vez y en esa dirección** (24 ago 2026): daba UN número
+// donde hacen falta dos, y mezclados podía decir *«se puede poner el índice sin
+// limpiar nada»* mientras el índice fallaba igual. Se separó el de la tabla
+// entera —lo que el `ALTER` encuentra— del alcance mirado —a cuántas definitivas
+// cambia limpiar—. Lo que sigue es lo que impide que se vuelvan a juntar.
+
+/**
+ * Reparte los duplicados en los tres tipos que la §9.2 distingue.
+ *
+ * El tipo no es descriptivo: **`manual+manual` es el único que necesita el
+ * desempate por `id`**, así que este reparto es la lista de casos que alguien
+ * tiene que decidir a mano. Contarlos juntos escondería cuántos son.
+ *
+ * @param  list<object|array<string, mixed>>  $filas
+ * @return array{'auto+auto': int, 'auto+manual': int, 'manual+manual': int}
+ */
+function clasificarDuplicados(array $filas): array
+{
+    $porTipo = ['auto+auto' => 0, 'auto+manual' => 0, 'manual+manual' => 0];
+
+    foreach ($filas as $d) {
+        $d = (array) $d;
+        $manuales = (int) $d['manuales'];
+        $total = (int) $d['filas'];
+
+        if ($manuales === 0) {
+            $porTipo['auto+auto']++;
+        } elseif ($manuales === $total) {
+            $porTipo['manual+manual']++;
+        } else {
+            $porTipo['auto+manual']++;
+        }
+    }
+
+    return $porTipo;
+}
+
+/**
+ * Qué se puede afirmar sobre el `ALTER TABLE` de la fase 2, con los DOS números.
+ *
+ * **El que manda es el de la tabla entera, y ésa es toda la corrección del 24 ago
+ * 2026 metida en una función**: el índice único no sabe de `--year`, ni de
+ * `deleted_at`, ni de los dos INNER JOIN del alcance. Un `enElAlcance === 0` con
+ * `enLaTabla > 0` es exactamente el caso que antes salía como «no hay que limpiar
+ * nada» y reventaba la migración.
+ *
+ * @return array{veredicto: string, nota: string}
+ */
+function veredictoDelIndiceUnico(int $enLaTabla, int $enElAlcance): array
+{
+    if ($enLaTabla < $enElAlcance) {
+        // Imposible por construcción: el alcance es un subconjunto de la tabla.
+        // Si sale, las dos consultas han dejado de medir lo mismo y **ninguno de
+        // los dos números vale** — que es distinto de que haya pocos duplicados.
+        return [
+            'veredicto' => 'incoherente',
+            'nota' => "INCOHERENTE: la tabla entera dice {$enLaTabla} y el alcance mirado "
+                ."{$enElAlcance}, y el alcance es un subconjunto de la tabla. Las dos "
+                .'consultas han dejado de medir lo mismo: NO uses ninguno de los dos '
+                .'números, y mira el detector antes que los datos.',
+        ];
+    }
+
+    if ($enLaTabla === 0) {
+        return [
+            'veredicto' => 'se puede',
+            'nota' => 'La clave única de la fase 2 se puede poner sin limpiar nada.',
+        ];
+    }
+
+    $fuera = $enLaTabla - $enElAlcance;
+
+    return [
+        'veredicto' => 'hay que limpiar',
+        'nota' => 'Hay que limpiarlos ANTES del índice único de la fase 2, o cada uno '
+            .'de estos se convierte en un 500. Los `manual+manual` son los únicos '
+            .'que necesitan el desempate por `id` de la §9.2.'
+            .($fuera > 0
+                ? " Y {$fuera} de ellos NO salen en el reparto por tipo "
+                  .'ni en el detalle: el reparto va por el alcance mirado y el '
+                  .'índice va por la tabla entera. Ésos hay que limpiarlos igual.'
+                : ''),
+    ];
+}
+
+/**
+ * El control positivo, **sin base y sin árbol**: sólo las formas decididas.
+ *
+ * Lo corre `tests/Unit/AutopruebasDeLasHerramientasTest`. No puede comprobar el
+ * SQL —para eso habría que fabricar filas, y esta herramienta es sólo `SELECT` a
+ * propósito—, así que **ancla lo que se decide en PHP**: el reparto por tipo y el
+ * veredicto del índice. Es justo donde estuvo el fallo del 24 ago.
+ *
+ * Y lo que este control NO promete, dicho aquí porque es la mitad honesta: **fija
+ * la conducta conocida, no descubre cegueras nuevas.** Si mañana la consulta de
+ * la tabla entera deja de contar una familia de filas, esto sigue verde. Para eso
+ * no hay control: hay leer las filas.
+ */
+function controlDeSalud(): int
+{
+    $casos = [
+        ['dos filas sin ninguna manual es auto+auto',
+            [['filas' => 2, 'manuales' => 0]], ['auto+auto' => 1, 'auto+manual' => 0, 'manual+manual' => 0]],
+        ['dos manuales es manual+manual: el único que pide desempate por id',
+            [['filas' => 2, 'manuales' => 2]], ['auto+auto' => 0, 'auto+manual' => 0, 'manual+manual' => 1]],
+        ['una de cada es auto+manual, que se resuelve solo',
+            [['filas' => 2, 'manuales' => 1]], ['auto+auto' => 0, 'auto+manual' => 1, 'manual+manual' => 0]],
+        // Tres filas con una manual NO es manual+manual: se decide por si TODAS
+        // lo son, no por si hay alguna. Con un `>= 1` este caso entraria en la
+        // lista de los que hay que decidir a mano, y esa lista saldria inflada.
+        ['tres filas con UNA manual sigue siendo auto+manual',
+            [['filas' => 3, 'manuales' => 1]], ['auto+auto' => 0, 'auto+manual' => 1, 'manual+manual' => 0]],
+        ['tres filas todas manuales sí es manual+manual',
+            [['filas' => 3, 'manuales' => 3]], ['auto+auto' => 0, 'auto+manual' => 0, 'manual+manual' => 1]],
+    ];
+
+    $fallos = [];
+
+    foreach ($casos as [$que, $entrada, $esperado]) {
+        $salio = clasificarDuplicados($entrada);
+        $ok = $salio === $esperado;
+        echo '  '.($ok ? 'ok  ' : 'FALLA')."  {$que}\n";
+        if (! $ok) {
+            $fallos[] = '    esperaba '.json_encode($esperado).' y salió '.json_encode($salio);
+        }
+    }
+
+    $delIndice = [
+        ['sin duplicados en la tabla, el índice entra sin limpiar', 0, 0, 'se puede'],
+        // EL CASO DEL 24 AGO 2026. Con un solo número, esto decía «no hay que
+        // limpiar nada» y el ALTER fallaba igual. Si algún día vuelve a dar
+        // «se puede», la corrección se deshizo.
+        ['CERO en el alcance mirado y TRES en la tabla: HAY QUE LIMPIAR', 3, 0, 'hay que limpiar'],
+        ['los mismos en los dos sitios: hay que limpiar', 5, 5, 'hay que limpiar'],
+        // El alcance es un subconjunto de la tabla: al revés es imposible, y lo
+        // que hay que decir entonces es que NINGUNO de los dos números vale.
+        ['la tabla con menos que el alcance es incoherente, no «pocos»', 1, 4, 'incoherente'],
+    ];
+
+    foreach ($delIndice as [$que, $tabla, $alcance, $esperado]) {
+        $salio = veredictoDelIndiceUnico($tabla, $alcance)['veredicto'];
+        $ok = $salio === $esperado;
+        echo '  '.($ok ? 'ok  ' : 'FALLA')."  [{$esperado}] {$que}\n";
+        if (! $ok) {
+            $fallos[] = "    esperaba '{$esperado}' y salió '{$salio}': {$que}";
+        }
+    }
+
+    $total = count($casos) + count($delIndice);
+    echo "Población del control: {$total} formas comprobadas, ".count($fallos)." fallan.\n";
+
+    if ($fallos !== []) {
+        echo implode("\n", $fallos)."\n";
+        echo "CONTROL FALLA: esta herramienta decide si la fase 2 lleva corrección de datos.\n"
+            ."Su número NO vale hasta arreglar esto — y su forma de mentir es decir que el\n"
+            ."índice único se puede poner sin limpiar nada.\n";
+
+        return 1;
+    }
+
+    echo "OK — las nueve formas se clasifican como está decidido.\n";
+
+    return 0;
+}
+
+if (in_array('--control', $argv ?? [], true)) {
+    exit(controlDeSalud());
+}
+
 require __DIR__.'/../vendor/autoload.php';
 
 $app = require_once __DIR__.'/../bootstrap/app.php';
@@ -188,19 +366,7 @@ $duplicados = DB::select(
        ORDER BY filas DESC'
 );
 
-$porTipo = ['auto+auto' => 0, 'auto+manual' => 0, 'manual+manual' => 0];
-foreach ($duplicados as $d) {
-    $manuales = (int) $d->manuales;
-    $total = (int) $d->filas;
-
-    if ($manuales === 0) {
-        $porTipo['auto+auto']++;
-    } elseif ($manuales === $total) {
-        $porTipo['manual+manual']++;
-    } else {
-        $porTipo['auto+manual']++;
-    }
-}
+$porTipo = clasificarDuplicados($duplicados);
 
 // Y aparte, lo que el `ALTER TABLE` va a rechazar de verdad — que **no** es el
 // conteo de arriba. Aquélla lleva `--year` y dos INNER JOIN, y un índice único
@@ -225,8 +391,6 @@ $duplicadosTabla = (int) DB::selectOne(
      ) t'
 )->n;
 
-$fueraDelAlcance = $duplicadosTabla - count($duplicados);
-
 bloqueDeSalud(
     '1. Definitivas duplicadas — (alumno, asignatura, periodo) con más de una fila',
     $duplicadosTabla,
@@ -236,16 +400,11 @@ bloqueDeSalud(
         "auto+manual: {$porTipo['auto+manual']} · ".
         "manual+manual: {$porTipo['manual+manual']}",
     array_map(fn ($d) => (array) $d, $duplicados),
-    $duplicadosTabla === 0
-        ? 'La clave única de la fase 2 se puede poner sin limpiar nada.'
-        : 'Hay que limpiarlos ANTES del índice único de la fase 2, o cada uno '.
-          'de estos se convierte en un 500. Los `manual+manual` son los únicos '.
-          'que necesitan el desempate por `id` de la §9.2.'.
-          ($fueraDelAlcance > 0
-              ? " Y {$fueraDelAlcance} de ellos NO salen en el reparto por tipo ".
-                'ni en el detalle: el reparto va por el alcance mirado y el '.
-                'índice va por la tabla entera. Ésos hay que limpiarlos igual.'
-              : '')
+    // La nota sale de `veredictoDelIndiceUnico()` y no se escribe aquí, para que
+    // el control esté ejerciendo **esta** frase y no una copia suya. Una nota
+    // duplicada a mano es cómo el arreglo del 24 ago se deshace sin que nadie lo
+    // note: el control seguiría verde sobre una función que ya no se usa.
+    veredictoDelIndiceUnico($duplicadosTabla, count($duplicados))['nota']
 );
 
 // ---------------------------------------------------------------------------

@@ -660,3 +660,234 @@ acotar» a la columna «con-igual»**. El desglose queda:
     (c) código muerto anotado                          2 lecturas / 1 sitio
                                                       ──────────────────────
                                                       20 lecturas / 8 sitios ✓
+
+## 13. EL CENSO DE LAS HERRAMIENTAS — quién comprueba a los que miden
+
+> Medido el **1 sep 2026** sobre `main` en `fff3b64`, árbol limpio. La pregunta
+> es la generalización de lo que le pasó a `unidades-sin-alcance.py`: **repartió
+> el trabajo de una noche entera y era la única sin nadie que la comprobara.**
+
+### 13.1 · La población, remedida — y no coincide con la lista
+
+| | |
+|---|---|
+| Ficheros en `tools/` | **38** (+1 directorio, `plantillas`) |
+| **de medición** | **29** |
+| operativas / generadoras | 9 |
+| Filas en la tabla de `CLAUDE.md` | **15** (que nombran 17 herramientas) |
+| **De medición y NO en esa tabla** | **13** |
+
+Las trece que faltan: `alcance-en-los-traspasos.py`,
+`escrituras-crudas-con-entrada.py`, `escrituras-sin-auditoria.php`,
+`fase-cero-de-los-dieciseis.php`, `historial-que-cuenta-de-menos.php`,
+`independientes-sin-estructura.php`, `metodos-sin-camino.py`,
+`quien-escribe-de-verdad.py`, `salud-de-la-bitacora.php`,
+`salud-de-las-definitivas.php`, `tablas-calientes.php`,
+`unidades-sin-alcance.py` y `verbos-que-mienten.py`.
+
+**No es que la tabla esté vieja: es que nunca fue un inventario.** Ninguna de las
+trece es reciente — `salud-de-las-definitivas.php` gobierna una corrección de
+datos de producción y nunca estuvo. *(`CLAUDE.md` es del proyecto y no de la
+noche: no lo toco.)*
+
+### 13.2 · Cuáles tienen control, verificado ejecutándolo
+
+**Nueve de veintinueve**, y **las nueve concluyen** (`exit=0`) hoy:
+
+| Herramienta | En el runner |
+|---|---|
+| `consultas-en-bucle.py` · `escrituras-sin-auditoria.php` · `quien-escribe-de-verdad.py` · `secciones-citadas.py` · `verdad-laxa-que-escribe.py` · `unidades-sin-alcance.py` · `independientes-sin-estructura.php` | **sí** (7) |
+| **`alcance-en-los-traspasos.py`** · **`tablas-calientes.php`** | **NO** (2) |
+
+> **Los dos huérfanos son el hallazgo barato de este censo.** Tienen control
+> ejecutable, **sano y verde**, y **nadie lo invoca** — que es literalmente lo que
+> el docblock del runner dice que no puede pasar: *«un control positivo que nadie
+> ejecuta es una intención, y uno ejecutable que nadie invoca es exactamente lo
+> mismo, sólo que parece mejor.»* **Conectarlos son dos líneas.**
+
+### 13.3 · Cómo se midió, y las dos veces que el censo se equivocó a sí mismo
+
+Detectar «tiene control» por regex **falló dos veces, una en cada dirección**:
+
+- dijo que **`tablas-calientes.php` no tenía** — y tiene `--autoprueba`, `exit=0`.
+  Ramifica con `isset($opciones['autoprueba'])`, no con `--autoprueba`;
+- dijo que **`independientes-sin-estructura.php` no tenía** — la escribí yo, y usa
+  `in_array('--control', $argumentos)`: la variable se llama `$argumentos` y el
+  regex exigía `$argv`.
+
+**La segunda es la peligrosa**, y es al revés que las seis del otro detector:
+**contaba de MENOS**. Habría dicho «esta no tiene control» y alguien habría
+escrito uno duplicado. Así que el censo se hizo en dos pasos: un filtro **laxo a
+propósito** —cualquier línea de código que nombre el flag— y **verificación
+ejecutando las nueve**. *La regla de la casa aplicada al propio censo: el primer
+sitio donde mirar cuando el número sale raro es el detector, y aquí el detector
+era mío y de hace cinco minutos.*
+
+### 13.4 · Las de medición SIN control, ordenadas por lo que decide su cifra
+
+**(A) Su cifra gobierna una decisión PENDIENTE — 3**
+
+| Herramienta | Qué cifra suya se usa, y dónde |
+|---|---|
+| **`salud-de-las-definitivas.php`** | **11.988 definitivas que deberían existir y no existen**, 718 que discrepan, 1 duplicada (`ESTADO-ACTUAL.md`). **De ese número depende si el arreglo lleva corrección de datos** — y no es informativo: la fase 2 pone un índice único y cada duplicado sería un 500. **Y su propia cabecera dice que ya se corrigió una vez porque MEDÍA DE MENOS.** |
+| **`salud-de-la-bitacora.php`** | **18 de 3.229 ingresos con algo que enseñar** (99,4%), y decide si se puede reinterpretar la historia vieja (`ESTADO-ACTUAL.md`). Tiene `CentinelaDeLosEscritoresDeBitacoraTest`, **que vigila su población de escritores pero no su clasificación** |
+| **`fase-cero-de-los-dieciseis.php`** | es **la acción del despliegue**: una visita a los quince colegios, y de su salida sale qué se migra dónde |
+
+**(B) Su cifra vive en un plan abierto — 7**
+
+`identificadores-del-cuerpo.py` (5 planes), `respuestas-que-mienten.py` (6),
+`cobertura-de-rutas.py` (7), `interruptores-que-nadie-lee.py` (5),
+`coste-del-recalculo.php` (5), `indices-que-faltan.php` (4),
+`escrituras-en-las-notas.py` (3).
+
+**(C) Su cifra no la usa nadie hoy — el resto**
+
+`guardas-sin-respaldo.py` (**cero** citas en `docs/`), `metodos-sin-camino.py`,
+`verbos-que-mienten.py`, `escrituras-crudas-con-entrada.py`,
+`historial-que-cuenta-de-menos.php`, los cuatro de rutas, `consultas-lentas.py`,
+`auditar-autenticacion.php`, `inventario-autorizacion.py`.
+
+### 13.5 · El criterio: cuáles merecen control y cuáles no
+
+**Merece control la que cumple las tres.** Con dos no basta:
+
+1. **su salida es un número o una lista que alguien usa para decidir o repartir**
+   — no basta con que exista;
+2. **puede equivocarse en silencio**: su error no rompe nada, sólo cambia la
+   cifra. (Las nueve cegueras de esta noche son de esta clase.)
+3. **comprobar su cifra a mano cuesta más que escribir el control una vez.**
+
+Y la regla contraria, que es la que ahorra trabajo: **si la herramienta ACTÚA en
+vez de medir** —crea un árbol, reconstruye una base, reescribe modelos— **su
+comprobación es su efecto y ya la tiene**. `worktree-de-sesion.sh` imprime desde
+dónde carga las clases: **eso ya es su control**, y un `--control` encima sería
+ceremonia. Las nueve operativas quedan fuera por esto, no por descuido.
+
+**Mi propuesta, con eso: cuatro sí, y en este orden.**
+
+| | Por qué |
+|---|---|
+| **1. `salud-de-las-definitivas.php`** | cumple las tres **y ya falló una vez midiendo de menos**. Su número decide una corrección sobre datos de producción |
+| **2. `salud-de-la-bitacora.php`** | cumple las tres; su reparto UTC/Bogotá es exactamente la clase de clasificación que se equivoca en silencio |
+| **3. `identificadores-del-cuerpo.py`** | la más citada de todas (15 ficheros), y su lista **reparte trabajo de seguridad** |
+| **4. `respuestas-que-mienten.py`** | 6 planes abiertos; su falso negativo es un método que frena una escritura y contesta 200 |
+
+**Y cuáles NO, con el porqué:**
+
+- **las nueve operativas** — miden su efecto, no una cifra;
+- **`guardas-sin-respaldo.py`** — su cifra no la usa **nadie** (cero citas), y
+  `CLAUDE.md` ya avisa de que se equivocó en las dos direcciones y de que **cada
+  fila se lee**. Un control no cambiaría el protocolo;
+- **`cobertura-de-rutas.py`, `indices-que-faltan.php`, `coste-del-recalculo.php`**
+  — **no cumplen (2)**: se miden ejecutando la suite o `EXPLAIN` contra la base,
+  así que **su error no es silencioso**, se ve en la corrida siguiente;
+- **los cuatro de rutas** — ya tienen el control más fuerte que existe aquí: las
+  **tres instantáneas** de rutas, que un test compara 1:1.
+
+### 13.6 · Lo que este censo NO promete, y hay que decirlo
+
+**Tener control no es tener el control correcto.** El caso está medido y es de
+esta noche: **`escrituras-sin-auditoria.php` tiene autoprueba, está en el runner,
+sale verde — y cuenta de menos.** `ESTADO-ACTUAL.md` lo dice: *no puede ver*
+`Ausencias`, `Frases`, `FrasesAsignatura` ni `DefinicionesComportamiento`.
+
+Un control **fija la conducta conocida**; no descubre cegueras nuevas. Las seis
+de `unidades-sin-alcance.py` no las encontró su control —no existía— y la sexta
+la encontró **leer las 21 filas a mano**. Así que escribir estos cuatro controles
+**congela lo que hoy sabemos de cada herramienta y no la vuelve fiable**: lo que
+la vuelve fiable sigue siendo leer sus filas una vez.
+
+## 14. Los dos huérfanos, conectados
+
+`alcance-en-los-traspasos.py --control` y `tablas-calientes.php --autoprueba`
+entran al runner. **No les faltaba el control: lo tenían, sano y verde, y nadie
+lo invocaba.**
+
+> **Es el peor de los tres estados posibles, y por eso van primero.** Sin control,
+> el hueco se ve. Con control roto, salta. **Con control sano que nadie corre, la
+> herramienta parece cubierta** — y esa apariencia es justo lo que impide que
+> alguien vaya a mirar.
+
+Y lo que lo hace incómodo: es **palabra por palabra** lo que dice la cabecera de
+`AutopruebasDeLasHerramientasTest` —*«un control positivo que nadie ejecuta es
+una intención, y uno ejecutable que nadie invoca es exactamente lo mismo, sólo
+que parece mejor»*—, o sea que **ese runner llevaba desde que se escribió sin
+aplicarse a sí mismo la regla que enuncia**. Un test que enuncia una regla no la
+cumple por enunciarla.
+
+    antes:  7 passed
+    después: 9 passed (18 assertions), exit=0, cero saltados
+
+## 15. Los dos controles de la clase (A)
+
+Los dos que **gobiernan una decisión pendiente**, que es donde el coste de que la
+cifra se mueva en silencio es más alto. **No los cuatro que propuse**: la §13.6 —
+*un control fija la conducta conocida, no descubre cegueras nuevas*— es también
+el argumento para no escribir los otros dos, y lo compartí en cuanto la
+coordinación lo formuló así.
+
+### `salud-de-las-definitivas.php`
+
+Su lógica está en SQL, así que un control no puede comprobarla sin fabricar filas
+—y esta herramienta es **sólo `SELECT` a propósito**—. Lo que sí se puede
+ejercer, y es justo donde ya falló, es **lo que decide en PHP**:
+
+- `clasificarDuplicados()` — el reparto en `auto+auto` / `auto+manual` /
+  `manual+manual`. No es descriptivo: **`manual+manual` es el único que necesita
+  el desempate por `id`**, así que ese reparto es la lista de casos que alguien
+  decide a mano. Anclado el caso que un `>= 1` inflaría: *tres filas con UNA
+  manual sigue siendo `auto+manual`*.
+- `veredictoDelIndiceUnico()` — **la corrección del 24 ago 2026 metida en una
+  función.** Aquel día la herramienta daba UN número donde hacen falta dos, y
+  mezclados podía decir *«se puede poner el índice sin limpiar nada»* mientras el
+  `ALTER TABLE` fallaba igual. El caso anclado es exactamente ése: **cero en el
+  alcance mirado y tres en la tabla → HAY QUE LIMPIAR.** Si algún día vuelve a
+  contestar «se puede», la corrección se deshizo.
+- Y una tercera salida que antes no existía: **`incoherente`**. El alcance es un
+  subconjunto de la tabla, así que `tabla < alcance` es imposible; si sale, las
+  dos consultas dejaron de medir lo mismo y **ninguno de los dos números vale** —
+  que es distinto de «hay pocos duplicados».
+
+**La nota del informe sale ahora de esa función y no está escrita al lado**, para
+que el control ejerza **esa** frase y no una copia. Una nota duplicada a mano es
+cómo el arreglo del 24 ago se deshace sin que nadie lo note: el control seguiría
+verde sobre una función que ya no se usa.
+
+### `salud-de-la-bitacora.php`
+
+`repartirPorReloj()`, y lo que ancla es el `else`: **lo que no está en ninguna
+lista se cuenta APARTE**, no en el saco bueno. La propia cabecera de la constante
+lo dice —*callarlo sería contar de menos justo en la dirección que tranquiliza*—
+y ahora hay algo que lo comprueba.
+
+Más dos cosas que **ninguna corrida enseña**:
+
+- **que las dos listas no se solapen** — un tipo en las dos se contaría en UTC por
+  el orden del `if`, en silencio, y las dos listas parecerían correctas por
+  separado;
+- **que ninguna esté vacía** — una lista vacía repartiría todo a «sin clasificar»
+  sin que nada fallara.
+
+> La segunda dio tres errores de larastan (`alreadyNarrowedType`): de un literal
+> deduce el array exacto y da la comparación por siempre-cierta. **Tiene razón
+> hoy** — y por eso mismo va por una función con el parámetro `array` a secas, que
+> es el mismo apaño que `noConcluyentes()` en el runner: dar por bueno el
+> estrechamiento convertiría *«hoy no está vacía»* en *«no puede estarlo»*, que es
+> lo que el caso existe para no suponer.
+
+### Comprobado
+
+| | |
+|---|---|
+| Los dos controles | verdes (**9** y **7** formas, 0 fallan) |
+| **En rojo contra la conducta vieja** | definitivas: cae **sólo** el caso del 24 ago. Bitácora: caen los dos del desconocido al saco bueno |
+| **La salida de las herramientas** | **idéntica**, comparada carácter a carácter contra la de `HEAD` — en la bitácora sólo cambia la hora que ella misma imprime |
+| Runner | **11 passed**, exit=0 |
+
+> **Y un error mío que dejo escrito porque es de la misma familia:** al comparar
+> las salidas hice `git checkout` sobre el fichero que estaba editando **y perdí
+> el control entero**. Lo rehice. La comparación era correcta y el resultado
+> también; lo que falló fue guardar antes de restaurar. La forma que no lo tiene
+> es copiar a `/tmp` primero —que es lo que hice en la segunda vuelta—, y es la
+> misma lección que el árbol y la shell: **el instrumento con el que compruebas
+> también te puede borrar lo que compruebas.**
