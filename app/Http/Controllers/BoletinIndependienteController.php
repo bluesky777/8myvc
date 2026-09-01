@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
+use App\Services\BoletinIndependiente;
 use App\Support\Autoriza;
 use App\Support\Reloj;
 use Illuminate\Support\Facades\DB;
@@ -152,6 +153,29 @@ class BoletinIndependienteController extends Controller
             if (! $aplica) {
                 $this->sembrarLasNotasQueFaltan($alumnoId, $periodoId, (int) $this->user->year_id, $ahora);
             }
+
+            // **Lo que acabamos de escribir invalida lo que el servicio cacheó, y sin
+            // esto la MISMA petición sigue contestando con lo de antes.**
+            //
+            // `BoletinIndependiente` memoiza `alcance(alumno, periodo)` en una estática
+            // que «vive lo que vive la petición». Eso es una caché de lectura y está
+            // bien mientras la petición sólo lea; **ésta es la única del sistema que
+            // escribe esa respuesta**, así que es la única que puede dejarla mintiendo.
+            //
+            // Hoy no se ve —el sembrado de aquí arriba va por SQL y no pregunta al
+            // servicio—, y por eso conviene decir dónde muerde mañana: la ruta de la
+            // §6.1 (`boletin-independiente/planilla`) **lee el alcance en la misma
+            // petición en la que se puede haber escrito**, y sin esta línea devolvería
+            // la planilla del alumno que era **antes** de marcarlo, en 200 y sin un
+            // error en ningún sitio. Es la forma exacta de fallo que este módulo lleva
+            // tres revisiones quitando.
+            //
+            // Lo destapó un rojo que parecía de otra cosa: dos casos de `BoletinesTest`
+            // fallando **sólo dentro de la suite**, porque en un proceso de tests la
+            // estática sobrevive al `DatabaseTransactions` que sí deshace la base.
+            // Aquello se cerró en `CasoDeContrato::setUp()`, que es higiene de test;
+            // **esto es lo otro que aquel rojo estaba señalando**, y es de producción.
+            BoletinIndependiente::olvidar();
         });
 
         return [

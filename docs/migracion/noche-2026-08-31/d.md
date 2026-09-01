@@ -219,6 +219,60 @@ periodo abierto. Con un superusuario delante, la forma mala pasa entera.
 
 ---
 
+## 6.bis · El rojo que parecía de otra cosa, y que señalaba un fallo de producción
+
+**Dos casos de `BoletinesTest` —`boletines` y `boletines2`— fallaban sólo dentro de la
+suite.** En aislamiento pasaban los 17; dentro fallaban en **7,9 s y 4,1 s** cuando sanos
+tardan **43,9 s y 39,4 s**. Ese desajuste era el dato: **reventaban antes de terminar de
+calcular**, que es la firma de una comparación de instantánea que no cuadra, no la de un
+cálculo que sale distinto.
+
+**Me equivoqué dos veces antes de acertar, y las dos merecen quedar escritas:**
+
+1. **«Es contención»**, porque la primera vez había cuatro suites contra el mismo MySQL.
+   Lo empujé con más confianza de la que tenía. **La corrida limpia, con dos suites y
+   bases distintas, los reprodujo igual.**
+2. **«La corrida limpia ya pasó de largo la zona donde caían»** — comparando el número de
+   líneas del log nuevo con la línea donde cayeron en el log **anterior**. **Los números
+   de línea de dos corridas no son comparables.** La forma correcta es buscar el caso por
+   su nombre: `grep -a "la forma del boletin de un alumno"`.
+
+**La causa: `BoletinIndependiente` memoiza `alcance(alumno, periodo)` en una propiedad
+estática que «vive lo que vive la petición».** Eso es cierto en producción —una petición,
+un proceso— y **falso en un proceso de tests**, donde `DatabaseTransactions` deshace la
+base y **no deshace un `static` de PHP**. Un test que marca a un alumno deja la memoria
+diciendo que sigue marcado después del rollback, y el siguiente lee un boletín ajeno.
+
+**Y de ahí salen DOS arreglos que no son el mismo, y sólo el segundo es de producción:**
+
+- **Higiene de test** — vaciar las tres memorias (`BoletinIndependiente`, `EscalaDeNotas`,
+  `NombreDelAlumno`) en `CasoDeContrato::setUp()`. Lo hizo la coordinación, que es de
+  quien es ese fichero. **Ya se estaba haciendo a mano seis veces** en dos clases de test,
+  y la fuga volvió a entrar por el camino nuevo: **marcar por HTTP**, que no pasa por
+  `marcarIndependiente()`.
+- **Producción, y es lo de este lote** — `putPeriodo` llama a
+  `BoletinIndependiente::olvidar()` después de escribir. **Ésta es la única ruta del
+  sistema que escribe esa respuesta, así que es la única que puede dejarla mintiendo.**
+  Hoy no se ve porque el sembrado va por SQL y no pregunta al servicio; **muerde en la
+  §6.1**, que lee el alcance **en la misma petición** en la que se puede haber escrito y
+  devolvería la planilla del alumno que era **antes** de marcarlo, en 200 y sin error.
+
+**El rojo R9**, con el mismo criterio que los otros ocho: quitada la invalidación, se
+ponen en rojo `marcar invalida lo que el servicio tenia cacheado` y `desmarcar tambien
+invalida la cache`, **y sólo esos dos** de los veintidós de la clase.
+
+> **El test se envenena a propósito, y sin eso no mide nada.** Pregunta el alcance
+> **antes** de marcar: esa primera lectura es la que **mete en la caché** el «va con el
+> grupo» que el arreglo tiene que tirar. Sin ella la memoria estaría vacía, la lectura
+> final iría a la base y **el test pasaría con el arreglo quitado**. Y la lectura final va
+> **sin llamar a `olvidar()` a mano**, al revés que el resto de la suite: aquí eso sería
+> tapar justo lo que se mide.
+
+**Lo que este episodio deja como regla:** *«pasa en aislamiento y falla en la suite»* no es
+un test flaky mientras no se demuestre. Aquí era un fallo real del controlador entrando
+por una puerta rara, y **si lo hubiera cerrado como contención habría entrado sin
+arreglar, a cobrarse en la ruta siguiente y con el front encima**.
+
 ## 7 · Las instantáneas: son CUATRO, no tres
 
 Y la cuarta no la esperaba el reparto. Las cuatro con **una línea añadida, cero

@@ -568,6 +568,78 @@ class BoletinIndependientePeriodoTest extends CasoDeContrato
         $this->assertSame(1, (int) $this->filaDeLaMarca($e['alumno'], $e['periodos'][2])->aplica);
     }
 
+    /**
+     * **Escribir la marca invalida lo que el servicio tenía cacheado**, y por eso la
+     * misma petición no puede seguir contestando con lo de antes.
+     *
+     * ## De dónde sale: un rojo que parecía de otra cosa
+     *
+     * `BoletinesTest` fallaba en dos de sus tres data sets **sólo dentro de la suite** —
+     * en aislamiento pasaba, y dentro fallaba en 7,9 s cuando sano tarda 43,9, o sea
+     * reventando **antes** de terminar de calcular—. La causa era que
+     * `BoletinIndependiente` memoiza `alcance(alumno, periodo)` en una estática que
+     * «vive lo que vive la petición»: cierto en producción, falso en un proceso de
+     * tests, donde `DatabaseTransactions` deshace la base **y no deshace un `static`**.
+     * Eso se cerró en `CasoDeContrato::setUp()` y es higiene de test.
+     *
+     * **Esto es la otra mitad de aquel rojo, y ésta sí es de producción.** El mismo
+     * mecanismo, dentro de UNA petición: la única ruta del sistema que **escribe** esa
+     * respuesta es la que no puede dejarla mintiendo.
+     *
+     * ## Cómo está montado, que es lo que le da valor
+     *
+     * **Se pregunta ANTES de marcar, a propósito.** Esa primera lectura no es una
+     * aserción de cortesía: es la que **mete en la caché** el «va con el grupo» que el
+     * arreglo tiene que tirar. Sin ella la memoria estaría vacía, la lectura final
+     * consultaría la base y el test pasaría con el arreglo quitado — es decir, no
+     * comprobaría nada.
+     *
+     * Y la lectura final va **sin llamar a `olvidar()` a mano**, que es justo lo que
+     * hace el resto de la suite. Aquí eso sería tapar lo que se mide.
+     *
+     * ## Dónde muerde mañana si esto se cae
+     *
+     * `PUT boletin-independiente/planilla` (§6.1) **lee el alcance en la misma petición
+     * en la que se puede haber escrito**. Sin la invalidación devolvería la planilla del
+     * alumno que era **antes** de marcarlo, en 200 y sin un error en ningún sitio.
+     */
+    public function test_marcar_invalida_lo_que_el_servicio_tenia_cacheado(): void
+    {
+        $e = $this->escenario();
+        $periodo = $e['periodos'][1];
+
+        // Envenena la caché: deja dentro «este alumno va con el grupo».
+        $this->assertNull(BoletinIndependiente::alcance($e['alumno'], $periodo),
+            'El alumno elegido ya iba por independiente: el caché no queda envenenado y el test no mide nada.');
+
+        $this->withToken($this->tokenDelPersonalDe($e['year']))
+            ->putJson(self::RUTA, ['alumno_id' => $e['alumno'], 'periodo_id' => $periodo, 'aplica' => true])
+            ->assertStatus(200);
+
+        $this->assertSame($e['alumno'], BoletinIndependiente::alcance($e['alumno'], $periodo),
+            'Después de marcar, el servicio sigue contestando lo que cacheó antes de la escritura. '
+            .'La petición que cambia la respuesta no puede contestar con la anterior.');
+    }
+
+    /** Y al revés: apagar también tiene que tirar la caché. */
+    public function test_desmarcar_tambien_invalida_la_cache(): void
+    {
+        $e = $this->escenario();
+        $periodo = $e['periodos'][2];
+        $token = $this->tokenDelPersonalDe($e['year']);
+
+        $this->withToken($token)->putJson(self::RUTA,
+            ['alumno_id' => $e['alumno'], 'periodo_id' => $periodo, 'aplica' => true])->assertStatus(200);
+
+        $this->assertSame($e['alumno'], BoletinIndependiente::alcance($e['alumno'], $periodo));
+
+        $this->withToken($token)->putJson(self::RUTA,
+            ['alumno_id' => $e['alumno'], 'periodo_id' => $periodo, 'aplica' => false])->assertStatus(200);
+
+        $this->assertNull(BoletinIndependiente::alcance($e['alumno'], $periodo),
+            'Tras apagar la marca el servicio sigue diciendo que el alumno va aparte.');
+    }
+
     /** Y queda escrito QUIÉN la tocó, que es la mitad que sirve cuando alguien reclama. */
     public function test_la_fila_guarda_quien_la_escribio(): void
     {
