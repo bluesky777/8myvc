@@ -224,6 +224,14 @@ docker exec -d -w /app/.worktrees/<x> -e DB_TEST_DATABASE=simonbolivar_testing_<
 > que esta noche ya había fallado tres veces**. Con esa explicación en el documento, el
 > siguiente se pone a buscar quién mató qué.
 >
+> **Y los mensajes de commit largos van por heredoc citado, `<<'EOF'`, nunca por `-m "..."`.**
+> Pasó **dos veces el mismo turno, a dos sesiones distintas**: la shell interpreta lo que va entre
+> acentos graves como un comando y **se come frases enteras del mensaje**, metiendo dentro la salida
+> de lo que ejecutó. Y **el commit se crea igual de verde** — no hay error, no hay aviso, y el texto
+> perdido sólo se ve releyendo el mensaje. En este repo casi todo lleva acentos graves (nombres de
+> columna, de método, de fichero), así que no es un caso raro: es el caso normal. Las comillas
+> simples del `<<'EOF'` impiden además la sustitución de `$`.
+>
 > **Y la base también, no sólo el árbol.** `docker exec … php -r '…'` **no lee la base de
 > tests**: sin el entorno de testing carga el `.env` y pega contra `simonbolivar`, la de
 > desarrollo. Se ve en el propio `EXPLAIN`, que dice `ref: simonbolivar.…`. Le pasó al lote F
