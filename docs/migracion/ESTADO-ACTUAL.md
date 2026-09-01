@@ -151,8 +151,18 @@ CONTABILIDAD DE LA FASE 1 REMEDIDA** · cinco lotes en cinco árboles y cinco ba
 >   coge un `Usuario` con `is_superuser = 0`, comprueba 403 sin el rol, lo inserta y comprueba 200
 >   con él: **misma fila, sólo cambia `role_user`**—. Y tampoco se había «rodeado sin nombrar la
 >   causa»: **la causa está escrita en su propio docblock**, *«por qué cada test se fabrica su
->   Secretario: el seed se genera desde la base»*. El error de origen fue leer un `grep -rln`
->   —que devuelve **nombres de fichero**— como si devolviera líneas.
+>   Secretario: el seed se genera desde la base»*. Y no eran «dos rodeos»: medido sobre los
+>   **240 ficheros `.php` de `tests/`**, **doce nombran el rol** y **seis o siete se lo
+>   fabrican**.
+>
+>   **El error de origen NO fue leer mal un instrumento — fue no usar ninguno, y lo precisó la
+>   propia sesión que lo cometió.** No hubo `grep` mal leído aquí *(ése fue su otro error de la
+>   noche, el de `docs/`)*: hubo una consulta a la base que estaba **bien** —once roles, sin
+>   `Secretario`— y un salto desde ahí a **una afirmación sobre la cobertura de la suite sin
+>   buscarla**, generalizando desde la única muestra que conocía por casualidad. `grep 'Secretario'
+>   tests/` son cuatro segundos y contesta la pregunta entera. **De las seis cifras malas de esta
+>   noche, es la única que no se explica por un instrumento que engaña: el fallo no fue medir mal,
+>   fue no medir y sonar igual de seguro.**
 >
 >   **Y lo que la medición buena destapa es mejor que lo que se buscaba: el arreglo no es durable.**
 >   `test-seed.sql` **lo genera `tools/generar-seed-test.php` desde una base real**, y una base real
