@@ -27,6 +27,7 @@ use App\Models\EscalaDeValoracion;
 use App\Models\Area;
 use App\Models\Debugging;
 use App\Models\Disciplina;
+use App\Services\BoletinIndependiente;
 use \Log;
 
 use Carbon\Carbon;
@@ -164,9 +165,31 @@ class Boletines3Controller extends Controller {
 		}
 
 
+		/*
+		 * EL PUESTO LO DECIDE EL SERVICIO, no este `foreach` — fase 6 del
+		 * [19](../../../../docs/migracion/19-boletin-independiente.md), §7.
+		 *
+		 * Aquí había `Nota::puestoAlumno($alumno->promedio, $alumnos)` dentro del bucle, y
+		 * ese mismo cálculo estaba **copiado en ocho sitios**. `puestoAlumno` sigue
+		 * intacta y sigue siendo pura —cuenta cuántos promedios hay por encima—: lo que
+		 * cambia es **quién entra en la lista contra la que se cuenta**, y eso lo decide
+		 * `years.puestos_con_bol_independiente`.
+		 *
+		 * Con el interruptor en 1 —el default, y lo de los quince colegios hoy— esto es
+		 * exactamente lo de antes, fila por fila. Con 0, el alumno con boletín
+		 * independiente sale del recuento: su puesto viaja `null` (decisión 6, el front
+		 * pinta `—`) y **a los demás les cambia el suyo**, porque un puesto es una
+		 * posición relativa y no una nota. Si el que sale iba primero, los treinta de
+		 * detrás suben uno, en pantalla y en el papel impreso.
+		 *
+		 * Es un informe **de un solo periodo** —el promedio sale de `allNotasAlumno` con
+		 * `$user->periodo_id`—, así que la marca que decide es la de ese periodo y no la
+		 * del año: quien fue independiente en el segundo cuenta con normalidad en el
+		 * tercero.
+		 */
+		BoletinIndependiente::ponerPuestos($alumnos, [(int) $user->periodo_id], (int) $user->year_id);
+
 		foreach ($alumnos as $alumno) {
-			
-			$alumno->puesto = Nota::puestoAlumno($alumno->promedio, $alumnos);
 			
 			if ($requested_alumnos == '') {
 

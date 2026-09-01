@@ -24,10 +24,35 @@ use App\Models\Asignatura;
 use App\Models\NotaComportamiento;
 use App\Models\DefinicionComportamiento;
 
+use App\Services\BoletinIndependiente;
+
 use \stdClass;
 
 
 
+/*
+ * EL INTERRUPTOR DE LOS PUESTOS VIAJA EN LA RESPUESTA DE LAS DOS RUTAS, y eso es una
+ * decisión del plan y no una comodidad — §7 de
+ * `docs/migracion/19-boletin-independiente.md`.
+ *
+ * Desde el front esto son **cuatro informes** —`puestos_grupo_periodo`,
+ * `puestos_grupo_year`, `puestos_todos_periodo` y `puestos_todos_year`— colgando de
+ * estas dos rutas. Si el interruptor lo preguntara cada pantalla por su cuenta, basta
+ * con que una se olvide para que **las otras tres mientan**: enseñarían una tabla de
+ * puestos sin decir que falta gente. Viajando en la respuesta hay un solo sitio donde
+ * puede estar mal.
+ *
+ * ## Y aquí el puesto lo cuenta el FRONT, que es lo que obliga a filtrar
+ *
+ * Estas dos rutas no calculan puesto: devuelven `promedio` y el filtro `puestoAlumno`
+ * de `myvc_front` cuenta **sobre el array que le llega**. O sea que sacar al
+ * independiente del recuento, aquí, es **no mandarlo** — mandarlo y esperar que el
+ * front lo descarte sería la regla escrita en dos sitios, que es de lo que salió el
+ * recalculador único de las definitivas.
+ *
+ * Por eso, y sólo con el interruptor en 0, la lista viene más corta. Con 1 —el
+ * default y lo de los quince colegios hoy— llega entera, fila por fila como antes.
+ */
 class PuestosController extends Controller {
     
     public $consulta_notas_finales_alumno4 = 'SELECT a.id as asignatura_id, m.materia, m.alias, p.cant_perdidas, r.nota_final_year
@@ -172,7 +197,30 @@ class PuestosController extends Controller {
 		$year			= Year::datos($user->year_id);
 		$alumnos		= Grupo::alumnos($grupo_id);
 
+		/*
+		 * Los periodos que ESTE informe promedia, que no son siempre los cuatro:
+		 * `periodo_a_calcular` llega del cuerpo y `definitivas_year_alumno` elige una
+		 * de sus cuatro consultas con él. Preguntar por el año entero sacaría del
+		 * recuento a quien fue independiente en un periodo que aquí no se está
+		 * promediando — y eso no le cambia el puesto a él, se lo cambia a los treinta
+		 * de detrás.
+		 */
+		$periodos_del_informe = array_map(
+			fn ($periodo) => (int) $periodo->id,
+			Periodo::hastaPeriodoN($user->year_id, $periodo_a_calcular)
+		);
+
+		$alumnos = BoletinIndependiente::losQueCuentanParaElPuesto($alumnos, $periodos_del_informe, (int) $user->year_id);
+
 		foreach ($alumnos as $keyAlum => $alumno) {
+			// «¿este alumno va aparte en alguno de los periodos que se promedian?».
+			// Con el interruptor en 0 es `false` en todas las filas **porque los que
+			// serían `true` ya no están en la lista**, y ahí lo que explica la ausencia
+			// es `puestos_con_bol_independiente`. Con 1 es el dato que distingue, en una
+			// tabla donde sí están, a quién se le calculó el promedio sobre su propio
+			// reparto.
+			$alumno->bol_independiente_periodo = BoletinIndependiente::aplicaEnAlguno((int) $alumno->alumno_id, $periodos_del_informe);
+
 			$alumno->notas_asig = $this->definitivas_year_alumno($alumno->alumno_id, $grupo_id, $user, $periodo_a_calcular);
 
             $consulta = "SELECT AVG(c.nota) as comportamiento_prom 
@@ -215,7 +263,12 @@ class PuestosController extends Controller {
 
 
 
-		return ['grupo' => $grupo, 'year' => $year, 'alumnos' => $alumnos_response];
+		return [
+			'grupo' => $grupo,
+			'year' => $year,
+			'puestos_con_bol_independiente' => BoletinIndependiente::puestosCuentanIndependientes((int) $user->year_id),
+			'alumnos' => $alumnos_response,
+		];
 
 
 	}
@@ -266,8 +319,18 @@ class PuestosController extends Controller {
 		$year			= Year::datos($user->year_id);
 		$alumnos		= Grupo::alumnos($grupo_id);
 
+		// Un solo periodo, el del token: `consulta_notas_finales_periodo` filtra por
+		// `p.numero=:num_periodo`. Aquí la marca que decide es la de ese periodo y no
+		// la del año — quien fue independiente en el segundo cuenta con normalidad en
+		// el tercero, que es la decisión 7.
+		$periodos_del_informe = [(int) $user->periodo_id];
+
+		$alumnos = BoletinIndependiente::losQueCuentanParaElPuesto($alumnos, $periodos_del_informe, (int) $user->year_id);
+
 		foreach ($alumnos as $keyAlum => $alumno) {
-            
+
+			$alumno->bol_independiente_periodo = BoletinIndependiente::aplicaEnAlguno((int) $alumno->alumno_id, $periodos_del_informe);
+
             $consulta   = $this->consulta_notas_finales_periodo;
             
 			$alumno->asignaturas = DB::select($consulta, [ ':gr_id' => $grupo_id, ':alu_id' => $alumno->alumno_id, ':num_periodo' => $user->numero_periodo, ':year_id' => $user->year_id, ':min' => $user->nota_minima_aceptada, ':alu_id2' => $alumno->alumno_id, ':num_periodo2' => $user->numero_periodo, ':year_id2' => $user->year_id ]);
@@ -301,6 +364,11 @@ class PuestosController extends Controller {
 			array_push($alumnos_response, $alumno);
 		}
 
-		return ['grupo' => $grupo, 'year' => $year, 'alumnos' => $alumnos_response];
+		return [
+			'grupo' => $grupo,
+			'year' => $year,
+			'puestos_con_bol_independiente' => BoletinIndependiente::puestosCuentanIndependientes((int) $user->year_id),
+			'alumnos' => $alumnos_response,
+		];
 	}
 }
