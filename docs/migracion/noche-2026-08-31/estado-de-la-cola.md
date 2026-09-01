@@ -92,6 +92,44 @@ ficheros y su mensaje en sustancia.
    porque *los firmantes se confirman cada año a propósito* y un acta firmada por
    quien ya no está es peor que un acta sin firmantes (Joseth, 31 ago 2026).
 
+## 3 bis. ⚠️ `main` ESTÁ EN ROJO A PROPÓSITO: 3 fallos, y son un centinela haciendo su trabajo
+
+Suite de `main` tras fundir el lote C y el seed del lote A:
+**`Tests: 3 failed, 1614 passed (12231 assertions)`, `exit=1`.** Los tres salen del
+**seed**, no del código:
+
+```
+⨯ LoQueDecideUnRolTest › el rol secretario no existe y por eso administrativo es superusuario
+⨯ MuestreoDeLecturasTest › la lectura conserva su forma with data set "api/roles"
+⨯ MuestreoDeLecturasTest › la lectura conserva su forma with data set "api/roles/rolesconpermisos"
+```
+
+**El primero no es un test que se haya roto: es un aviso que alguien dejó armado**, y su
+propio docblock lo dice — *«Si alguien crea ese rol, este test se pone rojo. **Eso es lo
+que hace**: no impedirlo, avisar de que en ese momento cambia quién puede qué.»* Y el
+mensaje de su aserción nombra la consecuencia: **`Autoriza::esAdministrativo()` deja de
+ser `is_superuser` a secas, y con él cambian las escrituras de alumnos, las de acudientes
+y los tres `forcedelete`.**
+
+Los otros dos son las instantáneas de la lista de roles, que gana una fila.
+
+**Está sin resolver y esperando a Joseth, porque es exactamente la decisión que ese
+centinela existe para forzar.** Lo que hay que tener delante al decidir:
+
+- El cambio es **sólo de la base de tests**; en producción cada colegio tiene el rol o no
+  según su migración, y `esAdministrativo()` no se ha tocado.
+- O sea que lo que hace el seed nuevo es **acercar la base de tests a un colegio migrado**
+  (doce roles) en vez de dejarla en once.
+- Pero el rol **sin nadie asignado** no cambia ninguna respuesta por sí solo: lo que cambia
+  es que la rama deja de ser inalcanzable.
+- Y la premisa con la que se encargó este arreglo **era falsa** (§ ESTADO-ACTUAL): la rama
+  ya la ejercitaban seis o siete ficheros de test fabricándose el rol.
+
+**Las dos salidas, y ninguna es «regenerar y seguir»:** o el centinela se reescribe contra
+la realidad nueva —y entonces hay que decir qué comprueba ahora, porque su valor era
+avisar de este momento— o **se revierte el merge del seed** (`cc1af2f`), que devuelve
+`main` a verde y deja el arreglo en su rama.
+
 ## 4. Los dos rojos del lote D, sin resolver
 
 `BoletinesTest::la forma del boletin de un alumno`, con `boletines` y
