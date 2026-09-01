@@ -272,3 +272,40 @@ pedían**, que es lo que estas dos noches han enseñado a mirar:
 
 Ninguna de las dos era un error que costara nada; las dos habrían hecho dar por
 comprobado algo que no lo estaba.
+
+## 7. El control nuevo NO depende del árbol — medido, no razonado
+
+La pregunta la hizo la coordinación antes de fundir, y es la correcta: el caso de
+`consultas-en-bucle.py` falla en los cinco worktrees **porque mira el árbol**
+(llama a `git show` y el `.git` de un worktree apunta al host). Si el control
+nuevo tuviera cualquier dependencia parecida, entraría a `main` un rojo nuevo.
+
+**No la tiene, y no es una opinión sobre el código:**
+
+| Desde dónde | `exit` |
+|---|---|
+| `/tmp`, sin ningún `./app` delante | **0** |
+| la raíz `/app` dentro del contenedor | **0** |
+| el worktree `.worktrees/g` | **0** |
+
+Y las tres salidas tienen **el mismo `md5`** (`8a02c6ca…`), que es lo que
+descarta que coincida el código de salida por otro camino.
+
+El porqué está en la forma del control: **sus entradas son las constantes
+`CASOS_DE_CONTROL` y `CASOS_DE_DESNUDAS`, trece cadenas literales**. No abre
+ficheros, no llama a `git`, no mira el `cwd` y no toca la base — y la rama del
+`--control` está **antes** del `os.path.isdir(RAIZ)` de `main()`, así que ni
+siquiera exige que exista `app/`.
+
+> **Es la otra mitad de la decisión de anclar formas y no un número del árbol.**
+> Un control anclado en «43 pendientes» no sólo envejece cada noche: además
+> **hereda todas las maneras que tiene un árbol de estar en otro estado** — el
+> worktree, el clon superficial del CI, el `cwd` de una shell. Las tres ya se han
+> pagado en este repo, y las tres con la misma respuesta: *mira desde qué árbol
+> corre*. Éste no tiene desde dónde correr.
+
+> **Y un aviso de método, que es lo que costó comprobarlo:** las dos primeras
+> medidas salieron con el `exit=` **vacío**, porque en zsh `PIPESTATUS` empieza
+> en 1 y `${PIPESTATUS[0]}` no es nada. Es la §1.8 en su forma exacta —un `exit`
+> que no es el del programa— y se cayó sola en la comprobación de que no hace
+> falta que se caiga en una suite: **sin tubería no hay nada que confundir**.
