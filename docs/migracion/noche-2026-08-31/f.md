@@ -159,3 +159,44 @@ carga el `.env` y pega contra `simonbolivar`, la de desarrollo. Se ve en el prop
 `bol_ind_periodos` que parecían una fuga de la suite —tests que escriben fuera de su
 transacción— resultaron ser datos de desarrollo de otro lote probando su endpoint a
 mano. **El árbol es parte del instrumento (§1.8), y la base también.**
+
+## 3. El mismo campo en `Informes/ActasEvaluacionController`
+
+En `putActaEvaluacionPromocion`, sobre cada matrícula (`grupos[].alumnos[]`), con la
+misma forma y el mismo método del servicio.
+
+**Aquí es el campo que corresponde, no el que cabe:** el acta es de **todo el año**, así
+que decir «va aparte» sin decir en cuál de los cuatro periodos no contesta nada — el
+mismo argumento por el que este campo no se aplanó a un booleano en
+`definitivas_periodos`.
+
+Y **una** consulta para el acta entera, en la línea del resto del método: las matrículas
+del año ya vienen de una sola —antes eran 151 para 30 grupos, y su docblock lo
+presume—, así que preguntar por `(grupo, periodo)` habría devuelto justo esas ~120.
+
+### El acta NO lleva `asignatura.bol_independiente`, y ahora hay un centinela
+
+Decisión tomada (cazada por el front el 1 sep 2026, punto 6 de la cola): su respuesta
+son grupos con matrículas, resumen, promoción y periodos, y **no tiene ni una
+asignatura por alumno**. Emitirlo ahí **no pintaría nada y no daría ningún error**: una
+rama muerta invisible.
+
+Por eso `test_el_acta_no_lleva_el_rotulo_de_asignatura` **busca el campo en el cuerpo
+entero** y falla si aparece. Es la única forma de que un intento futuro se note: un
+campo que no pinta y no rompe no lo ve nadie. Comprobado en rojo emitiéndolo a mano.
+
+### Instantánea
+
+`actas-evaluacion-promocion.json`: **una línea añadida, cero quitadas**,
+`"bol_independiente_aparte_en": []`. `actas-evaluacion-detalle.json` **no se movió** —
+`putDetalle` no lleva el campo y es a propósito: su lista de matrículas abarca **todos
+los años del alumno**, así que una lista de `numero` de un año no tendría a qué
+referirse. Se le dijo a la coordinación.
+
+### El rojo (§1.4)
+
+| Forma mala | Resultado |
+|---|---|
+| el campo no se emite | rojo — `array has the key 460` |
+| lista siempre vacía | rojo — `two arrays are identical` |
+| `asignatura.bol_independiente` emitido de más | rojo en el centinela |

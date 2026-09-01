@@ -448,4 +448,91 @@ class BolIndependienteEnLosInformesTest extends CasoDeContrato
             'El compañero sin marcar trae periodos: el campo es constante y no dice nada. Y `[]` '
             .'y no `null` a propósito — una lista vacía se recorre igual que una llena.');
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // actas-evaluacion: `alumno.bol_independiente_aparte_en`
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * El acta es de **todo el año**, así que dice en cuáles de los cuatro periodos.
+     *
+     * Decir «va aparte» sin decir en cuál no contesta nada — el mismo argumento por el
+     * que este campo no se aplanó a un booleano en `definitivas_periodos`.
+     *
+     * **El acta NO lleva `asignatura.bol_independiente`** y este test no lo busca: su
+     * respuesta son grupos con matrículas, resumen, promoción y periodos, sin una sola
+     * asignatura por alumno. Emitirlo ahí no pintaría nada y no daría ningún error.
+     * Decisión tomada por el front el 1 sep 2026.
+     */
+    public function test_el_acta_dice_en_que_periodos_del_anio_va_aparte(): void
+    {
+        [$grupo, $token] = $this->grupoYPersonal();
+
+        $periodos = $this->periodosPorNumero((int) $grupo->year_id);
+
+        $this->assertGreaterThanOrEqual(3, count($periodos),
+            'El año tiene menos de tres periodos: no se puede marcar «el 2 y el 3» y el test '
+            .'dejaría de distinguir una lista de un booleano.');
+
+        $alumnos = DB::select('SELECT m.alumno_id FROM matriculas m
+             WHERE m.grupo_id = ? AND m.deleted_at IS NULL ORDER BY m.alumno_id LIMIT 2',
+            [$grupo->id]);
+
+        $this->assertCount(2, $alumnos, 'Hacen falta dos alumnos en el grupo del acta.');
+
+        $numeros = array_keys($periodos);
+        $marcados = [$numeros[1], $numeros[2]];
+        $a = (int) $alumnos[0]->alumno_id;
+        $b = (int) $alumnos[1]->alumno_id;
+
+        foreach ($marcados as $numero) {
+            $this->marcarIndependiente($a, $periodos[$numero]);
+        }
+
+        $this->marcarIndependiente($a, $periodos[$numeros[0]], aplica: false);
+
+        $r = $this->putJson('/api/actas-evaluacion/acta-evaluacion-promocion', [],
+            ['Authorization' => 'Bearer '.$token]);
+
+        $r->assertStatus(200);
+
+        $visto = $this->aparteEnPorAlumno($r->json('grupos'));
+
+        $this->assertArrayHasKey($a, $visto,
+            'El alumno marcado no está en el acta con el campo: o no viaja, o el acta no lo lista.');
+
+        $this->assertSame($marcados, $visto[$a],
+            'El acta no dice en cuáles de los cuatro periodos va aparte. Es de todo el año: sin '
+            .'el periodo, «va aparte» no contesta nada.');
+
+        $this->assertArrayHasKey($b, $visto, 'El compañero sin marcar no está en el acta.');
+
+        $this->assertSame([], $visto[$b],
+            'El compañero sin marcar trae periodos: el campo es constante y no dice nada.');
+    }
+
+    /**
+     * **Y el acta sigue SIN `asignatura.bol_independiente`**, que es la decisión que el
+     * front corrigió el 1 sep 2026 y que este test fija para que no vuelva.
+     *
+     * No tiene dónde colgarlo —no hay ni una asignatura por alumno en su respuesta—, y
+     * eso significa que si alguien lo emitiera **no pintaría nada y no daría ningún
+     * error**: una rama muerta que nadie vería. Un test que lo busque es la única forma
+     * de que ese intento se note.
+     */
+    public function test_el_acta_no_lleva_el_rotulo_de_asignatura(): void
+    {
+        [, $token] = $this->grupoYPersonal();
+
+        $r = $this->putJson('/api/actas-evaluacion/acta-evaluacion-promocion', [],
+            ['Authorization' => 'Bearer '.$token]);
+
+        $r->assertStatus(200);
+
+        $this->assertStringNotContainsString('"bol_independiente"', $r->getContent(),
+            'El acta emitió `asignatura.bol_independiente`. No tiene dónde colgarlo —su respuesta '
+            .'no lleva ni una asignatura por alumno—, así que no pintaría nada y tampoco daría un '
+            .'error: una rama muerta. El campo que sí contesta algo aquí es '
+            .'`bol_independiente_aparte_en`.');
+    }
 }
