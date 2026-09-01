@@ -94,6 +94,32 @@ def literales(texto):
     por línea, que es lo primero que se prueba, parte el `FROM` de su `where` y
     entonces toda consulta con el alcance en otra línea sale «sin alcance».
     Por eso la unidad de medida es la cadena y no la línea.
+
+    ## Y las cadenas CONCATENADAS se funden en una, desde el 31 ago 2026
+
+    Lo levantó el lote A de la noche del boletín independiente, y era un fallo de
+    los caros: **el detector no veía su propio arreglo**. La forma que manda el plan
+    para acotar se escribe concatenando una constante,
+
+        ."\n where a.deleted_at is null and u.alumno_id <=> ".BoletinIndependiente::ALCANCE."
+
+    y eso parte la consulta en **tres** cadenas. El `from unidades u` cae en la
+    primera y el `<=>` en la segunda, así que la primera contestaba «sin alcance»
+    **para siempre**, por bien hecho que estuviera. Las cuatro lecturas de
+    `NotasPerdidasController` llevaban acotadas desde `58b5714` y este fichero
+    seguía contándolas como pendientes; el reparto de la noche las mandó arreglar
+    otra vez.
+
+    **Es la regla del CLAUDE.md en su forma más cara**: el primer sitio donde mirar
+    cuando el número sale raro es el detector — y aquí el número no salía raro, salía
+    *plausible*, que es peor. Un criterio de aceptación medido con esto («0 sin
+    alcance») era **inalcanzable por construcción** en cuanto alguien acotara algo.
+
+    Se funden dos cadenas contiguas cuando lo único que hay entre ellas es una
+    concatenación (`.` … `.`). Se unen con un espacio y no pegadas, para no crear
+    tokens que no existen. Es deliberadamente conservador: `foo('x')` en medio **no**
+    funde, porque el hueco no acaba en `.` — y quedarse corto sólo devuelve el
+    comportamiento viejo, mientras que pasarse inventaría alcances que no están.
     """
     fuera = []
     i, n = 0, len(texto)
@@ -123,7 +149,36 @@ def literales(texto):
                 i += 1
         else:
             i += 1
-    return fuera
+
+    return _funde_concatenadas(texto, fuera)
+
+
+def _funde_concatenadas(texto, trozos):
+    """Une las cadenas que el PHP concatena, para medir sobre la sentencia.
+
+    Ver la cabecera de `literales()`: sin esto, el alcance escrito como
+    `'… <=> '.Servicio::ALCANCE.' …'` cae en una cadena distinta de la que lleva el
+    `from unidades u`, y la consulta sale «sin alcance» estando bien.
+    """
+    if not trozos:
+        return trozos
+
+    unidos = [list(trozos[0])]
+
+    for ini, fin, sql in trozos[1:]:
+        hueco = texto[unidos[-1][1] + 1:ini].strip()
+
+        # Sólo une si entre las dos cadenas no hay más que una concatenación. El `;`
+        # se descarta aparte porque separa dos sentencias y unirlas mezclaría el
+        # `from` de una con el `where` de la otra — exactamente el fallo que la
+        # cabecera dice que se evita no midiendo por líneas.
+        if hueco.startswith('.') and hueco.endswith('.') and ';' not in hueco:
+            unidos[-1][1] = fin
+            unidos[-1][2] = unidos[-1][2] + ' ' + sql
+        else:
+            unidos.append([ini, fin, sql])
+
+    return [tuple(t) for t in unidos]
 
 
 def metodos(texto):
