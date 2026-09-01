@@ -142,8 +142,8 @@ servicio. Me lo pides.
 
 ```
 app/Http/Controllers/Informes/NotasPerdidasController.php   :54  :65  :271  :287
-app/Http/Controllers/BolfinalesController.php               :474 :536
-app/Http/Controllers/Informes/BolfinalesController.php      :717 :765
+app/Http/Controllers/BolfinalesController.php               :474 :536   + puesto :136
+app/Http/Controllers/Informes/BolfinalesController.php      :717 :765   + puesto :433
 ```
 
 **Ocho sitios.** Todos contestan la misma pregunta —*qué asignaturas pierde un
@@ -173,7 +173,20 @@ son del lote E. **No toques los suyos.**
 app/Http/Controllers/NotasController.php        :73  :156   (putDetailed)
 app/Http/Controllers/UnidadesController.php     :26  :64  :359  :398
 app/Http/Controllers/SubunidadesController.php  :362
+app/Models/Nota.php                             (verificarCrearNotas)   <- reasignado
 ```
+
+> **`app/Models/Nota.php` pasa del lote E al B el 31 ago 2026, y lo levantó el propio
+> lote B.** Estaba mal repartido: la fase 3 necesita `Nota::verificarCrearNotas` —que
+> vive ahí— y no se puede hacer desde el llamador, porque el método recibe un
+> `grupo_id` y resuelve la lista **dentro** con `Grupo::alumnos()`. **Se decide donde
+> está el bucle.**
+>
+> **Y E no lo necesita, medido y no supuesto:** `puestoAlumno($promedio, $alumnos)` es
+> una **función pura** —cuenta cuántos de `$alumnos` tienen el promedio por encima— así
+> que sacar al independiente del recuento se hace **eligiendo `$alumnos` en los ocho
+> llamadores**, que es donde el plan quería la decisión (§7: «el interruptor se lee en
+> el servicio y los ocho preguntan»). `Nota.php` no se toca por la fase 6.
 
 **Siete sitios, y además la FASE 3 entera**, que es tuya porque cae en tu fichero:
 
@@ -331,13 +344,21 @@ escondidas esperando exactamente estos campos.
 ```
 database/migrations/2026_08_31_2000xx_puestos_con_bol_independiente.php  (nuevo)
 app/Services/BoletinIndependiente.php
-app/Models/Nota.php
-app/Http/Controllers/BoletinesController.php   Boletines2Controller.php   Boletines3Controller.php
-app/Http/Controllers/Informes/CertificadosPersonaController.php
-app/Http/Controllers/EditnotaController.php
-app/Http/Controllers/PromovidosController.php
+app/Http/Controllers/Informes/BoletinesController.php    :235
+app/Http/Controllers/Informes/Boletines2Controller.php   :164
+app/Http/Controllers/Informes/Boletines3Controller.php   :169
+app/Http/Controllers/Informes/CertificadosPersonaController.php  :191
+app/Http/Controllers/EditnotaController.php              :215
+app/Http/Controllers/PromovidosController.php            :136
 app/Http/Controllers/PuestosController.php
 ```
+
+> **Rutas corregidas el 31 ago 2026**: los tres `Boletines*` y `CertificadosPersona`
+> viven bajo `Informes/`, no en la raíz — el reparto los nombraba sin el prefijo.
+>
+> **Y `app/Models/Nota.php` YA NO ES TUYO**: pasó al lote B, que lo necesita para la
+> fase 3. No te hace falta: `puestoAlumno($promedio, $alumnos)` es una función pura y
+> el filtrado va en los ocho llamadores, que es donde el plan lo quiere.
 
 **Los dos `Bolfinales` NO son tuyos: son del lote A.** Son ocho sitios que copian
 `Nota::puestoAlumno`; tú llevas seis y el lote A los otros dos.
