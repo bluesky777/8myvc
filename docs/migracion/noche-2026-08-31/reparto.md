@@ -138,6 +138,20 @@ cero filas y todas las definitivas del colegio se van a 0 sin un solo error en e
 > caso más incómodo —una fila que el instrumento marca en rojo y está bien—. Si te sale un
 > `EXISTS` de esta familia, **escribe el porqué al lado**; sin él, el siguiente que pase lo
 > convierte en `<=>` y el campo se muere en silencio.
+>
+> **Y ya son DOS sitios, así que deja de ser una excepción y pasa a ser la regla partida en
+> dos** (formulación del lote D, 1 sep 2026):
+>
+> | Pregunta | Forma |
+> |---|---|
+> | **«¿qué unidades le TOCAN a este alumno?»** | `<=>` — el null-safe resuelve las dos ramas |
+> | **«¿cuáles son SUYAS?»** | `=` — es una lectura que **afirma propiedad** |
+>
+> Los dos sitios donde toca `=` afirman propiedad: el `EXISTS` de `tiene_datos`, y **las
+> unidades de `PUT boletin-independiente/planilla`**, que es la única pantalla que existe
+> **para ver lo que se está ignorando**. Ahí `<=>` haría que un `aplica: false` saliera con
+> la estructura del curso **pintada como suya**, y el docente creería que su boletín aparte
+> se llenó solo.
 
 **Y el alcance va al `WHERE` cuando la tabla que da el alumno se une DESPUÉS de
 `unidades`** — una condición `ON` no puede nombrar una tabla que aún no está en el
@@ -191,6 +205,25 @@ docker exec -d -w /app/.worktrees/<x> -e DB_TEST_DATABASE=simonbolivar_testing_<
   8myvc-app-1 sh -c 'php artisan test > /tmp/suite-<x>.txt 2>&1; echo "exit=$?" >> /tmp/suite-<x>.txt'
 ```
 
+> **Y su reverso, que se ve igual de verde y es otra cosa: el contenedor se reinició.** Un
+> zombi hace que **los rojos cambien de sitio**; un reinicio hace que **no haya rojos porque
+> no hubo corrida**, y el fichero se queda contando media suite en verde. La firma son **dos
+> o más suites muertas a la vez, ninguna con `exit=`, y cero phpunit vivos**. Se contesta en
+> cuatro segundos y no hay que buscar quién mató qué:
+>
+> ```bash
+> docker ps --format '{{.Names}}\t{{.Status}}'   # ¿«Up N minutes» con el repo de hace horas?
+> docker exec 8myvc-app-1 ps -o etimes= -p 1     # PID 1 joven = el contenedor reinició
+> ```
+>
+> Pasó el 1 sep 2026 y **se llevó dos suites en el mismo instante** —una en la 88 de 228 y
+> otra en la 150—. El contenedor de MySQL es **otro** y no se reinició, así que **las bases
+> sobreviven y no hay que reconstruir nada**. Lo levantó el lote D midiendo el `etimes` del
+> PID 1 después de que la coordinación escribiera *«probablemente cuando se limpiaron
+> procesos»* — **una causa plausible sin medir puesta sobre un hecho real, que es la forma
+> que esta noche ya había fallado tres veces**. Con esa explicación en el documento, el
+> siguiente se pone a buscar quién mató qué.
+>
 > **Y el árbol es parte del instrumento.** Dos sesiones distintas trabajaron esta noche en
 > el árbol equivocado sin notarlo: una porque el `cwd` de su shell **persiste entre
 > comandos** después de un `cd`, otra porque acabó editando en la raíz. Se caza por el
