@@ -817,3 +817,77 @@ cumple por enunciarla.
 
     antes:  7 passed
     después: 9 passed (18 assertions), exit=0, cero saltados
+
+## 15. Los dos controles de la clase (A)
+
+Los dos que **gobiernan una decisión pendiente**, que es donde el coste de que la
+cifra se mueva en silencio es más alto. **No los cuatro que propuse**: la §13.6 —
+*un control fija la conducta conocida, no descubre cegueras nuevas*— es también
+el argumento para no escribir los otros dos, y lo compartí en cuanto la
+coordinación lo formuló así.
+
+### `salud-de-las-definitivas.php`
+
+Su lógica está en SQL, así que un control no puede comprobarla sin fabricar filas
+—y esta herramienta es **sólo `SELECT` a propósito**—. Lo que sí se puede
+ejercer, y es justo donde ya falló, es **lo que decide en PHP**:
+
+- `clasificarDuplicados()` — el reparto en `auto+auto` / `auto+manual` /
+  `manual+manual`. No es descriptivo: **`manual+manual` es el único que necesita
+  el desempate por `id`**, así que ese reparto es la lista de casos que alguien
+  decide a mano. Anclado el caso que un `>= 1` inflaría: *tres filas con UNA
+  manual sigue siendo `auto+manual`*.
+- `veredictoDelIndiceUnico()` — **la corrección del 24 ago 2026 metida en una
+  función.** Aquel día la herramienta daba UN número donde hacen falta dos, y
+  mezclados podía decir *«se puede poner el índice sin limpiar nada»* mientras el
+  `ALTER TABLE` fallaba igual. El caso anclado es exactamente ése: **cero en el
+  alcance mirado y tres en la tabla → HAY QUE LIMPIAR.** Si algún día vuelve a
+  contestar «se puede», la corrección se deshizo.
+- Y una tercera salida que antes no existía: **`incoherente`**. El alcance es un
+  subconjunto de la tabla, así que `tabla < alcance` es imposible; si sale, las
+  dos consultas dejaron de medir lo mismo y **ninguno de los dos números vale** —
+  que es distinto de «hay pocos duplicados».
+
+**La nota del informe sale ahora de esa función y no está escrita al lado**, para
+que el control ejerza **esa** frase y no una copia. Una nota duplicada a mano es
+cómo el arreglo del 24 ago se deshace sin que nadie lo note: el control seguiría
+verde sobre una función que ya no se usa.
+
+### `salud-de-la-bitacora.php`
+
+`repartirPorReloj()`, y lo que ancla es el `else`: **lo que no está en ninguna
+lista se cuenta APARTE**, no en el saco bueno. La propia cabecera de la constante
+lo dice —*callarlo sería contar de menos justo en la dirección que tranquiliza*—
+y ahora hay algo que lo comprueba.
+
+Más dos cosas que **ninguna corrida enseña**:
+
+- **que las dos listas no se solapen** — un tipo en las dos se contaría en UTC por
+  el orden del `if`, en silencio, y las dos listas parecerían correctas por
+  separado;
+- **que ninguna esté vacía** — una lista vacía repartiría todo a «sin clasificar»
+  sin que nada fallara.
+
+> La segunda dio tres errores de larastan (`alreadyNarrowedType`): de un literal
+> deduce el array exacto y da la comparación por siempre-cierta. **Tiene razón
+> hoy** — y por eso mismo va por una función con el parámetro `array` a secas, que
+> es el mismo apaño que `noConcluyentes()` en el runner: dar por bueno el
+> estrechamiento convertiría *«hoy no está vacía»* en *«no puede estarlo»*, que es
+> lo que el caso existe para no suponer.
+
+### Comprobado
+
+| | |
+|---|---|
+| Los dos controles | verdes (**9** y **7** formas, 0 fallan) |
+| **En rojo contra la conducta vieja** | definitivas: cae **sólo** el caso del 24 ago. Bitácora: caen los dos del desconocido al saco bueno |
+| **La salida de las herramientas** | **idéntica**, comparada carácter a carácter contra la de `HEAD` — en la bitácora sólo cambia la hora que ella misma imprime |
+| Runner | **11 passed**, exit=0 |
+
+> **Y un error mío que dejo escrito porque es de la misma familia:** al comparar
+> las salidas hice `git checkout` sobre el fichero que estaba editando **y perdí
+> el control entero**. Lo rehice. La comparación era correcta y el resultado
+> también; lo que falló fue guardar antes de restaurar. La forma que no lo tiene
+> es copiar a `/tmp` primero —que es lo que hice en la segunda vuelta—, y es la
+> misma lección que el árbol y la shell: **el instrumento con el que compruebas
+> también te puede borrar lo que compruebas.**

@@ -132,6 +132,15 @@ class AutopruebasDeLasHerramientasTest extends TestCase
             // la regla que enuncia.
             'alcance-en-los-traspasos.py' => ['python3', 'tools/alcance-en-los-traspasos.py --control'],
             'tablas-calientes.php' => ['php', 'tools/tablas-calientes.php --autoprueba'],
+            // Las dos «salud-de-*» entraron el 1 sep 2026 por lo que decide su cifra, no
+            // por cuánto se citan: son las dos herramientas cuyo número gobierna una
+            // decisión PENDIENTE. La de las definitivas dice si la fase 2 lleva corrección
+            // de datos —y esa fase pone un índice único, así que cada duplicado que no
+            // cuente es un `ALTER TABLE` que falla, en un colegio a mitad del bucle de
+            // quince—; la de la bitácora dice si se puede reinterpretar la historia vieja.
+            // Las dos se equivocarían EN SILENCIO y las dos hacia el lado que tranquiliza.
+            'salud-de-las-definitivas.php' => ['php', 'tools/salud-de-las-definitivas.php --control'],
+            'salud-de-la-bitacora.php' => ['php', 'tools/salud-de-la-bitacora.php --control'],
             // Era la única que declaraba un control positivo EN PROSA y no tenía nada
             // que lo ejecutara. CONTROLES-1 se lo puso, y al ejecutarlo salió rojo por
             // un motivo que no estaba en la lista de la ficha: **el fallo que citaba se

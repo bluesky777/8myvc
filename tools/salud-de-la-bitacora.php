@@ -134,6 +134,151 @@ const ESCRITOS_EN_BOGOTA = [
     'intento_login' => 'Services/Login.php:126',
 ];
 
+/**
+ * Reparte las filas entre los dos relojes, y deja aparte lo que no conoce.
+ *
+ * **Está fuera del flujo para poder ejercerla sin base**, porque es la decisión de
+ * esta herramienta que puede equivocarse en silencio: de este reparto sale si se
+ * puede reinterpretar la historia vieja de `bitacoras`, y un tipo nuevo metido en
+ * el saco bueno **no rompe nada** — sólo mueve el número en la dirección que
+ * tranquiliza.
+ *
+ * El `else` no reparte a ojo: **lo que no está en ninguna lista se cuenta aparte**
+ * y se dice. Ésa es la mitad que hace utilizable el número, y la que un `?:` con
+ * un valor por defecto se habría comido.
+ *
+ * @param  list<object|array{tipo: string, filas: int|string}>  $tipos
+ * @return array{utc: int, bogota: int, sin_clasificar: int}
+ */
+function repartirPorReloj(array $tipos): array
+{
+    $r = ['utc' => 0, 'bogota' => 0, 'sin_clasificar' => 0];
+
+    foreach ($tipos as $t) {
+        $t = (array) $t;
+        $filas = (int) $t['filas'];
+
+        if (isset(ESCRITOS_EN_UTC[$t['tipo']])) {
+            $r['utc'] += $filas;
+        } elseif (isset(ESCRITOS_EN_BOGOTA[$t['tipo']])) {
+            $r['bogota'] += $filas;
+        } else {
+            $r['sin_clasificar'] += $filas;
+        }
+    }
+
+    return $r;
+}
+
+/**
+ * El control positivo, **sin base y sin árbol**.
+ *
+ * Lo corre `tests/Unit/AutopruebasDeLasHerramientasTest`. Ancla el reparto y —lo
+ * que ninguna corrida enseña— **que las dos listas no se solapen**: un tipo en las
+ * dos se contaría en UTC por el orden del `if`, en silencio y con las dos listas
+ * pareciendo correctas por separado.
+ *
+ * Lo que este control NO promete, y hay que decirlo: **fija la conducta conocida,
+ * no descubre cegueras nuevas.** Si mañana un INSERT nuevo escribe un tipo que ya
+ * está en una lista pero con el otro reloj, esto sigue verde — eso lo caza
+ * `CentinelaDeLosEscritoresDeBitacoraTest`, que cuenta los escritores, y sólo si
+ * el fichero es nuevo. Las dos piezas juntas no cubren el caso de un fichero que
+ * ya escribe y le cambian el reloj a una línea.
+ */
+function controlDeLaBitacora(): int
+{
+    $fallos = [];
+
+    // 1. El reparto, con un tipo de cada clase y uno que no conoce nadie.
+    $casos = [
+        ['un tipo de la lista de UTC cuenta en UTC',
+            [['tipo' => 'AlumnoVerBoletin', 'filas' => 7]], ['utc' => 7, 'bogota' => 0, 'sin_clasificar' => 0]],
+        ['un tipo de la lista de Bogotá cuenta en Bogotá',
+            [['tipo' => 'intento_login', 'filas' => 5]], ['utc' => 0, 'bogota' => 5, 'sin_clasificar' => 0]],
+        // El que importa: un escritor nuevo NO puede caer en ninguno de los dos
+        // sacos buenos. Callarlo sería contar de menos en la dirección que
+        // tranquiliza, que es la frase que la propia cabecera de la lista usa.
+        ['un tipo que NO conoce ninguna lista se cuenta APARTE, no en el saco bueno',
+            [['tipo' => 'TipoQueNadieHaVistoNunca', 'filas' => 3]], ['utc' => 0, 'bogota' => 0, 'sin_clasificar' => 3]],
+        ['los tres a la vez, y ninguna fila se pierde por el camino',
+            [['tipo' => 'AlumnoVerBoletin', 'filas' => 7],
+                ['tipo' => 'intento_login', 'filas' => 5],
+                ['tipo' => 'TipoQueNadieHaVistoNunca', 'filas' => 3]],
+            ['utc' => 7, 'bogota' => 5, 'sin_clasificar' => 3]],
+    ];
+
+    foreach ($casos as [$que, $entrada, $esperado]) {
+        $salio = repartirPorReloj($entrada);
+        $ok = $salio === $esperado;
+        echo '  '.($ok ? 'ok  ' : 'FALLA')."  {$que}\n";
+        if (! $ok) {
+            $fallos[] = '    esperaba '.json_encode($esperado).' y salió '.json_encode($salio);
+        }
+
+        // La invariante que ninguna corrida enseña: el reparto no pierde filas.
+        $suma = array_sum($salio);
+        $total = array_sum(array_map(static fn ($f) => (int) $f['filas'], $entrada));
+        if ($suma !== $total) {
+            $fallos[] = "    el reparto pierde filas: entraron {$total} y se repartieron {$suma}";
+            echo "  FALLA  ^ y además pierde filas: {$total} -> {$suma}\n";
+        }
+    }
+
+    // 2. Que las dos listas no se solapen. Un tipo en las dos se contaría en UTC
+    //    por el orden del `if`, y las dos listas parecerían correctas por separado.
+    $solape = array_values(array_intersect(array_keys(ESCRITOS_EN_UTC), array_keys(ESCRITOS_EN_BOGOTA)));
+    $ok = count($solape) === 0;
+    echo '  '.($ok ? 'ok  ' : 'FALLA')."  las dos listas de relojes no se solapan\n";
+    if (! $ok) {
+        $fallos[] = '    en las dos listas a la vez: '.implode(', ', $solape)
+            .' — se cuentan en UTC por el orden del `if`, y en silencio.';
+    }
+
+    // 3. Y que ninguna esté vacía: una lista vacía repartiría todo a
+    //    «sin clasificar» sin que nada fallara, y el bloque 3 diría 0 y 0.
+    //
+    //    Va por una función con el parámetro `array` a secas, y no comparando la
+    //    constante en línea, **por el análisis**: de un literal larastan deduce el
+    //    array exacto y da la comparación por siempre-cierta —tres errores de
+    //    `staticMethod.alreadyNarrowedType`—. Tiene razón hoy, pero eso convierte
+    //    «hoy no está vacía» en «no puede estarlo», que es justo lo que este caso
+    //    existe para no dar por hecho. Es el mismo apaño, y por el mismo motivo,
+    //    que el `noConcluyentes()` de `AutopruebasDeLasHerramientasTest`.
+    $tieneEntradas = static fn (array $lista): bool => count($lista) > 0;
+
+    foreach (['ESCRITOS_EN_UTC' => ESCRITOS_EN_UTC, 'ESCRITOS_EN_BOGOTA' => ESCRITOS_EN_BOGOTA] as $n => $l) {
+        $ok = $tieneEntradas($l);
+        echo '  '.($ok ? 'ok  ' : 'FALLA')."  {$n} no está vacía (".count($l)." entradas)\n";
+        if (! $ok) {
+            $fallos[] = "    {$n} está vacía: el bloque 3 diría 0 en UTC y 0 en Bogotá sin fallar.";
+        }
+    }
+
+    echo 'Población del control: '.(count($casos) + 3)." formas comprobadas, ".count($fallos)." fallan.\n";
+
+    if ($fallos !== []) {
+        echo implode("\n", $fallos)."\n";
+        echo "CONTROL FALLA: de este reparto sale si se puede reinterpretar la historia\n"
+            ."vieja de `bitacoras`. Su forma de mentir es contar de MENOS en «sin\n"
+            ."clasificar», que es la dirección que tranquiliza.\n";
+
+        return 1;
+    }
+
+    echo "OK — las siete formas se clasifican como está decidido.\n";
+
+    return 0;
+}
+
+// El despacho va AQUÍ y no arriba del todo por una razón medida: el control usa
+// las dos constantes de relojes, que se declaran más abajo del bootstrap. Puesto
+// justo antes de esta línea, Laravel está arrancado pero **la base todavía no se
+// ha tocado** —la conexión es perezosa y `getDatabaseName()` es lo primero que la
+// abre—, así que el control sigue sin depender de que haya base ninguna.
+if (in_array('--control', $argv ?? [], true)) {
+    exit(controlDeLaBitacora());
+}
+
 $base = DB::connection()->getDatabaseName();
 
 /**
@@ -288,19 +433,10 @@ if (! $csv) {
 // ---------------------------------------------------------------------------
 // 3. Camino uno: clasificar por quién escribió.
 // ---------------------------------------------------------------------------
-$enUtc = 0;
-$enBogota = 0;
-$sinClasificar = 0;
-
-foreach ($tipos as $t) {
-    if (isset(ESCRITOS_EN_UTC[$t->tipo])) {
-        $enUtc += (int) $t->filas;
-    } elseif (isset(ESCRITOS_EN_BOGOTA[$t->tipo])) {
-        $enBogota += (int) $t->filas;
-    } else {
-        $sinClasificar += (int) $t->filas;
-    }
-}
+$reparto = repartirPorReloj($tipos);
+$enUtc = $reparto['utc'];
+$enBogota = $reparto['bogota'];
+$sinClasificar = $reparto['sin_clasificar'];
 
 bloqueDeLaBitacora(
     '3. Los dos relojes, contados por el escritor',
