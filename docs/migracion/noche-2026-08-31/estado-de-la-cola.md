@@ -53,11 +53,17 @@ que se pierde*. La autoría está en el mensaje de cada commit.
    después**: hoy, desde `main`, son **43 lecturas pendientes en 23 sitios**.
 5. **`PUT boletin-independiente/planilla`** (§6.1) y **`POST
    boletin-independiente/copiar`** (§6.2). Depende de D.
-6. **`asignatura.bol_independiente` en SIETE sitios**, no en tres: los tres
-   boletines, los certificados, preescolar, los dos `Bolfinales` y el acta de
-   evaluación. Decidido esta noche con el front. **En pantalla, no impreso**: son
-   documentos del colegio y no se rotulan; el front pinta una nota que desaparece
-   al imprimir y **no la inventa en el cliente**.
+6. **`asignatura.bol_independiente` en SEIS sitios**, no en tres: los tres
+   boletines, los certificados, preescolar y los dos `Bolfinales`. **En pantalla,
+   no impreso**: son documentos del colegio y no se rotulan; el front pinta una
+   nota que desaparece al imprimir y **no la inventa en el cliente**.
+
+   > **Eran siete y el acta se cayó — corregido por el front el 1 sep 2026, y la
+   > coordinación se había equivocado.** En el acta **no hay dónde colgarlo**: su
+   > respuesta son grupos con matrículas, resumen, promoción y periodos, y **no
+   > tiene ni una asignatura por alumno**. Emitirlo ahí no pintaría nada y **no
+   > daría ningún error**: una rama muerta más. El acta pasa al punto 7 con el
+   > campo que sí contesta algo.
 7. **Dos campos que el front pidió y están fijados**:
    `alumno.bol_independiente_aparte_en: [2, 3]` en `DefinitivasPeriodosController`
    —lista plana de `numero`, **con nombre distinto del `bol_independiente_periodos`
@@ -65,6 +71,13 @@ que se pierde*. La autoría está en el mensaje de cada commit.
    `alumno.bol_independiente_periodo` (booleano) en
    `Informes/NotasPerdidasController`, donde hoy un independiente sin unidades
    montadas **sale perdiéndolo todo y parece un alumno que no estudia**.
+
+   **Y `bol_independiente_aparte_en` va TAMBIÉN en el acta de evaluación**
+   (`Informes/ActasEvaluacionController`), que es donde el front ya lo escribió.
+   No es sólo el campo que cabe, es el que corresponde: **el acta es de todo el
+   año**, así que decir «va aparte» sin decir en cuál de los cuatro periodos no
+   contesta nada — el mismo argumento por el que este campo no se aplanó a un
+   booleano en `definitivas-periodos`.
 8. **El centinela de `YearsController::postStore`**, propuesto por el lote E: que
    compare `SHOW COLUMNS FROM years` con lo que ese método escribe y falle
    **nombrando** la columna que nadie copió. Con la lista de excepciones partida
