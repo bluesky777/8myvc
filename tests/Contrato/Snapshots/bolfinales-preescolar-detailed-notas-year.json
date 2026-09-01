@@ -110,6 +110,7 @@
                     "ausencias": {
                         "cantidad_ausencia": "int"
                     },
+                    "bol_independiente": "bool",
                     "creditos": "int",
                     "foto_id": "int|null",
                     "foto_nombre": "string",
