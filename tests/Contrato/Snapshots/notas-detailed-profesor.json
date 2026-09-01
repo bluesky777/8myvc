@@ -19,6 +19,7 @@
                 }
             ],
             "ausencias_count": "int",
+            "bol_independiente_datos": "bool",
             "cant_areas_perdidas": "int",
             "cant_asign_perdidas": "int",
             "celular": "string",

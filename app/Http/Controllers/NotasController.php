@@ -124,7 +124,25 @@ class NotasController extends Controller {
 		
 
 		// alumnos con sus notas
-		$alumnos = Grupo::alumnos($asignatura->grupo_id);
+		//
+		// **El periodo va como tercer argumento, y es lo que enciende el badge.** Con él
+		// cada alumno sale además con `bol_independiente_datos` (§6.4 del 19): `true` =
+		// **tiene un boletín aparte guardado en este periodo aunque el periodo vaya con el
+		// grupo**. Sin el argumento el campo no viaja, y ése es el defecto: `Grupo::alumnos`
+		// lo llaman veinticinco sitios y emitirlo siempre metería una consulta y un campo
+		// en veinte respuestas que no tienen que ver con esto.
+		//
+		// **Es el periodo del token, no el de la unidad**, porque el badge es del alumno
+		// tal como lo está mirando quien tiene la planilla abierta — la misma pantalla y el
+		// mismo periodo con los que se decide, cuatro líneas más abajo, quién sale de la
+		// lista por independiente.
+		//
+		// **Los dos campos no dicen lo mismo y por eso conviven**: de `alumnos` ya se han
+		// quitado los que van aparte, así que el badge NO señala «va por independiente»
+		// —eso lo dice `independientes`— sino «este que sí está en tu planilla tiene datos
+		// suyos guardados que no se están usando». Es el estado `aplica = false` con
+		// `tiene_datos = true` de la ficha, aplanado.
+		$alumnos = Grupo::alumnos($asignatura->grupo_id, '', (int) $user->periodo_id);
 
 		// **FASE 3 del 19: esta planilla deja de enseñar a los independientes.**
 		// Es la petición literal del colegio —*«que no aparezca en esa planilla de
