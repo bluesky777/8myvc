@@ -152,10 +152,51 @@ servicio. Me lo pides.
 2. Escribe tu `docs/migracion/noche-2026-08-31/<tu-letra>.md`.
 3. **Me mandas**: rama, hash, `Tests: N passed`, pint, stan, y qué sitios cerraste
    **y cuáles decidiste no tocar y por qué**.
-4. **Y te quedas esperando.** No cojas trabajo de otro lote por tu cuenta: hay cola y
-   te la doy yo. Si te bloqueas, avisa en vez de esperar en silencio.
+4. **Y NO te quedas esperando** — cambiado por Joseth el 31 ago 2026, a mitad de la
+   noche: *«que no pregunten más, quiero que siempre commiteen lo que necesiten y
+   continúen, y que el coordinador una todo a main cuando terminen su commit. Que sigan
+   trabajando sin parar.»* O sea: **commiteas en tu rama sin pedir permiso**, tantas
+   veces como haga falta —dos sitios cerrados de siete ya son un commit—, y **encadenas
+   lo siguiente sin esperar respuesta**. Lo que no cambia es de dónde sale el trabajo:
+   **la cola te la doy yo**, no la coges de otro lote. Si te bloqueas, avisa en vez de
+   esperar en silencio.
 
 **No fusiones tú.** `main` lo muevo yo desde la raíz.
+
+### 1.8 · Un número de suite ya no vale sin estas tres cosas al lado
+
+Se aprendió esta noche, y las tres a base de dar por bueno un número que no lo era:
+
+- **el `exit=`**, y que sea el de PHPUnit y no el de una tubería. Dos lotes distintos
+  dieron por buena una corrida con un `exit code 0` **que era el del `tail`**, y a uno el
+  `tail` se comió además la línea `Tests:`. **Una suite sin línea `Tests:` al final no es
+  una suite verde: es una suite muerta.**
+- **si `AutopruebasDeLasHerramientasTest` está entre los fallos**, para descontarlo: falla
+  en **los cinco** worktrees y no es de nadie — `git` no resuelve dentro del contenedor
+  porque el `.git` de un worktree apunta a una ruta **del host**.
+- **que no haya un zombi tuyo en la misma base.** Matar un `docker exec` mata al cliente,
+  **no al proceso de dentro**; el huérfano sigue corriendo tests y provoca
+  `SQLSTATE[40001] 1213 Deadlock`. La pista es que **los rojos cambian de sitio entre
+  corridas**, y la firma es **`ppid=1`**:
+
+```bash
+docker exec 8myvc-app-1 ps -eo pid,ppid,etimes,args | grep phpunit
+```
+
+  **El `ps` del host no sirve: no ve dentro del contenedor.** Y la forma que no crea
+  zombis es lanzarla desasida, sin cliente que matar:
+
+```bash
+docker exec -d -w /app/.worktrees/<x> -e DB_TEST_DATABASE=simonbolivar_testing_<x> \
+  8myvc-app-1 sh -c 'php artisan test > /tmp/suite-<x>.txt 2>&1; echo "exit=$?" >> /tmp/suite-<x>.txt'
+```
+
+> **Y el árbol es parte del instrumento.** Dos sesiones distintas trabajaron esta noche en
+> el árbol equivocado sin notarlo: una porque el `cwd` de su shell **persiste entre
+> comandos** después de un `cd`, otra porque acabó editando en la raíz. Se caza por el
+> número que no cuadra —dos tests que no aparecen con `--filter`, un fichero con 34
+> métodos del que corren 32, el `md5` distinto entre host y contenedor— y se evita con
+> **`-w` explícito en todo lo que corra dentro del contenedor y rutas absolutas fuera**.
 
 ---
 
