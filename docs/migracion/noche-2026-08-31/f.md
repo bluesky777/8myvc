@@ -200,3 +200,92 @@ referirse. Se le dijo a la coordinación.
 | el campo no se emite | rojo — `array has the key 460` |
 | lista siempre vacía | rojo — `two arrays are identical` |
 | `asignatura.bol_independiente` emitido de más | rojo en el centinela |
+
+## 4. La FASE 5 — los tres boletines probados en negativo
+
+`tests/Contrato/BoletinesEnNegativoTest.php`, **10 casos**. No es código nuevo: los tres
+boletines ya llevan el alcance desde la fase 1 (sus unidades salen de
+`Unidad::deAsignaturaCalculada($alumno_id, …)`). **Lo que faltaba es el test que lo
+demuestra**, y falta de verdad: con nadie marcado, `<=> NULL` y `<=> $alumno`
+seleccionan lo mismo, así que un test escrito sobre el seed tal cual no distingue nada.
+
+### Las dos direcciones, y quién paga cada una
+
+| dirección | qué se rompe | a quién le pasa |
+|---|---|---|
+| **de menos** | el boletín del independiente pide las del grupo y sale en blanco | al marcado |
+| **de más** | la estructura privada se cuela en el boletín de los demás | **a los otros treinta**, que no tienen cómo saberlo |
+
+Van en **tests distintos** a propósito: el perjudicado no es el mismo, y un solo test
+con las dos aserciones escondería cuál de las dos cayó.
+
+### Qué documento prueba qué — medido, no leído
+
+| documento | unidades | subunidades |
+|---|---|---|
+| `boletines` | sí | **sí** — el único que las emite (`Subunidad::deUnidadCalculada`) |
+| `boletines2` | sí | no las trae |
+| `boletines3` | sí | no las trae |
+
+Comprobado en las instantáneas y en la respuesta. Por eso el caso de **subunidades**
+—la palabra que usa el encargo— corre **sólo sobre `boletines`**: pretender
+comprobarlas en los tres habría dado **dos verdes por vacío**.
+
+### Los dos lados con números distintos (§1.4, tercera forma)
+
+**Dos subunidades del grupo contra tres propias.** Con un 1 contra un 1, una
+implementación que trajera *justo las contrarias* daría el mismo número de filas y el
+test pasaría con el código malo — le pasó al lote A esta misma noche. Y además cada
+fila lleva **su nombre**, así que lo que se compara es **qué** salió, no cuántas.
+
+### El rojo, contra el código de ANTES de la fase 1 — y la primera vez no valía
+
+| Forma | Resultado |
+|---|---|
+| **sin la condición de alcance** (el código de antes de la fase 1) | **10 de 10 rojos**, 85 aserciones |
+| **`=` en vez de `<=>`** | **7 rojos, 3 verdes** |
+
+Los 3 verdes de la segunda fila **son correctos y hay que leerlos**: con `=`, el
+*marcado* sigue emparejando sus propias unidades (su alcance es su id), así que
+«el boletín del independiente trae lo suyo» pasa. Lo que se rompe es el **compañero**,
+cuyo alcance es `NULL` y con `=` no empareja nada: la forma «de menos» por el otro
+lado, exactamente como la describe el docblock del servicio.
+
+> **Y el primer intento del rojo no valía, aunque saliera rojo.** Quitando sólo la
+> condición del SQL y dejando el `':alcance' => $alcance` en los parámetros, los 10
+> caían **en 0,3 s cada uno**: eso no es una aserción, es PDO reventando por un
+> parámetro que sobra. Se rehízo quitando también el binding y entonces los 10 caen
+> **con el mensaje que toca** —`does not contain 'F5 UNIDAD DEL GRUPO'` y
+> `does not contain 'F5 UNIDAD PROPIA'`— en 1,5–3 s. **Mirar el tipo del fallo antes que
+> el mensaje** es la regla de la §4 del estado de la cola, y aquí decidía si el test
+> mide algo.
+
+### El extractor: ancho para los marcadores, estrecho para comparar dos alumnos
+
+`boletines/detailed-notas` cuelga la estructura de **dos sitios** —`asignaturas[]` y
+`asignaturas_perdidas[]`—, así que las tres subunidades propias aparecían **seis
+veces** y el primer `assertCount(3)` se cayó por eso y **no por el alcance**.
+
+Las dos ramas tienen que estar acotadas, así que **buscar a lo ancho es lo correcto
+aquí** —si una lo estuviera y la otra no, apuntar sólo al boletín dejaría pasar la
+fuga— y lo que se arregla es *contar*: el extractor deduplica, porque lo que se compara
+son nombres y cada nombre existe una vez en la base.
+
+**No contradice el aviso de `BoletinDelIndependienteTest`**, que dice lo contrario
+—«no barras la respuesta entera»—, y la diferencia importa: allí se comparaban **las
+listas de dos alumnos entre sí**, y `asignaturas_perdidas` difiere de un alumno a otro
+con razón y sin nadie marcado. Aquí se compara contra **marcadores con nombre propio**
+creados por el test, que no dependen de las notas de nadie. **El único caso que sí
+compara dos alumnos entre sí —`sin_marcar_a_nadie`— usa el extractor estrecho.**
+
+### El control, y lo que fija de más
+
+`sin_marcar_a_nadie_los_dos_ven_lo_mismo` monta el caso **sin marcar**: la unidad con
+dueño existe en la base y lo único que falta es la fila de `bol_ind_periodos`. Fija dos
+cosas:
+
+- que la fase 1 **fue aditiva** (los dos alumnos ven lo mismo) — el criterio de la §4
+  del plan;
+- y que **sin la fila no le sale ni a su dueño**, que es la decisión 7 en su forma más
+  corta. Si le saliera, el alcance estaría mirando `unidades.alumno_id` en vez de la
+  marca.
