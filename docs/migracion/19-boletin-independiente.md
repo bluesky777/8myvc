@@ -961,7 +961,12 @@ ago): `puestos_grupo_periodo`, `puestos_grupo_year`, `puestos_todos_periodo` y
 `puestos_todos_year`, más el puesto impreso en `boletin-periodo` y
 `boletin-final`. Encaja con los ocho sitios de arriba y decide una cosa: **el
 interruptor viaja en la respuesta de todos ellos** (`puestos_con_bol_independiente`
-y `alumno.bol_independiente`), en vez de que cada pantalla lo pregunte por su
+y **`alumno.bol_independiente_periodo`** — el nombre corregido el 31 ago 2026: de la
+pareja `alumno.bol_independiente` (el año) + `alumno.bol_independiente_periodo` **quedó
+sólo el segundo**, porque la decisión 7 eliminó la marca por año y con ella el estado
+«marcado el año pero este periodo no». Lo decidió el front en su buzón y el lote E lo
+escribió así sin poder saberlo; este documento era el que estaba viejo), en vez de que
+cada pantalla lo pregunte por su
 cuenta. Si lo pregunta uno y otro no, los otros tres mienten.
 
 ### 7.1 · Y el día que un colegio lo ponga a 0 — la pregunta la hará un rector
