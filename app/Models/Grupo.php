@@ -64,7 +64,38 @@ class Grupo extends Model {
 						order by g.orden';
 
 
-	public static function alumnos($grupo_id, $con_retirados='')
+	/**
+	 * Los alumnos de un grupo.
+	 *
+	 * ## `$periodo_id`: el badge del boletín independiente, y sólo si se pide
+	 *
+	 * Con un periodo, cada alumno sale además con **`bol_independiente_datos`**:
+	 * `true` = **tiene un boletín aparte guardado en este periodo**, aunque el periodo
+	 * vaya con el grupo. Es la §6.4 de
+	 * [19-boletin-independiente.md](../../../docs/migracion/19-boletin-independiente.md),
+	 * y es `tiene_datos` de la ficha aplanado al periodo del token.
+	 *
+	 * **El parámetro es opcional y el campo no viaja sin él, a propósito.** Este método
+	 * lo llaman veinticinco sitios —asistencias, disciplina, boletines, certificados,
+	 * planillas de ausencias—, y a casi ninguno le consta un periodo: ponérselo a todos
+	 * sería una consulta más por llamada y un campo más en veinte respuestas para que
+	 * lo lea una. Quien lo necesita es la **planilla**, que es donde el docente ve la
+	 * lista y tiene que poder distinguir al alumno que trae datos propios guardados.
+	 *
+	 * ## Y el campo tiene nombre nuevo porque el que había mentía por omisión
+	 *
+	 * La §6.4 decía que el badge era `alumno.bol_independiente_periodo`, y lo levantó el
+	 * front al ir a escribirlo: a esta lista **sólo llegan los que van con el grupo**
+	 * —los que van aparte los quita `putDetailed`—, así que ese booleano valdría
+	 * `false` en las treinta filas, siempre, en todos los colegios. **Un campo que no
+	 * varía no es un campo pobre: es uno sobre el que alguien ramificará sin que su rama
+	 * muerta se note nunca.** El que hace falta separa dos casos que sí se distinguen:
+	 * el que tiene estructura propia guardada y el que nunca ha tenido nada.
+	 *
+	 * @param  int|string  $grupo_id
+	 * @param  mixed  $con_retirados
+	 */
+	public static function alumnos($grupo_id, $con_retirados='', ?int $periodo_id = null)
 	{
 		$consulta = '';
 		$matriculas = [];
@@ -148,7 +179,62 @@ class Grupo extends Model {
 
 		$alumnos = DB::select($consulta, array_merge([$grupo_id], $matriculas));
 
+		if ($periodo_id !== null) {
+			self::marcarLosQueTienenDatosPropios($alumnos, (int) $periodo_id);
+		}
+
 		return $alumnos;
+	}
+
+	/**
+	 * Les cuelga `bol_independiente_datos` a los alumnos de una lista.
+	 *
+	 * **Una consulta para toda la lista y no una por alumno**: son treinta, y esto lo
+	 * llama la planilla, que ya es de las páginas caras.
+	 *
+	 * **Y entra por `alumno_id IN (...)` y no sólo por el periodo**, que es lo primero
+	 * que se escribe y lo que hay que no hacer. Con `WHERE u.periodo_id = ?` a secas
+	 * MySQL usa `unidades_periodo_id_foreign` y **recorre las unidades de ese periodo
+	 * en todo el colegio** —unas 4.200 de las 16.931 medidas— para quedarse con las de
+	 * treinta alumnos. Con los ids delante usa `unidades_alumno_id_foreign`: treinta
+	 * búsquedas que hoy, sin nadie marcado, no devuelven **ninguna** fila.
+	 *
+	 * El predicado —«tiene alguna unidad propia viva en ese periodo»— es **el mismo**
+	 * que el `EXISTS` de `AlumnosController::bolIndependientePeriodos`, que es lo que
+	 * la ficha llama `tiene_datos`. Están escritos dos veces porque las dos preguntas
+	 * tienen forma distinta —allí cuatro periodos de un alumno, aquí treinta alumnos
+	 * de un periodo— y lo que los ata no es una cadena compartida sino un test que
+	 * comprueba que **contestan lo mismo** para el mismo par (alumno, periodo).
+	 *
+	 * **No se filtra por las asignaturas del grupo, y es deliberado**: el campo tiene
+	 * que decir exactamente lo mismo que el de la ficha, que tampoco filtra. Acotarlo
+	 * aquí haría que la ficha dijera «tiene datos» y el badge no, sobre el mismo
+	 * alumno y el mismo periodo — dos sitios contestando distinto a la misma pregunta,
+	 * que es de donde salió el recalculador único.
+	 *
+	 * @param  list<object>  $alumnos
+	 */
+	private static function marcarLosQueTienenDatosPropios(array $alumnos, int $periodo_id): void
+	{
+		if ($alumnos === []) {
+			return;
+		}
+
+		$ids = array_values(array_unique(array_map(static fn ($a) => (int) $a->alumno_id, $alumnos)));
+		$marcas = implode(',', array_fill(0, count($ids), '?'));
+
+		$filas = DB::select(
+			'SELECT DISTINCT u.alumno_id
+			   FROM unidades u
+			  WHERE u.alumno_id IN ('.$marcas.') AND u.periodo_id = ? AND u.deleted_at IS NULL',
+			array_merge($ids, [$periodo_id])
+		);
+
+		$con_datos = array_flip(array_map(static fn ($f) => (int) $f->alumno_id, $filas));
+
+		foreach ($alumnos as $alumno) {
+			$alumno->bol_independiente_datos = isset($con_datos[(int) $alumno->alumno_id]);
+		}
 	}
 
 	public static function detailed_materias($grupo_id, $profesor_id=null, $exceptuando=false)

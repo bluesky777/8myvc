@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AreasController;
 use App\Http\Controllers\AsignaturasController;
+use App\Http\Controllers\BoletinIndependienteController;
 use App\Http\Controllers\DefinitivasPeriodosController;
 use App\Http\Controllers\EditnotaController;
 use App\Http\Controllers\EscalasDeValoracionController;
@@ -110,6 +111,23 @@ Route::get('notas/alumno/{alumno_id?}/{grupo_id?}', [NotasController::class, 'ge
 Route::delete('notas/destroy/{id}', [NotasController::class, 'deleteDestroy'])->middleware('auth.personal');
 Route::get('notas/show/{nota_id}', [NotasController::class, 'getShow'])->middleware('auth.personal');
 Route::put('notas/update/{id}', [NotasController::class, 'putUpdate'])->middleware('auth.personal');
+
+// BoletinIndependienteController
+//
+// La ruta 545, y es la ÚNICA escritura de la marca del boletín independiente
+// (19-boletin-independiente.md §6.3, fase 2). Nace con la decisión 7 del 31 ago
+// 2026: la marca es **por periodo**, así que dejó de caber como un `case` de
+// `alumnos/guardar-valor` —aquello escribe columnas de `matriculas` y esto ya no
+// es una columna de `matriculas`—.
+//
+// **`auth.personal` no basta y por eso no está solo aquí**: un docente es
+// personal. La decisión 5 dice administradores, secretario y rector, con el
+// superusuario por encima, y explícitamente **NO el titular del grupo**, que hoy
+// sí escribe la rama de matrícula de `GuardarAlumno::valor`. Es más estrecha que
+// lo de hoy, así que va donde puede mirar a los roles: `Autoriza`. El guard de la
+// ruta deja fuera a alumnos y acudientes, que es lo que un middleware puede
+// contestar sin consultar la tabla de roles.
+Route::put('boletin-independiente/periodo', [BoletinIndependienteController::class, 'putPeriodo'])->middleware('auth.personal');
 
 // NotaComportamientoController
 Route::get('nota_comportamiento', [NotaComportamientoController::class, 'getIndex']);

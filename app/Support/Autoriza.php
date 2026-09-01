@@ -136,6 +136,74 @@ class Autoriza
     }
 
     /**
+     * Los roles que la **decisión 5** pone a cargo de la marca del boletín
+     * independiente. Superusuario va por encima, como siempre.
+     *
+     * @var list<string>
+     */
+    private const ROLES_QUE_MARCAN_BOLETIN_INDEPENDIENTE = ['Admin', 'Secretario', 'Rector'];
+
+    /**
+     * Marcar y desmarcar un periodo de un alumno como boletín independiente.
+     * `PUT boletin-independiente/periodo`, §6.3 del
+     * [19](../../docs/migracion/19-boletin-independiente.md).
+     *
+     * Es la **decisión 5** de Joseth (31 ago 2026): *administradores, secretario y
+     * rector*, con el superusuario por encima. Y es **más estrecha que lo de hoy**:
+     * la rama de propiedades de matrícula de `GuardarAlumno::valor` la escribe
+     * también el **titular del grupo**, y aquí no. Marcar un boletín no es corregir
+     * una casilla de la ficha: reparte de quién son las unidades de un periodo
+     * entero, y eso lo decide el colegio, no el aula. El psicólogo tampoco entra —
+     * la decisión no lo nombra, y [[crear-rol-no-regala-permisos]]: lo que nadie
+     * pidió no se concede de paso.
+     *
+     * **Por qué NO es `esAdministrativo()`, que es lo primero que se prueba.** Aquél
+     * es `is_superuser || Secretario` y **no incluye el rol `Admin`**, al que la
+     * decisión 5 nombra explícitamente. Hoy los dos criterios admiten a la misma
+     * gente, y eso es exactamente lo que lo hace peligroso: en `simonbolivar` los
+     * diez `Admin` **son** los diez `is_superuser`, así que coinciden **por
+     * población y no por definición**. El colegio que le dé `Admin` a alguien sin
+     * `is_superuser` es el que descubre la diferencia — el paso 0 de
+     * `DESPLIEGUE.md` en su forma exacta.
+     *
+     * **Y no se escribe con los nombres del encargo:** `Role::hasRoleOrPerm` es del
+     * **front**. En este backend aparece en cinco comentarios de controlador y en
+     * ninguna línea de código (§2.3 del plan).
+     *
+     * **Una sola consulta y no tres.** `Role::hasRole()` llama a
+     * `Role::getUserRoles()`, que es una consulta entera por nombre preguntado: tres
+     * `hasRole` seguidos son tres consultas idénticas en cada petición. Se pide la
+     * lista una vez y se cruza aquí.
+     *
+     * **Y sale de `Role::getUserRoles()` y no de `$user->roles`, que ya viaja en el
+     * contexto y sería gratis.** No es lo mismo: aquella consulta filtra
+     * `r.deleted_at is null` y la del contexto **no**. Con `$user->roles` un rol
+     * mandado a la papelera seguiría dando permiso aquí y no en `esAdministrativo()`
+     * —que va por `Role::isSecretario()`—, o sea dos criterios de rol decidiendo
+     * distinto en la misma clase. Se paga una consulta por no tener eso.
+     */
+    public static function puedeMarcarBoletinIndependiente($user): bool
+    {
+        if (self::esSuperusuario($user)) {
+            return true;
+        }
+
+        $userId = $user->user_id ?? null;
+
+        if ($userId === null) {
+            return false;
+        }
+
+        foreach (Role::getUserRoles($userId) as $rol) {
+            if (in_array($rol->name, self::ROLES_QUE_MARCAN_BOLETIN_INDEPENDIENTE, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Solo superusuario. Para lo que arrastra el esquema entero.
      */
     public static function esSuperusuario($user): bool
