@@ -519,6 +519,510 @@ class BoletinIndependienteController extends Controller
     }
 
     /**
+     * `POST boletin-independiente/copiar` — montarle a alguien la estructura que ya
+     * existe, en vez de a mano. §6.2 del
+     * [19](../../../docs/migracion/19-boletin-independiente.md).
+     *
+     * ```jsonc
+     * { "asignatura_id": 812, "periodo_id": 93,          // el DESTINO
+     *   "alumnos_destino": [3311, 3402],
+     *   "origen": { "tipo": "grupo",  "periodo_id": 91 },
+     *   //     o : { "tipo": "alumno", "alumno_id": 2199, "periodo_id": 91 },
+     *   "con_notas": false, "si_ya_tiene": "saltar" }
+     * ```
+     *
+     * ## DOS orígenes, y el segundo es el caso normal
+     *
+     * El plan tenía **uno solo implícito** —otro alumno, misma asignatura, mismo
+     * periodo— y **el caso corriente no cabía**: el estudiante que vuelve y sigue el
+     * plan del curso, copiando **del periodo que sí está montado**. Encargo de Joseth:
+     * *«tanto de otro boletín que se le creó de manera independiente a otro estudiante
+     * como de las unidades/sub específicas de asignaturas en algún periodo»*.
+     *
+     * ## LA TRAMPA: los dos orígenes se leen con alcances CONTRARIOS
+     *
+     * | `origen.tipo` | Qué filas lee |
+     * |---|---|
+     * | `grupo` | **`u.alumno_id IS NULL`** |
+     * | `alumno` | **`u.alumno_id = origen.alumno_id`** |
+     *
+     * Las dos preguntas viven **en el mismo método**, y un `=` copiado a la rama del
+     * grupo **devuelve cero filas y copia una estructura vacía en 200** — el fallo mudo
+     * de siempre. Por eso las dos ramas están escritas aparte y con nombre, en vez de
+     * con un parámetro que alguien pueda pasar al revés, y hay un test que **cuenta las
+     * filas copiadas por cada rama**: un cero no se distingue de un éxito mirando el
+     * código de estado.
+     *
+     * ## Sólo la misma asignatura, con 422
+     *
+     * `origen.asignatura_id` **no existe**. `asignaturas` es `(materia_id, grupo_id)` y
+     * **no tiene `periodo_id`**, así que «la misma asignatura en otro periodo» ya cubre
+     * el caso entero; lo que ese campo abriría es **otra materia o, peor, otro grupo** —
+     * un id del cuerpo que no comprueba nadie, con el docente de 5A tirando de la
+     * estructura de 11B. **Y esa puerta ya existe y es otra**: `PUT periodos/copiar`.
+     * Dos puertas para la misma operación con reglas distintas es de donde salió el
+     * recalculador único.
+     *
+     * ## El destino se comprueba contra el periodo de DESTINO
+     *
+     * Sólo se copia a quien va por independiente en `periodo_id`. Quien no, vuelve como
+     * `resultado: "no_marcado"` **y nunca como 400**: la pantalla los está listando y
+     * que uno se desmarque entre la carga y el clic es normal, no un error de nadie.
+     *
+     * ## Una transacción para todo, y el recálculo FUERA
+     *
+     * Es lo que aprendió `PUT notas/lote`: media copia deja definitivas calculadas sobre
+     * estados intermedios. Y **no se reutiliza `PUT periodos/copiar`**, que escribe en un
+     * `foreach` **sin transacción** — su propio test de contrato lo fija.
+     */
+    public function postCopiar()
+    {
+        $asignaturaId = $this->idDelCuerpo('asignatura_id');
+        $periodoId = $this->idDelCuerpo('periodo_id');
+
+        // `detallada()` tira el 404 de una asignatura de otro año, igual que en
+        // `putPlanilla()`: un solo sitio decide eso.
+        $asignatura = Asignatura::detallada($asignaturaId, (int) $this->user->year_id);
+        $grupoId = (int) ((object) $asignatura)->grupo_id;
+
+        $this->exigirPeriodoDelAnio($periodoId, 'periodo_id');
+
+        $destinos = $this->alumnosDestinoDelCuerpo();
+        $origen = $this->origenDelCuerpo($periodoId);
+        $siYaTiene = $this->siYaTieneDelCuerpo();
+        $conNotas = $this->banderaDelCuerpo('con_notas');
+
+        // **El 422 que el front no pidió y hay que poner.** Copiar la estructura del
+        // periodo 1 al 3 es preparar la planilla; copiar **también las notas** es
+        // escribir en el 3 las calificaciones del 1. Eso no es una copia, es inventar un
+        // dato — y **el navegador no puede decidirlo**, porque desde la pantalla las dos
+        // casillas parecen igual de inocentes.
+        if ($conNotas && $origen['periodo_id'] !== $periodoId) {
+            abort(422, 'No se pueden copiar las notas entre periodos distintos: eso escribiría en '
+                .'este periodo las calificaciones del otro.');
+        }
+
+        $unidadesOrigen = $this->unidadesDelOrigen($origen, $asignaturaId);
+
+        $resultados = DB::transaction(function () use (
+            $destinos, $origen, $unidadesOrigen, $asignaturaId, $periodoId, $grupoId, $siYaTiene, $conNotas
+        ) {
+            $salida = [];
+
+            foreach ($destinos as $alumnoId) {
+                $salida[] = $this->copiarleA(
+                    $alumnoId, $origen, $unidadesOrigen, $asignaturaId, $periodoId, $grupoId, $siYaTiene, $conNotas
+                );
+            }
+
+            return $salida;
+        });
+
+        // **Fuera de la transacción y uno por alumno.** Dentro, el recálculo vería
+        // estados intermedios —la mitad de las unidades puestas— y escribiría
+        // definitivas sobre una estructura que aún no existe. Por alumno y no por
+        // asignatura porque lo que cambió es **su** boletín y no el reparto del curso:
+        // recalcular el grupo entero reescribiría las treinta definitivas para arreglar
+        // una.
+        foreach ($resultados as $fila) {
+            if ($fila['resultado'] === 'copiado') {
+                DefinitivasDeAsignatura::recalcular($asignaturaId, $periodoId, $this->user->user_id, $fila['alumno_id']);
+            }
+        }
+
+        // La suma se lee **después** del recálculo y de la transacción, que es cuando ya
+        // es la de verdad. Y no se corrige: que `anadir` deje un 160 **se ve, y que se
+        // vea es lo que lo delata** (regla 2 de `DefinitivasDeAsignatura`).
+        foreach ($resultados as $i => $fila) {
+            $resultados[$i]['porcentaje_unidades'] =
+                DefinitivasDeAsignatura::porcentajeDeLasUnidades($asignaturaId, $periodoId, $fila['alumno_id']);
+        }
+
+        return [
+            'origen' => [
+                'tipo' => $origen['tipo'],
+                'periodo_id' => $origen['periodo_id'],
+                'alumno_id' => $origen['alumno_id'],
+                'unidades' => count($unidadesOrigen),
+                'subunidades' => array_sum(array_map(static fn ($u) => count($u['subunidades']), $unidadesOrigen)),
+            ],
+            'destinos' => $resultados,
+        ];
+    }
+
+    /**
+     * Copiarle la estructura a UN alumno. Devuelve su fila de `destinos`.
+     *
+     * @param  array{tipo: string, periodo_id: int, alumno_id: ?int}  $origen
+     * @param  list<array<string, mixed>>  $unidadesOrigen
+     * @return array<string, mixed>
+     */
+    private function copiarleA(
+        int $alumnoId, array $origen, array $unidadesOrigen,
+        int $asignaturaId, int $periodoId, int $grupoId, string $siYaTiene, bool $conNotas
+    ): array {
+        // **Contra el periodo de DESTINO.** Quien dejó de ir por independiente entre que
+        // la pantalla cargó y el clic vuelve así y no como un error: la pantalla lo
+        // estaba listando de buena fe.
+        if (! BoletinIndependiente::aplica($alumnoId, $periodoId)) {
+            return ['alumno_id' => $alumnoId, 'resultado' => 'no_marcado'];
+        }
+
+        $suyas = DB::select(
+            'SELECT id FROM unidades
+              WHERE alumno_id = ? AND asignatura_id = ? AND periodo_id = ? AND deleted_at IS NULL',
+            [$alumnoId, $asignaturaId, $periodoId]
+        );
+
+        $retiradas = ['unidades' => 0, 'notas_que_dejan_de_contar' => 0];
+
+        if ($suyas !== []) {
+            if ($siYaTiene === 'saltar') {
+                return ['alumno_id' => $alumnoId, 'resultado' => 'saltado', 'motivo' => 'ya_tiene_estructura'];
+            }
+
+            if ($siYaTiene === 'reemplazar') {
+                $retiradas = $this->retirarLasSuyas($suyas, $alumnoId);
+            }
+            // `anadir` no retira nada: se suman a las que ya tiene, y **la suma puede
+            // pasar de 100 y no se corrige**.
+        }
+
+        $copiadas = ['unidades' => 0, 'subunidades' => 0, 'notas' => 0];
+
+        foreach ($unidadesOrigen as $unidad) {
+            $nuevaUnidad = DB::table('unidades')->insertGetId([
+                'definicion' => $unidad['definicion'],
+                'porcentaje' => $unidad['porcentaje'],
+                'periodo_id' => $periodoId,
+                'asignatura_id' => $asignaturaId,
+                'alumno_id' => $alumnoId,
+                'obligatoria' => $unidad['obligatoria'],
+                'orden' => $unidad['orden'],
+                'created_by' => $this->user->user_id,
+                'created_at' => Reloj::ahoraTexto(),
+                'updated_at' => Reloj::ahoraTexto(),
+            ]);
+
+            $copiadas['unidades']++;
+
+            foreach ($unidad['subunidades'] as $sub) {
+                $nuevaSub = DB::table('subunidades')->insertGetId([
+                    'definicion' => $sub['definicion'],
+                    'porcentaje' => $sub['porcentaje'],
+                    'unidad_id' => $nuevaUnidad,
+                    'nota_default' => $sub['nota_default'],
+                    'obligatoria' => $sub['obligatoria'],
+                    'orden' => $sub['orden'],
+                    'inicia_at' => $sub['inicia_at'],
+                    'finaliza_at' => $sub['finaliza_at'],
+                    'created_by' => $this->user->user_id,
+                    'created_at' => Reloj::ahoraTexto(),
+                    'updated_at' => Reloj::ahoraTexto(),
+                ]);
+
+                $copiadas['subunidades']++;
+
+                if ($conNotas) {
+                    $copiadas['notas'] += $this->copiarLaNota($sub['subunidad_id'], $nuevaSub, $origen, $alumnoId);
+                }
+            }
+        }
+
+        return [
+            'alumno_id' => $alumnoId,
+            'resultado' => 'copiado',
+            'copiadas' => $copiadas,
+            'retiradas' => $retiradas,
+        ];
+    }
+
+    /**
+     * La nota que le toca a una subunidad copiada, y **de quién es depende del origen**.
+     *
+     * **Son dos casos y no uno con un parámetro**, y quien escriba sólo el segundo creerá
+     * que ha hecho los dos: en los dos el SQL sale de `notas n` por `subunidad_id`, y lo
+     * único que cambia es **de quién es el `n.alumno_id`**.
+     *
+     * - `origen.tipo = "grupo"` → las notas que **el propio alumno de destino ya tenía**
+     *   en las subunidades del curso. Es lo que hace útil la operación: iba en la
+     *   planilla, se le marca a mitad de periodo y **se lleva lo suyo** en vez de empezar
+     *   en blanco. Es la §9.3 por la otra puerta.
+     * - `origen.tipo = "alumno"` → las **del alumno de origen**. Eso es calificar a
+     *   varios de golpe, y por eso `con_notas` es un botón aparte que nace apagado.
+     *
+     * @param  array{tipo: string, periodo_id: int, alumno_id: ?int}  $origen
+     * @return int  1 si copió una nota, 0 si no había.
+     */
+    private function copiarLaNota(int $subunidadOrigen, int $subunidadNueva, array $origen, int $alumnoDestino): int
+    {
+        $dueno = $origen['tipo'] === 'alumno' ? (int) $origen['alumno_id'] : $alumnoDestino;
+
+        $nota = DB::selectOne(
+            'SELECT nota FROM notas WHERE subunidad_id = ? AND alumno_id = ? AND deleted_at IS NULL
+              ORDER BY id DESC LIMIT 1',
+            [$subunidadOrigen, $dueno]
+        );
+
+        if ($nota === null) {
+            return 0;
+        }
+
+        DB::table('notas')->insert([
+            'nota' => $nota->nota,
+            'subunidad_id' => $subunidadNueva,
+            'alumno_id' => $alumnoDestino,
+            'created_by' => $this->user->user_id,
+            'created_at' => Reloj::ahoraTexto(),
+            'updated_at' => Reloj::ahoraTexto(),
+        ]);
+
+        return 1;
+    }
+
+    /**
+     * Retira las unidades **propias** del destino. `reemplazar`.
+     *
+     * ## No borra ni una nota, y el «¿está seguro?» no puede decir que sí
+     *
+     * Medido en `UnidadesController::deleteDestroy`: retirar una unidad es un **borrado
+     * en blando de la unidad y de nada más**. Las subunidades y las notas **conservan su
+     * `deleted_at` a null** y siguen ahí; salen de los cálculos porque cada lectura une
+     * `u.deleted_at IS NULL`, no porque se hayan ido. Y **`PUT unidades/restore/{id}` la
+     * devuelve entera, con sus subunidades y sus notas dentro** — la papelera ya existe y
+     * ya está enrutada.
+     *
+     * Por eso el campo se llama **`notas_que_dejan_de_contar`** y no `notas_borradas`. No
+     * es un matiz de nombre: *«se borrarán 9 notas»* es **falso**, y asusta de una forma
+     * que hace que el docente no use el botón.
+     *
+     * ## Y sólo toca las del destino. Jamás una del grupo ni una de otro alumno
+     *
+     * Retirar por `(asignatura_id, periodo_id)` sin el dueño **le vaciaría la planilla a
+     * los treinta**, en 200 y sin un error. Lo garantiza el `SELECT` que arma `$ids`, que
+     * filtra por `alumno_id = destino`, y eso **sí** lo comprueba
+     * `test_reemplazar_no_toca_las_del_grupo_ni_las_de_otro` por los dos lados.
+     *
+     * **El `AND alumno_id = ?` del `UPDATE` de abajo es un segundo candado y NINGÚN TEST
+     * PUEDE ALCANZARLO**, porque el primero ya se cumple: quitarlo no pone nada en rojo
+     * (comprobado, R15). Se deja igualmente —el día que alguien cambie de dónde salen los
+     * ids, la escritura sigue acotada— pero **queda escrito que es defensa y no garantía
+     * medida**, que es la diferencia que esta noche ya costó una vez: un comentario que
+     * documenta una protección con su razón, y que al quitarla no se pone rojo, es un
+     * comentario haciéndose pasar por un test.
+     *
+     * @param  list<object>  $suyas
+     * @return array{unidades: int, notas_que_dejan_de_contar: int}
+     */
+    private function retirarLasSuyas(array $suyas, int $alumnoId): array
+    {
+        $ids = array_map(static fn ($u) => (int) $u->id, $suyas);
+        $marcas = implode(',', array_fill(0, count($ids), '?'));
+
+        // Se cuentan ANTES de retirar: después, la misma consulta seguiría contándolas
+        // —el borrado es de la unidad y no de la nota—, así que el número saldría igual
+        // y no diría nada. Contarlo aquí es lo que hace que la cifra signifique algo.
+        $dejanDeContar = (int) DB::selectOne(
+            'SELECT COUNT(*) c FROM notas n
+               INNER JOIN subunidades s ON s.id = n.subunidad_id AND s.deleted_at IS NULL
+              WHERE s.unidad_id IN ('.$marcas.') AND n.alumno_id = ? AND n.deleted_at IS NULL',
+            array_merge($ids, [$alumnoId])
+        )->c;
+
+        DB::update(
+            'UPDATE unidades SET deleted_at = ?, deleted_by = ?
+              WHERE id IN ('.$marcas.') AND alumno_id = ? AND deleted_at IS NULL',
+            array_merge([Reloj::ahoraTexto(), $this->user->user_id], $ids, [$alumnoId])
+        );
+
+        return ['unidades' => count($ids), 'notas_que_dejan_de_contar' => $dejanDeContar];
+    }
+
+    /**
+     * Las unidades del origen con sus subunidades dentro, **leídas por la rama que toca**.
+     *
+     * Las dos ramas van separadas y con su condición escrita entera, en vez de con una
+     * variable que alguien pueda pasar al revés: es la trampa de esta ruta.
+     *
+     * @param  array{tipo: string, periodo_id: int, alumno_id: ?int}  $origen
+     * @return list<array<string, mixed>>
+     */
+    private function unidadesDelOrigen(array $origen, int $asignaturaId): array
+    {
+        if ($origen['tipo'] === 'grupo') {
+            // **`IS NULL`, que es «del curso».** Un `= algo` aquí devuelve cero filas y
+            // copia una estructura vacía en 200.
+            $filas = DB::select(
+                'SELECT u.id, u.definicion, u.porcentaje, u.obligatoria, u.orden
+                   FROM unidades u
+                  WHERE u.asignatura_id = ? AND u.periodo_id = ? AND u.alumno_id IS NULL
+                    AND u.deleted_at IS NULL
+                  ORDER BY u.orden, u.id',
+                [$asignaturaId, $origen['periodo_id']]
+            );
+        } else {
+            // **`= origen.alumno_id`, que es «de ése y de nadie más».** Un `IS NULL` aquí
+            // copiaría el curso creyendo que copia a la persona.
+            $filas = DB::select(
+                'SELECT u.id, u.definicion, u.porcentaje, u.obligatoria, u.orden
+                   FROM unidades u
+                  WHERE u.asignatura_id = ? AND u.periodo_id = ? AND u.alumno_id = ?
+                    AND u.deleted_at IS NULL
+                  ORDER BY u.orden, u.id',
+                [$asignaturaId, $origen['periodo_id'], $origen['alumno_id']]
+            );
+        }
+
+        $salida = [];
+
+        foreach ($filas as $fila) {
+            $salida[] = [
+                'definicion' => $fila->definicion,
+                'porcentaje' => $fila->porcentaje,
+                'obligatoria' => $fila->obligatoria,
+                'orden' => $fila->orden,
+                'subunidades' => array_map(static fn ($s) => [
+                    'subunidad_id' => (int) $s->id,
+                    'definicion' => $s->definicion,
+                    'porcentaje' => $s->porcentaje,
+                    'nota_default' => $s->nota_default,
+                    'obligatoria' => $s->obligatoria,
+                    'orden' => $s->orden,
+                    'inicia_at' => $s->inicia_at,
+                    'finaliza_at' => $s->finaliza_at,
+                ], DB::select(
+                    'SELECT s.id, s.definicion, s.porcentaje, s.nota_default, s.obligatoria,
+                            s.orden, s.inicia_at, s.finaliza_at
+                       FROM subunidades s
+                      WHERE s.unidad_id = ? AND s.deleted_at IS NULL
+                      ORDER BY s.orden, s.id',
+                    [$fila->id]
+                )),
+            ];
+        }
+
+        return $salida;
+    }
+
+    /**
+     * El bloque `origen`, validado.
+     *
+     * @return array{tipo: string, periodo_id: int, alumno_id: ?int}
+     */
+    private function origenDelCuerpo(int $periodoDestino): array
+    {
+        $tipo = Request::input('origen.tipo');
+
+        if (! in_array($tipo, ['grupo', 'alumno'], true)) {
+            abort(422, "'origen.tipo' tiene que ser 'grupo' o 'alumno'.");
+        }
+
+        $periodoOrigen = $this->idDelCuerpo('origen.periodo_id');
+        $this->exigirPeriodoDelAnio($periodoOrigen, 'origen.periodo_id');
+
+        // **`origen.asignatura_id` se rechaza en vez de ignorarse.** Ignorar un campo que
+        // el cliente manda es la peor de las dos salidas: el docente cree que copió de
+        // otra asignatura y copió de la suya, en 200. Ver el docblock de `postCopiar()`.
+        if (Request::input('origen.asignatura_id') !== null) {
+            abort(422, 'Sólo se puede copiar dentro de la misma asignatura. Para copiar entre '
+                .'asignaturas está `PUT periodos/copiar`.');
+        }
+
+        $alumnoOrigen = null;
+
+        if ($tipo === 'alumno') {
+            $alumnoOrigen = $this->idDelCuerpo('origen.alumno_id');
+        }
+
+        // Copiarle a alguien de sí mismo es un no-op caro: crea una copia de sus propias
+        // unidades y le duplica la suma. Se corta aquí y no en el bucle, porque el
+        // destino puede ser una lista y el error es del origen.
+        if ($tipo === 'alumno' && $periodoOrigen === $periodoDestino
+            && in_array($alumnoOrigen, $this->alumnosDestinoDelCuerpo(), true)) {
+            abort(422, 'Un alumno no puede copiarse de sí mismo en el mismo periodo.');
+        }
+
+        return ['tipo' => $tipo, 'periodo_id' => $periodoOrigen, 'alumno_id' => $alumnoOrigen];
+    }
+
+    /** @return list<int> */
+    private function alumnosDestinoDelCuerpo(): array
+    {
+        $pedidos = Request::input('alumnos_destino');
+
+        if (! is_array($pedidos) || $pedidos === []) {
+            abort(422, "Falta 'alumnos_destino' o está vacío.");
+        }
+
+        $ids = [];
+
+        foreach ($pedidos as $pedido) {
+            if (! is_scalar($pedido) || ! preg_match('/^\d+$/', (string) $pedido) || (int) $pedido <= 0) {
+                abort(422, "'alumnos_destino' lleva algo que no es un identificador.");
+            }
+
+            $ids[] = (int) $pedido;
+        }
+
+        // Sin repetidos: el mismo alumno dos veces en la lista le copiaría la estructura
+        // dos veces y le dejaría la suma al doble, en 200 y sin que nada lo señale.
+        return array_values(array_unique($ids));
+    }
+
+    /** `saltar` (defecto) · `anadir` · `reemplazar`. */
+    private function siYaTieneDelCuerpo(): string
+    {
+        $valor = Request::input('si_ya_tiene', 'saltar');
+
+        if (! in_array($valor, ['saltar', 'anadir', 'reemplazar'], true)) {
+            abort(422, "'si_ya_tiene' tiene que ser 'saltar', 'anadir' o 'reemplazar'.");
+        }
+
+        return $valor;
+    }
+
+    /**
+     * Una bandera del cuerpo, con el mismo vocabulario cerrado que `aplica`.
+     *
+     * Ausente vale `false` — aquí sí, al revés que en `aplica`: `con_notas` **nace
+     * apagado** por decisión (copiar estructura es preparar; copiar notas es calificar),
+     * así que «no lo mandé» y «no» son lo mismo. Lo que no vale es una cadena cualquiera.
+     */
+    private function banderaDelCuerpo(string $campo): bool
+    {
+        $valor = Request::input($campo);
+
+        if ($valor === null || $valor === '') {
+            return false;
+        }
+
+        $leido = filter_var($valor, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+
+        if ($leido === null) {
+            abort(422, "'{$campo}' tiene que ser verdadero o falso.");
+        }
+
+        return $leido;
+    }
+
+    /** Que un periodo del cuerpo exista y sea del año del token. Ver `putPeriodo()`. */
+    private function exigirPeriodoDelAnio(int $periodoId, string $campo): void
+    {
+        $periodo = DB::selectOne(
+            'SELECT p.year_id FROM periodos p WHERE p.id = ? AND p.deleted_at IS NULL',
+            [$periodoId]
+        );
+
+        if ($periodo === null) {
+            abort(404, "El periodo de '{$campo}' no existe.");
+        }
+
+        if ((int) $periodo->year_id !== (int) $this->user->year_id) {
+            abort(403, "El periodo de '{$campo}' no es del año en el que estás trabajando.");
+        }
+    }
+
+    /**
      * Al APAGAR la marca, las casillas del grupo que a este alumno le faltan.
      *
      * ## Por qué existe: la §9.3, el alumno que se desmarca a mitad de periodo

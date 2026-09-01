@@ -105,6 +105,7 @@
                     "area_nombre": "string",
                     "asignatura_id": "int",
                     "ausencias": [],
+                    "bol_independiente": "bool",
                     "created_at": "null|string",
                     "creditos": "int",
                     "desempenio": "null|string",

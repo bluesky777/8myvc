@@ -139,6 +139,17 @@ Route::put('boletin-independiente/periodo', [BoletinIndependienteController::cla
 // `GET unidades/de-asignatura-periodo`**, que ESCRIBE: usarla de vista previa
 // montaría el periodo entero del curso. Esa ruta no se cambia (05 §47.2).
 Route::put('boletin-independiente/planilla', [BoletinIndependienteController::class, 'putPlanilla'])->middleware('auth.personal');
+// La ruta 547 (§6.2). **POST porque crea filas**, al revés que sus dos hermanas.
+// `auth.personal`, como la planilla y por lo mismo: montarle las unidades al que ya
+// está marcado es trabajo de aula.
+//
+// **DOS orígenes con alcances CONTRARIOS en el mismo método** —`u.alumno_id IS NULL`
+// para el grupo, `= origen.alumno_id` para el alumno—: un `=` copiado a la rama del
+// grupo devuelve cero filas y copia una estructura vacía en 200.
+//
+// **`origen.asignatura_id` NO existe y se rechaza con 422.** Abrirlo sería otra
+// materia o, peor, otro grupo, y esa puerta ya existe y es otra: `PUT periodos/copiar`.
+Route::post('boletin-independiente/copiar', [BoletinIndependienteController::class, 'postCopiar'])->middleware('auth.personal');
 
 // NotaComportamientoController
 Route::get('nota_comportamiento', [NotaComportamientoController::class, 'getIndex']);

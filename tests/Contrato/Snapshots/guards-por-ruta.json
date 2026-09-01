@@ -127,6 +127,7 @@
         "POST api/ausencias/agregar-ausencia",
         "POST api/ausencias/agregar-tardanza",
         "POST api/ausencias/store",
+        "POST api/boletin-independiente/copiar",
         "POST api/candidatos/store",
         "POST api/certificados/store",
         "POST api/ciudades/guardar-ciudad",
