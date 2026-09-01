@@ -373,3 +373,76 @@ hueco»*.
    de tests», y con un `DB_DATABASE=` delante corre contra otra: mentiría
    justo en el caso en que importa. Ahora dice «la que resuelve la
    configuración», que es verdad siempre.
+
+## 9. El rojo estructural: las dos mitades
+
+`AutopruebasDeLasHerramientasTest` llevaba toda la noche con **un rojo permanente
+en los cinco worktrees**, descontado a mano en cada parte. Un rojo que se
+descuenta a mano es ruido, y el ruido tapa el siguiente.
+
+La causa: el `.git` de un worktree es un **fichero** que dice
+`gitdir: /Users/…/8myvc/.git/worktrees/<x>` — una ruta **del host**, que dentro
+del contenedor no existe. `consultas-en-bucle.py --control` llama a `git show` y
+no puede concluir.
+
+Son **dos** arreglos y no uno, porque son dos cosas distintas: uno quita la causa
+**en los árboles nuevos**, el otro hace que el control **diga la verdad** en los
+viejos. Ninguno sustituye al otro.
+
+### 9.1 · La causa: el `gitdir` relativo (`tools/worktree-de-sesion.sh`)
+
+No es escribir la ruta del contenedor —eso arreglaría el contenedor **rompiendo
+el host**—. Es escribirla **relativa**, que git resuelve desde el directorio que
+contiene el `.git`, y por eso vale en los dos a la vez:
+
+    gitdir: ../../.git/worktrees/<x>
+
+Medido en las cuatro direcciones antes de tocar nada:
+
+| | |
+|---|---|
+| `git rev-parse` **dentro** del contenedor | `/app/.worktrees/g` (antes: `fatal: not a git repository`) |
+| `git show 2837171^`, que es lo que pide el control | **exit=0** |
+| `git status` / `log` **en el host** | siguen bien |
+| `git worktree list` desde la raíz del host | lista los ocho árboles |
+
+**La cuarta es la que importa** y es la que convierte esto de idea en arreglo
+fundible: descarta que se arregle el contenedor rompiendo el host.
+
+**No arregla los árboles ya creados**, y eso va escrito en el script con la línea
+para arreglar uno a mano — porque las tres sesiones vivas se enteran por un
+mensaje, y quien venga dentro de un mes lo va a leer del script.
+
+### 9.2 · Que el control diga la verdad en los árboles viejos
+
+La otra mitad, y es la que el runner necesitaba de todas formas: **cuando un
+control sale 2, el test mide si `git` resuelve desde ese árbol**. Si no resuelve,
+se salta **diciendo la medición y cómo arreglarlo**; si resuelve, falla como
+siempre.
+
+**Un skip en silencio es peor que un rojo**, así que no lo hay: el mensaje trae
+las tres cosas que midió, lo que dice el `.git`, y la línea del arreglo.
+
+**Y una lista fija no servía aquí — ya se probó y se cayó al fundir**: en el
+worktree el caso pasaba, en `main` la excepción sobraba y el caso caía. Está
+contado en la cabecera del propio test. Es la misma familia que todo lo de esta
+noche: **un criterio anclado al árbol hereda todas las maneras que tiene un árbol
+de estar en otro estado.** La medición no.
+
+Las tres condiciones se miden **juntas** a propósito — existe `.git`, **es un
+fichero**, y `git rev-parse` falla — porque la causa conocida es *«esto es un
+worktree y su `.git` apunta fuera»*, no *«git falló»*. Un control que salga 2 por
+otro motivo **con git funcionando sigue fallando**, que es lo que impide que esto
+se vuelva un cajón. Y el skip **desaparece solo** el día que el árbol se arregle,
+en vez de quedarse de adorno.
+
+Comprobado en las dos ramas, sobre el mismo árbol y cambiando sólo el `.git`:
+
+| `.git` del árbol | Resultado |
+|---|---|
+| `gitdir: ../../.git/worktrees/g` | **7 passed**, `exit=0` — el control **se ejerce** |
+| `gitdir: /Users/…/8myvc/.git/worktrees/g` | **1 skipped, 6 passed** — con la medición delante |
+
+> **Aviso de contabilidad entre lotes:** mi árbol ya lleva el `gitdir` relativo,
+> así que **mi `AutopruebasDeLasHerramientasTest` da 7/7 y los otros lotes 6/7**.
+> No es que el mío pase por otra razón: es que en mi árbol `git` resuelve.
