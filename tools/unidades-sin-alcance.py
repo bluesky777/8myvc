@@ -268,8 +268,20 @@ def alcance_de_unidades(sql, alias):
     # `BoletinIndependienteController::motivoDelVacio`, que pregunta «¿tiene
     # unidades SUYAS vaciadas?» —afirma propiedad, o sea `=` por la §1.6 partida
     # en dos— y salía como 'no', es decir en la lista de «hay que acotarla».
-    if (re.search(r'\b' + re.escape(alias) + r'\.alumno_id\s*=', sql, re.I)
-            or (una_sola_tabla(sql) and re.search(r'(?<![\w.:])alumno_id\s*=', sql, re.I))):
+    #
+    # **Y `IN (…)` va en esta misma rama**, que es la sexta y la encontró el censo de
+    # la fase 1 (1 sep 2026) leyendo las 21 a mano: `Grupo::marcarLosQueTienenDatosPropios`
+    # pregunta `u.alumno_id IN (?, ?, …)` con la lista de los alumnos del grupo, y eso
+    # es alcance —afirma propiedad, igual que el `=`, y por los mismos motivos va aquí
+    # y no en `si`—. Salía como «hay que acotarla» estando acotada.
+    #
+    # Con las mismas dos puertas que el `=`, y por la misma asimetría: prefijo explícito
+    # siempre, y sin prefijo **sólo con una tabla en el ámbito**, donde no hay otra que
+    # pueda aportar la columna. `alumno_id IN` con `matriculas` delante es común.
+    dueno = r'\.alumno_id\s*(?:=|\bin\b)'
+    desnudo = r'(?<![\w.:])alumno_id\s*(?:=|\bin\b)'
+    if (re.search(r'\b' + re.escape(alias) + dueno, sql, re.I)
+            or (una_sola_tabla(sql) and re.search(desnudo, sql, re.I))):
         return 'con-igual'
     return 'no'
 
@@ -579,7 +591,10 @@ def escrituras_eloquent(texto):
 #   3ª  medía por línea y partía las consultas de quince;
 #   4ª  exigía `<alias>.` para `IS NULL` -> daba «hay que acotarla» a CUATRO
 #       consultas de una sola tabla que ya estaban acotadas, y justo con la
-#       forma que la §1.6 del reparto bendice (1 sep 2026).
+#       forma que la §1.6 del reparto bendice (1 sep 2026);
+#   5ª  lo mismo en la rama del `=`, que afirma propiedad;
+#   6ª  no reconocía `IN (…)` como alcance — la encontró el censo de la fase 1,
+#       leyendo a mano las 21 que quedaban. **Las seis contando de más.**
 #
 # **Y las cuatro veces el número salió plausible, que es peor que raro.** Un
 # detector cuyo error es contar de más nunca se delata solo: su lista de trabajo
@@ -635,6 +650,21 @@ CASOS_DE_CONTROL = [
     ('con dos tablas, el = sin alias NO se da por alcance de `unidades`',
      'select u.id from unidades u join matriculas m on m.alumno_id=u.alumno_id '
      'where alumno_id = :alumno_id',
+     'u', 'no'),
+    # La sexta, del censo de la fase 1 (1 sep 2026): `IN (…)` es alcance y afirma
+    # propiedad, igual que el `=`. Un sitio real, `Grupo::marcarLosQueTienenDatosPropios`.
+    ('el IN con la lista de alumnos es alcance: afirma propiedad como el =',
+     'select distinct u.alumno_id from unidades u '
+     'where u.alumno_id in (?, ?, ?) and u.periodo_id = ? and u.deleted_at is null',
+     'u', 'con-igual'),
+    ('el IN sin alias, con UNA sola tabla, tambien',
+     'select id from unidades where alumno_id in (?, ?) and periodo_id = ?',
+     'unidades', 'con-igual'),
+    # Y el lado que no se afloja, igual que con el `=`: con dos tablas el `IN` desnudo
+    # puede ser el de `matriculas` y esta `unidades` seguir sin acotar.
+    ('con dos tablas, el IN sin alias NO se da por alcance de `unidades`',
+     'select u.id from unidades u join matriculas m on m.grupo_id = u.grupo_id '
+     'where alumno_id in (?, ?)',
      'u', 'no'),
     ('sin nombrar al dueño no hay alcance',
      'select u.id from unidades u where u.asignatura_id=? and u.periodo_id=?',
@@ -695,7 +725,7 @@ def control():
         print('CONTROL FALLA: el detector cambió de opinión sobre una forma decidida. '
               'Su lista de «hay que acotarla» NO vale hasta arreglar esto.')
         return 1
-    print('OK — las trece formas se clasifican como está decidido.')
+    print('OK — las dieciséis formas se clasifican como está decidido.')
     return 0
 
 

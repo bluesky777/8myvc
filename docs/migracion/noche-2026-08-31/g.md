@@ -609,3 +609,54 @@ número. La medición son quince corridas el día del despliegue, no una hoy.
 > un par. **Eso es correcto y es el diseño**: la alternativa —un `0` limpio— sería
 > la respuesta que archiva el asunto justo en el colegio donde no se ha mirado
 > nada.
+
+## 12. La sexta ceguera: `IN (…)` — y lo que hay que escribir al lado de la cifra
+
+La encontró **el censo**, leyendo a mano las 21 que quedaban:
+`Grupo::marcarLosQueTienenDatosPropios` pregunta `u.alumno_id IN (?, ?, …)` con
+la lista de los alumnos del grupo. Eso **es alcance y afirma propiedad**, igual
+que el `=`, así que va en la rama `con-igual` y con las mismas dos puertas —
+prefijo explícito siempre, sin prefijo **sólo con una tabla en el ámbito**.
+
+| | Lecturas | Sitios |
+|---|---|---|
+| antes | 21 | 9 |
+| después | **20** | **8** |
+
+**Una sola fila cambia** (`Grupo.php:227`, `no → con-igual`) y **ninguna entra**.
+En rojo contra el código viejo: fallan los dos casos del `IN` y ningún otro.
+
+> **Y ésta es la frase que tiene que viajar con la cifra, porque sin ella el 20
+> se lee al revés: NINGUNA CONSULTA SE HA TOCADO.** La fase 1 no ha avanzado un
+> paso entre las dos medidas — lo que cambió es **el instrumento**. Un lector que
+> vea «21 → 20» sin esto entiende «se acotó una más», que es exactamente lo
+> contrario de lo que pasó: **esa consulta ya estaba acotada desde que la escribió
+> el lote D, y el detector llevaba desde entonces contándola como trabajo.**
+>
+> Es la sexta vez que este detector cuenta de más y **las seis en la misma
+> dirección**. Ya no es una anécdota: es la firma de un instrumento que sólo puede
+> equivocarse hacia un lado, y por eso su cifra **nunca es una cota inferior del
+> trabajo que queda — es una cota superior**.
+
+### Por qué este arreglo va en un commit aparte del censo
+
+Porque **mueve una cifra ya publicada**. Fundidos juntos, el censo y su
+corrección serían indistinguibles y **nadie podría volver a comprobar el 21 en
+9**. Separados queda escrito que el censo dijo 21 en 9 **con el instrumento de
+ese día**, y que después el instrumento mejoró. Es justo lo que les faltó a las
+tres cifras que se propagaron mal esta noche. *(Formulación de la coordinación,
+1 sep 2026; la comparto entera.)*
+
+### El veredicto de la fase 1 NO cambia
+
+Sigue siendo **cero pendientes de verdad**. Esa fila ya estaba clasificada en la
+categoría **(a) acotada de otra forma que el detector no ve** — lo único que ha
+pasado es que ahora el detector la ve, así que **se muda de la columna «sin
+acotar» a la columna «con-igual»**. El desglose queda:
+
+    (a) acotadas de otra forma que el detector no ve   1 lectura  / 1 sitio
+        `DefinitivasDeAsignatura::calcular` — el alias renombrado en la derivada
+    (b) decididas a propósito, con el porqué escrito  16 lecturas / 6 sitios
+    (c) código muerto anotado                          2 lecturas / 1 sitio
+                                                      ──────────────────────
+                                                      20 lecturas / 8 sitios ✓
