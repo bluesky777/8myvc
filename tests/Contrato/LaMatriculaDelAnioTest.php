@@ -221,22 +221,26 @@ class LaMatriculaDelAnioTest extends CasoDeContrato
     }
 
     /**
-     * Y un alumno **sin matrícula en ese año** sigue contestando lo de antes.
+     * Y un alumno **sin matrícula en ese año** contesta **404**.
      *
-     * El 400 con `'No encontrado' => false` es feo y no es de este cambio: lo esperan
-     * los cinco llamadores de `AlumnosController`. Se fija para que reescribirlo sea
-     * una decisión y no un efecto secundario.
+     * **Este caso pedía 400 hasta el 1 sep 2026**, y no es que el test se quedara viejo:
+     * la §9.5 conservó el 400 a propósito porque era el que esperaban los cinco
+     * llamadores. Lo cambia la **opción A** del [09 §13](../../docs/migracion/09-pendientes.md),
+     * que le da a las otras dos ramas de este método un 404 para la misma condición —«la
+     * fila no existe»—, y **una misma ruta contestando dos códigos para la misma cosa es
+     * peor que cualquiera de los dos**: el cliente tendría que aprenderse cuál toca según
+     * la propiedad que mande.
+     *
+     * El caso sigue aquí, en el fichero de la §9.5, porque es **esta** regla la que
+     * decide que no hay matrícula: `Matricula::laDelAnio()` devolviendo `null`.
      */
-    public function test_sin_matricula_del_anio_contesta_lo_de_antes(): void
+    public function test_sin_matricula_del_anio_contesta_404(): void
     {
         $e = $this->escenario();
 
         DB::update('UPDATE matriculas SET deleted_at = NOW() WHERE id = ?', [$e['vieja']]);
 
-        $r = $this->guardar($e, 'repitente', 1);
-
-        $r->assertStatus(400);
-        $this->assertSame('Alumno no encontrado', $r->json('msg'));
+        $this->guardar($e, 'repitente', 1)->assertStatus(404);
     }
 
     // ─────────────────────────────────────────────────────────────────────────

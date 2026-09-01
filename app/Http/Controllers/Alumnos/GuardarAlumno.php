@@ -12,6 +12,7 @@ use App\Models\Year;
 use App\Models\Periodo;
 use \Log;
 use App\Support\ColumnaSegura;
+use App\Support\FilaQueSeVaAEscribir;
 
 
 
@@ -41,6 +42,9 @@ class GuardarAlumno {
 				if (!$user_id) {
 					$user_id 	= Request::input('user_id');
 				}
+
+				FilaQueSeVaAEscribir::exigir('users', 'id', $user_id, 'Esa cuenta de usuario');
+
 				$consulta 	= 'UPDATE users SET '.$propiedad.'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:user_id';
 				$datos 		= [ ':valor' => $valor, ':modificador' => $user->user_id, ':fecha' => $now, ':user_id' => $user_id ];
 
@@ -83,8 +87,14 @@ class GuardarAlumno {
 				 */
 				$matricula = \App\Models\Matricula::laDelAnio((int) $alumno_id, (int) $year_id);
 
+				// **404 y ya no el 400 que puso la §9.5.** Esta rama era la única que
+				// distinguía «no existe» de «no cambió nada», y lo hacía con un código
+				// distinto del que ahora usan las otras dos. Una misma ruta contestando
+				// dos códigos para la misma condición es peor que cualquiera de los dos:
+				// el cliente tendría que aprenderse cuál toca según la propiedad que
+				// mande. Es contrato, y está anotado como tal.
 				if ($matricula === null) {
-					return response()->json([ 'No encontrado'=> false, 'msg'=> 'Alumno no encontrado' ], 400);
+					abort(404, 'Ese alumno no tiene matrícula en este año.');
 				}
 
 				$consulta = 'UPDATE matriculas SET '.$propiedad.'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:matricula_id';
@@ -97,7 +107,9 @@ class GuardarAlumno {
 			break;
 			
 			default:
-				
+
+				FilaQueSeVaAEscribir::exigir('alumnos', 'id', $alumno_id, 'Ese alumno');
+
 				$consulta = 'UPDATE alumnos SET '.ColumnaSegura::exigir('alumnos', $propiedad).'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:alumno_id';
 				$datos 		= [
 					':valor'		=> $valor, 
@@ -109,12 +121,24 @@ class GuardarAlumno {
 		}
 		
 		
-		$res = DB::update($consulta, $datos);
+		/*
+		 * **Ya no se mira lo que devuelve `DB::update`, y ésa es la opción A entera.**
+		 * Devuelve filas AFECTADAS, y MySQL da 0 cuando el UPDATE no cambia ningún valor
+		 * — no cuando no encuentra la fila. Con eso, `'No guardado'` juntaba «el valor ya
+		 * era ése» con «esa fila no existe», y **guardar dos veces lo mismo contestaba
+		 * «No guardado» con 200 y el estado correcto**.
+		 *
+		 * Ahora la fila se comprueba arriba, rama por rama: si no está, la petición ya ha
+		 * cortado con 404. Llegar hasta aquí significa que la fila existe, así que el
+		 * único resultado posible es «guardado» — cambiara algo o no. Un fallo real de la
+		 * base no pasa por esta línea: lanza excepción y sale 500, igual que antes.
+		 *
+		 * `'No guardado'` desaparece de los dos métodos de este fichero. 09 §13, opción A,
+		 * decidida por Joseth el 1 sep 2026.
+		 */
+		DB::update($consulta, $datos);
 
-		if($res)
-			return 'Guardado';
-		else
-			return 'No guardado';
+		return 'Guardado';
 
 	}
 
@@ -132,16 +156,19 @@ class GuardarAlumno {
 
 		switch ($propiedad) {
 			case 'username':
+				FilaQueSeVaAEscribir::exigir('users', 'id', $user_acud_id, 'Esa cuenta de usuario');
 				$consulta 	= 'UPDATE users SET username=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:user_id';
 				$datos 		= [ ':valor' => $valor, ':modificador' => $user_id, ':fecha' => $now, ':user_id' => $user_acud_id ];
 				break;
 			
 			case 'parentesco':
+				FilaQueSeVaAEscribir::exigir('parentescos', 'id', $parentesco_id, 'Ese parentesco');
 				$consulta 	= 'UPDATE parentescos SET parentesco=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:parentesco_id';
 				$datos 		= [ ':valor' => $valor, ':modificador' => $user_id, ':fecha' => $now, ':parentesco_id' => $parentesco_id ];
 				break;
 			
 			default:
+				FilaQueSeVaAEscribir::exigir('acudientes', 'id', $acudiente_id, 'Ese acudiente');
 				$consulta = 'UPDATE acudientes SET '.ColumnaSegura::exigir('acudientes', $propiedad).'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:acudiente_id';
 				$datos 		= [
 					':valor'		=> $valor, 
@@ -153,12 +180,24 @@ class GuardarAlumno {
 		}
 		
 		
-		$res = DB::update($consulta, $datos);
+		/*
+		 * **Ya no se mira lo que devuelve `DB::update`, y ésa es la opción A entera.**
+		 * Devuelve filas AFECTADAS, y MySQL da 0 cuando el UPDATE no cambia ningún valor
+		 * — no cuando no encuentra la fila. Con eso, `'No guardado'` juntaba «el valor ya
+		 * era ése» con «esa fila no existe», y **guardar dos veces lo mismo contestaba
+		 * «No guardado» con 200 y el estado correcto**.
+		 *
+		 * Ahora la fila se comprueba arriba, rama por rama: si no está, la petición ya ha
+		 * cortado con 404. Llegar hasta aquí significa que la fila existe, así que el
+		 * único resultado posible es «guardado» — cambiara algo o no. Un fallo real de la
+		 * base no pasa por esta línea: lanza excepción y sale 500, igual que antes.
+		 *
+		 * `'No guardado'` desaparece de los dos métodos de este fichero. 09 §13, opción A,
+		 * decidida por Joseth el 1 sep 2026.
+		 */
+		DB::update($consulta, $datos);
 
-		if($res)
-			return 'Guardado';
-		else
-			return 'No guardado';
+		return 'Guardado';
 
 	}
 
