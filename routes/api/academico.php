@@ -128,6 +128,17 @@ Route::put('notas/update/{id}', [NotasController::class, 'putUpdate'])->middlewa
 // ruta deja fuera a alumnos y acudientes, que es lo que un middleware puede
 // contestar sin consultar la tabla de roles.
 Route::put('boletin-independiente/periodo', [BoletinIndependienteController::class, 'putPeriodo'])->middleware('auth.personal');
+// La ruta 546, y es de LECTURA aunque vaya por PUT —el patrón de este proyecto—:
+// la pantalla del docente entera en una petición (§6.1). Lleva `auth.personal` y
+// **no** la guarda de la decisión 5, y la diferencia es deliberada: marcar un
+// boletín lo decide el colegio, pero **montarle las unidades y ponerle las notas
+// al que ya está marcado es trabajo de aula**, y el docente tiene que poder verlo.
+// Es el mismo criterio con el que se quedó `grupos/listado/{grupo_id}` el 31 ago.
+//
+// **Trae `estructura_del_grupo` para que el front no llame a
+// `GET unidades/de-asignatura-periodo`**, que ESCRIBE: usarla de vista previa
+// montaría el periodo entero del curso. Esa ruta no se cambia (05 §47.2).
+Route::put('boletin-independiente/planilla', [BoletinIndependienteController::class, 'putPlanilla'])->middleware('auth.personal');
 
 // NotaComportamientoController
 Route::get('nota_comportamiento', [NotaComportamientoController::class, 'getIndex']);

@@ -215,6 +215,7 @@
         "PUT api/ausencias/cambiar-tipo-ausencia",
         "PUT api/ausencias/guardar-cambios-ausencia",
         "PUT api/boletin-independiente/periodo",
+        "PUT api/boletin-independiente/planilla",
         "PUT api/bolfinales-preescolar/crear-frase",
         "PUT api/bolfinales-preescolar/eliminar-frase",
         "PUT api/bolfinales-preescolar/guardar-frase",
