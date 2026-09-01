@@ -328,4 +328,124 @@ class BolIndependienteEnLosInformesTest extends CasoDeContrato
             .'no. Las pérdidas que se están listando incluyen las de un boletín aparte y la '
             .'pantalla no puede decirlo.');
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // definitivas_periodos: `alumno.bol_independiente_aparte_en`
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Un profesor con asignatura en un grupo con dos alumnos, y su token.
+     *
+     * **Tiene que ser un Profesor y no un Usuario.** `getIndex` saca el docente de
+     * `$user->persona_id` cuando el tipo es `Profesor`, y de `Request::input()` cuando
+     * es superusuario — y con un Usuario llano no saca ninguno: la respuesta sale `[]`
+     * en 200 y el test pasaría sin haber mirado nada. Es la razón por la que
+     * `api/definitivas_periodos` está en `lecturasVacias()` del muestreo.
+     *
+     * @return array{token: string, year_id: int, a: int, b: int}
+     */
+    private function escenarioDeLaRejilla(): array
+    {
+        $grupo = $this->grupoConAlumnos();
+
+        $profesor = DB::selectOne('SELECT u.username FROM users u
+            INNER JOIN profesores pr ON pr.user_id = u.id AND pr.deleted_at IS NULL
+            INNER JOIN asignaturas a ON a.profesor_id = pr.id AND a.grupo_id = ? AND a.deleted_at IS NULL
+            INNER JOIN periodos p ON p.id = u.periodo_id AND p.year_id = ? AND p.deleted_at IS NULL
+            WHERE u.tipo = "Profesor" AND u.is_active = 1 AND u.deleted_at IS NULL
+            ORDER BY u.id LIMIT 1', [$grupo->id, $grupo->year_id]);
+
+        $this->assertNotNull($profesor,
+            "El seed no tiene un Profesor con asignatura en el grupo {$grupo->id}: la rejilla "
+            .'saldría vacía en 200 y el test no comprobaría nada.');
+
+        $alumnos = DB::select('SELECT m.alumno_id FROM matriculas m
+             WHERE m.grupo_id = ? AND m.deleted_at IS NULL AND m.estado IN ("MATR","ASIS")
+             ORDER BY m.alumno_id LIMIT 2', [$grupo->id]);
+
+        $this->assertCount(2, $alumnos,
+            'Hacen falta dos alumnos: uno marcado y un compañero sin marcar. Con uno solo la '
+            .'lista no se distingue de una constante.');
+
+        return [
+            'token' => $this->tokenDe($profesor->username),
+            'year_id' => (int) $grupo->year_id,
+            'a' => (int) $alumnos[0]->alumno_id,
+            'b' => (int) $alumnos[1]->alumno_id,
+        ];
+    }
+
+    /**
+     * Los `bol_independiente_aparte_en` de la rejilla, por alumno.
+     *
+     * @return array<int, list<int>>
+     */
+    private function aparteEnPorAlumno(mixed $nodo): array
+    {
+        $encontrados = [];
+
+        if (! is_array($nodo)) {
+            return $encontrados;
+        }
+
+        if (isset($nodo['alumno_id']) && array_key_exists('bol_independiente_aparte_en', $nodo)) {
+            $encontrados[(int) $nodo['alumno_id']] = $nodo['bol_independiente_aparte_en'];
+        }
+
+        foreach ($nodo as $hijo) {
+            $encontrados += $this->aparteEnPorAlumno($hijo);
+        }
+
+        return $encontrados;
+    }
+
+    /**
+     * La rejilla dice **en cuáles** de los cuatro periodos va aparte, no si va aparte.
+     *
+     * Se marcan **dos periodos y no uno**, y no es adorno: con un solo periodo marcado
+     * una lista correcta y un booleano disfrazado de lista (`[periodo_del_token]`)
+     * darían el mismo verde. Y se marcan el 2 y el 3 —ni el primero ni el último— para
+     * que un `range()` o un `<=` tampoco acierten por casualidad.
+     */
+    public function test_la_rejilla_dice_en_que_periodos_va_aparte(): void
+    {
+        $e = $this->escenarioDeLaRejilla();
+        $periodos = $this->periodosPorNumero($e['year_id']);
+
+        $this->assertGreaterThanOrEqual(3, count($periodos),
+            'El año tiene menos de tres periodos: no se puede marcar «el 2 y el 3» y el test '
+            .'dejaría de distinguir una lista de un booleano.');
+
+        $numeros = array_keys($periodos);
+        $marcados = [$numeros[1], $numeros[2]];
+
+        foreach ($marcados as $numero) {
+            $this->marcarIndependiente($e['a'], $periodos[$numero]);
+        }
+
+        // Y uno apagado con la fila puesta: `aplica = 0` no es lo mismo que no tener
+        // fila, y la lista tiene que dejarlo fuera igual.
+        $this->marcarIndependiente($e['a'], $periodos[$numeros[0]], aplica: false);
+
+        $r = $this->withToken($e['token'])->getJson('/api/definitivas_periodos');
+
+        $r->assertStatus(200);
+
+        $visto = $this->aparteEnPorAlumno($r->json());
+
+        $this->assertNotSame([], $visto,
+            'La rejilla salió sin ningún alumno con el campo: o la respuesta está vacía o el '
+            .'campo no viaja.');
+
+        $this->assertArrayHasKey($e['a'], $visto, 'El alumno marcado no está en la rejilla.');
+        $this->assertArrayHasKey($e['b'], $visto, 'El compañero sin marcar no está en la rejilla.');
+
+        $this->assertSame($marcados, $visto[$e['a']],
+            'La rejilla no dice en cuáles de los cuatro periodos va aparte. Con las cuatro '
+            .'columnas a la vez, un dato que no nombre el periodo no puede señalar la celda rara.');
+
+        $this->assertSame([], $visto[$e['b']],
+            'El compañero sin marcar trae periodos: el campo es constante y no dice nada. Y `[]` '
+            .'y no `null` a propósito — una lista vacía se recorre igual que una llena.');
+    }
 }

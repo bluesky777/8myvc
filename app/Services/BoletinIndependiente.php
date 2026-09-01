@@ -240,6 +240,99 @@ class BoletinIndependiente
     }
 
     /**
+     * **En qué `numero` de periodo va aparte cada alumno de un año.** Una consulta
+     * para toda la respuesta.
+     *
+     * Lo piden las dos pantallas que enseñan **el año entero de una vez** —la rejilla
+     * de `definitivas_periodos`, con sus cuatro columnas, y el acta de evaluación, que
+     * es de todo el año—, y las dos emiten con esto
+     * `alumno.bol_independiente_aparte_en: [2, 3]`. §7 de la cola de la noche del
+     * 31 ago 2026, forma fijada por el front.
+     *
+     * ## Por qué hacía falta un método más y no valían los dos que ya había
+     *
+     * `aplica()` es por `(alumno, periodo)` y `delGrupo()` por `(grupo, periodo)`.
+     * Contestar con ellos es **treinta alumnos por cuatro periodos** en la rejilla, y
+     * en el acta **todos los grupos del año por cuatro** — sobre un informe cuyo propio
+     * docblock presume de haber pasado de 151 consultas a una. Es el mismo salto de
+     * grano que ya justificó `delGrupo()` frente a `aplica()`, un escalón más arriba.
+     *
+     * ## El año y no una lista de periodos, y esto es la decisión
+     *
+     * El valor que sale es una lista de **`numero`**, así que el método tiene que
+     * llegar a `periodos` de todas formas: pedirle al llamante los ids le obligaría a
+     * traer además los `numero` y a emparejarlos, que es la parte que se equivoca.
+     * Y las dos pantallas preguntan por el año entero por construcción: la rejilla
+     * enseña las cuatro columnas y el acta es del año. **Para «los periodos que este
+     * informe promedia», que es la otra pregunta, ya está `aplicaEnAlguno()`** — y no
+     * son la misma: mezclarlas fue lo que estuvo a punto de aplanar este campo a un
+     * booleano.
+     *
+     * ## Sin `alumnoIds`, y medido antes de decidirlo
+     *
+     * La coordinación preguntó si debía llevar un `?array $alumnoIds` para que la
+     * rejilla no se trajera el colegio entero. **No lo lleva**, y la razón es la
+     * población: `bol_ind_periodos` **sólo tiene las filas que alguien escribió a
+     * mano** —nace vacía, y la marca es la excepción, no el caso—, así que el techo de
+     * un año es *(alumnos marcados × 4)*, no *(alumnos × 4)*. Hoy, en `simonbolivar`,
+     * son **cero**.
+     *
+     * Y `EXPLAIN` dice por dónde entra: **por `bol_ind_periodos`**, resolviendo
+     * `periodos` con `eq_ref` sobre `PRIMARY` — o sea **una fila de `periodos` por
+     * marca**, y no un recorrido de alumnos ni de matrículas. **Población medida: dos
+     * filas** (la base de desarrollo el 1 sep 2026), así que con ese tamaño el
+     * optimizador se salta el índice y las recorre las dos; lo que el plan fija es el
+     * **orden de entrada**, que es lo que decide si esto crece con las marcas o con el
+     * colegio. `possible_keys` ya nombra `bol_ind_periodos_periodo_id_foreign` para
+     * cuando haya filas que valga la pena indexar.
+     *
+     * Un parámetro que ningún llamante usa es una rama muerta sobre la que alguien
+     * ramificará sin que se note nunca — la lección que ya pagó
+     * `years.puestos_con_bol_independiente`: **entra con quien la consume**. El día que
+     * un colegio marque a media escuela, el parámetro entra con la pantalla que lo
+     * necesite.
+     *
+     * ## No memoiza, y eso también es la decisión
+     *
+     * Cada llamante la llama **una vez por petición**, así que una tercera propiedad
+     * estática no ahorraría ninguna consulta y sí habría que acordarse de vaciarla en
+     * `olvidar()`. Esta noche dos rojos que parecían de otra cosa salieron justo de una
+     * memoria estática que sobrevivía entre tests. **Lo que no se cachea no se puede
+     * olvidar mal.**
+     *
+     * ## `aplica = 1`, y no `<=>`
+     *
+     * Es la regla partida en dos de la §1.6 del reparto, formulada por el lote D: el
+     * null-safe es para *«¿qué unidades le TOCAN a este alumno?»*. Esto es
+     * *«¿está marcado?»*, que **afirma propiedad**, y por eso compara con `=`. La fila
+     * que falta significa «va con el grupo» (decisión 7), así que quien no tenga
+     * ninguna **no sale del mapa** y el llamante le pone su `[]`.
+     *
+     * @return array<int, list<int>> alumno_id => los `numero` en los que va aparte, en orden
+     */
+    public static function aparteEnPorAlumno(int $yearId): array
+    {
+        $filas = DB::select(
+            'SELECT bip.alumno_id, p.numero
+               FROM bol_ind_periodos bip
+               INNER JOIN periodos p ON p.id = bip.periodo_id
+                                    AND p.year_id = ?
+                                    AND p.deleted_at IS NULL
+              WHERE bip.aplica = 1
+              ORDER BY bip.alumno_id, p.numero',
+            [$yearId]
+        );
+
+        $mapa = [];
+
+        foreach ($filas as $fila) {
+            $mapa[(int) $fila->alumno_id][] = (int) $fila->numero;
+        }
+
+        return $mapa;
+    }
+
+    /**
      * ¿Este alumno va aparte en ALGUNO de estos periodos?
      *
      * La versión de `aplica()` para los informes que promedian **varios** periodos

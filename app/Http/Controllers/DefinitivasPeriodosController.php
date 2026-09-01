@@ -18,6 +18,7 @@ use \Log;
 
 use App\Http\Controllers\Alumnos\Solicitudes;
 use App\Services\Auditoria;
+use App\Services\BoletinIndependiente;
 use App\Support\EscalaDeNotas;
 use App\Support\PeriodoDeLaFila;
 use App\Support\NombreDelAlumno;
@@ -25,6 +26,25 @@ use App\Support\NombreDelAlumno;
 
 class DefinitivasPeriodosController extends Controller {
 
+	/**
+	 * La rejilla de definitivas: **los cuatro periodos a la vez, en cuatro columnas**.
+	 *
+	 * Y por eso es la pantalla que más necesita `bol_independiente_aparte_en` (§7 de
+	 * la cola de la noche del 31 ago 2026, forma fijada por el front):
+	 *
+	 *     "bol_independiente_aparte_en": [2, 3]   // los `numero`; [] si ninguno
+	 *
+	 * **Un booleano aplanado no serviría aquí**, que es justo el argumento con el que
+	 * el front lo pidió: enseñando las cuatro columnas a la vez, un `true` no dice
+	 * **cuál** de las cuatro celdas es la rara — y la celda rara es lo que el docente
+	 * está mirando cuando ve la nota de un estudiante que no vio en su planilla, o un
+	 * 0 sin explicación, que es la §9.1 hecha visible.
+	 *
+	 * **El nombre es distinto del `bol_independiente_periodos` de la ficha a
+	 * propósito.** Aquél carga `[{periodo_id, numero, aplica, tiene_datos}]`; éste es
+	 * una lista plana de `numero`. Un mismo nombre con dos formas según por dónde
+	 * salga es una trampa que este módulo ya ha pisado dos veces.
+	 */
 	public function getIndex()
 	{
 		$user 			= User::fromToken();
@@ -40,10 +60,27 @@ class DefinitivasPeriodosController extends Controller {
 		$asignaturas 	= $definitivas->asignaturas_docente($profe_id, $user->year_id);
 		
 		$cantAsig 		= count($asignaturas);
+
+		// UNA consulta para toda la respuesta, y eso no es prematuro: aquí son treinta
+		// alumnos por cuatro periodos y por cada asignatura del docente. Preguntando
+		// par a par con `BoletinIndependiente::aplica()` serían ciento veinte lecturas
+		// por grupo aunque la memoria del servicio las acorte, y `delGrupo()` es por
+		// `(grupo, periodo)`, o sea cuatro por grupo. Aquí no hace falta `tiene_datos`
+		// —eso es la ficha—, así que es una lectura de `bol_ind_periodos` **sin
+		// `EXISTS`** y cabe entera en una. Quien decide sigue siendo el servicio.
+		$aparte_en = BoletinIndependiente::aparteEnPorAlumno((int) $user->year_id);
 		
 		for ($i=0; $i < $cantAsig; $i++) { 
 			
 			$asignaturas[$i]->alumnos = NotaFinal::alumnos_grupo_nota_final($asignaturas[$i]->grupo_id, $asignaturas[$i]->asignatura_id, $user->user_id);
+
+			foreach ($asignaturas[$i]->alumnos['alumnos'] as $alumno) {
+				// `[]` y no `null` para el que va con el grupo: una lista vacía se
+				// recorre igual que una llena y no obliga al front a decidir qué
+				// significa una ausencia. Este módulo ya perdió una semana por leer una
+				// ausencia al revés (§6.4 del 19).
+				$alumno->bol_independiente_aparte_en = $aparte_en[(int) $alumno->alumno_id] ?? [];
+			}
 			
 		}
 		
