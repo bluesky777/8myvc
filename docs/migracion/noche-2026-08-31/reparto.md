@@ -1,6 +1,8 @@
 # El reparto del boletín independiente — noche del 31 ago 2026
 
-> **Coordina `8myvc-2a`.** Cada sesión lee **la sección 0, la 1 y su lote**, y nada más.
+> **Coordina `8myvc-c1`**, relevo de `8myvc-2a` desde el 31 ago 2026 por ventana de contexto llena
+> — el traspaso está en [traspaso-coordinacion.md](traspaso-coordinacion.md).
+> Cada sesión lee **la sección 0, la 1 y su lote**, y nada más.
 > Lo que no está aquí está en [19-boletin-independiente.md](../19-boletin-independiente.md)
 > (el plan) y en [ESTADO-ACTUAL.md](../ESTADO-ACTUAL.md) (dónde está la aguja).
 >
@@ -82,6 +84,17 @@ Las dos formas de fallar, las dos ya vistas en este repo:
 - **de más** — la consulta del grupo suma las unidades del independiente y las
   definitivas de los treinta salen infladas;
 - **de menos** — el boletín del independiente pide las del grupo y sale en blanco.
+
+> **Y una TERCERA forma de fallar el test, levantada por el lote A el 31 ago 2026 y que no estaba
+> aquí: el escenario equilibrado.** Su primera versión estaba escrita **antes** del arreglo y aun así
+> **pasaba en verde con la forma ingenua**. No por el código: su caso tenía «las del grupo» y «la
+> suya» valiendo **las dos 1** en el mismo periodo, así que contar las contrarias daba **el mismo
+> número**. Lo desequilibró —dos del grupo, una propia— y el control se puso rojo.
+>
+> **O sea que escribir el test primero no basta, y «se puso rojo» tampoco si no se comprueba.** La
+> §1.4 se cumple **ejecutándolo contra la forma mala**, no escribiéndolo antes. Y al montar el caso,
+> **que los dos lados tengan números distintos**: con un 1 contra un 1, el test correcto y el
+> equivocado son indistinguibles.
 
 ### 1.5 · Acotar NO siempre es lo correcto — se lee cada fila
 
