@@ -309,3 +309,67 @@ siquiera exige que exista `app/`.
 > en 1 y `${PIPESTATUS[0]}` no es nada. Es la §1.8 en su forma exacta —un `exit`
 > que no es el del programa— y se cayó sola en la comprobación de que no hace
 > falta que se caiga en una suite: **sin tubería no hay nada que confundir**.
+
+## 8. `tools/independientes-sin-estructura.php` (§9.1)
+
+Contesta **qué pares (alumno, asignatura) van por boletín aparte y no tienen ni
+una unidad propia**. Es el único riesgo del módulo que **no avisa de ninguna
+forma**: la definitiva sale 0, el boletín en blanco, y la consulta no falla —
+devuelve cero filas, y cero filas se leen como cero.
+
+### Y hoy es peor que cuando se escribió el plan
+
+Con la fase 1 fundida, un marcado sin unidades propias **ni siquiera aparece** en
+notas perdidas: la consulta pide `u.alumno_id <=> ALCANCE` y no empareja nada.
+**El arreglo del alcance cambió el síntoma de sitio, y a peor**: antes la
+pantalla le acusaba de perderlo todo —falso, pero visible—; ahora se lo calla. Un
+alumno acusado de algo raro se mira; uno que no sale, no.
+
+### El `=` de aquí NO es el fallo caro de la §3
+
+Cae del lado derecho de la §1.6 partida en dos: la pregunta es **«¿cuáles son
+SUYAS?»**, que afirma propiedad. Con `<=>` un alumno sin nada propio emparejaría
+con las del grupo y saldría con estructura — o sea que el null-safe **no daría un
+número peor: daría cero huecos siempre**, que es justo la respuesta que archiva
+el asunto. Por eso el control lo ancla con un caso propio.
+
+### La población, y qué significa hoy
+
+Hoy es **cero marcados**, así que la herramienta **no puede** decir «todo bien».
+Dice otra cosa, y con esas palabras: *«no hay a quién revisar; el módulo no está
+en uso»*. Con marcados dice `N marcados en P periodos; A asignaturas; X pares
+revisados`, que es la forma que pide el plan.
+
+### Comprobada de verdad, y en las dos mitades
+
+El `--control` ancla la parte pura —cinco formas literales, sin base y sin
+árbol—; **el SQL no lo comprueba ningún control**, así que se ejercitó a mano
+sobre la base de tests, fabricando el caso y borrándolo después:
+
+| Montado | Huecos | Qué demuestra |
+|---|---|---|
+| nada | **10** de 10 | el barrido encuentra |
+| una unidad **suya viva** | **9** | tapa sólo la que es suya |
+| una **del grupo** (`alumno_id NULL`) | sigue **9** | las del grupo **no** tapan |
+| una **suya borrada** | sigue **9** | una estructura vaciada es un hueco |
+| `aplica = 0` | 0 marcados | la marca apagada no se revisa |
+
+Base devuelta a cero: `0` unidades con dueño, `0` filas en `bol_ind_periodos`.
+
+Y el control, en rojo contra la forma ingenua —hacer que las del grupo cuenten
+como suyas— cae en exactamente un caso: *«las unidades DEL GRUPO no tapan el
+hueco»*.
+
+### Dos cosas que salieron al medir y no estaban en el encargo
+
+1. **La primera versión reventaba y salía `exit=0`.** Se equivocó de tabla
+   (`personas` no existe: `alumnos` ya lleva `nombres` y `apellidos`), y el
+   bootstrap de Laravel **pinta la excepción muy bien y devuelve cero** — o sea
+   que quien la llamara desde un script la daría por buena. Es
+   `respuestas-que-mienten.py` en forma de herramienta. Ahora la parte de base va
+   en un `try` y sale **2** —*no se pudo mirar*—, que son las mismas tres salidas
+   del runner de autopruebas: 0 pasa, 1 hallazgo, 2 no concluye.
+2. **La línea de la base no puede afirmar cuál es.** Decía «la del `.env`, NO la
+   de tests», y con un `DB_DATABASE=` delante corre contra otra: mentiría
+   justo en el caso en que importa. Ahora dice «la que resuelve la
+   configuración», que es verdad siempre.

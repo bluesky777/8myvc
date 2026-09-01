@@ -118,6 +118,11 @@ class AutopruebasDeLasHerramientasTest extends TestCase
             // número del árbol: un número aquí obliga a reescribirlo cada noche, y se
             // reescribe con el que salga en vez de con el que debía salir.
             'unidades-sin-alcance.py' => ['python3', 'tools/unidades-sin-alcance.py --control'],
+            // Entró con la herramienta el 1 sep 2026, y no después: es la §9.1 del 19
+            // —el alumno que se cae por el hueco— y su forma de mentir es decir CERO,
+            // que es la que no se nota. Su control va antes del bootstrap de Laravel, así
+            // que no toca la base ni el árbol: cinco formas literales.
+            'independientes-sin-estructura.php' => ['php', 'tools/independientes-sin-estructura.php --control'],
             // Era la única que declaraba un control positivo EN PROSA y no tenía nada
             // que lo ejecutara. CONTROLES-1 se lo puso, y al ejecutarlo salió rojo por
             // un motivo que no estaba en la lista de la ficha: **el fallo que citaba se
