@@ -405,3 +405,151 @@ lectura, la ficha devuelve un `repitente` creíble. **El fallo sólo existe entr
 como texto plano. `->json()` revienta ahí con *«Invalid JSON was returned from the
 route»* — un rojo del test y no del código. En la rama del 400 sí hay JSON. Está escrito
 al lado del helper.
+
+## 9. «No guardado» con 200 — LA MEDICIÓN (no el arreglo)
+
+Encargo de la coordinación el 1 sep 2026: remedir la población de
+[09 §13](../09-pendientes.md), decir qué front consume qué, si esa palabra se distingue
+de un fallo de verdad, y escribir las opciones con su coste. **Ningún fichero de los
+cuatro se ha tocado.**
+
+### 9.1 · La población: **la cifra de sitios es correcta; la de rutas no**
+
+`grep "No guardado" app/` da **cuatro sitios**, y los cuatro tienen la forma exacta
+`if ($res) return 'Guardado'; else return 'No guardado';` sobre `DB::update`. Hasta ahí
+el 24 ago acertó. Lo que no se sostiene es «seis rutas»:
+
+| # | Sitio (1 sep 2026) | Método | ¿Alcanzable? | Rutas |
+|---|---|---|---|---|
+| 1 | `Alumnos/GuardarAlumno.php:117` | `valor` | sí | `PUT alumnos/guardar-valor` · `PUT alumnos/guardar-valor-varios` (**sólo por una rama**) |
+| 2 | `Alumnos/GuardarAlumno.php:161` | `valorAcudiente` | sí | `PUT acudientes/guardar-valor` |
+| 3 | `Alumnos/ImporterFixer.php:210` | `valorAcudiente` | **NO** | **ninguna** |
+| 4 | `YearsController.php:758` | `putToggleCambiarValor` | sí | `PUT years/toggle-cambiar-valor` |
+
+**El sitio 3 no lo llama nadie.** `grep -rn valorAcudiente app/ routes/ tests/ database/`
+devuelve **tres** líneas: la llamada de `AcudientesController:468` —que va a
+`GuardarAlumno`, no a `ImporterFixer`— y las dos declaraciones. De `ImporterFixer`,
+`ImportarController` sólo usa `verificar()`. Es una **copia muerta** del método de al
+lado, y por eso no aporta ninguna ruta.
+
+> **Y no es sólo mi lectura: el front llegó a lo mismo por su cuenta.**
+> `myvc_front/scripts/check-no-guardado.mjs` lo declara con el comentario *«es una COPIA
+> de la de `GuardarAlumno` y no la sirve ninguna ruta»*. Dos fuentes independientes, el
+> mismo resultado.
+
+**Y la cuarta ruta se sostiene a medias.** `PUT alumnos/guardar-valor-varios` devuelve la
+cadena **sólo por la rama del `Profesor` con `profes_can_edit_alumnos`**; la rama del
+administrativo **descarta** lo que devuelve `valor()` y contesta `'Cambios realizados'`.
+Y esa bandera está a **0 en los nueve años** de `simonbolivar`. El propio front la tiene
+clasificada como **«mixto»** en `endpoints-de-texto.json` por esa razón.
+
+**Resumen: 4 sitios (3 vivos) y 4 rutas, de las cuales 2 la enseñan hoy de verdad.**
+
+### 9.2 · Quién consume qué — sólo código, sin docs, sin `.spec`, sin `scripts/`
+
+| Ruta | `myvc_front` | `myvc_front_2` (PIAR) | `myvc_flutter` |
+|---|---|---|---|
+| `PUT alumnos/guardar-valor` | **17 ficheros** | 0 | 0 |
+| `PUT acudientes/guardar-valor` | 3 | 0 | 0 |
+| `PUT alumnos/guardar-valor-varios` | 1 (`cartera.ts`) | 0 | 0 |
+| `PUT years/toggle-cambiar-valor` | **0** | 0 | 0 |
+
+> **La primera medición dio «0 ficheros» en las cuatro y era el detector, no el dato**:
+> `zsh` se comió los `--include=*.ts` sin comillas. Es la regla de la casa —*el primer
+> sitio donde mirar cuando el número sale raro es el detector*— y esta vez el número raro
+> era **cero en todo**, que es el que más fácil se archiva como «no lo usa nadie».
+
+**`myvc_flutter` no llama a ninguna de las cuatro**, y eso quita de encima el argumento
+que hacía grave este asunto: *«es una sola app para los quince colegios»*. Aquí no entra.
+
+### 9.3 · ⚠️ La premisa del interruptor **no se sostiene medida**
+
+El encargo decía que urge porque `PUT years/toggle-cambiar-valor` es «por donde se guarda
+`puestos_con_bol_independiente`», y que un rector leería «No guardado» al darle. **Medido,
+hoy eso no puede pasar**, por tres cosas independientes:
+
+1. **Ningún cliente llama a esa ruta.** Cero ficheros de código en los tres fronts. El
+   propio `check-no-guardado.mjs` ya lo decía —*«existe y no lo llama nadie, ni `app2` ni
+   la vieja»*— y lo he vuelto a comprobar contra el código, no contra su documento,
+   porque estaba fechado el 23 ago y el interruptor es del 31.
+2. **`puestos_con_bol_independiente` no tiene ningún escritor en ningún front.** Las
+   cuatro pantallas de puestos y la cabecera del boletín final **sólo lo leen**.
+3. **Sus cinco hermanos tienen ruta propia y ninguno tiene el defecto.**
+   `years/toggle-solo-valorativas`, `toggle-ignorar-notas-perdidas`,
+   `toggle-mostrar-puestos-en-boletin`, `toggle-mostrar-nota-comport-en-boletin` y
+   `toggle-mostrar-anio-pasado-en-boletin` devuelven **una frase fija y descriptiva**
+   —«Ahora se mostrarán SOLO cualitativo.»— que **no sale de `$res`**. El genérico
+   `toggle-cambiar-valor` es la excepción, no la norma.
+
+**Lo probable, entonces, es que el interruptor nazca con su propia ruta como los otros
+cinco y no toque este defecto nunca.** Eso no quita urgencia al asunto: la cambia de
+sitio. **Es la única de las cuatro rutas donde el arreglo puede llegar antes que la
+pantalla**, que es el momento más barato que va a haber.
+
+### 9.4 · ¿«No guardado» significa alguna vez que falló?
+
+**Desde el backend, no.** `DB::update` devuelve filas **afectadas**, y eso vale 0 en dos
+casos: **(a)** la fila existía y ningún valor cambió, **(b)** el `WHERE` no casó con
+nadie. Un fallo real de la base **lanza excepción y sale 500**. Así que la palabra
+**nunca** significa «la base falló»: confunde *«no cambió nada»* con *«no encontré la
+fila»*, y sólo eso.
+
+> **Y desde el 1 sep esa confusión es más pequeña, por la §9.5 de este mismo lote:** para
+> las ~12 propiedades de `matriculas`, «no encontré la fila» **ya es un 400** antes del
+> `UPDATE` (`Matricula::laDelAnio()` devuelve `null`). Ahí `'No guardado'` sólo puede
+> significar «no cambió nada». Para las columnas de `alumnos` y de `users` los dos casos
+> siguen juntos.
+
+**Desde el cliente, y es lo que cambia las opciones:**
+
+- **La app vieja (AngularJS) no mira el cuerpo.** Cero apariciones fuera de `app2`. Con
+  200 dice «actualizado con éxito». Ahí la mentira es invisible — y un fallo real, también.
+- **`app2` sí lo mira: 18 ficheros**, por `comunes/guardado-de-campo.ts`. Y **sabe** que
+  no es un fallo: su propio docblock explica `DB::update` y las filas afectadas. Lo
+  convierte en rechazo **a propósito**, para que **la celda de la rejilla vuelva atrás**
+  —*«un 200 que no guardó nada no puede quedarse pintado como si hubiera guardado»*— con
+  el mensaje `«El servidor no cambió nada: el valor ya era ése, o la fila no existe en
+  este año.»`, que **junta los dos casos porque el backend no los distingue**.
+
+### 9.5 · Las tres opciones, con lo que ahora se sabe
+
+**Opción A — distinguir en el backend.** Preguntar si la fila existe, `404` cuando no
+está y `'Guardado'` cuando está y no cambió nada.
+
+- **Coste: 3 sitios, no 4** (el de `ImporterFixer` está muerto), y **2 rutas que un
+  cliente lea de verdad**. Una lectura extra por escritura en esas rutas.
+- **Un tercio ya está escrito**: para las propiedades de `matriculas`, `laDelAnio()` hace
+  esa comprobación y ya devuelve 400 (§9.5, commit `74c7025`).
+- **Efecto en `app2`: mejora, no rompe.** Dejaría de revertir la celda cuando el valor ya
+  era ése, y **seguiría revirtiéndola** ante un 404 de verdad.
+- **Efecto en la app vieja: ninguno** — no lee el cuerpo.
+
+**Opción B — que el cliente deje de leer el cuerpo.** **Medida, hoy es una regresión.**
+`app2` no dejó de arreglarlo: construyó **lo mejor que un backend ambiguo permite**, y lo
+que B le quita es el *revertir la celda*, que es lo que mantiene la rejilla honesta. Sin
+A tampoco arregla nada. **B, tal como está escrita en el plan, ya no es la opción que
+era.**
+
+**Opción C — A y después B, escalonado.** Con la medición delante, **la mitad B encoge**:
+una vez A garantiza que `'No guardado'` no puede significar «no encontrada», `app2` deja
+de tratarla como rechazo cambiando **`guardado-de-campo.ts`**, no dieciocho ficheros.
+
+**Lo que recomiendo: C, pero empezando ya por A y sin esperar al front.** Las razones son
+las tres cifras de arriba: **`myvc_flutter` no entra** —se cae el argumento del «una sola
+app para los quince»—, **sólo dos rutas** tienen un lector real, y **un tercio de A ya
+está hecho**. Y aparte: **el interruptor de puestos no necesita esperar a nada de esto**,
+porque nadie llama a su ruta y sus cinco hermanos nacieron sin el defecto.
+
+### 9.6 · Encontrado midiendo, y NO es de esta clase — se deja escrito y se para
+
+`UniformesController::putActualizar` y `putEliminar` hacen `$res = DB::update(...)` y
+**`return $res;`** — devuelven el número de filas afectadas en crudo. Es **la misma
+trampa con otro disfraz**: un cliente que trate `0` como falso lee «falló» cuando no
+cambió nada. No está en la lista del 09 §13 porque esa lista busca la **cadena**.
+
+Y aquí sí entra `myvc_flutter`: `uniformes/*` lo consumen `UniformesApi.dart`,
+`UniformeModel.dart` y `FichaDisciplinaScreen.dart`. **Lo que comprobé:**
+`actualizarUniforme` y el borrado miran **sólo `res.statusCode >= 300`** y no el cuerpo,
+así que ahí está **latente**. **Lo que NO comprobé:** `agregarUniforme` sí hace
+`jsonDecode(res.body)`, y no he mirado qué método lo sirve ni qué devuelve con cero
+filas. **Se para aquí**, como se pidió.
