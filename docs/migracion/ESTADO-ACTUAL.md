@@ -131,13 +131,34 @@ CONTABILIDAD DE LA FASE 1 REMEDIDA** · cinco lotes en cinco árboles y cinco ba
 
 > **HALLAZGOS QUE NO BUSCABA NADIE, y ninguno es de esta noche:**
 >
-> - **El rol `Secretario` no está en la base de tests** (lote D). Su migración lo inserta y
->   `test-seed.sql` hace **`TRUNCATE TABLE roles`** a continuación: quedan **once** roles y sin él.
->   Consecuencia: **la rama `Secretario` de `Autoriza::esAdministrativo()` no la ejerce ni un test de
->   la suite**, y lo que la suite comprueba de ese método es `is_superuser` a secas. Y ya se había
->   **rodeado a mano dos veces sin nombrar la causa** —`BoletinIndependientePeriodoTest` y
->   `ConsecutivoDeCertificadosTest` crean el rol si falta—. **Joseth decidió arreglarlo esta noche**;
->   va al lote A, con el seed bloqueado hasta que no haya suites corriendo.
+> - **El rol `Secretario` no está en la base de tests** (lote D): su migración lo inserta y
+>   `test-seed.sql` hace **`TRUNCATE TABLE roles`** a continuación, así que quedan **once** roles y
+>   sin él. **Ese hecho es cierto. La consecuencia que se le colgó NO lo es, y la corrigió el lote A
+>   yendo a mirar** — es la quinta cifra de la noche que nace mal, y la única que llegó a este
+>   documento antes de caerse.
+>
+>   Se dijo que **la rama `Secretario` de `Autoriza::esAdministrativo()` no la ejerce ni un test**, y
+>   sí la ejerce: `SecretarioTest` **entero** está montado sobre ella —`test_un_administrativo_sin_superusuario_crea_acudientes_solo_con_el_rol`
+>   coge un `Usuario` con `is_superuser = 0`, comprueba 403 sin el rol, lo inserta y comprueba 200
+>   con él: **misma fila, sólo cambia `role_user`**—. Y tampoco se había «rodeado sin nombrar la
+>   causa»: **la causa está escrita en su propio docblock**, *«por qué cada test se fabrica su
+>   Secretario: el seed se genera desde la base»*. El error de origen fue leer un `grep -rln`
+>   —que devuelve **nombres de fichero**— como si devolviera líneas.
+>
+>   **Y lo que la medición buena destapa es mejor que lo que se buscaba: el arreglo no es durable.**
+>   `test-seed.sql` **lo genera `tools/generar-seed-test.php` desde una base real**, y una base real
+>   tiene once roles porque el doce lo pone una migración: **quien regenere el volcado vuelve a
+>   dejarlo en once y la fila se va sin que falle nada**. O sea que el truncado es deliberado y está
+>   documentado en las dos migraciones de datos afectadas —la del rol y la de
+>   `create_permiso_can_view_auditoria`, que cita a la primera como precedente—, y **fabricarse el
+>   rol dentro de la transacción es justo lo que hace a esos tests inmunes a una regeneración**.
+>
+>   **Joseth decidió arreglarlo igual**, con la alternativa de no tocarlo delante y planteada por el
+>   lote A. Entra con un test que se pone rojo si una regeneración se lleva la fila, y **los dos
+>   rodeos se quedan**, con el porqué escrito: quitarlos los dejaría colgando de una fila que
+>   `generar-seed-test.php` se lleva sin avisar. **`can_view_auditoria` y sus dos filas de
+>   `permission_role` NO se tocan** —mismo truncado, misma decisión documentada— y quedan anotadas
+>   aquí en vez de arregladas sobre una premisa que ya se cayó.
 > - **El interruptor nuevo de puestos no sobrevive al cambio de año** (lote E).
 >   `YearsController:158` copia del año anterior **60 de las 68 columnas vivas** de `years`, y
 >   `puestos_con_bol_independiente` no está: **el colegio que lo ponga a 0 lo recupera a 1 al crear
