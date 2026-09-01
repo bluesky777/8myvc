@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Nota;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -62,10 +63,11 @@ use Illuminate\Support\Facades\DB;
  * - **No escribe nada.** Ni la marca por periodo: eso es
  *   `PUT boletin-independiente/periodo`, que con la decisión 7 es **el único
  *   escritor que hay** y por eso subió de la fase 4 a la fase 2.
- * - **El interruptor de los puestos tampoco está**: se fue a la fase 2 con su
- *   columna, porque `years.puestos_con_bol_independiente` movía tres respuestas
- *   vivas y no lo consumía nada. El comentario de más abajo guarda la regla que
- *   tiene que llevar cuando vuelva.
+ * - **El interruptor de los puestos SÍ está ya**, desde la fase 6 del 31 ago 2026:
+ *   `puestosCuentanIndependientes()` y sus dos ayudantes. Volvió con quien lo
+ *   consume —los ocho sitios que copian `Nota::puestoAlumno`—, que es lo que le
+ *   faltaba la primera vez: una columna que nadie lee moviendo tres respuestas
+ *   vivas es coste sin contrapartida.
  */
 class BoletinIndependiente
 {
@@ -167,6 +169,17 @@ class BoletinIndependiente
     private static array $memoria = [];
 
     /**
+     * El interruptor de los puestos ya preguntado, por año.
+     *
+     * Mismo criterio que `$memoria`: un boletín de grupo pregunta una vez por alumno
+     * y son treinta, y la respuesta es la misma para los treinta porque el año es
+     * uno. Vive lo que vive la petición.
+     *
+     * @var array<int, bool>
+     */
+    private static array $interruptor = [];
+
+    /**
      * El valor que va a `unidades.alumno_id` para las consultas de UN alumno:
      * `null` (las del grupo) o su id (las suyas).
      *
@@ -226,35 +239,165 @@ class BoletinIndependiente
         return $salida;
     }
 
-    /*
-     * `puestosCuentanIndependientes()` estaba aquí y se ha ido a la FASE 2, con
-     * su columna `years.puestos_con_bol_independiente`. No está sin hacer: está
-     * movida, y la diferencia importa para quien lea el plan.
+    /**
+     * ¿Este alumno va aparte en ALGUNO de estos periodos?
      *
-     * Por qué se movió: la columna movía las tres instantáneas de
-     * `MuestreoDeLecturasTest` —`YearsController:27` y `:43` leen con `SELECT *`—
-     * y **no la consume nada todavía**: los ocho sitios que copian
-     * `Nota::puestoAlumno` son de la fase 6, y las cuatro rutas de puestos no
-     * calculan puesto (devuelven `promedio`; el front pinta `$index + 1`). O sea
-     * que aquí era una columna que nadie lee moviendo tres respuestas vivas.
+     * La versión de `aplica()` para los informes que promedian **varios** periodos
+     * —el de promoción y el de certificados promedian el año entero—. Un alumno que
+     * pasó el segundo periodo con su propio boletín tiene una definitiva de ese
+     * periodo que **no se calculó sobre el reparto del grupo**, así que su promedio
+     * anual no es comparable con el de los demás aunque hoy vuelva a ir con el
+     * grupo: la marca de un solo periodo basta para sacarlo del recuento.
      *
-     * **Y la regla que hay que conservar cuando vuelva, que ya está pagada:**
-     * ese método contesta **«¿está activado el interruptor?»** y **nunca «¿se
-     * enseña el puesto?»**. El front esconde el puesto al `Acudiente` y al
-     * `Alumno` aunque el año lo tenga activado
-     * (`boletines-periodo.spec.ts:222-243`). Si contestara lo segundo, o le
-     * filtraría el puesto a las familias por su cuenta o dejaría muerta la regla
-     * del front — las dos en silencio, y las dos son dos sitios decidiendo lo
-     * mismo con criterios distintos, que es de lo que salió el recalculador
-     * único.
+     * **Y por eso recibe los periodos y no el año.** `CertificadosPersonaController`
+     * promedia «hasta el periodo N» cuando se lo piden, y preguntar por el año
+     * entero ahí sacaría del recuento a alguien por una marca de un periodo que ese
+     * informe **no está promediando** — que no es un fallo suyo, es un puesto
+     * cambiado a treinta compañeros por un dato que no entra en la cuenta.
      *
-     * Ver la §5.ter y la §6 de docs/migracion/noche-2026-08-24/bi-1.md.
+     * @param  list<int>  $periodoIds  los periodos que el informe promedia
      */
+    public static function aplicaEnAlguno(int $alumnoId, array $periodoIds): bool
+    {
+        foreach ($periodoIds as $periodoId) {
+            if (self::aplica($alumnoId, $periodoId)) {
+                return true;
+            }
+        }
 
-    /** Se llama entre tests: la memoria es por petición y una suite es un proceso. */
+        return false;
+    }
+
+    /**
+     * **¿Está activado el interruptor de los puestos de este año?** Y nada más.
+     *
+     * ## La regla que ya está pagada: contesta esto y NUNCA «¿se enseña el puesto?»
+     *
+     * El front esconde el puesto al `Acudiente` y al `Alumno` aunque el año lo tenga
+     * activado (`boletines-periodo.spec.ts:222-243`). Si este método contestara «¿se
+     * enseña?», o le filtraría el puesto a las familias por su cuenta —duplicando una
+     * regla que ya vive en el front— o dejaría muerta la del front, **las dos en
+     * silencio**. Son dos sitios decidiendo lo mismo con criterios distintos, que es
+     * de donde salió el recalculador único de las definitivas.
+     *
+     * ## Memoria por año, y por la misma razón que la de `alcance()`
+     *
+     * Un boletín de grupo pregunta una vez por alumno y son treinta; la respuesta es
+     * la misma para los treinta porque el año es uno solo. Vive lo que vive la
+     * petición: no hay caché entre peticiones y por tanto no hay nada que invalidar
+     * cuando un colegio cambia el interruptor.
+     *
+     * ## Un año que no existe cuenta como «lo de hoy»
+     *
+     * `selectOne` sin fila devuelve `null` y aquí eso es `true`, igual que el
+     * `DEFAULT 1` de la columna. Que un `year_id` inexistente apague los puestos de
+     * todo un informe sería el fallo silencioso caro: nadie mira un puesto y piensa
+     * «esto es que el año no existe».
+     */
+    public static function puestosCuentanIndependientes(int $yearId): bool
+    {
+        if (! array_key_exists($yearId, self::$interruptor)) {
+            $fila = DB::selectOne(
+                'SELECT puestos_con_bol_independiente FROM years WHERE id = ?',
+                [$yearId]
+            );
+
+            self::$interruptor[$yearId] = $fila === null
+                || (int) $fila->puestos_con_bol_independiente === 1;
+        }
+
+        return self::$interruptor[$yearId];
+    }
+
+    /**
+     * La lista contra la que se cuenta el puesto: los alumnos que entran en el
+     * recuento.
+     *
+     * Con el interruptor en 1 —lo de hoy y lo de los quince colegios— devuelve la
+     * lista **tal cual llegó**, sin copiar ni reordenar nada.
+     *
+     * Con el interruptor en 0 salen de ella los que van por boletín independiente, y
+     * eso es lo que hace que **los treinta de detrás suban un puesto** si el que se
+     * va iba primero (§7.2 del plan). Es el efecto que nadie espera y el único que
+     * demuestra que el interruptor hace algo: quitar a alguien de una tabla de
+     * puestos **le cambia el número a todos los demás**, en pantalla y en el papel
+     * impreso.
+     *
+     * @param  array<int, object>  $alumnos  filas con `alumno_id`
+     * @param  list<int>  $periodoIds  los periodos que el informe promedia
+     * @return array<int, object>
+     */
+    public static function losQueCuentanParaElPuesto(array $alumnos, array $periodoIds, int $yearId): array
+    {
+        if (self::puestosCuentanIndependientes($yearId)) {
+            return $alumnos;
+        }
+
+        return array_values(array_filter(
+            $alumnos,
+            fn (object $alumno): bool => ! self::aplicaEnAlguno((int) $alumno->alumno_id, $periodoIds)
+        ));
+    }
+
+    /**
+     * Pone `puesto` a cada alumno de la lista. **Es el único sitio donde el
+     * interruptor decide un puesto**, y por eso lo llaman los ocho.
+     *
+     * ## Por qué está aquí y no copiado ocho veces
+     *
+     * `Nota::puestoAlumno($promedio, $alumnos)` es una **función pura** —cuenta
+     * cuántos promedios hay por encima— y sigue siéndolo: este método no la toca, le
+     * elige la lista. Lo que estaba copiado ocho veces era el `foreach` de una línea;
+     * lo que se copiaría ahora es *«sácalo de la lista, y si es él, `null`»*, que ya
+     * son tres decisiones. Ocho copias de tres decisiones es exactamente lo que le
+     * pasó a la definitiva con sus seis escritores y cinco criterios.
+     *
+     * ## El `null` es la decisión 6 de Joseth y no un caso degenerado
+     *
+     * Al independiente que no cuenta se le manda `puesto: null`, que el front pinta
+     * `—`. Calcularle un puesto contra una lista de la que se le acaba de sacar sería
+     * inventarlo: saldría siempre 1 si su promedio es el mejor de una lista donde no
+     * está. **Y `null`, no `0`**: `0` es un puesto en la escala del front antiguo
+     * —su filtro `puestoAlumno` arranca en 0— y se pintaría como un número.
+     *
+     * ## Lo que este método NO hace
+     *
+     * No saca al independiente de `$alumnos`. Su fila sigue viajando, con sus notas y
+     * su boletín; lo único que le falta es el puesto. Sacarlo de la respuesta sería
+     * decidir desde aquí qué se enseña, que es justo lo que
+     * `puestosCuentanIndependientes()` tiene prohibido.
+     *
+     * @param  array<int, object>  $alumnos  filas con `alumno_id` y `promedio`
+     * @param  list<int>  $periodoIds  los periodos que el informe promedia
+     */
+    public static function ponerPuestos(array $alumnos, array $periodoIds, int $yearId): void
+    {
+        $cuentan = self::losQueCuentanParaElPuesto($alumnos, $periodoIds, $yearId);
+
+        $entra = [];
+        foreach ($cuentan as $alumno) {
+            $entra[(int) $alumno->alumno_id] = true;
+        }
+
+        foreach ($alumnos as $alumno) {
+            $alumno->puesto = isset($entra[(int) $alumno->alumno_id])
+                ? Nota::puestoAlumno($alumno->promedio, $cuentan)
+                : null;
+        }
+    }
+
+    /**
+     * Se llama entre tests: la memoria es por petición y una suite es un proceso.
+     *
+     * **Las dos memorias, y la del interruptor es la que muerde**: un test que lo
+     * pone a 0 y otro que lo deja a 1 corren en el mismo proceso, así que olvidar
+     * sólo `$memoria` dejaría al segundo leyendo la respuesta del primero — verde o
+     * rojo según el orden de la suite, que es la peor forma de fallar que hay.
+     */
     public static function olvidar(): void
     {
         self::$memoria = [];
+        self::$interruptor = [];
     }
 
     /**

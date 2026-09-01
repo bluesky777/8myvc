@@ -21,6 +21,7 @@ use App\Models\EscalaDeValoracion;
 use App\Models\Debugging;
 use App\Models\NotaComportamiento;
 use App\Models\Area;
+use App\Services\BoletinIndependiente;
 use \Log;
 
 
@@ -186,9 +187,35 @@ class CertificadosPersonaController extends Controller {
 		}
 
 
+		/*
+		 * EL PUESTO LO DECIDE EL SERVICIO, no este `foreach` — fase 6 del
+		 * [19](../../../../docs/migracion/19-boletin-independiente.md), §7.
+		 *
+		 * Aquí había `Nota::puestoAlumno($alumno->promedio, $alumnos)` dentro del bucle, y
+		 * ese mismo cálculo estaba **copiado en ocho sitios**. `puestoAlumno` sigue
+		 * intacta y sigue siendo pura: lo que cambia es **quién entra en la lista contra
+		 * la que se cuenta**, y eso lo decide `years.puestos_con_bol_independiente`.
+		 *
+		 * Con el interruptor en 1 —el default— esto es exactamente lo de antes. Con 0, el
+		 * alumno con boletín independiente sale del recuento: su puesto viaja `null`
+		 * (decisión 6) y **a los demás les cambia el suyo**.
+		 *
+		 * **Y aquí se le pasan VARIOS periodos, que es la diferencia con los tres
+		 * boletines de periodo.** Este promedio se calcula sobre las definitivas de todos
+		 * los periodos que `$year->periodos` trae, así que basta con que el alumno haya
+		 * ido aparte en **uno** de ellos para que su promedio no se haya calculado sobre
+		 * el reparto del grupo. Preguntar sólo por el periodo del token dejaría dentro del
+		 * recuento a quien tuvo el accidente en el segundo y hoy va con el grupo — y
+		 * preguntar por el año entero sacaría a quien lo tuvo en un periodo que este
+		 * informe no está promediando. Los periodos que se promedian son los que deciden.
+		 */
+		BoletinIndependiente::ponerPuestos(
+			$alumnos,
+			array_map(fn ($periodo) => (int) $periodo->id, $year->periodos),
+			(int) $user->year_id
+		);
+
 		foreach ($alumnos as $alumno) {
-			
-			$alumno->puesto = Nota::puestoAlumno($alumno->promedio, $alumnos);
 			
 			if ($requested_alumnos == '') {
 

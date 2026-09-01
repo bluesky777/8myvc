@@ -52,9 +52,20 @@ class AsignaturasController extends Controller {
 		// Columnas nombradas, no `u.*`: `unidades.alumno_id` existe desde el 24 ago
 		// 2026 (19-boletin-independiente.md) y con `*` entraría en la respuesta,
 		// moviendo la instantánea de contrato. §5.bis de noche-2026-08-24/bi-1.md.
+		//
+		// Y **la rejilla es la del grupo**, de ahí `u.alumno_id is null`. Esta consulta
+		// no recibe ningún alumno —sólo una asignatura, y devuelve sus cuatro periodos
+		// de una vez—, así que las unidades de un independiente entrarían mezcladas en
+		// la columna de su periodo **y sin nada que las distinga**: `alumno_id` es
+		// justo la columna que la línea de arriba deja fuera a propósito. Y
+		// `cantidad_notas`, que la pantalla enseña como el avance de la asignatura,
+		// contaría además las notas de un boletín que no es el del grupo.
+		//
+		// Es la segunda forma de la §1.6: sin alumno en el ámbito, el alcance correcto
+		// es `IS NULL`, no un `<=>` contra un alcance que aquí no hay de quién pedir.
 		$cons_unidades 		= 'SELECT u.id, u.definicion, u.porcentaje, u.periodo_id, u.asignatura_id, u.obligatoria, u.orden, u.por_defecto, u.fecha, u.created_by, u.updated_by, u.deleted_by, u.deleted_at, u.created_at, u.updated_at, p.numero as numero_periodo FROM unidades u
 			INNER JOIN periodos p ON u.periodo_id=p.id and p.deleted_at is null
-			WHERE u.asignatura_id=? and u.deleted_at is null order by p.numero, u.orden, u.id';
+			WHERE u.asignatura_id=? and u.deleted_at is null and u.alumno_id is null order by p.numero, u.orden, u.id';
 
 		$unidades 	= DB::select($cons_unidades, [Request::input('asignatura_id')]);
 		$cant 			= count($unidades);

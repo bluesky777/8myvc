@@ -23,7 +23,30 @@ class UnidadesController extends Controller {
 	// desde el 24 ago 2026 (19-boletin-independiente.md) y un `*` la mete en la
 	// respuesta, moviendo la instantánea de contrato de la ruta que use esto.
 	// Es la §5.bis de noche-2026-08-24/bi-1.md.
-	private $cons_unidades 		= 'SELECT id, definicion, porcentaje, periodo_id, asignatura_id, obligatoria, orden, por_defecto, fecha, created_by, updated_by, deleted_by, deleted_at, created_at, updated_at FROM unidades WHERE asignatura_id=? and periodo_id=? and deleted_at is null order by orden, id';
+	// **BI-1: `alumno_id IS NULL`.** Las tres lecturas que usan esta constante
+	// —`getDeAsignaturaPeriodo` dos veces y el informe `putDeProfesor`— enseñan
+	// **el reparto del curso**, no el de nadie en particular; el del independiente
+	// se edita por `PUT boletin-independiente/planilla` (§6.1 del plan).
+	//
+	// **Y en `getDeAsignaturaPeriodo` la condición decide una ESCRITURA, no una
+	// lista.** Ese método siembra las unidades por defecto del año cuando
+	// `count($unidades) == 0`. Sin acotar, a un grupo que no tiene ni una unidad
+	// suya pero sí un independiente con las suyas le sale `count() == 1` y **se
+	// queda sin sembrar**: el curso entero con la rejilla vacía y sin un error en
+	// el log. Es exactamente la guarda del 28 ago —«sin unidades no se escribe»—
+	// entrando por una puerta nueva, y por eso esto no es cosmético.
+	//
+	// El índice está puesto para esta forma: `unidades_alcance_index` es
+	// `(asignatura_id, periodo_id, alumno_id)`, en ese orden y a propósito.
+	//
+	// **`unidades.alumno_id` y no `alumno_id` a secas**, aunque aquí no haya `join`
+	// que lo pueda hacer ambiguo: `tools/unidades-sin-alcance.py` reconoce el
+	// `IS NULL` **sólo con el alias delante** —el `<=>` lo acepta sin él—, así que
+	// sin el prefijo esta consulta seguiría saliendo «hay que acotarla» estando
+	// acotada. Un falso pendiente es lo que hace que alguien la «arregle» dos veces.
+	//
+	// Las columnas van nombradas y NO se vuelve a `*`: ver el comentario de abajo.
+	private $cons_unidades 		= 'SELECT id, definicion, porcentaje, periodo_id, asignatura_id, obligatoria, orden, por_defecto, fecha, created_by, updated_by, deleted_by, deleted_at, created_at, updated_at FROM unidades WHERE asignatura_id=? and periodo_id=? and unidades.alumno_id is null and deleted_at is null order by orden, id';
 	private $cons_subunidades 	= 'SELECT * FROM subunidades WHERE unidad_id=? and deleted_at is null order by orden, id';
 
 
@@ -61,11 +84,18 @@ class UnidadesController extends Controller {
 			// Columnas nombradas, no `u.*`: con `*`, `unidades.alumno_id` (24 ago 2026,
 			// 19-boletin-independiente.md) entra en la respuesta y mueve la instantánea.
 			// Ver §5.bis de noche-2026-08-24/bi-1.md. No volver a `*`.
+			// **BI-1: `u.alumno_id IS NULL`.** Este panel es «qué hicieron los años
+			// anteriores en esta misma materia y grado», y existe para copiar de él.
+			// Una unidad con dueño es el plan de UN alumno de hace tres años; aquí
+			// saldría mezclada con las del curso, con el mismo aspecto y sin nada que
+			// dijera de quién es — y lo que se copie de ahí acaba siendo el reparto de
+			// un grupo entero. Es la §9.2 «de más» en su forma más callada: no infla
+			// una nota, propone un plan de estudios que nunca fue del curso.
 			$consulta = 'SELECT u.id, u.definicion, u.porcentaje, u.periodo_id, u.asignatura_id, u.obligatoria, u.orden, u.por_defecto, u.fecha, u.created_by, u.updated_by, u.deleted_by, u.deleted_at, u.created_at, u.updated_at
 				FROM unidades u
 				INNER JOIN asignaturas a ON u.asignatura_id=a.id and a.materia_id=? and u.deleted_at is null
 				INNER JOIN grupos g ON g.id=a.grupo_id and g.grado_id=? and g.deleted_at is null
-				WHERE u.periodo_id=? and u.deleted_at is null order by orden, id';
+				WHERE u.periodo_id=? and u.alumno_id is null and u.deleted_at is null order by orden, id';
 
 			$unidades 			= DB::select($consulta, [$asignatura->materia_id, $asignatura->grado_id, $periodos[$i]->id]);
 
@@ -356,7 +386,20 @@ class UnidadesController extends Controller {
 		$user = User::fromToken();
 		
 		// Columnas nombradas, no `*` — ver el comentario de `$cons_unidades` arriba.
-		$cons_unidades 		= 'SELECT id, definicion, porcentaje, periodo_id, asignatura_id, obligatoria, orden, por_defecto, fecha, created_by, updated_by, deleted_by, deleted_at, created_at, updated_at FROM unidades WHERE asignatura_id=? and periodo_id=? and deleted_at is not null';
+		//
+		// **BI-1: `alumno_id IS NULL`**, y aquí la papelera es la del grupo porque el
+		// botón que hay al lado es `unidades/restore/{id}`. Sin acotar, la rejilla del
+		// curso ofrece restaurar la unidad borrada de un independiente: quien pulsa
+		// cree que devuelve una unidad al curso y devuelve la de otro alumno, con su
+		// porcentaje contando otra vez en la definitiva de ése. Restaurar va por id y
+		// sigue funcionando — lo que se acota es **a quién se le ofrece**.
+		//
+		// **Lo que esto deja pendiente, y es de la §6.1, no un olvido mío:** la
+		// papelera del independiente se queda sin pantalla hasta que
+		// `PUT boletin-independiente/planilla` la tenga. Hoy no pierde nada —nadie
+		// está marcado— pero el día que alguien lo esté, una unidad suya borrada sólo
+		// se recupera sabiendo su id.
+		$cons_unidades 		= 'SELECT id, definicion, porcentaje, periodo_id, asignatura_id, obligatoria, orden, por_defecto, fecha, created_by, updated_by, deleted_by, deleted_at, created_at, updated_at FROM unidades WHERE asignatura_id=? and periodo_id=? and unidades.alumno_id is null and deleted_at is not null';
 		$cons_subunidades 	= 'SELECT * FROM subunidades WHERE unidad_id=? and deleted_at is null';
 
 		$unidades = DB::select($cons_unidades, [$asignatura_id, $user->periodo_id]);
@@ -392,6 +435,21 @@ class UnidadesController extends Controller {
 	}
 
 
+	/**
+	 * **BI-1: éste NO se acota, y decidirlo es cerrarlo.**
+	 *
+	 * Es la papelera GLOBAL —todas las unidades borradas del sistema, de los quince
+	 * grados y los cuatro periodos, sin filtro de asignatura—. La pregunta que
+	 * contesta es «qué hay en la papelera», y la respuesta correcta las incluye a
+	 * todas: es la única vista desde la que una unidad borrada de un independiente
+	 * se puede llegar a ver. Acotarla aquí la escondería del único sitio que la
+	 * enseña, que es la forma «de menos» de la §9.2.
+	 *
+	 * Lo que sí queda dicho: **la respuesta no distingue de quién es cada fila**, y
+	 * añadir `u.alumno_id` al `SELECT` movería su instantánea de contrato — o sea
+	 * que es un campo nuevo, o sea una decisión y un aviso al front, no un efecto
+	 * secundario de la fase 1. Va a la fase 3 del plan si alguien lo quiere.
+	 */
 	public function getTrashed()
 	{
 		$user = User::fromToken();

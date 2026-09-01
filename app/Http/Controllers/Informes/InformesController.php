@@ -96,6 +96,31 @@ class InformesController extends Controller {
 	
 	
 	
+	/**
+	 * Qué grupos tienen notas más nuevas que sus definitivas, periodo a periodo.
+	 *
+	 * ## Sale en el detector del boletín independiente y **NO se acota**, a propósito
+	 *
+	 * `tools/unidades-sin-alcance.py` la marca porque baja de `notas` a `unidades`
+	 * sin comparar `u.alumno_id`. Es cierto y no es un fallo: **esto no pinta una
+	 * estructura, mide una fecha.** La familia es la de
+	 * `DefinitivasDeAsignatura::selloDeVersion` y `::estadoDelGrupo` —los dos leídos
+	 * y dejados igual el 31 ago 2026—, y el criterio es el mismo con las dos
+	 * direcciones contadas:
+	 *
+	 * - **sobre-aproximar** dice «desactualizado» de más: alguien recalcula sin
+	 *   necesidad, y eso cuesta tiempo;
+	 * - **acotar** dejaría que la nota de un independiente **no marcara nada**, y el
+	 *   colegio serviría una definitiva vieja **sin un error en el log**.
+	 *
+	 * Y aquí hay una razón que los sellos no tienen: el independiente **está** en
+	 * ese grupo, y su definitiva es justo la que nadie va a echar de menos. Acotar
+	 * escondería precisamente al alumno de la §9.1, que es el que este módulo entero
+	 * existe para no perder.
+	 *
+	 * Ver la §1.5 del reparto de la noche del 31 ago 2026 y
+	 * docs/migracion/noche-2026-08-31/c.md.
+	 */
 	private function grupos_desactualizados(&$user){
 		$consulta 	= 'SELECT * FROM periodos WHERE deleted_at is null and year_id=?';	
 		$periodos 	= DB::select($consulta, [$user->year_id]);

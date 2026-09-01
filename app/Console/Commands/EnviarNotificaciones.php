@@ -185,6 +185,23 @@ class EnviarNotificaciones extends Command
      * `materias` y no en `asignaturas`**: una asignatura es una materia dictada a
      * un grupo, y sólo lleva las claves.
      *
+     * ## Sale en el detector del boletín independiente y **NO se acota**
+     *
+     * `tools/unidades-sin-alcance.py` la marca porque une `unidades` sin comparar
+     * `u.alumno_id`. Es cierto, y aquí **no hay nada que acotar**: el camino
+     * `nota -> subunidad -> unidad -> asignatura -> materia` arranca de UNA nota ya
+     * identificada por `b.affected_element_id` y sube por claves ajenas. No
+     * selecciona un conjunto: **resuelve un nombre**. Una condición sobre
+     * `u.alumno_id` no podría quitar filas de más — sólo quitar la única que hay, y
+     * eso es una familia que se queda sin el aviso.
+     *
+     * Y tendría un caso donde lo haría de verdad: marcar a un alumno **no le borra
+     * las notas que ya tiene en las subunidades del grupo** (§1 del plan). Un
+     * alcance correlacionado le daría a esas notas dueño = el alumno y a la unidad
+     * `alumno_id` NULL, no emparejarían, y el aviso de un cambio real se perdería
+     * en silencio. La distinción con `grupos_desactualizados` —que tampoco se
+     * acota— es que aquélla agrega sobre muchas notas y ésta sube desde una sola.
+     *
      * @return array{avisos: array<int, array<string, mixed>>, hasta: int}
      */
     private function avisosDeNotas(int $desde): array

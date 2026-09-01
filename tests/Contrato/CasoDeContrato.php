@@ -4,6 +4,8 @@ namespace Tests\Contrato;
 
 use App\Services\BoletinIndependiente;
 use App\Support\Autoriza;
+use App\Support\EscalaDeNotas;
+use App\Support\NombreDelAlumno;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\DB;
@@ -40,6 +42,40 @@ abstract class CasoDeContrato extends TestCase
         parent::setUp();
 
         $this->comprobarBaseDeTest();
+        $this->vaciarLasMemoriasEstaticas();
+    }
+
+    /**
+     * Las memorias que «viven lo que vive la petición» sobreviven a los tests, y
+     * `DatabaseTransactions` no las deshace.
+     *
+     * Tres servicios memoizan en una propiedad `static` con el argumento de que
+     * dura una petición: `BoletinIndependiente::alcance()`, `EscalaDeNotas` y
+     * `NombreDelAlumno`. **En producción es verdad —una petición, un proceso—;
+     * en la suite un proceso son mil peticiones.** El rollback borra la fila y
+     * la estática se queda contestando lo de antes, así que **un test le cambia
+     * la respuesta a otro** y el segundo falla por algo que el primero hizo.
+     *
+     * Se vacían aquí y no test a test porque test a test ya se estaba haciendo y
+     * no escala: había seis llamadas sueltas a `olvidar()` repartidas por dos
+     * clases más el helper `marcarIndependiente()`, o sea que **quien lo escribió
+     * ya se había topado con esto** — y aun así la fuga volvió a entrar por el
+     * camino nuevo del 31 ago 2026, marcar **por HTTP**, que no pasa por ese
+     * helper. Lo levantó el lote D (`8myvc-82`/`8myvc-a2`) persiguiendo dos rojos
+     * de `BoletinesTest` que **pasaban en aislamiento y fallaban en la suite**, y
+     * que fallaban **rápido** —7,94 s frente a los 43,91 s de cuando pasan—,
+     * porque una instantánea que no cuadra falla antes de terminar de calcular.
+     *
+     * **Esto NO sustituye a invalidar la memoria en quien escribe.** Son dos
+     * cosas: aquí se cierra la fuga entre tests; en producción, la petición que
+     * cambia la respuesta tiene que olvidar lo que cacheó antes de contestar, y
+     * eso va en el escritor.
+     */
+    private function vaciarLasMemoriasEstaticas(): void
+    {
+        BoletinIndependiente::olvidar();
+        EscalaDeNotas::olvidar();
+        NombreDelAlumno::olvidar();
     }
 
     /**
