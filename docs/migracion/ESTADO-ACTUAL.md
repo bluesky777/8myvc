@@ -8,7 +8,135 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
-**Última actualización: 31 ago 2026, noche — LOS CINCO LOTES FUNDIDOS: LAS FASES 1, 2, 3 Y 6 DEL
+**Última actualización: 1 sep 2026, tarde — LA ÉPICA DEL BOLETÍN INDEPENDIENTE ESTÁ TERMINADA EN
+ESTE REPO: LAS SEIS FASES ESTÁN EN `main`** · **`Tests: 1736 passed (13495 assertions)`,
+`Duration: 619.55s`, `exit=0`**, cero rojos y cero saltados · pint **no reescribió nada** ·
+larastan nivel 7 **`[OK] No errors`** · **547 rutas** · **sin subir —104 commits por delante de `origin/main` (`6573916`), contados el 1 sep
+sobre `1cb7092`— y sin desplegar** ·
+coordina `8myvc-ab`
+
+> **Esa cifra va con sus coordenadas pegadas y así se copia o no se copia: medida el 1 sep 2026,
+> desde la raíz, desasida, sobre `1cb7092`** —con los cuatro merges de hoy dentro—. Es la primera
+> corrida que describe este `main`: las de los lotes miden **su árbol**, y una suite de antes de un
+> merge no describe el árbol de después. Es la lección del «43 en 23» en su forma aplicable: **el
+> fallo no fue que la cifra estuviera mal, fue que ninguna de las veces que se copió llevó delante
+> la fecha de su medición.**
+
+> ### Las seis fases, y las cuatro últimas entraron hoy
+>
+> | Fase | Qué | Merge |
+> |---|---|---|
+> | **1** | el alcance en los sitios de trabajo — 4 del lote A + 7 del B + 7 del C | `9515642` · `5bcc441` |
+> | **2** | la marca por periodo, su guarda y su ruta | `878dee7` |
+> | **3** | las planillas normales sin los independientes | `9515642` |
+> | **4** | `PUT boletin-independiente/planilla` y `POST boletin-independiente/copiar` | `da26efb` |
+> | **5** | los tres boletines probados **en negativo** | `8dc982c` |
+> | **6** | los puestos y su interruptor | `9304441` |
+>
+> Y encima de las seis, hoy: **`POST unidades` acepta `alumno_id`** (`c0f0e31`) —que era **una
+> promesa del §8 que nunca se escribió**, y mandar el campo era peor que no mandarlo: la unidad
+> nacía del grupo y el reparto del curso se iba al 110 %—, los **tres campos del front**, la **§9.5
+> cerrada**, y `salud-de-las-definitivas.php` que **ya no sale `exit=0` cuando no pudo mirar**.
+
+> ### LO QUE FALTA NO ES CÓDIGO, Y ÉSTE ES EL ORDEN
+>
+> 1. **Subir `main`.** 98 commits sin `push`. Es de Joseth.
+> 2. **Desplegar los quince, colegio a colegio, con las migraciones EN EL MISMO DESPLIEGUE.** Sin
+>    `puestos_con_bol_independiente` los tres boletines contestan **500**: un colegio con el `git
+>    pull` hecho y el `migrate` sin correr **está caído**. `git pull` → `migrate --force` →
+>    **comprobar un boletín antes de pasar al siguiente**. Los comandos, en
+>    [DESPLIEGUE.md](../DESPLIEGUE.md).
+> 3. **Las DOS herramientas del día del despliegue, quince veces cada una, después de migrar**:
+>    `independientes-sin-estructura.php` (§9.1, el alumno que se cae por el hueco) y
+>    `salud-de-las-definitivas.php` (el `ALTER` de la fase 2 del [10](10-definitivas.md)). **Las dos
+>    contestan `exit=2` si no pudieron mirar**, que es lo que impide que un colegio caído se lea como
+>    un colegio limpio.
+> 4. **Avisar al front**, que tiene pantallas escritas y escondidas — y **no publica hasta
+>    DESPLEGADO**, no fusionado.
+> 5. **`myvc_flutter`**: la tarea está escrita en su repo
+>    (`~/DESARROLLOS/myvc_flutter/docs/boletin-independiente.md`, 1 sep 2026). **Es una sola app para
+>    los quince** y el despliegue va colegio a colegio, así que tiene que tolerar **las dos formas a
+>    la vez**; hoy lee `alumnos` y nada más, y un alumno marcado **desaparece de su planilla sin
+>    ningún error**.
+
+> ### LAS DECISIONES QUE ESPERAN A JOSETH — son cuatro, y dos de ellas parecen una sola y NO lo son
+>
+> 1. **El criterio del recálculo de definitivas.** La §9.1, el código y la herramienta usan **tres
+>    criterios distintos para el mismo conjunto**, y de cuál sea el bueno depende si el trabajo son
+>    **12.320** filas (`MATR`/`ASIS`, lo que cuenta la herramienta), **12.455** (+`PREM`) o **26.221**
+>    (todos los estados, que es lo que cubre el recálculo por decisión del 28 ago). Casi todo el hueco
+>    es `RETI`.
+> 2. **La fila duplicada que para el `ALTER TABLE`** de la fase 2 de definitivas — Noveno 2025,
+>    Ciencias Naturales, periodo 2, `auto+auto`, las dos a `0.0000`.
+>
+>    > **Y estas dos NO son la misma decisión, aunque se propuso escribirlas juntas.** El índice único
+>    > **mira la tabla entera**: su consulta no tiene ni un `JOIN` ni un filtro de estado, así que el
+>    > criterio **no puede** cambiar la limpieza. **La fila bloquea el `ALTER` por sí sola y se limpia
+>    > sin decidir nada; el criterio decide el tamaño del recálculo y no toca la limpieza.** Juntarlas
+>    > sería **la corrección del 24 ago del revés** —aquel día la herramienta contaba duplicados
+>    > *vivos* mientras el índice miraba la tabla entera, y por eso podía decir «se puede poner sin
+>    > limpiar nada» con el `ALTER` fallando igual—, y pondría rojo el control que ancla ese caso.
+>    > **La prueba que lo cierra es la que hoy no tenemos delante: si el duplicado fuera de un `RETI`,
+>    > «MATR/ASIS» daría 0 y la tabla entera daría 1.**
+>
+> 3. **Dos vueltas atrás candidatas, ya fundidas y de un commit cada una**, que sufre el front: el
+>    **400→404** de la rama de `matriculas` en `PUT alumnos/guardar-valor`, y que
+>    `guardar-valor-varios` **corte el bucle en el 404** dejando escritos los alumnos anteriores en
+>    vez de «saltar y seguir».
+> 4. **El aviso al front del 422 nuevo de `POST unidades`** y de la guarda sobre quién puede mandar
+>    `alumno_id` (`auth.personal` + `pueden_editar_notas`). Está escrito en la §8.1 del
+>    [19](19-boletin-independiente.md); su sitio es el buzón del front, y **cuándo se le habla lo
+>    decide Joseth**.
+>
+> **Y una quinta que es del otro lado:** qué hace `myvc_flutter` con los marcados — **ocultarlos y
+> decirlo** (la app sólo cuenta lo que el backend ya manda; **el docente no podrá ponerles nota desde
+> la app**) o **enseñarlos con su propia estructura**, que es una segunda planilla dentro de la
+> pantalla y es trabajo de verdad.
+
+> ### EL SEED, MEDIDO — y la frase que estuvo a punto de entrar aquí mal
+>
+> La base de tests tiene **68 alumnos y DOS grupos, de dos años distintos**: el **98** («Cuarto»,
+> year 8) con los 68 y el **84** («Tercero», year 7) con 56 — **12 alumnos están sólo en el 98**.
+> **Ninguna matrícula está borrada** (124 de 124 vivas), y los **40** son los alumnos con alguna
+> matrícula en estado `MATR`.
+>
+> **Iba a escribirse «68 alumnos y los 68 en el mismo grupo», que es cierta de un grupo y falsa del
+> seed** — y la conclusión que induce, *«el seed tiene un grupo»*, **ya costó 36 rutas sin medir**:
+> el barrido pedía `grupo_id=0` dando por hecho que no había grupo ajeno, y boletines, planillas,
+> observador, certificados y actas **de otro grupo** contestaban vacío sin medir nada, *«y un vacío
+> se parece a un guard que funciona»*. Lo levantó `8myvc-e7` **midiendo**, y lo confirmó la
+> coordinación antes de escribirlo.
+>
+> **Para quien busque «alguien de otro grupo»**: un `LIMIT 1` que devuelve `null` puede ser
+> **población y no consulta**, y las dos trampas de en medio son `grupo_id != ?` —mete a quien está
+> en los dos— y `NOT IN` con un `NULL` dentro, que no devuelve a nadie. Y ojo: **«matrícula viva»
+> tiene aquí dos lecturas que dan 40 y 68**, y las dos son ciertas (§10quinquies).
+>
+> **La tercera mitad, que es la que se hereda:** el arreglo del lote F es bueno —fabricar el grupo
+> ajeno es más robusto que depender de la población— pero **su razón escrita era más ancha que el
+> dato**. *Un arreglo correcto con una razón demasiado ancha es peor que uno sin razón: el siguiente
+> hereda la razón, no el arreglo, y la aplica donde no vale.*
+
+> ### CUATRO INSTRUMENTOS QUE SE MOVIERON HOY, Y EL TERCERO ES DE LA COORDINACIÓN
+>
+> Los cuatro dan el mismo error con caras distintas: **el instrumento con el que compruebas también se
+> mueve**.
+>
+> 1. **Una rama leída diez minutos antes.** La coordinación le dijo al lote G que su commit ya estaba
+>    fundido citando un `git branch -av` anterior a su último commit. **Una lectura de hace diez
+>    minutos no describe una rama que otra sesión está moviendo.**
+> 2. **Un hash anotado antes de un `--amend` ya no identifica ese commit.** El lote G se dio por
+>    faltando un commit que estaba dentro con otro nombre. **Lo cazó tener dos instrumentos y que
+>    discreparan**, y el que estaba mal era su lista, no `main`.
+> 3. **Un `grep` anclado que dijo que la suite estaba muerta.** `grep -E "^Tests:"` sobre la salida de
+>    esta suite **no devuelve nada**, porque PHPUnit indenta esa línea. Por el documento de esta
+>    misma casa, *«una suite sin línea `Tests:` al final no es una suite verde: es una suite
+>    muerta»* — y la suite estaba **verde**. **El ancla era mía, no de la suite.**
+> 4. Y una cuarta, del mismo día: **el `19` se está moviendo**, así que la cifra que no hay que tocar
+>    —los «dieciséis números» de la fase 0 de definitivas— **cambió de la línea 1192 a la 1309**. En
+>    un fichero vivo **se cita por contenido, nunca por número de línea**.
+
+**Anterior: 31 ago 2026, noche — LOS CINCO LOTES FUNDIDOS: LAS FASES 1, 2, 3 Y 6 DEL
 BOLETÍN INDEPENDIENTE ESTÁN EN `main`** · **`Tests: 1645 passed (12750 assertions)`, `exit=0`, 228
 clases con veredicto, cero fallos** · pint **PASS** (329 ficheros) · larastan nivel 7 **`[OK]`** ·
 **545 rutas** (una nueva: `PUT boletin-independiente/periodo`) · **sin subir y sin desplegar**
@@ -23,6 +151,10 @@ clases con veredicto, cero fallos** · pint **PASS** (329 ficheros) · larastan 
 > **Fases 2, 3 y 6 también dentro.** La marca por periodo con su escritor y su guarda (D), las
 > planillas normales sin los independientes (B) y los puestos con su interruptor (E). **Quedan la 4**
 > —`planilla` y `copiar`— **y la 5**, los boletines probados en negativo.
+>
+> *(Las dos entraron el 1 sep 2026 y lo contesta el bloque de arriba. Se deja escrito porque **un
+> pendiente en futuro no envejece a «hecho»**: sin esta línea, el párrafo seguiría pidiendo trabajo
+> hecho.)*
 >
 > **Dos migraciones bloqueantes esperando** para la tanda siguiente: retirar
 > `matriculas.boletin_independiente` y `years.puestos_con_bol_independiente`.
@@ -66,7 +198,8 @@ clases con veredicto, cero fallos** · pint **PASS** (329 ficheros) · larastan 
 >
 > **La salida de ese bucle no es leer mejor las filas: es que el instrumento tenga un control que no
 > dependa de las filas** *(formulación del lote G, que es quien lo escribió)*. Ya lo tiene:
-> `--control` con **13 formas literales**, registrado en el runner, y **medido desde tres sitios
+> `--control` con **16 formas literales** *(eran 13 el 31 ago; las tres nuevas son las cegueras que
+> cerró el lote G)*, registrado en el runner, y **medido desde tres sitios
 > distintos —`/tmp`, la raíz y un worktree— con `exit=0` y el mismo `md5` en las tres salidas**. No
 > abre ficheros, no llama a `git`, no mira el `cwd` y no toca la base, así que **no tiene desde dónde
 > correr mal**: es la otra mitad de anclar formas en vez de un número, porque un número anclado al
@@ -75,10 +208,22 @@ clases con veredicto, cero fallos** · pint **PASS** (329 ficheros) · larastan 
 >
 > **Y con él, la cifra de la fase 1 que este documento repitió tres veces era vieja.** «43 lecturas
 > pendientes en 23 sitios» se midió **antes** de fundir A, B, C, D y E; sobre `main` con todo dentro
-> y **antes de tocar el detector** ya eran **26 en 14**, y con las tres cegueras cerradas quedan
-> **21 en 9**. La coordinación la repitió sin remedirla después de cada fusión: **una cifra medida
-> antes de cinco merges no describe el árbol de después**, y ninguna de las veces que se copió llevó
-> delante la fecha de su medición.
+> y **antes de tocar el detector** ya eran **26 en 14**, y con tres cegueras cerradas, **21 en 9**.
+> La coordinación la repitió sin remedirla después de cada fusión: **una cifra medida antes de cinco
+> merges no describe el árbol de después**, y ninguna de las veces que se copió llevó delante la
+> fecha de su medición.
+>
+> **Y el 1 sep 2026 le pasó otra vez, al propio párrafo de arriba: decía «21 en 9» y hoy son 20 en
+> 8.** La secuencia entera es el dato, y sin ella el último paso se lee al revés:
+>
+> | | 43 en 23 | 26 en 14 | 21 en 9 | **20 en 8** |
+> |---|---|---|---|---|
+> | qué lo movió | — | **cinco merges** | tres cegueras del detector | **la sexta ceguera** (`332a37a`, el `IN`) |
+>
+> **Entre las dos últimas no se tocó ni una consulta: cambió el instrumento.** Escrito sin esa
+> frase, «21 → 20» se lee como *«se acotó una más»*, que es exactamente lo contrario de lo que pasó.
+> Medido hoy sobre `1cb7092`: `--control` **16 formas, 0 fallan**; `--csv`, **20 lecturas
+> pendientes en 8 sitios**. Y las cegueras son **seis**, no tres.
 
 > **EL ARREGLO QUE NADIE ENCARGÓ Y QUE ES EL MÁS CARO QUE SE EVITÓ: una memoria estática que
 > contestaba lo de antes después de escribir.** `BoletinIndependiente::alcance()` memoiza en una

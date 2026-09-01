@@ -1186,10 +1186,106 @@ equivocarse, y las dos ya han pasado en este repo:
   sus notas y le imprime la asignatura en blanco.
 
 Por eso la fase 0 es un **detector**, y por eso imprime su población. Y por eso
-la §4 exige que **la suite entera pase sin regenerar un solo snapshot**: los
-snapshots de contrato son, esta vez, el detector más fiel que hay — están
-escritos sobre un colegio sin ningún alumno marcado, así que cualquier consulta
-a la que se le olvide el alcance mueve alguno.
+la §4 exige que **la suite entera pase sin regenerar un solo snapshot**.
+
+> ### ~~«cualquier consulta a la que se le olvide el alcance mueve alguno»~~ — **FALSO, corregido el 1 sep 2026**
+>
+> Esta sección decía que los snapshots de contrato son *«el detector más fiel que
+> hay … así que **cualquier consulta a la que se le olvide el alcance mueve
+> alguno**»*. **Es el recíproco de la §4, y el recíproco no se sostiene.** Las dos
+> frases se parecen tanto que se leen como una sola:
+>
+> | | |
+> |---|---|
+> | **§4, cierta** | instantánea movida **⟹** alcance olvidado. Con nadie marcado, añadir el alcance es un no-op: si algo se mueve, cambiaste conducta |
+> | **§9.2, falsa** | alcance olvidado **⟹** instantánea movida |
+>
+> **Con nadie marcado, la consulta que olvidó el alcance se comporta exactamente
+> igual que la que lo tiene: no mueve nada y sale verde.** `<=> NULL` y
+> `<=> $alumno` seleccionan lo mismo cuando no hay a quién marcar.
+>
+> Y no hace falta creerlo: **está pagado tres veces en este repo**. La §1.4 del
+> reparto —*«la forma correcta y la incorrecta dan el mismo verde»*—; la fase 5,
+> cuyos diez rojos contra el código pre-fase-1 salen **sólo porque el test
+> construye el caso**; y `PuertaSinUnidadesPorBoletinTest`, donde *con nadie
+> marcado los dos escenarios son inalcanzables y la suite entera no podía verlos*.
+>
+> **Por qué importa más que un matiz:** esta frase es la que autoriza a concluir
+> *«suite verde y cero instantáneas movidas ⟹ fase 1 hecha»*, y llama a las
+> instantáneas el detector más fiel **justo donde son ciegas**. Las instantáneas
+> prueban *«no rompiste lo de hoy»*; **no pueden probar *«te acordaste del
+> alcance»***. Lo que prueba eso es el detector, leído fila a fila, y un test que
+> **construya** el caso.
+>
+> **Y los dos instrumentos son ciegos en direcciones OPUESTAS, que es la razón de
+> fondo por la que hacen falta los dos:**
+>
+> | | Puede fallar hacia… | Sirve para |
+> |---|---|---|
+> | **instantáneas** | sólo hacia el **verde**: con nadie marcado **no pueden ver** un alcance olvidado | *«no rompiste lo de hoy»* |
+> | **detector** | sólo hacia el **rojo**: se ha equivocado **seis veces y las seis contando de MÁS** — nunca ha dejado pasar un alcance olvidado, ha metido en la lista consultas ya acotadas | *«no queda ninguno olvidado»* |
+>
+> **Y los seis arreglos del detector no cambiaron nunca el recuento: cambiaron la
+> clasificación, y sólo muerden sobre el código nuevo.** Sobre el `app/` de 23 ago,
+> el detector de entonces y el de hoy dan lo mismo —51 pendientes en 23 sitios—;
+> sobre el de hoy, **44 en 21** contra **20 en 8**. La causa es que las formas que
+> esos arreglos aprendieron a ver —`IS NULL` sin alias, `IN (…)`, el `=` sin alias
+> con una sola tabla— **son el vocabulario que introdujo el propio trabajo de la
+> fase 1** (§1.6 del reparto): **el detector era ciego al vocabulario que su propio
+> proyecto inventó**, y por eso su ceguera no se veía en el código de antes, donde
+> esas formas no existían. **Sin esos seis arreglos, `main` informaría hoy 44
+> pendientes en 21 sitios: el trabajo cerrado parecería menos de la mitad de
+> cerrado.** No descubrieron fallos — **hicieron visible como cerrado lo que ya lo
+> estaba.**
+>
+> O sea que **el número del detector es una cota superior del trabajo que queda**,
+> y por eso *«cero pendientes»* es una afirmación fuerte mientras que *«suite
+> verde»* no lo es en absoluto.
+>
+> **Un instrumento que sólo se equivoca hacia el rojo es utilizable en cuanto se
+> sabe** —basta leer sus filas—; **uno que sólo se equivoca hacia el verde no es
+> utilizable de ninguna manera para esa pregunta**, por muy verde que salga. Ésa
+> es la diferencia entre las dos cegueras de esta noche, y por eso la de aquí era
+> la peor. *(Formulación del lote G, 1 sep 2026.)*
+>
+> *(Medido y levantado por `8myvc-e7` el 1 sep 2026 contra `1cb7092`.)*
+
+**Y el número del título ya no es 74: son 92 lecturas de `unidades` y 77 de
+`subunidades`, medidas el 1 sep 2026 sobre `1cb7092`. El crecimiento es CÓDIGO
+al 100 %: el detector puso CERO** —comprobado corriendo el detector de hoy y **el
+de aquella noche** contra tres `app/` distintos; sobre el árbol de entonces los
+dos dan lo mismo columna a columna—. **14 de las 18 nuevas son
+`BoletinIndependienteController`**, el fichero del propio módulo, **acotado por
+construcción**. La medición entera, en
+[`noche-2026-08-31/e7.md`](noche-2026-08-31/e7.md).
+
+> **Y de paso apareció que el 74 nunca salió de este detector: la cabecera nació
+> con dos lecturas de desfase.** El plan se congeló a las **21:39** del 23 ago
+> (`e7632cf`) y `tools/unidades-sin-alcance.py` **no existía todavía** — llegó a
+> las **23:01** en `e37eab0`, cuyo propio asunto dice *«las **146** lecturas
+> clasificadas»*. **146 = 75 + 71**, que es lo que dan sobre ese árbol el detector
+> de aquella noche **y** el de hoy; la cabecera dice **74 + 70 = 144**. Nadie
+> reconcilió nunca los dos números **porque viven en sitios distintos**: uno en la
+> cabecera de un plan y otro en un mensaje de commit.
+
+> **La ironía va pegada al número porque sin ella el número asusta:** este plan
+> avisaba de que *«cada una de esas 74 está o corregida o equivocada»*, y
+> **corregirlas añadió 18 más**. Un número que sube aquí **no es una alarma: es el
+> módulo llegando.** Leer «92» como superficie heredada manda a alguien a auditar
+> lo que se acaba de escribir bien.
+>
+> **Y cuidado con la palabra:** el título dice *«consultas»* y el detector cuenta
+> **lecturas** —un método puede ser cinco, `selloDeVersion` lo es—. En `1cb7092`:
+> **169 lecturas = 65 sitios = 95 líneas = 27 ficheros**. Los dos extremos del
+> 74 → 92 son la misma columna, así que la comparación vale; la palabra del título
+> es la que no describe el número, y de ahí saldrá la próxima cifra mal copiada.
+>
+> **Y «sitio» aquí es `(fichero, método)`** — un método cuenta **uno** aunque
+> tenga cinco lecturas, que es el caso de `selloDeVersion`. Va dicho porque de las
+> cinco formas razonables de agrupar **sólo ésa da 65**: quien intente reproducir
+> la cifra por `(fichero, línea)` obtendrá **95** y concluirá que el número está
+> mal, cuando lo que falta es la definición. **Es el aviso de este mismo párrafo
+> aplicado a su propia cifra.**
 
 > Y la advertencia del `CLAUDE.md` aplica entera: **el primer sitio donde mirar
 > cuando el número salga raro es el detector**. Un `0 sin alcance` puede
