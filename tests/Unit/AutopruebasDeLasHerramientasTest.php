@@ -109,6 +109,20 @@ class AutopruebasDeLasHerramientasTest extends TestCase
             'escrituras-sin-auditoria.php' => ['php', 'tools/escrituras-sin-auditoria.php --autoprueba'],
             'quien-escribe-de-verdad.py' => ['python3', 'tools/quien-escribe-de-verdad.py --autoprueba'],
             'secciones-citadas.py' => ['python3', 'tools/secciones-citadas.py --autoprueba'],
+            // Entró el 1 sep 2026, y llega tarde a propósito de nadie: gobernaba el
+            // reparto de una noche de cinco sesiones **sin nada que la comprobara**, y
+            // se equivocó cuatro veces contando de MÁS — el error que no se delata solo,
+            // porque su lista sólo gana sitios donde no hay nada que hacer. La cuarta
+            // (`IS NULL` sin alias contado como «sin acotar») sacó cuatro consultas ya
+            // acotadas a la lista de trabajo. El control fija las seis formas, no un
+            // número del árbol: un número aquí obliga a reescribirlo cada noche, y se
+            // reescribe con el que salga en vez de con el que debía salir.
+            'unidades-sin-alcance.py' => ['python3', 'tools/unidades-sin-alcance.py --control'],
+            // Entró con la herramienta el 1 sep 2026, y no después: es la §9.1 del 19
+            // —el alumno que se cae por el hueco— y su forma de mentir es decir CERO,
+            // que es la que no se nota. Su control va antes del bootstrap de Laravel, así
+            // que no toca la base ni el árbol: cinco formas literales.
+            'independientes-sin-estructura.php' => ['php', 'tools/independientes-sin-estructura.php --control'],
             // Era la única que declaraba un control positivo EN PROSA y no tenía nada
             // que lo ejecutara. CONTROLES-1 se lo puso, y al ejecutarlo salió rojo por
             // un motivo que no estaba en la lista de la ficha: **el fallo que citaba se
@@ -130,6 +144,29 @@ class AutopruebasDeLasHerramientasTest extends TestCase
         $texto = implode("\n", array_slice($salida, -6));
 
         if ($codigo === 2) {
+            // Y antes de la lista a mano, la causa MEDIDA. Ver `gitNoResuelveAqui()`:
+            // desde un worktree, todo control que llame a `git` sale 2 y no puede salir
+            // otra cosa. Apuntarlo a mano ya se probó y **se cayó al fundir** —en el árbol
+            // el caso pasaba, en `main` sobraba la excepción y caía—, porque una lista fija
+            // no puede depender de desde dónde corre la suite. La medición sí.
+            //
+            // **No es saltárselo en silencio**, que sería peor que el rojo: dice qué midió,
+            // por qué no puede concluir y **cómo se arregla**. Y desaparece solo el día que
+            // se arregle, en vez de quedarse de adorno.
+            if (($comoNoResuelve = $this->gitNoResuelveAqui($raiz)) !== null) {
+                $this->markTestSkipped(
+                    "{$nombre}: no se puede ejercer DESDE ESTE ÁRBOL, y está medido.\n\n"
+                    .$comoNoResuelve
+                    ."\n\nEl `.git` de un worktree es un FICHERO que apunta a una ruta del host\n"
+                    ."(`gitdir: /Users/.../8myvc/.git/worktrees/<x>`), y esa ruta no existe dentro\n"
+                    ."del contenedor. El arreglo es de una línea y vale en los dos sitios a la vez,\n"
+                    ."porque git acepta la ruta relativa al directorio que contiene el `.git`:\n\n"
+                    ."    gitdir: ../../.git/worktrees/<x>\n\n"
+                    ."Va en `tools/worktree-de-sesion.sh`, que es quien crea los árboles.\n"
+                    ."Salida del control:\n".$texto
+                );
+            }
+
             // `?? null` porque la lista puede estar vacía —hoy lo está—: sin entrada, este
             // camino muere en la aserción de abajo, que es lo que se quiere.
             $motivo = self::noConcluyentes()[$nombre] ?? null;
@@ -151,5 +188,42 @@ class AutopruebasDeLasHerramientasTest extends TestCase
             .'conocida, así que **sus listas no valen** hasta que se sepa si está roto él o si '
             .'su control cita algo que ya no existe — **son dos cosas distintas** y esta prueba '
             ."no las distingue.\n\n".$texto);
+    }
+
+    /**
+     * Si `git` no resuelve desde `$raiz`, **la medición que lo demuestra**; si no, `null`.
+     *
+     * Las tres condiciones se miden, y se miden juntas a propósito: la causa conocida es
+     * *«esto es un worktree y su `.git` apunta fuera»*, no *«git falló»* a secas. Un
+     * control que salga 2 por cualquier otro motivo **con `git` funcionando sigue
+     * fallando**, que es lo que impide que esto se convierta en un cajón:
+     *
+     *   1. existe un `.git` en el árbol,
+     *   2. **y es un FICHERO**, no un directorio — o sea, es un worktree,
+     *   3. y `git rev-parse` falla desde ahí.
+     *
+     * Devuelve texto y no un booleano porque **un skip sin la medición delante es la
+     * lista a mano otra vez**, sólo que sin poder revisarla.
+     */
+    private function gitNoResuelveAqui(string $raiz): ?string
+    {
+        $git = $raiz.'/.git';
+
+        if (! file_exists($git) || ! is_file($git)) {
+            return null;
+        }
+
+        $salida = [];
+        $codigo = 0;
+        exec('cd '.escapeshellarg($raiz).' && git rev-parse --git-dir 2>&1', $salida, $codigo);
+
+        if ($codigo === 0) {
+            return null;
+        }
+
+        return "Medido, y las tres cosas a la vez:\n"
+            ."  1. `{$git}` existe y es un FICHERO -> este árbol es un worktree;\n"
+            .'  2. dice: '.trim((string) file_get_contents($git))."\n"
+            .'  3. `git rev-parse --git-dir` desde ahí sale '.$codigo.': '.implode(' ', $salida);
     }
 }

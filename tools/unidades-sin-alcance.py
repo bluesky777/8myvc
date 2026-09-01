@@ -5,6 +5,7 @@ Qué consultas leen `unidades` o `subunidades` sin decir de quién son.
     python3 tools/unidades-sin-alcance.py            # desde la raíz del repo
     python3 tools/unidades-sin-alcance.py --csv      # para juntar varias medidas
     python3 tools/unidades-sin-alcance.py --detalle  # con el SQL de cada sitio
+    python3 tools/unidades-sin-alcance.py --control  # su control positivo (lo corre la suite)
 
 Es la fase 0 del [19-boletin-independiente.md](../docs/migracion/19-boletin-independiente.md),
 y existe por una frase de ese plan que no es retórica:
@@ -248,9 +249,27 @@ def alcance_de_unidades(sql, alias):
     ref = r'(?:\b' + re.escape(alias) + r'\.)?alumno_id'
     if re.search(ref + r'\s*<=>', sql, re.I):
         return 'si'
-    if re.search(r'\b' + re.escape(alias) + r'\.alumno_id\s+is\s+(?:not\s+)?null', sql, re.I):
+    # `ref` y no `\b<alias>\.`, igual que la rama de arriba: una consulta de UNA
+    # tabla escribe `alumno_id IS NULL` sin alias, y ésa es justo la forma que la
+    # §1.6 del reparto bendice para «las del grupo a propósito». Exigir el prefijo
+    # sacaba consultas YA acotadas en la lista de «hay que acotarla» — la cuarta
+    # ceguera de este detector, diagnosticada por el lote B el 1 sep 2026.
+    if re.search(ref + r'\s+is\s+(?:not\s+)?null', sql, re.I):
         return 'si'
-    if re.search(r'\b' + re.escape(alias) + r'\.alumno_id\s*=', sql, re.I):
+    # La misma ceguera que la de arriba, en la tercera rama y con una diferencia
+    # que decide la forma del arreglo: aquí el prefijo NO puede hacerse opcional a
+    # secas. `alumno_id =` es comunísimo con otras tablas —`m.alumno_id = :id` de
+    # `matriculas`, el de `notas`—, así que aflojarlo del todo daría por acotado
+    # lo que no lo está, y esconder trabajo es el lado caro de equivocarse: contar
+    # de más sólo cuesta una revisión, contar de menos deja un boletín en blanco.
+    #
+    # Con UNA sola tabla en el ámbito no hay otra que pueda aportar ese
+    # `alumno_id`, así que el sin-prefijo es inequívoco y se acepta. Cierra
+    # `BoletinIndependienteController::motivoDelVacio`, que pregunta «¿tiene
+    # unidades SUYAS vaciadas?» —afirma propiedad, o sea `=` por la §1.6 partida
+    # en dos— y salía como 'no', es decir en la lista de «hay que acotarla».
+    if (re.search(r'\b' + re.escape(alias) + r'\.alumno_id\s*=', sql, re.I)
+            or (una_sola_tabla(sql) and re.search(r'(?<![\w.:])alumno_id\s*=', sql, re.I))):
         return 'con-igual'
     return 'no'
 
@@ -457,9 +476,46 @@ CLASES = ('por-id', 'por-nota', 'por-alumno', 'por-asignatura', 'mas-ancho')
 # **cuándo** aparece: la rompe el `ALTER TABLE`, no el código. Un colegio donde
 # la migración corra antes de que llegue el `app/` nuevo —y `app/` es copia por
 # colegio— tiene los boletines en 500 en esa ventana. Va en la §10 del plan.
+# Y la mitad de esta cuenta que faltaba: **una tabla sola no puede ser ambigua.**
+#
+# `desnudas()` contaba todo `alumno_id` sin alias dentro de un SQL que nombrara
+# `unidades`, **sin mirar cuántas tablas hay en el ámbito**. El 1 sep 2026 sus dos
+# hallazgos eran `DefinitivasDeAsignatura::porcentajeDeLasUnidades` y
+# `BoletinIndependienteController::motivoDelVacio`, y los dos son
+# `SELECT … FROM unidades WHERE …` **sin un solo JOIN**: MySQL no tiene nada entre
+# lo que elegir, así que no hay 1052 y no hay 500. Los dos, además, llevan el
+# alcance puesto — uno con `<=>` y su porqué de doce líneas encima.
+#
+# Es la regla del CLAUDE.md en la forma que no se arregla repitiendo la medida:
+# **contaba bien el síntoma —«`alumno_id` sin alias»— y no la causa —«MySQL no
+# sabe de cuál de las dos hablas»**. Repetir el barrido da los mismos dos.
+#
+# El filtro es deliberadamente conservador y se queda corto a propósito: dice
+# «puede haber más de una tabla», no «hay dos con esta columna». Saber lo segundo
+# pide el esquema, y el volcado congelado **no tiene** `unidades.alumno_id`, que
+# entró por migración — o sea que preguntárselo sería medir donde la candidata no
+# existe. Quedarse corto deja un candidato de más, que es lo que este detector
+# devuelve; pasarse escondería un 500.
+def una_sola_tabla(sql):
+    """¿El ámbito del SQL tiene una tabla y nada más? Entonces no cabe un 1052."""
+    if len(re.findall(r'\bjoin\b', sql, re.I)) or len(re.findall(r'\bfrom\b', sql, re.I)) != 1:
+        return False
+    # La cláusula FROM: de `from` al primer corte. Una coma aquí es un join de los
+    # de 2006 (`FROM notas n, unidades u`), y un `(` es una subconsulta — con
+    # cualquiera de los dos hay más de un ámbito y esto ya no contesta.
+    m = re.search(r'\bfrom\b(.*?)(?:\bwhere\b|\bgroup\b|\border\b|\bhaving\b'
+                  r'|\blimit\b|\bunion\b|$)', sql, re.I | re.S)
+    return bool(m) and ',' not in m.group(1) and '(' not in m.group(1)
+
+
 def desnudas(sql):
-    """Cada `alumno_id` sin alias que se COMPARA (no el `as alumno_id` de un SELECT)."""
+    """Cada `alumno_id` sin alias que se COMPARA (no el `as alumno_id` de un SELECT).
+
+    Sólo cuenta si el ámbito tiene **más de una tabla**: ver el bloque de arriba.
+    """
     if not re.search(r'\bunidades\b', sql, re.I):
+        return []
+    if una_sola_tabla(sql):
         return []
     return [m.group(0) for m in re.finditer(
         r'(?<![\w.:])alumno_id\s*(?:=|<=>|<|>|\bin\b)|(?:=|<=>)\s*(?<![\w.])alumno_id\b',
@@ -512,7 +568,141 @@ def escrituras_eloquent(texto):
             yield nombre, texto.count('\n', 0, ini) + 1, sorted(modelos), ops
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# El control positivo, ejecutable — y por qué llega tarde.
+#
+# Este detector ya se había equivocado **cuatro veces**, las cuatro contando de
+# más, y las cuatro las encontró una persona con el fichero delante y no él:
+#
+#   1ª  no fundía las cadenas concatenadas -> no veía su propio arreglo;
+#   2ª  contaba el `FROM unidades` de los comentarios;
+#   3ª  medía por línea y partía las consultas de quince;
+#   4ª  exigía `<alias>.` para `IS NULL` -> daba «hay que acotarla» a CUATRO
+#       consultas de una sola tabla que ya estaban acotadas, y justo con la
+#       forma que la §1.6 del reparto bendice (1 sep 2026).
+#
+# **Y las cuatro veces el número salió plausible, que es peor que raro.** Un
+# detector cuyo error es contar de más nunca se delata solo: su lista de trabajo
+# simplemente tiene sitios donde no hay nada, y quien los revisa cierra cada uno
+# «decidiendo no tocarlo», que aquí es una salida legítima (§1.5).
+#
+# Por eso el control **no** se ancla en un número del árbol —que se mueve cada
+# noche y obliga a reescribirlo, hasta que alguien lo reescribe con el número
+# equivocado—, sino en las **formas**: seis consultas mínimas cuyo veredicto
+# está decidido, con la de la cuarta ceguera dentro. Si una cambia, el detector
+# cambió de opinión sobre algo que no era opinable.
+#
+#     python3 tools/unidades-sin-alcance.py --control
+#
+# Lo corre `tests/Unit/AutopruebasDeLasHerramientasTest`, que es lo que lo
+# convierte de intención en control: hasta el 1 sep 2026 esta herramienta era la
+# única del boletín independiente **sin nada que la comprobara**, mientras su
+# número gobernaba el reparto de una noche entera de cinco sesiones.
+CASOS_DE_CONTROL = [
+    # (qué demuestra, sql, alias, veredicto esperado)
+    ('el <=> con alias es alcance',
+     'select u.id from unidades u join notas n on n.unidad_id=u.id where u.alumno_id <=> 7',
+     'u', 'si'),
+    ('el <=> SIN alias tambien lo es (una sola tabla)',
+     'select id from unidades where asignatura_id=? and alumno_id <=> ?',
+     'unidades', 'si'),
+    # LA CUARTA CEGUERA. Antes del 1 sep 2026 esta línea contestaba 'no', y con
+    # ella salían como pendientes `PeriodosController::putCopiar`,
+    # `Unidad::informacionAsignatura`, `ChangeAskedController::asignaturas_dia` y
+    # `BoletinIndependienteController::putPlanilla` — las cuatro acotadas y las
+    # cuatro con el porqué escrito encima.
+    ('IS NULL SIN alias es alcance: es la forma que manda la §1.6 para «las del grupo a proposito»',
+     'select id, definicion from unidades where asignatura_id=:a and periodo_id=:p '
+     'and deleted_at is null and alumno_id is null order by orden',
+     'unidades', 'si'),
+    ('IS NULL con alias sigue siendo alcance',
+     'select u.id from unidades u, matriculas m where u.alumno_id is null',
+     'u', 'si'),
+    # No es un aprobado: es el fallo caro de la §3 —con `=` el alumno normal no
+    # empareja NULL y su definitiva sale 0—, y se informa aparte para que se lea.
+    ('el = a secas se separa y NO cuenta como alcance',
+     'select u.id from unidades u where u.alumno_id = :alumno_id',
+     'u', 'con-igual'),
+    # La quinta, medida el 1 sep 2026 al arreglar la cuarta: misma familia, un
+    # solo sitio, y el arreglo NO es el mismo — ver el comentario de la rama.
+    ('el = sin alias, con UNA sola tabla, es el `con-igual` que afirma propiedad (§1.6)',
+     'select count(*) c from unidades where alumno_id = ? and asignatura_id = ? '
+     'and periodo_id = ? and deleted_at is not null',
+     'unidades', 'con-igual'),
+    # Y el lado que NO se afloja: con dos tablas, un `alumno_id =` desnudo puede
+    # ser el de `matriculas` y esta `unidades` seguir sin acotar. Contar de menos
+    # esconde trabajo; contar de más sólo cuesta una revisión.
+    ('con dos tablas, el = sin alias NO se da por alcance de `unidades`',
+     'select u.id from unidades u join matriculas m on m.alumno_id=u.alumno_id '
+     'where alumno_id = :alumno_id',
+     'u', 'no'),
+    ('sin nombrar al dueño no hay alcance',
+     'select u.id from unidades u where u.asignatura_id=? and u.periodo_id=?',
+     'u', 'no'),
+]
+
+# Y el otro contador de este fichero, que se equivocó por su cuenta: las «desnudas».
+# Las dos direcciones, porque el arreglo del 1 sep 2026 lo aprieta y un filtro que
+# aprieta de más esconde un 500 en vez de contarlo — que es el fallo contrario y peor.
+CASOS_DE_DESNUDAS = [
+    ('una sola tabla NO puede ser ambigua: no hay nada entre lo que elegir',
+     'select coalesce(sum(porcentaje),0) from unidades '
+     'where asignatura_id=? and periodo_id=? and deleted_at is null and alumno_id <=> ?', 0),
+    ('una sola tabla, comparando con = y sin alias: tampoco',
+     'select count(*) c from unidades where alumno_id = ? and asignatura_id = ?', 0),
+    # El 1052 de verdad, que es el que este contador existe para ver: `notas` y
+    # `unidades` llevan las dos `alumno_id`, así que MySQL aborta la consulta.
+    ('con JOIN y el `alumno_id` desnudo SÍ es un 1052',
+     'select u.id from unidades u join notas n on n.unidad_id=u.id where alumno_id = ?', 1),
+    ('el join de 2006, por comas, cuenta igual',
+     'select u.id from unidades u, notas n where n.unidad_id=u.id and alumno_id = ?', 1),
+    ('con alias delante no hay ambigüedad que valga',
+     'select u.id from unidades u join notas n on n.unidad_id=u.id where u.alumno_id = ?', 0),
+]
+
+
+def control():
+    """Ejercita `alcance_de_unidades` contra las seis formas decididas.
+
+    Tres salidas y no dos, como manda el runner: 0 pasa, 1 el detector cambió de
+    opinión, 2 no se pudo ejercer aquí. Este control **no mira el árbol**, así que
+    el 2 no debería aparecer nunca — y si aparece, es que le falta una pieza al
+    propio fichero, no que el repo esté en otro estado.
+    """
+    fallos = []
+    for que, sql, alias, esperado in CASOS_DE_CONTROL:
+        try:
+            salio = alcance_de_unidades(sql, alias)
+        except Exception as e:  # noqa: BLE001 — el control informa, no revienta
+            print(f'CONTROL NO CONCLUYENTE: alcance_de_unidades() reventó ({e}).')
+            return 2
+        marca = 'ok  ' if salio == esperado else 'FALLA'
+        print(f'  {marca} [{esperado:>9}] {que}')
+        if salio != esperado:
+            fallos.append(f'    esperaba {esperado!r} y salió {salio!r}: {sql}')
+
+    for que, sql, esperado in CASOS_DE_DESNUDAS:
+        salio = len(desnudas(sql))
+        marca = 'ok  ' if salio == esperado else 'FALLA'
+        print(f'  {marca} [desnudas={esperado}] {que}')
+        if salio != esperado:
+            fallos.append(f'    esperaba {esperado} desnudas y salieron {salio}: {sql}')
+
+    print(f'Población del control: {len(CASOS_DE_CONTROL) + len(CASOS_DE_DESNUDAS)} '
+          f'formas comprobadas, {len(fallos)} fallan.')
+    if fallos:
+        print('\n'.join(fallos))
+        print('CONTROL FALLA: el detector cambió de opinión sobre una forma decidida. '
+              'Su lista de «hay que acotarla» NO vale hasta arreglar esto.')
+        return 1
+    print('OK — las trece formas se clasifican como está decidido.')
+    return 0
+
+
 def main():
+    if '--control' in sys.argv:
+        sys.exit(control())
+
     csv_out = '--csv' in sys.argv
     detalle = '--detalle' in sys.argv
 
