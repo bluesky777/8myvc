@@ -463,9 +463,46 @@ CLASES = ('por-id', 'por-nota', 'por-alumno', 'por-asignatura', 'mas-ancho')
 # **cuándo** aparece: la rompe el `ALTER TABLE`, no el código. Un colegio donde
 # la migración corra antes de que llegue el `app/` nuevo —y `app/` es copia por
 # colegio— tiene los boletines en 500 en esa ventana. Va en la §10 del plan.
+# Y la mitad de esta cuenta que faltaba: **una tabla sola no puede ser ambigua.**
+#
+# `desnudas()` contaba todo `alumno_id` sin alias dentro de un SQL que nombrara
+# `unidades`, **sin mirar cuántas tablas hay en el ámbito**. El 1 sep 2026 sus dos
+# hallazgos eran `DefinitivasDeAsignatura::porcentajeDeLasUnidades` y
+# `BoletinIndependienteController::motivoDelVacio`, y los dos son
+# `SELECT … FROM unidades WHERE …` **sin un solo JOIN**: MySQL no tiene nada entre
+# lo que elegir, así que no hay 1052 y no hay 500. Los dos, además, llevan el
+# alcance puesto — uno con `<=>` y su porqué de doce líneas encima.
+#
+# Es la regla del CLAUDE.md en la forma que no se arregla repitiendo la medida:
+# **contaba bien el síntoma —«`alumno_id` sin alias»— y no la causa —«MySQL no
+# sabe de cuál de las dos hablas»**. Repetir el barrido da los mismos dos.
+#
+# El filtro es deliberadamente conservador y se queda corto a propósito: dice
+# «puede haber más de una tabla», no «hay dos con esta columna». Saber lo segundo
+# pide el esquema, y el volcado congelado **no tiene** `unidades.alumno_id`, que
+# entró por migración — o sea que preguntárselo sería medir donde la candidata no
+# existe. Quedarse corto deja un candidato de más, que es lo que este detector
+# devuelve; pasarse escondería un 500.
+def una_sola_tabla(sql):
+    """¿El ámbito del SQL tiene una tabla y nada más? Entonces no cabe un 1052."""
+    if len(re.findall(r'\bjoin\b', sql, re.I)) or len(re.findall(r'\bfrom\b', sql, re.I)) != 1:
+        return False
+    # La cláusula FROM: de `from` al primer corte. Una coma aquí es un join de los
+    # de 2006 (`FROM notas n, unidades u`), y un `(` es una subconsulta — con
+    # cualquiera de los dos hay más de un ámbito y esto ya no contesta.
+    m = re.search(r'\bfrom\b(.*?)(?:\bwhere\b|\bgroup\b|\border\b|\bhaving\b'
+                  r'|\blimit\b|\bunion\b|$)', sql, re.I | re.S)
+    return bool(m) and ',' not in m.group(1) and '(' not in m.group(1)
+
+
 def desnudas(sql):
-    """Cada `alumno_id` sin alias que se COMPARA (no el `as alumno_id` de un SELECT)."""
+    """Cada `alumno_id` sin alias que se COMPARA (no el `as alumno_id` de un SELECT).
+
+    Sólo cuenta si el ámbito tiene **más de una tabla**: ver el bloque de arriba.
+    """
     if not re.search(r'\bunidades\b', sql, re.I):
+        return []
+    if una_sola_tabla(sql):
         return []
     return [m.group(0) for m in re.finditer(
         r'(?<![\w.:])alumno_id\s*(?:=|<=>|<|>|\bin\b)|(?:=|<=>)\s*(?<![\w.])alumno_id\b',
@@ -578,6 +615,25 @@ CASOS_DE_CONTROL = [
      'u', 'no'),
 ]
 
+# Y el otro contador de este fichero, que se equivocó por su cuenta: las «desnudas».
+# Las dos direcciones, porque el arreglo del 1 sep 2026 lo aprieta y un filtro que
+# aprieta de más esconde un 500 en vez de contarlo — que es el fallo contrario y peor.
+CASOS_DE_DESNUDAS = [
+    ('una sola tabla NO puede ser ambigua: no hay nada entre lo que elegir',
+     'select coalesce(sum(porcentaje),0) from unidades '
+     'where asignatura_id=? and periodo_id=? and deleted_at is null and alumno_id <=> ?', 0),
+    ('una sola tabla, comparando con = y sin alias: tampoco',
+     'select count(*) c from unidades where alumno_id = ? and asignatura_id = ?', 0),
+    # El 1052 de verdad, que es el que este contador existe para ver: `notas` y
+    # `unidades` llevan las dos `alumno_id`, así que MySQL aborta la consulta.
+    ('con JOIN y el `alumno_id` desnudo SÍ es un 1052',
+     'select u.id from unidades u join notas n on n.unidad_id=u.id where alumno_id = ?', 1),
+    ('el join de 2006, por comas, cuenta igual',
+     'select u.id from unidades u, notas n where n.unidad_id=u.id and alumno_id = ?', 1),
+    ('con alias delante no hay ambigüedad que valga',
+     'select u.id from unidades u join notas n on n.unidad_id=u.id where u.alumno_id = ?', 0),
+]
+
 
 def control():
     """Ejercita `alcance_de_unidades` contra las seis formas decididas.
@@ -599,14 +655,21 @@ def control():
         if salio != esperado:
             fallos.append(f'    esperaba {esperado!r} y salió {salio!r}: {sql}')
 
-    print(f'Población del control: {len(CASOS_DE_CONTROL)} formas comprobadas, '
-          f'{len(fallos)} fallan.')
+    for que, sql, esperado in CASOS_DE_DESNUDAS:
+        salio = len(desnudas(sql))
+        marca = 'ok  ' if salio == esperado else 'FALLA'
+        print(f'  {marca} [desnudas={esperado}] {que}')
+        if salio != esperado:
+            fallos.append(f'    esperaba {esperado} desnudas y salieron {salio}: {sql}')
+
+    print(f'Población del control: {len(CASOS_DE_CONTROL) + len(CASOS_DE_DESNUDAS)} '
+          f'formas comprobadas, {len(fallos)} fallan.')
     if fallos:
         print('\n'.join(fallos))
         print('CONTROL FALLA: el detector cambió de opinión sobre una forma decidida. '
               'Su lista de «hay que acotarla» NO vale hasta arreglar esto.')
         return 1
-    print('OK — las seis formas se clasifican como está decidido.')
+    print('OK — las once formas se clasifican como está decidido.')
     return 0
 
 

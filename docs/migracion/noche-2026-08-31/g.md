@@ -77,3 +77,39 @@ de nadie: `consultas-en-bucle.py --control` llama a `git show` y el `.git` de un
 worktree apunta a una ruta del host que el contenedor no resuelve. Está contado
 en la cabecera del propio test. Lo que importa aquí es que **el control nuevo
 concluye**: 5 passed de 6.
+
+## 2. El otro contador del mismo fichero: las «desnudas» no miraban el ámbito
+
+`desnudas()` imprime *«N consultas comparan `alumno_id` SIN ALIAS uniendo
+`unidades`: son un 500 (1052 ambiguous)»*, y el 1 sep 2026 señalaba **dos**:
+
+- `DefinitivasDeAsignatura:910` `porcentajeDeLasUnidades`
+- `BoletinIndependienteController:455` `motivoDelVacio`
+
+**Las dos son `SELECT … FROM unidades WHERE …` sin un solo `JOIN`.** MySQL no
+tiene nada entre lo que elegir, así que no hay 1052 y no hay 500 — y una de las
+dos lleva encima doce líneas explicando su `<=>`. El contador miraba si el SQL
+nombraba `unidades` y si el `alumno_id` iba sin prefijo, **pero no cuántas
+tablas hay en el ámbito**.
+
+Otra vez la segunda forma de la regla del CLAUDE.md: **contaba bien el síntoma
+—«`alumno_id` sin alias»— y no la causa —«MySQL no sabe de cuál de las dos
+hablas»**. Repetir el barrido da los mismos dos.
+
+    desnudas antes:  2   (las dos falsas)
+    desnudas después: 0
+
+Y el resto del inventario **no se mueve**: de las 170 filas del `--csv` cambian
+esas dos, y sólo en la columna `desnudas` — el `estado` de las dos sigue igual.
+
+> **El filtro se queda corto a propósito.** Dice «puede haber más de una tabla»,
+> no «hay dos con esta columna». Lo segundo pide el esquema, y el volcado
+> congelado **no tiene** `unidades.alumno_id`, que entró por migración: sería
+> medir donde la candidata no existe. Quedarse corto deja un candidato de más
+> —que es lo que este detector devuelve—; pasarse escondería un 500, que es el
+> fallo contrario y peor.
+
+Por eso el control ancla **las dos direcciones**, y no sólo la que se arregló:
+que el `JOIN` con `notas` y la coma de 2006 **sigan contando 1**. Comprobado en
+rojo contra el código viejo: sin el filtro fallan los dos casos de una tabla y
+ninguno de los otros tres.
