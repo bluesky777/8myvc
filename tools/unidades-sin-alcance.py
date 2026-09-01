@@ -256,7 +256,20 @@ def alcance_de_unidades(sql, alias):
     # ceguera de este detector, diagnosticada por el lote B el 1 sep 2026.
     if re.search(ref + r'\s+is\s+(?:not\s+)?null', sql, re.I):
         return 'si'
-    if re.search(r'\b' + re.escape(alias) + r'\.alumno_id\s*=', sql, re.I):
+    # La misma ceguera que la de arriba, en la tercera rama y con una diferencia
+    # que decide la forma del arreglo: aquí el prefijo NO puede hacerse opcional a
+    # secas. `alumno_id =` es comunísimo con otras tablas —`m.alumno_id = :id` de
+    # `matriculas`, el de `notas`—, así que aflojarlo del todo daría por acotado
+    # lo que no lo está, y esconder trabajo es el lado caro de equivocarse: contar
+    # de más sólo cuesta una revisión, contar de menos deja un boletín en blanco.
+    #
+    # Con UNA sola tabla en el ámbito no hay otra que pueda aportar ese
+    # `alumno_id`, así que el sin-prefijo es inequívoco y se acepta. Cierra
+    # `BoletinIndependienteController::motivoDelVacio`, que pregunta «¿tiene
+    # unidades SUYAS vaciadas?» —afirma propiedad, o sea `=` por la §1.6 partida
+    # en dos— y salía como 'no', es decir en la lista de «hay que acotarla».
+    if (re.search(r'\b' + re.escape(alias) + r'\.alumno_id\s*=', sql, re.I)
+            or (una_sola_tabla(sql) and re.search(r'(?<![\w.:])alumno_id\s*=', sql, re.I))):
         return 'con-igual'
     return 'no'
 
@@ -610,6 +623,19 @@ CASOS_DE_CONTROL = [
     ('el = a secas se separa y NO cuenta como alcance',
      'select u.id from unidades u where u.alumno_id = :alumno_id',
      'u', 'con-igual'),
+    # La quinta, medida el 1 sep 2026 al arreglar la cuarta: misma familia, un
+    # solo sitio, y el arreglo NO es el mismo — ver el comentario de la rama.
+    ('el = sin alias, con UNA sola tabla, es el `con-igual` que afirma propiedad (§1.6)',
+     'select count(*) c from unidades where alumno_id = ? and asignatura_id = ? '
+     'and periodo_id = ? and deleted_at is not null',
+     'unidades', 'con-igual'),
+    # Y el lado que NO se afloja: con dos tablas, un `alumno_id =` desnudo puede
+    # ser el de `matriculas` y esta `unidades` seguir sin acotar. Contar de menos
+    # esconde trabajo; contar de más sólo cuesta una revisión.
+    ('con dos tablas, el = sin alias NO se da por alcance de `unidades`',
+     'select u.id from unidades u join matriculas m on m.alumno_id=u.alumno_id '
+     'where alumno_id = :alumno_id',
+     'u', 'no'),
     ('sin nombrar al dueño no hay alcance',
      'select u.id from unidades u where u.asignatura_id=? and u.periodo_id=?',
      'u', 'no'),
@@ -669,7 +695,7 @@ def control():
         print('CONTROL FALLA: el detector cambió de opinión sobre una forma decidida. '
               'Su lista de «hay que acotarla» NO vale hasta arreglar esto.')
         return 1
-    print('OK — las once formas se clasifican como está decidido.')
+    print('OK — las trece formas se clasifican como está decidido.')
     return 0
 
 

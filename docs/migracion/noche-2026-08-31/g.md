@@ -113,3 +113,47 @@ Por eso el control ancla **las dos direcciones**, y no sólo la que se arregló:
 que el `JOIN` con `notas` y la coma de 2006 **sigan contando 1**. Comprobado en
 rojo contra el código viejo: sin el filtro fallan los dos casos de una tabla y
 ninguno de los otros tres.
+
+## 3. Y salió una quinta, de la misma familia y con OTRO arreglo
+
+Al arreglar la cuarta, la pregunta obvia es la tercera rama: `con-igual` también
+exige `\b<alias>\.`. Medido: **un solo sitio**, y es real —
+`BoletinIndependienteController:455` `motivoDelVacio`, que pregunta *«¿tiene
+unidades SUYAS vaciadas?»*. Eso **afirma propiedad**, o sea `=` por la §1.6
+partida en dos que formuló el lote D; y salía como `estado = no`, es decir en la
+lista de «hay que acotarla».
+
+**Pero el arreglo no puede ser el mismo, y ésta es la parte que importa.**
+`alumno_id =` es comunísimo con otras tablas —`m.alumno_id = :id` de
+`matriculas`, el de `notas`—, así que hacer el prefijo opcional a secas daría
+por acotado lo que no lo está. **Contar de menos esconde trabajo y contar de más
+sólo cuesta una revisión**, así que el sin-prefijo se acepta únicamente cuando
+el ámbito tiene **una sola tabla** — donde no hay otra que pueda aportar esa
+columna. Es el mismo predicado que arregló las «desnudas», reutilizado.
+
+    pendientes antes de la quinta: 22 en 10 sitios
+    después:                       21 en  9 sitios
+
+El control ancla las dos direcciones: el `=` sin alias con una tabla es
+`con-igual`, y con dos tablas **sigue siendo `no`**.
+
+### El riesgo residual de la cuarta, dicho para que no se descubra solo
+
+La rama del `IS NULL` sí quedó con el prefijo opcional a secas, que es lo que se
+diagnosticó y lo que se pidió. Tiene la misma laxitud teórica: un
+`m.alumno_id IS NULL` de otra tabla contaría como alcance de `unidades`.
+**Medido: cero sitios en `app/`** — ningún `<alias>.alumno_id IS NULL` con un
+alias que no sea el de `unidades`. Queda dicho aquí porque el día que aparezca
+uno, el sitio donde mirar es esta línea y no el código.
+
+## 4. Resumen de las cifras del detector
+
+| | lecturas pendientes | sitios | desnudas |
+|---|---|---|---|
+| `main` antes de tocar nada | 26 | 14 | 2 |
+| tras la cuarta ceguera | 22 | 10 | 2 |
+| tras el ámbito de las desnudas | 22 | 10 | **0** |
+| tras la quinta | **21** | **9** | 0 |
+
+**Ninguna lectura entra en la lista en ningún paso.** Los tres cambios sólo
+pueden aflojar, y aflojan donde se midió.
