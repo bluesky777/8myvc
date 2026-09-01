@@ -121,6 +121,69 @@ class GruposTest extends CasoDeContrato
     }
 
     /**
+     * En un grupo vacío del año que viene, «faltan» es el cupo entero.
+     *
+     * Hasta el 1 sep 2026 era `cupo − 1`, y no por una resta mal puesta: la
+     * consulta contaba `count(g.id)` sobre un **LEFT JOIN**, así que el grupo sin
+     * ninguna matrícula salía igual con una fila —la de los NULL del join— y
+     * `g.id`, que nunca es nulo, la contaba. Un grupo recién creado con cupo 20
+     * decía que le faltaban 19.
+     *
+     * Se ve **sólo en los grupos vacíos**, que son justo los que se miran al
+     * empezar la campaña de prematrículas: con matrículas de verdad las dos
+     * formas dan lo mismo, y por eso ha durado. Lo encontró el rediseño de esa
+     * pantalla en `myvc_front`.
+     *
+     * El test monta el caso entero —año siguiente, grado y grupo sin nadie— en
+     * vez de buscar uno en el seed: un grupo vacío es lo primero que desaparece
+     * cuando alguien matricula a alguien, y un test que dependa de eso se cae sin
+     * que nada esté roto.
+     */
+    public function test_un_grupo_vacio_del_year_siguiente_dice_que_le_falta_el_cupo_entero(): void
+    {
+        $grupo = $this->grupoConAlumnos();
+
+        $anterior = DB::selectOne('SELECT anterior.id FROM years actual
+            INNER JOIN years anterior ON anterior.year = actual.year - 1 AND anterior.deleted_at IS NULL
+            WHERE actual.id = ?', [$grupo->year_id]);
+
+        $this->assertNotNull($anterior,
+            'El seed necesita el año anterior al del grupo para comprobar next-year.');
+
+        // El que pregunta vive en el año anterior, así que «el siguiente» es el del grupo del seed.
+        DB::table('years')->update(['actual' => 0]);
+        DB::table('years')->where('id', $anterior->id)->update(['actual' => 1]);
+
+        $grado = DB::selectOne('SELECT id FROM grados WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+        $this->assertNotNull($grado, 'El seed no tiene ningún grado.');
+
+        $vacio = (int) DB::table('grupos')->insertGetId([
+            'nombre' => 'Grupo sin nadie',
+            'abrev' => 'SIN',
+            'orden' => 99,
+            'grado_id' => $grado->id,
+            'year_id' => $grupo->year_id,
+            'cupo' => 20,
+        ]);
+
+        $cuerpo = $this->getJson('/api/grupos/con-paises-tipos-next-year',
+            ['Authorization' => 'Bearer '.$this->tokenDelPersonalDe((int) $anterior->id)])
+            ->assertOk()
+            ->json();
+
+        $suyo = null;
+        foreach (($cuerpo['grupos'] ?? []) as $fila) {
+            if ((int) $fila['id'] === $vacio) {
+                $suyo = $fila;
+            }
+        }
+
+        $this->assertNotNull($suyo, 'El grupo recién creado no salió entre los del año siguiente.');
+        $this->assertSame(20, (int) $suyo['cant_faltantes'],
+            'Un grupo sin ninguna matrícula tiene que decir que le falta el cupo entero, no cupo − 1.');
+    }
+
+    /**
      * Las dos cuentas de alumnos cuentan lo mismo, y un PREM no suma en ninguna.
      *
      * Hasta el 31 ago 2026 no era así: `con-cantidad-alumnos` sumaba también los

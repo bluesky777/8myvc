@@ -212,6 +212,137 @@ class RequisitosDeMatriculaTest extends CasoDeContrato
     }
 
     /**
+     * Corregir la observación NO borra el estado del requisito.
+     *
+     * Hasta el 1 sep 2026 sí lo borraba, y sin decirlo. El `UPDATE` escribía
+     * las dos columnas siempre:
+     *
+     *     SET estado=?, descripcion=?, updated_by=?, updated_at=?
+     *
+     * y hay un llamante que no manda `estado`: la pantalla de prematrículas de
+     * la aplicación vieja le pasa **la fila de la observación**, que no lo trae
+     * —`putListadoObservaciones` no lo seleccionaba—. O sea que arreglar una
+     * falta de ortografía en la observación ponía a NULL si el alumno había
+     * entregado el papel, y la respuesta seguía siendo «Actualizado».
+     *
+     * Lo que se fija son las dos direcciones: la columna que no viene se queda
+     * como estaba, y la que viene se escribe —incluso vacía, que es como se
+     * borra un texto—.
+     */
+    public function test_corregir_la_observacion_no_borra_el_estado(): void
+    {
+        $quien = $this->personal();
+
+        $alumno = DB::selectOne('SELECT a.id FROM alumnos a WHERE a.deleted_at IS NULL ORDER BY a.id LIMIT 1');
+        $this->assertNotNull($alumno, 'El seed no tiene ningún alumno.');
+
+        $requisito = $this->requisito($quien->year_id, 'Registro civil');
+
+        $fila = (int) DB::table('requisitos_alumno')->insertGetId([
+            'requisito_id' => $requisito,
+            'alumno_id' => $alumno->id,
+            'estado' => 'Entregado',
+            'descripcion' => 'Lo trajo el lunes',
+        ]);
+
+        // Lo que manda la pantalla de prematrículas: el id y el texto, sin `estado`.
+        $this->withToken($quien->token)
+            ->postJson('api/requisitos/alumno', [
+                'requisito_alumno_id' => $fila,
+                'descripcion' => 'Lo trajo el martes',
+            ])
+            ->assertOk()
+            ->assertSee('Actualizado');
+
+        $despues = DB::selectOne('SELECT estado, descripcion FROM requisitos_alumno WHERE id = ?', [$fila]);
+
+        $this->assertSame('Entregado', $despues->estado,
+            'La columna que no venía en el cuerpo se ha escrito: corregir el texto borró el estado.');
+        $this->assertSame('Lo trajo el martes', $despues->descripcion,
+            'La columna que sí venía no se escribió.');
+    }
+
+    /**
+     * Y la que sí viene se escribe, aunque venga vacía: así se borra un texto.
+     *
+     * Llega NULL y no cadena vacía, y no es cosa de esta ruta: `ConvertEmptyStringsToNull`
+     * está en el `Kernel`, así que **toda** cadena vacía del cuerpo se convierte
+     * en null antes de llegar al controlador. Lo que importa aquí es que la
+     * columna se toque —el texto se va— y que la de al lado no.
+     */
+    public function test_una_descripcion_vacia_si_se_escribe(): void
+    {
+        $quien = $this->personal();
+
+        $alumno = DB::selectOne('SELECT a.id FROM alumnos a WHERE a.deleted_at IS NULL ORDER BY a.id LIMIT 1');
+        $this->assertNotNull($alumno, 'El seed no tiene ningún alumno.');
+
+        $fila = (int) DB::table('requisitos_alumno')->insertGetId([
+            'requisito_id' => $this->requisito($quien->year_id, 'Fotocopia del documento'),
+            'alumno_id' => $alumno->id,
+            'estado' => 'Falta',
+            'descripcion' => 'Algo que ya no hace falta decir',
+        ]);
+
+        $this->withToken($quien->token)
+            ->postJson('api/requisitos/alumno', [
+                'requisito_alumno_id' => $fila,
+                'descripcion' => '',
+            ])
+            ->assertOk();
+
+        $despues = DB::selectOne('SELECT estado, descripcion FROM requisitos_alumno WHERE id = ?', [$fila]);
+
+        $this->assertNull($despues->descripcion, 'No se pudo vaciar la observación.');
+        $this->assertSame('Falta', $despues->estado, 'Vaciar el texto tocó el estado.');
+    }
+
+    /**
+     * El listado de observaciones devuelve `estado`, que es lo que permite lo de arriba.
+     *
+     * Sin esa columna, una pantalla que pinte estas filas no puede devolver el
+     * estado al guardar — y esa es exactamente la forma en que se perdía—. Va
+     * junto al arreglo de `postAlumno` y no en su lugar: lo uno protege de
+     * cualquier llamante, lo otro deja que la pantalla enseñe el dato.
+     */
+    public function test_el_listado_de_observaciones_trae_el_estado(): void
+    {
+        $quien = $this->personal();
+
+        $alumno = DB::selectOne('SELECT m.alumno_id FROM matriculas m
+            INNER JOIN grupos g ON g.id = m.grupo_id AND g.year_id = ? AND g.deleted_at IS NULL
+            WHERE m.deleted_at IS NULL AND m.estado IN ("MATR","ASIS","PREM")
+            ORDER BY m.id LIMIT 1', [$quien->year_id]);
+
+        $this->assertNotNull($alumno, 'El seed no tiene ningún alumno matriculado en el año del sujeto.');
+
+        $requisito = $this->requisito($quien->year_id, 'Requisito con observación');
+
+        DB::table('requisitos_alumno')->insert([
+            'requisito_id' => $requisito,
+            'alumno_id' => $alumno->alumno_id,
+            'estado' => 'Entregado',
+            'descripcion' => 'Con observación para que salga en el listado',
+        ]);
+
+        $cuerpo = $this->withToken($quien->token)
+            ->putJson('api/requisitos/listado-observaciones', ['year_id' => $quien->year_id])
+            ->assertOk()
+            ->json('requisitos');
+
+        $observaciones = [];
+        foreach (($cuerpo ?? []) as $r) {
+            if ((int) $r['id'] === $requisito) {
+                $observaciones = $r['alumnos_observaciones'] ?? [];
+            }
+        }
+
+        $this->assertNotEmpty($observaciones, 'El requisito recién puesto no trajo su observación.');
+        $this->assertArrayHasKey('estado', $observaciones[0],
+            'El listado no devuelve `estado`: quien pinte estas filas no puede devolverlo al guardar.');
+    }
+
+    /**
      * El listado de observaciones acepta el `year_id` del cuerpo, y devuelve el
      * de otro año si se lo piden.
      *
