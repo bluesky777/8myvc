@@ -157,3 +157,88 @@ uno, el sitio donde mirar es esta línea y no el código.
 
 **Ninguna lectura entra en la lista en ningún paso.** Los tres cambios sólo
 pueden aflojar, y aflojan donde se midió.
+
+## 5. El centinela de `YearsController::postStore`
+
+`tests/Contrato/CentinelaDeLasColumnasDelAnioNuevoTest.php`, a la manera de
+`CentinelaDeLosEscritoresDeBitacoraTest` y por el mismo motivo: *una lista a mano
+sin centinela dura hasta el siguiente que escriba.*
+
+### La población, que es la mitad del asunto
+
+    68  columnas vivas de `years` (SHOW COLUMNS)
+    61  las escribe postStore
+     6  estructurales
+     1  `firmantes_acta`, que nace vacía a propósito
+    ──
+     0  sin decidir
+
+**61 y no 60**: la 61ª es `puestos_con_bol_independiente`, que la arregló el lote
+E esta misma noche — este centinela llega justo detrás para que no vuelva a
+pasar.
+
+Y las cuatro que han entrado a `years` por migración desde el volcado congelado,
+que son las candidatas de verdad:
+
+| Columna | ¿Se acordó de la lista? |
+|---|---|
+| `usa_consecutivo_certificados` | **sí** — copiada con su contador (21 §2.3) |
+| `usa_folio_certificados` | **sí** — ídem |
+| `firmantes_acta` | **no**, y es a propósito |
+| `puestos_con_bol_independiente` | **no**, y era el fallo |
+
+**Dos de cuatro.** Ésa es la tasa que este test convierte en cuatro de cuatro.
+
+### Por qué `SHOW COLUMNS` y no el volcado
+
+Medido: el volcado tiene **64** y la tabla viva **68**, y las cuatro de
+diferencia son **exactamente las cuatro de la tabla de arriba** — o sea justo las
+candidatas a olvidarse. Un centinela medido contra el volcado mediría donde
+ninguna candidata puede aparecer, y saldría verde para siempre.
+
+### Las excepciones, en dos clases y con el porqué dentro
+
+- **Estructurales (6)**: `id`, `created_at`, `updated_at`, `deleted_at`,
+  `deleted_by`, `updated_by`. **Seis y no siete: `created_by` SÍ se escribe**,
+  porque no lo pone Eloquent — es de este proyecto y dice quién creó el año. De
+  las tres de papelera y rastro, copiarlas del año anterior no sería un olvido
+  sino un error de otro tipo: heredar el borrado de un año pasado, o decir que
+  editó el año alguien que no ha entrado todavía.
+- **Nacen vacías (1)**: `firmantes_acta`, decisión de Joseth del 31 ago 2026 —
+  *los firmantes se confirman cada año a propósito*, y **un acta firmada por
+  quien ya no está es peor que un acta sin firmantes**: el hueco se ve la primera
+  vez que alguien imprime y la firma de más no la ve nadie hasta que importa.
+
+> **El modo de fallo que hay que evitar aquí no es el falso positivo: es que la
+> lista se convierta en un `@ignore`.** Ante un rojo, la salida barata es meter
+> la columna en `NACEN_VACIAS`, que es exactamente lo contrario de lo que el test
+> existe para forzar. Por eso la constante lleva escrito que **añadir una entrada
+> es tomar una decisión sobre el colegio**, y por eso hay un segundo caso —
+> `ninguna_excepcion_sobra`— que cae si una excepción se refiere a una columna
+> que ya no existe **o que sí se copia**. Una excepción caducada no da ningún
+> error por sí sola: se queda ahí y el siguiente la da por vigente.
+
+### Comprobado en rojo, las tres direcciones (§1.4)
+
+| Qué se rompió a mano | Qué dijo |
+|---|---|
+| quitada la copia de `puestos_con_bol_independiente` y la de `texto_acta_eval` | falla **nombrando las dos**, con las dos salidas escritas |
+| excepción a una columna que no existe | «sobra de la lista: se lee como vigente» |
+| excepción a una columna que **sí** se copia | «una de las dos cosas está mal, y la primera que mirar es la lista» |
+
+### Dos trampas de medición que llevan su aviso dentro del test
+
+1. **El bloque alinea con tabuladores**: un patrón con espacios se come nueve
+   líneas y da **50** en vez de 61 — una cifra creíble, que es lo peligroso. El
+   test lo defiende con una aserción de población que dice dónde mirar.
+2. **No todo `$year->x` es una columna**: `postStore` cuelga además `periodos` y
+   `grupos_ant` del objeto para armar la respuesta. **No se filtran por nombre**
+   —eso envejece—: se cruzan con `SHOW COLUMNS`.
+
+### Lo que este centinela NO comprueba, dicho para que nadie lo lea de más
+
+Comprueba que **cada columna viva está nombrada**, no de dónde sale su valor.
+Una columna nueva escrita como `Request::input('x')` lo pasa, y debe pasarlo
+—pedirla en el cuerpo también es una decisión—, pero eso **no significa que se
+herede**. Si lo que hace falta es que el año nuevo la traiga del anterior, se
+comprueba mirando el resultado, no esta lista.
