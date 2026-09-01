@@ -568,3 +568,44 @@ que el detector sigue contando de más**, y ahora están nombradas.
   dueno` … `c.dueno <=> …`). Eso **no** se arregla con un regex: exige entender
   la consulta. Queda escrito como límite conocido, que es lo que corresponde
   cuando el arreglo costaría más que la lectura a mano.
+
+## 11. La corrida real de `independientes-sin-estructura.php`, y **contra qué**
+
+Corrida el **1 sep 2026** desde la raíz, sobre la base que resuelve el `.env`:
+
+```
+Base: simonbolivar (la que resuelve la configuración; de serie el `.env`, que NO es la de tests)
+
+Población: 0 alumnos marcados (`bol_ind_periodos` con `aplica = 1`); 0 pares revisados.
+
+NO es «ningún alumno se cae por el hueco»: es que **no hay a quién revisar**.
+El módulo del boletín independiente todavía no está en uso — la tabla nace
+vacía y así sigue. La primera marca que se ponga hace que esto conteste algo.
+exit=0
+```
+
+**Y aquí va el matiz que corrige mi propia frase**, porque es exactamente la
+clase de cifra que esta noche se ha propagado mal tres veces:
+
+> **Esto NO es «nadie está marcado en ningún colegio».** Es **una** base, y ni
+> siquiera es una de las quince: es la copia local de desarrollo. En este MySQL
+> sólo hay `laravel` y `simonbolivar` — **los quince colegios viven en el
+> servidor de producción**, cada uno con la suya (CLAUDE.md, «Despliegue»).
+
+Lo que sí se puede afirmar con esta medida, y nada más:
+
+- en **la base de desarrollo**, hoy, **cero marcados y cero pares revisados**;
+- y como la marca se pone por una ruta que **todavía no está desplegada**, no hay
+  ningún camino por el que un colegio pueda tener filas en `bol_ind_periodos`
+  antes de que se despliegue.
+
+**Lo segundo es un argumento, no una medición**, y por eso va dicho aparte del
+número. La medición son quince corridas el día del despliegue, no una hoy.
+
+> **Y qué va a contestar el día del despliegue, para que nadie lo lea como un
+> fallo:** las migraciones del boletín independiente **no están puestas en
+> producción**. Contra un colegio sin ellas, `bol_ind_periodos` no existe y la
+> herramienta sale **`exit=2` · NO CONCLUYENTE**, diciendo que no ha revisado ni
+> un par. **Eso es correcto y es el diseño**: la alternativa —un `0` limpio— sería
+> la respuesta que archiva el asunto justo en el colegio donde no se ha mirado
+> nada.
