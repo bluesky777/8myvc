@@ -195,6 +195,7 @@
     "POST api/auth/logout": "App\\Http\\Controllers\\Auth\\SesionController@logout",
     "POST api/auth/logout-all": "App\\Http\\Controllers\\Auth\\SesionController@logoutTodas",
     "POST api/auth/refresh": "App\\Http\\Controllers\\Auth\\SesionController@refrescar",
+    "POST api/boletin-independiente/copiar": "App\\Http\\Controllers\\BoletinIndependienteController@postCopiar",
     "POST api/candidatos/store": "App\\Http\\Controllers\\VtCandidatosController@postStore",
     "POST api/certificados/store": "App\\Http\\Controllers\\ConfigCertificadosController@postStore",
     "POST api/ciudades/guardar-ciudad": "App\\Http\\Controllers\\CiudadesController@postGuardarCiudad",
