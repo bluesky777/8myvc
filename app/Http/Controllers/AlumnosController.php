@@ -703,6 +703,8 @@ class AlumnosController extends Controller {
 		}
 			
 	
+		$alumno->bol_independiente_periodos = $this->bolIndependientePeriodos((int) $alumno->alumno_id);
+
 		if ($con_grupos) {
 			// Grupos actuales
 			$consulta = 'SELECT g.id, g.nombre, g.abrev, g.orden, gra.orden as orden_grado, g.grado_id, g.year_id, g.titular_id,
@@ -733,6 +735,93 @@ class AlumnosController extends Controller {
 	}
 	
 	
+	/**
+	 * Por dónde la ficha lee la marca del boletín independiente: **los CUATRO
+	 * periodos del año, siempre**, no sólo las filas que existan.
+	 *
+	 * §6.4 de [19-boletin-independiente.md](../../../docs/migracion/19-boletin-independiente.md).
+	 *
+	 * ```jsonc
+	 * [{ "periodo_id": 91, "numero": 1, "aplica": false, "tiene_datos": false }, ...]
+	 * ```
+	 *
+	 * ## Mandar los cuatro no es cosmética
+	 *
+	 * Una lista con sólo las filas presentes en `bol_ind_periodos` obliga al cliente a
+	 * decidir qué significa una ausencia, y **este módulo perdió una semana justamente
+	 * por leer una ausencia al revés** —el `COALESCE(bip.aplica, 1)` que hacía que
+	 * marcar a un alumno en octubre le repintara el boletín del primer periodo—.
+	 * Mandando los cuatro no hay default que inventar en el navegador.
+	 *
+	 * ## Los cuatro estados son `aplica` × `tiene_datos`, y los cuatro dicen algo
+	 *
+	 * El que la pantalla tiene que gritar es **`aplica` sin `tiene_datos`**: va aparte
+	 * y no tiene ni una unidad propia, o sea la §9.1 —su definitiva va a salir 0 y
+	 * nadie va a recibir un error—. Y el contrario, `tiene_datos` sin `aplica`, es
+	 * literalmente lo que se pidió: *«no debe borrar los datos … pero esos datos deben
+	 * ser ignorados»*.
+	 *
+	 * ## `tiene_datos` lo contesta el backend porque el navegador no puede
+	 *
+	 * Es un `EXISTS` por periodo, y desde la ficha serían **cuatro peticiones** para
+	 * pintar una pestaña. El `EXISTS` va correlacionado dentro de la consulta de
+	 * periodos para que sean cuatro búsquedas por índice y no cuatro viajes.
+	 *
+	 * **El índice que sirve NO es `unidades_alcance_index`.** Aquél es
+	 * `(asignatura_id, periodo_id, alumno_id)` y aquí se pregunta por
+	 * `(alumno_id, periodo_id)`, así que su columna izquierda no aparece: lo resuelve
+	 * `unidades_alumno_id_foreign`, el índice que la clave foránea de `alumno_id`
+	 * arrastra consigo. Comprobado con `EXPLAIN`: `ref` sobre ese índice, y **cero
+	 * filas** en el caso de todo el mundo hoy —nadie marcado, ninguna unidad con
+	 * dueño—, que es el que se ejecuta en cada apertura de ficha de los quince colegios.
+	 *
+	 * ## El campo va en las DOS ramas de `putShow`, y eso cierra una trampa del plan
+	 *
+	 * La §6.4 avisaba de que si el alumno no tiene matrícula del año, `putShow` cae a
+	 * la segunda consulta y el campo no vendría: `undefined` significando «no
+	 * matriculado» y no «desmarcado». Con la marca colgada de `(alumno_id, periodo_id)`
+	 * **el campo ya no depende de la matrícula** —los periodos salen del año del token
+	 * y el estado de `bol_ind_periodos`—, así que sale por las dos ramas y `undefined`
+	 * deja de ser ambiguo.
+	 *
+	 * @return list<array{periodo_id: int, numero: int, aplica: bool, tiene_datos: bool}>
+	 */
+	private function bolIndependientePeriodos(int $alumno_id): array
+	{
+		// `COALESCE(bip.aplica, 0)`: **la fila que falta significa «va con el grupo»**.
+		// Es la decisión 7 y es el mismo carácter que gobierna
+		// `BoletinIndependiente::ALCANCE`; si los dos dejaran de decir lo mismo, la
+		// ficha enseñaría un estado y el boletín imprimiría el otro.
+		//
+		// El `EXISTS` es **el mismo predicado** que el de `Grupo::alumnos` para
+		// `bol_independiente_datos`, que es ese campo aplanado al periodo del token. Se
+		// escriben dos veces porque las dos preguntas tienen forma distinta —aquí,
+		// cuatro periodos de un alumno; allí, treinta alumnos de un periodo— y
+		// `BolIndependientePeriodosTest` comprueba que **coinciden**, que es una
+		// garantía más fuerte que compartir una cadena.
+		$consulta = 'SELECT p.id AS periodo_id, p.numero,
+				IF(COALESCE(bip.aplica, 0) = 1, 1, 0) AS aplica,
+				EXISTS (SELECT 1 FROM unidades u
+						 WHERE u.alumno_id = ? AND u.periodo_id = p.id AND u.deleted_at IS NULL) AS tiene_datos
+			FROM periodos p
+			LEFT JOIN bol_ind_periodos bip ON bip.periodo_id = p.id AND bip.alumno_id = ?
+			WHERE p.year_id = ? AND p.deleted_at IS NULL
+			ORDER BY p.numero, p.id';
+
+		$filas = DB::select($consulta, [$alumno_id, $alumno_id, $this->user->year_id]);
+
+		// A `bool` y a `int` en PHP: MySQL devuelve los dos como 0/1 y PDO los trae como
+		// cadena. Un `"0"` es verdadero en JavaScript, así que dejarlo pasar es
+		// exactamente el fallo que este campo existe para no tener.
+		return array_values(array_map(static fn ($f) => [
+			'periodo_id' => (int) $f->periodo_id,
+			'numero' => (int) $f->numero,
+			'aplica' => (bool) $f->aplica,
+			'tiene_datos' => (bool) $f->tiene_datos,
+		], $filas));
+	}
+
+
 	public function traer_requisitos_detalle($alumno_id, $matricula){
 		
 			// Traemos los requisitos de cada año y su detalle si ya lo tiene

@@ -310,6 +310,7 @@
     "PUT api/aspiraciones/update": "App\\Http\\Controllers\\VtAspiracionesController@putUpdate",
     "PUT api/ausencias/cambiar-tipo-ausencia": "App\\Http\\Controllers\\AusenciasController@putCambiarTipoAusencia",
     "PUT api/ausencias/guardar-cambios-ausencia": "App\\Http\\Controllers\\AusenciasController@putGuardarCambiosAusencia",
+    "PUT api/boletin-independiente/periodo": "App\\Http\\Controllers\\BoletinIndependienteController@putPeriodo",
     "PUT api/boletines/detailed-notas-group/{grupo_id}": "App\\Http\\Controllers\\Informes\\BoletinesController@putDetailedNotasGroup",
     "PUT api/boletines/detailed-notas/{grupo_id}": "App\\Http\\Controllers\\Informes\\BoletinesController@putDetailedNotas",
     "PUT api/boletines2/detailed-notas-group/{grupo_id}": "App\\Http\\Controllers\\Informes\\Boletines2Controller@putDetailedNotasGroup",
