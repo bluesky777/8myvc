@@ -255,8 +255,55 @@ class UnidadesController extends Controller {
 		// `SubunidadesController::postIndex` sí lo pedía. Ver 05 §47.
 		User::pueden_editar_notas($user, (int) $user->periodo_id);
 
+		$asignatura_id = Request::input('asignatura_id');
+
+		/*
+		 * **`alumno_id` — la promesa del §8 del plan, que hasta hoy no estaba escrita.**
+		 *
+		 * El plan dice que el front **no construye un editor nuevo** porque *«son los
+		 * mismos endpoints de `unidades` y `subunidades`, con `alumno_id` en el cuerpo al
+		 * crear la unidad»*. Este método no leía ese campo, y lo que pasaba al mandarlo
+		 * **era peor que ignorarlo**: la unidad nacía **del grupo**, se le ponía a todo el
+		 * curso y el reparto de la asignatura dejaba de sumar 100 — sin un error, sin un
+		 * aviso y sin que nada lo dijera. Medido por el front sobre la asignatura 1235:
+		 * una unidad al 10 %, 51 estudiantes, el curso al **110 %**.
+		 *
+		 * O sea que **un docente que intentara montarle el boletín a un independiente le
+		 * desordenaba la asignatura a los otros treinta**, y la única pista era que los
+		 * porcentajes dejaban de cuadrar.
+		 *
+		 * **Ausente o vacío sigue siendo `null` = del grupo**, que es lo que hacen hoy los
+		 * quince colegios y lo que no puede cambiar.
+		 */
+		$alumno_id = Request::input('alumno_id');
+		$alumno_id = ($alumno_id === null || $alumno_id === '') ? null : (int) $alumno_id;
+
+		if ($alumno_id !== null) {
+			// Un id que no es un id se rechaza aquí y no en la guarda: `unidades.alumno_id`
+			// es `unsigned`, así que un 0 o un negativo no puede llegar a la fila ni
+			// siquiera para que la clave foránea lo rechace con un 500.
+			if ($alumno_id < 1) {
+				abort(422, 'El `alumno_id` tiene que ser el id de un alumno.');
+			}
+
+			$this->exigirDuenoValido($alumno_id, (int) $asignatura_id, (int) $user->periodo_id);
+		}
+
+		/*
+		 * **El `orden` se cuenta DENTRO del reparto en el que entra la unidad**, no sobre
+		 * la asignatura entera.
+		 *
+		 * Antes contaba todas las del periodo —las del grupo y las de cualquier
+		 * independiente juntas—, así que la primera unidad propia de un alumno nacía con
+		 * el `orden` de la quinta del curso, y la siguiente del grupo se saltaba un
+		 * número. Son **dos repartos que conviven y no se mezclan**: es la misma frontera
+		 * que `u.alumno_id <=> alcance` traza en las lecturas, aquí en la escritura.
+		 */
 		$cant = Unidad::where('periodo_id', $user->periodo_id)
-				->where('asignatura_id', Request::input('asignatura_id'))
+				->where('asignatura_id', $asignatura_id)
+				->when($alumno_id === null,
+					fn ($q) => $q->whereNull('alumno_id'),
+					fn ($q) => $q->where('alumno_id', $alumno_id))
 				->count();
 
 		$unidad = new Unidad;
@@ -264,11 +311,77 @@ class UnidadesController extends Controller {
 		$unidad->porcentaje		= Request::input('porcentaje');
 		$unidad->periodo_id		= $user->periodo_id;
 		$unidad->created_by		= $user->user_id;
-		$unidad->asignatura_id	= Request::input('asignatura_id');
+		$unidad->asignatura_id	= $asignatura_id;
+		$unidad->alumno_id		= $alumno_id;
 		$unidad->orden			= $cant;
 		$unidad->save();
 
 		return $unidad;
+	}
+
+
+	/**
+	 * Las dos condiciones para que una unidad pueda tener dueño. **Las dos son decisión,
+	 * no mecánica**, y por eso van escritas.
+	 *
+	 * ## 1 · El alumno tiene que estar matriculado en el grupo de esa asignatura
+	 *
+	 * La clave foránea sólo obliga a que el alumno **exista**, no a que tenga nada que
+	 * ver con esta asignatura: sin esta comprobación se le cuelga una unidad a alguien de
+	 * otro curso, o de otro año. Es la familia de `tools/identificadores-del-cuerpo.py` y
+	 * la misma guarda que el lote D tuvo que añadir a `PUT boletin-independiente/periodo`
+	 * por la misma razón.
+	 *
+	 * ## 2 · El alumno tiene que ir aparte EN ESE PERIODO — y esto es lo que se decidió
+	 *
+	 * Crear una unidad con dueño para quien va con el grupo deja una fila **que no le
+	 * cuenta a nadie**: su dueño lee las del grupo —la marca ausente significa «va con el
+	 * grupo», decisión 7— y los demás tampoco la ven, porque tiene dueño. Nace muerta, en
+	 * silencio, y con el reparto ya escrito. Es la §9.1 al revés.
+	 *
+	 * > **Y no prohíbe el estado «tiene unidades propias y no está marcado»**, que es
+	 * > legítimo y está decidido: apagar la marca **no borra nada** —*«no debe borrar los
+	 * > datos … pero esos datos deben ser ignorados»*— y `PUT boletin-independiente/planilla`
+	 * > existe justamente para ver lo que se está ignorando. Lo que se prohíbe es
+	 * > **crear** una fila así desde cero. **Un residuo tiene historia; una fila nueva sin
+	 * > dueño efectivo, no.**
+	 *
+	 * ## Quién puede hacerlo: la guarda que ya había, y es la correcta
+	 *
+	 * No se añade ningún criterio de rol. La ruta pide `auth.personal` y el método
+	 * `User::pueden_editar_notas`, o sea **superusuario o profesor con el periodo
+	 * abierto**: montar la estructura de un boletín es trabajo docente y el §8 del plan
+	 * dice que el front **reutiliza el mismo editor**. Quien decide que un alumno va
+	 * aparte es otra cosa —administradores, secretario y rector, decisión 5— y eso ya lo
+	 * guarda `PUT boletin-independiente/periodo`. Aquí sólo se **construye** lo que
+	 * aquella decisión permitió, y este método exige que aquella decisión ya esté tomada,
+	 * que es la condición 2.
+	 *
+	 * **422 y no 403**: no es que quien llama no pueda; es que lo que pide no tiene
+	 * sentido con el estado que hay.
+	 */
+	private function exigirDuenoValido(int $alumno_id, int $asignatura_id, int $periodo_id): void
+	{
+		$matriculado = DB::selectOne(
+			'SELECT 1 AS hay
+			   FROM asignaturas a
+			   INNER JOIN matriculas m ON m.grupo_id = a.grupo_id AND m.deleted_at IS NULL
+			                          AND m.estado IN ("MATR", "ASIS")
+			  WHERE a.id = ? AND m.alumno_id = ? AND a.deleted_at IS NULL
+			  LIMIT 1',
+			[$asignatura_id, $alumno_id]
+		);
+
+		if ($matriculado === null) {
+			abort(422, 'Ese alumno no está matriculado en el grupo de esta asignatura.');
+		}
+
+		// Lo pregunta el servicio y no una consulta de aquí: **el único sitio que decide
+		// de quién es una unidad** es `BoletinIndependiente`, y ésta es la misma pregunta
+		// que resuelven las lecturas, hecha antes de escribir.
+		if (! \App\Services\BoletinIndependiente::aplica($alumno_id, $periodo_id)) {
+			abort(422, 'Ese alumno no lleva boletín independiente en este periodo, así que una unidad suya no la vería nadie.');
+		}
 	}
 
 	public function putUpdateOrden()

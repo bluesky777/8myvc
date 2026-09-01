@@ -996,13 +996,57 @@ Lo pidió el front el 24 ago, y la respuesta es de las que hay que dar medidas:
 ## §8 — Lo que le toca al front
 
 Cuatro pantallas. Ninguna se publica hasta que el backend esté **desplegado en
-los dieciséis** (§10).
+los quince** (§10).
 
-1. **Marcar al alumno.** Un interruptor más en la ficha, al lado del de PIAR.
-   Es `PUT alumnos/guardar-valor` con `propiedad: "boletin_independiente"` — el
-   endpoint que la ficha ya usa para veinte campos. **Es la pantalla más barata
-   de las cuatro y la que hay que hacer primero**, porque sin ella no hay forma
-   de probar ninguna otra con datos de verdad.
+> **Decía «los dieciséis», y se corrige el 1 sep 2026 aunque la regla de la casa sea que
+> las cifras fechadas se quedan como se midieron.** No es una medición de un día: es una
+> **condición futura**, y una condición futura escrita contra dieciséis colegios **se
+> cumple mal** — el día que se compruebe, faltará uno que ya no existe. Uno se dio de baja
+> el 25 ago 2026 y se borró entero del servidor. Las cifras **medidas** sobre dieciséis
+> siguen diciendo dieciséis, y la de la fase 0 de las definitivas —más abajo— es una de
+> ésas y no se toca.
+
+1. **Marcar al alumno, POR PERIODO.** Es `PUT boletin-independiente/periodo`
+   (§6.3), con `auth.personal` y la guarda de la decisión 5 —marcan
+   administradores, secretario y rector—. El cuerpo lleva los tres campos y el
+   periodo **va explícito**:
+
+   ```jsonc
+   { "alumno_id": 3311, "periodo_id": 91, "aplica": false }
+   ```
+
+   **Sigue siendo la pantalla más barata de las cuatro y la primera que hay que
+   hacer**, porque sin ella no hay forma de probar ninguna otra con datos de
+   verdad. Lo que cambia es que **no es un interruptor de dos estados en la
+   ficha**: son cuatro, uno por periodo, y **se puede marcar un periodo cerrado**
+   (§2.4) — que es el caso real, porque el accidente casi nunca pasa en el
+   periodo activo.
+
+   Y si la ficha quiere **enseñar** el estado, ya lo tiene sin escribir nada:
+   `bol_independiente_periodos` viaja en `PUT alumnos/show` (§6.4) con los cuatro
+   periodos, su `aplica` y su `tiene_datos`.
+
+   > **Aquí ponía otra cosa, y estuvo escrito desde el 24 ago 2026 hasta el 1 sep:**
+   >
+   > ~~Un interruptor más en la ficha, al lado del de PIAR. Es `PUT alumnos/guardar-valor`
+   > con `propiedad: "boletin_independiente"` — el endpoint que la ficha ya usa para veinte
+   > campos.~~
+   >
+   > **Se deja tachado y no borrado porque el front pudo haberlo leído ya**: llevaba ocho
+   > días ahí, y un párrafo que desaparece no avisa a quien se lo creyó.
+   >
+   > **Y no es que el endpoint cambiara: es que la propiedad no existe en ninguna tabla.**
+   > `matriculas.boletin_independiente` **se retiró** el 31 ago 2026 (§2.2) y **nunca
+   > estuvo en `alumnos`**. Medido el 1 sep: cero apariciones en
+   > `database/schema/mysql-schema.sql` y cero en `GuardarAlumno.php`, que no tiene `case`
+   > para ella — así que cae al `default`, `ColumnaSegura::exigir('alumnos', …)` no la
+   > reconoce y la llamada **contesta 422**. Un front que siguiera este párrafo se
+   > encontraría un rechazo, no un fallo silencioso; es lo único bueno del asunto.
+   >
+   > **La reescritura estaba decidida y pendiente, no es una decisión nueva:** la decisión
+   > 7 del 31 ago ya dice *«la §8 punto 1 se reescribe: la pantalla 1 no es un interruptor
+   > más en la ficha, es un interruptor por periodo»*. Lo que faltaba era hacerla.
+
 2. **La planilla de notas, dos cambios pequeños.** El alumno marcado ya no viene
    en `alumnos`: la pantalla tiene que **decir a cuántos no está viendo** con
    `independientes` y llevar a la pantalla nueva. Y el que tiene la marca del
@@ -1029,6 +1073,80 @@ los dieciséis** (§10).
 mismos endpoints de `unidades` y `subunidades` que ya usa la pantalla de
 estructura, con `alumno_id` en el cuerpo al crear la unidad. Si acaba habiendo
 dos editores, uno de los dos se va a quedar viejo.
+
+### 8.1 · Esa promesa NO estaba escrita, y mandar `alumno_id` hacía daño — 1 sep 2026
+
+**Hasta el 1 sep 2026 `UnidadesController::postIndex` no leía `alumno_id`.** El párrafo
+de arriba prometía un endpoint que no existía, que es la fase 7 rompiéndose el día que el
+front lo llame.
+
+Y **lo que pasaba al mandarlo era peor que ignorarlo**: la unidad nacía **del grupo**, se
+le ponía a todo el curso y el reparto de la asignatura dejaba de sumar 100 — sin un
+error, sin un aviso y sin que nada lo dijera. **Lo midió el front ejecutando**, sobre la
+asignatura 1235: una unidad al 10 %, 51 estudiantes, el curso al **110 %**. Lo borraron y
+volvió a 100 %.
+
+O sea que **un docente que intentara montarle el boletín a un independiente le
+desordenaba la asignatura a los otros treinta**, y la única pista era que los porcentajes
+dejaban de cuadrar.
+
+Arreglado y fijado por `tests/Contrato/UnidadPropiaAlCrearlaTest.php`.
+
+#### El contrato de `POST unidades`, que es lo que el front necesita saber
+
+| Cuerpo | Respuesta |
+|---|---|
+| sin `alumno_id`, o vacío | **201**, unidad **del grupo** — exactamente lo de hoy, sin cambio |
+| `alumno_id` de un alumno matriculado en el grupo de esa asignatura **y marcado en ese periodo** | **201**, unidad **suya**: no la ve nadie más y el reparto del grupo no se mueve |
+| `alumno_id` de alguien **sin matrícula viva** en el grupo de esa asignatura | **422** |
+| `alumno_id` de alguien que **no va aparte en ese periodo** | **422** |
+| `alumno_id` que no es un id (`0`, negativo) | **422** |
+
+**El periodo es el del token**, como siempre: la unidad nace con
+`periodo_id = $user->periodo_id`. La marca tiene que estar puesta **en ese** periodo.
+
+#### Las tres decisiones, con su porqué
+
+**1 · Quién puede mandar `alumno_id`: la guarda que ya había, y no se añade rol.** La
+ruta pide `auth.personal` y `User::pueden_editar_notas` —superusuario, o profesor con el
+periodo abierto—. **Montar la estructura de un boletín es trabajo docente**, y este mismo
+§8 dice que el front reutiliza el editor que ya existe. Quien **decide** que un alumno va
+aparte es otra cosa —administradores, secretario y rector, decisión 5— y eso ya lo guarda
+`PUT boletin-independiente/periodo`. Aquí sólo se **construye** lo que aquella decisión
+permitió. Poner un criterio de rol aquí **duplicaría la decisión 5 en un segundo sitio**,
+que es de lo que va medio este plan.
+
+**2 · Un alumno que no va aparte en ese periodo: 422.** Una unidad con dueño para quien
+va con el grupo **no le cuenta a nadie**: su dueño lee las del grupo —la marca ausente
+significa «va con el grupo», decisión 7— y los demás tampoco la ven, porque tiene dueño.
+Nace muerta, en silencio, y con el reparto ya escrito. Es la §9.1 al revés.
+
+> **Y NO prohíbe el estado «tiene unidades propias y no está marcado»**, que es legítimo
+> y está decidido: apagar la marca **no borra nada** —*«no debe borrar los datos … pero
+> esos datos deben ser ignorados»*— y `PUT boletin-independiente/planilla` (§6.1) existe
+> justamente para ver lo que se está ignorando. Lo que se prohíbe es **crear** una fila
+> así desde cero. **Un residuo tiene historia; una fila nueva sin dueño efectivo, no.**
+
+**422 y no 403**: no es que quien llama no pueda, es que **lo que pide no tiene sentido
+con el estado que hay**.
+
+**3 · El reparto no se corrige: se separa.** La suma de porcentajes sigue viajando sin
+corregir, como dice este documento; el backend no valida que sume 100. Lo que el arreglo
+garantiza es que **los dos repartos no se mezclen**, que es justo lo que fallaba.
+
+#### Y una cuarta que no estaba en el encargo: el `orden`
+
+Se contaba sobre **todas** las unidades del periodo —las del grupo y las de cualquier
+independiente juntas—, así que la primera unidad propia de un alumno nacía con el `orden`
+de la quinta del curso y la siguiente del grupo se saltaba un número. Ahora se cuenta
+**dentro del reparto en el que entra la unidad**: es la misma frontera que
+`u.alumno_id <=> alcance` traza en las lecturas, aquí en la escritura.
+
+#### `subunidades` no hizo falta tocarlo
+
+La §6.5 —cuando la unidad tiene dueño nace **una** nota y no treinta— ya estaba, y la
+decisión vive dentro de `Nota::verificarCrearNotas`, que lee `unidades.alumno_id`.
+Comprobado antes de escribir nada.
 
 **Y lo que no tiene que construir aunque parezca que sí:** comportamiento. No va
 en este módulo (§1).

@@ -553,3 +553,93 @@ Y aquí sí entra `myvc_flutter`: `uniformes/*` lo consumen `UniformesApi.dart`,
 así que ahí está **latente**. **Lo que NO comprobé:** `agregarUniforme` sí hace
 `jsonDecode(res.body)`, y no he mirado qué método lo sirve ni qué devuelve con cero
 filas. **Se para aquí**, como se pidió.
+
+## 10. `POST unidades` ignoraba `alumno_id` — §8 del plan
+
+**El plan prometía que el front no construye un editor nuevo** porque *«son los mismos
+endpoints de `unidades` y `subunidades`, con `alumno_id` en el cuerpo al crear la
+unidad»*, y **eso nunca se escribió en el controlador**: `UnidadesController::postIndex`
+no leía ese campo.
+
+**Y lo que pasaba al mandarlo era peor que ignorarlo**: la unidad nacía **del grupo**, se
+le ponía a todo el curso y el reparto de la asignatura dejaba de sumar 100 — sin un
+error, sin un aviso, y sin que nada lo dijera. Lo midió el front ejecutando, sobre la
+asignatura 1235: una unidad al 10 %, 51 estudiantes, el curso al **110 %**.
+
+O sea: **un docente que intentara montarle el boletín a un independiente le desordenaba
+la asignatura a los otros treinta**, y la única pista era que los porcentajes dejaban de
+cuadrar.
+
+### Lo que entra, y las tres cosas salen de la misma línea que faltaba
+
+1. **La unidad nace con dueño** — `$unidad->alumno_id = $alumno_id`.
+2. **El reparto del grupo no se mueve**, porque la fila ya no es del grupo.
+3. **No le aparece a los demás, y al dueño sí** — lo resuelven las lecturas de la fase 1,
+   que ya estaban.
+
+**Ausente o vacío sigue siendo «del grupo»**, que es lo que hacen hoy los quince
+colegios.
+
+### Y el `orden`, que no estaba en el encargo
+
+Se contaba sobre **todas** las unidades del periodo —las del grupo y las de cualquier
+independiente juntas—, así que la primera unidad propia de un alumno nacía con el `orden`
+de la quinta del curso y la siguiente del grupo se saltaba un número. Ahora se cuenta
+**dentro del reparto en el que entra la unidad**: es la misma frontera que
+`u.alumno_id <=> alcance` traza en las lecturas, aquí en la escritura.
+
+### Las dos guardas, que son decisión y por eso van escritas
+
+| Guarda | Por qué |
+|---|---|
+| el alumno **está matriculado en el grupo de esa asignatura** | la clave foránea sólo obliga a que exista; es la familia de `identificadores-del-cuerpo.py` y la misma guarda que el lote D tuvo que añadir a `PUT boletin-independiente/periodo` |
+| el alumno **va aparte EN ESE PERIODO** | crear una unidad con dueño para quien va con el grupo deja una fila **que no le cuenta a nadie**: su dueño lee las del grupo —la marca ausente es «va con el grupo»— y los demás tampoco la ven. Nace muerta, en silencio y con el reparto ya escrito |
+
+> **La segunda NO prohíbe el estado «tiene unidades propias y no está marcado»**, que es
+> legítimo y está decidido: apagar la marca **no borra nada**, y
+> `PUT boletin-independiente/planilla` existe justamente para ver lo que se ignora. Lo
+> que se prohíbe es **crear** una fila así desde cero. **Un residuo tiene historia; una
+> fila nueva sin dueño efectivo, no.**
+
+**422 y no 403**: no es que quien llama no pueda, es que lo que pide no tiene sentido con
+el estado que hay.
+
+**Quién puede: la guarda que ya había.** No se añade criterio de rol. La ruta pide
+`auth.personal` y `User::pueden_editar_notas` —superusuario o profesor con el periodo
+abierto—: montar la estructura de un boletín es trabajo docente, y el §8 dice que el
+front reutiliza el mismo editor. Quien **decide** que un alumno va aparte es otra cosa
+(decisión 5) y ya lo guarda su ruta; aquí sólo se **construye** lo que aquella decisión
+permitió — y la condición 2 exige que esté tomada.
+
+### El rojo: cada mitad sostiene su caso y ninguna sobra
+
+| Forma | Rojos de 4 |
+|---|---|
+| **el `postIndex` de antes** | **3** — el verde es «sin `alumno_id` la unidad sigue siendo del grupo», el caso de hoy, que nunca estuvo roto |
+| con `alumno_id` pero **sin la guarda de matrícula** | **1**, justo ése |
+| con `alumno_id` pero **sin la guarda del boletín independiente** | **1**, justo el otro |
+
+### Tres vueltas de fixture, y las tres fueron el detector
+
+Para el caso «un alumno que no está en el grupo de la asignatura»:
+
+1. `grupo_id != ?` **no basta**: un alumno puede tener matrícula en varios grupos, así que
+   «uno de otro grupo» incluía a gente que **también** está en éste — y la guarda los
+   aceptaba con razón.
+2. `NOT IN (subconsulta)` tampoco: **con una fila NULL dentro, `NOT IN` vale NULL para
+   todas** y no sale nadie.
+3. Y lo que de verdad pasaba, medido: **la base de tests tiene 68 alumnos y los 68 están
+   en el mismo grupo.** «Un alumno de otro grupo matriculado» **no existe**, así que la
+   búsqueda devolvía `null` **por población, no por la consulta**.
+
+Se resolvió **dándole la vuelta al caso**: se crea un **grupo ajeno con su asignatura** y
+se intenta colgarle una unidad de un alumno **de nuestro grupo que sí está marcado**. Con
+eso la segunda condición está satisfecha y **lo único que puede rechazar es la primera**,
+que es lo que ese caso mide.
+
+### Lo que NO hizo falta tocar
+
+`SubunidadesController::postIndex` **ya estaba**: la §6.5 —cuando la unidad tiene dueño
+nace UNA nota y no treinta— la dejó hecha el lote B, y la decisión vive dentro de
+`Nota::verificarCrearNotas`, que lee `unidades.alumno_id`. Se comprobó antes de escribir
+nada.
