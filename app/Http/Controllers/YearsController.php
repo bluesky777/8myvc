@@ -159,6 +159,21 @@ class YearsController extends Controller {
 			$year->msg_when_students_blocked  	 = $pasado->msg_when_students_blocked;
 			$year->profes_can_edit_alumnos  	 = $pasado->profes_can_edit_alumnos;
 			$year->puestos_alfabeticamente  	 = $pasado->puestos_alfabeticamente;
+			// El interruptor de la fase 6 del boletín independiente (31 ago 2026), y va
+			// aquí y no en el bloque de abajo porque **sus dos vecinas de esta lista son
+			// los otros dos interruptores de puesto**: quien lea estas tres líneas tiene
+			// que poder dar por hecho que las tres se comportan igual.
+			//
+			// Sin esta copia el año nuevo nace con el `DEFAULT 1` de la columna, así que
+			// **el colegio que lo puso a 0 lo recupera a 1 el enero siguiente**, sin que
+			// nadie toque nada y sin un solo error. Y lo que reaparece no es un valor
+			// cualquiera: es el puesto impreso de todos los alumnos del grupo moviéndose
+			// —§7 del 19—, que es un cambio en papel firmado que nadie pidió.
+			//
+			// Es la misma familia que las diez de abajo y no una más: aquéllas hacían
+			// **perder** una configuración, y ésta hace **resucitar** la contraria a la
+			// elegida, que es peor porque el defecto tiene pinta de decisión.
+			$year->puestos_con_bol_independiente = $pasado->puestos_con_bol_independiente;
 			$year->show_fortaleza_bol  	 		 = $pasado->show_fortaleza_bol;
 			$year->show_subasignaturas_en_finales = $pasado->show_subasignaturas_en_finales;
 			$year->si_recupera_materia_recup_indicador = $pasado->si_recupera_materia_recup_indicador;

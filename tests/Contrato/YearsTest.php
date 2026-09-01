@@ -1037,6 +1037,63 @@ class YearsTest extends CasoDeContrato
     }
 
     /**
+     * El interruptor de los puestos del boletín independiente **sobrevive al cambio
+     * de año**, que es lo que lo distingue de las diez de arriba.
+     *
+     * Las diez hacían **perder** una configuración; ésta hacía **resucitar la
+     * contraria a la elegida**: la columna es `NOT NULL DEFAULT 1`, así que el año
+     * nuevo nacía a 1 —«los independientes cuentan para el puesto»— aunque el colegio
+     * lo hubiera puesto a 0 el año anterior. Sin error, sin aviso, y con el efecto de
+     * la §7 del [19](../../docs/migracion/19-boletin-independiente.md): **el puesto
+     * impreso de todos los alumnos del grupo se mueve**.
+     *
+     * **Por qué se escribe este test y no se confía en el bloque:** de las cuatro
+     * columnas que han entrado a `years` por migración desde que se congeló el
+     * volcado, **dos se acordaron de la lista de `postStore` y dos no** —la pareja de
+     * los certificados sí, `firmantes_acta` y ésta no—. O sea que la lista **no se
+     * mantiene sola**, y una columna que resucita cada enero es de las que no se
+     * descubren hasta el año siguiente.
+     *
+     * Se pone a **0** a propósito y no a 1: con 1 el test pasaría con la línea de la
+     * copia quitada, porque 1 es el `DEFAULT`. El rojo de aquí es literalmente el
+     * defecto reapareciendo.
+     */
+    public function test_el_ano_nuevo_conserva_el_interruptor_de_puestos_apagado(): void
+    {
+        $ultimo = DB::selectOne('SELECT id FROM years WHERE deleted_at IS NULL ORDER BY year DESC LIMIT 1');
+
+        DB::table('years')->where('id', $ultimo->id)->update(['puestos_con_bol_independiente' => 0]);
+
+        $nuevo = DB::table('years')->where('id', $this->crearElAnioSiguiente())->first();
+
+        $this->assertSame(0, (int) $nuevo->puestos_con_bol_independiente,
+            'El año nuevo nació con el interruptor de puestos ENCENDIDO habiéndolo apagado el colegio '
+            .'el año anterior. Es el `DEFAULT 1` de la columna reapareciendo porque `postStore` no la '
+            .'copia, y lo que cambia con él es el puesto impreso de todo el grupo (19 §7).');
+    }
+
+    /**
+     * Y el otro lado, sin el cual esto sería fijar media conducta: encendido se
+     * hereda encendido.
+     *
+     * No es simetría por gusto. Una copia mal escrita —un `0` literal, un `(bool)`
+     * de más— pasaría el test de arriba y **apagaría el interruptor en los quince
+     * colegios el primer enero**, que es el fallo grande de los dos: hoy los quince
+     * están en 1.
+     */
+    public function test_el_ano_nuevo_conserva_el_interruptor_de_puestos_encendido(): void
+    {
+        $ultimo = DB::selectOne('SELECT id FROM years WHERE deleted_at IS NULL ORDER BY year DESC LIMIT 1');
+
+        DB::table('years')->where('id', $ultimo->id)->update(['puestos_con_bol_independiente' => 1]);
+
+        $nuevo = DB::table('years')->where('id', $this->crearElAnioSiguiente())->first();
+
+        $this->assertSame(1, (int) $nuevo->puestos_con_bol_independiente,
+            'El año nuevo nació con el interruptor apagado sin que nadie lo apagara.');
+    }
+
+    /**
      * Los requisitos de matrícula se copian, y eran la única tabla de configuración
      * por año que no se copiaba.
      *

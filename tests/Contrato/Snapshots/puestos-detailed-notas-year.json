@@ -3,6 +3,7 @@
         {
             "alumno_id": "int",
             "apellidos": "string",
+            "bol_independiente_periodo": "bool",
             "cant_areas_perdidas": "int",
             "cant_asign_perdidas": "int",
             "celular": "null|string",
@@ -61,6 +62,7 @@
         "orden": "int",
         "titular_id": "int"
     },
+    "puestos_con_bol_independiente": "bool",
     "year": {
         "abrev_colegio": "string",
         "apellidos_rector": "string",

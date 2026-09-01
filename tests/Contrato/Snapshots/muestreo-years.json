@@ -63,6 +63,7 @@
         "profes_can_edit_alumnos": "int",
         "psicorientador_id": "null",
         "puestos_alfabeticamente": "int",
+        "puestos_con_bol_independiente": "int",
         "rector_id": "int",
         "resolucion": "string",
         "secretario_id": "int",
