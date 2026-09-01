@@ -983,3 +983,51 @@ entera —la del §16.2— y **la fase 2 pone un índice único**, así que ese 
 TABLE` falla hoy en esta base. Y son **quince colegios**: esta medida es de
 `simonbolivar` y **no dice nada de los otros catorce**, igual que la de la §9.1.
 La medición de verdad son **quince corridas**.
+
+## 17. Cierre del lote G — qué está fundido y qué no
+
+Escrito el **1 sep 2026** al quedarse la noche sin coordinación: `8myvc-cb` dejó
+de resolver, y `8myvc-ab` —que tiene a Joseth delante— confirma que **no le
+consta que coordine nadie** y que el último traspaso escrito sigue siendo el de
+`8myvc-2a` a `8myvc-c1`.
+
+> **Que un nombre no resuelva no es una medición de que la sesión haya muerto**
+> —los nombres cambian solos, y ya se dio por muerta una que estaba viva—, así que
+> esto se lee como *«no la veo»*, no como *«no está»*.
+
+### Lo fundido en `main` (`ca88a85`)
+
+Los quince commits del lote: las **seis cegueras** del detector con su `--control`
+y su registro, el **centinela de `postStore`**, `independientes-sin-estructura.php`
+(§9.1), el **skip medido** del runner, el **`gitdir` relativo**, el **censo de la
+fase 1**, el **censo de las herramientas**, los **dos huérfanos** y los **dos
+controles** de la clase (A). Suite verde en cada tanda; la última,
+**1698 passed, exit=0**.
+
+### Lo que NO está fundido, y es lo único
+
+**`f82ca6b` — la remedida de las definitivas (§16)**, commiteada después de que la
+coordinación dejara de responder. Medido, no supuesto:
+
+    ¿f82ca6b es ancestro de main?   NO
+    ¿main es ancestro de mi HEAD?   SÍ
+    commits míos fuera de main:      1
+
+**No lo fundo yo**: `main` lo mueve quien coordina, desde la raíz. Mientras no se
+funda, **la §16 no está en `main`** y una sesión que se ponga al día leyendo
+`main` no la encuentra. *(Una sesión de esta noche leyó `git branch -av` diez
+minutos antes y afirmó que sí estaba: **una lectura vieja no describe una rama que
+otra sesión está moviendo**, y se corrigió remidiendo.)*
+
+### Y cuál de las dos cosas corre prisa, que no es la mía
+
+**Que falte fundir un documento se arregla en un minuto y no caduca. El `ALTER
+TABLE` que falla sí caduca**: en cuanto el plan de las definitivas avance, esa
+migración entra a los quince colegios y **el duplicado de la §16.2 la para a mitad
+del bucle**.
+
+### Por qué esta sesión para aquí
+
+Porque **la cola la da quien coordina** (§1.7 del reparto) y ahora mismo no consta
+que coordine nadie. Parar con **el árbol limpio y el estado escrito** es lo
+contrario de lo que costó las tres sesiones que cerraron con el árbol lleno.
