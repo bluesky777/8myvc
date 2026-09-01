@@ -446,3 +446,30 @@ Comprobado en las dos ramas, sobre el mismo árbol y cambiando sólo el `.git`:
 > **Aviso de contabilidad entre lotes:** mi árbol ya lleva el `gitdir` relativo,
 > así que **mi `AutopruebasDeLasHerramientasTest` da 7/7 y los otros lotes 6/7**.
 > No es que el mío pase por otra razón: es que en mi árbol `git` resuelve.
+
+### 9.3 · Lo que la prueba del script destapó, y por eso lleva una guarda
+
+La primera versión escribía el `gitdir` relativo **a secas**, y al probarla se
+cayó: este script hace `cd "$(dirname "$0")/.."`, así que lanzarlo por su ruta
+dentro de un worktree —`.worktrees/g/tools/worktree-de-sesion.sh`, que es
+exactamente lo que hice— **crea el árbol nuevo dentro de ése**. Y ahí `../../.git`
+es el `.git` de un worktree: un **fichero**, no una carpeta con `worktrees/`
+dentro. El árbol nuevo nacía sin git **en los dos sitios**, que es peor que el
+problema que el arreglo quita.
+
+Por eso la reescritura va detrás de `git rev-parse --git-common-dir`, que es lo
+que **distingue** el árbol principal de un worktree en vez de suponerlo; si no lo
+es, avisa y deja el `.git` que escribió git. **La suposición era justo lo que
+fallaba**, y no se habría visto sin ejecutarlo: el script imprime sus cinco pasos
+en verde igual.
+
+Probado de punta a punta creando un árbol de usar y tirar desde la raíz:
+
+    .git ->  gitdir: ../../.git/worktrees/zz
+    git rev-parse DENTRO del contenedor   ->  /app/.worktrees/zz
+    git show 2837171^ DENTRO              ->  exit=0
+    git log en el HOST                    ->  bien;  git worktree list, los nueve
+
+Borrado después: el árbol, su rama y su base `simonbolivar_testing_zz`. **Y el
+`tools/worktree-de-sesion.sh` de la raíz quedó como estaba** — se tocó sólo para
+la prueba y se restauró; el del commit es el de este árbol.

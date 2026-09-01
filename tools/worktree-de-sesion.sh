@@ -71,6 +71,50 @@ APP_EXEC="${APP_EXEC-docker exec 8myvc-app-1}"
 echo "1/5  worktree $DESTINO en la rama $RAMA"
 git worktree add "$DESTINO" -b "$RAMA"
 
+# Y su `.git`, RELATIVO, que es lo que hace que `git` funcione también DENTRO del
+# contenedor. `git worktree add` lo escribe absoluto y **con la ruta del host**
+# (`gitdir: /Users/.../8myvc/.git/worktrees/<x>`), que en `/app` no existe: ahí
+# dentro cualquier `git` contesta `fatal: not a git repository`.
+#
+# Lo pagó `AutopruebasDeLasHerramientasTest` durante toda la noche del 31 ago
+# 2026: `consultas-en-bucle.py --control` llama a `git show`, salía NO
+# CONCLUYENTE en los cinco worktrees, y **el rojo se descontaba a mano en cada
+# parte** — que es como un rojo permanente se convierte en ruido y el ruido tapa
+# el siguiente. Ya había costado además una suite entera en rojo por correo en el
+# CI, por la misma pregunta y otro tercer árbol (`fetch-depth: 0`).
+#
+# **Relativo y no la ruta del contenedor**: escribir `/app/.git/...` arreglaría el
+# contenedor **rompiendo el host**. Git resuelve el `gitdir` desde la carpeta que
+# contiene el `.git`, así que la forma relativa vale en los dos a la vez. Medido
+# en las cuatro direcciones antes de entrar aquí, incluida la que descarta el
+# daño: `git worktree list` desde el host sigue listando todos los árboles.
+# **Y sólo si esto es el árbol PRINCIPAL**, que no es formalismo: se cayó al
+# probarlo. Este script hace `cd "$(dirname "$0")/.."`, así que lanzarlo por su
+# ruta dentro de un worktree (`.worktrees/g/tools/worktree-de-sesion.sh`) crea el
+# árbol nuevo **dentro de ése** — y ahí `../../.git` es el `.git` de un worktree,
+# que es un fichero y no una carpeta con `worktrees/` dentro. La ruta relativa
+# apuntaría a algo que no existe y el árbol nuevo nacería sin git **en los dos
+# sitios**, que es peor que el problema que arregla.
+#
+# Se comprueba con `--git-common-dir`, que es lo que distingue el principal de un
+# worktree, en vez de suponerlo: aquí la suposición es justo lo que falla.
+COMUN="$(git rev-parse --git-common-dir)"
+if [ "$COMUN" = ".git" ] || [ "$COMUN" = "$RAIZ/.git" ]; then
+    printf 'gitdir: %s\n' "../../.git/worktrees/$SUFIJO" > "$DESTINO/.git"
+else
+    echo "     AVISO: esto no es el árbol principal ($COMUN)." >&2
+    echo "     Se deja el .git que escribió git: funciona en el host, pero NO dentro" >&2
+    echo "     del contenedor. Crea los árboles desde la raíz del repo." >&2
+fi
+
+# **Esto NO arregla los árboles que ya existen**, y hay que decirlo aquí porque a
+# las sesiones vivas se les avisa por mensaje y quien venga dentro de un mes lo va
+# a leer del script. Para arreglar uno a mano, desde la raíz del repo:
+#
+#     printf 'gitdir: ../../.git/worktrees/<x>\n' > .worktrees/<x>/.git
+#
+# Cada sesión en el suyo: el `.git` de un árbol ajeno no se toca.
+
 echo "2/5  .env (enlazado: es configuración, no código)"
 ln -s ../../.env "$DESTINO/.env"
 
