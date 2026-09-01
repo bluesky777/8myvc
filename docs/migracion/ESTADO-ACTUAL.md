@@ -33,11 +33,21 @@ clases con veredicto, cero fallos** · pint **PASS** (329 ficheros) · larastan 
 > `--autoprueba` que registrar. O sea que la coordinación mandó *«corre las autopruebas con el
 > detector cambiado»* creyendo que eso lo comprobaba, **y no comprobaba nada de esto**.
 >
-> **Por eso pudo equivocarse cinco veces sin que se notara, y las cinco contando de MÁS** — que es
-> el error que no se delata solo: la lista gana sitios donde no hay nada, quien los revisa los
-> cierra *«decidiendo no tocarlos»* (§1.5 del reparto), y **el instrumento nunca queda mal**. La
-> propia regla que existe para leer cada fila **es la que absorbe los falsos positivos en silencio**.
-> Ya tiene `--control` con 13 formas y está registrado en el runner.
+> **Y lo que hay que conservar no es que la coordinación afirmara una garantía sin mirarla: es que
+> la §1.5 y un detector que cuenta de más forman un BUCLE CERRADO.** Sus cinco cegueras contaban
+> **de más**, que es el error que no se delata solo — la lista gana sitios donde no hay nada, quien
+> los revisa los cierra *«decidiendo no tocarlos»*, **y cada absorción parece trabajo bien hecho**.
+> La regla que existe para no fiarse del instrumento es justo la que se traga sus falsos positivos,
+> y el instrumento nunca queda mal.
+>
+> **La salida de ese bucle no es leer mejor las filas: es que el instrumento tenga un control que no
+> dependa de las filas** *(formulación del lote G, que es quien lo escribió)*. Ya lo tiene:
+> `--control` con **13 formas literales**, registrado en el runner, y **medido desde tres sitios
+> distintos —`/tmp`, la raíz y un worktree— con `exit=0` y el mismo `md5` en las tres salidas**. No
+> abre ficheros, no llama a `git`, no mira el `cwd` y no toca la base, así que **no tiene desde dónde
+> correr mal**: es la otra mitad de anclar formas en vez de un número, porque un número anclado al
+> árbol hereda **todas las maneras que tiene un árbol de estar en otro estado** — el worktree, el
+> clon del CI, el `cwd` de una shell. Las tres ya pagadas esta noche.
 >
 > **Y con él, la cifra de la fase 1 que este documento repitió tres veces era vieja.** «43 lecturas
 > pendientes en 23 sitios» se midió **antes** de fundir A, B, C, D y E; sobre `main` con todo dentro
