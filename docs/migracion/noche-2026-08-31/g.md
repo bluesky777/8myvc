@@ -1031,3 +1031,58 @@ del bucle**.
 Porque **la cola la da quien coordina** (§1.7 del reparto) y ahora mismo no consta
 que coordine nadie. Parar con **el árbol limpio y el estado escrito** es lo
 contrario de lo que costó las tres sesiones que cerraron con el árbol lleno.
+
+## 18. El `exit` que miente en las quince corridas
+
+Encontrado midiendo, no leyendo, justo antes de cerrar el lote:
+
+    DB_DATABASE=colegio_que_no_existe php tools/salud-de-las-definitivas.php
+      -> imprime la cabecera, revienta con QueryException … y sale **exit=0**
+
+**Da igual mientras alguien lo mire; deja de dar igual en las quince corridas**,
+una por colegio, que es como se usa esta herramienta. Ahí el colegio cuya base no
+conteste **no se distingue del que está limpio** si el bucle mira el código de
+salida — y con `--csv` a un fichero es peor: la fila sale a medias y **el CSV de
+los quince parece completo**.
+
+> **Y el colegio que falla es justo el que necesita el aviso:** puede ser el que
+> no tiene las migraciones, o el que tiene el duplicado que la fase 2 no puede
+> tragar. Un `0` ahí es *la respuesta que archiva el asunto*, que es la regla de
+> la casa —*un «0 encontrados» no distingue «revisé 466» de «no revisé nada»*— en
+> el sitio donde de verdad muerde.
+
+Ahora sale **2** —*no se pudo mirar*, ni un hallazgo ni un fallo de la
+herramienta—, con las mismas tres salidas del runner de autopruebas.
+
+**Va por `set_exception_handler` y no envolviendo el cuerpo en un `try`**: son
+cuatrocientas líneas lineales y reindentarlas haría ilegible el diff de un cambio
+que sólo toca el código de salida.
+
+| | antes | después |
+|---|---|---|
+| Base que no contesta | `exit=0` con la traza | **`exit=2`** con el aviso |
+| **`--csv` contra base mala** | fila a medias | **`exit=2` y 0 líneas escritas** |
+| Corrida normal | `exit=0` | `exit=0`, **salida idéntica** carácter a carácter |
+| `--csv` normal · `--control` | 0 · 0 | **0 · 0** |
+
+### Y la otra que se corre colegio a colegio: `fase-cero-de-los-dieciseis.php` **ya se defiende**
+
+**Medida, no supuesta** — y midiéndola de verdad, que es lo que casi falla:
+pasarle un colegio de mentira **en la lista de argumentos**, que es lo que la
+lleva hasta el `select`.
+
+    php tools/fase-cero-de-los-dieciseis.php colegio_que_no_existe
+      -> exit=2 · «!! colegio_que_no_existe: NO MEDIDO — SQLSTATE… 1049»
+         «colegios pedidos: 1 · medidos: 0 · NO medidos: 1»
+         «Un colegio NO MEDIDO no es un colegio limpio.»
+
+**No hay nada que arreglarle: hace exactamente lo que había que hacer, y desde
+antes.** Es el modelo del que sale el arreglo de arriba.
+
+> **La trampa de medirla, porque estuvo a punto de colarse:** corrida **sin
+> argumentos** da `exit=1`, y eso invita a escribir *«ésa está bien»*. **No mide
+> lo mismo**: muere en el parseo pidiendo su uso, **antes de tocar la base**. Un
+> `1` ahí no dice nada sobre qué pasa cuando la base no contesta. Lo levantó la
+> coordinación sobre su propia medida antes de mandármela — **el detector no
+> detectaba lo que decía su nombre**, que es la segunda forma de la regla del
+> CLAUDE.md.

@@ -256,6 +256,38 @@ require __DIR__.'/../vendor/autoload.php';
 $app = require_once __DIR__.'/../bootstrap/app.php';
 $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Una excepción aquí NO puede salir con 0, y esto es del día del despliegue.
+//
+// El bootstrap de Laravel pinta la excepción muy bien —con su traza y sus
+// colores— y **devuelve cero**. Medido el 1 sep 2026 con `DB_DATABASE` apuntando
+// a una base que no existe: la traza en pantalla y `exit=0`.
+//
+// Da igual mientras alguien la mire; **deja de dar igual en las quince corridas**,
+// una por colegio, que es como se usa esta herramienta. Ahí el colegio cuya base
+// no conteste **no se distingue del que está limpio** si el bucle mira el código
+// de salida — y con `--csv` a un fichero es peor, porque la fila sale a medias y
+// el CSV de los quince parece completo. **El colegio que falla es justo el que
+// necesita el aviso**: puede ser el que no tiene las migraciones, o el que tiene
+// el duplicado que la fase 2 no puede tragar.
+//
+// Sale **2** y no 1 porque no es un hallazgo ni un fallo de la herramienta: es
+// que **no se pudo mirar**. Son las mismas tres salidas que ya usan
+// `fase-cero-de-los-dieciseis.php` —que hace esto bien desde el principio, con su
+// «un colegio NO MEDIDO no es un colegio limpio»— y el runner de autopruebas.
+//
+// Va por `set_exception_handler` y no envolviendo el cuerpo en un `try`: el
+// cuerpo son cuatrocientas líneas lineales, y reindentarlas enteras haría
+// ilegible el diff de un cambio que sólo toca el código de salida.
+set_exception_handler(static function (Throwable $e): void {
+    fwrite(STDERR, "\n!! NO MEDIDO — la base no contestó\n\n   ".$e->getMessage()."\n\n"
+        ."   Esto NO es «este colegio está limpio»: es que no se ha mirado ni una fila.\n"
+        ."   Si esto sale dentro del bucle de los quince, ese colegio queda SIN MEDIR y\n"
+        ."   su número no está en el recuento — comprueba a qué base apunta `DB_DATABASE`\n"
+        ."   y que las migraciones estén puestas ahí.\n");
+    exit(2);
+});
+
 use Illuminate\Support\Facades\DB;
 
 $opciones = getopt('', ['year::', 'detalle', 'csv', 'help']);
