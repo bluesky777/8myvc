@@ -1030,6 +1030,80 @@ mismos endpoints de `unidades` y `subunidades` que ya usa la pantalla de
 estructura, con `alumno_id` en el cuerpo al crear la unidad. Si acaba habiendo
 dos editores, uno de los dos se va a quedar viejo.
 
+### 8.1 · Esa promesa NO estaba escrita, y mandar `alumno_id` hacía daño — 1 sep 2026
+
+**Hasta el 1 sep 2026 `UnidadesController::postIndex` no leía `alumno_id`.** El párrafo
+de arriba prometía un endpoint que no existía, que es la fase 7 rompiéndose el día que el
+front lo llame.
+
+Y **lo que pasaba al mandarlo era peor que ignorarlo**: la unidad nacía **del grupo**, se
+le ponía a todo el curso y el reparto de la asignatura dejaba de sumar 100 — sin un
+error, sin un aviso y sin que nada lo dijera. **Lo midió el front ejecutando**, sobre la
+asignatura 1235: una unidad al 10 %, 51 estudiantes, el curso al **110 %**. Lo borraron y
+volvió a 100 %.
+
+O sea que **un docente que intentara montarle el boletín a un independiente le
+desordenaba la asignatura a los otros treinta**, y la única pista era que los porcentajes
+dejaban de cuadrar.
+
+Arreglado y fijado por `tests/Contrato/UnidadPropiaAlCrearlaTest.php`.
+
+#### El contrato de `POST unidades`, que es lo que el front necesita saber
+
+| Cuerpo | Respuesta |
+|---|---|
+| sin `alumno_id`, o vacío | **201**, unidad **del grupo** — exactamente lo de hoy, sin cambio |
+| `alumno_id` de un alumno matriculado en el grupo de esa asignatura **y marcado en ese periodo** | **201**, unidad **suya**: no la ve nadie más y el reparto del grupo no se mueve |
+| `alumno_id` de alguien **sin matrícula viva** en el grupo de esa asignatura | **422** |
+| `alumno_id` de alguien que **no va aparte en ese periodo** | **422** |
+| `alumno_id` que no es un id (`0`, negativo) | **422** |
+
+**El periodo es el del token**, como siempre: la unidad nace con
+`periodo_id = $user->periodo_id`. La marca tiene que estar puesta **en ese** periodo.
+
+#### Las tres decisiones, con su porqué
+
+**1 · Quién puede mandar `alumno_id`: la guarda que ya había, y no se añade rol.** La
+ruta pide `auth.personal` y `User::pueden_editar_notas` —superusuario, o profesor con el
+periodo abierto—. **Montar la estructura de un boletín es trabajo docente**, y este mismo
+§8 dice que el front reutiliza el editor que ya existe. Quien **decide** que un alumno va
+aparte es otra cosa —administradores, secretario y rector, decisión 5— y eso ya lo guarda
+`PUT boletin-independiente/periodo`. Aquí sólo se **construye** lo que aquella decisión
+permitió. Poner un criterio de rol aquí **duplicaría la decisión 5 en un segundo sitio**,
+que es de lo que va medio este plan.
+
+**2 · Un alumno que no va aparte en ese periodo: 422.** Una unidad con dueño para quien
+va con el grupo **no le cuenta a nadie**: su dueño lee las del grupo —la marca ausente
+significa «va con el grupo», decisión 7— y los demás tampoco la ven, porque tiene dueño.
+Nace muerta, en silencio, y con el reparto ya escrito. Es la §9.1 al revés.
+
+> **Y NO prohíbe el estado «tiene unidades propias y no está marcado»**, que es legítimo
+> y está decidido: apagar la marca **no borra nada** —*«no debe borrar los datos … pero
+> esos datos deben ser ignorados»*— y `PUT boletin-independiente/planilla` (§6.1) existe
+> justamente para ver lo que se está ignorando. Lo que se prohíbe es **crear** una fila
+> así desde cero. **Un residuo tiene historia; una fila nueva sin dueño efectivo, no.**
+
+**422 y no 403**: no es que quien llama no pueda, es que **lo que pide no tiene sentido
+con el estado que hay**.
+
+**3 · El reparto no se corrige: se separa.** La suma de porcentajes sigue viajando sin
+corregir, como dice este documento; el backend no valida que sume 100. Lo que el arreglo
+garantiza es que **los dos repartos no se mezclen**, que es justo lo que fallaba.
+
+#### Y una cuarta que no estaba en el encargo: el `orden`
+
+Se contaba sobre **todas** las unidades del periodo —las del grupo y las de cualquier
+independiente juntas—, así que la primera unidad propia de un alumno nacía con el `orden`
+de la quinta del curso y la siguiente del grupo se saltaba un número. Ahora se cuenta
+**dentro del reparto en el que entra la unidad**: es la misma frontera que
+`u.alumno_id <=> alcance` traza en las lecturas, aquí en la escritura.
+
+#### `subunidades` no hizo falta tocarlo
+
+La §6.5 —cuando la unidad tiene dueño nace **una** nota y no treinta— ya estaba, y la
+decisión vive dentro de `Nota::verificarCrearNotas`, que lee `unidades.alumno_id`.
+Comprobado antes de escribir nada.
+
 **Y lo que no tiene que construir aunque parezca que sí:** comportamiento. No va
 en este módulo (§1).
 
