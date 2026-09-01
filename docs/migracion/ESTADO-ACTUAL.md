@@ -117,9 +117,9 @@ coordina `8myvc-ab`
 > dato**. *Un arreglo correcto con una razón demasiado ancha es peor que uno sin razón: el siguiente
 > hereda la razón, no el arreglo, y la aplica donde no vale.*
 
-> ### CUATRO INSTRUMENTOS QUE SE MOVIERON HOY, Y EL TERCERO ES DE LA COORDINACIÓN
+> ### CINCO INSTRUMENTOS QUE FALLARON HOY, Y DOS SON DE LA COORDINACIÓN
 >
-> Los cuatro dan el mismo error con caras distintas: **el instrumento con el que compruebas también se
+> Los cinco dan el mismo error con caras distintas: **el instrumento con el que compruebas también se
 > mueve**.
 >
 > 1. **Una rama leída diez minutos antes.** La coordinación le dijo al lote G que su commit ya estaba
@@ -132,7 +132,17 @@ coordina `8myvc-ab`
 >    esta suite **no devuelve nada**, porque PHPUnit indenta esa línea. Por el documento de esta
 >    misma casa, *«una suite sin línea `Tests:` al final no es una suite verde: es una suite
 >    muerta»* — y la suite estaba **verde**. **El ancla era mía, no de la suite.**
-> 4. Y una cuarta, del mismo día: **el `19` se está moviendo**, así que la cifra que no hay que tocar
+> 4. **Una herramienta que contesta una pregunta parecida a la que se le hizo.** La coordinación dio
+>    por demostrado que el enlace nuevo de la §9.2 resuelve **porque `secciones-citadas.py` da 0
+>    huérfanas**. Esa herramienta compara **§§ citadas *del código* contra §§ declaradas en `docs/`**
+>    —lo dice su propia salida: *«§§ declaradas 529 · §§ distintas citadas del código 276»*—, así que
+>    **un `](fichero.md)` de un documento a otro no entra en su población** y su `0` habría salido
+>    igual con el enlace apuntando a un fichero inexistente. **La conclusión era cierta y la prueba no
+>    la sostenía**, que es la forma más difícil de cazar porque **nada se pone rojo**. Lo comprobó
+>    `8myvc-e7` resolviendo cada ruta contra el directorio del fichero que la cita: el de ida y los
+>    seis de vuelta, los siete OK. **Y queda el hueco escrito: hoy nada comprueba que un enlace entre
+>    documentos de `docs/` apunte a algo que existe.**
+> 5. Y una quinta, del mismo día: **el `19` se está moviendo**, así que la cifra que no hay que tocar
 >    —los «dieciséis números» de la fase 0 de definitivas— **cambió de la línea 1192 a la 1309**. En
 >    un fichero vivo **se cita por contenido, nunca por número de línea**.
 
