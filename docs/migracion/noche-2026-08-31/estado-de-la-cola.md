@@ -13,6 +13,30 @@
 > son las que cambiaron a mitad**— y el plan en
 > [19-boletin-independiente.md](../19-boletin-independiente.md).
 
+## 0. Barrido del 1 sep 2026 — TRES SESIONES CERRARON CON TRABAJO SIN COMMITEAR
+
+De las cinco sesiones de lote, **cuatro cerraron**, y **tres lo hicieron con trabajo vivo
+en su árbol**. Rescatado tal cual, **sin tocar una línea**, con la autoría en el mensaje y
+diciendo en cada uno que **nadie ha corrido su suite sobre eso**:
+
+| Rama | Commit | Qué era |
+|---|---|---|
+| `fix/bi-lote-a` | `bb20c6d` | los **dos llamadores de puestos** de sus `Bolfinales` — la decisión 6 con `ponerPuestos()` |
+| `fix/bi-lote-e` | `962051d` | **`asignatura.bol_independiente` en sus cinco sitios**, con su test |
+| `fix/prematriculas-cant-faltantes` | `a16e848` | **no es de esta noche ni del boletín**: `cant_faltantes` decía uno de menos en todo grupo vacío. Estaba en el árbol raíz |
+
+**Ninguno se funde**: no entra en `main` código cuya suite no ha corrido nadie. El tercero
+va en rama propia y no en `main` **precisamente porque no es de este trabajo** y quien lo
+rescató no lo ha verificado.
+
+> **Y la lección que deja el barrido, que es de proceso y no de código:** la regla «se
+> commitea sin preguntar y no se para» (§1.7 del reparto) entró a mitad de la noche y
+> **sirvió para lo que se escribió**, pero tres sesiones se fueron igual con el árbol
+> lleno. Lo que falta en esa regla es el otro extremo: **commitear antes de parar**, aunque
+> quede a medias y aunque quede rojo, con el porqué en el mensaje. Una rama con un commit
+> rojo y explicado se recoge; un árbol sin commitear sólo se recoge si alguien pasa por
+> allí a tiempo.
+
 ## 1. Lo fundido en `main`
 
 | | Qué | Merge |
@@ -20,6 +44,10 @@
 | **E** | fase 6: el interruptor `years.puestos_con_bol_independiente`, `ponerPuestos()` y los seis llamadores; el arreglo de que el interruptor resucitaba a 1 cada enero | `9304441` |
 | **A** | los cuatro recuentos de pérdidas de los dos `Bolfinales`, con `alcanceCorrelacionado` | `d58066e` |
 | **B** | siete sitios de la fase 1 y **la fase 3 entera** | `9515642` |
+| **C** | `putCopiar` y los siete sitios que cierran la fase 1 | `5bcc441` |
+| **D** | **fase 2**: la marca, su guarda y la ruta **545**; más la invalidación de la memoria estática | `878dee7` |
+| **D** | el **badge** de la planilla: `putDetailed` le pasa el periodo | `d1c7d17` |
+| — | **revertido**: el seed del rol `Secretario`, por decisión de Joseth | `8991474` |
 
 **Nada está desplegado, y `main` no se ha subido.** El push y el despliegue son de
 Joseth. Hay **tres migraciones bloqueantes** esperando: la de retirar
