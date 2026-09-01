@@ -74,6 +74,31 @@ CONTABILIDAD DE LA FASE 1 REMEDIDA** · cinco lotes en cinco árboles y cinco ba
 > sitio bandera de la noche, que está bien. La de `ce56351` era otra (el literal partido por la
 > concatenación). **Van tres.**
 >
+> **Y EL CUARTO INSTRUMENTO NO ERA UNA HERRAMIENTA: ERA LA SHELL.** La coordinación hizo `cd` al
+> árbol de un lote para verificarlo y **el directorio de trabajo persiste entre comandos**, así que
+> tres comandos después escribió `ESTADO-ACTUAL.md` **en el árbol de ese lote** creyéndose en la
+> raíz — y al commitearlo, el `git commit` se llevó **los doce ficheros que el lote tenía staged**,
+> bajo un mensaje ajeno. Deshecho con `reset --soft` tras comprobar que la rama no se había movido,
+> y **contado al lote antes de que lo viera él**, que es lo que lo convierte en un incidente y no en
+> un misterio del día siguiente. Desde entonces, **rutas absolutas**.
+>
+> **La forma de la trampa es la misma que la del `ps` que no ve dentro del contenedor, y merece
+> nombre propio: estado que persiste donde no lo estás mirando.** Los dos instrumentos contestaron
+> con la cara de lo correcto — el `ps` del host dijo «muerto» de un proceso vivo, el prompt dijo
+> «raíz» de un árbol ajeno—. Es lo que el `CLAUDE.md` lleva describiendo de las herramientas, sólo
+> que aquí el instrumento era **el entorno**, que es el que nadie audita porque no se llama a sí
+> mismo herramienta. *(Formulación del lote D.)*
+>
+> **Y una corrección, porque el propio incidente produjo una cifra falsa en la dirección contraria:**
+> se dijo que `CensoDeInterruptoresTest` y `AutopruebasDeLasHerramientasTest` **leen
+> `docs/migracion/`**, y **no lo hacen** — medido, no releído. El censo recorre `app`, `routes`,
+> `config` y `database/seeders` más el volcado del esquema; las autopruebas ejecutan
+> `secciones-citadas.py --autoprueba`, que corre sobre **cadenas trampa inyectadas** y no sobre el
+> árbol de `docs/`. **Ningún test de la suite lee `docs/migracion/`.** El `grep` que decía lo
+> contrario acertaba en las líneas —cuatro— y **las cuatro eran comentarios**: el síntoma bien
+> contado y la causa no. Lo que sí estuvo bien fue **relanzar la suite en vez de suponer**: la duda
+> era legítima aunque la cifra que la sostenía fuera falsa.
+>
 > El resumen que dejó `8myvc-8f` sobre sí mismo es el que hay que conservar: **de cuatro números que
 > sacó con instrumentos esa noche, cuatro nacieron mal y tres le habrían hecho actuar** — un regex
 > que se comía las líneas alineadas con tabuladores (50 columnas en vez de 60), el volcado congelado
