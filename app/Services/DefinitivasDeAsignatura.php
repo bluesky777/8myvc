@@ -285,24 +285,60 @@ class DefinitivasDeAsignatura
             //
             //   1. **el esquema no impide `porcentaje = 0`**, y una medición usada como
             //      guardián es lo que este repositorio ya pagó una noche;
-            //   2. ese método es **la única de las 59 lecturas sin acotar** al boletín
-            //      independiente, con su rojo puesto en
-            //      `PorcentajeDeUnidadesConIndependienteTest`. Colgar de él la decisión
-            //      de escribir sería atar una escritura a un número que ya se sabe que
-            //      con dos boletines no tiene una sola respuesta.
+            //   2. ese método es **el reparto de UN boletín** desde el 31 ago 2026, y
+            //      colgar de él la decisión de escribir sería atar una escritura a un
+            //      número que con dos boletines no tiene una sola respuesta.
             //
             // **No borra lo que ya hubiera**: la decisión fue «sin unidades no se
             // escribe», no «se limpia». La limpieza de lo viejo la hace el botón de
             // Informes, que ya la hace.
-            $hayUnidades = DB::selectOne(
-                'SELECT EXISTS (SELECT 1 FROM unidades
-                    WHERE asignatura_id = ? AND periodo_id = ? AND deleted_at IS NULL) AS hay',
+            //
+            // ## La puerta es POR BOLETÍN, y con un solo booleano mezclaba dos casos opuestos
+            //
+            // Esto era un `EXISTS` sobre la asignatura entera, y con boletines
+            // independientes **contestaba la pregunta de otro** en las dos direcciones:
+            //
+            //   - **el grupo sin montar y un independiente con sus unidades** ->
+            //     `hay = 1`, y a los treinta del grupo se les escribe **el cero que esta
+            //     misma guarda existe para no escribir**. Es el fallo del 28 ago entrando
+            //     otra vez por una puerta nueva;
+            //   - **el grupo montado y el marcado sin nada suyo** -> `hay = 1`, y **su**
+            //     cero se escribe: es la §9.1 del 19 —el alumno que se cae por el hueco—
+            //     con una definitiva en cero que parece una nota.
+            //
+            // Así que la pregunta se hace **por dueño**: qué boletines de esta asignatura
+            // y periodo tienen alguna unidad viva. `NULL` en la lista es el del grupo.
+            // Una sola consulta, no una por alumno.
+            //
+            // **Con nadie marcado esto no mueve nada, y es comprobable**: todas las
+            // unidades son del grupo, `calcular()` da `dueno = NULL` para todo el mundo, y
+            // el conjunto es `{NULL}` si hay unidades y vacío si no — que son exactamente
+            // las dos ramas del booleano de antes.
+            $conUnidades = DB::select(
+                'SELECT DISTINCT alumno_id FROM unidades
+                  WHERE asignatura_id = ? AND periodo_id = ? AND deleted_at IS NULL',
                 [$asignaturaId, $periodoId]
             );
 
-            $calculadas = $hayUnidades->hay
-                ? self::calcular($asignaturaId, $periodoId)
-                : [];
+            // Se compara en PHP y no en SQL porque `calcular()` ya trae el dueño de cada
+            // fila: volver a bajar a la base sería preguntar dos veces lo mismo. Las
+            // claves se normalizan a cadena porque PDO devuelve los enteros como cadena
+            // y `null` como `null`, y `in_array` con `0 == null` es de los sitios donde
+            // PHP muerde.
+            $boletinesMontados = [];
+
+            foreach ($conUnidades as $fila) {
+                $boletinesMontados[$fila->alumno_id === null ? 'grupo' : (string) (int) $fila->alumno_id] = true;
+            }
+
+            $calculadas = $boletinesMontados === []
+                ? []
+                : array_values(array_filter(
+                    self::calcular($asignaturaId, $periodoId),
+                    static fn ($fila) => isset($boletinesMontados[
+                        $fila->dueno === null ? 'grupo' : (string) (int) $fila->dueno
+                    ])
+                ));
 
             if ($soloAlumno !== null) {
                 $calculadas = array_values(array_filter(
@@ -420,11 +456,26 @@ class DefinitivasDeAsignatura
                 }
             }
 
+            // **El reparto que se devuelve es el del MISMO boletín que la `definitiva`
+            // de la línea de abajo**, y por eso se le pasa el alcance en vez de
+            // dejarlo por defecto. Con un solo alumno pedido, el número es el de SU
+            // boletín —el del grupo si va con el grupo, el suyo si va aparte—; sin
+            // alumno, el recálculo cubre la asignatura entera y la única respuesta
+            // honesta es la del grupo.
+            //
+            // Devolver la suma de los dos repartos, que es lo que hacía, daba **un
+            // número que no era el de ningún boletín** junto a una definitiva que sí
+            // era de uno concreto: dos campos del mismo array hablando de cosas
+            // distintas, y nada que lo dijera.
+            $alcance = $soloAlumno !== null
+                ? BoletinIndependiente::alcance($soloAlumno, $periodoId)
+                : null;
+
             return [
                 'escritas' => $escritas,
                 'creadas' => $creadas,
                 'respetadas' => $respetadas,
-                'porcentaje_unidades' => self::porcentajeDeLasUnidades($asignaturaId, $periodoId),
+                'porcentaje_unidades' => self::porcentajeDeLasUnidades($asignaturaId, $periodoId, $alcance),
                 'definitiva' => $definitiva,
             ];
         });
@@ -440,7 +491,7 @@ class DefinitivasDeAsignatura
      * `round(NULL)` vale 0. Se conserva el 0 porque cambiarlo a NULL es una
      * decisión del colegio sobre lo que sale impreso en el boletín, no un arreglo.
      *
-     * @return array<int, object{alumno_id:int, nota:int, notas:int}>
+     * @return array<int, object{alumno_id:int, dueno:?int, nota:int, notas:int}>
      */
     public static function calcular(int $asignaturaId, int $periodoId): array
     {
@@ -470,6 +521,7 @@ class DefinitivasDeAsignatura
         // de `BoletinIndependiente` pide declarar en vez de copiar a mano.
         return DB::select(
             'SELECT m.alumno_id,
+                    '.BoletinIndependiente::ALCANCE.' AS dueno,
                     CAST(COALESCE(c.suma, 0) AS DECIMAL(7,4)) AS nota,
                     COALESCE(c.notas, 0) AS notas
                FROM asignaturas a
@@ -514,7 +566,7 @@ class DefinitivasDeAsignatura
                      GROUP BY n.alumno_id, u.alumno_id
                ) c ON c.alumno_id = m.alumno_id AND c.dueno <=> '.BoletinIndependiente::ALCANCE.'
               WHERE a.id = ? AND a.deleted_at IS NULL
-              GROUP BY m.alumno_id, c.suma, c.notas',
+              GROUP BY m.alumno_id, dueno, c.suma, c.notas',
             [$periodoId, $asignaturaId, $periodoId, $asignaturaId]
         );
     }
@@ -817,43 +869,48 @@ class DefinitivasDeAsignatura
     }
 
     /**
-     * La suma real de los porcentajes de las unidades de una asignatura y periodo.
+     * La suma real de los porcentajes de las unidades **de UN boletín**.
      *
-     * Vale 100 cuando está bien configurada. **Se devuelve en vez de corregirse**
-     * porque la §9.3 decidió que la fórmula no normaliza: una asignatura cuyos
-     * porcentajes no suman 100 da definitivas raras, y que se noten es lo que la
-     * delata. Quien pinta la planilla tiene aquí con qué señalarla.
+     * Vale 100 cuando está bien configurado. **Se devuelve en vez de corregirse**
+     * porque la §9.3 decidió que la fórmula no normaliza: unos porcentajes que no
+     * suman 100 dan definitivas raras, y que se noten es lo que los delata. Quien
+     * pinta la planilla tiene aquí con qué señalarlos.
+     *
+     * ## `$alcance` es obligatorio, y ésa es toda la corrección
+     *
+     * Este método fue **la única de las lecturas del [19](../../docs/migracion/19-boletin-independiente.md)
+     * que no se podía acotar añadiendo una condición**, y por eso llevaba un rojo
+     * puesto en vez de un arreglo: contestaba *«¿las unidades de esta asignatura
+     * suman 100?»* devolviendo un `float`, y **con boletines independientes esa
+     * pregunta no tiene una sola respuesta** — hay un reparto por boletín, el del
+     * grupo y el de cada alumno marcado. Sumarlos todos daba un número que **no era
+     * el reparto de ninguno**.
+     *
+     * El rojo esperaba *«las dos preguntas del 19 §2, que son de Joseth»*. **Están
+     * contestadas** (decisiones 5, 6 y 7 del 31 ago 2026), así que el bloqueo se
+     * levantó y esto pasa a la suite.
+     *
+     * **`$alcance` no lleva defecto a propósito.** Un `?int $alcance = null` habría
+     * dejado que los llamadores de antes siguieran compilando y **cambiándoles el
+     * significado en silencio**, que es exactamente el modo de fallo que este
+     * módulo lleva tres revisiones quitando. Sin defecto, cada llamador **tiene que
+     * decir de qué boletín pregunta**, y el que no lo sepa no compila.
+     *
+     * @param  ?int  $alcance  `null` = el boletín del grupo; un id = el de ese alumno.
+     *                         Sale de `BoletinIndependiente::alcance()`, nunca a mano.
      */
-    public static function porcentajeDeLasUnidades(int $asignaturaId, int $periodoId): float
+    public static function porcentajeDeLasUnidades(int $asignaturaId, int $periodoId, ?int $alcance): float
     {
-        // **BI-2: ésta es la única de las 59 lecturas que NO se acota, y no por
-        // pereza.** Contesta «¿las unidades de esta asignatura suman 100?» y
-        // devuelve UN `float`. Con boletines independientes esa pregunta **deja de
-        // tener una sola respuesta**: hay un reparto por boletín —el del grupo y el
-        // de cada alumno marcado—, así que lo correcto no es un número sino uno por
-        // boletín. Eso no es añadir una condición: es cambiar qué devuelve, y qué
-        // significa «suman 100» con dos boletines es de las dos preguntas del
-        // 19 §2, **que son de Joseth**.
-        //
-        // **Hoy no lo consume nadie**, y ése es el matiz que decide dónde ponerle la
-        // red: `recalcular()` lo devuelve en `porcentaje_unidades`, `NotasController:392`
-        // —el único que guarda ese retorno— lee sólo `definitiva`, y los tres repos
-        // de cliente en disco no lo mencionan ni una vez. Su consumidor está
-        // PREVISTO y no construido: la cabecera de esta clase dice que se devuelve
-        // «para que quien pinte la planilla pueda señalarla en vez de taparla».
-        //
-        // O sea que **el primero que se rompe es un consumidor que aún no existe**, y
-        // ésos no salen en ningún censo de llamadores. Por eso el rojo está puesto:
-        // `Tests\Contrato\PorcentajeDeUnidadesConIndependienteTest`, grupo `rojo`.
-        //
-        // **Qué lo pondría verde:** que reciba el alcance y devuelva el reparto de
-        // ESE boletín —`(int $asignaturaId, int $periodoId, ?int $alcance)`— o un
-        // mapa `[alcance => float]`. Con eso `recalcular()` puede decir de qué
-        // boletín es el número, y la planilla señalar la asignatura de un alumno.
+        // `<=>` y no `=`: el igual null-safe empareja NULL con NULL, así que esta
+        // única condición resuelve las dos ramas —el reparto del grupo contra
+        // `alumno_id IS NULL`, el del independiente contra el suyo—. Con `=` a secas
+        // la rama del grupo devuelve cero filas y **el reparto sale 0 para todo el
+        // mundo**, que aquí se lee como «asignatura sin montar».
         $fila = DB::selectOne(
             'SELECT COALESCE(SUM(porcentaje), 0) AS suma FROM unidades
-              WHERE asignatura_id = ? AND periodo_id = ? AND deleted_at IS NULL',
-            [$asignaturaId, $periodoId]
+              WHERE asignatura_id = ? AND periodo_id = ? AND deleted_at IS NULL
+                AND alumno_id <=> ?',
+            [$asignaturaId, $periodoId, $alcance]
         );
 
         return (float) ($fila->suma ?? 0);

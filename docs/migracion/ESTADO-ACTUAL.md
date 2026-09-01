@@ -149,16 +149,63 @@ revés** · `2026_08_31_100000_retirar_boletin_independiente_de_matriculas`
 > puede actuar, y que **el alumno esté matriculado en el año de ese periodo**. La clave foránea no lo
 > obliga, y `consultar()` **ya no lo comprueba a propósito** (§2.2).
 
-> **LO QUE NO SE HIZO, Y NO ES UN OLVIDO: los 29 sitios de la fase 1.** Es el trabajo de verdad que
-> queda y no cabía en esta tanda. Lo que sí queda es **la lista medida con nombre y línea**, el
-> criterio de terminación corregido y el patrón de falso positivo, que es lo que hace que el
-> siguiente los pueda ir cerrando sin volver a medir. **Sin fase 1 no hay fase 2, y sin fase 2 no hay
+> **Y LA FASE 1 ARRANCA: 29 → 28 SITIOS, y los dos primeros eran los que más dolían.**
+>
+> **(1) `porcentajeDeLasUnidades` sale del grupo `rojo` y entra en la suite.** Era **el único de la
+> lista donde acotar no era añadir una condición**: contestaba *«¿las unidades de esta asignatura
+> suman 100?»* devolviendo un `float`, y con dos boletines esa pregunta **no tiene una sola
+> respuesta** — sumaba el reparto del grupo y el de cada marcado y daba **un número que no era el de
+> ninguno**. Llevaba el rojo puesto desde el 25 ago esperando *«las dos preguntas del 19 §2, que son
+> de Joseth»*; contestadas esta misma noche, **el bloqueo se levantó y el rojo se cobró**, que es
+> exactamente para lo que un rojo a propósito existe: ser la red del arreglo y no una queja
+> archivada. Ahora recibe `?int $alcance` **sin defecto** — un defecto habría dejado a los llamadores
+> viejos compilando y cambiándoles el significado en silencio.
+>
+> **(2) La guarda «sin unidades no se escribe» del 28 ago contestaba la pregunta de otro, en las dos
+> direcciones.** Era un `EXISTS` sobre la asignatura entera, exacto mientras cada asignatura tuviera
+> un solo reparto. Con dos boletines: si **el grupo** no tiene unidades y sí un independiente,
+> `hay = 1` y a los del grupo se les escribe **el cero que esa guarda existe para no escribir** —el
+> fallo del 28 ago entrando otra vez por una puerta nueva, **67 definitivas** al reproducirlo sobre el
+> seed—; y si es **el marcado** quien no tiene nada suyo, se escribe **su** cero, que es la §9.1 con
+> cara de nota. Ahora la pregunta es **por dueño**, con una consulta y sin una por alumno:
+> `calcular()` devuelve además el `dueno` de cada fila.
+>
+> **Los dos casos son inalcanzables con nadie marcado** —«el boletín del grupo tiene unidades» y «la
+> asignatura tiene unidades» son la misma frase—, así que la suite entera no podía verlos.
+> `PuertaSinUnidadesPorBoletinTest` los **construye**, y se comprobó **en rojo contra la puerta vieja
+> antes de darlo por bueno**: un test escrito después del arreglo no comprueba el arreglo.
+>
+> **LO QUE SIGUE SIN HACERSE, Y NO ES UN OLVIDO: los 28 sitios restantes.** Es el trabajo de verdad
+> que queda. Lo que hay es **la lista medida con nombre y línea**, el criterio de terminación
+> corregido —«0 en la columna *hay que acotarla*», no «0 sin alcance»— y el patrón de falso positivo,
+> para que el siguiente los cierre sin volver a medir. **Sin fase 1 no hay fase 2, y sin fase 2 no hay
 > nada que escriba la marca.**
 >
-> ## ✅ VERDE: 1.579 pruebas, 11.857 aserciones · pint PASS · larastan nivel 7 `[OK]`
+> **Y el front ya escribió las pantallas 1 y 3 contra estos nombres**, en verde y escondidas: la
+> pestaña sólo existe si el campo viene, así que donde no esté desplegado no hay nada que pulsar. Su
+> §B.6.5 pidió `estructura_del_grupo` en la §6.1 y **entra**, porque la alternativa está envenenada:
+> `GET unidades/de-asignatura-periodo` **escribe** —inserta las unidades y subunidades por defecto del
+> año, **sin `alumno_id`, o sea del grupo**, y `Unidad::arreglarOrden` reescribe `orden` en cada
+> lectura—, así que usarla de vista previa montaría el periodo entero del curso. **Esa ruta no se
+> cambia**: que lea y escriba es decisión tomada (05 §47.2) y con el periodo abierto crea queriendo;
+> lo que se arregla es que el front no tenga que llamarla. *(De paso: el `$orden_duplicado` que ese
+> método calcula veinte líneas antes **no lo lee nadie** — variable muerta dentro de un método que
+> escribe.)*
 >
-> **1.578 eran el 30 ago y el de más es el test nuevo de la decisión 7** — el desglose cuadra exacto,
-> así que el número está medido y no copiado. La suite entera, nunca con `--filter`:
+> ## ✅ VERDE: 1.584 pruebas MÍAS de 1.588 · pint PASS · larastan nivel 7 `[OK]`
+>
+> **El desglose, que es lo que hace que el número esté medido y no copiado:** 1.578 eran el 30 ago;
+> **+1** el test de la decisión 7; **+3** `PorcentajeDeUnidadesConIndependienteTest`, que estaba
+> excluido por el grupo `rojo` y ahora corre; **+2** `PuertaSinUnidadesPorBoletinTest`. Suman **1.584**.
+>
+> **Los otros 4 hasta 1.588 NO son míos**: son `AlumnosDetrasDelNumeroTest`, de la sesión que trabaja
+> en paralelo en este mismo árbol y que todavía no ha comiteado. Se dice porque el número de la suite
+> **ya no es atribuible a una sola sesión** mientras dos trabajen sobre el mismo `tests/`, y sumarlo
+> entero a este lote sería la forma exacta de que la próxima cifra nazca mal.
+>
+> **Y la corrida anterior murió con señal 15 a mitad** —no un rojo: cero fallos en las ~430 que
+> alcanzó—. Se relanzó entera en vez de dar por bueno lo que había corrido: media suite verde no es
+> la suite verde. La suite entera, nunca con `--filter`:
 > `docker exec 8myvc-app-1 php artisan test | tail -3`.
 >
 > **Y va contra una base de tests reconstruida**, porque este lote lleva migración: la de por defecto
@@ -174,6 +221,75 @@ revés** · `2026_08_31_100000_retirar_boletin_independiente_de_matriculas`
 > `myvc-front-c5` había editado el 19 sin commitear. El OK de Joseth a otra sesión no vale para ésta
 > ([[autorizacion-no-se-delega]]). El aviso al front está escrito en su buzón
 > (`myvc_front/PANTALLAS-HISTORIAL-Y-BOLETIN.md`), que es donde manda el acuerdo del 24 ago.
+
+**Y EN PARALELO, LA MISMA NOCHE — EL MODAL DE «ALUMNOS POR GRUPO» YA TIENE DE DÓNDE LEER**
+(sesión distinta, encargo del front `myvc-front-ca` para el panel de `app2`) · ruta **544**:
+`GET grupos/{grupo_id}/alumnos-de/{que}` con `auth.personal`, `{que}` ∈
+`alumnos|hombres|mujeres|retirados|matriculados` y `?periodo=N` en los dos últimos. Devuelve un
+**array plano** de alumnos —`alumno_id, nombres, apellidos, sexo, estado, foto_id, foto_nombre`, más
+`fecha_matricula` o `fecha_retiro` según la celda—, ordenado por `apellidos, nombres` como
+`grupos/listado/{grupo_id}`.
+
+> **Lo único que este endpoint tiene que garantizar es el CUADRE, y por eso duplica SQL a propósito.**
+> Cada uno de los cinco casos repite el `WHERE` de su contador —`getCantAlumnos` y los cuatro bloques
+> de `putConCantidadAlumnos`— y sólo le cambia el `SELECT`. `grupos/listado/{grupo_id}` no servía:
+> incluye los **PREM**, que ninguno de los cinco cuenta desde el arreglo de las 199 vs 221 de esta
+> misma noche, así que el listado habría enseñado seis alumnos debajo de un 5. **Una pantalla que
+> miente por uno no parece rota: parece un dato.**
+>
+> Se copian tal cual **dos cosas que parecen fallos** —la tercera, los `>` estrictos, se arregló esa
+> misma noche y está más abajo—, porque arreglarlas aquí y no en el contador es exactamente
+> descuadrarlos: que `matriculados` **no filtre por estado** —cuenta hasta RETI y FORM— y que un
+> alumno con dos matrículas vivas en el mismo grupo **salga dos veces**, que es como lo cuenta el
+> `count(m.id)`. **Esa segunda no es teórica**: el front tenía `track a.alumno_id` y con dos filas de
+> la misma clave Angular no pinta una lista rara, tira NG0955 y **el diálogo entero sale en blanco**.
+> Deduplicar en el backend habría cambiado un fallo visible por uno mudo, y encima descuadrado.
+>
+> **EL HALLAZGO, que no lo buscaba nadie: en el seed los cuatro periodos del año actual tienen
+> `fecha_inicio` y `fecha_fin` a NULL.** Con nulos, `m.fecha_retiro > NULL` no es ni verdadero ni
+> falso: los dos contadores devuelven **0 siempre**, y las ocho columnas Ret_N/Mat_N de la tabla salen
+> vacías **todo el año sin que nada esté roto**. Es lo mismo que el front ve en su base local y había
+> leído como «todavía no hay movimiento». No es un fallo del código: es que **esas fechas no están
+> puestas**, y hasta que un colegio las ponga esas ocho columnas no pueden pintar nada. `MatriculasController`
+> y compañía no las escriben; se ponen desde la pantalla de periodos.
+>
+> **El test es de cuadre, no de forma** (`tests/Contrato/AlumnosDetrasDelNumeroTest.php`, 4 casos):
+> pregunta `grupos/cant-alumnos` y `grupos/con-cantidad-alumnos` —las dos respuestas que alimentan la
+> tabla— y enfrenta **cada cifra con la longitud de su listado**, grupo a grupo; cruza además los tres
+> listados entre sí, fabrica el movimiento de un periodo (fechas incluidas, porque el seed no las
+> tiene) y fija los 422. **Dice su población**: hoy son *1 grupo y 37 alumnos*, porque la base de
+> tests tiene **un grupo por año** — un cuadre de trece grupos vacíos cuadra y no comprueba nada.
+>
+> **LAS DOS PREGUNTAS LAS CONTESTÓ JOSETH LA MISMA NOCHE** (por la sesión del front, que se las pasó
+> sin adelantarse a ninguna de las dos):
+>
+>   1. **EL `>` ESTRICTO ERA UN FALLO Y ESTÁ ARREGLADO.** A `>=` y `<=` **en las tres consultas a la
+>      vez** —los dos contadores de `putConCantidadAlumnos` y el listado nuevo—, que era la condición:
+>      tocar una sola descuadra la celda con su listado. Quien se matriculaba o se retiraba **el
+>      primer o el último día** de un periodo no estaba en ninguna de las dos cifras. **Esas columnas
+>      pueden SUBIR en algunos colegios y no es una regresión**: es gente que no se contaba en ningún
+>      sitio. Es lo único de esta tanda que cambia una cifra que los colegios ya están mirando.
+>   2. **El docente sigue viendo el listado de cualquier grupo**: se queda con `auth.personal`, como
+>      el resto de `grupos/*`. No hay guarda que escribir. El razonamiento de Joseth es el que ya
+>      estaba en el código: es lo que un docente puede hacer hoy por otras pantallas, y estrecharlo
+>      sería quitarle algo que tiene.
+>
+> **Lo que el arreglo NO iguala, para que nadie lo «arregle» después: la columna y su total siguen sin
+> ser la misma cuenta**, y ahora que comparan igual la tentación de sumarlas es mayor. `total_reti` y
+> `total_matr` **no filtran por grupo NI por año** —recorren los grupos de los ocho años del seed—, y
+> el `total_matr` del periodo **1** no tiene extremo inferior en absoluto (`m.fecha_matricula<=?`).
+> El total no es la suma de las columnas y nunca lo fue.
+>
+> **Y el test lo comprueba por el borde, no por el medio**: fabrica cuatro movimientos, dos de ellos
+> **el día exacto de `fecha_inicio` y el de `fecha_fin`**. Comprobado que se pone rojo con los `>`
+> estrictos de vuelta —y por los dos lados, celda y listado—, que es la única forma de saber que el
+> caso que gana está cubierto: volver a los estrictos **no descuadra nada**, sólo cuenta de menos, así
+> que un test que sólo mirara el cuadre habría seguido en verde.
+>
+> **Mueve tres instantáneas, no dos** —`rutas.json`, `guards-por-ruta.json` y **`guard-por-familia.json`**,
+> donde la familia `grupos` pasa de 16/15 a 17/16—, y **no toca las tablas de `DESPLIEGUE.md`**: esas
+> son lo que se midió el día del despliegue y se remiden el del siguiente. **Sin fundir y sin
+> desplegar**: el front no puede publicar el modal hasta que la ruta esté **desplegada**, no fusionada.
 
 **Anterior: 31 ago 2026 — LA TANDA DEL 25–30 AGO ESTÁ DESPLEGADA, Y CON ELLA LA
 DEFINITIVA DECIMAL** · de `eb95cbc` a **`9474b50`**, 44 commits, **en los quince del bucle de

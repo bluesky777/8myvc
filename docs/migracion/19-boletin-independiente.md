@@ -439,7 +439,33 @@ de que exista una sola pantalla, que es como tiene que ir (§10).
 > que se corrió, y un arreglo posterior puede convertir una lectura inocua en un escritor. Las
 > lecturas totales ya se movieron de **74 y 70** a **78 y 72** desde que se escribió este plan.
 
-**Los 29 sitios pendientes, medidos el 31 ago 2026** (`--csv`, columna `veredicto = hay que acotarla`
+### Lo que ya está acotado — la fase 1 en marcha
+
+| Sitio | Qué era, y qué hace ahora |
+|---|---|
+| ✅ `DefinitivasDeAsignatura::porcentajeDeLasUnidades` | **Era el único que no se podía acotar añadiendo una condición**, y por eso llevaba un rojo puesto en vez de un arreglo: devolvía un `float` a la pregunta *«¿las unidades suman 100?»*, que con dos boletines **no tiene una sola respuesta** — sumaba el reparto del grupo y el de cada marcado y daba **un número que no era el de ninguno**. El rojo esperaba «las dos preguntas del §2, que son de Joseth»; contestadas el 31 ago, se levantó el bloqueo. Ahora recibe `?int $alcance` **sin defecto** —quien no sepa de qué boletín pregunta, no compila— y `PorcentajeDeUnidadesConIndependienteTest` sale del grupo `rojo` y entra en la suite con tres casos |
+| ✅ `DefinitivasDeAsignatura::recalcular` | La guarda **«sin unidades no se escribe»** del 28 ago era un `EXISTS` sobre la asignatura entera. Ver el aviso de abajo: era exacta mientras cada asignatura tuviera un solo reparto |
+| ✅ `DefinitivasDeAsignatura::calcular` | Ya estaba acotada; ahora devuelve además **`dueno`** —el `ALCANCE` de cada fila— para que la guarda de arriba pueda preguntar por boletín **sin una consulta por alumno** |
+
+> **La guarda del 28 ago contestaba la pregunta de otro, EN LAS DOS DIRECCIONES.** Los dos casos dan
+> el mismo síntoma —una definitiva en cero— por motivos opuestos:
+>
+> | Quién no tiene unidades | Qué pasaba |
+> |---|---|
+> | **el grupo**, y sí un independiente | `hay = 1`, y a los del grupo se les escribe **el cero que esa guarda existe para no escribir**. Es el fallo del 28 ago entrando otra vez por una puerta nueva. Medido sobre el seed al reproducirlo: **67 definitivas** |
+> | **el marcado**, y sí el grupo | `hay = 1`, y se escribe **su** cero: la §9.1 con cara de nota — *«todavía no le han hecho el boletín»* leído como *«sacó cero»* |
+>
+> Ahora la pregunta es **por dueño**: una consulta da qué boletines tienen alguna unidad viva
+> (`NULL` es el del grupo) y `calcular()` ya trae el dueño de cada fila. **Con nadie marcado no mueve
+> nada y es comprobable**: el conjunto es `{NULL}` si hay unidades y vacío si no, que son exactamente
+> las dos ramas del booleano de antes.
+>
+> Lo fija `PuertaSinUnidadesPorBoletinTest`, **con los dos escenarios construidos**: con nadie marcado
+> los dos son inalcanzables —«el boletín del grupo tiene unidades» y «la asignatura tiene unidades»
+> son la misma frase—, así que la suite entera no podía verlos. Comprobado en rojo contra la puerta
+> vieja antes de darlo por bueno.
+
+**Los sitios pendientes — 28 tras lo de arriba, medidos el 31 ago 2026** (`--csv`, columna `veredicto = hay que acotarla`
 y `estado = no`):
 
 ```
@@ -464,12 +490,14 @@ app/Http/Controllers/UnidadesController.php:398         getTrashed
 app/Models/NotaFinal.php:70                             (fuera de método)
 app/Models/NotaFinal.php:280                            calcularAsignaturaPeriodo
 app/Models/Unidad.php:237                               informacionAsignatura
-app/Services/DefinitivasDeAsignatura.php:298            recalcular
-app/Services/DefinitivasDeAsignatura.php:472            calcular            ← ya acotada
 app/Services/DefinitivasDeAsignatura.php:567            selloDeVersion
 app/Services/DefinitivasDeAsignatura.php:733            estadoDelGrupo
-app/Services/DefinitivasDeAsignatura.php:854            porcentajeDeLasUnidades
 ```
+
+Y los tres que **ya salieron** de esta lista el 31 ago 2026 (tabla de arriba): `recalcular`,
+`calcular` —que era el falso positivo— y `porcentajeDeLasUnidades`. El detector sigue contando
+`calcular` como «sin alcance» porque el alcance se traspasa fuera de su derivada: **es la fila que
+enseña que esta lista ordena candidatos y no fallos**.
 
 > **Cada fila se lee, no se arregla en lote.** Una consulta sin alcance puede estar bien: la pantalla
 > de estructura del docente quiere las del grupo a propósito, y ahí lo correcto es
@@ -549,6 +577,43 @@ La pantalla nueva, entera, en una petición.
   y sus `deleted_at`—: no hace falta guardar nada nuevo para contestar la
   pregunta, sólo hace falta que el endpoint la conteste **en vez de dejársela a
   la pantalla**, que desde el navegador no puede.
+
+#### `estructura_del_grupo`, para la vista previa de copiar — pedido y aceptado el 31 ago 2026
+
+```jsonc
+"estructura_del_grupo": [
+  { "periodo_id": 91, "numero": 1, "unidades": 4, "subunidades": 9, "porcentaje_unidades": 100 },
+  { "periodo_id": 92, "numero": 2, "unidades": 0, "subunidades": 0, "porcentaje_unidades": 0 }
+]
+```
+
+Lo pidió el front al escribir la pantalla 3, y **entra porque la alternativa está envenenada**. El
+diálogo de copiar enseña qué se va a copiar **antes** de copiar; con `origen.tipo: "alumno"` los
+datos ya vienen en esta misma respuesta, pero con `"grupo"` la única fuente sería
+`GET unidades/de-asignatura-periodo/{asignatura}/{periodo}` — **y esa ruta escribe**:
+
+- si esa asignatura no tiene unidades en ese periodo y quien mira puede editar, **inserta las
+  `unidades_por_defecto` y sus `subunidades_por_defecto` del año**, y las inserta **sin `alumno_id`**,
+  o sea **estructura del grupo**: una vista previa montaría el periodo entero del curso;
+- y `Unidad::arreglarOrden` hace un `UPDATE` por unidad **y otro por subunidad en cada lectura**,
+  guardado sólo por `if ($puedeEscribir)`. *(El `$orden_duplicado` que se calcula veinte líneas antes
+  **no lo lee nadie**: es una variable muerta dentro de un método que escribe. Medido: 15 pares
+  (asignatura, periodo) de 3.930 tienen hoy algún orden repetido — o sea que lo que arregla es real,
+  pero lo reescribe en los 3.930.)*
+
+**Esa ruta NO se cambia para que sirva de previa**, y decirlo importa: que lea y escriba es una
+decisión tomada —[05 §47.2](05-codigo-muerto-y-roto.md), Joseth— y con el periodo abierto **crea
+queriendo**. Quitarle la escritura para desbloquear una pantalla sería colar una decisión del colegio
+dentro de un arreglo del front. La salida es que el front **no tenga que llamarla**.
+
+`porcentaje_unidades` lleva **el mismo nombre y el mismo número** que el de cada alumno de esta
+respuesta, para que la pantalla no tenga dos campos que significan lo mismo. Y es una llamada directa
+a `DefinitivasDeAsignatura::porcentajeDeLasUnidades($asignatura, $periodo, null)` — el `null` es «el
+boletín del grupo», desde que ese método recibe el alcance (§5, fase 1).
+
+**Y habilita algo mejor que un aviso:** con el recuento por periodo, la pantalla puede **apagar el
+periodo que no tiene nada montado** en vez de dejar copiar un vacío. Es el `copiado` con
+`unidades: 0` de la §6.2, pero visto **antes del clic** en vez de después.
 
 ### 6.2 · `POST boletin-independiente/copiar` · **DOS orígenes, no uno** — reescrita el 31 ago 2026
 
