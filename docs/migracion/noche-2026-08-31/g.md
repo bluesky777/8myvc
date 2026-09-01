@@ -660,3 +660,139 @@ acotar» a la columna «con-igual»**. El desglose queda:
     (c) código muerto anotado                          2 lecturas / 1 sitio
                                                       ──────────────────────
                                                       20 lecturas / 8 sitios ✓
+
+## 13. EL CENSO DE LAS HERRAMIENTAS — quién comprueba a los que miden
+
+> Medido el **1 sep 2026** sobre `main` en `fff3b64`, árbol limpio. La pregunta
+> es la generalización de lo que le pasó a `unidades-sin-alcance.py`: **repartió
+> el trabajo de una noche entera y era la única sin nadie que la comprobara.**
+
+### 13.1 · La población, remedida — y no coincide con la lista
+
+| | |
+|---|---|
+| Ficheros en `tools/` | **38** (+1 directorio, `plantillas`) |
+| **de medición** | **29** |
+| operativas / generadoras | 9 |
+| Filas en la tabla de `CLAUDE.md` | **15** (que nombran 17 herramientas) |
+| **De medición y NO en esa tabla** | **13** |
+
+Las trece que faltan: `alcance-en-los-traspasos.py`,
+`escrituras-crudas-con-entrada.py`, `escrituras-sin-auditoria.php`,
+`fase-cero-de-los-dieciseis.php`, `historial-que-cuenta-de-menos.php`,
+`independientes-sin-estructura.php`, `metodos-sin-camino.py`,
+`quien-escribe-de-verdad.py`, `salud-de-la-bitacora.php`,
+`salud-de-las-definitivas.php`, `tablas-calientes.php`,
+`unidades-sin-alcance.py` y `verbos-que-mienten.py`.
+
+**No es que la tabla esté vieja: es que nunca fue un inventario.** Ninguna de las
+trece es reciente — `salud-de-las-definitivas.php` gobierna una corrección de
+datos de producción y nunca estuvo. *(`CLAUDE.md` es del proyecto y no de la
+noche: no lo toco.)*
+
+### 13.2 · Cuáles tienen control, verificado ejecutándolo
+
+**Nueve de veintinueve**, y **las nueve concluyen** (`exit=0`) hoy:
+
+| Herramienta | En el runner |
+|---|---|
+| `consultas-en-bucle.py` · `escrituras-sin-auditoria.php` · `quien-escribe-de-verdad.py` · `secciones-citadas.py` · `verdad-laxa-que-escribe.py` · `unidades-sin-alcance.py` · `independientes-sin-estructura.php` | **sí** (7) |
+| **`alcance-en-los-traspasos.py`** · **`tablas-calientes.php`** | **NO** (2) |
+
+> **Los dos huérfanos son el hallazgo barato de este censo.** Tienen control
+> ejecutable, **sano y verde**, y **nadie lo invoca** — que es literalmente lo que
+> el docblock del runner dice que no puede pasar: *«un control positivo que nadie
+> ejecuta es una intención, y uno ejecutable que nadie invoca es exactamente lo
+> mismo, sólo que parece mejor.»* **Conectarlos son dos líneas.**
+
+### 13.3 · Cómo se midió, y las dos veces que el censo se equivocó a sí mismo
+
+Detectar «tiene control» por regex **falló dos veces, una en cada dirección**:
+
+- dijo que **`tablas-calientes.php` no tenía** — y tiene `--autoprueba`, `exit=0`.
+  Ramifica con `isset($opciones['autoprueba'])`, no con `--autoprueba`;
+- dijo que **`independientes-sin-estructura.php` no tenía** — la escribí yo, y usa
+  `in_array('--control', $argumentos)`: la variable se llama `$argumentos` y el
+  regex exigía `$argv`.
+
+**La segunda es la peligrosa**, y es al revés que las seis del otro detector:
+**contaba de MENOS**. Habría dicho «esta no tiene control» y alguien habría
+escrito uno duplicado. Así que el censo se hizo en dos pasos: un filtro **laxo a
+propósito** —cualquier línea de código que nombre el flag— y **verificación
+ejecutando las nueve**. *La regla de la casa aplicada al propio censo: el primer
+sitio donde mirar cuando el número sale raro es el detector, y aquí el detector
+era mío y de hace cinco minutos.*
+
+### 13.4 · Las de medición SIN control, ordenadas por lo que decide su cifra
+
+**(A) Su cifra gobierna una decisión PENDIENTE — 3**
+
+| Herramienta | Qué cifra suya se usa, y dónde |
+|---|---|
+| **`salud-de-las-definitivas.php`** | **11.988 definitivas que deberían existir y no existen**, 718 que discrepan, 1 duplicada (`ESTADO-ACTUAL.md`). **De ese número depende si el arreglo lleva corrección de datos** — y no es informativo: la fase 2 pone un índice único y cada duplicado sería un 500. **Y su propia cabecera dice que ya se corrigió una vez porque MEDÍA DE MENOS.** |
+| **`salud-de-la-bitacora.php`** | **18 de 3.229 ingresos con algo que enseñar** (99,4%), y decide si se puede reinterpretar la historia vieja (`ESTADO-ACTUAL.md`). Tiene `CentinelaDeLosEscritoresDeBitacoraTest`, **que vigila su población de escritores pero no su clasificación** |
+| **`fase-cero-de-los-dieciseis.php`** | es **la acción del despliegue**: una visita a los quince colegios, y de su salida sale qué se migra dónde |
+
+**(B) Su cifra vive en un plan abierto — 7**
+
+`identificadores-del-cuerpo.py` (5 planes), `respuestas-que-mienten.py` (6),
+`cobertura-de-rutas.py` (7), `interruptores-que-nadie-lee.py` (5),
+`coste-del-recalculo.php` (5), `indices-que-faltan.php` (4),
+`escrituras-en-las-notas.py` (3).
+
+**(C) Su cifra no la usa nadie hoy — el resto**
+
+`guardas-sin-respaldo.py` (**cero** citas en `docs/`), `metodos-sin-camino.py`,
+`verbos-que-mienten.py`, `escrituras-crudas-con-entrada.py`,
+`historial-que-cuenta-de-menos.php`, los cuatro de rutas, `consultas-lentas.py`,
+`auditar-autenticacion.php`, `inventario-autorizacion.py`.
+
+### 13.5 · El criterio: cuáles merecen control y cuáles no
+
+**Merece control la que cumple las tres.** Con dos no basta:
+
+1. **su salida es un número o una lista que alguien usa para decidir o repartir**
+   — no basta con que exista;
+2. **puede equivocarse en silencio**: su error no rompe nada, sólo cambia la
+   cifra. (Las nueve cegueras de esta noche son de esta clase.)
+3. **comprobar su cifra a mano cuesta más que escribir el control una vez.**
+
+Y la regla contraria, que es la que ahorra trabajo: **si la herramienta ACTÚA en
+vez de medir** —crea un árbol, reconstruye una base, reescribe modelos— **su
+comprobación es su efecto y ya la tiene**. `worktree-de-sesion.sh` imprime desde
+dónde carga las clases: **eso ya es su control**, y un `--control` encima sería
+ceremonia. Las nueve operativas quedan fuera por esto, no por descuido.
+
+**Mi propuesta, con eso: cuatro sí, y en este orden.**
+
+| | Por qué |
+|---|---|
+| **1. `salud-de-las-definitivas.php`** | cumple las tres **y ya falló una vez midiendo de menos**. Su número decide una corrección sobre datos de producción |
+| **2. `salud-de-la-bitacora.php`** | cumple las tres; su reparto UTC/Bogotá es exactamente la clase de clasificación que se equivoca en silencio |
+| **3. `identificadores-del-cuerpo.py`** | la más citada de todas (15 ficheros), y su lista **reparte trabajo de seguridad** |
+| **4. `respuestas-que-mienten.py`** | 6 planes abiertos; su falso negativo es un método que frena una escritura y contesta 200 |
+
+**Y cuáles NO, con el porqué:**
+
+- **las nueve operativas** — miden su efecto, no una cifra;
+- **`guardas-sin-respaldo.py`** — su cifra no la usa **nadie** (cero citas), y
+  `CLAUDE.md` ya avisa de que se equivocó en las dos direcciones y de que **cada
+  fila se lee**. Un control no cambiaría el protocolo;
+- **`cobertura-de-rutas.py`, `indices-que-faltan.php`, `coste-del-recalculo.php`**
+  — **no cumplen (2)**: se miden ejecutando la suite o `EXPLAIN` contra la base,
+  así que **su error no es silencioso**, se ve en la corrida siguiente;
+- **los cuatro de rutas** — ya tienen el control más fuerte que existe aquí: las
+  **tres instantáneas** de rutas, que un test compara 1:1.
+
+### 13.6 · Lo que este censo NO promete, y hay que decirlo
+
+**Tener control no es tener el control correcto.** El caso está medido y es de
+esta noche: **`escrituras-sin-auditoria.php` tiene autoprueba, está en el runner,
+sale verde — y cuenta de menos.** `ESTADO-ACTUAL.md` lo dice: *no puede ver*
+`Ausencias`, `Frases`, `FrasesAsignatura` ni `DefinicionesComportamiento`.
+
+Un control **fija la conducta conocida**; no descubre cegueras nuevas. Las seis
+de `unidades-sin-alcance.py` no las encontró su control —no existía— y la sexta
+la encontró **leer las 21 filas a mano**. Así que escribir estos cuatro controles
+**congela lo que hoy sabemos de cada herramienta y no la vuelve fiable**: lo que
+la vuelve fiable sigue siendo leer sus filas una vez.
