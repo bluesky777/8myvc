@@ -93,8 +93,13 @@ CONTABILIDAD DE LA FASE 1 REMEDIDA** · cinco lotes en cinco árboles y cinco ba
 > se dijo que `CensoDeInterruptoresTest` y `AutopruebasDeLasHerramientasTest` **leen
 > `docs/migracion/`**, y **no lo hacen** — medido, no releído. El censo recorre `app`, `routes`,
 > `config` y `database/seeders` más el volcado del esquema; las autopruebas ejecutan
-> `secciones-citadas.py --autoprueba`, que corre sobre **cadenas trampa inyectadas** y no sobre el
-> árbol de `docs/`. **Ningún test de la suite lee `docs/migracion/`.** El `grep` que decía lo
+> `secciones-citadas.py --autoprueba`, y **ahí la comprobación fácil se queda corta**: ese modo no
+> sólo evalúa las cadenas trampa inyectadas, también llama a `citadas()`, **que sí recorre un árbol**
+> — pero el que recorre es `CODIGO = ('app', 'tests', 'tools', 'routes', 'config', 'database')`, y
+> `DOCS`, definido en la línea de al lado, **no lo usa nunca**. O sea que la conclusión aguanta por
+> el camino que faltaba mirar: no es que la autoprueba no lea nada, es que **lo que lee no es
+> `docs/`**. *(Ese último paso lo cerró el lote D, sobre una verificación de la coordinación que se
+> había parado un paso antes.)* **Ningún test de la suite lee `docs/migracion/`.** El `grep` que decía lo
 > contrario acertaba en las líneas —cuatro— y **las cuatro eran comentarios**: el síntoma bien
 > contado y la causa no. Lo que sí estuvo bien fue **relanzar la suite en vez de suponer**: la duda
 > era legítima aunque la cifra que la sostenía fuera falsa.
