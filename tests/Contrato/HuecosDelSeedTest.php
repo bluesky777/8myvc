@@ -46,6 +46,7 @@ namespace Tests\Contrato;
  * | `perms` del tipo Usuario | El primer `Usuario` del año no tiene rol. La forma de la lista sí está cubierta, por los contextos de Profesor, Alumno y Acudiente |
  * | Las tablas `ws_*` | El módulo de actividades no entra en el seed |
  * | `grupos` de `con-paises-tipos-next-year` | El año siguiente al del seed está borrado en producción. `GruposTest` lo cubre al revés, preguntando desde el año anterior |
+ * | `grupos.alumnos.bol_independiente_aparte_en` del acta de evaluación | **El hermano del anterior, y por la misma razón.** Es la lista de los `numero` de periodo en los que ese alumno va aparte (§7 de la cola del 31 ago 2026), y `bol_ind_periodos` nace vacía: con nadie marcado —el caso de los quince colegios de hoy— viene `[]` para todos. **Este hueco es un hueco que se llena solo el día que alguien marque a un alumno**, así que verlo aquí es la comprobación de que el seed sigue sin marcar a nadie. Su forma con contenido la fija `BolIndependienteEnLosInformesTest`, que **construye** el caso |
  * | `independientes` de `notas-detailed-profesor` | **El hueco que el seed no puede llenar nunca.** Es la lista de los alumnos con boletín aparte, y `bol_ind_periodos` nace vacía: con nadie marcado —el caso de los quince colegios de hoy— viene `[]` siempre. Un hueco que se llenara aquí significaría que el seed trae a alguien marcado. Su forma la fija `PlanillaSinIndependientesTest`, que **construye** el caso en vez de esperarlo del seed |
  */
 class HuecosDelSeedTest extends CasoDeContrato

@@ -26,6 +26,7 @@
         "consolidado.resumen.terminaron.ids",
         "consolidado.resumen.total_matriculas.ids",
         "duplicados",
+        "grupos.alumnos.bol_independiente_aparte_en",
         "grupos.perfil.repitentes.ids",
         "grupos.periodos.filas.deserciones.ids",
         "grupos.periodos.filas.ingresos.ids",
