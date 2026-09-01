@@ -258,6 +258,26 @@ class Boletines3Controller extends Controller {
 			
 			
 			
+			/*
+			 * `bol_independiente`: **este boletín es el suyo, no el del grupo** — §6.4 del
+			 * [19](../../../../docs/migracion/19-boletin-independiente.md). Prometido desde el 24 ago y sin emitirse hasta hoy.
+			 *
+			 * **Es un dato del ALUMNO puesto en cada asignatura, no una propiedad de la
+			 * asignatura**, y va escrito porque el sitio invita a leerlo al revés: la marca
+			 * cuelga de `(alumno_id, periodo_id)`, así que **vale lo mismo en todas las
+			 * asignaturas de un alumno**. Lo que varía es de un alumno a otro dentro del
+			 * mismo boletín de grupo. Se emite aquí y no arriba porque el front pinta la
+			 * nota **al lado de cada bloque de asignatura**, y subirla obligaría a cada
+			 * plantilla a buscarla en el alumno.
+			 *
+			 * **Y no se rotula el documento.** Un boletín es papel del colegio: lo que el
+			 * front pinta con esto es una nota flotante que **se ve en pantalla y desaparece
+			 * al imprimir**. Si el campo no viaja no se pinta nada y **nadie se entera** —el
+			 * front no inventa la marca en el cliente, que es acuerdo suyo—, y por eso los
+			 * cinco sitios lo emiten a la vez: si lo emite uno y otro no, los otros mienten.
+			 */
+			$asignatura->bol_independiente = BoletinIndependiente::aplica((int) $alumno->alumno_id, (int) $this->user->periodo_id);
+
 			$asignatura->unidades = Unidad::deAsignaturaCalculada($alumno->alumno_id, $asignatura->asignatura_id, $this->user->periodo_id, true, $this->user->year_id);
 			
 			

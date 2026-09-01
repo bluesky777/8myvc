@@ -62,6 +62,27 @@ class CertificadosPersonaController extends Controller {
 
 	}
 
+	/*
+	 * ⚠️ ESTE MÉTODO NO LO ALCANZA NADIE, y lo que sigue debajo tampoco.
+	 *
+	 * La única ruta de este controlador es `PUT certificados-persona` → `putIndex()`,
+	 * que devuelve **matrículas** y no baja aquí. `detailedNotasGrupo` tiene **cero
+	 * llamadores en todo `app/`**, nadie extiende la clase, y está medido dos veces por
+	 * caminos independientes en [05 §211 y §218](../../../../docs/migracion/05-codigo-muerto-y-roto.md):
+	 * **445 de las 1.019 líneas de este fichero son inalcanzables**, y estas 150 son
+	 * parte de ellas.
+	 *
+	 * **Se anota y no se borra**, que es la regla del repo para el código muerto que
+	 * cuelga de un fichero con ruta. Y se anota **aquí arriba** porque el 05 guarda el
+	 * error exacto que este sitio ya provocó una vez: *«con `CertificadosPersonaController`
+	 * se dijo "hay que arreglarlo" **y estaba muerto**»*.
+	 *
+	 * **Lo que eso significa para la §6.4 del 19:** el `asignatura->bol_independiente`
+	 * que se emite más abajo **no llega a ningún cliente**. Está escrito para que, si
+	 * alguien resucita este camino, nazca correcto — no porque el certificado lo mande.
+	 * Si el front necesita la nota flotante en un certificado de verdad, **el sitio no
+	 * es éste** y hay que medir cuál es antes de tocarlo.
+	 */
 	public function detailedNotasGrupo($grupo_id, $user, $requested_alumnos='')
 	{
 
@@ -246,6 +267,28 @@ class CertificadosPersonaController extends Controller {
 		$alumno->promedio = 0;
 		$alumno->cant_lost_asig = 0;
 		$alumno->ausencias = 0;
+
+		/*
+		 * `bol_independiente`: **este documento es el suyo, no el del grupo** — §6.4 del
+		 * [19](../../../../docs/migracion/19-boletin-independiente.md).
+		 *
+		 * **Es un dato del ALUMNO puesto en cada asignatura**, no una propiedad de la
+		 * asignatura: la marca cuelga de `(alumno_id, periodo_id)`, así que vale lo mismo
+		 * en todas las suyas. Se emite por asignatura porque el front pinta la nota al
+		 * lado de cada bloque.
+		 *
+		 * **Y aquí decide «alguno de los periodos que este documento cubre»**, igual que
+		 * el puesto y por lo mismo: este certificado promedia los periodos que le
+		 * pasan en `$periodos`, que son los del año o los de «hasta el N». Un alumno que pasó un
+		 * periodo aparte tiene dentro de estas cifras una definitiva que **no se calculó
+		 * sobre el reparto del grupo**, y eso es justo lo que la nota avisa.
+		 *
+		 * **No se rotula el papel**: lo que el front pinta con esto es una nota flotante
+		 * que se ve en pantalla y **desaparece al imprimir**. Si el campo no viaja, no se
+		 * pinta nada y nadie se entera.
+		 */
+		$bol_independiente = BoletinIndependiente::aplicaEnAlguno((int) $alumno->alumno_id, array_map(fn ($periodo) => (int) $periodo->id, $periodos));
+
 		$alumno->tardanzas = 0;
 		$alumno->total_creditos = 0;
 		$alumno->notas_perdidas = 0;
@@ -258,6 +301,8 @@ class CertificadosPersonaController extends Controller {
 		
 		
 		foreach ($alumno->asignaturas as $asignatura) {
+
+			$asignatura->bol_independiente = $bol_independiente;
 
 			$alumno->total_creditos += $asignatura->creditos;
 						
