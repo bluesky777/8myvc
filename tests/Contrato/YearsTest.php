@@ -699,18 +699,27 @@ class YearsTest extends CasoDeContrato
             'Ninguno de los cuatro intentos debe haber escrito nada.');
     }
 
-    /** Un año que no existe no escribe nada y lo dice, que es lo que hacía ya. */
+    /**
+     * Un año que no existe **contesta 404**, y ya no 200 con una palabra.
+     *
+     * **Este caso fijaba `200 'No guardado'` y no es que el test se quedara viejo**: eso
+     * era lo que hacía y estaba bien fijado. Lo cambia la **opción A** del
+     * [09 §13](../../docs/migracion/09-pendientes.md), decidida por Joseth el 1 sep 2026:
+     * `DB::update` devuelve filas **afectadas**, así que ese 0 juntaba «el año no existe»
+     * con «el valor ya era ése», y **la segunda no es un fallo**.
+     *
+     * El comentario que había —*«es lo que hay, y el front lo pinta tal cual»*— era
+     * exacto y es justo lo que dejó de ser verdad: ahora **no hay palabra que pintar**
+     * para este caso, hay un código.
+     */
     public function test_el_conmutador_generico_con_un_ano_inventado(): void
     {
         $token = $this->tokenDelPersonal();
         $inventado = ((int) DB::table('years')->max('id')) + 1000;
 
-        $r = $this->withToken($token)->putJson('/api/years/toggle-cambiar-valor',
-            ['year_id' => $inventado, 'campo' => 'codigo_dane', 'valor' => '1']);
-
-        $r->assertStatus(200);
-        $this->assertSame('No guardado', $r->getContent(),
-            'Contesta 200 con un texto: es lo que hay, y el front lo pinta tal cual.');
+        $this->withToken($token)->putJson('/api/years/toggle-cambiar-valor',
+            ['year_id' => $inventado, 'campo' => 'codigo_dane', 'valor' => '1'])
+            ->assertStatus(404);
     }
 
     /** Una familia no toca la configuración del colegio: son de `auth.personal`. */

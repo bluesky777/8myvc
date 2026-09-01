@@ -242,4 +242,65 @@ class ElNoGuardadoQueMentiaTest extends CasoDeContrato
             'valor' => 'Tío',
         ])->assertStatus(404);
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // years/toggle-cambiar-valor — el tercer sitio, y el único donde el arreglo
+    // llega ANTES que la pantalla: medido el 1 sep 2026, **ningún cliente llama a
+    // esta ruta** (cero ficheros de código en los tres fronts), y los cinco
+    // interruptores hermanos del año tienen ruta propia y ninguno tiene el defecto.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Apagar un interruptor que **ya estaba apagado** sigue siendo «Guardado».
+     *
+     * Es el caso que el plan describía con el rector y el interruptor de puestos. No lo
+     * puede vivir nadie hoy —esta ruta no la llama ningún cliente— y por eso este
+     * arreglo es el barato: **impide que la pantalla nazca rota** en vez de arreglar una
+     * pantalla rota.
+     *
+     * Se usa `mostrar_nota_comport_boletin`, que es un interruptor de verdad de `years` y
+     * **no** `puestos_con_bol_independiente`: lo que se prueba es el mecanismo de la
+     * ruta, no una columna concreta, y atarlo a la del boletín independiente haría que
+     * este test dependiera de una migración que no tiene nada que ver.
+     */
+    public function test_apagar_lo_que_ya_estaba_apagado_sigue_siendo_guardado(): void
+    {
+        $grupo = $this->grupoConAlumnos();
+        $token = $this->tokenDelPersonalDe((int) $grupo->year_id);
+
+        $cuerpo = [
+            'year_id' => $grupo->year_id,
+            'campo' => 'mostrar_nota_comport_boletin',
+            'valor' => 0,
+        ];
+
+        $this->withToken($token)->putJson('/api/years/toggle-cambiar-valor', $cuerpo)->assertStatus(200);
+
+        $segunda = $this->withToken($token)->putJson('/api/years/toggle-cambiar-valor', $cuerpo);
+
+        $segunda->assertStatus(200);
+
+        $this->assertSame('Guardado', $segunda->getContent(),
+            'Poniendo el mismo valor por segunda vez, la rejilla de configuración del colegio '
+            .'contesta que no guardó. El estado en la base es el que se pidió: `DB::update` '
+            .'devuelve filas afectadas y MySQL da 0 cuando nada cambia.');
+
+        $this->assertSame(0, (int) DB::selectOne(
+            'SELECT mostrar_nota_comport_boletin AS v FROM years WHERE id = ?', [$grupo->year_id])->v,
+            'Y el valor tiene que haber quedado escrito de verdad: sin esto, «siempre Guardado» '
+            .'se cumpliría también no escribiendo nada.');
+    }
+
+    /** Y un año que no existe contesta 404 en vez de «No guardado» con 200. */
+    public function test_un_year_que_no_existe_contesta_404(): void
+    {
+        $grupo = $this->grupoConAlumnos();
+        $token = $this->tokenDelPersonalDe((int) $grupo->year_id);
+
+        $this->withToken($token)->putJson('/api/years/toggle-cambiar-valor', [
+            'year_id' => $this->idInexistente('years'),
+            'campo' => 'mostrar_nota_comport_boletin',
+            'valor' => 0,
+        ])->assertStatus(404);
+    }
 }
