@@ -127,6 +127,18 @@ BoletinIndependiente::ALCANCE          // ... AND u.alumno_id <=> '.ALCANCE
 condición resuelve las dos ramas. **Con `=` a secas la rama del alumno normal devuelve
 cero filas y todas las definitivas del colegio se van a 0 sin un solo error en el log.**
 
+> **Y una excepción legítima, encontrada por el lote D el 31 ago 2026 — que nadie la «arregle».**
+> La regla de arriba vale para *«¿qué unidades le tocan a este alumno?»*. **No vale para
+> *«¿tiene alguna unidad SUYA?»***, que es un `EXISTS` y es otra pregunta: con `<=>` el
+> alumno normal empareja con las del grupo y el campo saldría **`true` para los treinta**,
+> con lo que el badge de la planilla dejaría de distinguir nada. Ahí `alumno_id = :id` es lo
+> correcto.
+>
+> **El detector lo señala igual**, porque cuenta la forma y no la pregunta: es la §1.5 en su
+> caso más incómodo —una fila que el instrumento marca en rojo y está bien—. Si te sale un
+> `EXISTS` de esta familia, **escribe el porqué al lado**; sin él, el siguiente que pase lo
+> convierte en `<=>` y el campo se muere en silencio.
+
 **Y el alcance va al `WHERE` cuando la tabla que da el alumno se une DESPUÉS de
 `unidades`** — una condición `ON` no puede nombrar una tabla que aún no está en el
 ámbito. Pasó en `NotaFinal`.
