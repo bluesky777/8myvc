@@ -175,7 +175,42 @@ revés** · `2026_08_31_100000_retirar_boletin_independiente_de_matriculas`
 > `PuertaSinUnidadesPorBoletinTest` los **construye**, y se comprobó **en rojo contra la puerta vieja
 > antes de darlo por bueno**: un test escrito después del arreglo no comprueba el arreglo.
 >
-> **LO QUE SIGUE SIN HACERSE, Y NO ES UN OLVIDO: los 28 sitios restantes.** Es el trabajo de verdad
+> **SEGUNDA TANDA DE LA FASE 1, la misma noche: 29 → 22 pendientes de verdad.**
+>
+> **(3) `NotaFinal::consultaAlumnosGrupoNotaFinal`, la consulta de la pantalla de definitivas por
+> periodo.** Sus cuatro derivadas —una por periodo— le sumaban a un alumno marcado **las notas que
+> conserva en las subunidades del grupo** —que marcar **no borra**, y eso es la petición literal del
+> colegio— **más** las de sus unidades propias. Es la forma «de más» de la §9.2 y sale por pantalla
+> de la peor manera: la columna «automática» inflada **al lado de la guardada, que es la correcta**,
+> o sea acusando de estar mal a la que está bien; quien pulse «actualizar» ahí guarda el número
+> inflado. **Era una propiedad estática y pasó a método**: PHP no admite una llamada en el
+> inicializador de una propiedad, así que la forma vieja era el techo y no una preferencia.
+>
+> **(4) Tres cerrados leyéndolos y NO tocándolos, que también es cerrarlos.** `selloDeVersion` y
+> `estadoDelGrupo` son **sellos de caché**: sobre-aproximar les hace recalcular de más —cuesta
+> tiempo, nunca sirve un dato viejo— y **acotarlos les haría servir un dato viejo sin un error en el
+> log**. Ahí el criterio del lote es el que mete el fallo, y el porqué ya vivía en el propio código.
+> `NotaFinal::calcularAsignaturaPeriodo` es **código muerto** —cero llamadores en todo `app/`— y no
+> se acota código muerto; pero **escribe definitivas**, así que lleva un aviso de que resucitarlo sin
+> alcance guardaría los dos repartos sumados.
+>
+> **LA CONTABILIDAD, con la distinción que se pierde al copiar una cifra.** De los 29 originales:
+> **7 resueltos** —4 acotados, 2 leídos y descartados a propósito, 1 muerto y anotado— y **22
+> pendientes de verdad**. El detector dice **23**, porque sigue contando el muerto, y **27** en
+> total, porque sigue contando los cuatro de `DefinitivasDeAsignatura` ya decididos. **Ninguna de las
+> tres está mal: contestan preguntas distintas**, y por eso van las tres escritas en la §5. *(Y una
+> corrección: a `myvc-front-c5` se le dijo «cinco cerrados y quedan 23», que no cuadraba con la
+> propia lista. Son siete y veintidós.)*
+>
+> **UN HUECO DE CONTRATO QUE CAZÓ EL FRONT, y es de los buenos.** La §6.4 decía que el badge de la
+> planilla era `alumno.bol_independiente_periodo`. Pero a `alumnos` sólo llegan los que van **con el
+> grupo**, así que ese campo **no es ambiguo: es constante `false`** en las treinta filas, siempre.
+> Un campo que no varía no es un campo pobre — es uno sobre el que alguien ramificará sin que su rama
+> muerta se note nunca. Entra **`bol_independiente_datos`** con nombre propio. **Y la misma medicina
+> destapa un segundo que nadie había mirado**: `aplica` dentro de `independientes` es `true` **por
+> construcción**. Los dos son restos del modelo por año que la decisión 7 eliminó.
+>
+> **LO QUE SIGUE SIN HACERSE, Y NO ES UN OLVIDO: los 22 sitios restantes.** Es el trabajo de verdad
 > que queda. Lo que hay es **la lista medida con nombre y línea**, el criterio de terminación
 > corregido —«0 en la columna *hay que acotarla*», no «0 sin alcance»— y el patrón de falso positivo,
 > para que el siguiente los cierre sin volver a medir. **Sin fase 1 no hay fase 2, y sin fase 2 no hay
@@ -192,13 +227,13 @@ revés** · `2026_08_31_100000_retirar_boletin_independiente_de_matriculas`
 > método calcula veinte líneas antes **no lo lee nadie** — variable muerta dentro de un método que
 > escribe.)*
 >
-> ## ✅ VERDE: 1.584 pruebas MÍAS de 1.588 · pint PASS · larastan nivel 7 `[OK]`
+> ## ✅ VERDE: 1.586 pruebas MÍAS de 1.590 · pint PASS · larastan nivel 7 `[OK]`
 >
 > **El desglose, que es lo que hace que el número esté medido y no copiado:** 1.578 eran el 30 ago;
 > **+1** el test de la decisión 7; **+3** `PorcentajeDeUnidadesConIndependienteTest`, que estaba
-> excluido por el grupo `rojo` y ahora corre; **+2** `PuertaSinUnidadesPorBoletinTest`. Suman **1.584**.
+> excluido por el grupo `rojo` y ahora corre; **+2** `PuertaSinUnidadesPorBoletinTest`; **+2** `DefinitivaAutomaticaDeLaPantallaTest`. Suman **1.586**.
 >
-> **Los otros 4 hasta 1.588 NO son míos**: son `AlumnosDetrasDelNumeroTest`, de la sesión que trabaja
+> **Los otros 4 hasta 1.590 NO son míos**: son `AlumnosDetrasDelNumeroTest`, de la sesión que trabaja
 > en paralelo en este mismo árbol y que todavía no ha comiteado. Se dice porque el número de la suite
 > **ya no es atribuible a una sola sesión** mientras dos trabajen sobre el mismo `tests/`, y sumarlo
 > entero a este lote sería la forma exacta de que la próxima cifra nazca mal.

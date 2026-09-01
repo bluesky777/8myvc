@@ -1,9 +1,8 @@
 <?php namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Services\BoletinIndependiente;
 use App\Services\DefinitivasDeAsignatura;
-
-
 use Carbon\Carbon;
 use App\Models\Grupo;
 use App\User;
@@ -67,7 +66,38 @@ class NotaFinal extends Model {
 
 
 	
-	public static $consulta_alumnos_grupo_nota_final = 'SELECT m.id as matricula_id, m.alumno_id, a.no_matricula, a.nombres, a.apellidos, a.sexo, a.user_id, 
+
+	/**
+	 * La consulta de la pantalla de definitivas por periodo.
+	 *
+	 * **Era una propiedad estática y pasa a ser un método el 31 ago 2026**, porque el
+	 * SQL dejó de poder ser una expresión constante: sus cuatro derivadas —una por
+	 * periodo— preguntan ahora **de quién es cada unidad**, y eso lo contesta
+	 * `BoletinIndependiente`. PHP no admite una llamada en el inicializador de una
+	 * propiedad estática, así que la forma vieja no era una preferencia: era el techo.
+	 * Los dos únicos llamadores están en esta misma clase.
+	 *
+	 * ## Qué acota, y por qué esta consulta lo necesitaba
+	 *
+	 * Cada derivada calcula la definitiva automática de un periodo sumando
+	 * `unidades × subunidades × notas` y agrupando por `n.alumno_id`. Sin alcance, la
+	 * suma de un alumno **mezcla los dos repartos**: sus notas viejas en las
+	 * subunidades del grupo —las que tenía antes de que lo marcaran, y que la §1 del
+	 * [19](../../docs/migracion/19-boletin-independiente.md) dice explícitamente que
+	 * **no se borran**— más las de sus unidades propias. Es la forma «de más» de la
+	 * §9.2, y sale por la pantalla como una definitiva automática inflada al lado de
+	 * la guardada, o sea **como si la guardada estuviera mal**.
+	 *
+	 * **El alcance va al `WHERE` y no al `ON`**, y no es estilo: `notas n` se une
+	 * DESPUÉS de `unidades u`, y una condición `ON` no puede nombrar una tabla que
+	 * todavía no está en el ámbito.
+	 *
+	 * Se usa la forma correlacionada y no `JOIN_ESTADO` porque aquí **no hay
+	 * `matriculas` dentro de la derivada** — la `m` de la consulta de fuera no llega.
+	 */
+	public static function consultaAlumnosGrupoNotaFinal(): string
+	{
+	        return 'SELECT m.id as matricula_id, m.alumno_id, a.no_matricula, a.nombres, a.apellidos, a.sexo, a.user_id, 
 							a.fecha_nac, a.ciudad_nac, a.celular, a.direccion, a.religion, m.grupo_id, m.estado, 
 							CAST(nf1.nota AS DOUBLE) as nota_final_per1, nf1.id as nf_id_1, nf1.recuperada as recuperada_1, nf1.manual as manual_1, nf1.updated_by as updated_by_1, nf1.created_at as created_at_1, nf1.updated_at as updated_at_1,
 							CAST(nf2.nota AS DOUBLE) as nota_final_per2, nf2.id as nf_id_2, nf2.recuperada as recuperada_2, nf2.manual as manual_2, nf2.updated_by as updated_by_2, nf2.created_at as created_at_2, nf2.updated_at as updated_at_2,
@@ -103,6 +133,7 @@ class NotaFinal extends Model {
                                 inner join notas n on n.subunidad_id=s.id and n.deleted_at is null
                                 inner join periodos p1 on p1.numero=1 and p1.id=u.periodo_id and p1.deleted_at is null
                                 where asi.deleted_at is null and asi.id=:asign_id5
+                                  and u.alumno_id <=> '.BoletinIndependiente::alcanceCorrelacionado('n.alumno_id', 'u').'
                                 group by n.alumno_id, s.unidad_id, s.id
                             )df1
                             group by df1.alumno_id, df1.periodo_id
@@ -119,6 +150,7 @@ class NotaFinal extends Model {
                                 inner join notas n on n.subunidad_id=s.id and n.deleted_at is null
                                 inner join periodos p1 on p1.numero=2 and p1.id=u.periodo_id and p1.deleted_at is null
                                 where asi.deleted_at is null and asi.id=:asign_id6
+                                  and u.alumno_id <=> '.BoletinIndependiente::alcanceCorrelacionado('n.alumno_id', 'u').'
                                 group by n.alumno_id, s.unidad_id, s.id
                             )df1
                             group by df1.alumno_id, df1.periodo_id
@@ -135,6 +167,7 @@ class NotaFinal extends Model {
                                 inner join notas n on n.subunidad_id=s.id and n.deleted_at is null
                                 inner join periodos p1 on p1.numero=3 and p1.id=u.periodo_id and p1.deleted_at is null
                                 where asi.deleted_at is null and asi.id=:asign_id7
+                                  and u.alumno_id <=> '.BoletinIndependiente::alcanceCorrelacionado('n.alumno_id', 'u').'
                                 group by n.alumno_id, s.unidad_id, s.id
                             )df1
                             group by df1.alumno_id, df1.periodo_id
@@ -151,6 +184,7 @@ class NotaFinal extends Model {
                                 inner join notas n on n.subunidad_id=s.id and n.deleted_at is null
                                 inner join periodos p1 on p1.numero=4 and p1.id=u.periodo_id and p1.deleted_at is null
                                 where asi.deleted_at is null and asi.id=:asign_id8
+                                  and u.alumno_id <=> '.BoletinIndependiente::alcanceCorrelacionado('n.alumno_id', 'u').'
                                 group by n.alumno_id, s.unidad_id, s.id
                             )df1
                             group by df1.alumno_id, df1.periodo_id
@@ -160,6 +194,7 @@ class NotaFinal extends Model {
                         
 						where a.deleted_at is null and m.deleted_at is null
 						order by a.apellidos, a.nombres';
+	}
 
 
 
@@ -182,7 +217,7 @@ class NotaFinal extends Model {
      */
     public static function alumnos_grupo_nota_final($grupo_id, $asignatura_id, $user_id){
 
-        $consulta = self::$consulta_alumnos_grupo_nota_final;
+        $consulta = self::consultaAlumnosGrupoNotaFinal();
 
         $alumnos = DB::select($consulta, [':grupo_id'=>$grupo_id, ':asign_id1'=>$asignatura_id, ':asign_id2'=>$asignatura_id, ':asign_id3'=>$asignatura_id, ':asign_id4'=>$asignatura_id, 
                                             ':asign_id5'=>$asignatura_id, ':asign_id6'=>$asignatura_id, ':asign_id7'=>$asignatura_id, ':asign_id8'=>$asignatura_id ]);
@@ -245,7 +280,7 @@ class NotaFinal extends Model {
         
         if ($per_desact['per1'] == true || $per_desact['per2'] == true || $per_desact['per3'] == true || $per_desact['per4'] == true) {
             
-            $alumnos = DB::select(self::$consulta_alumnos_grupo_nota_final, [':grupo_id'=>$grupo_id, ':asign_id1'=>$asignatura_id, ':asign_id2'=>$asignatura_id, ':asign_id3'=>$asignatura_id, ':asign_id4'=>$asignatura_id, 
+            $alumnos = DB::select(self::consultaAlumnosGrupoNotaFinal(), [':grupo_id'=>$grupo_id, ':asign_id1'=>$asignatura_id, ':asign_id2'=>$asignatura_id, ':asign_id3'=>$asignatura_id, ':asign_id4'=>$asignatura_id, 
                                             ':asign_id5'=>$asignatura_id, ':asign_id6'=>$asignatura_id, ':asign_id7'=>$asignatura_id, ':asign_id8'=>$asignatura_id ]);
         
         }
@@ -338,6 +373,16 @@ class NotaFinal extends Model {
 			// vivo y **ya se arregló** — allí es `DB::insert`. Si vuelves a poner en pie
 			// este método, trae la palabra de allí: si no, resucitas la versión vieja y el
 			// censo de «qué escribe» vuelve a tener un agujero justo en `notas_finales`.
+			//
+			// **Y trae también el alcance del boletín independiente**, que es lo segundo
+			// que le falta desde el 31 ago 2026. Su derivada es copia palabra por palabra
+			// de las cuatro de `consultaAlumnosGrupoNotaFinal()`, y a aquéllas se les puso
+			// `u.alumno_id <=> BoletinIndependiente::alcanceCorrelacionado('n.alumno_id', 'u')`
+			// en el `WHERE`. Aquí NO se puso, y es deliberado: **no se acota código muerto**
+			// —tocarlo sería mover algo que nadie ejecuta, y la regla de la casa para lo que
+			// no tiene camino es que lo decide Joseth con los otros 34—. Pero este método
+			// **escribe definitivas**, así que resucitarlo sin el alcance le sumaría a cada
+			// independiente los dos repartos y lo guardaría en `notas_finales`.
 			DB::select($consulta, [
 				$defi_autos[$i]->alumno_id, $asignatura_id, $periodo_id, $num_periodo,
 				$defi_autos[$i]->def_materia_auto, $user->user_id, $now,

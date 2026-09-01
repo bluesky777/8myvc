@@ -446,6 +446,16 @@ de que exista una sola pantalla, que es como tiene que ir (§10).
 | ✅ `DefinitivasDeAsignatura::porcentajeDeLasUnidades` | **Era el único que no se podía acotar añadiendo una condición**, y por eso llevaba un rojo puesto en vez de un arreglo: devolvía un `float` a la pregunta *«¿las unidades suman 100?»*, que con dos boletines **no tiene una sola respuesta** — sumaba el reparto del grupo y el de cada marcado y daba **un número que no era el de ninguno**. El rojo esperaba «las dos preguntas del §2, que son de Joseth»; contestadas el 31 ago, se levantó el bloqueo. Ahora recibe `?int $alcance` **sin defecto** —quien no sepa de qué boletín pregunta, no compila— y `PorcentajeDeUnidadesConIndependienteTest` sale del grupo `rojo` y entra en la suite con tres casos |
 | ✅ `DefinitivasDeAsignatura::recalcular` | La guarda **«sin unidades no se escribe»** del 28 ago era un `EXISTS` sobre la asignatura entera. Ver el aviso de abajo: era exacta mientras cada asignatura tuviera un solo reparto |
 | ✅ `DefinitivasDeAsignatura::calcular` | Ya estaba acotada; ahora devuelve además **`dueno`** —el `ALCANCE` de cada fila— para que la guarda de arriba pueda preguntar por boletín **sin una consulta por alumno** |
+| ✅ `NotaFinal::consultaAlumnosGrupoNotaFinal` | La consulta de la pantalla de definitivas por periodo. Sus **cuatro derivadas** —una por periodo— sumaban, para un marcado, **las notas que conserva en las subunidades del grupo** (que marcar **no borra**, §1) **más** las de sus unidades propias. La forma «de más» de la §9.2, y sale por pantalla acusando de estar mal a la definitiva guardada, que es la correcta. **Era una propiedad estática y pasó a método**: PHP no admite una llamada en el inicializador de una propiedad, así que la forma vieja era el techo, no una preferencia |
+| ⏸️ `DefinitivasDeAsignatura::selloDeVersion` · `::estadoDelGrupo` | **Leídos y NO tocados, y eso también es cerrarlos.** Son sellos de caché: sobre-aproximar hace que recalculen de más —cuesta tiempo, nunca sirve un dato viejo—; acotarlos haría que **sirvieran un dato viejo sin un error en el log**. Aquí el criterio del lote mete el fallo, y el porqué ya vivía en el propio código |
+| ⏸️ `NotaFinal::calcularAsignaturaPeriodo` | **Código muerto**: cero llamadores en todo `app/`. No se acota código muerto —la regla de la casa para lo que no tiene camino es que lo decide Joseth con los otros 34—, pero **escribe definitivas**, así que lleva un aviso: resucitarlo sin el alcance le sumaría a cada independiente los dos repartos y los guardaría en `notas_finales` |
+
+> **La contabilidad, con la distinción que se pierde al copiar una cifra:** de los **29** originales
+> hay **7 resueltos** —4 acotados, 2 leídos y descartados a propósito, 1 muerto y anotado— y
+> **22 pendientes de verdad**. El detector lista **23**, porque sigue contando el muerto; y lista
+> **27** en total, porque sigue contando los cuatro de `DefinitivasDeAsignatura` que ya están
+> decididos. **Ninguna de las tres cifras está mal: contestan preguntas distintas**, y por eso van
+> las tres escritas.
 
 > **La guarda del 28 ago contestaba la pregunta de otro, EN LAS DOS DIRECCIONES.** Los dos casos dan
 > el mismo síntoma —una definitiva en cero— por motivos opuestos:
@@ -803,12 +813,37 @@ despliegue habrá colegios con el código viejo.
 
 | Endpoint | Campo | Qué dice |
 |---|---|---|
-| `PUT notas/detailed` (la planilla) | `independientes: [{alumno_id, nombres, apellidos, aplica}]` | **a quién NO estás viendo en esta lista**, para que la planilla lo diga en vez de que el docente crea que se le perdió un alumno |
-| `PUT notas/detailed`, `Grupo::alumnos` | `alumno.bol_independiente_periodo` | **uno solo, no dos.** Eran «la marca del año» y «la del periodo»; con la decisión 7 sólo hay la del periodo, y el par `bol_independiente=1` + `bol_independiente_periodo=false` que describía el badge **ya no puede existir**. El alumno con `aplica=0` y datos guardados sale en la lista y lleva el badge; el que nunca estuvo marcado sale sin nada |
+| `PUT notas/detailed` (la planilla) | `independientes: [{alumno_id, nombres, apellidos}]` | **a quién NO estás viendo en esta lista**, para que la planilla lo diga en vez de que el docente crea que se le perdió un alumno. **Sin `aplica`** — ver el aviso de abajo |
+| `PUT notas/detailed`, `Grupo::alumnos` | `alumno.bol_independiente_datos` | **el badge, y es un campo nuevo con nombre nuevo.** `true` = este alumno **tiene un boletín aparte guardado en este periodo** aunque el periodo vaya con el grupo. Es el mismo dato que `tiene_datos` en la ficha, aplanado al periodo del token |
 | ~~`PUT alumnos/guardar-valor`~~ | ~~acepta `propiedad: "boletin_independiente"`~~ | **DECAE con la decisión 7.** La escritura ya no pasa por aquí: el único escritor es `PUT boletin-independiente/periodo` (§6.3) |
 | `PUT alumnos/show` | **`bol_independiente_periodos`** | por donde **la ficha lee** la marca. Ya no es un booleano: es la lista de los periodos del año con su estado. Ver el bloque de abajo |
 | boletines 1, 2 y 3 | `asignatura.bol_independiente: true` | para que el boletín pueda rotularlo si el colegio quiere; las unidades ya vienen siendo las suyas |
 | puestos | `alumno.bol_independiente_periodo` · `puestos_con_bol_independiente` | el interruptor viaja en la respuesta para que la pantalla explique por qué falta alguien. Y por la decisión 6, el puesto del independiente viaja como **`null`** y el front pinta `—` |
+
+> ### Dos campos que iban a llegar valiendo siempre lo mismo — cazado por el front el 31 ago 2026
+>
+> La §6.4 decía que en la planilla quedaba `alumno.bol_independiente_periodo` y que **el badge era
+> ese campo**. Lo levantó el front al ir a escribirlo, y el argumento es exacto:
+>
+> > «El alumno que llega a la planilla es, por definición, uno con `aplica = 0` — los que van aparte
+> > no vienen en `alumnos`. O sea que ese booleano **no distingue al que tiene un boletín aparte
+> > guardado del que nunca ha tenido nada**, y ésos son justo los dos casos que el badge separa.»
+>
+> **Es peor que insuficiente: es constante.** En `alumnos` sólo caben los que tienen `alcance() ===
+> null`, así que `bol_independiente_periodo` valdría `false` en las 30 filas, siempre, en todos los
+> colegios. Un campo que no varía **no es un campo pobre, es un campo que miente por omisión**: quien
+> lo lea ramificará sobre él y su rama muerta no se notará jamás.
+>
+> **Y la misma medicina destapa un segundo, que nadie había mirado: `aplica` dentro de
+> `independientes`.** Ese array lista a los que NO vienen en `alumnos`, o sea los que tienen
+> `alcance() !== null`, o sea **`aplica = 1` por construcción**. Otra constante. Los dos son restos
+> del modelo viejo: se diseñaron cuando la marca era del **año** y «marcado el año pero este periodo
+> no» era un estado real. **La decisión 7 lo eliminó**, y estos dos campos son lo que quedó flotando.
+>
+> **Lo que entra:** un campo con nombre propio, **`bol_independiente_datos`**, que es exactamente
+> `tiene_datos` de la ficha aplanado al periodo del token. Se descartó la otra salida que ofrecía el
+> front —redefinir `bol_independiente_periodo` para que significara «tiene datos»— porque **el nombre
+> diría una cosa y el campo otra**, y ese desajuste sobrevive a cualquier documento.
 
 #### `bol_independiente_periodos`, el campo que la ficha necesita — nombre fijado el 31 ago 2026
 
