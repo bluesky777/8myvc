@@ -289,6 +289,87 @@ class BolIndependienteEnLaFichaTest extends CasoDeContrato
     }
 
     /**
+     * **Y el badge llega de verdad a la planilla**, que es lo único que lo hace servir
+     * de algo: `Grupo::alumnos` sabe emitirlo desde la fase 2, pero **hasta que
+     * `putDetailed` le pasó el periodo el campo no salía por ninguna respuesta**.
+     *
+     * ## Los dos campos de la planilla no dicen lo mismo, y este test lo fija
+     *
+     * De `alumnos` ya se han quitado los que van por independiente —eso es la fase 3 y
+     * lo dice `independientes`—. Así que el badge **no** señala «va aparte»: señala
+     * **«éste que SÍ está en tu planilla tiene datos suyos guardados que no se están
+     * usando»**. Es el estado `aplica = false` con `tiene_datos = true` de la ficha, que
+     * es literalmente lo que se pidió: *«no debe borrar los datos … pero esos datos
+     * deben ser ignorados»*.
+     *
+     * Por eso el caso se monta con la marca **apagada** y una unidad propia dentro: con
+     * la marca encendida el alumno no estaría en la lista y no habría badge que mirar.
+     */
+    public function test_el_badge_llega_a_la_planilla(): void
+    {
+        $ctx = DB::selectOne('SELECT a.id AS asignatura_id, a.grupo_id, a.profesor_id,
+                u.username, un.periodo_id
+            FROM asignaturas a
+            INNER JOIN profesores p ON p.id = a.profesor_id AND p.deleted_at IS NULL
+            INNER JOIN users u ON u.id = p.user_id AND u.is_active = 1 AND u.deleted_at IS NULL
+            INNER JOIN grupos g ON g.id = a.grupo_id AND g.deleted_at IS NULL
+            INNER JOIN unidades un ON un.asignatura_id = a.id AND un.deleted_at IS NULL
+                AND un.alumno_id IS NULL
+            INNER JOIN periodos per ON per.id = un.periodo_id AND per.actual = 1
+                AND per.year_id = g.year_id AND per.deleted_at IS NULL
+            INNER JOIN years y ON y.id = g.year_id AND y.actual = 1 AND y.deleted_at IS NULL
+            INNER JOIN subunidades s ON s.unidad_id = un.id AND s.deleted_at IS NULL
+            WHERE a.deleted_at IS NULL
+            ORDER BY a.id LIMIT 1');
+
+        $this->assertNotNull($ctx,
+            'El seed necesita una asignatura con unidades del grupo en el periodo actual y subunidades.');
+
+        $alumno = DB::selectOne(
+            'SELECT m.alumno_id FROM matriculas m
+              WHERE m.grupo_id = ? AND m.deleted_at IS NULL AND m.estado IN ("MATR","ASIS","PREM")
+              ORDER BY m.alumno_id LIMIT 1',
+            [$ctx->grupo_id]
+        );
+
+        $this->assertNotNull($alumno, 'El grupo de esa asignatura no tiene alumnos.');
+
+        $alumnoId = (int) $alumno->alumno_id;
+
+        // La marca APAGADA y datos propios dentro: el estado del badge.
+        $this->marcarIndependiente($alumnoId, (int) $ctx->periodo_id, aplica: false);
+        $this->unidadPropia((int) $ctx->asignatura_id, (int) $ctx->periodo_id, $alumnoId);
+
+        $r = $this->putJson('/api/notas/detailed', [
+            'asignatura_id' => $ctx->asignatura_id,
+            'profesor_id' => $ctx->profesor_id,
+        ], ['Authorization' => 'Bearer '.$this->tokenDe($ctx->username)]);
+
+        $r->assertStatus(200);
+
+        $porAlumno = [];
+
+        foreach ($r->json('alumnos') as $fila) {
+            $this->assertArrayHasKey('bol_independiente_datos', $fila,
+                'La planilla no trae el badge: a `Grupo::alumnos` no le está llegando el periodo.');
+
+            $porAlumno[(int) $fila['alumno_id']] = $fila['bol_independiente_datos'];
+        }
+
+        $this->assertArrayHasKey($alumnoId, $porAlumno,
+            'El alumno con la marca APAGADA salió de la planilla: apagada tiene que seguir dentro.');
+
+        $this->assertTrue($porAlumno[$alumnoId],
+            'El alumno tiene unidad propia guardada en este periodo y la planilla no lo señala.');
+
+        // Y no señala a los demás: un badge que se enciende para todos no distingue nada.
+        $otros = array_filter($porAlumno, static fn ($v, $k) => $k !== $alumnoId, ARRAY_FILTER_USE_BOTH);
+
+        $this->assertNotEmpty($otros, 'La planilla trajo un solo alumno: el caso negativo no se mide.');
+        $this->assertNotContains(true, $otros, 'El badge se encendió para alumnos sin datos propios.');
+    }
+
+    /**
      * **El cuadre: el badge y la ficha contestan lo mismo.**
      *
      * Es lo único que ata las dos consultas, que están escritas por separado a
