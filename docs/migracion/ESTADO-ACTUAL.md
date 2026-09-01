@@ -27,6 +27,25 @@ clases con veredicto, cero fallos** · pint **PASS** (329 ficheros) · larastan 
 > **Dos migraciones bloqueantes esperando** para la tanda siguiente: retirar
 > `matriculas.boletin_independiente` y `years.puestos_con_bol_independiente`.
 
+> **Y LA PEOR DE LAS SEIS, ENCONTRADA AL FINAL: el detector que repartió la noche entera era
+> justamente el que no comprobaba nadie.** `AutopruebasDeLasHerramientasTest` corre cinco
+> herramientas y **`unidades-sin-alcance.py` no era una de ellas** — no tenía `--control` ni
+> `--autoprueba` que registrar. O sea que la coordinación mandó *«corre las autopruebas con el
+> detector cambiado»* creyendo que eso lo comprobaba, **y no comprobaba nada de esto**.
+>
+> **Por eso pudo equivocarse cinco veces sin que se notara, y las cinco contando de MÁS** — que es
+> el error que no se delata solo: la lista gana sitios donde no hay nada, quien los revisa los
+> cierra *«decidiendo no tocarlos»* (§1.5 del reparto), y **el instrumento nunca queda mal**. La
+> propia regla que existe para leer cada fila **es la que absorbe los falsos positivos en silencio**.
+> Ya tiene `--control` con 13 formas y está registrado en el runner.
+>
+> **Y con él, la cifra de la fase 1 que este documento repitió tres veces era vieja.** «43 lecturas
+> pendientes en 23 sitios» se midió **antes** de fundir A, B, C, D y E; sobre `main` con todo dentro
+> y **antes de tocar el detector** ya eran **26 en 14**, y con las tres cegueras cerradas quedan
+> **21 en 9**. La coordinación la repitió sin remedirla después de cada fusión: **una cifra medida
+> antes de cinco merges no describe el árbol de después**, y ninguna de las veces que se copió llevó
+> delante la fecha de su medición.
+
 > **EL ARREGLO QUE NADIE ENCARGÓ Y QUE ES EL MÁS CARO QUE SE EVITÓ: una memoria estática que
 > contestaba lo de antes después de escribir.** `BoletinIndependiente::alcance()` memoiza en una
 > propiedad `static` cuyo docblock dice «vive lo que vive la petición» — **cierto en producción, una
