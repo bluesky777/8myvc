@@ -29695,22 +29695,7 @@ INSERT INTO `roles` (`id`, `name`, `created_by`, `updated_by`, `deleted_by`, `di
 ('8', 'Coord disciplinario', NULL, NULL, NULL, NULL, NULL, NULL, '2018-11-21 03:19:53', '2018-11-21 03:19:53'),
 ('9', 'Coord académico', NULL, NULL, NULL, NULL, NULL, NULL, '2018-11-21 03:19:53', '2018-11-21 03:19:53'),
 ('10', 'Rector', NULL, NULL, NULL, NULL, NULL, NULL, '2018-11-21 03:19:53', '2018-11-21 03:19:53'),
-('11', 'Psicólogo', NULL, NULL, NULL, NULL, NULL, NULL, '2019-01-21 12:19:53', '2019-01-21 12:19:53'),
--- El doce NO viene de la base real: lo crea la migración `create_rol_secretario`, y este
--- `TRUNCATE TABLE roles` se lo llevaba por delante porque las migraciones corren ANTES
--- del seed en `construir-bd-test.sh`. Se reintroduce aquí a mano por decisión de Joseth
--- del 31 ago 2026, para que la base de tests tenga los doce roles que tiene un colegio
--- migrado y los tests dejen de fabricárselo cada uno por su cuenta.
---
--- OJO, y es la mitad que se pierde: **este fichero se GENERA desde la base real**, así
--- que quien lo regenere volverá a dejar once y esta fila desaparece sin que falle nada
--- hasta que alguien mire. Si se regenera, hay que volver a añadirla.
---
--- Y lo que esto NO es: la migración y `create_permiso_can_view_auditoria` documentan las
--- dos que el truncado es deliberado y que cada test se monta el rol en su transacción.
--- Esto contradice esa decisión a propósito y por orden expresa; el porqué y lo que se
--- midió antes están en docs/migracion/noche-2026-08-31/a.md §6.
-('12', 'Secretario', NULL, NULL, NULL, 'Secretario(a)', 'Administra la estructura del colegio: alumnos, matrículas, materias, asignaturas, titulares, configuración del año y periodos. No crea usuarios.', NULL, '2026-08-21 10:00:00', '2026-08-21 10:00:00');
+('11', 'Psicólogo', NULL, NULL, NULL, NULL, NULL, NULL, '2019-01-21 12:19:53', '2019-01-21 12:19:53');
 
 TRUNCATE TABLE `subunidades`;
 INSERT INTO `subunidades` (`id`, `definicion`, `porcentaje`, `unidad_id`, `nota_default`, `obligatoria`, `orden`, `por_defecto`, `inicia_at`, `finaliza_at`, `actividad_id`, `created_by`, `updated_by`, `deleted_by`, `deleted_at`, `created_at`, `updated_at`) VALUES
