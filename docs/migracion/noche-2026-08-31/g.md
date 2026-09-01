@@ -796,3 +796,24 @@ de `unidades-sin-alcance.py` no las encontró su control —no existía— y la 
 la encontró **leer las 21 filas a mano**. Así que escribir estos cuatro controles
 **congela lo que hoy sabemos de cada herramienta y no la vuelve fiable**: lo que
 la vuelve fiable sigue siendo leer sus filas una vez.
+
+## 14. Los dos huérfanos, conectados
+
+`alcance-en-los-traspasos.py --control` y `tablas-calientes.php --autoprueba`
+entran al runner. **No les faltaba el control: lo tenían, sano y verde, y nadie
+lo invocaba.**
+
+> **Es el peor de los tres estados posibles, y por eso van primero.** Sin control,
+> el hueco se ve. Con control roto, salta. **Con control sano que nadie corre, la
+> herramienta parece cubierta** — y esa apariencia es justo lo que impide que
+> alguien vaya a mirar.
+
+Y lo que lo hace incómodo: es **palabra por palabra** lo que dice la cabecera de
+`AutopruebasDeLasHerramientasTest` —*«un control positivo que nadie ejecuta es
+una intención, y uno ejecutable que nadie invoca es exactamente lo mismo, sólo
+que parece mejor»*—, o sea que **ese runner llevaba desde que se escribió sin
+aplicarse a sí mismo la regla que enuncia**. Un test que enuncia una regla no la
+cumple por enunciarla.
+
+    antes:  7 passed
+    después: 9 passed (18 assertions), exit=0, cero saltados

@@ -123,6 +123,15 @@ class AutopruebasDeLasHerramientasTest extends TestCase
             // que es la que no se nota. Su control va antes del bootstrap de Laravel, así
             // que no toca la base ni el árbol: cinco formas literales.
             'independientes-sin-estructura.php' => ['php', 'tools/independientes-sin-estructura.php --control'],
+            // Las dos últimas entraron el 1 sep 2026 y no porque les faltara el control:
+            // **lo tenían, sano y verde, y nadie lo invocaba.** Las encontró el censo de
+            // `tools/` de esa noche, y son el peor de los tres estados posibles —peor que
+            // no tener control, donde al menos el hueco se ve— porque **parecen
+            // cubiertas**. Es palabra por palabra lo que dice la cabecera de esta clase,
+            // así que este runner llevaba desde que se escribió sin aplicarse a sí mismo
+            // la regla que enuncia.
+            'alcance-en-los-traspasos.py' => ['python3', 'tools/alcance-en-los-traspasos.py --control'],
+            'tablas-calientes.php' => ['php', 'tools/tablas-calientes.php --autoprueba'],
             // Era la única que declaraba un control positivo EN PROSA y no tenía nada
             // que lo ejecutara. CONTROLES-1 se lo puso, y al ejecutarlo salió rojo por
             // un motivo que no estaba en la lista de la ficha: **el fallo que citaba se
