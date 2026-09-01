@@ -107,6 +107,13 @@ class SubunidadesController extends Controller {
 			[$subunidad->unidad_id]
 		);
 
+		// **§6.5 del 19: cuando la unidad tiene dueño, aquí nace UNA nota y no
+		// treinta** — y no se ve en esta línea a propósito. La decisión vive dentro
+		// de `Nota::verificarCrearNotas`, que lee `unidades.alumno_id` de la unidad a
+		// la que cuelga esta subunidad. Se puso allí y no aquí porque el otro
+		// llamador —`NotasController::putDetailed`— necesita exactamente la misma
+		// regla, y dos sitios decidiendo de quién es una unidad es de donde salió el
+		// recalculador único.
 		if ($grupo !== null && $grupo->grupo_id) {
 			Nota::verificarCrearNotas($grupo->grupo_id, $subunidad, $user->user_id);
 		}
@@ -359,7 +366,16 @@ class SubunidadesController extends Controller {
 	{
 		$user = User::fromToken();
 		
-		$consulta 	= 'SELECT s.id, s.definicion as definicion_subunidad, s.porcentaje, u.definicion as definicion_unidad  FROM subunidades s INNER JOIN unidades u ON u.id=s.unidad_id and s.deleted_at is not null WHERE u.asignatura_id=? and u.periodo_id=?';
+		// **BI-1: `u.alumno_id IS NULL`.** Gemela exacta de `unidades/eliminadas`, y
+		// por la misma razón: al lado hay un `subunidades/restore/{id}` y esta lista
+		// es la del curso. Una subunidad borrada de un independiente ofrecida aquí se
+		// restaura creyendo que se devuelve al grupo, y su porcentaje vuelve a contar
+		// dentro de la unidad de otro alumno.
+		//
+		// Las subunidades **no tienen dueño propio**: lo heredan de su unidad (§3 del
+		// plan, «las subunidades y las notas cuelgan de la unidad y no saben nada de
+		// esto»), así que el alcance se pregunta en `u` y nunca en `s`.
+		$consulta 	= 'SELECT s.id, s.definicion as definicion_subunidad, s.porcentaje, u.definicion as definicion_unidad  FROM subunidades s INNER JOIN unidades u ON u.id=s.unidad_id and s.deleted_at is not null WHERE u.asignatura_id=? and u.periodo_id=? and u.alumno_id is null';
 
 		$unidades = DB::select($consulta, [$asignatura_id, $user->periodo_id]);
 

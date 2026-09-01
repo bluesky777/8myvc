@@ -8,7 +8,215 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
-**Última actualización: 31 ago 2026, noche — LA MARCA DEL BOLETÍN INDEPENDIENTE PASA A SER POR
+**Última actualización: 31 ago 2026, noche — LA NOCHE EN PARALELO DEL BOLETÍN INDEPENDIENTE, Y LA
+CONTABILIDAD DE LA FASE 1 REMEDIDA** · cinco lotes en cinco árboles y cinco bases
+([reparto](noche-2026-08-31/reparto.md)), coordinación traspasada de `8myvc-2a` a `8myvc-c1`
+([traspaso](noche-2026-08-31/traspaso-coordinacion.md)) · **nada fundido y nada desplegado todavía**
+
+> **LA CIFRA DE LA FASE 1, MEDIDA POR LA COORDINACIÓN Y NO COPIADA — y esta vez el número aguantó.**
+> Detector con el arreglo de `ce56351`, `--csv` desde la raíz con `main` en `5b79c42`: **43 lecturas
+> pendientes en 23 sitios**. De esos 23, **cinco no son trabajo** —`selloDeVersion` y `estadoDelGrupo`
+> (sellos de caché, decididos), `calcular` (el falso positivo del alcance traspasado), `recalcular`
+> (ya acotado) y `NotaFinal:315` (código muerto)— así que quedan **18**, que es exactamente la cifra
+> del traspaso. Y los 18 se reparten **4 del lote A + 7 de B + 7 de C**, sin sobrar ni faltar
+> ninguno. La lista de la [§5 del 19](19-boletin-independiente.md) está vieja en dos filas
+> (`NotaFinal:70` y las dos de `DefinitivasDeAsignatura` que ya se movieron); **el traspaso era el
+> documento bueno**.
+>
+> **Y el criterio de terminación sigue sin poder llegar a 0, por una razón NUEVA.** Se corrigió de
+> «0 sin alcance» a «0 en la columna *hay que acotarla*», pero **los sitios cerrados decidiendo no
+> tocarlos se quedan contados en esa columna** —los dos sellos, el código muerto, los dos de C—, así
+> que el 0 tampoco existe. El criterio que sí se puede cumplir es: **cada fila de esa columna está
+> acotada o tiene una decisión escrita**. Es la tercera vez esta noche que un criterio nace
+> inalcanzable, y las tres por la misma causa: *contar bien el síntoma no es haber contado la causa*.
+
+> **TRES INSTRUMENTOS SE CAYERON, Y NINGUNO LO LEVANTÓ LA COORDINACIÓN.**
+>
+> **1 · PHPUNIT ZOMBIS EN EL CONTENEDOR, de los cinco lotes a la vez** (lo levantó `8myvc-8f`).
+> **Matar un `docker exec` mata al cliente, no al proceso de dentro.** `ps` dentro del contenedor dio
+> **trece phpunit vivos** —`a` ×3, `b` ×2, `c` ×2, `d` ×2, `e` ×2—, alguno con **33 minutos**. Dos
+> suites contra la misma base dan `SQLSTATE[40001] 1213 Deadlock`, y **la pista es que los rojos
+> cambian de sitio entre corridas**. La firma del zombi es **`ppid=1`** —el huérfano que adoptó init—
+> y el `etimes` desempata:
+>
+> ```bash
+> docker exec 8myvc-app-1 ps -eo pid,ppid,etimes,args | grep phpunit
+> ```
+>
+> **El `ps` del host no ve dentro del contenedor**, así que comprobar ahí que el cliente murió mira
+> justo donde el proceso ya no está: es lo que hizo dar por muerto un zombi que corrió 33 minutos. La
+> forma que no los crea es lanzar la suite **desasida**, sin cliente que matar, y leer el fichero:
+>
+> ```bash
+> docker exec -d -w /app/.worktrees/<x> -e DB_TEST_DATABASE=simonbolivar_testing_<x> \
+>   8myvc-app-1 sh -c 'php artisan test > /tmp/suite-<x>.txt 2>&1; echo "exit=$?" >> /tmp/suite-<x>.txt'
+> ```
+>
+> **Y el `exit=` se comprueba siempre, porque el de una tubería no es el de PHPUnit.** Dos lotes
+> distintos dieron por buena una corrida con un `exit code 0` **que era el del `tail` del final**, y
+> a uno el `tail` se comió además la línea `Tests:` — un verde sin cifra y sin haber medido nada.
+> **Una suite sin línea `Tests:` al final no es una suite verde: es una suite muerta.**
+>
+> **2 · `Tests\Unit\AutopruebasDeLasHerramientasTest` NO PUEDE PASAR EN NINGÚN WORKTREE**, y no es
+> de esta noche. Dice *«CONTROL NO CONCLUYENTE: no se pudo leer 2837171^ (¿worktree sin ese
+> commit?)»* y **el paréntesis es la hipótesis equivocada, que es lo que invita a archivarlo**: el
+> commit se lee sin problema. Lo que no funciona es **`git` dentro del contenedor** — un worktree no
+> tiene `.git` de verdad, tiene un fichero que apunta a **una ruta del host** que dentro no existe, y
+> el control se ejecuta desde el test. Falla igual en los cinco árboles y **no es un rojo de nadie**.
+> Queda **sin arreglar y con la decisión dentro**: o el control se salta cuando `git` no resuelve, o
+> `tools/worktree-de-sesion.sh` monta el gitdir de forma que el contenedor lo vea.
+>
+> **3 · TERCERA CEGUERA DEL DETECTOR DE ALCANCE** (medida por la coordinación; la sospechó el lote C
+> desde el otro lado). Su aviso *«1 consulta compara `alumno_id` SIN ALIAS uniendo `unidades`: son un
+> 500 (1052 ambiguous)»* apunta a `DefinitivasDeAsignatura:910`, que es `porcentajeDeLasUnidades`:
+> **un `SELECT` de una sola tabla, sin un solo `JOIN`**. No puede ser ambiguo y no es un 500 — cuenta
+> las desnudas **sin mirar si hay más de una tabla en el ámbito**, y le dice «esto es un 500» al
+> sitio bandera de la noche, que está bien. La de `ce56351` era otra (el literal partido por la
+> concatenación). **Van tres.**
+>
+> **Y EL CUARTO INSTRUMENTO NO ERA UNA HERRAMIENTA: ERA LA SHELL.** La coordinación hizo `cd` al
+> árbol de un lote para verificarlo y **el directorio de trabajo persiste entre comandos**, así que
+> tres comandos después escribió `ESTADO-ACTUAL.md` **en el árbol de ese lote** creyéndose en la
+> raíz — y al commitearlo, el `git commit` se llevó **los doce ficheros que el lote tenía staged**,
+> bajo un mensaje ajeno. Deshecho con `reset --soft` tras comprobar que la rama no se había movido,
+> y **contado al lote antes de que lo viera él**, que es lo que lo convierte en un incidente y no en
+> un misterio del día siguiente. Desde entonces, **rutas absolutas**.
+>
+> **La forma de la trampa es la misma que la del `ps` que no ve dentro del contenedor, y merece
+> nombre propio: estado que persiste donde no lo estás mirando.** Los dos instrumentos contestaron
+> con la cara de lo correcto — el `ps` del host dijo «muerto» de un proceso vivo, el prompt dijo
+> «raíz» de un árbol ajeno—. Es lo que el `CLAUDE.md` lleva describiendo de las herramientas, sólo
+> que aquí el instrumento era **el entorno**, que es el que nadie audita porque no se llama a sí
+> mismo herramienta. *(Formulación del lote D.)*
+>
+> **Y una corrección, porque el propio incidente produjo una cifra falsa en la dirección contraria:**
+> se dijo que `CensoDeInterruptoresTest` y `AutopruebasDeLasHerramientasTest` **leen
+> `docs/migracion/`**, y **no lo hacen** — medido, no releído. El censo recorre `app`, `routes`,
+> `config` y `database/seeders` más el volcado del esquema; las autopruebas ejecutan
+> `secciones-citadas.py --autoprueba`, y **ahí la comprobación fácil se queda corta**: ese modo no
+> sólo evalúa las cadenas trampa inyectadas, también llama a `citadas()`, **que sí recorre un árbol**
+> — pero el que recorre es `CODIGO = ('app', 'tests', 'tools', 'routes', 'config', 'database')`, y
+> `DOCS`, definido en la línea de al lado, **no lo usa nunca**. O sea que la conclusión aguanta por
+> el camino que faltaba mirar: no es que la autoprueba no lea nada, es que **lo que lee no es
+> `docs/`**. *(Ese último paso lo cerró el lote D, sobre una verificación de la coordinación que se
+> había parado un paso antes.)* **Ningún test de la suite lee `docs/migracion/`.** El `grep` que decía lo
+> contrario acertaba en las líneas —cuatro— y **las cuatro eran comentarios**: el síntoma bien
+> contado y la causa no. Lo que sí estuvo bien fue **relanzar la suite en vez de suponer**: la duda
+> era legítima aunque la cifra que la sostenía fuera falsa.
+>
+> El resumen que dejó `8myvc-8f` sobre sí mismo es el que hay que conservar: **de cuatro números que
+> sacó con instrumentos esa noche, cuatro nacieron mal y tres le habrían hecho actuar** — un regex
+> que se comía las líneas alineadas con tabuladores (50 columnas en vez de 60), el volcado congelado
+> de `mysql-schema.sql` con **64 columnas de `years` cuando la tabla viva tiene 68** (las cuatro de
+> diferencia son justo las que entraron por migración, o sea que **medir contra el volcado es medir
+> contra el sitio donde ninguna candidata existe**), el `exit=0` del `tail`, y el paréntesis de
+> arriba. **Los cuatro eran creíbles.**
+
+> **DOS FORMAS NUEVAS DE FALLAR QUE ENTRAN EN LAS REGLAS DE LA NOCHE, las dos levantadas por lotes.**
+>
+> **El escenario equilibrado** (lote A, [reparto §1.4](noche-2026-08-31/reparto.md)). Su test estaba
+> escrito **antes** del arreglo, como manda la regla, y **pasaba en verde con la forma ingenua**: su
+> caso tenía «las del grupo» y «la suya» valiendo **las dos 1**, así que contar las contrarias daba
+> el mismo número. Al desequilibrarlo —dos del grupo, una propia— el control se puso rojo. **Escribir
+> el test primero no basta: la regla se cumple ejecutándolo contra la forma mala**, y al montar el
+> caso los dos lados tienen que dar números distintos. Su variante, del lote D: el sujeto del test se
+> monta **sobre la misma fila**, cambiando sólo `role_user`, porque con dos personas distintas el
+> test demostraría que dos personas se comportan distinto.
+>
+> **Un `=` que es correcto** (lote D, [reparto §1.6](noche-2026-08-31/reparto.md)). La regla decía
+> «`<=>` y NUNCA `=`». Vale para *«¿qué unidades le tocan a este alumno?»*; **no vale para «¿tiene
+> alguna unidad SUYA?»**, que es un `EXISTS`: con `<=>` el alumno normal empareja con las del grupo y
+> el campo saldría **`true` para los treinta**, con lo que el badge de la planilla dejaría de
+> distinguir nada. **El detector lo señala igual**, porque cuenta la forma y no la pregunta.
+
+> **HALLAZGOS QUE NO BUSCABA NADIE, y ninguno es de esta noche:**
+>
+> - **El rol `Secretario` no está en la base de tests** (lote D): su migración lo inserta y
+>   `test-seed.sql` hace **`TRUNCATE TABLE roles`** a continuación, así que quedan **once** roles y
+>   sin él. **Ese hecho es cierto. La consecuencia que se le colgó NO lo es, y la corrigió el lote A
+>   yendo a mirar** — es la quinta cifra de la noche que nace mal, y la única que llegó a este
+>   documento antes de caerse.
+>
+>   Se dijo que **la rama `Secretario` de `Autoriza::esAdministrativo()` no la ejerce ni un test**, y
+>   sí la ejerce: `SecretarioTest` **entero** está montado sobre ella —`test_un_administrativo_sin_superusuario_crea_acudientes_solo_con_el_rol`
+>   coge un `Usuario` con `is_superuser = 0`, comprueba 403 sin el rol, lo inserta y comprueba 200
+>   con él: **misma fila, sólo cambia `role_user`**—. Y tampoco se había «rodeado sin nombrar la
+>   causa»: **la causa está escrita en su propio docblock**, *«por qué cada test se fabrica su
+>   Secretario: el seed se genera desde la base»*. El error de origen fue leer un `grep -rln`
+>   —que devuelve **nombres de fichero**— como si devolviera líneas.
+>
+>   **Y lo que la medición buena destapa es mejor que lo que se buscaba: el arreglo no es durable.**
+>   `test-seed.sql` **lo genera `tools/generar-seed-test.php` desde una base real**, y una base real
+>   tiene once roles porque el doce lo pone una migración: **quien regenere el volcado vuelve a
+>   dejarlo en once y la fila se va sin que falle nada**. O sea que el truncado es deliberado y está
+>   documentado en las dos migraciones de datos afectadas —la del rol y la de
+>   `create_permiso_can_view_auditoria`, que cita a la primera como precedente—, y **fabricarse el
+>   rol dentro de la transacción es justo lo que hace a esos tests inmunes a una regeneración**.
+>
+>   **Joseth decidió arreglarlo igual**, con la alternativa de no tocarlo delante y planteada por el
+>   lote A. Entra con un test que se pone rojo si una regeneración se lleva la fila, y **los dos
+>   rodeos se quedan**, con el porqué escrito: quitarlos los dejaría colgando de una fila que
+>   `generar-seed-test.php` se lleva sin avisar. **`can_view_auditoria` y sus dos filas de
+>   `permission_role` NO se tocan** —mismo truncado, misma decisión documentada— y quedan anotadas
+>   aquí en vez de arregladas sobre una premisa que ya se cayó.
+> - **El interruptor nuevo de puestos no sobrevive al cambio de año** (lote E).
+>   `YearsController:158` copia del año anterior **60 de las 68 columnas vivas** de `years`, y
+>   `puestos_con_bol_independiente` no está: **el colegio que lo ponga a 0 lo recupera a 1 al crear
+>   el año siguiente, en silencio**, y sus dos vecinas de esa lista —`mostrar_puesto_boletin` y
+>   `puestos_alfabeticamente`— **sí** se copian, así que quien lea el bloque leerá que los tres se
+>   comportan igual. Va al lote E en commit aparte. **El patrón importa más que la columna: el commit
+>   del 30 ago cerró esa lista tal como estaba ese día y nada la mantiene cerrada** — de las cuatro
+>   columnas que han entrado a `years` por migración desde el volcado, **dos se acordaron de la lista
+>   y dos no**.
+> - **`firmantes_acta` NO se hereda, y es decisión de Joseth (31 ago 2026)**, no un olvido de esa
+>   lista. **Los firmantes se confirman cada año a propósito**: nacer en blanco obliga a que alguien
+>   vuelva a poner quién firma, y **un acta firmada por quien ya no está es peor que un acta sin
+>   firmantes** — el hueco se ve la primera vez que alguien imprime. No se toca, y el día que se
+>   escriba un centinela de esa lista, ésta es la primera excepción con su porqué.
+> - **`mostrar_puesto_boletin` no tiene ni un lector en el backend** (lote E, medido): 6 líneas en 3
+>   ficheros de los 225 de `app/`, y ninguna se bifurca con ella — se transporta, se copia al crear
+>   un año y se escribe desde una ruta. Con eso queda contestada **la pregunta del front del 24 ago**
+>   sobre el choque de dos columnas de puestos en `years`: **son dos capas distintas**, la nueva
+>   decide **quién entra en el recuento** y la vieja **si el puesto se pinta**, y no pueden
+>   contradecirse dentro de `app/` porque sólo una se consulta aquí. **La precedencia sólo se puede
+>   hacer cumplir en el front**, y que en el backend no haya nada escrito para ella **no es un
+>   olvido**: sería un segundo sitio decidiendo lo mismo.
+> - **`ContextoDeUsuario:113` pone `mostrar_puesto_boletin` sólo en la rama `Profesor`** (lote E),
+>   no en las otras tres. Familia del §140 —`year_pasado_en_bol` que le faltaba a `Acudiente` y daba
+>   500—. Preexistente y anotado, sin tocar.
+> - **`composer run pint` no cubre `app/Http/Controllers/`** (lote D), así que el controlador nuevo
+>   del boletín independiente **no lo formatea**. Comprobado a mano con `pint --test`: PASS. Meterlo
+>   en el ámbito arrastraría los otros 112 de golpe, que es lo que la regla de la casa evita.
+
+> **DÓNDE ESTÁ CADA LOTE — y NADA está fundido.** `main` no se ha movido más que por documentación.
+>
+> | Lote | Qué lleva | Estado |
+> |---|---|---|
+> | **A** `8myvc-5e` | los dos `Bolfinales` + el `puesto: null` | 4 sitios de alcance cerrados con `alcanceCorrelacionado`; los llamadores de puestos van en **commit aparte**, rojo a propósito hasta que E esté en `main` |
+> | **B** `8myvc-cf` | planilla, unidades, subunidades, `Nota.php` + fase 3 | **es el que cierra la fase 1**: sus 7 sitios son los últimos |
+> | **C** `8myvc-53` | `putCopiar`, `Unidad` y los sueltos | 7 cerrados: 5 acotados y **2 razonados sin tocar** |
+> | **D** `8myvc-82` | la marca: ruta 545, guarda, los dos campos | entregado y verificado; **es el que desbloquea al front** |
+> | **E** `8myvc-8f` | puestos e interruptor (fase 6) | entregado y verificado; `ponerPuestos()` desbloqueó a A |
+>
+> **`putCopiar` eran DOS fallos, no uno** (lote C), y el segundo **el detector no podía señalarlo
+> porque no hay ningún `SELECT` implicado**: `new Unidad` no tocaba `alumno_id`, así que **una unidad
+> con dueño se copiaba como una del grupo** — el reparto de porcentajes de un solo alumno pasaba a
+> ser el de los treinta. Es el argumento de por qué esa lista **ordena candidatos y no lista fallos**.
+>
+> **La verificación antes de fundir, que es la lección del traspaso:** `git diff --stat` **contra la
+> base común** (`$(git merge-base main fix/bi-lote-<x>)`) y no contra `main` a dos puntos —que
+> enseña como borrados los ficheros que sólo existen en `main` y parece que el lote borró el
+> traspaso—; cero instantáneas salvo donde es legítimo, mirando el diff; y **la suite entera después
+> de cada fusión**, no sólo la del lote.
+>
+> **Y un aviso para cuando se mire el diff de la cola:** `familias-que-nunca-entran-en-el-candado.json`
+> ganó `"boletin-independiente": "1 de 1"` con la ruta de D —legítimo: esa instantánea lista las
+> familias con **menos de dos** rutas con guard, y una familia de una ruta no puede establecer la
+> costumbre que el candado comprueba— y **volverá a moverse en dirección contraria**, desapareciendo,
+> cuando la cola añada `planilla` y `copiar` y la familia pase a `3 de 3`. **No es un guard que
+> alguien quitó.**
+
+**Anterior: 31 ago 2026, noche — LA MARCA DEL BOLETÍN INDEPENDIENTE PASA A SER POR
 PERIODO, Y `matriculas.boletin_independiente` SE RETIRA** · las **tres decisiones de Joseth** las
 tomó en la sesión del front `myvc-front-c5` y la 7 revisa la 2 del 24 ago: *«a veces el estudiante
 tuvo un periodo normal y en el segundo un accidente … no se le puede borrar el boletín del primero,

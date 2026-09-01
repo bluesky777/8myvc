@@ -116,6 +116,7 @@
         "profesor_id": "int",
         "titular_id": "int"
     },
+    "independientes": [],
     "unidades": [
         {
             "asignatura_id": "int",

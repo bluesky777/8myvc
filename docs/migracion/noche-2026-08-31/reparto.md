@@ -1,6 +1,8 @@
 # El reparto del boletín independiente — noche del 31 ago 2026
 
-> **Coordina `8myvc-2a`.** Cada sesión lee **la sección 0, la 1 y su lote**, y nada más.
+> **Coordina `8myvc-c1`**, relevo de `8myvc-2a` desde el 31 ago 2026 por ventana de contexto llena
+> — el traspaso está en [traspaso-coordinacion.md](traspaso-coordinacion.md).
+> Cada sesión lee **la sección 0, la 1 y su lote**, y nada más.
 > Lo que no está aquí está en [19-boletin-independiente.md](../19-boletin-independiente.md)
 > (el plan) y en [ESTADO-ACTUAL.md](../ESTADO-ACTUAL.md) (dónde está la aguja).
 >
@@ -83,6 +85,17 @@ Las dos formas de fallar, las dos ya vistas en este repo:
   definitivas de los treinta salen infladas;
 - **de menos** — el boletín del independiente pide las del grupo y sale en blanco.
 
+> **Y una TERCERA forma de fallar el test, levantada por el lote A el 31 ago 2026 y que no estaba
+> aquí: el escenario equilibrado.** Su primera versión estaba escrita **antes** del arreglo y aun así
+> **pasaba en verde con la forma ingenua**. No por el código: su caso tenía «las del grupo» y «la
+> suya» valiendo **las dos 1** en el mismo periodo, así que contar las contrarias daba **el mismo
+> número**. Lo desequilibró —dos del grupo, una propia— y el control se puso rojo.
+>
+> **O sea que escribir el test primero no basta, y «se puso rojo» tampoco si no se comprueba.** La
+> §1.4 se cumple **ejecutándolo contra la forma mala**, no escribiéndolo antes. Y al montar el caso,
+> **que los dos lados tengan números distintos**: con un 1 contra un 1, el test correcto y el
+> equivocado son indistinguibles.
+
 ### 1.5 · Acotar NO siempre es lo correcto — se lee cada fila
 
 El detector **ordena candidatos, no lista fallos**. Ya hay tres sitios cerrados
@@ -114,6 +127,18 @@ BoletinIndependiente::ALCANCE          // ... AND u.alumno_id <=> '.ALCANCE
 condición resuelve las dos ramas. **Con `=` a secas la rama del alumno normal devuelve
 cero filas y todas las definitivas del colegio se van a 0 sin un solo error en el log.**
 
+> **Y una excepción legítima, encontrada por el lote D el 31 ago 2026 — que nadie la «arregle».**
+> La regla de arriba vale para *«¿qué unidades le tocan a este alumno?»*. **No vale para
+> *«¿tiene alguna unidad SUYA?»***, que es un `EXISTS` y es otra pregunta: con `<=>` el
+> alumno normal empareja con las del grupo y el campo saldría **`true` para los treinta**,
+> con lo que el badge de la planilla dejaría de distinguir nada. Ahí `alumno_id = :id` es lo
+> correcto.
+>
+> **El detector lo señala igual**, porque cuenta la forma y no la pregunta: es la §1.5 en su
+> caso más incómodo —una fila que el instrumento marca en rojo y está bien—. Si te sale un
+> `EXISTS` de esta familia, **escribe el porqué al lado**; sin él, el siguiente que pase lo
+> convierte en `<=>` y el campo se muere en silencio.
+
 **Y el alcance va al `WHERE` cuando la tabla que da el alumno se une DESPUÉS de
 `unidades`** — una condición `ON` no puede nombrar una tabla que aún no está en el
 ámbito. Pasó en `NotaFinal`.
@@ -127,10 +152,51 @@ servicio. Me lo pides.
 2. Escribe tu `docs/migracion/noche-2026-08-31/<tu-letra>.md`.
 3. **Me mandas**: rama, hash, `Tests: N passed`, pint, stan, y qué sitios cerraste
    **y cuáles decidiste no tocar y por qué**.
-4. **Y te quedas esperando.** No cojas trabajo de otro lote por tu cuenta: hay cola y
-   te la doy yo. Si te bloqueas, avisa en vez de esperar en silencio.
+4. **Y NO te quedas esperando** — cambiado por Joseth el 31 ago 2026, a mitad de la
+   noche: *«que no pregunten más, quiero que siempre commiteen lo que necesiten y
+   continúen, y que el coordinador una todo a main cuando terminen su commit. Que sigan
+   trabajando sin parar.»* O sea: **commiteas en tu rama sin pedir permiso**, tantas
+   veces como haga falta —dos sitios cerrados de siete ya son un commit—, y **encadenas
+   lo siguiente sin esperar respuesta**. Lo que no cambia es de dónde sale el trabajo:
+   **la cola te la doy yo**, no la coges de otro lote. Si te bloqueas, avisa en vez de
+   esperar en silencio.
 
 **No fusiones tú.** `main` lo muevo yo desde la raíz.
+
+### 1.8 · Un número de suite ya no vale sin estas tres cosas al lado
+
+Se aprendió esta noche, y las tres a base de dar por bueno un número que no lo era:
+
+- **el `exit=`**, y que sea el de PHPUnit y no el de una tubería. Dos lotes distintos
+  dieron por buena una corrida con un `exit code 0` **que era el del `tail`**, y a uno el
+  `tail` se comió además la línea `Tests:`. **Una suite sin línea `Tests:` al final no es
+  una suite verde: es una suite muerta.**
+- **si `AutopruebasDeLasHerramientasTest` está entre los fallos**, para descontarlo: falla
+  en **los cinco** worktrees y no es de nadie — `git` no resuelve dentro del contenedor
+  porque el `.git` de un worktree apunta a una ruta **del host**.
+- **que no haya un zombi tuyo en la misma base.** Matar un `docker exec` mata al cliente,
+  **no al proceso de dentro**; el huérfano sigue corriendo tests y provoca
+  `SQLSTATE[40001] 1213 Deadlock`. La pista es que **los rojos cambian de sitio entre
+  corridas**, y la firma es **`ppid=1`**:
+
+```bash
+docker exec 8myvc-app-1 ps -eo pid,ppid,etimes,args | grep phpunit
+```
+
+  **El `ps` del host no sirve: no ve dentro del contenedor.** Y la forma que no crea
+  zombis es lanzarla desasida, sin cliente que matar:
+
+```bash
+docker exec -d -w /app/.worktrees/<x> -e DB_TEST_DATABASE=simonbolivar_testing_<x> \
+  8myvc-app-1 sh -c 'php artisan test > /tmp/suite-<x>.txt 2>&1; echo "exit=$?" >> /tmp/suite-<x>.txt'
+```
+
+> **Y el árbol es parte del instrumento.** Dos sesiones distintas trabajaron esta noche en
+> el árbol equivocado sin notarlo: una porque el `cwd` de su shell **persiste entre
+> comandos** después de un `cd`, otra porque acabó editando en la raíz. Se caza por el
+> número que no cuadra —dos tests que no aparecen con `--filter`, un fichero con 34
+> métodos del que corren 32, el `md5` distinto entre host y contenedor— y se evita con
+> **`-w` explícito en todo lo que corra dentro del contenedor y rutas absolutas fuera**.
 
 ---
 
