@@ -60,16 +60,30 @@ class GuardarAlumno {
 			case 'descripcion_efectuada':
 			case 'nro_folio':
 			
-				$consulta 	= 'SELECT a.id, a.user_id, g.id as grupo_id, g.titular_id, m.id as matricula_id 
-									FROM alumnos a
-								INNER JOIN matriculas m ON m.alumno_id=a.id
-								INNER JOIN grupos g ON g.id=m.grupo_id AND g.year_id=?
-								WHERE a.id=?'; // Tengo confusión con INNER o LEFT grupos
-				$alumno 	= DB::select($consulta, [ $year_id, $alumno_id ]);
-				
-				if (count($alumno)>0) {
-					$alumno = $alumno[0];
-				}else{
+				/*
+				 * **Cuál es la matrícula del año la decide `Matricula`, y ya no esta
+				 * consulta.** Es la §9.5 del plan, y era el fallo que nadie ve porque
+				 * nadie mira estos campos al día siguiente: aquí se escribía en `[0]` de
+				 * una consulta **sin `ORDER BY`, sin `m.deleted_at` y sin `g.deleted_at`**,
+				 * mientras la ficha leía `[0]` de otra que sí filtra y ordena por
+				 * `a.apellidos` —un empate total para un solo alumno—. Con dos matrículas
+				 * vivas del mismo año, **se lee de una y se escribe en otra**, y las tres
+				 * columnas que salen por aquí son `repitente`, `promovido` y `nro_folio`.
+				 *
+				 * Lo que había además de eso, y no vuelve:
+				 *
+				 *   - el `// Tengo confusión con INNER o LEFT grupos` del autor, que era
+				 *     exactamente esta pregunta sin contestar;
+				 *   - y cuatro columnas seleccionadas —`a.id`, `a.user_id`, `g.id`,
+				 *     `g.titular_id`— **que no lee nadie**: sólo se usaba `matricula_id`.
+				 *
+				 * El 400 se conserva tal cual. Es raro que un no-controlador devuelva una
+				 * respuesta HTTP, pero cambiarlo aquí es cambiarle el contrato a los cinco
+				 * llamadores de `AlumnosController`, y esto no va de eso.
+				 */
+				$matricula = \App\Models\Matricula::laDelAnio((int) $alumno_id, (int) $year_id);
+
+				if ($matricula === null) {
 					return response()->json([ 'No encontrado'=> false, 'msg'=> 'Alumno no encontrado' ], 400);
 				}
 
@@ -78,7 +92,7 @@ class GuardarAlumno {
 					':valor'		=> $valor, 
 					':modificador'	=> $user->user_id, 
 					':fecha' 		=> $now,
-					':matricula_id'	=> $alumno->matricula_id
+					':matricula_id'	=> $matricula->id
 				];
 			break;
 			

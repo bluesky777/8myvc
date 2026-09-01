@@ -289,3 +289,96 @@ cosas:
 - y que **sin la fila no le sale ni a su dueño**, que es la decisión 7 en su forma más
   corta. Si le saliera, el alcance estaría mirando `unidades.alumno_id` en vez de la
   marca.
+
+## 8. La §9.5 — cuál es «la matrícula del año» (el escritor y la regla)
+
+`matriculas` **no tiene clave única sobre (alumno, año)**, y la ficha y el guardado no
+elegían la misma fila:
+
+| | Consulta | `m.deleted_at` | `g.deleted_at` | `ORDER BY` | Se queda con |
+|---|---|---|---|---|---|
+| **escribe** | `Alumnos\GuardarAlumno::valor` | **no filtraba** | **no filtraba** | **ninguno** | `[0]` |
+| **lee** | `AlumnosController::putShow` | filtra | filtra | `a.apellidos, a.nombres` | `[0]` |
+
+**Y el `ORDER BY` de la lectura no desempata nada:** para un solo alumno, ordenar por su
+apellido y su nombre es un empate total. Las dos se quedaban con «la primera que
+devuelva MySQL» y **nada garantiza que sea la misma**.
+
+> **Son TRES columnas y no cuatro** (corrección de la coordinación, aceptada):
+> `repitente`, `promovido` y `nro_folio`. La marca del boletín independiente salió de
+> `matriculas` el 31 ago 2026 y vive en `bol_ind_periodos`, con clave única sobre
+> `(alumno_id, periodo_id)` — ahí no hay dos filas entre las que equivocarse.
+
+### La decisión: **la VIVA, y entre varias vivas, la MÁS RECIENTE**
+
+No sale de una preferencia: sale de lo que ya hace `Matricula::matricularUno()`, que es
+el único sitio que crea matrículas. Cuando encuentra varias del mismo año **activa una y
+borra las demás**, o sea que el sistema **ya promete «una viva por año»**. Lo que
+faltaba es que quien lee y quien escribe **lean esa promesa igual cuando no se cumple**.
+
+Y entre dos vivas gana la más reciente porque una segunda fila sólo aparece si **alguien
+volvió a matricular**: el acto posterior sustituye al anterior. El `id DESC` no es
+decoración — `matriculas.created_at` es *nullable*, y sin él dos filas sin fecha
+volverían a quedar en manos del orden físico, que es el fallo del que va todo esto.
+
+En `app/Models/Matricula.php`, en **un solo sitio**:
+
+```php
+public const FILTRO_DEL_ANIO = 'm.deleted_at IS NULL AND g.deleted_at IS NULL';
+public const ORDEN_DEL_ANIO  = 'm.created_at DESC, m.id DESC';
+public static function laDelAnio(int $alumno_id, int $year_id): ?object
+```
+
+Dos constantes y no una porque en SQL crudo los dos trozos caen en cláusulas distintas;
+**son una sola regla**, y quien use una sin la otra se queda con la mitad. `laDelAnio()`
+es para quien sólo necesita la fila —el escritor—; quien ya tiene su propio `JOIN`
+grande —la ficha— pega las constantes a su consulta. Las dos formas contestan lo mismo
+**porque citan la misma regla**, que es el punto entero de la §9.5.
+
+### La población, medida antes de decidir
+
+En la copia de `simonbolivar` el 1 sep 2026, sobre **3.579 matrículas**:
+
+| | |
+|---|---|
+| pares (alumno, año) con matrícula viva | **3.578** |
+| de ellos, con **dos o más vivas** | **1** — el alumno 1097 en el año 7, grupos 81 y 82 |
+| matrículas borradas en toda la tabla | **0** |
+| matrículas vivas colgando de un grupo borrado | **0** |
+
+O sea que **los dos filtros que le faltaban al escritor hoy no cambian nada en este
+colegio**: son latentes, no activos. Se ponen porque la promesa tiene que ser la misma
+en los dos lados, no porque se estén disparando. **Lo alcanzable hoy es el caso de las
+dos vivas**, y ahí las dos filas tienen `promovido` y `nro_folio` **distintos** — que es
+el fallo entero, en datos reales.
+
+**Un colegio, no quince.** Lo que se midió es la copia que hay delante.
+
+### El rojo, y las tres formas malas dicen cosas distintas
+
+| Forma | Rojos | Qué enseña |
+|---|---|---|
+| **el escritor de antes** (su consulta propia) | **4 de 5** | el verde es `con_una_sola_matricula`: el caso de todos los días **nunca estuvo roto**. Y `sin_matricula_del_anio` cae con `200 is identical to 400` — con la única matrícula en la papelera, el escritor viejo **la encontraba igual y devolvía «Guardado»**: escribía en la basura y la ficha seguía enseñando lo de antes |
+| **la regla sin el `ORDER BY`** (sólo los filtros) | **2 de 5** | exactamente los dos casos que dependen del desempate |
+| **la regla sin el filtro de borradas** (sólo el orden) | **1 de 5** | y esto es lo que hay que leer: con `created_at DESC` la fila viva **gana igual** a una borrada más antigua, así que el filtro sólo muerde cuando la **única** matrícula está borrada. **Las dos mitades cubren casos distintos y ninguna sobra** |
+
+### Lo que este trabajo NO incluye todavía
+
+**El lector (`putShow`) no está tocado**, y no por falta de fichero —la coordinación me
+lo pasó— sino porque **la regla nueva cambia lo que la ficha devuelve hoy** en el caso
+de las dos vivas: hoy sale la de id más bajo, con la regla saldría la más reciente. Eso
+es **contrato**, y lo lleva la coordinación con el front. Está preguntado y esperando.
+
+> **Y un aviso del lote D que hay que tener delante al tocar `putShow`:**
+> `bol_independiente_periodos` está construido **para no depender de la matrícula** —sale
+> del año del token más `bol_ind_periodos`— y por eso viaja **en las dos ramas**,
+> incluida la del alumno sin matrícula del año. Unificar las dos consultas de `putShow`
+> en una y colgar el campo de la matrícula elegida **reintroduciría la ambigüedad** que
+> se acaba de quitar: `undefined` volvería a significar dos cosas.
+
+### Un detalle de test que costó un rojo falso
+
+`PUT alumnos/guardar-valor` devuelve **la cadena suelta `Guardado`**, que Laravel manda
+como texto plano. `->json()` revienta ahí con *«Invalid JSON was returned from the
+route»* — un rojo del test y no del código. En la rama del 400 sí hay JSON. Está escrito
+al lado del helper.

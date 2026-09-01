@@ -57,6 +57,96 @@ class Matricula extends Model {
 	protected $softDelete = true;
 
 
+	/**
+	 * **Qué fila de `matriculas` es «la del año» — la regla, en un solo sitio.**
+	 *
+	 * Es la §9.5 del [plan](../../docs/migracion/19-boletin-independiente.md), y existe
+	 * porque `matriculas` **no tiene clave única sobre (alumno, año)**: nada impide dos
+	 * filas vivas del mismo alumno en el mismo año, y la lectura y la escritura elegían
+	 * cada una la suya.
+	 *
+	 * | | Consulta | `m.deleted_at` | `g.deleted_at` | `ORDER BY` | Se queda con |
+	 * |---|---|---|---|---|---|
+	 * | **escribe** | `Alumnos\GuardarAlumno::valor` | **no filtra** | **no filtra** | **ninguno** | `[0]` |
+	 * | **lee** | `AlumnosController::putShow` | filtra | filtra | `a.apellidos, a.nombres` | `[0]` |
+	 *
+	 * **Y el `ORDER BY` de la lectura no desempata nada**: para un solo alumno,
+	 * ordenar por su apellido y su nombre es un empate total, así que las dos se quedan
+	 * con «la primera que devuelva MySQL» y **nada garantiza que sea la misma**. Le
+	 * pasa a `repitente`, `promovido` y `nro_folio`: se lee de una y se escribe en otra,
+	 * y **nadie lo ve porque nadie mira esos campos al día siguiente**.
+	 *
+	 * > **Son TRES columnas y no cuatro.** La marca del boletín independiente salió de
+	 * > aquí el 31 ago 2026: vive en `bol_ind_periodos`, que cuelga de
+	 * > `(alumno_id, periodo_id)` **con clave única**, así que ahí no hay dos filas
+	 * > entre las que equivocarse. Contarla sería contar un sitio que ya no existe.
+	 *
+	 * ## La decisión: la VIVA, y entre varias vivas, la MÁS RECIENTE
+	 *
+	 * Sale de lo que ya hace `matricularUno()` cincuenta líneas más abajo, que es el
+	 * único sitio que crea matrículas: cuando encuentra varias del mismo año **activa
+	 * una y borra las demás**. O sea que el sistema ya promete *«una viva por año»* — lo
+	 * que falta es que quien lee y quien escribe **lean esa promesa igual** cuando no se
+	 * cumple.
+	 *
+	 * Y entre dos vivas gana la más reciente porque una segunda fila sólo aparece si
+	 * **alguien volvió a matricular**: el acto posterior sustituye al anterior. El
+	 * `id DESC` no es decoración — `matriculas.created_at` es *nullable*, y sin él dos
+	 * filas sin fecha volverían a quedar en manos del orden físico, que es justo el
+	 * fallo del que va todo esto.
+	 *
+	 * ## Población medida, para que nadie lea esto como si fuera masivo
+	 *
+	 * En la copia de `simonbolivar` el 1 sep 2026, sobre **3.579 matrículas**:
+	 *
+	 * - **3.578** pares (alumno, año) con matrícula viva, y de ellos **uno solo** con
+	 *   dos vivas — el alumno 1097 en el año 7, con `promovido` y `nro_folio`
+	 *   **distintos** en las dos filas. Ése es el caso alcanzable hoy.
+	 * - **cero** matrículas borradas en toda la tabla, y **cero** matrículas vivas
+	 *   colgando de un grupo borrado. O sea que los dos filtros que le faltan al
+	 *   escritor **hoy no cambian nada en este colegio**: son latentes, no activos. Se
+	 *   ponen porque la promesa tiene que ser la misma en los dos lados, no porque se
+	 *   estén disparando.
+	 *
+	 * **Un colegio, no quince.** Lo que se midió es la copia que hay delante.
+	 */
+	public const FILTRO_DEL_ANIO = 'm.deleted_at IS NULL AND g.deleted_at IS NULL';
+
+	/**
+	 * El desempate de `FILTRO_DEL_ANIO`, para el `ORDER BY`. Ver su docblock.
+	 *
+	 * Va aparte y no dentro porque en SQL crudo los dos trozos caen en cláusulas
+	 * distintas. **Son una sola regla**: quien use uno sin el otro se queda con la
+	 * mitad, y la mitad que falta es justo la que hoy está rota.
+	 */
+	public const ORDEN_DEL_ANIO = 'm.created_at DESC, m.id DESC';
+
+	/**
+	 * La matrícula del año de un alumno, o `null` si no tiene ninguna.
+	 *
+	 * Para quien sólo necesita **la fila**; quien ya tiene su propio `JOIN` grande
+	 * —la ficha— pega las dos constantes de arriba a su consulta y se queda con
+	 * `[0]`. Las dos formas responden lo mismo porque las dos citan la misma regla,
+	 * que es el punto entero de la §9.5.
+	 *
+	 * Los alias `m` y `g` están dentro de las constantes, así que esta consulta los usa
+	 * y no otros. Es el mismo trato que `BoletinIndependiente::JOIN_ESTADO`.
+	 */
+	public static function laDelAnio(int $alumno_id, int $year_id): ?object
+	{
+		return DB::selectOne(
+			'SELECT m.id, m.alumno_id, m.grupo_id, m.estado, m.repitente, m.promovido, m.nro_folio,
+			        m.created_at, g.year_id
+			   FROM matriculas m
+			  INNER JOIN grupos g ON g.id = m.grupo_id AND g.year_id = ?
+			  WHERE m.alumno_id = ? AND '.self::FILTRO_DEL_ANIO.'
+			  ORDER BY '.self::ORDEN_DEL_ANIO.'
+			  LIMIT 1',
+			[$year_id, $alumno_id]
+		);
+	}
+
+
 	public static $consulta_asistentes_o_matriculados = 'SELECT m.id as matricula_id, m.alumno_id, m.nro_folio, a.no_matricula, a.nombres, a.apellidos, a.sexo, a.user_id, a.egresado,
 							a.fecha_nac, a.ciudad_nac, c1.ciudad as ciudad_nac_nombre, a.tipo_doc, a.documento, a.ciudad_doc, c2.ciudad as ciudad_doc_nombre, a.tipo_sangre, a.eps, a.telefono, a.celular, 
 							a.direccion, a.barrio, a.estrato, a.ciudad_resid, c3.ciudad as ciudad_resid_nombre, a.religion, a.email, a.facebook, a.created_by, a.updated_by,
