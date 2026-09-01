@@ -25,9 +25,9 @@ use Illuminate\Support\Facades\DB;
  * valor bindeado que con la subconsulta correlacionada. *El criterio de aceptación
  * del lote —«la respuesta no se mueve»— no puede ver esta diferencia.*
  *
- * Así que el test **construye el caso**: un alumno marcado, apagado en un periodo
- * por `bol_ind_periodos.aplica = 0`, con unidades propias en los dos. Si el alcance
- * se resolviera fuera, uno de los dos periodos traería las unidades equivocadas.
+ * Así que el test **construye el caso**: un alumno con `aplica = 1` en un periodo y
+ * `aplica = 0` en el otro, con unidades propias en los dos. Si el alcance se
+ * resolviera fuera, uno de los dos periodos traería las unidades equivocadas.
  *
  * Todo dentro de la transacción del test.
  */
@@ -67,16 +67,18 @@ class AlcanceCorrelacionadoPorPeriodoTest extends CasoDeContrato
         $this->assertNotNull($alumno, 'El seed no tiene alumno matriculado en este grupo.');
         $this->assertNotNull($asignatura, 'El seed no tiene asignatura en este grupo.');
 
-        // Marcado en la matrícula, y APAGADO en el primer periodo. Ésa es la
-        // asimetría que el test viene a ejercer.
-        DB::update('UPDATE matriculas SET boletin_independiente = 1 WHERE grupo_id = ? AND alumno_id = ?',
-            [$grupo->id, $alumno->alumno_id]);
-
-        DB::insert('INSERT INTO bol_ind_periodos (alumno_id, periodo_id, aplica, created_at, updated_at)
-                    VALUES (?, ?, 0, NOW(), NOW())',
-            [$alumno->alumno_id, $uno->id]);
-
-        BoletinIndependiente::olvidar();
+        // **APAGADO en el primero, ENCENDIDO en el segundo.** Ésa es la asimetría que
+        // el test viene a ejercer, y ahora se escribe con dos filas porque la marca es
+        // por periodo (decisión 7): antes bastaba una —marcar el año en `matriculas`—
+        // y la fila del periodo 1 era la excepción que lo apagaba.
+        //
+        // El periodo 1 se escribe **con `aplica = 0` y no dejándolo sin fila**, aunque
+        // hoy las dos cosas den el mismo NULL. Es el caso de la §1 del plan: «este
+        // periodo no tiene boletín independiente» es una decisión que alguien tomó y
+        // que **no borra los datos**, y se distingue de «nunca estuvo marcado» — que es
+        // lo que la pantalla necesita para pintar el badge.
+        $this->marcarIndependiente((int) $alumno->alumno_id, (int) $uno->id, aplica: false);
+        $this->marcarIndependiente((int) $alumno->alumno_id, (int) $dos->id);
 
         // ── Lo que dice el servicio, periodo a periodo ───────────────────────────
         $this->assertNull(
@@ -86,7 +88,7 @@ class AlcanceCorrelacionadoPorPeriodoTest extends CasoDeContrato
 
         $this->assertSame((int) $alumno->alumno_id,
             BoletinIndependiente::alcance((int) $alumno->alumno_id, (int) $dos->id),
-            'En el periodo '.$dos->numero.' no hay fila que lo apague, así que su alcance '
+            'En el periodo '.$dos->numero.' la fila dice `aplica = 1`, así que su alcance '
             .'debería ser él mismo — sus propias unidades.');
 
         // ── Y lo que dice el SQL correlacionado, en UNA consulta que abarca los dos ──

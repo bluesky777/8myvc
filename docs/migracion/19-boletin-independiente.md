@@ -58,11 +58,190 @@ dentro de este módulo, está construyendo lo que se pidió no construir.
 | | Decisión | Qué se descartó y por qué importa |
 |---|---|---|
 | 1 | **La marca vale para TODAS las asignaturas del alumno** | Se descartó elegir asignatura por asignatura. Cuesta un riesgo real y está medido en la §9.1: en la asignatura cuyo docente no le cree nada, el alumno sale del grupo y **no entra en ninguna parte** |
-| 2 | **La marca vive en la matrícula: `matriculas.boletin_independiente`** | No en `alumnos`, que es donde vive `nee`. `alumnos` es global: la marca se arrastraría al año siguiente sin que nadie la ponga, y **repintaría los boletines de años pasados** — la matrícula es por año y por grupo, que es el alcance real de la decisión |
+| 2 | ~~**La marca vive en la matrícula: `matriculas.boletin_independiente`**~~ · **REVISADA el 31 ago 2026: la marca es POR PERIODO** — ver la decisión 7 y la §2.1. Lo de abajo sigue valiendo como el porqué de no ponerla en `alumnos` | No en `alumnos`, que es donde vive `nee`. `alumnos` es global: la marca se arrastraría al año siguiente sin que nadie la ponga, y **repintaría los boletines de años pasados** — la matrícula es por año y por grupo, que es el alcance real de la decisión |
 | 3 | **Los puestos se deciden con un interruptor del colegio**, `years.puestos_con_bol_independiente`, **por defecto 1** | No una casilla en la pantalla: el puesto también se **imprime en el boletín** (`BoletinesController:238`), y una casilla de pantalla dejaría dos criterios para el mismo número. Por defecto 1 = lo de hoy |
 | 4 | **Copiar copia la estructura, y pregunta por las notas** | Dos botones en la misma pantalla: `con_notas` en el cuerpo. Copiar sin notas es preparar la planilla; copiar con notas es calificar a varios de golpe y **el docente tiene que decirlo** |
 
-### Lo que todavía espera una decisión
+### Las tres decisiones del 31 ago 2026 — y una de ellas REVISA la decisión 2
+
+**Tomadas por Joseth** en la sesión `myvc-front-c5`, con el plan y los dos repos delante.
+**Escritas también en el buzón del front** (`~/DESARROLLOS/myvc_front/PANTALLAS-HISTORIAL-Y-BOLETIN.md`,
+§B.5), que es donde manda el acuerdo del 24 ago.
+
+| | Decisión | Qué cierra |
+|---|---|---|
+| 5 | **Marcan a un alumno los administradores, el secretario y el rector** | Cierra la primera de las dos abiertas. **Y no es «como está hoy»: es más estrecho.** La rama de matrícula de `GuardarAlumno::valor` hoy la escriben el **titular del grupo** y el administrativo — **el titular NO marca**, y el psicólogo tampoco (sí escribe `nee`). En los nombres que ya existen: `Role::hasRoleOrPerm(['admin', 'secretario'])` más el rol `Rector`, con el superusuario por encima |
+| 6 | **El boletín de un independiente lleva `—` en el puesto** | Cierra la segunda. Confirma el punto 3 de la §7: el backend manda `puesto: null` y el front pinta `—`. **Vale para los cuatro informes de puestos y para el puesto impreso** en `boletin-periodo` y `boletin-final` |
+| 7 | **La marca es POR PERIODO, no por año.** `bol_ind_periodos` deja de ser la excepción y pasa a ser **la marca**: `aplica=1` en ese periodo = va aparte; **fila ausente = va con el grupo** | **Revisa la decisión 2.** Ver el apartado siguiente, que es lo que hay que cambiar del plan |
+
+### §2.1 — La marca por periodo: qué hay que cambiar del plan (decisión 7)
+
+**El requisito, en sus palabras:**
+
+> «si se pone en `matriculas.boletin_independiente` sería para todo el año, me gustaría poder elegir
+> por periodo, porque a veces el estudiante tuvo un periodo normal y en el segundo periodo tuvo un
+> accidente donde ya se le tiene que crear un boletín aparte pero no se le puede borrar el boletín
+> del primer periodo, **tienen que convivir**.»
+
+**Lo que no cuadraba, y es un default, no una tabla que falte:** el esqueleto ya trae
+`bol_ind_periodos`, pero como **excepción** — fila ausente significa «lo que diga la matrícula», y de
+ahí el `COALESCE(bip.aplica, 1)` de `BoletinIndependiente::ALCANCE` y de `alcanceCorrelacionado()`.
+Con ese default, **marcar a un alumno en octubre repinta el boletín del primer periodo**, que es
+exactamente lo que se pide que no pase. **La tabla estaba bien; el sentido del default estaba al
+revés.**
+
+**Lo que cambia, y el 31 ago 2026 ya está TODO hecho en código** salvo lo que dice la fase 1:
+
+1. ✅ **`COALESCE(bip.aplica, 1)` → `COALESCE(bip.aplica, 0)`.** Es un carácter y cambia el
+   significado entero: **sin fila, el alumno va con el grupo**. Sigue cumpliendo la §4 —con la tabla
+   vacía, `alcance()` devuelve `null` para todo el mundo— pero ahora por la razón fuerte: antes se
+   cumplía porque una columna estaba a 0 en todas las filas; ahora porque **no hay ninguna fila**,
+   que es más difícil de romper sin querer. Lo fija
+   `test_marcar_un_periodo_no_toca_el_alcance_de_los_demas`, que **se pone rojo con ese solo
+   carácter** y es el test que este módulo no tenía.
+2. ✅ **`matriculas.boletin_independiente` SE RETIRA.** Contestada por el backend, que es de quien
+   era. Ver el apartado §2.2, que es donde está el porqué y lo que se lleva por delante.
+3. ✅ **`PUT boletin-independiente/periodo` (§6.3) sube de la fase 4 a la fase 2.** Con la decisión 7
+   es **el único escritor de la marca**, así que la fase 2 sin él no tiene nada que escribir. Y su
+   guarda es la decisión 5, que hoy no está escrita en ningún sitio — ver §2.3.
+4. ✅ **`PUT alumnos/guardar-valor` deja de estar en el camino.** El `case 'boletin_independiente'`
+   de la §6.4 y toda la §6.6 dejan de ser el desbloqueo de la pantalla 1 del front: la escritura ya
+   no pasa por ahí. (El «No guardado» con 200 sigue vivo y sigue siendo de [09 §13](09-pendientes.md),
+   pero ya no es un problema de esta función.)
+5. ✅ **El campo que la ficha necesita ya tiene nombre y forma: `bol_independiente_periodos`.** Está
+   en la §6.4 con su JSON y sus cuatro estados.
+6. **La §8 punto 1 se reescribe:** la pantalla 1 no es «un interruptor más en la ficha», es **un
+   interruptor por periodo**, visible sólo para admin / secretario / rector. Sigue siendo la primera
+   y sigue siendo la barata.
+7. ✅ **¿Se puede marcar un periodo CERRADO? SÍ.** Ver §2.4, que además trae la trampa que la
+   pregunta destapó y que no estaba en el plan.
+
+**Lo que NO cambia con la decisión 7, y conviene decirlo para que nadie lo rehaga:** `unidades.alumno_id`
+sigue siendo el diseño (§3), las unidades ya cuelgan de un periodo, `notas` y `notas_finales` no se
+tocan, y **los periodos conviven solos**: cada periodo tiene su definitiva, calculada con la
+estructura que ese periodo tuviera, y el boletín final promedia los dos sin que nadie elija.
+
+**Y la marca ERE es otra marca.** `alumnos.nee` es de la ruta de inclusión. El boletín independiente
+**no se deriva de ella, no la implica y no filtra por ella** — el alumno del accidente no es ERE.
+
+### §2.2 — `matriculas.boletin_independiente` se retira. Contestada el 31 ago 2026
+
+**La pregunta era del backend y ésta es la respuesta: se retira**, con su propia migración
+(`2026_08_31_100000_retirar_boletin_independiente_de_matriculas`). No se queda de espejo del año.
+
+**Lo primero, porque cambia la pregunta: la columna YA ESTÁ EN PRODUCCIÓN.** El esqueleto
+(`2026_08_24_100000`) entró en `e37eab0`, que es **anterior** a `eb95cbc`, o sea que se desplegó en
+una tanda anterior a la del 25–30 ago. Así que esto no es «editar una migración que aún no ha
+salido»: es **una migración nueva que quita una columna viva en los quince colegios**. Que la
+respuesta siga siendo «se retira» con ese coste delante es lo que la hace una respuesta y no una
+preferencia.
+
+**Por qué no de espejo.** Un espejo es un **segundo escritor de un dato derivado**, y este repositorio
+ya sabe lo que cuesta: seis escritores de la definitiva con cinco criterios, de donde salió
+`DefinitivasDeAsignatura`. Aquí el modo de fallo es peor que un número raro — dos columnas que
+discrepan en silencio significan **un alumno que vuelve al boletín del grupo sin que nadie lo vea**,
+y quien lo note lo ve en la planilla de otro docente, sin nada que lo relacione con un interruptor
+que alguien tocó en otra pantalla. Es literalmente la §9.5.
+
+**Y lo que se lleva por delante es más de lo que costaba:**
+
+| Se va | Por qué estaba |
+|---|---|
+| **La §9.5, para esta marca** | La columna vivía en una fila de `matriculas`, y `matriculas` **no tiene clave única sobre (alumno, año)**. La ficha elegía «la matrícula del año» filtrando y ordenando; `GuardarAlumno::valor`, sin filtrar ni ordenar; las dos se quedaban con `[0]`. `bol_ind_periodos` cuelga de `(alumno_id, periodo_id)` **con clave única**: no hay dos filas entre las que equivocarse. *La §9.5 sigue viva para `repitente`, `promovido` y `nro_folio`* — para esta marca, no |
+| **Treinta líneas de SQL** en `alcanceCorrelacionado()` | Sólo estaban para **derivar esa matrícula**: entrar por `periodos`, bajar a `grupos` del mismo `year_id`, unir `matriculas`, filtrar borrados y desempatar con `ORDER BY created_at DESC, id DESC LIMIT 1`. Hoy son **cuatro**: un `SELECT` sobre `bol_ind_periodos`. Un periodo pertenece a un año y sólo a uno, así que **el año se hereda en vez de derivarse** |
+| **El `LIMIT 1` y su degradación consciente** | Existía porque dos matrículas vivas del mismo alumno convertirían la subconsulta escalar en un error de ejecución. Con la clave única no puede haber dos filas |
+| **La duplicación del `LEFT JOIN`** | `JOIN_ESTADO` podía doblar un `SUM()` si `matriculas` traía dos filas. Ahora une contra una tabla con clave única sobre el par exacto: **no puede duplicar** |
+
+**«Dos formas y ninguna tercera» pasa a ser prácticamente una.** La forma de grupo (`JOIN_ESTADO` +
+`ALCANCE`) y la correlacionada dejan de ser dos reglas que hay que mantener iguales: las dos leen la
+misma tabla por la misma clave, y la única diferencia es de dónde sale el `alumno_id`.
+
+**El campo de listado que el front pedía no desaparece: pasa a ser derivado.** «¿Este alumno tiene
+algún periodo marcado este año?» sale de un `EXISTS` sobre `bol_ind_periodos`, cuya clave única
+empieza por `alumno_id`. **Un valor derivado no puede discrepar de su fuente**, que era justo lo que
+el front pidió.
+
+**Lo que cuesta desplegarlo, medido y no supuesto.** `DROP COLUMN` admite `ALGORITHM=INSTANT` en
+MySQL desde la 8.0.29 y el contenedor va por la **8.0.42**. Sobre una copia real de `matriculas`
+—**3.542 filas, 0,4 MB**— tarda **15,2 ms** y no reconstruye la tabla. Es la más barata de las
+migraciones de este plan, la contraria del `ALTER TABLE` sobre `unidades` que avisa la §10. **Lo que
+no sabemos es la versión de MySQL de los quince cPanel**: si alguno no admitiera `INSTANT`, el peor
+caso es reconstruir una tabla de 0,4 MB.
+
+**Y se puede correr sin ventana.** La columna está a **0 en las 3.542 filas**, **no la lee ni la
+escribe nadie** desde este mismo lote —su único lector era `BoletinIndependiente`— y **nunca llegó a
+viajar en una respuesta**: los cuatro sitios que hacían `SELECT *` sobre `matriculas` se pasaron a
+columnas nombradas el 24 ago precisamente para que no saliera, y **ninguna de esas cuatro listas la
+incluye**. O sea que quitarla **no mueve una sola instantánea**, comprobado. El trabajo defensivo de
+aquella noche se cobra hoy en la dirección contraria a la que se hizo.
+
+**Por eso se retira ahora y no «más adelante»:** hoy es una columna inerte que nadie lee; cada día
+que se queda es un día más en que alguien puede leerla y convertirla en la segunda fuente que este
+lote existe para no tener.
+
+### §2.3 — La guarda de la decisión 5 no se puede escribir con los nombres del mensaje
+
+`Role::hasRoleOrPerm(['admin','secretario'])` es la forma en que **el front** decide qué pantalla
+enseña. **En este backend no existe**: `hasRoleOrPerm` aparece en cinco comentarios de controlador y
+en ninguna línea de código. Lo que hay es `Role::hasRole($user_id, $nombre)`, `Role::isSecretario()` y
+`App\Support\Autoriza`.
+
+Así que la decisión 5 se escribe como un método nuevo de `Autoriza` —un solo sitio decide, como con
+todo lo demás— y **no reutilizando `esAdministrativo`**, que es `is_superuser || Secretario` y **no
+incluye el rol `Admin`**. Esa diferencia ya tiene un paso 0 en [`DESPLIEGUE.md`](../DESPLIEGUE.md)
+porque coinciden sólo por población: los diez `Admin` medidos son los diez `is_superuser`. **Una
+coincidencia de población no es un criterio**, y la decisión 5 nombra a los administradores
+explícitamente, así que el método nuevo los nombra explícitamente.
+
+**Y la medición que hay que tener delante antes de escribir el test:** en `simonbolivar` los roles
+`Rector` (#10) y `Secretario` (#12) **existen y tienen cero personas**. Los que hay son `Admin` (10,
+los diez superusuarios), `Profesor` (53), `Coord disciplinario` (1), `Enfermero` (1) y `Psicólogo`
+(4). O sea que **en esta base la guarda de la decisión 5 admite hoy exactamente a los diez
+superusuarios**, y un test que sólo compruebe «un administrador puede» pasaría igual con la guarda
+mal escrita. El caso que hay que montar a mano es **el secretario que no es superusuario**, que es el
+que la decisión 5 añade y el que aquí no existe.
+
+### §2.4 — Sí se puede marcar un periodo cerrado. Y la pregunta destapó otra cosa
+
+**La respuesta es sí, y sale del código que ya hay, no de una preferencia.** La guarda de periodo
+cerrado son tres métodos de `app/User.php` —`pueden_editar_notas`, `permiteEditarNotas` y
+`exigirPeriodoAbiertoParaNotas`— y **las tres muerden sólo a `$user->tipo == 'Profesor'`**. Quien
+marca, según la decisión 5, es administrador, secretario o rector: los tres son `tipo = 'Usuario'`.
+**La guarda de hoy no les llega**, así que ponerles una sería escribir una regla nueva, no aplicar la
+que hay.
+
+Y el requisito la quiere así: es el ejemplo del accidente **al revés** —el colegio cierra el periodo
+2 y sólo entonces alguien cae en que el alumno lo necesitaba aparte—. Si un periodo cerrado no se
+pudiera marcar, la única salida sería **reabrirlo**, que le abre la planilla de un periodo entero a
+los 53 docentes. Es una puerta mucho más grande que la que cierra. Además, marcar **no escribe ni una
+fila en `notas`**: la §6.3 promete que no borra nada y tampoco crea nada por sí sola.
+
+> **LA TRAMPA, QUE NO ESTABA EN EL PLAN Y ES DE LA FASE 2.** La §9.3 dice que
+> `PUT boletin-independiente/periodo` **crea las notas que falten dentro de su propia transacción**
+> cuando se APAGA la marca, para que el alumno no vuelva a la planilla del grupo sin casillas. Ese
+> sembrado pasa por `Nota::verificarCrearNotas` → `quienCreaLasNotas` → `User::permiteEditarNotas`,
+> que termina en `return (bool) $user->is_superuser || $user->tipo == 'Profesor'`.
+>
+> **Un secretario o un rector que no sean superusuarios reciben `false` — también con el periodo
+> ABIERTO.** O sea que la gente que la decisión 5 puso a cargo es exactamente la que **no siembra
+> nada**, en silencio, y el alumno vuelve a la planilla sin notas: la ventana de la §9.3, que desde
+> Flutter dura días porque esa app no llama a `/notas` nunca.
+>
+> **Hoy no se vería, y ése es el problema.** En `simonbolivar` `Rector` y `Secretario` tienen cero
+> personas y los diez `Admin` son los diez superusuarios, así que **funcionaría por coincidencia de
+> población** — la misma forma exacta del paso 0 de `DESPLIEGUE.md`. El colegio que le dé el rol a un
+> secretario de verdad es el que lo descubre.
+>
+> **La recomendación, y es de la fase 2:** el sembrado de la §6.3 **no debe preguntar
+> `permiteEditarNotas`**. Ese método contesta *«¿puedes editar notas?»*, y aquí la pregunta es otra:
+> *«acabas de devolver a este alumno a la planilla del grupo, ¿le dejamos las casillas puestas?»*. Las
+> filas que crea son notas **sin valor**; no crearlas es el daño, no crearlas es lo que hay que
+> evitar. Se firman con el `user_id` de quien llama, que es quien tomó la decisión. Si eso hay que
+> consultarlo con Joseth, la pregunta corta es: *«el secretario que desmarca un periodo, ¿deja al
+> alumno con las casillas puestas o vacías?»* — y la respuesta obvia es la primera.
+
+### ~~Lo que todavía espera una decisión~~ — **las dos CONTESTADAS el 31 ago 2026** (decisiones 5 y 6 de arriba). Texto original, para que se lea de dónde venían:
+
 
 - **Quién puede marcar a un alumno.** Hoy la rama de propiedades de matrícula de
   `GuardarAlumno::valor` (`app/Http/Controllers/Alumnos/GuardarAlumno.php:48-81`)
@@ -100,7 +279,7 @@ Lo que compra:
 
 Lo que cuesta: **las 74 consultas de la cabecera.** Está en la §9.
 
-### Las cuatro migraciones
+### Las migraciones — eran cuatro, y la 2 se retiró el 31 ago 2026
 
 ```sql
 -- 1. La unidad puede tener dueño. NULL = del grupo, que es todo lo que hay hoy.
@@ -110,12 +289,15 @@ ALTER TABLE unidades
     ADD CONSTRAINT unidades_alumno_id_foreign
         FOREIGN KEY (alumno_id) REFERENCES alumnos (id) ON DELETE CASCADE;
 
--- 2. La marca, por año, donde vive el año.
-ALTER TABLE matriculas
-    ADD COLUMN boletin_independiente TINYINT(1) NOT NULL DEFAULT 0;
+-- 2. RETIRADA el 31 ago 2026 por la decisión 7 (§2.2). Llegó a producción y se
+--    quita con su propia migración: la marca es por periodo, y dos columnas que
+--    pueden discrepar en silencio acaban discrepando.
+--    ALTER TABLE matriculas ADD COLUMN boletin_independiente TINYINT(1) NOT NULL DEFAULT 0;
+--    ALTER TABLE matriculas DROP COLUMN boletin_independiente;   -- INSTANT, 15,2 ms
 
--- 3. La excepción por periodo. La fila que falta significa «lo que diga la
---    matrícula»; `aplica=0` significa «este periodo no, pero no borres nada».
+-- 3. **LA marca**, no una excepción. `aplica=1` en ese periodo = va aparte;
+--    la fila que falta = va con el grupo; `aplica=0` = «este periodo no, pero
+--    no borres nada», que es distinto de no tener fila y es lo que pinta el badge.
 CREATE TABLE bol_ind_periodos (
     id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
     alumno_id   INT UNSIGNED NOT NULL,
@@ -178,7 +360,7 @@ public const JOIN_ESTADO =
 
 /** El dueño que le toca a cada alumno. Se compara con `u.alumno_id <=> ...` */
 public const ALCANCE =
-    'IF(m.boletin_independiente = 1 AND COALESCE(bip.aplica, 1) = 1, m.alumno_id, NULL)';
+    'IF(COALESCE(bip.aplica, 0) = 1, m.alumno_id, NULL)';
 ```
 
 **`<=>` y no `=`**, y es la mitad del diseño: el igual null-safe de MySQL empareja
@@ -201,8 +383,9 @@ tercera, es que hace falta un método más en el servicio, no un `OR` a mano.
 Es comprobable y es el criterio de aceptación de la fase 1: `alumno_id` nace
 `NULL` en las unidades que ya existen, `boletin_independiente` nace 0 en todas
 las matrículas, `bol_ind_periodos` nace vacía y el interruptor de puestos nace
-en 1. **Los 1.344 tests y sus snapshots tienen que seguir verdes sin regenerar
-ni uno.** Un snapshot que haya que regenerar en la fase 1 no es un snapshot que
+en 1. **Los tests y sus snapshots tienen que seguir verdes sin regenerar ni uno**
+—eran 1.344 cuando se escribió esto y el 31 ago 2026 son **1.579**; el criterio es
+«ni una instantánea regenerada», no una cifra. Un snapshot que haya que regenerar en la fase 1 no es un snapshot que
 se regenera: es una consulta a la que se le olvidó el alcance.
 
 Eso es lo que permite desplegar el backend en los quince colegios **antes**
@@ -214,14 +397,91 @@ de que exista una sola pantalla, que es como tiene que ir (§10).
 
 | | Qué | Depende de |
 |---|---|---|
-| **0** | **Medir.** `tools/unidades-sin-alcance.py`: recorre `app/`, encuentra las consultas que leen `unidades` o `subunidades` y dice **cuántas** y **cuáles** no llevan alcance. Hoy tienen que salir **74 y 70**, todas sin alcance: ésa es la población de la fase 1 | — |
-| **1** | **Las cuatro migraciones + el servicio + el alcance en las 74.** Sin ninguna pantalla, sin ninguna ruta nueva. Termina cuando la §4 se cumple y el detector dice **0 sin alcance** | 0 |
-| **2** | **La marca.** Un `case 'boletin_independiente'` en `GuardarAlumno::valor`, la columna en `Grupo::alumnos`, `Matricula` y `putShow`, **y la regla única de cuál es la matrícula del año** (§9.5). Cero rutas nuevas | 1 |
+| **0** | **Medir.** `tools/unidades-sin-alcance.py`. Corrido el 31 ago 2026: **78 lecturas de `unidades` y 72 de `subunidades`**, de las cuales **29 sitios (60 lecturas) son la población real de la fase 1**. Ver el aviso de abajo, que es lo que hay que leer antes de creerse la cifra grande | — |
+| **1** | **Las migraciones + el servicio + el alcance en los 29 sitios.** Sin ninguna pantalla, sin ninguna ruta nueva. Termina cuando la §4 se cumple y el detector dice **0 en «hay que acotarla» sin alcance** | 0 |
+| **2** | **La marca y su escritor.** `PUT boletin-independiente/periodo` (§6.3, **subida desde la fase 4**: con la decisión 7 es el único escritor que hay), la guarda de la decisión 5 (§2.3), `bol_independiente_periodos` en `putShow` (§6.4) y la columna derivada en `Grupo::alumnos`. **Una ruta nueva** | 1 |
 | **3** | **Las planillas normales.** `putDetailed` deja de devolver a los independientes y `verificarCrearNotas` deja de crearles notas del grupo. Devuelve `independientes` para que el front sepa a cuántos no está viendo | 1, 2 |
-| **4** | **La pantalla nueva.** Las tres rutas de la §6 | 1, 2 |
+| **4** | **La pantalla nueva.** Las **dos** rutas que quedan de la §6 —`planilla` y `copiar`—, porque la tercera se fue a la fase 2 | 1, 2 |
 | **5** | **Los boletines.** Las dos funciones de `Unidad`/`Subunidad` con alcance — ya hechas en la fase 1 si el barrido fue completo; aquí sólo se **prueban en negativo** con un alumno marcado | 1 |
-| **6** | **Los puestos** y el interruptor de `years` | 1, 2 |
+| **6** | **Los puestos** y el interruptor de `years`, con el `puesto: null` de la decisión 6 | 1, 2 |
 | **7** | **El front.** Ver §8. **No se publica hasta que la 1–6 estén DESPLEGADAS** en los quince, no fusionadas | todo lo anterior desplegado |
+
+> ### El criterio «0 sin alcance» era inalcanzable, y la cifra grande no es la población
+>
+> **Corregido el 31 ago 2026 corriendo el detector, no releyéndolo.** La fase 1 decía que termina
+> cuando el detector diga **0 sin alcance**, y el detector dice hoy **72 de 78** y **62 de 72**. Las
+> dos cosas son ciertas y juntas engañan:
+>
+> | | `unidades` | `subunidades` |
+> |---|---|---|
+> | lecturas totales | 78 | 72 |
+> | **«bien por construcción»** (llegan por id o por nota) | **38** | **46** |
+> | **«hay que acotarla»** (por asignatura o por alumno) | **42** | **27** |
+> | de ésas, **ya acotadas** | 5 | 4 |
+> | **de ésas, PENDIENTES** | **37** | **23** |
+>
+> Las «bien por construcción» **nunca van a nombrar `alumno_id`** —una consulta que entra por
+> `unidad_id = :id` no elige nada, el id ya es de su dueño—, así que **`0 sin alcance` no se puede
+> alcanzar jamás** y la fase 1 no podría darse por terminada nunca. El criterio bueno es **0 en la
+> columna «hay que acotarla»**.
+>
+> Y las 60 lecturas pendientes **viven en 29 sitios**, porque una misma consulta cuenta una vez por
+> tabla y por `join`: `DefinitivasDeAsignatura::selloDeVersion` sale cinco veces y es un método.
+> **La población de la fase 1 son 29 sitios, no 134.**
+>
+> Es la regla del `CLAUDE.md` en su forma que muerde: *un detector puede contar bien un síntoma y no
+> estar contando la causa*. El síntoma —«no nombra `alumno_id`»— está contado bien; la causa
+> —«devuelve las filas de otro»— sólo afecta a 29. **El primer sitio donde mirar cuando el número
+> sale raro es el detector**, y aquí el detector no estaba mal: estaba contestando otra pregunta, y
+> la fase 1 le estaba pidiendo la cifra de la columna equivocada.
+>
+> **Y el censo se vuelve a correr antes de encender la fase 1** (§9.6): clasificó lo que había el día
+> que se corrió, y un arreglo posterior puede convertir una lectura inocua en un escritor. Las
+> lecturas totales ya se movieron de **74 y 70** a **78 y 72** desde que se escribió este plan.
+
+**Los 29 sitios pendientes, medidos el 31 ago 2026** (`--csv`, columna `veredicto = hay que acotarla`
+y `estado = no`):
+
+```
+app/Console/Commands/EnviarNotificaciones.php:195       avisosDeNotas
+app/Http/Controllers/AsignaturasController.php:55       putDetalleAsignatura
+app/Http/Controllers/BolfinalesController.php:474       perdidasPorAlumnoDelGrupo
+app/Http/Controllers/BolfinalesController.php:536       perdidasPorDefinitivaDelGrupo
+app/Http/Controllers/ChangeAskedController.php:511      datos_de_docentes_este_anio
+app/Http/Controllers/ChangeAskedController.php:1232     asignaturas_dia
+app/Http/Controllers/Informes/BolfinalesController.php:717   perdidasPorAlumnoDelGrupo
+app/Http/Controllers/Informes/BolfinalesController.php:765   perdidasPorDefinitivaDelGrupo
+app/Http/Controllers/Informes/InformesController.php:107     grupos_desactualizados
+app/Http/Controllers/Informes/NotasPerdidasController.php:54,65    putProfesorGrupos
+app/Http/Controllers/Informes/NotasPerdidasController.php:271,287  putTodos
+app/Http/Controllers/NotasController.php:73,156         putDetailed
+app/Http/Controllers/PeriodosController.php:274         putCopiar          ← §9.4
+app/Http/Controllers/SubunidadesController.php:362      putEliminadas
+app/Http/Controllers/UnidadesController.php:26          (fuera de método)
+app/Http/Controllers/UnidadesController.php:64          putDeAsignaturaPeriodo
+app/Http/Controllers/UnidadesController.php:359         putEliminadas
+app/Http/Controllers/UnidadesController.php:398         getTrashed
+app/Models/NotaFinal.php:70                             (fuera de método)
+app/Models/NotaFinal.php:280                            calcularAsignaturaPeriodo
+app/Models/Unidad.php:237                               informacionAsignatura
+app/Services/DefinitivasDeAsignatura.php:298            recalcular
+app/Services/DefinitivasDeAsignatura.php:472            calcular            ← ya acotada
+app/Services/DefinitivasDeAsignatura.php:567            selloDeVersion
+app/Services/DefinitivasDeAsignatura.php:733            estadoDelGrupo
+app/Services/DefinitivasDeAsignatura.php:854            porcentajeDeLasUnidades
+```
+
+> **Cada fila se lee, no se arregla en lote.** Una consulta sin alcance puede estar bien: la pantalla
+> de estructura del docente quiere las del grupo a propósito, y ahí lo correcto es
+> `u.alumno_id IS NULL`. La lista ordena candidatos; no es una lista de fallos.
+>
+> **Y hay un falso positivo demostrado en la propia lista, que sirve de patrón:**
+> `DefinitivasDeAsignatura::calcular` (:472) sale como «sin alcance» **y está acotada**. Su `u` vive
+> dentro de una derivada que devuelve `u.alumno_id AS dueno`, y la comparación ocurre **fuera**, en
+> `c.dueno <=> ALCANCE`. El detector busca el `<=>` junto al alias de `unidades` y ahí no está: el
+> alcance **se traspasa**, que es exactamente la familia de `SubunidadDeUnaUnidadConDuenoTest`. Lo
+> demuestra `DefinitivaConAlcanceTest`, que está verde. **Antes de tocar una fila de esta lista, se
+> mira si ya hay un test que la cubra.**
 
 Las fases 1 a 6 son de este repo y se pueden fusionar en una sola tanda de
 despliegue. La 7 es de `myvc_front`.
@@ -230,8 +490,12 @@ despliegue. La 7 es de `myvc_front`.
 
 ## §6 — El contrato: qué se añade a la API
 
-**Tres rutas nuevas.** De 542 a **545**. Una ruta nueva es una decisión: éstas
-son las tres y no hay una cuarta. Todo lo demás **reutiliza lo que existe**.
+**Tres rutas nuevas.** De **543** a **546** — el plan decía «de 542 a 545» y ese
+543 se movió el 28 ago con `PUT users/mi-docente`. Una ruta nueva es una decisión:
+éstas son las tres y no hay una cuarta. Todo lo demás **reutiliza lo que existe**.
+
+**Y ya no entran las tres juntas:** `PUT boletin-independiente/periodo` (§6.3) va en la **fase 2**
+porque con la decisión 7 es el único escritor de la marca; las otras dos siguen en la fase 4.
 
 ### 6.1 · `PUT boletin-independiente/planilla` · `auth.personal`
 
@@ -319,7 +583,8 @@ La pantalla nueva, entera, en una petición.
   que no lo sea vuelve como `saltado`, nunca como 400: la pantalla los está
   listando, y que uno se desmarque entre la carga y el clic es normal.
 
-### 6.3 · `PUT boletin-independiente/periodo` · `auth.personal`
+
+### 6.3 · `PUT boletin-independiente/periodo` · **FASE 2**, no fase 4
 
 ```jsonc
 { "alumno_id": 3311, "aplica": false }   // el periodo es el del usuario
@@ -330,6 +595,25 @@ La pantalla nueva, entera, en una petición.
 fila de `unidades`, `subunidades` ni `notas`, nunca.** Hay un test que apaga y
 enciende el interruptor y cuenta las filas antes y después.
 
+**Subió de la fase 4 a la fase 2 el 31 ago 2026, y no es una reordenación de comodidad:** con la
+decisión 7 ésta es **la única escritura de la marca que hay**. `PUT alumnos/guardar-valor` salió del
+camino (§2.1 punto 4), así que la fase 2 sin esta ruta no tiene nada que escribir y la fase 3 no
+tendría cómo montar un solo caso con datos de verdad.
+
+**Su guarda es la decisión 5** y `auth.personal` **no basta**: un docente es personal. Hace falta el
+método nuevo de `Autoriza` de la §2.3 —administrador, secretario o rector, superusuario por encima—,
+y explícitamente **no el titular del grupo**, que hoy sí escribe la rama de matrícula de
+`GuardarAlumno::valor`. La decisión 5 es más estrecha que «como está hoy».
+
+**Y sí acepta un periodo cerrado**, por la §2.4. Lo que no puede hacer es sembrar las notas de la
+§9.3 preguntando `permiteEditarNotas`: ahí está la trampa, y está medida en esa misma sección.
+
+**Lo que hay que validar antes de escribir la fila**, porque `consultar()` ya no lo comprueba a
+propósito: que el alumno **esté matriculado en el año de ese periodo**. La clave foránea sólo obliga
+a que el alumno y el periodo existan, no a que tengan que ver el uno con el otro. Esa comprobación es
+de quien escribe; ponerla en la lectura la cobraría en cada boletín impreso para defenderse de un
+estado que el escritor no debe dejar crear.
+
 ### 6.4 · Los campos añadidos a lo que ya existe
 
 Campos **añadidos**, no cambiados: las claves de hoy siguen todas ahí, y el
@@ -339,11 +623,51 @@ despliegue habrá colegios con el código viejo.
 | Endpoint | Campo | Qué dice |
 |---|---|---|
 | `PUT notas/detailed` (la planilla) | `independientes: [{alumno_id, nombres, apellidos, aplica}]` | **a quién NO estás viendo en esta lista**, para que la planilla lo diga en vez de que el docente crea que se le perdió un alumno |
-| `PUT notas/detailed`, `Grupo::alumnos` | `alumno.bol_independiente` · `alumno.bol_independiente_periodo` | la marca del año y la del periodo. Con `bol_independiente=1` y `bol_independiente_periodo=false` el alumno **sí** sale en la lista y lleva el badge que pidieron |
-| `PUT alumnos/guardar-valor` | acepta `propiedad: "boletin_independiente"` | un `case` más en la lista blanca de propiedades de matrícula (§6.6). **Cero rutas nuevas**, y **la ficha no manda `year_id`**: `putGuardarValor:911` lo saca del token cuando no viene |
-| `PUT alumnos/show` | `boletin_independiente` | por donde **la ficha lee** la marca, al lado de `m.repitente`. El año es el del token. **Cuidado**: si el alumno no tiene matrícula ese año, `putShow` cae a una segunda consulta que sale sólo de `alumnos` (`:585`) y **el campo no viene** — `undefined` es «no matriculado este año», no «desmarcado». Con `nee` no pasa porque es columna de `alumnos` |
+| `PUT notas/detailed`, `Grupo::alumnos` | `alumno.bol_independiente_periodo` | **uno solo, no dos.** Eran «la marca del año» y «la del periodo»; con la decisión 7 sólo hay la del periodo, y el par `bol_independiente=1` + `bol_independiente_periodo=false` que describía el badge **ya no puede existir**. El alumno con `aplica=0` y datos guardados sale en la lista y lleva el badge; el que nunca estuvo marcado sale sin nada |
+| ~~`PUT alumnos/guardar-valor`~~ | ~~acepta `propiedad: "boletin_independiente"`~~ | **DECAE con la decisión 7.** La escritura ya no pasa por aquí: el único escritor es `PUT boletin-independiente/periodo` (§6.3) |
+| `PUT alumnos/show` | **`bol_independiente_periodos`** | por donde **la ficha lee** la marca. Ya no es un booleano: es la lista de los periodos del año con su estado. Ver el bloque de abajo |
 | boletines 1, 2 y 3 | `asignatura.bol_independiente: true` | para que el boletín pueda rotularlo si el colegio quiere; las unidades ya vienen siendo las suyas |
-| puestos | `alumno.bol_independiente` · `puestos_con_bol_independiente` | el interruptor viaja en la respuesta para que la pantalla explique por qué falta alguien |
+| puestos | `alumno.bol_independiente_periodo` · `puestos_con_bol_independiente` | el interruptor viaja en la respuesta para que la pantalla explique por qué falta alguien. Y por la decisión 6, el puesto del independiente viaja como **`null`** y el front pinta `—` |
+
+#### `bol_independiente_periodos`, el campo que la ficha necesita — nombre fijado el 31 ago 2026
+
+```jsonc
+// dentro de la respuesta de `PUT alumnos/show`
+"bol_independiente_periodos": [
+  { "periodo_id": 91, "numero": 1, "aplica": false, "tiene_datos": false },
+  { "periodo_id": 92, "numero": 2, "aplica": true,  "tiene_datos": true  },
+  { "periodo_id": 93, "numero": 3, "aplica": false, "tiene_datos": true  },
+  { "periodo_id": 94, "numero": 4, "aplica": false, "tiene_datos": false }
+]
+```
+
+**Vienen SIEMPRE todos los periodos del año, no sólo las filas que existen en `bol_ind_periodos`.**
+Es la decisión de forma y no es cosmética: una lista con sólo las filas presentes obliga al front a
+decidir qué significa una ausencia, y **este módulo acaba de perder una semana justamente por leer
+una ausencia al revés**. Mandar los cuatro deja al cliente sin ese default que inventar.
+
+**Los cuatro estados son `aplica` × `tiene_datos`, y los cuatro significan algo distinto:**
+
+| `aplica` | `tiene_datos` | Qué es, y qué pinta la ficha |
+|---|---|---|
+| `false` | `false` | **el caso de todo el mundo hoy.** Ni fila ni estructura propia: va con el grupo. Sin badge |
+| `true` | `true` | va aparte y tiene su estructura montada. El estado normal de un marcado |
+| `true` | `false` | **va aparte y NO tiene ni una unidad propia.** Es la §9.1 —el alumno que se cae por el hueco— vista desde la ficha, y **es el único que la pantalla tiene que gritar**: su definitiva va a salir 0 y nadie va a recibir un error |
+| `false` | `true` | **«este periodo va con el grupo», con sus datos guardados.** Es literalmente lo que se pidió: *«no debe borrar los datos … pero esos datos deben ser ignorados»*. La ficha lo enseña en gris y el badge dice que hay algo guardado que no se está usando |
+
+**`tiene_datos` lo contesta el backend porque el navegador no puede.** Es «¿tiene este alumno alguna
+unidad propia viva en ese periodo?», o sea un `EXISTS` sobre `unidades` con `alumno_id` y
+`periodo_id` — la columna izquierda de `unidades_alcance_index` no sirve aquí, así que **es la
+consulta a mirar con `EXPLAIN` antes de darla por buena**. El front tendría que pedir una llamada por
+periodo para saberlo, y la ficha se abre para todo.
+
+**Y esto cierra la trampa que la §6.4 traía escrita.** Decía que si el alumno no tiene matrícula ese
+año, `putShow` cae a una segunda consulta que sale sólo de `alumnos` y **el campo no viene** —
+`undefined` significando «no matriculado este año» y no «desmarcado». Con la marca colgada de
+`(alumno_id, periodo_id)` **el campo ya no depende de la matrícula**: los periodos salen del año del
+token y el estado de `bol_ind_periodos`, así que se manda en las dos ramas y `undefined` deja de ser
+ambiguo. Es la §2.2 vista desde el contrato.
+
 
 ### 6.5 · Lo que NO hace falta escribir
 
@@ -522,7 +846,7 @@ equivocarse, y las dos ya han pasado en este repo:
   sus notas y le imprime la asignatura en blanco.
 
 Por eso la fase 0 es un **detector**, y por eso imprime su población. Y por eso
-la §4 exige que **los 1.344 tests pasen sin regenerar un solo snapshot**: los
+la §4 exige que **la suite entera pase sin regenerar un solo snapshot**: los
 snapshots de contrato son, esta vez, el detector más fiel que hay — están
 escritos sobre un colegio sin ningún alumno marcado, así que cualquier consulta
 a la que se le olvide el alcance mueve alguno.
@@ -553,7 +877,21 @@ destino. Si se olvida, el periodo nuevo empieza con los independientes sin nada
 y volvemos a la §9.1. Hay test: `CopiarUnidadesTest.php` existe y hay que
 ampliarlo, no escribir otro.
 
-### 9.5 · Se lee de una matrícula y se escribe en otra — encontrado el 24 ago
+### 9.5 · ~~Se lee de una matrícula y se escribe en otra~~ — **CERRADA para esta marca el 31 ago 2026**
+
+> **No se arregló: dejó de existir.** La decisión 7 retiró `matriculas.boletin_independiente`
+> (§2.2), y con ella la pregunta «¿cuál es la matrícula del año?» que este riesgo consistía en
+> acertar. `bol_ind_periodos` cuelga de `(alumno_id, periodo_id)` **con clave única**: no hay dos
+> filas entre las que equivocarse, y leer y escribir no pueden elegir distinto porque no eligen.
+>
+> **El riesgo sigue vivo para `repitente`, `promovido` y `nro_folio`**, que siguen viviendo en
+> `matriculas` y siguen leyéndose y escribiéndose con dos consultas distintas. Lo que cambia es que
+> **ya no bloquea la fase 2 de este plan**: era «va en la fase 2 y no después» porque con esta marca
+> el fallo se veía en la planilla de otro docente. Ahora es un pendiente de las matrículas, no del
+> boletín independiente. El texto original se conserva porque el fallo de las otras tres columnas es
+> exactamente éste.
+
+#### El texto original, del 24 ago
 
 Salió comprobando una pregunta del front (`myvc-front-10`) que resultó no ser el
 problema. **La ficha y el guardado no eligen la matrícula del año de la misma
@@ -650,6 +988,7 @@ lo que los hace encontrar cosas es **mirar el resultado y no el estado**.
 | Test | Qué mira, y por qué ése |
 |---|---|
 | `BolIndependienteNoMueveNadaTest` | **el de la §4**: con la migración puesta y nadie marcado, las respuestas de planilla, boletines 1/2/3, puestos y definitivas son las de antes. Es el que hace desplegable la fase 1 |
+| ✅ `BolIndependienteAlcanceTest::test_marcar_un_periodo_no_toca_el_alcance_de_los_demas` | **el de la decisión 7, escrito el 31 ago 2026 y verde.** Marca el periodo 2 y comprueba que los otros tres siguen yendo con el grupo. **Con nadie marcado, el default bueno y el malo dan el mismo verde**: por eso no había nada que cazara el fallo, y por eso este test construye el caso en vez de mirar que nada se mueva. Se pone rojo devolviendo el `COALESCE(bip.aplica, 0)` al `1` |
 | `BolIndependienteDefinitivaTest` | **ida y vuelta**: marcar, crear estructura propia, poner notas, leer la definitiva. Que salga el número que sale de SUS porcentajes, no de los del grupo |
 | `BolIndependienteNoBorraTest` | apagar y encender `aplica` **contando filas de `unidades`, `subunidades` y `notas` antes y después**. Un borrado no se ve en la respuesta |
 | `BolIndependienteVuelveALaPlanillaTest` | con `aplica=0`, el alumno vuelve a `alumnos` en `notas/detailed`, **con sus notas del grupo creadas** (§9.3) y con el badge |
@@ -659,7 +998,17 @@ lo que los hace encontrar cosas es **mirar el resultado y no el estado**.
 | `SuperficieDeUnTokenTest` | el barrido que ya existe: que un docente no pueda escribirle estructura a un alumno de un grupo que no es suyo |
 
 Y el que no es un test sino una herramienta: **`tools/unidades-sin-alcance.py`,
-que se corre en cada fase y siempre imprime su población.**
+que se corre en cada fase y siempre imprime su población** — leyendo la columna **«hay que
+acotarla»** y no la cifra grande, por lo que dice el aviso de la §5.
+
+> **Todos montan la marca por un solo sitio: `CasoDeContrato::marcarIndependiente($alumno, $periodo)`.**
+> Hasta el 31 ago 2026 eran nueve ficheros con su propio
+> `UPDATE matriculas SET boletin_independiente = 1`, que era la marca **del año**. Con la marca por
+> periodo, un test que siguiera escribiendo eso **no fallaría de forma útil: montaría un escenario
+> que ya no existe**, y el verde no significaría nada. El helper tiene el tercer parámetro
+> `aplica: false` porque **escribir la fila diciendo que no** y **no escribirla** son estados
+> distintos: el primero es «este periodo va con el grupo, y hay datos guardados que no se están
+> usando», que es el badge de la §1.
 
 ---
 

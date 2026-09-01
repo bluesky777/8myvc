@@ -8,7 +8,160 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
-**Última actualización: 30 ago 2026 — LA DEFINITIVA DE UNA MATERIA DEJA DE SER UN ENTERO** ·
+**Última actualización: 31 ago 2026, noche — LA MARCA DEL BOLETÍN INDEPENDIENTE PASA A SER POR
+PERIODO, Y `matriculas.boletin_independiente` SE RETIRA** · las **tres decisiones de Joseth** las
+tomó en la sesión del front `myvc-front-c5` y la 7 revisa la 2 del 24 ago: *«a veces el estudiante
+tuvo un periodo normal y en el segundo un accidente … no se le puede borrar el boletín del primero,
+**tienen que convivir**»* ([19 §2.1](19-boletin-independiente.md)) · **el arreglo era un carácter**,
+`COALESCE(bip.aplica, 1)` → `COALESCE(bip.aplica, 0)`: fila ausente pasa de significar «lo que diga
+la matrícula» a «va con el grupo», y con el default viejo **marcar a un alumno en octubre le
+repintaba el boletín del primer periodo** · **la tabla estaba bien; el sentido del default estaba al
+revés** · `2026_08_31_100000_retirar_boletin_independiente_de_matriculas`
+
+> **ES UNA MIGRACIÓN BLOQUEANTE MÁS PARA LA TANDA SIGUIENTE**, y no hay que apuntarla a mano en
+> `DESPLIEGUE.md`: esa tabla se remide con el comando el día del despliegue, que es la regla que ya
+> está escrita ahí. Lo que sí hay que llevar delante ese día es que **`DROP COLUMN` sea `INSTANT` en
+> los quince** — medido aquí en 15,2 ms sobre MySQL 8.0.42, y **la versión de los quince cPanel no la
+> conocemos**. El peor caso es reconstruir una tabla de 0,4 MB, así que no es bloqueo: es una cifra
+> que hay que mirar y no suponer.
+
+> **LA PREGUNTA QUE ERA NUESTRA Y ESTÁ CONTESTADA: la columna se retira, no se queda de espejo.**
+> El front pedía una sola fuente y tenía razón, pero midiéndolo salió mejor de lo que su argumento
+> decía. La columna vivía en `matriculas`, que **no tiene clave única sobre (alumno, año)**: es
+> literalmente la [§9.5](19-boletin-independiente.md) —la ficha lee una matrícula y el guardado
+> escribe otra—. `bol_ind_periodos` cuelga de `(alumno_id, periodo_id)` **con clave única**, así que
+> **la §9.5 deja de existir para esta marca** (sigue viva para `repitente`, `promovido` y
+> `nro_folio`).
+>
+> **Y se llevó por delante treinta líneas de SQL que sólo estaban para adivinar una fila.**
+> `alcanceCorrelacionado()` entraba por `periodos`, bajaba a `grupos` del mismo `year_id`, unía
+> `matriculas` y desempataba con `ORDER BY created_at DESC, id DESC LIMIT 1` — un `LIMIT 1` que era
+> una degradación consciente, «una de las dos» en vez de reventar. **Hoy son cuatro líneas**: un
+> `SELECT` sobre `bol_ind_periodos`. Un periodo pertenece a un año y sólo a uno, así que **el año se
+> hereda en vez de derivarse**, y de paso el `LEFT JOIN` de `JOIN_ESTADO` deja de poder duplicar una
+> fila.
+>
+> **Quitar una columna de producción no movió una sola instantánea, y eso NO fue suerte.** La
+> migración del esqueleto es **anterior a `eb95cbc`** —comprobado con `git merge-base
+> --is-ancestor`—, o sea que la columna lleva desplegada en los quince desde antes de la tanda del
+> 25–30. Lo que la hace inocua de quitar es el trabajo defensivo del **24 ago**: los cuatro sitios
+> que hacían `SELECT *` sobre `matriculas` se pasaron a columnas nombradas para que la columna nueva
+> no se colara, y **ninguna de esas cuatro listas la nombra**. Se pagó para que añadirla no moviera
+> nada y se cobra hoy para que quitarla tampoco. Los cuatro comentarios están actualizados: **la
+> regla no caduca con la columna**, la próxima que se añada a `matriculas` entra por `*` igual de
+> callada.
+>
+> **El coste medido, no supuesto:** `DROP COLUMN` con `ALGORITHM=INSTANT` sobre una copia real de
+> `matriculas` (**3.542 filas, 0,4 MB**, MySQL **8.0.42**) tarda **15,2 ms** y no reconstruye la
+> tabla. Lo que no sabemos es la versión de MySQL de los quince cPanel; el peor caso es reconstruir
+> 0,4 MB.
+>
+> **EL TEST QUE NO EXISTÍA Y ES EL QUE IMPORTA: `test_marcar_un_periodo_no_toca_el_alcance_de_los_demas`.**
+> Marca el periodo 2 y comprueba que los otros tres siguen yendo con el grupo. **Se pone rojo con ese
+> solo carácter de vuelta**, y no había nada que lo cazara: con nadie marcado, el default bueno y el
+> malo dan el mismo verde. Los nueve ficheros de test que montaban la marca con
+> `UPDATE matriculas SET boletin_independiente = 1` pasan por un helper único,
+> `CasoDeContrato::marcarIndependiente($alumno, $periodo)` — un test que siguiera escribiendo la
+> columna no fallaría de forma útil: **montaría un escenario que ya no existe**.
+
+> **Y LO SEGUNDO, QUE ES DE MÉTODO Y VALE MÁS QUE EL ARREGLO: «0 sin alcance» era un criterio
+> inalcanzable.** La fase 1 decía que termina cuando `tools/unidades-sin-alcance.py` diga **0 sin
+> alcance**. Corrido hoy dice **72 de 78** y **62 de 72**, y el mensaje del front lo leyó como «queda
+> eso por hacer». Las dos cifras son ciertas y juntas engañan: **84 de esas lecturas entran por
+> `unidad_id` o por una nota y NUNCA van a nombrar `alumno_id`** —el id ya es de su dueño, la
+> consulta no elige nada—, así que el detector no puede llegar a 0 y la fase 1 no podría darse por
+> terminada jamás.
+>
+> **La población real de la fase 1 son 29 sitios**, no 134: 60 lecturas «hay que acotarla» sin
+> acotar, y una misma consulta cuenta una vez por tabla y por `join` —`selloDeVersion` sale cinco
+> veces y es un método—. El criterio corregido es **0 en la columna «hay que acotarla»**, y los 29
+> están listados uno a uno en la [§5](19-boletin-independiente.md).
+>
+> **Es la regla del `CLAUDE.md` en su forma que muerde**, otra vez y en un sitio nuevo: *contar bien
+> el síntoma no es haber contado la causa*. El detector no está mal — **contesta otra pregunta**, y
+> era el plan quien le pedía la cifra de la columna equivocada. **Y hay un falso positivo demostrado
+> dentro de la propia lista**, que sirve de patrón para las otras 28: `DefinitivasDeAsignatura::calcular`
+> sale como «sin alcance» **y está acotada** — su `u` vive dentro de una derivada y la comparación
+> ocurre fuera, en `c.dueno <=> ALCANCE`. **Antes de tocar una fila de esa lista se mira si ya hay un
+> test que la cubra.**
+
+> **LO QUE ENCONTRÉ Y NO ESTABA EN EL ENCARGO — es de la fase 2 y hoy es invisible por población.**
+> La [§9.3](19-boletin-independiente.md) dice que `PUT boletin-independiente/periodo` **crea las notas
+> que falten** al APAGAR la marca, para que el alumno no vuelva a la planilla sin casillas. Ese
+> sembrado pasa por `Nota::verificarCrearNotas` → `quienCreaLasNotas` → `User::permiteEditarNotas`,
+> que termina en `is_superuser || tipo == 'Profesor'`. **Un secretario o un rector que no sean
+> superusuarios reciben `false` — también con el periodo ABIERTO**: la gente que la decisión 5 puso a
+> cargo es exactamente la que no siembra nada, en silencio, y desde Flutter esa ventana dura días
+> porque esa app no llama a `/notas` nunca.
+>
+> **Hoy funcionaría por coincidencia de población, que es la forma exacta del paso 0 de
+> `DESPLIEGUE.md`**: en `simonbolivar` los roles `Rector` (#10) y `Secretario` (#12) existen y tienen
+> **cero personas**, y los diez `Admin` son los diez `is_superuser`. El colegio que le dé el rol a un
+> secretario de verdad es el que lo descubre. **La recomendación está escrita en la §2.4**: ese
+> sembrado no debe preguntar `permiteEditarNotas`, porque la pregunta es otra.
+>
+> **Y la guarda de la decisión 5 no se puede escribir con los nombres del mensaje:**
+> `Role::hasRoleOrPerm` es del **front** — en este backend aparece en cinco comentarios y en ninguna
+> línea de código. Va como método nuevo de `Autoriza`, y **no reutilizando `esAdministrativo`**, que
+> es `is_superuser || Secretario` y **no incluye el rol `Admin`** al que la decisión 5 nombra
+> explícitamente.
+
+> **LO QUE NO SE HIZO, Y NO ES UN OLVIDO: los 29 sitios de la fase 1.** Es el trabajo de verdad que
+> queda y no cabía en esta tanda. Lo que sí queda es **la lista medida con nombre y línea**, el
+> criterio de terminación corregido y el patrón de falso positivo, que es lo que hace que el
+> siguiente los pueda ir cerrando sin volver a medir. **Sin fase 1 no hay fase 2, y sin fase 2 no hay
+> nada que escriba la marca.**
+>
+> ## ✅ VERDE: 1.579 pruebas, 11.857 aserciones · pint PASS · larastan nivel 7 `[OK]`
+>
+> **1.578 eran el 30 ago y el de más es el test nuevo de la decisión 7** — el desglose cuadra exacto,
+> así que el número está medido y no copiado. La suite entera, nunca con `--filter`:
+> `docker exec 8myvc-app-1 php artisan test | tail -3`.
+>
+> **Y va contra una base de tests reconstruida**, porque este lote lleva migración: la de por defecto
+> todavía tiene `matriculas.boletin_independiente`. Se corrió con
+> `DB_TEST_DATABASE=simonbolivar_testing_bi7` para no pisar a las otras sesiones, y quien lo repita
+> reconstruye antes con `tools/construir-bd-test.sh` o hace lo mismo. **El primer sitio donde mirar
+> cuando el número sale raro es el instrumento**, y aquí lo sería.
+>
+> **Cero instantáneas regeneradas**, que es el criterio de aceptación de la §4 y esta vez apuntaba a
+> quitar una columna en vez de a añadirla.
+
+> **Y esto NO está comiteado**: el árbol traía ya cinco ficheros modificados de otras sesiones y
+> `myvc-front-c5` había editado el 19 sin commitear. El OK de Joseth a otra sesión no vale para ésta
+> ([[autorizacion-no-se-delega]]). El aviso al front está escrito en su buzón
+> (`myvc_front/PANTALLAS-HISTORIAL-Y-BOLETIN.md`), que es donde manda el acuerdo del 24 ago.
+
+**Anterior: 31 ago 2026 — LA TANDA DEL 25–30 AGO ESTÁ DESPLEGADA, Y CON ELLA LA
+DEFINITIVA DECIMAL** · de `eb95cbc` a **`9474b50`**, 44 commits, **en los quince del bucle de
+`micolev1` y en la cuenta de `lalvirtual.edu.co`**, con el front de la misma vuelta · **dos
+migraciones, las dos bloqueantes** (`interruptores_de_certificados` y `notas_finales_en_decimal`) ·
+**543 rutas** · **38 ficheros de `app/`** · los **diez avisos al front cerrados**: A, B y C salieron
+en el front de esa vuelta; D y F no requerían trabajo; E lo habían pedido ellos; G, H e I avisados
+
+> **LO SIGUIENTE, Y ES DE `myvc_flutter`: el paso 3 del aviso J acaba de pasar de prohibido a
+> obligatorio.** El orden era `app2` → **backend en los quince, verificado** → Flutter, y hacer el
+> tercero antes que el segundo era el error caro. Los dos primeros están hechos, así que toca
+> **quitar el `roundToDouble()` de `LibroNotasApi.dart:439`**, contra el hash **`9474b50`** y no
+> contra `main`. Mientras no salga, la app enseña `44` con `43,75` guardado **tras guardar una nota
+> y hasta recargar**: es la ventana pequeña, la que se elige a propósito, y la abre un colegio cada
+> vez en lugar de los quince a la vez. **Y el sitio a mirar para pintar es quien llama a
+> `notaEscrita` (`LibroAsignaturaScreen:453`), no el formateador** — redondear ahí reintroduciría
+> desde el cliente justo el redondeo que la migración quita, porque ese formateador alimenta seis
+> casillas de edición.
+>
+> **Y una acción nuestra que sigue sin hacerse, escrita aquí para que no se caiga con la sesión:
+> decirle a `myvc_flutter` el hash desplegado.** `b369020` está dentro de `9474b50` —comprobado con
+> `git merge-base --is-ancestor`— y su `temasDelColegio` lleva un interruptor apagado esperando
+> exactamente ese dato. No hay ventana rota: leen las dos formas, sólo hay un interruptor que
+> encender. La otra, la del desglose por año del bloque 5, sigue esperando al `for` de la fase 0.
+>
+> **La tabla de la tanda decía UNA migración y veintinueve ficheros; el día del despliegue eran DOS
+> y treinta y ocho.** No era una cifra vieja: la tanda **creció** después de escribirla. Ésa es la
+> diferencia entre *remedir* y *sumar*, y por eso el recálculo va con el comando delante **el día
+> del despliegue**, no el día en que se escribe la tabla.
+
+**Anterior: 30 ago 2026 — LA DEFINITIVA DE UNA MATERIA DEJA DE SER UN ENTERO** ·
 `notas_finales.nota` pasa a **`DECIMAL(7,4)`** y el cálculo deja de redondear
 (`2026_08_30_200000_notas_finales_en_decimal`) · encargo de Joseth por la sesión del front
 `myvc-front-b8`, que ya hizo su mitad: la planilla de puestos numeraba filas (`$index + 1`) y decía
@@ -19,9 +172,10 @@ salen los empates de puesto, porque `Nota::puestoAlumno` cuenta a cuántos les g
 redondear y `puestoAlumno` compara con `>` a secas · **verde: 1.578 pruebas, 11.846 aserciones,
 pint PASS, larastan nivel 7 `[OK]`**
 
-> **COMITEADO el 30 ago 2026 con el OK expreso de Joseth**, que era justo lo que este aviso estaba
-> esperando. **Comiteado no es desplegado:** la migración corre en quince producciones y **le cambia
-> el puesto a alumnos reales**, así que el despliegue sigue siendo una decisión aparte.
+> **COMITEADO el 30 ago 2026 con el OK expreso de Joseth y DESPLEGADO en los quince el 31**, que era
+> justo lo que este aviso estaba esperando. Se escribió aquí *«comiteado no es desplegado»* porque la
+> migración corre en quince producciones y **le cambia el puesto a alumnos reales**; ya está corrida,
+> así que **lo que queda no es el despliegue sino el paso 3 de Flutter** — ver la entrada del 31.
 >
 > **Y la trampa que se llevó diez minutos al verificarlo, apuntada para el siguiente:** esta rama
 > **da seis rojos contra la base de tests por defecto**. No es una regresión — es que

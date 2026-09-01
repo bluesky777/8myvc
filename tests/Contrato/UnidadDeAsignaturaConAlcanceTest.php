@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
  * `Unidad::deAsignatura` con el alcance del boletin independiente.
  *
  * **Este test se escribio ANTES de acotar nada**, y por eso sirve: con
- * `boletin_independiente` a 0 en todas las matriculas y `alumno_id` NULL en todas
+ * `bol_ind_periodos` vacia y `alumno_id` NULL en todas
  * las unidades, **la forma correcta y la incorrecta dan el mismo verde**. Un test
  * escrito despues del arreglo no comprueba el arreglo: comprueba que nada se movio,
  * que es otra cosa.
@@ -123,12 +123,10 @@ class UnidadDeAsignaturaConAlcanceTest extends CasoDeContrato
 
         [$alumnoId, $asignaturaId, $periodoId] = $this->unAlumnoConUnidades();
 
-        // Su matricula pasa a boletin independiente, y una unidad pasa a ser suya.
-        DB::update(
-            'UPDATE matriculas SET boletin_independiente = 1
-              WHERE alumno_id = ? AND deleted_at IS NULL',
-            [$alumnoId]
-        );
+        // Este periodo suyo pasa a boletin independiente, y una unidad pasa a ser suya.
+        // Antes se marcaba la matricula —el ano entero— y aqui se marca solo el periodo
+        // que la consulta va a mirar, que es la decision 7 del 31 ago 2026.
+        $this->marcarIndependiente($alumnoId, $periodoId);
 
         DB::insert(
             'INSERT INTO unidades (asignatura_id, periodo_id, alumno_id, definicion, porcentaje, orden, created_at, updated_at)
@@ -168,12 +166,17 @@ class UnidadDeAsignaturaConAlcanceTest extends CasoDeContrato
     /** Otro alumno de la misma asignatura, sin marcar: es contra quien se compara. */
     private function unCompaneroSinMarcar(int $alumnoId, int $asignaturaId): int
     {
+        // «Sin marcar» ya no es una columna de `matriculas`: es **no tener fila
+        // encendida en ningun periodo**, que es lo que dice `bol_ind_periodos`. El
+        // `NOT EXISTS` va sin filtrar el periodo a proposito — para comparar hace falta
+        // alguien que no este marcado en ninguno, no alguien que se libre solo en este.
         $fila = DB::selectOne(
             'SELECT m.alumno_id
                FROM asignaturas a
               INNER JOIN matriculas m ON m.grupo_id = a.grupo_id AND m.deleted_at IS NULL
-                    AND m.boletin_independiente = 0
               WHERE a.id = ? AND m.alumno_id <> ?
+                AND NOT EXISTS (SELECT 1 FROM bol_ind_periodos bip
+                                 WHERE bip.alumno_id = m.alumno_id AND bip.aplica = 1)
               ORDER BY m.alumno_id LIMIT 1',
             [$asignaturaId, $alumnoId]);
 

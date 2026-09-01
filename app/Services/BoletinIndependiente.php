@@ -28,22 +28,40 @@ use Illuminate\Support\Facades\DB;
  * definitivas del colegio se van a 0** sin un solo error en el log. Es el fallo
  * más caro que este fichero puede introducir y no da ninguna señal.
  *
- * ## Con nadie marcado, esto no cambia nada, y es comprobable
+ * ## La marca es POR PERIODO, y eso es la decisión 7 del 31 ago 2026
  *
- * `alcance()` devuelve `null` para todo el mundo mientras
- * `matriculas.boletin_independiente` sea 0 en todas las filas —que es como nace—,
- * y `u.alumno_id <=> NULL` selecciona **exactamente** las filas de hoy. Ése es el
- * criterio de aceptación de la §4 del plan: los 1.344 tests pasan sin regenerar
- * un solo snapshot.
+ * Una fila en `bol_ind_periodos` con `aplica = 1` dice «este alumno, en este
+ * periodo, va aparte». **La fila que falta dice «va con el grupo»**, y ése es el
+ * `COALESCE(..., 0)` de más abajo. Estaba escrito al revés —la fila ausente
+ * significaba «lo que diga la matrícula»— y con ese default **marcar a un alumno
+ * en octubre le repintaba el boletín del primer periodo**: justo lo que se pidió
+ * que no pasara. *«Tuvo un periodo normal y en el segundo un accidente … tienen
+ * que convivir.»*
+ *
+ * **`matriculas.boletin_independiente` ya no existe**, y no es que haya dejado de
+ * consultarse: se retira con su propia migración (§2.1 del plan). Dos columnas
+ * que pueden discrepar en silencio acaban discrepando, y discrepar aquí es un
+ * alumno que vuelve al boletín del grupo sin que nadie lo vea. Lo que se lleva por
+ * delante está contado en `alcanceCorrelacionado()` y en `consultar()`, y es más
+ * de lo que costaba: con la marca colgada de `(alumno_id, periodo_id)` **el año se
+ * hereda del periodo en vez de derivarse de una matrícula que hay que elegir**.
+ *
+ * ## Con nadie marcado, esto no cambia nada, y ahora por la razón fuerte
+ *
+ * `alcance()` devuelve `null` para todo el mundo mientras `bol_ind_periodos` esté
+ * vacía —que es como nace—, y `u.alumno_id <=> NULL` selecciona **exactamente**
+ * las filas de hoy. Ése es el criterio de aceptación de la §4 del plan. Antes se
+ * cumplía porque una columna estaba a 0 en todas las filas; ahora se cumple
+ * porque **no hay ninguna fila**, que es una afirmación más difícil de romper sin
+ * querer.
  *
  * ## Lo que esta clase NO hace, y no es un olvido
  *
- * - **`copiar()` no está.** Es la §6.2 y necesita las tres rutas nuevas, que no
- *   entran en esta fase: una ruta nueva es una decisión, y además dos del plan
- *   siguen abiertas (quién puede marcar a un alumno, y qué puesto lleva su
- *   boletín).
- * - **No escribe nada.** Ni la marca, ni el interruptor por periodo. Eso es la
- *   fase 2 y la 4.
+ * - **`copiar()` no está.** Es la §6.2 y necesita dos de las tres rutas nuevas,
+ *   que no entran en esta fase: una ruta nueva es una decisión.
+ * - **No escribe nada.** Ni la marca por periodo: eso es
+ *   `PUT boletin-independiente/periodo`, que con la decisión 7 es **el único
+ *   escritor que hay** y por eso subió de la fase 4 a la fase 2.
  * - **El interruptor de los puestos tampoco está**: se fue a la fase 2 con su
  *   columna, porque `years.puestos_con_bol_independiente` movía tres respuestas
  *   vivas y no lo consumía nada. El comentario de más abajo guarda la regla que
@@ -65,12 +83,22 @@ class BoletinIndependiente
     /**
      * El dueño que le toca a cada alumno, en SQL. Se compara con `u.alumno_id <=> ...`
      *
-     * La fila que falta en `bol_ind_periodos` significa «lo que diga la
-     * matrícula», y de ahí el `COALESCE(bip.aplica, 1)`: la tabla nace vacía y
-     * tiene que comportarse como si dijera que sí.
+     * **La fila que falta significa «va con el grupo», y de ahí el
+     * `COALESCE(bip.aplica, 0)`.** Es la decisión 7 del 31 ago 2026 y es un
+     * carácter que cambia el significado entero: con el `1` que había aquí, la
+     * fila ausente significaba «lo que diga la matrícula», así que **marcar a un
+     * alumno en octubre le repintaba el boletín del primer periodo** — que es
+     * exactamente lo que se pidió que no pasara. *«Tuvo un periodo normal y en el
+     * segundo un accidente … tienen que convivir.»*
+     *
+     * **Y ya no pregunta por `matriculas.boletin_independiente`, porque esa
+     * columna se retira** (§2.1 del plan). Con la marca por periodo, la matrícula
+     * no decide nada: quien decide es esta tabla, y su clave única
+     * `(alumno_id, periodo_id)` hace que el `LEFT JOIN` de `JOIN_ESTADO` **no
+     * pueda duplicar una fila**, que era el otro riesgo que había que rodear.
      */
     public const ALCANCE =
-        'IF(m.boletin_independiente = 1 AND COALESCE(bip.aplica, 1) = 1, m.alumno_id, NULL)';
+        'IF(COALESCE(bip.aplica, 0) = 1, m.alumno_id, NULL)';
 
     /**
      * El alcance como **subconsulta escalar correlacionada**, para las consultas que
@@ -81,68 +109,47 @@ class BoletinIndependiente
      *
      *     ... and u.alumno_id <=> '.BoletinIndependiente::alcanceCorrelacionado('a.id', 'u')
      *
-     * ## Por qué existe, y no es una comodidad
+     * ## Esto era treinta líneas y ahora son cuatro, y no por gusto
      *
-     * La forma normal —`JOIN_ESTADO` + `ALCANCE`— necesita `m` en el ámbito. Cuando no
-     * está, la salida obvia es **traer `matriculas` con un `JOIN`, y eso puede DUPLICAR
-     * FILAS**: `matriculas` tiene `PRIMARY KEY (id)` y sendas claves por `alumno_id` y
-     * `grupo_id`, pero **ninguna única sobre el par** — nada impide dos matrículas vivas
-     * del mismo alumno en el mismo grupo. Medido el 24 ago 2026 sobre la base de
-     * desarrollo: **0 pares de 3.542**, o sea que hoy no pasa **aquí** — y son dieciséis
-     * colegios, con quince bases que nadie ha mirado.
+     * Mientras la marca vivió en `matriculas.boletin_independiente`, esta subconsulta
+     * tenía que **derivar la matrícula del año** para poder leerla: entraba por
+     * `periodos`, bajaba a `grupos` del mismo `year_id`, unía `matriculas` y
+     * desempataba con `ORDER BY mbi.created_at DESC, mbi.id DESC LIMIT 1` porque
+     * `matriculas` **no tiene clave única sobre (alumno, grupo)** y nada impide dos
+     * filas vivas del mismo alumno. Ese `LIMIT 1` era una degradación consciente:
+     * *«una de las dos»* en vez de reventar.
      *
-     * En una consulta con `GROUP BY` eso dobla un `SUM()`; en una que devuelve filas,
-     * las repite. **Una subconsulta escalar no puede hacer ninguna de las dos**: da un
-     * valor o `NULL`.
+     * **Con la marca por periodo nada de eso hace falta.** `bol_ind_periodos` cuelga
+     * de `(alumno_id, periodo_id)` con clave única, y un periodo pertenece a un año y
+     * sólo a uno — **el año queda implícito y exacto**, en vez de derivado y
+     * desempatado. Se van con ello:
      *
-     * *No se elige esta forma porque hoy los datos no dupliquen —eso sería una medición
-     * usada como guardián, y aquí eso ya costó una noche—: se elige porque el esquema no
-     * lo impide.*
+     *   - las dos matrículas del mismo alumno, que dejan de poder decidir nada;
+     *   - el `LIMIT 1`, porque la clave única garantiza como mucho una fila;
+     *   - y toda la §9.5 del plan **para esta marca**: ya no hay «cuál es la matrícula
+     *     del año» que acertar, así que leer y escribir no pueden elegir distinto.
      *
-     * ## Y correlaciona el PERIODO, que es la otra mitad
-     *
-     * `bip.periodo_id = '.$unidad.'.periodo_id` y no un periodo bindeado: `bol_ind_periodos`
-     * es **por periodo**, y hay consultas que abarcan varios (`p.numero <= N` en
-     * `NotasPerdidasController`). Un alumno puede ir por independiente en el 3 y no en el
-     * 2; con un valor bindeado una sola vez, **el resto de periodos se resolvería con el
-     * alcance del equivocado y no habría ningún error que lo señalara**.
-     *
-     * El `LIMIT 1` es por la misma falta de clave única de arriba: sin él, dos matrículas
-     * del mismo par convertirían la subconsulta escalar en un error de ejecución en vez
-     * de en un valor. **Con `LIMIT 1` degrada a «una de las dos» en vez de reventar**, y
-     * eso es lo correcto aquí: este lote no puede cambiar la respuesta, y decidir cuál de
-     * dos matrículas manda es de quien lleve las matrículas duplicadas.
+     * Lo que se conserva es la mitad que sí importaba y costó un test:
+     * **correlacionar por el periodo de la unidad y no por un periodo bindeado**.
+     * `bol_ind_periodos` es por periodo y hay consultas que abarcan varios
+     * (`p.numero <= N` en `NotasPerdidasController`); un alumno puede ir por
+     * independiente en el 3 y no en el 2, y con un valor bindeado una sola vez **el
+     * resto de periodos se resolvería con el alcance del equivocado y no habría
+     * ningún error que lo señalara**. Lo cazó `AlcanceCorrelacionadoPorPeriodoTest`,
+     * no la revisión.
      */
     public static function alcanceCorrelacionado(string $alumno, string $unidad = 'u'): string
     {
-        // **Es `consultar()` palabra por palabra, correlacionado por el periodo de la
-        // unidad.** Y eso no es copiar: es que la elección de la matrícula es UNA
-        // regla y este fichero existe para que no haya dos.
-        //
-        // La primera versión de este método se saltó las dos mitades de esa regla
-        // —el año del periodo y el desempate— y hacía `WHERE mbi.alumno_id = ?
-        // LIMIT 1`. Con un alumno que tiene matrícula en más de un año, el `LIMIT 1`
-        // elegía una cualquiera: podía leer el interruptor de 2024 para un periodo
-        // de 2026. **Lo cazó `AlcanceCorrelacionadoPorPeriodoTest`, no la revisión.**
-        //
-        //   - **el año**: se entra por `periodos` y se baja a `grupos` del MISMO
-        //     `year_id`, porque una nota de 2024 pregunta por el estado de ese año
-        //     aunque el token vaya por 2026;
-        //   - **el desempate**: la más reciente de las vivas, `created_at DESC, id
-        //     DESC`. Un `ORDER BY` con empates elige al azar.
-        //
-        // Si `consultar()` cambia, esto cambia con él. Están a veinte líneas para
-        // que se vean juntas.
-        return '(SELECT IF(mbi.boletin_independiente = 1 AND COALESCE(bipc.aplica, 1) = 1, mbi.alumno_id, NULL)
-                   FROM periodos pbi
-                   INNER JOIN grupos gbi     ON gbi.year_id = pbi.year_id AND gbi.deleted_at IS NULL
-                   INNER JOIN matriculas mbi ON mbi.grupo_id = gbi.id AND mbi.alumno_id = '.$alumno.'
-                                            AND mbi.deleted_at IS NULL
-                   LEFT JOIN bol_ind_periodos bipc
-                          ON bipc.alumno_id = mbi.alumno_id AND bipc.periodo_id = pbi.id
-                  WHERE pbi.id = '.$unidad.'.periodo_id AND pbi.deleted_at IS NULL
-                  ORDER BY mbi.created_at DESC, mbi.id DESC
-                  LIMIT 1)';
+        // Devuelve el id del alumno si ese periodo suyo va aparte, y NULL si no —que
+        // es justo lo que se compara con `u.alumno_id <=>`—. No hay `COALESCE` porque
+        // una subconsulta escalar sin filas **ya vale NULL**: la fila ausente da «va
+        // con el grupo» por construcción, que es la decisión 7 escrita en la forma
+        // más corta que tiene.
+        return '(SELECT bipc.alumno_id
+                   FROM bol_ind_periodos bipc
+                  WHERE bipc.alumno_id = '.$alumno.'
+                    AND bipc.periodo_id = '.$unidad.'.periodo_id
+                    AND bipc.aplica = 1)';
     }
 
     /**
@@ -199,7 +206,7 @@ class BoletinIndependiente
     {
         $filas = DB::select(
             'SELECT m.alumno_id,
-                    IF(m.boletin_independiente = 1 AND COALESCE(bip.aplica, 1) = 1, 1, 0) AS independiente
+                    IF(COALESCE(bip.aplica, 0) = 1, 1, 0) AS independiente
              FROM matriculas m
              LEFT JOIN bol_ind_periodos bip
                     ON bip.alumno_id = m.alumno_id AND bip.periodo_id = ?
@@ -251,52 +258,48 @@ class BoletinIndependiente
     }
 
     /**
-     * La consulta de verdad, y la regla de **cuál es la matrícula del año**.
+     * La consulta de verdad. Una tabla, dos columnas de clave única, y nada más.
      *
-     * El año sale del periodo, no del token: quien pide el boletín del periodo 2
-     * de 2024 pregunta por el estado de ese año, y el token puede ir por 2026.
+     * **Aquí había veinte líneas que elegían «la matrícula del año»** —entrar por
+     * `periodos`, bajar a `grupos` del mismo `year_id`, unir `matriculas`, filtrar
+     * los borrados y desempatar por `created_at DESC, id DESC`— y estaban por una
+     * sola razón: la marca vivía en una columna de `matriculas` y había que dar con
+     * *qué* fila leer. Retirada la columna (§2.1 del plan), **la pregunta desaparece
+     * en vez de contestarse mejor**.
      *
-     * **La elección de la matrícula está escrita aquí a propósito, y es media
-     * §9.5 del plan.** Hoy la ficha y el guardado eligen «la matrícula del año»
-     * con dos consultas distintas —una filtra `deleted_at` y ordena, la otra ni
-     * filtra ni ordena— y se quedan las dos con `[0]`. Un alumno con **dos
-     * matrículas del mismo año** —cambió de grupo a mitad de curso, o una quedó
-     * borrada— puede leerse de una y escribirse en otra. Con `repitente` eso ya
-     * pasa y nadie lo ha visto porque nadie mira esos campos al día siguiente;
-     * con esta marca se vería **en la planilla de otro docente**, sin ninguna
-     * señal que lo relacione con un interruptor que alguien tocó en otra
-     * pantalla.
+     * Lo que eso cierra, y es más de lo que parece: media §9.5 del plan. La ficha
+     * leía la matrícula de una manera y `GuardarAlumno::valor` la escribía de otra
+     * —una filtra `deleted_at` y ordena, la otra ni filtra ni ordena, y las dos se
+     * quedan con `[0]`—, así que un alumno con **dos matrículas del mismo año** podía
+     * leerse de una y escribirse en otra. Con la marca colgada de
+     * `(alumno_id, periodo_id)` **no hay dos filas entre las que equivocarse**. La
+     * §9.5 sigue viva para `repitente`, `promovido` y `nro_folio`; para esta marca,
+     * no.
      *
-     * Aquí se toma **la más reciente de las vivas**, con desempate por `id` para
-     * que sea determinista —un `ORDER BY` sobre una columna con empates elige al
-     * azar, que es la familia de la §28—. **Esto todavía no arregla la §9.5**:
-     * unificar la lectura y la escritura es la fase 2 y toca
-     * `GuardarAlumno::valor` y `AlumnosController::putShow`, que esta noche los
-     * lleva otra sesión. Lo que hace es no añadir **una tercera** regla distinta.
+     * **El año ya no se deriva: se hereda.** Un periodo pertenece a un año y sólo a
+     * uno, así que preguntar por `(alumno, periodo)` es preguntar por el año exacto
+     * de ese periodo — sin que el token, que puede ir por 2026, tenga nada que decir
+     * sobre un boletín de 2024.
+     *
+     * **Lo que esta consulta NO comprueba, a propósito:** que el alumno esté
+     * matriculado en el año de ese periodo. Una fila en `bol_ind_periodos` sólo nace
+     * si alguien la escribe, y esa comprobación es de quien escribe —`PUT
+     * boletin-independiente/periodo`, §6.3—, no de quien lee. Ponerla aquí la
+     * cobraría en cada boletín impreso para defenderse de un estado que el escritor
+     * no debe dejar crear.
      */
     private static function consultar(int $alumnoId, int $periodoId): ?int
     {
-        $filas = DB::select(
-            'SELECT m.boletin_independiente, COALESCE(bip.aplica, 1) AS aplica
-             FROM periodos p
-             INNER JOIN grupos g     ON g.year_id = p.year_id AND g.deleted_at IS NULL
-             INNER JOIN matriculas m ON m.grupo_id = g.id AND m.alumno_id = ?
-                                    AND m.deleted_at IS NULL
-             LEFT JOIN bol_ind_periodos bip
-                    ON bip.alumno_id = m.alumno_id AND bip.periodo_id = p.id
-             WHERE p.id = ? AND p.deleted_at IS NULL
-             ORDER BY m.created_at DESC, m.id DESC
-             LIMIT 1',
+        $fila = DB::selectOne(
+            'SELECT aplica FROM bol_ind_periodos WHERE alumno_id = ? AND periodo_id = ?',
             [$alumnoId, $periodoId]
         );
 
-        if ($filas === []) {
-            return null;
-        }
-
-        $independiente = (int) $filas[0]->boletin_independiente === 1
-            && (int) $filas[0]->aplica === 1;
-
-        return $independiente ? $alumnoId : null;
+        // Sin fila, va con el grupo: es la decisión 7 y es el caso de todo el mundo
+        // hoy, porque la tabla nace vacía. `selectOne` sin `LIMIT 1` es seguro aquí y
+        // no en la versión anterior: `bol_ind_periodos_unico (alumno_id, periodo_id)`
+        // garantiza como mucho una fila, que es la razón por la que esa clave nació
+        // con la tabla en vez de añadirse después como en `notas_finales`.
+        return $fila !== null && (int) $fila->aplica === 1 ? $alumnoId : null;
     }
 }

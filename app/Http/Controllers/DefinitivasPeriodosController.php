@@ -560,8 +560,8 @@ class DefinitivasPeriodosController extends Controller {
 			// alumno de cada grupo del año.
 			//
 			// Vino por el aviso de que `matriculas.boletin_independiente` (fase 1
-			// del boletín independiente) se filtraría por aquí. **Comprobado: por
-			// aquí NO se filtra** — el método devuelve `$res`, que son conteos de
+			// del boletín independiente, columna **retirada el 31 ago 2026**) se
+			// filtraría por aquí. **Comprobado: por aquí NO se filtra** — el método devuelve `$res`, que son conteos de
 			// `DELETE`, y estas filas no salen nunca hacia el cliente. Así que el
 			// motivo bueno no es el contrato: es que **pedir 28 columnas para leer
 			// una, dentro de un bucle sobre todos los grupos del año, es trabajo

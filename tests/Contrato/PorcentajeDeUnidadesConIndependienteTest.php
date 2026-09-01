@@ -90,8 +90,7 @@ class PorcentajeDeUnidadesConIndependienteTest extends CasoDeContrato
             'El reparto del grupo es 0: sin él, sumar el del independiente no se notaría.');
 
         // Un alumno con boletín independiente y su propio reparto de unidades.
-        DB::update('UPDATE matriculas SET boletin_independiente = 1 WHERE grupo_id = ? AND alumno_id = ?',
-            [$grupo->id, $alumno->alumno_id]);
+        $this->marcarIndependiente((int) $alumno->alumno_id, (int) $donde->periodo_id);
 
         DB::insert(
             'INSERT INTO unidades (definicion, porcentaje, asignatura_id, periodo_id, alumno_id, orden, created_at, updated_at)

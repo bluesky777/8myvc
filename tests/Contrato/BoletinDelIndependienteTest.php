@@ -100,9 +100,7 @@ class BoletinDelIndependienteTest extends CasoDeContrato
     /** Marca al alumno y le crea una unidad propia. Devuelve el id de esa unidad. */
     private function marcarConUnidadPropia(object $e): int
     {
-        DB::update('UPDATE matriculas SET boletin_independiente = 1
-              WHERE alumno_id = ? AND grupo_id = ? AND deleted_at IS NULL',
-            [$e->marcado, $e->grupo_id]);
+        $this->marcarIndependiente($e->marcado, (int) $e->periodo_id);
 
         DB::insert(
             'INSERT INTO unidades (asignatura_id, periodo_id, alumno_id, definicion, porcentaje, orden, created_at, updated_at)

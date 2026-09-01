@@ -42,8 +42,10 @@ class CertificadosPersonaController extends Controller {
 
 		// `m.*` explícito y luego `g.*`, y NO se vuelve al `SELECT *` de antes: con
 		// él, `matriculas.boletin_independiente` (24 ago 2026,
-		// 19-boletin-independiente.md) sale en esta respuesta y **no hay instantánea
-		// que lo cace**. §5.ter de noche-2026-08-24/bi-1.md.
+		// 19-boletin-independiente.md) salía en esta respuesta y **no hay instantánea
+		// que lo cace**. Esa columna se retiró el 31 ago 2026 (§2.2) sin mover nada,
+		// justamente porque esta lista no la nombraba; la regla vale para la
+		// siguiente. §5.ter de noche-2026-08-24/bi-1.md.
 		//
 		// El orden se conserva a propósito: `SELECT *` daba primero las columnas de
 		// `matriculas` y después las de `grupos`, y en las repetidas —`id`,

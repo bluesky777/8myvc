@@ -183,9 +183,7 @@ class CalcularGrupoPeriodoConAlcanceTest extends CasoDeContrato
 
         $marcado = $conNota[0];
 
-        DB::update('UPDATE matriculas SET boletin_independiente = 1 WHERE grupo_id = ? AND alumno_id = ?',
-            [$grupo->id, $marcado]);
-        BoletinIndependiente::olvidar();
+        $this->marcarIndependiente($marcado, (int) $periodo->id);
 
         $calcular();
         $despues = $porAlumno();

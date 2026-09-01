@@ -73,13 +73,10 @@ class DefinitivaConAlcanceTest extends CasoDeContrato
             .'estable y el resto del test no mediría lo que cree.');
 
         // ── Mitad 2: marcamos a uno ──────────────────────────────────────────────
-        DB::update(
-            'UPDATE matriculas SET boletin_independiente = 1
-              WHERE grupo_id = ? AND alumno_id = ? AND deleted_at IS NULL',
-            [$grupo->id, $marcado]
-        );
-
-        BoletinIndependiente::olvidar();
+        // Marca **este** periodo, que es el que la consulta está calculando. Antes
+        // esto era un `UPDATE matriculas SET boletin_independiente = 1`, o sea el año
+        // entero: con la decisión 7 la marca es por periodo y esa columna se retiró.
+        $this->marcarIndependiente($marcado, (int) $donde->periodo_id);
 
         $despues = $this->porAlumno($donde->asignatura_id, $donde->periodo_id);
 

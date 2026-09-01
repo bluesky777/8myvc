@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\DB;
  * `alcance()` devuelve `null` para todo el mundo mientras nadie esté marcado, y
  * `u.alumno_id <=> NULL` selecciona exactamente las filas de siempre. Si algún
  * día ese `null` se convierte en un id por defecto —un `COALESCE` de más, un
- * `boletin_independiente` que nace en 1 en un colegio— **las 309 unidades de esta
+ * `COALESCE(bip.aplica, 1)` que vuelve— **las 309 unidades de esta
  * base dejan de encontrarse y todas las definitivas se van a 0**, sin un solo
  * error en el log. Por eso el primer test es el del caso vacío, que es el que
  * parece que no comprueba nada.
@@ -65,7 +65,13 @@ class BolIndependienteAlcanceTest extends CasoDeContrato
 
     public function test_sin_nadie_marcado_el_alcance_es_null_para_todos(): void
     {
-        $marcadas = DB::selectOne('SELECT COUNT(*) AS n FROM matriculas WHERE boletin_independiente = 1')->n;
+        // **La precondición es ahora más fuerte que antes, y por eso se conserva.**
+        // Se comprobaba que `matriculas.boletin_independiente` fuera 0 en todas las
+        // filas; ahora se comprueba que la tabla **esté vacía**. «Ninguna fila» es más
+        // difícil de romper sin querer que «una columna a 0 en todas partes», que es
+        // justo lo que un `DEFAULT 1` mal puesto en un colegio haría saltar por los
+        // aires sin un solo error en el log.
+        $marcadas = DB::selectOne('SELECT COUNT(*) AS n FROM bol_ind_periodos')->n;
 
         $this->assertSame(0, (int) $marcadas,
             'La base de test nace con nadie marcado. Si esto falla, el resto de la suite '
@@ -81,12 +87,11 @@ class BolIndependienteAlcanceTest extends CasoDeContrato
         $this->assertFalse(BoletinIndependiente::aplica((int) $a->alumno_id, (int) $a->periodo_id));
     }
 
-    public function test_marcado_en_la_matricula_el_alcance_es_su_propio_id(): void
+    public function test_marcado_en_el_periodo_el_alcance_es_su_propio_id(): void
     {
         $a = $this->unAlumnoMatriculado();
 
-        DB::update('UPDATE matriculas SET boletin_independiente = 1 WHERE id = ?', [$a->matricula_id]);
-        BoletinIndependiente::olvidar();
+        $this->marcarIndependiente((int) $a->alumno_id, (int) $a->periodo_id);
 
         $this->assertSame((int) $a->alumno_id,
             BoletinIndependiente::alcance((int) $a->alumno_id, (int) $a->periodo_id));
@@ -101,7 +106,7 @@ class BolIndependienteAlcanceTest extends CasoDeContrato
     {
         $a = $this->unAlumnoMatriculado();
 
-        DB::update('UPDATE matriculas SET boletin_independiente = 1 WHERE id = ?', [$a->matricula_id]);
+        $this->marcarIndependiente((int) $a->alumno_id, (int) $a->periodo_id);
 
         $antes = [
             'unidades' => DB::selectOne('SELECT COUNT(*) AS n FROM unidades')->n,
@@ -109,18 +114,11 @@ class BolIndependienteAlcanceTest extends CasoDeContrato
             'notas' => DB::selectOne('SELECT COUNT(*) AS n FROM notas')->n,
         ];
 
-        DB::insert(
-            'INSERT INTO bol_ind_periodos (alumno_id, periodo_id, aplica, created_at, updated_at)
-             VALUES (?, ?, 0, NOW(), NOW())
-             ON DUPLICATE KEY UPDATE aplica = 0',
-            [$a->alumno_id, $a->periodo_id]
-        );
-        BoletinIndependiente::olvidar();
+        $this->marcarIndependiente((int) $a->alumno_id, (int) $a->periodo_id, aplica: false);
 
         $this->assertNull(
             BoletinIndependiente::alcance((int) $a->alumno_id, (int) $a->periodo_id),
-            'Con `aplica = 0` el alumno vuelve a las unidades del grupo en ESE periodo, '
-            .'aunque su matrícula siga marcada.'
+            'Con `aplica = 0` el alumno vuelve a las unidades del grupo en ESE periodo.'
         );
 
         // La mitad que no se ve en la respuesta, y es la que pidieron: apagar el
@@ -137,17 +135,70 @@ class BolIndependienteAlcanceTest extends CasoDeContrato
     {
         $a = $this->unAlumnoMatriculado();
 
-        DB::update('UPDATE matriculas SET boletin_independiente = 1 WHERE id = ?', [$a->matricula_id]);
-        DB::insert(
-            'INSERT INTO bol_ind_periodos (alumno_id, periodo_id, aplica, created_at, updated_at)
-             VALUES (?, ?, 1, NOW(), NOW())
-             ON DUPLICATE KEY UPDATE aplica = 1',
-            [$a->alumno_id, $a->periodo_id]
-        );
-        BoletinIndependiente::olvidar();
+        $this->marcarIndependiente((int) $a->alumno_id, (int) $a->periodo_id, aplica: false);
+        $this->marcarIndependiente((int) $a->alumno_id, (int) $a->periodo_id);
 
         $this->assertSame((int) $a->alumno_id,
             BoletinIndependiente::alcance((int) $a->alumno_id, (int) $a->periodo_id));
+    }
+
+    /**
+     * **Marcar un periodo no repinta los demás**, que es la decisión 7 entera.
+     *
+     * Es el test que este fichero no tenía y que habría cazado el fallo. En sus
+     * palabras:
+     *
+     * > «A veces el estudiante tuvo un periodo normal y en el segundo tuvo un
+     * > accidente donde ya se le tiene que crear un boletín aparte, pero no se le
+     * > puede borrar el boletín del primer periodo: **tienen que convivir**.»
+     *
+     * Con el default anterior —fila ausente = «lo que diga la matrícula»— esto era
+     * imposible: marcar al alumno en octubre le cambiaba el alcance de **todos** los
+     * periodos del año, incluido el primero, ya impreso y entregado. Y no daba
+     * ningún error: el boletín de septiembre simplemente pasaba a buscar unas
+     * unidades propias que en septiembre no existían, y salía en blanco.
+     *
+     * **El test se pone rojo con un solo carácter**: devolver el
+     * `COALESCE(bip.aplica, 0)` de `BoletinIndependiente` al `1` que tenía.
+     */
+    public function test_marcar_un_periodo_no_toca_el_alcance_de_los_demas(): void
+    {
+        $grupo = $this->grupoConAlumnos();
+        $periodos = $this->periodosDelAnioDelGrupo($grupo->id);
+
+        $this->assertGreaterThan(1, count($periodos),
+            'Hacen falta dos periodos en el año para que «convivir» signifique algo.');
+
+        $alumno = DB::selectOne(
+            'SELECT m.alumno_id FROM matriculas m
+              WHERE m.grupo_id = ? AND m.deleted_at IS NULL
+                AND m.estado IN ("MATR","ASIS") LIMIT 1',
+            [$grupo->id]
+        );
+
+        $this->assertNotNull($alumno, 'El seed no tiene alumno matriculado en este grupo.');
+
+        $alumnoId = (int) $alumno->alumno_id;
+
+        // El accidente: se le marca el SEGUNDO periodo, en octubre, con el primero ya
+        // impreso.
+        $this->marcarIndependiente($alumnoId, $periodos[1]);
+
+        $this->assertSame($alumnoId, BoletinIndependiente::alcance($alumnoId, $periodos[1]),
+            'El periodo que se acaba de marcar tiene que ir por boletín independiente.');
+
+        // Y la mitad que importa: todos los demás siguen yendo con el grupo.
+        foreach ($periodos as $i => $periodoId) {
+            if ($i === 1) {
+                continue;
+            }
+
+            $this->assertNull(BoletinIndependiente::alcance($alumnoId, $periodoId),
+                'Marcar el periodo '.$periodos[1].' le cambió el alcance al periodo '.$periodoId.'. '
+                .'Con el default al revés esto pasa en silencio: el boletín del primer periodo, '
+                .'ya entregado, se repinta buscando unas unidades propias que ese periodo no '
+                .'tiene, y sale en blanco sin un solo error.');
+        }
     }
 
     /**

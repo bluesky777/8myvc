@@ -2,6 +2,7 @@
 
 namespace Tests\Contrato;
 
+use App\Services\BoletinIndependiente;
 use App\Support\Autoriza;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Routing\Route;
@@ -708,5 +709,64 @@ abstract class CasoDeContrato extends TestCase
             'artisan() devolvió un int: alguien desactivó la salida simulada, y con ella lo que este test comprueba.');
 
         return $pendiente;
+    }
+
+    /**
+     * Marcar a un alumno para que UN periodo suyo vaya por boletín independiente.
+     *
+     * **Es la única forma de marcar que hay, y por eso está aquí y no copiada en
+     * nueve ficheros.** Hasta el 31 ago 2026 los tests montaban la marca con
+     * `UPDATE matriculas SET boletin_independiente = 1`, que era la marca **del
+     * año**; con la decisión 7 de Joseth la marca es **por periodo** y esa columna
+     * se retiró (§2.1 del plan). Un test que siguiera escribiendo la columna no
+     * fallaría por «columna inexistente» de forma útil: fallaría montando un
+     * escenario que ya no existe.
+     *
+     * `$aplica = false` escribe la fila **diciendo que no**, que no es lo mismo que
+     * no escribirla: la §1 pide que apagar el interruptor **no borre nada**, así que
+     * el caso «tuvo estructura propia y este periodo va con el grupo» necesita la
+     * fila puesta a 0. Sin fila es «nunca estuvo marcado».
+     *
+     * Olvida la memoria del servicio porque es por petición y una suite es un
+     * proceso: sin eso, el test que marca le deja la respuesta cacheada al
+     * siguiente y los dos pasan por la razón equivocada.
+     */
+    protected function marcarIndependiente(int $alumnoId, int $periodoId, bool $aplica = true): void
+    {
+        DB::insert(
+            'INSERT INTO bol_ind_periodos (alumno_id, periodo_id, aplica, created_at, updated_at)
+             VALUES (?, ?, ?, NOW(), NOW())
+             ON DUPLICATE KEY UPDATE aplica = VALUES(aplica), updated_at = NOW()',
+            [$alumnoId, $periodoId, $aplica ? 1 : 0]
+        );
+
+        BoletinIndependiente::olvidar();
+    }
+
+    /**
+     * Los periodos de un año, para marcar a un alumno en todos ellos.
+     *
+     * Lo necesitan los tests que antes marcaban «el año entero» con una sola
+     * escritura en `matriculas`. **Ahora son N escrituras y eso no es una molestia
+     * del test: es el requisito.** Marcar el año entero y marcar un periodo dejaron
+     * de ser la misma operación el día que se pidió que el primer periodo y el
+     * segundo pudieran convivir.
+     *
+     * @return list<int>
+     */
+    protected function periodosDelAnioDelGrupo(int $grupoId): array
+    {
+        $filas = DB::select(
+            'SELECT p.id
+               FROM grupos g
+               INNER JOIN periodos p ON p.year_id = g.year_id AND p.deleted_at IS NULL
+              WHERE g.id = ?
+              ORDER BY p.numero, p.id',
+            [$grupoId]
+        );
+
+        $this->assertNotEmpty($filas, 'El grupo '.$grupoId.' no tiene periodos: el escenario no se puede montar.');
+
+        return array_values(array_map(static fn ($f) => (int) $f->id, $filas));
     }
 }
