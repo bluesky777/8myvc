@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 
 use App\User;
 use App\Services\Auditoria;
+use App\Services\BoletinIndependiente;
 use App\Support\Autoriza;
 use App\Models\Year;
 use App\Models\Grupo;
@@ -698,6 +699,23 @@ class BolfinalesController extends Controller {
 	 * @param  array<int, object>  $alumnos
 	 * @param  array<int, object>  $periodos
 	 * @return array<int, array<int, array<int, int>>>  [alumno_id][asignatura_id][periodo_id] => perdidas
+	 * ## El alcance va al `WHERE` y correlacionado, y las dos mitades están medidas
+	 *
+	 * Esta consulta abarca **muchos alumnos y muchos periodos a la vez**
+	 * (`n.alumno_id IN (…)`, `u.periodo_id IN (…)`), y la marca de boletín
+	 * independiente es **por periodo**: un alumno puede ir aparte en el 3 y con el
+	 * grupo en el 2. Un alcance resuelto fuera y bindeado una vez le daría a los
+	 * demás periodos el del equivocado, y **no hay ningún error que lo señale**: no
+	 * falta una fila ni sobra otra — salen las unidades de otro boletín. Por eso
+	 * `alcanceCorrelacionado()`, que correlaciona por `u.periodo_id`. Lo fija
+	 * `AlcanceCorrelacionadoPorPeriodoTest`.
+	 *
+	 * **Y no `JOIN_ESTADO`, aunque `matriculas m` esté en el ámbito.** El `FROM` de
+	 * aquí es una lista de comas, y en MySQL la coma tiene **menos precedencia que
+	 * `JOIN`**: el `ON` de un `LEFT JOIN` pegado detrás no alcanza a nombrar `u`.
+	 * Medido contra el esquema real, no supuesto: `1054 Unknown column
+	 * 'u.periodo_id' in 'on clause'` — o sea un 500, no una fila de más.
+	 *
 	 */
 	private function perdidasPorAlumnoDelGrupo($grupo_id, $alumnos, $periodos)
 	{
@@ -722,6 +740,7 @@ class BolfinalesController extends Controller {
 				AND n.alumno_id IN ('.$huecosAlu.')
 				AND u.periodo_id IN ('.$huecosPer.')
 				AND n.nota < ?
+				AND u.alumno_id <=> '.BoletinIndependiente::alcanceCorrelacionado('n.alumno_id', 'u').'
 			  GROUP BY n.alumno_id, u.asignatura_id, u.periodo_id',
 			array_merge([$grupo_id], $alumnoIds, $periodoIds, [User::$nota_minima_aceptada])
 		);
@@ -750,6 +769,17 @@ class BolfinalesController extends Controller {
 	 *
 	 * @param  array<int, object>  $alumnos
 	 * @return array<int, array<int, array<int, int>>>  [alumno_id][asignatura_id][periodo_id] => perdidas
+	 * ## El alcance, correlacionado por el periodo de la unidad
+	 *
+	 * Es **más ancha aún que la de `perdidasPorAlumnoDelGrupo()`**: muchos alumnos
+	 * (`n.alumno_id IN (…)`) y **ni siquiera filtra periodo**, así que abarca el año
+	 * entero. Como la marca es por periodo, un alcance bindeado una sola vez
+	 * repartiría el de un periodo a los cuatro sin ningún error que lo señalara;
+	 * `alcanceCorrelacionado()` lo resuelve dentro, por `u.periodo_id`.
+	 *
+	 * Aquí no hay `matriculas` en el ámbito, así que `JOIN_ESTADO` no era ni una
+	 * opción: ésta es la forma de la subconsulta correlacionada y la única que cabe.
+	 *
 	 */
 	private function perdidasPorDefinitivaDelGrupo($grupo_id, $alumnos)
 	{
@@ -768,6 +798,7 @@ class BolfinalesController extends Controller {
 			   INNER JOIN unidades u ON u.id = s.unidad_id AND u.deleted_at IS NULL
 			   INNER JOIN asignaturas a ON a.id = u.asignatura_id AND a.grupo_id = ?
 			  WHERE n.nota < ? AND n.alumno_id IN ('.$huecos.')
+				AND u.alumno_id <=> '.BoletinIndependiente::alcanceCorrelacionado('n.alumno_id', 'u').'
 			  GROUP BY n.alumno_id, u.asignatura_id, u.periodo_id',
 			array_merge([$grupo_id, User::$nota_minima_aceptada], $alumnoIds)
 		);
