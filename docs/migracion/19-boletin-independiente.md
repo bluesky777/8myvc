@@ -996,13 +996,57 @@ Lo pidió el front el 24 ago, y la respuesta es de las que hay que dar medidas:
 ## §8 — Lo que le toca al front
 
 Cuatro pantallas. Ninguna se publica hasta que el backend esté **desplegado en
-los dieciséis** (§10).
+los quince** (§10).
 
-1. **Marcar al alumno.** Un interruptor más en la ficha, al lado del de PIAR.
-   Es `PUT alumnos/guardar-valor` con `propiedad: "boletin_independiente"` — el
-   endpoint que la ficha ya usa para veinte campos. **Es la pantalla más barata
-   de las cuatro y la que hay que hacer primero**, porque sin ella no hay forma
-   de probar ninguna otra con datos de verdad.
+> **Decía «los dieciséis», y se corrige el 1 sep 2026 aunque la regla de la casa sea que
+> las cifras fechadas se quedan como se midieron.** No es una medición de un día: es una
+> **condición futura**, y una condición futura escrita contra dieciséis colegios **se
+> cumple mal** — el día que se compruebe, faltará uno que ya no existe. Uno se dio de baja
+> el 25 ago 2026 y se borró entero del servidor. Las cifras **medidas** sobre dieciséis
+> siguen diciendo dieciséis, y la de la fase 0 de las definitivas —más abajo— es una de
+> ésas y no se toca.
+
+1. **Marcar al alumno, POR PERIODO.** Es `PUT boletin-independiente/periodo`
+   (§6.3), con `auth.personal` y la guarda de la decisión 5 —marcan
+   administradores, secretario y rector—. El cuerpo lleva los tres campos y el
+   periodo **va explícito**:
+
+   ```jsonc
+   { "alumno_id": 3311, "periodo_id": 91, "aplica": false }
+   ```
+
+   **Sigue siendo la pantalla más barata de las cuatro y la primera que hay que
+   hacer**, porque sin ella no hay forma de probar ninguna otra con datos de
+   verdad. Lo que cambia es que **no es un interruptor de dos estados en la
+   ficha**: son cuatro, uno por periodo, y **se puede marcar un periodo cerrado**
+   (§2.4) — que es el caso real, porque el accidente casi nunca pasa en el
+   periodo activo.
+
+   Y si la ficha quiere **enseñar** el estado, ya lo tiene sin escribir nada:
+   `bol_independiente_periodos` viaja en `PUT alumnos/show` (§6.4) con los cuatro
+   periodos, su `aplica` y su `tiene_datos`.
+
+   > **Aquí ponía otra cosa, y estuvo escrito desde el 24 ago 2026 hasta el 1 sep:**
+   >
+   > ~~Un interruptor más en la ficha, al lado del de PIAR. Es `PUT alumnos/guardar-valor`
+   > con `propiedad: "boletin_independiente"` — el endpoint que la ficha ya usa para veinte
+   > campos.~~
+   >
+   > **Se deja tachado y no borrado porque el front pudo haberlo leído ya**: llevaba ocho
+   > días ahí, y un párrafo que desaparece no avisa a quien se lo creyó.
+   >
+   > **Y no es que el endpoint cambiara: es que la propiedad no existe en ninguna tabla.**
+   > `matriculas.boletin_independiente` **se retiró** el 31 ago 2026 (§2.2) y **nunca
+   > estuvo en `alumnos`**. Medido el 1 sep: cero apariciones en
+   > `database/schema/mysql-schema.sql` y cero en `GuardarAlumno.php`, que no tiene `case`
+   > para ella — así que cae al `default`, `ColumnaSegura::exigir('alumnos', …)` no la
+   > reconoce y la llamada **contesta 422**. Un front que siguiera este párrafo se
+   > encontraría un rechazo, no un fallo silencioso; es lo único bueno del asunto.
+   >
+   > **La reescritura estaba decidida y pendiente, no es una decisión nueva:** la decisión
+   > 7 del 31 ago ya dice *«la §8 punto 1 se reescribe: la pantalla 1 no es un interruptor
+   > más en la ficha, es un interruptor por periodo»*. Lo que faltaba era hacerla.
+
 2. **La planilla de notas, dos cambios pequeños.** El alumno marcado ya no viene
    en `alumnos`: la pantalla tiene que **decir a cuántos no está viendo** con
    `independientes` y llevar a la pantalla nueva. Y el que tiene la marca del
