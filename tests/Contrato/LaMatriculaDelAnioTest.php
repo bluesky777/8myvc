@@ -39,11 +39,16 @@ use Illuminate\Testing\TestResponse;
  * matrículas borradas en toda la tabla**. O sea que un test escrito sobre el seed tal
  * cual no toca ninguno de los dos casos.
  *
- * ## Lo que este fichero cubre y lo que NO
+ * ## Los dos lados, y los dos apuntando a la regla
  *
- * Cubre **el escritor**. El lector (`putShow`) se cambia después y con el visto bueno
- * de la coordinación, porque la regla nueva **cambia lo que la ficha devuelve hoy** en
- * el caso de las dos vivas, y eso es contrato.
+ * Cubre **el escritor** (`GuardarAlumno::valor`) y **el lector** (`putShow`). Los casos
+ * del lector no comparan contra «la más reciente» ni contra «la de id más bajo»: comparan
+ * contra `Matricula::laDelAnio()`, que es donde vive la decisión. Un test que nombrara el
+ * criterio sería **un segundo sitio donde está escrito**, y de eso va exactamente la §9.5.
+ *
+ * Y el que cierra el asunto es el **viaje de ida y vuelta**: se guarda `repitente` y la
+ * ficha lo enseña. Ése no nombra ninguna fila — le da igual cuál de las dos gane, sólo
+ * exige que gane **la misma** en los dos lados.
  */
 class LaMatriculaDelAnioTest extends CasoDeContrato
 {
@@ -232,5 +237,76 @@ class LaMatriculaDelAnioTest extends CasoDeContrato
 
         $r->assertStatus(400);
         $this->assertSame('Alumno no encontrado', $r->json('msg'));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // El LECTOR (`AlumnosController::putShow`)
+    //
+    // Los dos casos de abajo **apuntan a la regla, no a un id concreto**, y es
+    // deliberado: la decisión de cuál es «la matrícula del año» cuando hay dos vivas
+    // está en manos de Joseth (cambia lo que un colegio real le enseña a un alumno
+    // real: 1 de 3.578 en `simonbolivar`). Decida lo que decida, aquí **no cambia una
+    // línea** — sólo `Matricula::ORDEN_DEL_ANIO`.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /** La ficha de un alumno, tal y como la pide la pantalla. */
+    private function ficha(array $e): TestResponse
+    {
+        return $this->withToken($e['token'])->putJson('/api/alumnos/show', ['id' => $e['alumno']]);
+    }
+
+    /**
+     * **La ficha enseña la matrícula que dice la regla.**
+     *
+     * No se compara contra «la más reciente» ni contra «la de id más bajo»: se compara
+     * contra `Matricula::laDelAnio()`, que es donde vive la decisión. Un test que
+     * nombrara el criterio sería un segundo sitio donde está escrito, y de eso va
+     * exactamente la §9.5.
+     */
+    public function test_la_ficha_devuelve_la_matricula_que_dice_la_regla(): void
+    {
+        $e = $this->escenario();
+        $this->segundaMatricula($e);
+
+        $delaRegla = Matricula::laDelAnio($e['alumno'], $e['year_id']);
+        $this->assertNotNull($delaRegla);
+
+        $r = $this->ficha($e);
+        $r->assertStatus(200);
+
+        $this->assertSame((int) $delaRegla->id, (int) $r->json('alumno.matricula_id'),
+            'La ficha enseña una matrícula distinta de la que dice `Matricula::laDelAnio()`. '
+            .'Con dos vivas del mismo año, la pantalla y el guardado hablan de filas distintas: '
+            .'es la §9.5, y es lo que hace que `repitente`, `promovido` y `nro_folio` se lean de '
+            .'una y se escriban en otra.');
+    }
+
+    /**
+     * **El viaje de ida y vuelta: lo que se guarda es lo que la ficha enseña.**
+     *
+     * Es la §9.5 dicha sin nombrar ninguna fila, y por eso es el caso que vale
+     * **decida lo que decida Joseth**: no le importa cuál de las dos gane, sólo que
+     * gane **la misma** en los dos lados.
+     *
+     * Y es el criterio que este repo ya tiene escrito para los tests de contrato —*el
+     * viaje de ida y vuelta en vez de una llamada*—: mirando sólo la escritura, el
+     * guardado responde «Guardado» y todo parece bien; mirando sólo la lectura, la
+     * ficha devuelve un `repitente` perfectamente creíble. **El fallo sólo existe entre
+     * las dos.**
+     */
+    public function test_lo_que_se_guarda_es_lo_que_la_ficha_ensena(): void
+    {
+        $e = $this->escenario();
+        $this->segundaMatricula($e);
+
+        $this->assertSame('Guardado', $this->guardar($e, 'repitente', 1)->getContent());
+
+        $r = $this->ficha($e);
+        $r->assertStatus(200);
+
+        $this->assertSame(1, (int) $r->json('alumno.repitente'),
+            'Se guardó `repitente = 1` y la ficha sigue enseñando el valor de antes. El colegio '
+            .'teclea el dato, la pantalla dice «Guardado», y al recargar está como estaba: la '
+            .'escritura y la lectura eligieron matrículas distintas del mismo año.');
     }
 }

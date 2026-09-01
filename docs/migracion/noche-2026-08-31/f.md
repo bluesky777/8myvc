@@ -362,19 +362,42 @@ el fallo entero, en datos reales.
 | **la regla sin el `ORDER BY`** (sólo los filtros) | **2 de 5** | exactamente los dos casos que dependen del desempate |
 | **la regla sin el filtro de borradas** (sólo el orden) | **1 de 5** | y esto es lo que hay que leer: con `created_at DESC` la fila viva **gana igual** a una borrada más antigua, así que el filtro sólo muerde cuando la **única** matrícula está borrada. **Las dos mitades cubren casos distintos y ninguna sobra** |
 
-### Lo que este trabajo NO incluye todavía
+### El lector, y la decisión de Joseth
 
-**El lector (`putShow`) no está tocado**, y no por falta de fichero —la coordinación me
-lo pasó— sino porque **la regla nueva cambia lo que la ficha devuelve hoy** en el caso
-de las dos vivas: hoy sale la de id más bajo, con la regla saldría la más reciente. Eso
-es **contrato**, y lo lleva la coordinación con el front. Está preguntado y esperando.
+**Decidida el 1 sep 2026: unificar en «la más reciente», lector incluido.** Se le
+planteó con la población delante —**1 de 3.578**— y con el argumento de que hoy **no hay
+una decisión detrás**: sale la de id más bajo por orden físico, y dejar dos criterios de
+orden distintos es volver a tener dos reglas, sólo que ahora escritas. **Queda cerrada.**
 
-> **Y un aviso del lote D que hay que tener delante al tocar `putShow`:**
-> `bol_independiente_periodos` está construido **para no depender de la matrícula** —sale
-> del año del token más `bol_ind_periodos`— y por eso viaja **en las dos ramas**,
-> incluida la del alumno sin matrícula del año. Unificar las dos consultas de `putShow`
-> en una y colgar el campo de la matrícula elegida **reintroduciría la ambigüedad** que
-> se acaba de quitar: `undefined` volvería a significar dos cosas.
+Lo que cambia para alguien de verdad, y va escrito aquí y en el commit porque es **el
+efecto visible del arreglo**: **la ficha del alumno 1097 pasa a enseñar el otro par de
+valores** de `promovido` y `nro_folio`. Es el único caso en esta copia.
+
+En `putShow` desaparece `order by a.apellidos, a.nombres` —que para **un** alumno era un
+empate total— y `g.deleted_at` sube del `JOIN` al `WHERE` para que la regla entera quepa
+en `FILTRO_DEL_ANIO` y se lea de un tirón; con un `INNER JOIN` las dos formas seleccionan
+lo mismo.
+
+**Y lo que NO se tocó, avisado por el lote D:** `bol_independiente_periodos` no se cuelga
+de la matrícula elegida. Sale del año del token y de `bol_ind_periodos`, y por eso viaja
+**también** por la rama del alumno sin matrícula del año. Colgarlo de aquí devolvería a
+`undefined` sus dos significados —«no matriculado» y «desmarcado»—.
+`BolIndependienteEnLaFichaTest` sigue en **9 passed (366 assertions)**, incluido
+`el campo viene tambien sin matricula del anio`.
+
+### El rojo del lector
+
+Contra `putShow` tal y como estaba: **2 de 7 rojos**, y son exactamente los dos casos del
+lector; los cinco del escritor siguen verdes, que es la comprobación de que no dependen
+de él.
+
+Los dos casos del lector **apuntan a la regla y no a un id**: comparan contra
+`Matricula::laDelAnio()`, así que si algún día la decisión cambia, **sólo cambia
+`ORDEN_DEL_ANIO`**. Y el que cierra el asunto —`lo que se guarda es lo que la ficha
+enseña`— **no nombra ninguna fila**: le da igual cuál gane, sólo exige que gane la misma
+en los dos lados. Es el *viaje de ida y vuelta* que este repo ya tiene escrito como
+criterio: mirando sólo la escritura, el guardado responde «Guardado»; mirando sólo la
+lectura, la ficha devuelve un `repitente` creíble. **El fallo sólo existe entre las dos.**
 
 ### Un detalle de test que costó un rojo falso
 
