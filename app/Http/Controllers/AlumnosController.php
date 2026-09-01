@@ -581,7 +581,7 @@ class AlumnosController extends Controller {
 				a.has_sisben, a.nro_sisben, a.has_sisben_3, a.nro_sisben_3, m.programar, m.descripcion_recomendacion, m.efectuar_una, m.descripcion_efectuada 
 			FROM alumnos a 
 			inner join matriculas m on a.id=m.alumno_id and a.id=:alumno_id 
-			INNER JOIN grupos g ON g.id=m.grupo_id AND g.year_id=:year_id and g.deleted_at is null
+			INNER JOIN grupos g ON g.id=m.grupo_id AND g.year_id=:year_id
 			left join users u on a.user_id=u.id and u.deleted_at is null
 			left join images i on i.id=u.imagen_id and i.deleted_at is null
 			left join tipos_documentos t1 on t1.id=a.tipo_doc and t1.deleted_at is null
@@ -589,9 +589,50 @@ class AlumnosController extends Controller {
 			left join ciudades c1 on c1.id=a.ciudad_nac and c1.deleted_at is null
 			left join ciudades c2 on c2.id=a.ciudad_doc and c2.deleted_at is null
 			left join ciudades c3 on c3.id=a.ciudad_resid and c3.deleted_at is null
-			where m.deleted_at is null
-			order by a.apellidos, a.nombres';
+			where '.Matricula::FILTRO_DEL_ANIO.'
+			order by '.Matricula::ORDEN_DEL_ANIO.'
+			limit 1';
 			// he quitado el      a.deleted_at is null
+			
+			/*
+			 * **Cuál es «la matrícula del año» lo dice `Matricula`, y ahora lo dice para
+			 * los dos lados.** §9.5 del 19-boletin-independiente.md.
+			 *
+			 * Aquí estaba `order by a.apellidos, a.nombres` y **eso no desempataba
+			 * nada**: la consulta es de UN alumno, así que ordenar por su apellido y su
+			 * nombre es un empate total y `[0]` era «la primera que devuelva MySQL» —en
+			 * la práctica, la de id más bajo—. `GuardarAlumno::valor` se quedaba con
+			 * `[0]` de otra consulta que ni siquiera filtraba `deleted_at`. Con dos
+			 * matrículas vivas del mismo año se leía de una y se escribía en otra, y las
+			 * columnas que lo sufren son `repitente`, `promovido` y `nro_folio`.
+			 *
+			 * **La regla la dicta `Matricula::matricularUno()`, no una preferencia:** es
+			 * el único sitio que crea matrículas, y cuando encuentra varias del mismo año
+			 * **activa una y borra las demás**. El sistema ya promete «una viva por año»;
+			 * lo que faltaba es que los dos lados leyeran esa promesa igual **cuando la
+			 * promesa no se cumple**. Entre dos vivas gana la posterior porque una segunda
+			 * fila sólo aparece si alguien volvió a matricular.
+			 *
+			 * **Lo que esto le cambia a un alumno de verdad**, y va escrito porque es el
+			 * efecto visible del arreglo: en la copia de `simonbolivar` medida el 1 sep
+			 * 2026 hay **3.578** pares (alumno, año) con matrícula viva y **uno solo con
+			 * dos** —el alumno 1097 en el año 7—, y sus dos filas tienen `promovido` y
+			 * `nro_folio` distintos. **Su ficha pasa a enseñar el otro par de valores.**
+			 * Decisión de Joseth del 1 sep 2026, tomada con esa cifra delante.
+			 *
+			 * **Un colegio, no quince**: lo medido es la copia que tenemos delante, y en
+			 * los otros catorce puede haber más pares o ninguno.
+			 *
+			 * El `g.deleted_at` se sube del `JOIN` al `WHERE` para que la regla entera
+			 * quepa en `FILTRO_DEL_ANIO` y se lea de un tirón. Con un `INNER JOIN` las dos
+			 * formas seleccionan lo mismo.
+			 *
+			 * **`bol_independiente_periodos` NO se cuelga de esta fila**, ni de ninguna
+			 * matrícula: sale del año del token y de `bol_ind_periodos`, y por eso viaja
+			 * también por la rama del alumno **sin** matrícula del año (§6.4, lote D).
+			 * Colgarlo de aquí devolvería a `undefined` sus dos significados —«no
+			 * matriculado» y «desmarcado»— que costaron semanas de distinguir.
+			 */
 			
 		// \Log::info('Año '.$this->user->year_id);
 		$alumno = DB::select($consulta, [ ':alumno_id' => $id, ':year_id' => $this->user->year_id ]);

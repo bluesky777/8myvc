@@ -14,6 +14,7 @@ use App\Models\Subunidad;
 use App\Models\Unidad;
 use App\Models\Profesor;
 use App\Models\Alumno;
+use App\Services\BoletinIndependiente;
 
 
 class NotasPerdidasController extends Controller {
@@ -31,6 +32,17 @@ class NotasPerdidasController extends Controller {
 		if ($solo_periodo) {
 			$periodo_sql = 'p.numero=:periodo';
 		}
+
+		/*
+		 * «¿este alumno va aparte en alguno de los periodos que se están listando?».
+		 *
+		 * Es lo que le falta a esta pantalla para no acusar a nadie: un independiente
+		 * cuyas unidades propias están sin montar aparece aquí perdiéndolo todo, y sin
+		 * este campo no hay forma de distinguirlo de un alumno que no estudia. El
+		 * backend dice el hecho —«va por boletín aparte»—; qué se pinta con él es del
+		 * front, igual que con `puestos_con_bol_independiente`.
+		 */
+		$periodos_del_informe = $this->periodosDelInforme((int) $user->year_id, $periodo_a_calcular, (bool) $solo_periodo);
 
 		$consulta = 'SELECT g.id as grupo_id, g.nombre, g.abrev, g.orden, gra.orden as orden_grado, g.grado_id, g.year_id, g.titular_id,
 			p.nombres as nombres_titular, p.apellidos as apellidos_titular, p.titulo,
@@ -92,6 +104,7 @@ class NotasPerdidasController extends Controller {
 															':periodo' => $periodo_a_calcular, ':alumno_id' => $alumn_all[$k]->alumno_id ]);
 					$alumn_all[$k]->notas = $notas;
 					$alumn_all[$k]->userData = Alumno::userData($alumn_all[$k]->alumno_id);
+					$alumn_all[$k]->bol_independiente_periodo = BoletinIndependiente::aplicaEnAlguno((int) $alumn_all[$k]->alumno_id, $periodos_del_informe);
 				}
 
 				$asign_all[$j]->alumnos = $alumn_all;
@@ -234,6 +247,16 @@ class NotasPerdidasController extends Controller {
 			$periodo_sql = 'p.numero=:periodo';
 		}
 
+		/*
+		 * «¿este alumno va aparte en alguno de los periodos que se están listando?».
+		 *
+		 * Es lo que le falta a esta pantalla para no acusar a nadie: un independiente
+		 * cuyas unidades propias están sin montar aparece aquí perdiéndolo todo, y sin
+		 * este campo no hay forma de distinguirlo de un alumno que no estudia. El
+		 * backend dice el hecho —«va por boletín aparte»—; qué se pinta con él es del
+		 * front, igual que con `puestos_con_bol_independiente`.
+		 */
+		$periodos_del_informe = $this->periodosDelInforme((int) $user->year_id, $periodo_a_calcular, (bool) $solo_periodo);
 
 		$cantProf = count($profesores);
 
@@ -300,6 +323,7 @@ class NotasPerdidasController extends Controller {
 																'periodo' => $periodo_a_calcular, ':alumno_id' => $alumn_all[$k]->alumno_id ]);
 						$alumn_all[$k]->notas = $notas;
 						$alumn_all[$k]->userData = Alumno::userData($alumn_all[$k]->alumno_id);
+						$alumn_all[$k]->bol_independiente_periodo = BoletinIndependiente::aplicaEnAlguno((int) $alumn_all[$k]->alumno_id, $periodos_del_informe);
 					}
 
 					$asign_all[$j]->alumnos = $alumn_all;
@@ -347,6 +371,31 @@ class NotasPerdidasController extends Controller {
 	}
 
 
+	/**
+	 * Los ids de periodo que ESTE informe está mirando, que no son siempre los cuatro.
+	 *
+	 * Las tres consultas de arriba abarcan `p.numero <= :periodo`, o **sólo** ese
+	 * número cuando llega `solo_periodo`. Esta lista tiene que salir de las **dos
+	 * ramas** y no del año entero: preguntar por el año le pondría «va aparte» a un
+	 * alumno por una marca de un periodo que este informe **no está listando**, y en
+	 * una pantalla que acusa de perder asignaturas eso es explicar unas pérdidas con
+	 * una razón que no las causó.
+	 *
+	 * Es el mismo criterio que `$periodos_del_informe` en `PuestosController`, y por
+	 * la misma razón: el informe decide su alcance con `periodo_a_calcular`.
+	 *
+	 * @return list<int>
+	 */
+	private function periodosDelInforme(int $year_id, int $periodo_a_calcular, bool $solo_periodo): array
+	{
+		$periodos = Periodo::hastaPeriodoN($year_id, $periodo_a_calcular);
+
+		if ($solo_periodo) {
+			$periodos = array_filter($periodos, fn ($p) => (int) $p->numero === $periodo_a_calcular);
+		}
+
+		return array_values(array_map(fn ($p) => (int) $p->id, $periodos));
+	}
 
 
 }

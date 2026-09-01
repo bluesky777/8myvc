@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\DB;
 
 use App\User;
 use App\Models\Year;
+use App\Services\BoletinIndependiente;
 use Carbon\Carbon;
 use App\Http\Controllers\Controller;
 use \Log;
@@ -112,10 +113,34 @@ class ActasEvaluacionController extends Controller {
 			where m.deleted_at is null
 			order by a.apellidos, a.nombres', [':year_id' => $user->year_id]);
 
+		/*
+		 * `alumno.bol_independiente_aparte_en: [2, 3]` — los `numero` de periodo en los
+		 * que ese alumno lleva boletín aparte. §7 de la cola de la noche del 31 ago 2026.
+		 *
+		 * **Aquí es el campo que corresponde, no el que cabe.** El acta es de TODO EL
+		 * AÑO: decir «va aparte» sin decir en cuál de los cuatro periodos no contesta
+		 * nada, que es el mismo argumento por el que este campo no se aplanó a un
+		 * booleano en `definitivas_periodos`.
+		 *
+		 * **Y el acta NO lleva `asignatura.bol_independiente`**, que es el rótulo de los
+		 * boletines: su respuesta son grupos con matrículas, resumen, promoción y
+		 * periodos, y **no tiene ni una asignatura por alumno**. Se intentó, no tenía
+		 * dónde colgarse, y emitirlo aquí no pintaría nada y no daría ningún error — una
+		 * rama muerta. Lo cazó el front el 1 sep 2026. Decisión tomada: no se re-litiga.
+		 *
+		 * UNA consulta para el acta entera, en la línea del resto de este método: las
+		 * matrículas del año ya vienen de una sola (antes eran 151 para 30 grupos), y
+		 * preguntar por `(grupo, periodo)` habría devuelto aquí justo esas ~120.
+		 */
+		$aparte_en = BoletinIndependiente::aparteEnPorAlumno((int) $user->year_id);
+
 		// Agrupamos en PHP en vez de repetir la consulta por grupo.
 		$por_grupo = [];
 		foreach ($matriculas as $m) {
 			$this->prepararMatricula($m);
+			// `[]` y no `null` para quien va con el grupo: una lista vacía se recorre
+			// igual que una llena y no obliga al front a leer una ausencia.
+			$m->bol_independiente_aparte_en = $aparte_en[(int) $m->alumno_id] ?? [];
 			if (!isset($por_grupo[$m->grupo_id])) $por_grupo[$m->grupo_id] = [];
 			$por_grupo[$m->grupo_id][] = $m;
 		}

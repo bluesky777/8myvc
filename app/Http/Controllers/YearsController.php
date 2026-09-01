@@ -17,6 +17,7 @@ use App\Models\Frase;
 use App\Models\Unidad;
 use Carbon\Carbon;
 use App\Support\ColumnaSegura;
+use App\Support\FilaQueSeVaAEscribir;
 use App\Services\CalendarioDePeriodos;
 
 
@@ -748,14 +749,38 @@ class YearsController extends Controller {
 			abort(422, 'El año actual se cambia con years/set-actual, que apaga a los demás.');
 		}
 
+		/*
+		 * **Opción A del [09 §13], y ésta llega ANTES que su pantalla** — que es lo que
+		 * la hace distinta de las otras dos y por lo que va en su propio commit.
+		 *
+		 * Medido el 1 sep 2026: **ningún cliente llama a esta ruta**. Cero ficheros de
+		 * código en `myvc_front`, `myvc_front_2` y `myvc_flutter`. Los cinco interruptores
+		 * hermanos del año —`toggle-solo-valorativas`, `toggle-ignorar-notas-perdidas`,
+		 * `toggle-mostrar-puestos-en-boletin`, `toggle-mostrar-nota-comport-en-boletin` y
+		 * `toggle-mostrar-anio-pasado-en-boletin`— tienen **ruta propia** y **ninguno
+		 * tiene este defecto**: devuelven una frase fija que no sale de `$res`. El
+		 * genérico es la excepción, no la norma.
+		 *
+		 * Así que esto **no arregla una pantalla rota: impide que nazca rota**. El plan
+		 * daba por hecho que `puestos_con_bol_independiente` (§7 del 19) se guardaría por
+		 * aquí y que un rector leería «No guardado» al apagarlo; medido, esa columna **no
+		 * tiene escritor en ningún front** —las cuatro pantallas de puestos y la cabecera
+		 * del boletín final sólo la leen— y lo probable es que nazca con su propia ruta
+		 * como sus cinco hermanos. La urgencia no era la que decía el plan; el momento
+		 * barato, sí.
+		 */
+		FilaQueSeVaAEscribir::exigir('years', 'id', $year_id, 'Ese año lectivo');
+
 		$consulta 	= 'UPDATE years SET '.ColumnaSegura::exigir('years', $campo).'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:year_id';
 		$datos 		= [ ':valor' => $valor, ':modificador' => $user->user_id, ':fecha' => $now, ':year_id' => $year_id ];
-		$res = DB::update($consulta, $datos);
 
-		if($res)
-			return 'Guardado';
-		else
-			return 'No guardado';
+		// El año existe —se acaba de comprobar—, así que llegar aquí es haber guardado,
+		// cambiara algo o no. `DB::update` devuelve filas AFECTADAS y MySQL da 0 cuando el
+		// valor ya era ése: apagar un interruptor que ya estaba apagado contestaba
+		// «No guardado» con 200 y el estado correcto.
+		DB::update($consulta, $datos);
+
+		return 'Guardado';
 	}
 
 

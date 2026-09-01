@@ -205,6 +205,7 @@
                     "anios_in_cole": "int",
                     "apellidos": "string",
                     "barrio": "null|string",
+                    "bol_independiente_aparte_en": [],
                     "cant_areas_perdidas": "int",
                     "cant_asign_perdidas": "int",
                     "ciudad_doc": "int|null",

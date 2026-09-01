@@ -15,6 +15,7 @@
                             {
                                 "alumno_id": "int",
                                 "apellidos": "string",
+                                "bol_independiente_periodo": "bool",
                                 "celular": "null|string",
                                 "email": "null|string",
                                 "foto_id": "null",
