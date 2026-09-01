@@ -473,3 +473,98 @@ Probado de punta a punta creando un árbol de usar y tirar desde la raíz:
 Borrado después: el árbol, su rama y su base `simonbolivar_testing_zz`. **Y el
 `tools/worktree-de-sesion.sh` de la raíz quedó como estaba** — se tocó sólo para
 la prueba y se restauró; el del commit es el de este árbol.
+
+## 10. EL CENSO DE LA FASE 1 — medido sobre `main` con todo fundido
+
+> **Qué se midió, que es lo que le faltó a la cifra que se propagó tres veces:**
+>
+> | | |
+> |---|---|
+> | Árbol | `main`, raíz del repo, **sin modificar** (`git status` limpio) |
+> | Commit | **`da26efb`** — *merge(lote D · fase 4 completa): la ruta 547* |
+> | Fecha | **1 sep 2026, 07:53:33 -0500** |
+> | Instrumento | `tools/unidades-sin-alcance.py` de `fix/bi-lote-g` (`812e1a0`), **con las cinco cegueras cerradas y su `--control` verde** |
+>
+> La cifra anterior —«43 en 23»— no envejeció: **se midió antes de fundir cinco
+> lotes y se copió después de cada fusión sin remedirla**. Por eso la fecha y el
+> hash van arriba y no al final.
+
+### 10.1 · La tabla
+
+| | Lecturas |
+|---|---|
+| **Total de referencias a `unidades`/`subunidades`** | **176** (169 lecturas + 7 escrituras) |
+| bien por construcción | 85 |
+| **hay que acotarla** | **80** |
+| no se sabe | 4 |
+
+Y dentro de las 80:
+
+| Estado | Lecturas |
+|---|---|
+| **acotadas** (`<=>` o `IS NULL`) | **53** |
+| **`con-igual`** (`=`, que afirma propiedad — §1.6) | **6** |
+| **sin acotar** | **21**, en **9 sitios** |
+
+### 10.2 · Las 21 sin acotar, una a una y clasificadas
+
+**El criterio no es «0 en la columna»** —lo cerrado decidiendo no tocarlo se
+queda contado ahí— **sino que cada fila esté acotada o tenga una decisión
+escrita.** Las nueve están leídas con el fichero delante:
+
+**(a) Acotadas de otra forma que el detector no ve — 2 sitios, 3 lecturas**
+
+| Sitio | Cómo está acotada |
+|---|---|
+| `Grupo.php:227` `marcarLosQueTienenDatosPropios` | `u.alumno_id IN (?, ?, …)` — es la lista de los alumnos del grupo, o sea alcance que **afirma propiedad**. El detector mira `<=>`, `IS NULL` y `=`, y **no `IN`** |
+| `DefinitivasDeAsignatura.php:523` `calcular` | acota con **`c.dueno <=> ALCANCE`**, donde `dueno` es `u.alumno_id` renombrado dentro de una derivada. El detector busca `u.alumno_id <=>` y ahí ya no se llama así |
+
+**(b) Decididas a propósito, con el porqué escrito en el propio código — 6 sitios, 16 lecturas**
+
+| Sitio | Por qué NO se acota |
+|---|---|
+| `EnviarNotificaciones.php:212` `avisosDeNotas` | marcar a un alumno **no le borra las notas que ya tiene en las subunidades del grupo**; acotar perdería el aviso de un cambio real, en silencio |
+| `InformesController.php:132` `grupos_desactualizados` | acotar dejaría que la nota de un independiente **no marcara nada** y se serviría una definitiva vieja sin error. Y **escondería justo al alumno de la §9.1** |
+| `UnidadesController.php:456` `getTrashed` | es «qué hay en la papelera»: la respuesta correcta las incluye a todas. Es **el único sitio desde el que se ve** una unidad borrada de un independiente |
+| `DefinitivasDeAsignatura.php:318` `recalcular` | pregunta **por dueño a propósito** — `SELECT DISTINCT alumno_id`: quiere saber qué boletines tienen unidades, y acotarla reintroduce el cero de la §9.1 |
+| `DefinitivasDeAsignatura.php:619` `selloDeVersion` | **sello de caché**: sin acotar recalcula de más (cuesta tiempo); acotado **sirve un dato viejo sin un error en el log** |
+| `DefinitivasDeAsignatura.php:785` `estadoDelGrupo` | ídem |
+
+**(c) Código muerto, anotado — 1 sitio, 2 lecturas**
+
+`NotaFinal.php:315` `calcularAsignaturaPeriodo`. **Comprobado hoy, no heredado:**
+`grep` sobre `app/` y `routes/` no devuelve **ni un llamador** — la única
+aparición del nombre es el comentario que ya lo dice. La §1.5 es explícita: *no
+se acota código muerto, se anota*.
+
+    3 (acotadas de otra forma) + 16 (decididas) + 2 (muerto) = 21 ✓
+
+### 10.3 · El veredicto
+
+> **Pendientes de verdad: CERO.** Las 21 están **acotadas de otra forma (3),
+> decididas con el porqué escrito (16) o son código muerto anotado (2)**. No
+> queda ninguna fila de la fase 1 esperando trabajo.
+
+**Y las tres cosas que hacen que este censo valga y los anteriores no:**
+
+1. está medido **después** de arreglar el instrumento — con el detector viejo,
+   cuatro de estos nueve sitios salían en la lista de trabajo **estando
+   acotados**;
+2. lleva **fecha y hash de lo medido**, que es lo único que distingue una cifra
+   viva de una copiada;
+3. **cada fila está leída**, no contada. El bucle que hace peligroso lo contrario
+   está en la §6: la §1.5 absorbe los falsos positivos del detector como
+   «decisiones de no tocar», y así **un detector que cuenta de más nunca queda
+   mal**.
+
+### 10.4 · Los dos límites del detector que este censo deja medidos
+
+No son cegueras nuevas que haya que arreglar a ciegas: son **las dos formas en
+que el detector sigue contando de más**, y ahora están nombradas.
+
+- **No reconoce `IN (…)` como alcance.** Es la misma familia que la quinta —una
+  lectura que afirma propiedad— y es de una línea. **Se arregla abajo.**
+- **No sigue un alias renombrado dentro de una derivada** (`u.alumno_id AS
+  dueno` … `c.dueno <=> …`). Eso **no** se arregla con un regex: exige entender
+  la consulta. Queda escrito como límite conocido, que es lo que corresponde
+  cuando el arreglo costaría más que la lectura a mano.
