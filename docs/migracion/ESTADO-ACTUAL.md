@@ -27,6 +27,30 @@ clases con veredicto, cero fallos** · pint **PASS** (329 ficheros) · larastan 
 > **Dos migraciones bloqueantes esperando** para la tanda siguiente: retirar
 > `matriculas.boletin_independiente` y `years.puestos_con_bol_independiente`.
 
+> **UNA ACCIÓN DEL DÍA DEL DESPLIEGUE QUE NO ES UNA TABLA: `tools/independientes-sin-estructura.php`
+> SE CORRE QUINCE VECES, UNA POR COLEGIO.** Contesta la [§9.1](19-boletin-independiente.md) —qué
+> pares (alumno, asignatura) están **marcados y no tienen ni una unidad propia**—, que es el riesgo
+> grave del módulo y **el único que no avisa de ninguna forma**: sin estructura propia la definitiva
+> sale **0**, el boletín en blanco, y nadie recibe un error.
+>
+> **Y hoy es peor que cuando se escribió el plan, medido por el lote F:** con la fase 1 fundida, un
+> marcado sin unidades propias **ya ni siquiera aparece** en el informe de notas perdidas —la
+> consulta pide `u.alumno_id <=> ALCANCE` y no empareja con ninguna fila—. Antes la pantalla le
+> acusaba de perderlo todo; **ahora se lo calla**, y el alumno se cae del radar sin aviso. Esa
+> herramienta es lo único que puede verlo.
+>
+> **Corrida hoy en desarrollo: cero marcados, cero pares revisados** — y eso es todo lo que afirma.
+> *«Nadie está marcado en ningún colegio»* lo escribió la coordinación y **es una extrapolación de 1
+> a 15, no una medición**: en este MySQL sólo viven `laravel` y `simonbolivar`, y los quince están en
+> producción con la suya. Que ninguno pueda tener filas todavía **porque la ruta que marca no está
+> desplegada** es un argumento correcto y **va dicho aparte del número**. La medición son **quince
+> corridas el día del despliegue**, después de las migraciones.
+>
+> **Y sin la tabla contesta `exit=2 · NO CONCLUYENTE` a propósito**, diciendo que no ha revisado ni un
+> par: un `0` limpio ahí sería **la respuesta que archiva el asunto justo en el colegio donde no se
+> ha mirado nada** — que es la regla de la casa sobre las herramientas en el sitio donde de verdad
+> muerde. *(Diseño y corrección: lote G.)*
+
 > **Y LA PEOR DE LAS SEIS, ENCONTRADA AL FINAL: el detector que repartió la noche entera era
 > justamente el que no comprobaba nadie.** `AutopruebasDeLasHerramientasTest` corre cinco
 > herramientas y **`unidades-sin-alcance.py` no era una de ellas** — no tenía `--control` ni
