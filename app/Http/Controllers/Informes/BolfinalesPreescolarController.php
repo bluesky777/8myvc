@@ -23,6 +23,7 @@ use App\Models\Debugging;
 use App\Models\NotaComportamiento;
 use App\Models\Area;
 use App\Services\Auditoria;
+use App\Services\BoletinIndependiente;
 use \Log;
 
 
@@ -128,11 +129,48 @@ class BolfinalesPreescolarController extends Controller {
 		$response_alumnos = [];
 		
 
+		/*
+		 * Los periodos del año, una vez para todo el grupo.
+		 *
+		 * Este controlador **no nombra `periodo` en ninguna otra línea**: el boletín de
+		 * preescolar es del año entero. Así que la marca que le toca es «¿fue aparte en
+		 * ALGUNO de los periodos del año?», que es la misma regla que el puesto y por lo
+		 * mismo — dentro de estas cifras hay una definitiva que no se calculó sobre el
+		 * reparto del grupo.
+		 *
+		 * Se resuelve aquí y no dentro de `definitivasMateriasXPeriodo` para no hacer la
+		 * consulta una vez por alumno: son treinta y la respuesta es la misma.
+		 */
+		$periodos_del_anio = array_map(
+			fn ($periodo) => (int) $periodo->id,
+			Periodo::hastaPeriodoN($user->year_id)
+		);
+
 		foreach ($alumnos as $alumno) {
 
 			// Todas las materias con sus unidades y subunides
 			$this->definitivasMateriasXPeriodo($alumno, $grupo_id, $user->year_id, $user);
-			
+
+			/*
+			 * `bol_independiente`: **este boletín es el suyo, no el del grupo** — §6.4 del
+			 * [19](../../../../docs/migracion/19-boletin-independiente.md).
+			 *
+			 * **Es un dato del ALUMNO puesto en cada asignatura**, no una propiedad de la
+			 * asignatura: la marca cuelga de `(alumno_id, periodo_id)` y vale lo mismo en
+			 * todas las suyas. Se emite por asignatura porque el front pinta la nota al
+			 * lado de cada bloque, y subirla obligaría a cada plantilla a ir a buscarla.
+			 *
+			 * **No se rotula el papel**: es una nota flotante que se ve en pantalla y
+			 * desaparece al imprimir. Si el campo no viaja no se pinta nada y **nadie se
+			 * entera** — el front no inventa la marca en el cliente. Por eso los cinco
+			 * sitios lo emiten a la vez: si lo emite uno y otro no, los otros mienten.
+			 */
+			$bol_independiente = BoletinIndependiente::aplicaEnAlguno((int) $alumno->alumno_id, $periodos_del_anio);
+
+			foreach ($alumno->asignaturas as $asignatura) {
+				$asignatura->bol_independiente = $bol_independiente;
+			}
+
 		}
 
 
