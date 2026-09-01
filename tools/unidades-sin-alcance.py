@@ -5,6 +5,7 @@ Qué consultas leen `unidades` o `subunidades` sin decir de quién son.
     python3 tools/unidades-sin-alcance.py            # desde la raíz del repo
     python3 tools/unidades-sin-alcance.py --csv      # para juntar varias medidas
     python3 tools/unidades-sin-alcance.py --detalle  # con el SQL de cada sitio
+    python3 tools/unidades-sin-alcance.py --control  # su control positivo (lo corre la suite)
 
 Es la fase 0 del [19-boletin-independiente.md](../docs/migracion/19-boletin-independiente.md),
 y existe por una frase de ese plan que no es retórica:
@@ -248,7 +249,12 @@ def alcance_de_unidades(sql, alias):
     ref = r'(?:\b' + re.escape(alias) + r'\.)?alumno_id'
     if re.search(ref + r'\s*<=>', sql, re.I):
         return 'si'
-    if re.search(r'\b' + re.escape(alias) + r'\.alumno_id\s+is\s+(?:not\s+)?null', sql, re.I):
+    # `ref` y no `\b<alias>\.`, igual que la rama de arriba: una consulta de UNA
+    # tabla escribe `alumno_id IS NULL` sin alias, y ésa es justo la forma que la
+    # §1.6 del reparto bendice para «las del grupo a propósito». Exigir el prefijo
+    # sacaba consultas YA acotadas en la lista de «hay que acotarla» — la cuarta
+    # ceguera de este detector, diagnosticada por el lote B el 1 sep 2026.
+    if re.search(ref + r'\s+is\s+(?:not\s+)?null', sql, re.I):
         return 'si'
     if re.search(r'\b' + re.escape(alias) + r'\.alumno_id\s*=', sql, re.I):
         return 'con-igual'
@@ -512,7 +518,102 @@ def escrituras_eloquent(texto):
             yield nombre, texto.count('\n', 0, ini) + 1, sorted(modelos), ops
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# El control positivo, ejecutable — y por qué llega tarde.
+#
+# Este detector ya se había equivocado **cuatro veces**, las cuatro contando de
+# más, y las cuatro las encontró una persona con el fichero delante y no él:
+#
+#   1ª  no fundía las cadenas concatenadas -> no veía su propio arreglo;
+#   2ª  contaba el `FROM unidades` de los comentarios;
+#   3ª  medía por línea y partía las consultas de quince;
+#   4ª  exigía `<alias>.` para `IS NULL` -> daba «hay que acotarla» a CUATRO
+#       consultas de una sola tabla que ya estaban acotadas, y justo con la
+#       forma que la §1.6 del reparto bendice (1 sep 2026).
+#
+# **Y las cuatro veces el número salió plausible, que es peor que raro.** Un
+# detector cuyo error es contar de más nunca se delata solo: su lista de trabajo
+# simplemente tiene sitios donde no hay nada, y quien los revisa cierra cada uno
+# «decidiendo no tocarlo», que aquí es una salida legítima (§1.5).
+#
+# Por eso el control **no** se ancla en un número del árbol —que se mueve cada
+# noche y obliga a reescribirlo, hasta que alguien lo reescribe con el número
+# equivocado—, sino en las **formas**: seis consultas mínimas cuyo veredicto
+# está decidido, con la de la cuarta ceguera dentro. Si una cambia, el detector
+# cambió de opinión sobre algo que no era opinable.
+#
+#     python3 tools/unidades-sin-alcance.py --control
+#
+# Lo corre `tests/Unit/AutopruebasDeLasHerramientasTest`, que es lo que lo
+# convierte de intención en control: hasta el 1 sep 2026 esta herramienta era la
+# única del boletín independiente **sin nada que la comprobara**, mientras su
+# número gobernaba el reparto de una noche entera de cinco sesiones.
+CASOS_DE_CONTROL = [
+    # (qué demuestra, sql, alias, veredicto esperado)
+    ('el <=> con alias es alcance',
+     'select u.id from unidades u join notas n on n.unidad_id=u.id where u.alumno_id <=> 7',
+     'u', 'si'),
+    ('el <=> SIN alias tambien lo es (una sola tabla)',
+     'select id from unidades where asignatura_id=? and alumno_id <=> ?',
+     'unidades', 'si'),
+    # LA CUARTA CEGUERA. Antes del 1 sep 2026 esta línea contestaba 'no', y con
+    # ella salían como pendientes `PeriodosController::putCopiar`,
+    # `Unidad::informacionAsignatura`, `ChangeAskedController::asignaturas_dia` y
+    # `BoletinIndependienteController::putPlanilla` — las cuatro acotadas y las
+    # cuatro con el porqué escrito encima.
+    ('IS NULL SIN alias es alcance: es la forma que manda la §1.6 para «las del grupo a proposito»',
+     'select id, definicion from unidades where asignatura_id=:a and periodo_id=:p '
+     'and deleted_at is null and alumno_id is null order by orden',
+     'unidades', 'si'),
+    ('IS NULL con alias sigue siendo alcance',
+     'select u.id from unidades u, matriculas m where u.alumno_id is null',
+     'u', 'si'),
+    # No es un aprobado: es el fallo caro de la §3 —con `=` el alumno normal no
+    # empareja NULL y su definitiva sale 0—, y se informa aparte para que se lea.
+    ('el = a secas se separa y NO cuenta como alcance',
+     'select u.id from unidades u where u.alumno_id = :alumno_id',
+     'u', 'con-igual'),
+    ('sin nombrar al dueño no hay alcance',
+     'select u.id from unidades u where u.asignatura_id=? and u.periodo_id=?',
+     'u', 'no'),
+]
+
+
+def control():
+    """Ejercita `alcance_de_unidades` contra las seis formas decididas.
+
+    Tres salidas y no dos, como manda el runner: 0 pasa, 1 el detector cambió de
+    opinión, 2 no se pudo ejercer aquí. Este control **no mira el árbol**, así que
+    el 2 no debería aparecer nunca — y si aparece, es que le falta una pieza al
+    propio fichero, no que el repo esté en otro estado.
+    """
+    fallos = []
+    for que, sql, alias, esperado in CASOS_DE_CONTROL:
+        try:
+            salio = alcance_de_unidades(sql, alias)
+        except Exception as e:  # noqa: BLE001 — el control informa, no revienta
+            print(f'CONTROL NO CONCLUYENTE: alcance_de_unidades() reventó ({e}).')
+            return 2
+        marca = 'ok  ' if salio == esperado else 'FALLA'
+        print(f'  {marca} [{esperado:>9}] {que}')
+        if salio != esperado:
+            fallos.append(f'    esperaba {esperado!r} y salió {salio!r}: {sql}')
+
+    print(f'Población del control: {len(CASOS_DE_CONTROL)} formas comprobadas, '
+          f'{len(fallos)} fallan.')
+    if fallos:
+        print('\n'.join(fallos))
+        print('CONTROL FALLA: el detector cambió de opinión sobre una forma decidida. '
+              'Su lista de «hay que acotarla» NO vale hasta arreglar esto.')
+        return 1
+    print('OK — las seis formas se clasifican como está decidido.')
+    return 0
+
+
 def main():
+    if '--control' in sys.argv:
+        sys.exit(control())
+
     csv_out = '--csv' in sys.argv
     detalle = '--detalle' in sys.argv
 

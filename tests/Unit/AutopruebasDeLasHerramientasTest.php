@@ -109,6 +109,15 @@ class AutopruebasDeLasHerramientasTest extends TestCase
             'escrituras-sin-auditoria.php' => ['php', 'tools/escrituras-sin-auditoria.php --autoprueba'],
             'quien-escribe-de-verdad.py' => ['python3', 'tools/quien-escribe-de-verdad.py --autoprueba'],
             'secciones-citadas.py' => ['python3', 'tools/secciones-citadas.py --autoprueba'],
+            // Entró el 1 sep 2026, y llega tarde a propósito de nadie: gobernaba el
+            // reparto de una noche de cinco sesiones **sin nada que la comprobara**, y
+            // se equivocó cuatro veces contando de MÁS — el error que no se delata solo,
+            // porque su lista sólo gana sitios donde no hay nada que hacer. La cuarta
+            // (`IS NULL` sin alias contado como «sin acotar») sacó cuatro consultas ya
+            // acotadas a la lista de trabajo. El control fija las seis formas, no un
+            // número del árbol: un número aquí obliga a reescribirlo cada noche, y se
+            // reescribe con el que salga en vez de con el que debía salir.
+            'unidades-sin-alcance.py' => ['python3', 'tools/unidades-sin-alcance.py --control'],
             // Era la única que declaraba un control positivo EN PROSA y no tenía nada
             // que lo ejecutara. CONTROLES-1 se lo puso, y al ejecutarlo salió rojo por
             // un motivo que no estaba en la lista de la ficha: **el fallo que citaba se
