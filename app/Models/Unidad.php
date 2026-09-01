@@ -229,6 +229,44 @@ class Unidad extends Model {
 	}
 
 
+	/**
+	 * La estructura de una asignatura **con sus tres banderas de configuración**, y
+	 * por eso es la del GRUPO y no la de nadie en particular.
+	 *
+	 * ## El alcance, y por qué aquí es `alumno_id IS NULL` y no `<=>`
+	 *
+	 * Su hermana `deAsignaturaCalculada` recibe un `$alumno_id` y pregunta a
+	 * `BoletinIndependiente::alcance()`. **Ésta no recibe ninguno**, y no es un
+	 * olvido: sus dos llamantes —`AsignaturasController` :303 y :426— la usan para
+	 * pintar «mis asignaturas» de un docente. Sin un alumno en el ámbito, la única
+	 * respuesta con significado es la del grupo, así que el alcance correcto es la
+	 * segunda forma de la §1.6 del reparto: `alumno_id IS NULL`. **La firma no
+	 * cambia**, que es lo que había que comprobar antes de tocar un modelo.
+	 *
+	 * ## Y sin la condición, las tres banderas mienten
+	 *
+	 * `porc_unidades` suma los porcentajes de las unidades. Con un independiente en
+	 * el grupo sumaría **el reparto del grupo más el suyo** —100 + 100 = 200— y la
+	 * pantalla acusaría de mal configurada a una asignatura que está bien. Es
+	 * exactamente lo que le pasó a `DefinitivasDeAsignatura::porcentajeDeLasUnidades`:
+	 * *«¿las unidades suman 100?»* con dos boletines **no tiene una sola respuesta**,
+	 * y allí se resolvió obligando al llamante a decir de qué boletín pregunta.
+	 * Aquí no hace falta preguntarlo: el llamante es la pantalla del grupo.
+	 *
+	 * `porc_notas_incorrecto` va por el mismo camino: marcaría como «sin notas» las
+	 * subunidades propias de un marcado, que en la planilla del grupo no las tiene
+	 * nadie porque no son de nadie del grupo.
+	 *
+	 * **Lo que esto deja fuera a propósito:** si la estructura propia de un
+	 * independiente está rota, este docente no lo ve aquí. Lo contesta la §6.1 con
+	 * su `motivo = "sin_estructura_propia"` y lo barre
+	 * `tools/independientes-sin-estructura.php` (§9.1), que son los dos sitios que
+	 * existen para eso. Mezclarlo aquí no lo avisaría: lo taparía detrás de un
+	 * porcentaje que ya no querría decir nada.
+	 *
+	 * Con nadie marcado no mueve una sola fila: hoy todas las unidades tienen
+	 * `alumno_id` NULL.
+	 */
 	public static function informacionAsignatura($asignatura_id, $periodo_id)
 	{
 		$result = new \stdClass;
@@ -237,6 +275,7 @@ class Unidad extends Model {
 		$consulta = 'SELECT id, definicion, porcentaje, orden 
 					FROM unidades
 					where asignatura_id=:asignatura_id and periodo_id=:periodo_id and deleted_at is null
+						and alumno_id is null
 					order by orden';
 
 		$unidades = DB::select($consulta, [

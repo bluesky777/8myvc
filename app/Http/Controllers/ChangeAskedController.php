@@ -508,6 +508,20 @@ class ChangeAskedController extends Controller {
 		for ($i=0; $i < $cant; $i++) { 
 			
 			if ($profes_actuales[$i]->cant_asignaturas) {
+				// El avance del docente mide **la estructura del grupo**, y por eso el
+				// `u.alumno_id is null` de más abajo.
+				//
+				// `uni_correctas` es `sum(u.porcentaje) = 100` por asignatura. Con un
+				// independiente en el grupo eso suma **el reparto del grupo más el suyo**
+				// —100 + 100 = 200—, la asignatura deja de contar como correcta y **el
+				// porcentaje del docente baja sin que él haya hecho nada mal**. Es el mismo
+				// fallo que se le arregló a `DefinitivasDeAsignatura::porcentajeDeLasUnidades`:
+				// «¿suman 100?» con dos boletines no tiene una sola respuesta. Aquí no hay
+				// que preguntar de cuál: esta pantalla es la del grupo, y no recibe alumno.
+				//
+				// La condición va **sólo en la `u` de fuera**: la derivada `r` entra por
+				// `r.unidad_id=u.id`, así que ya sólo puede emparejar unidades que hayan
+				// pasado este filtro. Repetirla dentro no cambiaría una fila.
 				$porcentaje = DB::select('SELECT sum(if( r2.porc_uni=100, 1, 0)) uni_correctas, SUM(r2.sub_correctas) sub_correctas
 										FROM (
 											SELECT  sum(u.porcentaje) porc_uni, u.asignatura_id, IF(count(r.porc_unidad)>0, 0, 1) sub_correctas, a.profesor_id
@@ -520,7 +534,7 @@ class ChangeAskedController extends Controller {
 												inner join unidades u ON u.id=s.unidad_id and s.deleted_at is null and u.deleted_at is null
 												group by s.unidad_id having sum(s.porcentaje) < 100 or sum(s.porcentaje) > 100 
 											)r on r.unidad_id=u.id
-											where u.periodo_id=? and u.deleted_at is null and a.profesor_id=?
+											where u.periodo_id=? and u.deleted_at is null and u.alumno_id is null and a.profesor_id=?
 											group by u.asignatura_id
 										)r2', 
 									[ $user->year_id, $user->periodo_id, $profes_actuales[$i]->profesor_id ]);
@@ -1229,7 +1243,17 @@ class ChangeAskedController extends Controller {
 			// Columnas nombradas, no `*`: `unidades.alumno_id` existe desde el 24 ago 2026
 			// (19-boletin-independiente.md) y con `*` entra en la respuesta. No volver a
 			// `*`. §5.bis de noche-2026-08-24/bi-1.md.
-			$consulta 		= 'SELECT id, definicion, porcentaje, periodo_id, asignatura_id, obligatoria, orden, por_defecto, fecha, created_by, updated_by, deleted_by, deleted_at, created_at, updated_at FROM unidades WHERE asignatura_id=? and periodo_id=? and deleted_at is null';
+			//
+			// Y `alumno_id is null` porque **el horario del día enseña la estructura del
+			// grupo**: aquí no hay ningún alumno en el ámbito —esto es «mis clases de hoy
+			// y de mañana»—, así que la única respuesta con significado es la del grupo.
+			// Sin la condición, la pantalla de inicio del docente listaría las unidades de
+			// un independiente junto a las del grupo **y sin poder atribuirlas**, porque
+			// `alumno_id` es justo la columna que la línea de arriba deja fuera.
+			//
+			// Lo del marcado se pide por su sitio, que es la §6.1; que no esté aquí no lo
+			// esconde, lo manda a la pantalla que sí sabe de quién habla.
+			$consulta 		= 'SELECT id, definicion, porcentaje, periodo_id, asignatura_id, obligatoria, orden, por_defecto, fecha, created_by, updated_by, deleted_by, deleted_at, created_at, updated_at FROM unidades WHERE asignatura_id=? and periodo_id=? and deleted_at is null and alumno_id is null';
 			$unidades 		= DB::select($consulta, [$asignaturas[$i]->asignatura_id, $periodo_id]);
 			
 			foreach ($unidades as $unidad) {

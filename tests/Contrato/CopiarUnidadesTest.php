@@ -98,6 +98,143 @@ class CopiarUnidadesTest extends CasoDeContrato
             'El recuento dijo cero y aun así se escribieron notas.');
     }
 
+    /**
+     * **§9.4: copiar se lleva TAMBIÉN las unidades del independiente.**
+     *
+     * `unidades_ids` la arma el front desde la pantalla de estructura, que enseña
+     * la del grupo: las de un marcado no están en esa lista y **nadie las echa de
+     * menos hasta abrir su boletín**. Si copiar no las trae, el periodo nuevo
+     * empieza con él sin una sola unidad, su definitiva sale 0 y no hay ningún
+     * error — la §9.1 entrando por la puerta de copiar.
+     *
+     * El caso hay que **construirlo**: con nadie marcado no existe ninguna unidad
+     * con dueño, así que la forma correcta y la incorrecta dan el mismo verde.
+     * Comprobado en rojo contra el código viejo, que copiaba sólo la lista pedida.
+     */
+    public function test_copiar_se_lleva_las_unidades_del_independiente(): void
+    {
+        $c = $this->contexto();
+
+        DB::table('periodos')->whereIn('id', [$c->origen, $c->destino])
+            ->update(['profes_pueden_editar_notas' => 1]);
+
+        // Va aparte **en el destino**, que es el periodo que decide.
+        $this->marcarIndependiente($c->alumno_id, $c->destino);
+        $this->unidadDe($c, $c->origen, $c->alumno_id);
+
+        // **Dos del grupo y UNA suya**, y no una y una: con los dos lados valiendo
+        // lo mismo, contar el conjunto contrario da el mismo número y el test pasa
+        // en verde con la forma ingenua. Lo levantó el lote A esta misma noche.
+        $otraDelGrupo = $this->unidadDe($c, $c->origen, null);
+
+        $antesSuyas = $this->unidadesDe($c->asignatura_id, $c->destino, $c->alumno_id);
+        $antesDelGrupo = $this->unidadesDe($c->asignatura_id, $c->destino, null);
+
+        $r = $this->withToken($c->token)->putJson('/api/periodos/copiar',
+            ['unidades_ids' => [$c->unidad_id, $otraDelGrupo]] + $this->cuerpo($c));
+
+        $r->assertStatus(200);
+
+        $this->assertSame($antesSuyas + 1,
+            $this->unidadesDe($c->asignatura_id, $c->destino, $c->alumno_id),
+            'El periodo nuevo empezó sin las unidades del independiente: su definitiva '
+            .'va a salir 0 y nadie recibe un error.');
+        $this->assertSame($antesDelGrupo + 2,
+            $this->unidadesDe($c->asignatura_id, $c->destino, null),
+            'Las del grupo no llegaron enteras, o llegó de más una que no es suya.');
+
+        // El desglose de la respuesta: dos son de la lista que mandó el front y una
+        // la puso el backend. Si el reparto se invierte, los números lo dicen.
+        $this->assertSame(2, (int) $r->json('unidades_copiadas'));
+        $this->assertSame(1, (int) $r->json('unidades_de_independientes_copiadas'));
+    }
+
+    /**
+     * Y **sólo** las de quien siga marcado en el destino, que es la otra mitad.
+     *
+     * La marca es por periodo desde el 31 ago 2026 (decisión 7): un alumno que fue
+     * aparte en el 1 y vuelve con el grupo en el 2 no se lleva sus unidades al 2, o
+     * el segundo periodo le saldría aparte sin que nadie lo hubiera pedido.
+     *
+     * **Éste no se pone rojo contra el código viejo** —que no copiaba ninguna con
+     * dueño y por tanto acierta por no hacer nada— y aun así se escribe: lo que
+     * fija es que el arreglo mire el destino y no el origen, que es el único sitio
+     * donde una implementación razonable se equivoca.
+     */
+    public function test_no_copia_las_del_que_ya_no_va_aparte_en_el_destino(): void
+    {
+        $c = $this->contexto();
+
+        DB::table('periodos')->whereIn('id', [$c->origen, $c->destino])
+            ->update(['profes_pueden_editar_notas' => 1]);
+
+        $this->marcarIndependiente($c->alumno_id, $c->origen);
+        $this->marcarIndependiente($c->alumno_id, $c->destino, aplica: false);
+        $this->unidadDe($c, $c->origen, $c->alumno_id);
+        $otraDelGrupo = $this->unidadDe($c, $c->origen, null);
+
+        $antesSuyas = $this->unidadesDe($c->asignatura_id, $c->destino, $c->alumno_id);
+        $antesDelGrupo = $this->unidadesDe($c->asignatura_id, $c->destino, null);
+
+        $r = $this->withToken($c->token)->putJson('/api/periodos/copiar',
+            ['unidades_ids' => [$c->unidad_id, $otraDelGrupo]] + $this->cuerpo($c));
+
+        $r->assertStatus(200);
+
+        $this->assertSame($antesSuyas,
+            $this->unidadesDe($c->asignatura_id, $c->destino, $c->alumno_id),
+            'Se copiaron las unidades de un alumno que en el destino va con el grupo: '
+            .'el segundo periodo le sale aparte sin que nadie lo pidiera.');
+        // Y las del grupo sí llegan: sin esto, un arreglo que no copie NADA pasaría.
+        $this->assertSame($antesDelGrupo + 2,
+            $this->unidadesDe($c->asignatura_id, $c->destino, null),
+            'Dejaron de copiarse también las del grupo, y entonces esto no mide nada.');
+        $this->assertSame(0, (int) $r->json('unidades_de_independientes_copiadas'));
+    }
+
+    /**
+     * **La forma «de más»: el dueño viaja con la unidad.**
+     *
+     * Si el front pide explícitamente la unidad de un independiente, el código
+     * viejo la copiaba **sin `alumno_id`** —`new Unidad` no lo tocaba—, o sea que
+     * creaba una unidad **del grupo** con el contenido de uno solo. Ahí las
+     * definitivas de los treinta se calculan con un reparto que no es el suyo y no
+     * se mueve nada en el log.
+     *
+     * Se comprueba por las dos caras: que aparece una suya **y** que no aparece
+     * ninguna del grupo. Rojo contra el código viejo por la segunda.
+     */
+    public function test_una_unidad_con_dueno_no_se_copia_como_del_grupo(): void
+    {
+        $c = $this->contexto();
+
+        DB::table('periodos')->whereIn('id', [$c->origen, $c->destino])
+            ->update(['profes_pueden_editar_notas' => 1]);
+
+        $this->marcarIndependiente($c->alumno_id, $c->destino);
+        $suya = $this->unidadDe($c, $c->origen, $c->alumno_id);
+
+        $delGrupo = $this->unidadesDe($c->asignatura_id, $c->destino, null);
+        $delAlumno = $this->unidadesDe($c->asignatura_id, $c->destino, $c->alumno_id);
+
+        $r = $this->withToken($c->token)->putJson('/api/periodos/copiar',
+            ['unidades_ids' => [$suya]] + $this->cuerpo($c));
+
+        $r->assertStatus(200);
+
+        $this->assertSame($delGrupo, $this->unidadesDe($c->asignatura_id, $c->destino, null),
+            'La unidad de un independiente se copió como una del grupo: las definitivas '
+            .'de los treinta salen con un reparto que no es el suyo.');
+        $this->assertSame($delAlumno + 1,
+            $this->unidadesDe($c->asignatura_id, $c->destino, $c->alumno_id),
+            'La unidad pedida no llegó al destino con su dueño.');
+
+        // La pidió el front, así que cuenta como suya y **no** como añadida por
+        // nosotros: es la línea que separa los dos campos.
+        $this->assertSame(1, (int) $r->json('unidades_copiadas'));
+        $this->assertSame(0, (int) $r->json('unidades_de_independientes_copiadas'));
+    }
+
     // ---------------------------------------------------------------- ayudas
 
     private function cuerpo(object $c): array
@@ -112,6 +249,30 @@ class CopiarUnidadesTest extends CasoDeContrato
             'periodo_to_id' => $c->destino,
             'unidades_ids' => [$c->unidad_id],
         ];
+    }
+
+    /** Las de un boletín concreto: `null` es el del grupo. `<=>` y nunca `=`. */
+    private function unidadesDe(int $asignaturaId, int $periodoId, ?int $alumnoId): int
+    {
+        return (int) DB::selectOne('SELECT COUNT(*) n FROM unidades
+            WHERE asignatura_id = ? AND periodo_id = ? AND deleted_at IS NULL
+              AND alumno_id <=> ?',
+            [$asignaturaId, $periodoId, $alumnoId])->n;
+    }
+
+    /** Una unidad en un periodo, de un alumno o del grupo (`null`). El seed no trae. */
+    private function unidadDe(object $c, int $periodoId, ?int $alumnoId): int
+    {
+        return DB::table('unidades')->insertGetId([
+            'asignatura_id' => $c->asignatura_id,
+            'periodo_id' => $periodoId,
+            'alumno_id' => $alumnoId,
+            'definicion' => $alumnoId === null ? 'Otra del grupo' : 'Unidad propia del independiente',
+            'porcentaje' => 100,
+            'orden' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 
     private function unidadesEn(int $asignaturaId, int $periodoId): int
@@ -136,11 +297,22 @@ class CopiarUnidadesTest extends CasoDeContrato
 
         $this->assertNotNull($otro, 'El seed necesita dos periodos en el año del profesor.');
 
+        // El `EXISTS` es de la noche del boletín independiente: los tres casos nuevos
+        // necesitan **un alumno del grupo** para marcarlo, y una asignatura de un
+        // grupo vacío los dejaría sin caso que construir. Si el seed ya daba una con
+        // alumnos —lo hace—, no cambia cuál se elige ni mueve los tres de arriba.
         $asignatura = DB::selectOne('SELECT a.id, a.grupo_id FROM asignaturas a
             INNER JOIN grupos g ON g.id = a.grupo_id AND g.year_id = ? AND g.deleted_at IS NULL
-            WHERE a.deleted_at IS NULL ORDER BY a.id LIMIT 1', [$periodo->year_id]);
+            WHERE a.deleted_at IS NULL
+              AND EXISTS (SELECT 1 FROM matriculas m WHERE m.grupo_id = g.id
+                            AND m.deleted_at IS NULL AND m.estado IN ("MATR", "ASIS"))
+            ORDER BY a.id LIMIT 1', [$periodo->year_id]);
 
-        $this->assertNotNull($asignatura, 'El seed necesita una asignatura en el año del profesor.');
+        $this->assertNotNull($asignatura, 'El seed necesita una asignatura con alumnos en el año del profesor.');
+
+        $alumno = DB::selectOne('SELECT m.alumno_id FROM matriculas m
+            WHERE m.grupo_id = ? AND m.deleted_at IS NULL AND m.estado IN ("MATR", "ASIS")
+            ORDER BY m.alumno_id LIMIT 1', [$asignatura->grupo_id]);
 
         // La unidad de origen se monta aquí: el seed llega sin ninguna en este
         // periodo, y copiar una lista vacía escribe cero filas y pasa los tres tests
@@ -162,6 +334,7 @@ class CopiarUnidadesTest extends CasoDeContrato
             'asignatura_id' => (int) $asignatura->id,
             'grupo_id' => (int) $asignatura->grupo_id,
             'unidad_id' => $unidadId,
+            'alumno_id' => (int) $alumno->alumno_id,
         ];
     }
 }
