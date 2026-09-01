@@ -8,7 +8,74 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
-**Última actualización: 31 ago 2026, noche — LA NOCHE EN PARALELO DEL BOLETÍN INDEPENDIENTE, Y LA
+**Última actualización: 31 ago 2026, noche — LOS CINCO LOTES FUNDIDOS: LAS FASES 1, 2, 3 Y 6 DEL
+BOLETÍN INDEPENDIENTE ESTÁN EN `main`** · **`Tests: 1645 passed (12750 assertions)`, `exit=0`, 228
+clases con veredicto, cero fallos** · pint **PASS** (329 ficheros) · larastan nivel 7 **`[OK]`** ·
+**545 rutas** (una nueva: `PUT boletin-independiente/periodo`) · **sin subir y sin desplegar**
+
+> **La fase 1 está cerrada, y con la cuenta que se puede repetir**: de los **23 sitios** que lista el
+> detector, **cinco están decididos** —dos sellos de caché, un falso positivo con el alcance
+> traspasado, uno ya acotado y código muerto— y los **18 de trabajo** se repartieron **4 del lote A +
+> 7 del B + 7 del C**, sin sobrar ni faltar ninguno. **El criterio no es «0 en la columna»** —los
+> cerrados *decidiendo no tocarlos* se quedan contados ahí— sino **cada fila acotada o con una
+> decisión escrita**.
+>
+> **Fases 2, 3 y 6 también dentro.** La marca por periodo con su escritor y su guarda (D), las
+> planillas normales sin los independientes (B) y los puestos con su interruptor (E). **Quedan la 4**
+> —`planilla` y `copiar`— **y la 5**, los boletines probados en negativo.
+>
+> **Dos migraciones bloqueantes esperando** para la tanda siguiente: retirar
+> `matriculas.boletin_independiente` y `years.puestos_con_bol_independiente`.
+
+> **EL ARREGLO QUE NADIE ENCARGÓ Y QUE ES EL MÁS CARO QUE SE EVITÓ: una memoria estática que
+> contestaba lo de antes después de escribir.** `BoletinIndependiente::alcance()` memoiza en una
+> propiedad `static` cuyo docblock dice «vive lo que vive la petición» — **cierto en producción, una
+> petición un proceso; falso en la suite, donde un proceso son mil peticiones**. `DatabaseTransactions`
+> deshace la base y **no deshace un `static`**.
+>
+> Se llegó a él persiguiendo **dos rojos de `BoletinesTest` que pasaban en aislamiento y fallaban
+> dentro de la suite**, y que fallaban **rápido** —7,94 s frente a los 43,91 s que tardan cuando
+> pasan—, *porque una instantánea que no cuadra falla antes de terminar de calcular*. La primera
+> hipótesis fue **contención de cuatro suites contra el mismo MySQL**; se midió en la condición buena
+> —dos suites, bases distintas—, **volvió a salir roja, y la sesión que la defendía la retiró ella
+> misma**.
+>
+> **Y las dos mitades no son la misma cosa, que es lo que hace que valga:** vaciar las memorias entre
+> tests es higiene y va en `CasoDeContrato::setUp()` —**las tres**: `BoletinIndependiente`,
+> `EscalaDeNotas` y `NombreDelAlumno`—; **invalidar en quien escribe es producción**, porque la
+> petición que cambia la respuesta no puede contestar con lo que cacheó antes, y la ruta de la fase 4
+> **lee el alcance en la misma petición en que se puede haber escrito**. **Cerrado como *flaky*,
+> habríamos fundido sin la invalidación y lo habría cobrado la fase 4, en una ruta nueva y con el
+> front encima.**
+>
+> Y va en `CasoDeContrato` y no test a test **porque test a test ya se estaba haciendo y no escaló**:
+> seis llamadas sueltas a `olvidar()` en dos clases más el helper `marcarIndependiente()` — quien lo
+> escribió se topó con esto tres veces y lo resolvió a mano cada una, y aun así la fuga volvió a
+> entrar por el camino nuevo de esta noche, **marcar por HTTP**, que no pasa por ese helper.
+
+> **EL SEED DEL ROL `Secretario`: FUNDIDO Y REVERTIDO LA MISMA NOCHE, y las dos veces por decisión de
+> Joseth.** Entró con una premisa que resultó falsa —«la rama `Secretario` de `esAdministrativo()` no
+> la ejerce ni un test»: la ejercitan **seis o siete ficheros** que se fabrican el rol, y
+> `SecretarioTest` está montado entero sobre ella— y al fundirlo **destapó su coste, que nadie había
+> previsto**: tres rojos.
+>
+> **Uno de los tres no era un test roto: era un centinela disparando.** `LoQueDecideUnRolTest` lleva
+> escrito que *«si alguien crea ese rol, este test se pone rojo. **Eso es lo que hace**: no impedirlo,
+> avisar de que en ese momento cambia quién puede qué»* — y nombra la consecuencia:
+> `Autoriza::esAdministrativo()` deja de ser `is_superuser` a secas, y con él cambian las escrituras
+> de alumnos, las de acudientes y los tres `forcedelete`.
+>
+> **Se revirtió por lo que se supo después de decidirlo, no por lo que se sabía al encargarlo.** Y
+> dos mediciones que el centinela no puede hacer de sí mismo, las dos del lote D: **el rol nace con
+> cero personas**, así que `esAdministrativo()` habría seguido admitiendo exactamente a los diez
+> `is_superuser` —el centinela afirma sobre la **existencia** y no sobre la población, o sea que su
+> aviso es «esto ya puede cambiar», no «esto ha cambiado»—; y las dos instantáneas se movían por
+> **ensanchamiento de tipo y no de contenido** (`description` y `display_name` de `null` a
+> `null|string`), porque los once roles del seed los tienen a NULL y **la fila nueva llegaba con los
+> dos rellenos**: con esos dos campos a NULL **no se habría movido ninguna instantánea**. Quien lo
+> reintente tiene ahí la línea que hay que decidir a sabiendas en vez de heredarla.
+
+**Anterior: 31 ago 2026, noche — LA NOCHE EN PARALELO DEL BOLETÍN INDEPENDIENTE, Y LA
 CONTABILIDAD DE LA FASE 1 REMEDIDA** · cinco lotes en cinco árboles y cinco bases
 ([reparto](noche-2026-08-31/reparto.md)), coordinación traspasada de `8myvc-2a` a `8myvc-c1`
 ([traspaso](noche-2026-08-31/traspaso-coordinacion.md)) · **nada desplegado**
