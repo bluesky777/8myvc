@@ -429,10 +429,33 @@ class BolfinalesController extends Controller {
 		}
 
 
+		// El puesto, para el grupo entero y de una vez. **No va dentro del bucle y ya no
+		// llama a `Nota::puestoAlumno`**: quién entra en el recuento es la decisión 6 del
+		// boletín independiente y vive en el servicio, que es el único sitio que la sabe.
+		// `Nota::puestoAlumno` sigue siendo una función pura y no se toca — sacar al
+		// independiente se hace **eligiendo la lista antes de llamarla**.
+		//
+		// Al independiente que no cuenta le queda `puesto = null`, que el front pinta
+		// `—`. **No se le saca de `$alumnos`**: su fila sigue viajando con sus notas, y
+		// sólo le falta el puesto.
+		//
+		// **Los periodos que se pasan son los que ESTE informe promedia**, ni el del
+		// token ni el año entero. Preguntar sólo por el del token dejaría contando a
+		// quien tuvo el accidente en otro periodo; preguntar por el año entero sacaría
+		// del recuento a quien lo tuvo en uno que este informe no promedia — y eso **no
+		// le cambia el puesto a él: se lo cambia a los de detrás**, que suben uno.
+		// Aquí `$year->periodos` es un **array** (`periodosDelAnio()` hace `DB::select`)
+		// y además **ya viene recortado por `periodo_a_calcular`** (`numero <= ?`), así
+		// que es literalmente el conjunto que este informe promedia. Es la forma que
+		// pide la regla de arriba, sin tener que recortarlo aquí otra vez.
+		BoletinIndependiente::ponerPuestos(
+			$alumnos,
+			array_map(static fn ($periodo) => (int) $periodo->id, $year->periodos),
+			(int) $user->year_id
+		);
+
 		foreach ($alumnos as $alumno) {
-			
-			$alumno->puesto = Nota::puestoAlumno($alumno->promedio, $alumnos);
-			
+
 			if ($requested_alumnos == '') {
 
 				array_push($response_alumnos, $alumno);
