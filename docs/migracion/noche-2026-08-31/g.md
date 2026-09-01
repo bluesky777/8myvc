@@ -242,3 +242,33 @@ Una columna nueva escrita como `Request::input('x')` lo pasa, y debe pasarlo
 —pedirla en el cuerpo también es una decisión—, pero eso **no significa que se
 herede**. Si lo que hace falta es que el año nuevo la traiga del anterior, se
 comprueba mirando el resultado, no esta lista.
+
+## 6. Lo que hay que llevarse de este lote, y no es el arreglo
+
+Los dos encargos eran de instrumento, y los dos terminaron en el mismo sitio:
+
+**El detector que gobernaba el reparto de la noche era el único sin control.**
+`unidades-sin-alcance.py` repartió el trabajo de cinco sesiones y no estaba en
+`AutopruebasDeLasHerramientasTest` ni tenía `--control` que registrar. Se
+equivocó cinco veces, las cinco contando de más, y las cinco las encontró una
+persona con el fichero delante. **Contar de más no se delata solo**: la lista
+gana sitios donde no hay nada, quien los revisa los cierra «decidiendo no
+tocarlos» —que aquí es una salida legítima, §1.5— y el instrumento nunca queda
+mal. Ahora tiene trece formas ancladas.
+
+**Y la lista de columnas del año nuevo llevaba dos de cuatro.** No por descuido
+de nadie: porque una lista a mano de 61 entradas, escrita en un sitio y
+consultada en ninguno, no tiene forma de avisar. Su tasa medida —dos de las
+cuatro columnas que entraron por migración— es lo que justifica el centinela,
+no la que faltaba.
+
+**Y las dos condiciones del encargo se cumplieron contestando distinto de lo que
+pedían**, que es lo que estas dos noches han enseñado a mirar:
+
+- *«corre `AutopruebasDeLasHerramientasTest`, ese test existe para esto»* — corría
+  y no comprobaba nada de esto; había que **añadir** la herramienta;
+- *«la población es 43 en 23»* — era 26 en 14 antes de tocar nada, porque se
+  midió antes de fundir cinco lotes.
+
+Ninguna de las dos era un error que costara nada; las dos habrían hecho dar por
+comprobado algo que no lo estaba.
