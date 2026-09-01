@@ -11,7 +11,16 @@
 **Última actualización: 31 ago 2026, noche — LA NOCHE EN PARALELO DEL BOLETÍN INDEPENDIENTE, Y LA
 CONTABILIDAD DE LA FASE 1 REMEDIDA** · cinco lotes en cinco árboles y cinco bases
 ([reparto](noche-2026-08-31/reparto.md)), coordinación traspasada de `8myvc-2a` a `8myvc-c1`
-([traspaso](noche-2026-08-31/traspaso-coordinacion.md)) · **nada fundido y nada desplegado todavía**
+([traspaso](noche-2026-08-31/traspaso-coordinacion.md)) · **nada desplegado**
+
+> ### 🔴 SI ERES UNA SESIÓN NUEVA Y VIENES A TRABAJAR EN ESTO, LEE PRIMERO [`noche-2026-08-31/estado-de-la-cola.md`](noche-2026-08-31/estado-de-la-cola.md)
+>
+> Dice **qué está fundido, qué está commiteado sin fundir y por qué, y las ocho cosas que faltan con
+> su dueño y su dependencia**. Existe porque **las cinco sesiones de lote murieron a la vez y dos sin
+> commitear**, así que hay trabajo a medias en cuatro ramas: **dos sesiones sobre el mismo fichero es
+> lo que cuesta la noche entera**, y ése es el único motivo por el que la cola la reparte quien
+> coordina y no se coge. Las reglas están en [reparto.md](noche-2026-08-31/reparto.md) —la **§1.7** y
+> la **§1.8** cambiaron a mitad—. Cuando la cola se vacíe, ese documento se borra; éste no.
 
 > **LA CIFRA DE LA FASE 1, MEDIDA POR LA COORDINACIÓN Y NO COPIADA — y esta vez el número aguantó.**
 > Detector con el arreglo de `ce56351`, `--csv` desde la raíz con `main` en `5b79c42`: **43 lecturas
