@@ -550,46 +550,161 @@ La pantalla nueva, entera, en una petición.
   pregunta, sólo hace falta que el endpoint la conteste **en vez de dejársela a
   la pantalla**, que desde el navegador no puede.
 
-### 6.2 · `POST boletin-independiente/copiar` · `auth.personal`
+### 6.2 · `POST boletin-independiente/copiar` · **DOS orígenes, no uno** — reescrita el 31 ago 2026
+
+**Encargo de Joseth por `myvc-front-c5`:** *«que se puedan copiar unidades/subunidades tanto de otro
+boletín que se le creó de manera independiente a otro estudiante como de las unidades/sub específicas
+de asignaturas en algún periodo»*. La versión anterior de esta sección tenía **un solo origen
+implícito** —otro alumno de la misma lista, misma asignatura, mismo periodo— y el caso normal no
+cabía: el estudiante que vuelve y sigue el plan del curso, copiando **del periodo que sí está
+montado**.
 
 ```jsonc
 // petición
-{ "asignatura_id": 812, "origen_alumno_id": 3311,
-  "destinos": [3315, 3402], "con_notas": false, "reemplazar": false }
+{
+  "asignatura_id": 812, "periodo_id": 93,        // el DESTINO
+  "alumnos_destino": [3311, 3402],
+  "origen": { "tipo": "grupo",  "periodo_id": 91 },
+  //     o : { "tipo": "alumno", "alumno_id": 2199, "periodo_id": 91 },
+  "con_notas": false,
+  "si_ya_tiene": "saltar"                        // "saltar" | "anadir" | "reemplazar"
+}
 
 // respuesta
-{ "copiadas": { "unidades": 6, "subunidades": 14, "notas": 0 },
+{
+  "origen": { "tipo": "grupo", "periodo_id": 91, "unidades": 4, "subunidades": 9 },
   "destinos": [
-    { "alumno_id": 3315, "unidades": 3, "subunidades": 7 },
-    { "alumno_id": 3402, "unidades": 0, "saltado": "ya tiene estructura este periodo" }
-  ] }
+    { "alumno_id": 3311, "resultado": "copiado",
+      "copiadas":  { "unidades": 4, "subunidades": 9, "notas": 0 },
+      "retiradas": { "unidades": 0, "notas_que_dejan_de_contar": 0 },
+      "porcentaje_unidades": 100 },
+    { "alumno_id": 3402, "resultado": "saltado", "motivo": "ya_tiene_estructura",
+      "porcentaje_unidades": 80 }
+  ]
+}
 ```
 
-- **Una transacción para todo el lote**, y **un recálculo por alumno al final y
-  fuera de ella** — lo que aprendió `PUT notas/lote`: media copia deja
-  definitivas calculadas sobre estados intermedios.
-- **`reemplazar: false` por defecto y el destino que ya tiene estructura se
-  salta diciéndolo.** Copiar encima borraría notas que alguien tecleó, y este
-  botón está justo al lado del de copiar sin notas.
-- **No es el copiador que ya existe, y la pantalla tiene que decirlo.**
-  `PUT periodos/copiar` —la pantalla `copiar-unidades` del front— copia **de una
-  asignatura y periodo a OTRA asignatura y periodo**; ésta copia **de un alumno a
-  otros alumnos dentro de la misma asignatura y el mismo periodo**. Uno copia a
-  otra columna, el otro a otras filas. **Y no se reutiliza aquél por una razón
-  medible**: `putCopiar` escribe en un `foreach` **sin transacción**, según su
-  propio test de contrato. Rótulos acordados con el front: aquí *«Copiar a los
-  demás alumnos de esta lista»*, allí *«Copiar unidades a otro grupo o periodo»*.
-- **Sólo copia a alumnos que van por independiente en ese periodo.** Un destino
-  que no lo sea vuelve como `saltado`, nunca como 400: la pantalla los está
-  listando, y que uno se desmarque entre la carga y el clic es normal.
+**`origen.asignatura_id` no existe, y es la respuesta a la pregunta 1 del front: sólo la misma
+asignatura.** Se comprueba con **422** y no con un selector. Tres razones, y la tercera es la que
+decide:
+
+- `asignaturas` es `(materia_id, grupo_id)` y **no tiene `periodo_id`**, así que «la misma asignatura
+  en otro periodo» ya cubre el caso A entero. Lo que abriría un `origen.asignatura_id` no es «otro
+  periodo»: es **otra materia o, peor, otro grupo**.
+- Y eso último es un **id del cuerpo que no comprueba nadie** —la familia de
+  `tools/identificadores-del-cuerpo.py`—: el docente de 5A tirando de la estructura de 11B. No es un
+  dato personal, pero `auth.personal` no lo para y nadie lo pidió.
+- **Ya existe la puerta para eso y es otra**: `PUT periodos/copiar` copia **de una asignatura y
+  periodo a OTRA asignatura y periodo**. Abrir ésta a otra asignatura sería **una segunda puerta para
+  la misma operación con reglas distintas**, que es exactamente el patrón que este repositorio lleva
+  pagando desde los seis escritores de la definitiva.
+
+#### Los dos orígenes se leen con alcances CONTRARIOS, y por eso van por el servicio
+
+Es la trampa de esta ruta y no se ve en el JSON:
+
+| `origen.tipo` | Qué filas de `unidades` lee |
+|---|---|
+| `"grupo"` | las del grupo: **`u.alumno_id IS NULL`** |
+| `"alumno"` | las de ese alumno: **`u.alumno_id = origen.alumno_id`** |
+
+**Las dos ramas se escriben con `BoletinIndependiente`, nunca a mano.** Un `= $alumno_id` copiado a
+la rama del grupo devuelve cero filas y **copia una estructura vacía en 200**, que es el fallo mudo
+de siempre. Y el destino se comprueba contra el **periodo de DESTINO**, no el de origen: sólo se
+copia a alumnos que van por independiente en `periodo_id`; los demás vuelven como
+`resultado: "no_marcado"`, nunca como 400 — la pantalla los está listando y que uno se desmarque
+entre la carga y el clic es normal.
+
+#### `si_ya_tiene`: tres valores, y `reemplazar` NO borra lo que parece
+
+Respuesta a la pregunta 2, y **trae una corrección al aviso que el front quiere pintar.**
+
+| valor | Qué hace |
+|---|---|
+| `"saltar"` | **el defecto.** El destino con estructura propia vuelve con `resultado: "saltado"` y `motivo: "ya_tiene_estructura"`. Es lo que hacía el `reemplazar: false` de antes, ahora con nombre |
+| `"anadir"` | añade las unidades del origen a las que ya tiene. **Puede dejar la suma por encima de 100 y no se corrige** (§6.1) |
+| `"reemplazar"` | retira las propias del destino en ese `(asignatura, periodo)` y pone las del origen |
+
+> **`reemplazar` no borra ni una nota, y el «¿está seguro?» no puede decir que sí.** Medido en
+> `UnidadesController::deleteDestroy`: retirar una unidad es un **borrado en blando de la unidad y de
+> nada más** — las subunidades y las notas **conservan su `deleted_at` a null** y siguen ahí. Salen
+> de todos los cálculos porque cada lectura une `unidades u ... AND u.deleted_at IS NULL`, no porque
+> se hayan ido. Y **`PUT unidades/restore/{id}` la devuelve entera, con sus subunidades y sus notas
+> dentro**: la papelera de unidades ya existe y ya está enrutada.
+>
+> Por eso la respuesta trae **`retiradas.notas_que_dejan_de_contar`** y no `notas_borradas`. No es un
+> matiz de nombre: *«se borrarán 9 notas»* es **falso** y asusta de una forma que hace que el docente
+> no use el botón, y *«9 notas dejan de contar; se pueden recuperar desde la papelera»* es cierto y
+> es una decisión distinta.
+>
+> **Y sólo toca unidades con `alumno_id = destino`.** Jamás una del grupo, ni una de otro alumno —
+> retirar por `(asignatura_id, periodo_id)` sin el dueño le vaciaría la planilla a los treinta. Es la
+> invariante que necesita su propio test, en los dos sentidos.
+
+**El recuento para avisar ANTES no sale de aquí, y el front ya lo tiene.** Una cifra que llega en la
+respuesta llega **después** de la acción: como advertencia no sirve. Lo que la pantalla enseña en el
+«¿está seguro?» sale de `PUT boletin-independiente/planilla` (§6.1), que ya devuelve las unidades,
+las subunidades y las notas de cada alumno. Las cifras de la respuesta valen para lo otro: **que una
+discrepancia entre lo avisado y lo hecho se vea** en vez de quedarse en que la pantalla iba vieja.
+
+#### `con_notas` significa dos cosas distintas, y una de ellas hay que prohibirla
+
+- **`origen.periodo_id !== periodo_id` con `con_notas: true` → 422.** Copiar la estructura del
+  periodo 1 al 3 es preparar la planilla; copiar **también las notas** es escribir en el periodo 3
+  las calificaciones del 1. Eso no es una copia, es inventar un dato, y **el navegador no puede
+  decidirlo** porque desde la pantalla las dos casillas parecen igual de inocentes.
+- **Con el mismo periodo, el valor depende del origen y las dos ramas son deliberadas:**
+  - `tipo: "grupo"` → se copian **las notas que el alumno de destino ya tenía él mismo** en las
+    subunidades del grupo. Es el caso que hace útil esta operación: el alumno iba en la planilla, se
+    le marca a mitad de periodo y **se lleva lo suyo** en vez de empezar en blanco (§9.3 por la otra
+    puerta).
+  - `tipo: "alumno"` → se copian **las del alumno de origen**. Eso es calificar a varios de golpe, y
+    por eso `con_notas` es un botón aparte y el docente tiene que decirlo.
+
+  **Son dos implementaciones, no una con un parámetro**, y quien escriba sólo la segunda creerá que
+  ha hecho las dos: en las dos el SQL sale de `notas n ON n.subunidad_id = s.id`, y lo único que
+  cambia es de quién es el `n.alumno_id`.
+
+#### Lo que no cambia de la versión anterior
+
+- **Una transacción para todo el lote**, y **un recálculo por alumno al final y fuera de ella** — lo
+  que aprendió `PUT notas/lote`: media copia deja definitivas calculadas sobre estados intermedios.
+- **No se reutiliza `PUT periodos/copiar`**, y no es por gusto: `putCopiar` escribe en un `foreach`
+  **sin transacción**, según su propio test de contrato. Rótulos acordados con el front: aquí
+  *«Copiar de…»*, allí *«Copiar unidades a otro grupo o periodo»*.
+- **`porcentaje_unidades` se devuelve y no se corrige** (§6.1, y respuesta a la pregunta 3 del
+  front): la suma resultante viaja **por destino** y con el mismo nombre que ya usa la planilla, para
+  que la pantalla no tenga dos campos que significan lo mismo. Que `anadir` deje un 160 **se ve, y
+  que se vea es lo que lo delata**.
 
 
 ### 6.3 · `PUT boletin-independiente/periodo` · **FASE 2**, no fase 4
 
 ```jsonc
-{ "alumno_id": 3311, "aplica": false }   // el periodo es el del usuario
+{ "alumno_id": 3311, "periodo_id": 91, "aplica": false }
 → { "alumno_id": 3311, "periodo_id": 91, "aplica": false }
 ```
+
+> **`periodo_id` VA EN EL CUERPO, y esto lo corrigió el front el 31 ago 2026 con razón.** Aquí ponía
+> *«el periodo es el del usuario»*, copiado de `notas/detailed`, y **con esa forma la pantalla 1 no
+> puede hacer lo que se pidió**: la ficha marca cualquiera de los cuatro periodos —incluido uno
+> cerrado, que la §2.4 confirma que se puede y se quiere—, y **el periodo del token es el activo, que
+> casi nunca es el del accidente**. Un backend que sacara el periodo del token marcaría **siempre el
+> activo, en silencio y con 200**: exactamente el modo de fallo que este módulo lleva dos revisiones
+> quitando. El front ya lo manda explícito y tiene una prueba que lo fija.
+>
+> **Y con eso entra una guarda que antes no hacía falta.** Un `periodo_id` que llega del cuerpo es la
+> familia de `tools/identificadores-del-cuerpo.py`, así que el método comprueba **las dos cosas, y no
+> le basta la clave foránea** —que sólo obliga a que el alumno y el periodo existan, no a que tengan
+> algo que ver—:
+>
+>   1. que el periodo sea de un año sobre el que quien llama puede actuar;
+>   2. que el alumno **esté matriculado en el año de ese periodo**.
+>
+> Sin la 2, un `alumno_id` y un `periodo_id` de años distintos escriben una fila que `consultar()`
+> devolvería como buena — y `consultar()` **ya no lo comprueba a propósito** (§2.2): esa validación
+> es de quien escribe, porque ponerla en la lectura la cobraría en cada boletín impreso para
+> defenderse de un estado que el escritor no debe dejar crear.
 
 `INSERT ... ON DUPLICATE KEY UPDATE` sobre `bol_ind_periodos`. **No borra ni una
 fila de `unidades`, `subunidades` ni `notas`, nunca.** Hay un test que apaga y
@@ -605,7 +720,8 @@ método nuevo de `Autoriza` de la §2.3 —administrador, secretario o rector, s
 y explícitamente **no el titular del grupo**, que hoy sí escribe la rama de matrícula de
 `GuardarAlumno::valor`. La decisión 5 es más estrecha que «como está hoy».
 
-**Y sí acepta un periodo cerrado**, por la §2.4. Lo que no puede hacer es sembrar las notas de la
+**Y sí acepta un periodo cerrado**, por la §2.4 — que es justamente por lo que `periodo_id` tiene
+que venir del cuerpo y no del token. Lo que no puede hacer es sembrar las notas de la
 §9.3 preguntando `permiteEditarNotas`: ahí está la trampa, y está medida en esa misma sección.
 
 **Lo que hay que validar antes de escribir la fila**, porque `consultar()` ya no lo comprueba a
@@ -798,8 +914,9 @@ los dieciséis** (§10).
    - el interruptor **«este periodo no tiene boletín independiente»** por alumno,
      que **no borra nada** y deja lo escrito en gris;
    - **la suma de porcentajes** visible por alumno, en rojo cuando no es 100;
-   - **copiar a los demás**, dos botones: *copiar estructura* y *copiar
-     estructura y notas*, y enseñar lo que devuelve — incluidos los `saltado`.
+   - **copiar**, que desde el 31 ago 2026 tiene **dos orígenes** (§6.2): la estructura
+     del grupo —posiblemente de otro periodo— o el boletín aparte de otro alumno. Y
+     enseñar lo que devuelve, incluidos los `saltado` y los `no_marcado`.
 4. **Puestos**: enseñar por qué falta alguien cuando el interruptor está en 0, y
    pintar `—` en el puesto del independiente.
 

@@ -106,6 +106,49 @@ revés** · `2026_08_31_100000_retirar_boletin_independiente_de_matriculas`
 > es `is_superuser || Secretario` y **no incluye el rol `Admin`** al que la decisión 5 nombra
 > explícitamente.
 
+> **Y UNA SEGUNDA VUELTA LA MISMA NOCHE: COPIAR TIENE DOS ORÍGENES, NO UNO.** Encargo de Joseth por
+> la misma sesión del front — *«que se puedan copiar unidades/subunidades tanto de otro boletín que se
+> le creó de manera independiente a otro estudiante como de las unidades/sub específicas de
+> asignaturas en algún periodo»*. La [§6.2](19-boletin-independiente.md) tenía **un solo origen
+> implícito** —otro alumno, misma asignatura, mismo periodo— y **el caso normal no cabía**: el
+> estudiante que vuelve y sigue el plan del curso, copiando del periodo que sí está montado.
+> Reescrita entera; **es contrato, no código: la ruta es de la fase 4 y la fase 1 sigue abierta.**
+>
+> **Los dos orígenes se leen con alcances CONTRARIOS** —`u.alumno_id IS NULL` para el grupo,
+> `= origen.alumno_id` para el alumno— y ésa es la trampa que no se ve en el JSON: un `=` copiado a
+> la rama del grupo devuelve cero filas y **copia una estructura vacía en 200**.
+>
+> **Las tres preguntas del front, contestadas midiendo:**
+>
+>   1. **Sólo la misma asignatura**, con 422. `asignaturas` es `(materia_id, grupo_id)` y **no tiene
+>      `periodo_id`**, así que «otro periodo» ya cabe sin abrir nada; lo que un `origen.asignatura_id`
+>      abriría es **otra materia o, peor, otro grupo** — un id del cuerpo que no comprueba nadie. Y
+>      **esa puerta ya existe y es otra**: `PUT periodos/copiar`. Dos puertas para la misma operación
+>      con reglas distintas es de donde salió el recalculador único.
+>   2. **`si_ya_tiene`: `saltar` (defecto) · `anadir` · `reemplazar`** — y aquí va **una corrección al
+>      aviso que el front iba a pintar.** `reemplazar` **no borra ni una nota**: medido en
+>      `UnidadesController::deleteDestroy`, retirar una unidad es un borrado en blando **de la unidad
+>      y de nada más**; subunidades y notas se quedan con `deleted_at` a null y salen de los cálculos
+>      sólo porque cada lectura une `u.deleted_at IS NULL`. **`PUT unidades/restore/{id}` la devuelve
+>      entera con sus notas dentro.** Por eso el campo es `notas_que_dejan_de_contar` y no
+>      `notas_borradas`: *«se borrarán 9 notas»* es **falso**, y asusta de una forma que hace que el
+>      docente no use el botón.
+>   3. **La suma resultante viaja por destino**, con el mismo nombre que ya usa la planilla
+>      (`porcentaje_unidades`) y **sin corregirse**, que es la regla del [10 §9.3](10-definitivas.md).
+>
+> **Y una que ellos no preguntaron y hay que prohibir: `con_notas` con el periodo de origen distinto
+> del de destino → 422.** Copiar la estructura del periodo 1 al 3 es preparar la planilla; copiar
+> también las notas es **escribir en el 3 las calificaciones del 1**. Desde la pantalla las dos
+> casillas parecen igual de inocentes, así que **no lo puede decidir el navegador**.
+>
+> **EL FRONT CORRIGIÓ LA §6.3 Y TENÍAN RAZÓN: `periodo_id` va en el CUERPO.** Decía «el periodo es el
+> del usuario», copiado de `notas/detailed`, y con esa forma la pantalla 1 **no puede marcar el
+> periodo del accidente**: el del token es el activo. Un backend que lo sacara del token marcaría
+> **siempre el activo, en silencio y con 200**. Con el cuerpo entra una guarda que antes no hacía
+> falta —la familia de `identificadores-del-cuerpo.py`—: que el periodo sea de un año sobre el que se
+> puede actuar, y que **el alumno esté matriculado en el año de ese periodo**. La clave foránea no lo
+> obliga, y `consultar()` **ya no lo comprueba a propósito** (§2.2).
+
 > **LO QUE NO SE HIZO, Y NO ES UN OLVIDO: los 29 sitios de la fase 1.** Es el trabajo de verdad que
 > queda y no cabía en esta tanda. Lo que sí queda es **la lista medida con nombre y línea**, el
 > criterio de terminación corregido y el patrón de falso positivo, que es lo que hace que el
