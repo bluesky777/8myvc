@@ -224,6 +224,15 @@ docker exec -d -w /app/.worktrees/<x> -e DB_TEST_DATABASE=simonbolivar_testing_<
 > que esta noche ya había fallado tres veces**. Con esa explicación en el documento, el
 > siguiente se pone a buscar quién mató qué.
 >
+> **Y la base también, no sólo el árbol.** `docker exec … php -r '…'` **no lee la base de
+> tests**: sin el entorno de testing carga el `.env` y pega contra `simonbolivar`, la de
+> desarrollo. Se ve en el propio `EXPLAIN`, que dice `ref: simonbolivar.…`. Le pasó al lote F
+> el 1 sep 2026: encontró dos filas en `bol_ind_periodos` y **estuvo a punto de reportar que
+> algún test escribía fuera de su transacción**, cuando eran datos de desarrollo de otro lote
+> probando su endpoint a mano. **Una consulta suelta contesta sobre la base que le toque, no
+> sobre la que estás midiendo** — y la falsa alarma que produce es de las que hacen buscar un
+> fallo que no existe en el sitio equivocado.
+>
 > **Y el árbol es parte del instrumento.** Dos sesiones distintas trabajaron esta noche en
 > el árbol equivocado sin notarlo: una porque el `cwd` de su shell **persiste entre
 > comandos** después de un `cd`, otra porque acabó editando en la raíz. Se caza por el

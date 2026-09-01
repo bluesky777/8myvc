@@ -115,6 +115,7 @@
                             "tipo": "string"
                         }
                     ],
+                    "bol_independiente": "bool",
                     "created_at": "null|string",
                     "creditos": "int",
                     "desempenio": "null|string",
