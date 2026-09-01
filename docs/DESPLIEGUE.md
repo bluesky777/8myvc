@@ -3,6 +3,53 @@
 **Los comandos, y nada más.** El porqué de cada fila —topología, las siete trampas, qué trajo
 cada tanda, el bucle del front— está en [DESPLIEGUE-REFERENCIA.md](DESPLIEGUE-REFERENCIA.md).
 
+## ⛔ TANDA PENDIENTE — el boletín independiente. SIN LAS MIGRACIONES, EL BOLETÍN NO ABRE
+
+**Esto no es «hay que acordarse de correr unas migraciones». Es que con el código nuevo y la base
+sin migrar, los tres boletines contestan 500** — `Unknown column 'puestos_con_bol_independiente' in
+'field list'`. Medido por la sesión del front contra el docker con este `main` dentro, y confirmado
+leyendo el código: `BoletinIndependiente::puestosCuentanIndependientes()` hace
+
+```sql
+SELECT puestos_con_bol_independiente FROM years WHERE id = ?
+```
+
+**sin condición y sin rescate**, y **todos los boletines pasan por ahí** desde que el puesto se
+calcula en el servicio. No hay grado intermedio: o está la columna, o **la pantalla que más se usa
+del colegio deja de abrir**.
+
+**Por eso las migraciones van EN EL MISMO DESPLIEGUE que el código y colegio por colegio, no en una
+tanda aparte.** Un colegio con el `git pull` hecho y el `migrate` sin correr está caído, y los
+quince se despliegan a lo largo de días.
+
+**Las tres, y las tres bloqueantes:**
+
+| Migración | Qué rompe si falta |
+|---|---|
+| `2026_08_31_200000_puestos_con_bol_independiente` | **los tres boletines, los certificados, preescolar, promovidos, editnota y los cuatro informes de puestos: 500** |
+| `2026_08_31_100000_retirar_boletin_independiente_de_matriculas` | quita una columna que ya nadie lee — pero va con las otras dos para no dejar el esquema a medias |
+| `2026_08_30_200000_notas_finales_en_decimal` | ya desplegada el 31 ago; se comprueba, no se vuelve a correr |
+
+**El orden por colegio, y no hay otro:** `git pull` → `php artisan migrate --force` → comprobar un
+boletín **antes de pasar al siguiente colegio**. Si el `migrate` falla, ese colegio se queda sin
+boletines hasta que se arregle: **no se sigue con los demás**.
+
+**Y una comprobación que cuesta diez segundos y contesta por el colegio entero:**
+
+```bash
+php artisan tinker --execute="echo DB::selectOne('SHOW COLUMNS FROM years LIKE \'puestos_con_bol_independiente\'') ? 'OK' : 'FALTA';"
+```
+
+**La otra acción del día, que no es una tabla:** correr
+`tools/independientes-sin-estructura.php` **en los quince**, uno por uno, después de migrar.
+Contesta la §9.1 —qué alumnos están marcados y **no tienen ni una unidad propia**, cuya definitiva
+sale 0 sin que nadie reciba un error—, y **sin la tabla contesta `exit=2 · NO CONCLUYENTE` a
+propósito**: un `0` limpio sería la respuesta que archiva el asunto justo en el colegio donde no se
+ha mirado nada. Lo medido hasta hoy es **cero marcados en desarrollo**, que **no** es «cero en los
+quince»: eso sólo se sabe allí.
+
+---
+
 ## No hay tanda pendiente — 31 ago 2026
 
 La del 25–30 ago (de `eb95cbc` a **`9474b50`**, 44 commits) **está desplegada**: los quince
