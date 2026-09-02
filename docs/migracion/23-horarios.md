@@ -808,15 +808,20 @@ siguen sin estar.
    > por un problema que no existe.
    >
    > Con dos salvedades: **64 MB es el docker, no los quince cPanel**, donde nadie ha
-   > medido; el peor caso plausible es MySQL 5.7 con 4 MB por defecto, y ahí 210 KB
-   > siguen siendo el 5 %, así que la decisión aguanta sin más medición. Y el que se
+   > medido; el peor caso plausible es MySQL 5.7 con 4 MB por defecto, y ahí los **225,7
+   > KB** medidos de la cota alta son el **5,51 %**, así que la decisión aguanta sin más
+   > medición. (Aquí decía «210 KB, el 5 %» sobre la cifra vieja: el porcentaje sube
+   > medio punto y no cambia nada.) Y el que se
    > quedaría corto en un hosting compartido no sería el paquete sino `post_max_size` de
    > PHP, que suele venir en 8 M y también sobra.
 
-   **La regla de cálculo no es «el fichero más un poco»: es el fichero × 1,4**, y lo
-   midió la sesión del front. El coste es **el escapado**: meter el `.myvch` como cadena
-   dentro de un JSON duplica cada tabulador y cada comilla — 30.161 bytes de fichero se
-   convierten en 42.492 de cuerpo, un **41 %** más.
+   **El escapado solo ya cuesta × 1,4**, y lo midió la sesión del front: meter el
+   `.myvch` como cadena dentro de un JSON duplica cada tabulador y cada comilla —
+   30.161 bytes de fichero se convierten en 42.492, un **41 %** más. **Pero ése no es
+   el factor del cuerpo, sino el del blob**: por el mismo cuerpo viajan también las
+   piezas, y con ellas el total sube a **× 1,795** (ver la corrección de más abajo).
+   Confundir los dos es exactamente lo que hizo que este bloque dijera 185.997 durante
+   unas horas.
 
    **Queda abierto el tope**, y una salida escrita y **no aplicada**: comprimir y mandar
    en base64 da la vuelta al factor. **No se hace hoy y la razón pesa más que el 1,4**:
@@ -828,12 +833,56 @@ siguen sin estar.
    comprimir.** El front midió el 2 sep 2026 un proyecto con **el horario entero
    colocado** —17 salones, 134 marcas de disponibilidad sobre 47 docentes, 32
    asignaciones con bloque de dos y **312 de 313 piezas puestas**—: **128.779 bytes de
-   fichero y 185.997 de cuerpo**, o sea **125,8 y 181,6 KB**. Contra los 64 MB del
-   docker es el **0,28 %**; contra los 4 MB del peor caso plausible, el **4,5 %**.
+   fichero y 231.135 de cuerpo**, o sea **125,8 y 225,7 KB**. Contra los 64 MB del
+   docker es el **0,34 %**; contra los 4 MB del peor caso plausible, el **5,51 %**.
+   **La decisión no se mueve**: el blob va en la fila y sin comprimir, y el 5,51 %
+   sigue sobrando por el mismo margen que la cerró. Una cifra corregida **al alza**
+   invita a reabrir lo que ya está decidido, y aquí no hay nada que reabrir.
 
-   > **El factor se afina y crece con el llenado: × 1,45, no × 1,4.** Más colocaciones
-   > son más comillas y más tabuladores dentro de la cadena. Un colegio más grande sube
-   > de aquí **por más filas, no por un factor peor**.
+   > **CORRECCIÓN DEL 2 SEP 2026, Y LA PRIMERA VERSIÓN DE ESTE PÁRRAFO DECÍA 185.997.**
+   > Ese número era **el cuerpo con la lista de piezas VACÍA**: el arnés que lo produjo
+   > medía, literal, `JSON.stringify({ …, proyecto: texto, lecciones: [] })`. O sea que
+   > lo que este documento llamaba «el cuerpo, el que mide `max_allowed_packet`» era
+   > **el blob escapado y nada más — el horario no estaba dentro**. Lo encontró
+   > `myvc-front-8e` remidiendo, y se reprodujo desde este árbol sobre el mismo
+   > `lleno.myvch`:
+   >
+   >     fichero .myvch                     128.779
+   >     cuerpo con `lecciones: []`         185.997   <- el que estaba escrito aquí
+   >     cuerpo con las 312 piezas          231.135
+   >     lo que cuestan las piezas          +45.064   (+24,2 %, ~144 bytes por pieza)
+   >
+   > **El factor es × 1,795, no × 1,45.** Las cinco cifras de la izquierda salen iguales
+   > medidas por separado en los dos repositorios; el cuerpo total baila **65 bytes**
+   > según cómo se nombre el sobre —`version` contra los campos sueltos de la §5.2—, y
+   > eso no toca ni el coste de las piezas ni el porcentaje.
+   >
+   > **Y la frase que había aquí era falsa, no imprecisa, así que se corrige en vez de
+   > matizarse.** Decía que *«un colegio más grande sube de aquí por más filas, no por un
+   > factor peor»*. Sube **por las dos cosas**: **las piezas escalan con las filas y el
+   > blob no**, así que cuantas más colocaciones tenga un colegio, mayor es la parte del
+   > cuerpo que no es el fichero — el factor **empeora** con el tamaño en vez de quedarse
+   > quieto. Ése era el error de fondo; el decimal era la consecuencia.
+   >
+   > **Cómo se produjo, que es lo que hay que llevarse:** un `[]` **no da error, se lee
+   > como «no había nada que meter» y encima produce un número creíble** — 1,45 veces el
+   > fichero es exactamente lo que uno esperaría del escapado—. Por eso aguantó, se
+   > propagó a dos repositorios y sólo cayó cuando alguien lo remidió en vez de releerlo.
+   > Es la misma forma que la §2 —«Clases de hoy» no enseña de más, no enseña nada— en su
+   > versión más limpia: **el conjunto vacío que se lee como respuesta**.
+   >
+   > **AVISO OPERATIVO: el arnés sigue sin arreglar, comprobado el 2 sep desde aquí.**
+   > `herramientas/llenar-el-horario.ts` conserva el `lecciones: []` **en las dos copias**
+   > —la del repo y la del worktree—, así que **quien lo vuelva a correr hoy seguirá
+   > imprimiendo 185.997**. La cifra vieja puede volver por su propio pie, y volvería con
+   > toda la pinta de una medición fresca.
+   >
+   > **Y queda una cifra de este mismo bloque sin remedir**, dicha aquí para que no se
+   > herede: los **42.492 bytes** de «el cuerpo entero de una subida real» de más arriba
+   > son **× 1,41 sobre su fichero**, o sea el mismo factor de blob solo. Puede ser
+   > legítimo —un proyecto sin nada colocado no tiene piezas que mandar— o puede ser este
+   > mismo `[]` otra vez. **No se sabe, y por eso no se usa como cota de nada**: la cota
+   > alta es la de 231.135.
    >
    > **Y lo que hace que esa cifra valga no es el bucle que colocó el horario, es lo que
    > le pusieron detrás.** El pre-vuelo **declara que no mira las colocaciones** —eso es

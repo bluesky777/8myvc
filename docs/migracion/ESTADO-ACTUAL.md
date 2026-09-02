@@ -24,6 +24,16 @@ larastan nivel 7 **`[OK] No errors`** sobre este árbol · lo repartió `8myvc-a
 > listo para el bucle (`--csv`, y `0` limpio / `1` sucio / `2` NO MEDIDO), pero correrlo colegio
 > a colegio **lo decide Joseth**, porque es tocar las quince bases de producción.
 >
+> **Y en la misma rama, la cota alta del blob corregida: 231.135 bytes de cuerpo, no 185.997.**
+> Los 185.997 eran **el cuerpo con la lista de piezas vacía** (`lecciones: []` en el arnés del
+> front): el horario no estaba dentro. El factor es **× 1,795, no × 1,45**, y el **5,51 %** de los
+> 4 MB del peor caso. **La decisión NO se mueve** —el blob va en la fila, sin comprimir—, pero la
+> frase que decía que *«un colegio más grande sube por más filas, no por un factor peor»* **era
+> falsa**: sube por las dos, porque las piezas escalan con las filas y el blob no. Lo encontró
+> `myvc-front-8e` y **se reprodujo desde este árbol** sobre el mismo `lleno.myvch` — las cifras
+> salen idénticas. **El arnés sigue sin arreglar en las dos copias**, así que quien lo corra hoy
+> volverá a imprimir 185.997.
+>
 > Y trae cinco preguntas que en `simonbolivar` dan cero y de los otros catorce no se sabe nada:
 > IH **nula** —que no se evapora, desaparece del `SUM`, y el total sale cuadrado habiendo mirado
 > de menos—, IH **0**, docente **borrado** o **inexistente**, **materia en la papelera** (la
