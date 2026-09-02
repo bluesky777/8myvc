@@ -76,6 +76,34 @@ for d in /home/micolev1/*.micolevirtual.com/8myvc; do
 done
 ```
 
+### CORRIDO el 2 sep 2026 — **limpio en todos, y de paso salió un colegio de más**
+
+```
+16 carpetas de colegio  ->  ausente (ni la línea)
+demo                    ->  APP_MOVIL_VERSION_MINIMA=   (presente y VACÍA)
+```
+
+**Nadie está bloqueado y la revisión de la app no corre peligro.** `demo` —el único que toca el
+revisor de Google— la tiene puesta pero **vacía**, y eso es exactamente el estado seguro:
+`VersionMinimaDeLaApp` hace `if ($puesto === null || $puesto === '') return null;`, así que
+**«ausente» y «vacía» son lo mismo** y el campo no viaja a nadie. No hay nada que borrar.
+
+> **Y el barrido destapó otra cosa, que no es de la app: el servidor tiene DIECISÉIS colegios, no
+> quince.** Las carpetas que devolvió el bucle son 17: dieciséis colegios más `demo`. `CLAUDE.md`
+> dice **«Quince colegios»** desde la baja del 25 ago, y **nadie sumó `lal`**, que entró el 30 ago
+> por el traslado de `9474b50` — el commit que es justo la base de esta tanda.
+>
+> `DESPLIEGUE-REFERENCIA.md` ya lo decía por su lado sin que cuadrara con el otro: *«quince
+> colegios + `demo` + `edilson` + **la nueva de `lal`**»*. O sea que **los dos documentos llevaban
+> discrepando desde el 30 ago** y el servidor le da la razón a la referencia.
+>
+> **Por qué importa el día del despliegue y no es cosmético:** el bucle escribe sobre
+> `*.micolevirtual.com/8myvc`, así que **alcanza a los dieciséis y a `demo`**. Quien despliegue
+> contando quince va a ver un colegio de más y tendrá que decidir a las tres de la mañana si es
+> uno legítimo o algo que sobra — y la respuesta es que es legítimo. **El número de `CLAUDE.md` lo
+> mueve Joseth**, no una sesión; queda aquí medido para que el día del despliegue nadie tenga que
+> averiguarlo.
+
 **Lo que se espera ver: ausente o vacía en los quince. Y lo que se busca es CUALQUIER valor no
 vacío, no «un valor ≥ 4»** — el porqué está justo debajo y corrige lo que decía esta línea.
 
