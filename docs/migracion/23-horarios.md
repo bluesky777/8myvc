@@ -26,6 +26,14 @@
 > vueltas. **No hay que volver a negociar la forma** — si algo de aquí se cambia, se
 > cambia con Joseth y avisando al front, que tiene su mitad escrita sobre esta.
 >
+> **EL SUELO YA ESTÁ ESCRITO (lote A, 2 sep 2026, rama `feat/horario-suelo`).** Las
+> tres tablas de la §5.1 y `years.horario_version_id`, `Role::isCoordAcademico()`,
+> `Autoriza::puedePublicarHorario()`, `routes/api/horario.php` y un
+> `HorarioController` con **los tres métodos a 501** y su autorización ya puesta
+> delante. **El router pasó de 563 a 566**, contado con `route:list --json` ese día.
+> Lo que falta es el cuerpo de los tres, y todo lo que este documento dice de la §6
+> y la §7 sigue **sin construir**.
+>
 > **Y ese mismo día Joseth contestó seis de las siete decisiones abiertas**: las tres
 > rutas están **autorizadas** (§5.3), la revalidación es la **opción B** (§6), la oficial
 > la marcan **superusuario y coordinador académico** (§5.4) —que trajo un hallazgo,
@@ -258,7 +266,7 @@ MySQL, y lo hace con un error que no se parece a «el fichero es muy grande».
 ### 5.2. El cuerpo del `POST` — la forma que propuso el front, con cuatro correcciones
 
 ```
-version:  { nombre, year_id }                        ← y nada más viene del cuerpo
+version:  { nombre, year_id, anio, nombre_colegio }  ← y nada más viene del cuerpo
 piezas:   [ { pieza_id, dia, franja, duracion,
               salon_nombre, salon_capacidad_grupos,  ← informativos, nunca reglas
               docentes:     [ profesor_id, … ],      ← profesores.id, NO users.id
@@ -269,6 +277,30 @@ Cada elemento de `asignaciones` se explota a una fila
 `(version_id, pieza_id, asignatura_id, dia, franja, duracion, salon)`, que es la forma
 de la §5.1. Y **lo pone el servidor, no el cuerpo**: `subida_por`, `created_at` y
 `comprobaciones`.
+
+**0. `anio` y `nombre_colegio` viajan, y no son adorno.** Los trajo la sesión
+`myvc-front-8e` con la decisión de Joseth el 2 sep 2026, después de que este
+documento dijera durante unas horas `{ nombre, year_id }` *«y nada más»*. **La lista
+de campos envejece; el argumento no**, así que va escrito el argumento:
+
+- **`anio` (= `years.year`) se comprueba DURO, con 422.** Es lo único que caza un
+  `.myvch` subido **al colegio equivocado**: `years.id = 8` es 2025 en un colegio y
+  puede ser 2019 en otro, así que *identificador que existe + año distinto* = 422.
+  Sin ese campo el servidor **no tiene contra qué contrastar su propia fila**, y
+  entonces esa comprobación no es que falle: **no existe, y su ausencia no da ningún
+  error**. Y el daño no es teórico por la decisión 13 —publicar vale en cualquier
+  año, también uno cerrado—: una versión que entra en el año equivocado y se marca
+  oficial **reescribe las siete columnas de día de ese año**. Es la misma familia que
+  la cuarta comprobación de la §6, un piso más arriba: aquélla protege de
+  asignaciones intrusas **dentro** de la versión, ésta de que la versión **entera**
+  vaya al año de otro colegio.
+- **`nombre_colegio` se comprueba BLANDO**: renglón del veredicto, **nunca puerta
+  cerrada**. No es una identidad sino texto libre, editable desde configuración y
+  distinto por año — un colegio que se renombró legítimamente entre el import y la
+  subida **no se puede quedar sin poder subir su horario**.
+
+Lo que esto **no** abre: `subida_por`, `created_at` y `comprobaciones` los sigue
+poniendo el servidor, y `origen.servidor` no viaja.
 
 **1. Los docentes son `profesores.id`, no `users.id`.** La propuesta decía `user_id`,
 y son dos columnas distintas de la misma fila: `profesores` tiene `id` **y**
@@ -369,12 +401,30 @@ de hoy» sigue vacía**, que es el problema que este módulo viene a resolver.
 
 Lo que mueven el día que se escriban, que **no es sólo el router**:
 
-- El contador está en **550**, contado con `route:list --json` en este árbol el 2
-  sep 2026. Con las tres pasa a **553**, y ese número **se vuelve a contar ese
-  día**, no se suma aquí: es la regla que ya costó una cifra el 1 sep.
+- **Escritas el 2 sep 2026 (lote A).** El contador estaba en **550** cuando se
+  escribió esta línea y en **563** el día que entraron —las dos épicas de esa noche
+  van por medio—, así que la predicción «553» de la v2 **nunca fue el número**: eso es
+  exactamente lo que la regla evita. Contado con `route:list --json` sobre el árbol
+  del lote: **566**. Coincidió con 563 + 3, y contarlo es la única forma de saber que
+  coincidía.
 - `CLAUDE.md`, y los snapshots `rutas.json`, `guards-por-ruta.json` y
   `guard-por-familia.json` — las tres llevan guard, así que la familia `horario`
-  entra como **3 de 3** y ese renglón no pide explicación.
+  entra como **3 de 3** y ese renglón no pide explicación. **Movidos y revisados uno
+  a uno: 13 líneas en total**, y ninguna fuera de las previstas.
+- **Y las tres llevan `auth.personal` de middleware, que no es ninguno de los dos
+  criterios de la §5.4.** Cierra la puerta a alumnos y acudientes **antes de tocar el
+  controlador**, y es la forma de la referencia que dio Joseth
+  (`myimages/cambiarlogocolegio`: guard en la ruta **más** `Autoriza` dentro). Que con
+  eso la familia salga «3 de 3» es una **consecuencia y no la razón** — el contador
+  lo cuenta `AutorizacionTest::llevaGuardDePropiedad()`, que sólo mira `auth.personal`,
+  `persona.propia` y `boletin.propio`, y un guard que se pusiera para redondear un
+  contador sería un guard que el siguiente lote quita cuando le estorbe.
+- **`years.horario_version_id` mueve un cuarto test que no estaba previsto**:
+  `CentinelaDeLasColumnasDelAnioNuevoTest` exige que **cada** columna viva de `years`
+  esté decidida —copiada por `postStore` o excusada **con su motivo**—. El puntero se
+  excusa: copiarlo dejaría al año nuevo afirmando que su horario oficial es una
+  versión **del año anterior**, que es el estado exacto que el puntero en `years`
+  existe para impedir.
 - **No** mueven `RutasPreLoginTest::TOTAL_PUBLICAS` (siguen doce) ni
   `AutenticacionTest::SIN_GUARD`: ninguna de las tres es pública, y ninguna debería
   serlo — una versión del horario dice qué docente está dónde a cada hora.
@@ -416,8 +466,12 @@ es un papel que acaba pegado en la puerta del salón.
 
 **Y ahí aparece una ruta que no está pedida ni autorizada: descargar el proyecto.** Si
 el blob sube siempre (§5.1), antes o después alguien va a querer bajárselo para reabrir
-el año en otro computador — y eso es una **cuarta** ruta, o sea **554**, no un campo más
-de la lista. La sesión del front vota por que el permiso sea **el mismo que publica**, y
+el año en otro computador — y eso es una **cuarta** ruta, no un campo más de la lista, y
+**su número se cuenta con `route:list` el día que se autorice**. Aquí no lleva ninguno a
+propósito: una ruta que no existe **no puede tener número, porque nadie lo va a poder
+contar hasta que exista**. El «554» que decía esta línea salió de sumar sobre 550 y quedó
+stale dos veces en una sola noche; escribir el número medido de hoy no lo arregla, sólo
+retrasa la tercera vez. La sesión del front vota por que el permiso sea **el mismo que publica**, y
 el argumento es el correcto: *subir es dejar tu trabajo, descargar es llevarte el de
 otro*. Queda en la §10.2 sin escribir, como todas.
 
@@ -489,21 +543,53 @@ de los datos se acaba de mudar al escritorio.
 |---|---|---|
 | Un grupo, como mucho una pieza por (día, franja) | **Sí** | `asignatura_id → grupo_id`, que ya está |
 | Un docente, como mucho una pieza por (día, franja) | **Sí, si la versión sube los docentes de cada pieza** | `horario_pieza_docente`; con `asignaturas.profesor_id` **no**, por el capellán (§5.1) |
-| Σ lecciones de una asignación = su IH | **Sí**, y es la más barata | `asignaturas.creditos`: está en las 134, ninguna vacía |
+| Σ lecciones de una asignación **≤** su IH | **Sí**, y es la más barata — **422** | `asignaturas.creditos`: está en las 134, ninguna vacía |
+| Σ lecciones de una asignación **=** su IH | **Sí, pero BLANDA** | renglón del veredicto **con su cuenta**: un horario a medias es una versión legítima |
 | Un bloque ocupa casillas consecutivas del mismo día | **Sí** | `dia`, `franja`, `duracion` de la propia fila |
 | **Cada asignación es del año de la versión** | **Sí**, y es la cuarta | **por JOIN, no por columna**: `asignaturas` no tiene `year_id`, el año le llega por `grupos.year_id` |
+| **El `anio` del cuerpo es el `years.year` de ese `year_id`** | **Sí**, y es la quinta — **422** | el campo `anio` de la §5.2.0; sin él la comprobación **no existe** |
+| El `nombre_colegio` del cuerpo coincide | **Sí, pero BLANDA** | renglón del veredicto, nunca puerta cerrada: es texto libre y editable |
 | Un salón sin choque | **No se puede decidir** | `capacidad_grupos` no existe aquí: la iglesia con seis grupos es indistinguible de dos grupos metidos en un aula |
 | La disponibilidad ✕ respetada | **No** | vive en el fichero de proyecto |
 | La franja dentro de la jornada del nivel, sin cruzar descansos | **No** | la rejilla y los timbres viven en el fichero de proyecto |
 
+**La tercera se partió en dos el 2 sep 2026, y el documento ya llevaba las dos formas
+dentro.** La §5.1 escribía *«Σ lecciones **≤** IH»* y esta tabla escribía *«**=**»*; no
+era una elección pendiente, era una contradicción, y la deshizo una medición del front
+sobre el único proyecto real que existe: de las **313** piezas de `lleno.myvch` viajan
+**312**, porque una se queda sin colocar y el emisor la avisa con su materia y su grupo.
+O sea que hay una asignación que gasta **2 de sus 3 horas** — y eso no es un fichero
+roto: **una versión a medias es legítima, que es justo para lo que existen las
+versiones**. Con `=` dura y 422, el servidor rechazaría el único fichero real que hay.
+
+Así que **`≤` es la dura** —gastar más horas de las que la asignación tiene es imposible
+en cualquier lectura, y eso sí es un fichero mal armado— y **`=` baja al veredicto con su
+cuenta**: *«134 asignaciones revisadas · 133 completas · 1 incompleta: 2 de 3 horas
+colocadas (Religión de Décimo)»*. Sin la cuenta, «incompleta» se lee como «rota»; con
+ella, el coordinador ve lo que le falta por colocar y decide si publica igual. **Es el
+mismo criterio que ya se le aplicaba a la asignación sin IH** —no 422, sino nombrada y
+contada—, aplicado al caso de al lado: un dato incompleto del colegio no puede convertir
+el módulo en inutilizable. *(Pendiente de confirmación de Joseth; si prefiere la dura, es
+un operador y un renglón que sube a 422.)*
+
 **La cuarta la levantó `8myvc-e5` el 2 sep 2026, y la abrió una decisión de ese mismo
 día.** Mientras subir y publicar valían sólo en el año actual, «esta asignación es del
 año de esta versión» era gratis; con la decisión 13 —cualquier año— se puede subir una
-versión de 2026 que traiga dentro asignaciones de 2024 y **no falla nada**: las filas
+versión de 2026 que traiga dentro asignaciones de 2024 y **no falla nada** —y **este es
+el único sitio donde esa comprobación existe**: el modelo del escritorio no guarda año por
+asignación, el año vive una sola vez en `origen.anioId`, así que el emisor **no puede**
+filtrar ni detectar una asignatura de otro año—: las filas
 entran, el veredicto sale limpio y la versión parece buena. Lo cobra la §7, que al
 marcarla oficial derivaría las columnas **del otro año**. Se rechaza con **422 nombrando
 la pieza y la asignación intrusa**. Es el patrón que conviene reconocer: **una decisión
 correcta que abre un hueco en otro sitio.**
+
+**La quinta y la sexta llegaron el 2 sep por la tarde, con la decisión de Joseth que
+trajo `myvc-front-8e`** (§5.2.0), y son las que cazan **el fichero subido al colegio
+equivocado**: la cuarta protege de asignaciones intrusas *dentro* de la versión; la
+quinta, de que la versión *entera* vaya al año de otro colegio. Se separan en dura y
+blanda a propósito — el año **identifica**, el nombre del colegio **describe**, y un
+colegio que se renombró legítimamente no se puede quedar sin poder subir su horario.
 
 Y dos más de la misma familia, del esquema: **una asignación borrada** —hay 240 en la
 papelera— también es 422 nombrado, porque dejarla entrar mete basura en la versión y
@@ -550,7 +636,8 @@ está ahí para encontrar. A tendría sentido el día que exista una pantalla we
 veredicto **se guarda con la versión** (`horario_versiones.comprobaciones`) y **dice su
 población**, no los nombres de las reglas. No «comprobado: grupo, docente, IH», sino
 *«345 lecciones y 134 asignaciones revisadas · grupo ✓ · docente ✓ sobre los docentes
-que trajo la versión · Σ = IH ✓ · salón NO COMPROBADO, falta `capacidad_grupos` ·
+que trajo la versión · Σ ≤ IH ✓ · 133 de 134 completas, 1 con 2 de 3 horas ·
+salón NO COMPROBADO, falta `capacidad_grupos` ·
 disponibilidad NO COMPROBADA, vive en el proyecto · jornada NO COMPROBADA»*. Un
 veredicto sin población es otra vez el `[]` de la §2: **se lee como «todo bien»**. Y la
 población **sale de esa corrida, no del código**: 345 y 134 son cifras de
@@ -751,8 +838,10 @@ desaparecería de la población y el informe saldría más limpio de lo que es.
    ninguna pantalla suya le pide un dato al servidor de MyVC (§8). No añade nada a
    este repo; sí fija que la bajada de datos es una importación opcional.
 8. **Las tres rutas de la §5.3 se autorizan**, las tres a la vez: con sólo dos, nadie
-   puede marcar la oficial y «Clases de hoy» sigue vacía. **550 → 553**, contado el día
-   que entren.
+   puede marcar la oficial y «Clases de hoy» sigue vacía. Escritas el 2 sep 2026:
+   **563 → 566**, contado ese día con `route:list --json` y no sumado — la predicción
+   «550 → 553» que llevaba esta línea **nunca fue el número**, porque entre medias
+   entraron las dos épicas de esa noche.
 9. **La revalidación es la opción B** (§6): el servidor comprueba las tres que puede y
    **guarda un veredicto que nombra lo no comprobado y dice su población**.
 10. **Marca la oficial un superusuario o el coordinador académico** (§5.4) — el **rol**
@@ -929,6 +1018,18 @@ siguen sin estar.
    > revisión independiente que reconstruye la ocupación **desde las colocaciones
    > guardadas** —lo que abriría otro programa— y las 312 salen legales. Sin eso sería la
    > cota alta de un fichero que nadie puede usar.
+   > **Y el tipo de `pieza_id` quedó cerrado el 2 sep 2026, medido por el front sobre
+   > el proyecto real:** `varchar(64)`. Son **313 piezas, todas únicas, de longitud 7
+   > exactos** y de la forma `a<asignatura_id>-<índice>` (`a1196-0`); **0 de 313 son
+   > sólo dígitos**, así que un `int` no aguanta ni la primera subida. Con dos cosas
+   > que van pegadas a la columna y no a este documento: la unicidad es
+   > **(`version_id`, `pieza_id`)** —los identificadores derivan de `asignaturas.id`,
+   > que es estable entre versiones, así que dos versiones del mismo año contienen
+   > **las dos** `a1196-0` y un único global sólo rompería **la segunda subida**—, y
+   > la longitud **se valida con 422, nunca se trunca**: dos piezas que trunquen a los
+   > mismos 64 caracteres **se fusionan en una sola** y el choque de docente se
+   > calcularía sobre una pieza que no existe. *No da error: da un horario equivocado.*
+
 3. **¿Existe una ruta para DESCARGAR el proyecto de una versión, y con qué permiso?**
    Sería una **cuarta** ruta, y **su número se cuenta con `route:list` el día que se
    autorice** — no está pedida. Voto del front: el mismo permiso que publica, no el que

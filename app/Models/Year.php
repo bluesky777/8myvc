@@ -87,6 +87,26 @@ use App\Models\Periodo;
  *
  * @property string $regla_nivelacion
  *
+ * Y el puntero a la versión **oficial** del horario del año, por migración
+ * (`2026_09_04_100000_horario_versiones`, 23 §5.1). Es un puntero y no una
+ * bandera `horario_versiones.oficial` porque MySQL no tiene índices parciales:
+ * una bandera no se puede atar a «como mucho una por año», y el día que hubiera
+ * dos en verdadero quien leyera `WHERE oficial = 1 LIMIT 1` se llevaría una de
+ * las dos sin que se pusiera nada rojo. `NULL` es «este año todavía no tiene
+ * oficial», que es un estado. **No se copia al año siguiente**: ver
+ * `CentinelaDeLasColumnasDelAnioNuevoTest::NACEN_VACIAS`.
+ *
+ * **Y no se escribe por `PUT years/guardar-cambios`, aunque llegue por ahí.** El
+ * front viejo manda el objeto `year` entero tal como se lo dio `GET years/colegio`,
+ * así que esta clave le vuelve al servidor en cada guardado de la pantalla de
+ * colegio. Lo que la ignora es que `YearsController::putGuardarCambios` asigna
+ * **campo a campo** y ésta no está en su lista. Simplificar ese método a asignación
+ * masiva abriría un camino **sin permiso** para escribir la versión oficial —y con
+ * el valor **caducado** que la página tenía al cargarse—. El porqué entero está
+ * pegado a la columna, en `2026_09_04_100000_horario_versiones`.
+ *
+ * @property ?int $horario_version_id
+ *
  * Y los atributos que NO son columnas: el código se los cuelga al modelo en
  * tiempo de ejecución para armar la respuesta, que es un patrón repetido por
  * todo el proyecto. Eloquent los guarda entre los atributos y salen en el JSON,

@@ -106,6 +106,18 @@ class CentinelaDeLasColumnasDelAnioNuevoTest extends TestCase
         // es peor que un acta sin firmantes** — el hueco se ve la primera vez que
         // alguien imprime, y la firma de más no la ve nadie hasta que importa.
         'firmantes_acta' => 'los firmantes se confirman cada año a propósito (Joseth, 31 ago 2026)',
+
+        // El puntero a la versión OFICIAL del horario del año
+        // (`2026_09_04_100000_horario_versiones`, 23 §5.1). Copiarlo dejaría al
+        // año nuevo afirmando que su horario oficial es **una versión del año
+        // anterior**, y con la decisión 13 —subir y publicar valen en cualquier
+        // año, también los cerrados— eso no es una rareza: es el estado exacto
+        // que el puntero en `years` existe para impedir, «cada año tiene el suyo
+        // y no se pisan» (§5.2). `NULL` es «este año todavía no tiene oficial»,
+        // que es un estado y no un accidente — y por eso aquí no hay nada que
+        // heredar: hasta que alguien suba una versión de ese año no existe
+        // ninguna a la que apuntar.
+        'horario_version_id' => 'la oficial es de cada año; copiarla apuntaría al horario del año anterior (23 §5.2, decisión 13)',
     ];
 
     #[Test]

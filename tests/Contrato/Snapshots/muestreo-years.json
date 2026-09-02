@@ -27,6 +27,7 @@
         "genero_colegio": "string",
         "genero_subunidad": "string",
         "genero_unidad": "string",
+        "horario_version_id": "null",
         "id": "int",
         "img_encabezado_id": "null",
         "jornada": "string",

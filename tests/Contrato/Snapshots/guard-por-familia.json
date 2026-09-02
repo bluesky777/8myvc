@@ -195,6 +195,10 @@
         "total": 4,
         "con_guard": 4
     },
+    "horario": {
+        "total": 3,
+        "con_guard": 3
+    },
     "images-users": {
         "total": 10,
         "con_guard": 9

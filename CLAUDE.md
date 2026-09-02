@@ -3,7 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 `8myvc` es la API del sistema escolar MyVc: Laravel 13 + PHP 8.4, ~37.000 líneas
-en `app/`, 113 clases de controlador y **563 rutas** (contadas con
+en `app/`, 113 clases de controlador y **566 rutas** (contadas con
 `route:list --json` el 2 sep 2026; el 24 ago el de rutas se movió por primera vez,
 de 539 a 542, con los tres endpoints que pidió `myvc_flutter`, el 28 a 543 con
 `PUT users/mi-docente`, que pidió Joseth para el panel de `app2`, el 31 a 544 con
@@ -24,7 +24,15 @@ la decisión 4 de Joseth de ese día —la rúbrica produce la nota—, contrato
 `docs/migracion/26-rubricas.md`. **Ese salto lo trajo una fusión de tres ramas y por eso
 el número se contó entero, no se sumaron los dos tramos** —y contarlo fue lo que lo
 salvó, porque el mismo día **bajó una**: Joseth mandó retirar
-`tardanzas/login/traer-datos`, así que 550 + 4 + 10 − 1 = **563**— «el de rutas no se mueve»
+`tardanzas/login/traer-datos`, así que 550 + 4 + 10 − 1 = **563**—, y esa misma noche a
+**566** con **las tres de `horario/`** —`POST` y `GET horario/versiones` y
+`PUT horario/versiones/{id}/oficial`—, que Joseth autorizó **las tres a la vez** y con esa
+razón escrita: con sólo las dos primeras se puede subir y listar, pero **nadie puede marcar
+la oficial y «Clases de hoy» sigue vacía**, que es el problema que ese módulo viene a
+resolver (`docs/migracion/23-horarios.md` §5.3). El horario **se cuadra en un programa de
+escritorio**; a esta API le queda guardar versiones de un año y decir cuál es la oficial.
+**566 se contó, no se sumó** — coincidió con 563 + 3, que es la única forma de saber que
+coincidía. «El de rutas no se mueve»
 sigue siendo la
 regla: una ruta nueva es una decisión, no un efecto secundario, y mueve este
 documento y **tres** snapshots, no dos: `rutas.json`, `guards-por-ruta.json` y
