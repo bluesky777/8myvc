@@ -79,7 +79,7 @@ Sobre `simonbolivar` —la base del contenedor, que sale de un colegio real—, 
 | Asignaciones con algún día marcado | **2** |
 | `years.minu_hora_clase` | **50** |
 | El docente más cargado | **31 horas** |
-| Rutas del router | **550** (`route:list --json`) — hoy **566**, con las tres de la §5.3 dentro |
+| Rutas del router | **550** (`route:list --json`) |
 
 La IH por grupo sale redonda, que es la señal de que el colegio la administra de
 verdad: **30 h/semana** en los seis de bachillerato, **25** en los cinco de
@@ -466,8 +466,12 @@ es un papel que acaba pegado en la puerta del salón.
 
 **Y ahí aparece una ruta que no está pedida ni autorizada: descargar el proyecto.** Si
 el blob sube siempre (§5.1), antes o después alguien va a querer bajárselo para reabrir
-el año en otro computador — y eso es una **cuarta** ruta, o sea **554**, no un campo más
-de la lista. La sesión del front vota por que el permiso sea **el mismo que publica**, y
+el año en otro computador — y eso es una **cuarta** ruta, no un campo más de la lista, y
+**su número se cuenta con `route:list` el día que se autorice**. Aquí no lleva ninguno a
+propósito: una ruta que no existe **no puede tener número, porque nadie lo va a poder
+contar hasta que exista**. El «554» que decía esta línea salió de sumar sobre 550 y quedó
+stale dos veces en una sola noche; escribir el número medido de hoy no lo arregla, sólo
+retrasa la tercera vez. La sesión del front vota por que el permiso sea **el mismo que publica**, y
 el argumento es el correcto: *subir es dejar tu trabajo, descargar es llevarte el de
 otro*. Queda en la §10.2 sin escribir, como todas.
 
@@ -796,8 +800,10 @@ demo. Si en otro colegio la IH está a medias, se sabe antes de prometer nada.
    ninguna pantalla suya le pide un dato al servidor de MyVC (§8). No añade nada a
    este repo; sí fija que la bajada de datos es una importación opcional.
 8. **Las tres rutas de la §5.3 se autorizan**, las tres a la vez: con sólo dos, nadie
-   puede marcar la oficial y «Clases de hoy» sigue vacía. **550 → 553**, contado el día
-   que entren.
+   puede marcar la oficial y «Clases de hoy» sigue vacía. Escritas el 2 sep 2026:
+   **563 → 566**, contado ese día con `route:list --json` y no sumado — la predicción
+   «550 → 553» que llevaba esta línea **nunca fue el número**, porque entre medias
+   entraron las dos épicas de esa noche.
 9. **La revalidación es la opción B** (§6): el servidor comprueba las tres que puede y
    **guarda un veredicto que nombra lo no comprobado y dice su población**.
 10. **Marca la oficial un superusuario o el coordinador académico** (§5.4) — el **rol**
