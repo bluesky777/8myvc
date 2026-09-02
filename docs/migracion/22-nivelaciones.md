@@ -415,12 +415,22 @@ decisión, sitio por sitio:
 | `PUT notas/nivelar/{id}`, `DELETE notas/nivelar/{id}`, `PUT notas/nivelar/lote` | **sí, a propósito** (§1.2, §2, §4) | nacen con ellas |
 | `PUT notas/detailed` — `alumnos[].notas[]` y `alumnos[].nota_final` | **sí, a propósito** (§3.1, §3.2) | A7 las **nombra** en las dos consultas de `putDetailed`, que ya van por columnas |
 | `GET years`, `GET years/colegio`, `GET years/trashed` | **sí, a propósito**: `regla_nivelacion` (§5) | `YearsController:30/46` leen `SELECT y.*`; las tres instantáneas de `MuestreoDeLecturasTest` se regeneran **con esa decisión escrita** (A3) |
+| `PUT editnota/alum-asignatura` — el editor de la definitiva | **sí, a propósito** | las **seis** de la celda y las **seis** del acta en cada periodo. **`editor-nota` NO lee `notas/detailed`**, lee ésta: sin el acta aquí, nivelar la definitiva y recargar enseña la nota vieja sin marca |
 | `PUT notas/update/{id}` | **congelada** | `putUpdate` nombra sus diez columnas (A3) — `notas-update.json` verde sin regenerar |
 | `GET notas/show/{id}` | **congelada** | `getShow` nombra sus diez columnas (A3) — `notas-show.json` verde sin regenerar |
 | `GET notas/alumno/*`, `PUT notas/alumno-periodo-grupo`, `grupos/promovidos` y todo lo que pasa por `Nota::alumnoPeriodoDetalle` | **congelada** | `Nota::LAS_DIEZ_COLUMNAS` en sus dos consultas (A3). **A7 no las añade aquí**: si la ficha del alumno las quiere, es una decisión aparte y B la pide |
 | `bolfinales/*` por `Asignatura::calculoAlumnoNotas` y `calculoAlumnoNotas2` | **congelada** | diez columnas nombradas (A3) |
 | `Informes/BolfinalesController:508` (`SELECT nf.*` de `notas_finales`) y `CertificadosPersonaController:309/359/163` (`nf.*`, `r.*`) | **congeladas hasta A10** | `Informes/**` es de `8myvc-f2` desde el 2 sep: ella las nombra, y las abre cuando el informe imprima el par |
-| `DefinitivasPeriodosController::putUpdate` (`SELECT n.*` de `notas_finales`, devuelve la fila) | **decidir en A8** | hoy la fila no se devuelve entera al cliente; se mira al escribir A8 |
+| `PUT definitivas_periodos/update` **sin `nf_id`** (las dos ramas devuelven la fila) | **congelada** | `DefinitivasPeriodosController::COLUMNAS_DE_LA_DEFINITIVA`. Lo llama `myvc_flutter` y el §6.1 dice que ese camino no cambia |
+| `PUT promovidos/calcular-grupo` (`SELECT r.*` de `recuperacion_final`) | **congelada** | ahí se decide quién promociona, y para eso sólo hace falta la nota. El acta se pinta en la pantalla del año |
+| `PUT definitivas_periodos/update` **con `nf_id`** (`SELECT n.*`) | **no filtra** | devuelve la cadena `'Cambiada'`, no la fila. Era la casilla «decidir en A8» y queda cerrada sin tocar nada |
+
+Y una octava, encontrada el 2 sep leyendo el método por otra cosa: **`editnota/alum-asignatura`
+ya publicaba las cinco columnas de `notas`** por un `Nota::where(...)->first()` encadenado, y
+**nada lo habría cazado** porque esa ruta no tenía instantánea de forma. Es el punto ciego que
+`tools/filas-enteras-al-cliente.php` declara en su cabecera —no ve Eloquent encadenado en
+varias líneas—, y por eso la herramienta ordena candidatos en vez de cerrar el asunto. Ahora
+esas columnas viajan **porque alguien las nombró**, y la ruta tiene su instantánea.
 
 Regla para lo que venga: **una columna nueva viaja porque alguien la nombró**, nunca por un
 asterisco. Y la prueba de que un sitio está congelado es que su instantánea **queda verde sin

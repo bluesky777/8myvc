@@ -28,6 +28,26 @@ use App\Services\Nivelacion;
 class DefinitivasPeriodosController extends Controller {
 
 	/**
+	 * Las once columnas que `notas_finales` tenía antes de la nivelación, para las
+	 * dos ramas de `putUpdate` **sin `nf_id`**, que devuelven la fila al cliente.
+	 *
+	 * Con `SELECT *` esas dos respuestas ganaban solas las cinco columnas nuevas
+	 * —tres de `2026_09_02_100000` y dos de `2026_09_02_200000`— **sin que nadie
+	 * tocara el método**, y ninguna instantánea lo habría cazado. Lo señaló
+	 * `tools/filas-enteras-al-cliente.php`.
+	 *
+	 * **Congelada a propósito** (22 §3.4): `definitivas_periodos/update` lo llama
+	 * `myvc_flutter` y el §6.1 del reparto dice que ese camino no cambia. El acta
+	 * de la nivelación viaja por `editnota/alum-asignatura`, que es la pantalla que
+	 * la edita, y por `definitivas_periodos/nivelar`, que nació con ella.
+	 *
+	 * El `CAST` se queda dentro: la columna es `DECIMAL(7,4)` y PDO la trae como
+	 * cadena.
+	 */
+	private const COLUMNAS_DE_LA_DEFINITIVA = 'SELECT id, alumno_id, asignatura_id, periodo_id, periodo,
+			CAST(nota AS DOUBLE) AS nota, recuperada, manual, updated_by, created_at, updated_at';
+
+	/**
 	 * La rejilla de definitivas: **los cuatro periodos a la vez, en cuatro columnas**.
 	 *
 	 * Y por eso es la pantalla que más necesita `bol_independiente_aparte_en` (§7 de
@@ -420,7 +440,7 @@ class DefinitivasPeriodosController extends Controller {
 						->a(Request::input('nota'))
 						->guardar();
 
-					return DB::select('SELECT *, CAST(nota AS DOUBLE) AS nota FROM notas_finales WHERE id=?', [$existente->id]);
+					return DB::select(self::COLUMNAS_DE_LA_DEFINITIVA.' FROM notas_finales WHERE id=?', [$existente->id]);
 				}
 
 				$consulta = 'INSERT INTO notas_finales(alumno_id, asignatura_id, periodo_id, periodo, nota, recuperada, manual, updated_by, created_at, updated_at)
@@ -445,7 +465,7 @@ class DefinitivasPeriodosController extends Controller {
 					->a(Request::input('nota'))
 					->guardar();
 
-				return DB::select('SELECT *, CAST(nota AS DOUBLE) AS nota FROM notas_finales WHERE id=?', [$last_id]);
+				return DB::select(self::COLUMNAS_DE_LA_DEFINITIVA.' FROM notas_finales WHERE id=?', [$last_id]);
 			});
 		}
 		

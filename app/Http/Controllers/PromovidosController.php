@@ -58,7 +58,15 @@ class PromovidosController extends Controller {
 
 			
 			
-			$consulta = 'SELECT r.*, m.materia, m.alias, m.area_id FROM recuperacion_final r 
+			// **Las columnas nombradas y no `r.*`**: estas filas se cuelgan en
+			// `$alumno->recuperaciones` y viajan al cliente, así que las tres del acta
+			// de `2026_09_02_300000_acta_de_la_recuperacion_final` habrían aparecido
+			// solas en el cálculo de promovidos. **Congelada** (22 §3.4): el acta se
+			// pinta en la pantalla del año (B8), que la recibe por
+			// `definitivas_periodos/update-recuperacion`; aquí lo que se decide es
+			// quién promociona, y para eso sólo hace falta la nota.
+			$consulta = 'SELECT r.id, r.alumno_id, r.asignatura_id, r.year, r.nota, r.updated_by,
+					r.created_at, r.updated_at, m.materia, m.alias, m.area_id FROM recuperacion_final r 
 				INNER JOIN asignaturas a ON a.id=r.asignatura_id and a.deleted_at is null
 				INNER JOIN materias m ON m.id=a.materia_id and m.deleted_at is null
 				WHERE alumno_id=? and year=?';
