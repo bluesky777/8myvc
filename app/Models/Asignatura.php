@@ -56,6 +56,71 @@ class Asignatura extends Model {
 	protected $softDelete = true;
 
 
+	/**
+	 * Por qué `detallada()` no devolvió nada: **dos causas, dos mensajes**.
+	 *
+	 * Hasta el 2 sep 2026 las dos salían como *«Esa asignatura no es de este año»*,
+	 * y para una de ellas eso es **falso**: la asignatura sí es de ese año, lo que
+	 * le falta es profesor —el `inner join profesores` de arriba la deja fuera—.
+	 * Es la §3.4 del [10](../../docs/migracion/10-definitivas.md) otra vez, en su
+	 * forma cara: el mismo error para dos fallos distintos **manda a investigar a
+	 * la persona equivocada**, que aquí se pone a mirar el año y el grupo, que
+	 * están bien.
+	 *
+	 * ## Y no es un caso raro, está medido
+	 *
+	 * En la base de tests hay **146 asignaturas vivas de 1219 sin profesor** (12%),
+	 * con **cero** apuntando a un profesor inexistente o borrado. O sea que no es
+	 * corrupción: es un **estado normal del dominio**, la asignatura que todavía no
+	 * tiene docente. Y se concentra donde más duele: **134 de 134 en el año
+	 * siguiente** y 10 de 134 en el actual —los diez que midió el front—. Un
+	 * colegio preparando el año que viene tiene hoy todas las planillas sin abrir y
+	 * un mensaje que le habla de otra cosa.
+	 *
+	 * ## Lo que esto NO hace, a propósito
+	 *
+	 * **No cambia qué peticiones pasan ni con qué código**: las dos siguen siendo
+	 * 404. Que la planilla deba abrirse sin profesor —o sea, que ese `inner` pase a
+	 * `left`— es una decisión de producto que toca a los seis llamadores de
+	 * `detallada()` y que espera a Joseth; mezclarla aquí convertiría un arreglo de
+	 * mensaje en un cambio de comportamiento.
+	 *
+	 * **El texto llega al cliente**, y está medido con el kernel de verdad y
+	 * `APP_DEBUG=false`, que es como corren los quince colegios:
+	 * `abort(404, 'texto')` devuelve `{"message": "texto"}` entero, y sólo el
+	 * `abort(404)` **sin** texto sale con `message` vacío. En `app/` hay 45 `abort(404`
+	 * y ninguno vivo sin texto.
+	 *
+	 * Una consulta más, y sólo en el camino del error: el caso bueno no la paga.
+	 */
+	private static function porQueNoSalio($asignatura_id, $year_id): string
+	{
+		$fila = DB::selectOne(
+			'SELECT a.id, a.profesor_id, a.deleted_at, g.year_id
+			   FROM asignaturas a
+			   LEFT JOIN grupos g ON g.id = a.grupo_id AND g.deleted_at IS NULL
+			  WHERE a.id = ?',
+			[$asignatura_id]
+		);
+
+		if ($fila === null || $fila->deleted_at !== null) {
+			return 'Esa asignatura no existe';
+		}
+
+		if ((int) $fila->year_id !== (int) $year_id) {
+			return 'Esa asignatura no es de este año';
+		}
+
+		if ($fila->profesor_id === null) {
+			return 'Esa asignatura todavía no tiene profesor asignado';
+		}
+
+		// El profesor está puesto pero su fila no aparece. Hoy son cero casos
+		// —medido: ninguna asignatura apunta a un profesor inexistente— y por eso
+		// el mensaje dice lo que se sabe en vez de inventar una causa.
+		return 'Esa asignatura tiene un profesor que ya no está';
+	}
+
 	public static function detallada($asignatura_id, $year_id)
 	{
 		$consulta = 'SELECT a.id as asignatura_id, a.grupo_id, a.profesor_id, a.creditos, a.orden,
@@ -78,7 +143,7 @@ class Asignatura extends Model {
 		// es que esa asignatura no existe en el año desde el que se pregunta.
 		// Ver 05 §16.
 		if ($asignatura === []) {
-			abort(404, 'Esa asignatura no es de este año');
+			abort(404, self::porQueNoSalio($asignatura_id, $year_id));
 		}
 
 		return (array)$asignatura[0];
