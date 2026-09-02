@@ -241,23 +241,57 @@ porque se repetirán:
 `detailedNotasGrupo` no lo alcanza nadie (05 §211 y §218), así que un test que lo diera por
 vivo mentiría sobre qué llega a un cliente.
 
-## §5 — El plan de A10, tal como queda después de mirar
+## §5 — El plan de A10: hecho lo que no espera a nadie, y lo que falta espera a Joseth
 
-En el orden en que se puede desplegar sin que un colegio imprima mal (tareas §7):
+En el orden en que se puede desplegar sin que un colegio imprima mal (tareas §7).
 
-1. **Las dos funciones de modelo** —`Subunidad::deUnidadCalculada` y
-   `Grupo::detailed_materias_notafinal`— con `nota_original` y `nivelada_at`. Cubren el tipo 1,
-   el 5 y notas actuales de una vez. Snapshot de forma de `notas-actuales-alumnos` y
-   `boletines/detailed-notas` regenerado **una vez y leído**.
-2. **Las consultas propias**: `BoletinesController:293`, `Boletines2Controller:217`,
-   `Grupo::detailed_materias_notas_finales` para el tipo 3.
-3. **El uso en el boletín final y el certificado** (`:574` y `:375`): «recuperó» =
-   `nota_original IS NOT NULL`, en vez de deducirlo del interruptor y de `manual`. Y el
-   interruptor del certificado de la §2.3, **si Joseth elige la 1 o la 2**.
-4. **El puesto**, según la §3.3 — y si es la A, va **antes** que el 3, no después.
-5. **Nada en el tipo 4, notas perdidas, actas ni certificado de estudio.** Y el
+### 5.1 · HECHO el 2 sep 2026 — los tres que no dependen de ninguna decisión
+
+| Qué | Dónde | Cómo quedó |
+|---|---|---|
+| El par del **indicador** | `Subunidad::deUnidadCalculada` — `nota_original`, `nota_nivelacion`, `nivelada_at`, `nivelacion_obs` | de ahí cuelgan el **tipo 1 y 5** y las **notas actuales del alumno** |
+| El par de la **definitiva** | `Grupo::detailed_materias_notafinal` — `nota_original_asignatura`, `nivelada_at_asignatura` | la comparten el tipo 1/5, el **tipo 2** y las notas actuales |
+| La tabla «Periodo 1 · 2 · 3 · 4» del papel | `Informes/BoletinesController:293` | `nota_original` y `nivelada_at` por periodo |
+| El **boletín final** | `Informes/BolfinalesController:508` | las once columnas pasan a **catorce**: era el sitio que la §3.4 del [22](22-nivelaciones.md) tenía como «congelado hasta A10» |
+
+Tres decisiones que van con eso:
+
+- **`nota_nivelacion` viaja además de `nota_original`.** Con la regla `topada` las dos son
+  distintas de la vigente —sacó 90 y le queda 70—, y un boletín que sólo enseñara
+  `~~55~~ 70` escondería lo que el alumno hizo, que es justo lo que el acudiente viene a ver.
+- **Los alias de la definitiva llevan el sufijo `_asignatura`**, como el `nota_asignatura`
+  que ya existía. En las tres respuestas conviven el par del indicador y el de la
+  definitiva: dos claves `nota_original` significando niveles distintos es la forma de que
+  el papel imprima la del nivel equivocado.
+- **Las claves van siempre, con `null` cuando no hay nivelación** (22 §3.1). Una clave que
+  sólo aparece con dato obliga al front a distinguir «vacío» de «no vino».
+
+**Seis instantáneas regeneradas y leídas**, y el diff es la prueba de que la migración es
+aditiva: **36 líneas, todas claves nuevas con valor `null`**, ninguna quitada y ninguna
+cambiada. `nota` sigue siendo la vigente (plan §3.2), así que el front viejo y Flutter
+imprimen exactamente lo de antes. Lo fija `tests/Contrato/BoletinImprimeElParTest`, con la
+nota nivelada **y con una sin nivelar**.
+
+> **Y una trampa del escenario, que costó cuatro rojos y se repetirá.** La primera versión
+> del test elegía «un periodo del año» y los tres informes pintan **`$user->periodo_id`**:
+> la nota nivelada no salía en la respuesta y el test habría dado verde sin mirar el par si
+> el aserto no hubiera exigido población. El periodo se saca **del mismo usuario que eligió
+> `tokenDelPersonalDe`**.
+
+### 5.2 · Lo que falta, y por qué no se ha escrito
+
+1. **El tipo 2 y el tipo 3, a medias**: los dos reciben el par de la definitiva por la
+   consulta compartida de `Grupo`, pero su tabla de periodos propia no
+   —`Boletines2Controller:217` y `Grupo::detailed_materias_notas_finales`—. Son dos líneas
+   idénticas a la del tipo 1 y **no esperan a nadie**; están fuera porque el encargo
+   nombraba tres informes y ampliarlo es del coordinador, no de quien escribe.
+2. **El certificado de notas por persona** (§2.3): las tres opciones están planteadas a
+   Joseth. Es el papel **firmado**; escribir una antes de que conteste es rehacerla.
+3. **El uso de la marca** en `BolfinalesController:574` y `CertificadosPersonaController:375`
+   —«recuperó» = `nota_original IS NOT NULL` en vez de deducirlo del interruptor y de
+   `manual`—. Va con la 2, porque el certificado es la mitad de ese cambio.
+4. **El puesto** (§3.3). Si Joseth elige congelar, va **antes** que todo lo anterior y son
+   los mismos cinco ficheros: hacerlo después es tocarlos dos veces.
+5. **Nada en el tipo 4, notas perdidas, actas ni certificado de estudio**, y el
    `BolfinalesController` de la raíz **no se toca**: o se borra en su propio lote o se deja.
 
-Lo que A10 pide de A y todavía no tiene: A3 commiteada, y el nombre exacto de los campos
-tal como A los devuelva en `notas/detailed` (A7), para que el boletín y la planilla digan
-lo mismo con la misma palabra.
