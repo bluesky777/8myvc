@@ -57,6 +57,45 @@ coordina `8myvc-ab`
 > impresión y `Informes/**` pasaron a `8myvc-f2` el 2 sep. Base de tests de esta sesión:
 > `simonbolivar_testing_niv`.
 
+> ### A10 — la impresión del par, rama `niv/informes` (carril C-back, 2 sep 2026)
+>
+> `app/Http/Controllers/Informes/**` es de este carril desde el 2 sep. El reconocimiento
+> —qué informe imprime notas, cuál debe imprimir el par y **dónde se toca el puesto**— está en
+> el [27](27-nivelaciones-en-los-informes.md), medido con fichero y línea.
+>
+> **Hecho, y desplegable sin esperar a nadie:**
+>
+> | Qué | Dónde | Commit |
+> |---|---|---|
+> | Las cuatro consultas con `*` de `notas_finales` y `recuperacion_final` nombran sus columnas | `Informes/BolfinalesController`, `CertificadosPersonaController` | `db26dd3` — **puso en verde los dos rojos de A sin regenerar ningún snapshot** |
+> | El par del **indicador** y de la **definitiva** | `Subunidad::deUnidadCalculada`, `Grupo::detailed_materias_notafinal`, `BoletinesController:293`, `BolfinalesController:508` | `11e0266` |
+> | La tabla de periodos del **tipo 2**, y los dos snapshots de `notas/alumno` | `Boletines2Controller:217` | `d39a316` |
+>
+> Lo imprimen el **boletín tipo 1 y 5**, el **tipo 2** (sólo la definitiva), el **boletín final**
+> y las **notas actuales del alumno**. Ocho instantáneas regeneradas y **leídas**: el diff es
+> **sólo claves nuevas en `null`**, ninguna quitada — que es la prueba de que `nota` sigue siendo
+> la vigente y de que ningún cliente pierde un campo.
+>
+> **Dos decisiones tomadas que conviene no re-litigar:**
+>
+>   - **El certificado firmado: opción 2** (Joseth, 2 sep) —vigente más la novedad al pie, sin par
+>     tachado y sin interruptor—. **No necesita backend**: ese papel lo arma el front desde
+>     `bolfinales/detailed-notas-year`, cuya respuesta ya trae lo necesario. Escribirlo en
+>     `CertificadosPersonaController` habría sido código muerto (27 §5.2).
+>   - **`GET notas/alumno` gana el par a sabiendas**, aunque la §3.4 del 22 la marcara congelada:
+>     Flutter la llama y **no se rompe** —comprobado leyendo su parser—, y esconderle al alumno la
+>     novedad que sí lleva su certificado firmado no se sostiene.
+>
+> **Lo que falta de A10** (27 §5.3): el **tipo 3** —que **no es la misma línea**: son cuatro
+> consultas con subconsultas por periodo—, el **criterio de «recuperó»** de `:574`, que no es
+> aditivo y cambia lo que imprimen los quince hoy, y **el puesto**, que espera a Joseth: si elige
+> congelarlo va **antes** que todo lo anterior, porque son los mismos cinco ficheros.
+>
+> Base de tests de esta sesión: `simonbolivar_testing_inf`. **Y una regla de la noche: no se lanzan
+> dos suites completas a la vez en el mismo contenedor** —25 rojos por deadlock el 2 sep, que al
+> re-correr solos daban 136 verdes—, y **el `exit code` de una corrida canalizada no es el de la
+> suite**: es el de `tail`.
+
 > **Esa cifra va con sus coordenadas pegadas y así se copia o no se copia: medida el 1 sep 2026,
 > desde la raíz, desasida, sobre `1cb7092`** —con los cuatro merges de hoy dentro—. Es la primera
 > corrida que describe este `main`: las de los lotes miden **su árbol**, y una suite de antes de un
