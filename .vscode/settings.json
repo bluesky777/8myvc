@@ -1,0 +1,7 @@
+{
+    // El `.env` de la raíz es el de Laravel, no de Python: la extensión de Python
+    // lo detectaba por su valor por defecto (`${workspaceFolder}/.env`) y ofrecía
+    // inyectarlo en las terminales, que es exportar las credenciales del colegio
+    // a cada shell. Vaciar la ruta apaga el aviso sin activar la inyección.
+    "python.envFile": ""
+}
