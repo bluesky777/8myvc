@@ -814,6 +814,31 @@ citar diciendo **eso** y no «se corrió sobre X».
 
 1. **Corre la suite en tu propia base** (`DB_TEST_DATABASE=…_b`): dos suites
    contra la misma base dan deadlocks, y eso ya está arriba.
+
+   > **Y la segunda suite puede ser la TUYA de hace un rato.** La regla se lee como
+   > «que no la lance nadie más», y le falta la otra mitad: **matar el `docker exec`
+   > desde fuera no mata el `php` de dentro del contenedor**. Una corrida que se
+   > corta por el tope de tiempo de la orden **sigue viva**, y se solapa con la
+   > siguiente. Pasó el 2 sep 2026 al fusionar: **30 rojos, 88 deadlocks y `exit=0`**,
+   > y no era ninguna regresión —sola dio 1859 en verde—. **La señal que lo delató no
+   > fueron los rojos: fue la duración**, 1247 s contra los ~670 s de siempre. Un
+   > número que no cuadra antes de mirar el contenido, otra vez.
+   >
+   > Así que antes de relanzar, comprueba que la anterior murió de verdad:
+   >
+   > ```bash
+   > docker exec 8myvc-app-1 sh -c 'pgrep -af "[a]rtisan test"'
+   > ```
+   >
+   > **Los corchetes no son adorno**: con `"artisan test"` a secas el patrón **se
+   > encuentra a sí mismo** —el `sh -c` que lo lanza lleva esas palabras en su propia
+   > línea de órdenes— y contesta que sí siempre, incluso con el contenedor parado.
+   > Comprobado en las dos direcciones el 2 sep 2026: sin nada corriendo, vacío; con
+   > un proceso que las lleva dentro, lo nombra.
+   >
+   > Y mira la duración al terminar. **Una suite que tarda el doble no es una suite
+   > lenta: son dos.**
+
 2. **Anota la punta al arrancar y al terminar.** Si son la misma, no hay nada que
    pensar.
 3. **Si no lo son, comprueba qué cambió en medio** con el `git log --name-only`

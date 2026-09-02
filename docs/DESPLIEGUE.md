@@ -3,7 +3,7 @@
 **Los comandos, y nada más.** El porqué de cada fila —topología, las siete trampas, qué trajo
 cada tanda, el bucle del front— está en [DESPLIEGUE-REFERENCIA.md](DESPLIEGUE-REFERENCIA.md).
 
-## ⛔ TANDA PENDIENTE — 175 commits desde `9474b50`. SIN LAS MIGRACIONES NO SE PUEDE NI ENTRAR
+## ⛔ TANDA PENDIENTE — 191 commits desde `9474b50`. SIN LAS MIGRACIONES NO SE PUEDE NI ENTRAR
 
 **El aviso que había aquí decía «los tres boletines contestan 500», y se quedaba corto por dos
 órdenes de magnitud.** Lo que cae con el código nuevo y la base sin migrar **no es una pantalla:
@@ -19,7 +19,7 @@ petición llega a su método.**
 
 | Sin la migración, con el código nuevo dentro | |
 |---|---|
-| **544** de las 562 rutas de `api/` llevan `auth.token` | **500 en el guard**, antes del controlador |
+| **547** de las 565 rutas de `api/` llevan `auth.token` | **500 en el guard**, antes del controlador |
 | `POST login` (`LoginController:51`) y `POST auth/login` (`Auth\SesionController:63`) | **500** — montan el contexto ellos mismos: **no se puede iniciar sesión** |
 | Lo que queda en pie | `login/logout`, `login/recuperar-clave`, `login/reset-password`, `login/ver-pass`, `login/crear-prematricula`, `publicaciones/ultimas`, `colegio/logo` y el quiosco de `tardanzas/*` — que no pasan por el contexto |
 
@@ -31,11 +31,11 @@ contexto contesta `SQLSTATE[42S22] Unknown column 'y.regla_nivelacion' in 'field
 
 | | | comprobado con |
 |---|---|---|
-| commits | **175** | `git rev-list --count 9474b50..HEAD` |
-| `app/` | **52** ficheros | `git diff --name-only 9474b50 HEAD -- app/ \| wc -l` |
-| `routes/` | **6** ficheros — **las rutas SÍ se movieron: 543 → 563** (21 nuevas, **1 retirada**) | `git diff --name-only 9474b50 HEAD -- routes/` · `route:list --json` |
+| commits | **191** | `git rev-list --count 9474b50..HEAD` |
+| `app/` | **54** ficheros | `git diff --name-only 9474b50 HEAD -- app/ \| wc -l` |
+| `routes/` | **7** ficheros — **las rutas SÍ se movieron: 543 → 566** (24 nuevas, **1 retirada**) | `git diff --name-only 9474b50 HEAD -- routes/` · `route:list --json` |
 | `config/` · `composer.json`/`.lock` · `database/schema/` | **0** | `git diff --name-only 9474b50 HEAD -- config/ composer.lock database/schema/` |
-| **migraciones** | **SEIS**, y **cinco son bloqueantes** | `git diff --name-only 9474b50 HEAD -- database/migrations/` |
+| **migraciones** | **SIETE**, y **cinco son bloqueantes** | `git diff --name-only 9474b50 HEAD -- database/migrations/` |
 
 > **La base es `9474b50` y no `eb95cbc`, y esto costó una medición entera.** El rango que había
 > escrito arrancaba en `eb95cbc`, que es la tanda del **25 ago**; la del 25–30 ago
@@ -45,7 +45,7 @@ contexto contesta `SQLSTATE[42S22] Unknown column 'y.regla_nivelacion' in 'field
 > como pendiente cuando lleva dentro desde el 31. *Un rango sin desplegar se remide entero cada vez
 > que se le toca; y lo primero que se remide es **desde dónde**.*
 
-### Las seis, ordenadas por lo que tumban
+### Las siete, ordenadas por lo que tumban
 
 | Migración | Qué rompe si falta | Radio |
 |---|---|---|
@@ -54,11 +54,20 @@ contexto contesta `SQLSTATE[42S22] Unknown column 'y.regla_nivelacion' in 'field
 | `2026_09_02_200000_nivelacion_de_la_definitiva` | las dos columnas del acta de la definitiva, nombradas en `DefinitivasPeriodosController:524-526` y `:718-721` | `PUT definitivas_periodos/nivelar` |
 | `2026_09_02_300000_acta_de_la_recuperacion_final` | **rompe una ruta que ya existe**, no sólo las nuevas: `putUpdateRecuperacion` nombra `nivelada_at, nivelada_por, observacion` en su `UPDATE`, su `INSERT` y su `SELECT` (`:818`, `:856`, `:884`) | `PUT definitivas_periodos/update-recuperacion` |
 | `2026_09_03_100000_rubricas` | cinco tablas nuevas y `subunidades.rubrica_id`. **Nadie fuera de `RubricasController` las nombra** —comprobado uno a uno: la planilla, unidades, asignaturas y `ChangeAsked` pasaron a nombrar sus columnas justamente para que `rubrica_id` no se les colara— | las **10** rutas de `rubricas/` |
+| `2026_09_04_100000_horario_versiones` | **nada, y está comprobado**: los tres métodos de `HorarioController` contestan **501** —la ruta existe, el cuerpo no—, **ninguna consulta nombra las tres tablas nuevas** y **nadie nombra `years.horario_version_id`**. `YearsController` la sirve por `SELECT y.*`, y a un `*` la columna que falta no le duele | ninguno **hoy**; el día que exista el lote B, las **3** rutas de `horario/` |
 | `2026_08_31_100000_retirar_boletin_independiente_de_matriculas` | nada del código nuevo: **retira** `matriculas.boletin_independiente`, que ya no lee nadie | ninguno hacia delante — **pero mira la fila de abajo** |
 
-**Las cinco primeras son aditivas en `up()`** —`ADD COLUMN` y `CREATE TABLE`, sin un solo `UPDATE`
-ni back-fill—, leídas una a una. **La sexta no: hace `dropColumn`**, y eso cambia dos reglas de
-este documento.
+**Seis de las siete son aditivas en `up()`** —`ADD COLUMN` y `CREATE TABLE`, sin un solo `UPDATE`
+ni back-fill—, leídas una a una. **La que falta —`2026_08_31_100000`— no: hace `dropColumn`**, y
+eso cambia dos reglas de este documento. (Va la última de esta tabla porque está ordenada por lo
+que tumba, pero es la **primera** por orden de ejecución, y eso importa para el rollback.)
+
+> **Dos de las siete no rompen nada si faltan, y no son la misma clase de «nada».** La del
+> `dropColumn` no rompe **hacia delante** —retira algo que el código nuevo ya no lee— pero sí hacia
+> atrás, que es la fila de abajo. La de `horario_versiones` no rompe en **ninguna** dirección
+> todavía, porque su código son tres `501`. **Aun así entra en el mismo `migrate` y en la
+> comprobación**: la pregunta que contesta esa comprobación es *«¿está la tanda entera dentro?»*, no
+> *«¿qué se rompe?»*. Un colegio con seis de siete es un colegio que nadie sabe en qué estado está.
 
 ### La que retira una columna, y las dos reglas que cambia
 
@@ -88,17 +97,17 @@ colegio se arregla antes de tocar el siguiente.**
 `git pull` → `php artisan migrate --force` → **la comprobación de abajo** → un boletín y un login
 **antes de pasar al siguiente colegio**.
 
-### La comprobación de diez segundos, que ahora son seis migraciones y no una
+### La comprobación de diez segundos, que ahora son siete migraciones y no una
 
 `php artisan migrate:status` **no basta**: dice que la migración corrió, no que la columna esté.
 Esto pregunta por el esquema, que es lo que leen las consultas:
 
 ```bash
-php artisan tinker --execute='$f=[]; foreach ([["years","regla_nivelacion"],["years","puestos_con_bol_independiente"],["notas","nota_original"],["notas_finales","nota_nivelacion"],["recuperacion_final","nivelada_at"],["subunidades","rubrica_id"]] as $c) { if (!Schema::hasColumn($c[0],$c[1])) $f[]=$c[0].".".$c[1]; } foreach (["rubricas","rubrica_criterios","rubrica_niveles","rubrica_descriptores","rubrica_valoraciones"] as $t) { if (!Schema::hasTable($t)) $f[]="tabla ".$t; } if (Schema::hasColumn("matriculas","boletin_independiente")) $f[]="matriculas.boletin_independiente SIGUE AHI"; echo ($f ? "FALTA -> ".implode(" | ",$f) : "OK - las seis dentro").PHP_EOL;'
+php artisan tinker --execute='$f=[]; foreach ([["years","regla_nivelacion"],["years","puestos_con_bol_independiente"],["years","horario_version_id"],["notas","nota_original"],["notas_finales","nota_nivelacion"],["recuperacion_final","nivelada_at"],["subunidades","rubrica_id"]] as $c) { if (!Schema::hasColumn($c[0],$c[1])) $f[]=$c[0].".".$c[1]; } foreach (["rubricas","rubrica_criterios","rubrica_niveles","rubrica_descriptores","rubrica_valoraciones","horario_versiones","horario_lecciones","horario_pieza_docente"] as $t) { if (!Schema::hasTable($t)) $f[]="tabla ".$t; } if (Schema::hasColumn("matriculas","boletin_independiente")) $f[]="matriculas.boletin_independiente SIGUE AHI"; echo ($f ? "FALTA -> ".implode(" | ",$f) : "OK - las siete dentro").PHP_EOL;'
 ```
 
 **Dice qué falta, no sólo que falta**, y **tiene control negativo**: probado el 2 sep 2026 contra la
-base migrada (`OK - las seis dentro`) **y** contra una sin migrar y con nombres inventados, donde
+base migrada (`OK - las siete dentro`) **y** contra una sin migrar y con nombres inventados, donde
 imprime la lista. Un `OK` que no sabe fallar es el que archiva el asunto.
 
 **La otra acción del día, que no es una tabla:** correr `tools/independientes-sin-estructura.php`
@@ -116,7 +125,7 @@ marcados en desarrollo**, que **no** es «cero en los quince»: eso sólo se sab
 | **L** | **`POST tardanzas/login/traer-datos` desaparece**: pasa a 404. Decisión de Joseth del 2 sep. El único llamante de toda la máquina es `tardanzasMyvc-old` (último commit feb 2020), y Joseth confirmó que ese repositorio está inactivo — el dato que lo cerró **no estaba en el repositorio** | **DECIDIDO** — es la única ruta que la tanda quita |
 | **M** | **`regla_nivelacion` aparece en el bloque de la sesión**, en las cuatro ramas (alumno, acudiente, profesor y usuario). Es un campo **nuevo**, para previsualizar en el diálogo de nivelación qué nota va a quedar (22 §1.4 y §5.1) | **ADITIVO** — Flutter no se rompe: `ConfiguracionColegio.deLogin` lee campo a campo y no hay `json_serializable` ni `freezed`. Medido, no supuesto (22 §3.2bis) |
 | **N** | **Campos nuevos de nivelación en respuestas que ya existían**: la planilla (`PUT notas/detailed`), los boletines, el boletín final y `PUT editnota/alum-asignatura`. Qué respuesta abre las columnas nuevas **a propósito** y cuál las tiene **congeladas** está decidido sitio por sitio en la tabla de [22 §3.4](migracion/22-nivelaciones.md) y en el [27](migracion/27-nivelaciones-en-los-informes.md) | **ADITIVO** — ningún cliente pierde una clave |
-| **O** | **21 rutas nuevas**: las 10 de `rubricas/`, las 4 de nivelar, las 5 de `boletin-independiente/`, `GET grupos/{grupo_id}/alumnos-de/{que}` y `GET colegio/logo`. **Todas menos `colegio/logo` llevan `auth.personal`**: un alumno o un acudiente que las llame recibe **403**, y las de nivelar además exigen `periodos.profes_pueden_nivelar` al profesor (`User.php:425`) | **POR AVISAR** — es de las de «quién puede llamarla» |
+| **O** | **24 rutas nuevas**: las 10 de `rubricas/`, las 4 de nivelar, las 5 de `boletin-independiente/`, las **3** de `horario/` —que hoy contestan **501**: la ruta existe y el cuerpo no—, `GET grupos/{grupo_id}/alumnos-de/{que}` y `GET colegio/logo`. **Todas menos `colegio/logo` llevan `auth.personal`**: un alumno o un acudiente que las llame recibe **403**, y las de nivelar además exigen `periodos.profes_pueden_nivelar` al profesor (`User.php:425`) | **POR AVISAR** — es de las de «quién puede llamarla» |
 
 **Nivelar son rutas NUEVAS por diseño, y esto es lo que hay que decirle al front:** `notas/update` y
 `notas/lote` **no pueden** aprender a nivelar. `myvc_flutter` es una sola app para los quince y una
@@ -279,22 +288,23 @@ ignora. **No corras el `down`.**
 > es justo lo que este paso existe para no hacer.
 >
 > Para volver atrás de esa tanda hay que **volver también el esquema**, y **no se puede volver sólo
-> esa**: `2026_08_31_100000` es la **primera** de las seis por orden de ejecución, así que llegar a
-> ella es deshacer las seis. Como corrieron en el mismo `migrate`, son un solo lote:
+> esa**: `2026_08_31_100000` es la **primera** de las siete por orden de ejecución, así que llegar a
+> ella es deshacer las siete. Como corrieron en el mismo `migrate`, son un solo lote:
 >
 > ```bash
-> php artisan migrate:status | tail -8      # confirma que el lote pendiente son las SEIS
-> php artisan migrate:rollback --step=6     # las seis, en orden inverso
+> php artisan migrate:status | tail -9      # confirma que el lote pendiente son las SIETE
+> php artisan migrate:rollback --step=7     # las siete, en orden inverso
 > ```
 >
-> **`--step=1` NO sirve aquí**: revierte la última, que es `2026_09_03_100000_rubricas`, y deja la
+> **`--step=1` NO sirve aquí**: revierte la última, que es `2026_09_04_100000_horario_versiones`, y deja la
 > columna retirada exactamente igual.
 >
 > **Y esto sí pierde datos, al revés que en las tandas anteriores.** El `down()` de la del
 > `dropColumn` es exacto —devuelve la columna **a 0 en todas las filas, que es lo que había**: nunca
-> llegó a tener un 1 en ninguna base—, pero los `down()` de las otras cinco se llevan **lo que se
+> llegó a tener un 1 en ninguna base—, pero los `down()` de las otras seis se llevan **lo que se
 > haya registrado desde el despliegue**: las nivelaciones (`notas.nota_original` y compañía), las
-> actas de la definitiva y de la recuperación, y las rúbricas enteras con sus valoraciones. Las
+> actas de la definitiva y de la recuperación, las rúbricas enteras con sus valoraciones y las
+> versiones de horario subidas — que hoy son cero, porque el lote B no existe. Las
 > notas que produjeron **no** se pierden: `nota` nunca dejó de ser la vigente. Antes de correrlo,
 > mira si ese colegio ha nivelado algo.
 
