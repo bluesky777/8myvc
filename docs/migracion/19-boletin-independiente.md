@@ -1497,3 +1497,135 @@ y las cuatro caben sin ruta nueva:
 - **avisar cuando la tanda pendiente esté desplegada**: tienen cuatro cosas
   esperándola, incluida una que **cambia el cuerpo de una petición** y está
   congelada a propósito. Está en [DESPLIEGUE.md](../DESPLIEGUE.md).
+
+
+## §13 — La pantalla POR ESTUDIANTE: dos lecturas pedidas, y **cinco correcciones al diseño** (1 sep 2026)
+
+**Encargo del front (`myvc-front-7f`, 1 sep 2026, tarde), con diseño dibujado.** Le da la vuelta al
+eje de la §6.1: hoy `boletin-independiente/planilla` es **una asignatura con sus alumnos marcados**;
+la pantalla nueva es **un alumno, un periodo, y todas sus asignaturas** con unidades, notas y faltas,
+más una lista para llegar a ella desde el menú. Pide **dos lecturas y ninguna escritura**:
+
+| Ruta | Para qué | Estado |
+|---|---|---|
+| **548** · `PUT boletin-independiente/marcados` · `auth.personal` | la lista del menú: quién lleva boletín aparte en un periodo, con los recuentos por fila | **escrita** |
+| **549** · `PUT boletin-independiente/alumno` · `auth.personal` | el detalle: un alumno con sus asignaturas, unidades, definitiva y faltas | **escrita** |
+
+**No se escribieron el día que se pidieron, y eso es parte del procedimiento.** La §6 de este
+documento dice *«éstas son las tres y no hay una cuarta»*, y `CLAUDE.md` que una ruta nueva **es una
+decisión, no un efecto secundario**. El encargo llegó de otra sesión, y **un encargo de otra sesión
+no es esa decisión**: se midió, se contestó, y se le subió a Joseth con las tres opciones —sólo
+`marcados`, las dos, o ninguna hasta desplegar—. **Contestó «las dos» el 1 sep 2026** y entonces se
+escribieron. De 547 a **549**.
+
+La respuesta técnica entera está en el canal del front
+(`myvc_front/PANTALLAS-HISTORIAL-Y-BOLETIN.md`, §C, 2026-09-01, `8myvc-2d`) y **no se duplica aquí a
+propósito**: dos copias de un contrato es de donde salen dos contratos.
+
+**Lo que sí se mide y se queda:** el diseño trae **cinco cosas que no cuadran con el código**, y la
+primera es de las que invierten un color.
+
+### 13.1 · `aplica` por asignatura no existe, y en esa pantalla **pinta de gris el caso del §9.1**
+
+El mockup enseña, dentro de un periodo marcado, una asignatura *«Con el grupo»* en gris y sin
+acciones. **Ese estado no puede existir**: la marca es `(alumno_id, periodo_id)` —sin
+`asignatura_id`— y la **decisión 1** dice que vale para **todas** las asignaturas. Un `aplica` por
+asignatura llegaría **constante**, que es el fallo que el propio front cazó el 31 ago en
+`bol_independiente_periodo` y en `aplica` dentro de `independientes` (§6.4). **La tercera vez, y la
+primera que hace daño:** si el gris no puede venir de `aplica`, la pantalla lo derivará de
+`unidades: []` — y entonces **la asignatura sin estructura propia, la que va a sacar definitiva cero,
+se pinta gris y tranquila**. `aplica` va en el periodo; lo que varía por asignatura es `motivo`, que
+ya existe.
+
+### 13.2 · Los denominadores estaban en la escala equivocada
+
+Misma raíz: el diseño cuenta *«4 de 5 montadas · 1 sin unidades»*. Con la marca por periodo son
+**«4 de 13» y 9 sin unidades**. La pantalla existe para gritar el §9.1 y el denominador de 5 **lo
+subestima en ocho** — en la dirección en la que no se puede fallar. Medido en `simonbolivar`, año 9:
+**13 grupos, de 7 a 15 asignaturas cada uno, media 10,3**.
+
+### 13.3 · «Notas puestas» **tiene** definición honrada, y no es `nota > 0`
+
+`notas.nota` es `int NOT NULL DEFAULT 0` y la fila **nace sembrada** con `subunidades.nota_default`,
+así que ni «existe la fila» ni «`nota > 0`» contestan la pregunta. **Medido sobre las 1.166.138
+notas vivas de `simonbolivar`** (1 sep 2026):
+
+| | Filas | Qué son |
+|---|---|---|
+| `updated_by IS NOT NULL` | **1.046.033** | alguien la tecleó — `notas/update` y `notas/lote` lo escriben, la siembra no |
+| `updated_by IS NULL`, `nota = 0` | **98.402** | sembrada y sin calificar: **la que falta** |
+| `updated_by IS NULL`, `nota > 0` | **21.703** | sembrada con `nota_default` ≠ 0 y nunca tocada |
+| `updated_by IS NOT NULL`, `nota = 0` | **3.939** | **un cero tecleado queriendo** |
+
+**`nota > 0` etiqueta mal 25.642 filas en un solo colegio, y en las dos direcciones** — las últimas
+3.939 son el §4 del [10](10-definitivas.md) del revés: *un cero real leído como «no hay nada»*. El
+criterio que se usa es `updated_by`, y **es un proxy**: se sostiene en que la siembra no lo escribe.
+
+### 13.4 · `excusa` / `con_excusa` no tiene ningún dato detrás
+
+`ausencias` **no tiene columna de excusa**. Contados sus `tipo` vivos: **`ausencia` 44.393 y
+`tardanza` 2.077, y nada más**. El `excusado` del esquema es de **`uniformes`**, otra tabla. Darlo
+sería columna nueva + migración + quién la marca, y encima sobre `ausencias/*`, **contrato compartido
+con `myvc_flutter`**. Recomendado al front: **fuera del encargo**, y su propio lote si el colegio lo
+quiere — un `excusa: false` constante sería la cuarta constante del módulo en dos semanas.
+
+### 13.5 · El precedente del alcance **no filtra por grupo**, y hay que decirlo antes de copiarlo
+
+El front citó `PiarsAsignaturasController::getAsignaturas` como precedente de `alcance: mias|todas`.
+**Existe, y para este uso está roto**: la rama del docente llama a
+`Profesor::asignaturas($year_id, $persona_id)`, que filtra por `profesor_id` y `year_id` y **nunca
+por el grupo** — el `$grupo_id` del argumento **no se usa en esa rama**. Un docente de cinco grupos
+recibiría, dentro del boletín de un alumno de 8-B, sus materias de los cinco. **`mias` es la
+intersección** con el grupo del alumno. *(Y esa misma rama deja `$asignaturas` sin definir para
+`Alumno` y `Acudiente`, con `persona.propia` en la ruta: es del [05](05-codigo-muerto-y-roto.md), no
+de aquí.)*
+
+### 13.6 · Y «el grupo del alumno» hay que desempatarlo
+
+`matriculas` no tiene clave única sobre `(alumno, grupo)` —de ahí venía el `LIMIT 1` que la decisión
+7 pudo quitar— así que dentro de un año puede haber empate. El periodo fija el año; la regla de
+desempate **se escribe** el día que se escriba la ruta, y la respuesta dice qué grupo eligió.
+
+### Las tres que el front traía medidas: **las tres ciertas**
+
+`piars-asignaturas/asignaturas` **escribe** (`getCreatePiarAsignatura` dentro del `for`);
+`ausencias/detailed` trae el grupo entero con un `Alumno::userData` por cabeza y filtra por
+**`$user->periodo_id`**, el del token; y el `periodo_id` **va en el cuerpo**, que es la §6.3 que ellos
+mismos corrigieron.
+
+
+### 13.7 · Lo que se decidió al escribirlas, y no estaba en el encargo
+
+Cuatro cosas que el contrato no fijaba y que alguien tenía que fijar. Van aquí porque **son las que
+un relevo no puede deducir leyendo la respuesta**.
+
+- **El desempate del grupo del alumno**, que era el punto 6 de la lista de arriba: dentro del año del
+  periodo, **la matrícula viva de `id` mayor** de entre `MATR`/`ASIS`/`PREM`. Es el mismo criterio con
+  el que `definitivaDe()` desempata `notas_finales`, y por el mismo motivo: la tabla no tiene clave
+  única, así que se elige la última escrita en vez de reventar. **`alumno.grupo_id` viaja siempre**,
+  de modo que el empate se ve en la respuesta en vez de quedar en «la pantalla salió rara».
+- **`sin_matricula`**, en `marcados`. Un marcado sin matrícula viva en el año del periodo no tiene
+  grupo, luego no tiene asignaturas, luego su fila no diría nada — y se cae del `INNER JOIN`. Que se
+  caiga está bien; que se caiga **sin decirlo** es la forma de fallo de este repo, así que viaja el
+  recuento de los que se cayeron. Cero es lo normal.
+- **`asignaturas_del_alumno` también en la LISTA**, no sólo en el detalle. El front lo pidió para el
+  detalle con su propio argumento —*«sin el total, un docente con una sola materia cree que el
+  estudiante sólo tiene una»*— y ese argumento **vale igual en la fila de la lista**, donde el docente
+  ve «2 de 3» sin saber que hay trece.
+- **`exigirPeriodoDelAnio()` ahora DEVUELVE el periodo** en vez de `void`. Las dos lecturas necesitan
+  el `numero` justo detrás de la guarda; con `void`, cada una tendría que volver a buscarlo y escribir
+  un `if ($periodo === null)` **que nadie puede ejecutar**, porque la guarda ya abortó. Este repo ya
+  sabe cómo acaban las ramas inalcanzables.
+
+### 13.8 · El test que pasaba con el endpoint escrito mal, y cómo se vio
+
+`test_notas_puestas_cuenta_por_updated_by_y_no_por_el_valor` nació con **una** nota sembrada con
+valor y **un** cero tecleado. Con ese montaje los dos criterios —`updated_by` y `nota > 0`— dan
+**1**: los dos errores contrarios **se cancelan**, y el test pasaba igual con el endpoint contando al
+revés. Es la trampa de la cabecera de `CLAUDE.md` en su forma exacta —*un detector puede contar bien
+un síntoma y no estar contando la causa*— y no se ve corriendo el test, porque sale verde.
+
+Se arregló haciendo el montaje **asimétrico**: dos sembradas con valor y un solo cero tecleado, así
+`updated_by` cuenta 1 y `nota > 0` contaría 2. **Y se comprobó rompiendo el endpoint a propósito**
+—cambiando el criterio a `nota > 0` y viendo el rojo— antes de darlo por bueno. Lo mismo con el
+denominador de la §13.2. *Un test que no se ha visto fallar no se sabe si prueba algo.*

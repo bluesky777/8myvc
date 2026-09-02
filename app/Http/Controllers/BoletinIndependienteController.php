@@ -519,6 +519,752 @@ class BoletinIndependienteController extends Controller
     }
 
     /**
+     * `PUT boletin-independiente/marcados` — **quién lleva boletín aparte en un
+     * periodo, y a quién se le está quedando sin montar.** §13 del
+     * [19](../../../docs/migracion/19-boletin-independiente.md).
+     *
+     * ```jsonc
+     * { "periodo_id": 30 }
+     * ```
+     *
+     * ## Existe porque hoy esa pregunta NO tiene forma de contestarse
+     *
+     * La marca vive en `bol_ind_periodos` y lo único que la asoma al cliente es
+     * `independientes`, **dentro de `PUT notas/detailed`, que es por asignatura**. Para
+     * saber quién está marcado en un colegio había que barrerlo asignatura por
+     * asignatura, y ésa es exactamente la pantalla que el front no podía construir.
+     *
+     * ## Los cuatro recuentos son la fila entera, y el denominador es la trampa
+     *
+     * `asignaturas` / `montadas` / `sin_unidades` / (`notas_puestas`, `notas_totales`).
+     * Sin ellos hay que entrar en cada estudiante para saber si le falta algo, y
+     * entonces la lista no sirve para lo que existe.
+     *
+     * **Y el denominador son TODAS sus asignaturas, no las que alguien tocó.** Es la
+     * decisión 1 —la marca vale para todas— leída hasta el final: marcado en el periodo
+     * 2, un alumno de trece materias va aparte **en las trece**, así que las que nadie
+     * le montó son `sin_unidades` y son el riesgo. El diseño que llegó del front contaba
+     * *«4 de 5»* sobre trece; **habría subestimado la §9.1 en ocho**, que es la única
+     * dirección en la que esta pantalla no puede equivocarse: quien lee «1 sin unidades»
+     * arregla una y se va.
+     *
+     * ## `notas_puestas` es `updated_by`, y NO `nota > 0` — medido
+     *
+     * `notas.nota` es `int NOT NULL DEFAULT 0` y la fila **nace sembrada** con
+     * `subunidades.nota_default`, así que ni «existe la fila» ni «vale más que cero»
+     * contestan *«¿la calificó alguien?»*. Sobre las **1.166.138 notas vivas** de
+     * `simonbolivar` (1 sep 2026):
+     *
+     * | | Filas |
+     * |---|---|
+     * | `updated_by IS NOT NULL` — alguien la tecleó | **1.046.033** |
+     * | sin `updated_by` y `nota = 0` — sembrada y sin calificar | **98.402** |
+     * | sin `updated_by` y `nota > 0` — sembrada con un default ≠ 0 y nunca tocada | **21.703** |
+     * | con `updated_by` y `nota = 0` — **un cero tecleado queriendo** | **3.939** |
+     *
+     * **`nota > 0` etiquetaría mal 25.642 filas en un solo colegio, y en las dos
+     * direcciones.** Las últimas 3.939 son el §4 del [10](../../../docs/migracion/10-definitivas.md)
+     * del revés: un cero real leído como «no hay nada».
+     *
+     * **Es un proxy y se dice en voz alta:** se sostiene en que la siembra
+     * (`Nota::verificarCrearNota`, `sembrarLasNotasQueFaltan`) **no** escribe
+     * `updated_by` y en que las dos escrituras de nota —`PUT notas/update/{id}` y
+     * `notas/lote`— **sí**. El día que un tercer camino escriba una nota sin firmarla,
+     * este recuento miente y no hay nada que lo avise.
+     *
+     * ## `sin_casilla` no es «falta la nota», y por eso viaja aparte
+     *
+     * Una subunidad **sin fila de `notas`** no se puede teclear: sin `id` no hay
+     * `PUT notas/update/{id}` al que llamar y nadie la crea después. Se llega ahí
+     * copiando con `con_notas: false`. Mezclarla con las que faltan por calificar
+     * mandaría a arreglarla al sitio equivocado —al teclado, en vez de a copiar con
+     * notas o al alta de la subunidad—, así que es su propio número.
+     *
+     * ## Quién sale en la lista: los MARCADOS, y no «los que tienen datos»
+     *
+     * Sólo `aplica = 1`. El otro estado real —desmarcado con estructura propia
+     * guardada, el `false`/`true` de la §6.4— **no entra**: la pregunta de esta
+     * pantalla es *«¿quién va aparte este periodo y lo tiene listo?»*, y meter a quien
+     * no va aparte diluiría el único aviso que la pantalla existe para dar. Ese estado
+     * ya se ve donde tiene sentido, que es la ficha.
+     *
+     * ## `sin_matricula`, para que nadie desaparezca en silencio
+     *
+     * Un marcado sin matrícula viva en el año del periodo **no tiene grupo, luego no
+     * tiene asignaturas, luego su fila no diría nada** — y se cae del `INNER JOIN`. Que
+     * se caiga está bien; que se caiga **sin decirlo** es la forma de fallo de este
+     * repo. Viaja el recuento: si es distinto de cero, alguien tiene una marca colgada
+     * de un año en el que ese alumno no está.
+     */
+    public function putMarcados()
+    {
+        $periodoId = $this->idDelCuerpo('periodo_id');
+
+        // La guarda **devuelve** el periodo, y por eso aquí no hay una segunda consulta ni
+        // un `if ($periodo === null)` detrás: una rama muerta que nadie puede ejecutar es
+        // una rama sobre la que alguien ramificará algún día sin que se note.
+        $periodo = $this->exigirPeriodoDelAnio($periodoId, 'periodo_id');
+
+        $yearId = (int) $this->user->year_id;
+        $profesorId = $this->profesorDelAlcance();
+
+        $filas = DB::select(
+            'SELECT a.id AS alumno_id, a.nombres, a.apellidos, a.foto_id,
+                    IFNULL(i.nombre, IF(a.sexo = "F", "default_female.png", "default_male.png")) AS foto_nombre,
+                    g.id AS grupo_id, g.nombre AS nombre_grupo
+               FROM bol_ind_periodos bip
+               INNER JOIN alumnos a ON a.id = bip.alumno_id AND a.deleted_at IS NULL
+               LEFT JOIN images i ON i.id = a.foto_id AND i.deleted_at IS NULL
+               INNER JOIN matriculas m ON m.id = '.self::MATRICULA_DEL_ANIO.'
+               INNER JOIN grupos g ON g.id = m.grupo_id
+              WHERE bip.periodo_id = ? AND bip.aplica = 1
+              ORDER BY a.apellidos, a.nombres, a.id',
+            [$yearId, $periodoId]
+        );
+
+        $marcados = (int) DB::selectOne(
+            'SELECT COUNT(*) c FROM bol_ind_periodos bip
+               INNER JOIN alumnos a ON a.id = bip.alumno_id AND a.deleted_at IS NULL
+              WHERE bip.periodo_id = ? AND bip.aplica = 1',
+            [$periodoId]
+        )->c;
+
+        $porAsignatura = $this->asignaturasDeLosMarcados($periodoId, $yearId);
+        $porNotas = $this->notasDeLosMarcados($periodoId, array_map(static fn ($f) => (int) $f->alumno_id, $filas));
+
+        $alumnos = [];
+
+        foreach ($filas as $fila) {
+            $alumnoId = (int) $fila->alumno_id;
+            $suyas = $porAsignatura[$alumnoId] ?? [];
+
+            // El alcance se aplica **aquí y no en la consulta** para poder mandar las dos
+            // cifras: `asignaturas` es lo que ve quien pregunta y `asignaturas_del_alumno`
+            // el total. Es la misma razón por la que el detalle manda las dos — sin el
+            // total, un docente con una sola materia cree que el estudiante sólo tiene una
+            // y lo da por terminado.
+            $enAlcance = $profesorId === null
+                ? $suyas
+                : array_values(array_filter($suyas, static fn ($a) => $a['profesor_id'] === $profesorId));
+
+            // Un docente que no le da ninguna materia a este alumno no lo ve. No es un
+            // filtro cosmético: su lista dice «ninguno de TUS estudiantes», que no es lo
+            // mismo que «ninguno», y esa distinción se pierde si la fila llega vacía.
+            if ($profesorId !== null && $enAlcance === []) {
+                continue;
+            }
+
+            $montadas = count(array_filter($enAlcance, static fn ($a) => $a['propias'] > 0));
+
+            // Las casillas se cuentan **sobre el mismo conjunto que el denominador**: el grupo
+            // que salió del desempate, y las materias de quien pregunta si el alcance recorta.
+            $grupoId = (int) $fila->grupo_id;
+            $notas = array_filter(
+                $porNotas[$alumnoId] ?? [],
+                static fn ($n) => $n['grupo_id'] === $grupoId
+                    && ($profesorId === null || $n['profesor_id'] === $profesorId)
+            );
+
+            $alumnos[] = [
+                'alumno_id' => $alumnoId,
+                'nombres' => $fila->nombres,
+                'apellidos' => $fila->apellidos,
+                'foto_id' => $fila->foto_id === null ? null : (int) $fila->foto_id,
+                'foto_nombre' => $fila->foto_nombre,
+                'grupo_id' => (int) $fila->grupo_id,
+                'nombre_grupo' => $fila->nombre_grupo,
+                'asignaturas' => count($enAlcance),
+                'asignaturas_del_alumno' => count($suyas),
+                'montadas' => $montadas,
+                'sin_unidades' => count($enAlcance) - $montadas,
+                'notas_puestas' => (int) array_sum(array_column($notas, 'puestas')),
+                'notas_totales' => (int) array_sum(array_column($notas, 'totales')),
+                'sin_casilla' => (int) array_sum(array_column($notas, 'sin_casilla')),
+            ];
+        }
+
+        return [
+            'periodo' => ['periodo_id' => (int) $periodo->id, 'numero' => (int) $periodo->numero],
+            'alcance' => $profesorId === null ? 'todas' : 'mias',
+            'alumnos' => $alumnos,
+            // Los marcados que no llegaron a la lista. Ver el docblock: cero es lo normal.
+            'sin_matricula' => $marcados - count($filas),
+        ];
+    }
+
+    /**
+     * `PUT boletin-independiente/alumno` — **un alumno, un periodo, y todas sus
+     * asignaturas** con unidades, notas, definitiva y faltas. §13 del
+     * [19](../../../docs/migracion/19-boletin-independiente.md).
+     *
+     * ```jsonc
+     * { "alumno_id": 3311, "periodo_id": 30 }
+     * ```
+     *
+     * Es `putPlanilla()` con **los ejes cambiados**: allí una asignatura con sus alumnos
+     * marcados, aquí un alumno con sus asignaturas. Los nombres de campo son los mismos
+     * a propósito —`motivo`, `porcentaje_unidades`, `unidades`, `definitiva`—: dos campos
+     * que significan lo mismo con dos nombres acaban divergiendo, y este módulo ya lo
+     * pagó con `bol_independiente_periodo` / `_periodos` / `_aparte_en` / `_datos`.
+     *
+     * ## `aplica` va en el PERIODO y **no en cada asignatura**, y esto es lo que corrigió el diseño
+     *
+     * El diseño que llegó del front traía `aplica` por asignatura y una fila gris *«Con
+     * el grupo»* dentro de un periodo marcado. **Ese estado no existe**: la marca cuelga
+     * de `(alumno_id, periodo_id)` —sin `asignatura_id`— y la decisión 1 dice que vale
+     * para **todas** las asignaturas. Un `aplica` por asignatura llegaría **constante**,
+     * que es el fallo que el propio front cazó el 31 ago en `bol_independiente_periodo`
+     * y en `aplica` dentro de `independientes` (§6.4): *«un campo que no varía no es un
+     * campo pobre, es un campo que miente por omisión»*.
+     *
+     * **Y aquí la rama muerta hacía daño, que es lo que lo separa de las otras dos.** Si
+     * el gris no puede venir de `aplica`, la pantalla lo deriva de lo único que varía
+     * —`unidades: []`— y entonces **la asignatura sin estructura propia, la que va a
+     * sacar definitiva cero, se pinta gris y tranquila**: el estado más peligroso con el
+     * color del más calmado. Lo que varía por asignatura es `motivo`, que ya existe y ya
+     * distingue los tres casos.
+     *
+     * ## El grupo del alumno se DESEMPATA, y la respuesta dice cuál salió
+     *
+     * `matriculas` **no tiene clave única sobre (alumno, grupo)** —de ahí venía el
+     * `LIMIT 1` que la decisión 7 pudo por fin quitar de `alcanceCorrelacionado()`— así
+     * que dentro de un año puede haber empate. El periodo fija el año; dentro de él se
+     * toma **la matrícula viva de `id` mayor**, que es el mismo desempate que
+     * `definitivaDe()` hace con `notas_finales` y por el mismo motivo: elegir la última
+     * escrita en vez de reventar. **`alumno.grupo_id` viaja siempre**, así que el día que
+     * un colegio tenga a alguien con dos matrículas del mismo año se ve cuál se eligió,
+     * en vez de quedar en que la pantalla «salió rara».
+     *
+     * ## `asignaturas_del_alumno` es el total AUNQUE el alcance sea `mias`
+     *
+     * El front escribe «ves 3 de las 13 asignaturas». Sin el total, un docente con una
+     * sola materia cree que el estudiante sólo tiene una y lo da por terminado.
+     *
+     * ## Las faltas van DENTRO de la asignatura, y no se reutiliza `ausencias/detailed`
+     *
+     * Una falta es *a esa clase*: cuelga de la asignatura y del periodo. Y
+     * `GET ausencias/detailed/{asignatura_id}` **no sirve tal cual** por dos razones
+     * medidas: devuelve el **grupo entero** con un `Alumno::userData` por cabeza, y
+     * filtra por **`$user->periodo_id`** —el del token, no el que se pide—, que es
+     * justamente el periodo que esta pantalla casi nunca está mirando.
+     *
+     * **`tipo` es el único discriminador que hay.** Contados los vivos de `simonbolivar`
+     * el 1 sep 2026: `ausencia` 44.393 y `tardanza` 2.077, **y nada más**. No hay columna
+     * de excusa en `ausencias` —el `excusado` del esquema es de `uniformes`, otra tabla—
+     * así que el `con_excusa` que pedía el diseño **no lo puede contestar nadie hoy** y
+     * salió del contrato: un `excusa: false` constante habría sido la cuarta constante de
+     * este módulo en dos semanas, y la primera con una migración detrás. Si algún día
+     * apareciera un `tipo` distinto de los dos, la falta saldría en `detalle` y **en
+     * ninguno de los dos recuentos**; se ve comparando con el tamaño de `detalle`.
+     *
+     * ## Por qué NO se reutiliza `piars-asignaturas/asignaturas/{grupo}/{alumno}`
+     *
+     * Es la que parece hecha a medida y es la trampa de siempre: ese `GET` **escribe** —
+     * `getCreatePiarAsignatura` **dentro del `for`** crea la fila de PIAR de cada
+     * asignatura al listar—. Misma familia que `GET unidades/de-asignatura-periodo`, que
+     * monta el periodo del curso al leerlo (05 §47.2).
+     */
+    public function putAlumno()
+    {
+        $alumnoId = $this->idDelCuerpo('alumno_id');
+        $periodoId = $this->idDelCuerpo('periodo_id');
+        $periodo = $this->exigirPeriodoDelAnio($periodoId, 'periodo_id');
+
+        $yearId = (int) $this->user->year_id;
+        $profesorId = $this->profesorDelAlcance();
+
+        $alumno = DB::selectOne(
+            'SELECT a.id AS alumno_id, a.nombres, a.apellidos, a.foto_id,
+                    IFNULL(i.nombre, IF(a.sexo = "F", "default_female.png", "default_male.png")) AS foto_nombre,
+                    g.id AS grupo_id, g.nombre AS nombre_grupo
+               FROM alumnos a
+               LEFT JOIN images i ON i.id = a.foto_id AND i.deleted_at IS NULL
+               INNER JOIN matriculas m ON m.id = '.self::MATRICULA_DEL_ANIO.'
+               INNER JOIN grupos g ON g.id = m.grupo_id
+              WHERE a.id = ? AND a.deleted_at IS NULL',
+            [$yearId, $alumnoId]
+        );
+
+        // 404 y no una lista vacía: un alumno sin matrícula viva en el año de ese periodo
+        // **no tiene grupo**, así que no hay asignaturas que enseñar y un `[]` se leería
+        // como «no tiene nada montado», que es otra cosa y es la que asusta.
+        if ($alumno === null) {
+            abort(404, 'Ese alumno no tiene matrícula en el año de ese periodo.');
+        }
+
+        // Los dos estados del periodo para ESTE alumno, que son los mismos dos que la ficha
+        // enseña por `bol_independiente_periodos` (§6.4) aplanados a uno solo. `aplica` sale
+        // con `COALESCE(..., 0)` porque **la fila que falta significa «va con el grupo»** —la
+        // decisión 7—, y `tiene_datos` es el `EXISTS` sobre `unidades` que el navegador no
+        // puede contestar: los cuatro cruces de `aplica` × `tiene_datos` significan cosas
+        // distintas, y el que hay que gritar es `true`/`false`.
+        $estado = DB::selectOne(
+            'SELECT IF(COALESCE(bip.aplica, 0) = 1, 1, 0) AS aplica,
+                    EXISTS (SELECT 1 FROM unidades u
+                             WHERE u.alumno_id = ? AND u.periodo_id = ? AND u.deleted_at IS NULL) AS tiene_datos
+               FROM (SELECT 1) x
+               LEFT JOIN bol_ind_periodos bip ON bip.alumno_id = ? AND bip.periodo_id = ?',
+            [$alumnoId, $periodoId, $alumnoId, $periodoId]
+        );
+
+        $todas = DB::select(
+            'SELECT asg.id AS asignatura_id, asg.profesor_id, asg.orden,
+                    mat.materia, mat.alias AS alias_materia,
+                    pro.nombres AS nombres_profesor, pro.apellidos AS apellidos_profesor
+               FROM asignaturas asg
+               INNER JOIN materias mat ON mat.id = asg.materia_id AND mat.deleted_at IS NULL
+               LEFT JOIN profesores pro ON pro.id = asg.profesor_id AND pro.deleted_at IS NULL
+              WHERE asg.grupo_id = ? AND asg.deleted_at IS NULL
+              ORDER BY asg.orden, mat.materia, mat.alias, asg.id',
+            [(int) $alumno->grupo_id]
+        );
+
+        // `profesores` entra por `LEFT JOIN` y no por `INNER` —al revés que
+        // `Asignatura::detallada()`—: `asignaturas.profesor_id` es NULLABLE, y una materia
+        // sin docente asignado **es un caso real al empezar el año**. Con `INNER` esa
+        // asignatura desaparecería de la lista, que es justo lo que esta pantalla no puede
+        // hacer: la que no se ve es la que nadie monta.
+        $enAlcance = $profesorId === null
+            ? $todas
+            : array_values(array_filter($todas, static fn ($a) => (int) $a->profesor_id === $profesorId));
+
+        $ids = array_map(static fn ($a) => (int) $a->asignatura_id, $enAlcance);
+
+        $unidades = $this->unidadesPropiasDeVarias($alumnoId, $ids, $periodoId);
+        $definitivas = $this->definitivasDeVarias($alumnoId, $ids, $periodoId);
+        $delGrupo = $this->unidadesDelGrupoDeVarias($ids, $periodoId);
+        $vaciadas = $this->vaciadasDeVarias($alumnoId, $ids, $periodoId);
+        $faltas = $this->faltasDeVarias($alumnoId, $ids, $periodoId);
+
+        $asignaturas = [];
+
+        foreach ($enAlcance as $fila) {
+            $asignaturaId = (int) $fila->asignatura_id;
+
+            $asignatura = [
+                'asignatura_id' => $asignaturaId,
+                'materia' => $fila->materia,
+                'alias_materia' => $fila->alias_materia,
+                'profesor_id' => $fila->profesor_id === null ? null : (int) $fila->profesor_id,
+                'nombres_profesor' => $fila->nombres_profesor,
+                'apellidos_profesor' => $fila->apellidos_profesor,
+                // `porcentaje_unidades` sale del MISMO método que la planilla y que el
+                // recalculador —`DefinitivasDeAsignatura`—, y se devuelve **sin corregir**:
+                // regla 2 de ese servicio y §9.3 del 10. Cuesta una consulta por asignatura y
+                // se paga: un segundo sitio calculando el reparto es de donde salió el
+                // recalculador único.
+                'porcentaje_unidades' => DefinitivasDeAsignatura::porcentajeDeLasUnidades($asignaturaId, $periodoId, $alumnoId),
+                'definitiva' => $definitivas[$asignaturaId] ?? null,
+                'unidades' => $unidades[$asignaturaId] ?? [],
+                'faltas' => $faltas[$asignaturaId] ?? ['ausencias' => 0, 'tardanzas' => 0, 'detalle' => []],
+            ];
+
+            if ($asignatura['unidades'] === []) {
+                $asignatura['motivo'] = ($vaciadas[$asignaturaId] ?? 0) > 0
+                    ? 'vaciada'
+                    : (($delGrupo[$asignaturaId] ?? 0) === 0 ? 'asignatura_sin_montar' : 'sin_estructura_propia');
+            }
+
+            $asignaturas[] = $asignatura;
+        }
+
+        return [
+            'alumno' => [
+                'alumno_id' => (int) $alumno->alumno_id,
+                'nombres' => $alumno->nombres,
+                'apellidos' => $alumno->apellidos,
+                'foto_id' => $alumno->foto_id === null ? null : (int) $alumno->foto_id,
+                'foto_nombre' => $alumno->foto_nombre,
+                'grupo_id' => (int) $alumno->grupo_id,
+                'nombre_grupo' => $alumno->nombre_grupo,
+            ],
+            'periodo' => [
+                'periodo_id' => (int) $periodo->id,
+                'numero' => (int) $periodo->numero,
+                'aplica' => (bool) $estado->aplica,
+                'tiene_datos' => (bool) $estado->tiene_datos,
+            ],
+            'alcance' => $profesorId === null ? 'todas' : 'mias',
+            'asignaturas_del_alumno' => count($todas),
+            'asignaturas' => $asignaturas,
+        ];
+    }
+
+    /**
+     * La matrícula del alumno en el año, **desempatada**, como subconsulta escalar.
+     *
+     * Se usa con `INNER JOIN matriculas m ON m.id = ` delante, y espera dos cosas en el
+     * ámbito: `a.id` (el alumno) y un `?` con el `year_id` **antes** de los demás
+     * parámetros de la consulta.
+     *
+     * `MAX(m2.id)` y no `LIMIT 1`: `matriculas` no tiene clave única sobre
+     * (alumno, grupo) —§9.5— y nada impide dos filas vivas del mismo alumno en el mismo
+     * año. Se elige la última matriculada, que es el mismo criterio con el que
+     * `definitivaDe()` desempata `notas_finales`. Los tres estados son los de
+     * `alumnosConBoletinAparte()`, no los dos de `delGrupo()`: quien está `PREM`
+     * —promovido -- sigue teniendo boletín de este periodo.
+     */
+    private const MATRICULA_DEL_ANIO =
+        '(SELECT MAX(m2.id) FROM matriculas m2
+            INNER JOIN grupos g2 ON g2.id = m2.grupo_id AND g2.deleted_at IS NULL AND g2.year_id = ?
+           WHERE m2.alumno_id = a.id AND m2.deleted_at IS NULL
+             AND m2.estado IN ("MATR", "ASIS", "PREM"))';
+
+    /**
+     * `null` si quien llama ve todas las asignaturas; su `profesores.id` si sólo las suyas.
+     *
+     * ## El precedente existía y estaba ROTO para este uso, y por eso no se reutiliza
+     *
+     * `PiarsAsignaturasController::getAsignaturas($grupo_id, $alumno_id)` hace este mismo
+     * reparto, y en la rama del docente llama a `Profesor::asignaturas($year_id,
+     * $persona_id)` — que filtra por `profesor_id` y `year_id` y **nunca por el grupo**:
+     * el `$grupo_id` del argumento **no se usa en esa rama**. Un docente de cinco grupos
+     * recibe hoy, mirando la ficha de un alumno de 8-B, sus materias de los cinco.
+     *
+     * Aquí `mias` es la **intersección**: se devuelve el id y el filtro se aplica sobre
+     * las asignaturas **del grupo del alumno**, que es de donde salen las dos listas.
+     */
+    private function profesorDelAlcance(): ?int
+    {
+        return $this->user->tipo === 'Profesor' ? (int) $this->user->persona_id : null;
+    }
+
+    /**
+     * Por cada marcado del periodo, sus asignaturas y cuántas unidades propias tiene en
+     * cada una. **Una consulta para toda la lista**, no una por alumno.
+     *
+     * Es el mismo salto de grano que ya justificó `BoletinIndependiente::aparteEnPorAlumno()`
+     * frente a `delGrupo()`: la alternativa es *(marcados × asignaturas)* consultas sobre
+     * una pantalla que se abre para mirar el colegio entero.
+     *
+     * @return array<int, list<array{asignatura_id: int, profesor_id: ?int, propias: int}>>
+     */
+    private function asignaturasDeLosMarcados(int $periodoId, int $yearId): array
+    {
+        $filas = DB::select(
+            'SELECT bip.alumno_id, asg.id AS asignatura_id, asg.profesor_id,
+                    (SELECT COUNT(*) FROM unidades u
+                      WHERE u.asignatura_id = asg.id AND u.periodo_id = bip.periodo_id
+                        AND u.alumno_id = bip.alumno_id AND u.deleted_at IS NULL) AS propias
+               FROM bol_ind_periodos bip
+               INNER JOIN alumnos a ON a.id = bip.alumno_id AND a.deleted_at IS NULL
+               INNER JOIN matriculas m ON m.id = '.self::MATRICULA_DEL_ANIO.'
+               INNER JOIN asignaturas asg ON asg.grupo_id = m.grupo_id AND asg.deleted_at IS NULL
+              WHERE bip.periodo_id = ? AND bip.aplica = 1',
+            [$yearId, $periodoId]
+        );
+
+        $mapa = [];
+
+        foreach ($filas as $fila) {
+            $mapa[(int) $fila->alumno_id][] = [
+                'asignatura_id' => (int) $fila->asignatura_id,
+                'profesor_id' => $fila->profesor_id === null ? null : (int) $fila->profesor_id,
+                'propias' => (int) $fila->propias,
+            ];
+        }
+
+        return $mapa;
+    }
+
+    /**
+     * Por cada marcado, el recuento de casillas de **sus** unidades, partido por docente
+     * y por grupo para que el alcance y el desempate se apliquen sin repetir la consulta.
+     *
+     * `puestas` es `updated_by IS NOT NULL` y `sin_casilla` es la subunidad **sin fila**
+     * de nota. El porqué de los dos, medido, está en el docblock de `putMarcados()`.
+     *
+     * **`grupo_id` viaja porque si no, los dos recuentos de una fila se contradicen.** Un
+     * alumno con dos matrículas vivas del mismo año —que `matriculas` no impide, §9.5—
+     * puede tener unidades propias en asignaturas de los dos grupos: `asignaturas` cuenta
+     * las del grupo **desempatado** y esto contaría las de los dos, así que `notas_totales`
+     * saldría de un conjunto más grande que su propio denominador **sin que nada lo diga**.
+     *
+     * @param  list<int>  $alumnoIds
+     * @return array<int, list<array{profesor_id: ?int, grupo_id: int, totales: int, puestas: int, sin_casilla: int}>>
+     */
+    private function notasDeLosMarcados(int $periodoId, array $alumnoIds): array
+    {
+        if ($alumnoIds === []) {
+            return [];
+        }
+
+        $huecos = implode(',', array_fill(0, count($alumnoIds), '?'));
+
+        $filas = DB::select(
+            'SELECT u.alumno_id, asg.profesor_id, asg.grupo_id,
+                    COUNT(s.id) AS totales,
+                    SUM(n.id IS NOT NULL AND n.updated_by IS NOT NULL) AS puestas,
+                    SUM(n.id IS NULL) AS sin_casilla
+               FROM unidades u
+               INNER JOIN asignaturas asg ON asg.id = u.asignatura_id AND asg.deleted_at IS NULL
+               INNER JOIN subunidades s ON s.unidad_id = u.id AND s.deleted_at IS NULL
+               LEFT JOIN notas n ON n.subunidad_id = s.id AND n.alumno_id = u.alumno_id
+                                AND n.deleted_at IS NULL
+              WHERE u.periodo_id = ? AND u.deleted_at IS NULL
+                AND u.alumno_id IN ('.$huecos.')
+              GROUP BY u.alumno_id, asg.profesor_id, asg.grupo_id',
+            array_merge([$periodoId], $alumnoIds)
+        );
+
+        $mapa = [];
+
+        foreach ($filas as $fila) {
+            $mapa[(int) $fila->alumno_id][] = [
+                'profesor_id' => $fila->profesor_id === null ? null : (int) $fila->profesor_id,
+                'grupo_id' => (int) $fila->grupo_id,
+                'totales' => (int) $fila->totales,
+                'puestas' => (int) $fila->puestas,
+                'sin_casilla' => (int) $fila->sin_casilla,
+            ];
+        }
+
+        return $mapa;
+    }
+
+    /**
+     * Las unidades propias del alumno en VARIAS asignaturas, agrupadas por asignatura.
+     *
+     * Es `unidadesPropias()` un escalón más arriba y con la misma forma dentro —el front
+     * pidió que `unidades` fuera **idéntico** al de `planilla`, y lo es—. Trece
+     * asignaturas son trece llamadas al de una; ésta es una.
+     *
+     * El `LEFT JOIN` de `notas` sigue siendo `LEFT` por lo mismo que allí: una subunidad
+     * sin fila viaja con `nota: null` y la pantalla la pinta vacía en vez de perderla.
+     *
+     * @param  list<int>  $asignaturaIds
+     * @return array<int, list<array<string, mixed>>>
+     */
+    private function unidadesPropiasDeVarias(int $alumnoId, array $asignaturaIds, int $periodoId): array
+    {
+        if ($asignaturaIds === []) {
+            return [];
+        }
+
+        $huecos = implode(',', array_fill(0, count($asignaturaIds), '?'));
+
+        $filas = DB::select(
+            'SELECT u.asignatura_id,
+                    u.id AS unidad_id, u.definicion AS definicion_unidad, u.porcentaje AS porcentaje_unidad, u.orden AS orden_unidad,
+                    s.id AS subunidad_id, s.definicion AS definicion_subunidad, s.porcentaje AS porcentaje_subunidad,
+                    s.orden AS orden_subunidad, s.nota_default,
+                    n.id AS nota_id, n.nota
+               FROM unidades u
+               LEFT JOIN subunidades s ON s.unidad_id = u.id AND s.deleted_at IS NULL
+               LEFT JOIN notas n ON n.subunidad_id = s.id AND n.alumno_id = ? AND n.deleted_at IS NULL
+              WHERE u.periodo_id = ? AND u.alumno_id = ? AND u.deleted_at IS NULL
+                AND u.asignatura_id IN ('.$huecos.')
+              ORDER BY u.asignatura_id, u.orden, u.id, s.orden, s.id',
+            array_merge([$alumnoId, $periodoId, $alumnoId], $asignaturaIds)
+        );
+
+        $porAsignatura = [];
+        $indice = [];
+
+        foreach ($filas as $fila) {
+            $asignaturaId = (int) $fila->asignatura_id;
+            $unidadId = (int) $fila->unidad_id;
+
+            if (! isset($indice[$asignaturaId][$unidadId])) {
+                $porAsignatura[$asignaturaId][] = [
+                    'unidad_id' => $unidadId,
+                    'definicion' => $fila->definicion_unidad,
+                    'porcentaje' => (int) $fila->porcentaje_unidad,
+                    'orden' => (int) $fila->orden_unidad,
+                    'subunidades' => [],
+                ];
+
+                $indice[$asignaturaId][$unidadId] = count($porAsignatura[$asignaturaId]) - 1;
+            }
+
+            // Una unidad sin subunidades vivas sale **con la lista vacía y no desaparece**:
+            // suma porcentaje y no tiene dónde poner nota, o sea la mitad de un boletín mal
+            // montado. Esconderla dejaría la suma sin explicación. Igual que en `planilla`.
+            if ($fila->subunidad_id === null) {
+                continue;
+            }
+
+            $porAsignatura[$asignaturaId][$indice[$asignaturaId][$unidadId]]['subunidades'][] = [
+                'subunidad_id' => (int) $fila->subunidad_id,
+                'definicion' => $fila->definicion_subunidad,
+                'porcentaje' => (int) $fila->porcentaje_subunidad,
+                'orden' => (int) $fila->orden_subunidad,
+                'nota' => $fila->nota_id === null
+                    ? null
+                    : ['id' => (int) $fila->nota_id, 'nota' => (int) $fila->nota],
+            ];
+        }
+
+        // `array_values` por asignatura, igual que hace `unidadesPropias()` al final y por
+        // lo mismo: lo que viaja al JSON tiene que ser una **lista**. Aquí las claves ya son
+        // correlativas por construcción —sólo se hace `[] =`—, así que en ejecución no
+        // cambia nada; lo que cambia es que deja de depender de que nadie escriba un día un
+        // `unset` en medio, que es el día que ese array sale al JSON como objeto.
+        return array_map(static fn (array $unidades) => array_values($unidades), $porAsignatura);
+    }
+
+    /**
+     * La definitiva guardada en VARIAS asignaturas. Mismo `CAST` y mismo desempate que
+     * `definitivaDe()`, que es de donde sale la regla: `notas_finales` **no tiene clave
+     * única** sobre (alumno, asignatura, periodo) y puede haber dos, así que se elige la
+     * última escrita.
+     *
+     * @param  list<int>  $asignaturaIds
+     * @return array<int, array<string, mixed>>
+     */
+    private function definitivasDeVarias(int $alumnoId, array $asignaturaIds, int $periodoId): array
+    {
+        if ($asignaturaIds === []) {
+            return [];
+        }
+
+        $huecos = implode(',', array_fill(0, count($asignaturaIds), '?'));
+
+        $filas = DB::select(
+            'SELECT nf.asignatura_id, CAST(nf.nota AS DOUBLE) AS nota, nf.manual, nf.recuperada
+               FROM notas_finales nf
+              WHERE nf.alumno_id = ? AND nf.periodo_id = ?
+                AND nf.asignatura_id IN ('.$huecos.')
+              ORDER BY nf.id ASC',
+            array_merge([$alumnoId, $periodoId], $asignaturaIds)
+        );
+
+        $mapa = [];
+
+        // `ORDER BY id ASC` y sobrescribir: la última que se escribe en el mapa es la de
+        // `id` mayor, o sea la misma que elegiría el `ORDER BY id DESC LIMIT 1` de
+        // `definitivaDe()`. Se hace así y no con `DESC` + `isset` porque un `isset` sobre
+        // un valor que puede ser `null` es la clase de detalle que se lee mal al mantenerlo.
+        foreach ($filas as $fila) {
+            $mapa[(int) $fila->asignatura_id] = [
+                'nota' => (float) $fila->nota,
+                'manual' => (bool) $fila->manual,
+                'recuperada' => (bool) $fila->recuperada,
+            ];
+        }
+
+        return $mapa;
+    }
+
+    /**
+     * Cuántas unidades **del grupo** hay en cada asignatura, para distinguir
+     * `asignatura_sin_montar` de `sin_estructura_propia`. `u.alumno_id IS NULL`.
+     *
+     * @param  list<int>  $asignaturaIds
+     * @return array<int, int>
+     */
+    private function unidadesDelGrupoDeVarias(array $asignaturaIds, int $periodoId): array
+    {
+        return $this->contarPorAsignatura(
+            'SELECT u.asignatura_id, COUNT(*) c FROM unidades u
+              WHERE u.periodo_id = ? AND u.alumno_id IS NULL AND u.deleted_at IS NULL
+                AND u.asignatura_id IN (%s)
+              GROUP BY u.asignatura_id',
+            [$periodoId],
+            $asignaturaIds
+        );
+    }
+
+    /**
+     * Cuántas unidades propias **borradas** tiene el alumno en cada asignatura: es lo
+     * único que distingue `vaciada` de no haber tenido nunca nada.
+     *
+     * @param  list<int>  $asignaturaIds
+     * @return array<int, int>
+     */
+    private function vaciadasDeVarias(int $alumnoId, array $asignaturaIds, int $periodoId): array
+    {
+        return $this->contarPorAsignatura(
+            'SELECT u.asignatura_id, COUNT(*) c FROM unidades u
+              WHERE u.periodo_id = ? AND u.alumno_id = ? AND u.deleted_at IS NOT NULL
+                AND u.asignatura_id IN (%s)
+              GROUP BY u.asignatura_id',
+            [$periodoId, $alumnoId],
+            $asignaturaIds
+        );
+    }
+
+    /**
+     * Las faltas y tardanzas del alumno en VARIAS asignaturas, con su detalle.
+     *
+     * `tipo` es el único discriminador que tiene la tabla —ver el docblock de
+     * `putAlumno()`—: una fila con un `tipo` distinto de los dos saldría en `detalle` y
+     * en ninguno de los dos recuentos, y se ve comparando con el tamaño de `detalle`.
+     *
+     * @param  list<int>  $asignaturaIds
+     * @return array<int, array<string, mixed>>
+     */
+    private function faltasDeVarias(int $alumnoId, array $asignaturaIds, int $periodoId): array
+    {
+        if ($asignaturaIds === []) {
+            return [];
+        }
+
+        $huecos = implode(',', array_fill(0, count($asignaturaIds), '?'));
+
+        $filas = DB::select(
+            'SELECT au.id, au.asignatura_id, au.fecha_hora, au.tipo
+               FROM ausencias au
+              WHERE au.alumno_id = ? AND au.periodo_id = ? AND au.deleted_at IS NULL
+                AND au.asignatura_id IN ('.$huecos.')
+              ORDER BY au.fecha_hora, au.id',
+            array_merge([$alumnoId, $periodoId], $asignaturaIds)
+        );
+
+        $mapa = [];
+
+        foreach ($filas as $fila) {
+            $asignaturaId = (int) $fila->asignatura_id;
+
+            if (! isset($mapa[$asignaturaId])) {
+                $mapa[$asignaturaId] = ['ausencias' => 0, 'tardanzas' => 0, 'detalle' => []];
+            }
+
+            if ($fila->tipo === 'ausencia') {
+                $mapa[$asignaturaId]['ausencias']++;
+            } elseif ($fila->tipo === 'tardanza') {
+                $mapa[$asignaturaId]['tardanzas']++;
+            }
+
+            $mapa[$asignaturaId]['detalle'][] = [
+                'id' => (int) $fila->id,
+                'fecha_hora' => $fila->fecha_hora,
+                'tipo' => $fila->tipo,
+            ];
+        }
+
+        return $mapa;
+    }
+
+    /**
+     * El `COUNT(*) … GROUP BY asignatura_id` de los dos recuentos del `motivo`, que son
+     * la misma sentencia con otro `WHERE`. `%s` es el hueco de la lista de ids.
+     *
+     * @param  list<int|string>  $parametros
+     * @param  list<int>  $asignaturaIds
+     * @return array<int, int>
+     */
+    private function contarPorAsignatura(string $plantilla, array $parametros, array $asignaturaIds): array
+    {
+        if ($asignaturaIds === []) {
+            return [];
+        }
+
+        $filas = DB::select(
+            sprintf($plantilla, implode(',', array_fill(0, count($asignaturaIds), '?'))),
+            array_merge($parametros, $asignaturaIds)
+        );
+
+        $mapa = [];
+
+        foreach ($filas as $fila) {
+            $mapa[(int) $fila->asignatura_id] = (int) $fila->c;
+        }
+
+        return $mapa;
+    }
+
+    /**
      * `POST boletin-independiente/copiar` — montarle a alguien la estructura que ya
      * existe, en vez de a mano. §6.2 del
      * [19](../../../docs/migracion/19-boletin-independiente.md).
@@ -1005,11 +1751,11 @@ class BoletinIndependienteController extends Controller
         return $leido;
     }
 
-    /** Que un periodo del cuerpo exista y sea del año del token. Ver `putPeriodo()`. */
-    private function exigirPeriodoDelAnio(int $periodoId, string $campo): void
+    /** Que un periodo del cuerpo exista y sea del año del token; lo devuelve. Ver `putPeriodo()`. */
+    private function exigirPeriodoDelAnio(int $periodoId, string $campo): object
     {
         $periodo = DB::selectOne(
-            'SELECT p.year_id FROM periodos p WHERE p.id = ? AND p.deleted_at IS NULL',
+            'SELECT p.id, p.numero, p.year_id FROM periodos p WHERE p.id = ? AND p.deleted_at IS NULL',
             [$periodoId]
         );
 
@@ -1020,6 +1766,13 @@ class BoletinIndependienteController extends Controller
         if ((int) $periodo->year_id !== (int) $this->user->year_id) {
             abort(403, "El periodo de '{$campo}' no es del año en el que estás trabajando.");
         }
+
+        // **Devuelve el periodo, y eso es lo que evita la rama muerta.** Las dos lecturas de
+        // la §13 necesitan el `numero` justo después de esta guarda; con un `void` cada una
+        // tendría que volver a buscarlo y escribir detrás un `if (=== null)` que **nadie
+        // puede ejecutar** —la guarda ya abortó—, y este repo ya sabe cómo acaban las ramas
+        // que no se pueden alcanzar: alguien ramifica sobre ellas y no se nota nunca.
+        return $periodo;
     }
 
     /**

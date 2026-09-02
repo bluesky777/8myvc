@@ -11,7 +11,7 @@
 **Última actualización: 1 sep 2026, tarde — LA ÉPICA DEL BOLETÍN INDEPENDIENTE ESTÁ TERMINADA EN
 ESTE REPO: LAS SEIS FASES ESTÁN EN `main`** · **`Tests: 1736 passed (13495 assertions)`,
 `Duration: 619.55s`, `exit=0`**, cero rojos y cero saltados · pint **no reescribió nada** ·
-larastan nivel 7 **`[OK] No errors`** · **547 rutas** · **sin subir —104 commits por delante de `origin/main` (`6573916`), contados el 1 sep
+larastan nivel 7 **`[OK] No errors`** · **549 rutas** —548 y 549 son las dos lecturas por estudiante del 1 sep— · **sin subir —104 commits por delante de `origin/main` (`6573916`), contados el 1 sep
 sobre `1cb7092`— y sin desplegar** ·
 coordina `8myvc-ab`
 
@@ -92,6 +92,29 @@ coordina `8myvc-ab`
 > decirlo** (la app sólo cuenta lo que el backend ya manda; **el docente no podrá ponerles nota desde
 > la app**) o **enseñarlos con su propia estructura**, que es una segunda planilla dentro de la
 > pantalla y es trabajo de verdad.
+>
+> **Y la SEXTA, que llegó el 1 sep por la tarde y YA ESTÁ CONTESTADA — «las dos»:** el front pidió
+> dos lecturas nuevas para la pantalla del boletín aparte **por estudiante**,
+> `PUT boletin-independiente/marcados` (la lista del menú) y `PUT boletin-independiente/alumno` (el
+> detalle), sin ninguna escritura. Se le pusieron a Joseth las tres opciones —sólo `marcados`, las
+> dos, o ninguna hasta desplegar— y eligió **las dos**. **Escritas, con nueve tests de contrato en
+> verde**: son la **548 y la 549**, y con ellas `CLAUDE.md` pasa a **549 rutas**. El diseño que llegó
+> traía **cinco cosas que no cuadraban** —la primera pintaba de gris el caso del §9.1— y las cinco se
+> corrigieron antes de escribir una línea: está en la **§13** del
+> [19](19-boletin-independiente.md), y la respuesta al front en su canal
+> (`myvc_front/PANTALLAS-HISTORIAL-Y-BOLETIN.md`, §C, `8myvc-2d`), con el contrato ya rehecho por
+> ellos.
+>
+> > **Y la corrida completa de este commit NO se puede dar por medida, que es distinto de darla por
+> > verde.** `php artisan test` sobre el árbol principal salió **`9 failed, 1736 passed`**, y los
+> > nueve son de **otra sesión trabajando en el mismo árbol** (`8myvc-dc`, `GET colegio/logo`
+> > pública): su ruta estaba en el router y no en los snapshots que yo acababa de regenerar. **Ni uno
+> > es de estas dos rutas.** Lo que sí está medido sobre este árbol es lo propio: **63 tests del
+> > boletín independiente en verde (540 aserciones), de ellos los 9 nuevos**, más `pint` sin
+> > reescribir nada y larastan **`[OK] No errors`**. La cifra limpia de la suite entera **la dará
+> > quien fusione el último**, que es quien tendrá el árbol final — hoy, `8myvc-2c` con
+> > `feat/calendario`. *Una cifra de suite medida sobre un árbol con trabajo ajeno a medias describe
+> > ese árbol, no este commit.*
 
 > ### EL SEED, MEDIDO — y la frase que estuvo a punto de entrar aquí mal
 >

@@ -150,6 +150,31 @@ Route::put('boletin-independiente/planilla', [BoletinIndependienteController::cl
 // **`origen.asignatura_id` NO existe y se rechaza con 422.** Abrirlo sería otra
 // materia o, peor, otro grupo, y esa puerta ya existe y es otra: `PUT periodos/copiar`.
 Route::post('boletin-independiente/copiar', [BoletinIndependienteController::class, 'postCopiar'])->middleware('auth.personal');
+// Las rutas 548 y 549 (§13), y son **las dos únicas del módulo que no existían el
+// día que la épica se dio por cerrada**: las pidió el front el 1 sep 2026 para la
+// pantalla del boletín aparte **por estudiante**, y las autorizó Joseth ese mismo día
+// —«las dos»— sobre las tres opciones que se le pusieron delante. Son de LECTURA las
+// dos, por PUT y no por GET, que es el patrón de este proyecto y aquí además hace
+// falta: **el `periodo_id` viaja en el cuerpo**.
+//
+// **Y el cuerpo no es capricho, es la lección de la §6.3.** El periodo del token es el
+// ACTIVO, y el caso real de esta función es el accidente del periodo 2 cuando el
+// colegio ya va por el 3. Un backend que lo sacara del token enseñaría siempre el
+// activo, en silencio y con 200.
+//
+// `auth.personal` y **no** la guarda de la decisión 5, por lo mismo que la planilla:
+// marcar un boletín lo decide el colegio, pero **mirar el que ya está marcado es
+// trabajo de aula**. El reparto por rol lo hace el método —un `Profesor` ve sólo sus
+// asignaturas, y el resto del personal todas—, y lo dice en la respuesta con `alcance`.
+//
+// La lista del menú. Sin ella no hay forma de saber quién está marcado sin barrer el
+// colegio asignatura por asignatura: la marca sólo se asoma hoy en `independientes`,
+// dentro de `PUT notas/detailed`, que es por asignatura.
+Route::put('boletin-independiente/marcados', [BoletinIndependienteController::class, 'putMarcados'])->middleware('auth.personal');
+// El detalle: `boletin-independiente/planilla` con los ejes cambiados. **`aplica` va en
+// el periodo y NO en cada asignatura** —la marca es por periodo y vale para todas, así
+// que por asignatura sería una constante—; lo que varía por asignatura es `motivo`.
+Route::put('boletin-independiente/alumno', [BoletinIndependienteController::class, 'putAlumno'])->middleware('auth.personal');
 
 // NotaComportamientoController
 Route::get('nota_comportamiento', [NotaComportamientoController::class, 'getIndex']);
