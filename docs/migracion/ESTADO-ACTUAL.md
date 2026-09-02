@@ -65,9 +65,19 @@ es una línea de SQL · lo decidió Joseth y lo montó la sesión que relevó al
 > - **este backend nunca antes que el front**, o las plantillas imprimen «Prof.: » vacío **en
 >   papel**.
 >
-> Fijado en `DESPLIEGUE-NIVELACIONES-Y-RUBRICAS.md` del front (líneas 128-129), comprobado ahí y
-> no de oídas. La planilla en sí no necesita nada del front: los alumnos salen del grupo, no del
-> profesor.
+> Fijado en `DESPLIEGUE-NIVELACIONES-Y-RUBRICAS.md` del front, bajo el encabezado
+> **«### 1 · Planilla sin profesor»** —y se cita así, por el encabezado y no por el número de
+> línea, porque la primera versión de esto decía «líneas 128-129» y **duró unas horas**: otra
+> sesión insertó once líneas más arriba y esa cita pasó a apuntar, sin dar ningún error, a un
+> párrafo sobre nivelaciones y el SIEE. Un ancla que apunta con precisión al sitio equivocado se
+> lee, cuadra y dice otra cosa.
+>
+> **Y tampoco vale anclar a una frase suelta**, que fue lo primero que se propuso para
+> arreglarlo: «puede ir solo» sale **dos veces** en ese fichero y **en direcciones opuestas** — la
+> otra dice que el *backend* de las nivelaciones puede ir solo, que es justo lo contrario de lo que
+> aquí hace falta. El encabezado es único; la frase no.
+>
+> La planilla en sí no necesita nada del front: los alumnos salen del grupo, no del profesor.
 >
 > **Ojo al `profesor_id` duplicado del SELECT, que no se limpió a propósito:** viajan
 > `a.profesor_id` y `p.id as profesor_id`, y con PDO **gana el último**. Eso es lo que mantiene la
