@@ -48,6 +48,21 @@ propósito**: un `0` limpio sería la respuesta que archiva el asunto justo en e
 ha mirado nada. Lo medido hasta hoy es **cero marcados en desarrollo**, que **no** es «cero en los
 quince»: eso sólo se sabe allí.
 
+### Y un aviso para el front que viaja en esta misma tanda — **K**
+
+| | aviso | estado |
+|---|---|---|
+| **K** | `GET ChangesAsked/to-me` deja de mandar **nueve columnas** de cada evento del calendario. Una de ellas, **`created_by_nombres`, la pinta la aplicación vieja** en el tooltip del evento (`AnunciosCtrl.ts:596`): al desplegar dirá **«Por: undefined»** hasta que se arregle allí, que es una línea | **POR AVISAR** — decidido a sabiendas el 2 sep 2026 |
+
+Es aditivo al revés: no cambia ninguna ruta ni ningún permiso, **quita campos**. `app2` y
+`myvc_flutter` no leen ninguno de los nueve —comprobado uno a uno—, así que el único cliente
+afectado es el viejo y el único sitio es ese tooltip. El porqué y la medición, en
+[`24-el-panel-de-inicio.md`](migracion/24-el-panel-de-inicio.md) §2.2.
+
+**Y el panel adelgaza a la mitad en la misma tanda**, que es lo que hay que mirar después de
+desplegar: 274→157 KB el superusuario, 279→162 el docente, 225→112 el alumno, 218→108 el
+acudiente, y **el panel del alumno pasa de ~620 ms a ~24 ms**.
+
 ---
 
 ## No hay tanda pendiente — 31 ago 2026

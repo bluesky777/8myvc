@@ -92,7 +92,23 @@ class ChangeAskedController extends Controller {
 			$publicaciones = Publicaciones::ultimas_publicaciones('Usuario');
 
 			# Calendario
-			$eventos = DB::select('SELECT * FROM calendario WHERE deleted_at is null');
+			// **Las nueve columnas que se pintan, no las diecinueve de la tabla.** Esto era
+			// `SELECT *` y el calendario es el 84–96% de esta respuesta en los cuatro roles:
+			// 231 KB de los 274 del superusuario, medido el 2 sep 2026. Las mismas 630 filas
+			// con estas columnas pesan **123,5 KB — un 47% menos**, y no desaparece ni un
+			// evento: lo que se deja de mandar es contabilidad —`created_by`, `type` (null en
+			// las 630), `deleted_at`, `deleted_by`, `updated_by` y las dos marcas de tiempo—.
+			//
+			// **Y una que sí se pintaba y se quita a sabiendas: `created_by_nombres`.** La
+			// aplicación vieja la mete en el tooltip del evento («Por: administrador»,
+			// `AnunciosCtrl.ts:596`), así que hasta que se arregle allí dirá «Por: undefined».
+			// Lo decidió Joseth el 2 sep 2026 sabiendo eso: el panel viejo se arregla después
+			// o se retira, y no se paga un 7% de esta respuesta en los quince colegios por un
+			// tooltip. Ver 24-el-panel-de-inicio.md §2.2.
+			//
+			// `calendario/this-year` tiene esta misma consulta y **no se toca aquí**: es la
+			// pantalla del calendario, y el front tiene su rediseño en marcha.
+			$eventos = DB::select('SELECT id, title, start, end, allDay, solo_profes, cumple_alumno_id, cumple_profe_id, url FROM calendario WHERE deleted_at is null');
 
 			
 			
@@ -181,7 +197,8 @@ class ChangeAskedController extends Controller {
 
 			
 			# Calendario
-			$eventos = DB::select('SELECT * FROM calendario WHERE deleted_at is null');
+			// Las nueve columnas que se pintan; el porqué, en la rama de arriba.
+			$eventos = DB::select('SELECT id, title, start, end, allDay, solo_profes, cumple_alumno_id, cumple_profe_id, url FROM calendario WHERE deleted_at is null');
 
 			
 							
@@ -203,7 +220,23 @@ class ChangeAskedController extends Controller {
 			$ausencias 			= Ausencia::deAlumnoYear($user->persona_id, $user->year_id);
 			
 			# Datos de los docentes de este año
-			$profes_actuales = $this->datos_de_docentes_este_anio($user, false);
+			//
+			// **Vacío a propósito desde el 2 sep 2026, y son los 600 ms del panel de un
+			// alumno.** `datos_de_docentes_este_anio` lanza DOS consultas agregadas POR
+			// DOCENTE —aquí dieciséis— para calcular `porcentaje`, que es lo al día que va
+			// cada uno con su planeación. Medido: 49 consultas y ~620 ms, de los que
+			// prácticamente todo es esto.
+			//
+			// Y no lo pinta nadie: en la aplicación vieja el recuadro y su gráfica van bajo
+			// `hasRoleOrPerm(['admin','profesor'])`, en `app2` el bloque «Docentes del año»
+			// tiene `visible() = admin || profesor`, y `myvc_flutter` no lee la clave. O sea
+			// que el alumno pagaba el barrido para recibir un indicador de desempeño del
+			// profesorado que ninguna de sus pantallas enseña.
+			//
+			// Se devuelve `[]` y no se quita la clave: la forma de la respuesta no cambia, y
+			// es lo que ya hacía la rama del profesor cuando el cliente no manda
+			// `anchoWindow`. Ver 24-el-panel-de-inicio.md §3.1.
+			$profes_actuales = [];
 			
 			$comportamiento 	= NotaComportamiento::notas_comportamiento_year($user->persona_id, $user->year_id);
 
@@ -225,7 +258,8 @@ class ChangeAskedController extends Controller {
 
 			
 			# Calendario
-			$eventos = DB::select('SELECT * FROM calendario WHERE solo_profes=0 and deleted_at is null');
+			// Las nueve columnas que se pintan; el porqué, en la rama del superusuario.
+			$eventos = DB::select('SELECT id, title, start, end, allDay, solo_profes, cumple_alumno_id, cumple_profe_id, url FROM calendario WHERE solo_profes=0 and deleted_at is null');
 
 
 			# PREMATRICULAS SIGUIENTE AÑO
@@ -433,7 +467,8 @@ class ChangeAskedController extends Controller {
 			$publicaciones 		= Publicaciones::ultimas_publicaciones('Acudiente');
 			
 			# Calendario
-			$eventos = DB::select('SELECT * FROM calendario WHERE solo_profes=0 and deleted_at is null');
+			// Las nueve columnas que se pintan; el porqué, en la rama del superusuario.
+			$eventos = DB::select('SELECT id, title, start, end, allDay, solo_profes, cumple_alumno_id, cumple_profe_id, url FROM calendario WHERE solo_profes=0 and deleted_at is null');
 
 			
 			
@@ -447,7 +482,8 @@ class ChangeAskedController extends Controller {
 			$publicaciones = Publicaciones::ultimas_publicaciones('Acudiente');
 
 			# Calendario
-			$eventos = DB::select('SELECT * FROM calendario WHERE solo_profes=0 and deleted_at is null');
+			// Las nueve columnas que se pintan; el porqué, en la rama del superusuario.
+			$eventos = DB::select('SELECT id, title, start, end, allDay, solo_profes, cumple_alumno_id, cumple_profe_id, url FROM calendario WHERE solo_profes=0 and deleted_at is null');
 
 			
 			return [ 'publicaciones' => $publicaciones, 'eventos' => $eventos ];
@@ -1236,36 +1272,68 @@ class ChangeAskedController extends Controller {
 			order by g.orden, a.orden, m.materia, m.alias, a.id';
 		
 		$asignaturas = DB::select($consulta, [$year_id, $profesor_id]);
-		
-		
-		for ($i=0; $i < count($asignaturas); $i++) { 
-			
-			// Columnas nombradas, no `*`: `unidades.alumno_id` existe desde el 24 ago 2026
-			// (19-boletin-independiente.md) y con `*` entra en la respuesta. No volver a
-			// `*`. §5.bis de noche-2026-08-24/bi-1.md.
-			//
-			// Y `alumno_id is null` porque **el horario del día enseña la estructura del
-			// grupo**: aquí no hay ningún alumno en el ámbito —esto es «mis clases de hoy
-			// y de mañana»—, así que la única respuesta con significado es la del grupo.
-			// Sin la condición, la pantalla de inicio del docente listaría las unidades de
-			// un independiente junto a las del grupo **y sin poder atribuirlas**, porque
-			// `alumno_id` es justo la columna que la línea de arriba deja fuera.
-			//
-			// Lo del marcado se pide por su sitio, que es la §6.1; que no esté aquí no lo
-			// esconde, lo manda a la pantalla que sí sabe de quién habla.
-			$consulta 		= 'SELECT id, definicion, porcentaje, periodo_id, asignatura_id, obligatoria, orden, por_defecto, fecha, created_by, updated_by, deleted_by, deleted_at, created_at, updated_at FROM unidades WHERE asignatura_id=? and periodo_id=? and deleted_at is null and alumno_id is null';
-			$unidades 		= DB::select($consulta, [$asignaturas[$i]->asignatura_id, $periodo_id]);
-			
-			foreach ($unidades as $unidad) {
 
-				$subunidades 			= DB::select('SELECT * FROM subunidades WHERE unidad_id=? and deleted_at is null', [$unidad->id]);
-				$unidad->subunidades 	= $subunidades;
-	
-			}
-			
-			$asignaturas[$i]->unidades = $unidades;
+		if (count($asignaturas) === 0) {
+			return $asignaturas;
 		}
-		
+
+		// **Dos consultas, no dos por asignatura.** Esto era un N+1 de dos pisos —una
+		// consulta de unidades por asignatura, y una de subunidades por unidad—: para un
+		// docente con diecisiete clases hoy eran 60 de las 75 consultas de su panel.
+		// Medido el 2 sep 2026 (24-el-panel-de-inicio.md §1). No es lo que hace lento el
+		// panel —son 30 ms— pero es lo que hace que crezca con el horario del docente, y
+		// el que más clases da es el que más paga.
+		//
+		// El resultado es el mismo objeto de antes: cada asignatura con su `unidades`
+		// —vacía si no tiene—, y cada unidad con sus `subunidades`. El orden se fija con
+		// `ORDER BY`, que sin agrupar venía implícito de una consulta por padre.
+		$ids_asignatura = array_map(fn ($a) => $a->asignatura_id, $asignaturas);
+		$marcas = implode(',', array_fill(0, count($ids_asignatura), '?'));
+
+		// Columnas nombradas, no `*`: `unidades.alumno_id` existe desde el 24 ago 2026
+		// (19-boletin-independiente.md) y con `*` entra en la respuesta. No volver a
+		// `*`. §5.bis de noche-2026-08-24/bi-1.md.
+		//
+		// Y `alumno_id is null` porque **el horario del día enseña la estructura del
+		// grupo**: aquí no hay ningún alumno en el ámbito —esto es «mis clases de hoy
+		// y de mañana»—, así que la única respuesta con significado es la del grupo.
+		// Sin la condición, la pantalla de inicio del docente listaría las unidades de
+		// un independiente junto a las del grupo **y sin poder atribuirlas**, porque
+		// `alumno_id` es justo la columna que la línea de arriba deja fuera.
+		//
+		// Lo del marcado se pide por su sitio, que es la §6.1; que no esté aquí no lo
+		// esconde, lo manda a la pantalla que sí sabe de quién habla.
+		$consulta = 'SELECT id, definicion, porcentaje, periodo_id, asignatura_id, obligatoria, orden, por_defecto, fecha, created_by, updated_by, deleted_by, deleted_at, created_at, updated_at
+			FROM unidades
+			WHERE asignatura_id IN ('. $marcas .') and periodo_id=? and deleted_at is null and alumno_id is null
+			ORDER BY asignatura_id, id';
+
+		$unidades = DB::select($consulta, array_merge($ids_asignatura, [$periodo_id]));
+
+		$subunidades_por_unidad = [];
+
+		if (count($unidades) > 0) {
+			$ids_unidad = array_map(fn ($u) => $u->id, $unidades);
+			$marcas_unidad = implode(',', array_fill(0, count($ids_unidad), '?'));
+
+			$subunidades = DB::select('SELECT * FROM subunidades WHERE unidad_id IN ('. $marcas_unidad .') and deleted_at is null ORDER BY unidad_id, id', $ids_unidad);
+
+			foreach ($subunidades as $subunidad) {
+				$subunidades_por_unidad[$subunidad->unidad_id][] = $subunidad;
+			}
+		}
+
+		$unidades_por_asignatura = [];
+
+		foreach ($unidades as $unidad) {
+			$unidad->subunidades = $subunidades_por_unidad[$unidad->id] ?? [];
+			$unidades_por_asignatura[$unidad->asignatura_id][] = $unidad;
+		}
+
+		for ($i=0; $i < count($asignaturas); $i++) {
+			$asignaturas[$i]->unidades = $unidades_por_asignatura[$asignaturas[$i]->asignatura_id] ?? [];
+		}
+
 		return $asignaturas;
 	}
 
