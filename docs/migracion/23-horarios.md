@@ -31,8 +31,8 @@
 > la marcan **superusuario y coordinador académico** (§5.4) —que trajo un hallazgo,
 > porque «coordinador académico» nombra dos cosas distintas en esta base y hoy **ninguna
 > de las dos identifica a nadie**—, listar es **`auth.personal`**, subir y publicar valen
-> **en cualquier año**, y el rol vacío **se escribe igual**. **Quedan dos** en la §10.2,
-> y las dos son del día que se escriba el código.
+> **en cualquier año**, y el rol vacío **se escribe igual**. **Quedan tres** en la §10.2,
+> y las tres son del día que se escriba el código.
 
 ---
 
@@ -276,6 +276,22 @@ elige el cliente, y comprobar una regla contra un número que manda el mismo que
 pasar la comprobación no es comprobar. Está escrito aquí porque el día que alguien vea
 la columna va a pensar que ya se puede.
 
+**5. `dia` va de 0 a 6, con 0 = domingo — y esto es contrato, no detalle.** Lo levantó
+`8myvc-9d` el 2 sep 2026: **ningún documento lo decía**, y aSc numera de forma natural
+1 = lunes. Se fija así porque es el convenio con el que se **consumen** las siete
+columnas —`asignaturas_dia()` va sobre `Carbon::dayOfWeek`, 0 = domingo … 6 = sábado—,
+de modo que la derivación de la §7 **no traduce nada**, y un mapeo es justo donde vive
+un off-by-one.
+
+> **Y hay que ver por qué esto no lo caza la revalidación.** Si el cliente manda 1 = lunes
+> y el servidor lo lee como `dayOfWeek`, **el horario entero se corre un día**: el lunes
+> se pinta el domingo y el viernes cae en jueves. No da error, no da 422, y **el veredicto
+> de la opción B lo daría por bueno**, porque las tres reglas que sí comprueba —grupo,
+> docente, Σ = IH— se cumplen exactamente igual con el horario corrido. Es la §8 en su
+> forma barata: *no da error, da un horario equivocado.* Un `dia` fuera de 0..6 se
+> rechaza con **422**; uno dentro pero con el convenio cambiado **no lo detecta nadie**,
+> y por eso el convenio se declara en un sitio en vez de deducirse.
+
 **Y una que no es del cuerpo sino del año.** `year_id` puede ser de un año pasado, y
 eso **ya está contestado**: moverse por un año pasado es el producto
 ([16](16-escribir-en-un-anio-pasado.md)), y lo que frena las escrituras allí es el
@@ -291,7 +307,7 @@ vive en `years` y no en una bandera: cada año tiene el suyo y no se pisan.
 ### 5.3. Las tres rutas — AUTORIZADAS el 2 sep 2026
 
     POST horario/versiones               sube una versión    auth.token + esAdministrativo
-    GET  horario/versiones               lista las del año   auth.token + ¿quién? (§10.2)
+    GET  horario/versiones               lista las del año   auth.token + auth.personal
     PUT  horario/versiones/{id}/oficial  marca la oficial    auth.token + puedePublicarHorario (§5.4)
 
 Las autorizó Joseth el 2 sep 2026, las tres a la vez y con esta razón: con sólo las
@@ -380,10 +396,33 @@ Hace falta además un `Role::isCoordAcademico()`, que **no existe**: hay
 quedó sin el suyo. La cadena tiene que ser exactamente `'Coord académico'`, con tilde y
 abreviada, porque `hasRole()` compara el nombre literal contra la tabla.
 
-> Ésta sería **la primera vez que este repo cuelga un permiso del rol `Coord
-> académico`**. Va en la dirección segura de la regla que dejó escrita el 21 ago
-> —*crear un rol no regala permisos*—: aquí es un permiso que se le da a un rol que ya
-> existía, nombrándolo, y no un rol que hereda permisos sin que nadie lo decida.
+> **No es la primera vez que este repo cuelga algo de `Coord académico`: es la
+> segunda**, y eso cambia la consecuencia, no la decisión. Lo levantó `8myvc-9d` y lo
+> reprodujo `8myvc-29` el 2 sep 2026: `can_view_auditoria` ya se reparte a ese rol
+> desde el 25 ago (`2026_08_25_200000_create_permiso_can_view_auditoria.php`, que
+> siembra `['Rector', 'Coord académico']`).
+>
+> **Así que dar ese rol reparte hoy dos cosas y no una**: publicar el horario del
+> colegio **y ver el rastro de auditoría de otras personas** —quién cambió qué nota,
+> los ingresos ajenos—. Quien ejecute las quince operaciones de la §10.1.11 tiene que
+> saberlo, porque son dos permisos en un movimiento. Es la regla del 21 ago por su
+> otra cara: **crear un rol no regala permisos, pero dárselo a una persona sí le
+> regala todos los que ya cuelgan de él.**
+>
+> **Y la segunda mitad no cuelga del rol en el código, cuelga de una fila.**
+> `Autoriza::puedeVerAuditoria()` no pregunta por ningún rol: lee
+> `in_array('can_view_auditoria', $user->perms)`. El acoplamiento es **por dato y por
+> colegio** —existe donde aquella migración corrió y nadie retiró la fila, y ella misma
+> hace `continue` si el rol no está—, mientras que `puedePublicarHorario` preguntaría
+> por el rol directamente. Decir «este rol también ve la auditoría» a secas sería **un
+> enunciado más ancho que el dato**: lo cierto es que hoy van juntos en los colegios
+> donde esa fila está, y puede no estarlo en el catorce.
+>
+> **Ojo al leer los tests en verde**: `test-seed.sql` hace `TRUNCATE` de `permissions`
+> y `permission_role`, así que en la base de tests **ese acoplamiento no existe**. Un
+> test que fabrique el rol para probar `puedePublicarHorario` no hereda
+> `can_view_auditoria` — y su verde **no demuestra** que los dos permisos vayan
+> separados en producción, donde van juntos.
 
 ---
 
@@ -399,9 +438,31 @@ de los datos se acaba de mudar al escritorio.
 | Un docente, como mucho una pieza por (día, franja) | **Sí, si la versión sube los docentes de cada pieza** | `horario_pieza_docente`; con `asignaturas.profesor_id` **no**, por el capellán (§5.1) |
 | Σ lecciones de una asignación = su IH | **Sí**, y es la más barata | `asignaturas.creditos`: está en las 134, ninguna vacía |
 | Un bloque ocupa casillas consecutivas del mismo día | **Sí** | `dia`, `franja`, `duracion` de la propia fila |
+| **Cada asignación es del año de la versión** | **Sí**, y es la cuarta | **por JOIN, no por columna**: `asignaturas` no tiene `year_id`, el año le llega por `grupos.year_id` |
 | Un salón sin choque | **No se puede decidir** | `capacidad_grupos` no existe aquí: la iglesia con seis grupos es indistinguible de dos grupos metidos en un aula |
 | La disponibilidad ✕ respetada | **No** | vive en el fichero de proyecto |
 | La franja dentro de la jornada del nivel, sin cruzar descansos | **No** | la rejilla y los timbres viven en el fichero de proyecto |
+
+**La cuarta la levantó `8myvc-e5` el 2 sep 2026, y la abrió una decisión de ese mismo
+día.** Mientras subir y publicar valían sólo en el año actual, «esta asignación es del
+año de esta versión» era gratis; con la decisión 13 —cualquier año— se puede subir una
+versión de 2026 que traiga dentro asignaciones de 2024 y **no falla nada**: las filas
+entran, el veredicto sale limpio y la versión parece buena. Lo cobra la §7, que al
+marcarla oficial derivaría las columnas **del otro año**. Se rechaza con **422 nombrando
+la pieza y la asignación intrusa**. Es el patrón que conviene reconocer: **una decisión
+correcta que abre un hueco en otro sitio.**
+
+Y dos más de la misma familia, del esquema: **una asignación borrada** —hay 240 en la
+papelera— también es 422 nombrado, porque dejarla entrar mete basura en la versión y
+calcular Σ = IH sobre las vivas con una pieza apuntando a ella **descuadra sin
+explicación posible**; y **`creditos` es `int DEFAULT NULL`**, así que la Σ = IH puede
+no evaporarse sino desaparecer: `SUM(...) = creditos` con un `NULL` dentro **no da
+falso, se cae del resultado**, y en PHP el `==` acusa a quien no tiene culpa. **Las dos
+lecturas son malas y ninguna hace ruido.** Medido: **0 de 1219 asignaturas vivas** de
+este colegio tienen la IH nula, en los nueve años — pero de los otros catorce no se sabe
+nada. Se resuelve **sin 422**: la asignación sin IH va al veredicto como **NO
+COMPROBADA, nombrada y contada**, porque un 422 convertiría un dato incompleto del
+colegio en un módulo inutilizable.
 
 Las tres últimas son el asunto. **Un `if` que comprueba la disponibilidad contra un
 dato que el servidor no tiene no falla nunca**: pasa siempre, se ve verde y no
@@ -438,7 +499,10 @@ población**, no los nombres de las reglas. No «comprobado: grupo, docente, IH�
 *«345 lecciones y 134 asignaciones revisadas · grupo ✓ · docente ✓ sobre los docentes
 que trajo la versión · Σ = IH ✓ · salón NO COMPROBADO, falta `capacidad_grupos` ·
 disponibilidad NO COMPROBADA, vive en el proyecto · jornada NO COMPROBADA»*. Un
-veredicto sin población es otra vez el `[]` de la §2: **se lee como «todo bien»**. Con
+veredicto sin población es otra vez el `[]` de la §2: **se lee como «todo bien»**. Y la
+población **sale de esa corrida, no del código**: 345 y 134 son cifras de
+`simonbolivar`, y escritas a mano dirían 345 en el colegio catorce habiendo mirado 200
+— que es exactamente la mentira que la opción B existe para impedir. Con
 él guardado, «esta versión no se comprobó contra las disponibilidades» pasa a ser un
 dato del historial y no la suposición de nadie.
 
@@ -462,6 +526,20 @@ las lecciones de la versión **oficial**, no una tabla `fichas` que ya no existe
   nada de lo que ve el docente), un servicio recalcula las siete columnas de cada
   asignación desde las lecciones de esa versión.
 - `ChangeAskedController` **no se toca**. La pantalla vacía de la §2 se llena sola.
+
+**El alcance de esa derivación es el año entero, y no las filas de la versión.** Lo
+levantó `8myvc-9d`: leído literal, «recalcula las columnas de cada asignación desde las
+lecciones de esa versión» sólo escribe las que aparecen — así que si la versión 2 quita
+las tres horas de Sociales de Décimo que traía la versión 1, esa asignación **se queda
+con el `martes = 1` de la anterior** y el docente sigue viendo una clase que ya no
+existe, salida de una columna que nadie volvió a tocar. Se pone **todo el alcance del
+año a 0 y luego a 1 lo que trae la versión**, en la misma transacción.
+
+> **Y ese alcance tiene la misma trampa de esquema que la cuarta comprobación de la §6:
+> `asignaturas` no tiene `year_id`.** El año le llega sólo por `grupos.year_id`, así que
+> «las asignaciones de este año» es un **JOIN** y no un `WHERE`. Equivocarse ahí mientras
+> se publica un año cerrado significaría **poner a cero las columnas del año abierto**, y
+> con la decisión 13 eso no es teórico.
 
 **Y el límite, que hay que escribir antes de que alguien lo prometa:**
 `asignaturas_dia` ordena `by g.orden, a.orden, m.materia, m.alias, a.id`
