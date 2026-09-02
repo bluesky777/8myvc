@@ -817,11 +817,12 @@ siguen sin estar.
 
    **El escapado solo ya cuesta × 1,4**, y lo midió la sesión del front: meter el
    `.myvch` como cadena dentro de un JSON duplica cada tabulador y cada comilla —
-   30.161 bytes de fichero se convierten en 42.492, un **41 %** más. **Pero ése no es
-   el factor del cuerpo, sino el del blob**: por el mismo cuerpo viajan también las
-   piezas, y con ellas el total sube a **× 1,795** (ver la corrección de más abajo).
-   Confundir los dos es exactamente lo que hizo que este bloque dijera 185.997 durante
-   unas horas.
+   30.161 bytes de fichero se convierten en 42.492, un **41 %** más. **Ése es el suelo,
+   no «el factor»**: es un proyecto con **cero colocaciones**, o sea la subida más barata
+   que puede existir. En cuanto hay horario dentro viajan también las piezas y el total
+   se va a **× 1,795** (§ de más abajo). La escala entera son esos dos extremos —
+   **× 1,41 vacío · × 1,795 lleno**—, y tomar el de la izquierda por el del cuerpo es lo
+   que hizo que este bloque dijera 185.997 durante unas horas.
 
    **Queda abierto el tope**, y una salida escrita y **no aplicada**: comprimir y mandar
    en base64 da la vuelta al factor. **No se hace hoy y la razón pesa más que el 1,4**:
@@ -877,12 +878,26 @@ siguen sin estar.
    > imprimiendo 185.997**. La cifra vieja puede volver por su propio pie, y volvería con
    > toda la pinta de una medición fresca.
    >
-   > **Y queda una cifra de este mismo bloque sin remedir**, dicha aquí para que no se
-   > herede: los **42.492 bytes** de «el cuerpo entero de una subida real» de más arriba
-   > son **× 1,41 sobre su fichero**, o sea el mismo factor de blob solo. Puede ser
-   > legítimo —un proyecto sin nada colocado no tiene piezas que mandar— o puede ser este
-   > mismo `[]` otra vez. **No se sabe, y por eso no se usa como cota de nada**: la cota
-   > alta es la de 231.135.
+   > **Y la otra cifra de este bloque —los 42.492— se remidió, y esa SÍ era buena.** Se
+   > sospechó de ella por encajar demasiado bien (× 1,41, otra vez el factor de blob
+   > solo), y el fichero lo dice: `colegio.myvch` tiene **0 colocaciones y 0 piezas**, así
+   > que ahí el `[]` no ocultaba nada porque no había nada que ocultar. Comprobado por
+   > `myvc-front-8e` y reproducido desde este árbol: 30.161 de fichero y **42.476** de
+   > cuerpo a la forma vieja — y los **74 bytes** que la separan de la forma buena son
+   > **los mismos 74** de la otra medición, o sea los dos campos de `version`. Que el
+   > mismo sobre cueste lo mismo en dos ficheros distintos es la comprobación cruzada de
+   > que el sobre es lo único que baila.
+   >
+   > **Así que esa cifra no es una cota alta ni una sospecha: es el SUELO**, el factor de
+   > un proyecto con nada colocado, la subida más barata que puede existir. Y con las dos
+   > la escala queda explicada entera, con dos números medidos en vez de con uno:
+   >
+   >     × 1,41 vacío  ·  × 1,795 lleno       — y lo que se mueve entre medias son las piezas
+   >
+   > Que es la demostración de la frase corregida de arriba: **el factor empeora con el
+   > llenado** porque las piezas escalan con las filas y el blob no. Leer el × 1,41 como
+   > «el factor» es el mismo error que leer el × 1,45 como «el cuerpo», sólo que por el
+   > otro extremo.
    >
    > **Y lo que hace que esa cifra valga no es el bucle que colocó el horario, es lo que
    > le pusieron detrás.** El pre-vuelo **declara que no mira las colocaciones** —eso es
