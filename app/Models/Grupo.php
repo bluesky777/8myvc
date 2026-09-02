@@ -272,7 +272,7 @@ class Grupo extends Model {
 
 	public static function detailed_materias_notafinal($alumno_id, $grupo_id, $periodo_id, $year_id)
 	{
-		// **El par de la DEFINITIVA del periodo** — A10, 25 §2.1.
+		// **El par de la DEFINITIVA del periodo** — A10, 27 §2.1.
 		//
 		// `nota_asignatura` sigue siendo **la vigente**, la que ya se imprimía; al lado va
 		// de dónde venía. `recuperada` no cambia de significado —1 ⇔ viene de una

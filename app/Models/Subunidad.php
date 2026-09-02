@@ -89,7 +89,7 @@ class Subunidad extends Model {
 
 
 	/**
-	 * El indicador con su nota **y su par de nivelación** — A10, 25 §2.1.
+	 * El indicador con su nota **y su par de nivelación** — A10, 27 §2.1.
 	 *
 	 * Las cuatro columnas de nivelación se nombran aquí y no en cada informe porque
 	 * de esta consulta cuelgan los dos que tienen que imprimir el par: el boletín

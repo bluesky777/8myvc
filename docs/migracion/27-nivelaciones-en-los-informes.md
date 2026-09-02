@@ -1,4 +1,4 @@
-# 25 — La nivelación en los informes: reconocimiento antes de A10
+# 27 — La nivelación en los informes: reconocimiento antes de A10
 
 > **Sólo lectura, y es a propósito.** A10 —«boletines, constancias y certificados imprimen
 > el par»— pasó de la sesión A al carril C-back el 2 sep 2026, y `app/Http/Controllers/Informes/**`

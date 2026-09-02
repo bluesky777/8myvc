@@ -214,7 +214,7 @@ class Boletines2Controller extends Controller {
 		for ($i=0; $i<$cant; $i++) {
 
 			// NOTAS FINALES
-			// **La fila de periodos del tipo 2, con el par de cada definitiva** — A10, 25 §2.1.
+			// **La fila de periodos del tipo 2, con el par de cada definitiva** — A10, 27 §2.1.
 			// Es la misma línea que la del tipo 1 (`BoletinesController:293`) y entra con él:
 			// el tipo 2 ya recibía el par en `asignaturas[]` por la consulta compartida de
 			// `Grupo::detailed_materias_notafinal`, así que dejar ésta sin él imprimiría la

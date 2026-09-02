@@ -311,7 +311,7 @@ class CertificadosPersonaController extends Controller {
 
 			$alumno->total_creditos += $asignatura->creditos;
 						
-						// **Las once columnas de `notas_finales` nombradas, y no el asterisco** — 25 §4.
+						// **Las once columnas de `notas_finales` nombradas, y no el asterisco** — 27 §4.
 			// Con `nf` en asterisco, cada columna nueva de la tabla sale **sola** en este
 			// informe el día que corra una migración, con este mismo código y sin que nadie
 			// haya decidido enseñarla: las tres de la nivelación —`nota_original`,

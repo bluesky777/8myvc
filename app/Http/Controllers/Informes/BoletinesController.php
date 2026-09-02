@@ -290,7 +290,7 @@ class BoletinesController extends Controller {
 		for ($i=0; $i<$cant; $i++) {
 
 			// NOTAS FINALES
-			// **La fila de periodos del boletín, con el par de cada definitiva** — A10, 25 §2.1.
+			// **La fila de periodos del boletín, con el par de cada definitiva** — A10, 27 §2.1.
 			// `nota` sigue siendo la vigente y va primero; `nota_original` es de dónde venía,
 			// `null` mientras no se haya nivelado. Es la tabla «Periodo 1 · 2 · 3 · 4» del
 			// papel, así que aquí es donde el acudiente ve el antes y el después de un

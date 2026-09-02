@@ -9,9 +9,9 @@ use Illuminate\Support\Facades\DB;
  *
  * Es la tarea **A10** para los tres que no esperan ninguna decisión —boletín tipo 1 y 5,
  * boletín final del año y notas actuales del alumno—, según el §5 del
- * [25](../../docs/migracion/25-nivelaciones-en-los-informes.md). El certificado firmado y
+ * [27](../../docs/migracion/27-nivelaciones-en-los-informes.md). El certificado firmado y
  * cualquier cosa del puesto **no están aquí y es a propósito**: los dos esperan una
- * decisión de Joseth (25 §2.3 y §3.3), y escribir una de las opciones antes de que
+ * decisión de Joseth (27 §2.3 y §3.3), y escribir una de las opciones antes de que
  * conteste es rehacerla.
  *
  * ## Lo que fija, y por qué en dos niveles
