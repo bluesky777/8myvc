@@ -8,6 +8,72 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
+**2 sep 2026 — HORARIOS: CAMBIÓ EL DISEÑO ENTERO Y NO HAY UNA LÍNEA DE CÓDIGO** ·
+[`23-horarios.md`](23-horarios.md) reescrito a **v2** · **el router sigue en 550** (contado con
+`route:list --json` ese día) y **no se tocó nada de `app/`**, así que todo lo que va debajo
+—el despliegue pendiente, las decisiones abiertas del boletín— **sigue vigente sin un cambio** ·
+lo trajo la sesión `myvc-front-ea` de parte de Joseth
+
+> El horario **ya no es un módulo web** con cinco tablas y nueve rutas: es un **programa de
+> escritorio** (Tauri 2 + Angular) con su fichero de proyecto local, y a esta API le queda
+> **guardar versiones del horario de un año y decir cuál es la oficial**. Salones, disponibilidad,
+> rejilla, timbres y pesos **no existen en el servidor**. El diseño del cliente vive en el
+> artefacto del front; la mitad de backend, en el 23.
+>
+> **Las tres rutas propuestas —`POST horario/versiones`, `GET horario/versiones`,
+> `PUT horario/versiones/{id}/oficial`— NO están autorizadas.** 550 → 553 el día que lo estén, y
+> ese número se vuelve a contar ese día.
+>
+> **Y salió un hallazgo midiendo, que corrige a la v1 en la dirección cara.** La v1 escribió que
+> «Clases de hoy» *«cae por la rama de enséñalo todo»*. **Es falso en el año abierto de este
+> colegio**: `years.show_materias_todas` vale **0** en el año 8, así que la pantalla **sí** filtra
+> por las siete columnas de día; las **2 de 134** filas que tienen día puesto tienen
+> `profesor_id` **nulo** y la consulta filtra por docente. O sea que **`horario_hoy` y
+> `horario_manana` vuelven vacíos para todos los docentes, todos los días** — la pantalla desde la
+> que se toma asistencia está en blanco, y nadie lo ha reportado porque **un `[]` se parece a «hoy
+> no tengo clase»**. Debajo hay un fallo dormido: `$dia+1` el **sábado** da 7, el `switch` no tiene
+> caso 7 y «mañana» devuelve **todas** las asignaturas del docente. Hoy no se ve; se estrena el día
+> que las columnas se rellenen. Las dos cosas, con su medición, en la §2 del 23.
+>
+> **Segunda vuelta con el front, la misma tarde, ya incorporada al 23:** el cuerpo del
+> `POST` concretado —y corregido en cuatro sitios (§5.2): los `docentes[]` de la pieza son
+> **`profesores.id`, no `users.id`** (dos columnas de la misma fila, y la lectura que ya usa el
+> panel devuelve las dos; aquí no fallaría porque los 47 profesores tienen `user_id`, pero la
+> columna es NULLable y el que no lo tenga desaparecería de la revalidación **sin error**);
+> `subida_por` y la fecha salen **del token y del reloj del servidor**, no del cuerpo; el
+> veredicto `comprobaciones` lo escribe el servidor y **no se lee del cuerpo nunca**; y el salón
+> y su capacidad viajan **para imprimir y para nombrar el dato que faltó**, sin ascender a regla—.
+> **Las dos sesiones recomiendan la opción B** con el veredicto guardado junto a la versión **y
+> con su población dentro** («345 lecciones y 134 asignaciones revisadas · salón NO COMPROBADO,
+> falta `capacidad_grupos`…»), porque un veredicto sin población vuelve a leerse como «todo bien».
+>
+> **Y una frontera nueva, de Joseth:** el escritorio se tiene que poder **vender por licencia sin
+> MyVC detrás**. No añade rutas ni pantallas aquí; lo que sí obliga a escribir es que
+> `asignatura_id` es una clave de MyVC, así que un proyecto armado sin MyVC **no se puede subir**
+> y la ruta tiene que decirlo con un **422** en vez de aceptar nulos que luego no derivan ninguna
+> columna (§8 del 23) — y **nunca emparejando por nombres**, que es la salida que parece
+> amable y acaba metiendo las horas de «Matemáticas de 3°A» en 3°B sin dar ningún error.
+>
+> **Tercera vuelta, y quedó una forma propuesta para el año pasado:** *subir sí, volver oficial
+> sólo el año actual* — o sea **mover el puntero `years.horario_version_id` sólo en el año
+> abierto**, dejando quieto el de los cerrados, que son el historial. Sigue **sin decidir**, y va
+> con su precisión al lado: **no** impide que el panel enseñe el horario de un año pasado (quien
+> se mueve a 2024 lee las asignaturas de 2024, que es el producto que cerró la
+> [16](16-escribir-en-un-anio-pasado.md)); impide **cambiárselo por debajo**.
+>
+> **El contrato quedó cerrado entre las dos sesiones tras tres vueltas.** Lo que falta no es
+> acuerdo técnico: son las **siete decisiones abiertas de la §10.2 del 23**, todas de Joseth —y
+> las tres que más cuestan son si secretaría puede volver oficial un horario, qué pasa con los
+> años cerrados, y si se sostiene la frontera del modo sin MyVC. **La forma no se vuelve a
+> negociar**: si se cambia, se cambia con él y avisando al front, que tiene su mitad escrita
+> sobre ésta.
+
+> **La decisión de fondo, que sigue esperando el sí de Joseth aunque las dos sesiones ya
+> recomienden lo mismo**, es la §6 del 23: el servidor **no tiene** la disponibilidad
+> ni los salones ni la rejilla, así que **no puede revalidarlos**. O la versión los sube como
+> datos y revalida las seis reglas duras, o revalida las tres que puede **y lo dice en la
+> respuesta**. Aceptar y callar sería un «validado» encima de un horario ilegal.
+
 **Última actualización: 1 sep 2026, tarde — LA ÉPICA DEL BOLETÍN INDEPENDIENTE ESTÁ TERMINADA EN
 ESTE REPO: LAS SEIS FASES ESTÁN EN `main`** · **`Tests: 1736 passed (13495 assertions)`,
 `Duration: 619.55s`, `exit=0`**, cero rojos y cero saltados · pint **no reescribió nada** ·
