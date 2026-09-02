@@ -102,6 +102,17 @@ Route::put('notas/subunidad', [NotasController::class, 'putSubunidad'])->middlew
 // Va aquí y no abajo por la regla de la cabecera: sin parámetros antes que con
 // ellos, para que `notas/{algo}` no la tape.
 Route::put('notas/lote', [NotasController::class, 'putLote'])->middleware('auth.personal');
+// Las tres de nivelar (22-nivelaciones.md). **Endpoints NUEVOS y no una bandera
+// sobre `notas/update`**: `myvc_flutter` es una sola app para los quince colegios
+// y una versión vieja convive con este backend durante meses, así que si el camino
+// de siempre aprendiera a nivelar, un 95 tecleado desde el móvil se guardaría como
+// 70 con la regla `topada`. Sin error y sin aviso (§6.1 del reparto).
+//
+// El lote va **antes** que `notas/nivelar/{id}` por la regla de la cabecera: sin
+// parámetros antes que con ellos, o `{id}` se traga la palabra `lote`.
+Route::put('notas/nivelar/lote', [NotasController::class, 'putNivelarLote'])->middleware('auth.personal');
+Route::put('notas/nivelar/{id}', [NotasController::class, 'putNivelar'])->middleware('auth.personal');
+Route::delete('notas/nivelar/{id}', [NotasController::class, 'deleteNivelar'])->middleware('auth.personal');
 // Un alumno podía leer las notas de cualquier compañero cambiando el número de
 // la URL, y un acudiente las de cualquier alumno del colegio. El modo `notas`
 // del guard `sin-paz-y-salvo` comprueba la propiedad pero NO el paz y salvo, que hoy solo lo

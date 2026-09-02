@@ -52,8 +52,19 @@ coordina `8myvc-ab`
 > la **§3.4** del [22](22-nivelaciones.md), y la regla que deja: **una columna viaja porque
 > alguien la nombró**, nunca por un asterisco.
 >
-> Siguiente en este carril: A5 + A6 (endpoints nuevos y el centinela de que `notas/update` y
-> `notas/lote` no aprendieron a nivelar) → A7 → A8 → A9. **A10 ya no es de este carril**: la
+> **A5 y A6 hechas el 2 sep, y van en el mismo commit a propósito.** Las tres rutas nuevas
+> —`PUT`/`DELETE notas/nivelar/{id}` y `PUT notas/nivelar/lote`— dejan el router en **553**
+> (contado con `route:list`), y con ellas **22 tests que miran lo que queda escrito**. La mitad
+> es el centinela: con la regla `topada` encendida, `notas/update` y `notas/lote` siguen
+> guardando lo que se les manda, y **sobre una nota ya nivelada escriben la vigente sin tocar
+> el acta** — ni la limpian (sería borrar un registro académico desde un móvil) ni recalculan
+> (sería aprender a nivelar por la puerta de atrás).
+>
+> **Y una trampa del seed, para quien escriba tests de notas:** la escala de este colegio es
+> **0 a 50**, no 0 a 100. Un caso escrito con 90 y 95 sale **422 por `EscalaDeNotas`** y pasa
+> sin haber medido nada de lo que dice medir.
+>
+> Siguiente en este carril: A7 → A8 → A9. **A10 ya no es de este carril**: la
 > impresión y `Informes/**` pasaron a `8myvc-f2` el 2 sep. Base de tests de esta sesión:
 > `simonbolivar_testing_niv`.
 
