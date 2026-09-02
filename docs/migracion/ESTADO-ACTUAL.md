@@ -43,6 +43,48 @@ rama `docs/tanda-pendiente-remedida`, **sin fusionar** · sólo documentación: 
 >
 > **Nada de esto se ha desplegado**: desplegar a los quince lo autoriza Joseth. Lo que cambia es
 > que el documento dice la verdad el día que dé la orden.
+**2 sep 2026, noche — EL PRE-VUELO DEL HORARIO YA ES UN SCRIPT** · rama
+`feat/prevuelo-horario`, **sin fusionar** · `tools/prevuelo-del-horario.php`, el nivel 1 de la
+[§9.2 del 23](23-horarios.md) · **el router no se mueve**: no hay ruta, es una herramienta ·
+`--control` verde y dentro de `AutopruebasDeLasHerramientasTest` (12 pasan) · pint y
+larastan nivel 7 **`[OK] No errors`** sobre este árbol ·
+**`Tests: 1844 passed (16616 assertions)`, `Duration: 648.79s`, `exit=0`**, cero rojos y cero
+saltados · lo repartió `8myvc-af`
+
+> **1844 es la cuenta exacta y por eso vale como comprobación:** 1843 de `main` **+ 1**, el único
+> caso que añade esta rama (el data set de `prevuelo-del-horario.php` en el runner de
+> autopruebas), y +2 aserciones. **No son los 1858 de `8myvc-9c`**: su lote de horarios no está
+> aquí dentro, y confundir las dos cuentas es cómo un caso que falta pasa por un caso que sobra.
+>
+> Medido sobre **`f932380`**. Los tres commits posteriores —el número de la cuarta ruta, el suelo
+> de la escala y el arnés a medias— son **markdown y nada más** (`git diff --stat`: un fichero,
+> `23-horarios.md`), así que el verde vale para el árbol de hoy; se dice en vez de darlo por
+> supuesto.
+
+> **Reproduce las siete cifras del control de la §9.1 sobre `simonbolivar`, año 8**, y también
+> el reparto que es el hallazgo: **Transición 7 de 7 sin docente y Jardín 3 de 7**, o sea que el
+> horario de Transición no se puede colocar en absoluto. Con `--lecciones=6` —el supuesto de la
+> v1— sale el tercer hallazgo, *«JOEL HERNÁNDEZ tiene 31 h y sólo caben 30»*: **el supuesto que
+> costaba el proyecto es ejecutable en los dos sentidos**, y está fijado en el control.
+>
+> **Lo que contesta y todavía no se ha corrido: los otros catorce colegios.** El script está
+> listo para el bucle (`--csv`, y `0` limpio / `1` sucio / `2` NO MEDIDO), pero correrlo colegio
+> a colegio **lo decide Joseth**, porque es tocar las quince bases de producción.
+>
+> **Y en la misma rama, la cota alta del blob corregida: 231.135 bytes de cuerpo, no 185.997.**
+> Los 185.997 eran **el cuerpo con la lista de piezas vacía** (`lecciones: []` en el arnés del
+> front): el horario no estaba dentro. El factor es **× 1,795, no × 1,45**, y el **5,51 %** de los
+> 4 MB del peor caso. **La decisión NO se mueve** —el blob va en la fila, sin comprimir—, pero la
+> frase que decía que *«un colegio más grande sube por más filas, no por un factor peor»* **era
+> falsa**: sube por las dos, porque las piezas escalan con las filas y el blob no. Lo encontró
+> `myvc-front-8e` y **se reprodujo desde este árbol** sobre el mismo `lleno.myvch` — las cifras
+> salen idénticas. **El arnés sigue sin arreglar en las dos copias**, así que quien lo corra hoy
+> volverá a imprimir 185.997.
+>
+> Y trae cinco preguntas que en `simonbolivar` dan cero y de los otros catorce no se sabe nada:
+> IH **nula** —que no se evapora, desaparece del `SUM`, y el total sale cuadrado habiendo mirado
+> de menos—, IH **0**, docente **borrado** o **inexistente**, **materia en la papelera** (la
+> decisión abierta 1 de la §10.2) y grupos **sin ninguna asignación**.
 
 **Anterior: 2 sep 2026, noche — `main` LIMPIO, MEDIDO Y **SUBIDO A `origin`** · `d43d028`** ·
 **`Tests: 1843 passed (16614 assertions)`, `Duration: 693.98s`, `exit=0`**, cero rojos y cero

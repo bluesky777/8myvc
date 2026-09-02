@@ -146,6 +146,15 @@ class AutopruebasDeLasHerramientasTest extends TestCase
             // un motivo que no estaba en la lista de la ficha: **el fallo que citaba se
             // había arreglado** (`0473a9b`). Re-anclado en un caso sintético.
             'verdad-laxa-que-escribe.py' => ['python3', 'tools/verdad-laxa-que-escribe.py --control'],
+            // Entró **con** la herramienta el 2 sep 2026, y no después, porque el error que
+            // vigila ya se cometió una vez y costó el proyecto entero de horarios: la v1 midió
+            // contra una rejilla de 6 × 5 = 30 casillas y con ese supuesto el docente de 31
+            // horas de `simonbolivar` era **imposible**. La rejilla real es 7 × 5 = 35 y le
+            // sobran cuatro. *El dato que decidía si el problema tenía solución no era del
+            // algoritmo: era un desplegable.* El control fija esa carga contra los DOS techos.
+            // Su segunda forma de mentir es la de `SUM(creditos)`: una IH nula no se evapora,
+            // desaparece del total, y el total sale cuadrado habiendo mirado de menos.
+            'prevuelo-del-horario.php' => ['php', 'tools/prevuelo-del-horario.php --control'],
         ];
     }
 

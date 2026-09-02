@@ -689,6 +689,44 @@ reales y el colegio pasa. O sea que esas diez asignaciones no bloquean un grupo:
 Como script de `tools/` corre sobre los quince y contesta en una tarde en vez de en la
 demo. Si en otro colegio la IH está a medias, se sabe antes de prometer nada.
 
+### 9.2. Y ya es un script: `tools/prevuelo-del-horario.php`
+
+Escrito el **2 sep 2026**. Reproduce las siete cifras del control de la §9.1 sobre
+`simonbolivar`, año 8 —13 grupos, 134 asignaciones, 12 docentes, Σ 345, 0 sin IH, 10
+sin docente que son 25 h, y el más cargado con 31 de 35—, y también el reparto:
+**Transición 7 de 7 y Jardín 3 de 7**, con las diez nombradas una a una en `--detalle`.
+
+    docker exec 8myvc-app-1 php tools/prevuelo-del-horario.php
+    docker exec -e DB_DATABASE=otrocolegio 8myvc-app-1 php tools/prevuelo-del-horario.php --csv
+
+**La rejilla entra por `--lecciones` y `--dias`, y la cabecera del informe imprime
+contra cuál se midió.** Corriéndolo con `--lecciones=6` sale el tercer hallazgo que la
+v1 daba por bueno —*«JOEL HERNÁNDEZ tiene 31 h y sólo caben 30: NO tiene horario
+posible»*—, o sea que el supuesto que costaba el proyecto **es ejecutable en los dos
+sentidos** y no una nota. Está fijado además en el control (`--control`), que corre
+sin base y lo invoca `tests/Unit/AutopruebasDeLasHerramientasTest`.
+
+La jornada por nivel de la [§10.1](#101-cerradas-por-joseth-el-2-sep-2026--no-se-re-litigan)
+entra por `--lecciones-nivel=Preescolar:5,Primaria:6`, y la clave es el `abrev` de
+`niveles_educativos` **como esté en la base**: en `simonbolivar` hay **cuatro** niveles
+—Preescolar, Primaria, Secundaria y Media—, no los tres de la decisión, así que
+traducir «bachillerato» a dos de ellos es de cada colegio. Un nivel que no exista
+aborta en vez de ignorarse.
+
+**Tres códigos de salida, y el tercero es el que importa en el bucle de los quince:**
+`0` limpio, `1` sucio, `2` **NO MEDIDO** — que cubre también los abortos de parámetro,
+porque `--lecciones-nivel` se escribe una vez y se corre quince y los niveles se llaman
+distinto en cada colegio. Un colegio no medido no es un colegio limpio.
+
+Y lo que el script añade a la §9.1, que son las preguntas que en `simonbolivar` dan
+cero y de los otros catorce no se sabe: asignaciones con la **IH nula** —que no se
+evaporan, desaparecen del `SUM`, y el total sale cuadrado habiendo mirado de menos—,
+con IH **0**, con el docente **borrado** o **inexistente**, con la **materia en la
+papelera** —las de la decisión abierta 1 de la §10.2, que `GET asignaturas` no
+devuelve— y grupos **sin ninguna asignación**. Los JOIN de profesor y materia son
+`LEFT` a propósito: con `INNER`, una asignación cuyo docente esté borrado
+desaparecería de la población y el informe saldría más limpio de lo que es.
+
 ---
 
 ## 10. Decisiones
@@ -770,15 +808,21 @@ siguen sin estar.
    > por un problema que no existe.
    >
    > Con dos salvedades: **64 MB es el docker, no los quince cPanel**, donde nadie ha
-   > medido; el peor caso plausible es MySQL 5.7 con 4 MB por defecto, y ahí 210 KB
-   > siguen siendo el 5 %, así que la decisión aguanta sin más medición. Y el que se
+   > medido; el peor caso plausible es MySQL 5.7 con 4 MB por defecto, y ahí los **225,7
+   > KB** medidos de la cota alta son el **5,51 %**, así que la decisión aguanta sin más
+   > medición. (Aquí decía «210 KB, el 5 %» sobre la cifra vieja: el porcentaje sube
+   > medio punto y no cambia nada.) Y el que se
    > quedaría corto en un hosting compartido no sería el paquete sino `post_max_size` de
    > PHP, que suele venir en 8 M y también sobra.
 
-   **La regla de cálculo no es «el fichero más un poco»: es el fichero × 1,4**, y lo
-   midió la sesión del front. El coste es **el escapado**: meter el `.myvch` como cadena
-   dentro de un JSON duplica cada tabulador y cada comilla — 30.161 bytes de fichero se
-   convierten en 42.492 de cuerpo, un **41 %** más.
+   **El escapado solo ya cuesta × 1,4**, y lo midió la sesión del front: meter el
+   `.myvch` como cadena dentro de un JSON duplica cada tabulador y cada comilla —
+   30.161 bytes de fichero se convierten en 42.492, un **41 %** más. **Ése es el suelo,
+   no «el factor»**: es un proyecto con **cero colocaciones**, o sea la subida más barata
+   que puede existir. En cuanto hay horario dentro viajan también las piezas y el total
+   se va a **× 1,795** (§ de más abajo). La escala entera son esos dos extremos —
+   **× 1,41 vacío · × 1,795 lleno**—, y tomar el de la izquierda por el del cuerpo es lo
+   que hizo que este bloque dijera 185.997 durante unas horas.
 
    **Queda abierto el tope**, y una salida escrita y **no aplicada**: comprimir y mandar
    en base64 da la vuelta al factor. **No se hace hoy y la razón pesa más que el 1,4**:
@@ -790,12 +834,92 @@ siguen sin estar.
    comprimir.** El front midió el 2 sep 2026 un proyecto con **el horario entero
    colocado** —17 salones, 134 marcas de disponibilidad sobre 47 docentes, 32
    asignaciones con bloque de dos y **312 de 313 piezas puestas**—: **128.779 bytes de
-   fichero y 185.997 de cuerpo**, o sea **125,8 y 181,6 KB**. Contra los 64 MB del
-   docker es el **0,28 %**; contra los 4 MB del peor caso plausible, el **4,5 %**.
+   fichero y 231.135 de cuerpo**, o sea **125,8 y 225,7 KB**. Contra los 64 MB del
+   docker es el **0,34 %**; contra los 4 MB del peor caso plausible, el **5,51 %**.
+   **La decisión no se mueve**: el blob va en la fila y sin comprimir, y el 5,51 %
+   sigue sobrando por el mismo margen que la cerró. Una cifra corregida **al alza**
+   invita a reabrir lo que ya está decidido, y aquí no hay nada que reabrir.
 
-   > **El factor se afina y crece con el llenado: × 1,45, no × 1,4.** Más colocaciones
-   > son más comillas y más tabuladores dentro de la cadena. Un colegio más grande sube
-   > de aquí **por más filas, no por un factor peor**.
+   > **CORRECCIÓN DEL 2 SEP 2026, Y LA PRIMERA VERSIÓN DE ESTE PÁRRAFO DECÍA 185.997.**
+   > Ese número era **el cuerpo con la lista de piezas VACÍA**: el arnés que lo produjo
+   > medía, literal, `JSON.stringify({ …, proyecto: texto, lecciones: [] })`. O sea que
+   > lo que este documento llamaba «el cuerpo, el que mide `max_allowed_packet`» era
+   > **el blob escapado y nada más — el horario no estaba dentro**. Lo encontró
+   > `myvc-front-8e` remidiendo, y se reprodujo desde este árbol sobre el mismo
+   > `lleno.myvch`:
+   >
+   >     fichero .myvch                     128.779
+   >     cuerpo con `lecciones: []`         185.997   <- el que estaba escrito aquí
+   >     cuerpo con las 312 piezas          231.135
+   >     lo que cuestan las piezas          +45.064   (+24,2 %, ~144 bytes por pieza)
+   >
+   > **El factor es × 1,795, no × 1,45.** Las cinco cifras de la izquierda salen iguales
+   > medidas por separado en los dos repositorios; el cuerpo total baila **65 bytes**
+   > según cómo se nombre el sobre —`version` contra los campos sueltos de la §5.2—, y
+   > eso no toca ni el coste de las piezas ni el porcentaje.
+   >
+   > **Y la frase que había aquí era falsa, no imprecisa, así que se corrige en vez de
+   > matizarse.** Decía que *«un colegio más grande sube de aquí por más filas, no por un
+   > factor peor»*. Sube **por las dos cosas**: **las piezas escalan con las filas y el
+   > blob no**, así que cuantas más colocaciones tenga un colegio, mayor es la parte del
+   > cuerpo que no es el fichero — el factor **empeora** con el tamaño en vez de quedarse
+   > quieto. Ése era el error de fondo; el decimal era la consecuencia.
+   >
+   > **Cómo se produjo, que es lo que hay que llevarse:** un `[]` **no da error, se lee
+   > como «no había nada que meter» y encima produce un número creíble** — 1,45 veces el
+   > fichero es exactamente lo que uno esperaría del escapado—. Por eso aguantó, se
+   > propagó a dos repositorios y sólo cayó cuando alguien lo remidió en vez de releerlo.
+   > Es la misma forma que la §2 —«Clases de hoy» no enseña de más, no enseña nada— en su
+   > versión más limpia: **el conjunto vacío que se lee como respuesta**.
+   >
+   > **AVISO OPERATIVO: el arnés está arreglado A MEDIAS, y la mitad que falta va
+   > nombrada.** Comprobado el 2 sep desde este árbol, copia por copia:
+   >
+   > - `myvc_horarios/herramientas/llenar-el-horario.ts` — **arreglado** (`081cfab`). Ya
+   >   no arma su propia forma del cuerpo: mide con **`cuerpoDeSubida()`, el emisor de
+   >   verdad**, e imprime 231.135. **Coincide al byte con la reproducción independiente
+   >   hecha desde este repo**, que era la comprobación cruzada que faltaba — el arnés y
+   >   el emisor ya no se pueden separar porque son el mismo código.
+   > - `myvc_horarios.wt/importadores/…/llenar-el-horario.ts` — **NO arreglado**, sigue
+   >   con el `lecciones: []` en la línea 376. Ese carril tiene el fichero modificado sin
+   >   commitear y nadie lo pisa. **Quien corra el arnés desde ahí sigue obteniendo
+   >   185.997**, y lo obtendrá con toda la pinta de una medición fresca.
+   >
+   > **La mitad viva se nombra en vez de darlo por saldado, y es la misma regla que el
+   > propio fallo:** darla por cerrada entera sería otra vez leer «no queda nada» donde
+   > queda algo.
+   >
+   > **Y el remate, que es la lección entera: la frase falsa la imprimía el arnés, no
+   > este documento.** Escribía «un colegio con más docentes subiría de aquí, **pero ya
+   > no por un factor**» — o sea que **el número falso y la frase falsa salían del mismo
+   > fichero, y el número era lo que hacía creíble la frase**. Por eso la corrección
+   > tenía que ser el código y no nuestras dos citas: arreglando sólo este §10.2.2, **la
+   > siguiente corrida del arnés lo habría desmentido y habría ganado ella** — que es
+   > exactamente lo que pasó la primera vez. Hoy el arnés imprime los dos extremos y dice
+   > él mismo que × 1,41 vacío y × 1,795 lleno son la misma escala; y si no puede armar
+   > el cuerpo **sale con 1 y no enseña ninguna cifra**, en vez de enseñar una a medias.
+   > *Una cota alta que no incluye las piezas no es una cota alta.*
+   >
+   > **Y la otra cifra de este bloque —los 42.492— se remidió, y esa SÍ era buena.** Se
+   > sospechó de ella por encajar demasiado bien (× 1,41, otra vez el factor de blob
+   > solo), y el fichero lo dice: `colegio.myvch` tiene **0 colocaciones y 0 piezas**, así
+   > que ahí el `[]` no ocultaba nada porque no había nada que ocultar. Comprobado por
+   > `myvc-front-8e` y reproducido desde este árbol: 30.161 de fichero y **42.476** de
+   > cuerpo a la forma vieja — y los **74 bytes** que la separan de la forma buena son
+   > **los mismos 74** de la otra medición, o sea los dos campos de `version`. Que el
+   > mismo sobre cueste lo mismo en dos ficheros distintos es la comprobación cruzada de
+   > que el sobre es lo único que baila.
+   >
+   > **Así que esa cifra no es una cota alta ni una sospecha: es el SUELO**, el factor de
+   > un proyecto con nada colocado, la subida más barata que puede existir. Y con las dos
+   > la escala queda explicada entera, con dos números medidos en vez de con uno:
+   >
+   >     × 1,41 vacío  ·  × 1,795 lleno       — y lo que se mueve entre medias son las piezas
+   >
+   > Que es la demostración de la frase corregida de arriba: **el factor empeora con el
+   > llenado** porque las piezas escalan con las filas y el blob no. Leer el × 1,41 como
+   > «el factor» es el mismo error que leer el × 1,45 como «el cuerpo», sólo que por el
+   > otro extremo.
    >
    > **Y lo que hace que esa cifra valga no es el bucle que colocó el horario, es lo que
    > le pusieron detrás.** El pre-vuelo **declara que no mira las colocaciones** —eso es
@@ -806,8 +930,21 @@ siguen sin estar.
    > guardadas** —lo que abriría otro programa— y las 312 salen legales. Sin eso sería la
    > cota alta de un fichero que nadie puede usar.
 3. **¿Existe una ruta para DESCARGAR el proyecto de una versión, y con qué permiso?**
-   Sería la **cuarta**, o sea **554**, y no está pedida. Voto del front: el mismo
-   permiso que publica, no el que sube (§5.4).
+   Sería una **cuarta** ruta, y **su número se cuenta con `route:list` el día que se
+   autorice** — no está pedida. Voto del front: el mismo permiso que publica, no el que
+   sube (§5.4).
+
+   > **Aquí decía «o sea 554», y ese número se ha retirado a propósito el 2 sep 2026.**
+   > No se ha sustituido por otro: **una ruta que todavía no existe no puede llevar
+   > número**, porque el suyo depende de todo lo que entre por cualquier otro sitio
+   > antes que ella. El 554 se escribió cuando el router iba por 550 y quedó stale **dos
+   > veces en la misma noche** sin que nada se pusiera rojo — el número de rutas no lo
+   > comprueba ningún test (`CLAUDE.md`). Actualizarlo a la cifra buena no arreglaba
+   > nada: volvería a caducar con la siguiente ruta de la siguiente rama.
+   >
+   > Es la regla que este documento ya aplica a las tres autorizadas —*«se vuelve a
+   > contar ese día»*— llevada al sitio donde de verdad muerde: **lo que este repo no
+   > sabe mantener es un número predicho**.
 4. **Las siete columnas**: se derivan al marcar la oficial; falta decidir **qué las
    ata** —el test es obligatorio, la herramienta de `tools/` es opcional— y confirmar
    que el orden **no** se promete (§7).

@@ -120,6 +120,18 @@ leyendo el código. Cada una lleva su uso en la cabecera.
 > otra vez. Ahí lo que hay que comprobar es que **el detector detecta lo que dice
 > su nombre**.
 
+> **Antes de pasarle Pint a un fichero de `tools/`: correr `stan` detrás.** `tools/`
+> **no está en el script `pint` de `composer.json`** —nunca se ha formateado— y
+> **ninguna suite lo ejecuta**, así que aquí Pint puede romper en tiempo de ejecución
+> sin poner nada en rojo. Medido el 2 sep 2026 copiando los ficheros y pintando las
+> copias: `fully_qualified_strict_types` acorta
+> `$app->make(Illuminate\Contracts\Console\Kernel::class)` a `Kernel::class` y deja el
+> `use` **debajo** de esa línea; PHP registra los `use` según los va compilando, así que
+> el de abajo no cuenta y sale `Target class [Kernel] does not exist` **antes de la
+> primera consulta**. Pasa en **ocho de los doce** que arrancan Laravel así (los cuatro
+> que se salvan ya tienen el `use` arriba). Lo cazó larastan —`class.notFound`—, que es
+> el único que mira esta carpeta.
+
 | Herramienta | Contesta |
 |---|---|
 | `cobertura-de-rutas.py` | qué rutas tienen la respuesta comprobada por algún test |
@@ -137,6 +149,7 @@ leyendo el código. Cada una lleva su uso en la cabecera.
 | `consultas-en-bucle.py` | en qué profundidad de bucle vive cada consulta — **ordena candidatos, no mide coste**; trae su propio control (`--control`) |
 | `guardas-sin-respaldo.py` | qué métodos dependen enteros del middleware de su ruta — **ordena candidatos, y se equivocó en las dos direcciones**: cada fila se lee |
 | `verdad-laxa-que-escribe.py` | dónde una cadena cualquiera del cliente vale por «sí» **y gobierna una escritura** — 21 de 980 `if`, tres con consecuencia |
+| `prevuelo-del-horario.php` | si los datos de un colegio sirven para cuadrar un horario — **la rejilla es un parámetro** (`--lecciones`), y con la de 6×5 que supuso la v1 el docente de 31 h era imposible |
 
 Y una que **no** está en `tools/` y contesta la pregunta contraria:
 `tests/Barrido/SuperficieDeUnTokenTest.php` golpea la API entera con un token y
