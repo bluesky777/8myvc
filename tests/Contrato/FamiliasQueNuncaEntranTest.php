@@ -126,14 +126,33 @@ class FamiliasQueNuncaEntranTest extends CasoDeContrato
      * escritura en una familia con menos de dos guards no la mira ningún candado
      * y aquí sí se ve.
      *
-     * **Y se cuenta por el VERBO, que no es la operación.** Al menos tres de las
-     * 23 sólo leen: `PUT api/publicaciones/ultimas` es el formulario público de
-     * prematrícula —va por PUT desde 2024 y `RutasPreLoginTest` lo explica—, y
+     * **Y se cuenta por el VERBO, que no es la operación.** Al menos **cinco** de
+     * las 25 sólo leen: `PUT api/publicaciones/ultimas` es el formulario público
+     * de prematrícula —va por PUT desde 2024 y `RutasPreLoginTest` lo explica—,
      * `POST api/tardanzas/login/traer-datos` y `…/traer-datos-ausencias` traen
-     * datos, como dice su nombre. Se quedan dentro **a propósito**: quitarlas a
-     * mano convertiría un recuento mecánico en una lista curada, y entonces el
-     * día que una de ellas empiece a escribir de verdad no lo diría nadie. Lo que
-     * hace falta es que esté escrito aquí, no que el número mienta menos.
+     * datos, como dice su nombre, y desde el 1 sep 2026 **`PUT
+     * api/calendario/mes` y `PUT api/calendario/proximos`**, que leen el
+     * calendario del mes. Se quedan dentro **a propósito**: quitarlas a mano
+     * convertiría un recuento mecánico en una lista curada, y entonces el día que
+     * una de ellas empiece a escribir de verdad no lo diría nadie. Lo que hace
+     * falta es que esté escrito aquí, no que el número mienta menos.
+     *
+     * ## Las dos del calendario: por qué SUBEN el número y aun así están bien
+     *
+     * El aviso de abajo dice que si sube *«hay una ruta nueva que ningún
+     * mecanismo va a preguntar de quién es la fila que toca»*, y de estas dos
+     * **eso es falso, pero no por donde parece**. No es que tengan guard —no lo
+     * tienen, y no deben tenerlo: el calendario del colegio es de todo el mundo,
+     * igual que `calendario/this-year`—. Es que **preguntan de quién es cada fila
+     * dentro del método**, con el token: un evento que no le toca a quien pregunta
+     * no viaja. Lo fija `CalendarioMesTest`, caso a caso y por tipo de usuario.
+     *
+     * O sea que la familia `calendario/*` sigue teniendo **0 de 7** con guard y
+     * sigue sin entrar nunca en el candado de familia, que es exactamente lo que
+     * este centinela existe para dejar por escrito. Lo que cambia es que ahora
+     * dos de esas siete **sí** tienen quien les pregunte, y son las únicas.
+     * `crear-evento`, `guardar-evento` y `eliminar-evento` siguen defendiéndose
+     * con su propio `if` de personal, y `sincronizar-cumples` también.
      */
     public function test_cuantas_escrituras_viven_donde_el_candado_no_llega(): void
     {
@@ -159,7 +178,7 @@ class FamiliasQueNuncaEntranTest extends CasoDeContrato
 
         sort($escrituras);
 
-        $this->assertCount(23, $escrituras,
+        $this->assertCount(25, $escrituras,
             "Cambió cuántas escrituras viven en familias que el candado de familia no mira nunca.\n".
             "Si SUBIÓ, hay una ruta nueva que ningún mecanismo va a preguntar de quién es la fila que toca.\n".
             "Si BAJÓ, alguien puso un guard o la familia llegó a dos hermanas guardadas y entró en el candado: bien, y hay que actualizar el número.\n".

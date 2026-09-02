@@ -8,6 +8,89 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
+**Última actualización: 1 sep 2026, noche — LA ÉPICA DEL CALENDARIO: PASOS 1, 2 Y 3 HECHOS EN
+`feat/calendario`, SIN FUSIONAR Y SIN DESPLEGAR** · migración + `PUT calendario/mes` y
+`PUT calendario/proximos` + guardado con cuerpo, recordatorio y destinatarios · **dos rutas nuevas**
+· detalle completo en [22-calendario.md](22-calendario.md) · lo coordina la sesión de front
+`myvc-front-14`; la pantalla la escribe `myvc-front-08`, con el contrato confirmado con los dos
+
+> **Los cumpleaños dejan de ser filas y pasan a calcularse al pedir el mes.**
+> `putSincronizarCumples()` **sella el año** —los 507 cumpleaños de la base caen todos en 2025 y en
+> 2026 no hay ninguno—, **congela la matrícula** y **empieza por un `DELETE` sin `WHERE` de año**.
+> Los tres son el mismo fallo: estado derivado que se guarda. **Las 507 filas NO se borran todavía**
+> (es el paso 5, y son la red hasta que la pantalla nueva funcione), así que `calendario/mes` las
+> excluye para no pintar cada cumpleaños dos veces.
+
+> ### EL HALLAZGO QUE NO BUSCABA NADIE: «no tocar `this-year`» ERA LO QUE LA TOCABA
+>
+> El encargo insistía en que `calendario/this-year` se quedara **exactamente** como está.
+> `putThisYear()` hace `SELECT * FROM calendario`, así que **las tres columnas nuevas de la migración
+> se colaron solas en su respuesta** — sin escribir una línea en esa ruta. Y no era una: `grep` sobre
+> `app/` da **siete** lectores con `*`, dos de `putThisYear()` y **cinco de `ChangeAskedController`**.
+>
+> **Se vio porque movió dos instantáneas**, no porque nadie lo pensara. Y **sólo una de las cinco de
+> `ChangeAsked` está cubierta por el muestreo: las otras cuatro habrían llegado a producción
+> calladas** — por eso el arreglo se hizo contando la población entera con `grep`, y no fichero a
+> fichero según lo que se pusiera rojo. La lista vive ahora en **un solo sitio**
+> (`CalendarioController::COLUMNAS`): con siete copias, la próxima columna entra por las seis que
+> alguien olvide.
+>
+> Es lo mismo que se pagó el 24 ago en los cuatro `SELECT *` sobre `matriculas`. **La forma general,
+> que es lo que se hereda: añadir una columna a una tabla es tocar todas las respuestas que la leen
+> con `*`, y una épica puede prometer «esta ruta no se toca» y romperla sin tocarla.**
+
+> ### DOS CORRECCIONES AL ENCARGO, Y LA PRIMERA HABRÍA ABIERTO 37 EVENTOS INTERNOS
+>
+> 1. **«Sin filas de destinatarios = público» rompía `solo_profes`.** Los eventos internos que ya
+>    existen no tienen filas —la tabla es nueva— y la aplicación vieja y `myvc_flutter` van a seguir
+>    creándolos así mientras los quince no estén desplegados. Medido por la coordinación del front:
+>    de los 139 eventos manuales vivos, **37 tienen `solo_profes = 1`**, y con la regla literal **el
+>    día del despliegue esos 37 se vuelven públicos, sin ningún error**. La regla que entra: sin filas
+>    y `solo_profes=0` → público; **sin filas y `solo_profes=1` → sólo personal**; con filas → mandan
+>    las filas.
+> 2. **El personal lo ve todo.** El encargo lo filtraba como a los demás; con eso **el docente que
+>    acaba de crear «Salida de 7º» no la vería en su propio calendario**. Los destinatarios existen
+>    para no llenar de ruido a las familias, no para esconderle el calendario al colegio.
+
+> ### LA DECISIÓN QUE ESPERA, Y ES LA ÚNICA QUE CAMBIA LO QUE VE UN COLEGIO
+>
+> **Los cumpleaños de los alumnos RETIRADOS siguen saliendo.** `putSincronizarCumples()` une
+> `matriculas` sin mirar `estado`, así que las 507 filas de hoy ya los incluyen, y se ha mantenido la
+> paridad **a propósito** para no cambiar quién sale por la puerta de atrás. **No es un matiz:** en el
+> seed hay **59 `RETI` contra 65 `MATR`**. Si el colegio no quiere el cumpleaños de quien ya no está,
+> se toma añadiendo `m.estado IN (...)` en `cumplesDelRango()`. Es de Joseth.
+
+> ### DOS INSTRUMENTOS QUE FALLARON, Y LOS DOS SON MÍOS
+>
+> 1. **Escribí en el árbol principal creyéndome en mi worktree.** Un `cd` al principal en el mismo
+>    comando que lanzaba la suite, **el directorio de trabajo persiste entre llamadas**, y tres
+>    comandos después un script con ruta relativa aterrizó allí. Es literalmente el incidente del 31
+>    ago —«estado que persiste donde no lo estás mirando»— y **la regla que ese incidente dejó
+>    escrita, rutas absolutas, es la que no seguí**. Revertido con `git checkout --` de ese fichero
+>    solo, comprobado después, y contado a la otra sesión de backend antes de que lo viera ella.
+> 2. **Atribuí por descarte.** Vi dos documentos sin commitear en el principal, vi que `8myvc-ab`
+>    había desaparecido de `ListAgents`, y **junté las dos cosas sin comprobar ninguna**: avisé de
+>    «huérfanos de una sesión muerta». Eran de `8myvc-2d`, viva y escribiéndolos. Lo corrigió ella
+>    con el dato que yo no tenía —había corrido `git status` en limpio justo antes—. **Que una sesión
+>    no salga en `ListAgents` demuestra que ella no está, no que el trabajo sin commitear sea suyo.**
+>    Mi aviso era más peligroso que el error que venía a contar: le habría dicho a la siguiente sesión
+>    que «rescatara» documentos vivos.
+>
+> Y una tercera, que sí funcionó y por eso se cuenta: **el centinela de
+> `FamiliasQueNuncaEntranTest` saltó con las dos rutas nuevas** (23 → 25 escrituras en familias que
+> el candado no mira). Está escrito para que subir el número sea **una decisión escrita y no un
+> ajuste**, así que lo que se hizo fue explicar en su docblock por qué esas dos están bien —no tienen
+> guard y no deben tenerlo, pero **preguntan de quién es cada fila dentro del método**— en vez de
+> cambiar el 23 por un 25 y seguir.
+
+> ### AL FUSIONAR — hay OTRA sesión moviendo los mismos snapshots
+>
+> `8myvc-2d` añade **dos rutas** en el árbol principal (548 y 549) y esta épica añade **otras dos**.
+> Acordado: **fusiona ella primero y remido yo**. Con las cuatro dentro son **551**, y hay que mover
+> `rutas.json`, `guards-por-ruta.json`, `guard-por-familia.json`, **más** los dos de
+> `FamiliasQueNuncaEntran` y la cifra de `CLAUDE.md`. **Los snapshots se borran y se regeneran, no se
+> resuelven a mano.**
+
 **Última actualización: 1 sep 2026, tarde — LA ÉPICA DEL BOLETÍN INDEPENDIENTE ESTÁ TERMINADA EN
 ESTE REPO: LAS SEIS FASES ESTÁN EN `main`** · **`Tests: 1736 passed (13495 assertions)`,
 `Duration: 619.55s`, `exit=0`**, cero rojos y cero saltados · pint **no reescribió nada** ·

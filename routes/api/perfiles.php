@@ -126,5 +126,12 @@ Route::get('publicaciones/ultimas', [PublicacionesController::class, 'getUltimas
 Route::put('calendario/crear-evento', [CalendarioController::class, 'putCrearEvento']);
 Route::put('calendario/eliminar-evento', [CalendarioController::class, 'putEliminarEvento']);
 Route::put('calendario/guardar-evento', [CalendarioController::class, 'putGuardarEvento']);
+
+// El mes que pinta la pantalla nueva, con los cumpleaños CALCULADOS y filtrado
+// por el token: un evento que no le toca a quien pregunta no viaja. Ninguna de
+// las dos lleva guard propio a propósito —el calendario del colegio es de todo
+// el mundo—; lo que se filtra son las filas. Ver el docblock de `putMes()`.
+Route::put('calendario/mes', [CalendarioController::class, 'putMes']);
+Route::put('calendario/proximos', [CalendarioController::class, 'putProximos']);
 Route::put('calendario/sincronizar-cumples', [CalendarioController::class, 'putSincronizarCumples']);
 Route::put('calendario/this-year', [CalendarioController::class, 'putThisYear']);
