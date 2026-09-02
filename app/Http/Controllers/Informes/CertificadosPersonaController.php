@@ -160,7 +160,12 @@ class CertificadosPersonaController extends Controller {
 
 			
 			
-			$consulta = 'SELECT r.*, m.materia, m.alias FROM recuperacion_final r 
+						// **Las ocho de `recuperacion_final` nombradas, y no el asterisco**, por lo mismo
+			// que la de `notas_finales`: los metadatos de acta que A9 le añada no salen
+			// impresos hasta que alguien los nombre aquí. Y ésta es la que ningún snapshot
+			// veía: en el seed no hay ni una fila de recuperación, así que la forma guardada
+			// dice `[]`. Por eso su test **inserta una**.
+			$consulta = 'SELECT r.id, r.alumno_id, r.asignatura_id, r.year, r.nota, r.updated_by, r.created_at, r.updated_at, m.materia, m.alias FROM recuperacion_final r 
 				INNER JOIN asignaturas a ON a.id=r.asignatura_id and a.deleted_at is null
 				INNER JOIN materias m ON m.id=a.materia_id and m.deleted_at is null
 				WHERE alumno_id=? and year=?';
@@ -306,7 +311,19 @@ class CertificadosPersonaController extends Controller {
 
 			$alumno->total_creditos += $asignatura->creditos;
 						
-			$consulta = 'SELECT nf.*, CAST(nf.nota AS DOUBLE) AS nota, CAST(nf.nota AS DOUBLE) as DefMateria, aus.cantidad_ausencia, tar.cantidad_tardanza
+						// **Las once columnas de `notas_finales` nombradas, y no el asterisco** — 27 §4.
+			// Con `nf` en asterisco, cada columna nueva de la tabla sale **sola** en este
+			// informe el día que corra una migración, con este mismo código y sin que nadie
+			// haya decidido enseñarla: las tres de la nivelación —`nota_original`,
+			// `nivelada_at`, `nivelada_por`— habrían llegado al front en la ventana entre el
+			// despliegue de A3 y la impresión del par, que son semanas. Es la guarda que ya
+			// llevan `notas/detailed` (NotasController:52) y `certificados-persona::putIndex`.
+			//
+			// `nota` va **una sola vez**, en DOUBLE: antes viajaba dos veces —la cruda del
+			// asterisco y la casteada— y en PDO gana la última, que es ésta. Por eso la lista
+			// no la repite y la respuesta no cambia ni un campo.
+			$consulta = 'SELECT nf.id, nf.alumno_id, nf.asignatura_id, nf.periodo_id, nf.periodo, CAST(nf.nota AS DOUBLE) AS nota, CAST(nf.nota AS DOUBLE) as DefMateria,
+						nf.recuperada, nf.manual, nf.updated_by, nf.created_at, nf.updated_at, aus.cantidad_ausencia, tar.cantidad_tardanza
 						FROM notas_finales nf
 						INNER JOIN periodos p on p.year_id=:year_id and p.id=nf.periodo_id '.$sqlPeriodo.' and p.deleted_at is null
 						left join (
