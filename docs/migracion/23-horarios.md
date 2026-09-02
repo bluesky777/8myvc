@@ -749,8 +749,37 @@ siguen sin estar.
    endpoints en los quince colegios. Mientras tanto el importador lo declara como **no
    traído y nombrado** y **cuenta las asignaciones que recibió**: si un colegio espera 134
    y recibe 130, el número que falta es la señal aunque nadie sepa cuáles son.
-2. **El blob del proyecto**: ¿en la fila o en `storage/`? ¿Con qué tope? Nadie ha
-   medido uno todavía porque no existe ninguno (§5.1).
+2. **El blob del proyecto: dónde vive y con qué tope.** **El «dónde» ya casi no es
+   pregunta: cabe en la fila.** Medido el 2 sep 2026 — `max_allowed_packet` del docker
+   es **67.108.864 bytes (64 MB)**, y el cuerpo entero de una subida real son **42.492
+   bytes**: el **0,06 %**. Aun con el proyecto completo estimado, el 0,3 %.
+
+   > **Este documento avisaba de `max_allowed_packet` como «el que corta primero», y ese
+   > aviso estaba mal.** Sobra por tres órdenes de magnitud. Se retira con su medición
+   > delante, porque **avisar de un límite que no aprieta es la clase de precaución que
+   > hace tomar una decisión peor** —comprimir, partir el envío, sacarlo a `storage/`—
+   > por un problema que no existe.
+   >
+   > Con dos salvedades: **64 MB es el docker, no los quince cPanel**, donde nadie ha
+   > medido; el peor caso plausible es MySQL 5.7 con 4 MB por defecto, y ahí 210 KB
+   > siguen siendo el 5 %, así que la decisión aguanta sin más medición. Y el que se
+   > quedaría corto en un hosting compartido no sería el paquete sino `post_max_size` de
+   > PHP, que suele venir en 8 M y también sobra.
+
+   **La regla de cálculo no es «el fichero más un poco»: es el fichero × 1,4**, y lo
+   midió la sesión del front. El coste es **el escapado**: meter el `.myvch` como cadena
+   dentro de un JSON duplica cada tabulador y cada comilla — 30.161 bytes de fichero se
+   convierten en 42.492 de cuerpo, un **41 %** más.
+
+   **Queda abierto el tope**, y una salida escrita y **no aplicada**: comprimir y mandar
+   en base64 da la vuelta al factor. **No se hace hoy y la razón pesa más que el 1,4**:
+   un blob comprimido **no se puede leer con un `SELECT`** el día que alguien necesite
+   mirar por qué una versión salió mal. Se aplica si un proyecto real llega a medir en
+   megas.
+
+   > Y las tres cifras de arriba **siguen siendo un suelo**: ese proyecto no lleva
+   > disponibilidades ni colocaciones, que son lo que crece y las pone la rejilla, que
+   > aún no existe.
 3. **¿Existe una ruta para DESCARGAR el proyecto de una versión, y con qué permiso?**
    Sería la **cuarta**, o sea **554**, y no está pedida. Voto del front: el mismo
    permiso que publica, no el que sube (§5.4).
