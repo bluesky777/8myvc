@@ -15,6 +15,25 @@ larastan nivel 7 **`[OK] No errors`** · **549 rutas** —548 y 549 son las dos 
 sobre `1cb7092`— y sin desplegar** ·
 coordina `8myvc-ab`
 
+> ### Nivelaciones — rama `niv/backend`, 2 sep 2026 (sesión A del reparto en tres)
+>
+> Joseth decidió el 2 sep las cuatro preguntas de `myvc_front/PLAN-NIVELACIONES-Y-RUBRICAS.md`
+> y el trabajo se repartió en tres sesiones (`myvc_front/TAREAS-NIVELACIONES-Y-RUBRICAS.md`):
+> **A** backend de nivelación (esta rama), **B** front, **C** rúbricas. Lo primero de A fue
+> **el contrato**, porque B construye contra un doble y estaba parada esperándolo:
+> [22-nivelaciones.md](22-nivelaciones.md). **Cambiar ese documento es avisar a B.**
+>
+> Lo que fija: `PUT`/`DELETE notas/nivelar/{id}`, `PUT notas/nivelar/lote` con los tres
+> desenlaces de `notas/lote`, los seis campos nuevos de `notas/detailed` y
+> `PUT years/regla-nivelacion`. **Cuatro rutas nuevas cuando entren**, y `notas/update` y
+> `notas/lote` **no cambian ni una línea**: los usa `myvc_flutter`, que es una sola app para
+> los quince. Dos desviaciones del plan, escritas allí: la columna `nota_nivelacion` (bajo
+> `topada` el 90 que queda en 70 desaparecería) y **403** donde el guard viejo contesta 400.
+>
+> Siguiente en este carril: A1 (auditoría de notas: `putUpdate` y `putLote` **ya la
+> escriben**; falta medir `deleteDestroy`, `putSubunidad` y la nota rápida) → A3 migración →
+> A4 la regla en un único sitio → A5 + A6 endpoints y centinela → A7 … A10.
+
 > **Esa cifra va con sus coordenadas pegadas y así se copia o no se copia: medida el 1 sep 2026,
 > desde la raíz, desasida, sobre `1cb7092`** —con los cuatro merges de hoy dentro—. Es la primera
 > corrida que describe este `main`: las de los lotes miden **su árbol**, y una suite de antes de un

@@ -1,0 +1,496 @@
+# 22 — Nivelaciones: el contrato
+
+**Escrito el 2 sep 2026**, el primer día del reparto en tres sesiones que describe
+`myvc_front/TAREAS-NIVELACIONES-Y-RUBRICAS.md` (§3: *«lo primero que hace A, antes de
+escribir una línea de implementación, es publicar el contrato»*). El *qué* y el *por qué*
+están en `myvc_front/PLAN-NIVELACIONES-Y-RUBRICAS.md`, decidido con Joseth ese mismo día;
+esto es **la forma exacta de lo que el backend va a contestar**, para que el front de
+nivelación (sesión B) construya entero contra un doble sin esperar a que exista el código.
+
+> **Este documento es el contrato, no una descripción del código.** Mientras no haya
+> implementación, lo que dice aquí es lo que va a haber; cuando la haya, un test de contrato
+> por endpoint lo ata. **Cambiarlo es avisar**: cualquier desviación se escribe aquí primero
+> y se le dice a la sesión B, nunca se cambia en el controlador y se deja que el doble se
+> entere al integrar.
+>
+> Las formas de abajo **no se inventaron: se calcaron** de `PUT notas/update/{id}` y de
+> `PUT notas/lote`, que son los dos endpoints que el front ya sabe leer. Donde este contrato
+> se parece a ellos es a propósito, y donde se aparta lo dice.
+
+---
+
+## §0 — Lo que ya está decidido y aquí no se re-litiga
+
+Las nueve decisiones de la §4 del plan. Las que gobiernan este documento:
+
+| | Decisión | Consecuencia en el contrato |
+|---|---|---|
+| 5 | **`notas.nota` sigue siendo la vigente**; la nueva columna es `nota_original` | Ningún lector existente cambia. Los campos nuevos son **añadidos**, nunca renombrados |
+| 6 | **La regla se aplica al escribir** | El backend calcula qué queda y lo devuelve; el front pinta, **no calcula** —salvo la previsualización del diálogo, §1.4— |
+| 7 | `nota_original` es **editable** | «Corregir la valoración inicial» sigue yendo por `notas/update`, que es corrección, no nivelación |
+| 8 | Nivelar usa `periodos.profes_pueden_nivelar` | La guarda es la que hoy tiene `pueden_modificar_definitivas`, y **es por periodo de la nota**, no del token |
+| 3 | **Un intento por indicador** | Repetir el `PUT` sobre una nota ya nivelada **sustituye** la nivelación, no añade otra (§1.3) |
+
+Y la regla de despliegue que decide la forma de todo: **`notas/update` y `notas/lote` no
+cambian ni una línea de comportamiento** (§6.1 del reparto). `myvc_flutter` es una sola app
+para los quince colegios y una versión vieja convive con este backend durante meses. Por eso
+nivelar son **endpoints nuevos**, y por eso el test centinela de esos dos endpoints se
+escribe **con** los nuevos, no después.
+
+---
+
+## §1 — `PUT notas/nivelar/{id}` — registrar la nivelación de un indicador
+
+**Guard de ruta:** `auth.token` + `auth.personal`, como toda la familia `notas/`.
+**Guard de método:** `profes_pueden_nivelar` **del periodo de la nota** (resuelto por
+`PeriodoDeLaFila::deNota`, como hace `notas/update` con el suyo), que es lo que ya comprueba
+`User::pueden_modificar_definitivas`. Un superusuario pasa siempre; un profesor pasa si el
+interruptor de ese periodo está encendido; nadie más pasa.
+
+### §1.1 El cuerpo
+
+```json
+PUT api/notas/nivelar/8811
+{
+  "nota_nivelacion": 90,
+  "observacion": "Taller de refuerzo y sustentación oral, 28 ago",
+  "fecha": "2026-08-28"
+}
+```
+
+| Campo | Tipo | Obligatorio | Qué es |
+|---|---|---|---|
+| `nota_nivelacion` | entero | **sí** | Lo que el estudiante obtuvo **en la superación de debilidades**. Tiene que caber en la escala del colegio (`EscalaDeNotas`), igual que en `notas/update` |
+| `observacion` | cadena ≤ 255 o `null` | no | La actividad. Va a `notas.nivelacion_obs`. Vacía o ausente = `null` |
+| `fecha` | `YYYY-MM-DD` o `YYYY-MM-DD HH:MM:SS`, o `null` | no | La fecha **del acta**: cuándo se hizo la nivelación. Ausente = ahora (Bogotá). Es la que va a `nivelada_at`; **la auditoría lleva su propia hora de servidor aparte**, así que datar el acta al 28 no borra que se registró el 2 |
+
+**Lo que NO lleva el cuerpo**: ni `alumno_id`, ni `asignatura_id`, ni `periodo_id`. La nota
+sabe de quién es y de qué periodo; pedirlo al cliente sería un id por el cuerpo que nadie
+comprueba (`tools/identificadores-del-cuerpo.py`), y es la misma decisión que tomó
+`notas/update` al quitarle `asignatura_id`.
+
+### §1.2 La respuesta cuando va bien — `200`
+
+```json
+{
+  "id": 8811,
+  "alumno_id": 4021,
+  "subunidad_id": 1187,
+  "nota": 70,
+  "nota_original": 55,
+  "nota_nivelacion": 90,
+  "nivelada_at": "2026-08-28 00:00:00",
+  "nivelada_por": 17,
+  "nivelada_por_username": "mgarcia",
+  "nivelacion_obs": "Taller de refuerzo y sustentación oral, 28 ago",
+  "updated_at": "2026-09-02 10:41:07",
+  "regla_aplicada": {
+    "regla": "topada",
+    "nota_minima": 70,
+    "explicacion": "Regla del colegio: la nivelación se topa en la mínima aprobatoria (70). Queda 70."
+  },
+  "definitiva": {
+    "alumno_id": 4021,
+    "asignatura_id": 233,
+    "periodo_id": 41,
+    "nota": 71.25,
+    "manual": false,
+    "recuperada": false
+  }
+}
+```
+
+Campo a campo, y por qué está:
+
+- **`nota`** es **la vigente**, ya con la regla aplicada. Es lo que va al boletín y lo que la
+  celda pinta en grande. Bajo `topada` no coincide con `nota_nivelacion`: ese es el caso
+  normal, no un error.
+- **`nota_original`** es lo que había antes de nivelar. **Nunca es `null` en esta respuesta.**
+- **`nota_nivelacion`** se guarda y se devuelve **aunque la regla no la deje en `nota`**. El
+  plan (§3.2) no tenía esta columna y hacía falta: bajo `topada`, un 90 que queda en 70
+  desaparecería del sistema, y bajo `mayor`, un 40 que no supera al 55 no dejaría rastro de
+  qué sacó el estudiante. El art. 16 del 1290 pide el «estado de la evaluación con sus
+  novedades»; una nivelación cuyo resultado no está escrito en ninguna parte no es una
+  novedad registrada. **Es una columna más en la migración (A3), y va avisada al plan.**
+- **`nivelada_at` / `nivelada_por` / `nivelacion_obs`** son el acta. `nivelada_por` es el id
+  de `users` (el `user_id` del token, el mismo que va en `updated_by`), y
+  **`nivelada_por_username`** viene al lado para que el pie del diálogo no tenga que ir a
+  buscarlo: es la misma convención que `nota_final.updated_by_username` en `notas/detailed`.
+- **`regla_aplicada`** lleva la regla del año **tal como estaba al escribir**, la mínima con la
+  que se calculó y una frase hecha. La frase es para el mensaje de confirmación; el diálogo
+  la previsualiza antes de guardar con la misma tabla de la §1.4, y **después de guardar
+  pinta la del servidor**, no la suya.
+- **`definitiva`** tiene **exactamente la forma de `notas/update`** (`notas-update.json`), y
+  por la misma razón: la planilla repinta la columna de definitiva sin otra petición. Puede
+  venir **`null`** con el 200 —cuando el alumno no tiene fila en `notas_finales`—, igual que
+  allí. Y **si trae `manual: true` o `recuperada: true`, esta nivelación NO la movió**: es la
+  interacción de la §3.4 del plan, y la pantalla lo avisa **antes** de guardar leyendo esos
+  mismos dos booleanos de `nota_final` en `notas/detailed` (§3), no después leyendo esto.
+- **No vienen** `created_by`, `deleted_*`, `created_at` ni `history_id`, que `notas/update` sí
+  devuelve. Aquél devuelve la fila entera porque siempre lo hizo y quitarle una clave a cuatro
+  clientes es un cambio de contrato; éste nace hoy y devuelve lo que la pantalla usa.
+
+### §1.3 Repetir el `PUT` sobre una nota ya nivelada
+
+**Sustituye la nivelación; no la apila.** Es la decisión 3 del plan («un intento por
+indicador») llevada al endpoint, y lo que hace que un docente que tecleó 80 queriendo
+teclear 85 no tenga que borrar y volver a nivelar:
+
+- `nota_original` **se conserva** —no se pisa con la `nota` vigente, que ya era nivelada—.
+- La regla se aplica otra vez **desde `nota_original`** con la `nota_nivelacion` nueva.
+- `nivelada_at`, `nivelada_por`, `nivelacion_obs` y `nota_nivelacion` se reescriben.
+- La auditoría registra **una línea nueva** con el valor anterior y el nuevo, así que la
+  primera nivelación no se pierde: deja de estar en `notas` y pasa a estar en `auditoria`,
+  que es donde viven los cambios.
+
+Responde igual que la primera vez, `200` con la forma de la §1.2.
+
+### §1.4 Las tres reglas, y qué queda en `nota`
+
+Es la tabla de la §3.5 del plan, con `nota_minima_aceptada` del año (**se lee como entero**;
+la columna es `varchar` y vale `'70'` por defecto). El front la usa para **previsualizar**
+en el diálogo; el backend la aplica **al escribir** y lo que manda en `regla_aplicada` manda.
+
+| `regla` | qué queda en `nota` | 55 → niveló 90 | 55 → niveló 40 | 55 → niveló 65 |
+|---|---|---|---|---|
+| `topada` *(defecto)* | si `nivelacion ≥ mínima`: **`mínima`**; si no: `nivelacion` tal cual | **70** | **40** | **65** |
+| `mayor` | `max(original, nivelacion)` | **90** | **55** | **65** |
+| `reemplaza` | `nivelacion`, sin comparar | **90** | **40** | **65** |
+
+> Ojo con `topada` y una nivelación **por debajo** de la original —el 55 que niveló 40—: la
+> tabla del plan dice *«si no aprueba, la nivelación tal cual»*, y eso es lo que hace: queda
+> **40**. No se corrige por detrás porque la regla la escribe el SIEE, no el sistema; si un
+> colegio quiere «nunca por debajo de la original», eso es `mayor`. El diálogo enseña el
+> resultado **antes** de guardar precisamente para que el docente lo vea.
+
+Las frases de `regla_aplicada.explicacion`, para que el doble las tenga iguales:
+
+| `regla` | `explicacion` |
+|---|---|
+| `topada` | `Regla del colegio: la nivelación se topa en la mínima aprobatoria (70). Queda 70.` |
+| `mayor` | `Regla del colegio: queda la mayor de las dos. Queda 90.` |
+| `reemplaza` | `Regla del colegio: la nivelación reemplaza la valoración inicial. Queda 40.` |
+
+### §1.5 Lo que contesta cuando no va bien
+
+Códigos correctos, porque es código nuevo (regla del repo), **aunque los endpoints viejos
+de al lado contesten 400 para todo**. El cuerpo del error es el de Laravel:
+`{"message": "…"}`.
+
+| Código | Cuándo | `message` |
+|---|---|---|
+| **403** | El interruptor `profes_pueden_nivelar` del periodo de la nota está apagado, o quien llama no es profesor ni superusuario | `No tienes permiso para nivelar en este periodo.` |
+| **404** | No hay nota con ese id, está borrada, o su indicador o su unidad ya no están | `No existe la nota, o su indicador ya no está.` |
+| **422** | `nota_nivelacion` ausente o no numérica | `Hace falta nota_nivelacion.` |
+| **422** | `nota_nivelacion` fuera de la escala del colegio | el motivo de `EscalaDeNotas::motivoSiNoCabe`, tal cual |
+| **422** | `observacion` de más de 255 | `La observación no puede pasar de 255 caracteres.` |
+| **422** | `fecha` que no se puede leer, o futura | `La fecha de la nivelación no es válida.` |
+
+> **El 403 y no el 400 del guard viejo.** `User::pueden_modificar_definitivas` contesta 400
+> hoy y **no se toca** —lo usan cinco métodos de definitivas que Flutter llama—. Los
+> endpoints de nivelar comprueban lo mismo y contestan 403. El front que ya distingue
+> «400 del guard» en `notas/lote` no tiene que aprender nada nuevo: aquí ese caso es 403.
+
+**Nada se escribe en ningún error.** Ni en `notas`, ni en `auditoria`, ni en `bitacoras`: la
+comprobación de permiso y las de forma van **antes** de la primera escritura, y el 404 de la
+nota también.
+
+### §1.6 Lo que deja escrito, para quien lo lea después
+
+- `notas`: `nota`, `nota_original`, `nota_nivelacion`, `nivelada_at`, `nivelada_por`,
+  `nivelacion_obs`, `updated_at`, `updated_by`.
+- `auditoria`: una línea con acción **`nivelar`** (vocabulario nuevo, al lado de
+  `crear/editar/borrar/restaurar/denegado`), entidad `nota`, `de` = la vigente anterior,
+  `a` = la vigente nueva, y en `resumen` la nivelación tecleada y la regla
+  (`nivelación 90, regla topada`). **Es una acción distinta de `editar` a propósito**: la
+  §1.2 del plan es que corrección y nivelación no se confundan, y la pantalla de auditoría
+  filtra por acción.
+- `bitacoras`: **una línea igual que la de `notas/update`** (`"Al"`, `"Nota"`, valor viejo y
+  nuevo). Es lo que lee el historial de la app hoy, y una nivelación no puede dejar un rastro
+  distinto del que deja teclear la nota.
+- La definitiva del par (asignatura, periodo) de ese alumno **se recalcula** con
+  `DefinitivasDeAsignatura::recalcularPorNota`, que respeta `manual` y `recuperada`.
+
+---
+
+## §2 — `DELETE notas/nivelar/{id}` — quitar una nivelación
+
+Mismos guards que el `PUT`. **Es la vuelta atrás del §6.5 del reparto**: el docente que
+niveló cuando quería corregir.
+
+Sin cuerpo. Deja la nota como estaba antes de nivelar:
+
+- `nota` ← `nota_original`.
+- `nota_original`, `nota_nivelacion`, `nivelada_at`, `nivelada_por`, `nivelacion_obs` ← `null`.
+- `updated_at` / `updated_by` se mueven, porque la fila cambió.
+- Auditoría: acción **`quitar_nivelacion`**, entidad `nota`, `de` = la vigente nivelada,
+  `a` = la original restaurada. Bitácora igual que arriba.
+- La definitiva se recalcula, con el mismo respeto a `manual` / `recuperada`.
+
+**Respuesta `200`, con la misma forma que el `PUT`** —para que el front tenga **un solo tipo**
+para las dos—, con los cinco campos del acta en `null`:
+
+```json
+{
+  "id": 8811,
+  "alumno_id": 4021,
+  "subunidad_id": 1187,
+  "nota": 55,
+  "nota_original": null,
+  "nota_nivelacion": null,
+  "nivelada_at": null,
+  "nivelada_por": null,
+  "nivelada_por_username": null,
+  "nivelacion_obs": null,
+  "updated_at": "2026-09-02 10:52:30",
+  "regla_aplicada": null,
+  "definitiva": { "alumno_id": 4021, "asignatura_id": 233, "periodo_id": 41, "nota": 62.5, "manual": false, "recuperada": false }
+}
+```
+
+| Código | Cuándo | `message` |
+|---|---|---|
+| **403** | como en el `PUT` | `No tienes permiso para nivelar en este periodo.` |
+| **404** | no hay nota viva con ese id | `No existe la nota, o su indicador ya no está.` |
+| **409** | la nota existe pero **no está nivelada** (`nota_original IS NULL`) | `Esta nota no tiene ninguna nivelación que quitar.` |
+
+**409 y no 200 vacío.** Un `DELETE` que contesta 200 sobre algo que no existía es una de las
+respuestas que mienten (`tools/respuestas-que-mienten.py`): el front pintaría «nivelación
+retirada» sobre una celda que nunca la tuvo.
+
+---
+
+## §3 — Los campos nuevos en `PUT notas/detailed`
+
+**Todos añadidos, ninguno renombrado, y todos `null` mientras no haya nivelación.** El
+snapshot `notas-detailed-profesor.json` se regenera con ellos —es un cambio de contrato y
+por eso está en este documento y va avisado a los cuatro clientes—, pero el front viejo y
+Flutter **no se enteran**: leen por clave y las suyas siguen ahí.
+
+### §3.1 En cada `alumnos[].notas[]`
+
+```json
+{
+  "id": 8811, "nota": 70, "subunidad_id": 1187, "alumno_id": 4021,
+  "created_by": 17, "updated_by": 17, "deleted_by": null, "deleted_at": null,
+  "created_at": "…", "updated_at": "…", "asignatura_id": 233,
+  "subunidad_porc": "0.2500", "unidad_porc": "0.4000", "definicion": "…",
+  "subunidad_porcentaje": 25, "orden_unidad": 1, "orden_subunidad": 2,
+
+  "nota_original": 55,
+  "nota_nivelacion": 90,
+  "nivelada_at": "2026-08-28 00:00:00",
+  "nivelada_por": 17,
+  "nivelada_por_username": "mgarcia",
+  "nivelacion_obs": "Taller de refuerzo y sustentación oral, 28 ago"
+}
+```
+
+Las seis claves nuevas van **siempre**, con `null` cuando la nota no está nivelada. Es la
+misma decisión que tomó `notas/lote` con `definitivas`: una clave que a veces no viene
+obliga al front a distinguir «vacío» de «no vino». **La celda está nivelada ⇔
+`nota_original !== null`**; no hay bandera aparte, porque sería un segundo sitio donde
+mentir.
+
+> Los valores numéricos salen **como los saca PDO hoy** en esa misma consulta: `nota` viene
+> entero porque la columna es `int`; `nota_original` y `nota_nivelacion` son `int` también y
+> vienen igual. `subunidad_porc` sigue viniendo como cadena porque es una división en SQL —
+> eso no cambia.
+
+### §3.2 En cada `alumnos[].nota_final` (la definitiva del periodo)
+
+Es la tarea **A8**, y va después que las §1–§2, pero la forma se fija aquí para que
+`editor-nota` (B7) no tenga que esperar:
+
+```json
+{
+  "alumno_id": 4021, "no_matricula": "…", "periodo": 2, "updated_by_username": "mgarcia",
+  "nota_final": 71.25, "nf_id": 9910, "recuperada": 1, "manual": 1, "updated_by": 17,
+  "created_at": "…", "updated_at": "…", "def_materia_auto": "62.5000",
+  "updated_at_def": "…", "nfinal_desactualizada": 0,
+
+  "nota_original": 62.5,
+  "nivelada_at": "2026-08-29 15:10:00",
+  "nivelada_por": 17,
+  "nivelada_por_username": "mgarcia"
+}
+```
+
+`recuperada` **no cambia de significado** (`1` ⇔ viene de una nivelación); lo que se gana es
+que ahora dice de dónde venía. `nota_original` aquí es `float`, como `nota_final`, porque la
+columna es `decimal(7,4)` desde `2026_08_30_200000`.
+
+### §3.3 Lo que NO cambia en `notas/detailed`
+
+Ni `alumnos[]`, ni `independientes[]`, ni `unidades[]`, ni `asignatura`, ni el orden de nada.
+Y **`Nota::verificarCrearNotas` sigue sembrando la fila con las columnas nuevas en `null`**,
+que es su defecto de esquema: una nota recién sembrada no está nivelada.
+
+---
+
+## §4 — `PUT notas/nivelar/lote` — la semana de nivelaciones
+
+La pantalla de la §5.3 del plan: todo lo perdido del grupo, una casilla por indicador,
+guardando en tandas. **Tiene exactamente los tres desenlaces de `notas/lote`**, con los
+mismos nombres y en el mismo sitio, porque el front ya tiene escrito el agrupador de tandas
+contra esa forma (`comunes/notas-en-lote/`) y no debería necesitar otro.
+
+Guards: los mismos que el `PUT` suelto. El permiso se comprueba **una vez, con la lista de
+periodos únicos de las notas del lote y antes de la primera escritura** —como en
+`notas/lote`—, y una sola nota en un periodo con el interruptor apagado tumba el lote entero.
+
+### §4.1 El cuerpo
+
+```json
+PUT api/notas/nivelar/lote
+{
+  "notas": [
+    { "id": 8811, "nota_nivelacion": 90, "observacion": "Taller 28 ago", "fecha": "2026-08-28" },
+    { "id": 8812, "nota_nivelacion": 65 },
+    { "id": 8813, "nota_nivelacion": 80, "observacion": null }
+  ]
+}
+```
+
+Cada elemento lleva **lo mismo que el cuerpo del `PUT` suelto más `id`**. `observacion` y
+`fecha` son por nota y opcionales; no hay una «observación del lote» que se copie a todas,
+porque lo que se copia sin querer acaba impreso en una constancia. **Tope: 200 notas**, el
+mismo `LOTE_MAXIMO`, y por la misma razón: por encima **aborta el lote entero con 422**, no
+avisa. El cliente parte en tandas.
+
+### §4.2 Desenlace 1 — todo bien: `200`
+
+```json
+{
+  "guardadas": 3,
+  "fallidas": [],
+  "niveladas": [
+    { "id": 8811, "alumno_id": 4021, "subunidad_id": 1187, "nota": 70, "nota_original": 55, "nota_nivelacion": 90,
+      "nivelada_at": "2026-08-28 00:00:00", "nivelada_por": 17, "nivelada_por_username": "mgarcia",
+      "nivelacion_obs": "Taller 28 ago", "updated_at": "…",
+      "regla_aplicada": { "regla": "topada", "nota_minima": 70, "explicacion": "…" } },
+    { "id": 8812, "…": "…" },
+    { "id": 8813, "…": "…" }
+  ],
+  "definitivas": [
+    { "alumno_id": 4021, "asignatura_id": 233, "periodo_id": 41, "nota": 71.25, "manual": false, "recuperada": false },
+    { "alumno_id": 4022, "asignatura_id": 233, "periodo_id": 41, "nota": null,  "manual": false, "recuperada": false }
+  ]
+}
+```
+
+- **`guardadas`, `fallidas`, `definitivas`: idénticos a `notas/lote`** en nombre, tipo y forma
+  de elemento. `definitivas` trae **a todos los alumnos tocados**, uno por par (asignatura,
+  periodo), y el que no tiene fila viene con `nota: null` en vez de omitirse — es la decisión
+  ya tomada allí.
+- **`niveladas` es la clave que `notas/lote` no tiene, y aquí hace falta**: en `notas/lote` lo
+  que se escribe es lo que se mandó, así que devolverlo sería repetirlo; aquí **lo que queda en
+  `nota` depende de la regla** y el front no puede pintar la celda sin que el servidor le diga
+  qué quedó. Cada elemento tiene **la forma de la §1.2 sin `definitiva`** —la definitiva de
+  cada alumno ya viene una vez en `definitivas`, no una por nota—.
+
+### §4.3 Desenlace 2 — algo rechazado, con su motivo: `200`
+
+```json
+{
+  "guardadas": 2,
+  "fallidas": [
+    { "id": 8812, "motivo": "La nota no cabe en la escala del colegio (0 a 100)." },
+    { "id": 99999, "motivo": "No existe la nota, o su indicador ya no está." },
+    { "id": null, "motivo": "La posición 3 no trae un id de nota." }
+  ],
+  "niveladas": [ "…las dos que sí…" ],
+  "definitivas": [ "…" ]
+}
+```
+
+**Éxito parcial y `200`**, como en `notas/lote`: una nota mala no se lleva por delante las
+demás. Los motivos posibles, en el orden en que se comprueban:
+
+| `motivo` | Cuándo |
+|---|---|
+| `La posición N no trae un id de nota.` | elemento sin `id` numérico (`id: null` en la fila) |
+| `La nota no es un número.` | `nota_nivelacion` ausente o no numérica |
+| `No existe la nota, o su indicador ya no está.` | id sin fila viva, o sin unidad viva |
+| el motivo de `EscalaDeNotas::motivoSiNoCabe` | fuera de escala. **Se comprueba después del permiso**, no antes, por lo que se aprendió en `notas/lote`: si fuera antes, un lote en un periodo cerrado contestaría 200 con la lista en vez del 403 |
+| `La observación no puede pasar de 255 caracteres.` | |
+| `La fecha de la nivelación no es válida.` | |
+
+Y el corte de siempre: si después de apartar las malas **no queda ninguna**, responde
+`{ "guardadas": 0, "fallidas": [...], "niveladas": [], "definitivas": [] }` **sin abrir
+transacción** y sin recalcular nada.
+
+### §4.4 Desenlace 3 — permiso denegado, que tumba el lote entero: `403`
+
+```json
+{ "message": "No tienes permiso para nivelar en este periodo." }
+```
+
+**Nada escrito, ni una nota, ni una línea de auditoría.** Es el mismo desenlace que el 400
+del guard en `notas/lote`, con el código correcto. Y los otros dos que abortan el lote
+entero, también sin escribir:
+
+| Código | `message` |
+|---|---|
+| **422** | `Hace falta una lista de notas.` — `notas` ausente, no es lista, o está vacía |
+| **422** | `El lote no puede pasar de 200 notas.` |
+
+### §4.5 Lo que deja escrito
+
+Igual que el `PUT` suelto **por cada nota**, dentro de **una transacción** para las escrituras
+en `notas`, `auditoria` y `bitacoras`, y **un recálculo por par** (asignatura, periodo) fuera
+de la transacción y al final. Es la estructura exacta de `notas/lote`, y la razón está en su
+cabecera: treinta transacciones son treinta estados intermedios.
+
+---
+
+## §5 — Lo que B también necesita y todavía no es un endpoint: la regla del año
+
+La pantalla de ajustes (B9) lee y escribe `years.regla_nivelacion`. Va con la migración
+(A3) y con **un endpoint de la familia `years/`**, calcado de los `toggle-*` que ya usa esa
+pantalla, salvo que lleva tres valores y no dos:
+
+```
+GET  years/colegio            → cada año trae además  "regla_nivelacion": "topada"
+PUT  years/regla-nivelacion   { "year_id": 8, "regla": "mayor" }
+     → 200 { "regla_nivelacion": "mayor", "nota_minima_aceptada": 70,
+             "ejemplo": { "original": 55, "nivelacion": 90, "queda": 90,
+                          "explicacion": "Regla del colegio: queda la mayor de las dos. Queda 90." } }
+     → 422 { "message": "La regla tiene que ser topada, mayor o reemplaza." }
+     → 403 si no es personal
+```
+
+`ejemplo` se calcula con **la mínima real de ese colegio**, que es lo que la §5.7 del plan
+pide enseñar al lado de cada opción; el front lo pinta, no lo calcula. **Cambiar la regla no
+reescribe ninguna nivelación anterior** (decisión 6).
+
+> Esto es una ruta nueva más —serán **cuatro** en total: `PUT`/`DELETE notas/nivelar/{id}`,
+> `PUT notas/nivelar/lote` y `PUT years/regla-nivelacion`— y cada una **mueve `CLAUDE.md` y
+> los tres snapshots de rutas**, contando con `route:list` el día que entren, no sumando.
+
+---
+
+## §6 — Lo que este contrato deja para después, y dónde
+
+| Qué | Tarea | Forma provisional, por si B llega antes |
+|---|---|---|
+| Nivelar la **definitiva** del periodo (`notas_finales.nota_original`) | A8 | `PUT definitivas_periodos/nivelar` `{nf_id, nota_nivelacion, observacion?, fecha?}` → la fila de `notas_finales` con los tres campos del acta + `regla_aplicada`. Mismo guard. **Enciende `recuperada` y `manual`**, como hoy |
+| El acta en `recuperacion_final` | A9 | `nivelada_at`, `nivelada_por`, `observacion` **añadidos** a lo que ya devuelve `definitivas_periodos/update-recuperacion`; `year` sigue siendo el número |
+| Boletines, constancias, certificados con el par | A10 | se escribe cuando haya qué imprimir |
+
+**Estas tres no son contrato todavía**: son la forma que tendrán si nada las mueve, para que
+B7 y B8 no arranquen a ciegas. Cuando cada una se escriba de verdad, se sube a su § propio
+de este documento y se avisa.
+
+---
+
+## §7 — Lo que este contrato NO hace, dicho para que nadie lo espere
+
+- **No cambia `notas/update` ni `notas/lote`.** Ni una clave, ni un código, ni un orden.
+  El test centinela (A6) fija sus snapshots tal como están hoy y se escribe **con** A5.
+- **No rellena `nota_original` desde `bitacoras`** (§6.6 del reparto). Empieza vacía en los
+  quince colegios.
+- **No propaga** una nivelación de indicador a una definitiva `manual`/`recuperada`, ni una de
+  definitiva a los indicadores. Lo dice §1.2 y lo avisa la pantalla.
+- **No congela el puesto.** Nivelar mueve la definitiva y el puesto se calcula al vuelo
+  (§6.4 del reparto): es decisión del colegio y se pregunta antes de A10.
