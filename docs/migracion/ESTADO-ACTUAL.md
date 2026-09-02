@@ -8,7 +8,115 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
-**2 sep 2026, noche — `main` LIMPIO, MEDIDO Y **SUBIDO A `origin`** · `d43d028`** ·
+**2 sep 2026, noche — EL SUELO DEL HORARIO ESTÁ ESCRITO: 566 RUTAS, Y LA COLUMNA NUEVA
+DE `years` SE REPARTIÓ A TRES RESPUESTAS Y A NADA MÁS** · rama `feat/horario-suelo`
+(lote A del reparto en tres), **sin fusionar** · **566 rutas**, contadas con
+`route:list --json` sobre ese árbol — 563 + 3, y contarlo es la única forma de saber que
+coincidía · pint **PASS** (360 ficheros) · larastan nivel 7 **`[OK] No errors`** ·
+contrato en [`23-horarios.md`](23-horarios.md), coordina `8myvc-af`
+
+> **Lo que entra**: las tres tablas de la §5.1 —`horario_versiones`,
+> `horario_lecciones`, `horario_pieza_docente`— más **`years.horario_version_id`**,
+> `Role::isCoordAcademico()`, `Autoriza::puedePublicarHorario()` (método **nuevo**: no
+> es `esSuperusuario`, que deja fuera al coordinador, ni `esAdministrativo`, que mete al
+> Secretario que Joseth no nombró), `routes/api/horario.php` con las tres rutas de la
+> §5.3 y un `HorarioController` con **los tres métodos a 501** y su autorización ya
+> puesta delante. **El cuerpo de los tres no está escrito.**
+>
+> ### LA COLUMNA NUEVA MOVIÓ SEIS SNAPSHOTS, Y ESO SE MIDIÓ ANTES DE REGENERAR NINGUNO
+>
+> Se corrieron `RutasTest`, `AutorizacionTest`, `MuestreoDeLecturasTest` y el centinela
+> del año nuevo **con los snapshots viejos delante**: `6 failed, 105 passed`. Los seis
+> previstos y ni uno más — `rutas`, `guards-por-ruta`, `guard-por-familia` y las **tres**
+> de `years`—, **13 líneas de diff en total**. Regenerar primero y mirar después habría
+> dado el mismo fichero sin la medición.
+>
+> **`familias-que-nunca-entran-en-el-candado.json` NO se movió, y era la comprobación
+> que más valía**: con `auth.personal` en las tres, la familia `horario` entra como
+> **3 de 3** y **entra** en el candado en vez de salirse. Un renglón «0 de 1» ahí es la
+> forma exacta que tendría un agujero nuevo, y no apareció.
+>
+> **Y el `auth.personal` no está por el contador.** Está porque cierra la puerta a
+> alumnos y acudientes antes de tocar el controlador, y porque es la forma de la
+> referencia que dio Joseth (`myimages/cambiarlogocolegio`: guard en la ruta **más**
+> `Autoriza` dentro). El «3 de 3» es una consecuencia — si se lee al revés, el próximo
+> lote quita el guard el día que el contador le estorbe.
+>
+> ### `years.horario_version_id` MOVIÓ UN CUARTO TEST QUE NO ESTABA EN LA LISTA
+>
+> `CentinelaDeLasColumnasDelAnioNuevoTest` lee `SHOW COLUMNS FROM years` **de la base
+> viva** y exige que **cada** columna esté decidida: copiada por
+> `YearsController::postStore`, o excusada en `NACEN_VACIAS` **con su motivo**. Una
+> columna nueva de `years` lo pone rojo el mismo día, y lo que fuerza es una decisión de
+> dominio: **el puntero no se copia**. Copiarlo dejaría al año nuevo afirmando que su
+> horario oficial es **una versión del año anterior**, y con la decisión 13 —publicar
+> vale en cualquier año— ése es justo el estado que el puntero en `years` existe para
+> impedir. `firmantes_acta` era hasta hoy el único precedente de esa lista.
+>
+> ### `Year::actual()` — CONTESTADO CON LA SUITE ENTERA, NO RAZONANDO SOBRE LLAMANTES
+>
+> El 23 §5.1 avisaba de un **cuarto `SELECT *` sobre `years`** —`Year::actual()`, con
+> `LoginController` entre sus tres llamantes— del que sólo se sabía que *«hoy no deja esa
+> fila en ninguna instantánea»*, y avisaba también de que eso **no es que sea seguro: es
+> que nadie ha mirado por ahí**. No se cerró leyendo llamantes, que es la forma en que
+> ese mismo asunto ya produjo dos cuentas de más el 2 sep: se cerró corriendo la suite
+> entera y mirando **qué snapshot se movía**. Fuera de los tres de `years`, ninguno.
+>
+> ### DOS COSAS QUE SALIERON MIDIENDO Y NO SON DE HORARIOS
+>
+> **1. En la base de tests falta el rol `Secretario`.** `tools/construir-bd-test.sh`
+> corre `migrate` **y después** carga `test-seed.sql`, que hace `TRUNCATE TABLE roles`
+> —igual que de `role_user`, `permissions` y `permission_role`—, así que lo que una
+> migración de 2026 siembre ahí **se borra a continuación**. `Coord académico` sí está
+> (es de 2018 y viene dentro del seed); `Secretario`, creado el 21 ago 2026 por
+> migración, **no**. La consecuencia no es de este módulo: la rama `Role::isSecretario()`
+> de **`Autoriza::esAdministrativo()`** —que leen otros seis sitios— **no la ejerce nadie
+> en toda la suite**, porque `hasRole()` compara el nombre literal y un rol ausente
+> devuelve `false` para todo el mundo. Un test que diga «un Secretario puede X» está
+> demostrando «un superusuario puede X», que es menos. Queda **declarado con su número**
+> en `HorarioAutorizacionTest`, a la manera del `count` de `phpstan.neon`; el seed no se
+> tocó, que es decisión de otro.
+>
+> **2. `can_view_auditoria` no existe en la base de tests, por lo mismo.** En producción
+> se le siembra a `Coord académico` desde el 25 ago, así que **dar ese rol reparte allí
+> dos permisos y no uno** —publicar el horario y ver el rastro de auditoría ajeno—. Aquí
+> el verde de un test **no demuestra** que vayan separados, y por eso el test que lo
+> ejerce lleva el aviso pegado y una comprobación que fija el cero.
+>
+> ### LOS DOS SITIOS DONDE UN HORARIO SALE MAL SIN DAR NINGÚN ERROR, PEGADOS AL CÓDIGO
+>
+> Los dos van en comentario **junto a su columna**, no en un documento: quien vaya a
+> tocar eso no va a leer el 23.
+>
+> - **`pieza_id` es `varchar(64)` y su unicidad es (`version_id`, `pieza_id`).** Medido
+>   por el front sobre el proyecto real: 313 piezas, longitud 7 exactos, de la forma
+>   `a<asignatura_id>-<índice>`, **0 de 313 sólo dígitos** — un `int` no aguanta ni la
+>   primera subida. Los identificadores derivan de `asignaturas.id`, que es **estable
+>   entre versiones**, así que dos versiones del mismo año contienen **las dos**
+>   `a1196-0`: un único global sólo rompería **la segunda subida del año**, y pasaría
+>   entero cualquier test que suba una sola vez. El índice escrito ya va con
+>   `version_id` delante.
+> - **`years.horario_version_id` va a volver por `PUT years/guardar-cambios`.** El front
+>   viejo manda el objeto `year` entero tal como se lo dio `GET years/colegio`. Hoy es
+>   inerte porque `putGuardarCambios` asigna **campo a campo** y esta columna no está en
+>   su lista —comprobado: cero `Request::all()` y cero `fill()` en todo el controlador—.
+>   **Simplificar ese método a asignación masiva abriría un camino sin permiso para
+>   escribir la versión oficial**, y con el valor **caducado** que la página tenía al
+>   cargarse: dos pestañas abiertas revertirían la oficial sin que nadie tocara el
+>   horario. Se estrena el día que haya una oficial de verdad. Ese método **ya fue el
+>   sitio de esta clase de fallo** y lleva la lección escrita encima.
+>
+> **Aviso de canal, ya cursado por `8myvc-af` a los cuatro clientes**: `GET years`,
+> `GET years/colegio` y la de papelera empiezan a traer `horario_version_id`
+> (`int unsigned NULL`, `null` en los nueve años). Ninguno rompe — y la población de esa
+> afirmación es **lectura de los consumidores, no ejecución de los fronts**.
+>
+> **Lo siguiente**: el lote B, `postVersiones` con la revalidación de la opción B. Son
+> **seis** comprobaciones y no tres —la quinta y la sexta, `anio` duro y `nombre_colegio`
+> blando, las trajo Joseth el 2 sep por la tarde (§5.2.0)— y el veredicto **lleva su
+> población dentro, sacada de esa corrida y no escrita a mano**.
+
+**Anterior: 2 sep 2026, noche — `main` LIMPIO, MEDIDO Y **SUBIDO A `origin`** · `d43d028`** ·
 **`Tests: 1843 passed (16614 assertions)`, `Duration: 693.98s`, `exit=0`**, cero rojos y cero
 saltados · pint **PASS** (357 ficheros) · larastan nivel 7 **`[OK] No errors`** · **563 rutas**
 (contadas con `route:list --json` sobre este árbol) · **cero commits sin subir**, y la base de

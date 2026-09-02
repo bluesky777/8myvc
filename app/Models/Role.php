@@ -151,6 +151,39 @@ class Role extends Model
 		return Role::hasRole($user_id, 'Psicólogo');
 	}
 
+	/**
+	 * El rol `Coord académico`, el quinto de la familia — y el único que nace
+	 * gobernando algo desde el primer día.
+	 *
+	 * Lo pide `Autoriza::puedePublicarHorario()`: marcar cuál es la versión
+	 * oficial del horario del año (decisión 10 de
+	 * [23-horarios.md](../../docs/migracion/23-horarios.md) §5.4, Joseth, 2 sep
+	 * 2026). No existía; sí estaban `isCoorDisciplinario`, `isSecretario`,
+	 * `isEnfermero` y `isPsicologo`, y el académico se había quedado sin el suyo.
+	 *
+	 * **La cadena es exactamente `'Coord académico'`, con tilde y abreviada.**
+	 * `hasRole()` compara el nombre literal contra la fila de `roles` en PHP, así
+	 * que ni la collation ni MySQL salvan una tilde que falte: el rol existiría,
+	 * el método devolvería siempre `false` y **no fallaría nada**. Es lo mismo que
+	 * ya dejó escrito `isPsicologo`.
+	 *
+	 * **Y «coordinador académico» nombra DOS cosas en esta base.** El rol
+	 * (`roles.id = 9`, de 2018) y la columna `years.coordinador_academico_id`. Se
+	 * usa el rol: la columna se escribe en un solo sitio —al copiar un año, en
+	 * `YearsController::postStore`— y **no la lee nadie en todo `app/`**. Es un
+	 * dato que se arrastra, no un permiso.
+	 *
+	 * **Hoy tiene cero usuarios en `simonbolivar`**, así que la regla que cuelga
+	 * de aquí nace correcta e **inerte**: la oficial la marcan los 11
+	 * superusuarios y nadie más, hasta que un colegio le dé el rol a su
+	 * coordinadora. Eso no es un fallo —asignarlo es operación de cada colegio,
+	 * quince decisiones y no una nuestra (decisión 11)—, pero leer «también el
+	 * coordinador académico» y suponer que ya hay alguien detrás sí lo sería.
+	 */
+	public static function isCoordAcademico($user_id) {
+		return Role::hasRole($user_id, 'Coord académico');
+	}
+
 	public static function hasRole($user_id, $role) {
 		$roles = Role::getUserRoles($user_id);
 		$isRole = false;

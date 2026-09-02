@@ -204,6 +204,78 @@ class Autoriza
     }
 
     /**
+     * Marcar cuál es la versión **oficial** del horario de un año.
+     * `PUT horario/versiones/{id}/oficial`, §5.4 del
+     * [23](../../docs/migracion/23-horarios.md).
+     *
+     * Es la **decisión 10** de Joseth (2 sep 2026): *marca la oficial un
+     * superusuario o el coordinador académico*. Secretaría **sube** todas las
+     * versiones que quiera —está en `esAdministrativo()`— pero **no elige la que
+     * ve el colegio**. Es la asimetría que pidió desde el principio: *subir no
+     * publica*.
+     *
+     * **Por qué es un método nuevo y no uno de los que ya hay.** No es
+     * `esSuperusuario` (deja fuera al coordinador) ni `esAdministrativo` (mete al
+     * `Secretario`, que la decisión no nombra). Ensanchar cualquiera de los dos
+     * habría colado esta decisión en los **otros seis sitios** que los leen; la
+     * regla de esta clase es que un criterio nuevo se escribe con su nombre.
+     *
+     * **La regla nace correcta e INERTE, y hay que saberlo antes de leerla.** El
+     * rol `Coord académico` existe desde 2018 y **tiene cero usuarios** en
+     * `simonbolivar`, así que hoy la oficial la marcan los 11 superusuarios y
+     * nadie más. Asignar el rol es operación de cada colegio —quince decisiones,
+     * no una nuestra (decisión 11)—; lo que sería un error es leer «también el
+     * coordinador académico» y suponer que ya hay alguien detrás.
+     *
+     * ## Dar ese rol reparte HOY DOS permisos, no uno
+     *
+     * `can_view_auditoria` se le siembra a `Coord académico` desde el 25 ago 2026
+     * (`2026_08_25_200000_create_permiso_can_view_auditoria`, que siembra
+     * `['Rector', 'Coord académico']`). Así que dárselo a una persona le da
+     * **publicar el horario del colegio Y ver el rastro de auditoría de otras
+     * personas** —quién cambió qué nota, los ingresos ajenos— en un solo
+     * movimiento. Es [[crear-rol-no-regala-permisos]] por su otra cara: crear un
+     * rol no regala permisos, pero **dárselo a alguien sí le regala todos los que
+     * ya cuelgan de él**.
+     *
+     * Y el enunciado no se puede escribir más ancho de lo que es: la segunda
+     * mitad **no cuelga del rol en el código, cuelga de una fila**.
+     * `puedeVerAuditoria()` no pregunta por ningún rol, lee
+     * `in_array('can_view_auditoria', $user->perms)`. El acoplamiento es **por
+     * dato y por colegio** —existe donde aquella migración corrió y nadie retiró
+     * la fila, y ella misma hace `continue` si el rol no está—, mientras que este
+     * método pregunta por el rol directamente. Van juntos en los colegios donde
+     * esa fila está, y puede no estarlo en el catorce.
+     *
+     * **Ojo al leer un test en verde**: `test-seed.sql` hace `TRUNCATE` de
+     * `permissions` y `permission_role`, así que **en la base de tests ese
+     * acoplamiento no existe**. Un test que fabrique el rol para probar este
+     * método no hereda `can_view_auditoria`, y su verde **no demuestra** que los
+     * dos permisos vayan separados en producción, donde van juntos.
+     *
+     * ## Y la ruta lleva además `auth.personal`, que no es este criterio
+     *
+     * El guard de la ruta cierra la puerta a alumnos y acudientes **antes de
+     * tocar el controlador**, y es la forma de la referencia que dio Joseth
+     * (`myimages/cambiarlogocolegio`: guard en la ruta, `Autoriza` dentro). Hoy no
+     * le quita el permiso a nadie que la decisión nombre —superusuarios y
+     * secretaría son `Usuario` o `Profesor`—, pero deja un borde que conviene
+     * conocer antes de depurarlo: **el día que un colegio le dé `Coord académico`
+     * a una cuenta de tipo `Acudiente`, el 403 lo pone el guard y no este
+     * método**, y quien lo investigue va a mirar aquí primero.
+     */
+    public static function puedePublicarHorario($user): bool
+    {
+        if (self::esSuperusuario($user)) {
+            return true;
+        }
+
+        $userId = $user->user_id ?? null;
+
+        return $userId !== null && Role::isCoordAcademico($userId);
+    }
+
+    /**
      * Solo superusuario. Para lo que arrastra el esquema entero.
      */
     public static function esSuperusuario($user): bool
