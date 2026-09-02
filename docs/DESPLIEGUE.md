@@ -3,6 +3,43 @@
 **Los comandos, y nada más.** El porqué de cada fila —topología, las siete trampas, qué trajo
 cada tanda, el bucle del front— está en [DESPLIEGUE-REFERENCIA.md](DESPLIEGUE-REFERENCIA.md).
 
+## 🛑 CONGELADO: `myvc_flutter` está en revisión — no se despliega hasta que salga
+
+**Joseth, 2 sep 2026: la app lleva seis días en revisión y no puede publicar una corrección
+hasta que pasen los catorce.** O sea que si esta tanda rompiera algo de la app, **el arreglo
+tardaría más de una semana en llegar a la tienda** y los quince colegios lo comerían entero.
+Por eso esto va **antes** del bloque de la tanda y no dentro: la tanda está lista, y aun así
+**no se despliega**.
+
+**Qué se midió antes de escribir esto, para que la espera sea una decisión y no un miedo.** De
+los 191 commits, lo único que un cliente puede **perder** son dos cosas — todo lo demás es
+aditivo, comprobado sobre los snapshots del rango, no sobre los mensajes de los commits:
+
+| Lo que desaparece | Dónde |
+|---|---|
+| `POST tardanzas/login/traer-datos` → **404** | la única ruta retirada de las 24 que se mueven |
+| **ocho claves** de cada evento del calendario | `GET ChangesAsked/to-me`, aviso **K** |
+
+**Así que la pregunta que decide el despliegue es sólo ésta: ¿la versión que está en revisión
+llama a esa ruta o lee alguna de esas ocho claves?** Si la respuesta es no a las dos, la tanda
+es inocua para la app y lo que queda por decidir es otra cosa. Si es sí a cualquiera de las
+dos, **se espera** — no hay término medio, porque la salida sería una versión nueva en la
+tienda y eso es justo lo que no hay.
+
+> **Y una que NO es de esta tanda pero muerde ahora mismo: no escribas un número en
+> `APP_MOVIL_VERSION_MINIMA` de ningún colegio mientras la app esté en revisión.** El
+> mecanismo de `version_minima_app` **ya está desplegado desde el 31 ago** y está **inerte
+> porque el `.env` viene vacío** — mandar el campo bloquea a quien tenga una versión menor, y
+> hoy **no hay ninguna versión en la tienda a la que actualizar**. Escribir ahí un número
+> durante la ventana deja al colegio entero fuera **y sin salida**, y la salida sería
+> exactamente lo que no se puede hacer: publicar. El porqué entero está en
+> `config/aplicacion-movil.php`, que lo lleva escrito encima de la línea.
+
+**Esto se levanta cuando la app salga de revisión**, o antes si las dos preguntas de arriba se
+contestan que no. Lo levanta Joseth, no una sesión.
+
+---
+
 ## ⛔ TANDA PENDIENTE — 191 commits desde `9474b50`. SIN LAS MIGRACIONES NO SE PUEDE NI ENTRAR
 
 **El aviso que había aquí decía «los tres boletines contestan 500», y se quedaba corto por dos
@@ -121,7 +158,7 @@ marcados en desarrollo**, que **no** es «cero en los quince»: eso sólo se sab
 
 | | aviso | estado |
 |---|---|---|
-| **K** | `GET ChangesAsked/to-me` deja de mandar **nueve** columnas de cada evento del calendario. Una de ellas, **`created_by_nombres`, la pinta la aplicación vieja** en el tooltip del evento (`AnunciosCtrl.ts:596`): al desplegar dirá **«Por: undefined»** hasta que se arregle allí, que es una línea | **POR AVISAR** — decidido a sabiendas el 2 sep 2026 |
+| **K** | `GET ChangesAsked/to-me` deja de mandar **ocho** columnas de cada evento del calendario y conserva nueve. **Aquí decía «nueve» y era la cifra de las que se QUEDAN**, contada como si fueran las que se van; medido sobre el snapshot el 2 sep 2026, el evento pasa de 17 claves a 9. Las ocho que se van son `created_at`, `created_by`, `created_by_nombres`, `deleted_at`, `deleted_by`, `type`, `updated_at` y `updated_by`. Una de ellas, **`created_by_nombres`, la pinta la aplicación vieja** en el tooltip del evento (`AnunciosCtrl.ts:596`): al desplegar dirá **«Por: undefined»** hasta que se arregle allí, que es una línea | **POR AVISAR** — decidido a sabiendas el 2 sep 2026 |
 | **L** | **`POST tardanzas/login/traer-datos` desaparece**: pasa a 404. Decisión de Joseth del 2 sep. El único llamante de toda la máquina es `tardanzasMyvc-old` (último commit feb 2020), y Joseth confirmó que ese repositorio está inactivo — el dato que lo cerró **no estaba en el repositorio** | **DECIDIDO** — es la única ruta que la tanda quita |
 | **M** | **`regla_nivelacion` aparece en el bloque de la sesión**, en las cuatro ramas (alumno, acudiente, profesor y usuario). Es un campo **nuevo**, para previsualizar en el diálogo de nivelación qué nota va a quedar (22 §1.4 y §5.1) | **ADITIVO** — Flutter no se rompe: `ConfiguracionColegio.deLogin` lee campo a campo y no hay `json_serializable` ni `freezed`. Medido, no supuesto (22 §3.2bis) |
 | **N** | **Campos nuevos de nivelación en respuestas que ya existían**: la planilla (`PUT notas/detailed`), los boletines, el boletín final y `PUT editnota/alum-asignatura`. Qué respuesta abre las columnas nuevas **a propósito** y cuál las tiene **congeladas** está decidido sitio por sitio en la tabla de [22 §3.4](migracion/22-nivelaciones.md) y en el [27](migracion/27-nivelaciones-en-los-informes.md) | **ADITIVO** — ningún cliente pierde una clave |
