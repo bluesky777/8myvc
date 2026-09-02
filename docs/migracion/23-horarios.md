@@ -31,8 +31,8 @@
 > la marcan **superusuario y coordinador académico** (§5.4) —que trajo un hallazgo,
 > porque «coordinador académico» nombra dos cosas distintas en esta base y hoy **ninguna
 > de las dos identifica a nadie**—, listar es **`auth.personal`**, subir y publicar valen
-> **en cualquier año**, y el rol vacío **se escribe igual**. **Quedan tres** en la §10.2,
-> y las tres son del día que se escriba el código.
+> **en cualquier año**, y el rol vacío **se escribe igual**. **Quedan cuatro** en la
+> §10.2.
 
 ---
 
@@ -321,6 +321,29 @@ un off-by-one.
 > forma barata: *no da error, da un horario equivocado.* Un `dia` fuera de 0..6 se
 > rechaza con **422**; uno dentro pero con el convenio cambiado **no lo detecta nadie**,
 > y por eso el convenio se declara en un sitio en vez de deducirse.
+
+**6. Los otros dos números que admiten dos lecturas, declarados y no deducidos.**
+**`franja` va en base 1** —la 1 es la primera lección del día— y **`duracion` se cuenta
+en casillas**, no en minutos ni en horas de reloj: un bloque de dos es `duracion: 2` y
+ocupa dos franjas consecutivas del mismo día.
+
+> **`franja` se decide con el argumento CONTRARIO al de `dia`, y merece la pena verlo.**
+> En `dia` mandó el consumidor: el backend lo lee, así que se adoptó su convenio para no
+> traducir. **En `franja` no hay consumidor** —el servidor la guarda y la devuelve, pero
+> **no la interpreta nunca**, que es justo por lo que la §7 no puede prometer el orden—,
+> y cuando no hay consumidor gana **lo que dice el colegio**: la primera hora es la 1. Y
+> si algún día llega la opción B y algo ordena por franja, base 1 ordena igual que base
+> 0: no hay nada que ganar cambiándolo después.
+>
+> **`duracion` lleva su aviso porque hay una trampa esperando**: `years.minu_hora_clase`
+> vale **50** y está en la base, así que quien vea `duracion` sin declarar va a pensar en
+> minutos — y `duracion: 2` se leería como dos minutos o como dos horas de reloj según el
+> día que sea.
+
+> **La regla que dejan los tres, y la puso la sesión del front:** *si no está escrito en
+> el contrato, las dos mitades lo van a deducir por separado.* Por eso la lista de lo que
+> viaja como número y admite dos lecturas se hace **entera** —`dia`, `franja` y
+> `duracion`— y no se declara sólo el que dio problemas.
 
 **Y una que no es del cuerpo sino del año.** `year_id` puede ser de un año pasado, y
 eso **ya está contestado**: moverse por un año pasado es el producto
@@ -711,16 +734,29 @@ siguen sin estar.
 
 > **Siete se cerraron el 2 sep** y están arriba, en la §10.1 — las rutas, la opción B,
 > quién marca la oficial, el rol vacío, quién lista, los años cerrados y el blob.
-> **Quedan tres**, y las tres son de cuando se escriba el código, no de ahora.
+> **Quedan cuatro**: tres de cuando se escriba el código, y una que es de una ruta que
+> ya existe y que midió el front.
 
-1. **El blob del proyecto**: ¿en la fila o en `storage/`? ¿Con qué tope? Nadie ha
+1. **¿`GET asignaturas` debe traer las asignaciones cuya MATERIA está en la papelera?**
+   Lo midió el front contra el docker: esa lectura hace `inner join materias … and
+   m.deleted_at is null`, así que **una asignación viva con la materia borrada no llega
+   ni como fila ni como aviso**, y el importador **no puede contar lo que no le
+   mandaron**. Hoy en `simonbolivar` son **cero** —y el filtro de `asignaturas.deleted_at`
+   sí funciona: llegan las 134 vivas—, pero cero es la foto de hoy. El horario saldría
+   *cuadrado y completo* con una materia entera ausente, y nadie lo notaría hasta que un
+   docente preguntara por su clase. **Arreglarlo es cambiar la respuesta de una ruta
+   viva**, que aquí es decisión y no parche — y más con `myvc_flutter` compartiendo
+   endpoints en los quince colegios. Mientras tanto el importador lo declara como **no
+   traído y nombrado** y **cuenta las asignaciones que recibió**: si un colegio espera 134
+   y recibe 130, el número que falta es la señal aunque nadie sepa cuáles son.
+2. **El blob del proyecto**: ¿en la fila o en `storage/`? ¿Con qué tope? Nadie ha
    medido uno todavía porque no existe ninguno (§5.1).
-2. **¿Existe una ruta para DESCARGAR el proyecto de una versión, y con qué permiso?**
+3. **¿Existe una ruta para DESCARGAR el proyecto de una versión, y con qué permiso?**
    Sería la **cuarta**, o sea **554**, y no está pedida. Voto del front: el mismo
    permiso que publica, no el que sube (§5.4).
-3. **Las siete columnas**: se derivan al marcar la oficial; falta decidir **qué las
+4. **Las siete columnas**: se derivan al marcar la oficial; falta decidir **qué las
    ata** —el test es obligatorio, la herramienta de `tools/` es opcional— y confirmar
    que el orden **no** se promete (§7).
-> Lo más barato que se puede hacer sin esperar a ninguna de las tres es el **nivel 1
+> Lo más barato que se puede hacer sin esperar a ninguna de las cuatro es el **nivel 1
 > del pre-vuelo como script de `tools/`** sobre los quince colegios (§9). No toca el
 > router, no necesita permiso y contesta si este módulo se va a poder usar.
