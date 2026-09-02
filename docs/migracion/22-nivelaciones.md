@@ -406,7 +406,8 @@ Un `ALTER TABLE` no puede cambiar un contrato. Cada consulta que leía la fila e
 en su respuesta **en cuanto la migración corriera en ese colegio, con el código de hoy y sin
 que nadie lo decidiera**. Medido el 2 sep 2026 con la suite de contrato sobre la base migrada
 (tres instantáneas se movieron solas: `bolfinales` × 2 y `grupos/promovidos`) y con el
-reconocimiento de `8myvc-f2` en el [25](25-nivelaciones-en-los-informes.md). Esta tabla es la
+reconocimiento de `8myvc-f2` sobre los informes —su documento, **cuyo número está por
+decidir: el 25 lo ocupó `25-pedidos-de-cambio.md` en `main` el 2 sep**—. Esta tabla es la
 decisión, sitio por sitio:
 
 | Respuesta | Columnas nuevas | Cómo |
