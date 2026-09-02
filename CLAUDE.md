@@ -3,8 +3,8 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 `8myvc` es la API del sistema escolar MyVc: Laravel 13 + PHP 8.4, ~37.000 líneas
-en `app/`, 113 clases de controlador y **550 rutas** (contadas con
-`route:list --json` el 1 sep 2026; el 24 ago el de rutas se movió por primera vez,
+en `app/`, 114 clases de controlador y **560 rutas** (contadas con
+`route:list --json` el 2 sep 2026; el 24 ago el de rutas se movió por primera vez,
 de 539 a 542, con los tres endpoints que pidió `myvc_flutter`, el 28 a 543 con
 `PUT users/mi-docente`, que pidió Joseth para el panel de `app2`, el 31 a 544 con
 `GET grupos/{grupo_id}/alumnos-de/{que}`, que pidió el front para el modal de
@@ -13,7 +13,9 @@ boletín independiente —`periodo`, `planilla` y `copiar`— y **548–549** co
 `boletin-independiente/marcados` y `/alumno`, las dos lecturas de la pantalla por
 estudiante que autorizó Joseth ese día, y **550** con `GET colegio/logo`, la
 pública que deja a la pantalla de login pedir el logo del colegio sin token, también
-decidida por Joseth ese día — «el de rutas no se mueve» sigue siendo la
+decidida por Joseth ese día, y el 2 sep a 560 con las **diez de `rubricas/`**, la
+familia entera de la decisión 4 de Joseth de ese día —la rúbrica produce la nota—,
+contrato en `docs/migracion/24-rubricas.md` — «el de rutas no se mueve» sigue siendo la
 regla: una ruta nueva es una decisión, no un efecto secundario, y mueve este
 documento y **tres** snapshots, no dos: `rutas.json`, `guards-por-ruta.json` y
 `guard-por-familia.json`, que cuenta cuántas rutas tiene cada familia y cuántas

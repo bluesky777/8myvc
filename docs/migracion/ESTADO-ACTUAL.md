@@ -22,6 +22,34 @@ coordina `8myvc-ab`
 > fallo no fue que la cifra estuviera mal, fue que ninguna de las veces que se copió llevó delante
 > la fecha de su medición.**
 
+> ### CARRIL C — RÚBRICAS, mitad backend: rama `niv/rubricas`, 2 sep 2026 — C2, C3 y C4 HECHAS
+>
+> Es la sesión C-back del reparto de `myvc_front/TAREAS-NIVELACIONES-Y-RUBRICAS.md` (§5 «C»),
+> coordinada por `myvc-front-0f`; la mitad de `app2` la lleva `myvc-front-4f`. **No está en
+> `main`**: tres ramas —A `niv/backend`, B `niv/front`, C `niv/rubricas`— y se integran de una
+> en una, A, B y luego C. Nada de esto toca `NotasController`, `routes/api/academico.php` ni
+> `DefinitivasDeAsignatura`: **la rúbrica produce la nota y no la escribe** — `notas/update` y
+> `notas/lote` siguen siendo los únicos escritores, tal como están.
+>
+> | Qué | Dónde | Estado |
+> |---|---|---|
+> | El contrato, escrito **antes** que el código y enviado al front | [24-rubricas.md](24-rubricas.md) | `694562e` |
+> | C2 · migración: cinco tablas + `subunidades.rubrica_id` NULL, `momento` dentro de la clave única (C9 absorbida) | `2026_09_03_100000_rubricas` | `511ce3f`, corrida y devuelta sobre `simonbolivar_testing_rub` |
+> | C3 · cinco modelos con `@property` a mano y `RubricasController` | `app/Models/Rubrica*.php`, `app/Http/Controllers/RubricasController.php` | hecho |
+> | C4 · `routes/api/rubricas.php` y **una** línea en `routes/api.php` | diez rutas: **551–560**, familia «10 de 10» en los tres snapshots | hecho |
+> | Tests: permisos de las diez, suma de pesos que no se corrige, nivelación que no pisa la original, lote todo-o-nada, y `notas.nota` que no se mueve | `tests/Contrato/RubricasTest.php` | **14 tests, 234 aserciones, verde** |
+> | larastan 7 sobre lo nuevo · pint sobre lo nuevo | | `[OK] No errors` · sin avisos |
+>
+> **Lo que espera a Joseth de este carril, y NO bloquea:** el §5 del 24 — si el docente que
+> edita o califica con una rúbrica tiene que **dar esa asignatura**. Hoy `notas/update` tampoco lo
+> comprueba y el carril mantiene paridad; estrecharlo se hace en los dos sitios a la vez o en
+> ninguno. La lleva el coordinador.
+>
+> **Lo que NO se hizo a propósito:** `App\Services\Auditoria` no registra rúbricas (la fase 4 del
+> 18 no ha llegado a notas); `recuperacion_final`, boletines y certificados no saben de rúbricas
+> (decisión 4: no tienen que saber). Volver atrás es `migrate:rollback` de una migración: cinco
+> `DROP TABLE` y una columna, nada más — probado.
+
 > ### Las seis fases, y las cuatro últimas entraron hoy
 >
 > | Fase | Qué | Merge |
