@@ -893,8 +893,21 @@ siguen sin estar.
    > guardadas** —lo que abriría otro programa— y las 312 salen legales. Sin eso sería la
    > cota alta de un fichero que nadie puede usar.
 3. **¿Existe una ruta para DESCARGAR el proyecto de una versión, y con qué permiso?**
-   Sería la **cuarta**, o sea **554**, y no está pedida. Voto del front: el mismo
-   permiso que publica, no el que sube (§5.4).
+   Sería una **cuarta** ruta, y **su número se cuenta con `route:list` el día que se
+   autorice** — no está pedida. Voto del front: el mismo permiso que publica, no el que
+   sube (§5.4).
+
+   > **Aquí decía «o sea 554», y ese número se ha retirado a propósito el 2 sep 2026.**
+   > No se ha sustituido por otro: **una ruta que todavía no existe no puede llevar
+   > número**, porque el suyo depende de todo lo que entre por cualquier otro sitio
+   > antes que ella. El 554 se escribió cuando el router iba por 550 y quedó stale **dos
+   > veces en la misma noche** sin que nada se pusiera rojo — el número de rutas no lo
+   > comprueba ningún test (`CLAUDE.md`). Actualizarlo a la cifra buena no arreglaba
+   > nada: volvería a caducar con la siguiente ruta de la siguiente rama.
+   >
+   > Es la regla que este documento ya aplica a las tres autorizadas —*«se vuelve a
+   > contar ese día»*— llevada al sitio donde de verdad muerde: **lo que este repo no
+   > sabe mantener es un número predicho**.
 4. **Las siete columnas**: se derivan al marcar la oficial; falta decidir **qué las
    ata** —el test es obligatorio, la herramienta de `tools/` es opcional— y confirmar
    que el orden **no** se promete (§7).
