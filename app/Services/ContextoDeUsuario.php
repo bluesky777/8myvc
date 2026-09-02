@@ -89,7 +89,32 @@ class ContextoDeUsuario
         Cache::forget(self::clave($usuario));
     }
 
-    /** El contexto montado desde la base, sin pasar por la caché. */
+    /**
+     * El contexto montado desde la base, sin pasar por la caché.
+     *
+     * ## `regla_nivelacion` viaja en las cuatro ramas, y el porqué (2 sep 2026)
+     *
+     * La pide el front para **previsualizar** en el diálogo de nivelación qué nota
+     * va a quedar antes de guardar (22 §1.4). Va aquí y no en una petición aparte
+     * porque **sólo se usa acompañada de `nota_minima_aceptada`**, que ya viajaba
+     * en este mismo bloque: si estuvieran separadas, alguien acabaría leyéndolas de
+     * años distintos y la previsualización diría un número y el servidor guardaría
+     * otro.
+     *
+     * En las cuatro ramas y no sólo en la de Profesor: un acudiente o un alumno que
+     * abre el boletín tiene que poder ver la misma frase de regla que se le aplicó,
+     * y una columna que está en tres de cuatro respuestas es una rama muerta
+     * esperando.
+     *
+     * **Y esto no rompe a `myvc_flutter`, que está medido y no supuesto**:
+     * `ConfiguracionColegio.deLogin` (`lib/Utils/ConfiguracionColegio.dart:87-110`)
+     * lee campo a campo con su valor por defecto y no hay `json_serializable` ni
+     * `freezed` en el proyecto, así que una clave que no conoce no existe para él.
+     * Lo mismo `CuentaDeUsuarioModel` y `ColegioModel`.
+     *
+     * **El servidor sigue mandando**: la regla se aplica al escribir y lo que
+     * decide es `App\Services\Nivelacion`, no esto. Este campo es para pintar.
+     */
     private function construir(User $userTemp)
     {
         $usuario = [];
@@ -107,7 +132,7 @@ class ContextoDeUsuario
                                 p.firma_id, i3.nombre as firma_nombre,
                                 "N/A" as grupo_id, ("N/A") as nombre_grupo, ("N/A") as abrev_grupo,
                                 "N/A" as year_matricula_id, per.id as periodo_id, per.numero as numero_periodo, per.profes_pueden_editar_notas, per.profes_pueden_nivelar,
-                                y.id as year_id, y.year, y.nota_minima_aceptada, y.actual as year_actual, per.actual as periodo_actual,
+                                y.id as year_id, y.year, y.nota_minima_aceptada, y.regla_nivelacion, y.actual as year_actual, per.actual as periodo_actual,
                                 y.unidad_displayname, y.subunidad_displayname, y.unidades_displayname, y.subunidades_displayname, y.show_materias_todas,
                                 y.genero_unidad, y.genero_subunidad, per.fecha_plazo, y.alumnos_can_see_notas, y.logo_id,
                                 y.si_recupera_materia_recup_indicador, y.year_pasado_en_bol, y.mostrar_puesto_boletin, y.puestos_alfabeticamente, y.mostrar_nota_comport_boletin, y.profes_can_edit_alumnos,
@@ -137,7 +162,7 @@ class ContextoDeUsuario
                                 a.foto_id, IFNULL(i2.nombre, IF(a.sexo="F","default_female.png", "default_male.png")) as foto_nombre,
                                 g.id as grupo_id, g.nombre as nombre_grupo, g.abrev as abrev_grupo,
                                 g.year_id as year_matricula_id, per.id as periodo_id, per.numero as numero_periodo,
-                                y.id as year_id, y.year, y.nota_minima_aceptada, y.actual as year_actual, per.actual as periodo_actual,
+                                y.id as year_id, y.year, y.nota_minima_aceptada, y.regla_nivelacion, y.actual as year_actual, per.actual as periodo_actual,
                                 y.unidad_displayname, y.subunidad_displayname, y.unidades_displayname, y.subunidades_displayname,
                                 y.genero_unidad, y.genero_subunidad, per.fecha_plazo, y.mostrar_nota_comport_boletin, y.si_recupera_materia_recup_indicador, y.year_pasado_en_bol, y.alumnos_can_see_notas, y.logo_id,
                                 y.prematr_antiguos, y.msg_when_students_blocked, y.compromiso_familiar_label
@@ -167,7 +192,7 @@ class ContextoDeUsuario
                                 ac.foto_id, IFNULL(i2.nombre, IF(ac.sexo="F","default_female.png", "default_male.png")) as foto_nombre,
                                 "N/A" as grupo_id, ("N/A") as nombre_grupo, ("N/A") as abrev_grupo,
                                 "N/A" as year_matricula_id, per.id as periodo_id, per.numero as numero_periodo,
-                                y.id as year_id, y.year, y.nota_minima_aceptada, y.actual as year_actual, per.actual as periodo_actual,
+                                y.id as year_id, y.year, y.nota_minima_aceptada, y.regla_nivelacion, y.actual as year_actual, per.actual as periodo_actual,
                                 y.unidad_displayname, y.subunidad_displayname, y.unidades_displayname, y.subunidades_displayname,
                                 y.genero_unidad, y.genero_subunidad, per.fecha_plazo, y.si_recupera_materia_recup_indicador, y.mostrar_nota_comport_boletin, y.alumnos_can_see_notas, y.logo_id,
                                 -- §140. `year_pasado_en_bol` estaba en las otras TRES ramas y no en
@@ -200,7 +225,7 @@ class ContextoDeUsuario
                                 u.imagen_id as foto_id, IFNULL(i.nombre, IF(u.sexo="F","default_female.png", "default_male.png")) as foto_nombre,
                                 "N/A" as grupo_id, ("N/A") as nombre_grupo, ("N/A") as abrev_grupo,
                                 "N/A" as year_matricula_id, per.id as periodo_id, per.numero as numero_periodo, per.profes_pueden_editar_notas, per.profes_pueden_nivelar,
-                                y.id as year_id, y.year, y.nota_minima_aceptada, y.actual as year_actual, per.actual as periodo_actual,
+                                y.id as year_id, y.year, y.nota_minima_aceptada, y.regla_nivelacion, y.actual as year_actual, per.actual as periodo_actual,
                                 y.unidad_displayname, y.subunidad_displayname, y.unidades_displayname, y.subunidades_displayname, y.show_materias_todas,
                                 y.genero_unidad, y.genero_subunidad, per.fecha_plazo, y.si_recupera_materia_recup_indicador, y.year_pasado_en_bol, y.mostrar_nota_comport_boletin, y.alumnos_can_see_notas, y.logo_id,
                                 y.puestos_alfabeticamente, y.compromiso_familiar_label

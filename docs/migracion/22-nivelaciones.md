@@ -563,6 +563,27 @@ PUT  years/regla-nivelacion   { "year_id": 8, "regla": "mayor" }
 pide enseñar al lado de cada opción; el front lo pinta, no lo calcula. **Cambiar la regla no
 reescribe ninguna nivelación anterior** (decisión 6).
 
+### §5.1 Y la regla viaja además en el bloque de la sesión
+
+Lo pidió el front el 2 sep y está hecho: `regla_nivelacion` sale en **las cuatro ramas** del
+contexto de usuario, al lado de `nota_minima_aceptada`, `profes_pueden_editar_notas` y
+`profes_pueden_nivelar`, que ya viajaban ahí.
+
+Va ahí y no en una petición aparte porque **la regla sólo se usa acompañada de la mínima**, y
+las dos son del mismo año: separadas, alguien acabaría leyéndolas de años distintos y la
+previsualización diría un número mientras el servidor guarda otro. Hoy la única forma de
+obtenerla era `GET years/colegio`, que trae todos los años del colegio para leer un campo del
+actual.
+
+Con esto, **el diálogo puede previsualizar sin pedir nada más**. Lo que decide sigue siendo el
+servidor: `regla_aplicada` de la respuesta manda sobre lo que el front pintó antes de guardar.
+
+Mueve cinco instantáneas, **regeneradas a propósito y con el diff comprobado**: las cuatro de
+`login-contexto-*` y `muestreo-aplicacion-descargas-detailed`; una clave nueva en cada una y
+nada más. Y no rompe a `myvc_flutter`: `ConfiguracionColegio.deLogin`
+(`lib/Utils/ConfiguracionColegio.dart:87-110`) lee campo a campo con su valor por defecto, y
+no hay `json_serializable` ni `freezed` en el proyecto.
+
 > Esto es una ruta nueva más —serán **cuatro** en total: `PUT`/`DELETE notas/nivelar/{id}`,
 > `PUT notas/nivelar/lote` y `PUT years/regla-nivelacion`— y cada una **mueve `CLAUDE.md` y
 > los tres snapshots de rutas**, contando con `route:list` el día que entren, no sumando.
