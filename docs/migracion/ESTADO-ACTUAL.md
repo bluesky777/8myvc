@@ -8,7 +8,43 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
-**2 sep 2026, noche — `main` LIMPIO, MEDIDO Y **SUBIDO A `origin`** · `d43d028`** ·
+**2 sep 2026, noche — LA TANDA PENDIENTE ESTABA MAL MEDIDA, Y EN LA DIRECCIÓN PELIGROSA** ·
+rama `docs/tanda-pendiente-remedida`, **sin fusionar** · sólo documentación: **cero ficheros de
+`app/`, `routes/` ni `database/`** · coordinó `8myvc-af`
+
+> **La base del rango era `eb95cbc` y la buena es `9474b50`**, que se desplegó el 31 ago. Con la
+> base mala, `ESTADO-ACTUAL.md` prometía «542 rutas sin mover, 27 ficheros de `app/`, **UNA**
+> migración» donde hay **563 rutas, 52 ficheros y SEIS migraciones** — y de ese párrafo sale la
+> respuesta a *«¿este despliegue lleva `migrate --force`?»*. Remedido con el comando, no a ojo:
+> `9474b50..347f137` son **175 commits**, 52 de `app/`, 6 de `routes/`, **0** de `config/`,
+> dependencias y volcado.
+>
+> **El aviso que decía «sin migrar, los tres boletines contestan 500» se quedaba corto: sin migrar
+> no se puede ni entrar.** `years.regla_nivelacion` la nombra `ContextoDeUsuario::construir()` en
+> las cuatro ramas, y esa consulta la dispara **el guard** (`ExigirAutenticacion:39` →
+> `User::fromToken()`), no un controlador: **544 de las 562 rutas de `api/` caen antes de llegar a
+> su método**, y `POST login` y `POST auth/login` con ellas, porque montan el contexto ellos mismos.
+> Reproducido contra una base sin migrar: `Unknown column 'y.regla_nivelacion' in 'field list'`.
+>
+> **Y una que no estaba mirada: cinco de las seis son aditivas en `up()`, la sexta no.**
+> `2026_08_31_100000` hace `dropColumn('boletin_independiente')` sobre `matriculas`, y el código
+> que está **hoy** en los quince nombra esa columna en cinco consultas vivas de
+> `BoletinIndependiente.php`. Eso rompe el «Paso 4. Volver atrás» de `DESPLIEGUE.md`, que decía
+> que las migraciones se quedan puestas porque son aditivas: **cierto en todas las tandas
+> anteriores y falso en ésta**. Corregido allí, con el `rollback` que sí sirve —`--step=6`, porque
+> la del `dropColumn` es la **primera** de las seis y `--step=1` revierte `rubricas`— y con lo que
+> ese rollback se lleva por delante.
+>
+> **El estado peor no es «sin migrar», es «migrado a medias»**, y apareció solo: la base de tests
+> de esta sesión estaba parada en `2026_08_31_100000`, con `matriculas.boletin_independiente` ya
+> retirada y `years.regla_nivelacion` sin llegar. **No funciona ni el código viejo ni el nuevo.**
+> Por eso «si el `migrate` de un colegio falla, ese colegio se arregla antes de tocar el
+> siguiente» deja de ser una precaución y pasa a tener una forma concreta.
+>
+> **Nada de esto se ha desplegado**: desplegar a los quince lo autoriza Joseth. Lo que cambia es
+> que el documento dice la verdad el día que dé la orden.
+
+**Anterior: 2 sep 2026, noche — `main` LIMPIO, MEDIDO Y **SUBIDO A `origin`** · `d43d028`** ·
 **`Tests: 1843 passed (16614 assertions)`, `Duration: 693.98s`, `exit=0`**, cero rojos y cero
 saltados · pint **PASS** (357 ficheros) · larastan nivel 7 **`[OK] No errors`** · **563 rutas**
 (contadas con `route:list --json` sobre este árbol) · **cero commits sin subir**, y la base de
@@ -3496,45 +3532,54 @@ solo:
 
 **Fusionado no es desplegado**, y `app/` es copia por colegio.
 
-**La tanda del 22 al 25 ago se desplegó el 25** (`eb95cbc`, mismo hash en los quince).
-**Lo de después no**, y ya hay una tanda nueva medida en
-[DESPLIEGUE.md](../DESPLIEGUE.md) — que hasta hoy decía «no hay tanda pendiente» y era
-falso desde que se fundieron GEMELO-1 y las notas de alumno.
+**La base es `9474b50`, desplegado el 31 ago en los quince**, no `eb95cbc`, que es la
+tanda del 25 ago. La tanda pendiente está medida y escrita en
+[DESPLIEGUE.md](../DESPLIEGUE.md), con qué rompe cada migración y con qué radio.
 
-Medido sobre el rango entero (`eb95cbc..HEAD`), no sumando commit a commit: **0 de
-dependencias, 0 en `config/`, 0 en `routes/` — las 542 rutas sin mover**, y **27 ficheros
-de `app/`**. El volcado congelado (`database/schema/`) tampoco se movió, pero **eso no
-significa que no haya cambio de esquema**: hay **UNA migración y es bloqueante**,
-`2026_08_26_100000_interruptores_de_certificados`.
+Medido sobre el rango entero (`9474b50..347f137`) el 2 sep 2026, no sumando commit a
+commit: **175 commits**, **52 ficheros de `app/`**, **0 de dependencias**, **0 en
+`config/`**, **0 en `database/schema/`** — y **6 ficheros de `routes/`: las rutas SÍ se
+movieron, de 543 a 563** (21 nuevas y **1 retirada**, `tardanzas/login/traer-datos`). Hay
+**SEIS migraciones y cinco son bloqueantes**.
 
-> **Este párrafo decía «0 migraciones, 0 cambios de esquema y tres ficheros de `app/`», y
-> el despliegue se decide leyéndolo.** Esta vez la cifra sí envejeció, que es el caso que
-> no cubre la regla de las cifras que nacen mal: era **cierta al escribirse** en `5e4ec63`
-> —entonces el rango de verdad no tenía migraciones— y **se quedó ahí veinte commits**,
-> entre ellos `acd189b`, que es justo el que añade la migración.
+> ### La cifra peligrosa de este párrafo estaba en la dirección peligrosa
 >
-> **La cifra peligrosa era «0 migraciones»**, porque de este párrafo sale la respuesta a
-> *«¿este despliegue lleva `migrate --force`?»*. Con el código y sin la migración,
-> `Year::datos()` pide `y.usa_consecutivo_certificados` y contesta **500 en todo lo que
-> cuelga de ella** —los trece de `boletines/*` y `bolfinales/*`, `informes/datos`,
-> `piars-config`, `grupos-con-disciplina` y `notas/actuales-alumnos`—, en los quince
-> colegios a la vez. `DESPLIEGUE.md` lo decía bien mientras este lo decía al revés, y
-> **de dos documentos que se contradicen el que se lee primero es este**.
+> Decía **«`eb95cbc..HEAD`, 542 rutas sin mover, 27 ficheros de `app/`, UNA migración»**, y
+> de aquí sale la respuesta a *«¿este despliegue lleva `migrate --force`?»*. Las cuatro
+> cifras eran falsas a la vez **porque la base lo era**: medir desde `eb95cbc` cuenta otra
+> vez los 44 commits que salieron el 31 ago, y aun así **daba de menos** en todo lo demás,
+> que es la dirección que no se nota. *Un rango sin desplegar se remide entero cada vez que
+> se le toca — y lo primero que se remide es **desde dónde**.*
 >
-> **Lo cazó `myvc-front-a2` el 27 ago 2026** chocando de frente con el 500 en su docker
-> —`Unknown column 'y.usa_consecutivo_certificados'`, con el menú Informes de `app2` en
-> blanco—, no leyendo el documento. **Un rango sin desplegar se vuelve a medir entero cada
-> vez que se le añade un commit**, no una vez: lo que envejece no es el commit nuevo, es
-> el resumen del rango.
+> **Lo que se estaba prometiendo era «una migración» donde hay seis, y una de ellas retira
+> una columna.** El aviso de `DESPLIEGUE.md` decía que sin migrar «los tres boletines
+> contestan 500»; el radio real es **el colegio entero, empezando por el login**:
+> `years.regla_nivelacion` la nombra `ContextoDeUsuario::construir()` en las cuatro ramas, y
+> a esa consulta la dispara **el propio guard** (`ExigirAutenticacion:39` →
+> `User::fromToken()`), no un controlador. **544 de las 562 rutas de `api/` caen ahí mismo**,
+> y `POST login` y `POST auth/login` con ellas.
+>
+> **No es teoría: le pasó al docker la madrugada del 2 sep al fusionar, y lo detectó la
+> sesión del front, no nosotros.** Es el mismo modo de fallo que cazó `myvc-front-a2` el 27
+> ago con `y.usa_consecutivo_certificados`, y **la segunda vez que este párrafo lo dice mal
+> mientras `DESPLIEGUE.md` lo dice a medias**. De dos documentos que se contradicen, el que
+> se lee primero es éste.
+>
+> **Y el estado peor no es «sin migrar», es «migrado a medias»**: con la primera de las seis
+> corrida y las cinco siguientes no, `matriculas.boletin_independiente` ya no está y
+> `years.regla_nivelacion` todavía no — **no funciona ni el código viejo ni el nuevo**.
+> Apareció así, sin buscarlo, en una base de tests de esta misma noche.
 
-Dentro está **el boletín final de 3.820 consultas a 455** —la queja de los 24–63 s—, **la
-ficha del alumno que crea las notas que faltan** y **lo del consecutivo de certificados**.
+Dentro está la nivelación entera (las cuatro rutas de `notas/nivelar` y
+`definitivas_periodos/nivelar`), las **diez** de `rubricas/`, el boletín independiente con
+sus cinco rutas, `GET colegio/logo` y el panel de inicio adelgazado a la mitad.
 
-**Y trae dos cosas que hay que decirle al front el día que se despliegue**, las dos de
-las de *«quién puede llamarla»*: el 403 de `cambiar-contador-*` a quien no sea
-administrativo —las dos pantallas que lo llaman enseñan el control sin mirar el rol— y
-que `aumentar_contador` hay que **omitirlo**, no mandar `false`. Están en
-[DESPLIEGUE.md](../DESPLIEGUE.md) y en [cert-2 §6](noche-2026-08-26/cert-2.md).
+**Y trae cinco avisos para el front**, en la tabla de [DESPLIEGUE.md](../DESPLIEGUE.md):
+**K** (nueve columnas menos en `ChangesAsked/to-me`, «Por: undefined» en el panel viejo),
+**L** (`tardanzas/login/traer-datos` pasa a 404), **M** (`regla_nivelacion` nueva en el
+bloque de la sesión), **N** (campos de nivelación en respuestas que ya existían) y **O**
+(21 rutas nuevas, todas con `auth.personal` salvo `colegio/logo` — de las de *«quién puede
+llamarla»*).
 
 Y en `myvc_front` queda apuntado, sin hacer, el arreglo de **las cuatro altas de la
 planilla de notas que no mandan `fecha_hora`** (`MIGRATION.md` §4b.3b).
