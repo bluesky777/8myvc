@@ -26,6 +26,7 @@ use App\User;
  * @property ?string $inicia_at
  * @property ?string $finaliza_at
  * @property ?int $actividad_id
+ * @property ?int $rubrica_id  ← a mano: la añade 2026_09_03_100000_rubricas y no está en el volcado (26 §4.7)
  * @property ?int $created_by
  * @property ?int $updated_by
  * @property ?int $deleted_by

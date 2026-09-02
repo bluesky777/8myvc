@@ -510,7 +510,7 @@ class BolfinalesController extends Controller {
 
 			$alumno->total_creditos += $asignatura->creditos;
 						
-						// **Las catorce columnas de `notas_finales` nombradas, y no el asterisco** — 27 §4,
+			// **Las catorce columnas de `notas_finales` nombradas, y no el asterisco** — 27 §4,
 			// y las tres últimas se abren aquí **a propósito**: es A10, el boletín final
 			// imprimiendo el par. La tabla de la §3.4 del [22](../../../../docs/migracion/22-nivelaciones.md)
 			// tenía este sitio como «congelado hasta A10»; esto es A10.

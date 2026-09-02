@@ -3,8 +3,8 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 `8myvc` es la API del sistema escolar MyVc: Laravel 13 + PHP 8.4, ~37.000 líneas
-en `app/`, 113 clases de controlador y **554 rutas** (contadas con
-`route:list --json` el 1 sep 2026; el 24 ago el de rutas se movió por primera vez,
+en `app/`, 113 clases de controlador y **564 rutas** (contadas con
+`route:list --json` el 2 sep 2026; el 24 ago el de rutas se movió por primera vez,
 de 539 a 542, con los tres endpoints que pidió `myvc_flutter`, el 28 a 543 con
 `PUT users/mi-docente`, que pidió Joseth para el panel de `app2`, el 31 a 544 con
 `GET grupos/{grupo_id}/alumnos-de/{que}`, que pidió el front para el modal de
@@ -13,13 +13,17 @@ boletín independiente —`periodo`, `planilla` y `copiar`— y **548–549** co
 `boletin-independiente/marcados` y `/alumno`, las dos lecturas de la pantalla por
 estudiante que autorizó Joseth ese día, y **550** con `GET colegio/logo`, la
 pública que deja a la pantalla de login pedir el logo del colegio sin token, también
-decidida por Joseth ese día, y el 2 sep a **554** con las cuatro de nivelar
-—`PUT`/`DELETE notas/nivelar/{id}`, `PUT notas/nivelar/lote` y
-`PUT definitivas_periodos/nivelar`—, que son
-**endpoints nuevos por diseño**: `notas/update` y `notas/lote` no pueden aprender a
-nivelar porque `myvc_flutter` es una sola app para los quince y una versión vieja
-convive meses, así que un 95 tecleado desde el móvil se guardaría topado
-(`docs/migracion/22-nivelaciones.md`) — «el de rutas no se mueve» sigue siendo la
+decidida por Joseth ese día, y el 2 sep a **564** de una vez, con las dos épicas
+de esa noche: **las cuatro de nivelar** —`PUT`/`DELETE notas/nivelar/{id}`,
+`PUT notas/nivelar/lote` y `PUT definitivas_periodos/nivelar`—, que son **endpoints
+nuevos por diseño**, porque `notas/update` y `notas/lote` no pueden aprender a nivelar:
+`myvc_flutter` es una sola app para los quince y una versión vieja convive meses, así que
+un 95 tecleado desde el móvil se guardaría topado
+(`docs/migracion/22-nivelaciones.md`); y **las diez de `rubricas/`**, la familia entera de
+la decisión 4 de Joseth de ese día —la rúbrica produce la nota—, contrato en
+`docs/migracion/26-rubricas.md`. **Ese salto lo trajo una fusión de tres ramas y por eso
+el número se contó entero, no se sumaron los dos tramos** — «el de rutas no se mueve»
+sigue siendo la
 regla: una ruta nueva es una decisión, no un efecto secundario, y mueve este
 documento y **tres** snapshots, no dos: `rutas.json`, `guards-por-ruta.json` y
 `guard-por-familia.json`, que cuenta cuántas rutas tiene cada familia y cuántas

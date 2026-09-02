@@ -47,7 +47,12 @@ class UnidadesController extends Controller {
 	//
 	// Las columnas van nombradas y NO se vuelve a `*`: ver el comentario de abajo.
 	private $cons_unidades 		= 'SELECT id, definicion, porcentaje, periodo_id, asignatura_id, obligatoria, orden, por_defecto, fecha, created_by, updated_by, deleted_by, deleted_at, created_at, updated_at FROM unidades WHERE asignatura_id=? and periodo_id=? and unidades.alumno_id is null and deleted_at is null order by orden, id';
-	private $cons_subunidades 	= 'SELECT * FROM subunidades WHERE unidad_id=? and deleted_at is null order by orden, id';
+	// Las diecisiete columnas de `subunidades` nombradas, y NO `*`: la columna
+	// `rubrica_id` (2026_09_03_100000_rubricas) saldría sola en esta respuesta
+	// el día que corra la migración, con este código y sin que nadie lo decidiera.
+	// Es la familia del 27 §4, aquí por `subunidades` en vez de por
+	// `notas_finales`. La rúbrica de una subunidad se pide a `rubricas/`.
+	private $cons_subunidades 	= 'SELECT id, definicion, porcentaje, unidad_id, nota_default, obligatoria, orden, por_defecto, inicia_at, finaliza_at, actividad_id, created_by, updated_by, deleted_by, deleted_at, created_at, updated_at FROM subunidades WHERE unidad_id=? and deleted_at is null order by orden, id';
 
 
 	public function putDeAsignaturaPeriodo($asignatura_id, $periodo_id)
@@ -513,7 +518,12 @@ class UnidadesController extends Controller {
 		// está marcado— pero el día que alguien lo esté, una unidad suya borrada sólo
 		// se recupera sabiendo su id.
 		$cons_unidades 		= 'SELECT id, definicion, porcentaje, periodo_id, asignatura_id, obligatoria, orden, por_defecto, fecha, created_by, updated_by, deleted_by, deleted_at, created_at, updated_at FROM unidades WHERE asignatura_id=? and periodo_id=? and unidades.alumno_id is null and deleted_at is not null';
-		$cons_subunidades 	= 'SELECT * FROM subunidades WHERE unidad_id=? and deleted_at is null';
+		// Las diecisiete columnas de `subunidades` nombradas, y NO `*`: la columna
+		// `rubrica_id` (2026_09_03_100000_rubricas) saldría sola en esta respuesta
+		// el día que corra la migración, con este código y sin que nadie lo decidiera.
+		// Es la familia del 27 §4, aquí por `subunidades` en vez de por
+		// `notas_finales`. La rúbrica de una subunidad se pide a `rubricas/`.
+		$cons_subunidades 	= 'SELECT id, definicion, porcentaje, unidad_id, nota_default, obligatoria, orden, por_defecto, inicia_at, finaliza_at, actividad_id, created_by, updated_by, deleted_by, deleted_at, created_at, updated_at FROM subunidades WHERE unidad_id=? and deleted_at is null';
 
 		$unidades = DB::select($cons_unidades, [$asignatura_id, $user->periodo_id]);
 
