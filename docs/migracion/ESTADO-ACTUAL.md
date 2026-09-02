@@ -213,7 +213,38 @@ coordina `8myvc-ab`
 > que si el camino de crear se rompiera, esos casos fallarían en vez de saltarse.
 >
 > El router queda en **554** y las cuatro rutas nuevas son de nivelar. Lo que falta del plan es
-> de otros carriles: la impresión (A10, `8myvc-f2`) y el front entero (B). **A10 ya no es de este carril**: la
+> de otros carriles: la impresión (A10, `8myvc-f2`) y el front entero (B).
+>
+> ### Y cinco cosas que entraron DESPUÉS de A9, todas medidas
+>
+> 1. **Los escritores de bitácora pasaron de 10 a 12**, y lo cazó su centinela en la corrida
+>    completa, no una persona. Sin él, `salud-de-la-bitacora.php` habría impreso un reparto de
+>    relojes con dos escritores sin clasificar **y con toda la confianza del mundo**. Las dos
+>    nuevas escriben en Bogotá y **reutilizan los tipos `Nota` y `NF_UPDATE`** a propósito: dos
+>    pantallas del front buscan el historial de una nota por tipo, y una nivelación con tipo
+>    nuevo desaparecería de ahí.
+> 2. **`regla_nivelacion` viaja en el bloque de la sesión**, en las cuatro ramas (22 §5.1), para
+>    que el diálogo previsualice sin otra petición. Mueve cinco instantáneas, regeneradas a
+>    propósito y con el diff comprobado: una clave nueva en cada una.
+> 3. **`tools/filas-enteras-al-cliente.php`**: qué consultas leen la fila entera de una tabla del
+>    dominio **y la publican**. Sale de que la migración movió siete instantáneas sin que nadie
+>    tocara su método. Va **después** de la regla, no en su lugar: lo primero sigue siendo
+>    **correr la suite entera después de cada migración que añada columnas**.
+> 4. **El 404 de la planilla decía «no es de este año» cuando lo que falta es el profesor.**
+>    Medido: **146 de 1219 asignaturas vivas sin profesor**, cero con profesor inexistente o
+>    borrado — no es corrupción, es un estado normal del dominio, y son **134 de 134 en el año
+>    siguiente**. Ahora el mensaje dice cuál de las cuatro cosas pasó. **El `inner join
+>    profesores` NO se tocó**: que la planilla deba abrirse sin docente es decisión de Joseth.
+> 5. **El cuerpo de un 404 sí llega con `APP_DEBUG=false`**, medido con el kernel de verdad:
+>    `abort(404, 'texto')` devuelve el mensaje entero y sólo el `abort(404)` **sin** texto sale
+>    vacío — y en `app/` no queda ninguno vivo. El front excluye el cuerpo de todos los 404
+>    dando por hecho lo contrario, así que **hasta que quite esa exclusión, ningún mensaje de
+>    404 del backend lo ve nadie**.
+>
+> **Y la trampa de la noche, que costó 31 rojos falsos:** una corrida de tests cortada por el
+> tiempo de espera del cliente **sigue viva dentro del contenedor**. Lanzar la segunda contra la
+> misma base da deadlocks en `personal_access_tokens` que se leen como fallos del código. Se
+> mata el proceso **dentro** del contenedor; que muera el `docker exec` no basta. **A10 ya no es de este carril**: la
 > impresión y `Informes/**` pasaron a `8myvc-f2` el 2 sep. Base de tests de esta sesión:
 > `simonbolivar_testing_niv`.
 
