@@ -155,6 +155,49 @@ function leeLaFilaEntera(string $cuerpo, array $tablas, array $modelos): bool
 }
 
 /**
+ * El cuerpo del método **más el de los métodos de su propia clase que llama**, un
+ * nivel.
+ *
+ * **Sin esto el detector se salta un caso entero, y no es teórico**: lo devolvió
+ * `8myvc-f2` el 2 sep 2026 mirando `ChangeAskedController`. Su lectura de
+ * `subunidades` vive en `asignaturas_dia`, que es **privado**, y quien la publica
+ * es `getToMe` —enrutado en `GET ChangesAsked/to-me`, que la devuelve dentro de
+ * `horario_hoy` y `horario_manana`—. Mirando sólo el cuerpo de `getToMe`, la ruta
+ * no salía y la fuga se quedaba abierta.
+ *
+ * **Un nivel y no todos**: seguir la cadena entera acaba en los servicios y en los
+ * modelos, y ahí el detector dejaría de ordenar nada. Lo que queda fuera sigue
+ * declarado arriba — el número es un suelo.
+ */
+function cuerpoConSusPrivados(string $codigo, string $metodo, int $nivel = 1): string
+{
+    $cuerpo = cuerpoDelMetodo($codigo, $metodo);
+
+    if ($cuerpo === null) {
+        return '';
+    }
+
+    if ($nivel <= 0) {
+        return $cuerpo;
+    }
+
+    $completo = $cuerpo;
+
+    // `$this->loQueSea(` y `self::loQueSea(`: las dos formas que usa el proyecto.
+    if (preg_match_all('/(?:\$this->|self::)([a-z_][a-z0-9_]*)\s*\(/i', $cuerpo, $m)) {
+        foreach (array_unique($m[1]) as $llamado) {
+            if ($llamado === $metodo) {
+                continue;
+            }
+
+            $completo .= "\n".cuerpoConSusPrivados($codigo, $llamado, $nivel - 1);
+        }
+    }
+
+    return $completo;
+}
+
+/**
  * Qué tablas de la lista toca ese cuerpo.
  *
  * @return list<string>
@@ -186,6 +229,11 @@ if ($autoprueba) {
         ['$n = Nota::find($id);', ['notas']],
         ["DB::select('SELECT * FROM ausencias');", []],
         ['return 1 + 1;', []],
+        // La tabla de nombre parecido **no** es la tabla: `subunidades_por_defecto`
+        // no recibe las columnas de `subunidades`. Lo levantó `8myvc-f2` mirando
+        // `UnidadesController:161`, y el control existe para que el siguiente que
+        // corra esto no se haga la misma pregunta.
+        ["DB::select('SELECT * FROM subunidades_por_defecto');", []],
     ];
 
     $fallos = 0;
@@ -209,6 +257,17 @@ if ($autoprueba) {
         echo "AUTOPRUEBA FALLA: un `SELECT *` dentro de un comentario cuenta como lectura.\n";
     }
 
+    // Y que un método público que lee por un privado de su clase **sí** salga: es
+    // el caso de `ChangeAskedController::getToMe`, que publica lo que lee
+    // `asignaturas_dia`.
+    $conPrivado = "class X {\n public function publico() { return \$this->ayudante(); }\n"
+        ." private function ayudante() { return DB::select('SELECT * FROM notas'); }\n}";
+
+    if (tablasQueToca(cuerpoConSusPrivados($conPrivado, 'publico'), $tablas, $modelos) !== ['notas']) {
+        $fallos++;
+        echo "AUTOPRUEBA FALLA: una lectura dentro de un método privado de la misma clase no se ve.\n";
+    }
+
     // Y que el troceador de métodos sepa dónde acaba uno.
     $codigo = "class X {\n public function uno() { if (true) { \$a = 1; } return \$a; }\n public function dos() { return 2; }\n}";
     $cuerpo = cuerpoDelMetodo($codigo, 'uno');
@@ -219,8 +278,8 @@ if ($autoprueba) {
     }
 
     echo $fallos === 0
-        ? "autoprueba: 6 casos, los 6 como se esperaba.\n"
-        : "autoprueba: {$fallos} de 6 mal.\n";
+        ? "autoprueba: 8 casos, los 8 como se esperaba.\n"
+        : "autoprueba: {$fallos} de 8 mal.\n";
 
     exit($fallos === 0 ? 0 : 2);
 }
@@ -303,9 +362,9 @@ foreach ($rutas as $ruta) {
     }
 
     $cacheCodigo[$ficheroClase] ??= file_get_contents($ficheroClase);
-    $cuerpo = cuerpoDelMetodo((string) $cacheCodigo[$ficheroClase], $metodo);
+    $cuerpo = cuerpoConSusPrivados((string) $cacheCodigo[$ficheroClase], $metodo);
 
-    if ($cuerpo === null) {
+    if ($cuerpo === '') {
         continue;
     }
 

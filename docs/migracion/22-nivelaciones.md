@@ -442,10 +442,18 @@ que faltaba era dónde más puede estar pasando. Medido el 2 sep con
 | | |
 |---|---|
 | rutas en el router | **554** |
-| que tocan `notas`, `notas_finales`, `recuperacion_final`, `subunidades`, `unidades` o `years` | **129** |
-| de ésas, **con** instantánea de forma | **41** |
-| de ésas, **sin** instantánea | **88** |
-| y que además **leen la fila entera** — las accionables | **16** |
+| que tocan `notas`, `notas_finales`, `recuperacion_final`, `subunidades`, `unidades` o `years` | **146** |
+| de ésas, **con** instantánea de forma | **43** |
+| de ésas, **sin** instantánea | **103** |
+| y que además **leen la fila entera** — las accionables | **21** |
+
+> **Este número subió de 16 a 21 al arreglar el detector, y el porqué importa más que la
+> cifra.** La primera versión miraba **sólo el cuerpo del método enrutado**, así que una ruta
+> que lee por un **ayudante privado de su propia clase** no salía. No es teórico: lo devolvió
+> `8myvc-f2` con `ChangesAsked/to-me`, cuya lectura de `subunidades` vive en `asignaturas_dia`,
+> que es privado, y que publica lo leído dentro de `horario_hoy`. Ahora el detector sigue **un
+> nivel** de métodos de la misma clase. **Un número publicado con un punto ciego conocido es
+> peor que un número más alto**, porque alguien despliega leyéndolo.
 
 Las 88 no son 88 agujeros: la mayoría escriben y devuelven un mensaje. **Las 16 son la lista
 que hay que mirar antes de desplegar**, porque en ellas una columna nueva sale al cliente y no
@@ -454,6 +462,15 @@ se entera nadie. De las que se han leído hasta ahora:
 - **Dos eran filtraciones reales y ya están congeladas**: `historiales/nota-detalle` y
   `historiales/nota-final-detalle` devolvían la fila entera en `$res['nota']`, así que
   publicaban las cinco columnas de la nivelación desde su migración.
+- **Y una tercera, encontrada al remedir y SIN ARREGLAR a propósito:
+  `POST tardanzas/login/traer-datos`** hace `SELECT * FROM years` y devuelve el resultado en
+  `$usuario->years`, así que **publica `regla_nivelacion`**. Es el quiosco de tardanzas, un
+  cliente distinto de los cuatro de siempre. **La decisión de si eso frena el despliegue o va
+  con una nota no es técnica y no es de esta sesión**: está en manos de la coordinación y de
+  Joseth, con la integración ya en marcha. Arreglarla es nombrar las columnas de ese `SELECT`.
+- Tres más de las nuevas se descartaron leyéndolas: `alumnos/show` y
+  `unidades/de-asignatura-periodo` unen con `years` **por columnas nombradas**, y
+  `disciplina/mis-fichas` devuelve `alumno`, `config` y `ordinales`, ninguna fila de año.
 - **Una se descartó leyéndola**: `detalles/grupos-periodos` hace `SELECT *` sobre `notas`
   pero sólo **cuenta** las filas (`count($notasS)`), no las devuelve.
 - **Cuatro son del carril de rúbricas** (`SELECT * FROM subunidades` en `AsignaturasController`,
@@ -461,10 +478,14 @@ se entera nadie. De las que se han leído hasta ahora:
 - El resto son borrados y escrituras que devuelven un mensaje, y se descartan igual, **una a
   una**.
 
-> **Y el número lleva su propio aviso**: es un **suelo, no un techo**. «Lee la tabla» se decide
-> por el texto del método, así que una ruta que llegue a `notas` por tres capas de servicios no
-> sale; y «tiene instantánea» se decide por la URI escrita en un test, así que una construida
-> con variables cuenta como descubierta. El error cae del lado prudente a propósito.
+> **Y el número lleva su propio aviso, ahora con lo que ve y lo que no.** **Ve**: consultas y
+> modelos nombrados en el cuerpo del método enrutado **y en los métodos de su misma clase que
+> llama, un nivel**. **No ve**: lo que esté a dos saltos o dentro de un servicio o un modelo, así
+> que sigue siendo un **suelo, no un techo**. Y «tiene instantánea» se decide por la URI escrita
+> **como literal** en un test, de modo que una construida con variables —`'/api/bolfinales/…/'.$grupo->id`—
+> cuenta como descubierta aunque tenga instantánea: **las dos de `bolfinales` de la lista son
+> justo eso**. El error cae del lado prudente a propósito: sobra una ruta en la lista antes que
+> faltar.
 
 Regla para lo que venga: **una columna nueva viaja porque alguien la nombró**, nunca por un
 asterisco. Y la prueba de que un sitio está congelado es que su instantánea **queda verde sin
