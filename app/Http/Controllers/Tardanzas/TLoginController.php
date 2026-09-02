@@ -252,7 +252,36 @@ class TLoginController extends Controller {
 
 
 		// Años
-		$cons_ye = "SELECT * FROM years y WHERE y.year=? and y.deleted_at is null";
+		// **Las 68 columnas de `years` nombradas, y NO `*`** — 22 §3.4 y 27 §4.
+		//
+		// Esta fila viaja entera al quiosco en `$usuario->years`, así que con el asterisco
+		// **`regla_nivelacion` se publicaba desde el minuto en que corriera la migración**,
+		// con este código y sin que nadie lo hubiera decidido. Lo que se escapa es una
+		// cadena de configuración del colegio, y la ruta exige sesión —lleva
+		// `withoutMiddleware('auth.token')` pero `RutasPreLoginTest` deja escrito que las
+		// seis de `tardanzas/*` contestan 401 igual—, así que no frenaba el despliegue: se
+		// arregla porque **nadie decidió publicarla**.
+		//
+		// **Van TODAS las que la tabla tiene hoy, no una selección de las que parezca usar
+		// el quiosco**, y ésa es la mitad importante: no sabemos qué versión corre ese
+		// cliente ni quién lo mantiene, así que la única forma de no romperlo es que reciba
+		// exactamente lo de hoy menos la columna nueva. Es lo mismo que hizo
+		// `Nota::LAS_DIEZ_COLUMNAS`.
+		//
+		// La lista salió del esquema **migrado** y no del volcado congelado: `firmantes_acta`,
+		// `usa_consecutivo_certificados`, `usa_folio_certificados` y
+		// `puestos_con_bol_independiente` están en la tabla y no en el volcado, así que
+		// copiarla de ahí habría **quitado cuatro columnas** que el quiosco recibe hoy.
+		$cons_ye = "SELECT y.id, y.year, y.nombre_colegio, y.abrev_colegio, y.genero_colegio, y.ciudad_id, y.logo_id, y.img_encabezado_id,
+					y.rector_id, y.secretario_id, y.tesorero_id, y.coordinador_academico_id, y.coordinador_disciplinario_id, y.capellan_id, y.psicorientador_id, y.nota_minima_aceptada,
+					y.minu_hora_clase, y.unidad_displayname, y.unidades_displayname, y.genero_unidad, y.subunidad_displayname, y.subunidades_displayname, y.genero_subunidad, y.resolucion,
+					y.codigo_dane, y.caracter, y.calendario, y.jornada, y.encabezado_certificado, y.frase_final_certificado, y.actual, y.telefono,
+					y.celular, y.website, y.website_myvc, y.alumnos_can_see_notas, y.profes_can_edit_alumnos, y.mostrar_puesto_boletin, y.puestos_alfabeticamente, y.titulo_rector,
+					y.mostrar_nota_comport_boletin, y.si_recupera_materia_recup_indicador, y.year_pasado_en_bol, y.show_fortaleza_bol, y.solo_escalas_valorativas, y.config_certificado_estudio_id, y.cant_areas_pierde_year, y.cant_asignatura_pierde_year,
+					y.show_subasignaturas_en_finales, y.mensaje_aprobo_con_pendientes, y.show_materias_todas, y.msg_when_students_blocked, y.contador_certificados, y.usa_consecutivo_certificados, y.contador_folios, y.usa_folio_certificados,
+					y.texto_acta_eval, y.firmantes_acta, y.prematr_antiguos, y.prematr_nuevos, y.compromiso_familiar_label, y.created_by, y.updated_by, y.deleted_by,
+					y.deleted_at, y.created_at, y.updated_at, y.puestos_con_bol_independiente
+					FROM years y WHERE y.year=? and y.deleted_at is null";
 		$years = DB::select($cons_ye, [$anio]);
 
 
