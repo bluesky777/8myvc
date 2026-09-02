@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * plantilla. La matriz vive en `RubricaCriterio`, `RubricaNivel` y
  * `RubricaDescriptor`; lo que el docente marcó, en `RubricaValoracion`.
  *
- * Es la §2 de `docs/migracion/24-rubricas.md`. La regla que gobierna todo el
+ * Es la §2 de `docs/migracion/26-rubricas.md`. La regla que gobierna todo el
  * dominio está en la §1: **la rúbrica produce la nota y nada más** — ningún
  * informe lee estas tablas, y por eso los modelos no tienen ni una consulta:
  * las lee y escribe `RubricasController`, con SQL, como el resto del repo.

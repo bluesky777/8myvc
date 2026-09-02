@@ -15,7 +15,7 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 /**
  * Rúbricas: la matriz criterios × niveles que **produce** la nota de una subunidad.
  *
- * El contrato es [24-rubricas.md](../../../docs/migracion/24-rubricas.md) y este
+ * El contrato es [26-rubricas.md](../../../docs/migracion/26-rubricas.md) y este
  * fichero lo sigue; si algo de aquí discrepa del documento, el que está mal es
  * éste. Las tres reglas de su §1 gobiernan cada método:
  *
@@ -39,7 +39,7 @@ class RubricasController extends Controller
     use ResuelveElUsuario;
 
     /**
-     * `GET rubricas` — las del año del token (24 §4.1).
+     * `GET rubricas` — las del año del token (26 §4.1).
      *
      * Con `?asignatura_id=N`, las de esa asignatura **más las plantillas**: es lo
      * que el selector de una subunidad puede ofrecer.
@@ -83,7 +83,7 @@ class RubricasController extends Controller
     }
 
     /**
-     * `GET rubricas/niveles-de-la-escala` — el sembrado (24 §4.2). **No escribe.**
+     * `GET rubricas/niveles-de-la-escala` — el sembrado (26 §4.2). **No escribe.**
      *
      * El puntaje propuesto es el **punto medio del tramo**: con él marcar todo
      * «Superior» da una nota Superior y todo «Bajo» da una Bajo. Con `porc_final`
@@ -110,7 +110,7 @@ class RubricasController extends Controller
     }
 
     /**
-     * `GET rubricas/{id}` — la matriz entera (24 §4.3).
+     * `GET rubricas/{id}` — la matriz entera (26 §4.3).
      *
      * @return array<string, mixed>
      */
@@ -122,7 +122,7 @@ class RubricasController extends Controller
     }
 
     /**
-     * `POST rubricas` — crear (24 §4.4).
+     * `POST rubricas` — crear (26 §4.4).
      *
      * Mismo cuerpo que el `PUT`, con una diferencia: aquí ninguna fila puede traer
      * `id`, porque no hay nada que actualizar. Se rechaza en vez de ignorarse:
@@ -156,7 +156,7 @@ class RubricasController extends Controller
     }
 
     /**
-     * `PUT rubricas/{id}` — guardar la matriz (24 §4.5).
+     * `PUT rubricas/{id}` — guardar la matriz (26 §4.5).
      *
      * Criterios y niveles: con `id` se actualizan, sin `id` se crean, los que
      * había y no vienen se borran. **Quitar uno que ya tiene valoraciones es 422
@@ -191,7 +191,7 @@ class RubricasController extends Controller
     }
 
     /**
-     * `DELETE rubricas/{id}` — a la papelera (24 §4.6).
+     * `DELETE rubricas/{id}` — a la papelera (26 §4.6).
      *
      * No se borra una rúbrica que alguna subunidad viva esté usando: la foránea
      * es `SET NULL` y sólo mira el borrado físico, así que sin esta guarda un
@@ -226,7 +226,7 @@ class RubricasController extends Controller
     }
 
     /**
-     * `PUT rubricas/subunidad/{subunidad_id}` — enlazar o desenlazar (24 §4.7).
+     * `PUT rubricas/subunidad/{subunidad_id}` — enlazar o desenlazar (26 §4.7).
      *
      * El año se saca de la subunidad y no del token: la subunidad es la que
      * manda, y una rúbrica de otro año no le sirve aunque sea del año de quien
@@ -272,7 +272,7 @@ class RubricasController extends Controller
     }
 
     /**
-     * `GET rubricas/calificar/{subunidad_id}` — la lectura de las dos pantallas (24 §4.8).
+     * `GET rubricas/calificar/{subunidad_id}` — la lectura de las dos pantallas (26 §4.8).
      *
      * Los alumnos son los del conjunto de la planilla —`Grupo::alumnos()` sin
      * retirados: `MATR`, `ASIS`, `PREM`— y, si la unidad es de un boletín
@@ -386,7 +386,7 @@ class RubricasController extends Controller
     }
 
     /**
-     * `PUT rubricas/valorar/{nota_id}` — marcar un alumno (24 §4.9).
+     * `PUT rubricas/valorar/{nota_id}` — marcar un alumno (26 §4.9).
      *
      * **El permiso es el de `notas/update`**, `User::pueden_editar_notas` sobre el
      * periodo de la nota, con sus mismos códigos: la llamada siguiente del front
@@ -420,7 +420,7 @@ class RubricasController extends Controller
     }
 
     /**
-     * `PUT rubricas/valorar-lote` — marcar el grupo (24 §4.10).
+     * `PUT rubricas/valorar-lote` — marcar el grupo (26 §4.10).
      *
      * Todas las notas de la misma subunidad, el permiso una vez sobre ese
      * periodo, y **un solo desenlace**: cualquier fila inválida es 422 con
@@ -797,7 +797,7 @@ class RubricasController extends Controller
 
                 $vistos["{$fila}-{$columna}"] = true;
 
-                // Una celda vacía no tiene fila (24 §4.3).
+                // Una celda vacía no tiene fila (26 §4.3).
                 if ($d['texto'] === null || trim($d['texto']) === '') {
                     continue;
                 }
@@ -1092,7 +1092,7 @@ class RubricasController extends Controller
     }
 
     /**
-     * El cuerpo de la respuesta de valorar (24 §4.9): `completa`,
+     * El cuerpo de la respuesta de valorar (26 §4.9): `completa`,
      * `nota_calculada`, `suma_pesos` y el `desglose` con **todos** los criterios,
      * marcados o no.
      *

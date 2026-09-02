@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\DB;
 /**
  * El boletín final no manda columnas que nadie decidió enseñar.
  *
- * Es la §4 de [25-nivelaciones-en-los-informes.md](../../docs/migracion/25-nivelaciones-en-los-informes.md),
+ * Es la §4 de [27-nivelaciones-en-los-informes.md](../../docs/migracion/27-nivelaciones-en-los-informes.md),
  * y la escribe el carril de informes **antes** que A10 a propósito: el momento del
  * riesgo no es cuando se escriba la impresión del par, es **cuando corra la migración
  * de A3 en ese colegio**, con el código de hoy. Entre las dos cosas hay semanas, y en
@@ -217,7 +217,7 @@ class BoletinFinalSinAsteriscoTest extends CasoDeContrato
         $this->assertSame([], $deMas,
             "Salen claves que nadie decidió enseñar en {$que}: ".implode(', ', $deMas)."\n"
             ."Si vienen de una migración, {$causa} y esas columnas están llegando al "
-            .'front sin decisión. Ver 25 §4.');
+            .'front sin decisión. Ver 27 §4.');
 
         $faltan = array_values(array_diff($columnas, $claves));
 

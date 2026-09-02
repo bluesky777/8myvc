@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * La familia `rubricas/` — el contrato de
- * [24-rubricas.md](../../docs/migracion/24-rubricas.md), §4.
+ * [26-rubricas.md](../../docs/migracion/26-rubricas.md), §4.
  *
  * Lo que se mira es **lo que queda escrito** —cuántas filas hay en las cinco
  * tablas antes y después, y qué vale `notas.nota`— y no el 200, que es la regla

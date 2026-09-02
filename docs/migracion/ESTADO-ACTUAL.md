@@ -33,7 +33,7 @@ coordina `8myvc-ab`
 >
 > | Qué | Dónde | Estado |
 > |---|---|---|
-> | El contrato, escrito **antes** que el código y enviado al front | [24-rubricas.md](24-rubricas.md) | `694562e` |
+> | El contrato, escrito **antes** que el código y enviado al front | [26-rubricas.md](26-rubricas.md) | `694562e` |
 > | C2 · migración: cinco tablas + `subunidades.rubrica_id` NULL, `momento` dentro de la clave única (C9 absorbida) | `2026_09_03_100000_rubricas` | `511ce3f`, corrida y devuelta sobre `simonbolivar_testing_rub` |
 > | C3 · cinco modelos con `@property` a mano y `RubricasController` | `app/Models/Rubrica*.php`, `app/Http/Controllers/RubricasController.php` | hecho |
 > | C4 · `routes/api/rubricas.php` y **una** línea en `routes/api.php` | diez rutas: **551–560**, familia «10 de 10» en los tres snapshots | hecho |

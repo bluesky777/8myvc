@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 |
 | La familia `rubricas/`, entera con `auth.personal`: la matriz la edita y la
-| califica el personal del colegio. El contrato es docs/migracion/24-rubricas.md
+| califica el personal del colegio. El contrato es docs/migracion/26-rubricas.md
 | (§4), y las diez entraron el 2 sep 2026 con la decisión 4 de Joseth: la
 | rúbrica PRODUCE la nota de la subunidad.
 |

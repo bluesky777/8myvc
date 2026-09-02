@@ -1,4 +1,4 @@
-# 24 — Rúbricas: el contrato del backend
+# 26 — Rúbricas: el contrato del backend
 
 > **Este documento es el contrato.** El front de `app2` construye contra él **antes de que
 > el controlador exista**, igual que hace la sesión B con el 22 de nivelaciones. Si algo de

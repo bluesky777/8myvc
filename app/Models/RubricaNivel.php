@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Model;
  * Los niveles son de la rúbrica, no del criterio —una matriz con columnas
  * distintas por fila deja de ser legible y de imprimirse (plan §3.6)—. Se
  * siembran desde `escalas_de_valoracion` del año con el punto medio del tramo
- * (24 §4.2), pero el puntaje es del colegio y se edita.
+ * (26 §4.2), pero el puntaje es del colegio y se edita.
  *
  * `@property` a mano por lo que dice `Rubrica`.
  *

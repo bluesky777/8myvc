@@ -8,8 +8,8 @@ use Illuminate\Database\Eloquent\Model;
  * Una FILA de la matriz: qué se evalúa y cuánto pesa.
  *
  * `peso` es entero y no se normaliza, como `unidades.porcentaje`: la suma de
- * una rúbrica puede no dar 100 y se avisa en pantalla (24 §3). Sin softdelete:
- * un criterio con valoraciones no se puede quitar (24 §4.5), y uno sin ellas se
+ * una rúbrica puede no dar 100 y se avisa en pantalla (26 §3). Sin softdelete:
+ * un criterio con valoraciones no se puede quitar (26 §4.5), y uno sin ellas se
  * borra de verdad porque no deja rastro en ninguna nota.
  *
  * `@property` a mano por lo que dice `Rubrica`.

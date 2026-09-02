@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
  * Una CELDA de la matriz: el texto que convierte una tabla de pesos en una
  * rúbrica. Sólo existen las celdas con texto; las vacías no tienen fila.
  *
- * Se reescriben enteras en cada guardado de la matriz (24 §4.5): no cuelga
+ * Se reescriben enteras en cada guardado de la matriz (26 §4.5): no cuelga
  * nada de ellas y diferenciarlas costaría más que reescribirlas.
  *
  * `@property` a mano por lo que dice `Rubrica`.

@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Model;
  *
  * **Esta tabla no produce la nota por sí sola**: `rubricas/valorar` la calcula
  * a partir de aquí y la devuelve, y quien la escribe en `notas.nota` es
- * `notas/update`, tal como está (24 §1).
+ * `notas/update`, tal como está (26 §1).
  *
  * `@property` a mano por lo que dice `Rubrica`.
  *
