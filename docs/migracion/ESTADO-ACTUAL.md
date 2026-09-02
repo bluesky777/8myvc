@@ -135,12 +135,27 @@ lo trajo la sesión `myvc-front-ea` de parte de Joseth
 > `Role::isCoordAcademico()`, que no existe (sí están `isCoorDisciplinario`, `isSecretario`,
 > `isEnfermero` y `isPsicologo`).
 >
-> **Quedan cinco decisiones abiertas** en la §10.2 del 23: quién lista las versiones, si se le da
-> el rol a alguien, el blob del proyecto, qué ata las siete columnas, y los años cerrados.
+> **Y contestó tres más, dos de ellas MÁS ABIERTAS que lo que proponían las dos sesiones** — se
+> escriben con su consecuencia al lado, que es lo que hace que no envejezcan mal:
+>
+> 4. **El rol vacío se escribe igual.** Asignárselo a alguien es operación de cada colegio: quince
+>    decisiones, no una nuestra.
+> 5. **Listar las versiones: `auth.personal`**, o sea cualquier docente, y no «el mismo que sube».
+>    **Con una condición que va antes que la ruta: listar NO es descargar.** `GET
+>    horario/versiones` devuelve nombre, fecha, quién y el veredicto — **nunca el blob ni las
+>    lecciones**: un `SELECT *` ahí le entregaría a los 53 docentes el fichero de proyecto entero.
+> 6. **Subir y volver oficial valen en CUALQUIER año**, también los cerrados. Coherente con la
+>    [16](16-escribir-en-un-anio-pasado.md), y con la consecuencia dicha entera: **marcar oficial
+>    una versión de 2024 reescribe las siete columnas de las asignaturas de 2024**, y quien se
+>    mueva a ese año verá ese horario. Es la razón por la que el puntero vive en `years`: cada año
+>    tiene el suyo y no se pisan.
+>
+> **Quedan dos decisiones abiertas** en la §10.2 del 23, y las dos son del día que se escriba el
+> código: el blob del proyecto y qué ata las siete columnas derivadas.
 
-> **El contrato quedó cerrado entre las dos sesiones tras tres vueltas.** Lo que falta no es
-> acuerdo técnico: son las **decisiones de la §10.2 del 23**, todas de Joseth —tres ya
-> contestadas, arriba—. **La forma no se vuelve a negociar**: si se cambia, se cambia con él y
+> **El contrato quedó cerrado entre las dos sesiones tras tres vueltas**, y **seis de las siete
+> decisiones están contestadas** (arriba). Lo que falta no es acuerdo técnico ni permiso: es
+> escribir el código. **La forma no se vuelve a negociar**: si se cambia, se cambia con él y
 > avisando al front, que tiene su mitad escrita sobre ésta.
 
 > **La decisión de fondo, ya contestada (opción B)**, es la §6 del 23: el servidor **no tiene** la

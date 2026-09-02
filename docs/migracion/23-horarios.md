@@ -26,11 +26,13 @@
 > vueltas. **No hay que volver a negociar la forma** — si algo de aquí se cambia, se
 > cambia con Joseth y avisando al front, que tiene su mitad escrita sobre esta.
 >
-> **Y ese mismo día Joseth contestó tres de las siete decisiones abiertas**: **las tres
-> rutas están autorizadas** (§5.3), la revalidación es la **opción B** (§6), y la
-> oficial la marcan **superusuario y coordinador académico** (§5.4) — que trajo un
-> hallazgo, porque «coordinador académico» nombra dos cosas distintas en esta base y
-> hoy **ninguna de las dos identifica a nadie**. Quedan cuatro en la §10.2.
+> **Y ese mismo día Joseth contestó seis de las siete decisiones abiertas**: las tres
+> rutas están **autorizadas** (§5.3), la revalidación es la **opción B** (§6), la oficial
+> la marcan **superusuario y coordinador académico** (§5.4) —que trajo un hallazgo,
+> porque «coordinador académico» nombra dos cosas distintas en esta base y hoy **ninguna
+> de las dos identifica a nadie**—, listar es **`auth.personal`**, subir y publicar valen
+> **en cualquier año**, y el rol vacío **se escribe igual**. **Quedan dos** en la §10.2,
+> y las dos son del día que se escriba el código.
 
 ---
 
@@ -279,9 +281,13 @@ la columna va a pensar que ya se puede.
 eso **ya está contestado**: moverse por un año pasado es el producto
 ([16](16-escribir-en-un-anio-pasado.md)), y lo que frena las escrituras allí es el
 interruptor del **periodo**. Un horario no cuelga de ningún periodo, así que ese
-candado **no le aplica** y lo único que lo frena es el permiso de la §5.4. Si el
-colegio quiere que un año cerrado no admita versiones nuevas, eso es una decisión
-(§10.2), no un `if` que se añade de paso.
+candado **no le aplica** y lo único que lo frena es el permiso de la §5.4. **Joseth lo
+confirmó el 2 sep: subir y volver oficial, en cualquier año**, también en los cerrados
+— más abierto que lo que proponían las dos sesiones, y coherente con la 16. La
+consecuencia, dicha entera: **marcar oficial una versión de 2024 reescribe las siete
+columnas de las asignaturas de 2024**, y quien se mueva a ese año verá ese horario. Es
+lo que se ha decidido, no un efecto colateral — pero es la razón por la que el puntero
+vive en `years` y no en una bandera: cada año tiene el suyo y no se pisan.
 
 ### 5.3. Las tres rutas — AUTORIZADAS el 2 sep 2026
 
@@ -313,7 +319,7 @@ superusuario o el coordinador académico.**
 | | Criterio | Qué es, hoy |
 |---|---|---|
 | Subir una versión | `Autoriza::esAdministrativo` | `is_superuser \|\| Role::isSecretario` ([línea 73](../../app/Support/Autoriza.php#L73)) |
-| Listar las versiones | sin decidir (§10.2) | propuesta: el mismo que sube |
+| Listar las versiones | **`auth.personal`** | personal del colegio: ni alumno ni acudiente |
 | Marcar la oficial | **`puedePublicarHorario`, método nuevo** | `is_superuser \|\| Role::hasRole($id, 'Coord académico')` |
 
 La subida es el mismo criterio que hoy pide `putCambiarlogocolegio`
@@ -327,6 +333,18 @@ escribe con su nombre, no se cuela ensanchando uno que leen otros seis sitios.
 **Nota: la publicación NO incluye al `Secretario`, y eso es a propósito.** Secretaría
 sube todas las versiones que quiera —está en `esAdministrativo`— pero no elige la que
 ve el colegio. Es la asimetría que pidió Joseth desde el principio: *subir no publica*.
+
+**Y la lectura es más ancha que la escritura a propósito: `auth.personal`.** Lo decidió
+Joseth el 2 sep, más abierto que la propuesta de las dos sesiones —que era «el mismo que
+sube»—: cualquier docente puede ver qué versiones hay. Tiene sentido, porque el horario
+es un papel que acaba pegado en la puerta del salón.
+
+> **Pero eso pone una condición en la respuesta, y hay que escribirla antes de la ruta:
+> listar no es descargar.** `GET horario/versiones` devuelve **nombre, fecha, quién la
+> subió, si es la oficial y su veredicto** — **nunca el blob del proyecto ni las
+> lecciones**. Con `auth.personal`, un `SELECT *` en esa ruta le entrega a cualquiera de
+> los 53 docentes el fichero de proyecto entero del colegio. El blob se descarga por
+> otro camino y con otro permiso el día que haga falta; hoy no hace falta ninguno.
 
 #### El hallazgo: «coordinador académico» nombra dos cosas, y hoy ninguna identifica a nadie
 
@@ -537,45 +555,31 @@ sabe en una tarde en vez de en la demo.
     `Coord académico`, no la columna del año. Secretaría sube pero no publica. Hoy el
     rol tiene **cero usuarios**, así que la regla nace correcta e inerte.
 
+11. **El rol `Coord académico` se escribe aunque esté vacío** (§5.4). Asignárselo a
+    alguien es operación de cada colegio —quince decisiones, no una nuestra—, y queda
+    escrito aquí para que nadie lea el rol vacío como un fallo del permiso.
+12. **Listar las versiones: `auth.personal`** (§5.4), más abierto que la propuesta.
+    **Con la condición de que listar no devuelva el blob ni las lecciones.**
+13. **Subir y volver oficial: en cualquier año, también los cerrados** (§5.2), más
+    abierto que la propuesta y coherente con la [16](16-escribir-en-un-anio-pasado.md).
+    Marcar oficial una versión de 2024 reescribe las columnas de 2024, y eso es lo
+    decidido.
+
 Y una que es dato del colegio y no decisión: **los timbres reales de cada nivel**
 —de qué hora a qué hora va cada lección en preescolar, primaria y bachillerato—
 siguen sin estar.
 
 ### 10.2. Abiertas, y estas son de este repo
 
-> **Tres de las siete se cerraron el 2 sep** y están arriba, en la §10.1: **las rutas**,
-> **la opción B** y **quién marca la oficial**. Quedan las cuatro que no se tocaron, más
-> **una nueva que salió al medir la tercera** — el rol que no tiene a nadie dentro.
+> **Seis de las siete se cerraron el 2 sep** y están arriba, en la §10.1 — las rutas, la
+> opción B, quién marca la oficial, el rol vacío, quién lista y los años cerrados.
+> **Quedan dos**, y las dos son de cuando se escriba el código, no de ahora.
 
-1. **¿Quién puede listar las versiones?** El contrato nombró dos permisos y hacen falta
-   tres. Propuesta: `esAdministrativo`, el mismo que sube.
-2. **¿Hay que darle el rol `Coord académico` a alguien?** Es operación del colegio y no
-   código, pero sin ella el permiso que se acaba de decidir **no alcanza a nadie**
-   (§5.4). Y es una pregunta por colegio, no una para los quince.
-3. **El blob del proyecto**: ¿en la fila o en `storage/`? ¿Con qué tope? Nadie ha
+1. **El blob del proyecto**: ¿en la fila o en `storage/`? ¿Con qué tope? Nadie ha
    medido uno todavía porque no existe ninguno (§5.1).
-4. **Las siete columnas**: se derivan al marcar la oficial; falta decidir **qué las
+2. **Las siete columnas**: se derivan al marcar la oficial; falta decidir **qué las
    ata** —el test es obligatorio, la herramienta de `tools/` es opcional— y confirmar
    que el orden **no** se promete (§7).
-5. **¿Un año cerrado admite versiones nuevas?** Hoy la respuesta por defecto es **sí**,
-   y no por descuido: la [16](16-escribir-en-un-anio-pasado.md) dejó cerrado que
-   moverse por un año pasado es el producto, y el candado que frena las escrituras
-   allí es el del **periodo**, que a un horario no le aplica (§5.2). Cerrarlo sería
-   una decisión nueva.
-
-   **La forma que proponen las dos sesiones —y sigue sin decidir—: subir sí, volver
-   oficial sólo el año actual.** Rehacer el horario de 2024 para consultarlo es
-   legítimo; que el panel empiece a leerlo, no. Traducido a la §5.1, la regla es
-   **mover el puntero `years.horario_version_id` sólo en el año actual**: los años
-   pasados conservan el suyo, que es el historial y hay que dejarlo quieto.
-
-   > **Y hay que ser exacto con lo que eso compra, porque parece comprar más.** No
-   > impide que el panel enseñe el horario de un año pasado: un docente que **se mueve
-   > a 2024** lee las asignaturas de 2024 y por tanto sus siete columnas, que es
-   > exactamente el producto que describe la 16. Lo que la regla impide es **cambiarle
-   > el horario a un año cerrado por debajo**. La garantía vale para quien está en el
-   > año actual, y no para todos.
-
-> Lo más barato que se puede hacer sin esperar a ninguna de las cinco es el **nivel 1
+> Lo más barato que se puede hacer sin esperar a ninguna de las dos es el **nivel 1
 > del pre-vuelo como script de `tools/`** sobre los quince colegios (§9). No toca el
 > router, no necesita permiso y contesta si este módulo se va a poder usar.
