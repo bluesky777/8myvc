@@ -23,10 +23,14 @@
 > frontera nueva de que el escritorio se pueda vender **sin MyVC detrás** (§8).
 >
 > **El contrato quedó cerrado entre las dos sesiones el 2 sep**, después de tres
-> vueltas. Lo que falta no es acuerdo técnico: son las **siete decisiones de la
-> §10.2**, y todas son de Joseth. **No hay que volver a negociar la forma** — si algo
-> de aquí se cambia, se cambia con él y avisando al front, que tiene su mitad escrita
-> sobre esta.
+> vueltas. **No hay que volver a negociar la forma** — si algo de aquí se cambia, se
+> cambia con Joseth y avisando al front, que tiene su mitad escrita sobre esta.
+>
+> **Y ese mismo día Joseth contestó tres de las siete decisiones abiertas**: **las tres
+> rutas están autorizadas** (§5.3), la revalidación es la **opción B** (§6), y la
+> oficial la marcan **superusuario y coordinador académico** (§5.4) — que trajo un
+> hallazgo, porque «coordinador académico» nombra dos cosas distintas en esta base y
+> hoy **ninguna de las dos identifica a nadie**. Quedan cuatro en la §10.2.
 
 ---
 
@@ -279,16 +283,20 @@ candado **no le aplica** y lo único que lo frena es el permiso de la §5.4. Si 
 colegio quiere que un año cerrado no admita versiones nuevas, eso es una decisión
 (§10.2), no un `if` que se añade de paso.
 
-### 5.3. Las tres rutas — propuesta, no autorización
+### 5.3. Las tres rutas — AUTORIZADAS el 2 sep 2026
 
-    POST horario/versiones            sube una versión         auth.token + esAdministrativo
-    GET  horario/versiones            lista las del año        auth.token + ¿quién? (§10.2)
-    PUT  horario/versiones/{id}/oficial  marca la oficial      auth.token + esSuperusuario (§5.4)
+    POST horario/versiones               sube una versión    auth.token + esAdministrativo
+    GET  horario/versiones               lista las del año   auth.token + ¿quién? (§10.2)
+    PUT  horario/versiones/{id}/oficial  marca la oficial    auth.token + puedePublicarHorario (§5.4)
 
-Lo que mueven el día que se autoricen, que **no es sólo el router**:
+Las autorizó Joseth el 2 sep 2026, las tres a la vez y con esta razón: con sólo las
+dos primeras se puede subir y listar, pero **nadie puede marcar la oficial y «Clases
+de hoy» sigue vacía**, que es el problema que este módulo viene a resolver.
 
-- El contador está hoy en **550**, contado con `route:list --json` en este árbol el 2
-  sep 2026. Con las tres pasaría a **553**, y ese número **se vuelve a contar ese
+Lo que mueven el día que se escriban, que **no es sólo el router**:
+
+- El contador está en **550**, contado con `route:list --json` en este árbol el 2
+  sep 2026. Con las tres pasa a **553**, y ese número **se vuelve a contar ese
   día**, no se suma aquí: es la regla que ya costó una cifra el 1 sep.
 - `CLAUDE.md`, y los snapshots `rutas.json`, `guards-por-ruta.json` y
   `guard-por-familia.json` — las tres llevan guard, así que la familia `horario`
@@ -297,26 +305,61 @@ Lo que mueven el día que se autoricen, que **no es sólo el router**:
   `AutenticacionTest::SIN_GUARD`: ninguna de las tres es pública, y ninguna debería
   serlo — una versión del horario dice qué docente está dónde a cada hora.
 
-### 5.4. Autorización — y «administrativo» y «administrador» no son la misma palabra por casualidad
+### 5.4. Autorización — decidida, y con un hallazgo dentro
 
-Lo decidido: **sube cualquier administrativo; marca la oficial sólo un
-administrador.** Traducido a lo que hay escrito en `app/Support/Autoriza.php`:
+Lo contestó Joseth el 2 sep 2026: **sube cualquier administrativo; marca la oficial un
+superusuario o el coordinador académico.**
 
 | | Criterio | Qué es, hoy |
 |---|---|---|
 | Subir una versión | `Autoriza::esAdministrativo` | `is_superuser \|\| Role::isSecretario` ([línea 73](../../app/Support/Autoriza.php#L73)) |
-| Marcar la oficial | `Autoriza::esSuperusuario` | `is_superuser` ([línea 209](../../app/Support/Autoriza.php#L209)) |
+| Listar las versiones | sin decidir (§10.2) | propuesta: el mismo que sube |
+| Marcar la oficial | **`puedePublicarHorario`, método nuevo** | `is_superuser \|\| Role::hasRole($id, 'Coord académico')` |
 
-Es el mismo criterio que hoy pide `putCambiarlogocolegio`
-([`ImagesController.php:285`](../../app/Http/Controllers/Perfiles/ImagesController.php#L285))
-para la subida, que es exactamente la referencia que dio Joseth.
+La subida es el mismo criterio que hoy pide `putCambiarlogocolegio`
+([`ImagesController.php:285`](../../app/Http/Controllers/Perfiles/ImagesController.php#L285)),
+que es la referencia que dio Joseth. **La publicación no es ninguno de los criterios
+que ya existen**: no es `esSuperusuario` (deja fuera al coordinador) ni
+`esAdministrativo` (mete al `Secretario`, que Joseth no nombró). Es un método nuevo en
+`Autoriza`, y **eso es lo correcto**: la regla de esta casa es que un criterio nuevo se
+escribe con su nombre, no se cuela ensanchando uno que leen otros seis sitios.
 
-**Y la diferencia entre las dos filas es, literalmente, el rol `Secretario`.** En
-castellano «administrativo» y «administrador» se parecen tanto que la distinción se
-puede perder en una frase; aquí nombra dos conjuntos distintos de personas y decide
-quién puede cambiarle el horario a todo el colegio de un clic. Por eso está en la
-§10.2 como decisión y no como detalle: **crear un módulo no puede regalar permisos que
-nadie pidió**, y tampoco quitárselos a quien sí los tenía.
+**Nota: la publicación NO incluye al `Secretario`, y eso es a propósito.** Secretaría
+sube todas las versiones que quiera —está en `esAdministrativo`— pero no elige la que
+ve el colegio. Es la asimetría que pidió Joseth desde el principio: *subir no publica*.
+
+#### El hallazgo: «coordinador académico» nombra dos cosas, y hoy ninguna identifica a nadie
+
+Al ir a escribirlo aparecieron **dos mecanismos distintos con ese nombre**, y elegir el
+que no es sería un permiso que gobierna a otra gente:
+
+| | Qué es | Cuántos hoy |
+|---|---|---|
+| El **rol** `Coord académico` (`roles.id = 9`, de 2018) | se asigna por `role_user`; pueden ser varios | **0 usuarios** |
+| La columna **`years.coordinador_academico_id`** | **una** persona por año | **`NULL`** en el año 8 |
+
+**Se usa el rol, y la columna no.** La columna se escribe en un solo sitio —cuando un
+año se copia del anterior ([`YearsController.php:136`](../../app/Http/Controllers/YearsController.php#L136))—
+y **no la lee nadie en todo `app/`**: es un dato que se arrastra, no un permiso. Un rol
+sí es el mecanismo con el que este colegio reparte quién puede qué.
+
+**Y la consecuencia hay que decirla entera, porque la frase suena a que cambia algo y
+hoy no cambia nada:** el rol `Coord académico` existe desde 2018 y **tiene cero
+usuarios** en este colegio (`Coord disciplinario` tiene uno; `Secretario`, creado el 21
+ago 2026, también tiene cero). Así que el día que esto se escriba, **quien puede marcar
+la oficial son los 11 superusuarios y nadie más**, hasta que alguien le dé el rol a la
+coordinadora. La regla queda **correcta e inerte**, que no es un fallo — pero leer
+«también el coordinador académico» y suponer que ya hay alguien detrás sí lo sería.
+
+Hace falta además un `Role::isCoordAcademico()`, que **no existe**: hay
+`isCoorDisciplinario`, `isSecretario`, `isEnfermero` y `isPsicologo`, y el académico se
+quedó sin el suyo. La cadena tiene que ser exactamente `'Coord académico'`, con tilde y
+abreviada, porque `hasRole()` compara el nombre literal contra la tabla.
+
+> Ésta sería **la primera vez que este repo cuelga un permiso del rol `Coord
+> académico`**. Va en la dirección segura de la regla que dejó escrita el 21 ago
+> —*crear un rol no regala permisos*—: aquí es un permiso que se le da a un rol que ya
+> existía, nombrándolo, y no un rol que hereda permisos sin que nadie lo decida.
 
 ---
 
@@ -343,7 +386,7 @@ frenan la escritura y contestan 200 igual, `tools/respuestas-que-mienten.py`— 
 saldría en la dirección contraria y más cara: una versión ilegal aceptada con un
 «validado» encima.
 
-Así que hay dos salidas honestas y **hay que elegir una** (§10.2):
+Así que hay dos salidas honestas, y **la elegida es la B**:
 
 - **A. La versión sube también la configuración como datos** —rejilla y jornadas por
   nivel, salones con su capacidad, disponibilidades— y no sólo dentro del blob. El
@@ -355,7 +398,7 @@ Así que hay dos salidas honestas y **hay que elegir una** (§10.2):
 
 Lo que no es una salida es aceptar y no decir nada.
 
-**Las dos sesiones recomiendan B, y la decisión sigue siendo de Joseth.** El argumento
+**Joseth eligió B el 2 sep 2026**, que es lo que recomendaban las dos sesiones. El argumento
 del front es el bueno: A le mete al servidor un modelo de disponibilidades y
 capacidades **que sólo existiría para revalidar**, y el día que se desincronice del
 proyecto del escritorio la revalidación **mentiría con más autoridad que ahora**. Este
@@ -479,12 +522,20 @@ sabe en una tarde en vez de en la demo.
 4. **La misa y cualquier lección de varios grupos**: **sale de una asignatura
    existente** —gasta una hora de la IH de esa asignación en cada grupo unido— y
    lleva sus propios `docentes[]` y su salón.
-5. **Permisos**: **sube cualquier administrativo; marca la oficial un administrador**,
-   desde la web. Subir **no** publica.
+5. **Permisos**: **sube cualquier administrativo; la oficial la marca otro**, desde la
+   web. Subir **no** publica. Quién es «otro» se concretó luego, en el punto 10.
 6. **El vocabulario** de la §3.
 7. **El escritorio se tiene que poder vender por licencia sin MyVC detrás**, y por eso
    ninguna pantalla suya le pide un dato al servidor de MyVC (§8). No añade nada a
    este repo; sí fija que la bajada de datos es una importación opcional.
+8. **Las tres rutas de la §5.3 se autorizan**, las tres a la vez: con sólo dos, nadie
+   puede marcar la oficial y «Clases de hoy» sigue vacía. **550 → 553**, contado el día
+   que entren.
+9. **La revalidación es la opción B** (§6): el servidor comprueba las tres que puede y
+   **guarda un veredicto que nombra lo no comprobado y dice su población**.
+10. **Marca la oficial un superusuario o el coordinador académico** (§5.4) — el **rol**
+    `Coord académico`, no la columna del año. Secretaría sube pero no publica. Hoy el
+    rol tiene **cero usuarios**, así que la regla nace correcta e inerte.
 
 Y una que es dato del colegio y no decisión: **los timbres reales de cada nivel**
 —de qué hora a qué hora va cada lección en preescolar, primaria y bachillerato—
@@ -492,24 +543,21 @@ siguen sin estar.
 
 ### 10.2. Abiertas, y estas son de este repo
 
-1. **¿Se autorizan las tres rutas de la §5.3, y cuándo?** Sin ellas no hay backend que
-   escribir. **550 → 553**, contado el día que entren.
-2. **¿«Administrador» es `esSuperusuario`?** La diferencia con `esAdministrativo` es
-   exactamente el rol `Secretario` (§5.4). Es quién puede cambiarle el horario al
-   colegio entero de un clic.
-3. **¿Quién puede listar las versiones?** El mensaje del front nombró dos permisos y
-   hacen falta tres. Propuesta: `esAdministrativo`, el mismo que sube.
-4. **La §6: opción A (la versión sube la configuración como datos y revalida las
-   seis) u opción B (revalida las tres que puede y lo dice).** Es la decisión de fondo
-   de este documento y cambia el tamaño del contrato del `POST`. **Las dos sesiones
-   recomiendan B**, con el veredicto guardado junto a la versión y con su población
-   dentro; falta el sí.
-5. **El blob del proyecto**: ¿en la fila o en `storage/`? ¿Con qué tope? Nadie ha
+> **Tres de las siete se cerraron el 2 sep** y están arriba, en la §10.1: **las rutas**,
+> **la opción B** y **quién marca la oficial**. Quedan las cuatro que no se tocaron, más
+> **una nueva que salió al medir la tercera** — el rol que no tiene a nadie dentro.
+
+1. **¿Quién puede listar las versiones?** El contrato nombró dos permisos y hacen falta
+   tres. Propuesta: `esAdministrativo`, el mismo que sube.
+2. **¿Hay que darle el rol `Coord académico` a alguien?** Es operación del colegio y no
+   código, pero sin ella el permiso que se acaba de decidir **no alcanza a nadie**
+   (§5.4). Y es una pregunta por colegio, no una para los quince.
+3. **El blob del proyecto**: ¿en la fila o en `storage/`? ¿Con qué tope? Nadie ha
    medido uno todavía porque no existe ninguno (§5.1).
-6. **Las siete columnas**: se derivan al marcar la oficial; falta decidir **qué las
+4. **Las siete columnas**: se derivan al marcar la oficial; falta decidir **qué las
    ata** —el test es obligatorio, la herramienta de `tools/` es opcional— y confirmar
    que el orden **no** se promete (§7).
-7. **¿Un año cerrado admite versiones nuevas?** Hoy la respuesta por defecto es **sí**,
+5. **¿Un año cerrado admite versiones nuevas?** Hoy la respuesta por defecto es **sí**,
    y no por descuido: la [16](16-escribir-en-un-anio-pasado.md) dejó cerrado que
    moverse por un año pasado es el producto, y el candado que frena las escrituras
    allí es el del **periodo**, que a un horario no le aplica (§5.2). Cerrarlo sería
@@ -528,6 +576,6 @@ siguen sin estar.
    > el horario a un año cerrado por debajo**. La garantía vale para quien está en el
    > año actual, y no para todos.
 
-> Lo más barato que se puede hacer sin esperar a ninguna de las siete es el **nivel 1
+> Lo más barato que se puede hacer sin esperar a ninguna de las cinco es el **nivel 1
 > del pre-vuelo como script de `tools/`** sobre los quince colegios (§9). No toca el
 > router, no necesita permiso y contesta si este módulo se va a poder usar.

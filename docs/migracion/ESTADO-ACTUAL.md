@@ -108,18 +108,45 @@ lo trajo la sesión `myvc-front-ea` de parte de Joseth
 > se mueve a 2024 lee las asignaturas de 2024, que es el producto que cerró la
 > [16](16-escribir-en-un-anio-pasado.md)); impide **cambiárselo por debajo**.
 >
-> **El contrato quedó cerrado entre las dos sesiones tras tres vueltas.** Lo que falta no es
-> acuerdo técnico: son las **siete decisiones abiertas de la §10.2 del 23**, todas de Joseth —y
-> las tres que más cuestan son si secretaría puede volver oficial un horario, qué pasa con los
-> años cerrados, y si se sostiene la frontera del modo sin MyVC. **La forma no se vuelve a
-> negociar**: si se cambia, se cambia con él y avisando al front, que tiene su mitad escrita
-> sobre ésta.
+> ### JOSETH CONTESTÓ TRES DE LAS SIETE, EL MISMO 2 SEP — Y LA TERCERA TRAJO UN HALLAZGO
+>
+> 1. **Las tres rutas quedan AUTORIZADAS**, las tres a la vez (con sólo dos, nadie puede marcar
+>    la oficial y «Clases de hoy» sigue vacía). **550 → 553** el día que se escriban, contado
+>    entonces con `route:list`, no sumado.
+> 2. **La revalidación es la opción B**: el servidor comprueba las tres que puede y guarda un
+>    veredicto que **nombra lo no comprobado y dice su población**.
+> 3. **Marca la oficial un superusuario o el coordinador académico.** Secretaría sube pero **no**
+>    publica.
+>
+> **Y la tercera no se puede escribir con ningún criterio de los que ya hay**: no es
+> `esSuperusuario` (deja fuera al coordinador) ni `esAdministrativo` (mete al `Secretario`, que
+> Joseth no nombró). Es un **método nuevo** en `Autoriza`, que es lo correcto: un criterio nuevo se
+> escribe con su nombre y no se cuela ensanchando uno que leen otros seis sitios.
+>
+> **El hallazgo, medido antes de escribir nada:** «coordinador académico» nombra **dos cosas** en
+> esta base — el **rol** `Coord académico` (`roles.id = 9`, de 2018) y la columna
+> `years.coordinador_academico_id` —, y **hoy ninguna de las dos identifica a nadie**: el rol tiene
+> **0 usuarios** y la columna está **`NULL`** en el año 8. Se usa el **rol**, porque la columna se
+> escribe en un solo sitio (al copiar un año) y **no la lee nadie en todo `app/`**: es un dato que
+> se arrastra, no un permiso. Consecuencia que hay que decir entera: el día que esto se escriba,
+> **la oficial la marcan los 11 superusuarios y nadie más**, hasta que alguien le dé el rol a la
+> coordinadora. **La regla nace correcta e inerte** — que no es un fallo, pero leer «también el
+> coordinador académico» y suponer que ya hay alguien detrás sí lo sería. Falta además un
+> `Role::isCoordAcademico()`, que no existe (sí están `isCoorDisciplinario`, `isSecretario`,
+> `isEnfermero` y `isPsicologo`).
+>
+> **Quedan cinco decisiones abiertas** en la §10.2 del 23: quién lista las versiones, si se le da
+> el rol a alguien, el blob del proyecto, qué ata las siete columnas, y los años cerrados.
 
-> **La decisión de fondo, que sigue esperando el sí de Joseth aunque las dos sesiones ya
-> recomienden lo mismo**, es la §6 del 23: el servidor **no tiene** la disponibilidad
-> ni los salones ni la rejilla, así que **no puede revalidarlos**. O la versión los sube como
-> datos y revalida las seis reglas duras, o revalida las tres que puede **y lo dice en la
-> respuesta**. Aceptar y callar sería un «validado» encima de un horario ilegal.
+> **El contrato quedó cerrado entre las dos sesiones tras tres vueltas.** Lo que falta no es
+> acuerdo técnico: son las **decisiones de la §10.2 del 23**, todas de Joseth —tres ya
+> contestadas, arriba—. **La forma no se vuelve a negociar**: si se cambia, se cambia con él y
+> avisando al front, que tiene su mitad escrita sobre ésta.
+
+> **La decisión de fondo, ya contestada (opción B)**, es la §6 del 23: el servidor **no tiene** la
+> disponibilidad ni los salones ni la rejilla, así que **no puede revalidarlos**. Revalida las tres
+> que puede **y lo dice en la respuesta**, con su población dentro. Aceptar y callar habría sido un
+> «validado» encima de un horario ilegal.
 
 **Última actualización: 1 sep 2026, tarde — LA ÉPICA DEL BOLETÍN INDEPENDIENTE ESTÁ TERMINADA EN
 ESTE REPO: LAS SEIS FASES ESTÁN EN `main`** · **`Tests: 1736 passed (13495 assertions)`,
