@@ -214,6 +214,31 @@ docentes de `asignaturas.profesor_id` daría la respuesta contraria, y con ella 
 comprobación de «docente sin choque» de la §6 sería falsa en el único caso raro que
 tiene el colegio.
 
+**Y la columna nueva de `years` se reparte sola a tres respuestas vivas.** `years` la
+leen con `SELECT *` `YearsController::getIndex`, `::getColegio` y `getTrashed` —el
+último por Eloquent—, así que `horario_version_id` aparece **sin que nadie la mande** en
+`GET years`, `GET years/colegio` y la de papelera, y mueve sus tres instantáneas de
+muestreo. Vale `null` en todos los años hasta que se marque una oficial, así que es lo
+más inofensivo que se le puede mandar a los cuatro clientes — **pero se manda dicho, no
+descubierto**: una clave nueva es un *campo*, y el canal con el front cubre campo,
+cuerpo, ruta o quién puede llamarla.
+
+> **No llega al contexto de usuario, y conviene saber por qué**: `ContextoDeUsuario`
+> **no tiene ni un `y.*`** —enumera columnas a mano en las cuatro ramas—, así que ahí
+> sólo entra lo que alguien decide meter. Si algún día hace falta en el contexto, es una
+> decisión con su porqué y no un `SELECT` que se ensancha.
+>
+> **Pero hay un cuarto `SELECT *` sobre `years` que hoy no mueve nada y es el que hay
+> que vigilar**: `Year::actual()`, con tres llamantes, uno de ellos `LoginController`.
+> Ninguno deja hoy esa fila en una instantánea — **y eso no es que sea seguro, es que
+> nadie ha mirado por ahí**. Es el sitio exacto por donde una columna de `years` saldría
+> mañana a la respuesta de login sin que nadie lo decidiera. Lo localizó `8myvc-29` el 2
+> sep 2026 midiendo con **dos marcadores independientes** —dos columnas de `years`
+> añadidas en fechas distintas— en vez de razonar sobre llamantes: con uno solo, «esta
+> respuesta lleva la fila entera» y «alguien escribió esa clave a mano» son
+> indistinguibles, y las dos cuentas de más que hubo ese día —un nueve y un cuatro—
+> salieron justo de ahí.
+
 **La oficial es un puntero, no una bandera.** `years.horario_version_id`, no
 `horario_versiones.oficial`. MySQL no tiene índices parciales, así que una columna
 `oficial tinyint(1)` no se puede atar a «como mucho una por año»: el día que haya dos
@@ -276,7 +301,12 @@ elige el cliente, y comprobar una regla contra un número que manda el mismo que
 pasar la comprobación no es comprobar. Está escrito aquí porque el día que alguien vea
 la columna va a pensar que ya se puede.
 
-**5. `dia` va de 0 a 6, con 0 = domingo — y esto es contrato, no detalle.** Lo levantó
+**5. `dia` va de 0 a 6, con 0 = domingo — y esto es contrato, no detalle.** Y con él, la
+regla que lo sostiene y que puso la sesión del front: **el índice de columna de la
+rejilla no es el día**. Lo deriva quien pinta, nunca lo que se guarda ni lo que viaja —
+por eso la jornada lleva la **lista de días reales** (`[1,2,3,4,5]`, o `[1..6]` en un
+colegio con sábado) en vez de un número, y «día 1 del horario» deja de existir.
+ Lo levantó
 `8myvc-9d` el 2 sep 2026: **ningún documento lo decía**, y aSc numera de forma natural
 1 = lunes. Se fija así porque es el convenio con el que se **consumen** las siete
 columnas —`asignaturas_dia()` va sobre `Carbon::dayOfWeek`, 0 = domingo … 6 = sábado—,
