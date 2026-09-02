@@ -108,10 +108,52 @@ $PHP_EXEC env \
     ${DB_TEST_PORT:+DB_TEST_PORT="$DB_TEST_PORT"} \
     php artisan migrate --force --database=mysql_testing --no-interaction
 
+# Cuántas corrieron de cuántas hay, preguntado a la base y no al `migrate` de
+# arriba.
+#
+# **Por qué hace falta, medido el 2 sep 2026:** aparecieron dos bases de sesión
+# —`..._testing_b` y `..._testing_c`— paradas en `2026_08_31_100000`, o sea con
+# la columna que esa migración RETIRA ya retirada y las cinco siguientes sin
+# llegar: ni el código viejo ni el nuevo funcionan. **Cómo llegaron a ese estado
+# no se sabe: reconstruirlas con este script sale completo, así que no está
+# demostrado que sea culpa suya** y por eso esto no es un arreglo, es un
+# detector. Lo que sí es seguro es que el `Listo:` de abajo **no lo distinguía**:
+# una base parada ahí imprime `Listo: 94 tablas` con la misma cara de éxito que
+# una sana con 99, y 94 sólo se diferencia de 99 si ya sabes cuál toca.
+#
+# Es la regla de la casa —`tools/` no imprime OK sin decir su población— aplicada
+# a la herramienta que construye la base de todas las demás.
+#
+# Se pregunta a `migrate:status`, que lista sólo las migraciones cuyo fichero
+# existe: la tabla `migrations` trae además las filas viejas del volcado
+# congelado, así que un `COUNT(*)` daría 67 donde hay 19 y no se podría comparar
+# con nada.
+esperadas=$(ls database/migrations/*.php 2>/dev/null | wc -l | tr -d ' ')
+
+estado=$($PHP_EXEC env \
+    DB_TEST_DATABASE="$DB_TEST_DATABASE" \
+    ${DB_TEST_HOST:+DB_TEST_HOST="$DB_TEST_HOST"} \
+    ${DB_TEST_PORT:+DB_TEST_PORT="$DB_TEST_PORT"} \
+    php artisan migrate:status --database=mysql_testing --no-interaction 2>/dev/null || true)
+
+# `grep -c` sale con 1 cuando no encuentra nada, y aquí `set -e` lo tomaría por
+# un fallo del script: cero pendientes es justo el caso bueno.
+aplicadas=$(printf '%s\n' "$estado" | grep -c ' Ran' || true)
+pendientes=$(printf '%s\n' "$estado" | grep -c ' Pending' || true)
+
+if [ "$pendientes" -ne 0 ] || [ "$aplicadas" -ne "$esperadas" ]; then
+    echo >&2
+    echo "FALLO: '$DB_TEST_DATABASE' quedó a medias — $aplicadas de $esperadas migraciones aplicadas, $pendientes pendientes." >&2
+    echo "La base NO sirve para correr tests, y si se paró en una migración que retira una" >&2
+    echo "columna tampoco sirve para el código viejo. Las que faltan:" >&2
+    printf '%s\n' "$estado" | grep ' Pending' >&2 || true
+    exit 1
+fi
+
 echo "  seed:     $SEED"
 mysql_cmd "$DB_TEST_DATABASE" < "$SEED"
 
 tablas=$(mysql_cmd -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$DB_TEST_DATABASE';")
 users=$(mysql_cmd -N -e "SELECT COUNT(*) FROM \`$DB_TEST_DATABASE\`.users;")
 
-echo "Listo: $tablas tablas, $users usuarios."
+echo "Listo: $aplicadas/$esperadas migraciones, $tablas tablas, $users usuarios."

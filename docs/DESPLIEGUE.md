@@ -76,10 +76,12 @@ está **hoy desplegado** en los quince (`9474b50`) nombra esa columna en **cinco
 
 **Y el estado peor no es «sin migrar»: es «migrado a medias».** Con `2026_08_31_100000` corrida y
 las siguientes no, la columna vieja ya no está y las nuevas todavía no: **no funciona ni el código
-viejo ni el nuevo**. No es un supuesto — es exactamente el estado en que apareció una base de
-tests de esta misma noche (`migrations` parada en `2026_08_31_100000`, `matriculas.boletin_independiente`
-ya retirada y `years.regla_nivelacion` sin llegar). Por eso: **si el `migrate` de un colegio falla,
-ese colegio se arregla antes de tocar el siguiente.**
+viejo ni el nuevo**. No es un supuesto: **dos** bases de sesión aparecieron exactamente así la
+noche del 2 sep 2026 —`migrations` parada en `2026_08_31_100000`, `matriculas.boletin_independiente`
+ya retirada y `years.regla_nivelacion` sin llegar—, y ninguna de las dos servía para nada. **Cómo
+llegaron a ese estado no se sabe**: reconstruirlas sale completo. Lo que importa aquí es que ese
+estado **existe y no lo delata ningún error**. Por eso: **si el `migrate` de un colegio falla, ese
+colegio se arregla antes de tocar el siguiente.**
 
 ### El orden por colegio, y no hay otro
 

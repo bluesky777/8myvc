@@ -3567,8 +3567,13 @@ movieron, de 543 a 563** (21 nuevas y **1 retirada**, `tardanzas/login/traer-dat
 >
 > **Y el estado peor no es «sin migrar», es «migrado a medias»**: con la primera de las seis
 > corrida y las cinco siguientes no, `matriculas.boletin_independiente` ya no está y
-> `years.regla_nivelacion` todavía no — **no funciona ni el código viejo ni el nuevo**.
-> Apareció así, sin buscarlo, en una base de tests de esta misma noche.
+> `years.regla_nivelacion` todavía no — **no funciona ni el código viejo ni el nuevo**. Apareció
+> así, sin buscarlo, en **dos** bases de sesión de esta misma noche. **No se sabe cómo llegaron
+> ahí**: reconstruirlas con `tools/construir-bd-test.sh` sale completo, así que **no está
+> demostrado que sea culpa del script** y escribirlo como si lo estuviera haría que el próximo lo
+> diera por conocido y no lo mirara. Lo que sí se arregló es que ese estado **no lo delataba
+> nadie**: el script terminaba en `Listo: N tablas` igual de contento con 94 que con 99, y ahora
+> cuenta las migraciones y se planta.
 
 Dentro está la nivelación entera (las cuatro rutas de `notas/nivelar` y
 `definitivas_periodos/nivelar`), las **diez** de `rubricas/`, el boletín independiente con
