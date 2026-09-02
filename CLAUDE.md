@@ -120,6 +120,18 @@ leyendo el código. Cada una lleva su uso en la cabecera.
 > otra vez. Ahí lo que hay que comprobar es que **el detector detecta lo que dice
 > su nombre**.
 
+> **Antes de pasarle Pint a un fichero de `tools/`: correr `stan` detrás.** `tools/`
+> **no está en el script `pint` de `composer.json`** —nunca se ha formateado— y
+> **ninguna suite lo ejecuta**, así que aquí Pint puede romper en tiempo de ejecución
+> sin poner nada en rojo. Medido el 2 sep 2026 copiando los ficheros y pintando las
+> copias: `fully_qualified_strict_types` acorta
+> `$app->make(Illuminate\Contracts\Console\Kernel::class)` a `Kernel::class` y deja el
+> `use` **debajo** de esa línea; PHP registra los `use` según los va compilando, así que
+> el de abajo no cuenta y sale `Target class [Kernel] does not exist` **antes de la
+> primera consulta**. Pasa en **ocho de los doce** que arrancan Laravel así (los cuatro
+> que se salvan ya tienen el `use` arriba). Lo cazó larastan —`class.notFound`—, que es
+> el único que mira esta carpeta.
+
 | Herramienta | Contesta |
 |---|---|
 | `cobertura-de-rutas.py` | qué rutas tienen la respuesta comprobada por algún test |
