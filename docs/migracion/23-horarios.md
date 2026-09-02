@@ -872,11 +872,33 @@ siguen sin estar.
    > Es la misma forma que la §2 —«Clases de hoy» no enseña de más, no enseña nada— en su
    > versión más limpia: **el conjunto vacío que se lee como respuesta**.
    >
-   > **AVISO OPERATIVO: el arnés sigue sin arreglar, comprobado el 2 sep desde aquí.**
-   > `herramientas/llenar-el-horario.ts` conserva el `lecciones: []` **en las dos copias**
-   > —la del repo y la del worktree—, así que **quien lo vuelva a correr hoy seguirá
-   > imprimiendo 185.997**. La cifra vieja puede volver por su propio pie, y volvería con
-   > toda la pinta de una medición fresca.
+   > **AVISO OPERATIVO: el arnés está arreglado A MEDIAS, y la mitad que falta va
+   > nombrada.** Comprobado el 2 sep desde este árbol, copia por copia:
+   >
+   > - `myvc_horarios/herramientas/llenar-el-horario.ts` — **arreglado** (`081cfab`). Ya
+   >   no arma su propia forma del cuerpo: mide con **`cuerpoDeSubida()`, el emisor de
+   >   verdad**, e imprime 231.135. **Coincide al byte con la reproducción independiente
+   >   hecha desde este repo**, que era la comprobación cruzada que faltaba — el arnés y
+   >   el emisor ya no se pueden separar porque son el mismo código.
+   > - `myvc_horarios.wt/importadores/…/llenar-el-horario.ts` — **NO arreglado**, sigue
+   >   con el `lecciones: []` en la línea 376. Ese carril tiene el fichero modificado sin
+   >   commitear y nadie lo pisa. **Quien corra el arnés desde ahí sigue obteniendo
+   >   185.997**, y lo obtendrá con toda la pinta de una medición fresca.
+   >
+   > **La mitad viva se nombra en vez de darlo por saldado, y es la misma regla que el
+   > propio fallo:** darla por cerrada entera sería otra vez leer «no queda nada» donde
+   > queda algo.
+   >
+   > **Y el remate, que es la lección entera: la frase falsa la imprimía el arnés, no
+   > este documento.** Escribía «un colegio con más docentes subiría de aquí, **pero ya
+   > no por un factor**» — o sea que **el número falso y la frase falsa salían del mismo
+   > fichero, y el número era lo que hacía creíble la frase**. Por eso la corrección
+   > tenía que ser el código y no nuestras dos citas: arreglando sólo este §10.2.2, **la
+   > siguiente corrida del arnés lo habría desmentido y habría ganado ella** — que es
+   > exactamente lo que pasó la primera vez. Hoy el arnés imprime los dos extremos y dice
+   > él mismo que × 1,41 vacío y × 1,795 lleno son la misma escala; y si no puede armar
+   > el cuerpo **sale con 1 y no enseña ninguna cifra**, en vez de enseñar una a medias.
+   > *Una cota alta que no incluye las piezas no es una cota alta.*
    >
    > **Y la otra cifra de este bloque —los 42.492— se remidió, y esa SÍ era buena.** Se
    > sospechó de ella por encajar demasiado bien (× 1,41, otra vez el factor de blob
