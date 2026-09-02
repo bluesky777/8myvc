@@ -8,7 +8,38 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
-**2 sep 2026, noche — LA TANDA PENDIENTE ESTABA MAL MEDIDA, Y EN LA DIRECCIÓN PELIGROSA** ·
+**2 sep 2026, noche — EL ⛔ REMEDIDO DESPUÉS DE LA FUSIÓN: 566 RUTAS Y SIETE MIGRACIONES,
+CONTADAS** · rama `docs/tanda-tras-la-fusion`, **sin fusionar** · sólo documentación: **cero
+ficheros de `app/`, `routes/` y `database/`** · sobre `aebf4ed` · coordinó `8myvc-af`
+
+> **Salió lo previsto y por eso se contó.** `af` y yo dábamos por hecho 566 y siete; el rango se
+> volvió a medir entero con `route:list --json` y `git diff --name-only` desde `9474b50`, sin
+> partir de esa cifra. **191 commits, 54 de `app/`, 7 de `routes/`, 0 de `config/`, dependencias
+> y volcado.** Coincidir no es lo mismo que estar comprobado, y la única forma de saber que
+> coincidía era contarlo.
+>
+> **Y la séptima migración no es lo que parecía.** `2026_09_04_100000_horario_versiones` es
+> aditiva —tres `CREATE TABLE` y un `ADD COLUMN` nullable— pero **no rompe nada si falta, y está
+> comprobado**: los tres métodos de `HorarioController` contestan **501**, ninguna consulta
+> nombra las tres tablas y **nadie nombra `years.horario_version_id`**. Entra igual en el
+> `migrate` y en la comprobación de diez segundos, porque ésa contesta *«¿está la tanda entera
+> dentro?»* y no *«¿qué se rompe?»* — un colegio con seis de siete es uno del que nadie sabe en
+> qué estado está. Lo que sí sigue siendo cierto es que **no se puede desplegar suelta**: su
+> columna nace `after('regla_nivelacion')`.
+>
+> El rollback de la tanda pasa de `--step=6` a **`--step=7`**, y `--step=1` ahora revierte
+> `horario_versiones` en vez de `rubricas`. El aviso **O** al front sube de 21 a **24 rutas
+> nuevas**.
+>
+> **Y una que no es de despliegue y va al [15](15-la-noche-en-paralelo.md):** la regla «una suite
+> a la vez» se lee como «que no la lance nadie más» y le faltaba la otra mitad — **matar el
+> `docker exec` desde fuera no mata el `php` de dentro**, así que una corrida cortada por el tope
+> de tiempo sigue viva y se solapa con la siguiente. Le dio a `af` **30 rojos, 88 deadlocks y
+> `exit=0`** al fusionar, y **lo delató la duración —1247 s contra ~670— antes que los rojos**.
+> El `pgrep` que lo comprueba lleva corchetes porque sin ellos **se encuentra a sí mismo**:
+> probado en las dos direcciones antes de escribirlo.
+
+**Anterior: 2 sep 2026, noche — LA TANDA PENDIENTE ESTABA MAL MEDIDA, Y EN LA DIRECCIÓN PELIGROSA** ·
 rama `docs/tanda-pendiente-remedida`, **fusionada en `main`** · sólo documentación: **cero ficheros de
 `app/`, `routes/` ni `database/`** · coordinó `8myvc-af`
 
@@ -3694,11 +3725,18 @@ solo:
 tanda del 25 ago. La tanda pendiente está medida y escrita en
 [DESPLIEGUE.md](../DESPLIEGUE.md), con qué rompe cada migración y con qué radio.
 
-Medido sobre el rango entero (`9474b50..347f137`) el 2 sep 2026, no sumando commit a
-commit: **175 commits**, **52 ficheros de `app/`**, **0 de dependencias**, **0 en
-`config/`**, **0 en `database/schema/`** — y **6 ficheros de `routes/`: las rutas SÍ se
-movieron, de 543 a 563** (21 nuevas y **1 retirada**, `tardanzas/login/traer-datos`). Hay
-**SEIS migraciones y cinco son bloqueantes**.
+Medido sobre el rango entero (`9474b50..aebf4ed`) el 2 sep 2026 **después de la fusión de
+las tres ramas**, no sumando commit a commit: **191 commits**, **54 ficheros de `app/`**,
+**0 de dependencias**, **0 en `config/`**, **0 en `database/schema/`** — y **7 ficheros de
+`routes/`: las rutas SÍ se movieron, de 543 a 566** (24 nuevas y **1 retirada**,
+`tardanzas/login/traer-datos`). Hay **SIETE migraciones y cinco son bloqueantes**.
+
+> **Estas cifras son de después de fusionar, y por eso se volvieron a contar enteras.** Antes
+> de la fusión decían `9474b50..347f137`, 175 commits, 52 de `app/`, 563 rutas y SEIS
+> migraciones — **todas ciertas cuando se escribieron y todas viejas cuatro horas después**.
+> No se les sumó lo que traían las otras dos ramas: se contó el rango otra vez con
+> `route:list --json` y `git diff --name-only`. Que saliera exactamente lo previsto (566 y
+> siete) **no es motivo para no haberlo contado**: es la única forma de saber que coincidía.
 
 > ### La cifra peligrosa de este párrafo estaba en la dirección peligrosa
 >
