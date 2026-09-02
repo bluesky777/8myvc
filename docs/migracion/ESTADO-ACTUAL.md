@@ -8,7 +8,46 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
-**2 sep 2026, tarde — UNA ASIGNATURA SIN DOCENTE YA ABRE SU PLANILLA** ·
+**2 sep 2026, noche — `main` LIMPIO, MEDIDO Y **SUBIDO A `origin`** · `d43d028`** ·
+**`Tests: 1843 passed (16614 assertions)`, `Duration: 693.98s`, `exit=0`**, cero rojos y cero
+saltados · pint **PASS** (357 ficheros) · larastan nivel 7 **`[OK] No errors`** · **563 rutas**
+(contadas con `route:list --json` sobre este árbol) · **cero commits sin subir**, y la base de
+desarrollo del docker **migrada** · coordinó `8myvc-5e`
+
+> **Se fusionaron cuatro ramas sueltas** —`niv/integracion` (46 commits: nivelación, rúbricas y el
+> par impreso), `fix/planilla-sin-profesor`, `fix/prematriculas-cant-faltantes` y
+> `chore/vscode-python-envfile`—, se borraron las trece ramas ya fundidas y sus worktrees, y
+> `.vscode/settings.json` dejó de estar sin seguimiento. **Queda un solo worktree y una sola rama
+> viva**: `.worktrees/h`, con `feat/calendario`.
+>
+> ### LOS DOS ROJOS DE LA FUSIÓN NO ERAN UNA REGRESIÓN, Y ES EL HALLAZGO DE LA NOCHE
+>
+> `AsignaturaSinProfesorTest` fijaba que una asignatura sin docente da **404** con el mensaje
+> correcto; `PlanillaSinProfesorTest` fijaba que **abre y da 200**, que es lo que decidió Joseth.
+> **Las dos ramas arreglaron el mismo fallo por lados distintos y las dos estaban en VERDE en su
+> propio árbol**: ninguna sesión podía verlo sin la otra delante. *Dos tests en verde pueden
+> afirmar cosas opuestas mientras vivan en ramas separadas.*
+>
+> Se retiró el caso obsoleto —con su porqué, y **sin reescribirlo**, porque el comportamiento nuevo
+> ya lo prueba mejor el test de la otra rama— y se **conservó** el del cuerpo del 404 cambiándole
+> **el caso que lo dispara y no la comprobación**. El conflicto de `Asignatura.php` era de
+> docblocks y también decía algo: uno afirmaba que el `LEFT` «espera a Joseth» y el otro lo traía
+> ya decidido; se conservaron los dos y se corrigió la contradicción, más una consecuencia que
+> ninguna rama podía ver sola —con el `LEFT`, una rama de `porQueNoSalio()` deja de ser
+> alcanzable—.
+>
+> **Y larastan cazó lo que dejó ese arreglo**: al retirar los dos casos, su ayudante se quedó sin
+> llamantes. Por eso `stan` se corre **antes** de subir y no después.
+>
+> ### UN INCIDENTE QUE ES LA REGLA DE DESPLIEGUE EN PEQUEÑO
+>
+> Al fusionar, el docker se quedó devolviendo **500 en toda ruta autenticada**: el código pasó a
+> leer `years.regla_nivelacion` con la base sin migrar. **Lo detectó la sesión del front, no
+> nosotros.** Las cuatro migraciones pendientes son puramente aditivas en `up()` —comprobado antes
+> de correrlas— y ya están dentro. Es exactamente lo que la lista de despliegue dice de los quince
+> colegios: **un `git pull` con el `migrate` sin correr deja el colegio caído.**
+
+**Anterior: 2 sep 2026, tarde — UNA ASIGNATURA SIN DOCENTE YA ABRE SU PLANILLA** ·
 rama `fix/planilla-sin-profesor`, **sin fusionar** · **el router sigue en 550**: no hay ruta nueva,
 es una línea de SQL · lo decidió Joseth y lo montó la sesión que relevó al backend
 
@@ -517,7 +556,9 @@ coordina `8myvc-ab`
 
 > ### LO QUE FALTA NO ES CÓDIGO, Y ÉSTE ES EL ORDEN
 >
-> 1. **Subir `main`.** 98 commits sin `push`. Es de Joseth.
+> 1. ~~**Subir `main`.**~~ **HECHO el 2 sep 2026 por la noche**: `d43d028` está en `origin/main`
+>    y no queda ningún commit sin subir. *(Se deja tachado y no se borra: un pendiente en futuro
+>    no envejece a «hecho» solo, y quien lea esta lista tiene que poder ver que se cerró.)*
 > 2. **Desplegar los quince, colegio a colegio, con las migraciones EN EL MISMO DESPLIEGUE.** Sin
 >    `puestos_con_bol_independiente` los tres boletines contestan **500**: un colegio con el `git
 >    pull` hecho y el `migrate` sin correr **está caído**. `git pull` → `migrate --force` →
