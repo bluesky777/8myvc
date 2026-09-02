@@ -573,7 +573,7 @@ reescribe ninguna nivelación anterior** (decisión 6).
 
 | Qué | Tarea | Forma provisional, por si B llega antes |
 |---|---|---|
-| Nivelar la **definitiva** del periodo (`notas_finales.nota_original`) | A8 | `PUT definitivas_periodos/nivelar` `{nf_id, nota_nivelacion, observacion?, fecha?}` → la fila de `notas_finales` con los tres campos del acta + `regla_aplicada`. Mismo guard. **Enciende `recuperada` y `manual`**, como hoy |
+| ~~Nivelar la **definitiva** del periodo~~ | **A8, hecha** | Ya no es provisional: **§8** de este documento |
 | El acta en `recuperacion_final` | A9 | `nivelada_at`, `nivelada_por`, `observacion` **añadidos** a lo que ya devuelve `definitivas_periodos/update-recuperacion`; `year` sigue siendo el número |
 | Boletines, constancias, certificados con el par | A10 | se escribe cuando haya qué imprimir |
 
@@ -598,6 +598,9 @@ de este documento y se avisa.
   migración de A3 les habría colado las cinco columnas nuevas en la respuesta **sin que
   nadie tocara el método**. Ahora nombran sus diez columnas, y la prueba de que está bien
   es que `notas-update.json` y `notas-show.json` **quedan verdes sin regenerar**.
+- **`definitivas_periodos/update` tampoco cambia**, y su `SELECT n.*` de `notas_finales` no
+  filtra nada: ese método **devuelve la cadena `'Cambiada'`**, no la fila. Era la casilla
+  «decidir en A8» de la §3.4 y queda cerrada sin tocar nada.
 - **Y `notas` NO tiene softdelete de verdad, aunque el §6 del reparto lo afirme.** Medido
   en A1: `DELETE notas/destroy/{id}` hace un `DELETE` físico, sin `deleted_at` y sin
   bitácora —la columna existe, nadie la escribe por esa ruta—. **No se cambia**: es un
@@ -605,3 +608,57 @@ de este documento y se avisa.
   **borrar una nota nivelada se lleva la nivelación y su acta enteras**, y lo único que
   queda es la línea `borrar` de `auditoria` que A1 añadió, con la vigente que se fue.
   Ninguna garantía de «se puede recuperar» se apoya en `deleted_at` para esta tabla.
+
+---
+
+## §8 — `PUT definitivas_periodos/nivelar` — la definitiva del periodo (A8)
+
+**Endpoint nuevo, y por lo mismo que los del indicador**: `definitivas_periodos/update`
+teclea la definitiva a mano y lo llama `myvc_flutter` (`DefinitivasApi.dart`); si aprendiera
+a nivelar, un número tecleado desde el móvil se guardaría topado. Aquél no cambia ni una
+línea y hay un test que lo fija.
+
+Guards: `auth.token` + `auth.personal` en la ruta, y `profes_pueden_nivelar` **del periodo de
+la fila** en el método, con **403** — el guard viejo `pueden_modificar_definitivas` conserva
+su 400 intacto.
+
+```json
+PUT api/definitivas_periodos/nivelar
+{ "nf_id": 9910, "nota_nivelacion": 45, "observacion": "Sustentación de la asignatura", "fecha": "2026-08-29" }
+
+→ 200
+{
+  "nf_id": 9910, "alumno_id": 4021, "asignatura_id": 233, "periodo_id": 41, "periodo": 2,
+  "nota": 35, "nota_original": 28, "nota_nivelacion": 45,
+  "nivelada_at": "2026-08-29 00:00:00", "nivelada_por": 17, "nivelada_por_username": "mgarcia",
+  "nivelacion_obs": "Sustentación de la asignatura",
+  "recuperada": true, "manual": true,
+  "updated_at": "2026-09-02 11:20:04",
+  "regla_aplicada": { "regla": "topada", "nota_minima": 35, "explicacion": "…" }
+}
+```
+
+Tres cosas que lo separan del indicador y que B necesita saber:
+
+- **Marca `recuperada` y `manual`.** No es cosmético: es lo que la desengancha del recálculo.
+  Sin ellas, la nivelación duraría hasta que alguien abriera la planilla y
+  `DefinitivasDeAsignatura` la pisara, sin error y sin que nadie tocara nada. `recuperada`
+  **no cambia de significado**: sigue siendo «viene de una nivelación», y ahora además se
+  sabe de dónde venía.
+- **Los números son `float`**, no enteros: la columna es `DECIMAL(7,4)`. La regla decide en
+  enteros —es la escala del colegio— pero **con `mayor`, la original se conserva con sus
+  decimales**: una definitiva de 43,7500 que nivela por debajo sigue siendo 43,7500 y no 44.
+- **Dos columnas más en `notas_finales`**, en su propia migración
+  (`2026_09_02_200000_nivelacion_de_la_definitiva`): `nota_nivelacion` —bajo `topada` el 45
+  que queda en 35 no estaría en ninguna parte, el mismo argumento que en `notas`— y
+  `nivelacion_obs`, para que la constancia pueda imprimir con qué actividad se superó en los
+  dos niveles y no sólo en el indicador.
+
+Errores: **422** sin `nf_id` o sin `nota_nivelacion`, fuera de escala, observación de más de
+255, fecha ilegible o futura, o regla del año inválida; **404** si no hay definitiva con ese
+id o su periodo ya no está; **403** con el interruptor apagado. Ninguno escribe nada.
+
+Repetir el `PUT` **sustituye** la nivelación y **conserva** `nota_original`, igual que en el
+indicador (§1.3). Lo que **no** tiene todavía es `DELETE`: quitar la nivelación de una
+definitiva es volver a `manual = 0` y dejar que el recálculo mande, y eso es una decisión
+distinta de la del indicador. Se abre cuando B tenga la pantalla y diga si hace falta.

@@ -245,6 +245,7 @@
         "PUT api/definitivas_periodos/calcular-grupo-periodo",
         "PUT api/definitivas_periodos/calcular-notas-finales-asignatura",
         "PUT api/definitivas_periodos/eliminar-recuperada",
+        "PUT api/definitivas_periodos/nivelar",
         "PUT api/definitivas_periodos/toggle-manual",
         "PUT api/definitivas_periodos/toggle-recuperada",
         "PUT api/definitivas_periodos/update",

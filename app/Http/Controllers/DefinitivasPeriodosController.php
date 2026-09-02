@@ -22,6 +22,7 @@ use App\Services\BoletinIndependiente;
 use App\Support\EscalaDeNotas;
 use App\Support\PeriodoDeLaFila;
 use App\Support\NombreDelAlumno;
+use App\Services\Nivelacion;
 
 
 class DefinitivasPeriodosController extends Controller {
@@ -454,6 +455,239 @@ class DefinitivasPeriodosController extends Controller {
 
 	
 	
+	/**
+	 * `PUT definitivas_periodos/nivelar` — nivelar la definitiva del periodo (A8,
+	 * 22 §6).
+	 *
+	 * **Endpoint nuevo, como los del indicador y por lo mismo**: `putUpdate` teclea
+	 * la definitiva a mano y lo llama `myvc_flutter` (`DefinitivasApi.dart`); si
+	 * aprendiera a nivelar, una definitiva tecleada desde el móvil se guardaría
+	 * topada. Aquél no cambia ni una línea, y el test lo fija.
+	 *
+	 * ## Lo que hace distinto del indicador, y no es opcional
+	 *
+	 * Nivelar la definitiva **enciende `recuperada` y `manual`**, que es lo que ya
+	 * hace `putUpdate` con `manual` y lo que el plan (§3.4) dice que pasa: la
+	 * desengancha del recálculo, así que `DefinitivasDeAsignatura` la respeta y no
+	 * la pisa la próxima vez que alguien abra la planilla. Sin eso, la nivelación
+	 * duraría hasta el primer recálculo y desaparecería sin que nadie tocara nada.
+	 *
+	 * `recuperada` **no cambia de significado**: sigue queriendo decir «viene de una
+	 * nivelación». Lo que se gana es que ahora la fila dice de dónde venía.
+	 *
+	 * ## El guard
+	 *
+	 * `profes_pueden_nivelar` del periodo **de la fila**, igual que el del
+	 * indicador, y **403** porque es código nuevo. El guard viejo
+	 * `pueden_modificar_definitivas` conserva su 400 intacto: lo llaman cinco
+	 * métodos de esta misma clase desde la app.
+	 */
+	public function putNivelar()
+	{
+		$user = User::fromToken();
+		$now  = Carbon::now('America/Bogota');
+
+		$nfId = Request::input('nf_id');
+
+		if (! is_numeric($nfId)) {
+			abort(422, 'Hace falta nf_id.');
+		}
+
+		$nivelacion = Request::input('nota_nivelacion');
+
+		if (! is_numeric($nivelacion)) {
+			abort(422, 'Hace falta nota_nivelacion.');
+		}
+
+		$fila = DB::selectOne(
+			'SELECT nf.id, nf.alumno_id, nf.asignatura_id, nf.periodo_id, nf.periodo,
+					CAST(nf.nota AS DOUBLE) AS nota, CAST(nf.nota_original AS DOUBLE) AS nota_original,
+					CAST(nf.nota_nivelacion AS DOUBLE) AS nota_nivelacion, nf.recuperada, nf.manual,
+					nf.nivelada_at, nf.nivelada_por, nf.nivelacion_obs, p.year_id
+			   FROM notas_finales nf
+			   INNER JOIN periodos p ON p.id = nf.periodo_id AND p.deleted_at IS NULL
+			  WHERE nf.id = ?',
+			[(int) $nfId]
+		);
+
+		if ($fila === null) {
+			abort(404, 'No existe esa definitiva, o su periodo ya no está.');
+		}
+
+		if (! User::puedeNivelar($user, (int) $fila->periodo_id)) {
+			abort(403, 'No tienes permiso para nivelar en este periodo.');
+		}
+
+		EscalaDeNotas::comprobar($nivelacion, (int) $fila->periodo_id);
+
+		$observacion = Request::input('observacion');
+
+		if ($observacion !== null && ! is_string($observacion)) {
+			abort(422, 'La observación tiene que ser texto.');
+		}
+
+		$observacion = $observacion === null || trim($observacion) === '' ? null : trim($observacion);
+
+		if ($observacion !== null && mb_strlen($observacion) > 255) {
+			abort(422, 'La observación no puede pasar de 255 caracteres.');
+		}
+
+		$config = Nivelacion::reglaDelAnio((int) $fila->year_id);
+
+		if ($config === null || ! Nivelacion::esRegla($config['regla'])) {
+			abort(422, 'La regla de nivelación del año («'.($config['regla'] ?? '').'») no es válida: corríjala en los ajustes del año.');
+		}
+
+		// **La original se conserva si ya estaba nivelada**, igual que en el
+		// indicador (§1.3): repetir sustituye la nivelación, no apila ni pisa la
+		// valoración con la que ya era nivelada.
+		$original = $fila->nota_original !== null ? (float) $fila->nota_original : (float) $fila->nota;
+		$vigente  = (float) $fila->nota;
+
+		// La regla trabaja en enteros —es la escala del colegio—, y la definitiva es
+		// `DECIMAL(7,4)` porque la produce una suma ponderada. Se redondea **sólo
+		// para decidir**, y lo que se guarda es lo que la regla eligió: con `mayor`
+		// puede ser la original con sus decimales intactos.
+		$aplicada = Nivelacion::aplicar(
+			$config['regla'], (int) round($original), (int) round((float) $nivelacion), $config['nota_minima']
+		);
+
+		$nueva = $config['regla'] === Nivelacion::MAYOR && $original >= (float) $nivelacion
+			? $original
+			: (float) $aplicada['nota'];
+
+		$fecha = Request::input('fecha');
+		$niveladaAt = $fecha === null || $fecha === '' ? $now->format('Y-m-d H:i:s') : $this->fechaDelActa($fecha);
+
+		if ($niveladaAt === null) {
+			abort(422, 'La fecha de la nivelación no es válida.');
+		}
+
+		DB::transaction(function () use ($fila, $nueva, $original, $nivelacion, $niveladaAt, $observacion, $user, $now, $vigente, $config, $aplicada) {
+			DB::update(
+				'UPDATE notas_finales SET nota=?, nota_original=?, nota_nivelacion=?, nivelada_at=?,
+					nivelada_por=?, nivelacion_obs=?, recuperada=1, manual=1, updated_by=?, updated_at=?
+				 WHERE id=?',
+				[$nueva, $original, $nivelacion, $niveladaAt, $user->user_id, $observacion,
+					$user->user_id, $now, $fila->id]
+			);
+
+			// El rastro viejo, con los dos valores **redondeados**: las columnas de
+			// `bitacoras` son `int` y con `sql_mode` vacío MySQL redondearía en
+			// silencio, con `STRICT_TRANS_TABLES` daría 500. Es la misma decisión que
+			// tomó `putUpdate` cuando la nota pasó a `DECIMAL`, y por eso se copia en
+			// vez de inventarse otra.
+			DB::insert(
+				'INSERT INTO bitacoras (created_by, historial_id, affected_user_id, affected_person_type,
+					affected_element_type, affected_element_id, affected_element_new_value_int,
+					affected_element_old_value_int, created_at)
+				 VALUES (?, ?, ?, "Al", "NF_UPDATE", ?, ?, ?, ?)',
+				[
+					$user->user_id,
+					isset($user->historial_id) && is_numeric($user->historial_id) ? (int) $user->historial_id : null,
+					$fila->alumno_id,
+					$fila->id,
+					(int) round($nueva),
+					(int) round($vigente),
+					$now,
+				]
+			);
+
+			$alumnoDeLaLinea = $fila->alumno_id === null ? null : (int) $fila->alumno_id;
+
+			Auditoria::registrar()
+				->nivelar('nota_final', (int) $fila->id)
+				->deAlumno($alumnoDeLaLinea, NombreDelAlumno::de($alumnoDeLaLinea))
+				->en(
+					asignatura: $fila->asignatura_id === null ? null : (int) $fila->asignatura_id,
+					periodo: (int) $fila->periodo_id,
+				)
+				->de($vigente)
+				->a($nueva)
+				->resumen('Nivelación de la definitiva: '.$nivelacion.' sobre '.$original
+					.', regla '.$config['regla'].'; queda '.$aplicada['nota'].'. Queda marcada como recuperada y manual.')
+				->guardar();
+		});
+
+		return $this->definitivaNivelada((int) $fila->id, [
+			'regla' => $config['regla'],
+			'nota_minima' => $config['nota_minima'],
+			'explicacion' => $aplicada['explicacion'],
+		]);
+	}
+
+	/**
+	 * `YYYY-MM-DD` o `YYYY-MM-DD HH:MM:SS`, en Bogotá y no futura. Gemela de la de
+	 * `NotasController`: son dos controladores y una copia de doce líneas es
+	 * preferible a un `Support` nuevo con un solo uso por lado — el día que haya un
+	 * tercero, se saca.
+	 */
+	private function fechaDelActa(mixed $texto): ?string
+	{
+		if (! is_string($texto)) {
+			return null;
+		}
+
+		$texto = trim($texto);
+
+		foreach (['Y-m-d H:i:s', 'Y-m-d'] as $formato) {
+			$fecha = \DateTime::createFromFormat('!'.$formato, $texto, new \DateTimeZone('America/Bogota'));
+
+			if ($fecha !== false && $fecha->format($formato) === $texto) {
+				if ($fecha > new \DateTime('now', new \DateTimeZone('America/Bogota'))) {
+					return null;
+				}
+
+				return $fecha->format('Y-m-d H:i:s');
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * La fila como la devuelve el endpoint: **leída de la tabla**, no de lo
+	 * calculado, por la misma razón que en el lote de notas — lo que se devuelve
+	 * tiene que ser lo que quedó escrito.
+	 *
+	 * @param  array{regla: string, nota_minima: int, explicacion: string}  $reglaAplicada
+	 * @return array<string, mixed>
+	 */
+	private function definitivaNivelada(int $id, array $reglaAplicada): array
+	{
+		$f = DB::selectOne(
+			'SELECT nf.id, nf.alumno_id, nf.asignatura_id, nf.periodo_id, nf.periodo,
+					CAST(nf.nota AS DOUBLE) AS nota, CAST(nf.nota_original AS DOUBLE) AS nota_original,
+					CAST(nf.nota_nivelacion AS DOUBLE) AS nota_nivelacion,
+					nf.nivelada_at, nf.nivelada_por, us.username AS nivelada_por_username,
+					nf.nivelacion_obs, nf.recuperada, nf.manual, nf.updated_at
+			   FROM notas_finales nf
+			   LEFT JOIN users us ON us.id = nf.nivelada_por
+			  WHERE nf.id = ?',
+			[$id]
+		);
+
+		return [
+			'nf_id' => (int) $f->id,
+			'alumno_id' => $f->alumno_id === null ? null : (int) $f->alumno_id,
+			'asignatura_id' => $f->asignatura_id === null ? null : (int) $f->asignatura_id,
+			'periodo_id' => $f->periodo_id === null ? null : (int) $f->periodo_id,
+			'periodo' => $f->periodo === null ? null : (int) $f->periodo,
+			'nota' => (float) $f->nota,
+			'nota_original' => $f->nota_original === null ? null : (float) $f->nota_original,
+			'nota_nivelacion' => $f->nota_nivelacion === null ? null : (float) $f->nota_nivelacion,
+			'nivelada_at' => $f->nivelada_at,
+			'nivelada_por' => $f->nivelada_por === null ? null : (int) $f->nivelada_por,
+			'nivelada_por_username' => $f->nivelada_por_username,
+			'nivelacion_obs' => $f->nivelacion_obs,
+			'recuperada' => (bool) $f->recuperada,
+			'manual' => (bool) $f->manual,
+			'updated_at' => $f->updated_at,
+			'regla_aplicada' => $reglaAplicada,
+		];
+	}
+
+
 	public function putUpdateRecuperacion()
 	{
 		$user 			= User::fromToken();

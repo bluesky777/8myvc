@@ -78,7 +78,16 @@ coordina `8myvc-ab`
 > es el actual **de su año** mientras el año del colegio lo dice `years.actual`. Un test de
 > `notas/detailed` que no pida las dos cosas elige una asignatura de otro año y recibe un 404.
 >
-> Siguiente en este carril: A8 → A9. **A10 ya no es de este carril**: la
+> **A8 hecha el 2 sep.** `PUT definitivas_periodos/nivelar`, endpoint nuevo por lo mismo que
+> los otros tres: `definitivas_periodos/update` lo llama Flutter para teclear a mano, y hay un
+> test que fija que no aprendió a nivelar. **Marca `recuperada` y `manual`**, que es lo que la
+> desengancha del recálculo — sin eso la nivelación duraría hasta que alguien abriera la
+> planilla. Y con la regla `mayor` la definitiva **conserva sus decimales**: 43,7500 no se
+> convierte en 44 por nivelar por debajo. Dos columnas más en `notas_finales`
+> (`2026_09_02_200000`), con el mismo argumento que `notas.nota_nivelacion`. Router en **554**,
+> contado.
+>
+> Siguiente y último de este carril: **A9**, los metadatos de acta en `recuperacion_final`. **A10 ya no es de este carril**: la
 > impresión y `Informes/**` pasaron a `8myvc-f2` el 2 sep. Base de tests de esta sesión:
 > `simonbolivar_testing_niv`.
 

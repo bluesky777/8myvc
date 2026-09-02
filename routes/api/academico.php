@@ -203,6 +203,11 @@ Route::get('definitivas_periodos/arreglar-duplicados', [DefinitivasPeriodosContr
 Route::put('definitivas_periodos/calcular-grupo-periodo', [DefinitivasPeriodosController::class, 'putCalcularGrupoPeriodo'])->middleware('auth.personal');
 Route::put('definitivas_periodos/calcular-notas-finales-asignatura', [DefinitivasPeriodosController::class, 'putCalcularNotasFinalesAsignatura'])->middleware('auth.personal');
 Route::put('definitivas_periodos/eliminar-recuperada', [DefinitivasPeriodosController::class, 'putEliminarRecuperada'])->middleware('auth.personal');
+// A8 de 22-nivelaciones.md. **Endpoint nuevo**, no una bandera sobre
+// `definitivas_periodos/update`: aquél lo llama `myvc_flutter` para teclear la
+// definitiva a mano, y si aprendiera a nivelar, un número tecleado desde el móvil
+// se guardaría topado.
+Route::put('definitivas_periodos/nivelar', [DefinitivasPeriodosController::class, 'putNivelar'])->middleware('auth.personal');
 Route::put('definitivas_periodos/toggle-manual', [DefinitivasPeriodosController::class, 'putToggleManual'])->middleware('auth.personal');
 Route::put('definitivas_periodos/toggle-recuperada', [DefinitivasPeriodosController::class, 'putToggleRecuperada'])->middleware('auth.personal');
 Route::put('definitivas_periodos/update', [DefinitivasPeriodosController::class, 'putUpdate'])->middleware('auth.personal');

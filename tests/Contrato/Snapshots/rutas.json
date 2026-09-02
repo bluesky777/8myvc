@@ -358,6 +358,7 @@
     "PUT api/definitivas_periodos/calcular-grupo-periodo": "App\\Http\\Controllers\\DefinitivasPeriodosController@putCalcularGrupoPeriodo",
     "PUT api/definitivas_periodos/calcular-notas-finales-asignatura": "App\\Http\\Controllers\\DefinitivasPeriodosController@putCalcularNotasFinalesAsignatura",
     "PUT api/definitivas_periodos/eliminar-recuperada": "App\\Http\\Controllers\\DefinitivasPeriodosController@putEliminarRecuperada",
+    "PUT api/definitivas_periodos/nivelar": "App\\Http\\Controllers\\DefinitivasPeriodosController@putNivelar",
     "PUT api/definitivas_periodos/toggle-manual": "App\\Http\\Controllers\\DefinitivasPeriodosController@putToggleManual",
     "PUT api/definitivas_periodos/toggle-recuperada": "App\\Http\\Controllers\\DefinitivasPeriodosController@putToggleRecuperada",
     "PUT api/definitivas_periodos/update": "App\\Http\\Controllers\\DefinitivasPeriodosController@putUpdate",
