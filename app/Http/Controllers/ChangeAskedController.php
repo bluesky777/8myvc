@@ -1,6 +1,7 @@
 <?php namespace App\Http\Controllers;
 
 
+use App\Http\Controllers\Perfiles\CalendarioController;
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -92,7 +93,7 @@ class ChangeAskedController extends Controller {
 			$publicaciones = Publicaciones::ultimas_publicaciones('Usuario');
 
 			# Calendario
-			$eventos = DB::select('SELECT * FROM calendario WHERE deleted_at is null');
+			$eventos = DB::select('SELECT '.CalendarioController::COLUMNAS.' FROM calendario WHERE deleted_at is null');
 
 			
 			
@@ -181,7 +182,7 @@ class ChangeAskedController extends Controller {
 
 			
 			# Calendario
-			$eventos = DB::select('SELECT * FROM calendario WHERE deleted_at is null');
+			$eventos = DB::select('SELECT '.CalendarioController::COLUMNAS.' FROM calendario WHERE deleted_at is null');
 
 			
 							
@@ -225,7 +226,7 @@ class ChangeAskedController extends Controller {
 
 			
 			# Calendario
-			$eventos = DB::select('SELECT * FROM calendario WHERE solo_profes=0 and deleted_at is null');
+			$eventos = DB::select('SELECT '.CalendarioController::COLUMNAS.' FROM calendario WHERE solo_profes=0 and deleted_at is null');
 
 
 			# PREMATRICULAS SIGUIENTE AÑO
@@ -433,7 +434,7 @@ class ChangeAskedController extends Controller {
 			$publicaciones 		= Publicaciones::ultimas_publicaciones('Acudiente');
 			
 			# Calendario
-			$eventos = DB::select('SELECT * FROM calendario WHERE solo_profes=0 and deleted_at is null');
+			$eventos = DB::select('SELECT '.CalendarioController::COLUMNAS.' FROM calendario WHERE solo_profes=0 and deleted_at is null');
 
 			
 			
@@ -447,7 +448,7 @@ class ChangeAskedController extends Controller {
 			$publicaciones = Publicaciones::ultimas_publicaciones('Acudiente');
 
 			# Calendario
-			$eventos = DB::select('SELECT * FROM calendario WHERE solo_profes=0 and deleted_at is null');
+			$eventos = DB::select('SELECT '.CalendarioController::COLUMNAS.' FROM calendario WHERE solo_profes=0 and deleted_at is null');
 
 			
 			return [ 'publicaciones' => $publicaciones, 'eventos' => $eventos ];
