@@ -56,6 +56,58 @@ class Asignatura extends Model {
 	protected $softDelete = true;
 
 
+	/**
+	 * La asignatura con su materia, su grupo y su profesor, para abrir la planilla.
+	 *
+	 * **`profesores` entra por `LEFT` y no por `INNER`, y esto arregla un 404 de hoy.**
+	 * `asignaturas.profesor_id` es NULLABLE y una materia sin docente asignado es un
+	 * estado normal del dominio, no corrupción: de 1219 asignaturas vivas medidas el
+	 * 2 sep 2026, **146 no tienen profesor** —2 en 2019, **10 en el año actual (2025)** y
+	 * **las 134 de 134 de 2026**—, con **cero** apuntando a un profesor inexistente y
+	 * **cero** a uno borrado. El reparto importa más que el total: hoy el 404 lo pegan
+	 * las diez de 2025, y **el año que 2026 pase a ser el actual lo pegarían todas**.
+	 * Con `INNER` la consulta no devolvía filas, el `abort(404)` de abajo se disparaba
+	 * y **su planilla no abría**, diciendo además lo que no era: «Esa asignatura no es
+	 * de este año». `BoletinIndependienteController::estructuraDelGrupo()` ya había
+	 * llegado a lo mismo por su cuenta y lo dejó escrito allí; esto es la otra mitad.
+	 *
+	 * **`p.deleted_at is null` entra en el mismo `ON`, y es el `LEFT` lo que lo hace
+	 * inocuo.** El resto del fichero filtra los borrados y esta línea no lo hacía.
+	 *
+	 * **No son «cero casos», y conviene decirlo bien**: cero entre las **vivas**, pero
+	 * la medición de las vivas no cubre a lo que llega esta consulta, porque
+	 * `detallada()` **no filtra `a.deleted_at`** y sirve asignaturas de la papelera. Ahí
+	 * hay **una**: la asignatura 187, borrada en 2018, cuyo profesor 16 también lo está.
+	 * Alcanzarla exige un token del año 2018 —el `ON` une por `g.year_id`—, así que en
+	 * la práctica no la pide nadie; pero es una fila real y su respuesta cambia: hoy
+	 * sale con el nombre del docente borrado y a partir de aquí sale sin profesor.
+	 *
+	 * Lo que de verdad decide esta línea es **a qué se degrada el día que haya uno en un
+	 * año vivo**: con `INNER` habría hecho **desaparecer la asignatura entera** —un 404
+	 * nuevo por borrar a un docente—, y con `LEFT` se queda en «esta asignatura no tiene
+	 * profesor», que es exactamente lo que es.
+	 *
+	 * **Lo que NO se toca aquí es el `a.deleted_at` que falta**, y no por olvido:
+	 * añadirlo convertiría en 404 las asignaturas de la papelera que hoy contestan 200,
+	 * que es una decisión del colegio y no de esta rama.
+	 *
+	 * **Ojo al `profesor_id` duplicado del SELECT**, que no es un descuido que se pueda
+	 * limpiar sin pensarlo: viajan `a.profesor_id` y `p.id as profesor_id`, y con PDO
+	 * **gana el último**, así que el campo vale `p.id`. Se deja así a propósito, porque
+	 * es lo que mantiene la respuesta coherente consigo misma: `profesor_id` es `null`
+	 * exactamente cuando `nombres_profesor` y `apellidos_profesor` son `null`. Cambiarlo
+	 * a `a.profesor_id` haría salir un id con nombres vacíos al lado en cuanto haya un
+	 * docente borrado, que es la forma de que una plantilla imprima «Prof.: » y nadie
+	 * sepa por qué.
+	 *
+	 * Los cinco llamadores se revisaron uno a uno antes de tocar esto y **ninguno lee el
+	 * profesor**: `AsignaturasController::getShow` la devuelve tal cual, y los otros
+	 * cuatro sólo le sacan `grupo_id` y `asignatura_id`. Lo que sí queda expuesto es el
+	 * JSON —`profesor_id`, `nombres_profesor` y `apellidos_profesor` pueden ser `null`
+	 * donde antes nunca lo eran—, y eso es de los clientes: las cuatro plantillas que
+	 * imprimen el nombre sin comprobarlo van en la rama de `myvc-front-11`, para
+	 * desplegarse a la vez que esto.
+	 */
 	public static function detallada($asignatura_id, $year_id)
 	{
 		$consulta = 'SELECT a.id as asignatura_id, a.grupo_id, a.profesor_id, a.creditos, a.orden,
@@ -64,7 +116,7 @@ class Asignatura extends Model {
 					FROM asignaturas a 
 					inner join materias m on m.id=a.materia_id 
 					inner join grupos g on g.id=a.grupo_id and g.year_id=:year_id and g.deleted_at is null 
-					inner join profesores p on p.id=a.profesor_id 
+					left join profesores p on p.id=a.profesor_id and p.deleted_at is null 
 					where a.id=:asignatura_id 
 					order by g.orden, a.orden';
 

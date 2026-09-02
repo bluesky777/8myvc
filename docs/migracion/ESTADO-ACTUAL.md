@@ -8,7 +8,93 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
-**2 sep 2026, tarde — EL PANEL DE UN ALUMNO PASA DE 620 ms A 20 ms, Y EL CALENDARIO
+**2 sep 2026, tarde — UNA ASIGNATURA SIN DOCENTE YA ABRE SU PLANILLA** ·
+rama `fix/planilla-sin-profesor`, **sin fusionar** · **el router sigue en 550**: no hay ruta nueva,
+es una línea de SQL · lo decidió Joseth y lo montó la sesión que relevó al backend
+
+> **`Asignatura::detallada()` unía `profesores` por `INNER JOIN`, y `asignaturas.profesor_id` es
+> NULLABLE.** Una materia sin docente asignado no devolvía ninguna fila, así que saltaba el
+> `abort(404)` de ese mismo método **diciendo lo que no era**: «Esa asignatura no es de este año».
+> Su planilla no abría.
+>
+> **Medido sobre desarrollo el 2 sep, y el reparto importa más que el total:** de **1219
+> asignaturas vivas, 146 sin `profesor_id`** — **2** en 2019, **10 en el año actual (2025)** y
+> **las 134 de 134 de 2026**. Cero apuntan a un profesor inexistente y cero a uno borrado, o sea
+> que **no es corrupción: es cómo empieza un año**. Hoy el 404 lo pegan diez; **el día que 2026
+> pase a ser el año actual lo pegarían todas**. Otra sesión llegó al mismo dato por su cuenta
+> desde horarios («Transición no tiene docente en NINGUNA de sus siete»), y
+> `BoletinIndependienteController::estructuraDelGrupo()` ya lo había resuelto con `LEFT` por su
+> lado en agosto, dejándolo escrito: esto es la otra mitad.
+>
+> **El riesgo no era el `LEFT`, era lo que hay detrás: `p.id as profesor_id` pasa a poder ser
+> `null`.** Los **cinco** llamadores se leyeron uno a uno —`AsignaturasController:154`,
+> `NotasController:100`, `AusenciasController:70` y `BoletinIndependienteController:263` y
+> `:1331`— y **ninguno lee el profesor**: `getShow` devuelve la asignatura tal cual y los otros
+> cuatro sólo le sacan `grupo_id` y `asignatura_id`. Nada se rompe dentro.
+>
+> **Y en el mismo `ON` entró `p.deleted_at is null`**, que el resto del fichero ya hacía. Se metió
+> aquí y no se dejó anotado porque **es el `LEFT` lo que lo vuelve inocuo**: con `INNER` habría
+> hecho desaparecer la asignatura entera —un 404 nuevo cada vez que el colegio borra a un
+> docente— y con `LEFT` se queda en «no tiene profesor», que es lo que es.
+>
+> **Corrección a la medición que venía con el encargo: no son «cero casos».** Cero entre las
+> **vivas**, pero `detallada()` **no filtra `a.deleted_at`** y sirve asignaturas de la papelera;
+> ahí hay **una**, la 187 de 2018, con su profesor 16 también borrado. Alcanzarla exige un token
+> del año 2018, así que en la práctica no la pide nadie — pero es una fila real cuya respuesta
+> cambia, y estaba fuera de la población que se midió. **Lo que NO se tocó es el `a.deleted_at`
+> que falta en esa consulta**: añadirlo convertiría en 404 las asignaturas de la papelera que hoy
+> contestan 200, y eso es decisión del colegio.
+>
+> **La prueba: `tests/Contrato/PlanillaSinProfesorTest.php`, tres casos, comprobados en rojo
+> contra el `INNER` restaurado** — dos fallan con 404 y el tercero con `'Pedro' is null`, el
+> nombre del docente borrado saliendo por la respuesta. **El escenario se construye en el test**
+> porque el seed **no tiene ninguna** asignatura sin profesor, y eso trae la advertencia que hay
+> que leer antes de dar nada por cubierto: **el seed tiene 20 asignaturas vivas y las 20 con
+> profesor vivo, así que el `LEFT` devuelve exactamente las mismas filas que el `INNER` y este
+> cambio es INVISIBLE para la suite entera**. Los 1.006 tests en verde no demuestran nada sobre
+> esto; el único que lo ejerce es el nuevo. Vecinas en verde igualmente: 225 pasan
+> (`Asignatura|Notas|Ausencia|Planilla|BoletinIndependiente|Definitivas`), y `8myvc-5e` confirmó
+> que esas mismas clases ya estaban verdes en su línea base.
+>
+> **Lo que sí es un cambio de contrato, y el orden de despliegue NO es simétrico:** `profesor_id`,
+> `nombres_profesor` y `apellidos_profesor` pueden venir `null` donde antes no lo eran nunca. Las
+> **cuatro plantillas** que imprimen el nombre sin comprobarlo van en
+> **`fix/profesor-nulo-en-papel`** del front, y la asimetría es la que hay que respetar:
+>
+> - **el front puede ir solo y es seguro** — hoy no hay nulos que pintar;
+> - **este backend nunca antes que el front**, o las plantillas imprimen «Prof.: » vacío **en
+>   papel**.
+>
+> Fijado en `DESPLIEGUE-NIVELACIONES-Y-RUBRICAS.md` del front (líneas 128-129), comprobado ahí y
+> no de oídas. La planilla en sí no necesita nada del front: los alumnos salen del grupo, no del
+> profesor.
+>
+> **Ojo al `profesor_id` duplicado del SELECT, que no se limpió a propósito:** viajan
+> `a.profesor_id` y `p.id as profesor_id`, y con PDO **gana el último**. Eso es lo que mantiene la
+> respuesta coherente consigo misma —`profesor_id` es `null` exactamente cuando los nombres lo
+> son—; cambiarlo a `a.profesor_id` haría salir un id con los nombres vacíos al lado, que es como
+> una plantilla acaba imprimiendo «Prof.: » sin que nadie sepa por qué.
+>
+> **Y lo que este arreglo NO arregla — mirado, preguntado y CERRADO por Joseth el mismo día:** el
+> mismo patrón vive en `Grupo::detailed_materias` (`INNER JOIN profesores` sobre `a.profesor_id`)
+> y, peor, en `Grupo::detailed_materias_notas_finales`, que además lleva **`a.profesor_id is not
+> null` explícito en el `WHERE`**, cuatro veces. Eso alimenta las **notas finales**, o sea los
+> boletines, así que la pregunta era si el día que 2026 fuese el año actual un boletín saldría sin
+> esas 134 materias y sin error.
+>
+> **Joseth dice que no llega a pasar, y el motivo es de dominio, no de código: «siempre habrá un
+> docente asignado a una asignatura al momento de entrar a las planillas de notas».** O sea que
+> las 146 sin profesor son un estado de *montaje del año*, y para cuando alguien califica —que es
+> lo único que alimenta un boletín— ya tienen docente. **No se mide y no se toca**, y esto queda
+> escrito para que nadie lo vuelva a abrir como hallazgo: no lo es.
+>
+> Y las dos cosas encajan en vez de contradecirse, que es lo que hace creíble la respuesta: **la
+> planilla tiene que abrir justo durante ese montaje** —es cuando aún no hay docente y es
+> exactamente el 404 que se arregla arriba—, mientras que el boletín se imprime después, cuando ya
+> lo hay. El arreglo de esta entrada cubre la ventana; el `is not null` de `Grupo::` vive fuera de
+> ella.
+
+**Anterior: 2 sep 2026, tarde — EL PANEL DE UN ALUMNO PASA DE 620 ms A 20 ms, Y EL CALENDARIO
 RESULTÓ SER OTRA COSA** · [`24-el-panel-de-inicio.md`](24-el-panel-de-inicio.md) nuevo, con
 `GET ChangesAsked/to-me` medido rol por rol · **el router sigue en 550**: no hay ruta nueva ·
 lo levantó la sesión de `myvc_flutter`, y **la pregunta ya estaba escrita en el otro repo desde
