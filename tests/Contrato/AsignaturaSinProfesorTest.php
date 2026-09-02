@@ -42,21 +42,6 @@ class AsignaturaSinProfesorTest extends CasoDeContrato
         return $this->tokenDe($super->username);
     }
 
-    /** Una asignatura del año actual, con su profesor puesto. */
-    private function unaAsignatura(): object
-    {
-        $fila = DB::selectOne('SELECT a.id, a.profesor_id, g.year_id
-            FROM asignaturas a
-            INNER JOIN grupos g ON g.id = a.grupo_id AND g.deleted_at IS NULL
-            INNER JOIN years y ON y.id = g.year_id AND y.actual = 1 AND y.deleted_at IS NULL
-            WHERE a.deleted_at IS NULL AND a.profesor_id IS NOT NULL
-            ORDER BY a.id LIMIT 1');
-
-        $this->assertNotNull($fila, 'El seed necesita una asignatura del año actual con profesor.');
-
-        return $fila;
-    }
-
     /** El mensaje que devuelve la rejilla para esa asignatura, sea cual sea. */
     private function mensajeDeLaRejilla(string $token, int $asignaturaId): string
     {
