@@ -272,11 +272,27 @@ class Grupo extends Model {
 
 	public static function detailed_materias_notafinal($alumno_id, $grupo_id, $periodo_id, $year_id)
 	{
+		// **El par de la DEFINITIVA del periodo** — A10, 25 §2.1.
+		//
+		// `nota_asignatura` sigue siendo **la vigente**, la que ya se imprimía; al lado va
+		// de dónde venía. `recuperada` no cambia de significado —1 ⇔ viene de una
+		// nivelación— y lo que se gana es que ahora puede decir de qué nota.
+		//
+		// Los alias llevan el sufijo `_asignatura` como `nota_asignatura`, y no es
+		// cosmético: de esta consulta cuelgan tres informes que **también** traen el par
+		// del indicador (`Subunidad::deUnidadCalculada`), y dos claves `nota_original` en
+		// la misma respuesta significando cosas distintas es la forma de que el papel
+		// imprima la del nivel equivocado.
+		//
+		// El comentario va aquí y no dentro del SQL a propósito: un `--` dentro de la
+		// cadena comentaría el resto de la consulta el día que alguien normalice los
+		// saltos de línea.
 		$consulta = 'SELECT a.id as asignatura_id, a.grupo_id, a.profesor_id, a.creditos, ar.orden as orden_area, m.orden as orden_materia, a.orden,
 				m.materia, m.alias as alias_materia, m.area_id, ar.nombre as area_nombre, ar.alias as area_alias, a.materia_id, 
 				p.nombres as nombres_profesor, p.apellidos as apellidos_profesor,
 				p.foto_id, IFNULL(i.nombre, IF(p.sexo="F","default_female.png", "default_male.png")) as foto_nombre, 
-				CAST(n.nota AS DOUBLE) as nota_asignatura, n.created_at, n.recuperada, n.manual, e.desempenio, n.id as nf_id
+				CAST(n.nota AS DOUBLE) as nota_asignatura, n.created_at, n.recuperada, n.manual, e.desempenio, n.id as nf_id,
+				CAST(n.nota_original AS DOUBLE) as nota_original_asignatura, n.nivelada_at as nivelada_at_asignatura
 			FROM asignaturas a 
 			inner join materias m on m.id=a.materia_id and m.deleted_at is null
 			left join areas ar on ar.id=m.area_id and ar.deleted_at is null

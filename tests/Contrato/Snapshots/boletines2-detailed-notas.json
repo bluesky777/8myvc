@@ -124,11 +124,13 @@
                             "materia": "string",
                             "materia_id": "int",
                             "nf_id": "int|null",
+                            "nivelada_at_asignatura": "null",
                             "nombres_profesor": "string",
                             "nota_asignatura": "int|null",
                             "nota_definitiva_anio": "int",
                             "nota_definitiva_anio_desempenio": "string",
                             "nota_faltante": "int",
+                            "nota_original_asignatura": "null",
                             "notas_finales": [
                                 {
                                     "desempenio": "string",
@@ -208,11 +210,13 @@
                     "materia": "string",
                     "materia_id": "int",
                     "nf_id": "int|null",
+                    "nivelada_at_asignatura": "null",
                     "nombres_profesor": "string",
                     "nota_asignatura": "int|null",
                     "nota_definitiva_anio": "int",
                     "nota_definitiva_anio_desempenio": "string",
                     "nota_faltante": "int",
+                    "nota_original_asignatura": "null",
                     "notas_finales": [
                         {
                             "desempenio": "string",

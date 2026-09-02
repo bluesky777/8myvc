@@ -60,6 +60,11 @@ class BoletinFinalSinAsteriscoTest extends CasoDeContrato
     private const COLUMNAS_DE_UNA_DEFINITIVA = [
         'alumno_id', 'asignatura_id', 'created_at', 'id', 'manual', 'nota',
         'periodo', 'periodo_id', 'recuperada', 'updated_at', 'updated_by',
+        // Las tres de la nivelación, abiertas por A10: el boletín final imprime el par
+        // (25 §2.1). Entran en la lista de arriba y no en las calculadas porque **van
+        // siempre**, con `null` cuando esa definitiva no se ha nivelado — una clave que
+        // a veces no viene obliga a distinguir «vacío» de «no vino» (22 §3.1).
+        'nota_original', 'nivelada_at', 'nivelada_por',
     ];
 
     /**

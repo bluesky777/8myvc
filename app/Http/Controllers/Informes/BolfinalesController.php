@@ -510,7 +510,10 @@ class BolfinalesController extends Controller {
 
 			$alumno->total_creditos += $asignatura->creditos;
 						
-						// **Las once columnas de `notas_finales` nombradas, y no el asterisco** — 25 §4.
+						// **Las catorce columnas de `notas_finales` nombradas, y no el asterisco** — 25 §4,
+			// y las tres últimas se abren aquí **a propósito**: es A10, el boletín final
+			// imprimiendo el par. La tabla de la §3.4 del [22](../../../../docs/migracion/22-nivelaciones.md)
+			// tenía este sitio como «congelado hasta A10»; esto es A10.
 			// Con `nf` en asterisco, cada columna nueva de la tabla sale **sola** en este
 			// informe el día que corra una migración, con este mismo código y sin que nadie
 			// haya decidido enseñarla: las tres de la nivelación —`nota_original`,
@@ -522,7 +525,9 @@ class BolfinalesController extends Controller {
 			// asterisco y la casteada— y en PDO gana la última, que es ésta. Por eso la lista
 			// no la repite y la respuesta no cambia ni un campo.
 			$consulta = 'SELECT nf.id, nf.alumno_id, nf.asignatura_id, nf.periodo_id, nf.periodo, CAST(nf.nota AS DOUBLE) AS nota, CAST(nf.nota AS DOUBLE) as DefMateria,
-						nf.recuperada, nf.manual, nf.updated_by, nf.created_at, nf.updated_at, aus.cantidad_ausencia, tar.cantidad_tardanza
+						nf.recuperada, nf.manual, nf.updated_by, nf.created_at, nf.updated_at,
+						CAST(nf.nota_original AS DOUBLE) as nota_original, nf.nivelada_at, nf.nivelada_por,
+						aus.cantidad_ausencia, tar.cantidad_tardanza
 						FROM notas_finales nf
 						INNER JOIN periodos p on p.year_id=:year_id and p.id=nf.periodo_id '.$sqlPeriodo.' and p.deleted_at is null
 						left join (
