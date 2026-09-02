@@ -137,6 +137,7 @@ leyendo el código. Cada una lleva su uso en la cabecera.
 | `consultas-en-bucle.py` | en qué profundidad de bucle vive cada consulta — **ordena candidatos, no mide coste**; trae su propio control (`--control`) |
 | `guardas-sin-respaldo.py` | qué métodos dependen enteros del middleware de su ruta — **ordena candidatos, y se equivocó en las dos direcciones**: cada fila se lee |
 | `verdad-laxa-que-escribe.py` | dónde una cadena cualquiera del cliente vale por «sí» **y gobierna una escritura** — 21 de 980 `if`, tres con consecuencia |
+| `prevuelo-del-horario.php` | si los datos de un colegio sirven para cuadrar un horario — **la rejilla es un parámetro** (`--lecciones`), y con la de 6×5 que supuso la v1 el docente de 31 h era imposible |
 
 Y una que **no** está en `tools/` y contesta la pregunta contraria:
 `tests/Barrido/SuperficieDeUnTokenTest.php` golpea la API entera con un token y

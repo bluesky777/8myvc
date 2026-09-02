@@ -689,6 +689,44 @@ reales y el colegio pasa. O sea que esas diez asignaciones no bloquean un grupo:
 Como script de `tools/` corre sobre los quince y contesta en una tarde en vez de en la
 demo. Si en otro colegio la IH está a medias, se sabe antes de prometer nada.
 
+### 9.2. Y ya es un script: `tools/prevuelo-del-horario.php`
+
+Escrito el **2 sep 2026**. Reproduce las siete cifras del control de la §9.1 sobre
+`simonbolivar`, año 8 —13 grupos, 134 asignaciones, 12 docentes, Σ 345, 0 sin IH, 10
+sin docente que son 25 h, y el más cargado con 31 de 35—, y también el reparto:
+**Transición 7 de 7 y Jardín 3 de 7**, con las diez nombradas una a una en `--detalle`.
+
+    docker exec 8myvc-app-1 php tools/prevuelo-del-horario.php
+    docker exec -e DB_DATABASE=otrocolegio 8myvc-app-1 php tools/prevuelo-del-horario.php --csv
+
+**La rejilla entra por `--lecciones` y `--dias`, y la cabecera del informe imprime
+contra cuál se midió.** Corriéndolo con `--lecciones=6` sale el tercer hallazgo que la
+v1 daba por bueno —*«JOEL HERNÁNDEZ tiene 31 h y sólo caben 30: NO tiene horario
+posible»*—, o sea que el supuesto que costaba el proyecto **es ejecutable en los dos
+sentidos** y no una nota. Está fijado además en el control (`--control`), que corre
+sin base y lo invoca `tests/Unit/AutopruebasDeLasHerramientasTest`.
+
+La jornada por nivel de la [§10.1](#101-cerradas-por-joseth-el-2-sep-2026--no-se-re-litigan)
+entra por `--lecciones-nivel=Preescolar:5,Primaria:6`, y la clave es el `abrev` de
+`niveles_educativos` **como esté en la base**: en `simonbolivar` hay **cuatro** niveles
+—Preescolar, Primaria, Secundaria y Media—, no los tres de la decisión, así que
+traducir «bachillerato» a dos de ellos es de cada colegio. Un nivel que no exista
+aborta en vez de ignorarse.
+
+**Tres códigos de salida, y el tercero es el que importa en el bucle de los quince:**
+`0` limpio, `1` sucio, `2` **NO MEDIDO** — que cubre también los abortos de parámetro,
+porque `--lecciones-nivel` se escribe una vez y se corre quince y los niveles se llaman
+distinto en cada colegio. Un colegio no medido no es un colegio limpio.
+
+Y lo que el script añade a la §9.1, que son las preguntas que en `simonbolivar` dan
+cero y de los otros catorce no se sabe: asignaciones con la **IH nula** —que no se
+evaporan, desaparecen del `SUM`, y el total sale cuadrado habiendo mirado de menos—,
+con IH **0**, con el docente **borrado** o **inexistente**, con la **materia en la
+papelera** —las de la decisión abierta 1 de la §10.2, que `GET asignaturas` no
+devuelve— y grupos **sin ninguna asignación**. Los JOIN de profesor y materia son
+`LEFT` a propósito: con `INNER`, una asignación cuyo docente esté borrado
+desaparecería de la población y el informe saldría más limpio de lo que es.
+
 ---
 
 ## 10. Decisiones

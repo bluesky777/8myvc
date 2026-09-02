@@ -8,7 +8,28 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
-**2 sep 2026, noche — `main` LIMPIO, MEDIDO Y **SUBIDO A `origin`** · `d43d028`** ·
+**2 sep 2026, noche — EL PRE-VUELO DEL HORARIO YA ES UN SCRIPT** · rama
+`feat/prevuelo-horario`, **sin fusionar** · `tools/prevuelo-del-horario.php`, el nivel 1 de la
+[§9.2 del 23](23-horarios.md) · **el router no se mueve**: no hay ruta, es una herramienta ·
+`--control` verde y dentro de `AutopruebasDeLasHerramientasTest` (12 pasan) · pint y
+larastan nivel 7 **`[OK] No errors`** sobre este árbol · lo repartió `8myvc-af`
+
+> **Reproduce las siete cifras del control de la §9.1 sobre `simonbolivar`, año 8**, y también
+> el reparto que es el hallazgo: **Transición 7 de 7 sin docente y Jardín 3 de 7**, o sea que el
+> horario de Transición no se puede colocar en absoluto. Con `--lecciones=6` —el supuesto de la
+> v1— sale el tercer hallazgo, *«JOEL HERNÁNDEZ tiene 31 h y sólo caben 30»*: **el supuesto que
+> costaba el proyecto es ejecutable en los dos sentidos**, y está fijado en el control.
+>
+> **Lo que contesta y todavía no se ha corrido: los otros catorce colegios.** El script está
+> listo para el bucle (`--csv`, y `0` limpio / `1` sucio / `2` NO MEDIDO), pero correrlo colegio
+> a colegio **lo decide Joseth**, porque es tocar las quince bases de producción.
+>
+> Y trae cinco preguntas que en `simonbolivar` dan cero y de los otros catorce no se sabe nada:
+> IH **nula** —que no se evapora, desaparece del `SUM`, y el total sale cuadrado habiendo mirado
+> de menos—, IH **0**, docente **borrado** o **inexistente**, **materia en la papelera** (la
+> decisión abierta 1 de la §10.2) y grupos **sin ninguna asignación**.
+
+**Anterior: 2 sep 2026, noche — `main` LIMPIO, MEDIDO Y **SUBIDO A `origin`** · `d43d028`** ·
 **`Tests: 1843 passed (16614 assertions)`, `Duration: 693.98s`, `exit=0`**, cero rojos y cero
 saltados · pint **PASS** (357 ficheros) · larastan nivel 7 **`[OK] No errors`** · **563 rutas**
 (contadas con `route:list --json` sobre este árbol) · **cero commits sin subir**, y la base de
