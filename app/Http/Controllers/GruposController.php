@@ -87,8 +87,25 @@ class GruposController extends Controller {
 			group by g.id
 			order by g.orden';
 		*/
+		/*
+		 * `count(r.grupo_id)` Y NO `count(g.id)`, QUE ESTABA MAL POR UNO EN TODO GRUPO VACIO.
+		 *
+		 * `r` entra por un LEFT JOIN, asi que un grupo sin ninguna matricula PREM/PREA/MATR sale
+		 * igualmente con UNA fila --la de los NULL del join-- y `count(g.id)` la cuenta: `g.id`
+		 * nunca es nulo. O sea que `cant_faltantes` valia `cupo - 1` donde tenia que valer `cupo`:
+		 * un grupo recien creado con cupo 20 decia que le faltaban 19.
+		 *
+		 * `count(r.grupo_id)` cuenta la columna de la tabla UNIDA, que en esa fila fantasma si es
+		 * NULL, y `COUNT` no cuenta nulos. Con matriculas de verdad las dos formas dan lo mismo, y
+		 * por eso el fallo solo se ve en los grupos vacios --que son justo los que se miran al
+		 * empezar la campana de prematriculas--.
+		 *
+		 * Encontrado desde `myvc_front` al recrear la pantalla de prematriculas (2026-09-01). Esa
+		 * pantalla ya no lee este campo --se lo calcula-- y se arregla igual, porque lo lee la
+		 * aplicacion vieja, que es la que hoy corre en los colegios.
+		 */
 		$consulta = 'SELECT r1.*, r2.cantidad FROM (
-			SELECT g.id, g.nombre, g.abrev, gra.orden as orden_grado, g.orden, g.grado_id, g.year_id, g.titular_id, g.created_at, g.updated_at, g.cupo, (g.cupo - count(g.id)) as cant_faltantes
+			SELECT g.id, g.nombre, g.abrev, gra.orden as orden_grado, g.orden, g.grado_id, g.year_id, g.titular_id, g.created_at, g.updated_at, g.cupo, (g.cupo - count(r.grupo_id)) as cant_faltantes
 					from grupos g
 					inner join years y on y.id=g.year_id and y.year=:anio and y.deleted_at is null
 					inner join grados gra on gra.id=g.grado_id and g.year_id=y.id 
