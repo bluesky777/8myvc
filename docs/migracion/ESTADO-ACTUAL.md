@@ -36,8 +36,25 @@ coordina `8myvc-ab`
 > nota». Instrumentado con dos tests en `AuditoriaDeLosDiezEscritoresTest`; el porqué de
 > dejar `putSubunidad` sin auditar está en el [18](18-auditoria.md), fase 4.
 >
-> Siguiente en este carril: A3 migración → A4 la regla en un único sitio → A5 + A6
-> endpoints y centinela → A7 … A10. Base de tests de esta sesión:
+> **A3 y A4 hechas el 2 sep.** La migración es aditiva pura y **un solo `Schema::table` por
+> tabla** —en MySQL 5.7 cada `ALTER` reconstruye la tabla, y `notas` es la grande—; la regla vive
+> en `App\Services\Nivelacion` y una regla desconocida en la base **lanza** en vez de caer a
+> `topada` en silencio.
+>
+> **Y lo que encontró la suite, que es lo que hay que heredar:** siete instantáneas se movieron
+> **sin que nadie tocara su método**, porque siete consultas leían la fila entera con `*` y un
+> `ALTER TABLE` las llena solo. Cinco eran mías y están **congeladas** nombrando columnas
+> (`notas/update`, `notas/show`, `Nota::alumnoPeriodoDetalle` con `Nota::LAS_DIEZ_COLUMNAS`,
+> `Asignatura::calculoAlumnoNotas`/`2` y `PromovidosController:189`); las **tres de `years/*` se
+> regeneraron a propósito**, porque `regla_nivelacion` viaja por contrato (22 §5). **Quedan dos
+> rojos que NO son míos**: `Informes/BolfinalesController:508` (`SELECT nf.*`), de `8myvc-f2` con
+> A10. La tabla de quién devuelve las columnas nuevas a propósito y quién las tiene congeladas es
+> la **§3.4** del [22](22-nivelaciones.md), y la regla que deja: **una columna viaja porque
+> alguien la nombró**, nunca por un asterisco.
+>
+> Siguiente en este carril: A5 + A6 (endpoints nuevos y el centinela de que `notas/update` y
+> `notas/lote` no aprendieron a nivelar) → A7 → A8 → A9. **A10 ya no es de este carril**: la
+> impresión y `Informes/**` pasaron a `8myvc-f2` el 2 sep. Base de tests de esta sesión:
 > `simonbolivar_testing_niv`.
 
 > **Esa cifra va con sus coordenadas pegadas y así se copia o no se copia: medida el 1 sep 2026,

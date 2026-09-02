@@ -445,7 +445,12 @@ class NotasController extends Controller {
 	public function getShow($nota_id)
 	{
 		$user 	= User::fromToken();
-		$nota 	= Nota::find($nota_id);
+		// Las diez columnas nombradas y no `find()` a secas, por lo mismo que en
+		// `putUpdate`: `find()` trae la fila entera y las cinco de la nivelación
+		// habrían movido `notas-show.json` solas. Un `ALTER TABLE` no cambia un
+		// contrato; lo nuevo viaja por `notas/detailed` y por `notas/nivelar/*`.
+		$nota 	= Nota::select(['id', 'nota', 'subunidad_id', 'alumno_id', 'created_by', 'updated_by',
+			'deleted_by', 'deleted_at', 'created_at', 'updated_at'])->find($nota_id);
 		return $nota;
 	}
 
@@ -487,7 +492,20 @@ class NotasController extends Controller {
 			//
 			// Ahora la consulta pregunta sólo por lo que quiere saber: la fila de
 			// `notas`.
-			$consulta 	= 'SELECT n.* FROM notas n WHERE n.id=? and n.deleted_at is null';
+			// **Las diez columnas nombradas, y NO `n.*`**, desde el 2 sep 2026: este
+			// método DEVUELVE `$nota`, y con el asterisco las cinco columnas de la
+			// nivelación (`2026_09_02_100000_nivelaciones_columnas`) habrían viajado
+			// solas en la respuesta de `PUT notas/update/{id}`, que leen los cuatro
+			// clientes y fija `notas-update.json`. Es la misma guarda que `putDetailed`
+			// tiene sobre `unidades`: un `ALTER TABLE` no puede cambiar un contrato.
+			//
+			// Y es la mitad de la promesa del A6 (22 §7): `notas/update` **no cambia
+			// ni una línea de comportamiento**, y un `*` es justo lo que la rompería
+			// sin que nadie tocara este método. Lo nuevo viaja por `notas/detailed` y
+			// por los endpoints de nivelar, que nacen con ello.
+			$consulta 	= 'SELECT n.id, n.nota, n.subunidad_id, n.alumno_id, n.created_by, n.updated_by,
+							n.deleted_by, n.deleted_at, n.created_at, n.updated_at
+						   FROM notas n WHERE n.id=? and n.deleted_at is null';
 
 			$nota 		= DB::select($consulta, [$id])[0];
 

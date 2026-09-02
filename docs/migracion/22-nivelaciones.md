@@ -27,7 +27,7 @@ Las nueve decisiones de la §4 del plan. Las que gobiernan este documento:
 |---|---|---|
 | 5 | **`notas.nota` sigue siendo la vigente**; la nueva columna es `nota_original` | Ningún lector existente cambia. Los campos nuevos son **añadidos**, nunca renombrados |
 | 6 | **La regla se aplica al escribir** | El backend calcula qué queda y lo devuelve; el front pinta, **no calcula** —salvo la previsualización del diálogo, §1.4— |
-| 7 | `nota_original` es **editable** | «Corregir la valoración inicial» sigue yendo por `notas/update`, que es corrección, no nivelación |
+| 7 | `nota_original` es **editable** | «Corregir la valoración inicial» sigue yendo por `notas/update` en una celda **sin** nivelar; en una **ya nivelada** va por `PUT notas/nivelar/{id}` con `nota_original` (§1.6), porque `notas/update` escribe la vigente |
 | 8 | Nivelar usa `periodos.profes_pueden_nivelar` | La guarda es la que hoy tiene `pueden_modificar_definitivas`, y **es por periodo de la nota**, no del token |
 | 3 | **Un intento por indicador** | Repetir el `PUT` sobre una nota ya nivelada **sustituye** la nivelación, no añade otra (§1.3) |
 
@@ -195,7 +195,35 @@ de al lado contesten 400 para todo**. El cuerpo del error es el de Laravel:
 comprobación de permiso y las de forma van **antes** de la primera escritura, y el 404 de la
 nota también.
 
-### §1.6 Lo que deja escrito, para quien lo lea después
+### §1.6 Corregir la valoración inicial de una celda YA nivelada
+
+Es el hueco que apareció al escribir A3, y B lo necesita para el segundo botón del
+diálogo (§5.2 del plan). En una celda **sin** nivelar, «corregir» es `PUT notas/update/{id}`
+y nada cambia. En una celda **nivelada**, `notas/update` escribe en `nota` —**que es la
+vigente**, no la original—, así que corregir por ahí un teclazo de la original lo que hace
+es pisar el resultado de la nivelación. No hay forma de que ese endpoint lo sepa sin
+cambiarle el comportamiento, y eso es lo que el §6.1 prohíbe.
+
+Se corrige por el mismo endpoint de nivelar, con **`nota_original` en el cuerpo**:
+
+```json
+PUT api/notas/nivelar/8811
+{ "nota_original": 58 }
+```
+
+- Sólo vale en una nota **ya nivelada**; en una sin nivelar contesta **422**
+  `Esta nota no está nivelada: la valoración inicial se corrige con notas/update.`
+- Puede ir sola o junto a `nota_nivelacion` / `observacion` / `fecha`. Con lo que llegue,
+  el backend **vuelve a aplicar la regla** desde la original nueva y la nivelación que
+  tenga (la del cuerpo o la guardada), y `nota` queda como diga la regla.
+- Responde con la forma de la §1.2.
+- Auditoría: una línea **`editar`** —no `nivelar`— con `de` = la original vieja y `a` = la
+  nueva, y en `resumen` «valoración inicial corregida; queda N por regla X». Es corrección,
+  y como corrección se registra: es la §1.2 del plan cumplida donde más fácil era
+  romperla.
+- Pasa por la misma escala y por el mismo guard que la nivelación.
+
+### §1.7 Lo que deja escrito, para quien lo lea después
 
 - `notas`: `nota`, `nota_original`, `nota_nivelacion`, `nivelada_at`, `nivelada_por`,
   `nivelacion_obs`, `updated_at`, `updated_by`.
@@ -320,11 +348,82 @@ Es la tarea **A8**, y va después que las §1–§2, pero la forma se fija aquí
 que ahora dice de dónde venía. `nota_original` aquí es `float`, como `nota_final`, porque la
 columna es `decimal(7,4)` desde `2026_08_30_200000`.
 
+### §3.2bis Flutter no se rompe con las claves nuevas, y está mirado, no supuesto
+
+`notas/detailed` lo llama `myvc_flutter` —una sola app para los quince colegios, con
+versiones viejas conviviendo meses—, así que «añadir claves suele ser inocuo en Dart» no
+bastaba. Mirado el 2 sep 2026 en `myvc_flutter` (`ee24f77`):
+
+- `lib/Http/LibroNotasApi.dart:485` hace el `PUT notas/detailed` y decodifica el cuerpo
+  como `Map`.
+- `AlumnoDelLibro.fromJson` (`:273–283`) recorre `json['notas']` y construye cada
+  `NotaDelLibro` desde un `Map<String, dynamic>`; la fila sólo se descarta si
+  `subunidad_id` es 0.
+- `NotaDelLibro.fromJson` (`:331–337`) **lee tres claves por nombre** —`id` (o
+  `nota_id`), `subunidad_id` y `nota`— y no mira nada más. Una clave que no conoce ni
+  revienta ni descarta la fila: no existe para él.
+- `NotaFinalDelLibro.fromJson` (`:443–456`) hace lo mismo con `nota_final`, clave a clave.
+- No hay `json_serializable`, `freezed` ni ninguna deserialización estricta en el proyecto
+  (`grep` en `pubspec.yaml` y `lib/`: cero).
+
+O sea que las seis claves de la §3.1 y las cuatro de la §3.2 **son invisibles para la app
+que ya está en las tiendas**, y el plan de despliegue del §7 del reparto no cambia por
+esto. Cerrado.
+
+### §3.2ter Una nota nivelada cuya `nota` ya no es la de la regla — puede llegar, y B lo sabe
+
+Flutter lee `nota` y escribe por `notas/update`, que **no cambia** (§6.1). Así que este
+recorrido existe y no se puede cerrar: celda con original 48, nivelación 90, regla `topada`
+→ `nota` 70; el docente abre el móvil, ve **70 sin ninguna marca** —las claves nuevas son
+invisibles para su app— y lo corrige a 75. Queda una fila con acta y `nota_nivelacion` 90
+y una `nota` de 75 que no es lo que da la regla.
+
+**Es una decisión, no un accidente**, y la fija A6 con nombre:
+
+- `notas/update` y `notas/lote` sobre una nota nivelada **escriben `nota` y dejan el acta
+  intacta**. Ni la limpian —sería borrar un registro académico desde un móvil— ni
+  recalculan por la regla —sería aprender a nivelar por la puerta de atrás—.
+- La única traza es la línea `editar` de `auditoria`, y lleva en `resumen` que la nota
+  estaba nivelada, para que una corrección legítima y este caso no sean indistinguibles.
+
+Lo que eso significa para la celda de B: **puede recibir `nota_original !== null` con una
+`nota` que no sea el resultado de la regla**. Pinta lo que hay —la vigente en grande, la
+original tachada— y **no afirma** «queda X por regla Y»: esa frase sólo sale del servidor
+al nivelar. Si quiere señalarlo, la condición es
+`nota_original !== null && nota !== aplicar(regla, nota_original, nota_nivelacion)`, con
+la tabla de la §1.4; es opcional.
+
 ### §3.3 Lo que NO cambia en `notas/detailed`
 
 Ni `alumnos[]`, ni `independientes[]`, ni `unidades[]`, ni `asignatura`, ni el orden de nada.
 Y **`Nota::verificarCrearNotas` sigue sembrando la fila con las columnas nuevas en `null`**,
 que es su defecto de esquema: una nota recién sembrada no está nivelada.
+
+### §3.4 Quién devuelve las columnas nuevas A PROPÓSITO, y quién las tiene congeladas
+
+Un `ALTER TABLE` no puede cambiar un contrato. Cada consulta que leía la fila entera de
+`notas`, `notas_finales`, `years` o `recuperacion_final` habría colado las columnas nuevas
+en su respuesta **en cuanto la migración corriera en ese colegio, con el código de hoy y sin
+que nadie lo decidiera**. Medido el 2 sep 2026 con la suite de contrato sobre la base migrada
+(tres instantáneas se movieron solas: `bolfinales` × 2 y `grupos/promovidos`) y con el
+reconocimiento de `8myvc-f2` en el [25](25-nivelaciones-en-los-informes.md). Esta tabla es la
+decisión, sitio por sitio:
+
+| Respuesta | Columnas nuevas | Cómo |
+|---|---|---|
+| `PUT notas/nivelar/{id}`, `DELETE notas/nivelar/{id}`, `PUT notas/nivelar/lote` | **sí, a propósito** (§1.2, §2, §4) | nacen con ellas |
+| `PUT notas/detailed` — `alumnos[].notas[]` y `alumnos[].nota_final` | **sí, a propósito** (§3.1, §3.2) | A7 las **nombra** en las dos consultas de `putDetailed`, que ya van por columnas |
+| `GET years`, `GET years/colegio`, `GET years/trashed` | **sí, a propósito**: `regla_nivelacion` (§5) | `YearsController:30/46` leen `SELECT y.*`; las tres instantáneas de `MuestreoDeLecturasTest` se regeneran **con esa decisión escrita** (A3) |
+| `PUT notas/update/{id}` | **congelada** | `putUpdate` nombra sus diez columnas (A3) — `notas-update.json` verde sin regenerar |
+| `GET notas/show/{id}` | **congelada** | `getShow` nombra sus diez columnas (A3) — `notas-show.json` verde sin regenerar |
+| `GET notas/alumno/*`, `PUT notas/alumno-periodo-grupo`, `grupos/promovidos` y todo lo que pasa por `Nota::alumnoPeriodoDetalle` | **congelada** | `Nota::LAS_DIEZ_COLUMNAS` en sus dos consultas (A3). **A7 no las añade aquí**: si la ficha del alumno las quiere, es una decisión aparte y B la pide |
+| `bolfinales/*` por `Asignatura::calculoAlumnoNotas` y `calculoAlumnoNotas2` | **congelada** | diez columnas nombradas (A3) |
+| `Informes/BolfinalesController:508` (`SELECT nf.*` de `notas_finales`) y `CertificadosPersonaController:309/359/163` (`nf.*`, `r.*`) | **congeladas hasta A10** | `Informes/**` es de `8myvc-f2` desde el 2 sep: ella las nombra, y las abre cuando el informe imprima el par |
+| `DefinitivasPeriodosController::putUpdate` (`SELECT n.*` de `notas_finales`, devuelve la fila) | **decidir en A8** | hoy la fila no se devuelve entera al cliente; se mira al escribir A8 |
+
+Regla para lo que venga: **una columna nueva viaja porque alguien la nombró**, nunca por un
+asterisco. Y la prueba de que un sitio está congelado es que su instantánea **queda verde sin
+regenerar**.
 
 ---
 
@@ -494,3 +593,15 @@ de este documento y se avisa.
   definitiva a los indicadores. Lo dice §1.2 y lo avisa la pantalla.
 - **No congela el puesto.** Nivelar mueve la definitiva y el puesto se calcula al vuelo
   (§6.4 del reparto): es decisión del colegio y se pregunta antes de A10.
+- **No cambia `notas/update` ni `notas/show` de forma**, y hubo que hacer algo para que no
+  cambiaran: los dos leían la fila entera (`SELECT n.*` y `Nota::find`), así que la
+  migración de A3 les habría colado las cinco columnas nuevas en la respuesta **sin que
+  nadie tocara el método**. Ahora nombran sus diez columnas, y la prueba de que está bien
+  es que `notas-update.json` y `notas-show.json` **quedan verdes sin regenerar**.
+- **Y `notas` NO tiene softdelete de verdad, aunque el §6 del reparto lo afirme.** Medido
+  en A1: `DELETE notas/destroy/{id}` hace un `DELETE` físico, sin `deleted_at` y sin
+  bitácora —la columna existe, nadie la escribe por esa ruta—. **No se cambia**: es un
+  endpoint vivo y fuera de este plan. Lo que hay que saber para construir encima es que
+  **borrar una nota nivelada se lleva la nivelación y su acta enteras**, y lo único que
+  queda es la línea `borrar` de `auditoria` que A1 añadió, con la vigente que se fue.
+  Ninguna garantía de «se puede recuperar» se apoya en `deleted_at` para esta tabla.

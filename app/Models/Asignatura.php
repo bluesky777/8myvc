@@ -95,7 +95,15 @@ class Asignatura extends Model {
 
 			foreach ($unidad->subunidades as $subunidad) {
 				
-				$nota = DB::select('SELECT * FROM notas WHERE subunidad_id=? AND alumno_id=? AND deleted_at is null', [ $subunidad->subunidad_id, $alumno_id ]);
+				// **Las diez columnas nombradas y no `*`**, desde el 2 sep 2026: esta fila
+				// se cuelga entera de la subunidad (`$subunidad->nota = $nota`) y viaja
+				// al boletín final, así que con el asterisco las cinco columnas de la
+				// nivelación (`2026_09_02_100000_nivelaciones_columnas`) movieron
+				// `bolfinales-detailed-notas-year*.json` sin que nadie tocara este
+				// método. Lo cazó la suite. Cuándo y cómo imprime el boletín el par
+				// original/nivelación es la tarea A10 del 22, y se abre ahí a propósito.
+				$nota = DB::select('SELECT id, nota, subunidad_id, alumno_id, created_by, updated_by, deleted_by, deleted_at, created_at, updated_at
+					FROM notas WHERE subunidad_id=? AND alumno_id=? AND deleted_at is null', [ $subunidad->subunidad_id, $alumno_id ]);
 
 				if (count($nota)>0) {
 					$nota = $nota[0];
@@ -142,7 +150,15 @@ class Asignatura extends Model {
 
 			foreach ($unidad->subunidades as $subunidad) {
 				
-				$nota = DB::select('SELECT * FROM notas WHERE subunidad_id=? AND alumno_id=? AND deleted_at is null', [ $subunidad->subunidad_id, $alumno_id ]);
+				// **Las diez columnas nombradas y no `*`**, desde el 2 sep 2026: esta fila
+				// se cuelga entera de la subunidad (`$subunidad->nota = $nota`) y viaja
+				// al boletín final, así que con el asterisco las cinco columnas de la
+				// nivelación (`2026_09_02_100000_nivelaciones_columnas`) movieron
+				// `bolfinales-detailed-notas-year*.json` sin que nadie tocara este
+				// método. Lo cazó la suite. Cuándo y cómo imprime el boletín el par
+				// original/nivelación es la tarea A10 del 22, y se abre ahí a propósito.
+				$nota = DB::select('SELECT id, nota, subunidad_id, alumno_id, created_by, updated_by, deleted_by, deleted_at, created_at, updated_at
+					FROM notas WHERE subunidad_id=? AND alumno_id=? AND deleted_at is null', [ $subunidad->subunidad_id, $alumno_id ]);
 
 				if (count($nota)>0) {
 					$nota = $nota[0];
