@@ -253,6 +253,8 @@ En el orden en que se puede desplegar sin que un colegio imprima mal (tareas §7
 | El par de la **definitiva** | `Grupo::detailed_materias_notafinal` — `nota_original_asignatura`, `nivelada_at_asignatura` | la comparten el tipo 1/5, el **tipo 2** y las notas actuales |
 | La tabla «Periodo 1 · 2 · 3 · 4» del papel | `Informes/BoletinesController:293` | `nota_original` y `nivelada_at` por periodo |
 | El **boletín final** | `Informes/BolfinalesController:508` | las once columnas pasan a **catorce**: era el sitio que la §3.4 del [22](22-nivelaciones.md) tenía como «congelado hasta A10» |
+| La tabla de periodos del **tipo 2** | `Boletines2Controller:217` | la misma línea del tipo 1; su indicador **no** se toca (suma por unidad) |
+| `GET notas/alumno` | por la consulta compartida de `Grupo` | gana el par de la definitiva **a sabiendas** — ver abajo |
 
 Tres decisiones que van con eso:
 
@@ -266,8 +268,17 @@ Tres decisiones que van con eso:
 - **Las claves van siempre, con `null` cuando no hay nivelación** (22 §3.1). Una clave que
   sólo aparece con dato obliga al front a distinguir «vacío» de «no vino».
 
-**Seis instantáneas regeneradas y leídas**, y el diff es la prueba de que la migración es
-aditiva: **36 líneas, todas claves nuevas con valor `null`**, ninguna quitada y ninguna
+> **`GET notas/alumno` gana el par, y se decidió — no se coló.** La §3.4 del
+> [22](22-nivelaciones.md) marcaba esa ruta como **congelada**, y come de la misma consulta
+> compartida. Se aceptó (Joseth y el coordinador, 2 sep 2026) por tres razones: **Flutter la
+> llama y no se rompe** —comprobado leyendo `AsignaturaNotaModel.fromJson`, que lee clave a
+> clave e ignora las que no conoce, no supuesto—; es **coherente con el certificado firmado**,
+> porque si el papel firmado lleva la novedad al pie, esconderla en la pantalla del propio
+> alumno no se sostiene; y acotarlo habría costado **un parámetro en un método con cuatro
+> llamantes**, complejidad permanente a cambio de literalismo.
+
+**Ocho instantáneas regeneradas y leídas**, y el diff es la prueba de que la migración es
+aditiva: **todas claves nuevas con valor `null`**, ninguna quitada y ninguna
 cambiada. `nota` sigue siendo la vigente (plan §3.2), así que el front viejo y Flutter
 imprimen exactamente lo de antes. Lo fija `tests/Contrato/BoletinImprimeElParTest`, con la
 nota nivelada **y con una sin nivelar**.
@@ -278,20 +289,44 @@ nota nivelada **y con una sin nivelar**.
 > el aserto no hubiera exigido población. El periodo se saca **del mismo usuario que eligió
 > `tokenDelPersonalDe`**.
 
-### 5.2 · Lo que falta, y por qué no se ha escrito
+### 5.2 · La decisión del certificado firmado, contestada — y no era backend
 
-1. **El tipo 2 y el tipo 3, a medias**: los dos reciben el par de la definitiva por la
-   consulta compartida de `Grupo`, pero su tabla de periodos propia no
-   —`Boletines2Controller:217` y `Grupo::detailed_materias_notas_finales`—. Son dos líneas
-   idénticas a la del tipo 1 y **no esperan a nadie**; están fuera porque el encargo
-   nombraba tres informes y ampliarlo es del coordinador, no de quien escribe.
-2. **El certificado de notas por persona** (§2.3): las tres opciones están planteadas a
-   Joseth. Es el papel **firmado**; escribir una antes de que conteste es rehacerla.
-3. **El uso de la marca** en `BolfinalesController:574` y `CertificadosPersonaController:375`
-   —«recuperó» = `nota_original IS NOT NULL` en vez de deducirlo del interruptor y de
-   `manual`—. Va con la 2, porque el certificado es la mitad de ese cambio.
-4. **El puesto** (§3.3). Si Joseth elige congelar, va **antes** que todo lo anterior y son
-   los mismos cinco ficheros: hacerlo después es tocarlos dos veces.
-5. **Nada en el tipo 4, notas perdidas, actas ni certificado de estudio**, y el
+**Joseth eligió la opción 2** (2 sep 2026): el certificado imprime **la nota vigente** y al
+pie la novedad, «niveló 48 → 70 en el periodo 2». Sin el par tachado dentro de la tabla y
+**sin interruptor del año**: no lo pidió, y un interruptor que nadie ha pedido es una opción
+más que mantener.
+
+Y al ir a escribirla apareció lo que la §2.3 no había mirado: **ese papel no lo produce
+`CertificadosPersonaController`**. Su `detailedNotasGrupo` sigue muerto (05 §211 y §218); el
+certificado lo **arma el front** pidiendo `bolfinales/detailed-notas-year/{grupo}` —lo dice
+su propia pantalla: *«por cada una hay que pedir el certificado de verdad, la MISMA llamada
+que usa `panel.informes.certificados_estudio`»*—.
+
+**Así que la opción 2 ya está servida y el backend no tiene nada que hacer.** Esa respuesta
+trae desde la §5.1 `nota_original`, `nivelada_at` y `nivelada_por` por definitiva, más
+`periodo`, que es exactamente lo que hace falta para escribir la frase. La nota al pie es
+trabajo del front, en `informes/certificado-estudio/`.
+
+> **Y por eso se comprobó antes de escribir.** Implementar la opción 2 «en el certificado»
+> habría añadido código a un método que no alcanza nadie, en un fichero que ya tiene **445
+> líneas inalcanzables**. Es literalmente el error que el 05 guarda de este mismo sitio:
+> *«con `CertificadosPersonaController` se dijo "hay que arreglarlo" y estaba muerto»*.
+
+### 5.3 · Lo que falta, y por qué no se ha escrito
+
+1. **El tipo 3.** Es el único que sigue sin el par de la definitiva, y **no es la misma
+   línea que el tipo 2**: `Grupo::detailed_materias_notas_finales` no tiene una consulta,
+   tiene **cuatro** —una por `num_periodo` 1..4— y cada una lleva dentro subconsultas
+   `nota_final_per1..4` con su `nf_id_N` y su `nf_updated_atN`. Son unas diez inserciones y
+   tocan un `@rownum` que ya es frágil. **Se paró aquí a propósito**: el tipo 2 se cerró
+   porque era una línea; éste es una tarea con su propio riesgo.
+2. **El criterio de «recuperó»** en `BolfinalesController:574` —y su gemelo del certificado,
+   `:375`—: hoy se deduce de `si_recupera_materia_recup_indicador` **y** de `manual`, y con
+   el par podría ser `nota_original IS NOT NULL`, que es lo que la marca significa. **No se
+   ha tocado porque no es aditivo**: cambia lo que imprimen los quince colegios hoy, no sólo
+   lo que se añade.
+3. **El puesto** (§3.3), que sigue esperando a Joseth. Si elige congelar, va **antes** que
+   todo lo anterior y son los mismos cinco ficheros: hacerlo después es tocarlos dos veces.
+4. **Nada en el tipo 4, notas perdidas, actas ni certificado de estudio**, y el
    `BolfinalesController` de la raíz **no se toca**: o se borra en su propio lote o se deja.
 
