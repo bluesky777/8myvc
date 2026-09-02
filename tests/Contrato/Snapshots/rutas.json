@@ -85,6 +85,7 @@
     "GET api/ciudades/departamentos/{pais_id}": "App\\Http\\Controllers\\CiudadesController@getDepartamentos",
     "GET api/ciudades/paisdeciudad/{ciudad_id}": "App\\Http\\Controllers\\CiudadesController@getPaisdeciudad",
     "GET api/ciudades/por-departamento/{departamento}": "App\\Http\\Controllers\\CiudadesController@getPorDepartamento",
+    "GET api/colegio/logo": "App\\Http\\Controllers\\Perfiles\\ImagesController@getLogoDelColegio",
     "GET api/comportamiento": "App\\Http\\Controllers\\Disciplina\\ComportamientoController@getIndex",
     "GET api/contratos": "App\\Http\\Controllers\\ContratosController@getIndex",
     "GET api/definiciones_comportamiento": "App\\Http\\Controllers\\DefinicionesComportamientoController@getIndex",

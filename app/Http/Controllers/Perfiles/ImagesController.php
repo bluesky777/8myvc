@@ -41,7 +41,32 @@ class ImagesController extends Controller {
 		$grupos 			= [];
 		$profesores 		= [];
 
-		if ($user->is_superuser || $user->tipo == 'Profesor') {
+		// **Quien puede cambiar el logo tiene que poder verlo.** El criterio de
+		// `putCambiarlogocolegio` —al final de esta clase— es `Autoriza::esAdministrativo`,
+		// o sea `is_superuser || Secretario`, y el de esta lectura era
+		// `is_superuser || tipo == 'Profesor'`. Un `Secretario` sin superusuario tiene
+		// `users.tipo = 'Usuario'` —los cuatro valores del `switch` de `ContextoDeUsuario`
+		// no incluyen ninguno de rol—, así que **escribía el logo del colegio sin poder
+		// leer ni el actual ni la galería pública de donde se elige**: la pantalla que
+		// existe para él le salía vacía. Es la familia de la §30.2, y lo destapó la sesión
+		// `myvc-front-4f` montando el diálogo del logo de la barra de `app2` (1 sep 2026).
+		// Ver §245.
+		//
+		// **No le abre a nadie un dato que no tuviera ya**, y por eso se ensancha el `if`
+		// entero en vez de partirlo en dos criterios —el logo y las públicas por un lado,
+		// grupos y profesores por otro—, que dejaría dos reglas distintas dentro del mismo
+		// método: `profesores` son las mismas columnas que `ProfesoresController::getIndex`
+		// ya le entrega a `esAdministrativo` (§243), y `grupos` es `GET grupos`, que solo
+		// pide `auth.token`.
+		//
+		// El rol se pregunta **solo al personal**: `Role::isSecretario()` es una consulta
+		// por petición, y `myimages` es también el álbum que llaman las familias. Alumno y
+		// Acudiente son justo los que `auth.personal` deja fuera de la escritura, así que
+		// preguntarlo por ellos sería pagar una consulta por nadie.
+		$esPersonal = ! in_array($user->tipo, ['Alumno', 'Acudiente'], true);
+
+		if ($user->is_superuser || $user->tipo == 'Profesor'
+			|| ($esPersonal && Autoriza::esAdministrativo($user))) {
 
 			# 2. Imágenes públicas
 			$imagenes_publicas = ImageModel::where('publica', true)->get();
@@ -264,10 +289,68 @@ class ImagesController extends Controller {
 		Autoriza::exigir(Autoriza::esAdministrativo($user),
 			'No tienes permiso para cambiar el logo del colegio.');
 
+		$logo_id = Request::input('logo_id');
+
+		// **Nulo es «quitar el logo», y es soportado a propósito.** Deja
+		// `years.logo_id = NULL`, que es lo que la pantalla enseña como «vuelve al logo
+		// de MyVC». No se prohíbe con un 422 porque el sistema ya alcanza ese estado
+		// solo: `ImageModel::eliminar_imagen_y_enlaces()` pone la columna a nulo cuando
+		// se borra la imagen que era el logo. Prohibirlo por delante lo que hay por
+		// detrás sería mentir sobre la forma. Lo confirmó Joseth el 1 sep 2026 y lo ata
+		// `ImagenesTest::test_el_logo_del_colegio_se_pone_y_se_quita`.
+		//
+		// La cadena vacía cuenta como nulo: la columna es `int unsigned`, así que un ''
+		// acabaría escrito como **0** —un logo que apunta a la imagen inexistente 0— en
+		// vez de como «ninguno».
+		if ($logo_id === '' || $logo_id === null) {
+			$logo_id = null;
+		} else if (! ImageModel::whereKey($logo_id)->whereNull('deleted_at')->exists()) {
+			// **Y un id que no existe no puede pasar en silencio.** Se escribía el entero
+			// que llegara, y como todas las lecturas del logo van por `left join`, un id
+			// inventado deja el colegio **sin logo** con un 200 delante: el boletín y el
+			// certificado salen sin escudo y quien lo cambió cree que lo puso. Ver §245.
+			abort(422, 'La imagen que se quiere poner de logo no existe.');
+		}
+
 		$year = Year::findOrFail($user->year_id);
-		$year->logo_id = Request::input('logo_id');
+		$year->logo_id = $logo_id;
 		$year->save();
 		return $year;
+	}
+
+	/**
+	 * El logo del colegio para la pantalla de login, que **no tiene token**.
+	 *
+	 * Es la única ruta pública de esta clase, y existe porque el logo lo cambia un
+	 * administrativo dentro de la aplicación y la puerta de entrada del colegio se
+	 * quedaba enseñando el anterior: sin sesión no hay `GET years`, así que `login` y
+	 * `reset-password` pintaban un fichero estático —`images/Logo_Colegio_Header.gif`—
+	 * que se deja a mano el día del despliegue y que no está en git. Lo pidió
+	 * `myvc-front-4f` y **lo decidió Joseth el 1 sep 2026**, que es lo que hace falta
+	 * para que una ruta pública exista: son once, hoy doce, y las cuenta
+	 * `RutasPreLoginTest::TOTAL_PUBLICAS` por el resultado y no por el mecanismo.
+	 *
+	 * **Qué expone de más, medido antes de escribirla.** El fichero en sí ya se
+	 * descarga sin sesión: vive bajo `images/perfil/` dentro del `public/` que sirve el
+	 * servidor web, y así lo pide el front. Lo único nuevo que dice esta ruta es
+	 * **cuál** de esos ficheros es el logo, y que el colegio tiene un año actual. Cero
+	 * datos de personas, ninguna escritura y ningún identificador en el cuerpo.
+	 *
+	 * **Del año `actual` y no del año del token**, porque no hay token. Si hubiera dos
+	 * años marcados como actuales —pasa, y por eso `YearsController` lo pelea en dos
+	 * sitios— gana el más reciente, que es el que va a estar usando el colegio.
+	 *
+	 * Devuelve `{"logo": null}` y no un 404 cuando no hay: «este colegio no tiene logo
+	 * puesto» es una respuesta correcta, y el cliente cae a su propio escudo.
+	 */
+	public function getLogoDelColegio()
+	{
+		$logo = DB::selectOne('SELECT i.nombre FROM years y
+			INNER JOIN images i ON i.id = y.logo_id AND i.deleted_at IS NULL
+			WHERE y.actual = 1 AND y.deleted_at IS NULL
+			ORDER BY y.year DESC, y.id DESC LIMIT 1');
+
+		return ['logo' => $logo->nombre ?? null];
 	}
 
 	public function deleteDestroy($id)

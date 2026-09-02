@@ -320,4 +320,49 @@ class SecretarioTest extends CasoDeContrato
             DB::table('alumnos')->where('id', $alumno->id)->value('direccion'),
             'El psicólogo escribió una propiedad que no es suya.');
     }
+
+    /**
+     * El logo del colegio: podía cambiarlo y no podía verlo (1 sep 2026).
+     *
+     * `ImagesController::putCambiarlogocolegio` exige `esAdministrativo` —o sea que
+     * el `Secretario` escribe `years.logo_id`— y `getIndex`, la única lectura que
+     * devuelve **el logo actual y la galería pública de donde se elige**, lo rellenaba
+     * solo para `is_superuser || tipo == 'Profesor'`. Un `Secretario` sin superusuario
+     * es `tipo = 'Usuario'`, así que recibía las dos listas vacías **en 200**: el
+     * diálogo del logo le salía en blanco justo a quien la pantalla es para él.
+     *
+     * Lo destapó `myvc-front-4f` llevando el logo a la barra de `app2`. Se comprueba
+     * con **el mismo sujeto antes y después de la fila de `role_user`**, que es lo
+     * único que hace que el test hable del rol y no de dos personas distintas.
+     */
+    public function test_el_secretario_ve_el_logo_y_la_galeria_publica(): void
+    {
+        $usuario = DB::selectOne('SELECT u.* FROM users u
+            INNER JOIN periodos p ON p.id = u.periodo_id
+            WHERE u.tipo = "Usuario" AND u.is_superuser = 0 AND u.is_active = 1
+              AND u.deleted_at IS NULL ORDER BY u.id LIMIT 1');
+
+        $sinRol = $this->withToken($this->tokenDe($usuario->username))
+            ->getJson('/api/myimages')
+            ->assertStatus(200);
+
+        $this->assertSame([], $sinRol->json('logo'),
+            'Sin el rol no debería ver el logo: si ya lo ve, este test no demuestra nada.');
+        $this->assertSame([], $sinRol->json('imagenes_publicas'),
+            'Sin el rol no debería ver la galería pública.');
+
+        DB::table('role_user')->insert([
+            'user_id' => $usuario->id,
+            'role_id' => $this->idDelRol('Secretario'),
+        ]);
+
+        $conRol = $this->withToken($this->tokenDe($usuario->username))
+            ->getJson('/api/myimages')
+            ->assertStatus(200);
+
+        $this->assertArrayHasKey('logo_id', (array) $conRol->json('logo'),
+            'Con el rol tiene que llegar el logo del año, aunque el año no tenga ninguno puesto.');
+        $this->assertNotEmpty($conRol->json('imagenes_publicas'),
+            'Con el rol tiene que llegar la galería pública: es de donde se elige el logo.');
+    }
 }

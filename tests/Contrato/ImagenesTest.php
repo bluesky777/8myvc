@@ -546,6 +546,123 @@ class ImagenesTest extends CasoDeContrato
         ];
     }
 
+    // ------------------------------------------------------ El logo del colegio
+
+    /**
+     * Poner el logo y quitarlo, en el mismo viaje.
+     *
+     * **`logo_id` nulo es «vuelve al logo de MyVC», y desde el 1 sep 2026 está
+     * soportado a propósito y no por accidente.** `putCambiarlogocolegio` escribe lo
+     * que traiga `Request::input('logo_id')`, así que sin valor deja
+     * `years.logo_id = NULL` — y ese estado ya lo alcanza el sistema solo:
+     * `ImageModel::eliminar_imagen_y_enlaces()` y `ImagesUsuariosController` ponen el
+     * logo a nulo cuando se borra la imagen que lo era. Lo preguntó `myvc-front-4f`
+     * para ofrecer «Quitar el logo» en el diálogo de la barra de `app2`, y esto es lo
+     * que ata la respuesta.
+     *
+     * Se mira **la fila**, no el 200: el método devuelve el año entero y un 200 con la
+     * columna sin tocar sería indistinguible desde el cuerpo.
+     */
+    public function test_el_logo_del_colegio_se_pone_y_se_quita(): void
+    {
+        $token = $this->tokenDe($this->usuarioDeTipo('Usuario')->username);
+
+        $imagen = DB::selectOne('SELECT id FROM images
+            WHERE publica = 1 AND deleted_at IS NULL ORDER BY id LIMIT 1');
+
+        $this->assertNotNull($imagen, 'El seed no tiene ninguna imagen pública que poner de logo.');
+
+        $puesto = $this->withToken($token)
+            ->putJson('/api/myimages/cambiarlogocolegio', ['logo_id' => $imagen->id]);
+
+        $puesto->assertStatus(200);
+        $this->assertSame((int) $imagen->id, (int) $puesto->json('logo_id'),
+            'La respuesta no devuelve el logo que se acaba de poner.');
+        $this->assertSame((int) $imagen->id,
+            (int) DB::table('years')->where('id', $puesto->json('id'))->value('logo_id'),
+            'El logo no quedó escrito en el año.');
+
+        $quitado = $this->withToken($token)
+            ->putJson('/api/myimages/cambiarlogocolegio', ['logo_id' => null]);
+
+        $quitado->assertStatus(200);
+        $this->assertNull(DB::table('years')->where('id', $quitado->json('id'))->value('logo_id'),
+            'Mandar `logo_id` nulo tiene que dejar el año sin logo: es «vuelve al de MyVC».');
+    }
+
+    /**
+     * Un `logo_id` inventado es 422, y **el logo que había sigue puesto**.
+     *
+     * Se escribía el entero que llegara. Como todas las lecturas del logo van por
+     * `left join`, un id que no existe deja el colegio **sin escudo con un 200
+     * delante**: el boletín y el certificado salen pelados y quien lo cambió cree que
+     * lo puso. Decisión de Joseth del 1 sep 2026 —comprobar que la imagen exista y no
+     * esté borrada, y ahí parar—.
+     *
+     * La segunda mitad del test es la que importa: un 422 que llegue **después** de
+     * escribir deja el colegio sin logo igual, y desde el código de respuesta no se
+     * distingue.
+     */
+    public function test_un_logo_que_no_existe_no_deja_el_colegio_sin_escudo(): void
+    {
+        $token = $this->tokenDe($this->usuarioDeTipo('Usuario')->username);
+
+        $imagen = DB::selectOne('SELECT id FROM images
+            WHERE publica = 1 AND deleted_at IS NULL ORDER BY id LIMIT 1');
+
+        $puesto = $this->withToken($token)
+            ->putJson('/api/myimages/cambiarlogocolegio', ['logo_id' => $imagen->id])
+            ->assertStatus(200);
+
+        $inventado = (int) DB::table('images')->max('id') + 1000;
+
+        $this->withToken($token)
+            ->putJson('/api/myimages/cambiarlogocolegio', ['logo_id' => $inventado])
+            ->assertStatus(422);
+
+        $this->assertSame((int) $imagen->id,
+            (int) DB::table('years')->where('id', $puesto->json('id'))->value('logo_id'),
+            'El 422 llegó después de escribir: el colegio se quedó sin logo de todas formas.');
+    }
+
+    /**
+     * `GET colegio/logo`, la ruta pública: la pantalla de login no tiene token.
+     *
+     * **La duodécima pública** (`RutasPreLoginTest::TOTAL_PUBLICAS`), decidida por
+     * Joseth el 1 sep 2026. Sin ella, el colegio que cambia su logo dentro de la
+     * aplicación sigue enseñando el viejo en su propia puerta, porque `login` pinta un
+     * fichero estático que se deja a mano el día del despliegue.
+     *
+     * Se llama **sin cabecera** a propósito: lo que este test fija no es la forma del
+     * cuerpo, es que no conteste 401.
+     */
+    public function test_el_logo_del_colegio_se_pide_sin_token(): void
+    {
+        $actual = DB::selectOne('SELECT id FROM years
+            WHERE actual = 1 AND deleted_at IS NULL ORDER BY year DESC, id DESC LIMIT 1');
+
+        $this->assertNotNull($actual, 'El seed no tiene ningún año marcado como actual.');
+
+        $imagen = DB::selectOne('SELECT id, nombre FROM images
+            WHERE publica = 1 AND deleted_at IS NULL ORDER BY id LIMIT 1');
+
+        DB::table('years')->where('id', $actual->id)->update(['logo_id' => $imagen->id]);
+
+        $r = $this->getJson('/api/colegio/logo');
+
+        $r->assertStatus(200);
+        $this->assertSame($imagen->nombre, $r->json('logo'),
+            'La ruta pública no devuelve el logo del año actual.');
+
+        // Y el colegio sin logo contesta que no lo tiene, no un 404: «no hay» es una
+        // respuesta correcta y el cliente cae a su propio escudo.
+        DB::table('years')->where('id', $actual->id)->update(['logo_id' => null]);
+
+        $this->getJson('/api/colegio/logo')
+            ->assertStatus(200)
+            ->assertExactJson(['logo' => null]);
+    }
+
     // ---------------------------------------------------------------- Apoyos
 
     /** Sube una imagen intacta y devuelve el token y la fila de `images`. */

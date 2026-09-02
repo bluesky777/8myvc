@@ -3,7 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 `8myvc` es la API del sistema escolar MyVc: Laravel 13 + PHP 8.4, ~37.000 líneas
-en `app/`, 113 clases de controlador y **549 rutas** (contadas con
+en `app/`, 113 clases de controlador y **550 rutas** (contadas con
 `route:list --json` el 1 sep 2026; el 24 ago el de rutas se movió por primera vez,
 de 539 a 542, con los tres endpoints que pidió `myvc_flutter`, el 28 a 543 con
 `PUT users/mi-docente`, que pidió Joseth para el panel de `app2`, el 31 a 544 con
@@ -11,7 +11,9 @@ de 539 a 542, con los tres endpoints que pidió `myvc_flutter`, el 28 a 543 con
 «Alumnos por grupo» del mismo panel, y el 1 sep a 549: **545–547** con las tres del
 boletín independiente —`periodo`, `planilla` y `copiar`— y **548–549** con
 `boletin-independiente/marcados` y `/alumno`, las dos lecturas de la pantalla por
-estudiante que autorizó Joseth ese día — «el de rutas no se mueve» sigue siendo la
+estudiante que autorizó Joseth ese día, y **550** con `GET colegio/logo`, la
+pública que deja a la pantalla de login pedir el logo del colegio sin token, también
+decidida por Joseth ese día — «el de rutas no se mueve» sigue siendo la
 regla: una ruta nueva es una decisión, no un efecto secundario, y mueve este
 documento y **tres** snapshots, no dos: `rutas.json`, `guards-por-ruta.json` y
 `guard-por-familia.json`, que cuenta cuántas rutas tiene cada familia y cuántas
@@ -157,19 +159,33 @@ Usuario). Lo monta `App\Services\ContextoDeUsuario`; el token lo valida
 
 `routes/api/*.php`, un fichero por dominio. **El guard va por defecto a toda la
 API** y las excepciones públicas se marcan una a una — son
-**`RutasPreLoginTest::TOTAL_PUBLICAS`, hoy once**, y son un test que las ata por las
+**`RutasPreLoginTest::TOTAL_PUBLICAS`, hoy doce**, y son un test que las ata por las
 dos direcciones: que la lista no tenga de más y que el router no tenga de menos.
+La duodécima entró el 1 sep 2026 y es la única que no va del login ni del logout:
+`GET colegio/logo`, para que la puerta de entrada del colegio pueda enseñar el logo
+que se cambió dentro. La exposición se midió antes de proponerla y está en la §245
+del 05 — el fichero ya se descargaba sin sesión.
+
+> **Y una pública mueve dos sitios más que una normal**, que es lo que nadie previó el
+> día que entró la duodécima y cantó la suite entera: `AutenticacionTest::SIN_GUARD`
+> —la lista de las que no exigen token, **con el motivo al lado**— y el censo
+> `familias-que-nunca-entran-en-el-candado.json`, donde una familia nueva de una sola
+> ruta sin guard entra como «0 de 1». Ese renglón **es la forma que tendría un agujero
+> nuevo**, así que se acepta escribiendo por qué no lo es, nunca regenerando y pasando.
+> En cambio `guards-por-ruta.json` **no** se mueve: lista las que llevan guard.
 
 > **Ese número no se cuenta con un `grep`, y aquí está el porqué porque ya costó
-> tres cifras.** Hay **18** rutas sin `auth.token` en `routes/`, y **siete
+> tres cifras.** Hay **19** rutas sin `auth.token` en `routes/`, y **siete
 > contestan 401 igual** porque se defienden dentro del método: **quitarle el guard
-> a una ruta no la hace pública**. Once es del **resultado** —quién recibe datos sin
-> presentar token—, no del mecanismo.
+> a una ruta no la hace pública**. Doce es del **resultado** —quién recibe datos sin
+> presentar token—, no del mecanismo, y por eso el día que entró la duodécima se
+> **corrió el test** en vez de restar 19 − 7.
 >
-> Este fichero decía **quince**, el docblock del test decía **siete** y `grep` da
-> **diecinueve** (una es un comentario). Ninguno era una cifra que hubiera
-> envejecido: **los tres nacieron mal**, y se demuestra con que las 18 sin guard de
-> hace cinco días **son exactamente las mismas de hoy** — el código no se movió. El
+> Este fichero decía **quince**, el docblock del test decía **siete** y `grep` daba
+> **diecinueve** (una era un comentario; hoy da veinte, con la duodécima dentro).
+> Ninguno era una cifra que hubiera envejecido: **los tres nacieron mal**, y se
+> demuestra con que las 18 sin guard de aquel día **eran exactamente las mismas
+> cinco días después** — el código no se movió. El
 > «siete» se escribió cuando el modelo era el contrario (el guard se ponía ruta a
 > ruta y `withoutMiddleware` no existía), así que **la pregunta no tenía todavía un
 > conjunto que contar**. Medido y desglosado commit a commit en

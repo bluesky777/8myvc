@@ -123,6 +123,10 @@
         "total": 11,
         "con_guard": 5
     },
+    "colegio": {
+        "total": 1,
+        "con_guard": 0
+    },
     "comportamiento": {
         "total": 4,
         "con_guard": 3

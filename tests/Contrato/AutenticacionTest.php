@@ -6,7 +6,14 @@ use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\Route;
 
 /**
- * La API exige token en todas sus rutas menos en quince, y esas quince son estas.
+ * La API exige token en todas sus rutas menos en diecinueve, y esas diecinueve son
+ * estas.
+ *
+ * (El docblock decía **quince** con la lista en dieciocho, y la lista es la que el
+ * test compara contra el router: la que estaba mal era la frase. Corregido el 1 sep
+ * 2026 al entrar la diecinueve, contando la constante y no la memoria. Es el mismo
+ * fallo que `CLAUDE.md` documenta con tres cifras, y aquí volvió a pasar porque
+ * **este número no lo comprueba nadie**: el test ata la LISTA, no la frase.)
  *
  * Antes el guard iba ruta por ruta: 88 rutas con `->middleware('auth.token')` y
  * las otras 445 confiando en que su método llamara a `User::fromToken()`. Eso no
@@ -39,6 +46,13 @@ class AutenticacionTest extends CasoDeContrato
      *     acceso ya no vale; y salir tiene que funcionar con el token vencido.
      *     `auth/refresh` sí responde 401 sin token — no está en la lista de
      *     RutasPreLoginTest, que es la de pantallas previas al login.
+     *   - `colegio/logo` es la última, del 1 sep 2026, y es la única que no va del
+     *     login ni del lector de tardanzas: la pantalla de entrada no tiene token,
+     *     así que no puede pedir `GET years`, y el colegio que cambiaba su logo
+     *     dentro seguía enseñando el viejo en su propia puerta. **Decisión de
+     *     Joseth**, con la exposición medida antes (§245 del 05): el fichero ya se
+     *     descargaba sin sesión desde `public/images/perfil/`, y la ruta solo dice
+     *     cuál de ellos es. No acepta ningún identificador y no escribe nada.
      */
     private const SIN_GUARD = [
         ['POST',   'auth/login'],
@@ -59,6 +73,7 @@ class AutenticacionTest extends CasoDeContrato
         ['PUT',    'tardanzas/subir/poner-ausencia'],
         ['PUT',    'publicaciones/ultimas'],
         ['GET',    'publicaciones/ultimas'],
+        ['GET',    'colegio/logo'],
     ];
 
     /**

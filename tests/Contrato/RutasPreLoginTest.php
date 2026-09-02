@@ -45,20 +45,24 @@ class RutasPreLoginTest extends CasoDeContrato
      *
      * ## Y esto, antes de «verificarlo» con un `grep` y darlo por roto
      *
-     * **Once es el numero del RESULTADO, no del mecanismo.** Hay **18** rutas sin
-     * `auth.token` en `routes/`, y **no son 18 publicas**: llamadas sin cabecera,
+     * **Doce es el numero del RESULTADO, no del mecanismo.** Hay **19** rutas sin
+     * `auth.token` en `routes/`, y **no son 19 publicas**: llamadas sin cabecera,
      * **siete contestan 401 igual** —`auth/refresh` y las seis de `tardanzas/*`—
      * porque se defienden en el metodo, donde `User::fromToken()` aborta.
      *
+     * (Eran once y 18 hasta el 1 sep 2026, cuando `GET colegio/logo` entro por
+     * decision de Joseth. Las dos cifras se mueven juntas o uno de los dos numeros
+     * empieza a mentir.)
+     *
      * **Quitarle el guard a una ruta no la hace publica.** Asi que **ningun `grep`
-     * puede dar este numero**, ni el que cuenta 19 ni el que cuenta 18 bien: miden
+     * puede dar este numero**, ni el que cuenta 20 ni el que cuenta 19 bien: miden
      * el mecanismo, y la pregunta es sobre el resultado. Si alguien encuentra 18 y
      * cree haber pillado un error, esto es lo que tiene que leer antes.
      *
      * La auditoria commit a commit de los tres numeros viejos:
      * `docs/migracion/noche-2026-08-25/pub-1.md`.
      */
-    public const TOTAL_PUBLICAS = 11;
+    public const TOTAL_PUBLICAS = 12;
 
     /**
      * Verbo y URI tal y como las llama el frontend.
@@ -96,6 +100,12 @@ class RutasPreLoginTest extends CasoDeContrato
         // una sesión que ya existe.
         ['POST', 'auth/login'],
         ['POST', 'auth/logout'],
+        // La duodécima, y la única de la lista que no va del login: el logo del
+        // colegio para la propia pantalla de entrada, que no tiene token y por tanto
+        // no puede pedir `GET years`. Decisión de Joseth del 1 sep 2026; la
+        // exposición está medida en la §245 del 05 —el fichero ya se descarga sin
+        // sesión desde `public/images/perfil/`, esto solo dice cuál es—.
+        ['GET',  'colegio/logo'],
     ];
 
     public function test_ninguna_lleva_guard_de_autenticacion(): void

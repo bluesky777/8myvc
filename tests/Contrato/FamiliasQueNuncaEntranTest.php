@@ -51,6 +51,20 @@ namespace Tests\Contrato;
  *
  * Lo fija `TemasDeNotificacionTest`, que comprueba que cada quien recibe **sólo
  * lo suyo** contando sus acudidos y comparando.
+ *
+ * ## Y otra del 1 sep 2026, por el motivo contrario: `colegio` (0 de 1)
+ *
+ * `GET colegio/logo` es **pública** —la duodécima, `RutasPreLoginTest::TOTAL_PUBLICAS`—,
+ * así que no es que el candado no la mire: es que **no hay nada que mirar**. No acepta
+ * ningún identificador, no lee la sesión (no hay), no escribe y devuelve un nombre de
+ * fichero que el servidor web ya servía sin sesión. La pregunta que esta lista existe
+ * para hacer —«¿de quién es la fila que toca?»— no tiene sujeto aquí.
+ *
+ * Entra igualmente en el censo, y eso es lo correcto: **una familia de una sola ruta
+ * sin guard es exactamente la forma que tendría un agujero nuevo**, y la única
+ * diferencia entre ésta y aquél es que ésta tiene su motivo escrito. Si mañana
+ * `colegio/*` crece con una ruta que sí acepte un id, este renglón pasa a decir «0 de
+ * 2» y hay que volver aquí.
  */
 class FamiliasQueNuncaEntranTest extends CasoDeContrato
 {

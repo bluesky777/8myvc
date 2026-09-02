@@ -70,6 +70,13 @@ Route::get('perfiles/username/{username}', [PerfilesController::class, 'getUsern
 Route::get('myimages', [ImagesController::class, 'getIndex']);
 // El logo del colegio es de `years`, o sea del colegio.
 Route::put('myimages/cambiarlogocolegio', [ImagesController::class, 'putCambiarlogocolegio'])->middleware('auth.personal');
+// **La duodécima pública, y la única que no es del login o del logout.** La pantalla
+// de entrada no tiene token, así que no puede pedir `GET years`: sin esto, el colegio
+// que cambia su logo dentro sigue enseñando el viejo en su propia puerta. Decisión de
+// Joseth del 1 sep 2026, con la exposición medida antes (§245 del 05): el fichero ya
+// se descarga sin sesión desde `public/images/perfil/`, y esto solo dice cuál es.
+// Mueve `RutasPreLoginTest::TOTAL_PUBLICAS`, que es donde se cuentan.
+Route::get('colegio/logo', [ImagesController::class, 'getLogoDelColegio'])->withoutMiddleware('auth.token');
 Route::put('myimages/datos-imagen', [ImagesController::class, 'putDatosImagen'])->middleware('persona.propia');
 Route::post('myimages/store', [ImagesController::class, 'postStore']);
 Route::post('myimages/store-firma', [ImagesController::class, 'postStoreFirma']);

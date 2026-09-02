@@ -13104,3 +13104,177 @@ los adjuntaba. Ningún cliente pierde una clave.
 **La ruta no se mueve: siguen siendo 543.** Doce casos nuevos en
 `tests/Contrato/YearsTest.php`, y dos que ya existían pasaron de afirmar `1`
 periodo a afirmar `4`.
+
+---
+
+## §245. Podía cambiar el logo del colegio y no podía verlo — y las tres preguntas que trajo el logo de la barra (1 sep 2026)
+
+Lo destapó la sesión `myvc-front-4f` montando el diálogo del logo en la barra de
+`app2`: hoy un administrativo cambia el logo desde `/imagenes` y **el logo nuevo
+no se ve en ninguna pantalla de `app2` salvo el acta** — la barra pinta un fichero
+estático, `images/Logo_Colegio_Header.gif`, que se deja a mano al desplegar y que
+no está en git.
+
+### El fallo del backend: la escritura pide un criterio y la lectura pedía otro
+
+```php
+// putCambiarlogocolegio -- escribe years.logo_id
+Autoriza::exigir(Autoriza::esAdministrativo($user), ...);   // is_superuser || Secretario
+
+// getIndex -- devuelve el logo actual y la galería pública de donde se elige
+if ($user->is_superuser || $user->tipo == 'Profesor') { ... }
+```
+
+Un `Secretario` sin superusuario tiene `users.tipo = 'Usuario'` —los cuatro
+valores del `switch` de `ContextoDeUsuario` no incluyen ninguno de rol—, así que
+caía fuera del segundo `if` y recibía `logo: []` e `imagenes_publicas: []`
+**en 200**. O sea: **puede poner el logo del colegio y no puede ver ni el que hay
+puesto ni la galería de donde se elige.** Es la familia de la §30.2: un
+criterio de rol que no se aplica donde su gemelo sí.
+
+Y es la mitad que un barrido de guards no ve: aquí **no falta ningún guard**. Las
+dos puertas están cerradas; lo que no coincide es a quién dejan pasar, y eso solo
+se nota poniendo las dos condiciones una al lado de la otra.
+
+### Por qué se ensancha el `if` entero y no solo el logo
+
+Porque **no le abre a nadie un dato que no tuviera ya**, medido y no supuesto:
+
+| Bloque | Quién lo tiene hoy por otra puerta |
+|---|---|
+| `profesores` | `GET profesores` pide `esAdministrativo` y devuelve **las mismas columnas** (§243) |
+| `grupos` | `GET grupos` solo pide `auth.token`: lo tiene cualquiera con sesión |
+| `imagenes_publicas`, `logo` | es justo lo que faltaba |
+
+Partirlo en dos criterios dejaría **dos reglas distintas dentro del mismo método**
+sin cerrarle nada a nadie, que es el precio caro por ningún beneficio.
+
+El rol se pregunta **solo al personal**: `Role::isSecretario()` es una consulta por
+petición y `myimages` es también el álbum que llaman las familias. Alumno y
+Acudiente son exactamente los que `auth.personal` deja fuera de la escritura, así
+que preguntarlo por ellos sería pagar una consulta por nadie.
+
+`SecretarioTest::test_el_secretario_ve_el_logo_y_la_galeria_publica` lo ata con el
+**mismo sujeto antes y después de la fila de `role_user`**, que es lo único que
+hace que el test hable del rol y no de dos personas distintas.
+
+### `logo_id: null` es «vuelve al logo de MyVC», y está soportado
+
+`putCambiarlogocolegio` escribe lo que traiga `Request::input('logo_id')`, así que
+sin valor deja la columna en `NULL`. **No es un accidente que convenga tapar con un
+422:** ese estado ya lo alcanza el sistema solo —`ImageModel::eliminar_imagen_y_enlaces()`
+y `ImagesUsuariosController` ponen el logo a nulo cuando se borra la imagen que lo
+era—, y el año que nunca tuvo logo nace así. Queda atado por
+`ImagenesTest::test_el_logo_del_colegio_se_pone_y_se_quita`, que mira **la fila** y
+no el 200: el método devuelve el año entero y un 200 con la columna sin tocar sería
+indistinguible desde el cuerpo.
+
+### El logo es POR AÑO, y el arrastre ya existe — lo puso la §244
+
+`years.logo_id`, no `colegio.logo_id`: cambiarlo en 2026 no toca 2025, y eso es lo
+correcto —un boletín de 2025 reimpreso lleva el logo con el que se firmó—.
+`YearsController::postStore` **ya copia `logo_id` del año anterior** desde antes de
+esta nota, en el mismo bloque de las diez columnas de la §244.
+Así que no hay nada que decidir ni que escribir: el año nuevo nace con el logo del
+anterior y `cambiarlogocolegio` **no reescribe la historia**.
+
+Con una arista que sí conviene saber: copia de `year - 1` **por número**, no «del
+último que hubiera». Un colegio que salte un año lectivo estrena el nuevo sin logo.
+
+### Las tres que eran de Joseth, decididas el mismo día
+
+**1. El logo en la pantalla de login: SÍ, y es la duodécima pública.** Sin token no hay
+`GET years`, así que la puerta de entrada del colegio seguía enseñando el logo viejo
+—o el fichero estático que se deja a mano el día del despliegue y que no está en git—
+mientras dentro ya se veía el nuevo.
+
+```
+GET colegio/logo   (sin auth)  ->  { "logo": "user_1/escudo.png" }   ó   { "logo": null }
+```
+
+La exposición se midió **antes** de proponerla, y es lo que hizo que la propuesta fuera
+a favor: **el fichero ya se descarga sin sesión**, porque vive bajo `public/images/perfil/`
+y lo sirve el servidor web. Lo único nuevo que dice la ruta es **cuál** de ellos es el
+logo y que el colegio tiene un año actual. Cero datos de personas, ninguna escritura,
+ningún identificador en el cuerpo. Devuelve `{"logo": null}` y no un 404: «este colegio
+no tiene logo puesto» es una respuesta correcta.
+
+Y mueve lo que mueve una pública, que es más que una normal: `RutasPreLoginTest::PRE_LOGIN`
+y su `TOTAL_PUBLICAS` (**once → doce**), y con ella el párrafo de `CLAUDE.md` que
+explica el número — donde **18** rutas sin `auth.token` pasan a ser **19**, con las
+mismas siete que contestan 401 igual porque se defienden dentro del método (19 − 7 = 12).
+`ImagenesTest::test_el_logo_del_colegio_se_pide_sin_token` la llama **sin cabecera**: lo
+que fija no es la forma del cuerpo, es que no conteste 401.
+
+**2. `logo_id` contra `images`: 422 si no existe o está borrada.** Se escribía el entero
+que llegara, y como todas las lecturas del logo van por `left join`, un id inventado
+dejaba el colegio **sin escudo con un 200 delante**: el boletín y el certificado salen
+pelados y quien lo cambió cree que lo puso. La segunda mitad del test es la que importa
+—`test_un_logo_que_no_existe_no_deja_el_colegio_sin_escudo` comprueba que el logo
+anterior **sigue puesto**—, porque un 422 que llegue después de escribir deja el colegio
+sin logo igual y desde el código de respuesta no se distingue.
+
+De paso, la cadena vacía cuenta como nulo: la columna es `int unsigned`, así que un `''`
+se habría escrito como **0**, que es un logo apuntando a la imagen inexistente 0 y no
+«ninguno».
+
+**Lo que este 422 NO cierra, y queda dicho para que nadie lo dé por cerrado:** no exige
+que la imagen sea **pública**. El id de una imagen privada ajena sigue siendo aceptable,
+y eso publica su nombre de fichero a todo el colegio por el contexto de sesión — la
+familia de `ImagenDeOtroEnLaFichaTest`. Se dejó fuera a propósito: estrecha una escritura
+viva y **no está medido en los quince** si algún colegio tiene hoy de logo una imagen no
+pública, que el día que la volviera a elegir se llevaría un 422 en la cara.
+
+**3. El techo de tamaño de la subida: no va en el servidor hoy.** `store-intacta` guarda
+el fichero tal cual, así que un logo de 4 MB se descarga en **cada carga de página**. El
+techo tendría que ir en `store-intacta`, **que la llaman más pantallas que ésta**, y
+apagaría subidas que hoy funcionan en sitios que no se han medido. Lo resuelve el
+cliente, que es donde ya estaba resuelto para las fotos de carné (`PANTALLA-IMAGENES.md`:
+el recorte se hace en el navegador y se suben ~50 KB en vez de 4 MB). El front lo dejó
+en 128 px de alto —2× la barra— y **PNG, no JPEG**, que rellenaría de negro el fondo
+transparente; y **deja los `.gif` en paz**, porque pueden ser animados y un lienzo se
+queda con el primer fotograma sin dar ningún error — que es justo lo que tienen hoy los
+quince colegios.
+
+### Una ruta pública mueve CINCO sitios, no tres, y los dos de más los encontró la suite
+
+`CLAUDE.md` dice que una ruta nueva mueve el documento y **tres** snapshots. Es cierto
+para una ruta normal. Una **pública** mueve dos más, y ninguno de los dos es un snapshot
+de rutas:
+
+| Sitio | Qué hay que escribir |
+|---|---|
+| `rutas.json` | la ruta y su acción |
+| `guard-por-familia.json` | la familia nueva: `colegio`, 1 ruta, 0 con guard |
+| `guards-por-ruta.json` | **nada**: ese snapshot lista las que **llevan** guard |
+| `RutasPreLoginTest` | `PRE_LOGIN`, `TOTAL_PUBLICAS` (11 → 12) y el docblock de las cifras |
+| `AutenticacionTest::SIN_GUARD` | la lista de las que no exigen token, **con el motivo al lado** |
+| `familias-que-nunca-entran-en-el-candado.json` | el censo: `colegio` entra como «0 de 1» |
+
+Los dos últimos no los preveía nadie —ni yo ni las otras dos sesiones de esa noche, y
+una de ellas había predicho que se movería justo el que no se movió—: **los cantó la
+suite entera**, en la corrida que se hizo antes de commitear. Los cuatro primeros son
+los que se sabían.
+
+Y el censo de `FamiliasQueNuncaEntranTest` merece su párrafo, porque **aceptar el
+renglón nuevo sin mirarlo habría sido exactamente el fallo que ese caso existe para
+impedir**: «0 de 1» es la forma que tendría un agujero. Aquí no lo es —la ruta no acepta
+ningún identificador, no lee sesión y no escribe—, y por eso la razón queda escrita en
+su docblock al lado de la de `notificaciones/temas`, que entró por lo mismo el 24 ago.
+Si `colegio/*` crece con una ruta que acepte un id, ese renglón dirá «0 de 2» y hay que
+volver.
+
+### La ruta SÍ se mueve, y el número final no lo cuenta esta sección
+
+`GET colegio/logo` es una ruta nueva, así que mueve `CLAUDE.md` y los **tres** snapshots.
+**El número no se escribe aquí y no se suma:** la noche del 1 sep hay tres sesiones
+metiendo rutas en árboles distintos —dos del boletín independiente por estudiante, dos de
+calendario en una rama, y ésta—, y `route:list` sobre el árbol principal contestaba 549
+mientras el de la rama contestaba también 549 **siendo conjuntos distintos**. Con todo
+dentro son **552**, medidos por `8myvc-2c` el 1 sep 2026, y los deja quien fusione el
+último. Es la regla de la casa con una arista nueva: **medir en vez de sumar fue lo
+correcto y aun así el número sale mal, porque el instrumento midió bien un árbol que no
+es el final.**
+
+Cuatro casos nuevos: tres en `tests/Contrato/ImagenesTest.php` —poner y quitar el logo,
+el 422 y la ruta pública— y uno en `tests/Contrato/SecretarioTest.php`.
