@@ -25,6 +25,27 @@ class EditorDeNotaConElParTest extends CasoDeContrato
      * alumno. Mismo criterio que `NotasTest::contexto()`: `Services\Login`
      * reescribe `users.periodo_id` en cada inicio de sesión, y `periodos.actual` es
      * el de su año mientras el del colegio lo dice `years.actual`.
+     *
+     * **El `ORDER BY` lleva el alumno, y ahí está la diferencia con `NotasTest`.**
+     * Aquel ordena sólo por `a.id` y le basta: de las **333 filas que empatan** en el
+     * primer `a.id` de esta base, las seis columnas que él selecciona
+     * —grupo, profesor, usuario, username, periodo— tienen **un solo valor**. Esta
+     * consulta es la suya **más `m.alumno_id`**, y esa columna tiene **37 valores
+     * distintos** entre esas mismas 333 filas: sin ordenar por ella, cuál sale lo
+     * decide el plan de MySQL y no el test.
+     *
+     * Costó un rojo que sólo aparecía en la suite entera y desaparecía al correr la
+     * clase sola (2 sep 2026). No se veía como inestabilidad porque el síntoma era
+     * un **tipo**: las notas se calculan, para unos alumnos la cuenta da un entero y
+     * para otros un fraccionario, y la instantánea guarda el tipo — `float` contra
+     * `int` en `nota_unidad`, `valor` y `valor_unidad`. Regenerar la instantánea
+     * habría horneado el alumno de aquella corrida y el test habría seguido cayendo,
+     * en las dos direcciones y sin patrón.
+     *
+     * La lección, que es la del repo con otra cara: **se heredó el `ORDER BY` de
+     * `NotasTest` junto con una columna que ese `ORDER BY` no determina.** El
+     * criterio era correcto allí y dejó de serlo aquí, y nada se puso rojo al
+     * copiarlo.
      */
     private function contexto(): object
     {
@@ -42,7 +63,7 @@ class EditorDeNotaConElParTest extends CasoDeContrato
             INNER JOIN matriculas m ON m.grupo_id = a.grupo_id AND m.deleted_at IS NULL
                 AND m.estado IN ("MATR", "ASIS", "PREM")
             WHERE a.deleted_at IS NULL
-            ORDER BY a.id LIMIT 1');
+            ORDER BY a.id, m.alumno_id LIMIT 1');
 
         $this->assertNotNull($fila, 'El seed necesita una asignatura del año y periodo actuales con rejilla y alumnos.');
 
@@ -80,7 +101,18 @@ class EditorDeNotaConElParTest extends CasoDeContrato
 
         $r->assertStatus(200);
 
-        $this->compararConInstantanea('editnota-alum-asignatura', $this->forma($r->json()));
+        // `formaUnida()` y no `forma()`: aquélla mira `$valor[0]` y describe **la fila
+        // que tocó**, no la columna. Aquí la lista son las unidades del alumno y las
+        // notas se calculan, así que el tipo de `nota_unidad` sale `int` o `float`
+        // según si la cuenta de la primera unidad da redonda — el mismo fallo que ya
+        // documenta `CasoDeContrato::formaUnida()` para el acta de evaluación.
+        //
+        // Al unir, la instantánea dejó de mentir en cuatro sitios además del que se
+        // buscaba: `created_at` estaba anotado `null` cuando también viene `string`, y
+        // `updated_by` `int` cuando también viene `null`. **No cambió ni una clave**,
+        // así que no puede esconder una columna filtrada — que es lo único que este
+        // test existe para vigilar.
+        $this->compararConInstantanea('editnota-alum-asignatura', $this->formaUnida($r->json()));
 
         $this->assertNotEmpty($r->json(), 'La respuesta salió vacía: la instantánea no comprobaría nada.');
     }

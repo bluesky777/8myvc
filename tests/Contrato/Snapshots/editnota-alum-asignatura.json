@@ -1,7 +1,7 @@
 [
     {
         "actual": "int",
-        "created_at": "null",
+        "created_at": "null|string",
         "created_by": "null",
         "deleted_at": "null",
         "deleted_by": "null",
@@ -15,7 +15,7 @@
         "nivelada_por": "null",
         "nivelada_por_username": "null",
         "nota_asignatura": "int",
-        "nota_asignatura_calc": "float",
+        "nota_asignatura_calc": "float|int",
         "nota_nivelacion": "null",
         "nota_original": "null",
         "numero": "int",
@@ -26,7 +26,7 @@
             {
                 "asignatura_id": "int",
                 "definicion_unidad": "string",
-                "nota_unidad": "float",
+                "nota_unidad": "float|int",
                 "orden_unidad": "int",
                 "periodo_id": "int",
                 "porcentaje_unidad": "int",
@@ -51,8 +51,8 @@
                             "nota_original": "null",
                             "subunidad_id": "int",
                             "updated_at": "string",
-                            "updated_by": "int",
-                            "valor": "float"
+                            "updated_by": "int|null",
+                            "valor": "float|int"
                         },
                         "nota_default": "int",
                         "orden_subunidad": "int",
@@ -61,7 +61,7 @@
                     }
                 ],
                 "unidad_id": "int",
-                "valor_unidad": "float"
+                "valor_unidad": "float|int"
             }
         ],
         "updated_at": "string",

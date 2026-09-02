@@ -575,6 +575,14 @@ until docker exec 8myvc-app-1 sh -c 'grep -q "^EXIT=" /tmp/suite-X.log'; do slee
 | **1** | Un `pkill -f "artisan test"` mató el envoltorio y **dejó al hijo vivo**, reparentado a init, corriendo contra la misma base. Buscando `artisan` no aparece: **el hijo se llama `phpunit`**. Dos tandas contra una base chocan en `personal_access_tokens`, y los rojos salen en cualquier familia y con toda la cara de ser un test roto |
 | **2** | Un `docker exec` muerto por ese `pkill` devolvió **exit 143** y el harness lo resumió como **«completed, exit code 0»**. El código de salida escrito **dentro** del contenedor es lo único que no lo hace |
 | **3** | El log **deja de crecer** por el búfer de bloque —parado justo en 10.210 bytes— y parece que la suite murió. El tamaño del fichero no dice nada; el `EXIT=` sí |
+| **4** | *(2 sep 2026)* El **aviso de «terminado» del propio lanzador** dijo «exit code 0» con la suite en **exit 1**. No hubo `pkill` ni tubería: el comando acababa en un `echo`, así que el código que se propagó fue **el del `echo`**. Se cazó porque el de verdad se había guardado antes con `echo $? > code.txt`, y porque la línea `Tests:` decía `1 failed` — **dos fuentes que tenían que coincidir y no coincidían** |
+
+> **La regla del código de salida, en su forma ancha.** No es «cuidado con `| tail`»
+> ni «cuidado con `pkill`»: es **cualquier cosa que se ejecute entre el comando que te
+> importa y la lectura de su `$?`** — una tubería, un `echo` de etiqueta, o el
+> resumen que te da el envoltorio. Por eso el paso 2 escribe el `EXIT=` **dentro** del
+> contenedor y por eso se lee además la línea `Tests:`: **una cifra sola no se
+> comprueba a sí misma**, y las dos que discrepan son el hallazgo.
 
 > **Y para identificar de quién es un proceso, el `--configuration=` y no el
 > `cwd`**: un test se mete en un directorio temporal y el `cwd` deja de nombrar su
@@ -587,6 +595,40 @@ Y dos que no son pasos pero deciden el número:
   `tests/Feature/ExampleTest.php`, el stub que dejó `laravel new`.
 - **`COBERTURA_RUTAS` con un fichero por sesión.** `/tmp` del contenedor está
   compartido: compartirlo dio una vez *86 de 539 cuando eran 346*.
+
+---
+
+## `ORDER BY` que empata + `LIMIT 1` = un test que no es determinista — 2 sep 2026
+
+`EditorDeNotaConElParTest` salió **rojo en la suite entera y verde al correr la clase
+sola**. No era el entorno y no era el código de los tres carriles: era su `contexto()`.
+
+    ORDER BY a.id LIMIT 1     -- sobre un join que empata en 333 filas
+
+Medido sobre la base de tests: de las **333 filas que empatan** en el primer `a.id`,
+las seis columnas que selecciona `NotasTest::contexto()` —grupo, profesor, `user_id`,
+`username`, periodo— tienen **un solo valor**, y `m.alumno_id` tiene **37**. `NotasTest`
+está a salvo; este test se rompió al **copiarle la consulta y añadirle una columna que
+ese `ORDER BY` no determina**. El criterio era correcto allí y dejó de serlo aquí, y
+**nada se puso rojo al copiarlo**.
+
+**La regla, que vale para todos los `contexto()` de `tests/Contrato/`:** *el orden sólo
+es determinista si la clave de orden es única en el join.* Acotar con más `INNER JOIN`
+**no** es una garantía — sólo hace que hoy haya menos empates, y un seed con dos
+alumnos más lo reabre sin que nadie toque el test.
+
+**Y por qué no se ve como inestabilidad:** el síntoma era un **tipo**. Las notas se
+calculan; para unos alumnos la cuenta da redonda y para otros no, y la instantánea
+guarda el tipo — `float` contra `int`. Un rojo que dice «`float` esperado, `int`
+recibido» se lee como una regresión del código, no como una fila distinta.
+
+> **Quedan sin revisar los demás `LIMIT 1` sobre empates.** `8myvc-59` señaló dos con la
+> misma forma: `PlanillaSinIndependientesTest::contexto()`, que está en este árbol, y el
+> `PlanillaSinProfesorTest::contexto()` que escribió esa noche —hoy sólo en
+> `fix/planilla-sin-profesor` (`1728c10`), todavía sin fusionar—. **Los dejó así a
+> sabiendas**, y su razón es la buena: hoy están a salvo **por el seed, no por
+> construcción**, y blindar uno mientras el resto sigue igual es peor que hacer el
+> barrido de una vez. Es un barrido, no un arreglo suelto.
 
 ---
 
