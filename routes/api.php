@@ -54,4 +54,5 @@ Route::middleware('auth.token')->group(function () {
     require __DIR__.'/api/actividades.php';
     require __DIR__.'/api/piars.php';
     require __DIR__.'/api/notificaciones.php';
+    require __DIR__.'/api/rubricas.php';
 });

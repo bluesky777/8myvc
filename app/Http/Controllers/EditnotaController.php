@@ -67,9 +67,43 @@ class EditnotaController extends Controller {
 				$nota_unidad = 0;
 
 				foreach ($unidad->subunidades as $subunidad) {
-					
-					$nota = Nota::where('subunidad_id', $subunidad->subunidad_id)
-								->where('alumno_id', $alumno_id)->first();
+
+					// **Las columnas nombradas, y las seis de la nivelación A PROPÓSITO**
+					// (22 §3.1 y §3.4). Aquí había un `->first()` pelado, que devuelve la
+					// fila entera: `$subunidad->nota = $nota` la cuelga de la respuesta,
+					// así que las cinco columnas de
+					// `2026_09_02_100000_nivelaciones_columnas` **ya viajaban por aquí sin
+					// que nadie lo hubiera decidido** — y nada lo habría cazado, porque
+					// esta ruta no tiene instantánea de forma (la tiene desde hoy).
+					//
+					// Es el punto ciego que `tools/filas-enteras-al-cliente.php` declara en
+					// su cabecera: un `Model::where(...)` encadenado en varias líneas no lo
+					// ve. Se encontró leyendo el método por otra cosa, que es justo lo que
+					// esa cabecera dice que hay que seguir haciendo.
+					//
+					// Se quedan porque **esta es la pantalla del par**: `editor-nota` pinta
+					// la vigente y la original tachada, y sin ellas el docente nivela,
+					// recarga y ve la nota vieja sin ninguna marca. Lo que cambia es que
+					// ahora viajan porque alguien las nombró.
+					// El `leftJoin` es por `nivelada_por_username`: la celda tiene **las
+					// seis** claves aquí y en `notas/detailed`, porque el contrato las
+					// declara juntas (22 §3.1) y el front pinta la misma celda en las dos
+					// pantallas. Que una respuesta traiga cinco y la otra seis obliga a
+					// escribir dos veces el mismo componente.
+					//
+					// `left` y no `inner`: sin nivelar no hay usuario, y con `inner`
+					// **desaparecerían las celdas sin nivelar**, que son casi todas.
+					$nota = Nota::select([
+						'notas.id', 'notas.nota', 'notas.subunidad_id', 'notas.alumno_id',
+						'notas.created_by', 'notas.updated_by', 'notas.deleted_by', 'notas.deleted_at',
+						'notas.created_at', 'notas.updated_at',
+						'notas.nota_original', 'notas.nota_nivelacion', 'notas.nivelada_at',
+						'notas.nivelada_por', 'notas.nivelacion_obs',
+						'usuarios_que_nivelaron.username as nivelada_por_username',
+					])
+						->leftJoin('users as usuarios_que_nivelaron', 'usuarios_que_nivelaron.id', '=', 'notas.nivelada_por')
+						->where('notas.subunidad_id', $subunidad->subunidad_id)
+						->where('notas.alumno_id', $alumno_id)->first();
 
 					if ($nota) {
 						$subunidad->nota = $nota;
@@ -93,13 +127,48 @@ class EditnotaController extends Controller {
 
 			$periodo->nota_asignatura_calc 	= $nota_asignatura; // Definitiva de la materia en este periodo
 			
-			$nota_asignatura 		= DB::select('SELECT *, CAST(nota AS DOUBLE) AS nota FROM notas_finales WHERE alumno_id=? and asignatura_id=? and periodo_id=?',
-													[$alumno_id, $asignatura_id, $periodo->id]);
-													
+			// **Las columnas nombradas y el acta de la definitiva, que es lo que
+			// `editor-nota` necesita** (22 §3.2). Esta pantalla —y no
+			// `notas/detailed`— es la que edita la definitiva del periodo, así que sin
+			// estas cuatro claves el docente niveló bien, recargó, y vio la nota vieja
+			// **sin ninguna marca**: la escritura de A8 quedaba invisible al recargar.
+			// Lo trajo el front el 2 sep.
+			//
+			// El `SELECT *` de antes no filtraba nada —sólo se copiaban tres campos al
+			// periodo—, pero se nombra igual: la siguiente columna de `notas_finales`
+			// no puede depender de que quien la añada mire también este método.
+			//
+			// `nota_original` con el mismo `CAST` que `nota`, y por lo mismo: la
+			// columna es `DECIMAL(7,4)` y PDO la trae como cadena, así que sin él la
+			// pantalla compararía un número con un texto para decidir si pinta el par.
+			$nota_asignatura 		= DB::select(
+				'SELECT nf.id, nf.alumno_id, nf.asignatura_id, nf.periodo_id, nf.periodo,
+						CAST(nf.nota AS DOUBLE) AS nota, nf.manual, nf.recuperada,
+						CAST(nf.nota_original AS DOUBLE) AS nota_original,
+						CAST(nf.nota_nivelacion AS DOUBLE) AS nota_nivelacion,
+						nf.nivelada_at, nf.nivelada_por, us.username AS nivelada_por_username,
+						nf.nivelacion_obs, nf.updated_by, nf.created_at, nf.updated_at
+				   FROM notas_finales nf
+				   LEFT JOIN users us ON us.id = nf.nivelada_por
+				  WHERE nf.alumno_id=? and nf.asignatura_id=? and nf.periodo_id=?',
+				[$alumno_id, $asignatura_id, $periodo->id]
+			);
+
 			if (count($nota_asignatura) > 0) {
 				$periodo->nota_asignatura 	= $nota_asignatura[0]->nota;
 				$periodo->manual 			= $nota_asignatura[0]->manual;
 				$periodo->recuperada 		= $nota_asignatura[0]->recuperada;
+
+				// Las cuatro del acta, **siempre presentes** cuando hay definitiva, con
+				// `null` si no está nivelada: una clave que a veces no viene obliga al
+				// front a distinguir «vacío» de «no vino». Misma decisión que en
+				// `notas/detailed`.
+				$periodo->nota_original         = $nota_asignatura[0]->nota_original;
+				$periodo->nota_nivelacion       = $nota_asignatura[0]->nota_nivelacion;
+				$periodo->nivelada_at           = $nota_asignatura[0]->nivelada_at;
+				$periodo->nivelada_por          = $nota_asignatura[0]->nivelada_por;
+				$periodo->nivelada_por_username = $nota_asignatura[0]->nivelada_por_username;
+				$periodo->nivelacion_obs        = $nota_asignatura[0]->nivelacion_obs;
 			}
 		}
 

@@ -290,7 +290,12 @@ class BoletinesController extends Controller {
 		for ($i=0; $i<$cant; $i++) {
 
 			// NOTAS FINALES
-			$asignaturas[$i]->notas_finales 		= DB::select('SELECT periodo, CAST(nota AS DOUBLE) AS nota, manual, recuperada FROM notas_finales WHERE alumno_id=? and asignatura_id=? and periodo<=? order by periodo asc', [$alumno->alumno_id, $asignaturas[$i]->asignatura_id, $this->user->numero_periodo]);
+			// **La fila de periodos del boletín, con el par de cada definitiva** — A10, 27 §2.1.
+			// `nota` sigue siendo la vigente y va primero; `nota_original` es de dónde venía,
+			// `null` mientras no se haya nivelado. Es la tabla «Periodo 1 · 2 · 3 · 4» del
+			// papel, así que aquí es donde el acudiente ve el antes y el después de un
+			// periodo cerrado, que es la novedad académica del art. 16 del 1290.
+			$asignaturas[$i]->notas_finales 		= DB::select('SELECT periodo, CAST(nota AS DOUBLE) AS nota, CAST(nota_original AS DOUBLE) AS nota_original, nivelada_at, manual, recuperada FROM notas_finales WHERE alumno_id=? and asignatura_id=? and periodo<=? order by periodo asc', [$alumno->alumno_id, $asignaturas[$i]->asignatura_id, $this->user->numero_periodo]);
 			$asignaturas[$i]->nota_faltante 		= 0;
 			$asignaturas[$i]->nota_definitiva_anio 	= 0;
 

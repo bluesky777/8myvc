@@ -100,7 +100,28 @@ class NotasController extends Controller {
 		$asignatura = (object)Asignatura::detallada($asignatura_id, $user->year_id);
 		
 		foreach ($unidadesT as $unidad) {
-			$subunidades = DB::select('SELECT * FROM subunidades s WHERE s.unidad_id=? and s.deleted_at is null order by s.orden, s.id', [$unidad->id]);
+			// **Las diecisiete columnas nombradas, y NO `SELECT *`**, por la misma
+			// razón que las quince de `unidades` doce líneas más arriba: estas filas
+			// se cuelgan de `$unidad->subunidades` y **viajan al cliente**, así que
+			// cualquier columna nueva en `subunidades` aparece sola en la planilla del
+			// profesor. Pasó el 2 sep 2026 con `subunidades.rubrica_id`, del carril de
+			// rúbricas: `NotasTest::la_forma_de_la_rejilla_del_profesor` salió en rojo
+			// con `rubrica_id` de más, sin que nadie tocara este método.
+			//
+			// Es la cuarta vez esta noche que la misma forma muerde —`notas`,
+			// `notas_finales`, `subunidades`— y siempre igual: **columna nueva + `*` +
+			// campo que sale al cliente sin que nadie lo decida**. La regla está en la
+			// §3.4 de docs/migracion/22-nivelaciones.md: una columna viaja porque
+			// alguien la nombró.
+			$subunidades = DB::select(
+				'SELECT s.id, s.definicion, s.porcentaje, s.unidad_id, s.nota_default, s.obligatoria,
+						s.orden, s.por_defecto, s.inicia_at, s.finaliza_at, s.actividad_id,
+						s.created_by, s.updated_by, s.deleted_by, s.deleted_at, s.created_at, s.updated_at
+				   FROM subunidades s
+				  WHERE s.unidad_id=? and s.deleted_at is null
+				  order by s.orden, s.id',
+				[$unidad->id]
+			);
 
 			foreach ($subunidades as $subunidad) {
 				Nota::verificarCrearNotas($asignatura->grupo_id, $subunidad, $user->user_id);
@@ -211,9 +232,32 @@ class NotasController extends Controller {
 			$tardanzas = DB::select($cons_tar, [":per_id" => $user->periodo_id, ':asignatura_id' => $asignatura->asignatura_id, ':alumno_id' => $alumno->alumno_id ]);
 			
 			// Notas
+			// **A7: las seis de la nivelación viajan AQUÍ, y sólo aquí** (22 §3.1).
+			// Van nombradas, como el resto: es la misma guarda que impidió que
+			// `rubrica_id` se colara por las subunidades. Y van **siempre**, con `null`
+			// cuando la nota no está nivelada — una clave que a veces no viene obliga
+			// al front a distinguir «vacío» de «no vino», que es la decisión que ya
+			// tomó `notas/lote` con `definitivas`.
+			//
+			// **La celda está nivelada ⇔ `nota_original !== null`.** No hay bandera
+			// aparte: sería un segundo sitio donde mentir.
+			//
+			// `nivelada_por_username` sale del `LEFT JOIN` con `users` para que el pie
+			// del diálogo —quién y cuándo— no cueste otra petición; es la misma
+			// convención que `updated_by_username` en la definitiva, treinta líneas
+			// más abajo. `LEFT` y no `INNER`: sin nivelar no hay usuario, y con `INNER`
+			// **desaparecerían las notas sin nivelar**, que son casi todas.
+			//
+			// Y esto NO rompe a `myvc_flutter`, que está medido y no supuesto:
+			// `NotaDelLibro.fromJson` (`lib/Http/LibroNotasApi.dart:331`) lee tres
+			// claves por nombre y no mira nada más; no hay deserialización estricta en
+			// el proyecto. Ver 22 §3.2bis.
 			$cons = "SELECT n.id, n.nota, n.subunidad_id, n.alumno_id, n.created_by, n.updated_by, n.deleted_by, n.deleted_at, n.created_at, n.updated_at, u.asignatura_id,
+							n.nota_original, n.nota_nivelacion, n.nivelada_at, n.nivelada_por,
+							univ.username as nivelada_por_username, n.nivelacion_obs,
 							s.porcentaje/100 as subunidad_porc, u.porcentaje/100 as unidad_porc, s.definicion, s.porcentaje as subunidad_porcentaje, u.orden as orden_unidad, s.orden as orden_subunidad
 						FROM notas n
+						LEFT JOIN users univ ON univ.id=n.nivelada_por
 						INNER JOIN alumnos a ON a.id=n.alumno_id and n.deleted_at is null
 						INNER JOIN subunidades s ON s.id=n.subunidad_id and s.deleted_at is null
 						INNER JOIN unidades u ON u.id=s.unidad_id and u.deleted_at is null and u.periodo_id=:per_id
@@ -248,12 +292,25 @@ class NotasController extends Controller {
 			// luego se une por `r1.alumno_id=a.id`, así que quien filtra fuera no
 			// filtra dentro.
 			// Traemos las Definitivas
+			// **A7, la otra mitad** (22 §3.2): las cuatro del acta de la definitiva del
+			// periodo. `recuperada` **no cambia de significado** —`1` sigue queriendo
+			// decir que viene de una nivelación—; lo que se gana es que ahora puede
+			// decir **de dónde venía**. Escribirlas es A8; que la forma exista ya
+			// desbloquea a B7, que es el editor de la definitiva.
+			//
+			// `nota_original` sale como `DOUBLE` igual que `nota_final`, y por lo
+			// mismo: la columna es `DECIMAL(7,4)` desde `2026_08_30_200000` y PDO la
+			// trae como cadena; sin el cast, el front tendría el par en dos tipos
+			// distintos y el que compara los dos números se equivoca sin enterarse.
 			$cons_nf  = 'SELECT a.id as alumno_id, a.no_matricula, nf1.periodo, u.username as updated_by_username,
+							CAST(nf1.nota_original AS DOUBLE) as nota_original, nf1.nivelada_at, nf1.nivelada_por,
+							univ.username as nivelada_por_username,
 							CAST(nf1.nota AS DOUBLE) as nota_final, nf1.id as nf_id, nf1.recuperada, nf1.manual, nf1.updated_by, nf1.created_at, nf1.updated_at,
 							cast(r1.DefMateria as decimal(7,4)) as def_materia_auto, r1.updated_at as updated_at_def, IF(nf1.updated_at > r1.updated_at, FALSE, TRUE) AS nfinal_desactualizada 
 						FROM alumnos a 
 						left join notas_finales nf1 on nf1.alumno_id=a.id and nf1.asignatura_id=:asign_id1 and nf1.periodo=:periodo
 						left join users u on u.id=nf1.updated_by 
+						left join users univ on univ.id=nf1.nivelada_por 
 						left join (
 							SELECT df1.alumno_id, df1.periodo_id, MAX(df1.updated_at) as updated_at, df1.numero_periodo, sum( df1.ValorUnidad ) DefMateria 
 							FROM(
@@ -445,7 +502,12 @@ class NotasController extends Controller {
 	public function getShow($nota_id)
 	{
 		$user 	= User::fromToken();
-		$nota 	= Nota::find($nota_id);
+		// Las diez columnas nombradas y no `find()` a secas, por lo mismo que en
+		// `putUpdate`: `find()` trae la fila entera y las cinco de la nivelación
+		// habrían movido `notas-show.json` solas. Un `ALTER TABLE` no cambia un
+		// contrato; lo nuevo viaja por `notas/detailed` y por `notas/nivelar/*`.
+		$nota 	= Nota::select(['id', 'nota', 'subunidad_id', 'alumno_id', 'created_by', 'updated_by',
+			'deleted_by', 'deleted_at', 'created_at', 'updated_at'])->find($nota_id);
 		return $nota;
 	}
 
@@ -487,7 +549,20 @@ class NotasController extends Controller {
 			//
 			// Ahora la consulta pregunta sólo por lo que quiere saber: la fila de
 			// `notas`.
-			$consulta 	= 'SELECT n.* FROM notas n WHERE n.id=? and n.deleted_at is null';
+			// **Las diez columnas nombradas, y NO `n.*`**, desde el 2 sep 2026: este
+			// método DEVUELVE `$nota`, y con el asterisco las cinco columnas de la
+			// nivelación (`2026_09_02_100000_nivelaciones_columnas`) habrían viajado
+			// solas en la respuesta de `PUT notas/update/{id}`, que leen los cuatro
+			// clientes y fija `notas-update.json`. Es la misma guarda que `putDetailed`
+			// tiene sobre `unidades`: un `ALTER TABLE` no puede cambiar un contrato.
+			//
+			// Y es la mitad de la promesa del A6 (22 §7): `notas/update` **no cambia
+			// ni una línea de comportamiento**, y un `*` es justo lo que la rompería
+			// sin que nadie tocara este método. Lo nuevo viaja por `notas/detailed` y
+			// por los endpoints de nivelar, que nacen con ello.
+			$consulta 	= 'SELECT n.id, n.nota, n.subunidad_id, n.alumno_id, n.created_by, n.updated_by,
+							n.deleted_by, n.deleted_at, n.created_at, n.updated_at
+						   FROM notas n WHERE n.id=? and n.deleted_at is null';
 
 			$nota 		= DB::select($consulta, [$id])[0];
 
@@ -988,19 +1063,56 @@ class NotasController extends Controller {
 		$user 	= User::fromToken();
 		User::pueden_editar_notas($user, PeriodoDeLaFila::deNota($id));
 
+		// `LEFT JOIN` y no `INNER`, y no es estilo: con `INNER` una nota cuya
+		// unidad ya se borró no traía fila, y de ella no quedaba **nada** — ni
+		// recálculo (correcto: no hay par que recalcular) ni rastro (incorrecto:
+		// la nota existía y alguien la borró). Con `LEFT` la fila viene siempre que
+		// la nota exista, y el par sólo cuando hay unidad viva.
 		$donde = DB::selectOne(
-			'SELECT u.asignatura_id, u.periodo_id, n.alumno_id
+			'SELECT n.nota, n.alumno_id, n.subunidad_id, u.asignatura_id, u.periodo_id
 			   FROM notas n
-			   INNER JOIN subunidades s ON s.id = n.subunidad_id
-			   INNER JOIN unidades u ON u.id = s.unidad_id
+			   LEFT JOIN subunidades s ON s.id = n.subunidad_id
+			   LEFT JOIN unidades u ON u.id = s.unidad_id
 			  WHERE n.id = ?',
 			[$id]
 		);
 
 		$consulta 	= 'DELETE FROM notas WHERE id=?';
-		DB::delete($consulta, [$id]);
+		$borradas 	= DB::delete($consulta, [$id]);
 
-		if ($donde !== null) {
+		// Éste era **el único escritor de `notas` sin rastro en ninguna de las dos
+		// tablas** —lo dijo `tools/escrituras-sin-auditoria.php` el 2 sep 2026:
+		// `putUpdate` y `putLote` ya auditaban, `deleteDestroy` 1:0—, y es el que
+		// menos puede permitírselo: el borrado es **físico**, así que después de
+		// esta línea no queda fila, ni `deleted_at`, ni bitácora que diga qué
+		// nota había. Sin esto, «¿quién borró la nota de este alumno?» no tenía
+		// respuesta en los quince colegios. Es el A1 del plan de nivelaciones
+		// (22-nivelaciones.md), y también un agujero por sí solo.
+		//
+		// Sólo si el `DELETE` afectó una fila: un id que no existía no es un
+		// borrado, y una línea de auditoría sobre nada es la forma de mentira que
+		// más caro sale en una tabla que se lee años después. Por eso `$donde` se
+		// lee **antes** del `DELETE` —después ya no hay de dónde— y la línea se
+		// escribe **después**, cuando se sabe que ocurrió (18 §4.6).
+		//
+		// Sin `INSERT` en `bitacoras`: el borrado nunca lo escribió ahí, y la
+		// pantalla que lee `bitacoras` busca por el id de una nota que ya no
+		// existe. El rastro nuevo es el único que puede contestar la pregunta.
+		if ($borradas > 0 && $donde !== null) {
+			$alumnoDeLaLinea = $donde->alumno_id === null ? null : (int) $donde->alumno_id;
+
+			Auditoria::registrar()
+				->borrar('nota', (int) $id)
+				->deAlumno($alumnoDeLaLinea, NombreDelAlumno::de($alumnoDeLaLinea))
+				->en(
+					asignatura: $donde->asignatura_id === null ? null : (int) $donde->asignatura_id,
+					periodo: $donde->periodo_id === null ? null : (int) $donde->periodo_id,
+				)
+				->de($donde->nota)
+				->guardar();
+		}
+
+		if ($donde !== null && $donde->asignatura_id !== null) {
 			DefinitivasDeAsignatura::recalcular(
 				(int) $donde->asignatura_id,
 				(int) $donde->periodo_id,
@@ -1140,6 +1252,534 @@ class NotasController extends Controller {
 		}
 
 		return [ 'alumnos'=> $alumnos ];
+	}
+
+
+	// ─────────────────────────────────────────────────────────────────────
+	// Nivelaciones — docs/migracion/22-nivelaciones.md
+	//
+	// **Endpoints NUEVOS, y no una bandera sobre `putUpdate`.** `myvc_flutter` es
+	// una sola app para los quince colegios y una versión vieja convive con este
+	// backend durante meses: si `notas/update` aprendiera a nivelar, un docente
+	// calificando desde el móvil mandaría un 95 por el camino de siempre y, con la
+	// regla `topada`, se guardaría 70. Sin error y sin aviso. Es la §6.1 del
+	// reparto, y `NivelarUnaNotaTest` fija que esos dos no cambian.
+	//
+	// La regla vive en `App\Services\Nivelacion` (A4) y aquí sólo se llama.
+	// ─────────────────────────────────────────────────────────────────────
+
+	/**
+	 * `PUT notas/nivelar/{id}` — registrar (o sustituir, §1.3; o corregir la
+	 * original, §1.6) la nivelación de un indicador.
+	 *
+	 * El orden es el de `putLote`, que es el que ya se pagó: la forma que no mira la
+	 * base se valida primero; luego la fila (404); luego el permiso **con el periodo
+	 * de la nota** (403); luego lo que mira la base para validar (la escala, 422).
+	 * Así un dato fuera de escala no tapa una respuesta de autorización.
+	 */
+	public function putNivelar($id)
+	{
+		$user = User::fromToken();
+		$now  = Carbon::now('America/Bogota');
+
+		$forma = $this->formaDeUnaNivelacion(Request::all(), exigirNivelacion: false);
+
+		if ($forma['motivo'] !== null) {
+			abort(422, $forma['motivo']);
+		}
+
+		$fila = $this->filaParaNivelar((int) $id);
+
+		if ($fila === null) {
+			abort(404, 'No existe la nota, o su indicador ya no está.');
+		}
+
+		if (! User::puedeNivelar($user, (int) $fila->periodo_id)) {
+			abort(403, 'No tienes permiso para nivelar en este periodo.');
+		}
+
+		// §1.6: `nota_original` sola sólo vale en una nota YA nivelada; en una sin
+		// nivelar, la original se corrige por `notas/update`, que es corrección.
+		if ($forma['nivelacion'] === null && $forma['original'] === null) {
+			abort(422, 'Hace falta nota_nivelacion.');
+		}
+
+		if ($forma['original'] !== null && $fila->nota_original === null) {
+			abort(422, 'Esta nota no está nivelada: la valoración inicial se corrige con notas/update.');
+		}
+
+		foreach ([$forma['nivelacion'], $forma['original']] as $valor) {
+			if ($valor !== null) {
+				EscalaDeNotas::comprobar($valor, (int) $fila->periodo_id);
+			}
+		}
+
+		$historialId = $this->historialDelToken($user);
+
+		$resultado = DB::transaction(fn () => $this->nivelarLaFila($fila, $forma, $user, $now, $historialId));
+
+		// Fuera de la transacción y después, como en `putUpdate`: el recálculo abre
+		// la suya y un fallo suyo no puede convertirse en «no se pudo nivelar».
+		$recalculo = DefinitivasDeAsignatura::recalcularPorNota((int) $id, $user->user_id);
+
+		return $this->notaNivelada((int) $id, $resultado['regla_aplicada'], $recalculo['definitiva'] ?? null);
+	}
+
+	/**
+	 * `DELETE notas/nivelar/{id}` — quitar la nivelación: `nota` vuelve a
+	 * `nota_original` y las cinco del acta a NULL (22 §2). Es la vuelta atrás del
+	 * docente que niveló cuando quería corregir (§6.5 del reparto).
+	 */
+	public function deleteNivelar($id)
+	{
+		$user = User::fromToken();
+		$now  = Carbon::now('America/Bogota');
+
+		$fila = $this->filaParaNivelar((int) $id);
+
+		if ($fila === null) {
+			abort(404, 'No existe la nota, o su indicador ya no está.');
+		}
+
+		if (! User::puedeNivelar($user, (int) $fila->periodo_id)) {
+			abort(403, 'No tienes permiso para nivelar en este periodo.');
+		}
+
+		// **409 y no 200 vacío**: un `DELETE` que contesta 200 sobre algo que no
+		// existía es una respuesta que miente, y el front pintaría «nivelación
+		// retirada» sobre una celda que nunca la tuvo.
+		if ($fila->nota_original === null) {
+			abort(409, 'Esta nota no tiene ninguna nivelación que quitar.');
+		}
+
+		$historialId = $this->historialDelToken($user);
+
+		DB::transaction(function () use ($fila, $user, $now, $historialId) {
+			$original = (int) $fila->nota_original;
+
+			DB::update(
+				'UPDATE notas SET nota=?, nota_original=NULL, nota_nivelacion=NULL, nivelada_at=NULL,
+					nivelada_por=NULL, nivelacion_obs=NULL, updated_by=?, updated_at=? WHERE id=?',
+				[$original, $user->user_id, $now, $fila->id]
+			);
+
+			$this->bitacoraDeNota($fila, (int) $fila->nota, $original, $user, $now, $historialId);
+
+			$alumno = $fila->alumno_id === null ? null : (int) $fila->alumno_id;
+
+			Auditoria::registrar()
+				->quitarNivelacion('nota', (int) $fila->id)
+				->deAlumno($alumno, NombreDelAlumno::de($alumno))
+				->en(asignatura: (int) $fila->asignatura_id, periodo: (int) $fila->periodo_id)
+				->de((int) $fila->nota)
+				->a($original)
+				->resumen('Quitó la nivelación (nivelación '.$fila->nota_nivelacion.'); vuelve la valoración inicial '.$original.'.')
+				->guardar();
+		});
+
+		$recalculo = DefinitivasDeAsignatura::recalcularPorNota((int) $id, $user->user_id);
+
+		return $this->notaNivelada((int) $id, null, $recalculo['definitiva'] ?? null);
+	}
+
+	/**
+	 * `PUT notas/nivelar/lote` — la semana de nivelaciones (22 §4).
+	 *
+	 * Los tres desenlaces de `putLote`, con los mismos nombres: éxito parcial con
+	 * `fallidas[]` y 200; el permiso comprobado **una vez, con los periodos únicos,
+	 * antes de la primera escritura**, que tumba el lote entero con 403; y los dos
+	 * 422 de forma. Más `niveladas[]`, que `putLote` no necesita porque allí lo que
+	 * se escribe es lo que se mandó y aquí lo que queda en `nota` lo decide la
+	 * regla.
+	 */
+	public function putNivelarLote()
+	{
+		$user = User::fromToken();
+		$now  = Carbon::now('America/Bogota');
+
+		$pedidas = Request::input('notas');
+
+		if (! is_array($pedidas) || $pedidas === []) {
+			abort(422, 'Hace falta una lista de notas.');
+		}
+
+		if (count($pedidas) > self::LOTE_MAXIMO) {
+			abort(422, 'El lote no puede pasar de '.self::LOTE_MAXIMO.' notas.');
+		}
+
+		$fallidas  = [];
+		$aNivelar  = [];
+		$periodos  = [];
+		$pares     = [];
+
+		foreach ($pedidas as $posicion => $pedida) {
+			$id = is_array($pedida) ? ($pedida['id'] ?? null) : null;
+
+			if (! is_numeric($id)) {
+				$fallidas[] = ['id' => null, 'motivo' => 'La posición '.$posicion.' no trae un id de nota.'];
+
+				continue;
+			}
+
+			$id = (int) $id;
+
+			// Sin `is_array` otra vez: si no lo fuera, `$id` habría salido `null` y la
+			// posición ya estaría en `fallidas` con su motivo. Lo señaló larastan.
+			$forma = $this->formaDeUnaNivelacion($pedida, exigirNivelacion: true);
+
+			if ($forma['motivo'] !== null) {
+				$fallidas[] = ['id' => $id, 'motivo' => $forma['motivo']];
+
+				continue;
+			}
+
+			$fila = $this->filaParaNivelar($id);
+
+			if ($fila === null) {
+				$fallidas[] = ['id' => $id, 'motivo' => 'No existe la nota, o su indicador ya no está.'];
+
+				continue;
+			}
+
+			$aNivelar[] = ['id' => $id, 'forma' => $forma, 'fila' => $fila];
+
+			$periodos[(int) $fila->periodo_id] = true;
+			$pares[(int) $fila->asignatura_id.':'.(int) $fila->periodo_id] = [(int) $fila->asignatura_id, (int) $fila->periodo_id];
+		}
+
+		if ($aNivelar === []) {
+			return ['guardadas' => 0, 'fallidas' => $fallidas, 'niveladas' => [], 'definitivas' => []];
+		}
+
+		if (! User::puedeNivelar($user, array_keys($periodos))) {
+			abort(403, 'No tienes permiso para nivelar en este periodo.');
+		}
+
+		// La escala **después** del permiso, como en `putLote` y por lo mismo.
+		$conEscala = [];
+
+		foreach ($aNivelar as $item) {
+			$noCabe = EscalaDeNotas::motivoSiNoCabe($item['forma']['nivelacion'], (int) $item['fila']->periodo_id);
+
+			if ($noCabe !== null) {
+				$fallidas[] = ['id' => $item['id'], 'motivo' => $noCabe];
+
+				continue;
+			}
+
+			$conEscala[] = $item;
+		}
+
+		$aNivelar = $conEscala;
+
+		if ($aNivelar === []) {
+			return ['guardadas' => 0, 'fallidas' => $fallidas, 'niveladas' => [], 'definitivas' => []];
+		}
+
+		// La regla de cada año se resuelve **antes** de abrir la transacción: si un
+		// año lleva una regla que no es de las tres, el lote entero se rechaza sin
+		// escribir nada, en vez de morir a medias dentro.
+		foreach ($aNivelar as $item) {
+			$this->reglaValidaDelAnio((int) $item['fila']->year_id);
+		}
+
+		$historialId = $this->historialDelToken($user);
+
+		NombreDelAlumno::deVarios(array_map(fn ($i) => $i['fila']->alumno_id, $aNivelar));
+
+		$niveladas = DB::transaction(function () use ($aNivelar, $user, $now, $historialId) {
+			$hechas = [];
+
+			foreach ($aNivelar as $item) {
+				$resultado = $this->nivelarLaFila($item['fila'], $item['forma'], $user, $now, $historialId);
+				$hechas[]  = $this->notaNivelada($item['id'], $resultado['regla_aplicada'], null, conDefinitiva: false);
+			}
+
+			return $hechas;
+		});
+
+		foreach ($pares as $par) {
+			DefinitivasDeAsignatura::recalcular($par[0], $par[1], $user->user_id);
+		}
+
+		// `definitivasDelLote` espera la forma de `putLote`; `destino` es la fila.
+		$paraDefinitivas = array_map(fn ($i) => ['id' => $i['id'], 'valor' => null, 'destino' => $i['fila']], $aNivelar);
+
+		return [
+			'guardadas' => count($niveladas),
+			'fallidas' => $fallidas,
+			'niveladas' => $niveladas,
+			'definitivas' => $this->definitivasDelLote($paraDefinitivas),
+		];
+	}
+
+	/**
+	 * La forma de una nivelación, sin mirar la base: qué trae el cuerpo y si vale.
+	 *
+	 * Devuelve `motivo` con el texto del 422 o de la `fallida`, y los tres valores
+	 * ya limpios. `exigirNivelacion` es `true` en el lote —allí no hay corrección
+	 * de la original— y `false` en el `PUT` suelto, donde `nota_original` sola es
+	 * la §1.6.
+	 *
+	 * @param  array<string, mixed>  $cuerpo
+	 * @return array{motivo: ?string, nivelacion: ?int, original: ?int, obs: ?string, fecha: ?string}
+	 */
+	private function formaDeUnaNivelacion(array $cuerpo, bool $exigirNivelacion): array
+	{
+		$vacio = ['motivo' => null, 'nivelacion' => null, 'original' => null, 'obs' => null, 'fecha' => null];
+
+		$nivelacion = $cuerpo['nota_nivelacion'] ?? null;
+		$original   = $cuerpo['nota_original'] ?? null;
+
+		if ($nivelacion === null && ($exigirNivelacion || ! array_key_exists('nota_original', $cuerpo))) {
+			return ['motivo' => $exigirNivelacion ? 'La nota no es un número.' : 'Hace falta nota_nivelacion.'] + $vacio;
+		}
+
+		if ($nivelacion !== null && ! is_numeric($nivelacion)) {
+			return ['motivo' => $exigirNivelacion ? 'La nota no es un número.' : 'Hace falta nota_nivelacion.'] + $vacio;
+		}
+
+		if ($original !== null && ! is_numeric($original)) {
+			return ['motivo' => 'La valoración inicial no es un número.'] + $vacio;
+		}
+
+		$obs = $cuerpo['observacion'] ?? null;
+
+		if ($obs !== null && ! is_string($obs)) {
+			return ['motivo' => 'La observación tiene que ser texto.'] + $vacio;
+		}
+
+		$obs = $obs === null || trim($obs) === '' ? null : trim($obs);
+
+		if ($obs !== null && mb_strlen($obs) > 255) {
+			return ['motivo' => 'La observación no puede pasar de 255 caracteres.'] + $vacio;
+		}
+
+		$fecha = $cuerpo['fecha'] ?? null;
+
+		if ($fecha !== null && $fecha !== '') {
+			$leida = $this->fechaDelActa($fecha);
+
+			if ($leida === null) {
+				return ['motivo' => 'La fecha de la nivelación no es válida.'] + $vacio;
+			}
+
+			$fecha = $leida;
+		} else {
+			$fecha = null;
+		}
+
+		return [
+			'motivo' => null,
+			'nivelacion' => $nivelacion === null ? null : (int) $nivelacion,
+			'original' => $original === null ? null : (int) $original,
+			'obs' => $obs,
+			'fecha' => $fecha,
+		];
+	}
+
+	/**
+	 * `YYYY-MM-DD` o `YYYY-MM-DD HH:MM:SS`, en Bogotá, y **no futura**: un acta con
+	 * fecha de mañana no es un acta. Devuelve el texto listo para la columna o
+	 * `null` si no se puede leer.
+	 */
+	private function fechaDelActa(mixed $texto): ?string
+	{
+		if (! is_string($texto)) {
+			return null;
+		}
+
+		$texto = trim($texto);
+
+		foreach (['Y-m-d H:i:s', 'Y-m-d'] as $formato) {
+			$fecha = \DateTime::createFromFormat('!'.$formato, $texto, new \DateTimeZone('America/Bogota'));
+
+			if ($fecha !== false && $fecha->format($formato) === $texto) {
+				if ($fecha > new \DateTime('now', new \DateTimeZone('America/Bogota'))) {
+					return null;
+				}
+
+				return $fecha->format('Y-m-d H:i:s');
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * La fila de `notas` con lo que hace falta para nivelarla: su destino (para
+	 * el permiso y el recálculo) y su año (para la regla). `INNER JOIN` con la
+	 * unidad y el periodo vivos: una nota huérfana no se puede nivelar, y aquí eso
+	 * es un 404 y no un 500.
+	 */
+	private function filaParaNivelar(int $id): ?object
+	{
+		return DB::selectOne(
+			'SELECT n.id, n.nota, n.nota_original, n.nota_nivelacion, n.nivelada_at, n.nivelada_por,
+					n.nivelacion_obs, n.alumno_id, n.subunidad_id,
+					u.asignatura_id, u.periodo_id, p.year_id
+			   FROM notas n
+			   INNER JOIN subunidades s ON s.id = n.subunidad_id AND s.deleted_at IS NULL
+			   INNER JOIN unidades u ON u.id = s.unidad_id AND u.deleted_at IS NULL
+			   INNER JOIN periodos p ON p.id = u.periodo_id AND p.deleted_at IS NULL
+			  WHERE n.id = ? AND n.deleted_at IS NULL',
+			[$id]
+		);
+	}
+
+	/**
+	 * La regla del año, o 422 si no es de las tres. `Nivelacion` lanza en vez de
+	 * caer a `topada`, y aquí se convierte en un error que dice dónde arreglarlo.
+	 *
+	 * @return array{regla: string, nota_minima: int}
+	 */
+	private function reglaValidaDelAnio(int $yearId): array
+	{
+		$config = \App\Services\Nivelacion::reglaDelAnio($yearId);
+
+		if ($config === null || ! \App\Services\Nivelacion::esRegla($config['regla'])) {
+			abort(422, 'La regla de nivelación del año («'.($config['regla'] ?? '').'») no es válida: corríjala en los ajustes del año.');
+		}
+
+		return $config;
+	}
+
+	/**
+	 * Escribe una nivelación en una fila ya cargada y validada. **Dentro de la
+	 * transacción del llamante**: es lo que hace que el lote entre entero o no
+	 * entre, y que la auditoría se deshaga con él.
+	 *
+	 * Las tres variantes de la §1: primera nivelación (`nota_original` nace de la
+	 * vigente), sustitución (§1.3: la original se conserva) y corrección de la
+	 * original (§1.6: se registra como `editar`, no como `nivelar`).
+	 *
+	 * @param  array{nivelacion: ?int, original: ?int, obs: ?string, fecha: ?string}  $forma
+	 * @return array{regla_aplicada: array{regla: string, nota_minima: int, explicacion: string}}
+	 */
+	private function nivelarLaFila(object $fila, array $forma, object $user, Carbon $now, ?int $historialId): array
+	{
+		$config = $this->reglaValidaDelAnio((int) $fila->year_id);
+
+		$yaNivelada = $fila->nota_original !== null;
+		$original   = $forma['original'] ?? ($yaNivelada ? (int) $fila->nota_original : (int) $fila->nota);
+		$nivelacion = $forma['nivelacion'] ?? (int) $fila->nota_nivelacion;
+		$vigente    = (int) $fila->nota;
+
+		$aplicada = \App\Services\Nivelacion::aplicar($config['regla'], $original, $nivelacion, $config['nota_minima']);
+		$nueva    = $aplicada['nota'];
+
+		// El acta se reescribe cuando llega una nivelación (primera o sustituta);
+		// una corrección sola de la original la deja como estaba.
+		$esCorreccionSola = $forma['nivelacion'] === null;
+
+		$niveladaAt  = $esCorreccionSola ? $fila->nivelada_at : ($forma['fecha'] ?? $now->format('Y-m-d H:i:s'));
+		$niveladaPor = $esCorreccionSola ? $fila->nivelada_por : $user->user_id;
+		$obs         = $esCorreccionSola ? $fila->nivelacion_obs : $forma['obs'];
+
+		DB::update(
+			'UPDATE notas SET nota=?, nota_original=?, nota_nivelacion=?, nivelada_at=?, nivelada_por=?,
+				nivelacion_obs=?, updated_by=?, updated_at=? WHERE id=?',
+			[$nueva, $original, $nivelacion, $niveladaAt, $niveladaPor, $obs, $user->user_id, $now, $fila->id]
+		);
+
+		// El rastro viejo, **idéntico al de `putUpdate`**: es lo que lee el
+		// historial de la app, y una nivelación no puede dejar un rastro distinto
+		// del que deja teclear la nota.
+		$this->bitacoraDeNota($fila, $vigente, $nueva, $user, $now, $historialId);
+
+		$alumno = $fila->alumno_id === null ? null : (int) $fila->alumno_id;
+
+		$linea = Auditoria::registrar();
+
+		if ($esCorreccionSola) {
+			$linea->editar('nota', (int) $fila->id)
+				->de((int) $fila->nota_original)
+				->a($original)
+				->resumen('Valoración inicial corregida '.$fila->nota_original.' → '.$original
+					.'; queda '.$nueva.' por regla '.$config['regla'].'.');
+		} else {
+			$linea->nivelar('nota', (int) $fila->id)
+				->de($vigente)
+				->a($nueva)
+				->resumen(($yaNivelada ? 'Nivelación sustituida' : 'Nivelación').': '.$nivelacion
+					.' sobre '.$original.', regla '.$config['regla'].'; queda '.$nueva.'.');
+		}
+
+		$linea->deAlumno($alumno, NombreDelAlumno::de($alumno))
+			->en(asignatura: (int) $fila->asignatura_id, periodo: (int) $fila->periodo_id)
+			->guardar();
+
+		return [
+			'regla_aplicada' => [
+				'regla' => $config['regla'],
+				'nota_minima' => $config['nota_minima'],
+				'explicacion' => $aplicada['explicacion'],
+			],
+		];
+	}
+
+	/** La línea de `bitacoras` que dejan `putUpdate` y `putLote`, para que el historial de la app la lea igual. */
+	private function bitacoraDeNota(object $fila, int $vieja, int $nueva, object $user, Carbon $now, ?int $historialId): void
+	{
+		DB::insert(
+			'INSERT INTO bitacoras (created_by, historial_id, affected_user_id, affected_person_type,
+				affected_element_type, affected_element_id, affected_element_new_value_int,
+				affected_element_old_value_int, created_at)
+			 VALUES (?, ?, ?, "Al", "Nota", ?, ?, ?, ?)',
+			[$user->user_id, $historialId, $fila->alumno_id, $fila->id, $nueva, $vieja, $now]
+		);
+	}
+
+	/** El ingreso del token (fase 2 de 18-auditoria.md), o `null` si el token es anterior. */
+	private function historialDelToken(object $user): ?int
+	{
+		return isset($user->historial_id) && is_numeric($user->historial_id) ? (int) $user->historial_id : null;
+	}
+
+	/**
+	 * La respuesta de la §1.2, leída **de la tabla y no de lo calculado**: lo que
+	 * se devuelve es lo que quedó escrito. `regla_aplicada` es `null` en el
+	 * `DELETE`; `definitiva` no viaja en los elementos del lote, que la llevan una
+	 * vez por alumno en `definitivas`.
+	 *
+	 * @param  array{regla: string, nota_minima: int, explicacion: string}|null  $reglaAplicada
+	 * @param  array<string, mixed>|null  $definitiva
+	 * @return array<string, mixed>
+	 */
+	private function notaNivelada(int $id, ?array $reglaAplicada, ?array $definitiva, bool $conDefinitiva = true): array
+	{
+		$n = DB::selectOne(
+			'SELECT n.id, n.alumno_id, n.subunidad_id, n.nota, n.nota_original, n.nota_nivelacion,
+					n.nivelada_at, n.nivelada_por, us.username AS nivelada_por_username,
+					n.nivelacion_obs, n.updated_at
+			   FROM notas n
+			   LEFT JOIN users us ON us.id = n.nivelada_por
+			  WHERE n.id = ?',
+			[$id]
+		);
+
+		$entero = fn ($v) => $v === null ? null : (int) $v;
+
+		$respuesta = [
+			'id' => (int) $n->id,
+			'alumno_id' => $entero($n->alumno_id),
+			'subunidad_id' => $entero($n->subunidad_id),
+			'nota' => (int) $n->nota,
+			'nota_original' => $entero($n->nota_original),
+			'nota_nivelacion' => $entero($n->nota_nivelacion),
+			'nivelada_at' => $n->nivelada_at,
+			'nivelada_por' => $entero($n->nivelada_por),
+			'nivelada_por_username' => $n->nivelada_por_username,
+			'nivelacion_obs' => $n->nivelacion_obs,
+			'updated_at' => $n->updated_at,
+			'regla_aplicada' => $reglaAplicada,
+		];
+
+		if ($conDefinitiva) {
+			$respuesta['definitiva'] = $definitiva;
+		}
+
+		return $respuesta;
 	}
 
 }

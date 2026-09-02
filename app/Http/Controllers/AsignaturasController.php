@@ -70,7 +70,12 @@ class AsignaturasController extends Controller {
 		$unidades 	= DB::select($cons_unidades, [Request::input('asignatura_id')]);
 		$cant 			= count($unidades);
 
-		$cons_subunidades 	= 'SELECT * FROM subunidades WHERE unidad_id=? and deleted_at is null order by orden, id';
+		// Las diecisiete columnas de `subunidades` nombradas, y NO `*`: la columna
+		// `rubrica_id` (2026_09_03_100000_rubricas) saldría sola en esta respuesta
+		// el día que corra la migración, con este código y sin que nadie lo decidiera.
+		// Es la familia del 27 §4, aquí por `subunidades` en vez de por
+		// `notas_finales`. La rúbrica de una subunidad se pide a `rubricas/`.
+		$cons_subunidades 	= 'SELECT id, definicion, porcentaje, unidad_id, nota_default, obligatoria, orden, por_defecto, inicia_at, finaliza_at, actividad_id, created_by, updated_by, deleted_by, deleted_at, created_at, updated_at FROM subunidades WHERE unidad_id=? and deleted_at is null order by orden, id';
 		$cons_notas 		= 'SELECT count(id) as cantidad FROM notas WHERE subunidad_id=? and deleted_at is null';
 		$cantidad_notas 	= 0;
 

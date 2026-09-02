@@ -33,6 +33,7 @@
     "profes_pueden_editar_notas": "int",
     "profes_pueden_nivelar": "int",
     "puestos_alfabeticamente": "int",
+    "regla_nivelacion": "string",
     "roles": [
         {
             "created_at": "string",

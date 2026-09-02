@@ -30,6 +30,15 @@ use Illuminate\Support\Facades\DB;
  * @property ?string $updated_at
  * --- fin de las columnas generadas ---
  *
+ * Y las tres del acta de nivelación de la definitiva, por migración
+ * (`2026_09_02_100000_nivelaciones_columnas`): `recuperada` conserva su
+ * significado y `$nota_original` dice de dónde venía. `DECIMAL`, así que cadena
+ * por PDO, como `$nota` (ver abajo).
+ *
+ * @property ?string $nota_original
+ * @property ?string $nivelada_at
+ * @property ?int $nivelada_por
+ *
  * > **`$nota` ya NO es un `int`, y el bloque de arriba no puede saberlo.**
  * > `2026_08_30_200000_notas_finales_en_decimal` la pasó a `DECIMAL(7,4)`, y PDO
  * > devuelve un `DECIMAL` como **cadena** (`"43.7500"`). El bloque se genera desde

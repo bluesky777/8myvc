@@ -26,6 +26,7 @@ use App\User;
  * @property ?string $inicia_at
  * @property ?string $finaliza_at
  * @property ?int $actividad_id
+ * @property ?int $rubrica_id  ← a mano: la añade 2026_09_03_100000_rubricas y no está en el volcado (26 §4.7)
  * @property ?int $created_by
  * @property ?int $updated_by
  * @property ?int $deleted_by
@@ -88,10 +89,29 @@ class Subunidad extends Model {
 	
 
 
+	/**
+	 * El indicador con su nota **y su par de nivelación** — A10, 27 §2.1.
+	 *
+	 * Las cuatro columnas de nivelación se nombran aquí y no en cada informe porque
+	 * de esta consulta cuelgan los dos que tienen que imprimir el par: el boletín
+	 * tipo 1 y 5 (`Informes/BoletinesController:349`) y las notas actuales del alumno
+	 * (`NotasActualesAlumnosController:190`), que es la pantalla del acudiente y la
+	 * que el art. 16 del 1290 tiene en mente.
+	 *
+	 * **La celda está nivelada ⇔ `nota_original !== null`**, igual que en
+	 * `notas/detailed` (22 §3.1). No hay bandera aparte: sería un segundo sitio donde
+	 * mentir. `nota` sigue siendo **la vigente** —la que ya se imprimía— así que un
+	 * front que no lea las nuevas imprime exactamente lo de antes (plan §3.2).
+	 *
+	 * `nota_nivelacion` viaja además de `nota_original` porque con la regla `topada`
+	 * las dos son distintas de `nota`: el alumno sacó 90 en la nivelación y le queda
+	 * 70, y un boletín que sólo enseñara `55 → 70` escondería lo que hizo.
+	 */
 	public static function deUnidadCalculada($alumno_id, $unidad_id, $year_id)
 	{
 		$consulta = 'SELECT n.id as nota_id, s.id as subunidad_id, s.definicion as definicion_subunidad, s.porcentaje as porcentaje_subunidad,
 						s.nota_default, s.orden as orden_subunidad, s.inicia_at, s.finaliza_at, ROUND((n.nota*s.porcentaje/100), 1) as valor_nota, n.nota, e.desempenio, 
+						n.nota_original, n.nota_nivelacion, n.nivelada_at, n.nivelacion_obs,
 						s.definicion, s.porcentaje, e.desempenio, IF(n.nota<:min_aceptada, "nota-perdida-bold", "") as clase_perdida, n.nota
 					FROM subunidades s
 					left join notas n ON n.subunidad_id=s.id and n.deleted_at is null and n.alumno_id=:alumno_id

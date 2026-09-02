@@ -29,6 +29,7 @@
     ],
     "persona_id": "int",
     "prematr_antiguos": "int",
+    "regla_nivelacion": "string",
     "roles": [
         {
             "created_at": "string",

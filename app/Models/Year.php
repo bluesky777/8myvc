@@ -80,6 +80,13 @@ use App\Models\Periodo;
  * @property ?string $updated_at
  * --- fin de las columnas generadas ---
  *
+ * Y la regla de nivelación del año, por migración
+ * (`2026_09_02_100000_nivelaciones_columnas`): `topada` | `mayor` | `reemplaza`,
+ * se aplica **al escribir** la nivelación (22 §1.4) y se copia al año siguiente
+ * en `YearsController::postStore`.
+ *
+ * @property string $regla_nivelacion
+ *
  * Y los atributos que NO son columnas: el código se los cuelga al modelo en
  * tiempo de ejecución para armar la respuesta, que es un patrón repetido por
  * todo el proyecto. Eloquent los guarda entre los atributos y salen en el JSON,

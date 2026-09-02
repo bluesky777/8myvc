@@ -1316,7 +1316,17 @@ class ChangeAskedController extends Controller {
 			$ids_unidad = array_map(fn ($u) => $u->id, $unidades);
 			$marcas_unidad = implode(',', array_fill(0, count($ids_unidad), '?'));
 
-			$subunidades = DB::select('SELECT * FROM subunidades WHERE unidad_id IN ('. $marcas_unidad .') and deleted_at is null ORDER BY unidad_id, id', $ids_unidad);
+			// **Las diecisiete columnas de `subunidades` nombradas, y NO `*`**, por lo mismo
+			// que las de `unidades` cuatro líneas más arriba y con la columna de otro plan:
+			// `subunidades.rubrica_id` (`2026_09_03_100000_rubricas`) entraría sola en esta
+			// respuesta el día que corra la migración, con este código y sin que nadie lo
+			// decidiera. Es la familia del 27 §4.
+			//
+			// Y este sitio parece muerto y NO lo está: `asignaturas_dia` es privado, pero lo
+			// llaman las ramas de `getToMe`, que está enrutado en `GET ChangesAsked/to-me` y
+			// devuelve esto dentro de `horario_hoy` y `horario_manana`. Se comprobó antes de
+			// tocarlo, al revés que `CertificadosPersonaController::detailedNotasGrupo`.
+			$subunidades = DB::select('SELECT id, definicion, porcentaje, unidad_id, nota_default, obligatoria, orden, por_defecto, inicia_at, finaliza_at, actividad_id, created_by, updated_by, deleted_by, deleted_at, created_at, updated_at FROM subunidades WHERE unidad_id IN ('. $marcas_unidad .') and deleted_at is null ORDER BY unidad_id, id', $ids_unidad);
 
 			foreach ($subunidades as $subunidad) {
 				$subunidades_por_unidad[$subunidad->unidad_id][] = $subunidad;

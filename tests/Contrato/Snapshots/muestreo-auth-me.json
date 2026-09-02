@@ -30,6 +30,7 @@
     "profes_pueden_nivelar": "int",
     "profesor_id": "null",
     "puestos_alfabeticamente": "int",
+    "regla_nivelacion": "string",
     "roles": [
         {
             "created_at": "string",

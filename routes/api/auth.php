@@ -69,5 +69,9 @@ Route::post('login/ver-pass', [LoginController::class, 'postRecuperarClave'])->w
 // públicas —autentican— pero el guard de token las cerraría igual, y el lector
 // se quedaría sin poder entrar.
 Route::post('tardanzas/login', [TLoginController::class, 'postIndex'])->withoutMiddleware('auth.token')->middleware('throttle:login');
-Route::post('tardanzas/login/traer-datos', [TLoginController::class, 'postTraerDatos'])->withoutMiddleware('auth.token');
+// `tardanzas/login/traer-datos` se retiró el 2 sep 2026 por decisión de Joseth: su
+// único llamante en toda la máquina era un quiosco AngularJS parado desde febrero de
+// 2020, y él confirmó que ese repositorio está inactivo. El porqué completo, en
+// `TLoginController`, donde estaba el método. `traer-datos-ausencias` sigue: es otra
+// decisión suya y todavía no la ha tomado.
 Route::post('tardanzas/login/traer-datos-ausencias', [TLoginController::class, 'postTraerDatosAusencias'])->withoutMiddleware('auth.token');

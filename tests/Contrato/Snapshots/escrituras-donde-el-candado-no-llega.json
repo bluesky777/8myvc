@@ -2,7 +2,6 @@
     "DELETE api/enfermeria/destroy/{id}",
     "POST api/enfermeria/crear-suceso",
     "POST api/tardanzas/login",
-    "POST api/tardanzas/login/traer-datos",
     "POST api/tardanzas/login/traer-datos-ausencias",
     "POST api/tardanzas/subir",
     "PUT api/aplicacion-descargas/detailed",
