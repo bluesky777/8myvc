@@ -411,6 +411,11 @@ mantiene **paridad** con eso en vez de estrenar una regla de alcance por su cuen
 Ponerla aquí y no en `notas/update` daría un sistema donde la rúbrica te dice que no y la
 planilla te dice que sí. Es decisión de Joseth, y es del dominio de notas, no de éste.
 
+**La tarea C9 del reparto queda absorbida aquí** (aprobado por el coordinador el 2 sep
+2026): la columna `momento` nace en C2 y los dos endpoints de valorar la aceptan desde el
+primer día. Lo que queda de C9 es sólo la mitad del front —distinguir en pantalla la
+valoración original de la de nivelación—, y no se busque como pendiente del backend.
+
 **Tampoco pasa por `App\Services\Auditoria`.** La fase 4 del 18 no ha llegado a notas, y
 lo que importa académicamente —el cambio de `notas.nota`— lo audita `notas/update` como
 hasta hoy. Añadir `rubrica` al vocabulario cerrado de entidades es una línea el día que se
