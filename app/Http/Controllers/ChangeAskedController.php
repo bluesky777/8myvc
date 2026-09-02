@@ -1258,6 +1258,17 @@ class ChangeAskedController extends Controller {
 			
 			foreach ($unidades as $unidad) {
 
+				// **Las diecisiete columnas de `subunidades` nombradas, y NO `*`**: la
+				// columna `rubrica_id` (2026_09_03_100000_rubricas) saldría sola en esta
+				// respuesta el día que corra la migración, con este código y sin que nadie
+				// lo decidiera. Es la familia del 27 §4, aquí por `subunidades` en vez de
+				// por `notas_finales`.
+				//
+				// Y este sitio parece muerto y NO lo está: `asignaturas_dia` es privado,
+				// pero lo llaman las ramas de `getToMe`, que está enrutado en
+				// `GET ChangesAsked/to-me` y devuelve esto dentro de `horario_hoy` y
+				// `horario_manana`. Se comprobó antes de tocarlo, al revés que
+				// `CertificadosPersonaController::detailedNotasGrupo`, que sí lo está.
 				$subunidades 			= DB::select('SELECT id, definicion, porcentaje, unidad_id, nota_default, obligatoria, orden, por_defecto, inicia_at, finaliza_at, actividad_id, created_by, updated_by, deleted_by, deleted_at, created_at, updated_at FROM subunidades WHERE unidad_id=? and deleted_at is null', [$unidad->id]);
 				$unidad->subunidades 	= $subunidades;
 	
