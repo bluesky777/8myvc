@@ -126,8 +126,14 @@ const ESCRITOS_EN_UTC = [
  * nadie lo mire.
  */
 const ESCRITOS_EN_BOGOTA = [
-    'Nota' => 'NotasController::putUpdate y ::putLote',
-    'NF_UPDATE' => 'DefinitivasPeriodosController:226',
+    // `Nota` y `NF_UPDATE` los escriben ahora **cinco** métodos, no tres: desde el
+    // 2 sep 2026 también los tres de nivelar un indicador —por
+    // `NotasController::bitacoraDeNota`— y `DefinitivasPeriodosController::putNivelar`.
+    // Reutilizan el tipo a propósito: dos pantallas del front buscan el historial de
+    // una nota por tipo, y una nivelación con tipo nuevo desaparecería de ahí. Ver
+    // docs/migracion/22-nivelaciones.md §1.7.
+    'Nota' => 'NotasController::putUpdate, ::putLote y los tres de nivelar (::bitacoraDeNota)',
+    'NF_UPDATE' => 'DefinitivasPeriodosController::putUpdate y ::putNivelar',
     'RF_UPDATE' => 'DefinitivasPeriodosController:329',
     'Nueva subunidad' => 'SubunidadesController:68',
     'YEAR CONFIGURACION' => 'YearsController:359',
