@@ -1258,7 +1258,7 @@ class ChangeAskedController extends Controller {
 			
 			foreach ($unidades as $unidad) {
 
-				$subunidades 			= DB::select('SELECT * FROM subunidades WHERE unidad_id=? and deleted_at is null', [$unidad->id]);
+				$subunidades 			= DB::select('SELECT id, definicion, porcentaje, unidad_id, nota_default, obligatoria, orden, por_defecto, inicia_at, finaliza_at, actividad_id, created_by, updated_by, deleted_by, deleted_at, created_at, updated_at FROM subunidades WHERE unidad_id=? and deleted_at is null', [$unidad->id]);
 				$unidad->subunidades 	= $subunidades;
 	
 			}
