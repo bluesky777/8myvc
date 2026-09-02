@@ -646,6 +646,44 @@ class DefinitivasPeriodosController extends Controller {
 	}
 
 	/**
+	 * La observación y la fecha del acta de una recuperación del año, validadas.
+	 *
+	 * Las dos opcionales: sin ellas, la fecha es la del servidor y la observación
+	 * queda `null`. Es lo que hace que el cliente de hoy —que manda sólo
+	 * `{rf_id, nota}`— siga funcionando exactamente igual.
+	 *
+	 * @return array{fecha: string, observacion: ?string}
+	 */
+	private function actaDeLaRecuperacion(Carbon $now): array
+	{
+		$observacion = Request::input('observacion');
+
+		if ($observacion !== null && ! is_string($observacion)) {
+			abort(422, 'La observación tiene que ser texto.');
+		}
+
+		$observacion = $observacion === null || trim($observacion) === '' ? null : trim($observacion);
+
+		if ($observacion !== null && mb_strlen($observacion) > 255) {
+			abort(422, 'La observación no puede pasar de 255 caracteres.');
+		}
+
+		$fecha = Request::input('fecha');
+
+		if ($fecha === null || $fecha === '') {
+			return ['fecha' => $now->format('Y-m-d H:i:s'), 'observacion' => $observacion];
+		}
+
+		$leida = $this->fechaDelActa($fecha);
+
+		if ($leida === null) {
+			abort(422, 'La fecha de la nivelación no es válida.');
+		}
+
+		return ['fecha' => $leida, 'observacion' => $observacion];
+	}
+
+	/**
 	 * La fila como la devuelve el endpoint: **leída de la tabla**, no de lo
 	 * calculado, por la misma razón que en el lote de notas — lo que se devuelve
 	 * tiene que ser lo que quedó escrito.
@@ -741,8 +779,26 @@ class DefinitivasPeriodosController extends Controller {
 			$bit_new 	= Request::input('nota'); 	// Guardo la nota nueva
 
 			
-			$consulta 	= 'UPDATE recuperacion_final SET nota=?, updated_by=?, updated_at=? WHERE id=?';
-			DB::update($consulta, [ Request::input('nota'), $user->user_id, $now, $rf_id ]);
+			// **A9: el acta, en la misma escritura** (22 §9). Esta tabla ya guardaba
+			// la nota de la recuperación aparte —es el único sitio del proyecto que
+			// lo hacía bien— y lo que le faltaba era **cuándo, quién y con qué**: el
+			// art. 16 del 1290 pide las novedades académicas, y una novedad sin
+			// fecha ni responsable no es una novedad.
+			//
+			// **Aquí la fila ENTERA es la recuperación**, así que cada escritura es
+			// el acta: no hace falta un endpoint aparte como en el indicador y la
+			// definitiva, donde la fila existe antes de la nivelación y hay que
+			// distinguir corregir de nivelar.
+			//
+			// `observacion` y `fecha` son **opcionales**: el único cliente que llama
+			// hoy manda `{rf_id, nota}` (`DefinitivasPeriodosCtrl`, medido) y sigue
+			// funcionando igual, con la fecha del servidor y sin observación.
+			$acta = $this->actaDeLaRecuperacion($now);
+
+			$consulta 	= 'UPDATE recuperacion_final SET nota=?, nivelada_at=?, nivelada_por=?, observacion=?,
+							updated_by=?, updated_at=? WHERE id=?';
+			DB::update($consulta, [ Request::input('nota'), $acta['fecha'], $user->user_id, $acta['observacion'],
+				$user->user_id, $now, $rf_id ]);
 			
 			$consulta 	= 'INSERT INTO bitacoras (created_by, historial_id, affected_user_id, affected_person_type, affected_element_type, affected_element_id, affected_element_new_value_int, affected_element_old_value_int, created_at) 
 						VALUES (?, ?, ?, "Al", "RF_UPDATE", ?, ?, ?, ?)';
@@ -772,11 +828,18 @@ class DefinitivasPeriodosController extends Controller {
 		}else{
 
 
-			$consulta = 'INSERT INTO recuperacion_final(alumno_id, asignatura_id, year, nota, updated_by, created_at, updated_at) 
-				VALUES(:alumno_id, :asignatura_id, :year, :nota, :updated_by, :created_at, :updated_at)';
+			// El acta también al crear, y por la misma razón: la recuperación que se
+			// registra hoy es la que alguien tendrá que justificar dentro de dos
+			// años, cuando el acudiente pida la constancia del art. 17.
+			$acta = $this->actaDeLaRecuperacion($now);
+
+			$consulta = 'INSERT INTO recuperacion_final(alumno_id, asignatura_id, year, nota, nivelada_at, nivelada_por, observacion, updated_by, created_at, updated_at) 
+				VALUES(:alumno_id, :asignatura_id, :year, :nota, :nivelada_at, :nivelada_por, :observacion, :updated_by, :created_at, :updated_at)';
 	
 			DB::insert($consulta, [':alumno_id' => Request::input('alumno_id'), ':asignatura_id' => Request::input('asignatura_id'), 
-							':year' => $user->year, ':nota' => Request::input('nota'), ':updated_by' => $user->user_id, ':created_at' => $now, ':updated_at' => $now ]);
+							':year' => $user->year, ':nota' => Request::input('nota'),
+							':nivelada_at' => $acta['fecha'], ':nivelada_por' => $user->user_id, ':observacion' => $acta['observacion'],
+							':updated_by' => $user->user_id, ':created_at' => $now, ':updated_at' => $now ]);
 			
 			$last_id = DB::getPdo()->lastInsertId();
 
@@ -793,7 +856,16 @@ class DefinitivasPeriodosController extends Controller {
 				->a(Request::input('nota'))
 				->guardar();
 
-			return (array)DB::select('SELECT * FROM recuperacion_final WHERE id=?', [$last_id])[0];
+			// **Las diez columnas nombradas y no `SELECT *`**, con las tres del acta
+			// dentro **a propósito** (22 §3.4): la pantalla del año (B8) las pinta.
+			// Nombradas porque este método devuelve la fila al cliente, y con el
+			// asterisco la siguiente columna que entre en esta tabla viajaría sola.
+			return (array) DB::select(
+				'SELECT id, alumno_id, asignatura_id, year, nota, nivelada_at, nivelada_por, observacion,
+						updated_by, created_at, updated_at
+				   FROM recuperacion_final WHERE id=?',
+				[$last_id]
+			)[0];
 		}
 		
 		

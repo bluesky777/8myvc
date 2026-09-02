@@ -574,7 +574,7 @@ reescribe ninguna nivelación anterior** (decisión 6).
 | Qué | Tarea | Forma provisional, por si B llega antes |
 |---|---|---|
 | ~~Nivelar la **definitiva** del periodo~~ | **A8, hecha** | Ya no es provisional: **§8** de este documento |
-| El acta en `recuperacion_final` | A9 | `nivelada_at`, `nivelada_por`, `observacion` **añadidos** a lo que ya devuelve `definitivas_periodos/update-recuperacion`; `year` sigue siendo el número |
+| ~~El acta en `recuperacion_final`~~ | **A9, hecha** | Ya no es provisional: **§9** de este documento |
 | Boletines, constancias, certificados con el par | A10 | se escribe cuando haya qué imprimir |
 
 **Estas tres no son contrato todavía**: son la forma que tendrán si nada las mueve, para que
@@ -662,3 +662,48 @@ Repetir el `PUT` **sustituye** la nivelación y **conserva** `nota_original`, ig
 indicador (§1.3). Lo que **no** tiene todavía es `DELETE`: quitar la nivelación de una
 definitiva es volver a `manual = 0` y dejar que el recálculo mande, y eso es una decisión
 distinta de la del indicador. Se abre cuando B tenga la pantalla y diga si hace falta.
+
+---
+
+## §9 — El acta de la recuperación del año (A9)
+
+**Aquí no hay endpoint nuevo, y es la decisión.** `recuperacion_final` ya guardaba la nota de
+la recuperación **aparte** en vez de pisar la original —es el único sitio del proyecto que lo
+hacía—, así que la fila **entera es** la recuperación: cada escritura es el acta, y no hay un
+«corregir» que distinguir de un «nivelar» como en el indicador y en la definitiva, donde la
+fila existe antes.
+
+Lo que se añade es lo que le faltaba, en `PUT definitivas_periodos/update-recuperacion`, que
+**no cambia de comportamiento**:
+
+| Campo del cuerpo | Obligatorio | Qué hace |
+|---|---|---|
+| `observacion` | no | Con qué actividad se superó. Ausente o vacía = `null` |
+| `fecha` | no | La del acta. Ausente = la del servidor. No puede ser futura |
+
+Y la fila gana tres columnas (`2026_09_02_300000_acta_de_la_recuperacion_final`):
+`nivelada_at`, `nivelada_por` y `observacion`. **`nivelada_por` no es `updated_by`**: aquél
+dice quién la tocó la última vez, y para firmar la constancia del art. 17 hace falta quién la
+registró.
+
+La rama que **crea** devuelve la fila con **las diez columnas nombradas** y las tres del acta
+dentro, a propósito, porque es lo que pinta la pantalla del año (B8):
+
+```json
+{ "id": 771, "alumno_id": 4021, "asignatura_id": 233, "year": 2026, "nota": 40,
+  "nivelada_at": "2026-09-02 11:41:00", "nivelada_por": 17,
+  "observacion": "Plan de mejoramiento de fin de año",
+  "updated_by": 17, "created_at": "…", "updated_at": "…" }
+```
+
+La rama que **edita** sigue devolviendo la cadena `'Cambiada'`, tal cual.
+
+Dos cosas que **no** hace, y las dos son a propósito:
+
+- **No rellena el acta hacia atrás.** Las recuperaciones ya escritas se quedan sin ella;
+  copiar `updated_by`/`updated_at` sería inventar un acta, que es lo que el §6.6 del reparto
+  prohíbe hacer desde `bitacoras`.
+- **`year` sigue siendo el número y no el id.** Es un refactor de permisos ya decidido en
+  `PeriodoDeLaFila::todosLosDelAnio` —de ahí sale que esta escritura exija **todos** los
+  periodos abiertos y no uno— y hay un test que lo fija, porque el cambio es tentador y
+  silencioso.

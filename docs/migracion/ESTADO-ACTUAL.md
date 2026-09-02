@@ -87,7 +87,20 @@ coordina `8myvc-ab`
 > (`2026_09_02_200000`), con el mismo argumento que `notas.nota_nivelacion`. Router en **554**,
 > contado.
 >
-> Siguiente y último de este carril: **A9**, los metadatos de acta en `recuperacion_final`. **A10 ya no es de este carril**: la
+> **A9 hecha el 2 sep: EL CARRIL A ESTÁ TERMINADO** (A10 pasó a `8myvc-f2` con `Informes/**`).
+> El acta de la recuperación del año va **sin endpoint nuevo**, y es la decisión: en esa tabla
+> la fila entera **es** la recuperación, así que cada escritura es el acta. `observacion` y
+> `fecha` son opcionales, el cliente que hoy manda `{rf_id, nota}` sigue igual, y hay un test
+> que fija que **`year` sigue siendo el número y no el id** — el refactor está decidido en
+> `PeriodoDeLaFila` y es tentador de hacer «de paso».
+>
+> **Y una corrección de método que conviene heredar:** cuatro de los siete casos de A9 nacieron
+> `skipped` porque `recuperacion_final` está **vacía en el seed**. Un test saltado no mide nada
+> y se lee como verde. Ahora la fila se **fabrica por la API** —no con un `INSERT` a mano—, así
+> que si el camino de crear se rompiera, esos casos fallarían en vez de saltarse.
+>
+> El router queda en **554** y las cuatro rutas nuevas son de nivelar. Lo que falta del plan es
+> de otros carriles: la impresión (A10, `8myvc-f2`) y el front entero (B). **A10 ya no es de este carril**: la
 > impresión y `Informes/**` pasaron a `8myvc-f2` el 2 sep. Base de tests de esta sesión:
 > `simonbolivar_testing_niv`.
 
