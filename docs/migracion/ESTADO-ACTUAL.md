@@ -241,6 +241,21 @@ coordina `8myvc-ab`
 >    dando por hecho lo contrario, así que **hasta que quite esa exclusión, ningún mensaje de
 >    404 del backend lo ve nadie**.
 >
+> ### La cifra de este carril, con sus coordenadas pegadas
+>
+> **`Tests: 3 failed, 1680 passed (15736 assertions)`, `Duration: 658.65s`** — 2 sep 2026,
+> sobre `niv/backend` **con `main` (`805e08f`) fusionado dentro**, base
+> `simonbolivar_testing_niv`, **un solo proceso** (comprobado con `ps` en el contenedor antes y
+> después). De los tres, **dos son de otro carril** —`BoletinesTest`, por el `SELECT nf.*` de
+> `Informes/BolfinalesController:508`, de `8myvc-f2`— y **el tercero ya está arreglado**:
+> `muestreo-auth-me`, porque `GET auth/me` devuelve el mismo bloque de contexto y también gana
+> `regla_nivelacion`. Eran **seis** instantáneas del contexto y se habían regenerado cinco.
+>
+> **Y ése es el argumento entero de la regla nueva:** las cinco se corrieron por clase, sabiendo
+> cuáles se tocaban, y por eso la sexta no se vio. `MuestreoDeLecturasTest` cubre veinte
+> lecturas; **sólo la corrida completa las mira todas**. Con el arreglo dentro, la cifra de esta
+> rama es **1681 verdes y 2 rojos, los dos ajenos**.
+>
 > **Y la trampa de la noche, que costó 31 rojos falsos:** una corrida de tests cortada por el
 > tiempo de espera del cliente **sigue viva dentro del contenedor**. Lanzar la segunda contra la
 > misma base da deadlocks en `personal_access_tokens` que se leen como fallos del código. Se
