@@ -50,14 +50,34 @@ class HistorialesController extends Controller {
 		$bita = DB::select($consulta, [$nota_id, $nota_id] );
 		
 		
-		$consulta 	= '(SELECT n.*, concat(p.nombres, " ", p.apellidos) as creado_por, u2.username as modificado_por
+		// **Las diez columnas nombradas y no `n.*`**, desde el 2 sep 2026: esta fila
+		// se devuelve en `$res['nota']`, así que con el asterisco las cinco columnas
+		// de la nivelación (`2026_09_02_100000_nivelaciones_columnas`) **ya estaban
+		// viajando por aquí sin que nadie lo hubiera decidido** — y sin que nada lo
+		// dijera, porque esta ruta no tiene instantánea de forma. Lo encontró
+		// `tools/rutas-sin-instantanea.php`, que existe para eso.
+		//
+		// **Congelada** (22 §3.4): esta pantalla contesta «quién cambió esta nota»
+		// leyendo `bitacoras`, y el par original/nivelación se pinta en la planilla y
+		// en el editor, que lo reciben nombrado. El día que el historial quiera
+		// enseñar la nivelación, se añade aquí **con su decisión**, no de rebote.
+		//
+		// El `UNION` conserva sus dos ramas: la primera resuelve el nombre por
+		// `profesores` y la segunda cae al `username` cuando quien creó la nota no es
+		// un profesor. Las columnas tienen que ser **las mismas y en el mismo orden**
+		// en las dos, o MySQL las cruza por posición y el historial enseña una nota
+		// con el id de otra.
+		$columnas = 'n.id, n.nota, n.subunidad_id, n.alumno_id, n.created_by, n.updated_by,
+							n.deleted_by, n.deleted_at, n.created_at, n.updated_at';
+
+		$consulta 	= '(SELECT '.$columnas.', concat(p.nombres, " ", p.apellidos) as creado_por, u2.username as modificado_por
 							FROM notas n 
 							inner join users u on u.id=n.created_by
 							inner join profesores p on p.user_id=u.id
 							left join users u2 on u2.id=n.updated_by
 							where n.id=?)
 						UNION
-						(SELECT n.*, u.username as creado_por, u2.username as modificado_por
+						(SELECT '.$columnas.', u.username as creado_por, u2.username as modificado_por
 							FROM notas n 
 							inner join users u on u.id=n.created_by
 							left join users u2 on u2.id=n.updated_by
@@ -114,7 +134,12 @@ class HistorialesController extends Controller {
 		// false eso es `SQLSTATE[HY093]: Invalid parameter number`: la pantalla «quién
 		// cambió esta definitiva» contestaba **500 a todo el mundo, siempre**. Medido
 		// el 22 ago 2026; ver 05 §73.
-		$consulta 	= 'SELECT n.*, CAST(n.nota AS DOUBLE) AS nota, u2.username as modificado_por
+		// Lo mismo que su gemela de arriba y por lo mismo: esta fila se devuelve, así
+		// que con `n.*` las cinco columnas nuevas de `notas_finales` —tres de
+		// `2026_09_02_100000` y dos de `2026_09_02_200000`— salían solas. Congelada.
+		$consulta 	= 'SELECT n.id, n.alumno_id, n.asignatura_id, n.periodo_id, n.periodo,
+							CAST(n.nota AS DOUBLE) AS nota, n.recuperada, n.manual, n.updated_by,
+							n.created_at, n.updated_at, u2.username as modificado_por
 							FROM notas_finales n 
 							left join users u2 on u2.id=n.updated_by
 							where n.id=?';
