@@ -246,7 +246,6 @@
     "POST api/rubricas": "App\\Http\\Controllers\\RubricasController@postStore",
     "POST api/subunidades": "App\\Http\\Controllers\\SubunidadesController@postIndex",
     "POST api/tardanzas/login": "App\\Http\\Controllers\\Tardanzas\\TLoginController@postIndex",
-    "POST api/tardanzas/login/traer-datos": "App\\Http\\Controllers\\Tardanzas\\TLoginController@postTraerDatos",
     "POST api/tardanzas/login/traer-datos-ausencias": "App\\Http\\Controllers\\Tardanzas\\TLoginController@postTraerDatosAusencias",
     "POST api/tardanzas/subir": "App\\Http\\Controllers\\Tardanzas\\TSubirController@postIndex",
     "POST api/tiposdocumento": "App\\Http\\Controllers\\TipoDocumentoController@store",

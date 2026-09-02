@@ -66,7 +66,6 @@ class AutenticacionTest extends CasoDeContrato
         ['POST',   'login/recuperar-clave'],
         ['POST',   'login/ver-pass'],
         ['POST',   'tardanzas/login'],
-        ['POST',   'tardanzas/login/traer-datos'],
         ['POST',   'tardanzas/login/traer-datos-ausencias'],
         ['POST',   'tardanzas/subir'],
         ['PUT',    'tardanzas/subir/eliminar-ausencia'],

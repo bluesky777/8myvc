@@ -3,7 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 `8myvc` es la API del sistema escolar MyVc: Laravel 13 + PHP 8.4, ~37.000 líneas
-en `app/`, 113 clases de controlador y **564 rutas** (contadas con
+en `app/`, 113 clases de controlador y **563 rutas** (contadas con
 `route:list --json` el 2 sep 2026; el 24 ago el de rutas se movió por primera vez,
 de 539 a 542, con los tres endpoints que pidió `myvc_flutter`, el 28 a 543 con
 `PUT users/mi-docente`, que pidió Joseth para el panel de `app2`, el 31 a 544 con
@@ -13,7 +13,7 @@ boletín independiente —`periodo`, `planilla` y `copiar`— y **548–549** co
 `boletin-independiente/marcados` y `/alumno`, las dos lecturas de la pantalla por
 estudiante que autorizó Joseth ese día, y **550** con `GET colegio/logo`, la
 pública que deja a la pantalla de login pedir el logo del colegio sin token, también
-decidida por Joseth ese día, y el 2 sep a **564** de una vez, con las dos épicas
+decidida por Joseth ese día, y el 2 sep a **563** de una vez, con las dos épicas
 de esa noche: **las cuatro de nivelar** —`PUT`/`DELETE notas/nivelar/{id}`,
 `PUT notas/nivelar/lote` y `PUT definitivas_periodos/nivelar`—, que son **endpoints
 nuevos por diseño**, porque `notas/update` y `notas/lote` no pueden aprender a nivelar:
@@ -22,7 +22,9 @@ un 95 tecleado desde el móvil se guardaría topado
 (`docs/migracion/22-nivelaciones.md`); y **las diez de `rubricas/`**, la familia entera de
 la decisión 4 de Joseth de ese día —la rúbrica produce la nota—, contrato en
 `docs/migracion/26-rubricas.md`. **Ese salto lo trajo una fusión de tres ramas y por eso
-el número se contó entero, no se sumaron los dos tramos** — «el de rutas no se mueve»
+el número se contó entero, no se sumaron los dos tramos** —y contarlo fue lo que lo
+salvó, porque el mismo día **bajó una**: Joseth mandó retirar
+`tardanzas/login/traer-datos`, así que 550 + 4 + 10 − 1 = **563**— «el de rutas no se mueve»
 sigue siendo la
 regla: una ruta nueva es una decisión, no un efecto secundario, y mueve este
 documento y **tres** snapshots, no dos: `rutas.json`, `guards-por-ruta.json` y
@@ -185,14 +187,17 @@ del 05 — el fichero ya se descargaba sin sesión.
 > En cambio `guards-por-ruta.json` **no** se mueve: lista las que llevan guard.
 
 > **Ese número no se cuenta con un `grep`, y aquí está el porqué porque ya costó
-> tres cifras.** Hay **19** rutas sin `auth.token` en `routes/`, y **siete
+> tres cifras.** Hay **18** rutas sin `auth.token` en `routes/`, y **seis
 > contestan 401 igual** porque se defienden dentro del método: **quitarle el guard
-> a una ruta no la hace pública**. Doce es del **resultado** —quién recibe datos sin
+> a una ruta no la hace pública**. (Eran 19 y siete hasta el 2 sep 2026, cuando
+> Joseth mandó retirar `tardanzas/login/traer-datos`: **las dos bajaron y la docena
+> de públicas no se movió**, que es lo que demuestra que aquella contestaba 401.) Doce es del **resultado** —quién recibe datos sin
 > presentar token—, no del mecanismo, y por eso el día que entró la duodécima se
 > **corrió el test** en vez de restar 19 − 7.
 >
 > Este fichero decía **quince**, el docblock del test decía **siete** y `grep` daba
-> **diecinueve** (una era un comentario; hoy da veinte, con la duodécima dentro).
+> **diecinueve** (una era un comentario; hoy da diecinueve otra vez: subió a veinte con
+> la duodécima pública y bajó con la de tardanzas).
 > Ninguno era una cifra que hubiera envejecido: **los tres nacieron mal**, y se
 > demuestra con que las 18 sin guard de aquel día **eran exactamente las mismas
 > cinco días después** — el código no se movió. El

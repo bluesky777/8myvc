@@ -141,10 +141,11 @@ class FamiliasQueNuncaEntranTest extends CasoDeContrato
      * y aquí sí se ve.
      *
      * **Y se cuenta por el VERBO, que no es la operación.** Al menos tres de las
-     * 23 sólo leen: `PUT api/publicaciones/ultimas` es el formulario público de
+     * 22 sólo leen: `PUT api/publicaciones/ultimas` es el formulario público de
      * prematrícula —va por PUT desde 2024 y `RutasPreLoginTest` lo explica—, y
-     * `POST api/tardanzas/login/traer-datos` y `…/traer-datos-ausencias` traen
-     * datos, como dice su nombre. Se quedan dentro **a propósito**: quitarlas a
+     * `POST api/tardanzas/login/traer-datos-ausencias` trae datos, como dice su
+     * nombre —su hermana `…/traer-datos` estaba en esta misma lista hasta que Joseth
+     * la mandó retirar el 2 sep 2026—. Se quedan dentro **a propósito**: quitarlas a
      * mano convertiría un recuento mecánico en una lista curada, y entonces el
      * día que una de ellas empiece a escribir de verdad no lo diría nadie. Lo que
      * hace falta es que esté escrito aquí, no que el número mienta menos.
@@ -173,7 +174,11 @@ class FamiliasQueNuncaEntranTest extends CasoDeContrato
 
         sort($escrituras);
 
-        $this->assertCount(23, $escrituras,
+        // **22 desde el 2 sep 2026, y bajó por la razón buena**: Joseth mandó retirar
+        // `POST tardanzas/login/traer-datos`, así que hay una escritura menos donde el
+        // candado de familia no mira. No subió nadie: se fue una. La familia `tardanzas`
+        // pasa de «0 de 6» a «0 de 5» en el censo por lo mismo.
+        $this->assertCount(22, $escrituras,
             "Cambió cuántas escrituras viven en familias que el candado de familia no mira nunca.\n".
             "Si SUBIÓ, hay una ruta nueva que ningún mecanismo va a preguntar de quién es la fila que toca.\n".
             "Si BAJÓ, alguien puso un guard o la familia llegó a dos hermanas guardadas y entró en el candado: bien, y hay que actualizar el número.\n".

@@ -45,17 +45,21 @@ class RutasPreLoginTest extends CasoDeContrato
      *
      * ## Y esto, antes de «verificarlo» con un `grep` y darlo por roto
      *
-     * **Doce es el numero del RESULTADO, no del mecanismo.** Hay **19** rutas sin
-     * `auth.token` en `routes/`, y **no son 19 publicas**: llamadas sin cabecera,
-     * **siete contestan 401 igual** —`auth/refresh` y las seis de `tardanzas/*`—
+     * **Doce es el numero del RESULTADO, no del mecanismo.** Hay **18** rutas sin
+     * `auth.token` en `routes/`, y **no son 18 publicas**: llamadas sin cabecera,
+     * **seis contestan 401 igual** —`auth/refresh` y las cinco de `tardanzas/*`—
      * porque se defienden en el metodo, donde `User::fromToken()` aborta.
+     *
+     * (Eran 19 y siete hasta el 2 sep 2026, cuando Joseth mando retirar
+     * `tardanzas/login/traer-datos`. **Las dos bajaron y `TOTAL_PUBLICAS` no se movio**,
+     * que es la comprobacion de que la ruta retirada no era publica: contestaba 401.)
      *
      * (Eran once y 18 hasta el 1 sep 2026, cuando `GET colegio/logo` entro por
      * decision de Joseth. Las dos cifras se mueven juntas o uno de los dos numeros
      * empieza a mentir.)
      *
      * **Quitarle el guard a una ruta no la hace publica.** Asi que **ningun `grep`
-     * puede dar este numero**, ni el que cuenta 20 ni el que cuenta 19 bien: miden
+     * puede dar este numero**, ni el que cuenta 19 ni el que cuenta 18 bien: miden
      * el mecanismo, y la pregunta es sobre el resultado. Si alguien encuentra 18 y
      * cree haber pillado un error, esto es lo que tiene que leer antes.
      *

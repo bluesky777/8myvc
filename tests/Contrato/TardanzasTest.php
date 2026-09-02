@@ -73,9 +73,10 @@ class TardanzasTest extends CasoDeContrato
      */
     public function test_un_alumno_o_un_acudiente_no_entra_al_lector(): void
     {
+        // `tardanzas/login/traer-datos` se retiró el 2 sep 2026 (decisión de Joseth,
+        // ver `TLoginController`). Las otras dos siguen y este test con ellas.
         $rutas = [
             'tardanzas/login',
-            'tardanzas/login/traer-datos',
             'tardanzas/login/traer-datos-ausencias',
         ];
 
@@ -165,7 +166,7 @@ class TardanzasTest extends CasoDeContrato
             $this->assertStringStartsWith('$2', (string) $hash,
                 'Si la columna dejara de ser bcrypt, este test pasaría sin comprobar nada.');
 
-            foreach (['tardanzas/login', 'tardanzas/login/traer-datos'] as $ruta) {
+            foreach (['tardanzas/login', 'tardanzas/login/traer-datos-ausencias'] as $ruta) {
                 $respuesta = $this->postJson('/api/'.$ruta, $this->credencialesDe($tipo))
                     ->assertStatus(200)
                     ->json();
