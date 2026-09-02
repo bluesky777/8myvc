@@ -42,6 +42,18 @@ use Illuminate\Support\Facades\Schema;
  * `2026_09_02_100000_nivelaciones_columnas`. `years` es una fila por año: aquí no
  * hay ventana que medir.
  *
+ * ## Y esta migración NO se puede sacar sola: exige la de nivelación de la tanda
+ *
+ * La columna entra con `->after('regla_nivelacion')`, y `ADD COLUMN … AFTER x` con una
+ * `x` que no existe **falla**. `regla_nivelacion` la añade
+ * `2026_09_02_100000_nivelaciones_columnas`, o sea otra migración de esta misma tanda.
+ * Con `php artisan migrate` no hay riesgo —corre las pendientes en orden y aquélla va
+ * antes—, pero **no hay camino «sólo horario»**: quien intente sacar este módulo a un
+ * colegio sin pasar la tanda entera se lleva un error de columna desconocida, no una
+ * migración aditiva que no hace nada. Queda escrito aquí porque «migración aditiva» se
+ * lee como «se puede sacar cuando sea», y ése es justo el atajo que alguien intenta
+ * cuando quiere desplegar una cosa sola. Lo levantó `8myvc-23` el 2 sep 2026.
+ *
  * ## Por qué el puntero NO se copia al año siguiente
  *
  * `YearsController::postStore` crea el año nuevo copiando el anterior columna a
