@@ -177,9 +177,28 @@ Es el hallazgo que no estaba en la pregunta y hay que decirlo antes de que muerd
   `notas/detailed` que el 24 ago cazó `8myvc-9e` (comentario en `NotasController:52–71`).
   Si esos dos tienen snapshot de forma, **se ponen rojos con A3 y no con A10**; si no lo
   tienen, el campo viaja sin que nadie lo haya decidido.
-- **`Nota::alumnoPeriodoDetalle`** (`Nota.php:367` y `:385`) hace `SELECT * FROM notas`: las
-  columnas de A3 en `notas` llegan igual a `notas/detailed` — que es lo que A7 quiere, pero
-  A7 tiene que **saber que ya llegan** y no añadirlas dos veces.
+- **`Nota::alumnoPeriodoDetalle`** (`Nota.php:367` y `:385`) hace `SELECT * FROM notas`, así
+  que las columnas de A3 llegan solas **a la ficha del alumno y a promovidos**, que son quien
+  la llama (`NotasController:435` en `putAlumnoPeriodoGrupo`, y `Nota.php:272`).
+  **NO a `notas/detailed`**, que ya nombraba sus columnas una a una: **A7 sí tiene que
+  añadirlas explícitamente allí**, y si no lo hace, la planilla de B se queda sin los seis
+  campos sin que falle nada.
+
+  > La primera versión de este documento decía lo contrario —«A7 las recibe gratis»— y lo
+  > corrigió A el 2 sep 2026 leyendo el controlador. Se deja escrito el error porque es la
+  > **segunda** vez en la misma noche que una afirmación plausible sobre `detailed` manda a
+  > alguien por el camino equivocado: la otra fue un comentario de `app.routes.ts` que dio
+  > por hecho que ese endpoint «filtra por profesor y con 0 responde 200 con cero alumnos».
+  > Las dos veces la afirmación era razonable y las dos veces bastaba abrir el método.
+  > **De este endpoint no se afirma nada sin leer `putDetailed`.**
+
+- **`NotasController:103`** hace `SELECT * FROM subunidades` y cuelga las filas de
+  `$unidad->subunidades`, que viaja al cliente. Es la misma fuga por otra tabla, y la
+  disparó **la columna `subunidades.rubrica_id` del carril C**: `NotasTest::la forma de la
+  rejilla del profesor` se pone rojo con `'rubrica_id' => 'null'` de más. **El fichero es de
+  la sesión A**, así que se pide y no se edita. Lo mismo hacen `AsignaturasController:73`,
+  `UnidadesController:50` y `:516` y `ChangeAskedController:1261`, que habría que mirar uno
+  a uno antes de integrar rúbricas.
 - **`:359` y `:163`** hacen `SELECT r.*` de `recuperacion_final`: lo mismo con los metadatos
   de acta de A9.
 - `Asignatura.php:98` y `:145`, `Unidad.php:309`: `SELECT * FROM notas` en los cálculos de
@@ -188,6 +207,39 @@ Es el hallazgo que no estaba en la pregunta y hay que decirlo antes de que muerd
 **Para A:** esto vale por una línea en su lista de A3 — «correr los snapshots de boletín
 final y certificado después de migrar, y leer qué campos nuevos aparecen». **Para A10:** el
 trabajo en el boletín final y el certificado **no es la consulta, es el uso**.
+
+### 4.1 · Hecho: las cuatro consultas nombran sus columnas
+
+El 2 sep 2026, y **antes que A10 a propósito**: el momento del riesgo no es cuando se
+escriba la impresión del par, es **cuando corra la migración en ese colegio**, con el código
+de hoy. Entre A3 desplegada y A10 escrita hay semanas, y en esa ventana el boletín final
+mandaba tres columnas que nadie decidió enseñar.
+
+| Consulta | Antes | Ahora |
+|---|---|---|
+| `Informes/BolfinalesController` · definitivas del periodo | `SELECT nf.*` | las **once** de `notas_finales`, nombradas |
+| `Informes/BolfinalesController` · recuperaciones del año | `SELECT r.*` | las **ocho** de `recuperacion_final` |
+| `CertificadosPersonaController` · las dos mismas | ídem | ídem |
+
+**La respuesta no cambia ni un campo**, y hay una razón concreta: con `nf.*` la columna
+`nota` viajaba **dos veces** —la cruda y la casteada a DOUBLE— y en PDO gana la última, que
+es la casteada. La lista nombrada no la repite y el valor es el mismo.
+
+Lo fija `tests/Contrato/BoletinFinalSinAsteriscoTest`, que mira **las claves que llegan al
+cliente** y no el SQL: un test que buscara el asterisco en el fichero se pondría rojo por el
+comentario que lo cita al lado. Dos cosas que ese test tuvo que resolver y quedan escritas
+porque se repetirán:
+
+- **la recuperación se inserta.** `recuperacion_final` está vacía en el seed y los snapshots
+  del boletín final guardan `"recuperaciones": []`, así que la mitad del asterisco **no la
+  miraba nadie**: un test que se fiara del seed daba verde con el asterisco puesto;
+- **los periodos de relleno se saltan.** `:568` empuja filas ficticias
+  (`periodo_id: -1`, sin `id`) para cuadrar la tabla del papel; exigirles las once columnas
+  sería rojo por una fila que no viene de la tabla.
+
+`CertificadosPersonaController` **se cambió igual y no tiene test**, y es deliberado: su
+`detailedNotasGrupo` no lo alcanza nadie (05 §211 y §218), así que un test que lo diera por
+vivo mentiría sobre qué llega a un cliente.
 
 ## §5 — El plan de A10, tal como queda después de mirar
 
