@@ -677,6 +677,15 @@ No es un fallo del horario, es un dato del colegio que hoy no lo enseña nadie �
 encaja con la §2: las dos únicas filas con día marcado en las 134 son de Transición y
 las dos tienen `profesor_id` nulo.
 
+**Y hay una segunda consecuencia que no se ve mirando sólo a Transición: preescolar sin
+docentes impide comprobar el resto.** Lo midió el front el 2 sep: mientras Jardín y
+Transición dejan sucio el nivel 1, **el nivel 2 —el emparejamiento, la condición de
+Hall— no se ejecuta nunca**, porque no tiene sentido buscar imposibilidades finas
+mientras hay una gruesa sin resolver. Repartiendo las diez huérfanas a mano *—una
+mentira, y por eso detrás de un interruptor—* el nivel 2 corre por fin contra datos
+reales y el colegio pasa. O sea que esas diez asignaciones no bloquean un grupo:
+**bloquean el diagnóstico de los trece.**
+
 Como script de `tools/` corre sobre los quince y contesta en una tarde en vez de en la
 demo. Si en otro colegio la IH está a medias, se sabe antes de prometer nada.
 
@@ -777,9 +786,25 @@ siguen sin estar.
    mirar por qué una versión salió mal. Se aplica si un proyecto real llega a medir en
    megas.
 
-   > Y las tres cifras de arriba **siguen siendo un suelo**: ese proyecto no lleva
-   > disponibilidades ni colocaciones, que son lo que crece y las pone la rejilla, que
-   > aún no existe.
+   **Y la cota alta ya está medida, así que esto se cierra: el blob va en la fila, sin
+   comprimir.** El front midió el 2 sep 2026 un proyecto con **el horario entero
+   colocado** —17 salones, 134 marcas de disponibilidad sobre 47 docentes, 32
+   asignaciones con bloque de dos y **312 de 313 piezas puestas**—: **128.779 bytes de
+   fichero y 185.997 de cuerpo**, o sea **125,8 y 181,6 KB**. Contra los 64 MB del
+   docker es el **0,28 %**; contra los 4 MB del peor caso plausible, el **4,5 %**.
+
+   > **El factor se afina y crece con el llenado: × 1,45, no × 1,4.** Más colocaciones
+   > son más comillas y más tabuladores dentro de la cadena. Un colegio más grande sube
+   > de aquí **por más filas, no por un factor peor**.
+   >
+   > **Y lo que hace que esa cifra valga no es el bucle que colocó el horario, es lo que
+   > le pusieron detrás.** El pre-vuelo **declara que no mira las colocaciones** —eso es
+   > el nivel 3, que no existe—, así que sobre la legalidad de ese horario no había más
+   > garantía que el propio colocador. *Un colocador que se comprueba a sí mismo no
+   > demuestra nada: si tiene un fallo, lo tiene en las dos mitades.* Por eso hay una
+   > revisión independiente que reconstruye la ocupación **desde las colocaciones
+   > guardadas** —lo que abriría otro programa— y las 312 salen legales. Sin eso sería la
+   > cota alta de un fichero que nadie puede usar.
 3. **¿Existe una ruta para DESCARGAR el proyecto de una versión, y con qué permiso?**
    Sería la **cuarta**, o sea **554**, y no está pedida. Voto del front: el mismo
    permiso que publica, no el que sube (§5.4).
