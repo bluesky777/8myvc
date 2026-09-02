@@ -988,19 +988,56 @@ class NotasController extends Controller {
 		$user 	= User::fromToken();
 		User::pueden_editar_notas($user, PeriodoDeLaFila::deNota($id));
 
+		// `LEFT JOIN` y no `INNER`, y no es estilo: con `INNER` una nota cuya
+		// unidad ya se borró no traía fila, y de ella no quedaba **nada** — ni
+		// recálculo (correcto: no hay par que recalcular) ni rastro (incorrecto:
+		// la nota existía y alguien la borró). Con `LEFT` la fila viene siempre que
+		// la nota exista, y el par sólo cuando hay unidad viva.
 		$donde = DB::selectOne(
-			'SELECT u.asignatura_id, u.periodo_id, n.alumno_id
+			'SELECT n.nota, n.alumno_id, n.subunidad_id, u.asignatura_id, u.periodo_id
 			   FROM notas n
-			   INNER JOIN subunidades s ON s.id = n.subunidad_id
-			   INNER JOIN unidades u ON u.id = s.unidad_id
+			   LEFT JOIN subunidades s ON s.id = n.subunidad_id
+			   LEFT JOIN unidades u ON u.id = s.unidad_id
 			  WHERE n.id = ?',
 			[$id]
 		);
 
 		$consulta 	= 'DELETE FROM notas WHERE id=?';
-		DB::delete($consulta, [$id]);
+		$borradas 	= DB::delete($consulta, [$id]);
 
-		if ($donde !== null) {
+		// Éste era **el único escritor de `notas` sin rastro en ninguna de las dos
+		// tablas** —lo dijo `tools/escrituras-sin-auditoria.php` el 2 sep 2026:
+		// `putUpdate` y `putLote` ya auditaban, `deleteDestroy` 1:0—, y es el que
+		// menos puede permitírselo: el borrado es **físico**, así que después de
+		// esta línea no queda fila, ni `deleted_at`, ni bitácora que diga qué
+		// nota había. Sin esto, «¿quién borró la nota de este alumno?» no tenía
+		// respuesta en los quince colegios. Es el A1 del plan de nivelaciones
+		// (22-nivelaciones.md), y también un agujero por sí solo.
+		//
+		// Sólo si el `DELETE` afectó una fila: un id que no existía no es un
+		// borrado, y una línea de auditoría sobre nada es la forma de mentira que
+		// más caro sale en una tabla que se lee años después. Por eso `$donde` se
+		// lee **antes** del `DELETE` —después ya no hay de dónde— y la línea se
+		// escribe **después**, cuando se sabe que ocurrió (18 §4.6).
+		//
+		// Sin `INSERT` en `bitacoras`: el borrado nunca lo escribió ahí, y la
+		// pantalla que lee `bitacoras` busca por el id de una nota que ya no
+		// existe. El rastro nuevo es el único que puede contestar la pregunta.
+		if ($borradas > 0 && $donde !== null) {
+			$alumnoDeLaLinea = $donde->alumno_id === null ? null : (int) $donde->alumno_id;
+
+			Auditoria::registrar()
+				->borrar('nota', (int) $id)
+				->deAlumno($alumnoDeLaLinea, NombreDelAlumno::de($alumnoDeLaLinea))
+				->en(
+					asignatura: $donde->asignatura_id === null ? null : (int) $donde->asignatura_id,
+					periodo: $donde->periodo_id === null ? null : (int) $donde->periodo_id,
+				)
+				->de($donde->nota)
+				->guardar();
+		}
+
+		if ($donde !== null && $donde->asignatura_id !== null) {
 			DefinitivasDeAsignatura::recalcular(
 				(int) $donde->asignatura_id,
 				(int) $donde->periodo_id,

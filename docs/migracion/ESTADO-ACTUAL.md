@@ -30,9 +30,15 @@ coordina `8myvc-ab`
 > los quince. Dos desviaciones del plan, escritas allí: la columna `nota_nivelacion` (bajo
 > `topada` el 90 que queda en 70 desaparecería) y **403** donde el guard viejo contesta 400.
 >
-> Siguiente en este carril: A1 (auditoría de notas: `putUpdate` y `putLote` **ya la
-> escriben**; falta medir `deleteDestroy`, `putSubunidad` y la nota rápida) → A3 migración →
-> A4 la regla en un único sitio → A5 + A6 endpoints y centinela → A7 … A10.
+> **A1 hecha el 2 sep**: `putUpdate` y `putLote` ya auditaban; lo que faltaba era
+> `deleteDestroy`, **el único escritor de `notas` sin rastro en ninguna de las dos tablas**,
+> y con borrado físico — hoy en los quince colegios nadie puede contestar «quién borró esta
+> nota». Instrumentado con dos tests en `AuditoriaDeLosDiezEscritoresTest`; el porqué de
+> dejar `putSubunidad` sin auditar está en el [18](18-auditoria.md), fase 4.
+>
+> Siguiente en este carril: A3 migración → A4 la regla en un único sitio → A5 + A6
+> endpoints y centinela → A7 … A10. Base de tests de esta sesión:
+> `simonbolivar_testing_niv`.
 
 > **Esa cifra va con sus coordenadas pegadas y así se copia o no se copia: medida el 1 sep 2026,
 > desde la raíz, desasida, sobre `1cb7092`** —con los cuatro merges de hoy dentro—. Es la primera
