@@ -35,8 +35,57 @@ tienda y eso es justo lo que no hay.
 > exactamente lo que no se puede hacer: publicar. El porqué entero está en
 > `config/aplicacion-movil.php`, que lo lleva escrito encima de la línea.
 
+### CONTESTADO el 2 sep 2026 por `myvc-flutter-14`: la tanda es INOCUA para la app
+
+Verificado **contra el commit exacto que está en revisión** —`083bedf`, `1.0.0+3`, el último que
+tocó `lib/` antes del envío del 25 ago—, no contra el `main` de hoy, que es otro árbol:
+
+| | |
+|---|---|
+| `POST tardanzas/login/traer-datos` | **no la llama**: cero apariciones en `lib/` |
+| las ocho claves del calendario | **seguro**: `MuroApi.traerMuro` lee tres claves de `to-me` —`horario_hoy`, `publicaciones`, `alumnos`— y **`eventos` no se lee en ningún rol** |
+| campos nuevos | **inocuos**: ni `disallowUnrecognizedKeys`, ni `checkedCreate`, ni iteración de claves; todos los `fromJson` leen por nombre |
+| el 403 de `cambiar-contador-*` | **no las llama**: cero apariciones |
+
+**Así que las dos preguntas que congelaban esto están contestadas que no, y por el lado de la app
+la tanda se puede desplegar.**
+
+### Y LA QUINTA, QUE NO ES DE ESTA TANDA Y HAY QUE MIRARLA IGUAL — HOY
+
+El bloqueo por `version_minima_app` **sí está activo en la versión en revisión**
+(`lib/Utils/VersionMinima.dart`, entró el 24 ago, un día antes del envío). Con `buildNumber = 3`:
+**campo ausente, 0 o negativo no bloquea; un valor ≥ 4 manda TODAS las rutas a la pantalla de
+actualizar**, y no hay nada a lo que actualizar porque el build 3 es lo único que existe.
+
+**Pero esto NO lo trae la tanda, y por eso esperar no protege de ello.** Medido: el rango
+`9474b50..HEAD` **no toca** `VersionMinimaDeLaApp.php`, ni `config/aplicacion-movil.php`, ni
+`.env.example`. El mecanismo se escribió el 24 ago (`1e98e28`) y **está desplegado en los quince
+desde el 31 ago**. O sea que **el riesgo es idéntico se despliegue o no**, y si algún colegio
+tuviera un número ≥ 4 la app **ya estaría bloqueada allí ahora mismo**.
+
+Lo que ship el repo es seguro: `config/aplicacion-movil.php` hace `env('APP_MOVIL_VERSION_MINIMA')`
+**sin valor por defecto** —ausente = campo no enviado— y `.env.example` la trae **vacía**.
+
+**La comprobación, que hay que correr aunque no se despliegue nada** (y sobre todo en `demo`, que
+es donde entra el revisor de Google con un login nuevo):
+
+```bash
+for d in /home/micolev1/*.micolevirtual.com/8myvc; do
+  printf '%-45s %s
+' "$d" "$(grep -E '^APP_MOVIL_VERSION_MINIMA=' "$d/.env" || echo 'ausente')"
+done
+```
+
+**Lo que se espera ver: ausente o vacía en los quince.** Cualquier valor ≥ 4 se borra **hoy**, no
+el día del despliegue.
+
+> **Y no se arregla poniendo «un número bajo».** Un `3` es seguro hoy y es una trampa cargada: el
+> día que se publique el build 4, quien ponga `4` bloquea de golpe a todo el que siga en el 3.
+> Mientras no haya una versión más nueva **en la tienda**, lo correcto es **ausente o 0**.
+
 **Esto se levanta cuando la app salga de revisión**, o antes si las dos preguntas de arriba se
-contestan que no. Lo levanta Joseth, no una sesión.
+contestan que no. Lo levanta Joseth, no una sesión. — **Contestadas que no el 2 sep**; lo que
+queda por decidir ya no es de la app.
 
 ---
 
