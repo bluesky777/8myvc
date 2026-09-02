@@ -64,7 +64,21 @@ coordina `8myvc-ab`
 > **0 a 50**, no 0 a 100. Un caso escrito con 90 y 95 sale **422 por `EscalaDeNotas`** y pasa
 > sin haber medido nada de lo que dice medir.
 >
-> Siguiente en este carril: A7 → A8 → A9. **A10 ya no es de este carril**: la
+> **A7 hecha el 2 sep.** `notas/detailed` devuelve las seis claves de la nivelación en cada
+> celda y las cuatro del acta en la definitiva, **siempre presentes y en `null` cuando no hay
+> nivelación** — una clave que a veces no viene obliga al front a distinguir «vacío» de «no
+> vino». `notas-detailed-profesor.json` se regeneró **a propósito**, y el diff son esas diez y
+> nada más. Dos tests nuevos: uno comprueba que los campos llegan **con valores** tras nivelar
+> (la instantánea sólo prueba que las claves existen, no que se llenen) y otro que las notas
+> **sin** nivelar siguen saliendo, que es lo que se rompería si el `JOIN` con `users` fuera
+> `INNER` en vez de `LEFT`.
+>
+> **La trampa que costó dos vueltas, y está medida en `NotasTest::contexto()` desde el 20 ago:**
+> `Services\Login` **reescribe `users.periodo_id` en cada inicio de sesión**, y `periodos.actual`
+> es el actual **de su año** mientras el año del colegio lo dice `years.actual`. Un test de
+> `notas/detailed` que no pida las dos cosas elige una asignatura de otro año y recibe un 404.
+>
+> Siguiente en este carril: A8 → A9. **A10 ya no es de este carril**: la
 > impresión y `Informes/**` pasaron a `8myvc-f2` el 2 sep. Base de tests de esta sesión:
 > `simonbolivar_testing_niv`.
 

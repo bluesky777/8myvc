@@ -54,6 +54,53 @@ class NivelarUnaNotaTest extends CasoDeContrato
         Nivelacion::olvidar();
     }
 
+    /**
+     * La asignatura del **año y periodo actuales** con su profesor, su rejilla y sus
+     * alumnos: el contexto que `notas/detailed` necesita para contestar 200.
+     *
+     * Calcado de `NotasTest::contexto()`, y el porqué está medido allí:
+     * `Services\Login` **reescribe `users.periodo_id` al periodo actual en cada
+     * inicio de sesión**, así que no vale ponérselo a mano; y `periodos.actual`
+     * marca el actual **de su año**, mientras que el año actual del colegio lo dice
+     * `years.actual` — sin las dos condiciones se elige una asignatura de otro año y
+     * la rejilla contesta 404 o 500.
+     */
+    private function contextoDeLaRejilla(): object
+    {
+        $fila = DB::selectOne('SELECT a.id AS asignatura_id, a.profesor_id, u.username, un.periodo_id, g.year_id
+            FROM asignaturas a
+            INNER JOIN profesores p ON p.id = a.profesor_id AND p.deleted_at IS NULL
+            INNER JOIN users u ON u.id = p.user_id AND u.is_active = 1 AND u.deleted_at IS NULL
+            INNER JOIN grupos g ON g.id = a.grupo_id AND g.deleted_at IS NULL
+            INNER JOIN unidades un ON un.asignatura_id = a.id AND un.deleted_at IS NULL AND un.alumno_id IS NULL
+            INNER JOIN periodos per ON per.id = un.periodo_id AND per.actual = 1
+                AND per.year_id = g.year_id AND per.deleted_at IS NULL
+            INNER JOIN years y ON y.id = g.year_id AND y.actual = 1 AND y.deleted_at IS NULL
+            INNER JOIN subunidades s ON s.unidad_id = un.id AND s.deleted_at IS NULL
+            INNER JOIN matriculas m ON m.grupo_id = a.grupo_id AND m.deleted_at IS NULL
+                AND m.estado IN ("MATR", "ASIS", "PREM")
+            WHERE a.deleted_at IS NULL
+            ORDER BY a.id LIMIT 1');
+
+        $this->assertNotNull($fila, 'El seed necesita una asignatura del año y periodo actuales con rejilla y alumnos.');
+
+        return $fila;
+    }
+
+    /** Todas las celdas de la rejilla, aplanadas. */
+    private function celdasDeLaRejilla(array $json): array
+    {
+        $celdas = [];
+
+        foreach ($json['alumnos'] ?? [] as $alumno) {
+            foreach ($alumno['notas'] ?? [] as $n) {
+                $celdas[] = $n;
+            }
+        }
+
+        return $celdas;
+    }
+
     /** La fila cruda, para mirar lo que quedó escrito y no lo que se devolvió. */
     private function filaDe(int $id): object
     {
@@ -320,6 +367,116 @@ class NivelarUnaNotaTest extends CasoDeContrato
                 $this->ordenadas($definitiva),
                 'La definitiva tiene la forma de `notas-update.json`, para que el front no tenga dos ideas de lo mismo.');
         }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // A7 — los campos nuevos en `notas/detailed`
+    // ─────────────────────────────────────────────────────────────────────
+
+    /**
+     * La planilla trae el par **con valores**, no sólo las claves en `null`.
+     *
+     * La instantánea de la rejilla fija que las seis claves existen; eso no
+     * comprueba que se llenen. Sin este caso, un `SELECT` que devolviera siempre
+     * `null` —un alias mal escrito, un `JOIN` que no case— pasaría el snapshot y la
+     * celda del front nunca pintaría la original tachada.
+     *
+     * `nivelada_por_username` es la que de verdad se puede romper sola: sale de un
+     * `LEFT JOIN` con `users`, y con `INNER` desaparecerían de la planilla **todas
+     * las notas sin nivelar**, que son casi todas.
+     */
+    public function test_la_planilla_trae_el_par_con_valores_despues_de_nivelar(): void
+    {
+        $contexto = $this->contextoDeLaRejilla();
+        $token = $this->tokenDe($contexto->username);
+
+        // La rejilla siembra las notas que falten, así que se pide primero y se
+        // nivela una de las que devuelve: así la celda existe seguro.
+        $primera = $this->withToken($token)->putJson('/api/notas/detailed', [
+            'asignatura_id' => $contexto->asignatura_id,
+            'profesor_id' => $contexto->profesor_id,
+        ]);
+
+        $primera->assertStatus(200);
+
+        $celdas = $this->celdasDeLaRejilla($primera->json());
+
+        $this->assertNotEmpty($celdas, 'La rejilla salió sin notas: el caso no mediría nada.');
+
+        $notaId = (int) $celdas[0]['id'];
+
+        $this->conRegla((int) $contexto->year_id, Nivelacion::TOPADA, 35);
+        DB::update('UPDATE notas SET nota = 28 WHERE id = ?', [$notaId]);
+
+        $this->withToken($token)->putJson('/api/notas/nivelar/'.$notaId,
+            ['nota_nivelacion' => 45, 'observacion' => 'Taller de superación'])->assertStatus(200);
+
+        $r = $this->withToken($token)->putJson('/api/notas/detailed', [
+            'asignatura_id' => $contexto->asignatura_id,
+            'profesor_id' => $contexto->profesor_id,
+        ]);
+
+        $r->assertStatus(200);
+
+        $celda = null;
+
+        foreach ($this->celdasDeLaRejilla($r->json()) as $n) {
+            if ((int) $n['id'] === $notaId) {
+                $celda = $n;
+            }
+        }
+
+        $this->assertNotNull($celda, 'La nota nivelada no salió en la planilla: el caso no mide nada.');
+
+        $this->assertEquals(35, $celda['nota'], 'La vigente es la que la regla dejó.');
+        $this->assertEquals(28, $celda['nota_original'], 'Sin la original, la celda no puede pintar el par.');
+        $this->assertEquals(45, $celda['nota_nivelacion']);
+        $this->assertNotNull($celda['nivelada_at']);
+        $this->assertNotNull($celda['nivelada_por']);
+        $this->assertNotNull($celda['nivelada_por_username'],
+            'El `LEFT JOIN` con `users` no trajo el nombre: el pie del diálogo se queda sin «quién».');
+        $this->assertSame('Taller de superación', $celda['nivelacion_obs']);
+    }
+
+    /**
+     * Y las notas **sin** nivelar siguen saliendo, con las seis claves en `null`.
+     *
+     * Es la mitad que el caso de arriba no puede ver: si el `JOIN` con `users` fuera
+     * `INNER`, la planilla perdería **todas** las celdas sin nivelar —que son casi
+     * todas— y el caso anterior seguiría verde, porque la suya sí tiene usuario.
+     */
+    public function test_las_notas_sin_nivelar_siguen_saliendo_con_las_claves_en_null(): void
+    {
+        $contexto = $this->contextoDeLaRejilla();
+        $token = $this->tokenDe($contexto->username);
+
+        $r = $this->withToken($token)->putJson('/api/notas/detailed', [
+            'asignatura_id' => $contexto->asignatura_id,
+            'profesor_id' => $contexto->profesor_id,
+        ]);
+
+        $r->assertStatus(200);
+
+        $celdas = $this->celdasDeLaRejilla($r->json());
+
+        $this->assertNotEmpty($celdas, 'La planilla salió sin ninguna nota: el `JOIN` con `users` se las llevó.');
+
+        $sinNivelar = 0;
+
+        foreach ($celdas as $celda) {
+            foreach (['nota_original', 'nota_nivelacion', 'nivelada_at', 'nivelada_por',
+                'nivelada_por_username', 'nivelacion_obs'] as $clave) {
+                $this->assertArrayHasKey($clave, $celda,
+                    "Falta `{$clave}`: las seis van SIEMPRE, para que el front no distinga «vacío» de «no vino».");
+            }
+
+            if ($celda['nota_original'] === null) {
+                $sinNivelar++;
+            }
+        }
+
+        $this->assertGreaterThan(0, $sinNivelar,
+            'Ninguna celda sin nivelar en la rejilla: este caso no puede ver el `INNER JOIN` que busca.');
     }
 
     // ─────────────────────────────────────────────────────────────────────

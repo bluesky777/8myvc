@@ -232,9 +232,32 @@ class NotasController extends Controller {
 			$tardanzas = DB::select($cons_tar, [":per_id" => $user->periodo_id, ':asignatura_id' => $asignatura->asignatura_id, ':alumno_id' => $alumno->alumno_id ]);
 			
 			// Notas
+			// **A7: las seis de la nivelación viajan AQUÍ, y sólo aquí** (22 §3.1).
+			// Van nombradas, como el resto: es la misma guarda que impidió que
+			// `rubrica_id` se colara por las subunidades. Y van **siempre**, con `null`
+			// cuando la nota no está nivelada — una clave que a veces no viene obliga
+			// al front a distinguir «vacío» de «no vino», que es la decisión que ya
+			// tomó `notas/lote` con `definitivas`.
+			//
+			// **La celda está nivelada ⇔ `nota_original !== null`.** No hay bandera
+			// aparte: sería un segundo sitio donde mentir.
+			//
+			// `nivelada_por_username` sale del `LEFT JOIN` con `users` para que el pie
+			// del diálogo —quién y cuándo— no cueste otra petición; es la misma
+			// convención que `updated_by_username` en la definitiva, treinta líneas
+			// más abajo. `LEFT` y no `INNER`: sin nivelar no hay usuario, y con `INNER`
+			// **desaparecerían las notas sin nivelar**, que son casi todas.
+			//
+			// Y esto NO rompe a `myvc_flutter`, que está medido y no supuesto:
+			// `NotaDelLibro.fromJson` (`lib/Http/LibroNotasApi.dart:331`) lee tres
+			// claves por nombre y no mira nada más; no hay deserialización estricta en
+			// el proyecto. Ver 22 §3.2bis.
 			$cons = "SELECT n.id, n.nota, n.subunidad_id, n.alumno_id, n.created_by, n.updated_by, n.deleted_by, n.deleted_at, n.created_at, n.updated_at, u.asignatura_id,
+							n.nota_original, n.nota_nivelacion, n.nivelada_at, n.nivelada_por,
+							univ.username as nivelada_por_username, n.nivelacion_obs,
 							s.porcentaje/100 as subunidad_porc, u.porcentaje/100 as unidad_porc, s.definicion, s.porcentaje as subunidad_porcentaje, u.orden as orden_unidad, s.orden as orden_subunidad
 						FROM notas n
+						LEFT JOIN users univ ON univ.id=n.nivelada_por
 						INNER JOIN alumnos a ON a.id=n.alumno_id and n.deleted_at is null
 						INNER JOIN subunidades s ON s.id=n.subunidad_id and s.deleted_at is null
 						INNER JOIN unidades u ON u.id=s.unidad_id and u.deleted_at is null and u.periodo_id=:per_id
@@ -269,12 +292,25 @@ class NotasController extends Controller {
 			// luego se une por `r1.alumno_id=a.id`, así que quien filtra fuera no
 			// filtra dentro.
 			// Traemos las Definitivas
+			// **A7, la otra mitad** (22 §3.2): las cuatro del acta de la definitiva del
+			// periodo. `recuperada` **no cambia de significado** —`1` sigue queriendo
+			// decir que viene de una nivelación—; lo que se gana es que ahora puede
+			// decir **de dónde venía**. Escribirlas es A8; que la forma exista ya
+			// desbloquea a B7, que es el editor de la definitiva.
+			//
+			// `nota_original` sale como `DOUBLE` igual que `nota_final`, y por lo
+			// mismo: la columna es `DECIMAL(7,4)` desde `2026_08_30_200000` y PDO la
+			// trae como cadena; sin el cast, el front tendría el par en dos tipos
+			// distintos y el que compara los dos números se equivoca sin enterarse.
 			$cons_nf  = 'SELECT a.id as alumno_id, a.no_matricula, nf1.periodo, u.username as updated_by_username,
+							CAST(nf1.nota_original AS DOUBLE) as nota_original, nf1.nivelada_at, nf1.nivelada_por,
+							univ.username as nivelada_por_username,
 							CAST(nf1.nota AS DOUBLE) as nota_final, nf1.id as nf_id, nf1.recuperada, nf1.manual, nf1.updated_by, nf1.created_at, nf1.updated_at,
 							cast(r1.DefMateria as decimal(7,4)) as def_materia_auto, r1.updated_at as updated_at_def, IF(nf1.updated_at > r1.updated_at, FALSE, TRUE) AS nfinal_desactualizada 
 						FROM alumnos a 
 						left join notas_finales nf1 on nf1.alumno_id=a.id and nf1.asignatura_id=:asign_id1 and nf1.periodo=:periodo
 						left join users u on u.id=nf1.updated_by 
+						left join users univ on univ.id=nf1.nivelada_por 
 						left join (
 							SELECT df1.alumno_id, df1.periodo_id, MAX(df1.updated_at) as updated_at, df1.numero_periodo, sum( df1.ValorUnidad ) DefMateria 
 							FROM(
