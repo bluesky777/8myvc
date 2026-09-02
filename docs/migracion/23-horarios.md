@@ -267,11 +267,30 @@ MySQL, y lo hace con un error que no se parece a «el fichero es muy grande».
 
 ```
 version:  { nombre, year_id, anio, nombre_colegio }  ← y nada más viene del cuerpo
+proyecto: "…"                                       ← el .myvch entero, como cadena
 piezas:   [ { pieza_id, dia, franja, duracion,
               salon_nombre, salon_capacidad_grupos,  ← informativos, nunca reglas
               docentes:     [ profesor_id, … ],      ← profesores.id, NO users.id
               asignaciones: [ asignatura_id, … ] } ]
 ```
+
+> **`proyecto` faltaba en este boceto, y la §5.1 y la decisión 22 lo daban por
+> puesto.** Lo levantó la sesión del escritorio el 2 sep 2026 comparando
+> `nucleo/envio.ts` con esta sección **campo a campo**, que es lo que ninguna de las
+> dos mitades había hecho: son 13 campos y **12 calzaban exactos**; el que no,
+> viajaba desde aquí sin que este documento lo pidiera. **No era una discrepancia
+> entre las dos mitades — era que una no lo decía**, y esa forma no la caza releer
+> el lado que sí lo dice.
+>
+> Y no era cosmético: `horario_versiones.proyecto` es `mediumText()` **sin
+> `nullable()`**, así que el cuerpo es el único sitio del que puede salir. Un
+> contrato que no menciona un campo obligatorio se implementa dos veces —una por
+> mitad— y las dos veces distinto.
+>
+> Va **al primer nivel y no dentro de `version`**, que es donde ya lo ponía el
+> emisor y el arnés que midió la cota alta (§10.2.2). Se adopta lo medido en vez de
+> la simetría, por lo mismo de siempre: quien ya corrió el número tiene razón sobre
+> quien lo está imaginando.
 
 Cada elemento de `asignaciones` se explota a una fila
 `(version_id, pieza_id, asignatura_id, dia, franja, duracion, salon)`, que es la forma

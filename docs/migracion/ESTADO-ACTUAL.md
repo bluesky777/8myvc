@@ -8,8 +8,75 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
-**2 sep 2026, noche — EL ⛔ REMEDIDO DESPUÉS DE LA FUSIÓN: 566 RUTAS Y SIETE MIGRACIONES,
-CONTADAS** · rama `docs/tanda-tras-la-fusion`, **sin fusionar** · sólo documentación: **cero
+**2 sep 2026, noche — `postVersiones` TIENE CUERPO, Y LAS TRES RUTAS SE EJERCITARON POR PRIMERA
+VEZ** · sobre `09c23bc` · un fichero de `app/`, cero de `routes/` y cero de `database/` ·
+contrato en [`23-horarios.md`](23-horarios.md) · lo escribió el carril `servidor` de
+`myvc_horarios`, que es el único que vive en los dos repositorios
+
+> **Primero lo que no había: evidencia de que ese servidor estuviera vivo para esto.** Las tres
+> rutas existían desde `3524a22` y **nadie le había mandado nunca una petición a ninguna**.
+> Medido contra el docker: `POST`, `GET` y `PUT` contestaron **501 y no 500**, con `auth/me` a
+> **200** como control y `2026_09_04_100000_horario_versiones` en **`[16] Ran`**. Los dos datos
+> hacían falta juntos, porque **«falta la implementación» y «faltan migraciones sin correr» se
+> parecen muchísimo desde fuera** y se arreglan en sitios distintos.
+>
+> **Lo que entra**: el cuerpo de `postVersiones` —las seis comprobaciones de la §6, el veredicto
+> de la opción B con su población, y la escritura en una transacción—. `getVersiones` y
+> `putOficial` **siguen a 501 a propósito**: la forma de una versión en el listado la fija el
+> `GET`, y escribirla desde el `POST` es cómo se acaba con dos formas de la misma cosa.
+>
+> **Corrido de punta a punta con el fichero real**, no con un doble: `lleno.myvch` (128 779
+> bytes) → **201**, 312 lecciones, 312 `pieza_id` distintos, 290 pares pieza-docente, Σ duración
+> 344, días 1–5 y **`years.horario_version_id` intacto en `NULL`** — *subir no es publicar*
+> (decisión 17), demostrado y no supuesto. El veredicto guardado ocupa **1 621 bytes** y dice
+> exactamente lo que la §6 predijo: **133 de 134 completas y una con 2 de 3** (EDUCACIÓN
+> RELIGIOSA de Once). La regla dura `Σ = IH` habría rechazado el único dato real que existe.
+>
+> ### Las comprobaciones se probaron ROJAS, y dos de los verdes no valían
+>
+> **17 casos negativos contra el docker.** Los importantes: `anio` 2019 sobre `years.id` 8 →
+> 422 `anio-no-coincide`; asignatura del año 1 en una versión del 8 → 422 nombrando la pieza y
+> la intrusa; asignatura de la papelera → 422; día 7 → 422; docente que no es `profesores.id` →
+> **422 en vez del 500** que daría la clave foránea; `pieza_id` repetido → **422 en vez del 500**
+> que daría el índice único; `nombre_colegio` cambiado → **201**, que es lo que tiene que pasar
+> porque es blando.
+>
+> **Y lo que hay que contar aunque salga verde:** el caso de `Σ > IH` se escribió inflando una
+> duración a 40, contestó 422 y **estaba mal**: el `motivo` decía `choque`, no
+> `suma-mayor-que-la-ih`. Un bloque de 40 casillas choca con medio horario, así que el detector
+> medía bien el síntoma y **no estaba midiendo la causa**. Rehecho llevando la pieza al **sábado
+> vacío**, donde no hay con qué chocar: 422 `suma-mayor-que-la-ih`, «MATEMÁTICAS de Tercero, 12
+> de 4», sobre 134 asignaciones revisadas. El otro verde que no valía era el del bloque de dos
+> casillas: **no se llegó a correr** porque el caso se *buscaba* en el fichero y no había par
+> consecutivo del mismo grupo. Construido a mano en el sábado, **con su control**: las dos piezas
+> separadas en (6,1) y (6,2) dan **201**, y con `duracion: 2` en la primera da 422 nombrando
+> grupo 97, día 6, franja 2 y las dos piezas. Sin el control, el rojo no distingue «lo cazó» de
+> «siempre dice rojo».
+>
+> ### Tres cosas que salieron de mirar el esquema y no el documento
+>
+> - **`proyecto` faltaba en el boceto de la §5.2** y la columna es `mediumText()` **sin
+>   `nullable()`**. Salió de comparar el emisor de `myvc_horarios` con esta sección **campo a
+>   campo**: 13 campos, **12 exactos**, y el que no viajaba sin que el contrato lo pidiera. No era
+>   una discrepancia entre las dos mitades: **era que una no lo decía**, y esa forma no la caza
+>   releer el lado que sí lo dice. §5.2 corregida.
+> - **Dos rechazos que no son de la §6 y evitan un 500**: `horario_pieza_docente.profesor_id`
+>   tiene clave foránea y `horario_lecciones` tiene único `(version_id, pieza_id, asignatura_id)`,
+>   así que un docente inventado o un `pieza_id` repetido reventaban el `INSERT` con un error que
+>   no dice a quién culpa.
+> - **El veredicto va a una columna `text` (65 535 bytes)** y sus listas crecen con las
+>   asignaciones del año. Se acotan **los nombres a cincuenta y nunca la cuenta**, que es lo que
+>   la §6 exige: la población va siempre.
+>
+> **Lo siguiente**: `getVersiones` y `putOficial`. El segundo lleva dentro las dos trampas ya
+> medidas —el alcance de la derivación es **el año entero** y «las asignaciones de este año» es
+> un **JOIN**, no un `WHERE`— y **el fallo del sábado de la §2.1 va en el mismo lote**: es
+> invisible mientras las siete columnas estén vacías y se estrena el día que se rellenen.
+>
+> **Verde**: `phpstan` nivel 7 limpio sobre el fichero y `pint --test` en PASS.
+
+**Anterior: 2 sep 2026, noche — EL ⛔ REMEDIDO DESPUÉS DE LA FUSIÓN: 566 RUTAS Y SIETE
+MIGRACIONES, CONTADAS** · rama `docs/tanda-tras-la-fusion`, **sin fusionar** · sólo documentación: **cero
 ficheros de `app/`, `routes/` y `database/`** · sobre `aebf4ed` · coordinó `8myvc-af`
 
 > **Salió lo previsto y por eso se contó.** `af` y yo dábamos por hecho 566 y siete; el rango se
@@ -26,6 +93,15 @@ ficheros de `app/`, `routes/` y `database/`** · sobre `aebf4ed` · coordinó `8
 > dentro?»* y no *«¿qué se rompe?»* — un colegio con seis de siete es uno del que nadie sabe en
 > qué estado está. Lo que sí sigue siendo cierto es que **no se puede desplegar suelta**: su
 > columna nace `after('regla_nivelacion')`.
+>
+> > **⚠ Esto dejó de ser cierto unas horas después, y se marca en vez de reescribirse.** El
+> > *«no rompe nada si falta»* se apoyaba en que **ninguna consulta nombraba las tres tablas**,
+> > y eso era verdad mientras los tres métodos contestaban 501. Con el cuerpo de
+> > `postVersiones` escrito (entrada de arriba), `horario_versiones`, `horario_lecciones` y
+> > `horario_pieza_docente` **sí se nombran**, así que en un colegio sin migrar
+> > `POST horario/versiones` pasa de 501 a **500**. La medición de aquel día era correcta; lo
+> > que cambió es el código que medía. Es justo la forma que tiene una comprobación de
+> > despliegue de envejecer sin ponerse roja.
 >
 > El rollback de la tanda pasa de `--step=6` a **`--step=7`**, y `--step=1` ahora revierte
 > `horario_versiones` en vez de `rubricas`. El aviso **O** al front sube de 21 a **24 rutas
