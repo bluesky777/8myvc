@@ -58,7 +58,15 @@ class PromovidosController extends Controller {
 
 			
 			
-			$consulta = 'SELECT r.*, m.materia, m.alias, m.area_id FROM recuperacion_final r 
+			// **Las columnas nombradas y no `r.*`**: estas filas se cuelgan en
+			// `$alumno->recuperaciones` y viajan al cliente, así que las tres del acta
+			// de `2026_09_02_300000_acta_de_la_recuperacion_final` habrían aparecido
+			// solas en el cálculo de promovidos. **Congelada** (22 §3.4): el acta se
+			// pinta en la pantalla del año (B8), que la recibe por
+			// `definitivas_periodos/update-recuperacion`; aquí lo que se decide es
+			// quién promociona, y para eso sólo hace falta la nota.
+			$consulta = 'SELECT r.id, r.alumno_id, r.asignatura_id, r.year, r.nota, r.updated_by,
+					r.created_at, r.updated_at, m.materia, m.alias, m.area_id FROM recuperacion_final r 
 				INNER JOIN asignaturas a ON a.id=r.asignatura_id and a.deleted_at is null
 				INNER JOIN materias m ON m.id=a.materia_id and m.deleted_at is null
 				WHERE alumno_id=? and year=?';
@@ -186,7 +194,17 @@ class PromovidosController extends Controller {
 
 			$alumno->total_creditos += $asignatura->creditos;
 						
-			$consulta = 'SELECT nf.*, CAST(nf.nota AS DOUBLE) AS nota, CAST(nf.nota AS DOUBLE) as DefMateria, aus.cantidad_ausencia, tar.cantidad_tardanza
+			// **Las once columnas nombradas y no `nf.*`**, desde el 2 sep 2026: esta
+			// fila viaja entera al cliente, así que con el asterisco las tres columnas
+			// de la nivelación de la definitiva (`2026_09_02_100000_nivelaciones_columnas`)
+			// habrían aparecido solas en el cálculo de promovidos **sin que nadie
+			// tocara este método**. Lo cazó `GruposTest::la_forma_del_calculo_de_promovidos`.
+			// Qué respuestas llevan las columnas nuevas a propósito y cuáles están
+			// congeladas está en la §3.4 de docs/migracion/22-nivelaciones.md; ésta
+			// está congelada.
+			$consulta = 'SELECT nf.id, nf.alumno_id, nf.asignatura_id, nf.periodo_id, nf.periodo, nf.recuperada,
+							nf.manual, nf.updated_by, nf.created_at, nf.updated_at,
+							CAST(nf.nota AS DOUBLE) AS nota, CAST(nf.nota AS DOUBLE) as DefMateria, aus.cantidad_ausencia, tar.cantidad_tardanza
 						FROM notas_finales nf
 						INNER JOIN periodos p on p.year_id=:year_id and p.id=nf.periodo_id and p.deleted_at is null
 						left join (

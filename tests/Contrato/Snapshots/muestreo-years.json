@@ -65,6 +65,7 @@
         "puestos_alfabeticamente": "int",
         "puestos_con_bol_independiente": "int",
         "rector_id": "int",
+        "regla_nivelacion": "string",
         "resolucion": "string",
         "secretario_id": "int",
         "show_fortaleza_bol": "int",

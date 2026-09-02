@@ -61,11 +61,23 @@ class CentinelaDeLosEscritoresDeBitacoraTest extends TestCase
      * @var array<string, int>
      */
     private const CON_VARIOS = [
-        'app/Http/Controllers/NotasController.php' => 2,
-        'app/Http/Controllers/DefinitivasPeriodosController.php' => 2,
+        'app/Http/Controllers/NotasController.php' => 3,
+        'app/Http/Controllers/DefinitivasPeriodosController.php' => 3,
     ];
 
-    private const TOTAL_ESPERADO = 10;
+    /**
+     * Doce desde el 2 sep 2026, y las dos nuevas son de nivelaciones (22 §1.7):
+     * `NotasController::bitacoraDeNota` —que sirve a los tres endpoints de nivelar
+     * un indicador— y `DefinitivasPeriodosController::putNivelar`.
+     *
+     * **Las dos escriben en Bogotá y con los tipos que ya existían**, `Nota` y
+     * `NF_UPDATE`, a propósito: `bitacoras` la leen dos pantallas del front en los
+     * quince colegios buscando por tipo, y una nivelación que dejara un tipo nuevo
+     * desaparecería del historial de la nota sin que nadie lo notara. La distinción
+     * entre corregir y nivelar vive en `auditoria`, que es donde hay vocabulario
+     * cerrado para tenerla.
+     */
+    private const TOTAL_ESPERADO = 12;
 
     #[Test]
     public function los_escritores_de_bitacora_siguen_siendo_diez(): void

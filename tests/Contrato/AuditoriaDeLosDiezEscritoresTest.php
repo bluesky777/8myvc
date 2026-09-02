@@ -170,6 +170,73 @@ class AuditoriaDeLosDiezEscritoresTest extends CasoDeContrato
             'El lote guardó '.$guardadas.' notas y dejó '.count($lineas).' líneas de auditoría.');
     }
 
+    /**
+     * Borrar una nota deja una línea **con el valor que se fue**, y es la que
+     * más falta hacía: el borrado es **físico**, así que después del `DELETE` no
+     * queda fila, ni `deleted_at`, ni bitácora —`deleteDestroy` nunca escribió en
+     * `bitacoras`—. Era el único escritor de `notas` sin rastro en ninguna de las
+     * dos tablas (`tools/escrituras-sin-auditoria.php`, 2 sep 2026), y la
+     * pregunta «¿quién borró la nota de este alumno?» no tenía respuesta en los
+     * quince colegios.
+     *
+     * Es el A1 del plan de nivelaciones ([22](../../docs/migracion/22-nivelaciones.md)):
+     * sin esto, borrar una nota nivelada se llevaría la nivelación y su acta sin
+     * que nadie pudiera reconstruir ninguna de las dos.
+     */
+    public function test_borrar_una_nota_deja_una_linea_con_el_valor_que_se_fue(): void
+    {
+        $token = $this->tokenDeSuperusuario();
+
+        $nota = DB::selectOne('SELECT n.id, n.nota, n.alumno_id, u.asignatura_id, u.periodo_id FROM notas n
+            INNER JOIN subunidades s ON s.id = n.subunidad_id AND s.deleted_at IS NULL
+            INNER JOIN unidades u ON u.id = s.unidad_id AND u.deleted_at IS NULL
+            WHERE n.deleted_at IS NULL ORDER BY n.id LIMIT 1');
+
+        $this->assertNotNull($nota, 'El seed necesita una nota con su unidad viva.');
+
+        $this->withToken($token)->deleteJson('/api/notas/destroy/'.$nota->id)->assertStatus(200);
+
+        $this->assertNull(DB::selectOne('SELECT id FROM notas WHERE id = ?', [$nota->id]),
+            'El borrado es físico: la fila tiene que haberse ido.');
+
+        $lineas = $this->lineasDe('nota', (int) $nota->id);
+
+        $this->assertCount(1, $lineas, 'Borrar la nota no dejó exactamente una línea de auditoría.');
+
+        $linea = $lineas[0];
+
+        $this->assertSame(Auditoria::BORRAR, $linea->accion);
+        $this->assertEquals((float) $nota->nota, json_decode((string) $linea->valor_anterior),
+            'La línea no dice qué nota había: después del DELETE es el único sitio donde queda.');
+        $this->assertNull($linea->valor_nuevo, 'Un borrado no tiene valor nuevo.');
+        $this->assertEquals($nota->alumno_id, $linea->alumno_id, 'La línea no dice de qué alumno era la nota.');
+        $this->assertEquals($nota->asignatura_id, $linea->asignatura_id);
+        $this->assertEquals($nota->periodo_id, $linea->periodo_id,
+            'La línea guarda el periodo del profesor y no el de la nota.');
+        $this->assertNotNull($linea->actor_user_id, 'La línea no dice quién la borró.');
+        $this->assertSame('DELETE notas/destroy/{id}', $linea->ruta);
+    }
+
+    /**
+     * Y borrar lo que no existe **no deja línea**: un id sin fila no es un
+     * borrado, y una línea de auditoría sobre nada es una mentira en una tabla
+     * que se lee años después. El 200 se conserva tal cual —es el legacy y lo
+     * leen cuatro clientes—; lo que se comprueba es que no se inventó un rastro.
+     */
+    public function test_borrar_una_nota_que_no_existe_no_inventa_una_linea(): void
+    {
+        $token = $this->tokenDeSuperusuario();
+
+        $inexistente = (int) DB::selectOne('SELECT COALESCE(MAX(id), 0) + 1000 AS id FROM notas')->id;
+
+        $antes = DB::table('auditoria')->count();
+
+        $this->withToken($token)->deleteJson('/api/notas/destroy/'.$inexistente);
+
+        $this->assertSame($antes, DB::table('auditoria')->count(),
+            'Borrar una nota que no existe dejó una línea de auditoría.');
+    }
+
     // ─────────────────────────────────────────────────────────────────────
     // Las definitivas
     // ─────────────────────────────────────────────────────────────────────

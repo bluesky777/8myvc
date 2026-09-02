@@ -128,6 +128,141 @@ larastan nivel 7 **`[OK] No errors`** · **549 rutas** —548 y 549 son las dos 
 sobre `1cb7092`— y sin desplegar** ·
 coordina `8myvc-ab`
 
+> ### Nivelaciones — rama `niv/backend`, 2 sep 2026 (sesión A del reparto en tres)
+>
+> Joseth decidió el 2 sep las cuatro preguntas de `myvc_front/PLAN-NIVELACIONES-Y-RUBRICAS.md`
+> y el trabajo se repartió en tres sesiones (`myvc_front/TAREAS-NIVELACIONES-Y-RUBRICAS.md`):
+> **A** backend de nivelación (esta rama), **B** front, **C** rúbricas. Lo primero de A fue
+> **el contrato**, porque B construye contra un doble y estaba parada esperándolo:
+> [22-nivelaciones.md](22-nivelaciones.md). **Cambiar ese documento es avisar a B.**
+>
+> Lo que fija: `PUT`/`DELETE notas/nivelar/{id}`, `PUT notas/nivelar/lote` con los tres
+> desenlaces de `notas/lote`, los seis campos nuevos de `notas/detailed` y
+> `PUT years/regla-nivelacion`. **Cuatro rutas nuevas cuando entren**, y `notas/update` y
+> `notas/lote` **no cambian ni una línea**: los usa `myvc_flutter`, que es una sola app para
+> los quince. Dos desviaciones del plan, escritas allí: la columna `nota_nivelacion` (bajo
+> `topada` el 90 que queda en 70 desaparecería) y **403** donde el guard viejo contesta 400.
+>
+> **A1 hecha el 2 sep**: `putUpdate` y `putLote` ya auditaban; lo que faltaba era
+> `deleteDestroy`, **el único escritor de `notas` sin rastro en ninguna de las dos tablas**,
+> y con borrado físico — hoy en los quince colegios nadie puede contestar «quién borró esta
+> nota». Instrumentado con dos tests en `AuditoriaDeLosDiezEscritoresTest`; el porqué de
+> dejar `putSubunidad` sin auditar está en el [18](18-auditoria.md), fase 4.
+>
+> **A3 y A4 hechas el 2 sep.** La migración es aditiva pura y **un solo `Schema::table` por
+> tabla** —en MySQL 5.7 cada `ALTER` reconstruye la tabla, y `notas` es la grande—; la regla vive
+> en `App\Services\Nivelacion` y una regla desconocida en la base **lanza** en vez de caer a
+> `topada` en silencio.
+>
+> **Y lo que encontró la suite, que es lo que hay que heredar:** siete instantáneas se movieron
+> **sin que nadie tocara su método**, porque siete consultas leían la fila entera con `*` y un
+> `ALTER TABLE` las llena solo. Cinco eran mías y están **congeladas** nombrando columnas
+> (`notas/update`, `notas/show`, `Nota::alumnoPeriodoDetalle` con `Nota::LAS_DIEZ_COLUMNAS`,
+> `Asignatura::calculoAlumnoNotas`/`2` y `PromovidosController:189`); las **tres de `years/*` se
+> regeneraron a propósito**, porque `regla_nivelacion` viaja por contrato (22 §5). **Quedan dos
+> rojos que NO son míos**: `Informes/BolfinalesController:508` (`SELECT nf.*`), de `8myvc-f2` con
+> A10. La tabla de quién devuelve las columnas nuevas a propósito y quién las tiene congeladas es
+> la **§3.4** del [22](22-nivelaciones.md), y la regla que deja: **una columna viaja porque
+> alguien la nombró**, nunca por un asterisco.
+>
+> **A5 y A6 hechas el 2 sep, y van en el mismo commit a propósito.** Las tres rutas nuevas
+> —`PUT`/`DELETE notas/nivelar/{id}` y `PUT notas/nivelar/lote`— dejan el router en **553**
+> (contado con `route:list`), y con ellas **22 tests que miran lo que queda escrito**. La mitad
+> es el centinela: con la regla `topada` encendida, `notas/update` y `notas/lote` siguen
+> guardando lo que se les manda, y **sobre una nota ya nivelada escriben la vigente sin tocar
+> el acta** — ni la limpian (sería borrar un registro académico desde un móvil) ni recalculan
+> (sería aprender a nivelar por la puerta de atrás).
+>
+> **Y una trampa del seed, para quien escriba tests de notas:** la escala de este colegio es
+> **0 a 50**, no 0 a 100. Un caso escrito con 90 y 95 sale **422 por `EscalaDeNotas`** y pasa
+> sin haber medido nada de lo que dice medir.
+>
+> **A7 hecha el 2 sep.** `notas/detailed` devuelve las seis claves de la nivelación en cada
+> celda y las cuatro del acta en la definitiva, **siempre presentes y en `null` cuando no hay
+> nivelación** — una clave que a veces no viene obliga al front a distinguir «vacío» de «no
+> vino». `notas-detailed-profesor.json` se regeneró **a propósito**, y el diff son esas diez y
+> nada más. Dos tests nuevos: uno comprueba que los campos llegan **con valores** tras nivelar
+> (la instantánea sólo prueba que las claves existen, no que se llenen) y otro que las notas
+> **sin** nivelar siguen saliendo, que es lo que se rompería si el `JOIN` con `users` fuera
+> `INNER` en vez de `LEFT`.
+>
+> **La trampa que costó dos vueltas, y está medida en `NotasTest::contexto()` desde el 20 ago:**
+> `Services\Login` **reescribe `users.periodo_id` en cada inicio de sesión**, y `periodos.actual`
+> es el actual **de su año** mientras el año del colegio lo dice `years.actual`. Un test de
+> `notas/detailed` que no pida las dos cosas elige una asignatura de otro año y recibe un 404.
+>
+> **A8 hecha el 2 sep.** `PUT definitivas_periodos/nivelar`, endpoint nuevo por lo mismo que
+> los otros tres: `definitivas_periodos/update` lo llama Flutter para teclear a mano, y hay un
+> test que fija que no aprendió a nivelar. **Marca `recuperada` y `manual`**, que es lo que la
+> desengancha del recálculo — sin eso la nivelación duraría hasta que alguien abriera la
+> planilla. Y con la regla `mayor` la definitiva **conserva sus decimales**: 43,7500 no se
+> convierte en 44 por nivelar por debajo. Dos columnas más en `notas_finales`
+> (`2026_09_02_200000`), con el mismo argumento que `notas.nota_nivelacion`. Router en **554**,
+> contado.
+>
+> **A9 hecha el 2 sep: EL CARRIL A ESTÁ TERMINADO** (A10 pasó a `8myvc-f2` con `Informes/**`).
+> El acta de la recuperación del año va **sin endpoint nuevo**, y es la decisión: en esa tabla
+> la fila entera **es** la recuperación, así que cada escritura es el acta. `observacion` y
+> `fecha` son opcionales, el cliente que hoy manda `{rf_id, nota}` sigue igual, y hay un test
+> que fija que **`year` sigue siendo el número y no el id** — el refactor está decidido en
+> `PeriodoDeLaFila` y es tentador de hacer «de paso».
+>
+> **Y una corrección de método que conviene heredar:** cuatro de los siete casos de A9 nacieron
+> `skipped` porque `recuperacion_final` está **vacía en el seed**. Un test saltado no mide nada
+> y se lee como verde. Ahora la fila se **fabrica por la API** —no con un `INSERT` a mano—, así
+> que si el camino de crear se rompiera, esos casos fallarían en vez de saltarse.
+>
+> El router queda en **554** y las cuatro rutas nuevas son de nivelar. Lo que falta del plan es
+> de otros carriles: la impresión (A10, `8myvc-f2`) y el front entero (B).
+>
+> ### Y cinco cosas que entraron DESPUÉS de A9, todas medidas
+>
+> 1. **Los escritores de bitácora pasaron de 10 a 12**, y lo cazó su centinela en la corrida
+>    completa, no una persona. Sin él, `salud-de-la-bitacora.php` habría impreso un reparto de
+>    relojes con dos escritores sin clasificar **y con toda la confianza del mundo**. Las dos
+>    nuevas escriben en Bogotá y **reutilizan los tipos `Nota` y `NF_UPDATE`** a propósito: dos
+>    pantallas del front buscan el historial de una nota por tipo, y una nivelación con tipo
+>    nuevo desaparecería de ahí.
+> 2. **`regla_nivelacion` viaja en el bloque de la sesión**, en las cuatro ramas (22 §5.1), para
+>    que el diálogo previsualice sin otra petición. Mueve cinco instantáneas, regeneradas a
+>    propósito y con el diff comprobado: una clave nueva en cada una.
+> 3. **`tools/filas-enteras-al-cliente.php`**: qué consultas leen la fila entera de una tabla del
+>    dominio **y la publican**. Sale de que la migración movió siete instantáneas sin que nadie
+>    tocara su método. Va **después** de la regla, no en su lugar: lo primero sigue siendo
+>    **correr la suite entera después de cada migración que añada columnas**.
+> 4. **El 404 de la planilla decía «no es de este año» cuando lo que falta es el profesor.**
+>    Medido: **146 de 1219 asignaturas vivas sin profesor**, cero con profesor inexistente o
+>    borrado — no es corrupción, es un estado normal del dominio, y son **134 de 134 en el año
+>    siguiente**. Ahora el mensaje dice cuál de las cuatro cosas pasó. **El `inner join
+>    profesores` NO se tocó**: que la planilla deba abrirse sin docente es decisión de Joseth.
+> 5. **El cuerpo de un 404 sí llega con `APP_DEBUG=false`**, medido con el kernel de verdad:
+>    `abort(404, 'texto')` devuelve el mensaje entero y sólo el `abort(404)` **sin** texto sale
+>    vacío — y en `app/` no queda ninguno vivo. El front excluye el cuerpo de todos los 404
+>    dando por hecho lo contrario, así que **hasta que quite esa exclusión, ningún mensaje de
+>    404 del backend lo ve nadie**.
+>
+> ### La cifra de este carril, con sus coordenadas pegadas
+>
+> **`Tests: 3 failed, 1680 passed (15736 assertions)`, `Duration: 658.65s`** — 2 sep 2026,
+> sobre `niv/backend` **con `main` (`805e08f`) fusionado dentro**, base
+> `simonbolivar_testing_niv`, **un solo proceso** (comprobado con `ps` en el contenedor antes y
+> después). De los tres, **dos son de otro carril** —`BoletinesTest`, por el `SELECT nf.*` de
+> `Informes/BolfinalesController:508`, de `8myvc-f2`— y **el tercero ya está arreglado**:
+> `muestreo-auth-me`, porque `GET auth/me` devuelve el mismo bloque de contexto y también gana
+> `regla_nivelacion`. Eran **seis** instantáneas del contexto y se habían regenerado cinco.
+>
+> **Y ése es el argumento entero de la regla nueva:** las cinco se corrieron por clase, sabiendo
+> cuáles se tocaban, y por eso la sexta no se vio. `MuestreoDeLecturasTest` cubre veinte
+> lecturas; **sólo la corrida completa las mira todas**. Con el arreglo dentro, la cifra de esta
+> rama es **1681 verdes y 2 rojos, los dos ajenos**.
+>
+> **Y la trampa de la noche, que costó 31 rojos falsos:** una corrida de tests cortada por el
+> tiempo de espera del cliente **sigue viva dentro del contenedor**. Lanzar la segunda contra la
+> misma base da deadlocks en `personal_access_tokens` que se leen como fallos del código. Se
+> mata el proceso **dentro** del contenedor; que muera el `docker exec` no basta. **A10 ya no es de este carril**: la
+> impresión y `Informes/**` pasaron a `8myvc-f2` el 2 sep. Base de tests de esta sesión:
+> `simonbolivar_testing_niv`.
+
 > **Esa cifra va con sus coordenadas pegadas y así se copia o no se copia: medida el 1 sep 2026,
 > desde la raíz, desasida, sobre `1cb7092`** —con los cuatro merges de hoy dentro—. Es la primera
 > corrida que describe este `main`: las de los lotes miden **su árbol**, y una suite de antes de un

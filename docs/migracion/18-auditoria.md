@@ -760,6 +760,18 @@ Por dominio, y en este orden, porque es el orden en que se reclama:
 
 1. **Notas** — editar, borrar, lote, la nota rápida del horario. Es la petición de
    origen y ya tiene la mitad hecha.
+
+   > **Cerrado el 2 sep 2026** (A1 del [22](22-nivelaciones.md)). Editar y lote ya
+   > auditaban desde el 24–25 ago; la nota rápida va por esos dos caminos. Lo que
+   > faltaba era **borrar**: `deleteDestroy` era el único escritor de `notas` sin
+   > rastro en ninguna de las dos tablas —`tools/escrituras-sin-auditoria.php` lo
+   > daba `1:0` sobre 226 ficheros—, y el borrado es **físico**, así que «¿quién
+   > borró la nota de este alumno?» no tenía respuesta en los quince colegios.
+   > Ahora deja `borrar` con el valor que se fue, y sólo si el `DELETE` afectó una
+   > fila. **Se dejan sin auditar a propósito** `putSubunidad` y
+   > `Nota::verificarCrearNotas`: siembran la nota por defecto de una subunidad,
+   > que es lo que hace cada carga de la planilla; auditarlas sería una línea por
+   > alumno por carga, y sería el ruido automático que el punto 3 dice que no entre.
 2. **Unidades y subunidades** — crear, editar, borrar. Hoy sólo se graba crear.
 3. **Definitivas** — ya pasan todas por `DefinitivasDeAsignatura` (fase 3 del
    [10](10-definitivas.md)), así que **es un solo sitio**. Y aquí hay que separar

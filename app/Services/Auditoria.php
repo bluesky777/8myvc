@@ -117,8 +117,22 @@ final class Auditoria
 
     public const DENEGADO = 'denegado';
 
+    /**
+     * Las dos de la nivelación (22 §1.7 y §2), y **son acciones distintas de
+     * `editar` a propósito**: la §1.2 del plan de nivelaciones es que corrección
+     * y nivelación no se confundan, y la pantalla de auditoría filtra por acción.
+     * Una nivelación registrada como `editar` sería un teclazo más; una corrección
+     * registrada como `nivelar` sería una novedad académica que no ocurrió.
+     */
+    public const NIVELAR = 'nivelar';
+
+    public const QUITAR_NIVELACION = 'quitar_nivelacion';
+
     /** @var list<string> */
-    public const ACCIONES = [self::CREAR, self::EDITAR, self::BORRAR, self::RESTAURAR, self::DENEGADO];
+    public const ACCIONES = [
+        self::CREAR, self::EDITAR, self::BORRAR, self::RESTAURAR, self::DENEGADO,
+        self::NIVELAR, self::QUITAR_NIVELACION,
+    ];
 
     /**
      * El vocabulario de `entidad`, cerrado, y **cada nombre con la tabla que
@@ -260,6 +274,18 @@ final class Auditoria
     public function restaurar(string $entidad, ?int $id = null): self
     {
         return $this->accion(self::RESTAURAR, $entidad, $id);
+    }
+
+    /** Una nivelación registrada: `de` la vigente anterior, `a` la vigente nueva. */
+    public function nivelar(string $entidad, ?int $id = null): self
+    {
+        return $this->accion(self::NIVELAR, $entidad, $id);
+    }
+
+    /** La vuelta atrás de la anterior: `de` la nivelada, `a` la original restaurada. */
+    public function quitarNivelacion(string $entidad, ?int $id = null): self
+    {
+        return $this->accion(self::QUITAR_NIVELACION, $entidad, $id);
     }
 
     /**
@@ -548,6 +574,8 @@ final class Auditoria
             self::BORRAR => 'borró',
             self::RESTAURAR => 'restauró',
             self::DENEGADO => 'no pudo ver',
+            self::NIVELAR => 'niveló',
+            self::QUITAR_NIVELACION => 'quitó la nivelación de',
         ][$this->fila['accion']] ?? $this->fila['accion'];
 
         $quien = $this->fila['actor_nombre']

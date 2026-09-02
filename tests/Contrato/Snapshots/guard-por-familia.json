@@ -140,8 +140,8 @@
         "con_guard": 3
     },
     "definitivas_periodos": {
-        "total": 10,
-        "con_guard": 8
+        "total": 11,
+        "con_guard": 9
     },
     "detalles": {
         "total": 4,
@@ -236,8 +236,8 @@
         "con_guard": 7
     },
     "notas": {
-        "total": 8,
-        "con_guard": 8
+        "total": 11,
+        "con_guard": 11
     },
     "notas-actuales-alumnos": {
         "total": 1,

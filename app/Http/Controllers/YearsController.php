@@ -178,6 +178,12 @@ class YearsController extends Controller {
 			$year->show_fortaleza_bol  	 		 = $pasado->show_fortaleza_bol;
 			$year->show_subasignaturas_en_finales = $pasado->show_subasignaturas_en_finales;
 			$year->si_recupera_materia_recup_indicador = $pasado->si_recupera_materia_recup_indicador;
+			// La regla de nivelación (22 §5) va con sus vecinas y no en el `DEFAULT`
+			// de la columna: sin esta línea el colegio que eligió `mayor` amanecería
+			// en `topada` cada enero, y la diferencia se imprime en el boletín de
+			// cada nivelado. Es exactamente el caso de `puestos_con_bol_independiente`
+			// de arriba, y el centinela del año nuevo es el que no deja olvidarla.
+			$year->regla_nivelacion 			 = $pasado->regla_nivelacion;
 			$year->solo_escalas_valorativas 	 = $pasado->solo_escalas_valorativas;
 			$year->year_pasado_en_bol 			 = $pasado->year_pasado_en_bol;
 			$year->titulo_rector 				 = $pasado->titulo_rector;

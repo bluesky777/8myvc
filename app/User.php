@@ -390,6 +390,29 @@ class User extends Authenticatable
 
 	
 	/**
+	 * El interruptor de nivelar, **como pregunta y no como guard**.
+	 *
+	 * Es exactamente el criterio de `pueden_modificar_definitivas()` —el mismo
+	 * `profes_pueden_nivelar` resuelto por el periodo de la fila— sin el `abort`:
+	 * los endpoints de nivelar (22 §1.5) contestan **403** porque son código nuevo
+	 * y el 400 del guard de abajo **no se toca**, que lo llaman cinco métodos de
+	 * definitivas desde Flutter. Dos guards con dos códigos para la misma pregunta
+	 * es peor que uno que pregunta y deja el código al llamante.
+	 *
+	 * @param  int|array<int>|null  $periodo
+	 */
+	public static function puedeNivelar($user, int|array|null $periodo = null): bool
+	{
+		self::aplicarBanderasDelPeriodo($user, $periodo);
+
+		if ($user->is_superuser) {
+			return true;
+		}
+
+		return $user->tipo == 'Profesor' && (int) $user->profes_pueden_nivelar === 1;
+	}
+
+	/**
 	 * El otro interruptor, el de nivelar. Mismo criterio de periodo que el de
 	 * arriba y por la misma razón; ver pueden_editar_notas().
 	 *

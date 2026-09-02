@@ -37,6 +37,17 @@ use \Log;
  * @property ?string $updated_at
  * --- fin de las columnas generadas ---
  *
+ * Y las cinco de la nivelación, que el bloque de arriba no puede conocer porque
+ * entraron por migración (`2026_09_02_100000_nivelaciones_columnas`) y no por el
+ * volcado congelado. **`$nota` sigue siendo la vigente**; `$nota_original` en
+ * `null` es «nunca se niveló». Contrato en docs/migracion/22-nivelaciones.md.
+ *
+ * @property ?int $nota_original
+ * @property ?int $nota_nivelacion
+ * @property ?string $nivelada_at
+ * @property ?int $nivelada_por
+ * @property ?string $nivelacion_obs
+ *
  * Y los atributos que NO son columnas: el código se los cuelga al modelo en
  * tiempo de ejecución para armar la respuesta, que es un patrón repetido por
  * todo el proyecto. Eloquent los guarda entre los atributos y salen en el JSON,
@@ -49,6 +60,19 @@ use \Log;
 
 class Nota extends Model {
 	protected $fillable = [];
+
+	/**
+	 * Las diez columnas que `notas` tenía antes de la nivelación, para las
+	 * consultas que cuelgan la fila entera en una respuesta.
+	 *
+	 * `alumnoPeriodoDetalle` hace `$subunidad->nota = $nota[0]`, y esa fila viaja
+	 * a la ficha del alumno, a `alumno-periodo-grupo` y al cálculo de promovidos.
+	 * Con `SELECT *`, las cinco columnas de `2026_09_02_100000_nivelaciones_columnas`
+	 * movieron tres instantáneas sin que nadie tocara el método; lo cazó la suite el
+	 * 2 sep 2026. Dónde y cuándo viajan las columnas nuevas lo decide el contrato
+	 * (22 §3: `notas/detailed` y los endpoints de nivelar), no un asterisco.
+	 */
+	public const LAS_DIEZ_COLUMNAS = 'SELECT n.id, n.nota, n.subunidad_id, n.alumno_id, n.created_by, n.updated_by, n.deleted_by, n.deleted_at, n.created_at, n.updated_at';
 
 	use SoftDeletes;
 	protected $softDelete = true;
@@ -364,7 +388,7 @@ class Nota extends Model {
 					$unidad->subunidades = Subunidad::deUnidad($unidad->unidad_id);
 					
 					for ($j=0; $j < count($unidad->subunidades); $j++) { 
-						$nota = DB::select('SELECT * FROM notas n WHERE n.deleted_at is null and n.subunidad_id=? and n.alumno_id=?', [$unidad->subunidades[$j]->subunidad_id, $alumno_id]);
+						$nota = DB::select(self::LAS_DIEZ_COLUMNAS.' FROM notas n WHERE n.deleted_at is null and n.subunidad_id=? and n.alumno_id=?', [$unidad->subunidades[$j]->subunidad_id, $alumno_id]);
 						
 						// La casilla que no existía. Se crea con la nota por defecto y se
 						// vuelve a leer, para que el resto siga trabajando sobre la fila de
@@ -382,7 +406,7 @@ class Nota extends Model {
 							);
 
 							if ($creada) {
-								$nota = DB::select('SELECT * FROM notas n WHERE n.deleted_at is null and n.subunidad_id=? and n.alumno_id=?', [$unidad->subunidades[$j]->subunidad_id, $alumno_id]);
+								$nota = DB::select(self::LAS_DIEZ_COLUMNAS.' FROM notas n WHERE n.deleted_at is null and n.subunidad_id=? and n.alumno_id=?', [$unidad->subunidades[$j]->subunidad_id, $alumno_id]);
 							}
 						}
 						
