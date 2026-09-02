@@ -8,7 +8,54 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
-**2 sep 2026 — HORARIOS: CAMBIÓ EL DISEÑO ENTERO Y NO HAY UNA LÍNEA DE CÓDIGO** ·
+**2 sep 2026, tarde — EL PANEL DE UN ALUMNO PASA DE 620 ms A 20 ms, Y EL CALENDARIO
+RESULTÓ SER OTRA COSA** · [`24-el-panel-de-inicio.md`](24-el-panel-de-inicio.md) nuevo, con
+`GET ChangesAsked/to-me` medido rol por rol · **el router sigue en 550**: no hay ruta nueva ·
+lo levantó la sesión de `myvc_flutter`, y **la pregunta ya estaba escrita en el otro repo desde
+el 1 sep** (`myvc_front/MIGRATION.md`, «un endpoint único para la portada»)
+
+> **Tres recortes hechos; las diez claves de la respuesta siguen todas** (la tercera sí cambia la
+> forma de una fila, y va explicada abajo):
+> **(1)** `profes_actuales` vuelve **vacío** para un alumno — eran **dos consultas agregadas por
+> cada uno de los 16 docentes** para calcular `porcentaje`, *lo al día que va cada profesor con su
+> planeación*, y **no lo pinta ningún cliente** (en las dos aplicaciones el recuadro va bajo
+> `admin || profesor`, y Flutter no lee la clave). **49 → 24 consultas, ~620 ms → ~20 ms.**
+> **(2)** el horario del docente deja de ser un **N+1 de dos pisos** —una consulta de unidades por
+> asignatura y una de subunidades por unidad— y pasa a dos consultas con `IN`: **75 → 17
+> consultas**, y la respuesta comprobada **idéntica byte a byte** contra el algoritmo viejo sobre
+> la población real (17 asignaturas, 36 unidades, 54 subunidades). Fijado por
+> `tests/Contrato/PanelDeInicioTest.php`, comprobado al revés.
+>
+> **(3) El calendario deja de ir con `SELECT *`** y manda las **nueve columnas que se pintan**:
+> **231 → 114 KB**. Con eso **el panel pesa la mitad para todos**: Usuario 274→157 KB,
+> Profesor 279→162, Alumno 225→112, Acudiente 218→108. **Ninguna fila se borra de la base**: lo
+> único que cambió es qué columnas manda el endpoint.
+>
+> **Y el hallazgo que corrigió la decisión que se había tomado dos horas antes.** Joseth autorizó
+> primero recortar `eventos` **por rango de fechas**. Midiendo después: **el año en curso de esta
+> copia es 2025**, sus **507 filas son todas cumpleaños** (184 KB, el 80% del peso) y lo viejo son
+> **123 filas de 2019–2023** (19%). O sea que **cortar por fecha quita lo que la gente mira y deja
+> lo que no mira nadie**; el recorte de columnas vale el doble y no esconde un solo evento. Se hizo
+> así.
+>
+> **Lo único que se ve en una pantalla, y va avisado:** entre las columnas quitadas está
+> `created_by_nombres`, que la aplicación **vieja** pinta en el tooltip del evento («Por:
+> administrador»). Hasta que se arregle allí —una línea— dirá **«Por: undefined»**. Joseth lo
+> decidió sabiéndolo, y dejó dicha una tercera cosa **sin decidir**: *inhabilitar estos endpoints
+> en el panel viejo para que los colegios pasen a `app2`*. **La sesión del front tiene que
+> enterarse**: quitar un campo de una respuesta es de las cuatro cosas que se avisan por el canal.
+> El snapshot `muestreo-ChangesAsked-to-me.json` se regeneró a propósito y su diff son exactamente
+> esas nueve claves.
+>
+> **Lo siguiente, ya decidido por Joseth y sin empezar:** el agregador `panel/portada` **al lado**,
+> con `to-me` intacto (ruta nueva → 551 el día que se autorice, y se cuenta ese día). Y **los
+> pedidos de cambio se rediseñan** en la forma estrecha: el diseño está en
+> [`25-pedidos-de-cambio.md`](25-pedidos-de-cambio.md), **nada construido**, y lleva delante una
+> medición que no está hecha — **cuántos pedidos vivos hay en los quince colegios**, porque si el
+> mecanismo está muerto en trece la respuesta buena puede ser retirarlo. De sus **31 columnas
+> `_new`, sólo seis se escriben**.
+
+**Anterior: 2 sep 2026 — HORARIOS: CAMBIÓ EL DISEÑO ENTERO Y NO HAY UNA LÍNEA DE CÓDIGO** ·
 [`23-horarios.md`](23-horarios.md) reescrito a **v2** · **el router sigue en 550** (contado con
 `route:list --json` ese día) y **no se tocó nada de `app/`**, así que todo lo que va debajo
 —el despliegue pendiente, las decisiones abiertas del boletín— **sigue vigente sin un cambio** ·
