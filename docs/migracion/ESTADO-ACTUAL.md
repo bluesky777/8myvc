@@ -12,7 +12,19 @@
 `feat/prevuelo-horario`, **sin fusionar** · `tools/prevuelo-del-horario.php`, el nivel 1 de la
 [§9.2 del 23](23-horarios.md) · **el router no se mueve**: no hay ruta, es una herramienta ·
 `--control` verde y dentro de `AutopruebasDeLasHerramientasTest` (12 pasan) · pint y
-larastan nivel 7 **`[OK] No errors`** sobre este árbol · lo repartió `8myvc-af`
+larastan nivel 7 **`[OK] No errors`** sobre este árbol ·
+**`Tests: 1844 passed (16616 assertions)`, `Duration: 648.79s`, `exit=0`**, cero rojos y cero
+saltados · lo repartió `8myvc-af`
+
+> **1844 es la cuenta exacta y por eso vale como comprobación:** 1843 de `main` **+ 1**, el único
+> caso que añade esta rama (el data set de `prevuelo-del-horario.php` en el runner de
+> autopruebas), y +2 aserciones. **No son los 1858 de `8myvc-9c`**: su lote de horarios no está
+> aquí dentro, y confundir las dos cuentas es cómo un caso que falta pasa por un caso que sobra.
+>
+> Medido sobre **`f932380`**. Los tres commits posteriores —el número de la cuarta ruta, el suelo
+> de la escala y el arnés a medias— son **markdown y nada más** (`git diff --stat`: un fichero,
+> `23-horarios.md`), así que el verde vale para el árbol de hoy; se dice en vez de darlo por
+> supuesto.
 
 > **Reproduce las siete cifras del control de la §9.1 sobre `simonbolivar`, año 8**, y también
 > el reparto que es el hallazgo: **Transición 7 de 7 sin docente y Jardín 3 de 7**, o sea que el
