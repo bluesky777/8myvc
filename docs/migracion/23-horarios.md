@@ -222,13 +222,12 @@ pone nada rojo**. Un puntero no admite ese estado. Marcar la oficial pasa a ser 
 `UPDATE` de una columna, y «todavía no hay ninguna» es `NULL`, que es un estado y no
 un accidente.
 
-**El blob del proyecto es lo único de aquí que puede crecer sin límite.** Guardarlo
-es lo que permite que otro computador abra la versión oficial y siga desde ahí, que
-es lo que pasa cuando el coordinador cambia de máquina; pero un JSON con la
-configuración, las disponibilidades de doce docentes y 345 colocaciones **no se ha
-medido nunca porque todavía no existe ninguno**. Antes de escribir la columna hay que
-decidir dos cosas —§10.2— y ninguna es cosmética: si va en la fila o en `storage/`, y
-cuál es el tope. En cPanel el que corta primero no es PHP, es `max_allowed_packet` de
+**El blob del proyecto sube siempre, y es lo único de aquí que puede crecer sin
+límite.** Que suba lo decidió Joseth el 2 sep —no opcional— y la razón es buena: sin él
+el trabajo de un mes vive en un portátil. Pero un JSON con la configuración, las
+disponibilidades de doce docentes y 345 colocaciones **no se ha medido nunca, porque
+todavía no existe ninguno**. Antes de escribir la columna quedan dos cosas por decidir
+—§10.2— y ninguna es cosmética: si va en la fila o en `storage/`, y cuál es el tope. En cPanel el que corta primero no es PHP, es `max_allowed_packet` de
 MySQL, y lo hace con un error que no se parece a «el fichero es muy grande».
 
 ### 5.2. El cuerpo del `POST` — la forma que propuso el front, con cuatro correcciones
@@ -345,6 +344,13 @@ es un papel que acaba pegado en la puerta del salón.
 > lecciones**. Con `auth.personal`, un `SELECT *` en esa ruta le entrega a cualquiera de
 > los 53 docentes el fichero de proyecto entero del colegio. El blob se descarga por
 > otro camino y con otro permiso el día que haga falta; hoy no hace falta ninguno.
+
+**Y ahí aparece una ruta que no está pedida ni autorizada: descargar el proyecto.** Si
+el blob sube siempre (§5.1), antes o después alguien va a querer bajárselo para reabrir
+el año en otro computador — y eso es una **cuarta** ruta, o sea **554**, no un campo más
+de la lista. La sesión del front vota por que el permiso sea **el mismo que publica**, y
+el argumento es el correcto: *subir es dejar tu trabajo, descargar es llevarte el de
+otro*. Queda en la §10.2 sin escribir, como todas.
 
 #### El hallazgo: «coordinador académico» nombra dos cosas, y hoy ninguna identifica a nadie
 
@@ -514,14 +520,34 @@ tercera es trabajo:
 | «No hay horario» tiene que decir su población | **las dos mitades**: el generador allí, el 422 aquí (§6) |
 | Que `dia` sea un entero y no una fecha | igual: un horario es semanal y se repite; el lunes del simulacro es `calendario`, no horario |
 
-**Y una cosa del pre-vuelo sí es de aquí y se puede hacer hoy, sin decidir nada y sin
-tocar el router:** el nivel 1 sobre los datos que ya hay, como script de `tools/`.
-Contesta la única pregunta que hoy no tiene respuesta y que puede tumbar el proyecto
-entero — **si los datos de los quince colegios sirven** —, y no necesita ni rejilla,
-ni escritorio, ni una ruta. En `simonbolivar` ya da dos números: la IH está puesta en
-las 134, pero **10 asignaciones no tienen docente y son 25 de las 345 horas**, o sea
-25 lecciones que nadie puede colocar. Si en otro colegio la IH está a medias, eso se
-sabe en una tarde en vez de en la demo.
+**Y una cosa del pre-vuelo sí es de aquí y no necesita ni rejilla, ni escritorio, ni
+una ruta:** el nivel 1 sobre los datos que ya hay. Contesta la pregunta que puede
+tumbar el proyecto entero — **si los datos de los quince colegios sirven**.
+
+### 9.1. Corrido sobre `simonbolivar` el 2 sep 2026, y esto es lo que dice
+
+**Ningún docente es imposible con la rejilla de 7 × 5.** Los 12 caben en las 35
+casillas, y el más cargado —31 horas— tiene 4 de holgura. Con la rejilla de 6 × 5 que
+supuso la v1, ese mismo docente **no tenía horario**: es el supuesto que costaba el
+proyecto, y lo deshizo un pantallazo.
+
+    31  ·  30  ·  28 × 6  ·  27  ·  26  ·  23  ·  15      (Σ IH por docente, techo 35)
+
+Los grupos también caben: 30 en bachillerato, 25 en primaria, 20 en preescolar, todos
+por debajo de 35 — aunque la holgura real de cada uno depende de **su** jornada, que es
+el dato que falta (§10.1).
+
+**Y el hallazgo, que no es de holgura sino de personal:** las **10 asignaciones sin
+docente son las 10 de preescolar**, y no están repartidas — **Transición tiene 7 de 7
+sin docente**, o sea **el grupo entero**, y Jardín 3 de 7. Son 25 de las 345 horas.
+Dicho como lo diría el pre-vuelo: *el horario de Transición no se puede colocar en
+absoluto, porque ninguna de sus siete asignaciones tiene a quién poner en la casilla.*
+No es un fallo del horario, es un dato del colegio que hoy no lo enseña nadie — y
+encaja con la §2: las dos únicas filas con día marcado en las 134 son de Transición y
+las dos tienen `profesor_id` nulo.
+
+Como script de `tools/` corre sobre los quince y contesta en una tarde en vez de en la
+demo. Si en otro colegio la IH está a medias, se sabe antes de prometer nada.
 
 ---
 
@@ -565,21 +591,28 @@ sabe en una tarde en vez de en la demo.
     Marcar oficial una versión de 2024 reescribe las columnas de 2024, y eso es lo
     decidido.
 
+14. **El blob del proyecto sube siempre**, no opcional (§5.1): sin él el trabajo de un
+    mes vive en un portátil. *(Contestada por Joseth en paralelo, vía la sesión del
+    front.)*
+
 Y una que es dato del colegio y no decisión: **los timbres reales de cada nivel**
 —de qué hora a qué hora va cada lección en preescolar, primaria y bachillerato—
 siguen sin estar.
 
 ### 10.2. Abiertas, y estas son de este repo
 
-> **Seis de las siete se cerraron el 2 sep** y están arriba, en la §10.1 — las rutas, la
-> opción B, quién marca la oficial, el rol vacío, quién lista y los años cerrados.
-> **Quedan dos**, y las dos son de cuando se escriba el código, no de ahora.
+> **Siete se cerraron el 2 sep** y están arriba, en la §10.1 — las rutas, la opción B,
+> quién marca la oficial, el rol vacío, quién lista, los años cerrados y el blob.
+> **Quedan tres**, y las tres son de cuando se escriba el código, no de ahora.
 
 1. **El blob del proyecto**: ¿en la fila o en `storage/`? ¿Con qué tope? Nadie ha
    medido uno todavía porque no existe ninguno (§5.1).
-2. **Las siete columnas**: se derivan al marcar la oficial; falta decidir **qué las
+2. **¿Existe una ruta para DESCARGAR el proyecto de una versión, y con qué permiso?**
+   Sería la **cuarta**, o sea **554**, y no está pedida. Voto del front: el mismo
+   permiso que publica, no el que sube (§5.4).
+3. **Las siete columnas**: se derivan al marcar la oficial; falta decidir **qué las
    ata** —el test es obligatorio, la herramienta de `tools/` es opcional— y confirmar
    que el orden **no** se promete (§7).
-> Lo más barato que se puede hacer sin esperar a ninguna de las dos es el **nivel 1
+> Lo más barato que se puede hacer sin esperar a ninguna de las tres es el **nivel 1
 > del pre-vuelo como script de `tools/`** sobre los quince colegios (§9). No toca el
 > router, no necesita permiso y contesta si este módulo se va a poder usar.

@@ -150,8 +150,25 @@ lo trajo la sesión `myvc-front-ea` de parte de Joseth
 >    mueva a ese año verá ese horario. Es la razón por la que el puntero vive en `years`: cada año
 >    tiene el suyo y no se pisan.
 >
-> **Quedan dos decisiones abiertas** en la §10.2 del 23, y las dos son del día que se escriba el
-> código: el blob del proyecto y qué ata las siete columnas derivadas.
+> 7. **El blob del proyecto sube siempre**, no opcional: sin él el trabajo de un mes vive en un
+>    portátil. *(Contestada en paralelo por Joseth, vía la sesión del front.)*
+>
+> **EL PRE-VUELO NIVEL 1 YA SE CORRIÓ, y da un hallazgo que no es de horarios.** Con la rejilla de
+> 7 × 5 **ningún docente es imposible**: los 12 caben en las 35 casillas y el más cargado —31 h—
+> tiene 4 de holgura (con el 6 × 5 que supuso la v1, ése **no tenía horario**: el supuesto que
+> costaba el proyecto lo deshizo un pantallazo). Pero **las 10 asignaciones sin docente son las 10
+> de preescolar, y no están repartidas: Transición tiene 7 de 7 sin docente —el grupo entero— y
+> Jardín 3 de 7.** Son 25 de las 345 horas, y dicho como lo diría la herramienta: *el horario de
+> Transición no se puede colocar en absoluto, porque ninguna de sus siete asignaciones tiene a
+> quién poner en la casilla*. Encaja con lo de arriba: las dos únicas filas con día marcado de las
+> 134 son de Transición y las dos tienen `profesor_id` nulo. **Es un dato del colegio que hoy no
+> enseña nadie**, y sale de una consulta — por eso el nivel 1 como script de `tools/` sigue siendo
+> lo más barato que se puede hacer, y ahora con un ejemplo de lo que encuentra.
+>
+> **Quedan tres decisiones abiertas** en la §10.2 del 23, y las tres son del día que se escriba el
+> código: el blob (dónde vive y con qué tope), **si existe una ruta para DESCARGAR el proyecto**
+> —sería la **cuarta, 554**, no está pedida, y el front vota por que su permiso sea el de publicar
+> y no el de subir— y qué ata las siete columnas derivadas.
 
 > **El contrato quedó cerrado entre las dos sesiones tras tres vueltas**, y **seis de las siete
 > decisiones están contestadas** (arriba). Lo que falta no es acuerdo técnico ni permiso: es
