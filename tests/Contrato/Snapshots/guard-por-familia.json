@@ -351,6 +351,10 @@
         "total": 6,
         "con_guard": 6
     },
+    "rubricas": {
+        "total": 10,
+        "con_guard": 10
+    },
     "simat": {
         "total": 3,
         "con_guard": 3
