@@ -128,7 +128,31 @@ $PHP_EXEC env \
 # existe: la tabla `migrations` trae además las filas viejas del volcado
 # congelado, así que un `COUNT(*)` daría 67 donde hay 19 y no se podría comparar
 # con nada.
-esperadas=$(ls database/migrations/*.php 2>/dev/null | wc -l | tr -d ' ')
+#
+# **Las dos mitades tienen que contar el MISMO árbol, y ése es el borde de todo
+# esto.** `migrate:status` corre dentro de `$PHP_EXEC`, y un `docker exec` sin
+# `-w` trabaja en `/app` —el árbol principal— aunque llames al script desde un
+# worktree. Contar los ficheros aquí, en el host, mide el árbol de quien llama;
+# contarlos con `$PHP_EXEC` mide el que de verdad se migró. Si se mezclan, una
+# rama con una migración propia da `19 de 20` con la base perfectamente sana.
+arbol=$($PHP_EXEC pwd 2>/dev/null | tr -d ' \r' || true)
+esperadas=$($PHP_EXEC sh -c 'ls database/migrations/*.php 2>/dev/null | wc -l' 2>/dev/null | tr -d ' \r' || true)
+esperadas_aqui=$(ls database/migrations/*.php 2>/dev/null | wc -l | tr -d ' ')
+
+# Y si los dos árboles NO tienen las mismas migraciones, el problema no es la
+# base: es que se migró otro árbol. Se para aquí porque una base construida con
+# las migraciones de otra rama da tests en verde que no significan nada — es la
+# trampa que ya documenta la cabecera de `tools/worktree-de-sesion.sh` para
+# `vendor/`, por otra puerta.
+if [ -n "$esperadas" ] && [ "$esperadas" -ne "$esperadas_aqui" ]; then
+    echo >&2
+    echo "FALLO: se migró un árbol distinto del que pide la base." >&2
+    echo "  aquí ($(pwd)): $esperadas_aqui migraciones" >&2
+    echo "  allí ($arbol): $esperadas migraciones" >&2
+    echo "Pásale a \$PHP_EXEC el árbol correcto:" >&2
+    echo "  PHP_EXEC=\"docker exec -i -w /app/.worktrees/<x> 8myvc-app-1\" DB_TEST_DATABASE=... tools/construir-bd-test.sh" >&2
+    exit 1
+fi
 
 estado=$($PHP_EXEC env \
     DB_TEST_DATABASE="$DB_TEST_DATABASE" \
@@ -144,6 +168,7 @@ pendientes=$(printf '%s\n' "$estado" | grep -c ' Pending' || true)
 if [ "$pendientes" -ne 0 ] || [ "$aplicadas" -ne "$esperadas" ]; then
     echo >&2
     echo "FALLO: '$DB_TEST_DATABASE' quedó a medias — $aplicadas de $esperadas migraciones aplicadas, $pendientes pendientes." >&2
+    echo "(migraciones de '$arbol', que es el árbol que mira \$PHP_EXEC)" >&2
     echo "La base NO sirve para correr tests, y si se paró en una migración que retira una" >&2
     echo "columna tampoco sirve para el código viejo. Las que faltan:" >&2
     printf '%s\n' "$estado" | grep ' Pending' >&2 || true
@@ -156,4 +181,4 @@ mysql_cmd "$DB_TEST_DATABASE" < "$SEED"
 tablas=$(mysql_cmd -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$DB_TEST_DATABASE';")
 users=$(mysql_cmd -N -e "SELECT COUNT(*) FROM \`$DB_TEST_DATABASE\`.users;")
 
-echo "Listo: $aplicadas/$esperadas migraciones, $tablas tablas, $users usuarios."
+echo "Listo: $aplicadas/$esperadas migraciones de '$arbol', $tablas tablas, $users usuarios."
