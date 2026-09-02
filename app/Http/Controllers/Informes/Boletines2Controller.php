@@ -214,7 +214,14 @@ class Boletines2Controller extends Controller {
 		for ($i=0; $i<$cant; $i++) {
 
 			// NOTAS FINALES
-			$asignaturas[$i]->notas_finales 		= DB::select('SELECT periodo, CAST(nota AS DOUBLE) AS nota, manual, recuperada FROM notas_finales WHERE alumno_id=? and asignatura_id=? and periodo<=? order by periodo asc', [$alumno->alumno_id, $asignaturas[$i]->asignatura_id, $this->user->numero_periodo]);
+			// **La fila de periodos del tipo 2, con el par de cada definitiva** — A10, 25 §2.1.
+			// Es la misma línea que la del tipo 1 (`BoletinesController:293`) y entra con él:
+			// el tipo 2 ya recibía el par en `asignaturas[]` por la consulta compartida de
+			// `Grupo::detailed_materias_notafinal`, así que dejar ésta sin él imprimiría la
+			// novedad en la cabecera de la asignatura y no en la tabla de periodos, que es
+			// donde el acudiente la busca. **El indicador NO se toca aquí** (§2.1): el tipo 2
+			// suma por unidad, y una «original de la unidad» sería un número que no existió.
+			$asignaturas[$i]->notas_finales 		= DB::select('SELECT periodo, CAST(nota AS DOUBLE) AS nota, CAST(nota_original AS DOUBLE) AS nota_original, nivelada_at, manual, recuperada FROM notas_finales WHERE alumno_id=? and asignatura_id=? and periodo<=? order by periodo asc', [$alumno->alumno_id, $asignaturas[$i]->asignatura_id, $this->user->numero_periodo]);
 			$asignaturas[$i]->nota_faltante 		= 0;
 			$asignaturas[$i]->nota_definitiva_anio 	= 0;
 

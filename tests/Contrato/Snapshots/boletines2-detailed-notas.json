@@ -135,7 +135,9 @@
                                 {
                                     "desempenio": "string",
                                     "manual": "int",
+                                    "nivelada_at": "null",
                                     "nota": "int",
+                                    "nota_original": "null",
                                     "periodo": "int",
                                     "recuperada": "int"
                                 }
@@ -221,7 +223,9 @@
                         {
                             "desempenio": "string",
                             "manual": "int",
+                            "nivelada_at": "null",
                             "nota": "int",
+                            "nota_original": "null",
                             "periodo": "int",
                             "recuperada": "int"
                         }
