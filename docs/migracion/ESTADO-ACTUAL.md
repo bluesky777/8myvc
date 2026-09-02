@@ -70,9 +70,10 @@ coordina `8myvc-ab`
 > | Las cuatro consultas con `*` de `notas_finales` y `recuperacion_final` nombran sus columnas | `Informes/BolfinalesController`, `CertificadosPersonaController` | `db26dd3` — **puso en verde los dos rojos de A sin regenerar ningún snapshot** |
 > | El par del **indicador** y de la **definitiva** | `Subunidad::deUnidadCalculada`, `Grupo::detailed_materias_notafinal`, `BoletinesController:293`, `BolfinalesController:508` | `11e0266` |
 > | La tabla de periodos del **tipo 2**, y los dos snapshots de `notas/alumno` | `Boletines2Controller:217` | `d39a316` |
+> | El **tipo 3**: veintiséis proyecciones en cuatro consultas | `Grupo::detailed_materias_notas_finales` | `78fe02a` |
 >
-> Lo imprimen el **boletín tipo 1 y 5**, el **tipo 2** (sólo la definitiva), el **boletín final**
-> y las **notas actuales del alumno**. Ocho instantáneas regeneradas y **leídas**: el diff es
+> Lo imprimen el **boletín tipo 1 y 5**, el **tipo 2** y el **tipo 3** (los dos, sólo la
+> definitiva), el **boletín final** y las **notas actuales del alumno**. Ocho instantáneas regeneradas y **leídas**: el diff es
 > **sólo claves nuevas en `null`**, ninguna quitada — que es la prueba de que `nota` sigue siendo
 > la vigente y de que ningún cliente pierde un campo.
 >
@@ -86,10 +87,16 @@ coordina `8myvc-ab`
 >     Flutter la llama y **no se rompe** —comprobado leyendo su parser—, y esconderle al alumno la
 >     novedad que sí lleva su certificado firmado no se sostiene.
 >
-> **Lo que falta de A10** (27 §5.3): el **tipo 3** —que **no es la misma línea**: son cuatro
-> consultas con subconsultas por periodo—, el **criterio de «recuperó»** de `:574`, que no es
-> aditivo y cambia lo que imprimen los quince hoy, y **el puesto**, que espera a Joseth: si elige
-> congelarlo va **antes** que todo lo anterior, porque son los mismos cinco ficheros.
+> **Lo que falta de A10** (27 §5.3): el **criterio de «recuperó»** de `:574`, que **no es
+> aditivo** —cambia lo que imprimen los quince hoy— y por eso espera decisión, y **el puesto**,
+> que espera a Joseth: si elige congelarlo va **antes** que todo lo anterior, porque son los
+> mismos cinco ficheros.
+>
+> **Y un hueco del contrato que quedó medido de paso, sin arreglar:** `boletines3/detailed-notas`
+> **sin `periodo_a_calcular`** devuelve las áreas **sin una sola asignatura**, en 200 y sin
+> avisar —el defecto es 10 y la consulta sólo tiene ramas para 1..4—. El front sí lo manda, así
+> que la pantalla real funciona; lo que estaba ciego era la instantánea, que por eso guardaba
+> `asignaturas: []` y no vigilaba ni una columna de ese informe.
 >
 > Base de tests de esta sesión: `simonbolivar_testing_inf`. **Y una regla de la noche: no se lanzan
 > dos suites completas a la vez en el mismo contenedor** —25 rojos por deadlock el 2 sep, que al

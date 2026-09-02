@@ -255,6 +255,7 @@ En el orden en que se puede desplegar sin que un colegio imprima mal (tareas §7
 | El **boletín final** | `Informes/BolfinalesController:508` | las once columnas pasan a **catorce**: era el sitio que la §3.4 del [22](22-nivelaciones.md) tenía como «congelado hasta A10» |
 | La tabla de periodos del **tipo 2** | `Boletines2Controller:217` | la misma línea del tipo 1; su indicador **no** se toca (suma por unidad) |
 | `GET notas/alumno` | por la consulta compartida de `Grupo` | gana el par de la definitiva **a sabiendas** — ver abajo |
+| El **tipo 3**, en su propio commit | `Grupo::detailed_materias_notas_finales` | **veintiséis** inserciones en cuatro consultas: `nota_original_perN` y `nivelada_at_perN` |
 
 Tres decisiones que van con eso:
 
@@ -276,6 +277,17 @@ Tres decisiones que van con eso:
 > porque si el papel firmado lleva la novedad al pie, esconderla en la pantalla del propio
 > alumno no se sostiene; y acotarlo habría costado **un parámetro en un método con cuatro
 > llamantes**, complejidad permanente a cambio de literalismo.
+
+> **Y el tipo 3 no tenía a nadie mirándolo.** Su instantánea guarda
+> `areas[0].asignaturas` como **lista vacía**, así que **ninguna columna de la asignatura del
+> tipo 3 estaba vigilada**: las veintiséis proyecciones habrían entrado sin una sola prueba.
+> La causa está medida y no es del seed: `BoletinesTest` llama **sin `periodo_a_calcular`**,
+> el controlador usa entonces el defecto **10**, y la consulta sólo tiene ramas para 1..4 — así
+> que devuelve el array vacío con el que nació y **el boletín sale con las áreas y sin una sola
+> asignatura, en 200 y sin avisar**. El front sí lo manda
+> (`boletines-periodo.ts`: `{ periodo_a_calcular: periodo }`), así que la pantalla real
+> funciona: **el hueco es del contrato, no del colegio**. `BoletinImprimeElParTest` lo manda, y
+> por eso ve las columnas.
 
 **Ocho instantáneas regeneradas y leídas**, y el diff es la prueba de que la migración es
 aditiva: **todas claves nuevas con valor `null`**, ninguna quitada y ninguna
@@ -314,19 +326,13 @@ trabajo del front, en `informes/certificado-estudio/`.
 
 ### 5.3 · Lo que falta, y por qué no se ha escrito
 
-1. **El tipo 3.** Es el único que sigue sin el par de la definitiva, y **no es la misma
-   línea que el tipo 2**: `Grupo::detailed_materias_notas_finales` no tiene una consulta,
-   tiene **cuatro** —una por `num_periodo` 1..4— y cada una lleva dentro subconsultas
-   `nota_final_per1..4` con su `nf_id_N` y su `nf_updated_atN`. Son unas diez inserciones y
-   tocan un `@rownum` que ya es frágil. **Se paró aquí a propósito**: el tipo 2 se cerró
-   porque era una línea; éste es una tarea con su propio riesgo.
-2. **El criterio de «recuperó»** en `BolfinalesController:574` —y su gemelo del certificado,
+1. **El criterio de «recuperó»** en `BolfinalesController:574` —y su gemelo del certificado,
    `:375`—: hoy se deduce de `si_recupera_materia_recup_indicador` **y** de `manual`, y con
    el par podría ser `nota_original IS NOT NULL`, que es lo que la marca significa. **No se
    ha tocado porque no es aditivo**: cambia lo que imprimen los quince colegios hoy, no sólo
    lo que se añade.
-3. **El puesto** (§3.3), que sigue esperando a Joseth. Si elige congelar, va **antes** que
+2. **El puesto** (§3.3), que sigue esperando a Joseth. Si elige congelar, va **antes** que
    todo lo anterior y son los mismos cinco ficheros: hacerlo después es tocarlos dos veces.
-4. **Nada en el tipo 4, notas perdidas, actas ni certificado de estudio**, y el
+3. **Nada en el tipo 4, notas perdidas, actas ni certificado de estudio**, y el
    `BolfinalesController` de la raíz **no se toca**: o se borra en su propio lote o se deja.
 
