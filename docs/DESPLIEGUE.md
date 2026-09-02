@@ -76,12 +76,31 @@ for d in /home/micolev1/*.micolevirtual.com/8myvc; do
 done
 ```
 
-**Lo que se espera ver: ausente o vacía en los quince.** Cualquier valor ≥ 4 se borra **hoy**, no
-el día del despliegue.
+**Lo que se espera ver: ausente o vacía en los quince. Y lo que se busca es CUALQUIER valor no
+vacío, no «un valor ≥ 4»** — el porqué está justo debajo y corrige lo que decía esta línea.
 
-> **Y no se arregla poniendo «un número bajo».** Un `3` es seguro hoy y es una trampa cargada: el
-> día que se publique el build 4, quien ponga `4` bloquea de golpe a todo el que siga en el 3.
-> Mientras no haya una versión más nueva **en la tienda**, lo correcto es **ausente o 0**.
+> **Corrección del 2 sep 2026, de `myvc-flutter-14`: el suelo NO es el build 3.** La app se
+> reparte por **dos canales** (`publicacion-play.md`): Play —en prueba cerrada, 27 verificadores—
+> y **APK directo**, «enlace en la web del colegio, WhatsApp». Quien instaló por WhatsApp tiene el
+> build que llevara ese APK, y **nadie garantiza que sea el 3**: puede andar por el **1 o el 2**.
+>
+> Así que **un `3` puede estar bloqueando gente ahora mismo** —a todo el que ande por el 1 o el
+> 2—, y un `2` bloquearía a los del 1. Por eso el criterio no es un umbral: **cualquier valor no
+> vacío es sospechoso** hasta saber qué builds circulan en ese colegio, y se borra hoy.
+
+> **Y no se arregla poniendo «un número bajo», que es la salida que parece prudente.** Un `3` es
+> una trampa cargada por los dos lados: hoy bloquea a los de los canales directos, y el día que se
+> publique el build 4 quien ponga `4` bloquea de golpe a todo el que siga en el 3. Mientras no haya
+> una versión más nueva **en la tienda**, lo correcto es **ausente o 0**.
+
+> **Y esto no lo va a delatar nada más, así que el barrido no es una confirmación: es la única
+> detección que existe.** Medido por `myvc-flutter-14` el 2 sep 2026: el camino del bloqueo
+> —`VersionMinima`, `RouteGenerator`, `ActualizarScreen`— **no tiene ni una llamada a la
+> analítica**. Cero. Y no es que la app no mida: hay eventos para `planilla_abierta`,
+> `notas_guardadas`, `usuarios_abierta`, `situacion_creada`… pero **ninguno para la única pantalla
+> que significa «esta persona no puede usar la app»**. Un colegio con un número malo tiene a sus
+> usuarios contra un muro **y eso no aparece en ningún contador, ningún evento y ningún log**.
+> Queda como deuda del lado de Flutter para el próximo build; no llega al que está en revisión.
 
 **Esto se levanta cuando la app salga de revisión**, o antes si las dos preguntas de arriba se
 contestan que no. Lo levanta Joseth, no una sesión. — **Contestadas que no el 2 sep**; lo que
