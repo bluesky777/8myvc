@@ -68,6 +68,8 @@ class BoletinImprimeElParTest extends CasoDeContrato
 
         $this->assertNotNull($periodo, 'El seed no tiene un Usuario con periodo en ese año.');
 
+        $numero = (int) DB::selectOne('SELECT p.numero FROM periodos p WHERE p.id = ?', [$periodo->id])->numero;
+
         // La nota tiene que ser de una unidad **del grupo** (`alumno_id IS NULL`) y del
         // periodo que el boletín pinta: si se elige una cualquiera, el informe no la
         // trae y el test daría verde sin haber mirado el par.
@@ -76,7 +78,12 @@ class BoletinImprimeElParTest extends CasoDeContrato
                FROM notas n
               INNER JOIN subunidades s ON s.id = n.subunidad_id AND s.deleted_at IS NULL
               INNER JOIN unidades u ON u.id = s.unidad_id AND u.deleted_at IS NULL AND u.alumno_id IS NULL
-              INNER JOIN asignaturas a ON a.id = u.asignatura_id AND a.deleted_at IS NULL AND a.grupo_id = ?
+              -- `profesor_id IS NOT NULL` porque el TIPO 3 lo exige
+              -- (`detailed_materias_notas_finales`: `where a.profesor_id is not null` más un
+              -- `inner join profesores`). Sin esta condición la asignatura elegida no sale en
+              -- ese informe y su test se queda sin población — pasó, y el aserto lo cazó.
+              INNER JOIN asignaturas a ON a.id = u.asignatura_id AND a.deleted_at IS NULL
+                    AND a.grupo_id = ? AND a.profesor_id IS NOT NULL
               INNER JOIN matriculas m ON m.alumno_id = n.alumno_id AND m.grupo_id = a.grupo_id
                     AND m.deleted_at IS NULL AND m.estado IN ("MATR","ASIS")
               WHERE n.deleted_at IS NULL AND u.periodo_id = ?
@@ -86,7 +93,8 @@ class BoletinImprimeElParTest extends CasoDeContrato
 
         $this->assertNotNull($nota, 'El seed no tiene una nota del grupo en el periodo del boletín.');
 
-        return ['grupo' => $grupo, 'alumno' => (int) $nota->alumno_id, 'token' => $token, 'nota' => $nota];
+        return ['grupo' => $grupo, 'alumno' => (int) $nota->alumno_id, 'token' => $token,
+            'nota' => $nota, 'numero' => $numero];
     }
 
     /** Deja esa nota nivelada, tal como la dejaría `PUT notas/nivelar/{id}` con la regla `topada`. */
@@ -315,6 +323,108 @@ class BoletinImprimeElParTest extends CasoDeContrato
         $this->assertGreaterThan(0, $nivelada, 'La definitiva nivelada no salió en el boletín final.');
         $this->assertGreaterThan(0, $sinNivelar,
             'Ninguna definitiva sin nivelar en la respuesta: no se comprobó que las demás sigan en null.');
+    }
+
+    /**
+     * El tipo 3 — el corto, una fila por asignatura con la definitiva de cada periodo.
+     *
+     * **Y este test existe porque su instantánea no lo miraba.** `boletines3-detailed-notas`
+     * guarda `areas[0].asignaturas` como **lista vacía** —la primera área del alumno del seed
+     * no tiene ninguna—, y `forma()` de una lista vacía es `[]`: o sea que **ninguna columna
+     * de la asignatura del tipo 3 estaba vigilada por nada**. Es el mismo hallazgo que el de
+     * `recuperaciones: []` en `BoletinFinalSinAsteriscoTest`, y por eso las veintiséis
+     * proyecciones que este par añadió a `Grupo::detailed_materias_notas_finales` habrían
+     * entrado **sin una sola prueba** si esto no estuviera escrito.
+     */
+    public function test_el_boletin_tipo_3_imprime_el_par_de_cada_periodo(): void
+    {
+        $e = $this->escenario();
+
+        // **La definitiva que se nivela es la del periodo NÚMERO 1**, y no la del token.
+        // Las cuatro variantes de `detailed_materias_notas_finales` traen `per1`; las de
+        // `per2..4` sólo aparecen según el `num_periodo`, y además el `asignatura_id` de la
+        // fila sale del bloque de periodo 1 por el `right join`. Fijarlo en el 1 es lo que
+        // hace que este test mire siempre la misma columna.
+        $definitiva = DB::selectOne(
+            'SELECT nf.id FROM notas_finales nf
+              INNER JOIN periodos p ON p.id = nf.periodo_id AND p.numero = 1 AND p.deleted_at IS NULL
+              WHERE nf.alumno_id = ? AND nf.asignatura_id = ? AND p.year_id = ?',
+            [$e['alumno'], $e['nota']->asignatura_id, $e['grupo']->year_id]
+        );
+
+        if ($definitiva === null) {
+            $this->markTestSkipped('El seed no tiene definitiva del periodo 1 para esa asignatura.');
+        }
+
+        DB::update('UPDATE notas_finales SET nota = ?, nota_original = ?, nivelada_at = ?, recuperada = 1 WHERE id = ?',
+            [self::VIGENTE, 62.5, '2026-08-29 15:10:00', $definitiva->id]);
+
+        // **`periodo_a_calcular` va SIEMPRE, y es la mitad de este test.** Sin él,
+        // `Boletines3Controller:73` usa el defecto **10**, y `detailed_materias_notas_finales`
+        // sólo tiene ramas para 1, 2, 3 y 4: devuelve el array vacío con el que nació, así que
+        // el boletín sale **con las áreas y sin una sola asignatura**, en 200 y sin avisar. Es
+        // lo que hace `BoletinesTest`, y por eso su instantánea guarda `asignaturas: []` y no
+        // vigila ni una columna de aquí. El front sí lo manda
+        // (`boletines-periodo.ts`: `{ periodo_a_calcular: periodo }`), así que la pantalla real
+        // funciona; el hueco es del contrato, no del colegio.
+        $cuerpo = $this->pedir('PUT', "/api/boletines3/detailed-notas/{$e['grupo']->id}", [
+            'periodo_a_calcular' => 1,
+            'requested_alumnos' => [['alumno_id' => $e['alumno'], 'grupo_id' => (int) $e['grupo']->id]],
+        ], $e['token']);
+
+        $conLaClave = $this->nodosConClave($cuerpo, 'nota_original_per1');
+
+        $this->assertNotEmpty($conLaClave,
+            'Ninguna fila del tipo 3 trae `nota_original_per1`: las veintiséis proyecciones no '
+            .'llegan a la respuesta. Y su instantánea tampoco lo vería: guarda `asignaturas: []`.');
+
+        $nivelada = 0;
+        $sinNivelar = 0;
+
+        foreach ($conLaClave as $fila) {
+            if ((int) $fila['nf_id_1'] === (int) $definitiva->id) {
+                $this->assertEqualsWithDelta(62.5, (float) $fila['nota_original_per1'], 0.0001,
+                    'El tipo 3 no dice de dónde venía la definitiva del periodo 1.');
+                $this->assertEqualsWithDelta(self::VIGENTE, (float) $fila['nota_final_per1'], 0.0001,
+                    '`nota_final_per1` dejó de ser la vigente: la migración no es aditiva.');
+                $this->assertSame('2026-08-29 15:10:00', $fila['nivelada_at_per1'],
+                    'Sin fecha no es una novedad académica (art. 16 del 1290).');
+                $nivelada++;
+            } elseif ($fila['nota_original_per1'] === null) {
+                $sinNivelar++;
+            }
+        }
+
+        $this->assertGreaterThan(0, $nivelada, 'La definitiva nivelada no salió en el tipo 3.');
+        $this->assertGreaterThan(0, $sinNivelar,
+            'Ninguna fila sin nivelar: no se comprobó que las demás sigan en null.');
+    }
+
+    /**
+     * Los nodos que traen una clave, la traigan con el valor que la traigan.
+     *
+     * Hace falta además de `nodosCon` porque en el tipo 3 el `asignatura_id` de una fila
+     * **puede ser `null`**: sale del bloque del periodo 1 por un `right join`, así que una
+     * asignatura sin definitiva en ese periodo viaja con el id vacío. Buscar por la clave y
+     * no por el id es lo único que encuentra esas filas.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function nodosConClave(mixed $nodo, string $clave): array
+    {
+        $encontrados = [];
+
+        if (is_array($nodo)) {
+            if (array_key_exists($clave, $nodo)) {
+                $encontrados[] = $nodo;
+            }
+
+            foreach ($nodo as $v) {
+                $encontrados = array_merge($encontrados, $this->nodosConClave($v, $clave));
+            }
+        }
+
+        return $encontrados;
     }
 
     /**
