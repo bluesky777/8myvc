@@ -431,6 +431,41 @@ ya publicaba las cinco columnas de `notas`** por un `Nota::where(...)->first()` 
 varias líneas—, y por eso la herramienta ordena candidatos en vez de cerrar el asunto. Ahora
 esas columnas viajan **porque alguien las nombró**, y la ruta tiene su instantánea.
 
+### El hueco del detector, medido — porque un número incómodo es información
+
+La regla que salió de esta noche —**correr la suite entera después de cada migración que añada
+columnas**— funciona, pero **sólo caza donde hay instantánea**. `editnota/alum-asignatura` no
+la tenía, y por eso publicó cinco columnas durante horas sin que nada lo dijera. La pregunta
+que faltaba era dónde más puede estar pasando. Medido el 2 sep con
+`tools/rutas-sin-instantanea.php`:
+
+| | |
+|---|---|
+| rutas en el router | **554** |
+| que tocan `notas`, `notas_finales`, `recuperacion_final`, `subunidades`, `unidades` o `years` | **129** |
+| de ésas, **con** instantánea de forma | **41** |
+| de ésas, **sin** instantánea | **88** |
+| y que además **leen la fila entera** — las accionables | **16** |
+
+Las 88 no son 88 agujeros: la mayoría escriben y devuelven un mensaje. **Las 16 son la lista
+que hay que mirar antes de desplegar**, porque en ellas una columna nueva sale al cliente y no
+se entera nadie. De las que se han leído hasta ahora:
+
+- **Dos eran filtraciones reales y ya están congeladas**: `historiales/nota-detalle` y
+  `historiales/nota-final-detalle` devolvían la fila entera en `$res['nota']`, así que
+  publicaban las cinco columnas de la nivelación desde su migración.
+- **Una se descartó leyéndola**: `detalles/grupos-periodos` hace `SELECT *` sobre `notas`
+  pero sólo **cuenta** las filas (`count($notasS)`), no las devuelve.
+- **Cuatro son del carril de rúbricas** (`SELECT * FROM subunidades` en `AsignaturasController`,
+  `UnidadesController` ×2 y `ChangeAskedController`), repartidas a esa sesión.
+- El resto son borrados y escrituras que devuelven un mensaje, y se descartan igual, **una a
+  una**.
+
+> **Y el número lleva su propio aviso**: es un **suelo, no un techo**. «Lee la tabla» se decide
+> por el texto del método, así que una ruta que llegue a `notas` por tres capas de servicios no
+> sale; y «tiene instantánea» se decide por la URI escrita en un test, así que una construida
+> con variables cuenta como descubierta. El error cae del lado prudente a propósito.
+
 Regla para lo que venga: **una columna nueva viaja porque alguien la nombró**, nunca por un
 asterisco. Y la prueba de que un sitio está congelado es que su instantánea **queda verde sin
 regenerar**.
