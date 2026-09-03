@@ -884,6 +884,90 @@ honesto y la afirmación que se cuelga de él no lo es.**
 
 ---
 
+## Todas las herramientas de git son del árbol, y ninguna es de la sesión
+
+La frase es de `8myvc-f0`, la noche del 2 al 3 de sep 2026, y explica de golpe
+**cuatro accidentes distintos** que esa noche tuvieron cinco sesiones de `8myvc`
+escribiendo en el mismo árbol. La sección de arriba dice que **una suite** no sabe
+de sesiones; ésta dice que **tampoco lo sabe ninguna otra orden de git**, y ahí es
+donde se pierde trabajo en vez de sólo medirlo mal.
+
+| gesto | se lleva | ¿avisa? | ¿destruye? |
+|---|---|---|---|
+| `git add -A` | ficheros ajenos, dentro de tu commit | **sí**, en el `--stat` | no |
+| `git diff` pelado | trabajo ajeno, dentro de tu parche de respaldo | no | no |
+| `git switch -c` | **la rama de todos** — y tu commit siguiente aterriza en la ajena | no | no |
+| `git checkout -- <fichero>` | **el trabajo ajeno** | **no** | **sí** |
+
+**Los tres primeros se arreglan nombrando rutas. El cuarto no**, y ésa es toda la
+gracia: `git checkout -- docs/migracion/ESTADO-ACTUAL.md` **ya lleva la ruta
+nombrada**, y la ruta es del **árbol**, no de quien escribió. Se llevó **~49
+líneas** de `8myvc-ee` de una sesión que ni sabía que existía, y contestó con
+silencio y un árbol limpio. Se vio **sólo** porque al preparar el commit el
+`--stat` daba **103 insertions donde se habían medido 54**, y alguien fue a mirar
+por qué en vez de seguir.
+
+**La regla que sale de ahí**: *antes de revertir un fichero compartido, mirar el
+diff entero — no basta con confirmar que hay cambios tuyos dentro.* `git status`
+dijo ` M`, que es verdad, y no dice de quién.
+
+### Y la vuelta que hay que entender, porque la precaución obvia empeora las cosas
+
+`docs/migracion/28-competencias-e-indicadores.md` **sobrevivió a ese `checkout`
+por una propiedad que nadie eligió: estaba sin trackear.** Lo levantó `8myvc-ee`.
+Si alguien lo hubiera hecho `git add` para no perderlo —que es exactamente la
+precaución razonable— habría entrado en el radio del `checkout` y se habría
+destruido igual que el otro.
+
+**Y la misma propiedad, dos horas después, hizo el daño contrario**: al commitear,
+el `git add` de `f0` se llevó el fichero **entero** —1016 líneas—, así que
+`03f8175` lleva dentro la §1.ter y la Entrega 6 de `8myvc-64` y el candado de
+`8myvc-ee` **firmadas por quien no las escribió**, después de que esa misma sesión
+hubiera sacado `ESTADO-ACTUAL.md` de su commit precisamente para no firmar texto
+ajeno. **La regla se rompió en la dirección contraria a la que temía.**
+
+Estar sin trackear protegió el fichero de una orden y lo entregó entero a la
+siguiente. No hay un lado bueno: **lo que hay es un árbol compartido.**
+
+### Qué se hace, en orden de lo que más ahorra
+
+1. **Un worktree por sesión, y no es higiene: es lo único que permite que dos
+   sesiones commiteen el mismo día.** `tools/worktree-de-sesion.sh <x> <rama>`.
+   Un worktree no comparte `HEAD`, así que el `switch` de la tabla deja de existir
+   y los otros tres se quedan dentro de tu árbol.
+2. **Nombra las rutas en `add`, en `diff` y en el respaldo.** Nunca `-A` ni un
+   `git diff` pelado en un árbol compartido.
+3. **Antes de revertir, lee el diff entero.**
+4. **Si aun así trabajas en el árbol común** —que a veces es lo correcto: la
+   sesión que está con Joseth en directo trabaja donde él mira—, **avisa a quien
+   coordina de qué ficheros tocas**, y que nadie revierta un fichero tuyo sin
+   pedírtelo.
+
+### El delator fue el mismo las cuatro veces
+
+**Un número que no cuadraba con otro medido antes**: cinco ficheros en un `--stat`
+donde se esperaban cuatro; 103 insertions donde se habían medido 54; 1290 líneas
+en un fichero que se había commiteado con 1016; y —de la sección de arriba— 1247 s
+de suite donde siempre son 670.
+
+Ninguno de los cuatro se vio mirando el contenido. **Los cuatro se vieron porque
+alguien tenía una cifra anterior y la comparó.** Ésa es la razón operativa de que
+en este repositorio se escriba la población al lado de cada medición: no es
+rigor, es que **la cifra vieja es el único detector que tenemos** para la familia
+de fallos que no da error y produce un resultado creíble.
+
+### Y una que no es de git y salió la misma noche
+
+**Relayar la medición de otra sesión sin rehacerla.** Quien coordina es por donde
+pasan todas las cifras, así que es justo el sitio donde una medición ajena se
+convierte en un hecho sin que nadie la haya repetido. Esa noche pasó dos veces en
+la misma conversación —«tu trabajo no está commiteado» y «tiene tres entregas»,
+las dos falsas y las dos repetidas de buena fe— y las dos las corrigió **la
+sesión a la que se le estaba contando su propio trabajo**, que es el único control
+que quedaba.
+
+---
+
 ## El estado de la copia local, que no está en git y ninguna sesión hereda
 
 La base `simonbolivar` del docker **es una copia de producción y varias sesiones
