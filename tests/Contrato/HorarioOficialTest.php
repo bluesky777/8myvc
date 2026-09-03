@@ -376,10 +376,18 @@ class HorarioOficialTest extends CasoDeContrato
             'La misa es UNA pieza. Si esto dice 3, la respuesta está contando clases donde '.
             'hay una sola lección de varios grupos, y quien la lea contará horas que no existen.');
         $this->assertSame(3, $r->json('derivacion.asignaciones_con_algun_dia'));
-        // TRES y no una: el recuento por día va por **asignación**, y la misa es una
-        // lección de varios grupos, o sea tres clases reales — una en cada grupo, y las
-        // tres ese miércoles. Lo que vale uno es la PIEZA. Que estos dos números
-        // discrepen es la señal de que la respuesta distingue las dos cosas.
+        /*
+         * **TRES, y la primera versión de este caso puso 1.** Se escribió esperando que
+         * el recuento del miércoles valiera uno «porque la misa es una», y el código
+         * tenía razón: la **pieza** es una, las **clases** son tres — una en cada grupo,
+         * y las tres ese miércoles. El recuento por día va por asignación.
+         *
+         * Queda escrito porque el siguiente que lea esto va a pensar lo mismo, y desde
+         * aquí «3» parece un doble conteo de la misa. **Que `por_dia` y `piezas`
+         * discrepen no es ruido: es la señal de que la respuesta distingue las dos
+         * cosas.** El día que alguien las cuadre, la respuesta habrá dejado de
+         * distinguirlas.
+         */
         $this->assertSame(3, $r->json('derivacion.por_dia.miercoles'),
             'El recuento por día cuenta las ASIGNACIONES que tienen clase ese día, y la '.
             'misa se la da a sus tres grupos.');
