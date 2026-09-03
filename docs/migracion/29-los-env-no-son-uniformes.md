@@ -243,6 +243,37 @@ avance.
 
 ---
 
+### Y cuando se mida: **cómo NO medirlo**, que lo trajo el otro repositorio
+
+Lo levantó `myvc-horarios-42` el 3 sep 2026 yendo a mirar dónde pone su programa el
+`Origin`, y la respuesta es que **no lo pone nadie a mano y no se puede**: `Origin` es un
+*forbidden header name* del Fetch — si un cliente lo mete, el navegador lo tira sin decir
+nada. Lo pone **la ventana**, y depende de quién sirve la aplicación:
+
+| quién corre | qué `Origin` manda |
+|---|---|
+| `tauri dev` | `http://localhost:4310` |
+| el `.app` construido | `tauri://localhost` |
+| un arnés de Node | **ninguno** |
+
+**De ahí salen dos formas de medir esto que dan verde sin medir nada:**
+
+1. **Una comprobación que corra desde Node no está midiendo CORS en absoluto**, aunque
+   pase: sin `Origin`, el middleware no tiene nada que comparar y la petición sale igual.
+2. **Un `curl -H 'Origin: tauri://localhost'` dice qué hace el servidor con esa cadena, no
+   qué manda la ventana.** Sirve para contestar *«¿lo acepta la lista?»* y **no** para
+   *«¿funciona la aplicación?»* — son dos preguntas y sólo se parecen.
+
+> **Comprobado el 3 sep 2026: en este repositorio no hay ninguna medición de CORS, ni bien
+> ni mal hecha.** `grep -rn 'Origin' tests/ tools/` da cuatro resultados y **los cuatro son
+> falsos positivos** —`getClientOriginalName`, `$leidaOriginal`—. O sea que no hemos caído
+> en la trampa, pero no por cuidado: **es que nunca se ha mirado**. La distinción importa
+> el día que alguien vea «cero hallazgos» y lo lea como «cero problemas».
+
+**Y una que nadie ha medido de ninguno de los dos lados**: `tauri://localhost` está
+comprobado **en macOS y sólo en macOS**. Si el ejecutable de Windows manda el mismo origen,
+no lo sabe nadie.
+
 ## 6. `APP_DEBUG` · ya estaba catalogado como «colegio a colegio», y ahora hay prueba
 
 **La consecuencia: con `APP_DEBUG=true`, el cuerpo de un 500 lleva `Host`, `Port` y
