@@ -8,7 +8,59 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
-**2 sep 2026, noche — LOS `.env` NO SON UNIFORMES: EL CORREO DE UN COLEGIO, Y EL CENSO DE TODO LO QUE SE CONCLUYÓ «PARA LOS QUINCE» DESDE UN SOLO FICHERO** ·
+**2 sep 2026, noche — `horario_version_id` EN `getToMe`: LA APP LLEVA MESES DICIENDO «HOY NO
+TIENES CLASES» A TODOS LOS DOCENTES** · `ChangeAskedController` y dos casos en
+`HorarioOficialTest` · **el router no se mueve**: 566, es un campo de una respuesta ·
+**decisión de Joseth**, levantado por `myvc-flutter-14`
+
+> ### EL FALLO ESTÁ VIVO EN PRODUCCIÓN, Y ES EL DE ESTA NOCHE OTRA VEZ
+>
+> `horario_hoy` **viaja siempre**: nace en `[]` ([`ChangeAskedController:116`]) y se manda
+> esté como esté. Así que desde un cliente **«este colegio no ha publicado su horario» y
+> «hoy este docente no tiene clases» son el mismo mensaje**.
+>
+> Y no es teórico. `myvc-flutter-14` lo midió en `lib/`: la app tiene un `seSabe` escrito
+> **a propósito** para separar las dos —con su docblock diciéndolo— y un array vacío **no
+> es `null`**, así que `seSabe` vale `true` con cero clases. Consecuencia, hoy, en los
+> dieciséis colegios: **el muro le dice a TODOS los docentes, todos los días, «Hoy no
+> tienes clases»**, y `NotasScreen` pinta el chip «Hoy (ninguna)». Meses así, sin un solo
+> reporte — **porque un vacío se parece a una respuesta legítima**. El código de la app
+> estaba bien; la señal que le mandábamos, no.
+>
+> ### LO QUE SE HIZO Y LO QUE **NO** ARREGLA
+>
+> Se **añade** `horario_version_id` —`null` si el año no tiene versión oficial, su id si la
+> tiene— y **no se omite `horario_hoy`**. Joseth eligió así sabiendo el coste, y **esto hay
+> que leerlo entero antes de dar el asunto por cerrado**: omitir la clave habría arreglado
+> el mensaje falso el día del despliegue; **añadir el puntero NO lo arregla** — sigue igual
+> hasta que salga el build siguiente de la app usando la señal. A cambio no cambia la forma
+> de nada que ya viaje, en una respuesta que leen cuatro clientes y con una app cuyas
+> versiones viejas conviven meses.
+>
+> Consulta local a `getToMe` y **no** en `ContextoDeUsuario`: ese contexto lo monta el
+> guard, o sea **544 de las 566 rutas**, y esto lo necesita una respuesta. Va en **las dos
+> ramas** que devuelven `horario_hoy`, y el test las recorre por separado — una sola
+> dejaría a la mitad de los usuarios sin el campo.
+>
+> ### Y UN HALLAZGO QUE SALIÓ DE ESCRIBIR EL TEST, QUE VALE MÁS QUE EL CAMPO
+>
+> **`login/credentials` MUEVE AL USUARIO AL AÑO ACTUAL.** El profesor que devuelve
+> `usuarioDeTipo('Profesor')` está en el **año 4** antes de entrar y en el **8** después.
+> Un año derivado de `users.periodo_id` **antes** de pedir el token es **un año distinto
+> del que va a ver el endpoint**.
+>
+> Aquí salió como un rojo honesto —`null` donde había un id—, pero **la forma peligrosa es
+> la otra**: con otro seed habría salido el id de **otro año** y habría **pasado en verde
+> midiendo la respuesta equivocada**. Se arregla preguntándole a `auth/me` en qué año está
+> el token, en vez de deducirlo. Es la trampa de `asignaturas` y la de `users` con una
+> vuelta más: aquí el año no está en otra tabla — **cambia al autenticarse**.
+>
+> **Controles, los dos rojos**: sin el campo caen los dos casos (12 aserciones); con el
+> campo pero **siempre `null`** caen igual pero llegando más lejos (30 aserciones), que es
+> el segundo lado del test haciendo su trabajo — sin él, un campo que siempre valiera
+> `null` habría pasado.
+
+**Anterior: 2 sep 2026, noche — LOS `.env` NO SON UNIFORMES: EL CORREO DE UN COLEGIO, Y EL CENSO DE TODO LO QUE SE CONCLUYÓ «PARA LOS QUINCE» DESDE UN SOLO FICHERO** ·
 rama `fix/los-env-no-son-uniformes` · **fusionada en `main`** · sólo documentación y
 `.env.example`: **cero código, cero rutas, cero tests** — el de rutas sigue en **566** ·
 [`29-los-env-no-son-uniformes.md`](29-los-env-no-son-uniformes.md) (nuevo),

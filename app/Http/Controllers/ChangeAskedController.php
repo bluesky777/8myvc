@@ -136,7 +136,8 @@ class ChangeAskedController extends Controller {
 			
 			return [ 'alumnos'=>$cambios_alum, 'profesores'=> $pedidos, 'historial'=> $historial, 'intentos_fallidos'=> 
 				$intentos_fallidos, 'profes_actuales' => $profes_actuales, 'mis_publicaciones' => $mis_publicaciones,
-				'publicaciones' => $publicaciones, 'eventos' => $eventos, 'horario_hoy' => $horario_hoy, 'horario_manana' => $horario_manana ];
+				'publicaciones' => $publicaciones, 'eventos' => $eventos, 'horario_hoy' => $horario_hoy, 'horario_manana' => $horario_manana,
+				'horario_version_id' => $this->horarioOficialDelAnio((int) $user->year_id) ];
 
 			
 		}elseif ($user->tipo == 'Profesor') {
@@ -214,7 +215,8 @@ class ChangeAskedController extends Controller {
 							
 			return [ 'alumnos'=>$cambios_alum, 'profesores'=>[], 'historial'=> $historial, 'intentos_fallidos'=> $intentos_fallidos, 
 				'profes_actuales' => $profes_actuales, 'mis_publicaciones' => $mis_publicaciones,
-				'publicaciones' => $publicaciones, 'eventos' => $eventos, 'horario_hoy' => $horario_hoy, 'horario_manana' => $horario_manana ];
+				'publicaciones' => $publicaciones, 'eventos' => $eventos, 'horario_hoy' => $horario_hoy, 'horario_manana' => $horario_manana,
+				'horario_version_id' => $this->horarioOficialDelAnio((int) $user->year_id) ];
 		
 		
 		}elseif ($user->tipo == 'Alumno') {
@@ -1238,6 +1240,45 @@ class ChangeAskedController extends Controller {
 	}
 
 
+
+	/**
+	 * La versión de horario que el año tiene marcada como oficial, o `null`.
+	 *
+	 * **Existe para que `horario_hoy: []` deje de significar dos cosas.** Ese campo
+	 * viaja SIEMPRE —nace en `[]` unas líneas más arriba y se manda esté como esté—,
+	 * así que desde un cliente «este colegio todavía no ha publicado su horario» y
+	 * «hoy este docente no tiene clases» son **indistinguibles**. Y no es teórico:
+	 * `myvc_flutter` tiene un `seSabe` escrito a propósito para separar las dos, y lo
+	 * midió el 2 sep 2026 — un array vacío no es `null`, así que `seSabe` vale `true`
+	 * con cero clases y **la app lleva meses diciéndole a todos los docentes de los
+	 * dieciséis colegios «Hoy no tienes clases», todos los días**. El código de la app
+	 * estaba bien; la señal que le mandábamos, no.
+	 *
+	 * `null` significa **«este año no tiene horario publicado»**, y sólo entonces. Con
+	 * horario publicado viaja el id, y ahí un `horario_hoy` vacío sí quiere decir
+	 * literalmente que hoy no hay clases.
+	 *
+	 * **Se añade en vez de omitir `horario_hoy`, y fue una decisión de Joseth**
+	 * (2 sep 2026) sabiendo lo que cuesta: omitir la clave habría arreglado el mensaje
+	 * falso el día del despliegue, y añadir el puntero **no lo arregla** —sigue igual
+	 * hasta que salga el build siguiente de la app—. A cambio no cambia la forma de
+	 * nada que ya viaje, que en una respuesta que leen cuatro clientes y una app que
+	 * convive en versiones viejas durante meses no es poco.
+	 *
+	 * Consulta suya y no del contexto de usuario a propósito: `ContextoDeUsuario` lo
+	 * monta **el guard**, o sea 544 de las 566 rutas, y esto lo necesita una sola
+	 * respuesta. Es una lectura por clave primaria.
+	 */
+	private function horarioOficialDelAnio(int $yearId): ?int
+	{
+		$fila = DB::select('SELECT horario_version_id FROM years WHERE id = ?', [$yearId]);
+
+		if ($fila === [] || $fila[0]->horario_version_id === null) {
+			return null;
+		}
+
+		return (int) $fila[0]->horario_version_id;
+	}
 
 	private function asignaturas_dia($year_id, $profesor_id, $periodo_id, $dia, $show_materias_todas=0)
 	{

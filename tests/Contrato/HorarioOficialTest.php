@@ -620,4 +620,89 @@ class HorarioOficialTest extends CasoDeContrato
             'no tiene caso 7, `$dia_cond` se queda en blanco y el docente ve el curso entero '.
             'un día a la semana (§2.1). El día siguiente al sábado es el domingo, que es 0.');
     }
+    /**
+     * `horario_version_id` en `getToMe`, y existe para que `horario_hoy: []` deje de
+     * significar dos cosas.
+     *
+     * **El fallo que esto viene a hacer arreglable está VIVO en producción**, y lo midió
+     * `myvc-flutter-14` el 2 sep 2026: `horario_hoy` viaja siempre —nace en `[]` y se
+     * manda esté como esté—, así que desde la app «este colegio no ha publicado su
+     * horario» y «hoy no tienes clases» son el mismo mensaje. La app tiene un `seSabe`
+     * escrito a propósito para separarlas, y un array vacío **no es null**: lleva meses
+     * diciéndole a todos los docentes de los dieciséis colegios «Hoy no tienes clases»
+     * todos los días, sin que nadie lo reporte — porque un vacío parece una respuesta.
+     *
+     * **Este campo no arregla ese mensaje**, y conviene que quede escrito para que nadie
+     * lo dé por cerrado: lo arregla el build siguiente de la app usando esta señal.
+     * Decisión de Joseth, tomada sabiendo el coste: añadir no cambia la forma de nada que
+     * ya viaje, y esta respuesta la leen cuatro clientes con versiones viejas conviviendo
+     * meses.
+     *
+     * **Se miran las DOS ramas de `getToMe`.** El método tiene dos `return` distintos
+     * —uno para el personal y otro para `tipo == 'Profesor'`— y el campo se añadió a los
+     * dos por separado. Un caso solo dejaría al otro sin cubrir, que es exactamente la
+     * forma de que la mitad de los usuarios reciba una respuesta sin el campo.
+     */
+    #[Test]
+    #[DataProvider('lasDosRamasDeGetToMe')]
+    public function el_puntero_del_horario_viaja_en_getToMe(string $tipo): void
+    {
+        $usuario = $this->usuarioDeTipo($tipo);
+
+        /*
+         * **El año se le pregunta al TOKEN, no se deriva de `users.periodo_id`.**
+         *
+         * Medido el 2 sep 2026 y costó un rojo: `login/credentials` **mueve al usuario
+         * al año actual**. El profesor que devuelve `usuarioDeTipo` está en el año 4
+         * antes de entrar y en el **8** después, así que un año leído de `periodos`
+         * ANTES de pedir el token es un año distinto del que va a ver el endpoint. El
+         * síntoma fue un `null` donde había un id — y con otro seed habría salido el id
+         * de OTRO año, que pasa en verde midiendo la respuesta equivocada.
+         *
+         * `auth/me` contesta la única pregunta que importa aquí: en qué año está este
+         * token. La misma trampa que `asignaturas` y que `users`, con una vuelta más:
+         * aquí el año no es que esté en otra tabla, es que **cambia al autenticarse**.
+         */
+        $token = $this->tokenDe($usuario->username);
+
+        $yearId = (int) $this->getJson('/api/auth/me', ['Authorization' => 'Bearer '.$token])
+            ->assertStatus(200)->json('year_id');
+
+        $pedir = fn (): array => $this->getJson('/api/ChangesAsked/to-me', [
+            'Authorization' => 'Bearer '.$token,
+        ])->assertStatus(200)->json();
+
+        // ── Sin horario publicado: el campo ESTÁ y vale null.
+        DB::update('UPDATE years SET horario_version_id = null WHERE id = ?', [$yearId]);
+
+        $cuerpo = $pedir();
+
+        $this->assertArrayHasKey('horario_version_id', $cuerpo,
+            "La rama `{$tipo}` de getToMe no manda `horario_version_id`. Sin él, la app no "
+            .'puede distinguir «no hay horario» de «hoy no hay clases», que es justo el '
+            .'fallo que este campo viene a hacer arreglable.');
+
+        $this->assertNull($cuerpo['horario_version_id'],
+            'Sin versión oficial tiene que ser null, no 0: un 0 es un id, y un id que no '
+            .'existe se lee como que sí hay horario.');
+
+        $this->assertArrayHasKey('horario_hoy', $cuerpo,
+            '`horario_hoy` NO se omite: la decisión fue añadir el puntero sin cambiar la '
+            .'forma de lo que ya viaja. Si algún día se omite, es otra decisión y otro aviso.');
+
+        // ── Con horario publicado: el id exacto, y el control que hace que el null valga.
+        $versionId = $this->crearVersion($yearId, []);
+        $this->publicar($versionId)->assertStatus(200);
+
+        $this->assertSame($versionId, $pedir()['horario_version_id'],
+            'Publicada una versión, el puntero tiene que traer SU id. Sin este lado, el '
+            .'null de arriba no demuestra nada: un campo que siempre valiera null pasaría.');
+    }
+
+    /** Los dos `return` de `getToMe`, que son dos sitios y no uno. */
+    public static function lasDosRamasDeGetToMe(): array
+    {
+        return ['personal' => ['Usuario'], 'profesor' => ['Profesor']];
+    }
+
 }
