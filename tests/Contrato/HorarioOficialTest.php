@@ -437,7 +437,18 @@ class HorarioOficialTest extends CasoDeContrato
      *
      * **Se fabrica a mano, y eso es el hallazgo, no un atajo**: hoy no hay ni una pieza
      * de varios grupos en los datos reales, así que si esto se rompiera **no lo
-     * delataría nada**.
+     * delataría nada**. Medido por `myvc-horarios-cc` sobre `lleno.myvch`: **312 filas,
+     * 312 piezas, 0 piezas de varios grupos**. Con ese fichero las dos cifras son el
+     * mismo número, así que un caso montado sobre él pasaría **aunque una de las dos
+     * consultas contara lo que no dice**.
+     *
+     * > **Y que aquí discrepen está comprobado ROMPIÉNDOLAS, no leyéndolas** (2 sep
+     * > 2026, las dos direcciones): cambiando `count(DISTINCT pieza_id)` por `count(*)`
+     * > caen este caso y el de los dos caminos; cambiando `count(*)` por
+     * > `count(DISTINCT pieza_id)`, los mismos dos. O sea que **las dos consultas están
+     * > ejercitadas de verdad** y ninguna se apoya en que la otra acierte. Es la técnica
+     * > con la que `8myvc-9c` encontró que una defensa suya era inalcanzable: un verde
+     * > sólo dice algo si se ha visto rojo alguna vez.
      */
     #[Test]
     public function una_misa_es_una_pieza_con_varios_grupos_y_no_se_cuenta_dos_veces(): void
