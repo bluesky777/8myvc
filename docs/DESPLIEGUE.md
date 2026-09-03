@@ -187,7 +187,7 @@ contexto contesta `SQLSTATE[42S22] Unknown column 'y.regla_nivelacion' in 'field
 | `2026_09_02_200000_nivelacion_de_la_definitiva` | las dos columnas del acta de la definitiva, nombradas en `DefinitivasPeriodosController:524-526` y `:718-721` | `PUT definitivas_periodos/nivelar` |
 | `2026_09_02_300000_acta_de_la_recuperacion_final` | **rompe una ruta que ya existe**, no sólo las nuevas: `putUpdateRecuperacion` nombra `nivelada_at, nivelada_por, observacion` en su `UPDATE`, su `INSERT` y su `SELECT` (`:818`, `:856`, `:884`) | `PUT definitivas_periodos/update-recuperacion` |
 | `2026_09_03_100000_rubricas` | cinco tablas nuevas y `subunidades.rubrica_id`. **Nadie fuera de `RubricasController` las nombra** —comprobado uno a uno: la planilla, unidades, asignaturas y `ChangeAsked` pasaron a nombrar sus columnas justamente para que `rubrica_id` no se les colara— | las **10** rutas de `rubricas/` |
-| `2026_09_04_100000_horario_versiones` | **nada, y está comprobado**: los tres métodos de `HorarioController` contestan **501** —la ruta existe, el cuerpo no—, **ninguna consulta nombra las tres tablas nuevas** y **nadie nombra `years.horario_version_id`**. `YearsController` la sirve por `SELECT y.*`, y a un `*` la columna que falta no le duele | ninguno **hoy**; el día que exista el lote B, las **3** rutas de `horario/` |
+| `2026_09_04_100000_horario_versiones` | **`POST horario/versiones` pasa de 501 a 500.** `postVersiones` se implementó en `371062c` (2 sep, 18:29) y **hace `INSERT` en las tres tablas nuevas**, así que sin ellas revienta. `getVersiones` y `putOficial` **siguen a 501** y no las tocan, y **`years.horario_version_id` sigue sin leerla nadie** —`YearsController` la sirve por `SELECT y.*`, y a un `*` la columna que falta no le duele— | **1 ruta**, y detrás de `esAdministrativo`: el colegio no se cae, pero quien suba un horario recibe un 500 |
 | `2026_08_31_100000_retirar_boletin_independiente_de_matriculas` | nada del código nuevo: **retira** `matriculas.boletin_independiente`, que ya no lee nadie | ninguno hacia delante — **pero mira la fila de abajo** |
 
 **Seis de las siete son aditivas en `up()`** —`ADD COLUMN` y `CREATE TABLE`, sin un solo `UPDATE`
@@ -195,12 +195,22 @@ ni back-fill—, leídas una a una. **La que falta —`2026_08_31_100000`— no:
 eso cambia dos reglas de este documento. (Va la última de esta tabla porque está ordenada por lo
 que tumba, pero es la **primera** por orden de ejecución, y eso importa para el rollback.)
 
-> **Dos de las siete no rompen nada si faltan, y no son la misma clase de «nada».** La del
-> `dropColumn` no rompe **hacia delante** —retira algo que el código nuevo ya no lee— pero sí hacia
-> atrás, que es la fila de abajo. La de `horario_versiones` no rompe en **ninguna** dirección
-> todavía, porque su código son tres `501`. **Aun así entra en el mismo `migrate` y en la
-> comprobación**: la pregunta que contesta esa comprobación es *«¿está la tanda entera dentro?»*, no
-> *«¿qué se rompe?»*. Un colegio con seis de siete es un colegio que nadie sabe en qué estado está.
+> **La del `dropColumn` no rompe hacia delante** —retira algo que el código nuevo ya no lee— pero
+> sí hacia atrás, que es la fila de abajo.
+>
+> **Y aquí había escrito que la de `horario_versiones` «no rompe en ninguna dirección, porque su
+> código son tres 501». Dejó de ser cierto el mismo día, y la forma en que envejeció es nueva.**
+> Cuando se midió, los tres métodos eran `501` y ninguna consulta nombraba las tablas; `371062c`
+> implementó `postVersiones` unas horas después y ahora hace `INSERT` en las tres. **La medición era
+> correcta el día que se hizo: lo que cambió no es la cifra ni el rango, es el código que se midió.**
+> Lo levantó `8myvc-23` el 2 sep 2026. Teníamos catalogado que el resumen de un rango envejece cuando
+> se le añade un commit —y por eso se remide entero—; **ésta envejece sin que la cifra ni el rango se
+> muevan**, y no la teníamos escrita. La regla que deja: *una afirmación sobre lo que el código hace
+> caduca cuando el código cambia, aunque el número que la acompaña siga siendo el mismo.*
+>
+> **Aun así, las dos entran en el mismo `migrate` y en la comprobación**: la pregunta que contesta esa
+> comprobación es *«¿está la tanda entera dentro?»*, no *«¿qué se rompe?»*. Un colegio con seis de
+> siete es un colegio que nadie sabe en qué estado está.
 
 ### La que retira una columna, y las dos reglas que cambia
 
