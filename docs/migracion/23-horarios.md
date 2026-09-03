@@ -756,11 +756,20 @@ validar, y eso es decisión del colegio.
 Lo levantó `myvc-horarios-83` el 3 sep 2026 **mirando los tres controladores**, que es
 hoy la única forma de saberlo:
 
-| ruta | de dónde sale el año | línea |
+| ruta | método de `HorarioController` | de dónde sale el año |
 |---|---|---|
-| `POST horario/versiones` | `$cuerpo['version']['year_id']` — el año del **PROYECTO** | `HorarioController:196` |
-| `GET horario/versiones` | `$this->user->year_id` — el año del **TOKEN** | `:826` |
-| `PUT horario/versiones/{id}/oficial` | `$version[0]->year_id` — el año de la **FILA** | `:981` |
+| `POST horario/versiones` | `postVersiones()` | `$cuerpo['version']['year_id']` — el año del **PROYECTO** |
+| `GET horario/versiones` | `getVersiones()` | `$this->user->year_id` — el año del **TOKEN** |
+| `PUT horario/versiones/{id}/oficial` | `putOficial()` | `$version[0]->year_id` — el año de la **FILA** |
+
+> **El ancla es el método y la expresión, no el número de línea, y eso costó
+> escribirlo mal una vez.** Esta tabla se empujó citando `:196`, `:826` y `:981`, y
+> **los tres estaban ya viejos al empujarlos**: el `try`/`catch` que cerró el `motivo`
+> del 422 —del **mismo commit**— desplazó el fichero, y los buenos eran 197, 852 y
+> 1007. Una línea citada envejece con cualquier edición de arriba, no da error al
+> envejecer, y **lleva a leer otra cosa que se parece**. `grep` de la expresión sí
+> sobrevive. *(Los números medidos el 3 sep 2026 sobre `0faf099`, por si alguien
+> quiere rehacerlo: 197, 852 y 1007.)*
 
 **Cada uno por separado es correcto y tiene su razón escrita** donde se decidió: el `POST`
 valida contra el año que el proyecto declara; el `GET` no acepta un `year_id` de fuera
