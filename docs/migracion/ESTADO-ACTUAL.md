@@ -8,6 +8,20 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
+> **Y una corrección de nombre que NO es cosmética.** Las tres entradas de esta noche que
+> atribuían trabajo a `8myvc-d2` decían mal el nombre de la sesión que coordinó: es
+> **`8myvc-7d`**. Firmé así toda la noche —y `8myvc-d5` lo copió de mí de buena fe— hasta
+> que `myvc-horarios-4a` avisó de que en su `ListAgents` yo salía como `7d`, y lo comprobé.
+>
+> **Importa porque `8myvc-d2` existe y es otra**: es la sesión de guardas de cuentas del
+> **24 ago 2026**, y aparece en cinco documentos más ([18](18-auditoria.md),
+> [05](05-codigo-muerto-y-roto.md) ×2, `noche-2026-08-24/exp-1.md`,
+> `noche-2026-08-25/aud-2.md`). O sea que no era un nombre inventado que no resolviera:
+> era **un nombre que resuelve a otro sitio**, y quien siguiera el rastro habría acabado
+> leyendo el relevo de una noche distinta sin nada que le dijera que se había equivocado.
+> Los mensajes de commit están limpios —cero apariciones—, así que sólo había que tocar
+> estas tres líneas.
+
 **3 sep 2026, madrugada — DOS COSAS QUE ENCONTRÓ EL CLIENTE MIDIENDO CONTRA NUESTRO DOCKER,
 Y UNA DE ELLAS ERA UN ERROR MÍO** · `HorarioController`, `HorarioSubidaTest` y
 `HorarioAceptoPerderTest` · **566 rutas, sin moverse** · suite entera
@@ -64,7 +78,7 @@ Y UNA DE ELLAS ERA UN ERROR MÍO** · `HorarioController`, `HorarioSubidaTest` y
 
 **Anterior: 2 sep 2026, noche — LA ENTREGA 0 FUSIONADA, Y EL DISEÑO DE LA PLANTILLA REPLANTEADO
 CON CINCO DECISIONES DE JOSETH** · rama `feat/plantilla-del-anio-nuevo` (`7952d49`), **fusionada en `main`**
-> por `8myvc-d2`; la cifra de abajo es la que midió `f0` sobre SU árbol y se queda como
+> por `8myvc-7d`; la cifra de abajo es la que midió `f0` sobre SU árbol y se queda como
 > se midió — la del resultado de la fusión va al final de esta entrada · [`28-competencias-e-indicadores.md`](28-competencias-e-indicadores.md) (nuevo) ·
 **`Tests: 1927 passed (17316 assertions)`**, cero rojos, cero saltados, cero deadlocks —
 1925 + 2, **exacto** · `pint:test` PASS (364) · larastan nivel 7 `[OK]` (582) ·
@@ -177,7 +191,7 @@ CON CINCO DECISIONES DE JOSETH** · rama `feat/plantilla-del-anio-nuevo` (`7952d
 > ### LA CIFRA DEL RESULTADO DE LA FUSIÓN, que es otra que la de arriba
 >
 > **`Tests: 1929 passed (17346 assertions)`**, cero rojos, cero deadlocks, corrida sobre el
-> merge por `8myvc-d2` — **1927 de `main` + los 2 de esta rama**. La de la cabecera (1927
+> merge por `8myvc-7d` — **1927 de `main` + los 2 de esta rama**. La de la cabecera (1927
 > con 17 316 aserciones) es la que midió `f0` **sobre su árbol**, que salía de `ab23e2d`;
 > `main` se había movido dos veces desde entonces, así que las dos son 1927 y **no son la
 > misma medición**. Se dejan las dos: cada una dice qué árbol midió.
@@ -240,7 +254,7 @@ rama `fix/los-env-no-son-uniformes` · **fusionada en `main`** · sólo document
 `.env.example`: **cero código, cero rutas, cero tests** — el de rutas sigue en **566** ·
 [`29-los-env-no-son-uniformes.md`](29-los-env-no-son-uniformes.md) (nuevo),
 `.env.example`, [`DESPLIEGUE-REFERENCIA.md`](../DESPLIEGUE-REFERENCIA.md) · encargo de
-`8myvc-d2`, medido por esta sesión
+`8myvc-7d`, medido por esta sesión
 
 > **El arreglo pequeño**: el remitente de `.env.example` era `josethmaster@lalvirtual.com` y
 > **`lalvirtual.com` no está registrado** — NXDOMAIN, reproducido aquí con `dig` y no heredado
