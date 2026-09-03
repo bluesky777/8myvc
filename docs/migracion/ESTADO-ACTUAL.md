@@ -2817,6 +2817,31 @@ Se apunta aquí para que mañana leas *«faltó coordinación en `8myvc` esta no
 
 ### Y el frente que abrió el front esta noche, que es de los de contestar
 
+> **⚠ REPASADO EL 3 SEP 2026, Y UNO DE LOS TRES YA ESTABA CERRADO.** El de
+> `GET bitacoras/{user_id?}` **está arreglado desde AUD-5**: el método llama a
+> `Autoriza::exigirVerAuditoriaDe($user, $user_id)` —lo propio siempre, lo de otro con
+> `can_view_auditoria`— y lo dice en un comentario dentro. **La casilla de abajo sigue
+> describiéndolo como *«detrás de `auth.personal` y sin `persona.propia`»*, que era cierto
+> el 26 ago y hoy no.** No se borra el texto: se marca, porque el hallazgo original y su
+> medición siguen siendo el motivo de que exista el guard que hoy lo tapa.
+>
+> **Los otros dos siguen abiertos de verdad, comprobados en el código y no en esta tabla**:
+> `GET profesores` y `GET alumnos/sin-matriculas` llevan **sólo `auth.personal`**, y
+> `getSinMatriculas` conserva el `INNER JOIN matriculas` y sigue devolviendo `religion`,
+> `celular`, `direccion` y `fecha_nac` de los matriculados del año.
+>
+> **Y que salieran dos abiertos y uno cerrado es lo que hace que el repaso valga**, igual
+> que decía la casilla 13 unas líneas más abajo: si los tres hubieran salido cerrados, lo
+> sospechoso sería el método. Un pendiente escrito en futuro **no envejece a «hecho»:
+> envejece a mentira**, y una lista «por consecuencia» con una consecuencia que ya no
+> existe hace perder el tiempo justo donde pedía urgencia.
+>
+> El repaso lo disparó `myvc-horarios-4a`, del otro repositorio, contando que su
+> `docs/siguiente.md` tenía **dos encargos ya hechos** —uno con el commit que lo hacía en
+> un `git log` que su coordinadora había leído esa misma tarde—. Nadie había vuelto a
+> mirar esta lista.
+
+
 | | Qué |
 |---|---|
 | **8bis** | **Nadie ha censado «personal contra personal», y `auth.personal` la contesta que sí.** El [08](08-revision-idor.md) revisó la autorización horizontal **con un alumno como sujeto**, y su herramienta marcaba las rutas que reciben un identificador del cliente **y no tienen `auth.personal`** — así que **todo lo que ese guard protege quedó fuera por construcción**. Frente a un alumno están cerradas; **un `Profesor` es personal del colegio.** Medido por `myvc-front-94` con dos sesiones delante: **`GET profesores` devuelve a un docente exactamente lo mismo que al administrador** —47 empleados, `num_doc` de 35, `username` de 20, `direccion` de 11— **y el menú del docente no le ofrece esa pantalla**, así que la puerta la abre el endpoint. Es la hermana de `GET contratos`: **se curó aquélla sobre aquella ruta y nadie censó la familia.** Y `GET bitacoras/{user_id?}` es el patrón, **y ya no es una lectura de código: está visto en el navegador**. Con el token de un `Profesor`: `GET bitacoras` sin parámetro da **0 filas** —por eso parece acotada— y **`GET bitacoras/1` devuelve las 22 filas del administrador**, con `created_by=1` comprobado en las 22. Detrás de `auth.personal` y sin `persona.propia`. · **Y un tercero que sale del mismo tirón: `GET alumnos/sin-matriculas` no hace lo que dice su nombre.** Su consulta lleva `INNER JOIN matriculas`, así que devuelve a los alumnos **matriculados en el año en curso** —494—, y con ellos `fecha_nac`, `celular`, `direccion` y **`religion`**. La pregunta no es si un docente puede listar alumnos sin matrícula: es **si un docente debe recibir el domicilio, el teléfono y la religión de los 494**. Eso sí es del colegio. Lote `FICHAS-1`, **que mide y propone: no recorta nada** |
