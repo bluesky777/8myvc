@@ -8,7 +8,67 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
-**2 sep 2026, noche — EL LOTE C ESTÁ EN `main`: LAS TRES RUTAS DEL HORARIO DEJAN DE SER 501** ·
+**2 sep 2026, noche — `acepto_perder`: PUBLICAR YA NO PUEDE PERDER CLASES EN SILENCIO** ·
+`HorarioController` y `tests/Contrato/HorarioAceptoPerderTest.php` (**12 casos, 103
+aserciones**) · **el router no se mueve**: 566, es un campo del cuerpo · suite entera
+**`Tests: 1925 passed (17303 assertions)`**, cero rojos, cero deadlocks — 1913 + 12,
+exacto · `pint` PASS · larastan nivel 7 `[OK]` · contrato en la §7.2 del
+[23](23-horarios.md) · **decisión de Joseth**, propuesta por el equipo de `myvc_horarios`
+
+> **El agujero**: la §6 comprueba que cada asignación de la versión es del año **el día
+> que se sube**, y publicar es otro día (decisión 17). Entre los dos alguien borra una
+> asignatura y esas clases **desaparecen del horario al derivar**. Se contaban y salían
+> en un campo de la respuesta de **éxito** — o sea que se avisaba después de haberlas
+> perdido, y en el sitio donde no mira nadie.
+>
+> ### POR QUÉ UN NÚMERO Y NO UN `forzar: true`, QUE ES TODA LA DECISIÓN
+>
+> Un booleano no caza la deriva: dice «adelante pase lo que pase», así que el día que se
+> pierdan treinta en vez de las dos que el coordinador vio en pantalla, pasa igual — y
+> acaba puesto por costumbre, porque nunca estorba. Un número **tiene que coincidir con
+> el que el servidor cuenta en ese instante**, así que sólo lo acierta quien acaba de
+> mirar.
+>
+> **Y rebota también el número de MÁS**, incluido `acepto_perder: 1` cuando no se pierde
+> nada. Parece rigidez gratuita y es la mitad que sostiene la otra: sin ella, una
+> constante puesta en el cliente pasaría siempre que la deriva midiera eso.
+>
+> ### LOS CONTROLES, Y EL TERCERO ES EL QUE MÁS DICE
+>
+> - Puerta desactivada → **9 de 12 rojos**; los 3 verdes son los caminos felices.
+> - Puerta convertida en `forzar: true` → **7 rojos**, exactamente los tres `no-coincide`
+>   y los cuatro `no-es-un-numero`. **Sin este control**, «es un número y no una bandera»
+>   sería una frase de un comentario.
+> - **Control positivo del rollback**: moviendo la puerta a **después** de los dos
+>   `UPDATE`, los doce siguen verdes. O sea que las escrituras **ocurrieron** y `abort()`
+>   dentro de `DB::transaction` las deshizo — el «Nada se escribió» de los tres mensajes
+>   está medido, no prometido.
+>
+> ### DOS COSAS QUE VINIERON DE FUERA Y MEJORARON EL DISEÑO
+>
+> **`myvc-horarios-5e` pidió que el 422 nombrara los DOS números** —el del cliente y el
+> del servidor— y no sólo que no coinciden: su pantalla se lo tiene que explicar a un
+> coordinador, y *«esperaba 32, mandaste 28»* se puede comprobar contra lo que hay en
+> pantalla mientras que *«no coinciden»* sólo se puede creer.
+>
+> **Y levantaron un hueco en el `message` que yo había abierto.** Decía *«vuelve a llamar
+> con `acepto_perder: 3`»*, que es correcto para un humano y **es una invitación a que el
+> emisor reintente solo** con el número que vino en el error. Eso *funciona*, y
+> reconstruye el `forzar: true` en dos viajes sin que nada se ponga rojo. Reescrito a
+> *«enséñale esas 3 a quien publica y confirma con la cifra que él diga»*, **y atado por
+> un test** que exige que el mensaje NO diga «vuelve a llamar»: la instrucción es el
+> fallo, no el número.
+>
+> ### Y UN COMENTARIO QUE PASÓ A RAZONAR HACIA LA CONCLUSIÓN CONTRARIA
+>
+> El docblock de `poblacionDeLaDerivacion` decía que convertir la deriva en 422 *«sería
+> impedir publicar por algo que pasó después de validar, y eso es decisión del colegio»*.
+> El colegio decidió, así que ese párrafo pasó a **argumentar contra el código de al
+> lado**. Reescrito y no borrado, con el porqué: un comentario así es peor que ninguno —
+> se lee entero, es convincente, y manda a quien lo lea a «arreglar» la puerta que sí
+> funciona.
+
+**Anterior: 2 sep 2026, noche — EL LOTE C ESTÁ EN `main`: LAS TRES RUTAS DEL HORARIO DEJAN DE SER 501** ·
 tres merges (`5dcc1ae`, `9f1f32d`, `19a1a73`) sobre `beaeeeb` · **NO EMPUJADO a `origin`**:
 Joseth autorizó fusionar y correr la suite, y el push lo decide él con el número delante ·
 **`Tests: 1913 passed (17200 assertions)`**, cero rojos, cero saltados, cero deadlocks —

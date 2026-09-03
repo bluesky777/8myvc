@@ -981,7 +981,89 @@ class HorarioController extends Controller
         $yearId = (int) $version[0]->year_id;
         $ahora = Reloj::ahoraTexto();
 
-        $derivacion = DB::transaction(function () use ($versionId, $yearId, $ahora): array {
+        /*
+         * `acepto_perder` — LA PUERTA DE LA DERIVA, y por qué es un NÚMERO y no un `true`.
+         *
+         * La §6 comprueba que cada asignación de la versión es del año **el día que se
+         * sube**, y publicar es otro día y otra decisión («subir no publica», 17). Entre
+         * los dos, alguien puede borrar una asignatura o mover su grupo: esas filas se
+         * caen del alcance, su día no se escribe y **el horario pierde esas clases sin
+         * que nada lo diga**. Antes se contaban y salían en la respuesta — o sea, se
+         * avisaba **después** de haberlas perdido.
+         *
+         * **Un `forzar: true` no serviría, y ésa es toda la decisión.** Un booleano no
+         * caza la deriva: dice «adelante pase lo que pase», así que el día que se pierdan
+         * treinta en vez de las dos que el coordinador vio en pantalla, pasa igual. Y
+         * acaba puesto por costumbre, porque nunca estorba. Un número **tiene que
+         * coincidir** con el que el servidor cuenta en ese mismo instante, así que sólo
+         * lo puede acertar quien acaba de mirar; si la realidad se movió entre mirar y
+         * confirmar, deja de coincidir y el cliente vuelve a mirar. Es la misma forma que
+         * la pantalla de `myvc_horarios` ya tiene: un aviso que dice «se pierden 32» y un
+         * botón que confirma «32» son verificables el uno contra el otro.
+         *
+         * Se valida a mano y no con `integer` de Laravel a propósito: la regla `integer`
+         * acepta `"32"` **y** deja pasar formas que aquí no significan nada, y este
+         * repositorio tiene herramienta propia para lo contrario
+         * (`tools/verdad-laxa-que-escribe.py`) — una cadena cualquiera que vale por «sí»
+         * y gobierna una escritura. `true` tiene que rebotar, no valer por 1.
+         */
+        $aceptoPerder = Request::input('acepto_perder');
+
+        if ($aceptoPerder !== null && ! is_int($aceptoPerder)) {
+            $this->rechazar([
+                'message' => 'El campo `acepto_perder` es el NÚMERO de asignaciones que aceptas perder, no una bandera. Nada se escribió.',
+                'motivo' => 'acepto-perder-no-es-un-numero',
+                'acepto_perder_recibido' => $aceptoPerder,
+            ]);
+        }
+
+        $derivacion = DB::transaction(function () use ($versionId, $yearId, $ahora, $aceptoPerder): array {
+            /*
+             * LA COMPROBACIÓN VA **DENTRO** DE LA TRANSACCIÓN, y no es cosmético.
+             *
+             * Contar fuera y escribir dentro son dos instantes: entre los dos alguien
+             * puede borrar una asignatura más, y entonces se perdería una que nadie
+             * contó y que el número del cliente sí cuadraba. Aquí la cuenta y el
+             * `UPDATE` ven la misma foto.
+             *
+             * Y `abort()` desde dentro de `DB::transaction` **deshace**: lanza
+             * `HttpException`, la transacción hace rollback y el «Nada se escribió» de
+             * los dos mensajes es cierto y no una promesa.
+             */
+            $sePierden = $this->asignacionesFueraDelAlcance($versionId, $yearId);
+
+            if ($aceptoPerder === null && $sePierden !== 0) {
+                $this->rechazar([
+                    // El mensaje nombra el número pero NO le dice al cliente que lo
+                    // remande: lo levantó `myvc-horarios-5e` y tiene razón. Un «vuelve a
+                    // llamar con acepto_perder: N» es una invitación a que el emisor
+                    // reintente solo con el N que vino en el error — y eso **funciona**,
+                    // y reconstruye el `forzar: true` en dos viajes sin que nadie lo
+                    // note. La confirmación tiene que pasar por una persona; el número
+                    // está aquí para que se lo puedan ENSEÑAR, no para reenviarlo.
+                    'message' => "Publicar esta versión dejaría {$sePierden} asignacion(es) sin horario: estaban en la versión cuando se subió y ya no están en el año. Enséñale esas {$sePierden} a quien publica y confirma con la cifra que él diga. Nada se escribió.",
+                    'motivo' => 'perdida-no-aceptada',
+                    'asignaciones_que_se_pierden' => $sePierden,
+                ]);
+            }
+
+            /*
+             * **También rebota un número que sobra**, y ésa es la mitad que parece de
+             * más: si el cliente declara 5 y el servidor cuenta 0, algo cambió entre
+             * mirar y confirmar —o el número está puesto a mano en el código del
+             * cliente—. Dejarlo pasar «porque no se pierde nada» es cómo `acepto_perder`
+             * se convierte en el `forzar: true` que vino a evitar: una constante que
+             * siempre está y nunca estorba.
+             */
+            if ($aceptoPerder !== null && $aceptoPerder !== $sePierden) {
+                $this->rechazar([
+                    'message' => "No coincide: aceptas perder {$aceptoPerder} y el servidor cuenta {$sePierden} en este momento. Vuelve a leer el listado y confirma con la cifra que salga. Nada se escribió.",
+                    'motivo' => 'acepto-perder-no-coincide',
+                    'acepto_perder' => $aceptoPerder,
+                    'asignaciones_que_se_pierden' => $sePierden,
+                ]);
+            }
+
             /*
              * EL ALCANCE, y es lo único que hay que leer de aquí: **el año entero
              * por JOIN**, no las filas de la versión y no un `WHERE year_id`.
@@ -1093,9 +1175,19 @@ class HorarioController extends Controller
      * de la versión **el día que se sube**, y publicar es otro momento y otra
      * decisión —«subir no publica»—: entre los dos, alguien puede borrar una
      * asignatura o mover su grupo. Esas filas **no entran en el alcance**, así que su
-     * día no se escribe y el horario pierde esas clases **en silencio**. Aquí se
-     * cuentan y salen en la respuesta; convertirlas en 422 sería impedir publicar por
-     * algo que pasó después de validar, y eso es una decisión del colegio.
+     * día no se escribe y el horario pierde esas clases **en silencio**.
+     *
+     * **Ese «en silencio» ya no es cierto, y este párrafo decía lo contrario hasta el
+     * 2 sep 2026.** Decía que convertirlas en 422 sería impedir publicar por algo que
+     * pasó después de validar y que **eso lo decidía el colegio** — y el colegio lo
+     * decidió: Joseth aprobó `acepto_perder`, así que hoy la deriva **cierra la puerta**
+     * arriba, en `putOficial`, y sólo se pasa declarando el número exacto. Aquí se
+     * siguen contando porque la respuesta necesita su población, pero **ya no son la
+     * única defensa**: se enteraba uno después de haber perdido las clases.
+     *
+     * Se reescribe en vez de dejarse: un comentario que razona hacia la conclusión
+     * contraria a la del código de al lado es peor que ninguno — se lee entero, es
+     * convincente, y manda a quien lo lea a «arreglar» la puerta que sí funciona.
      *
      * @return array<string, int|array<string, int>>
      */
@@ -1138,16 +1230,13 @@ class HorarioController extends Controller
                 'SELECT count(DISTINCT pieza_id) AS c FROM horario_lecciones WHERE version_id = ?',
                 [$versionId]
             )[0]->c,
-            'asignaciones_de_la_version_fuera_del_alcance' => (int) DB::select(
-                'SELECT count(DISTINCT l.asignatura_id) AS c
-                 FROM horario_lecciones l
-                 WHERE l.version_id = ?
-                   AND l.asignatura_id NOT IN (
-                       SELECT a.id FROM asignaturas a
-                       INNER JOIN grupos g ON g.id = a.grupo_id AND g.year_id = ? AND g.deleted_at IS NULL
-                       WHERE a.deleted_at IS NULL)',
-                [$versionId, $yearId]
-            )[0]->c,
+            // La MISMA llamada que la puerta de `acepto_perder`, y no una segunda
+            // copia de la consulta: el número que el cliente tuvo que acertar y el
+            // que sale en la respuesta **tienen que ser el mismo hecho**. Dos copias
+            // del SQL son dos sitios donde el alcance puede dejar de coincidir, y
+            // entonces la puerta cerraría por un número y la respuesta informaría de
+            // otro sin que nada lo dijera.
+            'asignaciones_de_la_version_fuera_del_alcance' => $this->asignacionesFueraDelAlcance($versionId, $yearId),
             'por_dia' => $porDia,
         ];
     }
@@ -1162,6 +1251,34 @@ class HorarioController extends Controller
      *
      * @param  array<string, mixed>  $cuerpo
      */
+    /**
+     * Cuántas asignaciones de la versión **ya no están en el año**.
+     *
+     * Son las que se caen del alcance de la derivación: estaban cuando la versión se
+     * subió y se comprobaron entonces (§6), y entre subir y publicar alguien borró la
+     * asignatura o movió su grupo. Su día no se escribe, así que **el horario pierde
+     * esas clases**.
+     *
+     * `count(DISTINCT l.asignatura_id)` y no `count(*)`: una misa de seis grupos son
+     * seis filas de la misma pieza, y lo que se pierde son **asignaciones**, no filas.
+     * Con `count(*)` el número que el coordinador tiene que confirmar sería mayor que
+     * el de clases que realmente desaparecen, y un número que no se puede comprobar
+     * contra la pantalla es justo lo que `acepto_perder` no puede permitirse.
+     */
+    private function asignacionesFueraDelAlcance(int $versionId, int $yearId): int
+    {
+        return (int) DB::select(
+            'SELECT count(DISTINCT l.asignatura_id) AS c
+               FROM horario_lecciones l
+              WHERE l.version_id = ?
+                AND l.asignatura_id NOT IN (
+                    SELECT a.id FROM asignaturas a
+                    INNER JOIN grupos g ON g.id = a.grupo_id AND g.year_id = ? AND g.deleted_at IS NULL
+                    WHERE a.deleted_at IS NULL)',
+            [$versionId, $yearId]
+        )[0]->c;
+    }
+
     protected function rechazar(array $cuerpo): never
     {
         abort(response()->json($cuerpo, 422));

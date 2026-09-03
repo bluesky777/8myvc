@@ -751,6 +751,51 @@ alcance**, así que su día no se escribe y el horario pierde esas clases en sil
 cuentan y salen; convertirlas en 422 sería impedir publicar por algo que pasó después de
 validar, y eso es decisión del colegio.
 
+### 7.2. `acepto_perder` — la decisión del colegio, tomada el 2 sep 2026
+
+**Joseth la aprobó**, así que el párrafo de arriba deja de describir el código y pasa a
+describir por qué la pregunta llegó a hacerse. Lo propuso el equipo de `myvc_horarios`.
+
+Hoy la deriva **cierra la puerta** en `putOficial` en vez de salir en un campo de una
+respuesta de éxito, que es donde no mira nadie:
+
+| Cuerpo | Lo que cuenta el servidor | Respuesta |
+|---|---|---|
+| sin `acepto_perder` | 0 | **200**, publica — el camino normal no pasa por el campo |
+| `acepto_perder: 0` | 0 | **200**, publica |
+| sin `acepto_perder` | N > 0 | **422 `perdida-no-aceptada`**, con `asignaciones_que_se_pierden: N` y el número dentro del `message` |
+| `acepto_perder: M` | N, con M ≠ N | **422 `acepto-perder-no-coincide`**, con `acepto_perder: M` **y** `asignaciones_que_se_pierden: N` |
+| `acepto_perder: N` | N | **200**, publica y pierde esas N a sabiendas |
+| `acepto_perder: true` (o `"2"`, o `false`) | — | **422 `acepto-perder-no-es-un-numero`** |
+
+**Por qué un número y no un `forzar: true`, que es toda la decisión.** Un booleano no caza
+la deriva: dice «adelante pase lo que pase», así que el día que se pierdan treinta en vez
+de las dos que el coordinador vio en pantalla, pasa igual — y acaba puesto por costumbre,
+porque nunca estorba. Un número **tiene que coincidir con el que el servidor cuenta en ese
+mismo instante**, así que sólo lo puede acertar quien acaba de mirar; si la realidad se
+movió entre mirar y confirmar, deja de coincidir y el cliente vuelve a mirar.
+
+**Rebota también el número de más**, incluido `acepto_perder: 1` cuando no se pierde nada.
+Es la mitad que parece de sobra y es la que impide que el campo se vuelva decorativo: un
+cliente con una constante puesta pasaría los días que la deriva midiera eso y ninguno más.
+
+**El 422 nombra los DOS números**, y eso lo pidió `myvc-horarios-5e` con su razón: su
+pantalla se lo tiene que explicar a un coordinador de colegio, y *«esperaba 32, mandaste
+28»* se explica y se puede comprobar contra lo que hay en pantalla; *«no coinciden»* sólo
+se puede creer.
+
+**La comprobación va dentro de la transacción** —contar fuera y escribir dentro son dos
+instantes, y entre ellos cabe una asignatura más— y `abort()` desde ahí **deshace**, así
+que el «Nada se escribió» de los tres mensajes es cierto y no una promesa. Está medido, no
+razonado: moviendo la puerta a **después** de los dos `UPDATE`, los doce casos siguen en
+verde. O sea que las escrituras ocurrieron y el rollback las quitó.
+
+**Test**: `tests/Contrato/HorarioAceptoPerderTest.php`, 12 casos, **vistos rojos en dos
+direcciones distintas**: con la puerta desactivada caen 9, y con la puerta convertida en un
+`forzar: true` —cualquier valor presente vale— caen 7, que son exactamente los tres de
+`no-coincide` y los cuatro de `no-es-un-numero`. El segundo control es el que importa: sin
+él, «el campo es un número y no una bandera» sería una frase de un comentario.
+
 **El test obligatorio ya existe**: `tests/Contrato/HorarioOficialTest.php`, 15 casos.
 Ata columnas ↔ lecciones en las dos direcciones, recorre **los siete días uno a uno**
 —un convenio corrido no da error en ningún sitio— y publica el año actual **teniendo el
