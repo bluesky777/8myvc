@@ -11,7 +11,7 @@
 **2 sep 2026, noche — LOS `.env` NO SON UNIFORMES: EL CORREO DE UN COLEGIO, Y EL CENSO DE TODO LO QUE SE CONCLUYÓ «PARA LOS QUINCE» DESDE UN SOLO FICHERO** ·
 rama `fix/los-env-no-son-uniformes` · **NO FUSIONADA, NO EMPUJADA** · sólo documentación y
 `.env.example`: **cero código, cero rutas, cero tests** — el de rutas sigue en **566** ·
-[`28-los-env-no-son-uniformes.md`](28-los-env-no-son-uniformes.md) (nuevo),
+[`29-los-env-no-son-uniformes.md`](29-los-env-no-son-uniformes.md) (nuevo),
 `.env.example`, [`DESPLIEGUE-REFERENCIA.md`](../DESPLIEGUE-REFERENCIA.md) · encargo de
 `8myvc-d2`, medido por esta sesión
 
@@ -19,7 +19,10 @@ rama `fix/los-env-no-son-uniformes` · **NO FUSIONADA, NO EMPUJADA** · sólo do
 > **`lalvirtual.com` no está registrado** — NXDOMAIN, reproducido aquí con `dig` y no heredado
 > de la sesión que lo trajo. Pasa a `admin@micolevirtual.com`, que tiene MX propio y cuyo SPF
 > autoriza al servidor **por dos caminos independientes** (`+a` — la `A` del dominio *es* la IP
-> del servidor — e `ip4:70.32.23.72`). Lo mismo en `DESPLIEGUE-REFERENCIA.md:456`. **El `From:`
+> del servidor — e `ip4:70.32.23.72`). **Y el buzón `admin@` existe: lo confirmó Joseth el
+> 2 sep 2026 en el servidor**, que era lo último que faltaba —el SPF autoriza a *enviar* y no
+> dice nada de quién *recibe los rebotes*—, así que **la parte del correo queda cerrada
+> entera**. Lo mismo en `DESPLIEGUE-REFERENCIA.md:456`. **El `From:`
 > crudo del `mail()` viejo de la 488 se deja intacto a propósito**: no es una instrucción, es
 > de dónde salió el dominio muerto.
 >
@@ -48,8 +51,8 @@ rama `fix/los-env-no-son-uniformes` · **NO FUSIONADA, NO EMPUJADA** · sólo do
 >    menor de otro colegio, y publicar en un tema ajeno no da ningún error**. · **Es el único
 >    momento gratis**: el push **no está vivo** (falta Firebase, el JSON y `FCM_PROYECTO`), así
 >    que hoy no hay nadie expuesto y comprobarlo cuesta **un bucle de lectura que compara
->    hashes, no claves** — no saca ningún secreto del servidor. Está escrito en el §1 del 28.
-> 2. **Correr el bucle de siete variables en los diecisiete** (§7 del 28). Sólo lectura. Es lo
+>    hashes, no claves** — no saca ningún secreto del servidor. Está escrito en el §1 del 29.
+> 2. **Correr el bucle de siete variables en los diecisiete** (§7 del 29). Sólo lectura. Es lo
 >    único que separa «no se sabe» de «está bien», y **no lo puede correr una sesión**: hace
 >    falta la sesión del servidor.
 > 3. **Los `.env` de los dieciséis colegios no los toca ninguna sesión.** El del correo incluido.

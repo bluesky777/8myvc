@@ -474,7 +474,7 @@ MAIL_FROM_NAME="MiColegioVirtual"
 > uniforme**, y en cuántos colegios se llegó a aplicar este apartado **no lo sabe nadie**:
 > sigue `PENDIENTE`. El censo de todo lo que se concluyó «para los quince» desde un solo
 > `.env` está en
-> [`docs/migracion/28-los-env-no-son-uniformes.md`](migracion/28-los-env-no-son-uniformes.md).
+> [`docs/migracion/29-los-env-no-son-uniformes.md`](migracion/29-los-env-no-son-uniformes.md).
 >
 > **Comprobar antes de dar por hecho nada**: `php artisan correo:probar <tu-correo>` en el
 > colegio. Detecta los tres fallos de `cads-itagui` —`null` incluido, porque Laravel lee

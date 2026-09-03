@@ -127,9 +127,12 @@ Un cambio de IP que se olvidara de actualizar el `ip4:` seguiría autorizado por
 **`admin@micolevirtual.com` es la salida buena**: dominio que existe, MX propio, SPF que
 autoriza la IP desde la que se envía.
 
-> **Lo único que NO se pudo verificar desde aquí: que el buzón `admin@` exista.** El SPF
-> autoriza a *enviar*; no dice nada de si alguien puede *recibir* los rebotes. Se contesta
-> en cPanel → *Cuentas de correo*, y es de Joseth.
+> **El buzón `admin@micolevirtual.com` EXISTE — lo confirmó Joseth el 2 sep 2026**, mirándolo
+> en el servidor. Queda escrito con nombre y fecha a propósito: es un hecho del panel que **no
+> se puede rehacer desde el repositorio**, y dentro de tres meses «lo confirmó Joseth el 2 sep
+> 2026» se puede volver a preguntar mientras que «tiene buzón» no se puede volver a comprobar.
+> Era lo último que faltaba, porque el SPF autoriza a *enviar* y no dice nada de si alguien
+> **recibe los rebotes**. **Con esto la parte del correo queda cerrada entera.**
 
 ### Y la comprobación de `null` también se repitió, porque es contraintuitiva
 
