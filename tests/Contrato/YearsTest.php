@@ -1194,4 +1194,125 @@ class YearsTest extends CasoDeContrato
                 'El grupo del año nuevo se trajo un titular que no está en la planta de ese año.');
         }
     }
+
+    /**
+     * Monta una plantilla de dos unidades con tres y dos subunidades en un año.
+     *
+     * Hace falta montarla: `unidades_por_defecto` está **vacía en el seed** —y en la
+     * base de desarrollo, medido el 2 sep 2026: nueve años y cero filas en las dos
+     * tablas—, así que un año origen sin plantilla **pasa los dos tests de abajo con
+     * el arreglo y sin él**. Es exactamente lo que ya le pasó a `UnidadesTest:439`,
+     * donde el escenario tuvo que sembrar la fila para que el test pudiera fallar.
+     *
+     * @return array<string, int> el nombre de cada unidad y su id
+     */
+    private function ponerleLaPlantilla(int $year_id): array
+    {
+        $ids = [];
+
+        foreach (['Cognitivo' => 3, 'Actitudinal' => 2] as $nombre => $cuantas) {
+            $ids[$nombre] = (int) DB::table('unidades_por_defecto')->insertGetId([
+                'definicion' => $nombre, 'porcentaje' => 50, 'year_id' => $year_id,
+                'obligatoria' => 0, 'orden' => count($ids), 'created_at' => now(), 'updated_at' => now(),
+            ]);
+
+            for ($i = 1; $i <= $cuantas; $i++) {
+                DB::table('subunidades_por_defecto')->insert([
+                    'definicion' => "{$nombre} {$i}", 'porcentaje' => (int) round(100 / $cuantas),
+                    'unidad_defec_id' => $ids[$nombre], 'nota_default' => 0, 'obligatoria' => 0,
+                    'orden' => $i, 'created_at' => now(), 'updated_at' => now(),
+                ]);
+            }
+        }
+
+        return $ids;
+    }
+
+    /**
+     * El año nuevo hereda la plantilla **entera**, no sólo su primera mitad.
+     *
+     * `postStore` copiaba `unidades_por_defecto` y **no** `subunidades_por_defecto`.
+     * Como las unidades copiadas nacen con **ids nuevos**, las subunidades del año
+     * viejo se quedan colgadas de las unidades viejas y ninguna llega al año nuevo: la
+     * plantilla del colegio amanece con **contenedores sin casillas**. Después, el
+     * primer docente que abre su asignatura dispara el sembrador de
+     * `UnidadesController::getDeAsignaturaPeriodo`, que copia unidades vacías, y la
+     * rejilla sale **sin un solo sitio donde poner una nota** — con un 200, sin un
+     * error en ningún log y con una pantalla que parece configurada.
+     *
+     * Es la familia de `puestos_con_bol_independiente`
+     * (`CentinelaDeLasColumnasDelAnioNuevoTest`) entrando por la puerta que aquel
+     * centinela **no** vigila: aquél cuenta las **columnas** de `years`, y esto no es
+     * una columna, es una **tabla hija**. Y un censo de tablas con `year_id` tampoco lo
+     * habría cazado, que es lo que lo hace difícil de ver: `subunidades_por_defecto`
+     * **no tiene `year_id`** — cuelga de `unidades_por_defecto`.
+     *
+     * > **Esto arregla el sembrador, no lo ya sembrado.** Un año que se copió mal antes
+     * > de este commit sigue mal después: sus unidades por defecto siguen sin
+     * > subunidades, y ningún camino de este código las repone. Cuántos años y cuántos
+     * > colegios están así **no se sabe** — se mide con la consulta de la §1.bis de
+     * > `docs/migracion/28-competencias-e-indicadores.md`, que hay que correr en los
+     * > diecisiete del servidor. Aquí no hay ningún test que pueda decirlo.
+     */
+    public function test_el_ano_nuevo_hereda_las_subunidades_por_defecto(): void
+    {
+        $ultimo = DB::selectOne('SELECT id, year FROM years WHERE deleted_at IS NULL ORDER BY year DESC LIMIT 1');
+        $viejas = $this->ponerleLaPlantilla((int) $ultimo->id);
+
+        $r = $this->withToken($this->tokenDelPersonal())->postJson('/api/years/store',
+            $this->cuerpoDeAnioNuevo(((int) $ultimo->year) + 1, false));
+        $r->assertStatus(200);
+
+        $nuevo = (int) $r->json('id');
+        $unidades_nuevas = DB::table('unidades_por_defecto')->where('year_id', $nuevo)
+            ->whereNull('deleted_at')->pluck('id')->all();
+
+        $this->assertCount(2, $unidades_nuevas, 'Las unidades por defecto no se copiaron.');
+
+        $llegaron = DB::table('subunidades_por_defecto')->whereIn('unidad_defec_id', $unidades_nuevas)
+            ->whereNull('deleted_at')->count();
+
+        $this->assertSame(5, $llegaron,
+            "El año nuevo nació con la plantilla a medias: se esperaban 5 subunidades colgando de sus 2 unidades y llegaron {$llegaron}.");
+
+        // Y se COPIAN, no se mueven: la plantilla del año viejo tiene que seguir entera
+        // detrás. Sin esta mitad, un arreglo que reapuntara las filas viejas al año
+        // nuevo pasaría el assert de arriba y le vaciaría la plantilla al año en curso.
+        $siguen = DB::table('subunidades_por_defecto')->whereIn('unidad_defec_id', array_values($viejas))
+            ->whereNull('deleted_at')->count();
+
+        $this->assertSame(5, $siguen, 'Al copiar la plantilla se vació la del año anterior.');
+    }
+
+    /**
+     * Y cada subunidad cuelga de **su** unidad, no todas de la última.
+     *
+     * El arreglo se apoya en `lastInsertId()` dentro del bucle, que es la forma que ya
+     * usa el sembrador de `UnidadesController`. Escrito una línea más abajo de donde va
+     * —fuera del bucle, o leído después de insertar las subunidades— las cinco acaban
+     * bajo la misma unidad y el reparto del colegio queda 100/0 en vez de 50/50. El
+     * test de arriba, que sólo cuenta cinco, **pasaría igual**.
+     */
+    public function test_cada_subunidad_copiada_cuelga_de_su_propia_unidad(): void
+    {
+        $ultimo = DB::selectOne('SELECT id, year FROM years WHERE deleted_at IS NULL ORDER BY year DESC LIMIT 1');
+        $this->ponerleLaPlantilla((int) $ultimo->id);
+
+        $r = $this->withToken($this->tokenDelPersonal())->postJson('/api/years/store',
+            $this->cuerpoDeAnioNuevo(((int) $ultimo->year) + 1, false));
+        $r->assertStatus(200);
+
+        $reparto = [];
+
+        foreach (DB::table('unidades_por_defecto')->where('year_id', (int) $r->json('id'))
+            ->whereNull('deleted_at')->get() as $unidad) {
+            $reparto[$unidad->definicion] = DB::table('subunidades_por_defecto')
+                ->where('unidad_defec_id', $unidad->id)->whereNull('deleted_at')->count();
+        }
+
+        ksort($reparto);
+
+        $this->assertSame(['Actitudinal' => 2, 'Cognitivo' => 3], $reparto,
+            'Las subunidades copiadas no quedaron bajo la unidad que les toca.');
+    }
 }
