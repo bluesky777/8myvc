@@ -330,6 +330,97 @@ class HorarioOficialTest extends CasoDeContrato
     }
 
     /**
+     * **El control por el otro camino: lo encendido == `COUNT(DISTINCT asignatura_id, dia)`.**
+     *
+     * Todos los demás casos de este fichero comparan la derivación contra una forma que
+     * escribí a mano al montar el escenario. Eso ata el comportamiento, pero no vale
+     * como comprobación independiente: *un colocador que se comprueba a sí mismo no
+     * demuestra nada — si tiene un fallo, lo tiene en las dos mitades.*
+     *
+     * Aquí la expectativa **sale de los datos por una consulta que no se parece en nada
+     * a la derivación**: la derivación es `SET a.lunes = EXISTS(...)`, columna a columna;
+     * el control es un `COUNT(DISTINCT asignatura_id, dia)` sobre las lecciones. Si los
+     * dos números coinciden, coinciden **por dos caminos**.
+     *
+     * La forma la trajo `myvc-horarios-cc`, que la midió publicando de verdad contra el
+     * docker con el proyecto real: **203 celdas encendidas y 203 pares distintos**, sobre
+     * 312 lecciones. Aquí el número es otro porque el escenario es otro; **la propiedad
+     * es la misma**, y por eso se comprueba la propiedad y no su 203.
+     *
+     * El escenario lleva a propósito lo que hace que el `DISTINCT` no sea una identidad
+     * trivial: **el mismo par (asignatura, día) por dos piezas distintas** —dos horas de
+     * la misma materia el mismo día, que es lo normal— y **una misa**, que es una pieza
+     * con tres asignaciones. Sin duplicados, 312 filas darían 312 pares y este caso no
+     * distinguiría contar filas de contar celdas.
+     */
+    #[Test]
+    public function lo_encendido_coincide_con_los_pares_distintos_de_las_lecciones(): void
+    {
+        $asignaturas = $this->asignaturasDe(self::YEAR_ACTUAL);
+        $this->assertGreaterThanOrEqual(4, count($asignaturas));
+
+        [$una, $otra, $tercera, $cuarta] = $asignaturas;
+
+        $r = $this->publicar($this->crearVersion(self::YEAR_ACTUAL, [
+            // Dos piezas distintas, el MISMO par (asignatura, día): un par, dos filas.
+            [$una, 1, 'a-0'],
+            [$una, 1, 'a-1'],
+            // La misma asignatura otro día: otro par.
+            [$una, 4],
+            // Una misa: UNA pieza, tres asignaciones, tres pares.
+            [$otra, 2, 'misa-0'],
+            [$tercera, 2, 'misa-0'],
+            [$cuarta, 2, 'misa-0'],
+        ]));
+
+        $r->assertStatus(200);
+
+        $versionId = (int) $r->json('id');
+
+        $paresDistintos = (int) DB::select(
+            'SELECT count(*) AS c FROM (
+                SELECT DISTINCT asignatura_id, dia FROM horario_lecciones WHERE version_id = ?
+             ) t', [$versionId]
+        )[0]->c;
+
+        // Y lo encendido, contado sobre las columnas y no sobre la respuesta: usar la
+        // respuesta sería volver al mismo camino que se quiere contrastar.
+        $encendidas = 0;
+
+        foreach (['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'] as $columna) {
+            $encendidas += (int) DB::select(
+                "SELECT count(*) AS c FROM asignaturas a
+                 INNER JOIN grupos g ON g.id = a.grupo_id AND g.year_id = ? AND g.deleted_at IS NULL
+                 WHERE a.deleted_at IS NULL AND a.{$columna} = 1", [self::YEAR_ACTUAL]
+            )[0]->c;
+        }
+
+        // La comparación sólo significa algo si las dos poblaciones son la misma: una
+        // lección cuya asignatura esté fuera del alcance cuenta en el `DISTINCT` y no
+        // puede encender ninguna columna, y entonces la discrepancia no diría nada.
+        $this->assertSame(0, $r->json('derivacion.asignaciones_de_la_version_fuera_del_alcance'),
+            'Hay lecciones fuera del alcance, así que los dos números no cuentan lo mismo '.
+            'y su diferencia no demuestra nada.');
+
+        $this->assertSame(6, $r->json('derivacion.filas_de_la_version'),
+            'El escenario tiene que traer duplicados: sin ellos, filas y pares coinciden '.
+            'por accidente y este caso no distingue contar filas de contar celdas.');
+        $this->assertSame(4, $r->json('derivacion.piezas_de_la_version'));
+
+        $this->assertSame($paresDistintos, $encendidas,
+            "La derivación encendió {$encendidas} celdas y las lecciones tienen {$paresDistintos} ".
+            'pares (asignatura, día) distintos. Los dos números salen por caminos distintos '.
+            '—`EXISTS` columna a columna contra `COUNT(DISTINCT asignatura_id, dia)`— y tienen '.
+            'que coincidir: si no, la derivación está encendiendo celdas que las lecciones no '.
+            'piden, o dejando apagadas las que sí.');
+
+        $this->assertSame(5, $encendidas,
+            'Son cinco celdas: lunes y jueves de la primera, y el martes de las tres de la misa. '.
+            'Este número está escrito a mano a propósito, para que el caso falle también si '.
+            'las DOS consultas se rompieran a la vez.');
+    }
+
+    /**
      * **La misa: UNA pieza, VARIOS grupos, y las filas vienen de la tabla.**
      *
      * En la subida, la ocupación se indexa por `pieza_id` para que una pieza de seis
@@ -488,10 +579,30 @@ class HorarioOficialTest extends CasoDeContrato
         $this->assertSame(0, Carbon::parse('2026-09-06 10:00:00', 'America/Bogota')->dayOfWeek,
             'La fecha del domingo dejó de ser domingo y el control positivo no valdría.');
 
-        $this->assertNotEmpty($mananaDe('2026-09-06 10:00:00'),
-            'El domingo, «mañana» es lunes y el docente tiene todas sus clases ahí: si esto '.
-            'sale vacío, el vacío del sábado no demuestra nada y hay que mirar la derivación '.
-            'o el token antes que el fallo del sábado.');
+        /*
+         * **El control positivo compara QUÉ clases vuelven, no sólo que vuelva algo.**
+         *
+         * `asignaturas_dia()` recibe un id de docente, y en este repo eso es justo donde
+         * se cuela un fallo que no da error: `$user->profesor_id` es `profesores.id` y
+         * `$user->persona_id` es el id de la ficha, **y no son lo mismo** (`CLAUDE.md`).
+         * Pasar el que no es devuelve las clases **de otro docente** —o ninguna— y las
+         * dos lecturas se ven perfectamente normales desde fuera. Comparando el conjunto
+         * exacto, un id cambiado deja de pasar aquí.
+         *
+         * Lo levantó `myvc-horarios-cc` midiendo contra el docker: las tres clases de
+         * `administrador` son de `profesores.id` 41 y su `persona_id` es 1.
+         */
+        $delDomingo = array_map(
+            static fn ($f): int => (int) $f['asignatura_id'], $mananaDe('2026-09-06 10:00:00')
+        );
+        sort($delDomingo);
+        $esperadas = $suyas;
+        sort($esperadas);
+
+        $this->assertSame($esperadas, $delDomingo,
+            'El domingo, «mañana» es lunes y ahí están TODAS las clases de este docente y '.
+            'sólo las suyas. Si sale vacío, el vacío del sábado no demuestra nada; si salen '.
+            'otras, el id de docente que llega a `asignaturas_dia()` no es `profesores.id`.');
 
         $this->assertSame([], $mananaDe('2026-09-05 10:00:00'),
             'EL SÁBADO, «mañana» devolvió asignaturas. `$dia + 1` da 7, `asignaturas_dia()` '.
