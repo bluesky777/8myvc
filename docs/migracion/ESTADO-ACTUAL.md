@@ -128,8 +128,61 @@ rama `feat/horario-oficial`, **fusionada en `main`** · lote C2, lo repartió `8
 > asignatura, y esas clases desaparecen del horario **en silencio**. Hoy se cuentan y salen en la
 > respuesta; convertirlo en 422 sería impedir publicar por algo que pasó después de validar.
 
-**Anterior: 2 sep 2026, noche — `postVersiones` TIENE CUERPO, Y LAS TRES RUTAS SE EJERCITARON POR PRIMERA
-VEZ** · sobre `09c23bc` · un fichero de `app/`, cero de `routes/` y cero de `database/` ·
+**Anterior: 2 sep 2026, noche — LA SUBIDA DEL HORARIO YA TIENE QUIEN LA VIGILE, Y TRES DE SUS REGLAS NO
+LAS EJERCITA NINGÚN DATO REAL** · rama `feat/horario-tests-subida`, **fusionada en `main`** · un fichero
+de `tests/` y **cero de `app/`** · **`Tests: 1885 passed (16989 assertions)`, `Duration: 808.75s`,
+`exit=0`**, cero rojos, cero saltados y cero deadlocks — 1859 + 26, exacto · pint **PASS** (361) ·
+larastan nivel 7 **`[OK] No errors`** · coordina `8myvc-af`
+
+> **El hueco era éste**: `371062c` escribió 732 líneas —validación de forma, seis comprobaciones,
+> veredicto, transacción y dieciocho rechazos— y **cero ficheros de test**. Lo único que tocaba la
+> ruta era `HorarioAutorizacionTest`, que prueba **quién** puede llamarla y usa
+> `assertNotSame(403, …)` a propósito para no fijar el 501 del andamio: **pasa igual contra un
+> 422, un 500 o un 200**. El «probadas rojas» de aquel commit fue **a mano contra el docker** —
+> cierto el día que se hizo, y no algo que vuelva a correr mañana.
+>
+> ### LO QUE EL ÚNICO PROYECTO REAL NO DISTINGUE
+>
+> Sobre `lleno.myvch`: 312 piezas, **0 de varios grupos, 0 sin asignación y cero choques en las
+> dos lecturas posibles**. Subirlo **no separa** la implementación correcta de tres formas de
+> romperla, así que las tres se fabrican — y se comprobaron rompiendo el controlador **una cosa
+> cada vez**, restaurándolo después:
+>
+> - **la casilla es la unidad de choque, no la pieza** (un bloque de `duracion` 2 en la franja 3
+>   ocupa la 3 **y la 4**): fijando el bucle a una casilla, **2 rojos**;
+> - **Σ ≤ IH suma `duracion`, no cuenta filas** —sobre el fichero real serían 312 frente a 344,
+>   o sea **32 horas de menos**—: sumando 1 por fila, **1 rojo**;
+> - **el `pieza_id` como clave de la ocupación: NINGÚN rojo.**
+>
+> ### EL ROJO QUE NO LLEGÓ ES EL HALLAZGO, Y SE PUBLICA
+>
+> Sustituir la clave `[$pieza['pieza_id']]` por un `[]` **deja los 26 casos en verde**. No es que
+> faltara un caso: **hoy no hay ninguna entrada por donde una pieza pueda ocupar dos veces la
+> misma casilla** — `grupos` y `docentes` van por `array_unique` antes de llegar ahí, y una pieza
+> repetida en el cuerpo se rechaza antes con su propio 422.
+>
+> **El controlador no se toca**: esa clave es defensa en profundidad correcta, y **vuelve a hacer
+> falta el día que la ocupación se construya desde las filas de `horario_lecciones`** — que es de
+> donde va a salir la derivación de las siete columnas de la §7, o sea el lote de al lado. Lo que
+> sí se corrigió es **el docblock del propio test**, que ya afirmaba cubrirlo: sin la comprobación
+> en rojo, el fichero se quedaba diciendo que prueba algo que no prueba, **con el verde encima**.
+>
+> ### Y EL GRUPO ÚNICO DEL SEED HACÍA QUE DOS REGLAS SE VALIDARAN ENTRE ELLAS
+>
+> Con un solo grupo por año —98 en el actual, 84 en el anterior—, dos piezas en la misma casilla
+> chocan **por grupo y por docente a la vez**, así que romper una de las dos comprobaciones **la
+> cazaba la otra**. Son **dos de las seis** de la §6, cada una con su 422. Se fabrica un segundo
+> grupo con su asignatura dentro de la transacción del test y se separan: mismo docente en dos
+> grupos → choque de docente **y `choques_de_grupo` vacío**; dos docentes en el mismo grupo → el
+> contrario. **El aserto sobre el vacío es lo que demuestra que el escenario separa algo.**
+> Comprobados en rojo anulando una sola comprobación cada vez: cada uno cae con la suya.
+>
+> **La asignatura sin IH tampoco está en el seed** (0 de 1219 en el colegio real): se vacía dentro
+> del test y la transacción lo deshace. Sin eso, ese camino —el `SUM(...) = creditos` que con un
+> `NULL` dentro no da falso sino que **se cae del resultado**— no lo ejercía nada.
+
+**Anterior: 2 sep 2026, noche — `postVersiones` TIENE CUERPO, Y LAS TRES RUTAS SE EJERCITARON POR
+PRIMERA VEZ** · sobre `09c23bc` · un fichero de `app/`, cero de `routes/` y cero de `database/` ·
 contrato en [`23-horarios.md`](23-horarios.md) · lo escribió el carril `servidor` de
 `myvc_horarios`, que es el único que vive en los dos repositorios
 
