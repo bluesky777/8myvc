@@ -3,7 +3,9 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 `8myvc` es la API del sistema escolar MyVc: Laravel 13 + PHP 8.4, ~37.000 líneas
-en `app/`, 113 clases de controlador y **566 rutas** (contadas con
+en `app/`, **113 ficheros de controlador — 116 clases**, porque
+`Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
+**566 rutas** (contadas con
 `route:list --json` el 2 sep 2026; el 24 ago el de rutas se movió por primera vez,
 de 539 a 542, con los tres endpoints que pidió `myvc_flutter`, el 28 a 543 con
 `PUT users/mi-docente`, que pidió Joseth para el panel de `app2`, el 31 a 544 con
@@ -17,7 +19,7 @@ decidida por Joseth ese día, y el 2 sep a **563** de una vez, con las dos épic
 de esa noche: **las cuatro de nivelar** —`PUT`/`DELETE notas/nivelar/{id}`,
 `PUT notas/nivelar/lote` y `PUT definitivas_periodos/nivelar`—, que son **endpoints
 nuevos por diseño**, porque `notas/update` y `notas/lote` no pueden aprender a nivelar:
-`myvc_flutter` es una sola app para los quince y una versión vieja convive meses, así que
+`myvc_flutter` es una sola app para los dieciséis y una versión vieja convive meses, así que
 un 95 tecleado desde el móvil se guardaría topado
 (`docs/migracion/22-nivelaciones.md`); y **las diez de `rubricas/`**, la familia entera de
 la decisión 4 de Joseth de ese día —la rúbrica produce la nota—, contrato en
@@ -287,10 +289,20 @@ a nadie qué pretendía hacer esa pantalla. Los que están rotos a propósito
 
 ## Despliegue: lo copiado y lo compartido van al revés de lo que parece
 
-Quince colegios, cada uno con su subdominio, su base de datos y su copia.
-(Eran dieciséis hasta el 25 ago 2026, cuando uno se dio de baja y se borró entero
-del servidor. **Las cifras fechadas antes de ese día dicen dieciséis y así se quedan**,
-porque se midieron sobre dieciséis: lo que se actualizó fue lo que sigue vivo.)
+**Dieciséis colegios más `demo`**, cada uno con su subdominio, su base de datos y
+su copia. (El número ha ido y vuelto: eran dieciséis hasta el 25 ago 2026, cuando uno
+se dio de baja y se borró entero del servidor, y **volvieron a ser dieciséis el 30 ago**
+con la entrada de `lal` — que nadie sumó aquí, así que este párrafo dijo «quince»
+tres días de más. **Las cifras fechadas entre esos dos días dicen quince y así se
+quedan**, porque se midieron sobre quince: lo que se actualiza es lo que sigue vivo.)
+
+> **Y no se cuenta de memoria: se cuenta con el bucle.** Los dieciséis salieron de
+> contar las carpetas que devuelve `/home/micolev1/*.micolevirtual.com/8myvc` el
+> 2 sep 2026 — diecisiete, dieciséis colegios y `demo` (`docs/DESPLIEGUE.md`, barrido
+> de `APP_MOVIL_VERSION_MINIMA`). Importa el día del despliegue y no es cosmético:
+> **el bucle alcanza a los dieciséis y a `demo`**, así que quien despliegue contando
+> quince va a ver un colegio de más y tendrá que decidir a las tres de la mañana si es
+> legítimo. Lo es.
 
 - `app/`, `routes/`, `config/`, `.env`: **copia real en cada colegio**. Un
   arreglo fusionado **no está desplegado**; llega colegio a colegio.

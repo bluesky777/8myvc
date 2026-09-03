@@ -8,7 +8,60 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
-**2 sep 2026, noche — `GET horario/versiones` YA LISTA, Y LISTAR SIGUE SIN SER DESCARGAR** ·
+**2 sep 2026, noche — EL LOTE C ESTÁ EN `main`: LAS TRES RUTAS DEL HORARIO DEJAN DE SER 501** ·
+tres merges (`5dcc1ae`, `9f1f32d`, `19a1a73`) sobre `beaeeeb` · **NO EMPUJADO a `origin`**:
+Joseth autorizó fusionar y correr la suite, y el push lo decide él con el número delante ·
+**`Tests: 1913 passed (17200 assertions)`**, cero rojos, cero saltados, cero deadlocks —
+1859 + 26 + 12 + 16, **exacto** · **566 rutas, sin moverse** · `pint:test` **PASS** (363) ·
+larastan nivel 7 **`[OK] No errors`** · coordina esta sesión, relevo de `8myvc-af`
+
+> **Lo que entra**: `getVersiones` (b3), `putOficial` con la derivación de las siete columnas de
+> día y el fallo del sábado de `ChangeAskedController` (b2), y los 26 tests de `postVersiones`
+> que nadie había escrito (b1). Con esto **«Clases de hoy» deja de estar vacía**, que es el
+> problema que el módulo venía a resolver.
+>
+> **Ninguna de las tres tocó `routes/` ni `database/`** —comprobado con `git diff --name-only`,
+> no supuesto—, que es justo la forma que tiene que tener un lote que sólo rellena métodos que
+> ya existían a 501. Por eso el de rutas no se mueve y **566 se volvió a contar igualmente**.
+>
+> ### LO QUE ENSEÑÓ LA FUSIÓN, Y NO ES EL CONFLICTO
+>
+> Las tres ramas insertan en la **línea 8** de este fichero, así que el choque estaba previsto y
+> se resuelve conservando **las tres** entradas, ordenadas por la hora de su commit (listado
+> 20:08, oficial 20:03, subida 19:49) y **no por el lado del merge**, que es el orden que git
+> ofrece y no significa nada.
+>
+> **Lo que no estaba previsto**: el bloque de HEAD del tercer merge terminaba **a media entrada**
+> de `postVersiones` —la rama la había re-partido en líneas distintas, y por eso git conflictó
+> ahí—, así que insertar la tercera entrada entre los dos lados **partió esa entrada en dos** y
+> dejó dos líneas huérfanas arriba y el cuerpo cincuenta líneas más abajo. No da error, no sale
+> en ningún rojo y el fichero se lee casi bien. Se cazó comprobando que **las únicas líneas que
+> el diff BORRA son las dos del fragmento**, y que su texto vuelve entero más abajo — mirar el
+> resultado, no el 0 de `git commit`.
+>
+> **Y una fecha dos días en el futuro.** La entrada de `listado` se fechaba **«4 sep 2026»** y su
+> commit (`597da90`) es del **2 sep a las 20:08**. En el documento que una sesión nueva lee
+> **primero**, y que se ordena por fecha, esa entrada se habría quedado arriba indefinidamente.
+> Corregida a la fecha del commit. Es otra vez la misma familia: **algo que no da error y produce
+> un resultado creíble**.
+>
+> ### DOS COSAS QUE QUEDAN ABIERTAS Y SON DE JOSETH
+>
+> 1. **`acepto_perder` NO está implementado en ninguna de las tres ramas** —comprobado con
+>    `git grep` sobre `app/`, `tests/` y `docs/` en las tres: cero—. Fusionar deja en `main` un
+>    `putOficial` **sin** esa comprobación, así que la deriva silenciosa de
+>    `asignaciones_de_la_version_fuera_del_alcance` está viva en el código. **No está desplegado**,
+>    o sea que no hay nadie expuesto; lo que cambia es que deja de ser una decisión sobre código
+>    que no existe. Si se aprueba, **es contrato** y hay que avisar al front.
+> 2. **El push a `origin/main`.**
+>
+> **Y la duración, que en este repo es una señal y no un dato de color**: 1050,63 s contra los
+> **801,86 s** de la línea base medida esta misma noche sobre `beaeeeb`. **No es la suite fantasma**
+> —`pgrep` limpio antes de arrancar, cero deadlocks y la cuenta exacta—: es que se corrió
+> `phpstan --memory-limit=-1` **en paralelo dentro del mismo contenedor**. Queda escrito porque una
+> subida del 31 % sin explicación es exactamente lo que la próxima sesión leerá como solape.
+
+**Anterior: 2 sep 2026, noche — `GET horario/versiones` YA LISTA, Y LISTAR SIGUE SIN SER DESCARGAR** ·
 rama `feat/horario-listado`, **fusionada en `main`** · lote B3 · `HorarioController` y
 `tests/Contrato/HorarioListadoTest.php` (**12 casos, 67 aserciones**) · pint **PASS** ·
 larastan nivel 7 **`[OK] No errors`** · **el router no se mueve**: la ruta ya existía a 501 ·
