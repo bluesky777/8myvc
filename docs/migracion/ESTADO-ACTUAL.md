@@ -8,7 +8,128 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
-**2 sep 2026, noche — `horario_version_id` EN `getToMe`: LA APP LLEVA MESES DICIENDO «HOY NO
+**2 sep 2026, noche — LA ENTREGA 0 FUSIONADA, Y EL DISEÑO DE LA PLANTILLA REPLANTEADO
+CON CINCO DECISIONES DE JOSETH** · rama `feat/plantilla-del-anio-nuevo` (`7952d49`), **fusionada en `main`**
+> por `8myvc-d2`; la cifra de abajo es la que midió `f0` sobre SU árbol y se queda como
+> se midió — la del resultado de la fusión va al final de esta entrada · [`28-competencias-e-indicadores.md`](28-competencias-e-indicadores.md) (nuevo) ·
+**`Tests: 1927 passed (17316 assertions)`**, cero rojos, cero saltados, cero deadlocks —
+1925 + 2, **exacto** · `pint:test` PASS (364) · larastan nivel 7 `[OK]` (582) ·
+**el de rutas no se mueve: 566** · sesión `f0`
+
+> ### La Entrega 0 — `YearsController:250`
+>
+> Copiaba `unidades_por_defecto` al crear un año y **no** `subunidades_por_defecto`. Como las
+> unidades copiadas nacen con ids nuevos, las subunidades se quedaban colgadas del año viejo y
+> la plantilla del año nuevo amanecía con **contenedores sin casillas**: un 200, ningún error
+> en el log, y una pantalla con pinta de configurada.
+>
+> **Los dos tests se vieron rojos antes que verdes, y hacía falta**: con un año origen **sin**
+> plantilla —que es como está el seed y como está la base de desarrollo, medido: nueve años y
+> cero filas en las dos tablas— pasan con el arreglo y sin él. El segundo test cuenta **bajo
+> qué unidad** cae cada subunidad: `lastInsertId()` leído fuera del bucle las mete todas bajo
+> la misma y deja el reparto en 100/0 **con el mismo número de filas**, así que el primero
+> pasaría igual.
+>
+> **NO REPARA HACIA ATRÁS**, y está escrito dentro del propio bloque arreglado y no sólo aquí:
+> un año copiado mal antes de esto sigue mal. **Cuántos años y cuántos colegios no se sabe** —
+> se mide con la consulta de la §1.bis del 28, en los diecisiete del servidor. Es lo único de
+> la Entrega 0 que sigue abierto, y ningún test puede contestarlo.
+>
+> **Y el centinela que falta.** `CentinelaDeLasColumnasDelAnioNuevoTest` no podía cazar esto:
+> vigila **columnas** de `years`, y esto es una **tabla hija**. Un censo de tablas con
+> `year_id` tampoco —`subunidades_por_defecto` no tiene `year_id`, cuelga de
+> `unidades_por_defecto`—. El que cerraría la puerta es el de **las tablas que se copian al
+> crear un año**. No está escrito.
+>
+> ### Las cuatro decisiones de Joseth, y una borra trabajo
+>
+> **La plantilla es POR AÑO**, los dos niveles — y eso **retira la columna `numero_periodo`
+> que el plan proponía, y con ella la migración entera de la Entrega 1**: el alcance por año
+> ya estaba en el esquema. **El boletín independiente se adapta** (Entrega 4: un tercer
+> `origen: "plantilla"` en `copiar`, siembra al marcar y `competencias.alumno_id` — **cero
+> rutas nuevas**). **El promedio será opcional** (Entrega 5), y ahí está el riesgo de todo
+> esto: **la fórmula `nota × porcentaje / 100` está en 18 sitios de 9 ficheros**, contados, así
+> que «un interruptor» es un `if` dieciocho veces, y el primero que falte hará que **el boletín
+> enseñe un número y la definitiva guarde otro**, los dos creíbles y nadie los compara. Por eso
+> la fase 0 de esa entrega es un **refactor que no cambia ningún resultado**; es lo que espera
+> aprobación.
+>
+> ### La quinta decisión, la de esta sesión: **el docente NO cambia lo que sembró el colegio**
+>
+> *«Sí, por defecto el docente NO puede cambiar las unidades/subunidades que se crearon
+> basando en las "por defecto"»*. Eso **sube el candado a la Entrega 1** — el 28 lo tenía
+> como una entrega aparte (1.b) que «mueve una instantánea y los tres clientes»— y **la
+> mitad de ese precio era falsa**, medido antes de escribirlo:
+>
+> - **La marca ya existe y ya está puesta**: `unidades.por_defecto` y
+>   `subunidades.por_defecto`. De los **tres** `INSERT` que crean filas en esas tablas en
+>   los 235 ficheros de `app/`, **sólo el sembrador** las pone a 1 (`UnidadesController:158`
+>   y `:167`); las del docente y las del boletín independiente nacen en 0. O sea que
+>   `por_defecto = 1` **ya significa «esto lo sembró la plantilla»**, hacia atrás y en los
+>   dieciséis colegios, sin migración ni backfill.
+> - **Y ya viaja**: está nombrada en los `SELECT` de cuatro controladores, y `app2` hasta la
+>   declara en sus tipos sin que ningún `if` la mire. **La instantánea no se mueve.**
+> - **Lo que sí cuesta**: nueve rutas vivas pasan a contestar **403** — los dos `update`, los
+>   dos `destroy`, los dos `forcedelete` y las tres de orden. Sólo los `update` dejaría el
+>   candado decorativo: borrar y volver a crear es editarlo en dos pasos, y la fila nueva
+>   nace con `por_defecto = 0`, libre para siempre.
+>
+> **Las cuatro preguntas que abría, contestadas la misma noche**: se candan **los cuatro
+> campos** (`definicion`, `porcentaje`, `orden`, `nota_default`), **tampoco se puede
+> borrar**, el candado es **binario** —sin excepción fila a fila— y queda **exento quien
+> tenga `can_edit_plantilla_notas`**. Lo binario es lo que más ahorra: **retira las cuatro
+> columnas `can_change_*`**, así que la Entrega 1, que ya se había quedado sin
+> `numero_periodo`, **no toca el esquema salvo para dar de alta un permiso**.
+>
+> **Las dos trampas que hay que tener delante al implementarlo**, las dos medidas sobre los
+> clientes y las dos capaces de romper producción sin salir en un test:
+>
+> 1. **El candado compara VALORES, no la presencia del campo.** Los clientes mandan el
+>    objeto entero en cada guardado y lo llevan escrito en su propio código
+>    (`myvc_flutter/lib/Http/UnidadesApi.dart`: *«`nota_default` va siempre, aunque no se
+>    haya tocado»*). Mirando la presencia, **todos** los guardados darían 403.
+> 2. **`Unidad::arreglarOrden` queda exenta.** Reescribe `orden` de todas las unidades y
+>    subunidades **en cada `GET unidades/de-asignatura-periodo`**: con `orden` candado y sin
+>    excepción, **abrir la planilla por la mañana sería un 403 en una lectura**.
+>
+> **Población, con denominador**: en la base `simonbolivar` del contenedor hay **17.080
+> unidades vivas y 34.439 subunidades, las 51.519 con `por_defecto = 0`** — ninguna sembrada
+> nunca. Ahí el candado no cierra nada el día uno. **De los otros quince no se sabe**, y el
+> censo de `por_defecto = 1` se cuenta con el bucle **antes** de desplegar: es el número de
+> filas que dejan de poder tocarse mañana. La consulta está en la §5.1.e del 28.
+>
+> **Y hay que avisar al front**, que ya tiene su `TAREAS-PLANTILLA-Y-COMPETENCIAS.md` escrito
+> con el modelo viejo: su tabla dice que las `can_change_*` se editan por fila en la pantalla
+> de la plantilla, y con el candado binario **esa columna de la pantalla no existe**. Es de
+> las de *«quién puede llamarla»*.
+>
+>
+> ### `git checkout -- <fichero>` es el cuarto gesto que se lleva trabajo ajeno, y el peor
+>
+> Esta sesión liberó `ESTADO-ACTUAL.md` para que otra pudiera fusionar, con
+> `git checkout -- docs/migracion/ESTADO-ACTUAL.md`, creyendo que revertía **su** entrada. Para
+> entonces el fichero llevaba también la de otra sesión: **97 líneas destruidas**, sin aviso y
+> sin sitio de donde sacarlas. Se recuperaron **por suerte y no por procedimiento** —había una
+> copia entera del fichero de un segundo antes— y se vio porque el `--stat` del commit daba
+> **103 insertions donde estaban medidas 54**, y ese número se fue a mirar.
+>
+> Junto a `git add -A` y al `git diff` pelado, es el cuarto caso de lo mismo: **todas las
+> herramientas de git son del árbol y ninguna es de la sesión**. Pero éste no se arregla
+> nombrando rutas —`checkout --` ya lleva la ruta— porque la ruta es del árbol y no de quien
+> escribió, y a diferencia de los otros tres **destruye**. La regla: **antes de revertir un
+> fichero compartido, leer el diff entero**, no basta con ver ` M` en `git status` y dar por
+> hecho que lo de dentro es tuyo.
+
+> ### LA CIFRA DEL RESULTADO DE LA FUSIÓN, que es otra que la de arriba
+>
+> **`Tests: 1929 passed (17346 assertions)`**, cero rojos, cero deadlocks, corrida sobre el
+> merge por `8myvc-d2` — **1927 de `main` + los 2 de esta rama**. La de la cabecera (1927
+> con 17 316 aserciones) es la que midió `f0` **sobre su árbol**, que salía de `ab23e2d`;
+> `main` se había movido dos veces desde entonces, así que las dos son 1927 y **no son la
+> misma medición**. Se dejan las dos: cada una dice qué árbol midió.
+
+
+**Anterior: 2 sep 2026, noche — `horario_version_id` EN `getToMe`: LA APP LLEVA MESES DICIENDO «HOY NO
 TIENES CLASES» A TODOS LOS DOCENTES** · `ChangeAskedController` y dos casos en
 `HorarioOficialTest` · **el router no se mueve**: 566, es un campo de una respuesta ·
 **decisión de Joseth**, levantado por `myvc-flutter-14`

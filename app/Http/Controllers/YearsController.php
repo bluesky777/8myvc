@@ -247,12 +247,62 @@ class YearsController extends Controller {
 				$newFra->save();
 			}
 
-			/// COPIAREMOS LAS UNIDADES POR DEFECTO
+			/// COPIAREMOS LAS UNIDADES POR DEFECTO **Y SUS SUBUNIDADES**
+			//
+			// Hasta el 2 sep 2026 este bloque copiaba sólo la mitad de arriba. Y como
+			// las unidades copiadas nacen con **ids nuevos**, las subunidades del año
+			// viejo se quedaban colgadas de las unidades viejas: **ninguna llegaba al
+			// año nuevo**. La plantilla del colegio amanecía con contenedores sin
+			// casillas, el primer docente que abría su asignatura disparaba el
+			// sembrador de `UnidadesController::getDeAsignaturaPeriodo` —que copia lo
+			// que haya— y la rejilla salía **sin un solo sitio donde poner una nota**,
+			// con un 200 y sin un error en ningún log.
+			//
+			// Es la familia de `puestos_con_bol_independiente` (31 ago 2026) entrando
+			// por la puerta que su centinela **no** vigila: aquél cuenta las columnas
+			// de `years`, y esto no es una columna sino una **tabla hija**. Un censo de
+			// tablas con `year_id` tampoco lo habría cazado —`subunidades_por_defecto`
+			// no tiene `year_id`, cuelga de `unidades_por_defecto`—, y por eso el
+			// centinela que faltaría es otro: el de las **tablas** que se copian.
+			//
+			// **ESTO ARREGLA EL SEMBRADOR, NO LO YA SEMBRADO.** Un año copiado antes de
+			// este commit sigue con sus unidades por defecto vacías, y **ningún camino
+			// de este código las repone**. Cuántos años y cuántos colegios están así
+			// **no se sabe**: se mide con la consulta de la §1.bis de
+			// `docs/migracion/28-competencias-e-indicadores.md`, corriéndola en los
+			// diecisiete del servidor. Lo dice aquí porque es aquí donde alguien va a
+			// venir dentro de dos meses a leer «arreglado».
 			$unidades_ant = DB::select('SELECT * FROM unidades_por_defecto WHERE year_id=? AND deleted_at is null;', [$pasado->id]);
 
 			foreach ($unidades_ant as $key => $unidad) {
 				DB::insert('INSERT INTO unidades_por_defecto(definicion, porcentaje, year_id, obligatoria, orden, created_by) VALUES(?,?,?,?,?,?)', 
 					[$unidad->definicion, $unidad->porcentaje, $year->id, $unidad->obligatoria, $unidad->orden, $unidad->created_by]);
+
+				// **Dentro del bucle y justo después del `INSERT` de su unidad.** Leído
+				// una línea más abajo —fuera del bucle, o después de insertar las
+				// subunidades— las cinco acaban bajo la misma unidad y el reparto del
+				// colegio queda 100/0 en vez de 50/50, con la misma cantidad de filas.
+				// Es la misma forma que ya usa el sembrador de `UnidadesController:159`.
+				$unidad_nueva_id = DB::getPdo()->lastInsertId();
+
+				$subunidades_ant = DB::select('SELECT * FROM subunidades_por_defecto WHERE unidad_defec_id=? AND deleted_at is null;', [$unidad->id]);
+
+				foreach ($subunidades_ant as $subunidad) {
+					// **`inicia_at` y `finaliza_at` NO se copian**, y es lo mismo que ya
+					// se decidió con `editable_por_profe_id` de los requisitos aquí
+					// abajo: son fechas **del año viejo**. Copiadas, la plantilla del año
+					// nuevo nacería con casillas que abrieron y cerraron hace doce meses
+					// —o sea vencidas el día uno—, que es la forma de fallar que este
+					// fichero lleva pagada dos veces: una configuración que aparece sola
+					// y con pinta de haberla tomado alguien.
+					//
+					// `created_at` sí va, con `$ahora`. La línea de la unidad de arriba
+					// no lo pone y esa fila nace sin fecha: es el mismo defecto que se
+					// arregló en el bloque de disciplina, **y no se toca aquí** porque
+					// cambiarlo mueve filas que este commit no viene a mover.
+					DB::insert('INSERT INTO subunidades_por_defecto(definicion, porcentaje, unidad_defec_id, nota_default, obligatoria, orden, created_by, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?)',
+						[$subunidad->definicion, $subunidad->porcentaje, $unidad_nueva_id, $subunidad->nota_default, $subunidad->obligatoria, $subunidad->orden, $user->user_id, $ahora, $ahora]);
+				}
 			}
 
 			/// COPIAREMOS LOS REQUISITOS DE MATRÍCULA
