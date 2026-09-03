@@ -250,11 +250,21 @@ class HorarioListadoTest extends CasoDeContrato
         // silencioso contra el que avisa el docblock de ese mismo ayudante.
         // Comprobado, no supuesto: con él, `$user->year_id` sale **8**.
         //
-        // Y no hay ruta que mueva a alguien de año —ningún endpoint escribe
-        // `users.periodo_id`; sólo lo hacen el login y el rescate de
-        // `ContextoDeUsuario`—, así que el estado se construye aquí. Lo que este
-        // test fija es **el filtro del controlador**, no cómo llega el usuario a ese
-        // año, que es cosa del producto (16).
+        // **Sí hay ruta que mueve de año, y sería el camino mejor**:
+        // `PUT years/useractive/{year_id}` (`YearsController::putUseractive`) busca el
+        // periodo del mismo número en el año destino y escribe `users.periodo_id`. Se
+        // construye aquí a mano de todas formas porque lo que este test fija es **el
+        // filtro del controlador**, no cómo llega el usuario a ese año; el día que el
+        // ayudante compartido aprenda a colocar al sujeto —tarea de `8myvc-af`—, esto
+        // se sustituye por una llamada a esa ruta y el estado pasa a producirse **como
+        // lo produce el producto** (16), que es lo que manda la casa.
+        //
+        // *Y una corrección que vale más que el dato: la primera versión de este
+        // comentario afirmaba que esa ruta **no existía**. El `grep` que lo «demostró»
+        // sí la encontraba —posiciones 18 y 19 de 19— y yo lo había cortado con
+        // `| head`, o sea que leí el corte como si fuera la población. Es la regla de
+        // `tools/` aplicada a la terminal: un resultado sin su población no distingue
+        // «no hay» de «no miré».*
         $token = $this->tokenDelPersonalLlano();
 
         $periodo = DB::selectOne(

@@ -48,9 +48,32 @@ coordinó `8myvc-af`
 >
 > **No lo arreglo**: es un ayudante compartido y su arreglo es una decisión (¿el ayudante
 > coloca al usuario, o se declara que sólo sirve para el año actual?). El test de la
-> decisión 13 construye el estado a mano **y explica por qué**. Ojo también a que **ninguna
-> ruta mueve a un usuario de año**: sólo escriben `users.periodo_id` el login y el rescate de
-> `ContextoDeUsuario`.
+> decisión 13 construye el estado a mano **y explica por qué**. `af` propone que el ayudante
+> entre y después llame a **`PUT years/useractive/{year_id}`**, que es la ruta que mueve de
+> año de verdad — así el estado se produciría **como lo produce el producto** en vez de a
+> mano, que es la regla de la casa.
+>
+> ### Y LA CORRECCIÓN QUE MÁS ENSEÑA DE LAS TRES: «esa ruta no existe» era MÍO Y FALSO
+>
+> Escribí aquí que **ninguna ruta mueve a un usuario de año**. La hay:
+> `YearsController::putUseractive` escribe `users.periodo_id` —el año del usuario **no se
+> guarda, se deriva** del periodo—. Lo levantó `af`, y su explicación de por qué se me
+> escapó no era la buena: propuso que mi patrón buscaba una columna que no existe. **Lo
+> medí: el patrón SÍ la encontraba, en las posiciones 18 y 19 de 19 coincidencias** — y yo
+> había cortado la salida con `| head`, que enseña diez. *Leí el corte como si fuera la
+> población.*
+>
+> Es la regla de `tools/` —**ninguna imprime OK sin decir su población**— incumplida en la
+> terminal, que es donde no la vigila nadie: un `| head` convierte «no aparece» en
+> indistinguible de «no miré». Y encaja con lo de arriba: **un `grep` correcto y una lectura
+> truncada dan un hallazgo falso con la misma cara que uno bueno.**
+>
+> ### Y una operativa que manda a mirar al sitio equivocado
+>
+> **`composer run stan` se corta a los 300 s y no es phpstan**: `composer.json` no declara
+> `process-timeout`, así que el que corta es el lanzador. Directo
+> —`./vendor/bin/phpstan analyse --memory-limit=-1 --no-progress`— termina y da `[OK]`. El
+> síntoma es «stan falla» y el sitio donde está la causa es Composer.
 
 **Anterior: 2 sep 2026, noche — `postVersiones` TIENE CUERPO, Y LAS TRES RUTAS SE EJERCITARON POR PRIMERA
 VEZ** · sobre `09c23bc` · un fichero de `app/`, cero de `routes/` y cero de `database/` ·
