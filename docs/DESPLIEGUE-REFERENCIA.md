@@ -453,9 +453,33 @@ que menos probablemente cambie el comportamiento.
 
 ```env
 MAIL_MAILER=sendmail
-MAIL_FROM_ADDRESS=josethmaster@lalvirtual.com
+MAIL_FROM_ADDRESS=admin@micolevirtual.com
 MAIL_FROM_NAME="MiColegioVirtual"
 ```
+
+> **El remitente cambió el 2 sep 2026, y la premisa de este apartado cambió con él.**
+> Aquí ponía `josethmaster@lalvirtual.com`, que es el que llevaba incrustado el `mail()`
+> viejo (la línea de abajo) — y **`lalvirtual.com` no está registrado**: `dig` da
+> **NXDOMAIN**. `admin@micolevirtual.com` sí existe como dominio, tiene MX propio y su
+> SPF autoriza la IP del servidor por dos caminos (`+a` e `ip4:70.32.23.72`), verificado
+> con `dig` ese mismo día.
+>
+> **Y lo que se cayó no es sólo la dirección, es el «sin auditar» de la línea de arriba.**
+> El `.env` de producción de `cads-itagui` —**el primero que se lee entero**— trae
+> `MAIL_MAILER=smtp` con `MAIL_HOST=mailhog` y `MAIL_FROM_ADDRESS=null`, o sea el
+> andamiaje de desarrollo sin tocar: **ese colegio no ha enviado un correo nunca**. Así
+> que la frase de más abajo *«el correo sale igual que siempre»* **no se sostiene en al
+> menos uno de los dieciséis**: allí no salía. La decisión de `sendmail` sigue siendo la
+> buena —está verificada en el servidor, más abajo—, pero **su punto de partida no era
+> uniforme**, y en cuántos colegios se llegó a aplicar este apartado **no lo sabe nadie**:
+> sigue `PENDIENTE`. El censo de todo lo que se concluyó «para los quince» desde un solo
+> `.env` está en
+> [`docs/migracion/28-los-env-no-son-uniformes.md`](migracion/28-los-env-no-son-uniformes.md).
+>
+> **Comprobar antes de dar por hecho nada**: `php artisan correo:probar <tu-correo>` en el
+> colegio. Detecta los tres fallos de `cads-itagui` —`null` incluido, porque Laravel lee
+> la cadena `null` como null de verdad y `config/mail.php` no aplica su valor por
+> defecto—. La herramienta funcionaba; **nadie la había corrido allí**.
 
 Las dos de `FROM` **no son opcionales**. El código viejo llevaba el remitente
 incrustado a mano en las cabeceras del `mail()`:
@@ -463,6 +487,11 @@ incrustado a mano en las cabeceras del `mail()`:
 ```php
 $headers .= "From: MiColegioVirtual <josethmaster@lalvirtual.com>\r\n";
 ```
+
+> **Esta línea se deja tal cual a propósito**: no es una instrucción, es **de dónde salió
+> el dominio muerto**. El `mail()` viejo fallaba en silencio —devolvía `false` y el
+> controlador respondía «Enviado» igual—, así que un remitente de un dominio inexistente
+> podía vivir meses sin síntoma. Reescribirla borraría el origen del fallo.
 
 Ahora sale de la configuración. Si están vacías, Laravel **rechaza el envío antes
 de intentarlo** y el reseteo devuelve 500. Los valores de arriba son exactamente
