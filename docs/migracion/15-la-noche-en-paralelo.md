@@ -836,6 +836,34 @@ citar diciendo **eso** y no «se corrió sobre X».
    > Comprobado en las dos direcciones el 2 sep 2026: sin nada corriendo, vacío; con
    > un proceso que las lleva dentro, lo nombra.
    >
+   > **Y cópialo TAL CUAL: no le pongas nada detrás en la misma línea.** Los corchetes
+   > protegen el patrón, **no la orden**. `pgrep -f` mira la línea de órdenes entera del
+   > `sh -c`, así que un mensaje de respaldo que contenga la palabra buscada la
+   > reintroduce y vuelve el falso positivo por la otra puerta. Lo encontró `8myvc-23`
+   > el 2 sep 2026 usando este mismo truco para otra cosa, y está reproducido:
+   >
+   > ```bash
+   > # MAL — se encuentra a sí mismo por el `echo`, no por el patrón:
+   > pgrep -af "[p]hpstan|[p]int" || echo "ni pint ni stan corriendo"
+   > #   -> 43699 sh -c pgrep -af "[p]hpstan|[p]int" || echo "ni pint ni stan corriendo"
+   >
+   > # BIEN — el mismo patrón, sin nada detrás:
+   > pgrep -af "[p]hpstan|[p]int"     # exit 1 = ninguno
+   > ```
+   >
+   > Aquí el falso positivo era inofensivo. En **este** comando sería peor: le diría
+   > *«tu suite anterior sigue viva»* a quien sólo quiere relanzar, que es exactamente
+   > el daño que viene a evitar.
+   >
+   > **Son ya tres puertas distintas al mismo fallo**, las tres de la noche del 2 sep y
+   > las tres dando un resultado plausible sin ningún error visible: el **patrón que
+   > enumera lo que imaginabas** (las cabeceras de `ESTADO-ACTUAL.md`: 13, 15 y 16 según
+   > quién contara, porque cada uno listó los prefijos que conocía), la **salida que
+   > truncas** con un `| head` (las coincidencias iban en las posiciones 18 y 19 de 19),
+   > y ahora la **orden que rodea al patrón**. La regla que las cubre a las tres:
+   > *comprobar que el detector detecta lo que dice su nombre es un paso aparte, y no se
+   > salta porque el detector sea de una línea.*
+   >
    > Y mira la duración al terminar. **Una suite que tarda el doble no es una suite
    > lenta: son dos.**
 
