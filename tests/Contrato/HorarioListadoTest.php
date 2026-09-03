@@ -68,7 +68,10 @@ class HorarioListadoTest extends CasoDeContrato
      */
     private const MARCA_DEL_BLOB = 'MARCA-QUE-SOLO-VIVE-EN-EL-PROYECTO-8f3a';
 
-    /** Las claves que el contrato deja salir, y ninguna más. */
+    /** Las claves del envoltorio, y ninguna más. */
+    private const CLAVES_DEL_SOBRE = ['year_id', 'oficial_id', 'total', 'versiones'];
+
+    /** Las claves de cada versión, y ninguna más. */
     private const CLAVES = [
         'id', 'year_id', 'nombre', 'subida_por', 'subida_por_username',
         'created_at', 'es_oficial', 'comprobaciones',
@@ -126,7 +129,7 @@ class HorarioListadoTest extends CasoDeContrato
         $this->versionEn($this->anioDelSujeto(), 'Versión con blob dentro');
 
         $r = $this->listar()->assertStatus(200);
-        $filas = $r->json();
+        $filas = $r->json('versiones');
 
         $this->assertCount(1, $filas, 'La versión recién metida tiene que salir; si no, lo de abajo no comprueba nada.');
 
@@ -180,7 +183,7 @@ class HorarioListadoTest extends CasoDeContrato
 
         DB::update('UPDATE years SET horario_version_id = ? WHERE id = ?', [$segunda, $anio]);
 
-        $porId = collect($this->listar()->assertStatus(200)->json())->keyBy('id');
+        $porId = collect($this->listar()->assertStatus(200)->json('versiones'))->keyBy('id');
 
         $this->assertTrue($porId[$segunda]['es_oficial'], 'La apuntada por el año tiene que salir como oficial.');
         $this->assertFalse($porId[$primera]['es_oficial'], 'Y sólo ella: `es_oficial` no es «existe una oficial».');
@@ -200,7 +203,7 @@ class HorarioListadoTest extends CasoDeContrato
         DB::update('UPDATE years SET horario_version_id = NULL WHERE id = ?', [$anio]);
         $this->versionEn($anio, 'Recién subida');
 
-        $filas = $this->listar()->assertStatus(200)->json();
+        $filas = $this->listar()->assertStatus(200)->json('versiones');
 
         $this->assertSame([false], array_column($filas, 'es_oficial'),
             'Con el puntero en NULL ninguna versión es la oficial: subir no es publicar.');
@@ -220,7 +223,7 @@ class HorarioListadoTest extends CasoDeContrato
         $mia = $this->versionEn($delSujeto, 'Del año del token');
         $ajena = $this->versionEn(self::ANIO_PASADO, 'De otro año');
 
-        $ids = array_column($this->listar()->assertStatus(200)->json(), 'id');
+        $ids = array_column($this->listar()->assertStatus(200)->json('versiones'), 'id');
 
         $this->assertContains($mia, $ids);
         $this->assertNotContains($ajena, $ids, 'Se ha colado una versión de otro año.');
@@ -276,7 +279,7 @@ class HorarioListadoTest extends CasoDeContrato
         DB::update('UPDATE users SET periodo_id = ? WHERE id = ?',
             [$periodo->id, $this->usuarioLlanoDelPersonal()->id]);
 
-        $filas = $this->listar($token)->assertStatus(200)->json();
+        $filas = $this->listar($token)->assertStatus(200)->json('versiones');
 
         $this->assertSame([$id], array_column($filas, 'id'),
             'Un año pasado tiene versiones y se listan igual (decisión 13). Si el `SELECT` '
@@ -295,7 +298,7 @@ class HorarioListadoTest extends CasoDeContrato
         $this->versionEn($this->anioDelSujeto(), 'Con veredicto',
             null, (string) json_encode($guardado, JSON_UNESCAPED_UNICODE));
 
-        $filas = $this->listar()->assertStatus(200)->json();
+        $filas = $this->listar()->assertStatus(200)->json('versiones');
 
         $this->assertSame($guardado, $filas[0]['comprobaciones'],
             'El veredicto tiene que volver tal cual se escribió. Recalcularlo diría lo que el '
@@ -317,7 +320,7 @@ class HorarioListadoTest extends CasoDeContrato
         $roto = '{esto no es json';
         $this->versionEn($this->anioDelSujeto(), 'Con el veredicto roto', null, $roto);
 
-        $filas = $this->listar()->assertStatus(200)->json();
+        $filas = $this->listar()->assertStatus(200)->json('versiones');
 
         $this->assertSame($roto, $filas[0]['comprobaciones'],
             'Un veredicto que no se puede decodificar viaja tal cual. Con `null` no se '
@@ -337,13 +340,69 @@ class HorarioListadoTest extends CasoDeContrato
     {
         $id = $this->versionEn($this->anioDelSujeto(), 'La subió alguien que ya no está', 999999);
 
-        $filas = collect($this->listar()->assertStatus(200)->json())->keyBy('id');
+        $filas = collect($this->listar()->assertStatus(200)->json('versiones'))->keyBy('id');
 
         $this->assertArrayHasKey($id, $filas->all(),
             'La versión ha desaparecido porque su autor no está en `users`: el JOIN tiene que ser LEFT.');
         $this->assertSame(999999, $filas[$id]['subida_por']);
         $this->assertNull($filas[$id]['subida_por_username'],
             'Sin fila en `users` no hay nombre, y eso se dice con null en vez de esconder la versión.');
+    }
+
+    /**
+     * Un año sin versiones dice `total: 0`, **no un `[]` a secas**.
+     *
+     * Es el caso que va a ser **normal** hasta que cada colegio suba su primer
+     * horario, y el que un array pelado no sabe contar: `[]` no distingue «este año
+     * todavía no tiene ninguna» de «algo salió mal». Es el `[]` de la §2 —
+     * `horario_hoy` volvía vacío para todos los docentes todos los días y nadie lo
+     * reportó, porque **un vacío se parece a una respuesta legítima**.
+     *
+     * Lo propuso `myvc-horarios-cc` comparando su versión de esta ruta con ésta.
+     */
+    #[Test]
+    public function un_anio_sin_versiones_dice_total_cero_y_no_un_array_pelado(): void
+    {
+        $cuerpo = $this->listar()->assertStatus(200)->json();
+
+        $this->assertSame(self::CLAVES_DEL_SOBRE, array_keys($cuerpo),
+            'La respuesta tiene que venir envuelta: sin `total`, una lista vacía no dice si '
+            .'este año no tiene versiones o si algo falló.');
+        $this->assertSame(0, $cuerpo['total']);
+        $this->assertSame([], $cuerpo['versiones']);
+        $this->assertNull($cuerpo['oficial_id'], 'Sin versiones no puede haber oficial.');
+    }
+
+    /**
+     * `es_oficial` es verdadero **exactamente** en la fila cuyo `id` es `oficial_id`.
+     *
+     * El envoltorio manda el mismo hecho dos veces —el puntero arriba y la bandera por
+     * fila— y eso se tolera aquí **sólo porque este test lo convierte en invariante**.
+     * Hoy no pueden discrepar, porque salen de la misma lectura en la misma petición;
+     * pero ésa es justo la forma de la que sale un segundo escritor —el día que alguien
+     * pagine esto y `oficial_id` venga de otra consulta, dirían cosas distintas y no lo
+     * diría nadie—. Es `DefinitivasDeAsignatura` en miniatura, y esto es lo que se
+     * pondría rojo.
+     */
+    #[Test]
+    public function es_oficial_es_verdadero_exactamente_en_la_oficial(): void
+    {
+        $anio = $this->anioDelSujeto();
+        $this->versionEn($anio, 'Una');
+        $laBuena = $this->versionEn($anio, 'La oficial');
+        $this->versionEn($anio, 'Otra');
+
+        DB::update('UPDATE years SET horario_version_id = ? WHERE id = ?', [$laBuena, $anio]);
+
+        $cuerpo = $this->listar()->assertStatus(200)->json();
+
+        $this->assertSame($laBuena, $cuerpo['oficial_id']);
+
+        $marcadas = array_column(array_filter($cuerpo['versiones'], fn ($v) => $v['es_oficial']), 'id');
+
+        $this->assertSame([$cuerpo['oficial_id']], $marcadas,
+            'La bandera por fila y el puntero de arriba tienen que decir lo mismo, y sobre una '
+            .'sola fila. Si discrepan, hay dos fuentes para el mismo hecho y una miente.');
     }
 
     /**
@@ -360,7 +419,7 @@ class HorarioListadoTest extends CasoDeContrato
         $primera = $this->versionEn($anio, 'Primera');
         $segunda = $this->versionEn($anio, 'Segunda');
 
-        $ids = array_column($this->listar()->assertStatus(200)->json(), 'id');
+        $ids = array_column($this->listar()->assertStatus(200)->json('versiones'), 'id');
 
         $this->assertSame([$segunda, $primera], $ids,
             'El listado va de la más nueva a la más vieja: es lo que se mira primero.');

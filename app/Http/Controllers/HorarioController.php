@@ -828,7 +828,26 @@ class HorarioController extends Controller
             [$yearId]
         );
 
-        return response()->json(array_map(fn ($f) => [
+        // ── EL ENVOLTORIO, Y ESTO NO ES ADORNO
+        //
+        // Un `[]` pelado no distingue **«este año todavía no tiene versiones»** de
+        // «algo salió mal», y lo primero va a ser **lo normal**: hasta que un colegio
+        // suba su primer horario, ésta es la respuesta que da. Es el `[]` de la §2 —
+        // `horario_hoy` volvía vacío para todos los docentes todos los días y nadie lo
+        // reportó, porque **un vacío se parece a una respuesta legítima**.
+        //
+        // Lo levantó `myvc-horarios-cc` comparando su versión con ésta, y el argumento
+        // es el que este mismo método ya usa unas líneas más arriba para justificar el
+        // `LEFT JOIN years`: la casa aplicaba su regla en la consulta y no en la salida.
+        //
+        // **`oficial_id` y `es_oficial` son el mismo hecho dos veces, a propósito y con
+        // una condición**: hoy no pueden discrepar porque salen de la misma lectura en
+        // la misma petición, pero ésa es la forma de la que sale un segundo escritor —el
+        // día que alguien pagine esto y `oficial_id` venga de otra consulta, dirían
+        // cosas distintas y no lo diría nadie—. Por eso el duplicado **está atado por un
+        // test** (`HorarioListadoTest::es_oficial_es_verdadero_exactamente_en_la_oficial`):
+        // aquí un dato repetido sólo se tolera si es un invariante comprobado.
+        $versiones = array_map(fn ($f) => [
             'id' => (int) $f->id,
             'year_id' => (int) $f->year_id,
             'nombre' => (string) $f->nombre,
@@ -849,7 +868,19 @@ class HorarioController extends Controller
             // del `null` que devolvería `json_decode`: un veredicto ilegible se ve;
             // uno borrado en silencio se lee como que no había ninguno.
             'comprobaciones' => $this->veredictoGuardado($f->comprobaciones),
-        ], $filas));
+        ], $filas);
+
+        $oficial = array_values(array_filter($versiones, fn ($v) => $v['es_oficial']));
+
+        return response()->json([
+            'year_id' => $yearId,
+            // El puntero tal cual, y `null` cuando el año no ha publicado ninguna: es un
+            // estado —subir no es publicar— y no un hueco.
+            'oficial_id' => $oficial === [] ? null : $oficial[0]['id'],
+            // La población. Sin ella, `versiones: []` se lee como «todo bien».
+            'total' => count($versiones),
+            'versiones' => $versiones,
+        ]);
     }
 
     /**

@@ -10,9 +10,36 @@
 
 **4 sep 2026 — `GET horario/versiones` YA LISTA, Y LISTAR SIGUE SIN SER DESCARGAR** ·
 rama `feat/horario-listado`, **sin fusionar** · lote B3 · `HorarioController` y
-`tests/Contrato/HorarioListadoTest.php` (**10 casos, 54 aserciones**) · pint **PASS** ·
+`tests/Contrato/HorarioListadoTest.php` (**12 casos, 67 aserciones**) · pint **PASS** ·
 larastan nivel 7 **`[OK] No errors`** · **el router no se mueve**: la ruta ya existía a 501 ·
-coordinó `8myvc-af`
+**suite entera: `Tests: 1869 passed (16733 assertions)`, `Duration: 805.67s`, cero rojos y cero
+saltados** —1869 = 1859 + los míos, saliendo de `04ad296`; **no** los 1885 de `9c`, que llevan
+sus 26— · coordinó `8myvc-af`
+
+> ### EL LISTADO VA ENVUELTO, Y UN DATO REPETIDO SÓLO SE TOLERA SI ES UN INVARIANTE
+>
+> La respuesta pasó de un array pelado a **`{year_id, oficial_id, total, versiones}`**. Lo
+> propuso `myvc-horarios-cc` comparando su versión de la ruta con ésta, y el argumento obliga
+> porque **ya estaba en este método**: se usaba para justificar el `LEFT JOIN years` y no se
+> aplicaba a la salida. Un `[]` no distingue «este año no tiene versiones» —que va a ser **lo
+> normal** hasta que cada colegio suba el primero— de «algo salió mal». Es el `[]` de la §2.
+>
+> **`oficial_id` arriba y `es_oficial` por fila son el mismo hecho dos veces**, a propósito y
+> con una condición: un test que lo vuelve **invariante**. Hoy no pueden discrepar —salen de la
+> misma lectura en la misma petición—, pero ésa es la forma de la que sale un segundo escritor,
+> el día que alguien pagine y `oficial_id` venga de otra consulta. Es `DefinitivasDeAsignatura`
+> en miniatura. **Y era el único momento gratis**: la ruta contestaba 501, así que no hay ningún
+> cliente al que le cambie la forma.
+>
+> **Los dos casos nuevos, vistos rojos antes de darlos por buenos**: volviendo al array pelado
+> caen **11 de 12** —el único que aguanta es el control de que el blob existe, que no mira la
+> respuesta—, y haciendo que `oficial_id` salga de otra fuente cae **exactamente uno**, el del
+> invariante. *Un control que tumba un solo caso, y el que toca, es el que demuestra que ese
+> caso mide lo que dice.*
+>
+> **Instantáneas: cero movidas, comprobado.** La ruta **no tiene instantánea de forma** —era
+> 501—; las que nombran «horario» lo hacen por la columna `horario_version_id` (`muestreo-years*`)
+> o porque listan URIs y guards (`rutas`, `guards-por-ruta`, `guard-por-familia`), que no cambian.
 
 > **Lo que decide este lote no es el listado, es lo que NO sale.** La ruta lleva
 > `auth.personal` y nada más, o sea cualquiera de los **53 docentes**, y esa apertura se
