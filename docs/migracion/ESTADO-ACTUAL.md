@@ -8,7 +8,101 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
-**2 sep 2026, noche — `postVersiones` TIENE CUERPO, Y LAS TRES RUTAS SE EJERCITARON POR PRIMERA
+**4 sep 2026 — `GET horario/versiones` YA LISTA, Y LISTAR SIGUE SIN SER DESCARGAR** ·
+rama `feat/horario-listado`, **sin fusionar** · lote B3 · `HorarioController` y
+`tests/Contrato/HorarioListadoTest.php` (**12 casos, 67 aserciones**) · pint **PASS** ·
+larastan nivel 7 **`[OK] No errors`** · **el router no se mueve**: la ruta ya existía a 501 ·
+**suite entera: `Tests: 1869 passed (16733 assertions)`, `Duration: 805.67s`, cero rojos y cero
+saltados** —1869 = 1859 + los míos, saliendo de `04ad296`; **no** los 1885 de `9c`, que llevan
+sus 26— · coordinó `8myvc-af`
+
+> ### EL LISTADO VA ENVUELTO, Y UN DATO REPETIDO SÓLO SE TOLERA SI ES UN INVARIANTE
+>
+> La respuesta pasó de un array pelado a **`{year_id, oficial_id, total, versiones}`**. Lo
+> propuso `myvc-horarios-cc` comparando su versión de la ruta con ésta, y el argumento obliga
+> porque **ya estaba en este método**: se usaba para justificar el `LEFT JOIN years` y no se
+> aplicaba a la salida. Un `[]` no distingue «este año no tiene versiones» —que va a ser **lo
+> normal** hasta que cada colegio suba el primero— de «algo salió mal». Es el `[]` de la §2.
+>
+> **`oficial_id` arriba y `es_oficial` por fila son el mismo hecho dos veces**, a propósito y
+> con una condición: un test que lo vuelve **invariante**. Hoy no pueden discrepar —salen de la
+> misma lectura en la misma petición—, pero ésa es la forma de la que sale un segundo escritor,
+> el día que alguien pagine y `oficial_id` venga de otra consulta. Es `DefinitivasDeAsignatura`
+> en miniatura. **Y era el único momento gratis**: la ruta contestaba 501, así que no hay ningún
+> cliente al que le cambie la forma.
+>
+> **Los dos casos nuevos, vistos rojos antes de darlos por buenos**: volviendo al array pelado
+> caen **11 de 12** —el único que aguanta es el control de que el blob existe, que no mira la
+> respuesta—, y haciendo que `oficial_id` salga de otra fuente cae **exactamente uno**, el del
+> invariante. *Un control que tumba un solo caso, y el que toca, es el que demuestra que ese
+> caso mide lo que dice.*
+>
+> **Instantáneas: cero movidas, comprobado.** La ruta **no tiene instantánea de forma** —era
+> 501—; las que nombran «horario» lo hacen por la columna `horario_version_id` (`muestreo-years*`)
+> o porque listan URIs y guards (`rutas`, `guards-por-ruta`, `guard-por-familia`), que no cambian.
+
+> **Lo que decide este lote no es el listado, es lo que NO sale.** La ruta lleva
+> `auth.personal` y nada más, o sea cualquiera de los **53 docentes**, y esa apertura se
+> concedió *porque* devuelve nombre, fecha, quién subió, si es la oficial y el veredicto — y
+> **ni el `.myvch` ni las lecciones**. También: filtra por el año del token **sin mirar
+> `y.actual`** (decisión 13), la oficial sale del **puntero** `years.horario_version_id` y el
+> veredicto viaja **como se guardó**, no recalculado.
+>
+> ### QUÉ PROTEGE QUÉ: MEDIDO MUTANDO EL CONTROLADOR, Y MI PRIMERA VERSIÓN ERA FALSA
+>
+> El docblock del test decía que se pondría rojo si alguien cambiaba el `SELECT` a `hv.*`.
+> **Se probó y no**: el `array_map` nombra sus claves, así que el blob no sale y el verde es
+> **la respuesta correcta**, no un test flojo. Mutado al revés —devolver `$filas` crudas— sí
+> hay rojo, pero **por la forma y no por el blob**, porque el `SELECT` nombra sus columnas.
+> **Sólo filtra con las dos a la vez**, y ahí el test canta. Son **dos defensas
+> independientes y cada una basta sola**; el test es lo único que queda el día que caigan
+> las dos. *Un control negativo puede ponerse rojo por el motivo equivocado y parecer que
+> funciona.*
+>
+> ### Y UN AYUDANTE DE TESTS QUE NO PUEDE HACER LO QUE DICE SU NOMBRE
+>
+> **`CasoDeContrato::tokenDelPersonalLlanoDe($yearId)` no devuelve un token de ese año si el
+> año no es el actual.** Elige bien al usuario, pero el token se saca entrando por
+> `login/credentials`, y **`Login::entrar()` mueve al usuario al periodo del año actual**
+> (`app/Services/Login.php:188`). Pedido el año **7**, `$user->year_id` sale **8** — medido,
+> no deducido.
+>
+> **Hoy no hay ningún test mal por esto**: los seis llamantes le pasan `$grupo->year_id` de
+> grupos del año actual, así que aciertan por donde no falla. Es una mina, no un fallo
+> vivo — y la mina es justo la que su propio docblock avisa: *«un sujeto de otro año
+> devuelve la lista vacía en 200 y el test pasa sin haber calculado nada»*. **El primero que
+> le pida un año pasado se lo come**, y fui yo.
+>
+> **No lo arreglo**: es un ayudante compartido y su arreglo es una decisión (¿el ayudante
+> coloca al usuario, o se declara que sólo sirve para el año actual?). El test de la
+> decisión 13 construye el estado a mano **y explica por qué**. `af` propone que el ayudante
+> entre y después llame a **`PUT years/useractive/{year_id}`**, que es la ruta que mueve de
+> año de verdad — así el estado se produciría **como lo produce el producto** en vez de a
+> mano, que es la regla de la casa.
+>
+> ### Y LA CORRECCIÓN QUE MÁS ENSEÑA DE LAS TRES: «esa ruta no existe» era MÍO Y FALSO
+>
+> Escribí aquí que **ninguna ruta mueve a un usuario de año**. La hay:
+> `YearsController::putUseractive` escribe `users.periodo_id` —el año del usuario **no se
+> guarda, se deriva** del periodo—. Lo levantó `af`, y su explicación de por qué se me
+> escapó no era la buena: propuso que mi patrón buscaba una columna que no existe. **Lo
+> medí: el patrón SÍ la encontraba, en las posiciones 18 y 19 de 19 coincidencias** — y yo
+> había cortado la salida con `| head`, que enseña diez. *Leí el corte como si fuera la
+> población.*
+>
+> Es la regla de `tools/` —**ninguna imprime OK sin decir su población**— incumplida en la
+> terminal, que es donde no la vigila nadie: un `| head` convierte «no aparece» en
+> indistinguible de «no miré». Y encaja con lo de arriba: **un `grep` correcto y una lectura
+> truncada dan un hallazgo falso con la misma cara que uno bueno.**
+>
+> ### Y una operativa que manda a mirar al sitio equivocado
+>
+> **`composer run stan` se corta a los 300 s y no es phpstan**: `composer.json` no declara
+> `process-timeout`, así que el que corta es el lanzador. Directo
+> —`./vendor/bin/phpstan analyse --memory-limit=-1 --no-progress`— termina y da `[OK]`. El
+> síntoma es «stan falla» y el sitio donde está la causa es Composer.
+
+**Anterior: 2 sep 2026, noche — `postVersiones` TIENE CUERPO, Y LAS TRES RUTAS SE EJERCITARON POR PRIMERA
 VEZ** · sobre `09c23bc` · un fichero de `app/`, cero de `routes/` y cero de `database/` ·
 contrato en [`23-horarios.md`](23-horarios.md) · lo escribió el carril `servidor` de
 `myvc_horarios`, que es el único que vive en los dos repositorios
