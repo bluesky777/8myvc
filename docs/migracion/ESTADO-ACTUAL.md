@@ -8,7 +8,77 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
-**2 sep 2026, noche — `acepto_perder`: PUBLICAR YA NO PUEDE PERDER CLASES EN SILENCIO** ·
+**2 sep 2026, noche — LOS `.env` NO SON UNIFORMES: EL CORREO DE UN COLEGIO, Y EL CENSO DE TODO LO QUE SE CONCLUYÓ «PARA LOS QUINCE» DESDE UN SOLO FICHERO** ·
+rama `fix/los-env-no-son-uniformes` · **fusionada en `main`** · sólo documentación y
+`.env.example`: **cero código, cero rutas, cero tests** — el de rutas sigue en **566** ·
+[`29-los-env-no-son-uniformes.md`](29-los-env-no-son-uniformes.md) (nuevo),
+`.env.example`, [`DESPLIEGUE-REFERENCIA.md`](../DESPLIEGUE-REFERENCIA.md) · encargo de
+`8myvc-d2`, medido por esta sesión
+
+> **El arreglo pequeño**: el remitente de `.env.example` era `josethmaster@lalvirtual.com` y
+> **`lalvirtual.com` no está registrado** — NXDOMAIN, reproducido aquí con `dig` y no heredado
+> de la sesión que lo trajo. Pasa a `admin@micolevirtual.com`, que tiene MX propio y cuyo SPF
+> autoriza al servidor **por dos caminos independientes** (`+a` — la `A` del dominio *es* la IP
+> del servidor — e `ip4:70.32.23.72`). **Y el buzón `admin@` existe: lo confirmó Joseth el
+> 2 sep 2026 en el servidor**, que era lo último que faltaba —el SPF autoriza a *enviar* y no
+> dice nada de quién *recibe los rebotes*—, así que **la parte del correo queda cerrada
+> entera**. Lo mismo en `DESPLIEGUE-REFERENCIA.md:456`. **El `From:`
+> crudo del `mail()` viejo de la 488 se deja intacto a propósito**: no es una instrucción, es
+> de dónde salió el dominio muerto.
+>
+> **El hallazgo grande no es el correo.** El `.env` de producción de `cads-itagui` es **el
+> primero que se lee entero desde que empezó la migración** —**1 de 17**— y trae el andamiaje
+> de desarrollo sin tocar: `smtp` + `mailhog` + `MAIL_FROM_ADDRESS=null`. **Ese colegio no ha
+> enviado un correo nunca.** O sea que **los `.env` no son copias de una plantilla**, y todo lo
+> que este repositorio concluyó «para los quince» a partir de uno solo —o de ninguno— es una
+> hipótesis con decisiones encima.
+>
+> **Y `null` no es «vacío», que era la duda razonable**: medido dentro del contenedor, Laravel
+> convierte la **cadena** `null` en un null real **y el valor por defecto de `env()` no llega a
+> aplicarse** (`MAIL_FROM_ADDRESS=null` → `NULL`, no `hello@example.com`). Por eso `Mail` aborta
+> antes de intentarlo. **`correo:probar` sí lo detecta** —`if (! $remitente)` y `null` es
+> falsy—: la herramienta funcionaba, **nadie la corrió allí**.
+>
+> ### LO QUE ESPERA UNA DECISIÓN DE JOSETH — Y LA PRIMERA ES LA GRAVE
+>
+> 1. **`APP_KEY`: la separación de los avisos de push descansa en que sean distintos, y nadie
+>    los ha comparado.** Los temas de FCM son `HMAC(alumno_id, APP_KEY)`, y la decisión está
+>    escrita *porque* «`key:generate` hace uno por instalación». **Esa premisa no se ha
+>    medido**, y las dos cosas que sí se saben apuntan en contra: un colegio nuevo se crea
+>    **copiando otro** y `.env` es **copia real**, no plantilla. El propio 05 escribió la letra
+>    pequeña —«si dos colegios compartieran `APP_KEY`… sus temas colisionarían»— y **nombró el
+>    camino sin recorrerlo**. Consecuencia si es cierto: **un acudiente recibe los avisos de un
+>    menor de otro colegio, y publicar en un tema ajeno no da ningún error**. · **Es el único
+>    momento gratis**: el push **no está vivo** (falta Firebase, el JSON y `FCM_PROYECTO`), así
+>    que hoy no hay nadie expuesto y comprobarlo cuesta **un bucle de lectura que compara
+>    hashes, no claves** — no saca ningún secreto del servidor. Está escrito en el §1 del 29.
+> 2. **Correr el bucle de siete variables en los diecisiete** (§7 del 29). Sólo lectura. Es lo
+>    único que separa «no se sabe» de «está bien», y **no lo puede correr una sesión**: hace
+>    falta la sesión del servidor.
+> 3. **Los `.env` de los dieciséis colegios no los toca ninguna sesión.** El del correo incluido.
+>
+> ### LO QUE ENSEÑÓ EL BARRIDO, Y ES OTRA VEZ EL DETECTOR
+>
+> **Este documento se corrige a sí mismo dentro (§5).** La primera lectura de
+> `config/cors.php:43` fue que *ausente* daba `["*"]` y *presente y vacía* daba `[]` — o sea que
+> copiar `.env.example` **bloquearía todos los orígenes**. **Falso**: la expresión termina en
+> **`?: ["*"]`**, en la línea siguiente a la que se leyó. Ejecutado, las tres formas salen
+> `["*"]`, `["*"]` y el dominio. *Se deja escrito porque el fallo —leer media expresión y
+> deducir la consecuencia contraria— es exactamente el del documento: concluir sin medir.*
+>
+> **Y el método ya existía.** `DESPLIEGUE.md` corrió el 2 sep el barrido bien hecho para
+> `APP_MOVIL_VERSION_MINIMA` sobre las diecisiete carpetas, y **ya destapó un `.env` distinto**
+> (`demo`, presente y vacía). Se archivó con razón —en *esa* variable ausente y vacía son lo
+> mismo— pero **el dato que llevaba dentro no se generalizó**: los `.env` divergen.
+>
+> **Población del barrido, porque sin ella un «0 encontrados» no se puede leer**: **107**
+> ficheros `.md` y **61.826** líneas bajo `docs/`; **100** variables distintas que el código lee
+> con `env()`, **50** documentadas en `.env.example`, **52 leídas y no documentadas** — entre
+> ellas los cuatro `SESION_*_TTL` (la vida de los tokens) y `NOTIFICACIONES_SECRETO`, que es
+> justo la salida del punto 1. Contado con `-c` **antes** de cortar: con `| head`, «no aparece»
+> y «no miré» se leen igual.
+
+**Anterior: 2 sep 2026, noche — `acepto_perder`: PUBLICAR YA NO PUEDE PERDER CLASES EN SILENCIO** ·
 `HorarioController` y `tests/Contrato/HorarioAceptoPerderTest.php` (**12 casos, 103
 aserciones**) · **el router no se mueve**: 566, es un campo del cuerpo · suite entera
 **`Tests: 1925 passed (17303 assertions)`**, cero rojos, cero deadlocks — 1913 + 12,
