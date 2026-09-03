@@ -898,6 +898,7 @@ donde se pierde trabajo en vez de sólo medirlo mal.
 | `git diff` pelado | trabajo ajeno, dentro de tu parche de respaldo | no | no |
 | `git switch -c` | **la rama de todos** — y tu commit siguiente aterriza en la ajena | no | no |
 | `git checkout -- <fichero>` | **el trabajo ajeno** | **no** | **sí** |
+| **reconstruir desde tu propio respaldo** | **el trabajo ajeno que no estaba en tu copia** | **no — se lee como una recuperación exitosa** | **sí** |
 
 **Los tres primeros se arreglan nombrando rutas. El cuarto no**, y ésa es toda la
 gracia: `git checkout -- docs/migracion/ESTADO-ACTUAL.md` **ya lleva la ruta
@@ -942,6 +943,45 @@ siguiente. No hay un lado bueno: **lo que hay es un árbol compartido.**
    sesión que está con Joseth en directo trabaja donde él mira—, **avisa a quien
    coordina de qué ficheros tocas**, y que nadie revierta un fichero tuyo sin
    pedírtelo.
+
+### El quinto no es una orden de git, y es el único que no da ninguna señal
+
+Apareció esa misma noche, dos horas después que los otros cuatro, y es el que hay
+que leer si sólo se lee uno.
+
+Al fusionar, el 28 —**sin trackear**— se apartó, entró la versión de la rama (1016
+líneas) y **el paso de devolver la del árbol se anunció y no se ejecutó**. La
+sesión afectada fue a verificarlo en vez de creerse el aviso, encontró 1016 donde
+esperaba lo suyo, y **reconstruyó el fichero reaplicando sus cuatro bloques sobre
+la base commiteada**. Quedó en 1242 y todo parecía resuelto.
+
+**No lo estaba: en el árbol también vivían ~72 líneas sin commitear de una tercera
+sesión, y ésas no entraron en la reconstrucción.** El respaldo desde el que se
+reconstruyó era correcto —para lo suyo—, y eso es exactamente lo que lo hizo
+peligroso.
+
+| | commiteado (1016) | la copia de la coordinación (1301) | el reconstruido (1242) |
+|---|---|---|---|
+| `rejilla y en una sola llamada` | 0 | **2** | **0** |
+| `HECHO esa misma noche` | 0 | **1** | **0** |
+
+**Por qué es el peor de los cinco**: no ejecuta ninguna orden peligrosa, no borra
+nada visible, **deja el fichero más grande que antes** y se lee como una
+recuperación que salió bien. Los otros cuatro dejan un árbol más pobre que el de
+antes; éste deja uno más rico, y con un agujero.
+
+**La regla, y es de `8myvc-f4`, la sesión a la que le pasó:**
+
+> *Un respaldo es completo para lo tuyo y **silenciosamente parcial** para lo de
+> los demás. Antes de reaplicarlo hay que contar los marcadores **ajenos**, no los
+> propios. Lo que faltó no fue la copia: fue el censo.*
+
+**Y la comprobación que se propuso para verificarlo tampoco servía**, que es la
+otra mitad: `git diff` pelado **no ve nada** cuando el fichero está recién añadido
+al índice y sin modificar —índice y árbol coinciden—, así que habría contestado
+«no hay nada raro» con el trabajo ya fuera. Hace falta `git diff --cached`, o
+comparar contra el respaldo. Es la familia de `tools/respuestas-que-mienten.py`:
+**contesta 200 y no ha mirado.**
 
 ### El delator fue el mismo las cuatro veces
 
