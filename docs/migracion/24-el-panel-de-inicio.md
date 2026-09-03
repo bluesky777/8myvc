@@ -49,11 +49,40 @@ Desglose de la respuesta por clave, en KB:
 | clave | `Usuario` | `Profesor` | `Alumno` | `Acudiente` |
 |---|---:|---:|---:|---:|
 | **`eventos`** | **231,0** | **231,0** | **215,5** | **215,5** |
-| `horario_hoy` + `_manana` | 0,0 | 43,5 | — | — |
+| `horario_hoy` + `_manana` | 0,0 | 43,5 | — | — |  <!-- medido con las columnas de día VACÍAS: ver el aviso bajo la tabla -->
 | `historial` | 21,1 | 0,0 | — | — |
 | `intentos_fallidos` | 9,5 | 0,0 | — | — |
 | `profes_actuales` | 7,4 | 0,0 | 2,7 | — |
 | `mis_publicaciones` | 2,1 | 2,1 | — | — |
+
+> ### ⚠️ LA LÍNEA BASE DE `horario_hoy` CAMBIÓ EL 2 SEP 2026, Y NO POR UN DESPLIEGUE
+>
+> **Estas cifras se midieron con las siete columnas de día VACÍAS**, que es lo que describe la §2
+> del [23](23-horarios.md): `horario_hoy` y `horario_manana` volvían `[]` para todos los docentes
+> todos los días, y nadie lo había reportado porque **un `[]` se parece a «hoy no tengo clase»**.
+>
+> **Eso ya no es cierto en la base de desarrollo del docker.** Probando el módulo de horarios de
+> punta a punta, `myvc-horarios-cc` subió `lleno.myvch` como versión **4**, la marcó oficial, y la
+> derivación de la §7 escribió las siete columnas de las **134 asignaciones vivas del año 8**:
+> **203 columnas encendidas**, por día `{dom 0, lun 49, mar 49, mié 49, jue 34, vie 22, sáb 0}`.
+> La misma llamada que antes devolvía `[]` devuelve ahora **3 clases**.
+>
+> **Los datos se quedan a propósito**: es la única demostración punta a punta de que el módulo
+> hace lo que dice, es desarrollo y no producción, y los tests corren contra
+> `simonbolivar_testing` dentro de una transacción, así que no los toca. Con la base en blanco
+> volveríamos a no poder distinguir *«el horario no se ve»* de *«no hay horario»*.
+>
+> **Lo que sí cambia es esta tabla.** Quien remida el panel sobre desarrollo va a encontrar
+> `horario_hoy` con contenido y un peso distinto en la fila del `Profesor`, y **comparará contra
+> una línea base que se movió sin que se desplegara nada**. No es una regresión ni una mejora: es
+> otro estado de los datos. Si se remide, se remide diciendo con qué columnas.
+>
+> Y va escrito aquí, y no sólo en el 23, porque **el sitio donde muerde es esta tabla** — el que
+> venga a comprobar los 620 ms del alumno no va a leer el documento de horarios.
+>
+> **Un detalle que hace falta para reproducirlo**: esas filas las escribió un `putOficial` que
+> **ya no existe en el árbol** —se retiró al cerrarse la versión con pruebas de `8myvc-b5`—, así
+> que el código que hay hoy no es el que produjo este estado, aunque la forma sea la misma.
 | `publicaciones` | 2,1 | 2,1 | 2,1 | 2,1 |
 | `comportamiento` · `ausencias_periodo` · `libro` | — | — | 4,2 | 0,0 |
 | **`alumnos`** (los pedidos de cambio) | **0,5** | 0,0 | 0,0 | 0,0 |
