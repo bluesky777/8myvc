@@ -8,8 +8,8 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
-**4 sep 2026 — `GET horario/versiones` YA LISTA, Y LISTAR SIGUE SIN SER DESCARGAR** ·
-rama `feat/horario-listado`, **sin fusionar** · lote B3 · `HorarioController` y
+**2 sep 2026, noche — `GET horario/versiones` YA LISTA, Y LISTAR SIGUE SIN SER DESCARGAR** ·
+rama `feat/horario-listado`, **fusionada en `main`** · lote B3 · `HorarioController` y
 `tests/Contrato/HorarioListadoTest.php` (**12 casos, 67 aserciones**) · pint **PASS** ·
 larastan nivel 7 **`[OK] No errors`** · **el router no se mueve**: la ruta ya existía a 501 ·
 **suite entera: `Tests: 1869 passed (16733 assertions)`, `Duration: 805.67s`, cero rojos y cero
@@ -101,6 +101,32 @@ sus 26— · coordinó `8myvc-af`
 > `process-timeout`, así que el que corta es el lanzador. Directo
 > —`./vendor/bin/phpstan analyse --memory-limit=-1 --no-progress`— termina y da `[OK]`. El
 > síntoma es «stan falla» y el sitio donde está la causa es Composer.
+
+**Anterior: 2 sep 2026, noche — LAS SIETE COLUMNAS DE DÍA YA SE DERIVAN: `putOficial` deja de ser 501** ·
+rama `feat/horario-oficial`, **fusionada en `main`** · lote C2, lo repartió `8myvc-af` ·
+**el router no se mueve**: la ruta ya existía y contestaba 501 · `Tests: 15 passed` en
+`HorarioOficialTest`, 30 con las vecinas · pint PASS · larastan nivel 7 `[OK] No errors`
+
+> **Marcar la oficial mueve el puntero del año Y deriva las siete columnas de `asignaturas`,
+> en la misma transacción** (§7.1 del [23](23-horarios.md)). Con eso **«Clases de hoy» deja de
+> estar vacía**, que es el problema que el módulo venía a resolver.
+>
+> **Y en el mismo commit va el fallo del sábado** (§2.1): `getToMe` pedía mañana como
+> `$dia + 1`, el sábado eso da **7**, `asignaturas_dia()` no tiene caso 7 y «mañana» devolvía
+> **todas** las asignaturas del docente. Era invisible con las columnas vacías y **se estrenaba
+> justo con este lote**; arreglarlo después habría convertido el estreno del horario en un fallo
+> nuevo. Son los dos sitios de `ChangeAskedController`, con `% 7`.
+>
+> Tres cosas que el lote decidió y conviene no re-litigar: el alcance es **un solo `UPDATE`** y
+> no dos pasos —«a 0» y «a 1» son dos sitios donde el alcance puede dejar de ser el mismo—;
+> es `EXISTS` y no una tabla derivada porque eso **no vale en MySQL 5.7** y de los quince
+> colegios no está verificada la versión de ninguno; y la derivación es **inmune a la misa por
+> construcción**, porque `EXISTS` contesta *sí o no* y no *cuántas*.
+>
+> **Queda abierto y es de Joseth**: `asignaciones_de_la_version_fuera_del_alcance`. La versión se
+> valida el día que se **sube** y se publica otro día; entre medias alguien puede borrar una
+> asignatura, y esas clases desaparecen del horario **en silencio**. Hoy se cuentan y salen en la
+> respuesta; convertirlo en 422 sería impedir publicar por algo que pasó después de validar.
 
 **Anterior: 2 sep 2026, noche — `postVersiones` TIENE CUERPO, Y LAS TRES RUTAS SE EJERCITARON POR PRIMERA
 VEZ** · sobre `09c23bc` · un fichero de `app/`, cero de `routes/` y cero de `database/` ·

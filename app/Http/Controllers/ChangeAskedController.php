@@ -120,7 +120,16 @@ class ChangeAskedController extends Controller {
 				$now = Carbon::now('America/Bogota');
 				$dia = $now->dayOfWeek;
 				$horario_hoy 	= $this->asignaturas_dia($user->year_id, $user->profesor_id, $user->periodo_id, $dia, $user->show_materias_todas);
-				$horario_manana = $this->asignaturas_dia($user->year_id, $user->profesor_id, $user->periodo_id, $dia+1);
+				// EL SÁBADO, `$dia + 1` da 7 y `asignaturas_dia()` no tiene caso 7: `$dia_cond`
+				// se queda en el espacio en blanco con el que nace y «mañana» devuelve TODAS
+				// las asignaturas del docente, un día a la semana (§2.1 del 23). `% 7` lleva
+				// el sábado (6) al domingo (0), que es el convenio de `Carbon::dayOfWeek`.
+				//
+				// Va en el lote que RELLENA las siete columnas y no después: hoy no se ve
+				// porque con las columnas vacías todo sale vacío igual, y se estrena el día
+				// que se derive la primera versión oficial. Arreglarlo luego convertiría el
+				// estreno del horario en un fallo nuevo.
+				$horario_manana = $this->asignaturas_dia($user->year_id, $user->profesor_id, $user->periodo_id, ($dia + 1) % 7);
 			}
 			
 			
@@ -182,7 +191,8 @@ class ChangeAskedController extends Controller {
 			$now = Carbon::now('America/Bogota');
 			$dia = $now->dayOfWeek;
 			$horario_hoy 	= $this->asignaturas_dia($user->year_id, $user->persona_id, $user->periodo_id, $dia, $user->show_materias_todas);
-			$horario_manana = $this->asignaturas_dia($user->year_id, $user->persona_id, $user->periodo_id, $dia+1);
+			// El mismo sábado que arriba, en la otra rama de `getToMe` (§2.1 del 23).
+			$horario_manana = $this->asignaturas_dia($user->year_id, $user->persona_id, $user->periodo_id, ($dia + 1) % 7);
 
 			
 			

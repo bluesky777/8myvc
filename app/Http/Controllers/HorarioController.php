@@ -41,7 +41,7 @@ use Illuminate\Support\Facades\Request;
  *      lecciones**. Un `SELECT *` ahí le entrega a cualquiera el fichero de
  *      proyecto entero del colegio.
  *
- * ## Estado: `postVersiones` escrito; los otros dos siguen contestando 501
+ * ## Estado: `postVersiones` y `putOficial` escritos; `getVersiones` sigue a 501
  *
  * El **suelo** del módulo (lote A) —rutas, guards y autorización— entró en
  * `3524a22` con los tres métodos a 501, y **las tres se ejercitaron contra el
@@ -52,11 +52,18 @@ use Illuminate\Support\Facades\Request;
  * contesta mal porque le falta el cuerpo, y las dos se arreglan en sitios
  * distintos.
  *
- * De ahí que `getVersiones` y `putOficial` sigan a 501: un 501 dice exactamente
- * lo que pasa —la ruta existe, está autorizada y todavía no hace nada—, que es lo
- * que un 404 o un 200 vacío no dirían. **La comprobación de permiso va ANTES del
- * 501 y no después**, porque dejarla para el que escriba el cuerpo es cómo una
- * ruta acaba en producción sin ella.
+ * De ahí que `getVersiones` siga a 501: un 501 dice exactamente lo que pasa —la
+ * ruta existe, está autorizada y todavía no hace nada—, que es lo que un 404 o un
+ * 200 vacío no dirían. **La comprobación de permiso va ANTES del 501 y no
+ * después**, porque dejarla para el que escriba el cuerpo es cómo una ruta acaba
+ * en producción sin ella.
+ *
+ * `putOficial` dejó de ser 501 el 2 sep 2026, y con él **se estrenan las siete
+ * columnas de día de `asignaturas`** (§7): hasta ahora estaban vacías en los
+ * quince colegios, y por eso «Clases de hoy» no enseñaba nada. Ese estreno se
+ * llevó por delante el fallo del sábado de la §2.1 —`$dia + 1 = 7` en
+ * `ChangeAskedController`—, que iba en el mismo lote a propósito: invisible con
+ * las columnas vacías, y un fallo nuevo el día que se llenan.
  *
  * ## Por qué SQL y no Eloquent, el día que se escriban
  *
@@ -67,6 +74,31 @@ use Illuminate\Support\Facades\Request;
 class HorarioController extends Controller
 {
     use ResuelveElUsuario;
+
+    /**
+     * El convenio de `dia`, **en un solo sitio y con el índice por clave**.
+     *
+     * `0 = domingo … 6 = sábado` es contrato (§5.2.5), y es el mismo con el que
+     * `ChangeAskedController::asignaturas_dia()` consume las siete columnas por
+     * `Carbon::dayOfWeek`. Por eso la derivación de la §7 **no traduce nada**.
+     *
+     * Escrito como mapa y no como siete líneas sueltas porque un convenio repetido
+     * es un convenio que se puede cambiar a medias: si el orden de este array se
+     * toca, se mueven a la vez la derivación y su recuento, que es lo que impide
+     * que uno de los dos quede diciendo otra cosa. Y el fallo que evita **no da
+     * error**: con el convenio corrido, el lunes se pinta el domingo y el viernes
+     * cae en jueves, el veredicto de la §6 sale en verde igual y lo único que se
+     * nota es que el docente ve el horario de otro día.
+     */
+    private const COLUMNAS_DE_DIA = [
+        0 => 'domingo',
+        1 => 'lunes',
+        2 => 'martes',
+        3 => 'miercoles',
+        4 => 'jueves',
+        5 => 'viernes',
+        6 => 'sabado',
+    ];
 
     /**
      * `POST horario/versiones` — sube una versión del horario de un año (§5.3).
@@ -930,12 +962,194 @@ class HorarioController extends Controller
      * vacías, y **se estrena el día que se rellenen**. Arreglarlo después
      * convierte el estreno del horario en un fallo nuevo.
      */
-    public function putOficial($id): never
+    public function putOficial($id)
     {
         Autoriza::exigir(Autoriza::puedePublicarHorario($this->user),
             'No tienes permiso para marcar la versión oficial del horario.');
 
-        abort(501, 'Marcar la versión oficial del horario todavía no está implementado.');
+        $versionId = (int) $id;
+
+        $version = DB::select(
+            'SELECT v.id, v.year_id, v.nombre FROM horario_versiones v WHERE v.id = ?',
+            [$versionId]
+        );
+
+        if ($version === []) {
+            abort(404, 'Esa versión del horario no existe.');
+        }
+
+        $yearId = (int) $version[0]->year_id;
+        $ahora = Reloj::ahoraTexto();
+
+        $derivacion = DB::transaction(function () use ($versionId, $yearId, $ahora): array {
+            /*
+             * EL ALCANCE, y es lo único que hay que leer de aquí: **el año entero
+             * por JOIN**, no las filas de la versión y no un `WHERE year_id`.
+             *
+             * `asignaturas` **no tiene `year_id`** — el año le llega por
+             * `grupos.year_id`—, así que un `WHERE` aquí no da error: acota por otra
+             * cosa. Publicando un año cerrado, eso pondría a cero las columnas del
+             * año abierto, y con la decisión 13 —subir y publicar valen en cualquier
+             * año— no es teórico.
+             */
+            $alcance = 'FROM asignaturas a
+                        INNER JOIN grupos g ON g.id = a.grupo_id AND g.year_id = ? AND g.deleted_at IS NULL
+                        WHERE a.deleted_at IS NULL';
+
+            $enElAlcance = (int) DB::select("SELECT count(*) AS c {$alcance}", [$yearId])[0]->c;
+
+            /*
+             * **Un solo `UPDATE` que escribe las siete columnas de todo el alcance**,
+             * en vez de los dos pasos que pide la §7 —«todo a 0 y luego a 1 lo que
+             * trae la versión»—.
+             *
+             * El resultado es el mismo y la propiedad que importa es más fuerte: con
+             * dos pasos, «poner a 0» y «poner a 1» son dos sitios donde el alcance
+             * puede dejar de ser el mismo, y el día que se separen la mitad de las
+             * asignaciones se quedaría a cero sin que nada lo diga. Aquí **cada fila
+             * del alcance recibe sus siete columnas escritas de nuevo, siempre**, y
+             * lo que la versión no trae sale 0 porque el `EXISTS` es falso, no porque
+             * haya un segundo `UPDATE` que se acordó de ella.
+             *
+             * `EXISTS` y no un `LEFT JOIN` a una derivada: un multi-tabla `UPDATE`
+             * contra una tabla derivada no vale en MySQL 5.7, y **de los quince
+             * colegios no está verificada la versión de ninguno** (ver la migración
+             * `2026_09_04_100000_horario_versiones`). Esto es SQL de 5.7.
+             *
+             * Y **`dia` no se traduce**: el contrato es 0 = domingo … 6 = sábado
+             * (§5.2.5), el mismo convenio con el que `asignaturas_dia()` las consume
+             * por `Carbon::dayOfWeek`. Un mapeo aquí sería justo donde vive un
+             * off-by-one, y el §5.2.5 lo dice: si el convenio se cambia, el horario
+             * entero se corre un día **sin dar error y con el veredicto en verde**.
+             *
+             * `duracion` **no pinta nada en esta derivación** y eso no es un descuido:
+             * un bloque de dos ocupa dos casillas *del mismo día*, así que la columna
+             * del día es la misma la ocupe una casilla o siete. Donde `duracion` sí
+             * manda es en Σ ≤ IH y en los choques, que son de la subida.
+             *
+             * ## Y `pieza_id` tampoco, que aquí es lo que salva a la misa
+             *
+             * La revalidación de la subida **sí** tiene que indexar por `pieza_id`,
+             * porque una pieza de varios grupos ocupa una casilla y no seis. Aquí las
+             * filas ya no vienen del cuerpo sino de `horario_lecciones`, donde esa misa
+             * son **N filas con el mismo `pieza_id` y distinto `asignatura_id`** — y ése
+             * es justo el sitio donde un `GROUP BY` por (día, franja) declararía a la
+             * misa en choque consigo misma, o escribiría la misma casilla seis veces
+             * creyéndolas clases distintas.
+             *
+             * **Esto es inmune por construcción, y conviene saber por qué**: `EXISTS`
+             * contesta *sí o no*, no *cuántas*. Seis filas de la misma pieza ponen el
+             * mismo día de cada una de sus seis asignaturas —que es exactamente lo que
+             * tiene que pasar: las seis clases son ese día— y ninguna se cuenta dos
+             * veces. Si algún día esto pasara a contar en vez de a comprobar, **ahí
+             * vuelve a hacer falta el `pieza_id`**.
+             */
+            $marcar = [];
+
+            foreach (self::COLUMNAS_DE_DIA as $dia => $columna) {
+                $marcar[] = "a.{$columna} = EXISTS (SELECT 1 FROM horario_lecciones l
+                             WHERE l.version_id = ? AND l.asignatura_id = a.id AND l.dia = {$dia})";
+            }
+
+            DB::update(
+                'UPDATE asignaturas a
+                 INNER JOIN grupos g ON g.id = a.grupo_id AND g.year_id = ? AND g.deleted_at IS NULL
+                 SET '.implode(', ', $marcar).'
+                 WHERE a.deleted_at IS NULL',
+                array_merge([$yearId], array_fill(0, count(self::COLUMNAS_DE_DIA), $versionId))
+            );
+
+            DB::update(
+                'UPDATE years SET horario_version_id = ?, updated_at = ? WHERE id = ?',
+                [$versionId, $ahora, $yearId]
+            );
+
+            return [
+                'asignaciones_en_el_alcance' => $enElAlcance,
+            ] + $this->poblacionDeLaDerivacion($versionId, $yearId);
+        });
+
+        return response()->json([
+            'id' => $versionId,
+            'year_id' => $yearId,
+            'nombre' => (string) $version[0]->nombre,
+            'es_oficial' => true,
+            'derivacion' => $derivacion,
+        ]);
+    }
+
+    /**
+     * Lo que la derivación acaba de escribir, **contado sobre las filas**.
+     *
+     * Es la regla de la §6 aplicada aquí: *«un veredicto sin población se lee como
+     * “todo bien”»*. Un `200` pelado no distingue **derivé las 134** de **no había
+     * ni una fila que derivar**, y las dos respuestas se ven idénticas desde el
+     * cliente. La población sale de **esta** corrida, no del código: 134 y 344 son
+     * cifras de `simonbolivar`, y escritas a mano dirían 134 en el colegio catorce
+     * habiendo mirado 40.
+     *
+     * **`asignaciones_de_la_version_fuera_del_alcance` es la que hay que mirar, y no
+     * es teórica.** La revalidación de la §6 comprueba que cada asignación es del año
+     * de la versión **el día que se sube**, y publicar es otro momento y otra
+     * decisión —«subir no publica»—: entre los dos, alguien puede borrar una
+     * asignatura o mover su grupo. Esas filas **no entran en el alcance**, así que su
+     * día no se escribe y el horario pierde esas clases **en silencio**. Aquí se
+     * cuentan y salen en la respuesta; convertirlas en 422 sería impedir publicar por
+     * algo que pasó después de validar, y eso es una decisión del colegio.
+     *
+     * @return array<string, int|array<string, int>>
+     */
+    private function poblacionDeLaDerivacion(int $versionId, int $yearId): array
+    {
+        $porDia = [];
+
+        foreach (self::COLUMNAS_DE_DIA as $columna) {
+            $porDia[$columna] = (int) DB::select(
+                "SELECT count(*) AS c
+                 FROM asignaturas a
+                 INNER JOIN grupos g ON g.id = a.grupo_id AND g.year_id = ? AND g.deleted_at IS NULL
+                 WHERE a.deleted_at IS NULL AND a.{$columna} = 1",
+                [$yearId]
+            )[0]->c;
+        }
+
+        $conAlgunDia = 'a.'.implode(' = 1 OR a.', self::COLUMNAS_DE_DIA).' = 1';
+
+        return [
+            'asignaciones_con_algun_dia' => (int) DB::select(
+                "SELECT count(*) AS c
+                 FROM asignaturas a
+                 INNER JOIN grupos g ON g.id = a.grupo_id AND g.year_id = ? AND g.deleted_at IS NULL
+                 WHERE a.deleted_at IS NULL AND ({$conAlgunDia})",
+                [$yearId]
+            )[0]->c,
+            /*
+             * **Filas y piezas, las dos, porque no son el mismo número.** Una misa de
+             * seis grupos es **una pieza y seis filas**, así que «6 filas» de una
+             * versión con una sola pieza y «6 filas» de seis clases sueltas se leen
+             * igual y no son lo mismo. Con las dos cifras al lado, la diferencia se ve;
+             * con una sola, quien lea la respuesta cuenta clases que no existen.
+             */
+            'filas_de_la_version' => (int) DB::select(
+                'SELECT count(*) AS c FROM horario_lecciones WHERE version_id = ?',
+                [$versionId]
+            )[0]->c,
+            'piezas_de_la_version' => (int) DB::select(
+                'SELECT count(DISTINCT pieza_id) AS c FROM horario_lecciones WHERE version_id = ?',
+                [$versionId]
+            )[0]->c,
+            'asignaciones_de_la_version_fuera_del_alcance' => (int) DB::select(
+                'SELECT count(DISTINCT l.asignatura_id) AS c
+                 FROM horario_lecciones l
+                 WHERE l.version_id = ?
+                   AND l.asignatura_id NOT IN (
+                       SELECT a.id FROM asignaturas a
+                       INNER JOIN grupos g ON g.id = a.grupo_id AND g.year_id = ? AND g.deleted_at IS NULL
+                       WHERE a.deleted_at IS NULL)',
+                [$versionId, $yearId]
+            )[0]->c,
+            'por_dia' => $porDia,
+        ];
     }
 
     /**

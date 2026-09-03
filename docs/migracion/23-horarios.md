@@ -718,6 +718,47 @@ Dos cosas más que van con la A y no se pueden dejar para después:
   cuántas cuadran y cuántas no. Un «0 descuadradas» sin población no distingue
   *revisé las 134* de *no había versión oficial*.
 
+### 7.1. Escrito el 2 sep 2026, y las dos cosas iban juntas
+
+`putOficial` dejó de ser 501: marca el puntero y deriva las siete columnas **en la
+misma transacción**, y el fallo del sábado entró en el mismo commit. `ChangeAskedController`
+no se tocó por lo demás — la pantalla vacía de la §2 se llena sola.
+
+**El alcance se escribió como UN solo `UPDATE` en vez de los dos pasos** («todo a 0 y
+luego a 1 lo que trae la versión»). El resultado es el mismo y la propiedad es más
+fuerte: con dos pasos, «poner a 0» y «poner a 1» son **dos sitios donde el alcance
+puede dejar de ser el mismo**, y el día que se separen media tabla se queda a cero sin
+que nada lo diga. Cada fila del alcance recibe sus siete columnas escritas de nuevo
+siempre, y lo que la versión no trae sale 0 porque el `EXISTS` es falso, no porque haya
+un segundo `UPDATE` que se acordó de ella. Es `EXISTS` y no una tabla derivada porque un
+multi-tabla `UPDATE` contra una derivada **no vale en MySQL 5.7**, y de los quince
+colegios no está verificada la versión de ninguno.
+
+**Y la derivación es inmune a la misa por construcción, que es lo que avisó `8myvc-9c`.**
+En la subida, la ocupación se indexa por `pieza_id` para que una pieza de varios grupos
+no se declare choque a sí misma; aquí las filas ya no vienen del cuerpo sino de
+`horario_lecciones`, donde esa misa son **N filas con el mismo `pieza_id`**. `EXISTS`
+contesta *sí o no* y no *cuántas*, así que las N asignaciones quedan con su día puesto
+una vez cada una — que es lo correcto: **la pieza es una y las clases son N**. El día
+que esto pase a contar en vez de a comprobar, ahí vuelve a hacer falta el `pieza_id`.
+
+La respuesta **dice su población** —alcance, asignaciones con algún día, filas **y
+piezas** por separado, y el reparto por día—, y una cifra de ellas no es informativa:
+`asignaciones_de_la_version_fuera_del_alcance`. La cuarta comprobación de la §6 mira que
+cada asignación sea del año **el día que se sube**, y publicar es otro momento; entre los
+dos alguien puede borrar una asignatura o mover su grupo, y esas filas **no entran en el
+alcance**, así que su día no se escribe y el horario pierde esas clases en silencio. Se
+cuentan y salen; convertirlas en 422 sería impedir publicar por algo que pasó después de
+validar, y eso es decisión del colegio.
+
+**El test obligatorio ya existe**: `tests/Contrato/HorarioOficialTest.php`, 15 casos.
+Ata columnas ↔ lecciones en las dos direcciones, recorre **los siete días uno a uno**
+—un convenio corrido no da error en ningún sitio— y publica el año actual **teniendo el
+vecino con columnas puestas**, que es lo único que caza el JOIN. El del sábado congela el
+reloj y mira **los dos lados**: sábado vacío *y* domingo lleno, porque un «vacío» solo es
+indistinguible de un endpoint roto. La herramienta de `tools/` sigue siendo opcional y no
+se ha escrito.
+
 ---
 
 ## 8. La frontera nueva: el escritorio se tiene que poder vender sin MyVC detrás
@@ -1065,9 +1106,11 @@ siguen sin estar.
    > Es la regla que este documento ya aplica a las tres autorizadas —*«se vuelve a
    > contar ese día»*— llevada al sitio donde de verdad muerde: **lo que este repo no
    > sabe mantener es un número predicho**.
-4. **Las siete columnas**: se derivan al marcar la oficial; falta decidir **qué las
-   ata** —el test es obligatorio, la herramienta de `tools/` es opcional— y confirmar
-   que el orden **no** se promete (§7).
+4. **Las siete columnas**: **derivadas y atadas desde el 2 sep 2026** (§7.1). El test
+   obligatorio existe —`HorarioOficialTest`, 15 casos—; **la herramienta de `tools/`
+   sigue sin escribirse y sigue siendo opcional**, y es la que contestaría si los quince
+   colegios están sincronizados. Queda por confirmar que el orden **no** se promete: la
+   opción A le da al docente **qué** clases tiene hoy, nunca en qué orden (§7).
 > Lo más barato que se puede hacer sin esperar a ninguna de las cuatro es el **nivel 1
 > del pre-vuelo como script de `tools/`** sobre los quince colegios (§9). No toca el
 > router, no necesita permiso y contesta si este módulo se va a poder usar.
