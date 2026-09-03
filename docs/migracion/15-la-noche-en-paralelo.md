@@ -976,6 +976,42 @@ antes; éste deja uno más rico, y con un agujero.
 > los demás. Antes de reaplicarlo hay que contar los marcadores **ajenos**, no los
 > propios. Lo que faltó no fue la copia: fue el censo.*
 
+#### Para ordenar dos copias, un marcador CAUSAL — no uno de contenido
+
+Con dos respaldos del mismo fichero y sin hora fiable, la pregunta *«¿cuál es
+posterior?»* parece que se contesta buscando algo que sólo esté en uno. **No se
+contesta así**: un trozo de texto puede faltar porque aún no se había escrito o
+porque se quitó después, y las dos lecturas dan el mismo grep. Esa noche se
+intentó con un marcador de contenido —«¿lleva el *tres → siete entregas*?»— y
+**no ordenaba nada**: lo llevaban las dos.
+
+Lo que sí ordena es **el efecto de una operación con signo conocido**. Una sesión
+había cerrado la numeración de un apartado: fundió una entrada tachada de 3 líneas
+en la que la contestaba. Eso deja un rastro con dirección:
+
+| | copia A (1304) | copia B (1301) |
+|---|---|---|
+| la entrada tachada | **1** | **0** |
+| la decisión que la sustituye | **0** | **1** |
+
+**1304 − 3 = 1301**, y B contiene el resultado de algo que A todavía no tenía.
+**Una copia no puede contener el efecto de una operación que aún no ha ocurrido**,
+así que B es posterior — y además es un superconjunto, que es lo que se quería
+saber. El criterio general: *busca el rastro de un cambio cuya dirección conoces,
+no un trozo de texto.*
+
+#### Y la copia que traiciona es la propia
+
+La regla del censo protege del agujero **ajeno**. Contra el propio no sirve, y es
+el que menos se ve: el respaldo de una sesión es completo para su trabajo **hasta
+el instante en que lo tomó**, y no después. La copia de 1304 la hizo su autora
+antes de cerrar el apartado; restaurar desde ella *«porque es la mía»* le habría
+costado **su propio cierre**, además del trabajo de los demás.
+
+> **No des por buena una copia por ser tuya.** La única defensa es la misma en las
+> dos direcciones: contar marcadores antes de reaplicar — los ajenos **y** los
+> propios.
+
 **Y la comprobación que se propuso para verificarlo tampoco servía**, que es la
 otra mitad: `git diff` pelado **no ve nada** cuando el fichero está recién añadido
 al índice y sin modificar —índice y árbol coinciden—, así que habría contestado
