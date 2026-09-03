@@ -8,7 +8,51 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
-**2 sep 2026, noche — `postVersiones` TIENE CUERPO, Y LAS TRES RUTAS SE EJERCITARON POR PRIMERA
+**4 sep 2026 — `GET horario/versiones` YA LISTA, Y LISTAR SIGUE SIN SER DESCARGAR** ·
+rama `feat/horario-listado`, **sin fusionar** · lote B3 · `HorarioController` y
+`tests/Contrato/HorarioListadoTest.php` (**10 casos, 54 aserciones**) · pint **PASS** ·
+larastan nivel 7 **`[OK] No errors`** · **el router no se mueve**: la ruta ya existía a 501 ·
+coordinó `8myvc-af`
+
+> **Lo que decide este lote no es el listado, es lo que NO sale.** La ruta lleva
+> `auth.personal` y nada más, o sea cualquiera de los **53 docentes**, y esa apertura se
+> concedió *porque* devuelve nombre, fecha, quién subió, si es la oficial y el veredicto — y
+> **ni el `.myvch` ni las lecciones**. También: filtra por el año del token **sin mirar
+> `y.actual`** (decisión 13), la oficial sale del **puntero** `years.horario_version_id` y el
+> veredicto viaja **como se guardó**, no recalculado.
+>
+> ### QUÉ PROTEGE QUÉ: MEDIDO MUTANDO EL CONTROLADOR, Y MI PRIMERA VERSIÓN ERA FALSA
+>
+> El docblock del test decía que se pondría rojo si alguien cambiaba el `SELECT` a `hv.*`.
+> **Se probó y no**: el `array_map` nombra sus claves, así que el blob no sale y el verde es
+> **la respuesta correcta**, no un test flojo. Mutado al revés —devolver `$filas` crudas— sí
+> hay rojo, pero **por la forma y no por el blob**, porque el `SELECT` nombra sus columnas.
+> **Sólo filtra con las dos a la vez**, y ahí el test canta. Son **dos defensas
+> independientes y cada una basta sola**; el test es lo único que queda el día que caigan
+> las dos. *Un control negativo puede ponerse rojo por el motivo equivocado y parecer que
+> funciona.*
+>
+> ### Y UN AYUDANTE DE TESTS QUE NO PUEDE HACER LO QUE DICE SU NOMBRE
+>
+> **`CasoDeContrato::tokenDelPersonalLlanoDe($yearId)` no devuelve un token de ese año si el
+> año no es el actual.** Elige bien al usuario, pero el token se saca entrando por
+> `login/credentials`, y **`Login::entrar()` mueve al usuario al periodo del año actual**
+> (`app/Services/Login.php:188`). Pedido el año **7**, `$user->year_id` sale **8** — medido,
+> no deducido.
+>
+> **Hoy no hay ningún test mal por esto**: los seis llamantes le pasan `$grupo->year_id` de
+> grupos del año actual, así que aciertan por donde no falla. Es una mina, no un fallo
+> vivo — y la mina es justo la que su propio docblock avisa: *«un sujeto de otro año
+> devuelve la lista vacía en 200 y el test pasa sin haber calculado nada»*. **El primero que
+> le pida un año pasado se lo come**, y fui yo.
+>
+> **No lo arreglo**: es un ayudante compartido y su arreglo es una decisión (¿el ayudante
+> coloca al usuario, o se declara que sólo sirve para el año actual?). El test de la
+> decisión 13 construye el estado a mano **y explica por qué**. Ojo también a que **ninguna
+> ruta mueve a un usuario de año**: sólo escriben `users.periodo_id` el login y el rescate de
+> `ContextoDeUsuario`.
+
+**Anterior: 2 sep 2026, noche — `postVersiones` TIENE CUERPO, Y LAS TRES RUTAS SE EJERCITARON POR PRIMERA
 VEZ** · sobre `09c23bc` · un fichero de `app/`, cero de `routes/` y cero de `database/` ·
 contrato en [`23-horarios.md`](23-horarios.md) · lo escribió el carril `servidor` de
 `myvc_horarios`, que es el único que vive en los dos repositorios

@@ -781,9 +781,93 @@ class HorarioController extends Controller
      * con otro permiso el día que haga falta —sería una cuarta ruta, y no está
      * pedida ni autorizada (§10.2.3)—; hoy no hace falta ninguno.
      */
-    public function getVersiones(): never
+    public function getVersiones(): JsonResponse
     {
-        abort(501, 'Listar las versiones del horario todavía no está implementado.');
+        // El año sale del TOKEN y no de la petición: quien quiera ver otro año se
+        // mueve a ese año, que es el producto (16). Un `year_id` por parámetro
+        // sería un identificador que llega de fuera y no comprueba nadie, y de eso
+        // este repositorio tiene herramienta propia
+        // (`tools/identificadores-del-cuerpo.py`).
+        //
+        // **Y no se filtra por `y.actual`**: con la decisión 13 el año del token
+        // puede ser uno pasado o cerrado, y allí también hay versiones que listar.
+        $yearId = (int) $this->user->year_id;
+
+        // ── LAS COLUMNAS, UNA A UNA. Aquí un `SELECT hv.*` es la fuga.
+        //
+        // `horario_versiones.proyecto` es el fichero de proyecto ENTERO del colegio
+        // —128.779 bytes en el único real que existe— y esta ruta la puede llamar
+        // **cualquiera de los 53 docentes**, porque lleva `auth.personal` y nada
+        // más. Ésa es justo la razón por la que Joseth pudo abrir la lectura a todo
+        // el personal: **listar no es descargar**. Con un asterisco, la decisión 12
+        // se convierte en «cualquier docente se baja el horario entero del colegio»
+        // sin que nadie lo haya decidido.
+        //
+        // Las lecciones tampoco viajan, y por lo mismo: son el horario. El blob y
+        // las lecciones se descargarán por otro camino y con otro permiso el día
+        // que haga falta — sería una cuarta ruta, y **su número se cuenta el día que
+        // se autorice** (§10.2.3).
+        //
+        // `LEFT JOIN years` y no `JOIN`: con el `INNER`, un año en la papelera
+        // devolvería **cero filas**, o sea «este año no tiene versiones» en vez de
+        // un error. Es el `[]` de la §2 otra vez — se lee como «todo bien».
+        //
+        // `LEFT JOIN users` para el nombre de quien subió, como `nivelada_por_username`
+        // en `NotasController`: `subida_por` es `users.id` sin foránea a propósito
+        // —el rastro sobrevive a que la cuenta se borre—, así que el `LEFT` es
+        // obligatorio o la versión de un usuario borrado desaparecería del listado.
+        $filas = DB::select(
+            'SELECT hv.id, hv.year_id, hv.nombre, hv.subida_por, us.username AS subida_por_username,
+                    hv.comprobaciones, hv.created_at,
+                    IF(y.horario_version_id = hv.id, 1, 0) AS es_oficial
+               FROM horario_versiones hv
+               LEFT JOIN years y ON y.id = hv.year_id
+               LEFT JOIN users us ON us.id = hv.subida_por
+              WHERE hv.year_id = ?
+              ORDER BY hv.id DESC',
+            [$yearId]
+        );
+
+        return response()->json(array_map(fn ($f) => [
+            'id' => (int) $f->id,
+            'year_id' => (int) $f->year_id,
+            'nombre' => (string) $f->nombre,
+            'subida_por' => $f->subida_por === null ? null : (int) $f->subida_por,
+            'subida_por_username' => $f->subida_por_username,
+            'created_at' => $f->created_at,
+            // La oficial sale del PUNTERO `years.horario_version_id`, no de una
+            // bandera en esta tabla: MySQL no tiene índices parciales, así que una
+            // bandera no se puede atar a «como mucho una por año» y el día que
+            // hubiera dos en verdadero este listado enseñaría dos oficiales.
+            'es_oficial' => (int) $f->es_oficial === 1,
+            // **Como se guardó, no recalculado**: es el historial. Recalcularlo aquí
+            // diría lo que el servidor opina HOY de una versión que se comprobó con
+            // el código de otro día, que es justo lo que el veredicto guardado
+            // existe para no perder.
+            //
+            // Si el texto guardado no fuera JSON válido viaja **tal cual**, en vez
+            // del `null` que devolvería `json_decode`: un veredicto ilegible se ve;
+            // uno borrado en silencio se lee como que no había ninguno.
+            'comprobaciones' => $this->veredictoGuardado($f->comprobaciones),
+        ], $filas));
+    }
+
+    /**
+     * El veredicto tal y como está en la fila, sin recalcular y sin perderlo.
+     *
+     * `json_decode` devuelve `null` tanto para el texto `"null"` como para un JSON
+     * roto, y las dos lecturas acaban en el mismo `null` de la respuesta. Aquí se
+     * distinguen: lo que no se puede decodificar sale como la cadena que es.
+     */
+    protected function veredictoGuardado(?string $guardado)
+    {
+        if ($guardado === null || $guardado === '') {
+            return null;
+        }
+
+        $decodificado = json_decode($guardado, true);
+
+        return json_last_error() === JSON_ERROR_NONE ? $decodificado : $guardado;
     }
 
     /**
