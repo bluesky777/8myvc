@@ -880,4 +880,32 @@ class HorarioSubidaTest extends CasoDeContrato
             (string) $r->json('comprobaciones.comprobadas.suma_menor_o_igual_que_la_ih'),
             'Σ ≤ IH dice haberse comprobado sobre asignaciones que no tienen IH contra la que comparar.');
     }
+
+    /**
+     * **Todos los 422 de esta familia traen `motivo`, incluido el de forma.**
+     *
+     * Lo midió `myvc-horarios-83` contra el docker y era falso: los seis rechazos de
+     * dominio lo traían y el de `Request::validate` **no** —salía con `errors` y un
+     * `message` de `validation.required (and 6 more errors)`—, así que una pantalla que
+     * diera `motivo` por seguro se rompía justo en el caso más tonto, el del cuerpo mal
+     * formado. Es el único 422 de la familia que no lo escribe una línea nuestra, y por
+     * eso es el que se escapa.
+     *
+     * **`errors` se comprueba también**: el arreglo es aditivo, y un cliente que ya lo
+     * lea no puede perderlo.
+     */
+    #[Test]
+    public function el_422_de_forma_tambien_trae_motivo(): void
+    {
+        $respuesta = $this->postJson('/api/horario/versiones', [], [
+            'Authorization' => 'Bearer '.$this->tokenDe($this->usuarioDeTipo('Usuario')->username),
+        ]);
+
+        $respuesta->assertStatus(422);
+        $respuesta->assertJsonPath('motivo', 'cuerpo-mal-formado');
+
+        $this->assertNotEmpty($respuesta->json('errors'),
+            '`errors` tiene que seguir viajando: el arreglo era añadir `motivo`, no '
+            .'sustituir lo que ya leía alguien.');
+    }
 }

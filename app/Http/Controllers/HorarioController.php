@@ -8,6 +8,7 @@ use App\Support\Reloj;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Request;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Horario: versiones del horario de un año, y cuál de ellas es la oficial.
@@ -281,25 +282,50 @@ class HorarioController extends Controller
      */
     protected function cuerpoDeLaSubida(): array
     {
-        return Request::validate([
-            'version' => 'required|array',
-            'version.nombre' => 'required|string|max:255',
-            'version.year_id' => 'required|integer|min:1',
-            'version.anio' => 'required|integer',
-            'version.nombre_colegio' => 'required|string',
-            'proyecto' => 'required|string',
-            'piezas' => 'present|array',
-            'piezas.*.pieza_id' => 'required|string|max:64',
-            'piezas.*.dia' => 'required|integer',
-            'piezas.*.franja' => 'required|integer',
-            'piezas.*.duracion' => 'required|integer',
-            'piezas.*.docentes' => 'present|array',
-            'piezas.*.docentes.*' => 'required|integer|min:1',
-            'piezas.*.asignaciones' => 'present|array',
-            'piezas.*.asignaciones.*' => 'required|integer|min:1',
-            'piezas.*.salon_nombre' => 'nullable|string|max:120',
-            'piezas.*.salon_capacidad_grupos' => 'nullable|integer|min:0',
-        ]);
+        /*
+         * **El 422 de forma también lleva `motivo`, y eso no salía de serie.**
+         *
+         * Lo midió `myvc-horarios-83` contra el docker: los seis rechazos de dominio de
+         * esta familia traen `motivo`, y el de `Request::validate` **no** — sale con
+         * `errors` y un `message` que dice `validation.required (and 6 more errors)`.
+         * Así que una pantalla que dé `motivo` por seguro se rompe justo en el caso más
+         * tonto, el del cuerpo mal formado.
+         *
+         * Se envuelve **sólo aquí** y no en toda la API (decisión de Joseth, 3 sep 2026):
+         * la familia `horario/` es de tres rutas y ningún cliente suyo está desplegado
+         * todavía, así que cerrarlo cuesta esto; hacerlo global movería la respuesta de
+         * muchas rutas vivas a la vez para un contrato que sólo pidió un cliente.
+         *
+         * **`errors` se conserva tal cual**: es aditivo, así que un cliente que ya lea
+         * `errors` no se entera de nada.
+         */
+        try {
+            return Request::validate([
+                'version' => 'required|array',
+                'version.nombre' => 'required|string|max:255',
+                'version.year_id' => 'required|integer|min:1',
+                'version.anio' => 'required|integer',
+                'version.nombre_colegio' => 'required|string',
+                'proyecto' => 'required|string',
+                'piezas' => 'present|array',
+                'piezas.*.pieza_id' => 'required|string|max:64',
+                'piezas.*.dia' => 'required|integer',
+                'piezas.*.franja' => 'required|integer',
+                'piezas.*.duracion' => 'required|integer',
+                'piezas.*.docentes' => 'present|array',
+                'piezas.*.docentes.*' => 'required|integer|min:1',
+                'piezas.*.asignaciones' => 'present|array',
+                'piezas.*.asignaciones.*' => 'required|integer|min:1',
+                'piezas.*.salon_nombre' => 'nullable|string|max:120',
+                'piezas.*.salon_capacidad_grupos' => 'nullable|integer|min:0',
+            ]);
+        } catch (ValidationException $e) {
+            $this->rechazar([
+                'message' => 'El cuerpo de la subida no tiene la forma que pide el contrato (§5.2 del 23). Nada se escribió.',
+                'motivo' => 'cuerpo-mal-formado',
+                'errors' => $e->errors(),
+            ]);
+        }
     }
 
     /**
@@ -1057,7 +1083,20 @@ class HorarioController extends Controller
              */
             if ($aceptoPerder !== null && $aceptoPerder !== $sePierden) {
                 $this->rechazar([
-                    'message' => "No coincide: aceptas perder {$aceptoPerder} y el servidor cuenta {$sePierden} en este momento. Vuelve a leer el listado y confirma con la cifra que salga. Nada se escribió.",
+                    // **NO manda a «releer el listado», y eso es un error corregido.** El
+                    // mensaje decía eso hasta que `myvc-horarios-83` fue a escribir la
+                    // relectura y descubrió que NO EXISTE: `getVersiones` no devuelve la
+                    // deriva —su `comprobaciones` es el veredicto guardado el día de la
+                    // subida, no una cuenta de hoy—, así que la única lectura fresca **es
+                    // este mismo 422**. Mandar a una pantalla a buscar un número que allí
+                    // no está es peor que no decir nada: se busca, no se encuentra, y se
+                    // acaba tecleando el que se recuerde.
+                    //
+                    // Y eso reencuadra la puerta a mejor: la garantía no es «el número
+                    // vino de otro sitio» —no hay otro sitio— sino **que hay una persona
+                    // en medio cada vez**, porque no se puede saber la cifra sin provocar
+                    // el 422 que la enseña.
+                    'message' => "No coincide: aceptas perder {$aceptoPerder} y el servidor cuenta {$sePierden} en este momento. Esa cifra de {$sePierden} es la de ahora y no la da ninguna otra pantalla: enséñasela a quien publica y confirma con lo que él diga. Nada se escribió.",
                     'motivo' => 'acepto-perder-no-coincide',
                     'acepto_perder' => $aceptoPerder,
                     'asignaciones_que_se_pierden' => $sePierden,

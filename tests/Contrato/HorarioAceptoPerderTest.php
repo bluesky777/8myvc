@@ -250,6 +250,15 @@ class HorarioAceptoPerderTest extends CasoDeContrato
         $respuesta->assertJsonPath('acepto_perder', $declarado);
         $respuesta->assertJsonPath('asignaciones_que_se_pierden', $conDeriva);
 
+        // **Y el mensaje NO puede mandar a releer el listado.** Lo levantó
+        // `myvc-horarios-83` yendo a escribir esa relectura: no existe. `getVersiones`
+        // no devuelve la deriva —su `comprobaciones` es el veredicto guardado el día de
+        // la subida—, así que la única lectura fresca es este mismo 422. Mandar a buscar
+        // un número que no está en ninguna pantalla es peor que no decir nada.
+        $this->assertStringNotContainsString('listado',
+            mb_strtolower((string) $respuesta->json('message')),
+            'El mensaje manda a releer un listado que no trae esta cifra.');
+
         $this->assertSame($antes, $this->fotoDelAnio());
     }
 

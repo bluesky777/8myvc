@@ -8,7 +8,61 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
-**2 sep 2026, noche — LA ENTREGA 0 FUSIONADA, Y EL DISEÑO DE LA PLANTILLA REPLANTEADO
+**3 sep 2026, madrugada — DOS COSAS QUE ENCONTRÓ EL CLIENTE MIDIENDO CONTRA NUESTRO DOCKER,
+Y UNA DE ELLAS ERA UN ERROR MÍO** · `HorarioController`, `HorarioSubidaTest` y
+`HorarioAceptoPerderTest` · **566 rutas, sin moverse** · suite entera
+**`Tests: 1930 passed (17355 assertions)`**, cero rojos, cero deadlocks · las midió
+`myvc-horarios-83` **sin escribir nada** en el docker compartido
+
+> ### 1. «RELEER EL LISTADO» NO EXISTE, Y EL MENSAJE MANDABA ALLÍ
+>
+> El 422 de `acepto-perder-no-coincide` decía *«vuelve a leer el listado y confirma con la
+> cifra que salga»*. Lo escribí yo anoche. **`getVersiones` no devuelve la deriva** — su
+> `comprobaciones` es el veredicto guardado **el día de la subida**, no una cuenta de hoy—,
+> así que **la única lectura fresca es el propio 422**. Se descubrió porque `-83` fue a
+> escribir esa relectura y no encontró de dónde.
+>
+> Mandar a una pantalla a buscar un número que allí no está **es peor que no decir nada**:
+> se busca, no se encuentra, y se acaba tecleando el que se recuerde. Corregido, con su
+> aserción — que además me cazó a mí en el primer intento, porque la reescritura seguía
+> usando la palabra «listado» dentro de una negación.
+>
+> **Y el reencuadre es a mejor**: la garantía de `acepto_perder` no es «el número vino de
+> otro sitio» —no hay otro sitio— sino que **hay una persona en medio cada vez**, porque no
+> se puede saber la cifra sin provocar el 422 que la enseña. La redacción del mensaje **es
+> el mecanismo**, no un adorno alrededor. Y estrecha el agujero conocido: remandar el número
+> del error exige **provocar un 422 por cada intento**, que es un argumento en contra del
+> testigo de un solo uso que no se tenía al plantearlo.
+>
+> ### 2. `motivo` NO ESTABA GARANTIZADO EN TODOS LOS 422
+>
+> Los seis rechazos de dominio de la familia lo traen; el de `Request::validate` **no**
+> —sale con `errors` y un `message` de `validation.required (and 6 more errors)`—. Una
+> pantalla que dé `motivo` por seguro se rompe **justo en el caso más tonto**, el del cuerpo
+> mal formado, y es el único 422 de la familia que no escribe una línea nuestra: por eso se
+> escapaba.
+>
+> Cerrado **sólo en `horario/`** (decisión de Joseth): la familia es de tres rutas y ningún
+> cliente suyo está desplegado, así que cuesta un `try`/`catch`; hacerlo global movería la
+> respuesta de muchas rutas vivas para un contrato que pidió un cliente. **`errors` se
+> conserva**, que es lo que lo hace aditivo. Test **visto rojo** quitando el `catch`.
+>
+> ### 3. Y UNA TABLA QUE FALTABA: EL AÑO SALE DE TRES SITIOS DISTINTOS
+>
+> `POST` lo saca del **cuerpo** (`:196`), `GET` del **token** (`:826`), `PUT` de la **fila**
+> (`:981`). Cada uno con su razón, y **no se unifican**. Pero juntos: se sube una versión
+> del año 5, el listado enseña las del 8, la recién subida no aparece —se lee como que la
+> subida falló— y **lo que se marque oficial se publica en el año del token**, con el
+> servidor aceptándolo porque para él es coherente. Ni 4xx ni nada rojo en ninguno de los
+> dos lados. Escrito en la §7.1.bis del [23](23-horarios.md), que es lo que faltaba: hasta
+> hoy la respuesta exigía leer tres controladores.
+>
+> El cliente ya lo cerró de su lado sin pedirnos nada, comparando el `year_id` del envoltorio
+> de `getVersiones` con el del proyecto y **bloqueando publicar** mientras no cuadren —avisar
+> sin bloquear no valía—. Segundo uso que le sale a un campo que este contrato estuvo a punto
+> de dejar como un array pelado.
+
+**Anterior: 2 sep 2026, noche — LA ENTREGA 0 FUSIONADA, Y EL DISEÑO DE LA PLANTILLA REPLANTEADO
 CON CINCO DECISIONES DE JOSETH** · rama `feat/plantilla-del-anio-nuevo` (`7952d49`), **fusionada en `main`**
 > por `8myvc-d2`; la cifra de abajo es la que midió `f0` sobre SU árbol y se queda como
 > se midió — la del resultado de la fusión va al final de esta entrada · [`28-competencias-e-indicadores.md`](28-competencias-e-indicadores.md) (nuevo) ·

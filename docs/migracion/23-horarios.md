@@ -751,6 +751,40 @@ alcance**, así que su día no se escribe y el horario pierde esas clases en sil
 cuentan y salen; convertirlas en 422 sería impedir publicar por algo que pasó después de
 validar, y eso es decisión del colegio.
 
+### 7.1.bis. De dónde saca el año cada una de las tres rutas — y por qué hay que decirlo
+
+Lo levantó `myvc-horarios-83` el 3 sep 2026 **mirando los tres controladores**, que es
+hoy la única forma de saberlo:
+
+| ruta | de dónde sale el año | línea |
+|---|---|---|
+| `POST horario/versiones` | `$cuerpo['version']['year_id']` — el año del **PROYECTO** | `HorarioController:196` |
+| `GET horario/versiones` | `$this->user->year_id` — el año del **TOKEN** | `:826` |
+| `PUT horario/versiones/{id}/oficial` | `$version[0]->year_id` — el año de la **FILA** | `:981` |
+
+**Cada uno por separado es correcto y tiene su razón escrita** donde se decidió: el `POST`
+valida contra el año que el proyecto declara; el `GET` no acepta un `year_id` de fuera
+porque sería un identificador que no comprueba nadie; el `PUT` usa el de la versión porque
+publicar es una operación sobre esa fila.
+
+**Juntos son otra cosa, y el modo de fallo no se parece a un fallo.** Una pantalla que dé
+por hecho que el año es el mismo en las tres: sube una versión del año 5 —correcto, va al
+año del cuerpo—, el listado de debajo enseña las del año 8, y **la recién subida no
+aparece**, que se lee como que la subida falló. Y lo peor viene después: lo que se marque
+oficial desde esa lista **se publica en el año del token**, no en el del horario que el
+coordinador tiene delante, y **el servidor lo acepta porque para él es coherente**. Ni
+4xx, ni aviso, ni nada que se ponga rojo en ninguno de los dos lados.
+
+**No se unifican**, y esa es la decisión: cada origen tiene su motivo y cambiarlos ahora
+rompería clientes. Lo que hacía falta era **esta tabla**, porque hasta hoy la respuesta
+exigía leer tres controladores.
+
+**Y del lado del cliente ya hay precedente, que no pide nada a esta API**: `myvc_horarios`
+compara el `year_id` del envoltorio de `getVersiones` con el del proyecto y **bloquea
+publicar** mientras no cuadren. Avisar sin bloquear no valía — las demás causas de un botón
+apagado se ven mirando la pantalla, y ésta no. Es, de paso, el segundo uso que le sale al
+`year_id` del envoltorio que este contrato estuvo a punto de dejar como un array pelado.
+
 ### 7.2. `acepto_perder` — la decisión del colegio, tomada el 2 sep 2026
 
 **Joseth la aprobó**, así que el párrafo de arriba deja de describir el código y pasa a
@@ -783,6 +817,21 @@ cliente con una constante puesta pasaría los días que la deriva midiera eso y 
 pantalla se lo tiene que explicar a un coordinador de colegio, y *«esperaba 32, mandaste
 28»* se explica y se puede comprobar contra lo que hay en pantalla; *«no coinciden»* sólo
 se puede creer.
+
+**Y «releer» NO tiene ruta, que es lo que reencuadra toda esta puerta.** El `message` del
+`acepto-perder-no-coincide` decía *«vuelve a leer el listado y confirma con la cifra que
+salga»* hasta que `myvc-horarios-83` fue a escribir esa relectura y descubrió que **no
+existe**: `getVersiones` no devuelve la deriva —su `comprobaciones` es el veredicto guardado
+**el día de la subida**, no una cuenta de hoy—, así que **la única lectura fresca es el propio
+422**. Mandar a una pantalla a buscar un número que allí no está es peor que no decir nada: se
+busca, no se encuentra, y se acaba tecleando el que se recuerde. Corregido.
+
+Y el reencuadre es a mejor: **la garantía no es «el número vino de otro sitio» —no hay otro
+sitio— sino que hay una persona en medio cada vez**, porque no se puede saber la cifra sin
+provocar el 422 que la enseña. Así que la redacción del mensaje **no es un adorno alrededor
+del mecanismo: es el mecanismo.** Y de paso estrecha el agujero conocido —que un emisor
+remande el número del error—: explotarlo exige **provocar un 422 por cada intento**, que es un
+argumento **en contra** del testigo de un solo uso que no se tenía cuando se planteó.
 
 **La comprobación va dentro de la transacción** —contar fuera y escribir dentro son dos
 instantes, y entre ellos cabe una asignatura más— y `abort()` desde ahí **deshace**, así
