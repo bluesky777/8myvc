@@ -1366,8 +1366,43 @@ color a todos los que vengan detrás. Es decisión del front y no de aquí.*
 
 **Lo que esto añade a la decisión de Joseth:** el fallback del cliente **no es un apaño
 provisional**, es lo que va a verse **hasta que exista quien reparta el color** — y hoy ya se
-ve mal. Y la medición es de **un colegio y un año**: los otros quince tienen sus propios `id`
-y sus propios huecos, y ahí no ha mirado nadie.
+ve mal.
+
+**Y la pregunta «¿es `simonbolivar` el caso malo o el normal?» se contesta SIN un segundo
+colegio, que es lo que la hace valer.** Doce docentes en doce cubos por una función estable
+del `id` es **doce bolas en doce cajas**, y esa distribución se calcula:
+
+| cubos ocupados | probabilidad |
+|---|---|
+| ≤ 7 (**peor que `simonbolivar`**) | **0,395** |
+| 8 (la moda) | 0,356 |
+| **9 — lo que salió en `simonbolivar`** | 0,199 |
+| ≥ 10 | 0,049 |
+| **12, o sea cero colisiones** | **0,0000537** — uno de cada 18.600 |
+
+**Esperanza: 7,78 cubos.** O sea que **`simonbolivar`, con 9, está en el cuarto superior: es
+un colegio con suerte, no el caso malo** — y **el 40 % de los colegios saldría peor**. La
+lectura correcta del hallazgo es la contraria de la que invita: si en el único sitio donde
+hemos mirado el reparto sale **mejor de lo esperable** y aun así cinco de doce comparten
+color, **en los otros quince no va a salir mejor**.
+
+**Y de aquí sale el argumento que cierra la familia entera de «arreglos» del multiplicador:
+ninguna función estable del `id` sirve.** Un hash bien mezclado daría **7,8 de media, o sea
+peor que el 9 de hoy**; `(id*5)%12` no es una mala elección, es **un caso afortunado de lo
+mismo**. Los doce distintos por `id` ocurren **una vez de cada 18.600**. Quedan sólo las dos
+salidas ya escritas —estabilidad **o** los doce distintos—, y **no hay término medio, por
+construcción**: para garantizar que los doce que se ven salgan distintos hay que mirar los
+doce que se ven, y eso es exactamente lo que rompe la estabilidad.
+
+> **El supuesto del cálculo, dicho porque no es gratuito:** trata los `id % 12` como
+> **uniformes e independientes**, y los `id` reales no son aleatorios — son secuenciales con
+> bajas. Lo que sostiene el modelo aquí es que **lo observado encaja con él** (9 contra una
+> esperanza de 7,78, dentro de lo normal), no que se haya demostrado. Si algún día se miran
+> dos o tres colegios más y salen sistemáticamente por encima de 8, el modelo es el que hay
+> que revisar, no la conclusión.
+
+Y la medición de campo es de **un colegio y un año**: los otros quince tienen sus propios
+`id` y sus propios huecos, y ahí no ha mirado nadie.
 
 #### Las cuatro que iban a Joseth, CONTESTADAS el 4 sep 2026
 
