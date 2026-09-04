@@ -24,7 +24,7 @@ falsas en un colegio**, no por dónde aparecen.
 | **Leídas por el código y NO documentadas en `.env.example`** | **52** |
 | Documentadas y que no lee ni `config/` ni `app/` | 2 (`MIX_PUSHER_*`, restos del andamiaje de Laravel: sólo las mira `resources/js/bootstrap.js`) |
 | `.env` de producción que alguien ha leído **entero** | **1 de 17** (`cads-itagui`) |
-| Variables censadas **en los diecisiete** | **2**: `APP_MOVIL_VERSION_MINIMA` (2 sep) y `APP_KEY` (3 sep) |
+| Variables censadas **en los diecisiete** | **6**: `APP_MOVIL_VERSION_MINIMA` (2 sep), `APP_KEY` y los cuatro `MAIL_*` (3 sep) |
 
 Esa última fila es el documento entero. **1 de 17** — dieciséis colegios más `demo`
 (`DESPLIEGUE.md`, barrido del 2 sep 2026).
@@ -174,6 +174,11 @@ Son **tres fallos apilados** y cada uno bastaba solo:
 
 **Ese colegio no ha enviado un correo nunca.**
 
+> **Y el 3 sep se supo que no era «ese colegio»: eran dieciséis.** El censo de los `MAIL_*`
+> sobre las diecisiete carpetas dio **la misma configuración rota en dieciséis**, así que el
+> reseteo de contraseña devolvía 500 en todos los colegios reales. `cads-itagui` no era una
+> excepción, era **la única muestra**. Censo, arreglo y verificación en el §3.
+
 ### Lo que se reprodujo, porque venía de otra sesión y de otro repositorio
 
 Medido de nuevo aquí el 2 sep 2026, no heredado:
@@ -235,32 +240,68 @@ corrió en ese colegio.**
 
 ---
 
-## 3. `MAIL_MAILER` · dos documentos del repositorio dicen lo contrario, y el `.env` real le da la razón al que nadie siguió
+## 3. `MAIL_MAILER` · **MEDIDO: el arreglo del correo estaba aplicado en 1 de 17, y era `demo`**
 
-**La consecuencia: la decisión «configurar `sendmail`» se tomó explícitamente *sin auditar*,
-y hoy sabemos que su punto de partida no era el que se supuso.**
+**Estado: censado y arreglado el 3 sep 2026.** Esta sección decía «en cuántos de los dieciséis
+se llegó a aplicar **no lo sabe nadie**». Ya se sabe, y la respuesta es peor de lo que la
+pregunta sugería.
 
-Las dos afirmaciones llevan conviviendo desde el principio:
+### El censo, sobre las diecisiete carpetas
 
-| Documento | Dice |
-|---|---|
-| [`DESPLIEGUE-REFERENCIA.md:448`](../DESPLIEGUE-REFERENCIA.md) | «**Decidido: se configura `sendmail` sin auditar el `.env` de cada colegio.**» |
-| [`01-plan-seguridad.md:346`](01-plan-seguridad.md) | «usar el `Mail` de Laravel (**que ya está configurado, `MAIL_MAILER=smtp`**)» |
+```
+16 de 17   MAIL_MAILER=smtp   MAIL_HOST=mailhog   MAIL_FROM_ADDRESS=null   MAIL_FROM_NAME="${APP_NAME}"
+ 1 de 17   demo:  MAIL_MAILER=sendmail   MAIL_FROM_ADDRESS=josethmaster@lalvirtual.com
+```
 
-El `.env` de `cads-itagui` dice `smtp`. **Le da la razón al 01** — y el 01 lo escribió como
-un dato de paso, no como una medición.
+**Dieciséis eran idénticos, y eran el andamiaje de desarrollo sin tocar.** No es que
+`cads-itagui` estuviera mal configurado: es que **ningún colegio real se configuró nunca**. El
+único al que se le aplicó el PR #3 es **`demo`** — el que no es un colegio— y allí apuntaba al
+dominio que no existe, así que tampoco salía.
 
-**Lo que esto no tumba**: la decisión de `sendmail` sigue siendo la correcta y está
-**verificada en el servidor** (17 ago 2026: `sendmail_path` = `/usr/sbin/sendmail -t -i`,
-binario presente, web y CLI con el mismo `php.ini`). Eso se midió de verdad.
+> **La consecuencia no era un riesgo, era una función caída.** `MAIL_FROM_ADDRESS=null` hace
+> que Laravel rechace el envío **antes de intentarlo**, así que **el reseteo de contraseña
+> devolvía 500 en los dieciséis colegios reales** — desde el día que se cambió `mail()` por
+> `Mail`. Nadie lo notó porque el reseteo se usa **menos de una vez al día** y el síntoma es
+> correo que no llega.
 
-**Lo que sí tumba** es la frase que la acompaña: *«Los valores de arriba son exactamente los
-que enviaba el código anterior, así que el correo sale igual que siempre»*. En
-`cads-itagui` el correo **no salía**, así que ahí no hay ningún «igual que siempre» que
-conservar. La frase describe un punto de partida uniforme que no existe.
+### Y aquí este documento se corrige en su propia tesis
 
-**Y el apartado sigue marcado `PENDIENTE`**, o sea que en cuántos de los dieciséis se llegó
-a aplicar **no lo sabe nadie**. En al menos uno, en ninguno.
+El título dice que **los `.env` no son uniformes**, y para `APP_KEY` era cierto (§1). **Para
+`MAIL_*` resultó lo contrario: dieciséis idénticos.** El peligro no era la divergencia — era
+que **toda la documentación daba por aplicado un cambio que no estaba en ningún sitio**, y un
+apartado marcado `PENDIENTE` se leyó durante meses como «pendiente en alguno».
+
+*Las dos formas hacen el mismo daño y por eso las dos están en este documento: **«cada uno
+tiene lo suyo» y «todos tienen lo mismo» son igual de indistinguibles desde el repositorio**.
+Lo único que las separa es el bucle.*
+
+### El arreglo, aplicado y verificado
+
+Los cuatro campos puestos en los diecisiete —`sendmail`, remitente `admin@micolevirtual.com`,
+nombre `"MiColegioVirtual"`, `MAIL_SENDMAIL_PATH` vacío—, con respaldo de cada `.env` **fuera
+del docroot** y `config:clear && config:cache` detrás. **17 tocados, 0 saltados**, y el `diff`
+entre el censo de antes y el de después mueve las diecisiete líneas.
+
+> **`MAIL_HOST=mailhog` se dejó donde estaba a propósito**: con `MAIL_MAILER=sendmail` no se
+> lee, y borrarlo habría tocado un colegio que tuviera SMTP real. *El censo demostró que
+> ninguno lo tiene* — pero eso **se supo después de mirar**, que es el orden correcto.
+
+> **Lo que quedó fuera del alcance, y hay que decirlo:** el script barre `/home/micolev1/*`, y
+> **la instalación viva de `lal` está en la otra cuenta**. Su `.env` sigue sin medir y sin
+> arreglar. Es la misma instalación número dieciocho del §1.
+
+### Dos cosas que se midieron por el camino y corrigen lo que se había escrito
+
+**`MAIL_FROM_NAME="${APP_NAME}"` no estaba roto.** Llegó de otra sesión como «hereda
+*Laravel*», y es inexacto: el Dotenv de Laravel **sí interpola**, comprobado ejecutándolo, así
+que resolvía al `APP_NAME` de cada colegio. *Una variable sin definir sí se queda literal
+(`${NO_DEFINIDA}`), y esa es la forma en que este campo sí podría fallar.*
+
+**Y la exclusión de `lal` de la primera versión del script era un error mío.** La excluí por
+SPF, razonando sobre dónde **sirve** `lal` hoy (`70.32.23.70`, cuenta vieja). Pero **la carpeta
+que el script toca vive en `micolev1`, que es `70.32.23.72`**: cualquier correo que envíe esa
+instalación sale de `.72`, donde `admin@micolevirtual.com` **sí** está autorizado. *El
+razonamiento sobre el SPF era correcto y se aplicó al servidor equivocado.*
 
 ---
 

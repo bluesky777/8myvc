@@ -22,7 +22,63 @@
 > Los mensajes de commit están limpios —cero apariciones—, así que sólo había que tocar
 > estas tres líneas.
 
-**3 sep 2026 — `APP_KEY` COMPARTIDA ENTRE `fortul` Y `lal`: LA PREMISA ERA FALSA, Y LA CAUSA ESTABA ESCRITA EN NUESTRO PROPIO PROCEDIMIENTO** ·
+**3 sep 2026 — EL CORREO ESTABA CAÍDO EN LOS DIECISÉIS COLEGIOS REALES, Y EL ÚNICO CONFIGURADO ERA `demo`** ·
+misma rama `docs/appkey-compartida-fortul-lal` · **NO FUSIONADA, NO EMPUJADA** · sólo
+documentación · [`29`](29-los-env-no-son-uniformes.md) §3 · **censado, arreglado y
+verificado en el servidor por Joseth**, escrito por esta sesión
+
+> **El §3 del 29 decía «en cuántos de los dieciséis se aplicó no lo sabe nadie». Ya se sabe:
+> en UNO, y era `demo`.** El censo de los cuatro `MAIL_*` sobre las diecisiete carpetas dio
+> **dieciséis idénticos** —`smtp` + `mailhog` + `MAIL_FROM_ADDRESS=null` +
+> `MAIL_FROM_NAME="${APP_NAME}"`, el andamiaje de desarrollo intacto— y **uno distinto**,
+> `demo`, con el `sendmail` del PR #3 y el remitente del dominio que no existe.
+>
+> **No era un riesgo, era una función caída.** `null` hace que Laravel rechace el envío antes
+> de intentarlo, así que **el reseteo de contraseña devolvía 500 en los dieciséis colegios
+> reales** desde que se cambió `mail()` por `Mail`. Nadie lo vio porque el reseteo se usa menos
+> de una vez al día y el síntoma es correo que no llega. *`cads-itagui` no era una excepción:
+> era la única muestra que alguien había mirado.*
+>
+> ### Y EL DOCUMENTO SE CORRIGE EN SU PROPIA TESIS
+>
+> Se titula «los `.env` no son uniformes», y para `APP_KEY` lo eran de menos (§1). **Para
+> `MAIL_*` salió lo contrario: dieciséis idénticos.** El daño no lo hizo la divergencia sino
+> que **toda la documentación daba por aplicado un cambio que no estaba en ningún sitio**, y un
+> `PENDIENTE` se leyó meses como «pendiente en alguno». *«Cada uno tiene lo suyo» y «todos
+> tienen lo mismo» son **igual de indistinguibles** desde el repositorio; lo único que las
+> separa es el bucle.*
+>
+> ### EL ARREGLO
+>
+> Los cuatro campos en los diecisiete, con respaldo de cada `.env` **fuera del docroot** y
+> `config:clear && config:cache` detrás: **17 tocados, 0 saltados**, y el `diff` de los dos
+> censos mueve las diecisiete líneas. **Falta la prueba de entrega** —`correo:probar` y el
+> rastreo de cPanel—, que es lo único que demuestra que sale y no sólo que Exim lo acepta.
+>
+> ### TRES COSAS QUE SE MIDIERON POR EL CAMINO Y CORRIGEN LO ESCRITO
+>
+> 1. **`MAIL_FROM_NAME="${APP_NAME}"` no estaba roto.** Llegó de otra sesión como «hereda
+>    *Laravel*»; el Dotenv de Laravel **sí interpola** —comprobado ejecutándolo—, así que
+>    resolvía al `APP_NAME` de cada colegio. Una variable **sin definir** sí se queda literal, y
+>    ésa es la forma en que este campo sí podría fallar.
+> 2. **Excluir `lal` del script era un error mío.** Lo excluí por SPF razonando sobre dónde
+>    *sirve* `lal` (`.70`), pero **la carpeta que el script toca está en `micolev1`, que es
+>    `.72`**, donde el remitente sí está autorizado. *El razonamiento del SPF era correcto y se
+>    aplicó al servidor equivocado.*
+> 3. **Los respaldos iban dentro de una carpeta servida por web.** El docroot es la carpeta del
+>    colegio, así que `8myvc/` cuelga dentro. Se comprobó que `.env` **no** se descarga —devuelve
+>    la página del front, mientras `composer.json` sí se sirve—, pero **eso no dice nada de un
+>    `.env.bak-*`**, y averiguarlo exigía crear uno, que es el riesgo. Los respaldos se movieron
+>    a `~/respaldos-env/`, fuera de todo docroot, con permisos 700.
+>
+> > **Y un aviso sobre medir con códigos de estado**, que casi produce un «está bloqueado,
+> > tranquilo» falso: la primera prueba dio **403** y la segunda dio **200 para todo**, incluida
+> > una ruta inexistente. Ese servidor **contesta 200 a cualquier cosa** con la página del
+> > front. Hubo que comparar **el contenido**, no el código. *Un 403 y un 404 pueden significar
+> > lo mismo que un 200 si no se mira lo que viene dentro.*
+
+
+**Anterior: 3 sep 2026 — `APP_KEY` COMPARTIDA ENTRE `fortul` Y `lal`: LA PREMISA ERA FALSA, Y LA CAUSA ESTABA ESCRITA EN NUESTRO PROPIO PROCEDIMIENTO** ·
 rama `docs/appkey-compartida-fortul-lal` · **NO FUSIONADA, NO EMPUJADA** · sólo documentación:
 **cero código, cero rutas, cero tests** — 566 sin moverse ·
 [`29-los-env-no-son-uniformes.md`](29-los-env-no-son-uniformes.md) §1,
