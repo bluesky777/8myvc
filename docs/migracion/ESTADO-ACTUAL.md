@@ -106,6 +106,25 @@ mueve: siguen 567**
 > `salon_id`. **Lo que hoy contestan las 25 en los diecisiete es 404**, y esa es la señal
 > buena: *«esta versión del servidor no tiene el módulo»*.
 >
+> ### Y DOS COSAS DE `DESPLIEGUE.md` QUE NO TOCO PORQUE SON DECISIÓN TUYA
+>
+> Las dos salen de que `profesores.tono` llegue a trece respuestas y no a seis, y **ninguna
+> es una caducidad: son huecos**, así que no las arregla remedir el día del despliegue.
+>
+> 1. **`2026_09_04_200000_tono_del_docente` no tiene fila en la tabla de migraciones.** Las
+>    otras siete la tienen, y esa tabla es la que dice **qué se rompe en un colegio que se
+>    quede sin migrar**. Aquí la respuesta es «nada» —la columna es aditiva y nadie la lee
+>    todavía—, y **por eso conviene que esté escrito**: una fila ausente no dice «inofensiva»,
+>    dice que nadie la miró. *(La comprobación operativa sí la cubre: el `tinker` pregunta
+>    por las ocho desde el 4 sep.)*
+> 2. **Puede faltar un aviso `P` al front**, y no lo invento yo. El aviso **O** que
+>    autorizaste es de rutas; esto es **un campo nuevo en trece respuestas**, cinco de ellas
+>    de `perfiles/` e `images-users/` y una de **votaciones** — o sea, pantallas que no tienen
+>    nada que ver con el horario. **El aviso ya se dio por el canal** —escrito en el fichero
+>    del front, fechado y firmado—, así que el front lo sabe; lo que falta es decidir si
+>    además le corresponde renglón propio en la tabla de la tanda. **Tú autorizaste corregir
+>    la fila O, no crear una P.**
+>
 > ### LO QUE QUEDA DEL HORARIO, Y NINGUNA ES CÓDIGO DE ESTE REPO
 >
 > 1. ~~**Fusionar a `main` y empujar**~~ — **AUTORIZADO Y HECHO** por ti el 4 sep 2026.
