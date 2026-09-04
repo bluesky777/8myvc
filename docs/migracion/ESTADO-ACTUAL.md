@@ -22,7 +22,86 @@
 > Los mensajes de commit están limpios —cero apariciones—, así que sólo había que tocar
 > estas tres líneas.
 
-**3 sep 2026, madrugada — DOS COSAS QUE ENCONTRÓ EL CLIENTE MIDIENDO CONTRA NUESTRO DOCKER,
+**3 sep 2026 — `APP_KEY` COMPARTIDA ENTRE `fortul` Y `lal`: LA PREMISA ERA FALSA, Y LA CAUSA ESTABA ESCRITA EN NUESTRO PROPIO PROCEDIMIENTO** ·
+rama `docs/appkey-compartida-fortul-lal` · **NO FUSIONADA, NO EMPUJADA** · sólo documentación:
+**cero código, cero rutas, cero tests** — 566 sin moverse ·
+[`29-los-env-no-son-uniformes.md`](29-los-env-no-son-uniformes.md) §1,
+[`TRASLADO-LAL.md`](../TRASLADO-LAL.md) paso E, [`05`](05-codigo-muerto-y-roto.md) ·
+**medido por Joseth en el servidor**, escrito por esta sesión
+
+> **El §1 del 29 deja de ser una pregunta.** Se escribió el 2 sep como «nadie las ha
+> comparado» y la respuesta llegó al día siguiente: sobre las **diecisiete** carpetas,
+> **`fortul` y `lal` tienen el mismo `APP_KEY`** (`42bb720f546f`); los otros quince, distintos.
+>
+> **Y no se llamó hallazgo hasta descartar las lecturas benignas**, porque un hash repetido
+> también sale de dos colegios *sin* clave, que sería otro problema: sin línea `APP_KEY` da
+> `d41d8cd98f00`, `APP_KEY=` vacía da `adef725c7222`, truncada `75f9a7bb3d5c`, el
+> `SomeRandomString` del andamiaje `1dbf3bbd1d09`. **Ninguno es el que salió.** Clave real.
+>
+> ### LA CAUSA, QUE ES LO QUE DE VERDAD SE ARREGLA
+>
+> No fue un descuido: **el procedimiento lo mandaba hacer así**. El paso E de `TRASLADO-LAL.md`
+> —como nació `lal` el 30 ago— decía *«nano .env — **SOLO** `DB_DATABASE`, `DB_USERNAME`,
+> `DB_PASSWORD`»*. El `git clone` **no trae `.env`**, así que el fichero salió de una copia de
+> otro colegio y **todo lo que ese paso no nombraba se heredó**. `fortul` fue el donante.
+> **Y `key:generate` no aparecía en ningún procedimiento del repositorio** —comprobado con
+> `grep` sobre `docs/` y `CLAUDE.md`: sus cinco menciones estaban todas en textos que *suponían*
+> que se corría—. La premisa «`key:generate` hace uno por instalación» describía **un paso que
+> nadie tenía escrito**. Añadido al paso E, que es el arreglo que impide el próximo.
+>
+> ### EL RADIO, ACOTADO ANTES DE ALARMAR A NADIE — Y LA PRIMERA LECTURA ERA PEOR QUE LA VERDAD
+>
+> La sospecha era que `APP_KEY` firmara los tokens, y entonces **un token de un colegio valdría
+> en otro hoy**. **No los firma**, y se midió en vez de suponerse: `APP_KEY` se lee en
+> **exactamente dos sitios** (`config/app.php:136` y `config/notificaciones.php:38`); en `app/`
+> hay **cero** usos de `Crypt::`, `encrypt(`, `decrypt(`, `signedRoute`, `hasValidSignature` y
+> `temporarySignedRoute`; y **el token no es una firma, es una fila** —`findToken()` busca un
+> hash **en la base de ese colegio**—. **Nadie estuvo expuesto.** Lo que hacía era bloquear el
+> push, y ahí el solape no habría sido raro sino **casi total en los ids bajos**, porque cada
+> base tiene su autoincremento y el `alumno_id` 345 existe en los dos.
+>
+> ### EL ARREGLO, Y POR QUÉ SÓLO SE TOCÓ UNO
+>
+> **Se rotó `lal`, no `fortul`.** `lal` **todavía no sirve desde `micolev1`** —sigue en la
+> cuenta vieja y su subdominio ni resuelve—, así que esa carpeta es una copia preparada y
+> rotarla no le tocó a nadie; `fortul` está vivo y se quedó igual. Era doblemente gratis:
+> **al completar el traslado, la clave de `lal` iba a cambiar de todos modos.**
+>
+> **Verificado con la población delante y comparando los dos censos, no con un vacío a pelo**:
+> población **17**, repetidos **0**, y **17 hashes distintos de 17** —que es más fuerte que «sin
+> repetidos»—; **cambió exactamente una fila**, `lal` de `42bb720f546f` a `136f77f109de`.
+> *Esa última cifra es la mitad importante:* «ya no hay repetidos» lo cumpliría igual un `.env`
+> roto por el camino o un bucle que dejara de ver carpetas. `fortul` conserva la suya y los
+> otros quince están donde estaban.
+>
+> ### TRES COSAS QUE QUEDAN ESCRITAS Y NO SON DE ESTE ARREGLO
+>
+> 1. **Rotar `APP_KEY` con el push encendido re-apunta todos los temas** y los teléfonos
+>    siguen escuchando el nombre viejo: los avisos dejan de llegar **sin un solo error**. Toda
+>    rotación futura va **antes** de encender Firebase, o con resuscripción de la app.
+> 2. **El censo NO cubre la instalación viva de `lal`**, que está en la otra cuenta: barre
+>    `/home/micolev1/*`. Hay **una instalación dieciocho fuera del censo** y su clave sigue sin
+>    medir. Hoy no cambia nada; el día que se diga «están todas comprobadas», esa no lo está.
+> 3. **Las otras seis variables del §7 siguen sin mirarse.** Que la primera que se miró diera
+>    positivo no las rompe: las deja igual de sin medir, sólo que ahora «se creó copiando»
+>    produce colisiones **medidas** y no teóricas.
+>
+> ### Y DOS LECCIONES DEL DETECTOR, QUE SON LA FAMILIA DE SIEMPRE
+>
+> **Un `uniq -d` a secas dice QUE hay un repetido y no dice ni cuál ni cuántos.** La primera
+> salida fue exactamente eso, y no se pudo escribir nada hasta la segunda pasada con el nombre
+> al lado y la población al final. **Y una salida vacía sin población no distingue «miré
+> diecisiete y ninguno» de «el bucle no miró nada»** — por eso la verificación del arreglo se
+> pidió con `tee` y `wc -l`, no como un vacío a pelo.
+>
+> > **Sobre la corrección de nombres de arriba, y va aquí porque me alcanza:** esas entradas me
+> > llaman **`8myvc-d5`** —por el sufijo de mi worktree—, pero mi propio `ListAgents` me nombra
+> > **`8myvc-1f`**. No sé cuál es el bueno y **por eso esta entrada no firma con ninguno**: dice
+> > quién midió (Joseth, en el servidor) y quién escribió (esta sesión). *Es el mismo fallo que
+> > se acaba de corregir arriba: un nombre copiado de buena fe que resuelve a otro sitio.*
+
+
+**Anterior: 3 sep 2026, madrugada — DOS COSAS QUE ENCONTRÓ EL CLIENTE MIDIENDO CONTRA NUESTRO DOCKER,
 Y UNA DE ELLAS ERA UN ERROR MÍO** · `HorarioController`, `HorarioSubidaTest` y
 `HorarioAceptoPerderTest` · **566 rutas, sin moverse** · suite entera
 **`Tests: 1930 passed (17355 assertions)`**, cero rojos, cero deadlocks · las midió

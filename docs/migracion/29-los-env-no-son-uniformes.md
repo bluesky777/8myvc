@@ -23,7 +23,8 @@ falsas en un colegio**, no por dónde aparecen.
 | Variables que documenta `.env.example` | **50** |
 | **Leídas por el código y NO documentadas en `.env.example`** | **52** |
 | Documentadas y que no lee ni `config/` ni `app/` | 2 (`MIX_PUSHER_*`, restos del andamiaje de Laravel: sólo las mira `resources/js/bootstrap.js`) |
-| `.env` de producción que alguien ha leído alguna vez | **1 de 17** (`cads-itagui`) |
+| `.env` de producción que alguien ha leído **entero** | **1 de 17** (`cads-itagui`) |
+| Variables censadas **en los diecisiete** | **2**: `APP_MOVIL_VERSION_MINIMA` (2 sep) y `APP_KEY` (3 sep) |
 
 Esa última fila es el documento entero. **1 de 17** — dieciséis colegios más `demo`
 (`DESPLIEGUE.md`, barrido del 2 sep 2026).
@@ -34,61 +35,126 @@ Esa última fila es el documento entero. **1 de 17** — dieciséis colegios má
 
 ---
 
-## 1. `APP_KEY` · la separación de los avisos de push descansa en que sean distintos, y nadie los ha comparado
+## 1. `APP_KEY` · **MEDIDO: `fortul` y `lal` comparten clave.** La premisa era falsa, y la causa está escrita en nuestro propio procedimiento
 
-**La consecuencia si es falso en dos colegios: un acudiente recibe en el teléfono los
-avisos de un menor de otro colegio.** Es la más grave de la lista y es la única que
-todavía **no tiene víctima posible hoy**, que es justo por lo que hay que mirarla ahora.
+**Estado: contestado el 3 sep 2026, arreglado y verificado.** Esta sección se escribió como
+pregunta —«nadie los ha comparado»— y la respuesta llegó al día siguiente. Se conserva el
+razonamiento entero porque **predijo el mecanismo exacto**, no sólo el resultado.
 
-Los temas de FCM se derivan con `HMAC-SHA256(alumno_id, secreto)` y
-`config/notificaciones.php:38` resuelve ese secreto a `env('NOTIFICACIONES_SECRETO') ?: env('APP_KEY')`.
-La decisión de usar `APP_KEY` está escrita, y está escrita **con este motivo**:
+### Lo que se midió
 
-> «hace falta uno distinto por colegio y que no salga del servidor, y `APP_KEY` ya es las
-> dos cosas» — [`ESTADO-ACTUAL.md:3581`](ESTADO-ACTUAL.md)
->
-> «`secreto()` **ya es distinto en cada colegio** —es su `APP_KEY`, que `key:generate` hace
-> por instalación—» — [`05 §…:12339`](05-codigo-muerto-y-roto.md)
-
-**«que `key:generate` hace por instalación» es la premisa, y es la que no se ha medido.**
-`key:generate` produce una clave distinta *cuando se corre*. Que se haya corrido en los
-dieciséis es exactamente lo que nadie ha comprobado — y las dos cosas que este repositorio
-sí sabe sobre cómo nacen los colegios apuntan en contra:
-
-- **Un colegio nuevo se crea copiando otro** (`CLAUDE.md`: «un colegio nuevo se crea
-  **copiando la base de otro**»).
-- **`.env` es copia real por colegio**, no plantilla generada
-  ([`DESPLIEGUE-REFERENCIA.md:1535`](../DESPLIEGUE-REFERENCIA.md)).
-
-El propio 05 escribió la letra pequeña y la dejó como hipótesis:
-
-> «si dos colegios compartieran `APP_KEY` —**un `.env` copiado al crear uno nuevo, que es
-> como se crean**— sus temas colisionarían.»
-
-O sea que **el documento nombró el camino exacto por el que fallaría y no lo recorrió.**
-
-**Por qué ahora y no después.** El push **no está vivo**: falta el proyecto de Firebase, el
-JSON de la cuenta de servicio y `FCM_PROYECTO` en el `.env` de cada colegio
-([`ESTADO-ACTUAL.md:3613`](ESTADO-ACTUAL.md)). Hoy `notificaciones:enviar` corre, no manda
-nada y lo dice. **Es el único momento gratis**: comprobar dieciséis claves hoy cuesta un
-bucle; el día que el push esté encendido, un `APP_KEY` repetido es una fuga de datos de un
-menor que además **no da ningún error** —publicar en un tema es válido aunque el tema sea
-de otro—.
-
-**Qué medir**, y es una lectura, no una escritura:
-
-```bash
-for d in /home/micolev1/*.micolevirtual.com/8myvc; do
-  printf '%-45s %s\n' "$(basename "$(dirname "$d")")" \
-    "$(grep -E '^APP_KEY=' "$d/.env" | md5sum | cut -c1-12)"
-done | sort -k2
+```
+población                          17 carpetas (16 colegios + demo)
+fortul.micolevirtual.com           42bb720f546f  ┐ misma clave
+lal.micolevirtual.com              42bb720f546f  ┘
+los otros quince                   quince hashes distintos
 ```
 
-Se compara el **hash**, no la clave: contesta la pregunta sin sacar ningún secreto del
-servidor ni dejarlo en un historial de terminal. Dos líneas con el mismo hash son el
-hallazgo. *Y si alguna sale vacía, ése es un hallazgo distinto y peor:*
-`EnviarNotificaciones.php:86` avisa «Sin `APP_KEY` ni `NOTIFICACIONES_SECRETO`: no hay con
-qué derivar los temas», o sea que ese colegio no manda nada.
+**Y se descartaron las lecturas benignas antes de llamarlo hallazgo**, porque un hash
+repetido también sale de dos colegios *sin* clave, que sería otro problema distinto:
+
+| caso inocente | su md5 recortado |
+|---|---|
+| no hay línea `APP_KEY` (entrada vacía) | `d41d8cd98f00` |
+| `APP_KEY=` presente y vacía | `adef725c7222` |
+| `APP_KEY=base64:` truncada | `75f9a7bb3d5c` |
+| `APP_KEY=SomeRandomString` (andamiaje de Laravel) | `1dbf3bbd1d09` |
+
+Ninguno es `42bb720f546f`. **Es una clave real, repetida en dos instalaciones.**
+
+### La causa, y es lo que de verdad hay que arreglar
+
+No es azar ni descuido: **el procedimiento del traslado lo manda hacer así**. El paso E de
+[`TRASLADO-LAL.md`](../TRASLADO-LAL.md), que es como nació `lal` el 30 ago 2026, dice:
+
+```
+nano .env          # SOLO DB_DATABASE, DB_USERNAME, DB_PASSWORD
+```
+
+**«SOLO» es el fallo.** El `git clone` no trae `.env` —está ignorado—, así que el fichero
+salió de una copia de otro colegio y sólo se tocaron las tres líneas que el procedimiento
+nombra. `APP_KEY` viajó dentro. `fortul` fue el donante.
+
+Y **`key:generate` no aparece en ningún procedimiento de este repositorio** —comprobado con
+`grep` sobre `docs/` y `CLAUDE.md`: sus cinco menciones están todas en textos que *suponen*
+que se corre, ninguna en unas instrucciones que manden correrlo—. La premisa
+«`key:generate` hace uno por instalación» describía un paso que **nadie tenía escrito**.
+
+> *Esto es lo que hace que el hallazgo valga más que dos claves iguales: **el procedimiento
+> sigue escrito así**, así que el próximo colegio creado copiando volvería a colisionar. La
+> `.env` copiada era la hipótesis que el [05](05-codigo-muerto-y-roto.md) escribió sin
+> recorrer — y era exactamente el camino.*
+
+### El radio, acotado antes de alarmar a nadie
+
+La primera sospecha era peor que la realidad y **por eso se midió en vez de suponerla**: si
+`APP_KEY` firmara los tokens, un token de un colegio valdría en otro **hoy**. No los firma:
+
+- `APP_KEY` se lee en **exactamente dos sitios**: `config/app.php:136` (el encriptador de
+  Laravel) y `config/notificaciones.php:38` (el secreto de los temas).
+- En `app/` hay **cero** usos de `Crypt::`, `encrypt(`, `decrypt(`, `signedRoute`,
+  `hasValidSignature` y `temporarySignedRoute` — contados con `-c`, no supuestos.
+- **El token no es una firma, es una fila**: `Sesion::buscar()` → `TokenDeSesion::findToken()`,
+  un hash buscado **en la base de ese colegio**. La base de al lado no lo tiene.
+- Y `routes/web.php` no tiene rutas reales, así que las cookies cifradas no alcanzan a nadie.
+
+**Conclusión: nadie estuvo expuesto.** Lo que hacía era bloquear el push, exactamente por
+donde este documento dijo que lo haría — y el solape no habría sido raro sino **casi total en
+los identificadores bajos**, porque cada colegio tiene su propio autoincremento y el `alumno_id`
+345 existe en los dos.
+
+### El arreglo, y por qué sólo se tocó uno
+
+**Se rotó `lal` y no `fortul`.** `lal` todavía **no sirve desde `micolev1`**: sigue en la
+cuenta vieja bajo `lalvirtual.edu.co` y su subdominio ni resuelve, así que esa carpeta es una
+copia preparada y no en uso — rotarla no le tocó a nadie. `fortul` está vivo y se quedó como
+estaba. *Y era doblemente gratis: cuando el traslado se complete, la clave de `lal` iba a
+cambiar de todos modos.*
+
+```bash
+d=/home/micolev1/lal.micolevirtual.com/8myvc
+cp -p "$d/.env" "$d/.env.bak-$(date +%Y%m%d-%H%M%S)"
+cd "$d" && php artisan key:generate --force \
+  && php artisan config:clear && php artisan config:cache
+```
+
+**Verificado, y con la población delante, no con un vacío a pelo:**
+
+```
+población                 17    (igual que antes)
+repetidos                  0
+hashes distintos          17 de 17   <-- no «sin repetidos»: todas únicas
+filas que cambiaron        1    lal  42bb720f546f -> 136f77f109de
+```
+
+**Que cambiara exactamente una fila es la mitad importante de la comprobación.** «Ya no hay
+repetidos» lo cumpliría también un `.env` que se hubiera roto por el camino, o un bucle que
+dejara de ver carpetas; comparar los dos censos entero dice **qué se movió y qué no**, y aquí
+lo único que se movió fue `lal`. `fortul` conserva la suya —seguía viva y no se tocó— y los
+otros quince están **byte a byte** donde estaban.
+
+> **`--force` y `config:cache` no son adorno.** `key:generate` pide confirmación con
+> `APP_ENV=production` y por SSH sin TTY se cuelga; y un colegio con la config cacheada
+> seguiría usando la clave vieja **sin ningún síntoma**, que es la trampa de
+> `DESPLIEGUE-REFERENCIA.md:1536`. Y `key:generate` **sustituye** la línea `APP_KEY=`: en un
+> `.env` que no la tenga no escribe nada y sale verde igual.
+
+### Lo que este censo NO cubre, porque un «17 medidos» no es «todo medido»
+
+El bucle barre `/home/micolev1/*`, así que alcanza la copia preparada de `lal` **pero no su
+instalación viva**, que está en la otra cuenta (`micolevi`, bajo `lalvirtual.edu.co`). **Esa
+clave sigue sin medir**: hay una instalación número dieciocho fuera del censo. Hoy no cambia
+nada —nada depende de `APP_KEY` todavía— pero el día que se cuente «las claves están todas
+comprobadas», esa no lo está.
+
+### Y la advertencia que ahora hay que dejar escrita para siempre
+
+**Rotar `APP_KEY` con el push encendido re-apunta todos los temas, y los teléfonos siguen
+escuchando el nombre viejo.** Los avisos dejan de llegar **sin un solo error en ningún
+sitio**: publicar en un tema al que no hay nadie suscrito es válido en FCM. O sea que
+cualquier rotación futura de `APP_KEY` —por este motivo o por cualquier otro— **tiene que
+hacerse antes de encender Firebase, o coordinarse con una resuscripción de la app**. Es la
+misma familia que todo lo demás de este documento: no da error y el resultado se lee bien.
 
 ---
 
@@ -325,6 +391,14 @@ done
 no son secretas. Lo corre quien tenga la sesión del servidor — **no una sesión de Claude**,
 que no la tiene.
 
+> **La parte de `APP_KEY` ya está corrida (3 sep 2026, Joseth) y dio positivo: §1.** Las
+> otras siete siguen sin mirarse. *Y una lección del que sí se corrió, para cuando se corra
+> éste:* la primera salida fue un `uniq -d` a secas, que dice **que hay** un repetido pero
+> **ni cuál ni cuántos** — hizo falta una segunda pasada con el nombre al lado y la población
+> al final para poder escribir nada. **Un detector que contesta «sí» sin decir «quiénes» no
+> cierra el asunto**; y una salida vacía sin población no distingue «miré diecisiete y ninguno»
+> de «el bucle no miró nada».
+
 ---
 
 ## Lo que este documento NO hace, y es a propósito
@@ -336,3 +410,9 @@ que no la tiene.
 - **No afirma que los otros quince estén rotos.** Afirma lo contrario de lo que se venía
   afirmando: que **no se sabe**, y que la diferencia entre «no se sabe» y «está bien» es un
   bucle de seis líneas que nadie ha corrido.
+
+> **Y el 3 sep 2026 se corrió el primero de esos bucles, el del §1 — y salió el hallazgo.**
+> O sea que la respuesta a «¿estaba bien?» era **no** en la primera variable que se miró, y
+> lo era desde el 30 ago sin que nada lo señalara. Eso no convierte en rotas las otras seis
+> del §7: las deja **exactamente igual de sin medir que antes**, sólo que ahora se sabe que
+> «se creó copiando» sí produce colisiones reales en este servidor y no sólo en teoría.
