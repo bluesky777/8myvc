@@ -106,6 +106,42 @@ mueve: siguen 567**
 > `salon_id`. **Lo que hoy contestan las 25 en los diecisiete es 404**, y esa es la señal
 > buena: *«esta versión del servidor no tiene el módulo»*.
 >
+> ### ⚠️ Y LO QUE FALTA DE VERDAD DEL HORARIO: `tono` NO TIENE QUIEN LO ESCRIBA
+>
+> **La cuarta ruta lee el color del docente, la columna existe, y ningún endpoint de esta API
+> puede darle valor.** Medido: `tono` aparece **seis veces en `app/` y las seis son
+> lecturas**, todas en `HorarioController`.
+>
+> - `ProfesoresController::putUpdate` **no la toca**, y no por casualidad: asigna sobre una
+>   **lista blanca explícita** y sólo cuando la clave vino. `tono` no está en el mapa.
+> - `PerfilesController::putUpdate` nombra seis campos y ninguno es éste.
+> - `putGuardarValor` **parece** el candidato —recibe `propiedad` y la interpola en el
+>   `UPDATE`— pero su `if` sólo dispara con `is_active` y sólo sobre `users`.
+>
+> **Así que el renglón `tono` va a salir `vacio` con `con_tono: 0` en los diecisiete, para
+> siempre, y la rejilla se va a pintar gris.** La respuesta no miente —su `motivo` dice
+> literalmente *«la columna existe y nadie ha repartido los colores todavía»*—, **pero la
+> verdad que dice es que la función no está terminada**.
+>
+> **No escribo la ruta: eso es tuyo.** Las salidas son tres y no se contienen:
+>
+> | salida | lo que cuesta |
+> |---|---|
+> | **(a)** un endpoint nuevo de reparto | una ruta, con su permiso — o sea una decisión tuya y el router en 568 |
+> | **(b)** meter `tono` en la lista blanca de `putUpdate` | **no crea ruta**, pero mete un campo del horario en la ficha personal del docente y lo deja a merced de cualquier cliente que mande la ficha entera |
+> | **(c)** que lo reparta `POST horario/versiones` desde el blob | **es la que ya descartaste** en la decisión 1, porque tocaba el fichero de proyecto |
+>
+> *Y de dónde salió, porque no lo encontró ningún barrido nuestro: lo destapó `myvc-front-84`
+> preguntando si `putUpdate` podía **borrar** el tono —su tipo `ProfesorParaGuardar` no lleva
+> el campo y ese endpoint pide la ficha entera—. La respuesta a su pregunta es **no, no puede
+> borrarlo**; de camino salió que **tampoco puede ponerlo, ni él ni nadie**. La pregunta era
+> por el riesgo de perder el dato y contestó que el dato no existe.*
+>
+> **Y de paso: dos tablas del [23](23-horarios.md) §9.bis.3 seguían diciendo que `tono` es
+> `sin_catalogo` «porque `profesores` no tiene columna de color».** Se escribieron **la mañana
+> del mismo día** en que tú decidiste crear la columna, y la decisión las deshizo. Marcadas,
+> no borradas: son el argumento con el que se tomó.
+
 > ### Y LO QUE EL TRECE **NO** DICE: SON RESPUESTAS QUE GANAN EL CAMPO, NO PANTALLAS QUE LO VEN
 >
 > **Nadie de este lado ha medido quién llama a esas trece**, y decirlo importa porque «trece

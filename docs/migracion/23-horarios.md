@@ -1161,6 +1161,16 @@ quince es **no medido**, y no se puede medir desde aquí: cada colegio tiene su 
 | **disponibilidad declarada** | **no** | — | no existe en el esquema (§4) |
 | **restricciones · pesos · colores** | **no** | — | viven en el blob del proyecto (§4) |
 
+> **ESTE PÁRRAFO Y LA FILA DE `tono` DE LAS DOS TABLAS DE ABAJO SE ESCRIBIERON ANTES DE LA
+> DECISIÓN 1 DE ESE MISMO DÍA, Y LA DECISIÓN LOS DESHIZO.** La columna **existe** desde
+> `2026_09_04_200000_tono_del_docente`, así que `tono` **ya no es `sin_catalogo`**: el código
+> devuelve `vacio` / `parcial` / `completo` (`HorarioController::estadoDelTono`). Lo de abajo
+> se deja porque es **el argumento con el que se tomó la decisión** —la diferencia entre «el
+> dato está previsto y vacío» y «no hay dónde ponerlo» es lo que hizo crear la columna—, pero
+> **no describe la respuesta de hoy**. En el ejemplo de más abajo, la línea de `tono` diría
+> `{ "estado": "vacio", "con_tono": 0, "de": 12, "motivo": "la columna existe y nadie ha
+> repartido los colores todavía" }`.
+
 **Y el `tono` no está «vacío»: no existe la columna.** Las 27 columnas de `profesores`
 salen listadas arriba y ninguna es un color. O sea que el hallazgo de
 `myvc_horarios` —«ninguno de los 22 docentes lo trae»— y el nuestro **son dos cosas
@@ -1301,6 +1311,42 @@ de día es el calendario (`paginas/calendario/eventos.ts:376`), con `(primero.ge
 7` **porque su rejilla empieza en lunes**, y con su prueba al lado. El `0 = domingo` de aquí
 entra bien; la rejilla del horario tendrá que aplicar ese mismo desplazamiento **o el lunes
 se pinta en la última columna**.
+
+#### Y LO QUE FALTA DE VERDAD: LA COLUMNA `tono` NO TIENE QUIEN LA ESCRIBA
+
+**Medido el 4 sep 2026, después de escribir la cuarta ruta:** `tono` aparece **seis veces en
+`app/` y las seis son lecturas**, todas dentro de `HorarioController`. **Ningún endpoint de
+esta API puede darle valor.**
+
+- `putUpdate` de `ProfesoresController` **no la toca**, y no por casualidad: asigna sobre una
+  **lista blanca explícita** (`$deLaFicha`, columna → claves) y sólo cuando la clave vino
+  (`$vinieron->trae`). `tono` no está en el mapa.
+- `PerfilesController::putUpdate` nombra seis campos y ninguno es éste.
+- `putGuardarValor` **parece** el candidato —recibe `propiedad` y la interpola en el `UPDATE`—
+  pero su `if` sólo dispara con `is_active` y sólo sobre `users`. Ni escribe `tono` ni
+  ninguna otra columna de `profesores`.
+
+**Consecuencia, y es la que hay que leer entera:** el renglón de `tono` va a salir `vacio`
+con `con_tono: 0` **en los diecisiete colegios, para siempre**, y la rejilla del horario se
+va a pintar gris. La respuesta es correcta —dice la verdad, y su `motivo` es exactamente *«la
+columna existe y nadie ha repartido los colores todavía»*—, pero **la verdad que dice es que
+la función no está terminada**.
+
+**No se escribe una ruta para arreglarlo**: en este repo una ruta es una decisión de Joseth,
+y ésta no está tomada. Lo que sí queda es la pregunta, formulada para que se pueda contestar
+sin volver a medir nada:
+
+> **¿Por dónde se reparte el color de un docente?** Las salidas plausibles son tres y no se
+> contienen: *(a)* un endpoint nuevo de reparto —una ruta, con su permiso—; *(b)* añadir
+> `tono` a la lista blanca de `putUpdate`, que **no crea ruta** pero mete un campo de horario
+> en la ficha personal del docente y lo deja a merced de cualquier cliente que mande la ficha
+> entera; *(c)* que lo reparta el propio `POST horario/versiones` leyendo los colores del
+> blob — que es **la salida que Joseth ya descartó** en la decisión 1, porque tocaba el
+> fichero de proyecto.
+
+*Esto no lo destapó ningún barrido nuestro: lo destapó `myvc-front-84` preguntando si
+`putUpdate` podía **borrar** el tono. La respuesta a su pregunta es que no puede borrarlo —y
+de camino salió que tampoco puede ponerlo, ni él ni nadie.*
 
 #### Las cuatro que iban a Joseth, CONTESTADAS el 4 sep 2026
 
