@@ -78,17 +78,37 @@ SEIS AFIRMACIONES QUE LA CUARTA RUTA DEJÓ VIEJAS** · rama `docs/horario-cuarta
 >   exactamente el caso que la regla del canal manda avisar: *una ruta nueva, o quién puede
 >   llamarla*.
 >
-> **No se corrige en `DESPLIEGUE.md`** —esas tablas se remiden el día del despliegue, y es
-> regla del repo—, **pero la cifra buena queda escrita en la §11.5** para que el día que se
-> dé el aviso O se dé con ella.
+> **Joseth lo decidió al revés de la regla, y a propósito: «hazlo tú y comunícale a front».**
+> Así que el aviso O **se corrigió a mano en `DESPLIEGUE.md`** —con el porqué de la excepción
+> escrito al lado de la tabla— y **el aviso se dio**, en
+> `~/DESARROLLOS/myvc_front/PANTALLAS-HISTORIAL-Y-BOLETIN.md`, sección C, fechado y firmado
+> por esta sesión. **Escrito allí y sin commitear allí**, que es la regla del canal: una
+> sesión se cierra, el fichero queda, y ese repositorio es suyo.
+>
+> **Las 25 se CONTARON, no se sumaron**: `9474b50` —lo desplegado— declara **543** rutas y
+> `HEAD` **567**; comparados los dos conjuntos de URIs entran **25** y se va **1** (`POST
+> tardanzas/login/traer-datos`, el aviso L). **543 + 25 − 1 = 567.** Que cuadre con el router
+> es la comprobación; el método fue comparar los conjuntos.
+>
+> **Y lo que se le dijo al front no es sólo la cifra**, porque una cifra no construye un
+> menú: las 25 con su método y su guard, los **dos 403 de `horario/` con su texto exacto**
+> —`esAdministrativo` para subir, `puedePublicarHorario` para publicar—, que las cuatro de
+> nivelar exigen además `periodos.profes_pueden_nivelar` y eso **no se ve en la ruta**, y de
+> la cuarta del horario **los cuatro estados de catálogo** (`vacio` y `sin_catalogo` no se
+> pueden pintar igual), la lista de docentes en vez del escalar y `nombre_salon` sin
+> `salon_id`. **Lo que hoy contestan las 25 en los diecisiete es 404**, y esa es la señal
+> buena: *«esta versión del servidor no tiene el módulo»*.
 >
 > ### LO QUE QUEDA DEL HORARIO, Y NINGUNA ES CÓDIGO DE ESTE REPO
 >
-> 1. **Fusionar a `main` y empujar** — es tuyo, no de una sesión.
+> 1. ~~**Fusionar a `main` y empujar**~~ — **AUTORIZADO Y HECHO** por ti el 4 sep 2026.
 > 2. **Desplegar**, que sigue **congelado** por ti mientras `myvc_flutter` está en revisión, y
 >    va **0 de 16**. No hay camino «sólo horario»: la tanda de ocho migraciones es
 >    indivisible (§11.2).
-> 3. **Dar el aviso O al front** con **25 y 4**.
+> 3. ~~**Dar el aviso O al front** con **25 y 4**.~~ **DADO el 4 sep 2026**, por encargo tuyo.
+>    Lo que queda de él **es del front**: contestar si alguna pantalla suya ya llama a alguna
+>    de las 25 contando con el 404 de hoy, y si la cuarta del horario les cambia lo que tenían
+>    escrito para el menú.
 > 4. **Las cuatro decisiones abiertas de la §10.2**, que son tuyas: si `GET asignaturas` debe
 >    traer las asignaciones con la materia en la papelera, el tope del blob, si existe una
 >    ruta para **descargar** el proyecto (la quinta), y confirmar que el orden de «Clases de

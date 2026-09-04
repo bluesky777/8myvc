@@ -1724,12 +1724,22 @@ están en `DESPLIEGUE.md` y **no se repiten aquí**. Lo que es de este módulo:
 | **volver atrás dejando las migraciones puestas** | vale para las tandas anteriores y **no para ésta**: hay un `dropColumn` dentro. Ver el Paso 4 de `DESPLIEGUE.md` |
 | **publicar una versión sin mirar el número** | `putOficial` reescribe las siete columnas de día **de todo el año**; lo que se pierda de lo que alguien puso a mano es lo que cuenta `acepto_perder` (§7.2 y §9.bis.4) |
 
-### 11.5. Y TRES afirmaciones de `DESPLIEGUE.md` sobre este módulo han envejecido
+### 11.5. Y TRES afirmaciones de `DESPLIEGUE.md` sobre este módulo han envejecido — DOS ya corregidas
 
-**No se corrigen allí y se dice por qué**: aquellas tablas son *lo que se midió el día que se
-midió*, y ese documento tiene su propia regla —*un rango sin desplegar se remide entero
-cuando se le toca*—, así que se remiden **el día del despliegue** y no hoy. Lo que hay que
-saber al leerlas:
+**La regla por defecto es no corregirlas allí y se dice por qué**: aquellas tablas son *lo
+que se midió el día que se midió*, y ese documento tiene su propia regla —*un rango sin
+desplegar se remide entero cuando se le toca*—, así que se remiden **el día del despliegue**
+y no hoy.
+
+> **El 4 sep 2026 Joseth mandó excepcionar el aviso O, y las dos que lo tocan se corrigieron
+> a mano ese día.** La diferencia que lo decidió: **el resto de esas filas describen el
+> servidor, y el aviso O es un mensaje que sale hacia fuera.** Una fila que describe el
+> servidor la ve fallar contra el servidor quien la lea el día del despliegue; **un aviso
+> con una cifra corta no falla contra nada** — el front construye su menú con lo que le
+> dijeron, y una ruta que no se nombró no deja hueco visible. La fila de la tabla de
+> migraciones, que sí describe el servidor, **se queda como está** y es la 1 de aquí abajo.
+
+Lo que hay que saber al leerlas:
 
 1. La fila de `2026_09_04_100000_horario_versiones` dice que sin la migración **sólo**
    `POST horario/versiones` pasa de 501 a 500, y que `getVersiones` y `putOficial` «siguen a
@@ -1744,7 +1754,8 @@ saber al leerlas:
    no usa nadie. *Yo corregí esa fila de 1 a 3 y me quedé corto por el mismo motivo por el
    que estaba mal: miré el módulo en vez de mirar quién lee la columna.* Esa fila lleva
    **tres caducidades seguidas**.
-2. El aviso **O** dice que las tres de `horario/` «hoy contestan 501». Ya no: contestan.
+2. ~~El aviso **O** dice que las tres de `horario/` «hoy contestan 501».~~ **CORREGIDO
+   el 4 sep 2026** en su sitio: las cuatro tienen cuerpo y ninguna contesta ya 501.
 
 3. **Y el aviso O además CUENTA MAL, que es peor que caducar — porque ese aviso todavía no
    se ha dado.** Dice **«24 rutas nuevas»** y **«las 3 de `horario/`»**; con la cuarta son
@@ -1756,13 +1767,18 @@ saber al leerlas:
    dijeron. Es exactamente lo que la regla del canal exige avisar: *una ruta nueva, o
    quién puede llamarla*.
 
-   **Se apunta aquí y NO se corrige allí**, por la misma regla que las otras dos —esas
-   tablas se remiden el día del despliegue—, pero con una diferencia que hay que leer:
-   **las otras dos se arreglan solas al remedir; ésta no.** Remedir contesta *«¿siguen
-   contestando 501?»*; nadie va a recontar «24» si no sabe que hay que hacerlo. **Por eso
-   la cifra buena va escrita aquí: 25 y 4**, y el día que se dé el aviso O se da con
-   ellas. *La escribió la misma sesión que un commit después metió la cuarta ruta y no
-   volvió a esta sección: el hueco no lo abrió el tiempo, lo abrió el commit siguiente.*
+   **CORREGIDO el 4 sep 2026 en su sitio, por decisión de Joseth**, con el porqué escrito
+   en un recuadro al lado de la tabla: **las otras dos se arreglan solas al remedir; ésta
+   no.** Remedir contesta *«¿siguen contestando 501?»*; nadie va a recontar «24» si no sabe
+   que hay que hacerlo. *La escribió la misma sesión que un commit después metió la cuarta
+   ruta y no volvió a esta sección: el hueco no lo abrió el tiempo, lo abrió el commit
+   siguiente.*
+
+   **Y las 25 se contaron contra la base desplegada, no se sumaron**, que es lo que este
+   repo exige de un número que se escribe: `9474b50` declara **543** rutas y `HEAD`
+   **567**; comparados los dos conjuntos de URIs entran **25** y se va **1** (`POST
+   tardanzas/login/traer-datos`, el aviso L), y **543 + 25 − 1 = 567**. Que cuadre con el
+   router es la comprobación, no el método.
 
 **Es la misma forma de envejecer que ese documento ya tiene catalogada** —*una afirmación
 sobre lo que el código hace caduca cuando el código cambia, aunque el número que la acompaña

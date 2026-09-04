@@ -276,7 +276,30 @@ marcados en desarrollo**, que **no** es «cero en los quince»: eso sólo se sab
 | **L** | **`POST tardanzas/login/traer-datos` desaparece**: pasa a 404. Decisión de Joseth del 2 sep. El único llamante de toda la máquina es `tardanzasMyvc-old` (último commit feb 2020), y Joseth confirmó que ese repositorio está inactivo — el dato que lo cerró **no estaba en el repositorio** | **DECIDIDO** — es la única ruta que la tanda quita |
 | **M** | **`regla_nivelacion` aparece en el bloque de la sesión**, en las cuatro ramas (alumno, acudiente, profesor y usuario). Es un campo **nuevo**, para previsualizar en el diálogo de nivelación qué nota va a quedar (22 §1.4 y §5.1) | **ADITIVO** — Flutter no se rompe: `ConfiguracionColegio.deLogin` lee campo a campo y no hay `json_serializable` ni `freezed`. Medido, no supuesto (22 §3.2bis) |
 | **N** | **Campos nuevos de nivelación en respuestas que ya existían**: la planilla (`PUT notas/detailed`), los boletines, el boletín final y `PUT editnota/alum-asignatura`. Qué respuesta abre las columnas nuevas **a propósito** y cuál las tiene **congeladas** está decidido sitio por sitio en la tabla de [22 §3.4](migracion/22-nivelaciones.md) y en el [27](migracion/27-nivelaciones-en-los-informes.md) | **ADITIVO** — ningún cliente pierde una clave |
-| **O** | **24 rutas nuevas**: las 10 de `rubricas/`, las 4 de nivelar, las 5 de `boletin-independiente/`, las **3** de `horario/` —que hoy contestan **501**: la ruta existe y el cuerpo no—, `GET grupos/{grupo_id}/alumnos-de/{que}` y `GET colegio/logo`. **Todas menos `colegio/logo` llevan `auth.personal`**: un alumno o un acudiente que las llame recibe **403**, y las de nivelar además exigen `periodos.profes_pueden_nivelar` al profesor (`User.php:425`) | **POR AVISAR** — es de las de «quién puede llamarla» |
+| **O** | **25 rutas nuevas**: las 10 de `rubricas/`, las 4 de nivelar, las 5 de `boletin-independiente/`, las **4** de `horario/` —**las cuatro con cuerpo: ninguna contesta ya 501**—, `GET grupos/{grupo_id}/alumnos-de/{que}` y `GET colegio/logo`. **Todas menos `colegio/logo` llevan `auth.personal`**: un alumno o un acudiente que las llame recibe **403**, y las de nivelar además exigen `periodos.profes_pueden_nivelar` al profesor (`User.php:425`) | **POR AVISAR** — es de las de «quién puede llamarla» |
+
+> **La fila O decía «24» y «las 3 de `horario/`», y se ha corregido a mano el 4 sep 2026
+> — que es una excepción a la regla de este documento y por eso va escrito.** Aquí las
+> tablas son *lo que se midió el día que se midió* y se remiden el día del siguiente
+> despliegue; **ésta no podía esperar**, y la diferencia es que **las demás filas describen
+> el servidor y ésta es un mensaje que sale hacia fuera**. Está marcada **POR AVISAR**: el
+> front construye su menú con lo que le dijeron, así que un aviso que nombra tres rutas
+> cuando hay cuatro **deja la cuarta sin avisar sin que se note el hueco** — no hay error
+> que lo delate, sólo un menú al que le falta una entrada. Y no se arregla sola al remedir:
+> remedir contesta *«¿siguen contestando 501?»*, **nadie recuenta un «24» si no sabe que hay
+> que hacerlo**. Lo decidió Joseth ese día.
+>
+> **Las 25 están CONTADAS contra la base desplegada, no sumadas** — que es lo que este repo
+> exige de un número que se escribe: `9474b50` declara **543** rutas y `HEAD` **567**;
+> comparados los dos conjuntos de URIs, **25 entran y 1 se va** (`POST
+> tardanzas/login/traer-datos`, el aviso L), y 543 + 25 − 1 = 567. La cuarta de `horario/`
+> es `GET horario/versiones/{id}/lecciones` (23 §9.bis), con `auth.personal` como las otras
+> tres.
+>
+> **Lo que NO se ha tocado y sigue esperando al día del despliegue** es la fila de
+> `2026_09_04_100000_horario_versiones` de la tabla de migraciones, que dice que sólo
+> `POST horario/versiones` pasa de 501 a 500: ésa describe el servidor, falla contra él, y
+> su caducidad está escrita en [23 §11.5](migracion/23-horarios.md).
 
 **Nivelar son rutas NUEVAS por diseño, y esto es lo que hay que decirle al front:** `notas/update` y
 `notas/lote` **no pueden** aprender a nivelar. `myvc_flutter` es una sola app para los quince y una
