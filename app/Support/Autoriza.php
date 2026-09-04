@@ -43,10 +43,21 @@ class Autoriza
      * `Secretario` **no existía** en la tabla `roles` — el aviso que había aquí
      * lo decía y proponía usar `Admin`. Se le preguntó a Joseth y la respuesta
      * fue otra: **rol nuevo**, porque la razón de existir del Secretario es una
-     * secretaria docente **sin** `is_superuser`, y los diez `Admin` son
-     * exactamente los diez `is_superuser`, así que con `Admin` el rol no
-     * distinguiría a nadie. Lo crea
+     * secretaria docente **sin** `is_superuser`, y el rol `Admin` no distinguiría
+     * a nadie: se lo llevan los mismos que ya tienen la columna. Lo crea
      * `2026_08_21_100000_create_rol_secretario`, sin dárselo a nadie.
+     *
+     * > **Aquí decía «los diez `Admin` son exactamente los diez `is_superuser`», y
+     * > eso ha dejado de ser cierto.** Remedido el 4 sep 2026 sobre `simonbolivar`:
+     * > **11 con `is_superuser`, 10 con el rol `Admin`, 10 en los dos** — o sea que
+     * > `Admin` es hoy un **subconjunto estricto**, y hay un superusuario sin el rol.
+     * > **El razonamiento no se cae** —el rol sigue sin distinguir a nadie útil, que
+     * > es lo que decidió crear `Secretario`— **pero el hecho sí**, y estaba escrito
+     * > como igualdad. Importa fuera de aquí: `myvc_front` decide por el **rol**
+     * > (`tieneAlgunRol(['admin'])`) donde esta API decide por la **columna**, así
+     * > que **no son dos umbrales distintos del mismo criterio: son dos criterios de
+     * > clase distinta**, y ya discrepan en una persona. Medido en un colegio y en la
+     * > copia de desarrollo; en los otros quince no ha mirado nadie.
      *
      * **Qué cubre este método, después de repasar sus seis llamadas una a una.**
      * El alcance que Joseth describió no es «un docente con más cosas» ni «un

@@ -22,6 +22,55 @@
 > Los mensajes de commit están limpios —cero apariciones—, así que sólo había que tocar
 > estas tres líneas.
 
+**4 sep 2026 — `Admin` E `is_superuser` YA NO SON EL MISMO CONJUNTO, Y ESO CAMBIA LA PREGUNTA
+DEL COLOR** · `app/Support/Autoriza.php` (sólo el docblock) y esta casilla · larastan
+`[OK] No errors` · **el router no se mueve: 567**
+
+> **La nota de `Autoriza.php:46` decía «los diez `Admin` son exactamente los diez
+> `is_superuser`». Remedido el 4 sep 2026 sobre `simonbolivar`: ya no.**
+>
+> | | |
+> |---|---|
+> | usuarios con `is_superuser` | **11** |
+> | usuarios con el rol `Admin` | **10** |
+> | **en los dos** | **10** |
+> | `is_superuser` **sin** el rol `Admin` | **1** |
+> | rol `Admin` **sin** `is_superuser` | **0** |
+>
+> `Admin` es hoy un **subconjunto estricto**. **El razonamiento de aquella nota no se cae**
+> —el rol sigue sin distinguir a nadie útil, que es lo que te hizo crear `Secretario`— **pero
+> el hecho sí**, y estaba escrito como una igualdad. *(Un colegio y la copia de desarrollo;
+> en los otros quince no ha mirado nadie.)*
+>
+> ### Por qué importa fuera de aquí, y lo vio `myvc-front-59` antes que yo
+>
+> **`myvc_front` decide por el ROL (`tieneAlgunRol(['admin'])`) donde esta API decide por la
+> COLUMNA (`Autoriza::esSuperusuario` = `is_superuser`).** No son dos umbrales distintos del
+> mismo criterio: **son dos criterios de clase distinta**, y por eso pueden separarse sin que
+> nadie lo toque — **y ya se han separado en una persona**.
+>
+> **Es exactamente el patrón que este módulo rechazó esta mañana**: es la razón por la que
+> `docentes` viaja como **lista** y no como `profesor_id` escalar — *dos lectores de la misma
+> verdad que pueden discrepar, y el que miente lo hace en silencio*. Aquí el silencio sería
+> pintar un campo editable que el servidor va a rechazar.
+>
+> **Y corrige algo que yo te dije hoy**: escribí que el `|| tieneAlgunRol(['admin'])` del
+> front «acierta hoy por casualidad». **Ya no acierta del todo** — para ese superusuario sin
+> rol, el front esconde una acción que la API sí le permite. Falla en la dirección buena
+> (esconder de menos, nunca ofrecer de más), pero **falla**.
+>
+> ### Y la consecuencia para la decisión del color, que es la que te toca
+>
+> La pregunta que te hice —*«¿por dónde se escribe `tono`?»*— **estaba mal planteada, y lo
+> señaló el front**: no es *«¿dónde ponemos el selector?»*, es **«¿quién elige los colores:
+> sólo superusuarios, o también los coordinadores?»**. La primera se contesta después de la
+> segunda, y el precio ya está medido por los dos lados:
+>
+> | si eligen… | qué cuesta |
+> |---|---|
+> | **sólo superusuarios** | la ficha del docente vale **tal cual**: `tono` entra en la lista blanca de `putUpdate` y no hay ruta nueva. Hoy son **once personas** en toda la red |
+> | **también los coordinadores** | la ficha es el sitio equivocado — habría que **cambiarle el criterio a `putUpdate`**, que edita la ficha entera de un docente, o escribir **ruta nueva** con su permiso |
+
 **4 sep 2026 — LA TANDA ENSAYADA SOBRE UNA BASE CON DATOS, Y HAY UNA PREGUNTA DE UNA LÍNEA
 QUE HAY QUE CONTESTAR ANTES DEL DÍA 10** · sólo documentos: [23 §11.3.bis](23-horarios.md) y
 esta casilla · **cero código** · la copia de ensayo se borró al terminar
