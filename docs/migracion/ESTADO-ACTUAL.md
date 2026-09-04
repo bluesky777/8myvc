@@ -106,6 +106,33 @@ mueve: siguen 567**
 > `salon_id`. **Lo que hoy contestan las 25 en los diecisiete es 404**, y esa es la señal
 > buena: *«esta versión del servidor no tiene el módulo»*.
 >
+> ### Y LO QUE EL TRECE **NO** DICE: SON RESPUESTAS QUE GANAN EL CAMPO, NO PANTALLAS QUE LO VEN
+>
+> **Nadie de este lado ha medido quién llama a esas trece**, y decirlo importa porque «trece
+> respuestas» se lee como «trece pantallas». `myvc-front-84` midió las cinco de `perfiles/` e
+> `images-users/` contra sus dos aplicaciones: **tres sí se llaman, dos no** —
+> `GET perfiles/show/{id}` y `PUT perfiles/cambiarimgunprofe/{id}`, ésta con **cero
+> apariciones**, ni llamada ni mencionada.
+>
+> **Y eso NO las convierte en rutas muertas, que es la conclusión fácil**: `myvc_flutter` y
+> `myvc_front_2` **no están medidos**, y son justo donde han aparecido antes los clientes que
+> nadie veía. Queda anotado como lo que se midió — *«no la llama `myvc_front`»* — y nada más.
+>
+> **Lo que sí es un hallazgo de los dos lados a la vez: `GET perfiles/show/{id}` está vallada
+> por duplicado y sin que nadie lo coordinara.** Nuestro docblock dice que no la llama ningún
+> cliente; los suyos —`PerfilesApi.ts:10` y `datos/perfiles.ts:12`— dicen *«devuelve el grupo
+> cuyo id coincide, no el perfil»* y avisan de que nadie añada un `obtener(id)` por analogía
+> con el resto. **Dos repositorios documentando la misma trampa desde su lado**, sin haberse
+> hablado. Si algún día se plantea retirarla, la regla no cambia: *con ruta y roto se
+> documenta*.
+>
+> *Y una de mi parte, porque afecta a lo que ellos midieron: **les mandé cuatro URIs mal**
+> —escritas por inferencia del nombre del método en vez de leídas de `route:list`—. Son
+> `profesores/store`, `profesores/update/{id}`, `profesores/destroy/{id}` y
+> `grupos/show/{id}`, no las formas cortas que escribí. Corregido con ellos. Es el mismo
+> fallo de toda la tarde en su versión más pequeña: **un dato que se deduce en vez de
+> leerse**.*
+
 > ### UN FALLO DEL FRONT QUE SALIÓ DE ESTE HILO, Y TE LO VAN A PEDIR — NO ES DE BACKEND
 >
 > **Ofrecen «nivelar» a quien va a recibir 403, y no es un caso raro: es el colegio normal.**
