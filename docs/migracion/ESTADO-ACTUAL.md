@@ -22,7 +22,61 @@
 > Los mensajes de commit están limpios —cero apariciones—, así que sólo había que tocar
 > estas tres líneas.
 
-**3 sep 2026 — `APP_DEBUG=true` EN CINCO COLEGIOS, Y EL ARREGLO DE CORS SIN APLICAR EN DIECISÉIS** ·
+**3 sep 2026 — CORS SE QUEDA EN `*` POR DECISIÓN, Y EL FRENTE DE LOS `.env` CIERRA CON OCHO PENDIENTES ESCRITOS** ·
+misma rama `docs/appkey-compartida-fortul-lal` · **NO FUSIONADA, NO EMPUJADA** · sólo
+documentación · [`29`](29-los-env-no-son-uniformes.md) §5 y **§8 nuevo**,
+[`DESPLIEGUE-REFERENCIA.md`](../DESPLIEGUE-REFERENCIA.md) · decidido por Joseth
+
+> **`CORS_ALLOWED_ORIGINS` deja de ser un `PENDIENTE`: se queda en `*`.** Estaba definida en
+> **1 de 17**, y la lectura fácil era «llevan dieciséis meses sin aplicar el arreglo del PR #3».
+> **La decisión de Joseth es que `*` es el valor bueno**, porque *cada colegio recibe conexiones
+> de aplicaciones externas* y una lista blanca no describe a los clientes reales de esta API.
+>
+> **Y se comprobó antes de darlo por bueno, que es lo que hacía falta:** `supports_credentials`
+> es **`false`** (`config/cors.php:71`) y el token viaja en `Authorization: Bearer`
+> (`Sesion.php:412`), **no en cookie**. El navegador no manda credenciales a otro origen y el
+> JavaScript tiene que adjuntar el token a mano, así que una página cualquiera puede *llamar* a
+> la API pero **sigue necesitando un token**, y el token vive en el almacenamiento del cliente
+> legítimo, que es por origen. ***`*` abre la puerta; no reparte llaves.***
+>
+> > **Lo que obligaría a volver aquí, y por eso queda escrito**: poner `supports_credentials`
+> > en `true` —el navegador **rechaza** esa combinación con `*`— o mover la sesión a cookie.
+> > **Las dos son un cambio de una línea en `config/`**, o sea que este razonamiento descansa
+> > en dos valores que hoy no vigila nadie.
+>
+> **`FRONTEND_URL`, también 1 de 17, no es lo mismo y no se cierra:** es el respaldo de la URL
+> de retorno del reseteo, y si falta y el cliente no manda una `ruta` del mismo host, el método
+> hace `abort(422)`. Hoy no afecta a nadie **y el motivo correcto no es que todos compartan
+> host** —la app Flutter no lo hace— **sino que la app Flutter no tiene recuperación de
+> contraseña**. El día que se la añadan: **422 en dieciséis**. Estaba escrito como hipótesis en
+> el [04](04-auditoria-autenticacion.md); ahora está contado.
+>
+> ### EL BARRIDO DE LAS SIETE VARIABLES ESTÁ COMPLETO, Y CINCO DIERON HALLAZGO
+>
+> El §7 proponía un bucle de siete variables sobre los diecisiete y decía que era «lo único que
+> separa *no se sabe* de *está bien*». **Corrido entero**: `APP_KEY` compartida entre dos
+> colegios, el correo sin configurar en dieciséis, `APP_DEBUG` encendido en cinco,
+> `CORS_ALLOWED_ORIGINS` en uno —y era la decisión correcta— y `FRONTEND_URL` en uno. **Y una
+> octava que nadie pidió: cinco juegos de claves distintos entre diecisiete**, que es la fila
+> que sostiene el título del documento.
+>
+> ### LOS OCHO PENDIENTES, EN EL §8 DEL 29, CON SU CONSECUENCIA Y DE QUIÉN SON
+>
+> Ninguno bloquea nada hoy; están escritos para no tener que volver a descubrirlos. Los tres
+> primeros por consecuencia: **(1)** la instalación viva de `lal` en la cuenta vieja, que el
+> censo **no alcanza** —es la número dieciocho y su correo sigue como estaban los otros—;
+> **(2)** de diecisiete envíos volvieron **cuatro** rebotes, y un límite por hora convertiría
+> una tanda de recuperaciones en correo perdido **sin ningún error**; **(3)** el logo del correo
+> sale de `lalvirtual.edu.co`, así que **el correo de los dieciséis depende de que un colegio
+> conserve su dominio**.
+>
+> **Y la limpieza de variables muertas va la última a propósito** —`JWT_*` en 16 de 17,
+> `AWS_*`, `PUSHER_*`, `MEMCACHED_*`, `REDIS_*`—: es segura y **no arregla nada**. *Borrar
+> líneas que no hacen nada no mejora ningún comportamiento, y tocar diecisiete `.env` sí tiene
+> riesgo.*
+
+
+**Anterior: 3 sep 2026 — `APP_DEBUG=true` EN CINCO COLEGIOS, Y EL ARREGLO DE CORS SIN APLICAR EN DIECISÉIS** ·
 misma rama `docs/appkey-compartida-fortul-lal` · **NO FUSIONADA, NO EMPUJADA** · sólo
 documentación · [`29`](29-los-env-no-son-uniformes.md) §5 y §6 · **censado y corregido en el
 servidor por Joseth**, escrito por esta sesión

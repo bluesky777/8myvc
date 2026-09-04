@@ -360,27 +360,48 @@ Memcached, SQS, Dynamo, Papertrail, Mailgun, Postmark).
 
 ---
 
-## 5. `CORS_ALLOWED_ORIGINS` · **MEDIDO: presente en 1 de 17. El arreglo del PR #3 no hace nada en dieciséis**
+## 5. `CORS_ALLOWED_ORIGINS` · **DECIDIDO por Joseth el 3 sep 2026: `*` para todos, y no es una omisión**
 
-**Censado el 3 sep 2026.** Esta sección decía «inerte donde no se puso, y **no se sabe en
-cuántos colegios se puso**». Se puso en **uno**.
+**Censado**: presente en **1 de 17** (`FRONTEND_URL`, también en 1). Ausente,
+`config/cors.php:43` cae a `['*']`, así que dieciséis servían con el origen abierto.
 
-```
-CORS_ALLOWED_ORIGINS   presente en  1 de 17
-FRONTEND_URL           presente en  1 de 17
-```
+**Y así se queda, por decisión y con motivo**: *cada colegio recibe conexiones de aplicaciones
+externas*, así que una lista blanca de orígenes no describe a los clientes reales de esta API.
+**El apartado deja de estar `PENDIENTE`: está contestado.**
 
-Ausente, `config/cors.php:43` cae a `['*']`, así que **el origen sigue abierto en dieciséis**.
-Es exactamente la misma forma que el correo (§3): un apartado marcado `PENDIENTE` que se leyó
-durante meses como «pendiente en alguno» y estaba **sin aplicar en casi todos**.
+### Por qué `*` aquí no regala nada, que es lo que hay que comprobar antes de dar una decisión así por buena
 
-> **Y éste no se arregla con un bucle y una constante, a diferencia del correo:** el valor es
-> **el dominio de cada colegio**, así que hay tantos valores como colegios. Es una decisión de
-> Joseth —qué orígenes entran, y si los cuatro fronts caben en la lista— antes de ser un script.
+Medido, no supuesto:
 
-> **La corrección del §5 anterior sigue en pie y ahora importa más.** *Ausente* y *presente y
-> vacía* dan lo mismo (`['*']`) por el `?: ['*']` del final de la expresión, así que rellenarla
-> a medias no cierra nada: o lleva el dominio, o no sirve.
+| | |
+|---|---|
+| `supports_credentials` | **`false`** (`config/cors.php:71`) |
+| Cómo viaja el token | **`Authorization: Bearer`** (`Sesion.php:412`, `bearerToken()`) |
+| Cookies de sesión en la API | ninguna |
+
+Con `supports_credentials => false` el navegador **no manda cookies** a otro origen, y el token
+no va en cookie: **lo tiene que adjuntar el JavaScript a mano**. O sea que una página cualquiera
+puede *llamar* a la API, pero **sigue necesitando un token**, y el token vive en el
+almacenamiento del cliente legítimo, que es por origen. *`*` abre la puerta; no reparte llaves.*
+
+> **Lo que sí cambiaría el análisis, y por eso queda escrito:** si algún día se pusiera
+> `supports_credentials => true`, `*` dejaría de ser válido —el propio navegador rechaza esa
+> combinación— y habría que volver aquí. Y si la sesión pasara alguna vez a cookie, `*` sí
+> repartiría llaves. **Las dos son cambios de una línea en `config/`, así que este razonamiento
+> depende de dos valores que hoy nadie está mirando.**
+
+### `FRONTEND_URL`: 1 de 17, y es una bomba de relojería, no un fallo de hoy
+
+Es el **respaldo** de la URL de retorno del reseteo
+([`LoginController.php:635`](../../app/Http/Controllers/LoginController.php#L635)): si el
+cliente manda una `ruta` cuyo host coincide con el de la petición, se usa ésa; si no, se usa
+`FRONTEND_URL`; y si tampoco existe, **`abort(422)`**.
+
+**Hoy no afecta a nadie** y el motivo correcto no es que todos compartan host —la app Flutter
+no lo hace— sino que **la app Flutter no tiene recuperación de contraseña**
+([04 §…](04-auditoria-autenticacion.md)). El día que se la añadan, **el reseteo desde el móvil
+dará 422 en dieciséis colegios**, porque una app nativa no tiene `location.origin`. *Estaba
+escrito como hipótesis desde la auditoría de autenticación; ahora está contado.*
 
 ### Y cuando se mida: **cómo NO medirlo**, que lo trajo el otro repositorio
 
@@ -479,13 +500,41 @@ done
 no son secretas. Lo corre quien tenga la sesión del servidor — **no una sesión de Claude**,
 que no la tiene.
 
-> **La parte de `APP_KEY` ya está corrida (3 sep 2026, Joseth) y dio positivo: §1.** Las
-> otras siete siguen sin mirarse. *Y una lección del que sí se corrió, para cuando se corra
+> **CORRIDO ENTERO el 3 sep 2026 (Joseth), y las siete variables están medidas.** No quedó
+> ninguna por mirar, y **cinco de las siete dieron hallazgo**: `APP_KEY` compartida entre dos
+> colegios (§1), el correo sin configurar en dieciséis (§3), `APP_DEBUG` encendido en cinco
+> (§6), `CORS_ALLOWED_ORIGINS` en uno solo (§5, y resultó ser la decisión correcta) y
+> `FRONTEND_URL` en uno solo (§5, latente). **Y salió una octava medición que nadie había
+> pedido: los diecisiete tienen cinco juegos de claves distintos**, que es la fila que sostiene
+> el título de este documento. *Y una lección del que sí se corrió, para cuando se corra
 > éste:* la primera salida fue un `uniq -d` a secas, que dice **que hay** un repetido pero
 > **ni cuál ni cuántos** — hizo falta una segunda pasada con el nombre al lado y la población
 > al final para poder escribir nada. **Un detector que contesta «sí» sin decir «quiénes» no
 > cierra el asunto**; y una salida vacía sin población no distingue «miré diecisiete y ninguno»
 > de «el bucle no miró nada».
+
+---
+
+## 8. Lo que queda pendiente, con su consecuencia y de quién es
+
+Ordenado por lo que pasa si no se hace. **Nada de esto bloquea nada hoy**; está aquí para que
+no haya que volver a descubrirlo.
+
+| # | Pendiente | Si no se hace | De quién |
+|---|---|---|---|
+| 1 | **La instalación viva de `lal`**, en la cuenta vieja (`micolevi`, `lalvirtual.edu.co`). El censo barre `/home/micolev1/*` y **no la alcanza**: su `APP_KEY` y sus `MAIL_*` siguen sin medir ni arreglar | Es la **instalación número dieciocho**. El día que se diga «están todas comprobadas», ésa no lo está — y su correo sigue como estaban los otros dieciséis antes del 3 sep | Joseth (sesión del otro cPanel) |
+| 2 | **La cuenta de rebotes: volvieron 4 de 17.** Cola, límite de MailChannels, o no salieron | Un **límite de envíos por hora** convertiría una tanda de recuperaciones en correo perdido **sin ningún error**. Se contesta contando cuántos llegan en una pasada completa | Joseth |
+| 3 | **El logo del correo de recuperación** sale de `https://lalvirtual.edu.co/up/images/…` ([`reset-password.blade.php:23`](../../resources/views/emails/reset-password.blade.php#L23)). Hoy responde **200**; en `micolevirtual.com` esa ruta da **404** | **El correo de los dieciséis depende de que un colegio conserve su dominio.** Es cambio de código y de dónde alojar el fichero, no de `.env` | decisión de Joseth, luego una sesión |
+| 4 | **`FRONTEND_URL` en 1 de 17** | **Latente, no roto**: el día que la app Flutter tenga «olvidé mi contraseña», el reseteo dará **422 en dieciséis** — una app nativa no tiene `location.origin` (§5) | esperar a que se pida |
+| 5 | **Limpiar lo muerto**: `JWT_*` (16 de 17), `AWS_*`, `PUSHER_*`, `MIX_PUSHER_*`, `MEMCACHED_HOST`, `REDIS_*`. Seguro: `FILESYSTEM_DRIVER=local` y `BROADCAST_DRIVER=log` en los diecisiete, y cero usos de `s3` o de broadcasting | **Nada.** Es higiene: no arregla ni rompe. *Va el último a propósito — borrar líneas que no hacen nada no mejora ningún comportamiento, y tocar diecisiete `.env` sí tiene riesgo* | cuando apetezca |
+| 6 | **Los cinco juegos de claves no están desglosados**: se sabe **cuántos** grupos hay y quién está en cada uno, no **qué línea** separa a un grupo de otro | Sin el desglose, «cinco juegos» es un número sin acción detrás | una sesión, con `diff` sobre `~/claves/` |
+| 7 | **`APP_ENV=local` en quince** (sólo `demo` y `eal` en `production`) | **No cambia el comportamiento** —cero usos de `APP_ENV` en el código, contados—, pero **artisan no pide confirmación**: un `migrate:fresh` correría sin preguntar en quince | Joseth |
+| 8 | **`FCM_CREDENCIALES` en 0 de 17** (`FCM_PROYECTO` sí está en algunos) | Falta **la mitad del push**, y es esperable: no hay proyecto de Firebase todavía. Va con el punto 2 de la casilla del push | Joseth, cuando exista Firebase |
+
+> **Y una que no es una tarea sino una condición**, del §1: **rotar `APP_KEY` con el push ya
+> encendido re-apunta todos los temas** y los teléfonos siguen escuchando el nombre viejo. Los
+> avisos dejan de llegar **sin un solo error**. Cualquier rotación futura va **antes** de
+> encender Firebase.
 
 ---
 
