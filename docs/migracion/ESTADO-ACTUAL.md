@@ -23,9 +23,16 @@
 > estas tres líneas.
 
 **4 sep 2026 — EL HORARIO, REPASADO ENTERO ANTES DE ENTREGARLO: LA SUITE COMPLETA EN VERDE Y
-SEIS AFIRMACIONES QUE LA CUARTA RUTA DEJÓ VIEJAS** · rama `docs/horario-cuarta-ruta-y-despliegue`,
-**sin fusionar y sin empujar** · sólo documentos: [23](23-horarios.md) §§ cabecera, 5.3, 8,
-10.2.3, 11 y 11.5, y esta casilla · **cero código, el router no se mueve: siguen 567**
+SEIS AFIRMACIONES QUE LA CUARTA RUTA DEJÓ VIEJAS — Y EL HORARIO ENTERO EN `main`** ·
+**FUSIONADO Y EMPUJADO** el 4 sep 2026 con tu autorización: `main` en **`200c566`**, que es
+`8f59242` + los seis commits de `docs/horario-cuarta-ruta-y-despliegue` en avance rápido ·
+sólo documentos por mi parte: [23](23-horarios.md) §§ cabecera, 5.3, 8, 10.2.3, 11 y 11.5,
+[`DESPLIEGUE.md`](../DESPLIEGUE.md) aviso O, y esta casilla · **cero código, el router no se
+mueve: siguen 567**
+
+> **Las entradas de más abajo dicen «sin fusionar y sin empujar» y NO se corrigen**: eran
+> ciertas el día que se escribieron y son el registro de que este trabajo pasó por una rama.
+> Lo que vale es esta línea, que es la de arriba.
 
 > **El módulo está terminado en este repo, y ahora está medido de punta a punta y no sólo por
 > el filtro de su nombre:**
