@@ -22,7 +22,50 @@
 > Los mensajes de commit están limpios —cero apariciones—, así que sólo había que tocar
 > estas tres líneas.
 
-**3 sep 2026, madrugada — DOS COSAS QUE ENCONTRÓ EL CLIENTE MIDIENDO CONTRA NUESTRO DOCKER,
+**3 sep 2026 — EL CÍRCULO DEL HORARIO, CERRADO DE PUNTA A PUNTA CON DATOS REALES** ·
+cero ficheros tocados: es una **medición**, no un cambio · **566 rutas** · lo condujo
+`myvc-horarios-f3` en el docker, con permiso de Joseth; la última lectura la corrió esta
+sesión, también con su permiso
+
+> **La frase con la que empezó este módulo era ésta**: *«"Clases de hoy" devuelve una lista
+> vacía a todos los docentes todos los días, y nadie lo ha reportado porque un `[]` se
+> parece a "hoy no tengo clase"».* **Ya no la devuelve, y está demostrado por el camino
+> largo y no por un test.**
+>
+> | paso | qué se hizo | evidencia |
+> |---|---|---|
+> | **bajar** | el carril `datos` del otro repo, por arnés y por pantalla | 345 lecciones, piezas derivadas |
+> | **subir** | `/subir` conducida en Chrome headless contra este docker | versión 5, luego la 6 |
+> | **publicar** | `putOficial` | `years[8].horario_version_id` **4 → 6** |
+> | **y que se vea** | `GET api/ChangesAsked/to-me` con token de un docente real | `horario_hoy` **5**, `horario_manana` **2** |
+>
+> ### EL CONTROL ES LO QUE LO HACE VALER, NO LAS CIFRAS
+>
+> Las 5 y las 2 **coinciden con las columnas `jueves` y `viernes`** de ese docente en la
+> base —tiene 13 asignaturas y recibe 5—, **con `sabado` y `domingo` en cero**. Sin ese
+> control, **un horario corrido un día habría dado exactamente lo mismo**: 5 y 2, creíbles,
+> y mal. Es el fallo que el convenio de la §5.2.5 existe para impedir y el que no da ningún
+> error.
+>
+> ### LAS CUATRO COSAS QUE ESTE CÍRCULO **NO** CUBRE
+>
+> Se escriben para que nadie lo lea más ancho de lo que es:
+>
+> 1. **No es uno de los dieciséis.** Es el docker. El módulo está desplegado en **cero**
+>    colegios — `routes/api/horario.php` no existía en `9474b50`, la base desplegada.
+> 2. **Al colegio del docker le faltan siete datos** que el escritorio sí maneja.
+> 3. **No se baja el horario**: esa ruta **no existe** (§9.bis, decidida a medias y sin
+>    escribir).
+> 4. **Todo se condujo por Chrome**, no por el programa instalado.
+>
+> ### Y EL FALLO DEL SÁBADO SIGUE SIN VERSE CON DATOS REALES
+>
+> Hoy era jueves. El `% 7` que entró con el lote C **sólo se ha visto en un test que congela
+> el reloj**: está bien que sea así, pero **no es lo mismo que haberlo visto**. El día que
+> alguien mire un sábado, «mañana» tiene que salir vacío y el domingo lleno — con los dos
+> lados, porque un vacío solo es indistinguible de un endpoint roto.
+
+**Anterior: 3 sep 2026, madrugada — DOS COSAS QUE ENCONTRÓ EL CLIENTE MIDIENDO CONTRA NUESTRO DOCKER,
 Y UNA DE ELLAS ERA UN ERROR MÍO** · `HorarioController`, `HorarioSubidaTest` y
 `HorarioAceptoPerderTest` · **566 rutas, sin moverse** · suite entera
 **`Tests: 1930 passed (17355 assertions)`**, cero rojos, cero deadlocks · las midió
