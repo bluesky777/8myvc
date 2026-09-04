@@ -274,6 +274,31 @@ quieren. **Cualquier cambio de forma en `docentes[]` de esa ruta se avisa.**
 
 ---
 
+## 3.sexies Verificadas por un segundo barrido independiente, y de dónde salía el «seis»
+
+`8myvc-cd`, que había escrito un aviso propio enumerando **seis**, verificó las trece una a una
+y **retiró su cifra en favor de ésta** (`2ca4191`). Coincidimos además en **los descartes sin
+habernos hablado**: `Profesor::all()`, el `findOrFail` de `postInscribirProfesores`, el `->get()`
+del borrado de imágenes, `putCambiarfirmaunprofe` —que devuelve `$img`— y
+`ChangeAskedController::cambiarOficialProfesor`, **que sí hace `return $prof` pero cuyo único
+llamante descarta el retorno**. *Dos instrumentos distintos y dos criterios que no se hablaron
+llegando a la misma lista es lo más parecido a una prueba que hay aquí.*
+
+### Y su explicación de por qué su seis era seis, que vale más que la corrección
+
+No fue un descuido, y lo dejó escrito: **contó el alcance del encargo en vez del de la
+pregunta** —«qué respuestas Eloquent de `ProfesoresController` y `GruposController`» en lugar de
+«qué respuestas reparten `tono`»—. Y cuando se le avisó, **ensanchó un solo eje**: barrió el SQL
+crudo, encontró lo de `DocentesExport`, y firmó *«seis sigue siendo seis, y ahora dice por dónde
+se buscó»*. El otro eje —**qué controladores**— no lo tocó.
+
+> **Ensanchar por un eje y dar el número por confirmado sale más caro que no ensanchar**, porque
+> la frase *«ahora dice por dónde se buscó»* es exactamente la que hace que nadie vuelva a
+> mirar. Un número con su método declarado **parece** auditado, y sólo lo está por el eje que se
+> movió.
+
+---
+
 ## 4. Lo que hay que decidir, y no lo decide una sesión
 
 **Nada de esto está roto**: `tono` es `null` en los diecisiete y es aditivo. Lo que cambia es

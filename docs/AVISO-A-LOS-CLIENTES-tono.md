@@ -41,6 +41,11 @@ colegio**. Y el tipo es **`string | null`**, no `string`: hoy es `null` en todos
 | 12 | `PUT profesores/listado` | cada elemento de `profesores` |
 | 13 | `PUT participantes/profesores` | cada elemento de `participantes` |
 
+> **Si vais a probar las trece, dos necesitan una ficha de docente para reproducirse.**
+> `PUT perfiles/update/{id}` y `PUT images-users/cambiar-foto-un-usuario/{id}` sólo reparten
+> `tono` **cuando la persona es un Profesor** —las otras once, siempre—. Contra un alumno o un
+> acudiente esas dos no lo traen, y **sin este párrafo eso se lee como que el aviso falla**.
+
 **Dónde NO aparece, por si lo buscáis:** `GET profesores/show/{id}` **no lo trae** —usa una
 consulta que nombra sus columnas—, y el **Excel de listado de docentes tampoco**: su plantilla
 nombra las 17 columnas que imprime.
