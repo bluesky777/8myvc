@@ -979,6 +979,89 @@ desaparecería de la población y el informe saldría más limpio de lo que es.
 
 ---
 
+## 9.bis. La cuarta ruta: leer las lecciones para PINTARLAS — decidida a medias el 3 sep 2026
+
+**Lo que Joseth decidió**, y no se re-litiga:
+
+1. **El horario que se cuadra en el escritorio se tiene que poder MIRAR en un menú de la
+   web**, sin generar nada allí.
+2. **La web LEE DE LA API**; no se descarga el proyecto. La §10.2 se queda para lo que
+   era —llevarse el proyecto a otro computador—, que es otra ruta y otro permiso.
+3. **El permiso es `auth.personal`**, el mismo que el listado. O sea **cualquiera de los
+   53 docentes**.
+
+> **La 3 se tomó sabiendo lo que tensiona.** Esta ruta le entrega a cualquier docente el
+> horario del colegio entero —qué docente está dónde a cada hora—, y eso empuja la regla
+> escrita *«listar no es descargar»* hasta *«mirar no es llevarse»*. **Lo que decidió fue
+> un hecho aportado por `myvc_horarios`, no un argumento**: el horario del colegio **ya se
+> imprime y se cuelga** —13 hojas apaisadas, medidas en el programa instalado—, así que en
+> papel no es un secreto para nadie de dentro.
+
+**Lo que NO está decidido**: la forma exacta de la respuesta. Y **el router no se mueve
+hasta que se escriba**: una ruta que no existe no puede tener número, porque nadie lo
+puede contar hasta que exista.
+
+### 9.bis.1. Lo que falte tiene que llegar MARCADO como que falta, y esto está medido
+
+**Es la restricción que decide la forma, y no es una preferencia.** La midió
+`myvc-horarios-90`: **5 mutilaciones × 8 informes × 3 colegios = 120 corridas**, más las
+ocho plantillas leídas a mano —porque *«cambia y no se nota»* no se contesta ejecutando—.
+
+| qué hace el informe si le falta un dato | cuántos |
+|---|---|
+| avisa solo | **2 de 8** |
+| se nota que falta, sin decir por qué | **1 de 8** |
+| **sale plausible y falso** | **4 de 8** |
+
+Los cuatro, con su cifra: **75 casillas pierden el salón** —su `?? null` hace que *«no lo
+sé»* y *«no tiene»* sean el mismo `null`—, otras **98 cambian el dibujo de salón a
+materia**, **15 pasan de «no lectiva» a «libre»** —la hoja da por libre una hora que para
+ese grupo no existe— y **75 motivos de «sin colocar» cambian de tipo**, o sea que el papel
+da una razón **concreta y falsa** de por qué una lección no cabe.
+
+**Y el peor: un centinela que se apaga justo en su caso.** El aviso *«sin horas: el
+colegio todavía no ha dado los timbres»* pregunta *¿tengo timbres?* en vez de *¿me los dio
+el colegio?*. Si nuestra respuesta reconstruye la jornada por defecto, **el aviso
+desaparece** y la hoja imprime `06:45 – 07:35` en un nivel que nunca dio esa hora: **15
+hojas pasan de avisar a no avisar**.
+
+**La consecuencia para el diseño, en una línea:** *un catálogo que no viaja y un catálogo
+vacío no pueden ser la misma cosa al otro lado.* Si la respuesta puede decir **«este
+catálogo no lo tengo»** en vez de mandarlo vacío, **los cuatro casos falsos se convierten
+en los dos que avisan solos**.
+
+Esto muerde aquí y no allá porque **nuestra base no guarda salones, disponibilidad,
+franjas ni restricciones** — la §0 decidió que no las guardara. Así que lo que podemos
+devolver es **un `Proyecto` incompleto por construcción**, y la pregunta no es si se puede
+sino **si lo que falta se puede nombrar**.
+
+### 9.bis.2. Lo que ya está medido y ahorra discusiones
+
+- **El peso no decide nada**: el proyecto entero de un colegio de 13 grupos son **74 836 b
+  / 6 608 gzip**; el recorte a lo que los ocho informes usan, **59 801 / 6 190**. Un 14 %
+  entre los siete que necesitan el horario, así que **partir la ruta por ahorrar bytes no
+  tiene sentido**. Si se parte, se parte **en dos** —el horario y las declaradas— y nunca
+  en ocho.
+- **Cuatro de los ocho informes necesitan las siete listas**, y **los tres que van a la web
+  son tres de esos cuatro**. Eso cierra «¿por grupo o por docente?» sin que nadie opine:
+  *«quién está libre»* es una pregunta **sobre todos los docentes a la vez**.
+- **`disponibilidad-declarada` no necesita el horario** —`niveles` y `docentes`, 1 890 b—,
+  así que **es el único de los ocho que se puede servir hoy**, sin esta ruta y sin esperar
+  al despliegue.
+- **`docentes.tono`** —el color del docente— hace falta para seis de los ocho y **ninguno
+  de los 22 lo trae hoy**. Es **opcional para que salga una hoja y obligatorio para que
+  salga la MISMA hoja** que en el escritorio: sin él la web pinta los colores cambiados y
+  **nada se pone rojo**.
+
+> **Y una comparación que hay que no hacer**, porque es la que sale sola: el cuerpo de la
+> subida son **231 135 b** y esto **no** significa que la bajada sea cuatro veces más
+> barata. Son **dos direcciones, dos esquemas y dos colegios**: la subida expande las
+> piezas colocadas a las filas que escribimos, y la bajada trae **el vocabulario con el que
+> se pinta** —docentes, grupos, salones, niveles— que la subida no manda porque ya lo
+> tenemos.
+
+---
+
 ## 10. Decisiones
 
 ### 10.1. Cerradas por Joseth el 2 sep 2026 — no se re-litigan
