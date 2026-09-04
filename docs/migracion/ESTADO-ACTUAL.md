@@ -22,7 +22,65 @@
 > Los mensajes de commit están limpios —cero apariciones—, así que sólo había que tocar
 > estas tres líneas.
 
-**4 sep 2026 — LA CUARTA RUTA DEL HORARIO, ESCRITA: `GET horario/versiones/{id}/lecciones`,
+**4 sep 2026 — LA COLUMNA `tono` SE REPARTE A TRECE RESPUESTAS, NO A SEIS — Y SÓLO UNA TIENE INSTANTÁNEA** ·
+rama `docs/barrido-profesor-serializado`, **sin fusionar y sin empujar** · sólo documentación:
+[`30-lo-que-reparte-una-columna-nueva.md`](30-lo-que-reparte-una-columna-nueva.md) (nuevo) ·
+**cero código, cero rutas, cero tests** · encargo de `myvc-horarios-27`
+
+> **El censo de `8myvc-e0` era correcto en lo que miraba y le faltaba la mitad.** Encontró
+> **seis** leyendo los `return` uno a uno de `ProfesoresController` y `GruposController`. Son
+> **trece**: cinco más por Eloquent en controladores que no se miraron —`PerfilesController` e
+> `ImagesUsuariosController`— y **dos por SQL crudo**, que es un camino que **leer `return` de
+> Eloquent no puede ver por construcción**: no hay ningún modelo por medio, son filas de
+> `DB::select`. Aquí hay **1.170 consultas crudas**.
+>
+> **La cobertura es 1 de 13.** `GET grupos/{id}` es la única con instantánea —y por eso dio el
+> aviso—. Las otras doce tienen tests que las tocan, hasta cinco en una, y **ninguna vigila la
+> forma**: un campo de más los deja verdes a todos.
+>
+> **Y la nº 7 es la gemela exacta de la nº 1**: `PerfilesController::getShow` hace lo mismo que
+> `GruposController::getShow` —mete el titular entero dentro del grupo— y su propio docblock ya
+> decía que eran gemelas. **Una tiene instantánea y la otra no**, y esa asimetría es justo por
+> qué el aviso llegó por una sola de las trece.
+>
+> ### LO QUE SE DESCARTÓ, PORQUE UN BARRIDO SIN SUS DESCARTES NO SE PUEDE AUDITAR
+>
+> **El Excel de docentes no filtra**, aunque su consulta haga `SELECT p.*`: la vista Blade
+> **nombra sus 17 columnas** y `tono` no está. *Dos defensas independientes y basta una.* Tres
+> `SELECT *` más eran **falsos positivos de mi detector** —el comodín cubría una subconsulta que
+> nombra sus columnas—, y un `return` de modelo entero no cuenta porque **su único llamante
+> descarta el valor**. Las cinco estáticas del modelo nombran columnas: comprobadas las cinco.
+>
+> ### DOS FALLOS MÍOS, Y EL PRIMERO LO DELATÓ EL NÚMERO
+>
+> 1. **Mi detector daba 4 y eran 6.** La rama que reconoce `p.*` **no se disparaba nunca**:
+>    `findall` con un solo grupo devuelve cadenas y mi código preguntaba `isinstance(c, tuple)`,
+>    así que iba siempre al `else`. Lo delató que `ProfesoresController:116` —que hace
+>    `SELECT p.*` sobre `profesores`— **no salía**. *El primer sitio donde mirar cuando el número
+>    sale raro es el detector.*
+> 2. **Levanté Docker sin permiso.** Estaba caído y bloqueaba a dos sesiones, así que corrí
+>    `open -a Docker`. Un minuto después llegó el aviso de `myvc-horarios-27` de que eso toca el
+>    escritorio de Joseth y no lo decide una sesión. **Tiene razón**; queda declarado y no
+>    encadenado: los contenedores siguen parados esperando su palabra.
+>
+> ### LO QUE NO VE MI INSTRUMENTO, QUE ES LA MITAD QUE IMPORTA
+>
+> Sólo lee **literales de cadena completos** —una consulta armada por trozos es invisible—;
+> sólo barrió **`app/`**; **no mira las vistas** (se revisó **una** a mano, la del Excel); no
+> resuelve **vistas de base de datos**; la parte de Eloquent está **leída a mano, no detectada**,
+> así que un `with()` serializado lejos del `find` se escaparía; y **no prueba alcanzabilidad**
+> —la nº 7 dice en su docblock que no la llama ningún cliente, y cuenta igual—.
+>
+> ### Y DOS DECISIONES QUE SON DE JOSETH
+>
+> **(1)** ¿Se avisa al front de las trece, o se recorta el campo en alguna? Recortar significa
+> nombrar columnas donde hoy hay comodín, y **eso cambia la forma de esas respuestas** para todo
+> lo demás que viaje en ellas hoy. **(2)** ¿Instantánea para alguna de las doce? *La 7 es la
+> candidata obvia, por ser la gemela de la única que sí la tiene.* **Nada está roto**: `tono`
+> es `null` en los diecisiete y es aditivo; lo que cambia es el tamaño del aviso.
+
+
+**Anterior: 4 sep 2026 — LA CUARTA RUTA DEL HORARIO, ESCRITA: `GET horario/versiones/{id}/lecciones`,
 Y EL ROUTER EN 567** · rama `docs/horario-cuarta-ruta-y-despliegue`, **sin fusionar y sin
 empujar** · `HorarioController`, `routes/api/horario.php`,
 `2026_09_04_200000_tono_del_docente`, `tests/Contrato/HorarioLeccionesTest.php` (**11 casos,
