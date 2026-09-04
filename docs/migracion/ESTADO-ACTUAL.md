@@ -182,11 +182,14 @@ contadas con `route:list --json` ese día** · pint **PASS** · larastan nivel 7
 >
 > ### Lo que hay que saber para el despliegue, y no cambia el congelado
 >
-> La tanda pasa a **ocho** migraciones. `profesores.tono` **se reparte sola a SIETE
-> respuestas vivas**: seis que devuelven la ficha por Eloquent (`postStore`, `putUpdate`,
-> `deleteDestroy`, `deleteForcedelete`, `putRestore` y `GET grupos/{id}` dentro de
-> `titular`) **y una cruda que no es de este módulo ni de su pantalla** —`PUT
-> participantes/profesores`, de votaciones—: vale `null` en todas, así que es inofensiva — **pero es un campo nuevo y se
+> La tanda pasa a **ocho** migraciones. `profesores.tono` **se reparte sola a TRECE
+> respuestas vivas**: **once por Eloquent** —las cinco de `ProfesoresController`
+> (`postStore`, `putUpdate`, `deleteDestroy`, `deleteForcedelete`, `putRestore`), las
+> **tres de `PerfilesController`** (`getShow`, `putUpdate`, `putCambiarimgunprofe`), las
+> **dos de `ImagesUsuariosController`** (`putCambiarFotoUnUsuario`,
+> `putCambiarFirmaUnProfe`) y `GET grupos/{id}` dentro de `titular`— y **dos por SQL
+> crudo**: `PUT profesores/listado` y `PUT participantes/profesores`, ésta de
+> **votaciones**. Vale `null` en todas, así que es inofensiva — **pero es un campo nuevo y se
 > manda dicho, no descubierto**. Las cinco estáticas del modelo nombran sus columnas y no
 > se mueven, y `ProfesoresController::getShow` es de ésas: usa `detallado()`.
 >
@@ -195,6 +198,43 @@ contadas con `route:list --json` ese día** · pint **PASS** · larastan nivel 7
 > > que recordaba, no los que hay. Las dos de la papelera son `deleteDestroy` y
 > > `deleteForcedelete`, y el `getShow` que sí existe es justo el que **no** reparte nada.
 > > La cifra iba **hacia abajo**, que es la dirección en la que un error no se nota.
+> >
+> > **Y SON TRECE. Esta cifra ha ido hacia abajo CUATRO veces —cinco, seis, siete, trece—
+> > y siempre en la misma dirección**, que es la que no se nota. Lo de abajo se escribió
+> > cuando creía que eran siete y se deja entero, porque el recorrido enseña más que el
+> > número: **cada corrección arregló el recuento y dejó puesto el instrumento.**
+> >
+> > | intento | qué miró | qué se le escapó |
+> > |---|---|---|
+> > | cinco | los sitios que recordaba | los que hay |
+> > | seis (`8myvc-e0`) | los `return` de Eloquent, uno a uno | que no todo es Eloquent |
+> > | siete (yo) | Eloquent **+ SQL crudo** | dos cosas, abajo |
+> > | **trece** | las dos familias, **con la población delante** | — |
+> >
+> > **Y mis dos fallos fueron de manipulación, no de idea**, que es lo que los hace
+> > repetibles: (1) corté el barrido de `Profesor::` con **`| head -30`** y perdí
+> > `PerfilesController` e `ImagesUsuariosController` enteros —el corte antes de contar,
+> > que es la regla que esta casa ya tiene escrita y que incumplí en la terminal, donde
+> > no la vigila nadie—; y (2) **identifiqué `ProfesoresController::putListado` en un paso
+> > y no la arrastré al siguiente**: la lista de seis con asterisco la comprobé sitio a
+> > sitio y **dejé dos fuera sin decirlo**. Ninguno de los dos es un patrón mal pensado.
+> >
+> > **La reconciliación con `8myvc-ff` cuadra al sitio: 7 + 5 + 1 = 13**, y **no había dos
+> > definiciones, había dos coberturas** — las dos contamos *respuestas donde el campo
+> > llega al cliente*. Su censo entero está en
+> > [30](30-lo-que-reparte-una-columna-nueva.md) (rama `docs/barrido-profesor-serializado`,
+> > sin fusionar). **Este renglón lo escribo yo y no cito el suyo**: dos documentos que
+> > afirman lo mismo por separado valen más que uno citando al otro.
+> >
+> > **Lo que las dos medimos por separado y salió idéntico**, que es lo más parecido a una
+> > prueba que hay aquí: los **tres falsos positivos** —`SELECT *` sobre una subconsulta
+> > que **nombra** sus columnas, en `VtParticipante:79`, `PerfilesController:129` y
+> > `:810`—, que **`DocentesExport` queda fuera** —trae `p.*` pero su Blade nombra 17
+> > columnas y `tono` no está— y que **`ChangeAskedController::cambiarOficialProfesor`
+> > tampoco cuenta**: hace `return $prof` y su único llamante **descarta el retorno**
+> > (`:707`). Ése es el que más se parece a un sitio real y no lo es.
+> >
+> > *Lo de abajo, escrito con siete:*
 > >
 > > **Y SON SIETE, no seis: la misma cifra volvió a ir hacia abajo por la misma puerta.**
 > > `8myvc-e0` corrigió «cinco» leyendo los `return` de Eloquent uno a uno, y yo escribí
