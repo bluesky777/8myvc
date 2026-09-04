@@ -154,6 +154,51 @@ mirando las vistas. **Los dos instrumentos son complementarios, no redundantes.*
 
 ---
 
+## 3.quater CORRIDA: la herramienta da **1** donde el barrido a mano da **13**, y el hueco es suyo
+
+Corrida el 4 sep 2026 con los contenedores ya en pie:
+
+```
+$ php tools/filas-enteras-al-cliente.php --tablas=profesores
+ficheros de app/ revisados ....... 235
+sitios que leen la fila entera ... 1
+  app/Http/Controllers/VtParticipantesController.php:117   SELECT *
+```
+
+**Una de trece.** Con `--todas`, la misma. Y las dos causas están medidas, no supuestas:
+
+1. **Trabaja línea a línea.** Sus dos `preg_match` (líneas 94-95) exigen el comodín **y** el
+   `FROM profesores` **en la misma línea**. `VtParticipantes:117` los tiene juntos y sale;
+   `ProfesoresController:116` tiene `SELECT p.*` en la 116 y `FROM profesores p` en la **118**,
+   así que **se le escapa una consulta que literalmente empieza por `SELECT p.*`**. *No es que
+   no reconozca el comodín cualificado —su regex lo contempla—: es que la consulta está partida.*
+2. **`--tablas=` es un interruptor a medias, y no lo dice.** Cambia `$tablas`, pero **`$modelos`
+   está fijo** a las seis tablas del dominio de notas y **no incluye `profesores`**. Sin ese
+   mapeo, `$modelo` es `null` y **la mitad de Eloquent no se ejecuta nunca**. Ahí van **once de
+   las trece**.
+
+> **Esto no desmiente su cabecera: la confirma.** El fichero avisa de que «no ve Eloquent
+> encadenado» y de que «esto ORDENA candidatos, no da una lista de fallos». Lo que no avisa es
+> que **`--tablas=` con una tabla fuera de las seis apaga la mitad del detector en silencio** —
+> y ahí un `1` se lee igual que un `1` completo. *Es la regla de la casa aplicada a la
+> herramienta que existe para aplicarla: **el primer sitio donde mirar cuando el número sale
+> raro es el detector**.*
+
+**Los dos arreglos son pequeños y NO se han hecho** —tocar una herramienta compartida mientras
+otras sesiones pueden estar usándola no lo decide ésta—:
+
+- añadir `'profesores' => 'Profesor'` a `$modelos`, y mejor aún **derivar el modelo o avisar**
+  cuando `--tablas=` traiga una tabla sin mapear;
+- unir las líneas de cada literal antes de casar, que es lo que hace el detector de este
+  documento y por lo que ve las multilínea.
+
+**Y el saldo del cruce, que es lo que importa:** los dos instrumentos coinciden en la única que
+ambos pueden ver, y **cada uno ve lo que al otro se le escapa**. El mío no ve consultas por
+trozos ni vistas de base de datos; el suyo no ve multilínea ni Eloquent sin mapear. *Ninguno de
+los dos, solo, habría dado trece.*
+
+---
+
 ## 4. Lo que hay que decidir, y no lo decide una sesión
 
 **Nada de esto está roto**: `tono` es `null` en los diecisiete y es aditivo. Lo que cambia es
@@ -166,4 +211,16 @@ el tamaño del aviso al front — **trece respuestas, no una**, y **cuatro clien
    obvia: es la gemela de la única que sí la tiene, y la asimetría entre las dos es
    precisamente por qué este documento existe.*
 
-**Las dos son de Joseth.** Aquí sólo está medido.
+**CONTESTADAS por Joseth el 4 sep 2026: «avisar a los cuatro clientes y no tocar nada».**
+
+- **No se recorta el campo en ninguna de las trece.** El argumento que lo decidió es el medido
+  aquí: recortar significa **nombrar columnas donde hoy hay comodín**, y eso cambia la forma de
+  esas respuestas **para todo lo demás que viaja hoy en ellas** — más riesgo del que quita.
+- **No se le pone instantánea a la nº 7**, descartado explícitamente.
+- **Lo que sí se hace es el aviso**, y de las trece y no de una:
+  [`docs/AVISO-A-LOS-CLIENTES-tono.md`](../AVISO-A-LOS-CLIENTES-tono.md).
+
+> **Lo que queda vivo después de la decisión**, y va en el aviso porque es lo que evita el
+> próximo susto: **doce de las trece siguen sin nada que vigile su forma**, así que **la próxima
+> columna que se añada a `profesores` puede llegar a los clientes sin que nada se ponga rojo**.
+> *Que una ruta esté probada no es que su forma esté vigilada.*
