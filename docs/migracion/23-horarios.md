@@ -1348,6 +1348,27 @@ sin volver a medir nada:
 `putUpdate` podía **borrar** el tono. La respuesta a su pregunta es que no puede borrarlo —y
 de camino salió que tampoco puede ponerlo, ni él ni nadie.*
 
+**Y mientras no se decida, el color lo pone el cliente — con un fallback que YA COLISIONA, y
+está medido.** `myvc_front` reparte el color desde el `id` del docente con `(id * 5) % 12`
+cuando el `tono` viene nulo, que hoy es siempre. Medido el 4 sep 2026 sobre `simonbolivar`,
+año 8, a petición suya: los doce `profesores.id` **no son consecutivos** —7, 9, 12, 21, 31,
+40, 41, 44, 45, 46, 47, 51: rango 45 para doce—, y salen **9 cubos de 12** con **dos
+colisiones**, una de ellas **triple**: `9, 21, 45` comparten color y `7, 31` también. **Cinco
+de los doce docentes van a salir del mismo color que otro.**
+
+**Cambiar el multiplicador no lo arregla, y esto ahorra la prueba:** 5 es coprimo con 12, así
+que la función es una **biyección sobre los restos** — dos docentes colisionan **si y sólo si
+sus `id` son congruentes módulo 12**, independientemente del multiplicador. **El control lo
+confirma**: repartiendo por la **posición** en la lista ordenada salen **12 de 12 y cero
+colisiones**, así que el problema no es el paso sino **indexar doce cubos con una clave
+dispersa**. *La posición no es gratis: el `id` es estable y ella no — un alta le cambia el
+color a todos los que vengan detrás. Es decisión del front y no de aquí.*
+
+**Lo que esto añade a la decisión de Joseth:** el fallback del cliente **no es un apaño
+provisional**, es lo que va a verse **hasta que exista quien reparta el color** — y hoy ya se
+ve mal. Y la medición es de **un colegio y un año**: los otros quince tienen sus propios `id`
+y sus propios huecos, y ahí no ha mirado nadie.
+
 #### Las cuatro que iban a Joseth, CONTESTADAS el 4 sep 2026
 
 Ninguna se resolvía midiendo, y por eso estaban aquí. Las cuatro están cerradas y **no se
