@@ -113,6 +113,47 @@ meses como «cero problemas».**
 
 ---
 
+## 3.bis Tres de esos seis puntos ciegos ya están medidos, y los tres salen limpios
+
+Nombrarlos no basta si se pueden cerrar barato. Medidos el 4 sep 2026:
+
+| punto ciego | medición | resultado |
+|---|---|---|
+| **1 · consultas armadas por trozos** | **6** líneas en todo `app/` concatenan sobre una consulta (`$consulta .=`, `$sql .=`, `$query .=`) — y **ninguna vive en un fichero que nombre `profesores`** | **cerrado**: no puede esconder una fuga aquí |
+| **2 · fuera de `app/`** | `database/` 4 ficheros nombran `profesores` y **0** con comodín; `routes/` 3 y **0**; `resources/` 1 y **0**; `tools/` 6 y **1**, que resulta ser **un comentario** | **cerrado**: nada fuera de `app/` reparte |
+| **3 · vistas Blade** | hay **9** vistas en total; **1** nombra a un profesor (la del Excel, ya leída) y **ninguna** vuelca propiedades a ciegas —cero `@foreach ($x as $k => $v)`— | **cerrado**: la única que importaba era la que se miró |
+
+**Quedan abiertos los tres que no se pueden cerrar leyendo**: vistas de base de datos, la
+parte de Eloquent (leída a mano, no detectada) y la alcanzabilidad.
+
+---
+
+## 3.ter Y esta herramienta ya existía: `tools/filas-enteras-al-cliente.php`
+
+**Debí buscarla antes de escribir un detector.** Contesta literalmente esta pregunta —*«qué
+consultas leen una fila entera de una tabla del dominio y esa fila viaja al cliente, o sea
+dónde una columna nueva se publica sola»*— y **acepta `--tablas=profesores`**. Nació el 2 sep
+2026, cuando la migración de nivelaciones movió **siete instantáneas** sin que nadie tocara un
+método, y **dos de aquellos ocho sitios no los encontró ninguna sesión leyendo: los encontró la
+suite**.
+
+*No está en la tabla de herramientas de `CLAUDE.md`* — por eso no apareció al buscar. Moverlo
+allí es de Joseth.
+
+**Lo que sale de todos modos, y por eso este documento no sobra:** la herramienta declara en su
+cabecera que **no ve Eloquent encadenado en varias líneas** y que **no mira `resources/`**. Esos
+son exactamente los dos huecos por los que salieron **cinco de mis siete hallazgos nuevos** —los
+de `PerfilesController` e `ImagesUsuariosController` son todos Eloquent— y el que se cerró
+mirando las vistas. **Los dos instrumentos son complementarios, no redundantes.**
+
+> **La comprobación pendiente, y necesita los contenedores en pie:**
+> `php tools/filas-enteras-al-cliente.php --tablas=profesores`. Si sale con **las dos de SQL
+> crudo** (`profesores/listado` y `participantes/profesores`), mi barrido queda confirmado por
+> un segundo instrumento independiente. **Si sale con alguna que yo no tengo, ésa es la
+> noticia** — y sería del tipo que este documento avisa: mi detector también tiene huecos.
+
+---
+
 ## 4. Lo que hay que decidir, y no lo decide una sesión
 
 **Nada de esto está roto**: `tono` es `null` en los diecisiete y es aditivo. Lo que cambia es
