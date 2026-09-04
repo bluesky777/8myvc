@@ -34,7 +34,6 @@ use Illuminate\Support\Facades\DB;
  * @property ?string $facebook
  * @property ?string $email
  * @property ?string $tipo_profesor
- * @property ?string $tono
  * @property ?int $user_id
  * @property ?int $created_by
  * @property ?int $updated_by
@@ -43,6 +42,26 @@ use Illuminate\Support\Facades\DB;
  * @property ?string $created_at
  * @property ?string $updated_at
  * --- fin de las columnas generadas ---
+ *
+ * Y el color del docente, por migración (`2026_09_04_200000_tono_del_docente`,
+ * 23 §9.bis.3): lo pide el escritorio de horarios, donde hace falta para seis de
+ * sus ocho informes. Nace `NULL` en los diecisiete y lo seguirá siendo hasta que
+ * alguien reparta los colores una primera vez, así que el nulo es el caso normal
+ * y no el raro.
+ *
+ * **Va aquí abajo y no dentro de las marcas, que es donde estaba y era un
+ * descuido mío.** El bloque de arriba lo reescribe
+ * `tools/columnas-en-los-modelos.php` desde `database/schema/mysql-schema.sql`,
+ * que es el volcado **congelado** de producción y no tiene las columnas que
+ * añaden las migraciones nuevas. Lo midió `8myvc-3c` el 4 sep 2026 regenerando
+ * los 54 modelos sobre copias: dentro de las marcas se perdían **dos**
+ * `@property` de 760 —ésta y `Subunidad.rubrica_id`— y no entraba ninguna. Debajo
+ * de la marca de fin no se toca nada, que es por lo que `regla_nivelacion` y
+ * `horario_version_id` llevan meses a salvo en `Year.php` sin estar tampoco en el
+ * volcado. *El detector no es «no está en el volcado»: es «no está en el volcado
+ * **y** está dentro de las marcas».*
+ *
+ * @property ?string $tono
  *
  * Y los atributos que NO son columnas: el código se los cuelga al modelo en
  * tiempo de ejecución para armar la respuesta, que es un patrón repetido por
