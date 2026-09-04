@@ -199,6 +199,39 @@ los dos, solo, habría dado trece.*
 
 ---
 
+## 3.quinquies La catorce, que la trajo `myvc_front_2` — y por qué NO cambia el «1 de 13»
+
+`myvc-front-0c` contestó al aviso con un dato que no estaba en el censo: **hay una respuesta
+más que contiene `tono`**, `GET horario/versiones/{id}/lecciones`, que lo saca dentro de
+`docentes: [{id, nombres, apellidos, tono}]`. **Reproducido aquí antes de escribirlo**, porque
+venía de otro repositorio:
+
+- `HorarioController::docentesDeLaVersion` (línea 1143) hace
+  `SELECT hpd.pieza_id, p.id, p.nombres, p.apellidos, p.tono` — **columnas nombradas**.
+- Y además **construye el array clave por clave**, no vuelca la fila.
+- `tests/Contrato/HorarioLeccionesTest.php:271` hace
+  `assertSame(['id','nombres','apellidos','tono'], array_keys($docentes[0]))`.
+
+**Es de otra especie y por eso no entra en las trece.** Las trece son respuestas donde una
+columna nueva **se cuela sola**. Ésta **no puede**: expone `tono` **a propósito y por su
+nombre**, y una columna nueva de `profesores` no llegaría nunca a ese bloque, ni por la
+consulta ni por el array. *`myvc-front-0c` dijo que ahí una columna nueva «os saldría roja»;
+es cierto que el control existe, pero **no puede dispararse por esa causa**: no hay por dónde
+colarse.*
+
+> **Cuenta igual, y mucho: es el contraejemplo.** Es el único sitio del censo con **tres
+> defensas independientes** —consulta que nombra, array que nombra, y una aserción sobre el
+> **juego exacto de claves**— y es exactamente lo que las otras doce no tienen. *La diferencia
+> entre esta ruta y las doce no es la suerte: es que ésta se escribió sabiendo qué se publicaba.*
+
+**El compromiso que pidió `myvc_front_2`, y que queda escrito porque es contrato:** tienen
+`docentes[]` **copiado y tipado** de su lado, con `strict` y `noUncheckedIndexedAccess`. Un
+campo **de más** no les molesta; **uno de menos, o `tono` dejando de ser nullable, o
+`nombres`/`apellidos` compuestos en el servidor, les rompe la compilación** — que es lo que
+quieren. **Cualquier cambio de forma en `docentes[]` de esa ruta se avisa.**
+
+---
+
 ## 4. Lo que hay que decidir, y no lo decide una sesión
 
 **Nada de esto está roto**: `tono` es `null` en los diecisiete y es aditivo. Lo que cambia es

@@ -58,5 +58,17 @@ O sea que **la próxima columna que se añada a `profesores` puede llegaros sin 
 no hay nada que la detecte del lado del backend. Si algún cliente vuestro es sensible a campos
 nuevos, decidlo y se le pone instantánea a esa ruta: **es barato y es lo único que lo caza.**
 
+## Y una catorce, que es la bien hecha
+
+`GET horario/versiones/{id}/lecciones` **también trae `tono`**, pero **a propósito y por su
+nombre**, dentro de `docentes: [{id, nombres, apellidos, tono}]`. No entra en las trece porque
+ahí una columna nueva **no se puede colar**: la consulta nombra sus columnas, el array se
+construye clave por clave, y hay un test que asevera el **juego exacto de claves**. Tres
+defensas independientes.
+
+`myvc_front_2` ya tiene esa forma copiada y tipada, con `tono: string | null`. **Compromiso por
+nuestra parte: cualquier cambio de forma en ese `docentes[]` —un campo que se va, `tono`
+dejando de ser nullable, o `nombres`/`apellidos` compuestos en el servidor— se avisa antes.**
+
 El censo completo, con los descartes y con lo que el instrumento no ve, está en
 [`docs/migracion/30-lo-que-reparte-una-columna-nueva.md`](migracion/30-lo-que-reparte-una-columna-nueva.md).
