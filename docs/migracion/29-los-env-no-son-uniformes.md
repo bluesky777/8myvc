@@ -286,9 +286,43 @@ entre el censo de antes y el de después mueve las diecisiete líneas.
 > lee, y borrarlo habría tocado un colegio que tuviera SMTP real. *El censo demostró que
 > ninguno lo tiene* — pero eso **se supo después de mirar**, que es el orden correcto.
 
+### Y la única prueba que vale: llegó
+
+**Verificado el 3 sep 2026 con `correo:probar` contra un buzón real, y el correo llegó.** Todo
+lo anterior demostraba que la *configuración* era correcta; esto demuestra que **sale, se
+relevа y se entrega**.
+
+**La primera pasada rebotó, y el rebote enseñó más que un envío bueno.** Se mandó al marcador
+de posición `TU@CORREO.com` —que es un dominio **real, con MX**, así que aceptó la conexión y
+rechazó el usuario con un `550 5.1.1`—. Las cabeceras del rebote traían la confirmación entera:
+
+```
+X-Postfix-Sender:  rfc822; admin@micolevirtual.com     <- el arreglo llegó al envío, no sólo al fichero
+Reporting-MTA:     dns; relay.mailchannels.net         <- la salida NO es directa del servidor
+```
+
+> **Y eso corrige un razonamiento de este mismo documento.** El §1 y la primera versión del
+> script excluían `lal` porque su IP (`70.32.23.70`) no está en el `ip4:` del SPF de
+> `micolevirtual.com`. **La premisa era falsa: el servidor no envía directo.** La cadena real es
+>
+> ```
+> micolevirtual.com -> include:spf.a2hosting.com -> include:relay.mailchannels.net -> ip4:23.83.208.0/20
+> ```
+>
+> o sea que **la IP que envía nunca es la del servidor**, y el `ip4:70.32.23.72` no es lo que
+> autoriza estos mensajes. Da igual desde qué cuenta de a2hosting salgan: pasan por el
+> `include`. *El razonamiento sobre SPF era correcto para un modelo de envío que este servidor
+> no usa — y sólo se vio al leer las cabeceras de un mensaje real.*
+
 > **Lo que quedó fuera del alcance, y hay que decirlo:** el script barre `/home/micolev1/*`, y
 > **la instalación viva de `lal` está en la otra cuenta**. Su `.env` sigue sin medir y sin
 > arreglar. Es la misma instalación número dieciocho del §1.
+
+> **Y una cuenta que no cuadra y queda abierta:** de los diecisiete envíos de la primera pasada
+> **volvieron cuatro rebotes**, no diecisiete. Los otros trece pueden estar en cola, haber sido
+> limitados por MailChannels o no haber salido. **No se sabe, y la diferencia importa**: un
+> límite de envíos por hora convertiría una tanda de recuperaciones en correo perdido sin
+> ningún error. Se contesta contando cuántos llegan en la pasada completa.
 
 ### Dos cosas que se midieron por el camino y corrigen lo que se había escrito
 

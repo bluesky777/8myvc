@@ -52,8 +52,26 @@ verificado en el servidor por Joseth**, escrito por esta sesión
 >
 > Los cuatro campos en los diecisiete, con respaldo de cada `.env` **fuera del docroot** y
 > `config:clear && config:cache` detrás: **17 tocados, 0 saltados**, y el `diff` de los dos
-> censos mueve las diecisiete líneas. **Falta la prueba de entrega** —`correo:probar` y el
-> rastreo de cPanel—, que es lo único que demuestra que sale y no sólo que Exim lo acepta.
+> censos mueve las diecisiete líneas.
+>
+> **Y llegó.** `correo:probar` contra un buzón real, 3 sep 2026: el correo **sale, se releva y
+> se entrega**. Es lo único que ningún paso anterior demostraba —todos probaban que la
+> configuración era correcta, no que el mensaje llegara—.
+>
+> **La primera pasada rebotó, y el rebote enseñó más que un envío bueno.** Fue a un marcador de
+> posición que resultó ser **un dominio real con MX** (`550 5.1.1`, usuario desconocido), y sus
+> cabeceras traían `X-Postfix-Sender: admin@micolevirtual.com` —el arreglo llegó al envío, no
+> sólo al fichero— y `Reporting-MTA: relay.mailchannels.net`. **Eso último corrige el
+> razonamiento del SPF de esta misma noche**: el servidor **no envía directo**, sino que releva
+> por MailChannels, que el SPF autoriza por `include`. La IP que envía **nunca** es la del
+> servidor, así que excluir `lal` por estar en `.70` no tenía fundamento. *Era correcto para un
+> modelo de envío que este servidor no usa, y sólo se vio leyendo las cabeceras de un mensaje
+> real.*
+>
+> **Y una cuenta que no cuadra:** de los diecisiete envíos volvieron **cuatro** rebotes, no
+> diecisiete. Cola, límite de MailChannels o no salieron: **no se sabe**, y la diferencia
+> importa, porque un límite por hora convertiría una tanda de recuperaciones en correo perdido
+> sin ningún error.
 >
 > ### TRES COSAS QUE SE MIDIERON POR EL CAMINO Y CORRIGEN LO ESCRITO
 >
