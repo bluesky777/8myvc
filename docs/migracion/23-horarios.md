@@ -1816,6 +1816,77 @@ están en `DESPLIEGUE.md` y **no se repiten aquí**. Lo que es de este módulo:
    —sólo `SELECT`— y contesta si los datos de ese colegio sirven para cuadrar un horario.
    Tiene tres códigos de salida a propósito: **`2` es «no medido», que no es «limpio»**.
 
+### 11.3.bis. La tanda ENSAYADA sobre una base con datos — 4 sep 2026
+
+**Nadie la había corrido nunca sobre una base con filas**, y el propio
+`tools/construir-bd-test.sh` lo dice en su cabecera: aplica las migraciones **antes del
+seed**, o sea sobre el esquema pelado, y *«lo que este orden NO comprueba es una migración
+que transforme datos que ya estaban»*. Ensayado el 4 sep 2026 sobre una **copia** de
+`simonbolivar` del docker —**210 MB, 102 tablas, 1.166.139 filas en `notas`**— llevada al
+**estado exacto de un colegio desplegado** (`notas_finales_en_decimal` aplicada, las ocho
+pendientes) y migrada hacia adelante:
+
+| migración | ms |
+|---|---|
+| `retirar_boletin_independiente_de_matriculas` | 14,05 |
+| `puestos_con_bol_independiente` | 28,67 |
+| **`nivelaciones_columnas`** — cinco columnas sobre 1,17 M de filas | **107,98** |
+| `nivelacion_de_la_definitiva` | 22,47 |
+| `acta_de_la_recuperacion_final` | 20,63 |
+| `rubricas` | 554,43 |
+| `horario_versiones` | 239,41 |
+| `tono_del_docente` | 27,14 |
+| **las ocho** | **≈ 1,0 s** |
+
+**Y el `tinker` de `DESPLIEGUE.md` da `OK - las ocho dentro` sobre esa base — comprobado, no
+supuesto—, y además SE HA VISTO ROJO**: sobre una base de sesión parada en
+`2026_08_31_100000` nombra **quince** cosas que faltan. Un comprobador que sólo se ha visto
+en verde no vale, y éste ya se ha visto en los dos.
+
+#### ⚠️ PERO ESE SEGUNDO NO SE PUEDE LLEVAR AL DESPLIEGUE, Y ÉSTE ES EL HALLAZGO
+
+**El docker corre MySQL 8.0.42**, que añade y quita columnas **al instante**
+(`ALGORITHM=INSTANT`): no reescribe la tabla. **Los diecisiete colegios corren en cPanel y
+nadie ha escrito nunca qué versión de MySQL hay allí** — `grep` sobre `DESPLIEGUE.md` y
+`DESPLIEGUE-REFERENCIA.md` da **cero**. Y esa versión decide el resultado, medido sobre la
+misma tabla y las mismas cinco columnas:
+
+```
+ALGORITHM=INSTANT        11,8 ms      <- MySQL 8, lo que hace el docker
+ALGORITHM=COPY        4.870,7 ms      <- lo que haría MySQL 5.7, que no tiene instantáneo
+                                          413 veces más, y con la tabla bloqueada
+```
+
+**Así que la pregunta que hay que contestar antes del día 10 es de una línea:**
+
+    SELECT VERSION();
+
+- **Si es MySQL 8.0.12 o superior**, la tanda es ~1 s por colegio y no hay ventana.
+- **Si es 5.7 o MariaDB sin DDL instantáneo**, sólo esa migración se lleva **~5 s en un
+  colegio del tamaño del de desarrollo**, con la tabla `notas` bloqueada mientras tanto — y
+  **el número escala con las filas**: un colegio con el doble de notas tarda el doble. Con
+  diecisiete colegios eso deja de ser un detalle y pasa a ser el plan.
+
+*La cifra de 4,87 s es de esta base y de esta máquina: en un hosting compartido, con disco
+compartido, se puede ir bastante más arriba. Sirve como **orden de magnitud y como cota
+inferior**, no como predicción.*
+
+#### Y dos cosas que el ensayo descartó, para que no se busquen el día 10
+
+- **Ninguna de las ocho toca datos.** Son **DDL puro**: cero `DB::update/insert/delete` en
+  las ocho. Así que el aviso de la cabecera de `construir-bd-test.sh` —«no comprueba una
+  migración que transforme datos»— **no muerde en esta tanda**.
+- **Ninguna puede fallar por las filas que ya hay.** Toda columna añadida a una tabla que ya
+  existe es `nullable()` o lleva `default()`, y las dos claves ajenas nuevas
+  (`subunidades.rubrica_id`, `years.horario_version_id`) cuelgan de **columnas nuevas y
+  todas nulas**, así que no hay fila que pueda violarlas. Comprobado corriéndolas, no
+  leyéndolas.
+- **Y la vuelta atrás FUNCIONA como mecanismo**, que no es lo mismo que servir: las ocho
+  `down()` corrieron limpias y en orden inverso. Lo que no vuelve es **el dato**:
+  `retirar_boletin_independiente_de_matriculas` re-crea la columna **vacía**. La §11.4 sigue
+  entera; lo que se afina es el porqué — no es que el `down()` reviente, es que **devuelve el
+  esquema y no el contenido**.
+
 ### 11.4. Qué se rompe si se hace mal
 
 | si se hace… | qué pasa |

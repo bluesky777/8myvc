@@ -22,6 +22,63 @@
 > Los mensajes de commit están limpios —cero apariciones—, así que sólo había que tocar
 > estas tres líneas.
 
+**4 sep 2026 — LA TANDA ENSAYADA SOBRE UNA BASE CON DATOS, Y HAY UNA PREGUNTA DE UNA LÍNEA
+QUE HAY QUE CONTESTAR ANTES DEL DÍA 10** · sólo documentos: [23 §11.3.bis](23-horarios.md) y
+esta casilla · **cero código** · la copia de ensayo se borró al terminar
+
+> **Nadie había corrido nunca las ocho sobre una base con filas.** `construir-bd-test.sh` las
+> aplica **antes del seed**, o sea sobre el esquema pelado, y su cabecera lo dice. Ensayadas
+> sobre una **copia** de `simonbolivar` —**210 MB, 1.166.139 filas en `notas`**— llevada al
+> **estado exacto de un colegio desplegado** y migrada hacia adelante: **las ocho en ≈ 1,0 s**,
+> la mayor `rubricas` con 554 ms, y `nivelaciones_columnas` —cinco columnas sobre 1,17 M de
+> filas— en **108 ms**.
+>
+> **Y el `tinker` de `DESPLIEGUE.md` da `OK - las ocho dentro` sobre esa base, comprobado; y
+> se ha visto ROJO**, que es lo que lo hace valer: sobre una base de sesión parada en
+> `2026_08_31_100000` nombra **quince** cosas que faltan.
+>
+> ### ⚠️ PERO ESE SEGUNDO NO SE PUEDE LLEVAR AL DESPLIEGUE
+>
+> **El docker corre MySQL 8.0.42**, que añade columnas **al instante** sin reescribir la
+> tabla. **Los diecisiete corren en cPanel y qué versión de MySQL hay allí no está escrito en
+> ningún sitio** — `grep` sobre `DESPLIEGUE.md` y `DESPLIEGUE-REFERENCIA.md` da **cero**. Y
+> decide el resultado, medido sobre la misma tabla y las mismas cinco columnas:
+>
+> ```
+> ALGORITHM=INSTANT        11,8 ms      <- MySQL 8, lo del docker
+> ALGORITHM=COPY        4.870,7 ms      <- lo que haría MySQL 5.7
+>                                          413 veces más, con `notas` bloqueada
+> ```
+>
+> **La pregunta es de una línea y es lo más barato que puedes hacer antes del día 10:**
+> `SELECT VERSION();` en un colegio.
+>
+> - **8.0.12 o superior** → ~1 s por colegio, no hay ventana y el plan no cambia.
+> - **5.7 o MariaDB sin instantáneo** → sólo esa migración se lleva **~5 s en un colegio del
+>   tamaño del de desarrollo**, con `notas` bloqueada, **y escala con las filas**. Por
+>   diecisiete, eso deja de ser un detalle y pasa a ser el plan.
+>
+> *Los 4,87 s son de esta máquina: en un hosting compartido pueden ser bastante más. Es una
+> **cota inferior**, no una predicción.*
+>
+> ### Y tres cosas que el ensayo descartó, para que no se busquen el día 10
+>
+> 1. **Ninguna de las ocho toca datos**: DDL puro, cero `DB::update/insert/delete`. El aviso
+>    de `construir-bd-test.sh` —«no comprueba una migración que transforme datos»— **no muerde
+>    aquí**.
+> 2. **Ninguna puede fallar por las filas que ya hay**: toda columna añadida a tabla existente
+>    es `nullable()` o lleva `default()`, y las dos claves ajenas nuevas cuelgan de columnas
+>    **nuevas y todas nulas**. Comprobado corriéndolas.
+> 3. **La vuelta atrás funciona como mecanismo** —las ocho `down()` corrieron limpias— pero
+>    **devuelve el esquema y no el contenido**: `retirar_boletin_independiente` re-crea la
+>    columna **vacía**. La §11.4 sigue entera; lo que se afina es el porqué.
+>
+> ### Y una que no es mía y está ahí: una base de sesión rota
+>
+> `simonbolivar_testing_h` tiene **95 tablas** y está parada en `2026_08_31_100000` — el
+> estado que `construir-bd-test.sh` documenta como el peor: **la columna que esa migración
+> retira ya retirada y las demás sin llegar**. No la he tocado. Se arregla reconstruyéndola.
+
 **4 sep 2026 — EL CONGELADO TIENE FECHA: EL 10 DE SEPTIEMBRE, Y LA PREGUNTA QUE LO
 DESBLOQUEA YA ESTÁ CONTESTADA** · decisión de Joseth · sólo documentos:
 [`DESPLIEGUE.md` §🛑](../DESPLIEGUE.md) y esta casilla · **cero código**
