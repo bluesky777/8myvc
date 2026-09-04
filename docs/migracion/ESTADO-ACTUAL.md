@@ -22,7 +22,62 @@
 > Los mensajes de commit están limpios —cero apariciones—, así que sólo había que tocar
 > estas tres líneas.
 
-**3 sep 2026 — EL CORREO ESTABA CAÍDO EN LOS DIECISÉIS COLEGIOS REALES, Y EL ÚNICO CONFIGURADO ERA `demo`** ·
+**3 sep 2026 — `APP_DEBUG=true` EN CINCO COLEGIOS, Y EL ARREGLO DE CORS SIN APLICAR EN DIECISÉIS** ·
+misma rama `docs/appkey-compartida-fortul-lal` · **NO FUSIONADA, NO EMPUJADA** · sólo
+documentación · [`29`](29-los-env-no-son-uniformes.md) §5 y §6 · **censado y corregido en el
+servidor por Joseth**, escrito por esta sesión
+
+> **El pendiente más viejo de la lista ya está medido, y estaba encendido.** `01:395` decía
+> «**Verificar producción**» y `09:1159` «comprobarlo colegio a colegio» desde el principio,
+> porque hacía falta la sesión del servidor. Censado: **`APP_DEBUG=true` en 5 de 17** —
+> `caz-zaragoza`, `coabsaravena`, `coal`, `inseaq`, `maranathaarauca`—. **Ya no**: puestos a
+> `false` con respaldo fuera del docroot y `config:clear && config:cache`, los cinco `OK`.
+>
+> **No era teórico**: el cuerpo de cualquier 500 lleva `Host`, `Port` y `Database`, y hay **doce
+> rutas públicas sin token**, entre ellas `PUT login/crear-prematricula` —viva, con
+> `withoutMiddleware('auth.token')`—, que es la que la casilla 1bis describe llegando a un 500.
+>
+> **Y `CORS_ALLOWED_ORIGINS` está en 1 de 17** (`FRONTEND_URL`, también en 1). Ausente,
+> `config/cors.php` cae a `['*']`: **el punto 2 del PR #3 no hace nada en dieciséis**. Es la
+> tercera vez esta noche que un `PENDIENTE` resulta estar sin aplicar en casi todos —correo,
+> CORS— y **la primera que se cuenta**. *Éste no se cierra con un bucle: el valor es el dominio
+> de cada colegio, así que es una decisión de Joseth antes que un script.*
+>
+> ### LA FILA QUE SOSTIENE EL TÍTULO DEL DOCUMENTO
+>
+> **Los diecisiete tienen CINCO juegos de claves distintos** (6 · 8 · 1 · 1 · 1). No divergen
+> sólo en valores: divergen en **qué líneas existen**. `JWT_SECRET` está en **16 de 17** y es
+> peso muerto —`tymon/jwt-auth` se quitó al saltar a Laravel 10, no hay `config/jwt.php`, el
+> paquete no está en `composer.json`, `composer.lock` ni `vendor/`, y `jwt:secret` no existe—.
+> `FCM_CREDENCIALES` y los cuatro `SESION_*_TTL`: **0 de 17**.
+>
+> ### DOS SOSPECHAS MÍAS QUE LA MEDICIÓN TUMBÓ
+>
+> 1. **`APP_ENV=local` en quince asusta y no hace nada.** Sólo `demo` y `eal` están en
+>    `production`. Pero **el código no consulta `APP_ENV` ni una vez** —cero usos de
+>    `App::environment()`, `app()->environment()` y `config('app.env')` en `app/`, `config/`,
+>    `bootstrap/` y `routes/`, contados—. Lo que sí cambia: **artisan no pide confirmación**
+>    para comandos destructivos, así que un `migrate:fresh` correría sin preguntar en quince.
+>    *Riesgo operativo, no de exposición, y conviene no venderlo como lo segundo.*
+> 2. **El «`\r` de Windows» no existía.** Tres censos salieron con `FILESYSTEM_DRIVER=local`
+>    pegado a `QUEUE_CONNECTION=sync` sin espacio, y la hipótesis razonable era un CRLF, que
+>    metería el `\r` dentro del valor. `cat -A` sobre los cuatro: `FILESYSTEM_DRIVER=local$`,
+>    fin de línea limpio. **Era el terminal comiéndose un espacio al ajustar la línea.**
+>    *El primer intento de medirlo además estaba mal escrito —`grep -c` imprime `0` **y** sale
+>    con código 1, así que el `|| echo 0` añadía un segundo cero y `[` reventaba con
+>    `"0\n0"`—: los diecisiete errores insinuaban la respuesta buena por el motivo equivocado.*
+>
+> ### Y UN FALLO MÍO EDITANDO, QUE ES EL DEL PROPIO DOCUMENTO
+>
+> Reescribir el §5 entero **huerfanó una subsección de `myvc-horarios-42`** —la de cómo NO medir
+> CORS, con lo del `Origin` como *forbidden header name*—: mi reemplazo cortó en el primer `---`
+> y dejó sus 31 líneas colgando **bajo el §6**, en la sección equivocada. **No da error y el
+> fichero se lee casi bien.** Devuelta a su sitio y comprobada contra `main`: **31 líneas y 31,
+> diff vacío, ni una perdida.** *Es exactamente la familia que este documento persigue, cometida
+> dentro del documento que la persigue.*
+
+
+**Anterior: 3 sep 2026 — EL CORREO ESTABA CAÍDO EN LOS DIECISÉIS COLEGIOS REALES, Y EL ÚNICO CONFIGURADO ERA `demo`** ·
 misma rama `docs/appkey-compartida-fortul-lal` · **NO FUSIONADA, NO EMPUJADA** · sólo
 documentación · [`29`](29-los-env-no-son-uniformes.md) §3 · **censado, arreglado y
 verificado en el servidor por Joseth**, escrito por esta sesión

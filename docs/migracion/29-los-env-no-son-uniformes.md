@@ -24,7 +24,8 @@ falsas en un colegio**, no por dónde aparecen.
 | **Leídas por el código y NO documentadas en `.env.example`** | **52** |
 | Documentadas y que no lee ni `config/` ni `app/` | 2 (`MIX_PUSHER_*`, restos del andamiaje de Laravel: sólo las mira `resources/js/bootstrap.js`) |
 | `.env` de producción que alguien ha leído **entero** | **1 de 17** (`cads-itagui`) |
-| Variables censadas **en los diecisiete** | **6**: `APP_MOVIL_VERSION_MINIMA` (2 sep), `APP_KEY` y los cuatro `MAIL_*` (3 sep) |
+| Variables censadas **en los diecisiete** | **12**: `APP_MOVIL_VERSION_MINIMA` (2 sep); `APP_KEY`, los cuatro `MAIL_*`, `APP_DEBUG`, `APP_ENV`, `CORS_ALLOWED_ORIGINS`, `FRONTEND_URL`, `JWT_SECRET` y los cuatro *drivers* (3 sep) |
+| **Juegos de claves distintos entre los diecisiete** | **5** — y ésta es la fila que sostiene el título |
 
 Esa última fila es el documento entero. **1 de 17** — dieciséis colegios más `demo`
 (`DESPLIEGUE.md`, barrido del 2 sep 2026).
@@ -359,30 +360,27 @@ Memcached, SQS, Dynamo, Papertrail, Mailgun, Postmark).
 
 ---
 
-## 5. `CORS_ALLOWED_ORIGINS` · PENDIENTE, y no se sabe en cuántos colegios se puso
+## 5. `CORS_ALLOWED_ORIGINS` · **MEDIDO: presente en 1 de 17. El arreglo del PR #3 no hace nada en dieciséis**
 
-**La consecuencia: donde no se puso, el arreglo de CORS no hace nada y el origen sigue
-siendo `*`.** No es una divergencia peligrosa; es una tarea de la que se desconoce el
-avance.
+**Censado el 3 sep 2026.** Esta sección decía «inerte donde no se puso, y **no se sabe en
+cuántos colegios se puso**». Se puso en **uno**.
 
-> **Y aquí este documento se corrige a sí mismo.** La primera lectura de
-> `config/cors.php:43` fue que *ausente* daba `['*']` y *presente y vacía* daba `[]` —o sea
-> que un colegio que copiara `.env.example` (que la trae vacía) **bloquearía todos los
-> orígenes**—. Es falso: la expresión termina en **`?: ['*']`**, que estaba en la línea
-> siguiente a la que se leyó. Comprobado ejecutándolo:
->
-> | `CORS_ALLOWED_ORIGINS` | `allowed_origins` |
-> |---|---|
-> | ausente | `["*"]` |
-> | presente y vacía | `["*"]` |
-> | `https://x.edu.co` | `["https://x.edu.co"]` |
->
-> **Ausente y vacía son lo mismo**, igual que en `APP_MOVIL_VERSION_MINIMA`. El código es
-> defensivo y no hay trampa. *Se deja escrito porque el fallo —leer la mitad de una
-> expresión y deducir la consecuencia contraria— es el mismo del que va este documento:
-> concluir sin medir.*
+```
+CORS_ALLOWED_ORIGINS   presente en  1 de 17
+FRONTEND_URL           presente en  1 de 17
+```
 
----
+Ausente, `config/cors.php:43` cae a `['*']`, así que **el origen sigue abierto en dieciséis**.
+Es exactamente la misma forma que el correo (§3): un apartado marcado `PENDIENTE` que se leyó
+durante meses como «pendiente en alguno» y estaba **sin aplicar en casi todos**.
+
+> **Y éste no se arregla con un bucle y una constante, a diferencia del correo:** el valor es
+> **el dominio de cada colegio**, así que hay tantos valores como colegios. Es una decisión de
+> Joseth —qué orígenes entran, y si los cuatro fronts caben en la lista— antes de ser un script.
+
+> **La corrección del §5 anterior sigue en pie y ahora importa más.** *Ausente* y *presente y
+> vacía* dan lo mismo (`['*']`) por el `?: ['*']` del final de la expresión, así que rellenarla
+> a medias no cierra nada: o lleva el dominio, o no sirve.
 
 ### Y cuando se mida: **cómo NO medirlo**, que lo trajo el otro repositorio
 
@@ -415,21 +413,36 @@ nada. Lo pone **la ventana**, y depende de quién sirve la aplicación:
 comprobado **en macOS y sólo en macOS**. Si el ejecutable de Windows manda el mismo origen,
 no lo sabe nadie.
 
-## 6. `APP_DEBUG` · ya estaba catalogado como «colegio a colegio», y ahora hay prueba
+---
 
-**La consecuencia: con `APP_DEBUG=true`, el cuerpo de un 500 lleva `Host`, `Port` y
-`Database`** — y hay una ruta **pública y sin autenticar** que llega a ese 500
-([`ESTADO-ACTUAL.md` casilla 1bis](ESTADO-ACTUAL.md), [`05:12065`](05-codigo-muerto-y-roto.md)).
+## 6. `APP_DEBUG` · **MEDIDO: estaba en `true` en cinco colegios. Arreglado el 3 sep 2026**
 
-Esto **no es un hallazgo nuevo**: [`09-pendientes.md:1159`](09-pendientes.md) ya dice
-«comprobarlo colegio a colegio» y [`01:395`](01-plan-seguridad.md) dice «**Verificar
-producción**». Lo que cambia es el peso de la palabra *comprobarlo*: mientras se creyó que
-los `.env` eran copias de la misma plantilla, era una formalidad. **Con un `.env` real
-delante que trae tres campos del andamiaje sin tocar, deja de serlo.**
+**Era el pendiente más viejo de la lista** —[`01:395`](01-plan-seguridad.md) decía «**Verificar
+producción**», [`09:1159`](09-pendientes.md) decía «comprobarlo colegio a colegio»— y llevaba
+así desde el principio porque comprobarlo exigía la sesión del servidor. Comprobado:
 
-Es, además, la variable que el `.env` de `cads-itagui` permitiría contestar **en un colegio
-de los dieciséis** — y nadie ha dicho qué trae. *No se mira aquí porque este documento no
-tiene ese fichero.*
+```
+APP_DEBUG=true    5 de 17   caz-zaragoza · coabsaravena · coal · inseaq · maranathaarauca
+APP_DEBUG=false  12 de 17
+```
+
+**La consecuencia no era teórica.** Con `APP_DEBUG=true` el cuerpo de cualquier 500 lleva
+`Host`, `Port` y `Database`, y esta API tiene **doce rutas públicas sin token** — entre ellas
+`PUT login/crear-prematricula`, viva y con `withoutMiddleware('auth.token')`
+([`routes/api/auth.php:49`](../../routes/api/auth.php#L49)), que es justo la que la casilla
+1bis describe llegando a un 500.
+
+**Arreglado**: `APP_DEBUG=false` en los cinco, con respaldo fuera del docroot y
+`config:clear && config:cache` detrás. Los cinco dieron `OK`.
+
+### Y `APP_ENV=local` en quince, que asusta y no es lo que parece
+
+Sólo `demo` y `eal` están en `production`. **Pero el código no consulta `APP_ENV` ni una vez**
+—cero usos de `App::environment()`, `app()->environment()` y `config('app.env')` en `app/`,
+`config/`, `bootstrap/` y `routes/`, contados—, así que **no cambia ningún comportamiento de la
+aplicación**. Lo que sí cambia es que **artisan no pide confirmación** para los comandos
+destructivos: en quince colegios un `migrate:fresh` correría sin preguntar. *Es riesgo
+operativo, no de exposición, y conviene no venderlo como lo segundo.*
 
 ---
 
