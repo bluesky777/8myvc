@@ -74,11 +74,18 @@ contadas con `route:list --json` ese día** · pint **PASS** · larastan nivel 7
 >
 > ### Lo que hay que saber para el despliegue, y no cambia el congelado
 >
-> La tanda pasa a **ocho** migraciones. `profesores.tono` **se reparte sola a cinco
-> respuestas vivas** que devuelven la ficha por Eloquent (`postStore`, `putUpdate`, el
-> `getShow` de papelera, `putRestore` y `GET grupos/{id}` dentro de `titular`): vale `null`
-> en todos, así que es inofensiva — **pero es un campo nuevo y se manda dicho, no
-> descubierto**. Las cinco estáticas del modelo nombran sus columnas y no se mueven.
+> La tanda pasa a **ocho** migraciones. `profesores.tono` **se reparte sola a SEIS
+> respuestas vivas** que devuelven la ficha por Eloquent (`postStore`, `putUpdate`,
+> `deleteDestroy`, `deleteForcedelete`, `putRestore` y `GET grupos/{id}` dentro de
+> `titular`): vale `null` en todos, así que es inofensiva — **pero es un campo nuevo y se
+> manda dicho, no descubierto**. Las cinco estáticas del modelo nombran sus columnas y no
+> se mueven, y `ProfesoresController::getShow` es de ésas: usa `detallado()`.
+>
+> > **Aquí decía «cinco» y nombraba un «`getShow` de papelera» que no existe.** Lo corrigió
+> > `8myvc-e0` leyendo los `return` uno a uno — que es lo que yo no hice: conté los sitios
+> > que recordaba, no los que hay. Las dos de la papelera son `deleteDestroy` y
+> > `deleteForcedelete`, y el `getShow` que sí existe es justo el que **no** reparte nada.
+> > La cifra iba **hacia abajo**, que es la dirección en la que un error no se nota.
 
 **Anterior: 4 sep 2026 — LA CUARTA RUTA DEL HORARIO: LO QUE ESTA BASE PUEDE DEVOLVER, MEDIDO, Y EL
 DESPLIEGUE ESCRITO SIN DESCONGELARLO** · rama `docs/horario-cuarta-ruta-y-despliegue`,

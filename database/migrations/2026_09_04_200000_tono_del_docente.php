@@ -40,20 +40,27 @@ use Illuminate\Support\Facades\Schema;
  * «sólo esa migración». Aquí no hace falta ese orden —el sitio de una columna en la
  * tabla no lo lee nadie—, así que no se compra la dependencia. Va sola al final.
  *
- * ## Se reparte SOLA a cinco respuestas vivas, y por eso se avisa al front
+ * ## Se reparte SOLA a SEIS respuestas vivas, y por eso se avisa al front
  *
- * Medido el 4 sep 2026: `ProfesoresController` devuelve el modelo Eloquent entero en
- * `postStore`, `putUpdate`, el `getShow` de papelera y `putRestore`, y
- * `GruposController::getShow` mete la ficha del titular dentro del grupo. Ninguna de
- * las cinco nombra sus columnas, así que **`tono` aparece en las cinco sin que nadie
- * la mande** — igual que le pasó a `years.horario_version_id` con los tres `SELECT *`
+ * Medido el 4 sep 2026 leyendo los `return` uno a uno: `ProfesoresController` devuelve
+ * el modelo Eloquent entero en `postStore`, `putUpdate`, **`deleteDestroy`**,
+ * **`deleteForcedelete`** y `putRestore`, y `GruposController::getShow` mete la ficha
+ * del titular dentro del grupo. Ninguna de las seis nombra sus columnas, así que
+ * **`tono` aparece en las seis sin que nadie la mande** — igual que le pasó a `years.horario_version_id` con los tres `SELECT *`
  * de `YearsController`. Vale `null` en todos, así que es lo más inofensivo que se le
  * puede mandar a los cuatro clientes, **pero es un campo nuevo y se manda dicho, no
  * descubierto**.
  *
  * Las estáticas del modelo (`detallado`, `fromyear`, `paraElegirEnAsignaturas`,
  * `contratos`, `asignaturas`) **nombran sus columnas una a una** y no se mueven — se
- * comprobaron las cinco.
+ * comprobaron las cinco. **`ProfesoresController::getShow` es de éstas y no de las de
+ * arriba**: usa `Profesor::detallado()`, así que no trae `tono`.
+ *
+ * > **Este bloque decía «cinco» y nombraba un «`getShow` de papelera» que no existe.**
+ * > Lo corrigió `8myvc-e0` el 4 sep 2026 leyendo los `return` uno a uno, que es lo que
+ * > yo no hice: conté los sitios que **recordaba** en vez de los que hay. Las dos de la
+ * > papelera son `deleteDestroy` y `deleteForcedelete`, y el `getShow` que sí existe es
+ * > justo el que **no** reparte nada.
  *
  * ## Nadie la escribe todavía, y quien la escriba tiene que validar la longitud
  *

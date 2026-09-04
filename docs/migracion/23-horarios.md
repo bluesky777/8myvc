@@ -1696,8 +1696,16 @@ saber al leerlas:
 1. La fila de `2026_09_04_100000_horario_versiones` dice que sin la migración **sólo**
    `POST horario/versiones` pasa de 501 a 500, y que `getVersiones` y `putOficial` «siguen a
    501 y no las tocan». **Era cierto sobre `347f137` y dejó de serlo con los lotes B3 y C2**:
-   los tres métodos están implementados y los tres nombran las tablas nuevas. El radio de esa
-   fila es hoy **3 rutas, no 1**.
+   los tres métodos están implementados y los tres nombran las tablas nuevas.
+
+   **Y el radio no son 3, son CUATRO — la cuarta ni siquiera es de este módulo.** Lo midió
+   `8myvc-e0` el 4 sep 2026: `years.horario_version_id` la lee
+   `ChangeAskedController::horarioOficialDelAnio()` desde `getToMe` **en sus dos ramas**, o
+   sea **`GET ChangesAsked/to-me`** — la que pide la app al abrir, con `auth.token` a secas.
+   Sin la migración **cae el panel de todo el mundo**, no una ruta de un módulo que todavía
+   no usa nadie. *Yo corregí esa fila de 1 a 3 y me quedé corto por el mismo motivo por el
+   que estaba mal: miré el módulo en vez de mirar quién lee la columna.* Esa fila lleva
+   **tres caducidades seguidas**.
 2. El aviso **O** dice que las tres de `horario/` «hoy contestan 501». Ya no: contestan.
 
 **Es la misma forma de envejecer que ese documento ya tiene catalogada** —*una afirmación
