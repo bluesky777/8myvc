@@ -57,7 +57,7 @@ repartido por `8myvc-f5`, de parte de Joseth
 > | **K, L, M** | ciertas al detalle, incluidas las ocho claves de `to-me` una a una |
 > | **N** | se quedaba corta: nombra 4 sitios y la nivelación toca **10**, uno de ellos `GET notas/alumno/…`, **la que un alumno pide sobre sí mismo**. Y «los boletines» son `boletines` y `boletines2`: **`boletines3` no gana ni una clave** |
 > | **O** | **falsa**: decía que las tres de `horario/` «hoy contestan 501» y ninguna lo hace desde el 3 sep |
-> | **P, Q, R, S — nuevos** | `horario_version_id` en `to-me`; las tres columnas de `years` que reparte un `SELECT y.*` a `GET years`, `/colegio` y `/trashed`; `profesores.tono` en **seis** respuestas Eloquent; y los **once** sitios del boletín independiente |
+> | **P, Q, R, S — nuevos** | `horario_version_id` en `to-me`; las tres columnas de `years` que reparte un `SELECT y.*` a `GET years`, `/colegio` y `/trashed`; `profesores.tono` en **trece** respuestas —ver abajo, nació diciendo seis—; y los **once** sitios del boletín independiente |
 >
 > **Los cuatro que faltaban tienen la misma forma, y por eso faltaban los cuatro:** son campos
 > que **se reparten solos** —un `SELECT *`, un modelo Eloquent devuelto entero, una clave nueva
@@ -99,6 +99,35 @@ repartido por `8myvc-f5`, de parte de Joseth
 > rutas»*, hoy 547 de 565— **lo lleva `8myvc-f5` a Joseth**, no esta sesión: es `app/`, fuera de
 > este lote, y **una misma cosa no se pide por dos puertas**.
 >
+> ### El aviso R se escribió mal dos veces, y la segunda es la que enseña algo
+>
+> Nació diciendo **seis** —las respuestas Eloquent de `ProfesoresController` y `GruposController`—,
+> que era **el alcance del encargo, no el de la pregunta**. Al revisarlo se ensanchó **un eje**: el
+> SQL crudo. Salió que `DocentesExport` hace `SELECT p.*` y filtra en la vista (17 columnas
+> nombradas en `listado-docentes.blade.php`), y se escribió *«seis sigue siendo seis, y ahora dice
+> por dónde se buscó»* (`6f21b7e`). **El otro eje —qué controladores— seguía sin tocar.**
+>
+> Son **trece**. Las siete que faltaban: `PerfilesController::getShow` (gemela de la de grupos),
+> `::putUpdate` en su rama de Profesor, `::putCambiarimgunprofe`,
+> `ImagesUsuariosController::putCambiarFotoUnUsuario` y `::putCambiarFirmaUnProfe`, y **dos de SQL
+> crudo** —`PUT profesores/listado` (`SELECT p.*`) y `PUT participantes/profesores`
+> (`SELECT * FROM profesores p`)—. Lo levantó `8myvc-ff`; **verificadas aquí una a una** antes de
+> aceptarlas, y de paso se descartaron cuatro que **no** llegan a ninguna respuesta
+> (`Profesor::all()` de `creartodoslosusuarios`, el `findOrFail` de `postInscribirProfesores`, el
+> `->get()` de borrar una imagen y `ChangeAskedController::cambiarOficialProfesor`, cuyo retorno
+> **se descarta en el llamante**, `:707`).
+>
+> *Ensanchar la búsqueda por un eje y dar el número por confirmado es peor que no haberla
+> ensanchado: el «ahora dice por dónde se buscó» es lo que hace que nadie vuelva a mirar.* Es la
+> misma forma que ya estaba catalogada tres veces en la fila de `horario_versiones` —mirar el módulo
+> en vez de mirar quién lee la columna—, cometida por quien la escribió.
+>
+> **Y no hay dos avisos: hay uno.** La lista canónica es
+> `docs/AVISO-A-LOS-CLIENTES-tono.md` de `8myvc-ff`, que es lo que se le entregó al front; la fila R
+> de `DESPLIEGUE.md` **apunta y no repite**, como ya hace la N con el [22 §3.4](22-nivelaciones.md).
+> Dos listas de la misma columna en dos ficheros es cómo el front acaba creyendo que la más corta es
+> la corregida.
+
 > **Lo que NO se pudo comprobar y hay que decirlo:** que la base desplegada siga siendo
 > `9474b50` **no se mide desde este repositorio** —el hash vive en el servidor—. Lo que sí:
 > el registro del despliegue del 31 ago, que **ninguno de los 37 commits del rango que nombran
