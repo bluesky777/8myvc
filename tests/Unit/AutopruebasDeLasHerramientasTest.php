@@ -155,6 +155,12 @@ class AutopruebasDeLasHerramientasTest extends TestCase
             // Su segunda forma de mentir es la de `SUM(creditos)`: una IH nula no se evapora,
             // desaparece del total, y el total sale cuadrado habiendo mirado de menos.
             'prevuelo-del-horario.php' => ['php', 'tools/prevuelo-del-horario.php --control'],
+
+            // La deriva de las siete columnas de día. Su decisión silenciosa es el
+            // convenio `0 = domingo` (§5.2.5): equivocarlo no da error, **da un horario
+            // corrido un día** con todas las reglas cumpliéndose igual, así que el mapa
+            // se ejercita aquí y no se confía a que alguien lo relea.
+            'deriva-del-horario.php' => ['php', 'tools/deriva-del-horario.php --control'],
         ];
     }
 

@@ -115,6 +115,7 @@
     "GET api/grupos/trashed": "App\\Http\\Controllers\\GruposController@getTrashed",
     "GET api/grupos/{grupo_id}/alumnos-de/{que}": "App\\Http\\Controllers\\GruposController@getAlumnosDe",
     "GET api/horario/versiones": "App\\Http\\Controllers\\HorarioController@getVersiones",
+    "GET api/horario/versiones/{id}/lecciones": "App\\Http\\Controllers\\HorarioController@getLecciones",
     "GET api/importar": "App\\Http\\Controllers\\Alumnos\\ImportarController@getIndex",
     "GET api/importar/modificar/{year}": "App\\Http\\Controllers\\Alumnos\\ImportarController@getModificar",
     "GET api/materias": "App\\Http\\Controllers\\MateriasController@getIndex",

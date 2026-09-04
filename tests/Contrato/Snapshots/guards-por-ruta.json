@@ -77,6 +77,7 @@
         "GET api/grupos/trashed",
         "GET api/grupos/{grupo_id}/alumnos-de/{que}",
         "GET api/horario/versiones",
+        "GET api/horario/versiones/{id}/lecciones",
         "GET api/importar",
         "GET api/importar/modificar/{year}",
         "GET api/nota_comportamiento/detailed/{grupo_id}",

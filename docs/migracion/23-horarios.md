@@ -1185,8 +1185,9 @@ nunca declaró es indistinguible de un hueco real — el `[]` de la §2 otra vez
 celda.
 
 ```
-GET horario/versiones/{id}/lecciones        ← el número se cuenta con `route:list` el día
-                                              que se escriba, y NO se predice aquí (§10.2.3)
+GET horario/versiones/{id}/lecciones        ← escrita el 4 sep 2026. El router pasó a **567**,
+                                              contado con `route:list --json` ese día y no
+                                              sumado a los 566 (§10.2.3)
 ```
 
 **Por `{id}` y no `horario/oficial`**, y la razón es la asimetría que Joseth cerró en la
@@ -1249,7 +1250,7 @@ Cinco cosas de esa forma que **no** son preferencias:
    código de otro día. *(Y es la trampa que ya mordió una vez: el 422 de `acepto_perder`
    mandaba a «releer el listado» a buscar una cifra fresca que ese campo no da — `0faf099`.)*
 
-#### El `dia`: las dos codificaciones coinciden, y está medido
+#### El `dia`: coinciden ENTRE ESTOS DOS REPOSITORIOS — y el tercero no tiene ninguna
 
 `myvc-front-4f` avisó de que en el front el día es **el de la semana de verdad, `0` domingo
 … `6` sábado**, y de que allí no existe ningún «día 1 del horario». **Es exactamente el
@@ -1260,21 +1261,49 @@ convenios que coinciden no necesitan código, pero sí necesitan quedar escritos
 día que uno de los dos se mueva **el horario entero se corre un día y las tres reglas de la
 §6 se siguen cumpliendo** (§5.2.5).
 
-#### Lo que NO decide este documento, y va a Joseth
+**Y «no hay conversión que escribir» era verdadero y engañoso a la vez, así que se corrige
+aquí.** Lo midió `myvc-front-4f` sobre `a34f854c`: **`app2` no tiene ninguna codificación
+numérica de día** del lado de asignaturas ni de horario. `datos/asignaturas.ts:321` es
+`DIAS_DE_CLASE = ['lunes'…'viernes']` y `CambioDeDia.dia` viaja como **el nombre de la
+columna**; `clases-de-hoy` no calcula qué día es porque recibe `horario_hoy` y
+`horario_manana` ya resueltos por esta API. O sea que **la conversión no está escrita
+porque hoy no existe**, y con la cuarta ruta habrá que escribirla — es una línea, pero
+alguien tiene que escribirla a sabiendas, y *«cero conversión»* es exactamente la frase que
+hace que nadie la busque.
 
-Cuatro, y ninguna se resuelve midiendo:
+**El precedente existe y está probado, que es la parte útil**: donde `app2` sí usa números
+de día es el calendario (`paginas/calendario/eventos.ts:376`), con `(primero.getDay() + 6) %
+7` **porque su rejilla empieza en lunes**, y con su prueba al lado. El `0 = domingo` de aquí
+entra bien; la rejilla del horario tendrá que aplicar ese mismo desplazamiento **o el lunes
+se pinta en la última columna**.
 
-1. **Si el `tono` se resuelve, y por dónde.** Las salidas son tres: (a) dejarlo
-   `sin_catalogo` para siempre y que el escritorio lo ponga —seis de los ocho informes salen
-   con los colores cambiados y **nada se pone rojo**—; (b) una columna nueva en
-   `profesores`, que es esquema y decisión suya; (c) **leer el blob y extraer sólo los
-   colores** — que es «mirar el proyecto sin entregarlo» y roza la condición de la decisión
-   12 (*listar no es descargar*). **La (c) no se hace sin que él la diga**, porque es la
-   única que toca el blob.
-2. **Qué permiso abre el menú del horario en el front** — allí hoy no existe ninguno.
-3. **Si el `tono` es del docente o de la lección.**
-4. **Quién manda sobre los días de `asignaturas`** cuando el menú coloque lecciones — la
-   §9.bis.4, que es la gorda.
+#### Las cuatro que iban a Joseth, CONTESTADAS el 4 sep 2026
+
+Ninguna se resolvía midiendo, y por eso estaban aquí. Las cuatro están cerradas y **no se
+re-litigan**:
+
+1. **El `tono` es del docente y lo guarda el back: columna nueva en `profesores`.** Descartó
+   las otras dos salidas que se le plantearon —dejarlo `sin_catalogo` para siempre, y **leer
+   el blob para extraer los colores**, que era la única que tocaba el fichero de proyecto y
+   rozaba la decisión 12—. La columna entra con
+   `2026_09_04_200000_tono_del_docente`, y **nace vacía en los diecisiete**: el contrato dice
+   `string | null` porque el nulo va a ser el caso normal hasta que alguien reparta los
+   colores una primera vez. *La decisión cambia dónde vive el dato, no que hoy no exista.*
+2. **El menú del horario lo abre el mismo permiso que las Referencias académicas** — no hay
+   permiso nuevo: quien ya puede tocar asignaturas e IH puede tocar el horario. De paso
+   esquiva el problema del rol `Coord académico` con cero usuarios: nadie se queda fuera el
+   primer día. **Ver y crear son dos permisos distintos y no se han mezclado**: `auth.personal`
+   sigue siendo el de *leer*, y es de la decisión 3 de la §9.bis.
+3. **La ruta es `GET horario/versiones/{id}/lecciones`, con `{id}` explícito.** Descartó
+   `horario/oficial` a secas y descartó tener las dos. El argumento que la decidió es la
+   asimetría que él mismo cerró: *subir no es publicar*, así que quien va a publicar necesita
+   **mirar una versión que todavía no es la oficial**, y ésa es la pantalla que hoy no existe.
+4. **Los booleanos de `asignaturas` NO alimentan el horario, y se quedan.** En sus palabras:
+   *«esos booleanos por asignaturas son un esfuerzo por mostrarle solo las materias del día de
+   hoy y de mañana en el panel al docente… Seguirá vigente porque el colegio podría no usar mi
+   sistema de horarios pero aún así poner qué días se da tal materia»*. O sea que la cuarta
+   ruta **lee siempre de `horario_lecciones`** — lo que ya exigía el que las siete columnas no
+   tengan franja— y la §9.bis.4 deja de ser una ambigüedad para ser un riesgo medido.
 
 ### 9.bis.4. Ya hay dos escritores de la misma verdad, y uno es nuestro
 
@@ -1295,14 +1324,37 @@ ese número (§7.2). *La puerta estaba bien puesta por otra razón.*
 publicar, las columnas dejan de cuadrar con la versión oficial y **no lo detecta nadie**: no
 hay error, no hay aviso, y las dos pantallas —«Clases de hoy» y la rejilla de la cuarta
 ruta— empiezan a decir cosas distintas del mismo día. Es el dato derivado que la §7 dijo que
-**necesita quien lo vigile**, y ese vigilante sigue sin escribirse (§10.2.4: *«la herramienta
-de `tools/` sigue sin escribirse»* — comprobado el 4 sep 2026: `tools/` tiene 41 ficheros y
-el único que nombra el horario es `prevuelo-del-horario.php`, que mide otra cosa).
+**necesita quien lo vigile**, y ese vigilante **se escribió el 4 sep 2026**: es
+`tools/deriva-del-horario.php`, que Joseth decidió con el radio delante — y decidió también
+que **sea lo único**: ni se toca `putOficial` para que deje de reescribir a ciegas, ni se
+avisa al conmutar desde el front.
 
-**Medido hoy, con su población: `0` de `134`.** Las 134 asignaciones vivas del año 8,
+**El radio pesa más de lo que parecía, y lo midió el front:** «Clases de hoy» se alimenta de
+`ChangesAsked/to-me` → `horario_hoy`/`horario_manana`, que salen **de estas mismas siete
+columnas**. Así que lo que se descuadra sin aviso **no es un menú opcional: es la portada con
+la que aterriza todo docente del colegio al entrar**. Y desde el front **no se puede
+distinguir** una columna conmutada a mano de una reescrita por `putOficial`: llegan
+idénticas.
+
+**Medido hoy con la herramienta, y con su población: `0` de `134`.** Las 134 asignaciones vivas del año 8,
 comparadas columna a columna contra las lecciones de la versión 6, **cuadran las siete**.
 O sea que **nadie ha conmutado un día desde que se publicó** — no que el problema no exista.
-*Un cero recién publicado es el cero más fácil de conseguir y el que menos dice.*
+*Un cero recién publicado es el cero más fácil de conseguir y el que menos dice* — y por eso
+la herramienta lo imprime con esa advertencia debajo en vez de dejarlo solo.
+
+**Y ese cero tiene control: sabe ponerse rojo.** Comprobado el 4 sep 2026 conmutando
+`sabado` en una asignación real del año 8 y devolviéndola después a sus siete valores: el
+detector pasó a **1 de 134**, nombró la fila (`#1195 · DIMENSIÓN COGNITIVA · Jardín ·
+sabado: 1 → 0`) y salió con **código 1**. Sin ese control, el `0` no distinguiría *«cuadran
+las 134»* de *«la consulta no compara nada»*.
+
+**Lo que la herramienta NO mira, y lo dice ella misma en cada corrida**: la franja, la
+duración y el salón —las siete columnas no los tienen, así que una lección movida de franja
+**el mismo día cuadra**—; los otros años y los otros quince colegios —una corrida es una
+base—; y **cuál de las dos fuentes tiene razón**, porque un `toggleDia` de ayer y una versión
+publicada a sabiendas con `acepto_perder` se ven exactamente igual desde ahí. Y el estado que
+más importa separar: **un año sin versión oficial sale `2`, NO MEDIDO**, nunca `0` — ahí no
+hay contra qué comparar, y un `0` diría lo mismo que un año publicado y perfecto.
 
 **Y de aquí sale lo primero que hay que responderle al front, que preguntó de cuál de los dos
 lee la cuarta ruta:** de **`horario_lecciones`**, siempre. Las siete columnas **no tienen
@@ -1546,9 +1598,10 @@ siguen sin estar.
    > contar ese día»*— llevada al sitio donde de verdad muerde: **lo que este repo no
    > sabe mantener es un número predicho**.
 4. **Las siete columnas**: **derivadas y atadas desde el 2 sep 2026** (§7.1). El test
-   obligatorio existe —`HorarioOficialTest`, 15 casos—; **la herramienta de `tools/`
-   sigue sin escribirse y sigue siendo opcional**, y es la que contestaría si los quince
-   colegios están sincronizados. Queda por confirmar que el orden **no** se promete: la
+   obligatorio existe —`HorarioOficialTest`, 15 casos— y **la herramienta de `tools/` se
+   escribió el 4 sep 2026**: `deriva-del-horario.php`, que es la que contesta si un colegio
+   sigue sincronizado (§9.bis.4). **Deja de ser opcional el día que este módulo se
+   despliegue**, porque desde ese día hay dos escritores vivos de las mismas columnas. Queda por confirmar que el orden **no** se promete: la
    opción A le da al docente **qué** clases tiene hoy, nunca en qué orden (§7).
 > Lo más barato que se puede hacer sin esperar a ninguna de las cuatro es el **nivel 1
 > del pre-vuelo como script de `tools/`** sobre los quince colegios (§9). No toca el
@@ -1570,7 +1623,7 @@ completa. Escrito el 4 sep 2026 sobre `8f59242`.
 | colegios con el módulo | **0 de 16** (más `demo`) | `routes/api/horario.php` no existe en `9474b50`, que es la base desplegada |
 | qué contestan allí las tres rutas | **404** | no hay fichero de rutas que las declare — **no es el 501 del docker**, que era el controlador sin cuerpo |
 | commits sin desplegar | **232** desde `9474b50` | `git rev-list --count 9474b50..HEAD` |
-| migraciones sin desplegar | **7**, y `2026_09_04_100000_horario_versiones` es una de ellas | `git ls-tree` de los dos extremos |
+| migraciones sin desplegar | **8** desde el 4 sep 2026 — las siete que ya contaba `DESPLIEGUE.md` más `2026_09_04_200000_tono_del_docente`, que decidió Joseth ese día | `git ls-tree` de los dos extremos |
 | ficheros de rutas nuevos | **2**: `horario.php` y `rubricas.php` | ídem |
 
 **El 404 y el 501 no son el mismo estado y conviene no mezclarlos**: en el docker la ruta
@@ -1610,7 +1663,10 @@ están en `DESPLIEGUE.md` y **no se repiten aquí**. Lo que es de este módulo:
 2. **Después un colegio real con datos de verdad**, y el candidato es el que ya se midió:
    `simonbolivar` es el único del que este repositorio conoce el pre-vuelo
    (§9.1) — 13 grupos, 134 asignaciones, Σ IH 345 contra una rejilla de 7×5.
-3. **La comprobación de este módulo, después de la de las siete migraciones**: las tres
+3. **La comprobación de este módulo, después de la de las migraciones** —y ojo, que el
+   `tinker` de `DESPLIEGUE.md` pregunta por **siete** y ahora son ocho: le falta
+   `["profesores","tono"]`, añadido allí el 4 sep 2026 porque ese fragmento es una
+   comprobación operativa y no una tabla medida—: las tres
    tablas existen y `years.horario_version_id` también —las cuatro ya están en el `tinker`
    de `DESPLIEGUE.md`—, y encima **`GET horario/versiones` con un token de personal tiene
    que contestar `200` con `total: 0` y `oficial_id: null`**. Ese 200 vacío es la única

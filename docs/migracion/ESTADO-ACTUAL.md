@@ -22,7 +22,65 @@
 > Los mensajes de commit están limpios —cero apariciones—, así que sólo había que tocar
 > estas tres líneas.
 
-**4 sep 2026 — LA CUARTA RUTA DEL HORARIO: LO QUE ESTA BASE PUEDE DEVOLVER, MEDIDO, Y EL
+**4 sep 2026 — LA CUARTA RUTA DEL HORARIO, ESCRITA: `GET horario/versiones/{id}/lecciones`,
+Y EL ROUTER EN 567** · rama `docs/horario-cuarta-ruta-y-despliegue`, **sin fusionar y sin
+empujar** · `HorarioController`, `routes/api/horario.php`,
+`2026_09_04_200000_tono_del_docente`, `tests/Contrato/HorarioLeccionesTest.php` (**11 casos,
+92 aserciones**), `HorarioAutorizacionTest` y `tools/deriva-del-horario.php` · **567 rutas,
+contadas con `route:list --json` ese día** · pint **PASS** · larastan nivel 7 `[OK] No errors`
+
+> **Era lo único que bloqueaba la web del horario**: se podía subir, listar y publicar, y no
+> había forma de mirar lo publicado. Joseth cerró las cuatro decisiones que faltaban ese
+> mismo día (§9.bis.3 del [23](23-horarios.md)), y **tres de ellas descartaron la opción que
+> parecía más cómoda**:
+>
+> | decisión | y lo que descartó |
+> |---|---|
+> | **`tono` es del docente y lo guarda el back** — columna nueva en `profesores` | descartó dejarlo `sin_catalogo` para siempre **y leer el blob para sacar los colores**, que era la única que tocaba el fichero de proyecto |
+> | **`{id}` explícito**, no `horario/oficial` | por su propia asimetría: quien va a publicar necesita **mirar una versión que todavía no es la oficial** |
+> | **el menú lo abre el permiso de Referencias académicas** | no hay permiso nuevo; `auth.personal` sigue siendo el de *leer*, y ver y crear no se mezclan |
+> | **los booleanos de `asignaturas` NO alimentan el horario y se quedan** | son del panel del docente, y tienen que servir a un colegio que nunca use este sistema |
+>
+> ### LO QUE DECIDIÓ LA FORMA FUE QUE ESTA BASE NO PUEDE DEVOLVER UN PROYECTO COMPLETO
+>
+> Por eso cada catálogo viaja con su estado y su población, y **son cuatro estados y no
+> dos**: `completo`, `parcial`, **`vacio`** («el colegio no creó ninguno, y es legítimo») y
+> **`sin_catalogo`** («esta API no puede saberlo»). Separarlos es lo único que impide que la
+> ruta convierta salones y timbres en obligatorios para que la pantalla no mienta — o sea,
+> que deshaga por la puerta de atrás la restricción de Joseth de que **el horario es
+> opcional**. Va atado por un test: *una versión sin un solo salón, sin ninguna doble y sin
+> colores repartidos devuelve **200** con sus renglones en `vacio`, nunca un 422.*
+>
+> ### LOS DOS SITIOS DONDE ESTA RUTA SE APARTA DE LO QUE LE PIDIERON, Y POR QUÉ
+>
+> 1. **Los docentes van en lista, no en `profesor_id` escalar.** El escalar funcionaría hoy
+>    —**0 de 312** piezas tienen dos docentes— y se rompería **en silencio** el día que
+>    exista la misa, que es justo el caso para el que los docentes cuelgan de la pieza y no
+>    de la asignación (§5.1). Hay test.
+> 2. **`salon_id` no viaja.** No hay tabla de salones: un campo que sale `null` siempre
+>    entrena al cliente a ignorarlo. Viaja `nombre_salon`, y el catálogo dice `hay_ids: false`.
+>
+> ### Y EL VIGILANTE DE LA DERIVA YA EXISTE: `tools/deriva-del-horario.php`
+>
+> Joseth lo decidió **con el radio delante** —lo que se descuadra sin aviso no es un menú
+> opcional: es la portada con la que aterriza todo docente, porque `horario_hoy` sale de esas
+> mismas siete columnas— y decidió que **sea lo único**: ni se toca `putOficial`, ni se avisa
+> al conmutar desde el front.
+>
+> Da **0 de 134** en el docker, **y ese cero tiene control**: conmutando `sabado` en una
+> asignación real —y devolviéndola después a sus siete valores— pasa a **1 de 134**, nombra
+> la fila y sale con **código 1**. **Un año sin versión oficial sale `2`, NO MEDIDO**, nunca
+> `0`: ahí no hay contra qué comparar y un cero diría lo mismo que un año perfecto.
+>
+> ### Lo que hay que saber para el despliegue, y no cambia el congelado
+>
+> La tanda pasa a **ocho** migraciones. `profesores.tono` **se reparte sola a cinco
+> respuestas vivas** que devuelven la ficha por Eloquent (`postStore`, `putUpdate`, el
+> `getShow` de papelera, `putRestore` y `GET grupos/{id}` dentro de `titular`): vale `null`
+> en todos, así que es inofensiva — **pero es un campo nuevo y se manda dicho, no
+> descubierto**. Las cinco estáticas del modelo nombran sus columnas y no se mueven.
+
+**Anterior: 4 sep 2026 — LA CUARTA RUTA DEL HORARIO: LO QUE ESTA BASE PUEDE DEVOLVER, MEDIDO, Y EL
 DESPLIEGUE ESCRITO SIN DESCONGELARLO** · rama `docs/horario-cuarta-ruta-y-despliegue`,
 **sin fusionar y sin empujar** · [23 §9.bis.3, §9.bis.4 y §11](23-horarios.md) y
 [29 §5](29-los-env-no-son-uniformes.md) · **cero código: el router no se mueve, siguen 566** ·

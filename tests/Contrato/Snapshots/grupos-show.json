@@ -49,6 +49,7 @@
         "tipo_doc": "null",
         "tipo_profesor": "null",
         "titulo": "null",
+        "tono": "null",
         "updated_at": "string",
         "updated_by": "int",
         "user_id": "int"

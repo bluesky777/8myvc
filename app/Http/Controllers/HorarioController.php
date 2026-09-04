@@ -42,7 +42,7 @@ use Illuminate\Validation\ValidationException;
  *      lecciones**. Un `SELECT *` ahí le entrega a cualquiera el fichero de
  *      proyecto entero del colegio.
  *
- * ## Estado: `postVersiones` y `putOficial` escritos; `getVersiones` sigue a 501
+ * ## Estado: los cuatro métodos escritos — ninguno contesta ya 501
  *
  * El **suelo** del módulo (lote A) —rutas, guards y autorización— entró en
  * `3524a22` con los tres métodos a 501, y **las tres se ejercitaron contra el
@@ -53,11 +53,14 @@ use Illuminate\Validation\ValidationException;
  * contesta mal porque le falta el cuerpo, y las dos se arreglan en sitios
  * distintos.
  *
- * De ahí que `getVersiones` siga a 501: un 501 dice exactamente lo que pasa —la
- * ruta existe, está autorizada y todavía no hace nada—, que es lo que un 404 o un
- * 200 vacío no dirían. **La comprobación de permiso va ANTES del 501 y no
- * después**, porque dejarla para el que escriba el cuerpo es cómo una ruta acaba
- * en producción sin ella.
+ * Aquel 501 decía exactamente lo que pasaba —la ruta existe, está autorizada y
+ * todavía no hace nada—, que es lo que un 404 o un 200 vacío no habrían dicho. Y la
+ * regla que dejó, que sobrevive al 501: **la comprobación de permiso va ANTES del
+ * cuerpo**, porque dejarla para el que lo escriba es cómo una ruta acaba en
+ * producción sin ella.
+ *
+ * `getLecciones` (§9.bis) entró el 4 sep 2026 y es la única de las cuatro que **no
+ * nació a 501**: se decidió y se escribió el mismo día.
  *
  * `putOficial` dejó de ser 501 el 2 sep 2026, y con él **se estrenan las siete
  * columnas de día de `asignaturas`** (§7): hasta ahora estaban vacías en los
@@ -66,7 +69,7 @@ use Illuminate\Validation\ValidationException;
  * `ChangeAskedController`—, que iba en el mismo lote a propósito: invisible con
  * las columnas vacías, y un fallo nuevo el día que se llenan.
  *
- * ## Por qué SQL y no Eloquent, el día que se escriban
+ * ## Por qué SQL y no Eloquent
  *
  * Por lo mismo que el resto del repo, y con la lección de `notas/detailed`
  * delante: **nunca `SELECT *`**, columnas escritas a mano. Aquí no es sólo higiene
@@ -939,6 +942,398 @@ class HorarioController extends Controller
             'total' => count($versiones),
             'versiones' => $versiones,
         ]);
+    }
+
+
+    /**
+     * `GET horario/versiones/{id}/lecciones` — el horario de una versión, **para
+     * pintarlo**.
+     *
+     * Es la cuarta ruta de la §9.bis del [23](../../../docs/migracion/23-horarios.md).
+     * La decidió Joseth el 3 sep 2026 —*el horario que se cuadra en el escritorio se
+     * tiene que poder MIRAR en un menú de la web, y la web LEE DE LA API*— y su forma
+     * la fijó la §9.bis.3 con lo medido en los dos repositorios el 4 sep.
+     *
+     * ## Por `{id}` y no `horario/oficial`, y la razón es la asimetría de Joseth
+     *
+     * *Subir no es publicar* (decisión 5). Quien va a publicar necesita **mirar una
+     * versión que todavía no es la oficial** —es justo la pantalla que hoy no existe—,
+     * y con `horario/oficial` esa pantalla no se puede escribir. El `{id}` se comprueba
+     * contra el año del **token**: una versión de otro año da **404** y no 403, porque
+     * responder «existe pero no es tuya» ya es contestar por ella.
+     *
+     * ## LEE DE `horario_lecciones`, NUNCA de las siete columnas de día
+     *
+     * Y esto no es una preferencia de implementación: es lo que contestó Joseth el 4
+     * sep 2026 cuando el front encontró que **hay dos escritores de esas columnas**
+     * —`toggleDia` de la pantalla de asignaturas y `putOficial` (§9.bis.4)—. Los
+     * booleanos de `asignaturas` son *«un esfuerzo por mostrarle sólo las materias de
+     * hoy y de mañana al docente en el panel»* y **no alimentan el horario**: se quedan
+     * porque un colegio que nunca use este sistema tiene que poder seguir diciendo qué
+     * días se da cada materia.
+     *
+     * Además no servirían: **las siete columnas no tienen franja**, ni se les puede
+     * añadir sin cambiar la respuesta de `asignaturas_dia` (§7). Sirven para *qué*
+     * clases hay hoy, nunca para *dónde* van en la rejilla.
+     *
+     * **Y esta ruta no da por supuesto que las dos fuentes coincidan.** Pueden no
+     * hacerlo —conmutar un día después de publicar descuadra las dos sin error ni
+     * aviso—, y quien quiera saberlo tiene `tools/deriva-del-horario.php`, que lo mide
+     * con su población. Aquí no se compara nada: una lectura que va a llamarse cada
+     * vez que se abre la rejilla no es donde se pone un diagnóstico.
+     *
+     * ## `catalogos` va SIEMPRE, y es la mitad del contrato
+     *
+     * La midió `myvc-horarios-90` sobre 144 corridas: con un `Proyecto` incompleto
+     * **55 informes salen distintos sin ningún aviso y a 8 se les APAGA un aviso que
+     * estaba encendido** — la hoja sale mal y encima deja de avisar de lo que antes
+     * avisaba. Y el caso que ocurre de verdad no es el catálogo ausente sino el
+     * **catálogo a medias**, que hace *menos* ruido: los salones fuera del todo dejan
+     * un informe en cero hojas y eso se nota; a medias, seis hojas se quedan en tres y
+     * **cero avisos**.
+     *
+     * Por eso cada catálogo viaja con su estado y su población, y **son cuatro estados
+     * y no dos**:
+     *
+     *   - `completo`     lo guardamos y está todo.
+     *   - `parcial`      lo guardamos y hay menos de lo que la versión usa.
+     *   - `vacio`        lo guardamos, el colegio no creó ninguno, **y es legítimo**.
+     *   - `sin_catalogo` **esta API no puede saberlo**, hoy ni por este camino.
+     *
+     * **La tercera la obliga la restricción de Joseth del 4 sep 2026: el horario es
+     * OPCIONAL.** Lo obligatorio en MyVC es crear asignaturas con IH; salones, dobles y
+     * fichas por IH **no** lo son y así deben seguir. Sin separar `vacio` de
+     * `sin_catalogo`, la única forma de que la pantalla no mienta sería exigirle al
+     * colegio que rellene salones y timbres — o sea, convertir en obligatorio por la
+     * puerta de atrás lo que él dejó opcional. **Un colegio que sólo tiene asignaturas
+     * con IH recibe 200 con sus renglones en `vacio` y `sin_catalogo`, nunca un 422.**
+     *
+     * ## Los docentes van en LISTA, y ahí este método se aparta de lo que pidió el front
+     *
+     * El front pidió `profesor_id` y `nombre_profesor` **escalares**. Aquí viajan como
+     * `docentes[]`, y el motivo es el caso raro que tiene el colegio: **los docentes
+     * cuelgan de la pieza y no de la asignación** (§5.1) porque si la misa la da el
+     * capellán, el titular de Religión **tiene esa hora libre** aunque la hora salga de
+     * su asignación. Un escalar funcionaría hoy —medido el 4 sep 2026: **0 de 312**
+     * piezas tienen dos docentes— y **se rompería en silencio el día que exista la
+     * misa**, tirando al segundo docente sin dar ningún error. Es la forma de fallo que
+     * este módulo lleva dos documentos evitando.
+     *
+     * `docentes: []` es legítimo y **frecuente**: **22 de las 312** piezas de la única
+     * versión real no tienen ni una fila en `horario_pieza_docente`.
+     */
+    public function getLecciones($id): JsonResponse
+    {
+        $versionId = (int) $id;
+        $yearId = (int) $this->user->year_id;
+
+        // El año sale del TOKEN, igual que en `getVersiones` y por lo mismo: un
+        // `year_id` por parámetro sería un identificador que llega de fuera y no
+        // comprueba nadie. Y va en el `WHERE` junto al id, no en un `if` después: así
+        // «no existe» y «no es de tu año» son la misma respuesta y no hay forma de
+        // averiguar qué versiones tienen los otros años preguntando por ellas.
+        $version = DB::select(
+            'SELECT hv.id, hv.year_id, hv.nombre, hv.created_at, hv.comprobaciones,
+                    IF(y.horario_version_id = hv.id, 1, 0) AS es_oficial
+               FROM horario_versiones hv
+               LEFT JOIN years y ON y.id = hv.year_id
+              WHERE hv.id = ? AND hv.year_id = ?',
+            [$versionId, $yearId]
+        );
+
+        if ($version === []) {
+            abort(404, 'Esa versión del horario no existe en este año.');
+        }
+
+        // Una fila por (pieza × asignación), que es como están guardadas: la misa es
+        // UNA pieza y N asignaciones (§5.1). Las columnas van nombradas una a una —un
+        // `SELECT hl.*` traería de paso lo que se añada mañana a la tabla, y esta ruta
+        // la llama cualquiera de los 53 docentes.
+        $filas = DB::select(
+            'SELECT hl.id, hl.pieza_id, hl.dia, hl.franja, hl.duracion,
+                    hl.salon, hl.salon_capacidad_grupos,
+                    hl.asignatura_id, a.creditos, a.orden,
+                    m.materia, m.alias AS alias_materia,
+                    g.id AS grupo_id, g.nombre AS nombre_grupo, g.abrev AS abrev_grupo
+               FROM horario_lecciones hl
+               LEFT JOIN asignaturas a ON a.id = hl.asignatura_id
+               LEFT JOIN materias m ON m.id = a.materia_id
+               LEFT JOIN grupos g ON g.id = a.grupo_id
+              WHERE hl.version_id = ?
+              ORDER BY hl.dia, hl.franja, hl.id',
+            [$versionId]
+        );
+
+        // Los `LEFT JOIN` de arriba no son cautela: la asignación de una lección puede
+        // estar borrada cuando alguien mira una versión vieja —publicar y subir valen
+        // en cualquier año (decisión 13)—, y con `INNER` esa lección **desaparecería de
+        // la rejilla sin dejar hueco**. Con `LEFT` sale la casilla con su materia en
+        // `null`, que es un agujero que se ve. Medido el 4 sep 2026 en la única versión
+        // real: 0 de 312, o sea que hoy no pasa — no que no pueda pasar.
+
+        $docentesPorPieza = $this->docentesDeLaVersion($versionId);
+
+        $lecciones = array_map(fn ($f) => [
+            'id' => (int) $f->id,
+            'pieza_id' => (string) $f->pieza_id,
+            // `0 = domingo`, el convenio de la §5.2.5, el mismo con el que se consumen
+            // las siete columnas sobre `Carbon::dayOfWeek`. Se declara en la respuesta
+            // (`ejes.convenio_dia`) en vez de dejar que el cliente lo deduzca: un
+            // horario corrido un día cumple todas las reglas de la §6 y **no lo detecta
+            // nadie**.
+            'dia' => (int) $f->dia,
+            // Base 1: la franja 1 es la primera lección del día.
+            'franja' => (int) $f->franja,
+            // En CASILLAS, nunca en minutos, y viaja aunque valga 1: sin ella el
+            // cliente tiene que deducir una doble de dos filas contiguas, que es de la
+            // familia «plausible y falso». Medido: 32 de 312 son bloques.
+            'duracion' => (int) $f->duracion,
+            'asignatura_id' => (int) $f->asignatura_id,
+            'ih' => $f->creditos === null ? null : (int) $f->creditos,
+            'materia' => $f->materia,
+            // Los 35 materias vivas del colegio medido tienen alias, así que
+            // `alias_materia` no es el campo raro: es el que se pinta.
+            'alias_materia' => $f->alias_materia,
+            'grupo_id' => $f->grupo_id === null ? null : (int) $f->grupo_id,
+            'nombre_grupo' => $f->nombre_grupo,
+            'abrev_grupo' => $f->abrev_grupo,
+            // **No viaja `salon_id`**: no hay tabla de salones (§4), así que un campo
+            // que sale `null` siempre sólo entrena al cliente a ignorarlo. Lo que hay
+            // es el nombre que mandó la subida, y el catálogo dice que no hay ids.
+            'nombre_salon' => $f->salon,
+            'salon_capacidad_grupos' => $f->salon_capacidad_grupos === null ? null : (int) $f->salon_capacidad_grupos,
+            'docentes' => $docentesPorPieza[$f->pieza_id] ?? [],
+        ], $filas);
+
+        return response()->json([
+            'version' => [
+                'id' => (int) $version[0]->id,
+                'year_id' => (int) $version[0]->year_id,
+                'nombre' => (string) $version[0]->nombre,
+                'es_oficial' => (int) $version[0]->es_oficial === 1,
+                'created_at' => $version[0]->created_at,
+                // Como se guardó, no recalculado: es el historial (§5.3). Y es el campo
+                // que el 422 de `acepto_perder` **no** puede usar como lectura fresca,
+                // que es lo que corrigió `0faf099`.
+                'comprobaciones' => $this->veredictoGuardado($version[0]->comprobaciones),
+            ],
+            'ejes' => $this->ejesDeLaVersion($lecciones),
+            'catalogos' => $this->catalogosDeLaVersion($yearId, $versionId, $lecciones),
+            'lecciones' => $lecciones,
+            // La población, delante y siempre. Sin ella `lecciones: []` se lee como
+            // «todo bien» — que es literalmente el fallo de la §2, el que estuvo meses
+            // sin que nadie lo reportara.
+            'total_lecciones' => count($lecciones),
+        ]);
+    }
+
+    /**
+     * Los docentes de cada pieza, indexados por `pieza_id`.
+     *
+     * Una consulta y no una por lección: son 312 filas y el bucle estaría dentro de un
+     * `array_map` (`tools/consultas-en-bucle.py` existe justo para esto).
+     *
+     * `tono` sale de `profesores`, que es donde Joseth decidió el 4 sep 2026 que viva.
+     * **Nace vacío en los diecisiete**, así que `null` va a ser el caso normal hasta que
+     * alguien reparta los colores una primera vez: el contrato dice `string | null` y no
+     * `string` por eso, no por prudencia.
+     *
+     * @return array<string, list<array<string, mixed>>>
+     */
+    protected function docentesDeLaVersion(int $versionId): array
+    {
+        $filas = DB::select(
+            'SELECT hpd.pieza_id, p.id, p.nombres, p.apellidos, p.tono
+               FROM horario_pieza_docente hpd
+               JOIN profesores p ON p.id = hpd.profesor_id
+              WHERE hpd.version_id = ?
+              ORDER BY p.apellidos, p.nombres, p.id',
+            [$versionId]
+        );
+
+        $porPieza = [];
+
+        foreach ($filas as $f) {
+            $porPieza[$f->pieza_id][] = [
+                'id' => (int) $f->id,
+                'nombres' => $f->nombres,
+                'apellidos' => $f->apellidos,
+                'tono' => $f->tono,
+            ];
+        }
+
+        return $porPieza;
+    }
+
+    /**
+     * Los ejes de la rejilla, **declarados y sacados de las lecciones**, no supuestos.
+     *
+     * La rejilla del colegio vive en el fichero de proyecto del escritorio (§4), así que
+     * aquí no hay «7 × 5» que devolver: lo único que este servidor sabe con certeza es
+     * **qué días y qué franjas usa esta versión**. Devolver una rejilla inventada sería
+     * peor que no devolverla, y tiene precedente medido: el aviso *«sin horas: el colegio
+     * todavía no ha dado los timbres»* del escritorio pregunta *¿tengo timbres?*, así que
+     * una jornada reconstruida por defecto **le apaga el aviso a 15 hojas** y les imprime
+     * un horario que ese nivel nunca dio.
+     *
+     * Por eso `timbres` es `null` y no una lista vacía, y por eso el convenio del día se
+     * **declara**: los dos repositorios coinciden en `0 = domingo` (medido el 4 sep 2026)
+     * y el front todavía no tiene ninguna codificación numérica, así que la conversión la
+     * escribirá alguien —y «no hace falta conversión» es justo la frase que hace que
+     * nadie la busque.
+     *
+     * @param  list<array<string, mixed>>  $lecciones
+     * @return array<string, mixed>
+     */
+    protected function ejesDeLaVersion(array $lecciones): array
+    {
+        $dias = array_values(array_unique(array_column($lecciones, 'dia')));
+        $franjas = array_values(array_unique(array_column($lecciones, 'franja')));
+
+        sort($dias);
+        sort($franjas);
+
+        return [
+            'convenio_dia' => '0=domingo,1=lunes,…,6=sabado',
+            'dias' => $dias,
+            'franjas' => $franjas,
+            // De `years`, que es donde está: son los minutos de una lección, no los
+            // timbres. El pie del boletín ya lo imprime.
+            'minutos_por_leccion' => $this->minutosPorLeccion(),
+            // **`null`, y no una jornada por defecto.** Ver arriba: reconstruirla apaga
+            // el centinela del escritorio justo en el caso para el que existe.
+            'timbres' => null,
+        ];
+    }
+
+    /** `years.minu_hora_clase` del año del token; `null` si el año no lo tiene puesto. */
+    protected function minutosPorLeccion(): ?int
+    {
+        $fila = DB::selectOne('SELECT y.minu_hora_clase FROM years y WHERE y.id = ?', [(int) $this->user->year_id]);
+
+        return $fila === null || $fila->minu_hora_clase === null ? null : (int) $fila->minu_hora_clase;
+    }
+
+    /**
+     * El estado de cada catálogo **con su población**, que es la mitad del contrato.
+     *
+     * Cada renglón contesta lo mismo: *¿lo que va en esta respuesta está entero?*. Y la
+     * regla que hay que sostener el día que se añada un catálogo nuevo: **una lista sin
+     * su renglón aquí es un error del servidor, no un catálogo vacío.**
+     *
+     * @param  list<array<string, mixed>>  $lecciones
+     * @return array<string, array<string, mixed>>
+     */
+    protected function catalogosDeLaVersion(int $yearId, int $versionId, array $lecciones): array
+    {
+        $total = count($lecciones);
+
+        $conSalon = count(array_filter($lecciones, fn ($l) => $l['nombre_salon'] !== null));
+        $salones = array_unique(array_filter(array_column($lecciones, 'nombre_salon')));
+
+        $sinDocente = count(array_filter($lecciones, fn ($l) => $l['docentes'] === []));
+
+        $docentes = (int) DB::selectOne(
+            'SELECT COUNT(DISTINCT a.profesor_id) AS n
+               FROM asignaturas a
+               JOIN grupos g ON g.id = a.grupo_id
+              WHERE g.year_id = ? AND a.deleted_at IS NULL AND a.profesor_id IS NOT NULL',
+            [$yearId]
+        )->n;
+
+        $grupos = (int) DB::selectOne(
+            'SELECT COUNT(*) AS n FROM grupos WHERE year_id = ? AND deleted_at IS NULL',
+            [$yearId]
+        )->n;
+
+        $asignaciones = (int) DB::selectOne(
+            'SELECT COUNT(*) AS n
+               FROM asignaturas a
+               JOIN grupos g ON g.id = a.grupo_id
+              WHERE g.year_id = ? AND a.deleted_at IS NULL',
+            [$yearId]
+        )->n;
+
+        return [
+            'grupos' => ['estado' => $grupos === 0 ? 'vacio' : 'completo', 'total' => $grupos],
+            'asignaciones' => [
+                'estado' => $asignaciones === 0 ? 'vacio' : 'completo',
+                'total' => $asignaciones,
+                'lecciones_sin_asignacion_viva' => count(array_filter($lecciones, fn ($l) => $l['materia'] === null)),
+            ],
+            // **El criterio se nombra**, porque «docentes» admite dos lecturas y la otra
+            // da otro número: aquí son los que tienen alguna asignación en el año, no
+            // los vivos de `profesores` —de los que 42 de 47 ni siquiera tienen
+            // `tipo_profesor`, así que esa columna no sirve hoy para decir quién enseña—.
+            'docentes' => [
+                'estado' => $docentes === 0 ? 'vacio' : 'completo',
+                'total' => $docentes,
+                'criterio' => 'con asignación viva en el año',
+                'lecciones_sin_docente' => $sinDocente,
+            ],
+            // La columna existe desde el 4 sep 2026 y **nace vacía en todos**: mientras
+            // nadie reparta los colores, esto es `vacio` y no `completo`. La diferencia
+            // importa: seis de los ocho informes del escritorio pintan distinto sin él y
+            // **nada se pone rojo**.
+            'tono' => $this->estadoDelTono(),
+            // El caso medido y el peor de los cuatro: 87 de 312 con salón y **3 nombres**
+            // contra los 17 del proyecto real. Un catálogo a medias hace MENOS ruido que
+            // uno ausente, así que aquí la población no es adorno.
+            'salones' => [
+                'estado' => $conSalon === 0 ? 'vacio' : ($conSalon < $total ? 'parcial' : 'completo'),
+                'con_salon' => $conSalon,
+                'de' => $total,
+                'distintos' => count($salones),
+                'hay_ids' => false,
+                'motivo' => 'sólo viaja el nombre que mandó la subida: el servidor no guarda salones (§4)',
+            ],
+            'timbres' => [
+                'estado' => 'sin_catalogo',
+                'motivo' => 'la rejilla, los timbres y las jornadas por nivel viven en el fichero de proyecto (§4)',
+            ],
+            'disponibilidad' => [
+                'estado' => 'sin_catalogo',
+                'motivo' => 'ídem: el servidor no guarda la disponibilidad declarada (§4)',
+            ],
+            'restricciones' => [
+                'estado' => 'sin_catalogo',
+                'motivo' => 'ídem: restricciones, pesos y distribuciones de bloque (§4)',
+            ],
+        ];
+    }
+
+    /**
+     * `tono`: `vacio` mientras nadie haya repartido un color, `parcial` o `completo` después.
+     *
+     * Se mira sobre los docentes **con asignación en el año**, que es el mismo criterio
+     * del renglón `docentes`: contar sobre los 47 vivos daría un porcentaje más feo y
+     * de otra población.
+     *
+     * @return array<string, mixed>
+     */
+    protected function estadoDelTono(): array
+    {
+        $fila = DB::selectOne(
+            'SELECT COUNT(DISTINCT a.profesor_id) AS total,
+                    COUNT(DISTINCT IF(p.tono IS NULL OR p.tono = "", NULL, a.profesor_id)) AS con_tono
+               FROM asignaturas a
+               JOIN grupos g ON g.id = a.grupo_id
+               JOIN profesores p ON p.id = a.profesor_id
+              WHERE g.year_id = ? AND a.deleted_at IS NULL AND a.profesor_id IS NOT NULL',
+            [(int) $this->user->year_id]
+        );
+
+        $total = (int) $fila->total;
+        $conTono = (int) $fila->con_tono;
+
+        return [
+            'estado' => $conTono === 0 ? 'vacio' : ($conTono < $total ? 'parcial' : 'completo'),
+            'con_tono' => $conTono,
+            'de' => $total,
+            'motivo' => $conTono === 0
+                ? 'la columna existe y nadie ha repartido los colores todavía'
+                : null,
+        ];
     }
 
     /**

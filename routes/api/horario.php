@@ -45,3 +45,27 @@ use Illuminate\Support\Facades\Route;
 Route::post('horario/versiones', [HorarioController::class, 'postVersiones'])->middleware('auth.personal');
 Route::get('horario/versiones', [HorarioController::class, 'getVersiones'])->middleware('auth.personal');
 Route::put('horario/versiones/{id}/oficial', [HorarioController::class, 'putOficial'])->middleware('auth.personal');
+
+/*
+|--------------------------------------------------------------------------
+| La cuarta: leer las lecciones para PINTARLAS
+|--------------------------------------------------------------------------
+|
+| §9.bis del 23. La decidió Joseth el 3 sep 2026 —el horario cuadrado en el
+| escritorio se tiene que poder MIRAR en un menú de la web, y la web LEE de la
+| API— y la forma la cerró el 4 sep con lo medido en los dos repositorios.
+|
+| **`auth.personal`, el mismo que listar**, y lo decidió sabiendo lo que tensiona:
+| esta ruta le entrega a cualquier docente el horario del colegio entero. Lo que lo
+| pesó fue un hecho y no un argumento — ese horario **ya se imprime y se cuelga**,
+| trece hojas apaisadas, así que en papel no es un secreto para nadie de dentro.
+|
+| **Y sigue sin ser descargar**: aquí no viaja el fichero de proyecto. La decisión
+| 12 dijo «listar no es descargar» y ésta la extiende a «mirar no es llevarse»;
+| llevarse el proyecto a otro computador es otra ruta y otro permiso (§10.2.3).
+|
+| El `{id}` va después de `versiones/`, que es literal, y seguido de un segmento
+| fijo: no tapa a `GET horario/versiones` ni la tapa ella.
+|
+*/
+Route::get('horario/versiones/{id}/lecciones', [HorarioController::class, 'getLecciones'])->middleware('auth.personal');

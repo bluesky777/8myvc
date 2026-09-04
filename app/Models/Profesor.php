@@ -34,6 +34,7 @@ use Illuminate\Support\Facades\DB;
  * @property ?string $facebook
  * @property ?string $email
  * @property ?string $tipo_profesor
+ * @property ?string $tono
  * @property ?int $user_id
  * @property ?int $created_by
  * @property ?int $updated_by

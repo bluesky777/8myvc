@@ -620,6 +620,7 @@ class HorarioOficialTest extends CasoDeContrato
             'no tiene caso 7, `$dia_cond` se queda en blanco y el docente ve el curso entero '.
             'un día a la semana (§2.1). El día siguiente al sábado es el domingo, que es 0.');
     }
+
     /**
      * `horario_version_id` en `getToMe`, y existe para que `horario_hoy: []` deje de
      * significar dos cosas.
@@ -645,7 +646,7 @@ class HorarioOficialTest extends CasoDeContrato
      */
     #[Test]
     #[DataProvider('lasDosRamasDeGetToMe')]
-    public function el_puntero_del_horario_viaja_en_getToMe(string $tipo): void
+    public function el_puntero_del_horario_viaja_en_get_to_me(string $tipo): void
     {
         $usuario = $this->usuarioDeTipo($tipo);
 
@@ -704,5 +705,4 @@ class HorarioOficialTest extends CasoDeContrato
     {
         return ['personal' => ['Usuario'], 'profesor' => ['Profesor']];
     }
-
 }

@@ -246,8 +246,16 @@ colegio se arregla antes de tocar el siguiente.**
 Esto pregunta por el esquema, que es lo que leen las consultas:
 
 ```bash
-php artisan tinker --execute='$f=[]; foreach ([["years","regla_nivelacion"],["years","puestos_con_bol_independiente"],["years","horario_version_id"],["notas","nota_original"],["notas_finales","nota_nivelacion"],["recuperacion_final","nivelada_at"],["subunidades","rubrica_id"]] as $c) { if (!Schema::hasColumn($c[0],$c[1])) $f[]=$c[0].".".$c[1]; } foreach (["rubricas","rubrica_criterios","rubrica_niveles","rubrica_descriptores","rubrica_valoraciones","horario_versiones","horario_lecciones","horario_pieza_docente"] as $t) { if (!Schema::hasTable($t)) $f[]="tabla ".$t; } if (Schema::hasColumn("matriculas","boletin_independiente")) $f[]="matriculas.boletin_independiente SIGUE AHI"; echo ($f ? "FALTA -> ".implode(" | ",$f) : "OK - las siete dentro").PHP_EOL;'
+php artisan tinker --execute='$f=[]; foreach ([["years","regla_nivelacion"],["years","puestos_con_bol_independiente"],["years","horario_version_id"],["notas","nota_original"],["notas_finales","nota_nivelacion"],["recuperacion_final","nivelada_at"],["subunidades","rubrica_id"],["profesores","tono"]] as $c) { if (!Schema::hasColumn($c[0],$c[1])) $f[]=$c[0].".".$c[1]; } foreach (["rubricas","rubrica_criterios","rubrica_niveles","rubrica_descriptores","rubrica_valoraciones","horario_versiones","horario_lecciones","horario_pieza_docente"] as $t) { if (!Schema::hasTable($t)) $f[]="tabla ".$t; } if (Schema::hasColumn("matriculas","boletin_independiente")) $f[]="matriculas.boletin_independiente SIGUE AHI"; echo ($f ? "FALTA -> ".implode(" | ",$f) : "OK - las siete dentro").PHP_EOL;'
 ```
+
+> **`profesores.tono` se le añadió el 4 sep 2026, y la tanda pasó a OCHO migraciones.** Se
+> toca **esto** y no las tablas de arriba: aquéllas son lo que se midió sobre `347f137` y se
+> remiden el día del despliegue; **este fragmento es una comprobación que alguien va a
+> ejecutar**, y una comprobación que no pregunta por la octava columna contesta «OK - las
+> siete dentro» en un colegio al que le falta una. La decisión de la columna es de Joseth
+> (`23-horarios.md` §9.bis.3); el título de este bloque sigue diciendo siete porque es el de
+> la medición, no el de la comprobación.
 
 **Dice qué falta, no sólo que falta**, y **tiene control negativo**: probado el 2 sep 2026 contra la
 base migrada (`OK - las siete dentro`) **y** contra una sin migrar y con nombres inventados, donde

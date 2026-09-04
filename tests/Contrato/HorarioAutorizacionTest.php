@@ -43,13 +43,21 @@ class HorarioAutorizacionTest extends CasoDeContrato
     /** El rol que sube, creado el 21 ago 2026 y también con cero usuarios. */
     private const ROL_QUE_SUBE = 'Secretario';
 
-    /** Las tres rutas de la §5.3, con el verbo que cada una acepta. */
-    public static function lasTresRutas(): array
+    /**
+     * Las cuatro rutas de la familia, con el verbo que cada una acepta.
+     *
+     * Eran tres —las de la §5.3— hasta el 4 sep 2026, cuando entró `getLecciones`
+     * (§9.bis). **El nombre de este proveedor se movió con ellas a propósito**: un
+     * `lasTresRutas` que devolviera cuatro es la clase de cifra que envejece sin
+     * ponerse roja, que es de lo que va medio `CLAUDE.md`.
+     */
+    public static function lasCuatroRutas(): array
     {
         return [
             'subir' => ['postJson', '/api/horario/versiones'],
             'listar' => ['getJson', '/api/horario/versiones'],
             'publicar' => ['putJson', '/api/horario/versiones/1/oficial'],
+            'leer las lecciones' => ['getJson', '/api/horario/versiones/1/lecciones'],
         ];
     }
 
@@ -95,15 +103,15 @@ class HorarioAutorizacionTest extends CasoDeContrato
      * docente*, no *cualquiera*: una versión del horario dice qué docente está
      * dónde a cada hora.
      */
-    #[DataProvider('lasTresRutas')]
-    public function test_un_alumno_no_entra_a_ninguna_de_las_tres(string $metodo, string $ruta): void
+    #[DataProvider('lasCuatroRutas')]
+    public function test_un_alumno_no_entra_a_ninguna_de_las_cuatro(string $metodo, string $ruta): void
     {
         $token = $this->tokenDe($this->usuarioDeTipo('Alumno')->username);
 
         $this->pedir($metodo, $ruta, $token)->assertStatus(403);
     }
 
-    #[DataProvider('lasTresRutas')]
+    #[DataProvider('lasCuatroRutas')]
     public function test_un_acudiente_tampoco(string $metodo, string $ruta): void
     {
         $token = $this->tokenDe($this->usuarioDeTipo('Acudiente')->username);
@@ -145,14 +153,14 @@ class HorarioAutorizacionTest extends CasoDeContrato
     }
 
     /**
-     * Un superusuario pasa los tres criterios.
+     * Un superusuario pasa los cuatro criterios.
      *
      * **`assertNotSame(403, …)` y no `assertStatus(200)`**: hoy detrás hay un 501
      * y mañana habrá un 200 o un 422. Lo que este lote decide es si el guard deja
      * pasar, no qué contesta el que está detrás.
      */
-    #[DataProvider('lasTresRutas')]
-    public function test_un_superusuario_pasa_los_tres_criterios(string $metodo, string $ruta): void
+    #[DataProvider('lasCuatroRutas')]
+    public function test_un_superusuario_pasa_los_cuatro_criterios(string $metodo, string $ruta): void
     {
         $usuario = $this->usuarioDeTipo('Usuario');
 

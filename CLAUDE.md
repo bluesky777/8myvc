@@ -5,8 +5,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 `8myvc` es la API del sistema escolar MyVc: Laravel 13 + PHP 8.4, ~37.000 líneas
 en `app/`, **113 ficheros de controlador — 116 clases**, porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
-**566 rutas** (contadas con
-`route:list --json` el 2 sep 2026; el 24 ago el de rutas se movió por primera vez,
+**567 rutas** (contadas con
+`route:list --json` el 4 sep 2026; el 24 ago el de rutas se movió por primera vez,
 de 539 a 542, con los tres endpoints que pidió `myvc_flutter`, el 28 a 543 con
 `PUT users/mi-docente`, que pidió Joseth para el panel de `app2`, el 31 a 544 con
 `GET grupos/{grupo_id}/alumnos-de/{que}`, que pidió el front para el modal de
@@ -34,7 +34,15 @@ la oficial y «Clases de hoy» sigue vacía**, que es el problema que ese módul
 resolver (`docs/migracion/23-horarios.md` §5.3). El horario **se cuadra en un programa de
 escritorio**; a esta API le queda guardar versiones de un año y decir cuál es la oficial.
 **566 se contó, no se sumó** — coincidió con 563 + 3, que es la única forma de saber que
-coincidía. «El de rutas no se mueve»
+coincidía. Y el 4 sep 2026 a **567** con **la cuarta de `horario/`** —`GET
+horario/versiones/{id}/lecciones`, la que devuelve el horario para pintarlo—, que era **lo
+único que bloqueaba la web del horario**: se podía subir, listar y publicar, y no había
+forma de mirar lo publicado. Va con `auth.personal`, el mismo permiso que listar, y **sigue
+sin ser descargar**: el fichero de proyecto no viaja (`docs/migracion/23-horarios.md`
+§9.bis). Su forma la decidió Joseth ese día sobre lo medido en los dos repositorios, y lo
+que la determinó fue que **esta base no puede devolver un proyecto completo**: por eso cada
+catálogo viaja con su estado —y son **cuatro**, porque «el colegio no creó ninguno» y «esta
+API no puede saberlo» no son lo mismo—. «El de rutas no se mueve»
 sigue siendo la
 regla: una ruta nueva es una decisión, no un efecto secundario, y mueve este
 documento y **tres** snapshots, no dos: `rutas.json`, `guards-por-ruta.json` y
@@ -160,6 +168,7 @@ leyendo el código. Cada una lleva su uso en la cabecera.
 | `guardas-sin-respaldo.py` | qué métodos dependen enteros del middleware de su ruta — **ordena candidatos, y se equivocó en las dos direcciones**: cada fila se lee |
 | `verdad-laxa-que-escribe.py` | dónde una cadena cualquiera del cliente vale por «sí» **y gobierna una escritura** — 21 de 980 `if`, tres con consecuencia |
 | `prevuelo-del-horario.php` | si los datos de un colegio sirven para cuadrar un horario — **la rejilla es un parámetro** (`--lecciones`), y con la de 6×5 que supuso la v1 el docente de 31 h era imposible |
+| `deriva-del-horario.php` | si las siete columnas de día siguen cuadrando con la versión oficial — **sin versión publicada sale `2`, NO MEDIDO**, porque ahí un `0` diría lo mismo que un año perfecto |
 
 Y una que **no** está en `tools/` y contesta la pregunta contraria:
 `tests/Barrido/SuperficieDeUnTokenTest.php` golpea la API entera con un token y
