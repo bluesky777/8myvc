@@ -1608,10 +1608,34 @@ siguen sin estar.
 
 > **Siete se cerraron el 2 sep** y están arriba, en la §10.1 — las rutas, la opción B,
 > quién marca la oficial, el rol vacío, quién lista, los años cerrados y el blob.
-> **Quedan cuatro**: tres de cuando se escriba el código, y una que es de una ruta que
-> ya existe y que midió el front.
+> ~~**Quedan cuatro**~~ **Quedan DOS**, y las otras dos se cerraron el 4 sep 2026: la **1**
+> —`GET asignaturas` y la papelera— **se queda como está**, y la **4** —las siete columnas—
+> lleva su vigilante escrito (`tools/deriva-del-horario.php`). Las dos vivas son el **tope
+> del blob** (2) y **si existe una ruta para descargar el proyecto** (3), que sería la
+> **sexta** de la familia y **no está pedida**.
 
-1. **¿`GET asignaturas` debe traer las asignaciones cuya MATERIA está en la papelera?**
+1. ~~**¿`GET asignaturas` debe traer las asignaciones cuya MATERIA está en la papelera?**~~
+   **CERRADA el 4 sep 2026: se queda como está.** Joseth eligió no tocar la respuesta de una
+   ruta viva, y las tres razones que lo sostienen ya estaban medidas aquí abajo: **hoy son
+   cero** en `simonbolivar`, **el filtro de `asignaturas.deleted_at` sí funciona** —llegan las
+   134 vivas— y **el importador ya lo declara y cuenta lo que recibió**, así que el hueco no
+   es silencioso del todo: un colegio que espere 134 y reciba 130 tiene el número aunque no
+   tenga los nombres.
+
+   > **Lo que se acepta al cerrarla, escrito para que no haya que redescubrirlo:** el día que
+   > un colegio borre una materia con asignaciones vivas, **el horario podrá salir «cuadrado
+   > y completo» con una materia entera ausente**, y nadie lo notará hasta que un docente
+   > pregunte por su clase. El cero de hoy **es la foto de hoy**, y de los otros quince no ha
+   > mirado nadie. Se aceptó a sabiendas, no por descuido.
+   >
+   > **Y lo que hizo que fuera decisión y no parche:** cambiarlo es cambiar la respuesta de
+   > **una ruta viva que llaman los cuatro clientes**, `myvc_flutter` incluida — una sola app
+   > para los dieciséis, donde una versión vieja convive meses. Eso convierte un arreglo de
+   > tres líneas en una tanda con aviso y orden de despliegue.
+
+   *El texto original, que es el que la decidió:*
+
+   **¿`GET asignaturas` debe traer las asignaciones cuya MATERIA está en la papelera?**
    Lo midió el front contra el docker: esa lectura hace `inner join materias … and
    m.deleted_at is null`, así que **una asignación viva con la materia borrada no llega
    ni como fila ni como aviso**, y el importador **no puede contar lo que no le
@@ -1769,13 +1793,14 @@ siguen sin estar.
    > calcularía sobre una pieza que no existe. *No da error: da un horario equivocado.*
 
 3. **¿Existe una ruta para DESCARGAR el proyecto de una versión, y con qué permiso?**
-   Sería una **quinta** ruta, y **su número se cuenta con `route:list` el día que se
+   Sería una **sexta** ruta, y **su número se cuenta con `route:list` el día que se
    autorice** — no está pedida. Voto del front: el mismo permiso que publica, no el que
    sube (§5.4).
 
    > **Aquí decía «una cuarta ruta», y eso ya nombra a otra cosa.** La cuarta se
    > escribió el 4 sep 2026 y es `GET horario/versiones/{id}/lecciones` (§9.bis) —
-   > **mirar**, no llevarse. Ésta sería la quinta, y sigue sin pedirse: la decisión 12
+   > **mirar**, no llevarse; y la **quinta** es la del `tono`, escrita ese mismo día. Ésta
+   > sería la **sexta**, y sigue sin pedirse: la decisión 12
    > dijo *«listar no es descargar»* y la §9.bis la extendió a *«mirar no es
    > llevarse»*, así que **descargar el proyecto sigue entero por decidir**. Y el
    > ordinal se corrige mientras el número de ruta se sigue sin predecir, que es lo

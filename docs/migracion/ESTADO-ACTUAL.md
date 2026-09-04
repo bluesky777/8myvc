@@ -22,6 +22,61 @@
 > Los mensajes de commit están limpios —cero apariciones—, así que sólo había que tocar
 > estas tres líneas.
 
+**4 sep 2026 — TRES DECISIONES TUYAS EJECUTADAS: LOS DOS HUECOS DE `DESPLIEGUE.md`, LA §10.2.1
+CERRADA Y EL `28` RESCATADO** · `DESPLIEGUE.md`, [23 §10.2](23-horarios.md),
+`28-competencias-e-indicadores.md` y esta casilla · **cero código, el router en 568**
+
+> ### 1. Los dos huecos de `DESPLIEGUE.md`, escritos
+>
+> - **La fila que faltaba**: `2026_09_04_200000_tono_del_docente` ya está en la tabla de
+>   migraciones. Dice lo que se rompe sin ella —**dos** rutas de `horario/`, la que lee el
+>   color y la que lo escribe— y lo que **no**: las trece respuestas que reparten `tono` lo
+>   hacen por `SELECT *`, y **a un `*` la columna que falta no le duele**. Y repite que entra
+>   con `AFTER regla_nivelacion`, así que **fuera de orden no es aditiva: es un error de
+>   columna desconocida**.
+> - **El aviso O sube a 26 y 5**, y **entra el aviso P**: `profesores.tono` es un campo nuevo
+>   en **trece respuestas vivas**, y sólo dos son del horario — cinco son de `perfiles/` e
+>   `images-users/` y una de **votaciones**. Aditivo, ningún cliente pierde una clave; va
+>   dicho porque **un campo nuevo se manda dicho, no descubierto**.
+>
+> **Las 26 se contaron contra `9474b50`, no se sumaron**: 543 desplegadas, 568 hoy, **26
+> entran y 1 se va**. 543 + 26 − 1 = 568. *Se volvió a contar entero en vez de sumarle uno a
+> las 25 de esta mañana, que es la única forma de que el número signifique algo.*
+>
+> ### 2. La §10.2.1 cerrada: `GET asignaturas` **se queda como está**
+>
+> No se toca la respuesta de una ruta viva que llaman los cuatro clientes. **Lo que se acepta
+> al cerrarla queda escrito**: el día que un colegio borre una materia con asignaciones
+> vivas, el horario podrá salir *«cuadrado y completo»* con una materia entera ausente, y
+> nadie lo notará hasta que un docente pregunte por su clase. El cero de hoy es la foto de
+> hoy. **Se aceptó a sabiendas, no por descuido.**
+>
+> **Con eso la §10.2 pasa de cuatro abiertas a DOS**: el tope del blob y si existe una ruta
+> para descargar el proyecto — que ya no sería la quinta sino **la sexta**, porque la quinta
+> es la del `tono`.
+>
+> ### 3. El `28-competencias` rescatado — y NO era del apagón de anoche
+>
+> Commiteado por encargo tuyo tras **leerlo entero**, con dos cambios míos y sólo dos.
+>
+> **El duplicado no sobraba por repetido: sobraba porque contradecía.** Los dos bloques
+> «Pero NO repara hacia atrás» **no eran iguales** — el primero es la versión nueva, con tu
+> decisión de arreglar sólo hacia adelante; el segundo era el viejo, y su última frase dice
+> *«eso es un aviso al colegio»*, que es justo lo contrario. `HEAD` tenía **uno solo, el
+> viejo**, así que lo que pasó fue una inserción encima sin borrar debajo. El otro cambio:
+> `Hoy hay 566` → **568**, que es un dato y no un argumento suyo.
+>
+> **Y de quién era: sigue sin saberse, pero ya no se le atribuye mal.** `8myvc-19` lo daba
+> por huérfano del apagón de anoche; las fechas lo desmienten por día y medio —mtime del
+> **3 sep 00:14**, último commit que lo toca el **2 sep 23:27**, y el rescate al que lo
+> atribuía es del **4 sep 09:46** y va de otra cosa—. Corregido con esa sesión, que ya lo
+> había pasado como un hecho a una tercera.
+>
+> **Lo que trae, y es bastante**: la medición de preescolar (§3.2 — **803 de 1.169**
+> subunidades repiten el texto de su unidad contra **76 de 31.873** en el resto), la
+> **Entrega 7** entera, la rejilla de marcado de indicadores, y **tus decisiones 8 a 12** del
+> 2 sep con las abiertas renumeradas.
+
 **4 sep 2026 — EL COLOR DEL DOCENTE YA SE PUEDE ESCRIBIR: `PUT
 horario/docentes/{profesor_id}/tono`, Y EL ROUTER EN 568** · `HorarioController`,
 `routes/api/horario.php`, `tests/Contrato/HorarioTonoTest.php` (**28 casos, 213

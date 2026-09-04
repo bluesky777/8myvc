@@ -230,6 +230,7 @@ contexto contesta `SQLSTATE[42S22] Unknown column 'y.regla_nivelacion' in 'field
 | `2026_09_02_300000_acta_de_la_recuperacion_final` | **rompe una ruta que ya existe**, no sólo las nuevas: `putUpdateRecuperacion` nombra `nivelada_at, nivelada_por, observacion` en su `UPDATE`, su `INSERT` y su `SELECT` (`:818`, `:856`, `:884`) | `PUT definitivas_periodos/update-recuperacion` |
 | `2026_09_03_100000_rubricas` | cinco tablas nuevas y `subunidades.rubrica_id`. **Nadie fuera de `RubricasController` las nombra** —comprobado uno a uno: la planilla, unidades, asignaturas y `ChangeAsked` pasaron a nombrar sus columnas justamente para que `rubrica_id` no se les colara— | las **10** rutas de `rubricas/` |
 | `2026_09_04_100000_horario_versiones` | **`POST horario/versiones` pasa de 501 a 500.** `postVersiones` se implementó en `371062c` (2 sep, 18:29) y **hace `INSERT` en las tres tablas nuevas**, así que sin ellas revienta. `getVersiones` y `putOficial` **siguen a 501** y no las tocan, y **`years.horario_version_id` sigue sin leerla nadie** —`YearsController` la sirve por `SELECT y.*`, y a un `*` la columna que falta no le duele— | **1 ruta**, y detrás de `esAdministrativo`: el colegio no se cae, pero quien suba un horario recibe un 500 |
+| `2026_09_04_200000_tono_del_docente` | **`profesores.tono`, una columna `varchar(32)` nullable.** Sin ella cae **`GET horario/versiones/{id}/lecciones`**, que la nombra en su `SELECT`, y **`PUT horario/docentes/{profesor_id}/tono`**, que la escribe. Lo que **no** cae es nada más: la columna **no la lee ningún `SELECT *` de las trece respuestas que la reparten** —las reparte precisamente porque son `*`, y a un `*` la columna que falta no le duele—. Entra con `AFTER regla_nivelacion`, que llega en `2026_09_02_100000` **de esta misma tanda**: fuera de orden **no es aditiva, es un error de columna desconocida** (23 §11.2) | **2 rutas** de `horario/`, las dos detrás de guard. El colegio no se cae |
 | `2026_08_31_100000_retirar_boletin_independiente_de_matriculas` | nada del código nuevo: **retira** `matriculas.boletin_independiente`, que ya no lee nadie | ninguno hacia delante — **pero mira la fila de abajo** |
 
 **Seis de las siete son aditivas en `up()`** —`ADD COLUMN` y `CREATE TABLE`, sin un solo `UPDATE`
@@ -318,7 +319,8 @@ marcados en desarrollo**, que **no** es «cero en los quince»: eso sólo se sab
 | **L** | **`POST tardanzas/login/traer-datos` desaparece**: pasa a 404. Decisión de Joseth del 2 sep. El único llamante de toda la máquina es `tardanzasMyvc-old` (último commit feb 2020), y Joseth confirmó que ese repositorio está inactivo — el dato que lo cerró **no estaba en el repositorio** | **DECIDIDO** — es la única ruta que la tanda quita |
 | **M** | **`regla_nivelacion` aparece en el bloque de la sesión**, en las cuatro ramas (alumno, acudiente, profesor y usuario). Es un campo **nuevo**, para previsualizar en el diálogo de nivelación qué nota va a quedar (22 §1.4 y §5.1) | **ADITIVO** — Flutter no se rompe: `ConfiguracionColegio.deLogin` lee campo a campo y no hay `json_serializable` ni `freezed`. Medido, no supuesto (22 §3.2bis) |
 | **N** | **Campos nuevos de nivelación en respuestas que ya existían**: la planilla (`PUT notas/detailed`), los boletines, el boletín final y `PUT editnota/alum-asignatura`. Qué respuesta abre las columnas nuevas **a propósito** y cuál las tiene **congeladas** está decidido sitio por sitio en la tabla de [22 §3.4](migracion/22-nivelaciones.md) y en el [27](migracion/27-nivelaciones-en-los-informes.md) | **ADITIVO** — ningún cliente pierde una clave |
-| **O** | **25 rutas nuevas**: las 10 de `rubricas/`, las 4 de nivelar, las 5 de `boletin-independiente/`, las **4** de `horario/` —**las cuatro con cuerpo: ninguna contesta ya 501**—, `GET grupos/{grupo_id}/alumnos-de/{que}` y `GET colegio/logo`. **Todas menos `colegio/logo` llevan `auth.personal`**: un alumno o un acudiente que las llame recibe **403**, y las de nivelar además exigen `periodos.profes_pueden_nivelar` al profesor (`User.php:425`) | **POR AVISAR** — es de las de «quién puede llamarla» |
+| **O** | **26 rutas nuevas**: las 10 de `rubricas/`, las 4 de nivelar, las 5 de `boletin-independiente/`, las **5** de `horario/` —**las cinco con cuerpo: ninguna contesta ya 501**—, `GET grupos/{grupo_id}/alumnos-de/{que}` y `GET colegio/logo`. **Todas menos `colegio/logo` llevan `auth.personal`**: un alumno o un acudiente que las llame recibe **403**, y las de nivelar además exigen `periodos.profes_pueden_nivelar` al profesor (`User.php:425`) | **POR AVISAR** — es de las de «quién puede llamarla» |
+| **P** | **`profesores.tono` es un campo NUEVO en TRECE respuestas vivas**, y sólo dos son del horario. Once por Eloquent —las cinco de `profesores/` (`store`, `update`, `destroy`, `forcedelete`, `restore`), las **tres de `perfiles/`** (`show/{id}`, `update/{id}`, `cambiarimgunprofe/{id}`), las **dos de `images-users/`** (`cambiar-foto-un-usuario/{id}`, `cambiar-firma-un-profe/{id}`) y el `titular` de `GET grupos/show/{id}`— y **dos por `SELECT p.*`**: `PUT profesores/listado` y `PUT participantes/profesores`, ésta de **votaciones**. Vale `null` en los diecisiete hasta que alguien reparta colores | **ADITIVO** — ningún cliente pierde una clave. Va dicho porque **un campo nuevo se manda dicho, no descubierto**, y porque **cinco de las trece son pantallas de perfil e imágenes que no tienen nada que ver con el horario**. *Medido por dos sesiones que no se copiaron: 7 + 5 + 1 = 13.* **Y es de RESPUESTAS, no de pantallas**: `myvc_front` midió que dos de esas trece no las llama —`perfiles/show/{id}` y `perfiles/cambiarimgunprofe/{id}`— y `myvc_flutter` y `myvc_front_2` **no están medidos** |
 
 > **La fila O decía «24» y «las 3 de `horario/`», y se ha corregido a mano el 4 sep 2026
 > — que es una excepción a la regla de este documento y por eso va escrito.** Aquí las
@@ -331,12 +333,17 @@ marcados en desarrollo**, que **no** es «cero en los quince»: eso sólo se sab
 > remedir contesta *«¿siguen contestando 501?»*, **nadie recuenta un «24» si no sabe que hay
 > que hacerlo**. Lo decidió Joseth ese día.
 >
-> **Las 25 están CONTADAS contra la base desplegada, no sumadas** — que es lo que este repo
+> **Las 26 están CONTADAS contra la base desplegada, no sumadas** — que es lo que este repo
 > exige de un número que se escribe: `9474b50` declara **543** rutas y `HEAD` **567**;
-> comparados los dos conjuntos de URIs, **25 entran y 1 se va** (`POST
-> tardanzas/login/traer-datos`, el aviso L), y 543 + 25 − 1 = 567. La cuarta de `horario/`
-> es `GET horario/versiones/{id}/lecciones` (23 §9.bis), con `auth.personal` como las otras
-> tres.
+> comparados los dos conjuntos de URIs, **26 entran y 1 se va** (`POST
+> tardanzas/login/traer-datos`, el aviso L), y **543 + 26 − 1 = 568**. Las dos últimas de
+> `horario/` son `GET horario/versiones/{id}/lecciones` (23 §9.bis) y
+> `PUT horario/docentes/{profesor_id}/tono`; **la del `tono` es la única de las 26 con un
+> criterio que no es ni `esAdministrativo` ni `auth.personal` a secas**:
+> `puedePublicarHorario`, o sea superusuario **o** `Coord académico`.
+>
+> *Recontado el 4 sep 2026 al entrar la quinta de `horario/`. **Se volvió a contar entero,
+> no se le sumó uno a 25** — que es la única forma de que el 568 signifique algo.*
 >
 > **Lo que NO se ha tocado y sigue esperando al día del despliegue** es la fila de
 > `2026_09_04_100000_horario_versiones` de la tabla de migraciones, que dice que sólo
