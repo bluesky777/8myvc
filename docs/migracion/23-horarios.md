@@ -1116,6 +1116,203 @@ sino **si lo que falta se puede nombrar**.
 > se pinta** —docentes, grupos, salones, niveles— que la subida no manda porque ya lo
 > tenemos.
 
+### 9.bis.3. Qué puede devolver esta base, medido — y las tres formas de vacío
+
+**Medido el 4 sep 2026 sobre `8f59242`**, base `simonbolivar` del docker, **año 8** y su
+versión **oficial 6** —la que subió `myvc-horarios-f3` con datos reales—. **La población
+es un colegio, un año y una versión: 312 lecciones.** Lo que esta tabla diga de los otros
+quince es **no medido**, y no se puede medir desde aquí: cada colegio tiene su base.
+
+| lo que el escritorio pinta | ¿lo tiene esta base? | de dónde | medido en el año 8 |
+|---|---|---|---|
+| **lecciones colocadas** | **sí, entero** | `horario_lecciones` + `horario_pieza_docente` | 312 filas · 312 piezas · día **1..5** · franja **1..7** · **32** con `duracion > 1` |
+| **grupos** | **sí** | `grupos` | 13 vivos, y **13 de 13** tienen alguna lección |
+| **asignaciones** | **sí** | `asignaturas` (`creditos` = IH) | 134 vivas · **134 de 134** con lección · Σ IH **345** contra **312** colocadas · **0** con `creditos` nulo · **10 sin `profesor_id`** |
+| **materias y su alias** | **sí** | `materias` | 35 vivas, **35 de 35 con `alias`** — así que `alias_materia` no es un campo raro: es el caso normal |
+| **niveles** | **sí** | `grados` → `niveles_educativos` | 16 grados · 4 niveles |
+| **docentes** | **sí la identidad, NO el `tono`** | `profesores` | 47 vivos · **12** con asignación en el año · `tipo_profesor` es **nulo en 42 de 47**, así que **no sirve hoy para decir quién es docente** |
+| **salones** | **a medias, y sólo como texto** | `horario_lecciones.salon` | **87 de 312** lecciones traen salón · **3 nombres distintos** (`Sala de sistemas` 28, `Laboratorio` 33, `Cancha` 26) · **no hay tabla `salones`**, así que **no hay `salon_id` que mandar** |
+| **timbres / rejilla / jornada por nivel** | **no** | — | `years.minu_hora_clase` = **50** y `years.jornada` = **`'Mañana y tarde'`**. Ni horas de inicio, ni descansos, ni jornada por nivel |
+| **disponibilidad declarada** | **no** | — | no existe en el esquema (§4) |
+| **restricciones · pesos · colores** | **no** | — | viven en el blob del proyecto (§4) |
+
+**Y el `tono` no está «vacío»: no existe la columna.** Las 27 columnas de `profesores`
+salen listadas arriba y ninguna es un color. O sea que el hallazgo de
+`myvc_horarios` —«ninguno de los 22 docentes lo trae»— y el nuestro **son dos cosas
+distintas que se leerían igual**: allí el dato **está previsto y vacío**; aquí **no hay
+dónde ponerlo**. Un `tono: null` que salga de esta ruta no significa «el colegio no lo ha
+puesto», significa **«esta API no puede saberlo»** — y ésa es exactamente la diferencia que
+la respuesta tiene que poder decir.
+
+**El caso «a medias» de la §9.bis.1.a no es una hipótesis aquí: es lo que hay.** 87 de 312
+con salón y 3 nombres, contra los **17 salones** del proyecto real que midió el front. Es
+la misma forma que midió `myvc-horarios-90` —6 hojas se quedan en 3, `ocupadas` de 88 a 50,
+**cero avisos**—, sólo que ya con datos nuestros.
+
+#### Las tres formas de vacío, y la tercera la obliga la decisión de Joseth
+
+`myvc_horarios` pidió dos —**`[]` no puede ser lo mismo que «no lo tengo»**—. Con la
+restricción nueva de Joseth (*el horario es opcional; lo obligatorio es crear asignaturas
+con IH*) hacen falta **tres**, porque si no, un colegio que legítimamente no quiere salones
+se lee como un colegio al que le falta un dato:
+
+| estado | qué significa | ejemplo medido |
+|---|---|---|
+| `completo` | lo guardamos y está todo | `grupos`: 13 de 13 |
+| `parcial` | lo guardamos y **hay menos de lo que la versión usa** — con su población al lado | `salones`: 87 de 312, 3 distintos |
+| `vacio` | lo guardamos, **el colegio no ha creado ninguno, y eso es una respuesta legítima** | un colegio sin un solo salón nombrado |
+| `sin_catalogo` | **esta API no puede saberlo, hoy ni nunca por este camino** | `timbres`, `disponibilidad`, `tono` |
+
+**`vacio` y `sin_catalogo` separados es lo que impide que la ruta convierta el horario en
+obligatorio.** Sin esa distinción, la única forma de que la pantalla no mienta sería exigir
+que el colegio rellene salones y timbres — que es justo lo que Joseth dijo que **no** puede
+pasar. Con ella, un colegio que sólo tiene asignaturas con IH recibe un **200** correcto con
+cuatro renglones en `vacio`/`sin_catalogo` y **ni un 422**.
+
+> **El invariante que va atado con un test el día que se escriba el código**, porque es la
+> restricción de Joseth escrita como algo que se puede romper: *una versión subida sin un
+> solo salón, sin una sola lección doble y sin ninguna ficha por IH tiene que devolver
+> **200** con sus renglones en `vacio`, nunca un 422 y nunca una lista corta sin decir que
+> es corta.* Ni la ruta ni la base ni la validación pueden pedir un dato que la §0 decidió
+> no guardar.
+
+#### La forma del sobre
+
+**Lista plana de lecciones y los ejes declarados aparte**, que es lo que midió
+`myvc-front-4f` y coincide con lo que ya hace este repo: con un árbol `dia → franja` el
+cliente **tiene que inventarse las celdas vacías**, y entonces un hueco que la respuesta
+nunca declaró es indistinguible de un hueco real — el `[]` de la §2 otra vez, ahora por
+celda.
+
+```
+GET horario/versiones/{id}/lecciones        ← el número se cuenta con `route:list` el día
+                                              que se escriba, y NO se predice aquí (§10.2.3)
+```
+
+**Por `{id}` y no `horario/oficial`**, y la razón es la asimetría que Joseth cerró en la
+decisión 5: *subir no es publicar*. Quien va a publicar necesita **mirar una versión que
+todavía no es la oficial**; con `horario/oficial` esa pantalla no existe. El `{id}` se
+comprueba contra el año del token —**404 si la versión no es de ese año**, no 403— porque si
+no es un identificador de la URL que no comprueba nadie
+(`tools/identificadores-del-cuerpo.py`), y porque el año viaja por tres caminos distintos y
+esta ruta es la cuarta (§7.1.bis).
+
+```json
+{
+  "version": { "id": 6, "year_id": 8, "nombre": "…", "es_oficial": true,
+               "created_at": "…", "comprobaciones": { } },
+
+  "ejes": { "dias": [1,2,3,4,5], "franjas": [1,2,3,4,5,6,7],
+            "minutos_por_leccion": 50, "timbres": null },
+
+  "catalogos": {
+    "grupos":         { "estado": "completo", "total": 13 },
+    "asignaciones":   { "estado": "completo", "total": 134, "sin_docente": 10 },
+    "docentes":       { "estado": "completo", "total": 47, "con_asignacion": 12 },
+    "tono":           { "estado": "sin_catalogo", "motivo": "`profesores` no tiene columna de color" },
+    "salones":        { "estado": "parcial", "con_salon": 87, "de": 312, "distintos": 3,
+                        "motivo": "sólo el nombre que mandó la subida; no hay tabla de salones ni ids" },
+    "timbres":        { "estado": "sin_catalogo", "motivo": "el servidor no guarda la rejilla (§4)" },
+    "disponibilidad": { "estado": "sin_catalogo", "motivo": "ídem" }
+  },
+
+  "lecciones": [
+    { "id": 1, "horario_version_id": 6, "pieza_id": "a1196-0",
+      "dia": 4, "franja": 2, "duracion": 1,
+      "asignatura_id": 1196, "materia": "Matemáticas", "alias_materia": "Mat",
+      "grupo_id": 31, "nombre_grupo": "Décimo", "abrev_grupo": "10°",
+      "profesor_id": 12, "nombre_profesor": "…",
+      "nombre_salon": "Laboratorio" }
+  ],
+  "total_lecciones": 312
+}
+```
+
+Cinco cosas de esa forma que **no** son preferencias:
+
+1. **`catalogos` va SIEMPRE y va DELANTE de las listas.** Una lista vacía sin su renglón en
+   `catalogos` es **un error del servidor**, no un catálogo vacío. Es la única manera de que
+   la regla de la §9.bis.1.a («la respuesta tiene que poder decir que lo que manda está
+   incompleto») sobreviva al día que alguien añada un catálogo y se olvide del renglón.
+2. **`nombre_profesor` y `nombre_salon` son `string | null`, nunca `string`.** No es
+   defensivo: **22 de las 312 piezas de la versión 6 no tienen ni una fila en
+   `horario_pieza_docente`**, y **10 de las 134 asignaciones del año no tienen
+   `profesor_id`**. El caso nulo es el que hay hoy en la única versión real que existe.
+3. **`salon_id` NO viaja.** No hay tabla de salones: un campo que sale `null` siempre
+   entrena al cliente a ignorarlo, y el día que exista la tabla ya nadie lo mira. Lo que
+   viaja es `nombre_salon`, y el renglón `salones` del catálogo dice que no hay ids.
+4. **`duracion` va en franjas y viaja siempre**, aunque valga 1. Sin ella el cliente deduce
+   una doble de dos filas contiguas, que es de la familia «plausible y falso»: **32 de las
+   312** lecciones de la versión 6 son bloques.
+5. **`comprobaciones` es el veredicto GUARDADO**, igual que en `getVersiones` y por la misma
+   razón: recalcularlo diría lo que el servidor opina hoy de una versión comprobada con el
+   código de otro día. *(Y es la trampa que ya mordió una vez: el 422 de `acepto_perder`
+   mandaba a «releer el listado» a buscar una cifra fresca que ese campo no da — `0faf099`.)*
+
+#### El `dia`: las dos codificaciones coinciden, y está medido
+
+`myvc-front-4f` avisó de que en el front el día es **el de la semana de verdad, `0` domingo
+… `6` sábado**, y de que allí no existe ningún «día 1 del horario». **Es exactamente el
+convenio de la §5.2.5** —`0 = domingo`, el mismo con el que se consumen las siete columnas
+sobre `Carbon::dayOfWeek`—, y la versión 6 lo confirma: sus lecciones van de **`dia` 1 a 5**,
+o sea lunes a viernes. **No hay conversión que escribir y por eso hay que decirlo**: dos
+convenios que coinciden no necesitan código, pero sí necesitan quedar escritos, porque el
+día que uno de los dos se mueva **el horario entero se corre un día y las tres reglas de la
+§6 se siguen cumpliendo** (§5.2.5).
+
+#### Lo que NO decide este documento, y va a Joseth
+
+Cuatro, y ninguna se resuelve midiendo:
+
+1. **Si el `tono` se resuelve, y por dónde.** Las salidas son tres: (a) dejarlo
+   `sin_catalogo` para siempre y que el escritorio lo ponga —seis de los ocho informes salen
+   con los colores cambiados y **nada se pone rojo**—; (b) una columna nueva en
+   `profesores`, que es esquema y decisión suya; (c) **leer el blob y extraer sólo los
+   colores** — que es «mirar el proyecto sin entregarlo» y roza la condición de la decisión
+   12 (*listar no es descargar*). **La (c) no se hace sin que él la diga**, porque es la
+   única que toca el blob.
+2. **Qué permiso abre el menú del horario en el front** — allí hoy no existe ninguno.
+3. **Si el `tono` es del docente o de la lección.**
+4. **Quién manda sobre los días de `asignaturas`** cuando el menú coloque lecciones — la
+   §9.bis.4, que es la gorda.
+
+### 9.bis.4. Ya hay dos escritores de la misma verdad, y uno es nuestro
+
+**No es un riesgo futuro: existe hoy, y lo destapó `myvc-front-4f`.** Las siete columnas
+`asignaturas.lunes … domingo` las escriben **dos sitios**:
+
+| escritor | qué hace | de qué lado |
+|---|---|---|
+| `toggleDia`, pantalla `asignaturas/` de `myvc_front` | conmuta la columna de esa fila | **obligatorio-académico** — vive hoy en los dieciséis |
+| `putOficial` de esta API (§7.1) | **reescribe las siete de todo el año** desde las lecciones de la versión que se publica | **opcional-horario** — desplegado en cero |
+
+**En la dirección «publicar» la colisión ya está resuelta, y se resolvió sin saber que había
+dos escritores**: lo que `putOficial` va a borrar de lo que alguien puso a mano es
+exactamente lo que cuenta `acepto_perder`, y por eso publicar exige que una persona teclee
+ese número (§7.2). *La puerta estaba bien puesta por otra razón.*
+
+**En la dirección contraria no hay nada.** Si un docente conmuta un día **después** de
+publicar, las columnas dejan de cuadrar con la versión oficial y **no lo detecta nadie**: no
+hay error, no hay aviso, y las dos pantallas —«Clases de hoy» y la rejilla de la cuarta
+ruta— empiezan a decir cosas distintas del mismo día. Es el dato derivado que la §7 dijo que
+**necesita quien lo vigile**, y ese vigilante sigue sin escribirse (§10.2.4: *«la herramienta
+de `tools/` sigue sin escribirse»* — comprobado el 4 sep 2026: `tools/` tiene 41 ficheros y
+el único que nombra el horario es `prevuelo-del-horario.php`, que mide otra cosa).
+
+**Medido hoy, con su población: `0` de `134`.** Las 134 asignaciones vivas del año 8,
+comparadas columna a columna contra las lecciones de la versión 6, **cuadran las siete**.
+O sea que **nadie ha conmutado un día desde que se publicó** — no que el problema no exista.
+*Un cero recién publicado es el cero más fácil de conseguir y el que menos dice.*
+
+**Y de aquí sale lo primero que hay que responderle al front, que preguntó de cuál de los dos
+lee la cuarta ruta:** de **`horario_lecciones`**, siempre. Las siete columnas **no tienen
+franja** —ni la tienen ni se les puede añadir sin cambiar la respuesta de
+`asignaturas_dia` (§7)—, así que para pintar una rejilla no sirven. Las columnas son el
+**derivado para «Clases de hoy»**; la versión es **la verdad**. Que la ruta lea la versión es
+además lo que hace posible que algún día ella misma sea quien delate la deriva, porque es el
+único sitio que mira los dos mundos a la vez — **y eso es una decisión, no un añadido: hoy no
+lo hace.**
+
 ---
 
 ## 10. Decisiones
@@ -1356,3 +1553,99 @@ siguen sin estar.
 > Lo más barato que se puede hacer sin esperar a ninguna de las cuatro es el **nivel 1
 > del pre-vuelo como script de `tools/`** sobre los quince colegios (§9). No toca el
 > router, no necesita permiso y contesta si este módulo se va a poder usar.
+
+---
+
+## 11. El despliegue: cero de dieciséis, y lo que queda por hacer — escrito, NO hecho
+
+**Sigue congelado por Joseth** mientras `myvc_flutter` está en revisión
+([`DESPLIEGUE.md` §🛑](../DESPLIEGUE.md)), y este apartado **no lo descongela**: existe
+porque `myvc_horarios` preguntó qué trabajo queda y la respuesta no estaba en ningún sitio
+completa. Escrito el 4 sep 2026 sobre `8f59242`.
+
+### 11.1. Dónde está hoy, medido
+
+| | | comprobado con |
+|---|---|---|
+| colegios con el módulo | **0 de 16** (más `demo`) | `routes/api/horario.php` no existe en `9474b50`, que es la base desplegada |
+| qué contestan allí las tres rutas | **404** | no hay fichero de rutas que las declare — **no es el 501 del docker**, que era el controlador sin cuerpo |
+| commits sin desplegar | **232** desde `9474b50` | `git rev-list --count 9474b50..HEAD` |
+| migraciones sin desplegar | **7**, y `2026_09_04_100000_horario_versiones` es una de ellas | `git ls-tree` de los dos extremos |
+| ficheros de rutas nuevos | **2**: `horario.php` y `rubricas.php` | ídem |
+
+**El 404 y el 501 no son el mismo estado y conviene no mezclarlos**: en el docker la ruta
+existe y contestaba 501 mientras el método estaba vacío; en un colegio real **la ruta no
+existe**. Un cliente que trate el 404 como «esta versión del servidor no tiene el módulo»
+acierta hoy y seguirá acertando — es la señal correcta.
+
+### 11.2. No hay camino «sólo horario», y esto es lo primero que hay que saber
+
+**La tanda es indivisible y la razón es de esquema, no de prudencia.** La migración del
+horario mete su columna con `->after('regla_nivelacion')`, y `regla_nivelacion` la añade
+`2026_09_02_100000_nivelaciones_columnas`, de la misma tanda: `ADD COLUMN … AFTER x` con una
+`x` que no existe **falla**. O sea que sacar el horario solo **no da una migración aditiva
+que no hace nada: da un error de columna desconocida**.
+
+Y por encima de eso, la tanda entera es bloqueante por otro sitio: `years.regla_nivelacion`
+la nombra `ContextoDeUsuario::construir()` en las cuatro ramas, y ese `SELECT` lo dispara
+**el propio guard**. Con el código nuevo y la base sin migrar **no se puede ni iniciar
+sesión** — está medido y documentado en [`DESPLIEGUE.md` §⛔](../DESPLIEGUE.md).
+
+**Consecuencia para este módulo: el horario no se despliega; se despliega la tanda.** Lo que
+queda por hacer del horario **no es un despliegue propio**, son los pasos 1 a 3 de
+`DESPLIEGUE.md` con dos comprobaciones más, las de abajo.
+
+### 11.3. Los pasos, y contra qué colegio se prueba primero
+
+El bucle, el orden por colegio (`git pull` → `migrate --force` → cachés) y las tres trampas
+están en `DESPLIEGUE.md` y **no se repiten aquí**. Lo que es de este módulo:
+
+1. **Primero `demo`**, y no es una preferencia: es el único de las diecisiete carpetas que
+   no es el colegio de nadie, **entra en el mismo bucle** que los dieciséis y ya se sabe que
+   su `.env` es el único distinto del resto (`APP_MOVIL_VERSION_MINIMA` presente y vacía).
+   Con una salvedad que hay que leer antes: **el login de `demo` está roto por un `if`
+   cableado en el front**, no por el servidor (casilla 2septies de
+   [`ESTADO-ACTUAL.md`](ESTADO-ACTUAL.md)) — así que se prueba **por API con `curl` y un
+   token**, no por pantalla, o se confunde un fallo viejo del front con uno nuevo nuestro.
+2. **Después un colegio real con datos de verdad**, y el candidato es el que ya se midió:
+   `simonbolivar` es el único del que este repositorio conoce el pre-vuelo
+   (§9.1) — 13 grupos, 134 asignaciones, Σ IH 345 contra una rejilla de 7×5.
+3. **La comprobación de este módulo, después de la de las siete migraciones**: las tres
+   tablas existen y `years.horario_version_id` también —las cuatro ya están en el `tinker`
+   de `DESPLIEGUE.md`—, y encima **`GET horario/versiones` con un token de personal tiene
+   que contestar `200` con `total: 0` y `oficial_id: null`**. Ese 200 vacío es la única
+   forma de distinguir *«el módulo está y este colegio no ha subido nada»* de *«el módulo no
+   llegó»*, que desde fuera se parecen: un 404 y un `[]` se leen igual de bien.
+4. **`tools/prevuelo-del-horario.php`, colegio a colegio, después de migrar.** No toca nada
+   —sólo `SELECT`— y contesta si los datos de ese colegio sirven para cuadrar un horario.
+   Tiene tres códigos de salida a propósito: **`2` es «no medido», que no es «limpio»**.
+
+### 11.4. Qué se rompe si se hace mal
+
+| si se hace… | qué pasa |
+|---|---|
+| **el `migrate` a medias** (falla en un colegio y se sigue con el siguiente) | el estado peor de todos: `2026_08_31_100000` ya retiró `matriculas.boletin_independiente` y las demás no han llegado — **no funciona ni el código viejo ni el nuevo**, y no lo delata ningún error. Ya pasó en dos bases de sesión el 2 sep 2026 |
+| **`migrate` antes de `git pull`** | el colegio se queda con el código viejo y la columna ya retirada: los boletines caen por el otro lado. **No hay orden sin ventana**; los dos comandos van seguidos y por colegio |
+| **desplegar el front del horario antes que esta API** | el menú llama a rutas que allí **no existen** y recibe 404. El orden es el de siempre: el guard del backend **desplegado**, no fusionado |
+| **volver atrás dejando las migraciones puestas** | vale para las tandas anteriores y **no para ésta**: hay un `dropColumn` dentro. Ver el Paso 4 de `DESPLIEGUE.md` |
+| **publicar una versión sin mirar el número** | `putOficial` reescribe las siete columnas de día **de todo el año**; lo que se pierda de lo que alguien puso a mano es lo que cuenta `acepto_perder` (§7.2 y §9.bis.4) |
+
+### 11.5. Y dos afirmaciones de `DESPLIEGUE.md` sobre este módulo han envejecido
+
+**No se corrigen allí y se dice por qué**: aquellas tablas son *lo que se midió el día que se
+midió*, y ese documento tiene su propia regla —*un rango sin desplegar se remide entero
+cuando se le toca*—, así que se remiden **el día del despliegue** y no hoy. Lo que hay que
+saber al leerlas:
+
+1. La fila de `2026_09_04_100000_horario_versiones` dice que sin la migración **sólo**
+   `POST horario/versiones` pasa de 501 a 500, y que `getVersiones` y `putOficial` «siguen a
+   501 y no las tocan». **Era cierto sobre `347f137` y dejó de serlo con los lotes B3 y C2**:
+   los tres métodos están implementados y los tres nombran las tablas nuevas. El radio de esa
+   fila es hoy **3 rutas, no 1**.
+2. El aviso **O** dice que las tres de `horario/` «hoy contestan 501». Ya no: contestan.
+
+**Es la misma forma de envejecer que ese documento ya tiene catalogada** —*una afirmación
+sobre lo que el código hace caduca cuando el código cambia, aunque el número que la acompaña
+siga siendo el mismo*—, y es la segunda vez que le pasa **a esta misma fila**. Nada de esto
+cambia el plan: la tanda es bloqueante entera, así que un colegio a medio migrar no llega a
+notar la diferencia entre un 500 y tres.

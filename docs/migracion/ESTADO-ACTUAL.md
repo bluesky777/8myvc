@@ -22,6 +22,55 @@
 > Los mensajes de commit están limpios —cero apariciones—, así que sólo había que tocar
 > estas tres líneas.
 
+**4 sep 2026 — LA CUARTA RUTA DEL HORARIO: LO QUE ESTA BASE PUEDE DEVOLVER, MEDIDO, Y EL
+DESPLIEGUE ESCRITO SIN DESCONGELARLO** · rama `docs/horario-cuarta-ruta-y-despliegue`,
+**sin fusionar y sin empujar** · [23 §9.bis.3, §9.bis.4 y §11](23-horarios.md) y
+[29 §5](29-los-env-no-son-uniformes.md) · **cero código: el router no se mueve, siguen 566** ·
+lo pidió `myvc-horarios-43` con la forma que midió `myvc-front-4f`
+
+> **La ruta sigue sin escribirse a propósito**: su forma es decisión de Joseth y quedan
+> **cuatro** preguntas suyas listadas al final de la §9.bis.3. Lo que se hizo fue quitarles
+> de encima todo lo que se podía medir, sobre `8f59242`, base `simonbolivar` del docker,
+> año 8 y versión oficial 6 — **población: un colegio, una versión, 312 lecciones**.
+>
+> | lo que decide la forma | medido |
+> |---|---|
+> | **`profesores` NO tiene columna de color** | así que `tono` no es «vacío»: es **`sin_catalogo`**. Allí el dato está previsto y vacío; aquí no hay dónde ponerlo, y **las dos cosas se leerían igual** |
+> | **salones a medias, con datos nuestros** | **87 de 312** lecciones con salón y **3 nombres** contra los 17 del proyecto real. El caso que `myvc-horarios-90` midió como el peor **es el que hay** |
+> | **el caso nulo es el normal** | **22 de 312** piezas sin ninguna fila en `horario_pieza_docente` · **10 de 134** asignaciones sin `profesor_id` |
+> | **las dos codificaciones de `dia` COINCIDEN** | `0 = domingo` en los dos lados, y la versión 6 va de `dia` 1 a 5. No hay conversión que escribir — **y por eso hay que dejarlo escrito** |
+>
+> **Y la restricción nueva de Joseth —el horario es OPCIONAL— cambió la forma:** hacen falta
+> **tres** estados de vacío y no dos. `vacio` («el colegio no creó ninguno, y es legítimo»)
+> separado de `sin_catalogo` («esta API no puede saberlo») es lo único que impide que la
+> ruta convierta salones y timbres en obligatorios para que la pantalla no mienta.
+>
+> ### Y de camino salió que ya hay DOS escritores de las siete columnas de día
+>
+> `toggleDia` de la pantalla `asignaturas/` (lado obligatorio, **vivo en los dieciséis**) y
+> `putOficial` (§7.1), que las reescribe **de todo el año**. **En la dirección «publicar» la
+> colisión ya estaba resuelta sin saberlo**: lo que se borra es justo lo que cuenta
+> `acepto_perder`. **En la contraria no hay nada** — conmutar un día después de publicar
+> descuadra las dos pantallas y no lo detecta nadie. Medido hoy: **0 de 134 descuadradas**,
+> que es el cero más fácil de conseguir *tres días después de publicar* y el que menos dice.
+>
+> ### El despliegue: **0 de 16**, y sigue CONGELADO — lo que se hizo fue escribirlo
+>
+> Contra un colegio real las tres rutas dan **404** (allí no existe el fichero de rutas), que
+> no es el 501 del docker. **No hay camino «sólo horario»**: la columna entra con
+> `AFTER regla_nivelacion`, que llega en otra migración de la misma tanda. Pasos, primer
+> colegio (`demo`, y por API: su login lo rompe un `if` del front) y qué se rompe si se hace
+> mal, en la §11. **Dos afirmaciones de `DESPLIEGUE.md` sobre este módulo han envejecido** y
+> **no se corrigen allí**: aquellas tablas se remiden el día del despliegue (§11.5).
+>
+> ### Las otras dos que preguntó `myvc_horarios`
+>
+> - **`acepto_perder` no se ha movido desde `4f66e48`** en lo que es: sigue siendo el número
+>   y sigue costando dos viajes. Lo que cambió fue el **mensaje** (`0faf099`): mandaba a
+>   «releer el listado» a buscar una cifra fresca que `getVersiones` **no da**.
+> - **La forma de `GET horario/versiones` sigue siendo la de `e25b643`.** Cero commits tocan
+>   `HorarioController` ni `routes/api/horario.php` en `e25b643..HEAD`.
+
 **3 sep 2026 — EL CÍRCULO DEL HORARIO, CERRADO DE PUNTA A PUNTA CON DATOS REALES** ·
 cero ficheros tocados: es una **medición**, no un cambio · **566 rutas** · lo condujo
 `myvc-horarios-f3` en el docker, con permiso de Joseth; la última lectura la corrió esta

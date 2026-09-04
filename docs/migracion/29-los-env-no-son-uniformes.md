@@ -269,6 +269,24 @@ nada. Lo pone **la ventana**, y depende de quién sirve la aplicación:
 > falsos positivos** —`getClientOriginalName`, `$leidaOriginal`—. O sea que no hemos caído
 > en la trampa, pero no por cuidado: **es que nunca se ha mirado**. La distinción importa
 > el día que alguien vea «cero hallazgos» y lo lea como «cero problemas».
+>
+> **Recontado el 4 sep 2026 sobre `8f59242`: ahora da OCHO, y los ocho siguen siendo falsos
+> positivos** —los cuatro de antes más `$leidaOriginal` de `RubricasTest`, dos de
+> `FichaDelAlumnoQueNoSeGuardaTest` («Nombre Original») y otro de `ImportacionReanudableTest`—.
+> El número subió sin que nadie mirara CORS ni una vez: es un `grep` de una palabra, no un
+> detector, y **si algún día pasara a ser el que contesta la pregunta, cuatro de sus ocho
+> aciertos serían un alumno llamado «Original»**. Queda escrito para que el que venga no lea
+> el «cuatro» de arriba como una cifra que se ha movido hacia algo.
+
+> **Preguntado desde `myvc_horarios` el 4 sep 2026, y la respuesta es NO: el barrido de los
+> dieciséis SIGUE SIN CORRER.** Allí `CORS_ALLOWED_ORIGINS ≈ '*'` está anotado como
+> **inferido**, y esperaban que este barrido lo convirtiera en dato para saber si
+> `tauri://localhost` —el `Origin` del programa instalado— pasa en los colegios reales.
+> **No se puede contestar desde aquí, y no por falta de ganas**: el bucle de la §7 necesita
+> la sesión del servidor, que **no la tiene ninguna sesión de Claude**. Lo que sí se puede
+> decir sin medir nada, porque es del código: donde la variable **no se puso**, el valor
+> efectivo es `['*']` (la tabla de arriba) y `tauri://localhost` **pasa**; el riesgo está
+> exactamente en los colegios donde **sí** se puso, y **cuántos son es lo que nadie sabe**.
 
 **Y una que nadie ha medido de ninguno de los dos lados**: `tauri://localhost` está
 comprobado **en macOS y sólo en macOS**. Si el ejecutable de Windows manda el mismo origen,
