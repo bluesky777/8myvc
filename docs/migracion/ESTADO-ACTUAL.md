@@ -22,6 +22,90 @@
 > Los mensajes de commit están limpios —cero apariciones—, así que sólo había que tocar
 > estas tres líneas.
 
+**4 sep 2026 — EL RANGO SIN DESPLEGAR, REMEDIDO ENTERO: 232 COMMITS Y NO 191, Y CUATRO AVISOS
+QUE FALTABAN** · rama `docs/despliegue-remedido`, **sin fusionar y sin empujar** · sólo
+documentación: `docs/DESPLIEGUE.md` y esta casilla, **cero ficheros de `app/`, `routes/`,
+`tools/` ni `database/`** · **el despliegue SIGUE CONGELADO**: esto no lo descongela · lote
+repartido por `8myvc-f5`, de parte de Joseth
+
+> **Se remidió porque se le acababa de tocar**, que es la regla del propio documento. La
+> sección grande medía sobre un rango de dos días atrás y describía un código que ya no
+> existe.
+>
+> | | decía | dice, medido el 4 sep sobre `9474b50..main` (**`8f59242`**) |
+> |---|---|---|
+> | commits | 191 | **232** |
+> | rango | `9474b50..347f137` | **`9474b50..aebf4ed` era el de las cifras** — ver abajo |
+> | `app/` · `routes/` · migraciones | 54 · 7 · SIETE | **iguales**: 54 · 7 · SIETE |
+> | rutas | 543 → 566 | **iguales**, restando los dos `rutas.json` |
+> | `547` de 565 con `auth.token` | 547 | **igual, recontado** |
+>
+> **Lo que más costó no fue actualizar cifras: fue que el «hasta dónde» estaba mal escrito.**
+> El encabezado decía `9474b50..347f137` y **ninguna** de sus cinco cifras es de ese rango
+> (allí salen 175 · 52 · 6 · SEIS); los 191/54/7/SIETE son de `aebf4ed`, la fusión del suelo
+> del horario **dos horas más tarde el mismo día**. O sea: se remidió tras fusionar y la
+> etiqueta se quedó del sondeo anterior. *Un extremo de rango se copia del comando que produjo
+> las cifras, no de la frase de antes.*
+>
+> **Y la parte que valía más que los números: se repasaron los cinco avisos del front (K–O)
+> midiendo la POBLACIÓN entera** —las claves de los **125** snapshots de `Contrato/`, restadas
+> hasta el fondo del árbol entre `9474b50` y `main`—. Cambian 35; quitando los seis que no son
+> respuestas quedan **25 respuestas vivas que cambian de forma** y 4 snapshots nuevos.
+>
+> | | |
+> |---|---|
+> | **K, L, M** | ciertas al detalle, incluidas las ocho claves de `to-me` una a una |
+> | **N** | se quedaba corta: nombra 4 sitios y la nivelación toca **10**, uno de ellos `GET notas/alumno/…`, **la que un alumno pide sobre sí mismo**. Y «los boletines» son `boletines` y `boletines2`: **`boletines3` no gana ni una clave** |
+> | **O** | **falsa**: decía que las tres de `horario/` «hoy contestan 501» y ninguna lo hace desde el 3 sep |
+> | **P, Q, R, S — nuevos** | `horario_version_id` en `to-me`; las tres columnas de `years` que reparte un `SELECT y.*` a `GET years`, `/colegio` y `/trashed`; `profesores.tono` en **seis** respuestas Eloquent; y los **once** sitios del boletín independiente |
+>
+> **Los cuatro que faltaban tienen la misma forma, y por eso faltaban los cuatro:** son campos
+> que **se reparten solos** —un `SELECT *`, un modelo Eloquent devuelto entero, una clave nueva
+> de primer nivel—. *Un aviso que falta no lo escribe quien escribió el campo, porque nadie
+> escribió el campo.*
+>
+> **Y una fila de migración que ha envejecido TRES veces, la misma**: la de
+> `2026_09_04_100000_horario_versiones`. Decía «1 ruta, y detrás de `esAdministrativo`: el
+> colegio no se cae». Son **4**, y la cuarta no es del módulo: `years.horario_version_id` la lee
+> `ChangeAskedController::horarioOficialDelAnio()` (`:1274`) desde `getToMe` en sus dos ramas
+> (`:140`, `:219`), o sea **`GET ChangesAsked/to-me`, que lleva `auth.token` a secas** y es lo
+> que la app pide al abrir. *Cuando una afirmación ha caducado dos veces, la tercera no se
+> comprueba en el fichero del módulo: se busca quién más nombra la columna, en todo `app/`.*
+>
+> ### Las tres correcciones que salieron para `8myvc-f5` — **aceptadas y cerradas en `bf83d3c`**
+>
+> Las tres eran suyas, **las tres iban hacia abajo** —o sea contando de menos—, y ésa es la
+> dirección en la que no se notan: *nadie audita un aviso que ya suena bastante grave*. Las
+> recomprobó una a una antes de aceptarlas.
+>
+> 1. **`profesores.tono` SÍ tumba algo hacia delante**, al revés de lo que decía el encargo:
+>    `getLecciones` la nombra en `docentesDeLaVersion()` y en `estadoDelTono()`. Sin la
+>    migración, la cuarta ruta contesta **500**. Migración y ruta van **en el mismo commit a
+>    propósito** —respuesta de Joseth a esa pregunta exacta—, así que o entran las dos o ninguna.
+> 2. **Son SEIS respuestas que reparten `tono`, no cinco**, y una de las cinco estaba mal
+>    nombrada: no hay «`getShow` de papelera» —`getShow` usa `Profesor::detallado()`, que nombra
+>    sus columnas y **no** trae `tono`—. Las seis son `postStore`, `putUpdate`,
+>    **`deleteDestroy`**, **`deleteForcedelete`**, `putRestore` y `GruposController::getShow`.
+>    Lo instructivo no es la cifra: era **un nombre que resuelve a otro sitio**, y el `getShow`
+>    que sí existe es justo el que no reparte nada. Quien lo siguiera habría leído el método
+>    equivocado y se habría quedado tranquilo.
+> 3. **El radio de `horario_versiones` son CUATRO rutas**, y la corrección de 1 a 3 se quedó
+>    corta por el mismo motivo por el que la fila estaba mal: **se miró el módulo en vez de mirar
+>    quién lee la columna**. Está escrito así en el [23 §11.5](23-horarios.md), con el porqué del
+>    fallo y no sólo el número.
+>
+> **Y una que se cerró sola:** el `tinker` decía «OK - las siete dentro» comprobando ocho, y lo
+> arregló la sesión que lo escribió. **El `ChangeAskedController.php:1269`** —*«544 de las 566
+> rutas»*, hoy 547 de 565— **lo lleva `8myvc-f5` a Joseth**, no esta sesión: es `app/`, fuera de
+> este lote, y **una misma cosa no se pide por dos puertas**.
+>
+> **Lo que NO se pudo comprobar y hay que decirlo:** que la base desplegada siga siendo
+> `9474b50` **no se mide desde este repositorio** —el hash vive en el servidor—. Lo que sí:
+> el registro del despliegue del 31 ago, que **ninguno de los 37 commits del rango que nombran
+> el despliegue registra haberlo hecho** (los otros 195 no se leyeron uno a uno), que el
+> congelado sigue puesto y que `origin/main` y `main` están en el mismo commit. El bucle del
+> Paso 2 lo convierte en un hecho el día que se descongele.
+
 **4 sep 2026 — LA CUARTA RUTA DEL HORARIO, ESCRITA: `GET horario/versiones/{id}/lecciones`,
 Y EL ROUTER EN 567** · rama `docs/horario-cuarta-ruta-y-despliegue`, **sin fusionar y sin
 empujar** · `HorarioController`, `routes/api/horario.php`,
