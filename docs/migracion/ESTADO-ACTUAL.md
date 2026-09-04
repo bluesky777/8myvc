@@ -22,6 +22,87 @@
 > Los mensajes de commit están limpios —cero apariciones—, así que sólo había que tocar
 > estas tres líneas.
 
+**4 sep 2026 — EL HORARIO, REPASADO ENTERO ANTES DE ENTREGARLO: LA SUITE COMPLETA EN VERDE Y
+SEIS AFIRMACIONES QUE LA CUARTA RUTA DEJÓ VIEJAS** · rama `docs/horario-cuarta-ruta-y-despliegue`,
+**sin fusionar y sin empujar** · sólo documentos: [23](23-horarios.md) §§ cabecera, 5.3, 8,
+10.2.3, 11 y 11.5, y esta casilla · **cero código, el router no se mueve: siguen 567**
+
+> **El módulo está terminado en este repo, y ahora está medido de punta a punta y no sólo por
+> el filtro de su nombre:**
+>
+> | | |
+> |---|---|
+> | `route:list --json` | **567**, y la familia `horario` son **4** rutas |
+> | `--filter=Horario` | **102 pasan (855 aserciones)** |
+> | **la suite entera** | **`Tests: 1945 passed (17462 assertions)`**, cero rojos, **828 s** |
+> | pint · larastan nivel 7 | **PASS** · **`[OK] No errors`** |
+> | `tools/secciones-citadas.py` | **0 huérfanas** sobre 541 §§ declaradas y 2.122 citas |
+>
+> **La suite entera hacía falta y no era ceremonia**: esta rama trae una **migración que
+> añade una columna** (`profesores.tono`), y una columna nueva **se reparte sola** por todo
+> `SELECT *` que la toque — el snapshot `grupos-show.json` ya lo había cazado. El
+> `--filter=Horario` de la entrega anterior no podía verlo: mira el módulo, y el radio de
+> una columna no es el módulo. **1.930 → 1.945** contra `main`, y los quince son los de esta
+> rama.
+>
+> ### LAS SEIS AFIRMACIONES VIEJAS, Y LAS SEIS IBAN EN LA MISMA DIRECCIÓN: DECÍAN «TRES»
+>
+> Ninguna la envejeció el tiempo: **las envejeció el commit siguiente al que las escribió**.
+> `0345ad5` metió la cuarta ruta y no volvió a los sitios donde este documento contaba tres.
+>
+> | dónde | decía |
+> |---|---|
+> | **cabecera del 23** — lo primero que se lee | *«Nada de esto está construido. Las tres rutas de la §5.3 son una propuesta»* |
+> | **bloque del lote A** | *«Lo que falta es el cuerpo de los tres, y todo lo que este documento dice de la §6 y la §7 sigue sin construir»* |
+> | **§5.3** | la familia `horario` entra como **3 de 3** — el snapshot dice **4 de 4** |
+> | **§8**, la frontera del escritorio | *«Siguen siendo las tres de la §5.3»* |
+> | **§10.2.3**, descargar el proyecto | *«Sería una **cuarta** ruta»* — y la cuarta ya se llama `lecciones`: es la **quinta** |
+> | **§11.1** | **tres** rutas dando 404 allí, y **232** commits sin desplegar — remedido sobre `bf83d3c`: **cuatro** y **236** |
+>
+> **Las tachadas van tachadas y no borradas**: este documento es también el registro de cómo
+> se decidió, y una frase que nació bien y se leyó mal dos días después enseña más entera que
+> desaparecida.
+>
+> ### Y UNA QUE NO ERA UNA CADUCIDAD: EL AVISO **O** CUENTA MAL, Y VA HACIA FUERA
+>
+> `DESPLIEGUE.md` dice **«24 rutas nuevas… las 3 de `horario/`»** y está marcado **POR
+> AVISAR**. Con la cuarta son **25 y 4**. La §11.5 pasa de dos afirmaciones envejecidas a
+> **tres**, y la tercera es de otra clase:
+>
+> - **Las otras dos se arreglan solas el día del despliegue** — dicen que las rutas
+>   contestan 501, y quien las lea las ve fallar contra el servidor.
+> - **Ésta no falla contra nada.** Remedir contesta *«¿siguen a 501?»*; **nadie va a
+>   recontar un «24» si no sabe que hay que hacerlo**. Y es una lista que se le manda al
+>   front: un aviso que nombra tres rutas cuando hay cuatro **deja la cuarta sin avisar sin
+>   que se note el hueco**, porque el front construye su menú con lo que le dijeron. Es
+>   exactamente el caso que la regla del canal manda avisar: *una ruta nueva, o quién puede
+>   llamarla*.
+>
+> **No se corrige en `DESPLIEGUE.md`** —esas tablas se remiden el día del despliegue, y es
+> regla del repo—, **pero la cifra buena queda escrita en la §11.5** para que el día que se
+> dé el aviso O se dé con ella.
+>
+> ### LO QUE QUEDA DEL HORARIO, Y NINGUNA ES CÓDIGO DE ESTE REPO
+>
+> 1. **Fusionar a `main` y empujar** — es tuyo, no de una sesión.
+> 2. **Desplegar**, que sigue **congelado** por ti mientras `myvc_flutter` está en revisión, y
+>    va **0 de 16**. No hay camino «sólo horario»: la tanda de ocho migraciones es
+>    indivisible (§11.2).
+> 3. **Dar el aviso O al front** con **25 y 4**.
+> 4. **Las cuatro decisiones abiertas de la §10.2**, que son tuyas: si `GET asignaturas` debe
+>    traer las asignaciones con la materia en la papelera, el tope del blob, si existe una
+>    ruta para **descargar** el proyecto (la quinta), y confirmar que el orden de «Clases de
+>    hoy» no se promete.
+> 5. **El fallo del sábado sigue sin verse con datos reales**: el `% 7` sólo se ha visto en un
+>    test que congela el reloj. Eso no lo cierra ninguna sesión — lo cierra un sábado.
+>
+> **Y una que no es del horario, apuntada porque estaba en el árbol:**
+> `docs/migracion/28-competencias-e-indicadores.md` tiene **312 líneas sin commitear** y
+> **dentro hay un bloque duplicado** —«Pero NO repara hacia atrás» aparece dos veces, en las
+> líneas 166 y 178—. **No es mío y no lo he tocado ni commiteado**; está respaldado en el
+> scratchpad de esta sesión. Lo escribió quien lleva `fix/frases-asignatura-text`, que es un
+> worktree: en el árbol principal eso se queda huérfano.
+
 **4 sep 2026 — LA CUARTA RUTA DEL HORARIO, ESCRITA: `GET horario/versiones/{id}/lecciones`,
 Y EL ROUTER EN 567** · rama `docs/horario-cuarta-ruta-y-despliegue`, **sin fusionar y sin
 empujar** · `HorarioController`, `routes/api/horario.php`,
@@ -125,8 +206,13 @@ lo pidió `myvc-horarios-43` con la forma que midió `myvc-front-4f`
 > no es el 501 del docker. **No hay camino «sólo horario»**: la columna entra con
 > `AFTER regla_nivelacion`, que llega en otra migración de la misma tanda. Pasos, primer
 > colegio (`demo`, y por API: su login lo rompe un `if` del front) y qué se rompe si se hace
-> mal, en la §11. **Dos afirmaciones de `DESPLIEGUE.md` sobre este módulo han envejecido** y
-> **no se corrigen allí**: aquellas tablas se remiden el día del despliegue (§11.5).
+> mal, en la §11. **TRES afirmaciones de `DESPLIEGUE.md` sobre este módulo han envejecido** y
+> **no se corrigen allí**: aquellas tablas se remiden el día del despliegue (§11.5). *Aquí
+> decía «dos», y la tercera la abrió el commit siguiente al que escribió esa frase: el aviso
+> **O** dice «24 rutas nuevas» y «las 3 de `horario/`», y con la cuarta son **25 y 4**. Es
+> la que NO se arregla sola al remedir —remedir contesta si siguen a 501, no recuenta un 24—
+> y es la única de las tres que va **hacia fuera**: ese aviso está POR AVISAR, y nombrar tres
+> rutas cuando hay cuatro deja la cuarta sin avisar sin que se note el hueco.*
 >
 > ### Las otras dos que preguntó `myvc_horarios`
 >

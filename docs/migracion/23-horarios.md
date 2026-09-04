@@ -14,8 +14,17 @@
 >
 > **Este documento es la otra mitad y sólo la otra mitad**: lo que se escribe en
 > `8myvc`, lo que el servidor puede comprobar y lo que no, y las decisiones que
-> siguen abiertas. Nada de esto está construido. **Las tres rutas de la §5.3 son una
-> propuesta: en este repo una ruta es una decisión, no un efecto secundario.**
+> siguen abiertas. ~~Nada de esto está construido. Las tres rutas de la §5.3 son una
+> propuesta~~ — **cierto el 2 sep 2026 y falso desde esa misma noche**: hoy están
+> escritas **cuatro**, las tres de la §5.3 (lotes A, B y C, 2 sep) y la de la §9.bis
+> (`lecciones`, 4 sep), y el router está en **567**. Lo que sigue sin construir no es
+> el módulo: es el **despliegue**, que va **0 de 16** (§11). Lo que no cambia es la
+> regla que había debajo: **en este repo una ruta es una decisión, no un efecto
+> secundario**, y por eso las cuatro tienen su fecha y su porqué.
+>
+> *Va tachada y no borrada porque este documento es también el registro de cómo se
+> decidió. La frase nació bien: se escribió en presente y se leyó como el estado de
+> hoy dos días después — la misma forma de envejecer que la §11.5 tiene catalogada.*
 >
 > **Segunda vuelta con el front, 2 sep por la tarde**, ya incorporada: el cuerpo del
 > `POST` concretado y corregido en cuatro sitios (§5.2), la **opción B** recomendada
@@ -31,8 +40,12 @@
 > `Autoriza::puedePublicarHorario()`, `routes/api/horario.php` y un
 > `HorarioController` con **los tres métodos a 501** y su autorización ya puesta
 > delante. **El router pasó de 563 a 566**, contado con `route:list --json` ese día.
-> Lo que falta es el cuerpo de los tres, y todo lo que este documento dice de la §6
-> y la §7 sigue **sin construir**.
+> Lo que faltaba entonces era el cuerpo de los tres.
+>
+> **Ya no falta.** Los lotes B y C lo escribieron esa misma noche —con la §6 (el
+> veredicto de la opción B) y la §7 (las siete columnas de día) dentro—, y el 4 sep
+> 2026 entró **la cuarta ruta** de la §9.bis: el router **en 567**, contado ese día.
+> Los cuatro métodos tienen cuerpo y **ninguno contesta ya 501**.
 >
 > **Y ese mismo día Joseth contestó seis de las siete decisiones abiertas**: las tres
 > rutas están **autorizadas** (§5.3), la revalidación es la **opción B** (§6), la oficial
@@ -409,6 +422,12 @@ lo que se ha decidido, no un efecto colateral — pero es la razón por la que e
 vive en `years` y no en una bandera: cada año tiene el suyo y no se pisan.
 
 ### 5.3. Las tres rutas — AUTORIZADAS el 2 sep 2026
+
+> **La familia `horario` ya no es de tres: es de cuatro.** La cuarta —`GET
+> horario/versiones/{id}/lecciones`— se autorizó el 3 sep y se escribió el 4, y vive en
+> la §9.bis porque tiene su propia decisión y su propia razón. Todo lo que dice esta
+> sección sigue siendo cierto **de estas tres**; lo único que hay que releer con eso
+> delante es el renglón de `guard-por-familia.json`, que hoy dice **4 de 4** y no 3 de 3.
 
     POST horario/versiones               sube una versión    auth.token + esAdministrativo
     GET  horario/versiones               lista las del año   auth.token + auth.personal
@@ -871,8 +890,14 @@ colegios que no son clientes de MyVC, y el front lo fijó como *«ninguna pantal
 pide un dato al servidor de MyVC»*. Para este repo son tres consecuencias, y sólo la
 tercera es trabajo:
 
-1. **El backend no gana pantallas ni rutas por esto.** Siguen siendo las tres de la
-   §5.3 y la pantalla web de elegir la oficial, que es del front.
+1. **El backend no gana pantallas ni rutas por esto.** Siguen siendo las de la §5.3
+   y la pantalla web de elegir la oficial, que es del front.
+
+   > **Y son cuatro desde el 4 sep 2026, no tres — pero la frase de arriba no se cae,
+   > porque el «por esto» es lo que la sostiene.** `GET horario/versiones/{id}/lecciones`
+   > (§9.bis) entró por la razón contraria a esta frontera: es para **mirar dentro de
+   > MyVC** lo que el escritorio cuadró. Un colegio que compre sólo el programa no la
+   > llama nunca, igual que no llama a las otras tres.
 2. **La bajada de datos es una importación opcional, no la fuente.** El diseño del
    cliente dice a la vez que el escritorio «baja año, grupos, docentes y asignaturas
    con IH — las mismas lecturas que hoy usa la planilla» y que ninguna pantalla le
@@ -1582,9 +1607,18 @@ siguen sin estar.
    > calcularía sobre una pieza que no existe. *No da error: da un horario equivocado.*
 
 3. **¿Existe una ruta para DESCARGAR el proyecto de una versión, y con qué permiso?**
-   Sería una **cuarta** ruta, y **su número se cuenta con `route:list` el día que se
+   Sería una **quinta** ruta, y **su número se cuenta con `route:list` el día que se
    autorice** — no está pedida. Voto del front: el mismo permiso que publica, no el que
    sube (§5.4).
+
+   > **Aquí decía «una cuarta ruta», y eso ya nombra a otra cosa.** La cuarta se
+   > escribió el 4 sep 2026 y es `GET horario/versiones/{id}/lecciones` (§9.bis) —
+   > **mirar**, no llevarse. Ésta sería la quinta, y sigue sin pedirse: la decisión 12
+   > dijo *«listar no es descargar»* y la §9.bis la extendió a *«mirar no es
+   > llevarse»*, así que **descargar el proyecto sigue entero por decidir**. Y el
+   > ordinal se corrige mientras el número de ruta se sigue sin predecir, que es lo
+   > que dice el recuadro de abajo: **un ordinal cuenta lo que ya existe; un número de
+   > ruta predice lo que entre por cualquier otra rama antes que ella.**
 
    > **Aquí decía «o sea 554», y ese número se ha retirado a propósito el 2 sep 2026.**
    > No se ha sustituido por otro: **una ruta que todavía no existe no puede llevar
@@ -1614,15 +1648,19 @@ siguen sin estar.
 **Sigue congelado por Joseth** mientras `myvc_flutter` está en revisión
 ([`DESPLIEGUE.md` §🛑](../DESPLIEGUE.md)), y este apartado **no lo descongela**: existe
 porque `myvc_horarios` preguntó qué trabajo queda y la respuesta no estaba en ningún sitio
-completa. Escrito el 4 sep 2026 sobre `8f59242`.
+completa. Escrito el 4 sep 2026 sobre `8f59242` y **remedido ese mismo día sobre
+`bf83d3c`**, que es la rama entera con la cuarta ruta dentro: **eran tres rutas y 232
+commits cuando se escribió, y son cuatro y 236 ahora**. *La tabla de abajo es de las que
+caducan con cada commit propio, así que se remide con `git rev-list` y `route:list` en vez
+de sumarle los que uno recuerda haber hecho.*
 
 ### 11.1. Dónde está hoy, medido
 
 | | | comprobado con |
 |---|---|---|
 | colegios con el módulo | **0 de 16** (más `demo`) | `routes/api/horario.php` no existe en `9474b50`, que es la base desplegada |
-| qué contestan allí las tres rutas | **404** | no hay fichero de rutas que las declare — **no es el 501 del docker**, que era el controlador sin cuerpo |
-| commits sin desplegar | **232** desde `9474b50` | `git rev-list --count 9474b50..HEAD` |
+| qué contestan allí las **cuatro** rutas | **404** | no hay fichero de rutas que las declare — **no es el 501 del docker**, que era el controlador sin cuerpo |
+| commits sin desplegar | **236** desde `9474b50` | `git rev-list --count 9474b50..HEAD`, sobre `bf83d3c` |
 | migraciones sin desplegar | **8** desde el 4 sep 2026 — las siete que ya contaba `DESPLIEGUE.md` más `2026_09_04_200000_tono_del_docente`, que decidió Joseth ese día | `git ls-tree` de los dos extremos |
 | ficheros de rutas nuevos | **2**: `horario.php` y `rubricas.php` | ídem |
 
@@ -1686,7 +1724,7 @@ están en `DESPLIEGUE.md` y **no se repiten aquí**. Lo que es de este módulo:
 | **volver atrás dejando las migraciones puestas** | vale para las tandas anteriores y **no para ésta**: hay un `dropColumn` dentro. Ver el Paso 4 de `DESPLIEGUE.md` |
 | **publicar una versión sin mirar el número** | `putOficial` reescribe las siete columnas de día **de todo el año**; lo que se pierda de lo que alguien puso a mano es lo que cuenta `acepto_perder` (§7.2 y §9.bis.4) |
 
-### 11.5. Y dos afirmaciones de `DESPLIEGUE.md` sobre este módulo han envejecido
+### 11.5. Y TRES afirmaciones de `DESPLIEGUE.md` sobre este módulo han envejecido
 
 **No se corrigen allí y se dice por qué**: aquellas tablas son *lo que se midió el día que se
 midió*, y ese documento tiene su propia regla —*un rango sin desplegar se remide entero
@@ -1707,6 +1745,24 @@ saber al leerlas:
    que estaba mal: miré el módulo en vez de mirar quién lee la columna.* Esa fila lleva
    **tres caducidades seguidas**.
 2. El aviso **O** dice que las tres de `horario/` «hoy contestan 501». Ya no: contestan.
+
+3. **Y el aviso O además CUENTA MAL, que es peor que caducar — porque ese aviso todavía no
+   se ha dado.** Dice **«24 rutas nuevas»** y **«las 3 de `horario/`»**; con la cuarta son
+   **25** y **4**. Las otras dos caducidades de esta sección son afirmaciones sobre lo que
+   el código hace, y quien las lea el día del despliegue las ve fallar contra el servidor.
+   **Ésta no falla contra nada**: es una lista que se le manda al front, está marcada
+   **POR AVISAR**, y un aviso que nombra tres rutas cuando hay cuatro **deja la cuarta sin
+   avisar sin que nadie note el hueco** — el front construye su menú con lo que le
+   dijeron. Es exactamente lo que la regla del canal exige avisar: *una ruta nueva, o
+   quién puede llamarla*.
+
+   **Se apunta aquí y NO se corrige allí**, por la misma regla que las otras dos —esas
+   tablas se remiden el día del despliegue—, pero con una diferencia que hay que leer:
+   **las otras dos se arreglan solas al remedir; ésta no.** Remedir contesta *«¿siguen
+   contestando 501?»*; nadie va a recontar «24» si no sabe que hay que hacerlo. **Por eso
+   la cifra buena va escrita aquí: 25 y 4**, y el día que se dé el aviso O se da con
+   ellas. *La escribió la misma sesión que un commit después metió la cuarta ruta y no
+   volvió a esta sección: el hueco no lo abrió el tiempo, lo abrió el commit siguiente.*
 
 **Es la misma forma de envejecer que ese documento ya tiene catalogada** —*una afirmación
 sobre lo que el código hace caduca cuando el código cambia, aunque el número que la acompaña
