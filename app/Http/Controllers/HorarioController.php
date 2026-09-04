@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
 use App\Support\Autoriza;
+use App\Support\CamposQueVinieron;
 use App\Support\Reloj;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -1739,6 +1740,151 @@ class HorarioController extends Controller
             'pieza_id' => $piezaId,
             'motivo' => $motivo,
             'piezas_revisadas' => $revisadas,
+        ]);
+    }
+
+    /**
+     * El color de un docente. **La única escritura de `profesores.tono` que existe.**
+     *
+     * ## Por qué es una ruta y no una entrada en la ficha
+     *
+     * El front costeó meterla en la lista blanca `$deLaFicha` de
+     * `ProfesoresController::putUpdate`, que no habría movido el router. **No vale, y no
+     * por trabajo sino por permiso**: esa ruta exige `Autoriza::esSuperusuario` dentro del
+     * método, así que por ahí el color lo elegirían **once personas en toda la red y ningún
+     * coordinador**. Joseth decidió el 4 sep 2026 que lo elijan **también los
+     * coordinadores**, y ese criterio ya tiene nombre aquí: `puedePublicarHorario`
+     * —superusuario **o** `Coord académico`—, el mismo con el que se marca la versión
+     * oficial. *La salida barata no era la misma decisión con menos trabajo: era otra
+     * decisión.*
+     *
+     * **Y no se le cambia el criterio a `putUpdate` para conseguirlo**: esa ruta edita la
+     * ficha entera de un docente —diecisiete campos, documento y domicilio incluidos— y
+     * abrirla para que quepa un color es ensancharla para todo lo demás.
+     *
+     * ## La validación no es cosmética: sin ella el fallo es SEGURO Y MUDO
+     *
+     * Medido por `myvc_front` en `comunes/tono-docente/tono-docente.ts:353`: el cliente
+     * acepta `#rgb` y `#rrggbb` y **rechaza los nombres de CSS y `rgb(...)`**, porque de
+     * ésos no se puede sacar la luminancia sin un navegador delante. Y cuando rechaza,
+     * `marcaDeDocente` **se cae al color automático**.
+     *
+     * O sea que un `rebeccapurple` guardado sin comprobar **se da por guardado, no se pinta
+     * nunca y nadie se entera**: el filtro del cliente sólo sabe *no pintar*, no sabe
+     * *avisar*. El 422 de aquí es lo único que convierte «no se ve» en «no se pudo
+     * guardar».
+     *
+     * ## El nulo es el BORRADO, y no es un caso excepcional
+     *
+     * Devuelve al docente a su color automático. `tono` **nace nulo en los diecisiete**, así
+     * que el nulo no es un caso raro: es **el estado de partida de todos**, y una ruta que
+     * no supiera volver a él dejaría a un colegio sin marcha atrás desde el primer color
+     * que pusiera. Se manda `tono: null` (o cadena vacía, que aquí cuenta como nulo).
+     *
+     * **La clave ausente NO es un borrado.** Un cuerpo sin `tono` es un cuerpo mal formado
+     * y sale 422: si valiera por «borra», cualquier petición a medias apagaría un color sin
+     * que nadie lo pidiera. Es la distinción que `CamposQueVinieron` existe para hacer.
+     */
+    public function putTonoDocente($profesorId): JsonResponse
+    {
+        Autoriza::exigir(Autoriza::puedePublicarHorario($this->user),
+            'No tienes permiso para cambiar el color de un docente.');
+
+        $id = (int) $profesorId;
+
+        /*
+         * El docente se comprueba contra `profesores`, no contra los que tienen
+         * asignación. Un docente sin clases este año **sigue siendo un docente** y su
+         * color puede repartirse por adelantado; atarlo al año lo convertiría en un 404
+         * que cambia solo en enero.
+         */
+        $existe = DB::select('SELECT p.id FROM profesores p WHERE p.id = ? AND p.deleted_at IS NULL', [$id]);
+
+        if ($existe === []) {
+            abort(404, 'Ese docente no existe.');
+        }
+
+        $vinieron = CamposQueVinieron::capturar();
+
+        if (! $vinieron->trae('tono')) {
+            $this->rechazar([
+                'message' => 'Falta el campo `tono`. Para borrar el color, mándalo con valor nulo.',
+                'campo' => 'tono',
+                'motivo' => 'ausente',
+            ]);
+        }
+
+        $tono = $this->tonoNormalizado(Request::input('tono'));
+
+        DB::update('UPDATE profesores SET tono = ? WHERE id = ?', [$tono, $id]);
+
+        return response()->json([
+            'profesor_id' => $id,
+            'tono' => $tono,
+        ]);
+    }
+
+    /**
+     * `#rrggbb` en minúsculas, o `null` si es un borrado. Cualquier otra cosa, 422.
+     *
+     * **Se normaliza al guardar y no al leer**, y eso es lo que hace que la comparación
+     * del cliente funcione: `tono-docente.ts` acepta las cuatro formas de escribir el
+     * mismo color —con `#` o sin él, en mayúsculas o minúsculas, de tres dígitos o de
+     * seis— y si la base guardara las cuatro, dos docentes del mismo color se leerían
+     * como distintos en cualquier comparación de cadenas.
+     *
+     * El `#rgb` se expande a `#rrggbb` duplicando cada dígito, que es lo que hace el
+     * navegador: `#0af` es exactamente `#00aaff` y guardarlo corto sólo deja dos
+     * representaciones del mismo color.
+     */
+    private function tonoNormalizado(mixed $crudo): ?string
+    {
+        if ($crudo === null) {
+            return null;
+        }
+
+        if (! is_string($crudo)) {
+            $this->rechazarTono($crudo, 'no es una cadena');
+        }
+
+        $t = strtolower(trim($crudo));
+
+        // La cadena vacía cuenta como nulo: un `<input>` vaciado a mano manda `''`, y
+        // exigirle al cliente que distinga `''` de `null` es pedirle que acierte en algo
+        // que su propio formulario no distingue.
+        if ($t === '') {
+            return null;
+        }
+
+        if (str_starts_with($t, '#')) {
+            $t = substr($t, 1);
+        }
+
+        if (preg_match('/^[0-9a-f]{3}$/', $t) === 1) {
+            $t = $t[0].$t[0].$t[1].$t[1].$t[2].$t[2];
+        }
+
+        if (preg_match('/^[0-9a-f]{6}$/', $t) !== 1) {
+            $this->rechazarTono($crudo, 'sólo se aceptan `#rgb` y `#rrggbb`; los nombres de CSS y `rgb(...)` no');
+        }
+
+        return '#'.$t;
+    }
+
+    /**
+     * El 422 del color, con el valor que llegó **dentro del cuerpo**.
+     *
+     * Devolverlo es lo que deja a la pantalla decir *«`rebeccapurple` no vale»* en vez de
+     * *«no vale»*, y es barato: el cliente ya lo tenía, pero no necesariamente en el sitio
+     * donde pinta el error.
+     */
+    private function rechazarTono(mixed $crudo, string $motivo): never
+    {
+        $this->rechazar([
+            'message' => 'Ese color no vale. '.$motivo,
+            'campo' => 'tono',
+            'recibido' => is_scalar($crudo) ? (string) $crudo : gettype($crudo),
+            'motivo' => $motivo,
         ]);
     }
 }

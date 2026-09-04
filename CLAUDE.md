@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 `8myvc` es la API del sistema escolar MyVc: Laravel 13 + PHP 8.4, ~37.000 líneas
 en `app/`, **113 ficheros de controlador — 116 clases**, porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
-**567 rutas** (contadas con
+**568 rutas** (contadas con
 `route:list --json` el 4 sep 2026; el 24 ago el de rutas se movió por primera vez,
 de 539 a 542, con los tres endpoints que pidió `myvc_flutter`, el 28 a 543 con
 `PUT users/mi-docente`, que pidió Joseth para el panel de `app2`, el 31 a 544 con
@@ -42,7 +42,17 @@ sin ser descargar**: el fichero de proyecto no viaja (`docs/migracion/23-horario
 §9.bis). Su forma la decidió Joseth ese día sobre lo medido en los dos repositorios, y lo
 que la determinó fue que **esta base no puede devolver un proyecto completo**: por eso cada
 catálogo viaja con su estado —y son **cuatro**, porque «el colegio no creó ninguno» y «esta
-API no puede saberlo» no son lo mismo—. «El de rutas no se mueve»
+API no puede saberlo» no son lo mismo—. Y ese mismo día a **568** con **la quinta de
+`horario/`** —`PUT horario/docentes/{profesor_id}/tono`, el color de un docente—, que salió
+de un hueco que **no buscaba nadie**: la cuarta ruta **lee** `profesores.tono` y en toda la
+API **no había una sola escritura de esa columna**, así que el renglón iba a salir `vacio`
+en los diecisiete para siempre. Lo destapó `myvc_front` preguntando si `putUpdate` podía
+**borrar** el tono —no puede— y de camino salió que **tampoco podía ponerlo, ni él ni
+nadie**. Joseth decidió el color «automático inicial, cambiable», y **quién** lo cambia:
+también los coordinadores, o sea `puedePublicarHorario` y **no** la ficha del docente, que
+exige `esSuperusuario` dentro y lo habría dejado en once personas y ningún coordinador —**la
+salida barata no era la misma decisión con menos trabajo, era otra decisión**. **568 se
+contó con `route:list --json`, no se sumó.** «El de rutas no se mueve»
 sigue siendo la
 regla: una ruta nueva es una decisión, no un efecto secundario, y mueve este
 documento y **tres** snapshots, no dos: `rutas.json`, `guards-por-ruta.json` y

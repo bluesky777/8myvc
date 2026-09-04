@@ -1338,9 +1338,54 @@ va a pintar gris. La respuesta es correcta —dice la verdad, y su `motivo` es e
 columna existe y nadie ha repartido los colores todavía»*—, pero **la verdad que dice es que
 la función no está terminada**.
 
-**No se escribe una ruta para arreglarlo**: en este repo una ruta es una decisión de Joseth,
-y ésta no está tomada. Lo que sí queda es la pregunta, formulada para que se pueda contestar
-sin volver a medir nada:
+> ## ESCRITO EL 4 SEP 2026: `PUT horario/docentes/{profesor_id}/tono` — el router en **568**
+>
+> **Joseth contestó las dos preguntas el mismo día.** El color: *«automático inicial, pero
+> que se pueda cambiar por el usuario»*. Y **quién**, que era la pregunta de verdad y la
+> reformuló `myvc-front-59`: **también los coordinadores**. O sea `puedePublicarHorario`
+> —superusuario **o** `Coord académico`—, el mismo criterio que marcar la oficial.
+>
+> **Eso descartó la salida (b), y no por trabajo sino por permiso.** La ficha del docente
+> exige `Autoriza::esSuperusuario` **dentro** de `putUpdate`: por ahí el color lo elegirían
+> once personas en toda la red y **ningún coordinador**. *La salida barata no era la misma
+> decisión con menos trabajo: era otra decisión.* Y no se le cambia el criterio a `putUpdate`
+> para conseguirlo — esa ruta edita la ficha entera de un docente, documento y domicilio
+> incluidos, y abrirla para que quepa un color la abre para todo lo demás.
+>
+> **La forma, con la validación que midió el front y por la razón que la hace obligatoria:**
+>
+> ```
+> acepta   #rgb · #rrggbb · con o sin `#` · cualquier caja
+> rechaza  nombres de CSS · rgb() · hsl() · lo demás    -> 422 con `recibido` y `motivo`
+> guarda   normalizado a #rrggbb en minúsculas
+> nulo     es el BORRADO — y la cadena vacía también
+> ausente  NO es un borrado: 422
+> ```
+>
+> **Sin el 422 el fallo es seguro y mudo**: `tono-docente.ts:353` rechaza `rebeccapurple` y
+> `marcaDeDocente` **se cae al color automático**, así que un color inválido guardado se da
+> por guardado, no se pinta nunca y nadie se entera. El filtro del cliente sabe *no pintar*,
+> no sabe *avisar*.
+>
+> **Y la normalización no es aseo**: `#0AF`, `0af`, `#00aaff` y `00AAFF` son el mismo color,
+> y guardar las cuatro formas haría que **dos docentes del mismo color se leyeran como
+> distintos** en cualquier comparación de cadenas — justo lo que el reparto existe para
+> evitar.
+>
+> **El nulo borra, y no es un caso excepcional**: `tono` nace nulo en los diecisiete, así que
+> es **el estado de partida de todos**. La clave **ausente** no borra: si valiera por «borra»,
+> cualquier petición a medias apagaría un color y el síntoma sería una rejilla que se
+> despinta sola.
+>
+> **`tests/Contrato/HorarioTonoTest.php` — 28 casos, 213 aserciones, y se han visto ROJOS por
+> los dos lados**: quitando la validación caen **10**; quitando `puedePublicarHorario` cae
+> **exactamente 1**, el del docente llano. Un test que sólo se ha visto verde no vale.
+>
+> **Aviso medido, y no lo arregla esta ruta: el rol `Coord académico` tiene CERO usuarios.**
+> Así que el primer día sólo podrán elegir colores los superusuarios — no por la regla, sino
+> porque no hay a quién. Es el mismo hallazgo de la §5.4, ahora con consecuencia.
+
+**Lo que quedaba antes de escribirla**, y se deja porque es la pregunta que la produjo:
 
 > **¿Por dónde se reparte el color de un docente?** Las salidas plausibles son tres y no se
 > contienen: *(a)* un endpoint nuevo de reparto —una ruta, con su permiso—; *(b)* añadir

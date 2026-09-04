@@ -282,6 +282,7 @@
         "PUT api/historiales/nota-detalle",
         "PUT api/historiales/nota-final-detalle",
         "PUT api/historiales/sesion",
+        "PUT api/horario/docentes/{profesor_id}/tono",
         "PUT api/horario/versiones/{id}/oficial",
         "PUT api/images-users/cambiar-firma-un-profe/{profe_id}",
         "PUT api/images-users/cambiar-foto-un-usuario/{user_id}",

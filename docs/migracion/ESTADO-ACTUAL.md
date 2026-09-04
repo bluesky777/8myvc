@@ -22,6 +22,79 @@
 > Los mensajes de commit están limpios —cero apariciones—, así que sólo había que tocar
 > estas tres líneas.
 
+**4 sep 2026 — EL COLOR DEL DOCENTE YA SE PUEDE ESCRIBIR: `PUT
+horario/docentes/{profesor_id}/tono`, Y EL ROUTER EN 568** · `HorarioController`,
+`routes/api/horario.php`, `tests/Contrato/HorarioTonoTest.php` (**28 casos, 213
+aserciones**), `CLAUDE.md` y **los tres snapshots** · **568 rutas, contadas con
+`route:list --json`** · pint PASS · larastan nivel 7 `[OK] No errors`
+
+> **Cierra el hueco que nadie buscaba.** La cuarta ruta **lee** `profesores.tono` y en toda
+> la API **no había una sola escritura de esa columna**: el renglón iba a salir `vacio` con
+> `con_tono: 0` en los diecisiete **para siempre**, y la rejilla gris. Lo destapó
+> `myvc-front-84` preguntando si `putUpdate` podía **borrar** el tono — no puede — y de
+> camino salió que **tampoco podía ponerlo**.
+>
+> ### TUS DOS DECISIONES, Y LA SEGUNDA ES LA QUE DECIDIÓ LA FORMA
+>
+> | | |
+> |---|---|
+> | **el color** | *«automático inicial, pero que se pueda cambiar por el usuario»* |
+> | **quién lo cambia** | **también los coordinadores** → `puedePublicarHorario` (superusuario **o** `Coord académico`), el mismo criterio que marcar la oficial |
+>
+> **La segunda descartó la salida barata, y no por trabajo sino por permiso.** El front había
+> costeado meter `tono` en la lista blanca de `putUpdate` —sin ruta nueva, router quieto—
+> creyendo que esa ruta era `esAdmin`. **Exige `Autoriza::esSuperusuario` dentro**: por ahí el
+> color lo elegirían **once personas en toda la red y ningún coordinador**. *La salida barata
+> no era la misma decisión con menos trabajo: era otra decisión.* Y no se le cambia el
+> criterio a `putUpdate` para conseguirlo — esa ruta edita la ficha entera de un docente,
+> documento y domicilio incluidos.
+>
+> ### LA VALIDACIÓN NO ES ASEO: SIN ELLA EL FALLO ES SEGURO Y MUDO
+>
+> ```
+> acepta   #rgb · #rrggbb · con o sin `#` · cualquier caja
+> rechaza  nombres de CSS · rgb() · hsl() · lo demás   -> 422 con `recibido` y `motivo`
+> guarda   normalizado a #rrggbb en minúsculas
+> nulo     es el BORRADO — y la cadena vacía también
+> ausente  NO es un borrado: 422
+> ```
+>
+> `tono-docente.ts:353` rechaza `rebeccapurple` y **se cae al color automático**, así que un
+> color inválido guardado **se da por guardado, no se pinta nunca y nadie se entera**: el
+> cliente sabe *no pintar*, no sabe *avisar*. Y la normalización tampoco es aseo — `#0AF`,
+> `0af`, `#00aaff` y `00AAFF` son el mismo color, y guardar las cuatro haría que **dos
+> docentes del mismo color se leyeran como distintos**, que es justo lo que el reparto existe
+> para evitar.
+>
+> **El nulo borra y no es un caso raro** —`tono` nace nulo en los diecisiete, o sea que es el
+> estado de partida de todos—; **la clave ausente no borra**, porque si valiera por «borra»
+> cualquier petición a medias apagaría un color y el síntoma sería una rejilla que se
+> despinta sola.
+>
+> ### LOS TESTS SE HAN VISTO ROJOS POR LOS DOS LADOS
+>
+> | control | qué cae |
+> |---|---|
+> | quitar la validación del color | **10** de 28 |
+> | quitar `puedePublicarHorario` | **exactamente 1**, el del docente llano |
+>
+> Ese segundo control es el que importa: `auth.personal` **deja pasar a cualquier docente**
+> —cierra la puerta a alumnos y acudientes, no a un profesor—, así que sin ese caso quitar el
+> criterio del controlador no pondría nada en rojo.
+>
+> ### ⚠️ Y UN AVISO MEDIDO QUE ESTA RUTA NO ARREGLA
+>
+> **El rol `Coord académico` tiene CERO usuarios.** Así que el primer día sólo podrán elegir
+> colores los superusuarios — **no por la regla, sino porque no hay a quién**. Es el hallazgo
+> de la §5.4 con consecuencia: la decisión que tomaste es «también los coordinadores» y hoy
+> no hay ningún coordinador. **Se arregla dándole el rol a alguien, no tocando código.**
+>
+> ### Lo que mueve, que no es sólo el router
+>
+> `CLAUDE.md` a **568** —contado, no sumado— y **los tres snapshots**: `rutas.json` (+1),
+> `guards-por-ruta.json` (+1) y `guard-por-familia.json`, donde la familia `horario` pasa a
+> **5 de 5**. Ni una línea más: revisadas las tres una a una.
+
 **4 sep 2026 — `Admin` E `is_superuser` YA NO SON EL MISMO CONJUNTO, Y ESO CAMBIA LA PREGUNTA
 DEL COLOR** · `app/Support/Autoriza.php` (sólo el docblock) y esta casilla · larastan
 `[OK] No errors` · **el router no se mueve: 567**

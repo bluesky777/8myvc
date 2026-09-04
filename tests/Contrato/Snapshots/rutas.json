@@ -398,6 +398,7 @@
     "PUT api/historiales/nota-detalle": "App\\Http\\Controllers\\Historiales\\HistorialesController@putNotaDetalle",
     "PUT api/historiales/nota-final-detalle": "App\\Http\\Controllers\\Historiales\\HistorialesController@putNotaFinalDetalle",
     "PUT api/historiales/sesion": "App\\Http\\Controllers\\Historiales\\HistorialesController@putSesion",
+    "PUT api/horario/docentes/{profesor_id}/tono": "App\\Http\\Controllers\\HorarioController@putTonoDocente",
     "PUT api/horario/versiones/{id}/oficial": "App\\Http\\Controllers\\HorarioController@putOficial",
     "PUT api/images-users/cambiar-firma-un-profe/{profe_id}": "App\\Http\\Controllers\\Perfiles\\ImagesUsuariosController@putCambiarFirmaUnProfe",
     "PUT api/images-users/cambiar-foto-un-usuario/{user_id}": "App\\Http\\Controllers\\Perfiles\\ImagesUsuariosController@putCambiarFotoUnUsuario",
