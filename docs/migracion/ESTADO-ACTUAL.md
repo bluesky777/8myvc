@@ -182,10 +182,11 @@ contadas con `route:list --json` ese día** · pint **PASS** · larastan nivel 7
 >
 > ### Lo que hay que saber para el despliegue, y no cambia el congelado
 >
-> La tanda pasa a **ocho** migraciones. `profesores.tono` **se reparte sola a SEIS
-> respuestas vivas** que devuelven la ficha por Eloquent (`postStore`, `putUpdate`,
+> La tanda pasa a **ocho** migraciones. `profesores.tono` **se reparte sola a SIETE
+> respuestas vivas**: seis que devuelven la ficha por Eloquent (`postStore`, `putUpdate`,
 > `deleteDestroy`, `deleteForcedelete`, `putRestore` y `GET grupos/{id}` dentro de
-> `titular`): vale `null` en todos, así que es inofensiva — **pero es un campo nuevo y se
+> `titular`) **y una cruda que no es de este módulo ni de su pantalla** —`PUT
+> participantes/profesores`, de votaciones—: vale `null` en todas, así que es inofensiva — **pero es un campo nuevo y se
 > manda dicho, no descubierto**. Las cinco estáticas del modelo nombran sus columnas y no
 > se mueven, y `ProfesoresController::getShow` es de ésas: usa `detallado()`.
 >
@@ -194,6 +195,31 @@ contadas con `route:list --json` ese día** · pint **PASS** · larastan nivel 7
 > > que recordaba, no los que hay. Las dos de la papelera son `deleteDestroy` y
 > > `deleteForcedelete`, y el `getShow` que sí existe es justo el que **no** reparte nada.
 > > La cifra iba **hacia abajo**, que es la dirección en la que un error no se nota.
+> >
+> > **Y SON SIETE, no seis: la misma cifra volvió a ir hacia abajo por la misma puerta.**
+> > `8myvc-e0` corrigió «cinco» leyendo los `return` de Eloquent uno a uno, y yo escribí
+> > «seis» **heredando su instrumento**: mirar Eloquent. La séptima **no es de Eloquent**,
+> > es una consulta cruda —`VtParticipantesController::putProfesores`, `PUT
+> > participantes/profesores` con `auth.personal`—: `SELECT * FROM profesores p INNER JOIN
+> > contratos c`, devuelta tal cual en `['participantes' => …]`. *La primera corrección
+> > arregló el recuento y dejó puesta la definición estrecha; contar mejor dentro del
+> > conjunto equivocado no saca del conjunto equivocado.*
+> >
+> > **Medido el 4 sep 2026 con su población, que es lo que hace que este siete valga más
+> > que los dos anteriores:** **191** cadenas SQL de `app/` nombran `profesores`; **6**
+> > proyectan con asterisco; y de esas seis **tres son falsos positivos del detector** —un
+> > `SELECT *` sobre una **subconsulta que nombra sus columnas** (`VtParticipante:79`,
+> > `PerfilesController:129` y `:810`), donde el asterisco no ve la tabla—. Queda **una**
+> > cruda viva, más `DocentesExport`, que **no cuenta**: es `FromView` y su Blade no nombra
+> > `tono`, así que la hoja no gana columna. Total: **6 de Eloquent + 1 cruda = 7
+> > respuestas JSON**.
+> >
+> > **Y de aquí sale el aviso que importa para el despliegue**, porque la séptima no es la
+> > ficha de un docente en su pantalla: `PUT participantes/profesores` es de **votaciones**,
+> > y allí nadie está mirando si al docente le sobra un campo. Sigue siendo inofensiva
+> > —`null` en los diecisiete— pero **el radio de una columna no es el módulo que la
+> > pidió**, y ése era justamente el argumento con el que esta misma entrada justificó
+> > correr la suite entera. *Lo apliqué al elegir la suite y no al escribir el número.*
 
 **Anterior: 4 sep 2026 — LA CUARTA RUTA DEL HORARIO: LO QUE ESTA BASE PUEDE DEVOLVER, MEDIDO, Y EL
 DESPLIEGUE ESCRITO SIN DESCONGELARLO** · rama `docs/horario-cuarta-ruta-y-despliegue`,
