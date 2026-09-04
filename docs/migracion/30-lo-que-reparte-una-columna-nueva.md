@@ -184,7 +184,49 @@ sitios que leen la fila entera ... 1
 > herramienta que existe para aplicarla: **el primer sitio donde mirar cuando el número sale
 > raro es el detector**.*
 
-**Los dos arreglos son pequeños y NO se han hecho** —tocar una herramienta compartida mientras
+### ARREGLADA el 4 sep 2026, con permiso de Joseth
+
+| | antes | después |
+|---|---|---|
+| `--tablas=profesores` | **1** | **12** |
+| tablas por defecto (las seis) | **10** | **34** |
+| autoprueba | 4 casos | **9 casos** |
+| larastan | — | **`[OK] No errors`** |
+
+**Cuatro cambios, y los dos últimos son fallos que introduje yo y cazó su propia autoprueba:**
+
+1. **El mapa tabla→modelo se deriva**, leyendo `protected $table` de `app/Models/*.php`; para
+   los quince modelos que no lo declaran se usa la convención de Laravel **pero sólo se acepta
+   si esa tabla existe en `database/schema/mysql-schema.sql`**. Así una singularización mal
+   hecha no sobrevive. *Y salió una entrada muerta de la lista fija vieja:*
+   **`recuperacion_final` => `RecuperacionFinal`, un modelo que no existe** — nunca casó nada
+   y nadie se enteró, porque un mapeo que no encuentra se lee igual que una tabla sin usos.
+2. **Se avisa cuando una tabla pedida no tiene modelo**, que era el arreglo de la familia:
+   ahora dice *«de esas tablas SÓLO se está mirando el SQL crudo»* en vez de callarse.
+3. **Los literales se unen entre líneas**, así que una consulta partida deja de ser invisible —
+   `ProfesoresController:116` era exactamente eso. *Mi primera versión unía desde cualquier
+   línea, incluida una que ya estaba en mitad de otra cadena, y se colaba hasta la sentencia
+   siguiente: dos falsos positivos, `VtParticipantes:98` y `YearsController:347`. Acotado a las
+   líneas que abren un `SELECT`.*
+4. **El alias se resuelve**: `p.*` sólo cuenta si `p` es el alias de esa tabla en esa misma
+   consulta, un `SELECT *` sobre una subconsulta no cuenta, y `count(*)` tampoco. *Sin esto
+   salían cinco falsos en `Publicaciones.php` —donde `p` es `publicaciones`— y un docblock.
+   Lo avisó `8myvc-cd`, a quien le pasó lo mismo con su propio troceo el mismo día.*
+
+**Y `findOrFail`/`firstOrFail`**, que devuelven la fila entera igual que `find` y no se miraban.
+`onlyTrashed()->findOrFail()` **sigue fuera y queda declarado**: la cadena separa la llamada del
+nombre del modelo.
+
+> **La autoprueba pasó de 4 casos a 9**, y no es adorno: **cazó dos regresiones mías** durante
+> este mismo arreglo. La primera, `Nota::find()` dejando de verse cuando cambié el mapa —porque
+> `Nota` no declara `$table`—. *Un control que sólo cubre lo que ya funcionaba no habría dicho
+> nada.*
+
+**Lo que sigue sin ver, después del arreglo:** `onlyTrashed()->findOrFail()` y cualquier Eloquent
+encadenado que parta el nombre del modelo de la llamada; consultas en comillas dobles o de más
+de 20 líneas; y `resources/`, `routes/`, `database/` y `tools/`, que sigue sin mirar.
+
+**Los dos arreglos eran pequeños y ya están hechos; lo que sigue sin hacerse** —tocar una herramienta compartida mientras
 otras sesiones pueden estar usándola no lo decide ésta—:
 
 - añadir `'profesores' => 'Profesor'` a `$modelos`, y mejor aún **derivar el modelo o avisar**
