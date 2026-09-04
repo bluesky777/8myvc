@@ -299,6 +299,45 @@ se buscó»*. El otro eje —**qué controladores**— no lo tocó.
 
 ---
 
+## 3.septies Un tercer barrido llegó a trece por su cuenta — y mi diagnóstico de su hueco era falso
+
+`8myvc-9c`, que contaba **siete**, rederivó el censo y **llegó a trece de forma independiente**
+(`10b107a`). Las once de Eloquent y las dos crudas son las mismas. **Escrito en su documento
+como suyo y sin citar éste**, que es como se pidió: dos derivaciones independientes valen más
+que una citando a la otra.
+
+**Y me equivoqué al diagnosticarle el hueco.** Le dije que su barrido probablemente no veía
+`putListado` porque el `SELECT p.*` y el `FROM` están en líneas distintas — el hueco que sí
+tenía la herramienta. **Falso**: su detector une el literal completo, y `putListado` **sí le
+salió** en la lista de seis, con el alias resuelto. Lo perdió **un escalón después**: comprobó
+sitio a sitio **cuatro de las seis** y dejó dos fuera sin decirlo.
+
+> **Y esa es la lección de la ronda, que es suya y vale para las tres sesiones:** *un detector
+> correcto no protege de una lista que se estrecha entre un paso y el siguiente.* La cifra final
+> no la produjo el patrón — la produjo una comprobación manual sobre una lista recortada a mano.
+> **La población hay que arrastrarla hasta la última línea, no sólo imprimirla en la primera.**
+>
+> Su otro fallo fue cortar el barrido de `Profesor::` con `| head -30`, que le hizo perder
+> `PerfilesController` e `ImagesUsuariosController` **enteros** — *treinta líneas de resultados
+> es una salida que parece completa*. Es la regla del corte antes de contar, incumplida **en la
+> terminal**, que es donde no la vigila ningún test.
+
+**Confirmó por separado los tres descartes** —los tres falsos del `SELECT *` sobre subconsulta,
+`DocentesExport` (comprobado por el otro extremo: `grep tono resources/views/` da cero) y
+`cambiarOficialProfesor`, cuyo `return` muere en `:707`—. **Tres instrumentos distintos, tres
+criterios que no se hablaron, la misma lista.**
+
+### Y su aviso sobre la alcanzabilidad, que sí cambió el aviso al front
+
+Señaló de qué es el trece, y tenía razón en que no estaba dicho: **son respuestas que ganan el
+campo, no pantallas que lo van a ver.** Medido a raíz de eso: **una de las trece
+—`GET perfiles/show/{id}`— está documentada en su propio docblock como que no la llama ningún
+cliente**. Las otras doce **no llevan esa nota, y eso no es estar confirmadas en uso**: de
+nuestro lado nadie lo ha medido, y sólo pueden medirlo los clientes. Escrito ya en el aviso, con
+esas dos precisiones separadas.
+
+---
+
 ## 4. Lo que hay que decidir, y no lo decide una sesión
 
 **Nada de esto está roto**: `tono` es `null` en los diecisiete y es aditivo. Lo que cambia es

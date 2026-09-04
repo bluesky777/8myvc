@@ -41,6 +41,13 @@ colegio**. Y el tipo es **`string | null`**, no `string`: hoy es `null` en todos
 | 12 | `PUT profesores/listado` | cada elemento de `profesores` |
 | 13 | `PUT participantes/profesores` | cada elemento de `participantes` |
 
+> **De qué es este trece, dicho exacto porque cambia dónde miráis: son respuestas que GANAN
+> el campo, no pantallas que lo van a ver.** La lista sale de qué devuelve cada método, no de
+> quién lo llama. **Y una de las trece está documentada como que no la llama ningún cliente**:
+> `GET perfiles/show/{id}`, en su propio docblock. Las otras doce **no tienen esa nota, que no
+> es lo mismo que estar confirmadas en uso** — de eso no hay medición de nuestro lado, y el
+> único que puede hacerla sois vosotros. *Si alguna os sale muerta, decidlo y la anotamos.*
+
 > **Si vais a probar las trece, dos necesitan una ficha de docente para reproducirse.**
 > `PUT perfiles/update/{id}` y `PUT images-users/cambiar-foto-un-usuario/{id}` sólo reparten
 > `tono` **cuando la persona es un Profesor** —las otras once, siempre—. Contra un alumno o un
