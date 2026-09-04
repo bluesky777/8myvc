@@ -3,7 +3,9 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 `8myvc` es la API del sistema escolar MyVc: Laravel 13 + PHP 8.4, ~37.000 líneas
-en `app/`, **113 ficheros de controlador — 116 clases**, porque
+en `app/`, **114 ficheros de controlador — 117 clases** (recontados el 4 sep 2026;
+decían 113 y 116, y el trait `Concerns/ResuelveElUsuario.php` **no cuenta**: es el
+ficheros 115 del directorio y no declara ninguna clase), porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
 **568 rutas** (contadas con
 `route:list --json` el 4 sep 2026; el 24 ago el de rutas se movió por primera vez,

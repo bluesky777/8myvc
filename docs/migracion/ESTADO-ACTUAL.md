@@ -22,6 +22,35 @@
 > Los mensajes de commit están limpios —cero apariciones—, así que sólo había que tocar
 > estas tres líneas.
 
+**4 sep 2026 — LA COBERTURA REMEDIDA: 568/568, Y LO QUE ENVEJECIÓ FUE EL NÚMERO, NO LA
+PROPIEDAD** · `CLAUDE.md` y esta casilla · **cero código**
+
+> **Aquí decía `542/542 rutas — el 100%` y `98/98 controladores`, del 25 ago.** Han entrado
+> **26 rutas** desde entonces —las 25 de la tanda más la del `tono`— y esa cifra **no la
+> comprueba ningún test**, igual que el contador del router.
+>
+> **Remedido, y el 100% no se ha roto ni una vez:**
+>
+> | | |
+> |---|---|
+> | rutas con la respuesta comprobada | **568 de 568 — 100%** |
+> | controladores | **101 de 101** |
+> | a medias · sin nadie que los mire | **0** · **0** |
+> | con qué se midió | suite entera contra base de sesión propia: **1.973 tests, 17.675 aserciones, 766 s** |
+>
+> **Lo que hace que ese 100% signifique algo son los dos barridos que NO cuentan**:
+> `AutenticacionTest` toca **549** rutas en una sola ejecución y `RutasPreLoginTest` **567**.
+> Un test que las recorre todas dice que la ruta existe y que su guard es el que era —**no
+> mira lo que devuelve**—, y la herramienta los descarta por encima de 25 rutas en un caso.
+> Sin esa resta, «el 99% de las rutas están cubiertas» sería cierto y no querría decir nada.
+>
+> **Y de paso otro censo de `CLAUDE.md` que había envejecido**: decía **113 ficheros de
+> controlador — 116 clases**; son **114 y 117**. La cuenta cuadra sola y por eso se puede
+> comprobar: 113 ficheros de una clase más los **cuatro** de `Alumnos/ImportarController` son
+> 117. *El directorio tiene **115** ficheros; el que sobra es
+> `Concerns/ResuelveElUsuario.php`, que es un **trait** y no declara ninguna clase — y
+> contarlo habría dado 118, que es como se descubrió que faltaba explicarlo.*
+
 **4 sep 2026 — TRES DECISIONES TUYAS EJECUTADAS: LOS DOS HUECOS DE `DESPLIEGUE.md`, LA §10.2.1
 CERRADA Y EL `28` RESCATADO** · `DESPLIEGUE.md`, [23 §10.2](23-horarios.md),
 `28-competencias-e-indicadores.md` y esta casilla · **cero código, el router en 568**
@@ -3447,18 +3476,26 @@ quien llegue, que lo lea entero antes de coger nada
 
 Las fases 0–4 del [plan](00-plan-migracion.md) están cerradas, la 5 recortada y la
 6 es continua por diseño. **Laravel 13 sobre PHP 8.4**, con red de seguridad y
-autenticación real. Hoy: **542/542 rutas con la respuesta comprobada — el 100% —,
-98/98 controladores, larastan nivel 7 `[OK]`, pint PASS.**
+autenticación real. Hoy: **568/568 rutas con la respuesta comprobada — el 100% —,
+101/101 controladores, larastan nivel 7 `[OK]`, pint PASS.**
 
-> **Y con qué suite se midió, que aquí decide el número:** las 542 salen de la
-> **suite entera** (`medicion/lote-y-cobertura`, 1.362 tests, 9.223 aserciones,
-> 848 s). Con `--testsuite=Contrato` se ven **541**, porque `GET /` sólo la toca el
-> stub de `laravel new` y ahí cae siempre del lado de las no comprobadas. **El
-> número citable es el de la suite entera**, y no es lo mismo que el de Contrato.
+> **REMEDIDO el 4 sep 2026, y el resultado es mejor que el número:** aquí decía
+> **542/542** y **98/98**, que era la cifra del 25 ago. Han entrado **26 rutas** desde
+> entonces y **el 100% no se ha roto ni una vez** — o sea que lo que envejeció fue el
+> número, no la propiedad. Medido con la suite entera (**1.973 tests, 17.675
+> aserciones, 766 s**) contra una base de sesión propia y
+> `tools/cobertura-de-rutas.py`: **568/568, 101/101 controladores, 0 a medias y 0 donde
+> nadie mira ninguna respuesta**.
 >
-> **Los dos barridos siguen sin contar como comprobar** —`AutenticacionTest` toca
-> 523 rutas en una ejecución y `RutasPreLoginTest` 530— y eso es lo que hace que el
-> 100% signifique algo.
+> **Y con qué suite se midió, que aquí decide el número:** el número citable es el de
+> la **suite entera**, no el de `--testsuite=Contrato` — `GET /` sólo la toca el stub de
+> `laravel new` y con Contrato a secas cae siempre del lado de las no comprobadas.
+>
+> **Los dos barridos siguen sin contar como comprobar**, y ésa es la mitad que hace que
+> el 100% signifique algo: `AutenticacionTest` toca **549** rutas en una ejecución y
+> `RutasPreLoginTest` **567**. Un test que las recorre todas dice que la ruta existe y
+> que su guard es el que era; **no mira lo que devuelve**, y por eso la herramienta los
+> descarta por encima de 25 rutas en un solo caso.
 >
 > El total de tests **varía por rama esta noche**: hay cuatro sin fundir. `7b` cerró
 > con 1.374 en la suya y `ad` con 1.362 en la suya; **no se suman**, y el de `main`
