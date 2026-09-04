@@ -22,7 +22,157 @@
 > Los mensajes de commit están limpios —cero apariciones—, así que sólo había que tocar
 > estas tres líneas.
 
-**3 sep 2026 — EL CÍRCULO DEL HORARIO, CERRADO DE PUNTA A PUNTA CON DATOS REALES** ·
+**4 sep 2026 — `columnas-en-los-modelos.php` BORRABA ANOTACIONES A MANO, Y NADIE PODÍA
+ENTERARSE** · `tools/columnas-en-los-modelos.php`, `app/Models/Subunidad.php`,
+`tests/Unit/AutopruebasDeLasHerramientasTest.php`,
+`tests/Unit/FuncionesGlobalesDeLasHerramientasTest.php` (nuevo), `docs/migracion/05-codigo-muerto-y-roto.md` ·
+**cero rutas, cero esquema** · rama
+`fix/columnas-en-los-modelos-no-borra` sobre `main` (`8f59242`) · lote repartido por
+`8myvc-f5`, medido y arreglado por esta sesión en `.worktrees/a` /
+`simonbolivar_testing_a` · **larastan `[OK] No errors`** · suite entera
+**`Tests: 1933 passed (17365 assertions)`**, cero rojos
+
+> ### Y LA PRIMERA VUELTA DE LA SUITE SALIÓ CON UN ROJO QUE NO ERA DE NADIE
+>
+> `Tests: 1 failed, 1930 passed` — `GruposTest > grupos-show`, con `+ 'tono' => 'null'` en
+> la instantánea. **Ni del arreglo ni de la rama del horario**: el worktree nació de
+> `0345ad5`, se rebajó a `main` con `git reset --hard`, y **la base de sesión se quedó con
+> `profesores.tono` migrada**. Esa consulta hace `SELECT *`, así que la columna se coló en
+> la respuesta.
+>
+> **Cambiar de rama en un worktree no deshace las migraciones de su base**, y el guardia de
+> `construir-bd-test.sh` no lo ve porque compara árboles **al construir**, no después.
+> Reconstruida la base desde el árbol de `main` —`PHP_EXEC` con `-w`, y comprobado con
+> `Schema::hasColumn` imprimiendo `getDatabaseName()` al lado— `tono` desaparece y
+> `GruposTest` pasa 15/15.
+>
+> **La salida fácil era regenerar la instantánea, y habría metido en `main` una columna sin
+> su migración** — sin dejar rastro, que es lo que hace peligrosa esa tecla.
+
+> La herramienta que genera las `@property` de los modelos lee
+> `database/schema/mysql-schema.sql`, que está **congelado**. Una columna que entra por
+> migración no está ahí, así que alguien la anota a mano — y la escribe donde están todas
+> las demás, o sea **dentro** de las marcas, que es justo el trozo que la herramienta
+> reemplaza entero. La siguiente corrida se la lleva.
+>
+> ### LA POBLACIÓN ENTERA, QUE ES LA MITAD QUE FALTABA DEL HALLAZGO
+>
+> Regenerando los **54** ficheros de modelo **sobre copias** en `/tmp` y diffeando
+> `@property` a `@property` (no «ficheros que cambian», que es lo que decía la herramienta
+> y no contesta la pregunta):
+>
+> | | |
+> |---|---|
+> | ficheros mirados | **54** — 53 en `app/Models` + `app/User.php` |
+> | con bloque generado | **47** · **7** saltados por no encontrar su tabla |
+> | `@property` dentro de las marcas | **760** · **77** fuera |
+> | **se perdían** | **2** · **entraban 0** |
+> | comentarios a mano sobre líneas generadas | **1** de 760 |
+>
+> Las dos, medidas sobre `0345ad5`: `Subunidad.rubrica_id` (migración de rúbricas) y
+> `Profesor.tono` (migración del 4 sep). Sobre **`main` (`8f59242`) es una**, la de
+> `Subunidad`: la de `Profesor` entra con la rama del horario.
+>
+> **Lo que NO miré**: los 7 sin tabla nunca reciben bloque, así que no pueden perder nada
+> por aquí; y no miré si alguna de esas 760 líneas está *mal* — la pregunta era qué se
+> borra, no qué se anota bien.
+>
+> ### Y LA DEDUCCIÓN QUE VENÍA EN EL LOTE ERA FALSA EN UN CASO — POR SUERTE
+>
+> El lote citaba `Year.php` (`regla_nivelacion`, `horario_version_id`) como víctima. **No
+> lo es**: las dos viven **debajo** de la marca de fin, con su prosa al lado, y la
+> herramienta no toca nada de ahí. `grep` en el volcado da cero para las dos y aun así
+> están a salvo — o sea que *«no está en el volcado»* **no** es el detector de esto; el
+> detector es *«no está en el volcado **y** está dentro de las marcas»*. Es la segunda
+> forma de la regla de `CLAUDE.md`: el síntoma estaba bien contado y la causa que se le
+> puso al lado era otra.
+>
+> **Y ese error fue el que dio el arreglo.** `Year.php` es la prueba viva de que el sitio
+> seguro existe y ya se usaba.
+>
+> ### EL ARREGLO: MOVER, NO FUSIONAR
+>
+> Una `@property` de dentro de las marcas cuyo nombre no es columna de la tabla **se mueve
+> literal —con su comentario— justo debajo de la marca de fin**, y se dice en pantalla.
+> Después de una corrida, dentro sólo hay generado y fuera sólo hay mano.
+>
+> **Fusionar** —conservarla donde está— era la otra salida y se descartó con motivo:
+> convierte el bloque generado en un sitio donde se puede escribir a mano, y entonces
+> nadie que lo mire puede saber qué es qué. **Leer el esquema vivo** se descartó medido:
+> el 4 sep, `years` daba **64** columnas en el volcado y **70** en `simonbolivar_testing_a`
+> migrada — anotar desde ahí metería en los dieciséis colegios columnas que allí no
+> existen.
+>
+> ### LO QUE SIGUE PERDIÉNDOSE, DICHO EN VOZ ALTA
+>
+> Un comentario a mano pegado a una línea que **sí** es columna se pierde igual: esa línea
+> se regenera. No se puede conservar sin reabrir el bloque a la mano. **Ahora se avisa y se
+> cuenta aparte** — que se pierda no es el fallo; que se perdiera callando, sí.
+>
+> ### AUTOPRUEBA, Y EJERCIDA CONTRA LA HERRAMIENTA VIEJA
+>
+> `--control`, seis formas, registrada en `AutopruebasDeLasHerramientasTest` (13 casos,
+> todos verdes). **Se corrió contra el comportamiento de antes antes de darla por buena:
+> sale `exit 1` con dos formas en rojo.** Un control que pasa con la herramienta rota es
+> peor que ninguno.
+>
+> **Por qué hacía falta**: ninguna suite ejecuta `tools/` y borrar una `@property` no rompe
+> nada — larastan sólo deja de saber que la columna existe. El daño sale semanas después,
+> en otro fichero, como un nivel 7 que alguien «arregla» volviendo a anotarla dentro del
+> bloque, para que la próxima corrida la borre otra vez.
+>
+> ### Y UN SEGUNDO HALLAZGO, QUE SALIÓ DE ESCRIBIR EL CONTROL
+>
+> Los ficheros de `tools/` son scripts sueltos **sin namespace**: sus funciones caen en el
+> global. En ejecución da igual —cada uno corre en su proceso—, pero **larastan analiza la
+> carpeta entera como un proyecto**. Este control se escribió con los nombres naturales,
+> `casosDeControl()` y `control()`, que son los que ya usa
+> `independientes-sin-estructura.php`, y larastan resolvió la llamada **contra la función
+> del otro fichero**: `callable.nonCallable`, «Trying to invoke `array<string, mixed>`» —
+> la firma del OTRO `casosDeControl`. La anotación de aquí era correcta y no se estaba
+> usando.
+>
+> **Y la mitad que importa**: con `control()` —los dos devuelven `int`— **no salió ningún
+> error**. La colisión que no cambia de tipo no se delata, así que se renombraron las dos
+> (`formasDeControl`, `controlDeLasColumnas`) y no sólo la que cantó.
+>
+> O sea que **larastan no es el detector de esto**: lo fue por casualidad. Por eso el
+> hallazgo entra como test propio y no como nota —
+> `tests/Unit/FuncionesGlobalesDeLasHerramientasTest`—, que mira la carpeta entera y **dice
+> su población**: **21 ficheros de `tools/`, 81 nombres de función distintos, 0 con
+> namespace**. Sin esa línea, el día que alguien meta un `namespace` ahí el detector dejaría
+> de encontrar declaraciones y **el cero se leería como «no hay colisiones»**.
+>
+> **Y se demostró rojo por las dos puntas**, porque un `uniq -d` vacío sin control negativo
+> es el «0 encontrados» de siempre: un caso sintético ejerce el detector con ficheros que
+> chocan —y con uno bajo `namespace` que **no** debe contar—, y además se metió a mano un
+> `tools/zz-prueba-de-colision.php` declarando `tipoPhp()` para ver caer la aserción de
+> verdad. Cae, y nombra los dos ficheros. Borrado.
+>
+> ### Y UNA FRASE QUE EL REPO SE CONTRADECÍA A SÍ MISMO
+>
+> [`05-codigo-muerto-y-roto.md`](05-codigo-muerto-y-roto.md) §9 decía que las columnas se
+> generan «desde el **esquema real**», que es exactamente lo contrario de lo que hace la
+> herramienta —lee el volcado **congelado**— y es de donde salía este fallo. Corregida con
+> la medición delante. La frase buena **ya estaba escrita** en
+> [`26-rubricas.md`](26-rubricas.md) §4.7 y la mala siguió viva al lado; el barrido lo hizo
+> `8myvc-f5`, que encontró **tres** sitios: los otros dos son `CLAUDE.md` —que **no se ha
+> tocado**, se lo lleva esa sesión a Joseth— y el propio 26, que es el correcto.
+>
+> ### PENDIENTE DE JOSETH — UNA, Y NO LA DECIDE UNA SESIÓN
+>
+> **¿Se refresca `database/schema/mysql-schema.sql` desde producción?** Mientras no se
+> haga, cada columna nueva sigue anotándose a mano (ahora sin perderse). Refrescarlo es
+> cambiar «la verdad» del esquema, con lo que eso arrastra: `CLAUDE.md` dice que ese
+> volcado **es** la verdad, y el seed y la BD de tests salen de ahí. **No se ha tocado.**
+>
+> ### Y UN AVISO PARA LA RAMA DEL HORARIO
+>
+> `Profesor.tono` está hoy **dentro** de las marcas en `docs/horario-cuarta-ruta-y-despliegue`.
+> Con esta herramienta ya no se borra —se mueve—, pero hasta que esta rama se funda, correr
+> la versión vieja allí se lo lleva. Avisado a `8myvc-f5`.
+
+**Anterior: 3 sep 2026 — EL CÍRCULO DEL HORARIO, CERRADO DE PUNTA A PUNTA CON DATOS REALES** ·
 cero ficheros tocados: es una **medición**, no un cambio · **566 rutas** · lo condujo
 `myvc-horarios-f3` en el docker, con permiso de Joseth; la última lectura la corrió esta
 sesión, también con su permiso
