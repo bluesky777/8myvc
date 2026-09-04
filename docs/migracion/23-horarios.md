@@ -1027,8 +1027,64 @@ hojas pasan de avisar a no avisar**.
 
 **La consecuencia para el diseño, en una línea:** *un catálogo que no viaja y un catálogo
 vacío no pueden ser la misma cosa al otro lado.* Si la respuesta puede decir **«este
-catálogo no lo tengo»** en vez de mandarlo vacío, **los cuatro casos falsos se convierten
-en los dos que avisan solos**.
+catálogo no lo tengo»** en vez de mandarlo vacío, los casos falsos se convierten en los
+que avisan solos.
+
+### 9.bis.1.a. Y eso NO basta: el caso que va a ocurrir de verdad es el catálogo A MEDIAS
+
+**Corregido al alza el 3 sep 2026**, y la corrección va aquí porque el párrafo de arriba
+**presupone que sabemos que falta algo**. Medido por `myvc-horarios-90` sobre **144
+corridas** —3 colegios × 6 mutilaciones × 8 informes—, y el desglose bueno tiene **cuatro**
+categorías, no tres:
+
+| | corridas |
+|---|---|
+| salen igual | 76 |
+| salen distinto **con un aviso que se enciende** | 5 |
+| salen distinto **sin ningún aviso** | 55 |
+| **salen distinto Y ADEMÁS SE LES APAGA UN AVISO QUE ESTABA ENCENDIDO** | **8** |
+
+**Las 8 son la categoría que decide**, y no es «la hoja sale mal en silencio»: es que **la
+hoja sale mal y encima deja de avisar de lo que antes avisaba**. Quien confíe en el aviso
+queda **peor** que si no lo hubiera.
+
+**Y el catálogo a medias hace MENOS ruido que el ausente**, que es lo contrario de lo que
+uno esperaría:
+
+- **Salones fuera del todo** → `horario-por-salon` saca **0 hojas**. Un documento vacío
+  **se nota**, y obliga a alguien a preguntar.
+- **Salones a medias** → **6 hojas se quedan en 3**, `ocupadas` baja de **88 a 50**, y
+  **cero avisos**. Un informe entero, bien maquetado, al que le falta la mitad. Y los otros
+  tres pierden el salón en **menos** casillas —38 en vez de 75—, o sea que hasta el síntoma
+  encoge.
+
+**A medias es exactamente lo que devolvería nuestra ruta**, porque nuestra base guarda unas
+cosas y no otras por decisión de la §0. Así que la regla se endurece:
+
+> **No basta con mandar lo que tenemos: la respuesta tiene que poder decir que lo que manda
+> está INCOMPLETO.** `salones: []` y `salones: «no los tengo»` no pueden ser la misma cosa
+> al otro lado — hoy allí **se imprimen igual**.
+
+### 9.bis.1.b. Y una técnica de arnés que sale de aquí y vale para cualquier comparador
+
+**El arnés que midió esto se equivocó sobre sí mismo dos veces en un día, y las dos las
+destapó correr con datos nuevos, no releer.**
+
+1. La primera versión contaba **cualquier aviso que se moviera** como «bien avisado», así
+   que marcaba el peor caso —el centinela pasando de encendido a apagado— como **bueno**.
+   **El instrumento etiquetaba como correcto justo el fallo que venía a cazar.**
+2. La segunda sacó *«la materia cambió de Tecnología a Educación Física»* y *«el docente
+   cambió»*, **17 veces cada uno**. Falso: el informe pasó de 6 hojas a 3 y el comparador
+   **alineaba por índice**, o sea que comparaba la hoja 1 contra otro salón. Al informe no
+   le cambia el docente — **le faltan tres hojas**.
+
+**La técnica que lo arregla, y es de forma y no de cuidado**: *cuando los largos difieren,
+**el largo ES el hallazgo** y no se compara dentro.*
+
+> Y el porqué, que es lo que hay que llevarse: ese segundo fallo habría salido de un canal
+> entre repositorios **como un fallo del producto** —creíble, concreto, con nombres y
+> apellidos dentro— y habría costado buscar un cambio de docente que nunca ocurrió.
+> **La defensa no es mirar mejor, es no poder.**
 
 Esto muerde aquí y no allá porque **nuestra base no guarda salones, disponibilidad,
 franjas ni restricciones** — la §0 decidió que no las guardara. Así que lo que podemos
