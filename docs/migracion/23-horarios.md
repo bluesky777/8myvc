@@ -1314,9 +1314,15 @@ se pinta en la última columna**.
 
 #### Y LO QUE FALTA DE VERDAD: LA COLUMNA `tono` NO TIENE QUIEN LA ESCRIBA
 
-**Medido el 4 sep 2026, después de escribir la cuarta ruta:** `tono` aparece **seis veces en
-`app/` y las seis son lecturas**, todas dentro de `HorarioController`. **Ningún endpoint de
-esta API puede darle valor.**
+**Medido el 4 sep 2026, después de escribir la cuarta ruta:** `tono` aparece **diez veces en
+`app/`, en dos ficheros** —`Profesor.php` 2 y `HorarioController` 8—; de ésas, **seis son
+código y las seis son lecturas**, todas en el controlador. Las otras cuatro son docblock y
+`@property`. **Ningún endpoint de esta API puede darle valor.**
+
+> *Aquí decía «seis veces en `app/`» a secas, y eso era el subconjunto ejecutable presentado
+> como la población. Lo corrigió `myvc-front-59` dando **diez**, que es la cifra buena de la
+> pregunta «¿dónde aparece?». Las dos son ciertas y contestan cosas distintas; la que hay que
+> escribir es la población, y la conclusión —**ninguna escribe**— no se mueve.*
 
 - `putUpdate` de `ProfesoresController` **no la toca**, y no por casualidad: asigna sobre una
   **lista blanca explícita** (`$deLaFicha`, columna → claves) y sólo cuando la clave vino
@@ -1343,6 +1349,15 @@ sin volver a medir nada:
 > entera; *(c)* que lo reparta el propio `POST horario/versiones` leyendo los colores del
 > blob — que es **la salida que Joseth ya descartó** en la decisión 1, porque tocaba el
 > fichero de proyecto.
+
+**Y la salida (b) cuesta MÁS PERMISO de lo que parece, medido el 4 sep 2026 cuando el front la
+propuso como «la barata».** `PUT profesores/update/{id}` lleva `auth.personal` en la ruta **y
+`Autoriza::esSuperusuario` dentro del método**. O sea que meter `tono` en la lista blanca de
+`putUpdate` **no le da el color al que abre el menú de horario**: se lo da **sólo al
+superusuario**, que es más estrecho que los dos criterios que este módulo ya usa
+—`auth.personal` para mirar, `puedePublicarHorario` (superusuario **o** `Coord académico`)
+para publicar—. **La salida barata no es la misma decisión con menos trabajo: es otra
+decisión.** El front la propuso creyendo que esa ruta era `esAdmin`.
 
 *Esto no lo destapó ningún barrido nuestro: lo destapó `myvc-front-84` preguntando si
 `putUpdate` podía **borrar** el tono. La respuesta a su pregunta es que no puede borrarlo —y
