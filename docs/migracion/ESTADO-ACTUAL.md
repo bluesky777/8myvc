@@ -22,6 +22,61 @@
 > Los mensajes de commit están limpios —cero apariciones—, así que sólo había que tocar
 > estas tres líneas.
 
+**4 sep 2026 — EL CONGELADO TIENE FECHA: EL 10 DE SEPTIEMBRE, Y LA PREGUNTA QUE LO
+DESBLOQUEA YA ESTÁ CONTESTADA** · decisión de Joseth · sólo documentos:
+[`DESPLIEGUE.md` §🛑](../DESPLIEGUE.md) y esta casilla · **cero código**
+
+> **Joseth, 4 sep 2026:** *«No quiero desplegar nada hasta no estar seguro de que no me dañe
+> la verificación de la Play Store de Flutter. Así que pienso esperar hasta el 10 de sept.»*
+>
+> La fecha cuadra con lo que ya había escrito —seis días de revisión el 2 sep sobre catorce
+> sale ~10 sep—, **pero el criterio es el suceso y no el calendario**: lo que desbloquea es
+> *«la app salió de revisión»*. Si la tienda tarda más, la fecha se mueve con ella.
+>
+> **Y conviene tener claro qué compra la espera, porque no es lo que parece: no hace la tanda
+> más segura, devuelve la salida.** Con la app en revisión no se puede publicar una
+> corrección; después, sí. La espera no cambia el riesgo — cambia lo que cuesta equivocarse.
+>
+> ### Las dos preguntas del §🛑, medidas — y las dos dan NO
+>
+> Ese bloque decía que **lo único que un cliente puede perder** son dos cosas, y que la
+> pregunta que decide el despliegue es si la app las usa. **Se contestaron el 4 sep sobre
+> `~/DESARROLLOS/myvc_flutter`:**
+>
+> | | |
+> |---|---|
+> | ¿llama a `POST tardanzas/login/traer-datos`? | **no** — cero |
+> | ¿lee alguna de las ocho claves del evento del calendario? | **no lee el evento siquiera**: de `to-me` saca `horario_hoy`, `horario_version_id`, `publicaciones`, `alumnos` y `ausencias_periodo`; **la clave `eventos` no la toca** |
+>
+> **Y no depende de qué versión esté en la tienda, que es lo que lo cierra**: `git log -S`
+> sobre los **151 commits** del repositorio dice que **ninguna versión de esa app ha leído
+> nunca `'eventos'` ni ha llamado nunca a `traer-datos`**. La respuesta no cambia con el
+> commit que se subió a revisar, y por eso no hace falta saber cuál es.
+>
+> **La lista de las dos se comprobó completa.** La candidata a tercera era
+> `notas_finales.nota` pasando a `DECIMAL` —un cambio de **tipo**, que es justo el disparador
+> que una lista escrita en términos de forma no ve— y **no entra en esta tanda**:
+> `2026_08_30_200000_notas_finales_en_decimal` **ya está en `9474b50`**. Las ocho que faltan
+> son aditivas del lado del cliente.
+>
+> ### Y dos trampas de mis propios `grep`, dichas porque las dos dan la respuesta contraria
+>
+> - **`traer-datos` daba 2 aciertos y son cero**: casaban `traerDatosDeDisciplina`, que llama
+>   a `/grupos/con-disciplina`. Un falso positivo por subcadena que, leído sin abrir, habría
+>   dicho *«sí la llama»* y habría justificado esperar por la razón equivocada.
+> - **`created_at`, `created_by` y `deleted_at` sí aparecen** — en `SituacionModel`,
+>   `AsistenciaModel`, `PublicacionModel`, `MuroApi` (el muro) y `HistorialNotaApi`.
+>   **Ninguna es el evento del calendario.** Un recuento que sólo mire nombres de clave las
+>   habría contado como tres de las ocho.
+>
+> ### Lo que esto NO contesta, y por eso esperar sigue siendo lo correcto
+>
+> Contesta por la **compatibilidad de la app**, no por la **ejecución del despliegue**. El ⛔
+> sigue entero: con el código nuevo y la base sin migrar **no se puede ni iniciar sesión**, y
+> eso no lo arregla ninguna medición del cliente. Y no cubre a los otros tres clientes
+> —`myvc_front`, `app2` y `myvc_front_2`—, que sí tienen avisos pendientes (el **K** los
+> nombra: `created_by_nombres` lo pinta la aplicación vieja y dirá «Por: undefined»).
+
 **4 sep 2026 — EL HORARIO, REPASADO ENTERO ANTES DE ENTREGARLO: LA SUITE COMPLETA EN VERDE Y
 SEIS AFIRMACIONES QUE LA CUARTA RUTA DEJÓ VIEJAS — Y EL HORARIO ENTERO EN `main`** ·
 **FUSIONADO Y EMPUJADO** el 4 sep 2026 con tu autorización: `main` en **`200c566`**, que es

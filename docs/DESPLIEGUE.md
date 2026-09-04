@@ -5,6 +5,48 @@ cada tanda, el bucle del front— está en [DESPLIEGUE-REFERENCIA.md](DESPLIEGUE
 
 ## 🛑 CONGELADO: `myvc_flutter` está en revisión — no se despliega hasta que salga
 
+> **Joseth, 4 sep 2026: la espera tiene fecha — el 10 de septiembre.** *«No quiero desplegar
+> nada hasta no estar seguro de que no me dañe la verificación de la Play Store de
+> Flutter.»* La fecha cuadra con la aritmética de abajo: seis días de revisión el 2 sep sobre
+> catorce sale ~10 sep. **Pero el criterio es el suceso, no el calendario**: lo que
+> desbloquea es *«la app salió de revisión»*, así que si la tienda tarda más, la fecha se
+> mueve con ella y no al revés.
+>
+> **Y lo que la espera compra no es que la tanda se vuelva inocua: es que vuelva a haber
+> salida.** Mientras la app está en revisión no se puede publicar una corrección; después,
+> sí. La espera no cambia el riesgo, cambia lo que cuesta equivocarse.
+>
+> ### Y la pregunta que este bloque plantea YA ESTÁ CONTESTADA, medida el 4 sep 2026
+>
+> Las dos, y las dos dan **no**:
+>
+> | la pregunta | medido en `~/DESARROLLOS/myvc_flutter` |
+> |---|---|
+> | ¿llama a `POST tardanzas/login/traer-datos`? | **no** — cero. *(Un `grep` ingenuo da 2 y son `traerDatosDeDisciplina`, que llama a `/grupos/con-disciplina`: casó por subcadena.)* |
+> | ¿lee alguna de las ocho claves del evento? | **no lee el evento siquiera.** De `to-me` saca `horario_hoy`, `horario_version_id`, `publicaciones`, `alumnos` y `ausencias_periodo` (`MuroApi.dart:109`). **La clave `eventos` no la toca.** |
+>
+> **Y no depende de qué commit esté en la tienda, que es lo que lo cierra**: `git log -S` sobre
+> los **151 commits** del repositorio dice que **ninguna versión de esta app ha leído nunca
+> `'eventos'` ni ha llamado nunca a `traer-datos`**. Así que la respuesta no cambia con la
+> versión concreta que se subió a revisar.
+>
+> *Las tres claves que sí aparecen —`created_at`, `created_by`, `deleted_at`— están en otros
+> modelos: `SituacionModel`, `AsistenciaModel`, `PublicacionModel`, `MuroApi` (el muro) y
+> `HistorialNotaApi`. **Ninguna es el evento del calendario**, así que no las toca el aviso
+> K. Se dicen porque un recuento que sólo mire nombres de clave las contaría.*
+>
+> **Y la lista de «lo único que un cliente puede perder» se comprobó completa**: la otra
+> candidata era `notas_finales.nota` pasando a `DECIMAL` —un cambio de **tipo**, que es el
+> disparador que una lista escrita en términos de forma no ve—, y **no entra en esta tanda**:
+> `2026_08_30_200000_notas_finales_en_decimal` **ya está en `9474b50`**, la base desplegada.
+> Las que faltan son **ocho** y ninguna cambia un tipo que un cliente lea.
+>
+> **Lo que esto NO dice, y es lo que sigue justificando esperar:** contesta por la
+> *compatibilidad de la app*, no por la *ejecución del despliegue*. El ⛔ sigue entero — con
+> el código nuevo y la base sin migrar **no se puede ni iniciar sesión** —, y eso no lo
+> arregla ninguna medición del cliente: lo arregla hacer el despliegue bien, colegio a
+> colegio, `git pull` y `migrate --force` seguidos.
+
 **Joseth, 2 sep 2026: la app lleva seis días en revisión y no puede publicar una corrección
 hasta que pasen los catorce.** O sea que si esta tanda rompiera algo de la app, **el arreglo
 tardaría más de una semana en llegar a la tienda** y los quince colegios lo comerían entero.
