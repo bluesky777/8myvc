@@ -106,6 +106,33 @@ mueve: siguen 567**
 > `salon_id`. **Lo que hoy contestan las 25 en los diecisiete es 404**, y esa es la señal
 > buena: *«esta versión del servidor no tiene el módulo»*.
 >
+> ### UN FALLO DEL FRONT QUE SALIÓ DE ESTE HILO, Y TE LO VAN A PEDIR — NO ES DE BACKEND
+>
+> **Ofrecen «nivelar» a quien va a recibir 403, y no es un caso raro: es el colegio normal.**
+> Lo encontró `myvc-front-84` preguntándome el criterio exacto, y **lo verifiqué contra
+> nuestro código antes de que te lo lleven**:
+>
+> - `User::puedeNivelar()` (`app/User.php:402`) exime a **`is_superuser`** y por lo demás
+>   exige **`tipo == 'Profesor'` con el interruptor en 1**. O sea que **un `Secretario`
+>   recibe `false` SIEMPRE**, encendido o apagado — no es «el interruptor está cerrado», es
+>   que no entra en la condición.
+> - Y **sí recibe el interruptor en su sesión, valiendo 1**: lo mandan **dos** de las cuatro
+>   ramas de `ContextoDeUsuario` —`Profesor` (:134) y **`Usuario`** (:227)—, porque el
+>   interruptor es **del colegio**, no de quien lo lee. Su condición
+>   (`profes_pueden_nivelar !== 0 || tieneAlgunRol(['admin'])`) lo deja pasar por la primera
+>   mitad.
+>
+> **Y su `|| admin` acierta hoy por casualidad**, que es la parte que más vale escribir:
+> mira el **rol** y nuestro criterio mira **`is_superuser`**. Coinciden porque *«los diez
+> `Admin` son exactamente los diez `is_superuser`»* (`Autoriza.php:46`, medido el 21 ago) —
+> **y `Secretario` es la prueba de que pueden dejar de coincidir**, porque se creó justo
+> para alguien **sin** `is_superuser`.
+>
+> **Son tres ediciones suyas y ninguna nuestra**: el criterio de la API no cambia, cambia a
+> quién se le pinta el botón. No lo tocaron porque hay otra sesión commiteando en ese árbol
+> — que es la decisión correcta y la que este repo tiene documentada. **Te lo van a pedir con
+> la línea exacta.**
+
 > ### Y DOS COSAS DE `DESPLIEGUE.md` QUE NO TOCO PORQUE SON DECISIÓN TUYA
 >
 > Las dos salen de que `profesores.tono` llegue a trece respuestas y no a seis, y **ninguna
