@@ -341,9 +341,10 @@
 > **Ninguna de las dos que quedan la puede resolver una sesión midiendo**, que es exactamente por qué
 > están aquí arriba y no dentro de una casilla fechada donde hay que ir a buscarlas.
 >
-> > **A 5 sep 2026 por la tarde no queda ninguna abierta.** La 1 la contestó Joseth; la 2 ya estaba
-> > contestada; y la 3 **estaba HECHA y fundida mientras este bloque la daba por sin empezar** — se
-> > deja tachada y no borrada porque es un hallazgo sobre este propio documento, no sobre el código.
+> > **A 5 sep 2026 por la tarde queda UNA abierta, la 4, y nació de contestar la 1.** La 1 la
+> > contestó Joseth; la 2 ya estaba contestada; y la 3 **estaba HECHA y fundida mientras este bloque
+> > la daba por sin empezar** — se deja tachada y no borrada porque es un hallazgo sobre este propio
+> > documento, no sobre el código.
 >
 > ### 1. ~~`SELECT VERSION();` en un colegio~~ **CONTESTADA el 5 sep 2026: `10.5.25-MariaDB-cll-lve`, y lo mismo en los dos shared hostings**
 >
@@ -368,6 +369,16 @@
 > Y `feat/calendario` trae otra, o sea que la pregunta real es *cuántas migraciones entran
 > antes del día 10*, no si entra ésta. **Las dos salidas son legítimas y ninguna es gratis:**
 > dejarlas fuera congela dos arreglos ya escritos y probados; meterlas obliga a reensayar.
+>
+> ### 4. El motor de cada tabla en los dos hostings — nueva, 5 sep 2026 por la tarde, y sólo la puede correr Joseth
+>
+> Salió de su propia pregunta al contestar la 1: *«¿es posible que algunas de mis bases sean muy
+> viejas y tengan tablas no InnoDB?»*. **Sí, y desde aquí no se ve**: el volcado y el docker son un
+> colegio. Importa porque `rubricas` estrena una clave ajena hacia **`notas`** y una InnoDB no puede
+> apuntar a una MyISAM: en ese colegio la tanda **se queda a medias** con errno 150. Son dos consultas
+> en el phpMyAdmin de cada hosting, escritas en [DESPLIEGUE.md](../DESPLIEGUE.md), bloque «el motor de
+> cada tabla»; la primera es la población y la segunda las que rompen. **Un resultado vacío de la
+> segunda con la primera delante es el «no» que hace falta.**
 >
 > ### 3. ~~El Lote G: ensanchar `GET horario/versiones/{id}/lecciones` con las cuatro listas~~ **HECHA y fundida en `abcd23a` — y este bloque decía lo contrario**
 >

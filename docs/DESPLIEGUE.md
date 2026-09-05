@@ -328,6 +328,46 @@ y la retirada es `POST tardanzas/login/traer-datos`, que no tiene ninguna otra.
 >   sobre MySQL 8. Convertir «deberían» en un número es un contenedor `mariadb:10.5` con la copia de
 >   `simonbolivar` y las siete encima. No cambia el plan del día 10; es lo único que queda entre la
 >   tanda y un ensayo sobre el motor de verdad.
+>
+> ### Y una pregunta que la versión NO contesta: el motor de cada tabla, colegio por colegio
+>
+> La preguntó Joseth el 5 sep 2026 —*«¿es posible que algunas de mis bases sean muy viejas y tengan
+> tablas no InnoDB?»*— y **desde este repositorio no se puede contestar**: el volcado y la copia del
+> docker son **un** colegio (90 tablas en el volcado, 102 vivas, todas InnoDB), y un colegio nuevo se
+> crea copiando la base de otro, con sus motores dentro. Nadie ha censado los otros.
+>
+> **Y no es una pregunta de tiempo, es de si la tanda termina.** `rubricas` crea
+> `rubrica_valoraciones` con una clave ajena hacia **`notas`**, y `horario_versiones` y `rubricas`
+> apuntan a `years`, `asignaturas`, `profesores` y `subunidades`. InnoDB **no puede apuntar a una
+> tabla MyISAM**: el `CREATE TABLE` falla con el errno 150 y la tanda se queda **a medias**, que es el
+> estado que este documento llama el peor. En el colegio del volcado esas cuatro ya reciben claves
+> ajenas (13 hacia `years`, 10 hacia `asignaturas`, 6 hacia `profesores`, 1 hacia `subunidades`),
+> así que allí son InnoDB; **`notas` no recibe ninguna hoy y es la que la tanda estrena.** Las
+> migraciones ya desplegadas el 31 ago sólo probaron `alumnos` y `periodos`.
+>
+> **Se contesta con dos consultas en el phpMyAdmin de cada hosting**, sin elegir base —van contra
+> `information_schema` y ven todas las de la cuenta—. La primera es la población; sin ella un
+> resultado vacío de la segunda no distingue *«revisé diecisiete bases»* de *«no vi ninguna»*:
+>
+> ```sql
+> -- 1. población: cuántas tablas y de qué motor tiene cada base de la cuenta
+> SELECT table_schema, engine, COUNT(*) AS tablas
+> FROM information_schema.tables
+> WHERE table_type = 'BASE TABLE'
+>   AND table_schema NOT IN ('information_schema', 'mysql', 'performance_schema')
+> GROUP BY table_schema, engine ORDER BY table_schema, engine;
+>
+> -- 2. las que rompen la tanda: cualquier fila aquí es un colegio donde NO se migra hasta convertirla
+> SELECT table_schema, table_name, engine, row_format
+> FROM information_schema.tables
+> WHERE table_name IN ('notas', 'notas_finales', 'recuperacion_final', 'matriculas', 'years',
+>                      'asignaturas', 'profesores', 'subunidades', 'unidades_por_defecto')
+>   AND (engine <> 'InnoDB' OR row_format = 'Compressed');
+> ```
+>
+> Si la segunda devuelve filas, la salida es `ALTER TABLE x ENGINE=InnoDB` **antes** de la tanda y en
+> ese colegio sólo, y es una reconstrucción entera de esa tabla: se mide allí, no aquí. Se corre en
+> **los dos hostings**, porque la versión salió igual en los dos y eso no dice nada del motor.
 
 > **Y desde el 5 sep 2026 son SIETE, no cinco: entraron las dos de la plantilla de notas.**
 > `2026_09_05_200000_alcance_de_la_plantilla` y
