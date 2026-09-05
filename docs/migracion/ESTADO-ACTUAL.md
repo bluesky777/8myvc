@@ -328,6 +328,73 @@
 >
 > *En los dieciséis colegios esto no existe: cero versiones desplegadas.*
 
+**5 sep 2026 — `DESPLIEGUE.md` DECÍA 191 COMMITS SIN DESPLEGAR Y SON 285 — Y LO QUE SE ARREGLÓ NO
+FUE LA CIFRA** · `docs/DESPLIEGUE.md` y esta casilla · rama `docs/despliegue-remedido-2` ·
+**el router no se mueve: 577 en `main` local, 568 en `origin/main`**
+
+> **Las cifras, remedidas enteras sobre `9474b50..f0f72eb` y no heredadas de nada:** commits
+> **285** (decía 191, en **tres** sitios y uno dentro de una frase de prosa), `app/` **57**,
+> `routes/` **8**, migraciones **SIETE ficheros**, rutas **543 → 577** (**35** nuevas y **1**
+> retirada, `543 + 35 − 1 = 577`), y **558 de las 576 de `api/`** llevan `auth.token` (decía «547
+> de 565»). Las 35 salen de restar los dos `rutas.json`, no de contar a ojo.
+>
+> **Lo que de verdad se arregló no es el 191, es que el documento describía un despliegue que hoy
+> no se puede hacer.** `main` local va **13 commits por delante de `origin/main`**, y el Paso 1
+> despliega con `git pull`: contra `origin` la tanda es de **CINCO** migraciones, no de siete —las
+> dos de la plantilla están sólo en local—. La sección lleva ahora **las dos filas medidas con el
+> mismo comando** y una caja que dice cuál es cuál. *Joseth ya autorizó el push; hasta que se haga,
+> esa caja es la única cosa del documento que impide leerlo al revés.*
+>
+> **Y el argumento que justifica la regla, porque sin él parece manía:** en veinticuatro horas este
+> rango tuvo **cuatro cifras y las cuatro fueron ciertas al medirse** — 191 en el documento, **232**
+> el 4 sep en `docs/despliegue-remedido`, **274** contadas por `8myvc-ae` la tarde del 5, **279** al
+> ir a escribirlas, **285** al cerrar la plantilla. **Nadie se equivocó midiendo: lo que falla es el
+> hueco entre medir y escribir**, con varias sesiones moviendo `main` en medio. De ahí las dos
+> reglas que quedan escritas en la sección: *el extremo del rango se escribe con su hash*, y *la
+> cifra se vuelve a contar el día que se toca el documento*.
+>
+> **Cuatro avisos al front que faltaban o mentían, y ninguno se encontró leyendo commits.** Se midió
+> la población entera: se restaron las claves de los **125 snapshots** de `tests/Contrato/Snapshots/`
+> entre `9474b50` y `main`. Cambian **29**; quitando **3** que no son respuestas quedan **26
+> respuestas** que cambian de forma —**la única que PIERDE claves es `ChangesAsked/to-me`; las otras
+> 25 sólo ganan**— más 4 snapshots nuevos.
+>
+> | | qué era | qué es |
+> |---|---|---|
+> | **N** | «la planilla, los boletines, el boletín final y `editnota`» | **cuatro nombres para DIEZ respuestas**; faltaban `PUT notas-actuales-alumnos/{grupo_id}` y **`GET notas/alumno/…`, la que un ALUMNO llama para ver sus propias notas**. Y `boletines3` **no gana ni una clave** |
+> | **O** | «26 rutas nuevas» | **35** — faltaban **las nueve de `plantilla-notas/`**, y con ellas el aviso que importa: las nueve, **la de leer incluida**, exigen `can_edit_plantilla_notas`, que **nace repartido a nadie**. El día del despliegue la pantalla es **sólo de superusuarios** en los diecisiete |
+> | **Q** *(nuevo)* | — | `GET ChangesAsked/to-me` **gana** `horario_version_id`. Es la misma respuesta del aviso K y va aparte: **K cuenta lo que se va, esto es lo que llega** |
+> | **R** *(nuevo)* | — | `GET years`, `years/colegio` y `years/trashed` reparten las tres columnas nuevas de `years` **por el `SELECT y.*` que ya estaba ahí**. Las dos primeras llevan sólo `auth.token`: le llegan a un alumno y a un acudiente |
+> | **S** *(nuevo)* | — | **ONCE respuestas** reparten los campos del boletín independiente, por la misma puerta |
+>
+> **Los tres nuevos son campos que no escribió nadie**, que es justo por lo que no tenían aviso: se
+> reparten solos por un `SELECT *`, por un modelo Eloquent devuelto entero o por una clave nueva de
+> primer nivel. *Los avisos que faltan no los escribe quien escribió el campo, porque nadie escribió
+> el campo.*
+>
+> **Rescatado de `docs/despliegue-remedido` sin fundirla** (su 232 ya había caducado): el hallazgo
+> del rótulo del rango —la tabla decía `9474b50..347f137` y **ninguna de sus cinco cifras era de ese
+> rango**, eran de `aebf4ed`— y la corrección de `.env.example`, que el rango **sí** toca
+> (`MAIL_FROM_ADDRESS`, no `APP_MOVIL_VERSION_MINIMA`): *la conclusión aguantaba y la premisa que la
+> sostenía era falsa*. **Esa rama se deja como está, de registro.**
+>
+> **Y dos que se corrigieron de paso, las dos del tipo que ningún test mira:** el bloque de las
+> rutas nuevas **no cuadraba consigo mismo** —decía `HEAD` **567** y a la vez `543 + 26 − 1 = 568`—,
+> y la nota de la comprobación de diez segundos seguía razonando en «OCHO migraciones» cuando
+> `profesores.tono` ya no tiene fichero propio. La comprobación **en sí estaba bien**: hace
+> **veinte preguntas** —diez columnas, ocho tablas, la fila de `permissions` y una columna que tiene
+> que haber **desaparecido**—. Se reescribió su nota para que cuente **cosas y no migraciones**,
+> que desde la consolidación no son lo mismo.
+>
+> *Los «quince» que seguían vivos pasan a **dieciséis** (ocho sitios). **Los fechados del despliegue
+> del 31 ago se quedan en quince**: se midieron sobre quince, y lo que se actualiza es lo que sigue
+> vivo.*
+>
+> **PENDIENTE, y es de quien cierre la tanda:** `8myvc-ff` mete el Lote G y luego funde
+> `docs/barrido-profesor-serializado` antes del día 10. **Las cifras de arriba son de `f0f72eb` y
+> hay que remedirlas cuando esas dos entren** — que es exactamente la regla que esta casilla acaba
+> de escribir.
+
 **5 sep 2026 — EL ENSAYO DE LA TANDA MEDÍA UN ÁRBOL Y LE PREGUNTABA A OTRO** ·
 `tools/ensayo-de-la-tanda.sh` (punto 1.bis) y esta casilla · **el router no se mueve: 568** ·
 ejercitado **por los tres lados** sobre la copia de `simonbolivar` (102 tablas, 210 MB, 1.166.139 notas)

@@ -49,17 +49,18 @@ cada tanda, el bucle del front— está en [DESPLIEGUE-REFERENCIA.md](DESPLIEGUE
 
 **Joseth, 2 sep 2026: la app lleva seis días en revisión y no puede publicar una corrección
 hasta que pasen los catorce.** O sea que si esta tanda rompiera algo de la app, **el arreglo
-tardaría más de una semana en llegar a la tienda** y los quince colegios lo comerían entero.
+tardaría más de una semana en llegar a la tienda** y los dieciséis colegios lo comerían entero.
 Por eso esto va **antes** del bloque de la tanda y no dentro: la tanda está lista, y aun así
 **no se despliega**.
 
 **Qué se midió antes de escribir esto, para que la espera sea una decisión y no un miedo.** De
-los 191 commits, lo único que un cliente puede **perder** son dos cosas — todo lo demás es
-aditivo, comprobado sobre los snapshots del rango, no sobre los mensajes de los commits:
+los **285** commits (remedidos el 5 sep 2026; eran 191 cuando se escribió esto), lo único que un
+cliente puede **perder** siguen siendo dos cosas — todo lo demás es aditivo, comprobado sobre los
+snapshots del rango, no sobre los mensajes de los commits:
 
 | Lo que desaparece | Dónde |
 |---|---|
-| `POST tardanzas/login/traer-datos` → **404** | la única ruta retirada de las 24 que se mueven |
+| `POST tardanzas/login/traer-datos` → **404** | la única ruta retirada de las **35** que se mueven |
 | **ocho claves** de cada evento del calendario | `GET ChangesAsked/to-me`, aviso **K** |
 
 **Así que la pregunta que decide el despliegue es sólo ésta: ¿la versión que está en revisión
@@ -99,11 +100,18 @@ El bloqueo por `version_minima_app` **sí está activo en la versión en revisi�
 **campo ausente, 0 o negativo no bloquea; un valor ≥ 4 manda TODAS las rutas a la pantalla de
 actualizar**, y no hay nada a lo que actualizar porque el build 3 es lo único que existe.
 
-**Pero esto NO lo trae la tanda, y por eso esperar no protege de ello.** Medido: el rango
-`9474b50..HEAD` **no toca** `VersionMinimaDeLaApp.php`, ni `config/aplicacion-movil.php`, ni
-`.env.example`. El mecanismo se escribió el 24 ago (`1e98e28`) y **está desplegado en los quince
-desde el 31 ago**. O sea que **el riesgo es idéntico se despliegue o no**, y si algún colegio
-tuviera un número ≥ 4 la app **ya estaría bloqueada allí ahora mismo**.
+**Pero esto NO lo trae la tanda, y por eso esperar no protege de ello.** Remedido el 5 sep 2026
+sobre `9474b50..main`: el rango **no toca** `VersionMinimaDeLaApp.php` ni
+`config/aplicacion-movil.php`. El mecanismo se escribió el 24 ago (`1e98e28`) y **está desplegado
+en los dieciséis desde el 31 ago**. O sea que **el riesgo es idéntico se despliegue o no**, y si
+algún colegio tuviera un número ≥ 4 la app **ya estaría bloqueada allí ahora mismo**.
+
+> **Aquí decía además «ni `.env.example`», y eso dejó de ser cierto: el rango SÍ lo toca**
+> (`cf06f72` y `41d2a22`). Lo que cambia es `MAIL_FROM_ADDRESS` —de `josethmaster@lalvirtual.com`
+> a `admin@micolevirtual.com`—, **no** `APP_MOVIL_VERSION_MINIMA`, así que la conclusión de arriba
+> aguanta entera. Pero **la frase que la sostenía era falsa, y una conclusión correcta apoyada en
+> una premisa falsa es la que nadie vuelve a comprobar.** Remedido fichero a fichero, no de
+> memoria.
 
 Lo que ship el repo es seguro: `config/aplicacion-movil.php` hace `env('APP_MOVIL_VERSION_MINIMA')`
 **sin valor por defecto** —ausente = campo no enviado— y `.env.example` la trae **vacía**.
@@ -146,7 +154,7 @@ revisor de Google— la tiene puesta pero **vacía**, y eso es exactamente el es
 > mueve Joseth**, no una sesión; queda aquí medido para que el día del despliegue nadie tenga que
 > averiguarlo.
 
-**Lo que se espera ver: ausente o vacía en los quince. Y lo que se busca es CUALQUIER valor no
+**Lo que se espera ver: ausente o vacía en los dieciséis. Y lo que se busca es CUALQUIER valor no
 vacío, no «un valor ≥ 4»** — el porqué está justo debajo y corrige lo que decía esta línea.
 
 > **Corrección del 2 sep 2026, de `myvc-flutter-14`: el suelo NO es el build 3.** La app se
@@ -178,7 +186,7 @@ queda por decidir ya no es de la app.
 
 ---
 
-## ⛔ TANDA PENDIENTE — 191 commits desde `9474b50`. SIN LAS MIGRACIONES NO SE PUEDE NI ENTRAR
+## ⛔ TANDA PENDIENTE — 285 commits desde `9474b50`. SIN LAS MIGRACIONES NO SE PUEDE NI ENTRAR
 
 **El aviso que había aquí decía «los tres boletines contestan 500», y se quedaba corto por dos
 órdenes de magnitud.** Lo que cae con el código nuevo y la base sin migrar **no es una pantalla:
@@ -194,7 +202,7 @@ petición llega a su método.**
 
 | Sin la migración, con el código nuevo dentro | |
 |---|---|
-| **547** de las 565 rutas de `api/` llevan `auth.token` | **500 en el guard**, antes del controlador |
+| **558** de las 576 rutas de `api/` llevan `auth.token` — recontado el 5 sep 2026 con `route:list --json`; las 18 que no lo llevan **no se movieron** | **500 en el guard**, antes del controlador |
 | `POST login` (`LoginController:51`) y `POST auth/login` (`Auth\SesionController:63`) | **500** — montan el contexto ellos mismos: **no se puede iniciar sesión** |
 | Lo que queda en pie | `login/logout`, `login/recuperar-clave`, `login/reset-password`, `login/ver-pass`, `login/crear-prematricula`, `publicaciones/ultimas`, `colegio/logo` y el quiosco de `tardanzas/*` — que no pasan por el contexto |
 
@@ -202,15 +210,73 @@ petición llega a su método.**
 sesión del front, no nosotros**. Reproducido aquí contra una base sin migrar: la consulta del
 contexto contesta `SQLSTATE[42S22] Unknown column 'y.regla_nivelacion' in 'field list'`.
 
-### Lo que es esta tanda, medido el 2 sep 2026 sobre `9474b50..347f137`
+### Lo que es esta tanda, remedido entero el 5 sep 2026 sobre `9474b50..f0f72eb`
+
+**El extremo va escrito con su hash y no como `HEAD`**, y no es una manía: aquí se trabaja con un
+árbol por sesión, así que `HEAD` es una cosa distinta en cada worktree y una tabla medida con
+`HEAD` no la puede reproducir nadie. Hoy **`main` es `f0f72eb`** — la fusión de la plantilla de
+notas, que es donde Joseth congeló la tanda del día 10.
 
 | | | comprobado con |
 |---|---|---|
-| commits | **191** | `git rev-list --count 9474b50..HEAD` |
-| `app/` | **54** ficheros | `git diff --name-only 9474b50 HEAD -- app/ \| wc -l` |
-| `routes/` | **7** ficheros — **las rutas SÍ se movieron: 543 → 566** (24 nuevas, **1 retirada**) | `git diff --name-only 9474b50 HEAD -- routes/` · `route:list --json` |
-| `config/` · `composer.json`/`.lock` · `database/schema/` | **0** | `git diff --name-only 9474b50 HEAD -- config/ composer.lock database/schema/` |
-| **migraciones** | **SIETE** el 2 sep — hoy son **cinco ficheros** con las mismas columnas (ver la tabla de abajo), y **cuatro son bloqueantes** | `git diff --name-only 9474b50 HEAD -- database/migrations/` |
+| commits | **285** | `git rev-list --count 9474b50..main` |
+| `app/` | **57** ficheros | `git diff --name-only 9474b50 main -- app/ \| wc -l` |
+| `routes/` | **8** ficheros — **las rutas SÍ se movieron: 543 → 577** (35 nuevas, **1 retirada**) | `git diff --name-only 9474b50 main -- routes/` · `route:list --json` |
+| `config/` · `composer.json`/`.lock` · `database/schema/` | **0** | `git diff --name-only 9474b50 main -- config/ composer.json composer.lock database/schema/` |
+| **migraciones** | **SIETE ficheros**, y **cuatro son bloqueantes** | `git diff --name-only 9474b50 main -- database/migrations/` |
+
+**Las 35 y la retirada no se contaron a ojo**: salen de restar los dos
+`tests/Contrato/Snapshots/rutas.json` —el de `9474b50` y el de `main`, **543** y **577** claves—,
+que es el mismo dato que da `route:list --json` y además lo mueve un test. **543 + 35 − 1 = 577**,
+y la retirada es `POST tardanzas/login/traer-datos`, que no tiene ninguna otra.
+
+> ## ⚠️ ESTAS CIFRAS SON DE `main` LOCAL, Y EL DÍA 10 SE HACE `git pull`
+>
+> **`main` local va 13 commits por delante de `origin/main`, y el Paso 1 despliega lo que haya en
+> `origin`.** O sea que **hoy, si alguien desplegara, no desplegaría esta tabla**. Medido el 5 sep
+> 2026, los dos rangos con el mismo comando:
+>
+> | desde `9474b50` hasta… | commits | `app/` | `routes/` | migraciones | rutas |
+> |---|---|---|---|---|---|
+> | **`origin/main`** (`3cda1d6`) — *lo que un `git pull` trae hoy* | **272** | 55 | 7 | **CINCO** | **568** |
+> | **`main` local** (`f0f72eb`) — *lo que describe esta sección* | **285** | 57 | 8 | **SIETE** | **577** |
+>
+> **La fila que importa es la de las migraciones, y no es cosmética:** la tanda del día 10 la
+> decidió Joseth de **siete**, y las dos que faltan —las de la plantilla— **están sólo en local**.
+> Con `origin` como está, la comprobación de diez segundos de más abajo contestaría `FALTA` por las
+> dos columnas de `unidades_por_defecto` y por el permiso, **y tendría razón**. Joseth ya autorizó
+> el push; mientras no esté hecho, **esta sección describe algo que todavía no se puede desplegar**.
+>
+> *Se escribe la diferencia en vez de esperar al push porque un documento que no dice contra qué
+> midió es el que se lee mal a las tres de la mañana. **Cuando `origin` se ponga al día, las dos
+> filas pasan a ser una y esta caja se borra.***
+
+> ### Por qué esta sección se remide entera y no se le suma
+>
+> **En veinticuatro horas este rango tuvo cuatro cifras, y las cuatro fueron ciertas el minuto en
+> que se midieron:** el documento decía **191**, la rama `docs/despliegue-remedido` midió **232** el
+> 4 sep, `8myvc-ae` contó **274** la tarde del 5, y al ir a escribirlo eran **279**; al cerrar la
+> plantilla, **285**. Nadie se equivocó en ninguna.
+>
+> **Lo que falla no es medir, es el hueco entre medir y escribir** — `main` se mueve en medio,
+> porque aquí trabajan varias sesiones a la vez. De ahí las dos reglas de esta sección, que
+> parecen manía y no lo son: **el extremo del rango se escribe con su hash**, y **la cifra se
+> vuelve a contar el día que se toca el documento**, nunca se hereda de la frase de antes.
+
+> **Y el 4 sep 2026 apareció la otra mitad de la regla de abajo: el «desde dónde» estaba bien y el
+> «HASTA dónde» estaba mal escrito.** Este encabezado decía `9474b50..347f137` y **ninguna de las
+> cinco cifras de la tabla era de ese rango**: sobre `347f137` salen **175** commits, **52**
+> ficheros de `app/`, **6** de `routes/` y **SEIS** migraciones. Los 191/54/7/SIETE que había aquí
+> son exactamente `9474b50..aebf4ed` —la fusión del suelo del horario, dos horas más tarde el mismo
+> día—, o sea que **las cifras se remidieron tras fusionar y la etiqueta del rango se quedó del
+> sondeo anterior**. Comprobado commit a commit: `aebf4ed` es el **único** commit del rango en el
+> que `git rev-list --count 9474b50..<x>` da 191.
+>
+> **Iba en la dirección que no se nota**: las cifras eran ciertas, el rótulo no, y un rótulo no lo
+> pone rojo ningún test. Quien hubiera ido a `347f137` a comprobar la tabla habría encontrado seis
+> migraciones donde dice siete y habría creído que la tabla envejeció, cuando lo que estaba mal era
+> dónde miraba. *Un extremo de rango se copia del comando que produjo las cifras, no de la frase de
+> antes.*
 
 > **La base es `9474b50` y no `eb95cbc`, y esto costó una medición entera.** El rango que había
 > escrito arrancaba en `eb95cbc`, que es la tanda del **25 ago**; la del 25–30 ago
@@ -220,7 +286,7 @@ contexto contesta `SQLSTATE[42S22] Unknown column 'y.regla_nivelacion' in 'field
 > como pendiente cuando lleva dentro desde el 31. *Un rango sin desplegar se remide entero cada vez
 > que se le toca; y lo primero que se remide es **desde dónde**.*
 
-### Las cinco, ordenadas por lo que tumban
+### Las siete, ordenadas por lo que tumban
 
 > **Eran OCHO ficheros hasta el 4 sep 2026 y son CINCO, sin que cambie una sola columna.**
 > Se fusionaron `2026_09_02_200000_nivelacion_de_la_definitiva` y
@@ -370,7 +436,7 @@ que tumba, pero es la **primera** por orden de ejecución, y eso importa para el
 ### La que retira una columna, y las dos reglas que cambia
 
 `2026_08_31_100000` hace `dropColumn('boletin_independiente')` sobre `matriculas`. El código que
-está **hoy desplegado** en los quince (`9474b50`) nombra esa columna en **cinco consultas vivas** de
+está **hoy desplegado** en los dieciséis (`9474b50`) nombra esa columna en **cinco consultas vivas** de
 `app/Services/BoletinIndependiente.php` (líneas 73, 136, 202, 280 y 297). De ahí salen dos cosas:
 
 1. **El orden `git pull` → `migrate` deja de ser una costumbre y pasa a ser obligatorio.** Migrar
@@ -404,13 +470,19 @@ Esto pregunta por el esquema, que es lo que leen las consultas:
 php artisan tinker --execute='$f=[]; foreach ([["years","regla_nivelacion"],["years","puestos_con_bol_independiente"],["years","horario_version_id"],["notas","nota_original"],["notas_finales","nota_nivelacion"],["recuperacion_final","nivelada_at"],["subunidades","rubrica_id"],["profesores","tono"],["unidades_por_defecto","nivel_educativo_id"],["unidades_por_defecto","materia_id"]] as $c) { if (!Schema::hasColumn($c[0],$c[1])) $f[]=$c[0].".".$c[1]; } foreach (["rubricas","rubrica_criterios","rubrica_niveles","rubrica_descriptores","rubrica_valoraciones","horario_versiones","horario_lecciones","horario_pieza_docente"] as $t) { if (!Schema::hasTable($t)) $f[]="tabla ".$t; } if (!DB::table("permissions")->where("name","can_edit_plantilla_notas")->exists()) $f[]="permiso can_edit_plantilla_notas"; if (Schema::hasColumn("matriculas","boletin_independiente")) $f[]="matriculas.boletin_independiente SIGUE AHI"; echo ($f ? "FALTA -> ".implode(" | ",$f) : "OK - la tanda entera dentro").PHP_EOL;'
 ```
 
-> **`profesores.tono` se le añadió el 4 sep 2026, y la tanda pasó a OCHO migraciones.** Se
-> toca **esto** y no las tablas de arriba: aquéllas son lo que se midió sobre `347f137` y se
-> remiden el día del despliegue; **este fragmento es una comprobación que alguien va a
-> ejecutar**, y una comprobación que no pregunta por la octava columna contesta «OK - las
-> siete dentro» en un colegio al que le falta una. La decisión de la columna es de Joseth
-> (`23-horarios.md` §9.bis.3); el título de este bloque sigue diciendo siete porque es el de
-> la medición, no el de la comprobación.
+> **Esto pregunta por COSAS, no por migraciones, y desde la consolidación no son lo mismo.** La
+> tanda son **siete ficheros** y esta comprobación hace **veinte preguntas**: diez columnas, ocho
+> tablas, **una fila de `permissions`** y **una columna que tiene que haber DESAPARECIDO**
+> (`matriculas.boletin_independiente`, la única de la tanda que se retira). Se toca **esto** en
+> cuanto la tanda añade algo, y no
+> se espera al día del despliegue como las tablas de arriba: aquéllas son lo que se midió el día
+> que se midió; **este fragmento es una comprobación que alguien va a ejecutar**, y una que no
+> pregunta por lo último que entró contesta que todo está bien en un colegio al que le falta algo.
+>
+> `profesores.tono` se le añadió el 4 sep 2026 (decisión de Joseth, `23-horarios.md` §9.bis.3) y
+> **ya no vive en una migración propia**: la absorbió `2026_09_04_100000_horario_versiones`. Que su
+> fichero desapareciera **no le quitó ni una columna a la tanda**, y es exactamente por eso que
+> esta lista se escribe por columnas y no por migraciones.
 >
 > **Y desde el 5 sep comprueba también las dos de la plantilla**, con una fila por cada cosa que
 > la tanda añade y no sólo por migración: las **dos columnas de `unidades_por_defecto`** y —lo que
@@ -440,22 +512,45 @@ base migrada (`OK - la tanda entera dentro`) **y** contra una sin migrar y con n
 imprime la lista. Un `OK` que no sabe fallar es el que archiva el asunto.
 
 **La otra acción del día, que no es una tabla:** correr `tools/independientes-sin-estructura.php`
-**en los quince**, uno por uno, después de migrar. Contesta la §9.1 —qué alumnos están marcados y
+**en los dieciséis**, uno por uno, después de migrar. Contesta la §9.1 —qué alumnos están marcados y
 **no tienen ni una unidad propia**, cuya definitiva sale 0 sin que nadie reciba un error—, y **sin
 la tabla contesta `exit=2 · NO CONCLUYENTE` a propósito**: un `0` limpio sería la respuesta que
 archiva el asunto justo en el colegio donde no se ha mirado nada. Lo medido hasta hoy es **cero
-marcados en desarrollo**, que **no** es «cero en los quince»: eso sólo se sabe allí.
+marcados en desarrollo**, que **no** es «cero en los dieciséis»: eso sólo se sabe allí.
 
 ### Los avisos para el front que viajan en esta tanda
+
+> **Repasados los nueve (K–S) el 5 sep 2026, y no se repasaron a ojo.** La pregunta no es
+> «¿siguen siendo ciertos?» sino la de la regla de arriba —*una afirmación caduca cuando el código
+> cambia aunque su número no se mueva*—, así que **se midió la población entera** en vez de releer
+> las filas: se restaron las claves, una a una y hasta el fondo del árbol, de los **125 snapshots
+> de `tests/Contrato/Snapshots/` entre `9474b50` y `main`**.
+>
+> **Cambian 29.** Descontando los **3** que no son respuestas (`rutas.json`, `guard-por-familia.json`
+> y `familias-que-nunca-entran-en-el-candado.json`) quedan **26 respuestas que ya existían y cambian
+> de forma**, más **4 snapshots nuevos**: tres son el mismo endpoint nuevo
+> (`grupos/{grupo_id}/alumnos-de/{que}`, uno por valor de `{que}`) y el cuarto,
+> `editnota-alum-asignatura`, es de **una ruta que ya existía** y a la que sólo ahora se le puso test.
+>
+> **Lo único bueno de la lista:** de esas 26, **la única que PIERDE claves es `ChangesAsked/to-me`**
+> (las ocho del aviso K). **Las otras 25 sólo ganan.**
+>
+> **Y así salieron los tres que faltaban.** Q, R y S no son un olvido de quien escribió esta tabla:
+> son **campos que se reparten solos**, por un `SELECT *`, por un modelo Eloquent devuelto entero o
+> por una clave nueva de primer nivel. *Los avisos que faltan no los escribe quien escribió el
+> campo, porque nadie escribió el campo.*
 
 | | aviso | estado |
 |---|---|---|
 | **K** | `GET ChangesAsked/to-me` deja de mandar **ocho** columnas de cada evento del calendario y conserva nueve. **Aquí decía «nueve» y era la cifra de las que se QUEDAN**, contada como si fueran las que se van; medido sobre el snapshot el 2 sep 2026, el evento pasa de 17 claves a 9. Las ocho que se van son `created_at`, `created_by`, `created_by_nombres`, `deleted_at`, `deleted_by`, `type`, `updated_at` y `updated_by`. Una de ellas, **`created_by_nombres`, la pinta la aplicación vieja** en el tooltip del evento (`AnunciosCtrl.ts:596`): al desplegar dirá **«Por: undefined»** hasta que se arregle allí, que es una línea | **POR AVISAR** — decidido a sabiendas el 2 sep 2026 |
 | **L** | **`POST tardanzas/login/traer-datos` desaparece**: pasa a 404. Decisión de Joseth del 2 sep. El único llamante de toda la máquina es `tardanzasMyvc-old` (último commit feb 2020), y Joseth confirmó que ese repositorio está inactivo — el dato que lo cerró **no estaba en el repositorio** | **DECIDIDO** — es la única ruta que la tanda quita |
 | **M** | **`regla_nivelacion` aparece en el bloque de la sesión**, en las cuatro ramas (alumno, acudiente, profesor y usuario). Es un campo **nuevo**, para previsualizar en el diálogo de nivelación qué nota va a quedar (22 §1.4 y §5.1) | **ADITIVO** — Flutter no se rompe: `ConfiguracionColegio.deLogin` lee campo a campo y no hay `json_serializable` ni `freezed`. Medido, no supuesto (22 §3.2bis) |
-| **N** | **Campos nuevos de nivelación en respuestas que ya existían**: la planilla (`PUT notas/detailed`), los boletines, el boletín final y `PUT editnota/alum-asignatura`. Qué respuesta abre las columnas nuevas **a propósito** y cuál las tiene **congeladas** está decidido sitio por sitio en la tabla de [22 §3.4](migracion/22-nivelaciones.md) y en el [27](migracion/27-nivelaciones-en-los-informes.md) | **ADITIVO** — ningún cliente pierde una clave |
-| **O** | **26 rutas nuevas**: las 10 de `rubricas/`, las 4 de nivelar, las 5 de `boletin-independiente/`, las **5** de `horario/` —**las cinco con cuerpo: ninguna contesta ya 501**—, `GET grupos/{grupo_id}/alumnos-de/{que}` y `GET colegio/logo`. **Todas menos `colegio/logo` llevan `auth.personal`**: un alumno o un acudiente que las llame recibe **403**, y las de nivelar además exigen `periodos.profes_pueden_nivelar` al profesor (`User.php:425`) | **POR AVISAR** — es de las de «quién puede llamarla» |
+| **N** | **Campos nuevos de nivelación en respuestas que ya existían.** Aquí decía «la planilla (`PUT notas/detailed`), los boletines, el boletín final y `PUT editnota/alum-asignatura`»: **son cuatro nombres para DIEZ respuestas, y faltaban dos sitios** — `PUT notas-actuales-alumnos/{grupo_id}` y **`GET notas/alumno/…`, la que llama un ALUMNO para ver sus propias notas** (gana `nota_original_asignatura` y `nivelada_at_asignatura`). Y «los boletines» son **`boletines` y `boletines2`, cuatro respuestas: `boletines3` no gana ni una clave**, que es justo lo que aquí no se veía. Qué respuesta abre las columnas **a propósito** y cuál las tiene **congeladas** está decidido sitio por sitio en la tabla de [22 §3.4](migracion/22-nivelaciones.md) y en el [27](migracion/27-nivelaciones-en-los-informes.md) | **ADITIVO** — ningún cliente pierde una clave. La enumeración, **corregida el 5 sep 2026** restando los snapshots: 10 respuestas, no 4, y una de ellas es de un alumno sobre sí mismo |
+| **O** | **35 rutas nuevas**: las 10 de `rubricas/`, las **9 de `plantilla-notas/`**, las 5 de `boletin-independiente/`, las **5** de `horario/` —**las cinco con cuerpo: ninguna contesta ya 501**—, las 4 de nivelar, `GET grupos/{grupo_id}/alumnos-de/{que}` y `GET colegio/logo`. **Todas menos `colegio/logo` llevan `auth.personal`**: un alumno o un acudiente que las llame recibe **403**, y las de nivelar además exigen `periodos.profes_pueden_nivelar` al profesor (`User.php:425`) | **POR AVISAR** — es de las de «quién puede llamarla». **Aquí decía 26 y son 35: faltaban las nueve de `plantilla-notas/`**, que entraron el 5 sep 2026 |
 | **P** | **`profesores.tono` es un campo NUEVO en TRECE respuestas vivas**, y sólo dos son del horario. Once por Eloquent —las cinco de `profesores/` (`store`, `update`, `destroy`, `forcedelete`, `restore`), las **tres de `perfiles/`** (`show/{id}`, `update/{id}`, `cambiarimgunprofe/{id}`), las **dos de `images-users/`** (`cambiar-foto-un-usuario/{id}`, `cambiar-firma-un-profe/{id}`) y el `titular` de `GET grupos/show/{id}`— y **dos por `SELECT p.*`**: `PUT profesores/listado` y `PUT participantes/profesores`, ésta de **votaciones**. Vale `null` en los diecisiete hasta que alguien reparta colores | **ADITIVO** — ningún cliente pierde una clave. Va dicho porque **un campo nuevo se manda dicho, no descubierto**, y porque **cinco de las trece son pantallas de perfil e imágenes que no tienen nada que ver con el horario**. *Medido por dos sesiones que no se copiaron: 7 + 5 + 1 = 13.* **Y es de RESPUESTAS, no de pantallas**: `myvc_front` midió que dos de esas trece no las llama —`perfiles/show/{id}` y `perfiles/cambiarimgunprofe/{id}`— y `myvc_flutter` y `myvc_front_2` **no están medidos** |
+| **Q** | **`GET ChangesAsked/to-me` gana una clave de primer nivel: `horario_version_id`** (`null` mientras el año no tenga horario publicado, que es hoy en los diecisiete). **Es la misma respuesta del aviso K y va aparte a propósito**: K cuenta lo que se VA y esto es lo que LLEGA. La respuesta la piden **todos los roles** —lleva `auth.token` y nada más— y es lo que la app llama al abrir (`MuroApi.traerMuro`) | **POR AVISAR** — campo nuevo. **Faltaba en esta tabla**: se detectó restando los snapshots, no leyendo el commit |
+| **R** | **Tres respuestas de años reparten las tres columnas nuevas de `years` sin que nadie lo pidiera**: `GET years`, `GET years/colegio` y `GET years/trashed` ganan `regla_nivelacion`, `puestos_con_bol_independiente` y `horario_version_id`. **No lo hace un cambio: lo hace el `SELECT y.*` de `YearsController`**, que estaba ahí desde antes. Las dos primeras llevan sólo `auth.token`, o sea que le llegan también a un alumno y a un acudiente | **POR AVISAR** — campo nuevo, y de los que **no aparecen en ningún diff de la respuesta**. **Faltaba en esta tabla** |
+| **S** | **Los campos del boletín independiente también se reparten solos, y no tenían aviso**: `bol_independiente` en los boletines y `bol_independiente_aparte_en` en el acta de promoción; `bol_independiente_periodo` en los dos informes de notas perdidas y en `PUT puestos/detailed-notas-year` (que además gana `puestos_con_bol_independiente`); y `bol_independiente_datos` más `independientes` en la planilla. **ONCE respuestas** — contadas restando snapshots, sin contar las tres de `years`, que van en **R** | **POR AVISAR, o cerrar con fecha si ya se avisó** — es posible que viajara en el documento del front (`DESPLIEGUE-NIVELACIONES-Y-RUBRICAS.md`), que **no se puede comprobar desde este repositorio**. Lo que sí se comprobó es que **en esta tabla no estaba** |
 
 > **La fila O decía «24» y «las 3 de `horario/`», y se ha corregido a mano el 4 sep 2026
 > — que es una excepción a la regla de este documento y por eso va escrito.** Aquí las
@@ -468,17 +563,28 @@ marcados en desarrollo**, que **no** es «cero en los quince»: eso sólo se sab
 > remedir contesta *«¿siguen contestando 501?»*, **nadie recuenta un «24» si no sabe que hay
 > que hacerlo**. Lo decidió Joseth ese día.
 >
-> **Las 26 están CONTADAS contra la base desplegada, no sumadas** — que es lo que este repo
-> exige de un número que se escribe: `9474b50` declara **543** rutas y `HEAD` **567**;
-> comparados los dos conjuntos de URIs, **26 entran y 1 se va** (`POST
-> tardanzas/login/traer-datos`, el aviso L), y **543 + 26 − 1 = 568**. Las dos últimas de
+> **Las 35 están CONTADAS contra la base desplegada, no sumadas** — que es lo que este repo
+> exige de un número que se escribe: `9474b50` declara **543** rutas y `main` (`f0f72eb`)
+> **577**; comparados los dos conjuntos de URIs, **35 entran y 1 se va** (`POST
+> tardanzas/login/traer-datos`, el aviso L), y **543 + 35 − 1 = 577**. Las dos últimas de
 > `horario/` son `GET horario/versiones/{id}/lecciones` (23 §9.bis) y
-> `PUT horario/docentes/{profesor_id}/tono`; **la del `tono` es la única de las 26 con un
-> criterio que no es ni `esAdministrativo` ni `auth.personal` a secas**:
-> `puedePublicarHorario`, o sea superusuario **o** `Coord académico`.
+> `PUT horario/docentes/{profesor_id}/tono`; **la del `tono` tiene un criterio que no es ni
+> `esAdministrativo` ni `auth.personal` a secas**: `puedePublicarHorario`, o sea superusuario
+> **o** `Coord académico`.
 >
-> *Recontado el 4 sep 2026 al entrar la quinta de `horario/`. **Se volvió a contar entero,
-> no se le sumó uno a 25** — que es la única forma de que el 568 signifique algo.*
+> **Y las nueve de `plantilla-notas/` tienen el suyo, que es el que hay que avisar:** las
+> nueve llevan `auth.token` + `auth.personal`, y **las nueve —la de leer incluida—** exigen
+> además `Autoriza::puedeEditarPlantillaNotas()`, o sea superusuario **o** el permiso
+> `can_edit_plantilla_notas`. **Ese permiso nace repartido a nadie a propósito** (lo explica
+> su migración), así que **el día del despliegue la pantalla entera es de los superusuarios y
+> de nadie más en los diecisiete** — incluido el `GET`. No es un error ni un 500: a rectoría
+> «no le sale el menú» hasta que el colegio le dé el permiso desde su pantalla de roles.
+>
+> *Recontado entero el 5 sep 2026 al fusionar la plantilla. **Se volvió a contar, no se le
+> sumaron nueve a 26** — que es la única forma de que el 577 signifique algo. Y de paso salió
+> que el párrafo anterior **no cuadraba consigo mismo**: decía `HEAD` **567** y a la vez
+> `543 + 26 − 1 = 568`. Las dos no podían ser ciertas, y **no hay test que mire la aritmética
+> de una frase**.*
 >
 > **Lo que NO se ha tocado y sigue esperando al día del despliegue** es la fila de
 > `2026_09_04_100000_horario_versiones` de la tabla de migraciones, que dice que sólo
@@ -486,7 +592,7 @@ marcados en desarrollo**, que **no** es «cero en los quince»: eso sólo se sab
 > su caducidad está escrita en [23 §11.5](migracion/23-horarios.md).
 
 **Nivelar son rutas NUEVAS por diseño, y esto es lo que hay que decirle al front:** `notas/update` y
-`notas/lote` **no pueden** aprender a nivelar. `myvc_flutter` es una sola app para los quince y una
+`notas/lote` **no pueden** aprender a nivelar. `myvc_flutter` es una sola app para los dieciséis y una
 versión vieja convive meses, así que un 95 tecleado desde el móvil se guardaría **topado** sin que
 nadie lo pidiera. El porqué, en [22-nivelaciones.md](migracion/22-nivelaciones.md).
 
@@ -580,7 +686,7 @@ mensaje y dejarte dentro · **login de personal y de alumno**.
 
 ## Paso 3. Cerrar los avisos — **en el mismo commit, no en uno aparte**
 
-**El despliegue no ha terminado cuando los quince tienen el hash.** Termina cuando el documento
+**El despliegue no ha terminado cuando los dieciséis tienen el hash.** Termina cuando el documento
 deja de prometer cosas que ya ocurrieron: *un pendiente escrito en futuro no envejece a «hecho»,
 envejece a mentira*. Cada fila pasa a `DADO el <fecha>` o se borra, y **se le dice al cliente**:
 que se entere el documento no es que se entere quien tiene que publicar.
@@ -640,7 +746,7 @@ ignora. **No corras el `down`.**
 > ### ⛔ Esto NO vale para la tanda pendiente de arriba, y es la excepción de la regla
 >
 > `2026_08_31_100000_retirar_boletin_independiente_de_matriculas` **retira**
-> `matriculas.boletin_independiente`, y el código que hay hoy en los quince (`9474b50`) la nombra
+> `matriculas.boletin_independiente`, y el código que hay hoy en los dieciséis (`9474b50`) la nombra
 > en **cinco consultas vivas** de `app/Services/BoletinIndependiente.php` (73, 136, 202, 280, 297).
 > Volver un colegio a `9474b50` **dejando la migración puesta le deja los boletines en 500**, que
 > es justo lo que este paso existe para no hacer.
@@ -651,7 +757,7 @@ ignora. **No corras el `down`.**
 >
 > **`--step` de `migrate:rollback` cuenta MIGRACIONES, no lotes** —lo contrario de lo que hace
 > `--step` en `migrate`—, y desde la fusión del 4 sep una migración son varias columnas de varias
-> tablas: `--step=5` deshace la tanda entera, no cinco columnas.
+> tablas: **`--step=7` deshace la tanda entera, no siete columnas.**
 >
 > ```bash
 > php artisan migrate:status | tail -9      # confirma que el lote pendiente son las SIETE
