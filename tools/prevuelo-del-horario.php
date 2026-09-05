@@ -302,6 +302,49 @@ function veredictoDelNivel1(array $hallazgos, int $grupos): array
 }
 
 /**
+ * El aviso de que se midió un año **que no es el actual**, para el RESUMEN final.
+ *
+ * ## Por qué no basta con la cabecera, que ya lo dice
+ *
+ * La cabecera imprime `año 2026 (year_id 9, NO es el actual)` desde siempre. **Y se
+ * pierde**, porque esta herramienta se lee de dos maneras que se comen justo esa
+ * línea: `| tail` en el bucle de los diecisiete, y el ojo que baja al veredicto.
+ * Un aviso que sólo vive arriba **es un aviso que no existe en el único momento en
+ * que hace falta**.
+ *
+ * ## Lo que esto NO arregla, y va dicho porque es lo que engaña
+ *
+ * **El código de salida sigue siendo el mismo `1`.** Medido el 4 sep 2026 sobre
+ * `simonbolivar`: `--year=9` —el 2026, sin un solo docente asignado— imprime un
+ * informe completo y creíble (13 grupos, 134 asignaciones, ΣIH 345) con **los trece
+ * grupos imposibles**, y sale con `1` igual que un colegio de verdad sucio. En un
+ * bucle de diecisiete ese colegio entra en el recuento como **mirado y sucio**.
+ *
+ * **Y no se cambia a `2`, a propósito.** `2` es NO MEDIDO, y aquí sí se ha medido:
+ * un año pasado o futuro es un año **legítimo de mirar** —hay colegios que preparan
+ * el siguiente—. Mover el código movería a quien lo consuma para arreglar una
+ * lectura, que es lo que se arregla escribiendo. *Lo que estaba mal no era el
+ * veredicto: era dónde se decía con qué año se sacó.*
+ *
+ * Sólo avisa si el año **se pidió a mano**: sin `--year` la herramienta coge el
+ * `actual` ella sola y no hay nada que advertir.
+ */
+function avisoDelAnioMirado(bool $pedidoAMano, bool $esElActual, int $yearId, int $anio): string
+{
+    if (! $pedidoAMano || $esElActual) {
+        return '';
+    }
+
+    return "\n⚠️  OJO CON EL AÑO: esto se midió sobre {$anio} (year_id {$yearId}), que **NO es el\n"
+        ."    año actual** de esta base — lo pediste con `--year={$yearId}`.\n\n"
+        ."    El veredicto de arriba es cierto PARA ESE AÑO. Un año que todavía no se ha\n"
+        ."    configurado sale «sucio» porque está vacío, no porque tenga un problema, y el\n"
+        ."    informe no se distingue del de un colegio con un problema de verdad.\n\n"
+        .'    Y el código de salida NO lo distingue: sale `1` igual. Sin `--year` esta '
+        ."herramienta\n    coge el año `actual` ella sola.\n";
+}
+
+/**
  * El control positivo, **sin base y sin árbol**: sólo las formas decididas.
  *
  * Lo ejecuta `tests/Unit/AutopruebasDeLasHerramientasTest`. Fija la conducta
@@ -396,6 +439,30 @@ function controlDelPreVuelo(): int
         [false, true]);
     $comprobar('y dice el diagnóstico de CUÁNTOS grupos bloquea, no sólo el suyo',
         str_contains(veredictoDelNivel1(['algo'], 13)['texto'], 'los 13 grupos'), true);
+
+    // ── El aviso del año. Su forma de mentir es CALLARSE, así que las tres formas
+    // de callarse legítimamente se fijan una a una: callarse de más aquí no se ve
+    // —no falta nada en la pantalla, sólo un aviso que nadie echa en falta—.
+    $comprobar('sin `--year`, no hay nada que advertir: la herramienta cogió el actual',
+        avisoDelAnioMirado(false, true, 8, 2025), '');
+    $comprobar('con `--year` sobre el ACTUAL tampoco: es lo mismo que no pasarlo',
+        avisoDelAnioMirado(true, true, 8, 2025), '');
+    // El caso raro que igual no se avisa: sin `--year` la herramienta sólo puede
+    // haber cogido el `actual`, así que un «no es el actual» aquí sería imposible.
+    $comprobar('sin `--year` y sin ser el actual —imposible por construcción— tampoco avisa',
+        avisoDelAnioMirado(false, false, 9, 2026), '');
+
+    // EL CASO. Y se comprueba lo que DICE, no que diga algo: un aviso que no
+    // nombra el año ni desmiente el código de salida deja el informe igual de
+    // creíble, que es de lo que venía.
+    $aviso = avisoDelAnioMirado(true, false, 9, 2026);
+    $comprobar('con `--year` sobre un año que NO es el actual, avisa',
+        $aviso !== '', true);
+    $comprobar('y el aviso nombra el año, el id y la opción con la que se pidió',
+        [str_contains($aviso, '2026'), str_contains($aviso, 'year_id 9'), str_contains($aviso, '--year=9')],
+        [true, true, true]);
+    $comprobar('y DESMIENTE el código de salida, que es lo que el bucle de los diecisiete lee',
+        str_contains($aviso, 'código de salida NO lo distingue'), true);
 
     echo "Población del control: {$comprobadas} formas comprobadas, ".count($fallos)." fallan.\n";
 
@@ -522,7 +589,9 @@ $base = (string) config('database.connections.mysql.database');
  * aborta: elegir uno «el primero que salga» daría un informe entero del año que
  * no es, y el informe no tiene forma de parecer sospechoso.
  */
-if (($yearPedido = valorUnico($opciones, 'year')) !== null) {
+$anioPedidoAMano = ($yearPedido = valorUnico($opciones, 'year')) !== null;
+
+if ($anioPedidoAMano) {
     $yearId = (int) $yearPedido;
 } else {
     $actuales = DB::select('select id from years where actual = 1 and deleted_at is null');
@@ -848,6 +917,13 @@ if ($csv) {
         'base' => $base,
         'year_id' => $yearId,
         'year' => $anio,
+        // Las dos van juntas y no sobra ninguna: `es_el_actual` dice **qué se miró**
+        // y `year_pedido_a_mano` dice **por qué**. Un CSV de diecisiete colegios con
+        // una fila medida sobre un año vacío se lee como un colegio con problemas, y
+        // sin estas dos columnas no hay forma de verlo después — la cabecera que lo
+        // avisa no viaja en el CSV.
+        'es_el_actual' => $esElActual ? 1 : 0,
+        'year_pedido_a_mano' => $anioPedidoAMano ? 1 : 0,
         'lecciones' => $lecciones,
         'dias' => $dias,
         'grupos' => count($grupos),
@@ -982,5 +1058,9 @@ if ($detalle) {
 
 echo "\n".str_repeat('─', 78)."\n";
 echo $veredicto['texto']."\n\n";
+
+// Va DESPUÉS del veredicto y no antes: lo último que se imprime es lo único que
+// sobrevive a un `| tail`, que es como se lee el bucle de los diecisiete.
+echo avisoDelAnioMirado($anioPedidoAMano, $esElActual, $yearId, $anio);
 
 exit($veredicto['limpio'] ? 0 : 1);
