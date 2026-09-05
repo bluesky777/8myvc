@@ -231,6 +231,25 @@
 > **La cifra se leyó de la línea `Tests:`, no del código de salida**, y el `git status` de
 > después es la mitad que importa: **ninguna instantánea se movió.**
 >
+> #### Contra qué hash corrió exactamente, porque ya se leyó mal una vez
+>
+> **Sobre `61cc721`** —`main` en `0167eaa` más los commits de documentación de esta rama—, a
+> las **14:00**. `docs/barrido-profesor-serializado` entró en `main` a las **14:04**
+> (`fca1802`), o sea **cuatro minutos después: la suite NO lo tenía dentro.**
+>
+> `8myvc-ac` dedujo lo contrario —*«`fca1802` es ancestro de `2cf2794`, así que estaba
+> dentro»*— y **la deducción es falsa**: que un commit sea ancestro de la fusión final no dice
+> nada sobre qué había en el árbol cuando se corrió la suite. **Ser ancestro es una relación
+> del grafo; estar dentro cuando se midió es una relación con el reloj**, y la segunda no se
+> deduce de la primera.
+>
+> **Lo que sí salva la conclusión es su OTRA comprobación**, que es la buena:
+> `git diff --stat 0167eaa 2cf2794 -- tests/ app/ database/ routes/` sale **vacío**. Lo que
+> entró en medio son documentos y `tools/filas-enteras-al-cliente.php`, y `tools/` **no lo
+> ejecuta ninguna suite** — su único test, `AutopruebasDeLasHerramientasTest` (14 casos), lo
+> corrió `8myvc-ff` sobre el árbol ya fusionado. **Así que no hay hueco de cobertura, pero no
+> por la razón que se dio primero.**
+>
 > ### Y no salió limpio por suerte — el porqué está medido
 >
 > El miedo era concreto y con precedente: el 2 sep, `nivelaciones_columnas` movió **siete**
