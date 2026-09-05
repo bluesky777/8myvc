@@ -212,6 +212,75 @@
 > auditaron.** Y ninguna se corrió: los tests de `feat/calendario` no se han ejecutado contra
 > `main` de hoy.
 
+> ## EL CRUCE QUE `8myvc-29` DEJÓ ESCRITO Y NO LLEGÓ A MEDIR — CERRADO EN VERDE, 5 sep 2026
+>
+> **Su fusión de la plantilla (`f0f72eb`) dice, con todas las letras, que el verde de
+> `8myvc-ac` describe LA RAMA SOLA y que «el cruce se mide en el commit siguiente».** Ese
+> commit no existió: Joseth cerró su sesión antes. **Así que la suite entera nunca se había
+> corrido sobre `main` fundido**, con las dos migraciones nuevas dentro y los siete commits
+> que la rama no tenía.
+>
+> Corrida sobre `0167eaa` en árbol y base propios (`simonbolivar_testing_est`, reconstruida a
+> **20/20** migraciones):
+>
+> ```
+> Tests: 2012 passed (18033 assertions)      0 fallos
+> Duration: 1348.09s                          git status --porcelain -> vacío
+> ```
+>
+> **La cifra se leyó de la línea `Tests:`, no del código de salida**, y el `git status` de
+> después es la mitad que importa: **ninguna instantánea se movió.**
+>
+> ### Y no salió limpio por suerte — el porqué está medido
+>
+> El miedo era concreto y con precedente: el 2 sep, `nivelaciones_columnas` movió **siete**
+> instantáneas sin que nadie tocara su método, y dos de esos sitios no estaban en la lista de
+> ficheros de ninguna sesión. Aquí no pasó, y la razón es que **la población no se toca**:
+>
+> | | |
+> |---|---|
+> | instantáneas que nombran `unidades_por_defecto` | **ninguna** — así que no hay dónde aparecer |
+> | `SELECT *` vivos cerca | **dos**, y los dos sobre `subunidades_por_defecto`, **otra tabla** (`UnidadesController:188`, `YearsController:317`). El tercer resultado del `grep` es un **comentario** que cuenta que allí hubo uno |
+> | tests de contrato que sí recorren esos caminos | **seis**, y los seis en verde |
+>
+> **Y la comprobación que lo remata: el total es idéntico al de la rama sola** —2012 y 18033
+> las dos veces—, o sea que fundir **no estrenó ni un test ni una aserción**. Si las columnas
+> se hubieran repartido a alguna respuesta, ese número habría cambiado aunque todo siguiera en
+> verde.
+>
+> *Lo que esto NO dice: que la tanda sea inocua en un colegio real. Es la base de test con el
+> seed, no una copia de producción — eso lo mide `tools/ensayo-de-la-tanda.sh`, y ya está hecho
+> aparte: 7 de 7 en 932 ms sobre 1.166.139 notas.*
+
+> ## DECISIÓN DE JOSETH, 5 sep 2026: EL PERMISO DE LA PLANTILLA **NO SE REPARTE**
+>
+> `can_edit_plantilla_notas` **nace repartido a nadie y así se queda**. Cada colegio se lo da a
+> quien quiera desde su pantalla de roles: **es una fila, no una migración**, porque el criterio
+> es `Autoriza::puedeEditarPlantillaNotas` y no `esSuperusuario`.
+>
+> ### La primera respuesta fue otra, y lo que la cambió fue leer el código
+>
+> La decisión inicial fue **repartirlo a los superusuarios**. Al ir a ejecutarla se comprobó
+> `Autoriza.php:386` y resultó que **el superusuario ya pasa por la primera rama, sin el
+> permiso**:
+>
+> ```php
+> if (self::esSuperusuario($user)) { return true; }
+> ```
+>
+> O sea que esa migración **habría costado la octava de una tanda congelada en siete —con su
+> reensayo— y no habría cambiado el comportamiento de nadie.** Con eso encima de la mesa,
+> Joseth la retiró. *No se re-litigó una decisión suya: se le devolvió con un dato que no
+> estaba cuando la tomó.*
+>
+> ### Lo que hay que avisarle al front, y es lo que de verdad muerde
+>
+> **Las nueve rutas de `plantilla-notas/` —la de LEER incluida— exigen ese permiso.** Así que
+> el día del despliegue esa pantalla es **sólo de superusuarios en los dieciséis colegios**, y
+> **el menú no se publica hasta que el colegio reparta el permiso**: si se publica antes, a
+> rectoría le sale la entrada y le da **403**. Lo midió `8myvc-ac` restando claves sobre los
+> **125 snapshots** del rango, y por eso el aviso O pasa de 26 rutas a **35**.
+
 > ## DECISIÓN DE JOSETH, 5 sep 2026 13:4x: LA TANDA DEL DÍA 10 SE QUEDA EN **SIETE**
 >
 > **No entra ninguna migración más antes del despliegue.** Lo que se despliega el día 10 es
