@@ -861,6 +861,80 @@ del mecanismo: es el mecanismo.** Y de paso estrecha el agujero conocido —que 
 remande el número del error—: explotarlo exige **provocar un 422 por cada intento**, que es un
 argumento **en contra** del testigo de un solo uso que no se tenía cuando se planteó.
 
+**PERO ESA GARANTÍA SÓLO EXISTE EN EL CASO SUCIO, y el párrafo de arriba la afirma sin
+condición.** Conducido el 4 sep 2026 por `myvc-front-90` contra el docker, y **la primera fila
+de la tabla de este mismo apartado ya lo decía**: lo que faltaba no era el contrato, era la
+consecuencia.
+
+`putOficial` cierra la puerta con `if ($aceptoPerder === null && $sePierden !== 0)`
+(`HorarioController.php:1457`). Con **cero** pérdidas y sin la clave, la condición es falsa y
+la ejecución **cae directa al `UPDATE`**. O sea:
+
+| publicar una versión… | llamadas | quién hay en medio |
+|---|---|---|
+| **limpia** (el caso normal) | **una**, sin ninguna puerta | **nadie** — hay un 200 |
+| **sucia** (N > 0) | **dos**, con el 422 en medio | una persona, que tiene que ver la cifra |
+
+Así que *«hay una persona en medio cada vez»* hay que leerlo como **«cada vez que hay algo que
+perder»**. `acepto_perder` no es una confirmación: es un **peaje**, y sólo se cobra a quien
+lleva carga.
+
+**Cómo se destapó, que es la parte que vale.** El carril «publicar» de `myvc_front` condujo su
+pantalla dando por hecho que el primer paso no escribe, y mandó:
+
+```
+PUT /api/horario/versiones/5/oficial
+{}                    <- el cuerpo entero: sin `acepto_perder`, sin la clave siquiera
+-> 200
+```
+
+Antes `oficial_id 6`; después `oficial_id 5`. **Sin confirmación y sin que nada lo parase**,
+porque la 5 no perdía ninguna asignación. Y el modo de fallo es de manual: un cliente lee la
+puerta de dos pasos, deduce *«el primero es una previsualización»* y escribe un primer paso
+alegre. **Le pasó a quien había escrito la frase correcta en su propio repositorio** —
+`datos/horario.ts` decía, y sigue diciendo, *«sin la clave y sin pérdidas → 200, escribe»*. Si
+le pasa a quien lo escribió, le va a pasar a quien sólo lo lea.
+
+> **Lo que NO se capturó, dicho aquí para que nadie lo invente:** el cuerpo de aquel 200 no
+> quedó registrado —pasó por el `HttpClient` de la pantalla— y `myvc-front-90` se negó a
+> reconstruirlo desde la forma que devuelve el controlador. **Tenía razón**: pegar una
+> respuesta leída del código como si fuera la medida sería meter una medición inventada en el
+> fichero donde se guardan las medidas.
+>
+> **Lo que SÍ está capturado es otro 200 del mismo caso limpio**, y demuestra lo mismo: el
+> `PUT` de la restauración, lanzado con `curl` por `myvc-front-c0` con el sí de Joseth, **cuerpo
+> `{}` y sin la clave `acepto_perder`** → **200** y escritura.
+>
+> ```json
+> {"id":6,"year_id":8,"nombre":"Subida del 3 de septiembre de 2026","es_oficial":true,
+>  "derivacion":{"asignaciones_en_el_alcance":134,"asignaciones_con_algun_dia":134,
+>  "filas_de_la_version":312,"piezas_de_la_version":312,
+>  "asignaciones_de_la_version_fuera_del_alcance":0,
+>  "por_dia":{"domingo":0,"lunes":49,"martes":49,"miercoles":49,"jueves":34,
+>  "viernes":22,"sabado":0}}}
+> ```
+>
+> **Y la salvedad la puso quien lo midió, así que va con él:** ésta es una publicación
+> deliberada del caso limpio, **no la petición que causó el incidente**. Sirve para afirmar
+> *«sin la clave y sin pérdidas, escribe»* — no para narrar el accidente. Ésa no existe en
+> ningún sitio y así se queda.
+
+**Y la medición que puso el susto en proporción, porque la primera lectura fue «la base cambió
+debajo» y era falsa:** las versiones **5 y 6 son idénticas**, las 312 filas una a una,
+**incluyendo franja, duración y salón** — que es justo lo que `tools/deriva-del-horario.php` no
+mira y lo que habría hecho falta para que la alarma fuera cierta. El `UPDATE` reescribió las
+siete columnas **con los valores que ya estaban**. Devolver el puntero a la 6 fue **higiene, no
+reparación**: *destruye el reloj, no el dato*. La lectura de deriva tomada 23 h antes seguía
+siendo la línea de partida válida, y por eso no se tiró.
+
+**Esto no cambia `putOficial` y no propone cambiarlo.** El peaje está bien pensado y el 200 del
+caso limpio puede ser perfectamente la decisión correcta — publicar algo que no rompe nada no
+tiene por qué costar dos viajes. **Lo que faltaba era que estuviera dicho**, y la garantía
+enunciada sin su condición era lo que hacía que no lo estuviera. *Donde sí se movió es en el
+cliente (`698f1548` de `myvc_front`): la confirmación la pone ahora la pantalla **antes** de la
+primera llamada, con una prueba que afirma una ausencia —pulsar «Publicar» no manda ni una
+petición— para que nadie la quite «porque el back ya confirma».*
+
 **La comprobación va dentro de la transacción** —contar fuera y escribir dentro son dos
 instantes, y entre ellos cabe una asignatura más— y `abort()` desde ahí **deshace**, así
 que el «Nada se escribió» de los tres mensajes es cierto y no una promesa. Está medido, no

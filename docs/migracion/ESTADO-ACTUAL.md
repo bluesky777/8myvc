@@ -22,6 +22,78 @@
 > Los mensajes de commit están limpios —cero apariciones—, así que sólo había que tocar
 > estas tres líneas.
 
+> ## ⚠️ LA BASE LOCAL `simonbolivar` TIENE UNA DERIVA PUESTA A PROPÓSITO — NO LA ARREGLES
+>
+> **Decisión de Joseth del 4 sep 2026, noche: se queda puesta.** Si mides horario sobre esta
+> base y te sale `1`, **es ésta y no un hallazgo**:
+>
+> ```
+> asignaturas.id = 1234 · profesor_id 9 · MATEMÁTICAS · Tercero
+>   martes = 0        <- apagado a mano con PUT asignaturas/toggle-dia
+>   la versión oficial (7) le da los días 1 y 2, o sea lunes Y martes
+>   updated_by = 1 · updated_at 2026-09-04 21:40:56
+>
+> tools/deriva-del-horario.php --year=8   ->  133 de 134 · DESCUADRADAS 1 · exit 1
+> ```
+>
+> **Revertirla es `UPDATE asignaturas SET martes=1 WHERE id=1234;`** y nadie la tiene asignada.
+>
+> **Por qué está puesta, que es lo que la hace valer:** es el **paso 4** de la medición que
+> `tools/deriva-del-horario.php` llevaba sin recibir desde que existe. Los ceros no demuestran
+> nada —recién publicada una versión, cuadrar es aritmética—, así que el único número que prueba
+> que **el detector detecta lo que dice su nombre** es un `1` provocado a mano. Lo midió
+> `8myvc-84` con las escrituras autorizadas por Joseth en su canal, y lo reprodujo `8myvc-7c`.
+>
+> **Y el radio no es de laboratorio:** en martes la versión oficial le da al profesor 9 **cinco**
+> asignaciones y `asignaturas` le da **cuatro**. Una clase desaparecida de su portada, **sin error
+> y sin aviso** — que es exactamente el fallo que la herramienta existe para ver, ocurriendo.
+>
+> *En los dieciséis colegios esto no existe: cero versiones desplegadas.*
+
+**4 sep 2026, noche — `acepto_perder` NO ES UNA CONFIRMACIÓN, ES UN PEAJE — Y LA §7.2 SE
+CONTRADECÍA CONSIGO MISMA** · [`23-horarios.md` §7.2](23-horarios.md) y esta casilla · **cero
+código, el router no se mueve: 568** · lo destapó una publicación accidental de `myvc-front-90`
+
+> **El apartado ya tenía el contrato bien escrito y aun así indujo el fallo.** Su tabla dice, en
+> la primera fila, *«sin `acepto_perder` · 0 · **200**, publica»*. Cinco párrafos más abajo el
+> mismo apartado afirma **sin condición** que *«hay una persona en medio cada vez»*. Las dos
+> cosas no caben juntas, y quien se equivocó **leyó el párrafo, no la tabla**.
+>
+> `HorarioController.php:1457` es `if ($aceptoPerder === null && $sePierden !== 0)`: con cero
+> pérdidas y sin la clave, la condición es falsa y **cae directa al `UPDATE`**. O sea que
+> publicar una versión **limpia** es **una** llamada sin ninguna puerta, y una **sucia** son
+> dos. La garantía existe **sólo cuando hay algo que perder**.
+>
+> ### Cómo se destapó, y por qué el susto era menor de lo que parecía
+>
+> El carril «publicar» de `myvc_front` condujo su pantalla dando por hecho que el primer paso no
+> escribe, y mandó `PUT horario/versiones/5/oficial` con **`{}` de cuerpo entero** → **200**, y el
+> puntero del año 8 se movió de la 6 a la 5 sin confirmación. **Le pasó a quien había escrito la
+> frase correcta en su propio repositorio.**
+>
+> **La primera lectura fue «la base cambió debajo» y era falsa.** Medido antes de reaccionar: las
+> versiones **5 y 6 son idénticas**, las 312 filas una a una, **incluyendo franja, duración y
+> salón** — que es justo lo que `tools/deriva-del-horario.php` NO mira, y lo único que habría
+> hecho cierta la alarma. El `UPDATE` reescribió las siete columnas **con los valores que ya
+> estaban**: *destruye el reloj, no el dato*. Devolver el puntero a la 6 fue **higiene, no
+> reparación**, y así se le dijo a Joseth antes de que lo autorizara.
+>
+> **Y la lectura de deriva de las 19:03 —0 descuadradas, exit real 0, con 23 h de reposo
+> detrás— NO se tiró**, porque el estado que midió no había cambiado. Tres sesiones habían
+> pedido tirarla.
+>
+> ### Lo que NO se capturó, dicho para que nadie lo invente
+>
+> **El cuerpo de aquel 200 no existe en ningún sitio.** Pasó por el `HttpClient` de la pantalla, y
+> `myvc-front-90` **se negó a reconstruirlo** desde la forma que devuelve el controlador: sería
+> meter una medición inventada en el fichero donde se guardan las medidas. Lo que sí va escrito es
+> otro 200 del mismo caso limpio —el `PUT` de la restauración, con `curl` y cuerpo `{}`— **con la
+> salvedad de quien lo midió pegada a él**: demuestra *«sin la clave y sin pérdidas, escribe»*, no
+> narra el accidente.
+>
+> **`putOficial` no se toca y no se propone tocarlo.** El peaje está bien pensado y el 200 del
+> caso limpio puede ser la decisión correcta. **Lo que faltaba era que estuviera dicho.**
+
 **4 sep 2026 — EL ENSAYO DE LA TANDA YA SE PUEDE REPETIR, Y DE PASO TRAE UN DETECTOR DE
 COMPROBACIONES CORTAS** · `tools/ensayo-de-la-tanda.sh` y `tools/comprobar-el-horario.php`
 (nuevos) y esta casilla · **cero código de la API, el router no se mueve: 568** · larastan
