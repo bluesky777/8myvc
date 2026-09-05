@@ -74,6 +74,54 @@
 >
 > *En los dieciséis colegios esto no existe: cero versiones desplegadas.*
 
+**5 sep 2026 — EL ENSAYO DE LA TANDA MEDÍA UN ÁRBOL Y LE PREGUNTABA A OTRO** ·
+`tools/ensayo-de-la-tanda.sh` (punto 1.bis) y esta casilla · **el router no se mueve: 568** ·
+ejercitado **por los tres lados** sobre la copia de `simonbolivar` (102 tablas, 210 MB, 1.166.139 notas)
+
+> **La mitad de arriba del script le pregunta a `git` AQUÍ; `artisan` corre ALLÍ.** `PHP_EXEC` es
+> un `docker exec`, y **sin `-w` trabaja en `/app` —el árbol principal— aunque llames al script
+> desde un worktree**. Entonces la tanda se calcula con las migraciones de tu rama y el
+> rebobinado se le pide a un árbol que no las tiene.
+>
+> **Lo caro no era fallar: era CÓMO fallaba.** Lo pagó `8myvc-24` la noche del 4 al 5 sep desde el
+> worktree `p`: las migraciones de `main` rodaban, las suyas salían `Migration not found` y el
+> script abortaba con un `NO MEDIDO` a secas. Eso **se lee como «la tanda está mal»** cuando lo
+> que pasa es **«estás midiendo otro árbol»** — y quien lo lea a las tres de la mañana del día 10
+> se va a ir a mirar sus migraciones, que están perfectamente.
+>
+> **Se compara por NOMBRES y no por recuento**, que es la única diferencia con el guard gemelo de
+> `tools/construir-bd-test.sh`: dos árboles pueden tener veinte migraciones cada uno sin ser las
+> mismas veinte, y con un recuento eso pasa el guard y muere después, otra vez sin decir por qué.
+>
+> ### Lo que se ejercitó — un guard que no se ha visto abortar no está probado
+>
+> ```
+> árbol principal (main @ ac09cb7)        18 aquí · 18 allí (/app)              PASA    exit 0
+> worktree, SIN -w                        20 aquí · 18 allí (/app)              ABORTA  exit 2
+> worktree, CON -w /app/.worktrees/z      20 aquí · 20 allí (el worktree)       PASA    exit 0
+> ```
+>
+> El aborto **nombra las dos migraciones que no existen al otro lado** —`alcance_de_la_plantilla`
+> y `create_permiso_can_edit_plantilla_notas`— y sugiere la orden con la ruta buena. **Y no crea
+> la copia**: el guard va antes del punto 2, así que un aborto no deja ninguna base `_ensayo`
+> detrás — comprobado con `SHOW DATABASES` antes y después, que es la forma que tendría el
+> destrozo si el orden estuviera al revés.
+>
+> **Las dos pasadas que pasan midieron entero, no sólo el guard**: **5 migraciones en 1.163 ms**
+> (10.314 ms el comando) desde `main`, y **7 en 932 ms** (6.409 ms) desde el worktree puesto en la
+> punta de `feat/plantilla-de-notas`; las dos con los dos controles saltando, el esquema idéntico
+> a `simonbolivar` (1.528 columnas) y `LLEGO` en el módulo de horario. *La de siete es la tanda
+> que quedará cuando esa rama entre, y ya está ensayada.*
+>
+> **Y un borde que se cerró de camino, porque era el mismo daño con otra cara:** la orden que se
+> sugiere deriva la raíz de `git rev-parse --git-common-dir` —**`--show-toplevel` NO sirve aquí**,
+> dentro de un worktree devuelve el propio worktree y la orden salía `-w /app`, justo el árbol
+> equivocado que acababa de provocar el aborto—. Y si esa orden no contesta, `dirname` daba `.`,
+> el `sed` se comía el primer carácter del `pwd` y salía `-w /appUsers/josethguerrero/…`, una ruta
+> que no existe. Ahora dice que la ruta va a mano. **Se vio en rojo**, con un `git` falso en el
+> `PATH` que hace fallar sólo esa llamada: un guard cuyo motivo entero es no mandar a nadie a
+> mirar donde no es no puede permitirse imprimir una orden inventada.
+
 **5 sep 2026 — «EL SERVIDOR NO GUARDA LA DISPONIBILIDAD» ERA FALSO, Y LA FRASE TENÍA UN
 LECTOR HOY** · `HorarioController` (el veredicto de la subida y el renglón del catálogo) y
 esta casilla · **el router no se mueve: 568** · pint PASS · larastan `[OK] No errors`

@@ -43,6 +43,11 @@
 #   MYSQL_EXEC="docker exec -i 8myvc-database-1"
 #   PHP_EXEC="docker exec -i 8myvc-app-1"
 #
+# **Desde un worktree hay que pasarle `-w`, y si se olvida el script lo dice y
+# para** (punto 1.bis): `docker exec` sin `-w` corre `artisan` en `/app`, o sea en
+# el árbol principal, mientras `git` se pregunta aquí.
+#   PHP_EXEC="docker exec -i -w /app/.worktrees/<x> 8myvc-app-1" tools/ensayo-de-la-tanda.sh
+#
 # ## El control de ESTE script, que no cabe en un `--control`
 #
 # La pieza que puede mentir aquí es el detector de cobertura del punto 5: si se
@@ -203,6 +208,74 @@ if [ "$N_PENDIENTES" -eq 0 ]; then
 fi
 
 EN_LISTA=$(printf '%s\n' "$PENDIENTES" | sed "s/.*/'&'/" | paste -sd, -)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 1.bis. LOS DOS LADOS TIENEN QUE MIRAR EL MISMO ÁRBOL
+#
+# **La mitad de arriba pregunta a `git` AQUÍ; `artisan` corre ALLÍ.** `PHP_EXEC`
+# es un `docker exec` y sin `-w` trabaja en `/app` —el árbol principal— aunque
+# llames a este script desde un worktree. Entonces la tanda se calcula con las
+# migraciones de tu rama y el rebobinado se le pide a un árbol que no las tiene.
+#
+# **Y el modo de fallo es el peligroso, porque parece un diagnóstico.** Lo pagó
+# `8myvc-24` el 5 sep 2026 desde el worktree `p`: las migraciones de `main`
+# rodaban y las suyas salían `Migration not found`, y el script abortaba con un
+# `NO MEDIDO` a secas. Eso **se lee como «la tanda está mal»** cuando lo que pasa
+# es **«estás midiendo otro árbol»** — y quien lo lea a las tres de la mañana del
+# día 10 va a ir a mirar sus migraciones, que están perfectamente.
+#
+# El guard no se inventa: es el de `tools/construir-bd-test.sh`, que ya lo tenía
+# por esta misma puerta. **Aquí se compara por NOMBRES y no por recuento**, y esa
+# es la única diferencia: dos árboles pueden tener dieciocho migraciones cada uno
+# sin ser las mismas dieciocho, y con un recuento eso pasa el guard y muere
+# después, otra vez sin decir por qué.
+# ─────────────────────────────────────────────────────────────────────────────
+ARBOL_ALLI=$($PHP_EXEC pwd 2>/dev/null | tr -d ' \r' || true)
+MIGR_ALLI=$($PHP_EXEC sh -c 'ls database/migrations/*.php 2>/dev/null' 2>/dev/null \
+    | tr -d ' \r' | sed 's|.*/||; s|\.php$||' | grep . | sort || true)
+N_ALLI=$(printf '%s\n' "$MIGR_ALLI" | grep -c . || true)
+N_AQUI=$(ls database/migrations/*.php 2>/dev/null | wc -l | tr -d ' ')
+
+# La población delante, como manda la casa: un guard que no dice cuánto miró no
+# distingue «las tiene todas» de «no pude preguntar».
+printf '   Árbol de git (aquí)                %6s migraciones · %s\n' "$N_AQUI" "$(pwd)"
+printf '   Árbol de artisan (allí)            %6s migraciones · %s\n' "$N_ALLI" "${ARBOL_ALLI:-?}"
+
+if [ "$N_ALLI" -eq 0 ]; then
+    echo "NO MEDIDO: no se pudo listar 'database/migrations/' en el árbol de \$PHP_EXEC ($ARBOL_ALLI)." >&2
+    exit 2
+fi
+
+SIN_FICHERO_ALLI=$(comm -23 <(printf '%s\n' "$PENDIENTES") <(printf '%s\n' "$MIGR_ALLI"))
+if [ -n "$SIN_FICHERO_ALLI" ]; then
+    echo >&2
+    echo "NO MEDIDO: estás midiendo el ÁRBOL PRINCIPAL desde otro árbol." >&2
+    echo "  git se preguntó en : $(pwd)  ($N_AQUI migraciones)" >&2
+    echo "  artisan corre en   : $ARBOL_ALLI  ($N_ALLI migraciones)" >&2
+    echo "  De la tanda, estas NO existen allí y el rebobinado diría 'Migration not found':" >&2
+    printf '%s\n' "$SIN_FICHERO_ALLI" | sed 's/^/    - /' >&2
+    echo >&2
+    echo "No es que la tanda esté mal: es que los dos lados miran árboles distintos." >&2
+    echo "Pásale a \$PHP_EXEC el árbol correcto:" >&2
+    # **`--show-toplevel` NO sirve aquí**: dentro de un worktree devuelve el propio
+    # worktree, así que `pwd` casaba entero y la orden sugerida salía `-w /app` —
+    # exactamente el árbol equivocado que acaba de provocar el aborto. El contenedor
+    # monta la raíz PRINCIPAL en `/app`, y ésa es `--git-common-dir` sin su `.git`.
+    COMUN=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+    RAIZ=${COMUN:+$(dirname "$COMUN")}
+    # **Y si no contesta, se dice; no se adivina.** Con `RAIZ` vacía `dirname` da `.`,
+    # y entonces el `sed` de abajo se come el PRIMER CARÁCTER del `pwd`: la orden
+    # sugerida saldría `-w /appUsers/josethguerrero/...`, una ruta que no existe. Un
+    # guard cuyo motivo entero es no mandar a nadie a mirar donde no es **no puede
+    # permitirse imprimir una orden inventada** — sería el mismo daño con otra cara.
+    if [ -n "$RAIZ" ] && [ "$RAIZ" != "." ] && [ "$RAIZ" != "/" ]; then
+        echo "  PHP_EXEC=\"docker exec -i -w $(pwd | sed "s|^$RAIZ|/app|") 8myvc-app-1\" tools/ensayo-de-la-tanda.sh" >&2
+    else
+        echo "  PHP_EXEC=\"docker exec -i -w /app/.worktrees/<el tuyo> 8myvc-app-1\" tools/ensayo-de-la-tanda.sh" >&2
+        echo "  (la ruta va a mano: 'git rev-parse --git-common-dir' no contestó y la raíz no se pudo derivar)" >&2
+    fi
+    exit 2
+fi
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 2. LA COPIA
