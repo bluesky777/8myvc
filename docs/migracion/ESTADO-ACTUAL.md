@@ -328,27 +328,39 @@
 >
 > *En los dieciséis colegios esto no existe: cero versiones desplegadas.*
 
-**5 sep 2026 — `DESPLIEGUE.md` DECÍA 191 COMMITS SIN DESPLEGAR Y SON 285 — Y LO QUE SE ARREGLÓ NO
+**5 sep 2026 — `DESPLIEGUE.md` DECÍA 191 COMMITS SIN DESPLEGAR Y SON 286 — Y LO QUE SE ARREGLÓ NO
 FUE LA CIFRA** · `docs/DESPLIEGUE.md` y esta casilla · rama `docs/despliegue-remedido-2` ·
 **el router no se mueve: 577 en `main` local, 568 en `origin/main`**
 
-> **Las cifras, remedidas enteras sobre `9474b50..f0f72eb` y no heredadas de nada:** commits
-> **285** (decía 191, en **tres** sitios y uno dentro de una frase de prosa), `app/` **57**,
+> **Las cifras, remedidas enteras sobre `9474b50..0167eaa` y no heredadas de nada:** commits
+> **286** (decía 191, en **tres** sitios y uno dentro de una frase de prosa), `app/` **57**,
 > `routes/` **8**, migraciones **SIETE ficheros**, rutas **543 → 577** (**35** nuevas y **1**
 > retirada, `543 + 35 − 1 = 577`), y **558 de las 576 de `api/`** llevan `auth.token` (decía «547
 > de 565»). Las 35 salen de restar los dos `rutas.json`, no de contar a ojo.
 >
 > **Lo que de verdad se arregló no es el 191, es que el documento describía un despliegue que hoy
-> no se puede hacer.** `main` local va **13 commits por delante de `origin/main`**, y el Paso 1
-> despliega con `git pull`: contra `origin` la tanda es de **CINCO** migraciones, no de siete —las
-> dos de la plantilla están sólo en local—. La sección lleva ahora **las dos filas medidas con el
-> mismo comando** y una caja que dice cuál es cuál. *Joseth ya autorizó el push; hasta que se haga,
-> esa caja es la única cosa del documento que impide leerlo al revés.*
+> no se puede hacer.** `main` local iba **13 commits por delante de `origin/main`** —14 cuando se
+> empujó— y el Paso 1 despliega con `git pull`: contra `origin` la tanda era de **CINCO**
+> migraciones, no de siete, y la comprobación de diez segundos habría contestado `FALTA` **con
+> razón**. Se escribió una caja `⚠️` con las dos filas medidas con el mismo comando.
+>
+> **Y esa caja duró tres horas: `8myvc-ae` empujó con la autorización de Joseth y `origin/main`
+> pasó a ser `0167eaa`, el mismo commit que `main`.** Comprobado aquí antes de tocar nada: cero de
+> divergencia. **La caja pasó entonces a decir lo contrario de lo que había**, así que se retiró y
+> **en su sitio queda la comprobación, no el resultado**: `git rev-parse --short origin/main main`
+> y que los dos hashes coincidan. *Un aviso sobre un estado envejece hacia el peligro —de proteger
+> a engañar, sin que nada se ponga rojo—; una orden que se ejecuta, no.* Es la misma lección que la
+> casilla de la deriva del horario de esta misma mañana, cobrada por segunda vez en un día.
+>
+> *El push **no lo hice yo**, y el matiz importa: `8myvc-ae` tenía un bloqueo de permisos en su
+> sesión, y empujar en su lugar habría sorteado esa decisión igual que hacerlo sin permiso. Lo
+> desbloqueó Joseth en su canal.*
 >
 > **Y el argumento que justifica la regla, porque sin él parece manía:** en veinticuatro horas este
 > rango tuvo **cuatro cifras y las cuatro fueron ciertas al medirse** — 191 en el documento, **232**
 > el 4 sep en `docs/despliegue-remedido`, **274** contadas por `8myvc-ae` la tarde del 5, **279** al
-> ir a escribirlas, **285** al cerrar la plantilla. **Nadie se equivocó midiendo: lo que falla es el
+> ir a escribirlas, **285** al cerrar la plantilla y **286** al rescatar el `CLAUDE.md` huérfano de
+> `8myvc-29`. **Nadie se equivocó midiendo: lo que falla es el
 > hueco entre medir y escribir**, con varias sesiones moviendo `main` en medio. De ahí las dos
 > reglas que quedan escritas en la sección: *el extremo del rango se escribe con su hash*, y *la
 > cifra se vuelve a contar el día que se toca el documento*.
@@ -391,7 +403,7 @@ FUE LA CIFRA** · `docs/DESPLIEGUE.md` y esta casilla · rama `docs/despliegue-r
 > vivo.*
 >
 > **PENDIENTE, y es de quien cierre la tanda:** `8myvc-ff` mete el Lote G y luego funde
-> `docs/barrido-profesor-serializado` antes del día 10. **Las cifras de arriba son de `f0f72eb` y
+> `docs/barrido-profesor-serializado` antes del día 10. **Las cifras de arriba son de `0167eaa` y
 > hay que remedirlas cuando esas dos entren** — que es exactamente la regla que esta casilla acaba
 > de escribir.
 

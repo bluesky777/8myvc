@@ -54,7 +54,7 @@ Por eso esto va **antes** del bloque de la tanda y no dentro: la tanda está lis
 **no se despliega**.
 
 **Qué se midió antes de escribir esto, para que la espera sea una decisión y no un miedo.** De
-los **285** commits (remedidos el 5 sep 2026; eran 191 cuando se escribió esto), lo único que un
+los **286** commits (remedidos el 5 sep 2026; eran 191 cuando se escribió esto), lo único que un
 cliente puede **perder** siguen siendo dos cosas — todo lo demás es aditivo, comprobado sobre los
 snapshots del rango, no sobre los mensajes de los commits:
 
@@ -186,7 +186,7 @@ queda por decidir ya no es de la app.
 
 ---
 
-## ⛔ TANDA PENDIENTE — 285 commits desde `9474b50`. SIN LAS MIGRACIONES NO SE PUEDE NI ENTRAR
+## ⛔ TANDA PENDIENTE — 286 commits desde `9474b50`. SIN LAS MIGRACIONES NO SE PUEDE NI ENTRAR
 
 **El aviso que había aquí decía «los tres boletines contestan 500», y se quedaba corto por dos
 órdenes de magnitud.** Lo que cae con el código nuevo y la base sin migrar **no es una pantalla:
@@ -210,16 +210,17 @@ petición llega a su método.**
 sesión del front, no nosotros**. Reproducido aquí contra una base sin migrar: la consulta del
 contexto contesta `SQLSTATE[42S22] Unknown column 'y.regla_nivelacion' in 'field list'`.
 
-### Lo que es esta tanda, remedido entero el 5 sep 2026 sobre `9474b50..f0f72eb`
+### Lo que es esta tanda, remedido entero el 5 sep 2026 sobre `9474b50..0167eaa`
 
 **El extremo va escrito con su hash y no como `HEAD`**, y no es una manía: aquí se trabaja con un
 árbol por sesión, así que `HEAD` es una cosa distinta en cada worktree y una tabla medida con
-`HEAD` no la puede reproducir nadie. Hoy **`main` es `f0f72eb`** — la fusión de la plantilla de
-notas, que es donde Joseth congeló la tanda del día 10.
+`HEAD` no la puede reproducir nadie. Hoy **`main` es `0167eaa`**, y **`origin/main` es el mismo
+commit**: cero de divergencia, comprobado el 5 sep 2026 a las 14:01. O sea que **esta tabla sí
+describe lo que trae un `git pull`**.
 
 | | | comprobado con |
 |---|---|---|
-| commits | **285** | `git rev-list --count 9474b50..main` |
+| commits | **286** | `git rev-list --count 9474b50..origin/main` |
 | `app/` | **57** ficheros | `git diff --name-only 9474b50 main -- app/ \| wc -l` |
 | `routes/` | **8** ficheros — **las rutas SÍ se movieron: 543 → 577** (35 nuevas, **1 retirada**) | `git diff --name-only 9474b50 main -- routes/` · `route:list --json` |
 | `config/` · `composer.json`/`.lock` · `database/schema/` | **0** | `git diff --name-only 9474b50 main -- config/ composer.json composer.lock database/schema/` |
@@ -230,33 +231,30 @@ notas, que es donde Joseth congeló la tanda del día 10.
 que es el mismo dato que da `route:list --json` y además lo mueve un test. **543 + 35 − 1 = 577**,
 y la retirada es `POST tardanzas/login/traer-datos`, que no tiene ninguna otra.
 
-> ## ⚠️ ESTAS CIFRAS SON DE `main` LOCAL, Y EL DÍA 10 SE HACE `git pull`
+> ### Antes de desplegar: que `origin/main` sea lo que mediste
 >
-> **`main` local va 13 commits por delante de `origin/main`, y el Paso 1 despliega lo que haya en
-> `origin`.** O sea que **hoy, si alguien desplegara, no desplegaría esta tabla**. Medido el 5 sep
-> 2026, los dos rangos con el mismo comando:
+> ```bash
+> git rev-parse --short origin/main main    # los dos hashes, y tienen que ser el MISMO
+> ```
 >
-> | desde `9474b50` hasta… | commits | `app/` | `routes/` | migraciones | rutas |
-> |---|---|---|---|---|---|
-> | **`origin/main`** (`3cda1d6`) — *lo que un `git pull` trae hoy* | **272** | 55 | 7 | **CINCO** | **568** |
-> | **`main` local** (`f0f72eb`) — *lo que describe esta sección* | **285** | 57 | 8 | **SIETE** | **577** |
+> **El Paso 1 despliega con `git pull`, así que lo que se despliega es `origin`, no tu `main`.**
+> El 5 sep 2026 a las 14:01 coinciden los dos en `0167eaa` y esta tabla describe exactamente lo
+> que trae un `git pull`.
 >
-> **La fila que importa es la de las migraciones, y no es cosmética:** la tanda del día 10 la
-> decidió Joseth de **siete**, y las dos que faltan —las de la plantilla— **están sólo en local**.
-> Con `origin` como está, la comprobación de diez segundos de más abajo contestaría `FALTA` por las
-> dos columnas de `unidades_por_defecto` y por el permiso, **y tendría razón**. Joseth ya autorizó
-> el push; mientras no esté hecho, **esta sección describe algo que todavía no se puede desplegar**.
->
-> *Se escribe la diferencia en vez de esperar al push porque un documento que no dice contra qué
-> midió es el que se lee mal a las tres de la mañana. **Cuando `origin` se ponga al día, las dos
-> filas pasan a ser una y esta caja se borra.***
+> **Se deja la orden y no el resultado, y esto costó una caja entera.** Durante unas horas de ese
+> día `main` local iba **14 commits por delante** y aquí hubo un aviso que lo decía: contra
+> `origin` la tanda era de **CINCO** migraciones y no de siete —las dos de la plantilla estaban
+> sólo en local—, así que la comprobación de diez segundos habría contestado `FALTA` **con razón**.
+> En cuanto se empujó, **ese aviso pasó a decir lo contrario de lo que había**, y un aviso sobre un
+> estado *envejece hacia el peligro*: de proteger a engañar, sin que nada se ponga rojo. Lo que no
+> caduca es **la comprobación**, así que es lo único que se queda.
 
 > ### Por qué esta sección se remide entera y no se le suma
 >
 > **En veinticuatro horas este rango tuvo cuatro cifras, y las cuatro fueron ciertas el minuto en
 > que se midieron:** el documento decía **191**, la rama `docs/despliegue-remedido` midió **232** el
 > 4 sep, `8myvc-ae` contó **274** la tarde del 5, y al ir a escribirlo eran **279**; al cerrar la
-> plantilla, **285**. Nadie se equivocó en ninguna.
+> plantilla, **285**, y **286** al rescatar el `CLAUDE.md` huérfano. Nadie se equivocó en ninguna.
 >
 > **Lo que falla no es medir, es el hueco entre medir y escribir** — `main` se mueve en medio,
 > porque aquí trabajan varias sesiones a la vez. De ahí las dos reglas de esta sección, que
@@ -564,7 +562,7 @@ marcados en desarrollo**, que **no** es «cero en los dieciséis»: eso sólo se
 > que hacerlo**. Lo decidió Joseth ese día.
 >
 > **Las 35 están CONTADAS contra la base desplegada, no sumadas** — que es lo que este repo
-> exige de un número que se escribe: `9474b50` declara **543** rutas y `main` (`f0f72eb`)
+> exige de un número que se escribe: `9474b50` declara **543** rutas y `main` (`0167eaa`)
 > **577**; comparados los dos conjuntos de URIs, **35 entran y 1 se va** (`POST
 > tardanzas/login/traer-datos`, el aviso L), y **543 + 35 − 1 = 577**. Las dos últimas de
 > `horario/` son `GET horario/versiones/{id}/lecciones` (23 §9.bis) y
