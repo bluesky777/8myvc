@@ -243,6 +243,36 @@ contexto contesta `SQLSTATE[42S22] Unknown column 'y.regla_nivelacion' in 'field
 | `2026_09_04_100000_horario_versiones` | tres tablas nuevas, `years.horario_version_id` y —absorbida de `..._200000`— **`profesores.tono`, `varchar(32)` nullable**. Sin las tablas, `POST horario/versiones` revienta; sin `tono` caen `GET horario/versiones/{id}/lecciones`, que la nombra en su `SELECT`, y `PUT horario/docentes/{profesor_id}/tono`, que la escribe. **Y el radio de `years.horario_version_id` no es de este módulo**: la lee `ChangeAskedController::horarioOficialDelAnio()` desde `getToMe` en sus dos ramas, o sea `GET ChangesAsked/to-me` — la que pide la app al abrir. Sin la migración **cae el panel de todo el mundo** (23 §11.5.1) | **`GET ChangesAsked/to-me` + las rutas de `horario/`.** Con esta fila el colegio SÍ se cae |
 | `2026_08_31_100000_retirar_boletin_independiente_de_matriculas` | nada del código nuevo: **retira** `matriculas.boletin_independiente`, que ya no lee nadie | ninguno hacia delante — **pero mira la fila de abajo** |
 
+> ### La fila del horario ha envejecido DOS veces, y la segunda con la cifra quieta
+>
+> Esa fila decía, hasta esta reescritura, *«**1 ruta**, y detrás de `esAdministrativo`: el
+> colegio no se cae»*, más *«`getVersiones` y `putOficial` siguen a 501 y no las tocan»* y
+> *«`years.horario_version_id` sigue sin leerla nadie»*. **Las tres eran falsas.** Medido en
+> `main` el 5 sep 2026, y reproducido por dos sesiones:
+>
+> ```
+> ChangeAskedController:140 y :219   'horario_version_id' => horarioOficialDelAnio(...)
+> ChangeAskedController:1274         SELECT horario_version_id FROM years WHERE id = ?
+> HorarioController:907, :1113, :1851   la leen y la escriben
+> routes/api/disciplina.php:44       ChangesAsked/to-me — SIN middleware extra
+> ```
+>
+> `auth.token` a secas **son todos los roles**, alumnos y acudientes incluidos, y `to-me` es
+> lo que pinta el muro de `myvc_flutter`. Sobre una copia sin la columna, `to-me` contesta
+> **500 `Unknown column 'horario_version_id'`**. O sea que sin esta migración no es «quien
+> suba un horario recibe un 500»: **es la pantalla de inicio de la app contestando 500 a
+> todo el mundo.** El login vive y el colegio no se cae entero; el muro sí.
+>
+> **Y lo que hay que sacar de aquí no es el radio corregido, es que la corrección no bastó.**
+> Esta fila **ya documenta su propio envejecimiento** —lleva escrito que decía «no rompe en
+> ninguna dirección, porque su código son tres 501» y que dejó de ser cierto el mismo día con
+> `371062c`—, y **ha vuelto a envejecer exactamente igual, por segunda vez, sin que la cifra
+> ni el rango se movieran**. La regla que ese párrafo enuncia se le aplicó a sí misma y no
+> alcanzó. *Por eso el radio se REMIDE el día del despliegue en vez de leerse: una fila que
+> avisa de que caduca sigue caducando.*
+>
+> Medida por `8myvc-c3`, reproducida por `8myvc-7c` y comprobada aquí antes de escribirla.
+
 > ### ⚠ Una afirmación de esta tabla NACIÓ MAL, y se corrigió el 4 sep 2026
 >
 > La fila de `tono` decía: *«Entra con `AFTER regla_nivelacion`, que llega en `2026_09_02_100000`
