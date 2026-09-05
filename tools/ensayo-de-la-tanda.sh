@@ -48,6 +48,15 @@
 # el árbol principal, mientras `git` se pregunta aquí.
 #   PHP_EXEC="docker exec -i -w /app/.worktrees/<x> 8myvc-app-1" tools/ensayo-de-la-tanda.sh
 #
+# **Lo que costaba cuando no lo detectaba, medido el 5 sep 2026 por `8myvc-24` desde el
+# worktree `p`:** con el valor por defecto, las migraciones que sólo existen en la rama
+# del worktree salían **`Migration not found`** en el rebobinado del paso 3 y el ensayo
+# abortaba con `NO MEDIDO: el rebobinado no deshizo la tanda entera`. Las de `main` sí
+# rodaban, así que **el fallo parecía de la tanda y era del árbol**. Es la misma trampa
+# que `tools/construir-bd-test.sh` documenta y detecta; **ésta la detecta desde
+# `ed542ff`**, y nombrando las migraciones que faltan al otro lado — ya no hay que
+# acordarse, que es justo lo que esta cabecera pedía antes.
+#
 # ## El control de ESTE script, que no cabe en un `--control`
 #
 # La pieza que puede mentir aquí es el detector de cobertura del punto 5: si se

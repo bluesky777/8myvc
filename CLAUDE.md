@@ -3,12 +3,13 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 `8myvc` es la API del sistema escolar MyVc: Laravel 13 + PHP 8.4, ~37.000 líneas
-en `app/`, **114 ficheros de controlador — 117 clases** (recontados el 4 sep 2026;
-decían 113 y 116, y el trait `Concerns/ResuelveElUsuario.php` **no cuenta**: es el
-ficheros 115 del directorio y no declara ninguna clase), porque
+en `app/`, **115 ficheros de controlador — 118 clases** (recontados el 5 sep 2026 al
+entrar `PlantillaNotasController`; el 4 sep eran 114 y 117, y antes decían 113 y 116, y el
+trait `Concerns/ResuelveElUsuario.php` **no cuenta**: es el fichero 116 del directorio y no
+declara ninguna clase), porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
-**568 rutas** (contadas con
-`route:list --json` el 4 sep 2026; el 24 ago el de rutas se movió por primera vez,
+**577 rutas** (contadas con
+`route:list --json` el 5 sep 2026; el 24 ago el de rutas se movió por primera vez,
 de 539 a 542, con los tres endpoints que pidió `myvc_flutter`, el 28 a 543 con
 `PUT users/mi-docente`, que pidió Joseth para el panel de `app2`, el 31 a 544 con
 `GET grupos/{grupo_id}/alumnos-de/{que}`, que pidió el front para el modal de
@@ -54,7 +55,21 @@ nadie**. Joseth decidió el color «automático inicial, cambiable», y **quién
 también los coordinadores, o sea `puedePublicarHorario` y **no** la ficha del docente, que
 exige `esSuperusuario` dentro y lo habría dejado en once personas y ningún coordinador —**la
 salida barata no era la misma decisión con menos trabajo, era otra decisión**. **568 se
-contó con `route:list --json`, no se sumó.** «El de rutas no se mueve»
+contó con `route:list --json`, no se sumó.** Y ese mismo día a **577** con **las nueve de
+`plantilla-notas/`** —el `GET`, los seis de unidad y subunidad, `orden` y `sembrar`—, que
+son la **Entrega 1** de `docs/migracion/28-competencias-e-indicadores.md` y sacan la
+plantilla de notas del colegio de **phpMyAdmin**, que es literalmente donde se editaba. Las
+nueve las autorizó Joseth **a la vez y con el precio delante**, por la misma razón que las
+tres primeras de `horario/`: con el `GET` y los `POST` se puede escribir una plantilla y
+**nadie puede aplicarla**. Van con `auth.personal` en la ruta y un permiso nuevo
+—`can_edit_plantilla_notas`— **dentro**, porque `auth.personal` deja pasar a cualquier
+docente y una fila de esa plantilla **multiplica**: un 90 % escrito ahí es un 90 % en todas
+las asignaturas que se siembren. Entraron junto con el **alcance** de la Entrega 7(a) —dos
+columnas anulables en `unidades_por_defecto`— y no por comodidad: **las columnas sin
+pantalla no las puede escribir nadie**, que es el caso `profesores.tono` del día anterior
+visto antes de cometerlo, y la pantalla sin alcance le siembra la plantilla de una fila de
+preescolar **a todo el bachillerato**. **577 se contó con `route:list --json`, no se
+sumó** — coincidió con 568 + 9. «El de rutas no se mueve»
 sigue siendo la
 regla: una ruta nueva es una decisión, no un efecto secundario, y mueve este
 documento y **tres** snapshots, no dos: `rutas.json`, `guards-por-ruta.json` y
@@ -68,6 +83,15 @@ llevan guard).
 > rojo que lo delatara: los tres snapshots sí se actualizaron, porque los mueve un
 > test. **El número de este fichero no lo comprueba nadie**, y por eso se cuenta con
 > `route:list` el día que se toca en vez de sumarle uno al que había.
+>
+> **Y volvió a pasar el 5 sep 2026, en la misma dirección y por el mismo sitio.** La rama de
+> la plantilla de notas escribió arriba el relato entero de sus nueve rutas y su **577**
+> —contado, con su razón y con el precio delante— **y dejó el contador de la primera línea en
+> 568**. O sea que el párrafo que explica el número y el número **se contradecían dentro del
+> mismo fichero**, y de los dos el que se lee primero es el de arriba. No lo cazó ningún test
+> —no hay ninguno que mire esta cifra—: lo cazó contar el router en el árbol principal después
+> de fundir, que es lo que este párrafo manda hacer. *Un aviso que ya está escrito no protege
+> solo; sólo protege el día que alguien hace lo que dice.*
 
 Las tablas de `DESPLIEGUE.md` **no** se tocan al añadir una ruta: son lo que se midió
 el día de un despliegue, y se remiden el día del siguiente. El plan, las mediciones y

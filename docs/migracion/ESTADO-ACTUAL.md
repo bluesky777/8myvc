@@ -412,6 +412,57 @@ ejercitado **por los tres lados** sobre la copia de `simonbolivar` (102 tablas, 
 > `PATH` que hace fallar sólo esa llamada: un guard cuyo motivo entero es no mandar a nadie a
 > mirar donde no es no puede permitirse imprimir una orden inventada.
 
+**5 sep 2026 — LA TANDA DEL DÍA 10 ES DE SIETE Y ESTÁ ENSAYADA: 1.659 ms SOBRE 1,17 MILLONES
+DE NOTAS** · `docs/DESPLIEGUE.md` (tabla, rollback y la comprobación), `tools/ensayo-de-la-tanda.sh`
+(cabecera) y esta casilla · **cero código de la API, el router quieto en 577**
+
+> Las dos migraciones de la plantilla entraron detrás de la consolidación de `8myvc-47`, así que
+> **la tanda cambió de contenido y había que remedirla**. Remedida, no supuesta.
+>
+> | | |
+> |---|---|
+> | migraciones que entran | **7** — `git diff --name-only 9474b50 HEAD -- database/migrations/` |
+> | corren | **7 de 7**, **1.659 ms** las migraciones · **4.569 ms** el comando |
+> | población | copia de `simonbolivar`: 210 MB, 102 tablas, **1.166.139 filas en `notas`** |
+> | delta real | **8 tablas nuevas**, **20 columnas nuevas** en 7 tablas, **1 retirada** |
+> | la copia migrada contra el origen | idénticas: **1.528 columnas, mismo tipo** · pendientes **0** |
+> | horario en la copia | `200` con `total: 0` y el `403` donde toca — **LLEGÓ** |
+>
+> **El 7 se contó, no se sumó.** `47` dejó 5 en `main` y yo traigo 2; 5 + 2 habría acertado el
+> número **describiendo mal la tanda**, que es justo lo que avisa el bloque de rollback desde su
+> fusión: **una migración son ahora varias columnas de varias tablas**, así que el `--step` y «lo
+> que cambia» dejaron de ser intercambiables. El bloque de rollback pasa a `--step=7` y `tail -9`.
+>
+> ### LA COMPROBACIÓN DE DIEZ SEGUNDOS AHORA PREGUNTA POR LO QUE NO ES UNA COLUMNA
+>
+> Se le añadieron las dos columnas de `unidades_por_defecto` **y la fila
+> `can_edit_plantilla_notas` de `permissions`**. Esa última es la que ninguna comprobación de
+> esquema habría cazado y **es la que falla en silencio**: sin ella la pantalla de la plantilla
+> funciona, pero **sólo para superusuarios** — el síntoma no es un error, es que a rectoría «no le
+> sale el menú». El ensayo verifica la cobertura y dice *«de cada tabla que cambia pregunta al
+> menos una cosa»*, que es la regla que nació el día que se le quedó fuera `profesores.tono`.
+>
+> > ⚠️ **Y esa línea del permiso dirá siempre `FALTA` contra una base de TESTS**, y no es un
+> > fallo: `test-seed.sql` hace `TRUNCATE TABLE permissions` **después** de migrar. Medido sobre
+> > `simonbolivar_testing_p`: las dos columnas aparecen y el permiso no, con 19 filas en
+> > `permissions`. Se corre contra la base del colegio, no contra una de pruebas — está escrito
+> > al lado de la comprobación para que nadie la «arregle».
+>
+> ### Y UNA TRAMPA DEL PROPIO ENSAYO, PAGADA AQUÍ
+>
+> **`PHP_EXEC` no lleva `-w` por defecto**, así que `artisan` corre en el árbol **principal**.
+> Desde un worktree, las migraciones que sólo existen en tu rama salen **`Migration not found`**
+> en el rebobinado y el ensayo aborta con `NO MEDIDO` — que **se lee como «la tanda está mal» y
+> es «estás midiendo otro árbol»**, porque las de `main` sí ruedan y las tuyas no. Es la misma
+> trampa que `construir-bd-test.sh` ya documenta **y detecta**; **ésta la detecta desde
+> `ed542ff`** —punto 1.bis, ejercitado por los tres lados y visto abortar—, y la cabecera lleva
+> la orden completa al lado.
+>
+> > *Cuando se escribió esta casilla todavía no la detectaba, y era cierta. **Se corrige en la
+> > fusión y no se deja envejecer**: «hay que acordarse» es una instrucción, y una instrucción
+> > no envejece a «hecho», envejece a mentira. Es la misma lección de la casilla de arriba, y
+> > la primera vez que se aplica sin que nadie tropiece antes.*
+
 **5 sep 2026 — «EL SERVIDOR NO GUARDA LA DISPONIBILIDAD» ERA FALSO, Y LA FRASE TENÍA UN
 LECTOR HOY** · `HorarioController` (el veredicto de la subida y el renglón del catálogo) y
 esta casilla · **el router no se mueve: 568** · pint PASS · larastan `[OK] No errors`
@@ -881,6 +932,100 @@ código, el router no se mueve: 568** · lo destapó una publicación accidental
 >
 > **`putOficial` no se toca y no se propone tocarlo.** El peaje está bien pensado y el 200 del
 > caso limpio puede ser la decisión correcta. **Lo que faltaba era que estuviera dicho.**
+**4 sep 2026 — LA PLANTILLA DE NOTAS SALE DE phpMyAdmin: LAS NUEVE DE `plantilla-notas`,
+EL ALCANCE DE PREESCOLAR Y EL ROUTER EN 577** · `PlantillaNotasController`,
+`App\Support\AlcanceDeLaPlantilla`, `routes/api/plantilla.php`, **dos migraciones**,
+`UnidadesController`, `YearsController`, `Autoriza`,
+`tests/Contrato/PlantillaNotasTest` (**21 casos**) y
+`tests/Contrato/AlcanceDeLaPlantillaTest` (**9 casos**), `CLAUDE.md`,
+[28](28-competencias-e-indicadores.md) y **los tres snapshots** · **577 rutas, contadas
+con `route:list --json`** · pint PASS · larastan nivel 7 `[OK] No errors`
+
+> **La Entrega 1 y la 7(a) del [28](28-competencias-e-indicadores.md), juntas.** Hasta hoy
+> `unidades_por_defecto` y `subunidades_por_defecto` **se editaban a mano en la base**: ésa
+> es la frase entera del problema que esto cierra.
+>
+> ### POR QUÉ VAN JUNTAS, Y NO ES POR COMODIDAD
+>
+> La 7(a) sola son **dos columnas que no puede escribir nadie** —la única pantalla que crea
+> filas de plantilla es la Entrega 1—, o sea el caso `profesores.tono` de ayer **otra vez**,
+> con la única diferencia de que esta vez se vio **antes** de escribirlo. Y la Entrega 1
+> sola le siembra la plantilla de una fila de preescolar **a todo el bachillerato**. Joseth
+> aprobó el lote con el precio delante: **9 rutas, 2 migraciones, el arreglo de
+> `YearsController` y el router de 568 a 577**.
+>
+> ### LO QUE NO ENTRÓ, DICHO AQUÍ Y NO EN UNA NOTA AL PIE
+>
+> **El candado del docente (decisión 5) NO está.** El documento dice «entra con la Entrega
+> 1, no después» y **tiene razón en el orden y aun así no se puede cumplir hoy**: cambia
+> respuestas de éxito por **403 en nueve rutas vivas** que notan los tres editores, y la
+> §5.1.e exige contar antes el censo de `por_defecto = 1` **en los diecisiete colegios** —
+> que no se corre desde una sesión de desarrollo, hace falta el servidor. Lo que había que
+> decidir no era si se pone sino **si se corre el censo antes o se acepta ponerlo a ciegas**,
+> y **Joseth eligió el censo** (decisión 14, cerrada el 4 sep 2026). O sea que **el candado
+> es trabajo del día del despliegue**, con el bucle de `DESPLIEGUE.md`, y no de una noche de
+> código.
+>
+> ### DOS HALLAZGOS QUE NO ESTABAN EN EL DOCUMENTO
+>
+> **1. `YearsController:278` dejaba escapar el alcance, y el síntoma habría sido el
+> contrario del que se busca.** Ese `INSERT` copia la plantilla al año siguiente **nombrando
+> columnas**. Sin añadir las dos nuevas no habría sido «no se copia el alcance», que se
+> nota: habrían nacido a NULL, y **NULL significa «a todos»** — la plantilla de una fila de
+> preescolar sembrada en enero **en todo el bachillerato**, con un 200 y sin un error en
+> ningún log. Es el **hermano por el lado contrario** del fallo de la §1.bis, que hacía
+> llegar la plantilla **vacía**. Los dos son mudos y los dos aparecen en enero.
+>
+> **2. La rejilla de indicadores (7c) está BLOQUEADA por una contradicción del propio
+> documento.** §5.7.c dice que marca con «el mismo `indicador_id` que ya propone §5.3»;
+> §5.3 pone esa columna en **`subunidades`**, que es otra tabla, y la declara *decisión
+> aparte*. Comprobado contra el volcado: **`frases_asignatura` no tiene `indicador_id`** —
+> sólo `frase_id` (→ `frases`, el catálogo que §5.3 descarta) y `frase`. Las dos salidas y
+> la recomendación quedan escritas en §5.7.c; **es la decisión 15, abierta**.
+>
+> ### EL CONTROL QUE NO SE PUSO ROJO, QUE ES LO QUE HAY QUE CONTAR DE ESTA NOCHE
+>
+> | control | qué cae |
+> |---|---|
+> | quitar `puedeEditarPlantillaNotas` del controlador | **9** de 21 |
+> | quitar el filtro de alcance del sembrador | **7** de 9 |
+> | `YearsController` sin copiar las dos columnas | **1**, el de la fuga |
+> | quitar la regla 5 (`alumno_id IS NULL`) de `sembrar` | **1** — *a la segunda* |
+>
+> **El cuarto salió VERDE la primera vez, con el candado quitado.** El caso del boletín
+> independiente usaba la primera asignatura del seed, que ya tiene rejilla y notas: `sembrar`
+> la saltaba por `saltadas_por_notas` **antes de llegar a la regla 5**. O sea que el test
+> llevaba media hora afirmando que protegía el reparto de un independiente y lo que medía
+> era su propio nombre. Reescrito para montarse una asignatura limpia, cae con el mensaje
+> correcto. *Un control que no se corre no es un control, y uno que sale verde hay que mirar
+> por qué.*
+>
+> ### ⚠️ Y UNA CIFRA DE ESTA MISMA MAÑANA QUE HA ENVEJECIDO, DICHA Y NO ARREGLADA
+>
+> La casilla de más abajo dice **«568 de 568 — 100 %»** de cobertura de rutas. El router
+> está en **577**. Las nueve nuevas las cubre `PlantillaNotasTest`, **pero eso lo dice esta
+> casilla y no `cobertura-de-rutas.py`**: la pasada entera se corrió sin `COBERTURA_RUTAS`.
+> Así que a día de hoy el 100 % **está sin comprobar desde que entraron las nueve**, y se
+> escribe así en vez de darlo por bueno.
+>
+> **Se remide el día del despliegue y no ahora**, y no por tiempo: la medición útil es con
+> esta rama **y** la de las migraciones dentro de `main`, contando con `route:list --json`
+> sobre `main`. Medirla sobre una rama da un dato que caduca al fusionar.
+>
+> ### TRES COSAS QUE EL DISEÑO NO TENÍA Y EL CÓDIGO SÍ NECESITÓ
+>
+> - **El 422 del porcentaje es por grupo de alcance, no uno.** Desde que una fila puede ir
+>   dirigida, la suma que debe dar 100 **ya no es una**: comprobar la de la tabla entera daría
+>   200 en cuanto un colegio tenga una plantilla general y otra de preescolar, **las dos
+>   correctas**.
+> - **`sembrar` devuelve siete contadores, y uno cambió de nombre.**
+>   `saltadas_por_independiente`, que proponía la §5.1.c, **valdría cero siempre** —las filas
+>   con dueño no hacen saltar nada, que es justo la regla 5—, y un contador que no puede subir
+>   no dice si la regla llegó a correr. En su lugar, `independientes_respetadas`.
+> - **La precedencia necesitaba una decisión más**: «gana la más específica» es ambiguo con
+>   **dos** ejes. Se resolvió con cuatro gradas, aplicando **la grada entera** —mezclar dos da
+>   un reparto de 200 que nadie escribió— y con el **nivel ganando a la materia**, que es la
+>   única parte discutible y está argumentada en §5.7.a.
 
 **4 sep 2026 — LAS OCHO MIGRACIONES SIN DESPLEGAR, CONSOLIDADAS EN CINCO** · rama
 `fix/consolidar-migraciones` · `database/migrations/` (−3 ficheros), `docs/DESPLIEGUE.md`,
