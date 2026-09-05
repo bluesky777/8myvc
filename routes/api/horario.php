@@ -69,3 +69,41 @@ Route::put('horario/versiones/{id}/oficial', [HorarioController::class, 'putOfic
 |
 */
 Route::get('horario/versiones/{id}/lecciones', [HorarioController::class, 'getLecciones'])->middleware('auth.personal');
+
+/*
+|--------------------------------------------------------------------------
+| La quinta: el color de un docente
+|--------------------------------------------------------------------------
+|
+| §9.bis del 23. La decidió Joseth el 4 sep 2026 —«un color automático inicial,
+| pero que se pueda cambiar por el usuario»— y con ella cierra el hueco que
+| destapó `myvc-front-84` ese mismo día: la cuarta ruta LEE `profesores.tono` y
+| **no había en toda la API una sola escritura de esa columna**, así que el
+| renglón `tono` iba a salir `vacio` en los diecisiete para siempre.
+|
+| ## Por qué es ruta y no una línea en la ficha del docente
+|
+| El front costeó meterla en la lista blanca de `ProfesoresController::putUpdate`,
+| que no habría movido el router. No vale, y **no por trabajo sino por permiso**:
+| esa ruta exige `Autoriza::esSuperusuario` dentro, así que por ahí el color lo
+| elegirían once personas en toda la red y **ningún coordinador**. Joseth decidió
+| que lo elijan también los coordinadores.
+|
+| ## `puedePublicarHorario`, el mismo criterio que marcar la oficial
+|
+| Superusuario **o** `Coord académico`. No es `auth.personal` —que es el de
+| *mirar*— ni `esAdministrativo` —que es el de *subir*—: elegir los colores con
+| los que el colegio entero va a leer su horario se parece a publicarlo, no a
+| consultarlo. El guard de la ruta sigue siendo `auth.personal`, que cierra la
+| puerta a alumnos y acudientes antes de tocar el controlador; el criterio fino va
+| dentro, como en `putOficial`.
+|
+| **Aviso medido el 4 sep 2026: el rol `Coord académico` tiene CERO usuarios.** Así
+| que el primer día sólo podrán elegir colores los superusuarios, no por la regla
+| sino porque no hay a quién. No es un fallo de esta ruta y no se arregla aquí.
+|
+| El `{profesor_id}` va detrás de `docentes/`, literal, y seguido de un segmento
+| fijo: no tapa a ninguna de las cuatro de arriba ni ellas a ella.
+|
+*/
+Route::put('horario/docentes/{profesor_id}/tono', [HorarioController::class, 'putTonoDocente'])->middleware('auth.personal');

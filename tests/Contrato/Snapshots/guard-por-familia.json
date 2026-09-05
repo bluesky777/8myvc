@@ -196,8 +196,8 @@
         "con_guard": 4
     },
     "horario": {
-        "total": 4,
-        "con_guard": 4
+        "total": 5,
+        "con_guard": 5
     },
     "images-users": {
         "total": 10,
@@ -318,6 +318,10 @@
     "planillas-ausencias": {
         "total": 2,
         "con_guard": 2
+    },
+    "plantilla-notas": {
+        "total": 9,
+        "con_guard": 9
     },
     "preguntas": {
         "total": 7,

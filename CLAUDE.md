@@ -3,9 +3,11 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 `8myvc` es la API del sistema escolar MyVc: Laravel 13 + PHP 8.4, ~37.000 líneas
-en `app/`, **113 ficheros de controlador — 116 clases**, porque
+en `app/`, **114 ficheros de controlador — 117 clases** (recontados el 4 sep 2026;
+decían 113 y 116, y el trait `Concerns/ResuelveElUsuario.php` **no cuenta**: es el
+ficheros 115 del directorio y no declara ninguna clase), porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
-**567 rutas** (contadas con
+**568 rutas** (contadas con
 `route:list --json` el 4 sep 2026; el 24 ago el de rutas se movió por primera vez,
 de 539 a 542, con los tres endpoints que pidió `myvc_flutter`, el 28 a 543 con
 `PUT users/mi-docente`, que pidió Joseth para el panel de `app2`, el 31 a 544 con
@@ -42,7 +44,31 @@ sin ser descargar**: el fichero de proyecto no viaja (`docs/migracion/23-horario
 §9.bis). Su forma la decidió Joseth ese día sobre lo medido en los dos repositorios, y lo
 que la determinó fue que **esta base no puede devolver un proyecto completo**: por eso cada
 catálogo viaja con su estado —y son **cuatro**, porque «el colegio no creó ninguno» y «esta
-API no puede saberlo» no son lo mismo—. «El de rutas no se mueve»
+API no puede saberlo» no son lo mismo—. Y ese mismo día a **568** con **la quinta de
+`horario/`** —`PUT horario/docentes/{profesor_id}/tono`, el color de un docente—, que salió
+de un hueco que **no buscaba nadie**: la cuarta ruta **lee** `profesores.tono` y en toda la
+API **no había una sola escritura de esa columna**, así que el renglón iba a salir `vacio`
+en los diecisiete para siempre. Lo destapó `myvc_front` preguntando si `putUpdate` podía
+**borrar** el tono —no puede— y de camino salió que **tampoco podía ponerlo, ni él ni
+nadie**. Joseth decidió el color «automático inicial, cambiable», y **quién** lo cambia:
+también los coordinadores, o sea `puedePublicarHorario` y **no** la ficha del docente, que
+exige `esSuperusuario` dentro y lo habría dejado en once personas y ningún coordinador —**la
+salida barata no era la misma decisión con menos trabajo, era otra decisión**. **568 se
+contó con `route:list --json`, no se sumó.** Y ese mismo día a **577** con **las nueve de
+`plantilla-notas/`** —el `GET`, los seis de unidad y subunidad, `orden` y `sembrar`—, que
+son la **Entrega 1** de `docs/migracion/28-competencias-e-indicadores.md` y sacan la
+plantilla de notas del colegio de **phpMyAdmin**, que es literalmente donde se editaba. Las
+nueve las autorizó Joseth **a la vez y con el precio delante**, por la misma razón que las
+tres primeras de `horario/`: con el `GET` y los `POST` se puede escribir una plantilla y
+**nadie puede aplicarla**. Van con `auth.personal` en la ruta y un permiso nuevo
+—`can_edit_plantilla_notas`— **dentro**, porque `auth.personal` deja pasar a cualquier
+docente y una fila de esa plantilla **multiplica**: un 90 % escrito ahí es un 90 % en todas
+las asignaturas que se siembren. Entraron junto con el **alcance** de la Entrega 7(a) —dos
+columnas anulables en `unidades_por_defecto`— y no por comodidad: **las columnas sin
+pantalla no las puede escribir nadie**, que es el caso `profesores.tono` del día anterior
+visto antes de cometerlo, y la pantalla sin alcance le siembra la plantilla de una fila de
+preescolar **a todo el bachillerato**. **577 se contó con `route:list --json`, no se
+sumó** — coincidió con 568 + 9. «El de rutas no se mueve»
 sigue siendo la
 regla: una ruta nueva es una decisión, no un efecto secundario, y mueve este
 documento y **tres** snapshots, no dos: `rutas.json`, `guards-por-ruta.json` y
@@ -169,6 +195,8 @@ leyendo el código. Cada una lleva su uso en la cabecera.
 | `verdad-laxa-que-escribe.py` | dónde una cadena cualquiera del cliente vale por «sí» **y gobierna una escritura** — 21 de 980 `if`, tres con consecuencia |
 | `prevuelo-del-horario.php` | si los datos de un colegio sirven para cuadrar un horario — **la rejilla es un parámetro** (`--lecciones`), y con la de 6×5 que supuso la v1 el docente de 31 h era imposible |
 | `deriva-del-horario.php` | si las siete columnas de día siguen cuadrando con la versión oficial — **sin versión publicada sale `2`, NO MEDIDO**, porque ahí un `0` diría lo mismo que un año perfecto |
+| `ensayo-de-la-tanda.sh` | si la tanda de migraciones corre entera sobre una copia de un colegio de verdad y cuánto tarda — y **audita la comprobación de `DESPLIEGUE.md`**, que la saca del documento con `grep` en vez de copiarla |
+| `comprobar-el-horario.php` | si el módulo de horario **llegó** a un colegio: `200` con `total: 0` no es lo mismo que `404` ni que `500`, y desde la pantalla los tres son una rejilla vacía |
 
 Y una que **no** está en `tools/` y contesta la pregunta contraria:
 `tests/Barrido/SuperficieDeUnTokenTest.php` golpea la API entera con un token y

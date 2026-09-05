@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
 use App\Support\Autoriza;
+use App\Support\CamposQueVinieron;
 use App\Support\Reloj;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -748,8 +749,53 @@ class HorarioController extends Controller
                     'cuales' => $this->hastaCincuenta($sinIh),
                 ],
                 'salon' => 'NO COMPROBADO: falta capacidad_grupos en el servidor. La iglesia con seis grupos es indistinguible de dos grupos metidos en un aula, y la capacidad que viaja la elige el cliente — comprobar una regla contra un número que manda el mismo que quiere pasarla no es comprobar.',
-                'disponibilidad' => 'NO COMPROBADA: las disponibilidades viven en el fichero de proyecto, no en este servidor.',
-                'jornada' => 'NO COMPROBADA: la rejilla y los timbres viven en el fichero de proyecto, así que aquí no se sabe si la franja cae dentro de la jornada del nivel ni si cruza un descanso.',
+                // **Reescrito el 5 sep 2026: decía «no en este servidor» y era falso.**
+                // Medido sobre el proyecto de la versión oficial: **los 47 docentes traen
+                // la clave `disponibilidad`**, 26 con marcas de verdad —134 en total, 92
+                // `condicional` y 42 `inadecuado`— y eso vive en `horario_versiones.proyecto`,
+                // **que es una columna de esta base**.
+                //
+                // **Y esta cadena tiene un lector HOY, que es lo que la separa de las otras.**
+                // `escritorio/src/app/subir/veredicto.ts:212` la imprime **verbatim** —no tiene
+                // copia propia del texto—, así que la frase falsa se la está enseñando a un
+                // coordinador de colegio cada vez que alguien sube un horario. Se arregla en su
+                // pantalla en cuanto cambia aquí, sin que ellos toquen nada.
+                //
+                // **El daño ya salió de este repositorio**: `myvc-front-90` escribió y
+                // **commiteó** en su catálogo que las disponibilidades «no se guardan en el
+                // servidor», y con eso clasificó su informe como **no derivable**. Lo corrigió
+                // abriendo el blob, y la categoría pasó a **«falta ruta»** — un cartel
+                // completamente distinto. *No fue un error de lectura suyo: se creyó un cartel
+                // nuestro.*
+                //
+                // **Y las dos frases piden trabajos distintos, que es por lo que no es
+                // cosmético:** «no la guarda» pide **inventar un dato**; «la guarda y no la sabe
+                // consultar» pide **parsear el blob**. La frase de antes empujaba al primero.
+                'disponibilidad' => 'NO COMPROBADA: las disponibilidades declaradas SÍ están guardadas —dentro del fichero de proyecto de esta misma subida, en `horario_versiones.proyecto`— pero esta comprobación no las lee. No es que falte el dato: falta la comprobación.',
+                // **Reescrito el 5 sep 2026, y el anterior era falso por las DOS mitades.**
+                // Decía que la rejilla y los timbres «viven en el fichero de proyecto, así
+                // que aquí no se sabe si la franja cae dentro de la jornada del nivel ni si
+                // cruza un descanso». Medido sobre las siete versiones de `simonbolivar`:
+                // el fichero que se acaba de subir trae `proyecto.jornadaPorDefecto` **y**
+                // `proyecto.niveles[].jornada`, las dos con `dias`, `franjas`, `timbres` y
+                // `descansosTras`. O sea que **el dato está aquí, en el cuerpo de esta misma
+                // petición**, y desde el 4 sep esta API ya sabe leerlo.
+                //
+                // Sigue sin comprobarse, y ése es el punto: **lo que cambia es el porqué**.
+                // «No puedo» y «no lo hago» se leen igual en un veredicto y sólo el segundo
+                // se puede resolver — el primero hace que nadie vuelva a preguntar, que es
+                // exactamente lo que le pasó a los descansos, que llevaban dos días
+                // legibles y nadie los pidió porque el renglón de al lado decía que vivían
+                // en otro sitio.
+                //
+                // **Y lo que falta ahora es una decisión, no un dato**: si una franja fuera
+                // de la jornada de su nivel debe frenar la subida (422) o sólo avisar. Este
+                // texto lo dice para que la próxima persona sepa qué preguntar.
+                //
+                // Cambia lo que registran las subidas FUTURAS; las siete que ya existen
+                // conservan la frase con la que se guardaron, que es para lo que existe el
+                // veredicto guardado. Autorizado por Joseth el 5 sep 2026.
+                'jornada' => 'NO COMPROBADA, y no por falta de dato: el fichero que se acaba de subir trae la jornada por defecto y la de cada nivel —días, franjas, timbres y descansos—, y esta API sabe leerla. Lo que falta es la comprobación, y antes que ella la decisión de si una franja fuera de la jornada de su nivel frena la subida o sólo avisa.',
             ],
         ];
     }
@@ -944,7 +990,6 @@ class HorarioController extends Controller
         ]);
     }
 
-
     /**
      * `GET horario/versiones/{id}/lecciones` — el horario de una versión, **para
      * pintarlo**.
@@ -992,13 +1037,47 @@ class HorarioController extends Controller
      * un informe en cero hojas y eso se nota; a medias, seis hojas se quedan en tres y
      * **cero avisos**.
      *
-     * Por eso cada catálogo viaja con su estado y su población, y **son cuatro estados
+     * Por eso cada catálogo viaja con su estado y su población, y **son cinco estados
      * y no dos**:
      *
      *   - `completo`     lo guardamos y está todo.
      *   - `parcial`      lo guardamos y hay menos de lo que la versión usa.
      *   - `vacio`        lo guardamos, el colegio no creó ninguno, **y es legítimo**.
      *   - `sin_catalogo` **esta API no puede saberlo**, hoy ni por este camino.
+     *   - `ilegible`     **lo tenemos guardado y no se deja leer** — y tiene arreglo.
+     *
+     * ## El quinto entró el 4 sep 2026, y es el único que acusa a una subida concreta
+     *
+     * Decisión de Joseth. Nació de que `catalogos.timbres` decía *«viven en el fichero de
+     * proyecto»* — verdad que engaña, porque el fichero está en la columna de al lado— y de
+     * que al arreglar esa frase salió que **no había palabra para «lo tenemos y está roto»**.
+     *
+     * **`sin_catalogo` no servía, y meterlo ahí habría sido el mismo fallo con otro traje.**
+     * `sin_catalogo` afirma *«esta API no puede saberlo **por diseño**»*: es una frase sobre
+     * el **producto**, idéntica en los dieciséis colegios y que no arregla nadie desde la
+     * web. «El proyecto de este colegio no se deja leer» es sobre **ese colegio y esa
+     * subida**, y **tiene arreglo: volver a subirlo**. Juntarlas es `[]` contra `null` otra
+     * vez — y con la agravante de que tres renglones ya usan `sin_catalogo` con el primer
+     * significado, así que el cuarto lo habría usado con otro sin avisar.
+     *
+     * **Y de los cinco es el único que cambia lo que la persona debería hacer.** Los otros
+     * cuatro explícitamente no llevan llamada a la acción: `vacio` es legítimo y
+     * `sin_catalogo` no lo arregla nadie. *Ése es el argumento de que sea un estado y no un
+     * matiz dentro de otro.*
+     *
+     * **Y lo que decidió la forma frente a un campo `porque` dentro de `sin_catalogo` no fue
+     * la limpieza: fue quién queda obligado.** Medido por `myvc-front-b2` en su repositorio:
+     * sus cuatro `Record<EstadoDeCatalogo, …>` —palabra, icono, color y frase— **dejan de
+     * compilar** con un valor más en la unión, así que el compilador le exige nombrar el
+     * caso nuevo; con un campo al lado **no se rompe nada** y su panel pintaría, ante un
+     * proyecto ilegible, la palabra que hoy tiene para `sin_catalogo`: ***«No lo guarda el
+     * servidor»***, que es lo contrario de la verdad. `tsc` verde, pruebas verdes y la
+     * pantalla mintiendo. *Con el estado obliga el compilador; con el campo se obliga el
+     * cliente a sí mismo.*
+     *
+     * **Hoy tiene cero ejemplos** —las siete versiones de `simonbolivar` parsean— así que
+     * vive atado por tests y **no se ha visto nunca con datos reales**. Se dice porque unas
+     * pruebas verdes se leen dentro de seis meses como «esto se ha visto funcionar».
      *
      * **La tercera la obliga la restricción de Joseth del 4 sep 2026: el horario es
      * OPCIONAL.** Lo obligatorio en MyVC es crear asignaturas con IH; salones, dobles y
@@ -1032,8 +1111,27 @@ class HorarioController extends Controller
         // comprueba nadie. Y va en el `WHERE` junto al id, no en un `if` después: así
         // «no existe» y «no es de tu año» son la misma respuesta y no hay forma de
         // averiguar qué versiones tienen los otros años preguntando por ellas.
+        //
+        // ── Y `hv.proyecto` VIAJA A PHP, que es lo único caro de esta consulta.
+        //
+        // Se trae el blob entero —129.550 bytes en el más grande de los siete reales—
+        // para sacarle **un** dato: los descansos de la jornada. Medido el 4 sep 2026
+        // sobre la versión 7 de `simonbolivar`, 200 repeticiones:
+        //
+        //     sin el blob ......................... 0,78 ms
+        //     + traerlo + `json_decode` ........... 2,86 ms   (+2,07 ms)
+        //     `JSON_EXTRACT` dentro del SELECT .... 5,42 ms   (+4,64 ms)
+        //
+        // **La opción que parecía la barata es la cara, y por eso está escrito**: la
+        // columna es `mediumtext`, **no `json`**, así que MySQL no tiene un documento
+        // ya parseado que indexar — reconstruye el JSON entero en cada llamada, y lo
+        // hace más despacio que PHP. Un `JSON_EXTRACT` sobre una columna de texto no
+        // es una lectura barata: es un `json_decode` en el otro lado del cable.
+        //
+        // Los +2,07 ms van sobre una ruta que tarda **21,9 ms** y devuelve 114 KB
+        // (312 lecciones, medido igual): un **+9%**. Se paga.
         $version = DB::select(
-            'SELECT hv.id, hv.year_id, hv.nombre, hv.created_at, hv.comprobaciones,
+            'SELECT hv.id, hv.year_id, hv.nombre, hv.created_at, hv.comprobaciones, hv.proyecto,
                     IF(y.horario_version_id = hv.id, 1, 0) AS es_oficial
                FROM horario_versiones hv
                LEFT JOIN years y ON y.id = hv.year_id
@@ -1072,6 +1170,11 @@ class HorarioController extends Controller
         // real: 0 de 312, o sea que hoy no pasa — no que no pueda pasar.
 
         $docentesPorPieza = $this->docentesDeLaVersion($versionId);
+
+        // **Una sola vez por petición**, y de aquí salen dos cosas: los descansos de la
+        // jornada y si los tres catálogos que viven dentro del blob son `sin_catalogo`
+        // —no están en esta API por diseño— o `ilegible` —están aquí y no se dejan leer—.
+        $proyecto = $this->proyectoDeLaVersion($version[0]->proyecto);
 
         $lecciones = array_map(fn ($f) => [
             'id' => (int) $f->id,
@@ -1117,8 +1220,8 @@ class HorarioController extends Controller
                 // que es lo que corrigió `0faf099`.
                 'comprobaciones' => $this->veredictoGuardado($version[0]->comprobaciones),
             ],
-            'ejes' => $this->ejesDeLaVersion($lecciones),
-            'catalogos' => $this->catalogosDeLaVersion($yearId, $versionId, $lecciones),
+            'ejes' => $this->ejesDeLaVersion($lecciones, $this->descansosDelProyecto($proyecto)),
+            'catalogos' => $this->catalogosDeLaVersion($yearId, $versionId, $lecciones, $proyecto !== null),
             'lecciones' => $lecciones,
             // La población, delante y siempre. Sin ella `lecciones: []` se lee como
             // «todo bien» — que es literalmente el fallo de la §2, el que estuvo meses
@@ -1182,10 +1285,20 @@ class HorarioController extends Controller
      * escribirá alguien —y «no hace falta conversión» es justo la frase que hace que
      * nadie la busque.
      *
+     * ## `descansos_tras` es la excepción, y hereda la regla entera
+     *
+     * Es lo único de la jornada que el proyecto sí trae y que aquí se puede leer, así
+     * que viaja — pero **con los mismos tres estados que el resto de esta ruta**:
+     * `[3,5]` es dónde van las líneas gruesas, `[]` es **el colegio no descansa** —que
+     * es un dato— y `null` es **no lo sabemos**. Aplastar los dos últimos a `[]`
+     * convertiría «no lo sé» en «no hay recreo» y el front pintaría una parrilla
+     * corrida con toda la confianza del mundo.
+     *
      * @param  list<array<string, mixed>>  $lecciones
+     * @param  list<int>|null  $descansos
      * @return array<string, mixed>
      */
-    protected function ejesDeLaVersion(array $lecciones): array
+    protected function ejesDeLaVersion(array $lecciones, ?array $descansos = null): array
     {
         $dias = array_values(array_unique(array_column($lecciones, 'dia')));
         $franjas = array_values(array_unique(array_column($lecciones, 'franja')));
@@ -1203,7 +1316,139 @@ class HorarioController extends Controller
             // **`null`, y no una jornada por defecto.** Ver arriba: reconstruirla apaga
             // el centinela del escritorio justo en el caso para el que existe.
             'timbres' => null,
+            // Dónde van las líneas gruesas del recreo. **Base 1 y «tras»**: un `3`
+            // significa *después de la tercera lección*, no *en la tercera*.
+            //
+            // **No se recorta contra `franjas`** aunque se pudiera: `franjas` son las
+            // que ESTA versión usa y el proyecto declara la jornada del colegio, así
+            // que un descanso tras la 7 en una versión que sólo llega a la 5 es
+            // legítimo — el colegio descansa ahí aunque esta versión no lo alcance.
+            // Filtrarlo escondería el dato en vez de comprobarlo.
+            'descansos_tras' => $descansos,
         ];
+    }
+
+    /**
+     * El fichero de proyecto **decodificado**, o `null` si no se pudo leer.
+     *
+     * Se decodifica **una sola vez por petición** y el resultado se reparte: de aquí
+     * salen los descansos (`ejes.descansos_tras`) y el estado `ilegible` de los tres
+     * catálogos que viven dentro del blob. Decodificarlo dos veces costaría otros
+     * 2 ms medidos, y peor: **las dos lecturas podrían discrepar**, que es la forma de
+     * la que salen dos verdades sobre el mismo hecho.
+     *
+     * **`null` significa «este fichero no se puede leer como proyecto»**, y es más ancho
+     * que «el JSON está corrupto»: también lo es un JSON válido que no trae un objeto
+     * `proyecto` dentro. Las dos cosas significan lo mismo para quien lo subió —*lo que
+     * mandaron no se lee como un proyecto*— y **no se separan a propósito**: `myvc-front-b2`
+     * confirmó el 4 sep 2026 que no tiene nada distinto que pintar con ellas, y un cuarto
+     * caso que nadie distingue es el error del que viene todo este módulo.
+     *
+     * @return array<string, mixed>|null
+     */
+    protected function proyectoDeLaVersion(?string $blob): ?array
+    {
+        if ($blob === null || $blob === '') {
+            return null;
+        }
+
+        $leido = json_decode($blob, true);
+
+        if (! is_array($leido) || ! isset($leido['proyecto']) || ! is_array($leido['proyecto'])) {
+            return null;
+        }
+
+        return $leido['proyecto'];
+    }
+
+    /**
+     * Los descansos que declara el fichero de proyecto, **con sus tres estados**.
+     *
+     * `proyecto.jornadaPorDefecto.descansosTras` dentro del blob —el camino es real y
+     * está medido: los **siete** `horario_versiones` de `simonbolivar` traen
+     * `{"dias":[1,2,3,4,5],"franjas":7,"timbres":null,"descansosTras":[3,5]}`—. Es lo
+     * único de la jornada que este servidor puede contestar sin inventarse nada, y por
+     * eso es lo único que sale.
+     *
+     * | lo que dice el proyecto | lo que devuelve |
+     * |---|---|
+     * | `descansosTras: [3,5]` | `[3, 5]` |
+     * | `descansosTras: []` | `[]` — **el colegio no descansa**, y eso es un dato |
+     * | no hay clave, el blob no parsea, o no es lo que se espera | `null` — **no lo sabemos** |
+     *
+     * **La tercera fila es la razón de que este método exista y no sea un `??`.** Es la
+     * misma distinción que sostiene `vacio` contra `sin_catalogo` en los catálogos: si
+     * «no lo sé» saliera como `[]`, el front pintaría una parrilla corrida y **nadie
+     * recibiría ningún error** — la hoja bien maquetada y falsa que este módulo lleva
+     * dos documentos evitando.
+     *
+     * **Un `json_decode` que falla NO revienta la ruta**: cae a `null`, que para eso
+     * está la tercera fila. Y no es un caso de laboratorio — el blob es texto libre de
+     * 129.550 bytes que sube un programa de escritorio, así que un fichero a medias es
+     * de las cosas que pasan.
+     *
+     * **Y una lista con un elemento que no es un entero sale `null` entera**, no
+     * filtrada. Filtrar dejaría las líneas buenas y borraría la mala **sin decirlo**, y
+     * una línea gruesa en el sitio equivocado es indistinguible de una correcta: es
+     * exactamente la familia de fallo que el convenio `0 = domingo` se declara para
+     * evitar. Un dato que no se entiende entero no se entiende.
+     *
+     * ## ⚠️ SI VIENES A SIMPLIFICAR ESTO, LEE ESTO PRIMERO
+     *
+     * La versión corta —`$blob['proyecto']['jornadaPorDefecto']['descansosTras'] ?? null`—
+     * **es más corta y hace otra cosa**. Y el motivo que yo mismo tenía escrito para
+     * rechazarla era **falso**: *«sin comprobar las formas, la ruta se cae»*. No se cae.
+     * Medido el 4 sep 2026 sustituyendo el método entero: el `??` sobre un offset de
+     * cadena devuelve `null` tan tranquilo y **los cuatro casos rotos siguen dando 200**.
+     *
+     * Lo que hace de verdad es **devolver tal cual lo que hubiera ahí** — y ahí lo escribe
+     * un programa de escritorio, en un blob de 129.550 bytes. O sea que el campo se
+     * convierte en **una puerta de salida del fichero de proyecto con nombre de dato**, en
+     * la ruta cuyo contrato es que *mirar no es llevarse* (decisión 12, §9.bis). *Comprobar
+     * la forma se escribió por corrección y resultó ser una guarda de seguridad.*
+     *
+     * **Y el test que ya vigilaba la fuga no lo habría visto**: su marca vive en
+     * `programa`, fuera de `descansosTras`. Por eso hay un caso que mete la marca **dentro
+     * del propio valor** (`la_comprobacion_de_forma_tambien_cierra_la_fuga`), que es el
+     * único sitio donde la versión corta la dejaría salir.
+     *
+     * **Y esta guarda ya no protege un campo.** Todo lo que la pantalla del horario vaya
+     * pidiendo del escritorio —jornadas por nivel, disponibilidades declaradas, las piezas
+     * sin colocar, la plantilla— **sale de este mismo blob y va a pasar por esta misma
+     * puerta**. *(`8myvc-7c` dice que Joseth aprobó la decisión 38 de `myvc_horarios` ese
+     * día con exactamente esa lista; eso no está en este repositorio y aquí no se ha
+     * comprobado — lo que sí está comprobado es que **el blob es la única fuente de las
+     * cuatro**, así que la conclusión no depende de esa decisión.)*
+     *
+     * @return list<int>|null
+     */
+    protected function descansosDelProyecto(?array $proyecto): ?array
+    {
+        if ($proyecto === null) {
+            return null;
+        }
+
+        $jornada = $proyecto['jornadaPorDefecto'] ?? null;
+
+        if (! is_array($jornada) || ! array_key_exists('descansosTras', $jornada)) {
+            return null;
+        }
+
+        $descansos = $jornada['descansosTras'];
+
+        // `array_is_list` y no `is_array` a secas: un objeto JSON llega también como
+        // array de PHP, y `{"a":3}` no es una lista de franjas.
+        if (! is_array($descansos) || ! array_is_list($descansos)) {
+            return null;
+        }
+
+        foreach ($descansos as $tras) {
+            if (! is_int($tras)) {
+                return null;
+            }
+        }
+
+        return $descansos;
     }
 
     /** `years.minu_hora_clase` del año del token; `null` si el año no lo tiene puesto. */
@@ -1224,7 +1469,7 @@ class HorarioController extends Controller
      * @param  list<array<string, mixed>>  $lecciones
      * @return array<string, array<string, mixed>>
      */
-    protected function catalogosDeLaVersion(int $yearId, int $versionId, array $lecciones): array
+    protected function catalogosDeLaVersion(int $yearId, int $versionId, array $lecciones, bool $proyectoLegible = true): array
     {
         $total = count($lecciones);
 
@@ -1287,18 +1532,73 @@ class HorarioController extends Controller
                 'hay_ids' => false,
                 'motivo' => 'sólo viaja el nombre que mandó la subida: el servidor no guarda salones (§4)',
             ],
-            'timbres' => [
-                'estado' => 'sin_catalogo',
-                'motivo' => 'la rejilla, los timbres y las jornadas por nivel viven en el fichero de proyecto (§4)',
-            ],
-            'disponibilidad' => [
-                'estado' => 'sin_catalogo',
-                'motivo' => 'ídem: el servidor no guarda la disponibilidad declarada (§4)',
-            ],
-            'restricciones' => [
-                'estado' => 'sin_catalogo',
-                'motivo' => 'ídem: restricciones, pesos y distribuciones de bloque (§4)',
-            ],
+            // **El motivo se reescribió el 4 sep 2026, y no por estilo: el anterior era
+            // verdad y engañaba.** Decía *«la rejilla, los timbres y las jornadas por
+            // nivel viven en el fichero de proyecto (§4)»*, que describe **de dónde
+            // viene el dato** y se lee como **que el servidor no lo tiene** — y el
+            // fichero está en la columna de al lado de esta misma tabla. Quien leyera
+            // eso archivaba la pregunta, que es lo que pasó: los descansos llevaban
+            // desde el 2 sep dentro del blob que esta ruta ya lee, a un `json_decode`
+            // de distancia, y nadie los pidió porque el renglón parecía cerrado. Lo
+            // levantó `myvc-front-c0`.
+            //
+            // El estado **sigue siendo `sin_catalogo` y eso es correcto**: los timbres
+            // son las horas de reloj, y `jornadaPorDefecto.timbres` vale `null` en los
+            // siete proyectos reales — el colegio no los ha dado. *Lo que este renglón
+            // ya no hace es afirmar una imposibilidad que dejó de ser cierta.*
+            // ── LOS TRES QUE SALEN DEL BLOB, y los tres cambian JUNTOS
+            //
+            // Si el fichero de proyecto no se deja leer, los tres son `ilegible` a la vez:
+            // es un hecho **del fichero**, no de cada catálogo. Marcar sólo `timbres` —que
+            // es donde el front lo pidió primero— habría dejado a los otros dos diciendo
+            // «no viaja», que es una afirmación sobre el **diseño de la API**, cuando lo
+            // cierto sería «no se pudo leer», que es sobre **ese colegio**. O sea: un
+            // renglón diciendo la verdad y dos acompañándolo con la frase de antes. Lo vio
+            // `myvc-front-b2` el 4 sep 2026 sobre su propia propuesta.
+            'timbres' => $this->renglonDelProyecto($proyectoLegible,
+                'las horas de reloj no están en ninguna tabla: sólo dentro del fichero de proyecto, '
+                .'y ahí el colegio no las ha dado. De ese mismo fichero sí sale ya `ejes.descansos_tras`'),
+            // **`ídem` ya no vale aquí, y por eso este renglón se aparta de sus dos
+            // vecinos.** Decía *«el servidor no guarda la disponibilidad declarada»* y es
+            // **falso**: los 47 docentes la traen dentro del fichero de proyecto, que es
+            // una columna de esta base. Lo que no hay es **tabla que consultar**, que es
+            // otra cosa — y la diferencia decide qué trabajo pide: inventar un dato, o
+            // parsear el blob.
+            'disponibilidad' => $this->renglonDelProyecto($proyectoLegible,
+                'está guardada dentro del fichero de proyecto, no en una tabla: esta ruta todavía no la parsea (§4)'),
+            'restricciones' => $this->renglonDelProyecto($proyectoLegible,
+                'ídem: restricciones, pesos y distribuciones de bloque (§4)'),
+        ];
+    }
+
+    /**
+     * El renglón de un catálogo que sólo existe dentro del fichero de proyecto.
+     *
+     * `sin_catalogo` cuando el fichero se lee y sencillamente esto no viaja por aquí;
+     * **`ilegible` cuando el fichero está guardado y no se deja leer**, que es otra cosa y
+     * es la que tiene arreglo — volver a subir el proyecto.
+     *
+     * **El `motivo` de `ilegible` es el mismo para los tres a propósito**: la causa no es
+     * de cada catálogo, es del fichero. Y **no dice por qué no se pudo leer** —si el JSON
+     * está roto o si lo que subieron no es un proyecto— porque el servidor no distingue las
+     * dos y **una pantalla no debe afirmar una causa que la API no le ha dado**.
+     *
+     * *Y el `motivo` no llega al usuario: `myvc-front-b2` no lo imprime —está redactado
+     * para quien lee la API y es el mismo texto en los dieciséis colegios—. **Lo que llega
+     * a la pantalla es el `estado`**, y por eso el quinto tenía que ser un estado.*
+     *
+     * @return array<string, string>
+     */
+    protected function renglonDelProyecto(bool $legible, string $motivoCuandoSeLee): array
+    {
+        if ($legible) {
+            return ['estado' => 'sin_catalogo', 'motivo' => $motivoCuandoSeLee];
+        }
+
+        return [
+            'estado' => 'ilegible',
+            'motivo' => 'el fichero de proyecto de esta versión está guardado y no se pudo leer, '
+                .'así que de esto no se sabe nada: hay que volver a subirlo',
         ];
     }
 
@@ -1739,6 +2039,151 @@ class HorarioController extends Controller
             'pieza_id' => $piezaId,
             'motivo' => $motivo,
             'piezas_revisadas' => $revisadas,
+        ]);
+    }
+
+    /**
+     * El color de un docente. **La única escritura de `profesores.tono` que existe.**
+     *
+     * ## Por qué es una ruta y no una entrada en la ficha
+     *
+     * El front costeó meterla en la lista blanca `$deLaFicha` de
+     * `ProfesoresController::putUpdate`, que no habría movido el router. **No vale, y no
+     * por trabajo sino por permiso**: esa ruta exige `Autoriza::esSuperusuario` dentro del
+     * método, así que por ahí el color lo elegirían **once personas en toda la red y ningún
+     * coordinador**. Joseth decidió el 4 sep 2026 que lo elijan **también los
+     * coordinadores**, y ese criterio ya tiene nombre aquí: `puedePublicarHorario`
+     * —superusuario **o** `Coord académico`—, el mismo con el que se marca la versión
+     * oficial. *La salida barata no era la misma decisión con menos trabajo: era otra
+     * decisión.*
+     *
+     * **Y no se le cambia el criterio a `putUpdate` para conseguirlo**: esa ruta edita la
+     * ficha entera de un docente —diecisiete campos, documento y domicilio incluidos— y
+     * abrirla para que quepa un color es ensancharla para todo lo demás.
+     *
+     * ## La validación no es cosmética: sin ella el fallo es SEGURO Y MUDO
+     *
+     * Medido por `myvc_front` en `comunes/tono-docente/tono-docente.ts:353`: el cliente
+     * acepta `#rgb` y `#rrggbb` y **rechaza los nombres de CSS y `rgb(...)`**, porque de
+     * ésos no se puede sacar la luminancia sin un navegador delante. Y cuando rechaza,
+     * `marcaDeDocente` **se cae al color automático**.
+     *
+     * O sea que un `rebeccapurple` guardado sin comprobar **se da por guardado, no se pinta
+     * nunca y nadie se entera**: el filtro del cliente sólo sabe *no pintar*, no sabe
+     * *avisar*. El 422 de aquí es lo único que convierte «no se ve» en «no se pudo
+     * guardar».
+     *
+     * ## El nulo es el BORRADO, y no es un caso excepcional
+     *
+     * Devuelve al docente a su color automático. `tono` **nace nulo en los diecisiete**, así
+     * que el nulo no es un caso raro: es **el estado de partida de todos**, y una ruta que
+     * no supiera volver a él dejaría a un colegio sin marcha atrás desde el primer color
+     * que pusiera. Se manda `tono: null` (o cadena vacía, que aquí cuenta como nulo).
+     *
+     * **La clave ausente NO es un borrado.** Un cuerpo sin `tono` es un cuerpo mal formado
+     * y sale 422: si valiera por «borra», cualquier petición a medias apagaría un color sin
+     * que nadie lo pidiera. Es la distinción que `CamposQueVinieron` existe para hacer.
+     */
+    public function putTonoDocente($profesorId): JsonResponse
+    {
+        Autoriza::exigir(Autoriza::puedePublicarHorario($this->user),
+            'No tienes permiso para cambiar el color de un docente.');
+
+        $id = (int) $profesorId;
+
+        /*
+         * El docente se comprueba contra `profesores`, no contra los que tienen
+         * asignación. Un docente sin clases este año **sigue siendo un docente** y su
+         * color puede repartirse por adelantado; atarlo al año lo convertiría en un 404
+         * que cambia solo en enero.
+         */
+        $existe = DB::select('SELECT p.id FROM profesores p WHERE p.id = ? AND p.deleted_at IS NULL', [$id]);
+
+        if ($existe === []) {
+            abort(404, 'Ese docente no existe.');
+        }
+
+        $vinieron = CamposQueVinieron::capturar();
+
+        if (! $vinieron->trae('tono')) {
+            $this->rechazar([
+                'message' => 'Falta el campo `tono`. Para borrar el color, mándalo con valor nulo.',
+                'campo' => 'tono',
+                'motivo' => 'ausente',
+            ]);
+        }
+
+        $tono = $this->tonoNormalizado(Request::input('tono'));
+
+        DB::update('UPDATE profesores SET tono = ? WHERE id = ?', [$tono, $id]);
+
+        return response()->json([
+            'profesor_id' => $id,
+            'tono' => $tono,
+        ]);
+    }
+
+    /**
+     * `#rrggbb` en minúsculas, o `null` si es un borrado. Cualquier otra cosa, 422.
+     *
+     * **Se normaliza al guardar y no al leer**, y eso es lo que hace que la comparación
+     * del cliente funcione: `tono-docente.ts` acepta las cuatro formas de escribir el
+     * mismo color —con `#` o sin él, en mayúsculas o minúsculas, de tres dígitos o de
+     * seis— y si la base guardara las cuatro, dos docentes del mismo color se leerían
+     * como distintos en cualquier comparación de cadenas.
+     *
+     * El `#rgb` se expande a `#rrggbb` duplicando cada dígito, que es lo que hace el
+     * navegador: `#0af` es exactamente `#00aaff` y guardarlo corto sólo deja dos
+     * representaciones del mismo color.
+     */
+    private function tonoNormalizado(mixed $crudo): ?string
+    {
+        if ($crudo === null) {
+            return null;
+        }
+
+        if (! is_string($crudo)) {
+            $this->rechazarTono($crudo, 'no es una cadena');
+        }
+
+        $t = strtolower(trim($crudo));
+
+        // La cadena vacía cuenta como nulo: un `<input>` vaciado a mano manda `''`, y
+        // exigirle al cliente que distinga `''` de `null` es pedirle que acierte en algo
+        // que su propio formulario no distingue.
+        if ($t === '') {
+            return null;
+        }
+
+        if (str_starts_with($t, '#')) {
+            $t = substr($t, 1);
+        }
+
+        if (preg_match('/^[0-9a-f]{3}$/', $t) === 1) {
+            $t = $t[0].$t[0].$t[1].$t[1].$t[2].$t[2];
+        }
+
+        if (preg_match('/^[0-9a-f]{6}$/', $t) !== 1) {
+            $this->rechazarTono($crudo, 'sólo se aceptan `#rgb` y `#rrggbb`; los nombres de CSS y `rgb(...)` no');
+        }
+
+        return '#'.$t;
+    }
+
+    /**
+     * El 422 del color, con el valor que llegó **dentro del cuerpo**.
+     *
+     * Devolverlo es lo que deja a la pantalla decir *«`rebeccapurple` no vale»* en vez de
+     * *«no vale»*, y es barato: el cliente ya lo tenía, pero no necesariamente en el sitio
+     * donde pinta el error.
+     */
+    private function rechazarTono(mixed $crudo, string $motivo): never
+    {
+        $this->rechazar([
+            'message' => 'Ese color no vale. '.$motivo,
+            'campo' => 'tono',
+            'recibido' => is_scalar($crudo) ? (string) $crudo : gettype($crudo),
+            'motivo' => $motivo,
         ]);
     }
 }

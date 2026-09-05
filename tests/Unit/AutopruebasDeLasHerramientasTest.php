@@ -161,6 +161,15 @@ class AutopruebasDeLasHerramientasTest extends TestCase
             // corrido un día** con todas las reglas cumpliéndose igual, así que el mapa
             // se ejercita aquí y no se confía a que alguien lo relea.
             'deriva-del-horario.php' => ['php', 'tools/deriva-del-horario.php --control'],
+
+            // Entró **con** la herramienta el 4 sep 2026, que es la regla que esta clase
+            // enuncia. Lo que su control fija no es un número del árbol sino **las siete
+            // formas del veredicto**, y la que importa es la que no se parece a un fallo:
+            // `200` con `total: 0` es la respuesta BUENA de un colegio recién migrado, y
+            // `404`, `500` y «200 sin la clave `total`» se ven todas igual desde la
+            // pantalla —una rejilla vacía—. Un veredicto que confundiera dos de ésas daría
+            // por desplegado un colegio al que no le llegó el módulo.
+            'comprobar-el-horario.php' => ['php', 'tools/comprobar-el-horario.php --control'],
         ];
     }
 

@@ -1,9 +1,31 @@
 # 28 · Competencias, indicadores y la plantilla del colegio
 
-> **Estado: propuesta de diseño. No hay una línea de código escrita, ni una
-> migración, ni una ruta.** Este documento existe para que la decisión se tome
-> sobre algo medido y no sobre una intuición, y para que las tres entregas que
-> propone se puedan aprobar, aplazar o cancelar **por separado**.
+> **Estado: la Entrega 0 y la Entrega 1 están ESCRITAS; las demás siguen siendo
+> propuesta.** Este documento existe para que la decisión se tome sobre algo medido
+> y no sobre una intuición, y para que las **siete entregas** que propone se puedan
+> aprobar, aplazar o cancelar **por separado**. (Eran tres el día que se escribió;
+> las 4, 5 y 6 nacieron de las decisiones de Joseth de esa noche y la 7 de medir qué
+> hace preescolar con la rejilla — §3.2.)
+>
+> | entrega | estado |
+> |---|---|
+> | **0** — las subunidades del año nuevo | **HECHA** el 2 sep 2026 |
+> | **1** — la plantilla sale de phpMyAdmin | **HECHA** el 4 sep 2026, **menos el candado** (§5.1.e) |
+> | **7(a)** — el alcance de la plantilla | **HECHA** el 4 sep 2026, con la Entrega 1 |
+> | 2, 3, 4, 5, 6, 7(b–d) | propuesta |
+>
+> **Lo que la Entrega 1 dejó fuera va dicho aquí arriba y no en una nota al pie**:
+> el candado del docente (decisión 5) **no entró**. No es un olvido y no es que
+> cueste: cambia respuestas de éxito por **403 en nueve rutas que ya existen**, lo
+> notan los tres editores, y la propia §5.1.e exige contar antes el censo de
+> `por_defecto = 1` **en los diecisiete colegios** — que no se puede correr desde
+> una sesión de desarrollo, hace falta el servidor. El orden que pide el documento
+> («el candado entra con la Entrega 1, no después») **tiene razón y aun así no se
+> puede cumplir hoy**, así que se dice en vez de saltárselo en silencio.
+>
+> El 4 sep 2026 Joseth aprobó el lote **Entrega 1 + 7(a)** con el precio delante:
+> nueve rutas nuevas, dos migraciones, el arreglo de `YearsController` y el router
+> de **568 a 577** — contado con `route:list --json`, no sumado.
 >
 > Lo pidió Joseth el 2 sep 2026, con esta frase: *«creo que el enfoque que le di al
 > sistema desde el principio no fue el correcto»*. Este documento dice **en qué
@@ -147,11 +169,31 @@ Sólo ésta se quedó en 255. El catálogo, que sí es `text`, tiene un máximo 
 dato, y la tabla **no tiene más índice que la primaria** (comprobado en
 `database/schema/mysql-schema.sql`), así que no hay ningún índice que reconstruir.
 
+> **HECHO esa misma noche**, en la rama `fix/frases-asignatura-text`:
+> `2026_09_05_100000_frase_del_boletin_en_text` y
+> `tests/Contrato/FraseLargaEnElBoletinTest`. **El test se vio rojo antes que verde**
+> —contra la base sin migrar devolvía *«el POST devolvió la frase cortada a 255 de
+> 388»*—, y mira el viaje de ida y vuelta en los tres sitios donde la frase puede
+> perderse: lo que devuelve el `POST`, lo que devuelve el `GET` de después y lo que
+> queda en la tabla. **El 200 no sirve de testigo**: nunca faltó, y es justo lo que
+> hizo que el fallo viviera años.
+>
+> `text` y no un `varchar` más ancho **porque es lo que ya son sus dos hermanas**, y
+> el `COLLATE` va escrito a mano: la tabla es `utf8mb4_unicode_ci` y las hermanas
+> `utf8mb4_general_ci`, así que un `MODIFY` sin decirlo cambiaría la collation de las
+> comparaciones en silencio.
+
 > **Pero NO repara hacia atrás.** Las 626 frases ya cortadas **no vuelven**: el texto
 > que el docente escribió de más nunca llegó a la base. El `ALTER` impide las
-> siguientes, no recupera las de antes — igual que la Entrega 0. Si el colegio quiere
-> esas frases enteras, hay que pedirle al docente que las reescriba, y **eso es un
-> aviso al colegio, no un trabajo de esta API**.
+> siguientes, no recupera las de antes — igual que la Entrega 0.
+>
+> **Y no se avisa: Joseth decidió el 2 sep 2026 arreglar sólo hacia adelante.** Se
+> propuso contarlas en los diecisiete y pasarle al colegio la lista de qué boletines
+> llevan una frase cortada; la decisión fue que no. La consecuencia, escrita aquí para
+> que no haya que descubrirla dentro de dos años: **cada reimpresión de un boletín de
+> un año pasado seguirá saliendo con la frase cortada a mitad de palabra**, y ni el
+> docente ni el acudiente van a saber por qué. La consulta de arriba queda escrita por
+> si algún día se quiere contar.
 
 **Y una nota para cuando se construya encima**, porque el marcado de indicadores de
 §5.3 usaría este mismo endpoint: `FrasesAsignaturaController::postStore` sólo pasa por
@@ -229,6 +271,75 @@ parecido es `frases_asignatura`, que es texto libre **por alumno** — otra cosa
 - **La jerarquía con porcentajes.** Es exactamente el eje «procesos» de
   Master2000, y es lo que produce la nota. Se queda.
 - **Que la nota cuelgue de una fila materializada.** Ver §4.
+
+---
+
+### 3.2 · Preescolar no es otro modelo: es un piso de más
+
+Medido el 2 sep 2026 sobre la base de desarrollo `simonbolivar` — **un colegio de
+los diecisiete**, años 2018–2024. (2025 y 2026 salen a cero en *todos* los niveles
+porque la copia de desarrollo viene recortada, no porque hayan dejado de calificar.)
+
+**Las dimensiones ya son materias.** Preescolar tiene tres grados —Prejardín,
+Jardín, Transición— y sus 14 asignaturas por año son las siete dimensiones del
+Decreto 2247 más una: COGNITIVA, COMUNICATIVA, CORPORAL, AFECTIVA, ESTÉTICA, ÉTICA,
+ACTITUDINAL Y VALORATIVA (ESPIRITUAL) y TECNOLOGÍA E INFORMÁTICA. **Eso no hay que
+inventarlo, ya está.**
+
+Lo que sí está roto es **cómo usan la rejilla**:
+
+| | Preescolar | Resto del colegio |
+|---|---|---|
+| subunidades por unidad | **1,03** | 2,00 |
+| subunidades cuyo texto **repite el de su unidad** | **803 de 1.169 — 68,7 %** | 76 de 31.873 — **0,2 %** |
+| unidades por asignatura+periodo | 3,5 | 4,4 |
+| celdas cuyos porcentajes suman 100 | 330 de 330 | 3.585 de 3.600 |
+
+Ese **68,7 % contra 0,2 %** es el hallazgo, y una fila real de DIMENSIÓN AFECTIVA lo
+enseña entero:
+
+```
+unidad          «Crea hábitos de higiene personal y alimentación»    35 %
+  └─ subunidad  «Crea hábitos de higiene personal y alimentación»   100 %
+```
+
+**La docente escribe el logro en la unidad y lo vuelve a teclear en una subunidad
+porque la nota no puede colgar de otro sitio.** El segundo piso no le aporta nada:
+es un peaje. Cuando sí lo usa para algo distinto lo usa para las **evidencias** —
+«Elabora ficha *Aprendo a comer saludable*», «Aprende canción para el lavado de
+manos»—, que es exactamente el corte de §3: el texto arriba, la actividad abajo.
+
+Y los porcentajes son ceremonia: **las 330 celdas suman 100 %** y casi toda unidad
+lleva **una** columna al 100 %. El reparto lo hace entero la unidad; la capa de
+abajo sólo existe para sostener el número.
+
+#### Lo que ya está construido para preescolar, y a medias
+
+- **`grupos.caritas`** decide si el grupo se califica con la escala de preescolar en
+  vez de con números, y es **por grupo** — más fino que por nivel. Se copia al año
+  siguiente (`YearsController:382`) y viaja al front en once consultas;
+  **ningún cálculo del backend la mira**.
+- **`frases_preescolar`** (`asignatura_id`, `definicion`) con sus tres rutas
+  `bolfinales-preescolar/{crear,guardar,eliminar}-frase`. El comentario del propio
+  código lo dice: *«en el boletín de preescolar no hay notas, hay frases»*. Pero
+  **no tiene `alumno_id` ni `periodo_id`**: es un texto por asignatura para el
+  boletín de **fin de año**, y no sirve para el de periodo.
+- **`escalas_de_valoracion`** lleva `icono_infantil` e `icono_adolescente`: se
+  guardan (`EscalasDeValoracionController:109`), se copian de año a año
+  (`YearsController:234`) y **no las lee ningún boletín**. Alguien ya pensó «los
+  pequeños ven una carita» y no escribió la mitad de abajo. Es el mismo caso que
+  `default_unidades` de §1.bis(b).
+- **`years.solo_escalas_valorativas`**, leído en `BoletinesController:611` y
+  `Boletines2Controller:585`: imprime el desempeño en vez del número — **para el
+  colegio entero**. No se puede tener preescolar cualitativo y bachillerato
+  numérico.
+
+**El hueco es el de en medio: la valoración por alumno y periodo.** No existe, y por
+eso el front acaba usando el **boletín independiente** —una pantalla diseñada para el
+caso excepcional, un alumno cada vez— para los veinticinco de Transición. Joseth lo
+dijo así el 2 sep 2026: *«se crea un boletín a cada estudiante de preescolar y se
+imprime el boletín tipo 1 donde se muestra sólo ese texto; en cuestión de UX es
+horrible»*.
 
 ---
 
@@ -312,6 +423,70 @@ excepciones y su motivo al lado. No está escrito.
 
 Es **la entrega que resuelve el pedido de Joseth con el menor riesgo**: no inventa
 conceptos, le pone pantalla a lo que ya existe y le añade el eje que falta.
+
+> ### HECHA el 4 sep 2026 — menos el candado, y eso va dicho arriba del todo
+>
+> `PlantillaNotasController` (**9 rutas**, router de 568 a **577** contado con
+> `route:list --json`), `routes/api/plantilla.php`,
+> `2026_09_05_300000_create_permiso_can_edit_plantilla_notas`,
+> `Autoriza::puedeEditarPlantillaNotas` y `tests/Contrato/PlantillaNotasTest`
+> (**21 casos**). Va junta con el alcance de la Entrega 7(a) porque la una sin la
+> otra no sirve: sin pantalla, las dos columnas del alcance **no las puede escribir
+> nadie** —el caso `profesores.tono` del día anterior, con la diferencia de que esta
+> vez se vio antes—, y sin alcance, la plantilla de una fila de preescolar le cae
+> encima al bachillerato entero.
+>
+> **Se pidieron las nueve a la vez y con la razón escrita.** Con el `GET` y los
+> `POST` se puede escribir una plantilla y **nadie puede aplicarla**; es la misma
+> forma que tuvieron las tres primeras de `horario/`.
+>
+> #### Lo que NO entró, y por qué no es que costara
+>
+> **El candado del docente (decisión 5).** Cambia respuestas de éxito por **403 en
+> nueve rutas vivas** y lo notan los tres editores; y §5.1.e exige contar antes el
+> censo de `por_defecto = 1` **en los diecisiete**, que no se puede correr desde una
+> sesión de desarrollo. Un candado puesto sin ese censo es un criterio ampliado sin
+> saber quién cuelga de él. **Queda como lo siguiente de esta entrega**, con el censo
+> nombrado como lo que lo bloquea.
+>
+> #### Tres cosas que el diseño de §5.1 no tenía y el código sí necesitó
+>
+> 1. **El 422 del porcentaje es por grupo de alcance, no uno.** §5.1.d pide 422 si
+>    «la suma de las unidades aplicables» no es 100. Con el alcance de la Entrega 7
+>    esa suma **ya no es una**: se comprueban los grupos que de verdad se van a
+>    sembrar y el 422 los nombra uno a uno. Comprobar la suma de la tabla entera daría
+>    200 en cuanto un colegio tenga una plantilla general y otra de preescolar, **las
+>    dos correctas**.
+> 2. **`sembrar` devuelve siete contadores y no cinco, y uno cambió de nombre.**
+>    `saltadas_por_independiente`, que proponía §5.1.c, **valdría cero siempre**: las
+>    filas con dueño no se cuentan al decidir si una asignatura está montada —eso es
+>    justo la regla 5— así que no hacen saltar nada, y un contador que no puede subir
+>    no dice si la regla llegó a correr. En su lugar va **`independientes_respetadas`**,
+>    que sube cuando había filas con dueño y se dejaron intactas. Y
+>    `saltadas_por_estructura` y `saltadas_sin_plantilla` salen de partir en dos lo que
+>    el documento dejaba junto: «ya estaba montada» y «no hay ninguna fila que le
+>    toque» son desenlaces distintos, y **el segundo es el que delata una plantilla mal
+>    dirigida**.
+> 3. **Borrar una unidad de plantilla borra sus subunidades a mano.** La FK es
+>    `ON DELETE CASCADE` y eso **sólo actúa en un borrado físico**; aquí es lógico, así
+>    que sin el `UPDATE` de la mano las subunidades quedarían vivas colgando de una
+>    unidad de la papelera: invisibles en la pantalla y **cazadas por el sembrador**,
+>    que las busca por `unidad_defec_id` y no vuelve a preguntar por el padre.
+>
+> #### Los controles: los tests se han visto rojos por los dos lados
+>
+> | control | qué cae |
+> |---|---|
+> | quitar `puedeEditarPlantillaNotas` del controlador | **9** de 21 — las nueve rutas |
+> | quitar la regla 5 (`alumno_id IS NULL`) de `sembrar` | **1**, el del independiente |
+>
+> **Y el segundo control es el que hay que contar, porque la primera vez NO se puso
+> rojo.** El caso del boletín independiente usaba la primera asignatura del seed, que
+> ya tiene rejilla y notas: `sembrar` la saltaba por `saltadas_por_notas` **antes de
+> llegar a la regla 5**, así que quitarle el `alumno_id IS NULL` al controlador dejaba
+> el test en verde. Medía el nombre del caso y no el caso. Se reescribió para que se
+> monte su propia asignatura limpia, y entonces sí cae. *Un test que no se ha visto
+> rojo no dice nada, y éste llevaba media hora diciendo que sí.*
 
 #### a) Migración
 
@@ -680,7 +855,38 @@ salida en el boletín nuevo —que no toca ni una nota ni la planilla—, y sól
 conviviendo meses. **Ese segundo paso es una decisión aparte**, no un remate del
 primero.
 
-**6 rutas**, calcadas de las de competencias.
+**6 rutas**, calcadas de las de competencias — **más la rejilla de marcado, que NO se
+cuenta aquí**: es la misma pareja `GET`/`PUT` por grupo y periodo que ya cuenta la
+Entrega 7 (§5.7.c) para preescolar. Una rejilla, dos usos, dos rutas en total.
+
+#### El marcado va en rejilla y en una sola llamada — decidido el 2 sep 2026
+
+**Medido antes de proponerlo**: `FrasesAsignaturaController::postStore` guarda **una
+frase por llamada** —el `frase_id` va en la URL— así que marcar diez indicadores a
+treinta alumnos son **~300 peticiones** por asignatura y periodo. Ése es el número que
+convierte una función nueva en una función que se abandona.
+
+```
+PUT indicadores/rejilla          (y su GET, §5.7.c)
+  { asignatura_id, periodo_id,
+    marcas: [ {alumno_id, indicador_id, si: true|false}, ... ] }
+```
+
+- **Devuelve la población, no `OK`**: `{recibidas, marcadas, quitadas,
+  saltadas_por_periodo_cerrado, saltadas_por_no_ser_del_grupo}`. Misma regla que
+  `plantilla-notas/sembrar` (§5.1.c) y que `tools/`.
+- **Escribe en `frases_asignatura`**, que es lo que el boletín ya lee — no hay tabla
+  de unión nueva.
+- **Nada de marcar de oficio.** Se descartó el «todos alcanzan y el docente quita»:
+  escribe ~10 filas por alumno que nadie ha revisado, y un boletín que afirma
+  trescientos logros que nadie miró es peor que uno vacío.
+- **Marca el docente de la asignatura** (decisión de Joseth, 2 sep 2026), con
+  `auth.personal` y el interruptor del periodo — lo que ya se hace hoy con las frases.
+  **Sin permiso nuevo y sin coordinador**: si un docente se va a mitad de periodo, eso
+  se resuelve como se resuelve hoy con las notas, no con un rol nuevo.
+- **La comprobación que hoy falta sí entra aquí**: el endpoint nuevo verifica que el
+  alumno esté en el grupo de la asignatura, que es justo lo que `postStore` no mira
+  (§1.ter). Es código nuevo, así que contesta **403/422**, no 400.
 
 **El marcado por alumno no necesita tabla de unión, y está medido**: `frases_asignatura`
 ya guarda N frases por alumno + asignatura + periodo, de catálogo (`frase_id`) o
@@ -913,17 +1119,264 @@ boletín es, por tanto, **una decisión ya tomada antes**, no una excepción.
 
 ---
 
+### 5.7 · Entrega 7 — preescolar deja de teclearse alumno por alumno
+
+> **Decidida por Joseth el 2 sep 2026**, sobre la medición de §3.2 y con esta frase:
+> *«hay una pantalla en myvc_front donde se crea un boletín a cada estudiante de
+> preescolar y se imprime el boletín tipo 1 donde se muestra sólo ese texto; en
+> cuestión de UX es horrible»*.
+>
+> **No inventa un modelo paralelo.** §3.2 mide que preescolar no usa otra estructura:
+> usa la misma con un piso de más y sin sitio donde poner la valoración del periodo.
+
+#### a) La plantilla de preescolar es **una sola fila** — y esto reabre una migración
+
+| unidad | % | subunidades |
+|---|---|---|
+| «Valoración del periodo» | 100 | una, al 100 % |
+
+La docente abre su asignatura y encuentra **una casilla donde poner la valoración**,
+no una rejilla de porcentajes que cuadrar. Los 803 textos duplicados de §3.2 dejan de
+escribirse porque el logro ya no va ahí: va en el catálogo de la Entrega 3.
+
+Para que esa fila llegue **sólo** a preescolar hacen falta dos columnas anulables en
+`unidades_por_defecto`:
+
+```
+nivel_educativo_id  int NULL   -- NULL = todos los niveles (lo de hoy)
+materia_id          int NULL   -- NULL = todas las materias (lo de hoy)
+```
+
+> ⚠️ **Y hay que decirlo con todas las letras: esto le devuelve a la Entrega 1 la
+> migración que la decisión 2 le había quitado.** Con `numero_periodo` retirado y los
+> cuatro `can_change_*` retirados por la decisión 5, la Entrega 1 se había quedado
+> **sin ningún cambio de esquema**. Éste vuelve a ponerle uno. El argumento de
+> seguridad es el mismo que tenía aquél: **toda fila existente queda con las dos a
+> NULL**, y la consulta del sembrador pasa a
+> `WHERE year_id=? AND (nivel_educativo_id IS NULL OR nivel_educativo_id=?) AND
+> (materia_id IS NULL OR materia_id=?)`, que **selecciona exactamente las mismas filas
+> que hoy** hasta que alguien use la pantalla nueva.
+>
+> **Lo que sí es nuevo y no lo era antes: la precedencia.** Si una fila dice «todos los
+> niveles» y otra dice «preescolar», hay que decidir cuál gana. La propuesta es **la
+> más específica**, y se fija con un test — no con un `ORDER BY` que dependa del orden
+> de inserción.
+
+> ### HECHO el 4 sep 2026, y con dos cosas que este apartado no tenía
+>
+> `2026_09_05_200000_alcance_de_la_plantilla` (las dos columnas),
+> `App\Support\AlcanceDeLaPlantilla` (la resolución, en **un solo sitio**) y
+> `tests/Contrato/AlcanceDeLaPlantillaTest` (**9 casos**). El sembrador viejo
+> —`UnidadesController::getDeAsignaturaPeriodo`— pasa a leer de ahí, y de camino
+> pierde su `SELECT *`.
+>
+> **La resolución vive en una clase y no en las dos consultas**, porque son **dos**
+> los sitios que tienen que decidir lo mismo: el sembrador viejo y la pantalla nueva
+> de la Entrega 1. Con la regla copiada, el día que alguien afine la precedencia en
+> uno **la pantalla enseñaría una plantilla y el sembrador aplicaría otra** — y eso
+> no da error, da una rejilla distinta de la que el colegio vio.
+>
+> #### 1. La precedencia necesitaba una decisión más de la que este apartado pedía
+>
+> «Gana la más específica» está bien dicho con **un** eje y es ambiguo con **dos**:
+> ¿quién gana entre «Lengua, en todo el colegio» y «todo preescolar»? Se resolvió
+> con cuatro **gradas** ordenadas, y se aplica **la grada entera, nunca una mezcla**:
+>
+> | grada | la fila dice |
+> |---|---|
+> | 3 | nivel **y** materia |
+> | 2 | sólo nivel |
+> | 1 | sólo materia |
+> | 0 | ninguna — la plantilla de siempre |
+>
+> **Que la grada 2 le gane a la 1 —el nivel a la materia— es la única decisión
+> discutible de todo esto**, y va escrita porque se puede querer al revés. El
+> argumento es el caso que hizo existir la entrega: si «Lengua, en todo el colegio»
+> le ganara a «todo preescolar», la docente de preescolar volvería a recibir la
+> rejilla de dos pisos que esto viene a quitarle, y el módulo no serviría para lo que
+> se pidió. Y **la grada entera y no la fila** porque una plantilla son varias
+> unidades que suman 100: «las cuatro de siempre **más** la única de preescolar»
+> suma 200, y el síntoma no es un error sino una definitiva a la mitad.
+>
+> #### 2. Y un fallo que este documento no tenía: `YearsController` dejaba escapar el alcance
+>
+> `YearsController:278` copia la plantilla al año siguiente **nombrando columnas**.
+> Sin añadir las dos nuevas, el fallo **no habría sido «no se copia el alcance»**,
+> que se nota: habrían nacido a NULL, y **NULL aquí significa «a todos»**. O sea que
+> la plantilla de **una fila** de preescolar se le habría sembrado en enero **a todo
+> el bachillerato**, con su única casilla al 100 %, un 200 y ningún error en ningún
+> log.
+>
+> **Es el hermano por el lado contrario del fallo de la §1.bis**: allí la plantilla
+> del año nuevo llegaba **vacía**, aquí llegaría **a quien no era**. Los dos son
+> mudos y los dos aparecen en enero. Arreglado en el mismo commit, con su caso en
+> `YearsTest::test_el_ano_nuevo_hereda_el_alcance_de_la_plantilla` — al lado del de
+> su hermano, que es donde alguien va a venir a mirar.
+>
+> #### 3. Sin claves foráneas, y las tres salidas están escritas
+>
+> `SET NULL` es **la peor** y parece la más suave: borrar un nivel convertiría la
+> fila de preescolar en «a todos los niveles», que es la misma fuga de (2) por otra
+> puerta. `CASCADE` borraría en silencio lo que el colegio escribió. Sin FK, una fila
+> puede apuntar a un nivel que ya no existe — **deja de casar con nada y no se
+> siembra en ninguna parte**, que es el único fallo de los tres que no hace daño, y
+> tiene su caso de contrato. Que el id exista se comprueba **al escribir**, con 422.
+>
+> #### 4. Los controles: los tests se han visto rojos
+>
+> | control | qué cae |
+> |---|---|
+> | el sembrador sin filtro de alcance (como antes de la tanda) | **7** de 9 |
+> | `YearsController` sin copiar las dos columnas | **1**, el de la fuga |
+>
+> ⚠️ **Falta la mitad que no se puede medir desde aquí.** Esto siembra bien la
+> plantilla de preescolar; lo que **no** existe todavía es la plantilla de preescolar
+> en ningún colegio. Crearla es la pantalla de la Entrega 1, y **quién la escribe el
+> primer día son los superusuarios**, porque `can_edit_plantilla_notas` nace repartido
+> a nadie (§5.1.a).
+
+#### b) Los logros se escriben **una vez** por dimensión y grado
+
+Es el catálogo de la Entrega 3 sin un solo cambio: `indicadores` con `materia_id` +
+`grado_id`. La coordinadora escribe los logros de DIMENSIÓN COGNITIVA de Transición
+**una vez** — no uno por grupo y otro por año, que es lo que hace hoy.
+
+#### c) La valoración por alumno se **marca**, no se teclea — y la tabla ya existe
+
+`frases_asignatura` es exactamente el hueco de §3.2: `(alumno_id, asignatura_id,
+periodo_id, frase_id NULL, frase NULL)`. Por alumno, por asignatura y **por periodo**,
+de catálogo o escrita a mano. Es la misma tabla y el mismo `indicador_id` que ya
+propone §5.3 — preescolar **no añade tabla ninguna**, sólo la pantalla.
+
+> ## ⚠️ BLOQUEADA: esa frase se contradice con §5.3, y hace falta una decisión
+>
+> **Comprobado en el volcado el 4 sep 2026.** Las columnas reales de
+> `frases_asignatura` son `id, alumno_id, frase_id, frase, asignatura_id, periodo_id`
+> más las seis de auditoría. **No hay `indicador_id`.** Y `frase_id` apunta a
+> `frases`, que es el catálogo del colegio por `year_id` — el mismo que §5.3
+> **descarta explícitamente** para los indicadores, porque no tiene materia ni grado y
+> el docente de Matemáticas de 6.º vería el catálogo entero.
+>
+> Así que «el mismo `indicador_id` que ya propone §5.3» **no existe en ninguna
+> parte**: §5.3 pone `indicador_id` en **`subunidades`**, que es otra tabla y otra
+> cosa —«qué indicador evalúa esta columna de la planilla»—, y además lo declara
+> *«decisión aparte, no un remate del primero»*. La rejilla de marcado no puede
+> escribirse hasta que se elija entre estas dos, **y son dos decisiones distintas, no
+> dos formas de la misma**:
+>
+> | salida | qué cuesta | qué se pierde |
+> |---|---|---|
+> | **`frases_asignatura.indicador_id`**, columna nueva anulable | una migración más, aditiva | nada, pero es una migración más en una tanda ya medida |
+> | **copiar el texto del indicador en `frase`** | cero esquema | **el `GET` de la rejilla no puede saber qué casilla está marcada** salvo comparando cadenas de 200 caracteres, y una errata corregida en el catálogo desmarca a treinta alumnos |
+>
+> La segunda tiene a favor que es literalmente lo que hace hoy el marcado a mano, y
+> que encaja con el invariante de §4 —*la plantilla siembra, no manda*: el texto
+> impreso en un boletín viejo no debe cambiar porque alguien edite el catálogo—.
+> Tiene en contra que **la pantalla que esta entrega existe para construir es una
+> rejilla de casillas**, y una casilla necesita saber si está marcada.
+>
+> **La recomendación es la columna**, y el motivo es el segundo renglón de la tabla,
+> no el primero: sin ella la rejilla no se puede pintar. El texto se sigue copiando en
+> `frase` —eso no cambia, y es lo que protege los boletines viejos—; `indicador_id` es
+> sólo para saber **de qué casilla salió**.
+>
+> **Y esto va detrás del `ALTER` de §1.ter, que a 4 sep 2026 sigue SIN FUSIONAR** en
+> la rama `fix/frases-asignatura-text`. Marcar indicadores contra una `varchar(255)`
+> es multiplicar por veinticinco alumnos el corte silencioso que la §1.ter acaba de
+> medir.
+
+Y la pantalla es **una por grupo** —alumnos en filas, indicadores del grado en
+columnas, la valoración en la casilla— en vez de un boletín por estudiante. Es el
+mismo cambio de eje que ya se hizo con `boletin-independiente/marcados` frente a
+`/alumno`.
+
+> **Va detrás del `ALTER` de §1.ter, y no es opcional.** Un indicador de preescolar
+> —«Reconoce las partes de su cuerpo y practica hábitos de higiene y alimentación
+> saludable»— pasa de 255 caracteres con holgura. Marcar indicadores contra una
+> `varchar(255)` es multiplicar por veinticinco alumnos el corte silencioso que §1.ter
+> acaba de medir.
+
+> **`frases_preescolar` no se toca y no se migra.** Es el texto del boletín de **fin de
+> año** (`asignatura_id` + `definicion`, sin alumno y sin periodo) y sigue sirviendo
+> para eso. Fundirla con `frases_asignatura` movería la respuesta de
+> `bolfinales-preescolar/detailed-notas-year-group`, que es una instantánea publicada,
+> y no lo ha pedido nadie.
+
+#### d) La escala: `caritas` ya existe, y es **más fina** que «por nivel»
+
+La respuesta de Joseth fue «escala cualitativa **por nivel**». Medido, **no hace falta
+la columna nueva**: `grupos.caritas` ya dice grupo a grupo si se califica con la escala
+de preescolar, ya se copia al año siguiente (`YearsController:382`) y ya viaja al
+front. Por nivel sería *menos* fino — un colegio puede querer caritas en un grupo de
+fuera de preescolar, y con `nivel_educativo_id` no podría.
+
+**Lo que falta es que el backend la honre.** Hoy los boletines de periodo miran
+`years.solo_escalas_valorativas`, que es del colegio entero:
+
+```
+grupo con caritas                → desempeño, con el icono_infantil que ya está guardado
+si no, y el año en solo_escalas  → desempeño
+si no                            → el número, como hoy
+```
+
+**Dónde entra eso depende de la decisión 6.** Si el boletín por competencias es una
+maqueta **nueva** (Entrega 6), lo barato es que la regla nazca ahí y **no se toquen**
+`BoletinesController:611` ni `Boletines2Controller:585`, que son instantáneas
+publicadas. Tocar los viejos es una entrega propia y sólo hace falta si el colegio
+quiere el desempeño en el boletín de siempre.
+
+Con esto `icono_infantil` e `icono_adolescente` dejan de ser columnas que se guardan,
+se copian de año a año y **no lee nadie** (§3.2).
+
+> **`caritas` se toca con el guante puesto.** Es la columna de la §153 de
+> `GruposController`: tenía defecto `false` y por eso salía «a salvo» en el barrido,
+> **pero ese defecto la apagaba** — corregirle el nombre a un grupo de preescolar le
+> cambiaba la forma de evaluar. Todo endpoint nuevo que la lea o la escriba hereda ese
+> aviso.
+
+#### e) Lo que NO se hace
+
+- **No se crea un módulo de preescolar.** Los datos dicen que usan la misma estructura,
+  no otra; duplicar el módulo duplica también los boletines y los cuatro clientes.
+- **No se toca `frases_preescolar`** ni sus tres rutas.
+- **No se prohíbe la rejilla en preescolar.** El colegio que quiera calificar sus
+  dimensiones con tres columnas y porcentajes sigue pudiendo: la plantilla **siembra,
+  no manda** (§4).
+- **No se migran los 803 duplicados.** Son años cerrados y sus boletines se imprimen
+  como se imprimieron (§4, regla 1).
+
+#### f) Tests de contrato
+
+- Con las dos columnas a NULL en todas las filas, el sembrador da **la misma respuesta
+  byte a byte** que antes de la migración. Es la prueba de que los dieciséis colegios
+  no se enteran.
+- Una fila de plantilla marcada para preescolar **no** se siembra en una asignatura de
+  bachillerato, ni al revés.
+- Con una fila «todos los niveles» y otra «preescolar» compitiendo, gana la específica
+  — y el test lo fija **invirtiendo el orden de inserción**, que es lo único que
+  distingue una precedencia de una casualidad.
+- Un grupo **sin** `caritas` en un año **sin** `solo_escalas_valorativas` da la
+  respuesta de boletín idéntica a la de hoy.
+- Marcar un indicador a un alumno de un periodo cerrado no escribe **nada** (regla 2).
+
+**Rutas**: (a) y (b) no añaden ninguna — van en las de la Entrega 1 y la Entrega 3.
+(c) necesita **2**: `GET` y `PUT` de la rejilla de indicadores por grupo y periodo.
+(d) no añade ninguna.
+
+---
+
 ## 6. Lo que esto le cuesta al resto del sistema
 
-- **Rutas.** Hoy hay **566**. Las entregas 1, 2 y 3 suman **hasta 21** (9 + 6 + 6) y
+- **Rutas.** Hoy hay **577** (contadas con `route:list --json` el 4 sep 2026, **después** de que entraran las nueve de la Entrega 1; decía 568 esa misma mañana y **566** el 2 sep, el día que se escribió esto). **Las 9 de la Entrega 1 ya están dentro de ese 577**, así que lo que queda por entrar de este documento son **18**, no 27. Las entregas 1, 2 y 3 sumaban **hasta 21** (9 + 6 + 6) y
   la **6 añade 4** —el boletín nuevo de §5.6, calcado de `boletines3`—, o sea **25**;
   la **4 y la 5 no añaden ninguna** —la 4 es un valor más en un campo que ya existe y
   una siembra dentro de una ruta que ya existe, y la 5 es una columna de `years`—, que
   es la señal de que las dos encajan en lo que ya hay en vez de abrir una puerta
-  paralela. El
+  paralela; y la **7 añade 2** —la rejilla de indicadores por grupo de §5.7.c—, o sea
+  **27**. El
   número **se cuenta con `route:list --json` el día que entren**, no se suma — y
   mueve `CLAUDE.md` y **tres** instantáneas: `rutas.json`, `guards-por-ruta.json` y
-  `guard-por-familia.json`. Ninguna de las 25 es pública: `TOTAL_PUBLICAS` sigue en
+  `guard-por-familia.json`. Ninguna de las 27 es pública: `TOTAL_PUBLICAS` sigue en
   doce.
 - **El candado del docente no mueve ninguna instantánea** —la marca `por_defecto` ya
   viaja (§5.1.e)— pero **cambia respuestas de éxito por 403 en nueve rutas que ya
@@ -984,25 +1437,78 @@ boletín es, por tanto, **una decisión ya tomada antes**, no una excepción.
    626 frases cortadas a mitad de palabra en un solo colegio, impresas en boletines
    (§1.ter). **No repara hacia atrás.** Es un `ALTER` de una línea, sin índices que
    reconstruir, y **va antes** que cualquier entrega que escriba ahí.
+8. ✅ **La plantilla tiene alcance, y preescolar es el primer caso** (2 sep 2026).
+   Retira la pregunta de alcance, que estuvo abierta hasta que se midió qué hace
+   preescolar con la rejilla que le damos (§3.2): la plantilla deja de ser «una sola
+   para todas las asignaturas del año». Se decidió sobre la medición de §3.2 — **803 de 1.169 subunidades de
+   preescolar repiten literalmente el texto de su unidad, contra 76 de 31.873 en el
+   resto**—, que dice que preescolar no necesita otro modelo sino una plantilla de
+   una fila. Son dos columnas NULL en `unidades_por_defecto` y **le devuelven a la
+   Entrega 1 la migración que la decisión 2 le había quitado**; diseño y precio en
+   §5.7.a.
+9. ✅ **La escala cualitativa se resuelve con `grupos.caritas`** (2 sep 2026). Joseth
+   pidió «por nivel»; medido, **la columna ya existe y es por grupo**, que es más
+   fino. Lo que falta no es una columna sino que el backend la honre, y **dónde**
+   depende de la decisión 6: si el boletín nuevo es una maqueta aparte, la regla nace
+   ahí y no se toca ninguna instantánea publicada (§5.7.d).
+10. ✅ **Los indicadores se marcan en rejilla y en una sola llamada** (2 sep 2026).
+    Sale de una medición: `FrasesAsignaturaController::postStore` guarda **una frase
+    por petición**, o sea ~300 por asignatura y periodo con diez indicadores y treinta
+    alumnos — el número que convierte una función nueva en una función abandonada. Y
+    **descarta marcarlas de oficio**: un boletín que afirma trescientos logros que
+    nadie revisó es peor que uno vacío. Es **la misma rejilla** que la Entrega 7
+    (§5.7.c), así que **no suma rutas**: diseño en §5.3.
+11. ✅ **Marca el docente de la asignatura** (2 sep 2026), con lo que ya hay:
+    `auth.personal` y el interruptor del periodo. **Sin permiso nuevo y sin
+    coordinador**; si un docente se va a mitad de periodo se resuelve como se resuelve
+    hoy con las notas.
+12. ✅ **De las frases ya cortadas no se avisa** (2 sep 2026): sólo se arregla hacia
+    adelante. Se propuso contarlas en los diecisiete y pasarle al colegio la lista de
+    boletines afectados; la decisión fue que no. Lo que eso deja vivo, en §1.ter.
+
+13. ✅ **La Entrega 1 y la 7(a) se escriben juntas** (4 sep 2026), con el precio
+    delante: nueve rutas nuevas, dos migraciones, el arreglo de `YearsController` y
+    el router de 568 a 577. **Se pidieron juntas y no de una en una porque por
+    separado no sirven**: las dos columnas del alcance sin pantalla **no las puede
+    escribir nadie** —el caso `profesores.tono` del día anterior— y la pantalla sin
+    alcance le siembra la plantilla de preescolar a todo el bachillerato. Lo que
+    quedó fuera y por qué, en §5.1.
+
+14. ✅ **El candado del docente espera al censo** (4 sep 2026). Es la decisión 5, ya
+    tomada, que **no se ejecutó** con la Entrega 1 — y la pregunta no era si se pone
+    sino **si se corre el censo antes o se acepta ponerlo a ciegas**. Joseth eligió
+    el censo: contar `por_defecto = 1` **en los diecisiete colegios** con la consulta
+    de §5.1.e, que son literalmente **las filas que mañana dejan de poder tocarse**.
+    Un colegio con muchas es uno donde el candado se nota el primer día; uno con cero
+    es uno donde no cambia nada — y hoy sólo se sabe de `simonbolivar`, donde
+    **ninguna de sus 51.519 filas está marcada**. **No se puede correr desde una
+    sesión de desarrollo**: hace falta el bucle de `DESPLIEGUE.md` sobre el servidor,
+    así que es trabajo del día del despliegue y no de una noche de código.
 
 ### Abiertas
 
-8. **¿Alcance de la plantilla?** Sigue siendo **una sola para todas las asignaturas
-   del año**. Preescolar y las materias que se califican distinto quedan fuera. Si
-   hacen falta excepciones por nivel educativo o por materia son dos columnas
-   `NULL`, y **se deciden antes de escribir la migración**, no después.
-9. **Entrega 4: ¿sólo el tercer origen, o también sembrar al marcar?** El tercer
-   origen es un clic por asignatura; **sembrar al marcar es lo que de verdad quita
-   trabajo**, y es el que escribe ~120 filas por estudiante. Recomendados los dos, y
-   el segundo es el que hay que aprobar a conciencia.
-10. **Entrega 5: ¿se aprueba la fase 0?** El refactor de los 18 sitios **no cambia
-   ningún resultado** y tiene valor aunque el interruptor no llegue nunca. Sin él, el
-   interruptor es un `if` repetido dieciocho veces y la primera vez que falte uno el
-   boletín y la definitiva dejarán de coincidir.
-11. **Entrega 5: ¿el modo promedio vale también para las unidades?** La propuesta es
+15. **¿Cómo se ata una marca de indicador a `frases_asignatura`?** Es lo único que
+    bloquea la rejilla de la Entrega 7(c), y sale de una contradicción del propio
+    documento entre §5.7.c y §5.3 — medida contra el volcado el 4 sep 2026:
+    **`frases_asignatura` no tiene `indicador_id`**. Las dos salidas, su precio y la
+    recomendación, en §5.7.c.
+
+16. **Entrega 4: ¿sólo el tercer origen, o también sembrar al marcar?** El tercer
+    origen es un clic por asignatura; **sembrar al marcar es lo que de verdad quita
+    trabajo**, y es el que escribe ~120 filas por estudiante. Recomendados los dos, y
+    el segundo es el que hay que aprobar a conciencia.
+17. **Entrega 5: ¿se aprueba la fase 0?** El refactor de los 18 sitios **no cambia
+    ningún resultado** y tiene valor aunque el interruptor no llegue nunca. Sin él, el
+    interruptor es un `if` repetido dieciocho veces y la primera vez que falte uno el
+    boletín y la definitiva dejarán de coincidir.
+18. **Entrega 5: ¿el modo promedio vale también para las unidades?** La propuesta es
     **no** —los porcentajes de las unidades los pone el colegio una vez al año y no le
     cuestan nada al docente—, pero es una decisión del colegio y no técnica.
-12. **`default_unidades` y `default_subunidades`**: no las lee nadie. Antes de
+19. **¿El desempeño entra también en el boletín de siempre?** Sólo hace falta si el
+    colegio quiere ver caritas en los boletines que ya existen; eso sí mueve
+    `BoletinesController:611`, `Boletines2Controller:585` y sus instantáneas, y es
+    entrega propia.
+20. **`default_unidades` y `default_subunidades`**: no las lee nadie. Antes de
     borrarlas, **contar sus filas en los dieciséis colegios**.
 
 ## 8. Lo que este documento NO propone

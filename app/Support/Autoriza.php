@@ -37,16 +37,37 @@ class Autoriza
     public const PERMISO_AUDITORIA = 'can_view_auditoria';
 
     /**
+     * El nombre exacto de la fila de `permissions`. Lo crea
+     * `2026_09_05_300000_create_permiso_can_edit_plantilla_notas` y lo lee
+     * `puedeEditarPlantillaNotas()`; misma trampa que arriba, y por eso la misma
+     * forma: si los dos no dicen la misma cadena, **el permiso existe y no lo
+     * tiene nadie sin que falle nada**, y el síntoma sería una pantalla que sólo
+     * funciona para superusuarios sin que nadie sepa por qué.
+     */
+    public const PERMISO_PLANTILLA_NOTAS = 'can_edit_plantilla_notas';
+
+    /**
      * Superusuario o Secretario. El criterio de secretaría, ya con dueño.
      *
      * Hasta el 21 ago 2026 esto valía exactamente `is_superuser`, porque el rol
      * `Secretario` **no existía** en la tabla `roles` — el aviso que había aquí
      * lo decía y proponía usar `Admin`. Se le preguntó a Joseth y la respuesta
      * fue otra: **rol nuevo**, porque la razón de existir del Secretario es una
-     * secretaria docente **sin** `is_superuser`, y los diez `Admin` son
-     * exactamente los diez `is_superuser`, así que con `Admin` el rol no
-     * distinguiría a nadie. Lo crea
+     * secretaria docente **sin** `is_superuser`, y el rol `Admin` no distinguiría
+     * a nadie: se lo llevan los mismos que ya tienen la columna. Lo crea
      * `2026_08_21_100000_create_rol_secretario`, sin dárselo a nadie.
+     *
+     * > **Aquí decía «los diez `Admin` son exactamente los diez `is_superuser`», y
+     * > eso ha dejado de ser cierto.** Remedido el 4 sep 2026 sobre `simonbolivar`:
+     * > **11 con `is_superuser`, 10 con el rol `Admin`, 10 en los dos** — o sea que
+     * > `Admin` es hoy un **subconjunto estricto**, y hay un superusuario sin el rol.
+     * > **El razonamiento no se cae** —el rol sigue sin distinguir a nadie útil, que
+     * > es lo que decidió crear `Secretario`— **pero el hecho sí**, y estaba escrito
+     * > como igualdad. Importa fuera de aquí: `myvc_front` decide por el **rol**
+     * > (`tieneAlgunRol(['admin'])`) donde esta API decide por la **columna**, así
+     * > que **no son dos umbrales distintos del mismo criterio: son dos criterios de
+     * > clase distinta**, y ya discrepan en una persona. Medido en un colegio y en la
+     * > copia de desarrollo; en los otros quince no ha mirado nadie.
      *
      * **Qué cubre este método, después de repasar sus seis llamadas una a una.**
      * El alcance que Joseth describió no es «un docente con más cosas» ni «un
@@ -335,6 +356,43 @@ class Autoriza
         // los permisos de TODOS los roles del usuario, y viaja dentro del
         // contexto: retirar el permiso tiene efecto sin tocar la sesión.
         return in_array(self::PERMISO_AUDITORIA, (array) ($user->perms ?? []), true);
+    }
+
+    /**
+     * Editar la **plantilla de notas del colegio** — las nueve rutas de
+     * `plantilla-notas`, §5.1.b de
+     * [28](../../docs/migracion/28-competencias-e-indicadores.md).
+     *
+     * Superusuario **o** quien tenga `can_edit_plantilla_notas`. No es
+     * `esAdministrativo` —que mete al `Secretario`, a quien nadie ha nombrado
+     * para esto— ni `puedePublicarHorario` —que es otro criterio de otro módulo—:
+     * la regla de esta clase es que **un criterio nuevo se escribe con su
+     * nombre**, porque ensanchar uno de los que ya hay colaría esta decisión en
+     * los otros sitios que lo leen.
+     *
+     * **Lo que gobierna, y por qué el listón está aquí y no en `auth.personal`.**
+     * Una fila de esta plantilla **multiplica**: un 90 % escrito aquí es un 90 %
+     * en todas las asignaturas del colegio que se siembren a partir de mañana. Es
+     * una decisión de colegio con la forma de una casilla de aula, y ésa es
+     * exactamente la clase de cosa que el guard de la ruta no distingue —
+     * `auth.personal` deja pasar a cualquier docente.
+     *
+     * **Nace repartido a nadie, y eso es deliberado**: su migración no siembra
+     * ningún rol (ver el fichero, que explica por qué ésta no reparte y
+     * `can_view_auditoria` sí). El día del despliegue la pantalla es de los
+     * superusuarios de cada colegio, y darle el permiso a rectoría o a
+     * coordinación es una fila desde la pantalla de roles, sin migración.
+     */
+    public static function puedeEditarPlantillaNotas($user): bool
+    {
+        if (self::esSuperusuario($user)) {
+            return true;
+        }
+
+        // `perms` es la lista plana de nombres que arma `ContextoDeUsuario` con
+        // los permisos de TODOS los roles del usuario, y viaja dentro del
+        // contexto: retirar el permiso tiene efecto sin tocar la sesión.
+        return in_array(self::PERMISO_PLANTILLA_NOTAS, (array) ($user->perms ?? []), true);
     }
 
     /**
