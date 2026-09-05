@@ -100,6 +100,92 @@
 > Una fusión **reclasifica el censo entero de golpe**, y por eso «cuántas ramas quedan» no es
 > una cifra que se pueda heredar de una casilla: se cuenta o no se dice.
 
+> ## LAS SEIS RAMAS VIEJAS, ABIERTAS UNA A UNA — 5 sep 2026, 08:0x
+>
+> **Nadie las había mirado nunca, y el censo no lo puede contestar: hay que abrirlas.** Encargo
+> de `8myvc-25`, **de lectura: no se fundió ninguna**. La pregunta era *«¿cola o resto?»*, y
+> **el resultado es que no hay ni un resto**: las seis traen trabajo propio que no está en
+> `main`, incluida la que más lo parecía.
+>
+> | rama | propios · retraso | ¿funde limpio? | qué trae que `main` NO tiene | veredicto |
+> |---|---|---|---|---|
+> | `fix/frases-asignatura-text` | 3 · 57 | **sí, limpio** | la migración de `frases_asignatura.frase` a `text` y su test | **cola, y la única barata** |
+> | `feat/calendario` | 2 · 167 | no (3 ficheros) | **864 líneas** de controlador, **dos rutas** (`calendario/mes`, `calendario/proximos`), una migración, 2 tests y 5 snapshots | **cola cara — y es la que más parecía resto** |
+> | `docs/despliegue-remedido` | 3 · 38 | no (2 ficheros) | el rango sin desplegar remedido y cuatro avisos que faltaban | **cola, pero su número ya caducó** |
+> | `docs/barrido-profesor-serializado` | 8 · 38 | no (1 fichero) | dos documentos nuevos y **el arreglo de `tools/filas-enteras-al-cliente.php`** | **cola — la conclusión llegó a `main`, la herramienta no** |
+> | `docs/appkey-compartida-fortul-lal` | 5 · 44 | no (1 fichero) | 311 líneas sobre el `29`, más `05` y `DESPLIEGUE-REFERENCIA` | **cola, y es material del día 10** |
+> | `fix/columnas-en-los-modelos-no-borra` | 1 · 42 | no (2 ficheros) | 425 líneas: la herramienta **mueve** las anotaciones a mano en vez de borrarlas | **cola** |
+>
+> ### 1. `fix/frases-asignatura-text` — barata de fundir y cara el día 10
+>
+> **Es la única que funde limpia** y toca dos ficheros. Y **sigue haciendo falta**: comprobado
+> en la base de desarrollo, `frases_asignatura.frase` sigue siendo `varchar(255)`.
+>
+> **Pero su precio no está en la fusión, está en la tanda.** Hoy son **cinco ficheros de
+> migración** sin desplegar en `main`, que con las dos de `feat/plantilla-de-notas` hacen las
+> **siete** sobre las que se ensayó la tanda anoche. Ésta sería **la octava**, y
+> **el ensayo de anoche no la midió**. *No es «una migración más»: es reensayar la tanda antes
+> del día 10.* **Decisión de Joseth, y va con ese precio delante.**
+>
+> ### 2. `feat/calendario` — 167 de retraso y ni un gramo de resto
+>
+> **La que más olía a resto es la que más trabajo vivo tiene.** `main` tiene un
+> `CalendarioController` de **221 líneas**; el de la rama tiene **1.034**, y **ninguna de sus
+> dos rutas nuevas existe en `main`**. Trae además su propia migración —o sea que también
+> mueve la tanda— y cinco snapshots.
+>
+> **El retraso no la invalida, lo que hace es poner el precio:** conflictos en
+> `ChangeAskedController.php` —que se ha reescrito mucho desde el 1 sep—, en el test de
+> familias y en esta casilla; rebase de verdad, no un `merge -X`; **los tres snapshots que
+> mueve una ruta nueva** y el contador de `CLAUDE.md`. *Un `git merge` a ciegas aquí es cómo se
+> pierde el trabajo de otro, no cómo se recupera.*
+>
+> ### 3. `docs/despliegue-remedido` — el caso que enseña por qué no se funde un número
+>
+> ```
+> main dice hoy                          191 commits sin desplegar
+> la rama remidió el 4 sep               232
+> contados hoy (git rev-list 9474b50..main)  274
+> ```
+>
+> **Fundirla arregla `main` y mete un número que ya no es cierto.** Y el propio `DESPLIEGUE.md`
+> tiene la regla que lo resuelve —*un rango sin desplegar se remide entero cuando se le toca*—,
+> así que **lo que hay que llevarse de esta rama no es el 232: son los cuatro avisos que
+> faltaban y el hallazgo del aviso R** (eran **trece** respuestas y no seis), que no caducan.
+> El número se recuenta el día que se funda. *Hoy son 274 commits, 55 ficheros de `app/`, 7 de
+> `routes/` y 5 migraciones.*
+>
+> ### 4. `docs/barrido-profesor-serializado` — la conclusión llegó y la herramienta no
+>
+> **El hallazgo ya está en `main`**: «trece respuestas vivas» sale cuatro veces en esta misma
+> casilla. **Lo que no llegó es con qué se midió**: `tools/filas-enteras-al-cliente.php` está en
+> `main` **234 líneas por detrás**, o sea en la versión que —según su propio commit— *«contestaba
+> con la cara de haber mirado»* y daba **1 donde el barrido daba 13**. Tampoco están sus dos
+> documentos nuevos.
+>
+> > **Y esto es exactamente el caso contra el que avisa `CLAUDE.md`**: *el primer sitio donde
+> > mirar cuando el número sale raro es el detector*. Hoy `main` tiene el número bueno y el
+> > detector malo, así que **quien lo vuelva a correr para comprobarlo obtendrá el `1` y creerá
+> > que el trece estaba mal.**
+>
+> ### 5 y 6, en corto
+>
+> - **`docs/appkey-compartida-fortul-lal`**: sus dos documentos nuevos **ya están en `main`**,
+>   pero en versiones anteriores —311 líneas de diferencia sobre `29-los-env-no-son-uniformes`—.
+>   Trae la clave compartida entre `fortul` y `lal`, el correo caído en los dieciséis, el
+>   `APP_DEBUG=true` de cinco y el CORS. **Es material del día 10**, no documentación de fondo.
+> - **`fix/columnas-en-los-modelos-no-borra`**: un commit, 425 líneas. La herramienta que
+>   regenera las `@property` **borraba** las anotaciones escritas a mano; la rama las **mueve**.
+>   `main` tiene todavía la que borra.
+>
+> ### Lo que este censo NO contesta
+>
+> **Si el contenido de cada una sigue siendo correcto.** Se midió qué traen y si `main` ya lo
+> tiene, **no** si lo que afirman sigue siendo verdad contra el código de hoy — y dos de ellas
+> son documentos llenos de cifras con 38 y 44 commits de retraso encima. **Se abrieron, no se
+> auditaron.** Y ninguna se corrió: los tests de `feat/calendario` no se han ejecutado contra
+> `main` de hoy.
+
 > ## LO QUE ESPERA UNA DECISIÓN, Y ES LO PRIMERO QUE SE PIERDE EN UN APAGÓN
 >
 > **Ninguna de las dos la puede resolver una sesión midiendo**, que es exactamente por qué
@@ -114,7 +200,16 @@
 > detalle y pasa a ser el plan**. *Es lo más barato que se puede hacer antes del día 10 y sigue
 > sin hacerse.*
 >
-> ### 2. El Lote G: ensanchar `GET horario/versiones/{id}/lecciones` con las cuatro listas
+> ### 2. ¿Entra `fix/frases-asignatura-text` antes del día 10? — y el precio es reensayar
+>
+> La rama funde limpia y **hace falta**: `frases_asignatura.frase` sigue siendo `varchar(255)`.
+> Pero sería **la octava migración** de una tanda que anoche se ensayó sobre **siete**, así que
+> entrar no cuesta la fusión: cuesta **volver a correr el ensayo sobre una copia con datos**.
+> Y `feat/calendario` trae otra, o sea que la pregunta real es *cuántas migraciones entran
+> antes del día 10*, no si entra ésta. **Las dos salidas son legítimas y ninguna es gratis:**
+> dejarlas fuera congela dos arreglos ya escritos y probados; meterlas obliga a reensayar.
+>
+> ### 3. El Lote G: ensanchar `GET horario/versiones/{id}/lecciones` con las cuatro listas
 >
 > Es la decisión 38 de `myvc_horarios`. **Ya no es una hipótesis:** el 5 sep se midió que este
 > servidor **sí guarda** las disponibilidades declaradas —dentro de
