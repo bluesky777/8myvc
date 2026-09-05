@@ -16,6 +16,15 @@
 > *«esto es lo que hay»* caduca con el siguiente commit; uno que dice **cómo se averigua lo que
 > hay** no caduca nunca — y por eso esto va arriba y las cifras van debajo.
 >
+> > **Y la frase de arriba tiene un agujero que se vio a los cinco minutos de escribirla, así
+> > que va aquí y no en una nota al pie.** «Cómo se averigua» sólo cubre lo que **es una
+> > medición**. Una **instrucción** —«no toques esto», «no lo commitees», «espera a que X
+> > termine»— **no se repone corriendo ninguna orden**, y no envejece a *«hecho»*: **envejece a
+> > mentira**. La foto de más abajo llevó las dos y sólo una se defendía sola; lo destapó
+> > `8myvc-29` y está contado ahí mismo. **Regla que sale de ahí: una instrucción se escribe con
+> > su condición de caducidad al lado** —*hasta que el fichero esté commiteado*, *mientras la
+> > rama X exista*—, porque el lector no puede comprobarla y el que la escribió ya no está.
+>
 > ```bash
 > git -C <árbol> branch --show-current && git -C <árbol> status --porcelain   # 1. dónde estoy y qué cuelga
 > git log --oneline -1 main                                                   # 2. hasta dónde llegó lo fundido
@@ -73,7 +82,7 @@
 > |---|---|
 > | `main` | `ac09cb7` |
 > | árbol principal | rama `fix/el-ensayo-mide-el-arbol-de-artisan` @ `ac09cb7` — **no es `main`**, y es de otra sesión |
-> | sin commitear en el principal | `tools/ensayo-de-la-tanda.sh` — huérfano del apagón, **en rescate por otra sesión**; no lo commitees |
+> | sin commitear en el principal | `tools/ensayo-de-la-tanda.sh` — huérfano del apagón, **en rescate por otra sesión**; no lo commitees — **CERRADO 07:41: commiteado en `ed542ff`**, ya rige lo contrario |
 > | ramas `--no-merged main` | **8**, y **ninguna** está a menos de 3 commits de retraso |
 > | worktrees | **17** |
 > | docker | estaba **caído** al empezar la mañana; lo levantó `8myvc-25` |
@@ -83,7 +92,7 @@
 >
 > ```
 > feat/plantilla-de-notas             5 adelante    3 atrás    <- trae el router a 577
-> test/guard-del-ensayo               5 adelante    3 atrás    <- cuelga de la plantilla, no de `main`
+> test/guard-del-ensayo               5 adelante    3 atrás    <- BORRADA 07:40, era de usar y tirar
 > docs/barrido-profesor-serializado   8 adelante   37 atrás
 > docs/appkey-compartida-fortul-lal   5 adelante   43 atrás
 > docs/despliegue-remedido            3 adelante   37 atrás
@@ -99,6 +108,23 @@
 > —`fix/disponibilidad-si-se-guarda` y la rama reservada del Lote G— **están dentro de `main`**.
 > Una fusión **reclasifica el censo entero de golpe**, y por eso «cuántas ramas quedan» no es
 > una cifra que se pueda heredar de una casilla: se cuenta o no se dice.
+
+> ### Lo que se cerró de esta foto entre las 07:36 y las 07:41, y por qué se cierra aquí dentro
+>
+> **Dos renglones de arriba envejecieron en cinco minutos, y no envejecieron igual.** El de las
+> ramas es una **medición**: `test/guard-del-ensayo` era un árbol de usar y tirar que hice para
+> ver **abortar** el guard desde un worktree, y se fue con su base y su carpeta en cuanto lo vio;
+> una medición vieja se relee corriendo la orden, y este bloque ya lo dice.
+>
+> El otro **no era una medición, era una instrucción**: *«no lo commitees»*. Y una instrucción
+> no envejece a «hecho», **envejece a mentira** — es la misma especie que el aviso escrito en
+> futuro que nadie mueve el día que se despliega, y que la casilla de más abajo ya cobró una vez.
+> El fichero está commiteado en `ed542ff` con el guard **ejercitado por los tres lados**, así que
+> a partir de las 07:41 la fila decía lo contrario de lo que hay que hacer: quien la leyera
+> dejaría el trabajo colgando esperando un rescate que ya ocurrió.
+>
+> *La fila se corrige y no se borra: explica por qué el árbol principal tenía algo colgando esa
+> mañana, que es información que no se repone corriendo nada.*
 
 > ## LAS SEIS RAMAS VIEJAS, ABIERTAS UNA A UNA — 5 sep 2026, 08:0x
 >
@@ -188,7 +214,7 @@
 
 > ## LO QUE ESPERA UNA DECISIÓN, Y ES LO PRIMERO QUE SE PIERDE EN UN APAGÓN
 >
-> **Ninguna de las dos la puede resolver una sesión midiendo**, que es exactamente por qué
+> **Ninguna de las tres la puede resolver una sesión midiendo**, que es exactamente por qué
 > están aquí arriba y no dentro de una casilla fechada donde hay que ir a buscarlas.
 >
 > ### 1. `SELECT VERSION();` en un colegio — y decide el coste del día 10
@@ -301,6 +327,54 @@
 > > excepción **envejece hacia el peligro**: de proteger a engañar, sin que nada se ponga rojo.
 >
 > *En los dieciséis colegios esto no existe: cero versiones desplegadas.*
+
+**5 sep 2026 — EL ENSAYO DE LA TANDA MEDÍA UN ÁRBOL Y LE PREGUNTABA A OTRO** ·
+`tools/ensayo-de-la-tanda.sh` (punto 1.bis) y esta casilla · **el router no se mueve: 568** ·
+ejercitado **por los tres lados** sobre la copia de `simonbolivar` (102 tablas, 210 MB, 1.166.139 notas)
+
+> **La mitad de arriba del script le pregunta a `git` AQUÍ; `artisan` corre ALLÍ.** `PHP_EXEC` es
+> un `docker exec`, y **sin `-w` trabaja en `/app` —el árbol principal— aunque llames al script
+> desde un worktree**. Entonces la tanda se calcula con las migraciones de tu rama y el
+> rebobinado se le pide a un árbol que no las tiene.
+>
+> **Lo caro no era fallar: era CÓMO fallaba.** Lo pagó `8myvc-24` la noche del 4 al 5 sep desde el
+> worktree `p`: las migraciones de `main` rodaban, las suyas salían `Migration not found` y el
+> script abortaba con un `NO MEDIDO` a secas. Eso **se lee como «la tanda está mal»** cuando lo
+> que pasa es **«estás midiendo otro árbol»** — y quien lo lea a las tres de la mañana del día 10
+> se va a ir a mirar sus migraciones, que están perfectamente.
+>
+> **Se compara por NOMBRES y no por recuento**, que es la única diferencia con el guard gemelo de
+> `tools/construir-bd-test.sh`: dos árboles pueden tener veinte migraciones cada uno sin ser las
+> mismas veinte, y con un recuento eso pasa el guard y muere después, otra vez sin decir por qué.
+>
+> ### Lo que se ejercitó — un guard que no se ha visto abortar no está probado
+>
+> ```
+> árbol principal (main @ ac09cb7)        18 aquí · 18 allí (/app)              PASA    exit 0
+> worktree, SIN -w                        20 aquí · 18 allí (/app)              ABORTA  exit 2
+> worktree, CON -w /app/.worktrees/z      20 aquí · 20 allí (el worktree)       PASA    exit 0
+> ```
+>
+> El aborto **nombra las dos migraciones que no existen al otro lado** —`alcance_de_la_plantilla`
+> y `create_permiso_can_edit_plantilla_notas`— y sugiere la orden con la ruta buena. **Y no crea
+> la copia**: el guard va antes del punto 2, así que un aborto no deja ninguna base `_ensayo`
+> detrás — comprobado con `SHOW DATABASES` antes y después, que es la forma que tendría el
+> destrozo si el orden estuviera al revés.
+>
+> **Las dos pasadas que pasan midieron entero, no sólo el guard**: **5 migraciones en 1.163 ms**
+> (10.314 ms el comando) desde `main`, y **7 en 932 ms** (6.409 ms) desde el worktree puesto en la
+> punta de `feat/plantilla-de-notas`; las dos con los dos controles saltando, el esquema idéntico
+> a `simonbolivar` (1.528 columnas) y `LLEGO` en el módulo de horario. *La de siete es la tanda
+> que quedará cuando esa rama entre, y ya está ensayada.*
+>
+> **Y un borde que se cerró de camino, porque era el mismo daño con otra cara:** la orden que se
+> sugiere deriva la raíz de `git rev-parse --git-common-dir` —**`--show-toplevel` NO sirve aquí**,
+> dentro de un worktree devuelve el propio worktree y la orden salía `-w /app`, justo el árbol
+> equivocado que acababa de provocar el aborto—. Y si esa orden no contesta, `dirname` daba `.`,
+> el `sed` se comía el primer carácter del `pwd` y salía `-w /appUsers/josethguerrero/…`, una ruta
+> que no existe. Ahora dice que la ruta va a mano. **Se vio en rojo**, con un `git` falso en el
+> `PATH` que hace fallar sólo esa llamada: un guard cuyo motivo entero es no mandar a nadie a
+> mirar donde no es no puede permitirse imprimir una orden inventada.
 
 **5 sep 2026 — «EL SERVIDOR NO GUARDA LA DISPONIBILIDAD» ERA FALSO, Y LA FRASE TENÍA UN
 LECTOR HOY** · `HorarioController` (el veredicto de la subida y el renglón del catálogo) y
