@@ -14,6 +14,7 @@ use App\Models\NotaFinal;
 use Carbon\Carbon;
 use \Log;
 use App\Support\PeriodoDeLaFila;
+use App\Support\AlcanceDeLaPlantilla;
 
 
 class UnidadesController extends Controller {
@@ -145,8 +146,34 @@ class UnidadesController extends Controller {
 		$puedeEscribir = User::permiteEditarNotas($user, (int) $periodo_id);
 
 		if (count($unidades) == 0 && $puedeEscribir) {
-			$consulta = 'SELECT * FROM unidades_por_defecto WHERE year_id=? and deleted_at is null';
-			$unidades_default = DB::select($consulta, [$user->year_id]);
+			/*
+			 * **La plantilla tiene ALCANCE desde el 4 sep 2026** — decisión 8 de
+			 * Joseth, §5.7.a del 28. Una fila puede ir dirigida a un nivel
+			 * educativo y/o a una materia, y aquí se resuelve **cuál le toca a
+			 * esta asignatura**.
+			 *
+			 * Aquí había un `SELECT *` sobre `unidades_por_defecto` con el año
+			 * como único filtro. Se va por dos motivos, y el segundo es el que
+			 * obligaba: no sabía del alcance, y el `*` **repartía sola cualquier
+			 * columna nueva** a las filas que se copian debajo — que es el aviso
+			 * que ya lleva escrito la cabecera de este fichero.
+			 *
+			 * **Una consulta más y ninguna en el camino caliente**: las dos viven
+			 * dentro de este `if`, que sólo entra cuando la asignatura no tiene
+			 * ni una unidad — la primera vez que alguien abre la pantalla, no cada
+			 * mañana.
+			 *
+			 * Con las dos columnas a NULL en toda fila —o sea, en los dieciséis
+			 * colegios el día del despliegue— esto **selecciona exactamente las
+			 * mismas filas** que la consulta que sustituye. Hay un test de
+			 * contrato que lo fija.
+			 */
+			$alcance 			= AlcanceDeLaPlantilla::deAsignatura((int) $asignatura_id);
+			$unidades_default 	= $alcance === null ? [] : AlcanceDeLaPlantilla::unidadesPara(
+				(int) $user->year_id,
+				$alcance->nivel_educativo_id,
+				$alcance->materia_id
+			);
 
 			if (count($unidades_default) > 0) {
 				$now 		= Carbon::now('America/Bogota');

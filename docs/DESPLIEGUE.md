@@ -235,6 +235,52 @@ contexto contesta `SQLSTATE[42S22] Unknown column 'y.regla_nivelacion' in 'field
 > en un colegio que corra MySQL 5.7 (dos `ALTER` sobre esa tabla pasan a uno), que es la única
 > incógnita abierta de este despliegue: no sabemos qué MySQL corren los diecisiete.
 
+> **Y desde el 5 sep 2026 son SIETE, no cinco: entraron las dos de la plantilla de notas.**
+> `2026_09_05_200000_alcance_de_la_plantilla` y
+> `2026_09_05_300000_create_permiso_can_edit_plantilla_notas`, con la Entrega 1 del
+> [28](migracion/28-competencias-e-indicadores.md). **Contadas con
+> `git diff --name-only 9474b50 HEAD -- database/migrations/`, no sumadas** — 5 + 2 habría dado
+> el número correcto describiendo mal la tanda, que es justo lo que avisa el bloque de rollback:
+> desde la fusión **una migración son varias columnas de varias tablas**.
+>
+> Las dos son **aditivas y no tumban ninguna ruta viva** —ver sus filas—, que es lo que las
+> distingue de las cinco de arriba y por lo que **no cambian el veredicto de esta tanda**.
+
+> #### Y la tanda de SIETE está ensayada, no supuesta — 5 sep 2026
+>
+> `tools/ensayo-de-la-tanda.sh` sobre una copia de `simonbolivar` (210 MB, 102 tablas,
+> **1.166.139 filas en `notas`**), con las dos ramas dentro:
+>
+> | | |
+> |---|---|
+> | migraciones que entran | **7**, preguntadas a git en el rango `9474b50..HEAD` |
+> | corren | **7 de 7**, en **1.659 ms** de migraciones · **4.569 ms** el comando entero |
+> | delta real | **8 tablas nuevas**, **20 columnas nuevas** en 7 tablas, **1 columna retirada** |
+> | la copia migrada contra `simonbolivar` | idénticas: **1.528 columnas, mismo tipo** |
+> | pendientes al terminar | **0** |
+> | el módulo de horario en la copia | `200` con `total: 0` y el `403` donde toca — **LLEGÓ** |
+>
+> **Los dos controles saltan**, que es lo que hace que ese «OK» valga: contra la copia **sin
+> migrar** la comprobación enumera las veinte cosas que faltan —las dos columnas de
+> `unidades_por_defecto` y el permiso incluidos— y después de migrar dice `OK - la tanda entera
+> dentro`. Y el ensayo verifica además la **cobertura**: *«de cada tabla que cambia pregunta al
+> menos una cosa»*, que es la regla que se escribió el día que a la comprobación se le quedó
+> fuera `profesores.tono`.
+>
+> > ⚠️ **Y una trampa del propio ensayo, pagada aquí para que no la pague el siguiente:
+> > `PHP_EXEC` no lleva `-w` por defecto**, así que `artisan` corre en el árbol **principal**.
+> > Desde un worktree, las migraciones que sólo existen en tu rama salen **`Migration not
+> > found`** en el rebobinado y el ensayo aborta con `NO MEDIDO` — que se lee como «la tanda
+> > está mal» y es «estás midiendo otro árbol». Es la misma trampa que
+> > `tools/construir-bd-test.sh` ya documenta y **detecta**, y que ésta todavía no detecta. Se
+> > corre así:
+> >
+> > ```bash
+> > DB_ENSAYO=simonbolivar_ensayo_x \
+> >   PHP_EXEC="docker exec -i -w /app/.worktrees/x 8myvc-app-1" \
+> >   tools/ensayo-de-la-tanda.sh --limpiar
+> > ```
+
 | Migración | Qué rompe si falta | Radio |
 |---|---|---|
 | `2026_09_02_100000_nivelaciones_columnas` | **`years.regla_nivelacion`: el guard y los dos logins.** Y aparte: `notas.nota_original` y las de `notas_finales` las nombran la planilla (`NotasController:256` y `:306`), los boletines (`BoletinesController:298`, `Boletines2Controller:224`) y el boletín final (`BolfinalesController:529`); las dos del acta de la definitiva —absorbidas de `..._200000`— las nombra `DefinitivasPeriodosController:524-526` y `:718-721`; y las tres del acta de la recuperación del año —absorbidas de `..._300000`— **rompen una ruta que ya existe**: `putUpdateRecuperacion` nombra `nivelada_at, nivelada_por, observacion` en su `UPDATE`, su `INSERT` y su `SELECT` (`:818`, `:856`, `:884`) | **el colegio entero**, más `PUT definitivas_periodos/nivelar` y `PUT definitivas_periodos/update-recuperacion` |
@@ -242,6 +288,8 @@ contexto contesta `SQLSTATE[42S22] Unknown column 'y.regla_nivelacion' in 'field
 | `2026_09_03_100000_rubricas` | cinco tablas nuevas y `subunidades.rubrica_id`. **Nadie fuera de `RubricasController` las nombra** —comprobado uno a uno: la planilla, unidades, asignaturas y `ChangeAsked` pasaron a nombrar sus columnas justamente para que `rubrica_id` no se les colara— | las **10** rutas de `rubricas/` |
 | `2026_09_04_100000_horario_versiones` | tres tablas nuevas, `years.horario_version_id` y —absorbida de `..._200000`— **`profesores.tono`, `varchar(32)` nullable**. Sin las tablas, `POST horario/versiones` revienta; sin `tono` caen `GET horario/versiones/{id}/lecciones`, que la nombra en su `SELECT`, y `PUT horario/docentes/{profesor_id}/tono`, que la escribe. **Y el radio de `years.horario_version_id` no es de este módulo**: la lee `ChangeAskedController::horarioOficialDelAnio()` desde `getToMe` en sus dos ramas, o sea `GET ChangesAsked/to-me` — la que pide la app al abrir. Sin la migración **cae el panel de todo el mundo** (23 §11.5.1) | **`GET ChangesAsked/to-me` + las rutas de `horario/`.** Con esta fila el colegio SÍ se cae |
 | `2026_08_31_100000_retirar_boletin_independiente_de_matriculas` | nada del código nuevo: **retira** `matriculas.boletin_independiente`, que ya no lee nadie | ninguno hacia delante — **pero mira la fila de abajo** |
+| `2026_09_05_200000_alcance_de_la_plantilla` | dos columnas anulables en `unidades_por_defecto` —`nivel_educativo_id` y `materia_id`—. Sin ellas caen las **9 rutas de `plantilla-notas/`** y **`GET unidades/de-asignatura-periodo`**, que desde esta tanda resuelve el alcance por `App\Support\AlcanceDeLaPlantilla` y **nombra esas dos columnas**. **Y ninguna respuesta viva las reparte sola**: las tres puertas están cerradas —el `SELECT *` de `UnidadesController` se retiró aquí, el de `YearsController` no devuelve las filas, y **no hay modelo Eloquent de esa tabla**—, así que a diferencia de `profesores.tono` no aparece en ningún sitio que nadie haya decidido | **las 9 de `plantilla-notas/` y la rejilla de cada mañana.** Con esta fila el colegio SÍ se nota |
+| `2026_09_05_300000_create_permiso_can_edit_plantilla_notas` | una fila en `permissions`, **sin repartir a ningún rol**. Si falta, `Autoriza::puedeEditarPlantillaNotas` no lo encuentra en `perms` y la pantalla de la plantilla **queda sólo para superusuarios** — o sea que funciona, y por eso el fallo es mudo: nadie ve un error, ve que a rectoría «no le sale el menú» | ninguna ruta se cae; **cambia quién entra**, que es más difícil de detectar |
 
 > ### La fila del horario ha envejecido DOS veces, y la segunda con la cifra quieta
 >
@@ -353,7 +401,7 @@ colegio se arregla antes de tocar el siguiente.**
 Esto pregunta por el esquema, que es lo que leen las consultas:
 
 ```bash
-php artisan tinker --execute='$f=[]; foreach ([["years","regla_nivelacion"],["years","puestos_con_bol_independiente"],["years","horario_version_id"],["notas","nota_original"],["notas_finales","nota_nivelacion"],["recuperacion_final","nivelada_at"],["subunidades","rubrica_id"],["profesores","tono"]] as $c) { if (!Schema::hasColumn($c[0],$c[1])) $f[]=$c[0].".".$c[1]; } foreach (["rubricas","rubrica_criterios","rubrica_niveles","rubrica_descriptores","rubrica_valoraciones","horario_versiones","horario_lecciones","horario_pieza_docente"] as $t) { if (!Schema::hasTable($t)) $f[]="tabla ".$t; } if (Schema::hasColumn("matriculas","boletin_independiente")) $f[]="matriculas.boletin_independiente SIGUE AHI"; echo ($f ? "FALTA -> ".implode(" | ",$f) : "OK - la tanda entera dentro").PHP_EOL;'
+php artisan tinker --execute='$f=[]; foreach ([["years","regla_nivelacion"],["years","puestos_con_bol_independiente"],["years","horario_version_id"],["notas","nota_original"],["notas_finales","nota_nivelacion"],["recuperacion_final","nivelada_at"],["subunidades","rubrica_id"],["profesores","tono"],["unidades_por_defecto","nivel_educativo_id"],["unidades_por_defecto","materia_id"]] as $c) { if (!Schema::hasColumn($c[0],$c[1])) $f[]=$c[0].".".$c[1]; } foreach (["rubricas","rubrica_criterios","rubrica_niveles","rubrica_descriptores","rubrica_valoraciones","horario_versiones","horario_lecciones","horario_pieza_docente"] as $t) { if (!Schema::hasTable($t)) $f[]="tabla ".$t; } if (!DB::table("permissions")->where("name","can_edit_plantilla_notas")->exists()) $f[]="permiso can_edit_plantilla_notas"; if (Schema::hasColumn("matriculas","boletin_independiente")) $f[]="matriculas.boletin_independiente SIGUE AHI"; echo ($f ? "FALTA -> ".implode(" | ",$f) : "OK - la tanda entera dentro").PHP_EOL;'
 ```
 
 > **`profesores.tono` se le añadió el 4 sep 2026, y la tanda pasó a OCHO migraciones.** Se
@@ -363,6 +411,23 @@ php artisan tinker --execute='$f=[]; foreach ([["years","regla_nivelacion"],["ye
 > siete dentro» en un colegio al que le falta una. La decisión de la columna es de Joseth
 > (`23-horarios.md` §9.bis.3); el título de este bloque sigue diciendo siete porque es el de
 > la medición, no el de la comprobación.
+>
+> **Y desde el 5 sep comprueba también las dos de la plantilla**, con una fila por cada cosa que
+> la tanda añade y no sólo por migración: las **dos columnas de `unidades_por_defecto`** y —lo que
+> no es una columna— **la fila `can_edit_plantilla_notas` de `permissions`**. Esa última es la que
+> ninguna comprobación de esquema habría cazado, y es justo la que falla en silencio: sin ella la
+> pantalla de la plantilla funciona **sólo para superusuarios**, así que el síntoma no es un error
+> sino que a rectoría «no le sale el menú». Es la misma regla que habría cazado el hueco de
+> `profesores.tono`: **al menos una comprobación por cada tabla que la tanda toca.**
+>
+> > ⚠️ **Y esa línea del permiso dirá siempre `FALTA` si la corres contra una base de TESTS.**
+> > No es un fallo de la comprobación ni de la migración: `database/dumps/test-seed.sql` hace
+> > `TRUNCATE TABLE permissions` **después** de que corran las migraciones
+> > (`tools/construir-bd-test.sh` las ejecuta antes del seed), así que la fila que siembra
+> > `2026_09_05_300000` se la lleva el seed por delante. **Medido el 5 sep 2026** sobre
+> > `simonbolivar_testing_p`: las dos columnas de `unidades_por_defecto` sí aparecen y el permiso
+> > no, con 19 filas en `permissions`. En un colegio de verdad no hay nada que trunque, así que
+> > ahí la línea es válida — **se corre contra la base del colegio, no contra una de pruebas**.
 >
 > **Y desde el 4 sep la etiqueta ya no lleva número: dice `OK - la tanda entera dentro`.**
 > Contar migraciones ahí era contar la cosa equivocada —el fragmento pregunta por columnas y
@@ -581,20 +646,25 @@ ignora. **No corras el `down`.**
 > es justo lo que este paso existe para no hacer.
 >
 > Para volver atrás de esa tanda hay que **volver también el esquema**, y **no se puede volver sólo
-> esa**: `2026_08_31_100000` es la **primera** de las cinco por orden de ejecución, así que llegar a
-> ella es deshacer las cinco. Como corrieron en el mismo `migrate`, son un solo lote:
+> esa**: `2026_08_31_100000` es la **primera** de las siete por orden de ejecución, así que llegar a
+> ella es deshacer las siete. Como corrieron en el mismo `migrate`, son un solo lote:
 >
 > **`--step` de `migrate:rollback` cuenta MIGRACIONES, no lotes** —lo contrario de lo que hace
 > `--step` en `migrate`—, y desde la fusión del 4 sep una migración son varias columnas de varias
 > tablas: `--step=5` deshace la tanda entera, no cinco columnas.
 >
 > ```bash
-> php artisan migrate:status | tail -7      # confirma que el lote pendiente son las CINCO
-> php artisan migrate:rollback --step=5     # las cinco, en orden inverso
+> php artisan migrate:status | tail -9      # confirma que el lote pendiente son las SIETE
+> php artisan migrate:rollback --step=7     # las siete, en orden inverso
 > ```
 >
-> **`--step=1` NO sirve aquí**: revierte la última, que es `2026_09_04_100000_horario_versiones`, y deja la
-> columna retirada exactamente igual.
+> **`--step=1` NO sirve aquí**: revierte la última, que desde el 5 sep 2026 es
+> `2026_09_05_300000_create_permiso_can_edit_plantilla_notas` —una fila de `permissions`— y deja
+> la columna retirada, y todo lo demás, exactamente igual.
+>
+> **El 7 se recontó, no se le sumó 2 al 5**, y por lo que este mismo bloque dice dos párrafos más
+> arriba: `--step` cuenta **migraciones**, y desde la fusión una migración son varias columnas de
+> varias tablas. Sumar habría acertado el número describiendo mal la tanda.
 >
 > **Y esto sí pierde datos, al revés que en las tandas anteriores.** El `down()` de la del
 > `dropColumn` es exacto —devuelve la columna **a 0 en todas las filas, que es lo que había**: nunca

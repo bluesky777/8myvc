@@ -1285,6 +1285,56 @@ class YearsTest extends CasoDeContrato
     }
 
     /**
+     * **El ALCANCE de la plantilla viaja con la fila**, y no copiarlo no es «se
+     * pierde una columna»: es **la fila escapándose de su alcance**.
+     *
+     * Desde `2026_09_05_200000_alcance_de_la_plantilla` (decisión 8 de Joseth, §5.7.a
+     * del 28) una fila de `unidades_por_defecto` puede ir dirigida a un nivel
+     * educativo y/o a una materia, y **`NULL` significa «a todos»**. El `INSERT` de
+     * `postStore` nombra sus columnas, así que sin las dos nuevas las filas del año
+     * siguiente nacerían con las dos a NULL — y la plantilla de **una fila** de
+     * preescolar, la que existe para que la docente deje de teclear el mismo logro
+     * dos veces, se le sembraría en enero **a todo el bachillerato**, con su única
+     * casilla al 100 %, un 200 y ningún error en ningún log.
+     *
+     * Es el hermano del caso de arriba por el lado contrario: allí la plantilla
+     * llegaba **vacía**, aquí llegaría **a quien no era**. Los dos son mudos y los
+     * dos aparecen en enero, que es cuando nadie está mirando esto.
+     */
+    public function test_el_ano_nuevo_hereda_el_alcance_de_la_plantilla(): void
+    {
+        $ultimo = DB::selectOne('SELECT id, year FROM years WHERE deleted_at IS NULL ORDER BY year DESC LIMIT 1');
+
+        $nivel = DB::selectOne('SELECT id FROM niveles_educativos WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+        $materia = DB::selectOne('SELECT id FROM materias WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+        $this->assertNotNull($nivel, 'El seed no tiene niveles educativos.');
+
+        DB::table('unidades_por_defecto')->insert([
+            'definicion' => 'Valoración del periodo', 'porcentaje' => 100, 'year_id' => $ultimo->id,
+            'obligatoria' => 0, 'orden' => 0,
+            'nivel_educativo_id' => $nivel->id, 'materia_id' => $materia->id,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $r = $this->withToken($this->tokenDelPersonal())->postJson('/api/years/store',
+            $this->cuerpoDeAnioNuevo(((int) $ultimo->year) + 1, false));
+        $r->assertStatus(200);
+
+        $copiada = DB::table('unidades_por_defecto')
+            ->where('year_id', (int) $r->json('id'))
+            ->where('definicion', 'Valoración del periodo')
+            ->whereNull('deleted_at')
+            ->first();
+
+        $this->assertNotNull($copiada, 'La fila dirigida no llegó al año nuevo.');
+        $this->assertSame((int) $nivel->id, (int) $copiada->nivel_educativo_id,
+            'La fila llegó al año nuevo SIN nivel, o sea dirigida «a todos los niveles»: '.
+            'la plantilla de preescolar se acaba de sembrar en todo el colegio.');
+        $this->assertSame((int) $materia->id, (int) $copiada->materia_id,
+            'La fila llegó al año nuevo SIN materia, o sea dirigida «a todas las materias».');
+    }
+
+    /**
      * Y cada subunidad cuelga de **su** unidad, no todas de la última.
      *
      * El arreglo se apoya en `lastInsertId()` dentro del bucle, que es la forma que ya

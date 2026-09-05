@@ -8,6 +8,260 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
+> ## CÓMO SE AVERIGUA ESTE ESTADO — cinco órdenes, y van ANTES que las cifras
+>
+> **Escrito el 5 sep 2026, después del apagón que mató cinco sesiones a la vez.** Lo que hizo
+> falta esa mañana para reconstruir dónde estaba cada una fueron cinco órdenes, y **ninguna
+> estaba escrita en ningún sitio**: cada sesión las volvió a deducir. Un documento que dice
+> *«esto es lo que hay»* caduca con el siguiente commit; uno que dice **cómo se averigua lo que
+> hay** no caduca nunca — y por eso esto va arriba y las cifras van debajo.
+>
+> > **Y la frase de arriba tiene un agujero que se vio a los cinco minutos de escribirla, así
+> > que va aquí y no en una nota al pie.** «Cómo se averigua» sólo cubre lo que **es una
+> > medición**. Una **instrucción** —«no toques esto», «no lo commitees», «espera a que X
+> > termine»— **no se repone corriendo ninguna orden**, y no envejece a *«hecho»*: **envejece a
+> > mentira**. La foto de más abajo llevó las dos y sólo una se defendía sola; lo destapó
+> > `8myvc-29` y está contado ahí mismo. **Regla que sale de ahí: una instrucción se escribe con
+> > su condición de caducidad al lado** —*hasta que el fichero esté commiteado*, *mientras la
+> > rama X exista*—, porque el lector no puede comprobarla y el que la escribió ya no está.
+>
+> ```bash
+> git -C <árbol> branch --show-current && git -C <árbol> status --porcelain   # 1. dónde estoy y qué cuelga
+> git log --oneline -1 main                                                   # 2. hasta dónde llegó lo fundido
+> git branch --no-merged main --format='%(refname:short)'                     # 3. qué no está en main
+> git worktree list                                                           # 4. quién más está trabajando
+> docker ps --format '{{.Names}}\t{{.Status}}'                                # 5. si hay con qué medir
+> ```
+>
+> ### Las cinco trampas, una por orden — y las cinco están medidas, no supuestas
+>
+> 1. **`git status` en el árbol principal no contesta por ti.** El principal lo ocupa otra
+>    sesión y **puede no estar en `main`**: el 5 sep estaba en `fix/disponibilidad-si-se-guarda`.
+>    Lo que cuelgue ahí sin commitear **es de otro**, y se avisa, no se commitea
+>    ([La autorización no se delega](15-la-noche-en-paralelo.md)).
+> 2. **`main` no es donde estás.** Las dos cifras que la gente cita —el router y la tanda de
+>    migraciones— se leen de un árbol concreto, y los árboles **no coinciden**.
+> 3. **`--no-merged` cuenta referencias, no trabajo.** El 5 sep daba **once** ramas y sólo
+>    **cuatro** tenían algo vivo: las otras siete iban de **36 a 165 commits por detrás** de
+>    `main` y son restos, no cola. La orden que separa una cosa de la otra es
+>    `git rev-list --left-right --count main...<rama>` — **adelante y atrás**, porque una rama
+>    con 3 commits propios y 55 de retraso no es lo mismo que una con 1 y 0.
+> 4. **`git worktree list` es el censo de quién más puede pisarte**, y el nombre de la carpeta
+>    **ya está cogido aunque no lo parezca**: `.worktrees/g` estaba ocupado por el Lote G
+>    cuando fui a crearlo. El script avisa (`Ya existe .worktrees/g`) y no lo pisa.
+> 5. **Docker puede estar caído**, y lo estaba esa mañana. Sin él no hay `route:list`, ni
+>    `artisan`, ni las herramientas de `tools/` — y **la base es la de desarrollo compartida**:
+>    lo que midas ahí lo puede estar cambiando otra sesión mientras lo lees.
+>
+> ### Y la prueba de que un número aquí nace caducado
+>
+> **Conté las ramas sin fundir cuatro veces en una hora y salieron `8`, `10`, `11` y `8`.** No
+> me equivoqué ninguna de las cuatro, y las dos direcciones tienen causas distintas: subió
+> porque otras sesiones creaban ramas mientras yo medía, y **volvió a bajar porque `main`
+> avanzó y se llevó dos dentro**. Lo mismo con los worktrees, de 15 a 17. **Por eso el bloque
+> de abajo lleva la hora puesta y esta lista no la necesita.**
+>
+> ### El número que más se cita, y que depende del árbol en el que estés
+>
+> ```
+> árbol principal   fix/disponibilidad-si-se-guarda    route:list --json  ->  568
+> .worktrees/p      feat/plantilla-de-notas            route:list --json  ->  577
+> ```
+>
+> **Las dos son ciertas.** `CLAUDE.md` dice 568 porque describe lo fundido; la plantilla de
+> notas trae nueve rutas que todavía no están en `main`. **Quien cite «el router está en N» sin
+> decir desde qué árbol lo contó no ha dicho un número**, y ésta es la forma en que esa cifra
+> lleva envejeciendo desde agosto.
+
+> ## LA FOTO DEL 5 SEP 2026, 07:36 — Y ES UNA FOTO, NO UN ESTADO
+>
+> Recontada con las órdenes de arriba, **no heredada de nadie**. Si la lees más tarde,
+> **vuelve a correrlas**: lo de abajo es lo que se vio, no lo que hay.
+>
+> | | |
+> |---|---|
+> | `main` | `ac09cb7` |
+> | árbol principal | rama `fix/el-ensayo-mide-el-arbol-de-artisan` @ `ac09cb7` — **no es `main`**, y es de otra sesión |
+> | sin commitear en el principal | `tools/ensayo-de-la-tanda.sh` — huérfano del apagón, **en rescate por otra sesión**; no lo commitees — **CERRADO 07:41: commiteado en `ed542ff`**, ya rige lo contrario |
+> | ramas `--no-merged main` | **8**, y **ninguna** está a menos de 3 commits de retraso |
+> | worktrees | **17** |
+> | docker | estaba **caído** al empezar la mañana; lo levantó `8myvc-25` |
+> | bases `simonbolivar*` | **20**, y `simonbolivar_testing_h` sigue **rota** (95 tablas, parada en `2026_08_31_100000`) |
+>
+> **Las ocho, con adelante y atrás — que es lo único que separa una cola de un resto:**
+>
+> ```
+> feat/plantilla-de-notas             5 adelante    3 atrás    <- trae el router a 577
+> test/guard-del-ensayo               5 adelante    3 atrás    <- BORRADA 07:40, era de usar y tirar
+> docs/barrido-profesor-serializado   8 adelante   37 atrás
+> docs/appkey-compartida-fortul-lal   5 adelante   43 atrás
+> docs/despliegue-remedido            3 adelante   37 atrás
+> fix/frases-asignatura-text          3 adelante   56 atrás
+> feat/calendario                     2 adelante  166 atrás
+> fix/columnas-en-los-modelos-no-borra 1 adelante  41 atrás
+> ```
+>
+> ### Y lo que esta tabla enseña al compararla con la de hace una hora
+>
+> **Ninguna rama desapareció: lo que se movió fue `main`.** A las 06:2x había **once**
+> y cuatro parecían vivas; a las 07:36 hay **ocho** y las dos que estaban a `0 atrás`
+> —`fix/disponibilidad-si-se-guarda` y la rama reservada del Lote G— **están dentro de `main`**.
+> Una fusión **reclasifica el censo entero de golpe**, y por eso «cuántas ramas quedan» no es
+> una cifra que se pueda heredar de una casilla: se cuenta o no se dice.
+
+> ### Lo que se cerró de esta foto entre las 07:36 y las 07:41, y por qué se cierra aquí dentro
+>
+> **Dos renglones de arriba envejecieron en cinco minutos, y no envejecieron igual.** El de las
+> ramas es una **medición**: `test/guard-del-ensayo` era un árbol de usar y tirar que hice para
+> ver **abortar** el guard desde un worktree, y se fue con su base y su carpeta en cuanto lo vio;
+> una medición vieja se relee corriendo la orden, y este bloque ya lo dice.
+>
+> El otro **no era una medición, era una instrucción**: *«no lo commitees»*. Y una instrucción
+> no envejece a «hecho», **envejece a mentira** — es la misma especie que el aviso escrito en
+> futuro que nadie mueve el día que se despliega, y que la casilla de más abajo ya cobró una vez.
+> El fichero está commiteado en `ed542ff` con el guard **ejercitado por los tres lados**, así que
+> a partir de las 07:41 la fila decía lo contrario de lo que hay que hacer: quien la leyera
+> dejaría el trabajo colgando esperando un rescate que ya ocurrió.
+>
+> *La fila se corrige y no se borra: explica por qué el árbol principal tenía algo colgando esa
+> mañana, que es información que no se repone corriendo nada.*
+
+> ## LAS SEIS RAMAS VIEJAS, ABIERTAS UNA A UNA — 5 sep 2026, 08:0x
+>
+> **Nadie las había mirado nunca, y el censo no lo puede contestar: hay que abrirlas.** Encargo
+> de `8myvc-25`, **de lectura: no se fundió ninguna**. La pregunta era *«¿cola o resto?»*, y
+> **el resultado es que no hay ni un resto**: las seis traen trabajo propio que no está en
+> `main`, incluida la que más lo parecía.
+>
+> | rama | propios · retraso | ¿funde limpio? | qué trae que `main` NO tiene | veredicto |
+> |---|---|---|---|---|
+> | `fix/frases-asignatura-text` | 3 · 57 | **sí, limpio** | la migración de `frases_asignatura.frase` a `text` y su test | **cola, y la única barata** |
+> | `feat/calendario` | 2 · 167 | no (3 ficheros) | **864 líneas** de controlador, **dos rutas** (`calendario/mes`, `calendario/proximos`), una migración, 2 tests y 5 snapshots | **cola cara — y es la que más parecía resto** |
+> | `docs/despliegue-remedido` | 3 · 38 | no (2 ficheros) | el rango sin desplegar remedido y cuatro avisos que faltaban | **cola, pero su número ya caducó** |
+> | `docs/barrido-profesor-serializado` | 8 · 38 | no (1 fichero) | dos documentos nuevos y **el arreglo de `tools/filas-enteras-al-cliente.php`** | **cola — la conclusión llegó a `main`, la herramienta no** |
+> | `docs/appkey-compartida-fortul-lal` | 5 · 44 | no (1 fichero) | 311 líneas sobre el `29`, más `05` y `DESPLIEGUE-REFERENCIA` | **cola, y es material del día 10** |
+> | `fix/columnas-en-los-modelos-no-borra` | 1 · 42 | no (2 ficheros) | 425 líneas: la herramienta **mueve** las anotaciones a mano en vez de borrarlas | **cola** |
+>
+> ### 1. `fix/frases-asignatura-text` — barata de fundir y cara el día 10
+>
+> **Es la única que funde limpia** y toca dos ficheros. Y **sigue haciendo falta**: comprobado
+> en la base de desarrollo, `frases_asignatura.frase` sigue siendo `varchar(255)`.
+>
+> **Pero su precio no está en la fusión, está en la tanda.** Hoy son **cinco ficheros de
+> migración** sin desplegar en `main`, que con las dos de `feat/plantilla-de-notas` hacen las
+> **siete** sobre las que se ensayó la tanda anoche. Ésta sería **la octava**, y
+> **el ensayo de anoche no la midió**. *No es «una migración más»: es reensayar la tanda antes
+> del día 10.* **Decisión de Joseth, y va con ese precio delante.**
+>
+> ### 2. `feat/calendario` — 167 de retraso y ni un gramo de resto
+>
+> **La que más olía a resto es la que más trabajo vivo tiene.** `main` tiene un
+> `CalendarioController` de **221 líneas**; el de la rama tiene **1.034**, y **ninguna de sus
+> dos rutas nuevas existe en `main`**. Trae además su propia migración —o sea que también
+> mueve la tanda— y cinco snapshots.
+>
+> **El retraso no la invalida, lo que hace es poner el precio:** conflictos en
+> `ChangeAskedController.php` —que se ha reescrito mucho desde el 1 sep—, en el test de
+> familias y en esta casilla; rebase de verdad, no un `merge -X`; **los tres snapshots que
+> mueve una ruta nueva** y el contador de `CLAUDE.md`. *Un `git merge` a ciegas aquí es cómo se
+> pierde el trabajo de otro, no cómo se recupera.*
+>
+> ### 3. `docs/despliegue-remedido` — el caso que enseña por qué no se funde un número
+>
+> ```
+> main dice hoy                          191 commits sin desplegar
+> la rama remidió el 4 sep               232
+> contados hoy (git rev-list 9474b50..main)  274
+> ```
+>
+> **Fundirla arregla `main` y mete un número que ya no es cierto.** Y el propio `DESPLIEGUE.md`
+> tiene la regla que lo resuelve —*un rango sin desplegar se remide entero cuando se le toca*—,
+> así que **lo que hay que llevarse de esta rama no es el 232: son los cuatro avisos que
+> faltaban y el hallazgo del aviso R** (eran **trece** respuestas y no seis), que no caducan.
+> El número se recuenta el día que se funda. *Hoy son 274 commits, 55 ficheros de `app/`, 7 de
+> `routes/` y 5 migraciones.*
+>
+> ### 4. `docs/barrido-profesor-serializado` — la conclusión llegó y la herramienta no
+>
+> **El hallazgo ya está en `main`**: «trece respuestas vivas» sale cuatro veces en esta misma
+> casilla. **Lo que no llegó es con qué se midió**: `tools/filas-enteras-al-cliente.php` está en
+> `main` **234 líneas por detrás**, o sea en la versión que —según su propio commit— *«contestaba
+> con la cara de haber mirado»* y daba **1 donde el barrido daba 13**. Tampoco están sus dos
+> documentos nuevos.
+>
+> > **Y esto es exactamente el caso contra el que avisa `CLAUDE.md`**: *el primer sitio donde
+> > mirar cuando el número sale raro es el detector*. Hoy `main` tiene el número bueno y el
+> > detector malo, así que **quien lo vuelva a correr para comprobarlo obtendrá el `1` y creerá
+> > que el trece estaba mal.**
+>
+> ### 5 y 6, en corto
+>
+> - **`docs/appkey-compartida-fortul-lal`**: sus dos documentos nuevos **ya están en `main`**,
+>   pero en versiones anteriores —311 líneas de diferencia sobre `29-los-env-no-son-uniformes`—.
+>   Trae la clave compartida entre `fortul` y `lal`, el correo caído en los dieciséis, el
+>   `APP_DEBUG=true` de cinco y el CORS. **Es material del día 10**, no documentación de fondo.
+> - **`fix/columnas-en-los-modelos-no-borra`**: un commit, 425 líneas. La herramienta que
+>   regenera las `@property` **borraba** las anotaciones escritas a mano; la rama las **mueve**.
+>   `main` tiene todavía la que borra.
+>
+> ### Lo que este censo NO contesta
+>
+> **Si el contenido de cada una sigue siendo correcto.** Se midió qué traen y si `main` ya lo
+> tiene, **no** si lo que afirman sigue siendo verdad contra el código de hoy — y dos de ellas
+> son documentos llenos de cifras con 38 y 44 commits de retraso encima. **Se abrieron, no se
+> auditaron.** Y ninguna se corrió: los tests de `feat/calendario` no se han ejecutado contra
+> `main` de hoy.
+
+> ## LO QUE ESPERA UNA DECISIÓN, Y ES LO PRIMERO QUE SE PIERDE EN UN APAGÓN
+>
+> **Ninguna de las tres la puede resolver una sesión midiendo**, que es exactamente por qué
+> están aquí arriba y no dentro de una casilla fechada donde hay que ir a buscarlas.
+>
+> ### 1. `SELECT VERSION();` en un colegio — y decide el coste del día 10
+>
+> **Nadie de aquí puede correrla**: hay que entrar a un cPanel. El detalle y la medición están
+> en la casilla del 4 sep («LA TANDA ENSAYADA SOBRE UNA BASE CON DATOS»), y el resumen es que
+> la misma migración sobre `notas` cuesta **11,8 ms bajo MySQL 8** y **4.870 ms bajo 5.7**, con
+> la tabla bloqueada y escalando con las filas. Por diecisiete colegios, eso **deja de ser un
+> detalle y pasa a ser el plan**. *Es lo más barato que se puede hacer antes del día 10 y sigue
+> sin hacerse.*
+>
+> ### 2. ¿Entra `fix/frases-asignatura-text` antes del día 10? — y el precio es reensayar
+>
+> La rama funde limpia y **hace falta**: `frases_asignatura.frase` sigue siendo `varchar(255)`.
+> Pero sería **la octava migración** de una tanda que anoche se ensayó sobre **siete**, así que
+> entrar no cuesta la fusión: cuesta **volver a correr el ensayo sobre una copia con datos**.
+> Y `feat/calendario` trae otra, o sea que la pregunta real es *cuántas migraciones entran
+> antes del día 10*, no si entra ésta. **Las dos salidas son legítimas y ninguna es gratis:**
+> dejarlas fuera congela dos arreglos ya escritos y probados; meterlas obliga a reensayar.
+>
+> ### 3. El Lote G: ensanchar `GET horario/versiones/{id}/lecciones` con las cuatro listas
+>
+> Es la decisión 38 de `myvc_horarios`. **Ya no es una hipótesis:** el 5 sep se midió que este
+> servidor **sí guarda** las disponibilidades declaradas —dentro de
+> `horario_versiones.proyecto`, 47 docentes con la clave y 26 con marcas de verdad— y que dos
+> cadenas afirmaban lo contrario (`ac09cb7`). **Eso cambia el trabajo que se pide**: no es
+> inventar un dato, es parsear un blob que ya está.
+>
+> **El trabajo NO está hecho, y el censo de ramas no sirve para saberlo.** Hay una rama
+> reservada —`feat/horario-cuatro-listas`, con su worktree en `.worktrees/g`— que apuntaba al
+> mismo commit que `main` cuando la miré, así que **en cuanto `main` avanzó dejó de salir en
+> `--no-merged` sin que nadie escribiera una línea**. Una rama reservada y una rama terminada
+> **se ven igual desde fuera**: lo que dice si el Lote G está hecho **es la respuesta de
+> la ruta, no la lista de ramas**. Comprobado el 5 sep a las 07:4x sobre la versión oficial 8:
+>
+> ```
+> GET horario/versiones/8/lecciones -> 200
+>   catalogos.disponibilidad = {"estado":"sin_catalogo",
+>                               "motivo":"está guardada dentro del fichero de proyecto,
+>                                         no en una tabla: esta ruta todavía no la parsea"}
+>   el sobre sigue con cinco claves: version · ejes · catalogos · lecciones · total_lecciones
+> ```
+>
+> *Y ese `motivo` ya es el bueno —dice que el dato **está** y que falta parsearlo—, que es
+> justo lo que arregló `ac09cb7`. O sea que el trabajo pendiente está bien descrito y sin
+> empezar.*
+
 > **Y una corrección de nombre que NO es cosmética.** Las tres entradas de esta noche que
 > atribuían trabajo a `8myvc-d2` decían mal el nombre de la sesión que coordinó: es
 > **`8myvc-7d`**. Firmé así toda la noche —y `8myvc-d5` lo copió de mí de buena fe— hasta
@@ -78,8 +332,14 @@
 `tono` DEJA DE CONTAR SOBRE LA POBLACIÓN QUE NO ERA** · `HorarioController::getLecciones` y sus
 lectores del blob, `HorarioLeccionesTest` (18 → 29 casos, 187 → 419 aserciones, los once nuevos
 vistos en rojo con ocho mutaciones), [23 §9.bis.6](23-horarios.md) y esta casilla · **el router no
-se mueve: 568, contado** · pint PASS · larastan nivel 7 `[OK] No errors` · rama
-`feat/horario-cuatro-listas` desde `ac09cb7`, **sin fundir**
+se mueve: 577 antes y después, contado con `route:list --json` sobre la rama ya fusionada con
+`main`** · pint PASS · larastan nivel 7 `[OK] No errors` · rama `feat/horario-cuatro-listas`
+
+> **El 577 y el 568 son el mismo hecho y por eso van los dos.** Esta rama sale de `ac09cb7`,
+> donde el router iba por **568**, y ahí se contó al escribir el código; con `main` dentro son
+> **577**, porque la plantilla de notas trajo nueve. **Ninguna de las dos cifras la mueve este
+> lote** — es el sobre de una ruta que ya existía—, y se dicen las dos porque *«no se mueve»
+> sin decir desde dónde es la frase que hace que el siguiente reste mal.*
 
 > **`GET horario/versiones/{id}/lecciones` manda cuatro claves más —`plantilla`, `jornadas`,
 > `disponibilidad`, `sin_colocar`—, todas sacadas del fichero de proyecto que ya leía, cada una
@@ -128,13 +388,113 @@ se mueve: 568, contado** · pint PASS · larastan nivel 7 `[OK] No errors` · ra
 >
 > ### LO SIGUIENTE
 >
-> - **Fundir detrás de `feat/plantilla-de-notas`** (secuencia de `8myvc-ae`: la plantilla trae dos
->   de las siete migraciones del día 10 y va primera). Esta rama no toca ESTADO-ACTUAL en otra
->   casilla que ésta, así que el conflicto será de una sola.
+> - **Fundida detrás de `feat/plantilla-de-notas`**, como pedía la secuencia de `8myvc-ae` (la
+>   plantilla trae dos de las siete migraciones del día 10 y va primera). El conflicto fue de una
+>   sola casilla, la de arriba, contra la del ensayo de la tanda: las dos se insertaban en el
+>   mismo punto y ninguna se pisa.
 > - `myvc-horarios-66` y `myvc-front-f1` escriben su lector **sobre la respuesta conducida**; se
 >   les manda el `curl`, no el controlador.
 > - **No medido:** los otros quince colegios; la invariante de `quien-esta-libre` (es del
 >   consumidor); `ilegible` por partes y los `porque` distintos de `nivel` con datos reales.
+
+**5 sep 2026 — EL ENSAYO DE LA TANDA MEDÍA UN ÁRBOL Y LE PREGUNTABA A OTRO** ·
+`tools/ensayo-de-la-tanda.sh` (punto 1.bis) y esta casilla · **el router no se mueve: 568** ·
+ejercitado **por los tres lados** sobre la copia de `simonbolivar` (102 tablas, 210 MB, 1.166.139 notas)
+
+> **La mitad de arriba del script le pregunta a `git` AQUÍ; `artisan` corre ALLÍ.** `PHP_EXEC` es
+> un `docker exec`, y **sin `-w` trabaja en `/app` —el árbol principal— aunque llames al script
+> desde un worktree**. Entonces la tanda se calcula con las migraciones de tu rama y el
+> rebobinado se le pide a un árbol que no las tiene.
+>
+> **Lo caro no era fallar: era CÓMO fallaba.** Lo pagó `8myvc-24` la noche del 4 al 5 sep desde el
+> worktree `p`: las migraciones de `main` rodaban, las suyas salían `Migration not found` y el
+> script abortaba con un `NO MEDIDO` a secas. Eso **se lee como «la tanda está mal»** cuando lo
+> que pasa es **«estás midiendo otro árbol»** — y quien lo lea a las tres de la mañana del día 10
+> se va a ir a mirar sus migraciones, que están perfectamente.
+>
+> **Se compara por NOMBRES y no por recuento**, que es la única diferencia con el guard gemelo de
+> `tools/construir-bd-test.sh`: dos árboles pueden tener veinte migraciones cada uno sin ser las
+> mismas veinte, y con un recuento eso pasa el guard y muere después, otra vez sin decir por qué.
+>
+> ### Lo que se ejercitó — un guard que no se ha visto abortar no está probado
+>
+> ```
+> árbol principal (main @ ac09cb7)        18 aquí · 18 allí (/app)              PASA    exit 0
+> worktree, SIN -w                        20 aquí · 18 allí (/app)              ABORTA  exit 2
+> worktree, CON -w /app/.worktrees/z      20 aquí · 20 allí (el worktree)       PASA    exit 0
+> ```
+>
+> El aborto **nombra las dos migraciones que no existen al otro lado** —`alcance_de_la_plantilla`
+> y `create_permiso_can_edit_plantilla_notas`— y sugiere la orden con la ruta buena. **Y no crea
+> la copia**: el guard va antes del punto 2, así que un aborto no deja ninguna base `_ensayo`
+> detrás — comprobado con `SHOW DATABASES` antes y después, que es la forma que tendría el
+> destrozo si el orden estuviera al revés.
+>
+> **Las dos pasadas que pasan midieron entero, no sólo el guard**: **5 migraciones en 1.163 ms**
+> (10.314 ms el comando) desde `main`, y **7 en 932 ms** (6.409 ms) desde el worktree puesto en la
+> punta de `feat/plantilla-de-notas`; las dos con los dos controles saltando, el esquema idéntico
+> a `simonbolivar` (1.528 columnas) y `LLEGO` en el módulo de horario. *La de siete es la tanda
+> que quedará cuando esa rama entre, y ya está ensayada.*
+>
+> **Y un borde que se cerró de camino, porque era el mismo daño con otra cara:** la orden que se
+> sugiere deriva la raíz de `git rev-parse --git-common-dir` —**`--show-toplevel` NO sirve aquí**,
+> dentro de un worktree devuelve el propio worktree y la orden salía `-w /app`, justo el árbol
+> equivocado que acababa de provocar el aborto—. Y si esa orden no contesta, `dirname` daba `.`,
+> el `sed` se comía el primer carácter del `pwd` y salía `-w /appUsers/josethguerrero/…`, una ruta
+> que no existe. Ahora dice que la ruta va a mano. **Se vio en rojo**, con un `git` falso en el
+> `PATH` que hace fallar sólo esa llamada: un guard cuyo motivo entero es no mandar a nadie a
+> mirar donde no es no puede permitirse imprimir una orden inventada.
+
+**5 sep 2026 — LA TANDA DEL DÍA 10 ES DE SIETE Y ESTÁ ENSAYADA: 1.659 ms SOBRE 1,17 MILLONES
+DE NOTAS** · `docs/DESPLIEGUE.md` (tabla, rollback y la comprobación), `tools/ensayo-de-la-tanda.sh`
+(cabecera) y esta casilla · **cero código de la API, el router quieto en 577**
+
+> Las dos migraciones de la plantilla entraron detrás de la consolidación de `8myvc-47`, así que
+> **la tanda cambió de contenido y había que remedirla**. Remedida, no supuesta.
+>
+> | | |
+> |---|---|
+> | migraciones que entran | **7** — `git diff --name-only 9474b50 HEAD -- database/migrations/` |
+> | corren | **7 de 7**, **1.659 ms** las migraciones · **4.569 ms** el comando |
+> | población | copia de `simonbolivar`: 210 MB, 102 tablas, **1.166.139 filas en `notas`** |
+> | delta real | **8 tablas nuevas**, **20 columnas nuevas** en 7 tablas, **1 retirada** |
+> | la copia migrada contra el origen | idénticas: **1.528 columnas, mismo tipo** · pendientes **0** |
+> | horario en la copia | `200` con `total: 0` y el `403` donde toca — **LLEGÓ** |
+>
+> **El 7 se contó, no se sumó.** `47` dejó 5 en `main` y yo traigo 2; 5 + 2 habría acertado el
+> número **describiendo mal la tanda**, que es justo lo que avisa el bloque de rollback desde su
+> fusión: **una migración son ahora varias columnas de varias tablas**, así que el `--step` y «lo
+> que cambia» dejaron de ser intercambiables. El bloque de rollback pasa a `--step=7` y `tail -9`.
+>
+> ### LA COMPROBACIÓN DE DIEZ SEGUNDOS AHORA PREGUNTA POR LO QUE NO ES UNA COLUMNA
+>
+> Se le añadieron las dos columnas de `unidades_por_defecto` **y la fila
+> `can_edit_plantilla_notas` de `permissions`**. Esa última es la que ninguna comprobación de
+> esquema habría cazado y **es la que falla en silencio**: sin ella la pantalla de la plantilla
+> funciona, pero **sólo para superusuarios** — el síntoma no es un error, es que a rectoría «no le
+> sale el menú». El ensayo verifica la cobertura y dice *«de cada tabla que cambia pregunta al
+> menos una cosa»*, que es la regla que nació el día que se le quedó fuera `profesores.tono`.
+>
+> > ⚠️ **Y esa línea del permiso dirá siempre `FALTA` contra una base de TESTS**, y no es un
+> > fallo: `test-seed.sql` hace `TRUNCATE TABLE permissions` **después** de migrar. Medido sobre
+> > `simonbolivar_testing_p`: las dos columnas aparecen y el permiso no, con 19 filas en
+> > `permissions`. Se corre contra la base del colegio, no contra una de pruebas — está escrito
+> > al lado de la comprobación para que nadie la «arregle».
+>
+> ### Y UNA TRAMPA DEL PROPIO ENSAYO, PAGADA AQUÍ
+>
+> **`PHP_EXEC` no lleva `-w` por defecto**, así que `artisan` corre en el árbol **principal**.
+> Desde un worktree, las migraciones que sólo existen en tu rama salen **`Migration not found`**
+> en el rebobinado y el ensayo aborta con `NO MEDIDO` — que **se lee como «la tanda está mal» y
+> es «estás midiendo otro árbol»**, porque las de `main` sí ruedan y las tuyas no. Es la misma
+> trampa que `construir-bd-test.sh` ya documenta **y detecta**; **ésta la detecta desde
+> `ed542ff`** —punto 1.bis, ejercitado por los tres lados y visto abortar—, y la cabecera lleva
+> la orden completa al lado.
+>
+> > *Cuando se escribió esta casilla todavía no la detectaba, y era cierta. **Se corrige en la
+> > fusión y no se deja envejecer**: «hay que acordarse» es una instrucción, y una instrucción
+> > no envejece a «hecho», envejece a mentira. Es la misma lección de la casilla de arriba, y
+> > la primera vez que se aplica sin que nadie tropiece antes.*
 
 **5 sep 2026 — «EL SERVIDOR NO GUARDA LA DISPONIBILIDAD» ERA FALSO, Y LA FRASE TENÍA UN
 LECTOR HOY** · `HorarioController` (el veredicto de la subida y el renglón del catálogo) y
@@ -605,6 +965,100 @@ código, el router no se mueve: 568** · lo destapó una publicación accidental
 >
 > **`putOficial` no se toca y no se propone tocarlo.** El peaje está bien pensado y el 200 del
 > caso limpio puede ser la decisión correcta. **Lo que faltaba era que estuviera dicho.**
+**4 sep 2026 — LA PLANTILLA DE NOTAS SALE DE phpMyAdmin: LAS NUEVE DE `plantilla-notas`,
+EL ALCANCE DE PREESCOLAR Y EL ROUTER EN 577** · `PlantillaNotasController`,
+`App\Support\AlcanceDeLaPlantilla`, `routes/api/plantilla.php`, **dos migraciones**,
+`UnidadesController`, `YearsController`, `Autoriza`,
+`tests/Contrato/PlantillaNotasTest` (**21 casos**) y
+`tests/Contrato/AlcanceDeLaPlantillaTest` (**9 casos**), `CLAUDE.md`,
+[28](28-competencias-e-indicadores.md) y **los tres snapshots** · **577 rutas, contadas
+con `route:list --json`** · pint PASS · larastan nivel 7 `[OK] No errors`
+
+> **La Entrega 1 y la 7(a) del [28](28-competencias-e-indicadores.md), juntas.** Hasta hoy
+> `unidades_por_defecto` y `subunidades_por_defecto` **se editaban a mano en la base**: ésa
+> es la frase entera del problema que esto cierra.
+>
+> ### POR QUÉ VAN JUNTAS, Y NO ES POR COMODIDAD
+>
+> La 7(a) sola son **dos columnas que no puede escribir nadie** —la única pantalla que crea
+> filas de plantilla es la Entrega 1—, o sea el caso `profesores.tono` de ayer **otra vez**,
+> con la única diferencia de que esta vez se vio **antes** de escribirlo. Y la Entrega 1
+> sola le siembra la plantilla de una fila de preescolar **a todo el bachillerato**. Joseth
+> aprobó el lote con el precio delante: **9 rutas, 2 migraciones, el arreglo de
+> `YearsController` y el router de 568 a 577**.
+>
+> ### LO QUE NO ENTRÓ, DICHO AQUÍ Y NO EN UNA NOTA AL PIE
+>
+> **El candado del docente (decisión 5) NO está.** El documento dice «entra con la Entrega
+> 1, no después» y **tiene razón en el orden y aun así no se puede cumplir hoy**: cambia
+> respuestas de éxito por **403 en nueve rutas vivas** que notan los tres editores, y la
+> §5.1.e exige contar antes el censo de `por_defecto = 1` **en los diecisiete colegios** —
+> que no se corre desde una sesión de desarrollo, hace falta el servidor. Lo que había que
+> decidir no era si se pone sino **si se corre el censo antes o se acepta ponerlo a ciegas**,
+> y **Joseth eligió el censo** (decisión 14, cerrada el 4 sep 2026). O sea que **el candado
+> es trabajo del día del despliegue**, con el bucle de `DESPLIEGUE.md`, y no de una noche de
+> código.
+>
+> ### DOS HALLAZGOS QUE NO ESTABAN EN EL DOCUMENTO
+>
+> **1. `YearsController:278` dejaba escapar el alcance, y el síntoma habría sido el
+> contrario del que se busca.** Ese `INSERT` copia la plantilla al año siguiente **nombrando
+> columnas**. Sin añadir las dos nuevas no habría sido «no se copia el alcance», que se
+> nota: habrían nacido a NULL, y **NULL significa «a todos»** — la plantilla de una fila de
+> preescolar sembrada en enero **en todo el bachillerato**, con un 200 y sin un error en
+> ningún log. Es el **hermano por el lado contrario** del fallo de la §1.bis, que hacía
+> llegar la plantilla **vacía**. Los dos son mudos y los dos aparecen en enero.
+>
+> **2. La rejilla de indicadores (7c) está BLOQUEADA por una contradicción del propio
+> documento.** §5.7.c dice que marca con «el mismo `indicador_id` que ya propone §5.3»;
+> §5.3 pone esa columna en **`subunidades`**, que es otra tabla, y la declara *decisión
+> aparte*. Comprobado contra el volcado: **`frases_asignatura` no tiene `indicador_id`** —
+> sólo `frase_id` (→ `frases`, el catálogo que §5.3 descarta) y `frase`. Las dos salidas y
+> la recomendación quedan escritas en §5.7.c; **es la decisión 15, abierta**.
+>
+> ### EL CONTROL QUE NO SE PUSO ROJO, QUE ES LO QUE HAY QUE CONTAR DE ESTA NOCHE
+>
+> | control | qué cae |
+> |---|---|
+> | quitar `puedeEditarPlantillaNotas` del controlador | **9** de 21 |
+> | quitar el filtro de alcance del sembrador | **7** de 9 |
+> | `YearsController` sin copiar las dos columnas | **1**, el de la fuga |
+> | quitar la regla 5 (`alumno_id IS NULL`) de `sembrar` | **1** — *a la segunda* |
+>
+> **El cuarto salió VERDE la primera vez, con el candado quitado.** El caso del boletín
+> independiente usaba la primera asignatura del seed, que ya tiene rejilla y notas: `sembrar`
+> la saltaba por `saltadas_por_notas` **antes de llegar a la regla 5**. O sea que el test
+> llevaba media hora afirmando que protegía el reparto de un independiente y lo que medía
+> era su propio nombre. Reescrito para montarse una asignatura limpia, cae con el mensaje
+> correcto. *Un control que no se corre no es un control, y uno que sale verde hay que mirar
+> por qué.*
+>
+> ### ⚠️ Y UNA CIFRA DE ESTA MISMA MAÑANA QUE HA ENVEJECIDO, DICHA Y NO ARREGLADA
+>
+> La casilla de más abajo dice **«568 de 568 — 100 %»** de cobertura de rutas. El router
+> está en **577**. Las nueve nuevas las cubre `PlantillaNotasTest`, **pero eso lo dice esta
+> casilla y no `cobertura-de-rutas.py`**: la pasada entera se corrió sin `COBERTURA_RUTAS`.
+> Así que a día de hoy el 100 % **está sin comprobar desde que entraron las nueve**, y se
+> escribe así en vez de darlo por bueno.
+>
+> **Se remide el día del despliegue y no ahora**, y no por tiempo: la medición útil es con
+> esta rama **y** la de las migraciones dentro de `main`, contando con `route:list --json`
+> sobre `main`. Medirla sobre una rama da un dato que caduca al fusionar.
+>
+> ### TRES COSAS QUE EL DISEÑO NO TENÍA Y EL CÓDIGO SÍ NECESITÓ
+>
+> - **El 422 del porcentaje es por grupo de alcance, no uno.** Desde que una fila puede ir
+>   dirigida, la suma que debe dar 100 **ya no es una**: comprobar la de la tabla entera daría
+>   200 en cuanto un colegio tenga una plantilla general y otra de preescolar, **las dos
+>   correctas**.
+> - **`sembrar` devuelve siete contadores, y uno cambió de nombre.**
+>   `saltadas_por_independiente`, que proponía la §5.1.c, **valdría cero siempre** —las filas
+>   con dueño no hacen saltar nada, que es justo la regla 5—, y un contador que no puede subir
+>   no dice si la regla llegó a correr. En su lugar, `independientes_respetadas`.
+> - **La precedencia necesitaba una decisión más**: «gana la más específica» es ambiguo con
+>   **dos** ejes. Se resolvió con cuatro gradas, aplicando **la grada entera** —mezclar dos da
+>   un reparto de 200 que nadie escribió— y con el **nivel ganando a la materia**, que es la
+>   única parte discutible y está argumentada en §5.7.a.
 
 **4 sep 2026 — LAS OCHO MIGRACIONES SIN DESPLEGAR, CONSOLIDADAS EN CINCO** · rama
 `fix/consolidar-migraciones` · `database/migrations/` (−3 ficheros), `docs/DESPLIEGUE.md`,
@@ -1226,6 +1680,142 @@ DESBLOQUEA YA ESTÁ CONTESTADA** · decisión de Joseth · sólo documentos:
 > eso no lo arregla ninguna medición del cliente. Y no cubre a los otros tres clientes
 > —`myvc_front`, `app2` y `myvc_front_2`—, que sí tienen avisos pendientes (el **K** los
 > nombra: `created_by_nombres` lo pinta la aplicación vieja y dirá «Por: undefined»).
+
+**4 sep 2026 — LA COLUMNA `tono` SE REPARTE A TRECE RESPUESTAS, NO A SEIS — Y SÓLO UNA TIENE INSTANTÁNEA** ·
+rama `docs/barrido-profesor-serializado`, **fundida en `main` el 5 sep 2026** (49 commits por
+detrás; el único conflicto era esta casilla, que se colocó aquí porque las de arriba ya la citan) ·
+[`30-lo-que-reparte-una-columna-nueva.md`](30-lo-que-reparte-una-columna-nueva.md) (nuevo),
+[`AVISO-A-LOS-CLIENTES-tono.md`](../AVISO-A-LOS-CLIENTES-tono.md) (nuevo) y
+`tools/filas-enteras-al-cliente.php` · **cero rutas: 567 sin moverse** · larastan nivel 7
+**`[OK] No errors`** · encargo de `myvc-horarios-27`
+
+> **Y por qué se fundió antes del día 10 aunque no tenga fecha**: `main` tenía **el número bueno
+> y el detector malo**. «Trece respuestas vivas» sale cuatro veces en este documento, y la
+> `tools/filas-enteras-al-cliente.php` de `main` daba **1** sobre `profesores` —sólo ve
+> `SELECT *`, ciega a Eloquent—, así que quien fuera a recomprobar el trece con ella habría
+> concluido que el trece estaba mal. Con la rama, los mismos 235 ficheros dan **12**. Es la regla
+> de `CLAUDE.md` en su forma que muerde: el detector declaraba su población honradamente y aun
+> así se dejaba once. Lo verificó `8myvc-ae` corriendo las dos versiones sobre la misma tabla
+> antes de repartir la fusión; no trae migraciones, así que el congelado no la bloquea.
+
+> **Esta cabecera decía «cero código» y dejó de ser cierto a media tarde**, cuando Joseth
+> autorizó arreglar la herramienta. Corregido aquí y no en un commit aparte, que es lo que pide
+> la cabecera de este documento. *Una entrada de estado que envejece dentro de su propia sesión
+> es la que hace que la siguiente lea una foto y crea que es el presente.*
+
+> **El censo de `8myvc-e0` era correcto en lo que miraba y le faltaba la mitad.** Encontró
+> **seis** leyendo los `return` uno a uno de `ProfesoresController` y `GruposController`. Son
+> **trece**: cinco más por Eloquent en controladores que no se miraron —`PerfilesController` e
+> `ImagesUsuariosController`— y **dos por SQL crudo**, que es un camino que **leer `return` de
+> Eloquent no puede ver por construcción**: no hay ningún modelo por medio, son filas de
+> `DB::select`. Aquí hay **1.170 consultas crudas**.
+>
+> **La cobertura es 1 de 13.** `GET grupos/{id}` es la única con instantánea —y por eso dio el
+> aviso—. Las otras doce tienen tests que las tocan, hasta cinco en una, y **ninguna vigila la
+> forma**: un campo de más los deja verdes a todos.
+>
+> **Y la nº 7 es la gemela exacta de la nº 1**: `PerfilesController::getShow` hace lo mismo que
+> `GruposController::getShow` —mete el titular entero dentro del grupo— y su propio docblock ya
+> decía que eran gemelas. **Una tiene instantánea y la otra no**, y esa asimetría es justo por
+> qué el aviso llegó por una sola de las trece.
+>
+> ### LO QUE SE DESCARTÓ, PORQUE UN BARRIDO SIN SUS DESCARTES NO SE PUEDE AUDITAR
+>
+> **El Excel de docentes no filtra**, aunque su consulta haga `SELECT p.*`: la vista Blade
+> **nombra sus 17 columnas** y `tono` no está. *Dos defensas independientes y basta una.* Tres
+> `SELECT *` más eran **falsos positivos de mi detector** —el comodín cubría una subconsulta que
+> nombra sus columnas—, y un `return` de modelo entero no cuenta porque **su único llamante
+> descarta el valor**. Las cinco estáticas del modelo nombran columnas: comprobadas las cinco.
+>
+> ### DOS FALLOS MÍOS, Y EL PRIMERO LO DELATÓ EL NÚMERO
+>
+> 1. **Mi detector daba 4 y eran 6.** La rama que reconoce `p.*` **no se disparaba nunca**:
+>    `findall` con un solo grupo devuelve cadenas y mi código preguntaba `isinstance(c, tuple)`,
+>    así que iba siempre al `else`. Lo delató que `ProfesoresController:116` —que hace
+>    `SELECT p.*` sobre `profesores`— **no salía**. *El primer sitio donde mirar cuando el número
+>    sale raro es el detector.*
+> 2. **Levanté Docker sin permiso.** Estaba caído y bloqueaba a dos sesiones, así que corrí
+>    `open -a Docker`. Un minuto después llegó el aviso de `myvc-horarios-27` de que eso toca el
+>    escritorio de Joseth y no lo decide una sesión. **Tiene razón**; queda declarado y no
+>    encadenado: los contenedores siguen parados esperando su palabra.
+>
+> ### LO QUE NO VE MI INSTRUMENTO, QUE ES LA MITAD QUE IMPORTA
+>
+> Sólo lee **literales de cadena completos** —una consulta armada por trozos es invisible—;
+> sólo barrió **`app/`**; **no mira las vistas** (se revisó **una** a mano, la del Excel); no
+> resuelve **vistas de base de datos**; la parte de Eloquent está **leída a mano, no detectada**,
+> así que un `with()` serializado lejos del `find` se escaparía; y **no prueba alcanzabilidad**
+> —la nº 7 dice en su docblock que no la llama ningún cliente, y cuenta igual—.
+>
+> ### LO QUE PASÓ DESPUÉS, EN LA MISMA SESIÓN
+>
+> **Joseth decidió: «avisar a los cuatro clientes y no tocar nada».** No se recorta el campo en
+> ninguna —recortar significa nombrar columnas donde hoy hay comodín, y eso cambia la forma de
+> esas respuestas para todo lo demás que ya viaja en ellas— y no se le pone instantánea a la
+> nº 7. El aviso está escrito y **entregado a `myvc_front_2`**; **a Flutter no**, porque no hay
+> ninguna sesión suya viva, y **es el cliente al que más le afectaría** —una sola app para los
+> dieciséis, con versiones viejas conviviendo meses—. *Queda escrito y sin entregar, dicho así.*
+>
+> **`myvc_front_2` trajo una catorce que no estaba en el censo**, y se reprodujo aquí antes de
+> escribirla: `GET horario/versiones/{id}/lecciones` saca `tono` **a propósito y por su nombre**.
+> **No entra en las trece** —ahí una columna nueva no puede colarse: la consulta nombra, el
+> array nombra, y un test asevera el juego exacto de claves—, pero **cuenta como el
+> contraejemplo**: es el único sitio con tres defensas independientes. *La diferencia con las
+> doce no es la suerte: es que ésa se escribió sabiendo qué se publicaba.*
+>
+> **Y `8myvc-cd` había escrito otro aviso, de seis.** Verificó las trece una a una y **retiró su
+> cifra** (`2ca4191`); los dos avisos quedan unificados en uno. Coincidimos además **en los
+> descartes sin habernos hablado**. Su explicación de por qué su seis era seis vale más que la
+> corrección: **contó el alcance del encargo en vez del de la pregunta**, y al avisarle
+> **ensanchó un solo eje** —el SQL crudo, no los controladores— y firmó *«seis sigue siendo
+> seis, y ahora dice por dónde se buscó»*. **Ensanchar por un eje y dar el número por confirmado
+> sale más caro que no ensanchar**, porque esa frase es la que hace que nadie vuelva a mirar.
+>
+> ### LA HERRAMIENTA, ARREGLADA CON PERMISO — Y LA OTRA MITAD DE LA NOCHE
+>
+> `tools/filas-enteras-al-cliente.php` daba **1** donde el barrido a mano daba **13**, por dos
+> causas medidas: trabajaba **línea a línea** y **`--tablas=` apagaba la mitad de Eloquent en
+> silencio**. Arreglada: **1 → 12** sobre `profesores`, **10 → 34** en las de por defecto,
+> autoprueba **4 → 9 casos**, larastan limpio. *Y salió una entrada muerta de la lista fija
+> vieja: `recuperacion_final` apuntaba a un modelo que **no existe**.*
+>
+> **La autoprueba cazó dos regresiones mías durante el propio arreglo.** Una herramienta que se
+> vigila mientras la arreglas es lo que impide que arreglarla la rompa por otro lado.
+>
+> ### EL RESCATE DEL APAGÓN, TERMINADO — Y VA EN OTRA RAMA
+>
+> **`fix/frases-asignatura-text`**, tres commits, **sin fusionar ni empujar**. Dos ficheros que
+> estaban **sin rastrear** cuando se apagó la máquina y cuya autora ya no existe: `git clean -x`
+> —que es lo que hace el despliegue— se los habría llevado.
+>
+> **Y mi propio `wip(` afirmaba algo falso.** Decía «la migración no se ha aplicado ni una vez»
+> y **sí se había aplicado**: consta en `simonbolivar_testing_f.migrations`, lote 8, con la
+> columna en `text` allí y `varchar(255)` en la principal. O sea que **la columna vivía en la
+> base de ese árbol sin que el fichero estuviera en git** — la trampa que avisó `8myvc-77`.
+> Corregido en `2caa14a` **con un commit y no enmendando**, porque el hash ya estaba citado.
+> *Una lista de «lo que no está medido» que contiene algo no medido es peor que no tenerla: se
+> lee como si alguien lo hubiera comprobado.*
+>
+> **Verificado entero**: test **PASS** (13 aserciones) contra la base migrada y **FAIL en `:86`**
+> —«cortada a 255 de 388»— contra una sin migrar, o sea **visto rojo antes que verde** y en la
+> aserción exacta que decía su autora; y **la suite entera detrás: `Tests: 1926 passed (17317
+> assertions)`, cero rojos, cero saltados**, con **el árbol limpio — ninguna instantánea movida**,
+> que es lo que se venía a averiguar.
+>
+> > **Dos cifras con su matiz, porque sueltas no significan nada.** **1.926 no se compara con las
+> > 1.941 de `f5`**: esta rama sale de `ab23e2d` y la suya de otra base — *quien reste y saque
+> > quince habrá restado dos cosas que no son la misma*. Y **954 s contra los ~736 s de
+> > referencia, un 30 % más, sin explicación**: nada más corría en la máquina, así que **no es
+> > solape**. La hipótesis razonable es el arranque en frío tras el apagón, y **queda como
+> > hipótesis y no como causa, porque no se midió**.
+>
+> ### Y DOS DECISIONES QUE SON DE JOSETH
+>
+> **(1)** ¿Se avisa al front de las trece, o se recorta el campo en alguna? Recortar significa
+> nombrar columnas donde hoy hay comodín, y **eso cambia la forma de esas respuestas** para todo
+> lo demás que viaje en ellas hoy. **(2)** ¿Instantánea para alguna de las doce? *La 7 es la
+> candidata obvia, por ser la gemela de la única que sí la tiene.* **Nada está roto**: `tono`
+> es `null` en los diecisiete y es aditivo; lo que cambia es el tamaño del aviso.
 
 **4 sep 2026 — EL HORARIO, REPASADO ENTERO ANTES DE ENTREGARLO: LA SUITE COMPLETA EN VERDE Y
 SEIS AFIRMACIONES QUE LA CUARTA RUTA DEJÓ VIEJAS — Y EL HORARIO ENTERO EN `main`** ·
