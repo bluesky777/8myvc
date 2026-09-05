@@ -2134,11 +2134,20 @@ siguen sin estar.
 
 > **Siete se cerraron el 2 sep** y están arriba, en la §10.1 — las rutas, la opción B,
 > quién marca la oficial, el rol vacío, quién lista, los años cerrados y el blob.
-> ~~**Quedan cuatro**~~ **Quedan DOS**, y las otras dos se cerraron el 4 sep 2026: la **1**
-> —`GET asignaturas` y la papelera— **se queda como está**, y la **4** —las siete columnas—
-> lleva su vigilante escrito (`tools/deriva-del-horario.php`). Las dos vivas son el **tope
-> del blob** (2) y **si existe una ruta para descargar el proyecto** (3), que sería la
-> **sexta** de la familia y **no está pedida**.
+>
+> ~~**Quedan cuatro**~~ ~~**Quedan DOS**~~ **QUEDA UNA: la 3**, si existe una ruta para
+> descargar el proyecto — sería la **sexta** de la familia y **sigue sin pedirla nadie**.
+>
+> | | cuándo | cómo se cerró |
+> |---|---|---|
+> | **1** `GET asignaturas` y la papelera | 4 sep 2026 | **se queda como está**: no se toca la respuesta de una ruta viva que llaman los cuatro clientes |
+> | **2** el tope del blob | 5 sep 2026 | **su propio texto ya la había contestado** —«el blob va en la fila, sin comprimir», con la cota alta medida— y el rótulo de la cabecera no se había movido |
+> | **4** las siete columnas | 4 y 5 sep 2026 | el vigilante escrito (`tools/deriva-del-horario.php`) y, el 5, **comprobado que el orden no se promete**: `asignaturas_dia()` no lleva `ORDER BY` |
+>
+> **Las tres cerradas tienen algo en común que conviene ver junto:** ninguna se cerró
+> decidiendo algo nuevo. La 1 se cerró **eligiendo no tocar**, la 2 **leyendo lo que ya
+> estaba escrito cuatro párrafos más abajo**, y la 4 **mirando el código**. *De cuatro
+> «abiertas», tres estaban contestadas y sólo faltaba ir a mirar.*
 
 1. ~~**¿`GET asignaturas` debe traer las asignaciones cuya MATERIA está en la papelera?**~~
    **CERRADA el 4 sep 2026: se queda como está.** Joseth eligió no tocar la respuesta de una
@@ -2201,8 +2210,12 @@ siguen sin estar.
    **× 1,41 vacío · × 1,795 lleno**—, y tomar el de la izquierda por el del cuerpo es lo
    que hizo que este bloque dijera 185.997 durante unas horas.
 
-   **Queda abierto el tope**, y una salida escrita y **no aplicada**: comprimir y mandar
-   en base64 da la vuelta al factor. **No se hace hoy y la razón pesa más que el 1,4**:
+   **El tope: CERRADO el 5 sep 2026, y estaba contestado dentro de este mismo punto.** El
+   párrafo de abajo dice *«esto se cierra: el blob va en la fila, sin comprimir»* con la cota
+   alta medida, y aun así la cabecera seguía diciendo «queda abierto» — **una decisión tomada
+   y un rótulo que no se movió, contradiciéndose a cuatro párrafos de distancia**. Es la misma
+   forma que ya cobró el contador de `CLAUDE.md` ese día. Lo que sigue en pie es la salida
+   escrita y **no aplicada**: comprimir y mandar en base64 da la vuelta al factor. **No se hace hoy y la razón pesa más que el 1,4**:
    un blob comprimido **no se puede leer con un `SELECT`** el día que alguien necesite
    mirar por qué una versión salió mal. Se aplica si un proyecto real llega a medir en
    megas.
@@ -2348,8 +2361,22 @@ siguen sin estar.
    obligatorio existe —`HorarioOficialTest`, 15 casos— y **la herramienta de `tools/` se
    escribió el 4 sep 2026**: `deriva-del-horario.php`, que es la que contesta si un colegio
    sigue sincronizado (§9.bis.4). **Deja de ser opcional el día que este módulo se
-   despliegue**, porque desde ese día hay dos escritores vivos de las mismas columnas. Queda por confirmar que el orden **no** se promete: la
-   opción A le da al docente **qué** clases tiene hoy, nunca en qué orden (§7).
+   despliegue**, porque desde ese día hay dos escritores vivos de las mismas columnas.
+
+   **CERRADA el 5 sep 2026: el orden NO se promete, comprobado.** `asignaturas_dia()` no
+   lleva ni un `ORDER BY`, así que lo que sale es el orden que le dé la gana a MySQL: la
+   opción A le da al docente **qué** clases tiene hoy y nunca en qué orden (§7).
+
+   > **Y con una trampa que hoy no muerde y morderá sola.** El contrato lo congela
+   > `muestreo-ChangesAsked-to-me.json`, y ahí `horario_hoy` y `horario_manana` son hoy
+   > **listas vacías** —el seed no tiene ninguna versión publicada—, o sea que **la
+   > instantánea no fija ningún orden porque no hay nada que fijar**. El día que el seed
+   > estrene una versión oficial, esa instantánea va a congelar **el orden que devolviera
+   > MySQL esa tarde**, y a partir de ahí un cambio de orden pondrá un test en rojo — o sea
+   > que el contrato prometerá por accidente lo que este documento decidió no prometer.
+   > *No se arregla hoy: no hay nada que arreglar. Se arregla el día que se regenere el seed
+   > con horario dentro, y la salida es ordenar la lista en el propio test antes de
+   > compararla, no en la consulta.*
 > Lo más barato que se puede hacer sin esperar a ninguna de las cuatro es el **nivel 1
 > del pre-vuelo como script de `tools/`** sobre los quince colegios (§9). No toca el
 > router, no necesita permiso y contesta si este módulo se va a poder usar.
@@ -2361,21 +2388,38 @@ siguen sin estar.
 **Sigue congelado por Joseth** mientras `myvc_flutter` está en revisión
 ([`DESPLIEGUE.md` §🛑](../DESPLIEGUE.md)), y este apartado **no lo descongela**: existe
 porque `myvc_horarios` preguntó qué trabajo queda y la respuesta no estaba en ningún sitio
-completa. Escrito el 4 sep 2026 sobre `8f59242` y **remedido ese mismo día sobre
-`bf83d3c`**, que es la rama entera con la cuarta ruta dentro: **eran tres rutas y 232
-commits cuando se escribió, y son cuatro y 236 ahora**. *La tabla de abajo es de las que
-caducan con cada commit propio, así que se remide con `git rev-list` y `route:list` en vez
-de sumarle los que uno recuerda haber hecho.*
+completa. Escrito el 4 sep 2026 sobre `8f59242`, remedido ese mismo día sobre `bf83d3c` y
+**remedido otra vez el 5 sep 2026 sobre `7653d26`**: **eran tres rutas y 232 commits cuando
+se escribió, cuatro y 236 aquella tarde, y son CINCO y 311 ahora.** *La tabla de abajo es de
+las que caducan con cada commit propio, así que se remide con `git rev-list` y `route:list`
+en vez de sumarle los que uno recuerda haber hecho.*
+
+> **Y desde el 5 sep esta tabla lleva el hash delante, que es la regla nueva de
+> `CLAUDE.md`.** No basta con recontar: **una medición se anota con el hash exacto contra el
+> que corrió**, porque si no, dos cifras ciertas se leen como una contradicción. Ejemplo del
+> mismo día y de este mismo rango: `DESPLIEGUE.md` dice **307** commits contra `3970cea`
+> (16:57) y aquí pone **311** contra `7653d26` (17:2x). **Las dos son correctas y no hay nada
+> que arreglar** — lo que las separa son cuatro commits, no un error.
+
+> **Lo que este apartado NO dice, y conviene que se lea antes que la tabla: el módulo está
+> terminado en `main`.** Las cinco rutas, sus siete ficheros de test, las tres herramientas
+> (`prevuelo`, `deriva`, `comprobar-el-horario`) y el sobre ensanchado de la §9.bis.6 están
+> escritos, en verde y fundidos. **Lo que falta no es trabajo de este módulo: es el
+> despliegue de la tanda entera**, y eso está congelado por decisión de Joseth.
 
 ### 11.1. Dónde está hoy, medido
+
+**Contado el 5 sep 2026 a las 17:2x contra `7653d26`**, que es `main` y `origin/main` a la
+vez — sin divergencia, así que por una vez el número es el mismo mires el árbol o el remoto.
 
 | | | comprobado con |
 |---|---|---|
 | colegios con el módulo | **0 de 16** (más `demo`) | `routes/api/horario.php` no existe en `9474b50`, que es la base desplegada |
-| qué contestan allí las **cuatro** rutas | **404** | no hay fichero de rutas que las declare — **no es el 501 del docker**, que era el controlador sin cuerpo |
-| commits sin desplegar | **236** desde `9474b50` | `git rev-list --count 9474b50..HEAD`, sobre `bf83d3c` |
-| migraciones sin desplegar | **5 ficheros** desde el 4 sep 2026 — fueron **8**, y las mismas columnas se consolidaron en cinco esa tarde (`DESPLIEGUE.md`, tabla «Las cinco»). **Ninguna columna cambió**: comprobado construyendo las dos bases desde cero, 1.526 columnas con las mismas posiciones, 102 tablas | `git ls-tree` de los dos extremos |
-| ficheros de rutas nuevos | **2**: `horario.php` y `rubricas.php` | ídem |
+| qué contestan allí las **cinco** rutas | **404** | no hay fichero de rutas que las declare — **no es el 501 del docker**, que era el controlador sin cuerpo |
+| commits sin desplegar | **311** desde `9474b50` | `git rev-list --count 9474b50..origin/main` |
+| migraciones sin desplegar | **7 ficheros** — **siete es la tanda que Joseth congeló** el 5 sep 2026 y la que se ensayó sobre datos de verdad: 7 de 7 en 932 ms sobre 1.166.139 notas. Fueron **5** hasta esa tarde; las dos que faltaban las trajo `feat/plantilla-de-notas`. *Y antes fueron **8**: las mismas columnas se consolidaron en cinco el 4 sep (`DESPLIEGUE.md`, tabla «Las cinco»), y **ninguna columna cambió** — comprobado construyendo las dos bases desde cero, 1.526 columnas en las mismas posiciones y 102 tablas.* | `git diff --diff-filter=A` de los dos extremos |
+| ficheros de rutas nuevos | **3**: `horario.php`, `rubricas.php` y `plantilla.php` | `git diff --diff-filter=A` de los dos extremos |
+| el módulo, ¿contesta como debe en el docker? | **`LLEGÓ`, exit 0** — `200` con `total: 8` y `oficial_id: 8`, y el control con token de alumno en **403** | `tools/comprobar-el-horario.php`, corrido el 5 sep 2026 |
 
 **El 404 y el 501 no son el mismo estado y conviene no mezclarlos**: en el docker la ruta
 existe y contestaba 501 mientras el método estaba vacío; en un colegio real **la ruta no
@@ -2520,7 +2564,22 @@ inferior**, no como predicción.*
 | **volver atrás dejando las migraciones puestas** | vale para las tandas anteriores y **no para ésta**: hay un `dropColumn` dentro. Ver el Paso 4 de `DESPLIEGUE.md` |
 | **publicar una versión sin mirar el número** | `putOficial` reescribe las siete columnas de día **de todo el año**; lo que se pierda de lo que alguien puso a mano es lo que cuenta `acepto_perder` (§7.2 y §9.bis.4) |
 
-### 11.5. Y TRES afirmaciones de `DESPLIEGUE.md` sobre este módulo han envejecido — DOS ya corregidas
+### 11.5. Y TRES afirmaciones de `DESPLIEGUE.md` sobre este módulo han envejecido — LAS TRES, YA CORREGIDAS
+
+> **CERRADA el 5 sep 2026.** Las tres están arregladas en su sitio y esta sección se queda
+> como historia de **cómo** envejecieron, que es lo único suyo que no caduca. La que faltaba
+> —la fila de `2026_09_04_100000_horario_versiones`, con **tres** caducidades encima— la
+> reescribió entera el remedido de `DESPLIEGUE.md` de esa tarde; comprobado en `7653d26`: la
+> fila ya no dice que sólo el `POST` pase de 501 a 500, y el aviso **O** dice **35 rutas** y
+> **las 5 de `horario/`**, *«las cinco con cuerpo: ninguna contesta ya 501»*.
+>
+> **Y la excepción que Joseth mandó hacer el 4 sep resultó ser la regla buena.** Aquel día
+> se corrigieron a mano sólo las dos que salían hacia fuera, con el argumento de que *«el
+> resto describe el servidor y se remide el día del despliegue»*. La tercera se arregló
+> igualmente —al remedir el rango entero— **pero no por remedir**: el remedido contesta
+> *«¿cuántos commits hay?»* y esa fila decía otra cosa. La arregló que alguien la leyera.
+> *Un remedido arregla los números; las afirmaciones sobre lo que el código hace hay que
+> leerlas una a una.*
 
 **La regla por defecto es no corregirlas allí y se dice por qué**: aquellas tablas son *lo
 que se midió el día que se midió*, y ese documento tiene su propia regla —*un rango sin
