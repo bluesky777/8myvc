@@ -54,7 +54,7 @@ Por eso esto va **antes** del bloque de la tanda y no dentro: la tanda está lis
 **no se despliega**.
 
 **Qué se midió antes de escribir esto, para que la espera sea una decisión y no un miedo.** De
-los **286** commits (remedidos el 5 sep 2026; eran 191 cuando se escribió esto), lo único que un
+los **307** commits (remedidos el 5 sep 2026; eran 191 cuando se escribió esto), lo único que un
 cliente puede **perder** siguen siendo dos cosas — todo lo demás es aditivo, comprobado sobre los
 snapshots del rango, no sobre los mensajes de los commits:
 
@@ -186,7 +186,7 @@ queda por decidir ya no es de la app.
 
 ---
 
-## ⛔ TANDA PENDIENTE — 286 commits desde `9474b50`. SIN LAS MIGRACIONES NO SE PUEDE NI ENTRAR
+## ⛔ TANDA PENDIENTE — 307 commits desde `9474b50`. SIN LAS MIGRACIONES NO SE PUEDE NI ENTRAR
 
 **El aviso que había aquí decía «los tres boletines contestan 500», y se quedaba corto por dos
 órdenes de magnitud.** Lo que cae con el código nuevo y la base sin migrar **no es una pantalla:
@@ -210,17 +210,17 @@ petición llega a su método.**
 sesión del front, no nosotros**. Reproducido aquí contra una base sin migrar: la consulta del
 contexto contesta `SQLSTATE[42S22] Unknown column 'y.regla_nivelacion' in 'field list'`.
 
-### Lo que es esta tanda, remedido entero el 5 sep 2026 sobre `9474b50..0167eaa`
+### Lo que es esta tanda, remedido entero el 5 sep 2026 a las 16:57 sobre `9474b50..3970cea`
 
 **El extremo va escrito con su hash y no como `HEAD`**, y no es una manía: aquí se trabaja con un
 árbol por sesión, así que `HEAD` es una cosa distinta en cada worktree y una tabla medida con
-`HEAD` no la puede reproducir nadie. Hoy **`main` es `0167eaa`**, y **`origin/main` es el mismo
-commit**: cero de divergencia, comprobado el 5 sep 2026 a las 14:01. O sea que **esta tabla sí
-describe lo que trae un `git pull`**.
+`HEAD` no la puede reproducir nadie. **`3970cea` es el hash de cierre de la tanda del día 10**, y
+**`origin/main` es el mismo commit**: cero de divergencia, comprobado el 5 sep 2026 a las 16:57. O
+sea que **esta tabla sí describe lo que trae un `git pull`**.
 
 | | | comprobado con |
 |---|---|---|
-| commits | **286** | `git rev-list --count 9474b50..origin/main` |
+| commits | **307** | `git rev-list --count 9474b50..origin/main` |
 | `app/` | **57** ficheros | `git diff --name-only 9474b50 main -- app/ \| wc -l` |
 | `routes/` | **8** ficheros — **las rutas SÍ se movieron: 543 → 577** (35 nuevas, **1 retirada**) | `git diff --name-only 9474b50 main -- routes/` · `route:list --json` |
 | `config/` · `composer.json`/`.lock` · `database/schema/` | **0** | `git diff --name-only 9474b50 main -- config/ composer.json composer.lock database/schema/` |
@@ -238,7 +238,7 @@ y la retirada es `POST tardanzas/login/traer-datos`, que no tiene ninguna otra.
 > ```
 >
 > **El Paso 1 despliega con `git pull`, así que lo que se despliega es `origin`, no tu `main`.**
-> El 5 sep 2026 a las 14:01 coinciden los dos en `0167eaa` y esta tabla describe exactamente lo
+> El 5 sep 2026 a las 16:57 coinciden los dos en `3970cea` y esta tabla describe exactamente lo
 > que trae un `git pull`.
 >
 > **Se deja la orden y no el resultado, y esto costó una caja entera.** Durante unas horas de ese
@@ -251,10 +251,16 @@ y la retirada es `POST tardanzas/login/traer-datos`, que no tiene ninguna otra.
 
 > ### Por qué esta sección se remide entera y no se le suma
 >
-> **En veinticuatro horas este rango tuvo cuatro cifras, y las cuatro fueron ciertas el minuto en
-> que se midieron:** el documento decía **191**, la rama `docs/despliegue-remedido` midió **232** el
-> 4 sep, `8myvc-ae` contó **274** la tarde del 5, y al ir a escribirlo eran **279**; al cerrar la
-> plantilla, **285**, y **286** al rescatar el `CLAUDE.md` huérfano. Nadie se equivocó en ninguna.
+> **En veinticuatro horas este rango tuvo SIETE cifras, y las siete fueron ciertas el minuto en que
+> se midieron:** el documento decía **191**; la rama `docs/despliegue-remedido` midió **232** el 4
+> sep; `8myvc-ae` contó **274** la tarde del 5 y al ir a escribirlo eran **279**; al cerrar la
+> plantilla **285**; al rescatar el `CLAUDE.md` huérfano **286**; y al cerrar con el Lote G
+> **307**. Nadie se equivocó en ninguna.
+>
+> *Y este párrafo se equivocó en la suya: decía «cuatro cifras» y llevaba siete en la lista, porque
+> cada remedido añadía una y nadie tocaba el recuento de arriba. **El párrafo que explica que los
+> números envejecen envejeció por dentro**, que es la demostración más barata de que la regla no es
+> manía.*
 >
 > **Lo que falla no es medir, es el hueco entre medir y escribir** — `main` se mueve en medio,
 > porque aquí trabajan varias sesiones a la vez. De ahí las dos reglas de esta sección, que
@@ -562,7 +568,7 @@ marcados en desarrollo**, que **no** es «cero en los dieciséis»: eso sólo se
 > que hacerlo**. Lo decidió Joseth ese día.
 >
 > **Las 35 están CONTADAS contra la base desplegada, no sumadas** — que es lo que este repo
-> exige de un número que se escribe: `9474b50` declara **543** rutas y `main` (`0167eaa`)
+> exige de un número que se escribe: `9474b50` declara **543** rutas y `main` (`3970cea`)
 > **577**; comparados los dos conjuntos de URIs, **35 entran y 1 se va** (`POST
 > tardanzas/login/traer-datos`, el aviso L), y **543 + 35 − 1 = 577**. Las dos últimas de
 > `horario/` son `GET horario/versiones/{id}/lecciones` (23 §9.bis) y

@@ -328,12 +328,13 @@
 >
 > *En los dieciséis colegios esto no existe: cero versiones desplegadas.*
 
-**5 sep 2026 — `DESPLIEGUE.md` DECÍA 191 COMMITS SIN DESPLEGAR Y SON 286 — Y LO QUE SE ARREGLÓ NO
+**5 sep 2026 — `DESPLIEGUE.md` DECÍA 191 COMMITS SIN DESPLEGAR Y SON 307 — Y LO QUE SE ARREGLÓ NO
 FUE LA CIFRA** · `docs/DESPLIEGUE.md` y esta casilla · rama `docs/despliegue-remedido-2` ·
 **el router no se mueve: 577 en `main` local, 568 en `origin/main`**
 
-> **Las cifras, remedidas enteras sobre `9474b50..0167eaa` y no heredadas de nada:** commits
-> **286** (decía 191, en **tres** sitios y uno dentro de una frase de prosa), `app/` **57**,
+> **Las cifras, remedidas enteras sobre `9474b50..3970cea` —el hash de cierre de la tanda, a las
+> 16:57— y no heredadas de nada:** commits **307** (decía 191, en **tres** sitios y uno dentro de
+> una frase de prosa), `app/` **57**,
 > `routes/` **8**, migraciones **SIETE ficheros**, rutas **543 → 577** (**35** nuevas y **1**
 > retirada, `543 + 35 − 1 = 577`), y **558 de las 576 de `api/`** llevan `auth.token` (decía «547
 > de 565»). Las 35 salen de restar los dos `rutas.json`, no de contar a ojo.
@@ -357,11 +358,15 @@ FUE LA CIFRA** · `docs/DESPLIEGUE.md` y esta casilla · rama `docs/despliegue-r
 > desbloqueó Joseth en su canal.*
 >
 > **Y el argumento que justifica la regla, porque sin él parece manía:** en veinticuatro horas este
-> rango tuvo **cuatro cifras y las cuatro fueron ciertas al medirse** — 191 en el documento, **232**
+> rango tuvo **SIETE cifras y las siete fueron ciertas al medirse** — 191 en el documento, **232**
 > el 4 sep en `docs/despliegue-remedido`, **274** contadas por `8myvc-ae` la tarde del 5, **279** al
-> ir a escribirlas, **285** al cerrar la plantilla y **286** al rescatar el `CLAUDE.md` huérfano de
-> `8myvc-29`. **Nadie se equivocó midiendo: lo que falla es el
-> hueco entre medir y escribir**, con varias sesiones moviendo `main` en medio. De ahí las dos
+> ir a escribirlas, **285** al cerrar la plantilla, **286** al rescatar el `CLAUDE.md` huérfano de
+> `8myvc-29` y **307** al cerrar con el Lote G. **Nadie se equivocó midiendo: lo que falla es el
+> hueco entre medir y escribir**, con varias sesiones moviendo `main` en medio.
+>
+> *Este párrafo llegó a decir «cuatro cifras» con siete en la lista: cada remedido añadía una y
+> nadie tocaba el recuento de arriba. **El párrafo que explica que los números envejecen envejeció
+> por dentro** — corregido al cerrar.* De ahí las dos
 > reglas que quedan escritas en la sección: *el extremo del rango se escribe con su hash*, y *la
 > cifra se vuelve a contar el día que se toca el documento*.
 >
@@ -403,9 +408,11 @@ FUE LA CIFRA** · `docs/DESPLIEGUE.md` y esta casilla · rama `docs/despliegue-r
 > vivo.*
 >
 > **PENDIENTE, y es de quien cierre la tanda:** `8myvc-ff` mete el Lote G y luego funde
-> `docs/barrido-profesor-serializado` antes del día 10. **Las cifras de arriba son de `0167eaa` y
-> hay que remedirlas cuando esas dos entren** — que es exactamente la regla que esta casilla acaba
-> de escribir.
+> `docs/barrido-profesor-serializado`. **CERRADO**: las dos entraron y las cinco cifras se
+> remidieron enteras contra el hash de cierre **`3970cea`** a las 16:57, no se les sumó nada. Sólo
+> se movió la de commits (**300 → 307**); `app/` **57**, `routes/` **8**, migraciones **SIETE** y
+> rutas **577** salieron idénticas, porque el Lote G toca `HorarioController` y su test y nada más
+> —comprobado, no supuesto—. La aritmética de rutas vuelve a cerrar sola: **543 + 35 − 1 = 577**.
 
 **5 sep 2026 — EL ENSAYO DE LA TANDA MEDÍA UN ÁRBOL Y LE PREGUNTABA A OTRO** ·
 `tools/ensayo-de-la-tanda.sh` (punto 1.bis) y esta casilla · **el router no se mueve: 568** ·
