@@ -3,12 +3,13 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 `8myvc` es la API del sistema escolar MyVc: Laravel 13 + PHP 8.4, ~37.000 líneas
-en `app/`, **114 ficheros de controlador — 117 clases** (recontados el 4 sep 2026;
-decían 113 y 116, y el trait `Concerns/ResuelveElUsuario.php` **no cuenta**: es el
-ficheros 115 del directorio y no declara ninguna clase), porque
+en `app/`, **115 ficheros de controlador — 118 clases** (recontados el 5 sep 2026 al
+entrar `PlantillaNotasController`; el 4 sep eran 114 y 117, y antes decían 113 y 116, y el
+trait `Concerns/ResuelveElUsuario.php` **no cuenta**: es el fichero 116 del directorio y no
+declara ninguna clase), porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
-**568 rutas** (contadas con
-`route:list --json` el 4 sep 2026; el 24 ago el de rutas se movió por primera vez,
+**577 rutas** (contadas con
+`route:list --json` el 5 sep 2026; el 24 ago el de rutas se movió por primera vez,
 de 539 a 542, con los tres endpoints que pidió `myvc_flutter`, el 28 a 543 con
 `PUT users/mi-docente`, que pidió Joseth para el panel de `app2`, el 31 a 544 con
 `GET grupos/{grupo_id}/alumnos-de/{que}`, que pidió el front para el modal de
@@ -82,6 +83,25 @@ llevan guard).
 > rojo que lo delatara: los tres snapshots sí se actualizaron, porque los mueve un
 > test. **El número de este fichero no lo comprueba nadie**, y por eso se cuenta con
 > `route:list` el día que se toca en vez de sumarle uno al que había.
+>
+> **Y la mitad que faltaba, del 5 sep 2026: `route:list` cuenta EL ÁRBOL EN EL QUE
+> ESTÁS.** Ese día dio **568** en el árbol principal y **577** en `.worktrees/p`, y
+> las dos eran ciertas: la plantilla de notas traía nueve rutas que aún no estaban en
+> `main`. O sea que *«se cuenta, no se hereda»* estaba incompleto — **se cuenta y se
+> dice desde dónde**. Con trece worktrees vivos, «el router está en N» sin decir el
+> árbol no es un número: es dos números y un lector que no sabe cuál le tocó. Lo
+> destapó fundir la plantilla, y en el mismo fichero: la rama escribió arriba el
+> relato de sus nueve rutas y su **577** y dejó el contador de la primera línea en
+> **568**, contradiciéndose dentro del mismo párrafo que explica cómo contarlo.
+>
+> **Y volvió a pasar el 5 sep 2026, en la misma dirección y por el mismo sitio.** La rama de
+> la plantilla de notas escribió arriba el relato entero de sus nueve rutas y su **577**
+> —contado, con su razón y con el precio delante— **y dejó el contador de la primera línea en
+> 568**. O sea que el párrafo que explica el número y el número **se contradecían dentro del
+> mismo fichero**, y de los dos el que se lee primero es el de arriba. No lo cazó ningún test
+> —no hay ninguno que mire esta cifra—: lo cazó contar el router en el árbol principal después
+> de fundir, que es lo que este párrafo manda hacer. *Un aviso que ya está escrito no protege
+> solo; sólo protege el día que alguien hace lo que dice.*
 
 Las tablas de `DESPLIEGUE.md` **no** se tocan al añadir una ruta: son lo que se midió
 el día de un despliegue, y se remiden el día del siguiente. El plan, las mediciones y
@@ -163,6 +183,19 @@ leyendo el código. Cada una lleva su uso en la cabecera.
 > pero se leyeron como «nueve sin guarda» y **ocho la tenían**. Repetirlo da nueve
 > otra vez. Ahí lo que hay que comprobar es que **el detector detecta lo que dice
 > su nombre**.
+>
+> Y una tercera, que es de otra especie y por eso no la caza mirar el detector:
+> **el detector corre, contesta lo que le preguntaron y contesta bien — y quien
+> pregunta mal es uno.** El 5 sep 2026 se comprobó si una suite había cubierto un
+> commit con `git merge-base --is-ancestor <commit> <la fusión que registra el
+> resultado>`. La orden contestó que sí, correctamente, y la conclusión era falsa:
+> la suite había corrido **cuatro minutos antes** de que ese commit entrara. **Ser
+> ancestro es una relación del grafo; estar dentro del árbol cuando se midió es una
+> relación con el reloj**, y la segunda no se deduce de la primera — menos aún
+> preguntándosela al commit que por construcción se escribe *después* de medir. De
+> ahí sale la regla que evita la familia entera: **una medición se anota con el hash
+> exacto contra el que corrió y su hora, no con el nombre de una rama.** *«Sobre
+> `main`»* no es reproducible con cuatro sesiones moviendo `main`.
 
 > **Antes de pasarle Pint a un fichero de `tools/`: correr `stan` detrás.** `tools/`
 > **no está en el script `pint` de `composer.json`** —nunca se ha formateado— y
