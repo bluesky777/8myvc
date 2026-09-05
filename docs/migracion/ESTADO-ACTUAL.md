@@ -22,31 +22,55 @@
 > Los mensajes de commit están limpios —cero apariciones—, así que sólo había que tocar
 > estas tres líneas.
 
-> ## ⚠️ LA BASE LOCAL `simonbolivar` TIENE UNA DERIVA PUESTA A PROPÓSITO — NO LA ARREGLES
+> ## LA DERIVA QUE ESTUVO PUESTA A PROPÓSITO — YA NO ESTÁ, Y SE REPONE EN UNA LÍNEA
 >
-> **Decisión de Joseth del 4 sep 2026, noche: se queda puesta.** Si mides horario sobre esta
-> base y te sale `1`, **es ésta y no un hallazgo**:
+> **Estado a 5 sep 2026, 05:4x: `DESCUADRADAS 0`, exit 0, año 8 regido por la versión 8.**
+> Si mides ahora y te sale `0`, **ese cero no prueba nada** — es el estado que la marca existía
+> para desmentir.
 >
+> ### Lo que se midió, que es lo que hay que conservar
+>
+> El **4 sep 2026 a las 21:40** se apagó a mano el martes de `asignaturas.id = 1234`
+> (`PUT asignaturas/toggle-dia`, `profesor_id 9`, MATEMÁTICAS de Tercero), con la versión 7
+> oficial dándole los días 1 y 2. `tools/deriva-del-horario.php --year=8` contestó
+> **`133 de 134 · DESCUADRADAS 1 · exit 1`**, y con `--detalle` nombró la asignatura y el día.
+>
+> **Ése es el único número de todo el módulo que no podía salir por accidente.** Los ceros no
+> demuestran nada —recién publicada una versión, cuadrar es aritmética—, así que el `1` es lo que
+> prueba que **el detector detecta lo que dice su nombre**. Lo midió `8myvc-84` con las escrituras
+> autorizadas por Joseth en su canal, y lo reprodujo `8myvc-7c`.
+>
+> **Y el radio no era de laboratorio:** en martes la versión oficial le daba al profesor 9 **cinco**
+> asignaciones y `asignaturas` le daba **cuatro**. Una clase desaparecida de su portada, **sin error
+> y sin aviso**.
+>
+> ### Por qué ya no está, y por qué eso también estuvo decidido
+>
+> El **5 sep de madrugada** `myvc-horarios-16` publicó la **versión 8** —la primera con una pieza de
+> varios grupos, una misa que junta once— y `putOficial` **reescribe las siete columnas de día de
+> todo el alcance del año**. La 8 coloca la 1234 en martes en dos casillas, así que `martes` volvió
+> a `1` y la deriva desapareció.
+>
+> **No fue un descuido: se paró el `PUT` a medias para preguntarlo otra vez.** La autorización que
+> Joseth había dado decía *«reescribe las columnas de día del año 8»* —cierto y genérico—, no
+> *«borra la marca que decidiste dejar puesta hace unas horas»*. Con la marca nombrada eligió
+> **«publica: la marca es repetible»**. *Dos decisiones suyas separadas por horas y tomadas en
+> repositorios distintos, y la segunda no sabía de la primera.*
+>
+> ### Reponerla, si alguien vuelve a necesitar el `1`
+>
+> ```sql
+> UPDATE asignaturas SET martes = 0 WHERE id = 1234;   -- y deriva vuelve a 1
 > ```
-> asignaturas.id = 1234 · profesor_id 9 · MATEMÁTICAS · Tercero
->   martes = 0        <- apagado a mano con PUT asignaturas/toggle-dia
->   la versión oficial (7) le da los días 1 y 2, o sea lunes Y martes
->   updated_by = 1 · updated_at 2026-09-04 21:40:56
 >
-> tools/deriva-del-horario.php --year=8   ->  133 de 134 · DESCUADRADAS 1 · exit 1
-> ```
+> **Comprobar antes que la versión oficial le sigue dando el martes a la 1234**: sobre una versión
+> que no la coloque ahí, ese `UPDATE` no descuadra nada y el `0` volvería a no significar nada.
 >
-> **Revertirla es `UPDATE asignaturas SET martes=1 WHERE id=1234;`** y nadie la tiene asignada.
->
-> **Por qué está puesta, que es lo que la hace valer:** es el **paso 4** de la medición que
-> `tools/deriva-del-horario.php` llevaba sin recibir desde que existe. Los ceros no demuestran
-> nada —recién publicada una versión, cuadrar es aritmética—, así que el único número que prueba
-> que **el detector detecta lo que dice su nombre** es un `1` provocado a mano. Lo midió
-> `8myvc-84` con las escrituras autorizadas por Joseth en su canal, y lo reprodujo `8myvc-7c`.
->
-> **Y el radio no es de laboratorio:** en martes la versión oficial le da al profesor 9 **cinco**
-> asignaciones y `asignaturas` le da **cuatro**. Una clase desaparecida de su portada, **sin error
-> y sin aviso** — que es exactamente el fallo que la herramienta existe para ver, ocurriendo.
+> > **Y este bloque está reescrito y no borrado a propósito.** Mientras la marca estuvo puesta, esta
+> > casilla decía **«NO LA ARREGLES»**; en cuanto se publicó la 8, esa frase pasó a ser **el
+> > documento que hace que un `0` se lea mal** — que es exactamente el daño que venía a evitar.
+> > *Un aviso sobre un estado tiene la fecha de caducidad del estado*, y el que avisa de una
+> > excepción **envejece hacia el peligro**: de proteger a engañar, sin que nada se ponga rojo.
 >
 > *En los dieciséis colegios esto no existe: cero versiones desplegadas.*
 

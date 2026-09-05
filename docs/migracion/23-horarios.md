@@ -1572,6 +1572,122 @@ re-litigan**:
    ruta **lee siempre de `horario_lecciones`** — lo que ya exigía el que las siete columnas no
    tengan franja— y la §9.bis.4 deja de ser una ambigüedad para ser un riesgo medido.
 
+### 9.bis.3.bis. `ejes.dias` NO es la jornada declarada — y la jornada declarada no arregla lo que parece
+
+**Medido el 4 sep 2026 sobre el blob de la versión 7, y retirada por eso una petición del front
+antes de que se escribiera.** `myvc_front` pidió mandar en `ejes` la **jornada declarada** del
+proyecto, con un caso concreto detrás: la parrilla de **Jardín** pinta catorce casillas vacías
+que —decían— *no son horas libres, son horas que no existen*. **El dato del proyecto dice lo
+contrario:**
+
+```
+GRUPO        dias DECLARADOS   dias COLOCADOS
+Jardín       [1,2,3,4,5]       [1,2,3]        <- el caso que justificaba la petición
+Transición   [1,2,3,4,5]       [1,2,3,4]
+Tercero · Quinto · Primero     [1,2,3,4,5]       [1,2,3,4]
+los otros 8  [1,2,3,4,5]       [1,2,3,4,5]
+```
+
+**Según el proyecto, Jardín SÍ tiene jueves y viernes**; simplemente no tiene nada colocado ahí.
+Mandar la jornada declarada dejaría las catorce casillas exactamente igual, **y ahora con el
+respaldo explícito del servidor diciendo que esas horas existen**.
+
+**La jornada declarada existe en el blob, pero es POR NIVEL y no por grupo.** Los grupos traen
+`{"id":93,"nombre":"Jardín","nivel":{"estado":"resuelto","nivelId":1}}` — **cero de los 13 tienen
+jornada propia** — y los cuatro niveles de `simonbolivar` declaran lo mismo:
+`{"dias":[1,2,3,4,5],"franjas":7,"descansosTras":[3,5],"timbres":null}`. O sea que **hoy el campo
+sería idéntico a `ejes.dias` y no distinguiría nada**.
+
+> **Y lo que hace que esto valga escrito no es el campo: es cómo se llegó a pedirlo.** Dos
+> sesiones del front escribieron, con razón, que *«esta versión no colocó nada el jueves» no es
+> «Jardín no tiene jueves»* — y acto seguido dieron por hecho que Jardín no tenía jueves.
+> **Aplicaron la regla al servidor y no a su propia premisa.** Una tercera se negó a recortar por
+> inferencia y se le dio la razón *a medias* —«no recortes ahora, pero cuando llegue el dato
+> sí»—, que es la misma inferencia aplazada. **La cautela era la respuesta completa.**
+
+> ### CERRADA ESE MISMO DÍA, Y HACIA ARRIBA: `myvc_horarios` decisión 38
+>
+> **Joseth aprobó las TRES filas, más una cuarta que nadie había pedido.** Se le pusieron cuatro
+> opciones —ninguna · la 1 sola · la 1+2 · las tres— **con el argumento en contra delante**, y
+> eligió la más ancha. Van: **jornadas por nivel · disponibilidades declaradas por docente · las
+> piezas SIN colocar**, y con ellas **la plantilla entera de docentes** — sin ésta la segunda no
+> sirve, porque hoy sólo viajan los que tienen lección.
+>
+> **La jornada viaja como `niveles[].jornada` + de qué nivel cuelga cada grupo +
+> `jornadaPorDefecto`** — cuatro objetos en este colegio, no trece. **Y tiene que viajar el
+> `porque`** (`nivel · sin-nivel · sin-resolver · nivel-desconocido`): sin él, un grupo cuyo nivel
+> no resuelve se pinta con la jornada por defecto **sin decirlo**, que es el mismo par `[]` contra
+> `null` que `descansos_tras` acaba de resolver bien.
+>
+> **⚠️ EL PERMISO NO CAMBIA —sigue `auth.personal`— Y ESO ES UN PRECIO, NO UN DETALLE.** El guard
+> de la cuarta ruta se justificó aquí **porque ese horario ya se imprime y se cuelga**, trece hojas
+> apaisadas: en papel no es un secreto para nadie de dentro. **Las disponibilidades declaradas no
+> están en ninguna pared.** Con la 38, cualquiera de los **53** docentes puede leer las horas que
+> sus compañeros marcaron `inadecuado`. Va escrito **dentro de la decisión 38 como precio pagado**,
+> no como objeción pendiente — pero el argumento que sostiene el guard en esta §9.bis **ya no cubre
+> todo lo que la ruta transporta**, y eso hay que decirlo aquí y no sólo allí.
+>
+> ### Y las dos cifras del proyecto NO estaban en tensión: miden cosas distintas
+>
+> La §9.bis.2 cita **74.836 b / 6.608 gzip** y `horario_versiones.proyecto` mide **129.550**.
+> **Ninguna estaba mal.** La columna se guarda **con sangría** —el blob empieza
+> `{\n\t"formato": 1,…`—, así que los ~51 KB de diferencia son tabuladores:
+>
+> ```
+> guardado en la columna    129.550 b   gzip ~7.000     <- almacenamiento
+> de eso, sangría            50.757 b
+> el mismo JSON compacto     78.793 b   gzip ~6.500     <- para dimensionar el sobre
+> ```
+>
+> *(Medido por dos sesiones que no se copiaron; las cifras compactas difieren en menos del 0,2 %
+> por las banderas de `json_encode` y el nivel de gzip. Las magnitudes son las mismas y ninguna
+> conclusión depende del último dígito.)* **Las siete versiones pesan casi lo mismo**: unos
+> **130 KB en disco y ~7 KB de sobre comprimido por versión guardada**.
+>
+> **Y se retira una frase que llegó a escribirse aquí al lado:** *«si el blob real es mayor, la
+> distancia hasta descargar el proyecto es más corta»*. **No es mayor**, así que el argumento no
+> existe. El que sí aguanta es el contrario y es mejor: **siete kilobytes comprimidos ya eran
+> baratos** — el proyecto entero de un colegio cabe en menos que una foto de perfil, y eso ya
+> estaba medido antes de esta discusión.
+>
+> **Lo que la 38 NO autoriza:** llevarse el proyecto a otro computador sigue siendo otra ruta y
+> otro permiso (§10.2.3), **y con cuál sigue sin decidirse**. La 38 es sobre el sobre de la cuarta
+> ruta, no sobre la descarga.
+
+**Lo que quedaba abierto y NO es de este repo:** si el escritorio permite declarar jornada **por
+grupo** o sólo por nivel. Desde esta base **no se distingue «no se puede» de «este colegio no la
+usó»**, y las dos llevan a sitios opuestos: si es lo primero, el informe `quien-esta-libre` no lo
+arregla ningún campo de esta API y deja de ser una petición al backend. Preguntado a
+`myvc_horarios`.
+
+**Y la tercera fila NO se cierra con ese dato, aunque las dos partes lo creímos media hora.** El
+proyecto trae **313 piezas y 312 colocaciones**, y de ahí se dedujo —yo lo mandé y el front lo
+aceptó— que un informe de «sin colocar» *necesita la que no viaja*. **La conclusión correcta es la
+contraria:** hay una pieza sin colocar **y está guardada**, identificable en el blob de la misma
+fila que la ruta ya lee:
+
+```
+{"id":"a1324-2","duracion":1,"lecciones":[{"asignacionId":1324}],"docentes":[41],
+ "salonId":null,"salonesPermitidos":null}
+```
+
+Lo que no la sirve es `horario_lecciones`, que sólo guarda las colocadas — **y eso no es lo mismo
+que que el dato no esté**. *Un número leído como una imposibilidad cuando decía lo contrario: es
+la tercera vez esta noche, y la única en la que el que se equivocó fui yo.*
+
+**Lo mismo vale para las disponibilidades**: los **47** docentes del proyecto las traen y **las 47
+son no vacías**. Blob de la v7: **129.550 bytes**.
+
+> **Así que el coste de las tres filas no es de esquema ni de recogida: es una decisión de
+> puerta.** Nadie tiene que declarar nada nuevo y el colegio ya lo subió. **Y que se pueda no dice
+> que se deba** — sigue siendo la decisión de `myvc_horarios` sobre «listar no es descargar», que
+> es de Joseth. El argumento que la sostiene tampoco se mueve con este dato: las rejillas se
+> pueden servir *porque el horario ya se cuelga impreso en la pared*, y **las disponibilidades
+> declaradas no están en ninguna pared** (§10.2.3).
+
+*(`descansos_tras` es otro caso y **sí** entra: ése es un dato que está en el blob, no viaja hoy,
+y no lo sustituye ninguna inferencia. Ver la §10.2 y el lote de `8myvc-c3`.)*
+
 ### 9.bis.4. Ya hay dos escritores de la misma verdad, y uno es nuestro
 
 **No es un riesgo futuro: existe hoy, y lo destapó `myvc-front-4f`.** Las siete columnas
