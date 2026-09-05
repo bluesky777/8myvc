@@ -750,7 +750,30 @@ class HorarioController extends Controller
                 ],
                 'salon' => 'NO COMPROBADO: falta capacidad_grupos en el servidor. La iglesia con seis grupos es indistinguible de dos grupos metidos en un aula, y la capacidad que viaja la elige el cliente — comprobar una regla contra un número que manda el mismo que quiere pasarla no es comprobar.',
                 'disponibilidad' => 'NO COMPROBADA: las disponibilidades viven en el fichero de proyecto, no en este servidor.',
-                'jornada' => 'NO COMPROBADA: la rejilla y los timbres viven en el fichero de proyecto, así que aquí no se sabe si la franja cae dentro de la jornada del nivel ni si cruza un descanso.',
+                // **Reescrito el 5 sep 2026, y el anterior era falso por las DOS mitades.**
+                // Decía que la rejilla y los timbres «viven en el fichero de proyecto, así
+                // que aquí no se sabe si la franja cae dentro de la jornada del nivel ni si
+                // cruza un descanso». Medido sobre las siete versiones de `simonbolivar`:
+                // el fichero que se acaba de subir trae `proyecto.jornadaPorDefecto` **y**
+                // `proyecto.niveles[].jornada`, las dos con `dias`, `franjas`, `timbres` y
+                // `descansosTras`. O sea que **el dato está aquí, en el cuerpo de esta misma
+                // petición**, y desde el 4 sep esta API ya sabe leerlo.
+                //
+                // Sigue sin comprobarse, y ése es el punto: **lo que cambia es el porqué**.
+                // «No puedo» y «no lo hago» se leen igual en un veredicto y sólo el segundo
+                // se puede resolver — el primero hace que nadie vuelva a preguntar, que es
+                // exactamente lo que le pasó a los descansos, que llevaban dos días
+                // legibles y nadie los pidió porque el renglón de al lado decía que vivían
+                // en otro sitio.
+                //
+                // **Y lo que falta ahora es una decisión, no un dato**: si una franja fuera
+                // de la jornada de su nivel debe frenar la subida (422) o sólo avisar. Este
+                // texto lo dice para que la próxima persona sepa qué preguntar.
+                //
+                // Cambia lo que registran las subidas FUTURAS; las siete que ya existen
+                // conservan la frase con la que se guardaron, que es para lo que existe el
+                // veredicto guardado. Autorizado por Joseth el 5 sep 2026.
+                'jornada' => 'NO COMPROBADA, y no por falta de dato: el fichero que se acaba de subir trae la jornada por defecto y la de cada nivel —días, franjas, timbres y descansos—, y esta API sabe leerla. Lo que falta es la comprobación, y antes que ella la decisión de si una franja fuera de la jornada de su nivel frena la subida o sólo avisa.',
             ],
         ];
     }

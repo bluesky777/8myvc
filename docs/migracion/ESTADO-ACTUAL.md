@@ -50,6 +50,54 @@
 >
 > *En los dieciséis colegios esto no existe: cero versiones desplegadas.*
 
+**5 sep 2026 — EL ÚLTIMO `motivo` QUE AFIRMABA UNA IMPOSIBILIDAD, Y ERA FALSO POR LAS DOS
+MITADES** · `HorarioController` (el veredicto de `postVersiones`) y esta casilla · **decisión
+de Joseth** · **el router no se mueve: 568** · pint PASS · larastan nivel 7 `[OK] No errors`
+
+> **El cabo que quedaba del quinto estado, y al medirlo salió peor de lo que se creía.** El
+> veredicto que se guarda en cada subida decía:
+>
+> > *«NO COMPROBADA: la rejilla y los timbres viven en el fichero de proyecto, así que aquí no
+> > se sabe si la franja cae dentro de la jornada del nivel ni si cruza un descanso.»*
+>
+> Se sabía que **la segunda mitad** había dejado de ser cierta —los descansos se leen desde el
+> 4 sep—. **Medido el 5 sep sobre las siete versiones de `simonbolivar`, la primera tampoco lo
+> era, y nunca lo fue:**
+>
+> ```
+> proyecto.jornadaPorDefecto     -> {dias, franjas, timbres, descansosTras}
+> proyecto.niveles[].jornada     -> lo mismo, para los CUATRO niveles del colegio
+> ```
+>
+> **La jornada por nivel estaba en el blob desde el principio**, en el cuerpo de la misma
+> petición que escribe esa frase. O sea que el veredicto afirmaba no tener un dato que venía
+> **dentro de la propia subida que estaba juzgando**.
+>
+> ### LO QUE CAMBIA NO ES QUE SE COMPRUEBE: ES EL PORQUÉ DE QUE NO
+>
+> Sigue sin comprobarse y sigue diciendo `NO COMPROBADA`. **Lo que se corrige es que la razón
+> era falsa**, y esa diferencia decide quién vuelve a preguntar: *«no puedo»* y *«no lo hago»*
+> se leen igual en un veredicto y **sólo el segundo se puede resolver**. Es literalmente lo
+> que le pasó a los descansos —llevaban dos días legibles y nadie los pidió porque el renglón
+> de al lado decía que vivían en otro sitio—, así que esta frase estaba montando el mismo
+> archivado para la comprobación de la jornada.
+>
+> **Y lo que falta ahora es una decisión, no un dato**: si una franja fuera de la jornada de
+> su nivel **frena la subida (422) o sólo avisa**. El texto nuevo lo dice, para que la próxima
+> persona sepa qué preguntar en vez de creer que no hay nada que preguntar.
+>
+> ### LO QUE SE ACEPTA AL TOCARLO, Y POR ESO LO DECIDIÓ JOSETH
+>
+> Ese texto **se guarda dentro del veredicto de cada subida**, así que cambia lo que registran
+> las **futuras**; las siete que ya existen conservan la frase con la que se guardaron. *Eso
+> no es un daño: es para lo que existe el veredicto guardado —decir lo que se opinó el día que
+> se subió—.* Y por eso no se tocó por cuenta propia el 4 sep: no es aseo, es cambiar el
+> registro hacia adelante.
+>
+> *`HorarioSubidaTest` sigue exigiendo que las tres reglas no comprobadas vayan **nombradas**
+> —un `if` contra un dato que no se tiene pasa siempre, se ve verde y no comprueba nada—: 138
+> casos y 1.165 aserciones de `--filter=Horario` en verde.*
+
 **4 sep 2026 — EL QUINTO ESTADO: `ilegible`, EL ÚNICO DE LOS CINCO QUE ALGUIEN PUEDE
 ARREGLAR** · `HorarioController` (`catalogosDeLaVersion`, `renglonDelProyecto` y
 `proyectoDeLaVersion` nuevos), `tests/Contrato/HorarioLeccionesTest.php` (**18 casos, 187
