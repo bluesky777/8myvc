@@ -1812,7 +1812,14 @@ class HorarioController extends Controller
         $fuera = count(array_filter(array_keys($conLeccionIds), fn ($id) => ! isset($declarados[$id])));
 
         return [
-            'estado' => $total === 0 ? 'vacio' : ($fuera > 0 ? 'parcial' : 'completo'),
+            // **El `fuera` manda sobre el `vacio`, y el orden de este ternario es el
+            // hallazgo.** Escrito al revés —`$total === 0 ? 'vacio' : …`— una plantilla sin
+            // un solo docente declarado y lecciones que sí los tienen salía `vacio`, que
+            // significa *«el colegio no declaró ninguno, y es legítimo»* y **no lleva llamada
+            // a la acción**. Es el vacío que no es vacío: hay gente dando clase a la que el
+            // total no cuenta, que es justo lo que rompe la cuenta del informe. Con `fuera`
+            // delante sale `parcial`, que es lo que alguien mira.
+            'estado' => $fuera > 0 ? 'parcial' : ($total === 0 ? 'vacio' : 'completo'),
             'total' => $total,
             'con_leccion' => $conLeccion,
             'sin_leccion' => $total - $conLeccion,

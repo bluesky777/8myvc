@@ -330,8 +330,8 @@
 
 **5 sep 2026 — EL SOBRE DE LA CUARTA RUTA SE ENSANCHA CON LAS CUATRO LISTAS DE LA DECISIÓN 38, Y
 `tono` DEJA DE CONTAR SOBRE LA POBLACIÓN QUE NO ERA** · `HorarioController::getLecciones` y sus
-lectores del blob, `HorarioLeccionesTest` (18 → 29 casos, 187 → 419 aserciones, los once nuevos
-vistos en rojo con ocho mutaciones), [23 §9.bis.6](23-horarios.md) y esta casilla · **el router no
+lectores del blob, `HorarioLeccionesTest` (18 → 30 casos, 187 → 429 aserciones, los doce nuevos
+vistos en rojo con nueve mutaciones), [23 §9.bis.6](23-horarios.md) y esta casilla · **el router no
 se mueve: 577 antes y después, contado con `route:list --json` sobre la rama ya fusionada con
 `main`** · pint PASS · larastan nivel 7 `[OK] No errors` · rama `feat/horario-cuatro-listas`
 
@@ -361,7 +361,12 @@ se mueve: 577 antes y después, contado con `route:list --json` sobre la rama ya
 >
 > - **La población va dentro de cada renglón con su `criterio`, lo exige un test de los once, y
 >   `tono` se mide sobre los docentes que viajan en la misma respuesta.** Ese test encontró de
->   paso que `salones` decía `87 de 312` sin decir de qué eran los 312. Es lo que cierra la trampa del denominador de la
+>   paso que `salones` decía `87 de 312` sin decir de qué eran los 312.
+> - **Dos vacíos que no eran vacíos, encontrados repasando el propio lote**: el de `salones` y
+>   el del ternario de `plantilla`, que preguntaba primero por el total y devolvía `vacio`
+>   —legítimo, sin llamada a la acción— cuando hay docentes dando clase que la plantilla no
+>   declara. Ahora `parcial`. *Los dos son la forma de esta noche: una cifra correcta que se
+>   lee como otra cosa.* Es lo que cierra la trampa del denominador de la
 >   [§9.bis.5](23-horarios.md) —53 filas, 47 vivos, 12 con asignación— y lo que el lector del
 >   front no podía comprobar: *una cuenta que cuadra sobre la población equivocada no falla*.
 > - **Ninguna cadena libre del blob sale.** Nombres por id contra las tablas; enumerados cerrados;

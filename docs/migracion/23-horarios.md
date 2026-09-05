@@ -1972,6 +1972,15 @@ mediciones no se copiaron: eso es lo que las hace citables.
    decir **de qué son esos 312**, que son las lecciones de la versión y no los salones del
    colegio —17 en el proyecto real, y aquí no se pueden contar—. Es la valla para el catálogo
    que se añada mañana.
+
+   **Y un tercer hallazgo de la misma familia, éste en un ternario**: el renglón `plantilla`
+   preguntaba primero si el total era cero, así que un proyecto que **no declara ningún
+   docente** y tiene lecciones con docentes salía **`vacio`** — que significa *«el colegio no
+   creó ninguno, y es legítimo»* y **no lleva llamada a la acción**. Es un vacío que no es
+   vacío: hay gente dando clase a la que el total no cuenta, que es justo lo que rompe la
+   cuenta del informe. Con `fuera_de_la_plantilla` delante sale `parcial`. *El caso que lo
+   fija es el único que lo caza: el de un docente intruso con la plantilla no vacía sigue
+   verde con el ternario al revés.*
 2. **El `porque` de la jornada viaja por grupo**, calculado igual que `jornadaDelGrupo()` del
    escritorio —`nivel · sin-nivel · sin-resolver · nivel-desconocido`—, porque sin él un grupo
    pintado con la jornada por defecto no se distingue de uno que la declaró: en pantalla se
@@ -2020,7 +2029,7 @@ no es llevarse*. Las reglas, que son las que hay que conservar:
   en un `docentes[]` de pieza—, porque `el_proyecto_no_viaja_en_las_lecciones` la busca en
   `programa` y no vería ninguna de las cuatro.
 
-**`HorarioLeccionesTest`: de 18 casos y 187 aserciones a 29 y 419, y los once nuevos se han
+**`HorarioLeccionesTest`: de 18 casos y 187 aserciones a 30 y 429, y los doce nuevos se han
 visto en ROJO uno a uno** con seis mutaciones del controlador —aceptar cualquier cadena como
 estado de marca, como hora, como `profesorId`; ignorar una colocación huérfana en vez de tirar
 la lista; devolver `nivel` para un nivel desconocido; y volver a contar el `tono` sólo sobre los

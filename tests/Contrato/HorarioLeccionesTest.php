@@ -868,6 +868,34 @@ class HorarioLeccionesTest extends CasoDeContrato
     }
 
     /**
+     * **Y el caso que decide el orden del ternario: plantilla VACÍA con docentes dando clase.**
+     *
+     * `vacio` significa *«el colegio no declaró ninguno, y es legítimo»* y **no lleva llamada a
+     * la acción**; `parcial` sí. Con el ternario escrito al derecho —mirando primero si el total
+     * es cero— este caso salía `vacio`, o sea **un vacío que no es vacío**: hay gente dando clase
+     * a la que el total no cuenta, que es exactamente lo que rompe la cuenta del informe y lo que
+     * nadie iría a mirar. Es la misma familia que `[]` contra `null`, con las dos palabras que
+     * este módulo ya tenía.
+     */
+    #[Test]
+    public function una_plantilla_vacia_con_docentes_dando_clase_no_es_vacio(): void
+    {
+        $anio = $this->anioDelSujeto();
+        [$intruso] = $this->profesores(1);
+        $version = $this->versionConProyecto($anio, $this->proyectoCompleto(['docentes' => []]));
+        $this->leccionEn($version, (int) $this->asignacionDe($anio)->id, 'a1-0', 1, 1);
+        $this->docenteEnLaPieza($version, 'a1-0', $intruso);
+
+        $renglon = $this->leerSinFuga($version)->json('catalogos.plantilla');
+
+        $this->assertSame(0, $renglon['total']);
+        $this->assertSame(1, $renglon['fuera_de_la_plantilla']);
+        $this->assertSame('parcial', $renglon['estado'],
+            'Una plantilla de cero con alguien dando clase NO es «el colegio no declaró ninguno»: '
+            .'es una plantilla a la que le falta quien está ocupado, y `vacio` no lo hace mirar a nadie.');
+    }
+
+    /**
      * Una plantilla con una entrada que no se entiende sale `null` ENTERA, no filtrada.
      *
      * La misma regla que los descansos: filtrar dejaría 46 docentes creíbles y borraría
