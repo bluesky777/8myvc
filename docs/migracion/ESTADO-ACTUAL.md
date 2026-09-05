@@ -163,6 +163,65 @@ nivel 7 `[OK] No errors`
 > públicas **siguen donde estaban** — este trabajo no toca `app/` ni `routes/`, y el router se
 > recontó con `route:list --json`: **568**, igual que antes.
 
+**4 sep 2026 — LAS CINCO RUTAS DE `horario/` EJERCITADAS CONTRA DATOS REALES, Y EL `1` QUE NO
+HABÍA VISTO NADIE** · [23 §9.bis.5](23-horarios.md) · **cero código, el router sigue en 568**
+
+> **Lo que no había hecho nadie.** Las cinco estaban escritas y con tests, y la cobertura en
+> 568/568 — pero **los tests de contrato corren contra el seed**, que no tiene seis versiones
+> de horario ni 47 docentes sin color. Esto es lo otro: base `simonbolivar` del docker, **año
+> 8 (2025)**, token real de tres roles, mirando **la respuesta** y no el 200. Lote de
+> `8myvc-7c`, ampliado con `myvc-front-c0`; las cuatro escrituras las autorizó Joseth.
+>
+> **El año es una trampa y ya mordió**: `2026` (`id = 9`) tiene los 13 grupos y las 134
+> asignaturas y **cero docentes y cero notas**, así que un informe suyo sale creíble y no vale
+> nada. **El último año no es el que tiene datos.**
+>
+> | | |
+> |---|---|
+> | las cinco por rol | admin 200/201 · profesor raso 200 en las dos lecturas y **403** en las tres escrituras · alumno **403** en las cinco |
+> | el `{id}` de la cuarta | **404** con mensaje propio para `999`, `0`, `-1` y `abc`; **401** sin token; ni un 500 |
+> | los cuatro estados del catálogo | **vistos vivos en una sola respuesta**, y el `tono` recorrido de ida y vuelta: `vacio` → `completo` → `parcial` → `completo` |
+> | la rejilla gris | confirmada — **290 de 290** puestos de docente con `tono: null` — y luego pintada: 12 colores, y **22 lecciones sin ningún docente siguen grises** |
+> | `prevuelo-del-horario.php` | **exit 1, SUCIO**: Transición entero sin docente, Jardín a medias, 10 de 134 sin `profesor_id` |
+> | `deriva-del-horario.php` | **0** tras publicar · **1** tras el `toggleDia` · **2 NO MEDIDO** en el año 9 |
+>
+> **El `1` es el resultado, y los ceros no lo eran.** Recién publicada una versión, cuadrar es
+> aritmética: `putOficial` acaba de reescribir las siete columnas desde las lecciones de esa
+> misma versión. El `1` sale de conmutar un día a mano y **`--detalle` nombra la asignatura y
+> la columna que se tocaron y no otra** — o sea que **el detector detecta lo que dice su
+> nombre**, que hasta hoy se creía y no se sabía. *El aviso de arriba dice dónde quedó puesto
+> ese descuadre y por qué no se revierte.*
+>
+> **Y el radio no es de laboratorio**: en martes la versión oficial le da al profesor 9 cinco
+> asignaciones del año 8 y `asignaturas` le da cuatro. Es lo que `ChangesAsked/to-me` deriva
+> para su portada — **una clase desaparecida sin error y sin aviso**.
+>
+> ### Tres hallazgos que no buscaba nadie, y los tres se escriben en vez de arreglarse
+>
+> 1. **`incompletas` cambia de TIPO según la versión**: lista de objetos en la v1, entero en
+>    las v2–v7, **y las siete viajan en la misma respuesta de `GET horario/versiones`**. Que
+>    el veredicto sea el guardado ya estaba decidido (§9.bis.3, punto 5); **que el tipo de un
+>    campo dependa del día de la subida, no**. `myvc-front-90` lo había encontrado por su
+>    lado unas horas antes contra su pantalla, así que son **dos hallazgos independientes del
+>    mismo hecho** — que es lo que lo convierte en contrato y no en rareza.
+> 2. **`created_at` de la misma versión vuelve en dos formatos**: `"…21:38:48.911"` por el
+>    `POST` y `"…21:38:49"` por el `GET`. **La mitad mala es el redondeo**, no la precisión:
+>    no casa ni truncando, así que no sirve para identificar la versión recién creada.
+> 3. **`putOficial` escribe en el primer paso cuando no hay pérdidas** — cuerpo `{}` da 200 y
+>    publica. `acepto_perder` **no es una confirmación: es un peaje que sólo aparece si hay
+>    algo que perder**. Es coherente con la §7.2 y se lee al revés desde fuera; ya hizo que
+>    una pantalla del front publicara creyendo que el primer paso no escribía.
+>
+> **Ninguno se arregla aquí**: cambiar cualquiera es cambiar la respuesta de una ruta viva, y
+> el primero **ni siquiera se puede arreglar hacia atrás** sin recalcular veredictos
+> guardados, que es justo lo que aquella decisión dijo que no se hace. Hoy no muerden a nadie
+> —**cero versiones desplegadas en los dieciséis**—, y por eso hay tiempo de escribirlos ahora
+> y no lo habrá después.
+>
+> **Lo que esta noche NO midió, dicho con el número delante:** un colegio, un año y una
+> versión. `deriva` no mira franja, duración ni salón, y la subida se reconstruyó desde la
+> versión 6 en vez de salir del escritorio. **Quince silencios no son quince ceros.**
+
 **4 sep 2026 — LA COBERTURA REMEDIDA: 568/568, Y LO QUE ENVEJECIÓ FUE EL NÚMERO, NO LA
 PROPIEDAD** · `CLAUDE.md` y esta casilla · **cero código**
 

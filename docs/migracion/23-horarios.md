@@ -1198,6 +1198,12 @@ se lee como un colegio al que le falta un dato:
 | `vacio` | lo guardamos, **el colegio no ha creado ninguno, y eso es una respuesta legítima** | un colegio sin un solo salón nombrado |
 | `sin_catalogo` | **esta API no puede saberlo, hoy ni nunca por este camino** | `timbres`, `disponibilidad`, `tono` |
 
+> **Los cuatro se vieron salir vivos y en la misma respuesta el 4 sep 2026, y el renglón
+> `tono` se recorrió entero de ida y vuelta** —`vacio` → `completo` → `parcial` → `completo`—
+> ejercitando las cinco rutas contra la base real: **§9.bis.5**. Ahí está también la trampa del
+> denominador: `completo` en `tono` significa *«completo para esta versión»*, y son **tres**
+> poblaciones distintas —53 filas, 47 vivos, 12 con asignación en el año—.
+
 **`vacio` y `sin_catalogo` separados es lo que impide que la ruta convierta el horario en
 obligatorio.** Sin esa distinción, la única forma de que la pantalla no mienta sería exigir
 que el colegio rellene salones y timbres — que es justo lo que Joseth dijo que **no** puede
@@ -1551,6 +1557,158 @@ franja** —ni la tienen ni se les puede añadir sin cambiar la respuesta de
 además lo que hace posible que algún día ella misma sea quien delate la deriva, porque es el
 único sitio que mira los dos mundos a la vez — **y eso es una decisión, no un añadido: hoy no
 lo hace.**
+
+### 9.bis.5. Las cinco rutas EJERCITADAS de punta a punta contra datos reales — 4 sep 2026
+
+**Lo que no había hecho nadie.** Las cinco rutas estaban escritas, con tests, y la cobertura
+en 568/568 — pero **los tests de contrato corren contra el seed**, y el seed no tiene seis
+versiones de horario ni 47 docentes sin color. Esto es la otra cosa: la base `simonbolivar`
+del docker, **año 8 (2025), el `actual`**, con un token real de cada rol y mirando **la
+respuesta**, no el 200.
+
+**El año importa y es una trampa que ya mordió a una sesión**: `2026` (`id = 9`) tiene los
+13 grupos y las 134 asignaturas y **cero docentes asignados y cero notas**, así que un
+informe suyo sale creíble y no vale nada. **El último año no es el que tiene datos.**
+
+#### Lo que contestan, por rol
+
+Tres tokens acuñados con `Sesion::abrirLegado` y borrados al terminar: `administrador`
+(superusuario, periodo 31 → año 8), un profesor raso (`is_superuser = 0`) y un alumno.
+
+| | admin | profesor raso | alumno |
+|---|---|---|---|
+| `GET horario/versiones` | 200 | 200 | **403** |
+| `GET horario/versiones/{id}/lecciones` | 200 | 200 | **403** |
+| `POST horario/versiones` | **201** | 403 | 403 |
+| `PUT horario/versiones/{id}/oficial` | 200 | 403 | 403 |
+| `PUT horario/docentes/{id}/tono` | 200 | 403 | 403 |
+
+Sin token, **401**. Y el `{id}` de la cuarta se comprueba de verdad: `999`, `0`, `-1` y
+`abc` dan **404** con el mensaje propio —*«Esa versión del horario no existe en este
+año»*—, no un 500 ni un 404 del router. Los tres 403 de las escrituras traen **su** motivo
+(*«…para subir una versión»*, *«…para marcar la versión oficial»*, *«…para cambiar el color
+de un docente»*), o sea que se distingue por qué puerta te echaron.
+
+#### Los cuatro estados del catálogo, vistos vivos y en una sola respuesta
+
+La §9.bis.3 los decidió sobre la mesa; aquí están medidos saliendo del servidor a la vez:
+
+| estado | quién lo trae en la versión 6 |
+|---|---|
+| `completo` | `grupos` 13 · `asignaciones` 134 · `docentes` 12 |
+| `parcial` | `salones`: 87 de 312, 3 distintos, **`hay_ids: false`** |
+| `vacio` | `tono`: 0 de 12, *«la columna existe y nadie ha repartido los colores»* |
+| `sin_catalogo` | `timbres` · `disponibilidad` · `restricciones` |
+
+**Y el renglón `tono` se recorrió entero de ida y vuelta**, que es lo que demuestra que los
+tres estados son un mecanismo y no tres cadenas: `vacio` → se pintan los 12 por la ruta 5 →
+`completo` → se borra uno (`tono: null`) → **`parcial`, 11 de 12** → se repone → `completo`.
+La cadena vacía cuenta como nulo, como dice el docblock, y **las tres formas del mismo color
+—`#0AF`, `0af`, `#00AAFF`— se guardan las tres como `#00aaff`**.
+
+#### La rejilla gris, y el denominador que se lee mal
+
+**Antes de pintar: los 290 puestos de docente de la versión 6 traen `tono: null`, los 290.**
+Más **22 lecciones sin ningún docente**, que no traen ni el hueco. O sea que la rejilla salía
+gris entera, que es lo que la §9.bis.2 anticipó y ahora está visto.
+
+Después de repartir doce colores por `PUT horario/docentes/{id}/tono`, los 290 traen color y
+hay 12 colores distintos. **Las 22 sin docente siguen grises: ésas no las arregla ningún
+color.**
+
+> **Y aquí hay una respuesta correcta que induce la conclusión contraria, que es la familia
+> de esta noche.** El renglón dice entonces `{"estado":"completo","con_tono":12,"de":12}` —
+> y **35 docentes vivos del colegio siguen sin color**. Son **tres poblaciones** y sólo una
+> viaja: **53** filas en `profesores`, **47** vivos (`deleted_at IS NULL`), **12** con
+> asignación viva en el año. El catálogo mide sobre los 12 y **lo declara** en el renglón
+> `docentes` (`"criterio": "con asignación viva en el año"`), así que no miente — pero
+> `completo` ahí significa **«completo para esta versión»**, nunca «todos los docentes del
+> colegio». Quien lea el renglón sin leer su criterio da por repartido lo que no lo está.
+
+#### Tres hallazgos que no buscaba nadie
+
+**1. `incompletas` cambia de TIPO según la versión, y las siete viajan en la misma
+respuesta.** En `GET horario/versiones`, dentro del veredicto guardado:
+
+| versión | `renglones.suma_igual_que_la_ih.incompletas` | ¿trae `cuales`? |
+|---|---|---|
+| **1** | **lista de objetos** | **no** |
+| 2 – 7 | entero | sí |
+
+Que el veredicto sea **el guardado** y no se recalcule está escrito y decidido (§9.bis.3,
+punto 5). **Lo que no está escrito es su consecuencia: el tipo de un campo depende del día en
+que se subió la versión.** Un front que haga `incompletas > 0`, o que lo pinte como número,
+se rompe en la v1 — y `getVersiones` devuelve **todas**, así que la v1 va en la misma
+respuesta que pinta el listado. **No se arregla hacia atrás sin recalcular veredictos
+guardados, que es justo lo que esa decisión dijo que no se hace.** Hoy no muerde a nadie:
+**cero versiones desplegadas en los dieciséis**. Por eso hay tiempo de escribirlo ahora y no
+lo habrá después.
+
+**2. `created_at` de la misma versión vuelve en dos formatos según la ruta.** La versión 7
+salió `"2026-09-04 21:38:48.911"` por el `POST` y `"2026-09-04 21:38:49"` por el `GET`. **La
+mitad mala no es la precisión, es que el segundo no coincide**: MySQL redondea al guardar. Un
+cliente que case el objeto que acaba de crear contra el del listado por esa cadena **no lo
+encuentra**.
+
+**3. `putOficial` escribe en el primer paso cuando no hay pérdidas.** Comprobado: `PUT
+horario/versiones/7/oficial` con cuerpo `{}` —sin `acepto_perder`— devuelve **200 y
+publica**; con `acepto_perder: true` devuelve 422 `acepto-perder-no-es-un-numero`. O sea que
+**`acepto_perder` no es una confirmación de publicar: es un peaje que sólo aparece si hay algo
+que perder.** Es coherente con lo que dice la §7.2 —el número tiene que coincidir con lo que
+el servidor cuenta— pero se lee al revés desde fuera, y ya hizo que una pantalla del front
+publicara creyendo que el primer paso no escribía.
+
+#### Las dos herramientas, con el código de salida leído del proceso
+
+**`prevuelo-del-horario.php` sale `1`, SUCIO**, sobre el año 8 sin pasarle `--year`: el
+horario de **Transición** no se puede colocar en absoluto —ninguna de sus asignaciones tiene
+a quién poner en la casilla— y **Jardín** va a medias; **10 de 134** asignaciones sin
+`profesor_id`, que son 25 h. El más cargado es JOEL HERNÁNDEZ con **31 h de 35**, o sea que
+cabe en la rejilla de 7×5 y **habría sido imposible en la de 6×5 que supuso la v1**.
+
+**`deriva-del-horario.php` dio `0` y después `1`, y el `1` es el que no había visto nadie:**
+
+| corrida | exit | resultado |
+|---|---|---|
+| tras publicar la versión 7 | **0** | 134 de 134 cuadran |
+| tras un `toggleDia` real | **1** | **133 de 134 · DESCUADRADAS 1** |
+| `--detalle` | | `#1234 MATEMÁTICAS Tercero martes: 0 → 1` |
+| año 9, de control | **2** | NO MEDIDO — sin versión oficial no hay contra qué comparar |
+
+El `0` era aritmética —`putOficial` acaba de reescribir las siete columnas desde las
+lecciones de esa misma versión, así que cuadra por construcción—. **El `1` es lo que
+demuestra que el detector detecta lo que dice su nombre**: nombra la asignatura que se tocó y
+la columna que se tocó, y no otra.
+
+> **Y el `2` del año 9 se comprobó sin tubería, porque la primera lectura dio `0`.** `docker
+> exec … | tail` deja en `$?` el código de `tail`, no el del script — el mismo tropiezo que
+> ya está catalogado en este repo, y aquí habría convertido un **NO MEDIDO** en un año
+> perfecto.
+
+**Y el radio del descuadre no es de laboratorio**: en martes la versión oficial le da al
+profesor 9 **cinco** asignaciones del año 8 y `asignaturas` le da **cuatro**. Eso es lo que
+`ChangesAsked/to-me` deriva para su portada — **una clase desaparecida sin error y sin
+aviso**, que es exactamente el daño que la §9.bis.4 anticipó.
+
+#### Lo que quedó escrito en la base de desarrollo, y por qué
+
+Las cuatro escrituras las autorizó Joseth ese día, y **el `toggleDia` se dejó puesto a
+propósito** para que otra sesión lo viera con sus ojos:
+
+| qué | estado en que quedó | cómo se deshace |
+|---|---|---|
+| `asignaturas.id = 1234` | `martes` en **0** (era 1), `updated_by 1`, 21:40:56 | `UPDATE asignaturas SET martes=1 WHERE id=1234;` |
+| versión **7** del año 8 | subida, 312 lecciones · 290 piezas con docente | borrar la versión |
+| `years.horario_version_id` del 8 | **7** (era 6) | `PUT horario/versiones/6/oficial` |
+| `profesores.tono` | 12 docentes con color | `UPDATE profesores SET tono=NULL WHERE id IN (…)` |
+
+#### Lo que esta noche NO midió
+
+**Un colegio, un año y una versión.** Los otros quince tienen su propia base, y **quince
+silencios no son quince ceros**. `deriva` no mira franja, duración ni salón —una lección
+movida de la franja 2 a la 5 el mismo día **cuadra**—, y la subida se reconstruyó desde la
+versión 6 (232 KB, 312 piezas), o sea que **no se ejercitó un `.myvch` recién salido del
+escritorio**: eso sigue siendo cosa de `myvc_horarios`.
 
 ---
 
