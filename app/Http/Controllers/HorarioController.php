@@ -749,7 +749,29 @@ class HorarioController extends Controller
                     'cuales' => $this->hastaCincuenta($sinIh),
                 ],
                 'salon' => 'NO COMPROBADO: falta capacidad_grupos en el servidor. La iglesia con seis grupos es indistinguible de dos grupos metidos en un aula, y la capacidad que viaja la elige el cliente — comprobar una regla contra un número que manda el mismo que quiere pasarla no es comprobar.',
-                'disponibilidad' => 'NO COMPROBADA: las disponibilidades viven en el fichero de proyecto, no en este servidor.',
+                // **Reescrito el 5 sep 2026: decía «no en este servidor» y era falso.**
+                // Medido sobre el proyecto de la versión oficial: **los 47 docentes traen
+                // la clave `disponibilidad`**, 26 con marcas de verdad —134 en total, 92
+                // `condicional` y 42 `inadecuado`— y eso vive en `horario_versiones.proyecto`,
+                // **que es una columna de esta base**.
+                //
+                // **Y esta cadena tiene un lector HOY, que es lo que la separa de las otras.**
+                // `escritorio/src/app/subir/veredicto.ts:212` la imprime **verbatim** —no tiene
+                // copia propia del texto—, así que la frase falsa se la está enseñando a un
+                // coordinador de colegio cada vez que alguien sube un horario. Se arregla en su
+                // pantalla en cuanto cambia aquí, sin que ellos toquen nada.
+                //
+                // **El daño ya salió de este repositorio**: `myvc-front-90` escribió y
+                // **commiteó** en su catálogo que las disponibilidades «no se guardan en el
+                // servidor», y con eso clasificó su informe como **no derivable**. Lo corrigió
+                // abriendo el blob, y la categoría pasó a **«falta ruta»** — un cartel
+                // completamente distinto. *No fue un error de lectura suyo: se creyó un cartel
+                // nuestro.*
+                //
+                // **Y las dos frases piden trabajos distintos, que es por lo que no es
+                // cosmético:** «no la guarda» pide **inventar un dato**; «la guarda y no la sabe
+                // consultar» pide **parsear el blob**. La frase de antes empujaba al primero.
+                'disponibilidad' => 'NO COMPROBADA: las disponibilidades declaradas SÍ están guardadas —dentro del fichero de proyecto de esta misma subida, en `horario_versiones.proyecto`— pero esta comprobación no las lee. No es que falte el dato: falta la comprobación.',
                 // **Reescrito el 5 sep 2026, y el anterior era falso por las DOS mitades.**
                 // Decía que la rejilla y los timbres «viven en el fichero de proyecto, así
                 // que aquí no se sabe si la franja cae dentro de la jornada del nivel ni si
@@ -1536,8 +1558,14 @@ class HorarioController extends Controller
             'timbres' => $this->renglonDelProyecto($proyectoLegible,
                 'las horas de reloj no están en ninguna tabla: sólo dentro del fichero de proyecto, '
                 .'y ahí el colegio no las ha dado. De ese mismo fichero sí sale ya `ejes.descansos_tras`'),
+            // **`ídem` ya no vale aquí, y por eso este renglón se aparta de sus dos
+            // vecinos.** Decía *«el servidor no guarda la disponibilidad declarada»* y es
+            // **falso**: los 47 docentes la traen dentro del fichero de proyecto, que es
+            // una columna de esta base. Lo que no hay es **tabla que consultar**, que es
+            // otra cosa — y la diferencia decide qué trabajo pide: inventar un dato, o
+            // parsear el blob.
             'disponibilidad' => $this->renglonDelProyecto($proyectoLegible,
-                'ídem: el servidor no guarda la disponibilidad declarada (§4)'),
+                'está guardada dentro del fichero de proyecto, no en una tabla: esta ruta todavía no la parsea (§4)'),
             'restricciones' => $this->renglonDelProyecto($proyectoLegible,
                 'ídem: restricciones, pesos y distribuciones de bloque (§4)'),
         ];

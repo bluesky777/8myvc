@@ -74,6 +74,54 @@
 >
 > *En los dieciséis colegios esto no existe: cero versiones desplegadas.*
 
+**5 sep 2026 — «EL SERVIDOR NO GUARDA LA DISPONIBILIDAD» ERA FALSO, Y LA FRASE TENÍA UN
+LECTOR HOY** · `HorarioController` (el veredicto de la subida y el renglón del catálogo) y
+esta casilla · **el router no se mueve: 568** · pint PASS · larastan `[OK] No errors`
+
+> **Dos cadenas decían que este servidor no guarda las disponibilidades declaradas. Las
+> guarda.** Medido sobre el proyecto de la versión oficial (la 8):
+>
+> ```
+> docentes en el blob ......... 47   (los 47 traen la clave `disponibilidad`)
+> con marcas de verdad ........ 26
+> marcas ..................... 134   92 `condicional` · 42 `inadecuado`
+> ```
+>
+> Y eso vive en `horario_versiones.proyecto`, **que es una columna de esta base**. Lo que no
+> hay es **tabla que consultar**, que es otra cosa.
+>
+> ### LA DIFERENCIA NO ES DE ESTILO: DECIDE QUÉ TRABAJO SE PIDE
+>
+> | la frase | lo que pide |
+> |---|---|
+> | *«el servidor no la guarda»* | **inventar un dato** — y eso se defiende poco |
+> | *«la guarda y esta ruta no la parsea»* | **parsear el blob** — otro trabajo y otro coste |
+>
+> **Con la decisión 38 encima de la mesa, la frase de ayer empujaba al primero.**
+>
+> ### Y ÉSTA NO ERA UNA CADENA DORMIDA: TENÍA UN LECTOR HOY
+>
+> Es lo que la separa del `motivo` de `timbres` y del `:753`, que esperaban al despliegue.
+> `escritorio/src/app/subir/veredicto.ts:212` imprime nuestro `porque` **verbatim** —no tiene
+> copia propia del texto—, así que **la frase falsa se la estaba enseñando a un coordinador de
+> colegio cada vez que alguien sube un horario**. Se arregla en su pantalla en cuanto cambia
+> aquí, sin que ellos toquen nada.
+>
+> **Y el daño ya había salido de este repositorio.** `myvc-front-90` escribió y **commiteó**
+> en su catálogo que las disponibilidades «no se guardan en el servidor», y con eso clasificó
+> su informe como **no derivable**; al abrir el blob la categoría pasó a **«falta ruta»**, que
+> es un cartel completamente distinto. *No fue un error de lectura suyo: se creyó un cartel
+> nuestro.* Y su `servidor.md` repetía la frase citándonos, así que **la caducidad llegó a dos
+> repositorios**.
+>
+> ### LA TERCERA DE LA MISMA ESPECIE EN DOS DÍAS, Y AHORA SE PUEDEN CONTAR
+>
+> `catalogos.timbres`, el veredicto `:753` de la jornada, y ésta. **Las tres decían dónde vive
+> un dato y se leían como que el servidor no lo tiene**; las tres estaban en un renglón que
+> parece cerrado por diseño. *Un `no_comprobadas` es donde una imposibilidad falsa vive más
+> tiempo, porque nadie audita lo que ya se declaró imposible* — y de las tres, **ninguna la
+> encontró un test: las tres las tropezó un cliente de frente.*
+
 **5 sep 2026 — EL PRE-VUELO YA DICE CON QUÉ AÑO MIDIÓ DONDE SE LEE, Y NO SÓLO ARRIBA** ·
 `tools/prevuelo-del-horario.php` y esta casilla · **cero código de la API, el router no se
 mueve: 568** · larastan nivel 7 `[OK] No errors` · **sin Pint, a propósito**
