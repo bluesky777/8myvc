@@ -735,8 +735,9 @@ Tres cosas que lo separan del indicador y que B necesita saber:
 - **Los números son `float`**, no enteros: la columna es `DECIMAL(7,4)`. La regla decide en
   enteros —es la escala del colegio— pero **con `mayor`, la original se conserva con sus
   decimales**: una definitiva de 43,7500 que nivela por debajo sigue siendo 43,7500 y no 44.
-- **Dos columnas más en `notas_finales`**, en su propia migración
-  (`2026_09_02_200000_nivelacion_de_la_definitiva`): `nota_nivelacion` —bajo `topada` el 45
+- **Dos columnas más en `notas_finales`**, en la misma migración que las otras tres
+  (`2026_09_02_100000_nivelaciones_columnas`; entraron por su cuenta y se fusionaron ahí
+  el 4 sep 2026, antes de desplegarse): `nota_nivelacion` —bajo `topada` el 45
   que queda en 35 no estaría en ninguna parte, el mismo argumento que en `notas`— y
   `nivelacion_obs`, para que la constancia pueda imprimir con qué actividad se superó en los
   dos niveles y no sólo en el indicador.
@@ -768,7 +769,8 @@ Lo que se añade es lo que le faltaba, en `PUT definitivas_periodos/update-recup
 | `observacion` | no | Con qué actividad se superó. Ausente o vacía = `null` |
 | `fecha` | no | La del acta. Ausente = la del servidor. No puede ser futura |
 
-Y la fila gana tres columnas (`2026_09_02_300000_acta_de_la_recuperacion_final`):
+Y la fila gana tres columnas (`2026_09_02_100000_nivelaciones_columnas`, donde se fusionó
+la que era `..._300000` el 4 sep 2026):
 `nivelada_at`, `nivelada_por` y `observacion`. **`nivelada_por` no es `updated_by`**: aquél
 dice quién la tocó la última vez, y para firmar la constancia del art. 17 hace falta quién la
 registró.

@@ -4,15 +4,16 @@
 # trabajo, y contesta las tres preguntas que nadie puede contestar leyendo el
 # código:
 #
-#   1. ¿corren las ocho de una vez, y cuánto tardan sobre datos de verdad?
+#   1. ¿corren las de la tanda de una vez, y cuánto tardan sobre datos de verdad?
 #   2. ¿la comprobación de `docs/DESPLIEGUE.md` sabe fallar, y sabe acertar?
 #   3. ¿la comprobación pregunta por TODO lo que la tanda cambia, o se le ha
 #      quedado corta? — que es lo que pasó el 4 sep 2026 con `profesores.tono`
 #   4. ¿y contesta el módulo de horario lo que tiene que contestar en un colegio
 #      recién migrado? — `tools/comprobar-el-horario.php` sobre la copia
 #
-# **Por qué existe.** `8myvc-06` ensayó estas ocho el 3 sep 2026 sobre una copia
-# de `simonbolivar` y midió ~1,0 s las ocho. Luego **borró la copia**, así que lo
+# **Por qué existe.** `8myvc-06` ensayó la tanda el 3 sep 2026 sobre una copia
+# de `simonbolivar` y midió ~1,0 s las ocho que había entonces. Luego **borró la
+# copia**, así que lo
 # que quedó fue una cifra sin forma de repetirla: ni el estado de partida, ni el
 # rebobinado, ni los controles. Una cifra que nadie puede volver a sacar no es
 # una medición, es un recuerdo. Esto es el procedimiento.
@@ -69,6 +70,14 @@ cd "$(dirname "$0")/.."
 
 DB_ORIGEN="${DB_ORIGEN:-simonbolivar}"
 DB_ENSAYO="${DB_ENSAYO:-simonbolivar_ensayo}"
+# **El número de la tanda se DERIVA, y eso es lo que salvó a este script el 4 sep
+# 2026.** Esa tarde las ocho migraciones sin desplegar se consolidaron en cinco
+# ficheros sin cambiar una sola columna, y aquí no hubo que tocar nada: `PENDIENTES`
+# sale de `git diff` contra la base desplegada y `N_PENDIENTES` de contarlo, así que
+# el `--step` del rebobinado pasó de 8 a 5 solo. Lo único que se movió fue la prosa.
+# *Si alguna de estas cifras estuviera escrita a mano, el ensayo habría rebobinado
+# de más y nadie lo habría visto: `migrate:rollback --step` no se queja si le pides
+# más migraciones de las que hay en el lote.*
 BASE_DESPLEGADA="${BASE_DESPLEGADA:-9474b50}"
 CHEQUEO_EN="${CHEQUEO_EN:-docs/DESPLIEGUE.md}"
 DB_USERNAME="${DB_USERNAME:-root}"
@@ -139,11 +148,11 @@ HALLAZGOS=0
 # 0. LA POBLACIÓN, ANTES DE NADA
 #
 # Ninguna herramienta de este repo imprime OK sin decir sobre cuántas filas
-# midió: «las ocho en 1,0 s» no significa lo mismo sobre 1,17 M notas que sobre
+# midió: «la tanda en 1,0 s» no significa lo mismo sobre 1,17 M notas que sobre
 # la base de tests, que tiene el seed. Y aquí importa el doble, porque lo que se
 # ensaya es si la tanda aguanta el tamaño de un colegio de verdad.
 # ─────────────────────────────────────────────────────────────────────────────
-titulo "ENSAYO DE LA TANDA — la copia, el rebobinado, las ocho y los controles"
+titulo "ENSAYO DE LA TANDA — la copia, el rebobinado, las migraciones y los controles"
 
 POBLACION=$(mysql_cmd -N -B -e "
     SELECT (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$DB_ORIGEN'),
@@ -243,7 +252,7 @@ esquema_de "$DB_ORIGEN" > "$ESQ_HOY"
 # Y `--step` de `migrate:rollback` **cuenta migraciones, no lotes**, que es lo
 # contrario de lo que sugiere el nombre y de lo que hace `--step` en `migrate`.
 # Con `--step=1` se deshace UNA —la última por orden de nombre dentro del último
-# lote— y el ensayo mediría siete de ocho creyéndose completo. Se le pasa el
+# lote— y el ensayo mediría una de la tanda creyéndose completo. Se le pasa el
 # número de la tanda, que con el reagrupado de arriba son exactamente ésas.
 # ─────────────────────────────────────────────────────────────────────────────
 printf '\n3. EL REBOBINADO — la copia vuelve al estado de `%s`\n' "$BASE_DESPLEGADA"
@@ -258,9 +267,10 @@ fi
 # El lote se calcula en su propia consulta y se pasa como número literal, y esto
 # NO es un rodeo. Con `SET batch = (SELECT MAX(batch)+1 FROM migrations)` —aun
 # envuelto en una tabla derivada para que MySQL lo acepte— el `MAX` se reevalúa
-# fila a fila **sobre la tabla que se está escribiendo**: las ocho salen con
-# ocho lotes distintos y crecientes, el rollback deshace sólo el último, y el
-# ensayo mide una migración en vez de ocho. Pasó a la primera, el 4 sep 2026.
+# fila a fila **sobre la tabla que se está escribiendo**: las pendientes salen
+# con un lote distinto y creciente cada una, el rollback deshace sólo el último,
+# y el ensayo mide una migración en vez de la tanda. Pasó a la primera, el 4 sep
+# 2026.
 LOTE_NUEVO=$(mysql_cmd -N -B -e "SELECT MAX(batch)+1 FROM \`$DB_ENSAYO\`.migrations;" 2>/dev/null)
 case "$LOTE_NUEVO" in
     ''|*[!0-9]*) echo "NO MEDIDO: no se pudo calcular el lote del rebobinado." >&2; exit 2 ;;
