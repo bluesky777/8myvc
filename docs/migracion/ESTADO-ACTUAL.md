@@ -370,15 +370,25 @@
 > antes del día 10*, no si entra ésta. **Las dos salidas son legítimas y ninguna es gratis:**
 > dejarlas fuera congela dos arreglos ya escritos y probados; meterlas obliga a reensayar.
 >
-> ### 4. El motor de cada tabla en los dos hostings — nueva, 5 sep 2026 por la tarde, y sólo la puede correr Joseth
+> ### 4. ~~El motor de cada tabla en los dos hostings~~ **CONTESTADA el 5 sep 2026: 18 bases, todas InnoDB** — y abrió la 5
 >
 > Salió de su propia pregunta al contestar la 1: *«¿es posible que algunas de mis bases sean muy
-> viejas y tengan tablas no InnoDB?»*. **Sí, y desde aquí no se ve**: el volcado y el docker son un
-> colegio. Importa porque `rubricas` estrena una clave ajena hacia **`notas`** y una InnoDB no puede
-> apuntar a una MyISAM: en ese colegio la tanda **se queda a medias** con errno 150. Son dos consultas
-> en el phpMyAdmin de cada hosting, escritas en [DESPLIEGUE.md](../DESPLIEGUE.md), bloque «el motor de
-> cada tabla»; la primera es la población y la segunda las que rompen. **Un resultado vacío de la
-> segunda con la primera delante es el «no» que hace falta.**
+> viejas y tengan tablas no InnoDB?»*. Joseth corrió las dos consultas en `micolev1` esa misma tarde:
+> **InnoDB en las 18 bases y cero filas en la que busca las que rompen**, con la población delante.
+> Las diecisiete del bucle están en esa cuenta —`lal` ya vive como `micolev1_lal_db`—, así que el
+> errno 150 por MyISAM queda descartado para lo que se despliega. Detalle en
+> [DESPLIEGUE.md](../DESPLIEGUE.md), bloque «el motor de cada tabla».
+>
+> ### 5. Las bases NO tienen las mismas tablas: de 87 a 94 — y falta saber si a la tanda le importa
+>
+> **Lo trajo la consulta de la 4 sin buscarlo.** Un colegio en `9474b50` debe tener **94** tablas
+> (docker con la tanda pendiente: 102, menos las 8 que crea); las tienen `demo` y
+> `simonbolivar_medellin`, y **los otros quince tienen entre 87 y 93**. Desde aquí no se sabe cuáles
+> faltan. Lo que decide es si **las once tablas que la tanda altera** existen en las diecisiete: un
+> `Schema::table()` sobre una que no está deja la tanda a medias igual que una MyISAM, y
+> `recuperacion_final` y `unidades_por_defecto` son tablas de función que una base vieja podría no
+> tener. Las consultas 3 y 4 están en el mismo bloque de `DESPLIEGUE.md`: **la 3 decide, la 4
+> explica el 87**. Ninguna se ha corrido.
 >
 > ### 3. ~~El Lote G: ensanchar `GET horario/versiones/{id}/lecciones` con las cuatro listas~~ **HECHA y fundida en `abcd23a` — y este bloque decía lo contrario**
 >

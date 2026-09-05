@@ -368,6 +368,60 @@ y la retirada es `POST tardanzas/login/traer-datos`, que no tiene ninguna otra.
 > Si la segunda devuelve filas, la salida es `ALTER TABLE x ENGINE=InnoDB` **antes** de la tanda y en
 > ese colegio sólo, y es una reconstrucción entera de esa tabla: se mide allí, no aquí. Se corre en
 > **los dos hostings**, porque la versión salió igual en los dos y eso no dice nada del motor.
+>
+> #### CONTESTADA para `micolev1` el 5 sep 2026: 18 bases, todas InnoDB, y la segunda consulta vacía
+>
+> Joseth las corrió esa tarde en el phpMyAdmin de `micolev1`. **Las 18 bases de la cuenta salen
+> InnoDB en todas sus tablas** —los dieciséis colegios, `demo` y `edilson_feryz`, que no es un
+> colegio— y la segunda consulta devolvió **cero filas con esa población delante**. El otro hosting es
+> el servidor viejo de `lal` (`micolevi`, [TRASLADO-LAL.md](TRASLADO-LAL.md)), y la base de `lal` ya
+> vive aquí como `micolev1_lal_db`: **las diecisiete bases que recorre el bucle del día 10 están en
+> esta lista**, así que la pregunta del motor queda cerrada para lo que se despliega.
+>
+> **Y la misma consulta trajo un número que nadie tenía: las bases NO tienen las mismas tablas.**
+>
+> ```
+> demo, simonbolivar_medellin           94   <- lo que debe tener un colegio en `9474b50`
+> coab_saravena, lal_db                 93
+> arauca_maranatha                      92
+> cads_itagui, coal_bucara, colbosque_tame, coljordan, semillitas   89
+> bethel_arauquita, caz_zaragoza, comad_san_andres, fortul_adventista,
+> la_hermosa, quibdo_db                 88
+> amiguitosdejesus                      87
+> ```
+>
+> El 94 no es una suposición: el docker con las siete migraciones pendientes tiene **102**, y la
+> tanda crea **8** tablas (cinco de `rubricas`, tres de `horario`); 102 − 8 = 94, contado sobre
+> `information_schema`. O sea que **quince colegios tienen entre una y siete tablas menos que el
+> esquema del repositorio**, y desde aquí no se sabe cuáles. Con el código desplegado funcionando en
+> los quince, lo que falta son tablas viejas que esas bases nunca tuvieron, no las cuatro que creó
+> la tanda del 31 ago; pero eso es una inferencia, no una medición.
+>
+> **Lo que le importa a la tanda es una sola pregunta: si las once tablas que ALTERA existen en las
+> diecisiete.** Un `Schema::table()` sobre una tabla que no está es el mismo errno que una MyISAM:
+> la tanda a medias. Y de las once, `recuperacion_final` y `unidades_por_defecto` son tablas de
+> función, no de núcleo, o sea las que una base vieja podría no tener:
+>
+> ```sql
+> -- 3. las once que altera la tanda: tiene que salir 11 en las diecisiete bases
+> SELECT table_schema, COUNT(*) AS de_once
+> FROM information_schema.tables
+> WHERE table_schema LIKE 'micolev1\_%'
+>   AND table_name IN ('notas', 'notas_finales', 'recuperacion_final', 'matriculas', 'years',
+>                      'asignaturas', 'profesores', 'subunidades', 'unidades_por_defecto',
+>                      'permissions', 'permission_role')
+> GROUP BY table_schema ORDER BY de_once, table_schema;
+>
+> -- 4. el censo de la deriva: qué tablas NO están en las diecisiete, y en cuántas sí
+> SELECT table_name, COUNT(*) AS en_bases
+> FROM information_schema.tables
+> WHERE table_schema LIKE 'micolev1\_%' AND table_schema <> 'micolev1_edilson_feryz'
+>   AND table_type = 'BASE TABLE'
+> GROUP BY table_name HAVING COUNT(*) < 17 ORDER BY en_bases, table_name;
+> ```
+>
+> La 3 es la que decide; la 4 es la que explica el 87 y evita que el día 10 alguien lo descubra con
+> un `SELECT *`. **Ninguna de las dos se ha corrido todavía.**
 
 > **Y desde el 5 sep 2026 son SIETE, no cinco: entraron las dos de la plantilla de notas.**
 > `2026_09_05_200000_alcance_de_la_plantilla` y
