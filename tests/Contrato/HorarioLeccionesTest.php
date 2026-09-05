@@ -27,7 +27,11 @@ use PHPUnit\Framework\Attributes\Test;
  *      restricción de Joseth de que el horario sea opcional;
  *   3. **que el fichero de proyecto no salga por ninguna puerta**, con su control;
  *   4. **que la ruta no lea las siete columnas de día**, que es la garantía del
- *      §9.bis.4 y la única que no se ve mirando la respuesta.
+ *      §9.bis.4 y la única que no se ve mirando la respuesta;
+ *   5. desde el 5 sep 2026, **que las cuatro listas de la decisión 38 —plantilla,
+ *      jornadas, disponibilidad y piezas sin colocar— salgan del fichero con su forma
+ *      comprobada**, con la marca metida DENTRO de cada una, y que el `tono` se mida
+ *      sobre la población que viaja.
  *
  * ## Lo que NO fija
  *
@@ -42,7 +46,20 @@ class HorarioLeccionesTest extends CasoDeContrato
     private const MARCA_DEL_BLOB = 'MARCA-QUE-SOLO-VIVE-EN-EL-PROYECTO-4c1d';
 
     /** Las claves del envoltorio, y ninguna más. */
-    private const CLAVES_DEL_SOBRE = ['version', 'ejes', 'catalogos', 'lecciones', 'total_lecciones'];
+    private const CLAVES_DEL_SOBRE = [
+        'version', 'ejes', 'catalogos', 'lecciones', 'total_lecciones',
+        // Las cuatro de la decisión 38, detrás de `catalogos` y nunca sin su renglón.
+        'plantilla', 'jornadas', 'disponibilidad', 'sin_colocar',
+    ];
+
+    /** Las claves de un docente de la plantilla, y ninguna más. */
+    private const CLAVES_DE_UN_DOCENTE_DE_LA_PLANTILLA = ['id', 'nombres', 'apellidos', 'tono', 'con_leccion'];
+
+    /** Las claves de una jornada, tal como la declara el escritorio. */
+    private const CLAVES_DE_UNA_JORNADA = ['dias', 'franjas', 'descansos_tras', 'timbres'];
+
+    /** Las claves de una pieza sin colocar, y ninguna más. */
+    private const CLAVES_DE_UNA_PIEZA_SIN_COLOCAR = ['pieza_id', 'duracion', 'asignaturas', 'docentes'];
 
     /** Las claves de cada lección, y ninguna más. */
     private const CLAVES_DE_UNA_LECCION = [
@@ -59,8 +76,8 @@ class HorarioLeccionesTest extends CasoDeContrato
 
     /** Los catálogos que la respuesta declara, y ninguno menos. */
     private const CATALOGOS = [
-        'grupos', 'asignaciones', 'docentes', 'tono',
-        'salones', 'timbres', 'disponibilidad', 'restricciones',
+        'grupos', 'asignaciones', 'docentes', 'plantilla', 'tono',
+        'salones', 'jornadas', 'timbres', 'disponibilidad', 'sin_colocar', 'restricciones',
     ];
 
     /** El año del token: el del personal llano. */
@@ -104,14 +121,16 @@ class HorarioLeccionesTest extends CasoDeContrato
      * —antes `{"proyecto":"<marca>"}`, con `proyecto` como cadena— haría que **todos los
      * casos de este fichero corrieran contra un colegio cuyo proyecto no se puede leer**.
      * Verde igual, midiendo otra cosa. La marca sigue dentro, en `programa`, que es donde
-     * la busca el control de la fuga.
+     * la busca el control de la fuga. Y desde el 5 sep 2026 es un proyecto **entero y
+     * vacío** (`proyectoCompleto()`), por la misma razón un piso más abajo: con las cuatro
+     * listas de la decisión 38, un proyecto sin las claves las deja en `ilegible`.
      */
     private function versionEn(int $yearId, string $nombre = 'Versión para pintar'): int
     {
         DB::insert(
             'INSERT INTO horario_versiones (year_id, nombre, subida_por, proyecto, comprobaciones, created_at, updated_at)
              VALUES (?, ?, NULL, ?, NULL, ?, ?)',
-            [$yearId, $nombre, '{"formato":1,"programa":"'.self::MARCA_DEL_BLOB.'","proyecto":{"anio":2025}}',
+            [$yearId, $nombre, $this->proyectoCompleto(),
                 '2026-09-04 10:00:00', '2026-09-04 10:00:00']
         );
 
@@ -187,6 +206,74 @@ class HorarioLeccionesTest extends CasoDeContrato
         $this->assertCount(2, $filas, 'Hacen falta dos profesores vivos para ejercer la pieza de varios docentes.');
 
         return [(int) $filas[0]->id, (int) $filas[1]->id];
+    }
+
+    /** `n` profesores vivos, por id. */
+    private function profesores(int $n): array
+    {
+        $filas = DB::select('SELECT id FROM profesores WHERE deleted_at IS NULL ORDER BY id LIMIT '.$n);
+
+        $this->assertCount($n, $filas, "Hacen falta {$n} profesores vivos para este caso.");
+
+        return array_map(fn ($f) => (int) $f->id, $filas);
+    }
+
+    /** `n` asignaciones vivas del año, distintas, con su grupo y su materia. */
+    private function asignacionesDe(int $yearId, int $n): array
+    {
+        $filas = DB::select(
+            'SELECT a.id, a.grupo_id, a.profesor_id, a.creditos
+               FROM asignaturas a
+               JOIN grupos g ON g.id = a.grupo_id
+              WHERE g.year_id = ? AND a.deleted_at IS NULL AND g.deleted_at IS NULL
+              ORDER BY a.id LIMIT '.$n,
+            [$yearId]
+        );
+
+        $this->assertCount($n, $filas, "El año {$yearId} no tiene {$n} asignaciones vivas en la base de tests.");
+
+        return $filas;
+    }
+
+    /**
+     * Un proyecto VACÍO pero ENTERO, con la marca dentro: lo que `nuevoProyecto()` del
+     * escritorio produce, con las ocho claves y las listas en `[]`.
+     *
+     * Es el blob por defecto desde el 5 sep 2026, y la diferencia con el de antes
+     * —`{"proyecto":{"anio":2025}}`— no es de aseo: con las cuatro listas de la decisión
+     * 38, un proyecto sin las claves deja sus renglones en `ilegible`, y entonces cada
+     * caso de este fichero correría contra un colegio cuyo fichero no se entiende. Verde
+     * igual, midiendo otra cosa. Las partes que se pasen sustituyen a la clave entera.
+     */
+    private function proyectoCompleto(array $partes = []): string
+    {
+        $base = [
+            'anio' => 2025,
+            'jornadaPorDefecto' => ['dias' => [1, 2, 3, 4, 5], 'franjas' => 7, 'descansosTras' => [3, 5], 'timbres' => null],
+            'niveles' => [],
+            'grupos' => [],
+            'docentes' => [],
+            'salones' => [],
+            'asignaciones' => [],
+            'piezas' => [],
+            'colocaciones' => [],
+        ];
+
+        return (string) json_encode(
+            ['formato' => 1, 'programa' => self::MARCA_DEL_BLOB, 'proyecto' => array_replace($base, $partes)],
+            JSON_UNESCAPED_UNICODE
+        );
+    }
+
+    /** Lee la versión, exige 200 y exige que la marca del blob no haya salido por ninguna clave. */
+    private function leerSinFuga(int $versionId)
+    {
+        $r = $this->leer($versionId)->assertStatus(200);
+
+        $this->assertStringNotContainsString(self::MARCA_DEL_BLOB, $r->getContent(),
+            'El fichero de proyecto ha salido en la respuesta por alguna de las listas nuevas.');
+
+        return $r;
     }
 
     private function leer(int $versionId, ?string $token = null)
@@ -365,6 +452,10 @@ class HorarioLeccionesTest extends CasoDeContrato
      * no puede saberlo». Si se confundieran, la única forma de que la pantalla no
      * mintiera sería exigirle al colegio que rellene salones y timbres — o sea,
      * volver obligatorio por la puerta de atrás lo que él dejó opcional.
+     *
+     * Desde el 5 sep 2026 los timbres **se leen del fichero** y por eso ya no son
+     * `sin_catalogo`: que el colegio no los haya dado es `vacio`, legítimo y sin llamada
+     * a la acción. `restricciones` es lo único que sigue sin viajar por diseño.
      */
     #[Test]
     public function una_version_sin_salones_sin_dobles_y_sin_colores_es_legitima(): void
@@ -378,43 +469,66 @@ class HorarioLeccionesTest extends CasoDeContrato
         $this->assertSame('vacio', $catalogos['salones']['estado'],
             'Sin salones el estado es `vacio` —el colegio no creó ninguno— y no `sin_catalogo`.');
         $this->assertSame('vacio', $catalogos['tono']['estado']);
+        $this->assertSame('vacio', $catalogos['timbres']['estado'],
+            'El colegio no dio las horas de reloj: eso es `vacio`, no «esta API no puede saberlo».');
 
         // Y lo que la API estructuralmente no tiene, dicho como tal y no como vacío.
-        foreach (['timbres', 'disponibilidad', 'restricciones'] as $cual) {
-            $this->assertSame('sin_catalogo', $catalogos[$cual]['estado'],
-                "`{$cual}` no lo guarda el servidor (§4): mandarlo vacío sería decir que el colegio no lo tiene.");
-            $this->assertNotNull($catalogos[$cual]['motivo'], 'Un `sin_catalogo` sin motivo no se puede leer dentro de seis meses.');
-        }
+        $this->assertSame('sin_catalogo', $catalogos['restricciones']['estado'],
+            '`restricciones` no lo parsea esta ruta (§4): mandarlo vacío sería decir que el colegio no lo tiene.');
+        $this->assertNotNull($catalogos['restricciones']['motivo'], 'Un `sin_catalogo` sin motivo no se puede leer dentro de seis meses.');
     }
 
     /**
-     * El `tono` viaja y dice su población: `vacio` mientras nadie reparta colores.
+     * El `tono` viaja y dice su población, **y la población es la que viaja**.
      *
-     * La columna la decidió Joseth el 4 sep 2026 y **nace vacía en los diecisiete**.
-     * Por eso el contrato dice `string | null` y no `string`: el nulo es el caso
-     * normal, no el raro.
+     * Hasta el 5 sep 2026 se contaba sobre «con asignación viva en el año» y decía
+     * `completo · 12 de 12` con 47 docentes vivos y 35 sin color: coherente consigo mismo
+     * y sobre la población que no era, y el lector del front **no tenía con qué dudar**.
+     * Ahora `de` es el número de docentes distintos que van en esta misma respuesta
+     * —plantilla, lecciones y piezas sin colocar—, así que el consumidor puede recontar
+     * lo que recibió y comprobar que cuadra. Aquí se hace exactamente eso.
+     *
+     * La columna la decidió Joseth el 4 sep 2026 y **nace vacía en los diecisiete**:
+     * por eso el contrato dice `string | null` y el nulo es el caso normal.
      */
     #[Test]
     public function el_tono_dice_cuantos_docentes_lo_tienen(): void
     {
         $anio = $this->anioDelSujeto();
         $asignacion = $this->asignacionDe($anio);
-        $version = $this->versionEn($anio);
+        [$conLeccion, $sinLeccion] = $this->profesores(2);
+        $version = $this->versionConProyecto($anio, $this->proyectoCompleto([
+            'docentes' => [['profesorId' => $conLeccion, 'nombre' => 'x'], ['profesorId' => $sinLeccion, 'nombre' => 'x']],
+        ]));
         $this->leccionEn($version, (int) $asignacion->id, 'a1-0', 1, 1);
+        $this->docenteEnLaPieza($version, 'a1-0', $conLeccion);
 
         $sinColores = $this->leer($version)->assertStatus(200)->json('catalogos.tono');
         $this->assertSame('vacio', $sinColores['estado']);
         $this->assertSame(0, $sinColores['con_tono']);
-        $this->assertGreaterThan(0, $sinColores['de'], 'Si no hay docentes que contar, este test pasa sin comprobar nada.');
+        $this->assertSame(2, $sinColores['de'], 'La población es la plantilla que viaja, no los docentes con lección.');
 
-        // Y con un color repartido pasa a `parcial`, que es lo que el escritorio
-        // necesita saber: seis de sus ocho informes pintan distinto sin él y nada se
-        // pone rojo.
-        DB::update('UPDATE profesores SET tono = ? WHERE id = ?', ['#3366cc', (int) $asignacion->profesor_id]);
+        // Un color: `parcial`, que es lo que el escritorio necesita saber —seis de sus
+        // ocho informes pintan distinto sin él y nada se pone rojo—.
+        DB::update('UPDATE profesores SET tono = ? WHERE id = ?', ['#3366cc', $conLeccion]);
 
-        $conUno = $this->leer($version)->assertStatus(200)->json('catalogos.tono');
-        $this->assertContains($conUno['estado'], ['parcial', 'completo']);
+        $r = $this->leer($version)->assertStatus(200);
+        $conUno = $r->json('catalogos.tono');
+        $this->assertSame('parcial', $conUno['estado']);
         $this->assertSame(1, $conUno['con_tono']);
+
+        // La comprobación que el front no podía escribir: el `de` es lo que recibió.
+        $ids = array_column($r->json('plantilla'), 'id');
+        foreach ($r->json('lecciones') as $l) {
+            $ids = [...$ids, ...array_column($l['docentes'], 'id')];
+        }
+        $this->assertSame(count(array_unique($ids)), $conUno['de'],
+            'Una cuenta que cuadra sobre la población equivocada no falla, y por eso no se investiga: '
+            .'el denominador tiene que ser recontable desde la propia respuesta.');
+
+        // Y el segundo color, sin lección, cuenta igual: es de la plantilla.
+        DB::update('UPDATE profesores SET tono = ? WHERE id = ?', ['#cc3366', $sinLeccion]);
+        $this->assertSame('completo', $this->leer($version)->assertStatus(200)->json('catalogos.tono.estado'));
     }
 
     /**
@@ -542,7 +656,7 @@ class HorarioLeccionesTest extends CasoDeContrato
     }
 
     /**
-     * **El quinto estado: `ilegible` no es `sin_catalogo`, y los tres cambian juntos.**
+     * **El quinto estado: `ilegible` no es `sin_catalogo`, y los del blob cambian juntos.**
      *
      * Decisión de Joseth del 4 sep 2026. `sin_catalogo` afirma *«esta API no puede saberlo
      * **por diseño**»* —una frase sobre el producto, igual en los dieciséis colegios y que no
@@ -550,20 +664,20 @@ class HorarioLeccionesTest extends CasoDeContrato
      * que es sobre **ese colegio y esa subida** y **tiene arreglo: volver a subirlo**. De los
      * cinco estados es el único que cambia lo que la persona debería hacer.
      *
-     * **Los tres a la vez, y eso es la mitad del caso**: si el fichero no se lee, marcar sólo
-     * `timbres` dejaría a `disponibilidad` y `restricciones` diciendo «no viaja» —el diseño de
-     * la API— cuando lo cierto es «no se pudo leer» —ese colegio—. Un renglón diciendo la
-     * verdad y dos acompañándolo con la frase de antes.
+     * **Todos a la vez, y eso es la mitad del caso**: si el fichero no se lee, marcar sólo
+     * `timbres` dejaría a los demás diciendo «no viaja» o «vacío» —el diseño de la API, o un
+     * dato— cuando lo cierto es «no se pudo leer» —ese colegio—. Desde el 5 sep 2026 son
+     * **seis** renglones y **cuatro listas**, y las cuatro salen `null`.
      *
-     * **Y ninguna de estas formas sale de un volcado real**: las siete versiones de
+     * **Y ninguna de estas formas sale de un volcado real**: las ocho versiones de
      * `simonbolivar` parsean. Esta rama está comprobada contra un caso fabricado y **no se ha
      * visto nunca funcionando con datos de verdad**, que no es lo mismo que estar comprobada.
      */
     #[Test]
-    public function un_proyecto_ilegible_marca_los_tres_catalogos_del_blob(): void
+    public function un_proyecto_ilegible_marca_los_catalogos_del_blob(): void
     {
         $anio = $this->anioDelSujeto();
-        $delBlob = ['timbres', 'disponibilidad', 'restricciones'];
+        $delBlob = ['plantilla', 'jornadas', 'timbres', 'disponibilidad', 'sin_colocar', 'restricciones'];
 
         $legible = $this->versionEn($anio);
         $this->leccionEn($legible, (int) $this->asignacionDe($anio)->id, 'a1-0', 1, 1);
@@ -571,18 +685,25 @@ class HorarioLeccionesTest extends CasoDeContrato
 
         $roto = $this->versionConProyecto($anio, '{"proyecto":{"jornadaPorDefecto":[3,', 'Proyecto roto');
         $this->leccionEn($roto, (int) $this->asignacionDe($anio)->id, 'a1-0', 1, 1);
-        $sinProyecto = $this->leer($roto)->assertStatus(200)->json('catalogos');
+        $r = $this->leer($roto)->assertStatus(200);
+        $sinProyecto = $r->json('catalogos');
 
         foreach ($delBlob as $cual) {
-            $this->assertSame('sin_catalogo', $conProyecto[$cual]['estado'],
-                "Con el proyecto legible, `{$cual}` no viaja POR DISEÑO: eso es `sin_catalogo`.");
+            $this->assertNotSame('ilegible', $conProyecto[$cual]['estado'],
+                "Con el proyecto legible, `{$cual}` es un dato o un diseño, nunca «no se pudo leer».");
             $this->assertSame('ilegible', $sinProyecto[$cual]['estado'],
                 "Con el proyecto ilegible, `{$cual}` no es «no lo tenemos»: es «lo tenemos y no se deja leer», "
                 .'que es lo único de los cinco estados que alguien puede arreglar.');
         }
 
+        $this->assertSame('sin_catalogo', $conProyecto['restricciones']['estado'],
+            '`restricciones` sigue sin viajar POR DISEÑO cuando el fichero se lee.');
         $this->assertNotSame($conProyecto['timbres']['motivo'], $sinProyecto['timbres']['motivo'],
-            'El motivo tiene que cambiar con el estado: uno explica el diseño y el otro acusa a una subida.');
+            'El motivo tiene que cambiar con el estado: uno explica el dato y el otro acusa a una subida.');
+
+        foreach (['plantilla', 'jornadas', 'disponibilidad', 'sin_colocar'] as $lista) {
+            $this->assertNull($r->json($lista), "`{$lista}` tiene que ser `null`, no `[]`: «no se pudo leer» no es «no hay».");
+        }
     }
 
     /**
@@ -664,5 +785,401 @@ class HorarioLeccionesTest extends CasoDeContrato
             'La rejilla ha cambiado al conmutar las columnas de día de `asignaturas`. Esas columnas son '
             .'el derivado para «Clases de hoy» y tienen OTRO escritor: si esta ruta las leyera, dos '
             .'pantallas dirían cosas distintas del mismo día sin que nada fallara.');
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════════
+    // Las cuatro listas de la decisión 38 — 5 sep 2026. Cada caso mete la MARCA
+    // DENTRO de la lista que ejerce, porque `el_proyecto_no_viaja_en_las_lecciones`
+    // la busca en `programa` y no vería ninguna de las cuatro.
+    // ═════════════════════════════════════════════════════════════════════════════
+
+    /**
+     * La plantilla ENTERA viaja, con quién tiene lección y quién no.
+     *
+     * En el colegio medido son **47 docentes y sólo 12 con lección**: por las lecciones
+     * los otros 35 desaparecían de un informe que existe para nombrarlos —los que ese
+     * día no vinieron— y su cuenta `enHueco + ocupados + sinClases === docentes` no se
+     * podía cuadrar. **Y los nombres salen de `profesores`, no del fichero**: el `nombre`
+     * del blob es la marca, y no puede aparecer.
+     */
+    #[Test]
+    public function la_plantilla_entera_viaja_aunque_no_tenga_leccion(): void
+    {
+        $anio = $this->anioDelSujeto();
+        [$uno, $dos, $tres] = $this->profesores(3);
+        $version = $this->versionConProyecto($anio, $this->proyectoCompleto([
+            'docentes' => [
+                ['profesorId' => $uno, 'nombre' => self::MARCA_DEL_BLOB, 'disponibilidad' => ['marcas' => []]],
+                ['profesorId' => $dos, 'nombre' => self::MARCA_DEL_BLOB, 'disponibilidad' => ['marcas' => []]],
+                ['profesorId' => $tres, 'nombre' => self::MARCA_DEL_BLOB],
+            ],
+        ]));
+        $this->leccionEn($version, (int) $this->asignacionDe($anio)->id, 'a1-0', 1, 1);
+        $this->docenteEnLaPieza($version, 'a1-0', $uno);
+
+        $r = $this->leerSinFuga($version);
+        $plantilla = $r->json('plantilla');
+        $renglon = $r->json('catalogos.plantilla');
+
+        $this->assertCount(3, $plantilla, 'Han viajado sólo los docentes con lección: es el informe de 12 de 47 otra vez.');
+        $this->assertSame(self::CLAVES_DE_UN_DOCENTE_DE_LA_PLANTILLA, array_keys($plantilla[0]));
+        $this->assertEqualsCanonicalizing([$uno, $dos, $tres], array_column($plantilla, 'id'));
+
+        $porId = array_column($plantilla, null, 'id');
+        $this->assertTrue($porId[$uno]['con_leccion']);
+        $this->assertFalse($porId[$dos]['con_leccion']);
+        $this->assertFalse($porId[$tres]['con_leccion'], 'Sin la clave `disponibilidad` el docente sigue siendo de la plantilla.');
+
+        $ficha = DB::selectOne('SELECT nombres, apellidos FROM profesores WHERE id = ?', [$uno]);
+        $this->assertSame($ficha->nombres, $porId[$uno]['nombres'], 'El nombre tiene que ser el de `profesores`, no el que trae el fichero.');
+        $this->assertSame($ficha->apellidos, $porId[$uno]['apellidos']);
+
+        $this->assertSame('completo', $renglon['estado']);
+        $this->assertSame(3, $renglon['total']);
+        $this->assertSame(1, $renglon['con_leccion']);
+        $this->assertSame(2, $renglon['sin_leccion']);
+        $this->assertSame(0, $renglon['fuera_de_la_plantilla']);
+        $this->assertSame($renglon['total'], count($plantilla), 'La población del renglón tiene que ser la de la lista que viaja.');
+    }
+
+    /**
+     * Un docente con lección que la plantilla no declara deja el renglón en `parcial`.
+     *
+     * Es la única forma en que la cuenta del informe puede dejar de cuadrar: alguien
+     * ocupado a quien el total no cuenta. Hoy es 0 de 47; este caso es lo que lo dice
+     * el día que deje de serlo.
+     */
+    #[Test]
+    public function un_docente_con_leccion_fuera_de_la_plantilla_la_deja_parcial(): void
+    {
+        $anio = $this->anioDelSujeto();
+        [$declarado, $intruso] = $this->profesores(2);
+        $version = $this->versionConProyecto($anio, $this->proyectoCompleto([
+            'docentes' => [['profesorId' => $declarado, 'nombre' => 'x']],
+        ]));
+        $this->leccionEn($version, (int) $this->asignacionDe($anio)->id, 'a1-0', 1, 1);
+        $this->docenteEnLaPieza($version, 'a1-0', $intruso);
+
+        $renglon = $this->leerSinFuga($version)->json('catalogos.plantilla');
+
+        $this->assertSame('parcial', $renglon['estado']);
+        $this->assertSame(1, $renglon['total']);
+        $this->assertSame(1, $renglon['fuera_de_la_plantilla']);
+    }
+
+    /**
+     * Una plantilla con una entrada que no se entiende sale `null` ENTERA, no filtrada.
+     *
+     * La misma regla que los descansos: filtrar dejaría 46 docentes creíbles y borraría
+     * uno sin decirlo, y en un informe de «quién falta» eso es exactamente un docente que
+     * deja de faltar. Y la marca va en el `profesorId`, que es por donde la versión
+     * ingenua la dejaría salir.
+     */
+    #[Test]
+    public function una_plantilla_rota_no_se_filtra_a_medias(): void
+    {
+        $anio = $this->anioDelSujeto();
+        [$uno] = $this->profesores(1);
+        $version = $this->versionConProyecto($anio, $this->proyectoCompleto([
+            'docentes' => [['profesorId' => $uno, 'nombre' => 'x'], ['profesorId' => self::MARCA_DEL_BLOB, 'nombre' => 'x']],
+        ]));
+        $this->leccionEn($version, (int) $this->asignacionDe($anio)->id, 'a1-0', 1, 1);
+
+        $r = $this->leerSinFuga($version);
+
+        $this->assertNull($r->json('plantilla'), 'Devolver la lista con un docente menos es la hoja bien maquetada y falsa.');
+        $this->assertNull($r->json('disponibilidad'), 'La disponibilidad sale de la misma lista: si ésa no se entiende, tampoco.');
+        $this->assertSame('ilegible', $r->json('catalogos.plantilla.estado'));
+        $this->assertStringContainsString('docentes', $r->json('catalogos.plantilla.motivo'),
+            'El motivo tiene que nombrar la parte del fichero que no se entendió: no es el fichero entero.');
+        $this->assertSame('completo', $r->json('catalogos.grupos.estado'), 'Lo de tabla no se contagia.');
+    }
+
+    /**
+     * Las jornadas viajan por NIVEL —cuatro, no trece— y cada grupo dice de cuál cuelga **y por qué**.
+     *
+     * El `porque` se calcula igual que `jornadaDelGrupo()` del escritorio, y sin él un
+     * grupo cuyo nivel no resuelve se pinta con la jornada por defecto **sin decirlo**: en
+     * pantalla se aclara con un aviso al lado; en papel no hay dónde ponerlo después. Los
+     * cuatro porqués salen aquí a la vez. Y el nombre del nivel es el de
+     * `niveles_educativos` —el del blob es la marca— y el `grado` de `sin-resolver`, que es
+     * texto libre, no sale.
+     */
+    #[Test]
+    public function las_jornadas_viajan_por_nivel_con_el_porque_de_cada_grupo(): void
+    {
+        $anio = $this->anioDelSujeto();
+        $nivel = DB::selectOne('SELECT id, nombre FROM niveles_educativos ORDER BY id LIMIT 1');
+        $this->assertNotNull($nivel, 'Sin un nivel educativo en la base no se puede resolver ningún nombre.');
+        $jornada = ['dias' => [1, 2, 3], 'franjas' => 4, 'descansosTras' => [2], 'timbres' => null];
+
+        $version = $this->versionConProyecto($anio, $this->proyectoCompleto([
+            'niveles' => [['id' => (int) $nivel->id, 'nombre' => self::MARCA_DEL_BLOB, 'jornada' => $jornada]],
+            'grupos' => [
+                ['id' => 10, 'nombre' => 'x', 'nivel' => ['estado' => 'resuelto', 'nivelId' => (int) $nivel->id]],
+                ['id' => 11, 'nombre' => 'x', 'nivel' => ['estado' => 'sin-nivel']],
+                ['id' => 12, 'nombre' => 'x', 'nivel' => ['estado' => 'sin-resolver', 'grado' => self::MARCA_DEL_BLOB]],
+                ['id' => 13, 'nombre' => 'x', 'nivel' => ['estado' => 'resuelto', 'nivelId' => 987654]],
+            ],
+        ]));
+        $this->leccionEn($version, (int) $this->asignacionDe($anio)->id, 'a1-0', 1, 1);
+
+        $r = $this->leerSinFuga($version);
+        $jornadas = $r->json('jornadas');
+
+        $this->assertSame(['por_defecto', 'niveles', 'grupos'], array_keys($jornadas));
+        $this->assertSame(self::CLAVES_DE_UNA_JORNADA, array_keys($jornadas['por_defecto']));
+        $this->assertSame([3, 5], $jornadas['por_defecto']['descansos_tras']);
+        $this->assertSame($jornadas['por_defecto']['descansos_tras'], $r->json('ejes.descansos_tras'),
+            'Los dos salen del mismo sitio y no pueden discrepar.');
+
+        $this->assertCount(1, $jornadas['niveles']);
+        $this->assertSame($nivel->nombre, $jornadas['niveles'][0]['nombre'], 'El nombre del nivel es el de la tabla, no el del fichero.');
+        $this->assertSame([1, 2, 3], $jornadas['niveles'][0]['jornada']['dias']);
+        $this->assertSame(4, $jornadas['niveles'][0]['jornada']['franjas']);
+
+        $this->assertSame([
+            ['grupo_id' => 10, 'nivel_id' => (int) $nivel->id, 'porque' => 'nivel'],
+            ['grupo_id' => 11, 'nivel_id' => null, 'porque' => 'sin-nivel'],
+            ['grupo_id' => 12, 'nivel_id' => null, 'porque' => 'sin-resolver'],
+            ['grupo_id' => 13, 'nivel_id' => 987654, 'porque' => 'nivel-desconocido'],
+        ], $jornadas['grupos']);
+
+        $renglon = $r->json('catalogos.jornadas');
+        $this->assertSame('parcial', $renglon['estado'], 'Dos grupos se pintan con una jornada que no es la suya: eso es parcial.');
+        $this->assertSame(4, $renglon['grupos']);
+        $this->assertSame(2, $renglon['con_jornada_propia']);
+        $this->assertSame(2, $renglon['con_jornada_prestada']);
+    }
+
+    /**
+     * Los timbres viajan DENTRO de cada jornada, y con eso `timbres` deja de ser `sin_catalogo`.
+     *
+     * Decía *«no viaja por aquí»* y pasó a ser falso el día que las jornadas viajaron: es
+     * la familia de cadena que ya costó tres correcciones en dos días. Lo que sigue
+     * siendo cierto es que el colegio no los ha dado, y eso es `vacio`. Y el `HH:MM` va
+     * atado a una expresión regular **porque es una cadena**: sin ella sería un canal de
+     * texto libre del blob con nombre de hora.
+     */
+    #[Test]
+    public function los_timbres_viajan_dentro_de_cada_jornada_y_llenan_su_renglon(): void
+    {
+        $anio = $this->anioDelSujeto();
+        $conHoras = ['dias' => [1, 2], 'franjas' => 2, 'descansosTras' => [], 'timbres' => [['inicio' => '06:45', 'fin' => '07:35'], ['inicio' => '07:35', 'fin' => '08:25']]];
+
+        $version = $this->versionConProyecto($anio, $this->proyectoCompleto([
+            'niveles' => [['id' => 1, 'nombre' => 'x', 'jornada' => $conHoras]],
+        ]));
+        $this->leccionEn($version, (int) $this->asignacionDe($anio)->id, 'a1-0', 1, 1);
+
+        $r = $this->leerSinFuga($version);
+        $this->assertSame($conHoras['timbres'], $r->json('jornadas.niveles.0.jornada.timbres'));
+        $this->assertNull($r->json('jornadas.por_defecto.timbres'));
+        $this->assertNull($r->json('ejes.timbres'), '`ejes.timbres` sigue nulo a propósito: lo declarado va en `jornadas`, con su porqué.');
+
+        $renglon = $r->json('catalogos.timbres');
+        $this->assertSame('parcial', $renglon['estado']);
+        $this->assertSame(1, $renglon['con_timbres']);
+        $this->assertSame(2, $renglon['de']);
+
+        // La fuga por la hora, y la cuenta que no cuadra: las dos tiran las jornadas enteras.
+        foreach ([
+            'una hora que no es HH:MM' => [['inicio' => self::MARCA_DEL_BLOB, 'fin' => '07:35'], ['inicio' => '07:35', 'fin' => '08:25']],
+            'menos timbres que franjas' => [['inicio' => '06:45', 'fin' => '07:35']],
+        ] as $forma => $timbres) {
+            $rota = $this->versionConProyecto($anio, $this->proyectoCompleto([
+                'niveles' => [['id' => 1, 'nombre' => 'x', 'jornada' => ['timbres' => $timbres] + $conHoras]],
+            ]));
+            $this->leccionEn($rota, (int) $this->asignacionDe($anio)->id, 'a1-0', 1, 1);
+
+            $r = $this->leerSinFuga($rota);
+            $this->assertNull($r->json('jornadas'), "Con «{$forma}» las jornadas no se entienden enteras.");
+            $this->assertSame('ilegible', $r->json('catalogos.timbres.estado'));
+            $this->assertSame('ilegible', $r->json('catalogos.jornadas.estado'));
+        }
+    }
+
+    /**
+     * La disponibilidad viaja con QUIÉN la declaró, y `[]` es «sin pegas».
+     *
+     * *Una hoja que dice «a alguien le viene mal» sin decir a quién se reparte más fácil
+     * y se rebate peor.* Una entrada por docente de la plantilla: el que no marcó nada
+     * y el que ni trae la clave salen igual, con `marcas: []`, porque el escritorio sólo
+     * guarda lo que no es `adecuado`.
+     */
+    #[Test]
+    public function la_disponibilidad_viaja_con_quien_la_declaro(): void
+    {
+        $anio = $this->anioDelSujeto();
+        [$uno, $dos, $tres] = $this->profesores(3);
+        $marcas = [['dia' => 1, 'franja' => 1, 'estado' => 'condicional'], ['dia' => 5, 'franja' => 7, 'estado' => 'inadecuado']];
+
+        $version = $this->versionConProyecto($anio, $this->proyectoCompleto([
+            'docentes' => [
+                ['profesorId' => $tres, 'nombre' => 'x'],
+                ['profesorId' => $uno, 'nombre' => 'x', 'disponibilidad' => ['marcas' => $marcas]],
+                ['profesorId' => $dos, 'nombre' => 'x', 'disponibilidad' => ['marcas' => []]],
+            ],
+        ]));
+        $this->leccionEn($version, (int) $this->asignacionDe($anio)->id, 'a1-0', 1, 1);
+
+        $r = $this->leerSinFuga($version);
+        $disponibilidad = $r->json('disponibilidad');
+
+        $this->assertSame([
+            ['profesor_id' => $uno, 'marcas' => $marcas],
+            ['profesor_id' => $dos, 'marcas' => []],
+            ['profesor_id' => $tres, 'marcas' => []],
+        ], $disponibilidad, 'Una entrada por docente, ordenadas por id, y cada marca con su dueño al lado.');
+
+        $renglon = $r->json('catalogos.disponibilidad');
+        $this->assertSame('completo', $renglon['estado']);
+        $this->assertSame(1, $renglon['con_marcas']);
+        $this->assertSame(3, $renglon['de']);
+        $this->assertSame(2, $renglon['marcas']);
+        $this->assertSame(1, $renglon['condicional']);
+        $this->assertSame(1, $renglon['inadecuado']);
+        $this->assertSame($renglon['de'], $r->json('catalogos.plantilla.total'), 'La disponibilidad se cuenta sobre la plantilla.');
+    }
+
+    /**
+     * Una marca que no se entiende tira la disponibilidad entera, y NO la plantilla.
+     *
+     * Son dos lecturas de la misma lista y se separan a propósito: un proyecto cuyas
+     * marcas no se entienden sigue teniendo una plantilla perfectamente legible, y
+     * marcar las dos como ilegibles sería afirmar de una lo que sólo se sabe de la otra.
+     * La marca va en el `estado`, que es la cadena por la que saldría.
+     */
+    #[Test]
+    public function una_marca_rota_tira_la_disponibilidad_pero_no_la_plantilla(): void
+    {
+        $anio = $this->anioDelSujeto();
+        [$uno] = $this->profesores(1);
+        $version = $this->versionConProyecto($anio, $this->proyectoCompleto([
+            'docentes' => [['profesorId' => $uno, 'nombre' => 'x', 'disponibilidad' => ['marcas' => [['dia' => 1, 'franja' => 1, 'estado' => self::MARCA_DEL_BLOB]]]]],
+        ]));
+        $this->leccionEn($version, (int) $this->asignacionDe($anio)->id, 'a1-0', 1, 1);
+
+        $r = $this->leerSinFuga($version);
+
+        $this->assertNull($r->json('disponibilidad'));
+        $this->assertSame('ilegible', $r->json('catalogos.disponibilidad.estado'));
+        $this->assertCount(1, $r->json('plantilla'), 'La plantilla se lee aunque las marcas no.');
+        $this->assertSame('completo', $r->json('catalogos.plantilla.estado'));
+    }
+
+    /**
+     * Las piezas sin colocar viajan identificadas, y se CONFRONTAN con las incompletas — no se cuadran.
+     *
+     * `sin_colocar ⊆ incompletas` y nunca `===`: una pieza sin colocar siempre deja su
+     * asignación corta, pero colocar una pieza de varios grupos **tira** las que estorban
+     * y una pieza tirada no va a la bandeja — desaparece. Medido en la versión 8 real:
+     * **1 contra 3**. La igualdad se cumplió en siete versiones seguidas y era
+     * coincidencia; aquí la asignación `sinPieza` es la tirada.
+     */
+    #[Test]
+    public function las_piezas_sin_colocar_se_confrontan_con_las_incompletas_y_no_se_cuadran(): void
+    {
+        $anio = $this->anioDelSujeto();
+        [$a, $b, $sinPieza] = $this->asignacionesDe($anio, 3);
+        [$uno] = $this->profesores(1);
+
+        $version = $this->versionConProyecto($anio, $this->proyectoCompleto([
+            'asignaciones' => [
+                ['id' => (int) $a->id, 'grupoId' => 1, 'profesorId' => null, 'materia' => 'x', 'ih' => 3, 'distribucion' => [1, 1, 1]],
+                ['id' => (int) $b->id, 'grupoId' => 1, 'profesorId' => null, 'materia' => 'x', 'ih' => 2, 'distribucion' => [2]],
+                ['id' => (int) $sinPieza->id, 'grupoId' => 1, 'profesorId' => null, 'materia' => 'x', 'ih' => 2, 'distribucion' => [1, 1]],
+            ],
+            'piezas' => [
+                ['id' => 'a-0', 'duracion' => 1, 'lecciones' => [['asignacionId' => (int) $a->id]], 'docentes' => [$uno], 'salonId' => null, 'salonesPermitidos' => null],
+                ['id' => 'a-1', 'duracion' => 1, 'lecciones' => [['asignacionId' => (int) $a->id]], 'docentes' => [$uno], 'salonId' => null, 'salonesPermitidos' => null],
+                ['id' => 'misa-religion', 'duracion' => 2, 'lecciones' => [['asignacionId' => (int) $b->id]], 'docentes' => [], 'salonId' => null, 'salonesPermitidos' => null],
+            ],
+            'colocaciones' => [['piezaId' => 'a-0', 'dia' => 1, 'franja' => 1], ['piezaId' => 'misa-religion', 'dia' => 2, 'franja' => 1]],
+        ]));
+        $this->leccionEn($version, (int) $a->id, 'a-0', 1, 1);
+
+        $r = $this->leerSinFuga($version);
+        $sinColocar = $r->json('sin_colocar');
+
+        $this->assertCount(1, $sinColocar);
+        $this->assertSame(self::CLAVES_DE_UNA_PIEZA_SIN_COLOCAR, array_keys($sinColocar[0]));
+        $this->assertSame('a-1', $sinColocar[0]['pieza_id']);
+        $this->assertSame((int) $a->id, $sinColocar[0]['asignaturas'][0]['asignatura_id']);
+        $this->assertSame(
+            ['asignatura_id', 'ih', 'materia', 'alias_materia', 'grupo_id', 'nombre_grupo', 'abrev_grupo'],
+            array_keys($sinColocar[0]['asignaturas'][0]),
+            'La asignación de la bandeja se pinta con las mismas claves que una lección.'
+        );
+        $this->assertNotNull($sinColocar[0]['asignaturas'][0]['materia'], 'La materia sale de `materias`, no del fichero.');
+        $this->assertSame([$uno], array_column($sinColocar[0]['docentes'], 'id'));
+
+        $renglon = $r->json('catalogos.sin_colocar');
+        $this->assertSame('completo', $renglon['estado']);
+        $this->assertSame(1, $renglon['total']);
+        $this->assertSame(3, $renglon['piezas']);
+        $this->assertSame(2, $renglon['colocadas']);
+        $this->assertSame(2, $renglon['incompletas'], '`a` va 1 de 3 y `sinPieza` 0 de 2; `misa-religion` cubre a `b` entera.');
+        $this->assertLessThanOrEqual($renglon['incompletas'], $renglon['total'], 'sin_colocar ⊆ incompletas.');
+        $this->assertNotSame($renglon['incompletas'], $renglon['total'],
+            'Si estos dos coinciden, el caso ya no demuestra que no son lo mismo: la asignación tirada es la que los separa.');
+    }
+
+    /**
+     * Una colocación que apunta a una pieza que no existe, o un `pieza_id` que no es un
+     * identificador, tiran la lectura entera: **no se filtra a medias**.
+     *
+     * Y el `pieza_id` es el único texto del fichero que sale por esta ruta: va acotado a
+     * la forma que su columna ya acepta, así que una cadena con espacios o llaves no es
+     * una pieza y no viaja.
+     */
+    #[Test]
+    public function unas_piezas_que_no_se_entienden_no_viajan_a_medias(): void
+    {
+        $anio = $this->anioDelSujeto();
+        $a = $this->asignacionDe($anio);
+        $pieza = fn (string $id) => ['id' => $id, 'duracion' => 1, 'lecciones' => [['asignacionId' => (int) $a->id]], 'docentes' => [], 'salonId' => null, 'salonesPermitidos' => null];
+
+        foreach ([
+            'una colocación de una pieza que no existe' => ['piezas' => [$pieza('a-0')], 'colocaciones' => [['piezaId' => 'no-existe', 'dia' => 1, 'franja' => 1]]],
+            'un id que no es un identificador' => ['piezas' => [$pieza('con espacio {'.self::MARCA_DEL_BLOB.'}')], 'colocaciones' => []],
+            'un docente que no es un entero' => ['piezas' => [['docentes' => [self::MARCA_DEL_BLOB]] + $pieza('a-0')], 'colocaciones' => []],
+        ] as $forma => $partes) {
+            $version = $this->versionConProyecto($anio, $this->proyectoCompleto($partes + ['asignaciones' => [['id' => (int) $a->id, 'ih' => 1]]]));
+            $this->leccionEn($version, (int) $a->id, 'a-0', 1, 1);
+
+            $r = $this->leerSinFuga($version);
+            $this->assertNull($r->json('sin_colocar'), "Con «{$forma}» las piezas no se entienden enteras.");
+            $this->assertSame('ilegible', $r->json('catalogos.sin_colocar.estado'));
+            $this->assertSame(1, $r->json('total_lecciones'), 'Las lecciones salen de la tabla y no se contagian.');
+        }
+    }
+
+    /**
+     * El fichero de proyecto vacío pero ENTERO —lo que `nuevoProyecto()` del escritorio
+     * produce— deja las cuatro listas en `[]` y sus renglones en `vacio`, no en `ilegible`.
+     *
+     * Es la otra mitad de `una_version_sin_salones_sin_dobles_y_sin_colores_es_legitima`:
+     * un colegio que subió un proyecto sin declarar nada recibe cuatro listas vacías, que
+     * es un dato, y ningún aviso de que algo no se pudo leer.
+     */
+    #[Test]
+    public function un_proyecto_vacio_pero_entero_deja_las_cuatro_listas_en_vacio(): void
+    {
+        $anio = $this->anioDelSujeto();
+        $version = $this->versionEn($anio);
+        $this->leccionEn($version, (int) $this->asignacionDe($anio)->id, 'a1-0', 1, 1);
+
+        $r = $this->leerSinFuga($version);
+
+        $this->assertSame([], $r->json('plantilla'));
+        $this->assertSame([], $r->json('disponibilidad'));
+        $this->assertSame([], $r->json('sin_colocar'));
+        $this->assertSame([], $r->json('jornadas.niveles'));
+        $this->assertSame([], $r->json('jornadas.grupos'));
+
+        foreach (['plantilla', 'disponibilidad', 'sin_colocar', 'jornadas', 'timbres'] as $cual) {
+            $this->assertSame('vacio', $r->json("catalogos.{$cual}.estado"), "`{$cual}` vacío es legítimo y no es «no se pudo leer».");
+        }
     }
 }
