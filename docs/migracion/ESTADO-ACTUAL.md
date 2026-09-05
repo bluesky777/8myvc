@@ -22,6 +22,34 @@
 > Los mensajes de commit están limpios —cero apariciones—, así que sólo había que tocar
 > estas tres líneas.
 
+> ## ⚠️ LA BASE LOCAL `simonbolivar` TIENE UNA DERIVA PUESTA A PROPÓSITO — NO LA ARREGLES
+>
+> **Decisión de Joseth del 4 sep 2026, noche: se queda puesta.** Si mides horario sobre esta
+> base y te sale `1`, **es ésta y no un hallazgo**:
+>
+> ```
+> asignaturas.id = 1234 · profesor_id 9 · MATEMÁTICAS · Tercero
+>   martes = 0        <- apagado a mano con PUT asignaturas/toggle-dia
+>   la versión oficial (7) le da los días 1 y 2, o sea lunes Y martes
+>   updated_by = 1 · updated_at 2026-09-04 21:40:56
+>
+> tools/deriva-del-horario.php --year=8   ->  133 de 134 · DESCUADRADAS 1 · exit 1
+> ```
+>
+> **Revertirla es `UPDATE asignaturas SET martes=1 WHERE id=1234;`** y nadie la tiene asignada.
+>
+> **Por qué está puesta, que es lo que la hace valer:** es el **paso 4** de la medición que
+> `tools/deriva-del-horario.php` llevaba sin recibir desde que existe. Los ceros no demuestran
+> nada —recién publicada una versión, cuadrar es aritmética—, así que el único número que prueba
+> que **el detector detecta lo que dice su nombre** es un `1` provocado a mano. Lo midió
+> `8myvc-84` con las escrituras autorizadas por Joseth en su canal, y lo reprodujo `8myvc-7c`.
+>
+> **Y el radio no es de laboratorio:** en martes la versión oficial le da al profesor 9 **cinco**
+> asignaciones y `asignaturas` le da **cuatro**. Una clase desaparecida de su portada, **sin error
+> y sin aviso** — que es exactamente el fallo que la herramienta existe para ver, ocurriendo.
+>
+> *En los dieciséis colegios esto no existe: cero versiones desplegadas.*
+
 **4 sep 2026 — LA LÍNEA GRUESA DEL RECREO YA VIAJA: `ejes.descansos_tras`, CON SUS TRES
 ESTADOS** · `HorarioController` (`getLecciones`, `ejesDeLaVersion`, `descansosDelProyecto`
 nuevo y el `motivo` de `catalogos.timbres`), `tests/Contrato/HorarioLeccionesTest.php`
@@ -204,6 +232,50 @@ nuevo y el `motivo` de `catalogos.timbres`), `tests/Contrato/HorarioLeccionesTes
 >    a nadie**. **No entra en este commit**: se llamaba «los descansos», y un estado nuevo en
 >    un contrato es su propio trabajo con sus propios controles. Es lo siguiente.
 
+**4 sep 2026, noche — `acepto_perder` NO ES UNA CONFIRMACIÓN, ES UN PEAJE — Y LA §7.2 SE
+CONTRADECÍA CONSIGO MISMA** · [`23-horarios.md` §7.2](23-horarios.md) y esta casilla · **cero
+código, el router no se mueve: 568** · lo destapó una publicación accidental de `myvc-front-90`
+
+> **El apartado ya tenía el contrato bien escrito y aun así indujo el fallo.** Su tabla dice, en
+> la primera fila, *«sin `acepto_perder` · 0 · **200**, publica»*. Cinco párrafos más abajo el
+> mismo apartado afirma **sin condición** que *«hay una persona en medio cada vez»*. Las dos
+> cosas no caben juntas, y quien se equivocó **leyó el párrafo, no la tabla**.
+>
+> `HorarioController.php:1457` es `if ($aceptoPerder === null && $sePierden !== 0)`: con cero
+> pérdidas y sin la clave, la condición es falsa y **cae directa al `UPDATE`**. O sea que
+> publicar una versión **limpia** es **una** llamada sin ninguna puerta, y una **sucia** son
+> dos. La garantía existe **sólo cuando hay algo que perder**.
+>
+> ### Cómo se destapó, y por qué el susto era menor de lo que parecía
+>
+> El carril «publicar» de `myvc_front` condujo su pantalla dando por hecho que el primer paso no
+> escribe, y mandó `PUT horario/versiones/5/oficial` con **`{}` de cuerpo entero** → **200**, y el
+> puntero del año 8 se movió de la 6 a la 5 sin confirmación. **Le pasó a quien había escrito la
+> frase correcta en su propio repositorio.**
+>
+> **La primera lectura fue «la base cambió debajo» y era falsa.** Medido antes de reaccionar: las
+> versiones **5 y 6 son idénticas**, las 312 filas una a una, **incluyendo franja, duración y
+> salón** — que es justo lo que `tools/deriva-del-horario.php` NO mira, y lo único que habría
+> hecho cierta la alarma. El `UPDATE` reescribió las siete columnas **con los valores que ya
+> estaban**: *destruye el reloj, no el dato*. Devolver el puntero a la 6 fue **higiene, no
+> reparación**, y así se le dijo a Joseth antes de que lo autorizara.
+>
+> **Y la lectura de deriva de las 19:03 —0 descuadradas, exit real 0, con 23 h de reposo
+> detrás— NO se tiró**, porque el estado que midió no había cambiado. Tres sesiones habían
+> pedido tirarla.
+>
+> ### Lo que NO se capturó, dicho para que nadie lo invente
+>
+> **El cuerpo de aquel 200 no existe en ningún sitio.** Pasó por el `HttpClient` de la pantalla, y
+> `myvc-front-90` **se negó a reconstruirlo** desde la forma que devuelve el controlador: sería
+> meter una medición inventada en el fichero donde se guardan las medidas. Lo que sí va escrito es
+> otro 200 del mismo caso limpio —el `PUT` de la restauración, con `curl` y cuerpo `{}`— **con la
+> salvedad de quien lo midió pegada a él**: demuestra *«sin la clave y sin pérdidas, escribe»*, no
+> narra el accidente.
+>
+> **`putOficial` no se toca y no se propone tocarlo.** El peaje está bien pensado y el 200 del
+> caso limpio puede ser la decisión correcta. **Lo que faltaba era que estuviera dicho.**
+
 **4 sep 2026 — EL ENSAYO DE LA TANDA YA SE PUEDE REPETIR, Y DE PASO TRAE UN DETECTOR DE
 COMPROBACIONES CORTAS** · `tools/ensayo-de-la-tanda.sh` y `tools/comprobar-el-horario.php`
 (nuevos) y esta casilla · **cero código de la API, el router no se mueve: 568** · larastan
@@ -344,6 +416,65 @@ nivel 7 `[OK] No errors`
 > herramientas entran en la tabla de `tools/`. El censo de controladores, el de rutas y el de
 > públicas **siguen donde estaban** — este trabajo no toca `app/` ni `routes/`, y el router se
 > recontó con `route:list --json`: **568**, igual que antes.
+
+**4 sep 2026 — LAS CINCO RUTAS DE `horario/` EJERCITADAS CONTRA DATOS REALES, Y EL `1` QUE NO
+HABÍA VISTO NADIE** · [23 §9.bis.5](23-horarios.md) · **cero código, el router sigue en 568**
+
+> **Lo que no había hecho nadie.** Las cinco estaban escritas y con tests, y la cobertura en
+> 568/568 — pero **los tests de contrato corren contra el seed**, que no tiene seis versiones
+> de horario ni 47 docentes sin color. Esto es lo otro: base `simonbolivar` del docker, **año
+> 8 (2025)**, token real de tres roles, mirando **la respuesta** y no el 200. Lote de
+> `8myvc-7c`, ampliado con `myvc-front-c0`; las cuatro escrituras las autorizó Joseth.
+>
+> **El año es una trampa y ya mordió**: `2026` (`id = 9`) tiene los 13 grupos y las 134
+> asignaturas y **cero docentes y cero notas**, así que un informe suyo sale creíble y no vale
+> nada. **El último año no es el que tiene datos.**
+>
+> | | |
+> |---|---|
+> | las cinco por rol | admin 200/201 · profesor raso 200 en las dos lecturas y **403** en las tres escrituras · alumno **403** en las cinco |
+> | el `{id}` de la cuarta | **404** con mensaje propio para `999`, `0`, `-1` y `abc`; **401** sin token; ni un 500 |
+> | los cuatro estados del catálogo | **vistos vivos en una sola respuesta**, y el `tono` recorrido de ida y vuelta: `vacio` → `completo` → `parcial` → `completo` |
+> | la rejilla gris | confirmada — **290 de 290** puestos de docente con `tono: null` — y luego pintada: 12 colores, y **22 lecciones sin ningún docente siguen grises** |
+> | `prevuelo-del-horario.php` | **exit 1, SUCIO**: Transición entero sin docente, Jardín a medias, 10 de 134 sin `profesor_id` |
+> | `deriva-del-horario.php` | **0** tras publicar · **1** tras el `toggleDia` · **2 NO MEDIDO** en el año 9 |
+>
+> **El `1` es el resultado, y los ceros no lo eran.** Recién publicada una versión, cuadrar es
+> aritmética: `putOficial` acaba de reescribir las siete columnas desde las lecciones de esa
+> misma versión. El `1` sale de conmutar un día a mano y **`--detalle` nombra la asignatura y
+> la columna que se tocaron y no otra** — o sea que **el detector detecta lo que dice su
+> nombre**, que hasta hoy se creía y no se sabía. *El aviso de arriba dice dónde quedó puesto
+> ese descuadre y por qué no se revierte.*
+>
+> **Y el radio no es de laboratorio**: en martes la versión oficial le da al profesor 9 cinco
+> asignaciones del año 8 y `asignaturas` le da cuatro. Es lo que `ChangesAsked/to-me` deriva
+> para su portada — **una clase desaparecida sin error y sin aviso**.
+>
+> ### Tres hallazgos que no buscaba nadie, y los tres se escriben en vez de arreglarse
+>
+> 1. **`incompletas` cambia de TIPO según la versión**: lista de objetos en la v1, entero en
+>    las v2–v7, **y las siete viajan en la misma respuesta de `GET horario/versiones`**. Que
+>    el veredicto sea el guardado ya estaba decidido (§9.bis.3, punto 5); **que el tipo de un
+>    campo dependa del día de la subida, no**. `myvc-front-90` lo había encontrado por su
+>    lado unas horas antes contra su pantalla, así que son **dos hallazgos independientes del
+>    mismo hecho** — que es lo que lo convierte en contrato y no en rareza.
+> 2. **`created_at` de la misma versión vuelve en dos formatos**: `"…21:38:48.911"` por el
+>    `POST` y `"…21:38:49"` por el `GET`. **La mitad mala es el redondeo**, no la precisión:
+>    no casa ni truncando, así que no sirve para identificar la versión recién creada.
+> 3. **`putOficial` escribe en el primer paso cuando no hay pérdidas** — cuerpo `{}` da 200 y
+>    publica. `acepto_perder` **no es una confirmación: es un peaje que sólo aparece si hay
+>    algo que perder**. Es coherente con la §7.2 y se lee al revés desde fuera; ya hizo que
+>    una pantalla del front publicara creyendo que el primer paso no escribía.
+>
+> **Ninguno se arregla aquí**: cambiar cualquiera es cambiar la respuesta de una ruta viva, y
+> el primero **ni siquiera se puede arreglar hacia atrás** sin recalcular veredictos
+> guardados, que es justo lo que aquella decisión dijo que no se hace. Hoy no muerden a nadie
+> —**cero versiones desplegadas en los dieciséis**—, y por eso hay tiempo de escribirlos ahora
+> y no lo habrá después.
+>
+> **Lo que esta noche NO midió, dicho con el número delante:** un colegio, un año y una
+> versión. `deriva` no mira franja, duración ni salón, y la subida se reconstruyó desde la
+> versión 6 en vez de salir del escritorio. **Quince silencios no son quince ceros.**
 
 **4 sep 2026 — LA COBERTURA REMEDIDA: 568/568, Y LO QUE ENVEJECIÓ FUE EL NÚMERO, NO LA
 PROPIEDAD** · `CLAUDE.md` y esta casilla · **cero código**
