@@ -50,6 +50,103 @@
 >
 > *En los dieciséis colegios esto no existe: cero versiones desplegadas.*
 
+**4 sep 2026 — EL QUINTO ESTADO: `ilegible`, EL ÚNICO DE LOS CINCO QUE ALGUIEN PUEDE
+ARREGLAR** · `HorarioController` (`catalogosDeLaVersion`, `renglonDelProyecto` y
+`proyectoDeLaVersion` nuevos), `tests/Contrato/HorarioLeccionesTest.php` (**18 casos, 187
+aserciones**) y esta casilla · **decisión de Joseth** · **el router NO se mueve: 568** ·
+pint PASS · larastan nivel 7 `[OK] No errors`
+
+> **Salió de arreglar una frase, no de buscar un estado.** `catalogos.timbres` decía que la
+> jornada *«vive en el fichero de proyecto (§4)»* — verdad que engaña, porque el fichero está
+> **en la columna de al lado de la misma tabla**. Al reescribirla salió que **no había palabra
+> para «lo tenemos guardado y no se deja leer»**.
+>
+> ### LOS CINCO, Y POR QUÉ EL CUARTO NO SERVÍA
+>
+> ```
+> completo      lo guardamos y está todo
+> parcial       lo guardamos y hay menos de lo que la versión usa
+> vacio         lo guardamos, el colegio no creó ninguno, y es LEGÍTIMO
+> sin_catalogo  esta API no puede saberlo POR DISEÑO
+> ilegible      lo tenemos guardado y NO SE DEJA LEER  <- el quinto
+> ```
+>
+> `sin_catalogo` es una frase **sobre el producto**: idéntica en los dieciséis colegios y que
+> **no la arregla nadie desde la web**. *«El proyecto de este colegio no se deja leer»* es
+> sobre **ese colegio y esa subida**, y **tiene arreglo: volver a subirlo**. Juntarlas habría
+> sido `[]` contra `null` otra vez, con la agravante de que **tres renglones ya usan
+> `sin_catalogo` con el primer significado**, así que el cuarto lo habría usado con otro sin
+> avisar.
+>
+> **De los cinco es el único que cambia lo que la persona debería hacer** — los otros cuatro
+> explícitamente no llevan llamada a la acción. *Ése es el argumento de que sea un estado y no
+> un matiz dentro de otro.*
+>
+> ### CÓMO SE LLEGÓ, Y ES LO MEJOR DEL HILO: DOS PROPUESTAS, LAS DOS TUMBADAS POR SU AUTOR
+>
+> `myvc-front-b2` pidió un campo `porque` dentro de `catalogos.timbres`; yo propuse un renglón
+> `catalogos.proyecto`. **Luego cada uno adoptó la del otro, y cada uno tumbó la que acababa de
+> adoptar:**
+>
+> | la propuesta | quién la mató | por qué |
+> |---|---|---|
+> | renglón `catalogos.proyecto` | `b2` | diría la verdad **al lado de tres renglones que siguen diciendo «no viaja»** |
+> | `porque` dentro de `sin_catalogo` | yo | mete «lo tenemos y está roto» **debajo de «por diseño no lo tenemos»** |
+>
+> **Y lo que decidió entre el estado y el campo no fue la limpieza: fue quién queda obligado.**
+> Medido por `b2` en su repositorio: sus cuatro `Record<EstadoDeCatalogo, …>` —palabra, icono,
+> color y frase— **dejan de compilar** con un valor más; con un campo al lado **no se rompe
+> nada** y su panel pintaría, ante un proyecto ilegible, la palabra que hoy tiene para
+> `sin_catalogo`: ***«No lo guarda el servidor»***, que es lo contrario de la verdad. `tsc`
+> verde, pruebas verdes, pantalla mintiendo. *Con el estado obliga el compilador; con el campo
+> se obliga el cliente a sí mismo.* **Puso el argumento en contra de su propia propuesta, y por
+> eso vale.**
+>
+> *Su coste, medido por él: cuatro entradas que el `tsc` le exige **más una regla de
+> `estado-catalogos.scss` que no le exige nadie** — la fila sale sin borde y no da error. **El
+> coste de verdad es el que el compilador no señala, y es una línea de CSS.***
+>
+> ### LOS TRES CAMBIAN JUNTOS, Y ESO ES LA MITAD DEL DISEÑO
+>
+> `timbres`, `disponibilidad` y `restricciones` salen del blob, así que si el fichero no se lee
+> **los tres son `ilegible` a la vez**: es un hecho **del fichero**, no de cada catálogo.
+> Marcar sólo `timbres` —donde el front lo pidió primero— habría dejado a los otros dos
+> diciendo «no viaja».
+>
+> **Y lo que NO contagia, con su caso propio:** `grupos`, `asignaciones`, `docentes`, `tono` y
+> `salones` salen de **tablas**. Sin ese caso, marcarlos todos por descuido pasaría inadvertido
+> y la pantalla diría que no se sabe nada de un colegio del que se sabe casi todo.
+>
+> ### EL BLOB SE DECODIFICA UNA VEZ, Y NO ES SÓLO POR LOS 2 ms
+>
+> `proyectoDeLaVersion()` se llama **una vez por petición** y su resultado alimenta las dos
+> cosas: los descansos y el estado de los tres catálogos. Decodificarlo dos veces costaría
+> otros 2 ms medidos **y, peor, las dos lecturas podrían discrepar** — que es la forma de la
+> que salen dos verdades sobre el mismo hecho.
+>
+> ### LOS TRES CONTROLES, VISTOS EN ROJO
+>
+> | se rompe a propósito | qué cae |
+> |---|---|
+> | el quinto estado no se usa nunca (siempre `sin_catalogo`) | **1** de 18 |
+> | contagia a los catálogos de tabla | **1** de 18 |
+> | el blob por defecto de los tests vuelve al de mentira | **2** de 18 |
+>
+> **El tercero no es un control del código, es del andamio, y por eso importa.** El blob por
+> defecto de este fichero era `{"proyecto":"<marca>"}` —con `proyecto` como **cadena**—, que
+> antes daba igual y **desde hoy es un proyecto ilegible**: con él, *todos* los casos del
+> fichero habrían corrido contra un colegio cuyo proyecto no se puede leer. **Verdes igual,
+> midiendo otra cosa.** Ahora es un proyecto de verdad con la marca dentro, en `programa`,
+> donde la busca el control de la fuga.
+>
+> ### ⚠️ Y LA SALVEDAD QUE ACOMPAÑA AL VERDE
+>
+> **Esta rama no se ha visto nunca con datos reales.** Las siete versiones de `simonbolivar`
+> parsean, así que `ilegible` **tiene cero ejemplos** y vive atado por cuatro formas rotas a
+> mano. Va escrito en el docblock del caso porque *comprobado que hoy no hace falta* no es
+> *comprobado que funciona*, y unas pruebas verdes se leen dentro de seis meses como lo
+> segundo.
+
 **4 sep 2026 — LA LÍNEA GRUESA DEL RECREO YA VIAJA: `ejes.descansos_tras`, CON SUS TRES
 ESTADOS** · `HorarioController` (`getLecciones`, `ejesDeLaVersion`, `descansosDelProyecto`
 nuevo y el `motivo` de `catalogos.timbres`), `tests/Contrato/HorarioLeccionesTest.php`
@@ -229,8 +326,9 @@ nuevo y el `motivo` de `catalogos.timbres`), `tests/Contrato/HorarioLeccionesTes
 >    ### ✅ DECIDIDO POR JOSETH, 4 sep 2026: **SÍ, el quinto estado `ilegible`**
 >
 >    Con el reencuadre delante y sabiendo que hoy tiene **cero ejemplos** y que **no bloquea
->    a nadie**. **No entra en este commit**: se llamaba «los descansos», y un estado nuevo en
->    un contrato es su propio trabajo con sus propios controles. Es lo siguiente.
+>    a nadie**. **No entró en aquel commit**: se llamaba «los descansos», y un estado nuevo en
+>    un contrato es su propio trabajo con sus propios controles. **Hecho justo después — la
+>    casilla de arriba.**
 
 **4 sep 2026, noche — `acepto_perder` NO ES UNA CONFIRMACIÓN, ES UN PEAJE — Y LA §7.2 SE
 CONTRADECÍA CONSIGO MISMA** · [`23-horarios.md` §7.2](23-horarios.md) y esta casilla · **cero

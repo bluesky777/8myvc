@@ -992,13 +992,47 @@ class HorarioController extends Controller
      * un informe en cero hojas y eso se nota; a medias, seis hojas se quedan en tres y
      * **cero avisos**.
      *
-     * Por eso cada catálogo viaja con su estado y su población, y **son cuatro estados
+     * Por eso cada catálogo viaja con su estado y su población, y **son cinco estados
      * y no dos**:
      *
      *   - `completo`     lo guardamos y está todo.
      *   - `parcial`      lo guardamos y hay menos de lo que la versión usa.
      *   - `vacio`        lo guardamos, el colegio no creó ninguno, **y es legítimo**.
      *   - `sin_catalogo` **esta API no puede saberlo**, hoy ni por este camino.
+     *   - `ilegible`     **lo tenemos guardado y no se deja leer** — y tiene arreglo.
+     *
+     * ## El quinto entró el 4 sep 2026, y es el único que acusa a una subida concreta
+     *
+     * Decisión de Joseth. Nació de que `catalogos.timbres` decía *«viven en el fichero de
+     * proyecto»* — verdad que engaña, porque el fichero está en la columna de al lado— y de
+     * que al arreglar esa frase salió que **no había palabra para «lo tenemos y está roto»**.
+     *
+     * **`sin_catalogo` no servía, y meterlo ahí habría sido el mismo fallo con otro traje.**
+     * `sin_catalogo` afirma *«esta API no puede saberlo **por diseño**»*: es una frase sobre
+     * el **producto**, idéntica en los dieciséis colegios y que no arregla nadie desde la
+     * web. «El proyecto de este colegio no se deja leer» es sobre **ese colegio y esa
+     * subida**, y **tiene arreglo: volver a subirlo**. Juntarlas es `[]` contra `null` otra
+     * vez — y con la agravante de que tres renglones ya usan `sin_catalogo` con el primer
+     * significado, así que el cuarto lo habría usado con otro sin avisar.
+     *
+     * **Y de los cinco es el único que cambia lo que la persona debería hacer.** Los otros
+     * cuatro explícitamente no llevan llamada a la acción: `vacio` es legítimo y
+     * `sin_catalogo` no lo arregla nadie. *Ése es el argumento de que sea un estado y no un
+     * matiz dentro de otro.*
+     *
+     * **Y lo que decidió la forma frente a un campo `porque` dentro de `sin_catalogo` no fue
+     * la limpieza: fue quién queda obligado.** Medido por `myvc-front-b2` en su repositorio:
+     * sus cuatro `Record<EstadoDeCatalogo, …>` —palabra, icono, color y frase— **dejan de
+     * compilar** con un valor más en la unión, así que el compilador le exige nombrar el
+     * caso nuevo; con un campo al lado **no se rompe nada** y su panel pintaría, ante un
+     * proyecto ilegible, la palabra que hoy tiene para `sin_catalogo`: ***«No lo guarda el
+     * servidor»***, que es lo contrario de la verdad. `tsc` verde, pruebas verdes y la
+     * pantalla mintiendo. *Con el estado obliga el compilador; con el campo se obliga el
+     * cliente a sí mismo.*
+     *
+     * **Hoy tiene cero ejemplos** —las siete versiones de `simonbolivar` parsean— así que
+     * vive atado por tests y **no se ha visto nunca con datos reales**. Se dice porque unas
+     * pruebas verdes se leen dentro de seis meses como «esto se ha visto funcionar».
      *
      * **La tercera la obliga la restricción de Joseth del 4 sep 2026: el horario es
      * OPCIONAL.** Lo obligatorio en MyVC es crear asignaturas con IH; salones, dobles y
@@ -1092,6 +1126,11 @@ class HorarioController extends Controller
 
         $docentesPorPieza = $this->docentesDeLaVersion($versionId);
 
+        // **Una sola vez por petición**, y de aquí salen dos cosas: los descansos de la
+        // jornada y si los tres catálogos que viven dentro del blob son `sin_catalogo`
+        // —no están en esta API por diseño— o `ilegible` —están aquí y no se dejan leer—.
+        $proyecto = $this->proyectoDeLaVersion($version[0]->proyecto);
+
         $lecciones = array_map(fn ($f) => [
             'id' => (int) $f->id,
             'pieza_id' => (string) $f->pieza_id,
@@ -1136,8 +1175,8 @@ class HorarioController extends Controller
                 // que es lo que corrigió `0faf099`.
                 'comprobaciones' => $this->veredictoGuardado($version[0]->comprobaciones),
             ],
-            'ejes' => $this->ejesDeLaVersion($lecciones, $this->descansosDelProyecto($version[0]->proyecto)),
-            'catalogos' => $this->catalogosDeLaVersion($yearId, $versionId, $lecciones),
+            'ejes' => $this->ejesDeLaVersion($lecciones, $this->descansosDelProyecto($proyecto)),
+            'catalogos' => $this->catalogosDeLaVersion($yearId, $versionId, $lecciones, $proyecto !== null),
             'lecciones' => $lecciones,
             // La población, delante y siempre. Sin ella `lecciones: []` se lee como
             // «todo bien» — que es literalmente el fallo de la §2, el que estuvo meses
@@ -1245,6 +1284,39 @@ class HorarioController extends Controller
     }
 
     /**
+     * El fichero de proyecto **decodificado**, o `null` si no se pudo leer.
+     *
+     * Se decodifica **una sola vez por petición** y el resultado se reparte: de aquí
+     * salen los descansos (`ejes.descansos_tras`) y el estado `ilegible` de los tres
+     * catálogos que viven dentro del blob. Decodificarlo dos veces costaría otros
+     * 2 ms medidos, y peor: **las dos lecturas podrían discrepar**, que es la forma de
+     * la que salen dos verdades sobre el mismo hecho.
+     *
+     * **`null` significa «este fichero no se puede leer como proyecto»**, y es más ancho
+     * que «el JSON está corrupto»: también lo es un JSON válido que no trae un objeto
+     * `proyecto` dentro. Las dos cosas significan lo mismo para quien lo subió —*lo que
+     * mandaron no se lee como un proyecto*— y **no se separan a propósito**: `myvc-front-b2`
+     * confirmó el 4 sep 2026 que no tiene nada distinto que pintar con ellas, y un cuarto
+     * caso que nadie distingue es el error del que viene todo este módulo.
+     *
+     * @return array<string, mixed>|null
+     */
+    protected function proyectoDeLaVersion(?string $blob): ?array
+    {
+        if ($blob === null || $blob === '') {
+            return null;
+        }
+
+        $leido = json_decode($blob, true);
+
+        if (! is_array($leido) || ! isset($leido['proyecto']) || ! is_array($leido['proyecto'])) {
+            return null;
+        }
+
+        return $leido['proyecto'];
+    }
+
+    /**
      * Los descansos que declara el fichero de proyecto, **con sus tres estados**.
      *
      * `proyecto.jornadaPorDefecto.descansosTras` dentro del blob —el camino es real y
@@ -1305,19 +1377,13 @@ class HorarioController extends Controller
      *
      * @return list<int>|null
      */
-    protected function descansosDelProyecto(?string $proyecto): ?array
+    protected function descansosDelProyecto(?array $proyecto): ?array
     {
-        if ($proyecto === null || $proyecto === '') {
+        if ($proyecto === null) {
             return null;
         }
 
-        $blob = json_decode($proyecto, true);
-
-        if (! is_array($blob) || ! isset($blob['proyecto']) || ! is_array($blob['proyecto'])) {
-            return null;
-        }
-
-        $jornada = $blob['proyecto']['jornadaPorDefecto'] ?? null;
+        $jornada = $proyecto['jornadaPorDefecto'] ?? null;
 
         if (! is_array($jornada) || ! array_key_exists('descansosTras', $jornada)) {
             return null;
@@ -1358,7 +1424,7 @@ class HorarioController extends Controller
      * @param  list<array<string, mixed>>  $lecciones
      * @return array<string, array<string, mixed>>
      */
-    protected function catalogosDeLaVersion(int $yearId, int $versionId, array $lecciones): array
+    protected function catalogosDeLaVersion(int $yearId, int $versionId, array $lecciones, bool $proyectoLegible = true): array
     {
         $total = count($lecciones);
 
@@ -1435,19 +1501,53 @@ class HorarioController extends Controller
             // son las horas de reloj, y `jornadaPorDefecto.timbres` vale `null` en los
             // siete proyectos reales — el colegio no los ha dado. *Lo que este renglón
             // ya no hace es afirmar una imposibilidad que dejó de ser cierta.*
-            'timbres' => [
-                'estado' => 'sin_catalogo',
-                'motivo' => 'las horas de reloj no están en ninguna tabla: sólo dentro del fichero de proyecto, '
-                    .'y ahí el colegio no las ha dado. De ese mismo fichero sí sale ya `ejes.descansos_tras`',
-            ],
-            'disponibilidad' => [
-                'estado' => 'sin_catalogo',
-                'motivo' => 'ídem: el servidor no guarda la disponibilidad declarada (§4)',
-            ],
-            'restricciones' => [
-                'estado' => 'sin_catalogo',
-                'motivo' => 'ídem: restricciones, pesos y distribuciones de bloque (§4)',
-            ],
+            // ── LOS TRES QUE SALEN DEL BLOB, y los tres cambian JUNTOS
+            //
+            // Si el fichero de proyecto no se deja leer, los tres son `ilegible` a la vez:
+            // es un hecho **del fichero**, no de cada catálogo. Marcar sólo `timbres` —que
+            // es donde el front lo pidió primero— habría dejado a los otros dos diciendo
+            // «no viaja», que es una afirmación sobre el **diseño de la API**, cuando lo
+            // cierto sería «no se pudo leer», que es sobre **ese colegio**. O sea: un
+            // renglón diciendo la verdad y dos acompañándolo con la frase de antes. Lo vio
+            // `myvc-front-b2` el 4 sep 2026 sobre su propia propuesta.
+            'timbres' => $this->renglonDelProyecto($proyectoLegible,
+                'las horas de reloj no están en ninguna tabla: sólo dentro del fichero de proyecto, '
+                .'y ahí el colegio no las ha dado. De ese mismo fichero sí sale ya `ejes.descansos_tras`'),
+            'disponibilidad' => $this->renglonDelProyecto($proyectoLegible,
+                'ídem: el servidor no guarda la disponibilidad declarada (§4)'),
+            'restricciones' => $this->renglonDelProyecto($proyectoLegible,
+                'ídem: restricciones, pesos y distribuciones de bloque (§4)'),
+        ];
+    }
+
+    /**
+     * El renglón de un catálogo que sólo existe dentro del fichero de proyecto.
+     *
+     * `sin_catalogo` cuando el fichero se lee y sencillamente esto no viaja por aquí;
+     * **`ilegible` cuando el fichero está guardado y no se deja leer**, que es otra cosa y
+     * es la que tiene arreglo — volver a subir el proyecto.
+     *
+     * **El `motivo` de `ilegible` es el mismo para los tres a propósito**: la causa no es
+     * de cada catálogo, es del fichero. Y **no dice por qué no se pudo leer** —si el JSON
+     * está roto o si lo que subieron no es un proyecto— porque el servidor no distingue las
+     * dos y **una pantalla no debe afirmar una causa que la API no le ha dado**.
+     *
+     * *Y el `motivo` no llega al usuario: `myvc-front-b2` no lo imprime —está redactado
+     * para quien lee la API y es el mismo texto en los dieciséis colegios—. **Lo que llega
+     * a la pantalla es el `estado`**, y por eso el quinto tenía que ser un estado.*
+     *
+     * @return array<string, string>
+     */
+    protected function renglonDelProyecto(bool $legible, string $motivoCuandoSeLee): array
+    {
+        if ($legible) {
+            return ['estado' => 'sin_catalogo', 'motivo' => $motivoCuandoSeLee];
+        }
+
+        return [
+            'estado' => 'ilegible',
+            'motivo' => 'el fichero de proyecto de esta versión está guardado y no se pudo leer, '
+                .'así que de esto no se sabe nada: hay que volver a subirlo',
         ];
     }
 

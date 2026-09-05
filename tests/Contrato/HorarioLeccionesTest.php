@@ -96,13 +96,23 @@ class HorarioLeccionesTest extends CasoDeContrato
         return $fila;
     }
 
-    /** Mete una versión y devuelve su id. El blob va siempre: la columna es `NOT NULL`. */
+    /**
+     * Mete una versión y devuelve su id. El blob va siempre: la columna es `NOT NULL`.
+     *
+     * **El blob por defecto es un proyecto LEGIBLE**, y desde el 4 sep 2026 eso importa:
+     * `catalogos` distingue `sin_catalogo` de `ilegible`, así que un blob de mentira
+     * —antes `{"proyecto":"<marca>"}`, con `proyecto` como cadena— haría que **todos los
+     * casos de este fichero corrieran contra un colegio cuyo proyecto no se puede leer**.
+     * Verde igual, midiendo otra cosa. La marca sigue dentro, en `programa`, que es donde
+     * la busca el control de la fuga.
+     */
     private function versionEn(int $yearId, string $nombre = 'Versión para pintar'): int
     {
         DB::insert(
             'INSERT INTO horario_versiones (year_id, nombre, subida_por, proyecto, comprobaciones, created_at, updated_at)
              VALUES (?, ?, NULL, ?, NULL, ?, ?)',
-            [$yearId, $nombre, '{"proyecto":"'.self::MARCA_DEL_BLOB.'"}', '2026-09-04 10:00:00', '2026-09-04 10:00:00']
+            [$yearId, $nombre, '{"formato":1,"programa":"'.self::MARCA_DEL_BLOB.'","proyecto":{"anio":2025}}',
+                '2026-09-04 10:00:00', '2026-09-04 10:00:00']
         );
 
         return (int) DB::getPdo()->lastInsertId();
@@ -529,6 +539,73 @@ class HorarioLeccionesTest extends CasoDeContrato
             'Devolver `[3]` habría pintado una parrilla creíble a la que le falta una línea.');
         $this->assertNull($this->descansosCon('{"descansosTras":{"manana":3}}'),
             'Un objeto JSON llega como array de PHP, y `{"manana":3}` no es una lista de franjas.');
+    }
+
+    /**
+     * **El quinto estado: `ilegible` no es `sin_catalogo`, y los tres cambian juntos.**
+     *
+     * Decisión de Joseth del 4 sep 2026. `sin_catalogo` afirma *«esta API no puede saberlo
+     * **por diseño**»* —una frase sobre el producto, igual en los dieciséis colegios y que no
+     * arregla nadie desde la web—; `ilegible` dice *«lo tenemos guardado y no se deja leer»*,
+     * que es sobre **ese colegio y esa subida** y **tiene arreglo: volver a subirlo**. De los
+     * cinco estados es el único que cambia lo que la persona debería hacer.
+     *
+     * **Los tres a la vez, y eso es la mitad del caso**: si el fichero no se lee, marcar sólo
+     * `timbres` dejaría a `disponibilidad` y `restricciones` diciendo «no viaja» —el diseño de
+     * la API— cuando lo cierto es «no se pudo leer» —ese colegio—. Un renglón diciendo la
+     * verdad y dos acompañándolo con la frase de antes.
+     *
+     * **Y ninguna de estas formas sale de un volcado real**: las siete versiones de
+     * `simonbolivar` parsean. Esta rama está comprobada contra un caso fabricado y **no se ha
+     * visto nunca funcionando con datos de verdad**, que no es lo mismo que estar comprobada.
+     */
+    #[Test]
+    public function un_proyecto_ilegible_marca_los_tres_catalogos_del_blob(): void
+    {
+        $anio = $this->anioDelSujeto();
+        $delBlob = ['timbres', 'disponibilidad', 'restricciones'];
+
+        $legible = $this->versionEn($anio);
+        $this->leccionEn($legible, (int) $this->asignacionDe($anio)->id, 'a1-0', 1, 1);
+        $conProyecto = $this->leer($legible)->assertStatus(200)->json('catalogos');
+
+        $roto = $this->versionConProyecto($anio, '{"proyecto":{"jornadaPorDefecto":[3,', 'Proyecto roto');
+        $this->leccionEn($roto, (int) $this->asignacionDe($anio)->id, 'a1-0', 1, 1);
+        $sinProyecto = $this->leer($roto)->assertStatus(200)->json('catalogos');
+
+        foreach ($delBlob as $cual) {
+            $this->assertSame('sin_catalogo', $conProyecto[$cual]['estado'],
+                "Con el proyecto legible, `{$cual}` no viaja POR DISEÑO: eso es `sin_catalogo`.");
+            $this->assertSame('ilegible', $sinProyecto[$cual]['estado'],
+                "Con el proyecto ilegible, `{$cual}` no es «no lo tenemos»: es «lo tenemos y no se deja leer», "
+                .'que es lo único de los cinco estados que alguien puede arreglar.');
+        }
+
+        $this->assertNotSame($conProyecto['timbres']['motivo'], $sinProyecto['timbres']['motivo'],
+            'El motivo tiene que cambiar con el estado: uno explica el diseño y el otro acusa a una subida.');
+    }
+
+    /**
+     * Y lo que el quinto estado **no** contagia: los catálogos que no salen del blob.
+     *
+     * `salones`, `tono`, `grupos`, `asignaciones` y `docentes` salen de tablas, así que un
+     * proyecto ilegible **no los toca**. Sin este caso, marcarlos todos por descuido pasaría
+     * inadvertido y la pantalla diría que no se sabe nada de un colegio del que se sabe casi
+     * todo.
+     */
+    #[Test]
+    public function un_proyecto_ilegible_no_contagia_a_los_catalogos_de_tabla(): void
+    {
+        $anio = $this->anioDelSujeto();
+        $roto = $this->versionConProyecto($anio, 'esto no es json', 'Proyecto roto');
+        $this->leccionEn($roto, (int) $this->asignacionDe($anio)->id, 'a1-0', 1, 1);
+
+        $catalogos = $this->leer($roto)->assertStatus(200)->json('catalogos');
+
+        foreach (['grupos', 'asignaciones', 'docentes', 'tono', 'salones'] as $cual) {
+            $this->assertNotSame('ilegible', $catalogos[$cual]['estado'],
+                "`{$cual}` sale de una tabla, no del blob: que el proyecto no se lea no dice nada de él.");
+        }
     }
 
     /**
