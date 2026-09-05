@@ -389,6 +389,11 @@ quedan**, porque se midieron sobre quince: lo que se actualiza es lo que sigue v
 - `vendor/`: **compartido por symlink**. Un `composer install` dentro de un
   colegio sigue el symlink y cambia todos los que cuelguen de esa carpeta.
 - `storage/`: propia de cada colegio.
+- **Producción corre MariaDB 10.5.25, no MySQL 8.** `SELECT VERSION();` dio
+  `10.5.25-MariaDB-cll-lve` en los dos shared hostings (Joseth, 5 sep 2026); el
+  docker corre MySQL 8.0.42. Un `JSON_TABLE`, un `LATERAL` o un `->>` pasan la
+  suite entera y revientan en los dieciséis. Lo que sí hay: columnas al instante
+  desde la 10.4, así que la tanda no reconstruye `notas`.
 
 Hay **cuatro clientes**, no uno: `myvc_front` (AngularJS, uno por colegio),
 `myvc_front_2` (Angular, solo el PIAR), `myvc_flutter` (**una sola app para

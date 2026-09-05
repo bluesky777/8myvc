@@ -341,7 +341,17 @@
 > **Ninguna de las dos que quedan la puede resolver una sesión midiendo**, que es exactamente por qué
 > están aquí arriba y no dentro de una casilla fechada donde hay que ir a buscarlas.
 >
-> ### 1. `SELECT VERSION();` en un colegio — y decide el coste del día 10
+> > **A 5 sep 2026 por la tarde no queda ninguna abierta.** La 1 la contestó Joseth; la 2 ya estaba
+> > contestada; y la 3 **estaba HECHA y fundida mientras este bloque la daba por sin empezar** — se
+> > deja tachada y no borrada porque es un hallazgo sobre este propio documento, no sobre el código.
+>
+> ### 1. ~~`SELECT VERSION();` en un colegio~~ **CONTESTADA el 5 sep 2026: `10.5.25-MariaDB-cll-lve`, y lo mismo en los dos shared hostings**
+>
+> **Producción corre MariaDB 10.5, no MySQL 8 como el docker.** Lo que cambia: MariaDB añade
+> columnas al instante desde la 10.4 también con `AFTER`, y las 90 tablas son InnoDB sin compresión,
+> así que la reconstrucción de `notas` que temía la medición **no ocurre** y el plan del día 10 no se
+> mueve. Lo que queda sin número: la tanda nunca se ha ensayado sobre MariaDB. Está desglosado en
+> [DESPLIEGUE.md](../DESPLIEGUE.md), bloque «PRODUCCIÓN CORRE MARIADB 10.5.25».
 >
 > **Nadie de aquí puede correrla**: hay que entrar a un cPanel. El detalle y la medición están
 > en la casilla del 4 sep («LA TANDA ENSAYADA SOBRE UNA BASE CON DATOS»), y el resumen es que
@@ -359,7 +369,14 @@
 > antes del día 10*, no si entra ésta. **Las dos salidas son legítimas y ninguna es gratis:**
 > dejarlas fuera congela dos arreglos ya escritos y probados; meterlas obliga a reensayar.
 >
-> ### 3. El Lote G: ensanchar `GET horario/versiones/{id}/lecciones` con las cuatro listas
+> ### 3. ~~El Lote G: ensanchar `GET horario/versiones/{id}/lecciones` con las cuatro listas~~ **HECHA y fundida en `abcd23a` — y este bloque decía lo contrario**
+>
+> **Comprobado el 5 sep 2026 por la tarde contra `main` en `d606839`**: `HorarioController` lleva
+> las cuatro listas, `feat/horario-cuatro-listas` sale en `--merged main` y la casilla «LO SIGUIENTE»
+> del sobre ensanchado, más abajo, la da por fundida detrás de la plantilla. Este bloque se escribió
+> a las 07:4x con la ruta contestando `sin_catalogo` y **nadie lo movió al fundir**: la lista de
+> decisiones abiertas y la casilla del trabajo se contradecían dentro del mismo fichero, y de las dos
+> se lee primero ésta. *Lo de abajo se conserva porque describe bien el estado desde el que se partió.*
 >
 > Es la decisión 38 de `myvc_horarios`. **Ya no es una hipótesis:** el 5 sep se midió que este
 > servidor **sí guarda** las disponibilidades declaradas —dentro de
@@ -1896,7 +1913,9 @@ esta casilla · **cero código** · la copia de ensayo se borró al terminar
 > ```
 >
 > **La pregunta es de una línea y es lo más barato que puedes hacer antes del día 10:**
-> `SELECT VERSION();` en un colegio.
+> `SELECT VERSION();` en un colegio. **CONTESTADA el 5 sep 2026: `10.5.25-MariaDB-cll-lve`, y lo
+> mismo en los dos shared hostings** — lo que cambia y lo que sigue sin medir está en
+> `DESPLIEGUE.md`, bloque «PRODUCCIÓN CORRE MARIADB 10.5.25».
 >
 > - **8.0.12 o superior** → ~1 s por colegio, no hay ventana y el plan no cambia.
 > - **5.7 o MariaDB sin instantáneo** → sólo esa migración se lleva **~5 s en un colegio del

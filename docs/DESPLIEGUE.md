@@ -302,8 +302,32 @@ y la retirada es `POST tardanzas/login/traer-datos`, que no tiene ninguna otra.
 > Comprobado construyendo las dos bases desde cero y comparando `information_schema`:
 > **1.526 columnas, mismas posiciones físicas, mismos índices y mismas foráneas**, 102 tablas
 > en las dos. La fusión de nivelaciones además **quita una reconstrucción de `notas_finales`**
-> en un colegio que corra MySQL 5.7 (dos `ALTER` sobre esa tabla pasan a uno), que es la única
-> incógnita abierta de este despliegue: no sabemos qué MySQL corren los diecisiete.
+> en un colegio que corra MySQL 5.7 (dos `ALTER` sobre esa tabla pasan a uno), que ~~es la única
+> incógnita abierta de este despliegue: no sabemos qué MySQL corren los diecisiete~~ **era la última
+> incógnita abierta, y la cerró Joseth el 5 sep 2026** — el bloque siguiente.
+
+> ### PRODUCCIÓN CORRE MARIADB 10.5.25, NO MYSQL 8 — contestado por Joseth el 5 sep 2026
+>
+> `SELECT VERSION();` desde phpMyAdmin contesta **`10.5.25-MariaDB-cll-lve`**, y **lo mismo en los
+> dos shared hostings** —el bucle de `micolev1` y la cuenta de `lalvirtual.edu.co`—; el sufijo es
+> CloudLinux con límites LVE por cuenta. **El docker corre MySQL 8.0.42**, así que el ensayo de la
+> tanda se hizo sobre OTRO motor. Lo que eso cambia y lo que no, medido sobre `d606839`:
+>
+> - **La reconstrucción de `notas` que temía el bloque de arriba no ocurre.** MariaDB añade y quita
+>   columnas al instante desde la 10.4, también con `AFTER`, siempre que la tabla sea InnoDB sin
+>   `ROW_FORMAT=COMPRESSED`: **las 90 del volcado lo son**. Las cinco columnas de `notas` deberían
+>   costar lo del docker (11,8 ms), no los 4.870 ms del `ALGORITHM=COPY`. *«Deberían»: se midió en
+>   MySQL 8 y se razona para MariaDB; el número de MariaDB no existe todavía.*
+> - **El código nuevo no usa nada que MariaDB 10.5 no tenga.** `grep` sobre las **14.264 líneas
+>   añadidas** entre `9474b50` y `d606839` en `app/`, `database/` y `routes/` buscando `JSON_TABLE`,
+>   `LATERAL`, `->>`, `->'`, `MEMBER OF`, `REGEXP_LIKE`, `JSON_ARRAYAGG`, `JSON_OVERLAPS` y
+>   `utf8mb4_0900`: **cero fuera de comentarios** (los cuatro que salen son docblocks que hablan de
+>   `ALGORITHM=INSTANT`). La población es sólo lo nuevo a propósito: lo desplegado corre allí desde
+>   el 31 ago y ya contestó por sí mismo.
+> - **Lo que sigue sin medir: la tanda sobre MariaDB.** `tools/ensayo-de-la-tanda.sh` la corrió
+>   sobre MySQL 8. Convertir «deberían» en un número es un contenedor `mariadb:10.5` con la copia de
+>   `simonbolivar` y las siete encima. No cambia el plan del día 10; es lo único que queda entre la
+>   tanda y un ensayo sobre el motor de verdad.
 
 > **Y desde el 5 sep 2026 son SIETE, no cinco: entraron las dos de la plantilla de notas.**
 > `2026_09_05_200000_alcance_de_la_plantilla` y
