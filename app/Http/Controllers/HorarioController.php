@@ -2564,6 +2564,86 @@ class HorarioController extends Controller
      * vacías, y **se estrena el día que se rellenen**. Arreglarlo después
      * convierte el estreno del horario en un fallo nuevo.
      */
+    /**
+     * El proyecto de una versión, tal cual se subió, para llevárselo a otro computador.
+     *
+     * **La sexta ruta, autorizada por Joseth el 5 sep 2026** — la única de la familia
+     * que estuvo escrita como pregunta desde el principio y nadie llegó a pedir (§10.2,
+     * decisión 3). Cierra el hueco que dejaban las otras cinco: hasta hoy, el `.myvch`
+     * que subió un colegio **sólo se sacaba con un `SELECT` a mano**.
+     *
+     * ## Por qué su permiso NO es el de mirar
+     *
+     * `puedePublicarHorario` —superusuario o coordinación—, que es el mismo de
+     * `putOficial` y **no** el `auth.personal` con el que cualquiera de los 53 docentes
+     * lee las lecciones. Es la línea que las decisiones 12 y §9.bis ya habían trazado en
+     * dos pasos: *«listar no es descargar»* y luego *«mirar no es llevarse»*. Mirar la
+     * rejilla del colegio es un hecho que ya está en el pasillo —el horario se imprime y
+     * se cuelga—; **llevarse el fichero es sacar de la casa el trabajo entero de cuadrar
+     * el año**, con las disponibilidades declaradas de los 47 docentes dentro.
+     *
+     * El guard de la ruta sigue siendo `auth.personal`, que cierra la puerta a alumnos y
+     * acudientes antes de tocar el controlador; el criterio fino va aquí, como en las
+     * otras dos escrituras de la familia.
+     *
+     * ## Por qué viaja como fichero y no dentro de un JSON
+     *
+     * **Medido, no elegido por gusto**: meter el `.myvch` como cadena dentro de un JSON
+     * duplica cada tabulador y cada comilla, y el factor va de **× 1,41** en un proyecto
+     * vacío a **× 1,795** en uno con el horario entero colocado (§10.2). Los 128.779
+     * bytes del proyecto real de `simonbolivar` se irían a 231.135. Aquí no hay nada que
+     * escapar: sale el mismo texto que entró, byte a byte.
+     *
+     * Y por eso mismo **no lleva `comprobaciones` ni `es_oficial` al lado**: quien quiera
+     * el veredicto tiene `getVersiones`, y mezclar metadatos con el fichero obligaría a
+     * un sobre y a volver al escapado. *Una ruta que devuelve un fichero devuelve un
+     * fichero.*
+     *
+     * ## El `{id}` se comprueba contra el año del token, igual que en `getLecciones`
+     *
+     * **404 si la versión no es de ese año, no 403**, y por la misma razón de allí: sin
+     * eso sería un identificador de la URL que no comprueba nadie
+     * (`tools/identificadores-del-cuerpo.py`). Y el nombre del fichero se construye
+     * aquí y no se toma de `horario_versiones.nombre`: ese campo lo escribe el cliente y
+     * lleva acentos, comillas invertidas y puntos —«prueba `servidor` 2026-09-02 · punta
+     * a punta» es un nombre real de esta base—, así que ponerlo en una cabecera es
+     * ofrecerle al que sube que elija la cabecera del que descarga.
+     */
+    public function getProyecto($id)
+    {
+        Autoriza::exigir(Autoriza::puedePublicarHorario($this->user),
+            'No tienes permiso para descargar el proyecto del horario.');
+
+        $versionId = (int) $id;
+        $yearId = (int) $this->user->year_id;
+
+        $version = DB::select(
+            'SELECT hv.id, hv.year_id, hv.proyecto, y.year
+               FROM horario_versiones hv
+               LEFT JOIN years y ON y.id = hv.year_id
+              WHERE hv.id = ? AND hv.year_id = ?',
+            [$versionId, $yearId]
+        );
+
+        if ($version === []) {
+            abort(404, 'Esa versión del horario no existe en este año.');
+        }
+
+        $proyecto = (string) $version[0]->proyecto;
+        $anio = $version[0]->year === null ? $yearId : (int) $version[0]->year;
+        $nombre = "horario-{$anio}-v{$versionId}.myvch";
+
+        // `Content-Length` va explícito porque el cuerpo es una cadena ya en memoria y
+        // el cliente de escritorio la usa para su barra de progreso. `strlen` y no
+        // `mb_strlen`: lo que cuenta una cabecera son bytes, no caracteres, y este
+        // fichero lleva acentos dentro.
+        return response($proyecto, 200, [
+            'Content-Type' => 'application/octet-stream',
+            'Content-Disposition' => 'attachment; filename="'.$nombre.'"',
+            'Content-Length' => (string) strlen($proyecto),
+        ]);
+    }
+
     public function putOficial($id)
     {
         Autoriza::exigir(Autoriza::puedePublicarHorario($this->user),

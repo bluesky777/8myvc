@@ -452,6 +452,58 @@
 >
 > *En los dieciséis colegios esto no existe: cero versiones desplegadas.*
 
+**5 sep 2026 — LA SEXTA RUTA DEL HORARIO, Y CON ELLA EL MÓDULO SE QUEDA SIN NINGUNA
+DECISIÓN ABIERTA** · `HorarioController`, `routes/api/horario.php`,
+`tests/Contrato/HorarioProyectoTest.php` (**8 casos, 47 aserciones**), `CLAUDE.md`, [23
+§10.2](23-horarios.md) y **los tres snapshots** · **578 rutas, contadas con `route:list
+--json`** · pint PASS · larastan `[OK] No errors`
+
+> `GET horario/versiones/{id}/proyecto` — **descargar el `.myvch` que subió el colegio**. Era
+> la decisión 3, la última abierta del módulo, y llevaba **desde el 2 sep escrita como
+> pregunta sin que nadie la pidiera**. Joseth la autorizó al ponérsela con el precio y con lo
+> que cerraba: hasta hoy el proyecto de una versión **sólo se sacaba con un `SELECT` a mano**.
+>
+> *«No la pide nadie» no era una respuesta: era que nadie se la había planteado a quien
+> decide.*
+>
+> **Su permiso NO es el de mirar**, y aquí se ve la escalera entera que este módulo fue
+> trazando sin proponérselo:
+>
+> ```
+> decisión 12   «listar no es descargar»    getVersiones   auth.personal
+> §9.bis        «mirar no es llevarse»      getLecciones   auth.personal
+> ésta          llevarse es otra cosa       getProyecto    puedePublicarHorario
+> ```
+>
+> Mirar la rejilla es un hecho que ya está en el pasillo —el horario se imprime y se cuelga,
+> trece hojas apaisadas—. **Llevarse el fichero saca de la casa el trabajo entero de cuadrar
+> el año**, con las disponibilidades declaradas de los 47 docentes dentro, que esta base sí
+> guarda (`ac09cb7`).
+>
+> **No toca la tanda**: cero migraciones, así que las **siete** que congeló Joseth siguen
+> siendo siete. Lo que mueve son los tres snapshots y el contador.
+>
+> ### Y de paso salió un censo que llevaba un día entero mintiendo
+>
+> `HorarioAutorizacionTest` enumeraba **a mano** las rutas de la familia para probar que ni
+> alumnos ni acudientes entran. Decía «las cuatro» y eran **cinco desde el 4 sep**: la que
+> faltaba era `PUT .../tono`, **la única escritura de `profesores.tono`**, y llevaba un día
+> **sin que ningún alumno ni acudiente la probara**. Nada se puso rojo, porque una lista
+> escrita a mano no sabe lo que le falta.
+>
+> **Y su propio docblock avisaba de esto**, literal: *«un `lasTresRutas` que devolviera cuatro
+> es la clase de cifra que envejece sin ponerse roja»*. **Envejeció exactamente así, con el
+> aviso puesto.** Un aviso no protege solo; sólo protege el día que alguien hace lo que dice —
+> van tres casos en dos días.
+>
+> Arreglado por construcción y no añadiendo dos filas: **el proveedor sale ahora del fichero
+> de rutas**, y un control aparte lo cruza contra el **router de verdad** con la app en pie.
+> Dos fuentes independientes, y la que avisa es la que las compara. *Se lee el fichero y no el
+> router porque un proveedor de datos corre antes de que arranque la aplicación — `Route::`
+> ahí da «A facade root has not been set».* Y lleva su propio suelo (`>= 6`), porque un
+> proveedor que devolviera **cero** dejaría los tres casos pasando en vacío: el «0 encontrados»
+> que `CLAUDE.md` cataloga para `tools/`, ahora en un test.
+
 **5 sep 2026 — EL HORARIO, CERRADO: DE CUATRO DECISIONES «ABIERTAS», TRES ESTABAN YA
 CONTESTADAS** · [23 §10.2, §11.1, §11.5](23-horarios.md) · **cero código, el router en 577**
 

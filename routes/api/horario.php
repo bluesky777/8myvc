@@ -107,3 +107,43 @@ Route::get('horario/versiones/{id}/lecciones', [HorarioController::class, 'getLe
 |
 */
 Route::put('horario/docentes/{profesor_id}/tono', [HorarioController::class, 'putTonoDocente'])->middleware('auth.personal');
+
+/*
+|--------------------------------------------------------------------------
+| La sexta: descargar el proyecto de una versión
+|--------------------------------------------------------------------------
+|
+| Decisión 3 de la §10.2 del 23, la última que quedaba abierta del módulo.
+| Autorizada por Joseth el 5 sep 2026 tras estar escrita como pregunta desde el
+| 2 sep sin que nadie la pidiera. Lo que cierra: hasta hoy el `.myvch` que subió
+| un colegio **sólo se podía sacar con un `SELECT` a mano**.
+|
+| ## `puedePublicarHorario` dentro, y aquí está la línea entera de la familia
+|
+| El guard de la ruta es `auth.personal` —cierra la puerta a alumnos y acudientes
+| antes del controlador, como las otras cinco—, pero el criterio fino es el de
+| **publicar**, no el de mirar. Es el voto que dio el front y coincide con las dos
+| reglas que este módulo ya había trazado en dos pasos:
+|
+|   decisión 12   «listar no es descargar»     -> `getVersiones`  con auth.personal
+|   §9.bis        «mirar no es llevarse»       -> `getLecciones`  con auth.personal
+|   ésta          llevarse SÍ es otra cosa     -> `puedePublicarHorario`
+|
+| Mirar la rejilla es un hecho que ya está en el pasillo: el horario se imprime y
+| se cuelga, trece hojas apaisadas. **Llevarse el fichero saca de la casa el
+| trabajo entero de cuadrar el año**, con las disponibilidades declaradas de los
+| 47 docentes dentro — que esta base sí guarda, medido el 5 sep (`ac09cb7`).
+|
+| ## No mueve ninguna migración, y eso es lo que la deja entrar hoy
+|
+| La tanda del día 10 está congelada en siete por decisión de Joseth. Ésta es
+| código y ruta, cero esquema, así que **no la toca**. Lo que sí mueve son los
+| tres snapshots y el contador de `CLAUDE.md`, que se cuenta con `route:list`
+| desde el árbol en el que se esté — nunca sumándole uno al que había.
+|
+| `proyecto` va detrás de `versiones/{id}`, que ya es literal y seguido de un
+| segmento fijo en dos rutas más: no tapa a `lecciones` ni a `oficial` ni ellas a
+| ella.
+|
+*/
+Route::get('horario/versiones/{id}/proyecto', [HorarioController::class, 'getProyecto'])->middleware('auth.personal');

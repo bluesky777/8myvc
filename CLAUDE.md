@@ -8,7 +8,7 @@ entrar `PlantillaNotasController`; el 4 sep eran 114 y 117, y antes decían 113 
 trait `Concerns/ResuelveElUsuario.php` **no cuenta**: es el fichero 116 del directorio y no
 declara ninguna clase), porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
-**577 rutas** (contadas con
+**578 rutas** (contadas con
 `route:list --json` el 5 sep 2026; el 24 ago el de rutas se movió por primera vez,
 de 539 a 542, con los tres endpoints que pidió `myvc_flutter`, el 28 a 543 con
 `PUT users/mi-docente`, que pidió Joseth para el panel de `app2`, el 31 a 544 con
@@ -69,7 +69,17 @@ columnas anulables en `unidades_por_defecto`— y no por comodidad: **las column
 pantalla no las puede escribir nadie**, que es el caso `profesores.tono` del día anterior
 visto antes de cometerlo, y la pantalla sin alcance le siembra la plantilla de una fila de
 preescolar **a todo el bachillerato**. **577 se contó con `route:list --json`, no se
-sumó** — coincidió con 568 + 9. «El de rutas no se mueve»
+sumó** — coincidió con 568 + 9. Y ese mismo día a **578** con **la sexta de `horario/`**
+—`GET horario/versiones/{id}/proyecto`, descargar el `.myvch` que subió el colegio—, que
+es la **última decisión que le quedaba abierta a ese módulo** y llevaba desde el 2 sep
+escrita como pregunta **sin que nadie la pidiera**. Joseth la autorizó al ponérsela con lo
+que costaba y lo que cerraba: hasta ese día el proyecto de una versión **sólo se sacaba con
+un `SELECT` a mano**. Su permiso **no es el de mirar**: `puedePublicarHorario` dentro del
+método, que es el tercer escalón de una escalera que este módulo trazó en tres pasos
+—*«listar no es descargar»*, *«mirar no es llevarse»* y ésta—, porque el fichero lleva
+dentro las disponibilidades declaradas de los 47 docentes. **578 se contó desde el árbol en
+el que se escribió, que es lo que ahora exige el recuadro de abajo.** «El de rutas no se
+mueve»
 sigue siendo la
 regla: una ruta nueva es una decisión, no un efecto secundario, y mueve este
 documento y **tres** snapshots, no dos: `rutas.json`, `guards-por-ruta.json` y

@@ -3,6 +3,7 @@
 namespace Tests\Contrato;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Route;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -44,21 +45,90 @@ class HorarioAutorizacionTest extends CasoDeContrato
     private const ROL_QUE_SUBE = 'Secretario';
 
     /**
-     * Las cuatro rutas de la familia, con el verbo que cada una acepta.
+     * **Toda la familia `horario/`, sacada del ROUTER y no escrita a mano.**
      *
-     * Eran tres —las de la §5.3— hasta el 4 sep 2026, cuando entró `getLecciones`
-     * (§9.bis). **El nombre de este proveedor se movió con ellas a propósito**: un
-     * `lasTresRutas` que devolviera cuatro es la clase de cifra que envejece sin
-     * ponerse roja, que es de lo que va medio `CLAUDE.md`.
+     * Fueron tres —las de la §5.3—, luego cuatro con `getLecciones` (§9.bis), cinco
+     * con el `tono` y seis con `getProyecto`. Cada vez, este proveedor se quedó atrás:
+     * el 5 sep 2026 seguía enumerando **cuatro de cinco**, y la que faltaba —la única
+     * escritura de `profesores.tono`— **llevaba un día entero sin que ningún alumno ni
+     * acudiente la probara**. Nada se puso rojo, porque una lista escrita a mano no
+     * sabe lo que le falta.
+     *
+     * Su docblock anterior avisaba, literal, de que *«un `lasTresRutas` que devolviera
+     * cuatro es la clase de cifra que envejece sin ponerse roja»* — y **envejeció
+     * exactamente así, con el aviso puesto**. Un aviso no protege: sólo protege el día
+     * que alguien hace lo que dice. Así que ahora no hay nada que acordarse de mover:
+     * si mañana entra la séptima, entra sola.
+     *
+     * Los `{parámetros}` se sustituyen por `1`. Da igual que exista: lo que estos casos
+     * miden es **quién pasa el guard**, y un 404 no es un 403.
+     *
+     * @return array<string, array{string, string}>
      */
-    public static function lasCuatroRutas(): array
+    public static function todaLaFamilia(): array
     {
-        return [
-            'subir' => ['postJson', '/api/horario/versiones'],
-            'listar' => ['getJson', '/api/horario/versiones'],
-            'publicar' => ['putJson', '/api/horario/versiones/1/oficial'],
-            'leer las lecciones' => ['getJson', '/api/horario/versiones/1/lecciones'],
-        ];
+        // **Se lee el FICHERO y no el router, y no es por gusto**: un proveedor de datos
+        // corre antes de que PHPUnit arranque la aplicación, así que aquí no hay facades
+        // —`Route::getRoutes()` da «A facade root has not been set»—. El control de más
+        // abajo sí corre con la app en pie y compara esta lista contra el router de
+        // verdad: **dos fuentes independientes, y la que las cruza es la que avisa.**
+        $fichero = dirname(__DIR__, 2).'/routes/api/horario.php';
+        $verbos = ['get' => 'getJson', 'post' => 'postJson', 'put' => 'putJson', 'delete' => 'deleteJson'];
+        $casos = [];
+
+        preg_match_all(
+            "/Route::(get|post|put|delete)\\(\\s*'([^']+)'/",
+            (string) file_get_contents($fichero),
+            $encontradas,
+            PREG_SET_ORDER
+        );
+
+        foreach ($encontradas as [, $verbo, $uri]) {
+            $casos[strtoupper($verbo).' '.$uri] = [
+                $verbos[$verbo],
+                '/api/'.preg_replace('/\\{[^}]+\\}/', '1', $uri),
+            ];
+        }
+
+        ksort($casos);
+
+        return $casos;
+    }
+
+    /**
+     * El control del proveedor de arriba: **que de verdad haya encontrado la familia.**
+     *
+     * Sin esto, un `str_starts_with` que dejara de casar —porque alguien mueva el
+     * prefijo, o porque el fichero de rutas no se cargue en el contexto del test—
+     * devolvería **cero casos y los tres tests de arriba pasarían sin ejercer nada**.
+     * Es el mismo fallo que `CLAUDE.md` cataloga en `tools/`: un «0 encontrados» no
+     * distingue *«miré y no había»* de *«no miré»*.
+     */
+    #[Test]
+    public function el_proveedor_encuentra_la_familia_entera(): void
+    {
+        $delProveedor = count(self::todaLaFamilia());
+
+        $delRouter = 0;
+        // `->getRoutes()` dos veces no es un descuido: el primero devuelve la
+        // colección y el segundo el array de dentro. `RouteCollectionInterface` no
+        // declara `IteratorAggregate`, así que recorrer la colección funciona en
+        // tiempo de ejecución y larastan lo rechaza — con razón: depende de la clase
+        // concreta que haya detrás de la interfaz.
+        foreach (Route::getRoutes()->getRoutes() as $ruta) {
+            if (str_starts_with($ruta->uri(), 'api/horario/')) {
+                $delRouter++;
+            }
+        }
+
+        $this->assertGreaterThanOrEqual(6, $delProveedor,
+            'La familia `horario/` tiene seis rutas desde el 5 sep 2026. Si esto baja, '.
+            'o se retiró una ruta o el proveedor dejó de encontrarlas — y lo segundo '.
+            'dejaría los casos de abajo pasando en vacío.');
+
+        $this->assertSame($delRouter, $delProveedor,
+            'Cada ruta de la familia tiene que producir un caso. Si el router declara '.
+            'más de las que el proveedor devuelve, hay una sin probar.');
     }
 
     private function pedir(string $metodo, string $ruta, string $token)
@@ -103,15 +173,15 @@ class HorarioAutorizacionTest extends CasoDeContrato
      * docente*, no *cualquiera*: una versión del horario dice qué docente está
      * dónde a cada hora.
      */
-    #[DataProvider('lasCuatroRutas')]
-    public function test_un_alumno_no_entra_a_ninguna_de_las_cuatro(string $metodo, string $ruta): void
+    #[DataProvider('todaLaFamilia')]
+    public function test_un_alumno_no_entra_a_ninguna_de_la_familia(string $metodo, string $ruta): void
     {
         $token = $this->tokenDe($this->usuarioDeTipo('Alumno')->username);
 
         $this->pedir($metodo, $ruta, $token)->assertStatus(403);
     }
 
-    #[DataProvider('lasCuatroRutas')]
+    #[DataProvider('todaLaFamilia')]
     public function test_un_acudiente_tampoco(string $metodo, string $ruta): void
     {
         $token = $this->tokenDe($this->usuarioDeTipo('Acudiente')->username);
@@ -159,8 +229,8 @@ class HorarioAutorizacionTest extends CasoDeContrato
      * y mañana habrá un 200 o un 422. Lo que este lote decide es si el guard deja
      * pasar, no qué contesta el que está detrás.
      */
-    #[DataProvider('lasCuatroRutas')]
-    public function test_un_superusuario_pasa_los_cuatro_criterios(string $metodo, string $ruta): void
+    #[DataProvider('todaLaFamilia')]
+    public function test_un_superusuario_pasa_todos_los_criterios(string $metodo, string $ruta): void
     {
         $usuario = $this->usuarioDeTipo('Usuario');
 

@@ -2135,14 +2135,22 @@ siguen sin estar.
 > **Siete se cerraron el 2 sep** y están arriba, en la §10.1 — las rutas, la opción B,
 > quién marca la oficial, el rol vacío, quién lista, los años cerrados y el blob.
 >
-> ~~**Quedan cuatro**~~ ~~**Quedan DOS**~~ **QUEDA UNA: la 3**, si existe una ruta para
-> descargar el proyecto — sería la **sexta** de la familia y **sigue sin pedirla nadie**.
+> ~~**Quedan cuatro**~~ ~~**Quedan DOS**~~ ~~**QUEDA UNA**~~ **NO QUEDA NINGUNA.** La **3**
+> —descargar el proyecto— la **autorizó Joseth el 5 sep 2026** y ya está escrita: es
+> `GET horario/versiones/{id}/proyecto`, con `puedePublicarHorario` dentro. **El router pasó
+> a 578**, contado con `route:list --json` desde el árbol donde se escribió.
+>
+> **Se autorizó al ponerle delante lo que costaba y lo que cerraba**, que es lo que llevaba
+> tres días faltando: sin ella, el `.myvch` que subió un colegio **sólo se sacaba con un
+> `SELECT` a mano**. *Llevaba desde el 2 sep escrita como pregunta y nadie la pedía — y «no
+> la pide nadie» no era una respuesta, era que nadie se la había planteado a quien decide.*
 >
 > | | cuándo | cómo se cerró |
 > |---|---|---|
 > | **1** `GET asignaturas` y la papelera | 4 sep 2026 | **se queda como está**: no se toca la respuesta de una ruta viva que llaman los cuatro clientes |
 > | **2** el tope del blob | 5 sep 2026 | **su propio texto ya la había contestado** —«el blob va en la fila, sin comprimir», con la cota alta medida— y el rótulo de la cabecera no se había movido |
 > | **4** las siete columnas | 4 y 5 sep 2026 | el vigilante escrito (`tools/deriva-del-horario.php`) y, el 5, **comprobado que el orden no se promete**: `asignaturas_dia()` no lleva `ORDER BY` |
+> | **3** descargar el proyecto | 5 sep 2026 | **autorizada y escrita**: sexta ruta, `puedePublicarHorario`, el fichero **byte a byte** y sin escapar |
 >
 > **Las tres cerradas tienen algo en común que conviene ver junto:** ninguna se cerró
 > decidiendo algo nuevo. La 1 se cerró **eligiendo no tocar**, la 2 **leyendo lo que ya
@@ -2331,10 +2339,28 @@ siguen sin estar.
    > mismos 64 caracteres **se fusionan en una sola** y el choque de docente se
    > calcularía sobre una pieza que no existe. *No da error: da un horario equivocado.*
 
-3. **¿Existe una ruta para DESCARGAR el proyecto de una versión, y con qué permiso?**
-   Sería una **sexta** ruta, y **su número se cuenta con `route:list` el día que se
-   autorice** — no está pedida. Voto del front: el mismo permiso que publica, no el que
-   sube (§5.4).
+3. ~~**¿Existe una ruta para DESCARGAR el proyecto de una versión, y con qué permiso?**~~
+   **CERRADA el 5 sep 2026: SÍ, y con el permiso que publica** — el voto del front, que era
+   el único que había. Es `GET horario/versiones/{id}/proyecto`, guard `auth.personal` y
+   `puedePublicarHorario` dentro, y **el número se contó ese día con `route:list`: 578**,
+   como decía este mismo punto que había que hacer.
+
+   **Tres cosas de su forma que no son preferencias:**
+
+   1. **El fichero viaja crudo, no dentro de un JSON.** Meterlo en un sobre lo escapa, y el
+      factor está medido en el punto 2 de aquí arriba: **× 1,41 vacío y × 1,795 lleno**. Y lo
+      caro no es el tamaño — **un `.myvch` escapado se descarga sin error y no lo abre el
+      escritorio**.
+   2. **No lleva `comprobaciones` ni `es_oficial` al lado.** Quien quiera el veredicto tiene
+      `getVersiones`; mezclar metadatos con el fichero obliga a un sobre y devuelve el
+      escapado por la puerta de atrás. *Una ruta que devuelve un fichero devuelve un fichero.*
+   3. **El nombre del fichero lo construye el servidor** —`horario-{año}-v{id}.myvch`— y no
+      sale de `horario_versiones.nombre`, que lo escribe el cliente: en esta base hay una
+      versión llamada, literal, *«prueba `servidor` 2026-09-02 · punta a punta»*. Ponerlo en
+      `Content-Disposition` sería dejar que el que sube elija una cabecera del que descarga.
+
+   *Lo escribió `8myvc-ae`: `HorarioProyectoTest`, 8 casos y 47 aserciones, pint PASS y
+   larastan `[OK]`.*
 
    > **Aquí decía «una cuarta ruta», y eso ya nombra a otra cosa.** La cuarta se
    > escribió el 4 sep 2026 y es `GET horario/versiones/{id}/lecciones` (§9.bis) —

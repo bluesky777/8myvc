@@ -80,6 +80,7 @@
         "GET api/grupos/{grupo_id}/alumnos-de/{que}",
         "GET api/horario/versiones",
         "GET api/horario/versiones/{id}/lecciones",
+        "GET api/horario/versiones/{id}/proyecto",
         "GET api/importar",
         "GET api/importar/modificar/{year}",
         "GET api/nota_comportamiento/detailed/{grupo_id}",
