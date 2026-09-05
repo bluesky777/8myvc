@@ -52,6 +52,11 @@ class HorarioLeccionesTest extends CasoDeContrato
         'nombre_salon', 'salon_capacidad_grupos', 'docentes',
     ];
 
+    /** Las claves de los ejes, y ninguna más. */
+    private const CLAVES_DE_LOS_EJES = [
+        'convenio_dia', 'dias', 'franjas', 'minutos_por_leccion', 'timbres', 'descansos_tras',
+    ];
+
     /** Los catálogos que la respuesta declara, y ninguno menos. */
     private const CATALOGOS = [
         'grupos', 'asignaciones', 'docentes', 'tono',
@@ -101,6 +106,47 @@ class HorarioLeccionesTest extends CasoDeContrato
         );
 
         return (int) DB::getPdo()->lastInsertId();
+    }
+
+    /**
+     * Una versión con el blob que se le diga, para ejercer la jornada.
+     *
+     * **La marca va dentro siempre**, aunque el blob lo escriba el caso: desde el
+     * 4 sep 2026 esta ruta **carga el proyecto en memoria** para sacarle los
+     * descansos, así que la fuga dejó de ser imposible por construcción y pasó a
+     * depender de que nadie lo eche a la respuesta. Un blob de prueba sin marca
+     * dejaría ese riesgo sin vigilar justo en los casos que lo estrenan.
+     */
+    private function versionConProyecto(int $yearId, string $blob, string $nombre = 'Versión con jornada'): int
+    {
+        DB::insert(
+            'INSERT INTO horario_versiones (year_id, nombre, subida_por, proyecto, comprobaciones, created_at, updated_at)
+             VALUES (?, ?, NULL, ?, NULL, ?, ?)',
+            [$yearId, $nombre, $blob, '2026-09-04 10:00:00', '2026-09-04 10:00:00']
+        );
+
+        return (int) DB::getPdo()->lastInsertId();
+    }
+
+    /** Un proyecto con la jornada que se le pase, y la marca dentro. */
+    private function proyectoCon(string $jornada): string
+    {
+        return '{"formato":1,"programa":"'.self::MARCA_DEL_BLOB.'","proyecto":{"anio":2025,"jornadaPorDefecto":'.$jornada.'}}';
+    }
+
+    /** Lee `ejes.descansos_tras` de una versión cuyo proyecto trae esa jornada. */
+    private function descansosCon(string $jornada): mixed
+    {
+        $anio = $this->anioDelSujeto();
+        $version = $this->versionConProyecto($anio, $this->proyectoCon($jornada));
+        $this->leccionEn($version, (int) $this->asignacionDe($anio)->id, 'a1-0', 1, 1);
+
+        $r = $this->leer($version)->assertStatus(200);
+
+        $this->assertStringNotContainsString(self::MARCA_DEL_BLOB, $r->getContent(),
+            'Leer el proyecto para sacar los descansos ha empezado a filtrarlo en la respuesta.');
+
+        return $r->json('ejes.descansos_tras');
     }
 
     /** Una lección colocada. `dia` en el convenio de la §5.2.5 y `franja` en base 1. */
@@ -381,12 +427,132 @@ class HorarioLeccionesTest extends CasoDeContrato
 
         $ejes = $this->leer($version)->assertStatus(200)->json('ejes');
 
+        $this->assertSame(self::CLAVES_DE_LOS_EJES, array_keys($ejes),
+            'Los ejes traen exactamente estas claves: una que se caiga —`descansos_tras`, por ejemplo— '
+            .'no da error, deja la parrilla corrida y se lee como que el colegio no descansa.');
         $this->assertSame([1, 3], $ejes['dias'], 'Los días son los que la versión usa, no una rejilla inventada.');
         $this->assertSame([2, 5], $ejes['franjas']);
         $this->assertNull($ejes['timbres']);
         $this->assertStringContainsString('0=domingo', $ejes['convenio_dia'],
             'El convenio del día se DECLARA: un horario corrido un día cumple todas las reglas de la §6 '
             .'y no lo detecta nadie.');
+    }
+
+    /**
+     * Los descansos salen del proyecto, y **los tres estados son tres cosas distintas**.
+     *
+     * El dato lleva desde el 2 sep 2026 en el blob que esta ruta ya leía —a un
+     * `json_decode` de distancia— y nadie lo pidió porque el renglón `timbres` de
+     * `catalogos` decía que la jornada *«vive en el fichero de proyecto»*: verdad, y
+     * el fichero está en la columna de al lado. Lo levantó `myvc-front-c0` abriendo el
+     * blob, no leyendo código.
+     *
+     * **Base 1 y «tras»**: un `3` es *después de la tercera lección*, no *en la tercera*.
+     */
+    #[Test]
+    public function los_descansos_salen_del_proyecto(): void
+    {
+        $this->assertSame([3, 5], $this->descansosCon('{"dias":[1,2,3,4,5],"franjas":7,"timbres":null,"descansosTras":[3,5]}'),
+            'Es el valor exacto que traen los siete `horario_versiones` reales de `simonbolivar`.');
+    }
+
+    /**
+     * **La lista vacía es un dato: el colegio no descansa.** Y `null` es no saberlo.
+     *
+     * Es la distinción entera de este lote y la misma que sostiene `vacio` contra
+     * `sin_catalogo` en los catálogos. Si «no lo sé» saliera como `[]`, el front
+     * pintaría una parrilla corrida **con toda la confianza del mundo** y nadie
+     * recibiría ningún error: la hoja bien maquetada y falsa.
+     *
+     * Los dos casos van en el mismo test **a propósito**: separados, cada mitad puede
+     * pasar con la otra rota, y lo que hay que defender es que **no se confundan**.
+     */
+    #[Test]
+    public function la_lista_vacia_y_el_nulo_no_son_lo_mismo(): void
+    {
+        $noDescansa = $this->descansosCon('{"dias":[1,2,3,4,5],"franjas":7,"descansosTras":[]}');
+        $noSeSabe = $this->descansosCon('{"dias":[1,2,3,4,5],"franjas":7,"timbres":null}');
+
+        $this->assertSame([], $noDescansa,
+            'El proyecto dice que no hay descansos: eso es `[]`, un dato, y no un hueco.');
+        $this->assertNull($noSeSabe,
+            'Sin la clave `descansosTras` no se sabe, y «no lo sé» NO se aplasta a «no hay».');
+        $this->assertNotSame($noDescansa, $noSeSabe,
+            'Los dos estados se han confundido: es exactamente lo que este caso existe para impedir.');
+    }
+
+    /**
+     * **Un proyecto que no parsea no revienta la ruta**: cae a `null`.
+     *
+     * No es un caso de laboratorio. El blob es texto libre —129.550 bytes en el mayor
+     * de los siete reales— que sube un programa de escritorio, así que un fichero a
+     * medias es de las cosas que pasan; y desde este lote la ruta lo **decodifica**, o
+     * sea que antes daba igual y ahora no. Las tres formas se rompen de verdad, no con
+     * un mock: JSON inválido, JSON válido que no es un objeto, y el `proyecto` como
+     * cadena — que es la forma que ya usaba el resto de este fichero sin saberlo.
+     */
+    #[Test]
+    public function un_proyecto_ilegible_no_revienta_la_ruta(): void
+    {
+        $anio = $this->anioDelSujeto();
+
+        $rotos = [
+            'JSON inválido' => '{"proyecto":{"jornadaPorDefecto":{"descansosTras":[3,',
+            'JSON válido que no es un objeto' => '"'.self::MARCA_DEL_BLOB.'"',
+            '`proyecto` es una cadena' => '{"proyecto":"'.self::MARCA_DEL_BLOB.'"}',
+            'la jornada no es un objeto' => '{"proyecto":{"jornadaPorDefecto":7}}',
+        ];
+
+        foreach ($rotos as $forma => $blob) {
+            $version = $this->versionConProyecto($anio, $blob, 'Proyecto roto');
+            $this->leccionEn($version, (int) $this->asignacionDe($anio)->id, 'a1-0', 1, 1);
+
+            $r = $this->leer($version)->assertStatus(200, "Con el proyecto roto por «{$forma}» la ruta tiene que seguir contestando.");
+
+            $this->assertNull($r->json('ejes.descansos_tras'), "«{$forma}» tiene que dar `null`, no `[]` ni un 500.");
+            $this->assertSame(1, $r->json('total_lecciones'), "«{$forma}» no puede llevarse por delante el resto de la respuesta.");
+        }
+    }
+
+    /**
+     * Una lista con algo que no es un entero sale **`null` entera**, no filtrada.
+     *
+     * Filtrar dejaría las líneas buenas y borraría la mala **sin decirlo**, y una línea
+     * gruesa en el sitio equivocado es indistinguible de una correcta — la misma
+     * familia de fallo por la que el convenio `0 = domingo` se declara en vez de
+     * deducirse. *Un dato que no se entiende entero no se entiende.*
+     */
+    #[Test]
+    public function una_lista_con_basura_no_se_filtra_a_medias(): void
+    {
+        $this->assertNull($this->descansosCon('{"descansosTras":[3,"cinco"]}'),
+            'Devolver `[3]` habría pintado una parrilla creíble a la que le falta una línea.');
+        $this->assertNull($this->descansosCon('{"descansosTras":{"manana":3}}'),
+            'Un objeto JSON llega como array de PHP, y `{"manana":3}` no es una lista de franjas.');
+    }
+
+    /**
+     * **Y comprobar la forma es además lo que impide una fuga**, que no era el motivo.
+     *
+     * Medido el 4 sep 2026 sustituyendo el método por la cadena ingenua
+     * `$blob['proyecto']['jornadaPorDefecto']['descansosTras'] ?? null`: **no revienta
+     * la ruta** —el `??` sobre un offset de cadena devuelve `null` y ya está, así que
+     * ése no es el argumento— pero **devuelve tal cual lo que hubiera ahí**. Y ahí
+     * puede haber cualquier cosa: el blob lo escribe un programa de escritorio y esta
+     * ruta tiene por contrato que **el proyecto no sale** (decisión 12, §9.bis).
+     *
+     * O sea que el campo se convertiría en **una puerta de salida del fichero de
+     * proyecto con nombre de dato**, y `el_proyecto_no_viaja_en_las_lecciones` no la
+     * vería: aquella marca vive en `programa`, no dentro de `descansosTras`. Aquí la
+     * marca se mete **dentro del propio valor**, que es el único sitio donde la cadena
+     * ingenua la dejaría salir.
+     */
+    #[Test]
+    public function la_comprobacion_de_forma_tambien_cierra_la_fuga(): void
+    {
+        $this->assertNull($this->descansosCon('{"descansosTras":["'.self::MARCA_DEL_BLOB.'"]}'),
+            'Una lista de cadenas no es una lista de franjas, y devolverla sacaría texto del proyecto '
+            .'por un campo que dice llamarse `descansos_tras`.');
     }
 
     /**

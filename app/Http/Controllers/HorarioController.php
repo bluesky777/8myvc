@@ -945,7 +945,6 @@ class HorarioController extends Controller
         ]);
     }
 
-
     /**
      * `GET horario/versiones/{id}/lecciones` — el horario de una versión, **para
      * pintarlo**.
@@ -1033,8 +1032,27 @@ class HorarioController extends Controller
         // comprueba nadie. Y va en el `WHERE` junto al id, no en un `if` después: así
         // «no existe» y «no es de tu año» son la misma respuesta y no hay forma de
         // averiguar qué versiones tienen los otros años preguntando por ellas.
+        //
+        // ── Y `hv.proyecto` VIAJA A PHP, que es lo único caro de esta consulta.
+        //
+        // Se trae el blob entero —129.550 bytes en el más grande de los siete reales—
+        // para sacarle **un** dato: los descansos de la jornada. Medido el 4 sep 2026
+        // sobre la versión 7 de `simonbolivar`, 200 repeticiones:
+        //
+        //     sin el blob ......................... 0,78 ms
+        //     + traerlo + `json_decode` ........... 2,86 ms   (+2,07 ms)
+        //     `JSON_EXTRACT` dentro del SELECT .... 5,42 ms   (+4,64 ms)
+        //
+        // **La opción que parecía la barata es la cara, y por eso está escrito**: la
+        // columna es `mediumtext`, **no `json`**, así que MySQL no tiene un documento
+        // ya parseado que indexar — reconstruye el JSON entero en cada llamada, y lo
+        // hace más despacio que PHP. Un `JSON_EXTRACT` sobre una columna de texto no
+        // es una lectura barata: es un `json_decode` en el otro lado del cable.
+        //
+        // Los +2,07 ms van sobre una ruta que tarda **21,9 ms** y devuelve 114 KB
+        // (312 lecciones, medido igual): un **+9%**. Se paga.
         $version = DB::select(
-            'SELECT hv.id, hv.year_id, hv.nombre, hv.created_at, hv.comprobaciones,
+            'SELECT hv.id, hv.year_id, hv.nombre, hv.created_at, hv.comprobaciones, hv.proyecto,
                     IF(y.horario_version_id = hv.id, 1, 0) AS es_oficial
                FROM horario_versiones hv
                LEFT JOIN years y ON y.id = hv.year_id
@@ -1118,7 +1136,7 @@ class HorarioController extends Controller
                 // que es lo que corrigió `0faf099`.
                 'comprobaciones' => $this->veredictoGuardado($version[0]->comprobaciones),
             ],
-            'ejes' => $this->ejesDeLaVersion($lecciones),
+            'ejes' => $this->ejesDeLaVersion($lecciones, $this->descansosDelProyecto($version[0]->proyecto)),
             'catalogos' => $this->catalogosDeLaVersion($yearId, $versionId, $lecciones),
             'lecciones' => $lecciones,
             // La población, delante y siempre. Sin ella `lecciones: []` se lee como
@@ -1183,10 +1201,20 @@ class HorarioController extends Controller
      * escribirá alguien —y «no hace falta conversión» es justo la frase que hace que
      * nadie la busque.
      *
+     * ## `descansos_tras` es la excepción, y hereda la regla entera
+     *
+     * Es lo único de la jornada que el proyecto sí trae y que aquí se puede leer, así
+     * que viaja — pero **con los mismos tres estados que el resto de esta ruta**:
+     * `[3,5]` es dónde van las líneas gruesas, `[]` es **el colegio no descansa** —que
+     * es un dato— y `null` es **no lo sabemos**. Aplastar los dos últimos a `[]`
+     * convertiría «no lo sé» en «no hay recreo» y el front pintaría una parrilla
+     * corrida con toda la confianza del mundo.
+     *
      * @param  list<array<string, mixed>>  $lecciones
+     * @param  list<int>|null  $descansos
      * @return array<string, mixed>
      */
-    protected function ejesDeLaVersion(array $lecciones): array
+    protected function ejesDeLaVersion(array $lecciones, ?array $descansos = null): array
     {
         $dias = array_values(array_unique(array_column($lecciones, 'dia')));
         $franjas = array_values(array_unique(array_column($lecciones, 'franja')));
@@ -1204,7 +1232,112 @@ class HorarioController extends Controller
             // **`null`, y no una jornada por defecto.** Ver arriba: reconstruirla apaga
             // el centinela del escritorio justo en el caso para el que existe.
             'timbres' => null,
+            // Dónde van las líneas gruesas del recreo. **Base 1 y «tras»**: un `3`
+            // significa *después de la tercera lección*, no *en la tercera*.
+            //
+            // **No se recorta contra `franjas`** aunque se pudiera: `franjas` son las
+            // que ESTA versión usa y el proyecto declara la jornada del colegio, así
+            // que un descanso tras la 7 en una versión que sólo llega a la 5 es
+            // legítimo — el colegio descansa ahí aunque esta versión no lo alcance.
+            // Filtrarlo escondería el dato en vez de comprobarlo.
+            'descansos_tras' => $descansos,
         ];
+    }
+
+    /**
+     * Los descansos que declara el fichero de proyecto, **con sus tres estados**.
+     *
+     * `proyecto.jornadaPorDefecto.descansosTras` dentro del blob —el camino es real y
+     * está medido: los **siete** `horario_versiones` de `simonbolivar` traen
+     * `{"dias":[1,2,3,4,5],"franjas":7,"timbres":null,"descansosTras":[3,5]}`—. Es lo
+     * único de la jornada que este servidor puede contestar sin inventarse nada, y por
+     * eso es lo único que sale.
+     *
+     * | lo que dice el proyecto | lo que devuelve |
+     * |---|---|
+     * | `descansosTras: [3,5]` | `[3, 5]` |
+     * | `descansosTras: []` | `[]` — **el colegio no descansa**, y eso es un dato |
+     * | no hay clave, el blob no parsea, o no es lo que se espera | `null` — **no lo sabemos** |
+     *
+     * **La tercera fila es la razón de que este método exista y no sea un `??`.** Es la
+     * misma distinción que sostiene `vacio` contra `sin_catalogo` en los catálogos: si
+     * «no lo sé» saliera como `[]`, el front pintaría una parrilla corrida y **nadie
+     * recibiría ningún error** — la hoja bien maquetada y falsa que este módulo lleva
+     * dos documentos evitando.
+     *
+     * **Un `json_decode` que falla NO revienta la ruta**: cae a `null`, que para eso
+     * está la tercera fila. Y no es un caso de laboratorio — el blob es texto libre de
+     * 129.550 bytes que sube un programa de escritorio, así que un fichero a medias es
+     * de las cosas que pasan.
+     *
+     * **Y una lista con un elemento que no es un entero sale `null` entera**, no
+     * filtrada. Filtrar dejaría las líneas buenas y borraría la mala **sin decirlo**, y
+     * una línea gruesa en el sitio equivocado es indistinguible de una correcta: es
+     * exactamente la familia de fallo que el convenio `0 = domingo` se declara para
+     * evitar. Un dato que no se entiende entero no se entiende.
+     *
+     * ## ⚠️ SI VIENES A SIMPLIFICAR ESTO, LEE ESTO PRIMERO
+     *
+     * La versión corta —`$blob['proyecto']['jornadaPorDefecto']['descansosTras'] ?? null`—
+     * **es más corta y hace otra cosa**. Y el motivo que yo mismo tenía escrito para
+     * rechazarla era **falso**: *«sin comprobar las formas, la ruta se cae»*. No se cae.
+     * Medido el 4 sep 2026 sustituyendo el método entero: el `??` sobre un offset de
+     * cadena devuelve `null` tan tranquilo y **los cuatro casos rotos siguen dando 200**.
+     *
+     * Lo que hace de verdad es **devolver tal cual lo que hubiera ahí** — y ahí lo escribe
+     * un programa de escritorio, en un blob de 129.550 bytes. O sea que el campo se
+     * convierte en **una puerta de salida del fichero de proyecto con nombre de dato**, en
+     * la ruta cuyo contrato es que *mirar no es llevarse* (decisión 12, §9.bis). *Comprobar
+     * la forma se escribió por corrección y resultó ser una guarda de seguridad.*
+     *
+     * **Y el test que ya vigilaba la fuga no lo habría visto**: su marca vive en
+     * `programa`, fuera de `descansosTras`. Por eso hay un caso que mete la marca **dentro
+     * del propio valor** (`la_comprobacion_de_forma_tambien_cierra_la_fuga`), que es el
+     * único sitio donde la versión corta la dejaría salir.
+     *
+     * **Y esta guarda ya no protege un campo.** Todo lo que la pantalla del horario vaya
+     * pidiendo del escritorio —jornadas por nivel, disponibilidades declaradas, las piezas
+     * sin colocar, la plantilla— **sale de este mismo blob y va a pasar por esta misma
+     * puerta**. *(`8myvc-7c` dice que Joseth aprobó la decisión 38 de `myvc_horarios` ese
+     * día con exactamente esa lista; eso no está en este repositorio y aquí no se ha
+     * comprobado — lo que sí está comprobado es que **el blob es la única fuente de las
+     * cuatro**, así que la conclusión no depende de esa decisión.)*
+     *
+     * @return list<int>|null
+     */
+    protected function descansosDelProyecto(?string $proyecto): ?array
+    {
+        if ($proyecto === null || $proyecto === '') {
+            return null;
+        }
+
+        $blob = json_decode($proyecto, true);
+
+        if (! is_array($blob) || ! isset($blob['proyecto']) || ! is_array($blob['proyecto'])) {
+            return null;
+        }
+
+        $jornada = $blob['proyecto']['jornadaPorDefecto'] ?? null;
+
+        if (! is_array($jornada) || ! array_key_exists('descansosTras', $jornada)) {
+            return null;
+        }
+
+        $descansos = $jornada['descansosTras'];
+
+        // `array_is_list` y no `is_array` a secas: un objeto JSON llega también como
+        // array de PHP, y `{"a":3}` no es una lista de franjas.
+        if (! is_array($descansos) || ! array_is_list($descansos)) {
+            return null;
+        }
+
+        foreach ($descansos as $tras) {
+            if (! is_int($tras)) {
+                return null;
+            }
+        }
+
+        return $descansos;
     }
 
     /** `years.minu_hora_clase` del año del token; `null` si el año no lo tiene puesto. */
@@ -1288,9 +1421,24 @@ class HorarioController extends Controller
                 'hay_ids' => false,
                 'motivo' => 'sólo viaja el nombre que mandó la subida: el servidor no guarda salones (§4)',
             ],
+            // **El motivo se reescribió el 4 sep 2026, y no por estilo: el anterior era
+            // verdad y engañaba.** Decía *«la rejilla, los timbres y las jornadas por
+            // nivel viven en el fichero de proyecto (§4)»*, que describe **de dónde
+            // viene el dato** y se lee como **que el servidor no lo tiene** — y el
+            // fichero está en la columna de al lado de esta misma tabla. Quien leyera
+            // eso archivaba la pregunta, que es lo que pasó: los descansos llevaban
+            // desde el 2 sep dentro del blob que esta ruta ya lee, a un `json_decode`
+            // de distancia, y nadie los pidió porque el renglón parecía cerrado. Lo
+            // levantó `myvc-front-c0`.
+            //
+            // El estado **sigue siendo `sin_catalogo` y eso es correcto**: los timbres
+            // son las horas de reloj, y `jornadaPorDefecto.timbres` vale `null` en los
+            // siete proyectos reales — el colegio no los ha dado. *Lo que este renglón
+            // ya no hace es afirmar una imposibilidad que dejó de ser cierta.*
             'timbres' => [
                 'estado' => 'sin_catalogo',
-                'motivo' => 'la rejilla, los timbres y las jornadas por nivel viven en el fichero de proyecto (§4)',
+                'motivo' => 'las horas de reloj no están en ninguna tabla: sólo dentro del fichero de proyecto, '
+                    .'y ahí el colegio no las ha dado. De ese mismo fichero sí sale ya `ejes.descansos_tras`',
             ],
             'disponibilidad' => [
                 'estado' => 'sin_catalogo',

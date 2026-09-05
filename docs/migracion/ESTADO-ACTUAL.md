@@ -22,6 +22,188 @@
 > Los mensajes de commit están limpios —cero apariciones—, así que sólo había que tocar
 > estas tres líneas.
 
+**4 sep 2026 — LA LÍNEA GRUESA DEL RECREO YA VIAJA: `ejes.descansos_tras`, CON SUS TRES
+ESTADOS** · `HorarioController` (`getLecciones`, `ejesDeLaVersion`, `descansosDelProyecto`
+nuevo y el `motivo` de `catalogos.timbres`), `tests/Contrato/HorarioLeccionesTest.php`
+(**16 casos, 161 aserciones**) y esta casilla · **el router NO se mueve: 568, contado con
+`route:list --json`** · pint PASS · larastan nivel 7 `[OK] No errors`
+
+> **El dato llevaba dos días dentro del blob que esta ruta ya leía, a un `json_decode` de
+> distancia, y nadie lo pidió.** El camino es
+> `proyecto.jornadaPorDefecto.descansosTras`, y las **siete** versiones reales de
+> `simonbolivar` traen la misma jornada:
+> `{"dias":[1,2,3,4,5],"franjas":7,"timbres":null,"descansosTras":[3,5]}`.
+>
+> **Por qué nadie lo pidió, que es el hallazgo de verdad**: el renglón `catalogos.timbres`
+> decía *«la rejilla, los timbres y las jornadas por nivel viven en el fichero de proyecto
+> (§4)»*. **Es verdad y engaña.** Describe **de dónde viene el dato** y se lee como **que
+> el servidor no lo tiene** — y el fichero está en la columna de al lado de la misma tabla.
+> Quien leyera eso archivaba la pregunta. Lo levantó `myvc-front-b2` **abriendo el blob, no
+> leyendo código**, y `myvc-front-c0` señaló la frase.
+>
+> ### LOS TRES ESTADOS, QUE SON EL LOTE ENTERO
+>
+> | el proyecto dice | viaja | qué significa |
+> |---|---|---|
+> | `descansosTras: [3,5]` | `[3, 5]` | dónde van las líneas gruesas |
+> | `descansosTras: []` | `[]` | **el colegio no descansa** — un dato afirmativo |
+> | no hay clave · el blob no parsea · no es lo que se espera | `null` | **no lo sabemos** |
+>
+> Aplastar las dos últimas a `[]` convertiría «no lo sé» en «no hay recreo» y el front
+> pintaría una parrilla corrida **con toda la confianza del mundo**, sin que nadie recibiera
+> un error. Es la misma distinción que sostiene `vacio` contra `sin_catalogo`, y la razón de
+> que esta ruta tenga cuatro estados de catálogo y no dos.
+>
+> **Base 1 y «tras»**: un `3` es *después de la tercera lección*, no *en la tercera*.
+>
+> ### EL COSTE, MEDIDO ANTES Y DESPUÉS — Y LA OPCIÓN QUE PARECÍA BARATA ES LA CARA
+>
+> `ejesDeLaVersion()` no abría el blob: los ejes salen de las lecciones. Esto le mete un
+> `json_decode` de hasta 129.550 bytes, así que se midió sobre la versión 7 de
+> `simonbolivar`, 200 repeticiones:
+>
+> | | |
+> |---|---|
+> | la consulta de la versión, sin el blob | **0,78 ms** |
+> | + traerlo + `json_decode` en PHP | **2,86 ms** (+2,07) |
+> | `JSON_EXTRACT` dentro del `SELECT` | **5,42 ms** (+4,64) |
+>
+> **La columna es `mediumtext`, no `json`**, así que MySQL no tiene un documento parseado
+> que indexar: reconstruye el JSON entero en cada llamada y lo hace **más despacio que PHP**.
+> *Un `JSON_EXTRACT` sobre una columna de texto no es una lectura barata: es un `json_decode`
+> en el otro lado del cable.* Los +2,07 ms van sobre una ruta que tarda **21,9 ms** y
+> devuelve **114 KB** con 312 lecciones: **+9%**, y se paga.
+>
+> **La salida que NO se tomó**: guardar `descansos_tras` en una columna al subir. Toca
+> `postVersiones`, toca migración —con la tanda del día 10 ya ensayada— y deja las **siete
+> versiones que ya existen con `null` para siempre**, o sea peor que el coste que venía a
+> evitar. *No era la misma decisión con menos trabajo: era otra decisión.*
+>
+> ### LOS CINCO CONTROLES, Y EL QUINTO NO LO BUSCABA NADIE
+>
+> | se rompe a propósito | qué cae |
+> |---|---|
+> | «no lo sé» aplastado a `[]` | **3** de 16 |
+> | se cae la clave `descansos_tras` | **3** de 16 |
+> | la lista con basura se filtra en vez de salir `null` | **1** |
+> | la cadena ingenua `$blob[…][…][…] ?? null` | **1** |
+>
+> **Y el hallazgo del cuarto control, que corrige lo que yo mismo iba a escribir:** la cadena
+> ingenua **NO revienta la ruta** —el `??` sobre un offset de cadena devuelve `null` y ya
+> está—, así que *«si no compruebas las formas, se cae»* **era falso** y no es el argumento.
+> Lo que sí hace es **devolver tal cual lo que hubiera ahí**, y ahí puede haber cualquier
+> cosa: el blob lo escribe un programa de escritorio. O sea que el campo se convertiría en
+> **una puerta de salida del fichero de proyecto con nombre de dato**, justo en la ruta cuyo
+> contrato es que *mirar no es llevarse* (decisión 12, §9.bis).
+>
+> **Y el test que ya vigilaba la fuga no lo habría visto**: su marca vive en
+> `programa`, fuera de `descansosTras`. Por eso entra un caso más —`la_comprobacion_de_forma_tambien_cierra_la_fuga`—
+> que mete la marca **dentro del propio valor**, que es el único sitio donde la cadena
+> ingenua la dejaría salir. Con él, el quinto control cae por la aserción de la fuga.
+>
+> *Comprobar la forma se escribió por corrección y resultó ser una guarda de seguridad. Se
+> deja escrito porque el motivo bueno no era el que se pensaba.*
+>
+> ### LO QUE NO SE HACE, Y NO POR FALTA DE GANAS
+>
+> - **Las horas de reloj.** `timbres` sigue `null` en los siete proyectos: el colegio no las
+>   ha dado. `years.minu_hora_clase = 50` es **cuánto dura** una lección, no a qué hora
+>   empieza, y con `descansosTras` sin `timbres` no se sabe ni cuánto dura el recreo. **La
+>   línea gruesa sí; la hora no.**
+> - **No se recorta contra `franjas`.** `franjas` son las que *esa versión* usa y el proyecto
+>   declara la jornada del *colegio*: un descanso tras la 7 en una versión que llega a la 5
+>   es legítimo. Filtrarlo escondería el dato en vez de dejar comprobarlo.
+>
+> ### ⚠️ DOS COSAS QUE ESTE LOTE DESTAPA Y NO TOCA
+>
+> 1. **`catalogos.timbres` ya podría distinguir `vacio` de `sin_catalogo`.** El blob dice
+>    `timbres: null` —el colegio no los dio—, y eso ya no es «esta API no puede saberlo».
+>    Hoy se queda en `sin_catalogo`, que es **defendible pero ya no es forzoso**. Es una
+>    decisión, no un arreglo.
+> 2. **El `motivo` de la comprobación de subida (`HorarioController:753`) tiene la misma
+>    forma**: dice que *«aquí no se sabe si la franja cruza un descanso»*, y desde hoy en
+>    parte sí se sabe. **No se toca**: ese texto se **guarda** dentro del veredicto de cada
+>    subida, así que cambiarlo cambia lo que registran las subidas futuras — y el veredicto
+>    guardado existe precisamente para no perder lo que se opinó el día que se subió.
+> 3. **Y una pregunta ABIERTA del front, que llegó después de escribir el código**: hoy los
+>    tres `null` posibles —no hay clave, el blob no parsea, la forma no es la esperada— son
+>    **un solo `null`**, y yo recomendé juntarlos porque *para pintar una línea son
+>    idénticos*. `myvc-front-c0` trajo el precedente que yo no podía ver: **en esa casa ya se
+>    decidió dos veces al revés** —`comprobaciones.ts` y el listado de `90` separan «no vino»
+>    de «vino y no se pudo leer»—, así que juntarlos aquí deja **dos gramáticas para la misma
+>    idea** en la misma pantalla. Lo decide `myvc-front-b2`, que es quien pinta.
+>
+>    **El dato que le hace falta para decidirlo sin teorizar: hoy ese caso tiene CERO
+>    ejemplos.** Las siete versiones reales parsean, las siete traen `jornadaPorDefecto` y
+>    las siete traen `descansosTras: [3,5]`. Y si dice que sí, **la propuesta no es meter un
+>    cuarto estado en `descansos_tras`**: es un renglón `catalogos.proyecto` con la forma de
+>    sus vecinos —`estado` + `motivo`—, porque *«el proyecto no se pudo leer»* es una
+>    afirmación sobre **el conjunto** y no sobre los descansos: si el blob no parsea, tampoco
+>    se sabrá nada de lo próximo que salga de él. **El momento barato de añadirlo es antes de
+>    que la pantalla se escriba.**
+>
+>    **CERRADO con `myvc-front-b2` el 4 sep 2026, y lo que queda es UNA decisión de Joseth
+>    —no de forma.** El camino hasta ella importa porque los dos nos tumbamos mutuamente y
+>    cada propuesta murió por el mismo motivo: **`b2` pidió un discriminante `porque` dentro
+>    de `catalogos.timbres`; yo propuse un renglón `catalogos.proyecto`; luego cada uno
+>    adoptó la del otro. Las dos estaban mal, y por la misma razón.**
+>
+>    - **El renglón `catalogos.proyecto` decía la verdad al lado de tres renglones que
+>      seguían mintiendo**: con el blob ilegible, `timbres`, `disponibilidad` y
+>      `restricciones` seguirían diciendo «no viaja» —afirmación sobre **el diseño de la
+>      API**— cuando lo cierto es «no se pudo leer» —sobre **ese colegio**—. Lo vio `b2`.
+>    - **El `porque` dentro de `sin_catalogo` metía «lo tenemos y está roto» debajo de «esta
+>      API no puede saberlo por diseño»**, que es `[]` contra `null` con otro traje. Lo vi
+>      yo, y tumba también mi propia versión anterior.
+>
+>    **Los dos esquemas convergen en cuanto existe la palabra que falta**, y ésa es la
+>    propuesta: **un quinto estado, `ilegible`, en los tres renglones que salen del blob.**
+>    Sin renglón nuevo —sería el mismo hecho dicho dos veces, con el riesgo de que se
+>    separen— y sin campo nuevo.
+>
+>    **Y por qué es un ESTADO y no un matiz dentro de otro, que es el argumento que decide:**
+>    de los cinco, `ilegible` sería **el único que acusa a un fichero concreto y tiene
+>    arreglo** —volver a subir el proyecto—, o sea el único que **cambia lo que la persona
+>    debería hacer**. `vacio` es legítimo y `sin_catalogo` no lo arregla nadie desde la web:
+>    los cuatro de hoy explícitamente no llevan llamada a la acción.
+>
+>    **El coste, medido por `b2` en su repositorio y corregido a la baja sobre mi
+>    estimación:** cuatro `Record<EstadoDeCatalogo, …>` —`PALABRAS`, `ICONOS`, `COLORES`,
+>    `FRASES_GENERICAS`— que **dejan de compilar** con un valor más, por diseño explícito de
+>    su cabecera; más **una regla de `estado-catalogos.scss` que no exige nadie** y cuya
+>    ausencia deja la fila sin borde sin dar error. *El coste de verdad es el que el
+>    compilador no señala, y es una línea de CSS.*
+>
+>    **Hoy tiene CERO ejemplos**: las siete versiones reales de `simonbolivar` parsean, las
+>    siete traen `jornadaPorDefecto` y las siete traen `descansosTras: [3,5]`. `b2` dice que
+>    **no le bloquea** y que pinta la línea igual.
+>
+>    **La pregunta que sube a Joseth es «¿los cuatro estados admiten un quinto que acusa a
+>    una subida concreta?», no «¿añadimos un campo?»** — la primera es de producto y la
+>    segunda de forma, y sólo la primera necesita su decisión.
+>
+>    **Y el argumento definitivo lo puso `b2` sobre su propia propuesta, en su contra.** Al
+>    revisar el `porque` dentro de `sin_catalogo` —que él mismo había vuelto a aceptar— midió
+>    lo que le costaba de verdad: **con un quinto estado sus cuatro
+>    `Record<EstadoDeCatalogo, …>` se ponen rojas y no puede olvidarse; con `porque` no se
+>    rompe ninguna**, y su panel pintaría para un proyecto ilegible la palabra que hoy tiene
+>    puesta para `sin_catalogo` — ***«No lo guarda el servidor»***, que es **exactamente lo
+>    contrario de la verdad**: sí lo guarda, y por eso hay algo que arreglar. `tsc` verde,
+>    pruebas verdes, y la pantalla diciendo lo que no es. *Es el hueco silencioso del `motivo`
+>    de `timbres` otra vez, esta vez del lado del cliente.*
+>
+>    Él lo cierra por su cuenta —colapsa `estado` + `porque` en un discriminante local de
+>    cinco valores y tipa sus tablas contra ése, sin pedir que la API cambie—, así que **nada
+>    de esto bloquea**. Queda escrito porque cambia el argumento: *el motivo para preferir el
+>    quinto estado no es que sea más limpio, es **quién queda obligado**. Con el estado obliga
+>    el compilador; con el discriminante se obliga el cliente a sí mismo.*
+>
+>    ### ✅ DECIDIDO POR JOSETH, 4 sep 2026: **SÍ, el quinto estado `ilegible`**
+>
+>    Con el reencuadre delante y sabiendo que hoy tiene **cero ejemplos** y que **no bloquea
+>    a nadie**. **No entra en este commit**: se llamaba «los descansos», y un estado nuevo en
+>    un contrato es su propio trabajo con sus propios controles. Es lo siguiente.
+
 **4 sep 2026 — EL ENSAYO DE LA TANDA YA SE PUEDE REPETIR, Y DE PASO TRAE UN DETECTOR DE
 COMPROBACIONES CORTAS** · `tools/ensayo-de-la-tanda.sh` y `tools/comprobar-el-horario.php`
 (nuevos) y esta casilla · **cero código de la API, el router no se mueve: 568** · larastan
