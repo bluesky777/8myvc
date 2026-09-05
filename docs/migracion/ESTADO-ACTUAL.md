@@ -452,6 +452,45 @@
 >
 > *En los dieciséis colegios esto no existe: cero versiones desplegadas.*
 
+**5 sep 2026 — EL HORARIO, CERRADO: DE CUATRO DECISIONES «ABIERTAS», TRES ESTABAN YA
+CONTESTADAS** · [23 §10.2, §11.1, §11.5](23-horarios.md) · **cero código, el router en 577**
+
+> **Repaso entero del módulo por encargo de Joseth.** No había nada que programar: las
+> **cinco** rutas, sus **siete** ficheros de test y las **tres** herramientas
+> (`prevuelo`, `deriva`, `comprobar-el-horario`) están en `main` y en verde — **147 tests de
+> horario, 1.401 aserciones, 0 fallos**. Lo que quedaba era documento envejecido.
+>
+> | | |
+> |---|---|
+> | decisiones abiertas de la §10.2 | **de 2 a 1** |
+> | §11.1, remedida contra `7653d26` | cinco rutas (decía cuatro) · **311** commits (236) · **7** migraciones (5) · **3** ficheros de rutas (2) |
+> | §11.5 | **cerrada**: las tres afirmaciones envejecidas, corregidas |
+> | `comprobar-el-horario.php` en el docker | **`LLEGÓ`, exit 0** — 200 con `total: 8`, y el control con token de alumno en **403** |
+> | `secciones-citadas.py` | **0 huérfanas** sobre 541 §§ y 2.152 citas |
+>
+> **Y el hallazgo es cómo se cerraron, no que se cerraran: ninguna de las tres se cerró
+> decidiendo algo nuevo.** La **1** se cerró eligiendo no tocar. La **2** —el tope del blob—
+> **leyendo su propio texto cuatro párrafos más abajo**, que ya decía *«esto se cierra: el
+> blob va en la fila, sin comprimir»* con la cota alta medida, mientras la cabecera seguía
+> rotulada «queda abierto». La **4** **mirando el código**: `asignaturas_dia()` no lleva ni un
+> `ORDER BY`, así que el orden no se promete. *De cuatro «abiertas», tres estaban contestadas
+> y sólo faltaba ir a mirar* — y una decisión tomada con el rótulo sin mover es la misma forma
+> que ese mismo día cobró el contador de `CLAUDE.md`.
+>
+> **La trampa que queda escrita y hoy NO muerde**, que es de las que se estrenan solas: la
+> instantánea de `ChangesAsked/to-me` trae `horario_hoy` y `horario_manana` **vacíos**, porque
+> el seed no tiene ninguna versión publicada. **Hoy no fija ningún orden porque no hay nada
+> que fijar**; el día que el seed estrene una versión oficial va a congelar **el orden que
+> devolviera MySQL esa tarde**, y el contrato prometerá por accidente lo que este módulo
+> decidió no prometer. Se arregla **ordenando en el test, no en la consulta**, el día que se
+> regenere el seed.
+>
+> **Lo único que sigue abierto del horario es la decisión 3 y es de Joseth:** si existe una
+> ruta para **descargar** el proyecto de una versión. Sería la **sexta** de la familia, **no
+> la ha pedido nadie**, y las dos reglas que la rodean ya están cerradas —*«listar no es
+> descargar»* (decisión 12) y *«mirar no es llevarse»* (§9.bis)—. **Su número no se predice**:
+> se cuenta con `route:list` el día que se autorice.
+
 **5 sep 2026 — `DESPLIEGUE.md` DECÍA 191 COMMITS SIN DESPLEGAR Y SON 307 — Y LO QUE SE ARREGLÓ NO
 FUE LA CIFRA** · `docs/DESPLIEGUE.md` y esta casilla · rama `docs/despliegue-remedido-2` ·
 **el router no se mueve: 577, y desde el push `main` y `origin/main` dicen lo mismo**
