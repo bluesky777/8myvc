@@ -76,8 +76,8 @@
 
 **5 sep 2026 — EL SOBRE DE LA CUARTA RUTA SE ENSANCHA CON LAS CUATRO LISTAS DE LA DECISIÓN 38, Y
 `tono` DEJA DE CONTAR SOBRE LA POBLACIÓN QUE NO ERA** · `HorarioController::getLecciones` y sus
-lectores del blob, `HorarioLeccionesTest` (18 → 28 casos, 187 → 379 aserciones, los diez nuevos
-vistos en rojo con seis mutaciones), [23 §9.bis.6](23-horarios.md) y esta casilla · **el router no
+lectores del blob, `HorarioLeccionesTest` (18 → 29 casos, 187 → 419 aserciones, los once nuevos
+vistos en rojo con ocho mutaciones), [23 §9.bis.6](23-horarios.md) y esta casilla · **el router no
 se mueve: 568, contado** · pint PASS · larastan nivel 7 `[OK] No errors` · rama
 `feat/horario-cuatro-listas` desde `ac09cb7`, **sin fundir**
 
@@ -99,8 +99,9 @@ se mueve: 568, contado** · pint PASS · larastan nivel 7 `[OK] No errors` · ra
 >
 > ### LO QUE HAY QUE SABER PARA NO DESHACERLO
 >
-> - **La población va dentro de cada renglón con su `criterio`, y `tono` se mide sobre los
->   docentes que viajan en la misma respuesta.** Es lo que cierra la trampa del denominador de la
+> - **La población va dentro de cada renglón con su `criterio`, lo exige un test de los once, y
+>   `tono` se mide sobre los docentes que viajan en la misma respuesta.** Ese test encontró de
+>   paso que `salones` decía `87 de 312` sin decir de qué eran los 312. Es lo que cierra la trampa del denominador de la
 >   [§9.bis.5](23-horarios.md) —53 filas, 47 vivos, 12 con asignación— y lo que el lector del
 >   front no podía comprobar: *una cuenta que cuadra sobre la población equivocada no falla*.
 > - **Ninguna cadena libre del blob sale.** Nombres por id contra las tablas; enumerados cerrados;

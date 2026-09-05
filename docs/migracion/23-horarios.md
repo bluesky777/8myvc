@@ -1238,12 +1238,19 @@ quince es **no medido**, y no se puede medir desde aquí: cada colegio tiene su 
 > **ESTE PÁRRAFO Y LA FILA DE `tono` DE LAS DOS TABLAS DE ABAJO SE ESCRIBIERON ANTES DE LA
 > DECISIÓN 1 DE ESE MISMO DÍA, Y LA DECISIÓN LOS DESHIZO.** La columna **existe** desde
 > `2026_09_04_100000_horario_versiones`, así que `tono` **ya no es `sin_catalogo`**: el código
-> devuelve `vacio` / `parcial` / `completo` (`HorarioController::estadoDelTono`). Lo de abajo
+> devuelve `vacio` / `parcial` / `completo`, dentro de `catalogosDeLaVersion`. Lo de abajo
 > se deja porque es **el argumento con el que se tomó la decisión** —la diferencia entre «el
 > dato está previsto y vacío» y «no hay dónde ponerlo» es lo que hizo crear la columna—, pero
 > **no describe la respuesta de hoy**. En el ejemplo de más abajo, la línea de `tono` diría
 > `{ "estado": "vacio", "con_tono": 0, "de": 12, "motivo": "la columna existe y nadie ha
 > repartido los colores todavía" }`.
+>
+> **Y el `de: 12` de esa línea también envejeció, el 5 sep 2026**: desde la §9.bis.6 el `tono`
+> se mide sobre **los docentes que viajan en la respuesta** —47 en la versión 8—, así que hoy
+> ese renglón sale `parcial · 12 de 47` con su `criterio` al lado. *El método
+> `estadoDelTono()` que este párrafo citaba ya no existe; el cálculo vive en
+> `catalogosDeLaVersion`, y se dice porque un nombre de método citado y borrado manda a quien
+> lo busque a concluir que el mecanismo se quitó.*
 
 **Y el `tono` no está «vacío»: no existe la columna.** Las 27 columnas de `profesores`
 salen listadas arriba y ninguna es un color. O sea que el hallazgo de
@@ -1944,7 +1951,8 @@ mediciones no se copiaron: eso es lo que las hace citables.
 
 #### Lo que decidió la forma, y no son preferencias
 
-1. **La población va DENTRO de cada renglón, con su `criterio`.** Hasta ese día `tono` decía
+1. **La población va DENTRO de cada renglón, con su `criterio` — y ahora hay un test que lo
+   exige de TODOS.** Hasta ese día `tono` decía
    `completo · 12 de 12` con **47 docentes vivos** y 35 sin color: coherente consigo mismo y
    contando sobre la población que no era, y el lector del front lo tenía apuntado como algo
    que **no podía comprobar**, porque el sobre no le daba la otra población. Es la trampa del
@@ -1955,6 +1963,15 @@ mediciones no se copiaron: eso es lo que las hace citables.
    lecciones y piezas sin colocar), así que `de` es recontable desde lo que el cliente tiene
    delante, y el test lo reconta. *Una cuenta que cuadra sobre la población equivocada no
    falla, y por eso no se investiga.*
+
+   **Y la valla es un test, no una costumbre**: `todo_renglon_de_catalogos_dice_su_poblacion_y_su_criterio`
+   recorre los once renglones y exige que cada uno traiga cifras y un `criterio`, salvo los
+   que están en `sin_catalogo` o `ilegible` —ahí no hay población que dar, y un `0` sería la
+   confusión que los cinco estados existen para evitar—. **Se ha visto en rojo con dos
+   mutaciones y encontró un renglón que nadie había mirado**: `salones` decía `87 de 312` sin
+   decir **de qué son esos 312**, que son las lecciones de la versión y no los salones del
+   colegio —17 en el proyecto real, y aquí no se pueden contar—. Es la valla para el catálogo
+   que se añada mañana.
 2. **El `porque` de la jornada viaja por grupo**, calculado igual que `jornadaDelGrupo()` del
    escritorio —`nivel · sin-nivel · sin-resolver · nivel-desconocido`—, porque sin él un grupo
    pintado con la jornada por defecto no se distingue de uno que la declaró: en pantalla se
@@ -2003,7 +2020,7 @@ no es llevarse*. Las reglas, que son las que hay que conservar:
   en un `docentes[]` de pieza—, porque `el_proyecto_no_viaja_en_las_lecciones` la busca en
   `programa` y no vería ninguna de las cuatro.
 
-**`HorarioLeccionesTest`: de 18 casos y 187 aserciones a 28 y 379, y los diez nuevos se han
+**`HorarioLeccionesTest`: de 18 casos y 187 aserciones a 29 y 419, y los once nuevos se han
 visto en ROJO uno a uno** con seis mutaciones del controlador —aceptar cualquier cadena como
 estado de marca, como hora, como `profesorId`; ignorar una colocación huérfana en vez de tirar
 la lista; devolver `nivel` para un nivel desconocido; y volver a contar el `tono` sólo sobre los

@@ -1656,10 +1656,20 @@ class HorarioController extends Controller
         $conTono = count(array_filter($tonoPorDocente, fn ($t) => $t !== null && $t !== ''));
 
         return [
-            'grupos' => ['estado' => $grupos === 0 ? 'vacio' : 'completo', 'total' => $grupos],
+            // Los dos primeros llevan `criterio` desde el 5 sep 2026 aunque su población
+            // parezca obvia: «grupos» y «asignaciones» **del año del token y vivas**, que no
+            // es lo mismo que las de la versión —una versión vieja puede nombrar filas que
+            // ya están en la papelera—. Sin el criterio, el consumidor no puede saber contra
+            // qué recontar, que es justo lo que le pasó a `tono` diciendo 12 de 12.
+            'grupos' => [
+                'estado' => $grupos === 0 ? 'vacio' : 'completo',
+                'total' => $grupos,
+                'criterio' => 'los grupos vivos del año del token',
+            ],
             'asignaciones' => [
                 'estado' => $asignaciones === 0 ? 'vacio' : 'completo',
                 'total' => $asignaciones,
+                'criterio' => 'las asignaciones vivas del año del token',
                 'lecciones_sin_asignacion_viva' => count(array_filter($lecciones, fn ($l) => $l['materia'] === null)),
             ],
             // **El criterio se nombra**, porque «docentes» admite dos lecturas y la otra
@@ -1698,6 +1708,12 @@ class HorarioController extends Controller
                 'de' => $total,
                 'distintos' => count($salones),
                 'hay_ids' => false,
+                // El `criterio` lo destapó su propio test el 5 sep 2026: este renglón decía
+                // `87 de 312` sin decir **de qué son esos 312**, y son las lecciones de esta
+                // versión, no los salones del colegio —que son 17 en el proyecto real y aquí
+                // no se pueden contar—. Un denominador sin nombre es la mitad del fallo que
+                // el renglón viene a evitar.
+                'criterio' => 'las lecciones de esta versión que traen nombre de salón; `distintos` son los nombres, no los salones del colegio',
                 'motivo' => 'sólo viaja el nombre que mandó la subida: el servidor no guarda salones (§4)',
             ],
             'jornadas' => $this->renglonDeLasJornadas($legible, $jornadas),

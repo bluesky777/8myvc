@@ -1182,4 +1182,58 @@ class HorarioLeccionesTest extends CasoDeContrato
             $this->assertSame('vacio', $r->json("catalogos.{$cual}.estado"), "`{$cual}` vacío es legítimo y no es «no se pudo leer».");
         }
     }
+
+    /**
+     * **EL REQUISITO DURO: todo renglón de `catalogos` dice su población y con qué criterio.**
+     *
+     * No es cosmético y no se puede añadir después. Sin la población dentro del renglón, el
+     * consumidor **no puede escribir la comprobación de que lo que recibió es lo que el
+     * renglón dice** — y entonces un `completo` no se investiga nunca. Es lo que pasó con
+     * `tono` diciendo `completo · 12 de 12` con 47 docentes vivos: coherente consigo mismo,
+     * contando sobre la población que no era, y **el lector del front lo tenía apuntado como
+     * algo que no podía comprobar porque el sobre no le daba la otra población**.
+     *
+     * Este caso es la valla para el catálogo que se añada mañana: un renglón nuevo con sólo
+     * un `estado` lo pone rojo. La regla, en una línea: *una cuenta que cuadra sobre la
+     * población equivocada no falla, y por eso no se investiga.*
+     *
+     * `sin_catalogo` e `ilegible` son la excepción y llevan `motivo` en vez de cifras: ahí
+     * **no hay población que dar**, y decir `0` sería exactamente la confusión que los cinco
+     * estados existen para evitar.
+     */
+    #[Test]
+    public function todo_renglon_de_catalogos_dice_su_poblacion_y_su_criterio(): void
+    {
+        $anio = $this->anioDelSujeto();
+        [$uno] = $this->profesores(1);
+        $version = $this->versionConProyecto($anio, $this->proyectoCompleto([
+            'docentes' => [['profesorId' => $uno, 'nombre' => 'x']],
+            'niveles' => [['id' => 1, 'nombre' => 'x', 'jornada' => ['dias' => [1], 'franjas' => 1, 'descansosTras' => [], 'timbres' => null]]],
+        ]));
+        $this->leccionEn($version, (int) $this->asignacionDe($anio)->id, 'a1-0', 1, 1);
+
+        $catalogos = $this->leerSinFuga($version)->json('catalogos');
+
+        $this->assertSame(self::CATALOGOS, array_keys($catalogos), 'Un catálogo sin renglón es un error del servidor.');
+
+        foreach ($catalogos as $cual => $renglon) {
+            $this->assertArrayHasKey('estado', $renglon, "`{$cual}` no dice su estado.");
+
+            if (in_array($renglon['estado'], ['sin_catalogo', 'ilegible'], true)) {
+                $this->assertNotNull($renglon['motivo'] ?? null,
+                    "`{$cual}` está en `{$renglon['estado']}` y no dice por qué: eso no se puede leer dentro de seis meses.");
+
+                continue;
+            }
+
+            $this->assertArrayHasKey('criterio', $renglon,
+                "`{$cual}` no dice CONTRA QUÉ cuenta. Sin criterio, su población admite dos lecturas y el "
+                .'consumidor no puede recontarla: es el `completo · 12 de 12` sobre 47 docentes otra vez.');
+
+            $cifras = array_filter($renglon, fn ($v, $k) => is_int($v) && ! in_array($k, ['estado', 'criterio', 'motivo'], true), ARRAY_FILTER_USE_BOTH);
+            $this->assertNotSame([], $cifras,
+                "`{$cual}` dice un estado y ninguna cifra. Un estado sin población no se puede comprobar, "
+                .'que es lo único que hace que se investigue cuando está mal.');
+        }
+    }
 }
