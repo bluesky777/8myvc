@@ -1237,7 +1237,7 @@ quince es **no medido**, y no se puede medir desde aquí: cada colegio tiene su 
 
 > **ESTE PÁRRAFO Y LA FILA DE `tono` DE LAS DOS TABLAS DE ABAJO SE ESCRIBIERON ANTES DE LA
 > DECISIÓN 1 DE ESE MISMO DÍA, Y LA DECISIÓN LOS DESHIZO.** La columna **existe** desde
-> `2026_09_04_200000_tono_del_docente`, así que `tono` **ya no es `sin_catalogo`**: el código
+> `2026_09_04_100000_horario_versiones`, así que `tono` **ya no es `sin_catalogo`**: el código
 > devuelve `vacio` / `parcial` / `completo` (`HorarioController::estadoDelTono`). Lo de abajo
 > se deja porque es **el argumento con el que se tomó la decisión** —la diferencia entre «el
 > dato está previsto y vacío» y «no hay dónde ponerlo» es lo que hizo crear la columna—, pero
@@ -1553,7 +1553,9 @@ re-litigan**:
    las otras dos salidas que se le plantearon —dejarlo `sin_catalogo` para siempre, y **leer
    el blob para extraer los colores**, que era la única que tocaba el fichero de proyecto y
    rozaba la decisión 12—. La columna entra con
-   `2026_09_04_200000_tono_del_docente`, y **nace vacía en los diecisiete**: el contrato dice
+   `2026_09_04_100000_horario_versiones` —entró en un fichero propio,
+   `2026_09_04_200000_tono_del_docente`, y se fusionó ahí el 4 sep 2026 antes de
+   desplegarse—, y **nace vacía en los diecisiete**: el contrato dice
    `string | null` porque el nulo va a ser el caso normal hasta que alguien reparta los
    colores una primera vez. *La decisión cambia dónde vive el dato, no que hoy no exista.*
 2. **El menú del horario lo abre el mismo permiso que las Referencias académicas** — no hay
@@ -2204,7 +2206,7 @@ de sumarle los que uno recuerda haber hecho.*
 | colegios con el módulo | **0 de 16** (más `demo`) | `routes/api/horario.php` no existe en `9474b50`, que es la base desplegada |
 | qué contestan allí las **cuatro** rutas | **404** | no hay fichero de rutas que las declare — **no es el 501 del docker**, que era el controlador sin cuerpo |
 | commits sin desplegar | **236** desde `9474b50` | `git rev-list --count 9474b50..HEAD`, sobre `bf83d3c` |
-| migraciones sin desplegar | **8** desde el 4 sep 2026 — las siete que ya contaba `DESPLIEGUE.md` más `2026_09_04_200000_tono_del_docente`, que decidió Joseth ese día | `git ls-tree` de los dos extremos |
+| migraciones sin desplegar | **5 ficheros** desde el 4 sep 2026 — fueron **8**, y las mismas columnas se consolidaron en cinco esa tarde (`DESPLIEGUE.md`, tabla «Las cinco»). **Ninguna columna cambió**: comprobado construyendo las dos bases desde cero, 1.526 columnas con las mismas posiciones, 102 tablas | `git ls-tree` de los dos extremos |
 | ficheros de rutas nuevos | **2**: `horario.php` y `rubricas.php` | ídem |
 
 **El 404 y el 501 no son el mismo estado y conviene no mezclarlos**: en el docker la ruta
@@ -2215,8 +2217,8 @@ acierta hoy y seguirá acertando — es la señal correcta.
 ### 11.2. No hay camino «sólo horario», y esto es lo primero que hay que saber
 
 **La tanda es indivisible y la razón es de esquema, no de prudencia.** La migración del
-horario mete su columna con `->after('regla_nivelacion')`, y `regla_nivelacion` la añade
-`2026_09_02_100000_nivelaciones_columnas`, de la misma tanda: `ADD COLUMN … AFTER x` con una
+horario mete `years.horario_version_id` con `->after('regla_nivelacion')`, y
+`regla_nivelacion` la añade `2026_09_02_100000_nivelaciones_columnas`, de la misma tanda: `ADD COLUMN … AFTER x` con una
 `x` que no existe **falla**. O sea que sacar el horario solo **no da una migración aditiva
 que no hace nada: da un error de columna desconocida**.
 
@@ -2224,6 +2226,18 @@ Y por encima de eso, la tanda entera es bloqueante por otro sitio: `years.regla_
 la nombra `ContextoDeUsuario::construir()` en las cuatro ramas, y ese `SELECT` lo dispara
 **el propio guard**. Con el código nuevo y la base sin migrar **no se puede ni iniciar
 sesión** — está medido y documentado en [`DESPLIEGUE.md` §⛔](../DESPLIEGUE.md).
+
+> **La consolidación del 4 sep 2026 no tocó esto, y conviene decirlo porque parece que
+> debería.** Al pasar de ocho ficheros a cinco, la dependencia sigue **exactamente donde
+> estaba**: `09_02_100000` antes que `09_04_100000`, y el prefijo es lo único que lo
+> garantiza. Lo que sí se fue es la otra, la de `..._200000` sobre `..._100000` dentro de
+> nivelaciones — ésa la disolvió la fusión, porque las dos columnas que dependían de
+> `nota_original` ahora se declaran en la misma llamada.
+>
+> **Y una advertencia sobre `tono`, porque `DESPLIEGUE.md` decía lo contrario de lo que
+> pasaba:** `profesores.tono` **nunca** llevó `after` —iba al final de su tabla a
+> propósito— y hoy vive dentro de la migración del horario, que sí lo lleva **en otra
+> columna y otra tabla**. Las dos cosas conviven en ese fichero y no son la misma.
 
 **Consecuencia para este módulo: el horario no se despliega; se despliega la tanda.** Lo que
 queda por hacer del horario **no es un despliegue propio**, son los pasos 1 a 3 de

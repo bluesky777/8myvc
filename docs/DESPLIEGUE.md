@@ -210,7 +210,7 @@ contexto contesta `SQLSTATE[42S22] Unknown column 'y.regla_nivelacion' in 'field
 | `app/` | **54** ficheros | `git diff --name-only 9474b50 HEAD -- app/ \| wc -l` |
 | `routes/` | **7** ficheros — **las rutas SÍ se movieron: 543 → 566** (24 nuevas, **1 retirada**) | `git diff --name-only 9474b50 HEAD -- routes/` · `route:list --json` |
 | `config/` · `composer.json`/`.lock` · `database/schema/` | **0** | `git diff --name-only 9474b50 HEAD -- config/ composer.lock database/schema/` |
-| **migraciones** | **SIETE**, y **cinco son bloqueantes** | `git diff --name-only 9474b50 HEAD -- database/migrations/` |
+| **migraciones** | **SIETE** el 2 sep — hoy son **cinco ficheros** con las mismas columnas (ver la tabla de abajo), y **cuatro son bloqueantes** | `git diff --name-only 9474b50 HEAD -- database/migrations/` |
 
 > **La base es `9474b50` y no `eb95cbc`, y esto costó una medición entera.** El rango que había
 > escrito arrancaba en `eb95cbc`, que es la tanda del **25 ago**; la del 25–30 ago
@@ -220,20 +220,84 @@ contexto contesta `SQLSTATE[42S22] Unknown column 'y.regla_nivelacion' in 'field
 > como pendiente cuando lleva dentro desde el 31. *Un rango sin desplegar se remide entero cada vez
 > que se le toca; y lo primero que se remide es **desde dónde**.*
 
-### Las siete, ordenadas por lo que tumban
+### Las cinco, ordenadas por lo que tumban
+
+> **Eran OCHO ficheros hasta el 4 sep 2026 y son CINCO, sin que cambie una sola columna.**
+> Se fusionaron `2026_09_02_200000_nivelacion_de_la_definitiva` y
+> `2026_09_02_300000_acta_de_la_recuperacion_final` dentro de
+> `2026_09_02_100000_nivelaciones_columnas`, y `2026_09_04_200000_tono_del_docente` dentro de
+> `2026_09_04_100000_horario_versiones`. **Ninguna se había desplegado nunca** —el despliegue
+> está congelado— y el día que salgan esto ya no se puede hacer.
+>
+> Comprobado construyendo las dos bases desde cero y comparando `information_schema`:
+> **1.526 columnas, mismas posiciones físicas, mismos índices y mismas foráneas**, 102 tablas
+> en las dos. La fusión de nivelaciones además **quita una reconstrucción de `notas_finales`**
+> en un colegio que corra MySQL 5.7 (dos `ALTER` sobre esa tabla pasan a uno), que es la única
+> incógnita abierta de este despliegue: no sabemos qué MySQL corren los diecisiete.
 
 | Migración | Qué rompe si falta | Radio |
 |---|---|---|
-| `2026_09_02_100000_nivelaciones_columnas` | **`years.regla_nivelacion`: el guard y los dos logins.** Y aparte, `notas.nota_original` y las tres de `notas_finales` las nombran la planilla (`NotasController:256` y `:306`), los boletines (`BoletinesController:298`, `Boletines2Controller:224`) y el boletín final (`BolfinalesController:529`) | **el colegio entero** |
+| `2026_09_02_100000_nivelaciones_columnas` | **`years.regla_nivelacion`: el guard y los dos logins.** Y aparte: `notas.nota_original` y las de `notas_finales` las nombran la planilla (`NotasController:256` y `:306`), los boletines (`BoletinesController:298`, `Boletines2Controller:224`) y el boletín final (`BolfinalesController:529`); las dos del acta de la definitiva —absorbidas de `..._200000`— las nombra `DefinitivasPeriodosController:524-526` y `:718-721`; y las tres del acta de la recuperación del año —absorbidas de `..._300000`— **rompen una ruta que ya existe**: `putUpdateRecuperacion` nombra `nivelada_at, nivelada_por, observacion` en su `UPDATE`, su `INSERT` y su `SELECT` (`:818`, `:856`, `:884`) | **el colegio entero**, más `PUT definitivas_periodos/nivelar` y `PUT definitivas_periodos/update-recuperacion` |
 | `2026_08_31_200000_puestos_con_bol_independiente` | `BoletinIndependiente::puestosCuentanIndependientes()` hace `SELECT puestos_con_bol_independiente FROM years WHERE id = ?` **sin condición y sin rescate** (`app/Services/BoletinIndependiente.php:394`), y todos los boletines pasan por ahí | los tres boletines, los certificados, preescolar, promovidos, `editnota` y los cuatro informes de puestos |
-| `2026_09_02_200000_nivelacion_de_la_definitiva` | las dos columnas del acta de la definitiva, nombradas en `DefinitivasPeriodosController:524-526` y `:718-721` | `PUT definitivas_periodos/nivelar` |
-| `2026_09_02_300000_acta_de_la_recuperacion_final` | **rompe una ruta que ya existe**, no sólo las nuevas: `putUpdateRecuperacion` nombra `nivelada_at, nivelada_por, observacion` en su `UPDATE`, su `INSERT` y su `SELECT` (`:818`, `:856`, `:884`) | `PUT definitivas_periodos/update-recuperacion` |
 | `2026_09_03_100000_rubricas` | cinco tablas nuevas y `subunidades.rubrica_id`. **Nadie fuera de `RubricasController` las nombra** —comprobado uno a uno: la planilla, unidades, asignaturas y `ChangeAsked` pasaron a nombrar sus columnas justamente para que `rubrica_id` no se les colara— | las **10** rutas de `rubricas/` |
-| `2026_09_04_100000_horario_versiones` | **`POST horario/versiones` pasa de 501 a 500.** `postVersiones` se implementó en `371062c` (2 sep, 18:29) y **hace `INSERT` en las tres tablas nuevas**, así que sin ellas revienta. `getVersiones` y `putOficial` **siguen a 501** y no las tocan, y **`years.horario_version_id` sigue sin leerla nadie** —`YearsController` la sirve por `SELECT y.*`, y a un `*` la columna que falta no le duele— | **1 ruta**, y detrás de `esAdministrativo`: el colegio no se cae, pero quien suba un horario recibe un 500 |
-| `2026_09_04_200000_tono_del_docente` | **`profesores.tono`, una columna `varchar(32)` nullable.** Sin ella cae **`GET horario/versiones/{id}/lecciones`**, que la nombra en su `SELECT`, y **`PUT horario/docentes/{profesor_id}/tono`**, que la escribe. Lo que **no** cae es nada más: la columna **no la lee ningún `SELECT *` de las trece respuestas que la reparten** —las reparte precisamente porque son `*`, y a un `*` la columna que falta no le duele—. Entra con `AFTER regla_nivelacion`, que llega en `2026_09_02_100000` **de esta misma tanda**: fuera de orden **no es aditiva, es un error de columna desconocida** (23 §11.2) | **2 rutas** de `horario/`, las dos detrás de guard. El colegio no se cae |
+| `2026_09_04_100000_horario_versiones` | tres tablas nuevas, `years.horario_version_id` y —absorbida de `..._200000`— **`profesores.tono`, `varchar(32)` nullable**. Sin las tablas, `POST horario/versiones` revienta; sin `tono` caen `GET horario/versiones/{id}/lecciones`, que la nombra en su `SELECT`, y `PUT horario/docentes/{profesor_id}/tono`, que la escribe. **Y el radio de `years.horario_version_id` no es de este módulo**: la lee `ChangeAskedController::horarioOficialDelAnio()` desde `getToMe` en sus dos ramas, o sea `GET ChangesAsked/to-me` — la que pide la app al abrir. Sin la migración **cae el panel de todo el mundo** (23 §11.5.1) | **`GET ChangesAsked/to-me` + las rutas de `horario/`.** Con esta fila el colegio SÍ se cae |
 | `2026_08_31_100000_retirar_boletin_independiente_de_matriculas` | nada del código nuevo: **retira** `matriculas.boletin_independiente`, que ya no lee nadie | ninguno hacia delante — **pero mira la fila de abajo** |
 
-**Seis de las siete son aditivas en `up()`** —`ADD COLUMN` y `CREATE TABLE`, sin un solo `UPDATE`
+> ### La fila del horario ha envejecido DOS veces, y la segunda con la cifra quieta
+>
+> Esa fila decía, hasta esta reescritura, *«**1 ruta**, y detrás de `esAdministrativo`: el
+> colegio no se cae»*, más *«`getVersiones` y `putOficial` siguen a 501 y no las tocan»* y
+> *«`years.horario_version_id` sigue sin leerla nadie»*. **Las tres eran falsas.** Medido en
+> `main` el 5 sep 2026, y reproducido por dos sesiones:
+>
+> ```
+> ChangeAskedController:140 y :219   'horario_version_id' => horarioOficialDelAnio(...)
+> ChangeAskedController:1274         SELECT horario_version_id FROM years WHERE id = ?
+> HorarioController:907, :1113, :1851   la leen y la escriben
+> routes/api/disciplina.php:44       ChangesAsked/to-me — SIN middleware extra
+> ```
+>
+> `auth.token` a secas **son todos los roles**, alumnos y acudientes incluidos, y `to-me` es
+> lo que pinta el muro de `myvc_flutter`. Sobre una copia sin la columna, `to-me` contesta
+> **500 `Unknown column 'horario_version_id'`**. O sea que sin esta migración no es «quien
+> suba un horario recibe un 500»: **es la pantalla de inicio de la app contestando 500 a
+> todo el mundo.** El login vive y el colegio no se cae entero; el muro sí.
+>
+> **Y lo que hay que sacar de aquí no es el radio corregido, es que la corrección no bastó.**
+> Esta fila **ya documenta su propio envejecimiento** —lleva escrito que decía «no rompe en
+> ninguna dirección, porque su código son tres 501» y que dejó de ser cierto el mismo día con
+> `371062c`—, y **ha vuelto a envejecer exactamente igual, por segunda vez, sin que la cifra
+> ni el rango se movieran**. La regla que ese párrafo enuncia se le aplicó a sí misma y no
+> alcanzó. *Por eso el radio se REMIDE el día del despliegue en vez de leerse: una fila que
+> avisa de que caduca sigue caducando.*
+>
+> Medida por `8myvc-c3`, reproducida por `8myvc-7c` y comprobada aquí antes de escribirla.
+
+> ### ⚠ Una afirmación de esta tabla NACIÓ MAL, y se corrigió el 4 sep 2026
+>
+> La fila de `tono` decía: *«Entra con `AFTER regla_nivelacion`, que llega en `2026_09_02_100000`
+> de esta misma tanda»*. **Es falso, y no es una cifra que envejeciera: nunca fue cierto.**
+> `2026_09_04_200000_tono_del_docente` **no tenía ni un `->after()`** —su cabecera lo declaraba
+> como decisión: *«SIN `after`, y es a propósito … no se compra la dependencia»*— y además `tono`
+> va sobre **`profesores`**, mientras que `regla_nivelacion` es una columna de **`years`**: ese
+> `AFTER` no era ni siquiera expresable.
+>
+> ```bash
+> grep -c 'after(' database/migrations/2026_09_04_200000_tono_del_docente.php   # → 0
+> ```
+>
+> La que sí lleva `->after('regla_nivelacion')` es **`2026_09_04_100000_horario_versiones`**, con
+> `years.horario_version_id`; y `23 §11.2`, que aquella fila citaba, **lo dice bien**. O sea que la
+> fila citaba correctamente una sección que decía otra cosa.
+>
+> **Queda escrito para que nadie la «restaure» dentro de dos meses creyendo que se rompió aquí.**
+> Y es de una especie que `23 §11.5` no tenía catalogada: las otras tres afirmaciones caducadas de
+> este documento **describen el servidor y fallan contra él** el día del despliegue; ésta no falla
+> contra nada — si despliegas en orden funciona, y si no, el error acusa al fichero equivocado.
+> *La dependencia de orden es real y sigue viva: `09_02` antes que `09_04`. Lo que estaba mal era
+> de quién.*
+
+**Cuatro de las cinco son aditivas en `up()`** —`ADD COLUMN` y `CREATE TABLE`, sin un solo `UPDATE`
 ni back-fill—, leídas una a una. **La que falta —`2026_08_31_100000`— no: hace `dropColumn`**, y
 eso cambia dos reglas de este documento. (Va la última de esta tabla porque está ordenada por lo
 que tumba, pero es la **primera** por orden de ejecución, y eso importa para el rollback.)
@@ -289,7 +353,7 @@ colegio se arregla antes de tocar el siguiente.**
 Esto pregunta por el esquema, que es lo que leen las consultas:
 
 ```bash
-php artisan tinker --execute='$f=[]; foreach ([["years","regla_nivelacion"],["years","puestos_con_bol_independiente"],["years","horario_version_id"],["notas","nota_original"],["notas_finales","nota_nivelacion"],["recuperacion_final","nivelada_at"],["subunidades","rubrica_id"],["profesores","tono"]] as $c) { if (!Schema::hasColumn($c[0],$c[1])) $f[]=$c[0].".".$c[1]; } foreach (["rubricas","rubrica_criterios","rubrica_niveles","rubrica_descriptores","rubrica_valoraciones","horario_versiones","horario_lecciones","horario_pieza_docente"] as $t) { if (!Schema::hasTable($t)) $f[]="tabla ".$t; } if (Schema::hasColumn("matriculas","boletin_independiente")) $f[]="matriculas.boletin_independiente SIGUE AHI"; echo ($f ? "FALTA -> ".implode(" | ",$f) : "OK - las ocho dentro").PHP_EOL;'
+php artisan tinker --execute='$f=[]; foreach ([["years","regla_nivelacion"],["years","puestos_con_bol_independiente"],["years","horario_version_id"],["notas","nota_original"],["notas_finales","nota_nivelacion"],["recuperacion_final","nivelada_at"],["subunidades","rubrica_id"],["profesores","tono"]] as $c) { if (!Schema::hasColumn($c[0],$c[1])) $f[]=$c[0].".".$c[1]; } foreach (["rubricas","rubrica_criterios","rubrica_niveles","rubrica_descriptores","rubrica_valoraciones","horario_versiones","horario_lecciones","horario_pieza_docente"] as $t) { if (!Schema::hasTable($t)) $f[]="tabla ".$t; } if (Schema::hasColumn("matriculas","boletin_independiente")) $f[]="matriculas.boletin_independiente SIGUE AHI"; echo ($f ? "FALTA -> ".implode(" | ",$f) : "OK - la tanda entera dentro").PHP_EOL;'
 ```
 
 > **`profesores.tono` se le añadió el 4 sep 2026, y la tanda pasó a OCHO migraciones.** Se
@@ -299,9 +363,15 @@ php artisan tinker --execute='$f=[]; foreach ([["years","regla_nivelacion"],["ye
 > siete dentro» en un colegio al que le falta una. La decisión de la columna es de Joseth
 > (`23-horarios.md` §9.bis.3); el título de este bloque sigue diciendo siete porque es el de
 > la medición, no el de la comprobación.
+>
+> **Y desde el 4 sep la etiqueta ya no lleva número: dice `OK - la tanda entera dentro`.**
+> Contar migraciones ahí era contar la cosa equivocada —el fragmento pregunta por columnas y
+> tablas, no por ficheros—, y la fusión de ese día lo dejó claro: **las mismas columnas pasaron
+> de ocho ficheros a cinco sin que la comprobación cambiara una letra**. Una etiqueta con un
+> número dentro es una que hay que acordarse de mover; ésta ya no.
 
 **Dice qué falta, no sólo que falta**, y **tiene control negativo**: probado el 2 sep 2026 contra la
-base migrada (`OK - las ocho dentro`) **y** contra una sin migrar y con nombres inventados, donde
+base migrada (`OK - la tanda entera dentro`) **y** contra una sin migrar y con nombres inventados, donde
 imprime la lista. Un `OK` que no sabe fallar es el que archiva el asunto.
 
 **La otra acción del día, que no es una tabla:** correr `tools/independientes-sin-estructura.php`
@@ -511,12 +581,16 @@ ignora. **No corras el `down`.**
 > es justo lo que este paso existe para no hacer.
 >
 > Para volver atrás de esa tanda hay que **volver también el esquema**, y **no se puede volver sólo
-> esa**: `2026_08_31_100000` es la **primera** de las siete por orden de ejecución, así que llegar a
-> ella es deshacer las siete. Como corrieron en el mismo `migrate`, son un solo lote:
+> esa**: `2026_08_31_100000` es la **primera** de las cinco por orden de ejecución, así que llegar a
+> ella es deshacer las cinco. Como corrieron en el mismo `migrate`, son un solo lote:
+>
+> **`--step` de `migrate:rollback` cuenta MIGRACIONES, no lotes** —lo contrario de lo que hace
+> `--step` en `migrate`—, y desde la fusión del 4 sep una migración son varias columnas de varias
+> tablas: `--step=5` deshace la tanda entera, no cinco columnas.
 >
 > ```bash
-> php artisan migrate:status | tail -9      # confirma que el lote pendiente son las SIETE
-> php artisan migrate:rollback --step=7     # las siete, en orden inverso
+> php artisan migrate:status | tail -7      # confirma que el lote pendiente son las CINCO
+> php artisan migrate:rollback --step=5     # las cinco, en orden inverso
 > ```
 >
 > **`--step=1` NO sirve aquí**: revierte la última, que es `2026_09_04_100000_horario_versiones`, y deja la
@@ -524,7 +598,7 @@ ignora. **No corras el `down`.**
 >
 > **Y esto sí pierde datos, al revés que en las tandas anteriores.** El `down()` de la del
 > `dropColumn` es exacto —devuelve la columna **a 0 en todas las filas, que es lo que había**: nunca
-> llegó a tener un 1 en ninguna base—, pero los `down()` de las otras seis se llevan **lo que se
+> llegó a tener un 1 en ninguna base—, pero los `down()` de las otras cuatro se llevan **lo que se
 > haya registrado desde el despliegue**: las nivelaciones (`notas.nota_original` y compañía), las
 > actas de la definitiva y de la recuperación, las rúbricas enteras con sus valoraciones y las
 > versiones de horario subidas — que hoy son cero, porque el lote B no existe. Las

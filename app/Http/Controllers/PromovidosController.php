@@ -60,7 +60,7 @@ class PromovidosController extends Controller {
 			
 			// **Las columnas nombradas y no `r.*`**: estas filas se cuelgan en
 			// `$alumno->recuperaciones` y viajan al cliente, así que las tres del acta
-			// de `2026_09_02_300000_acta_de_la_recuperacion_final` habrían aparecido
+			// de `2026_09_02_100000_nivelaciones_columnas` habrían aparecido
 			// solas en el cálculo de promovidos. **Congelada** (22 §3.4): el acta se
 			// pinta en la pantalla del año (B8), que la recibe por
 			// `definitivas_periodos/update-recuperacion`; aquí lo que se decide es

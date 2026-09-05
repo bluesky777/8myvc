@@ -43,7 +43,7 @@ use Illuminate\Support\Facades\DB;
  * @property ?string $updated_at
  * --- fin de las columnas generadas ---
  *
- * Y el color del docente, por migración (`2026_09_04_200000_tono_del_docente`,
+ * Y el color del docente, por migración (`2026_09_04_100000_horario_versiones`,
  * 23 §9.bis.3): lo pide el escritorio de horarios, donde hace falta para seis de
  * sus ocho informes. Nace `NULL` en los diecisiete y lo seguirá siendo hasta que
  * alguien reparta los colores una primera vez, así que el nulo es el caso normal

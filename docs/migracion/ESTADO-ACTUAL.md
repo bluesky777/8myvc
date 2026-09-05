@@ -590,6 +590,102 @@ con `route:list --json`** · pint PASS · larastan nivel 7 `[OK] No errors`
 >   un reparto de 200 que nadie escribió— y con el **nivel ganando a la materia**, que es la
 >   única parte discutible y está argumentada en §5.7.a.
 
+**4 sep 2026 — LAS OCHO MIGRACIONES SIN DESPLEGAR, CONSOLIDADAS EN CINCO** · rama
+`fix/consolidar-migraciones` · `database/migrations/` (−3 ficheros), `docs/DESPLIEGUE.md`,
+`docs/migracion/23-horarios.md`, `docs/migracion/22-nivelaciones.md`,
+`app/Http/Controllers/PromovidosController.php`, `app/Models/Profesor.php`,
+`tools/ensayo-de-la-tanda.sh` y esta casilla · **cero columnas nuevas, el router no se
+mueve: 568**
+
+> Lo pidió Joseth —*«sólo si es fácil»*— y lo repartió `8myvc-7c`. **Se puede hacer sólo
+> porque estas ocho no se han desplegado nunca**: las trece que sí están en los diecisiete
+> no se tocan jamás, porque editarlas no re-ejecuta nada y la divergencia sería muda.
+>
+> | | |
+> |---|---|
+> | ficheros | **8 → 5** |
+> | `2026_09_02_200000_nivelacion_de_la_definitiva` (A8) | fusionada en `2026_09_02_100000_nivelaciones_columnas` |
+> | `2026_09_02_300000_acta_de_la_recuperacion_final` (A9) | ídem |
+> | `2026_09_04_200000_tono_del_docente` | fusionada en `2026_09_04_100000_horario_versiones` |
+> | solas, y por qué | `rubricas` y `puestos_con_bol_independiente` (dominios propios); **`2026_08_31_100000_retirar_boletin_independiente`**, la única destructiva |
+>
+> **Los tres nombres de arriba ya no existen como fichero.** Las entradas viejas de este
+> diario que los citan **se dejan como están** —eran ciertas el día que se escribieron— y
+> esta tabla es lo que las resuelve.
+>
+> ### Qué se comprobó, y no fue leyendo el diff
+>
+> Se construyeron **dos bases desde cero** —una desde `main` con las 21 migraciones, otra
+> desde la rama con 18— y se compararon en `information_schema`:
+>
+> | | |
+> |---|---|
+> | columnas, con su `ORDINAL_POSITION` | **1.526 = 1.526**, diff vacío |
+> | índices y foráneas | diff vacío |
+> | tablas | **102 = 102**, y las dos con 2.351 usuarios |
+> | suite entera | ver el pie de esta casilla |
+>
+> El orden **físico** era el riesgo real y no el evidente: la vieja `..._200000` metía
+> `notas_finales.nota_nivelacion` **entre** dos columnas que la `..._100000` acababa de
+> crear (`after('nota_original')`). Declararlas juntas en el orden «natural» las habría
+> dejado en otra posición, y esto es un proyecto que lee con `SELECT *` por todas partes y
+> fija el orden de los campos en instantáneas de contrato: **no habría fallado la
+> migración, habrían fallado las instantáneas — o peor, no habrían fallado y el front
+> habría recibido los campos movidos.**
+>
+> ### Lo que la fusión GANA, que no es tener menos ficheros
+>
+> `notas_finales` pasa de **dos `ALTER` a uno**. Las tres cabeceras originales pedían
+> *«UN `Schema::table` por tabla»* y entre ficheros se contradecían. En MySQL 8.0 da igual
+> —`ADD COLUMN` es `INSTANT`—, pero **nadie sabe qué MySQL corren los diecisiete** y en 5.7
+> cada sentencia reconstruye la tabla entera: **4.870 ms contra 11,8**, medido. Es una
+> reconstrucción menos de `notas_finales` en el peor caso, o sea reducción de riesgo del
+> día del despliegue.
+>
+> La del horario **no gana nada mecánico** y está dicho en su cabecera: `years` y
+> `profesores` son tablas distintas, eran dos `ALTER` y siguen siendo dos. Es recuento, y
+> Joseth la pidió sabiéndolo.
+>
+> ### ⚠ Y de camino salió que una fila de `DESPLIEGUE.md` NACIÓ MAL
+>
+> Decía que `2026_09_04_200000_tono_del_docente` entraba con `AFTER regla_nivelacion`.
+> **Esa migración no tenía ni un `->after()`** —su cabecera lo declaraba como decisión— y
+> `tono` va sobre `profesores`, mientras `regla_nivelacion` es de `years`: el `AFTER` no era
+> ni expresable. La que sí lo lleva es `2026_09_04_100000_horario_versiones`, y `23 §11.2`,
+> que aquella fila citaba, **lo decía bien**.
+>
+> **No es una caducidad: nunca fue cierto**, y por eso no la arreglaba remedir el día del
+> despliegue. Es de la especie que `23 §11.5` no tenía catalogada — las otras tres describen
+> el servidor y fallan contra él; **ésta no falla contra nada**: si despliegas en orden
+> funciona, y si no, el error acusa al fichero equivocado. Corregida en su sitio **con el
+> `grep` delante**, para que nadie la «restaure» dentro de dos meses.
+>
+> Se había propagado: `8myvc-7c` la repitió en el reparto de este lote y se la pasó a Joseth
+> y a otras dos sesiones, y `myvc-front-c0` la recibió por otro lado. Avisadas las dos.
+> *Dos fuentes que discrepan son un hallazgo.*
+>
+> ### La trampa que nace CON la fusión, y va escrita en el fichero
+>
+> Al conservar el nombre más antiguo de cada grupo, **una base que tenga aplicada la vieja
+> `2026_09_02_100000` y no las otras dos queda inalcanzable por nombre**: `migrate` la ve
+> `Ran` y sus columnas nuevas no llegan nunca. La salida es **reconstruir, no migrar**.
+> A los diecisiete colegios no les afecta (no tienen ninguna de las ocho);
+> **`simonbolivar_testing_h` está exactamente así** desde antes de esto. Y `simonbolivar`,
+> la de desarrollo, queda con **tres filas fantasma** en `migrations` apuntando a ficheros
+> que ya no existen: inofensivas, porque `migrate:status` sólo lista las que tienen fichero.
+>
+> ### Lo que NO se tocó
+>
+> `tools/construir-bd-test.sh` y `tools/ensayo-de-la-tanda.sh` **no llevaban el número
+> escrito**: los dos lo derivan (`ls database/migrations/*.php` y
+> `git diff --name-only 9474b50 HEAD`), así que se ajustaron solos a 18 y a 5. Del ensayo
+> sólo se movió la prosa, que decía «las ocho» en siete sitios.
+>
+> **Y una herramienta que no existe y hoy hizo falta**: nada en el repo caza un **nombre de
+> migración muerto**. `tools/secciones-citadas.py` persigue §§, no ficheros. Los ocho sitios
+> que citaban los tres nombres retirados —dos de ellos en `app/`— se encontraron con `grep`
+> a mano. Propuesta a `8myvc-7c`, fuera de este lote.
+
 **4 sep 2026 — EL ENSAYO DE LA TANDA YA SE PUEDE REPETIR, Y DE PASO TRAE UN DETECTOR DE
 COMPROBACIONES CORTAS** · `tools/ensayo-de-la-tanda.sh` y `tools/comprobar-el-horario.php`
 (nuevos) y esta casilla · **cero código de la API, el router no se mueve: 568** · larastan
@@ -1305,7 +1401,7 @@ mueve: siguen 567**
 >
 > 1. ~~**Fusionar a `main` y empujar**~~ — **AUTORIZADO Y HECHO** por ti el 4 sep 2026.
 > 2. **Desplegar**, que sigue **congelado** por ti mientras `myvc_flutter` está en revisión, y
->    va **0 de 16**. No hay camino «sólo horario»: la tanda de ocho migraciones es
+>    va **0 de 16**. No hay camino «sólo horario»: la tanda de migraciones es
 >    indivisible (§11.2).
 > 3. ~~**Dar el aviso O al front** con **25 y 4**.~~ **DADO el 4 sep 2026**, por encargo tuyo.
 >    Lo que queda de él **es del front**: contestar si alguna pantalla suya ya llama a alguna
