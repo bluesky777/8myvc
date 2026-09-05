@@ -265,6 +265,16 @@ class YearsController extends Controller {
 			// no tiene `year_id`, cuelga de `unidades_por_defecto`—, y por eso el
 			// centinela que faltaría es otro: el de las **tablas** que se copian.
 			//
+			// **Y ese centinela sigue sin existir, medido el 5 sep 2026.**
+			// `CentinelaDeLasColumnasDelAnioNuevoTest` compara las **68 columnas de
+			// `years`** con las que escribe `postStore`, una por una: no mira ninguna
+			// tabla hija. La columna de alcance que se añadió a `unidades_por_defecto`
+			// en `2026_09_05_200000` sí viaja —está unas líneas más abajo, y tiene su
+			// test—, pero **eso fue porque alguien se acordó**, no porque nada lo
+			// impidiera. `subunidades_por_defecto` tiene hoy exactamente la misma forma
+			// —`SELECT *` arriba, `INSERT` con columnas nombradas abajo— y **entra por
+			// la misma puerta el día que la Entrega 7 le añada una columna**.
+			//
 			// **ESTO ARREGLA EL SEMBRADOR, NO LO YA SEMBRADO.** Un año copiado antes de
 			// este commit sigue con sus unidades por defecto vacías, y **ningún camino
 			// de este código las repone**. Cuántos años y cuántos colegios están así

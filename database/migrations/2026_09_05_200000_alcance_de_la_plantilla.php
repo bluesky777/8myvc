@@ -63,12 +63,25 @@ use Illuminate\Support\Facades\Schema;
  *
  * ## Lo que NO se reparte solo, comprobado
  *
- * `UnidadesController:148` lee esta tabla con `SELECT *` —está avisado en la
- * cabecera de aquel fichero— pero **no la devuelve**: las filas se usan para
- * construir los `INSERT` de `unidades`, que nombran sus columnas una a una. O sea
- * que estas dos columnas **no aparecen en ninguna respuesta viva** por sí solas.
- * Quien las enseña es la pantalla nueva (`GET plantilla-notas`), que las nombra a
- * propósito.
+ * Contadas las **cinco** apariciones de `unidades_por_defecto` en `app/` entero, y
+ * las tres puertas por las que una columna nueva se reparte sola están las tres
+ * cerradas:
+ *
+ *   1. `UnidadesController:148` la leía con `SELECT *` — **retirado en esta misma
+ *      tanda**: ahora pasa por `App\Support\AlcanceDeLaPlantilla`, con columnas
+ *      nombradas.
+ *   2. `YearsController:275` la lee con `SELECT *` y **no la devuelve**: alimenta un
+ *      `INSERT` que nombra sus columnas.
+ *   3. **No hay modelo Eloquent de esta tabla** —ni de `subunidades_por_defecto`—,
+ *      así que tampoco puede salir por un `return $modelo` entero. Ésa es la puerta
+ *      exacta por la que `profesores.tono` se repartió a seis respuestas vivas sin
+ *      que nadie la mandara, y aquí no existe.
+ *
+ * O sea que estas dos columnas **no aparecen en ninguna respuesta viva** por sí
+ * solas, y por eso su `ORDINAL_POSITION` no puede mover una instantánea. Quien las
+ * enseña es la pantalla nueva (`GET plantilla-notas`), que las nombra a propósito.
+ * *La tercera la midió `8myvc-47` sobre `main` y se comprobó aquí antes de darla por
+ * buena; las otras dos se contaron en esta rama.*
  */
 class AlcanceDeLaPlantilla extends Migration
 {
