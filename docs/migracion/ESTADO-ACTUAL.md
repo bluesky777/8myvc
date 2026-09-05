@@ -8,6 +8,139 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
+> ## CÓMO SE AVERIGUA ESTE ESTADO — cinco órdenes, y van ANTES que las cifras
+>
+> **Escrito el 5 sep 2026, después del apagón que mató cinco sesiones a la vez.** Lo que hizo
+> falta esa mañana para reconstruir dónde estaba cada una fueron cinco órdenes, y **ninguna
+> estaba escrita en ningún sitio**: cada sesión las volvió a deducir. Un documento que dice
+> *«esto es lo que hay»* caduca con el siguiente commit; uno que dice **cómo se averigua lo que
+> hay** no caduca nunca — y por eso esto va arriba y las cifras van debajo.
+>
+> ```bash
+> git -C <árbol> branch --show-current && git -C <árbol> status --porcelain   # 1. dónde estoy y qué cuelga
+> git log --oneline -1 main                                                   # 2. hasta dónde llegó lo fundido
+> git branch --no-merged main --format='%(refname:short)'                     # 3. qué no está en main
+> git worktree list                                                           # 4. quién más está trabajando
+> docker ps --format '{{.Names}}\t{{.Status}}'                                # 5. si hay con qué medir
+> ```
+>
+> ### Las cinco trampas, una por orden — y las cinco están medidas, no supuestas
+>
+> 1. **`git status` en el árbol principal no contesta por ti.** El principal lo ocupa otra
+>    sesión y **puede no estar en `main`**: el 5 sep estaba en `fix/disponibilidad-si-se-guarda`.
+>    Lo que cuelgue ahí sin commitear **es de otro**, y se avisa, no se commitea
+>    ([La autorización no se delega](15-la-noche-en-paralelo.md)).
+> 2. **`main` no es donde estás.** Las dos cifras que la gente cita —el router y la tanda de
+>    migraciones— se leen de un árbol concreto, y los árboles **no coinciden**.
+> 3. **`--no-merged` cuenta referencias, no trabajo.** El 5 sep daba **once** ramas y sólo
+>    **cuatro** tenían algo vivo: las otras siete iban de **36 a 165 commits por detrás** de
+>    `main` y son restos, no cola. La orden que separa una cosa de la otra es
+>    `git rev-list --left-right --count main...<rama>` — **adelante y atrás**, porque una rama
+>    con 3 commits propios y 55 de retraso no es lo mismo que una con 1 y 0.
+> 4. **`git worktree list` es el censo de quién más puede pisarte**, y el nombre de la carpeta
+>    **ya está cogido aunque no lo parezca**: `.worktrees/g` estaba ocupado por el Lote G
+>    cuando fui a crearlo. El script avisa (`Ya existe .worktrees/g`) y no lo pisa.
+> 5. **Docker puede estar caído**, y lo estaba esa mañana. Sin él no hay `route:list`, ni
+>    `artisan`, ni las herramientas de `tools/` — y **la base es la de desarrollo compartida**:
+>    lo que midas ahí lo puede estar cambiando otra sesión mientras lo lees.
+>
+> ### Y la prueba de que un número aquí nace caducado
+>
+> **Conté las ramas sin fundir cuatro veces en una hora y salieron `8`, `10`, `11` y `8`.** No
+> me equivoqué ninguna de las cuatro, y las dos direcciones tienen causas distintas: subió
+> porque otras sesiones creaban ramas mientras yo medía, y **volvió a bajar porque `main`
+> avanzó y se llevó dos dentro**. Lo mismo con los worktrees, de 15 a 17. **Por eso el bloque
+> de abajo lleva la hora puesta y esta lista no la necesita.**
+>
+> ### El número que más se cita, y que depende del árbol en el que estés
+>
+> ```
+> árbol principal   fix/disponibilidad-si-se-guarda    route:list --json  ->  568
+> .worktrees/p      feat/plantilla-de-notas            route:list --json  ->  577
+> ```
+>
+> **Las dos son ciertas.** `CLAUDE.md` dice 568 porque describe lo fundido; la plantilla de
+> notas trae nueve rutas que todavía no están en `main`. **Quien cite «el router está en N» sin
+> decir desde qué árbol lo contó no ha dicho un número**, y ésta es la forma en que esa cifra
+> lleva envejeciendo desde agosto.
+
+> ## LA FOTO DEL 5 SEP 2026, 07:36 — Y ES UNA FOTO, NO UN ESTADO
+>
+> Recontada con las órdenes de arriba, **no heredada de nadie**. Si la lees más tarde,
+> **vuelve a correrlas**: lo de abajo es lo que se vio, no lo que hay.
+>
+> | | |
+> |---|---|
+> | `main` | `ac09cb7` |
+> | árbol principal | rama `fix/el-ensayo-mide-el-arbol-de-artisan` @ `ac09cb7` — **no es `main`**, y es de otra sesión |
+> | sin commitear en el principal | `tools/ensayo-de-la-tanda.sh` — huérfano del apagón, **en rescate por otra sesión**; no lo commitees |
+> | ramas `--no-merged main` | **8**, y **ninguna** está a menos de 3 commits de retraso |
+> | worktrees | **17** |
+> | docker | estaba **caído** al empezar la mañana; lo levantó `8myvc-25` |
+> | bases `simonbolivar*` | **20**, y `simonbolivar_testing_h` sigue **rota** (95 tablas, parada en `2026_08_31_100000`) |
+>
+> **Las ocho, con adelante y atrás — que es lo único que separa una cola de un resto:**
+>
+> ```
+> feat/plantilla-de-notas             5 adelante    3 atrás    <- trae el router a 577
+> test/guard-del-ensayo               5 adelante    3 atrás    <- cuelga de la plantilla, no de `main`
+> docs/barrido-profesor-serializado   8 adelante   37 atrás
+> docs/appkey-compartida-fortul-lal   5 adelante   43 atrás
+> docs/despliegue-remedido            3 adelante   37 atrás
+> fix/frases-asignatura-text          3 adelante   56 atrás
+> feat/calendario                     2 adelante  166 atrás
+> fix/columnas-en-los-modelos-no-borra 1 adelante  41 atrás
+> ```
+>
+> ### Y lo que esta tabla enseña al compararla con la de hace una hora
+>
+> **Ninguna rama desapareció: lo que se movió fue `main`.** A las 06:2x había **once**
+> y cuatro parecían vivas; a las 07:36 hay **ocho** y las dos que estaban a `0 atrás`
+> —`fix/disponibilidad-si-se-guarda` y la rama reservada del Lote G— **están dentro de `main`**.
+> Una fusión **reclasifica el censo entero de golpe**, y por eso «cuántas ramas quedan» no es
+> una cifra que se pueda heredar de una casilla: se cuenta o no se dice.
+
+> ## LO QUE ESPERA UNA DECISIÓN, Y ES LO PRIMERO QUE SE PIERDE EN UN APAGÓN
+>
+> **Ninguna de las dos la puede resolver una sesión midiendo**, que es exactamente por qué
+> están aquí arriba y no dentro de una casilla fechada donde hay que ir a buscarlas.
+>
+> ### 1. `SELECT VERSION();` en un colegio — y decide el coste del día 10
+>
+> **Nadie de aquí puede correrla**: hay que entrar a un cPanel. El detalle y la medición están
+> en la casilla del 4 sep («LA TANDA ENSAYADA SOBRE UNA BASE CON DATOS»), y el resumen es que
+> la misma migración sobre `notas` cuesta **11,8 ms bajo MySQL 8** y **4.870 ms bajo 5.7**, con
+> la tabla bloqueada y escalando con las filas. Por diecisiete colegios, eso **deja de ser un
+> detalle y pasa a ser el plan**. *Es lo más barato que se puede hacer antes del día 10 y sigue
+> sin hacerse.*
+>
+> ### 2. El Lote G: ensanchar `GET horario/versiones/{id}/lecciones` con las cuatro listas
+>
+> Es la decisión 38 de `myvc_horarios`. **Ya no es una hipótesis:** el 5 sep se midió que este
+> servidor **sí guarda** las disponibilidades declaradas —dentro de
+> `horario_versiones.proyecto`, 47 docentes con la clave y 26 con marcas de verdad— y que dos
+> cadenas afirmaban lo contrario (`ac09cb7`). **Eso cambia el trabajo que se pide**: no es
+> inventar un dato, es parsear un blob que ya está.
+>
+> **El trabajo NO está hecho, y el censo de ramas no sirve para saberlo.** Hay una rama
+> reservada —`feat/horario-cuatro-listas`, con su worktree en `.worktrees/g`— que apuntaba al
+> mismo commit que `main` cuando la miré, así que **en cuanto `main` avanzó dejó de salir en
+> `--no-merged` sin que nadie escribiera una línea**. Una rama reservada y una rama terminada
+> **se ven igual desde fuera**: lo que dice si el Lote G está hecho **es la respuesta de
+> la ruta, no la lista de ramas**. Comprobado el 5 sep a las 07:4x sobre la versión oficial 8:
+>
+> ```
+> GET horario/versiones/8/lecciones -> 200
+>   catalogos.disponibilidad = {"estado":"sin_catalogo",
+>                               "motivo":"está guardada dentro del fichero de proyecto,
+>                                         no en una tabla: esta ruta todavía no la parsea"}
+>   el sobre sigue con cinco claves: version · ejes · catalogos · lecciones · total_lecciones
+> ```
+>
+> *Y ese `motivo` ya es el bueno —dice que el dato **está** y que falta parsearlo—, que es
+> justo lo que arregló `ac09cb7`. O sea que el trabajo pendiente está bien descrito y sin
+> empezar.*
+
 > **Y una corrección de nombre que NO es cosmética.** Las tres entradas de esta noche que
 > atribuían trabajo a `8myvc-d2` decían mal el nombre de la sesión que coordinó: es
 > **`8myvc-7d`**. Firmé así toda la noche —y `8myvc-d5` lo copió de mí de buena fe— hasta
