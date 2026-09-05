@@ -1045,9 +1045,16 @@ esta casilla · **cero código** · la copia de ensayo se borró al terminar
 > 2. **Ninguna puede fallar por las filas que ya hay**: toda columna añadida a tabla existente
 >    es `nullable()` o lleva `default()`, y las dos claves ajenas nuevas cuelgan de columnas
 >    **nuevas y todas nulas**. Comprobado corriéndolas.
-> 3. **La vuelta atrás funciona como mecanismo** —las ocho `down()` corrieron limpias— pero
->    **devuelve el esquema y no el contenido**: `retirar_boletin_independiente` re-crea la
->    columna **vacía**. La §11.4 sigue entera; lo que se afina es el porqué.
+> 3. **La vuelta atrás funciona como mecanismo** —**las ocho `down()` de aquel día, 4 sep
+>    2026**, corrieron limpias— pero **devuelve el esquema y no el contenido**:
+>    `2026_08_31_100000_retirar_boletin_independiente_de_matriculas` re-crea la columna
+>    **vacía**. La §11.4 sigue entera; lo que se afina es el porqué.
+>
+>    *El **ocho** lleva su fecha delante a propósito: se midió sobre las ocho migraciones
+>    que había ese día, y desde la consolidación de esa misma tarde son **cinco ficheros
+>    con las mismas columnas**. Quien lo lea después del día 10 va a contar cinco y tiene
+>    que poder ver que el ocho era correcto cuando se escribió — la medición no envejeció,
+>    envejeció su denominador.*
 >
 > ### Y una que no es mía y está ahí: una base de sesión rota
 >
