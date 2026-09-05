@@ -181,6 +181,8 @@ leyendo el código. Cada una lleva su uso en la cabecera.
 | `verdad-laxa-que-escribe.py` | dónde una cadena cualquiera del cliente vale por «sí» **y gobierna una escritura** — 21 de 980 `if`, tres con consecuencia |
 | `prevuelo-del-horario.php` | si los datos de un colegio sirven para cuadrar un horario — **la rejilla es un parámetro** (`--lecciones`), y con la de 6×5 que supuso la v1 el docente de 31 h era imposible |
 | `deriva-del-horario.php` | si las siete columnas de día siguen cuadrando con la versión oficial — **sin versión publicada sale `2`, NO MEDIDO**, porque ahí un `0` diría lo mismo que un año perfecto |
+| `ensayo-de-la-tanda.sh` | si la tanda de migraciones corre entera sobre una copia de un colegio de verdad y cuánto tarda — y **audita la comprobación de `DESPLIEGUE.md`**, que la saca del documento con `grep` en vez de copiarla |
+| `comprobar-el-horario.php` | si el módulo de horario **llegó** a un colegio: `200` con `total: 0` no es lo mismo que `404` ni que `500`, y desde la pantalla los tres son una rejilla vacía |
 
 Y una que **no** está en `tools/` y contesta la pregunta contraria:
 `tests/Barrido/SuperficieDeUnTokenTest.php` golpea la API entera con un token y

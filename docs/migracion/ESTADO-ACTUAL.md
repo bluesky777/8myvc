@@ -22,6 +22,147 @@
 > Los mensajes de commit están limpios —cero apariciones—, así que sólo había que tocar
 > estas tres líneas.
 
+**4 sep 2026 — EL ENSAYO DE LA TANDA YA SE PUEDE REPETIR, Y DE PASO TRAE UN DETECTOR DE
+COMPROBACIONES CORTAS** · `tools/ensayo-de-la-tanda.sh` y `tools/comprobar-el-horario.php`
+(nuevos) y esta casilla · **cero código de la API, el router no se mueve: 568** · larastan
+nivel 7 `[OK] No errors`
+
+> **`8myvc-06` midió las ocho migraciones en ~1,0 s sobre una copia de `simonbolivar` y
+> luego borró la copia.** Lo que quedó fue una cifra sin forma de volver a sacarla: ni el
+> estado de partida, ni cómo se rebobinó, ni qué controles saltaron. *Una cifra que nadie
+> puede repetir no es una medición, es un recuerdo.* Ahora es un script.
+>
+> ### LO MEDIDO HOY, y la población va delante
+>
+> | | |
+> |---|---|
+> | copia de | `simonbolivar` — **102 tablas, 210 MB, 1.166.139 notas**, 127.887 `notas_finales` |
+> | las ocho, sólo las migraciones | **1,0–1,5 s** (tres corridas: 1.059, 1.318 y 1.531 ms) |
+> | el comando entero, con el arranque de Laravel | **1,4–2,0 s** |
+> | la más cara, siempre | `2026_09_03_100000_rubricas`, **0,57–0,92 s** — cinco tablas |
+> | copiar la base | **22–25 s**, que es el 95% de la corrida |
+>
+> **La que manda para la ventana del colegio es la segunda**: lo que el colegio está caído
+> es lo que tarda el *comando*, no la suma de los renglones que imprime Laravel.
+>
+> ### EL REBOBINADO TIENE DOS TRAMPAS, Y LAS DOS DAN UN VERDE FALSO
+>
+> - **`migrate:rollback --step` cuenta MIGRACIONES, no lotes** —al revés que `--step` de
+>   `migrate`—. Con `--step=1` se deshace **una**, y el ensayo mediría **una de ocho**
+>   creyéndose completo.
+> - **Los lotes no cuadran con la tanda**: en esta base el lote 14 lleva dentro
+>   `2026_08_30_200000_notas_finales_en_decimal`, que **ya está desplegada**. Rebobinar por
+>   lotes la deshace también y mediría un despliegue de **nueve**, que no es el que va a
+>   pasar. El script reagrupa las ocho en un lote propio **de la copia** antes de rebobinar.
+> - Y el cronómetro: **el `date` de la imagen es el de BusyBox y no conoce `%N`**, así que
+>   `(f-i)/1000000` contestaba **`0 ms`** — un cronómetro que contesta cero parece una
+>   medición buenísima. Va con `EPOCHREALTIME`.
+>
+> ### EL CONTROL QUE NO ES UNA LISTA ESCRITA A MANO
+>
+> El script compara el esquema de la copia rebobinada contra el de la base de trabajo, así
+> que **dice lo que la tanda cambia de verdad** en vez de lo que alguien se acordó de
+> preguntar: **8 tablas nuevas, 18 columnas nuevas en 6 tablas viejas y 1 columna retirada**.
+> Con eso audita la comprobación de `docs/DESPLIEGUE.md`: *de cada tabla que cambia, ¿pregunta
+> al menos una cosa?*
+>
+> **Hoy cuadra. Y el detector se ha visto en rojo**: contra una copia del documento a la que
+> se le quitó `["profesores","tono"]` —el hueco real del 4 sep— canta
+> `CORTA: columna-de:profesores` y sale con 1. *Un detector que no se ha visto fallar no es un
+> detector.* El control negativo del propio chequeo también salta: contra la copia sin migrar
+> lista las **17** cosas que faltan, y contra la migrada dice `OK - las ocho dentro`.
+>
+> **Y la comprobación no se copió al script: se SACA del documento** con un `grep`. Copiarla
+> dejaría dos textos envejeciendo por separado, y el que alguien ejecuta el día del despliegue
+> es el del documento.
+>
+> ### LA COMPROBACIÓN PROPIA DEL MÓDULO DE HORARIO, QUE ES OTRA PREGUNTA
+>
+> `tools/comprobar-el-horario.php` — porque la de esquema pregunta por la **base** y ésta por
+> el **router**, y las tres cosas que hay que distinguir se ven igual desde la pantalla (una
+> rejilla vacía):
+>
+> ```
+> 200 con total: 0   el módulo está y este colegio no ha subido nada
+> 404                el código del horario NO llegó a este colegio
+> 500                llegó el código y no la migración
+> ```
+>
+> **Medido sobre la copia recién migrada: `200`, `total: 0`, `oficial_id: null`,** y el control
+> del alumno da **403**. Sobre la base de trabajo, que sí tiene versiones, la misma herramienta
+> dice `200 · total: 6 · oficial_id: 6` — que es el control de población: sin él, un `total: 0`
+> no distingue «no han subido nada» de «la herramienta no mira nada».
+>
+> **El control del alumno no es adorno**: un 200 para el personal no dice si la puerta está
+> cerrada; eso lo dice el 403. Y si el colegio no tiene alumnos activos, esa mitad sale **SIN
+> MEDIR** en vez de darse por buena.
+>
+> **Y su control entró CON la herramienta, no después**, que es la regla que enuncia
+> `AutopruebasDeLasHerramientasTest`: `--control` fija **las siete formas del veredicto** sin
+> base y sin Laravel, y está registrado ahí — el runner pasa de 13 herramientas a **14**. Lo
+> que ese control impide es lo único que puede mentir aquí: confundir el `200 · total: 0` que
+> es la respuesta **buena** con el `404`, el `500` o el «200 sin la clave `total`», que desde
+> la pantalla se ven los cuatro igual.
+>
+> **El control del ensayo no cabe en un `--control`** —necesita la copia y el docker—, así que
+> va escrito en su cabecera como receta de dos líneas, con lo que tiene que cantar.
+>
+> **Escribe, y por eso el borrado es quirúrgico.** Abre una sesión de verdad para poder
+> preguntar con token, y la cierra **por el nombre de la sesión** (`web:<uuid>`, sacado del
+> propio token que emitió) y no por el usuario: un `DELETE ... WHERE tokenable_id = ?` en un
+> colegio vivo echaría de la aplicación a esa persona en mitad de su jornada, y el síntoma
+> —«se me cerró la sesión sola»— caería justo el día en que nadie lo atribuiría a esto.
+> Comprobado: 198 tokens antes y 198 después.
+>
+> ### EL PRE-VUELO, CORRIDO — Y NO SALE LIMPIO
+>
+> `tools/prevuelo-del-horario.php` contra la base **local** `simonbolivar` (restricción de
+> Joseth de hoy: nada de la nube), año **2025 · `id = 8` · el `actual`**, que es el último con
+> datos configurados: 13 grupos, 134 asignaturas, 12 docentes, **ΣIH 345 h**, rejilla 7×5.
+>
+> **`exit = 1`, NIVEL 1 SUCIO, dos hallazgos, los dos de preescolar:**
+>
+> - **Transición no se puede colocar EN ABSOLUTO**: ninguna de sus asignaciones tiene a quién
+>   poner en la casilla.
+> - **Jardín**, en parte.
+>
+> Son **10 asignaciones de 134 sin `profesor_id`, 25 h**. Lo demás está entero: las 134 con IH
+> puesta, los 12 docentes caben (el más cargado, 31 h de 35), los 13 grupos caben, ninguna
+> materia en la papelera. **Y mientras el nivel 1 esté sucio el nivel 2 no se ejecuta**, así que
+> esas dos filas bloquean el diagnóstico de los trece grupos, no el de los suyos.
+>
+> **DECISIÓN DE JOSETH, 4 sep 2026: se queda como está y no bloquea nada.** *«Actualmente no
+> tienen docente, pero eso no es algo que ocurra en la vida real; está bien como está,
+> mostrando la ficha sin docente.»* O sea que el hallazgo **no es un fallo de datos que haya
+> que reparar antes del despliegue**: es el dato de un colegio de desarrollo, y la respuesta
+> correcta de la API ante él es la que ya da — enseñar la ficha sin docente en vez de
+> esconderla. *Lo que sí se queda dicho es que en un colegio real ese renglón significaría
+> otra cosa, y ahí el pre-vuelo estaría haciendo su trabajo.*
+>
+> **La trampa del año, comprobada y no supuesta:** con `--year=9` (2026, el último por fecha)
+> el informe sale creíble —13 grupos, 134 asignaturas, ΣIH 345— y **los trece grupos salen
+> imposibles**, porque ese año no tiene ni un docente asignado. La cabecera **sí avisa**
+> (`año 2026 (year_id 9, NO es el actual)`), pero **el código de salida es el mismo `1`**: en
+> un bucle de diecisiete ese colegio entraría en el recuento como «mirado y sucio». Sin
+> `--year` el pre-vuelo coge el `actual` y acierta solo.
+>
+> ### LO QUE ESTO NO TOCA
+>
+> **`docs/DESPLIEGUE.md` no se ha tocado**, a propósito: `8myvc-47` va a fusionar las ocho y
+> eso mueve su tabla de migraciones. Lo que este trabajo tiene que dejar escrito allí —las dos
+> herramientas en el orden del día del despliegue— entra **después** de que esa rama esté en
+> `main`, no antes, y remidiendo.
+>
+> **Y su comprobación de esquema ya estaba cuadrada**: el encargo decía que preguntaba por
+> siete cosas y le faltaba `["profesores","tono"]`; en `bb81ffc` ya son **ocho** —entró en
+> `3caacf9`— y contra la base local contesta `OK - las ocho dentro`. Recontado: la comprobación
+> cubre **las ocho migraciones**, una cosa por cada una.
+>
+> **De `CLAUDE.md` se mueven DOS FILAS y ningún número**, y las autorizó Joseth: las dos
+> herramientas entran en la tabla de `tools/`. El censo de controladores, el de rutas y el de
+> públicas **siguen donde estaban** — este trabajo no toca `app/` ni `routes/`, y el router se
+> recontó con `route:list --json`: **568**, igual que antes.
+
 **4 sep 2026 — LA COBERTURA REMEDIDA: 568/568, Y LO QUE ENVEJECIÓ FUE EL NÚMERO, NO LA
 PROPIEDAD** · `CLAUDE.md` y esta casilla · **cero código**
 
