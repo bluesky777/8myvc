@@ -54,7 +54,21 @@ nadie**. Joseth decidió el color «automático inicial, cambiable», y **quién
 también los coordinadores, o sea `puedePublicarHorario` y **no** la ficha del docente, que
 exige `esSuperusuario` dentro y lo habría dejado en once personas y ningún coordinador —**la
 salida barata no era la misma decisión con menos trabajo, era otra decisión**. **568 se
-contó con `route:list --json`, no se sumó.** «El de rutas no se mueve»
+contó con `route:list --json`, no se sumó.** Y ese mismo día a **577** con **las nueve de
+`plantilla-notas/`** —el `GET`, los seis de unidad y subunidad, `orden` y `sembrar`—, que
+son la **Entrega 1** de `docs/migracion/28-competencias-e-indicadores.md` y sacan la
+plantilla de notas del colegio de **phpMyAdmin**, que es literalmente donde se editaba. Las
+nueve las autorizó Joseth **a la vez y con el precio delante**, por la misma razón que las
+tres primeras de `horario/`: con el `GET` y los `POST` se puede escribir una plantilla y
+**nadie puede aplicarla**. Van con `auth.personal` en la ruta y un permiso nuevo
+—`can_edit_plantilla_notas`— **dentro**, porque `auth.personal` deja pasar a cualquier
+docente y una fila de esa plantilla **multiplica**: un 90 % escrito ahí es un 90 % en todas
+las asignaturas que se siembren. Entraron junto con el **alcance** de la Entrega 7(a) —dos
+columnas anulables en `unidades_por_defecto`— y no por comodidad: **las columnas sin
+pantalla no las puede escribir nadie**, que es el caso `profesores.tono` del día anterior
+visto antes de cometerlo, y la pantalla sin alcance le siembra la plantilla de una fila de
+preescolar **a todo el bachillerato**. **577 se contó con `route:list --json`, no se
+sumó** — coincidió con 568 + 9. «El de rutas no se mueve»
 sigue siendo la
 regla: una ruta nueva es una decisión, no un efecto secundario, y mueve este
 documento y **tres** snapshots, no dos: `rutas.json`, `guards-por-ruta.json` y

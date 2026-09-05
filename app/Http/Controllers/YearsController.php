@@ -272,11 +272,30 @@ class YearsController extends Controller {
 			// `docs/migracion/28-competencias-e-indicadores.md`, corriéndola en los
 			// diecisiete del servidor. Lo dice aquí porque es aquí donde alguien va a
 			// venir dentro de dos meses a leer «arreglado».
-			$unidades_ant = DB::select('SELECT * FROM unidades_por_defecto WHERE year_id=? AND deleted_at is null;', [$pasado->id]);
+			// **Y el ALCANCE viaja con la fila, desde el 4 sep 2026.** Es la mitad que
+			// no se ve de la decisión 8 de Joseth (§5.7.a del 28): desde
+			// `2026_09_05_200000_alcance_de_la_plantilla`, una fila puede ir dirigida a
+			// un nivel educativo y/o a una materia, y este `INSERT` **nombra sus
+			// columnas**.
+			//
+			// Sin las dos de abajo el fallo no habría sido «no se copia el alcance»,
+			// que se nota: habrían nacido a NULL, y **NULL aquí significa “a todos”**.
+			// O sea que la plantilla de UNA fila de preescolar —la que existe para que
+			// la docente deje de teclear el mismo logro dos veces— se le habría
+			// sembrado en enero **a todo el bachillerato**, con su única casilla al
+			// 100 %, un 200 y ningún error. No es «no se copió»: es **la fila
+			// escapándose de su alcance**, y es la misma familia del fallo que este
+			// mismo bloque arregló arriba, sólo que en la dirección contraria — allí la
+			// plantilla llegaba vacía, aquí llegaría a quien no era.
+			//
+			// Las columnas van nombradas en el `SELECT` por lo mismo que en el
+			// `INSERT`: un `*` aquí seguiría funcionando hoy y volvería a callarse la
+			// próxima vez que alguien añada una columna a esta tabla.
+			$unidades_ant = DB::select('SELECT id, definicion, porcentaje, obligatoria, orden, created_by, nivel_educativo_id, materia_id FROM unidades_por_defecto WHERE year_id=? AND deleted_at is null;', [$pasado->id]);
 
 			foreach ($unidades_ant as $key => $unidad) {
-				DB::insert('INSERT INTO unidades_por_defecto(definicion, porcentaje, year_id, obligatoria, orden, created_by) VALUES(?,?,?,?,?,?)', 
-					[$unidad->definicion, $unidad->porcentaje, $year->id, $unidad->obligatoria, $unidad->orden, $unidad->created_by]);
+				DB::insert('INSERT INTO unidades_por_defecto(definicion, porcentaje, year_id, obligatoria, orden, created_by, nivel_educativo_id, materia_id) VALUES(?,?,?,?,?,?,?,?)',
+					[$unidad->definicion, $unidad->porcentaje, $year->id, $unidad->obligatoria, $unidad->orden, $unidad->created_by, $unidad->nivel_educativo_id, $unidad->materia_id]);
 
 				// **Dentro del bucle y justo después del `INSERT` de su unidad.** Leído
 				// una línea más abajo —fuera del bucle, o después de insertar las
