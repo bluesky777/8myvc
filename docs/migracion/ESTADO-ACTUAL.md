@@ -22,6 +22,479 @@
 > Los mensajes de commit están limpios —cero apariciones—, así que sólo había que tocar
 > estas tres líneas.
 
+> ## LA DERIVA QUE ESTUVO PUESTA A PROPÓSITO — YA NO ESTÁ, Y SE REPONE EN UNA LÍNEA
+>
+> **Estado a 5 sep 2026, 05:4x: `DESCUADRADAS 0`, exit 0, año 8 regido por la versión 8.**
+> Si mides ahora y te sale `0`, **ese cero no prueba nada** — es el estado que la marca existía
+> para desmentir.
+>
+> ### Lo que se midió, que es lo que hay que conservar
+>
+> El **4 sep 2026 a las 21:40** se apagó a mano el martes de `asignaturas.id = 1234`
+> (`PUT asignaturas/toggle-dia`, `profesor_id 9`, MATEMÁTICAS de Tercero), con la versión 7
+> oficial dándole los días 1 y 2. `tools/deriva-del-horario.php --year=8` contestó
+> **`133 de 134 · DESCUADRADAS 1 · exit 1`**, y con `--detalle` nombró la asignatura y el día.
+>
+> **Ése es el único número de todo el módulo que no podía salir por accidente.** Los ceros no
+> demuestran nada —recién publicada una versión, cuadrar es aritmética—, así que el `1` es lo que
+> prueba que **el detector detecta lo que dice su nombre**. Lo midió `8myvc-84` con las escrituras
+> autorizadas por Joseth en su canal, y lo reprodujo `8myvc-7c`.
+>
+> **Y el radio no era de laboratorio:** en martes la versión oficial le daba al profesor 9 **cinco**
+> asignaciones y `asignaturas` le daba **cuatro**. Una clase desaparecida de su portada, **sin error
+> y sin aviso**.
+>
+> ### Por qué ya no está, y por qué eso también estuvo decidido
+>
+> El **5 sep de madrugada** `myvc-horarios-16` publicó la **versión 8** —la primera con una pieza de
+> varios grupos, una misa que junta once— y `putOficial` **reescribe las siete columnas de día de
+> todo el alcance del año**. La 8 coloca la 1234 en martes en dos casillas, así que `martes` volvió
+> a `1` y la deriva desapareció.
+>
+> **No fue un descuido: se paró el `PUT` a medias para preguntarlo otra vez.** La autorización que
+> Joseth había dado decía *«reescribe las columnas de día del año 8»* —cierto y genérico—, no
+> *«borra la marca que decidiste dejar puesta hace unas horas»*. Con la marca nombrada eligió
+> **«publica: la marca es repetible»**. *Dos decisiones suyas separadas por horas y tomadas en
+> repositorios distintos, y la segunda no sabía de la primera.*
+>
+> ### Reponerla, si alguien vuelve a necesitar el `1`
+>
+> ```sql
+> UPDATE asignaturas SET martes = 0 WHERE id = 1234;   -- y deriva vuelve a 1
+> ```
+>
+> **Comprobar antes que la versión oficial le sigue dando el martes a la 1234**: sobre una versión
+> que no la coloque ahí, ese `UPDATE` no descuadra nada y el `0` volvería a no significar nada.
+>
+> > **Y este bloque está reescrito y no borrado a propósito.** Mientras la marca estuvo puesta, esta
+> > casilla decía **«NO LA ARREGLES»**; en cuanto se publicó la 8, esa frase pasó a ser **el
+> > documento que hace que un `0` se lea mal** — que es exactamente el daño que venía a evitar.
+> > *Un aviso sobre un estado tiene la fecha de caducidad del estado*, y el que avisa de una
+> > excepción **envejece hacia el peligro**: de proteger a engañar, sin que nada se ponga rojo.
+>
+> *En los dieciséis colegios esto no existe: cero versiones desplegadas.*
+
+**5 sep 2026 — EL PRE-VUELO YA DICE CON QUÉ AÑO MIDIÓ DONDE SE LEE, Y NO SÓLO ARRIBA** ·
+`tools/prevuelo-del-horario.php` y esta casilla · **cero código de la API, el router no se
+mueve: 568** · larastan nivel 7 `[OK] No errors` · **sin Pint, a propósito**
+
+> **El aviso existía y estaba en el sitio donde no se lee.** La cabecera imprime `año 2026
+> (year_id 9, NO es el actual)` desde siempre — y **se pierde**, porque esta herramienta se
+> lee de dos maneras que se comen justo esa línea: `| tail` en el bucle de los diecisiete, y
+> el ojo que baja directo al veredicto. *Un aviso que sólo vive arriba no existe en el único
+> momento en que hace falta.*
+>
+> **Lo que lo destapó**: correr el pre-vuelo con `--year=9` sobre `simonbolivar`. El 2026 no
+> tiene **ni un docente asignado**, y el informe sale **completo y creíble** —13 grupos, 134
+> asignaciones, ΣIH 345— con **los trece grupos imposibles** y `exit = 1`. Que es el mismo
+> código que un colegio sucio de verdad: en el bucle del día 10, ese colegio entraría en el
+> recuento como **mirado y sucio**.
+>
+> ### LO QUE **NO** SE TOCA, Y ESA ES LA MITAD DE LA DECISIÓN
+>
+> **El código de salida se queda en `1`.** El `2` es NO MEDIDO y aquí **sí se ha medido**: un
+> año pasado o futuro es un año **legítimo de mirar** —hay colegios preparando el siguiente—.
+> Mover el código movería a quien lo consuma para arreglar **una lectura**. *Lo que estaba mal
+> no era el veredicto: era dónde se decía con qué año se sacó.*
+>
+> ### LO QUE CAMBIA, Y SON TRES COSAS PEQUEÑAS
+>
+> - **El aviso va al final, después del veredicto** — lo último que se imprime es lo único que
+>   sobrevive a un `| tail`. Nombra el año, el `year_id`, la opción con la que se pidió, y
+>   **desmiente el código de salida**: *«sale `1` igual»*.
+> - **Sólo avisa si el año se pidió a mano.** Sin `--year` la herramienta coge el `actual` ella
+>   sola y no hay nada que advertir.
+> - **El CSV lleva `es_el_actual` y `year_pedido_a_mano`**, y no sobra ninguna: la primera dice
+>   **qué se miró** y la segunda **por qué**. La cabecera que lo avisa **no viaja en el CSV**,
+>   así que sin esas dos columnas una fila medida sobre un año vacío se lee, semanas después,
+>   como un colegio con problemas.
+>
+> ### EL CONTROL PASA DE 14 A 21 FORMAS, Y LAS TRES PRIMERAS SON DE CALLARSE
+>
+> **La forma de mentir de este aviso es callarse**, y callarse de más **no se ve**: no falta
+> nada en la pantalla, sólo un aviso que nadie echa en falta. Por eso las tres maneras
+> legítimas de callarse se fijan una a una —sin `--year`, con `--year` sobre el actual, y el
+> caso imposible por construcción— además de las cuatro de hablar. Y lo que se comprueba de la
+> que habla **no es que diga algo**, sino que **nombre el año y desmienta el código de salida**:
+> un aviso que no hace eso deja el informe igual de creíble, que es de lo que venía.
+>
+> *`AutopruebasDeLasHerramientasTest` lo ejecuta: 14 herramientas en verde, y ésta con **21
+> formas** en vez de 14. **A este fichero no se le ha pasado Pint** —`tools/` no está en el
+> script `pint` de `composer.json` y ninguna suite lo ejecuta, así que ahí Pint rompe en
+> tiempo de ejecución sin poner nada en rojo—; larastan, que es el único que mira esa carpeta,
+> sale `[OK] No errors`.*
+
+**5 sep 2026 — EL ÚLTIMO `motivo` QUE AFIRMABA UNA IMPOSIBILIDAD, Y ERA FALSO POR LAS DOS
+MITADES** · `HorarioController` (el veredicto de `postVersiones`) y esta casilla · **decisión
+de Joseth** · **el router no se mueve: 568** · pint PASS · larastan nivel 7 `[OK] No errors`
+
+> **El cabo que quedaba del quinto estado, y al medirlo salió peor de lo que se creía.** El
+> veredicto que se guarda en cada subida decía:
+>
+> > *«NO COMPROBADA: la rejilla y los timbres viven en el fichero de proyecto, así que aquí no
+> > se sabe si la franja cae dentro de la jornada del nivel ni si cruza un descanso.»*
+>
+> Se sabía que **la segunda mitad** había dejado de ser cierta —los descansos se leen desde el
+> 4 sep—. **Medido el 5 sep sobre las siete versiones de `simonbolivar`, la primera tampoco lo
+> era, y nunca lo fue:**
+>
+> ```
+> proyecto.jornadaPorDefecto     -> {dias, franjas, timbres, descansosTras}
+> proyecto.niveles[].jornada     -> lo mismo, para los CUATRO niveles del colegio
+> ```
+>
+> **La jornada por nivel estaba en el blob desde el principio**, en el cuerpo de la misma
+> petición que escribe esa frase. O sea que el veredicto afirmaba no tener un dato que venía
+> **dentro de la propia subida que estaba juzgando**.
+>
+> ### LO QUE CAMBIA NO ES QUE SE COMPRUEBE: ES EL PORQUÉ DE QUE NO
+>
+> Sigue sin comprobarse y sigue diciendo `NO COMPROBADA`. **Lo que se corrige es que la razón
+> era falsa**, y esa diferencia decide quién vuelve a preguntar: *«no puedo»* y *«no lo hago»*
+> se leen igual en un veredicto y **sólo el segundo se puede resolver**. Es literalmente lo
+> que le pasó a los descansos —llevaban dos días legibles y nadie los pidió porque el renglón
+> de al lado decía que vivían en otro sitio—, así que esta frase estaba montando el mismo
+> archivado para la comprobación de la jornada.
+>
+> **Y lo que falta ahora es una decisión, no un dato**: si una franja fuera de la jornada de
+> su nivel **frena la subida (422) o sólo avisa**. El texto nuevo lo dice, para que la próxima
+> persona sepa qué preguntar en vez de creer que no hay nada que preguntar.
+>
+> ### LO QUE SE ACEPTA AL TOCARLO, Y POR ESO LO DECIDIÓ JOSETH
+>
+> Ese texto **se guarda dentro del veredicto de cada subida**, así que cambia lo que registran
+> las **futuras**; las siete que ya existen conservan la frase con la que se guardaron. *Eso
+> no es un daño: es para lo que existe el veredicto guardado —decir lo que se opinó el día que
+> se subió—.* Y por eso no se tocó por cuenta propia el 4 sep: no es aseo, es cambiar el
+> registro hacia adelante.
+>
+> *`HorarioSubidaTest` sigue exigiendo que las tres reglas no comprobadas vayan **nombradas**
+> —un `if` contra un dato que no se tiene pasa siempre, se ve verde y no comprueba nada—: 138
+> casos y 1.165 aserciones de `--filter=Horario` en verde.*
+
+**4 sep 2026 — EL QUINTO ESTADO: `ilegible`, EL ÚNICO DE LOS CINCO QUE ALGUIEN PUEDE
+ARREGLAR** · `HorarioController` (`catalogosDeLaVersion`, `renglonDelProyecto` y
+`proyectoDeLaVersion` nuevos), `tests/Contrato/HorarioLeccionesTest.php` (**18 casos, 187
+aserciones**) y esta casilla · **decisión de Joseth** · **el router NO se mueve: 568** ·
+pint PASS · larastan nivel 7 `[OK] No errors`
+
+> **Salió de arreglar una frase, no de buscar un estado.** `catalogos.timbres` decía que la
+> jornada *«vive en el fichero de proyecto (§4)»* — verdad que engaña, porque el fichero está
+> **en la columna de al lado de la misma tabla**. Al reescribirla salió que **no había palabra
+> para «lo tenemos guardado y no se deja leer»**.
+>
+> ### LOS CINCO, Y POR QUÉ EL CUARTO NO SERVÍA
+>
+> ```
+> completo      lo guardamos y está todo
+> parcial       lo guardamos y hay menos de lo que la versión usa
+> vacio         lo guardamos, el colegio no creó ninguno, y es LEGÍTIMO
+> sin_catalogo  esta API no puede saberlo POR DISEÑO
+> ilegible      lo tenemos guardado y NO SE DEJA LEER  <- el quinto
+> ```
+>
+> `sin_catalogo` es una frase **sobre el producto**: idéntica en los dieciséis colegios y que
+> **no la arregla nadie desde la web**. *«El proyecto de este colegio no se deja leer»* es
+> sobre **ese colegio y esa subida**, y **tiene arreglo: volver a subirlo**. Juntarlas habría
+> sido `[]` contra `null` otra vez, con la agravante de que **tres renglones ya usan
+> `sin_catalogo` con el primer significado**, así que el cuarto lo habría usado con otro sin
+> avisar.
+>
+> **De los cinco es el único que cambia lo que la persona debería hacer** — los otros cuatro
+> explícitamente no llevan llamada a la acción. *Ése es el argumento de que sea un estado y no
+> un matiz dentro de otro.*
+>
+> ### CÓMO SE LLEGÓ, Y ES LO MEJOR DEL HILO: DOS PROPUESTAS, LAS DOS TUMBADAS POR SU AUTOR
+>
+> `myvc-front-b2` pidió un campo `porque` dentro de `catalogos.timbres`; yo propuse un renglón
+> `catalogos.proyecto`. **Luego cada uno adoptó la del otro, y cada uno tumbó la que acababa de
+> adoptar:**
+>
+> | la propuesta | quién la mató | por qué |
+> |---|---|---|
+> | renglón `catalogos.proyecto` | `b2` | diría la verdad **al lado de tres renglones que siguen diciendo «no viaja»** |
+> | `porque` dentro de `sin_catalogo` | yo | mete «lo tenemos y está roto» **debajo de «por diseño no lo tenemos»** |
+>
+> **Y lo que decidió entre el estado y el campo no fue la limpieza: fue quién queda obligado.**
+> Medido por `b2` en su repositorio: sus cuatro `Record<EstadoDeCatalogo, …>` —palabra, icono,
+> color y frase— **dejan de compilar** con un valor más; con un campo al lado **no se rompe
+> nada** y su panel pintaría, ante un proyecto ilegible, la palabra que hoy tiene para
+> `sin_catalogo`: ***«No lo guarda el servidor»***, que es lo contrario de la verdad. `tsc`
+> verde, pruebas verdes, pantalla mintiendo. *Con el estado obliga el compilador; con el campo
+> se obliga el cliente a sí mismo.* **Puso el argumento en contra de su propia propuesta, y por
+> eso vale.**
+>
+> *Su coste, medido por él: cuatro entradas que el `tsc` le exige **más una regla de
+> `estado-catalogos.scss` que no le exige nadie** — la fila sale sin borde y no da error. **El
+> coste de verdad es el que el compilador no señala, y es una línea de CSS.***
+>
+> ### LOS TRES CAMBIAN JUNTOS, Y ESO ES LA MITAD DEL DISEÑO
+>
+> `timbres`, `disponibilidad` y `restricciones` salen del blob, así que si el fichero no se lee
+> **los tres son `ilegible` a la vez**: es un hecho **del fichero**, no de cada catálogo.
+> Marcar sólo `timbres` —donde el front lo pidió primero— habría dejado a los otros dos
+> diciendo «no viaja».
+>
+> **Y lo que NO contagia, con su caso propio:** `grupos`, `asignaciones`, `docentes`, `tono` y
+> `salones` salen de **tablas**. Sin ese caso, marcarlos todos por descuido pasaría inadvertido
+> y la pantalla diría que no se sabe nada de un colegio del que se sabe casi todo.
+>
+> ### EL BLOB SE DECODIFICA UNA VEZ, Y NO ES SÓLO POR LOS 2 ms
+>
+> `proyectoDeLaVersion()` se llama **una vez por petición** y su resultado alimenta las dos
+> cosas: los descansos y el estado de los tres catálogos. Decodificarlo dos veces costaría
+> otros 2 ms medidos **y, peor, las dos lecturas podrían discrepar** — que es la forma de la
+> que salen dos verdades sobre el mismo hecho.
+>
+> ### LOS TRES CONTROLES, VISTOS EN ROJO
+>
+> | se rompe a propósito | qué cae |
+> |---|---|
+> | el quinto estado no se usa nunca (siempre `sin_catalogo`) | **1** de 18 |
+> | contagia a los catálogos de tabla | **1** de 18 |
+> | el blob por defecto de los tests vuelve al de mentira | **2** de 18 |
+>
+> **El tercero no es un control del código, es del andamio, y por eso importa.** El blob por
+> defecto de este fichero era `{"proyecto":"<marca>"}` —con `proyecto` como **cadena**—, que
+> antes daba igual y **desde hoy es un proyecto ilegible**: con él, *todos* los casos del
+> fichero habrían corrido contra un colegio cuyo proyecto no se puede leer. **Verdes igual,
+> midiendo otra cosa.** Ahora es un proyecto de verdad con la marca dentro, en `programa`,
+> donde la busca el control de la fuga.
+>
+> ### ⚠️ Y LA SALVEDAD QUE ACOMPAÑA AL VERDE
+>
+> **Esta rama no se ha visto nunca con datos reales.** Las siete versiones de `simonbolivar`
+> parsean, así que `ilegible` **tiene cero ejemplos** y vive atado por cuatro formas rotas a
+> mano. Va escrito en el docblock del caso porque *comprobado que hoy no hace falta* no es
+> *comprobado que funciona*, y unas pruebas verdes se leen dentro de seis meses como lo
+> segundo.
+
+**4 sep 2026 — LA LÍNEA GRUESA DEL RECREO YA VIAJA: `ejes.descansos_tras`, CON SUS TRES
+ESTADOS** · `HorarioController` (`getLecciones`, `ejesDeLaVersion`, `descansosDelProyecto`
+nuevo y el `motivo` de `catalogos.timbres`), `tests/Contrato/HorarioLeccionesTest.php`
+(**16 casos, 161 aserciones**) y esta casilla · **el router NO se mueve: 568, contado con
+`route:list --json`** · pint PASS · larastan nivel 7 `[OK] No errors`
+
+> **El dato llevaba dos días dentro del blob que esta ruta ya leía, a un `json_decode` de
+> distancia, y nadie lo pidió.** El camino es
+> `proyecto.jornadaPorDefecto.descansosTras`, y las **siete** versiones reales de
+> `simonbolivar` traen la misma jornada:
+> `{"dias":[1,2,3,4,5],"franjas":7,"timbres":null,"descansosTras":[3,5]}`.
+>
+> **Por qué nadie lo pidió, que es el hallazgo de verdad**: el renglón `catalogos.timbres`
+> decía *«la rejilla, los timbres y las jornadas por nivel viven en el fichero de proyecto
+> (§4)»*. **Es verdad y engaña.** Describe **de dónde viene el dato** y se lee como **que
+> el servidor no lo tiene** — y el fichero está en la columna de al lado de la misma tabla.
+> Quien leyera eso archivaba la pregunta. Lo levantó `myvc-front-b2` **abriendo el blob, no
+> leyendo código**, y `myvc-front-c0` señaló la frase.
+>
+> ### LOS TRES ESTADOS, QUE SON EL LOTE ENTERO
+>
+> | el proyecto dice | viaja | qué significa |
+> |---|---|---|
+> | `descansosTras: [3,5]` | `[3, 5]` | dónde van las líneas gruesas |
+> | `descansosTras: []` | `[]` | **el colegio no descansa** — un dato afirmativo |
+> | no hay clave · el blob no parsea · no es lo que se espera | `null` | **no lo sabemos** |
+>
+> Aplastar las dos últimas a `[]` convertiría «no lo sé» en «no hay recreo» y el front
+> pintaría una parrilla corrida **con toda la confianza del mundo**, sin que nadie recibiera
+> un error. Es la misma distinción que sostiene `vacio` contra `sin_catalogo`, y la razón de
+> que esta ruta tenga cuatro estados de catálogo y no dos.
+>
+> **Base 1 y «tras»**: un `3` es *después de la tercera lección*, no *en la tercera*.
+>
+> ### EL COSTE, MEDIDO ANTES Y DESPUÉS — Y LA OPCIÓN QUE PARECÍA BARATA ES LA CARA
+>
+> `ejesDeLaVersion()` no abría el blob: los ejes salen de las lecciones. Esto le mete un
+> `json_decode` de hasta 129.550 bytes, así que se midió sobre la versión 7 de
+> `simonbolivar`, 200 repeticiones:
+>
+> | | |
+> |---|---|
+> | la consulta de la versión, sin el blob | **0,78 ms** |
+> | + traerlo + `json_decode` en PHP | **2,86 ms** (+2,07) |
+> | `JSON_EXTRACT` dentro del `SELECT` | **5,42 ms** (+4,64) |
+>
+> **La columna es `mediumtext`, no `json`**, así que MySQL no tiene un documento parseado
+> que indexar: reconstruye el JSON entero en cada llamada y lo hace **más despacio que PHP**.
+> *Un `JSON_EXTRACT` sobre una columna de texto no es una lectura barata: es un `json_decode`
+> en el otro lado del cable.* Los +2,07 ms van sobre una ruta que tarda **21,9 ms** y
+> devuelve **114 KB** con 312 lecciones: **+9%**, y se paga.
+>
+> **La salida que NO se tomó**: guardar `descansos_tras` en una columna al subir. Toca
+> `postVersiones`, toca migración —con la tanda del día 10 ya ensayada— y deja las **siete
+> versiones que ya existen con `null` para siempre**, o sea peor que el coste que venía a
+> evitar. *No era la misma decisión con menos trabajo: era otra decisión.*
+>
+> ### LOS CINCO CONTROLES, Y EL QUINTO NO LO BUSCABA NADIE
+>
+> | se rompe a propósito | qué cae |
+> |---|---|
+> | «no lo sé» aplastado a `[]` | **3** de 16 |
+> | se cae la clave `descansos_tras` | **3** de 16 |
+> | la lista con basura se filtra en vez de salir `null` | **1** |
+> | la cadena ingenua `$blob[…][…][…] ?? null` | **1** |
+>
+> **Y el hallazgo del cuarto control, que corrige lo que yo mismo iba a escribir:** la cadena
+> ingenua **NO revienta la ruta** —el `??` sobre un offset de cadena devuelve `null` y ya
+> está—, así que *«si no compruebas las formas, se cae»* **era falso** y no es el argumento.
+> Lo que sí hace es **devolver tal cual lo que hubiera ahí**, y ahí puede haber cualquier
+> cosa: el blob lo escribe un programa de escritorio. O sea que el campo se convertiría en
+> **una puerta de salida del fichero de proyecto con nombre de dato**, justo en la ruta cuyo
+> contrato es que *mirar no es llevarse* (decisión 12, §9.bis).
+>
+> **Y el test que ya vigilaba la fuga no lo habría visto**: su marca vive en
+> `programa`, fuera de `descansosTras`. Por eso entra un caso más —`la_comprobacion_de_forma_tambien_cierra_la_fuga`—
+> que mete la marca **dentro del propio valor**, que es el único sitio donde la cadena
+> ingenua la dejaría salir. Con él, el quinto control cae por la aserción de la fuga.
+>
+> *Comprobar la forma se escribió por corrección y resultó ser una guarda de seguridad. Se
+> deja escrito porque el motivo bueno no era el que se pensaba.*
+>
+> ### LO QUE NO SE HACE, Y NO POR FALTA DE GANAS
+>
+> - **Las horas de reloj.** `timbres` sigue `null` en los siete proyectos: el colegio no las
+>   ha dado. `years.minu_hora_clase = 50` es **cuánto dura** una lección, no a qué hora
+>   empieza, y con `descansosTras` sin `timbres` no se sabe ni cuánto dura el recreo. **La
+>   línea gruesa sí; la hora no.**
+> - **No se recorta contra `franjas`.** `franjas` son las que *esa versión* usa y el proyecto
+>   declara la jornada del *colegio*: un descanso tras la 7 en una versión que llega a la 5
+>   es legítimo. Filtrarlo escondería el dato en vez de dejar comprobarlo.
+>
+> ### ⚠️ DOS COSAS QUE ESTE LOTE DESTAPA Y NO TOCA
+>
+> 1. **`catalogos.timbres` ya podría distinguir `vacio` de `sin_catalogo`.** El blob dice
+>    `timbres: null` —el colegio no los dio—, y eso ya no es «esta API no puede saberlo».
+>    Hoy se queda en `sin_catalogo`, que es **defendible pero ya no es forzoso**. Es una
+>    decisión, no un arreglo.
+> 2. **El `motivo` de la comprobación de subida (`HorarioController:753`) tiene la misma
+>    forma**: dice que *«aquí no se sabe si la franja cruza un descanso»*, y desde hoy en
+>    parte sí se sabe. **No se toca**: ese texto se **guarda** dentro del veredicto de cada
+>    subida, así que cambiarlo cambia lo que registran las subidas futuras — y el veredicto
+>    guardado existe precisamente para no perder lo que se opinó el día que se subió.
+> 3. **Y una pregunta ABIERTA del front, que llegó después de escribir el código**: hoy los
+>    tres `null` posibles —no hay clave, el blob no parsea, la forma no es la esperada— son
+>    **un solo `null`**, y yo recomendé juntarlos porque *para pintar una línea son
+>    idénticos*. `myvc-front-c0` trajo el precedente que yo no podía ver: **en esa casa ya se
+>    decidió dos veces al revés** —`comprobaciones.ts` y el listado de `90` separan «no vino»
+>    de «vino y no se pudo leer»—, así que juntarlos aquí deja **dos gramáticas para la misma
+>    idea** en la misma pantalla. Lo decide `myvc-front-b2`, que es quien pinta.
+>
+>    **El dato que le hace falta para decidirlo sin teorizar: hoy ese caso tiene CERO
+>    ejemplos.** Las siete versiones reales parsean, las siete traen `jornadaPorDefecto` y
+>    las siete traen `descansosTras: [3,5]`. Y si dice que sí, **la propuesta no es meter un
+>    cuarto estado en `descansos_tras`**: es un renglón `catalogos.proyecto` con la forma de
+>    sus vecinos —`estado` + `motivo`—, porque *«el proyecto no se pudo leer»* es una
+>    afirmación sobre **el conjunto** y no sobre los descansos: si el blob no parsea, tampoco
+>    se sabrá nada de lo próximo que salga de él. **El momento barato de añadirlo es antes de
+>    que la pantalla se escriba.**
+>
+>    **CERRADO con `myvc-front-b2` el 4 sep 2026, y lo que queda es UNA decisión de Joseth
+>    —no de forma.** El camino hasta ella importa porque los dos nos tumbamos mutuamente y
+>    cada propuesta murió por el mismo motivo: **`b2` pidió un discriminante `porque` dentro
+>    de `catalogos.timbres`; yo propuse un renglón `catalogos.proyecto`; luego cada uno
+>    adoptó la del otro. Las dos estaban mal, y por la misma razón.**
+>
+>    - **El renglón `catalogos.proyecto` decía la verdad al lado de tres renglones que
+>      seguían mintiendo**: con el blob ilegible, `timbres`, `disponibilidad` y
+>      `restricciones` seguirían diciendo «no viaja» —afirmación sobre **el diseño de la
+>      API**— cuando lo cierto es «no se pudo leer» —sobre **ese colegio**—. Lo vio `b2`.
+>    - **El `porque` dentro de `sin_catalogo` metía «lo tenemos y está roto» debajo de «esta
+>      API no puede saberlo por diseño»**, que es `[]` contra `null` con otro traje. Lo vi
+>      yo, y tumba también mi propia versión anterior.
+>
+>    **Los dos esquemas convergen en cuanto existe la palabra que falta**, y ésa es la
+>    propuesta: **un quinto estado, `ilegible`, en los tres renglones que salen del blob.**
+>    Sin renglón nuevo —sería el mismo hecho dicho dos veces, con el riesgo de que se
+>    separen— y sin campo nuevo.
+>
+>    **Y por qué es un ESTADO y no un matiz dentro de otro, que es el argumento que decide:**
+>    de los cinco, `ilegible` sería **el único que acusa a un fichero concreto y tiene
+>    arreglo** —volver a subir el proyecto—, o sea el único que **cambia lo que la persona
+>    debería hacer**. `vacio` es legítimo y `sin_catalogo` no lo arregla nadie desde la web:
+>    los cuatro de hoy explícitamente no llevan llamada a la acción.
+>
+>    **El coste, medido por `b2` en su repositorio y corregido a la baja sobre mi
+>    estimación:** cuatro `Record<EstadoDeCatalogo, …>` —`PALABRAS`, `ICONOS`, `COLORES`,
+>    `FRASES_GENERICAS`— que **dejan de compilar** con un valor más, por diseño explícito de
+>    su cabecera; más **una regla de `estado-catalogos.scss` que no exige nadie** y cuya
+>    ausencia deja la fila sin borde sin dar error. *El coste de verdad es el que el
+>    compilador no señala, y es una línea de CSS.*
+>
+>    **Hoy tiene CERO ejemplos**: las siete versiones reales de `simonbolivar` parsean, las
+>    siete traen `jornadaPorDefecto` y las siete traen `descansosTras: [3,5]`. `b2` dice que
+>    **no le bloquea** y que pinta la línea igual.
+>
+>    **La pregunta que sube a Joseth es «¿los cuatro estados admiten un quinto que acusa a
+>    una subida concreta?», no «¿añadimos un campo?»** — la primera es de producto y la
+>    segunda de forma, y sólo la primera necesita su decisión.
+>
+>    **Y el argumento definitivo lo puso `b2` sobre su propia propuesta, en su contra.** Al
+>    revisar el `porque` dentro de `sin_catalogo` —que él mismo había vuelto a aceptar— midió
+>    lo que le costaba de verdad: **con un quinto estado sus cuatro
+>    `Record<EstadoDeCatalogo, …>` se ponen rojas y no puede olvidarse; con `porque` no se
+>    rompe ninguna**, y su panel pintaría para un proyecto ilegible la palabra que hoy tiene
+>    puesta para `sin_catalogo` — ***«No lo guarda el servidor»***, que es **exactamente lo
+>    contrario de la verdad**: sí lo guarda, y por eso hay algo que arreglar. `tsc` verde,
+>    pruebas verdes, y la pantalla diciendo lo que no es. *Es el hueco silencioso del `motivo`
+>    de `timbres` otra vez, esta vez del lado del cliente.*
+>
+>    Él lo cierra por su cuenta —colapsa `estado` + `porque` en un discriminante local de
+>    cinco valores y tipa sus tablas contra ése, sin pedir que la API cambie—, así que **nada
+>    de esto bloquea**. Queda escrito porque cambia el argumento: *el motivo para preferir el
+>    quinto estado no es que sea más limpio, es **quién queda obligado**. Con el estado obliga
+>    el compilador; con el discriminante se obliga el cliente a sí mismo.*
+>
+>    ### ✅ DECIDIDO POR JOSETH, 4 sep 2026: **SÍ, el quinto estado `ilegible`**
+>
+>    Con el reencuadre delante y sabiendo que hoy tiene **cero ejemplos** y que **no bloquea
+>    a nadie**. **No entró en aquel commit**: se llamaba «los descansos», y un estado nuevo en
+>    un contrato es su propio trabajo con sus propios controles. **Hecho justo después — la
+>    casilla de arriba.**
+
+**4 sep 2026, noche — `acepto_perder` NO ES UNA CONFIRMACIÓN, ES UN PEAJE — Y LA §7.2 SE
+CONTRADECÍA CONSIGO MISMA** · [`23-horarios.md` §7.2](23-horarios.md) y esta casilla · **cero
+código, el router no se mueve: 568** · lo destapó una publicación accidental de `myvc-front-90`
+
+> **El apartado ya tenía el contrato bien escrito y aun así indujo el fallo.** Su tabla dice, en
+> la primera fila, *«sin `acepto_perder` · 0 · **200**, publica»*. Cinco párrafos más abajo el
+> mismo apartado afirma **sin condición** que *«hay una persona en medio cada vez»*. Las dos
+> cosas no caben juntas, y quien se equivocó **leyó el párrafo, no la tabla**.
+>
+> `HorarioController.php:1457` es `if ($aceptoPerder === null && $sePierden !== 0)`: con cero
+> pérdidas y sin la clave, la condición es falsa y **cae directa al `UPDATE`**. O sea que
+> publicar una versión **limpia** es **una** llamada sin ninguna puerta, y una **sucia** son
+> dos. La garantía existe **sólo cuando hay algo que perder**.
+>
+> ### Cómo se destapó, y por qué el susto era menor de lo que parecía
+>
+> El carril «publicar» de `myvc_front` condujo su pantalla dando por hecho que el primer paso no
+> escribe, y mandó `PUT horario/versiones/5/oficial` con **`{}` de cuerpo entero** → **200**, y el
+> puntero del año 8 se movió de la 6 a la 5 sin confirmación. **Le pasó a quien había escrito la
+> frase correcta en su propio repositorio.**
+>
+> **La primera lectura fue «la base cambió debajo» y era falsa.** Medido antes de reaccionar: las
+> versiones **5 y 6 son idénticas**, las 312 filas una a una, **incluyendo franja, duración y
+> salón** — que es justo lo que `tools/deriva-del-horario.php` NO mira, y lo único que habría
+> hecho cierta la alarma. El `UPDATE` reescribió las siete columnas **con los valores que ya
+> estaban**: *destruye el reloj, no el dato*. Devolver el puntero a la 6 fue **higiene, no
+> reparación**, y así se le dijo a Joseth antes de que lo autorizara.
+>
+> **Y la lectura de deriva de las 19:03 —0 descuadradas, exit real 0, con 23 h de reposo
+> detrás— NO se tiró**, porque el estado que midió no había cambiado. Tres sesiones habían
+> pedido tirarla.
+>
+> ### Lo que NO se capturó, dicho para que nadie lo invente
+>
+> **El cuerpo de aquel 200 no existe en ningún sitio.** Pasó por el `HttpClient` de la pantalla, y
+> `myvc-front-90` **se negó a reconstruirlo** desde la forma que devuelve el controlador: sería
+> meter una medición inventada en el fichero donde se guardan las medidas. Lo que sí va escrito es
+> otro 200 del mismo caso limpio —el `PUT` de la restauración, con `curl` y cuerpo `{}`— **con la
+> salvedad de quien lo midió pegada a él**: demuestra *«sin la clave y sin pérdidas, escribe»*, no
+> narra el accidente.
+>
+> **`putOficial` no se toca y no se propone tocarlo.** El peaje está bien pensado y el 200 del
+> caso limpio puede ser la decisión correcta. **Lo que faltaba era que estuviera dicho.**
 **4 sep 2026 — LA PLANTILLA DE NOTAS SALE DE phpMyAdmin: LAS NUEVE DE `plantilla-notas`,
 EL ALCANCE DE PREESCOLAR Y EL ROUTER EN 577** · `PlantillaNotasController`,
 `App\Support\AlcanceDeLaPlantilla`, `routes/api/plantilla.php`, **dos migraciones**,
@@ -257,6 +730,65 @@ nivel 7 `[OK] No errors`
 > herramientas entran en la tabla de `tools/`. El censo de controladores, el de rutas y el de
 > públicas **siguen donde estaban** — este trabajo no toca `app/` ni `routes/`, y el router se
 > recontó con `route:list --json`: **568**, igual que antes.
+
+**4 sep 2026 — LAS CINCO RUTAS DE `horario/` EJERCITADAS CONTRA DATOS REALES, Y EL `1` QUE NO
+HABÍA VISTO NADIE** · [23 §9.bis.5](23-horarios.md) · **cero código, el router sigue en 568**
+
+> **Lo que no había hecho nadie.** Las cinco estaban escritas y con tests, y la cobertura en
+> 568/568 — pero **los tests de contrato corren contra el seed**, que no tiene seis versiones
+> de horario ni 47 docentes sin color. Esto es lo otro: base `simonbolivar` del docker, **año
+> 8 (2025)**, token real de tres roles, mirando **la respuesta** y no el 200. Lote de
+> `8myvc-7c`, ampliado con `myvc-front-c0`; las cuatro escrituras las autorizó Joseth.
+>
+> **El año es una trampa y ya mordió**: `2026` (`id = 9`) tiene los 13 grupos y las 134
+> asignaturas y **cero docentes y cero notas**, así que un informe suyo sale creíble y no vale
+> nada. **El último año no es el que tiene datos.**
+>
+> | | |
+> |---|---|
+> | las cinco por rol | admin 200/201 · profesor raso 200 en las dos lecturas y **403** en las tres escrituras · alumno **403** en las cinco |
+> | el `{id}` de la cuarta | **404** con mensaje propio para `999`, `0`, `-1` y `abc`; **401** sin token; ni un 500 |
+> | los cuatro estados del catálogo | **vistos vivos en una sola respuesta**, y el `tono` recorrido de ida y vuelta: `vacio` → `completo` → `parcial` → `completo` |
+> | la rejilla gris | confirmada — **290 de 290** puestos de docente con `tono: null` — y luego pintada: 12 colores, y **22 lecciones sin ningún docente siguen grises** |
+> | `prevuelo-del-horario.php` | **exit 1, SUCIO**: Transición entero sin docente, Jardín a medias, 10 de 134 sin `profesor_id` |
+> | `deriva-del-horario.php` | **0** tras publicar · **1** tras el `toggleDia` · **2 NO MEDIDO** en el año 9 |
+>
+> **El `1` es el resultado, y los ceros no lo eran.** Recién publicada una versión, cuadrar es
+> aritmética: `putOficial` acaba de reescribir las siete columnas desde las lecciones de esa
+> misma versión. El `1` sale de conmutar un día a mano y **`--detalle` nombra la asignatura y
+> la columna que se tocaron y no otra** — o sea que **el detector detecta lo que dice su
+> nombre**, que hasta hoy se creía y no se sabía. *El aviso de arriba dice dónde quedó puesto
+> ese descuadre y por qué no se revierte.*
+>
+> **Y el radio no es de laboratorio**: en martes la versión oficial le da al profesor 9 cinco
+> asignaciones del año 8 y `asignaturas` le da cuatro. Es lo que `ChangesAsked/to-me` deriva
+> para su portada — **una clase desaparecida sin error y sin aviso**.
+>
+> ### Tres hallazgos que no buscaba nadie, y los tres se escriben en vez de arreglarse
+>
+> 1. **`incompletas` cambia de TIPO según la versión**: lista de objetos en la v1, entero en
+>    las v2–v7, **y las siete viajan en la misma respuesta de `GET horario/versiones`**. Que
+>    el veredicto sea el guardado ya estaba decidido (§9.bis.3, punto 5); **que el tipo de un
+>    campo dependa del día de la subida, no**. `myvc-front-90` lo había encontrado por su
+>    lado unas horas antes contra su pantalla, así que son **dos hallazgos independientes del
+>    mismo hecho** — que es lo que lo convierte en contrato y no en rareza.
+> 2. **`created_at` de la misma versión vuelve en dos formatos**: `"…21:38:48.911"` por el
+>    `POST` y `"…21:38:49"` por el `GET`. **La mitad mala es el redondeo**, no la precisión:
+>    no casa ni truncando, así que no sirve para identificar la versión recién creada.
+> 3. **`putOficial` escribe en el primer paso cuando no hay pérdidas** — cuerpo `{}` da 200 y
+>    publica. `acepto_perder` **no es una confirmación: es un peaje que sólo aparece si hay
+>    algo que perder**. Es coherente con la §7.2 y se lee al revés desde fuera; ya hizo que
+>    una pantalla del front publicara creyendo que el primer paso no escribía.
+>
+> **Ninguno se arregla aquí**: cambiar cualquiera es cambiar la respuesta de una ruta viva, y
+> el primero **ni siquiera se puede arreglar hacia atrás** sin recalcular veredictos
+> guardados, que es justo lo que aquella decisión dijo que no se hace. Hoy no muerden a nadie
+> —**cero versiones desplegadas en los dieciséis**—, y por eso hay tiempo de escribirlos ahora
+> y no lo habrá después.
+>
+> **Lo que esta noche NO midió, dicho con el número delante:** un colegio, un año y una
+> versión. `deriva` no mira franja, duración ni salón, y la subida se reconstruyó desde la
+> versión 6 en vez de salir del escritorio. **Quince silencios no son quince ceros.**
 
 **4 sep 2026 — LA COBERTURA REMEDIDA: 568/568, Y LO QUE ENVEJECIÓ FUE EL NÚMERO, NO LA
 PROPIEDAD** · `CLAUDE.md` y esta casilla · **cero código**
