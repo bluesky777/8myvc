@@ -37,6 +37,16 @@ class Autoriza
     public const PERMISO_AUDITORIA = 'can_view_auditoria';
 
     /**
+     * El nombre exacto de la fila de `permissions`. Lo crea
+     * `2026_09_05_300000_create_permiso_can_edit_plantilla_notas` y lo lee
+     * `puedeEditarPlantillaNotas()`; misma trampa que arriba, y por eso la misma
+     * forma: si los dos no dicen la misma cadena, **el permiso existe y no lo
+     * tiene nadie sin que falle nada**, y el síntoma sería una pantalla que sólo
+     * funciona para superusuarios sin que nadie sepa por qué.
+     */
+    public const PERMISO_PLANTILLA_NOTAS = 'can_edit_plantilla_notas';
+
+    /**
      * Superusuario o Secretario. El criterio de secretaría, ya con dueño.
      *
      * Hasta el 21 ago 2026 esto valía exactamente `is_superuser`, porque el rol
@@ -346,6 +356,43 @@ class Autoriza
         // los permisos de TODOS los roles del usuario, y viaja dentro del
         // contexto: retirar el permiso tiene efecto sin tocar la sesión.
         return in_array(self::PERMISO_AUDITORIA, (array) ($user->perms ?? []), true);
+    }
+
+    /**
+     * Editar la **plantilla de notas del colegio** — las nueve rutas de
+     * `plantilla-notas`, §5.1.b de
+     * [28](../../docs/migracion/28-competencias-e-indicadores.md).
+     *
+     * Superusuario **o** quien tenga `can_edit_plantilla_notas`. No es
+     * `esAdministrativo` —que mete al `Secretario`, a quien nadie ha nombrado
+     * para esto— ni `puedePublicarHorario` —que es otro criterio de otro módulo—:
+     * la regla de esta clase es que **un criterio nuevo se escribe con su
+     * nombre**, porque ensanchar uno de los que ya hay colaría esta decisión en
+     * los otros sitios que lo leen.
+     *
+     * **Lo que gobierna, y por qué el listón está aquí y no en `auth.personal`.**
+     * Una fila de esta plantilla **multiplica**: un 90 % escrito aquí es un 90 %
+     * en todas las asignaturas del colegio que se siembren a partir de mañana. Es
+     * una decisión de colegio con la forma de una casilla de aula, y ésa es
+     * exactamente la clase de cosa que el guard de la ruta no distingue —
+     * `auth.personal` deja pasar a cualquier docente.
+     *
+     * **Nace repartido a nadie, y eso es deliberado**: su migración no siembra
+     * ningún rol (ver el fichero, que explica por qué ésta no reparte y
+     * `can_view_auditoria` sí). El día del despliegue la pantalla es de los
+     * superusuarios de cada colegio, y darle el permiso a rectoría o a
+     * coordinación es una fila desde la pantalla de roles, sin migración.
+     */
+    public static function puedeEditarPlantillaNotas($user): bool
+    {
+        if (self::esSuperusuario($user)) {
+            return true;
+        }
+
+        // `perms` es la lista plana de nombres que arma `ContextoDeUsuario` con
+        // los permisos de TODOS los roles del usuario, y viaja dentro del
+        // contexto: retirar el permiso tiene efecto sin tocar la sesión.
+        return in_array(self::PERMISO_PLANTILLA_NOTAS, (array) ($user->perms ?? []), true);
     }
 
     /**
