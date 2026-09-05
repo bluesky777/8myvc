@@ -74,6 +74,56 @@
 >
 > *En los dieciséis colegios esto no existe: cero versiones desplegadas.*
 
+**5 sep 2026 — EL PRE-VUELO YA DICE CON QUÉ AÑO MIDIÓ DONDE SE LEE, Y NO SÓLO ARRIBA** ·
+`tools/prevuelo-del-horario.php` y esta casilla · **cero código de la API, el router no se
+mueve: 568** · larastan nivel 7 `[OK] No errors` · **sin Pint, a propósito**
+
+> **El aviso existía y estaba en el sitio donde no se lee.** La cabecera imprime `año 2026
+> (year_id 9, NO es el actual)` desde siempre — y **se pierde**, porque esta herramienta se
+> lee de dos maneras que se comen justo esa línea: `| tail` en el bucle de los diecisiete, y
+> el ojo que baja directo al veredicto. *Un aviso que sólo vive arriba no existe en el único
+> momento en que hace falta.*
+>
+> **Lo que lo destapó**: correr el pre-vuelo con `--year=9` sobre `simonbolivar`. El 2026 no
+> tiene **ni un docente asignado**, y el informe sale **completo y creíble** —13 grupos, 134
+> asignaciones, ΣIH 345— con **los trece grupos imposibles** y `exit = 1`. Que es el mismo
+> código que un colegio sucio de verdad: en el bucle del día 10, ese colegio entraría en el
+> recuento como **mirado y sucio**.
+>
+> ### LO QUE **NO** SE TOCA, Y ESA ES LA MITAD DE LA DECISIÓN
+>
+> **El código de salida se queda en `1`.** El `2` es NO MEDIDO y aquí **sí se ha medido**: un
+> año pasado o futuro es un año **legítimo de mirar** —hay colegios preparando el siguiente—.
+> Mover el código movería a quien lo consuma para arreglar **una lectura**. *Lo que estaba mal
+> no era el veredicto: era dónde se decía con qué año se sacó.*
+>
+> ### LO QUE CAMBIA, Y SON TRES COSAS PEQUEÑAS
+>
+> - **El aviso va al final, después del veredicto** — lo último que se imprime es lo único que
+>   sobrevive a un `| tail`. Nombra el año, el `year_id`, la opción con la que se pidió, y
+>   **desmiente el código de salida**: *«sale `1` igual»*.
+> - **Sólo avisa si el año se pidió a mano.** Sin `--year` la herramienta coge el `actual` ella
+>   sola y no hay nada que advertir.
+> - **El CSV lleva `es_el_actual` y `year_pedido_a_mano`**, y no sobra ninguna: la primera dice
+>   **qué se miró** y la segunda **por qué**. La cabecera que lo avisa **no viaja en el CSV**,
+>   así que sin esas dos columnas una fila medida sobre un año vacío se lee, semanas después,
+>   como un colegio con problemas.
+>
+> ### EL CONTROL PASA DE 14 A 21 FORMAS, Y LAS TRES PRIMERAS SON DE CALLARSE
+>
+> **La forma de mentir de este aviso es callarse**, y callarse de más **no se ve**: no falta
+> nada en la pantalla, sólo un aviso que nadie echa en falta. Por eso las tres maneras
+> legítimas de callarse se fijan una a una —sin `--year`, con `--year` sobre el actual, y el
+> caso imposible por construcción— además de las cuatro de hablar. Y lo que se comprueba de la
+> que habla **no es que diga algo**, sino que **nombre el año y desmienta el código de salida**:
+> un aviso que no hace eso deja el informe igual de creíble, que es de lo que venía.
+>
+> *`AutopruebasDeLasHerramientasTest` lo ejecuta: 14 herramientas en verde, y ésta con **21
+> formas** en vez de 14. **A este fichero no se le ha pasado Pint** —`tools/` no está en el
+> script `pint` de `composer.json` y ninguna suite lo ejecuta, así que ahí Pint rompe en
+> tiempo de ejecución sin poner nada en rojo—; larastan, que es el único que mira esa carpeta,
+> sale `[OK] No errors`.*
+
 **5 sep 2026 — EL ÚLTIMO `motivo` QUE AFIRMABA UNA IMPOSIBILIDAD, Y ERA FALSO POR LAS DOS
 MITADES** · `HorarioController` (el veredicto de `postVersiones`) y esta casilla · **decisión
 de Joseth** · **el router no se mueve: 568** · pint PASS · larastan nivel 7 `[OK] No errors`
