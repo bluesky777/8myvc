@@ -73,7 +73,7 @@
 > |---|---|
 > | `main` | `ac09cb7` |
 > | árbol principal | rama `fix/el-ensayo-mide-el-arbol-de-artisan` @ `ac09cb7` — **no es `main`**, y es de otra sesión |
-> | sin commitear en el principal | `tools/ensayo-de-la-tanda.sh` — huérfano del apagón, **en rescate por otra sesión**; no lo commitees |
+> | sin commitear en el principal | `tools/ensayo-de-la-tanda.sh` — huérfano del apagón, **en rescate por otra sesión**; no lo commitees — **CERRADO 07:41: commiteado en `ed542ff`**, ya rige lo contrario |
 > | ramas `--no-merged main` | **8**, y **ninguna** está a menos de 3 commits de retraso |
 > | worktrees | **17** |
 > | docker | estaba **caído** al empezar la mañana; lo levantó `8myvc-25` |
@@ -83,7 +83,7 @@
 >
 > ```
 > feat/plantilla-de-notas             5 adelante    3 atrás    <- trae el router a 577
-> test/guard-del-ensayo               5 adelante    3 atrás    <- cuelga de la plantilla, no de `main`
+> test/guard-del-ensayo               5 adelante    3 atrás    <- BORRADA 07:40, era de usar y tirar
 > docs/barrido-profesor-serializado   8 adelante   37 atrás
 > docs/appkey-compartida-fortul-lal   5 adelante   43 atrás
 > docs/despliegue-remedido            3 adelante   37 atrás
@@ -99,6 +99,23 @@
 > —`fix/disponibilidad-si-se-guarda` y la rama reservada del Lote G— **están dentro de `main`**.
 > Una fusión **reclasifica el censo entero de golpe**, y por eso «cuántas ramas quedan» no es
 > una cifra que se pueda heredar de una casilla: se cuenta o no se dice.
+
+> ### Lo que se cerró de esta foto entre las 07:36 y las 07:41, y por qué se cierra aquí dentro
+>
+> **Dos renglones de arriba envejecieron en cinco minutos, y no envejecieron igual.** El de las
+> ramas es una **medición**: `test/guard-del-ensayo` era un árbol de usar y tirar que hice para
+> ver **abortar** el guard desde un worktree, y se fue con su base y su carpeta en cuanto lo vio;
+> una medición vieja se relee corriendo la orden, y este bloque ya lo dice.
+>
+> El otro **no era una medición, era una instrucción**: *«no lo commitees»*. Y una instrucción
+> no envejece a «hecho», **envejece a mentira** — es la misma especie que el aviso escrito en
+> futuro que nadie mueve el día que se despliega, y que la casilla de más abajo ya cobró una vez.
+> El fichero está commiteado en `ed542ff` con el guard **ejercitado por los tres lados**, así que
+> a partir de las 07:41 la fila decía lo contrario de lo que hay que hacer: quien la leyera
+> dejaría el trabajo colgando esperando un rescate que ya ocurrió.
+>
+> *La fila se corrige y no se borra: explica por qué el árbol principal tenía algo colgando esa
+> mañana, que es información que no se repone corriendo nada.*
 
 > ## LO QUE ESPERA UNA DECISIÓN, Y ES LO PRIMERO QUE SE PIERDE EN UN APAGÓN
 >
