@@ -513,7 +513,7 @@ mueve: 568**
 > | `2026_09_02_200000_nivelacion_de_la_definitiva` (A8) | fusionada en `2026_09_02_100000_nivelaciones_columnas` |
 > | `2026_09_02_300000_acta_de_la_recuperacion_final` (A9) | ídem |
 > | `2026_09_04_200000_tono_del_docente` | fusionada en `2026_09_04_100000_horario_versiones` |
-> | solas, y por qué | `rubricas` y `puestos_con_bol_independiente` (dominios propios); **`2026_08_31_100000_retirar_boletin_independiente`**, la única destructiva |
+> | solas, y por qué | `2026_09_03_100000_rubricas` y `2026_08_31_200000_puestos_con_bol_independiente` (dominios propios); **`2026_08_31_100000_retirar_boletin_independiente_de_matriculas`**, la única destructiva |
 >
 > **Los tres nombres de arriba ya no existen como fichero.** Las entradas viejas de este
 > diario que los citan **se dejan como están** —eran ciertas el día que se escribieron— y
