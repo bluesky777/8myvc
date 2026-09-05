@@ -379,16 +379,29 @@
 > errno 150 por MyISAM queda descartado para lo que se despliega. Detalle en
 > [DESPLIEGUE.md](../DESPLIEGUE.md), bloque «el motor de cada tabla».
 >
-> ### 5. Las bases NO tienen las mismas tablas: de 87 a 94 — y falta saber si a la tanda le importa
+> ### 5. ~~Las bases NO tienen las mismas tablas: de 87 a 94~~ **CONTESTADA: las once que altera la tanda están en las diecisiete** — y abrió la 6
 >
 > **Lo trajo la consulta de la 4 sin buscarlo.** Un colegio en `9474b50` debe tener **94** tablas
 > (docker con la tanda pendiente: 102, menos las 8 que crea); las tienen `demo` y
-> `simonbolivar_medellin`, y **los otros quince tienen entre 87 y 93**. Desde aquí no se sabe cuáles
-> faltan. Lo que decide es si **las once tablas que la tanda altera** existen en las diecisiete: un
-> `Schema::table()` sobre una que no está deja la tanda a medias igual que una MyISAM, y
-> `recuperacion_final` y `unidades_por_defecto` son tablas de función que una base vieja podría no
-> tener. Las consultas 3 y 4 están en el mismo bloque de `DESPLIEGUE.md`: **la 3 decide, la 4
-> explica el 87**. Ninguna se ha corrido.
+> `simonbolivar_medellin`, y **los otros quince tienen entre 87 y 93**. Joseth corrió las dos
+> consultas esa tarde: **`11` de once en las diecisiete bases**, así que la tanda no se encuentra
+> ninguna tabla que falte; y las siete que faltan en alguna base son `df_notas_finales` (muerta),
+> las cinco `piars_*` y `uniformes`. El censo del código que pidió a continuación —*«qué tablas se
+> usan»*— está en [05 §246](05-codigo-muerto-y-roto.md): **14 de 102 no las lee nadie**, dos de
+> ellas sin censar hasta hoy (`agrupacion_puestos` y su detalle). Borrarlas es una migración: **después
+> del día 10**, y con las filas de los dieciséis contadas delante.
+>
+> ### 6. `amiguitosdejesus` no tiene la tabla `uniformes`, y su panel de inicio la consulta sin condición
+>
+> Sale de la 5: es el colegio de 87 tablas y le faltan las siete. Cinco ficheros consultan
+> `uniformes`, y tres son de todos los días —el panel de inicio de alumno (`ChangeAskedController:258`)
+> y de profesor con grupo (`:404`), la planilla (`NotasController:1222`) y disciplina
+> (`DisciplinaController:306`)—: **allí contestan 500 hoy**. Lo que no está medido es si alguien
+> entra: es un preescolar y puede no tener un alumno con cuenta. Las salidas, con su precio:
+> **(a)** una migración con `hasTable()` que la cree donde falte — la octava de una tanda congelada
+> en siete, o sea después del día 10; **(b)** nada, si el colegio no usa esas pantallas; **(c)** a
+> mano en phpMyAdmin, que es lo que `CLAUDE.md` prohíbe. **No es del día 10**, y no la decide una
+> sesión.
 >
 > ### 3. ~~El Lote G: ensanchar `GET horario/versiones/{id}/lecciones` con las cuatro listas~~ **HECHA y fundida en `abcd23a` — y este bloque decía lo contrario**
 >

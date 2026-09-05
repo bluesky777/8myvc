@@ -421,7 +421,17 @@ y la retirada es `POST tardanzas/login/traer-datos`, que no tiene ninguna otra.
 > ```
 >
 > La 3 es la que decide; la 4 es la que explica el 87 y evita que el día 10 alguien lo descubra con
-> un `SELECT *`. **Ninguna de las dos se ha corrido todavía.**
+> un `SELECT *`. ~~Ninguna de las dos se ha corrido todavía.~~ **Las dos las corrió Joseth esa misma
+> tarde:**
+>
+> - **La 3 da `11` en las diecisiete.** La tanda no se va a encontrar ninguna tabla que falte:
+>   **cerrado.**
+> - **La 4 nombra las siete** y ninguna la toca la tanda: `df_notas_finales` (en 4 bases, muerta),
+>   las cinco `piars_*` (en 5, y `piars_actas_acuerdo` en 7: el módulo PIAR de `myvc_front_2`) y
+>   `uniformes` (en 16: **la que no la tiene es `amiguitosdejesus`**, y su panel de inicio la
+>   consulta sin condición — contesta 500 allí hoy, para alumnos y profesores con grupo). El censo
+>   entero, con las catorce tablas que no lee nadie, está en
+>   [05 §246](migracion/05-codigo-muerto-y-roto.md). **Nada de esto cambia el día 10.**
 
 > **Y desde el 5 sep 2026 son SIETE, no cinco: entraron las dos de la plantilla de notas.**
 > `2026_09_05_200000_alcance_de_la_plantilla` y

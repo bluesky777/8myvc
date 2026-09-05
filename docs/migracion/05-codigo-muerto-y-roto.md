@@ -13278,3 +13278,71 @@ es el final.**
 
 Cuatro casos nuevos: tres en `tests/Contrato/ImagenesTest.php` —poner y quitar el logo,
 el 422 y la ruta pública— y uno en `tests/Contrato/SecretarioTest.php`.
+
+## §246. Catorce tablas que no lee nadie, y siete que no están en todos los colegios (5 sep 2026)
+
+**Lo pidió Joseth con la sospecha exacta**: *«creo que hay tablas de cosas que se estaban probando
+que no tienen que ver con lo académico»*. Y pidió que se midiera **en el código, no en el docker**.
+
+### La población y el instrumento, porque el instrumento falló dos veces antes de acertar
+
+**102 tablas**: las 90 del volcado más las 12 que crean las migraciones (cuatro desplegadas el
+31 ago, ocho de la tanda pendiente). Para cada una se cuentan los ficheros de `app/` que la nombran
+**fuera de comentarios**, más los que usan **su modelo Eloquent** (`Clase::`, `new Clase`).
+
+Las dos versiones anteriores del detector daban el mismo «14» y estaban mal por dentro:
+1. Buscaba `$table = '…'` sólo con comillas simples, así que `Profesor` salía **sin tabla** y con
+   doce usos Eloquent — un bug de producción que no existe: la tiene con comillas dobles.
+2. Contaba sólo el nombre de la tabla, así que `debugging` salía «en un solo fichero» cuando
+   `Debugging::pin()` se llama desde **catorce**. Una tabla usada por modelo no se ve por su nombre.
+
+*El «14» sobrevivió a los dos arreglos, y eso es lo que no se puede leer como confirmación: lo que
+cambió fue la lista de al lado, no el número.*
+
+### Las catorce, en tres montones
+
+| montón | tablas | qué son |
+|---|---|---|
+| **del framework, y apagadas por configuración** (3) | `migrations` · `jobs` · `password_resets` | `jobs` sólo la usaría `QUEUE_CONNECTION=database` y está en `sync`; `password_resets` la apunta `config/auth.php` pero **ningún fichero de `app/` usa `Password::`** — el olvido de contraseña va por `password_reminders`, en `LoginController` |
+| **ya censadas como muertas** (9) | `df_alumnos` · `df_asignaturas` · `df_grupos` · `df_notas_finales` · `df_subunidades` · `df_unidades` · `default_unidades` · `default_subunidades` · `ws_opciones_cuadricula` | las seis `df_*` son *la copia desnormalizada de las definitivas que alguien empezó y no terminó* ([09 §c](09-pendientes.md), `noche-2026-08-23/g.md`: **cero filas** en la copia de desarrollo); las dos `default_*` son el segundo par de plantilla ([28 §1.bis(b)](28-competencias-e-indicadores.md), cero filas, pendiente contarlas en los dieciséis antes de borrar); `ws_opciones_cuadricula` no tiene un solo `INSERT` ([13](13-actividades.md)) |
+| **nuevas, que nadie había censado** (2) | `agrupacion_puestos` (7 columnas: `nombre`, `imagen_id`…) · `agrupacion_puestos_detalle` (6: `grupo_id`…) | **cero** menciones en `app/`, `routes/`, `tests/`, `database/seeders/`, `tools/` y en toda `docs/`. Por las columnas, un intento de agrupar grupos para calcular puestos; no llegó a tener controlador |
+
+**Lo que este censo NO dice**: cuántas filas tienen en los dieciséis colegios. Sólo `df_*` y
+`default_*` están medidas, y sólo en la copia de desarrollo. Borrarlas es una migración, la tanda
+está congelada en siete, así que **es trabajo de después del día 10** — y con el `for` de filas
+delante, no antes.
+
+### Las siete que no están en los diecisiete — de la consulta que corrió Joseth en `micolev1`
+
+Un colegio en `9474b50` tiene **94** tablas; `demo` y `simonbolivar_medellin` las tienen y los
+otros quince tienen de 87 a 93 (`DESPLIEGUE.md`, bloque «el motor de cada tabla»). El censo de
+`information_schema` sobre las diecisiete bases dice exactamente cuáles faltan:
+
+```
+df_notas_finales        en  4 de 17    muerta (arriba): da igual
+piars_alumnos           en  5 de 17    VIVAS: las cuatro de la ficha PIAR
+piars_asignaturas       en  5 de 17
+piars_config            en  5 de 17
+piars_grupos            en  5 de 17
+piars_actas_acuerdo     en  7 de 17    VIVA
+uniformes               en 16 de 17    VIVA, y la que falta es amiguitosdejesus
+```
+
+**El de 87 es `amiguitosdejesus` y no tiene ninguna de las siete** — no es una identificación, es
+aritmética: 94 − 7 = 87 y sólo siete tablas faltan en alguna base.
+
+- **PIAR**: 10 rutas en `routes/api/piars.php` y otras 15 menciones en `academico`, `alumnos` y
+  `estructura`. En los **diez u doce colegios sin esas tablas, esas rutas contestan 500** con
+  *table doesn't exist* (`PiarsConfigController:20` hace `DB::select(… FROM piars_config)[0]` sin
+  red). Es el módulo de `myvc_front_2`, que sólo se despliega donde se usa, así que el 500 sólo lo
+  ve quien entre por una URL que su colegio no tiene. **No es del día 10.**
+- **`uniformes`**: la consultan **cinco ficheros**, y tres son pantallas de todos los días:
+  `ChangeAskedController:258` —el **panel de inicio** de un **alumno**, sin condición, y `:404`
+  el del **profesor**, por cada alumno de su grupo—, `NotasController:1222` (la planilla) y
+  `DisciplinaController:306`. **En `amiguitosdejesus` esas rutas contestan 500 hoy**, para
+  cualquier alumno que entre y cualquier profesor con grupo. *Lo que no está medido es si alguien
+  entra: es un preescolar, y puede que no tenga un solo alumno con cuenta.* La salida no es de
+  esta sesión: crear la tabla allí es una migración con `hasTable()` —la octava de una tanda
+  congelada en siete—, y crearla a mano es lo que este repositorio prohíbe. **Decisión de Joseth,
+  con esto delante**, y en `ESTADO-ACTUAL.md` como la 6.
+
