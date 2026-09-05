@@ -452,6 +452,80 @@
 >
 > *En los dieciséis colegios esto no existe: cero versiones desplegadas.*
 
+**5 sep 2026 — EL SOBRE DE LA CUARTA RUTA SE ENSANCHA CON LAS CUATRO LISTAS DE LA DECISIÓN 38, Y
+`tono` DEJA DE CONTAR SOBRE LA POBLACIÓN QUE NO ERA** · `HorarioController::getLecciones` y sus
+lectores del blob, `HorarioLeccionesTest` (18 → 30 casos, 187 → 429 aserciones, los doce nuevos
+vistos en rojo con nueve mutaciones), [23 §9.bis.6](23-horarios.md) y esta casilla · **el router no
+se mueve: 577 antes y después, contado con `route:list --json` sobre la rama ya fusionada con
+`main`** · pint PASS · larastan nivel 7 `[OK] No errors` · rama `feat/horario-cuatro-listas`
+
+> **El 577 y el 568 son el mismo hecho y por eso van los dos.** Esta rama sale de `ac09cb7`,
+> donde el router iba por **568**, y ahí se contó al escribir el código; con `main` dentro son
+> **577**, porque la plantilla de notas trajo nueve. **Ninguna de las dos cifras la mueve este
+> lote** — es el sobre de una ruta que ya existía—, y se dicen las dos porque *«no se mueve»
+> sin decir desde dónde es la frase que hace que el siguiente reste mal.*
+
+> **`GET horario/versiones/{id}/lecciones` manda cuatro claves más —`plantilla`, `jornadas`,
+> `disponibilidad`, `sin_colocar`—, todas sacadas del fichero de proyecto que ya leía, cada una
+> con su renglón en `catalogos` y `null` cuando no se entiende entera.** Conducido con `curl`
+> contra la versión 8 del docker con token de admin y de profesor raso:
+>
+> ```
+> plantilla       47 · con_leccion 12 · sin_leccion 35        <- por las lecciones sólo viajaban 12
+> tono            parcial · 12 de 47                           <- decía completo · 12 de 12
+> jornadas        4 niveles · 13 grupos, los 13 `porque: nivel`
+> timbres         vacio · 0 de 5                               <- decía sin_catalogo, y era falso
+> disponibilidad  26 de 47 con marcas · 134 (92 condicional · 42 inadecuado)
+> sin_colocar     1 · piezas 301 · colocadas 300 · incompletas 3   (⊆, no ===)
+> ```
+>
+> Coste: el método pasa de 6,3 a 8,3 ms y el sobre de 117 a 132 KB (7,6 → 9,5 KB en gzip).
+>
+> ### LO QUE HAY QUE SABER PARA NO DESHACERLO
+>
+> - **La población va dentro de cada renglón con su `criterio`, lo exige un test de los once, y
+>   `tono` se mide sobre los docentes que viajan en la misma respuesta.** Ese test encontró de
+>   paso que `salones` decía `87 de 312` sin decir de qué eran los 312.
+> - **Dos vacíos que no eran vacíos, encontrados repasando el propio lote**: el de `salones` y
+>   el del ternario de `plantilla`, que preguntaba primero por el total y devolvía `vacio`
+>   —legítimo, sin llamada a la acción— cuando hay docentes dando clase que la plantilla no
+>   declara. Ahora `parcial`. *Los dos son la forma de esta noche: una cifra correcta que se
+>   lee como otra cosa.* Es lo que cierra la trampa del denominador de la
+>   [§9.bis.5](23-horarios.md) —53 filas, 47 vivos, 12 con asignación— y lo que el lector del
+>   front no podía comprobar: *una cuenta que cuadra sobre la población equivocada no falla*.
+> - **Ninguna cadena libre del blob sale.** Nombres por id contra las tablas; enumerados cerrados;
+>   hora `HH:MM` con expresión regular; el `pieza_id` es el único texto y va acotado a la forma
+>   de su columna. **Una entrada rota tira la lista entera** y el renglón dice `ilegible`
+>   nombrando la parte. El test de fuga mete la marca **dentro** de cada lista.
+> - **`timbres` ya no es `sin_catalogo`**: las horas viajan dentro de cada jornada, así que la
+>   frase pasó a ser falsa. Que el colegio no las haya dado es `vacio`. `restricciones` es el
+>   único que sigue sin viajar por diseño.
+> - **La casilla de abajo («el servidor no guarda la disponibilidad») queda superada por ésta**:
+>   el motivo que corrigió —*«esta ruta todavía no la parsea»*— ya no es cierto tampoco, y el
+>   renglón `disponibilidad` es un catálogo con población.
+>
+> ### BAJO QUÉ AUTORIZACIÓN ENTRA, CON EL ARGUMENTO
+>
+> La sustancia es la **decisión 38 de Joseth en `myvc_horarios`**, con su precio escrito (el
+> permiso sigue `auth.personal` y lo declarado no está en ninguna pared). **Que entre aquí antes
+> del 10 lo decidió `8myvc-ae` como coordinador**, y verificó la premisa antes: **cero migraciones,
+> cero rutas, y `routes/api/horario.php` no existe en `9474b50`, lo desplegado** — ningún colegio
+> tiene hoy la ruta, así que cambiar su forma no rompe nada; entrar después obligaría a los dos
+> clientes a aguantar dos formas de la misma ruta para siempre. *«Que no se detengan» era una
+> instrucción de ritmo, no una decisión sobre este lote.* Está en la §9.bis.6 con el argumento
+> entero.
+>
+> ### LO SIGUIENTE
+>
+> - **Fundida detrás de `feat/plantilla-de-notas`**, como pedía la secuencia de `8myvc-ae` (la
+>   plantilla trae dos de las siete migraciones del día 10 y va primera). El conflicto fue de una
+>   sola casilla, la de arriba, contra la del ensayo de la tanda: las dos se insertaban en el
+>   mismo punto y ninguna se pisa.
+> - `myvc-horarios-66` y `myvc-front-f1` escriben su lector **sobre la respuesta conducida**; se
+>   les manda el `curl`, no el controlador.
+> - **No medido:** los otros quince colegios; la invariante de `quien-esta-libre` (es del
+>   consumidor); `ilegible` por partes y los `porque` distintos de `nivel` con datos reales.
+
 **5 sep 2026 — EL ENSAYO DE LA TANDA MEDÍA UN ÁRBOL Y LE PREGUNTABA A OTRO** ·
 `tools/ensayo-de-la-tanda.sh` (punto 1.bis) y esta casilla · **el router no se mueve: 568** ·
 ejercitado **por los tres lados** sobre la copia de `simonbolivar` (102 tablas, 210 MB, 1.166.139 notas)

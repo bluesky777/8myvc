@@ -106,6 +106,17 @@ class HorarioController extends Controller
     ];
 
     /**
+     * La forma de un `pieza_id`: la que la columna `horario_lecciones.pieza_id` ya acepta.
+     *
+     * Es **el único texto del fichero de proyecto que sale por `getLecciones`**, y sale
+     * acotado a un identificador de hasta 64 caracteres de esta clase — la misma puerta
+     * por la que ya viajan los `pieza_id` de las lecciones, así que no se abre una de
+     * otra clase. Medido el 5 sep 2026 sobre la versión 8: 300 son `a1324-2` y uno es
+     * `misa-religion`.
+     */
+    private const FORMA_DEL_ID_DE_PIEZA = '/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/';
+
+    /**
      * `POST horario/versiones` — sube una versión del horario de un año (§5.3).
      *
      * Guard de la ruta `auth.personal`; el criterio es
@@ -1100,6 +1111,32 @@ class HorarioController extends Controller
      *
      * `docentes: []` es legítimo y **frecuente**: **22 de las 312** piezas de la única
      * versión real no tienen ni una fila en `horario_pieza_docente`.
+     *
+     * ## Las cuatro listas de la decisión 38 — escritas el 5 sep 2026
+     *
+     * Joseth aprobó en `myvc_horarios` que esta ruta mande además, **todo sacado del
+     * fichero de proyecto que ya lee**: la **plantilla entera** de docentes (47 en el
+     * colegio medido, cuando por las lecciones sólo viajaban 12 y los otros 35 eran
+     * justo los que el informe «quién está libre» existe para nombrar), las **jornadas
+     * por nivel** con de qué nivel cuelga cada grupo **y su `porque`**, las
+     * **disponibilidades declaradas** con quién declaró cada marca, y las **piezas sin
+     * colocar**, que están guardadas y son identificables aunque `horario_lecciones` no
+     * las tenga. Van como cuatro claves más del sobre, cada una con su renglón en
+     * `catalogos` y **`null` cuando no se entiende entera**.
+     *
+     * **El permiso no cambia y eso es un precio, no un detalle**: `auth.personal` se
+     * justificó aquí porque el horario ya se imprime y se cuelga; las disponibilidades
+     * declaradas no están en ninguna pared, y desde este día cualquiera de los docentes
+     * puede leer las horas que sus compañeros marcaron `inadecuado`. Está escrito dentro
+     * de la decisión 38 como precio pagado, y se repite aquí porque el argumento que
+     * sostiene el guard ya no cubre todo lo que la ruta transporta.
+     *
+     * **Y la guarda de forma de `descansosDelProyecto()` pasa a ser la de todas**: cada
+     * lista es mucho más blob que un par de enteros, así que cada valor se comprueba
+     * campo a campo y ninguna cadena libre del fichero sale por aquí (los nombres se
+     * resuelven por id contra las tablas; el único texto es el `pieza_id`, acotado a la
+     * forma de su columna). El test de fuga tiene un caso con la marca **dentro** de
+     * cada lista, porque el que vigila `programa` no vería ninguna de las cuatro.
      */
     public function getLecciones($id): JsonResponse
     {
@@ -1176,6 +1213,28 @@ class HorarioController extends Controller
         // —no están en esta API por diseño— o `ilegible` —están aquí y no se dejan leer—.
         $proyecto = $this->proyectoDeLaVersion($version[0]->proyecto);
 
+        // ── LAS CUATRO LISTAS DE LA DECISIÓN 38 (`myvc_horarios`), del MISMO blob y UNA sola vez.
+        //
+        // La plantilla entera de docentes, las jornadas por nivel, las disponibilidades
+        // declaradas y las piezas sin colocar viven en el fichero de proyecto que la
+        // consulta de arriba ya trae: el `json_decode` está pagado (+2,07 ms, medido) y
+        // lo que se añade es el sobre. **Cada lista pasa por su comprobación de forma
+        // ANTES de resolverse contra las tablas**, y por el mismo motivo que
+        // `descansosDelProyecto()`: el blob lo escribe un programa de escritorio, y un
+        // valor devuelto tal cual es una puerta de salida del fichero con nombre de dato,
+        // en la ruta cuyo contrato es que *mirar no es llevarse* (decisión 12, §9.bis).
+        // **De aquí no sale ni una cadena libre del blob**: los nombres de docentes,
+        // niveles, materias y grupos se resuelven por id contra las tablas de esta base,
+        // y lo único de texto que viaja es el `pieza_id`, acotado a la forma que la
+        // columna ya acepta (`FORMA_DEL_ID_DE_PIEZA`).
+        //
+        // Cada una es `null` cuando no se entiende ENTERA —una entrada rota tira la lista,
+        // no se filtra a medias— y su renglón de `catalogos` lo dice como `ilegible`.
+        $leidaPlantilla = $this->plantillaDelProyecto($proyecto);
+        $leidaDisponibilidad = $this->disponibilidadDelProyecto($proyecto);
+        $leidasJornadas = $this->jornadasDelProyecto($proyecto);
+        $leidoSinColocar = $this->sinColocarDelProyecto($proyecto);
+
         $lecciones = array_map(fn ($f) => [
             'id' => (int) $f->id,
             'pieza_id' => (string) $f->pieza_id,
@@ -1208,6 +1267,28 @@ class HorarioController extends Controller
             'docentes' => $docentesPorPieza[$f->pieza_id] ?? [],
         ], $filas);
 
+        // Quién tiene lección en ESTA versión lo dice `horario_pieza_docente`, no el blob:
+        // es la tabla la que sabe qué quedó colocado. Con esto la plantilla puede decir
+        // `con_leccion` fila a fila, que es lo que el informe «quién está libre» necesita
+        // para contar a los que ese día no vinieron.
+        $conLeccion = [];
+        foreach ($docentesPorPieza as $docentesDeUnaPieza) {
+            foreach ($docentesDeUnaPieza as $d) {
+                $conLeccion[$d['id']] = true;
+            }
+        }
+
+        // Una consulta para todas las fichas que faltan —plantilla y piezas sin colocar—;
+        // las de las lecciones ya vinieron con `docentesDeLaVersion`.
+        $fichas = $this->fichasDeDocentes(array_merge(
+            $leidaPlantilla ?? [],
+            $leidoSinColocar === null ? [] : array_merge([], ...array_map(fn ($p) => $p['docente_ids'], $leidoSinColocar['piezas'])),
+        ));
+
+        $plantilla = $leidaPlantilla === null ? null : $this->plantillaResuelta($leidaPlantilla, $fichas, $conLeccion);
+        $jornadas = $leidasJornadas === null ? null : $this->jornadasResueltas($leidasJornadas);
+        $sinColocar = $leidoSinColocar === null ? null : $this->piezasSinColocarResueltas($leidoSinColocar['piezas'], $fichas);
+
         return response()->json([
             'version' => [
                 'id' => (int) $version[0]->id,
@@ -1221,12 +1302,45 @@ class HorarioController extends Controller
                 'comprobaciones' => $this->veredictoGuardado($version[0]->comprobaciones),
             ],
             'ejes' => $this->ejesDeLaVersion($lecciones, $this->descansosDelProyecto($proyecto)),
-            'catalogos' => $this->catalogosDeLaVersion($yearId, $versionId, $lecciones, $proyecto !== null),
+            'catalogos' => $this->catalogosDeLaVersion($yearId, $lecciones, [
+                'legible' => $proyecto !== null,
+                'plantilla' => $plantilla,
+                'disponibilidad' => $leidaDisponibilidad,
+                'jornadas' => $jornadas,
+                'sin_colocar' => $sinColocar,
+                'cuentas_sin_colocar' => $leidoSinColocar,
+            ]),
             'lecciones' => $lecciones,
             // La población, delante y siempre. Sin ella `lecciones: []` se lee como
             // «todo bien» — que es literalmente el fallo de la §2, el que estuvo meses
             // sin que nadie lo reportara.
             'total_lecciones' => count($lecciones),
+            // ── Las cuatro de la decisión 38. `null` = no se pudo leer entera, y el
+            // renglón de `catalogos` del mismo nombre dice por qué. **Van detrás de
+            // `catalogos` y nunca sin su renglón** (regla 1 de la §9.bis.3).
+            //
+            // La plantilla ENTERA: 47 en el colegio medido, cuando por las lecciones sólo
+            // viajaban 12. Los otros 35 son exactamente los que el informe «quién está
+            // libre» existe para nombrar, y sin ellos su cuenta
+            // `enHueco + ocupados + sinClases === docentes` no se puede cuadrar — y **una
+            // cuenta que cuadra sobre la población equivocada no falla, y por eso no se
+            // investiga**.
+            'plantilla' => $plantilla,
+            // Por NIVEL y no por grupo, que es como lo modela el escritorio: cuatro
+            // jornadas y no trece, más de qué nivel cuelga cada grupo **con su `porque`**.
+            // Sin el `porque`, un grupo pintado con la jornada por defecto no se distingue
+            // de uno que la declaró: en pantalla se aclara con un aviso; en papel no hay
+            // dónde ponerlo después.
+            'jornadas' => $jornadas,
+            // Una entrada por docente de la plantilla, con quién declaró cada marca: una
+            // hoja que dice «a alguien le viene mal» sin decir a quién se reparte más
+            // fácil y se rebate peor. `marcas: []` es «sin pegas», porque el escritorio
+            // sólo guarda lo que no es `adecuado`.
+            'disponibilidad' => $leidaDisponibilidad,
+            // Las que el fichero tiene y ninguna casilla recibió. No están en
+            // `horario_lecciones` —que sólo guarda las colocadas— y eso no es lo mismo que
+            // que el dato no esté.
+            'sin_colocar' => $sinColocar,
         ]);
     }
 
@@ -1314,7 +1428,9 @@ class HorarioController extends Controller
             // timbres. El pie del boletín ya lo imprime.
             'minutos_por_leccion' => $this->minutosPorLeccion(),
             // **`null`, y no una jornada por defecto.** Ver arriba: reconstruirla apaga
-            // el centinela del escritorio justo en el caso para el que existe.
+            // el centinela del escritorio justo en el caso para el que existe. Lo que el
+            // proyecto DECLARA viaja aparte, en `jornadas`, con el `porque` de cada grupo
+            // al lado — desde el 5 sep 2026—; esto son los ejes de lo colocado.
             'timbres' => null,
             // Dónde van las líneas gruesas del recreo. **Base 1 y «tras»**: un `3`
             // significa *después de la tercera lección*, no *en la tercera*.
@@ -1412,13 +1528,13 @@ class HorarioController extends Controller
      * del propio valor** (`la_comprobacion_de_forma_tambien_cierra_la_fuga`), que es el
      * único sitio donde la versión corta la dejaría salir.
      *
-     * **Y esta guarda ya no protege un campo.** Todo lo que la pantalla del horario vaya
-     * pidiendo del escritorio —jornadas por nivel, disponibilidades declaradas, las piezas
-     * sin colocar, la plantilla— **sale de este mismo blob y va a pasar por esta misma
-     * puerta**. *(`8myvc-7c` dice que Joseth aprobó la decisión 38 de `myvc_horarios` ese
-     * día con exactamente esa lista; eso no está en este repositorio y aquí no se ha
-     * comprobado — lo que sí está comprobado es que **el blob es la única fuente de las
-     * cuatro**, así que la conclusión no depende de esa decisión.)*
+     * **Y esta guarda ya no protege un campo.** Todo lo que la pantalla del horario pide
+     * del escritorio —jornadas por nivel, disponibilidades declaradas, las piezas sin
+     * colocar, la plantilla— **sale de este mismo blob y pasa por esta misma puerta**:
+     * desde el 5 sep 2026 lo leen `plantillaDelProyecto`, `disponibilidadDelProyecto`,
+     * `jornadasDelProyecto` y `sinColocarDelProyecto`, con la misma regla (§9.bis.6). *(La
+     * decisión 38 de `myvc_horarios` que lo pidió no está en este repositorio; lo que sí
+     * está comprobado es que **el blob es la única fuente de las cuatro**.)*
      *
      * @return list<int>|null
      */
@@ -1466,12 +1582,30 @@ class HorarioController extends Controller
      * regla que hay que sostener el día que se añada un catálogo nuevo: **una lista sin
      * su renglón aquí es un error del servidor, no un catálogo vacío.**
      *
+     * ## La población va DENTRO del renglón, y no es cosmético
+     *
+     * Hasta el 5 sep 2026 `tono` decía `completo · 12 de 12` con **47 docentes vivos** y
+     * 35 sin color: coherente consigo mismo y contando sobre la población que no era. El
+     * lector del front lo tenía apuntado y **no podía escribir la comprobación**, porque
+     * el sobre no le daba la otra población. *Una cuenta que cuadra sobre la población
+     * equivocada no falla, y por eso no se investiga.* Desde ese día cada renglón dice
+     * su `criterio` y su denominador, y `tono` se mide sobre **los docentes que viajan
+     * en esta misma respuesta** —plantilla, lecciones y piezas sin colocar—, así que el
+     * consumidor puede comprobar que `tono.de` es exactamente lo que recibió.
+     *
      * @param  list<array<string, mixed>>  $lecciones
+     * @param  array{legible: bool, plantilla: list<array<string, mixed>>|null, disponibilidad: list<array<string, mixed>>|null, jornadas: array<string, mixed>|null, sin_colocar: list<array<string, mixed>>|null, cuentas_sin_colocar: array<string, mixed>|null}  $delProyecto
      * @return array<string, array<string, mixed>>
      */
-    protected function catalogosDeLaVersion(int $yearId, int $versionId, array $lecciones, bool $proyectoLegible = true): array
+    protected function catalogosDeLaVersion(int $yearId, array $lecciones, array $delProyecto): array
     {
         $total = count($lecciones);
+        $legible = $delProyecto['legible'];
+        $plantilla = $delProyecto['plantilla'];
+        $disponibilidad = $delProyecto['disponibilidad'];
+        $jornadas = $delProyecto['jornadas'];
+        $sinColocar = $delProyecto['sin_colocar'];
+        $cuentas = $delProyecto['cuentas_sin_colocar'];
 
         $conSalon = count(array_filter($lecciones, fn ($l) => $l['nombre_salon'] !== null));
         $salones = array_unique(array_filter(array_column($lecciones, 'nombre_salon')));
@@ -1499,28 +1633,72 @@ class HorarioController extends Controller
             [$yearId]
         )->n;
 
+        // ── Los docentes que VIAJAN, que es la población de `tono` y el control de la
+        // plantilla. Se cuentan sobre la respuesta y no sobre una tabla a propósito: así
+        // el denominador es, por construcción, lo que el cliente tiene delante.
+        $tonoPorDocente = [];
+        $conLeccionIds = [];
+        foreach ($lecciones as $l) {
+            foreach ($l['docentes'] as $d) {
+                $tonoPorDocente[$d['id']] = $d['tono'];
+                $conLeccionIds[$d['id']] = true;
+            }
+        }
+        foreach ($plantilla ?? [] as $d) {
+            $tonoPorDocente[$d['id']] = $d['tono'];
+        }
+        foreach ($sinColocar ?? [] as $p) {
+            foreach ($p['docentes'] as $d) {
+                $tonoPorDocente[$d['id']] = $d['tono'];
+            }
+        }
+        $deTono = count($tonoPorDocente);
+        $conTono = count(array_filter($tonoPorDocente, fn ($t) => $t !== null && $t !== ''));
+
         return [
-            'grupos' => ['estado' => $grupos === 0 ? 'vacio' : 'completo', 'total' => $grupos],
+            // Los dos primeros llevan `criterio` desde el 5 sep 2026 aunque su población
+            // parezca obvia: «grupos» y «asignaciones» **del año del token y vivas**, que no
+            // es lo mismo que las de la versión —una versión vieja puede nombrar filas que
+            // ya están en la papelera—. Sin el criterio, el consumidor no puede saber contra
+            // qué recontar, que es justo lo que le pasó a `tono` diciendo 12 de 12.
+            'grupos' => [
+                'estado' => $grupos === 0 ? 'vacio' : 'completo',
+                'total' => $grupos,
+                'criterio' => 'los grupos vivos del año del token',
+            ],
             'asignaciones' => [
                 'estado' => $asignaciones === 0 ? 'vacio' : 'completo',
                 'total' => $asignaciones,
+                'criterio' => 'las asignaciones vivas del año del token',
                 'lecciones_sin_asignacion_viva' => count(array_filter($lecciones, fn ($l) => $l['materia'] === null)),
             ],
             // **El criterio se nombra**, porque «docentes» admite dos lecturas y la otra
             // da otro número: aquí son los que tienen alguna asignación en el año, no
             // los vivos de `profesores` —de los que 42 de 47 ni siquiera tienen
             // `tipo_profesor`, así que esa columna no sirve hoy para decir quién enseña—.
+            // La tercera lectura, la plantilla que declara el fichero, tiene su propio
+            // renglón justo debajo.
             'docentes' => [
                 'estado' => $docentes === 0 ? 'vacio' : 'completo',
                 'total' => $docentes,
                 'criterio' => 'con asignación viva en el año',
                 'lecciones_sin_docente' => $sinDocente,
             ],
-            // La columna existe desde el 4 sep 2026 y **nace vacía en todos**: mientras
-            // nadie reparta los colores, esto es `vacio` y no `completo`. La diferencia
-            // importa: seis de los ocho informes del escritorio pintan distinto sin él y
-            // **nada se pone rojo**.
-            'tono' => $this->estadoDelTono(),
+            'plantilla' => $this->renglonDeLaPlantilla($legible, $plantilla, $conLeccionIds),
+            // Sobre los docentes que viajan en ESTA respuesta, y por eso `de` no es una
+            // cifra de tabla: es lo que el consumidor tiene delante y puede recontar.
+            // **Nace vacío en los diecisiete**: mientras nadie reparta colores, esto es
+            // `vacio` y no `completo`, y seis de los ocho informes del escritorio pintan
+            // distinto sin él sin que nada se ponga rojo.
+            'tono' => [
+                'estado' => $conTono === 0 ? 'vacio' : ($conTono < $deTono ? 'parcial' : 'completo'),
+                'con_tono' => $conTono,
+                'de' => $deTono,
+                'criterio' => 'los docentes que viajan en esta respuesta: plantilla, lecciones y piezas sin colocar',
+                'motivo' => $conTono === 0
+                    ? 'la columna existe y nadie ha repartido los colores todavía'
+                    : null,
+            ],
             // El caso medido y el peor de los cuatro: 87 de 312 con salón y **3 nombres**
             // contra los 17 del proyecto real. Un catálogo a medias hace MENOS ruido que
             // uno ausente, así que aquí la población no es adorno.
@@ -1530,44 +1708,27 @@ class HorarioController extends Controller
                 'de' => $total,
                 'distintos' => count($salones),
                 'hay_ids' => false,
+                // El `criterio` lo destapó su propio test el 5 sep 2026: este renglón decía
+                // `87 de 312` sin decir **de qué son esos 312**, y son las lecciones de esta
+                // versión, no los salones del colegio —que son 17 en el proyecto real y aquí
+                // no se pueden contar—. Un denominador sin nombre es la mitad del fallo que
+                // el renglón viene a evitar.
+                'criterio' => 'las lecciones de esta versión que traen nombre de salón; `distintos` son los nombres, no los salones del colegio',
                 'motivo' => 'sólo viaja el nombre que mandó la subida: el servidor no guarda salones (§4)',
             ],
-            // **El motivo se reescribió el 4 sep 2026, y no por estilo: el anterior era
-            // verdad y engañaba.** Decía *«la rejilla, los timbres y las jornadas por
-            // nivel viven en el fichero de proyecto (§4)»*, que describe **de dónde
-            // viene el dato** y se lee como **que el servidor no lo tiene** — y el
-            // fichero está en la columna de al lado de esta misma tabla. Quien leyera
-            // eso archivaba la pregunta, que es lo que pasó: los descansos llevaban
-            // desde el 2 sep dentro del blob que esta ruta ya lee, a un `json_decode`
-            // de distancia, y nadie los pidió porque el renglón parecía cerrado. Lo
-            // levantó `myvc-front-c0`.
-            //
-            // El estado **sigue siendo `sin_catalogo` y eso es correcto**: los timbres
-            // son las horas de reloj, y `jornadaPorDefecto.timbres` vale `null` en los
-            // siete proyectos reales — el colegio no los ha dado. *Lo que este renglón
-            // ya no hace es afirmar una imposibilidad que dejó de ser cierta.*
-            // ── LOS TRES QUE SALEN DEL BLOB, y los tres cambian JUNTOS
-            //
-            // Si el fichero de proyecto no se deja leer, los tres son `ilegible` a la vez:
-            // es un hecho **del fichero**, no de cada catálogo. Marcar sólo `timbres` —que
-            // es donde el front lo pidió primero— habría dejado a los otros dos diciendo
-            // «no viaja», que es una afirmación sobre el **diseño de la API**, cuando lo
-            // cierto sería «no se pudo leer», que es sobre **ese colegio**. O sea: un
-            // renglón diciendo la verdad y dos acompañándolo con la frase de antes. Lo vio
-            // `myvc-front-b2` el 4 sep 2026 sobre su propia propuesta.
-            'timbres' => $this->renglonDelProyecto($proyectoLegible,
-                'las horas de reloj no están en ninguna tabla: sólo dentro del fichero de proyecto, '
-                .'y ahí el colegio no las ha dado. De ese mismo fichero sí sale ya `ejes.descansos_tras`'),
-            // **`ídem` ya no vale aquí, y por eso este renglón se aparta de sus dos
-            // vecinos.** Decía *«el servidor no guarda la disponibilidad declarada»* y es
-            // **falso**: los 47 docentes la traen dentro del fichero de proyecto, que es
-            // una columna de esta base. Lo que no hay es **tabla que consultar**, que es
-            // otra cosa — y la diferencia decide qué trabajo pide: inventar un dato, o
-            // parsear el blob.
-            'disponibilidad' => $this->renglonDelProyecto($proyectoLegible,
-                'está guardada dentro del fichero de proyecto, no en una tabla: esta ruta todavía no la parsea (§4)'),
-            'restricciones' => $this->renglonDelProyecto($proyectoLegible,
-                'ídem: restricciones, pesos y distribuciones de bloque (§4)'),
+            'jornadas' => $this->renglonDeLasJornadas($legible, $jornadas),
+            // **Desde el 5 sep 2026 es un catálogo de verdad y ya no `sin_catalogo`**: las
+            // horas de reloj viajan dentro de cada jornada (`jornadas.*.timbres`), así que
+            // «no viaja por aquí» pasó a ser falso. Lo que sigue siendo cierto es que el
+            // colegio no las ha dado —`null` en las cinco jornadas de los ocho proyectos
+            // reales—, y eso es `vacio`: legítimo, y sin llamada a la acción. `ejes.timbres`
+            // sigue `null` a propósito (ver `ejesDeLaVersion`): una cosa es lo que el
+            // proyecto declara, con su `porque`, y otra una rejilla reconstruida.
+            'timbres' => $this->renglonDeLosTimbres($legible, $jornadas),
+            'disponibilidad' => $this->renglonDeLaDisponibilidad($legible, $disponibilidad),
+            'sin_colocar' => $this->renglonDeLasSinColocar($legible, $sinColocar, $cuentas),
+            'restricciones' => $this->renglonDelProyecto($legible,
+                'restricciones, pesos y distribuciones de bloque viven dentro del fichero de proyecto y esta ruta no los parsea (§4)'),
         ];
     }
 
@@ -1578,7 +1739,7 @@ class HorarioController extends Controller
      * **`ilegible` cuando el fichero está guardado y no se deja leer**, que es otra cosa y
      * es la que tiene arreglo — volver a subir el proyecto.
      *
-     * **El `motivo` de `ilegible` es el mismo para los tres a propósito**: la causa no es
+     * **El `motivo` de `ilegible` es el mismo para todos a propósito**: la causa no es
      * de cada catálogo, es del fichero. Y **no dice por qué no se pudo leer** —si el JSON
      * está roto o si lo que subieron no es un proyecto— porque el servidor no distingue las
      * dos y **una pantalla no debe afirmar una causa que la API no le ha dado**.
@@ -1603,37 +1764,757 @@ class HorarioController extends Controller
     }
 
     /**
-     * `tono`: `vacio` mientras nadie haya repartido un color, `parcial` o `completo` después.
+     * `ilegible` con dos motivos, porque son dos hechos distintos y los dos tienen arreglo.
      *
-     * Se mira sobre los docentes **con asignación en el año**, que es el mismo criterio
-     * del renglón `docentes`: contar sobre los 47 vivos daría un porcentaje más feo y
-     * de otra población.
+     * O el fichero entero no se lee —el motivo de `renglonDelProyecto`, común a todos—, o
+     * **el fichero se lee y una de sus partes no tiene la forma esperada**. Lo segundo se
+     * dice con la parte nombrada: un proyecto cuyos `docentes` no se entienden puede tener
+     * unas `piezas` perfectamente legibles, y marcar los cuatro renglones a la vez sería
+     * afirmar de tres lo que sólo se sabe de uno. El estado es la misma palabra a propósito:
+     * es la que obliga al compilador del cliente a nombrar el caso.
      *
-     * @return array<string, mixed>
+     * @return array<string, string>
      */
-    protected function estadoDelTono(): array
+    protected function renglonIlegible(bool $ficheroLegible, string $parte): array
     {
-        $fila = DB::selectOne(
-            'SELECT COUNT(DISTINCT a.profesor_id) AS total,
-                    COUNT(DISTINCT IF(p.tono IS NULL OR p.tono = "", NULL, a.profesor_id)) AS con_tono
-               FROM asignaturas a
-               JOIN grupos g ON g.id = a.grupo_id
-               JOIN profesores p ON p.id = a.profesor_id
-              WHERE g.year_id = ? AND a.deleted_at IS NULL AND a.profesor_id IS NOT NULL',
-            [(int) $this->user->year_id]
-        );
-
-        $total = (int) $fila->total;
-        $conTono = (int) $fila->con_tono;
+        if (! $ficheroLegible) {
+            return $this->renglonDelProyecto(false, '');
+        }
 
         return [
-            'estado' => $conTono === 0 ? 'vacio' : ($conTono < $total ? 'parcial' : 'completo'),
-            'con_tono' => $conTono,
-            'de' => $total,
-            'motivo' => $conTono === 0
-                ? 'la columna existe y nadie ha repartido los colores todavía'
+            'estado' => 'ilegible',
+            'motivo' => "el fichero de proyecto se lee, pero su parte `{$parte}` no tiene la forma que esta ruta "
+                .'espera, así que no viaja: un dato que no se entiende entero no se entiende. Hay que volver a subirlo',
+        ];
+    }
+
+    /**
+     * `plantilla`: los docentes que declara el fichero, y cuántos de ellos quedaron con lección.
+     *
+     * `parcial` aquí significa **que hay docentes con lección que la plantilla no declara**
+     * —`fuera_de_la_plantilla`—, que es la única forma en que la cuenta del informe
+     * `enHueco + ocupados + sinClases === docentes` puede dejar de cuadrar: alguien
+     * ocupado a quien el total no cuenta. Hoy es 0 de 47 en el colegio medido.
+     *
+     * @param  list<array<string, mixed>>|null  $plantilla
+     * @param  array<int, true>  $conLeccionIds
+     * @return array<string, mixed>
+     */
+    protected function renglonDeLaPlantilla(bool $legible, ?array $plantilla, array $conLeccionIds): array
+    {
+        if ($plantilla === null) {
+            return $this->renglonIlegible($legible, 'docentes');
+        }
+
+        $total = count($plantilla);
+        $conLeccion = count(array_filter($plantilla, fn ($d) => $d['con_leccion']));
+        $declarados = array_flip(array_column($plantilla, 'id'));
+        $fuera = count(array_filter(array_keys($conLeccionIds), fn ($id) => ! isset($declarados[$id])));
+
+        return [
+            // **El `fuera` manda sobre el `vacio`, y el orden de este ternario es el
+            // hallazgo.** Escrito al revés —`$total === 0 ? 'vacio' : …`— una plantilla sin
+            // un solo docente declarado y lecciones que sí los tienen salía `vacio`, que
+            // significa *«el colegio no declaró ninguno, y es legítimo»* y **no lleva llamada
+            // a la acción**. Es el vacío que no es vacío: hay gente dando clase a la que el
+            // total no cuenta, que es justo lo que rompe la cuenta del informe. Con `fuera`
+            // delante sale `parcial`, que es lo que alguien mira.
+            'estado' => $fuera > 0 ? 'parcial' : ($total === 0 ? 'vacio' : 'completo'),
+            'total' => $total,
+            'con_leccion' => $conLeccion,
+            'sin_leccion' => $total - $conLeccion,
+            'sin_ficha' => count(array_filter($plantilla, fn ($d) => $d['nombres'] === null && $d['apellidos'] === null)),
+            'fuera_de_la_plantilla' => $fuera,
+            'criterio' => 'los docentes que declara el fichero de proyecto de esta versión; `con_leccion` se mira en `horario_pieza_docente`, no en el fichero',
+        ];
+    }
+
+    /**
+     * `jornadas`: cuántos grupos se pintan con una jornada que es SUYA y cuántos con una prestada.
+     *
+     * Propia = `porque` `nivel` o `sin-nivel` (la del nivel, o la por defecto **a
+     * propósito**); prestada = `sin-resolver` o `nivel-desconocido`, que se pintan con la
+     * por defecto **sin que sea la suya**. Es la misma distinción que `jornadaEsSuya()` del
+     * escritorio, y `parcial` es exactamente «hay grupos cuya jornada no se sabe».
+     *
+     * @param  array<string, mixed>|null  $jornadas
+     * @return array<string, mixed>
+     */
+    protected function renglonDeLasJornadas(bool $legible, ?array $jornadas): array
+    {
+        if ($jornadas === null) {
+            return $this->renglonIlegible($legible, 'jornadaPorDefecto · niveles · grupos');
+        }
+
+        $grupos = count($jornadas['grupos']);
+        $niveles = count($jornadas['niveles']);
+        $propia = count(array_filter($jornadas['grupos'], fn ($g) => in_array($g['porque'], ['nivel', 'sin-nivel'], true)));
+
+        return [
+            'estado' => $grupos === 0 && $niveles === 0 ? 'vacio' : ($propia < $grupos ? 'parcial' : 'completo'),
+            'niveles' => $niveles,
+            'grupos' => $grupos,
+            'con_jornada_propia' => $propia,
+            'con_jornada_prestada' => $grupos - $propia,
+            'criterio' => 'propia = `porque` nivel o sin-nivel; prestada = sin-resolver o nivel-desconocido, que se pintan con `por_defecto` sin que sea la suya',
+        ];
+    }
+
+    /**
+     * `timbres`: en cuántas de las jornadas que viajan el colegio dio las horas de reloj.
+     *
+     * @param  array<string, mixed>|null  $jornadas
+     * @return array<string, mixed>
+     */
+    protected function renglonDeLosTimbres(bool $legible, ?array $jornadas): array
+    {
+        if ($jornadas === null) {
+            return $this->renglonIlegible($legible, 'jornadaPorDefecto · niveles · grupos');
+        }
+
+        $todas = [$jornadas['por_defecto'], ...array_column($jornadas['niveles'], 'jornada')];
+        $de = count($todas);
+        $con = count(array_filter($todas, fn ($j) => $j['timbres'] !== null));
+
+        return [
+            'estado' => $con === 0 ? 'vacio' : ($con < $de ? 'parcial' : 'completo'),
+            'con_timbres' => $con,
+            'de' => $de,
+            'criterio' => 'la jornada por defecto y la de cada nivel, tal como las declara el fichero',
+            'motivo' => $con === 0
+                ? 'el colegio no ha dado las horas de reloj en ninguna jornada: `jornadas.*.timbres` van nulos. `ejes.timbres` sigue nulo a propósito'
                 : null,
         ];
+    }
+
+    /**
+     * `disponibilidad`: cuántos docentes declararon alguna marca, y cuántas de cada clase.
+     *
+     * No hay `parcial`: la entrada existe para cada docente de la plantilla y `marcas: []`
+     * es un dato —«sin pegas»—, no un hueco. `vacio` es que nadie marcó nada, y es legítimo.
+     *
+     * @param  list<array<string, mixed>>|null  $disponibilidad
+     * @return array<string, mixed>
+     */
+    protected function renglonDeLaDisponibilidad(bool $legible, ?array $disponibilidad): array
+    {
+        if ($disponibilidad === null) {
+            return $this->renglonIlegible($legible, 'docentes[].disponibilidad');
+        }
+
+        $marcas = array_merge([], ...array_column($disponibilidad, 'marcas'));
+        $porEstado = array_count_values(array_column($marcas, 'estado'));
+
+        return [
+            'estado' => $marcas === [] ? 'vacio' : 'completo',
+            'con_marcas' => count(array_filter($disponibilidad, fn ($d) => $d['marcas'] !== [])),
+            'de' => count($disponibilidad),
+            'marcas' => count($marcas),
+            'condicional' => $porEstado['condicional'] ?? 0,
+            'inadecuado' => $porEstado['inadecuado'] ?? 0,
+            'criterio' => 'una entrada por docente de la plantilla; `marcas: []` es «sin pegas», porque el escritorio sólo guarda lo que no es adecuado',
+        ];
+    }
+
+    /**
+     * `sin_colocar`: las piezas del fichero que ninguna casilla recibió, contra las incompletas.
+     *
+     * **`sin_colocar ⊆ incompletas`, y NUNCA `===`.** Verificado en dos versiones reales
+     * el 5 sep 2026: la 6 daba 1 y 1, la 8 da **1 contra 3**. Una pieza sin colocar
+     * siempre deja su asignación corta; lo contrario no, porque colocar una pieza de
+     * varios grupos —la misa— **tira** las que estorban en la casilla, y una pieza tirada
+     * desaparece de la versión en vez de ir a la bandeja. La igualdad se cumplió en siete
+     * versiones seguidas y era coincidencia. Por eso el renglón trae las dos cifras: para
+     * **confrontar** (`total ≤ incompletas`), no para cuadrar.
+     *
+     * `incompletas` se cuenta sobre las asignaciones y la IH **del propio fichero**, no de
+     * `asignaturas`: así las dos cifras son del mismo instante, que es lo que hace que se
+     * puedan confrontar.
+     *
+     * @param  list<array<string, mixed>>|null  $sinColocar
+     * @param  array<string, mixed>|null  $cuentas
+     * @return array<string, mixed>
+     */
+    protected function renglonDeLasSinColocar(bool $legible, ?array $sinColocar, ?array $cuentas): array
+    {
+        if ($sinColocar === null || $cuentas === null) {
+            return $this->renglonIlegible($legible, 'piezas · colocaciones · asignaciones');
+        }
+
+        return [
+            'estado' => $sinColocar === [] ? 'vacio' : 'completo',
+            'total' => count($sinColocar),
+            'piezas' => $cuentas['total_piezas'],
+            'colocadas' => $cuentas['colocadas'],
+            'incompletas' => $cuentas['incompletas'],
+            'criterio' => 'sin_colocar ⊆ incompletas, nunca ===: colocar una pieza de varios grupos TIRA las que estorban y una pieza tirada no va a la bandeja. `incompletas` se cuenta con la IH del propio fichero',
+        ];
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════════
+    // Lectores del fichero de proyecto. Cada uno devuelve `null` cuando su parte no se
+    // entiende ENTERA, nunca una lista filtrada a medias: una entrada rota tira la
+    // lista, por la misma regla que `descansosDelProyecto()`. Y ninguno devuelve una
+    // cadena libre del blob: los ids se resuelven contra las tablas después.
+    // ═════════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Una lista del proyecto, o `null` si no está o no es una lista.
+     *
+     * @param  array<string, mixed>|null  $proyecto
+     * @return list<mixed>|null
+     */
+    private function listaDe(?array $proyecto, string $clave): ?array
+    {
+        if ($proyecto === null || ! array_key_exists($clave, $proyecto)) {
+            return null;
+        }
+
+        $lista = $proyecto[$clave];
+
+        return is_array($lista) && array_is_list($lista) ? $lista : null;
+    }
+
+    /**
+     * Una lista de enteros, o `null` si no lo es entera.
+     *
+     * @return list<int>|null
+     */
+    private function listaDeEnteros(mixed $lista): ?array
+    {
+        if (! is_array($lista) || ! array_is_list($lista)) {
+            return null;
+        }
+
+        foreach ($lista as $n) {
+            if (! is_int($n)) {
+                return null;
+            }
+        }
+
+        return $lista;
+    }
+
+    /**
+     * Los `profesores.id` que declara el fichero de proyecto: la plantilla ENTERA.
+     *
+     * Sólo el id: el `nombre` que el escritorio guarda al lado **no sale de aquí** —se
+     * resuelve contra `profesores`—, y un id repetido tira la lista, porque una plantilla
+     * que cuenta dos veces a alguien no es una plantilla.
+     *
+     * @param  array<string, mixed>|null  $proyecto
+     * @return list<int>|null
+     */
+    protected function plantillaDelProyecto(?array $proyecto): ?array
+    {
+        $docentes = $this->listaDe($proyecto, 'docentes');
+
+        if ($docentes === null) {
+            return null;
+        }
+
+        $ids = [];
+
+        foreach ($docentes as $d) {
+            if (! is_array($d) || ! isset($d['profesorId']) || ! is_int($d['profesorId']) || $d['profesorId'] < 1 || isset($ids[$d['profesorId']])) {
+                return null;
+            }
+
+            $ids[$d['profesorId']] = true;
+        }
+
+        return array_keys($ids);
+    }
+
+    /**
+     * Las marcas de disponibilidad que declaró cada docente del fichero.
+     *
+     * Una entrada por docente, **con quién la declaró** (`profesor_id`). La clave
+     * `disponibilidad` es opcional en el modelo del escritorio y su ausencia vale por
+     * `marcas: []` —es lo que hace su `estadoEn()`—; pero si está y no tiene la forma,
+     * la lista entera es `null`. Los estados son los dos que el escritorio guarda:
+     * `adecuado` es el valor por defecto y **nunca se escribe**, así que uno que aparezca
+     * no es su modelo y tira la lista.
+     *
+     * @param  array<string, mixed>|null  $proyecto
+     * @return list<array{profesor_id: int, marcas: list<array{dia: int, franja: int, estado: string}>}>|null
+     */
+    protected function disponibilidadDelProyecto(?array $proyecto): ?array
+    {
+        $docentes = $this->listaDe($proyecto, 'docentes');
+
+        if ($docentes === null) {
+            return null;
+        }
+
+        $salida = [];
+
+        foreach ($docentes as $d) {
+            if (! is_array($d) || ! isset($d['profesorId']) || ! is_int($d['profesorId']) || isset($salida[$d['profesorId']])) {
+                return null;
+            }
+
+            $marcas = [];
+
+            if (array_key_exists('disponibilidad', $d) && $d['disponibilidad'] !== null) {
+                $declarada = $d['disponibilidad'];
+
+                if (! is_array($declarada) || ! array_key_exists('marcas', $declarada)
+                    || ! is_array($declarada['marcas']) || ! array_is_list($declarada['marcas'])) {
+                    return null;
+                }
+
+                foreach ($declarada['marcas'] as $m) {
+                    $marca = $this->marcaLeida($m);
+
+                    if ($marca === null) {
+                        return null;
+                    }
+
+                    $marcas[] = $marca;
+                }
+            }
+
+            $salida[$d['profesorId']] = ['profesor_id' => $d['profesorId'], 'marcas' => $marcas];
+        }
+
+        ksort($salida);
+
+        return array_values($salida);
+    }
+
+    /**
+     * Una marca: casilla (`dia` 0..6, `franja` base 1) y uno de los dos estados que se guardan.
+     *
+     * @return array{dia: int, franja: int, estado: string}|null
+     */
+    private function marcaLeida(mixed $m): ?array
+    {
+        if (! is_array($m)) {
+            return null;
+        }
+
+        $dia = $m['dia'] ?? null;
+        $franja = $m['franja'] ?? null;
+        $estado = $m['estado'] ?? null;
+
+        if (! is_int($dia) || $dia < 0 || $dia > 6 || ! is_int($franja) || $franja < 1) {
+            return null;
+        }
+
+        if (! in_array($estado, ['condicional', 'inadecuado'], true)) {
+            return null;
+        }
+
+        return ['dia' => $dia, 'franja' => $franja, 'estado' => $estado];
+    }
+
+    /**
+     * Las jornadas del fichero: la por defecto, la de cada nivel, y de cuál cuelga cada grupo.
+     *
+     * Las tres partes van juntas o no va ninguna: el `porque` de un grupo apunta a la
+     * lista de niveles, y un `nivel` sobre una lista que no se pudo leer no dice nada.
+     * El `porque` se calcula aquí **igual que `jornadaDelGrupo()` del escritorio**:
+     *
+     *   - `nivel`              cuelga de un nivel que está en la lista: la jornada es la suya
+     *   - `sin-nivel`          no cuelga de ninguno a propósito: la por defecto ES la suya
+     *   - `sin-resolver`       no se supo cuál es: se pinta con la por defecto y PUEDE NO SER la suya
+     *   - `nivel-desconocido`  apunta a un nivel que no está en la lista: igual de poco fiable
+     *
+     * El `grado` que el escritorio guarda al lado de `sin-resolver` es texto libre y no sale.
+     *
+     * @param  array<string, mixed>|null  $proyecto
+     * @return array{por_defecto: array<string, mixed>, niveles: list<array{id: int, jornada: array<string, mixed>}>, grupos: list<array{grupo_id: int, nivel_id: int|null, porque: string}>}|null
+     */
+    protected function jornadasDelProyecto(?array $proyecto): ?array
+    {
+        if ($proyecto === null) {
+            return null;
+        }
+
+        $porDefecto = $this->jornadaLeida($proyecto['jornadaPorDefecto'] ?? null);
+        $niveles = $this->listaDe($proyecto, 'niveles');
+        $grupos = $this->listaDe($proyecto, 'grupos');
+
+        if ($porDefecto === null || $niveles === null || $grupos === null) {
+            return null;
+        }
+
+        $nivelesLeidos = [];
+
+        foreach ($niveles as $n) {
+            if (! is_array($n) || ! isset($n['id']) || ! is_int($n['id']) || isset($nivelesLeidos[$n['id']])) {
+                return null;
+            }
+
+            $jornada = $this->jornadaLeida($n['jornada'] ?? null);
+
+            if ($jornada === null) {
+                return null;
+            }
+
+            $nivelesLeidos[$n['id']] = ['id' => $n['id'], 'jornada' => $jornada];
+        }
+
+        $gruposLeidos = [];
+
+        foreach ($grupos as $g) {
+            if (! is_array($g) || ! isset($g['id']) || ! is_int($g['id']) || isset($gruposLeidos[$g['id']])
+                || ! isset($g['nivel']) || ! is_array($g['nivel'])) {
+                return null;
+            }
+
+            $estado = $g['nivel']['estado'] ?? null;
+
+            if ($estado === 'sin-nivel' || $estado === 'sin-resolver') {
+                $gruposLeidos[$g['id']] = ['grupo_id' => $g['id'], 'nivel_id' => null, 'porque' => $estado];
+
+                continue;
+            }
+
+            if ($estado !== 'resuelto' || ! isset($g['nivel']['nivelId']) || ! is_int($g['nivel']['nivelId'])) {
+                return null;
+            }
+
+            $nivelId = $g['nivel']['nivelId'];
+            $gruposLeidos[$g['id']] = [
+                'grupo_id' => $g['id'],
+                'nivel_id' => $nivelId,
+                'porque' => isset($nivelesLeidos[$nivelId]) ? 'nivel' : 'nivel-desconocido',
+            ];
+        }
+
+        ksort($nivelesLeidos);
+        ksort($gruposLeidos);
+
+        return ['por_defecto' => $porDefecto, 'niveles' => array_values($nivelesLeidos), 'grupos' => array_values($gruposLeidos)];
+    }
+
+    /**
+     * Una jornada del escritorio, con su forma comprobada campo a campo.
+     *
+     * `timbres` es `null` mientras el colegio no los haya dado —y **es importante que
+     * pueda serlo**, dice su modelo: un array de horas inventadas se imprimiría en el
+     * horario de la puerta del salón—. Cuando no lo es, tiene exactamente `franjas`
+     * elementos y cada uno es `HH:MM` a `HH:MM`: es la única cadena que se acepta y va
+     * atada a una expresión regular, porque **sin ella sería un canal de texto libre del
+     * blob** con nombre de hora.
+     *
+     * @return array{dias: list<int>, franjas: int, descansos_tras: list<int>, timbres: list<array{inicio: string, fin: string}>|null}|null
+     */
+    private function jornadaLeida(mixed $j): ?array
+    {
+        if (! is_array($j) || ! array_key_exists('timbres', $j)) {
+            return null;
+        }
+
+        $dias = $this->listaDeEnteros($j['dias'] ?? null);
+        $descansos = $this->listaDeEnteros($j['descansosTras'] ?? null);
+        $franjas = $j['franjas'] ?? null;
+
+        if ($dias === null || $descansos === null || ! is_int($franjas) || $franjas < 0) {
+            return null;
+        }
+
+        foreach ($dias as $d) {
+            if ($d < 0 || $d > 6) {
+                return null;
+            }
+        }
+
+        $timbres = null;
+
+        if ($j['timbres'] !== null) {
+            if (! is_array($j['timbres']) || ! array_is_list($j['timbres']) || count($j['timbres']) !== $franjas) {
+                return null;
+            }
+
+            $timbres = [];
+
+            foreach ($j['timbres'] as $t) {
+                if (! is_array($t) || ! isset($t['inicio'], $t['fin']) || ! $this->esHoraDeReloj($t['inicio']) || ! $this->esHoraDeReloj($t['fin'])) {
+                    return null;
+                }
+
+                $timbres[] = ['inicio' => $t['inicio'], 'fin' => $t['fin']];
+            }
+        }
+
+        return ['dias' => $dias, 'franjas' => $franjas, 'descansos_tras' => $descansos, 'timbres' => $timbres];
+    }
+
+    private function esHoraDeReloj(mixed $hora): bool
+    {
+        return is_string($hora) && preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $hora) === 1;
+    }
+
+    /**
+     * Las piezas del fichero que no están en ninguna colocación, y las cuentas para confrontarlas.
+     *
+     * Hacen falta las tres listas —`piezas`, `colocaciones`, `asignaciones`— y las tres se
+     * leen enteras: una colocación que apunte a una pieza que no existe, o dos que apunten
+     * a la misma, no se entienden y tiran la lectura. `incompletas` sale de aquí y no de
+     * `asignaturas` a propósito (ver `renglonDeLasSinColocar`).
+     *
+     * @param  array<string, mixed>|null  $proyecto
+     * @return array{piezas: list<array{pieza_id: string, duracion: int, asignatura_ids: list<int>, docente_ids: list<int>}>, total_piezas: int, colocadas: int, incompletas: int}|null
+     */
+    protected function sinColocarDelProyecto(?array $proyecto): ?array
+    {
+        $piezas = $this->listaDe($proyecto, 'piezas');
+        $colocaciones = $this->listaDe($proyecto, 'colocaciones');
+        $asignaciones = $this->listaDe($proyecto, 'asignaciones');
+
+        if ($piezas === null || $colocaciones === null || $asignaciones === null) {
+            return null;
+        }
+
+        $ih = [];
+
+        foreach ($asignaciones as $a) {
+            if (! is_array($a) || ! isset($a['id'], $a['ih']) || ! is_int($a['id']) || ! is_int($a['ih']) || isset($ih[$a['id']])) {
+                return null;
+            }
+
+            $ih[$a['id']] = $a['ih'];
+        }
+
+        $leidas = [];
+
+        foreach ($piezas as $p) {
+            if (! is_array($p) || ! isset($p['id'], $p['duracion'], $p['lecciones'], $p['docentes'])) {
+                return null;
+            }
+
+            $id = $p['id'];
+
+            if (! is_string($id) || preg_match(self::FORMA_DEL_ID_DE_PIEZA, $id) !== 1 || isset($leidas[$id])) {
+                return null;
+            }
+
+            if (! is_int($p['duracion']) || $p['duracion'] < 1) {
+                return null;
+            }
+
+            if (! is_array($p['lecciones']) || ! array_is_list($p['lecciones']) || $p['lecciones'] === []) {
+                return null;
+            }
+
+            $asignaturaIds = [];
+
+            foreach ($p['lecciones'] as $l) {
+                if (! is_array($l) || ! isset($l['asignacionId']) || ! is_int($l['asignacionId'])) {
+                    return null;
+                }
+
+                $asignaturaIds[] = $l['asignacionId'];
+            }
+
+            $docenteIds = $this->listaDeEnteros($p['docentes']);
+
+            if ($docenteIds === null) {
+                return null;
+            }
+
+            $leidas[$id] = [
+                'pieza_id' => $id,
+                'duracion' => $p['duracion'],
+                'asignatura_ids' => $asignaturaIds,
+                'docente_ids' => array_values(array_unique($docenteIds)),
+            ];
+        }
+
+        $colocadas = [];
+
+        foreach ($colocaciones as $c) {
+            if (! is_array($c) || ! isset($c['piezaId']) || ! is_string($c['piezaId'])
+                || ! isset($leidas[$c['piezaId']]) || isset($colocadas[$c['piezaId']])) {
+                return null;
+            }
+
+            $colocadas[$c['piezaId']] = true;
+        }
+
+        // Σ duración colocada por asignación, contra la IH del fichero: las que quedan cortas.
+        $colocado = [];
+
+        foreach ($leidas as $id => $pieza) {
+            if (! isset($colocadas[$id])) {
+                continue;
+            }
+
+            foreach ($pieza['asignatura_ids'] as $asignaturaId) {
+                $colocado[$asignaturaId] = ($colocado[$asignaturaId] ?? 0) + $pieza['duracion'];
+            }
+        }
+
+        $incompletas = 0;
+
+        foreach ($ih as $asignaturaId => $horas) {
+            if (($colocado[$asignaturaId] ?? 0) < $horas) {
+                $incompletas++;
+            }
+        }
+
+        $sinColocar = array_values(array_filter($leidas, fn ($p) => ! isset($colocadas[$p['pieza_id']])));
+        usort($sinColocar, fn ($a, $b) => strcmp($a['pieza_id'], $b['pieza_id']));
+
+        return [
+            'piezas' => $sinColocar,
+            'total_piezas' => count($leidas),
+            'colocadas' => count($colocadas),
+            'incompletas' => $incompletas,
+        ];
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════════
+    // Resolución contra las tablas: los ids que salieron del blob se convierten en las
+    // fichas de esta base. Una consulta por familia, nunca una por fila.
+    // ═════════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Las fichas de `profesores` de esos ids, indexadas por id. **Sin filtrar `deleted_at`**,
+     * igual que `docentesDeLaVersion`: una versión vieja puede nombrar a alguien que ya se
+     * fue, y su nombre sigue siendo el suyo.
+     *
+     * @param  list<int>  $ids
+     * @return array<int, array{id: int, nombres: string|null, apellidos: string|null, tono: string|null}>
+     */
+    protected function fichasDeDocentes(array $ids): array
+    {
+        $ids = array_values(array_unique($ids));
+
+        if ($ids === []) {
+            return [];
+        }
+
+        $filas = DB::select(
+            'SELECT p.id, p.nombres, p.apellidos, p.tono FROM profesores p WHERE p.id IN ('.implode(',', array_fill(0, count($ids), '?')).')',
+            $ids
+        );
+
+        $fichas = [];
+
+        foreach ($filas as $f) {
+            $fichas[(int) $f->id] = ['id' => (int) $f->id, 'nombres' => $f->nombres, 'apellidos' => $f->apellidos, 'tono' => $f->tono];
+        }
+
+        return $fichas;
+    }
+
+    /**
+     * La ficha de un docente, o una con los nombres a `null` si ese id no existe en `profesores`.
+     *
+     * Con `null` y no omitido: la plantilla es lo que el fichero declara, y quitar una fila
+     * haría que `total` dejara de ser el total. El renglón cuenta cuántas son (`sin_ficha`).
+     *
+     * @param  array<int, array{id: int, nombres: string|null, apellidos: string|null, tono: string|null}>  $fichas
+     * @return array{id: int, nombres: string|null, apellidos: string|null, tono: string|null}
+     */
+    private function fichaDe(array $fichas, int $id): array
+    {
+        return $fichas[$id] ?? ['id' => $id, 'nombres' => null, 'apellidos' => null, 'tono' => null];
+    }
+
+    /**
+     * La plantilla con su ficha y su `con_leccion`, ordenada como los docentes de una pieza.
+     *
+     * @param  list<int>  $ids
+     * @param  array<int, array{id: int, nombres: string|null, apellidos: string|null, tono: string|null}>  $fichas
+     * @param  array<int, true>  $conLeccion
+     * @return list<array<string, mixed>>
+     */
+    protected function plantillaResuelta(array $ids, array $fichas, array $conLeccion): array
+    {
+        $plantilla = array_map(fn (int $id) => [...$this->fichaDe($fichas, $id), 'con_leccion' => isset($conLeccion[$id])], $ids);
+
+        usort($plantilla, fn ($a, $b) => [$a['apellidos'] ?? '', $a['nombres'] ?? '', $a['id']] <=> [$b['apellidos'] ?? '', $b['nombres'] ?? '', $b['id']]);
+
+        return $plantilla;
+    }
+
+    /**
+     * Las jornadas con el nombre de cada nivel puesto desde `niveles_educativos`.
+     *
+     * Del blob sale el id y nada más: el nombre del nivel es de la tabla, y `null` si ese id
+     * no está en ella — que es exactamente lo que `nivel-desconocido` significa para un grupo.
+     *
+     * @param  array{por_defecto: array<string, mixed>, niveles: list<array{id: int, jornada: array<string, mixed>}>, grupos: list<array<string, mixed>>}  $leidas
+     * @return array<string, mixed>
+     */
+    protected function jornadasResueltas(array $leidas): array
+    {
+        $ids = array_column($leidas['niveles'], 'id');
+        $nombres = [];
+
+        if ($ids !== []) {
+            $filas = DB::select(
+                'SELECT n.id, n.nombre FROM niveles_educativos n WHERE n.id IN ('.implode(',', array_fill(0, count($ids), '?')).')',
+                $ids
+            );
+
+            foreach ($filas as $f) {
+                $nombres[(int) $f->id] = $f->nombre;
+            }
+        }
+
+        return [
+            'por_defecto' => $leidas['por_defecto'],
+            'niveles' => array_map(fn ($n) => ['id' => $n['id'], 'nombre' => $nombres[$n['id']] ?? null, 'jornada' => $n['jornada']], $leidas['niveles']),
+            'grupos' => $leidas['grupos'],
+        ];
+    }
+
+    /**
+     * Las piezas sin colocar con su asignación y sus docentes resueltos contra las tablas.
+     *
+     * La asignación viaja con las mismas claves que en una lección —materia, alias, grupo—
+     * para que la bandeja se pinte con el mismo código que la rejilla. Con `LEFT JOIN` y sin
+     * filtrar `deleted_at`, como las lecciones: una asignación borrada sale con `materia`
+     * a `null`, que es un agujero que se ve.
+     *
+     * @param  list<array{pieza_id: string, duracion: int, asignatura_ids: list<int>, docente_ids: list<int>}>  $piezas
+     * @param  array<int, array{id: int, nombres: string|null, apellidos: string|null, tono: string|null}>  $fichas
+     * @return list<array<string, mixed>>
+     */
+    protected function piezasSinColocarResueltas(array $piezas, array $fichas): array
+    {
+        $ids = array_values(array_unique(array_merge([], ...array_column($piezas, 'asignatura_ids'))));
+        $asignaturas = [];
+
+        if ($ids !== []) {
+            $filas = DB::select(
+                'SELECT a.id, a.creditos, m.materia, m.alias AS alias_materia,
+                        g.id AS grupo_id, g.nombre AS nombre_grupo, g.abrev AS abrev_grupo
+                   FROM asignaturas a
+                   LEFT JOIN materias m ON m.id = a.materia_id
+                   LEFT JOIN grupos g ON g.id = a.grupo_id
+                  WHERE a.id IN ('.implode(',', array_fill(0, count($ids), '?')).')',
+                $ids
+            );
+
+            foreach ($filas as $f) {
+                $asignaturas[(int) $f->id] = [
+                    'asignatura_id' => (int) $f->id,
+                    'ih' => $f->creditos === null ? null : (int) $f->creditos,
+                    'materia' => $f->materia,
+                    'alias_materia' => $f->alias_materia,
+                    'grupo_id' => $f->grupo_id === null ? null : (int) $f->grupo_id,
+                    'nombre_grupo' => $f->nombre_grupo,
+                    'abrev_grupo' => $f->abrev_grupo,
+                ];
+            }
+        }
+
+        return array_map(fn ($p) => [
+            'pieza_id' => $p['pieza_id'],
+            'duracion' => $p['duracion'],
+            'asignaturas' => array_map(fn (int $id) => $asignaturas[$id] ?? [
+                'asignatura_id' => $id, 'ih' => null, 'materia' => null, 'alias_materia' => null,
+                'grupo_id' => null, 'nombre_grupo' => null, 'abrev_grupo' => null,
+            ], $p['asignatura_ids']),
+            'docentes' => array_map(fn (int $id) => $this->fichaDe($fichas, $id), $p['docente_ids']),
+        ], $piezas);
     }
 
     /**

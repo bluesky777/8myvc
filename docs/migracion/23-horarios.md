@@ -1238,12 +1238,19 @@ quince es **no medido**, y no se puede medir desde aquí: cada colegio tiene su 
 > **ESTE PÁRRAFO Y LA FILA DE `tono` DE LAS DOS TABLAS DE ABAJO SE ESCRIBIERON ANTES DE LA
 > DECISIÓN 1 DE ESE MISMO DÍA, Y LA DECISIÓN LOS DESHIZO.** La columna **existe** desde
 > `2026_09_04_100000_horario_versiones`, así que `tono` **ya no es `sin_catalogo`**: el código
-> devuelve `vacio` / `parcial` / `completo` (`HorarioController::estadoDelTono`). Lo de abajo
+> devuelve `vacio` / `parcial` / `completo`, dentro de `catalogosDeLaVersion`. Lo de abajo
 > se deja porque es **el argumento con el que se tomó la decisión** —la diferencia entre «el
 > dato está previsto y vacío» y «no hay dónde ponerlo» es lo que hizo crear la columna—, pero
 > **no describe la respuesta de hoy**. En el ejemplo de más abajo, la línea de `tono` diría
 > `{ "estado": "vacio", "con_tono": 0, "de": 12, "motivo": "la columna existe y nadie ha
 > repartido los colores todavía" }`.
+>
+> **Y el `de: 12` de esa línea también envejeció, el 5 sep 2026**: desde la §9.bis.6 el `tono`
+> se mide sobre **los docentes que viajan en la respuesta** —47 en la versión 8—, así que hoy
+> ese renglón sale `parcial · 12 de 47` con su `criterio` al lado. *El método
+> `estadoDelTono()` que este párrafo citaba ya no existe; el cálculo vive en
+> `catalogosDeLaVersion`, y se dice porque un nombre de método citado y borrado manda a quien
+> lo busque a concluir que el mecanismo se quitó.*
 
 **Y el `tono` no está «vacío»: no existe la columna.** Las 27 columnas de `profesores`
 salen listadas arriba y ninguna es un color. O sea que el hallazgo de
@@ -1909,6 +1916,167 @@ silencios no son quince ceros**. `deriva` no mira franja, duración ni salón �
 movida de la franja 2 a la 5 el mismo día **cuadra**—, y la subida se reconstruyó desde la
 versión 6 (232 KB, 312 piezas), o sea que **no se ejercitó un `.myvch` recién salido del
 escritorio**: eso sigue siendo cosa de `myvc_horarios`.
+
+---
+
+### 9.bis.6. El sobre ENSANCHADO: las cuatro listas de la decisión 38 — escritas el 5 sep 2026
+
+**La ruta no cambia y el router no se mueve —568, contado con `route:list --json` ese día—:
+cambia el sobre.** `GET horario/versiones/{id}/lecciones` manda desde ese día **cuatro claves
+más**, todas sacadas del fichero de proyecto que la ruta **ya leía** para los descansos, y cada
+una con su renglón en `catalogos`:
+
+```
+plantilla        la plantilla ENTERA de docentes, con `con_leccion` fila a fila
+jornadas         { por_defecto, niveles[].jornada, grupos[].{nivel_id, porque} }
+disponibilidad   una entrada por docente de la plantilla: { profesor_id, marcas[] }
+sin_colocar      las piezas del fichero que ninguna casilla recibió, resueltas
+```
+
+**Conducido con `curl` contra la versión 8 de `simonbolivar` —la oficial, la de la misa—, con
+token de administrador y de profesor raso (200 los dos; sin token 401; versión `999` 404):**
+
+```
+plantilla        completo   total 47 · con_leccion 12 · sin_leccion 35 · sin_ficha 0 · fuera_de_la_plantilla 0
+tono             parcial    con_tono 12 · de 47              <- antes: completo · 12 de 12
+jornadas         completo   niveles 4 · grupos 13 · propia 13 · prestada 0
+timbres          vacio      con_timbres 0 · de 5             <- antes: sin_catalogo
+disponibilidad   completo   con_marcas 26 · de 47 · marcas 134 · condicional 92 · inadecuado 42
+sin_colocar      completo   total 1 · piezas 301 · colocadas 300 · incompletas 3
+```
+
+Las tres cifras que `myvc-front-90` midió por su lado la noche anterior —**47/12/35**,
+**26 con marcas y 134**, y **`a1324-2` · Religión de Once**— salen iguales por éste, y las dos
+mediciones no se copiaron: eso es lo que las hace citables.
+
+#### Lo que decidió la forma, y no son preferencias
+
+1. **La población va DENTRO de cada renglón, con su `criterio` — y ahora hay un test que lo
+   exige de TODOS.** Hasta ese día `tono` decía
+   `completo · 12 de 12` con **47 docentes vivos** y 35 sin color: coherente consigo mismo y
+   contando sobre la población que no era, y el lector del front lo tenía apuntado como algo
+   que **no podía comprobar**, porque el sobre no le daba la otra población. Es la trampa del
+   denominador que la [§9.bis.5](#las-cuatro-estados-del-catálogo-vistos-vivos-y-en-una-sola-respuesta)
+   ya tenía escrita —**tres** poblaciones, 53 filas, 47 vivos y 12 con asignación en el año, y
+   `completo` significando *«completo para esta versión»*—; lo que cierra el hueco es que ahora
+   **`tono` se mide sobre los docentes que viajan en esa misma respuesta** (plantilla,
+   lecciones y piezas sin colocar), así que `de` es recontable desde lo que el cliente tiene
+   delante, y el test lo reconta. *Una cuenta que cuadra sobre la población equivocada no
+   falla, y por eso no se investiga.*
+
+   **Y la valla es un test, no una costumbre**: `todo_renglon_de_catalogos_dice_su_poblacion_y_su_criterio`
+   recorre los once renglones y exige que cada uno traiga cifras y un `criterio`, salvo los
+   que están en `sin_catalogo` o `ilegible` —ahí no hay población que dar, y un `0` sería la
+   confusión que los cinco estados existen para evitar—. **Se ha visto en rojo con dos
+   mutaciones y encontró un renglón que nadie había mirado**: `salones` decía `87 de 312` sin
+   decir **de qué son esos 312**, que son las lecciones de la versión y no los salones del
+   colegio —17 en el proyecto real, y aquí no se pueden contar—. Es la valla para el catálogo
+   que se añada mañana.
+
+   **Y un tercer hallazgo de la misma familia, éste en un ternario**: el renglón `plantilla`
+   preguntaba primero si el total era cero, así que un proyecto que **no declara ningún
+   docente** y tiene lecciones con docentes salía **`vacio`** — que significa *«el colegio no
+   creó ninguno, y es legítimo»* y **no lleva llamada a la acción**. Es un vacío que no es
+   vacío: hay gente dando clase a la que el total no cuenta, que es justo lo que rompe la
+   cuenta del informe. Con `fuera_de_la_plantilla` delante sale `parcial`. *El caso que lo
+   fija es el único que lo caza: el de un docente intruso con la plantilla no vacía sigue
+   verde con el ternario al revés.*
+2. **El `porque` de la jornada viaja por grupo**, calculado igual que `jornadaDelGrupo()` del
+   escritorio —`nivel · sin-nivel · sin-resolver · nivel-desconocido`—, porque sin él un grupo
+   pintado con la jornada por defecto no se distingue de uno que la declaró: en pantalla se
+   aclara con un aviso al lado; **en papel no hay dónde ponerlo después**. Y la jornada es
+   **por nivel y nunca por grupo**: cuatro objetos en este colegio, no trece.
+3. **Las marcas viajan con quién las declaró** (`profesor_id`), y `marcas: []` es un dato —«sin
+   pegas»—, porque el escritorio sólo guarda lo que no es `adecuado`. *Una hoja que dice «a
+   alguien le viene mal» sin decir a quién se reparte más fácil y se rebate peor.*
+4. **`sin_colocar ⊆ incompletas`, y NUNCA `===`.** El renglón trae las dos cifras para
+   **confrontar**, no para cuadrar: la versión 6 daba 1 y 1 y la 8 da **1 contra 3**, porque
+   colocar la misa **tira** las piezas que estorban y una pieza tirada no va a la bandeja —
+   desaparece—. La igualdad se cumplió en siete versiones seguidas y era coincidencia.
+   `incompletas` se cuenta con las asignaciones y la IH **del propio fichero**, para que las dos
+   cifras sean del mismo instante.
+5. **`timbres` deja de ser `sin_catalogo`.** Las horas de reloj viajan dentro de cada jornada
+   (`jornadas.*.timbres`), así que *«no viaja por aquí»* pasó a ser falso —la familia de cadena
+   que costó tres correcciones en dos días—. Lo que sigue siendo cierto es que el colegio no
+   las ha dado: `null` en las cinco jornadas de los ocho proyectos reales, y eso es **`vacio`**,
+   legítimo y sin llamada a la acción. `restricciones` queda como el único `sin_catalogo`.
+   `ejes.timbres` sigue `null` a propósito: una cosa es lo que el proyecto **declara**, con su
+   `porque`, y otra una rejilla reconstruida.
+
+#### La guarda de `descansosDelProyecto()` pasa a ser la de las cuatro, y ahora protege algo
+
+Cada lista pasa por su comprobación de forma **antes** de resolverse contra las tablas, y por
+el mismo motivo: el blob lo escribe un programa de escritorio y un valor devuelto tal cual es
+**una puerta de salida del fichero con nombre de dato**, en la ruta cuyo contrato es que *mirar
+no es llevarse*. Las reglas, que son las que hay que conservar:
+
+- **Ninguna cadena libre del blob sale.** Los nombres de docentes, niveles, materias y grupos
+  se resuelven **por id contra las tablas**; el `nombre` del docente y del nivel que el
+  fichero trae al lado no viajan, ni el `grado` de un `sin-resolver`. Los enumerados
+  (`porque`, `estado` de una marca) son conjuntos cerrados y una hora es `HH:MM` atado a una
+  expresión regular. **Lo único de texto que viaja es el `pieza_id`**, acotado a la forma que
+  su columna ya acepta (64 caracteres de `[A-Za-z0-9._-]`), que es la misma puerta por la que
+  ya salen los 300 de las lecciones — 300 son `a1324-2` y uno es `misa-religion`.
+- **Una entrada rota tira la lista entera, nunca se filtra a medias**, y su renglón sale
+  `ilegible` **nombrando la parte** (`docentes`, `jornadaPorDefecto · niveles · grupos`,
+  `docentes[].disponibilidad`, `piezas · colocaciones · asignaciones`). Es la misma palabra
+  que el fichero ilegible entero —la que obliga al compilador del cliente a nombrar el caso—
+  con un motivo distinto, porque *«el fichero no se lee»* y *«el fichero se lee y su lista de
+  docentes no»* son dos hechos y los dos tienen arreglo. Y **se separan de verdad**: una marca
+  que no se entiende tira `disponibilidad` y deja `plantilla` en pie.
+- **El test de fuga tiene un caso con la marca DENTRO de cada lista** —en el `profesorId`, en
+  el `nombre` del nivel, en el `grado`, en la hora de un timbre, en el `estado` de una marca,
+  en un `docentes[]` de pieza—, porque `el_proyecto_no_viaja_en_las_lecciones` la busca en
+  `programa` y no vería ninguna de las cuatro.
+
+**`HorarioLeccionesTest`: de 18 casos y 187 aserciones a 30 y 429, y los doce nuevos se han
+visto en ROJO uno a uno** con seis mutaciones del controlador —aceptar cualquier cadena como
+estado de marca, como hora, como `profesorId`; ignorar una colocación huérfana en vez de tirar
+la lista; devolver `nivel` para un nivel desconocido; y volver a contar el `tono` sólo sobre los
+docentes con lección—, cada una restaurada después y el fichero comparado con su respaldo.
+
+#### Lo que cuesta, medido
+
+```
+el método, 200 llamadas con el mismo controlador     6,3 ms  ->  8,3 ms    (+2 ms)
+el sobre HTTP de la versión 8                       117.173  -> 131.645 b  (+12 %)
+comprimido (gzip -6)                                  7.642  ->   9.543 b
+consultas                                              +2 (fichas, niveles) +1 sólo si hay sin colocar, -1 (el `tono` ya no consulta)
+```
+
+El `json_decode` estaba pagado (+2,07 ms, [§9.bis.3](#la-forma-del-sobre)); esto es el sobre.
+*(La medición por HTTP con 200 repeticiones se intentó primero y **el limitador contestó 429 a
+partir de la 121**: las medias de esa corrida no valen y no se citan. Se midió el método.)*
+
+#### Bajo qué autorización entró, dicho con el argumento y no sólo con el hecho
+
+**La sustancia la aprobó Joseth en `myvc_horarios` (decisión 38)**, con el precio escrito
+—el permiso sigue siendo `auth.personal` y las disponibilidades declaradas no están en ninguna
+pared—. **Que entre en este repositorio antes del despliegue del 10 lo decidió `8myvc-ae` como
+coordinador, y ésta es la razón**, verificada antes de decidirlo: el lote **no trae migraciones**
+—el congelado de Joseth es sobre migraciones—, **no trae rutas**, y `routes/api/horario.php`
+**no existe en `9474b50`, que es lo desplegado**: cero de los dieciséis colegios tiene hoy
+ninguna ruta de `horario/`, así que cambiar la forma de esta respuesta no le rompe nada a
+nadie. Si entra antes del 10, los colegios estrenan el sobre ancho **de una vez**; si entra
+después, estrenan el estrecho el 10 y el ancho más tarde, y `myvc_horarios` y el front tienen
+que **aguantar dos formas de la misma ruta para siempre**, porque una versión vieja de un
+cliente convive meses. *La ventana no es «da igual cuándo»: es gratis antes del 10 y con un
+coste permanente después.* Y **«que no se detengan», que es lo que había antes de esa
+decisión, era una instrucción de ritmo y no una decisión sobre este lote**: se deja escrito
+para que no se lea como que lo fue.
+
+#### Lo que esto NO midió
+
+- **Un colegio, un año y una versión.** Los 47/12/35, los 26/134 y el 1 contra 3 son de
+  `simonbolivar` sobre la versión 8; los otros quince tienen su base y ahí no ha mirado nadie.
+- **La invariante del informe `quien-esta-libre` no se ha ejercitado**: el sobre trae lo que
+  hace falta para cuadrarla —la plantilla con `con_leccion` y los docentes de cada lección—,
+  pero cuadrarla es del consumidor y todavía no tiene lector. `myvc-horarios-66` y
+  `myvc-front-f1` lo escriben **sobre la respuesta conducida**, no sobre este documento.
+- **`ilegible` por partes no se ha visto con datos reales**: las ocho versiones de
+  `simonbolivar` parsean enteras. Está atado por tests contra casos fabricados.
+- **Los `porque` distintos de `nivel` tampoco**: los 13 grupos reales cuelgan de un nivel que
+  existe. Los otros tres salen del test, calculados con la misma regla que el escritorio.
 
 ---
 
