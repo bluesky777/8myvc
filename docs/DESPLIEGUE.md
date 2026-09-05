@@ -54,7 +54,7 @@ Por eso esto va **antes** del bloque de la tanda y no dentro: la tanda está lis
 **no se despliega**.
 
 **Qué se midió antes de escribir esto, para que la espera sea una decisión y no un miedo.** De
-los **307** commits (remedidos el 5 sep 2026; eran 191 cuando se escribió esto), lo único que un
+los **315** commits (remedidos el 5 sep 2026; eran 191 cuando se escribió esto), lo único que un
 cliente puede **perder** siguen siendo dos cosas — todo lo demás es aditivo, comprobado sobre los
 snapshots del rango, no sobre los mensajes de los commits:
 
@@ -186,7 +186,7 @@ queda por decidir ya no es de la app.
 
 ---
 
-## ⛔ TANDA PENDIENTE — 307 commits desde `9474b50`. SIN LAS MIGRACIONES NO SE PUEDE NI ENTRAR
+## ⛔ TANDA PENDIENTE — 315 commits desde `9474b50`. SIN LAS MIGRACIONES NO SE PUEDE NI ENTRAR
 
 **El aviso que había aquí decía «los tres boletines contestan 500», y se quedaba corto por dos
 órdenes de magnitud.** Lo que cae con el código nuevo y la base sin migrar **no es una pantalla:
@@ -210,23 +210,29 @@ petición llega a su método.**
 sesión del front, no nosotros**. Reproducido aquí contra una base sin migrar: la consulta del
 contexto contesta `SQLSTATE[42S22] Unknown column 'y.regla_nivelacion' in 'field list'`.
 
-### Lo que es esta tanda, remedido entero el 5 sep 2026 a las 16:57 sobre `9474b50..3970cea`
+### Lo que es esta tanda, remedido entero el 5 sep 2026 a las 18:0x sobre `9474b50..d606839`
 
 **El extremo va escrito con su hash y no como `HEAD`**, y no es una manía: aquí se trabaja con un
 árbol por sesión, así que `HEAD` es una cosa distinta en cada worktree y una tabla medida con
-`HEAD` no la puede reproducir nadie. **`3970cea` es el hash de cierre de la tanda del día 10**, y
-**`origin/main` es el mismo commit**: cero de divergencia, comprobado el 5 sep 2026 a las 16:57. O
-sea que **esta tabla sí describe lo que trae un `git pull`**.
+`HEAD` no la puede reproducir nadie. **`d606839` es la punta de `main`**, y **`origin/main` es el mismo commit**: cero de divergencia,
+comprobado el 5 sep 2026. O sea que **esta tabla sí describe lo que trae un `git pull`**.
+
+> **Y esta tabla se volvió a medir ENTERA en vez de corregirle la fila que cambió, porque durante
+> una hora estuvo mezclando dos hashes.** A las 16:57 se cerró sobre `3970cea` con **307** commits
+> y **577** rutas; a las 18:0x entró la sexta de `horario/` y se le actualizó la fila de rutas a
+> **578** dejando el resto —y el rótulo— de `3970cea`. **Las dos cifras eran ciertas y ninguna era
+> del mismo commit que la otra**, bajo un encabezado que anunciaba un solo rango. *Una tabla con
+> dos extremos es peor que una tabla vieja: la vieja se remide, la mezclada se cree.*
 
 | | | comprobado con |
 |---|---|---|
-| commits | **307** | `git rev-list --count 9474b50..origin/main` |
+| commits | **315** | `git rev-list --count 9474b50..origin/main` |
 | `app/` | **57** ficheros | `git diff --name-only 9474b50 main -- app/ \| wc -l` |
 | `routes/` | **8** ficheros — **las rutas SÍ se movieron: 543 → 578** (36 nuevas, **1 retirada**) | `git diff --name-only 9474b50 main -- routes/` · `route:list --json` |
 | `config/` · `composer.json`/`.lock` · `database/schema/` | **0** | `git diff --name-only 9474b50 main -- config/ composer.json composer.lock database/schema/` |
 | **migraciones** | **SIETE ficheros**, y **cuatro son bloqueantes** | `git diff --name-only 9474b50 main -- database/migrations/` |
 
-**Las 35 y la retirada no se contaron a ojo**: salen de restar los dos
+**Las 36 y la retirada no se contaron a ojo**: salen de restar los dos
 `tests/Contrato/Snapshots/rutas.json` —el de `9474b50` y el de `main`, **543** y **578** claves—,
 que es el mismo dato que da `route:list --json` y además lo mueve un test. **543 + 36 − 1 = 578**,
 y la retirada es `POST tardanzas/login/traer-datos`, que no tiene ninguna otra.
@@ -238,7 +244,7 @@ y la retirada es `POST tardanzas/login/traer-datos`, que no tiene ninguna otra.
 > ```
 >
 > **El Paso 1 despliega con `git pull`, así que lo que se despliega es `origin`, no tu `main`.**
-> El 5 sep 2026 a las 16:57 coinciden los dos en `3970cea` y esta tabla describe exactamente lo
+> El 5 sep 2026 a las 18:0x coinciden los dos en `d606839` y esta tabla describe exactamente lo
 > que trae un `git pull`.
 >
 > **Se deja la orden y no el resultado, y esto costó una caja entera.** Durante unas horas de ese
@@ -251,11 +257,12 @@ y la retirada es `POST tardanzas/login/traer-datos`, que no tiene ninguna otra.
 
 > ### Por qué esta sección se remide entera y no se le suma
 >
-> **En veinticuatro horas este rango tuvo SIETE cifras, y las siete fueron ciertas el minuto en que
+> **En veinticuatro horas este rango tuvo OCHO cifras, y las ocho fueron ciertas el minuto en que
 > se midieron:** el documento decía **191**; la rama `docs/despliegue-remedido` midió **232** el 4
 > sep; `8myvc-ae` contó **274** la tarde del 5 y al ir a escribirlo eran **279**; al cerrar la
 > plantilla **285**; al rescatar el `CLAUDE.md` huérfano **286**; y al cerrar con el Lote G
-> **307**. Nadie se equivocó en ninguna.
+> **307**; y **315** al entrar la sexta ruta del horario. **Ocho cifras.** Nadie se equivocó en
+> ninguna.
 >
 > *Y este párrafo se equivocó en la suya: decía «cuatro cifras» y llevaba siete en la lista, porque
 > cada remedido añadía una y nadie tocaba el recuento de arriba. **El párrafo que explica que los
@@ -550,7 +557,7 @@ marcados en desarrollo**, que **no** es «cero en los dieciséis»: eso sólo se
 | **L** | **`POST tardanzas/login/traer-datos` desaparece**: pasa a 404. Decisión de Joseth del 2 sep. El único llamante de toda la máquina es `tardanzasMyvc-old` (último commit feb 2020), y Joseth confirmó que ese repositorio está inactivo — el dato que lo cerró **no estaba en el repositorio** | **DECIDIDO** — es la única ruta que la tanda quita |
 | **M** | **`regla_nivelacion` aparece en el bloque de la sesión**, en las cuatro ramas (alumno, acudiente, profesor y usuario). Es un campo **nuevo**, para previsualizar en el diálogo de nivelación qué nota va a quedar (22 §1.4 y §5.1) | **ADITIVO** — Flutter no se rompe: `ConfiguracionColegio.deLogin` lee campo a campo y no hay `json_serializable` ni `freezed`. Medido, no supuesto (22 §3.2bis) |
 | **N** | **Campos nuevos de nivelación en respuestas que ya existían.** Aquí decía «la planilla (`PUT notas/detailed`), los boletines, el boletín final y `PUT editnota/alum-asignatura`»: **son cuatro nombres para DIEZ respuestas, y faltaban dos sitios** — `PUT notas-actuales-alumnos/{grupo_id}` y **`GET notas/alumno/…`, la que llama un ALUMNO para ver sus propias notas** (gana `nota_original_asignatura` y `nivelada_at_asignatura`). Y «los boletines» son **`boletines` y `boletines2`, cuatro respuestas: `boletines3` no gana ni una clave**, que es justo lo que aquí no se veía. Qué respuesta abre las columnas **a propósito** y cuál las tiene **congeladas** está decidido sitio por sitio en la tabla de [22 §3.4](migracion/22-nivelaciones.md) y en el [27](migracion/27-nivelaciones-en-los-informes.md) | **ADITIVO** — ningún cliente pierde una clave. La enumeración, **corregida el 5 sep 2026** restando los snapshots: 10 respuestas, no 4, y una de ellas es de un alumno sobre sí mismo |
-| **O** | **36 rutas nuevas**: las 10 de `rubricas/`, las **9 de `plantilla-notas/`**, las 5 de `boletin-independiente/`, las **6** de `horario/` —**las seis con cuerpo: ninguna contesta ya 501**—, las 4 de nivelar, `GET grupos/{grupo_id}/alumnos-de/{que}` y `GET colegio/logo`. **Todas menos `colegio/logo` llevan `auth.personal`**: un alumno o un acudiente que las llame recibe **403**, y las de nivelar además exigen `periodos.profes_pueden_nivelar` al profesor (`User.php:425`). **Y DOS de `horario/` no bastan con `auth.personal`**, que es de lo que va este aviso: `PUT horario/versiones/{id}/oficial` y **`GET horario/versiones/{id}/proyecto`** exigen además `puedePublicarHorario` **dentro** —superusuario o `Coord académico`, un rol con **cero usuarios**—, así que a un docente llano le contestan 403 aunque pase el guard | **POR AVISAR** — es de las de «quién puede llamarla». **Aquí decía 26 y luego 35; son 36**: las nueve de `plantilla-notas/` entraron el 5 sep por la mañana y **la sexta de `horario/` esa misma tarde**. *Tercera vez que esta fila se queda corta, y las tres por lo mismo: se escribe una lista y sigue entrando código.* |
+| **O** | **36 rutas nuevas**: las 10 de `rubricas/`, las **9 de `plantilla-notas/`**, las 5 de `boletin-independiente/`, las **6** de `horario/` —**las seis con cuerpo: ninguna contesta ya 501**—, las 4 de nivelar, `GET grupos/{grupo_id}/alumnos-de/{que}` y `GET colegio/logo`. **Todas menos `colegio/logo` llevan `auth.personal`**: un alumno o un acudiente que las llame recibe **403**, y las de nivelar además exigen `periodos.profes_pueden_nivelar` al profesor (`User.php:425`). **Y TRES de `horario/` no bastan con `auth.personal`**, que es de lo que va este aviso: `PUT horario/versiones/{id}/oficial`, `PUT horario/docentes/{profesor_id}/tono` y **`GET horario/versiones/{id}/proyecto`** exigen además `puedePublicarHorario` **dentro** —superusuario o `Coord académico`, un rol con **cero usuarios**—, así que a un docente llano le contestan 403 aunque pase el guard | **POR AVISAR** — es de las de «quién puede llamarla». **Aquí decía 26 y luego 35; son 36**: las nueve de `plantilla-notas/` entraron el 5 sep por la mañana y **la sexta de `horario/` esa misma tarde**. *Tercera vez que esta fila se queda corta en el RECUENTO, y las tres por lo mismo: se escribe una lista y sigue entrando código.* **Y la corrección de las 36 se quedó corta a su vez en el CRITERIO**: dijo «dos de `horario/`» cuando son **tres** —se le pasó `putTonoDocente`, que ya estaba nombrada veinte líneas más abajo con ese mismo criterio—. Recontado sobre `HorarioController` el 5 sep 2026: tres llamadas a `puedePublicarHorario`, ni una más. *Contar rutas y contar quién puede llamarlas son dos censos distintos, y arreglar el primero no arregla el segundo.* |
 | **P** | **`profesores.tono` es un campo NUEVO en TRECE respuestas vivas**, y sólo dos son del horario. Once por Eloquent —las cinco de `profesores/` (`store`, `update`, `destroy`, `forcedelete`, `restore`), las **tres de `perfiles/`** (`show/{id}`, `update/{id}`, `cambiarimgunprofe/{id}`), las **dos de `images-users/`** (`cambiar-foto-un-usuario/{id}`, `cambiar-firma-un-profe/{id}`) y el `titular` de `GET grupos/show/{id}`— y **dos por `SELECT p.*`**: `PUT profesores/listado` y `PUT participantes/profesores`, ésta de **votaciones**. Vale `null` en los diecisiete hasta que alguien reparta colores | **ADITIVO** — ningún cliente pierde una clave. Va dicho porque **un campo nuevo se manda dicho, no descubierto**, y porque **cinco de las trece son pantallas de perfil e imágenes que no tienen nada que ver con el horario**. *Medido por dos sesiones que no se copiaron: 7 + 5 + 1 = 13.* **Y es de RESPUESTAS, no de pantallas**: `myvc_front` midió que dos de esas trece no las llama —`perfiles/show/{id}` y `perfiles/cambiarimgunprofe/{id}`— y `myvc_flutter` y `myvc_front_2` **no están medidos** |
 | **Q** | **`GET ChangesAsked/to-me` gana una clave de primer nivel: `horario_version_id`** (`null` mientras el año no tenga horario publicado, que es hoy en los diecisiete). **Es la misma respuesta del aviso K y va aparte a propósito**: K cuenta lo que se VA y esto es lo que LLEGA. La respuesta la piden **todos los roles** —lleva `auth.token` y nada más— y es lo que la app llama al abrir (`MuroApi.traerMuro`) | **POR AVISAR** — campo nuevo. **Faltaba en esta tabla**: se detectó restando los snapshots, no leyendo el commit |
 | **R** | **Tres respuestas de años reparten las tres columnas nuevas de `years` sin que nadie lo pidiera**: `GET years`, `GET years/colegio` y `GET years/trashed` ganan `regla_nivelacion`, `puestos_con_bol_independiente` y `horario_version_id`. **No lo hace un cambio: lo hace el `SELECT y.*` de `YearsController`**, que estaba ahí desde antes. Las dos primeras llevan sólo `auth.token`, o sea que le llegan también a un alumno y a un acudiente | **POR AVISAR** — campo nuevo, y de los que **no aparecen en ningún diff de la respuesta**. **Faltaba en esta tabla** |
@@ -567,14 +574,18 @@ marcados en desarrollo**, que **no** es «cero en los dieciséis»: eso sólo se
 > remedir contesta *«¿siguen contestando 501?»*, **nadie recuenta un «24» si no sabe que hay
 > que hacerlo**. Lo decidió Joseth ese día.
 >
-> **Las 35 están CONTADAS contra la base desplegada, no sumadas** — que es lo que este repo
-> exige de un número que se escribe: `9474b50` declara **543** rutas y `main` (`3970cea`)
+> **Las 36 están CONTADAS contra la base desplegada, no sumadas** — que es lo que este repo
+> exige de un número que se escribe: `9474b50` declara **543** rutas y `main` (`d606839`)
 > **578**; comparados los dos conjuntos de URIs, **36 entran y 1 se va** (`POST
-> tardanzas/login/traer-datos`, el aviso L), y **543 + 36 − 1 = 578**. Las dos últimas de
-> `horario/` son `GET horario/versiones/{id}/lecciones` (23 §9.bis) y
-> `PUT horario/docentes/{profesor_id}/tono`; **la del `tono` tiene un criterio que no es ni
-> `esAdministrativo` ni `auth.personal` a secas**: `puedePublicarHorario`, o sea superusuario
-> **o** `Coord académico`.
+> tardanzas/login/traer-datos`, el aviso L), y **543 + 36 − 1 = 578**.
+>
+> **Las TRES de `horario/` que no bastan con `auth.personal`** —el detalle que hace que este
+> aviso sea de «quién puede llamarla» y no de «qué rutas hay»— son
+> `PUT horario/versiones/{id}/oficial`, `PUT horario/docentes/{profesor_id}/tono` y
+> `GET horario/versiones/{id}/proyecto`. Las tres llaman a
+> `Autoriza::exigir(Autoriza::puedePublicarHorario(...))` **dentro del método**
+> (`HorarioController` :2614, :2649 y :3050), o sea **superusuario o `Coord académico`**, un rol
+> que tiene **cero usuarios**. **A un docente llano le contestan 403 aunque pase el guard.**
 >
 > **Y las nueve de `plantilla-notas/` tienen el suyo, que es el que hay que avisar:** las
 > nueve llevan `auth.token` + `auth.personal`, y **las nueve —la de leer incluida—** exigen

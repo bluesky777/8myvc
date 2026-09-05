@@ -623,6 +623,25 @@ FUE LA CIFRA** · `docs/DESPLIEGUE.md` y esta casilla · rama `docs/despliegue-r
 > vivo.*
 >
 > **PENDIENTE, y es de quien cierre la tanda:** `8myvc-ff` mete el Lote G y luego funde
+> **REABIERTO Y VUELTO A CERRAR una hora después, y la lección es la del día:** entró la **sexta
+> ruta de `horario/`** (`GET horario/versiones/{id}/proyecto`, autorizada por Joseth) y `8myvc-ae`
+> le actualizó a la tabla **la fila de rutas** (577 → 578) dejando el resto y el rótulo de
+> `3970cea`. **Durante una hora la tabla mezcló dos hashes**: commits de las 16:57 y rutas de las
+> 18:0x, bajo un encabezado que anunciaba un solo rango, y las dos cifras eran ciertas. *Una tabla
+> con dos extremos es peor que una vieja: la vieja se remide, la mezclada se cree.* Remedida
+> **entera** contra `d606839`: commits **315**, `app/` **57**, `routes/` **8**, migraciones
+> **SIETE**, rutas **543 → 578** (**36** nuevas, 1 retirada). Van **ocho** cifras del rango.
+>
+> **Y el aviso O se quedó corto por segunda vez en la misma hora, ahora en el criterio y no en el
+> recuento.** La corrección a 36 rutas decía *«DOS de `horario/` no bastan con `auth.personal`»* y
+> son **TRES**: se le pasó `PUT horario/docentes/{profesor_id}/tono`, **que ya estaba nombrada
+> veinte líneas más abajo del mismo documento con ese mismo criterio**. Contado sobre
+> `HorarioController`: tres llamadas a `Autoriza::puedePublicarHorario` (:2614, :2649, :3050), ni
+> una más — `putOficial`, `putTonoDocente` y `getProyecto`, o sea **superusuario o `Coord
+> académico`, un rol con cero usuarios**. A un docente llano le contestan **403 aunque pase el
+> guard**. *Contar rutas y contar quién puede llamarlas son dos censos distintos, y arreglar el
+> primero no arregla el segundo.*
+>
 > `docs/barrido-profesor-serializado`. **CERRADO**: las dos entraron y las cinco cifras se
 > remidieron enteras contra el hash de cierre **`3970cea`** a las 16:57, no se les sumó nada. Sólo
 > se movió la de commits (**300 → 307**); `app/` **57**, `routes/` **8**, migraciones **SIETE** y
