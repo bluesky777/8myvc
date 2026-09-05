@@ -43,6 +43,19 @@
 #   MYSQL_EXEC="docker exec -i 8myvc-database-1"
 #   PHP_EXEC="docker exec -i 8myvc-app-1"
 #
+# **PHP_EXEC SIN `-w` CORRE EN EL ÁRBOL PRINCIPAL, y desde un worktree eso miente.**
+# Medido el 5 sep 2026: con el valor por defecto, las migraciones que sólo existen
+# en la rama del worktree salen **`Migration not found`** en el rebobinado del paso
+# 3 y el ensayo aborta con `NO MEDIDO: el rebobinado no deshizo la tanda entera`.
+# Las de `main` sí ruedan, así que el fallo parece de la tanda y es del árbol. Es la
+# misma trampa que `tools/construir-bd-test.sh` documenta **y detecta**; ésta
+# todavía no la detecta, así que hay que acordarse:
+#
+#     DB_ENSAYO=simonbolivar_ensayo_x \
+#       PHP_EXEC="docker exec -i -w /app/.worktrees/x 8myvc-app-1" \
+#       tools/ensayo-de-la-tanda.sh --limpiar
+#
+#
 # ## El control de ESTE script, que no cabe en un `--control`
 #
 # La pieza que puede mentir aquí es el detector de cobertura del punto 5: si se

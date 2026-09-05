@@ -74,6 +74,51 @@
 >
 > *En los dieciséis colegios esto no existe: cero versiones desplegadas.*
 
+**5 sep 2026 — LA TANDA DEL DÍA 10 ES DE SIETE Y ESTÁ ENSAYADA: 1.659 ms SOBRE 1,17 MILLONES
+DE NOTAS** · `docs/DESPLIEGUE.md` (tabla, rollback y la comprobación), `tools/ensayo-de-la-tanda.sh`
+(cabecera) y esta casilla · **cero código de la API, el router quieto en 577**
+
+> Las dos migraciones de la plantilla entraron detrás de la consolidación de `8myvc-47`, así que
+> **la tanda cambió de contenido y había que remedirla**. Remedida, no supuesta.
+>
+> | | |
+> |---|---|
+> | migraciones que entran | **7** — `git diff --name-only 9474b50 HEAD -- database/migrations/` |
+> | corren | **7 de 7**, **1.659 ms** las migraciones · **4.569 ms** el comando |
+> | población | copia de `simonbolivar`: 210 MB, 102 tablas, **1.166.139 filas en `notas`** |
+> | delta real | **8 tablas nuevas**, **20 columnas nuevas** en 7 tablas, **1 retirada** |
+> | la copia migrada contra el origen | idénticas: **1.528 columnas, mismo tipo** · pendientes **0** |
+> | horario en la copia | `200` con `total: 0` y el `403` donde toca — **LLEGÓ** |
+>
+> **El 7 se contó, no se sumó.** `47` dejó 5 en `main` y yo traigo 2; 5 + 2 habría acertado el
+> número **describiendo mal la tanda**, que es justo lo que avisa el bloque de rollback desde su
+> fusión: **una migración son ahora varias columnas de varias tablas**, así que el `--step` y «lo
+> que cambia» dejaron de ser intercambiables. El bloque de rollback pasa a `--step=7` y `tail -9`.
+>
+> ### LA COMPROBACIÓN DE DIEZ SEGUNDOS AHORA PREGUNTA POR LO QUE NO ES UNA COLUMNA
+>
+> Se le añadieron las dos columnas de `unidades_por_defecto` **y la fila
+> `can_edit_plantilla_notas` de `permissions`**. Esa última es la que ninguna comprobación de
+> esquema habría cazado y **es la que falla en silencio**: sin ella la pantalla de la plantilla
+> funciona, pero **sólo para superusuarios** — el síntoma no es un error, es que a rectoría «no le
+> sale el menú». El ensayo verifica la cobertura y dice *«de cada tabla que cambia pregunta al
+> menos una cosa»*, que es la regla que nació el día que se le quedó fuera `profesores.tono`.
+>
+> > ⚠️ **Y esa línea del permiso dirá siempre `FALTA` contra una base de TESTS**, y no es un
+> > fallo: `test-seed.sql` hace `TRUNCATE TABLE permissions` **después** de migrar. Medido sobre
+> > `simonbolivar_testing_p`: las dos columnas aparecen y el permiso no, con 19 filas en
+> > `permissions`. Se corre contra la base del colegio, no contra una de pruebas — está escrito
+> > al lado de la comprobación para que nadie la «arregle».
+>
+> ### Y UNA TRAMPA DEL PROPIO ENSAYO, PAGADA AQUÍ
+>
+> **`PHP_EXEC` no lleva `-w` por defecto**, así que `artisan` corre en el árbol **principal**.
+> Desde un worktree, las migraciones que sólo existen en tu rama salen **`Migration not found`**
+> en el rebobinado y el ensayo aborta con `NO MEDIDO` — que **se lee como «la tanda está mal» y
+> es «estás midiendo otro árbol»**, porque las de `main` sí ruedan y las tuyas no. Es la misma
+> trampa que `construir-bd-test.sh` ya documenta **y detecta**; ésta todavía no la detecta, así
+> que va escrita en su cabecera con la orden completa al lado.
+
 **5 sep 2026 — EL PRE-VUELO YA DICE CON QUÉ AÑO MIDIÓ DONDE SE LEE, Y NO SÓLO ARRIBA** ·
 `tools/prevuelo-del-horario.php` y esta casilla · **cero código de la API, el router no se
 mueve: 568** · larastan nivel 7 `[OK] No errors` · **sin Pint, a propósito**
