@@ -212,9 +212,45 @@
 > auditaron.** Y ninguna se corrió: los tests de `feat/calendario` no se han ejecutado contra
 > `main` de hoy.
 
+> ## DECISIÓN DE JOSETH, 5 sep 2026 13:4x: LA TANDA DEL DÍA 10 SE QUEDA EN **SIETE**
+>
+> **No entra ninguna migración más antes del despliegue.** Lo que se despliega el día 10 es
+> exactamente lo que se ensayó anoche, y el argumento fue ése: *un ensayo vale para la tanda que
+> midió*. Quedan cinco días, y gastarlos en reensayar para meter dos arreglos que pueden esperar
+> es cambiar lo medido por lo nuevo justo antes de tocar dieciséis colegios.
+>
+> ### La consecuencia que NO estaba en la pregunta, y hay que leerla
+>
+> **«Siete» obliga a fundir `feat/plantilla-de-notas`.** Contadas hoy:
+>
+> ```
+> en `main` desde 9474b50   5   retirar_boletin · puestos · nivelaciones · rubricas · horario_versiones
+> feat/plantilla-de-notas   2   alcance_de_la_plantilla · create_permiso_can_edit_plantilla_notas
+>                          ───
+>                           7   <- las que ensayó `tools/ensayo-de-la-tanda.sh` anoche
+> ```
+>
+> **Si la plantilla no entra, la tanda es de CINCO y el ensayo tampoco la describe.** O sea que
+> «congelar» no es «no tocar nada»: es **fundir la plantilla y parar ahí**. Hoy funde con
+> conflicto en dos ficheros —esta casilla y `tools/ensayo-de-la-tanda.sh`—, ninguno de código.
+>
+> ### Las dos que se quedan fuera, y esto es una INSTRUCCIÓN con fecha de caducidad
+>
+> > **NO FUNDIR EN `main` HASTA QUE EL DESPLIEGUE DEL DÍA 10 ESTÉ HECHO.** Las dos siguen
+> > vivas, probadas y con trabajo bueno dentro; lo único que las frena es que **cada una añade
+> > una migración a una tanda ya ensayada**.
+> >
+> > - `fix/frases-asignatura-text` — la columna sigue en `varchar(255)`, comprobado.
+> > - `feat/calendario` — dos rutas nuevas, y además pediría rebase de verdad.
+> >
+> > **Caduca sola:** en cuanto el despliegue del 10 esté hecho, esta instrucción no dice nada y
+> > las dos vuelven a ser cola normal. *Va escrita con su condición al lado a propósito — una
+> > instrucción no envejece a «hecho», envejece a mentira, y este documento ya lo pagó una vez
+> > esta mañana.*
+
 > ## LO QUE ESPERA UNA DECISIÓN, Y ES LO PRIMERO QUE SE PIERDE EN UN APAGÓN
 >
-> **Ninguna de las tres la puede resolver una sesión midiendo**, que es exactamente por qué
+> **Ninguna de las dos que quedan la puede resolver una sesión midiendo**, que es exactamente por qué
 > están aquí arriba y no dentro de una casilla fechada donde hay que ir a buscarlas.
 >
 > ### 1. `SELECT VERSION();` en un colegio — y decide el coste del día 10
@@ -226,7 +262,7 @@
 > detalle y pasa a ser el plan**. *Es lo más barato que se puede hacer antes del día 10 y sigue
 > sin hacerse.*
 >
-> ### 2. ¿Entra `fix/frases-asignatura-text` antes del día 10? — y el precio es reensayar
+> ### 2. ~~¿Entra `fix/frases-asignatura-text` antes del día 10?~~ **CONTESTADA: no** — ver el bloque de arriba
 >
 > La rama funde limpia y **hace falta**: `frases_asignatura.frase` sigue siendo `varchar(255)`.
 > Pero sería **la octava migración** de una tanda que anoche se ensayó sobre **siete**, así que
