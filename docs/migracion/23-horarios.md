@@ -1724,13 +1724,21 @@ mitad mala no es la precisión, es que el segundo no coincide**: MySQL redondea 
 cliente que case el objeto que acaba de crear contra el del listado por esa cadena **no lo
 encuentra**.
 
-**3. `putOficial` escribe en el primer paso cuando no hay pérdidas.** Comprobado: `PUT
-horario/versiones/7/oficial` con cuerpo `{}` —sin `acepto_perder`— devuelve **200 y
-publica**; con `acepto_perder: true` devuelve 422 `acepto-perder-no-es-un-numero`. O sea que
-**`acepto_perder` no es una confirmación de publicar: es un peaje que sólo aparece si hay algo
-que perder.** Es coherente con lo que dice la §7.2 —el número tiene que coincidir con lo que
-el servidor cuenta— pero se lee al revés desde fuera, y ya hizo que una pantalla del front
-publicara creyendo que el primer paso no escribía.
+**3. `putOficial` escribe en el primer paso cuando no hay pérdidas.** Las dos respuestas,
+medidas:
+
+    PUT horario/versiones/7/oficial   {}                        -> 200, y publica
+    PUT horario/versiones/7/oficial   {"acepto_perder": true}   -> 422 acepto-perder-no-es-un-numero
+
+**La regla y el porqué están en la §7.2**, que es donde vive el mecanismo y donde se
+corrigió la contradicción; aquí queda sólo lo que se midió. **Y lo que lo demuestra es el
+422, no el 200**: que `true` rebote es lo que separa un peaje —que sólo aparece si hay algo
+que perder— de una bandera de confirmación, porque a una bandera `true` le valdría.
+
+> **Esto se midió sin saber que el front lo estaba encontrando a la vez**, por la ruta
+> directa y sobre otra versión. Que dos sesiones que no se copiaron den lo mismo es lo que
+> lo convierte en un hecho del contrato; se deja escrito el camino de cada una porque
+> **una reproducción sólo vale si consta que fue independiente**.
 
 #### Las dos herramientas, con el código de salida leído del proceso
 
