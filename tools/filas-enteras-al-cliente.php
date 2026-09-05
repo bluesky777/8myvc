@@ -73,32 +73,190 @@ foreach ($argv as $arg) {
  * `Model::find()` devuelve la fila entera igual que un asterisco, y la forma en
  * que se rompe es idéntica — `notas/show` era exactamente eso.
  */
-$modelos = [
-    'notas' => 'Nota',
-    'notas_finales' => 'NotaFinal',
-    'recuperacion_final' => 'RecuperacionFinal',
-    'years' => 'Year',
-    'subunidades' => 'Subunidad',
-    'unidades' => 'Unidad',
-];
+/**
+ * Tabla -> modelo, **derivado y comprobado contra el esquema**, no escrito a mano.
+ *
+ * Antes esto era una lista fija de seis pares y `--tablas=` **no la tocaba**: con
+ * cualquier otra tabla, `$modelo` salía `null` y **la mitad de Eloquent no se
+ * ejecutaba** — sin decirlo. Medido el 4 sep 2026: sobre `profesores` daba **1**
+ * donde un barrido a mano daba **13**, y las once que faltaban eran todas Eloquent.
+ * Un `1` de un detector medio apagado **se lee igual que un `1` completo**.
+ *
+ * Y aquella lista fija tenía además una entrada muerta: `recuperacion_final` =>
+ * `RecuperacionFinal`, **un modelo que no existe** — `app/Models/RecuperacionFinal.php`
+ * no está. Nunca casó nada y nadie se enteró, porque un mapeo que no encuentra no
+ * se distingue de una tabla sin usos.
+ *
+ * Dos fuentes, en este orden, y la segunda **se verifica**:
+ *
+ * 1. `protected $table = '…'` del modelo (38 de los 53 lo declaran). Es exacto.
+ * 2. Para los otros quince, la convención de Laravel — pero **sólo se acepta si esa
+ *    tabla existe en `database/schema/mysql-schema.sql`**, que es la verdad de este
+ *    repositorio. Así una singularización mal hecha no puede sobrevivir: `Nota` ->
+ *    `notas` entra porque la tabla está; lo que no cuadre, no entra.
+ *
+ * @param  list<string>  $tablasDelEsquema
+ * @return array<string, string>
+ */
+function modelosPorTabla(string $raizApp, array $tablasDelEsquema): array
+{
+    $mapa = [];
+    $porConvencion = [];
+
+    foreach (glob($raizApp.'/Models/*.php') ?: [] as $fichero) {
+        $clase = basename($fichero, '.php');
+        $texto = file_get_contents($fichero);
+
+        if ($texto === false) {
+            continue;
+        }
+
+        if (preg_match('/protected\s+\$table\s*=\s*[\'"]([a-z0-9_]+)[\'"]/i', $texto, $m)) {
+            $mapa[$m[1]] = $clase;
+
+            continue;
+        }
+
+        // snake_case de la clase y los plurales que usa Laravel, a comprobar.
+        $base = strtolower((string) preg_replace('/(?<!^)[A-Z]/', '_$0', $clase));
+
+        foreach ([$base.'s', $base.'es', $base] as $candidata) {
+            if (in_array($candidata, $tablasDelEsquema, true)) {
+                $porConvencion[$candidata] = $clase;
+
+                break;
+            }
+        }
+    }
+
+    // Lo explícito gana siempre sobre lo derivado.
+    return $mapa + $porConvencion;
+}
+
+$esquema = file_get_contents(dirname(__DIR__).'/database/schema/mysql-schema.sql');
+preg_match_all('/CREATE TABLE `([a-z0-9_]+)`/i', $esquema === false ? '' : $esquema, $m);
+$tablasDelEsquema = $m[1];
+
+$modelos = modelosPorTabla($raiz, $tablasDelEsquema);
+
+/*
+ * Y si alguna tabla pedida no tiene modelo, **se dice**. Ésta es la mitad que
+ * faltaba: el detector seguía contestando con la cara de haber mirado.
+ */
+$sinModelo = array_values(array_filter($tablas, fn ($t) => ! isset($modelos[$t])));
+
+/**
+ * El literal de cadena que empieza en esta línea, unido hasta que se cierra.
+ *
+ * Existe porque este detector **casaba línea a línea** y una consulta partida era
+ * invisible. Medido el 4 sep 2026: `ProfesoresController:116` empieza literalmente
+ * por `SELECT p.*` y tiene su `FROM profesores p` **dos líneas más abajo**, así que
+ * no salía — no por no reconocer el comodín cualificado, que sí lo reconoce, sino
+ * porque las dos mitades nunca estaban en la misma línea.
+ *
+ * **Lo que NO cubre**: sólo sigue comillas simples, que es como se escriben las
+ * consultas de este proyecto, y corta a las 20 líneas. Una consulta en comillas
+ * dobles o más larga que eso vuelve a quedarse a medias.
+ *
+ * @param  list<string>  $lineas
+ */
+function literalDesde(array $lineas, int $desde, int $maximo = 20): string
+{
+    $texto = $lineas[$desde];
+    $abiertas = substr_count($texto, "'") - substr_count($texto, "\\'");
+    $j = $desde;
+
+    while ($abiertas % 2 === 1 && $j - $desde < $maximo && isset($lineas[$j + 1])) {
+        $j++;
+        $texto .= ' '.$lineas[$j];
+        $abiertas += substr_count($lineas[$j], "'") - substr_count($lineas[$j], "\\'");
+    }
+
+    return $texto;
+}
+
+/**
+ * ¿El comodín de esta consulta cubre de verdad las columnas de esa tabla?
+ *
+ * Tres comprobaciones, y las tres nacieron de un falso positivo real:
+ *
+ * 1. **`alias.*` sólo cuenta si el alias es de esa tabla** en esta misma consulta.
+ *    `SELECT p.* … FROM publicaciones p … JOIN profesores` no reparte `profesores`.
+ * 2. **`SELECT *` a secas cuenta si la tabla está en el `FROM`/`JOIN`** — salvo que
+ *    el `FROM` sea **una subconsulta**: ahí las columnas son las que la subconsulta
+ *    nombre, y el asterisco de fuera no puede traer una columna nueva. Es el caso de
+ *    `PerfilesController:129` y de `VtParticipante:79`.
+ * 3. **`count(*)` no es leer una fila.**
+ */
+function cubreLaTabla(string $consulta, string $tabla): bool
+{
+    $sinConteos = (string) preg_replace('/\bcount\s*\(\s*\*\s*\)/i', 'count(1)', $consulta);
+    $seleccion = preg_split('/\bfrom\b/i', $sinConteos)[0] ?? '';
+
+    $enElFrom = (bool) preg_match('/\b(?:FROM|JOIN)\s+`?'.preg_quote($tabla, '/').'`?\b/i', $sinConteos);
+
+    // (2) `SELECT *` pelado: cuenta si la tabla está, y si no se lee de una subconsulta.
+    if (preg_match('/select\s+\*/i', $seleccion)) {
+        return $enElFrom && ! preg_match('/\bfrom\s*\(/i', $sinConteos);
+    }
+
+    // (1) `alias.*`: hay que atar el alias a la tabla.
+    if (! preg_match_all('/([a-z_][a-z0-9_]*)\s*\.\s*\*/i', $seleccion, $comodines)) {
+        return false;
+    }
+
+    preg_match_all('/\b(?:FROM|JOIN)\s+`?'.preg_quote($tabla, '/').'`?\s+(?:as\s+)?([a-z_][a-z0-9_]*)/i', $sinConteos, $alias);
+    $suyos = array_map('strtolower', $alias[1]);
+
+    foreach ($comodines[1] as $q) {
+        if (in_array(strtolower($q), $suyos, true)) {
+            return true;
+        }
+    }
+
+    return false;
+}
 
 /**
  * ¿Esta línea lee la fila entera de una de las tablas?
  *
+ * `$consulta` es la línea con su literal ya unido —ver `literalDesde()`—; para
+ * Eloquent basta la línea, que ahí no hay literal que seguir.
+ *
  * @return array{tabla: string, forma: string}|null
  */
-function filaEntera(string $linea, array $tablas, array $modelos): ?array
+function filaEntera(string $linea, array $tablas, array $modelos, ?string $consulta = null): ?array
 {
+    $consulta ??= $linea;
+
+    // Un comentario que nombra una consulta no es una consulta.
+    $limpia = ltrim($linea);
+
+    if ($limpia === '' || str_starts_with($limpia, '*') || str_starts_with($limpia, '//')
+        || str_starts_with($limpia, '#') || str_starts_with($limpia, '/*')) {
+        return null;
+    }
+
     foreach ($tablas as $tabla) {
-        // `SELECT *` o `SELECT alias.*` sobre la tabla, en la misma línea.
-        if (preg_match('/SELECT\s+(?:[a-z0-9_]+\.)?\*/i', $linea)
-            && preg_match('/\b(?:FROM|JOIN)\s+`?'.preg_quote($tabla, '/').'`?\b/i', $linea)) {
+        // `SELECT *` o `SELECT alias.*` sobre la tabla, dentro del MISMO literal.
+        //
+        // **El alias se resuelve, y no es adorno.** Sin resolverlo, el `p.*` de
+        // `publicaciones p` casaba con un `JOIN profesores` de más abajo y salían
+        // cinco falsos positivos en `Publicaciones.php` — medido el 4 sep 2026, y
+        // avisado por `8myvc-cd`, a quien le pasó lo mismo con su propio troceo.
+        // Falla en la dirección cara: **de más**, no de menos.
+        if (cubreLaTabla($consulta, $tabla)) {
             return ['tabla' => $tabla, 'forma' => 'SELECT *'];
         }
 
         $modelo = $modelos[$tabla] ?? null;
 
-        if ($modelo !== null && preg_match('/\b'.preg_quote($modelo, '/').'::(find|first|get|all)\s*\(/', $linea, $m)) {
+        // `findOrFail` y `firstOrFail` devuelven la misma fila entera que `find` y
+        // `first`, y este detector no las miraba: de las once de Eloquent que un
+        // barrido a mano encontró sobre `profesores` el 4 sep 2026, varias entran
+        // justo por ahí. `onlyTrashed()->findOrFail()` sigue fuera: la cadena parte
+        // la llamada del nombre del modelo, y eso es el hueco declarado de abajo.
+        if ($modelo !== null && preg_match('/\b'.preg_quote($modelo, '/').'::(findOrFail|firstOrFail|find|first|get|all)\s*\(/', $linea, $m)) {
             return ['tabla' => $tabla, 'forma' => $modelo.'::'.$m[1].'()'];
         }
     }
@@ -161,7 +319,7 @@ if ($autoprueba) {
     $fallos = 0;
 
     foreach ($casos as [$linea, $esperado]) {
-        $salio = filaEntera($linea, $tablas, $modelos) !== null;
+        $salio = filaEntera($linea, $tablas, $modelos, literalDesde([$linea], 0)) !== null;
 
         if ($salio !== $esperado) {
             $fallos++;
@@ -170,9 +328,50 @@ if ($autoprueba) {
         }
     }
 
+    /*
+     * Y los dos casos que este detector NO veía hasta el 4 sep 2026. Van aquí y no
+     * en una nota porque **los dos daban verde estando mal**: el primero no salía y
+     * el segundo salía a medias, y en las dos formas el número parecía completo.
+     */
+    $multilinea = [
+        "\t\t\$consulta = 'SELECT p.*, c.id as contrato_id,",
+        "\t\t\t\tci.ciudad as ciudad_nac_nombre",
+        "\t\t\tFROM notas p',",
+    ];
+
+    if (filaEntera($multilinea[0], $tablas, $modelos, literalDesde($multilinea, 0)) === null) {
+        $fallos++;
+        echo "AUTOPRUEBA FALLA: una consulta partida en tres líneas no se ve.\n";
+    }
+
+    // Y la misma partida, pero con las columnas nombradas: NO tiene que salir.
+    $partidaLimpia = ["\t\t\$consulta = 'SELECT p.id, p.nota", "\t\t\tFROM notas p',"];
+
+    if (filaEntera($partidaLimpia[0], $tablas, $modelos, literalDesde($partidaLimpia, 0)) !== null) {
+        $fallos++;
+        echo "AUTOPRUEBA FALLA: una consulta partida CON columnas nombradas sale, y no debe.\n";
+    }
+
+    // Una tabla sin modelo apaga la mitad de Eloquent: el mapa tiene que saberlo.
+    if (isset($modelos['tabla_que_no_existe'])) {
+        $fallos++;
+        echo "AUTOPRUEBA FALLA: el mapa de modelos inventa entradas.\n";
+    }
+
+    if (! isset($modelos['profesores']) || $modelos['profesores'] !== 'Profesor') {
+        $fallos++;
+        echo "AUTOPRUEBA FALLA: el mapa no leyó `profesores` -> `Profesor` de app/Models.\n";
+    }
+
+    // `findOrFail` devuelve la fila entera igual que `find`, y no se miraba.
+    if (filaEntera('$n = Nota::findOrFail($id);', $tablas, $modelos) === null) {
+        $fallos++;
+        echo "AUTOPRUEBA FALLA: `Modelo::findOrFail()` no se ve.\n";
+    }
+
     echo $fallos === 0
-        ? "autoprueba: 4 casos, los 4 como se esperaba.\n"
-        : "autoprueba: {$fallos} de 4 mal.\n";
+        ? "autoprueba: 9 casos, los 9 como se esperaba.\n"
+        : "autoprueba: {$fallos} de 9 mal.\n";
 
     exit($fallos === 0 ? 0 : 2);
 }
@@ -197,7 +396,16 @@ foreach ($ficheros as $fichero) {
     }
 
     foreach ($lineas as $i => $linea) {
-        $encontrada = filaEntera($linea, $tablas, $modelos);
+        /*
+         * El literal sólo se une desde una línea que **abre un `SELECT`**. Sin esa
+         * condición, empezar a contar comillas en una línea que ya está EN MITAD de
+         * otra cadena descuadra la cuenta y la unión se cuela hasta la sentencia
+         * siguiente: así salieron `VtParticipantes:98` —un `) votos';` suelto— y
+         * `YearsController:347` —un `INSERT` que se comía el `SELECT` de abajo—,
+         * los dos falsos y los dos medidos el 4 sep 2026.
+         */
+        $consulta = preg_match('/\bselect\b/i', $linea) ? literalDesde($lineas, $i) : $linea;
+        $encontrada = filaEntera($linea, $tablas, $modelos, $consulta);
 
         if ($encontrada === null) {
             continue;
@@ -226,6 +434,15 @@ foreach ($ficheros as $fichero) {
  */
 echo 'ficheros de app/ revisados ....... ', $revisados, PHP_EOL;
 echo 'tablas vigiladas ................. ', implode(', ', $tablas), PHP_EOL;
+echo 'modelos encontrados .............. ', count($modelos), ' (leídos de app/Models/*.php)', PHP_EOL;
+
+if ($sinModelo !== []) {
+    echo PHP_EOL,
+        'AVISO — SIN MODELO: ', implode(', ', $sinModelo), PHP_EOL,
+        '  De esas tablas SÓLO se está mirando el SQL crudo: la mitad de Eloquent', PHP_EOL,
+        '  (`Modelo::find/first/get/all`) no se ejecuta. El número de abajo es', PHP_EOL,
+        '  incompleto y no se puede leer como si no lo fuera.', PHP_EOL;
+}
 echo 'sitios que leen la fila entera ... ', count($hallazgos),
     $todas ? " (todos, con --todas)\n" : " (sólo los que parecen viajar; --todas los enseña todos)\n";
 echo PHP_EOL;

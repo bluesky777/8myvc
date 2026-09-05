@@ -1648,6 +1648,142 @@ DESBLOQUEA YA ESTÁ CONTESTADA** · decisión de Joseth · sólo documentos:
 > —`myvc_front`, `app2` y `myvc_front_2`—, que sí tienen avisos pendientes (el **K** los
 > nombra: `created_by_nombres` lo pinta la aplicación vieja y dirá «Por: undefined»).
 
+**4 sep 2026 — LA COLUMNA `tono` SE REPARTE A TRECE RESPUESTAS, NO A SEIS — Y SÓLO UNA TIENE INSTANTÁNEA** ·
+rama `docs/barrido-profesor-serializado`, **fundida en `main` el 5 sep 2026** (49 commits por
+detrás; el único conflicto era esta casilla, que se colocó aquí porque las de arriba ya la citan) ·
+[`30-lo-que-reparte-una-columna-nueva.md`](30-lo-que-reparte-una-columna-nueva.md) (nuevo),
+[`AVISO-A-LOS-CLIENTES-tono.md`](../AVISO-A-LOS-CLIENTES-tono.md) (nuevo) y
+`tools/filas-enteras-al-cliente.php` · **cero rutas: 567 sin moverse** · larastan nivel 7
+**`[OK] No errors`** · encargo de `myvc-horarios-27`
+
+> **Y por qué se fundió antes del día 10 aunque no tenga fecha**: `main` tenía **el número bueno
+> y el detector malo**. «Trece respuestas vivas» sale cuatro veces en este documento, y la
+> `tools/filas-enteras-al-cliente.php` de `main` daba **1** sobre `profesores` —sólo ve
+> `SELECT *`, ciega a Eloquent—, así que quien fuera a recomprobar el trece con ella habría
+> concluido que el trece estaba mal. Con la rama, los mismos 235 ficheros dan **12**. Es la regla
+> de `CLAUDE.md` en su forma que muerde: el detector declaraba su población honradamente y aun
+> así se dejaba once. Lo verificó `8myvc-ae` corriendo las dos versiones sobre la misma tabla
+> antes de repartir la fusión; no trae migraciones, así que el congelado no la bloquea.
+
+> **Esta cabecera decía «cero código» y dejó de ser cierto a media tarde**, cuando Joseth
+> autorizó arreglar la herramienta. Corregido aquí y no en un commit aparte, que es lo que pide
+> la cabecera de este documento. *Una entrada de estado que envejece dentro de su propia sesión
+> es la que hace que la siguiente lea una foto y crea que es el presente.*
+
+> **El censo de `8myvc-e0` era correcto en lo que miraba y le faltaba la mitad.** Encontró
+> **seis** leyendo los `return` uno a uno de `ProfesoresController` y `GruposController`. Son
+> **trece**: cinco más por Eloquent en controladores que no se miraron —`PerfilesController` e
+> `ImagesUsuariosController`— y **dos por SQL crudo**, que es un camino que **leer `return` de
+> Eloquent no puede ver por construcción**: no hay ningún modelo por medio, son filas de
+> `DB::select`. Aquí hay **1.170 consultas crudas**.
+>
+> **La cobertura es 1 de 13.** `GET grupos/{id}` es la única con instantánea —y por eso dio el
+> aviso—. Las otras doce tienen tests que las tocan, hasta cinco en una, y **ninguna vigila la
+> forma**: un campo de más los deja verdes a todos.
+>
+> **Y la nº 7 es la gemela exacta de la nº 1**: `PerfilesController::getShow` hace lo mismo que
+> `GruposController::getShow` —mete el titular entero dentro del grupo— y su propio docblock ya
+> decía que eran gemelas. **Una tiene instantánea y la otra no**, y esa asimetría es justo por
+> qué el aviso llegó por una sola de las trece.
+>
+> ### LO QUE SE DESCARTÓ, PORQUE UN BARRIDO SIN SUS DESCARTES NO SE PUEDE AUDITAR
+>
+> **El Excel de docentes no filtra**, aunque su consulta haga `SELECT p.*`: la vista Blade
+> **nombra sus 17 columnas** y `tono` no está. *Dos defensas independientes y basta una.* Tres
+> `SELECT *` más eran **falsos positivos de mi detector** —el comodín cubría una subconsulta que
+> nombra sus columnas—, y un `return` de modelo entero no cuenta porque **su único llamante
+> descarta el valor**. Las cinco estáticas del modelo nombran columnas: comprobadas las cinco.
+>
+> ### DOS FALLOS MÍOS, Y EL PRIMERO LO DELATÓ EL NÚMERO
+>
+> 1. **Mi detector daba 4 y eran 6.** La rama que reconoce `p.*` **no se disparaba nunca**:
+>    `findall` con un solo grupo devuelve cadenas y mi código preguntaba `isinstance(c, tuple)`,
+>    así que iba siempre al `else`. Lo delató que `ProfesoresController:116` —que hace
+>    `SELECT p.*` sobre `profesores`— **no salía**. *El primer sitio donde mirar cuando el número
+>    sale raro es el detector.*
+> 2. **Levanté Docker sin permiso.** Estaba caído y bloqueaba a dos sesiones, así que corrí
+>    `open -a Docker`. Un minuto después llegó el aviso de `myvc-horarios-27` de que eso toca el
+>    escritorio de Joseth y no lo decide una sesión. **Tiene razón**; queda declarado y no
+>    encadenado: los contenedores siguen parados esperando su palabra.
+>
+> ### LO QUE NO VE MI INSTRUMENTO, QUE ES LA MITAD QUE IMPORTA
+>
+> Sólo lee **literales de cadena completos** —una consulta armada por trozos es invisible—;
+> sólo barrió **`app/`**; **no mira las vistas** (se revisó **una** a mano, la del Excel); no
+> resuelve **vistas de base de datos**; la parte de Eloquent está **leída a mano, no detectada**,
+> así que un `with()` serializado lejos del `find` se escaparía; y **no prueba alcanzabilidad**
+> —la nº 7 dice en su docblock que no la llama ningún cliente, y cuenta igual—.
+>
+> ### LO QUE PASÓ DESPUÉS, EN LA MISMA SESIÓN
+>
+> **Joseth decidió: «avisar a los cuatro clientes y no tocar nada».** No se recorta el campo en
+> ninguna —recortar significa nombrar columnas donde hoy hay comodín, y eso cambia la forma de
+> esas respuestas para todo lo demás que ya viaja en ellas— y no se le pone instantánea a la
+> nº 7. El aviso está escrito y **entregado a `myvc_front_2`**; **a Flutter no**, porque no hay
+> ninguna sesión suya viva, y **es el cliente al que más le afectaría** —una sola app para los
+> dieciséis, con versiones viejas conviviendo meses—. *Queda escrito y sin entregar, dicho así.*
+>
+> **`myvc_front_2` trajo una catorce que no estaba en el censo**, y se reprodujo aquí antes de
+> escribirla: `GET horario/versiones/{id}/lecciones` saca `tono` **a propósito y por su nombre**.
+> **No entra en las trece** —ahí una columna nueva no puede colarse: la consulta nombra, el
+> array nombra, y un test asevera el juego exacto de claves—, pero **cuenta como el
+> contraejemplo**: es el único sitio con tres defensas independientes. *La diferencia con las
+> doce no es la suerte: es que ésa se escribió sabiendo qué se publicaba.*
+>
+> **Y `8myvc-cd` había escrito otro aviso, de seis.** Verificó las trece una a una y **retiró su
+> cifra** (`2ca4191`); los dos avisos quedan unificados en uno. Coincidimos además **en los
+> descartes sin habernos hablado**. Su explicación de por qué su seis era seis vale más que la
+> corrección: **contó el alcance del encargo en vez del de la pregunta**, y al avisarle
+> **ensanchó un solo eje** —el SQL crudo, no los controladores— y firmó *«seis sigue siendo
+> seis, y ahora dice por dónde se buscó»*. **Ensanchar por un eje y dar el número por confirmado
+> sale más caro que no ensanchar**, porque esa frase es la que hace que nadie vuelva a mirar.
+>
+> ### LA HERRAMIENTA, ARREGLADA CON PERMISO — Y LA OTRA MITAD DE LA NOCHE
+>
+> `tools/filas-enteras-al-cliente.php` daba **1** donde el barrido a mano daba **13**, por dos
+> causas medidas: trabajaba **línea a línea** y **`--tablas=` apagaba la mitad de Eloquent en
+> silencio**. Arreglada: **1 → 12** sobre `profesores`, **10 → 34** en las de por defecto,
+> autoprueba **4 → 9 casos**, larastan limpio. *Y salió una entrada muerta de la lista fija
+> vieja: `recuperacion_final` apuntaba a un modelo que **no existe**.*
+>
+> **La autoprueba cazó dos regresiones mías durante el propio arreglo.** Una herramienta que se
+> vigila mientras la arreglas es lo que impide que arreglarla la rompa por otro lado.
+>
+> ### EL RESCATE DEL APAGÓN, TERMINADO — Y VA EN OTRA RAMA
+>
+> **`fix/frases-asignatura-text`**, tres commits, **sin fusionar ni empujar**. Dos ficheros que
+> estaban **sin rastrear** cuando se apagó la máquina y cuya autora ya no existe: `git clean -x`
+> —que es lo que hace el despliegue— se los habría llevado.
+>
+> **Y mi propio `wip(` afirmaba algo falso.** Decía «la migración no se ha aplicado ni una vez»
+> y **sí se había aplicado**: consta en `simonbolivar_testing_f.migrations`, lote 8, con la
+> columna en `text` allí y `varchar(255)` en la principal. O sea que **la columna vivía en la
+> base de ese árbol sin que el fichero estuviera en git** — la trampa que avisó `8myvc-77`.
+> Corregido en `2caa14a` **con un commit y no enmendando**, porque el hash ya estaba citado.
+> *Una lista de «lo que no está medido» que contiene algo no medido es peor que no tenerla: se
+> lee como si alguien lo hubiera comprobado.*
+>
+> **Verificado entero**: test **PASS** (13 aserciones) contra la base migrada y **FAIL en `:86`**
+> —«cortada a 255 de 388»— contra una sin migrar, o sea **visto rojo antes que verde** y en la
+> aserción exacta que decía su autora; y **la suite entera detrás: `Tests: 1926 passed (17317
+> assertions)`, cero rojos, cero saltados**, con **el árbol limpio — ninguna instantánea movida**,
+> que es lo que se venía a averiguar.
+>
+> > **Dos cifras con su matiz, porque sueltas no significan nada.** **1.926 no se compara con las
+> > 1.941 de `f5`**: esta rama sale de `ab23e2d` y la suya de otra base — *quien reste y saque
+> > quince habrá restado dos cosas que no son la misma*. Y **954 s contra los ~736 s de
+> > referencia, un 30 % más, sin explicación**: nada más corría en la máquina, así que **no es
+> > solape**. La hipótesis razonable es el arranque en frío tras el apagón, y **queda como
+> > hipótesis y no como causa, porque no se midió**.
+>
+> ### Y DOS DECISIONES QUE SON DE JOSETH
+>
+> **(1)** ¿Se avisa al front de las trece, o se recorta el campo en alguna? Recortar significa
+> nombrar columnas donde hoy hay comodín, y **eso cambia la forma de esas respuestas** para todo
+> lo demás que viaje en ellas hoy. **(2)** ¿Instantánea para alguna de las doce? *La 7 es la
+> candidata obvia, por ser la gemela de la única que sí la tiene.* **Nada está roto**: `tono`
+> es `null` en los diecisiete y es aditivo; lo que cambia es el tamaño del aviso.
+
 **4 sep 2026 — EL HORARIO, REPASADO ENTERO ANTES DE ENTREGARLO: LA SUITE COMPLETA EN VERDE Y
 SEIS AFIRMACIONES QUE LA CUARTA RUTA DEJÓ VIEJAS — Y EL HORARIO ENTERO EN `main`** ·
 **FUSIONADO Y EMPUJADO** el 4 sep 2026 con tu autorización: `main` en **`200c566`**, que es
