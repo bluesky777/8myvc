@@ -7037,7 +7037,7 @@ contestar:
   > la consecuencia, no por la línea que falta.*
   >
   > **Dos avisos para quien vaya a correr algo de `tools/`:** `route-emit` escribe
-  > los ficheros de rutas —una corrida **sana** modifica **13 de 18**, así que no
+  > los ficheros de rutas —una corrida **sana** modifica **13 de 17**, así que no
   > es un no-op—, y la guardia **no coge un error de sintaxis**, que es un fatal
   > de compilación y no un `Throwable`. Las dos cosas están medidas en la §248.
 - **Las tres primeras de la auditoría** se contestaron el 24 ago y están cerradas

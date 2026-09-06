@@ -13674,7 +13674,13 @@ medir, y se miden corriéndolas.**
 **Dos de las siete escriben**, y por eso no se corrieron aquí: `route-emit.php` escribe
 **`routes/api/*.php`** —los ficheros de rutas vivos— y `generar-seed-test.php` escribe el seed de
 tests. Se midieron en un **worktree desechable**, y menos mal: *una corrida sana de `route-emit`
-modifica **13 de los 18** ficheros de rutas y crea un `otros.php` que no está en el repositorio.*
+modifica **13 de los 17** ficheros de rutas y crea un `otros.php` que no está en el repositorio.*
+
+> **El denominador dijo 18 hasta el 5 sep 2026 por la noche, y el error es instructivo**: en `git`
+> hay **17**. Conté con `ls routes/api/*.php` **en un árbol donde una corrida sana mía anterior ya
+> había creado `otros.php`**, así que me conté a mí mismo dentro de la población. *Una población
+> medida después de haber escrito en ella no es la población* — y esto lo escribió alguien que
+> acababa de apartar dos herramientas por escribir. Lo cazó recontar en `main` limpio.
 **Eso no se investigó y no es de esta sección** — pero queda escrito, porque quien lo corra
 esperando un no-op se va a encontrar trece ficheros cambiados.
 
@@ -13734,7 +13740,9 @@ después de leer el aviso.** Va con nombre porque la lección no es sobre la her
 ### Lo que pasó
 
 `8myvc-4d` acababa de escribir, en la [§248](#§248), que *«una corrida SANA de `route-emit`
-modifica 13 de los 18 ficheros de rutas y crea un `otros.php` que no está en el repo»*, y me lo
+modifica 13 de los 18 ficheros de rutas y crea un `otros.php` que no está en el repo»* —el
+denominador de esa frase estaba mal, son **17**, y está corregido arriba con el porqué; da igual
+para lo que viene, que va del 13 y no del 18—, y me lo
 había dicho además en un mensaje. Yo estaba verificando su lote y metí las cuatro herramientas en
 un bucle de control positivo —«¿siguen midiendo contra el árbol sano?»— **sin apartar la que
 escribe**. En `main`.
