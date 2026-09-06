@@ -480,8 +480,53 @@ y la retirada es `POST tardanzas/login/traer-datos`, que no tiene ninguna otra.
 > producción es un **404**.
 >
 > **Lo que esto NO es**: un problema que arregle fundir la rama. Fundirla mete la octava migración
-> en una tanda ensayada sobre siete. **Lo que hay que saber primero es si esa pantalla de `app2`
-> está publicada o en construcción**, y eso lo tiene que decir el front. Preguntado el 6 sep.
+> en una tanda ensayada sobre siete.
+>
+> ##### CONTESTADO por `myvc-front-05` el 6 sep: la pantalla está PUBLICADA
+>
+> ```
+> ruta      /calendario, en app.routes.ts:1608
+> permiso   `conSesion` — CUALQUIERA con sesión: docentes, alumnos y acudientes
+> menú      entrada «Calendario» visible con el mismo criterio
+> entró     en su `main` el 23 ago 2026
+> llama     `PUT calendario/mes` al abrir, y `calendario/proximos`
+> ```
+>
+> O sea que **las dos rutas que sólo existen en la rama congelada son justo las dos que usa**, y la
+> entrada del menú la ve todo el colegio. El front ya lo tenía escrito en su `DESPLIEGUE-UP2.md`
+> —primera fila de «lo que hay que mirar ANTES de desplegar»—; **lo que no sabían es que esa rama
+> está fuera de la tanda a propósito.** Juntas, las dos mitades dicen: *si el día 10 se sube `up2/`
+> sin esa rama, el calendario se rompe en los dieciséis y la entrada la ve cualquiera con sesión.*
+> **Ruidoso y no peligroso** —404 y un mensaje, no un dato mal guardado— pero visible para todos.
+>
+> ##### Y NO HAY ATAJO: las rutas no se pueden llevar sin la migración
+>
+> Comprobado aquí antes de ofrecerlo como salida, porque era la tentación evidente —*«funde sólo
+> las dos rutas y deja la migración fuera»*—:
+>
+> ```
+> eventosManualesDelRango()  SELECT c.descripcion, c.recordatorio_minutos   <- columnas NUEVAS
+> filtroDeDestinatarios()    NOT EXISTS (SELECT 1 FROM calendario_destinatarios d …)  <- tabla NUEVA
+> ```
+>
+> Las dos las usa `respuestaDelRango()`, que es de donde comen `putMes` y `putProximos`. **Sin la
+> migración, esas dos rutas contestan 500 en vez de 404**, que es peor. La rama entra entera o no
+> entra.
+>
+> ##### LAS TRES SALIDAS, y ninguna la decide una sesión
+>
+> | | qué cuesta |
+> |---|---|
+> | **(a)** meter `feat/calendario` en la tanda | reensayar la tanda entera con la octava migración, sobre una copia con datos, antes de tocar dieciséis colegios |
+> | **(b)** subir `up2/` con el calendario tapado | esconder la entrada del menú y guardar la ruta hasta que exista su backend. **Es trabajo del front y es poco** |
+> | **(c)** no subir `up2/` el día 10 | **la más barata, y puede que se le haya pasado a todo el mundo**: lo que el día 10 necesita es la API y `up/` —el arreglo del tooltip viaja por ahí—. `up2/` no hace falta para nada de ese día |
+>
+> ##### Lo que NADIE sabe todavía: si ya está roto HOY
+>
+> El front no puede verlo —no tiene copia local de `myvc_dist2`, así que no sabe cuándo se
+> construyó `up2/` por última vez—, y desde aquí tampoco. **Lo sabe Joseth, que es quien despliega.**
+> Lo único medido es que `myvc_dist`, el de la aplicación vieja, se construyó por última vez el
+> **21 ago 2026**, o sea antes de que esa pantalla existiera. *«No medido» no es «bien».*
 >
 > *Y el fijo del front no se pondría rojo: es un volcado literal, no una llamada viva. Una spec de
 > contrato que describe una ruta inexistente **envejece en silencio**, que es justo lo que esas
