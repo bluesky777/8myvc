@@ -459,6 +459,34 @@ y la retirada es `POST tardanzas/login/traer-datos`, que no tiene ninguna otra.
 >   entero, con las catorce tablas que no lee nadie, está en
 >   [05 §246](migracion/05-codigo-muerto-y-roto.md). **Nada de esto cambia el día 10.**
 
+> #### ⚠️ `PUT calendario/mes` NO EXISTE EN LA API, y `app2` come de ahí — 6 sep 2026
+>
+> **Salió de contestarle una pregunta al front, y no lo buscaba nadie.** `myvc-front-05` y
+> `myvc-front-21` preguntaron, por separado, si `calendario/mes` pierde `created_by_nombres` como
+> `ChangesAsked/to-me`. La respuesta a eso es **no** —el recorte vive sólo en
+> `ChangeAskedController:102`, `putThisYear` hace `SELECT *`, el controlador no cambió entre
+> `9474b50` y hoy y su snapshot tampoco—, pero al mirarlo salió lo otro:
+>
+> ```
+> routes/api/perfiles.php tiene HOY:  crear-evento · eliminar-evento · guardar-evento
+>                                     sincronizar-cumples · this-year
+> calendario/mes y calendario/proximos:  SÓLO en la rama `feat/calendario`
+> ```
+>
+> Esa rama tiene **2 commits propios y 230 de retraso, y trae una migración**, que es por lo que
+> Joseth la dejó fuera de la tanda el 5 sep: entrar cuesta reensayar la tanda entera. O sea que
+> **esa ruta no existe hoy y tampoco existirá el día 10**, y `app2` tiene un fijo de contrato
+> (`paginas/calendario/contrato-mes.spec.ts`) con un volcado real de una respuesta que en
+> producción es un **404**.
+>
+> **Lo que esto NO es**: un problema que arregle fundir la rama. Fundirla mete la octava migración
+> en una tanda ensayada sobre siete. **Lo que hay que saber primero es si esa pantalla de `app2`
+> está publicada o en construcción**, y eso lo tiene que decir el front. Preguntado el 6 sep.
+>
+> *Y el fijo del front no se pondría rojo: es un volcado literal, no una llamada viva. Una spec de
+> contrato que describe una ruta inexistente **envejece en silencio**, que es justo lo que esas
+> specs existen para evitar.*
+
 > #### Y `uniformes` ya está creada — 5 sep 2026, 22:4x, en producción
 >
 > **La creó Joseth desde phpMyAdmin** con [`tools/crear-uniformes-donde-falta.sql`](../tools/crear-uniformes-donde-falta.sql),
@@ -715,7 +743,7 @@ marcados en desarrollo**, que **no** es «cero en los dieciséis»: eso sólo se
 
 | | aviso | estado |
 |---|---|---|
-| **K** | `GET ChangesAsked/to-me` deja de mandar **ocho** columnas de cada evento del calendario y conserva nueve. **Aquí decía «nueve» y era la cifra de las que se QUEDAN**, contada como si fueran las que se van; medido sobre el snapshot el 2 sep 2026, el evento pasa de 17 claves a 9. Las ocho que se van son `created_at`, `created_by`, `created_by_nombres`, `deleted_at`, `deleted_by`, `type`, `updated_at` y `updated_by`. Una de ellas, **`created_by_nombres`, la pinta la aplicación vieja** en el tooltip del evento (`AnunciosCtrl.ts:596`): al desplegar dirá **«Por: undefined»** hasta que se arregle allí, que es una línea | **POR AVISAR** — decidido a sabiendas el 2 sep 2026 |
+| **K** | `GET ChangesAsked/to-me` deja de mandar **ocho** columnas de cada evento del calendario y conserva nueve. **Aquí decía «nueve» y era la cifra de las que se QUEDAN**, contada como si fueran las que se van; medido sobre el snapshot el 2 sep 2026, el evento pasa de 17 claves a 9. Las ocho que se van son `created_at`, `created_by`, `created_by_nombres`, `deleted_at`, `deleted_by`, `type`, `updated_at` y `updated_by`. Una de ellas, **`created_by_nombres`, la pinta la aplicación vieja** en el tooltip del evento (`AnunciosCtrl.ts:596`): al desplegar dirá **«Por: undefined»** hasta que se arregle allí, que es una línea | **AVISADO Y ARREGLADO EN EL FRONT el 6 sep 2026** (`myvc_front@9419ccc3`, condicional en vez de borrado). ⚠️ **Y trae una trampa de despliegue que no era nuestra**: ese arreglo viaja por `myvc_dist` a **`up/`**, no por `myvc_dist2` a `up2/`. **Si ese día sólo se sube `up2/`, el «Por: undefined» se queda.** Hay que subir las dos |
 | **L** | **`POST tardanzas/login/traer-datos` desaparece**: pasa a 404. Decisión de Joseth del 2 sep. El único llamante de toda la máquina es `tardanzasMyvc-old` (último commit feb 2020), y Joseth confirmó que ese repositorio está inactivo — el dato que lo cerró **no estaba en el repositorio** | **DECIDIDO** — es la única ruta que la tanda quita |
 | **M** | **`regla_nivelacion` aparece en el bloque de la sesión**, en las cuatro ramas (alumno, acudiente, profesor y usuario). Es un campo **nuevo**, para previsualizar en el diálogo de nivelación qué nota va a quedar (22 §1.4 y §5.1) | **ADITIVO** — Flutter no se rompe: `ConfiguracionColegio.deLogin` lee campo a campo y no hay `json_serializable` ni `freezed`. Medido, no supuesto (22 §3.2bis) |
 | **N** | **Campos nuevos de nivelación en respuestas que ya existían.** Aquí decía «la planilla (`PUT notas/detailed`), los boletines, el boletín final y `PUT editnota/alum-asignatura`»: **son cuatro nombres para DIEZ respuestas, y faltaban dos sitios** — `PUT notas-actuales-alumnos/{grupo_id}` y **`GET notas/alumno/…`, la que llama un ALUMNO para ver sus propias notas** (gana `nota_original_asignatura` y `nivelada_at_asignatura`). Y «los boletines» son **`boletines` y `boletines2`, cuatro respuestas: `boletines3` no gana ni una clave**, que es justo lo que aquí no se veía. Qué respuesta abre las columnas **a propósito** y cuál las tiene **congeladas** está decidido sitio por sitio en la tabla de [22 §3.4](migracion/22-nivelaciones.md) y en el [27](migracion/27-nivelaciones-en-los-informes.md) | **ADITIVO** — ningún cliente pierde una clave. La enumeración, **corregida el 5 sep 2026** restando los snapshots: 10 respuestas, no 4, y una de ellas es de un alumno sobre sí mismo |
@@ -723,7 +751,7 @@ marcados en desarrollo**, que **no** es «cero en los dieciséis»: eso sólo se
 | **P** | **`profesores.tono` es un campo NUEVO en TRECE respuestas vivas**, y sólo dos son del horario. Once por Eloquent —las cinco de `profesores/` (`store`, `update`, `destroy`, `forcedelete`, `restore`), las **tres de `perfiles/`** (`show/{id}`, `update/{id}`, `cambiarimgunprofe/{id}`), las **dos de `images-users/`** (`cambiar-foto-un-usuario/{id}`, `cambiar-firma-un-profe/{id}`) y el `titular` de `GET grupos/show/{id}`— y **dos por `SELECT p.*`**: `PUT profesores/listado` y `PUT participantes/profesores`, ésta de **votaciones**. Vale `null` en los diecisiete hasta que alguien reparta colores | **ADITIVO** — ningún cliente pierde una clave. Va dicho porque **un campo nuevo se manda dicho, no descubierto**, y porque **cinco de las trece son pantallas de perfil e imágenes que no tienen nada que ver con el horario**. *Medido por dos sesiones que no se copiaron: 7 + 5 + 1 = 13.* **Y es de RESPUESTAS, no de pantallas**: `myvc_front` midió que dos de esas trece no las llama —`perfiles/show/{id}` y `perfiles/cambiarimgunprofe/{id}`— y `myvc_flutter` y `myvc_front_2` **no están medidos** |
 | **Q** | **`GET ChangesAsked/to-me` gana una clave de primer nivel: `horario_version_id`** (`null` mientras el año no tenga horario publicado, que es hoy en los diecisiete). **Es la misma respuesta del aviso K y va aparte a propósito**: K cuenta lo que se VA y esto es lo que LLEGA. La respuesta la piden **todos los roles** —lleva `auth.token` y nada más— y es lo que la app llama al abrir (`MuroApi.traerMuro`) | **POR AVISAR** — campo nuevo. **Faltaba en esta tabla**: se detectó restando los snapshots, no leyendo el commit |
 | **R** | **Tres respuestas de años reparten las tres columnas nuevas de `years` sin que nadie lo pidiera**: `GET years`, `GET years/colegio` y `GET years/trashed` ganan `regla_nivelacion`, `puestos_con_bol_independiente` y `horario_version_id`. **No lo hace un cambio: lo hace el `SELECT y.*` de `YearsController`**, que estaba ahí desde antes. Las dos primeras llevan sólo `auth.token`, o sea que le llegan también a un alumno y a un acudiente | **POR AVISAR** — campo nuevo, y de los que **no aparecen en ningún diff de la respuesta**. **Faltaba en esta tabla** |
-| **S** | **Los campos del boletín independiente también se reparten solos, y no tenían aviso**: `bol_independiente` en los boletines y `bol_independiente_aparte_en` en el acta de promoción; `bol_independiente_periodo` en los dos informes de notas perdidas y en `PUT puestos/detailed-notas-year` (que además gana `puestos_con_bol_independiente`); y `bol_independiente_datos` más `independientes` en la planilla. **ONCE respuestas** — contadas restando snapshots, sin contar las tres de `years`, que van en **R** | **POR AVISAR, o cerrar con fecha si ya se avisó** — es posible que viajara en el documento del front (`DESPLIEGUE-NIVELACIONES-Y-RUBRICAS.md`), que **no se puede comprobar desde este repositorio**. Lo que sí se comprobó es que **en esta tabla no estaba** |
+| **S** | **Los campos del boletín independiente también se reparten solos, y no tenían aviso**: `bol_independiente` en los boletines y `bol_independiente_aparte_en` en el acta de promoción; `bol_independiente_periodo` en los dos informes de notas perdidas y en `PUT puestos/detailed-notas-year` (que además gana `puestos_con_bol_independiente`); y `bol_independiente_datos` más `independientes` en la planilla. **ONCE respuestas** — contadas restando snapshots, sin contar las tres de `years`, que van en **R** | **CERRADO el 6 sep 2026: SÍ estaba avisado**, y en cinco documentos del front —`PANTALLAS-HISTORIAL-Y-BOLETIN.md` (§B, con la tabla de qué pantalla necesita qué campo), `TAREAS-NIVELACIONES-Y-RUBRICAS.md:282`, `TAREAS-PLANTILLA-Y-COMPETENCIAS.md` (§4.bis), `COORDINACION-NOCHE.md` y `MIGRATION.md`—, confirmado por `myvc-front-05` y `myvc-front-21` por separado. *Lo que no se podía comprobar desde este repositorio lo contestó preguntando.* — texto original: es posible que viajara en el documento del front (`DESPLIEGUE-NIVELACIONES-Y-RUBRICAS.md`), que **no se puede comprobar desde este repositorio**. Lo que sí se comprobó es que **en esta tabla no estaba** |
 
 > **La fila O decía «24» y «las 3 de `horario/`», y se ha corregido a mano el 4 sep 2026
 > — que es una excepción a la regla de este documento y por eso va escrito.** Aquí las
