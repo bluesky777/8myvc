@@ -6996,6 +6996,38 @@ contestar:
   correr `tools/hora-escrita-dos-veces.php` en los diecisiete —sólo lectura, sin
   migración, una visita— y cerrar con eso. Las tres opciones con su precio están
   en la §247, y ninguna toca la tanda del día 10.
+
+  > ## LA VUELTA SE DIO — 6 sep 2026, y la copia local decía CERO
+  >
+  > Joseth la corrió en el servidor con la forma que **no supone credenciales** (una carpeta
+  > por colegio, cada uno con su `.env`): **17 medidos, 0 NO MEDIDOS, 13 CON DAÑO**. Detalle
+  > y cifras por colegio en [05 §250](05-codigo-muerto-y-roto.md).
+  >
+  > - **708 filas** de `change_asked.deleted_at`, en doce colegios (de 9 a 185 por colegio).
+  > - **~25.200 filas** de `ausencias.created_at` y `updated_at`, en ocho. **Seis columnas
+  >   salen al 100 %.**
+  > - **`ausencias.fecha_hora` NO está dañada en ninguno**: la hora a la que llegó tarde el
+  >   alumno está bien. Lo dañado son **marcas de auditoría**.
+  >
+  > **Y el dato SE RECUPERA**, que es lo que cambia la decisión: el campo de los minutos
+  > lleva la hora y el de los segundos el minuto real, así que
+  > `DATE(col) + TIME(HOUR(col), SECOND(col), 0)` devuelve hora y minuto y **sólo pierde los
+  > segundos**. La §247 decía «no puede recuperar los segundos» —cierto— y se leía como «no
+  > se puede recuperar».
+  >
+  > **LO QUE ESPERA A JOSETH, y ya no es «migración o nota»:** reparar, sabiendo que el
+  > filtro `HOUR = MINUTE` estropea las filas sanas escritas en el minuto `:HH` de su hora
+  > —despreciable donde la columna sale al 100 %, unas 3-4 filas en `cads_itagui`, que sale
+  > 90 de 214—, o dejarlo escrito y no tocar producción. **En cualquier caso va DESPUÉS del
+  > día 10**: una migración de datos sería la octava de una tanda congelada en siete.
+  >
+  > ⚠️ **El hallazgo de método, que vale para todo lo demás que se mida aquí:** esta misma
+  > medición sobre la copia de desarrollo dio **CERO**, con su piso de detección al lado y
+  > sin que nadie se equivocara. **0 contra 13 de 17.** Comprobado hoy: la copia local tiene
+  > 85 filas con `deleted_at`, ninguna con la firma, mientras el colegio del mismo nombre en
+  > producción tiene 87 y 67 con firma — **no son los mismos datos**. *Un piso de detección
+  > dice qué no podías ver en la base que miraste; no dice que estuvieras mirando la base
+  > que importa.*
 - **Los interruptores `para_*`** — hay que contestarlos con los tres delante.
 - **Quién del personal puede qué** — cinco lotes preguntan variantes.
 - **Los quince números de la fase 0** de definitivas: la herramienta está, hay
