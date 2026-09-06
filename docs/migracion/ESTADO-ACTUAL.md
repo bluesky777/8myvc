@@ -480,7 +480,39 @@
 > ellas sin censar hasta hoy (`agrupacion_puestos` y su detalle). Borrarlas es una migración: **después
 > del día 10**, y con las filas de los dieciséis contadas delante.
 >
-> ### 6. `amiguitosdejesus` no tiene la tabla `uniformes`, y su panel de inicio la consulta sin condición
+> ### 6. ~~`amiguitosdejesus` no tiene la tabla `uniformes`~~ **DECIDIDA por Joseth el 5 sep 2026: se crea a mano, y queda una migración pendiente**
+>
+> > **Salida elegida: (c), crearla desde phpMyAdmin**, con el script
+> > [`tools/crear-uniformes-donde-falta.sql`](../../tools/crear-uniformes-donde-falta.sql). La (a)
+> > —una migración con `hasTable()`— era la ortodoxa y **la frena una fecha**: la tanda del día 10
+> > está congelada en siete y ya se ensayó sobre esas siete, así que una octava obliga a repetir el
+> > ensayo entero antes de tocar dieciséis colegios.
+> >
+> > **LO QUE ESTO DEJA DEBIENDO, y es la mitad de la decisión:** *después* del día 10, esa migración
+> > con `Schema::hasTable('uniformes')` **hay que escribirla igual**. En este colegio será un no-op
+> > y en cualquier otro al que le falte la creará. Sin ella, el repositorio deja de ser la fuente de
+> > la verdad del esquema, que es justo lo que `CLAUDE.md` protege con *«migración o no existe»*.
+> > *Esta línea es la deuda: si se borra sin escribir la migración, nadie la va a echar de menos.*
+>
+> **El DDL no está escrito a mano**: sale literal de `database/schema/mysql-schema.sql`, y se
+> comprobó que **ninguna migración del repositorio ha tocado `uniformes` nunca**, así que el volcado
+> la describe entera. El script lleva delante sus comprobaciones y **se corrió en los dos motores
+> antes de entregarlo** —MySQL 8.0.42 y **MariaDB 10.5.29 en un contenedor levantado para esto**,
+> que es la familia del motor de producción—, con **los tres guards vistos abortar**. Y lo que de
+> verdad protege, medido: **ignorando el veredicto contra un destino MyISAM, la sentencia falla
+> entera y la tabla no queda a medias**. El peor caso del script es que no haga nada.
+>
+> *Y de camino salió una trampa que iba a costar un susto: `SHOW CREATE TABLE` dibuja la columna
+> `materia` con `CHARACTER SET` explícito donde el otro colegio no lo dibuja, y **no es una
+> diferencia** — charset y collation son los mismos en `information_schema`. Comparar el texto del
+> `SHOW CREATE` entre dos colegios es comparar el dibujo, no la tabla.*
+>
+> **Lo que NO entra**: las otras seis que le faltan a ese colegio. `df_notas_finales` está muerta
+> ([05 §246](05-codigo-muerto-y-roto.md)) y las cinco `piars_*` son el módulo PIAR, que sólo se
+> despliega donde se usa. Ninguna de las seis rompe una pantalla de todos los días, que es lo que
+> distinguía a `uniformes`.
+>
+> **El estado de partida, que es lo que hacía falta arreglar:**
 >
 > Sale de la 5: es el colegio de 87 tablas y le faltan las siete. Cinco ficheros consultan
 > `uniformes`, y tres son de todos los días —el panel de inicio de alumno (`ChangeAskedController:258`)
