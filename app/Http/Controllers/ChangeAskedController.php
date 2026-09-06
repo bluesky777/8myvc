@@ -99,16 +99,26 @@ class ChangeAskedController extends Controller {
 			// evento: lo que se deja de mandar es contabilidad —`created_by`, `type` (null en
 			// las 630), `deleted_at`, `deleted_by`, `updated_by` y las dos marcas de tiempo—.
 			//
-			// **Y una que sí se pintaba y se quita a sabiendas: `created_by_nombres`.** La
-			// aplicación vieja la mete en el tooltip del evento («Por: administrador»,
-			// `AnunciosCtrl.ts:596`), así que hasta que se arregle allí dirá «Por: undefined».
-			// Lo decidió Joseth el 2 sep 2026 sabiendo eso: el panel viejo se arregla después
-			// o se retira, y no se paga un 7% de esta respuesta en los quince colegios por un
-			// tooltip. Ver 24-el-panel-de-inicio.md §2.2.
+			// **`created_by_nombres` VUELVE, por decisión de Joseth del 6 sep 2026.** Se había
+			// quitado el 2 sep —era la única de las nueve descartadas que sí se pintaba— y él
+			// mismo la retira de la lista cuatro días después: *«created_by_nombres no me
+			// importa que llegue»*. Cuesta un **7%** de esta respuesta, que la app pide en cada
+			// apertura en los dieciséis colegios; ése es el precio que aceptó al decirlo.
+			//
+			// **Se escribe el ida y vuelta y no sólo el estado final**, porque el 2 sep esta
+			// misma línea llevaba su decisión contraria —*«created_by_nombres tampoco me
+			// interesa»*— y sin las dos fechas el siguiente lee una contradicción entre el
+			// código y `24-el-panel-de-inicio.md` §2.2 sin saber cuál gana.
+			//
+			// El «Por: undefined» del panel viejo (`AnunciosCtrl.ts:596`) **deja de ocurrir**:
+			// `myvc_front@9419ccc3` dejó el tooltip condicional en vez de borrado, así que
+			// vuelve a decir el nombre solo, sin tocar nada allí. Las otras OCHO columnas
+			// —`created_at`, `created_by`, `deleted_at`, `deleted_by`, `type`, `updated_at`,
+			// `updated_by`— **siguen fuera**: no las pinta nadie y son las que pagan el 47%.
 			//
 			// `calendario/this-year` tiene esta misma consulta y **no se toca aquí**: es la
 			// pantalla del calendario, y el front tiene su rediseño en marcha.
-			$eventos = DB::select('SELECT id, title, start, end, allDay, solo_profes, cumple_alumno_id, cumple_profe_id, url FROM calendario WHERE deleted_at is null');
+			$eventos = DB::select('SELECT id, title, start, end, allDay, solo_profes, cumple_alumno_id, cumple_profe_id, url, created_by_nombres FROM calendario WHERE deleted_at is null');
 
 			
 			
@@ -209,7 +219,7 @@ class ChangeAskedController extends Controller {
 			
 			# Calendario
 			// Las nueve columnas que se pintan; el porqué, en la rama de arriba.
-			$eventos = DB::select('SELECT id, title, start, end, allDay, solo_profes, cumple_alumno_id, cumple_profe_id, url FROM calendario WHERE deleted_at is null');
+			$eventos = DB::select('SELECT id, title, start, end, allDay, solo_profes, cumple_alumno_id, cumple_profe_id, url, created_by_nombres FROM calendario WHERE deleted_at is null');
 
 			
 							
@@ -271,7 +281,7 @@ class ChangeAskedController extends Controller {
 			
 			# Calendario
 			// Las nueve columnas que se pintan; el porqué, en la rama del superusuario.
-			$eventos = DB::select('SELECT id, title, start, end, allDay, solo_profes, cumple_alumno_id, cumple_profe_id, url FROM calendario WHERE solo_profes=0 and deleted_at is null');
+			$eventos = DB::select('SELECT id, title, start, end, allDay, solo_profes, cumple_alumno_id, cumple_profe_id, url, created_by_nombres FROM calendario WHERE solo_profes=0 and deleted_at is null');
 
 
 			# PREMATRICULAS SIGUIENTE AÑO
@@ -480,7 +490,7 @@ class ChangeAskedController extends Controller {
 			
 			# Calendario
 			// Las nueve columnas que se pintan; el porqué, en la rama del superusuario.
-			$eventos = DB::select('SELECT id, title, start, end, allDay, solo_profes, cumple_alumno_id, cumple_profe_id, url FROM calendario WHERE solo_profes=0 and deleted_at is null');
+			$eventos = DB::select('SELECT id, title, start, end, allDay, solo_profes, cumple_alumno_id, cumple_profe_id, url, created_by_nombres FROM calendario WHERE solo_profes=0 and deleted_at is null');
 
 			
 			
@@ -495,7 +505,7 @@ class ChangeAskedController extends Controller {
 
 			# Calendario
 			// Las nueve columnas que se pintan; el porqué, en la rama del superusuario.
-			$eventos = DB::select('SELECT id, title, start, end, allDay, solo_profes, cumple_alumno_id, cumple_profe_id, url FROM calendario WHERE solo_profes=0 and deleted_at is null');
+			$eventos = DB::select('SELECT id, title, start, end, allDay, solo_profes, cumple_alumno_id, cumple_profe_id, url, created_by_nombres FROM calendario WHERE solo_profes=0 and deleted_at is null');
 
 			
 			return [ 'publicaciones' => $publicaciones, 'eventos' => $eventos ];

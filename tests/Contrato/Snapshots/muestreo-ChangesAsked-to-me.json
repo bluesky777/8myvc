@@ -3,6 +3,7 @@
     "eventos": [
         {
             "allDay": "int",
+            "created_by_nombres": "string",
             "cumple_alumno_id": "int|null",
             "cumple_profe_id": "int|null",
             "end": "null|string",

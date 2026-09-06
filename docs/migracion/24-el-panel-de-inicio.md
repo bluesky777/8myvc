@@ -140,12 +140,36 @@ no decide nada.
 decisión dentro que hay que leer, porque es lo único de todo esto que se ve en una
 pantalla:
 
-> **`created_by_nombres` se quita a sabiendas.** Es la única de las nueve descartadas
-> que sí se pintaba: la aplicación vieja la mete en el tooltip del evento —«Por:
-> administrador», `AnunciosCtrl.ts:596`—, así que hasta que se arregle allí dirá
-> **«Por: undefined»**. Joseth lo decidió sabiéndolo: *«created_by_nombres tampoco me
-> interesa, podemos arreglar legacy después, o mejor aún, inhabilitar esos endpoints
-> en el panel de legacy para que empiecen a usar sólo la app2»*.
+> ## ⟲ REVERTIDA POR JOSETH EL 6 sep 2026: `created_by_nombres` VUELVE
+>
+> **Cuatro días después de quitarla, la devolvió**: *«created_by_nombres no me importa
+> que llegue»*. Así que de las nueve columnas descartadas el 2 sep **quedan fuera ocho**
+> y el evento pasa de 17 claves a **10**, no a 9. El recorte sigue valiendo la pena: las
+> ocho que se quedan fuera son las que pagan el 47 %, y ésta sola cuesta un **7 %**.
+>
+> **Cómo se llegó, porque el camino importa más que el destino.** La respuesta llegó
+> **retransmitida por una sesión del front** —*«preguntaste que si el endpoint debe llevar
+> el autor y mi respuesta es sí»*— y **no se aplicó al recibirla**: «el endpoint» no decía
+> cuál, y las dos lecturas llevaban a trabajos opuestos —«las de calendario ya lo llevan,
+> no hay nada que hacer» contra «revierte tu decisión del 2 sep»—. Se le devolvió la
+> pregunta **con el único endpoint que encajaba, con el 7 % delante y diciéndole que
+> contradecía lo que había decidido el 2**, y entonces confirmó.
+>
+> *Una decisión retransmitida no es una decisión hasta que se sabe sobre qué recae. Y
+> avisar de que contradice otra suya no es re-litigarla: es dársela con el dato que no
+> estaba encima de la mesa cuando la tomó.*
+>
+> **Y el «Por: undefined» ya no ocurrirá**: `myvc_front@9419ccc3` dejó el tooltip
+> **condicional en vez de borrado**, así que vuelve a decir el nombre solo, sin tocar nada
+> allí. *Ese arreglo del front, hecho para un mundo sin la columna, es el que hace que
+> devolverla no cueste trabajo a nadie — no estaba planeado así.*
+
+> **`created_by_nombres` se quita a sabiendas.** ~~Es la única de las nueve descartadas
+> que sí se pintaba~~ **— y volvió el 6 sep, ver arriba**: la aplicación vieja la mete en
+> el tooltip del evento —«Por: administrador», `AnunciosCtrl.ts:596`—, así que hasta que
+> se arregle allí dirá **«Por: undefined»**. Joseth lo decidió sabiéndolo: *«created_by_nombres
+> tampoco me interesa, podemos arreglar legacy después, o mejor aún, inhabilitar esos
+> endpoints en el panel de legacy para que empiecen a usar sólo la app2»*.
 >
 > Lo que eso deja escrito son dos cosas distintas: el arreglo del tooltip es **una
 > línea en el front viejo**, y **retirar el panel viejo es una decisión que no está
