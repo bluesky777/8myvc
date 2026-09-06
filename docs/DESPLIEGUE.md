@@ -493,11 +493,19 @@ y la retirada es `POST tardanzas/login/traer-datos`, que no tiene ninguna otra.
 > ```
 >
 > O sea que **las dos rutas que sólo existen en la rama congelada son justo las dos que usa**, y la
-> entrada del menú la ve todo el colegio. El front ya lo tenía escrito en su `DESPLIEGUE-UP2.md`
-> —primera fila de «lo que hay que mirar ANTES de desplegar»—; **lo que no sabían es que esa rama
-> está fuera de la tanda a propósito.** Juntas, las dos mitades dicen: *si el día 10 se sube `up2/`
-> sin esa rama, el calendario se rompe en los dieciséis y la entrada la ve cualquiera con sesión.*
-> **Ruidoso y no peligroso** —404 y un mensaje, no un dato mal guardado— pero visible para todos.
+> entrada del menú la ve todo el colegio.
+>
+> **Y la mitad que ya estaba escrita, para no atribuirse el hallazgo entero:** el acoplamiento lleva
+> documentado **desde el 2 sep 2026** en `myvc_front@DESPLIEGUE-UP2.md`, primera fila de «lo que hay
+> que mirar ANTES de desplegar», y con una distinción que aquí no teníamos: **falta la ruta → 404 y
+> «No se pudo cargar el calendario»; `pull` hecho y `migrate` sin correr → 500**, que es peor. O sea
+> que **`up2/` no se despliega a ciegas**: esto no es un riesgo desconocido.
+>
+> **Lo que aporta este bloque es la otra mitad, y es la que cambia el plan:** *por qué* falta la
+> ruta. `feat/calendario` está fuera de la tanda del día 10 **a propósito**, así que **esperar a que
+> llegue no es esperar unos días**. Juntas, las dos mitades dicen: *si el día 10 se sube `up2/`, el
+> calendario se rompe en los dieciséis y la entrada la ve cualquiera con sesión.* **Ruidoso y no
+> peligroso** —404 y un mensaje, no un dato mal guardado— pero visible para todos.
 >
 > ##### Y NO HAY ATAJO: las rutas no se pueden llevar sin la migración
 >
