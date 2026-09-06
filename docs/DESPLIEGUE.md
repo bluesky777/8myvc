@@ -554,6 +554,25 @@ y la retirada es `POST tardanzas/login/traer-datos`, que no tiene ninguna otra.
 >
 > *Con la (c) no hace falta ninguna de estas contorsiones y el coste es cero por los dos lados.*
 >
+> ##### Y LA RAZÓN 3 NO ES «UNA MÁS»: es de otra especie, y lo afinó el front
+>
+> `myvc-front-05` comprobó las tres por su lado —contó las claves en su propio código:
+> `destinatarios` sale **16 veces**, `clave` 13, `origen` 4— y fue a leer `putThisYear` **en este
+> repositorio** en vez de fiarse. Y al confirmarlo dijo mejor que nosotros por qué la 3 decide:
+>
+> > **Las claves que faltan son un problema de FORMA, y los de forma se resuelven con trabajo. «Enseña
+> > más de lo que debía» no es un problema de forma.** Un traductor que rellena huecos se puede
+> > escribir mal **y se nota**. Un filtro que se relaja **no se nota nunca**, porque el síntoma es que
+> > alguien ve algo de más — y nadie va a decirlo.
+>
+> Es la misma familia que el modal del calendario que ya costó una vez en el front: *escribía los
+> grupos en ningún sitio, sin error, mientras el resumen decía que lo verían 6º y 7º*. Aquí sería el
+> mismo animal por el otro lado.
+>
+> *De ahí sale el criterio que sirve fuera de este caso: **cuando un apaño toca a la vez la forma de
+> una respuesta y su filtro, el filtro decide.** Lo de la forma se prueba; lo del filtro sólo se
+> prueba si alguien se acuerda de probarlo.*
+>
 > ##### Lo que NADIE sabe todavía: si ya está roto HOY
 >
 > El front no puede verlo —no tiene copia local de `myvc_dist2`, así que no sabe cuándo se

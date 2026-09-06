@@ -2666,3 +2666,23 @@ sobre lo que el código hace caduca cuando el código cambia, aunque el número 
 siga siendo el mismo*—, y es la segunda vez que le pasa **a esta misma fila**. Nada de esto
 cambia el plan: la tanda es bloqueante entera, así que un colegio a medio migrar no llega a
 notar la diferencia entre un 500 y tres.
+
+---
+
+## La descarga del programa de escritorio NO es una ruta de esta API, y conviene que siga sin serlo
+
+**Escrito el 6 sep 2026 porque nos lo avisaron, no porque lo pidiéramos.** `myvc-front-eb` y
+`myvc-front-05` avisaron, por separado, de que la pantalla `/horario/programa` de `app2` —la que
+descarga el programa con el que se cuadra el horario— **no le pide nada a esta API a propósito**:
+sale de una carpeta estática de Apache. Está escrito en su lado en
+`DESCARGA-PROGRAMA-HORARIOS.md` y en `visibilidad.ts`.
+
+**Y la razón por la que no debe pasar a ser una ruta nuestra es buena, y es suya:** una ruta con
+`Autoriza::` delante **deja de poder descargarse desde una máquina sin sesión**, que es justo donde
+se instala un programa de escritorio. Alguien que va a instalarlo todavía no ha entrado a nada.
+
+*Queda aquí para que a nadie de este repositorio se le ocurra «servirlo bien» por una ruta
+autenticada sin hablarlo antes con el front. Es de la misma familia que la escalera de permisos de
+este módulo —«listar no es descargar», «mirar no es llevarse»—: la pregunta no es si se puede
+proteger, es a quién deja fuera protegerlo.*
+
