@@ -453,10 +453,26 @@ y la retirada es `POST tardanzas/login/traer-datos`, que no tiene ninguna otra.
 >   **cerrado.**
 > - **La 4 nombra las siete** y ninguna la toca la tanda: `df_notas_finales` (en 4 bases, muerta),
 >   las cinco `piars_*` (en 5, y `piars_actas_acuerdo` en 7: el módulo PIAR de `myvc_front_2`) y
->   `uniformes` (en 16: **la que no la tiene es `amiguitosdejesus`**, y su panel de inicio la
+>   `uniformes` (en 16 **el 5 sep por la tarde; esa misma noche pasó a los diecisiete, ver abajo**:
+>   la que no la tenía era `amiguitosdejesus`, y su panel de inicio la
 >   consulta sin condición — contesta 500 allí hoy, para alumnos y profesores con grupo). El censo
 >   entero, con las catorce tablas que no lee nadie, está en
 >   [05 §246](migracion/05-codigo-muerto-y-roto.md). **Nada de esto cambia el día 10.**
+
+> #### Y `uniformes` ya está creada — 5 sep 2026, 22:4x, en producción
+>
+> **La creó Joseth desde phpMyAdmin** con [`tools/crear-uniformes-donde-falta.sql`](../tools/crear-uniformes-donde-falta.sql),
+> y las comprobaciones del script contestaron sobre la base de verdad
+> (`micolev1_amiguitosdejesus`, motor `10.5.25-MariaDB-cll-lve`): antes, la tabla no estaba y los
+> tres destinos eran InnoDB con su `id` en `INT UNSIGNED`; después, **22 columnas, 3 claves ajenas,
+> 0 filas, InnoDB**. Ese colegio pasa de 87 a 88 tablas y **`uniformes` está en los diecisiete**.
+>
+> *De paso, el paso 1 convirtió en medición lo que hasta entonces era aritmética: que el colegio de
+> 87 fuera el que no tenía `uniformes` se había deducido de 94 − 7 = 87, y ahora lo dijo la base.*
+>
+> **Esto no toca la tanda del día 10 y no cambia una línea de código**: quita 500 que ya estaban
+> ocurriendo. **Lo que queda debiendo es la migración con `Schema::hasTable('uniformes')`**, que va
+> después del día 10 y que en ese colegio será un no-op.
 
 > **Y desde el 5 sep 2026 son SIETE, no cinco: entraron las dos de la plantilla de notas.**
 > `2026_09_05_200000_alcance_de_la_plantilla` y

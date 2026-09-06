@@ -482,6 +482,13 @@
 >
 > ### 6. ~~`amiguitosdejesus` no tiene la tabla `uniformes`~~ **DECIDIDA por Joseth el 5 sep 2026: se crea a mano, y queda una migración pendiente**
 >
+> > **APLICADA el 5 sep 2026 a las 22:4x, y salió limpia.** Sobre `micolev1_amiguitosdejesus`,
+> > motor `10.5.25-MariaDB-cll-lve`: el paso 1 dio OK —la tabla no estaba, los tres destinos InnoDB
+> > y sus `id` en `INT UNSIGNED`— y el paso 3, **22 columnas, 3 claves ajenas, 0 filas, InnoDB**.
+> > Ese colegio pasa de 87 a 88 tablas. **Falta la comprobación que de verdad vale**, que no es de
+> > esquema: entrar a la aplicación de ese colegio con una cuenta de alumno y ver el panel de inicio
+> > donde antes había un 500.
+> >
 > > **Salida elegida: (c), crearla desde phpMyAdmin**, con el script
 > > [`tools/crear-uniformes-donde-falta.sql`](../../tools/crear-uniformes-donde-falta.sql). La (a)
 > > —una migración con `hasTable()`— era la ortodoxa y **la frena una fecha**: la tanda del día 10
