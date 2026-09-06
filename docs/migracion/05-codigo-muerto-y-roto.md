@@ -13427,10 +13427,20 @@ que el bug no exista.
 
 ### El detector se equivocó dos veces antes de contestar, y las dos hacia el daño
 
-1. **El modelo nulo era `N/60`.** Sobre `ausencias.fecha_hora` daba 758 esperadas contra 931
-   observadas: un **1,23×** que se lee como daño. `N/60` supone que los minutos son uniformes, y en
-   una columna que escribe una persona no lo son. Con la coincidencia bajo independencia y las
-   marginales reales —`SUM_v n(HOUR=v)·n(MINUTE=v) / N`— salen 953,7, o sea **0,98×: ruido**.
+1. **El modelo nulo era `N/60`, y venía escrito en el encargo.** *«Los falsos positivos son las
+   filas escritas legítimamente en el minuto `:HH` de su propia hora, o sea ~1 de cada 60»* —lo
+   dio la sesión que repartió esto (`8myvc-5a`), y **como tasa a priori es correcto**: si los
+   minutos fueran uniformes, sería exactamente eso. Falla **como modelo nulo** en una columna
+   donde no lo son. Sobre `ausencias.fecha_hora` —la que escribe una persona— daba 758 esperadas
+   contra 931 observadas: un **1,23×** que se lee como daño. Con la coincidencia bajo
+   independencia y las marginales reales —`SUM_v n(HOUR=v)·n(MINUTE=v) / N`— salen 953,7, o sea
+   **0,98×: ruido**.
+
+   **Y el alcance de esta corrección es más pequeño de lo que parece, que también hay que
+   decirlo**: en las columnas que escribe la máquina los dos modelos casi coinciden —831,5 contra
+   869 en `ausencias.created_at`, un 4 %—, así que el falso 1,23× **sólo salió en el control
+   humano**. No cambió ningún veredicto de las tres sospechosas. Lo que se llevó por delante fue
+   la confianza en el instrumento, que es lo caro.
 2. **El veredicto era la razón sola.** Con eso, el control sano `change_asked.created_at` salía
    **DAÑO** con 5 filas de 104 sobre 2,0 esperadas (2,51×). Ver 5 donde se esperan 2 pasa una de
    cada veinte veces. Ahora hace falta doblar lo esperado **y** que la cola de Poisson lo deje bajo
@@ -13440,11 +13450,18 @@ que el bug no exista.
 las cinco de la noche del 23 ago, que fallaron todas hacia la que da menos. Una comprobación
 sesgada no lo está siempre en la misma dirección; lo que se repite es que **está sesgada**.
 
-Y una tercera, que no era del cálculo sino del alcance: el filtro de `ausencias` era
-`uploaded = 'created'`, que es lo que pone el `INSERT` roto — pero la otra rama del mismo bucle
-hace `$aus->uploaded = 'deleted'` sobre filas que ya existían, así que **una fila escrita por el
-camino roto y borrada después desde el lector ya no se llama `created`**. En `simonbolivar` el
-filtro estrecho veía 2 de 7 filas, el **29 %**.
+Y una tercera, que no era del cálculo sino del alcance, y **también venía del encargo dada por
+buena**: la población eran *«las de `uploaded = 'created'`»*, que es lo que pone el `INSERT` roto
+— pero la otra rama del mismo bucle hace `$aus->uploaded = 'deleted'` sobre filas que ya existían,
+así que **una fila escrita por el camino roto y borrada después desde el lector ya no se llama
+`created`**. En `simonbolivar` el filtro estrecho veía 2 de 7 filas, el **29 %**.
+
+> **Las tres nacieron en el encargo y las tres las cazó el control de la herramienta**, no una
+> relectura del encargo. Queda escrito con nombre porque en este repositorio *dos fuentes que
+> discrepan son un hallazgo* y **un encargo es una fuente**: llega con su hipótesis ya formada
+> —aquí buena, la firma existía— y con sus supuestos pegados detrás, que es la parte que nadie
+> vuelve a mirar. *El encargo también envejece, y además puede nacer con letra pequeña
+> equivocada.*
 
 ### El piso de detección, que es el límite de este número
 
@@ -13492,6 +13509,44 @@ con datos antes de tocar dieciséis colegios.
 | **1** | **Correr la herramienta en los diecisiete** y decidir con eso | una visita al servidor, sólo lectura, `--csv` y `cat`. **Cero riesgo y ninguna migración** | nada — es lo que convierte la decisión en decidible |
 | **2** | **Nota y se cierra**: queda escrito que las filas anteriores al despliegue pueden llevar `hora:hora:minutos` | ya está escrita, aquí y en los comentarios de los dos controladores | si algún colegio sí tiene daño, nadie lo va a corregir nunca |
 | **3** | **Script de una vez, fuera de la tanda**, que reescriba las filas con la firma | hay que escribirlo y probarlo; **y no puede recuperar los segundos** —se perdieron al escribir— así que dejaría `21:07:00` donde hubo `21:07:33` | **borra la evidencia**: una fila corregida ya no se distingue, y con la tasa de falsos positivos de ~1/60 tocaría filas sanas |
+
+### Y lo que hay que saber ANTES de decir que sí a la 1, porque toca producción
+
+Tres cosas que no estaban en el encargo y que salieron al ponerle precio a la vuelta al servidor:
+
+1. **La herramienta necesita Laravel en pie** (`DB::`, `config()`), así que **tiene que estar
+   dentro de un árbol de colegio para correr**. Y `tools/` no es de lo compartido: `vendor/` va
+   por symlink, pero el resto es copia por colegio. O sea que correrla es **copiar un fichero a
+   producción**, aunque sea uno que no toca `app/`, no corre migraciones y no lo referencia
+   ninguna ruta.
+2. **El despliegue está congelado** hasta que la app salga de revisión (10 sep, y el criterio es
+   la revisión, no la fecha). *Si copiar un fichero de sólo lectura a `tools/` cae dentro o fuera
+   de ese congelado **lo decide Joseth**, no esta nota* — lo que aporta la nota es que el fichero
+   no puede afectar a la revisión de la Play Store porque ninguna app lo alcanza.
+3. **Cuál de las dos formas de correrlo sirve depende de una credencial que no se puede
+   comprobar desde aquí.** `fase-cero-de-los-dieciseis.php` hace los diecisiete **desde una sola
+   carpeta** pasándole la lista de bases, y eso **supone que el usuario de MySQL de un colegio
+   alcanza las bases de los otros** — en un cPanel lo normal es que no. Las dos formas:
+
+   ```bash
+   # (a) Una copia, una visita — sólo si esa credencial alcanza las diecisiete bases.
+   php tools/hora-escrita-dos-veces.php --csv $(cat /ruta/colegios.txt) > hora.csv
+
+   # (b) Sin suponer nada: cada colegio con SU .env, que es el `for` que ya usa DESPLIEGUE.md.
+   #     Cuesta tener el fichero en las diecisiete carpetas, no en una.
+   for d in /home/micolev1/*.micolevirtual.com/8myvc; do
+       ( cd "$d" && php tools/hora-escrita-dos-veces.php --csv \
+           "$(grep '^DB_DATABASE=' .env | cut -d= -f2-)" )
+   done > hora.csv
+   ```
+
+   **La (b) es la que no puede salir mal**; la (a) es la barata, y **si la credencial no alcanza,
+   el fallo no es silencioso**: el colegio sale `NO MEDIDO` con su motivo y el código de salida es
+   `2`. Eso está puesto a propósito — un colegio que no abre no es un colegio con ceros.
+
+4. **El resultado se anota con el hash exacto contra el que corrió y la hora**, nunca con *«sobre
+   `main`»*: con trece worktrees vivos eso no identifica ningún árbol. La medición de esta sección
+   lleva el suyo —`0e01894`, 5 sep 22:4x −05— por la misma razón.
 
 **La 1 primero, y probablemente cierra con la 2.** La 3 sólo tiene sentido si la 1 encuentra un
 colegio con daño de verdad, y aun así hay que mirarla dos veces: corrige un dato de auditoría
