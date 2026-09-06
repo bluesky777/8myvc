@@ -6975,8 +6975,20 @@ hasta que exista.
 Están en [09-pendientes.md](09-pendientes.md), agrupadas. Las que quedan sin
 contestar:
 
-- **La hora mal escrita** en filas ya guardadas — y ojo, **se midió y el dato no
-  distingue** una fila mal escrita de una normal.
+- **La hora mal escrita** en filas ya guardadas — **MEDIDA el 5 sep 2026, y esta
+  entrada era la que tenía parada la decisión** ([05 §247](05-codigo-muerto-y-roto.md)).
+  Decía *«se midió y el dato no distingue una fila mal escrita de una normal»*, y
+  eso es cierto **de una fila suelta** y falso del conjunto: en `hora:hora:minutos`
+  los minutos se quedan con el valor de la hora, así que una fila del bug cumple
+  **`HOUR = MINUTE`** siempre, y una sana ~1 de cada 60. Se comprobó también para
+  las horas de una cifra —`G` da `"9"` y `H` da `"09"`— contra **MySQL 8.0.42 y
+  MariaDB 10.5.29**, que es la serie de producción: las dos guardan la cadena sin
+  warning y la firma se mantiene. En `simonbolivar`: **0 de 85** en
+  `change_asked.deleted_at` y **0 de 7** en las ausencias del lector, con los
+  cuatro controles en ruido. **Lo que falta no es una decisión, es una vuelta**:
+  correr `tools/hora-escrita-dos-veces.php` en los diecisiete —sólo lectura, sin
+  migración, una visita— y cerrar con eso. Las tres opciones con su precio están
+  en la §247, y ninguna toca la tanda del día 10.
 - **Los interruptores `para_*`** — hay que contestarlos con los tres delante.
 - **Quién del personal puede qué** — cinco lotes preguntan variantes.
 - **Los quince números de la fase 0** de definitivas: la herramienta está, hay

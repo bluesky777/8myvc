@@ -13346,3 +13346,141 @@ aritmética: 94 − 7 = 87 y sólo siete tablas faltan en alguna base.
   congelada en siete—, y crearla a mano es lo que este repositorio prohíbe. **Decisión de Joseth,
   con esto delante**, y en `ESTADO-ACTUAL.md` como la 6.
 
+
+---
+
+## §247. La hora escrita dos veces: hay firma, y en la copia de desarrollo no la cumple ni una fila (5 sep 2026)
+
+La **decisión C** del [09](09-pendientes.md) llevaba parada desde el 23 ago sobre una frase del
+`ESTADO-ACTUAL`: *«se midió y el dato no distingue una fila mal escrita de una normal»*. Esa frase
+es **cierta de una fila suelta y falsa del conjunto**, y por eso la decisión estaba mal planteada:
+no era «migración o nota» sino «cuántas filas», que es una pregunta que sí tiene respuesta.
+
+El código está arreglado en los dos sitios que escribían desde la noche del 23 ago
+([§121](noche-2026-08-23/k.md) y [§123](noche-2026-08-23/l.md)); lo que sigue es sobre **lo ya
+escrito**, que no lo arregla ningún commit.
+
+### La firma, que nadie había buscado
+
+`'Y-m-d G:H:i'` es `hora:hora:minutos`. En el resultado el campo de los **minutos** se queda con el
+valor de la **hora**, y el de los segundos con el minuto real:
+
+    HOUR(col) = MINUTE(col)          <- la cumple SIEMPRE una fila del bug
+                                        y ~1 de cada 60 filas sanas
+
+**Y la mitad que había que medir y no suponer son las horas de una cifra.** A las 09:07:33 `G` da
+`"9"` y `H` da `"09"`, así que la cadena que sale es `2026-09-05 9:09:07` y **no** `09:09:07`. Que
+un motor acepte esa cadena no es evidente, y si la hubiera rechazado —con `'strict' => false`, en
+silencio— el daño de las horas 0–9 tendría otra forma, nula o fecha cero, y un detector que busca
+la firma **contaría de menos justo en el tramo de la mañana**, que es cuando funciona un colegio.
+Medido, seis horas de prueba por motor:
+
+| motor | dónde | `2026-09-05 9:09:07` | warnings | firma |
+|---|---|---|---|---|
+| MySQL 8.0.42 | el docker | guarda `09:09:07` | ninguno | se cumple en las 24 horas |
+| MariaDB 10.5.29 | la serie de producción, que corre **10.5.25** | guarda `09:09:07` | ninguno | se cumple en las 24 horas |
+
+Es la comprobación que pide `CLAUDE.md` —*«un `JSON_TABLE`, un `LATERAL` o un `->>` pasan la suite
+entera y revientan en los dieciséis»*— aplicada a algo que no es una función sino **el parseo de
+una cadena**, que es donde nadie mira.
+
+### Lo medido
+
+Contra `simonbolivar`, la copia de desarrollo, el **5 sep 2026 a las 22:4x −05**, con la
+herramienta en `tools/hora-escrita-dos-veces.php` sobre el árbol de `0e01894`:
+
+| columna | papel | población | con firma | esperadas | razón | piso | veredicto |
+|---|---|---|---|---|---|---|---|
+| `change_asked.deleted_at` | **la escribía el bug** | 85 | **0** | 3,6 | 0 | 12 (14 %) | ruido |
+| `ausencias.created_at` (`uploaded IS NOT NULL`) | **la escribía el bug** | 7 | **0** | 0,0 | 0 | 3 (43 %) | ruido |
+| `ausencias.updated_at` (`uploaded IS NOT NULL`) | **la escribía el bug** | 7 | **0** | 0,0 | 0 | 3 (43 %) | ruido |
+| `change_asked.created_at` | control | 104 | 5 | 2,0 | 2,51 | 9 (9 %) | ruido |
+| `change_asked.accepted_at` | control | 13 | 0 | 0,1 | 0 | 4 (31 %) | ruido |
+| `ausencias.created_at` (`uploaded IS NULL`) | control | 52.157 | 800 | 831,5 | 0,92 | 1.739 (3 %) | ruido |
+| `ausencias.fecha_hora` | control — lo escribe una persona | 45.480 | 931 | 953,7 | 0,98 | 1.908 (4 %) | ruido |
+
+**Cero en las tres sospechosas, y el desglose por año no esconde nada**: las 85 filas de
+`deleted_at` van de 2018-02-22 a 2025-03-27 y **ningún año tiene una sola**, incluidas las 31
+posteriores a julio de 2021 —el formato malo está en el **primer commit del repositorio**
+(`04645fd`, 14 jul 2021), o sea que es más viejo que el repositorio y no hay una época «de antes
+del bug» que explique el cero.
+
+Y hay una explicación de mecanismo, que es lo que convierte un cero en una respuesta:
+`change_asked.deleted_at` **la escriben dos sitios**, y sólo uno estaba roto —`putRechazar()`
+(:934) liga el objeto `Carbon` directamente y sale bien; `finalizar_si_no_hay_cambios()` (:1020)
+era el del formato—. El cero dice que **en este colegio el segundo no llegó a escribir nunca**, no
+que el bug no exista.
+
+### El detector se equivocó dos veces antes de contestar, y las dos hacia el daño
+
+1. **El modelo nulo era `N/60`.** Sobre `ausencias.fecha_hora` daba 758 esperadas contra 931
+   observadas: un **1,23×** que se lee como daño. `N/60` supone que los minutos son uniformes, y en
+   una columna que escribe una persona no lo son. Con la coincidencia bajo independencia y las
+   marginales reales —`SUM_v n(HOUR=v)·n(MINUTE=v) / N`— salen 953,7, o sea **0,98×: ruido**.
+2. **El veredicto era la razón sola.** Con eso, el control sano `change_asked.created_at` salía
+   **DAÑO** con 5 filas de 104 sobre 2,0 esperadas (2,51×). Ver 5 donde se esperan 2 pasa una de
+   cada veinte veces. Ahora hace falta doblar lo esperado **y** que la cola de Poisson lo deje bajo
+   1 entre 1.000.
+
+*Las dos fallaron **hacia el daño**, o sea hacia la respuesta que da más trabajo* — al revés que
+las cinco de la noche del 23 ago, que fallaron todas hacia la que da menos. Una comprobación
+sesgada no lo está siempre en la misma dirección; lo que se repite es que **está sesgada**.
+
+Y una tercera, que no era del cálculo sino del alcance: el filtro de `ausencias` era
+`uploaded = 'created'`, que es lo que pone el `INSERT` roto — pero la otra rama del mismo bucle
+hace `$aus->uploaded = 'deleted'` sobre filas que ya existían, así que **una fila escrita por el
+camino roto y borrada después desde el lector ya no se llama `created`**. En `simonbolivar` el
+filtro estrecho veía 2 de 7 filas, el **29 %**.
+
+### El piso de detección, que es el límite de este número
+
+`0 de 85` no quiere decir «ninguna». Quiere decir «ninguna **de las que se podrían ver**», y en esa
+columna el mínimo visible son **12 filas, el 14 %**. En las de `ausencias`, con población 7, el
+piso son 3 filas: el **43 %**. Ese porcentaje va en la salida de la herramienta al lado del número,
+porque un `12` suelto se lee como «hay 12».
+
+### Lo que NO contesta, y hay que decirlo entero
+
+- **Es un colegio de diecisiete**, y además la copia de desarrollo. El daño de verdad sólo se
+  cuenta en los diecisiete, y para eso está la herramienta: es de **sólo lectura**, abre en
+  transacción y sale en CSV, así que son los diecisiete en una visita al servidor.
+- **La población de `ausencias` es 7, no cero** — el seed no trae ninguna (`§123` lo dice y es
+  cierto: `simonbolivar_testing` tiene 1.069 faltas y las 1.069 con `uploaded` a `NULL`), pero la
+  base de desarrollo sí. Siete filas no dicen nada de un colegio que use el lector de tardanzas
+  todos los días. **Población 0 y colegio limpio no son lo mismo**, y por eso la herramienta
+  imprime `POBLACION 0` y no `LIMPIO`.
+- **No distingue fila a fila.** Contesta por columna y por colegio.
+
+### Y una de `tools/` que salió de paso
+
+Los guiones de `tools/` declaran **funciones globales**, cada uno corre solo y por eso en ejecución
+no chocan — pero **larastan analiza la carpeta entera**. Una función `medir()` a secas en el
+fichero nuevo hizo que las 18 líneas que usan su resultado salieran `Cannot access offset on int`:
+la declaración que ganaba era la `medir()` de `independientes-sin-estructura.php`, que devuelve un
+`int`. Por eso las otras seis se llaman `controlDeLaDeriva`, `controlDeSalud`,
+`controlDelPreVuelo`… La convención ya estaba; **lo que faltaba era el porqué escrito en alguna
+parte**, y ahora está en la cabecera del fichero nuevo.
+
+*Y el rojo llegó a leerse como verde una vez*: la primera pasada de larastan corrió en segundo
+plano con `| tail -40`, que se comió la cabecera con el nombre del fichero **y devolvió 0 con 18
+errores dentro**. Es exactamente lo que avisa la memoria de este repositorio sobre las tuberías; el
+delator fue que el fichero analizado a solas salía limpio y el proyecto entero no —**dos fuentes
+que discrepan son un hallazgo**.
+
+### Lo que queda para Joseth, con el precio delante
+
+**Ninguna de las tres opciones es una migración de la tanda del día 10**, que está congelada en
+siete y ya ensayada sobre esas siete: una octava obliga a repetir el ensayo entero sobre una copia
+con datos antes de tocar dieciséis colegios.
+
+| | qué | qué cuesta | qué deja sin resolver |
+|---|---|---|---|
+| **1** | **Correr la herramienta en los diecisiete** y decidir con eso | una visita al servidor, sólo lectura, `--csv` y `cat`. **Cero riesgo y ninguna migración** | nada — es lo que convierte la decisión en decidible |
+| **2** | **Nota y se cierra**: queda escrito que las filas anteriores al despliegue pueden llevar `hora:hora:minutos` | ya está escrita, aquí y en los comentarios de los dos controladores | si algún colegio sí tiene daño, nadie lo va a corregir nunca |
+| **3** | **Script de una vez, fuera de la tanda**, que reescriba las filas con la firma | hay que escribirlo y probarlo; **y no puede recuperar los segundos** —se perdieron al escribir— así que dejaría `21:07:00` donde hubo `21:07:33` | **borra la evidencia**: una fila corregida ya no se distingue, y con la tasa de falsos positivos de ~1/60 tocaría filas sanas |
+
+**La 1 primero, y probablemente cierra con la 2.** La 3 sólo tiene sentido si la 1 encuentra un
+colegio con daño de verdad, y aun así hay que mirarla dos veces: corrige un dato de auditoría
+—cuándo se cerró un pedido de cambio, cuándo subió una falta el lector— y **pisaría ~1 de cada 60
+filas sanas** para arreglar las malas. En una columna que nadie lee para calcular nada, eso puede
+ser peor que la nota.
