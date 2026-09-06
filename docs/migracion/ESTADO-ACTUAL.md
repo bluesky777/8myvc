@@ -130,7 +130,10 @@
 · `database/migrations/2026_09_06_100000_reparar_la_hora_escrita_dos_veces.php`,
 `2026_09_06_200000_crear_uniformes_donde_falte.php`,
 `tests/Feature/RepararLaHoraEscritaDosVecesTest.php` (**11 casos**) · rama
-`fix/reparar-la-hora-y-uniformes`, worktree `.worktrees/r` · pint PASS · larastan `[OK] No errors`
+`fix/reparar-la-hora-y-uniformes`, worktree `.worktrees/r` · pint PASS · larastan `[OK] No errors` ·
+**suite entera: `Tests: 2050 passed (18366 assertions)`, 0 fallos, 1131 s**, corrida contra `e279f0b`
+en `.worktrees/r` con `simonbolivar_testing_r` a 22/22 migraciones — *la cifra se lee de la línea
+`Tests:` y no del código de salida, que en una tubería miente*
 
 > **Encargo de Joseth: *«avanza a reparar en local, aún no desplegaré»*.** Están las dos
 > migraciones que quedaban a deber, probadas, **y NO se funden**: cada una sería la octava —o la
