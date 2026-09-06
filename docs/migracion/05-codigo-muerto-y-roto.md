@@ -13798,3 +13798,90 @@ un mensaje dirigido a quien lo incumplió**.
 a todas menos a las que escriben, y ésas se apartan a mano antes de escribir el bucle**. No después
 de leer el aviso: al escribir el bucle.*
 
+## §250. La hora mal escrita, medida en los DIECISIETE: daño en trece, y la copia local decía cero (6 sep 2026)
+
+**Joseth corrió `tools/hora-escrita-dos-veces.php` en el servidor**, con la forma (b) de la
+[§248](#§248) —una carpeta por colegio, cada uno con su `.env`—, y **midió 17 de 17 con CERO no
+medidos**. Eso contesta de paso la incógnita de la credencial: la forma que no supone nada
+funciona.
+
+| | |
+|---|---|
+| colegios medidos | **17** |
+| con daño | **13** |
+| limpios | **4** |
+| NO MEDIDOS | **0** |
+
+### El daño, por columna
+
+**`change_asked.deleted_at`** — `ChangeAskedController::finalizar_si_no_hay_cambios` ([§121](#§121)).
+Doce colegios, **708 filas de 1.145**:
+
+```
+lal            185 de 197      coab_saravena   120 de 131      cads_itagui   90 de 214
+arauca          85 de  88      simonbolivar_m   67 de  87      coal_bucara   45 de  45
+caz_zaragoza    40 de  59      quibdo           27 de  53      demo          16 de  23
+bethel          13 de  13      coljordan        11 de  15      fortul         9 de  10
+```
+
+**`ausencias.created_at` y `updated_at`** — `Tardanzas/TSubirController` ([§123](#§123)). Ocho
+colegios, **25.188 filas de 25.197** en `created_at` y **24.970** en `updated_at`:
+
+```
+lal          8.016 de 8.019     amiguitos    7.640 de 7.643     coab   4.949 de 4.949
+demo         3.032 de 3.035     arauca         743 de   743     fortul   331 de   331
+caz_zaragoza   285 de   285     bethel         192 de   192
+```
+
+**Seis columnas salen al 100 %**, o sea que ahí **todas** las filas de esa población las escribió
+el camino roto. Coherente: el filtro `uploaded IS NOT NULL` aísla justo las filas que subió el
+lector de tardanzas, y ese camino usaba siempre el formato malo.
+
+### Lo que NO está dañado, y es la mitad tranquilizadora
+
+**`ausencias.fecha_hora` no aparece en ningún colegio.** Es la hora del suceso —cuándo llegó tarde
+el alumno—, la escribe una persona y en los diecisiete sale en ruido. Las tres columnas dañadas son
+**marcas de auditoría**: cuándo se cerró un pedido de cambio y cuándo se subió una fila. El daño es
+al rastro de *quién hizo qué y cuándo*, **no a la hora de llegada de nadie ni a ninguna nota**.
+
+### El dato SE PUEDE RECUPERAR, y esto cambia la decisión C entera
+
+`'Y-m-d G:H:i'` deja el campo de los minutos con la HORA y el de los segundos con el MINUTO real,
+así que **la hora y el minuto siguen ahí**. Comprobado el 6 sep 2026 con cinco horas de prueba:
+
+```
+real        guardado     se lee        recuperable
+21:07:33 -> 21:21:07  -> 21:21:07  -> 21:07:00     hora y minuto OK
+07:15:33 ->  7:07:15  -> 07:07:15  -> 07:15:00     ídem, también con hora de una cifra
+23:45:12 -> 23:23:45  -> 23:23:45  -> 23:45:00
+```
+
+La reparación es `DATE(col) + TIME(HOUR(col), SECOND(col), 0)`. **Sólo se pierden los segundos**, y
+hasta hoy la §247 la daba por «no puede recuperar los segundos», que era cierto y se leía como «no
+se puede recuperar». **Se recupera el minuto, que es lo que estaba mal**: una fila subida a las
+07:15 hoy se lee 07:07.
+
+**Su precio, que no desaparece:** el filtro `HOUR = MINUTE` tiene falsos positivos, así que reparar
+**estropea las filas sanas escritas legítimamente en el minuto `:HH` de su hora**, ~1 de cada 60.
+Donde la columna sale al 100 % eso es despreciable; donde sale parcial —`cads_itagui` 90 de 214— se
+llevaría por delante unas 3 o 4 filas buenas.
+
+### Y el hallazgo de método, que es el más caro de todos: LA COPIA LOCAL DECÍA CERO
+
+La [§247](#§247) midió esto mismo en la base de desarrollo `simonbolivar` y salió **0 de 85** en
+`change_asked.deleted_at`, con su piso de detección en 12. Producción dice **67 de 87** para
+`micolev1_simonbolivar_medellin`. Medido hoy en la copia local: 85 filas, **cero** con la firma, los
+85 con segundos distintos de cero, rango 2018-02-22 a 2025-03-27.
+
+**No son los mismos datos**, y no lo explica que la copia sea vieja: 67 filas dañadas no aparecen en
+las 2 filas de diferencia. O la copia local no es de ese colegio, o algo la reescribió. **No se puede
+decidir cuál desde aquí** —esa base no tiene tabla con el nombre del colegio— y por eso se escribe
+como lo que es: **la copia de desarrollo NO es un sustituto fiel de ningún colegio para esta clase de
+pregunta.**
+
+> **Lo que hay que llevarse:** el instrumento estaba bien, el método era correcto, la conclusión se
+> escribió con su piso de detección al lado — y aun así **el número de la copia local no predecía el
+> de producción ni en el orden de magnitud**. Cero contra trece de diecisiete. *Un piso de detección
+> te dice qué no podías ver en la base que miraste; no te dice que estuvieras mirando la base que
+> importa.*
+
