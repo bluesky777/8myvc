@@ -126,6 +126,73 @@
 > *La fila se corrige y no se borra: explica por qué el árbol principal tenía algo colgando esa
 > mañana, que es información que no se repone corriendo nada.*
 
+> ## EL ESPACIO DE TRABAJO, LIMPIADO — 5 sep 2026, 22:1x, y queda en CINCO árboles
+>
+> **Encargo de Joseth: *«limpia el espacio de trabajo, todo a origin main»*.** Lo que había era el
+> sedimento de trece sesiones en paralelo: **catorce worktrees y veintitrés ramas**, y la mayoría
+> ya estaba dentro de `main` sin que nadie lo hubiera recogido.
+>
+> **Antes de tocar nada se comprobó quién estaba vivo**, porque un worktree es el censo de quién
+> puede pisarte: `ListAgents` daba **dos sesiones interactivas y las dos de otros repositorios**
+> (`myvc-horarios-5d`, `myvc-front-83`), cero procesos de `phpunit` o `artisan`, y **ningún fichero
+> tocado en los últimos sesenta minutos** dentro de `.worktrees/`. Con eso, ninguno de los árboles
+> retirados era de nadie.
+>
+> | | antes | después |
+> |---|---|---|
+> | worktrees | 14 | **5** |
+> | ramas locales | 23 | **6** (`main` + cinco sin fundir) |
+> | refs de seguimiento huérfanos | 1 (`local/main`) | **0** |
+>
+> **Se retiraron nueve worktrees y se borraron diecisiete ramas, todas fundidas en `main`** — cada
+> una comprobada con `git branch --merged main`, y `git worktree remove` **sin `--force`**, que se
+> niega si el árbol tiene algo sin commitear. Ninguno lo tenía. Y **el ref `refs/remotes/local/main`
+> era basura de verdad**: apuntaba a un commit **211 por detrás y con cero propios**, y el remoto
+> `local` ya no está configurado — un `git remote -v` sólo devuelve `origin`.
+>
+> ### Los cinco que se quedan, y ninguno es un resto
+>
+> ```
+> .worktrees/a    fix/columnas-en-los-modelos-no-borra    1 propio ·  87 atrás
+> .worktrees/b    docs/despliegue-remedido                3 propios · 83 atrás
+> .worktrees/d5b  docs/appkey-compartida-fortul-lal       5 propios · 89 atrás
+> .worktrees/f    fix/frases-asignatura-text              3 propios · 102 atrás   <- CONGELADA hasta el día 10
+> .worktrees/h    feat/calendario                         2 propios · 212 atrás   <- CONGELADA hasta el día 10
+> ```
+>
+> **Las dos congeladas siguen congeladas**: la instrucción de las 13:4x —*no fundir hasta que el
+> despliegue del día 10 esté hecho, porque cada una añade una octava migración a una tanda ensayada
+> sobre siete*— **no la deroga una limpieza**. Se han conservado con su árbol y su rama intactos, que
+> es justo lo contrario de limpiarlas.
+>
+> ### La que sí se fundió, y por qué ésa y no las otras
+>
+> **`docs/despliegue-remedido-2`**, que estaba en el censo de abajo como cola. **No traía un número
+> viejo: traía un criterio que `main` decía mal.** El aviso O afirmaba que *«DOS de `horario/` no
+> bastan con `auth.personal`»* y son **TRES** — se le pasaba `PUT horario/docentes/{profesor_id}/tono`,
+> **que ya estaba nombrada veinte líneas más abajo del mismo documento con ese mismo criterio**.
+> Verificado contra el código de hoy antes de fundir: `HorarioController` tiene **tres** llamadas a
+> `Autoriza::puedePublicarHorario` y ni una más (`getProyecto`, `putOficial`, `putTonoDocente`).
+> Docs sola, cero migraciones: **no toca la tanda de siete**.
+>
+> *Y de las seis del censo de abajo ya sólo quedan cinco por otra vía: `docs/barrido-profesor-serializado`
+> entró en `main` a las 14:04 y aquí se borró como fundida.*
+>
+> ### Lo que NO se pudo hacer, dicho porque si no se lee como hecho
+>
+> **Las bases de test siguen ahí: Docker se cayó con el reinicio de la máquina** y `mysql` no
+> contesta. Quedan **20 bases `simonbolivar*`**, y de ellas **doce sobran**: las de los nueve
+> árboles retirados (`_b1 _b2 _b3 _d5 _e _est _f0 _p`) y cuatro ya huérfanas de antes
+> (`_9c _ac _ff _g`), a ~11 MB cada una. Se borran con `DROP DATABASE` cuando Docker vuelva, y se
+> rehacen con `tools/construir-bd-test.sh`. **`simonbolivar_ensayo` (211 MB) también sobra** y tiene
+> su propio gesto: `tools/ensayo-de-la-tanda.sh --solo-limpiar`, porque el script **deja la copia en
+> pie a propósito** si no se le pide lo contrario. *No se tocan `simonbolivar` (la de desarrollo) ni
+> `simonbolivar_testing` (la de `main`), ni las cinco de los árboles que se quedan.*
+>
+> **Y nada de lo borrado es irrecuperable**: las diecisiete ramas están dentro de `main` y el reflog
+> sigue entero, así que cualquiera vuelve con `git branch <nombre> <hash>` — los hashes están en el
+> mensaje del commit de esta limpieza.
+
 > ## LAS SEIS RAMAS VIEJAS, ABIERTAS UNA A UNA — 5 sep 2026, 08:0x
 >
 > **Nadie las había mirado nunca, y el censo no lo puede contestar: hay que abrirlas.** Encargo

@@ -54,7 +54,7 @@ Por eso esto va **antes** del bloque de la tanda y no dentro: la tanda está lis
 **no se despliega**.
 
 **Qué se midió antes de escribir esto, para que la espera sea una decisión y no un miedo.** De
-los **315** commits (remedidos el 5 sep 2026; eran 191 cuando se escribió esto), lo único que un
+los **321** commits (remedidos el 5 sep 2026 por la noche; eran 191 cuando se escribió esto), lo único que un
 cliente puede **perder** siguen siendo dos cosas — todo lo demás es aditivo, comprobado sobre los
 snapshots del rango, no sobre los mensajes de los commits:
 
@@ -186,7 +186,7 @@ queda por decidir ya no es de la app.
 
 ---
 
-## ⛔ TANDA PENDIENTE — 315 commits desde `9474b50`. SIN LAS MIGRACIONES NO SE PUEDE NI ENTRAR
+## ⛔ TANDA PENDIENTE — 321 commits desde `9474b50`. SIN LAS MIGRACIONES NO SE PUEDE NI ENTRAR
 
 **El aviso que había aquí decía «los tres boletines contestan 500», y se quedaba corto por dos
 órdenes de magnitud.** Lo que cae con el código nuevo y la base sin migrar **no es una pantalla:
@@ -210,12 +210,12 @@ petición llega a su método.**
 sesión del front, no nosotros**. Reproducido aquí contra una base sin migrar: la consulta del
 contexto contesta `SQLSTATE[42S22] Unknown column 'y.regla_nivelacion' in 'field list'`.
 
-### Lo que es esta tanda, remedido entero el 5 sep 2026 a las 18:0x sobre `9474b50..d606839`
+### Lo que es esta tanda, remedido entero el 5 sep 2026 a las 22:1x sobre `9474b50..24967af`
 
 **El extremo va escrito con su hash y no como `HEAD`**, y no es una manía: aquí se trabaja con un
 árbol por sesión, así que `HEAD` es una cosa distinta en cada worktree y una tabla medida con
-`HEAD` no la puede reproducir nadie. **`d606839` es la punta de `main`**, y **`origin/main` es el mismo commit**: cero de divergencia,
-comprobado el 5 sep 2026. O sea que **esta tabla sí describe lo que trae un `git pull`**.
+`HEAD` no la puede reproducir nadie. **`24967af` es la punta de `main`**, y **`origin/main` es el mismo commit**: cero de divergencia,
+comprobado el 5 sep 2026 tras empujar. O sea que **esta tabla sí describe lo que trae un `git pull`**.
 
 > **Y esta tabla se volvió a medir ENTERA en vez de corregirle la fila que cambió, porque durante
 > una hora estuvo mezclando dos hashes.** A las 16:57 se cerró sobre `3970cea` con **307** commits
@@ -226,16 +226,33 @@ comprobado el 5 sep 2026. O sea que **esta tabla sí describe lo que trae un `gi
 
 | | | comprobado con |
 |---|---|---|
-| commits | **315** | `git rev-list --count 9474b50..origin/main` |
+| commits | **321** | `git rev-list --count 9474b50..origin/main` |
 | `app/` | **57** ficheros | `git diff --name-only 9474b50 main -- app/ \| wc -l` |
 | `routes/` | **8** ficheros — **las rutas SÍ se movieron: 543 → 578** (36 nuevas, **1 retirada**) | `git diff --name-only 9474b50 main -- routes/` · `route:list --json` |
 | `config/` · `composer.json`/`.lock` · `database/schema/` | **0** | `git diff --name-only 9474b50 main -- config/ composer.json composer.lock database/schema/` |
 | **migraciones** | **SIETE ficheros**, y **cuatro son bloqueantes** | `git diff --name-only 9474b50 main -- database/migrations/` |
 
+> **El commit que escribe esta tabla queda, por construcción, por encima de ella.** `321` se contó
+> contra `24967af`, que era la punta al medir; el commit que registra el recuento hace **322**, y el
+> siguiente, **323**. Eso no es un error que corregir: es la razón de que el extremo se escriba
+> **con su hash y nunca como `HEAD`**. Quien quiera comprobar esta fila corre
+> `git rev-list --count 9474b50..24967af` y le da **321** hoy y dentro de un mes; quien corra
+> `..origin/main` está midiendo **otro rango**, el suyo, que es el que hay que remedir el día que
+> se despliegue.
+
 **Las 36 y la retirada no se contaron a ojo**: salen de restar los dos
 `tests/Contrato/Snapshots/rutas.json` —el de `9474b50` y el de `main`, **543** y **578** claves—,
 que es el mismo dato que da `route:list --json` y además lo mueve un test. **543 + 36 − 1 = 578**,
 y la retirada es `POST tardanzas/login/traer-datos`, que no tiene ninguna otra.
+
+> **Y en el remedido de las 22:1x eso dejó de ser una comodidad y fue la única salida: Docker
+> estaba caído** (se lo llevó el reinicio de la máquina), así que **`route:list --json` no se podía
+> correr**. Restar los dos snapshots dio **543 → 578, 36 nuevas y una retirada**, idéntico a lo que
+> ya decía esta tabla y **reproducible sin levantar nada**. La otra mitad, la que impide heredar el
+> número: `git diff --name-only d606839 24967af` da **cuatro ficheros y los cuatro son documentos**
+> —cero de `routes/` y cero de `app/`—, o sea que **el router no ha podido moverse** desde que se
+> contó. *Un número no se hereda porque siga escrito; se hereda cuando se demuestra que su entrada
+> no ha cambiado.*
 
 > ### Antes de desplegar: que `origin/main` sea lo que mediste
 >
@@ -257,12 +274,13 @@ y la retirada es `POST tardanzas/login/traer-datos`, que no tiene ninguna otra.
 
 > ### Por qué esta sección se remide entera y no se le suma
 >
-> **En veinticuatro horas este rango tuvo OCHO cifras, y las ocho fueron ciertas el minuto en que
+> **En veinticuatro horas este rango tuvo NUEVE cifras, y las nueve fueron ciertas el minuto en que
 > se midieron:** el documento decía **191**; la rama `docs/despliegue-remedido` midió **232** el 4
 > sep; `8myvc-ae` contó **274** la tarde del 5 y al ir a escribirlo eran **279**; al cerrar la
 > plantilla **285**; al rescatar el `CLAUDE.md` huérfano **286**; y al cerrar con el Lote G
-> **307**; y **315** al entrar la sexta ruta del horario. **Ocho cifras.** Nadie se equivocó en
-> ninguna.
+> **307**; **315** al entrar la sexta ruta del horario; y **321** al fundir
+> `docs/despliegue-remedido-2` y limpiar el espacio de trabajo. **Nueve cifras.** Nadie se
+> equivocó en ninguna.
 >
 > *Y este párrafo se equivocó en la suya: decía «cuatro cifras» y llevaba siete en la lista, porque
 > cada remedido añadía una y nadie tocaba el recuento de arriba. **El párrafo que explica que los
