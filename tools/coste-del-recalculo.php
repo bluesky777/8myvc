@@ -56,6 +56,31 @@ $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 use App\Services\DefinitivasDeAsignatura;
 use Illuminate\Support\Facades\DB;
 
+// Sin esto, una base que no contesta sale **por stdout y con código 0**: Laravel
+// arranca su propio manejador de errores al hacer `bootstrap()`, pinta la
+// excepción bonita —en la salida estándar, no en la de error— y el guion termina
+// normal. Medido el 5 sep 2026 con `DB_DATABASE` apuntando a una base inexistente:
+// 30 líneas por stdout, 0 por stderr y `$?` = 0.
+//
+// Es la misma guardia que ya tienen `salud-de-las-definitivas.php` y
+// `fase-cero-de-los-dieciseis.php`, y aquí faltaba.
+// Importa aquí porque su cabecera documenta `-e DB_DATABASE=otrocolegio`, que es
+// exactamente el camino por el que la base puede no contestar.
+//
+// Sale **2** y no 1 porque no es un hallazgo ni un fallo de la herramienta: es que
+// **no se pudo mirar**. Va por `set_exception_handler` y no envolviendo el cuerpo
+// en un `try` por lo mismo que en la hermana: reindentar el cuerpo entero haría
+// ilegible el diff de un cambio que sólo toca el código de salida.
+set_exception_handler(static function (Throwable $e): void {
+    fwrite(STDERR, "\n!! NO MEDIDO — la base no contestó\n\n   ".$e->getMessage()."\n\n"
+        ."   Esto NO es «este colegio está limpio»: es que no se ha mirado ni una fila.\n"
+        ."   Si esto sale dentro del bucle de los diecisiete, ese colegio queda SIN\n"
+        ."   MEDIR y su número no está en el recuento — comprueba a qué base apunta\n"
+        ."   `DB_DATABASE` y que ese usuario alcance esa base.\n");
+    exit(2);
+});
+
+
 $opciones = getopt('', ['cuantas::', 'help']);
 
 if (isset($opciones['help'])) {

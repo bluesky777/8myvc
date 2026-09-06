@@ -13553,3 +13553,105 @@ colegio con daño de verdad, y aun así hay que mirarla dos veces: corrige un da
 —cuándo se cerró un pedido de cambio, cuándo subió una falta el lector— y **pisaría ~1 de cada 60
 filas sanas** para arreglar las malas. En una columna que nadie lee para calcular nada, eso puede
 ser peor que la nota.
+
+---
+
+## §248. Diez herramientas pueden apuntar a la base de otro colegio; tres se callaban al fallar, y dos de esas tres eran las que invitan al barrido (5 sep 2026)
+
+Sale de la tercera corrección de la [§247](#§247): `fase-cero-de-los-dieciseis.php` supone que una
+credencial alcanza las bases de los diecisiete y no lo decía. `8myvc-5a` lo escribió en su cabecera
+y preguntó lo siguiente, que es la pregunta buena: **¿cuántas herramientas más llevan esa
+suposición dentro?** Es lectura pura sobre el repositorio — no hace falta servidor ni permiso.
+
+### La población, y las dos formas
+
+**47 ficheros en `tools/`.** Diecisiete nombran algo de base de datos; leídos uno a uno, **diez**
+pueden acabar apuntando a la base de un colegio que no es la de su propio `.env`, en dos formas:
+
+| forma | cómo cambia de base | cuáles |
+|---|---|---|
+| **A — dentro del proceso, y puede recorrer varias en una corrida** | `config(['database.connections.mysql.database' => …])` + `purge` + `reconnect`, en bucle sobre la lista | `fase-cero-de-los-dieciseis.php` · `hora-escrita-dos-veces.php` |
+| **B — la cambia el operador antes de arrancar, una por corrida** | `DB_DATABASE=otrocolegio php tools/…` | `comprobar-el-horario` · `coste-del-recalculo` · `deriva-del-horario` · `historial-que-cuenta-de-menos` · `prevuelo-del-horario` · `salud-de-la-bitacora` · `salud-de-las-definitivas` · `independientes-sin-estructura` |
+
+**Las dos llevan la misma suposición**: `DB_DATABASE` cambia el nombre de la base y **no** el
+usuario ni la clave. Que la B parezca más inocente es sólo que la escribe el operador.
+
+Fuera quedan siete que el `grep` traía y no son: `construir-bd-test.sh`, `worktree-de-sesion.sh` y
+`ensayo-de-la-tanda.sh` trabajan sobre bases de test locales; `crear-uniformes-donde-falta.sql` y
+`generar-seed-test.php` leen el `information_schema` de la base en la que ya están; y
+`indices-que-faltan.php` va contra `mysql_testing`, **no contra un colegio**.
+
+### Pero la pregunta que importaba no era «cuántas», sino «qué pasa cuando falla»
+
+Y ésa **no se contesta leyendo**: se contesta corriéndolas con `DB_DATABASE` apuntando a una base
+que no existe, que es lo mismo que ve el proceso cuando la credencial no alcanza. Las diez, medidas
+así el 5 sep 2026:
+
+| | al no alcanzar la base | cuántas |
+|---|---|---|
+| **ruidosas** | código **2**, el aviso por **stderr**, y las de forma A además escriben su fila `NO MEDIDO` en el CSV | **7** |
+| **calladas** | código **0**, el error por **stdout** | **3** — `salud-de-la-bitacora` · `historial-que-cuenta-de-menos` · `coste-del-recalculo` |
+
+**El mecanismo del cero es de Laravel, no de las herramientas**: `$app->…->bootstrap()` instala su
+propio manejador de errores, así que una excepción no capturada en un guion de `tools/` **se pinta
+bonita por la salida estándar y el proceso termina normal**. O sea que en esta carpeta *«no
+petó»* y *«el `$?` fue 0»* no son lo mismo, y nadie lo había escrito.
+
+### Y el reparto es lo que muerde: dos de las tres calladas son las que imprimen un `for`
+
+Sólo tres ficheros de `tools/` documentan un bucle sobre colegios —`fase-cero-de-los-dieciseis`,
+`historial-que-cuenta-de-menos` y `salud-de-la-bitacora`— y **dos de los tres estaban entre los que
+se callaban**. La suposición y el silencio no cayeron en sitios independientes: cayeron encima.
+
+La peor era `salud-de-la-bitacora`, porque su cabecera documentaba exactamente esto:
+
+```bash
+DB_DATABASE=$c php tools/salud-de-la-bitacora.php --csv | tail -1     # <- la que estaba escrita
+```
+
+Con el error por stdout, **`tail -1` se lleva la última línea del render, que está vacía**. Medido
+con tres colegios de los que uno no se alcanzaba: **tres líneas, dos con datos, código 0**. Una
+línea en blanco en mitad del CSV y el bucle diciendo que todo fue bien.
+
+> **Esto acota una frase que quedó escrita en la cabecera de `fase-cero` el mismo día**, y hay que
+> leerla con su alcance: *«el coste de equivocarse aquí es un viaje al servidor perdido, no una
+> tabla que mienta»*. **Es cierta de `fase-cero`** —comprobado: sale con código 2 y escribe su fila
+> `NO MEDIDO` en el CSV— y **era falsa del barrido de la bitácora**, que sí podía devolver una
+> tabla incompleta sin decirlo. La diferencia no es la suposición, que es la misma: es qué hace
+> cada una al chocar con ella.
+
+### Lo arreglado, con lo que ya había dentro del repositorio
+
+Las tres calladas llevan ahora la misma guardia que ya tenían `salud-de-las-definitivas.php` y
+`fase-cero` —`set_exception_handler` → aviso por stderr y **código 2**—, con su porqué al lado. No
+es un invento: es el idioma de la casa aplicado donde faltaba, y `salud-de-la-bitacora` es
+literalmente **la hermana** de la que sí lo tenía. Medido después: las tres salen **2** con 15–17
+líneas por stderr, y contra la base buena siguen dando lo mismo que antes.
+
+Y el bucle de la cabecera de `salud-de-la-bitacora` se cambió por uno que **dice en el propio CSV
+cuál no se midió**:
+
+```bash
+fila=$(DB_DATABASE=$c php tools/salud-de-la-bitacora.php --csv 2>/dev/null) \
+    && echo "$fila" | tail -1 \
+    || echo "$c,NO MEDIDO"
+```
+
+*La sustitución de comando conserva el código del `php`; la tubería no* — con `| tail -1` el `$?`
+es el de `tail` y siempre es 0. Probado: tres pedidos, tres líneas, y la mala lo dice.
+
+### El detector se equivocó otra vez, y en la dirección de siempre
+
+`indices-que-faltan.php` salió marcado como *«no dice contra qué base midió»*, que habría sido el
+fallo más grave de la lista —un número atribuido al colegio equivocado—. **Es falso**: imprime
+`Base: {$base}` en su línea 74. Lo que pasó es que **yo lo corrí sin sus argumentos**, salió por
+*«Falta el fichero de consultas»* y nunca llegó a esa línea. El detector medía *«¿aparece el nombre
+de la base en la salida?»* sobre una salida que era un mensaje de uso.
+
+*Con eso, las diez nombran la base que midieron*, que es la comprobación que de verdad protege del
+número mal atribuido — y ninguna la fallaba.
+
+### Lo que sigue sin contestarse desde aquí
+
+**Si la credencial alcanza o no.** Eso sigue necesitando entrar al servidor, y no ha cambiado. Lo
+que ha cambiado es que ahora, cuando no alcance, **las diez lo dicen**.

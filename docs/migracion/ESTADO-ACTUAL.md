@@ -7010,6 +7010,20 @@ contestar:
   > falsos**: si no alcanza, lo nota al abrir y sale con código 2 diciendo cuántos
   > colegios quedaron NO MEDIDOS. La forma que no supone nada —una vez por carpeta,
   > con el `.env` de cada colegio— está escrita en la cabecera del propio fichero.
+  >
+  > **Y el barrido que salió de ahí, del mismo día ([05 §248](05-codigo-muerto-y-roto.md)):
+  > la suposición la llevan DIEZ herramientas de `tools/`, no una.** Lo que se midió
+  > no fue cuántas —eso se lee— sino **qué hace cada una al chocar**, corriéndolas
+  > con `DB_DATABASE` apuntando a una base que no existe: **siete lo dicen** (código
+  > 2 y aviso por stderr) y **tres se callaban** —`salud-de-la-bitacora`,
+  > `historial-que-cuenta-de-menos` y `coste-del-recalculo`—, porque el `bootstrap()`
+  > de Laravel pinta la excepción **por stdout** y el proceso **sale con 0**. *En
+  > `tools/`, «no petó» y «el `$?` fue 0» no son lo mismo.* **Ya están las tres
+  > arregladas** con la guardia que ya tenían sus hermanas. Y la frase de arriba
+  > —«no es riesgo de números falsos»— **es cierta de `fase-cero`, comprobada, y era
+  > falsa del barrido de la bitácora**: su `for` documentado llevaba `| tail -1`, que
+  > se tragaba el error y metía **una línea en blanco** en el CSV con código 0. Ese
+  > bucle también está corregido.
 - **Las tres primeras de la auditoría** se contestaron el 24 ago y están cerradas
   en el [18](18-auditoria.md). Quedaron abiertas **tres** después (eran cuatro hasta que se comprobó que la (a) ya
   estaba contestada):

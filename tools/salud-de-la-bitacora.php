@@ -38,8 +38,21 @@
  * **con los dieciséis delante**, igual que la fase 0 del [10](../docs/migracion/10-definitivas.md).
  *
  *     for c in colegio1 colegio2 ...; do
- *         DB_DATABASE=$c php tools/salud-de-la-bitacora.php --csv | tail -1
+ *         fila=$(DB_DATABASE=$c php tools/salud-de-la-bitacora.php --csv 2>/dev/null) \
+ *             && echo "$fila" | tail -1 \
+ *             || echo "$c,NO MEDIDO"
  *     done
+ *
+ * **El `|| echo "$c,NO MEDIDO"` no es adorno.** La forma corta —`... --csv | tail -1`
+ * a secas, que es la que estuvo escrita aquí— **perdía la fila del colegio que
+ * falla sin decirlo**: con la tubería, `$?` es el de `tail` y siempre es 0. Y hasta
+ * el 5 sep 2026 era peor, porque este guion no tenía la guardia de abajo: el error
+ * salía **por stdout** y `tail -1` se llevaba la última línea del render, que está
+ * **vacía**. Medido con tres colegios de los que uno no se alcanzaba: tres líneas,
+ * dos con datos, código 0. Con la forma de arriba salen las tres y la mala lo dice.
+ *
+ * *La sustitución de comando conserva el código del `php`; la tubería no. Por eso
+ * `fila=$(...)` y el `tail` después, y no `... | tail -1` de una vez.*
  *
  * **No escribe nada.** Solo SELECT, por la misma razón que su hermana: la
  * corrección de datos, si la hay, va en una migración con su rastro, no en una
@@ -87,6 +100,35 @@ $app = require_once __DIR__.'/../bootstrap/app.php';
 $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
 use Illuminate\Support\Facades\DB;
+
+// Sin esto, una base que no contesta sale **por stdout y con código 0**: Laravel
+// arranca su propio manejador de errores al hacer `bootstrap()`, pinta la
+// excepción bonita —en la salida estándar, no en la de error— y el guion termina
+// normal. Medido el 5 sep 2026 con `DB_DATABASE` apuntando a una base inexistente:
+// 30 líneas por stdout, 0 por stderr y `$?` = 0.
+//
+// Es la misma guardia que ya tienen `salud-de-las-definitivas.php` y
+// `fase-cero-de-los-dieciseis.php`, y aquí faltaba.
+// **Y aquí importaba más que en ninguna otra**, porque esta cabecera documenta
+// `DB_DATABASE=$c php ... --csv | tail -1` dentro de un `for`: con el error por
+// stdout y código 0, `tail -1` se llevaba **la última línea del render, que está
+// vacía**. O sea una línea en blanco en el CSV y el bucle diciendo que todo fue
+// bien. Medido con tres colegios de los que uno no se alcanzaba: 3 líneas, 2 con
+// datos, código 0.
+//
+// Sale **2** y no 1 porque no es un hallazgo ni un fallo de la herramienta: es que
+// **no se pudo mirar**. Va por `set_exception_handler` y no envolviendo el cuerpo
+// en un `try` por lo mismo que en la hermana: reindentar el cuerpo entero haría
+// ilegible el diff de un cambio que sólo toca el código de salida.
+set_exception_handler(static function (Throwable $e): void {
+    fwrite(STDERR, "\n!! NO MEDIDO — la base no contestó\n\n   ".$e->getMessage()."\n\n"
+        ."   Esto NO es «este colegio está limpio»: es que no se ha mirado ni una fila.\n"
+        ."   Si esto sale dentro del bucle de los diecisiete, ese colegio queda SIN\n"
+        ."   MEDIR y su número no está en el recuento — comprueba a qué base apunta\n"
+        ."   `DB_DATABASE` y que ese usuario alcance esa base.\n");
+    exit(2);
+});
+
 
 $opciones = getopt('', ['detalle', 'csv', 'help']);
 
