@@ -28,7 +28,44 @@
 require __DIR__ . '/../vendor/autoload.php';
 
 $app = require __DIR__ . '/../bootstrap/app.php';
-$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+// El `try` alrededor del ARRANQUE, y no sólo el manejador de abajo: los ficheros de
+// `routes/` se cargan **dentro** de `bootstrap()`, así que un fallo ahí ocurre antes
+// de que la línea de abajo llegue a ejecutarse — y adelantarla tampoco vale, porque
+// Laravel instala el suyo durante el arranque y pisa el nuestro. Un `try/catch` sí lo
+// coge, porque una excepción capturada nunca llega a ser «no capturada». Medido el
+// 5 sep 2026 con un fichero de rutas roto: sin esto sale 0, con esto sale 2.
+try {
+    $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+} catch (Throwable $e) {
+    fwrite(STDERR, "\n!! NO MEDIDO — el seed NO se generó (falló el arranque)\n\n   "
+        .$e->getMessage()."\n\n   No se llegó a mirar nada. Revisa `routes/` y `config/`.\n");
+    exit(2);
+}
+
+// Sin esto, un fallo aquí sale **por stdout y con código 0**: `bootstrap()` instala
+// el manejador de errores de Laravel, que pinta la excepción bonita en la salida
+// estándar y deja terminar el proceso normal. Medido el 5 sep 2026 (05 §248).
+//
+// **Importa aquí porque este guion ESCRIBE el seed.** Con código 0, quien lo llame
+// —o quien lo mire por encima— se lleva que el seed se regeneró. En el fallo que se
+// midió el fichero quedó intacto de milagro: la excepción cayó en la línea 343, antes
+// del `fopen()` de la 436. Una que caiga después deja un seed a medias.
+//
+// Sale **2** porque no es un hallazgo ni un fallo de la herramienta: es que **no se
+// pudo mirar**. Es la guardia de `salud-de-las-definitivas.php` y `fase-cero`.
+//
+// **Lo que NO coge, y hay que saberlo**: un error de SINTAXIS en un fichero que se
+// cargue después es un fatal de PHP, y ésos los recoge el `register_shutdown_function`
+// de Laravel, no un `set_exception_handler`. Medido: con un `.php` roto a propósito
+// esto sigue saliendo 0. Coge los `Throwable` —que es de lo que se hablaba— y no los
+// fatales de compilación.
+set_exception_handler(static function (Throwable $e): void {
+    fwrite(STDERR, "\n!! NO MEDIDO — el seed NO se generó\n\n   ".$e->getMessage()."\n\n"
+        ."   El fichero de salida puede haber quedado a medias o no existir.\n"
+        ."   NO uses la base de tests hasta volver a generarlo.\n");
+    exit(2);
+});
+
 
 use Illuminate\Support\Facades\DB;
 

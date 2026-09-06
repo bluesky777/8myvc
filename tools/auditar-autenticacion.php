@@ -25,7 +25,42 @@
 require __DIR__ . '/../vendor/autoload.php';
 
 $app = require __DIR__ . '/../bootstrap/app.php';
-$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+// El `try` alrededor del ARRANQUE, y no sólo el manejador de abajo: los ficheros de
+// `routes/` se cargan **dentro** de `bootstrap()`, así que un fallo ahí ocurre antes
+// de que la línea de abajo llegue a ejecutarse — y adelantarla tampoco vale, porque
+// Laravel instala el suyo durante el arranque y pisa el nuestro. Un `try/catch` sí lo
+// coge, porque una excepción capturada nunca llega a ser «no capturada». Medido el
+// 5 sep 2026 con un fichero de rutas roto: sin esto sale 0, con esto sale 2.
+try {
+    $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+} catch (Throwable $e) {
+    fwrite(STDERR, "\n!! NO MEDIDO — la auditoría NO se completó (falló el arranque)\n\n   "
+        .$e->getMessage()."\n\n   No se llegó a mirar nada. Revisa `routes/` y `config/`.\n");
+    exit(2);
+}
+
+// Sin esto, un fallo aquí sale **por stdout y con código 0**: `bootstrap()` instala
+// el manejador de errores de Laravel, que pinta la excepción bonita en la salida
+// estándar y deja terminar el proceso normal. Medido el 5 sep 2026 (05 §248).
+//
+// Importa aquí porque lo que cuenta es **qué guard cubre cada ruta**, y una lista que
+// sale corta tiene exactamente la misma forma que un agujero nuevo. Es el mismo
+// criterio del censo de familias: se acepta explicando por qué, nunca en silencio.
+//
+// Sale **2** porque no es un hallazgo ni un fallo de la herramienta: es que **no se
+// pudo mirar**. Es la guardia de `salud-de-las-definitivas.php` y `fase-cero`.
+//
+// **Lo que NO coge, y hay que saberlo**: un error de SINTAXIS en un fichero que se
+// cargue después es un fatal de PHP, y ésos los recoge el `register_shutdown_function`
+// de Laravel, no un `set_exception_handler`. Medido: con un `.php` roto a propósito
+// esto sigue saliendo 0. Coge los `Throwable` —que es de lo que se hablaba— y no los
+// fatales de compilación.
+set_exception_handler(static function (Throwable $e): void {
+    fwrite(STDERR, "\n!! NO MEDIDO — la auditoría NO se completó\n\n   ".$e->getMessage()."\n\n"
+        ."   Esto NO es «no hay rutas sin guard»: es que no se recorrió la tabla entera.\n");
+    exit(2);
+});
+
 
 use Illuminate\Support\Facades\Route;
 use PhpParser\Node;

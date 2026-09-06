@@ -7024,6 +7024,22 @@ contestar:
   > falsa del barrido de la bitácora**: su `for` documentado llevaba `| tail -1`, que
   > se tragaba el error y metía **una línea en blanco** en el CSV con código 0. Ese
   > bucle también está corregido.
+  >
+  > **Y la segunda vuelta, del mismo día: el código 0 no lo produce la base, lo
+  > produce `bootstrap()`**, así que alcanza a **cualquier** guion de `tools/` que
+  > arranque el framework. De las siete que quedaban sin medir, **seis se
+  > callaban**; llevan guardia **cuatro** —`generar-seed-test` y `route-emit`
+  > porque **escriben** (el seed y `routes/api/`), `auditar-autenticacion` porque
+  > una lista de guards corta tiene la forma de un agujero, e `indices-que-faltan`
+  > porque su cero se lee como «no falta ningún índice»— y **se dejan dos**
+  > —`route-table-dump` y `route-match-check`—, cuya salida **es** el fichero que
+  > un humano compara: si fallan, el `diff` sale entero. *La guardia se pone por
+  > la consecuencia, no por la línea que falta.*
+  >
+  > **Dos avisos para quien vaya a correr algo de `tools/`:** `route-emit` escribe
+  > los ficheros de rutas —una corrida **sana** modifica **13 de 18**, así que no
+  > es un no-op—, y la guardia **no coge un error de sintaxis**, que es un fatal
+  > de compilación y no un `Throwable`. Las dos cosas están medidas en la §248.
 - **Las tres primeras de la auditoría** se contestaron el 24 ago y están cerradas
   en el [18](18-auditoria.md). Quedaron abiertas **tres** después (eran cuatro hasta que se comprobó que la (a) ya
   estaba contestada):
