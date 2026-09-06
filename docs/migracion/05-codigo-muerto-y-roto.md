@@ -13725,3 +13725,68 @@ vez porque le pasé un `.jsonl` que estaba en **el host y no dentro del contened
 arregló no fue mirar el código: fue **exigirle un control positivo** —correrla contra la base buena
 y ver que llega a imprimir `Base: simonbolivar_testing`— antes de creerse ningún fallo. *Un fallo
 sin control positivo al lado no distingue «falló» de «ni empezó».*
+
+## §249. `route-emit` no es peligrosa cuando falla: lo es cuando funciona (5 sep 2026)
+
+**Y quien lo midió fue quien ya estaba avisado, corriéndola en el árbol principal cinco minutos
+después de leer el aviso.** Va con nombre porque la lección no es sobre la herramienta.
+
+### Lo que pasó
+
+`8myvc-4d` acababa de escribir, en la [§248](#§248), que *«una corrida SANA de `route-emit`
+modifica 13 de los 18 ficheros de rutas y crea un `otros.php` que no está en el repo»*, y me lo
+había dicho además en un mensaje. Yo estaba verificando su lote y metí las cuatro herramientas en
+un bucle de control positivo —«¿siguen midiendo contra el árbol sano?»— **sin apartar la que
+escribe**. En `main`.
+
+| lo que dejó una corrida sin errores y con código 0 | |
+|---|---|
+| ficheros de `routes/api/` modificados | **13 de 17** |
+| ficheros nuevos que no están en el repositorio | `routes/api/otros.php` |
+| ficheros borrados | `database/dumps/test-seed.sql` |
+| rutas en el router | **568**, donde había **578** |
+
+**Diez rutas perdidas sin un solo error.** Nada se commiteó ni se subió: el árbol estaba limpio
+antes, así que todo lo que había después era mío y se restauró con `git restore`. El router volvió
+a 578, comprobado.
+
+### Por qué pasa, que es lo que la hace peligrosa
+
+**Su premisa caducó y el fichero no se enteró.** Su cabecera dice que lee la tabla de rutas *«con
+AdvancedRoute todavía activo»* y emite el PHP equivalente: es un guion **de la migración**, de una
+sola vez. Ese sistema ya no está. Correrlo hoy no reproduce `routes/`, lo **regenera desde el
+router de hoy** —que es el que salió de aquí— y el resultado no coincide.
+
+O sea que **hace exactamente lo que dice, y lo que dice ya no es lo que hace falta**. Ésa es otra
+especie que la de la §248: allí el peligro era el camino de error, y la guardia que se le puso
+—`try` alrededor del arranque— **está bien y no protege de esto**, porque aquí no hay error del que
+protegerse.
+
+> **La familia entera, dicha para poder reconocerla:** un aviso protege del fallo, un `set -e`
+> protege del fallo, un código de salida protege del fallo. **Ninguno de los tres protege de una
+> herramienta que triunfa haciendo algo que ya no queríamos.** Lo único que protege ahí es que el
+> guion **no pueda** hacerlo por costumbre.
+
+### El arreglo, y dónde va la guardia
+
+`route-emit` **no escribe nada si no se le pasa `--escribir`**. La guardia está puesta **justo
+antes de tocar el disco y no al principio**, a propósito: así arranca, lee el router y agrupa por
+dominio igual que siempre, y quien la corra sin la bandera **comprueba que funciona sin que le
+toque el árbol**. Sale con código 1 y con las cuatro cifras de arriba por `stderr`, para que el
+siguiente no tenga que buscar este documento.
+
+Probado por los dos lados: sin bandera, código 1 y **cero ficheros tocados, router en 578**; con
+bandera y el arranque roto a propósito, código 2 y el árbol intacto, o sea que la guardia de la
+§248 sigue viva debajo de la nueva.
+
+### La lección, que no es «ten cuidado»
+
+**Este repositorio ya tenía escrita la frase que describe esto** —*«un aviso que ya está escrito no
+protege solo; sólo protege el día que alguien hace lo que dice»*, y llevaba tres casos en dos
+días—. Éste es el cuarto, y el único en el que el aviso se había escrito **hacía cinco minutos, en
+un mensaje dirigido a quien lo incumplió**.
+
+*De ahí sale la regla operativa, que es más barata que acordarse: **un control positivo se le pasa
+a todas menos a las que escriben, y ésas se apartan a mano antes de escribir el bucle**. No después
+de leer el aviso: al escribir el bucle.*
+

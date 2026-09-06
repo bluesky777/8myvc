@@ -9,10 +9,36 @@
  * emitido sea, por construcción, lo que hay hoy.
  *
  * Uso:
- *   php tools/route-emit.php
+ *   php tools/route-emit.php --escribir
  *
  * Escribe routes/api/*.php agrupando por dominio. No toca routes/api.php: eso se
  * hace a mano después de revisar lo generado.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ⚠️ SU PREMISA YA NO ES CIERTA, Y POR ESO PIDE `--escribir` DESDE EL 5 sep 2026
+ *
+ * Este guion es de la MIGRACIÓN: leía la tabla de rutas «con AdvancedRoute todavía
+ * activo» y emitía el PHP equivalente. **Ese sistema ya no está.** Correrlo hoy no
+ * reproduce `routes/`: lo REGENERA desde el router de hoy, que es el que salió de
+ * aquí, y el resultado NO es el mismo fichero.
+ *
+ * **Medido el 5 sep 2026 en el árbol principal, por accidente y por quien ya estaba
+ * avisado:** una corrida sana, sin argumentos y sin ningún error,
+ *
+ *   · modificó **13 de los 17** ficheros de `routes/api/`
+ *   · creó `routes/api/otros.php`, que **no está en el repositorio**
+ *   · borró `database/dumps/test-seed.sql`
+ *   · y dejó el router en **568 rutas donde había 578**: diez rutas perdidas
+ *
+ * Todo eso **sin fallar y saliendo con código 0**. El peligro de este fichero no
+ * está en su camino de error —ése ya lleva guardia, abajo— sino en su **camino
+ * sano**: hace exactamente lo que dice y lo que dice ya no es lo que hace falta.
+ *
+ * Por eso ahora **no escribe nada si no se le pasa `--escribir`**. La guardia no
+ * es contra un fallo: es contra correrlo por costumbre en un árbol que importa.
+ * Si algún día hay que regenerar de verdad, se le pasa la bandera **y se mira el
+ * `git diff` antes de nada**, que es lo que no se hizo aquel día.
+ * ─────────────────────────────────────────────────────────────────────────────
  */
 
 require __DIR__ . '/../vendor/autoload.php';
@@ -134,6 +160,21 @@ foreach (Illuminate\Support\Facades\Route::getRoutes()->getRoutes() as $ruta) {
 }
 
 $destino = __DIR__ . '/../routes/api';
+
+// La guardia va AQUÍ y no arriba a propósito: así todo lo de encima —arrancar,
+// leer el router, agrupar por dominio— se ejecuta igual, y quien lo corra sin la
+// bandera se entera de que funciona **sin que le toque el árbol**. Ver la cabecera:
+// esto no protege de un fallo, protege del camino sano.
+if (! in_array('--escribir', $argv, true)) {
+    fwrite(STDERR, "\n  route-emit NO ha escrito nada. Le falta `--escribir`.\n\n");
+    fwrite(STDERR, "  No es una molestia: este guion es de la migración y su premisa ya no\n");
+    fwrite(STDERR, "  es cierta. El 5 sep 2026, una corrida sana en el árbol principal dejó\n");
+    fwrite(STDERR, "  13 ficheros de rutas modificados, uno nuevo que no está en el repo, el\n");
+    fwrite(STDERR, "  volcado del seed borrado y el router en 568 donde había 578.\n\n");
+    fwrite(STDERR, "  Si de verdad quieres regenerar: `php tools/route-emit.php --escribir`,\n");
+    fwrite(STDERR, "  en un árbol desechable, y mira el `git diff` antes de nada.\n\n");
+    exit(1);
+}
 
 if (! is_dir($destino)) {
     mkdir($destino, 0755, true);
