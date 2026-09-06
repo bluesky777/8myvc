@@ -7000,6 +7000,16 @@ contestar:
 - **Quién del personal puede qué** — cinco lotes preguntan variantes.
 - **Los quince números de la fase 0** de definitivas: la herramienta está, hay
   que correrla en el servidor colegio por colegio (`for` de una línea en el 10).
+
+  > **Y antes de ir al servidor, léete esto, que se escribió el 5 sep 2026 y puede
+  > ahorrarte el viaje.** `fase-cero-de-los-dieciseis.php` **supone que UNA
+  > credencial alcanza las bases de TODOS los colegios** —cambia el nombre de la
+  > base y se queda con el usuario del `.env`—, y en un cPanel eso no es lo normal.
+  > **Nadie lo ha comprobado**, y no se puede desde aquí. Lo destapó `8myvc-4d`
+  > escribiendo una herramienta con la misma forma. **No es riesgo de números
+  > falsos**: si no alcanza, lo nota al abrir y sale con código 2 diciendo cuántos
+  > colegios quedaron NO MEDIDOS. La forma que no supone nada —una vez por carpeta,
+  > con el `.env` de cada colegio— está escrita en la cabecera del propio fichero.
 - **Las tres primeras de la auditoría** se contestaron el 24 ago y están cerradas
   en el [18](18-auditoria.md). Quedaron abiertas **tres** después (eran cuatro hasta que se comprobó que la (a) ya
   estaba contestada):

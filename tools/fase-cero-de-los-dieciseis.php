@@ -13,6 +13,38 @@
  *     php tools/fase-cero-de-los-dieciseis.php --csv $(cat /ruta/colegios.txt) > fase0.csv
  *
  * ─────────────────────────────────────────────────────────────────────────────
+ * LA SUPOSICIÓN QUE ESTE FICHERO LLEVA DENTRO Y NADIE HABÍA ESCRITO — 5 sep 2026
+ *
+ * **Pasarle varios colegios de golpe supone que UNA credencial alcanza las bases
+ * de TODOS.** `abrir()` cambia sólo el nombre de la base
+ * (`database.connections.mysql.database`) y se queda con el usuario y la clave del
+ * `.env` desde el que arranca. En un cPanel eso **no es lo normal**: cada base
+ * suele tener su usuario, con permiso sólo sobre ella.
+ *
+ * **No está comprobado**, y no se puede comprobar desde aquí: hay que entrar al
+ * servidor. Lo destapó `8myvc-4d` escribiendo `hora-escrita-dos-veces.php`, que
+ * tiene la misma forma y por eso documenta las dos maneras de correrlo.
+ *
+ * **Lo que NO es**: un riesgo de números falsos. Si la credencial no alcanza,
+ * `abrir()` lo nota en el acto —para eso está el `SELECT 1`—, ese colegio entra en
+ * `$fallados` y el guion **sale con código 2** diciendo cuántos NO MEDIDOS hay. El
+ * coste de equivocarse aquí es **un viaje al servidor perdido**, no una tabla que
+ * mienta.
+ *
+ * **La forma que no supone nada**, si resulta que no alcanza: correrlo UNA VEZ POR
+ * CARPETA, desde dentro de cada colegio, con su propio `.env` y pasándole **sólo
+ * su base**. Cuesta un bucle en vez de una llamada y no necesita ningún permiso
+ * que el colegio no tenga ya:
+ *
+ *     for d in /home/micolev1/*.micolevirtual.com/8myvc; do
+ *         b=$(grep -m1 '^DB_DATABASE=' "$d/.env" | cut -d= -f2-)
+ *         (cd "$d" && php tools/fase-cero-de-los-dieciseis.php --csv "$b")
+ *     done > fase0.csv
+ *
+ * *`cut -d= -f2-` y no `-f2`: con `-f2` una clave o un nombre con un `=` dentro se
+ * corta por la mitad y el fallo sale como «base inexistente».*
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
  * POR QUÉ EXISTE
  *
  * Había **cuatro** `for` de sólo lectura pendientes, repartidos en cuatro
