@@ -143,6 +143,8 @@
 > | worktrees | 14 | **5** |
 > | ramas locales | 23 | **6** (`main` + cinco sin fundir) |
 > | refs de seguimiento huérfanos | 1 (`local/main`) | **0** |
+> | bases `simonbolivar*` | 20 (~450 MB) | **7** (~264 MB) |
+> | ramas en `origin` | 2 | **1** (`main`) |
 >
 > **Se retiraron nueve worktrees y se borraron diecisiete ramas, todas fundidas en `main`** — cada
 > una comprobada con `git branch --merged main`, y `git worktree remove` **sin `--force`**, que se
@@ -178,16 +180,36 @@
 > *Y de las seis del censo de abajo ya sólo quedan cinco por otra vía: `docs/barrido-profesor-serializado`
 > entró en `main` a las 14:04 y aquí se borró como fundida.*
 >
-> ### Lo que NO se pudo hacer, dicho porque si no se lee como hecho
+> ### Las bases de test, también — de VEINTE a SIETE
 >
-> **Las bases de test siguen ahí: Docker se cayó con el reinicio de la máquina** y `mysql` no
-> contesta. Quedan **20 bases `simonbolivar*`**, y de ellas **doce sobran**: las de los nueve
-> árboles retirados (`_b1 _b2 _b3 _d5 _e _est _f0 _p`) y cuatro ya huérfanas de antes
-> (`_9c _ac _ff _g`), a ~11 MB cada una. Se borran con `DROP DATABASE` cuando Docker vuelva, y se
-> rehacen con `tools/construir-bd-test.sh`. **`simonbolivar_ensayo` (211 MB) también sobra** y tiene
-> su propio gesto: `tools/ensayo-de-la-tanda.sh --solo-limpiar`, porque el script **deja la copia en
-> pie a propósito** si no se le pide lo contrario. *No se tocan `simonbolivar` (la de desarrollo) ni
-> `simonbolivar_testing` (la de `main`), ni las cinco de los árboles que se quedan.*
+> **Esto estuvo escrito veinte minutos como «no se pudo hacer»**, porque Docker se lo había llevado
+> el reinicio de la máquina. Volvió, y **la frase se corrige en vez de quedarse**: una casilla que
+> dice «pendiente» sobre algo hecho manda a trabajar dos veces.
+>
+> Se borraron **doce bases**: las de los nueve árboles retirados (`_b1 _b2 _b3 _d5 _e _est _f0 _p`)
+> y cuatro que ya estaban huérfanas de antes (`_9c _ac _ff _g`), a ~11 MB cada una. Y
+> **`simonbolivar_ensayo`, 211 MB**, con el gesto que trae el propio script
+> —`tools/ensayo-de-la-tanda.sh --solo-limpiar`—, porque **deja la copia en pie a propósito** si no
+> se le pide lo contrario: no era un olvido de nadie. **En total ~343 MB.**
+>
+> **Las doce se nombraron una a una en un fichero de órdenes que se leyó antes de correrlo**, sin
+> comodines, y con la comprobación de que ninguna tocaba las siete que se quedan. Quedan
+> `simonbolivar` (desarrollo), `simonbolivar_testing` (la de `main`) y las cinco de los árboles
+> vivos. Todas se rehacen con `tools/construir-bd-test.sh`.
+>
+> > **Y una trampa del propio borrado, que este repositorio ya tiene escrita:** la tubería terminó
+> > en `grep -v 'Using a password'` y el `$?` que se imprimió fue **`1`** — el del `grep`, que no
+> > encontró nada que imprimir, **no el del `mysql`**. *El exit code de una tubería miente*, y lo
+> > que dice si el borrado salió fue **volver a listar las bases**, no el número de salida.
+>
+> `simonbolivar_testing_h` sigue **rota** (95 tablas de 102) y **se queda rota a propósito**: es la
+> del árbol de `feat/calendario`, que sigue vivo, y rehacerla es de quien lo retome.
+>
+> ### Y de paso, la medición que faltaba
+>
+> Con Docker en pie se contó el router: **`route:list --json` da 578 en el árbol principal sobre
+> `c0ebcbb`**, idéntico a lo que había dado restar los dos `rutas.json` con Docker caído. **Las dos
+> vías coinciden**, que es lo único que convierte una en control de la otra.
 >
 > **Y nada de lo borrado es irrecuperable**: las diecisiete ramas están dentro de `main` y el reflog
 > sigue entero, así que cualquiera vuelve con `git branch <nombre> <hash>` — los hashes están en el
