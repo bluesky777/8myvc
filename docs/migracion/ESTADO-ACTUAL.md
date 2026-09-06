@@ -126,6 +126,72 @@
 > *La fila se corrige y no se borra: explica por qué el árbol principal tenía algo colgando esa
 > mañana, que es información que no se repone corriendo nada.*
 
+**6 sep 2026 — LA REPARACIÓN DE LA HORA Y LA DEUDA DE `uniformes`, ESCRITAS Y **SIN FUNDIR**
+· `database/migrations/2026_09_06_100000_reparar_la_hora_escrita_dos_veces.php`,
+`2026_09_06_200000_crear_uniformes_donde_falte.php`,
+`tests/Feature/RepararLaHoraEscritaDosVecesTest.php` (**11 casos**) · rama
+`fix/reparar-la-hora-y-uniformes`, worktree `.worktrees/r` · pint PASS · larastan `[OK] No errors`
+
+> **Encargo de Joseth: *«avanza a reparar en local, aún no desplegaré»*.** Están las dos
+> migraciones que quedaban a deber, probadas, **y NO se funden**: cada una sería la octava —o la
+> novena— de una tanda congelada en SIETE y ya ensayada. `main` sigue en siete.
+>
+> ### La de la hora: lo que repara, y lo que renuncia a reparar
+>
+> Repara las tres columnas medidas en la [§250](05-codigo-muerto-y-roto.md) —`change_asked.deleted_at`
+> y `ausencias.created_at`/`updated_at` con `uploaded IS NOT NULL`— con
+> `TIMESTAMP(DATE(col), MAKETIME(HOUR(col), SECOND(col), 0))`, que **devuelve hora y minuto** y
+> pierde sólo los segundos.
+>
+> **Y excluye `SECOND(col) = 0` a propósito, que es lo que la hace segura de repetir.** Una fila ya
+> reparada queda con los segundos en cero; sin esa exclusión, una segunda pasada sobre una fila
+> como `21:21:21` la llevaría a **21:00:00**, esta vez sin arreglo. **El precio de la exclusión**:
+> las filas cuyo minuto real era `00` se quedan sin reparar, porque son indistinguibles de una ya
+> reparada. *Se prefiere no repararlas a arriesgarse a estropearlas.*
+>
+> ### Los once casos, y la mitad que importa es la que dice DÓNDE NO TOCA
+>
+> Ejecutan **las sentencias de la propia migración**, no una copia «equivalente» escrita en el test:
+> la migración las expone en `sentencias()` justo para eso. Fijan que no se toca `fecha_hora` —la
+> hora a la que llegó tarde el alumno—, ni las 52.157 ausencias del alta normal, ni las filas sanas,
+> ni un `deleted_at` nulo; y que **sí** entra `uploaded = 'deleted'`, que el filtro estrecho perdía.
+>
+> **Uno de los once fija EL PRECIO por escrito**: una fila sana escrita en el minuto de su hora
+> —21:21:35— **también se mueve**, a 21:35:00. Es el falso positivo de ~1 de cada 60 que Joseth
+> aceptó. Está en verde a propósito: si algún día se decide no pagarlo, ese test se pone rojo y
+> obliga a leer la cabecera.
+>
+> ### Vistos en ROJO, que es lo único que hace valer los verdes
+>
+> ```
+> quitando `uploaded IS NOT NULL`   -> 1 rojo: repara ausencias que no subió el lector
+> quitando `SECOND(col) <> 0`       -> 2 rojos: la segunda pasada vuelve a mover la fila
+> ```
+>
+> *Y el primer intento de romper la segunda guardia **no llegó a aplicarse** y el test siguió verde:
+> se leyó como «la guardia no hace falta» durante un minuto. Lo delató contar las apariciones que
+> quedaban en el fichero. **Un rojo que no aparece hay que comprobar que se intentó de verdad.***
+>
+> ### La de `uniformes`: paga la deuda del 5 sep, y en los diecisiete es un no-op
+>
+> `Schema::hasTable()` delante. Su valor es **el colegio dieciocho** —uno nuevo se crea copiando la
+> base de otro— y el día que una copia venga incompleta. Comprobado que **crea la tabla idéntica**:
+> se copió la base de test, se le quitó `uniformes`, se migró, y `information_schema` da **22
+> columnas, 4 renglones de índice y 3 claves ajenas iguales uno a uno** — incluida la collation
+> `utf8mb4_general_ci` de `descripcion`, que no es la de la tabla y en los dieciséis es así.
+>
+> **Ninguna de las dos borra nada en `down()`**, y las dos lo dicen en su cabecera. La de la hora
+> porque la vuelta atrás es aritméticamente posible pero **no se sabe qué filas se tocaron**: una
+> fila sana de las 14:30:00 tiene la forma de una reparada, y desandar a ciegas la convertiría en
+> 14:14:30. La de `uniformes` porque un `dropIfExists` se llevaría las faltas de dieciséis colegios
+> que siempre tuvieron la tabla. **El camino de vuelta es la copia de seguridad, no el `down()`.**
+>
+> ### LO QUE FALTA, y no es código
+>
+> **La decisión de Joseth sobre si se reparan las filas**, que sigue abierta: reparar cuesta ese ~1
+> de cada 60 —despreciable donde la columna salió al 100 %, unas 3 o 4 filas en `cads_itagui`, que
+> salió 90 de 214—. Escribir la migración no la toma; la deja lista.
+
 > ## EL ESPACIO DE TRABAJO, LIMPIADO — 5 sep 2026, 22:1x, y queda en CINCO árboles
 >
 > **Encargo de Joseth: *«limpia el espacio de trabajo, todo a origin main»*.** Lo que había era el
