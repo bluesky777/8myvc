@@ -18,7 +18,43 @@
 require __DIR__ . '/../vendor/autoload.php';
 
 $app = require __DIR__ . '/../bootstrap/app.php';
-$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+// El `try` alrededor del ARRANQUE, y no sólo el manejador de abajo: los ficheros de
+// `routes/` se cargan **dentro** de `bootstrap()`, así que un fallo ahí ocurre antes
+// de que la línea de abajo llegue a ejecutarse — y adelantarla tampoco vale, porque
+// Laravel instala el suyo durante el arranque y pisa el nuestro. Un `try/catch` sí lo
+// coge, porque una excepción capturada nunca llega a ser «no capturada». Medido el
+// 5 sep 2026 con un fichero de rutas roto: sin esto sale 0, con esto sale 2.
+try {
+    $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+} catch (Throwable $e) {
+    fwrite(STDERR, "\n!! NO MEDIDO — las rutas NO se regeneraron enteras (falló el arranque)\n\n   "
+        .$e->getMessage()."\n\n   No se llegó a mirar nada. Revisa `routes/` y `config/`.\n");
+    exit(2);
+}
+
+// Sin esto, un fallo aquí sale **por stdout y con código 0**: `bootstrap()` instala
+// el manejador de errores de Laravel, que pinta la excepción bonita en la salida
+// estándar y deja terminar el proceso normal. Medido el 5 sep 2026 (05 §248).
+//
+// **Importa aquí más que en ninguna otra de las cuatro, porque este guion ESCRIBE en
+// `routes/api/`.** Medido: con un fichero de rutas roto sale 0 y aun así deja ficheros
+// escritos. Una regeneración a medias de las rutas con `$?` = 0 es lo peor que puede
+// hacer una herramienta de esta carpeta.
+//
+// Sale **2** porque no es un hallazgo ni un fallo de la herramienta: es que **no se
+// pudo mirar**. Es la guardia de `salud-de-las-definitivas.php` y `fase-cero`.
+//
+// **Lo que NO coge, y hay que saberlo**: un error de SINTAXIS en un fichero que se
+// cargue después es un fatal de PHP, y ésos los recoge el `register_shutdown_function`
+// de Laravel, no un `set_exception_handler`. Medido: con un `.php` roto a propósito
+// esto sigue saliendo 0. Coge los `Throwable` —que es de lo que se hablaba— y no los
+// fatales de compilación.
+set_exception_handler(static function (Throwable $e): void {
+    fwrite(STDERR, "\n!! NO MEDIDO — las rutas NO se regeneraron enteras\n\n   ".$e->getMessage()."\n\n"
+        ."   `routes/api/` puede haber quedado a medio escribir: compruébalo con `git status`\n   ANTES de commitear nada.\n");
+    exit(2);
+});
+
 
 /*
  * Reparto por dominio, siguiendo las carpetas que ya existen en

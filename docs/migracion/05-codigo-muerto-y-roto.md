@@ -13655,3 +13655,73 @@ número mal atribuido — y ninguna la fallaba.
 
 **Si la credencial alcanza o no.** Eso sigue necesitando entrar al servidor, y no ha cambiado. Lo
 que ha cambiado es que ahora, cuando no alcance, **las diez lo dicen**.
+
+### Segunda vuelta: el mecanismo no era de la base, era de Laravel — y llega a toda la carpeta
+
+Lo levantó `8myvc-5a` leyendo lo de arriba: **el código 0 no lo produce la base, lo produce
+`bootstrap()`**, así que alcanza a cualquier guion de `tools/` que arranque el framework, toque
+base o no. Población: **23 ficheros `.php`, 16 arrancan Laravel, 7 llevan `set_exception_handler`**.
+
+Y trajo el aviso con el número, que es lo que lo hace utilizable: ***«no tiene
+`set_exception_handler`» ordena candidatos, no es un veredicto.*** En esa lista de «sin manejador»
+salen `fase-cero` y `hora-escrita-dos-veces`, **y las dos dan código 2** porque se defienden con
+`try/catch` explícito. O sea que el grep se equivoca en dos de nueve — la [§142](noche-2026-08-23/r.md)
+otra vez: *el detector cuenta bien un síntoma y no está contando la causa*. **Quedaban siete sin
+medir, y se miden corriéndolas.**
+
+#### Lo que hizo falta para medirlas sin romper nada
+
+**Dos de las siete escriben**, y por eso no se corrieron aquí: `route-emit.php` escribe
+**`routes/api/*.php`** —los ficheros de rutas vivos— y `generar-seed-test.php` escribe el seed de
+tests. Se midieron en un **worktree desechable**, y menos mal: *una corrida sana de `route-emit`
+modifica **13 de los 18** ficheros de rutas y crea un `otros.php` que no está en el repositorio.*
+**Eso no se investigó y no es de esta sección** — pero queda escrito, porque quien lo corra
+esperando un no-op se va a encontrar trece ficheros cambiados.
+
+Y las cuatro que **no** tocan la base —`auditar-autenticacion` y las tres de `route-*`— **no se
+prueban con `DB_DATABASE`**: su superficie es un `routes/` o un `config/` que no carga. La
+provocación fue un fichero de rutas que llama a una función inexistente.
+
+> *De paso, un dato que no buscaba nadie: una ruta que apunta a **un controlador que no existe** no
+> rompe nada — Laravel resuelve la clase tarde, la ruta se registra y **sale en el volcado** (580
+> en vez de 579). Listar no es comprobar, tampoco aquí.*
+
+#### El resultado, y por qué no llevan guardia las siete
+
+**Seis de las siete se callaban**; `independientes-sin-estructura` ya salía con **2**. Pero la
+guardia no se pone por la línea que falta sino por la consecuencia, así que **se guardan cuatro y
+se dejan dos**, con el motivo escrito:
+
+| herramienta | qué pasa si falla en silencio | decisión |
+|---|---|---|
+| `generar-seed-test` | **escribe el seed**; con 0, quien lo llame se lleva que se regeneró. En el fallo medido el fichero quedó intacto **de milagro** —la excepción cayó en la línea 343, antes del `fopen()` de la 436— | **guardia** |
+| `route-emit` | **escribe `routes/api/`**; medido, dejaba ficheros escritos y salía 0. Una regeneración a medias de las rutas con `$?` = 0 es lo peor que puede hacer algo de esta carpeta | **guardia** |
+| `auditar-autenticacion` | su respuesta es **qué guard cubre cada ruta**, y una lista corta tiene la misma forma que un agujero nuevo | **guardia** |
+| `indices-que-faltan` | su respuesta es un número, y un cero callado se lee como «no falta ningún índice» | **guardia** |
+| `route-table-dump` · `route-match-check` | su salida **es** el artefacto que un humano compara (`> antes.txt` … `diff`). Si fallan, el fichero trae **19 líneas de traza en vez de 579 de tabla**, y el `diff` sale entero: **ya es ruidoso donde importa** | **se deja, medido** |
+
+#### Y la guardia no iba donde parecía
+
+Puesta detrás del arranque —como en las tres de la primera vuelta— **no disparaba en las de rutas**:
+seguían saliendo 0. El motivo es que **los ficheros de `routes/` se cargan DENTRO de
+`bootstrap()`**, así que el fallo ocurre antes de que esa línea llegue a ejecutarse. Y adelantarla
+tampoco vale: **Laravel instala su propio manejador durante el arranque y pisa el nuestro**.
+
+Lo que sí funciona es un **`try/catch` alrededor del `bootstrap()`**, porque *una excepción
+capturada nunca llega a ser «no capturada»* y el manejador de Laravel no la ve. Comprobado con un
+`php -r` de nueve líneas antes de tocar ningún fichero: sin el `try`, código 0; con él, código 2.
+Las cuatro llevan las dos cosas —el `try` para el arranque y el manejador para lo de después—.
+
+**El límite va declarado en las cuatro, porque existe**: un error de **sintaxis** en un fichero que
+se cargue luego es un **fatal de compilación**, no un `Throwable`, y lo recoge el
+`register_shutdown_function` de Laravel. Medido: con un `.php` roto a propósito **sigue saliendo 0**.
+Esta guardia coge los `Throwable`, que es de lo que iba todo esto, y no los fatales.
+
+#### Y el detector volvió a fallar dos veces, las dos en la misma puerta
+
+`indices-que-faltan` dio primero *«no dice contra qué base midió»* y después *«código 1»*, y las
+dos lecturas eran falsas por lo mismo: **salía por su guarda de uso sin tocar la base**. La segunda
+vez porque le pasé un `.jsonl` que estaba en **el host y no dentro del contenedor**. Lo que lo
+arregló no fue mirar el código: fue **exigirle un control positivo** —correrla contra la base buena
+y ver que llega a imprimir `Base: simonbolivar_testing`— antes de creerse ningún fallo. *Un fallo
+sin control positivo al lado no distingue «falló» de «ni empezó».*
