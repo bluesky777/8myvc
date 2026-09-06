@@ -13328,6 +13328,20 @@ piars_actas_acuerdo     en  7 de 17    VIVA
 uniformes               en 16 de 17    VIVA, y la que falta es amiguitosdejesus
 ```
 
+> **Y esa última fila duró un día: el 5 sep 2026 a las 22:4x `uniformes` pasó a estar en los
+> DIECISIETE.** Joseth la creó en `micolev1_amiguitosdejesus` desde phpMyAdmin con
+> `tools/crear-uniformes-donde-falta.sql`, y las comprobaciones del propio script contestaron
+> sobre la base de producción: antes `uniformes_ya_existe = 0` con los tres destinos InnoDB y sus
+> `id` en `INT UNSIGNED`; después **22 columnas, 3 claves ajenas, 0 filas, InnoDB**, o sea la misma
+> tabla que los otros dieciséis. Ese colegio pasa de **87 a 88** tablas.
+>
+> **El recuento de arriba NO se corrige, se fecha**: es lo que se midió el 5 sep por la tarde y es
+> lo que explica por qué se hizo lo que se hizo. Lo que caduca es la conclusión que colgaba de él
+> —*«su panel de inicio contesta 500»*—, y ésa sí deja de ser cierta.
+>
+> *Lo que esto NO cierra: la migración con `Schema::hasTable('uniformes')` sigue debiéndose, y va
+> después del día 10. Sin ella, el repositorio no describe el esquema de los diecisiete.*
+
 **El de 87 es `amiguitosdejesus` y no tiene ninguna de las siete** — no es una identificación, es
 aritmética: 94 − 7 = 87 y sólo siete tablas faltan en alguna base.
 
