@@ -528,6 +528,31 @@ y la retirada es `POST tardanzas/login/traer-datos`, que no tiene ninguna otra.
 > | **(a)** meter `feat/calendario` en la tanda | reensayar la tanda entera con la octava migración, sobre una copia con datos, antes de tocar dieciséis colegios |
 > | **(b)** subir `up2/` con el calendario tapado | esconder la entrada del menú y guardar la ruta hasta que exista su backend. **Es trabajo del front y es poco** |
 > | **(c)** no subir `up2/` el día 10 | **la más barata, y puede que se le haya pasado a todo el mundo**: lo que el día 10 necesita es la API y `up/` —el arreglo del tooltip viaja por ahí—. `up2/` no hace falta para nada de ese día |
+| ~~**(d)** apuntar la pantalla a `calendario/this-year`, que sí existe~~ | **DESCARTADA el 6 sep, medida antes de proponerla.** Ver abajo |
+
+> ##### Por qué la (d) no vale, porque es la que se le va a ocurrir al siguiente
+>
+> `calendario/this-year` existe hoy y devuelve eventos, así que apuntar ahí la pantalla nueva parece
+> gratis. Medido lado a lado, no lo es:
+>
+> ```
+> this-year   lista PELADA, 17 claves por evento
+> mes         {desde, hasta, eventos:[…]}, 14 claves por evento
+> ```
+>
+> 1. **El envoltorio no es el mismo.**
+> 2. **Seis claves que la pantalla lee no están en `this-year`** —`clave`, `origen`, `persona_id`,
+>    `descripcion`, `recordatorio_minutos`, `destinatarios`—, y **tres de ellas no pueden estar**:
+>    son las columnas y la tabla que crea la migración congelada.
+> 3. **Y la que de verdad la descarta: `this-year` filtra MENOS.** Hoy hace
+>    `SELECT *` para profesor o superusuario y `WHERE solo_profes = 0` para todos los demás, o sea
+>    que a un alumno o a un acudiente le manda **todo lo que no sea interno**. La rama filtra además
+>    por `calendario_destinatarios`, o sea sólo lo que le toca por público y por grupo. **Apuntar la
+>    pantalla nueva a `this-year` no le enseñaría menos: le enseñaría MÁS de lo que su diseño
+>    quiere.** Eso deja de ser un apaño de compatibilidad y pasa a ser cambiar quién ve qué.
+> 4. Y de paso, `this-year` devuelve el año entero y no un mes.
+>
+> *Con la (c) no hace falta ninguna de estas contorsiones y el coste es cero por los dos lados.*
 >
 > ##### Lo que NADIE sabe todavía: si ya está roto HOY
 >
