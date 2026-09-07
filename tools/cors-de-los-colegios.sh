@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 #
-# ¿Deja CORS entrar a la app de escritorio, colegio a colegio?
+# COMPRUEBA QUE NINGÚN COLEGIO SE HA SALIDO DE LA POLÍTICA DE CORS `*`, que es la
+# única forma en que la app de escritorio del horario dejaría de entrar en uno
+# concreto.
+#
+# NO HAY QUE CORRERLA de rutina: es diagnóstico, no tarea. La política es `*` y
+# está cerrada (Joseth, 6 y 7 sep 2026), así que lo esperado es que los diecisiete
+# salgan «en la política». Esto se corre **el día que alguien diga que el programa
+# de escritorio no entra en un colegio y en los demás sí** — entonces contesta en
+# un minuto si es esto o hay que buscar en otro sitio.
 #
 # USO
 #   tools/cors-de-los-colegios.sh --env [RAIZ]     # lee los .env  (en el SERVIDOR)

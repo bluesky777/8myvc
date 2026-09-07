@@ -218,7 +218,32 @@ Memcached, SQS, Dynamo, Papertrail, Mailgun, Postmark).
 
 ---
 
-## 5. `CORS_ALLOWED_ORIGINS` · PENDIENTE, y no se sabe en cuántos colegios se puso
+## 5. `CORS_ALLOWED_ORIGINS` · ~~PENDIENTE~~ **CERRADO: la política es `*` y no se toca**
+
+> **Joseth, 7 sep 2026: «siempre los colegios van a permitir CORS `*`, ya no vuelvas a
+> mencionarme el tema.»** Y el día antes, el porqué: *«necesita ser llamado desde múltiples
+> orígenes, diferentes.»*
+>
+> **Esta sección deja de ser un pendiente.** No porque se hiciera, sino porque **se decidió
+> que no había nada que hacer**: `*` no era una tarea a medias, es la forma que tiene que
+> tener. Con eso quedan contestadas las dos preguntas que colgaban aquí — **el barrido de
+> los dieciséis no se corre**, y la herramienta que lo haría **no entra en la tabla de
+> `tools/` de `CLAUDE.md`**.
+>
+> **Lo medido no se retira y sigue siendo cierto**, sólo cambia de estado: pasa de *«lo que
+> hay que averiguar antes de cerrar»* a **«el mapa de un escenario que se ha decidido que no
+> va a ocurrir»**. En concreto siguen en pie, y cuestan de volver a averiguar:
+>
+> - **Windows manda `http://tauri.localhost`** y macOS/Linux `tauri://localhost`: **dos
+>   orígenes, no uno**, si alguna vez hubiera lista.
+> - **Una lista de UN origen devuelve la cabecera a todo el que pregunte** sin mirar quién
+>   es, así que **bloquea sin que se note**. Es la forma exacta que tendría la equivocación.
+>
+> Todo, con las mediciones, en
+> [`32-la-entrada-de-la-app-de-escritorio.md`](32-la-entrada-de-la-app-de-escritorio.md) §3.
+> **Lo de abajo se conserva como estaba**: es el rastro de cómo se llegó hasta aquí, y su
+> lección —leer media expresión y deducir la consecuencia contraria— no caduca con la
+> decisión.
 
 **La consecuencia: donde no se puso, el arreglo de CORS no hace nada y el origen sigue
 siendo `*`.** No es una divergencia peligrosa; es una tarea de la que se desconoce el
@@ -287,6 +312,14 @@ nada. Lo pone **la ventana**, y depende de quién sirve la aplicación:
 > decir sin medir nada, porque es del código: donde la variable **no se puso**, el valor
 > efectivo es `['*']` (la tabla de arriba) y `tauri://localhost` **pasa**; el riesgo está
 > exactamente en los colegios donde **sí** se puso, y **cuántos son es lo que nadie sabe**.
+>
+> **CONTESTADO el 7 sep 2026, y no midiendo sino decidiendo:** Joseth cerró el asunto
+> —*«siempre los colegios van a permitir CORS `*`»*— así que **`CORS_ALLOWED_ORIGINS ≈ '*'`
+> deja de estar «inferido» y pasa a ser la política declarada**, que es una respuesta más
+> fuerte que la que se buscaba: el barrido habría dicho cómo estaban los dieciséis *ese día*,
+> y esto dice cómo van a estar. **El barrido no se corre.** Lo que sigue en pie es el riesgo
+> del reverso —que alguien ponga una lista y se salga de la política—, y para eso está
+> `tools/cors-de-los-colegios.sh`, escrito y probado, **como diagnóstico y no como tarea**.
 
 ~~**Y una que nadie ha medido de ninguno de los dos lados**: `tauri://localhost` está
 comprobado **en macOS y sólo en macOS**. Si el ejecutable de Windows manda el mismo origen,
