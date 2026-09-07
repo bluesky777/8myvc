@@ -2198,6 +2198,10 @@ de 26,2 MB antes de que el fichero llegue a 16,7 MB y gana el `413`.
 > `bytes` y su `maximo`, **antes de tocar la base**. Lo decidió la segunda mitad y no el
 > tamaño: así los diecisiete fallan igual y lo dicen.
 >
+> **El tope efectivo sale de `config/horario.php`** y `maximoDelProyecto()` lo recorta contra
+> el de la columna —se puede apretar, no subir—; el valor de serie es el de `MEDIUMTEXT` y lo
+> fija su propio test.
+>
 > **Y el tope se comprueba con `strlen()`, no con una regla `max:` de Laravel, que era la
 > salida que parecía obvia y NO valía:** `max` resuelve a `mb_strlen`, o sea **caracteres**, y
 > la columna cuenta **bytes**. Comprobado sobre este árbol: `str_repeat('ñ', 10)` son 10
@@ -2755,6 +2759,22 @@ siguen sin estar.
    **Y al implementarla apareció que la salida obvia no valía**: `max:16777215` cuenta
    caracteres (`mb_strlen`) y la columna cuenta bytes, así que el tope se comprueba con
    `strlen()` (§9.ter.3). *El planteamiento decía «una línea y un test», y la línea era otra.*
+
+   **Y el tope efectivo vive en `config/horario.php`, recortado contra la columna.** No es
+   configurabilidad por gusto: con el número clavado, los casos que lo ejercitan tienen que
+   mandar **16 MB de verdad**, y eso **tumbó la suite entera** —`Allowed memory size of
+   268435456 bytes exhausted` dentro de `MySqlConnection`, en el caso que comprueba que justo
+   en el tope SÍ entra—. Bajándolo, esos casos prueban **el mismo mecanismo** por unos pocos
+   KB. `maximoDelProyecto()` hace `min()` contra el tope de la columna, así que **una
+   configuración puede apretar el tope y no puede subirlo**: si pudiera, un fichero de
+   configuración reabriría esta decisión y MySQL volvería a truncar callando.
+
+   > **Cómo se descubrió, porque el modo de fallo es el de siempre y esta vez mordió a quien lo
+   > escribe.** La suite murió a los **1.070 casos** de 2.044, y **el código de salida fue 0**;
+   > un `grep '⨯'` sobre esa salida daba **limpio**, porque el proceso no llegó a escribir
+   > ningún fallo — ni la línea `Tests:`. *La cifra se lee de la línea `Tests:`, y cuando esa
+   > línea no está, lo que hay no es un verde: es una suite que no terminó.* Es exactamente la
+   > regla que este repositorio ya tenía escrita para las tuberías, cobrada por el otro lado.
 
    **El planteamiento, tal y como se le puso delante: por encima de 16.777.215 b la subida
    contestaba `201` y guardaba el fichero CORTADO.** Medido de punta a punta el 6 sep 2026 (§9.ter.3): de

@@ -128,10 +128,18 @@ class HorarioController extends Controller
      * decisión viene a cerrar. *La salida que parecía barata no era la misma decisión con
      * menos trabajo: era no tomarla.*
      *
-     * Así que el tope se comprueba con `strlen()` y a mano, y por eso vive aquí como
-     * constante y no dentro de la lista de reglas.
+     * Así que el tope se comprueba con `strlen()` y a mano, y por eso vive aquí y no dentro
+     * de la lista de reglas.
+     *
+     * ## Esta constante es el TECHO, y el que se aplica sale de `config/horario.php`
+     *
+     * El valor efectivo se lee de la configuración y **se recorta contra ésta**
+     * (`maximoDelProyecto()`), así que bajarlo vale y subirlo no hace nada. Lo segundo es
+     * deliberado: un tope configurado por encima del de la columna devolvería justo el fallo
+     * que la decisión 5 cerró —MySQL truncando en silencio detrás de un `201`—, y **una
+     * configuración no puede reabrir una decisión**.
      */
-    private const MAXIMO_DEL_PROYECTO = 16777215;
+    private const TOPE_DE_LA_COLUMNA = 16777215;
 
     /**
      * La forma de un `pieza_id`: la que la columna `horario_lecciones.pieza_id` ya acepta.
@@ -379,24 +387,47 @@ class HorarioController extends Controller
          * de dominio de esta familia ya traen su `motivo` y su población dentro; éste es el
          * séptimo y sigue la misma forma.
          *
-         * **`strlen` y no `mb_strlen`**, por lo que dice `MAXIMO_DEL_PROYECTO`: lo que cuenta
+         * **`strlen` y no `mb_strlen`**, por lo que dice `TOPE_DE_LA_COLUMNA`: lo que cuenta
          * la columna son bytes. Y va **antes de la transacción y antes de tocar `years`**,
          * porque un rechazo por tamaño no necesita saber nada del año.
          */
         $bytes = strlen((string) $cuerpo['proyecto']);
+        $maximo = $this->maximoDelProyecto();
 
-        if ($bytes > self::MAXIMO_DEL_PROYECTO) {
+        if ($bytes > $maximo) {
             $this->rechazar([
-                'message' => "El fichero de proyecto mide {$bytes} bytes y el máximo son ".self::MAXIMO_DEL_PROYECTO.' bytes. '
+                'message' => "El fichero de proyecto mide {$bytes} bytes y el máximo son {$maximo} bytes. "
                     .'No se sube: por encima de ese tope la base lo guardaría cortado y la respuesta diría que todo fue bien, '
                     .'así que se rechaza entero. Nada se escribió.',
                 'motivo' => 'proyecto-demasiado-grande',
                 'bytes' => $bytes,
-                'maximo' => self::MAXIMO_DEL_PROYECTO,
+                'maximo' => $maximo,
             ]);
         }
 
         return $cuerpo;
+    }
+
+    /**
+     * El tope que se aplica de verdad: el de la configuración, **recortado por el de la
+     * columna**.
+     *
+     * `min()` y no el valor tal cual, y no es defensa por defender: subir
+     * `horario.maximo_del_proyecto` por encima de lo que aguanta un `MEDIUMTEXT` no ampliaría
+     * nada — lo ampliaría hasta el punto en que **MySQL vuelve a truncar en silencio detrás de
+     * un `201`**, que es exactamente el fallo que cerró la decisión 5. Una configuración puede
+     * apretar este tope; **no puede reabrir la decisión**.
+     *
+     * El `max(1, …)` es para el otro extremo: un `0` o un negativo mal puestos dejarían la
+     * ruta rechazando **todas** las subidas, y con `1` lo peor que pasa es que se rechacen
+     * todas menos las de un byte — igual de roto, pero **se ve al primer intento** en vez de
+     * parecer que la ruta está caída.
+     */
+    protected function maximoDelProyecto(): int
+    {
+        $configurado = (int) config('horario.maximo_del_proyecto', self::TOPE_DE_LA_COLUMNA);
+
+        return max(1, min($configurado, self::TOPE_DE_LA_COLUMNA));
     }
 
     /**

@@ -724,6 +724,14 @@ el router en 578**
 > > —los colegios se llaman `SIMÓN`— habría pasado la validación y lo habría truncado MySQL
 > > igual: **el mismo fallo con un test verde encima**. Va con `strlen()` y tiene su propio caso.
 >
+> > **Y probarlo a 16 MB tumbó la suite, que es la otra mitad de lo aprendido.** El caso que
+> > comprueba que justo en el tope SÍ entra hacía un `INSERT` de 16 MB: `Allowed memory size of
+> > 268435456 bytes exhausted`, la suite muerta a los **1.070 casos de 2.044** y **el código de
+> > salida en 0** — un `grep '⨯'` sobre esa salida daba limpio, porque no llegó a escribirse ni
+> > un fallo ni la línea `Tests:`. *Cuando esa línea no está, lo que hay no es un verde: es una
+> > suite que no terminó.* El tope pasó a `config/horario.php` —recortado contra la columna, se
+> > puede apretar y no subir— y los casos prueban el mismo mecanismo por unos pocos KB.
+>
 > **2. Decisión 6 — `proyecto` entra en el `$except` de `TrimStrings`.** Una línea. **Antes de
 > escribirla se midió lo que la opción daba por supuesto**: `$except` casa por nombre de campo y
 > no por ruta, así que se barrieron los **260** ficheros `.php` de `app/` y `routes/` —`proyecto`

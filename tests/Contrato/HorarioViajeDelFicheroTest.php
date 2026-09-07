@@ -2,6 +2,7 @@
 
 namespace Tests\Contrato;
 
+use App\Http\Controllers\HorarioController;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\Test;
@@ -149,6 +150,27 @@ class HorarioViajeDelFicheroTest extends CasoDeContrato
     }
 
     /**
+     * Sube un proyecto **sin exigir 201**: los casos del tope necesitan ver el 422.
+     */
+    private function subirCrudo(string $proyecto, string $nombre): TestResponse
+    {
+        $anio = $this->anio();
+
+        return $this->postJson('/api/horario/versiones', [
+            'version' => [
+                'nombre' => $nombre,
+                'year_id' => (int) $anio->id,
+                'anio' => (int) $anio->year,
+                'nombre_colegio' => (string) $anio->nombre_colegio,
+            ],
+            'proyecto' => $proyecto,
+            'piezas' => [],
+        ], [
+            'Authorization' => 'Bearer '.$this->token(),
+        ]);
+    }
+
+    /**
      * Baja el proyecto de una versión.
      *
      * Con superusuario porque `getProyecto` exige `puedePublicarHorario` **dentro** del
@@ -253,100 +275,123 @@ class HorarioViajeDelFicheroTest extends CasoDeContrato
     }
 
     /**
-     * Un proyecto por encima de lo que cabe en la columna es **422 y no `201` a medias** —
-     * decisión 5, contestada por Joseth el 6 sep 2026.
+     * Un proyecto por encima del tope es **422 y no `201` a medias** — decisión 5, contestada
+     * por Joseth el 6 sep 2026.
      *
-     * **Lo que se fijaba aquí antes era el truncado**, y se dejó escrito a propósito sin
-     * test porque la decisión estaba abierta: por encima de `MEDIUMTEXT` la subida
-     * contestaba `201` y guardaba el fichero cortado. Lo que lo cerró no fue el tamaño —el
-     * `.myvch` más grande mide 128.779 b, **130 veces menos**— sino que **el docker y los
-     * dieciséis fallaban distinto**: aquí truncaba en silencio y allí, con
-     * `STRICT_TRANS_TABLES` de MariaDB, habría sido un `1406 → 500`.
+     * Antes de ese día, por encima de `MEDIUMTEXT` la subida contestaba `201` y guardaba el
+     * fichero cortado. Lo que lo cerró no fue el tamaño —el `.myvch` más grande mide 128.779 b,
+     * **130 veces menos**— sino que **el docker y los dieciséis fallaban distinto**: aquí
+     * truncaba en silencio y allí, con `STRICT_TRANS_TABLES` de MariaDB, habría sido un
+     * `1406 → 500`.
      *
-     * **El caso de este test es un byte por encima, no un fichero enorme**, que es donde
-     * viven los errores de contorno; y va con su control **un byte por debajo**, porque un
-     * tope que rechaza de más no se distingue de uno que funciona si sólo se prueba el lado
-     * que falla.
+     * ## Por qué el tope se baja aquí en vez de mandar 16 MB
+     *
+     * **Porque mandarlos tumbó la suite entera**, y el modo en que la tumbó es el motivo de que
+     * esto se cuente: `Allowed memory size of 268435456 bytes exhausted` dentro de
+     * `MySqlConnection` —el `INSERT` del caso que comprueba que justo en el tope SÍ entra—,
+     * con **el `Tests:` sin llegar a imprimirse y el código de salida en 0**. O sea que un
+     * `grep '⨯'` daba limpio sobre una suite que ni había terminado.
+     *
+     * Bajando el tope se ejercita **el mismo mecanismo** —el `strlen()`, el `motivo`, las
+     * cifras y que no se escriba nada— por unos pocos KB, y que el valor de serie sea el de la
+     * columna lo fija `el_tope_de_serie_es_el_de_la_columna`. *Lo que había que probar era el
+     * contorno, no los megabytes.*
      */
     #[Test]
-    public function un_proyecto_mas_grande_que_la_columna_es_422_y_no_se_guarda_cortado(): void
+    public function un_proyecto_mas_grande_que_el_tope_es_422_y_no_se_guarda_cortado(): void
     {
-        $anio = $this->anio();
-        $limite = 16777215;
+        $tope = 2048;
+        config(['horario.maximo_del_proyecto' => $tope]);
 
-        $cuerpo = fn (string $proyecto) => [
-            'version' => [
-                'nombre' => 'Un proyecto enorme',
-                'year_id' => (int) $anio->id,
-                'anio' => (int) $anio->year,
-                'nombre_colegio' => (string) $anio->nombre_colegio,
-            ],
-            'proyecto' => $proyecto,
-            'piezas' => [],
-        ];
-        $cabeceras = ['Authorization' => 'Bearer '.$this->token()];
-
-        // Un byte por encima: se rechaza entero y NADA se escribe.
-        $r = $this->postJson('/api/horario/versiones', $cuerpo(str_repeat('a', $limite + 1)), $cabeceras)
+        $r = $this->subirCrudo(str_repeat('a', $tope + 1), 'Un proyecto pasado de tope')
             ->assertStatus(422);
 
         $this->assertSame('proyecto-demasiado-grande', $r->json('motivo'),
             'El rechazo por tamaño tiene que traer su propio `motivo`: con `cuerpo-mal-formado` '.
             'el escritorio revisaría su JSON, que está bien, en vez de mirar su fichero.');
-        $this->assertSame($limite + 1, $r->json('bytes'));
-        $this->assertSame($limite, $r->json('maximo'));
+        $this->assertSame($tope + 1, $r->json('bytes'));
+        $this->assertSame($tope, $r->json('maximo'));
 
         $this->assertSame(0, (int) DB::selectOne('SELECT COUNT(*) AS n FROM horario_versiones')->n,
             'Se rechazó por tamaño y quedó una fila. La versión entra entera o no entra.');
 
-        // Y el control por el otro lado: justo en el tope entra. Sin esto, un tope roto
-        // «hacia abajo» —que rechazara todo— pasaría este test con la mitad de arriba.
-        $this->postJson('/api/horario/versiones', $cuerpo(str_repeat('a', $limite)), $cabeceras)
-            ->assertStatus(201);
+        // El control por el otro lado: justo EN el tope entra. Sin esto, un tope roto «hacia
+        // abajo» —que rechazara todo— pasaría la mitad de arriba sin despeinarse.
+        $this->subirCrudo(str_repeat('a', $tope), 'Justo en el tope')->assertStatus(201);
     }
 
     /**
      * El tope cuenta **BYTES y no caracteres**, que es donde se habría escapado entero.
      *
-     * La salida que parecía obvia —una regla `max:16777215` de Laravel— **no vale**: `max`
-     * resuelve a `mb_strlen`, comprobado contra este árbol (`str_repeat('ñ', 10)` son 10
-     * caracteres y 20 bytes, y pasa un `max:15`). Con la regla puesta, un proyecto de
-     * acentos —o sea **todos**, que los colegios se llaman `SIMÓN`— cabría en el contador y
-     * lo truncaría MySQL igual.
+     * La salida que parecía obvia —una regla `max:` de Laravel— **no vale**: `max` resuelve a
+     * `mb_strlen`, comprobado contra este árbol (`str_repeat('ñ', 10)` son 10 caracteres y 20
+     * bytes, y pasa un `max:15`). Con la regla puesta, un proyecto de acentos —o sea **todos**,
+     * que los colegios se llaman `SIMÓN`— cabría en el contador y lo truncaría MySQL igual.
      *
-     * Por eso este caso manda **la mitad de caracteres que el tope y el doble de bytes**: un
-     * contador de caracteres lo dejaría pasar y uno de bytes lo rechaza.
+     * Por eso este caso manda **la mitad de caracteres que el tope y un byte más de bytes**: un
+     * contador de caracteres lo deja pasar y uno de bytes lo rechaza.
      */
     #[Test]
     public function el_tope_del_proyecto_cuenta_bytes_y_no_caracteres(): void
     {
-        $anio = $this->anio();
-        $limite = 16777215;
+        $tope = 2048;
+        config(['horario.maximo_del_proyecto' => $tope]);
 
-        // 8.388.608 caracteres 'ñ' = 16.777.216 bytes: un byte por encima del tope y
-        // MUY por debajo si se contaran caracteres.
-        $proyecto = str_repeat('ñ', intdiv($limite, 2) + 1);
+        $proyecto = str_repeat('ñ', intdiv($tope, 2) + 1);
 
-        $this->assertLessThan($limite, mb_strlen($proyecto),
+        $this->assertLessThan($tope, mb_strlen($proyecto),
             'El caso ya no distingue nada: hacen falta menos caracteres que el tope.');
-        $this->assertGreaterThan($limite, strlen($proyecto));
+        $this->assertGreaterThan($tope, strlen($proyecto));
 
-        $r = $this->postJson('/api/horario/versiones', [
-            'version' => [
-                'nombre' => 'Acentos hasta arriba',
-                'year_id' => (int) $anio->id,
-                'anio' => (int) $anio->year,
-                'nombre_colegio' => (string) $anio->nombre_colegio,
-            ],
-            'proyecto' => $proyecto,
-            'piezas' => [],
-        ], [
-            'Authorization' => 'Bearer '.$this->token(),
-        ])->assertStatus(422);
+        $r = $this->subirCrudo($proyecto, 'Acentos hasta arriba')->assertStatus(422);
 
         $this->assertSame('proyecto-demasiado-grande', $r->json('motivo'),
             'Pasó un proyecto que cabe en caracteres y no en bytes: el tope está contando '.
             'con `mb_strlen` y MySQL lo va a truncar igual.');
+    }
+
+    /**
+     * El tope **de serie** es el de la columna, y una configuración no puede subirlo.
+     *
+     * Las dos mitades importan y ninguna se prueba sola. La primera es el número real —los
+     * casos de arriba lo bajan para no mandar 16 MB, así que **sin esto nadie fijaría el valor
+     * que se despliega**—. La segunda es que `maximoDelProyecto()` recorta contra la columna:
+     * un tope configurado por encima devolvería el truncado mudo detrás de un `201`, que es el
+     * fallo que cerró la decisión 5. *Una configuración puede apretar el tope; no puede reabrir
+     * la decisión.*
+     *
+     * **Y el recorte se comprueba llamando al método, no subiendo 16 MB**, que es la lección
+     * que dejó tumbar la suite: para ver el clamp por HTTP habría que pasarse del tope de la
+     * columna **de verdad**, y eso son decenas de MB en vuelo por un `min()`. *Lo que aquí es
+     * lógica pura se prueba como lógica pura; lo que es contrato se prueba por la ruta.*
+     */
+    #[Test]
+    public function el_tope_de_serie_es_el_de_la_columna_y_no_se_puede_subir(): void
+    {
+        $this->assertSame(16777215, (int) config('horario.maximo_del_proyecto'),
+            'El tope de serie tiene que ser lo que cabe en un `MEDIUMTEXT`: quien manda es la columna.');
+
+        $sonda = new class extends HorarioController
+        {
+            public function tope(): int
+            {
+                return $this->maximoDelProyecto();
+            }
+        };
+
+        config(['horario.maximo_del_proyecto' => 999_999_999]);
+        $this->assertSame(16777215, $sonda->tope(),
+            'Con el tope configurado por encima de la columna se aceptaría más de lo que cabe: '.
+            'MySQL volvería a truncar en silencio y la decisión 5 quedaría deshecha desde un '.
+            'fichero de configuración.');
+
+        config(['horario.maximo_del_proyecto' => 4096]);
+        $this->assertSame(4096, $sonda->tope(), 'Apretar el tope sí vale: es la dirección segura.');
+
+        config(['horario.maximo_del_proyecto' => 0]);
+        $this->assertSame(1, $sonda->tope(),
+            'Un cero mal puesto dejaría la ruta rechazándolo todo y pareciendo caída; con 1 '.
+            'sigue rota pero se ve al primer intento.');
     }
 
     #[Test]
