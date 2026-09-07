@@ -2355,9 +2355,33 @@ cualquier formulario.
 
 **Por qué la medición a mano no podía verlo, y no es que se hiciera mal:** los dos únicos
 `.myvch` que existen **terminan en `}`**, comprobado con `tail -c 4` — los dos dan
-`09 7d 0a 7d`. O sea que el fichero de prueba **le esquivaba el bulto por casualidad del
-serializador del escritorio**, no por ninguna garantía. *Una foto sólo enseña los casos que
-el fotógrafo tenía delante; la prueba tuvo que fabricar uno y por eso lo encontró.*
+`09 7d 0a 7d`. O sea que el fichero de prueba **le esquivaba el bulto**, no por ninguna
+garantía. *Una foto sólo enseña los casos que el fotógrafo tenía delante; la prueba tuvo que
+fabricar uno y por eso lo encontró.*
+
+> **Y la causa está una capa más abajo de donde se dijo primero, que es lo que la vuelve una
+> afirmación general en vez de una anécdota.** Aquí se escribió *«sus dos ficheros terminan en
+> `}`»*; remedido por `myvc_horarios` sobre **cuatro** proyectos —`COLEGIO_DE_PRUEBA` 124.785 b,
+> `CASI_LLENO` 124.581 b, `SIN_COLOCAR` 100.381 b, `MEDIO_CUADRADO` 129.978 b—, los cuatro
+> empiezan por `{`, acaban en `}` y cumplen `texto.trim() === texto`. La razón no es de los
+> ficheros: **es que su serializador es `JSON.stringify` a secas, y `JSON.stringify` no pone
+> salto final**. Con eso la frase aguanta para **cualquier** proyecto y no sólo para los que
+> alguien miró — *«los que vi terminan bien»* y *«todos terminan bien, y aquí está por qué»* no
+> son la misma afirmación.
+
+**Y AUN ASÍ no nos podemos apoyar en su serializador, que es el argumento que sobrevive.** Su
+`enviar()` acepta un **fichero de proyecto ya hecho** y sólo llama al serializador si no se lo
+dan —`nucleo/envio.ts:625`, un `??`—, así que **hay un camino que no pasa por él**. Blindar el
+serializador no cerraría ese camino. Eso convierte la decisión 6 de *«arreglar algo que hoy no
+muerde»* en **«dejar de depender de una garantía que no es nuestra y que además tiene un
+agujero conocido»**, que es la forma en que hay que leerla el día que alguien pregunte por qué
+se tocó un middleware global por un caso que no ocurría.
+
+**Y el modo de fallo que va a ocurrir de verdad tiene nombre:** alguien añade un `\n` final
+*«para que el fichero acabe bien»* al tocar el serializador. **El daño no sería un error** —se
+guardaría el fichero sin ese carácter y **no se pondría nada rojo en ninguno de los dos
+repositorios**—. Por eso vive en el comentario de `TrimStrings` y en el de su `escribirProyecto()`,
+donde lo lee quien va a tocarlo, y no en una nota.
 
 > **Y lo que lo hace grave no es el byte: es que el fichero recortado SIGUE SIENDO JSON
 > VÁLIDO.** El escritorio lo abre sin quejarse y el horario se ve entero, así que **no hay
@@ -2771,6 +2795,16 @@ siguen sin estar.
    petición **sólo** en `horario/` (260 ficheros de `app/` y `routes/` barridos; la única otra
    mención es `config('notificaciones.fcm.proyecto')`, que es configuración). *La premisa de
    que era quirúrgico está comprobada, no supuesta.*
+
+   **Y el argumento con el que se defiende no es «hoy se rompe», porque hoy no se rompe: es
+   que la garantía no es nuestra.** El escritorio escribe con `JSON.stringify` a secas —que no
+   pone salto final, medido sobre cuatro de sus proyectos—, pero su `enviar()` acepta un
+   fichero **ya hecho** y sólo llama al serializador si no se lo dan (`envio.ts:625`, un `??`).
+   **Hay un camino que no pasa por él**, así que blindarlo allí no bastaría. Y el modo de fallo
+   tiene nombre: alguien añade un `\n` *«para que el fichero acabe bien»* y **no se pone nada
+   rojo en ninguno de los dos repositorios**. *Se deja de depender de una garantía ajena que
+   además tiene un agujero conocido — eso es lo que justifica tocar un middleware global por un
+   caso que no ocurría.*
 
    **El planteamiento, tal y como se le puso delante: el arreglo es GLOBAL.** Medido el 6 sep 2026 (§9.ter.7): un fichero que termine en `\n` se guarda con un
    byte menos, contesta `201` y **sigue siendo JSON válido**, así que el escritorio lo abre y

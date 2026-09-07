@@ -214,6 +214,21 @@ class HorarioViajeDelFicheroTest extends CasoDeContrato
      *
      * Se prueban **los dos extremos y el doble**, porque el recorte se los llevaba todos y
      * un test que sólo mire el final dejaría pasar media regresión.
+     *
+     * ## Contra qué protege de verdad, que no es contra el fichero de hoy
+     *
+     * Hoy ningún `.myvch` trae saltos en los extremos: el escritorio escribe con
+     * `JSON.stringify` a secas, que no pone salto final —medido sobre cuatro de sus proyectos,
+     * los cuatro con `texto.trim() === texto`—. **Pero esa garantía no es nuestra y tiene un
+     * agujero conocido**: su `enviar()` acepta un fichero de proyecto ya hecho y sólo llama al
+     * serializador si no se lo dan (`envio.ts:625`), o sea que hay un camino que no pasa por
+     * él.
+     *
+     * **Y el modo de fallo que va a ocurrir de verdad tiene nombre:** alguien añade un `\n`
+     * final *«para que el fichero acabe bien»*. **El daño no sería un error** — se guardaría el
+     * fichero sin ese carácter, con `201`, y **sin este caso no se pondría nada rojo en ninguno
+     * de los dos repositorios**. *Este test es la mitad nuestra de esa garantía; la suya está en
+     * el comentario de su `escribirProyecto()`.*
      */
     #[Test]
     public function los_saltos_de_linea_de_los_extremos_sobreviven_el_viaje(): void
