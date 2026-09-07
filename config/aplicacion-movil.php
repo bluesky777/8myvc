@@ -48,6 +48,20 @@ return [
     |
     | Por eso se sube **una vez por retirada, con la misma ceremonia que un
     | despliegue, y nunca se copia de un colegio a otro sin mirar**.
+    |
+    | Y HAY UN QUINTO CLIENTE QUE RECIBE ESTE NÚMERO Y NO PUEDE OBEDECERLO
+    |
+    | `version_minima_app` viaja también por `login/credentials`, que es la ruta
+    | por la que entra la app de escritorio del horario (`myvc_horarios`). Para
+    | ella **no existe ninguna versión que satisfaga este número**: su versionado
+    | es independiente del de Flutter y no está en ninguna tienda. Y la salida
+    | del párrafo de arriba —«¿Tienes cuenta en otro colegio?»— **no existe en un
+    | programa de escritorio**.
+    |
+    | Hoy no le pasa nada porque ese programa lee `el_token` y tira el resto. O
+    | sea que lo único que lo protege **no está en este servidor**, y falta una
+    | sola de las dos condiciones. El porqué entero, en
+    | docs/migracion/32-la-entrada-de-la-app-de-escritorio.md §4.3.
     | ────────────────────────────────────────────────────────────────────────
     */
     'version_minima' => env('APP_MOVIL_VERSION_MINIMA'),
