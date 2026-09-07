@@ -2888,11 +2888,44 @@ siguen sin estar.
       está» y *reservado* e *ilegible* se verían igual desde la pantalla. **Y no se llamó
       `estado` a propósito**, porque bajo esa clave ya conviven dos vocabularios.
 
-   > **Lo que esto cuesta al otro repositorio, dicho aquí porque lo mide él y no nosotros:**
-   > `profesor_id` pasa a ser **anulable** en esa lista. Su lector la declara como entrada con
-   > `profesor_id` numérico, así que **hay que avisarles antes de que esto se despliegue** — y
-   > el aviso ya salió. *No es un cambio que se note en el docker: se nota en el colegio, con
-   > el token de un docente raso, que es el sujeto con el que nadie prueba a mano.*
+   > **Lo que esto cuesta al otro repositorio — y aquí decía una cosa que era falsa, corregida
+   > el 7 sep 2026.** Este recuadro afirmaba que *«su lector la declara como entrada con
+   > `profesor_id` numérico, así que hay que avisarles»*. **Ese lector no existe**, medido en su
+   > árbol por ellos y **reproducido desde aquí** antes de escribir esta corrección:
+   >
+   > ```
+   > `profesor_id` en `envio.ts`        CERO en código. Lo único que sale es su propio aviso
+   >                                    nuevo; su campo se llama `profesorId`, en camelCase
+   > quien sí lee `profesor_id`         `herramientas/verificar-colegio.ts:37` — y es de
+   >                                    ASIGNACIONES, ya declarado `number | null`
+   > las disponibilidades               NO se importan: no existen en MyVC
+   > ```
+   >
+   > **No hay ningún lector que corregir: lo que hay es un lector que todavía no está escrito, y
+   > el riesgo es que se escriba mal.** La diferencia es de categoría y no de matiz —*«arreglad
+   > vuestro lector»* manda a alguien a buscar un fichero que no existe; *«cuando lo escribáis,
+   > contad con el nulo»* es un aviso que se puede cumplir—. Está puesto donde lo va a tener
+   > delante quien lo escriba (`envio.ts:1540`, en el mismo bloque que el aviso de las dos cosas
+   > llamadas `estado`).
+   >
+   > *La frase la escribí yo y la relayó `8myvc-d3`, y ninguno de los dos abrió el árbol de al
+   > lado: **el fondo era correcto y el alcance de más**. La cazó lo mismo que las otras tres de
+   > estos dos días — que alguien la remidiera en su propio árbol. El aviso era el correcto
+   > aunque el diagnóstico no lo fuera.*
+
+   > **Y `catalogos.disponibilidad.autor` YA LO LEEN, sin tocar una línea — pero por casualidad
+   > y no por diseño, así que se anota.** Su `leerRenglon()` **no tiene lista de claves
+   > esperadas**: recorre las entradas del renglón y reparte cada una por su tipo en tiempo de
+   > ejecución, así que un `autor: "reservado"` cae solo en su cajón de textos. **El día que le
+   > pongan una lista, eso deja de ser cierto.**
+   >
+   > **Y ahí está la prueba de que llamarlo `autor` y no `estado` no era higiene, era la
+   > diferencia entre entrar y ser rechazado.** Ese mismo `leerRenglon()` sí tiene lista cerrada
+   > para **una** clave —`ESTADOS_DE_CATALOGO`, los cinco de la §9.ter.6— y **descarta el
+   > renglón entero** si `estado` no es uno de ellos. Un tercer vocabulario bajo esa clave no
+   > habría sido ambiguo: habría hecho que su lector **tirara la disponibilidad completa**, que
+   > es exactamente el fallo del `ilegible` que acaban de arreglar. *Contar los estados antes de
+   > nombrar el campo nuevo es lo que evitó repetirlo.*
 
 > Lo más barato que se puede hacer sin esperar a ninguna de las cuatro es el **nivel 1
 > del pre-vuelo como script de `tools/`** sobre los quince colegios (§9). No toca el

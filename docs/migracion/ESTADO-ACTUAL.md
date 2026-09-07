@@ -763,10 +763,21 @@ el router en 578**
 > «este dato no está»**. El campo **no se llamó `estado` a propósito**: bajo esa clave ya
 > conviven dos vocabularios (§9.ter.6), y contarlos primero es lo que permitió nombrarlo bien.
 >
-> **Y el otro repositorio tiene que enterarse antes de que esto se despliegue**, porque su lector
-> declara ese campo como numérico. El aviso ya salió. *No es un cambio que se note en el docker:
-> se nota en el colegio, con el token de un docente raso, que es el sujeto con el que nadie
-> prueba a mano.*
+> **Y aquí decía que su lector declara ese campo como numérico: era falso, corregido el 7 sep
+> 2026.** `profesor_id` no se lee en `envio.ts` **ni una vez** —su campo es `profesorId`, en
+> camelCase—, el único que lo lee es de **asignaciones** y ya lo tiene como `number | null`, y las
+> disponibilidades **no se importan**. Remedido por ellos y **reproducido desde aquí** antes de
+> corregirlo.
+>
+> **No hay un lector que arreglar: hay un lector que todavía no está escrito**, y el riesgo es
+> que se escriba mal — que es un aviso que se puede cumplir, al contrario que «arreglad el
+> vuestro». *La escribí yo y la relayó `8myvc-d3` sin que ninguno abriera el árbol de al lado:
+> fondo correcto, alcance de más.*
+>
+> **Y de rebote quedó medido que llamarlo `autor` y no `estado` no era higiene:** su
+> `leerRenglon()` tiene lista cerrada para `estado` —los cinco— y **descarta el renglón entero**
+> si no es uno de ellos. Un tercer vocabulario ahí le habría tirado la disponibilidad completa,
+> que es el fallo del `ilegible` que acaban de arreglar.
 >
 > **Las tres se comprobaron en rojo**, cada una tumbando sólo su caso — y la 7 **en las dos
 > direcciones**, porque un permiso que no deja pasar a nadie se ve igual de verde que uno que
