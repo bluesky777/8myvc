@@ -2466,8 +2466,9 @@ siguen sin estar.
 > quién marca la oficial, el rol vacío, quién lista, los años cerrados y el blob.
 >
 > ~~**Quedan cuatro**~~ ~~**Quedan DOS**~~ ~~**QUEDA UNA**~~ ~~**NO QUEDA NINGUNA.**~~
-> ~~**QUEDAN DOS OTRA VEZ: la 5 y la 6.**~~ **NO QUEDA NINGUNA, otra vez — y las TRES últimas
-> las contestó Joseth el 6 sep 2026, en el mismo día en que se abrieron.** La **5** y la **6**
+> ~~**QUEDAN DOS OTRA VEZ: la 5 y la 6.**~~ ~~**NO QUEDA NINGUNA, otra vez.**~~ **QUEDA LA 8,
+> abierta el 7 sep 2026: `putOficial` publica una versión vacía y deja el colegio sin horario.**
+> Las TRES anteriores las contestó Joseth el 6 sep 2026, en el mismo día en que se abrieron. La **5** y la **6**
 > salieron de ejercitar el viaje del fichero (§9.ter) —una midiéndolo a mano, la otra al
 > convertirlo en prueba, que es la que la foto no podía ver— y la **7** de un precio que la
 > decisión 38 había dejado escrito como pagado.
@@ -2500,6 +2501,7 @@ siguen sin estar.
 > | **3** descargar el proyecto | 5 sep 2026 | **autorizada y escrita**: sexta ruta, `puedePublicarHorario`, el fichero sin escapar y **byte a byte _salvo los saltos de línea de los extremos_** (§9.ter.7, decisión 6) |
 > | **6** `TrimStrings` recorta el blob | 6 sep 2026 | **`proyecto` al `$except`** (la recomendada), con la premisa de que era quirúrgico **medida antes**: 260 ficheros barridos, es campo de petición sólo en `horario/` |
 > | **7** el autor de una pega de disponibilidad | 6 sep 2026 | **viaja sólo para quien puede publicar**, `puedePublicarHorario` **dentro** del método. Retira el precio que la decisión 38 dejó escrito |
+> | **8** publicar una versión vacía | **ABIERTA** 7 sep 2026 | **de Joseth**: hoy es `200` y deja las 134 asignaciones sin ningún día. Recomendada la (b), confirmación con cifra como `acepto_perder` |
 > | **5** el blob por encima de `MEDIUMTEXT` | 6 sep 2026 | **poner el límite y devolver 422** (la recomendada). Lo decidió que el docker truncaba callando y los dieciséis habrían dado `1406 → 500`: ahora los diecisiete fallan igual y lo dicen |
 >
 > **Las tres cerradas tienen algo en común que conviene ver junto:** ninguna se cerró
@@ -2926,6 +2928,68 @@ siguen sin estar.
    > habría sido ambiguo: habría hecho que su lector **tirara la disponibilidad completa**, que
    > es exactamente el fallo del `ilegible` que acaban de arreglar. *Contar los estados antes de
    > nombrar el campo nuevo es lo que evitó repetirlo.*
+
+8. **¿Puede `putOficial` publicar una versión VACÍA? SÍ, y deja el colegio entero sin
+   horario. Medido el 7 sep 2026 — decisión abierta.**
+
+   La pregunta la levantó `myvc_horarios` y **la declararon fuera de su encargo a propósito**
+   —publicar cambia lo que ve un colegio—, así que nadie la había medido. Medido aquí contra
+   el docker, sobre la base de desarrollo y con el puntero repuesto al terminar:
+
+   ```
+   PUT horario/versiones/30/oficial     ->  200        (la 30 tiene CERO lecciones)
+   derivacion.asignaciones_en_el_alcance     134
+   derivacion.asignaciones_con_algun_dia       0       <- las 134 se quedan sin ningún día
+   derivacion.por_dia                          todos a 0
+   ```
+
+   **Las siete columnas de día de las 134 asignaturas del año se ponen a 0**, comprobado en la
+   tabla antes y después: de `lunes 49 · martes 47 · miércoles 48 · jueves 34 · viernes 29` a
+   **cero en los siete**. O sea **«Clases de hoy» en blanco para todo el colegio**, que es
+   literalmente el problema de la §2 que este módulo vino a resolver, ahora causado por
+   nosotros y con un `200` delante.
+
+   **Y NO es un fallo mudo: la respuesta lo declara.** `asignaciones_con_algun_dia: 0`,
+   `filas_de_la_version: 0`, `piezas_de_la_version: 0` y los siete días a `0` viajan en el
+   cuerpo del `200`. Quien lea la respuesta **no puede confundirlo**; quien mire sólo el código
+   de estado, sí. *Informar bien y dejar publicar son dos cosas distintas, y ésta informa bien.*
+
+   **Es REVERSIBLE, y eso baja el nivel de esto de «catástrofe» a «decisión».** Republicando la
+   versión buena, las siete columnas vuelven **idénticas**: huella `fb636d62…` antes de la
+   prueba, `e2d12758…` con la vacía publicada, y `fb636d62…` otra vez después de reponer la 8.
+   El horario no se pierde: se deja de derivar y se vuelve a derivar.
+
+   ### La pregunta previa, que hay que contestar antes de proponer prohibirlo
+
+   **¿Existe un caso legítimo de publicar un esqueleto vacío? SÍ, y hoy es el ÚNICO que hay:
+   no se puede DESPUBLICAR.** Medido: la única escritura de `years.horario_version_id` en toda
+   la API pone **un id** (`HorarioController`), **ninguna lo pone a `NULL`**, y no hay ruta que
+   borre una versión. Así que un colegio que publicó un horario equivocado y prefiere **no
+   enseñar ninguno** antes que enseñar el malo **sólo tiene una palanca: publicar una vacía.**
+
+   *Prohibirlo sin más le quitaría a alguien lo único que hoy puede hacer* — y es el caso del
+   `profesores.tono` otra vez, sólo que al revés: allí faltaba una escritura que nadie tenía,
+   aquí sobraría una prohibición que deja un hueco sin sustituto.
+
+   ### Las tres salidas, con su precio
+
+   | | qué cuesta | qué deja |
+   |---|---|---|
+   | **(a)** 422 si la versión no tiene lecciones | poco | cierra el agujero **y de paso el único modo de vaciar**: hace falta una ruta de despublicar, que es **ruta nueva** y decisión aparte |
+   | **(b)** exigir confirmación con cifra, como `acepto_perder` | media, y **sin ruta nueva** | mantiene el caso legítimo y **pone a una persona en medio**: `acepto_vaciar: 134` tiene que coincidir con las asignaciones del alcance que se quedan sin horario |
+   | **(c)** dejarlo como está | cero | la respuesta ya lo declara; el riesgo es una pantalla que no la lea — y **la que no la leía ya está arreglada** |
+
+   **Recomendada la (b), y no por prudencia sino porque el módulo ya tiene esa forma
+   probada.** `acepto_perder` es exactamente esto: un **número** que el servidor recalcula en
+   la misma transacción y que **tiene que coincidir**, elegido sobre un `forzar: true` porque
+   un booleano *«acaba puesto por costumbre, porque nunca estorba»*. Aquí el número natural es
+   `asignaciones_en_el_alcance` —las que se quedan sin ningún día—, y la simetría es exacta:
+   *publicar no puede quitarle el horario a 134 asignaciones en silencio, por la misma razón
+   por la que no puede perder 32.*
+
+   **Lo que la (b) NO arregla y conviene decirlo:** no existe forma de despublicar, y con la
+   (b) sigue sin existir — sólo queda declarada como el caso que la vacía cubre. Si Joseth
+   quiere despublicar de verdad, eso es **ruta nueva** y se cuenta el día que se autorice.
 
 > Lo más barato que se puede hacer sin esperar a ninguna de las cuatro es el **nivel 1
 > del pre-vuelo como script de `tools/`** sobre los quince colegios (§9). No toca el
