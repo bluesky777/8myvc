@@ -2,13 +2,17 @@
 
 /*
 |--------------------------------------------------------------------------
-| La app: `myvc_flutter`
+| La app: `myvc_flutter` — y desde el 6 sep 2026, también el escritorio
 |--------------------------------------------------------------------------
 |
 | Va por colegio, en su .env, porque `config/` es copia real en cada uno (ver
-| docs/DESPLIEGUE-REFERENCIA.md). Y **la app no**: `myvc_flutter` es UNA SOLA
+| docs/DESPLIEGUE-REFERENCIA.md). Y **las apps no**: `myvc_flutter` es UNA SOLA
 | para los dieciséis colegios, así que aquí cada colegio decide sobre un binario
 | que no es suyo. Ésa es toda la dificultad de este fichero.
+|
+| **Y son dos binarios, no uno**: el campo viaja también a la app de escritorio
+| del horario, que **no puede obedecerlo**. El recuadro de abajo lo dice donde
+| hace falta; el título decía «la app» y ya no es una.
 |
 | El porqué y la ceremonia están en docs/migracion/noche-2026-08-25/login-ver.md.
 |
