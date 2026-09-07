@@ -741,6 +741,51 @@ teclea mal su clave lee «esto no es la clave: es el servidor»**. El arreglo es
 Windows ni en Linux** —el origen está leído del crate y de su test, que es prueba fuerte y no
 es lo mismo—, **los dieciséis `.env` no se han mirado** y **ningún vhost real se ha sondeado**.*
 
+**7 sep 2026 — `putOficial` PUBLICA UNA VERSIÓN VACÍA Y DEJA EL COLEGIO SIN HORARIO** ·
+[23 §10.2 decisión 8](23-horarios.md) · **medición, cero código, cero rutas** · router en 578
+
+> **La pregunta que nadie había medido**, porque `myvc_horarios` la declaró fuera de su encargo
+> a propósito —publicar cambia lo que ve un colegio—. Medida contra el docker, sobre la base de
+> desarrollo, con el puntero repuesto y comprobado al terminar.
+>
+> **`PUT horario/versiones/30/oficial` → `200`.** La 30 tiene **cero lecciones**, y publicarla
+> pone a **0 las siete columnas de día de las 134 asignaturas del año**: de
+> `lunes 49 · martes 47 · miércoles 48 · jueves 34 · viernes 29` a cero en los siete. O sea
+> **«Clases de hoy» en blanco para todo el colegio** — el problema de la §2 que este módulo vino
+> a resolver, ahora causado por nosotros y con un `200` delante.
+>
+> **No es mudo**: `asignaciones_con_algun_dia: 0`, `filas_de_la_version: 0` y los siete días a
+> `0` viajan en el cuerpo. Quien lea la respuesta no puede confundirlo; quien mire sólo el
+> código de estado, sí. *Informar bien y dejar publicar son dos cosas distintas.*
+>
+> **Y es REVERSIBLE**, que es lo que lo baja de catástrofe a decisión: huella de las siete
+> columnas `fb636d62…` antes, `e2d12758…` con la vacía publicada, y **`fb636d62…` otra vez** al
+> reponer la 8. El horario no se pierde, se deja de derivar.
+>
+> ### La pregunta previa, contestada antes de proponer prohibir nada
+>
+> **Sí hay un caso legítimo, y hoy es el único que existe: NO SE PUEDE DESPUBLICAR.** La única
+> escritura de `years.horario_version_id` pone **un id**; **ninguna lo pone a `NULL`** y no hay
+> ruta que borre una versión. Un colegio que publicó un horario equivocado y prefiere no
+> enseñar ninguno **sólo tiene esa palanca**. Prohibirlo sin sustituto le quita lo único que
+> puede hacer.
+>
+> **Recomendada la (b): confirmación con cifra, como `acepto_perder`** —`acepto_vaciar: 134`,
+> recalculado en la misma transacción y que tiene que coincidir—. No es prudencia: es la forma
+> que este módulo ya tiene probada, y elegida sobre un `forzar: true` por la misma razón escrita
+> allí. *Publicar no puede quitarle el horario a 134 asignaciones en silencio, por lo mismo que
+> no puede perder 32.* Sin ruta nueva.
+>
+> ### Y una acusación que resultó falsa, anotada porque el desmentido es medición
+>
+> Llegó como que nuestra respuesta *«da un ✓ sobre cero que se lee igual que un ✓ de verdad»* e
+> incumple la regla de `tools/` —ninguna herramienta imprime OK sin decir su población—. **No la
+> incumple**, medido por los dos lados: cada ✓ lleva su denominador **dentro de la propia
+> cadena** (`«✓ sobre 0 casillas de 0 grupo(s)»`), `poblacion` dice `lecciones: 0`, y
+> `renglones.suma_igual_que_la_ih` grita `incompletas: 134 de 134` con cincuenta nombradas. El
+> defecto estaba en la pantalla que lo resumía, y ya está arreglado allí. *Quien la hizo la
+> remidió y se retractó; queda escrito porque una acusación retirada sin su medición vuelve.*
+
 **6 sep 2026 (noche) — LAS TRES DECISIONES DE JOSETH, IMPLEMENTADAS** · `HorarioController`,
 `app/Http/Middleware/TrimStrings.php`, `HorarioViajeDelFicheroTest`, `HorarioLeccionesTest`,
 [23 §9.ter.3, §9.ter.6, §9.ter.7 y §10.2 decisiones 5, 6 y 7](23-horarios.md) · **cero rutas,
