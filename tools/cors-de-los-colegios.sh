@@ -11,13 +11,34 @@
 #   Se le puede pasar otra para probarlo en local sin servidor.
 #
 # ─────────────────────────────────────────────────────────────────────────────
-# POR QUÉ EXISTE
+# POR QUÉ EXISTE — Y LA PREGUNTA CAMBIÓ EL 6 SEP 2026, PARA MEJOR
+#
+# **La política es `*` y no se va a cerrar.** Decisión de Joseth, 6 sep 2026:
+# «siempre va a ser CORS `*` porque necesita ser llamado desde múltiples orígenes,
+# diferentes». Esta API la llaman cuatro clientes con orígenes distintos, así que
+# la lista cerrada **nunca fue el camino**.
+#
+# Este guion se escribió el día antes para contestar «¿en cuántos colegios está ya
+# puesta la lista?», que era el paso previo de ese cierre. Esa pregunta ya no
+# existe. La que contesta ahora es mejor:
+#
+#     ¿HAY ALGÚN COLEGIO DONDE ALGUIEN HAYA PUESTO UNA LISTA, EN CONTRA DE LA
+#     POLÍTICA, Y CON ELLO HAYA DEJADO FUERA A LA APP DE ESCRITORIO?
+#
+# Antes medía un despliegue que iba a pasar; ahora **vigila una desviación que no
+# debería pasar y que no mira nadie más**. Un barrido que salga «los diecisiete en
+# `*`» no es un pendiente: es la política confirmada.
 #
 # `myvc_horarios` es un programa de escritorio (Tauri) que habla con esta API
 # desde un WebView, o sea **desde un navegador**, o sea cruzando origen. Si
 # `CORS_ALLOWED_ORIGINS` de un colegio lleva una lista y el origen del programa
 # no está en ella, el navegador de la ventana bloquea la petición y **aquí no se
 # entera nadie**: el servidor contesta 204 y la culpa parece del programa.
+#
+# Y quien comete esa equivocación **no está haciendo nada raro**: está apretando
+# la seguridad, pone el dominio de su colegio, ve que el front sigue funcionando
+# —porque el front sí casa con esa cabecera— y cierra la tarea. El único que se
+# cae es el programa que no estaba mirando.
 #
 # Medido el 6 sep 2026 contra el docker, con la lista puesta a mano:
 #
@@ -109,11 +130,14 @@ modo="${1:---env}"
 
 # ─── --origenes ───────────────────────────────────────────────────────────────
 if [ "$modo" = '--origenes' ]; then
-    printf 'Los %d orígenes que tiene que llevar CORS_ALLOWED_ORIGINS para que\n' "${#ORIGENES_DEL_ESCRITORIO[@]}"
-    printf 'la app de escritorio entre en las tres plataformas:\n\n'
+    printf 'LA POLÍTICA ES `*` (Joseth, 6 sep 2026) Y ESTO NO HAY QUE PONERLO EN NINGÚN SITIO.\n'
+    printf 'Es lo que HARÍA FALTA el día que alguien decidiera cerrar la lista en un colegio.\n\n'
+    printf 'Los %d orígenes que tendría que llevar CORS_ALLOWED_ORIGINS para que la app de\n' "${#ORIGENES_DEL_ESCRITORIO[@]}"
+    printf 'escritorio entrara en las tres plataformas:\n\n'
     printf '    %s\n' "$(IFS=,; echo "${ORIGENES_DEL_ESCRITORIO[*]}")"
-    printf '\nVan DETRÁS de los del front del colegio, separados por comas y sin espacios.\n'
-    printf 'Fuente: crate tauri 2.11.5, src/manager/mod.rs:339-346. No es una suposición.\n'
+    printf '\nIrían DETRÁS de los del front del colegio, separados por comas y sin espacios.\n'
+    printf 'Son DOS y no uno: la que se olvida es la de Windows. Fuente: crate tauri 2.11.5,\n'
+    printf 'src/manager/mod.rs:339-346. No es una suposición.\n'
     exit 0
 fi
 
@@ -287,8 +311,18 @@ done
 
 printf '\nDe %d carpetas: %d ausente, %d vacía, %d con lista que cubre, %d con lista que NO cubre, %d no medidas.\n' \
     "${#reales[@]}" "$ausentes" "$vacias" "$cubren" "$noCubren" "$sinEnv"
-printf 'Los %d de «ausente» + «vacía» dejan pasar al escritorio HOY y lo dejarán de hacer\n' "$((ausentes + vacias))"
-printf 'el día que alguien cierre CORS en ellos, que es una tarea abierta (29 §5).\n'
+printf 'Los %d de «ausente» + «vacía» son los que ESTÁN EN LA POLÍTICA (`*`, Joseth 6 sep 2026):\n' "$((ausentes + vacias))"
+printf 'dejan entrar al escritorio y es lo correcto, no un pendiente.\n'
+if [ "$((cubren + noCubren))" -gt 0 ]; then
+    # Singular y plural a mano: «Los 1 que llevan lista» es la clase de renglón que
+    # hace dudar de si la herramienta sabe contar, justo en la línea que importa.
+    if [ "$((cubren + noCubren))" -eq 1 ]; then
+        printf 'HAY 1 QUE LLEVA LISTA: se ha salido de la política, cubra o no al escritorio.\n'
+    else
+        printf 'HAY %d QUE LLEVAN LISTA: se han salido de la política, cubran o no al escritorio.\n' "$((cubren + noCubren))"
+    fi
+    printf 'Ahí es donde hay que mirar, y en los que NO cubren, el escritorio ya no entra.\n'
+fi
 
 # Mismo criterio que en --url: un .env que no se pudo leer no es un colegio limpio.
 if [ "$sinEnv" -gt 0 ]; then
