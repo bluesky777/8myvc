@@ -631,6 +631,53 @@
 >
 > *En los dieciséis colegios esto no existe: cero versiones desplegadas.*
 
+**6 sep 2026 — EL VIAJE DEL `.myvch` EJERCITADO DE PUNTA A PUNTA: IDÉNTICO BYTE A BYTE, Y UN
+TOPE QUE CORTA EL FICHERO Y CONTESTA `201`** · [23 §9.ter y §10.2 decisión 5](23-horarios.md) ·
+**cero código, cero rutas** · medido desde `.worktrees/s` sobre `7c3a0b9`, router en **578**
+
+> **Lo que nadie había hecho:** las seis rutas tenían sus ocho pruebas de contrato, pero el
+> contrato corre contra el seed y **el seed no tiene un `.myvch` dentro**. Esto es subir los dos
+> ficheros reales del escritorio por HTTP contra el docker y volver a bajarlos, comparando
+> **sha256**.
+>
+> **El ida y vuelta está sano, incluido el caso real de 312 piezas**: `POST` de 231.141 b en
+> 0,38 s, `GET .../proyecto` idéntico byte a byte, `Content-Length` exacto y el nombre del
+> fichero construido por el servidor. Con `Accept-Encoding: gzip` —lo que manda Tauri— sale
+> igual: nginx no comprime `octet-stream`. Fichero corrupto sube y baja intacto **y eso está
+> bien** (el servidor no parsea el blob a propósito); subir dos veces da dos versiones; emoji y
+> acentos vuelven idénticos y los bytes latin-1 dan `422` en vez de guardarse rotos.
+>
+> ### Lo que sí es un hallazgo, y es de los de contestar
+>
+> **Por encima de 16.777.215 b la subida contesta `201` y guarda el fichero CORTADO.** De los
+> cuatro topes —`MEDIUMTEXT` 16,7 MB · nginx 25M · `post_max_size` 25M · `max_allowed_packet`
+> 64 MB— **el más bajo es el único que no da error**: `proyecto` no lleva regla `max:` y el
+> `sql_mode` del docker no es estricto, así que MySQL trunca con un warning que no ve nadie.
+>
+> **No bloquea a nadie hoy y por eso va como decisión y no como parche**: el `.myvch` más grande
+> que existe mide **128.779 b**, **130 veces menos**. La salida barata (`max:16777215`) cambia
+> la respuesta de una ruta, así que se pone con su precio delante — **decisión 5 de la §10.2, y
+> es tuya**. La recomendada es la (a).
+>
+> **Y en los dieciséis no fallaría igual**: MariaDB 10.5 de serie lleva `STRICT_TRANS_TABLES`, y
+> con estricto esto **aborta con un 1406 y sale un 500** en vez de truncar. El `sql_mode` de
+> producción **no lo ha medido nadie** — es un `SELECT @@sql_mode` el día del despliegue, y
+> hasta entonces queda **NO MEDIDO**.
+>
+> ### Dos cosas más que quedan escritas
+>
+> **La cota alta de la §10.2.2 se reproduce desde un tercer sitio**: 231.141 contra los 231.135
+> del front, 6 bytes de diferencia que son el nombre del sobre, y `+45.064` y el **×1,795**
+> **iguales al byte** sin haber copiado nada. Costó **dos detectores rotos** llegar ahí, los dos
+> inflando y los dos creíbles (×1,88 y ×1,83): mandaba los objetos `{asignacionId}` en vez de
+> los enteros, y Python separa con `", "` donde `JSON.stringify` no pone espacio.
+>
+> **El sobre de `getLecciones` declara ONCE catálogos y el lector del escritorio OCHO.** No
+> rompe —su lector sólo exige los suyos—, pero **descarta `plantilla`, `jornadas` y
+> `sin_colocar`**, o sea **tres de las cuatro listas de la decisión 38**. *Son tres y no cuatro:
+> el escritorio sí recogió `disponibilidad`, y contarlas como cuatro haría buscar el problema en
+> el único renglón que está bien.* El arreglo es del otro repositorio; la constancia es de éste.
+
 **5 sep 2026 — LA SEXTA RUTA DEL HORARIO, Y CON ELLA EL MÓDULO SE QUEDA SIN NINGUNA
 DECISIÓN ABIERTA** · `HorarioController`, `routes/api/horario.php`,
 `tests/Contrato/HorarioProyectoTest.php` (**8 casos, 47 aserciones**), `CLAUDE.md`, [23
