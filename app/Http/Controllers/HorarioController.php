@@ -106,6 +106,42 @@ class HorarioController extends Controller
     ];
 
     /**
+     * El tope del blob del proyecto, **en BYTES**: lo que cabe en un `MEDIUMTEXT`.
+     *
+     * Decisión 5 de la §10.2, contestada por Joseth el 6 sep 2026: **poner el límite y
+     * devolver 422** en vez de guardar a medias. Lo que lo decidió no fue el tamaño —el
+     * `.myvch` más grande que existe mide 128.779 b, o sea **130 veces menos**— sino que
+     * **el docker y producción fallaban distinto**: aquí `sql_mode` no es estricto y MySQL
+     * **truncaba en silencio contestando `201`**, y en los dieciséis, con
+     * `STRICT_TRANS_TABLES` de serie en MariaDB 10.5, el mismo caso **aborta con un 1406 y
+     * sale un 500**. Ninguno de los dos decía qué había pasado. Con el rechazo delante los
+     * diecisiete fallan igual y lo dicen (§9.ter.3).
+     *
+     * ## Por qué NO es una regla `max:16777215` de Laravel, que es lo que parecía
+     *
+     * **Porque `max` cuenta CARACTERES y esta columna cuenta BYTES.** `getSize()` de
+     * `ValidatesAttributes` resuelve a `mb_strlen`, comprobado el 6 sep 2026 contra este
+     * árbol: `str_repeat('ñ', 10)` son **10 caracteres y 20 bytes**, y pasa un `max:15`.
+     * O sea que con la regla puesta un proyecto de acentos —que es **todos**: los nombres
+     * de los colegios llevan `Ó`, y el blob admite emoji de 4 bytes— **pasaría la
+     * validación y lo truncaría MySQL igual**, que es exactamente el fallo que esta
+     * decisión viene a cerrar. *La salida que parecía barata no era la misma decisión con
+     * menos trabajo: era no tomarla.*
+     *
+     * Así que el tope se comprueba con `strlen()` y a mano, y por eso vive aquí y no dentro
+     * de la lista de reglas.
+     *
+     * ## Esta constante es el TECHO, y el que se aplica sale de `config/horario.php`
+     *
+     * El valor efectivo se lee de la configuración y **se recorta contra ésta**
+     * (`maximoDelProyecto()`), así que bajarlo vale y subirlo no hace nada. Lo segundo es
+     * deliberado: un tope configurado por encima del de la columna devolvería justo el fallo
+     * que la decisión 5 cerró —MySQL truncando en silencio detrás de un `201`—, y **una
+     * configuración no puede reabrir una decisión**.
+     */
+    private const TOPE_DE_LA_COLUMNA = 16777215;
+
+    /**
      * La forma de un `pieza_id`: la que la columna `horario_lecciones.pieza_id` ya acepta.
      *
      * Es **el único texto del fichero de proyecto que sale por `getLecciones`**, y sale
@@ -315,7 +351,7 @@ class HorarioController extends Controller
          * `errors` no se entera de nada.
          */
         try {
-            return Request::validate([
+            $cuerpo = Request::validate([
                 'version' => 'required|array',
                 'version.nombre' => 'required|string|max:255',
                 'version.year_id' => 'required|integer|min:1',
@@ -341,6 +377,57 @@ class HorarioController extends Controller
                 'errors' => $e->errors(),
             ]);
         }
+
+        /*
+         * El tope del blob (decisión 5), y **con `motivo` propio y no `cuerpo-mal-formado`**.
+         *
+         * Aquí el cuerpo está perfectamente bien formado: es del tamaño que no cabe. Meterlo
+         * en el rechazo de forma le diría al escritorio que revise su JSON —que está bien— y
+         * le escondería lo único que puede hacer, que es mirar su fichero. Los seis rechazos
+         * de dominio de esta familia ya traen su `motivo` y su población dentro; éste es el
+         * séptimo y sigue la misma forma.
+         *
+         * **`strlen` y no `mb_strlen`**, por lo que dice `TOPE_DE_LA_COLUMNA`: lo que cuenta
+         * la columna son bytes. Y va **antes de la transacción y antes de tocar `years`**,
+         * porque un rechazo por tamaño no necesita saber nada del año.
+         */
+        $bytes = strlen((string) $cuerpo['proyecto']);
+        $maximo = $this->maximoDelProyecto();
+
+        if ($bytes > $maximo) {
+            $this->rechazar([
+                'message' => "El fichero de proyecto mide {$bytes} bytes y el máximo son {$maximo} bytes. "
+                    .'No se sube: por encima de ese tope la base lo guardaría cortado y la respuesta diría que todo fue bien, '
+                    .'así que se rechaza entero. Nada se escribió.',
+                'motivo' => 'proyecto-demasiado-grande',
+                'bytes' => $bytes,
+                'maximo' => $maximo,
+            ]);
+        }
+
+        return $cuerpo;
+    }
+
+    /**
+     * El tope que se aplica de verdad: el de la configuración, **recortado por el de la
+     * columna**.
+     *
+     * `min()` y no el valor tal cual, y no es defensa por defender: subir
+     * `horario.maximo_del_proyecto` por encima de lo que aguanta un `MEDIUMTEXT` no ampliaría
+     * nada — lo ampliaría hasta el punto en que **MySQL vuelve a truncar en silencio detrás de
+     * un `201`**, que es exactamente el fallo que cerró la decisión 5. Una configuración puede
+     * apretar este tope; **no puede reabrir la decisión**.
+     *
+     * El `max(1, …)` es para el otro extremo: un `0` o un negativo mal puestos dejarían la
+     * ruta rechazando **todas** las subidas, y con `1` lo peor que pasa es que se rechacen
+     * todas menos las de un byte — igual de roto, pero **se ve al primer intento** en vez de
+     * parecer que la ruta está caída.
+     */
+    protected function maximoDelProyecto(): int
+    {
+        $configurado = (int) config('horario.maximo_del_proyecto', self::TOPE_DE_LA_COLUMNA);
+
+        return max(1, min($configurado, self::TOPE_DE_LA_COLUMNA));
     }
 
     /**
@@ -1143,6 +1230,14 @@ class HorarioController extends Controller
         $versionId = (int) $id;
         $yearId = (int) $this->user->year_id;
 
+        // **No es un 403: decide cuánto dice la respuesta, no si se da.** Quien puede
+        // publicar el horario ve de quién es cada pega de disponibilidad; el resto del
+        // personal ve que la pega existe y no de quién (decisión 3, 6 sep 2026). Se
+        // resuelve una sola vez aquí porque lo miran dos sitios —la lista y su renglón de
+        // `catalogos`— y **tienen que decir lo mismo**: leerlo dos veces es cómo una
+        // respuesta acaba tachando el autor y declarando `autor: visible`.
+        $puedePublicar = Autoriza::puedePublicarHorario($this->user);
+
         // El año sale del TOKEN, igual que en `getVersiones` y por lo mismo: un
         // `year_id` por parámetro sería un identificador que llega de fuera y no
         // comprueba nadie. Y va en el `WHERE` junto al id, no en un `if` después: así
@@ -1309,7 +1404,7 @@ class HorarioController extends Controller
                 'jornadas' => $jornadas,
                 'sin_colocar' => $sinColocar,
                 'cuentas_sin_colocar' => $leidoSinColocar,
-            ]),
+            ], $puedePublicar),
             'lecciones' => $lecciones,
             // La población, delante y siempre. Sin ella `lecciones: []` se lee como
             // «todo bien» — que es literalmente el fallo de la §2, el que estuvo meses
@@ -1336,7 +1431,7 @@ class HorarioController extends Controller
             // hoja que dice «a alguien le viene mal» sin decir a quién se reparte más
             // fácil y se rebate peor. `marcas: []` es «sin pegas», porque el escritorio
             // sólo guarda lo que no es `adecuado`.
-            'disponibilidad' => $leidaDisponibilidad,
+            'disponibilidad' => $this->disponibilidadQueViaja($leidaDisponibilidad, $puedePublicar),
             // Las que el fichero tiene y ninguna casilla recibió. No están en
             // `horario_lecciones` —que sólo guarda las colocadas— y eso no es lo mismo que
             // que el dato no esté.
@@ -1597,7 +1692,7 @@ class HorarioController extends Controller
      * @param  array{legible: bool, plantilla: list<array<string, mixed>>|null, disponibilidad: list<array<string, mixed>>|null, jornadas: array<string, mixed>|null, sin_colocar: list<array<string, mixed>>|null, cuentas_sin_colocar: array<string, mixed>|null}  $delProyecto
      * @return array<string, array<string, mixed>>
      */
-    protected function catalogosDeLaVersion(int $yearId, array $lecciones, array $delProyecto): array
+    protected function catalogosDeLaVersion(int $yearId, array $lecciones, array $delProyecto, bool $conAutor): array
     {
         $total = count($lecciones);
         $legible = $delProyecto['legible'];
@@ -1725,7 +1820,7 @@ class HorarioController extends Controller
             // sigue `null` a propósito (ver `ejesDeLaVersion`): una cosa es lo que el
             // proyecto declara, con su `porque`, y otra una rejilla reconstruida.
             'timbres' => $this->renglonDeLosTimbres($legible, $jornadas),
-            'disponibilidad' => $this->renglonDeLaDisponibilidad($legible, $disponibilidad),
+            'disponibilidad' => $this->renglonDeLaDisponibilidad($legible, $disponibilidad, $conAutor),
             'sin_colocar' => $this->renglonDeLasSinColocar($legible, $sinColocar, $cuentas),
             'restricciones' => $this->renglonDelProyecto($legible,
                 'restricciones, pesos y distribuciones de bloque viven dentro del fichero de proyecto y esta ruta no los parsea (§4)'),
@@ -1896,7 +1991,7 @@ class HorarioController extends Controller
      * @param  list<array<string, mixed>>|null  $disponibilidad
      * @return array<string, mixed>
      */
-    protected function renglonDeLaDisponibilidad(bool $legible, ?array $disponibilidad): array
+    protected function renglonDeLaDisponibilidad(bool $legible, ?array $disponibilidad, bool $conAutor): array
     {
         if ($disponibilidad === null) {
             return $this->renglonIlegible($legible, 'docentes[].disponibilidad');
@@ -1912,8 +2007,66 @@ class HorarioController extends Controller
             'marcas' => count($marcas),
             'condicional' => $porEstado['condicional'] ?? 0,
             'inadecuado' => $porEstado['inadecuado'] ?? 0,
-            'criterio' => 'una entrada por docente de la plantilla; `marcas: []` es «sin pegas», porque el escritorio sólo guarda lo que no es adecuado',
+            // **`autor` y NO `estado`, y el nombre es la decisión.** En este sobre ya hay
+            // dos cosas llamadas `estado` con vocabularios que no se solapan —el de un
+            // catálogo (`completo`…`ilegible`) y el de una marca (`condicional` ·
+            // `inadecuado`)—, así que un tercero bajo esa clave dejaría al lector sin forma
+            // de saber cuál le tocó (§9.ter.6). Este campo contesta otra pregunta —**si el
+            // `profesor_id` de cada entrada viaja o va en nulo**— y por eso lleva otra
+            // palabra.
+            //
+            // Existe para que un `profesor_id: null` **nunca se lea como «este dato no
+            // está»**: aquí sí está, y lo que pasa es que a quien pregunta no le
+            // corresponde. Sin este renglón, «reservado» e «ilegible» se verían igual desde
+            // la pantalla, que es la confusión que este módulo lleva cinco secciones
+            // evitando.
+            'autor' => $conAutor ? 'visible' : 'reservado',
+            'criterio' => 'una entrada por docente de la plantilla; `marcas: []` es «sin pegas», porque el escritorio sólo guarda lo que no es adecuado'
+                .($conAutor ? '' : '. El `profesor_id` de cada entrada va en nulo: las cuentas de este renglón son completas, pero de quién es cada pega sólo lo ve quien puede publicar el horario'),
         ];
+    }
+
+    /**
+     * La lista de disponibilidad tal y como sale, **con o sin el autor de cada pega**.
+     *
+     * Decisión 3 de esta noche, contestada por Joseth el 6 sep 2026: *el `inadecuado` viaja
+     * con su autor, pero sólo para quien puede publicar*.
+     *
+     * ## Por qué el criterio va aquí dentro y no en la ruta
+     *
+     * Porque **`getLecciones` no tiene permiso interno**: lleva `auth.personal` y nada más,
+     * así que la llama cualquiera de los 53 docentes del colegio. Con el autor
+     * incondicional, esta lista es *«a qué hora le viene mal a cada compañero»* repartida a
+     * la sala de profesores entera — y una pega con nombre **se rebate peor de lo que se
+     * reparte**. Quien cuadra el horario sí necesita saber a quién preguntarle; los demás
+     * necesitan ver **que hay una pega**, que es lo que las cuentas del renglón siguen
+     * diciendo enteras.
+     *
+     * Es el mismo escalón que la ruta del proyecto: `auth.personal` en la ruta —cierra la
+     * puerta a alumnos y acudientes— y `puedePublicarHorario` **dentro**, donde se decide
+     * qué sale. No es un 403: la respuesta se da igual y lo que cambia es cuánto dice.
+     *
+     * ## Se tacha el AUTOR, no la marca
+     *
+     * Las marcas siguen viajando enteras —día, franja y `estado`—, así que la rejilla se
+     * pinta igual para todos y `con_marcas`, `marcas`, `condicional` e `inadecuado` cuadran
+     * con lo que se recibió. Lo único que se va es **de quién es cada una**.
+     *
+     * @param  list<array<string, mixed>>|null  $disponibilidad
+     * @return list<array<string, mixed>>|null
+     */
+    protected function disponibilidadQueViaja(?array $disponibilidad, bool $conAutor): ?array
+    {
+        if ($disponibilidad === null || $conAutor) {
+            return $disponibilidad;
+        }
+
+        // `profesor_id` a nulo y **la clave se queda**: quitarla cambiaría la forma de la
+        // entrada según quién pregunte, y un lector que la exija se rompería con el docente
+        // raso y no con el coordinador — o sea el fallo que sólo aparece en producción y en
+        // la mitad de las cuentas. El renglón `autor` de `catalogos` dice que ese nulo es
+        // una reserva y no un hueco.
+        return array_map(fn ($d) => ['profesor_id' => null, 'marcas' => $d['marcas']], $disponibilidad);
     }
 
     /**

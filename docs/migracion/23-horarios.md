@@ -1636,6 +1636,14 @@ sería idéntico a `ejes.dias` y no distinguiría nada**.
 > no como objeción pendiente — pero el argumento que sostiene el guard en esta §9.bis **ya no cubre
 > todo lo que la ruta transporta**, y eso hay que decirlo aquí y no sólo allí.
 >
+> **PAGADO Y RETIRADO el 6 sep 2026 — decisión 7 de la §10.2, contestada por Joseth.** Ese
+> precio ya no se paga: **el autor de cada pega viaja sólo para quien puede publicar**
+> (`puedePublicarHorario` dentro del método, no en la ruta). Los 53 docentes siguen viendo la
+> marca —día, franja y `estado`, o sea la rejilla entera— y **no de quién es**. Este párrafo se
+> deja escrito y no se borra: explica por qué la ruta transporta lo que transporta, y *un aviso
+> sobre un estado tiene la fecha de caducidad del estado* — pero el estado cambió, así que lo
+> que caduca es el aviso y no el motivo.
+>
 > ### Y las dos cifras del proyecto NO estaban en tensión: miden cosas distintas
 >
 > La §9.bis.2 cita **74.836 b / 6.608 gzip** y `horario_versiones.proyecto` mide **129.550**.
@@ -2180,10 +2188,27 @@ decir los dos: con el factor del proyecto vacío (×1,41) el cuerpo de un `.myvc
 de 26,2 MB antes de que el fichero llegue a 16,7 MB y gana el `413`.
 
 > **Y el denominador, porque sin él esto se lee peor de lo que es:** el `.myvch` más grande que
-> existe mide **128.779 b**, o sea que el tope está a **130 veces** del único dato real. **No
-> bloquea a nadie hoy** y no se arregla en este lote; queda escrito con su forma y su precio en
-> la **decisión 5** de la §10.2. *Lo que lo hace anotable no es el tamaño: es que de los cuatro
-> topes, el que se alcanza primero es el que contesta `201`.*
+> existe mide **128.779 b**, o sea que el tope está a **130 veces** del único dato real. *Lo que
+> lo hacía anotable no era el tamaño: era que de los cuatro topes, el que se alcanzaba primero
+> era el que contestaba `201`.*
+>
+> **ARREGLADO el 6 sep 2026 — decisión 5, contestada por Joseth: se pone el límite y se
+> devuelve 422.** Lo de arriba describe lo que pasaba **hasta ese día**; hoy un proyecto por
+> encima de 16.777.215 bytes se rechaza entero con `motivo: proyecto-demasiado-grande`, sus
+> `bytes` y su `maximo`, **antes de tocar la base**. Lo decidió la segunda mitad y no el
+> tamaño: así los diecisiete fallan igual y lo dicen.
+>
+> **El tope efectivo sale de `config/horario.php`** y `maximoDelProyecto()` lo recorta contra
+> el de la columna —se puede apretar, no subir—; el valor de serie es el de `MEDIUMTEXT` y lo
+> fija su propio test.
+>
+> **Y el tope se comprueba con `strlen()`, no con una regla `max:` de Laravel, que era la
+> salida que parecía obvia y NO valía:** `max` resuelve a `mb_strlen`, o sea **caracteres**, y
+> la columna cuenta **bytes**. Comprobado sobre este árbol: `str_repeat('ñ', 10)` son 10
+> caracteres y 20 bytes y pasa un `max:15`. Con la regla puesta, un `.myvch` de acentos —los
+> colegios se llaman `SIMÓN`— habría pasado la validación y lo habría truncado MySQL igual, o
+> sea **el mismo fallo con un test en verde encima**. Tiene su propio caso
+> (`el_tope_del_proyecto_cuenta_bytes_y_no_caracteres`).
 
 > **Lo que esto NO midió, y es la mitad que falta: los dieciséis cPanel.** Producción es
 > **MariaDB 10.5.25** y su `sql_mode` **no está medido por nadie**; el de serie en 10.5 lleva
@@ -2282,6 +2307,24 @@ cinco palabras y ninguna más.
 > hay — un cliente que sepa que son cinco puede decidir qué hace con el sexto; uno que sólo
 > tenga la lista, no.
 
+#### Y un tercer campo que NO se llamó `estado`, sabiendo esto — `catalogos.disponibilidad.autor`
+
+Entró el 6 sep 2026 con la decisión 7 (el autor de una pega viaja sólo para quien puede
+publicar) y **su nombre es parte de la decisión**. Vale `visible` o `reservado`, y contesta
+una pregunta que ninguno de los cinco estados de arriba contesta: **si el `profesor_id` de
+cada entrada de `disponibilidad` viaja o va en nulo**.
+
+**Podía haberse llamado `estado` y habría sido un error**, por lo que dice el recuadro de
+abajo: bajo esa clave ya conviven dos vocabularios, y un tercero habría dejado al lector sin
+forma de saber cuál le tocó. *El campo condicional se nombró después de contar los estados, no
+antes* — que es justo lo que no se pudo hacer con los dos que ya estaban.
+
+**Y existe para que un `profesor_id: null` nunca se lea como «este dato no está»**: ahí el dato
+sí está y lo que pasa es que a quien pregunta no le corresponde. Sin este renglón, *reservado*
+e *ilegible* se verían igual desde la pantalla — que es la confusión que esta sección lleva
+cinco apartados evitando. Las cuentas del renglón (`marcas`, `condicional`, `inadecuado`,
+`con_marcas`, `de`) **se dan enteras en los dos casos**: ver que hay una pega es el punto.
+
 > **CUIDADO, y esto no lo pidió nadie: en esta misma respuesta hay DOS cosas llamadas
 > `estado` y no comparten vocabulario.** El de un catálogo es una de las cinco de arriba; el
 > de una **marca de disponibilidad** (`marcaLeida()`) es `condicional` o `inadecuado`, y una
@@ -2289,6 +2332,11 @@ cinco palabras y ninguna más.
 > misma clave en dos profundidades del sobre, así que un lector que valide «`estado` ∈ {los
 > cinco}» contra una marca **la tira**, y uno que acepte los siete en los dos sitios deja
 > pasar un catálogo `condicional` que no significa nada.
+>
+> **Siguen siendo siete y no nueve**, y eso es el resultado de haber contado: `autor` metió dos
+> palabras más en el sobre —`visible` y `reservado`— **bajo una clave propia**, así que no
+> entran en esta cuenta. Si hubiera entrado como un tercer `estado`, este recuadro tendría que
+> decir nueve y ningún lector podría desambiguarlas.
 
 ### 9.ter.7. `TrimStrings` se come los saltos de línea de los extremos — y la foto no lo vio
 
@@ -2311,9 +2359,33 @@ cualquier formulario.
 
 **Por qué la medición a mano no podía verlo, y no es que se hiciera mal:** los dos únicos
 `.myvch` que existen **terminan en `}`**, comprobado con `tail -c 4` — los dos dan
-`09 7d 0a 7d`. O sea que el fichero de prueba **le esquivaba el bulto por casualidad del
-serializador del escritorio**, no por ninguna garantía. *Una foto sólo enseña los casos que
-el fotógrafo tenía delante; la prueba tuvo que fabricar uno y por eso lo encontró.*
+`09 7d 0a 7d`. O sea que el fichero de prueba **le esquivaba el bulto**, no por ninguna
+garantía. *Una foto sólo enseña los casos que el fotógrafo tenía delante; la prueba tuvo que
+fabricar uno y por eso lo encontró.*
+
+> **Y la causa está una capa más abajo de donde se dijo primero, que es lo que la vuelve una
+> afirmación general en vez de una anécdota.** Aquí se escribió *«sus dos ficheros terminan en
+> `}`»*; remedido por `myvc_horarios` sobre **cuatro** proyectos —`COLEGIO_DE_PRUEBA` 124.785 b,
+> `CASI_LLENO` 124.581 b, `SIN_COLOCAR` 100.381 b, `MEDIO_CUADRADO` 129.978 b—, los cuatro
+> empiezan por `{`, acaban en `}` y cumplen `texto.trim() === texto`. La razón no es de los
+> ficheros: **es que su serializador es `JSON.stringify` a secas, y `JSON.stringify` no pone
+> salto final**. Con eso la frase aguanta para **cualquier** proyecto y no sólo para los que
+> alguien miró — *«los que vi terminan bien»* y *«todos terminan bien, y aquí está por qué»* no
+> son la misma afirmación.
+
+**Y AUN ASÍ no nos podemos apoyar en su serializador, que es el argumento que sobrevive.** Su
+`enviar()` acepta un **fichero de proyecto ya hecho** y sólo llama al serializador si no se lo
+dan —`nucleo/envio.ts:625`, un `??`—, así que **hay un camino que no pasa por él**. Blindar el
+serializador no cerraría ese camino. Eso convierte la decisión 6 de *«arreglar algo que hoy no
+muerde»* en **«dejar de depender de una garantía que no es nuestra y que además tiene un
+agujero conocido»**, que es la forma en que hay que leerla el día que alguien pregunte por qué
+se tocó un middleware global por un caso que no ocurría.
+
+**Y el modo de fallo que va a ocurrir de verdad tiene nombre:** alguien añade un `\n` final
+*«para que el fichero acabe bien»* al tocar el serializador. **El daño no sería un error** —se
+guardaría el fichero sin ese carácter y **no se pondría nada rojo en ninguno de los dos
+repositorios**—. Por eso vive en el comentario de `TrimStrings` y en el de su `escribirProyecto()`,
+donde lo lee quien va a tocarlo, y no en una nota.
 
 > **Y lo que lo hace grave no es el byte: es que el fichero recortado SIGUE SIENDO JSON
 > VÁLIDO.** El escritorio lo abre sin quejarse y el horario se ve entero, así que **no hay
@@ -2321,15 +2393,21 @@ el fotógrafo tenía delante; la prueba tuvo que fabricar uno y por eso lo encon
 > que nadie hace hasta que sospecha. Es la familia de la §2 una vez más: algo que no da
 > error y se lee como que fue bien.
 
-**Hoy no muerde a nadie** y por eso va como decisión y no como parche. Pero es **casualidad,
-no diseño**: un `JSON.stringify(...) + "\n"`, un editor que cierre el fichero con salto o un
-`writeFile` con la convención de POSIX lo rompen **sin tocar una línea de este repositorio**.
+**No mordía a nadie todavía**, pero era **casualidad y no diseño**: un
+`JSON.stringify(...) + "\n"`, un editor que cierre el fichero con salto o un `writeFile` con la
+convención de POSIX lo rompen **sin tocar una línea de este repositorio**.
 
-**Queda fijado con un test que se pone ROJO el día que se arregle**
-(`HorarioViajeDelFicheroTest::los_saltos_de_linea_de_los_extremos_se_pierden_y_es_un_fallo_conocido`),
-que es la forma de esta casa para lo roto a propósito: el arreglo obliga a mover el documento
-en el mismo commit en vez de dejar dos verdades. **Y el rojo se vio**: metiendo `proyecto` en
-el `$except` del middleware, ese test —y sólo ése, los otros cuatro siguen verdes— cae.
+**ARREGLADO el 6 sep 2026 — decisión 6, contestada por Joseth: `proyecto` entra en el
+`$except` de `TrimStrings`.** Una línea, y **la premisa de que era quirúrgica se midió antes de
+escribirla**, porque `$except` casa por nombre de campo y no por ruta: barridos los **260**
+ficheros `.php` de `app/` y `routes/`, `proyecto` es campo de petición **sólo** en `horario/`
+—la única otra mención es `config('notificaciones.fcm.proyecto')`, que es configuración y no
+entrada—, y `Str::is()` sin comodines casa **sólo con la clave exacta de primer nivel**.
+
+**El test que fijaba el fallo ahora fija lo contrario**
+(`los_saltos_de_linea_de_los_extremos_sobreviven_el_viaje`, con los cuatro sitios donde puede ir
+el salto), y **el rojo se vio en las dos direcciones**: sacando `proyecto` del `$except` cae ése
+y sólo ése.
 ---
 
 ## 10. Decisiones
@@ -2388,9 +2466,15 @@ siguen sin estar.
 > quién marca la oficial, el rol vacío, quién lista, los años cerrados y el blob.
 >
 > ~~**Quedan cuatro**~~ ~~**Quedan DOS**~~ ~~**QUEDA UNA**~~ ~~**NO QUEDA NINGUNA.**~~
-> **QUEDAN DOS OTRA VEZ, Y LAS DOS SON NUEVAS: la 5 y la 6**, abiertas el 6 sep 2026 al
-> ejercitar el viaje del fichero de punta a punta (§9.ter) — la **5** midiéndolo a mano y la
-> **6** al convertirlo en prueba, que es la que la foto no podía ver. No reabre ninguna de las cuatro: **el tope del blob de la
+> ~~**QUEDAN DOS OTRA VEZ: la 5 y la 6.**~~ **NO QUEDA NINGUNA, otra vez — y las TRES últimas
+> las contestó Joseth el 6 sep 2026, en el mismo día en que se abrieron.** La **5** y la **6**
+> salieron de ejercitar el viaje del fichero (§9.ter) —una midiéndolo a mano, la otra al
+> convertirlo en prueba, que es la que la foto no podía ver— y la **7** de un precio que la
+> decisión 38 había dejado escrito como pagado.
+>
+> *Que se abran tres y se cierren tres el mismo día no es que fueran fáciles: es que las tres
+> llegaron con su opción, su precio y su recomendación delante. Ninguna de las tres se decidió
+> preguntando «¿qué hacemos con esto?».* No reabre ninguna de las cuatro: **el tope del blob de la
 > 2 se cerró bien** —el blob va en la fila y sin comprimir, y eso sigue en pie—; lo que nadie
 > había preguntado es **qué pasa cuando se pasa**, y la respuesta resultó ser `201` con el
 > fichero cortado.
@@ -2414,8 +2498,9 @@ siguen sin estar.
 > | **2** el tope del blob | 5 sep 2026 | **su propio texto ya la había contestado** —«el blob va en la fila, sin comprimir», con la cota alta medida— y el rótulo de la cabecera no se había movido |
 > | **4** las siete columnas | 4 y 5 sep 2026 | el vigilante escrito (`tools/deriva-del-horario.php`) y, el 5, **comprobado que el orden no se promete**: `asignaturas_dia()` no lleva `ORDER BY` |
 > | **3** descargar el proyecto | 5 sep 2026 | **autorizada y escrita**: sexta ruta, `puedePublicarHorario`, el fichero sin escapar y **byte a byte _salvo los saltos de línea de los extremos_** (§9.ter.7, decisión 6) |
-> | **6** `TrimStrings` recorta el blob | **ABIERTA** 6 sep 2026 | **de Joseth**: el arreglo es una línea en un middleware **global** |
-> | **5** el blob por encima de `MEDIUMTEXT` | **ABIERTA** 6 sep 2026 | **de Joseth**: hoy son `201` y el fichero cortado (§9.ter.3). Recomendada la (a), `max:16777215` |
+> | **6** `TrimStrings` recorta el blob | 6 sep 2026 | **`proyecto` al `$except`** (la recomendada), con la premisa de que era quirúrgico **medida antes**: 260 ficheros barridos, es campo de petición sólo en `horario/` |
+> | **7** el autor de una pega de disponibilidad | 6 sep 2026 | **viaja sólo para quien puede publicar**, `puedePublicarHorario` **dentro** del método. Retira el precio que la decisión 38 dejó escrito |
+> | **5** el blob por encima de `MEDIUMTEXT` | 6 sep 2026 | **poner el límite y devolver 422** (la recomendada). Lo decidió que el docker truncaba callando y los dieciséis habrían dado `1406 → 500`: ahora los diecisiete fallan igual y lo dicen |
 >
 > **Las tres cerradas tienen algo en común que conviene ver junto:** ninguna se cerró
 > decidiendo algo nuevo. La 1 se cerró **eligiendo no tocar**, la 2 **leyendo lo que ya
@@ -2668,8 +2753,31 @@ siguen sin estar.
    > *No se arregla hoy: no hay nada que arreglar. Se arregla el día que se regenere el seed
    > con horario dentro, y la salida es ordenar la lista en el propio test antes de
    > compararla, no en la consulta.*
-5. **El blob no tiene tope y la columna sí: por encima de 16.777.215 b la subida contesta
-   `201` y guarda el fichero CORTADO.** Medido de punta a punta el 6 sep 2026 (§9.ter.3): de
+5. ~~**El blob no tiene tope y la columna sí.**~~ **CONTESTADA por Joseth el 6 sep 2026:
+   opción (a) — se pone el límite y se devuelve `422 proyecto-demasiado-grande`.** Lo que
+   sigue es el planteamiento con el que se decidió; el comportamiento de hoy es el de la (a).
+   **Y al implementarla apareció que la salida obvia no valía**: `max:16777215` cuenta
+   caracteres (`mb_strlen`) y la columna cuenta bytes, así que el tope se comprueba con
+   `strlen()` (§9.ter.3). *El planteamiento decía «una línea y un test», y la línea era otra.*
+
+   **Y el tope efectivo vive en `config/horario.php`, recortado contra la columna.** No es
+   configurabilidad por gusto: con el número clavado, los casos que lo ejercitan tienen que
+   mandar **16 MB de verdad**, y eso **tumbó la suite entera** —`Allowed memory size of
+   268435456 bytes exhausted` dentro de `MySqlConnection`, en el caso que comprueba que justo
+   en el tope SÍ entra—. Bajándolo, esos casos prueban **el mismo mecanismo** por unos pocos
+   KB. `maximoDelProyecto()` hace `min()` contra el tope de la columna, así que **una
+   configuración puede apretar el tope y no puede subirlo**: si pudiera, un fichero de
+   configuración reabriría esta decisión y MySQL volvería a truncar callando.
+
+   > **Cómo se descubrió, porque el modo de fallo es el de siempre y esta vez mordió a quien lo
+   > escribe.** La suite murió a los **1.070 casos** de 2.044, y **el código de salida fue 0**;
+   > un `grep '⨯'` sobre esa salida daba **limpio**, porque el proceso no llegó a escribir
+   > ningún fallo — ni la línea `Tests:`. *La cifra se lee de la línea `Tests:`, y cuando esa
+   > línea no está, lo que hay no es un verde: es una suite que no terminó.* Es exactamente la
+   > regla que este repositorio ya tenía escrita para las tuberías, cobrada por el otro lado.
+
+   **El planteamiento, tal y como se le puso delante: por encima de 16.777.215 b la subida
+   contestaba `201` y guardaba el fichero CORTADO.** Medido de punta a punta el 6 sep 2026 (§9.ter.3): de
    los cuatro topes de la escalera, **el más bajo es el único que no da error**. `proyecto` no
    lleva regla `max:` en `cuerpoDeLaSubida()`, y el `sql_mode` del docker no es estricto, así
    que MySQL trunca con un warning que no ve nadie. Quien suba ese fichero recibe un `201` con
@@ -2700,8 +2808,25 @@ siguen sin estar.
    > mudo aquí y un 500 allí**, y ninguno de los dos dice qué pasó. Medirlo es una línea el
    > día del despliegue —`SELECT @@sql_mode`— y hasta entonces se queda **NO MEDIDO**.
 
-6. **`TrimStrings` recorta los saltos de línea de los extremos del `.myvch`, y el arreglo es
-   GLOBAL.** Medido el 6 sep 2026 (§9.ter.7): un fichero que termine en `\n` se guarda con un
+6. ~~**`TrimStrings` recorta los saltos de línea de los extremos del `.myvch`.**~~
+   **CONTESTADA por Joseth el 6 sep 2026: opción (a) — `proyecto` entra en el `$except`.**
+   Antes de escribir la línea se comprobó lo que la opción daba por supuesto y no había medido
+   nadie: **`$except` casa por nombre de campo y no por ruta**, y `proyecto` es campo de
+   petición **sólo** en `horario/` (260 ficheros de `app/` y `routes/` barridos; la única otra
+   mención es `config('notificaciones.fcm.proyecto')`, que es configuración). *La premisa de
+   que era quirúrgico está comprobada, no supuesta.*
+
+   **Y el argumento con el que se defiende no es «hoy se rompe», porque hoy no se rompe: es
+   que la garantía no es nuestra.** El escritorio escribe con `JSON.stringify` a secas —que no
+   pone salto final, medido sobre cuatro de sus proyectos—, pero su `enviar()` acepta un
+   fichero **ya hecho** y sólo llama al serializador si no se lo dan (`envio.ts:625`, un `??`).
+   **Hay un camino que no pasa por él**, así que blindarlo allí no bastaría. Y el modo de fallo
+   tiene nombre: alguien añade un `\n` *«para que el fichero acabe bien»* y **no se pone nada
+   rojo en ninguno de los dos repositorios**. *Se deja de depender de una garantía ajena que
+   además tiene un agujero conocido — eso es lo que justifica tocar un middleware global por un
+   caso que no ocurría.*
+
+   **El planteamiento, tal y como se le puso delante: el arreglo es GLOBAL.** Medido el 6 sep 2026 (§9.ter.7): un fichero que termine en `\n` se guarda con un
    byte menos, contesta `201` y **sigue siendo JSON válido**, así que el escritorio lo abre y
    no hay ningún síntoma. La causa es `app/Http/Middleware/TrimStrings.php`, middleware
    **global**, cuyo `$except` sólo cubre las tres claves de contraseña.
@@ -2726,6 +2851,48 @@ siguen sin estar.
    > son `horario/` con un middleware propio. Cuesta más que (a), tiene el mismo alcance y
    > deja **dos reglas de recorte** en una API que hoy tiene una. Se nombra para que no se
    > proponga como si no se hubiera mirado.
+
+7. ~~**¿El autor de una pega de disponibilidad viaja para todo el personal?**~~ **CONTESTADA
+   por Joseth el 6 sep 2026: viaja SÓLO para quien puede publicar el horario.**
+   `puedePublicarHorario` **dentro del método**, no en la ruta.
+
+   **Lo que decidió el caso fue un dato y no un argumento:** `getLecciones` lleva
+   `auth.personal` y **ningún permiso dentro**, así que la llama cualquiera de los **53**
+   docentes del colegio. Con el autor incondicional, esa respuesta es *«a qué hora le viene
+   mal a cada compañero»* repartida a la sala de profesores entera — y **una pega con nombre
+   se rebate peor de lo que se reparte**. Quien cuadra el horario sí necesita saber a quién
+   preguntarle; los demás necesitan ver **que hay una pega**, y eso lo siguen diciendo las
+   cuentas del renglón enteras.
+
+   **Retira el precio que la decisión 38 había dejado escrito** en la §9.bis.3 —*«cualquiera
+   de los 53 docentes puede leer las horas que sus compañeros marcaron `inadecuado`»*—, que
+   estaba anotado como **pagado** y no como objeción pendiente. Ese párrafo se conserva con su
+   fecha: explica por qué la ruta transporta lo que transporta.
+
+   **Se tacha el AUTOR, no la marca.** Día, franja y `estado` siguen viajando, así que la
+   rejilla se pinta igual para todos y `con_marcas`, `marcas`, `condicional` e `inadecuado`
+   cuadran con lo recibido. Lo único que se va es de quién es cada una.
+
+   **Y tres cosas de su forma que no son preferencias:**
+
+   1. **No es un 403.** La respuesta se da igual y lo que cambia es **cuánto dice**. Es el
+      cuarto escalón de la escalera que este módulo lleva trazando —*listar no es descargar*,
+      *mirar no es llevarse*, *llevarse es otra cosa*— y el primero que **no** se resuelve
+      cerrando la puerta, sino tapando un campo.
+   2. **`profesor_id` va a `null` y la clave se queda.** Quitarla cambiaría la forma de la
+      entrada según quién pregunte, y un lector que la exija se rompería **con el docente raso
+      y no con el coordinador** — o sea el fallo que sólo aparece en producción y en la mitad
+      de las cuentas. *Ese nulo es el precio de esta decisión y está declarado, no escondido.*
+   3. **Lleva un renglón que lo declara: `catalogos.disponibilidad.autor`**, `visible` o
+      `reservado` (§9.ter.6). Sin él, un `profesor_id: null` se leería como «este dato no
+      está» y *reservado* e *ilegible* se verían igual desde la pantalla. **Y no se llamó
+      `estado` a propósito**, porque bajo esa clave ya conviven dos vocabularios.
+
+   > **Lo que esto cuesta al otro repositorio, dicho aquí porque lo mide él y no nosotros:**
+   > `profesor_id` pasa a ser **anulable** en esa lista. Su lector la declara como entrada con
+   > `profesor_id` numérico, así que **hay que avisarles antes de que esto se despliegue** — y
+   > el aviso ya salió. *No es un cambio que se note en el docker: se nota en el colegio, con
+   > el token de un docente raso, que es el sujeto con el que nadie prueba a mano.*
 
 > Lo más barato que se puede hacer sin esperar a ninguna de las cuatro es el **nivel 1
 > del pre-vuelo como script de `tools/`** sobre los quince colegios (§9). No toca el

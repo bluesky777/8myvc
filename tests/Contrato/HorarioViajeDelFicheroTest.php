@@ -2,6 +2,7 @@
 
 namespace Tests\Contrato;
 
+use App\Http\Controllers\HorarioController;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\Test;
@@ -37,14 +38,21 @@ use PHPUnit\Framework\Attributes\Test;
  * ([23 §9.ter](../../docs/migracion/23-horarios.md)). **Eso fue cierto ese día y no vuelve
  * a correr mañana**, que es exactamente lo que este fichero convierte en guarda.
  *
- * ## Lo que NO se fija aquí, a propósito
+ * ## Las dos decisiones que este fichero fija desde el 6 sep 2026
  *
- * **El truncado por encima de `MEDIUMTEXT`** (16.777.215 b), que hoy contesta `201` con el
- * fichero cortado. No se clava por dos razones y las dos importan: es la **decisión 5 de
- * la §10.2 y está sin contestar**, y además fijaría **el comportamiento del docker**, que
- * corre sin `sql_mode` estricto — en los dieciséis, con `STRICT_TRANS_TABLES` de serie en
- * MariaDB, el mismo caso aborta con un 1406. *Un test que congela el fallo de un entorno
- * hace más difícil arreglar el del otro.*
+ * Nacieron aquí como fallos medidos y **sin test a propósito**, porque estaban sin
+ * contestar; Joseth las cerró ese día y ahora lo que se fija es lo contrario de lo que se
+ * fijaba:
+ *
+ *   - **Decisión 5** — por encima de `MEDIUMTEXT` (16.777.215 b) la subida contestaba `201`
+ *     y guardaba el fichero cortado. Ahora es **422 con `proyecto-demasiado-grande`**. Lo
+ *     que lo decidió no fue el tamaño sino que **el docker y los dieciséis fallaban
+ *     distinto** — aquí truncaba en silencio, allí habría sido `1406 → 500`.
+ *   - **Decisión 6** — `TrimStrings` recortaba los saltos de los extremos. Ahora
+ *     `proyecto` va en su `$except` y **el fichero vuelve entero**.
+ *
+ * *Las dos se comprobaron en rojo antes de darlas por buenas, que es lo único que
+ * distingue un test que protege de uno que acompaña.*
  */
 class HorarioViajeDelFicheroTest extends CasoDeContrato
 {
@@ -64,10 +72,13 @@ class HorarioViajeDelFicheroTest extends CasoDeContrato
      * juego equivocado pasaría este test entero**.
      *
      * **Y termina en `}` y no en salto de línea, como los dos ficheros reales** (`tail -c
-     * 4` de `colegio.myvch` y `lleno.myvch`: los dos acaban en `\t}\n}`). No es un detalle
-     * de estilo: `TrimStrings` **se come los saltos de los extremos** y con uno al final
-     * este blob no volvería idéntico. Eso tiene su propio caso, abajo, y **no se esconde
-     * eligiendo un fichero que le esquive el bulto**.
+     * 4` de `colegio.myvch` y `lleno.myvch`: los dos acaban en `\t}\n}`), para que este blob
+     * sea el fichero que de verdad viaja hoy. **Los saltos de los extremos tienen su propio
+     * caso** —`los_saltos_de_linea_de_los_extremos_sobreviven_el_viaje`—, que es donde vive
+     * la decisión 6: hasta el 6 sep 2026 `TrimStrings` se los comía, y el blob de aquí le
+     * esquivaba el bulto **por casualidad**, igual que los dos ficheros reales. *Por eso el
+     * caso se fabrica aparte en vez de meterle un salto a éste: los dos hechos son distintos
+     * y cada uno tiene que poder ponerse rojo solo.*
      */
     private function unMyvch(): string
     {
@@ -81,6 +92,23 @@ class HorarioViajeDelFicheroTest extends CasoDeContrato
                "\t\t\"piezas\": []\n".
                "\t}\n".
                '}';
+    }
+
+    /**
+     * El token del sujeto, **acuñado una vez por test**.
+     *
+     * `tokenDe()` hace un login de verdad, y el limitador de la API corta a partir de la
+     * 121 por minuto: los casos que recorren varios ficheros en un bucle se comían la cuota
+     * ellos solos y salía un **429 donde parecía un fallo del viaje**. El sujeto es el mismo
+     * en las dos puntas —sube y descarga—, así que reutilizarlo no afloja nada de lo que
+     * estos casos comprueban; quién puede llamar a cada ruta lo fija
+     * `HorarioAutorizacionTest`.
+     */
+    private ?string $token = null;
+
+    private function token(): string
+    {
+        return $this->token ??= $this->tokenDe($this->usuarioDeTipo('Usuario')->username);
     }
 
     /** El año abierto del seed, que es contra el que se sube. */
@@ -115,10 +143,31 @@ class HorarioViajeDelFicheroTest extends CasoDeContrato
             'proyecto' => $proyecto,
             'piezas' => [],
         ], [
-            'Authorization' => 'Bearer '.$this->tokenDe($this->usuarioDeTipo('Usuario')->username),
+            'Authorization' => 'Bearer '.$this->token(),
         ])->assertStatus(201);
 
         return (int) $r->json('id');
+    }
+
+    /**
+     * Sube un proyecto **sin exigir 201**: los casos del tope necesitan ver el 422.
+     */
+    private function subirCrudo(string $proyecto, string $nombre): TestResponse
+    {
+        $anio = $this->anio();
+
+        return $this->postJson('/api/horario/versiones', [
+            'version' => [
+                'nombre' => $nombre,
+                'year_id' => (int) $anio->id,
+                'anio' => (int) $anio->year,
+                'nombre_colegio' => (string) $anio->nombre_colegio,
+            ],
+            'proyecto' => $proyecto,
+            'piezas' => [],
+        ], [
+            'Authorization' => 'Bearer '.$this->token(),
+        ]);
     }
 
     /**
@@ -131,7 +180,7 @@ class HorarioViajeDelFicheroTest extends CasoDeContrato
     private function bajar(int $versionId): TestResponse
     {
         return $this->getJson("/api/horario/versiones/{$versionId}/proyecto", [
-            'Authorization' => 'Bearer '.$this->tokenDe($this->usuarioDeTipo('Usuario')->username),
+            'Authorization' => 'Bearer '.$this->token(),
         ]);
     }
 
@@ -175,50 +224,174 @@ class HorarioViajeDelFicheroTest extends CasoDeContrato
     }
 
     /**
-     * **FALLO CONOCIDO, FIJADO A PROPÓSITO: `TrimStrings` se come los saltos de línea de
-     * los extremos del fichero.**
+     * Los saltos de línea de los extremos **sobreviven el viaje** — decisión 6, contestada
+     * por Joseth el 6 sep 2026.
      *
-     * `app/Http/Middleware/TrimStrings.php` es middleware **global** (`Kernel.php:22`) y su
-     * `$except` sólo protege las tres claves de contraseña, así que recorta `proyecto`
-     * como recorta cualquier otro campo. Un `.myvch` que termine en `\n` **se guarda con
-     * un byte menos** y el `201` no dice nada.
+     * **Este test estaba escrito al revés hasta hoy**, fijando el fallo: `TrimStrings` es
+     * middleware global y recortaba `proyecto`, así que un `.myvch` terminado en `\n` se
+     * guardaba con un byte menos, contestaba `201` y **seguía siendo JSON válido** — el
+     * escritorio lo abría y no había ningún síntoma. Se arregla con `proyecto` en el
+     * `$except` del middleware, y **la premisa de que eso era quirúrgico se midió antes**:
+     * ninguna otra de las 578 rutas usa un campo de petición con ese nombre.
      *
-     * **Lo peor no es el byte: es que el fichero recortado SIGUE SIENDO JSON VÁLIDO**, así
-     * que el escritorio lo abre tan tranquilo y el daño sólo se ve si alguien compara
-     * hashes. Es la familia de la §2 otra vez — algo que no da error y se lee como que fue
-     * bien.
+     * Se prueban **los dos extremos y el doble**, porque el recorte se los llevaba todos y
+     * un test que sólo mire el final dejaría pasar media regresión.
      *
-     * **Hoy no muerde y por eso se fija en vez de arreglarse**: los dos únicos `.myvch`
-     * reales terminan en `}`, medido con `tail -c 4`. Pero es **casualidad del serializador
-     * del escritorio**, no una garantía: un `JSON.stringify(...) + "\n"`, un editor que
-     * cierre el fichero con salto o un `writeFile` con la convención de POSIX lo rompen sin
-     * tocar nada de aquí.
+     * ## Contra qué protege de verdad, que no es contra el fichero de hoy
      *
-     * **No se arregla en este lote porque el arreglo es global**: sacar `proyecto` del
-     * recorte se hace en un middleware que pasa por **las 578 rutas**, y esta casa ya
-     * decidió una vez —el envoltorio del 422 con `motivo`, 3 sep 2026— que lo que sólo
-     * pide un cliente **no se hace global**. Es la decisión 6 de la
-     * [§10.2](../../docs/migracion/23-horarios.md) y es de Joseth.
+     * Hoy ningún `.myvch` trae saltos en los extremos: el escritorio escribe con
+     * `JSON.stringify` a secas, que no pone salto final —medido sobre cuatro de sus proyectos,
+     * los cuatro con `texto.trim() === texto`—. **Pero esa garantía no es nuestra y tiene un
+     * agujero conocido**: su `enviar()` acepta un fichero de proyecto ya hecho y sólo llama al
+     * serializador si no se lo dan (`envio.ts:625`), o sea que hay un camino que no pasa por
+     * él.
      *
-     * *Este test se pone ROJO el día que alguien lo arregle, y eso es lo que se quiere:
-     * obliga a mover el documento en el mismo commit en vez de dejar dos verdades.*
+     * **Y el modo de fallo que va a ocurrir de verdad tiene nombre:** alguien añade un `\n`
+     * final *«para que el fichero acabe bien»*. **El daño no sería un error** — se guardaría el
+     * fichero sin ese carácter, con `201`, y **sin este caso no se pondría nada rojo en ninguno
+     * de los dos repositorios**. *Este test es la mitad nuestra de esa garantía; la suya está en
+     * el comentario de su `escribirProyecto()`.*
      */
     #[Test]
-    public function los_saltos_de_linea_de_los_extremos_se_pierden_y_es_un_fallo_conocido(): void
+    public function los_saltos_de_linea_de_los_extremos_sobreviven_el_viaje(): void
     {
-        $fichero = $this->unMyvch()."\n";
+        $casos = [
+            'al final' => $this->unMyvch()."\n",
+            'al principio' => "\n".$this->unMyvch(),
+            'dos al final' => $this->unMyvch()."\n\n",
+            'en los dos extremos' => "\n".$this->unMyvch()."\n",
+        ];
 
-        $bajado = $this->bajar($this->subir($fichero, 'Con salto al final'))
-            ->assertStatus(200)
-            ->getContent();
+        foreach ($casos as $donde => $fichero) {
+            $bajado = $this->bajar($this->subir($fichero, "Con salto {$donde}"))
+                ->assertStatus(200)
+                ->getContent();
 
-        $this->assertSame($this->unMyvch(), $bajado,
-            'El fichero volvió con el salto final puesto. Si `TrimStrings` ha dejado de '.
-            'recortar `proyecto`, ESTO ES UNA BUENA NOTICIA: quita este test, pon el caso '.
-            'en el del viaje normal y cierra la decisión 6 de la §10.2 del 23.');
+            $this->assertMismoFichero($fichero, $bajado,
+                "El salto de línea {$donde} no sobrevivió el viaje. Si `proyecto` ha salido ".
+                'del `$except` de `TrimStrings`, el fichero vuelve recortado, con `201` y '.
+                'siendo JSON válido: el escritorio lo abre y nadie se entera.');
+        }
+    }
 
-        $this->assertSame(strlen($fichero) - 1, strlen($bajado),
-            'Se pierde exactamente el salto de los extremos, ni más ni menos.');
+    /**
+     * Un proyecto por encima del tope es **422 y no `201` a medias** — decisión 5, contestada
+     * por Joseth el 6 sep 2026.
+     *
+     * Antes de ese día, por encima de `MEDIUMTEXT` la subida contestaba `201` y guardaba el
+     * fichero cortado. Lo que lo cerró no fue el tamaño —el `.myvch` más grande mide 128.779 b,
+     * **130 veces menos**— sino que **el docker y los dieciséis fallaban distinto**: aquí
+     * truncaba en silencio y allí, con `STRICT_TRANS_TABLES` de MariaDB, habría sido un
+     * `1406 → 500`.
+     *
+     * ## Por qué el tope se baja aquí en vez de mandar 16 MB
+     *
+     * **Porque mandarlos tumbó la suite entera**, y el modo en que la tumbó es el motivo de que
+     * esto se cuente: `Allowed memory size of 268435456 bytes exhausted` dentro de
+     * `MySqlConnection` —el `INSERT` del caso que comprueba que justo en el tope SÍ entra—,
+     * con **el `Tests:` sin llegar a imprimirse y el código de salida en 0**. O sea que un
+     * `grep '⨯'` daba limpio sobre una suite que ni había terminado.
+     *
+     * Bajando el tope se ejercita **el mismo mecanismo** —el `strlen()`, el `motivo`, las
+     * cifras y que no se escriba nada— por unos pocos KB, y que el valor de serie sea el de la
+     * columna lo fija `el_tope_de_serie_es_el_de_la_columna`. *Lo que había que probar era el
+     * contorno, no los megabytes.*
+     */
+    #[Test]
+    public function un_proyecto_mas_grande_que_el_tope_es_422_y_no_se_guarda_cortado(): void
+    {
+        $tope = 2048;
+        config(['horario.maximo_del_proyecto' => $tope]);
+
+        $r = $this->subirCrudo(str_repeat('a', $tope + 1), 'Un proyecto pasado de tope')
+            ->assertStatus(422);
+
+        $this->assertSame('proyecto-demasiado-grande', $r->json('motivo'),
+            'El rechazo por tamaño tiene que traer su propio `motivo`: con `cuerpo-mal-formado` '.
+            'el escritorio revisaría su JSON, que está bien, en vez de mirar su fichero.');
+        $this->assertSame($tope + 1, $r->json('bytes'));
+        $this->assertSame($tope, $r->json('maximo'));
+
+        $this->assertSame(0, (int) DB::selectOne('SELECT COUNT(*) AS n FROM horario_versiones')->n,
+            'Se rechazó por tamaño y quedó una fila. La versión entra entera o no entra.');
+
+        // El control por el otro lado: justo EN el tope entra. Sin esto, un tope roto «hacia
+        // abajo» —que rechazara todo— pasaría la mitad de arriba sin despeinarse.
+        $this->subirCrudo(str_repeat('a', $tope), 'Justo en el tope')->assertStatus(201);
+    }
+
+    /**
+     * El tope cuenta **BYTES y no caracteres**, que es donde se habría escapado entero.
+     *
+     * La salida que parecía obvia —una regla `max:` de Laravel— **no vale**: `max` resuelve a
+     * `mb_strlen`, comprobado contra este árbol (`str_repeat('ñ', 10)` son 10 caracteres y 20
+     * bytes, y pasa un `max:15`). Con la regla puesta, un proyecto de acentos —o sea **todos**,
+     * que los colegios se llaman `SIMÓN`— cabría en el contador y lo truncaría MySQL igual.
+     *
+     * Por eso este caso manda **la mitad de caracteres que el tope y un byte más de bytes**: un
+     * contador de caracteres lo deja pasar y uno de bytes lo rechaza.
+     */
+    #[Test]
+    public function el_tope_del_proyecto_cuenta_bytes_y_no_caracteres(): void
+    {
+        $tope = 2048;
+        config(['horario.maximo_del_proyecto' => $tope]);
+
+        $proyecto = str_repeat('ñ', intdiv($tope, 2) + 1);
+
+        $this->assertLessThan($tope, mb_strlen($proyecto),
+            'El caso ya no distingue nada: hacen falta menos caracteres que el tope.');
+        $this->assertGreaterThan($tope, strlen($proyecto));
+
+        $r = $this->subirCrudo($proyecto, 'Acentos hasta arriba')->assertStatus(422);
+
+        $this->assertSame('proyecto-demasiado-grande', $r->json('motivo'),
+            'Pasó un proyecto que cabe en caracteres y no en bytes: el tope está contando '.
+            'con `mb_strlen` y MySQL lo va a truncar igual.');
+    }
+
+    /**
+     * El tope **de serie** es el de la columna, y una configuración no puede subirlo.
+     *
+     * Las dos mitades importan y ninguna se prueba sola. La primera es el número real —los
+     * casos de arriba lo bajan para no mandar 16 MB, así que **sin esto nadie fijaría el valor
+     * que se despliega**—. La segunda es que `maximoDelProyecto()` recorta contra la columna:
+     * un tope configurado por encima devolvería el truncado mudo detrás de un `201`, que es el
+     * fallo que cerró la decisión 5. *Una configuración puede apretar el tope; no puede reabrir
+     * la decisión.*
+     *
+     * **Y el recorte se comprueba llamando al método, no subiendo 16 MB**, que es la lección
+     * que dejó tumbar la suite: para ver el clamp por HTTP habría que pasarse del tope de la
+     * columna **de verdad**, y eso son decenas de MB en vuelo por un `min()`. *Lo que aquí es
+     * lógica pura se prueba como lógica pura; lo que es contrato se prueba por la ruta.*
+     */
+    #[Test]
+    public function el_tope_de_serie_es_el_de_la_columna_y_no_se_puede_subir(): void
+    {
+        $this->assertSame(16777215, (int) config('horario.maximo_del_proyecto'),
+            'El tope de serie tiene que ser lo que cabe en un `MEDIUMTEXT`: quien manda es la columna.');
+
+        $sonda = new class extends HorarioController
+        {
+            public function tope(): int
+            {
+                return $this->maximoDelProyecto();
+            }
+        };
+
+        config(['horario.maximo_del_proyecto' => 999_999_999]);
+        $this->assertSame(16777215, $sonda->tope(),
+            'Con el tope configurado por encima de la columna se aceptaría más de lo que cabe: '.
+            'MySQL volvería a truncar en silencio y la decisión 5 quedaría deshecha desde un '.
+            'fichero de configuración.');
+
+        config(['horario.maximo_del_proyecto' => 4096]);
+        $this->assertSame(4096, $sonda->tope(), 'Apretar el tope sí vale: es la dirección segura.');
+
+        config(['horario.maximo_del_proyecto' => 0]);
+        $this->assertSame(1, $sonda->tope(),
+            'Un cero mal puesto dejaría la ruta rechazándolo todo y pareciendo caída; con 1 '.
+            'sigue rota pero se ve al primer intento.');
     }
 
     #[Test]
