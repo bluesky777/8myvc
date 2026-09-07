@@ -650,6 +650,16 @@ repositorio. Lo que no se había mirado nunca es **desde este lado**, y ahí sí
   escritorio no lee el campo. **La mitad barata es la peligrosa**: escribir el número es una
   línea en un `.env`, sin despliegue ni revisión. Escrito en [32 §4.3](32-la-entrada-de-la-app-de-escritorio.md)
   con qué lo despertaría, y avisado en `.env.example`, que es donde se va a leer.
+
+> **6 sep 2026, añadido después — la escalera del horario ya se puede probar entera.** El rol
+> `Coord académico` tenía **cero usuarios** en `simonbolivar`, así que la mitad de arriba de esa
+> tabla estaba escrita **desde el código y no desde una respuesta**. Se creó
+> `coord.academico.prueba` (`users.id = 2449`, clave `test-1234`, **no superusuario**) **en la
+> base de desarrollo local** y se ejercitó por HTTP: **200 en listar, mirar, descargar, publicar
+> y tono, y 403 en subir**. La asimetría de la decisión 10 —*el coordinador publica y no sube;
+> secretaría sube y no publica*— **está vista funcionar, no deducida**. Ficha completa y las dos
+> escrituras repuestas en [32 §2.1](32-la-entrada-de-la-app-de-escritorio.md). **En los dieciséis
+> colegios el rol sigue con cero usuarios y eso no lo cambia esto**: asignarlo es de Joseth.
 - **No hace falta un endpoint de «¿puedo?».** El contexto del login trae **48 campos**, con
   `is_superuser` y `roles[]` dentro: `puedePublicarHorario` se calcula desde ahí sin ruta
   nueva. Medida la escalera entera con dos tokens reales — un docente raso saca **200** en
