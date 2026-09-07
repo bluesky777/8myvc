@@ -662,6 +662,18 @@ repositorio. Lo que no se había mirado nunca es **desde este lado**, y ahí sí
 > colegios el rol tiene cero usuarios y eso no lo cambia esto** — es un dato del sistema, y desde
 > el 7 sep tampoco es una tarea: ver el renglón siguiente.
 >
+> **7 sep 2026 — Y una corrección que va antes que nada, porque está suelta en `git log`.** Los
+> mensajes de `9032c10` y de la fusión `e9af70f` afirman que comparar la columna contra
+> `CONVERT(UNHEX(…) USING utf8mb4)` *«revienta en MariaDB y funciona en MySQL 8»*, y el segundo
+> lo amplía a *«aplica a cualquier receta futura»*. **Es falso: revienta en los dos.** Se
+> compararon dos sentencias distintas —una con `COLLATE` explícito y otra sin él— y **nunca se
+> corrió la misma en los dos motores**; lo hizo creíble que **el mensaje de error nombra una
+> collation distinta en cada uno**, porque es la suya por defecto, así que *parece* específico
+> del motor. Los mensajes no se reescriben —historia fundida— y la corrección vive con sus
+> hashes en **[33-la-tilde-que-sql-no-ve.md](33-la-tilde-que-sql-no-ve.md)**, donde también está
+> lo que **sí** sobrevive y no depende del motor: `roles.name` es insensible a acentos, PHP no,
+> y **el `SELECT` con el que lo investigarías dice que está bien**.
+>
 > **7 sep 2026 — Y el rol vacío DEJA DE SER UN PENDIENTE, por decisión de Joseth:** *«ya no
 > incluyas como algo pendiente mío ni tuyo ni de nadie lo de asignar rol o usuario Coord
 > académico. Si no existe uno, de malas, el administrador hace todo en ese colegio.»* O sea que

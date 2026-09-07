@@ -167,6 +167,13 @@ class Role extends Model
 	 * el método devolvería siempre `false` y **no fallaría nada**. Es lo mismo que
 	 * ya dejó escrito `isPsicologo`.
 	 *
+	 * **Y lo que faltaba de ese aviso, medido el 7 sep 2026: el `SELECT` con el que
+	 * lo investigarías DICE QUE ESTÁ BIEN.** `roles.name` es `utf8mb4_unicode_ci`,
+	 * o sea insensible a acentos, así que `WHERE name = 'Coord académico'` devuelve
+	 * la fila aunque esté escrita `Coord academico` — en MySQL 8 y en MariaDB. Se
+	 * comprueba con `HEX(name)`, y el porqué entero con las formas que sí sirven
+	 * está en `docs/migracion/33-la-tilde-que-sql-no-ve.md`.
+	 *
 	 * **Y «coordinador académico» nombra DOS cosas en esta base.** El rol
 	 * (`roles.id = 9`, de 2018) y la columna `years.coordinador_academico_id`. Se
 	 * usa el rol: la columna se escribe en un solo sitio —al copiar un año, en

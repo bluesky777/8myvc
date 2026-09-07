@@ -123,6 +123,13 @@ Autoriza::esAdministrativo        = false
 que la tilde no la salva ninguna collation: que salga `true` es la comprobación
 de que el rol se insertó con los bytes correctos, no un detalle.
 
+> **Y esa comprobación no se puede hacer con un `SELECT`**, que es lo que
+> cualquiera haría: `roles.name` es `utf8mb4_unicode_ci` —insensible a acentos— así
+> que `WHERE name = 'Coord académico'` **encuentra una fila escrita
+> `Coord academico` y el permiso no funciona igual**. La comprobación obvia diría
+> que está bien. Medido en los dos motores y con las formas que sí sirven en
+> [`33-la-tilde-que-sql-no-ve.md`](33-la-tilde-que-sql-no-ve.md).
+
 > **Lo que esto NO arregla, y no se puede escribir como si lo arreglara.** En los
 > dieciséis colegios el rol **tiene cero usuarios**, así que allí publicar el
 > horario lo pueden los once superusuarios y nadie más. Lo que se resuelve aquí es
