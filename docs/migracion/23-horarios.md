@@ -2466,9 +2466,10 @@ siguen sin estar.
 > quién marca la oficial, el rol vacío, quién lista, los años cerrados y el blob.
 >
 > ~~**Quedan cuatro**~~ ~~**Quedan DOS**~~ ~~**QUEDA UNA**~~ ~~**NO QUEDA NINGUNA.**~~
-> ~~**QUEDAN DOS OTRA VEZ: la 5 y la 6.**~~ ~~**NO QUEDA NINGUNA, otra vez.**~~ **QUEDA LA 8,
-> abierta el 7 sep 2026: `putOficial` publica una versión vacía y deja el colegio sin horario.**
-> Las TRES anteriores las contestó Joseth el 6 sep 2026, en el mismo día en que se abrieron. La **5** y la **6**
+> ~~**QUEDAN DOS OTRA VEZ: la 5 y la 6.**~~ ~~**NO QUEDA NINGUNA.**~~ ~~**QUEDA LA 8.**~~ **NO
+> QUEDA NINGUNA: la 8 la contestó Joseth el 7 sep 2026** —opción (b), `acepto_vaciar`— **el
+> mismo día en que se midió**, como las tres del 6. Cuatro decisiones en dos días, y las cuatro
+> llegaron con su opción, su precio y su recomendación delante. La **5** y la **6**
 > salieron de ejercitar el viaje del fichero (§9.ter) —una midiéndolo a mano, la otra al
 > convertirlo en prueba, que es la que la foto no podía ver— y la **7** de un precio que la
 > decisión 38 había dejado escrito como pagado.
@@ -2501,7 +2502,7 @@ siguen sin estar.
 > | **3** descargar el proyecto | 5 sep 2026 | **autorizada y escrita**: sexta ruta, `puedePublicarHorario`, el fichero sin escapar y **byte a byte _salvo los saltos de línea de los extremos_** (§9.ter.7, decisión 6) |
 > | **6** `TrimStrings` recorta el blob | 6 sep 2026 | **`proyecto` al `$except`** (la recomendada), con la premisa de que era quirúrgico **medida antes**: 260 ficheros barridos, es campo de petición sólo en `horario/` |
 > | **7** el autor de una pega de disponibilidad | 6 sep 2026 | **viaja sólo para quien puede publicar**, `puedePublicarHorario` **dentro** del método. Retira el precio que la decisión 38 dejó escrito |
-> | **8** publicar una versión vacía | **ABIERTA** 7 sep 2026 | **de Joseth**: hoy es `200` y deja las 134 asignaciones sin ningún día. Recomendada la (b), confirmación con cifra como `acepto_perder` |
+> | **8** publicar una versión vacía | 7 sep 2026 | **confirmación con cifra** (la recomendada): `acepto_vaciar`, sólo cuando de verdad vacía. Mantiene el único modo de despublicar que hay, sin ruta nueva |
 > | **5** el blob por encima de `MEDIUMTEXT` | 6 sep 2026 | **poner el límite y devolver 422** (la recomendada). Lo decidió que el docker truncaba callando y los dieciséis habrían dado `1406 → 500`: ahora los diecisiete fallan igual y lo dicen |
 >
 > **Las tres cerradas tienen algo en común que conviene ver junto:** ninguna se cerró
@@ -2929,8 +2930,54 @@ siguen sin estar.
    > es exactamente el fallo del `ilegible` que acaban de arreglar. *Contar los estados antes de
    > nombrar el campo nuevo es lo que evitó repetirlo.*
 
-8. **¿Puede `putOficial` publicar una versión VACÍA? SÍ, y deja el colegio entero sin
-   horario. Medido el 7 sep 2026 — decisión abierta.**
+8. ~~**¿Puede `putOficial` publicar una versión VACÍA?**~~ **CONTESTADA por Joseth el 7 sep
+   2026: opción (b) — confirmación con cifra, `acepto_vaciar`.** Escrita ese mismo día, sin
+   ruta nueva (el router sigue en 578).
+
+   **Lo que la decidió fue la simetría y no la prudencia:** *publicar no puede quitarle el
+   horario a 134 asignaciones en silencio, por lo mismo que no puede perder 32.* `acepto_perder`
+   es literalmente esta forma, y se eligió sobre un `forzar: true` porque un booleano *acaba
+   puesto por costumbre, porque nunca estorba*.
+
+   ### El contrato, para el cliente
+
+   ```
+   PUT horario/versiones/{id}/oficial      { "acepto_vaciar": 6 }     <- entero, opcional
+   ```
+
+   **Sólo hace falta cuando publicar esa versión deja a alguien sin horario**, y son dos
+   condiciones a la vez: la versión **no coloca ni una clase** *y* el año **hoy tiene** días
+   escritos. Publicar una versión con clases no lo pide **nunca**; una versión vacía sobre un
+   año que aún no tiene horario, tampoco — la puerta se abre por **lo que se pierde**, no por
+   lo que la versión es.
+
+   | rechazo | `motivo` | trae |
+   |---|---|---|
+   | no se declaró y sí vacía | `vaciado-no-aceptado` | `asignaciones_que_se_quedan_sin_horario` |
+   | el número no coincide | `acepto-vaciar-no-coincide` | `acepto_vaciar` y la cifra del servidor |
+   | no es un entero (`true`, `"6"`, `"sí"`) | `acepto-vaciar-no-es-un-numero` | `acepto_vaciar_recibido` |
+
+   Los tres son **422** y **ninguno escribe nada** —la cuenta va dentro de la transacción y el
+   `abort()` la deshace—, comprobado mirando el puntero y las siete columnas antes y después de
+   cada uno, no sólo el código de estado.
+
+   **La cifra no la da ninguna otra pantalla**, igual que en `acepto_perder`: se recalcula en la
+   misma transacción y la única lectura fresca **es el propio 422**. Eso no es una molestia, es
+   la garantía — *un número que hay que ir a buscar no se pone por costumbre*, y obliga a que
+   haya una persona en medio cada vez.
+
+   **El caso legítimo sigue vivo y tiene test propio**
+   (`HorarioAceptoVaciarTest::con_el_numero_exacto_se_publica_y_deja_el_anio_sin_horario`): un
+   colegio que publicó un horario equivocado y prefiere no enseñar ninguno puede seguir
+   haciéndolo, mandando la cifra. **Sigue sin existir «despublicar»** — eso sería ruta nueva y
+   se cuenta el día que se autorice.
+
+   ---
+
+   **El planteamiento con el que se decidió, tal y como se le puso delante:**
+
+   **¿Puede `putOficial` publicar una versión VACÍA? SÍ, y deja el colegio entero sin
+   horario. Medido el 7 sep 2026.**
 
    La pregunta la levantó `myvc_horarios` y **la declararon fuera de su encargo a propósito**
    —publicar cambia lo que ve un colegio—, así que nadie la había medido. Medido aquí contra
