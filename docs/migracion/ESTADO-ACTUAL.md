@@ -7370,13 +7370,28 @@ comprueba ni una extensión**. Deja de ser un problema de licencias y pasa a ser
 para **la próxima dependencia que exija una extensión**: entrará en verde y fallará en los
 diecisiete.
 
-**LO ÚNICO QUE SIGUE ABIERTO Y ES DE JOSETH: dónde se respalda esa clave.** Y hasta que
-conteste, **la clave de producción NO se fabrica**: su pública se incrusta en binarios que se
-instalan en los colegios, así que cambiarla después obliga a reinstalarlos. **Perderla es
-peor que filtrarla** — filtrarla se arregla emitiendo clave nueva y actualizando el binario;
-perderla obliga a lo mismo **sin poder emitirle una licencia a nadie mientras tanto**.
+**Y LO ÚLTIMO QUE FALTABA LO CONTESTÓ JOSETH EL MISMO DÍA: la clave NO se fabrica
+todavía.** Preguntado por el respaldo, contestó que **la licencia no le importa aún** —esa
+parte de la aplicación **se enseñará bloqueada** y por ahora el sistema sólo se usará
+**entrando contra el servidor web**—. O sea que **el carril queda cerrado por decisión, no
+por falta de nada**: el emisor está escrito y probado, y lo único que falta es una clave que
+alguien decidió no fabricar todavía.
 
-Y una petición viva del otro lado, que **bloquea que empaqueten nada para un colegio**: los
-32 bytes de nuestra clave pública. Hoy su binario lleva una **clave de desarrollo cuya
-semilla está publicada**, así que cualquiera que lea aquel repositorio puede fabricar una
-licencia que acepte. Sale de `licencia:emitir --publica` el día que exista la de producción.
+**Se escribe así de explícito porque las dos lecturas llevan a sitios distintos**: quien lo
+lea como un cabo suelto va a fabricar la clave, y fabricarla es irreversible en un sentido
+concreto —su pública se incrusta en binarios que se instalan en los colegios, así que
+cambiarla después obliga a reinstalarlos—.
+
+**La pregunta del respaldo no se cae, cambia de fecha:** se contesta el día que se fabrique.
+**Perderla es peor que filtrarla** — filtrarla se arregla emitiendo clave nueva y
+actualizando el binario; perderla obliga a lo mismo **sin poder emitirle una licencia a nadie
+mientras tanto**. Y la instrucción va con su condición de caducidad, que es lo que pide esta
+casa: **no se fabrica la clave mientras no haya que empaquetar para ningún colegio.**
+
+Y la petición del otro lado —los 32 bytes de nuestra clave pública— **queda EN ESPERA por la
+misma decisión**: bloquea que empaqueten para un colegio, y no se va a empaquetar todavía.
+Sale de `licencia:emitir --publica` el día que exista la clave. Mientras tanto, su binario
+lleva una **clave de desarrollo cuya semilla está publicada** —cualquiera que lea aquel
+repositorio puede fabricar una licencia que acepte—, y **eso es correcto exactamente hasta el
+día que se empaquete**: es la misma condición de caducidad vista desde su lado, y por eso las
+dos cosas se aplazan juntas.

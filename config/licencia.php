@@ -23,8 +23,13 @@ return [
     | producción y sólo tenga valor en la máquina desde la que se emite.
     |
     | El fichero son los 64 bytes de la clave secreta de Ed25519 en crudo. Cómo
-    | se genera y dónde debería vivir está en la §3 del documento; **la decisión
-    | sigue siendo de Joseth y a 6 sep 2026 no está tomada**.
+    | se genera está en la §3 del documento, y **dónde vive lo decidió Joseth el
+    | 6 sep 2026: sólo en la máquina desde la que se emite**.
+    |
+    | **Y esa clave todavía NO EXISTE, por decisión del mismo día:** no se fabrica
+    | **mientras no haya que empaquetar para ningún colegio**. Así que lo normal
+    | hoy es que esta variable esté sin definir en todas partes, y el comando lo
+    | dice con esas palabras en vez de reventar.
     |
     */
 

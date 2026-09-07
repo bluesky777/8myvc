@@ -12,9 +12,10 @@ namespace App\Services;
  *
  * ## Esta clase NO decide quién tiene derecho a una licencia
  *
- * Recibe unos datos y devuelve el fichero firmado. Quién puede pedirla, con qué
- * permiso y por qué ruta es **otra decisión, y a 6 sep 2026 sigue sin tomarla
- * Joseth** — por eso este servicio existe sin controlador y sin ruta. Separarlo
+ * Recibe unos datos y devuelve el fichero firmado. Quién puede pedirla y con qué
+ * permiso es **otra pregunta**, y a 6 sep 2026 **no se plantea**: se emite con un
+ * comando de consola, así que no hay petición HTTP que autorizar ni ruta que
+ * proteger — por eso este servicio existe sin controlador y sin ruta. Separarlo
  * así no es orden: es lo que permite probar la parte medida (los bytes) sin
  * inventarse la parte que no está decidida (la autorización).
  *
