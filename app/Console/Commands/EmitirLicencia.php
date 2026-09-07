@@ -25,15 +25,24 @@ use Illuminate\Console\Command;
  * - Y una ruta nueva es una decisión de Joseth que mueve el contador de
  *   `CLAUDE.md` y tres snapshots. Un comando no mueve ninguno de los cuatro.
  *
- * ## Dónde se corre esto, que es la parte que aún no está decidida
+ * ## Dónde se corre esto
  *
- * Hoy lo más probable es que **no se corra en los servidores**: en todo el
- * sistema hay una sola clave privada —el binario incrusta una sola pública— y
- * repartirla por los diecisiete `.env` hace que cualquiera de los hostings
- * compartidos sirva para fabricar licencias de todos los demás. Además, un
- * colegio de la edición **independiente no tiene despliegue de `8myvc`**, así
- * que su licencia no la puede emitir «su» API: no existe. Ver la §3 del
- * documento; **la decisión es de Joseth y no está tomada**.
+ * **Decidido por Joseth el 6 sep 2026: NO se corre en los servidores.** La clave
+ * privada vive sólo en la máquina desde la que se emite. En todo el sistema hay
+ * una sola —el binario incrusta una sola pública— y repartirla por los diecisiete
+ * `.env` haría que cualquiera de los hostings compartidos sirviera para fabricar
+ * licencias de todos los demás. Además, un colegio de la edición **independiente
+ * no tiene despliegue de `8myvc`**, así que su licencia no la puede emitir «su»
+ * API: no existe.
+ *
+ * ## Y la clave todavía no existe, también por decisión
+ *
+ * El mismo día, Joseth aplazó fabricarla: la licencia no le importa aún, esa parte
+ * de la aplicación se enseñará bloqueada y por ahora sólo se entra contra el
+ * servidor web. **Así que este comando está terminado y probado, y hoy no puede
+ * emitir nada** — le falta una clave que alguien decidió no fabricar. **No es un
+ * cabo suelto: es una espera con condición de caducidad** —*mientras no haya que
+ * empaquetar para ningún colegio*—. Ver la §3.2.bis del documento.
  */
 class EmitirLicencia extends Command
 {
@@ -69,8 +78,10 @@ class EmitirLicencia extends Command
             $this->line('        file_put_contents("licencia-privada.bin", sodium_crypto_sign_secretkey($p));\'');
             $this->line('      chmod 600 licencia-privada.bin');
             $this->line('');
-            $this->line('  Antes de fabricarla, lee la §3 de docs/migracion/31-licencia-del-horario.md:');
-            $this->line('  DÓNDE vive esa clave es una decisión abierta de Joseth.');
+            $this->line('  PERO ANTES lee la §3.2.bis de docs/migracion/31-licencia-del-horario.md:');
+            $this->line('  el 6 sep 2026 Joseth decidió NO fabricarla todavía, mientras no haya que');
+            $this->line('  empaquetar para ningún colegio. Fabricarla es irreversible: su pública se');
+            $this->line('  incrusta en los binarios instalados, y cambiarla obliga a reinstalarlos.');
 
             return self::FAILURE;
         }

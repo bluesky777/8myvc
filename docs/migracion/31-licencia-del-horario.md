@@ -366,16 +366,39 @@ máquina desde la que se emite**: **nada en los diecisiete `.env`, nada en ning�
 respaldo de cPanel**. Es también la razón por la que esto se escribió como
 comando de consola y no como ruta, y la que dejó sin objeto la pregunta de la §0.
 
-**LO QUE SIGUE ABIERTO Y ES DE JOSETH: dónde se respalda esa clave.** Va aparte
-porque es la mitad que la decisión anterior no contesta, y es la cara:
-**perderla es peor que filtrarla.** Filtrarla se arregla emitiendo una clave nueva
-y actualizando el binario; **perderla obliga a lo mismo sin poder emitirle una
-licencia a nadie mientras tanto**.
+### 3.2.bis · LA CLAVE NO SE FABRICA TODAVÍA, Y ES UNA DECISIÓN, NO UN CABO SUELTO
 
-> **Y hasta que eso se conteste, la clave de producción NO SE FABRICA.** Fabricarla
-> es irreversible en un sentido concreto: su pública se incrusta en los binarios que
-> se instalan en los colegios, así que cambiarla después obliga a reinstalarlos. El
-> comando imprime la orden exacta para el día que se decida.
+**Joseth, 6 sep 2026.** Preguntado por dónde se respaldaría la clave, contestó que
+**la licencia no le importa todavía**: esa parte de la aplicación **se enseñará
+bloqueada**, y por ahora el sistema sólo se va a usar **entrando contra el
+servidor web**.
+
+Así que la clave de producción **no se fabrica**, y conviene leer bien por qué,
+porque las dos lecturas llevan a sitios distintos:
+
+- **No es que falte tiempo, ni que se olvidara.** Es que **alguien decidió
+  esperar**, con el emisor terminado delante. Quien encuentre esto dentro de tres
+  meses y lo lea como un cabo suelto va a fabricar la clave — y fabricarla es
+  **irreversible en un sentido concreto**: su mitad pública se incrusta en los
+  binarios que se instalan en los colegios, así que cambiarla después obliga a
+  reinstalarlos.
+- **Y no está aplazada la implementación, sólo la decisión.** El emisor está
+  **escrito y probado**: el comando, once pruebas verdes, bytes idénticos a los del
+  arnés del otro repositorio, y `--publica` listo para servir los 32 bytes el mismo
+  día que la clave exista. **Lo único que falta es la decisión, y está tomada:
+  esperar.**
+
+**LO QUE SIGUE ABIERTO, Y SE CONTESTA EL DÍA QUE SE FABRIQUE: dónde se respalda.**
+No se cae con el aplazamiento, sólo cambia de fecha. Y es la cara: **perderla es
+peor que filtrarla.** Filtrarla se arregla emitiendo una clave nueva y actualizando
+el binario; **perderla obliga a lo mismo sin poder emitirle una licencia a nadie
+mientras tanto**.
+
+> **La condición de caducidad de esta instrucción**, que es lo que esta casa pide
+> de una instrucción para que no envejezca a mentira: *no se fabrica la clave
+> **mientras no haya que empaquetar para ningún colegio***. El día que haya que
+> empaquetar, esto deja de valer y lo primero que hay que contestar es el respaldo.
+> El comando imprime la orden exacta para fabricarla.
 
 ### 3.3 · Quién puede pedir una licencia
 
@@ -473,14 +496,25 @@ explicación plausible y la que habría hecho archivar el asunto.*
 
 ## 6 · Peticiones abiertas del otro repositorio a éste
 
-De «Peticiones a `main`» de su carril, quedan vivas dos y las dos son de Joseth:
+De «Peticiones a `main`» de su carril quedaban dos, y a 6 sep 2026 **las dos están
+contestadas**. Ninguna sigue viva; lo que hay es una **en espera**, que no es lo
+mismo.
 
-1. **Los 32 bytes de la clave pública de `8myvc`.** **Bloquea que puedan
-   empaquetar nada para un colegio.** Hoy el binario incrusta una clave **de
-   desarrollo** cuya semilla está publicada en su repositorio, así que
-   *cualquiera que lea `myvc_horarios` puede fabricar hoy una licencia que ese
-   binario acepte*. Es correcto mientras no se empaquete para un colegio y deja
-   de serlo el minuto después. En cuanto se decida la §3.2, esos 32 bytes salen
-   de `php artisan licencia:emitir --publica`, ya formateados para pegar.
-2. **Las dos preguntas de las §3.1 y §3.2**, que son las mismas que ellos tienen
-   anotadas como `NOTAS` al pie de `nucleo/licencia.ts`.
+1. **Los 32 bytes de la clave pública de `8myvc`** — **EN ESPERA, y por decisión.**
+   Bloquea que puedan empaquetar nada para un colegio, y **eso ya no es un
+   problema, porque no se va a empaquetar todavía** (§3.2.bis). Los bytes salen de
+   `php artisan licencia:emitir --publica`, ya formateados para pegar, **el mismo
+   día que exista la clave** — y la clave espera a que haya que empaquetar.
+
+   > **Y mientras tanto, lo que sí hay que saber:** el binario incrusta hoy una
+   > clave **de desarrollo** cuya semilla está publicada en su repositorio, así que
+   > *cualquiera que lea `myvc_horarios` puede fabricar una licencia que ese binario
+   > acepte*. **Es correcto mientras no se empaquete para ningún colegio y deja de
+   > serlo el minuto después** — o sea que es la misma condición de caducidad de la
+   > §3.2.bis, vista desde su lado. Las dos cosas se destapan el mismo día, y por eso
+   > se aplazan juntas y no por separado.
+
+2. **Las dos preguntas de las §3.1 y §3.2** —las que ellos tienen anotadas como
+   `NOTAS` al pie de `nucleo/licencia.ts`— **contestadas por Joseth el 6 sep 2026**.
+   La primera con un dato que allí no se podía saber: **`colegioId` no existe en
+   esta API**.
