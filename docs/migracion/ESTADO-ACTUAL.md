@@ -659,7 +659,17 @@ repositorio. Lo que no se había mirado nunca es **desde este lado**, y ahí sí
 > y tono, y 403 en subir**. La asimetría de la decisión 10 —*el coordinador publica y no sube;
 > secretaría sube y no publica*— **está vista funcionar, no deducida**. Ficha completa y las dos
 > escrituras repuestas en [32 §2.1](32-la-entrada-de-la-app-de-escritorio.md). **En los dieciséis
-> colegios el rol sigue con cero usuarios y eso no lo cambia esto**: asignarlo es de Joseth.
+> colegios el rol tiene cero usuarios y eso no lo cambia esto** — es un dato del sistema, y desde
+> el 7 sep tampoco es una tarea: ver el renglón siguiente.
+>
+> **7 sep 2026 — Y el rol vacío DEJA DE SER UN PENDIENTE, por decisión de Joseth:** *«ya no
+> incluyas como algo pendiente mío ni tuyo ni de nadie lo de asignar rol o usuario Coord
+> académico. Si no existe uno, de malas, el administrador hace todo en ese colegio.»* O sea que
+> **donde no haya coordinador, publica el administrador, que ya puede, y eso es lo previsto**. El
+> criterio no cambia y el código no se toca: `puedePublicarHorario` sigue siendo superusuario **o**
+> coordinador académico. **No hay nada roto** — el rol vacío no bloquea el módulo, sólo concentra
+> el trabajo en el superusuario. Se dice con esas palabras porque **un cero sin explicación siempre
+> parece un hueco**, y a la tercera sesión que lo lea alguien propondría arreglarlo.
 - **No hace falta un endpoint de «¿puedo?».** El contexto del login trae **48 campos**, con
   `is_superuser` y `roles[]` dentro: `puedePublicarHorario` se calcula desde ahí sin ruta
   nueva. Medida la escalera entera con dos tokens reales — un docente raso saca **200** en
@@ -709,6 +719,11 @@ teclea mal su clave lee «esto no es la clave: es el servidor»**. El arreglo es
    sesión del servidor, pero **ya no bloquea nada**. Reencuadrado en 32 §3, y corregidos los
    dos sitios que mandaban lo contrario: `config/cors.php` («hay que definirla en el `.env` de
    producción») y `.env.example`.
+   **Y el 7 sep lo cerró del todo:** *«ya no vuelvas a mencionarme el tema»*, con lo que
+   contestó las dos cosas que colgaban — **el barrido no se corre** y **la herramienta no entra
+   en la tabla de `tools/` de `CLAUDE.md`**. Retirados los pendientes de CORS de 32 §5 y §6 y de
+   29 §5; lo medido se conserva, cambiado de estado. **En este carril no queda ninguna casilla
+   de CORS esperando a nadie.**
 
 *Lo que sigue sin medirse, con esas palabras: **nadie ha abierto el programa construido en
 Windows ni en Linux** —el origen está leído del crate y de su test, que es prueba fuerte y no

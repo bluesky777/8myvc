@@ -77,9 +77,9 @@ docker:
 ### La columna del medio se midió el 6 sep 2026, y hasta ese día estaba vacía
 
 **No porque nadie la hubiera intentado: porque no había a quién pedírsela.** El rol
-`Coord académico` tiene **cero usuarios** en `simonbolivar` —y en los dieciséis
-colegios—, así que la mitad de arriba de esta tabla estaba escrita **desde el
-código y no desde una respuesta**. Se creó un usuario de prueba en la base de
+`Coord académico` **tenía cero usuarios en todas partes** —en la base local hasta ese
+día, y en los dieciséis colegios todavía—, así que la mitad de arriba de esta tabla
+estaba escrita **desde el código y no desde una respuesta**. Se creó un usuario de prueba en la base de
 desarrollo local (§2.1) y se ejercitó entera.
 
 **Y la asimetría de la última fila es la que importa, porque ahora está vista
@@ -124,10 +124,22 @@ que la tilde no la salva ninguna collation: que salga `true` es la comprobación
 de que el rol se insertó con los bytes correctos, no un detalle.
 
 > **Lo que esto NO arregla, y no se puede escribir como si lo arreglara.** En los
-> dieciséis colegios el rol **sigue teniendo cero usuarios**, así que allí publicar
-> el horario lo pueden los once superusuarios y nadie más. Asignarlo es operación
-> de cada colegio —dieciséis decisiones, no una nuestra (decisión 11)—. Lo que se
-> resuelve aquí es que **la escalera se pueda probar**, que hasta hoy no se podía.
+> dieciséis colegios el rol **tiene cero usuarios**, así que allí publicar el
+> horario lo pueden los once superusuarios y nadie más. Lo que se resuelve aquí es
+> que **la escalera se pueda probar**, que hasta hoy no se podía.
+>
+> **Y ese cero NO ES UN PENDIENTE — decisión de Joseth, 7 sep 2026:** *«si no
+> existe uno, de malas, el administrador hace todo en ese colegio»*. O sea que
+> **donde no haya coordinador académico, el trabajo lo hace el administrador, que
+> ya puede hacerlo, y eso es lo previsto**. No hay nada roto: el rol vacío **no
+> bloquea el módulo**, sólo concentra el trabajo en el superusuario, y con eso
+> cuenta él.
+>
+> *Se dice explícitamente porque un cero sin explicación siempre parece un hueco*:
+> el renglón «cero usuarios» se leería como una tarea aunque nadie la escriba, y a
+> la tercera sesión que lo vea alguien va a proponer arreglarlo. Es el mismo
+> cuidado que se puso en que un nulo de `catalogos.disponibilidad.autor` no se
+> leyera como «este dato no está».
 
 *Las dos escrituras de la escalera se repusieron:* `profesores.tono` del docente 1
 volvió a `NULL`, y el `PUT .../oficial` fue **inerte** porque la 8 ya era la
@@ -157,8 +169,11 @@ is_superuser == 1  ||  roles[] contiene 'Coord académico'
 > que va a fallar. El día que se use para *conceder* algo, deja de ser aceptable.
 >
 > Y hay un borde ya escrito en `Autoriza::puedePublicarHorario`: el rol
-> `Coord académico` **tiene cero usuarios en `simonbolivar`**, así que hoy esa
-> fórmula es «superusuario» en todos los colegios donde nadie lo haya asignado.
+> `Coord académico` **tiene cero usuarios en producción**, así que hoy esa fórmula
+> es «superusuario» en todos los colegios — **y así se queda**, por decisión de
+> Joseth del 7 sep 2026: donde no haya coordinador, publica el administrador. Para
+> el cliente eso no cambia nada: la fórmula se calcula igual y devuelve lo que
+> devuelve.
 
 ---
 
@@ -337,8 +352,14 @@ cierre que ahora no va a ocurrir. Con `*` como política, lo que contesta es:
 > política, y con ello haya dejado fuera al escritorio?**
 
 Antes medía un despliegue que iba a pasar; ahora **vigila una desviación que no
-debería pasar y que nadie más mira**. Un barrido que salga «los diecisiete en
-`*`» ya no es un pendiente: es la política confirmada.
+debería pasar y que nadie más mira**.
+
+> **Y no hay que correrla.** Joseth cerró el asunto el 7 sep 2026 —*«siempre los
+> colegios van a permitir CORS `*`»*— y con ello **el barrido no se corre y la
+> herramienta no entra en la tabla de `tools/` de `CLAUDE.md`**. Se queda escrita y
+> probada porque **el día que el escritorio deje de entrar en un colegio concreto,
+> ésta es la orden que lo dice en un minuto**, y reconstruirla entonces costaría
+> más que dejarla. Es una herramienta de diagnóstico, no una tarea.
 
 ```bash
 tools/cors-de-los-colegios.sh --env            # en el SERVIDOR: ¿alguno se ha salido de `*`?
@@ -510,12 +531,17 @@ Esta casilla proponía elegir **el orden** entre cerrar la lista y meter los dos
 orígenes del escritorio. La pregunta desaparece entera: **no hay lista que
 cerrar**, y meter unos orígenes en una lista que no existe no significa nada.
 
-**Lo que sobrevive de la casilla es una tarea distinta y más pequeña**, y ya no
-espera ninguna decisión: correr `--env` sobre los diecisiete **deja de ser el paso
-previo de un cierre y pasa a ser una comprobación de que nadie se ha salido de la
-política**. Sigue necesitando la sesión del servidor, así que sigue siendo de
-Joseth, pero ya no bloquea nada: si sale «los diecisiete en `*`», está confirmada;
-si sale alguno con lista, ahí hay un colegio donde el escritorio no entra.
+**Y el 7 sep 2026 cerró también lo que quedaba alrededor**, que era una casilla
+menor y un ofrecimiento: *«siempre los colegios van a permitir CORS `*`, ya no
+vuelvas a mencionarme el tema.»* Con eso quedan contestadas las dos cosas que se le
+habían puesto delante: **el barrido `--env` no se corre** y **la herramienta no
+entra en la tabla de `tools/` de `CLAUDE.md`**.
+
+**Así que en esta §5 no queda ninguna casilla de CORS, y en la §6 no queda ningún
+pendiente de CORS.** No es que se hayan hecho: es que **se decidió que no había
+que hacerlos**. Lo medido no se retira —está en §3 y sigue siendo cierto—, pero
+deja de ser una lista de tareas y pasa a ser **el mapa de un escenario que se ha
+decidido que no va a ocurrir**.
 
 ---
 
@@ -524,15 +550,17 @@ si sale alguno con lista, ahí hay un colegio donde el escritorio no entra.
 - **Nadie ha abierto el programa construido en Windows ni en Linux.** El origen de
   §3.1 está leído del crate y de su test, no visto en una ventana. Es prueba
   fuerte y **no es lo mismo**.
-- **Los dieciséis `.env` reales no se han mirado**, y desde el 6 sep 2026 eso
-  significa otra cosa: ya no es *«cuántos han hecho la tarea»* —no hay tarea, la
-  política es `*`— sino **«¿se ha salido alguno?»**. Es la §5 de
-  [`29-los-env-no-son-uniformes.md`](29-los-env-no-son-uniformes.md), abierta
-  desde el 3 sep. El arnés existe; correrlo, no. **Y el hueco es más ancho de lo
-  que parece: escribir una lista en un `.env` no necesita despliegue ni pasa por
-  este repositorio**, así que un colegio puede salirse de la política sin que
-  quede rastro en ningún sitio que miremos — es la misma asimetría de §4.3.
+- **Los dieciséis `.env` reales no se han mirado, y ya no van a mirarse: Joseth
+  cerró el asunto el 7 sep 2026 y pidió que no se le vuelva a plantear.** Deja de
+  ser un pendiente. Lo que queda escrito no es una tarea sino **una forma de
+  comprobarlo el día que algo apunte ahí**: `tools/cors-de-los-colegios.sh --env`
+  existe, está probado y **no hay que correrlo**. *Y el hueco que deja se nombra
+  igual, porque es real: escribir una lista en un `.env` no necesita despliegue ni
+  pasa por este repositorio, así que un colegio podría salirse de la política sin
+  dejar rastro en ningún sitio que miremos* — la misma asimetría de §4.3. Con la
+  política en `*` y nadie tocando esa variable, es un hueco sin nada dentro.
 - **Ningún vhost real se ha sondeado con `--url`.** Un Apache o un nginx delante
   puede añadir su propia `Access-Control-Allow-Origin` encima de la de Laravel:
   **dos cabeceras y el navegador rechaza las dos.** El guion lo clasifica aparte
   porque es un fallo que el `.env` no explica, pero no se ha visto ocurrir.
+
