@@ -288,9 +288,69 @@ nada. Lo pone **la ventana**, y depende de quién sirve la aplicación:
 > efectivo es `['*']` (la tabla de arriba) y `tauri://localhost` **pasa**; el riesgo está
 > exactamente en los colegios donde **sí** se puso, y **cuántos son es lo que nadie sabe**.
 
-**Y una que nadie ha medido de ninguno de los dos lados**: `tauri://localhost` está
+~~**Y una que nadie ha medido de ninguno de los dos lados**: `tauri://localhost` está
 comprobado **en macOS y sólo en macOS**. Si el ejecutable de Windows manda el mismo origen,
-no lo sabe nadie.
+no lo sabe nadie.~~
+
+> ### CONTESTADA el 6 sep 2026, y la respuesta es NO: Windows manda OTRO origen
+>
+> Leído del crate exacto que compila `myvc_horarios` —`tauri` **2.11.5**,
+> `src/manager/mod.rs:339-346`, `tauri_protocol_url()`, y el test de `:778-799` que lo fija—:
+>
+> ```rust
+> if cfg!(windows) || cfg!(target_os = "android") {
+>     Url::parse(&format!("{scheme}://tauri.localhost"))
+> } else {
+>     Url::parse("tauri://localhost")
+> }
+> ```
+>
+> | Dónde corre | `Origin` |
+> |---|---|
+> | macOS y Linux, construido | `tauri://localhost` |
+> | **Windows, `.exe` construido** | **`http://tauri.localhost`** |
+> | Windows con `useHttpsScheme` | `https://tauri.localhost` — ese repo **no lo pone** |
+> | `tauri dev` | `http://localhost:4310` |
+>
+> **O sea que la lista mínima son DOS entradas, no una**, y la que se olvida es la de
+> Windows — que es donde va a estar el que cuadra el horario. Quien ponga sólo
+> `tauri://localhost` (el único que alguien ha visto, y en un mac) lo deja fuera.
+>
+> **Qué clase de prueba es, dicho con precisión:** es el código fuente de la versión que
+> ese programa compila, más su propio test. **No es una ventana abierta en Windows** —eso
+> sigue sin hacerlo nadie—. Descarta la lectura tranquilizadora, que era la que estaba en
+> pie. Todo en [`32-la-entrada-de-la-app-de-escritorio.md`](32-la-entrada-de-la-app-de-escritorio.md) §3.
+>
+> ### Y ya hay arnés para el barrido, y una comprobación en rojo
+>
+> - **`tools/cors-de-los-colegios.sh`** — `--env` (en el servidor) lee los dieciséis `.env`
+>   y clasifica cada uno; `--url` sondea un servidor de verdad; `--origenes` imprime la
+>   lista mínima. Imprime su población siempre, y **lo no medido sale con código 2**, nunca
+>   verde. **Correr `--env` sigue necesitando la sesión del servidor: es de Joseth.**
+> - **`tests/Contrato/CorsDelEscritorioTest.php`** — los ocho falsos positivos de `grep
+>   'Origin'` ya no son todo lo que hay. Fija que ausente y vacía dejan `*`, que los dos
+>   orígenes del escritorio entran si están en la lista, y **que poner sólo el de macOS deja
+>   fuera Windows**.
+>
+> ### Lo que destapó ese test al fallar: una lista de UN origen no se comporta como una de dos
+>
+> `fruitcake/php-cors`, `isSingleOriginAllowed()`: con **exactamente un** elemento y sin
+> patrones, la librería escribe ese origen en `Access-Control-Allow-Origin` **sin mirar
+> quién pregunta**.
+>
+> ```
+> lista = [https://x.edu.co]   Origin: tauri://localhost
+>   -> 204 con `Access-Control-Allow-Origin: https://x.edu.co`
+> ```
+>
+> El usuario acaba igual de fuera —el navegador compara y bloquea— pero **la cabecera
+> está**, así que un detector que pregunte *«¿vino una ACAO?»* en vez de *«¿vino la mía?»*
+> da verde. **`tools/cors-de-los-colegios.sh` tuvo ese fallo exacto en su primera versión.**
+> Y no es de laboratorio: `.env.example` recomendaba `p.ej: https://lalvirtual.edu.co`, o
+> sea **una sola entrada** — ya corregido allí.
+>
+> Es la tercera forma del aviso de `CLAUDE.md`: *el detector contaba bien un síntoma y no
+> estaba contando la causa*.
 
 ## 6. `APP_DEBUG` · ya estaba catalogado como «colegio a colegio», y ahora hay prueba
 
