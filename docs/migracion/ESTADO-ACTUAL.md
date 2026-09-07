@@ -644,7 +644,12 @@ repositorio. Lo que no se había mirado nunca es **desde este lado**, y ahí sí
 - **Ningún filtro por cliente ni por versión le afecta.** `APP_MOVIL_VERSION_MINIMA` **no es
   un middleware**: es un campo que se adjunta a la respuesta y que decide la app. La trampa
   dormida es la contraria: ese número es el **`versionCode` de Flutter**, así que un cliente
-  que lo respetara **se bloquearía con un número que no habla de él**.
+  que lo respetara **se bloquearía con un número que no habla de él** — y `login/credentials`,
+  la ruta del escritorio, **ya se lo manda hoy** (`LoginController.php:105`). Está dormido
+  porque hacen falta dos cosas y no se da ninguna: ningún colegio tiene número puesto y el
+  escritorio no lee el campo. **La mitad barata es la peligrosa**: escribir el número es una
+  línea en un `.env`, sin despliegue ni revisión. Escrito en [32 §4.3](32-la-entrada-de-la-app-de-escritorio.md)
+  con qué lo despertaría, y avisado en `.env.example`, que es donde se va a leer.
 - **No hace falta un endpoint de «¿puedo?».** El contexto del login trae **48 campos**, con
   `is_superuser` y `roles[]` dentro: `puedePublicarHorario` se calcula desde ahí sin ruta
   nueva. Medida la escalera entera con dos tokens reales — un docente raso saca **200** en
