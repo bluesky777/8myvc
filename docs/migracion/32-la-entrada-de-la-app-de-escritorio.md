@@ -61,16 +61,77 @@ propio método ya avisa al log de que la intención es retirarlo.
 ## 2. Qué alcanza ese token — la escalera, medida ruta a ruta
 
 `auth.personal` en la ruta **deja pasar a cualquier docente**; quien decide de
-verdad es el `Autoriza::` de dentro del método. Medido con dos tokens reales:
+verdad es el `Autoriza::` de dentro del método. Medido con **tres** tokens reales
+—docente raso, superusuario y coordinador académico—, los tres por HTTP contra el
+docker:
 
-| Ruta | docente raso | superusuario | Quién decide |
-|---|---|---|---|
-| `GET horario/versiones` | **200** | 200 | sólo `auth.personal` |
-| `GET horario/versiones/{id}/lecciones` | **200** | 200 | sólo `auth.personal` |
-| `POST horario/versiones` (subir) | **403** | 422 (cuerpo vacío) | `esAdministrativo` |
-| `PUT horario/versiones/{id}/oficial` | **403** | — | `puedePublicarHorario` |
-| `GET horario/versiones/{id}/proyecto` | **403** | — | `puedePublicarHorario` |
-| `PUT horario/docentes/{id}/tono` | **403** | — | `puedePublicarHorario` |
+| Ruta | docente raso | **Coord académico** | superusuario | Quién decide |
+|---|---|---|---|---|
+| `GET horario/versiones` | **200** | **200** | 200 | sólo `auth.personal` |
+| `GET horario/versiones/{id}/lecciones` | **200** | **200** | 200 | sólo `auth.personal` |
+| `GET horario/versiones/{id}/proyecto` | **403** | **200** | — | `puedePublicarHorario` |
+| `PUT horario/versiones/{id}/oficial` | **403** | **200** | — | `puedePublicarHorario` |
+| `PUT horario/docentes/{id}/tono` | **403** | **200** | — | `puedePublicarHorario` |
+| `POST horario/versiones` (subir) | **403** | **403** | 422 (cuerpo vacío) | `esAdministrativo` |
+
+### La columna del medio se midió el 6 sep 2026, y hasta ese día estaba vacía
+
+**No porque nadie la hubiera intentado: porque no había a quién pedírsela.** El rol
+`Coord académico` tiene **cero usuarios** en `simonbolivar` —y en los dieciséis
+colegios—, así que la mitad de arriba de esta tabla estaba escrita **desde el
+código y no desde una respuesta**. Se creó un usuario de prueba en la base de
+desarrollo local (§2.1) y se ejercitó entera.
+
+**Y la asimetría de la última fila es la que importa, porque ahora está vista
+funcionar y no deducida:** un coordinador académico **publica, descarga y pinta,
+y NO puede subir**. No es un descuido — es la decisión 10 de Joseth escrita en dos
+criterios distintos a propósito:
+
+- `puedePublicarHorario` = superusuario **o** `Coord académico` → las tres del medio.
+- `esAdministrativo` = superusuario **o** `Secretario` → subir.
+
+O sea que **secretaría sube todas las versiones que quiera y no elige la que ve el
+colegio, y el coordinador elige la que ve el colegio y no sube ninguna.** Es
+exactamente *«subir no publica»* llevado hasta el final, y ninguno de los dos
+criterios se podía ensanchar para cubrir al otro sin colar la decisión en los
+otros seis sitios que los leen.
+
+### 2.1 · El usuario de prueba, para que esto se pueda repetir mañana
+
+**Sólo en la base de desarrollo local (`simonbolivar`, la del docker). No toca
+producción, ni el seed, ni ninguna migración.**
+
+| | |
+|---|---|
+| `users.id` | **2449** |
+| `username` | `coord.academico.prueba` |
+| contraseña | `test-1234` (la misma que usa el seed) |
+| `tipo` | `Usuario` |
+| `is_superuser` | **0** — y es lo único que hace que la prueba demuestre algo |
+| rol | `Coord académico` (`roles.id = 9`) vía `role_user` |
+
+Comprobado antes de la escalera, ejecutando los criterios en vez de razonarlos:
+
+```
+Role::isCoordAcademico(2449)      = true
+Autoriza::esSuperusuario          = false
+Autoriza::puedePublicarHorario    = true
+Autoriza::esAdministrativo        = false
+```
+
+`isCoordAcademico` compara **la cadena literal `'Coord académico'` en PHP**, así
+que la tilde no la salva ninguna collation: que salga `true` es la comprobación
+de que el rol se insertó con los bytes correctos, no un detalle.
+
+> **Lo que esto NO arregla, y no se puede escribir como si lo arreglara.** En los
+> dieciséis colegios el rol **sigue teniendo cero usuarios**, así que allí publicar
+> el horario lo pueden los once superusuarios y nadie más. Asignarlo es operación
+> de cada colegio —dieciséis decisiones, no una nuestra (decisión 11)—. Lo que se
+> resuelve aquí es que **la escalera se pueda probar**, que hasta hoy no se podía.
+
+*Las dos escrituras de la escalera se repusieron:* `profesores.tono` del docente 1
+volvió a `NULL`, y el `PUT .../oficial` fue **inerte** porque la 8 ya era la
+oficial —`years.horario_version_id` seguía en 8 antes y después—.
 
 **Consecuencia para la pantalla de entrada del escritorio:** cualquiera del
 personal puede escribir su usuario y su clave y **entrar**, y descubrir después,
