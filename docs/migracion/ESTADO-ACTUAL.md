@@ -631,6 +631,65 @@
 >
 > *En los dieciséis colegios esto no existe: cero versiones desplegadas.*
 
+**6 sep 2026 — LA ENTRADA DE LA APP DE ESCRITORIO: entra hoy, y hay una cuenta atrás
+que nadie ve** · `tools/cors-de-los-colegios.sh` (nuevo), `tests/Contrato/CorsDelEscritorioTest.php`
+(nuevo, **9 casos / 14 aserciones**), `.env.example`, [29 §5](29-los-env-no-son-uniformes.md),
+[**32**](32-la-entrada-de-la-app-de-escritorio.md) (nuevo). **Cero rutas nuevas, cero guards nuevos,
+cero cambios de contrato** — el router sigue en **578**.
+
+La pregunta era *«¿cómo consigue el token `myvc_horarios`?»* y la premisa estaba medio
+equivocada: **ya lo consigue**, por `POST login/credentials`, con su razón escrita en aquel
+repositorio. Lo que no se había mirado nunca es **desde este lado**, y ahí sí había cosas.
+
+- **Ningún filtro por cliente ni por versión le afecta.** `APP_MOVIL_VERSION_MINIMA` **no es
+  un middleware**: es un campo que se adjunta a la respuesta y que decide la app. La trampa
+  dormida es la contraria: ese número es el **`versionCode` de Flutter**, así que un cliente
+  que lo respetara **se bloquearía con un número que no habla de él**.
+- **No hace falta un endpoint de «¿puedo?».** El contexto del login trae **48 campos**, con
+  `is_superuser` y `roles[]` dentro: `puedePublicarHorario` se calcula desde ahí sin ruta
+  nueva. Medida la escalera entera con dos tokens reales — un docente raso saca **200** en
+  listar y mirar, y **403** en subir, publicar, descargar y tono.
+- **CORS es el problema, y es de medición.** Hoy pasa porque `CORS_ALLOWED_ORIGINS` está
+  ausente en los dieciséis y eso cae a `['*']`. El día que alguien la rellene —que es una
+  tarea abierta— **el escritorio se cae ahí en silencio**.
+
+**Lo que se cierra de la §5 del 29:** *«si el `.exe` de Windows manda el mismo origen, no lo
+sabe nadie»*. **No lo manda.** Leído del crate que compila ese repo (`tauri` 2.11.5,
+`manager/mod.rs:339-346` y su test): macOS y Linux mandan `tauri://localhost` y **Windows
+manda `http://tauri.localhost`**. **La lista mínima son DOS entradas**, y la que se olvida es
+la de Windows, que es donde va a estar el que cuadra el horario.
+
+**Y el hallazgo que más lejos llega lo destapó el test al ponerse rojo.** Con **exactamente
+un** origen en la lista, `fruitcake/php-cors` devuelve ese origen **a todo el que pregunte**
+(`isSingleOriginAllowed()`). El navegador bloquea igual, pero **la cabecera está**, así que
+cualquier comprobación que mire *«¿vino una ACAO?»* en vez de *«¿vino la mía?»* da verde
+falso. **`tools/cors-de-los-colegios.sh` tuvo ese fallo exacto en su primera versión.** Y
+`.env.example` recomendaba literalmente una sola entrada — corregido.
+
+**Dos avisos para `myvc_horarios` que no se arreglan aquí** (32 §4): `cambia_anio` viaja en
+la respuesta y el escritorio lo tira; y **`login/credentials` contesta 400 a toda credencial
+mala, nunca 401 ni 422** — que es la rama que su `entrar()` no contempla, así que **hoy quien
+teclea mal su clave lee «esto no es la clave: es el servidor»**. El arreglo es de una línea
+**allí**: cambiar el 400 aquí rompería a los cuatro clientes que ya lo distinguen.
+
+**LO QUE ESPERA A JOSETH, y no lo decide una sesión** (32 §5):
+
+1. **¿Pasa el escritorio a `auth/login` + `auth/refresh`?** Hoy tiene 24 h sin refresco, y el
+   argumento con el que se eligió —*«un botón que se pulsa una vez»*— ya no cubre una pantalla
+   que lista, mira y publica en una tarde. **El trabajo sería sólo en `myvc_horarios`: aquí
+   las rutas existen y están probadas.** La salida barata —subir `SESION_LEGADO_TTL`— alarga
+   **también** la sesión de `myvc_flutter` y `myvc_front_2`, que comparten esa ruta: **es otra
+   decisión, no la misma con menos trabajo.**
+2. **¿Cuándo se cierra CORS y con qué lista?** Meter los dos orígenes **antes** es inerte
+   (hoy la lista es `['*']`); cerrarlo **antes** de meterlos tira el escritorio en ese colegio.
+   `tools/cors-de-los-colegios.sh --env` da la cifra que nadie tiene —en cuántos está ya
+   puesta— y **correrlo necesita la sesión del servidor: es suyo**.
+
+*Lo que sigue sin medirse, con esas palabras: **nadie ha abierto el programa construido en
+Windows ni en Linux** —el origen está leído del crate y de su test, que es prueba fuerte y no
+es lo mismo—, **los dieciséis `.env` no se han mirado** y **ningún vhost real se ha sondeado**.*
+
+
 **5 sep 2026 — LA SEXTA RUTA DEL HORARIO, Y CON ELLA EL MÓDULO SE QUEDA SIN NINGUNA
 DECISIÓN ABIERTA** · `HorarioController`, `routes/api/horario.php`,
 `tests/Contrato/HorarioProyectoTest.php` (**8 casos, 47 aserciones**), `CLAUDE.md`, [23
