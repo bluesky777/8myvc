@@ -704,6 +704,56 @@ teclea mal su clave lee «esto no es la clave: es el servidor»**. El arreglo es
 Windows ni en Linux** —el origen está leído del crate y de su test, que es prueba fuerte y no
 es lo mismo—, **los dieciséis `.env` no se han mirado** y **ningún vhost real se ha sondeado**.*
 
+**6 sep 2026 (noche) — LAS TRES DECISIONES DE JOSETH, IMPLEMENTADAS** · `HorarioController`,
+`app/Http/Middleware/TrimStrings.php`, `HorarioViajeDelFicheroTest`, `HorarioLeccionesTest`,
+[23 §9.ter.3, §9.ter.6, §9.ter.7 y §10.2 decisiones 5, 6 y 7](23-horarios.md) · **cero rutas,
+el router en 578**
+
+> Las tres se abrieron y se cerraron el mismo día, y las tres estaban en la mesa con su opción,
+> su precio y su recomendación delante. **Ninguna se decidió preguntando «¿qué hacemos con
+> esto?».**
+>
+> **1. Decisión 5 — el tope del blob es 422 y ya no un `201` a medias.** Por encima de
+> 16.777.215 bytes la subida devuelve `motivo: proyecto-demasiado-grande` con sus `bytes` y su
+> `maximo`, **antes de tocar la base**. Con eso el docker y los dieciséis **fallan igual**: aquí
+> truncaba callando y allí, con `STRICT_TRANS_TABLES` de MariaDB, habría sido `1406 → 500`.
+>
+> > **Y la salida obvia no valía, que es lo único de esto que no estaba previsto.** `max:16777215`
+> > cuenta **caracteres** (`mb_strlen`) y la columna cuenta **bytes**: `str_repeat('ñ', 10)` son
+> > 10 caracteres y 20 bytes y pasa un `max:15`. Con la regla puesta, un `.myvch` de acentos
+> > —los colegios se llaman `SIMÓN`— habría pasado la validación y lo habría truncado MySQL
+> > igual: **el mismo fallo con un test verde encima**. Va con `strlen()` y tiene su propio caso.
+>
+> **2. Decisión 6 — `proyecto` entra en el `$except` de `TrimStrings`.** Una línea. **Antes de
+> escribirla se midió lo que la opción daba por supuesto**: `$except` casa por nombre de campo y
+> no por ruta, así que se barrieron los **260** ficheros `.php` de `app/` y `routes/` —`proyecto`
+> es campo de petición **sólo** en `horario/`; la única otra mención es
+> `config('notificaciones.fcm.proyecto')`, que es configuración— y `Str::is()` sin comodines casa
+> **sólo con la clave exacta de primer nivel**. Quirúrgico comprobado, no supuesto.
+>
+> **3. Decisión 7 — el autor de una pega de disponibilidad viaja sólo para quien puede
+> publicar.** `puedePublicarHorario` **dentro** del método; **no es un 403**, la respuesta se da
+> igual y cambia cuánto dice. Se tacha el autor y **no la marca**: la rejilla se pinta igual y
+> las cuentas del renglón se dan enteras. Retira el precio que la decisión 38 dejó escrito
+> —*«cualquiera de los 53 docentes puede leer las horas que sus compañeros marcaron
+> `inadecuado`»*—, que estaba anotado como pagado.
+>
+> ### Lo que hay que saber de esto, y es lo que cuesta
+>
+> **`profesor_id` pasa a ser anulable en `disponibilidad`.** Lleva su declaración al lado
+> —`catalogos.disponibilidad.autor`, `visible` o `reservado`— para que ese nulo **no se lea como
+> «este dato no está»**. El campo **no se llamó `estado` a propósito**: bajo esa clave ya
+> conviven dos vocabularios (§9.ter.6), y contarlos primero es lo que permitió nombrarlo bien.
+>
+> **Y el otro repositorio tiene que enterarse antes de que esto se despliegue**, porque su lector
+> declara ese campo como numérico. El aviso ya salió. *No es un cambio que se note en el docker:
+> se nota en el colegio, con el token de un docente raso, que es el sujeto con el que nadie
+> prueba a mano.*
+>
+> **Las tres se comprobaron en rojo**, cada una tumbando sólo su caso — y la 7 **en las dos
+> direcciones**, porque un permiso que no deja pasar a nadie se ve igual de verde que uno que
+> funciona si sólo se prueba el lado que se cierra.
+
 **6 sep 2026 — EL VIAJE DEL `.myvch` EJERCITADO DE PUNTA A PUNTA: IDÉNTICO BYTE A BYTE, Y UN
 TOPE QUE CORTA EL FICHERO Y CONTESTA `201`** · [23 §9.ter y §10.2 decisión 5](23-horarios.md) ·
 **cero código, cero rutas** · medido desde `.worktrees/s` sobre `7c3a0b9`, router en **578**

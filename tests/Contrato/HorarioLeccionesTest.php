@@ -36,9 +36,16 @@ use PHPUnit\Framework\Attributes\Test;
  * ## Lo que NO fija
  *
  * El 403 de alumnos y acudientes es de `HorarioAutorizacionTest`, que desde el 4 sep
- * 2026 cubre las **cuatro** rutas. Aquí se entra siempre como **personal llano**, que
- * es el sujeto más pequeño que puede llamar a esta ruta: con un superusuario el verde
- * diría menos de lo que parece.
+ * 2026 cubre las **cuatro** rutas. Aquí se entra como **personal llano**, que es el
+ * sujeto más pequeño que puede llamar a esta ruta: con un superusuario el verde diría
+ * menos de lo que parece.
+ *
+ * **Con UNA excepción desde el 6 sep 2026, y es a propósito**: la decisión 3 hace que el
+ * autor de cada pega de disponibilidad viaje **sólo para quien puede publicar**, así que
+ * ese hecho tiene dos casos y el segundo entra con superusuario
+ * (`quien_puede_publicar_si_ve_de_quien_es_cada_pega`). Sin él, tachar el `profesor_id`
+ * **para todo el mundo** saldría verde — *un permiso que no deja pasar a nadie se ve igual
+ * que uno que funciona, si sólo se prueba el lado que se cierra*.
  */
 class HorarioLeccionesTest extends CasoDeContrato
 {
@@ -1028,15 +1035,22 @@ class HorarioLeccionesTest extends CasoDeContrato
     }
 
     /**
-     * La disponibilidad viaja con QUIÉN la declaró, y `[]` es «sin pegas».
+     * La disponibilidad viaja **SIN** quién la declaró para el personal llano — decisión 3,
+     * contestada por Joseth el 6 sep 2026.
      *
-     * *Una hoja que dice «a alguien le viene mal» sin decir a quién se reparte más fácil
-     * y se rebate peor.* Una entrada por docente de la plantilla: el que no marcó nada
-     * y el que ni trae la clave salen igual, con `marcas: []`, porque el escritorio sólo
-     * guarda lo que no es `adecuado`.
+     * **Este caso comprobaba lo contrario hasta ese día**, y con este mismo sujeto: la lista
+     * salía con el `profesor_id` de cada pega **para cualquiera de los 53 docentes**, porque
+     * `getLecciones` lleva `auth.personal` y ningún permiso dentro. O sea *«a qué hora le
+     * viene mal a cada compañero»* repartido a la sala de profesores entera, y **una pega
+     * con nombre se rebate peor de lo que se reparte**.
+     *
+     * Lo que se tacha es **el autor y no la marca**: día, franja y `estado` siguen viajando,
+     * así que la rejilla se pinta igual y las cuentas del renglón cuadran con lo recibido.
+     * *Los demás ven que hay una pega y no de quién; quien cuadra el horario sabe a quién
+     * preguntarle* — y eso lo fija el caso de al lado.
      */
     #[Test]
-    public function la_disponibilidad_viaja_con_quien_la_declaro(): void
+    public function la_disponibilidad_no_dice_de_quien_es_cada_pega_al_personal_llano(): void
     {
         $anio = $this->anioDelSujeto();
         [$uno, $dos, $tres] = $this->profesores(3);
@@ -1055,10 +1069,67 @@ class HorarioLeccionesTest extends CasoDeContrato
         $disponibilidad = $r->json('disponibilidad');
 
         $this->assertSame([
+            ['profesor_id' => null, 'marcas' => $marcas],
+            ['profesor_id' => null, 'marcas' => []],
+            ['profesor_id' => null, 'marcas' => []],
+        ], $disponibilidad,
+            'El personal llano se está llevando el `profesor_id` de cada pega. La marca sí '.
+            'viaja —la rejilla se pinta igual—, el dueño no.');
+
+        // Y ningún id de docente se ha colado por el camino: `assertSame` de arriba lo
+        // cubre para esta lista, pero el renglón que lo DECLARA es lo que impide que un
+        // nulo se lea como «este dato no está».
+        $renglon = $r->json('catalogos.disponibilidad');
+
+        $this->assertSame('reservado', $renglon['autor'],
+            'Sin este renglón, «no te toca saberlo» y «no se pudo leer» se ven igual desde '.
+            'la pantalla, que es la confusión que este módulo lleva cinco secciones evitando.');
+        $this->assertSame(2, $renglon['marcas'],
+            'Las cuentas se dan enteras aunque el autor no: ver que hay pegas es el punto.');
+        $this->assertSame(1, $renglon['condicional']);
+        $this->assertSame(1, $renglon['inadecuado']);
+    }
+
+    /**
+     * Y quien puede publicar **sí** se lleva el autor de cada pega — la otra mitad de la
+     * decisión 3.
+     *
+     * Sin este caso, tachar el `profesor_id` **para todo el mundo** pasaría el test de
+     * arriba y nadie lo notaría hasta que un coordinador intentara cuadrar el horario y no
+     * supiera a quién preguntarle. *Un permiso que no deja pasar a nadie se ve igual de
+     * verde que uno que funciona, si sólo se prueba el lado que se cierra.*
+     */
+    #[Test]
+    public function quien_puede_publicar_si_ve_de_quien_es_cada_pega(): void
+    {
+        $anio = $this->anioDelSujeto();
+        [$uno, $dos, $tres] = $this->profesores(3);
+        $marcas = [['dia' => 1, 'franja' => 1, 'estado' => 'condicional'], ['dia' => 5, 'franja' => 7, 'estado' => 'inadecuado']];
+
+        $version = $this->versionConProyecto($anio, $this->proyectoCompleto([
+            'docentes' => [
+                ['profesorId' => $tres, 'nombre' => 'x'],
+                ['profesorId' => $uno, 'nombre' => 'x', 'disponibilidad' => ['marcas' => $marcas]],
+                ['profesorId' => $dos, 'nombre' => 'x', 'disponibilidad' => ['marcas' => []]],
+            ],
+        ]));
+        $this->leccionEn($version, (int) $this->asignacionDe($anio)->id, 'a1-0', 1, 1);
+
+        $sujeto = $this->usuarioDeTipo('Usuario');
+
+        $this->assertSame(1, (int) $sujeto->is_superuser,
+            'El sujeto tiene que poder publicar: si no, el `reservado` se leería como un acierto.');
+
+        $r = $this->leer($version, $this->tokenDe($sujeto->username))->assertStatus(200);
+
+        $this->assertSame([
             ['profesor_id' => $uno, 'marcas' => $marcas],
             ['profesor_id' => $dos, 'marcas' => []],
             ['profesor_id' => $tres, 'marcas' => []],
-        ], $disponibilidad, 'Una entrada por docente, ordenadas por id, y cada marca con su dueño al lado.');
+        ], $r->json('disponibilidad'),
+            'Una entrada por docente, ordenadas por id, y cada marca con su dueño al lado.');
+
+        $this->assertSame('visible', $r->json('catalogos.disponibilidad.autor'));
 
         $renglon = $r->json('catalogos.disponibilidad');
         $this->assertSame('completo', $renglon['estado']);
