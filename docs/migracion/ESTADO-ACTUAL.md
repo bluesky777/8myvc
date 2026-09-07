@@ -7383,3 +7383,64 @@ llamarla»*).
 
 Y en `myvc_front` queda apuntado, sin hacer, el arreglo de **las cuatro altas de la
 planilla de notas que no mandan `fecha_hora`** (`MIGRATION.md` §4b.3b).
+
+---
+
+## LICENCIA DEL HORARIO — el emisor, medido y a medio escribir (6 sep 2026, worktree `l`)
+
+**Rama `feat/licencia-del-horario`. Sin fundir.** Documento entero:
+[31-licencia-del-horario.md](31-licencia-del-horario.md).
+
+`myvc_horarios` (el programa de escritorio que cuadra el horario) lleva una licencia
+firmada, y **su decisión 25 dice que la emite `8myvc`**. Este carril es esa mitad. Antes de
+escribir nada se comprobó que no estuviera hecho: `grep -rniE 'ed25519|sodium_crypto_sign'
+app/ routes/ config/` salía **vacío**.
+
+**Lo que está hecho y verde** — `licencia:emitir`, un comando de consola (**no una ruta**:
+ninguna ruta nueva se ha escrito, y por eso el contador de `CLAUDE.md` **no se mueve**):
+
+    app/Services/FirmaDeLicencia.php          firma, y sólo eso; la clave entra por constructor
+    app/Console/Commands/EmitirLicencia.php   `licencia:emitir`, y `--publica` para los 32 bytes de Rust
+    config/licencia.php                       una RUTA a un fichero, no la clave
+    tests/Unit/FirmaDeLicenciaTest.php        11 pruebas, verdes; fijan el vector de referencia
+
+**Lo medido, que es lo que separa esto de un plan:** la carga y la firma que produce este
+PHP son **byte a byte idénticas** a las del emisor de TypeScript del otro repositorio, y
+esa firma **es la que está pegada dentro de su verificador de Rust** — o sea, la verifica
+una prueba verde suya. Y la licencia emitida por el comando se metió por su núcleo real y
+salió `valida`, con su pie impreso. `cargo test` **no** se corrió: la aceptación por Rust es
+**transitiva**, y así está escrito.
+
+### JOSETH CONTESTÓ LAS DOS (6 sep 2026), y queda una
+
+1. **`colegioId` = un número que asigna Joseth**, del 1 al 17. Lo que ganó la opción:
+   **la licencia tiene que poder emitirse para un colegio que no está en ninguna base de
+   `8myvc`** —el caso `independiente`—, y **`colegioId` no existe en esta API**: no hay tabla
+   de colegios en las 90, `grep -rn 'colegio_id' app/` sale vacío, y cada colegio es una base.
+   Eso **contesta una pregunta que el otro repositorio ya tenía escrita** en
+   `nucleo/licencia.ts`. **El precio aceptado, que no es un descuido:** la cuenta se lleva
+   **fuera del sistema** y **dos licencias con el mismo número no las caza nadie**.
+2. **La clave privada vive SÓLO en la máquina desde la que se emite.** Nada en los diecisiete
+   `.env`, nada en ningún respaldo de cPanel. Sale de que el binario incrusta **una sola**
+   clave pública —así que **sólo puede existir una privada**— y de que repartirla convertiría
+   cualquiera de los diecisiete hostings compartidos en el sitio desde donde se fabrican
+   licencias para todos los demás.
+
+**Y esa decisión tumbó la pregunta de `sodium` en producción**: el único PHP que necesita
+sodium es el de la máquina que emite. **Lo que NO se cayó con ella** es el hallazgo de al
+lado, y por eso vive en la §0 del documento con su propio recuadro: `lcobucci/jwt` era lo
+único que exigía `ext-sodium`, ya no está, y **`vendor/composer/platform_check.php` no
+comprueba ni una extensión**. Deja de ser un problema de licencias y pasa a ser una trampa
+para **la próxima dependencia que exija una extensión**: entrará en verde y fallará en los
+diecisiete.
+
+**LO ÚNICO QUE SIGUE ABIERTO Y ES DE JOSETH: dónde se respalda esa clave.** Y hasta que
+conteste, **la clave de producción NO se fabrica**: su pública se incrusta en binarios que se
+instalan en los colegios, así que cambiarla después obliga a reinstalarlos. **Perderla es
+peor que filtrarla** — filtrarla se arregla emitiendo clave nueva y actualizando el binario;
+perderla obliga a lo mismo **sin poder emitirle una licencia a nadie mientras tanto**.
+
+Y una petición viva del otro lado, que **bloquea que empaqueten nada para un colegio**: los
+32 bytes de nuestra clave pública. Hoy su binario lleva una **clave de desarrollo cuya
+semilla está publicada**, así que cualquiera que lea aquel repositorio puede fabricar una
+licencia que acepte. Sale de `licencia:emitir --publica` el día que exista la de producción.
