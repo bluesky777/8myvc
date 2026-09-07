@@ -22,6 +22,23 @@ use PHPUnit\Framework\Attributes\DataProvider;
  * en rojo aquí**: compila, pasa la suite y falla en la pantalla de un
  * coordinador. Eso es lo que cierra este fichero.
  *
+ * ## Y ese día es MENOS probable y MÁS silencioso desde la misma tarde
+ *
+ * **La política es `*` y no se va a cerrar** (Joseth, 6 sep 2026: *«siempre va a
+ * ser CORS `*` porque necesita ser llamado desde múltiples orígenes,
+ * diferentes»*). Estos casos se escribieron cuando cerrar la lista era el plan y
+ * lo que vigilaban era *«que el cierre no se haga mal»*. Ahora vigilan algo
+ * distinto y peor: **que nadie se salga de la política sin querer**.
+ *
+ * Eso cambia cuál de los casos de aquí abajo es el importante. Ya no es
+ * `test_con_los_dos_dentro_el_escritorio_entra` —esa lista no la va a escribir
+ * nadie— sino los dos que describen **la forma que tiene la equivocación**:
+ * `test_una_lista_solo_con_el_front_deja_fuera_al_escritorio`, porque la
+ * respuesta **trae cabecera y parece que funciona**, y
+ * `test_sin_lista_pasa_cualquier_origen`, que es **el que fija la política** y se
+ * pondría rojo si alguien «arreglara» `config/cors.php` para que una lista vacía
+ * signifique «ninguno».
+ *
  * ## Lo que NO demuestra, y va arriba porque es la trampa de este asunto
  *
  * Estos casos mandan un `Origin` **tecleado por nosotros**. Contestan *«¿acepta

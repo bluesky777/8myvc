@@ -695,10 +695,20 @@ teclea mal su clave lee «esto no es la clave: es el servidor»**. El arreglo es
    las rutas existen y están probadas.** La salida barata —subir `SESION_LEGADO_TTL`— alarga
    **también** la sesión de `myvc_flutter` y `myvc_front_2`, que comparten esa ruta: **es otra
    decisión, no la misma con menos trabajo.**
-2. **¿Cuándo se cierra CORS y con qué lista?** Meter los dos orígenes **antes** es inerte
-   (hoy la lista es `['*']`); cerrarlo **antes** de meterlos tira el escritorio en ese colegio.
-   `tools/cors-de-los-colegios.sh --env` da la cifra que nadie tiene —en cuántos está ya
-   puesta— y **correrlo necesita la sesión del servidor: es suyo**.
+2. ~~**¿Cuándo se cierra CORS y con qué lista?**~~ **CONTESTADA por Joseth el 6 sep 2026, y
+   la respuesta invierte la casilla: NO SE CIERRA.** *«Siempre va a ser CORS `*` porque
+   necesita ser llamado desde múltiples orígenes, diferentes.»* No es un pendiente que nadie
+   hizo: **es un requisito**, porque a esta API la llaman cuatro clientes con orígenes
+   distintos. Con eso, **el riesgo se da la vuelta**: ya no es «cerraron sin meter los dos
+   orígenes del escritorio» —previsible y con lista de tareas detrás— sino **«alguien puso una
+   lista en un `.env` creyendo que mejoraba algo»**, que es más pequeño, no lo espera nadie y
+   **no se nota**: con un solo origen en la lista la respuesta trae cabecera igual, el front
+   del colegio sigue funcionando y el único que se cae es el escritorio.
+   `tools/cors-de-los-colegios.sh --env` cambia de pregunta y mejora con ello —de *«¿en
+   cuántos está puesta?»* a **«¿se ha salido alguno de la política?»**—; sigue necesitando la
+   sesión del servidor, pero **ya no bloquea nada**. Reencuadrado en 32 §3, y corregidos los
+   dos sitios que mandaban lo contrario: `config/cors.php` («hay que definirla en el `.env` de
+   producción») y `.env.example`.
 
 *Lo que sigue sin medirse, con esas palabras: **nadie ha abierto el programa construido en
 Windows ni en Linux** —el origen está leído del crate y de su test, que es prueba fuerte y no

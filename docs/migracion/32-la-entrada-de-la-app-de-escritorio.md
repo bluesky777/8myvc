@@ -162,7 +162,35 @@ is_superuser == 1  ||  roles[] contiene 'Coord académico'
 
 ---
 
-## 3. CORS — aquí está el problema, y es de medición, no de código
+## 3. CORS — la política es `*`, y es un REQUISITO, no un descuido
+
+> ### LÉASE ESTO ANTES QUE EL RESTO DE LA §3 — decisión de Joseth, 6 sep 2026
+>
+> **`CORS_ALLOWED_ORIGINS` se queda en `*` y no se va a cerrar.** Sus palabras:
+> *«siempre va a ser CORS `*` porque necesita ser llamado desde múltiples orígenes,
+> diferentes.»*
+>
+> **Eso no es una tarea pendiente que nadie hizo: es la forma que tiene que tener.**
+> Esta API la llaman cuatro clientes con orígenes distintos —un `myvc_front` por
+> colegio, `myvc_front_2`, la app de móvil y ahora el escritorio— y la lista cerrada
+> **nunca fue el camino**.
+>
+> **Y por eso el peligro se dio la vuelta.** Todo lo que sigue se escribió cuando la
+> pregunta era *«¿cuándo se cierra y con qué lista?»*. Ya está contestada —no se
+> cierra— así que **no se lee como un plan, se lee como el mapa de lo que pasaría si
+> alguien lo cerrara**. El riesgo vivo hoy es el contrario y es más pequeño y más
+> silencioso: **que alguien ponga una lista en el `.env` de un colegio creyendo que
+> mejora algo.**
+>
+> **No borres nada de aquí abajo por eso.** Que Windows mande `http://tauri.localhost`
+> (§3.1) sigue siendo cierto y costó averiguarlo; que una lista de un solo origen
+> devuelva cabecera y bloquee igual (§3.3) es **más importante ahora que antes**,
+> porque es la forma exacta que tendría esa equivocación.
+>
+> **Y esto es lo que impide el «arreglo» de dentro de seis meses:** quien lea esta
+> sección, vea `['*']` y piense *«esto está sin terminar»* va a cerrar la lista y a
+> tirar el escritorio en ese colegio, sin ningún error en ningún log de aquí. El
+> asterisco **es la decisión**, tiene fecha y tiene autor.
 
 El escritorio habla desde un **WebView**, o sea desde un navegador, o sea
 cruzando origen. Lo gobierna `config/cors.php`, y ese fichero **no lo comprobaba
@@ -204,6 +232,13 @@ if cfg!(windows) || cfg!(target_os = "android") {
 `tauri://localhost` —el único origen que alguien ha visto nunca, y en un mac—
 deja fuera Windows, **que es donde va a estar el que cuadra el horario**.
 
+> **Y esto NO es una lista que haya que poner en ningún sitio.** Se escribió
+> cuando cerrar CORS era el plan; desde la decisión de Joseth del 6 sep 2026 la
+> política es `*` y **no hay ninguna lista que rellenar**. Lo que queda de este
+> dato es lo que valía de verdad: **si alguna vez alguien pone una lista, son dos
+> entradas y no una**, y la que se olvida es la de Windows. Es un mapa por si hace
+> falta, no una tarea.
+
 > **Y «probablemente Windows» dejó de ser probablemente el 6 sep 2026.** `8myvc-d3`
 > lo trajo de la mesa de Joseth al cursar este hallazgo: **la máquina de referencia
 > de Joseth es un Pentium de 2010 con Windows**, la misma con la que se mide el
@@ -240,12 +275,25 @@ lista = [https://simonbolivar.micolevirtual.com, tauri://localhost, http://tauri
 a la app que cambie a `@tauri-apps/plugin-http`. Sólo hace falta que las dos
 cadenas estén en la lista.
 
-**El riesgo, entonces, no es de código: es la tarea abierta de cerrar CORS.** El
-día que alguien rellene `CORS_ALLOWED_ORIGINS` en un colegio —que es lo que
-`config/cors.php` pide por escrito— el escritorio se cae ahí, en silencio, y el
-síntoma aparece en la pantalla de un coordinador.
+**Esto se escribió cuando cerrar CORS era una tarea abierta, y ya no lo es**
+(decisión de Joseth del 6 sep 2026, arriba). Lo que queda en pie es la mecánica:
+**el día que alguien rellene `CORS_ALLOWED_ORIGINS` en un colegio, el escritorio
+se cae ahí en silencio**, y el síntoma aparece en la pantalla de un coordinador
+sin que nada se ponga rojo aquí. Antes eso era el precio de una tarea prevista;
+ahora es **una desviación de la política**, que es peor: nadie la está esperando.
+
+> `config/cors.php` llevaba escrito *«Hay que definirla en el `.env` de producción
+> para que el arreglo sirva de algo»*, que es de cuando cerrar era el plan y que
+> **hoy es la instrucción equivocada**: manda hacer exactamente lo que tira el
+> escritorio. Corregido en el mismo commit que este párrafo.
 
 ### 3.3 Una lista de UN origen se comporta distinto, y rompe a los detectores
+
+**Con la política de `*`, ésta pasa a ser la sección más importante de la §3.**
+Cuando cerrar CORS era el plan, el escenario malo era *«cerraron sin meter los dos
+orígenes del escritorio»* — previsible, y con una lista de tareas detrás. Ya no va
+a pasar. El que sí puede pasar es **que alguien ponga un solo origen en el `.env`
+de un colegio**, y ésta es la forma exacta que tendría: la que **no se nota**.
 
 **Esto lo destapó el test al fallar, y es el hallazgo que más lejos llega.**
 
@@ -264,21 +312,38 @@ vez de *«¿vino la mía?»* da un **verde falso**.
 
 Y no es un caso de laboratorio: `.env.example` recomendaba literalmente
 `p.ej: https://lalvirtual.edu.co`, o sea **una sola entrada**, que es justo la que
-dispara esa rama. Ya está corregido allí.
+dispara esa rama. Ya está corregido allí, y `config/cors.php` también — llevaba
+escrito *«hay que definirla en el `.env` de producción»*, que hoy es la
+instrucción que rompe al escritorio.
+
+**Y por qué esa equivocación es plausible y no rebuscada:** quien la comete no
+está haciendo nada raro. Está «apretando la seguridad», poniendo el dominio de su
+colegio, viendo que el front sigue funcionando —porque el front **sí** casa con
+esa cabecera— y cerrando la tarea. El único que se cae es el programa que no
+estaba mirando.
 
 > **`tools/cors-de-los-colegios.sh` tuvo ese fallo exacto en su primera versión** y
 > lo cazó `CorsDelEscritorioTest` al ponerse rojo. Es la tercera forma del aviso
 > de `CLAUDE.md`: *el detector contaba bien un síntoma y no estaba contando la
 > causa*. La clasificación buena es `*` **o el origen exacto**, nunca «hay algo».
 
-### 3.4 Lo que queda, y quién puede hacerlo
+### 3.4 La herramienta, que con la política nueva contesta OTRA pregunta
 
-`tools/cors-de-los-colegios.sh` es el arnés que faltaba. Tres modos:
+**Y es mejor pregunta que la que se escribió para contestar.** Nació para medir
+*«¿en cuántos colegios está ya puesta la lista?»*, que era el paso previo de un
+cierre que ahora no va a ocurrir. Con `*` como política, lo que contesta es:
+
+> **¿hay algún colegio donde alguien haya puesto una lista, en contra de la
+> política, y con ello haya dejado fuera al escritorio?**
+
+Antes medía un despliegue que iba a pasar; ahora **vigila una desviación que no
+debería pasar y que nadie más mira**. Un barrido que salga «los diecisiete en
+`*`» ya no es un pendiente: es la política confirmada.
 
 ```bash
-tools/cors-de-los-colegios.sh --env            # en el SERVIDOR: qué dice cada .env
-tools/cors-de-los-colegios.sh --url URL…       # desde cualquier sitio: qué contesta ese servidor
-tools/cors-de-los-colegios.sh --origenes       # la lista mínima, para pegar en un .env
+tools/cors-de-los-colegios.sh --env            # en el SERVIDOR: ¿alguno se ha salido de `*`?
+tools/cors-de-los-colegios.sh --url URL…       # desde cualquier sitio: ¿qué contesta de verdad?
+tools/cors-de-los-colegios.sh --origenes       # los dos orígenes del escritorio, si alguna vez hay lista
 ```
 
 Imprime su población siempre, y **un glob que no casa sale con código 2 diciendo
@@ -435,19 +500,22 @@ día— y **es una cuenta atrás que nadie ve**.
 Recomendación: la segunda. Es la única que no le cambia la vida del token a
 clientes que no lo pidieron, y no cuesta nada aquí.
 
-### (b) ¿Cuándo se cierra CORS, y con qué lista?
+### ~~(b) ¿Cuándo se cierra CORS, y con qué lista?~~ · **CONTESTADA: no se cierra**
 
-El arnés está escrito y probado; **falta correrlo, y eso necesita el servidor**.
-La decisión no es técnica: es **en qué orden** se hacen las dos cosas.
+**Decisión de Joseth, 6 sep 2026**, la misma tarde en que se le planteó:
+*«siempre va a ser CORS `*` porque necesita ser llamado desde múltiples orígenes,
+diferentes.»*
 
-- Si se cierra CORS **antes** de meter los dos orígenes del escritorio, **se cae
-  el escritorio en ese colegio** y el síntoma no apunta a la causa.
-- Si se meten los dos orígenes **antes** de cerrar CORS, no pasa nada: hoy la
-  lista es `['*']` y añadirlos es inerte.
+Esta casilla proponía elegir **el orden** entre cerrar la lista y meter los dos
+orígenes del escritorio. La pregunta desaparece entera: **no hay lista que
+cerrar**, y meter unos orígenes en una lista que no existe no significa nada.
 
-Recomendación: correr `--env` primero para saber **en cuántos colegios está ya
-puesta** —cifra que **nadie tiene**— y meter los dos orígenes en el mismo
-movimiento que cierre cualquiera.
+**Lo que sobrevive de la casilla es una tarea distinta y más pequeña**, y ya no
+espera ninguna decisión: correr `--env` sobre los diecisiete **deja de ser el paso
+previo de un cierre y pasa a ser una comprobación de que nadie se ha salido de la
+política**. Sigue necesitando la sesión del servidor, así que sigue siendo de
+Joseth, pero ya no bloquea nada: si sale «los diecisiete en `*`», está confirmada;
+si sale alguno con lista, ahí hay un colegio donde el escritorio no entra.
 
 ---
 
@@ -456,9 +524,14 @@ movimiento que cierre cualquiera.
 - **Nadie ha abierto el programa construido en Windows ni en Linux.** El origen de
   §3.1 está leído del crate y de su test, no visto en una ventana. Es prueba
   fuerte y **no es lo mismo**.
-- **Los dieciséis `.env` reales no se han mirado.** Es la §5 de
-  [`29-los-env-no-son-uniformes.md`](29-los-env-no-son-uniformes.md) y sigue
-  abierta desde el 3 sep. El arnés existe desde hoy; correrlo, no.
+- **Los dieciséis `.env` reales no se han mirado**, y desde el 6 sep 2026 eso
+  significa otra cosa: ya no es *«cuántos han hecho la tarea»* —no hay tarea, la
+  política es `*`— sino **«¿se ha salido alguno?»**. Es la §5 de
+  [`29-los-env-no-son-uniformes.md`](29-los-env-no-son-uniformes.md), abierta
+  desde el 3 sep. El arnés existe; correrlo, no. **Y el hueco es más ancho de lo
+  que parece: escribir una lista en un `.env` no necesita despliegue ni pasa por
+  este repositorio**, así que un colegio puede salirse de la política sin que
+  quede rastro en ningún sitio que miremos — es la misma asimetría de §4.3.
 - **Ningún vhost real se ha sondeado con `--url`.** Un Apache o un nginx delante
   puede añadir su propia `Access-Control-Allow-Origin` encima de la de Laravel:
   **dos cabeceras y el navegador rechaza las dos.** El guion lo clasifica aparte

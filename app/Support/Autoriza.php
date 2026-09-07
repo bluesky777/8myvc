@@ -242,9 +242,22 @@ class Autoriza
      * regla de esta clase es que un criterio nuevo se escribe con su nombre.
      *
      * **La regla nace correcta e INERTE, y hay que saberlo antes de leerla.** El
-     * rol `Coord académico` existe desde 2018 y **tiene cero usuarios** en
-     * `simonbolivar`, así que hoy la oficial la marcan los 11 superusuarios y
-     * nadie más. Asignar el rol es operación de cada colegio —quince decisiones,
+     * rol `Coord académico` existe desde 2018 y **tiene cero usuarios en los
+     * dieciséis colegios en producción**, así que allí la oficial la marcan los 11
+     * superusuarios y nadie más.
+     *
+     * > **Decía «cero usuarios en `simonbolivar`» y eso ya es falso en el docker
+     * > desde el 6 sep 2026**: se creó `coord.academico.prueba` (`users.id` 2449)
+     * > **en la base de desarrollo local** para poder ejercitar esta rama, que
+     * > hasta ese día no la había probado nadie —no por descuido, sino porque no
+     * > había a quién pedirle un token—. La escalera medida está en
+     * > [32 §2](../../docs/migracion/32-la-entrada-de-la-app-de-escritorio.md).
+     * >
+     * > Se corrige la frase en vez de dejarla porque **una afirmación que el
+     * > lector puede comprobar y ve fallar deja de ser creída para todo lo demás
+     * > que dice este docblock**, y aquí abajo hay cosas que importan más. En
+     * > producción sigue siendo cierta y por eso el enunciado no se retira: se le
+     * > pone dónde vale. Asignar el rol es operación de cada colegio —quince decisiones,
      * no una nuestra (decisión 11)—; lo que sería un error es leer «también el
      * coordinador académico» y suponer que ya hay alguien detrás.
      *
