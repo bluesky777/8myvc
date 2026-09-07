@@ -664,6 +664,23 @@ TOPE QUE CORTA EL FICHERO Y CONTESTA `201`** · [23 §9.ter y §10.2 decisión 5
 > producción **no lo ha medido nadie** — es un `SELECT @@sql_mode` el día del despliegue, y
 > hasta entonces queda **NO MEDIDO**.
 >
+> ### Y la prueba encontró lo que la medición a mano no podía ver
+>
+> Al convertir la foto en guarda —`HorarioViajeDelFicheroTest`, **5 casos, 70 aserciones**—
+> apareció un segundo fallo: **`TrimStrings` se come los saltos de línea de los extremos del
+> `.myvch`**. Un fichero que termine en `\n` se guarda con un byte menos, contesta `201` y
+> **sigue siendo JSON válido**, así que el escritorio lo abre y no hay ningún síntoma.
+>
+> **La medición del 6 sep no podía verlo y no se hizo mal**: los dos únicos `.myvch` reales
+> terminan en `}` (`tail -c 4`), así que le esquivaban el bulto **por casualidad del
+> serializador del escritorio**. La prueba tuvo que fabricar el caso, y por eso lo encontró.
+> *Una foto sólo enseña los casos que el fotógrafo tenía delante.*
+>
+> La causa es middleware **global** —`$except` sólo cubre las contraseñas—, así que el
+> arreglo es una línea que toca **las 578 rutas**: es la **decisión 6 de la §10.2 y es tuya**.
+> Queda fijado con un test que se pone rojo el día que se arregle, **y el rojo se vio**:
+> metiendo `proyecto` en el `$except` cae ése y sólo ése.
+
 > ### Dos cosas más que quedan escritas
 >
 > **La cota alta de la §10.2.2 se reproduce desde un tercer sitio**: 231.141 contra los 231.135
@@ -671,6 +688,8 @@ TOPE QUE CORTA EL FICHERO Y CONTESTA `201`** · [23 §9.ter y §10.2 decisión 5
 > **iguales al byte** sin haber copiado nada. Costó **dos detectores rotos** llegar ahí, los dos
 > inflando y los dos creíbles (×1,88 y ×1,83): mandaba los objetos `{asignacionId}` en vez de
 > los enteros, y Python separa con `", "` donde `JSON.stringify` no pone espacio.
+>
+> **Y los CINCO estados de un catálogo quedan escritos por fin (§9.ter.6), que es la otra mitad del mismo problema.** Su lector conocía **cuatro**: el `ilegible` no caía en ningún `else` y **tumbaba la respuesta entera**. Ya está arreglado de su lado; lo que faltaba era que **los cinco sólo existían en nuestro código y en ningún documento**, así que nadie podía saber *cuántos son* — sólo cuáles había visto. Contados sobre `HorarioController`: `completo`, `parcial`, `vacio`, `sin_catalogo` e `ilegible`, y **ninguna sexta**. De paso queda avisado que en la misma respuesta hay **dos cosas llamadas `estado`** con vocabularios distintos: el de un catálogo y el de una marca de disponibilidad (`condicional`/`inadecuado`).
 >
 > **El sobre de `getLecciones` declara ONCE catálogos y el lector del escritorio OCHO.** No
 > rompe —su lector sólo exige los suyos—, pero **descarta `plantilla`, `jornadas` y

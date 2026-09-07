@@ -2108,6 +2108,11 @@ La tercera fila es la de verdad y es la que había que medir: el veredicto vuelv
 en las tres, y `Content-Disposition` trae el nombre construido por el servidor
 (`horario-2025-v25.myvch`), nunca el que escribió quien subió.
 
+> **Y este «idéntico» tiene una condición que esta tabla no podía ver: los tres ficheros
+> terminan en `}`.** Con un salto de línea al final se pierde un byte, y lo encontró la prueba
+> de contrato al fabricar un caso que no existía — **§9.ter.7**. La tabla de arriba sigue
+> siendo cierta; lo que no es cierto es leerla como *«el viaje conserva cualquier fichero»*.
+
 **Y con `Accept-Encoding: gzip` sale exactamente igual**, que es lo que manda un cliente Tauri
 por defecto: nginx **no comprime** `application/octet-stream`, así que no hay `Content-Encoding`
 y el fichero viaja crudo. Se midió porque un `Content-Length` que cuenta bytes comprimidos y un
@@ -2225,10 +2230,106 @@ hubieran llegado.
 > escritorio **sí** recogió `disponibilidad`. Contarlas como cuatro haría buscar un problema
 > donde no lo hay, en el único renglón de los cuatro que está bien.
 
+> **Y la otra mitad del mismo problema son los ESTADOS, no los catálogos: §9.ter.6.** Un renglón que el lector no declara se pierde; un **estado** que no conoce **tumbaba la respuesta entera**. Las dos son la misma forma —enumerar lo que había el día que se miró— y por eso van seguidas.
+
 **El arreglo es del otro repositorio; la constancia es de éste**, que es la razón de que esto
 quede escrito aquí: el día que alguien pregunte por qué la pantalla no enseña `sin_colocar`
 teniendo el dato en la respuesta, la respuesta está medida y fechada.
 
+
+### 9.ter.6. Los CINCO estados de un catálogo — contados en el código, que es el único sitio donde están
+
+**Escrito el 6 sep 2026 a petición de `8myvc-d3`, y con un fallo real detrás:** el lector del
+escritorio conocía **cuatro** estados, el `ilegible` no caía en ningún `else` y **tumbaba la
+respuesta entera** como `respuesta-ilegible`. Ya está arreglado de su lado. La mitad que nos
+toca es ésta: **hasta hoy los cinco sólo existían en nuestro código y en ningún documento**,
+así que no había forma de que un cliente supiera **cuántos son** — sólo cuáles había visto.
+
+| estado | qué afirma | cuándo se emite |
+|---|---|---|
+| `completo` | todo lo que hay viajó | la cuenta llena la población del renglón |
+| `parcial` | viajó parte, y el renglón dice cuánta | `con < de` (`tono`, `salones`, `jornadas`, `disponibilidad`) o hay elementos fuera de la plantilla |
+| `vacio` | **el colegio no lo creó**, y es legítimo | la población es 0 y la ruta sí pudo mirarla |
+| `sin_catalogo` | **esta API no puede saberlo**, no hay dónde mirar | `renglonDelProyecto()` con el fichero legible — hoy `restricciones` |
+| `ilegible` | **lo tenemos guardado y no se deja leer** | `renglonDelProyecto()`/`renglonIlegible()`: el blob no parsea, o una parte suya no tiene la forma esperada |
+
+Las tres primeras salen de las cuentas de `catalogosDeLaVersion()`; las dos últimas son
+literales de `renglonDelProyecto()` y `renglonIlegible()`. **No hay ninguna sexta**: contado
+sobre `HorarioController.php` el 6 sep 2026, los `'estado' =>` del fichero producen esas
+cinco palabras y ninguna más.
+
+**Las distinciones que sostienen la lista, y por eso son cinco y no tres:**
+
+- **`vacio` no es `sin_catalogo`.** *«El colegio no creó ningún salón»* y *«esta API no
+  puede saber nada de salones»* son hechos distintos, y sólo el primero se arregla desde la
+  web. Es la distinción que ya fijaba `HorarioLeccionesTest`.
+- **`ilegible` no es `sin_catalogo`.** El segundo afirma que **no hay dónde mirar**; el
+  primero, que **hay dónde y no se deja leer** — y ése sí tiene arreglo: volver a subir el
+  proyecto. Fue decisión de Joseth el 4 sep 2026, y **tenía que ser un estado y no un
+  `motivo`** porque lo que llega a la pantalla es el estado: el `motivo` no se imprime.
+
+> **Y por qué el quinto apareció justo ahí, que no es casualidad.** El `ilegible` que rompió
+> al lector vive en `renglonDeLaDisponibilidad()` — **el mismo renglón que antes contestaba
+> el motivo falso que se corrigió en `ac09cb7`** («el servidor no guarda la disponibilidad»,
+> que era falso por las dos mitades). *Un renglón que tuvo que aprender a decir la verdad es
+> justo el que gana estados nuevos*, porque decir la verdad sobre más casos **es** tener más
+> casos que nombrar.
+>
+> Y de ahí sale la regla que este renglón viene a dejar escrita, que es la misma familia que
+> «el primer sitio donde mirar cuando el número sale raro es el detector» (`CLAUDE.md`): **un
+> lector que enumera los estados que existían el día que miró está construido para romperse
+> con el siguiente.** Por eso el contrato tiene que decir **cuántos son** y no sólo cuáles
+> hay — un cliente que sepa que son cinco puede decidir qué hace con el sexto; uno que sólo
+> tenga la lista, no.
+
+> **CUIDADO, y esto no lo pidió nadie: en esta misma respuesta hay DOS cosas llamadas
+> `estado` y no comparten vocabulario.** El de un catálogo es una de las cinco de arriba; el
+> de una **marca de disponibilidad** (`marcaLeida()`) es `condicional` o `inadecuado`, y una
+> marca con cualquier otra cosa **se descarta entera**. Son siete palabras distintas bajo la
+> misma clave en dos profundidades del sobre, así que un lector que valide «`estado` ∈ {los
+> cinco}» contra una marca **la tira**, y uno que acepte los siete en los dos sitios deja
+> pasar un catálogo `condicional` que no significa nada.
+
+### 9.ter.7. `TrimStrings` se come los saltos de línea de los extremos — y la foto no lo vio
+
+**Lo encontró la prueba, no la medición**, y ésa es la única razón por la que está escrito
+aquí: el barrido a mano del 6 sep dio *«idéntico byte a byte»* sobre los dos ficheros reales
+y **era cierto**. Al convertirlo en prueba de contrato, con un `.myvch` fabricado que
+terminaba en salto de línea, el viaje empezó a perder **un byte**.
+
+```
+termina en } (como los dos reales)   subió 34 b -> bajó 34 b   IDÉNTICO
+termina en salto de línea            subió 35 b -> bajó 34 b   falta 1 b
+empieza con salto de línea           subió 35 b -> bajó 34 b   falta 1 b
+termina en dos saltos                subió 36 b -> bajó 34 b   faltan 2 b
+```
+
+**La causa no está en este módulo**: `app/Http/Middleware/TrimStrings.php` es middleware
+**global** (`Kernel.php:22`) y su `$except` protege sólo `password`, `current_password` y
+`password_confirmation`. `proyecto` se recorta como se recortaría cualquier campo de
+cualquier formulario.
+
+**Por qué la medición a mano no podía verlo, y no es que se hiciera mal:** los dos únicos
+`.myvch` que existen **terminan en `}`**, comprobado con `tail -c 4` — los dos dan
+`09 7d 0a 7d`. O sea que el fichero de prueba **le esquivaba el bulto por casualidad del
+serializador del escritorio**, no por ninguna garantía. *Una foto sólo enseña los casos que
+el fotógrafo tenía delante; la prueba tuvo que fabricar uno y por eso lo encontró.*
+
+> **Y lo que lo hace grave no es el byte: es que el fichero recortado SIGUE SIENDO JSON
+> VÁLIDO.** El escritorio lo abre sin quejarse y el horario se ve entero, así que **no hay
+> ningún síntoma** — el daño sólo aparece si alguien compara hashes, que es exactamente lo
+> que nadie hace hasta que sospecha. Es la familia de la §2 una vez más: algo que no da
+> error y se lee como que fue bien.
+
+**Hoy no muerde a nadie** y por eso va como decisión y no como parche. Pero es **casualidad,
+no diseño**: un `JSON.stringify(...) + "\n"`, un editor que cierre el fichero con salto o un
+`writeFile` con la convención de POSIX lo rompen **sin tocar una línea de este repositorio**.
+
+**Queda fijado con un test que se pone ROJO el día que se arregle**
+(`HorarioViajeDelFicheroTest::los_saltos_de_linea_de_los_extremos_se_pierden_y_es_un_fallo_conocido`),
+que es la forma de esta casa para lo roto a propósito: el arreglo obliga a mover el documento
+en el mismo commit en vez de dejar dos verdades. **Y el rojo se vio**: metiendo `proyecto` en
+el `$except` del middleware, ese test —y sólo ése, los otros cuatro siguen verdes— cae.
 ---
 
 ## 10. Decisiones
@@ -2287,8 +2388,9 @@ siguen sin estar.
 > quién marca la oficial, el rol vacío, quién lista, los años cerrados y el blob.
 >
 > ~~**Quedan cuatro**~~ ~~**Quedan DOS**~~ ~~**QUEDA UNA**~~ ~~**NO QUEDA NINGUNA.**~~
-> **QUEDA UNA OTRA VEZ, Y ES NUEVA: la 5**, abierta el 6 sep 2026 al ejercitar el viaje del
-> fichero de punta a punta (§9.ter). No reabre ninguna de las cuatro: **el tope del blob de la
+> **QUEDAN DOS OTRA VEZ, Y LAS DOS SON NUEVAS: la 5 y la 6**, abiertas el 6 sep 2026 al
+> ejercitar el viaje del fichero de punta a punta (§9.ter) — la **5** midiéndolo a mano y la
+> **6** al convertirlo en prueba, que es la que la foto no podía ver. No reabre ninguna de las cuatro: **el tope del blob de la
 > 2 se cerró bien** —el blob va en la fila y sin comprimir, y eso sigue en pie—; lo que nadie
 > había preguntado es **qué pasa cuando se pasa**, y la respuesta resultó ser `201` con el
 > fichero cortado.
@@ -2311,7 +2413,8 @@ siguen sin estar.
 > | **1** `GET asignaturas` y la papelera | 4 sep 2026 | **se queda como está**: no se toca la respuesta de una ruta viva que llaman los cuatro clientes |
 > | **2** el tope del blob | 5 sep 2026 | **su propio texto ya la había contestado** —«el blob va en la fila, sin comprimir», con la cota alta medida— y el rótulo de la cabecera no se había movido |
 > | **4** las siete columnas | 4 y 5 sep 2026 | el vigilante escrito (`tools/deriva-del-horario.php`) y, el 5, **comprobado que el orden no se promete**: `asignaturas_dia()` no lleva `ORDER BY` |
-> | **3** descargar el proyecto | 5 sep 2026 | **autorizada y escrita**: sexta ruta, `puedePublicarHorario`, el fichero **byte a byte** y sin escapar |
+> | **3** descargar el proyecto | 5 sep 2026 | **autorizada y escrita**: sexta ruta, `puedePublicarHorario`, el fichero sin escapar y **byte a byte _salvo los saltos de línea de los extremos_** (§9.ter.7, decisión 6) |
+> | **6** `TrimStrings` recorta el blob | **ABIERTA** 6 sep 2026 | **de Joseth**: el arreglo es una línea en un middleware **global** |
 > | **5** el blob por encima de `MEDIUMTEXT` | **ABIERTA** 6 sep 2026 | **de Joseth**: hoy son `201` y el fichero cortado (§9.ter.3). Recomendada la (a), `max:16777215` |
 >
 > **Las tres cerradas tienen algo en común que conviene ver junto:** ninguna se cerró
@@ -2596,6 +2699,33 @@ siguen sin estar.
    > truncar. O sea que (b) no es «el mismo comportamiento en todas partes»: es **un fallo
    > mudo aquí y un 500 allí**, y ninguno de los dos dice qué pasó. Medirlo es una línea el
    > día del despliegue —`SELECT @@sql_mode`— y hasta entonces se queda **NO MEDIDO**.
+
+6. **`TrimStrings` recorta los saltos de línea de los extremos del `.myvch`, y el arreglo es
+   GLOBAL.** Medido el 6 sep 2026 (§9.ter.7): un fichero que termine en `\n` se guarda con un
+   byte menos, contesta `201` y **sigue siendo JSON válido**, así que el escritorio lo abre y
+   no hay ningún síntoma. La causa es `app/Http/Middleware/TrimStrings.php`, middleware
+   **global**, cuyo `$except` sólo cubre las tres claves de contraseña.
+
+   **No muerde hoy y es casualidad, no diseño**: los dos únicos `.myvch` reales terminan en
+   `}` (`tail -c 4`). Un `JSON.stringify(...) + "\n"` en el escritorio lo rompe sin tocar
+   nada de aquí.
+
+   | | qué cuesta | qué arriesga |
+   |---|---|---|
+   | **(a)** meter `proyecto` en el `$except` del middleware global | una línea, **comprobada: pone rojo el test que lo fija y deja verdes los otros cuatro** | toca un middleware por el que pasan **las 578 rutas** |
+   | **(b)** dejarlo fijado con su test y no tocarlo | cero | el día que el escritorio añada un salto, se pierde en silencio |
+
+   **No la elijo yo, y la razón es de esta casa:** cuando el 422 con `motivo` hizo falta, se
+   decidió envolverlo **sólo en `horario/`** en vez de global (3 sep 2026, Joseth), porque
+   *«hacerlo global movería la respuesta de muchas rutas vivas a la vez para un contrato que
+   sólo pidió un cliente»*. Aquí pasa lo mismo con más alcance: `$except` es una lista **por
+   nombre de campo**, así que sacar `proyecto` del recorte lo saca **en todas las rutas donde
+   exista un campo que se llame así**, no sólo en ésta.
+
+   > **Y una salida (c) que parece la buena y no lo es:** recortar sólo en las rutas que no
+   > son `horario/` con un middleware propio. Cuesta más que (a), tiene el mismo alcance y
+   > deja **dos reglas de recorte** en una API que hoy tiene una. Se nombra para que no se
+   > proponga como si no se hubiera mirado.
 
 > Lo más barato que se puede hacer sin esperar a ninguna de las cuatro es el **nivel 1
 > del pre-vuelo como script de `tools/`** sobre los quince colegios (§9). No toca el
