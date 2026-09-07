@@ -2078,6 +2078,258 @@ para que no se lea como que lo fue.
 - **Los `porque` distintos de `nivel` tampoco**: los 13 grupos reales cuelgan de un nivel que
   existe. Los otros tres salen del test, calculados con la misma regla que el escritorio.
 
+
+---
+
+## 9.ter. El viaje del `.myvch` de punta a punta, MEDIDO — 6 sep 2026
+
+**Lo que nadie había ejercitado.** Las seis rutas estaban escritas y con sus ocho pruebas de
+contrato, pero el contrato corre contra el seed y **el seed no tiene un `.myvch` dentro**. Esto
+es la otra cosa: los dos ficheros reales del escritorio subidos por HTTP contra el docker y
+vueltos a bajar, comparados **byte a byte con sha256**.
+
+> **Medido desde `.worktrees/s`, sobre `7c3a0b9`, contra la base de desarrollo `simonbolivar`
+> (año 8 = 2025, el `actual`), el 6 sep 2026 a las 22:0x.** Se anota el hash y no el nombre de
+> la rama porque *«sobre `main`»* no es reproducible con siete árboles moviéndose
+> (`CLAUDE.md`). El router en ese árbol: **578**, contado con `route:list --json`. **Este
+> trabajo no añade ninguna ruta**, así que no mueve el contador ni los tres snapshots.
+
+### 9.ter.1. El ida y vuelta: idéntico byte a byte, en los tres casos
+
+| | fichero | cuerpo del `POST` | subida | bajada | sha256 |
+|---|---|---|---|---|---|
+| `colegio.myvch` (0 colocaciones) | 30.161 b | 42.583 b | 201 | 200 | **idéntico** |
+| `lleno.myvch` con `piezas: []` | 128.779 b | 186.089 b | 201 | 200 | **idéntico** |
+| `lleno.myvch` con **las 312 piezas** | 128.779 b | **231.141 b** | 201 (0,38 s) | 200 (0,03 s) | **idéntico** |
+
+La tercera fila es la de verdad y es la que había que medir: el veredicto vuelve con
+`piezas 312 · casillas 344 · asignaciones 134/134 · docentes 12 · grupos 13`, y
+`GET .../lecciones` pinta detrás en 0,05 s. **`Content-Length` coincide con los bytes reales**
+en las tres, y `Content-Disposition` trae el nombre construido por el servidor
+(`horario-2025-v25.myvch`), nunca el que escribió quien subió.
+
+> **Y este «idéntico» tiene una condición que esta tabla no podía ver: los tres ficheros
+> terminan en `}`.** Con un salto de línea al final se pierde un byte, y lo encontró la prueba
+> de contrato al fabricar un caso que no existía — **§9.ter.7**. La tabla de arriba sigue
+> siendo cierta; lo que no es cierto es leerla como *«el viaje conserva cualquier fichero»*.
+
+**Y con `Accept-Encoding: gzip` sale exactamente igual**, que es lo que manda un cliente Tauri
+por defecto: nginx **no comprime** `application/octet-stream`, así que no hay `Content-Encoding`
+y el fichero viaja crudo. Se midió porque un `Content-Length` que cuenta bytes comprimidos y un
+cliente que descomprime es la forma que tendría una barra de progreso mintiendo.
+
+### 9.ter.2. La cota alta de la §10.2.2, reproducida desde un TERCER sitio
+
+`231.141` contra los **231.135** que escribió el front: **6 bytes**, que son el nombre del sobre
+—el propio §10.2.2 dice que eso «baila» y por qué—. Y el desglose sale **igual al byte**:
+
+```
+fichero .myvch                 128.779
+cuerpo con `piezas: []`        186.089   (x1,445)   <- el barato
+cuerpo con las 312 piezas      231.141   (x1,795)   <- el real
+lo que cuestan las piezas      +45.064   (+24,2 %, ~144 b por pieza)
+```
+
+`+45.064` y el **×1,795** coinciden con la §10.2.2 **sin haberla copiado**: se armó el cuerpo
+desde `lleno.myvch` en este repositorio, en Python, sin mirar `cuerpoDeSubida()` hasta después.
+Eso es lo que la hace citable — la §10.2.2 pedía exactamente esta comprobación cruzada.
+
+> **Y costó DOS detectores rotos llegar ahí, los dos en la dirección que infla.** La primera
+> corrida dio **241.771** (×1,877) y la segunda **236.144** (×1,834), y las dos veces el
+> impulso era «el documento está viejo». No lo estaba:
+>
+> 1. **`asignaciones` viajaba con los objetos dentro.** En el `.myvch`, `pieza.lecciones` es
+>    `[{asignacionId: 1196}]`, y el contrato quiere `[1196]`. Mandar el objeto entero infla
+>    ~34 b por pieza — y **el servidor lo habría rechazado con 422**, así que el número no
+>    sólo era falso: era de un cuerpo que no se puede subir.
+> 2. **Python separa con `", "` y `": "`; `JSON.stringify` no.** Eso son ~16 b por pieza de
+>    espacios que el cliente real nunca manda.
+>
+> *El primer sitio donde mirar cuando el número sale raro es el detector* (`CLAUDE.md`), y aquí
+> hubo que mirarlo dos veces seguidas. Las dos cifras malas eran **creíbles** —×1,88 y ×1,83
+> están al lado del ×1,795 bueno—, que es justo lo que las habría dejado pasar.
+
+### 9.ter.3. La escalera de topes, y el que muerde primero NO da error
+
+Cuatro límites, medidos en el docker el 6 sep 2026, de menor a mayor:
+
+| tope | valor | qué hace al pasarse |
+|---|---|---|
+| **`horario_versiones.proyecto` `MEDIUMTEXT`** | **16.777.215 b** | **corta y contesta `201`** |
+| `client_max_body_size` (nginx) | 25M = 26.214.400 b | `413` con **HTML**, no JSON |
+| `post_max_size` (PHP-FPM) | 25M = 26.214.400 b | nginx llega antes |
+| `max_allowed_packet` (MySQL) | 67.108.864 b | nunca se alcanza |
+
+**El más bajo de los cuatro es el único que falla en silencio.** Comprobado en las dos orillas:
+
+```
+enviados 16.777.214 b -> 201, bajado 16.777.214 b   INTACTO
+enviados 16.777.215 b -> 201, bajado 16.777.215 b   INTACTO
+enviados 16.777.216 b -> 201, bajado 16.777.215 b   *** FALTA 1 BYTE, Y CONTESTÓ 201 ***
+enviados 16.782.215 b -> 201, bajado 16.777.215 b   *** FALTAN 5.000 BYTES, Y CONTESTÓ 201 ***
+```
+
+Lo permite `sql_mode` **sin modo estricto** —`NO_ENGINE_SUBSTITUTION` y nada más, porque
+`docker-compose.yml` arranca MySQL con `--sql_mode=''`—: fuera de estricto, MySQL **trunca con
+un warning** en vez de abortar. Y `proyecto` **no lleva ninguna regla `max:`** en
+`cuerpoDeLaSubida()`, así que no hay nada delante que lo pare.
+
+**Cuál de los dos se lleva un fichero demasiado grande depende del llenado**, y por eso hay que
+decir los dos: con el factor del proyecto vacío (×1,41) el cuerpo de un `.myvch` de 16,8 MB son
+~23,7 MB y **cabe**, así que gana la truncadura muda; con el del lleno (×1,795) el cuerpo pasa
+de 26,2 MB antes de que el fichero llegue a 16,7 MB y gana el `413`.
+
+> **Y el denominador, porque sin él esto se lee peor de lo que es:** el `.myvch` más grande que
+> existe mide **128.779 b**, o sea que el tope está a **130 veces** del único dato real. **No
+> bloquea a nadie hoy** y no se arregla en este lote; queda escrito con su forma y su precio en
+> la **decisión 5** de la §10.2. *Lo que lo hace anotable no es el tamaño: es que de los cuatro
+> topes, el que se alcanza primero es el que contesta `201`.*
+
+> **Lo que esto NO midió, y es la mitad que falta: los dieciséis cPanel.** Producción es
+> **MariaDB 10.5.25** y su `sql_mode` **no está medido por nadie**; el de serie en 10.5 lleva
+> `STRICT_TRANS_TABLES`, y con estricto lo de arriba **no trunca: aborta con un 1406 y sale
+> un 500**. O sea que en este punto el docker y los colegios **no fallan igual**, y el docker
+> falla peor —callando—. Los límites de PHP de la cuenta sí están medidos y sobran por mucho
+> (`post_max_size` **128M**, `memory_limit` 768M, `02-plan-rendimiento.md`), pero **el límite
+> de cuerpo del servidor web de cPanel tampoco lo ha medido nadie**. Se dice en vez de darlo
+> por bueno: con el módulo a **cero de dieciséis**, ninguna de las dos se puede medir todavía.
+
+### 9.ter.4. Fichero corrupto, subida doble y codificación
+
+- **Un `.myvch` corrupto sube y baja igual de bien, y eso está BIEN.** Basura que no es JSON,
+  un fichero cortado a la mitad y un JSON sin la clave `proyecto` dentro: los tres dan `201`,
+  los tres vuelven **idénticos** por `getProyecto` y los tres dejan `getLecciones` en `200`.
+  `postVersiones` **no parsea el blob a propósito** —es un fichero opaco del escritorio (§4)—
+  y quien sí lo lee ya tiene sus cinco estados, `ilegible` incluido. *La ruta que devuelve un
+  fichero devuelve el fichero que le dieron.*
+- **La cadena vacía es el único que no pasa**: `422 cuerpo-mal-formado`, porque `proyecto` va
+  `required|string` y `''` no es `required`. La columna es `NOT NULL` y nunca queda vacía.
+- **Subir dos veces el mismo fichero da dos versiones y ninguna pisa a la otra** (ids 20 y 21,
+  30.161 b cada una). Es la regla 1 del controlador —cada subida es una versión— y **no hay
+  deduplicación ni la debe haber**: dos subidas idénticas son dos momentos del año.
+- **Codificación**: emoji de 4 bytes y acentos vuelven idénticos (`utf8mb4`), y **bytes
+  latin-1 sin decodificar dan `422`** en vez de guardarse rotos, que es lo que hace que el
+  ida y vuelta pueda prometer «byte a byte» de verdad.
+
+### 9.ter.5. El sobre declara ONCE catálogos y el lector del escritorio OCHO
+
+Medido en las dos puntas el 6 sep 2026, y **no rompe nada hoy**:
+
+| | dice |
+|---|---|
+| esta API (`HorarioLeccionesTest::CATALOGOS`) | **11** |
+| el escritorio (`nucleo/envio.ts`, `CATALOGOS`) | **8** |
+
+Los **tres** que el escritorio no declara son **`plantilla`, `jornadas` y `sin_colocar`**. Su
+lector sólo exige que estén los suyos y los ocho existen, así que **no falla**: simplemente
+**descarta tres de las cuatro listas que pidió la decisión 38** y las pinta como si no
+hubieran llegado.
+
+> **Son tres y no cuatro, y la diferencia importa.** La decisión 38 ensanchó el sobre con
+> **cuatro** claves —`plantilla`, `jornadas`, `disponibilidad`, `sin_colocar` (§9.bis.6)— y el
+> escritorio **sí** recogió `disponibilidad`. Contarlas como cuatro haría buscar un problema
+> donde no lo hay, en el único renglón de los cuatro que está bien.
+
+> **Y la otra mitad del mismo problema son los ESTADOS, no los catálogos: §9.ter.6.** Un renglón que el lector no declara se pierde; un **estado** que no conoce **tumbaba la respuesta entera**. Las dos son la misma forma —enumerar lo que había el día que se miró— y por eso van seguidas.
+
+**El arreglo es del otro repositorio; la constancia es de éste**, que es la razón de que esto
+quede escrito aquí: el día que alguien pregunte por qué la pantalla no enseña `sin_colocar`
+teniendo el dato en la respuesta, la respuesta está medida y fechada.
+
+
+### 9.ter.6. Los CINCO estados de un catálogo — contados en el código, que es el único sitio donde están
+
+**Escrito el 6 sep 2026 a petición de `8myvc-d3`, y con un fallo real detrás:** el lector del
+escritorio conocía **cuatro** estados, el `ilegible` no caía en ningún `else` y **tumbaba la
+respuesta entera** como `respuesta-ilegible`. Ya está arreglado de su lado. La mitad que nos
+toca es ésta: **hasta hoy los cinco sólo existían en nuestro código y en ningún documento**,
+así que no había forma de que un cliente supiera **cuántos son** — sólo cuáles había visto.
+
+| estado | qué afirma | cuándo se emite |
+|---|---|---|
+| `completo` | todo lo que hay viajó | la cuenta llena la población del renglón |
+| `parcial` | viajó parte, y el renglón dice cuánta | `con < de` (`tono`, `salones`, `jornadas`, `disponibilidad`) o hay elementos fuera de la plantilla |
+| `vacio` | **el colegio no lo creó**, y es legítimo | la población es 0 y la ruta sí pudo mirarla |
+| `sin_catalogo` | **esta API no puede saberlo**, no hay dónde mirar | `renglonDelProyecto()` con el fichero legible — hoy `restricciones` |
+| `ilegible` | **lo tenemos guardado y no se deja leer** | `renglonDelProyecto()`/`renglonIlegible()`: el blob no parsea, o una parte suya no tiene la forma esperada |
+
+Las tres primeras salen de las cuentas de `catalogosDeLaVersion()`; las dos últimas son
+literales de `renglonDelProyecto()` y `renglonIlegible()`. **No hay ninguna sexta**: contado
+sobre `HorarioController.php` el 6 sep 2026, los `'estado' =>` del fichero producen esas
+cinco palabras y ninguna más.
+
+**Las distinciones que sostienen la lista, y por eso son cinco y no tres:**
+
+- **`vacio` no es `sin_catalogo`.** *«El colegio no creó ningún salón»* y *«esta API no
+  puede saber nada de salones»* son hechos distintos, y sólo el primero se arregla desde la
+  web. Es la distinción que ya fijaba `HorarioLeccionesTest`.
+- **`ilegible` no es `sin_catalogo`.** El segundo afirma que **no hay dónde mirar**; el
+  primero, que **hay dónde y no se deja leer** — y ése sí tiene arreglo: volver a subir el
+  proyecto. Fue decisión de Joseth el 4 sep 2026, y **tenía que ser un estado y no un
+  `motivo`** porque lo que llega a la pantalla es el estado: el `motivo` no se imprime.
+
+> **Y por qué el quinto apareció justo ahí, que no es casualidad.** El `ilegible` que rompió
+> al lector vive en `renglonDeLaDisponibilidad()` — **el mismo renglón que antes contestaba
+> el motivo falso que se corrigió en `ac09cb7`** («el servidor no guarda la disponibilidad»,
+> que era falso por las dos mitades). *Un renglón que tuvo que aprender a decir la verdad es
+> justo el que gana estados nuevos*, porque decir la verdad sobre más casos **es** tener más
+> casos que nombrar.
+>
+> Y de ahí sale la regla que este renglón viene a dejar escrita, que es la misma familia que
+> «el primer sitio donde mirar cuando el número sale raro es el detector» (`CLAUDE.md`): **un
+> lector que enumera los estados que existían el día que miró está construido para romperse
+> con el siguiente.** Por eso el contrato tiene que decir **cuántos son** y no sólo cuáles
+> hay — un cliente que sepa que son cinco puede decidir qué hace con el sexto; uno que sólo
+> tenga la lista, no.
+
+> **CUIDADO, y esto no lo pidió nadie: en esta misma respuesta hay DOS cosas llamadas
+> `estado` y no comparten vocabulario.** El de un catálogo es una de las cinco de arriba; el
+> de una **marca de disponibilidad** (`marcaLeida()`) es `condicional` o `inadecuado`, y una
+> marca con cualquier otra cosa **se descarta entera**. Son siete palabras distintas bajo la
+> misma clave en dos profundidades del sobre, así que un lector que valide «`estado` ∈ {los
+> cinco}» contra una marca **la tira**, y uno que acepte los siete en los dos sitios deja
+> pasar un catálogo `condicional` que no significa nada.
+
+### 9.ter.7. `TrimStrings` se come los saltos de línea de los extremos — y la foto no lo vio
+
+**Lo encontró la prueba, no la medición**, y ésa es la única razón por la que está escrito
+aquí: el barrido a mano del 6 sep dio *«idéntico byte a byte»* sobre los dos ficheros reales
+y **era cierto**. Al convertirlo en prueba de contrato, con un `.myvch` fabricado que
+terminaba en salto de línea, el viaje empezó a perder **un byte**.
+
+```
+termina en } (como los dos reales)   subió 34 b -> bajó 34 b   IDÉNTICO
+termina en salto de línea            subió 35 b -> bajó 34 b   falta 1 b
+empieza con salto de línea           subió 35 b -> bajó 34 b   falta 1 b
+termina en dos saltos                subió 36 b -> bajó 34 b   faltan 2 b
+```
+
+**La causa no está en este módulo**: `app/Http/Middleware/TrimStrings.php` es middleware
+**global** (`Kernel.php:22`) y su `$except` protege sólo `password`, `current_password` y
+`password_confirmation`. `proyecto` se recorta como se recortaría cualquier campo de
+cualquier formulario.
+
+**Por qué la medición a mano no podía verlo, y no es que se hiciera mal:** los dos únicos
+`.myvch` que existen **terminan en `}`**, comprobado con `tail -c 4` — los dos dan
+`09 7d 0a 7d`. O sea que el fichero de prueba **le esquivaba el bulto por casualidad del
+serializador del escritorio**, no por ninguna garantía. *Una foto sólo enseña los casos que
+el fotógrafo tenía delante; la prueba tuvo que fabricar uno y por eso lo encontró.*
+
+> **Y lo que lo hace grave no es el byte: es que el fichero recortado SIGUE SIENDO JSON
+> VÁLIDO.** El escritorio lo abre sin quejarse y el horario se ve entero, así que **no hay
+> ningún síntoma** — el daño sólo aparece si alguien compara hashes, que es exactamente lo
+> que nadie hace hasta que sospecha. Es la familia de la §2 una vez más: algo que no da
+> error y se lee como que fue bien.
+
+**Hoy no muerde a nadie** y por eso va como decisión y no como parche. Pero es **casualidad,
+no diseño**: un `JSON.stringify(...) + "\n"`, un editor que cierre el fichero con salto o un
+`writeFile` con la convención de POSIX lo rompen **sin tocar una línea de este repositorio**.
+
+**Queda fijado con un test que se pone ROJO el día que se arregle**
+(`HorarioViajeDelFicheroTest::los_saltos_de_linea_de_los_extremos_se_pierden_y_es_un_fallo_conocido`),
+que es la forma de esta casa para lo roto a propósito: el arreglo obliga a mover el documento
+en el mismo commit en vez de dejar dos verdades. **Y el rojo se vio**: metiendo `proyecto` en
+el `$except` del middleware, ese test —y sólo ése, los otros cuatro siguen verdes— cae.
 ---
 
 ## 10. Decisiones
@@ -2135,8 +2387,19 @@ siguen sin estar.
 > **Siete se cerraron el 2 sep** y están arriba, en la §10.1 — las rutas, la opción B,
 > quién marca la oficial, el rol vacío, quién lista, los años cerrados y el blob.
 >
-> ~~**Quedan cuatro**~~ ~~**Quedan DOS**~~ ~~**QUEDA UNA**~~ **NO QUEDA NINGUNA.** La **3**
-> —descargar el proyecto— la **autorizó Joseth el 5 sep 2026** y ya está escrita: es
+> ~~**Quedan cuatro**~~ ~~**Quedan DOS**~~ ~~**QUEDA UNA**~~ ~~**NO QUEDA NINGUNA.**~~
+> **QUEDAN DOS OTRA VEZ, Y LAS DOS SON NUEVAS: la 5 y la 6**, abiertas el 6 sep 2026 al
+> ejercitar el viaje del fichero de punta a punta (§9.ter) — la **5** midiéndolo a mano y la
+> **6** al convertirlo en prueba, que es la que la foto no podía ver. No reabre ninguna de las cuatro: **el tope del blob de la
+> 2 se cerró bien** —el blob va en la fila y sin comprimir, y eso sigue en pie—; lo que nadie
+> había preguntado es **qué pasa cuando se pasa**, y la respuesta resultó ser `201` con el
+> fichero cortado.
+>
+> *Una lista de decisiones que llega a cero no se queda en cero: se queda en cero **hasta que
+> alguien mide algo que nadie había medido**. Que las cuatro se cerraran bien y que aparezca
+> una quinta son el mismo hecho, no dos en tensión.*
+>
+> La **3** —descargar el proyecto— la **autorizó Joseth el 5 sep 2026** y ya está escrita: es
 > `GET horario/versiones/{id}/proyecto`, con `puedePublicarHorario` dentro. **El router pasó
 > a 578**, contado con `route:list --json` desde el árbol donde se escribió.
 >
@@ -2150,7 +2413,9 @@ siguen sin estar.
 > | **1** `GET asignaturas` y la papelera | 4 sep 2026 | **se queda como está**: no se toca la respuesta de una ruta viva que llaman los cuatro clientes |
 > | **2** el tope del blob | 5 sep 2026 | **su propio texto ya la había contestado** —«el blob va en la fila, sin comprimir», con la cota alta medida— y el rótulo de la cabecera no se había movido |
 > | **4** las siete columnas | 4 y 5 sep 2026 | el vigilante escrito (`tools/deriva-del-horario.php`) y, el 5, **comprobado que el orden no se promete**: `asignaturas_dia()` no lleva `ORDER BY` |
-> | **3** descargar el proyecto | 5 sep 2026 | **autorizada y escrita**: sexta ruta, `puedePublicarHorario`, el fichero **byte a byte** y sin escapar |
+> | **3** descargar el proyecto | 5 sep 2026 | **autorizada y escrita**: sexta ruta, `puedePublicarHorario`, el fichero sin escapar y **byte a byte _salvo los saltos de línea de los extremos_** (§9.ter.7, decisión 6) |
+> | **6** `TrimStrings` recorta el blob | **ABIERTA** 6 sep 2026 | **de Joseth**: el arreglo es una línea en un middleware **global** |
+> | **5** el blob por encima de `MEDIUMTEXT` | **ABIERTA** 6 sep 2026 | **de Joseth**: hoy son `201` y el fichero cortado (§9.ter.3). Recomendada la (a), `max:16777215` |
 >
 > **Las tres cerradas tienen algo en común que conviene ver junto:** ninguna se cerró
 > decidiendo algo nuevo. La 1 se cerró **eligiendo no tocar**, la 2 **leyendo lo que ya
@@ -2403,6 +2668,65 @@ siguen sin estar.
    > *No se arregla hoy: no hay nada que arreglar. Se arregla el día que se regenere el seed
    > con horario dentro, y la salida es ordenar la lista en el propio test antes de
    > compararla, no en la consulta.*
+5. **El blob no tiene tope y la columna sí: por encima de 16.777.215 b la subida contesta
+   `201` y guarda el fichero CORTADO.** Medido de punta a punta el 6 sep 2026 (§9.ter.3): de
+   los cuatro topes de la escalera, **el más bajo es el único que no da error**. `proyecto` no
+   lleva regla `max:` en `cuerpoDeLaSubida()`, y el `sql_mode` del docker no es estricto, así
+   que MySQL trunca con un warning que no ve nadie. Quien suba ese fichero recibe un `201` con
+   su veredicto en verde y **se ha quedado sin el trabajo del año**; lo descubre el día que lo
+   descarga en otro computador y el escritorio no lo abre.
+
+   **No bloquea a nadie hoy y por eso es decisión y no parche**: el `.myvch` más grande que
+   existe mide **128.779 b**, o sea **130 veces menos**. Y la salida barata —añadir
+   `|max:16777215`— **cambia la respuesta de una ruta**: un cuerpo que hoy entra pasaría a
+   `422`. Es aditivo hacia el cliente (nadie manda 16 MB) pero es contrato, así que se pone
+   con su precio delante en vez de hacerse:
+
+   | | qué cuesta | qué deja |
+   |---|---|---|
+   | **(a)** `max:16777215` en la regla, con su `motivo` propio | una línea y un test | un `422` que **nombra** el problema, en vez de un `201` que miente |
+   | **(b)** dejarlo como está | cero | el único tope que se alcanza primero sigue siendo mudo |
+   | **(c)** comprimir el blob | mucho, y lo descarta ya el punto 2 | un blob que no se puede leer con un `SELECT` |
+
+   **La recomendación es (a)**, y el argumento no es el tamaño: es que este repositorio ya
+   tiene herramienta propia para esta familia exacta —`tools/respuestas-que-mienten.py`, «qué
+   métodos frenan la escritura y responden 200 igual»— y ésta es una que **la herramienta no
+   caza**, porque no la frena nadie: la escritura ocurre, sólo que a medias.
+
+   > **Y en los dieciséis no fallaría igual, que es lo que hay que saber antes de elegir.**
+   > Producción es MariaDB 10.5.25 y su `sql_mode` **no lo ha medido nadie**; el de serie lleva
+   > `STRICT_TRANS_TABLES`, y con estricto esto **aborta con un 1406 y sale un 500** en vez de
+   > truncar. O sea que (b) no es «el mismo comportamiento en todas partes»: es **un fallo
+   > mudo aquí y un 500 allí**, y ninguno de los dos dice qué pasó. Medirlo es una línea el
+   > día del despliegue —`SELECT @@sql_mode`— y hasta entonces se queda **NO MEDIDO**.
+
+6. **`TrimStrings` recorta los saltos de línea de los extremos del `.myvch`, y el arreglo es
+   GLOBAL.** Medido el 6 sep 2026 (§9.ter.7): un fichero que termine en `\n` se guarda con un
+   byte menos, contesta `201` y **sigue siendo JSON válido**, así que el escritorio lo abre y
+   no hay ningún síntoma. La causa es `app/Http/Middleware/TrimStrings.php`, middleware
+   **global**, cuyo `$except` sólo cubre las tres claves de contraseña.
+
+   **No muerde hoy y es casualidad, no diseño**: los dos únicos `.myvch` reales terminan en
+   `}` (`tail -c 4`). Un `JSON.stringify(...) + "\n"` en el escritorio lo rompe sin tocar
+   nada de aquí.
+
+   | | qué cuesta | qué arriesga |
+   |---|---|---|
+   | **(a)** meter `proyecto` en el `$except` del middleware global | una línea, **comprobada: pone rojo el test que lo fija y deja verdes los otros cuatro** | toca un middleware por el que pasan **las 578 rutas** |
+   | **(b)** dejarlo fijado con su test y no tocarlo | cero | el día que el escritorio añada un salto, se pierde en silencio |
+
+   **No la elijo yo, y la razón es de esta casa:** cuando el 422 con `motivo` hizo falta, se
+   decidió envolverlo **sólo en `horario/`** en vez de global (3 sep 2026, Joseth), porque
+   *«hacerlo global movería la respuesta de muchas rutas vivas a la vez para un contrato que
+   sólo pidió un cliente»*. Aquí pasa lo mismo con más alcance: `$except` es una lista **por
+   nombre de campo**, así que sacar `proyecto` del recorte lo saca **en todas las rutas donde
+   exista un campo que se llame así**, no sólo en ésta.
+
+   > **Y una salida (c) que parece la buena y no lo es:** recortar sólo en las rutas que no
+   > son `horario/` con un middleware propio. Cuesta más que (a), tiene el mismo alcance y
+   > deja **dos reglas de recorte** en una API que hoy tiene una. Se nombra para que no se
+   > proponga como si no se hubiera mirado.
+
 > Lo más barato que se puede hacer sin esperar a ninguna de las cuatro es el **nivel 1
 > del pre-vuelo como script de `tools/`** sobre los quince colegios (§9). No toca el
 > router, no necesita permiso y contesta si este módulo se va a poder usar.

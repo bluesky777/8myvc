@@ -694,6 +694,71 @@ teclea mal su clave lee «esto no es la clave: es el servidor»**. El arreglo es
 Windows ni en Linux** —el origen está leído del crate y de su test, que es prueba fuerte y no
 es lo mismo—, **los dieciséis `.env` no se han mirado** y **ningún vhost real se ha sondeado**.*
 
+**6 sep 2026 — EL VIAJE DEL `.myvch` EJERCITADO DE PUNTA A PUNTA: IDÉNTICO BYTE A BYTE, Y UN
+TOPE QUE CORTA EL FICHERO Y CONTESTA `201`** · [23 §9.ter y §10.2 decisión 5](23-horarios.md) ·
+**cero código, cero rutas** · medido desde `.worktrees/s` sobre `7c3a0b9`, router en **578**
+
+> **Lo que nadie había hecho:** las seis rutas tenían sus ocho pruebas de contrato, pero el
+> contrato corre contra el seed y **el seed no tiene un `.myvch` dentro**. Esto es subir los dos
+> ficheros reales del escritorio por HTTP contra el docker y volver a bajarlos, comparando
+> **sha256**.
+>
+> **El ida y vuelta está sano, incluido el caso real de 312 piezas**: `POST` de 231.141 b en
+> 0,38 s, `GET .../proyecto` idéntico byte a byte, `Content-Length` exacto y el nombre del
+> fichero construido por el servidor. Con `Accept-Encoding: gzip` —lo que manda Tauri— sale
+> igual: nginx no comprime `octet-stream`. Fichero corrupto sube y baja intacto **y eso está
+> bien** (el servidor no parsea el blob a propósito); subir dos veces da dos versiones; emoji y
+> acentos vuelven idénticos y los bytes latin-1 dan `422` en vez de guardarse rotos.
+>
+> ### Lo que sí es un hallazgo, y es de los de contestar
+>
+> **Por encima de 16.777.215 b la subida contesta `201` y guarda el fichero CORTADO.** De los
+> cuatro topes —`MEDIUMTEXT` 16,7 MB · nginx 25M · `post_max_size` 25M · `max_allowed_packet`
+> 64 MB— **el más bajo es el único que no da error**: `proyecto` no lleva regla `max:` y el
+> `sql_mode` del docker no es estricto, así que MySQL trunca con un warning que no ve nadie.
+>
+> **No bloquea a nadie hoy y por eso va como decisión y no como parche**: el `.myvch` más grande
+> que existe mide **128.779 b**, **130 veces menos**. La salida barata (`max:16777215`) cambia
+> la respuesta de una ruta, así que se pone con su precio delante — **decisión 5 de la §10.2, y
+> es tuya**. La recomendada es la (a).
+>
+> **Y en los dieciséis no fallaría igual**: MariaDB 10.5 de serie lleva `STRICT_TRANS_TABLES`, y
+> con estricto esto **aborta con un 1406 y sale un 500** en vez de truncar. El `sql_mode` de
+> producción **no lo ha medido nadie** — es un `SELECT @@sql_mode` el día del despliegue, y
+> hasta entonces queda **NO MEDIDO**.
+>
+> ### Y la prueba encontró lo que la medición a mano no podía ver
+>
+> Al convertir la foto en guarda —`HorarioViajeDelFicheroTest`, **5 casos, 70 aserciones**—
+> apareció un segundo fallo: **`TrimStrings` se come los saltos de línea de los extremos del
+> `.myvch`**. Un fichero que termine en `\n` se guarda con un byte menos, contesta `201` y
+> **sigue siendo JSON válido**, así que el escritorio lo abre y no hay ningún síntoma.
+>
+> **La medición del 6 sep no podía verlo y no se hizo mal**: los dos únicos `.myvch` reales
+> terminan en `}` (`tail -c 4`), así que le esquivaban el bulto **por casualidad del
+> serializador del escritorio**. La prueba tuvo que fabricar el caso, y por eso lo encontró.
+> *Una foto sólo enseña los casos que el fotógrafo tenía delante.*
+>
+> La causa es middleware **global** —`$except` sólo cubre las contraseñas—, así que el
+> arreglo es una línea que toca **las 578 rutas**: es la **decisión 6 de la §10.2 y es tuya**.
+> Queda fijado con un test que se pone rojo el día que se arregle, **y el rojo se vio**:
+> metiendo `proyecto` en el `$except` cae ése y sólo ése.
+
+> ### Dos cosas más que quedan escritas
+>
+> **La cota alta de la §10.2.2 se reproduce desde un tercer sitio**: 231.141 contra los 231.135
+> del front, 6 bytes de diferencia que son el nombre del sobre, y `+45.064` y el **×1,795**
+> **iguales al byte** sin haber copiado nada. Costó **dos detectores rotos** llegar ahí, los dos
+> inflando y los dos creíbles (×1,88 y ×1,83): mandaba los objetos `{asignacionId}` en vez de
+> los enteros, y Python separa con `", "` donde `JSON.stringify` no pone espacio.
+>
+> **Y los CINCO estados de un catálogo quedan escritos por fin (§9.ter.6), que es la otra mitad del mismo problema.** Su lector conocía **cuatro**: el `ilegible` no caía en ningún `else` y **tumbaba la respuesta entera**. Ya está arreglado de su lado; lo que faltaba era que **los cinco sólo existían en nuestro código y en ningún documento**, así que nadie podía saber *cuántos son* — sólo cuáles había visto. Contados sobre `HorarioController`: `completo`, `parcial`, `vacio`, `sin_catalogo` e `ilegible`, y **ninguna sexta**. De paso queda avisado que en la misma respuesta hay **dos cosas llamadas `estado`** con vocabularios distintos: el de un catálogo y el de una marca de disponibilidad (`condicional`/`inadecuado`).
+>
+> **El sobre de `getLecciones` declara ONCE catálogos y el lector del escritorio OCHO.** No
+> rompe —su lector sólo exige los suyos—, pero **descarta `plantilla`, `jornadas` y
+> `sin_colocar`**, o sea **tres de las cuatro listas de la decisión 38**. *Son tres y no cuatro:
+> el escritorio sí recogió `disponibilidad`, y contarlas como cuatro haría buscar el problema en
+> el único renglón que está bien.* El arreglo es del otro repositorio; la constancia es de éste.
 
 **5 sep 2026 — LA SEXTA RUTA DEL HORARIO, Y CON ELLA EL MÓDULO SE QUEDA SIN NINGUNA
 DECISIÓN ABIERTA** · `HorarioController`, `routes/api/horario.php`,
