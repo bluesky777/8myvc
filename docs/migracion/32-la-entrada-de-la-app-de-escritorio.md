@@ -143,6 +143,16 @@ if cfg!(windows) || cfg!(target_os = "android") {
 `tauri://localhost` —el único origen que alguien ha visto nunca, y en un mac—
 deja fuera Windows, **que es donde va a estar el que cuadra el horario**.
 
+> **Y «probablemente Windows» dejó de ser probablemente el 6 sep 2026.** `8myvc-d3`
+> lo trajo de la mesa de Joseth al cursar este hallazgo: **la máquina de referencia
+> de Joseth es un Pentium de 2010 con Windows**, la misma con la que se mide el
+> listón de los 20 s del generador de horarios. O sea que la plataforma cuyo origen
+> **no está en ninguna lista de las que alguien escribiría** no es un caso de borde:
+> es la máquina en la que se prueba el programa.
+>
+> *Este dato no se midió aquí* — llega por el canal entre sesiones y se anota con
+> quién lo trajo, no como una medición propia.
+
 ### 3.2 Lo que pasa hoy, y lo que pasará
 
 Medido contra el docker (`CORS_ALLOWED_ORIGINS` ausente):
@@ -270,6 +280,56 @@ Para el escritorio el arreglo es de una línea en **su** repositorio: tratar
 **400** como «usuario o clave», y **429** como «espera N segundos» leyendo
 `Retry-After` o `segundos`. **No se toca nada aquí** — cambiar el 400 a 401
 rompería a los cuatro clientes que ya lo distinguen.
+
+### 4.3 `version_minima_app` · el riesgo dormido, y qué lo despertaría
+
+**Está dormido, no muerto, y la diferencia es que despertarlo cuesta una línea en
+un `.env` que nadie revisa.** Va aquí y no en el informe de una noche porque el
+día que alguien escriba esa clave **no va a recordar nada de esto**.
+
+**El campo ya le llega al escritorio hoy.** `postCredentials()` termina en
+`VersionMinimaDeLaApp::adjuntarA($res)` (`LoginController.php:105`), o sea que
+`login/credentials` —la ruta que usa el escritorio— **adjunta `version_minima_app`
+igual que las otras tres**. No lo hace por él: está ahí porque es la ruta que
+llama `myvc_flutter`.
+
+**Por qué está dormido: hacen falta DOS cosas y hoy no se da ninguna.**
+
+1. **Ningún colegio tiene un número puesto.** Barrido del 2 sep 2026 sobre las 17
+   carpetas: 16 con la línea ausente y `demo` con ella presente y **vacía**, que
+   es lo mismo. Sin valor, la clave **no viaja** — no viaja como `null`: no está.
+2. **El escritorio no lo lee.** Su `entrar()` saca `el_token` del cuerpo y tira lo
+   demás. Es la misma indiferencia por la que tira `cambia_anio` (§4.1), y aquí
+   resulta ser lo único que lo protege.
+
+**Cualquiera de las dos, sola, es inerte. Las dos juntas dejan al colegio fuera.**
+
+**Y la mitad barata es la peligrosa.** Escribir el número es *operación*: una línea
+en un `.env`, sin despliegue, sin revisión y sin que este repositorio se entere.
+Es exactamente el movimiento que alguien hará el día que quiera forzar una
+actualización de la app de móvil — y lo hará pensando en Flutter, porque el campo
+es de Flutter.
+
+**Lo que lo hace peor aquí que en Flutter, y es lo que hay que entender:** para la
+app de móvil ese número **es su propio `versionCode`**, así que existe una versión
+que lo satisface — publicarla es la salida. Para `myvc_horarios` **no existe
+ninguna**: su versionado es independiente y no está en ninguna tienda. Un bloqueo
+por ese campo sería **un bloqueo sin salida**, y la escapatoria que sí tiene la
+app de móvil —«¿Tienes cuenta en otro colegio?», que al cerrar sesión olvida el
+número— **no existe en un programa de escritorio**.
+
+> **La regla que sale de aquí, escrita para el que venga a implementar el bloqueo
+> del escritorio:** si algún día `myvc_horarios` tiene que respetar una versión
+> mínima, **necesita un campo propio**, no éste. Reutilizar `version_minima_app`
+> es gratis de escribir y convierte el número de un binario en la condición de
+> entrada de otro que no lo puede cumplir. **Un campo nuevo es un cambio de
+> contrato, o sea una decisión de Joseth**, y por eso esto es un aviso y no un
+> arreglo.
+>
+> Es el mismo patrón que `profesores.tono` (la quinta ruta del horario): una
+> columna que gobernaba algo y que **no podía escribir nadie**. Aquí es al revés
+> —un campo que puede gobernar a quien no le corresponde— y se ve **antes** de
+> cometerlo, que es la única ventaja que tenemos.
 
 ---
 
