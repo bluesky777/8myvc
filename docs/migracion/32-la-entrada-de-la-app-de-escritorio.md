@@ -331,6 +331,25 @@ número— **no existe en un programa de escritorio**.
 > —un campo que puede gobernar a quien no le corresponde— y se ve **antes** de
 > cometerlo, que es la única ventaja que tenemos.
 
+**Y el aviso no llega por donde llega el peligro.** Lo levantó `8myvc-d3` al
+fundir el recuadro de `config/aplicacion-movil.php`, y es lo que hace que este
+párrafo no baste por sí solo:
+
+| | Qué hace falta para que ocurra |
+|---|---|
+| **Escribir el número** | una línea en el `.env` de un colegio. **Ningún despliegue.** |
+| **Que llegue el aviso** | un despliegue, porque `config/` es copia real en cada colegio |
+
+**O sea que hay una ventana en la que el número se puede escribir y el aviso
+todavía no ha llegado a ese colegio**, y hoy esa ventana está abierta en los
+diecisiete: el despliegue está congelado hasta que la app salga de revisión, y
+estos comentarios no están en ninguno. No lo arregla nadie esta noche y no es
+motivo para descongelar nada — se escribe porque **un aviso que aún no ha
+viajado no protege**, y quien lea el recuadro dentro de seis meses lo leerá ya
+desplegado y no sabrá que hubo un tramo en que no lo estaba.
+
+*Se anota con quién lo trajo: no salió de una medición de aquí.*
+
 ---
 
 ## 5. Lo que espera una decisión de Joseth
