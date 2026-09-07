@@ -2852,7 +2852,39 @@ class HorarioController extends Controller
             ]);
         }
 
-        $derivacion = DB::transaction(function () use ($versionId, $yearId, $ahora, $aceptoPerder): array {
+        /*
+         * `acepto_vaciar` — LA PUERTA DE LA VERSIÓN VACÍA (decisión 8, contestada por Joseth
+         * el 7 sep 2026), y es **la misma forma que `acepto_perder` a propósito**, no una
+         * parecida.
+         *
+         * **Qué cierra, medido el 7 sep 2026:** publicar una versión con cero lecciones
+         * contestaba `200` y ponía a cero las siete columnas de día de **las 134 asignaturas
+         * del año** — «Clases de hoy» en blanco para el colegio entero, que es el problema de
+         * la §2 que este módulo vino a resolver. La respuesta lo declaraba
+         * (`asignaciones_con_algun_dia: 0`), pero **informar bien y dejar publicar son dos
+         * cosas distintas**.
+         *
+         * **Y NO se prohíbe, porque hoy es la única forma de despublicar**: la única escritura
+         * de `years.horario_version_id` pone un id, ninguna lo pone a `NULL` y no hay ruta que
+         * borre una versión. Un colegio que publicó un horario equivocado y prefiere no
+         * enseñar ninguno sólo tiene esta palanca; un 422 seco se la quitaría sin sustituto.
+         *
+         * Un número y no un `true`, por lo que dice `acepto_perder` doce líneas más arriba:
+         * *un booleano acaba puesto por costumbre, porque nunca estorba*. La simetría es
+         * exacta — **publicar no puede quitarle el horario a 134 asignaciones en silencio, por
+         * lo mismo que no puede perder 32.**
+         */
+        $aceptoVaciar = Request::input('acepto_vaciar');
+
+        if ($aceptoVaciar !== null && ! is_int($aceptoVaciar)) {
+            $this->rechazar([
+                'message' => 'El campo `acepto_vaciar` es el NÚMERO de asignaciones que se quedarían sin horario, no una bandera. Nada se escribió.',
+                'motivo' => 'acepto-vaciar-no-es-un-numero',
+                'acepto_vaciar_recibido' => $aceptoVaciar,
+            ]);
+        }
+
+        $derivacion = DB::transaction(function () use ($versionId, $yearId, $ahora, $aceptoPerder, $aceptoVaciar): array {
             /*
              * LA COMPROBACIÓN VA **DENTRO** DE LA TRANSACCIÓN, y no es cosmético.
              *
@@ -2909,6 +2941,41 @@ class HorarioController extends Controller
                     'motivo' => 'acepto-perder-no-coincide',
                     'acepto_perder' => $aceptoPerder,
                     'asignaciones_que_se_pierden' => $sePierden,
+                ]);
+            }
+
+            /*
+             * LA PUERTA DE LA VERSIÓN VACÍA, y **la cuenta va aquí dentro por lo mismo que la
+             * de arriba**: contar fuera y escribir dentro son dos instantes, y entre los dos
+             * alguien puede publicar otra cosa.
+             */
+            $seVacian = $this->asignacionesQueSeQuedanSinHorario($versionId, $yearId);
+
+            if ($aceptoVaciar === null && $seVacian !== 0) {
+                $this->rechazar([
+                    // Mismo criterio que el de `acepto_perder`: nombra el número y **no**
+                    // invita a remandarlo. Un «vuelve a llamar con acepto_vaciar: N»
+                    // reconstruye el `forzar: true` en dos viajes, y la confirmación tiene
+                    // que pasar por una persona.
+                    'message' => "Esta versión no coloca ninguna clase, así que publicarla dejaría {$seVacian} asignacion(es) sin ningún día: el colegio entero vería «Clases de hoy» en blanco. Si es lo que quieres —hoy es la única forma de dejar el año sin horario publicado—, enséñale esa cifra a quien publica y confirma con la que él diga. Nada se escribió.",
+                    'motivo' => 'vaciado-no-aceptado',
+                    'asignaciones_que_se_quedan_sin_horario' => $seVacian,
+                ]);
+            }
+
+            /*
+             * **Y también rebota el número que sobra**, igual que arriba: si el cliente
+             * declara 134 y el servidor cuenta 0 —porque el año ya estaba sin horario, o
+             * porque esta versión sí coloca clases—, ese campo está puesto a mano en el
+             * código del cliente y no lo ha mirado nadie. Dejarlo pasar «porque no vacía
+             * nada» es exactamente cómo se convierte en la bandera que no quisimos.
+             */
+            if ($aceptoVaciar !== null && $aceptoVaciar !== $seVacian) {
+                $this->rechazar([
+                    'message' => "No coincide: aceptas vaciar {$aceptoVaciar} y el servidor cuenta {$seVacian} en este momento. Esa cifra de {$seVacian} es la de ahora y no la da ninguna otra pantalla: enséñasela a quien publica y confirma con lo que él diga. Nada se escribió.",
+                    'motivo' => 'acepto-vaciar-no-coincide',
+                    'acepto_vaciar' => $aceptoVaciar,
+                    'asignaciones_que_se_quedan_sin_horario' => $seVacian,
                 ]);
             }
 
@@ -3113,6 +3180,48 @@ class HorarioController extends Controller
      * el de clases que realmente desaparecen, y un número que no se puede comprobar
      * contra la pantalla es justo lo que `acepto_perder` no puede permitirse.
      */
+    /**
+     * Cuántas asignaciones **se quedarían sin ningún día** si se publicara esta versión.
+     *
+     * ## Las dos condiciones, y la primera es la que impide romper a los clientes vivos
+     *
+     * **Devuelve 0 en cuanto la versión coloca ALGO**, y eso no es un atajo: es el requisito.
+     * Publicar una versión normal **no puede empezar a pedir un campo nuevo** —eso rompería a
+     * todo cliente desplegado el día de la tanda—, así que la puerta sólo existe para el caso
+     * que Joseth decidió: **la versión que no coloca ni una clase**. Una versión incompleta
+     * —que deja asignaturas sin día porque no le dio tiempo a cuadrarlas— **no pasa por aquí**,
+     * y su hueco ya lo dice el veredicto de la subida (`incompletas: N de M`).
+     *
+     * **Y la segunda: sólo cuenta lo que HOY tiene horario.** Si el año todavía no tiene
+     * ninguna columna de día escrita —el primer despliegue de los dieciséis, por ejemplo—,
+     * publicar una versión vacía no le quita nada a nadie y **no se pide confirmación**. La
+     * puerta se abre por lo que se pierde, no por lo que la versión es: es el mismo criterio
+     * que `acepto_perder`, que tampoco salta cuando no se pierde nada.
+     *
+     * El `OR` de los siete días se arma desde `COLUMNAS_DE_DIA` y no a mano, por lo que dice
+     * esa constante: un convenio repetido es un convenio que se puede cambiar a medias.
+     */
+    private function asignacionesQueSeQuedanSinHorario(int $versionId, int $yearId): int
+    {
+        $filas = (int) DB::select(
+            'SELECT count(*) AS c FROM horario_lecciones WHERE version_id = ?', [$versionId]
+        )[0]->c;
+
+        if ($filas !== 0) {
+            return 0;
+        }
+
+        $conAlgunDia = implode(' OR ', array_map(fn ($c) => "a.{$c} = 1", self::COLUMNAS_DE_DIA));
+
+        return (int) DB::select(
+            "SELECT count(*) AS c
+               FROM asignaturas a
+               INNER JOIN grupos g ON g.id = a.grupo_id AND g.year_id = ? AND g.deleted_at IS NULL
+              WHERE a.deleted_at IS NULL AND ({$conAlgunDia})",
+            [$yearId]
+        )[0]->c;
+    }
+
     private function asignacionesFueraDelAlcance(int $versionId, int $yearId): int
     {
         return (int) DB::select(

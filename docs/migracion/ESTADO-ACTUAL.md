@@ -741,6 +741,36 @@ teclea mal su clave lee «esto no es la clave: es el servidor»**. El arreglo es
 Windows ni en Linux** —el origen está leído del crate y de su test, que es prueba fuerte y no
 es lo mismo—, **los dieciséis `.env` no se han mirado** y **ningún vhost real se ha sondeado**.*
 
+**7 sep 2026 — `acepto_vaciar`: publicar una versión vacía ya no deja al colegio sin horario en
+silencio** · `HorarioController`, `tests/Contrato/HorarioAceptoVaciarTest.php` (**10 casos**),
+[23 §10.2 decisión 8](23-horarios.md) · **cero rutas, el router en 578**
+
+> Joseth contestó la decisión 8 el mismo día en que se midió, con la opción (b). **Lo que la
+> decidió fue la simetría:** *publicar no puede quitarle el horario a 134 asignaciones en
+> silencio, por lo mismo que no puede perder 32.* `acepto_perder` ya era esta forma, y se eligió
+> sobre un `forzar: true` porque un booleano *acaba puesto por costumbre, porque nunca estorba*.
+>
+> **Sólo se pide cuando de verdad vacía**, y son dos condiciones a la vez: la versión no coloca
+> ni una clase **y** el año hoy tiene días escritos. Publicar una versión con clases **no lo
+> pide nunca** —eso habría roto a todos los clientes vivos el día de la tanda— y una versión
+> vacía sobre un año sin horario tampoco: *la puerta se abre por lo que se pierde, no por lo que
+> la versión es*.
+>
+> **El caso legítimo sigue vivo y tiene test propio**, y es lo que justifica que sea una puerta y
+> no una prohibición: **hoy no existe «despublicar»** —ninguna escritura pone el puntero a
+> `NULL`—, así que publicar una vacía es la única forma de que un colegio deje de enseñar un
+> horario equivocado. Con la cifra, puede seguir haciéndolo.
+>
+> **Comprobado en rojo por los dos lados**, que aquí no es rutina: quitando la puerta caen los
+> cuatro rechazos y **siguen verdes los dos «no pide nada»**; haciendo que la puerta se abra
+> siempre cae `publicar_una_version_con_clases_no_pide_nada`, que es el caso que protege a los
+> clientes desplegados y vale más que los tres rechazos juntos.
+>
+> **Para el otro repositorio** (se lo lleva `8myvc-d3`, una sola voz en ese canal): campo
+> `acepto_vaciar`, entero, opcional; tres `motivo` de rechazo —`vaciado-no-aceptado`,
+> `acepto-vaciar-no-coincide`, `acepto-vaciar-no-es-un-numero`—, los tres 422 y ninguno escribe.
+> La cifra **sólo la da ese 422**, como en `acepto_perder`.
+
 **7 sep 2026 — `putOficial` PUBLICA UNA VERSIÓN VACÍA Y DEJA EL COLEGIO SIN HORARIO** ·
 [23 §10.2 decisión 8](23-horarios.md) · **medición, cero código, cero rutas** · router en 578
 
