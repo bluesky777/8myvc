@@ -13,6 +13,7 @@
             "deleted_by": "null",
             "grado_id": "int",
             "id": "int",
+            "ih": "null",
             "nombre": "string",
             "orden": "int",
             "titular_id": "int",
