@@ -367,6 +367,10 @@
         "total": 3,
         "con_guard": 3
     },
+    "sincronizacion": {
+        "total": 1,
+        "con_guard": 1
+    },
     "subunidades": {
         "total": 9,
         "con_guard": 9

@@ -8,7 +8,7 @@ entrar `PlantillaNotasController`; el 4 sep eran 114 y 117, y antes decían 113 
 trait `Concerns/ResuelveElUsuario.php` **no cuenta**: es el fichero 116 del directorio y no
 declara ninguna clase), porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
-**578 rutas** (contadas con
+**579 rutas** (contadas con
 `route:list --json` el 5 sep 2026; el 24 ago el de rutas se movió por primera vez,
 de 539 a 542, con los tres endpoints que pidió `myvc_flutter`, el 28 a 543 con
 `PUT users/mi-docente`, que pidió Joseth para el panel de `app2`, el 31 a 544 con
@@ -78,13 +78,47 @@ un `SELECT` a mano**. Su permiso **no es el de mirar**: `puedePublicarHorario` d
 método, que es el tercer escalón de una escalera que este módulo trazó en tres pasos
 —*«listar no es descargar»*, *«mirar no es llevarse»* y ésta—, porque el fichero lleva
 dentro las disponibilidades declaradas de los 47 docentes. **578 se contó desde el árbol en
-el que se escribió, que es lo que ahora exige el recuadro de abajo.** «El de rutas no se
+el que se escribió, que es lo que ahora exige el recuadro de abajo.** Y el 7 sep 2026 a
+**579** con `GET sincronizacion/huella`, la **primera ruta que no existe para traer datos
+sino para no traerlos**: `myvc_horarios` pregunta cada minuto si el colegio ha cambiado, y
+eso eran **cinco viajes y 121.183 bytes por pregunta** —58,2 MB por jornada de ocho horas y
+por escritorio abierto, medido— **sin ninguna forma de preguntar barato**, porque ninguna de
+las cinco manda `ETag` ni `Last-Modified` y el 304 no existe. La huella son **345 bytes**, un
+viaje y cinco cuentas en vez de 207 filas: es la única de las tres opciones que ahorra
+trabajo **también al servidor**. Devuelve `(filas, ultimo_cambio)` por lectura y **las dos
+hacen falta**, porque `updated_at` no ve un borrado y el conteo sí. Su regla dura —y el único
+sitio donde puede dejar de medir lo que dice— es que **se calcula sobre lo que devuelve cada
+lectura y no sobre la tabla**: en el docker, `asignaturas` tiene 1.459 filas y la lectura
+devuelve 134, así que una huella de la tabla se movería con lo que el cliente no ve y podría
+no moverse con lo que sí. El guard es `auth.personal` **aunque cuatro de las cinco lecturas
+se conformen con `auth.token`** —no le quita nada a nadie y baja la superficie de 2.328
+cuentas a 45—, y **el quinto bloque, `profesores`, lo decide `esAdministrativo` dentro del
+método**, que son 10 de esas 45: una huella del personal para quien no puede leer el personal
+sigue siendo información sobre personas. Cuando se omite **se dice**, en `omitidas`, porque
+un bloque ausente y un bloque que no se movió se leen igual desde el cliente.
+**579 se contó con `route:list --json` en `.worktrees/e5`, no se sumó.** «El de rutas no se
 mueve»
 sigue siendo la
 regla: una ruta nueva es una decisión, no un efecto secundario, y mueve este
 documento y **tres** snapshots, no dos: `rutas.json`, `guards-por-ruta.json` y
 `guard-por-familia.json`, que cuenta cuántas rutas tiene cada familia y cuántas
-llevan guard).
+llevan guard.
+
+> **Y a veces son CUATRO, cosa que este párrafo no decía y costó un rojo el 7 sep
+> 2026.** `familias-que-nunca-entran-en-el-candado.json` **también se mueve**, y no
+> sólo por una ruta pública —que es el único caso que menciona la sección de las
+> públicas—: ese censo lista las familias con **menos de dos hermanas con guard**,
+> que son las que el candado de consistencia por familia **descarta con un
+> `continue` y no mira nunca**. Así que se mueve cuando una ruta **estrena
+> familia** —entra como «1 de 1» si lleva guard— y cuando una familia que tenía una
+> sola guardada pasa a dos, porque entonces **sale** del censo. No se mueve si la
+> familia ya tenía dos o más.
+>
+> **«1 de 1» ahí no es un agujero y no hay que arreglarlo**: la ruta tiene su
+> guard. Lo que dice el renglón es que **una familia de una sola ruta no puede ser
+> protegida por el candado de familia**, porque ese candado compara hermanas y no
+> hay ninguna con la que comparar. Lo que la protege es su propio guard y su test.
+> El renglón que sí sería un agujero es **«0 de 1»**.)
 
 > **Y esta cifra se cuenta, no se hereda.** El 1 sep 2026 este párrafo decía **544**
 > con el router en **547**: las tres rutas del boletín independiente entraron con su
@@ -140,7 +174,26 @@ Todo corre dentro del contenedor (`kool` sobre docker compose):
 docker exec 8myvc-app-1 php artisan test                       # 1.006 el 22 ago; 903 son de Contrato
 docker exec 8myvc-app-1 php artisan test --testsuite=Contrato  # solo contrato (necesita BD)
 docker exec 8myvc-app-1 php artisan test --filter=NotasTest    # una clase
+```
 
+> **Y una cifra de pruebas se publica CON LA ORDEN QUE LA PRODUJO, nunca con la
+> palabra «suite».** Costó una fusión parada el 7 sep 2026: una sesión citó
+> **2.078** y otra **1.948** sobre el mismo trabajo, las dos correctas y las dos
+> dichas como *«la suite»*. La primera era `php artisan test` —las tres
+> testsuites— y la segunda `--testsuite=Contrato`. En ese árbol, Contrato eran
+> **1.948**, Unit **134** y Feature **9**, y la resta cuadró al caso.
+>
+> Lo que hace falta escribir es `Tests: 1948 (--testsuite=Contrato)`: así no se
+> confunden nunca. Es lo mismo que exigir el hash y la hora para una medición, y
+> por la misma razón — **el número no lleva dentro de qué habla**.
+>
+> **Y lo incómodo es que estas dos líneas de aquí arriba YA distinguían las dos
+> poblaciones** —«1.006 el 22 ago; 903 son de Contrato»— y aun así las dos sesiones
+> citaron «la suite». *Un aviso que ya está escrito no protege solo; sólo protege el
+> día que alguien hace lo que dice* — la misma frase que el recuadro del contador de
+> rutas, y volvió a pasar con otra cifra.
+
+```bash
 # Qué alcanza de verdad un token. No corre con los demás: mide e imprime.
 docker exec -e BARRIDO_TIPO=Alumno 8myvc-app-1 php artisan test --group=barrido
 docker exec 8myvc-app-1 composer run pint                      # formato

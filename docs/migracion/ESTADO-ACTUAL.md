@@ -951,6 +951,69 @@ TOPE QUE CORTA EL FICHERO Y CONTESTA `201`** · [23 §9.ter y §10.2 decisión 5
 > el escritorio sí recogió `disponibilidad`, y contarlas como cuatro haría buscar el problema en
 > el único renglón que está bien.* El arreglo es del otro repositorio; la constancia es de éste.
 
+**7 sep 2026 — RUTA NUEVA, LA 579: `GET sincronizacion/huella`** ·
+`app/Http/Controllers/SincronizacionController.php` (nuevo), `routes/api/estructura.php`,
+`tests/Contrato/HuellaDeSincronizacionTest.php` (nuevo, **12 casos / 86 aserciones**),
+`CLAUDE.md` **y los tres snapshots**, [**34**](34-la-huella-de-sincronizacion.md) (nuevo).
+**Autorizada por Joseth sobre las tres opciones con su precio delante** — me llegó por
+`8myvc-d3`, que coordina; yo no hablé con él.
+
+Joseth pidió que la app de escritorio se sincronice **cada minuto**. Eso eran **cinco viajes
+y 121.183 bytes por pregunta** —**58,2 MB por jornada de ocho horas** y por escritorio
+abierto— **y ninguna forma de preguntar barato**: las cinco lecturas no mandan `ETag` ni
+`Last-Modified`, así que el 304 no existe. La huella son **345 bytes y un viaje**: 351 veces
+menos, y **cinco cuentas en vez de traer 207 filas**, que es lo que la hacía la única de las
+tres opciones que ahorra trabajo **también al servidor**.
+
+- **Dos cifras por lectura, `(filas, ultimo_cambio)`, y las dos hacen falta**: `updated_at`
+  **no ve un borrado** y el conteo sí. Hay un test que borra una asignatura sin tocar la
+  fecha y comprueba las dos mitades.
+- **Se calcula sobre lo que DEVUELVE cada lectura, no sobre la tabla.** `asignaturas` tiene
+  1.459 filas y la lectura devuelve **134**; `grupos`, 118 y **13**. Una huella de la tabla
+  se movería con lo que el cliente no ve y **podría no moverse con lo que sí**. No lo protege
+  un comentario: el test compara `filas` contra `count()` de las cinco lecturas **con el
+  mismo token**.
+- **El guard, medido y no elegido por comodidad.** La escalera es **2.328 → 45 → 10**
+  (`auth.token` → `auth.personal` → `esAdministrativo`). La ruta lleva `auth.personal` aunque
+  sea más estrecho que cuatro de las cinco lecturas —no le quita nada a nadie— y **el bloque
+  de `profesores` lo decide `esAdministrativo` dentro**: contárselo a las 45 sería contárselo
+  a 35 que no pueden leer esa tabla. Y cuando se omite, **la clave se queda a `null` y además
+  se dice en `omitidas`** — las cinco claves salen siempre. Se implementó primero quitando la
+  clave y **lo cazó `8myvc-d3` antes de fundir**: es la decisión 7 del `inadecuado`, sobre este
+  mismo cliente, *«un lector que exija la clave se rompe con el usuario raso y no con el
+  administrativo»*. Aquí es peor, porque el escritorio lo usan administrativos y en pruebas
+  saldrían siempre las cinco.
+- **El limitador: entra como todas.** 1 petición por minuto —6 el minuto en que algo cambia—
+  sobre un cubo de 120 **por usuario**, no por IP. Sacarla sería peor: es lo único que separa
+  «pregunta cada minuto» de «bucle roto».
+
+**Y una segunda corrección al procedimiento, ésta con una fusión parada de por medio:** dos
+sesiones citaron dos cifras de pruebas sobre el mismo trabajo —**2.078** y **1.948**— **las dos
+correctas y las dos dichas como «la suite»**. Una era `php artisan test` (las tres testsuites) y
+la otra `--testsuite=Contrato`; en ese árbol Contrato son 1.948, Unit 134 y Feature 9, y la resta
+cuadró al caso. **Una cifra de pruebas se publica con la orden que la produjo**, igual que una
+medición se anota con su hash y su hora, y por la misma razón: *el número no lleva dentro de qué
+habla*. Escrito en `CLAUDE.md`, junto a los comandos. Y lo incómodo: **ese fichero ya distinguía
+las dos poblaciones** —«1.006 el 22 ago; 903 son de Contrato»— y aun así las dos sesiones dijeron
+«la suite». *Un aviso que ya está escrito no protege solo.*
+
+**Y una corrección al procedimiento del propio repo, que costó un rojo:** `CLAUDE.md` decía que
+una ruta nueva mueve el documento **y tres snapshots**. Son **cuatro cuando la ruta estrena
+familia** — `familias-que-nunca-entran-en-el-candado.json` también se movía, y no sólo por una
+pública, que es el único caso que estaba escrito. `sincronizacion` entra ahí como **«1 de 1»**,
+que **no es un agujero**: ese censo lista familias con **menos de dos hermanas con guard**, o sea
+las que el candado de consistencia por familia descarta con un `continue`. La ruta tiene su guard;
+lo que dice el renglón es que **a una familia de una sola ruta no la puede proteger un candado que
+compara hermanas**. El que sí sería un agujero es «0 de 1». Corregido en `CLAUDE.md` con su
+condición.
+
+**Dos cifras del encargo salieron distintas al medirlas, y las dos en la misma dirección —el
+denominador equivocado.** Me llegó que `asignaturas` tenía «5 filas de 1.459 con `updated_at`
+NULL» como límite a documentar: **son 0 de las 134 que devuelve la lectura**, porque las cinco
+viven en `year_id = 1` y la lectura filtra por el año del usuario. El límite existe y **hoy no
+toca a nadie**. Y `grados` devuelve **14 de 16**, que no estaba en la tabla que me pasaron. Es
+la §3.2 aplicada al propio límite: *medir la tabla cuando lo que importa es la respuesta*.
+
 **5 sep 2026 — LA SEXTA RUTA DEL HORARIO, Y CON ELLA EL MÓDULO SE QUEDA SIN NINGUNA
 DECISIÓN ABIERTA** · `HorarioController`, `routes/api/horario.php`,
 `tests/Contrato/HorarioProyectoTest.php` (**8 casos, 47 aserciones**), `CLAUDE.md`, [23

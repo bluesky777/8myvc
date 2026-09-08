@@ -7,6 +7,7 @@ use App\Http\Controllers\NivelesEducativosController;
 use App\Http\Controllers\PeriodosController;
 use App\Http\Controllers\Piars\PiarsGruposController;
 use App\Http\Controllers\ProfesoresController;
+use App\Http\Controllers\SincronizacionController;
 use App\Http\Controllers\YearsController;
 use Illuminate\Support\Facades\Route;
 
@@ -88,6 +89,30 @@ Route::delete('contratos/destroy/{id}', [ContratosController::class, 'deleteDest
 
 // YearsController
 Route::get('years', [YearsController::class, 'getIndex']);
+
+// SincronizacionController
+//
+// **La huella de las cinco lecturas con las que se sincroniza `myvc_horarios`.**
+// Un viaje y unos bytes en vez de cinco viajes y 121.183 bytes, que es lo que
+// costaba preguntar «¿ha cambiado algo?» hasta hoy — 58,2 MB por jornada de ocho
+// horas y por escritorio abierto, medido el 7 sep 2026. Ruta nueva autorizada por
+// Joseth sobre las tres opciones con su precio delante; el porqué y las otras dos
+// están en docs/migracion/34-la-huella-de-sincronizacion.md.
+//
+// **`auth.personal` y no sólo `auth.token`, a propósito, aunque sea MÁS estrecho
+// que cuatro de las cinco lecturas que resume.** `years`, `grados`, `grupos` y
+// `asignaturas` las lee cualquier cuenta con token —2.328 activas—, así que un
+// guard de token no filtraría nada nuevo. Se pone el de personal porque **el único
+// cliente de esta ruta es un programa de personal** y no hay ninguna pantalla de
+// alumno ni de acudiente que la necesite: no le quita nada a nadie y baja la
+// superficie de 2.328 a 45. Si algún día un cliente de alumno la necesitara, esto
+// es lo que hay que releer antes de aflojarlo.
+//
+// **Y el quinto bloque —`profesores`— NO lo decide este guard, sino
+// `esAdministrativo` dentro del método**, que es el mismo criterio que exige
+// `GET profesores`: 10 personas de esas 45. Un guard de ruta no puede expresar
+// «cuatro de las cinco cosas que devuelvo son para ti y la quinta no».
+Route::get('sincronizacion/huella', [SincronizacionController::class, 'getHuella'])->middleware('auth.personal');
 Route::put('years/alumnos-can-see-notas', [YearsController::class, 'putAlumnosCanSeeNotas'])->middleware('auth.personal');
 Route::get('years/colegio', [YearsController::class, 'getColegio']);
 Route::put('years/guardar-cambios', [YearsController::class, 'putGuardarCambios'])->middleware('auth.personal');
