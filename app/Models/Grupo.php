@@ -32,6 +32,16 @@ use App\Models\Debugging;
  * @property ?string $updated_at
  * --- fin de las columnas generadas ---
  *
+ * Y la que el bloque de arriba NO puede conocer, porque entró por migración
+ * (`2026_09_07_100000_grupos_con_ih`) y no por el volcado congelado: la intensidad
+ * horaria del grupo, las horas de clase que se dictan a la semana en ese curso.
+ * `null` es «nadie la ha puesto», que es como salen los quince colegios el día del
+ * despliegue — no `0`. Contra ella se suma la IH de sus asignaturas
+ * (`asignaturas.creditos`), que es lo que evita que un descuadre aparezca por
+ * primera vez dentro del programa de horarios.
+ *
+ * @property ?int $ih
+ *
  * Y los atributos que NO son columnas: el código se los cuelga al modelo en
  * tiempo de ejecución para armar la respuesta, que es un patrón repetido por
  * todo el proyecto. Eloquent los guarda entre los atributos y salen en el JSON,

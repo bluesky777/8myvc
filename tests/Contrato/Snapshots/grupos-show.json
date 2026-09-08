@@ -21,6 +21,7 @@
     },
     "grado_id": "int",
     "id": "int",
+    "ih": "null",
     "nombre": "string",
     "orden": "int",
     "titular": {

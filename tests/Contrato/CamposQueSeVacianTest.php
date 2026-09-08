@@ -100,6 +100,75 @@ class CamposQueSeVacianTest extends CasoDeContrato
     }
 
     /**
+     * La IH del grupo entra por la misma puerta que las tres de arriba, y por eso
+     * se defiende igual el día que entra.
+     *
+     * `grupos.ih` (7 sep 2026) es la intensidad horaria semanal del curso, y **sólo
+     * la escribe el formulario de grupos**: la rejilla de esa pantalla la edita en
+     * celda y la de asignaturas no la toca. O sea que es exactamente la forma que
+     * describe la §153 —una columna que un cuerpo parcial deja a `null` sin que
+     * nadie lo vea— y sin el defecto de `Request::input('ih', $grupo->ih)`,
+     * corregirle la abreviatura a un grupo le borraría las horas.
+     *
+     * **Y borrarlas no es cosmético**: en `null` la pantalla de asignaturas deja de
+     * comparar y el aviso de descuadre —lo único que hay entre un 3 mal tecleado y
+     * un horario que no se puede importar— desaparece **en silencio**, que es el
+     * peor de los dos fallos posibles: el otro, avisar de más, al menos se ve.
+     */
+    public function test_editar_un_grupo_con_medio_formulario_no_le_borra_la_intensidad_horaria(): void
+    {
+        $jefe = $this->tokenDeUnSuperusuario();
+
+        $grupo = DB::selectOne('SELECT * FROM grupos WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+        DB::update('UPDATE grupos SET ih = 25 WHERE id = ?', [$grupo->id]);
+
+        $r = $this->withToken($jefe)->putJson('/api/grupos/update', [
+            'id' => $grupo->id,
+            'nombre' => $grupo->nombre,
+            'abrev' => $grupo->abrev,
+            'grado_id' => $grupo->grado_id,
+            'orden' => $grupo->orden,
+        ]);
+
+        $this->assertSame(200, $r->status(), 'Editar el grupo no guardó.');
+
+        $this->assertSame(25, (int) DB::table('grupos')->where('id', $grupo->id)->value('ih'),
+            'Editar el nombre de un grupo le borró la intensidad horaria — §153.');
+    }
+
+    /**
+     * Y mandarla vacía a propósito SÍ la vacía, que es la otra mitad.
+     *
+     * Es la pareja del `test_mandar_null_a_proposito_si_vacia_el_campo` de más
+     * abajo, aplicada a esta columna: quitarle la IH a un grupo tiene que ser
+     * posible —un colegio puede haberla puesto mal— y el formulario manda el grupo
+     * entero, así que la casilla en blanco viaja como `null` explícito. Con un
+     * `??` en vez del defecto de `input()`, este caso se comería la intención y
+     * dejaría un número que nadie puede borrar desde la pantalla.
+     */
+    public function test_mandar_la_intensidad_horaria_vacia_a_proposito_si_la_borra(): void
+    {
+        $jefe = $this->tokenDeUnSuperusuario();
+
+        $grupo = DB::selectOne('SELECT * FROM grupos WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+        DB::update('UPDATE grupos SET ih = 25 WHERE id = ?', [$grupo->id]);
+
+        $r = $this->withToken($jefe)->putJson('/api/grupos/update', [
+            'id' => $grupo->id,
+            'nombre' => $grupo->nombre,
+            'abrev' => $grupo->abrev,
+            'grado_id' => $grupo->grado_id,
+            'orden' => $grupo->orden,
+            'ih' => null,
+        ]);
+
+        $this->assertSame(200, $r->status(), 'Editar el grupo no guardó.');
+
+        $this->assertNull(DB::table('grupos')->where('id', $grupo->id)->value('ih'),
+            'Mandar la IH vacía a propósito no la borró: entonces no hay forma de quitarla.');
+    }
+
+    /**
      * Mandar `null` a propósito SÍ vacía, y ésa es la mitad que el arreglo no puede perder.
      *
      * «No mandar el campo» y «mandarlo vacío» son dos intenciones distintas, y un

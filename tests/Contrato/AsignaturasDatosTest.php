@@ -38,6 +38,34 @@ class AsignaturasDatosTest extends CasoDeContrato
     }
 
     /**
+     * Cada grupo viaja con su `ih`, que es contra lo que la pantalla cuadra.
+     *
+     * **Sin este campo el aviso de esa pantalla no se rompe: se calla.** `ih` está
+     * declarado opcional en el front —`ih?: number | null`— justo para que un
+     * colegio con el backend sin desplegar no vea «sobran todas las horas» en los
+     * quince grupos. O sea que quitar la columna del `SELECT` dejaría la función
+     * apagada **con la pantalla en verde**, que es la forma de regresión que ningún
+     * test de la otra mitad puede ver.
+     *
+     * Se comprueba que la clave EXISTE, no su valor: en el seed nadie ha puesto la
+     * IH todavía y `null` es su estado legítimo —«nadie la ha puesto»—, que es
+     * distinto de que el campo no llegue.
+     */
+    public function test_cada_grupo_viaja_con_su_intensidad_horaria(): void
+    {
+        [$grupo, $token] = $this->grupoYPersonal();
+
+        $r = $this->withToken($token)->putJson('/api/asignaturas/datos-asignaturas', []);
+
+        $grupos = $r->json('grupos');
+
+        $this->assertNotEmpty($grupos, 'Sin grupos el test no compara nada.');
+
+        $this->assertArrayHasKey('ih', $grupos[0],
+            'Los grupos dejaron de traer `ih`: la pantalla de asignaturas no puede cuadrar y no lo dice.');
+    }
+
+    /**
      * El hallazgo: `Profesor::contratos()` devuelve `num_doc`, `fecha_nac`,
      * `estado_civil`, `barrio`, `direccion`, `telefono`, `celular`, `facebook`,
      * `email` y el `is_superuser` de **cada docente del colegio**, y esta pantalla

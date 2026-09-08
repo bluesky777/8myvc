@@ -327,7 +327,7 @@ class GruposController extends Controller {
 	public function getCantAlumnos()
 	{
 		$user = User::fromToken();
-		$consulta = 'SELECT g.id, g.nombre, g.abrev, g.orden, gra.orden as orden_grado, g.grado_id, g.year_id, g.titular_id, g.cupo,
+		$consulta = 'SELECT g.id, g.nombre, g.abrev, g.orden, gra.orden as orden_grado, g.grado_id, g.year_id, g.titular_id, g.cupo, g.ih,
 						p.nombres as nombres_titular, p.apellidos as apellidos_titular, p.titulo, g.caritas, 
 						g.created_at, g.updated_at, gra.nombre as nombre_grado, count(a.id) as cant_alumnos 
 					from grupos g
@@ -756,6 +756,11 @@ class GruposController extends Controller {
 			$grupo->valorpension=	Request::input('valorpension');
 			$grupo->orden		=	Request::input('orden');
 			$grupo->caritas		=	Request::input('caritas');
+			// La intensidad horaria semanal del grupo. Sin ella en el cuerpo queda
+			// `null`, que es «nadie la ha puesto» y NO cero — ver la migración
+			// `2026_09_07_100000_grupos_con_ih`. Un grupo recién creado no la tiene, igual
+			// que no tiene `cupo`.
+			$grupo->ih			=	Request::input('ih');
 			$grupo->save();
 			
 			return $grupo;
@@ -843,6 +848,10 @@ class GruposController extends Controller {
 			$grupo->orden		=	Request::input('orden', $grupo->orden);
 			$grupo->caritas		=	Request::input('caritas', $grupo->caritas);
 			$grupo->cupo		=	Request::input('cupo', $grupo->cupo);
+			// Con su valor actual como defecto, igual que los ocho de arriba: éste es
+			// exactamente el campo que la §153 describe —uno que sólo escribe un
+			// formulario— y sin el defecto, editar una celda de la rejilla lo borraría.
+			$grupo->ih			=	Request::input('ih', $grupo->ih);
 			$grupo->updated_by	=	$user->user_id;
 
 			$grupo->save();
