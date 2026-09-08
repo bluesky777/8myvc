@@ -120,6 +120,7 @@
         "GET api/simat",
         "GET api/simat/alumnos",
         "GET api/simat/alumnos-exportar",
+        "GET api/sincronizacion/huella",
         "GET api/subunidades/trashed",
         "GET api/unidades/de-asignatura-periodo/{asignatura_id}/{periodo_id}/{user?}",
         "GET api/unidades/trashed",
