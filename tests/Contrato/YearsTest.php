@@ -1196,6 +1196,80 @@ class YearsTest extends CasoDeContrato
     }
 
     /**
+     * El grupo del año nuevo se lleva su intensidad horaria, y con ella el aviso de
+     * descuadre llega vivo a enero.
+     *
+     * `grupos.ih` (7 sep 2026) existe para una sola cuenta: la pantalla de asignaturas
+     * suma Σ `asignaturas.creditos` del grupo y la compara contra ella al entrar, para
+     * que un 3 tecleado donde iban 4 se vea **ahí**, y no dos pantallas y varios días
+     * más allá, cuando el programa de horarios no puede colocar todas las fichas.
+     *
+     * Lo que mide este test es **la cuenta y no la columna**: pone las dos mitades
+     * cuadradas en el año viejo y comprueba que siguen cuadrando en el nuevo. Y hacen
+     * falta las dos, porque `creditos` sí lo copiaba ya el bucle de las asignaturas:
+     * heredar una sola no deja el aviso a medias, lo **apaga** —`ih` en `null` es
+     * «nadie la ha puesto» y la pantalla se calla a propósito—, y lo apaga en enero,
+     * que es el único mes del año en que sirve para algo. De los fallos que sólo se
+     * pueden ver una vez al año.
+     */
+    public function test_el_grupo_del_ano_nuevo_hereda_su_intensidad_horaria(): void
+    {
+        $ultimo = DB::selectOne('SELECT id, year FROM years WHERE deleted_at IS NULL ORDER BY year DESC LIMIT 1');
+
+        $grupo = DB::selectOne('SELECT id, nombre, grado_id FROM grupos
+            WHERE year_id=? AND deleted_at IS NULL ORDER BY id LIMIT 1', [$ultimo->id]);
+        $this->assertNotNull($grupo, 'El año de partida tiene que traer grupos, o esto no copia nada.');
+
+        // Las dos mitades se escriben aquí en vez de leerse del seed: lo que se mide es
+        // que la igualdad sobreviva al cambio de año, y con la suma y el objetivo
+        // puestos a mano se sabe qué número tiene que salir al otro lado.
+        DB::table('asignaturas')->where('grupo_id', $grupo->id)->whereNull('deleted_at')
+            ->update(['creditos' => 3]);
+
+        $asignaturas = DB::table('asignaturas')->where('grupo_id', $grupo->id)->whereNull('deleted_at')->count();
+        $this->assertGreaterThan(0, $asignaturas,
+            'El grupo de partida tiene que traer asignaturas: si no, esto compara cero contra cero.');
+
+        DB::table('grupos')->where('id', $grupo->id)->update(['ih' => 3 * $asignaturas]);
+
+        // Y un segundo grupo **sin** intensidad horaria, que es como amanecen hoy los
+        // dieciséis colegios: la columna acaba de entrar y no la ha escrito nadie. Su
+        // `null` tiene que llegar al año nuevo siendo `null` — en `0` diría que ese
+        // curso no da ninguna hora a la semana, y la pantalla abriría el año gritando
+        // que le sobran todas.
+        DB::table('grupos')->insert([
+            'nombre' => 'Grupo sin IH',
+            'year_id' => $ultimo->id,
+            'grado_id' => $grupo->grado_id,
+            'orden' => 99,
+            'caritas' => 0,
+            'ih' => null,
+        ]);
+
+        $nuevo = $this->crearElAnioSiguiente();
+
+        $copiado = DB::selectOne('SELECT g.ih, (SELECT sum(a.creditos) FROM asignaturas a
+                WHERE a.grupo_id=g.id AND a.deleted_at IS NULL) AS creditos
+            FROM grupos g WHERE g.year_id=? AND g.nombre=? AND g.deleted_at IS NULL', [$nuevo, $grupo->nombre]);
+
+        $this->assertNotNull($copiado, "El grupo «{$grupo->nombre}» no llegó al año nuevo.");
+
+        $this->assertSame(3 * $asignaturas, (int) $copiado->ih,
+            "El grupo del año nuevo perdió su intensidad horaria.\n".
+            'El aviso de descuadre de la pantalla de asignaturas nace apagado justo en enero, '.
+            'que es cuando se arma el horario y el único mes en que sirve.');
+
+        $this->assertSame((int) $copiado->creditos, (int) $copiado->ih,
+            "La suma de créditos y la IH del grupo dejaron de cuadrar al pasar de año.\n".
+            'Las dos se copian o no sirve ninguna: la cuenta que hace la pantalla es Σ creditos contra ih.');
+
+        $this->assertNull(DB::table('grupos')->where('year_id', $nuevo)
+            ->where('nombre', 'Grupo sin IH')->value('ih'),
+            'El grupo que no tenía intensidad horaria estrenó el año con una que nadie escribió. '.
+            '`null` es «nadie la ha puesto»; 0 es «este curso no da clase», y son cosas distintas.');
+    }
+
+    /**
      * Monta una plantilla de dos unidades con tres y dos subunidades en un año.
      *
      * Hace falta montarla: `unidades_por_defecto` está **vacía en el seed** —y en la

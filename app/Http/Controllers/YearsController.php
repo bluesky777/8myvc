@@ -409,6 +409,19 @@ class YearsController extends Controller {
 				$newGr->orden 			= $grupo->orden;
 				$newGr->cupo 			= $grupo->cupo;
 				$newGr->caritas 		= $grupo->caritas;
+				// La intensidad horaria del grupo se hereda, igual que la de sus asignaturas en el
+				// bucle de dentro (`creditos`). Y las dos hacen falta o no sirve ninguna:
+				// la pantalla de asignaturas avisa comparando Σ `creditos` contra `ih`, así que
+				// copiar una sola no deja el aviso a medias — lo **apaga**, porque `ih` en NULL
+				// es «nadie la ha puesto» y ahí la comparación se calla a propósito
+				// (`2026_09_07_100000_grupos_con_ih`).
+				//
+				// Y se apagaría en **enero**, que es el único mes en que sirve: el año nuevo es
+				// cuando se arma el horario y cuando un 3 tecleado donde iban 4 todavía se
+				// puede corregir sin mover fichas ya colocadas. Un fallo que sólo se puede ver
+				// una vez al año no lo encuentra nadie usando: lo encuentra quien lo va a
+				// buscar, y por eso lo vigila `CentinelaDeLasColumnasDelGrupoCopiadoTest`.
+				$newGr->ih 				= $grupo->ih;
 				$newGr->save();
 
 				$asigs_ant = Asignatura::where('grupo_id', $grupo->id)->get();

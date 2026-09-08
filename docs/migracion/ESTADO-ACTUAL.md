@@ -951,6 +951,55 @@ TOPE QUE CORTA EL FICHERO Y CONTESTA `201`** · [23 §9.ter y §10.2 decisión 5
 > el escritorio sí recogió `disponibilidad`, y contarlas como cuatro haría buscar el problema en
 > el único renglón que está bien.* El arreglo es del otro repositorio; la constancia es de éste.
 
+**7 sep 2026 — EL AÑO NUEVO SE DEJABA `grupos.ih`, Y CON ELLA EL AVISO QUE ACABABA DE
+ENTRAR ESA MISMA NOCHE** · `YearsController::postStore` (**una línea**),
+`tests/Contrato/YearsTest.php` (+1 caso),
+`tests/Contrato/CentinelaDeLasColumnasDelGrupoCopiadoTest.php` (**nuevo, 2 casos**) y
+`CentinelaDeLasColumnasDelAnioNuevoTest` · **ninguna ruta nueva: el contador se queda en
+579** · `Tests: 1954 passed, 18.416 aserciones (--testsuite=Contrato)`, sobre el árbol de este
+commit y con la base `simonbolivar_testing_yr` · pint PASS · larastan
+`[OK] No errors`
+
+`grupos.ih` —la intensidad horaria semanal del grupo, contra la que la pantalla de
+asignaturas cuadra Σ `asignaturas.creditos`— entró en `5bc035d`, de otra sesión. **El bucle
+que copia los grupos al año siguiente escribe nueve columnas a mano y `ih` no era ninguna**,
+mientras que doce líneas más abajo el bucle de las asignaturas **sí** copia `creditos`. O sea
+que en enero cada colegio estrenaba el año con la IH de cada asignatura intacta y la del grupo
+en blanco: **el cuadre no se quedaba a medias, se apagaba entero** —`null` es «nadie la ha
+puesto» y la comparación se calla a propósito— y se apagaba **justo el mes en que se arma el
+horario**, que es el único en que sirve. De los fallos que sólo se pueden ver **una vez al
+año**. Lo encontró la sesión del front al escribirla, no usándola.
+
+- **El arreglo es una línea; lo que no lo es, es que no vuelva a pasar.** Este bucle ya había
+  perdido `profesor_id` el 30 ago, y las dos veces lo encontró alguien que fue a mirarlo por
+  otra cosa. Ahora lo cierra un centinela a la manera del de `years`, una tabla más abajo y
+  dentro del mismo método: **18 columnas vivas, 10 copiadas, 6 estructurales y 2 excusadas con
+  su motivo escrito** —`titular_id` (decisión de Joseth, 30 ago) y `created_by`.
+- **`created_by` no es una decisión de este bucle: es un hueco de la tabla entera.** Ningún
+  sitio de la API escribe `grupos.created_by` — medido sobre los **3 de 3** `new Grupo` que
+  existen (`GruposController`, `Perfiles\PerfilesController` y éste), y en el seed la tienen a
+  NULL los 2 de 2 grupos vivos. Heredarla sería falso de una forma nueva —diría que el grupo
+  de este año lo creó quien creó el del anterior—, y escribir el usuario actual **sólo aquí**
+  sería taparlo por un tercio. Queda nombrada, que es lo que el centinela exige.
+- **Y el centinela nació contando texto en vez de código, cosa que sólo se vio mutando.**
+  Con la línea de `ih` **comentada** seguía en verde: la asignación seguía escrita en el
+  fuente. Se arregla quitando los comentarios antes de contar, **en los dos centinelas**; en el
+  de `years` **no cambia el número hoy** —64 con y sin, medido— y se aplica igual, porque es la
+  misma línea de código copiada. *Un verde no dice nada hasta que se le ha visto ponerse rojo*,
+  y hay que verlo con la mutación que imita el fallo real (**borrar** la línea), no con la
+  cómoda.
+- **Lo que NO cubre, dicho aquí para que se sepa que falta:** las asignaturas. El bucle de
+  dentro copia 6 de sus 20 columnas y **siete de las catorce restantes son las de día**
+  (`lunes`…`domingo`, las que audita `tools/deriva-del-horario.php`): decidir una por una si se
+  heredan es **una decisión sobre el horario del colegio**, no un centinela, y no se toma de
+  paso en un fichero de tests.
+- **`Perfiles\PerfilesController::postStore` se miró y se deja como está.** Es la tercera copia
+  del formulario de grupo y no escribe ni `cupo` ni `ih`, pero **no copia nada**: crea desde el
+  cuerpo, y sin `ih` el grupo nace en `null`, que es el estado correcto. **No lo llama ningún
+  cliente** — 0 apariciones de `perfiles/store` en los cuatro fronts contra 5 de `grupos/store`,
+  que es el control de que el detector veía algo. Con ruta y muerto **se documenta, no se
+  toca**.
+
 **7 sep 2026 — RUTA NUEVA, LA 579: `GET sincronizacion/huella`** ·
 `app/Http/Controllers/SincronizacionController.php` (nuevo), `routes/api/estructura.php`,
 `tests/Contrato/HuellaDeSincronizacionTest.php` (nuevo, **12 casos / 86 aserciones**),

@@ -55,6 +55,11 @@ use Tests\TestCase;
  *
  * A la manera de `CentinelaDeLosEscritoresDeBitacoraTest`, y por el mismo motivo:
  * *una lista a mano sin centinela dura hasta el siguiente que escriba.*
+ *
+ * **Y este método traspasa DOS tablas a mano, no una.** Las columnas de `grupos` que
+ * copia el bucle de más abajo las vigila `CentinelaDeLasColumnasDelGrupoCopiadoTest`,
+ * que nació el 7 sep 2026 al colarse `grupos.ih` — o sea que este centinela estuvo en
+ * verde mientras el mismo fallo que describe pasaba más abajo, en este mismo método.
  */
 class CentinelaDeLasColumnasDelAnioNuevoTest extends TestCase
 {
@@ -217,6 +222,15 @@ class CentinelaDeLasColumnasDelAnioNuevoTest extends TestCase
 
         $hasta = strpos($fuente, 'public function ', $desde + 20);
         $cuerpo = substr($fuente, $desde, $hasta === false ? null : $hasta - $desde);
+
+        // Los comentarios fuera antes de contar. **Hoy no cambia el número** —64 con y
+        // sin ellos, medido el 7 sep 2026—, y aun así se quita: sin esto el centinela
+        // cuenta texto y no código, o sea que una asignación **comentada** sigue
+        // valiendo por escrita. Se descubrió en el hermano
+        // (`CentinelaDeLasColumnasDelGrupoCopiadoTest`) mutando el controlador para ver
+        // si el test sabía ponerse rojo, y era la misma línea de código copiada.
+        $cuerpo = (string) preg_replace('~//[^\n]*~', '', $cuerpo);
+        $cuerpo = (string) preg_replace('~/\*.*?\*/~s', '', $cuerpo);
 
         preg_match_all('/\$year->(\w+)\s*=(?!=)/', $cuerpo, $m);
 
