@@ -951,6 +951,51 @@ TOPE QUE CORTA EL FICHERO Y CONTESTA `201`** · [23 §9.ter y §10.2 decisión 5
 > el escritorio sí recogió `disponibilidad`, y contarlas como cuatro haría buscar el problema en
 > el único renglón que está bien.* El arreglo es del otro repositorio; la constancia es de éste.
 
+**8 sep 2026 — `myvc_horarios` VA A CONSTRUIR SOBRE `PUT years/useractive`, Y SE LLEVA UNA
+PREGUNTA SOBRE `grupos.ih` A JOSETH** · nada de código: esto es contrato y contexto, y
+existe porque si no se escribe muere con la sesión que lo habló.
+
+**1. Un segundo cliente pasa a depender de `years/useractive`.** `myvc_horarios` necesita
+leer `grupos` y `asignaturas` de **otro año** antes de importar, y hasta hoy creía que no
+se podía: le habían contestado que no hay parámetro —cierto, `GruposController::getIndex`
+filtra por `$user->year_id` y **no lee ningún parámetro de consulta**— y leyó eso como que
+no había mecanismo. **Lo hay, y es el que este documento ya corrigió una vez**: el `PUT`
+escribe `users.periodo_id` y el año se deriva. Nada nuevo que decidir para que lo usen; lo
+que sí sería decisión de Joseth es un **año por petición** que no mute al usuario, y con
+`$user->year_id` leído en **382 sitios** de `app/` y `$user->periodo_id` en **112**
+(contados el 8 sep), eso no es un parámetro en un endpoint: es un override del contexto.
+
+**Lo que se les dijo y no estaba escrito en ningún sitio, porque no se ve desde fuera:**
+
+- **El año es una fila de `users`, no estado del token.** Si esa cuenta entra desde el
+  móvil **mientras corre su importación**, `Login::ponerEnElPeriodoActual`
+  (`app/Services/Login.php:91` y `:194`) la devuelve al periodo actual y **el año se les
+  mueve a mitad del proceso**, con las lecturas siguientes contestando **200 y datos del
+  otro año**. Van a restaurar ellos el `periodo_id` con `PUT periodos/useractive/{id}`, en
+  un bloque que corre aunque la lectura falle — que es acotar el daño en vez de confiar en
+  que alguien entre.
+- **El respaldo no es «el periodo del mismo número»**: si el año destino no tiene uno con
+  el `numero` del usuario, coge `$peris[count($peris)-1]`, la última fila de un `get()`
+  **sin `ORDER BY`**. Cae por clave primaria, no por número.
+
+**2. Y la pregunta que se llevan, que es sobre nuestra columna de anoche:** ellos **deducen
+hoy la IH semanal del grupo sumando las de sus asignaturas**, y de ahí sacan las lecciones
+al día de cada nivel. O sea que **deducen lo declarado a partir de lo sumado**, que son las
+dos cosas que `grupos.ih` existe para poder comparar. Si fueran el mismo número por
+construcción, la comparación sería una tautología; el «3 donde iban 4» que la columna caza
+**ellos lo heredarían sin síntoma**.
+
+**Y el dato que lo convierte en un punto ciego y no en un matiz:** medido en `simonbolivar`
+el 8 sep, de **117** grupos vivos **13** tienen `ih` puesta —a mano, entre las 04:01 y las
+04:03— y **coinciden con su suma en 13 de 13** (20 en preescolar, 25 en primaria, 30 en
+bachillerato). **Hoy su deducción acierta en todos**, así que la divergencia les sería
+invisible hasta que deje de serlo. Los otros 104 la tienen `null`, que es el estado
+diseñado y **no uno transitorio**: no se puede planificar con que se llene.
+
+*Observación, no intención, y se anota por lo que vale: la persona que tenía delante el
+aviso «Sexto: 30 de 20 h» **subió la `ih` a 30** en vez de bajar la carga. Es un docker de
+desarrollo y no demuestra nada del producto.*
+
 **7 sep 2026 — EL AÑO NUEVO SE DEJABA `grupos.ih`, Y CON ELLA EL AVISO QUE ACABABA DE
 ENTRAR ESA MISMA NOCHE** · `YearsController::postStore` (**una línea**),
 `tests/Contrato/YearsTest.php` (+1 caso),
