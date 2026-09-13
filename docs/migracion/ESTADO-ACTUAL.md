@@ -113,6 +113,15 @@
 > | **D25** | los desempeños de «todos los grados» y los de 6.º **acumulan** — y es **deliberadamente lo contrario** que la plantilla, donde gana la más específica |
 > | **D23** | **la celda de la rejilla ES el nivel**: Superior/Alto/Básico/Bajo por cruce, premarcado por la nota |
 >
+> **Y la que este plan abrió de vuelta también se cerró: D26.** La escala del alumno con PIAR
+> **usa las mismas del año, y no se construye nada**. Joseth no eligió entre las opciones: puso en
+> duda la premisa. La escala decide la promoción y tiene que seguir siendo equivalente a la
+> nacional (1290 art. 5); lo que se flexibiliza es el **desempeño**, que ya tiene su
+> `alumno_id`. **La pregunta salía de mezclar dos casos** que el doc 28 tenía en la misma casilla:
+> preescolar es un grupo entero sin números y va **por grupo** (`grupos.caritas`); el alumno con
+> PIAR es un individuo dentro de un grupo numérico. Juntarlos hacía aparecer una escala por alumno,
+> que no existe.
+>
 > **D23 es la que hay que leer, y no porque contradiga el hallazgo.** El desajuste era real —
 > `escalas_de_valoracion` da un nivel y la fila de `desempenos` no lleva ninguno — y sigue
 > siéndolo. Lo que estaba mal era **el marco**: el plan preguntó *«qué texto escoge el nivel»*
