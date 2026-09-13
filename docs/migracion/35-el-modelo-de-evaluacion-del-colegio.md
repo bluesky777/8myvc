@@ -234,6 +234,34 @@ de más es legítimo. **Lo es.**
 > `8myvc-2e` en las tres. `datos()`, `datos_basicos()` y `de_un_profesor()` llevan proyecciones
 > nombradas.
 
+> ### Y lo que remata el día: **la terna ya estaba escrita en este repositorio, dos veces**
+>
+> Salió al verificar un hallazgo de `8myvc-2e` sobre `grupos.ih`, y es el renglón más incómodo de
+> esta sección:
+>
+> - **[23-horarios.md](23-horarios.md) §**, por `horario_version_id`, literal: *«`years` la leen
+>   con `SELECT *` `YearsController::getIndex`, `::getColegio` y `getTrashed` —el último por
+>   Eloquent—, así que … mueve sus tres instantáneas de muestreo.»*
+> - **[22-nivelaciones.md](22-nivelaciones.md) §**, por `regla_nivelacion`: *«`GET years`,
+>   `GET years/colegio`, `GET years/trashed` … las tres instantáneas de `MuestreoDeLecturasTest`
+>   se regeneran con esa decisión escrita.»*
+>
+> **Dos columnas distintas, dos documentos distintos, la misma terna y los mismos tres métodos.**
+> La respuesta llevaba escrita desde antes de que se abriera este documento, y aquí se
+> redescubrió en un día, con tres cifras falsas por el camino y dos suites ajenas corriendo. Un
+> `grep getTrashed docs/migracion/` la daba en segundos.
+>
+> **Lo que sí es nuevo, y conviene separarlo para no tirar el trabajo con el escarmiento**: los
+> dos documentos anteriores dicen **«tres respuestas vivas»**, que es la cuenta de **cobertura**
+> puesta donde va la de **exposición** — y son **ocho**. O sea que el repositorio tenía bien el
+> número que hacía falta para regenerar y **arrastraba el mismo error de población** que esta
+> sección cometió tres veces. La terna estaba; la distinción, no.
+>
+> **La regla que sale de aquí y que va antes que medir**: cuando una pregunta empieza por *«¿a
+> cuántos sitios llega X?»*, **el primer sitio donde buscar es `docs/migracion/`**, porque este
+> repositorio lleva un año contestándolas y escribiéndolas. Medir es el segundo paso, no el
+> primero.
+
 > ### Tres veces mal en un día, y el porqué vale más que las tres correcciones
 >
 > Esta sección ha dicho **~30**, luego **3**, y ha llamado a esos 3 *«los tres únicos caminos que
