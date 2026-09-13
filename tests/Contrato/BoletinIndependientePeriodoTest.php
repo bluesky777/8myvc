@@ -401,17 +401,36 @@ class BoletinIndependientePeriodoTest extends CasoDeContrato
      * **Ni apagar ni encender borran una sola fila.** La petición literal del colegio.
      *
      * *«No debe borrar los datos suministrados en ese periodo si los puso antes de
-     * marcar la opción, pero esos datos deben ser ignorados en los boletines.»* Se
-     * cuentan las tres tablas antes y después de un ciclo completo.
+     * marcar la opción, pero esos datos deben ser ignorados en los boletines.»*
+     *
+     * ## Este caso cambió de FORMA con D18, y no de fondo
+     *
+     * Hasta el 13 sep 2026 afirmaba que **el total** de `unidades` y `subunidades` era el
+     * mismo antes y después, lo cual era cierto **sólo porque marcar no creaba nada**.
+     * Desde D18 marcar le siembra la rejilla del grupo a su nombre, así que el total
+     * sube — y un caso que exigiera la igualdad estaría fijando la ausencia de la
+     * función, no la promesa del colegio.
+     *
+     * Lo que se comprueba es lo que de verdad se prometió, que es más fuerte que el
+     * total: **ninguna de las filas que existían antes desapareció ni quedó con
+     * `deleted_at`**. Se guardan sus ids y se buscan una a una. Es exactamente lo que
+     * este mismo caso ya hacía con `notas` desde que apagar empezó a sembrar.
      */
     public function test_ni_apagar_ni_encender_borran_una_sola_fila(): void
     {
         $e = $this->escenario();
         $token = $this->tokenDelPersonalDe($e['year']);
 
-        $contar = static fn (string $tabla): int => (int) DB::selectOne("SELECT COUNT(*) c FROM {$tabla}")->c;
+        $ids = static fn (string $tabla): array => array_map(
+            static fn ($f) => (int) $f->id,
+            DB::select("SELECT id FROM {$tabla} WHERE deleted_at IS NULL")
+        );
 
-        $antes = ['unidades' => $contar('unidades'), 'subunidades' => $contar('subunidades')];
+        $antes = [
+            'unidades' => $ids('unidades'),
+            'subunidades' => $ids('subunidades'),
+            'notas' => $ids('notas'),
+        ];
 
         $this->withToken($token)->putJson(self::RUTA,
             ['alumno_id' => $e['alumno'], 'periodo_id' => $e['periodos'][1], 'aplica' => true])->assertStatus(200);
@@ -419,21 +438,13 @@ class BoletinIndependientePeriodoTest extends CasoDeContrato
         $this->withToken($token)->putJson(self::RUTA,
             ['alumno_id' => $e['alumno'], 'periodo_id' => $e['periodos'][1], 'aplica' => false])->assertStatus(200);
 
-        $this->assertSame($antes['unidades'], $contar('unidades'), 'Se perdieron unidades al marcar y desmarcar.');
-        $this->assertSame($antes['subunidades'], $contar('subunidades'), 'Se perdieron subunidades al marcar y desmarcar.');
+        foreach ($antes as $tabla => $viejas) {
+            $siguenVivas = array_flip($ids($tabla));
+            $perdidas = array_values(array_filter($viejas, static fn (int $id) => ! isset($siguenVivas[$id])));
 
-        // Las notas se cuentan aparte porque **apagar puede crear** (§9.3) y nunca
-        // borrar: lo que se afirma es que ninguna existente desapareció, no que el
-        // total sea el mismo.
-        $vivas = (int) DB::selectOne('SELECT COUNT(*) c FROM notas WHERE deleted_at IS NULL')->c;
-        $borradasDespues = (int) DB::selectOne('SELECT COUNT(*) c FROM notas WHERE deleted_at IS NOT NULL')->c;
-
-        $this->assertGreaterThanOrEqual(0, $vivas);
-        $this->assertSame(
-            (int) DB::selectOne('SELECT COUNT(*) c FROM notas WHERE deleted_at IS NOT NULL')->c,
-            $borradasDespues,
-            'Alguna nota quedó borrada blandamente por marcar o desmarcar.'
-        );
+            $this->assertSame([], $perdidas,
+                "Marcar y desmarcar se llevó por delante filas de {$tabla}: ".implode(', ', array_slice($perdidas, 0, 10)));
+        }
     }
 
     /**
@@ -651,5 +662,317 @@ class BoletinIndependientePeriodoTest extends CasoDeContrato
             ->assertStatus(200);
 
         $this->assertSame((int) $usuario->id, (int) $this->filaDeLaMarca($e['alumno'], $e['periodos'][0])->updated_by);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // MARCAR SIEMBRA — la Entrega 4, D18
+    // ─────────────────────────────────────────────────────────────────────
+
+    /** Cuántas unidades **propias** tiene el alumno en ese periodo, dentro de su grupo. */
+    private function suyasEn(array $e, int $periodo): int
+    {
+        return (int) DB::selectOne(
+            'SELECT COUNT(*) c FROM unidades u
+               INNER JOIN asignaturas a ON a.id = u.asignatura_id AND a.grupo_id = ? AND a.deleted_at IS NULL
+              WHERE u.alumno_id = ? AND u.periodo_id = ? AND u.deleted_at IS NULL',
+            [$e['grupo'], $e['alumno'], $periodo]
+        )->c;
+    }
+
+    /** Cuántas unidades tiene el CURSO en ese periodo. */
+    private function delCursoEn(array $e, int $periodo): int
+    {
+        return (int) DB::selectOne(
+            'SELECT COUNT(*) c FROM unidades u
+               INNER JOIN asignaturas a ON a.id = u.asignatura_id AND a.grupo_id = ? AND a.deleted_at IS NULL
+              WHERE u.alumno_id IS NULL AND u.periodo_id = ? AND u.deleted_at IS NULL',
+            [$e['grupo'], $periodo]
+        )->c;
+    }
+
+    /**
+     * **Marcar le monta la rejilla del grupo a su nombre.** Es D18, y es lo que hace que
+     * marcar deje de ser el principio del trabajo.
+     *
+     * Sin esto, marcar le dejaba la planilla **en blanco en sus trece asignaturas**: las
+     * unidades se leen con alcance excluyente —`u.alumno_id <=> alcance`— y para un
+     * marcado ese alcance es su propio id. Es la §9.1, el riesgo grave del documento.
+     *
+     * Se cuentan las filas escritas y **además** se comprueba que los contadores de la
+     * respuesta dicen lo mismo: un recuento que no coincida con la base es peor que no
+     * mandar ninguno, porque el colegio se lo cree.
+     */
+    public function test_marcar_le_siembra_la_rejilla_del_grupo(): void
+    {
+        $e = $this->escenario();
+        $periodo = $e['periodos'][1];
+
+        $delCurso = $this->delCursoEn($e, $periodo);
+        $this->assertGreaterThan(0, $delCurso,
+            'El grupo elegido no tiene rejilla de curso en ese periodo: el caso no se puede montar.');
+        $this->assertSame(0, $this->suyasEn($e, $periodo), 'El alumno ya tenía estructura propia.');
+
+        $r = $this->withToken($this->tokenDelPersonalDe($e['year']))
+            ->putJson(self::RUTA, ['alumno_id' => $e['alumno'], 'periodo_id' => $periodo, 'aplica' => true]);
+
+        $r->assertStatus(200);
+
+        $this->assertSame($delCurso, $this->suyasEn($e, $periodo),
+            'Marcar no le sembró la rejilla del grupo: se queda con la planilla en blanco en todas '
+            .'sus asignaturas, que es la §9.1 y es el riesgo grave de este módulo.');
+
+        $this->assertSame($delCurso, $r->json('sembrado.unidades'),
+            'El contador de unidades no dice lo que hay en la base.');
+        $this->assertGreaterThan(0, $r->json('sembrado.asignaturas_sembradas'));
+        $this->assertGreaterThan(0, $r->json('sembrado.subunidades'));
+
+        $this->assertSame(
+            $r->json('sembrado.asignaturas_revisadas'),
+            $r->json('sembrado.asignaturas_sembradas')
+                + $r->json('sembrado.saltadas_porque_ya_tenia')
+                + $r->json('sembrado.saltadas_sin_rejilla_del_grupo'),
+            'Las tres primeras cifras no cuadran: revisadas tiene que ser sembradas más las dos saltadas.'
+        );
+    }
+
+    /**
+     * **Y se lleva las notas que ya tenía.** El caso de la §9.3 por la otra puerta: el
+     * estudiante que iba en la planilla y se marca a mitad de periodo **no empieza en
+     * blanco**.
+     *
+     * Se le pone un valor reconocible en una casilla del curso y se busca ese mismo valor
+     * en una subunidad **suya** después de marcar. Contar notas no valdría: el sembrado
+     * crea casillas con `nota_default` y el total subiría igual con las notas perdidas.
+     */
+    public function test_marcar_se_lleva_las_notas_que_ya_tenia(): void
+    {
+        $e = $this->escenario();
+        $periodo = $e['periodos'][1];
+
+        $casilla = DB::selectOne(
+            'SELECT n.id FROM notas n
+               INNER JOIN subunidades s ON s.id = n.subunidad_id AND s.deleted_at IS NULL
+               INNER JOIN unidades u ON u.id = s.unidad_id AND u.deleted_at IS NULL
+                                    AND u.periodo_id = ? AND u.alumno_id IS NULL
+               INNER JOIN asignaturas a ON a.id = u.asignatura_id AND a.grupo_id = ?
+              WHERE n.alumno_id = ? AND n.deleted_at IS NULL
+              ORDER BY n.id LIMIT 1',
+            [$periodo, $e['grupo'], $e['alumno']]
+        );
+
+        $this->assertNotNull($casilla, 'El alumno no tiene ninguna casilla del curso en ese periodo.');
+
+        DB::update('UPDATE notas SET nota = 37 WHERE id = ?', [$casilla->id]);
+
+        $r = $this->withToken($this->tokenDelPersonalDe($e['year']))
+            ->putJson(self::RUTA, ['alumno_id' => $e['alumno'], 'periodo_id' => $periodo, 'aplica' => true]);
+
+        $r->assertStatus(200);
+
+        $suya = DB::selectOne(
+            'SELECT n.id FROM notas n
+               INNER JOIN subunidades s ON s.id = n.subunidad_id AND s.deleted_at IS NULL
+               INNER JOIN unidades u ON u.id = s.unidad_id AND u.deleted_at IS NULL
+                                    AND u.periodo_id = ? AND u.alumno_id = ?
+              WHERE n.alumno_id = ? AND n.nota = 37 AND n.deleted_at IS NULL
+              LIMIT 1',
+            [$periodo, $e['alumno'], $e['alumno']]
+        );
+
+        $this->assertNotNull($suya,
+            'La nota que el alumno ya tenía no viajó a su rejilla propia: marcar le borra el trabajo '
+            .'del periodo de la vista, aunque la fila vieja siga ahí.');
+
+        $this->assertGreaterThan(0, $r->json('sembrado.notas_traidas'));
+    }
+
+    /**
+     * **Marcar dos veces no le duplica la rejilla.** La pantalla no sabe si ya estaba
+     * marcado, así que esto pasa de verdad: con `reemplazar` en vez de `saltar`, la
+     * segunda llamada le dejaría la suma al doble y en 200.
+     */
+    public function test_marcar_dos_veces_no_le_duplica_la_rejilla(): void
+    {
+        $e = $this->escenario();
+        $periodo = $e['periodos'][1];
+        $token = $this->tokenDelPersonalDe($e['year']);
+
+        $this->withToken($token)->putJson(self::RUTA,
+            ['alumno_id' => $e['alumno'], 'periodo_id' => $periodo, 'aplica' => true])->assertStatus(200);
+
+        $tras_la_primera = $this->suyasEn($e, $periodo);
+        $this->assertGreaterThan(0, $tras_la_primera);
+
+        $r = $this->withToken($token)->putJson(self::RUTA,
+            ['alumno_id' => $e['alumno'], 'periodo_id' => $periodo, 'aplica' => true]);
+
+        $r->assertStatus(200);
+
+        $this->assertSame($tras_la_primera, $this->suyasEn($e, $periodo),
+            'La segunda llamada volvió a sembrar y le dobló el reparto.');
+
+        $this->assertSame(0, $r->json('sembrado.asignaturas_sembradas'));
+        $this->assertGreaterThan(0, $r->json('sembrado.saltadas_porque_ya_tenia'),
+            'La segunda llamada tiene que decir que las saltó, no callarse.');
+    }
+
+    /**
+     * **Lo que el docente le montó a mano no se toca.** Si ya tenía estructura propia en
+     * una asignatura, esa asignatura se salta entera: ni se añade ni se reemplaza.
+     */
+    public function test_marcar_no_toca_la_estructura_propia_que_ya_tenia(): void
+    {
+        $e = $this->escenario();
+        $periodo = $e['periodos'][1];
+
+        $asignatura = DB::selectOne(
+            'SELECT a.id FROM asignaturas a
+               INNER JOIN unidades u ON u.asignatura_id = a.id AND u.periodo_id = ?
+                                    AND u.alumno_id IS NULL AND u.deleted_at IS NULL
+              WHERE a.grupo_id = ? AND a.deleted_at IS NULL
+              GROUP BY a.id LIMIT 1',
+            [$periodo, $e['grupo']]
+        );
+
+        $this->assertNotNull($asignatura);
+
+        DB::table('unidades')->insert([
+            'definicion' => 'La que montó el docente',
+            'porcentaje' => 100,
+            'periodo_id' => $periodo,
+            'asignatura_id' => $asignatura->id,
+            'alumno_id' => $e['alumno'],
+            'orden' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $r = $this->withToken($this->tokenDelPersonalDe($e['year']))
+            ->putJson(self::RUTA, ['alumno_id' => $e['alumno'], 'periodo_id' => $periodo, 'aplica' => true]);
+
+        $r->assertStatus(200);
+
+        $enEsa = array_map(static fn ($u) => $u->definicion, DB::select(
+            'SELECT definicion FROM unidades
+              WHERE alumno_id = ? AND asignatura_id = ? AND periodo_id = ? AND deleted_at IS NULL',
+            [$e['alumno'], $asignatura->id, $periodo]
+        ));
+
+        $this->assertSame(['La que montó el docente'], $enEsa,
+            'El sembrado de marcar se metió en una asignatura que el alumno ya tenía montada.');
+
+        $this->assertGreaterThan(0, $r->json('sembrado.saltadas_porque_ya_tenia'));
+    }
+
+    /**
+     * **Los ocho números vienen siempre, también en cero y también al desmarcar.**
+     *
+     * Es la mitad del contrato que el front pidió por escrito: *«un 0 sembradas tiene que
+     * poder distinguirse de no revisó nada»*. Un bloque que omitiera los campos en cero
+     * haría esas dos cosas indistinguibles para quien las pinta.
+     *
+     * Y al desmarcar el bloque **viene igual**, con `asignaturas_revisadas` en cero —ahí
+     * no se revisa ninguna— y `casillas_nuevas` como lo único que puede subir: son las
+     * del curso, que es lo que ese camino ya sembraba desde el 31 ago y **nunca contó**.
+     */
+    public function test_la_respuesta_trae_los_ocho_numeros_tambien_al_desmarcar(): void
+    {
+        $e = $this->escenario();
+        $token = $this->tokenDelPersonalDe($e['year']);
+
+        $campos = [
+            'asignaturas_revisadas', 'asignaturas_sembradas', 'saltadas_porque_ya_tenia',
+            'saltadas_sin_rejilla_del_grupo', 'unidades', 'subunidades', 'notas_traidas', 'casillas_nuevas',
+        ];
+
+        foreach ([true, false] as $aplica) {
+            $r = $this->withToken($token)->putJson(self::RUTA,
+                ['alumno_id' => $e['alumno'], 'periodo_id' => $e['periodos'][2], 'aplica' => $aplica]);
+
+            $r->assertStatus(200);
+
+            // Los tres de siempre siguen ahí, con su nombre y su tipo: el front y
+            // `myvc_flutter` desplegados leen éstos y no pueden enterarse de nada.
+            $this->assertSame($e['alumno'], $r->json('alumno_id'));
+            $this->assertSame($e['periodos'][2], $r->json('periodo_id'));
+            $this->assertSame($aplica, $r->json('aplica'));
+
+            foreach ($campos as $campo) {
+                $this->assertIsInt($r->json('sembrado.'.$campo),
+                    "Falta el número `{$campo}` con aplica=".var_export($aplica, true)
+                    .': un campo que no viene cuando vale cero no se distingue de «no se revisó nada».');
+            }
+
+            if (! $aplica) {
+                $this->assertSame(0, $r->json('sembrado.asignaturas_revisadas'),
+                    'Desmarcar no revisa ninguna asignatura: ese cero es información.');
+            }
+        }
+    }
+
+    /**
+     * **Marcar NO siembra desempeños, y eso contradice a propósito la última línea de D18.**
+     *
+     * El doc 35 §5 dice *«con D5, al marcar se siembran también los desempeños del grupo a
+     * nombre del alumno»*. Aquella frase se escribió **antes de que existiera la Fase 4**, y
+     * la Fase 4 resolvió el mismo problema por el otro lado:
+     * `DesempenosController::desempenosDeLaRejilla()` lee
+     * `d.alumno_id IS NULL OR d.alumno_id IN (marcados)` —o sea **suma** los del curso y los
+     * del marcado— con este comentario suyo delante: *«sin esta rama, un alumno con boletín
+     * independiente abriría la rejilla sin ninguna columna»*.
+     *
+     * Con las dos cosas a la vez, copiarle los del grupo a su nombre le **duplicaría cada
+     * columna de la rejilla, y a todo el grupo**. Este caso fija la decisión para que nadie
+     * «arregle» el módulo leyendo sólo el documento.
+     */
+    public function test_marcar_no_siembra_desempenos(): void
+    {
+        $e = $this->escenario();
+        $periodo = $e['periodos'][1];
+
+        $suyos = static fn (): int => (int) DB::selectOne(
+            'SELECT COUNT(*) c FROM desempenos WHERE alumno_id = ? AND periodo_id = ? AND deleted_at IS NULL',
+            [$e['alumno'], $periodo]
+        )->c;
+
+        $antes = $suyos();
+
+        $this->withToken($this->tokenDelPersonalDe($e['year']))
+            ->putJson(self::RUTA, ['alumno_id' => $e['alumno'], 'periodo_id' => $periodo, 'aplica' => true])
+            ->assertStatus(200);
+
+        $this->assertSame($antes, $suyos(),
+            'Marcar sembró desempeños a nombre del alumno: la rejilla de la Fase 4 ya suma los del '
+            .'curso, así que eso le duplica cada columna a todo el grupo.');
+    }
+
+    /**
+     * **El sembrado de marcar queda auditado, también cuando no siembra nada.**
+     *
+     * Es la razón que `putSembrar()` ya tiene escrita: *«alguien lo apretó y no pasó
+     * nada»* es exactamente el suceso que alguien va a investigar dentro de un año. Se
+     * mira **la fila que queda** y no el 200: `Auditoria::guardar()` se traga cualquier
+     * excepción a propósito, así que un escritor roto contesta igual de contento.
+     */
+    public function test_marcar_deja_una_linea_de_auditoria_con_los_numeros(): void
+    {
+        $e = $this->escenario();
+        $periodo = $e['periodos'][1];
+
+        $antes = (int) DB::selectOne("SELECT COUNT(*) c FROM auditoria WHERE entidad = 'unidad'")->c;
+
+        $this->withToken($this->tokenDelPersonalDe($e['year']))
+            ->putJson(self::RUTA, ['alumno_id' => $e['alumno'], 'periodo_id' => $periodo, 'aplica' => true])
+            ->assertStatus(200);
+
+        $linea = DB::selectOne("SELECT valor_nuevo, resumen FROM auditoria WHERE entidad = 'unidad' ORDER BY id DESC LIMIT 1");
+
+        $this->assertSame($antes + 1,
+            (int) DB::selectOne("SELECT COUNT(*) c FROM auditoria WHERE entidad = 'unidad'")->c,
+            'Marcar y sembrar ~120 filas no dejó ni una línea de auditoría.');
+
+        $this->assertNotNull($linea);
+        $this->assertStringContainsString('asignaturas_sembradas', (string) $linea->valor_nuevo,
+            'La línea no lleva el recuento dentro: sin él sólo dice que alguien pulsó.');
     }
 }
