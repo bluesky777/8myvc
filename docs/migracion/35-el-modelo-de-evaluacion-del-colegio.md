@@ -2097,7 +2097,8 @@ salida.**
   más arriba, y **no lo desbloquea ninguna decisión**: es una entrega con su migración.
 - ~~**¿Las rúbricas de biblioteca (`es_plantilla = 1`) son configuración del colegio?**~~ —
   **cerrada el 13 sep 2026: no** (D27). No se copian, y la entrega que habría hecho falta
-  —cuatro tablas hijas y sus ids remapeados— no se paga. `rubricas` pasó de `SIN_DECIDIR` a
+  —tres tablas de definición, el enganche de `subunidades` y todos sus ids remapeados— no
+  se paga. `rubricas` pasó de `SIN_DECIDIR` a
   `DATOS_DEL_ANIO` y `hay_tablas_por_anio_sin_decidir` se puso verde **por decisión, no por
   silencio**.
 - **Los dos censos del día del despliegue** (§7). No se pueden correr desde una sesión de
