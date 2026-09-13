@@ -34,6 +34,20 @@ no aparece en el relato porque no llegó a romperse.
 Y de paso explica el «3 contra 4»: el commit cuenta **las que se escaparon**, no
 las que la columna toca. Son preguntas distintas y las dos respuestas son ciertas.
 
+Hay una tercera, y por eso este script NO sirve tal cual para reconstruir un caso
+pasado: entre los dos commits se tocaron **cinco** instantáneas, y la quinta
+—`grupos-grupos-cant-alumnos.json`— se movió por otro motivo. Su consulta es una
+**proyección nombrada** y el diff de `5bc035d` le añade `g.ih` **a mano**:
+
+    - SELECT g.id, g.nombre, g.abrev, g.orden, ..., g.cupo,
+    + SELECT g.id, g.nombre, g.abrev, g.orden, ..., g.cupo, g.ih,
+
+O sea que esa no la movió la columna: la movió **una decisión de publicarla**. Este
+script contesta *«¿qué se mueve si añado la columna y no toco nada más?»*, que es
+la pregunta que hay que hacerse **antes** de escribir la migración. Lo que un
+commit pasado movió incluye además lo que alguien decidió enseñar ese día, y eso
+no se deduce del esquema: se lee en su diff.
+
 LO QUE ESTA HERRAMIENTA NO CONTESTA, y hay que leerlo pegado a su salida
 -----------------------------------------------------------------------
 Cuenta **cobertura, no exposición**: instantáneas que se mueven, no respuestas
