@@ -650,6 +650,14 @@ Encontradas construyendo esto. Ninguna está arreglada.
 - **`ext-exif` es una sugerencia de `intervention/image`, no un requisito.** Sin
   ella no falla nada: las fotos de móvil suben tumbadas y ya. Hay que confirmarla
   en el PHP 8.4 de cada cuenta de cPanel.
+- **La nota es `decimal(7,4)` y las bandas de la escala siguen siendo `int`**, así
+  que dos bandas contiguas —`…29` y `30…`— dejan **un hueco en cada frontera** desde
+  que corrió `2026_08_30_200000_notas_finales_en_decimal`. **13 de 127.748**
+  definitivas no casan con ninguna banda y **cuatro son por el decimal** (45,5 ·
+  45,005 · 45,05 · 39,3), las cuatro del año en curso. No es de la rejilla: los tres
+  boletines ya hacen ese cruce y **imprimen el nivel vacío**, con 200 y sin log.
+  Medido, con su consulta y sus cuatro salidas, en
+  [36-la-nota-decimal-y-las-bandas-enteras.md](36-la-nota-decimal-y-las-bandas-enteras.md).
 
 Y cuatro más del P1, **las cuatro arregladas el mismo día**:
 
