@@ -11,9 +11,26 @@
 > |---|---|
 > | **0** — las subunidades del año nuevo | **HECHA** el 2 sep 2026 |
 > | **1** — la plantilla sale de phpMyAdmin | **HECHA** el 4 sep 2026, **menos el candado** (§5.1.e) |
+> | | ⚠️ **escrita, y SIN CLIENTE a 13 sep 2026** — ver debajo de la tabla |
 > | **7(a)** — el alcance de la plantilla | **HECHA** el 4 sep 2026, con la Entrega 1 |
 > | 2, 3, 4, 5, 6, 7(b–d) | propuesta |
 >
+> **⚠️ 13 sep 2026 — «HECHA» aquí significa ESCRITA, no EN USO, y la diferencia son nueve rutas
+> que no llama nadie.** Medido en los tres clientes, con control: `plantilla-notas` aparece **0**
+> veces en `myvc_front/app2/src`, **0** en `myvc_front/app/scripts` y **0** en `myvc_flutter/lib`;
+> `can_edit_plantilla_notas`, **0** también. El control —`boletin-independiente` en los dos
+> fronts— da **113**, así que el detector ve lo que dice ver. **La plantilla del colegio se sigue
+> editando en phpMyAdmin**, que es la frase entera del problema que esta entrega vino a resolver.
+> Lo destapó `myvc-front-53`, que lleva el cliente y lo tiene planeado.
+>
+> Es `profesores.tono` por el otro lado: allí faltaba el camino de escritura en el backend, aquí
+> está y falta quien lo llame. **Y arrastra dos cosas que están en
+> [35](35-el-modelo-de-evaluacion-del-colegio.md) §1.9**: que el molde de `desempenos/sembrar`
+> tiene 21 tests y cero ejecuciones en un colegio, y —la que importa— que **esto NO explica un
+> censo de `por_defecto = 1` a cero**, porque esas filas las marca el sembrador viejo
+> (`UnidadesController:158`), que lleva años corriendo. Un cero ahí sigue siendo un dato sobre los
+> colegios.
+
 > **Lo que la Entrega 1 dejó fuera va dicho aquí arriba y no en una nota al pie**:
 > el candado del docente (decisión 5) **no entró**. No es un olvido y no es que
 > cueste: cambia respuestas de éxito por **403 en nueve rutas que ya existen**, lo

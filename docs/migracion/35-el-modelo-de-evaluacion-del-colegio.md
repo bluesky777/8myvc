@@ -228,6 +228,49 @@ Para que no haya que volver a mirarlo:
 - **La cadena para sembrar existe**: `asignaturas.grupo_id` → `grupos.grado_id` →
   `grados.nivel_educativo_id`. ✔
 
+### 1.9 · «Entrega 1 HECHA» y «Entrega 1 en uso» no son lo mismo — las separan nueve rutas sin cliente
+
+Medido por `myvc-front-53` el 13 sep y **recontado aquí con un control**, porque un «0 encontrados»
+no distingue *«revisé y no está»* de *«no revisé»*:
+
+| | |
+|---|---|
+| `plantilla-notas` en `myvc_front/app2/src` + `myvc_front/app/scripts` | **0** |
+| `can_edit_plantilla_notas` en los mismos | **0** |
+| `plantilla-notas` en `myvc_flutter/lib` | **0** |
+| **control** — `boletin-independiente` en los dos fronts | **113** |
+
+**Las nueve rutas de `plantilla-notas` están vivas y enrutadas, y no las llama nadie.** O sea que
+la plantilla del colegio **se sigue editando en phpMyAdmin**, que es literalmente el problema que
+esa entrega existía para resolver. Es la familia de `profesores.tono` otra vez — la tercera en este
+mismo documento (§1.4 y ésta) — con la diferencia de que aquí no falta el camino de escritura en el
+backend: falta el cliente.
+
+**Dos consecuencias para este plan, y la segunda corrige una lectura fácil:**
+
+1. **El molde de la Fase 3 nunca ha corrido en un colegio.** `desempenos/sembrar` va «calcado de
+   `PlantillaNotasController::putSembrar`», y ese método tiene **21 casos de contrato y cero
+   ejecuciones en producción**. Los tests son reales y se han visto rojos por los dos lados
+   (doc 28 §5.1); lo que no hay es el desgaste de un colegio de verdad usándolo. Se dice para que
+   «calcado de» no se lea como «probado en los dieciséis».
+
+2. **Que no haya pantalla NO explica un censo de `por_defecto = 1` a cero**, y conviene fijarlo
+   antes de que alguien archive ese número. Las filas que el censo cuenta **no las escribe la
+   pantalla nueva**: las marca el **sembrador viejo**, `UnidadesController:158` y `:167`, que lleva
+   años copiando `unidades_por_defecto` → `unidades` con `por_defecto = true` literal. Lo que la
+   pantalla nueva iba a facilitar es **llenar `unidades_por_defecto`**, que es lo que hoy se hace a
+   mano. Así que un censo a cero dice **«ningún colegio tiene plantilla escrita a mano que alguien
+   haya abierto después»** — que es un dato sobre los colegios, no un artefacto de la pantalla que
+   falta. Es la §1.bis del doc 28 otra vez: *«revisé nueve años y ninguno tenía plantilla»* no es
+   *«esto no le pasa a nadie»*, y aquí la confusión iría en la dirección contraria y peor —
+   descartar como ruido un cero que sí significa algo.
+
+**Lo que NO cambia**: el orden de las fases. Este plan ordena por **qué se puede desplegar entero**,
+no por qué está escrito, así que la Entrega 1 sin cliente no adelanta ni atrasa nada de aquí. Lo que
+sí obliga es a no contar la Entrega 1 como capacidad que el colegio ya tiene.
+
+---
+
 ---
 
 ## 2. El orden: siete fases, cada una desplegable sola
