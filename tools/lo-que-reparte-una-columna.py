@@ -75,6 +75,14 @@ desarrollo, **70** en la de tests, **68** en un docblock envejecido y **64** en 
 volcado — las cuatro ciertas sobre bases distintas. La que vale es contra la que
 corren los tests, que es la que van a ver las instantáneas.
 
+Y **una fila por columna, nunca `GROUP_CONCAT(COLUMN_NAME)`**: `group_concat_max_len`
+son 1024 bytes por defecto y **corta la lista sin decir nada** — ni error, ni aviso,
+ni una fila de menos. `8myvc-c1` lo pagó el 13 sep 2026 midiendo esto mismo: sacó
+**57** columnas de `years` en vez de 71, y con las trece últimas fuera del conjunto
+le apareció «una columna que falta en las tres instantáneas» — un hallazgo entero
+fabricado por el tope de una función. `years` ya no cabe en 1024 bytes y `grupos`
+sí, así que la trampa muerde en unas tablas y no en otras.
+
 Uso:
     tools/lo-que-reparte-una-columna.py years
     tools/lo-que-reparte-una-columna.py grupos --base simonbolivar_testing_b
@@ -169,7 +177,7 @@ def main() -> None:
         sys.exit(f'Ninguna instantánea en {args.instantaneas} — población vacía, '
                  f'que no es lo mismo que «no hay ninguna afectada».')
 
-    enteras, parciales, ilegibles = [], [], []
+    enteras, parciales, ilegibles, reparto = [], [], [], {}
     for f in ficheros:
         try:
             datos = json.loads(f.read_text(encoding='utf-8'))
@@ -179,6 +187,7 @@ def main() -> None:
         mejor = max(solapes(datos, columnas), key=lambda s: s[1],
                     default=('(raiz)', 0, 0))
         ruta, n, claves = mejor
+        reparto[n] = reparto.get(n, 0) + 1
         if n >= total * ENTERA:
             enteras.append((f.name, ruta, n, claves))
         elif n >= max(total * PROYECCION, SUELO):
@@ -188,7 +197,18 @@ def main() -> None:
     print(f'\nPoblación: {len(ficheros)} instantáneas en {args.instantaneas}, '
           f'{total} columnas de `{args.tabla}` ({origen}).\n')
 
-    print(f'Con la fila ENTERA (>={int(total * ENTERA)}/{total}) — '
+    # **El reparto va antes que los montones, y no es adorno.** Es la diferencia
+    # entre afirmar el corte y enseñarlo: si entre la proyección más gorda y la
+    # fila entera no hay NADA, «o va la fila o va una lista elegida a mano» deja de
+    # ser una interpretación y pasa a ser la forma de los datos. Y si algún día
+    # aparece algo en medio, se ve aquí antes de que ningún umbral lo clasifique.
+    # La idea es de `8myvc-c1`, que derivó el mismo corte por otro camino.
+    print('Reparto del solape (el objeto de mayor solape de cada instantánea):')
+    for n in sorted(reparto, reverse=True):
+        marca = '  <- la fila entera' if n >= total * ENTERA else ''
+        print(f'    {n:>3} de {total} columnas  ->  {reparto[n]:>3} instantáneas{marca}')
+
+    print(f'\nCon la fila ENTERA (>={int(total * ENTERA)}/{total}) — '
           f'LAS QUE SE MUEVEN: {len(enteras)}')
     for nombre, ruta, _n, claves in sorted(enteras):
         print(f'    {nombre:<48} {ruta}   ({claves} claves)')
