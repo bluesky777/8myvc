@@ -196,7 +196,7 @@ class Unidad extends Model {
 						left join notas n ON n.subunidad_id=s.id and n.deleted_at is null and n.alumno_id=:alumno_id
 						where u.asignatura_id=:asignatura_id and u.periodo_id=:periodo_id and u.deleted_at is null and u.alumno_id <=> :alcance
 						group by u.id ) r1
-						left join escalas_de_valoracion e ON e.porc_inicial<=r1.nota_unidad and e.porc_final>=r1.nota_unidad and e.deleted_at is null and e.year_id=:year_id
+						left join escalas_de_valoracion e ON e.porc_inicial<=r1.nota_unidad and r1.nota_unidad < e.porc_final + 1 and e.deleted_at is null and e.year_id=:year_id
 						order by r1.orden_unidad, r1.unidad_id';
 
 			$unidades = DB::select($consulta, [

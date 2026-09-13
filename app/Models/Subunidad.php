@@ -76,7 +76,7 @@ class Subunidad extends Model {
 						</div>") as fila_subunidad
 					FROM subunidades s
 					left join notas n ON n.subunidad_id=s.id and n.deleted_at is null and n.alumno_id=:alumno_id
-					left join escalas_de_valoracion e ON e.porc_inicial<=n.nota and e.porc_final>=n.nota and e.deleted_at is null and e.year_id=:year_id
+					left join escalas_de_valoracion e ON e.porc_inicial<=n.nota and n.nota < e.porc_final + 1 and e.deleted_at is null and e.year_id=:year_id
 					where s.unidad_id=:unidad_id and s.deleted_at is null
 					order by s.orden';
 
@@ -115,7 +115,7 @@ class Subunidad extends Model {
 						s.definicion, s.porcentaje, e.desempenio, IF(n.nota<:min_aceptada, "nota-perdida-bold", "") as clase_perdida, n.nota
 					FROM subunidades s
 					left join notas n ON n.subunidad_id=s.id and n.deleted_at is null and n.alumno_id=:alumno_id
-					left join escalas_de_valoracion e ON e.porc_inicial<=n.nota and e.porc_final>=n.nota and e.deleted_at is null and e.year_id=:year_id
+					left join escalas_de_valoracion e ON e.porc_inicial<=n.nota and n.nota < e.porc_final + 1 and e.deleted_at is null and e.year_id=:year_id
 					where s.unidad_id=:unidad_id and s.deleted_at is null
 					order by s.orden';
 		//  limit 1
