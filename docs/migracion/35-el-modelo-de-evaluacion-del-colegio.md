@@ -146,7 +146,7 @@ de más es legítimo. **Lo es.**
 > |---|---|---|
 > | fila **entera** de `years` | **3** | `muestreo-years`, `-colegio`, `-trashed` — **70 de 70** columnas |
 > | proyección nombrada (`Year::datos()`) | **18** | `.year` con **36 de 70** |
-> | sin `years` dentro | 104 | — |
+> | sin la fila entera | 122 | proyecciones y ninguna — **cuántas de las 122 llevan alguna columna suelta depende del detector**: 21, 30 o 60 según se pregunte (abajo) |
 >
 > **El hueco que importa es el de 36 a 70, y está vacío.** El reparto completo —de `8myvc-c1`,
 > que lo reprodujo por un **tercer camino**, con barrido propio y sin el script de `2e`— tiene
@@ -161,11 +161,24 @@ de más es legítimo. **Lo es.**
 > 16 columnas -> 1
 > ```
 >
-> O sea que **«70 o 36, nada entre medias» era una simplificación mía y es falsa**: hay
-> proyecciones de 19, 17 y 16. Lo que sí es cierto y es lo único que hace falta: **entre 36 y 70
-> no hay nada**, así que el corte «lleva la fila entera / no la lleva» no necesita elegir ningún
-> umbral. *Un recuento afirma el corte; un reparto lo enseña* — la frase es de `2e` y por eso el
-> reparto va aquí y no la cuenta.
+> **Lo que se sostiene y lo que no, después de cuatro detectores distintos:**
+>
+> - **«Entre 36 y 70 no hay nada» es CIERTO**, y lo confirman las tres derivaciones. Por eso el
+>   corte «lleva la fila entera / no la lleva» **no necesita elegir ningún umbral**: en el hueco
+>   donde habría que ponerlo no hay nada que clasificar.
+> - **«70 o 36 y nada más» es FALSO**, y lo es en su forma literal: hay proyecciones por debajo
+>   de 36. Ésa es la frase que se corrigió, no la de arriba.
+> - **Y la cola —cuántas instantáneas «llevan `years`» en total— NO ESTÁ RESUELTA, y no hace
+>   falta resolverla.** Cuatro detectores han dado **21**, **30** y **60**, y los tres son
+>   defendibles: cambian según se exija que el juego de claves **sea** una fila de `years`, que
+>   contenga N columnas suyas, o que el nombre aparezca en el fichero. El de 60 es mío y es el
+>   burdo —busca nombres sueltos, así que `nombre` u `orden` en cualquier objeto cuentan—, que es
+>   **el mismo detector que dio los ~30 de esta mañana**.
+>
+> **La única cifra estable de las cuatro es la que importa: TRES llevan la fila entera**, y sale
+> igual con los cuatro métodos. Todo lo demás es la cola, depende del umbral y **no decide nada
+> de la Fase 1**. *Un recuento afirma el corte; un reparto lo enseña* —la frase es de `2e`— y
+> esto es el caso extremo: **el reparto de la cola enseña que la pregunta estaba mal puesta.**
 >
 > **Con esto la terna tiene tres derivaciones independientes** —el script de `2e`, el barrido de
 > `c1` y las tres columnas de los docs 22 y 23— **más una suite**, y las cuatro coinciden.
