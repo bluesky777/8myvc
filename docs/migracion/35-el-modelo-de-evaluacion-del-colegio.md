@@ -253,7 +253,7 @@ de más es legítimo. **Lo es.**
 >
 > | | |
 > |---|---|
-> | **exposición** — rutas cuya respuesta gana la columna | **8** |
+> | **exposición** — rutas cuya respuesta gana la columna | **9** |
 > | **cobertura** — instantáneas que se mueven | **3** |
 >
 > **Las ocho**, con su ruta, leídas de `HEAD` y no del árbol de trabajo:
@@ -268,6 +268,23 @@ de más es legítimo. **Lo es.**
 > | `deleteDelete` | `return $year` | `DELETE years/delete/{id}` | no |
 > | `deleteDestroy` | `return $year` | `DELETE years/destroy/{id}` | no |
 > | `putRestore` | `return $year` | `PUT years/restore/{id}` | no |
+> | **`Perfiles\ImagesController:318`** | `return $year` | **`PUT myimages/cambiarlogocolegio`** | **no** |
+>
+> > **El noveno vive FUERA de `YearsController`, y ése es el error de método que cometimos los
+> > tres a la vez.** Lo encontró `8myvc-c1` barriendo `return` que mencionen `$year` en **todo
+> > `app/`**, no leyendo el controlador obvio: cambiar el logo del colegio hace
+> > `Year::findOrFail(...)`, le pone `logo_id` y **devuelve el año entero**. Guard `auth.personal`
+> > en la ruta y `esAdministrativo` dentro (~10), **sin instantánea**.
+> >
+> > Censamos `YearsController` **porque la tabla se llama `years`**. Es la lección de esta misma
+> > sección en otra dirección: no fue contar mal, fue **contar bien sobre la carpeta equivocada**.
+> >
+> > **Y tres candidatos descartados comprobando sus llamadas una a una, no por su pinta:**
+> > `Year::actual()` hace `SELECT *` pero sus tres llamantes usan sólo `->id`;
+> > `Year::de_un_periodo()` devuelve un modelo entero y su único llamante
+> > —`AsignaturasController:440`— también usa sólo `->id` y devuelve otra cosa; y
+> > `RequisitosController:33` devuelve `$years` de una proyección de cuatro columnas. **Los tres
+> > se parecen a un publicador y ninguno lo es.**
 >
 > **Y la mitad que faltaba: a quién alcanza cada una** — aportada por `8myvc-c1`, y es la que
 > convierte la cuenta en una decisión:
@@ -296,7 +313,7 @@ de más es legítimo. **Lo es.**
 > dos traen las 70. **Tercera frase del día que es verdad con dos lecturas distintas**, después
 > del «los nombra uno a uno» del 422 y del «tres respuestas vivas» de los docs 22 y 23.
 
-> **La brecha son cinco rutas que publican la fila entera y a las que nadie les mira el cuerpo**:
+> **La brecha son SEIS rutas que publican la fila entera y a las que nadie les mira el cuerpo**:
 > sus tests comprueban el `assertStatus`, no la forma. **Sin instantánea no hay rojo**, así que
 > las tres verificaciones que hay en marcha —la mía por lectura y las dos suites— **miden todas lo
 > mismo y ninguna las vería**.
