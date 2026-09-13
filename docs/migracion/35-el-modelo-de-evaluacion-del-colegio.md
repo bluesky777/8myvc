@@ -256,6 +256,33 @@ de más es legítimo. **Lo es.**
 > | `deleteDestroy` | `return $year` | `DELETE years/destroy/{id}` | no |
 > | `putRestore` | `return $year` | `PUT years/restore/{id}` | no |
 >
+> **Y la mitad que faltaba: a quién alcanza cada una** — aportada por `8myvc-c1`, y es la que
+> convierte la cuenta en una decisión:
+>
+> | sin instantánea | quién puede llamarla |
+> |---|---|
+> | `POST years/store` | `auth.personal` — **45** |
+> | `PUT years/guardar-cambios` | `auth.personal` — **45** |
+> | `DELETE years/delete/{id}` | `auth.personal` — **45** |
+> | `DELETE years/destroy/{id}` | `esSuperusuario` dentro — **11** |
+> | `PUT years/restore/{id}` | `esSuperusuario` dentro — **11** |
+>
+> **Los dos que se encontraron primero son los dos mejor cerrados**, y los tres que nadie había
+> nombrado son los de más público: 45 personas y ninguna comprobación más allá del guard de la
+> ruta. *Lo que menos se mira no es lo más escondido: es lo que parece rutinario.*
+>
+> (Los **11** están contados hoy en la base de desarrollo —`is_superuser = 1`, vivos— y coinciden
+> con las «once personas» de `CLAUDE.md`; el aviso llegó diciendo 10. Los **45** son la cifra de
+> `auth.personal` del mismo sitio. **Son de un colegio**, no de los dieciséis.)
+>
+> **Y una trampa descartada por el camino, que casi quita dos de la lista.** El docblock de
+> `YearsTest` dice que `guardar-cambios` *«devuelve el modelo en memoria»*, lo que se lee como
+> «no trae la fila de la base». Comprobado: habla de **qué valor** lleva un campo —`null` frente
+> al `''` que guardó MySQL— y no de **qué columnas viajan**; `putGuardarCambios` hace
+> `Year::findOrFail` y `postStore` **rehidrata** con `Year::find(...)` después del `save()`. Las
+> dos traen las 70. **Tercera frase del día que es verdad con dos lecturas distintas**, después
+> del «los nombra uno a uno» del 422 y del «tres respuestas vivas» de los docs 22 y 23.
+
 > **La brecha son cinco rutas que publican la fila entera y a las que nadie les mira el cuerpo**:
 > sus tests comprueban el `assertStatus`, no la forma. **Sin instantánea no hay rojo**, así que
 > las tres verificaciones que hay en marcha —la mía por lectura y las dos suites— **miden todas lo
