@@ -445,7 +445,19 @@ forma que ya usa el sembrador de `UnidadesController:159`.
 **tabla hija**. Y un censo de tablas con `year_id` tampoco: `subunidades_por_defecto`
 **no tiene `year_id`**, cuelga de `unidades_por_defecto`. El centinela que cerraría
 esta puerta es el de **las tablas que se copian al crear un año**, con su lista de
-excepciones y su motivo al lado. No está escrito.
+excepciones y su motivo al lado.
+
+> **ESCRITO el 13 sep 2026**, y lo pagó el mismo fallo once días después por otra
+> puerta: `competencias` y `desempenos_por_defecto` nacieron con las Fases 2 y 3 del
+> [35](35-el-modelo-de-evaluacion-del-colegio.md), son por año, y **nadie las
+> copiaba**. Es `tests/Contrato/CentinelaDeLasTablasDelAnioNuevoTest`, y el censo de
+> las 23 tablas por año con el porqué de cada una está en la §2.bis del 35.
+>
+> **Lo que sigue sin cubrir es justamente lo de arriba**, y hay que decirlo donde
+> alguien vaya a leer «arreglado»: el centinela nuevo censa las tablas **con
+> `year_id`**, así que **`subunidades_por_defecto` le sigue siendo invisible**. Una
+> segunda tabla hija de una tabla por año entra exactamente por donde entró ésta. Ese
+> tercer censo —el de las tablas hijas— no existe.
 
 ---
 

@@ -1,6 +1,7 @@
 <?php namespace App\Http\Controllers;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Request;
 
 use App\User;
@@ -278,7 +279,12 @@ class YearsController extends Controller {
 			// no tiene `year_id`, cuelga de `unidades_por_defecto`—, y por eso el
 			// centinela que faltaría es otro: el de las **tablas** que se copian.
 			//
-			// **Y ese centinela sigue sin existir, medido el 5 sep 2026.**
+			// **Y ese centinela existe desde el 13 sep 2026**, once días y dos tablas
+			// después: es `CentinelaDeLasTablasDelAnioNuevoTest`, y lo pagaron
+			// `competencias` y `desempenos_por_defecto` entrando por esta misma puerta.
+			// **Lo que sigue sin cubrir es justo lo que este párrafo describe**, y por eso
+			// se queda escrito entero: aquél censa las tablas **con `year_id`**, así que
+			// `subunidades_por_defecto` le sigue siendo invisible.
 			// `CentinelaDeLasColumnasDelAnioNuevoTest` compara las **68 columnas de
 			// `years`** con las que escribe `postStore`, una por una: no mira ninguna
 			// tabla hija. La columna de alcance que se añadió a `unidades_por_defecto`
@@ -471,7 +477,22 @@ class YearsController extends Controller {
 			$year->grupos_ant = $grupos_ant;
 		}
 
-		$year->periodos = $this->crearLosPeriodos($year, $pasado, $user->user_id, $ahora);
+		$periodos = $this->crearLosPeriodos($year, $pasado, $user->user_id, $ahora);
+		$year->periodos = $periodos;
+
+		/// Y AL FINAL, EL PLAN DE ÁREA: `competencias` y `desempenos_por_defecto`.
+		//
+		// **Va DETRÁS de los periodos, y ése es el orden entero.**
+		// `desempenos_por_defecto.periodo_id` es NOT NULL y apunta a `periodos`, así
+		// que hasta que los cuatro del año nuevo no existen no hay a dónde
+		// remapearlo. Escrito más arriba —junto a las escalas y las frases, que es
+		// donde parece que va— cada desempeño del año nuevo nacería colgado de un
+		// periodo del año VIEJO: la clave ajena lo aceptaría, la pantalla del plan
+		// de área lo enseñaría igual, y la planilla del docente no encontraría ni
+		// uno, porque lee por `year_id` **y** `periodo_id` a la vez.
+		if ($pasado) {
+			$this->copiarElPlanDeArea($pasado, $year, $periodos, $user->user_id, $ahora);
+		}
 
 		return $year;
 	}
@@ -552,6 +573,172 @@ class YearsController extends Controller {
 		}
 
 		return $periodos;
+	}
+
+
+	/**
+	 * El **plan de área** del colegio viaja al año nuevo: `competencias` y
+	 * `desempenos_por_defecto`.
+	 *
+	 * Son las dos tablas por año que trajeron las Fases 2 y 3 del
+	 * [35](../../../docs/migracion/35-el-modelo-de-evaluacion-del-colegio.md), y
+	 * **nadie las copiaba**. Sin esto, el colegio que escribe su plan de área en
+	 * 2026 lo encuentra **vacío en enero de 2027** y lo reescribe entero: es
+	 * exactamente la §1.bis del doc 28 —las subunidades por defecto sin copiarse
+	 * durante años— por la misma puerta y con la misma cara, o sea **ninguna**. No
+	 * rompe nada el día que pasa, no deja una línea en ningún log, y se nota en
+	 * enero, cuando ya no hay quien lo relacione con haber creado un año.
+	 *
+	 * ## Lo que hace cara a esta copia: las filas se apuntan entre ellas
+	 *
+	 * Las escalas, las frases y los requisitos son filas sueltas: se copian con un
+	 * `INSERT` y ya está. Aquí no. **El desempeño cuelga de la competencia**
+	 * (`competencia_id`, D10) **y de un periodo** (`periodo_id`, NOT NULL), y las
+	 * dos cosas nacen con **ids nuevos** en el año nuevo. Copiar las dos tablas
+	 * sin remapear deja cada desempeño apuntando a la competencia y al periodo del
+	 * **año viejo**:
+	 *
+	 *   - la clave ajena lo acepta —`competencias.id` y `periodos.id` siguen
+	 *     existiendo, sólo que son de otro año—, así que no hay error;
+	 *   - `GET desempenos/plantilla` los enseña igual, porque filtra por
+	 *     `d.year_id`; y
+	 *   - la planilla del docente no encuentra ni uno, porque
+	 *     `catalogoPara()` lee por `year_id` **y** `periodo_id` a la vez.
+	 *
+	 * O sea: 200, pantalla llena, rejilla vacía. Es la forma de fallar de esta
+	 * casa, y por eso el orden de aquí abajo —competencias primero, con su tabla
+	 * de equivalencias— no es una preferencia de estilo.
+	 *
+	 * ## El ALCANCE viaja con la fila, y eso incluye `alumno_id`
+	 *
+	 * `materia_id`, `grado_id` y `alumno_id` dicen **a quién va dirigida** la
+	 * fila, igual que `nivel_educativo_id` y `materia_id` en
+	 * `unidades_por_defecto`, y **`NULL` significa «a todos»** en los tres. Así
+	 * que no copiarlos no sería «se pierde una columna»: sería **la fila
+	 * escapándose de su alcance** — la competencia que el colegio escribió para
+	 * UN alumno con PIAR (Decreto 1421/2017) convertida en competencia de todo el
+	 * grado, con un 200 y sin un error. Es el fallo que ya pagó la plantilla en
+	 * `2026_09_05_200000_alcance_de_la_plantilla`, y aquí se evita antes.
+	 *
+	 * **Y la fila dirigida a un alumno se copia entera, no se deja atrás.** Dos
+	 * razones, y la segunda es la que decide: la pantalla del colegio
+	 * (`GET competencias` sin `alumno_id`) **enseña todas las filas del año**,
+	 * también las dirigidas, así que una que sobre **se ve y se borra**; y una
+	 * competencia con dueño sólo llega a alguien si ese alumno vuelve a tener
+	 * boletín independiente el año nuevo —`BoletinIndependiente::alcance()`—, o
+	 * sea justo cuando el colegio la quiere. Dejarla atrás sería el caso
+	 * contrario: el alumno con PIAR es el único que amanecería sin su plan.
+	 *
+	 * ## Las dos referencias que pueden no tener destino, y qué se hace con cada una
+	 *
+	 * **El periodo: se salta la fila.** `periodo_id` es NOT NULL, así que no hay
+	 * «sin periodo» que valga. Se busca el periodo del año nuevo **con el mismo
+	 * número**, que es la misma equivalencia que ya usan los dos interruptores de
+	 * `crearLosPeriodos`. Si el año viejo tenía un quinto periodo —o el suyo está
+	 * en la papelera—, esa fila **no tiene a dónde ir** y se queda. Ponerla en el
+	 * periodo 4 sería inventarse el plan del colegio; dejarle el id viejo sería
+	 * escribir a mano el fallo que este método existe para evitar. Se cuenta y se
+	 * dice en el log, porque un salto silencioso es media línea de código y una
+	 * tarde de enero.
+	 *
+	 * **La competencia: la fila viaja huérfana.** El padre es **opcional** (D10),
+	 * así que un desempeño sin competencia es una fila legítima que el colegio ve
+	 * y puede volver a colgar. Conservar el id viejo, en cambio, sería un
+	 * desempeño del año nuevo colgado de una competencia del año pasado — la
+	 * referencia cruzada de arriba, escrita a propósito. Sólo puede pasar si la
+	 * competencia padre está en la papelera: `postStore` de `DesempenosController`
+	 * exige que sea del año al escribir.
+	 *
+	 * ## `created_at` sí se pone
+	 *
+	 * Con `$ahora`, como las subunidades y los requisitos. La auditoría de las
+	 * nueve tablas que copia este método (13 sep 2026) encontró que la copia de
+	 * `unidades_por_defecto` **no lo pone** y esas filas nacen sin fecha; no se
+	 * arregla aquí porque mueve filas que este cambio no viene a mover, pero las
+	 * dos tablas nuevas **no heredan el descuido**.
+	 *
+	 * @param list<Periodo> $periodos_nuevos los cuatro que acaba de crear `crearLosPeriodos`
+	 */
+	private function copiarElPlanDeArea(Year $pasado, Year $year, array $periodos_nuevos, int $user_id, Carbon $ahora): void
+	{
+		/// LAS COMPETENCIAS, Y SU TABLA DE EQUIVALENCIAS
+		//
+		// Las columnas van nombradas en el `SELECT` por lo mismo que en el
+		// `INSERT`: un `*` aquí seguiría funcionando hoy y volvería a callarse la
+		// próxima vez que alguien añada una columna a esta tabla. Es la regla de
+		// `CompetenciasController` —«nunca `SELECT *`»— y la de la copia de
+		// `unidades_por_defecto` de aquí arriba.
+		$competencias_ant = DB::select('SELECT id, materia_id, grado_id, alumno_id, definicion, orden, codigo_men
+			FROM competencias WHERE year_id=? AND deleted_at is null ORDER BY id;', [$pasado->id]);
+
+		$equivalencia = [];
+
+		foreach ($competencias_ant as $competencia) {
+			DB::insert('INSERT INTO competencias(year_id, materia_id, grado_id, alumno_id, definicion, orden, codigo_men, created_by, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)',
+				[$year->id, $competencia->materia_id, $competencia->grado_id, $competencia->alumno_id,
+				$competencia->definicion, $competencia->orden, $competencia->codigo_men, $user_id, $ahora, $ahora]);
+
+			// Dentro del bucle y justo detrás de su `INSERT`, igual que en la copia de
+			// las subunidades: leído una línea más abajo, todos los desempeños
+			// acabarían colgados de la última competencia.
+			$equivalencia[(int) $competencia->id] = (int) DB::getPdo()->lastInsertId();
+		}
+
+		/// LOS PERIODOS, POR NÚMERO
+		//
+		// `crearLosPeriodos` acaba de devolverlos, así que el lado nuevo no se
+		// vuelve a leer de la base. El viejo sí, porque de la fila del desempeño
+		// sólo viene el id.
+		$numero_del_viejo = [];
+
+		foreach (DB::select('SELECT id, numero FROM periodos WHERE year_id=? AND deleted_at is null;', [$pasado->id]) as $periodo) {
+			$numero_del_viejo[(int) $periodo->id] = (int) $periodo->numero;
+		}
+
+		$nuevo_por_numero = [];
+
+		foreach ($periodos_nuevos as $periodo) {
+			$nuevo_por_numero[(int) $periodo->numero] = (int) $periodo->id;
+		}
+
+		/// Y LOS DESEMPEÑOS POR DEFECTO
+		$desempenos_ant = DB::select('SELECT id, materia_id, grado_id, periodo_id, competencia_id, tipo, definicion, orden
+			FROM desempenos_por_defecto WHERE year_id=? AND deleted_at is null ORDER BY id;', [$pasado->id]);
+
+		$sin_periodo = [];
+
+		foreach ($desempenos_ant as $desempeno) {
+			$numero  = $numero_del_viejo[(int) $desempeno->periodo_id] ?? null;
+			$destino = $numero === null ? null : ($nuevo_por_numero[$numero] ?? null);
+
+			if ($destino === null) {
+				$sin_periodo[] = (int) $desempeno->id;
+				continue;
+			}
+
+			$padre = $desempeno->competencia_id === null
+				? null
+				: ($equivalencia[(int) $desempeno->competencia_id] ?? null);
+
+			DB::insert('INSERT INTO desempenos_por_defecto(year_id, materia_id, grado_id, periodo_id, competencia_id, tipo, definicion, orden, created_by, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)',
+				[$year->id, $desempeno->materia_id, $desempeno->grado_id, $destino, $padre,
+				$desempeno->tipo, $desempeno->definicion, $desempeno->orden, $user_id, $ahora, $ahora]);
+		}
+
+		// **La única línea de log de este método, y existe por lo que cuesta no
+		// tenerla.** Un desempeño saltado es plan de área que el colegio escribió y
+		// que el año nuevo no tiene; sin esto, la diferencia entre «no había nada
+		// que copiar» y «había y no cupo» no se puede reconstruir después. No es un
+		// error —la fila de origen está mal dirigida, no la copia—, y por eso es un
+		// aviso con su población y no una excepción que tumbe la creación del año.
+		if ($sin_periodo !== []) {
+			Log::warning('Crear el año '.$year->year.' dejó atrás '.count($sin_periodo).' desempeños por defecto: su periodo del año anterior no tiene equivalente.', [
+				'year_id_nuevo'   => $year->id,
+				'year_id_pasado'  => $pasado->id,
+				'desempenos'      => $sin_periodo,
+				'periodos_nuevos' => array_keys($nuevo_por_numero),
+			]);
+		}
 	}
 
 
