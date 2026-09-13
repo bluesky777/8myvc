@@ -1458,4 +1458,370 @@ class YearsTest extends CasoDeContrato
         $this->assertSame(['Actitudinal' => 2, 'Cognitivo' => 3], $reparto,
             'Las subunidades copiadas no quedaron bajo la unidad que les toca.');
     }
+
+    /**
+     * Monta un plan de área en un año: dos competencias y tres desempeños por defecto.
+     *
+     * Hace falta montarlo por lo mismo que `ponerleLaPlantilla`: las dos tablas
+     * nacieron el 13 sep 2026 y **están vacías en el seed**, así que un año origen
+     * sin plan de área pasaría los tests de abajo **con el arreglo y sin él**. Es
+     * la lección de `UnidadesTest:439` y la de la §«Un test que no se ha visto en
+     * rojo» del 03.
+     *
+     * El montaje no es decorativo, y cada pieza está puesta para que falte algo si
+     * la copia se hace a medias:
+     *
+     *   - una competencia **del grado entero** y otra **de un alumno** (PIAR), para
+     *     que se vea si el alcance viaja o si la fila se escapa hacia arriba;
+     *   - dos desempeños **colgados de la competencia** y uno **suelto**, porque el
+     *     padre es opcional (D10) y las dos formas tienen que llegar;
+     *   - y los desempeños repartidos en **dos periodos distintos**, que es lo
+     *     único que distingue «se remapeó el periodo» de «se puso el primero».
+     *
+     * @return array<string, mixed>
+     */
+    private function ponerleElPlanDeArea(int $year_id): array
+    {
+        $materia = DB::selectOne('SELECT id FROM materias WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+        $grado = DB::selectOne('SELECT id FROM grados WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+        $alumno = DB::selectOne('SELECT id FROM alumnos WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+
+        $this->assertNotNull($materia, 'El seed no tiene materias.');
+        $this->assertNotNull($grado, 'El seed no tiene grados.');
+        $this->assertNotNull($alumno, 'El seed no tiene alumnos.');
+
+        $periodos = DB::select('SELECT id, numero FROM periodos
+            WHERE year_id=? AND deleted_at IS NULL ORDER BY numero', [$year_id]);
+
+        $this->assertGreaterThanOrEqual(2, count($periodos),
+            'El año origen tiene menos de dos periodos: el remapeo no se podría distinguir de poner el primero.');
+
+        $delGrupo = (int) DB::table('competencias')->insertGetId([
+            'year_id' => $year_id, 'materia_id' => $materia->id, 'grado_id' => $grado->id,
+            'alumno_id' => null, 'definicion' => 'Comprende textos de su entorno', 'orden' => 0,
+            'codigo_men' => 'LEN-1-3-PT-1', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $delAlumno = (int) DB::table('competencias')->insertGetId([
+            'year_id' => $year_id, 'materia_id' => $materia->id, 'grado_id' => $grado->id,
+            'alumno_id' => $alumno->id, 'definicion' => 'Ajuste razonable del PIAR', 'orden' => 1,
+            'codigo_men' => null, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $desempenos = [];
+
+        foreach ([[0, $delGrupo, 'Identifica la idea principal'], [1, $delGrupo, 'Resume lo leído'], [0, null, 'Participa en clase']] as $i => [$p, $padre, $texto]) {
+            $desempenos[$texto] = (int) DB::table('desempenos_por_defecto')->insertGetId([
+                'year_id' => $year_id, 'materia_id' => $materia->id, 'grado_id' => $grado->id,
+                'periodo_id' => $periodos[$p]->id, 'competencia_id' => $padre,
+                'tipo' => 'Cognitivo', 'definicion' => $texto, 'orden' => $i,
+                'created_at' => now(), 'updated_at' => now(),
+            ]);
+        }
+
+        return [
+            'materia_id' => (int) $materia->id,
+            'grado_id' => (int) $grado->id,
+            'alumno_id' => (int) $alumno->id,
+            'del_grupo' => $delGrupo,
+            'del_alumno' => $delAlumno,
+            'desempenos' => $desempenos,
+            'periodos' => $periodos,
+        ];
+    }
+
+    /**
+     * El año nuevo hereda el **plan de área**: competencias y desempeños por defecto.
+     *
+     * Las dos tablas nacieron el 13 sep 2026 con las Fases 2 y 3 del
+     * [35](../../docs/migracion/35-el-modelo-de-evaluacion-del-colegio.md), son
+     * **por año**, y `postStore` no las copiaba. O sea que el colegio que escribiera
+     * su plan de área en 2026 lo habría encontrado **vacío en enero de 2027** y lo
+     * habría reescrito entero.
+     *
+     * Es la §1.bis del doc 28 por tercera vez —las subunidades por defecto
+     * estuvieron sin copiarse **durante años**— y este test va **al lado del suyo**,
+     * que es donde alguien va a venir a mirar. Lo que vigila que no haya una cuarta
+     * es `CentinelaDeLasTablasDelAnioNuevoTest`.
+     */
+    public function test_el_ano_nuevo_hereda_el_plan_de_area(): void
+    {
+        $ultimo = DB::selectOne('SELECT id, year FROM years WHERE deleted_at IS NULL ORDER BY year DESC LIMIT 1');
+        $puesto = $this->ponerleElPlanDeArea((int) $ultimo->id);
+
+        $nuevo = $this->crearElAnioSiguiente();
+
+        $competencias = DB::table('competencias')->where('year_id', $nuevo)
+            ->whereNull('deleted_at')->orderBy('orden')->get();
+
+        $this->assertCount(2, $competencias,
+            'El plan de área no llegó al año nuevo: el colegio lo reescribe cada enero.');
+
+        $desempenos = DB::table('desempenos_por_defecto')->where('year_id', $nuevo)
+            ->whereNull('deleted_at')->get();
+
+        $this->assertCount(3, $desempenos,
+            'Los desempeños por defecto no llegaron al año nuevo.');
+
+        // Y se COPIAN, no se mueven: el año en curso tiene que seguir con el suyo
+        // detrás. Sin esta mitad, un arreglo que reapuntara las filas viejas al año
+        // nuevo pasaría los dos asserts de arriba **vaciándole el plan al año que se
+        // está usando**, que es peor que el fallo que esto viene a tapar.
+        $this->assertSame(2, DB::table('competencias')->where('year_id', $ultimo->id)
+            ->whereNull('deleted_at')->count(), 'Al copiar el plan de área se vació el del año anterior.');
+        $this->assertSame(3, DB::table('desempenos_por_defecto')->where('year_id', $ultimo->id)
+            ->whereNull('deleted_at')->count(), 'Al copiar los desempeños se vaciaron los del año anterior.');
+
+        // El texto y su procedencia, que es lo que el colegio escribió.
+        $delGrupo = $competencias->firstWhere('definicion', 'Comprende textos de su entorno');
+        $this->assertNotNull($delGrupo, 'La competencia del grupo no llegó con su texto.');
+        $this->assertSame('LEN-1-3-PT-1', $delGrupo->codigo_men,
+            '`codigo_men` no viajó: adoptar el mismo enunciado del MEN otra vez duplicaría la competencia.');
+    }
+
+    /**
+     * **Y las referencias se remapean**, que es la mitad que no se ve.
+     *
+     * El desempeño cuelga de una competencia (`competencia_id`) y de un periodo
+     * (`periodo_id`), y las dos cosas **nacen con ids nuevos** en el año nuevo.
+     * Copiar las dos tablas sin remapear deja cada desempeño apuntando a la
+     * competencia y al periodo del **año viejo**, y eso no da ningún error:
+     *
+     *   - la clave ajena lo acepta, porque esas filas existen (son de otro año);
+     *   - `GET desempenos/plantilla` los enseña igual, porque filtra por `year_id`;
+     *   - y la planilla del docente **no encuentra ni uno**, porque lee por
+     *     `year_id` **y** `periodo_id` a la vez.
+     *
+     * O sea 200, pantalla llena y rejilla vacía. Es la misma forma que
+     * `subunidades_por_defecto`, donde las copias se quedaban colgadas de las
+     * unidades viejas: ahí no llegaba ninguna, aquí llegan todas y no sirven.
+     */
+    public function test_el_plan_de_area_heredado_no_apunta_al_ano_viejo(): void
+    {
+        $ultimo = DB::selectOne('SELECT id, year FROM years WHERE deleted_at IS NULL ORDER BY year DESC LIMIT 1');
+        $puesto = $this->ponerleElPlanDeArea((int) $ultimo->id);
+
+        $nuevo = $this->crearElAnioSiguiente();
+
+        $periodosNuevos = [];
+
+        foreach ($this->periodosDe($nuevo) as $periodo) {
+            $periodosNuevos[(int) $periodo->id] = (int) $periodo->numero;
+        }
+
+        $competenciasNuevas = DB::table('competencias')->where('year_id', $nuevo)
+            ->whereNull('deleted_at')->pluck('definicion', 'id')->all();
+
+        $numeroViejo = [];
+
+        foreach ($puesto['periodos'] as $periodo) {
+            $numeroViejo[(int) $periodo->id] = (int) $periodo->numero;
+        }
+
+        $desempenos = DB::table('desempenos_por_defecto')->where('year_id', $nuevo)
+            ->whereNull('deleted_at')->get();
+
+        $this->assertCount(3, $desempenos);
+
+        foreach ($desempenos as $desempeno) {
+            $this->assertArrayHasKey((int) $desempeno->periodo_id, $periodosNuevos,
+                "«{$desempeno->definicion}» quedó colgado del periodo {$desempeno->periodo_id}, que **no es del año nuevo**.\n".
+                'La clave ajena lo acepta y la planilla no lo encuentra nunca: 200, pantalla llena, rejilla vacía.');
+
+            if ($desempeno->competencia_id !== null) {
+                $this->assertArrayHasKey((int) $desempeno->competencia_id, $competenciasNuevas,
+                    "«{$desempeno->definicion}» cuelga de una competencia que no es del año nuevo.");
+            }
+        }
+
+        // Y cada uno en **su** periodo, no todos en el primero. Es lo que distingue
+        // un remapeo de un valor por defecto: los tres asserts de arriba pasarían
+        // igual si los tres desempeños hubieran caído en el periodo 1.
+        $porNumero = [];
+
+        foreach ($desempenos as $desempeno) {
+            $porNumero[$desempeno->definicion] = $periodosNuevos[(int) $desempeno->periodo_id];
+        }
+
+        ksort($porNumero);
+
+        $this->assertSame(
+            ['Identifica la idea principal' => 1, 'Participa en clase' => 1, 'Resume lo leído' => 2],
+            $porNumero,
+            'Los desempeños no cayeron en el periodo que les tocaba: el número no viajó con la fila.');
+
+        // Y el padre es **el suyo**, no una competencia cualquiera del año nuevo:
+        // con dos competencias copiadas, apuntar a la equivocada pasa el
+        // `assertArrayHasKey` de arriba sin que nada lo diga.
+        $conPadre = $desempenos->firstWhere('definicion', 'Resume lo leído');
+        $this->assertSame('Comprende textos de su entorno',
+            $competenciasNuevas[(int) $conPadre->competencia_id],
+            'El desempeño heredado quedó colgado de otra competencia.');
+
+        // Y el que no tenía padre sigue sin tenerlo: la competencia es un padre
+        // **opcional** (D10), y darle uno al copiar sería inventarse el plan.
+        $this->assertNull($desempenos->firstWhere('definicion', 'Participa en clase')->competencia_id,
+            'El desempeño suelto llegó al año nuevo con un padre que nadie le puso.');
+    }
+
+    /**
+     * **El alcance viaja con la fila**, `alumno_id` incluido.
+     *
+     * `materia_id`, `grado_id` y `alumno_id` dicen a quién va dirigida la
+     * competencia, y **`NULL` significa «a todos»** en los tres. Así que no
+     * copiarlos no sería «se pierde una columna»: sería **la fila escapándose de su
+     * alcance** — la competencia que el colegio escribió para UN alumno con PIAR
+     * (Decreto 1421/2017) convertida en competencia de todo el grado, con un 200 y
+     * sin un error en ningún log.
+     *
+     * Es exactamente el caso de `test_el_ano_nuevo_hereda_el_alcance_de_la_plantilla`,
+     * y se escribe aparte porque la tabla es otra y porque aquí hay una tercera
+     * dimensión —el alumno— que la plantilla no tiene.
+     */
+    public function test_el_ano_nuevo_hereda_el_alcance_del_plan_de_area(): void
+    {
+        $ultimo = DB::selectOne('SELECT id, year FROM years WHERE deleted_at IS NULL ORDER BY year DESC LIMIT 1');
+        $puesto = $this->ponerleElPlanDeArea((int) $ultimo->id);
+
+        $nuevo = $this->crearElAnioSiguiente();
+
+        $delAlumno = DB::table('competencias')->where('year_id', $nuevo)
+            ->where('definicion', 'Ajuste razonable del PIAR')->whereNull('deleted_at')->first();
+
+        $this->assertNotNull($delAlumno,
+            'La competencia del alumno con PIAR no llegó al año nuevo: es el único que amanecería sin su plan.');
+        $this->assertSame($puesto['alumno_id'], (int) $delAlumno->alumno_id,
+            "La competencia de UN alumno llegó al año nuevo SIN dueño, o sea dirigida a **todo el grado**.\n".
+            'No es «se perdió una columna»: es el ajuste razonable de un PIAR sembrado en el curso entero.');
+        $this->assertSame($puesto['grado_id'], (int) $delAlumno->grado_id);
+        $this->assertSame($puesto['materia_id'], (int) $delAlumno->materia_id);
+
+        $delGrupo = DB::table('competencias')->where('year_id', $nuevo)
+            ->where('definicion', 'Comprende textos de su entorno')->whereNull('deleted_at')->first();
+
+        $this->assertNull($delGrupo->alumno_id,
+            'La competencia del grupo llegó con dueño: ahora sólo la ve un alumno.');
+        $this->assertSame($puesto['grado_id'], (int) $delGrupo->grado_id,
+            'La competencia de un grado llegó al año nuevo SIN grado, o sea «para todos los grados».');
+
+        $desempeno = DB::table('desempenos_por_defecto')->where('year_id', $nuevo)
+            ->where('definicion', 'Identifica la idea principal')->whereNull('deleted_at')->first();
+
+        $this->assertSame($puesto['grado_id'], (int) $desempeno->grado_id,
+            'El desempeño llegó al año nuevo SIN grado: acumula con el del grado, así que se le imprimiría a todos (D25).');
+        $this->assertSame($puesto['materia_id'], (int) $desempeno->materia_id);
+        $this->assertSame('Cognitivo', $desempeno->tipo);
+    }
+
+    /**
+     * Un desempeño cuyo periodo **no tiene equivalente** se queda, y no viaja roto.
+     *
+     * `periodo_id` es NOT NULL, así que no hay «sin periodo» que valga: si el año
+     * viejo tenía un quinto periodo —o el suyo está en la papelera—, esa fila no
+     * tiene a dónde ir. Las dos salidas malas son ponerla en el periodo 4
+     * —inventarse el plan del colegio— y dejarle el id viejo —escribir a mano la
+     * referencia cruzada que todo esto existe para evitar—. Se queda, se cuenta y
+     * se dice en el log.
+     *
+     * **Y lo que este test comprueba de verdad es la segunda**: que no aparezca en
+     * el año nuevo una fila apuntando a un periodo de otro año. Contar «dos de
+     * tres» solo no lo distingue de que la tercera viajara rota.
+     */
+    public function test_un_desempeno_sin_periodo_equivalente_no_viaja_roto(): void
+    {
+        $ultimo = DB::selectOne('SELECT id, year FROM years WHERE deleted_at IS NULL ORDER BY year DESC LIMIT 1');
+        $puesto = $this->ponerleElPlanDeArea((int) $ultimo->id);
+
+        // Un quinto periodo en el año viejo, con un desempeño dentro. El año nuevo
+        // nace con cuatro (`CalendarioDePeriodos::CANTIDAD`), así que el 5 no tiene
+        // equivalente por construcción.
+        $quinto = (int) DB::table('periodos')->insertGetId([
+            'numero' => 5, 'actual' => 0, 'year_id' => $ultimo->id,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        DB::table('desempenos_por_defecto')->insert([
+            'year_id' => $ultimo->id, 'materia_id' => $puesto['materia_id'], 'grado_id' => $puesto['grado_id'],
+            'periodo_id' => $quinto, 'competencia_id' => null, 'tipo' => null,
+            'definicion' => 'El del quinto periodo', 'orden' => 9,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $nuevo = $this->crearElAnioSiguiente();
+
+        $delNuevo = DB::table('desempenos_por_defecto')->where('year_id', $nuevo)
+            ->whereNull('deleted_at')->get();
+
+        $this->assertCount(3, $delNuevo,
+            'El desempeño del quinto periodo viajó: en el año nuevo no hay ningún periodo donde ponerlo.');
+
+        $ajenos = DB::table('desempenos_por_defecto as d')
+            ->join('periodos as p', 'p.id', '=', 'd.periodo_id')
+            ->where('d.year_id', $nuevo)->whereNull('d.deleted_at')
+            ->where('p.year_id', '!=', $nuevo)->count();
+
+        $this->assertSame(0, $ajenos,
+            "Hay desempeños del año nuevo colgados de periodos de OTRO año.\n".
+            'La clave ajena lo acepta, la pantalla los enseña y la planilla no los encuentra nunca.');
+
+        $this->assertSame(1, DB::table('desempenos_por_defecto')->where('periodo_id', $quinto)
+            ->whereNull('deleted_at')->count(),
+            'La fila que no se pudo copiar se movió en vez de quedarse: el año viejo perdió un desempeño.');
+    }
+
+    /**
+     * Y la otra mitad del centinela de tablas: lo declarado contra lo que de verdad escribe.
+     *
+     * `CentinelaDeLasTablasDelAnioNuevoTest` lee el **fuente** de `postStore` para
+     * saber qué tablas copia. Este test mira la **base** después de un
+     * `POST years/store`, que es la única fuente que no se puede engañar
+     * escribiendo el código de otra forma. **Dos fuentes que tienen que coincidir**,
+     * que es lo que este repositorio pide de cualquier cifra que importe.
+     *
+     * Lo que comprueba es la dirección que el otro no puede: que una tabla
+     * declarada «datos del año», «muerta» o «sin decidir» **no reciba ni una fila**
+     * al crear el año. Si alguien empieza a copiar una por un camino que el lector
+     * del fuente no ve —un observador de modelo, un servicio—, su excepción se
+     * queda diciendo una cosa mientras pasa otra, y ésa es justo la forma en que
+     * una lista de excepciones deja de ser verdad sin que nada falle.
+     */
+    public function test_crear_un_ano_no_escribe_en_las_tablas_de_datos_del_ano(): void
+    {
+        $ultimo = DB::selectOne('SELECT id FROM years WHERE deleted_at IS NULL ORDER BY year DESC LIMIT 1');
+
+        $excusadas = array_merge(
+            CentinelaDeLasTablasDelAnioNuevoTest::DATOS_DEL_ANIO,
+            CentinelaDeLasTablasDelAnioNuevoTest::TABLAS_MUERTAS,
+            CentinelaDeLasTablasDelAnioNuevoTest::SIN_DECIDIR,
+        );
+
+        $this->assertGreaterThan(10, count($excusadas),
+            'Se han leído '.count($excusadas).' excepciones y son 13: la constante no contestó lo que se cree.');
+
+        $antes = [];
+
+        foreach (array_keys($excusadas) as $tabla) {
+            $antes[$tabla] = (int) DB::table($tabla)->where('year_id', $ultimo->id)->count();
+        }
+
+        $nuevo = $this->crearElAnioSiguiente();
+
+        foreach (array_keys($excusadas) as $tabla) {
+            $this->assertSame(0, (int) DB::table($tabla)->where('year_id', $nuevo)->count(),
+                "Crear el año escribió en `{$tabla}`, que está declarada como tabla que NO se copia\n".
+                "en `CentinelaDeLasTablasDelAnioNuevoTest` con este motivo:\n\n".
+                '    '.$excusadas[$tabla]."\n\n".
+                'Una de las dos cosas está mal, y la lista es la que hay que mirar primero.');
+        }
+
+        // La población, porque un «ninguna escribió» sobre tablas vacías no dice
+        // nada: cuántas de las excusadas tenían filas en el año anterior es lo que
+        // separa una comprobación de un adorno. En el seed es sólo `contratos` (9
+        // filas), y está escrito aquí para que se note el día que sean cero.
+        $conFilas = array_keys(array_filter($antes));
+
+        $this->assertNotSame([], $conFilas,
+            'Ninguna de las '.count($excusadas)." tablas excusadas tiene filas en el año anterior, así que este\n".
+            'test no ha comprobado nada. Hay que darle al año origen algo que copiar.');
+    }
 }
