@@ -180,6 +180,35 @@ de más es legítimo. **Lo es.**
 > de la Fase 1**. *Un recuento afirma el corte; un reparto lo enseña* —la frase es de `2e`— y
 > esto es el caso extremo: **el reparto de la cola enseña que la pregunta estaba mal puesta.**
 >
+> ### ✅ Y la Fase 1 real la confirmó al escribirse — 12 instantáneas, de las que **tres son la terna**
+>
+> `myvc-front-50` commiteó la Fase 1 (`4e0033c`) y movió **doce** instantáneas. Contadas aquí con
+> `git show --name-only --format="" 4e0033c | grep -c 'Snapshots/'`, y **se reparten exactamente
+> como predecía esta sección**:
+>
+> | | cuáles |
+> |---|---|
+> | **3 · las movió la columna SOLA** | `muestreo-years`, `-colegio`, `-trashed` — **la terna, clavada** |
+> | **6 · las movió él A MANO** | los cuatro `login-contexto-*`, `muestreo-auth-me` y `muestreo-aplicacion-descargas-detailed` — las seis proyecciones nombradas que había que ensanchar a propósito |
+> | 3 · de la ruta | `rutas.json`, `guards-por-ruta.json`, `guard-por-familia.json` |
+>
+> **Y `familias-que-nunca-entran-en-el-candado.json` NO se movió**, que era la otra predicción:
+> la familia `years` tiene de sobra hermanas con guard, así que una ruta nueva ahí no entra en ese
+> censo. Cero apariciones en los dos commits.
+>
+> **Dos avisos para quien cite ese commit, los dos de `8myvc-c1`:**
+>
+> 1. **Su titular dice «diez» y son doce**, y su propio desglose lo contradice. Si se cita, **se
+>    cita el cuerpo y no el encabezado** — donde además está dicho mejor que aquí: *«una
+>    instantánea que se mueve SOLA delata un camino con comodín que nadie encontró; una proyección
+>    nombrada que se mueve porque alguien le añadió una columna sólo dice lo que ese alguien
+>    escribió»*. Es la distinción cobertura/exposición, llegada por su cuenta y por tercera vez.
+> 2. **No se cuentan con `--stat`**, que trunca las rutas largas y se come el `Snapshots/` de
+>    algunas líneas: da **11**. Con `--name-only`, 12.
+>
+> **Con esto la terna deja de ser una derivación y pasa a estar confirmada por el hecho**: se
+> predijo antes de que existiera el código, y el código la cumplió sin que nadie la ajustara.
+
 > **Con esto la terna tiene tres derivaciones independientes** —el script de `2e`, el barrido de
 > `c1` y las tres columnas de los docs 22 y 23— **más una suite**, y las cuatro coinciden.
 
