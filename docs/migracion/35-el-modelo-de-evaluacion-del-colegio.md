@@ -1343,11 +1343,25 @@ que es donde lo va a leer quien llegue en enero por el rojo y no por este docume
 > suyo y de una vez, frente al de encontrarse en enero rúbricas con su firma que él no
 > escribió ese año.
 >
-> Y de paso cierra la parte cara sin tener que pagarla: copiarlas **no era un `INSERT`
-> más** sino cuatro tablas hijas —`rubrica_criterios`, `rubrica_niveles`,
-> `rubrica_descriptores` y el enganche de `subunidades`— con sus ids remapeados, y
-> **ninguna lleva `year_id`**, o sea que el centinela nuevo ni siquiera las vigilaría.
-> No hay hoy ninguna ruta que copie una rúbrica, ni entre años ni dentro del mismo año.
+> Y de paso cierra la parte cara sin tener que pagarla. **Contado contra el docker el 13
+> sep 2026, no heredado de este documento**: copiarlas **no era un `INSERT` más** sino
+> tres tablas de definición —`rubrica_criterios` y `rubrica_niveles`, las dos con
+> `rubrica_id`, y `rubrica_descriptores`, que cuelga de las dos anteriores por
+> `criterio_id` + `nivel_id`— más el enganche `subunidades.rubrica_id`, todo con los ids
+> remapeados, y **ninguna lleva `year_id`**, o sea que el centinela nuevo ni siquiera las
+> vigilaría. No hay hoy ninguna ruta que copie una rúbrica, ni entre años ni dentro del
+> mismo año.
+>
+> **Y la cuarta hija no se podría copiar ni queriendo**, que es el argumento más corto de
+> todos: `rubrica_valoraciones` cuelga de `nota_id` —la valoración que un docente le puso
+> a un alumno concreto con esa rúbrica—. La mitad de esta familia de tablas **es dato de
+> notas de ese año**, y eso está escrito en el esquema y no en una opinión.
+>
+> **Lo que la decisión cuesta hoy son cero filas.** Se dice para que nadie lo lea como una
+> medida de su importancia: en la base de desarrollo las cinco tablas de rúbricas están
+> **vacías** (13 sep 2026, `simonbolivar`). Es **un** colegio, la población de los
+> dieciséis no se sabe desde aquí, y lo que se decide es **qué pasa el enero en que las
+> tenga** — no lo que pasa hoy.
 >
 > **Cómo se apagó el rojo importa tanto como la respuesta.** `rubricas` estuvo declarada
 > en `SIN_DECIDIR` con su pregunta escrita y un test del grupo `rojo` esperándola

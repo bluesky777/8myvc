@@ -185,10 +185,25 @@ class CentinelaDeLasTablasDelAnioNuevoTest extends TestCase
         // que él no escribió ese año.
         //
         // Y de paso se cierra sola la parte cara, que era la que hacía de esto una
-        // entrega y no un `INSERT`: copiarlas son **cuatro tablas hijas**
-        // —`rubrica_criterios`, `rubrica_niveles`, `rubrica_descriptores` y el
-        // enganche de `subunidades`— con sus ids remapeados, y **ninguna de ellas
-        // lleva `year_id`**, o sea que este centinela ni siquiera las vigilaría.
+        // entrega y no un `INSERT`. **Contado contra el docker el 13 sep 2026, y no
+        // heredado**: copiar una rúbrica son **tres tablas de definición**
+        // —`rubrica_criterios` y `rubrica_niveles`, las dos con `rubrica_id`, y
+        // `rubrica_descriptores`, que cuelga de las dos anteriores por
+        // `criterio_id` + `nivel_id`— más el enganche `subunidades.rubrica_id`,
+        // todo con los ids remapeados, y **ninguna lleva `year_id`**, o sea que
+        // este centinela ni siquiera las vigilaría.
+        //
+        // **Y hay una cuarta hija que no se podría copiar ni queriendo**, que es el
+        // argumento más corto de todos: `rubrica_valoraciones` cuelga de `nota_id`
+        // —la valoración que un docente le puso a un alumno concreto con esa
+        // rúbrica—. La mitad de esta familia de tablas **es dato de notas de ese
+        // año** y está dicho en el esquema, no en una opinión.
+        //
+        // **Lo que la decisión cuesta hoy son cero filas**, y se dice para que nadie
+        // lo confunda con una medida de su importancia: en la base de desarrollo las
+        // cinco tablas de rúbricas están **vacías** (13 sep 2026). `simonbolivar` es
+        // un colegio y la población de los dieciséis no se sabe desde aquí. Lo que
+        // se decide es **qué pasa el enero en que las tenga**, no lo que pasa hoy.
         'rubricas' => 'el trabajo que un docente montó para evaluar algo de ESE año; el que quiera reusar una la vuelve a montar (decidido por Joseth el 13 sep 2026, D27; 35 §2.bis)',
 
         // Con sus fechas, su `locked` y su `actual` dentro: una votación copiada
