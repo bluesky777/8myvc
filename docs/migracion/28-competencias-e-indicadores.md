@@ -207,6 +207,18 @@ ese endpoint multiplica también lo que no comprueba.
 
 ## 2. Cómo lo hacen otros sistemas
 
+> **12 sep 2026 — este apartado se quedó corto y hay una investigación entera que lo amplía**:
+> `myvc_front/INVESTIGACION-COMPETENCIAS-Y-DESEMPENOS.md` (cuatro decretos y una resolución
+> leídos enteros, catorce SIEE, trece programas). Lo que cambia de este documento, en su §5.2:
+> **(1)** el texto del boletín va por **asignatura + periodo**, no por materia + grado + año —
+> es `frases_preescolar` con `periodo_id`, y se siembra como `unidades`; **(2)** se retira el
+> segundo paso de la decisión 6, `subunidades.indicador_id`: la familia de programas que usan
+> los colegios de Joseth ata el texto a un **rango de la definitiva**, no a una columna;
+> **(3)** la decisión 10 («nada de marcar de oficio») hay que releerla: todo el mercado asigna
+> por rango de nota con corrección del docente, y eso no es «todos alcanzan». Las tres
+> decisiones que abre están en su §5.4. Hasta que Joseth las tome, §5.2 y §5.3 son propuesta
+> **en revisión**.
+
 Master2000 se define por **modelos de evaluación**, en plural: *«calificación
 numérica o descriptiva, **procesos**, **procesos con logros**, **logros con
 procesos**»*. O sea que tiene **dos ejes que se combinan**: los *procesos* —los
