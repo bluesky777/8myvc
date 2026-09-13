@@ -136,7 +136,62 @@ de más es legítimo. **Lo es.**
 > cuenta un síntoma parecido al que te interesa es el peor de los tres casos**, porque no se
 > delata: contaba *menciones* y se leyó como *respuestas que cambian*.
 
-#### Y la segunda corrección, del mismo día: **se mueven tres instantáneas y la publican OCHO rutas**
+> ## ✅ MEDIDO el 13 sep 2026 — **son tres, no hay cuarta**
+>
+> Lo corrió `8myvc-2e` en `.worktrees/2e` sobre `99e0942` + una columna sonda, y **la corrió
+> quien no la escribió**, que es la regla. El corte salió **limpio**, que es lo que hace que no
+> haya que interpretar ningún umbral:
+>
+> | | instantáneas | qué llevan |
+> |---|---|---|
+> | fila **entera** de `years` | **3** | `muestreo-years`, `-colegio`, `-trashed` — **70 de 70** columnas |
+> | proyección nombrada (`Year::datos()`) | **18** | `.year` con **36 de 70** |
+> | sin `years` dentro | 104 | — |
+>
+> **70 o 36, nada entre medias.** Y las dieciocho de la proyección son justo las que el detector
+> de esta mañana contaba como si se movieran.
+>
+> **El método no fue correr la suite, y es mejor así.** Con cuatro suites en el contenedor los
+> mismos tests pasaron de 0,41 s a 6,30 s —más de tres horas de corrida— y se abandonó. En su
+> lugar: sacar las columnas vivas con `SHOW COLUMNS` y recorrer las 125 instantáneas buscando
+> **objetos cuyo juego de claves sea una fila de `years`**, a cualquier profundidad. Eso contesta
+> **la pregunta exacta** —*«¿qué respuestas publican la fila entera?»*— en vez de una parecida, y
+> no depende de que un test corra, ni del orden, ni de un `foreach` que se corta. Resuelve de una
+> vez el ruido no determinista y el punto ciego del bucle: **lo que no se ejecuta no tiene ninguno
+> de los dos problemas.**
+>
+> ### La cuarta apareció, y era falsa — y así es como se caza
+>
+> Su primer detector buscaba **el nombre** de una columna vecina, `horario_version_id`, y dio
+> **cuatro** ficheros: los tres y `muestreo-ChangesAsked-to-me.json`. Abierto antes de cantarlo,
+> ahí `horario_version_id` es **un campo propio de esa respuesta** —un objeto de once claves con
+> `alumnos`, `eventos`, `horario_hoy`…—, no una fila de `years`. **Cuarto hallazgo: cero.**
+>
+> Es el mismo error que este apartado cometió tres veces —un detector que mide algo *parecido*, con
+> un número creíble— y **lo que lo cazó no fue desconfiar**: fue que estaba escrito que **una
+> cuarta sería un hallazgo, y un hallazgo se mira antes de publicarlo.** Ésa es la única defensa
+> que ha funcionado hoy contra esta familia de fallos: no la sospecha, sino **haber dicho de
+> antemano qué resultado obligaría a mirar**.
+>
+> ### Y una población que no es la que parece: 74, 70, 68 y 64
+>
+> Al cruzar cifras salieron **cuatro números distintos de «columnas de `years`»**, y los cuatro
+> son correctos sobre bases distintas:
+>
+> | dónde | columnas |
+> |---|---|
+> | base de **desarrollo** `simonbolivar` | **74** |
+> | base de **tests** (volcado + migraciones) | **70** |
+> | docblock de `CentinelaDeLasColumnasDelAnioNuevoTest` | **68** — envejecido |
+> | volcado congelado `mysql-schema.sql` | **64** |
+>
+> La de tests es la que vale para todo lo de arriba, porque es contra la que corre el centinela.
+> **Los 74 de desarrollo son la trampa ya fichada** —esa base tiene cuatro columnas que ni el
+> volcado ni las migraciones traen— y el 68 del docblock es una cifra que envejeció sin que nada
+> se pusiera rojo, igual que el `:158` del sembrador. **Ninguna de las dos se arregla aquí**;
+> quedan dichas para que el siguiente que mida no crea que ha encontrado una discrepancia.
+
+#### La segunda corrección del mismo día: **se mueven tres instantáneas y la publican OCHO rutas**
 
 > **Lo destapó `8myvc-2e` encontrando dos caminos que este apartado no tenía, y el censo completo
 > —hecho aquí, sistemáticamente en vez de por inspección— da OCHO, no cinco ni tres.** Las dos
@@ -802,6 +857,14 @@ presencia del campo**: los clientes mandan el objeto entero.
 
 **Y lo que el docente sí puede** (D14): **añadir los suyos**. Un desempeño con
 `por_defecto = 0` y su `asignatura_id` se edita y se borra sin permiso ninguno.
+
+> **Y un defecto de la copia actual, encontrado auditando las nueve tablas que `postStore`
+> copia** (`8myvc-2e`, 13 sep, comparando cada `INSERT` contra las columnas vivas): **ninguna
+> columna se queda fuera por descuido** —las ausentes son contables o exclusiones deliberadas ya
+> documentadas: `editable_por_profe_id` de `requisitos_matricula` e `inicia_at`/`finaliza_at` de
+> `subunidades_por_defecto`— **pero la copia de `unidades_por_defecto` no pone `created_at`**, así
+> que esas filas nacen sin fecha. Las tablas que añaden las Fases 2 y 3 **no heredan ese
+> descuido**: se copian con sus marcas de tiempo, y su test lo comprueba.
 
 > **El centinela que falta, y que esta fase obliga a escribir.** `competencias` y
 > `desempenos_por_defecto` son **tablas por año**, así que `YearsController` tiene que
