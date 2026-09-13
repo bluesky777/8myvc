@@ -414,13 +414,27 @@ class CentinelaDeLasTablasDelAnioNuevoTest extends TestCase
     #[Group('rojo')]
     public function hay_tablas_por_anio_sin_decidir(): void
     {
-        $this->assertSame([], array_keys(self::SIN_DECIDIR),
-            "Estas tablas llevan `year_id` y **nadie ha decidido** si el año nuevo las hereda:\n\n".
-            '    '.implode("\n    ", array_map(
-                static fn (string $t, string $p): string => $t.' — '.$p,
-                array_keys(self::SIN_DECIDIR),
-                array_values(self::SIN_DECIDIR),
-            ))."\n\n".
+        // **Se compara la lista ENTERA y el mensaje no la recorre**, y eso no es
+        // estilo: es lo que queda cuando la lista está vacía, que desde D27 es el
+        // estado bueno.
+        //
+        // Aquí había un `array_map` sobre `array_keys`/`array_values` para
+        // imprimir «tabla — pregunta», y con `SIN_DECIDIR = []` **phpstan lo cazó
+        // dos veces seguidas** (13 sep 2026): primero `arrayValues.empty`, y al
+        // reescribirlo con un `foreach`, `foreach.emptyArray`. No es quisquilloso
+        // y no se arregla cambiando de bucle: phpstan **conoce el valor de la
+        // constante**, así que cualquier código que la recorra es código muerto
+        // mientras esté vacía, y tiene razón. Este proyecto no usa baseline y las
+        // excepciones de `phpstan.neon` van con nombre y motivo, así que la salida
+        // no era anotarlo.
+        //
+        // Y la que queda es **mejor que la que había**: comparando el array entero
+        // en vez de sus claves, el diff que imprime PHPUnit al fallar trae la
+        // tabla **y su pregunta**, que antes sólo salían por el mensaje de mano.
+        // Menos código y más información en el rojo.
+        $this->assertSame([], self::SIN_DECIDIR,
+            "Arriba está la tabla que lleva `year_id` y de la que **nadie ha decidido** si el\n".
+            "año nuevo la hereda, con la pregunta que hay que contestar al lado.\n\n".
             "No es un fallo que arreglar escribiendo código: es una pregunta para Joseth.\n".
             "Cuando se conteste, la tabla se copia en `YearsController::postStore` o se\n".
             'mueve a `DATOS_DEL_ANIO` con el motivo, y esta lista se queda vacía.');
