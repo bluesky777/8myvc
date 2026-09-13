@@ -13,15 +13,21 @@ directorio tiene 119 ficheros y 118 son controladores. **De los tres que entraro
 este número se cuenta y no se supone), porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
 **603 rutas** (contadas con
-`route:list --json` el **13 sep 2026 por la noche en `.worktrees/f6`**, con las fases 2, 3, **4 y 6**
-del doc 35 dentro: las **599** del árbol principal, más las **dos** de la rejilla premarcada
-—`GET`/`PUT desempenos/rejilla`, Fase 4, que no son de esta sesión— y las **dos** del boletín por
-competencias —`PUT boletines-competencias/detailed-notas` y `…/detailed-notas-group`, Fase 6—.
-**Este número se contó, no se sumó**, y por eso dice en qué árbol. Medido en los dos el mismo rato,
-con la Fase 4 ya fundida en `main`: **el árbol principal responde 601 y esta línea suya decía 599**,
-o sea que la fusión de la rejilla no la recontó. No es un reproche: es exactamente para lo que esta
-línea dice en qué árbol se contó. El plan preveía **cuatro** para la Fase 6 y son dos — las otras dos no se
-podían calcar, y por qué está en la §Fase 6 del doc 35.
+`route:list --json` el **13 sep 2026 por la noche en el ÁRBOL PRINCIPAL, sobre `main` y después de
+fundir**, con las fases 2, 3, **4 y 6** del doc 35 dentro. Las cuatro últimas, sobre las 599 de las
+fases 2 y 3: **600–601** son las **dos de la rejilla premarcada** —`GET`/`PUT desempenos/rejilla`,
+Fase 4— y **602–603** las **dos del boletín por competencias** —`PUT
+boletines-competencias/detailed-notas` y `…/detailed-notas-group`, Fase 6—. El plan preveía
+**cuatro** para la Fase 6 y son dos: las otras dos no se podían calcar —una manda un ALUMNO a la
+papelera y la otra es byte a byte la misma en los tres y no la llama nadie—, y el porqué está en la
+§Fase 6 del doc 35.
+
+> **Este contador se mueve a mano, no lo comprueba ningún test, y ya se quedó corto otra vez.**
+> Entre la fusión de la Fase 4 y ésta, el árbol principal respondía **601** y esta línea decía
+> **599**: la rejilla añadió sus dos rutas y no lo recontó. No es un reproche —es exactamente para
+> lo que esta línea dice en qué árbol y en qué momento se contó—, pero sí la razón de que **se
+> cuente después de avanzar `main` y en el árbol principal**: un número contado en un worktree
+> describe un árbol que mañana no existe.
 El 24 ago el de rutas se movió por primera vez,
 de 539 a 542, con los tres endpoints que pidió `myvc_flutter`, el 28 a 543 con
 `PUT users/mi-docente`, que pidió Joseth para el panel de `app2`, el 31 a 544 con
