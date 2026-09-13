@@ -16,16 +16,20 @@
 
 > ## Lo que comprobé y lo que NO pude comprobar
 >
-> Todo lo de abajo está medido el **13 sep 2026** sobre `main` en `c0ed278`, en el
-> árbol principal. Las dos cosas que **no** pude medir, dichas antes que las que sí:
+> Todo lo de abajo está medido el **13 sep 2026** sobre `main`, en el árbol principal.
 >
-> 1. **No pude correr `route:list --json`: el contenedor no está levantado**
->    (`docker ps` vacío). Así que la cifra de rutas de abajo **no es un conteo, es
->    una cota inferior razonada** — y por eso el plan la manda contar el día que las
->    rutas entren, que es lo que ya exige `CLAUDE.md`.
-> 2. **No pude correr la suite.** Las 1.926 de la rama del `ALTER` las leí **del
->    mensaje del commit**, no de una ejecución mía. Están abajo con lo que ese
->    mensaje dice y con el árbol contra el que corrieron.
+> **Este documento se escribió con el contenedor caído**, así que nació con dos cosas sin medir
+> y dichas como tales. **Las dos se midieron unas horas después**, al levantarlo, y se dejan aquí
+> con su resultado en vez de borrar el aviso:
+>
+> | | cómo nació | cómo está |
+> |---|---|---|
+> | **las rutas** | «cota inferior razonada», sin `route:list` | ✅ **579 contadas** con `route:list --json` en el árbol principal — §1.1 |
+> | **la suite del `ALTER`** | las 1.926 leídas del mensaje del commit, no de una ejecución mía | ✅ **corrida entera** sobre el árbol rebasado — Fase 0 |
+>
+> Y una tercera que **nació medida y salió mal**: el reparto de una columna de `years`. Decía
+> **~30 instantáneas** y son **3**. Corregido en §1.3, con el fallo del detector explicado ahí
+> mismo, porque es el que no se delata.
 
 ---
 
@@ -47,9 +51,21 @@ entonces entraron en `main` dos rutas, cada una con su commit y su documento:
 | `46c6660` | `GET sincronizacion/huella` | [34](34-la-huella-de-sincronizacion.md) |
 
 `CLAUDE.md` dice **579**, contadas con `route:list --json` en `.worktrees/e5` el 7 sep
-— y ese worktree **ya no existe**, así que el número está heredado, que es justo lo
-que ese recuadro prohíbe. **La base de este plan es «579, por confirmar el día que se
-toque»**, y el 577 del doc 28 §6 hay que corregirlo cuando se abra ese fichero.
+— y ese worktree **ya no existe**, así que el número estaba **heredado**, que es justo lo
+que ese recuadro prohíbe.
+
+> ### ✅ CONTADO el 13 sep 2026: **579**, y ahora sí desde un árbol que existe
+>
+> ```
+> docker exec 8myvc-app-1 php artisan route:list --json   ->  579
+> árbol: el principal, rama main @ 8e752a0
+> de ellas api/: 578 · la otra es el `/` de routes/web.php
+> ```
+>
+> **Coincide con lo que decía `CLAUDE.md`, y eso no es lo mismo que estar contado**: era la
+> cifra correcta apoyada en un árbol borrado, o sea imposible de rehacer. Ahora se puede.
+> **La base de este plan es 579**, y las 22 de las siete fases se cuentan encima, el día que
+> entren y desde el árbol en que se escriban. El 577 del doc 28 §6 queda anotado.
 
 > Es la tercera vez que esta cifra se mueve hacia abajo por herencia. No cuesta nada
 > arreglarlo: se cuenta en el árbol donde se escribe, y se dice el árbol.
@@ -64,38 +80,71 @@ censos del día del despliegue** (§7). Un censo que dice «en los quince» y re
 diecisiete carpetas deja al lector decidiendo a las tres de la mañana si el colegio
 de más es legítimo. **Lo es.**
 
-### 1.3 · Una columna nueva de `years` mueve ~30 instantáneas — «la misma respuesta que hoy» es falso en la forma
+### 1.3 · Una columna nueva de `years` mueve **tres** instantáneas — y este apartado dijo treinta
 
-Ésta es la corrección que más mueve el plan, y sale de leer los dos caminos que
-publican `years`:
+> **⚠️ CORREGIDO el 13 sep 2026, unas horas después, remidiendo. La cifra de treinta era mía y
+> era falsa**, y va arriba porque exageraba el riesgo de la Fase 1 en un orden de magnitud.
+>
+> La primera medición contó *«instantáneas que mencionan una columna de `years`»* — **31 de 125**
+> con el detector ampliado, 30 con el estrecho. Pero esa no es la pregunta: lo que mueve una
+> instantánea es que la respuesta **gane una clave**, y eso sólo pasa donde viaja la **fila
+> entera**. Separando las dos cosas:
+>
+> | | |
+> |---|---|
+> | instantáneas con la **fila entera** de `years` (11 de 11 columnas) | **3** |
+> | instantáneas con una **proyección** nombrada (1, 2, 4 o 7 columnas) | **28** |
+>
+> Las **tres** son `muestreo-years.json`, `muestreo-years-colegio.json` y
+> `muestreo-years-trashed.json`, y salen de los tres únicos caminos que publican la fila entera:
+>
+> ```
+> YearsController::getIndex    'SELECT y.*, i.nombre as logo FROM years y …'   <- comodín en SQL crudo
+> YearsController::getColegio  'SELECT * FROM years WHERE deleted_at is null'  <- comodín en SQL crudo
+> YearsController::getTrashed  Year::onlyTrashed()->get()                      <- Eloquent entero
+> ```
+>
+> Las otras 28 llevan **subconjuntos nombrados** y por eso son inmunes: los catorce boletines y
+> actas llevan las mismas cuatro —`solo_escalas_valorativas`, `show_fortaleza_bol`,
+> `abrev_colegio`, `si_recupera_materia_recup_indicador`— y los cuatro contextos de login llevan
+> los seis `displayname` más una. **Una columna nueva no entra en un `SELECT` que nombra
+> columnas.**
+>
+> **Lo que eso cambia, dicho sin adornos: le di la vuelta a la frase del documento de decisiones
+> y no hacía falta.** *«Con el enum en `ponderado` y las tablas vacías, los colegios dan la misma
+> respuesta que hoy»* **es cierta en el comportamiento y casi cierta en los bytes**: se mueven
+> tres instantáneas de 125 y tres rutas —`years`, `years/colegio`, `years/trashed`—, no treinta.
+> Sigue habiendo que regenerar y leer ese diff, y sigue sin poder usarse como *«no se mueve
+> nada»*; pero el riesgo de la Fase 1 es el que decía la decisión, no el que dije yo.
+>
+> **Y el fallo es el que este repositorio ya tiene fichado**: *«el primer sitio donde mirar cuando
+> el número sale raro es el detector»*. Aquí el número no salió raro —treinta es perfectamente
+> creíble— y por eso no se miró hasta que se volvió a medir por otro motivo. **Un detector que
+> cuenta un síntoma parecido al que te interesa es el peor de los tres casos**, porque no se
+> delata: contaba *menciones* y se leyó como *respuestas que cambian*.
+
+**El mecanismo, que es lo que no cambia y hay que tener delante al escribir la Fase 1:**
 
 ```
 YearsController::getIndex   →  'SELECT y.*, i.nombre as logo FROM years y …'
 YearsController::getColegio →  'SELECT * FROM years WHERE deleted_at is null'
+YearsController::getTrashed →  Year::onlyTrashed()->get()
 ```
 
-O sea que **`modelo_evaluacion` y los tres `displayname` del desempeño se reparten
-solos** a todo lo que cuelga de ahí. Contadas hoy: **30 de las 125 instantáneas de
-contrato** llevan columnas de `years` dentro — los tres boletines, los dos contextos
-de login, las actas, los puestos, `muestreo-years`.
+`modelo_evaluacion` y los tres `displayname` del desempeño **se reparten solos** por esos tres
+caminos, y por **dos** de las tres vías que censó [30](30-lo-que-reparte-una-columna-nueva.md):
+el comodín en SQL crudo y el modelo Eloquent devuelto entero. Es el mismo documento, escrito por
+`profesores.tono` nueve días antes.
 
-`DECISIONES-MODELO-DE-EVALUACION.md` §7 dice: *«con el enum en `ponderado` y las
-tablas vacías, los quince colegios dan la misma respuesta que hoy»*. **En el
-comportamiento, sí. En los bytes, no**: aparece una clave nueva en el objeto `year`
-de treinta respuestas. No es un problema —es una regeneración con su diff revisado—
-pero **deja de servir como argumento de seguridad**, y era el que sostenía la fase.
-Es literalmente el caso de [30](30-lo-que-reparte-una-columna-nueva.md), escrito por
-`profesores.tono` hace nueve días.
-
-> Lo que **sí** se conserva byte a byte es lo otro que promete esa frase, y ése es el
-> test que hay que escribir: **con el enum en `ponderado` y las tablas vacías, las
-> unidades, las notas, las definitivas y los tres boletines no cambian en nada.**
+> Lo que **sí** se conserva byte a byte, y ése es el test que hay que escribir: **con el enum en
+> `ponderado` y las tablas vacías, las unidades, las notas, las definitivas y los tres boletines
+> no cambian en nada.** Ninguno de los tres boletines está entre las tres que se mueven.
 
 ### 1.4 · Nadie podría *escribir* `modelo_evaluacion` — y eso es `profesores.tono` otra vez
 
 `YearsController::putGuardarCambios` escribe **veintiuna columnas nombradas una a
 una** (líneas 605-629). Una columna nueva de `years` que no se añada ahí **no la puede
-poner nadie**, ni el superusuario: se leería en treinta respuestas y saldría
+poner nadie**, ni el superusuario: se leería en las tres respuestas de §1.3 y saldría
 `'ponderado'` en los dieciséis para siempre.
 
 Es exactamente el hueco de `profesores.tono` del 4 sep —columna leída en todas partes
@@ -347,7 +396,7 @@ cumple eso va junto aunque sea más trabajo.
 | fase | qué entrega | rutas | migraciones | instantáneas |
 |---|---|---|---|---|
 | **0** | el `ALTER` a `text`, remedido | 0 | 1 (ya escrita) | 0 |
-| **1** | el colegio elige su modelo y le pone nombre | **1** | 1 | **~30** |
+| **1** | el colegio elige su modelo y le pone nombre | **1** | 1 | **3** |
 | **2** | competencias, con el catálogo del MEN | 7 | 1 | 0 |
 | **3** | desempeños: catálogo, siembra y los propios del docente | 8 | 1 | 0 |
 | **4** | la rejilla premarcada | 2 | 1 | 0 |
@@ -375,6 +424,22 @@ con `route:list --json`, **en el árbol donde se escriban** (§3).
 **Lo que no hace, y ya está decidido**: no repara hacia atrás y no se avisa a nadie
 (decisión 12 del doc 28). Cada reimpresión de un boletín viejo seguirá saliendo
 cortada.
+
+> **Y una cosa que se vio al reconstruir la base y no estaba en el plan: esta migración va a
+> correr FUERA DE ORDEN en los colegios, y no pasa nada — pero hay que saberlo antes de verlo.**
+>
+> `2026_09_05_100000_frase_del_boletin_en_text` lleva una marca de tiempo **anterior** a tres que
+> ya están en `main`: `2026_09_05_200000_alcance_de_la_plantilla`, la `300000` del permiso y
+> `2026_09_07_100000_grupos_con_ih`. En una base nueva corre en su sitio —se vio así en la
+> reconstrucción, entre `horario_versiones` y `alcance_de_la_plantilla`—, pero en un colegio
+> donde esas tres **ya corrieron**, el migrador sólo mira las **pendientes**: ésta entra **la
+> última**, con fecha de antes.
+>
+> **No tiene consecuencia aquí**, y decir por qué es lo único que hace útil el aviso: toca
+> `frases_asignatura`, y las otras tres tocan `unidades_por_defecto`, `permissions` y `grupos`.
+> **Cero solape**, así que el orden da igual. Lo que no daría igual es una migración retrasada
+> que tocara una tabla que otra ya transformó — y ésa es la forma que hay que buscar la próxima
+> vez que una rama vieja se funda tarde.
 
 ---
 
@@ -411,9 +476,11 @@ years + modelo_evaluacion  enum('ponderado','competencias') NOT NULL DEFAULT 'po
   boletines salen **idénticos** a antes de la migración. Se ve rojo poniendo el enum
   en `competencias` y comprobando que **tampoco** cambia — porque no debe cambiar
   ningún cálculo en ninguno de los dos modos (D3).
-- Las ~30 instantáneas se regeneran **en un commit aparte y con el diff leído**: lo
-  único que puede aparecer son las cuatro claves nuevas. Cualquier otra cosa en ese
-  diff es un hallazgo, no ruido.
+- **Las tres instantáneas de §1.3** —`muestreo-years`, `-colegio` y `-trashed`— se regeneran
+  **en un commit aparte y con el diff leído**: lo único que puede aparecer son las cuatro claves
+  nuevas, y **sólo en esas tres**. Cualquier otra cosa en ese diff es un hallazgo, no ruido — y
+  **una cuarta instantánea que se mueva es el hallazgo**: querría decir que hay un cuarto camino
+  que publica la fila entera y que §1.3 no encontró.
 - Un docente sin `can_edit_plantilla_notas` recibe **403** en
   `PUT years/modelo-evaluacion`, y **200** en `years/guardar-cambios` con los
   displayname — que es lo que demuestra que la línea se trazó donde se quería.
@@ -788,6 +855,6 @@ delante**: «X de 17, N de M».
   en la línea **141** con sus dos modos de rango; `escalas_de_valoracion` sin ninguna
   relación con un catálogo de textos (`mysql-schema.sql:1031`);
   `Autoriza::PERMISO_PLANTILLA_NOTAS` en `app/Support/Autoriza.php:47`; **cero**
-  apariciones de «jefe de área»; **30 de 125** instantáneas con columnas de `years`
-  dentro; `putGuardarCambios` con **21** columnas nombradas; los tres boletines en
+  apariciones de «jefe de área»; **3 de 125** instantáneas con la **fila entera** de `years`
+  dentro (31 la mencionan, 28 por una proyección nombrada — §1.3); `putGuardarCambios` con **21** columnas nombradas; los tres boletines en
   **629 + 605 + 586** líneas.

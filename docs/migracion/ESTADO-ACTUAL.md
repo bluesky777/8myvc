@@ -96,10 +96,17 @@
 >   commits por detrás**, con **siete migraciones** en medio. Sus **1.926 verdes son ciertas y son
 >   de aquel árbol**; el propio commit lo dice. Una cifra de pruebas se publica con su orden y con
 >   el hash contra el que corrió.
-> - **Una columna nueva de `years` mueve ~30 instantáneas**, y eso desarma el argumento de
->   seguridad que se estaba usando. `getIndex` y `getColegio` publican `years` con `SELECT *`, y
->   **30 de las 125 instantáneas llevan columnas de `years` dentro**. El comportamiento no cambia;
->   los bytes sí. Es [30](30-lo-que-reparte-una-columna-nueva.md) otra vez, nueve días después.
+> - **Una columna nueva de `years` mueve TRES instantáneas** — `muestreo-years`, `-colegio` y
+>   `-trashed`—, que son los tres únicos caminos que publican la fila entera (`getIndex` y
+>   `getColegio` con comodín en SQL crudo, `getTrashed` con Eloquent). Es
+>   [30](30-lo-que-reparte-una-columna-nueva.md) otra vez, nueve días después.
+>
+>   > **Esta línea dijo «~30» durante unas horas, y era mío y era falso.** Conté *instantáneas
+>   > que mencionan una columna de `years`* —31 de 125— cuando lo que mueve una instantánea es
+>   > que la respuesta **gane una clave**, y eso sólo pasa donde viaja la fila entera: las otras
+>   > 28 llevan **proyecciones nombradas** y son inmunes. Corregido en
+>   > [35](35-el-modelo-de-evaluacion-del-colegio.md) §1.3, y con ello **el riesgo de la Fase 1
+>   > vuelve a ser el que decía la decisión, no el que dije yo**.
 > - **Y nadie podría escribir `modelo_evaluacion`**: `putGuardarCambios` nombra **21 columnas** una
 >   a una. Es `profesores.tono` visto **antes** de cometerlo. De ahí sale una ruta que la tanda de
 >   decisiones no contaba, y la pregunta de quién puede llamarla: **los dieciséis `years/*` de
