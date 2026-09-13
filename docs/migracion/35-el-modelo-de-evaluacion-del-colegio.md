@@ -409,73 +409,83 @@ con `route:list --json`, **en el árbol donde se escriban** (§3).
 
 ---
 
-### Fase 0 · El `ALTER`, rebasado y remedido
+### Fase 0 · El `ALTER`, rebasado y remedido · **HECHA el 13 sep 2026**
 
-**No es opinable y va primero**: todo lo que escriben las fases 3 y 4 acaba en
-`frases_asignatura.frase`, y hay 626 frases ya cortadas en la copia de desarrollo
-(doc 28 §1.ter).
+**No era opinable y iba primero**: todo lo que escriben las fases 3 y 4 acaba en
+`frases_asignatura.frase`, y hay 626 frases ya cortadas (doc 28 §1.ter).
 
-1. Rebasar `fix/frases-asignatura-text` sobre `main` (169 commits, 7 migraciones).
-2. `tools/construir-bd-test.sh` y **la suite entera**, no sólo Contrato: un `ALTER`
-   de tipo lo lee más de un informe.
-3. Publicar `Tests: N (php artisan test)` **con el hash** contra el que corrió.
-4. Comprobar que el árbol queda limpio — que es la comprobación que la cifra no da.
+```
+Tests:    2098 passed (18717 assertions)     rojos 0 · saltados 0
+orden:    php artisan test
+árbol:    /app/.worktrees/f @ 12890ce, rebasado sobre main @ 8e752a0, sin conflictos
+base:     simonbolivar_testing_f reconstruida — 22/22 migraciones, 102 tablas
+duración: 1.375,75 s
+y el árbol quedó LIMPIO: ninguna instantánea de contrato se movió
+```
+
+**La rama estaba 171 commits por detrás con siete migraciones de `main` en medio**, así que sus
+1.926 verdes eran ciertas y eran de `ab23e2d`. Por eso la fase no era «fusionar» sino **rebasar,
+migrar y volver a medir** — y la diferencia (+172) son los tests que trajeron esos commits.
+
+> **Y una sesión que trabajaba en paralelo lo midió por su cuenta sobre el árbol principal:
+> 2.098 también, 1.372,64 s.** Dos árboles distintos, dos bases distintas, dos sesiones que no
+> se coordinaron para esto — y el mismo número. Es la clase de coincidencia que **sí** vale como
+> confirmación, porque ninguna de las dos copió a la otra.
+
+#### Qué cubren esas 2.098, porque «la suite entera» no basta
+
+Este documento dijo primero *«las tres testsuites»*, copiando la frase que anda por ahí escrita.
+**Son cuatro las declaradas en `phpunit.xml`** —`Unit`, `Feature`, `Contrato` y `Barrido`— y se
+excluyen **dos grupos**, no uno:
+
+| grupo excluido | qué deja fuera |
+|---|---|
+| `barrido` | `tests/Barrido/`: mide qué alcanza un token de verdad, tarda y **no afirma nada** — imprime un informe |
+| **`rojo`** | los tests **rojos a propósito**, que fijan un fallo que espera una decisión de Joseth |
+
+**El segundo es el que hay que decir en voz alta**: «2.098 verdes» **no** quiere decir que no
+haya nada rojo en el repositorio. Quiere decir que no hay nada rojo **fuera de los que se
+excluyen por serlo a propósito**. Un lector que entienda lo primero archiva lo segundo.
+
+#### Cómo entró en `main`, que no fue como estaba planeado
+
+**El `ALTER` y su test entraron en `10a09a8`, un commit de documentación que no los menciona**, y
+la causa es mía: `git add -A docs/migracion/` limita lo que **añado**, no lo que **commiteo** —
+`git commit` se lleva **el índice entero**, y otra sesión tenía esos dos ficheros preparados en
+el índice compartido de este árbol. El commit de fusión `f55878c` que vino después **no trae
+ningún fichero**: la rama ya estaba dentro por accidente, y lo que aporta es la **procedencia**
+—los cuatro commits de la rama, incluida la remedición con su orden, su hash y la comprobación
+del árbol limpio—, que sin él no estaría en `main` en ninguna parte.
+
+> **La regla que sale de aquí, y vale para cualquier árbol donde trabaje más de una sesión:**
+> **se commitea con pathspec explícito** —`git commit -- <rutas>`—, o se mira `git status` antes.
+> `git add` de una carpeta **no acota el commit**. El síntoma no es un error: es un commit que
+> pasa en verde y **lleva dentro algo que su mensaje no nombra**, que es exactamente lo que un
+> despliegue lee mal — `10a09a8` parece documentación y **trae una migración**.
+>
+> No se reescribe el historial para taparlo: otra sesión ya había commiteado encima, y rehacerlo
+> por debajo rompe más de lo que ordena. **Se anota, que es lo que este repositorio hace con los
+> errores que no se pueden deshacer.**
 
 **Lo que no hace, y ya está decidido**: no repara hacia atrás y no se avisa a nadie
-(decisión 12 del doc 28). Cada reimpresión de un boletín viejo seguirá saliendo
-cortada.
+(decisión 12 del doc 28). Cada reimpresión de un boletín viejo seguirá saliendo cortada.
 
-> ## ✅ FASE 0 HECHA — 13 sep 2026. `Tests: 2098 passed (18717 assertions)`, y el número NO es el de la rama
+> **La migración correrá FUERA DE ORDEN en los colegios, y no pasa nada — pero hay que saberlo
+> antes de verlo.** `2026_09_05_100000_frase_del_boletin_en_text` lleva una marca de tiempo
+> **anterior** a tres que ya están en `main`: `2026_09_05_200000_alcance_de_la_plantilla`, la
+> `300000` del permiso y `2026_09_07_100000_grupos_con_ih`. En una base nueva corre en su sitio
+> —se vio así en la reconstrucción—, pero donde aquéllas **ya corrieron** el migrador sólo mira
+> las **pendientes**: ésta entra **la última**, con fecha de antes.
 >
-> **La orden, porque una cifra de pruebas sin ella no dice de qué habla**:
-> `docker exec 8myvc-app-1 php artisan test` — las **cuatro** testsuites con el grupo `barrido`
-> excluido por `phpunit.xml`, no `--testsuite=Contrato`. **1.372,64 s**, en el árbol principal,
-> sobre la base reconstruida entera con `tools/construir-bd-test.sh` (22/22 migraciones, 102
-> tablas, 2.351 usuarios).
->
-> **El hash**: el árbol tenía el contenido de `main` @ **`10a09a8`**. La corrida empezó con `main`
-> en `8e752a0` y terminó con `main` en `10a09a8`; ese commit **no toca una línea de código** —es
-> documentación más los dos ficheros del `ALTER`, que ya estaban en el árbol desde antes de
-> arrancar—, así que lo medido y lo commiteado son el mismo árbol de código. Se dice así y no
-> «sobre `main`» porque `main` se movió mientras se medía, que es exactamente el caso que la regla
-> del hash existe para cubrir.
->
-> **2.098 no se compara con las 1.926 de `50399f6` / `12890ce`, y la diferencia no es una mejora:
-> son poblaciones distintas.** Aquélla corrió sobre `ab23e2d`, 169 commits y siete migraciones
-> antes; ésta lleva dentro todo lo que entró en medio —el alcance de la plantilla, `grupos_con_ih`,
-> las rúbricas—. La única lectura válida de las dos es *«las dos en verde en su árbol»*.
->
-> **El árbol quedó limpio** (`git status --porcelain` vacío), que es la comprobación que la cifra
-> no da.
->
-> ### Y cómo entraron los dos ficheros en `main`, porque el historial no lo cuenta
->
-> **No hay un commit de la Fase 0.** Los dos ficheros —la migración y
-> `tests/Contrato/FraseLargaEnElBoletinTest`— están dentro de **`10a09a8`**, un commit de
-> documentación de otra sesión que los recogió del índice mientras esta sesión los tenía
-> preparados para commitear. Es la forma de fallar de dos sesiones en el mismo árbol, y se anota
-> en vez de reescribirse: **rehacer el historial debajo de otra sesión rompe más de lo que
-> ordena**.
->
-> Lo que eso le cuesta al despliegue es que **el mensaje de `10a09a8` no menciona la migración que
-> lleva dentro**, y ése es justo el commit que alguien va a leer para decidir qué correr. Por eso
-> queda escrito aquí y en `DESPLIEGUE`: **`10a09a8` trae una migración.**
-
-> **Y una cosa que se vio al reconstruir la base y no estaba en el plan: esta migración va a
-> correr FUERA DE ORDEN en los colegios, y no pasa nada — pero hay que saberlo antes de verlo.**
->
-> `2026_09_05_100000_frase_del_boletin_en_text` lleva una marca de tiempo **anterior** a tres que
-> ya están en `main`: `2026_09_05_200000_alcance_de_la_plantilla`, la `300000` del permiso y
-> `2026_09_07_100000_grupos_con_ih`. En una base nueva corre en su sitio —se vio así en la
-> reconstrucción, entre `horario_versiones` y `alcance_de_la_plantilla`—, pero en un colegio
-> donde esas tres **ya corrieron**, el migrador sólo mira las **pendientes**: ésta entra **la
-> última**, con fecha de antes.
->
-> **No tiene consecuencia aquí**, y decir por qué es lo único que hace útil el aviso: toca
+> **No tiene consecuencia**, y decir por qué es lo único que hace útil el aviso: toca
 > `frases_asignatura`, y las otras tres tocan `unidades_por_defecto`, `permissions` y `grupos`.
-> **Cero solape**, así que el orden da igual. Lo que no daría igual es una migración retrasada
-> que tocara una tabla que otra ya transformó — y ésa es la forma que hay que buscar la próxima
-> vez que una rama vieja se funda tarde.
+> **Cero solape.** Lo que no daría igual es una migración retrasada que tocara una tabla que otra
+> ya transformó — ésa es la forma que hay que buscar la próxima vez que una rama vieja se funda
+> tarde.
+
+**Y fusionado no es desplegado.** `app/` es copia por colegio; el volcado
+`database/schema/mysql-schema.sql` **no se toca** —es el esquema congelado de producción— así que
+ahí la columna sigue diciendo `varchar(255)` hasta que la tanda llegue a los dieciséis.
 
 ---
 
