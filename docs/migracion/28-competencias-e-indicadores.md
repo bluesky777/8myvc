@@ -982,7 +982,20 @@ trabajo y pasa a ser el final.
 > SIEE y el Decreto 1421. Así que **`competencias.alumno_id` se retira** y en su lugar va
 > `desempenos.alumno_id NULL`, leído con `<=>` por `BoletinIndependiente::alcance()` igual que
 > `unidades`. Y §b **siembra también los desempeños** del grupo a nombre del alumno al marcarlo.
-> Queda abierta la escala del alumno PIAR dentro de un grupo numérico (`grupos.caritas` es por grupo).
+> Queda abierta la escala del alumno PIAR dentro de un grupo numérico.
+>
+> **Corrección del mismo día, tras la pregunta de Joseth.** *(1)* **`competencias.alumno_id` se
+> queda**, además de `desempenos.alumno_id`: el Decreto 1421/2017 manda que *«al finalizar cada año
+> académico se anexará un informe anual de … competencias para los estudiantes de básica y media
+> … y hará parte del boletín final de cada estudiante»* con PIAR — la competencia propia del alumno
+> especial es de ley, no un extra. Los dos niveles llevan la misma columna nullable y `alcance()`
+> los lee igual; lo que **no** cambia es la rejilla de notas del independiente (`unidades.alumno_id`,
+> la marca para todas las asignaturas, el interruptor por periodo). *(2)* **Caritas**: Joseth dice
+> que *«ya no se usan por ley»*. No encontré la norma que las prohíba; lo que sí exige la ley —
+> Decreto 2247/1997 art. 10 y Decreto 1411/2022 art. 2.3.3.2.2.3.4 — es que el resultado se
+> exprese en *«informes descriptivos y periódicos de corte cualitativo»*, y una carita sola no lo
+> es. **La decisión 9 (`grupos.caritas`) queda en revisión**: la escala del independiente y la de
+> preescolar se resuelven con texto, no con icono.
 
 La competencia normal es del **grado**, así que un independiente **ya recibe las de su
 grado sin que nadie haga nada** — que es lo correcto en el caso normal: sigue en 6.º.
