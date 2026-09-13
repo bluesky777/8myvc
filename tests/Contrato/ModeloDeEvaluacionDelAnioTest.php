@@ -654,14 +654,14 @@ class ModeloDeEvaluacionDelAnioTest extends CasoDeContrato
      */
     private function definitivasDe(object $grupo, object $donde): array
     {
-        return array_map(
+        return array_values(array_map(
             fn (object $f): string => $f->alumno_id.'/'.$f->asignatura_id.'='.$f->nota,
             DB::select('SELECT nf.alumno_id, nf.asignatura_id, nf.nota
                 FROM notas_finales nf
                 INNER JOIN asignaturas a ON a.id = nf.asignatura_id
                 WHERE a.grupo_id = ? AND nf.periodo_id = ?
                 ORDER BY nf.alumno_id, nf.asignatura_id', [$grupo->id, $donde->periodo_id])
-        );
+        ));
     }
 
     /**
