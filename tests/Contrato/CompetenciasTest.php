@@ -488,6 +488,12 @@ class CompetenciasTest extends CasoDeContrato
      *
      * El día que llegue el boletín nuevo de la Fase 6, **es él quien se añade a la
      * lista de excepciones**, no esta regla la que se borra.
+     *
+     * > **Ese día llegó el 13 sep 2026** y la excepción es una y se llama
+     * > `BoletinPorCompetenciasController`. La regla sigue entera para los demás: los
+     * > tres boletines de hoy **no** leen la tabla, que es lo que sostiene D16 —el
+     * > boletín nuevo nace al lado, no encima— y lo que hace que un colegio sin
+     * > competencias siga imprimiendo exactamente lo de siempre.
      */
     #[Test]
     public function test_ningun_informe_de_hoy_lee_la_tabla_de_competencias(): void
@@ -502,10 +508,15 @@ class CompetenciasTest extends CasoDeContrato
             ]
         );
 
+        // **El boletín nuevo SÍ la lee: es su razón de existir.** Va por nombre y no
+        // por una carpeta aparte, para que un informe nuevo que la lea sin decirlo
+        // siga saliendo en rojo.
+        $elDeLaFase6 = 'BoletinPorCompetenciasController.php';
+
         $culpables = [];
 
         foreach ($miradas as $fichero) {
-            if (! is_file($fichero)) {
+            if (! is_file($fichero) || basename($fichero) === $elDeLaFase6) {
                 continue;
             }
 
@@ -517,6 +528,13 @@ class CompetenciasTest extends CasoDeContrato
                 $culpables[] = basename($fichero);
             }
         }
+
+        // Y la excepción se comprueba: si el fichero desaparece o deja de leerla,
+        // esta línea avisa en vez de dejar una excepción muerta que tape al siguiente.
+        $this->assertTrue(
+            is_file(app_path('Http/Controllers/Informes/'.$elDeLaFase6)),
+            'La excepción de la Fase 6 apunta a un fichero que ya no existe: quítala.'
+        );
 
         $this->assertSame([], $culpables,
             'Un informe de los de hoy pasó a leer `competencias`: '.implode(', ', $culpables).".\n".

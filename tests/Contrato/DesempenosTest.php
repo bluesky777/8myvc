@@ -674,6 +674,9 @@ class DesempenosTest extends CasoDeContrato
      * comparación pasaría igual con el boletín ya enchufado**. El día que llegue el
      * boletín nuevo de la Fase 6, es él quien se añade a la lista, no esta regla la
      * que se borra.
+     *
+     * > **Ese día llegó el 13 sep 2026** y la excepción es una,
+     * > `BoletinPorCompetenciasController`. Para los tres de hoy la regla sigue entera.
      */
     #[Test]
     public function test_ningun_informe_de_hoy_lee_las_tablas_de_desempenos(): void
@@ -689,10 +692,14 @@ class DesempenosTest extends CasoDeContrato
             ]
         );
 
+        // **El boletín nuevo SÍ las lee: es su razón de existir.** Va por nombre, para
+        // que un informe nuevo que las lea sin decirlo siga saliendo en rojo.
+        $elDeLaFase6 = 'BoletinPorCompetenciasController.php';
+
         $culpables = [];
 
         foreach ($miradas as $fichero) {
-            if (! is_file($fichero)) {
+            if (! is_file($fichero) || basename($fichero) === $elDeLaFase6) {
                 continue;
             }
 
@@ -702,6 +709,11 @@ class DesempenosTest extends CasoDeContrato
                 $culpables[] = basename($fichero);
             }
         }
+
+        $this->assertTrue(
+            is_file(app_path('Http/Controllers/Informes/'.$elDeLaFase6)),
+            'La excepción de la Fase 6 apunta a un fichero que ya no existe: quítala.'
+        );
 
         $this->assertSame([], $culpables,
             'Un informe de los de hoy pasó a leer `desempenos`: '.implode(', ', $culpables).".\n".
