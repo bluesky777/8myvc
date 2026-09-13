@@ -107,6 +107,38 @@ use App\Models\Periodo;
  *
  * @property ?int $horario_version_id
  *
+ * Y las cuatro de la **Fase 1 del modelo de evaluación** por migración
+ * (`2026_09_13_100000_modelo_de_evaluacion_del_anio`, 35 §2), que son **una sola
+ * decisión**: cuál es el modelo y cómo llama el colegio a lo que ese modelo trae.
+ *
+ * `modelo_evaluacion` es del AÑO y no del colegio ni del grupo (D1): un año cerrado
+ * conserva el suyo para siempre, igual que la plantilla y las definitivas. Gobierna
+ * **qué se ve y qué se pide escribir, nunca un cálculo** (D3) — la definitiva sale
+ * de la misma fórmula en los dos modos, y de ahí la propiedad que no hay que
+ * perder: *volver atrás es cambiar el enum*.
+ *
+ * **Y no se escribe por `PUT years/guardar-cambios` ni por
+ * `PUT years/toggle-cambiar-valor`, aunque las dos podrían.** Tiene ruta propia
+ * —`PUT years/modelo-evaluacion`, con `can_edit_plantilla_notas` dentro— porque los
+ * dieciséis `years/*` de escritura son `auth.personal`, o sea que colgarla de
+ * cualquiera de ellos dejaría que **cualquier docente cambiara el modelo de
+ * evaluación del colegio entero**. Es D24, y el corte del genérico está escrito en
+ * `YearsController::putToggleCambiarValor`.
+ *
+ * Los **tres rótulos** sí van en `putGuardarCambios`, al lado de los seis de unidad
+ * y subunidad y con su mismo guard: son vocabulario, y quien puede renombrar
+ * «Subunidad» puede renombrar «Desempeño». La palabra es la del **Decreto 1290**
+ * —el vigente, donde «desempeño» sale 16 veces y «logro» e «indicador» ninguna
+ * (D15)—, y cada colegio la cambia desde su pantalla.
+ *
+ * Las cuatro se copian al año siguiente en `YearsController::postStore` y viajan en
+ * las **cuatro** ramas de `ContextoDeUsuario`, por lo mismo que `regla_nivelacion`.
+ *
+ * @property string $modelo_evaluacion
+ * @property string $desempeno_displayname
+ * @property string $desempenos_displayname
+ * @property string $genero_desempeno
+ *
  * Y los atributos que NO son columnas: el código se los cuelga al modelo en
  * tiempo de ejecución para armar la respuesta, que es un patrón repetido por
  * todo el proyecto. Eloquent los guarda entre los atributos y salen en el JSON,
@@ -121,6 +153,24 @@ use App\Models\Periodo;
 
 class Year extends Model {
 	protected $table = 'years';
+
+	/**
+	 * Los dos modelos de evaluación, **en el mismo orden que el `enum` de la base**.
+	 *
+	 * Vive aquí y no en el controlador porque es una propiedad de la columna, y la
+	 * lista se compara contra `SHOW COLUMNS` en
+	 * `ModeloDeEvaluacionDelAnioTest::la_lista_del_modelo_y_la_de_la_base_son_la_misma`.
+	 * Es la trampa que ya lleva escrita `Autoriza::PERMISO_*`: dos sitios que dicen
+	 * una cadena y **no falla nada** hasta que alguien guarda el valor que sólo
+	 * conoce uno de los dos.
+	 *
+	 * `ponderado` es el de hoy —el logro va en la columna de la planilla— y
+	 * `competencias` el nuevo —el logro va aparte de la nota— (D2). Los nombres que
+	 * ve el colegio NO son éstos: los pone el front, y son frases enteras.
+	 *
+	 * @var list<string>
+	 */
+	public const MODELOS_DE_EVALUACION = ['ponderado', 'competencias'];
 
 	use SoftDeletes;
 	protected $softDelete = true;

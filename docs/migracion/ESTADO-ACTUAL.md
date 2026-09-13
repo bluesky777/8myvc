@@ -104,6 +104,78 @@
 > `git status` limpio al terminar. **No se compara con las 1.926 de la rama**: aquéllas son de
 > `ab23e2d`, 169 commits y siete migraciones antes.
 >
+> ### ✅ FASE 1 HECHA — 13 sep 2026, `4e0033c`. **El front ya puede llamar a la ruta**
+>
+> `years` tiene sus cuatro columnas —`modelo_evaluacion enum('ponderado','competencias')` más los
+> tres rótulos del desempeño— y el colegio las cambia desde:
+>
+> ```
+> PUT /api/years/modelo-evaluacion     auth.personal + can_edit_plantilla_notas DENTRO (D24)
+> { "modelo_evaluacion": "ponderado"|"competencias", "year_id": <opcional, por defecto el de la sesión> }
+> 200 { year_id, modelo_evaluacion, anterior, desempeno_displayname, desempenos_displayname, genero_desempeno }
+> 403 sin permiso · 422 fuera del enum · 404 año inexistente o en la papelera
+> ```
+>
+> **`modelo_evaluacion` viaja en la sesión** —`POST auth/login` dentro de `usuario`, `GET auth/me`
+> y `POST login` en la raíz—, que es de lo que depende el front para decidir si enseña lo nuevo:
+> **si la clave no llega, el front se comporta como `ponderado`**. Comprobado contra el docker.
+>
+> **La ruta 580**, contada con `route:list --json` en el árbol principal. **DOCE** instantáneas
+> movidas: **3** por la columna sola (las que predecía §1.3), **6** porque este commit ensanchó a
+> mano el contexto de sesión —proyecciones nombradas, no un cuarto comodín— y **3** por la ruta.
+> `TOTAL_PUBLICAS` sigue en doce y el censo del candado no se movió.
+>
+> > **Aquí decía «diez», y era mío y era falso — dos veces en la misma frase.** El titular de
+> > `23d1d98` dice diez y su cuerpo dice «las otras siete»; el desglose correcto es **3 + 6 + 3 =
+> > 12**, o sea que ninguna de las dos cifras del encabezado cuadra con el reparto que va debajo
+> > de ella. **El reparto siempre estuvo bien**: lo que falló es que el titular se escribió antes
+> > que el desglose y nadie los restó. Contado ahora con
+> > `git show --name-only --format="" 4e0033c | grep -c "tests/Contrato/Snapshots/"` → **12**, y
+> > **no con `--stat`**, que trunca las rutas largas y hace desaparecer `Snapshots/` de algunas
+> > líneas: por ahí salió un 11 en otra sesión y por ahí salió mi diez.
+> >
+> > **Y la corrección que importa más que el número.** El titular de `23d1d98` —*«por qué se
+> > movieron DIEZ instantáneas y no tres»*— se lee como que §1.3 se equivocó, y **mi propio
+> > cuerpo demuestra lo contrario**: las tres que predijo se movieron **solas** y por la razón
+> > prevista. Las otras nueve las movió este commit a mano —seis proyecciones nombradas y tres
+> > de la ruta—, y eso no es un fallo del pronóstico: es trabajo que el pronóstico no estaba
+> > contando porque nadie se lo había pedido. Con varias sesiones citando ese documento, **lo
+> > que sobrevive de un commit es el titular**, así que la frase queda enderezada aquí:
+> > **§1.3 acertó, y la Fase 1 real es su confirmación.**
+> >
+> > Las seis proyecciones que hubo que ensanchar son **exactamente** las seis que `8myvc-c1`
+> > había medido una hora antes desde el otro lado, sin vernos. Dos mediciones separadas que
+> > coinciden no son dos avisos: son una cosa sabida.
+>
+> **Lo que se cerró de paso y no estaba en el plan**: `PUT years/toggle-cambiar-valor` escribía
+> **cualquier** columna de `years` con sólo `auth.personal`, así que D24 se saltaba con un `PUT`
+> de tres campos. Excluida ahí igual que `actual`.
+>
+> **Nada de esto recalcula ni borra (D3)**, y lo sujetan tres casos de
+> `ModeloDeEvaluacionDelAnioTest`: el censo alrededor del endpoint, las lecturas en los dos modos
+> y la definitiva llevada a punto fijo.
+>
+> ### La suite entera de la Fase 1: `Tests: 2115 passed (18882 assertions)`
+>
+> `docker exec -e DB_TEST_DATABASE=simonbolivar_testing_f1 8myvc-app-1 php artisan test` —las
+> cuatro testsuites con el grupo `barrido` excluido—, **1.590,23 s**, cero fallos. Árbol principal
+> con el contenido de `main` @ `a208e80`; `05c82af` entró a mitad de corrida y es un
+> `array_values()` en un ayudante del test nuevo, semánticamente idéntico. `composer run stan`:
+> **[OK] No errors** sobre 609 ficheros, y `pint --test` en verde sobre los cinco ficheros de la
+> fase que entran en su alcance.
+>
+> **2.115 = 2.098 + 17**, y esa resta es lo único que hace comparables las dos cifras: los 17 son
+> exactamente los casos de `ModeloDeEvaluacionDelAnioTest`. Que cuadre a la unidad es lo que dice
+> que la Fase 1 **no movió ninguna prueba existente** — que es la afirmación que la fase necesita,
+> no el «2.115 en verde».
+>
+> **Y la base es propia, `simonbolivar_testing_f1`, y eso no es un detalle.** La primera corrida
+> contra la compartida **murió con SIGTERM** (`EXIT=143`) mientras otra sesión lanzaba
+> `--filter=CompetenciasTest` en el mismo contenedor. Dos suites contra la misma base dan
+> deadlocks —está escrito en `CLAUDE.md` y en 03— y aquí se cobró una corrida de veinte minutos.
+> Con cuatro sesiones vivas, **una base por sesión no es higiene: es la diferencia entre medir y
+> volver a empezar.**
+>
 > ### Lo que hay que saber sin abrirlo
 >
 > - **La Fase 0 era rebasar y volver a medir, no «fusionar `fix/frases-asignatura-text`»** — hecho,

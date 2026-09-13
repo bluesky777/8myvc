@@ -114,6 +114,29 @@ class ContextoDeUsuario
      *
      * **El servidor sigue mandando**: la regla se aplica al escribir y lo que
      * decide es `App\Services\Nivelacion`, no esto. Este campo es para pintar.
+     *
+     * ## Y `modelo_evaluacion` viaja igual, en las cuatro (13 sep 2026)
+     *
+     * Fase 1 de 35 §2. **El front decide por la PRESENCIA de esta clave** si enseña
+     * lo nuevo: si no llega, se comporta como `ponderado`. O sea que una columna que
+     * se escribe bien y no se publica aquí deja la pantalla apagada en los dieciséis
+     * colegios **sin un solo error en ningún log** — es `profesores.tono` por la otra
+     * punta, y por eso tiene su propio caso en `ModeloDeEvaluacionDelAnioTest`.
+     *
+     * En las cuatro ramas por el mismo argumento de arriba, y con la lección de
+     * `year_pasado_en_bol` delante: estaba en tres de cuatro, faltaba en la del
+     * acudiente, y **reventó dos maquetas con «Undefined property»** la primera vez
+     * que las pidió una familia. Una columna en tres de cuatro respuestas es una
+     * rama muerta esperando.
+     *
+     * Con los tres rótulos del desempeño al lado de los de unidad y subunidad, que es
+     * donde los va a buscar quien ya lee ese bloque. **No añaden ninguna llamada**:
+     * son cuatro columnas más del mismo `JOIN` que ya se hace.
+     *
+     * **Y esto no rompe a `myvc_flutter`** por lo mismo que se midió para
+     * `regla_nivelacion`: lee campo a campo con su valor por defecto y no hay
+     * `json_serializable` ni `freezed`, así que una clave que no conoce no existe
+     * para él.
      */
     private function construir(User $userTemp)
     {
@@ -132,9 +155,10 @@ class ContextoDeUsuario
                                 p.firma_id, i3.nombre as firma_nombre,
                                 "N/A" as grupo_id, ("N/A") as nombre_grupo, ("N/A") as abrev_grupo,
                                 "N/A" as year_matricula_id, per.id as periodo_id, per.numero as numero_periodo, per.profes_pueden_editar_notas, per.profes_pueden_nivelar,
-                                y.id as year_id, y.year, y.nota_minima_aceptada, y.regla_nivelacion, y.actual as year_actual, per.actual as periodo_actual,
+                                y.id as year_id, y.year, y.nota_minima_aceptada, y.regla_nivelacion, y.modelo_evaluacion, y.actual as year_actual, per.actual as periodo_actual,
                                 y.unidad_displayname, y.subunidad_displayname, y.unidades_displayname, y.subunidades_displayname, y.show_materias_todas,
-                                y.genero_unidad, y.genero_subunidad, per.fecha_plazo, y.alumnos_can_see_notas, y.logo_id,
+                                y.genero_unidad, y.genero_subunidad,
+                                y.desempeno_displayname, y.desempenos_displayname, y.genero_desempeno, per.fecha_plazo, y.alumnos_can_see_notas, y.logo_id,
                                 y.si_recupera_materia_recup_indicador, y.year_pasado_en_bol, y.mostrar_puesto_boletin, y.puestos_alfabeticamente, y.mostrar_nota_comport_boletin, y.profes_can_edit_alumnos,
                                 y.compromiso_familiar_label
                             from profesores p
@@ -162,9 +186,10 @@ class ContextoDeUsuario
                                 a.foto_id, IFNULL(i2.nombre, IF(a.sexo="F","default_female.png", "default_male.png")) as foto_nombre,
                                 g.id as grupo_id, g.nombre as nombre_grupo, g.abrev as abrev_grupo,
                                 g.year_id as year_matricula_id, per.id as periodo_id, per.numero as numero_periodo,
-                                y.id as year_id, y.year, y.nota_minima_aceptada, y.regla_nivelacion, y.actual as year_actual, per.actual as periodo_actual,
+                                y.id as year_id, y.year, y.nota_minima_aceptada, y.regla_nivelacion, y.modelo_evaluacion, y.actual as year_actual, per.actual as periodo_actual,
                                 y.unidad_displayname, y.subunidad_displayname, y.unidades_displayname, y.subunidades_displayname,
-                                y.genero_unidad, y.genero_subunidad, per.fecha_plazo, y.mostrar_nota_comport_boletin, y.si_recupera_materia_recup_indicador, y.year_pasado_en_bol, y.alumnos_can_see_notas, y.logo_id,
+                                y.genero_unidad, y.genero_subunidad,
+                                y.desempeno_displayname, y.desempenos_displayname, y.genero_desempeno, per.fecha_plazo, y.mostrar_nota_comport_boletin, y.si_recupera_materia_recup_indicador, y.year_pasado_en_bol, y.alumnos_can_see_notas, y.logo_id,
                                 y.prematr_antiguos, y.msg_when_students_blocked, y.compromiso_familiar_label
                             from alumnos a
                             inner join matriculas m on m.alumno_id=a.id and (m.estado="MATR" or m.estado="ASIS" or m.estado="PREM")
@@ -192,9 +217,10 @@ class ContextoDeUsuario
                                 ac.foto_id, IFNULL(i2.nombre, IF(ac.sexo="F","default_female.png", "default_male.png")) as foto_nombre,
                                 "N/A" as grupo_id, ("N/A") as nombre_grupo, ("N/A") as abrev_grupo,
                                 "N/A" as year_matricula_id, per.id as periodo_id, per.numero as numero_periodo,
-                                y.id as year_id, y.year, y.nota_minima_aceptada, y.regla_nivelacion, y.actual as year_actual, per.actual as periodo_actual,
+                                y.id as year_id, y.year, y.nota_minima_aceptada, y.regla_nivelacion, y.modelo_evaluacion, y.actual as year_actual, per.actual as periodo_actual,
                                 y.unidad_displayname, y.subunidad_displayname, y.unidades_displayname, y.subunidades_displayname,
-                                y.genero_unidad, y.genero_subunidad, per.fecha_plazo, y.si_recupera_materia_recup_indicador, y.mostrar_nota_comport_boletin, y.alumnos_can_see_notas, y.logo_id,
+                                y.genero_unidad, y.genero_subunidad,
+                                y.desempeno_displayname, y.desempenos_displayname, y.genero_desempeno, per.fecha_plazo, y.si_recupera_materia_recup_indicador, y.mostrar_nota_comport_boletin, y.alumnos_can_see_notas, y.logo_id,
                                 -- §140. `year_pasado_en_bol` estaba en las otras TRES ramas y no en
                                 -- ésta, y es una configuración del AÑO, no del tipo de usuario: dice
                                 -- si el boletín arrastra el año pasado. Sin ella, las maquetas 2 y 3
@@ -225,9 +251,10 @@ class ContextoDeUsuario
                                 u.imagen_id as foto_id, IFNULL(i.nombre, IF(u.sexo="F","default_female.png", "default_male.png")) as foto_nombre,
                                 "N/A" as grupo_id, ("N/A") as nombre_grupo, ("N/A") as abrev_grupo,
                                 "N/A" as year_matricula_id, per.id as periodo_id, per.numero as numero_periodo, per.profes_pueden_editar_notas, per.profes_pueden_nivelar,
-                                y.id as year_id, y.year, y.nota_minima_aceptada, y.regla_nivelacion, y.actual as year_actual, per.actual as periodo_actual,
+                                y.id as year_id, y.year, y.nota_minima_aceptada, y.regla_nivelacion, y.modelo_evaluacion, y.actual as year_actual, per.actual as periodo_actual,
                                 y.unidad_displayname, y.subunidad_displayname, y.unidades_displayname, y.subunidades_displayname, y.show_materias_todas,
-                                y.genero_unidad, y.genero_subunidad, per.fecha_plazo, y.si_recupera_materia_recup_indicador, y.year_pasado_en_bol, y.mostrar_nota_comport_boletin, y.alumnos_can_see_notas, y.logo_id,
+                                y.genero_unidad, y.genero_subunidad,
+                                y.desempeno_displayname, y.desempenos_displayname, y.genero_desempeno, per.fecha_plazo, y.si_recupera_materia_recup_indicador, y.year_pasado_en_bol, y.mostrar_nota_comport_boletin, y.alumnos_can_see_notas, y.logo_id,
                                 y.puestos_alfabeticamente, y.compromiso_familiar_label
                             from users u
                             left join periodos per on per.id=u.periodo_id

@@ -136,18 +136,347 @@ de más es legítimo. **Lo es.**
 > cuenta un síntoma parecido al que te interesa es el peor de los tres casos**, porque no se
 > delata: contaba *menciones* y se leyó como *respuestas que cambian*.
 
+> ## ✅ MEDIDO el 13 sep 2026 — **son tres, no hay cuarta**
+>
+> Lo corrió `8myvc-2e` en `.worktrees/2e` sobre `99e0942` + una columna sonda, y **la corrió
+> quien no la escribió**, que es la regla. El corte salió **limpio**, que es lo que hace que no
+> haya que interpretar ningún umbral:
+>
+> | | instantáneas | qué llevan |
+> |---|---|---|
+> | fila **entera** de `years` | **3** | `muestreo-years`, `-colegio`, `-trashed` — **70 de 70** columnas |
+> | proyección nombrada (`Year::datos()`) | **18** | `.year` con **36 de 70** |
+> | sin la fila entera | 122 | proyecciones y ninguna — **cuántas de las 122 llevan alguna columna suelta depende del detector**: 21, 30 o 60 según se pregunte (abajo) |
+>
+> **El hueco que importa es el de 36 a 70, y está vacío.** El reparto completo —de `8myvc-c1`,
+> que lo reprodujo por un **tercer camino**, con barrido propio y sin el script de `2e`— tiene
+> más escalones de los que dijo el resumen, y conviene escribirlo entero en vez de fiarlo a dos
+> umbrales:
+>
+> ```
+> 70 columnas -> 3      <- la fila entera: las tres
+> 36 columnas -> 18     <- Year::datos()
+> 19 columnas -> 1
+> 17 columnas -> 7
+> 16 columnas -> 1
+> ```
+>
+> **Lo que se sostiene y lo que no, después de cuatro detectores distintos:**
+>
+> - **«Entre 36 y 70 no hay nada» es CIERTO**, y lo confirman las tres derivaciones. Por eso el
+>   corte «lleva la fila entera / no la lleva» **no necesita elegir ningún umbral**: en el hueco
+>   donde habría que ponerlo no hay nada que clasificar.
+> - **«70 o 36 y nada más» es FALSO**, y lo es en su forma literal: hay proyecciones por debajo
+>   de 36. Ésa es la frase que se corrigió, no la de arriba.
+> - **Y la cola —cuántas instantáneas «llevan `years`» en total— NO ESTÁ RESUELTA, y no hace
+>   falta resolverla.** Cuatro detectores han dado **21**, **30** y **60**, y los tres son
+>   defendibles: cambian según se exija que el juego de claves **sea** una fila de `years`, que
+>   contenga N columnas suyas, o que el nombre aparezca en el fichero. El de 60 es mío y es el
+>   burdo —busca nombres sueltos, así que `nombre` u `orden` en cualquier objeto cuentan—, que es
+>   **el mismo detector que dio los ~30 de esta mañana**.
+>
+> **La única cifra estable de las cuatro es la que importa: TRES llevan la fila entera**, y sale
+> igual con los cuatro métodos. Todo lo demás es la cola, depende del umbral y **no decide nada
+> de la Fase 1**. *Un recuento afirma el corte; un reparto lo enseña* —la frase es de `2e`— y
+> esto es el caso extremo: **el reparto de la cola enseña que la pregunta estaba mal puesta.**
+>
+> ### ✅ La pata empírica: la corrida dirigida de `8myvc-c1`, y el diff que la cierra
+>
+> ```
+> Tests: 4 failed, 62 passed (433 assertions)
+> orden: php artisan test --filter='MuestreoDeLecturasTest|CentinelaDeLasColumnasDelAnioNuevoTest'
+> árbol: /app/.worktrees/c1 @ ee6453c + la sonda sin commitear   ·   13 sep 2026, 12:58
+> ```
+>
+> **Los tres rojos de instantánea son la terna**, y el cuarto es el centinela —que no es una
+> instantánea y por eso va aparte—. Lo que lo cierra no son los rojos sino **el diff de la
+> regeneración**:
+>
+> ```
+> añadidas: 4    quitadas: 0
+>   3 x  + 'sonda_c1' => 'int'     <- las tres instantáneas
+>   1 x  + 0 => 'sonda_c1'         <- el centinela, nombrando la columna
+> ```
+>
+> **Ni una línea que no sea la sonda.** Es la prueba que pide este repositorio: *el diff de la
+> regeneración son exactamente las claves esperadas y ninguna más* — un rojo dice que algo cambió,
+> el diff dice **qué**.
+>
+> > **Y su límite, dicho por quien la corrió: confirma, no descubre.** Su suite entera se quedó
+> > huérfana a mitad y la corrida que queda es **dirigida**, con `--filter` a dos clases. Un
+> > cuarto fichero que viviera fuera de ellas **no habría salido**. Por eso la pata empírica que
+> > vale es la de abajo —la Fase 1 real, con una columna de verdad y sin filtro— y ésta es **el
+> > control que la acompaña**.
+> >
+> > **Un delator nuevo, y va escrito porque el de siempre aquí no servía.** Aquella suite murió
+> > como ya está fichado —el `docker exec` se va y el `phpunit` de dentro sigue— pero **la tarea
+> > avisó de «completed, exit code 0»**, así que ni la duración ni el código de salida decían
+> > nada. **Lo delató que el fichero no tenía la línea `Tests:`**: se quedó congelado en 1.031
+> > tests de 142 ficheros y sin resumen. *Un resumen que falta es más fiable que un exit code que
+> > está.*
+
+> ### ✅ Y la Fase 1 real la confirmó al escribirse — 12 instantáneas, de las que **tres son la terna**
+>
+> `myvc-front-50` commiteó la Fase 1 (`4e0033c`) y movió **doce** instantáneas. Contadas aquí con
+> `git show --name-only --format="" 4e0033c | grep -c 'Snapshots/'`, y **se reparten exactamente
+> como predecía esta sección**:
+>
+> | | cuáles |
+> |---|---|
+> | **3 · las movió la columna SOLA** | `muestreo-years`, `-colegio`, `-trashed` — **la terna, clavada** |
+> | **6 · las movió él A MANO** | los cuatro `login-contexto-*`, `muestreo-auth-me` y `muestreo-aplicacion-descargas-detailed` — las seis proyecciones nombradas que había que ensanchar a propósito |
+> | 3 · de la ruta | `rutas.json`, `guards-por-ruta.json`, `guard-por-familia.json` |
+>
+> **Y `familias-que-nunca-entran-en-el-candado.json` NO se movió**, que era la otra predicción:
+> la familia `years` tiene de sobra hermanas con guard, así que una ruta nueva ahí no entra en ese
+> censo. Cero apariciones en los dos commits.
+>
+> **Dos avisos para quien cite ese commit, los dos de `8myvc-c1`:**
+>
+> 1. **Su titular dice «diez» y son doce**, y su propio desglose lo contradice. Si se cita, **se
+>    cita el cuerpo y no el encabezado** — donde además está dicho mejor que aquí: *«una
+>    instantánea que se mueve SOLA delata un camino con comodín que nadie encontró; una proyección
+>    nombrada que se mueve porque alguien le añadió una columna sólo dice lo que ese alguien
+>    escribió»*. Es la distinción cobertura/exposición, llegada por su cuenta y por tercera vez.
+> 2. **No se cuentan con `--stat`**, que trunca las rutas largas y se come el `Snapshots/` de
+>    algunas líneas: da **11**. Con `--name-only`, 12.
+>
+> **Con esto la terna deja de ser una derivación y pasa a estar confirmada por el hecho**: se
+> predijo antes de que existiera el código, y el código la cumplió sin que nadie la ajustara.
+
+> **Con esto la terna tiene tres derivaciones independientes** —el script de `2e`, el barrido de
+> `c1` y las tres columnas de los docs 22 y 23— **más una suite**, y las cuatro coinciden.
+
+> ### La trampa que se comió `c1` midiendo esto, y que muerde en `years` y no en `grupos`
+>
+> `GROUP_CONCAT(COLUMN_NAME)` **corta en `group_concat_max_len` sin error, sin aviso y sin una
+> fila de menos**, y le fabricó un hallazgo entero: «una columna que falta en las tres
+> instantáneas», salido del tope de una función. Medido aquí:
+>
+> | | |
+> |---|---|
+> | `group_concat_max_len` | **1024** |
+> | nombres de las columnas de `years` | **1024** — *o sea cortado* |
+> | nombres de las columnas de `grupos` | 159 |
+>
+> **Los 1024 exactos son la firma del corte**, igual que los 255 exactos de
+> `frases_asignatura.frase` en el doc 28 §1.ter: un número que coincide con el tope no es una
+> medida, es un tope.
+>
+> Y lo que lo hace digno de estar escrito aquí no es el fallo, es su forma: **el punto ciego
+> depende del tamaño de la tabla.** Ese detector funciona en `grupos` y miente en `years`, así
+> que **funciona hasta que deja de funcionar y no dice cuándo** — la peor de las formas de fallar
+> de las que este repositorio lleva contadas, porque la primera vez que se usa sale bien.
+>
+> **El método no fue correr la suite, y es mejor así.** Con cuatro suites en el contenedor los
+> mismos tests pasaron de 0,41 s a 6,30 s —más de tres horas de corrida— y se abandonó. En su
+> lugar: sacar las columnas vivas con `SHOW COLUMNS` y recorrer las 125 instantáneas buscando
+> **objetos cuyo juego de claves sea una fila de `years`**, a cualquier profundidad. Eso contesta
+> **la pregunta exacta** —*«¿qué respuestas publican la fila entera?»*— en vez de una parecida, y
+> no depende de que un test corra, ni del orden, ni de un `foreach` que se corta. Resuelve de una
+> vez el ruido no determinista y el punto ciego del bucle: **lo que no se ejecuta no tiene ninguno
+> de los dos problemas.**
+>
+> ### La cuarta apareció, y era falsa — y así es como se caza
+>
+> Su primer detector buscaba **el nombre** de una columna vecina, `horario_version_id`, y dio
+> **cuatro** ficheros: los tres y `muestreo-ChangesAsked-to-me.json`. Abierto antes de cantarlo,
+> ahí `horario_version_id` es **un campo propio de esa respuesta** —un objeto de once claves con
+> `alumnos`, `eventos`, `horario_hoy`…—, no una fila de `years`. **Cuarto hallazgo: cero.**
+>
+> Es el mismo error que este apartado cometió tres veces —un detector que mide algo *parecido*, con
+> un número creíble— y **lo que lo cazó no fue desconfiar**: fue que estaba escrito que **una
+> cuarta sería un hallazgo, y un hallazgo se mira antes de publicarlo.** Ésa es la única defensa
+> que ha funcionado hoy contra esta familia de fallos: no la sospecha, sino **haber dicho de
+> antemano qué resultado obligaría a mirar**.
+>
+> ### Y una población que no es la que parece: 74, 70, 68 y 64
+>
+> Al cruzar cifras salieron **cuatro números distintos de «columnas de `years`»**, y los cuatro
+> son correctos sobre bases distintas:
+>
+> | dónde | columnas |
+> |---|---|
+> | base de **desarrollo** `simonbolivar` | **74** |
+> | base de **tests** (volcado + migraciones) | **70** |
+> | docblock de `CentinelaDeLasColumnasDelAnioNuevoTest` | **68** — envejecido |
+> | volcado congelado `mysql-schema.sql` | **64** |
+>
+> La de tests es la que vale para todo lo de arriba, porque es contra la que corre el centinela.
+> **Los 74 de desarrollo son la trampa ya fichada** —esa base tiene cuatro columnas que ni el
+> volcado ni las migraciones traen— y el 68 del docblock es una cifra que envejeció sin que nada
+> se pusiera rojo, igual que el `:158` del sembrador. **Ninguna de las dos se arregla aquí**;
+> quedan dichas para que el siguiente que mida no crea que ha encontrado una discrepancia.
+
+#### La segunda corrección del mismo día: **se mueven tres instantáneas y la publican OCHO rutas**
+
+> **Lo destapó `8myvc-2e` encontrando dos caminos que este apartado no tenía, y el censo completo
+> —hecho aquí, sistemáticamente en vez de por inspección— da OCHO, no cinco ni tres.** Las dos
+> cifras son ciertas y **cuentan cosas distintas**, que es justo lo que esta sección venía
+> confundiendo desde que se escribió:
+>
+> | | |
+> |---|---|
+> | **exposición** — rutas cuya respuesta gana la columna | **9** |
+> | **cobertura** — instantáneas que se mueven | **3** |
+>
+> **Las ocho**, con su ruta, leídas de `HEAD` y no del árbol de trabajo:
+>
+> | método | cómo publica la fila entera | ruta | ¿instantánea? |
+> |---|---|---|---|
+> | `getIndex` | `SELECT y.*` crudo | `GET years` | **sí** |
+> | `getColegio` | `SELECT *` crudo | `GET years/colegio` | **sí** |
+> | `getTrashed` | `Year::onlyTrashed()->get()` | `GET years/trashed` | **sí** |
+> | `postStore` | `return $year` | `POST years/store` | no |
+> | `putGuardarCambios` | `return $year` | `PUT years/guardar-cambios` | no |
+> | `deleteDelete` | `return $year` | `DELETE years/delete/{id}` | no |
+> | `deleteDestroy` | `return $year` | `DELETE years/destroy/{id}` | no |
+> | `putRestore` | `return $year` | `PUT years/restore/{id}` | no |
+> | **`Perfiles\ImagesController:318`** | `return $year` | **`PUT myimages/cambiarlogocolegio`** | **no** |
+>
+> > **El noveno vive FUERA de `YearsController`, y ése es el error de método que cometimos los
+> > tres a la vez.** Lo encontró `8myvc-c1` barriendo `return` que mencionen `$year` en **todo
+> > `app/`**, no leyendo el controlador obvio: cambiar el logo del colegio hace
+> > `Year::findOrFail(...)`, le pone `logo_id` y **devuelve el año entero**. Guard `auth.personal`
+> > en la ruta y `esAdministrativo` dentro (~10), **sin instantánea**.
+> >
+> > Censamos `YearsController` **porque la tabla se llama `years`**. Es la lección de esta misma
+> > sección en otra dirección: no fue contar mal, fue **contar bien sobre la carpeta equivocada**.
+> >
+> > **Y tres candidatos descartados comprobando sus llamadas una a una, no por su pinta:**
+> > `Year::actual()` hace `SELECT *` pero sus tres llamantes usan sólo `->id`;
+> > `Year::de_un_periodo()` devuelve un modelo entero y su único llamante
+> > —`AsignaturasController:440`— también usa sólo `->id` y devuelve otra cosa; y
+> > `RequisitosController:33` devuelve `$years` de una proyección de cuatro columnas. **Los tres
+> > se parecen a un publicador y ninguno lo es.**
+>
+> **Y la mitad que faltaba: a quién alcanza cada una** — aportada por `8myvc-c1`, y es la que
+> convierte la cuenta en una decisión:
+>
+> | sin instantánea | quién puede llamarla |
+> |---|---|
+> | `POST years/store` | `auth.personal` — **45** |
+> | `PUT years/guardar-cambios` | `auth.personal` — **45** |
+> | `DELETE years/delete/{id}` | `auth.personal` — **45** |
+> | `DELETE years/destroy/{id}` | `esSuperusuario` dentro — **11** |
+> | `PUT years/restore/{id}` | `esSuperusuario` dentro — **11** |
+>
+> **Los dos que se encontraron primero son los dos mejor cerrados**, y los tres que nadie había
+> nombrado son los de más público: 45 personas y ninguna comprobación más allá del guard de la
+> ruta. *Lo que menos se mira no es lo más escondido: es lo que parece rutinario.*
+>
+> (Los **11** están contados hoy en la base de desarrollo —`is_superuser = 1`, vivos— y coinciden
+> con las «once personas» de `CLAUDE.md`; el aviso llegó diciendo 10. Los **45** son la cifra de
+> `auth.personal` del mismo sitio. **Son de un colegio**, no de los dieciséis.)
+>
+> **Y una trampa descartada por el camino, que casi quita dos de la lista.** El docblock de
+> `YearsTest` dice que `guardar-cambios` *«devuelve el modelo en memoria»*, lo que se lee como
+> «no trae la fila de la base». Comprobado: habla de **qué valor** lleva un campo —`null` frente
+> al `''` que guardó MySQL— y no de **qué columnas viajan**; `putGuardarCambios` hace
+> `Year::findOrFail` y `postStore` **rehidrata** con `Year::find(...)` después del `save()`. Las
+> dos traen las 70. **Tercera frase del día que es verdad con dos lecturas distintas**, después
+> del «los nombra uno a uno» del 422 y del «tres respuestas vivas» de los docs 22 y 23.
+>
+> > **Y una cuarta, de otra especie y con peor final — la aportó `myvc-front-50`
+> > diagnosticándose.** *«Omitir `forcedelete` ahorra un camino que candar»* es **cierto**;
+> > *«el rodeo se cierra por construcción»* es **falso**; soldadas en una frase suenan a una sola
+> > afirmación razonable. **No son dos lecturas de una frase: son dos frases, una verdadera y otra
+> > no, que se avalan la una a la otra.**
+> >
+> > **Y es la peor de las cuatro por su consecuencia**: las otras tres dejaban un número mal.
+> > Ésta dejaba **`destroy` abierto** — borrar y volver a crear devuelve la fila con
+> > `por_defecto = 0`, o sea libre, y el candado se salta **sin tocar ninguna ruta prohibida**. La
+> > §5.1.e del doc 28 ya lo midió sobre los nueve caminos de `unidades`: **precedente, no
+> > hipótesis**.
+> >
+> > La prueba que lo fija, y va en la Fase 3: **borrar un desempeño del colegio y volver a crearlo
+> > no puede devolver una fila libre.**
+
+> **La brecha son SEIS rutas que publican la fila entera y a las que nadie les mira el cuerpo**:
+> sus tests comprueban el `assertStatus`, no la forma. **Sin instantánea no hay rojo**, así que
+> las tres verificaciones que hay en marcha —la mía por lectura y las dos suites— **miden todas lo
+> mismo y ninguna las vería**.
+>
+> **Por qué importa y no es una pedantería**: la Fase 1 necesita la cuenta de **cobertura** —son
+> tres instantáneas las que hay que regenerar— pero el siguiente que añada una columna a `years`
+> necesita la de **exposición**, y si lee *«los tres únicos caminos que publican la fila entera»*
+> se lleva una cifra que se queda corta en cinco. Es
+> [30](30-lo-que-reparte-una-columna-nueva.md) otra vez y por su lado ciego: **lo que reparte una
+> columna no es el número de instantáneas, es el número de sitios que devuelven la fila entera.**
+>
+> **Y un camino que NO publica, para cerrar la cuenta**: `Year::actual()`
+> (`app/Models/Year.php:130`) también hace `SELECT * FROM years`, pero sus tres llamadas
+> —`LoginController:507`, `AlumnosController:327` y `:1010`— usan sólo `->id`. Comprobado por
+> `8myvc-2e` en las tres. `datos()`, `datos_basicos()` y `de_un_profesor()` llevan proyecciones
+> nombradas.
+
+> ### Y lo que remata el día: **la terna ya estaba escrita en este repositorio, dos veces**
+>
+> Salió al verificar un hallazgo de `8myvc-2e` sobre `grupos.ih`, y es el renglón más incómodo de
+> esta sección:
+>
+> - **[23-horarios.md](23-horarios.md) §**, por `horario_version_id`, literal: *«`years` la leen
+>   con `SELECT *` `YearsController::getIndex`, `::getColegio` y `getTrashed` —el último por
+>   Eloquent—, así que … mueve sus tres instantáneas de muestreo.»*
+> - **[22-nivelaciones.md](22-nivelaciones.md) §**, por `regla_nivelacion`: *«`GET years`,
+>   `GET years/colegio`, `GET years/trashed` … las tres instantáneas de `MuestreoDeLecturasTest`
+>   se regeneran con esa decisión escrita.»*
+>
+> **Dos columnas distintas, dos documentos distintos, la misma terna y los mismos tres métodos.**
+> La respuesta llevaba escrita desde antes de que se abriera este documento, y aquí se
+> redescubrió en un día, con tres cifras falsas por el camino y dos suites ajenas corriendo. Un
+> `grep getTrashed docs/migracion/` la daba en segundos.
+>
+> **Y aun así no es sólo un escarmiento, y la corrección es de `8myvc-2e`:** son **tres columnas
+> distintas** —`regla_nivelacion`, `horario_version_id` y ésta— que han llegado a **la misma
+> terna por tres caminos independientes y con meses de diferencia**. Eso no es una respuesta
+> copiada tres veces: es **la misma medición repetida tres veces con resultado idéntico**, que es
+> lo más cerca de una confirmación externa que va a tener esta sección.
+>
+> **Con un matiz que impide sacar de aquí la moraleja fácil**: ese `grep` habría dado también el
+> *«tres respuestas vivas»* de los dos documentos —la cuenta de exposición, equivocada— y se
+> habría heredado sin tocarla. O sea que *leer el repo primero* **habría dado el número bueno y el
+> malo a la vez**, sin nada que distinguiera uno de otro. Leer primero ahorra el trabajo; no exime
+> de preguntar **qué población contó** cada cifra que se hereda.
+>
+> **Lo que sí es nuevo, y conviene separarlo para no tirar el trabajo con el escarmiento**: los
+> dos documentos anteriores dicen **«tres respuestas vivas»**, que es la cuenta de **cobertura**
+> puesta donde va la de **exposición** — y son **ocho**. O sea que el repositorio tenía bien el
+> número que hacía falta para regenerar y **arrastraba el mismo error de población** que esta
+> sección cometió tres veces. La terna estaba; la distinción, no.
+>
+> **La regla que sale de aquí y que va antes que medir**: cuando una pregunta empieza por *«¿a
+> cuántos sitios llega X?»*, **el primer sitio donde buscar es `docs/migracion/`**, porque este
+> repositorio lleva un año contestándolas y escribiéndolas. Medir es el segundo paso, no el
+> primero.
+
+> ### Tres veces mal en un día, y el porqué vale más que las tres correcciones
+>
+> Esta sección ha dicho **~30**, luego **3**, y ha llamado a esos 3 *«los tres únicos caminos que
+> publican»* cuando son **8**. Los tres errores son **el mismo**: contar con un detector que mide
+> algo **parecido** a lo que interesa.
+>
+> - «menciona una columna de `years`» **≠** «la respuesta gana una clave» → salieron 30.
+> - «tiene instantánea» **≠** «publica la fila entera» → salieron 3.
+>
+> Y ninguno se delató, porque **los tres números eran creíbles**. Un número raro se comprueba
+> solo; **un número creíble sólo se comprueba si alguien vuelve a preguntarse qué se contó**. La
+> regla del repositorio —*el primer sitio donde mirar cuando el número sale raro es el detector*—
+> **tiene un agujero por ahí**: cuando el número no sale raro, nadie mira el detector. Lo que
+> cierra ese agujero no es desconfiar más, es **escribir al lado de la cifra qué población contó**,
+> que es lo que la tabla de arriba hace y lo que esta sección no hacía.
+
 **El mecanismo, que es lo que no cambia y hay que tener delante al escribir la Fase 1:**
 
 ```
-YearsController::getIndex   →  'SELECT y.*, i.nombre as logo FROM years y …'
-YearsController::getColegio →  'SELECT * FROM years WHERE deleted_at is null'
-YearsController::getTrashed →  Year::onlyTrashed()->get()
+comodín en SQL crudo     getIndex, getColegio
+Eloquent devuelto entero getTrashed, postStore, putGuardarCambios,
+                         deleteDelete, deleteDestroy, putRestore
 ```
 
-`modelo_evaluacion` y los tres `displayname` del desempeño **se reparten solos** por esos tres
-caminos, y por **dos** de las tres vías que censó [30](30-lo-que-reparte-una-columna-nueva.md):
-el comodín en SQL crudo y el modelo Eloquent devuelto entero. Es el mismo documento, escrito por
-`profesores.tono` nueve días antes.
+Son **dos** de las tres vías que censó [30](30-lo-que-reparte-una-columna-nueva.md) —falta el
+Query Builder, que ahí salió a cero—, y es el mismo documento, escrito por `profesores.tono`
+nueve días antes.
 
 > Lo que **sí** se conserva byte a byte, y ése es el test que hay que escribir: **con el enum en
 > `ponderado` y las tablas vacías, las unidades, las notas, las definitivas y los tres boletines
@@ -411,14 +740,34 @@ cumple eso va junto aunque sea más trabajo.
 | **0** | el `ALTER` a `text`, remedido | 0 | 1 (ya escrita) | 0 |
 | **1** | el colegio elige su modelo y le pone nombre | **1** | 1 | **3** |
 | **2** | competencias, con el catálogo del MEN | 7 | 1 | 0 |
-| **3** | desempeños: catálogo, siembra y los propios del docente | 8 | 1 | 0 |
+| **3** | desempeños: catálogo, siembra y los propios del docente | **12** | 1 | 0 |
 | **4** | la rejilla premarcada | 2 | 1 | 0 |
 | **5** | qué comparten los tres boletines *(medición, sin código)* | 0 | 0 | 0 |
 | **6** | el boletín nuevo | 4 | 0 | 0 |
 
-**Total: 22 rutas**, no 20 — las 20 del documento de decisiones más
-`PUT years/modelo-evaluacion` (§1.4) y menos ninguna. Se cuentan el día que entren,
-con `route:list --json`, **en el árbol donde se escriban** (§3).
+**Total: 26 rutas**, no 20 ni 22. Las 20 del documento de decisiones, **+1**
+`PUT years/modelo-evaluacion` (§1.4), **+1** el `GET desempenos` de la planilla y **+4** los
+desempeños propios del docente que exige D14 (Fase 3). **Las seis salieron de huecos que el
+documento no vio al escribirlo, no de ampliar el encargo** — y las tres veces por la misma forma:
+una capacidad decidida que no tenía por dónde ejercerse. Se cuentan el día que entren, con
+`route:list --json`, **en el árbol donde se escriban** (§3).
+
+> ### La deuda que abre la Fase 2 y no cierra nadie: `competencias` no se copia al año siguiente
+>
+> `competencias` es **por año**, igual que la plantilla. Tal como queda la Fase 2, **al crear el
+> año siguiente no se copia**, así que el colegio reescribe su plan de área cada enero. Es la
+> §1.bis del doc 28 **exacta** —las subunidades por defecto sin copiar durante años, sin un error
+> en ningún log—: no rompe nada hasta enero, y en enero no hay nada que lo explique.
+>
+> **Se dice aquí que la abre la Fase 2, no que «ya existía»**: la tabla no existe todavía. Quien
+> la crea, crea la deuda.
+>
+> **Dónde va, decidido aquí para que no se caiga entre dos ramas**: es **entrega propia sobre
+> `main`**, después de fundir `feat/competencias`, y **no dentro de la Fase 2**. El motivo es de
+> fontanería y es bueno: toca `YearsController`, que la Fase 1 ya cambió en `main`, y la rama de
+> competencias sale de un commit anterior — editarlo allí es fabricar un conflicto. Va junta con
+> **el centinela de las tablas que se copian al crear un año**, que este documento ya pedía en la
+> Fase 3 y que es lo único que impide que vuelva a pasar con la siguiente tabla por año.
 
 ---
 
@@ -590,6 +939,69 @@ years + modelo_evaluacion  enum('ponderado','competencias') NOT NULL DEFAULT 'po
   displayname — que es lo que demuestra que la línea se trazó donde se quería.
 - Un año creado a partir de otro **hereda las cuatro columnas**.
 
+> ## ✅ FASE 1 HECHA — 13 sep 2026, commit `4e0033c`
+>
+> Migración `2026_09_13_100000_modelo_de_evaluacion_del_anio` (las cuatro columnas en **un solo
+> `ALTER`**), `Year::MODELOS_DE_EVALUACION`, `YearsController::putModeloEvaluacion`, los tres
+> rótulos en `putGuardarCambios`, las cuatro copiadas en `postStore`, el corte de la puerta de al
+> lado en `putToggleCambiarValor`, `ContextoDeUsuario` en sus cuatro ramas,
+> `PUT years/modelo-evaluacion` en `routes/api/estructura.php`, y
+> `tests/Contrato/ModeloDeEvaluacionDelAnioTest` con **17 casos**.
+>
+> ### El contrato, tal como contesta el docker — no leído del código
+>
+> ```
+> PUT /api/years/modelo-evaluacion          auth.token + auth.personal + can_edit_plantilla_notas
+> { "modelo_evaluacion": "ponderado"|"competencias", "year_id": <int, opcional> }
+>
+> 200 { year_id, modelo_evaluacion, anterior,
+>       desempeno_displayname, desempenos_displayname, genero_desempeno }
+> 403 sin el permiso · 422 valor fuera del enum · 404 año inexistente o en la papelera
+> ```
+>
+> Sin `year_id` escribe **el año de la sesión**. `anterior` viaja para que la pantalla pueda decir
+> «pasó de X a Y» sin abrir la auditoría, que se escribe con `Auditoria::registrar()->editar('year_config', …)`.
+>
+> **`modelo_evaluacion` viaja en la sesión**, que es de lo que depende el front para decidir si
+> enseña lo nuevo: `POST auth/login` (dentro de `usuario`), `GET auth/me` y `POST login` (en la
+> raíz), con `desempeno_displayname`, `desempenos_displayname` y `genero_desempeno` al lado.
+> Comprobado con el contenedor levantado, no deducido.
+>
+> ### La cuenta de instantáneas: **diez**, y las siete de más NO son el hallazgo que avisa §1.3
+>
+> Ésta es la parte que hay que leer, porque el recuadro de arriba dice *«una cuarta instantánea
+> que se mueva es el hallazgo»* y se movieron diez. **No hay ningún cuarto comodín.** El reparto:
+>
+> | | |
+> |---|---|
+> | **3** · la columna sola | `muestreo-years`, `-colegio`, `-trashed` — los tres caminos con comodín. **Exactamente lo que predecía §1.3** |
+> | **6** · a mano, y a propósito | los cuatro `login-contexto-*`, `muestreo-auth-me` y `muestreo-aplicacion-descargas-detailed`. Son **proyecciones nombradas**, y se movieron porque **este commit las ensanchó**: el front necesita `modelo_evaluacion` en la sesión |
+> | **3** · la ruta | `rutas`, `guards-por-ruta`, `guard-por-familia` |
+>
+> **La distinción que hay que conservar**: §1.3 avisa de una instantánea que se mueve **sola**,
+> porque eso significa un camino con comodín que nadie encontró. Una proyección nombrada que se
+> mueve porque alguien le añadió una columna **no dice nada nuevo sobre el esquema** — dice lo que
+> ese alguien escribió. Leer el diff sigue siendo obligatorio y **se leyó entero: 40 líneas, y no
+> hay una sola que no sea una de las cuatro claves o la ruta nueva.**
+>
+> `familias-que-nunca-entran-en-el-candado.json` **no se movió** (`years` pasa de 17 de 19 a 18 de
+> 20 con guard), `RutasPreLoginTest::TOTAL_PUBLICAS` sigue en **doce** y `AutenticacionTest::SIN_GUARD`
+> no se movió.
+>
+> ### El router: **580**, contado
+>
+> `route:list --json` en el **árbol principal** (`/app`): **580**, de ellas **579** bajo `api/`. La
+> 580 es `PUT years/modelo-evaluacion`. No se le sumó uno a 579: se contó, y se dice el árbol.
+>
+> ### Y una desviación del plan, dicha para que no se lea como descuido
+>
+> Este apartado pedía regenerar las instantáneas **en un commit aparte**. Van en el mismo, y el
+> motivo es que la otra mitad de la regla de la casa —*«se commitea en cuanto una fase pasa sus
+> pruebas»*— no se puede cumplir a la vez: un commit de código con las instantáneas viejas es un
+> commit **rojo** en `main`, y `main` es lo que corre en los dieciséis colegios. Lo que el commit
+> aparte compraba era que el diff se leyera; eso se compró de otra forma, escribiéndolo entero en
+> el mensaje.
+
 ---
 
 ### Fase 2 · Competencias, y el catálogo del MEN que las siembra
@@ -678,9 +1090,29 @@ Es el par que ya funciona en este sistema: `unidades_por_defecto` → `unidades`
 `por_defecto` significa aquí **lo mismo** que en `unidades`: «esta fila la sembró el
 colegio» — que es lo que hace cumplir D14 sin inventar nada.
 
-**8 rutas**: `GET`/`POST`/`PUT {id}`/`DELETE {id}`/`PUT orden`/`PUT copiar` sobre el
-catálogo, **`PUT desempenos/sembrar`** y `GET desempenos` de una asignatura+periodo
-(lo que lee la planilla).
+**12 rutas**, en dos grupos que **no son el mismo endpoint con otro permiso, porque no son la
+misma tabla**:
+
+- **8 sobre el catálogo del colegio** (`desempenos_por_defecto`): `GET`, `POST`, `PUT {id}`,
+  `DELETE {id}`, `PUT orden`, `PUT copiar`, **`PUT desempenos/sembrar`** y `GET desempenos` de una
+  asignatura+periodo, que es lo que lee la planilla.
+- **4 sobre los del docente** (`desempenos`, la tabla sembrada): `POST`, `PUT {id}`,
+  `DELETE {id}` y `PUT orden`.
+
+> **Este apartado decía 8 y se le había olvidado la mitad de D14.** Escribía *«y lo que el docente
+> sí puede: añadir los suyos»* **sin darle ni una ruta por donde hacerlo** — o sea una capacidad
+> declarada que **no podría ejercer nadie**. Es la forma de `profesores.tono` por tercera vez en
+> este documento (§1.4 y §1.9 son las otras dos), y esta vez la vio `myvc-front-50` al ir a
+> escribirla.
+>
+> Y no se arregla reusando las ocho con un permiso distinto dentro: el catálogo vive en
+> `desempenos_por_defecto` —materia + grado + periodo— y lo del docente en `desempenos`
+> —asignatura + periodo—. **Un `POST` no puede escribir en una tabla o en otra según quién llame**
+> sin convertirse en dos endpoints disfrazados de uno.
+>
+> **Sin esas cuatro, la rejilla del docente es de sólo lectura**: si al área se le olvidó un
+> desempeño, el periodo se pierde. Que es literalmente lo que D14 dice que separa una pantalla que
+> se usa de una que se abandona.
 
 > **`PUT desempenos/sembrar` es explícito y no cuelga de un `GET`.** El `GET` que
 > escribe —`UnidadesController::getDeAsignaturaPeriodo`— está fichado en
@@ -736,14 +1168,32 @@ que ya aprendió tres cosas por las malas:
 > decisión — pero el día que alguien abra esa pantalla y reciba cuarenta y dos renglones, esto
 > explica por qué.
 
-**El candado del docente** es la marca `por_defecto`, y **son cuatro caminos, no dos**:
-`update`, `destroy`, `forcedelete` y `orden`. Poner el candado sólo en `update` lo
+**El candado del docente** es la marca `por_defecto`, y **son TRES caminos aquí, no los nueve de
+`unidades`**: `update`, `destroy` y `orden`. No hay `forcedelete` ni `restore` en esta familia
+porque no se han pedido.
+
+> ⚠️ **Y el porqué importa más que el número, porque la razón fácil es falsa.** No es que
+> *«sin `forcedelete` el rodeo de borrar-y-volver-a-crear se cierre por construcción»*: **no se
+> cierra**. `destroy` es un borrado lógico, así que un docente que pudiera borrar volvería a crear
+> la fila **con `alumno_id` nuevo y `por_defecto = 0`**, o sea libre — exactamente el rodeo de la
+> §5.1.e del doc 28. **Lo que lo cierra es candar `destroy`**, no omitir `forcedelete`.
+>
+> Omitir `forcedelete` **ahorra un camino que candar**, que es otra cosa y también vale. Pero
+> escrito como «se cierra solo» invita a dejar `destroy` abierto, que es justo el agujero. Poner el candado sólo en `update` lo
 deja decorativo por el rodeo de siempre —borrar y volver a crear—, que es lo que la
 §5.1.e del doc 28 midió con los nueve caminos de `unidades`. Y compara **valores, no
 presencia del campo**: los clientes mandan el objeto entero.
 
 **Y lo que el docente sí puede** (D14): **añadir los suyos**. Un desempeño con
 `por_defecto = 0` y su `asignatura_id` se edita y se borra sin permiso ninguno.
+
+> **Y un defecto de la copia actual, encontrado auditando las nueve tablas que `postStore`
+> copia** (`8myvc-2e`, 13 sep, comparando cada `INSERT` contra las columnas vivas): **ninguna
+> columna se queda fuera por descuido** —las ausentes son contables o exclusiones deliberadas ya
+> documentadas: `editable_por_profe_id` de `requisitos_matricula` e `inicia_at`/`finaliza_at` de
+> `subunidades_por_defecto`— **pero la copia de `unidades_por_defecto` no pone `created_at`**, así
+> que esas filas nacen sin fecha. Las tablas que añaden las Fases 2 y 3 **no heredan ese
+> descuido**: se copian con sus marcas de tiempo, y su test lo comprueba.
 
 > **El centinela que falta, y que esta fase obliga a escribir.** `competencias` y
 > `desempenos_por_defecto` son **tablas por año**, así que `YearsController` tiene que
@@ -884,8 +1334,9 @@ eso `show_competencias_bol` se retiró).
 
 ## 3. La cuenta de rutas, y cómo se cuenta
 
-**22**, no 20: las 20 del documento de decisiones, más `PUT years/modelo-evaluacion`
-(§1.4) y más el `GET desempenos` de la planilla, que la §5.3 del doc 28 daba por
+**26**, no 20: las 20 del documento de decisiones, más `PUT years/modelo-evaluacion`
+(§1.4), más el `GET desempenos` de la planilla, más **las cuatro de los desempeños propios del
+docente** que exige D14 (Fase 3), que la §5.3 del doc 28 daba por
 incluido en «6 calcadas» y no lo está.
 
 Sobre una base que **hay que contar**, no heredar: `CLAUDE.md` dice 579 y el doc 28

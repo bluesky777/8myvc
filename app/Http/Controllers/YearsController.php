@@ -184,6 +184,19 @@ class YearsController extends Controller {
 			// cada nivelado. Es exactamente el caso de `puestos_con_bol_independiente`
 			// de arriba, y el centinela del año nuevo es el que no deja olvidarla.
 			$year->regla_nivelacion 			 = $pasado->regla_nivelacion;
+			// Las cuatro del modelo de evaluación (35 §2, Fase 1). Van juntas porque
+			// son una sola decisión, y se heredan por lo mismo que `regla_nivelacion`:
+			// sin estas líneas, **el colegio que eligió `competencias` amanecería en
+			// `ponderado` cada enero**, con sus desempeños escritos y sin la pantalla
+			// que los pinta, y el vocabulario que se imprime en el boletín volvería a
+			// decir «Desempeño» donde el colegio puso «Logro». El defecto de la columna
+			// tiene pinta de decisión: es exactamente el caso de
+			// `puestos_con_bol_independiente`, y el centinela del año nuevo es el que
+			// no deja olvidarlas.
+			$year->modelo_evaluacion 			 = $pasado->modelo_evaluacion;
+			$year->desempeno_displayname 		 = $pasado->desempeno_displayname;
+			$year->desempenos_displayname 		 = $pasado->desempenos_displayname;
+			$year->genero_desempeno 			 = $pasado->genero_desempeno;
 			$year->solo_escalas_valorativas 	 = $pasado->solo_escalas_valorativas;
 			$year->year_pasado_en_bol 			 = $pasado->year_pasado_en_bol;
 			$year->titulo_rector 				 = $pasado->titulo_rector;
@@ -623,6 +636,18 @@ class YearsController extends Controller {
 			$year->subunidad_displayname     = Request::input('subunidad_displayname', $year->subunidad_displayname);
 			$year->subunidades_displayname   = Request::input('subunidades_displayname', $year->subunidades_displayname);
 			$year->genero_subunidad          = Request::input('genero_subunidad', $year->genero_subunidad);
+			// Los tres rótulos del desempeño, aquí y no en una ruta propia: **D24 lo
+			// partió en dos a propósito**. Son vocabulario y comparten guard con sus
+			// seis vecinas —quien puede renombrar «Subunidad» puede renombrar
+			// «Desempeño»—, mientras que `modelo_evaluacion` se va a
+			// `PUT years/modelo-evaluacion` con `can_edit_plantilla_notas` dentro.
+			//
+			// Y tienen que estar en esta lista o **no las escribiría nadie**: este
+			// método asigna campo a campo, que es justo lo que dejó a `profesores.tono`
+			// leída en todas partes y escrita en ninguna.
+			$year->desempeno_displayname     = Request::input('desempeno_displayname', $year->desempeno_displayname);
+			$year->desempenos_displayname    = Request::input('desempenos_displayname', $year->desempenos_displayname);
+			$year->genero_desempeno          = Request::input('genero_desempeno', $year->genero_desempeno);
 			$year->alumnos_can_see_notas     = Request::input('alumnos_can_see_notas', $year->alumnos_can_see_notas);
 			$year->compromiso_familiar_label = $compromiso_familiar;
 			$year->updated_by                = $user->user_id;
@@ -689,6 +714,124 @@ class YearsController extends Controller {
 		} catch (\Exception $e) {
 			abort(422, 'Datos incorrectos');
 		}
+	}
+
+	/**
+	 * `PUT years/modelo-evaluacion` — **el colegio elige su modelo de evaluación.**
+	 *
+	 * Fase 1 de `docs/migracion/35-el-modelo-de-evaluacion-del-colegio.md` §2, y la
+	 * ruta que **D24** creó a propósito el 13 sep 2026. Las dos mitades del porqué,
+	 * porque ninguna se ve leyendo el código:
+	 *
+	 * 1. **`putGuardarCambios` nombra veintiuna columnas una a una**, así que una
+	 *    columna nueva metida ahí no la escribiría nadie —ni el superusuario— y se
+	 *    leería `'ponderado'` en los dieciséis colegios para siempre. Es
+	 *    `profesores.tono`, visto antes de cometerlo.
+	 * 2. **Y los dieciséis `years/*` de escritura son `auth.personal`**, o sea que
+	 *    colgarla de cualquiera de ellos dejaría que **cualquier docente cambiara el
+	 *    modelo de evaluación del colegio entero** desde un `PUT` de dos campos.
+	 *
+	 * Por eso: `auth.personal` en la ruta —que cierra la puerta a alumnos y
+	 * acudientes antes de tocar este método— y `puedeEditarPlantillaNotas`
+	 * **dentro**, que es la forma de `PlantillaNotasController` y el mismo permiso
+	 * (`can_edit_plantilla_notas`, D13: **cero permisos nuevos**). Lo que configura
+	 * el colegio, el docente no lo toca.
+	 *
+	 * > **Y la puerta de al lado está cerrada en `putToggleCambiarValor`**, que
+	 * > escribe cualquier columna de `years` con sólo `auth.personal`. Sin aquel
+	 * > corte esta ruta sería decorativa. Las dos mitades van juntas o no vale
+	 * > ninguna.
+	 *
+	 * ## Los tres rótulos NO se escriben aquí
+	 *
+	 * `desempeno_displayname`, `desempenos_displayname` y `genero_desempeno` van en
+	 * `putGuardarCambios`, con las seis de unidad y subunidad y con su mismo guard:
+	 * son rótulos, y quien puede renombrar «Subunidad» puede renombrar «Desempeño»
+	 * (D24). Mezclarlos aquí le pediría a la pantalla de vocabulario un permiso que
+	 * no necesita.
+	 *
+	 * ## Esto NO recalcula ni borra nada — D3, y es la propiedad que no hay que perder
+	 *
+	 * *Volver atrás es cambiar el enum.* Los desempeños sembrados y las marcas se
+	 * quedan en la base y dejan de pintarse; **no se recalcula ni una definitiva**.
+	 * Por eso el método hace un `save()` de una columna y nada más: cualquier cosa
+	 * que se añada aquí —un recálculo «de cortesía», un borrado de lo que el otro
+	 * modelo no usa— rompe la única razón por la que esta fase se puede desplegar a
+	 * los dieciséis colegios sin avisar a nadie. Lo sujeta
+	 * `ModeloDeEvaluacionDelAnioTest::cambiar_el_modelo_no_recalcula_ni_borra_nada`.
+	 *
+	 * ## Qué año
+	 *
+	 * El del cuerpo si viene, y si no **el de la sesión**. El modelo es del año
+	 * (D1: un año cerrado conserva el suyo para siempre), así que el identificador
+	 * tiene que poder decirse; y el defecto existe porque la pantalla que lo va a
+	 * llamar está mirando un año concreto y no tiene por qué repetirlo. Un año que
+	 * no existe —o que está en la papelera— es **404** y no un 200 que no escribió
+	 * nada.
+	 *
+	 * ## La respuesta trae `anterior`
+	 *
+	 * Para que el cambio sea revisable sin abrir la auditoría: la pantalla puede
+	 * decir «pasó de ponderado a competencias» con lo que ya tiene. Y trae los tres
+	 * rótulos porque quien acaba de encender el modelo los va a pintar en la misma
+	 * pantalla, y así no hace una segunda llamada.
+	 */
+	public function putModeloEvaluacion()
+	{
+		$user = User::fromToken();
+
+		Autoriza::exigir(
+			Autoriza::puedeEditarPlantillaNotas($user),
+			'No tiene permiso para cambiar el modelo de evaluación del colegio.'
+		);
+
+		$pedido = Request::input('modelo_evaluacion');
+
+		// El `enum` de MySQL rechazaría el valor raro, pero **con el `sql_mode` de
+		// estos servidores no lanza: guarda la cadena vacía y devuelve 200**, que es
+		// la misma familia de `frases_asignatura` cortando a los 255. La lista vive
+		// en el modelo y un test comprueba que dice lo mismo que la columna.
+		if (! is_string($pedido) || ! in_array($pedido, Year::MODELOS_DE_EVALUACION, true)) {
+			abort(422, '`modelo_evaluacion` tiene que ser '
+				.implode(' o ', Year::MODELOS_DE_EVALUACION).'.');
+		}
+
+		$year_id = Request::input('year_id', $user->year_id ?? null);
+
+		if (! is_numeric($year_id)) {
+			abort(422, 'Hace falta `year_id` y la sesión no trae ninguno.');
+		}
+
+		// `findOrFail` y no una consulta cruda: el modelo lleva `SoftDeletes`, así
+		// que un año en la papelera es 404 aquí. Escribirle la configuración a un
+		// año borrado no le sirve a nadie y reaparecería con `years/restore`.
+		$year = Year::findOrFail((int) $year_id);
+
+		$anterior = $year->modelo_evaluacion;
+
+		$year->modelo_evaluacion = $pedido;
+		$year->updated_by = $user->user_id;
+		$year->save();
+
+		// El rastro nuevo, sin el viejo: `bitacoras` tiene diez escritores fijados
+		// por un centinela y esto no es uno de ellos. `year_config` es la entidad que
+		// ya usa `putGuardarCambios` para lo mismo.
+		Auditoria::registrar()
+			->editar('year_config', (int) $year->id)
+			->en(year: (int) $year->id)
+			->de(['modelo_evaluacion' => $anterior])
+			->a(['modelo_evaluacion' => $pedido])
+			->resumen("Cambió el modelo de evaluación del año: {$anterior} → {$pedido}")
+			->guardar();
+
+		return [
+			'year_id' => (int) $year->id,
+			'modelo_evaluacion' => $year->modelo_evaluacion,
+			'anterior' => $anterior,
+			'desempeno_displayname' => $year->desempeno_displayname,
+			'desempenos_displayname' => $year->desempenos_displayname,
+			'genero_desempeno' => $year->genero_desempeno,
+		];
 	}
 
 	public function putSetActual(){
@@ -845,6 +988,26 @@ class YearsController extends Controller {
 		// sesión. Es la §28 alcanzada por otra puerta. §94.
 		if (strtolower(trim((string) $campo)) === 'actual') {
 			abort(422, 'El año actual se cambia con years/set-actual, que apaga a los demás.');
+		}
+
+		// **Y `modelo_evaluacion` tampoco, desde el 13 sep 2026.** Es la segunda
+		// excluida y lo es por un motivo distinto del de `actual`: aquélla tiene un
+		// invariante de fila —uno solo encendido—; ésta tiene **dueño**.
+		//
+		// D24 le dio ruta propia —`PUT years/modelo-evaluacion`, con
+		// `can_edit_plantilla_notas` dentro— justamente para que **no la cambie
+		// cualquier docente**, y esta ruta es `auth.personal`: sin este corte, la
+		// decisión se salta aquí en una línea y no lo diría nada.
+		//
+		// Y fíjese en lo que eso le hace al comentario de arriba: el genérico se
+		// defendía con *«quien pasa `auth.personal` ya las escribe todas por
+		// `years/guardar-cambios`»*, y **con esta columna esa frase deja de ser
+		// cierta** — es justo la que no está en las veintiuna de aquel método, a
+		// propósito. El día que entre otra columna de `years` que no pueda escribir
+		// todo el personal, su sitio es esta lista.
+		if (strtolower(trim((string) $campo)) === 'modelo_evaluacion') {
+			abort(422, 'El modelo de evaluación se cambia con years/modelo-evaluacion, '
+				.'que exige el permiso de la plantilla de notas.');
 		}
 
 		/*
