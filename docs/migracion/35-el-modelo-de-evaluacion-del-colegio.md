@@ -735,15 +735,27 @@ La regla de corte es la misma de `horario/` y de la Entrega 1: **una fase se des
 sola si, desplegada sola, el colegio puede hacer algo entero con ella.** Lo que no
 cumple eso va junto aunque sea más trabajo.
 
-| fase | qué entrega | rutas | migraciones | instantáneas |
-|---|---|---|---|---|
-| **0** | el `ALTER` a `text`, remedido | 0 | 1 (ya escrita) | 0 |
-| **1** | el colegio elige su modelo y le pone nombre | **1** | 1 | **3** |
-| **2** | competencias, con el catálogo del MEN | 7 | 1 | 0 |
-| **3** | desempeños: catálogo, siembra y los propios del docente | **12** | 1 | 0 |
-| **4** | la rejilla premarcada | 2 | 1 | 0 |
-| **5** | qué comparten los tres boletines *(medición, sin código)* | 0 | 0 | 0 |
-| **6** | el boletín nuevo | 4 | 0 | 0 |
+| fase | qué entrega | rutas | migraciones | instantáneas de **ruta** | de **contenido** |
+|---|---|---|---|---|---|
+| **0** | el `ALTER` a `text`, remedido | 0 | 1 (ya escrita) | 0 | **0** — y era lo que se venía a comprobar |
+| **1** | el colegio elige su modelo y le pone nombre | **1** | 1 | 3 | **3** solas + 6 ensanchadas a mano |
+| **2** | competencias, con el catálogo del MEN | 7 | 1 | 3 | 0 |
+| **3** | desempeños: catálogo, siembra y los propios del docente | **12** | 1 | 3 | 0 |
+| **4** | la rejilla premarcada | 2 | 1 | 3 | 0 |
+| **5** | qué comparten los tres boletines *(medición, sin código)* | 0 | 0 | 0 | 0 |
+| **6** | el boletín nuevo | 4 | 0 | 3 | por decidir con la maqueta |
+
+> **Esta tabla decía «0 instantáneas» en las fases 2, 3, 4 y 6, y era una contradicción con la §3
+> de este mismo documento**, que dice que **toda** tanda con rutas mueve `rutas.json`,
+> `guards-por-ruta.json` y `guard-por-familia.json`. La columna contaba **contenido** y no lo
+> decía — el mismo descuido de población que §1.3 cometió tres veces, cometido aquí en una tabla.
+> Partida en dos, que es lo que había que hacer desde el principio.
+>
+> **Comprobado sobre lo ya fundido**: las Fases 2 y 3 movieron **exactamente esas tres** y nada
+> más. Y **`familias-que-nunca-entran-en-el-candado.json` no se ha movido ni una vez en todo el
+> día** —cero apariciones en los commits del 13 sep—, que era la predicción: `competencias` entró
+> con 7 rutas guardadas y `desempenos` con 12, así que ninguna de las dos familias nuevas llega a
+> ese censo, que sólo lista las de **menos de dos** hermanas con guard.
 
 **Total: 26 rutas**, no 20 ni 22. Las 20 del documento de decisiones, **+1**
 `PUT years/modelo-evaluacion` (§1.4), **+1** el `GET desempenos` de la planilla y **+4** los
