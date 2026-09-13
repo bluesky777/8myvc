@@ -148,8 +148,48 @@ de más es legítimo. **Lo es.**
 > | proyección nombrada (`Year::datos()`) | **18** | `.year` con **36 de 70** |
 > | sin `years` dentro | 104 | — |
 >
-> **70 o 36, nada entre medias.** Y las dieciocho de la proyección son justo las que el detector
-> de esta mañana contaba como si se movieran.
+> **El hueco que importa es el de 36 a 70, y está vacío.** El reparto completo —de `8myvc-c1`,
+> que lo reprodujo por un **tercer camino**, con barrido propio y sin el script de `2e`— tiene
+> más escalones de los que dijo el resumen, y conviene escribirlo entero en vez de fiarlo a dos
+> umbrales:
+>
+> ```
+> 70 columnas -> 3      <- la fila entera: las tres
+> 36 columnas -> 18     <- Year::datos()
+> 19 columnas -> 1
+> 17 columnas -> 7
+> 16 columnas -> 1
+> ```
+>
+> O sea que **«70 o 36, nada entre medias» era una simplificación mía y es falsa**: hay
+> proyecciones de 19, 17 y 16. Lo que sí es cierto y es lo único que hace falta: **entre 36 y 70
+> no hay nada**, así que el corte «lleva la fila entera / no la lleva» no necesita elegir ningún
+> umbral. *Un recuento afirma el corte; un reparto lo enseña* — la frase es de `2e` y por eso el
+> reparto va aquí y no la cuenta.
+>
+> **Con esto la terna tiene tres derivaciones independientes** —el script de `2e`, el barrido de
+> `c1` y las tres columnas de los docs 22 y 23— **más una suite**, y las cuatro coinciden.
+
+> ### La trampa que se comió `c1` midiendo esto, y que muerde en `years` y no en `grupos`
+>
+> `GROUP_CONCAT(COLUMN_NAME)` **corta en `group_concat_max_len` sin error, sin aviso y sin una
+> fila de menos**, y le fabricó un hallazgo entero: «una columna que falta en las tres
+> instantáneas», salido del tope de una función. Medido aquí:
+>
+> | | |
+> |---|---|
+> | `group_concat_max_len` | **1024** |
+> | nombres de las columnas de `years` | **1024** — *o sea cortado* |
+> | nombres de las columnas de `grupos` | 159 |
+>
+> **Los 1024 exactos son la firma del corte**, igual que los 255 exactos de
+> `frases_asignatura.frase` en el doc 28 §1.ter: un número que coincide con el tope no es una
+> medida, es un tope.
+>
+> Y lo que lo hace digno de estar escrito aquí no es el fallo, es su forma: **el punto ciego
+> depende del tamaño de la tabla.** Ese detector funciona en `grupos` y miente en `years`, así
+> que **funciona hasta que deja de funcionar y no dice cuándo** — la peor de las formas de fallar
+> de las que este repositorio lleva contadas, porque la primera vez que se usa sale bien.
 >
 > **El método no fue correr la suite, y es mejor así.** Con cuatro suites en el contenedor los
 > mismos tests pasaron de 0,41 s a 6,30 s —más de tres horas de corrida— y se abandonó. En su
