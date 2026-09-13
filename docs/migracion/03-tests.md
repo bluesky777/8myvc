@@ -598,6 +598,50 @@ Y dos que no son pasos pero deciden el número:
 
 ---
 
+## Una herramienta de `tools/` contra la base de TESTS deja rastro, y el rojo sale lejos — 13 sep 2026
+
+`tools/probar-el-boletin-por-competencias-en-el-docker.php` se corrió contra
+`simonbolivar_testing_f6` —porque la migración que necesitaba no estaba en la base de
+desarrollo— y **la suite entera salió con un solo rojo**:
+
+    ⨯ Tests\Contrato\AuditoriaDeLosDiezEscritoresTest::un login fallido no inventa un actor
+
+Esa clase no toca nada del boletín. Lo que pasó es que la herramienta **intentó entrar como
+`administrador`, que en el seed anonimizado no existe**, y `Services\Login` **anota el
+intento**: una fila en `auditoria` y otra en `bitacoras`, con `actor_intentado`. El test
+cuenta `assertCount(1, …)` sobre las líneas de `intento_login`; con la de la herramienta ya
+committeada antes de empezar la tanda, contaba **dos**.
+
+**Tres cosas que generalizar, y ninguna es «no uses herramientas»:**
+
+1. **`DatabaseTransactions` no protege de esto.** Deshace lo que escribe *el test*; lo que
+   estaba en la base **antes** de la tanda es, para el test, el seed.
+2. **Un login fallido ESCRIBE**, y escribe a propósito: es el rastro que el colegio mira
+   cuando alguien reclama. Una herramienta que «sólo prueba a ver si entra» no es de sólo
+   lectura.
+3. **El rojo aparece lejísimos de la causa** —otra familia, otra fase, otro día— y se lee
+   como una regresión del código. Es el mismo modo de fallo que el `vendor/` enlazado: el
+   instrumento miente con la cara del problema.
+
+**Qué hacer**: preguntarle a la base si el usuario existe **antes** de intentar el login, y
+que lo que la herramienta cree lleve un nombre suyo y se borre por ese nombre —nunca por
+fecha ni por tabla entera—. Y si una tanda ya salió sucia, la tanda **no vale**: se limpia
+la base y se relanza.
+
+> **Y la misma noche se repitió, con el arreglo ya puesto**, que es la mitad que de verdad
+> hay que llevarse. Arreglado el login, la herramienta se volvió a correr **contra la
+> misma base y con la tanda nueva a mitad**: crea un usuario, entra, lee y lo borra, o sea
+> que durante unos segundos hay una fila de más en `users` que cualquier barrido de la
+> superficie puede ver. Esa tanda tampoco valía y también se mató.
+>
+> **El paso 1 de arriba no es «que no haya otra tanda»: es que no haya NADIE.** Un
+> `php tools/...` es alguien. La herramienta arreglada sigue escribiendo, sólo que ahora
+> limpia detrás; lo que no puede hacer es escribir **mientras** otro está leyendo el seed.
+> Dos tandas muertas la misma noche por la misma mano, y la segunda con el arreglo ya
+> hecho: el arreglo era del rastro, y el problema era la compañía.
+
+---
+
 ## `ORDER BY` que empata + `LIMIT 1` = un test que no es determinista — 2 sep 2026
 
 `EditorDeNotaConElParTest` salió **rojo en la suite entera y verde al correr la clase

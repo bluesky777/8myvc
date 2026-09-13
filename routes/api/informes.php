@@ -8,6 +8,7 @@ use App\Http\Controllers\Informes\AcudientesExportController;
 use App\Http\Controllers\Informes\Boletines2Controller;
 use App\Http\Controllers\Informes\Boletines3Controller;
 use App\Http\Controllers\Informes\BoletinesController;
+use App\Http\Controllers\Informes\BoletinPorCompetenciasController;
 use App\Http\Controllers\Informes\BolfinalesPreescolarController;
 use App\Http\Controllers\Informes\CertificadosPersonaController;
 use App\Http\Controllers\Informes\ExcelListadoDocentesController;
@@ -93,6 +94,34 @@ Route::delete('boletines3/destroy/{id}', [Boletines3Controller::class, 'deleteDe
 Route::put('boletines3/detailed-notas-group/{grupo_id}', [Boletines3Controller::class, 'putDetailedNotasGroup'])->middleware('boletin.propio');
 Route::get('boletines3/detailed-notas-year/{grupo_id}/{periodo_a_calcular?}', [Boletines3Controller::class, 'getDetailedNotasYear'])->middleware('boletin.propio');
 Route::put('boletines3/detailed-notas/{grupo_id}', [Boletines3Controller::class, 'putDetailedNotas'])->middleware('boletin.propio');
+
+// BoletinPorCompetenciasController
+//
+// **El boletín por competencias** — Fase 6 del doc 35, con D16 y D17. La
+// competencia arriba, sus desempeños debajo y los sueltos al final.
+//
+// ## Son DOS y el plan decía cuatro, y las otras dos no se pueden calcar
+//
+// El doc 35 pedía «4 rutas, calcadas de `boletines3`». Medido:
+//
+//  - **`boletines3/destroy/{id}` no borra un boletín: manda un ALUMNO a la
+//    papelera.** Lo dice su propio comentario (05 §89) y lo fija
+//    `BoletinesBorranAlumnosTest` con las cuatro puertas en el mismo caso.
+//    Calcarla aquí sería una **quinta puerta** a la papelera, escondida en la
+//    familia de informes. No se calca.
+//  - **`…/detailed-notas-year` es byte a byte la misma en los tres** —sus tres
+//    instantáneas comparten md5, `054346c7…`— y **ningún cliente la llama**:
+//    `app2/src/app/datos/boletines.ts` declara exactamente dos métodos,
+//    `deAlumnos` y `deGrupo`. Una cuarta copia idéntica nace muerta.
+//
+// Así que la variante 6 del front son **dos rutas**, que son justo las dos que
+// `BoletinesApi` sabe llamar: un cuarto valor en su `RECURSOS` y nada más.
+//
+// `boletin.propio` en las dos, como en las once de la familia: impide que un
+// alumno pida el de otro y que un acudiente pida el de quien no es su acudido.
+// Ver App\Http\Middleware\ExigirBoletinPropio.
+Route::put('boletines-competencias/detailed-notas/{grupo_id}', [BoletinPorCompetenciasController::class, 'putDetailedNotas'])->middleware('boletin.propio');
+Route::put('boletines-competencias/detailed-notas-group/{grupo_id}', [BoletinPorCompetenciasController::class, 'putDetailedNotasGroup'])->middleware('boletin.propio');
 
 // SimatController
 Route::get('simat', [SimatController::class, 'getIndex'])->middleware('auth.personal');

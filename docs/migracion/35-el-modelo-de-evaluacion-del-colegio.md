@@ -1414,50 +1414,523 @@ hace que la decisión 10 y la Entrega 7 compartan pantalla en vez de duplicarla.
 
 ---
 
-### Fase 5 · Qué comparten los tres boletines *(medición, sin código)*
+### Fase 5 · Qué comparten los tres boletines · **MEDIDA el 13 sep 2026**
 
-**629 + 605 + 586 líneas**, comprobadas. El documento de decisiones tiene razón en el
-argumento y el número lo respalda: escribir el cuarto a ciegas deja el problema **un
-33 % peor**, porque el próximo arreglo habrá que escribirlo cuatro veces.
+**629 + 605 + 586 líneas**, comprobadas. El argumento de D16 se sostiene, pero **el
+número que lo acompañaba no era el que había que mirar**: lo que comparten no se mide
+en líneas repetidas —casi ninguna lo está, porque tres copias divergidas se parecen
+poco al `diff`— sino en **campos de la respuesta**, y ahí el reparto es otro.
 
-Lo que esa medición tiene que contestar, y no es «cuántas líneas se repiten»:
+> **Cómo se midió.** `tools/comparar-los-tres-boletines.php`, que levanta el kernel
+> HTTP **del worktree** y le pide las tres rutas con el token real de
+> `administrador` contra la base de desarrollo `simonbolivar` —nginx sirve `/app`, el
+> árbol principal, así que desde un worktree no hay puerto por el que llamar—. Grupo
+> 96 («Segundo»), periodo 31 (nº 2, año 8), un alumno, `periodo_a_calcular = 4`.
+> Los recuentos de línea y de método salen de `token_get_all` sobre los tres ficheros,
+> sin comentarios ni blancos. **Dos hipótesis mías murieron aquí**, y están dichas más
+> abajo con lo que las mató.
 
-1. **Qué consulta hace cada uno y en qué se diferencian** — los tres pasan por
-   `Unidad::deAsignaturaCalculada`, y son **cuatro** los consumidores, no tres:
-   `Informes/NotasActualesAlumnosController:187` también.
-2. **Dónde divergieron de verdad**: qué hace uno que los otros no, y si alguna de esas
-   diferencias es un fallo en vez de una intención.
-3. **Qué parte es la maqueta y qué parte es el dato.** El boletín nuevo nace del dato
-   común; la maqueta es suya.
-4. **Cuál de las doce instantáneas de boletín cubre cada rama**, porque lo que no esté
-   cubierto es lo que se romperá al extraer.
+#### 1 · Qué consulta hace cada uno, y qué cuesta
 
-Es **una noche**, no un mes, y no entrega nada al colegio — por eso va aquí y no
-antes: las fases 1 a 4 sí entregan.
+| | `boletines` | `boletines2` | `boletines3` |
+|---|---|---|---|
+| la estructura | `Grupo::detailed_materias_notafinal` | `…notafinal` | **`…detailed_materias_notas_finales`** (otra consulta) |
+| las unidades | `deAsignaturaCalculada` → rama **`sin_desempenio`** | rama **`con_desempenio`** o **`fortaleza_debilidad`** según `years.show_fortaleza_bol` | rama `con_desempenio`, **y llega ahí por accidente** |
+| subunidades | **sí**, `Subunidad::deUnidadCalculada` | no | no |
+| áreas | **no** | `Area::agrupar_asignaturas` | `Area::agrupar_asignaturas_periodos` |
+| `escalas_de_valoracion` en la respuesta | sí (4.º elemento) | sí | **no: devuelve 3 elementos** |
+| recálculo de definitivas | **sí**, `ponerAlDiaLasDefinitivas` | no | no |
+
+Medido en la misma petición, tres veces y reproducible:
+
+| | estado | ms | consultas | bytes |
+|---|---|---|---|---|
+| `boletines` | 200 | 1.406 – 1.877 | **1.061** | 25.007 |
+| `boletines2` | 200 | 1.024 – 1.503 | 924 | 39.013 |
+| `boletines3` | 200 | **15.531 – 15.572** | **762** | 25.980 |
+
+> **El tercero tarda diez veces más haciendo TRESCIENTAS consultas menos.** El coste
+> de este boletín no está en el N+1 —que es lo que se supone cuando se lee «24–63 s»—
+> sino en **una** consulta: la de cuatro periodos de `Grupo::detailed_materias_notas_finales`.
+> Es el dato que decide dónde se optimiza, y dice que contar consultas aquí engaña.
+
+**«Llega ahí por accidente»** no es una forma de hablar: `Boletines3Controller:281`
+pasa **`true`** donde los otros pasan una cadena. La primera rama compara con `===` y
+falla; la segunda con `==`, y `true == 'con_desempenio'` es **`true`** (PHP 8.4.24,
+comprobado en el contenedor). Funciona hoy; lo sostiene una comparación laxa contra un
+booleano, no una decisión.
+
+#### 2 · Dónde divergieron de verdad — y **tres de las diferencias son fallos**
+
+**a) `number_format` sobre la definitiva del año: 115 pares (alumno, asignatura) en los
+que los tres boletines NO dicen lo mismo.**
+
+`BoletinesController:440` y `:501` preguntan
+`number_format($periodos[0]->definitiva_year) < nota_minima_aceptada`; `boletines2` y
+`boletines3` preguntan lo mismo **sin el `number_format`**. `number_format` redondea a
+cero decimales y **devuelve una cadena**: un 29,6 se vuelve `"30"`, y con la mínima en
+30 la asignatura deja de estar perdida. Contado sobre `simonbolivar`, pares cuya
+definitiva del año cae en `[mínima − 0,5, mínima)`:
+
+| año | 2018 | 2019 | 2020 | 2021 | 2022 | 2023 | **2024** | 2025 |
+|---|---|---|---|---|---|---|---|---|
+| pares que discrepan | 4 | 6 | 4 | 6 | 5 | 7 | **83** | 0 |
+
+**115 en total, sobre 35.653 pares.** En los nueve años `si_recupera_materia_recup_indicador`
+vale 1, así que la rama que lo lleva es **la que se ejecuta**. El efecto impreso: el
+mismo alumno, el mismo periodo, **sale con la asignatura perdida en los boletines 2 y 3
+y sin ella en el 1**. No es una intención —nadie elige `number_format` para comparar
+números— y está **en una sola de las tres copias**, que es la forma que tiene este repo
+de decir «se arregló aquí y no llegó allí»… salvo que aquí el arreglo es el que rompe.
+
+**b) `PREM` en el año pasado: sólo el primero lo mira.**
+`BoletinesController::datosYearPasado` acepta `m.estado IN ("MATR","ASIS","PREM")`; los
+otros dos, sólo `MATR` y `ASIS`. Un alumno cuya matrícula del año anterior quedara en
+prematrícula **tiene bloque de año pasado en el boletín 1 y no en los otros dos**. Hoy
+son **13 filas `PREM`** vivas en toda la base —12 en 2026 y 1 en 2022—, así que es
+pequeño **y va a crecer**: 2026 es el año que se está armando.
+
+**c) `years.solo_escalas_valorativas` lo honran dos de tres.**
+`encabezado_comportamiento_boletin` vacía la nota cuando el colegio pide sólo escalas
+—`boletines` y `boletines2`—. `Boletines3Controller` **no tiene siquiera el método
+`year()`**, así que imprime el número aunque el colegio haya dicho que no. Es un
+interruptor del colegio que un boletín ignora.
+
+Y dos divergencias que **son intención** y conviene no «arreglar» al extraer:
+
+- **El recálculo de definitivas** (`ponerAlDiaLasDefinitivas`) está sólo en `boletines`,
+  y así lo dejó a propósito la fase 3 del [10](10-definitivas.md).
+- **Las subunidades** viajan sólo en `boletines`. Ya está fichado en
+  `BoletinesEnNegativoTest`, que por eso corre el caso de subunidades sobre uno solo.
+
+#### 3 · Qué parte es la maqueta y qué parte es el dato
+
+**547** caminos de campo distintos en la unión de las tres respuestas. **211 comunes a
+las tres: el 39 %.**
+
+| | campos | sólo suyos |
+|---|---|---|
+| `boletines` | 346 | 38 — **todos** son `…unidades[].subunidades[]` |
+| `boletines2` | 451 | 47 — 30 del bloque `areas[]`, 17 columnas crudas de `unidades` |
+| `boletines3` | 365 | 58 — `nota_final_perN`, `nf_id_N`, `nivelada_at_perN`… |
+
+Leído al derecho: **el dato común es el alumno con sus asignaturas, sus notas por
+periodo, su comportamiento, sus ausencias y sus frases** —los 211—, y **lo exclusivo de
+cada uno es exactamente su maqueta**: el detalle hasta subunidad del primero, la
+agrupación por áreas del segundo, la tabla de cuatro periodos del tercero. La división
+que la Fase 6 necesitaba **existe y cae donde el plan suponía.**
+
+Dos cosas que no se ven desde el código y sí desde la respuesta:
+
+- **`boletines3` no emite `alumno.asignaturas`**: un `unset` lo borra y deja sólo
+  `areas[]`. Es un **contrato distinto**, no una maqueta distinta: quien consuma el
+  tercero tiene que entrar por `areas[].asignaturas[]`.
+  > **Aquí murió mi primera hipótesis.** Leyendo el `unset` di por hecho que el tercero
+  > tiraba a la basura las unidades que acababa de calcular —la consulta cara— y lo
+  > escribí. El docker dijo que no: las unidades **sobreviven dentro de
+  > `areas[].asignaturas[].unidades`** (medido: 2 y 4 unidades en dos áreas del alumno
+  > 968). No hay trabajo desperdiciado; hay un contrato movido.
+- **`boletines2` filtra la escala entera dentro de cada unidad.** Su rama
+  `con_desempenio` hace `SELECT *` sobre el `left join` a `escalas_de_valoracion`, así
+  que cada unidad llega con `created_by`, `deleted_at`, `deleted_by`, `year_id`,
+  `porc_inicial`, `porc_final`, `valoracion`, `desempenio` y **`icono_infantil` /
+  `icono_adolescente`**. Es lo que infla su respuesta un 56 % sobre la del primero.
+  > Y es el hallazgo que le sirve a la Fase 6: **el nombre del nivel y su icono ya
+  > viajan hoy**, en un solo boletín y por un `SELECT *`. Lo que D17 pide no es una
+  > columna nueva, es **emitirla a propósito**.
+
+#### 4 · Cuál de las doce instantáneas cubre cada rama
+
+Las «doce» son exactas: `tests/Contrato/Snapshots/boletines{,2,3}-detailed-notas{,-group,-year}.json`.
+Lo que cubren, contado por quién llama a cada ruta en `tests/`:
+
+| ruta | quién la cubre |
+|---|---|
+| `boletines/detailed-notas` | `BoletinDeLaFamilia`, `BoletinImprimeElPar`, `BoletinNoBorraDefinitivas`, `BolIndependientePuestos`, `AcudienteSobreUnAjeno` |
+| `boletines2/detailed-notas` | `BoletinDeLaFamilia`, `BoletinFortalezaDebilidad`, `AcudienteSobreUnAjeno` |
+| `boletines3/detailed-notas` | `BoletinDeLaFamilia`, `BoletinImprimeElPar`, `AcudienteSobreUnAjeno` |
+| `boletines/detailed-notas-group` | **sólo** `GrupoBorradoNoEs500` (un 404, no el contenido) |
+| `boletines2/detailed-notas-group` | **nadie** |
+| `boletines3/detailed-notas-group` | **nadie** |
+| `…/detailed-notas-year` (las tres) | **sólo** `GrupoAjenoDelMismoAnio` (autorización, no contenido) |
+
+**Seis de las doce instantáneas no tienen detrás ni un test que mire lo que devuelven**:
+las tres de `-group` y las tres de `-year`. La instantánea se regenera y pasa, porque
+una instantánea compara contra sí misma; lo que no hay es **nadie que afirme nada**
+sobre esas seis respuestas. Y `-group` es el camino que el front usa para imprimir el
+grupo entero.
+
+> **Aquí murió mi segunda hipótesis.** Di por supuesto que «doce instantáneas de
+> boletín» eran doce clases de test. Son doce **ficheros `.json`**, y las clases que los
+> sujetan son **siete**. La diferencia no es de vocabulario: es que la mitad de la
+> superficie que se iba a extraer está cubierta por una instantánea y por nada más.
+
+#### Lo que esto le deja a la Fase 6
+
+1. **El dato común existe y son 211 campos**; la maqueta es lo exclusivo de cada uno.
+   El boletín nuevo **no necesita un cuarto controlador de 600 líneas**: necesita el
+   dato común más su bloque propio.
+2. **No se extrae nada todavía.** Las tres divergencias de arriba son fallos, y extraer
+   un tronco común obligaría a elegir cuál de los tres comportamientos es el bueno
+   —o sea, a cambiar boletines publicados—. **La Fase 6 nace al lado, no encima**, que
+   es lo que D16 ya decía y lo que la medición confirma.
+3. **Lo que hay que arreglar antes de extraer está nombrado**: `number_format`, `PREM`
+   y `solo_escalas_valorativas`. Son tres entregas propias, cada una con su instantánea
+   moviéndose, y ninguna es de este plan.
+4. **Antes de tocar `-group` o `-year`, escribir el test que hoy no existe.** Seis de
+   las doce instantáneas no defienden nada.
 
 ---
 
-### Fase 6 · El boletín nuevo
+### Fase 6 · El boletín nuevo · **HECHA el 13 sep 2026**
 
-**4 rutas**, calcadas de `boletines3`. Se elige **llamando a su ruta**, como ya pasa
-con `boletines2` y `boletines3`: **no hay interruptor** (decisión 6 del doc 28, y por
-eso `show_competencias_bol` se retiró).
+`BoletinPorCompetenciasController` + `BoletinPorCompetenciasTest`. Se elige **llamando a
+su ruta**, como ya pasa con `boletines2` y `boletines3`: **no hay interruptor** (decisión
+6 del doc 28, y por eso `show_competencias_bol` se retiró).
 
-- Imprime **nota + nivel + los textos del alumno**.
-- **Honra `grupos.caritas` imprimiendo el desempeño en TEXTO** (D17): la columna ya
-  existe, ya es por grupo, ya se copia al año siguiente (`YearsController:382`) y ya
-  viaja al front — **lo único que falta es que el backend la lea**. El icono queda de
-  adorno y nunca solo: Decreto 2247 art. 10 y 1411/2022 piden *«informes descriptivos
-  … de corte cualitativo»*, y una carita no lo es.
-- **No se tocan `BoletinesController:611` ni `Boletines2Controller:585`.** La regla
-  nace en la maqueta nueva, y así no se mueve ninguna instantánea publicada. Meterlo
-  en los de siempre es **entrega propia** y sólo si un colegio lo pide (D16 cierra la
-  decisión 19 por omisión).
+#### Son DOS rutas, y este documento decía cuatro
 
-> **`caritas` se toca con el guante puesto**: es la columna de la §153 de
-> `GruposController` —tenía defecto `false` y ese defecto la apagaba, así que
-> corregirle el nombre a un grupo de preescolar le cambiaba la forma de evaluar—.
-> Todo endpoint nuevo que la lea hereda ese aviso.
+Decía *«4 rutas, calcadas de `boletines3`»*. Medido antes de calcarlas, **las otras dos no
+se pueden**:
+
+| la ruta que faltaría | por qué no entra |
+|---|---|
+| `boletines3/destroy/{id}` | **no borra un boletín: manda un ALUMNO a la papelera.** Lo dice su propio comentario (05 §89) y lo fija `BoletinesBorranAlumnosTest` con las cuatro puertas en el mismo caso. Calcarla sería **una quinta puerta** a la papelera, escondida en la familia de informes |
+| `…/detailed-notas-year` | es **byte a byte la misma en los tres** —las tres instantáneas comparten md5, `054346c7…`— y **ningún cliente la llama**: `app2/src/app/datos/boletines.ts` declara exactamente dos métodos, `deAlumnos` y `deGrupo`. Una cuarta copia idéntica nace muerta |
+
+Y las dos que quedan son **exactamente** las que `BoletinesApi` sabe llamar, así que para
+el front la variante 6 es **un cuarto valor en su `RECURSOS`** y nada más.
+
+#### El nombre, que estaba abierto
+
+Se llama **`boletines-competencias`**, y **no `boletines4`**, que es lo que pedía la
+inercia de la familia. El motivo es que ese número ya está cogido y por el otro lado:
+`app2/src/app/datos/boletines.ts` deja escrito que **«el boletín que el colegio llama 4 se
+sirve de `boletines3`»**, y la tabla de su cabecera reparte cinco pantallas entre tres
+recursos sin que ninguna coincida con su número. Meter un `boletines4` real ahí dentro es
+garantizar que alguien, algún día, sirva la pantalla equivocada.
+
+`boletines-competencias` además **se lee**: dice qué imprime, que es lo que distingue esta
+variante de las otras cinco. Y encaja con cómo se nombra en este repo lo que nació después
+de la época de los números —`boletin-independiente`, `bolfinales-preescolar`,
+`notas-actuales-alumnos`—.
+
+Queda por decidir **cómo lo llama el colegio en la pantalla**, que es del front y no de
+aquí.
+
+#### El contrato
+
+```
+PUT api/boletines-competencias/detailed-notas/{grupo_id}          boletin.propio
+PUT api/boletines-competencias/detailed-notas-group/{grupo_id}    boletin.propio
+
+cuerpo (sólo la primera):  { "requested_alumnos": [ {"alumno_id": 123}, … ] }
+                           sin él, o vacío, sale el grupo entero
+```
+
+La respuesta tiene **CINCO** posiciones y no cuatro. Las cuatro primeras son las de
+`boletines` y `boletines2` —el front hace `const [grupo, year, alumnos, escalas] = r`, así
+que la quinta es aditiva y no le mueve nada—:
+
+```
+[0] grupo      Grupo::datos + cantidad_alumnos   ← trae `caritas`
+[1] year       Year::datos + periodo (el número del periodo del usuario)
+[2] alumnos    el boletín de cada uno
+[3] escalas    escalas_de_valoracion del año — la leyenda del pie
+[4] poblacion  el recuento
+```
+
+**La competencia arriba, sus desempeños debajo, y los sueltos al final**, que es §4.3 del
+plan del front:
+
+```
+alumnos[].asignaturas[]  = lo de Grupo::detailed_materias_notafinal
+                           (materia, alias_materia, area_*, creditos, profesor,
+                            nota_asignatura, desempenio, nf_id, nota_original_asignatura,
+                            nivelada_at_asignatura, recuperada, manual, …)
+                         + total_ausencias, total_tardanzas    int
+                         + bol_independiente                   bool
+                         + motivo_del_nivel   "sin_definitiva" | "sin_banda" | null
+                         + competencias[]     { competencia_id, definicion, codigo_men,
+                                                orden, desempenos[] }
+                         + desempenos_sueltos[]                 las mismas filas, al final
+
+una fila de desempeño   = { frase_asignatura_id, desempeno_id|null, texto, tipo, orden,
+                            escala_id|null, nivel|null,
+                            icono_infantil|null, icono_adolescente|null,
+                            origen: "rejilla" | "frase" }
+
+poblacion               = { alumnos, asignaturas, desempenos_del_grupo, competencias,
+                            desempenos_impresos, desempenos_sueltos, frases_sueltas,
+                            con_nivel, sin_nivel,
+                            asignaturas_sin_definitiva, asignaturas_sin_banda, caritas }
+```
+
+Los errores, pedidos uno a uno al docker y no leídos del código:
+
+| | |
+|---|---|
+| **401** | sin token, o caducado — el guard global `auth.token`. **Pedido: 401** |
+| **403** | un Alumno o un Acudiente pidiendo un boletín que no es suyo — `boletin.propio`. Pedido desde el test con token de alumno: **403**, y con el mensaje de siempre (`No puedes ver el de otros` / `Pedis más de lo que debes`) |
+| **404** | el grupo no existe **o está en la papelera** — `Grupo::datos`, que contesta 404 desde el 24 ago. **Pedido: 404**, `{"message":"El grupo no existe o está en la papelera."}` |
+
+No hay 422: las dos rutas no aceptan nada que validar más allá de `requested_alumnos`, y
+una lista vacía o mal formada significa «el grupo entero», que es lo que hacen los tres de
+hoy. **`periodo_a_calcular` se ignora**, ver abajo.
+
+#### Lo que NO es, y por qué
+
+**No es una cuarta copia.** La Fase 5 midió que de los 547 campos de los tres boletines de
+hoy **211 son comunes** y todo lo exclusivo es maqueta, así que esto **nace del dato
+común**: llama a los mismos modelos —`Grupo::datos`, `Grupo::alumnos`,
+`Grupo::detailed_materias_notafinal`, `NotaComportamiento`, `Disciplina`,
+`BoletinIndependiente::ponerPuestos`— y le añade su bloque. Medido con el mismo criterio
+que la Fase 5 —sin comentarios ni blancos—: **271 líneas de código**, contra **368 + 355 +
+312** de los tres de hoy. Menos que cualquiera de ellos **haciendo además el árbol de
+competencias**, y no por apretarlo: por no repetir lo que ya está en los modelos.
+
+Y **ninguna de las tres divergencias que la Fase 5 encontró está copiada aquí**, aunque las
+tres por motivos distintos y conviene decir cuál:
+
+- **`number_format` sobre la definitiva del año** —los 115 pares que discrepan— vive en
+  `asignaturasPerdidasDeAlumno`, y **este boletín no tiene bloque de asignaturas perdidas**:
+  es un informe de un periodo y el acumulado del año es de los otros. No se hereda porque no
+  se copia el método.
+- **El `PREM` que sólo mira uno** vive en `datosYearPasado`, y **tampoco hay bloque de año
+  pasado**, por lo mismo.
+- **`years.solo_escalas_valorativas`** vive en `encabezado_comportamiento_boletin`, que es
+  **texto de maqueta** —«Su comportamiento fue…», conjugado por sexo— y esa frase la escribe
+  la maqueta nueva. Aquí el comportamiento viaja como dato y sin frase montada, así que no
+  hay dónde honrar mal un interruptor.
+
+Dicho al revés, que es lo honesto: **no se arreglaron; se quedaron fuera porque los bloques
+que las contienen no son de esta variante.** Arreglarlas en los tres de hoy sigue siendo
+entrega propia, y sigue sin hacerse.
+
+**Y no hereda su coste.** Dos consultas por alumno donde los tres de siempre hacen una por
+asignatura: `marcasDelAlumno` trae todas las celdas del grupo de una vez y
+`faltasPorAsignatura` agrega las ausencias en una. Pedido al docker, con
+`tools/probar-el-boletin-por-competencias-en-el-docker.php`:
+
+| | estado | ms | consultas | bytes |
+|---|---|---|---|---|
+| `detailed-notas`, **1 alumno** | 200 | 155 | 307 | 12.825 |
+| `detailed-notas-group`, **37 alumnos** | 200 | 117 | **268** | 323.955 |
+
+Contra las **1.061 consultas y 1.406 ms** que la Fase 5 midió en una petición de **UN**
+alumno del primero. Y las dos cifras de arriba son de la **misma** cantidad de trabajo: la
+ruta de un alumno calcula el grupo entero igual, porque el puesto lo exige; lo que cambia
+es a quién se le devuelve.
+
+**No recalcula definitivas.** `BoletinesController` sí lo hace —fase 3 del
+[10](10-definitivas.md)— y ahí está bien; un boletín nuevo que escribiera al abrirse
+repetiría la avería que borró las definitivas del periodo 1. Lo sujeta
+`test_abrir_el_boletin_no_escribe_ni_una_fila`, que cuenta `frases_asignatura` y
+`notas_finales` antes y después de las dos rutas.
+
+**Ignora `periodo_a_calcular`**, que el front manda en el mismo cuerpo que a los otros.
+Es un informe **de un periodo**: el del usuario. No emite `year.periodos` por lo mismo.
+
+#### `caritas`: el nivel va en TEXTO, siempre (D17)
+
+`grupos.caritas` viaja en `grupo.caritas` y en `poblacion.caritas`, y **el icono nunca va
+solo**: cada fila lleva su `nivel` —el texto congelado el día que se puso— y, *además*,
+`icono_infantil` / `icono_adolescente` cuando el grupo la tiene encendida. El Decreto 2247
+art. 10 y el 1411/2022 piden *«informes descriptivos … de corte cualitativo»*, y una carita
+no lo es. **El front no puede pintar sólo el icono porque el texto siempre está**, y lo
+sujetan dos casos, uno por cada valor de la columna.
+
+Aquí `caritas` **sólo se lee**, nunca se escribe, y se lee de `Grupo::datos`, que ya la
+traía: el aviso de la §153 de `GruposController` —defecto `false` que apagaba la columna—
+no se hereda porque no hay escritura que lo herede.
+
+> **Y hoy no hay ni un grupo con `caritas = 1` en `simonbolivar`.** Medido. Por eso la
+> prueba del docker la enciende y la devuelve a su valor, dentro de una transacción que
+> revierte siempre: sin eso, D17 se comprobaría sólo por la mitad que no importa.
+
+Así sale, pedido al docker con la columna encendida y tres celdas puestas:
+
+```
+TECNOLOGÍA E INFORMÁTICA   nota=0  nivel="BAJO"  motivo=null  IH=2  F=0
+  [48] Resuelve problemas con números racionales en contextos cotidianos
+      · Identifica fracciones equivalentes y las ordena   ["SUPERIOR"]  icono="carita-feliz.png"
+  sueltos:
+      · Felicitaciones por su desempeño en el periodo.   [null]      origen=frase
+      · Entrega sus trabajos a tiempo                    ["SUPERIOR"] origen=rejilla
+```
+
+El texto del nivel está en los dos que lo tienen; el icono, **al lado** y nunca en su
+lugar. Y la frase escrita a mano sale con el nivel en `null`, que es la verdad: nadie le
+puso uno.
+
+#### Los dos motivos de un nivel vacío, separados
+
+La Fase 4 los separó y aquí se respetan, porque **son dos averías distintas**:
+
+- **`sin_definitiva`** — el alumno no tiene `notas_finales` en esa asignatura y ese
+  periodo. No hay nota que traducir.
+- **`sin_banda`** — sí tiene nota y **ninguna banda la cubre**. Es el
+  [36](36-la-nota-decimal-y-las-bandas-enteras.md): la nota es `DECIMAL(7,4)` y las bandas
+  siguen siendo `int`, así que hay un hueco en cada frontera, y **cuatro alumnos del año en
+  curso ya imprimen el nivel vacío hoy**, en los tres boletines, con 200 y sin una línea en
+  el log.
+
+Los dos van en `asignaturas[].motivo_del_nivel` **y contados aparte** en `poblacion`. Eso
+es lo único que hace que un nivel que falta se vea **antes** de que salga el papel, que es
+justo lo que el doc 36 señaló que no existía en ninguna pantalla.
+
+#### Lo que se imprime es lo que el docente guardó, y ni un nivel más
+
+**Sólo salen las filas que existen en `frases_asignatura`.** Un desempeño del grupo que
+nadie marcó **no aparece**: es la decisión 10, y la Fase 4 la sostiene por el otro lado
+—*«ningún boletín afirma un nivel que nadie miró»*—. Lo que la respuesta sí hace es
+**contarlo**: `desempenos_del_grupo` frente a `desempenos_impresos + desempenos_sueltos`
+dice cuántas casillas quedaron sin mirar, que es la pregunta que el colegio hace antes de
+imprimir.
+
+Y **suelto son dos cosas** que el front tiene que poder distinguir, por eso va `origen`:
+
+- **`frase`** — escrita a mano en la pantalla de siempre (`desempeno_id IS NULL`). Son las
+  **12.294** filas que ya hay en `simonbolivar`, y **ninguna tiene nivel**: inventárselo
+  sería afirmar algo que nadie puso.
+- **`rejilla`** — la celda de un desempeño que el colegio dejó **sin competencia**
+  (`desempenos.competencia_id IS NULL`), que es legal por D5. Ésa **sí** trae nivel.
+
+#### Y su instantánea defiende más que las seis de la Fase 5
+
+`HuecosDelSeedTest` saca de los ficheros el mapa de qué partes de cada respuesta **no
+comprueba nadie**. Lo que aporta la nueva, comparada con las de los tres de hoy:
+
+| instantánea | huecos |
+|---|---|
+| `boletines2-detailed-notas` | 7 |
+| `boletines-detailed-notas` | 5 |
+| `boletines3-detailed-notas` | 4 |
+| **`boletines-competencias-detailed-notas`** | **2** |
+
+Y los dos que quedan —`alumnos.comportamiento.definiciones` y `alumnos.situaciones`— los
+tienen **los siete**: son texto que el docente escribe a mano y el seed no lo trae para
+todos. Lo que **no** es hueco aquí y sí lo es en los otros seis es `…frases` y el bloque de
+desempeños: el caso **se construye** en vez de esperarlo del seed, que es lo que la Fase 5
+señaló que faltaba.
+
+#### Lo que se encontró y este plan no decía
+
+1. **Las cuatro rutas eran dos** (arriba).
+2. **El texto de la COMPETENCIA no está congelado en ninguna parte — y es de los que no
+   duelen hasta que ya no tienen arreglo.**
+
+   La Fase 4 añadió **tres** columnas a `frases_asignatura` y la tercera, `nivel`, existe
+   por un argumento que está escrito entero en su migración: *«el `id` pinta la casilla y
+   el **texto** es lo que se imprime»*, porque `escalas_de_valoracion` es **por año y
+   editable** y sin la copia, renombrar «Básico» en 2028 cambiaría un boletín impreso en
+   2026. Es el mismo papel que `frase` hace frente a `frase_id`.
+
+   **Ese argumento vale un piso más arriba y ahí no hay dónde copiar nada.** La cabecera de
+   cada bloque sale de `competencias.definicion` leída **hoy**, porque `frases_asignatura`
+   guarda de qué desempeño salió la celda (`desempeno_id`) pero **no de qué competencia**,
+   y la competencia se alcanza saltando por `desempenos.competencia_id`, que también es
+   editable y borrable. O sea:
+
+   - **renombrar una competencia en 2028 cambia la cabecera de un boletín de 2026**;
+   - y **borrarla** deja el desempeño entre los sueltos —lo comprueba
+     `test_si_borran_la_competencia_su_desempeno_cae_entre_los_sueltos`—, que es lo menos
+     malo de las dos salidas posibles, pero **también cambia el papel de un año cerrado**.
+
+   **Por qué no se tapó aquí.** Es una **cuarta columna** en `frases_asignatura`
+   —`competencia` en texto, anulable, copiada al guardar la celda— y eso es una migración,
+   una escritura más en `PUT desempenos/rejilla` (que es de la Fase 4, no de ésta) y su
+   caso de contrato. **Entrega propia**, y no entra de rebote en un boletín que sólo lee.
+
+   **Por qué no se puede dejar para «cuando duela».** Lo que se pierde no se recupera: el
+   día que un colegio renombre una competencia, los boletines ya impresos de los años
+   anteriores **pasan a decir otra cosa y no hay de dónde sacar la que decían**. La columna
+   sólo sirve si está **antes** del primer renombrado. Está apuntada también en
+   *«Lo que sigue abierto de verdad»*, al final de este documento.
+3. **`FraseAsignatura::deAlumno` ya prefiere el texto de hoy** cuando la frase vino del
+   catálogo: hace `IFNULL(f.frase, fa.frase)`, o sea que para las frases con `frase_id` el
+   congelado **no gana**. Las celdas de la rejilla no tienen `frase_id`, así que la Fase 4
+   está a salvo; las frases de catálogo llevan años así y **no es de este plan**. Este
+   boletín reproduce ese `IFNULL` a propósito: cambiarlo aquí haría que la misma frase se
+   imprimiera distinta en dos boletines del mismo alumno.
+4. **`Grupo::alumnos($grupo, $requested_alumnos)` devuelve un SUPERCONJUNTO, y eso es un
+   riesgo de seguridad latente en nueve sitios.** Es el hallazgo más grave de esta fase y
+   **no es de esta fase**: estaba ahí antes y sigue estando.
+
+   El parámetro se llama `$con_retirados`, pero lo que el front le pasa es
+   `requested_alumnos` —a quién se quiere imprimir—, y el método **no filtra**: entra por
+   su otra rama y devuelve **todos los matriculados vigentes del grupo MÁS** los retirados
+   que se pidan por `matricula_id`. **El filtro lo tiene que hacer quien llama.**
+
+   **El modo de fallo es que no se rompe nada: sale de más.** Las rutas de boletín llevan
+   `boletin.propio`, que deja pasar a un alumno **cuando pide el suyo**; sin el filtro de
+   después, esa misma petición contesta **200 con el boletín del grupo entero** — los
+   treinta compañeros dentro de la cuenta de un acudiente, sin un error, sin una línea en
+   el log y sin que ninguna pantalla se vea rara. La primera versión de
+   `BoletinPorCompetenciasController` no lo tenía, y **pasaba sus tests**: lo único que lo
+   sacó fue leer `Grupo::alumnos` entero para entender por qué los tres de siempre llevan
+   un segundo `foreach` que parece una copia inútil.
+
+   **Censo del 13 sep 2026, con `grep -rn 'Grupo::alumnos(' app/` y no deducido: nueve
+   llamantes pasan el segundo argumento y LOS NUEVE FILTRAN.** No hay ninguno expuesto
+   hoy, y eso hay que decirlo igual de claro que el riesgo:
+
+   | llama | filtra en |
+   |---|---|
+   | `BolfinalesController:66` | `:169` |
+   | `Informes/BoletinesController:211` | `:268` |
+   | `Informes/Boletines2Controller:137` | `:193` |
+   | `Informes/Boletines3Controller:140` | `:202` |
+   | `Informes/BolfinalesController:286` | `:472` |
+   | `Informes/BolfinalesPreescolarController:92` | `:187` |
+   | `Informes/CertificadosPersonaController:106` | `:254` |
+   | `Informes/NotasActualesAlumnosController:90` | `:127` |
+   | `Informes/BoletinPorCompetenciasController:181` | `soloLosPedidos()` |
+
+   Ocho de los nueve lo hacen con **la misma copia del mismo `foreach` de cuatro líneas**,
+   y ésa es exactamente la forma que tiene en este repo «se arregló aquí y no llegó allí».
+   Hoy no falta en ninguno; **el día que falte en uno, ese uno responde 200**.
+
+   **El aviso se escribió donde lo va a leer el siguiente**: en el docblock de
+   `Grupo::alumnos` (`app/Models/Grupo.php`), con el censo dentro y con la orden que lo
+   recuenta. Un `.md` no lo lee quien va a llamar al método.
+
+   **Y no se «arregla» filtrando dentro del método**: la lista completa la necesitan los
+   llamantes para el **puesto**, que es una posición relativa al grupo —filtrar dentro le
+   daría el primer puesto a cualquiera que pida su propio boletín—. Si algún día se separa,
+   son **dos métodos** —el conjunto contra el que se compara y la lista que se imprime—, no
+   un `if` más. Eso es entrega propia y no se hizo aquí.
+5. **`EscalaDeValoracion::valoracion` redondea y nunca devuelve nada**
+   (`return (object)['desempenio' => '']`), y el `left join` de
+   `Grupo::detailed_materias_notafinal` **ni redondea ni rellena**. Los tres boletines de
+   hoy usan **las dos reglas en la misma respuesta**: el nivel de la asignatura por el
+   join, `promedio_desempenio` por `valoracion()`. Medido en `simonbolivar`: **4 filas del
+   año 8** donde la misma nota sale sin nivel en la asignatura y con nivel en el promedio.
+   El boletín nuevo usa **una sola regla** —sin redondear, `null` cuando no cae—, que es
+   la que hace que `motivo_del_nivel` signifique algo.
+6. **`NotaComportamiento::nota_comportamiento` cambia de tipo.** Sin fila devuelve
+   `["notas_finales" => []]`, que es un array **no vacío** y por tanto *truthy*: el
+   `if ($comportamiento)` de los tres boletines entra, el `->definiciones` de dentro
+   revienta, y un `try/catch` lo recoge asignando `$alumno->comportamiento['definiciones']`.
+   O sea que el campo `comportamiento` sale **objeto o array según si el alumno tenía
+   nota**, en los tres. Aquí se mira el tipo: sin fila va `null`.
+7. **Las rutas de `competencias/` + `desempenos/` en `main` son 19, no 21.** Siete y doce,
+   contadas en `routes/api/competencias.php` y `routes/api/desempenos.php`.
+
+#### Lo que hay que correr al desplegar
+
+Ni una migración **de esta fase**. Lo que necesita es la de la **Fase 4**,
+`2026_09_13_400000_marca_del_desempeno` —las tres columnas de `frases_asignatura`—, que es
+de quien lee. Con la tabla sin migrar, las dos rutas **fallan**: el `SELECT` nombra
+`fa.desempeno_id`, `fa.escala_id` y `fa.nivel`.
+
+> **Y el 13 sep por la noche `simonbolivar` —la base de desarrollo— todavía no la tiene**:
+> 75 migraciones y ninguna columna de las tres. **No se corrió desde aquí**: la migración
+> es de otra fase y de otra sesión, y meterle un `ALTER` a la base que comparten cuatro
+> árboles no es de esta entrega. Por eso la prueba del docker se corre con
+> `-e DB_DATABASE=simonbolivar_testing_f6` —la base de la sesión, que sí está migrada— y
+> por eso lleva dentro un superusuario de paso: en el seed anonimizado **no existe
+> `administrador`**.
 
 ---
 
@@ -1468,20 +1941,50 @@ eso `show_competencias_bol` se retiró).
 docente** que exige D14 (Fase 3), que la §5.3 del doc 28 daba por
 incluido en «6 calcadas» y no lo está.
 
-Sobre una base que **hay que contar**, no heredar: `CLAUDE.md` dice 579 y el doc 28
-dice 577 (§1.1).
+> **Y quedaron en 24, no en 26** *(13 sep 2026, al construir la Fase 6)*. Aquí se contaban
+> **cuatro** para el boletín nuevo, «calcadas de `boletines3`». Son **dos**: la tercera de
+> aquéllas manda un **alumno** a la papelera y no borra ningún boletín, y la cuarta es byte
+> a byte la misma en los tres y **no la llama ningún cliente**. Los dos motivos están
+> medidos en la §Fase 6. **La resta es a la baja y por medición, no por recorte**: las dos
+> que no entran no entrarían mejor mañana.
+>
+> Así que: 7 de `competencias/` + 12 de `desempenos/` + 1 de `years/` + 2 de
+> `desempenos/rejilla` (Fase 4) + **2** del boletín nuevo = **24**.
+
+Sobre una base que **hay que contar**, no heredar. *(Cuando esto se escribió, `CLAUDE.md`
+decía 579 y el doc 28, 577. Contado con `route:list --json` **en `.worktrees/f6`** el 13 sep
+por la noche: **599** antes de la Fase 6 y **601** después — y `CLAUDE.md` ya dice 599, así
+que lo que había que recontar era esta línea.)*
 
 **Lo que mueve cada tanda**, y son **tres instantáneas, a veces cuatro**:
 
 | fichero | se mueve |
 |---|---|
 | `rutas.json` | siempre |
-| `guards-por-ruta.json` | siempre — las 22 llevan guard |
-| `guard-por-familia.json` | siempre; estrena `competencias` y `desempenos` |
+| `guards-por-ruta.json` | siempre — las 24 llevan guard |
+| `guard-por-familia.json` | siempre; estrena `competencias`, `desempenos` y `boletines-competencias` |
 | `familias-que-nunca-entran-en-el-candado.json` | **sólo si alguna familia nueva se queda con menos de dos rutas con guard** — que es justo lo que se evita colgando el catálogo del MEN de `competencias/` (§2, Fase 2) |
+| `huecos-del-seed.json` | **la cuarta que se movió de verdad, y no es la que esta tabla esperaba** — ver debajo |
+
+> **La «a veces cuatro» resultó ser otra.** Esta tabla daba por cuarta a
+> `familias-que-nunca-entran-en-el-candado.json`, y con la Fase 6 **no se movió**: la
+> familia nueva entra con 2 de 2 con guard y el umbral es `conGuard < 2`. La que sí se
+> movió —y puso la tanda entera en rojo con **un solo** test, `HuecosDelSeedTest`— es
+> **`huecos-del-seed.json`**, que **no depende de las rutas sino de los ficheros de
+> instantánea**: los lee todos con un `glob` y saca el mapa de qué partes de la respuesta
+> no comprueba nadie.
+>
+> O sea: **se mueve cada vez que nace una instantánea, tenga o no rutas nuevas detrás.**
+> Va escrito aquí porque su rojo no se parece en nada a su causa —dice «los huecos son los
+> conocidos» y la causa es que hay un fichero `.json` más en la carpeta—.
 
 `RutasPreLoginTest::TOTAL_PUBLICAS` **sigue en doce** y `AutenticacionTest::SIN_GUARD`
-no se mueve: **ninguna de las 22 es pública ni debe serlo.**
+no se mueve: **ninguna de las 24 es pública ni debe serlo.**
+
+Y `familias-que-nunca-entran-en-el-candado.json` **tampoco se movió con `boletines-competencias`**,
+por lo mismo que con las otras dos familias: entra con **2 de 2 con guard**, y el umbral es
+`conGuard < 2`. Dos rutas es el mínimo que no abre el agujero — una sola habría bastado
+para que la familia entrara en ese censo el día que naciera.
 
 ---
 
@@ -1540,7 +2043,16 @@ salida.**
 
 ### Lo que sigue abierto de verdad, y no lo desbloquea ninguna decisión
 
-- **El nombre y la maqueta del boletín nuevo** — espera además la medición de la Fase 5.
+- ~~**El nombre y la maqueta del boletín nuevo**~~ — **medio cerrado el 13 sep 2026.** El
+  **recurso** se llama `boletines-competencias` y el porqué está en la §Fase 6; la
+  **maqueta** y **cómo lo llama el colegio en la pantalla** siguen abiertos y son del
+  front. La medición de la Fase 5 que esto esperaba está hecha y dice que la división
+  entre dato y maqueta cae donde el plan suponía.
+- **La cuarta columna que congelaría el texto de la COMPETENCIA.** Sale de construir la
+  Fase 6: `frases_asignatura` congela el texto del desempeño y **no hay dónde congelar el
+  de su competencia**, así que renombrar una competencia en 2028 cambia la cabecera de un
+  boletín de 2026. Es exactamente el argumento de la tercera columna de la Fase 4, un piso
+  más arriba, y **no lo desbloquea ninguna decisión**: es una entrega con su migración.
 - **¿Las rúbricas de biblioteca (`es_plantilla = 1`) son configuración del colegio?** Si lo
   son, el año nuevo tiene que heredarlas y eso es una entrega con su plan —cuatro tablas
   hijas y sus ids—, no una línea en `postStore`. Está declarada en la §2.bis y la vigila
