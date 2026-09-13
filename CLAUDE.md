@@ -3,13 +3,17 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 `8myvc` es la API del sistema escolar MyVc: Laravel 13 + PHP 8.4, ~37.000 líneas
-en `app/`, **115 ficheros de controlador — 118 clases** (recontados el 5 sep 2026 al
-entrar `PlantillaNotasController`; el 4 sep eran 114 y 117, y antes decían 113 y 116, y el
-trait `Concerns/ResuelveElUsuario.php` **no cuenta**: es el fichero 116 del directorio y no
-declara ninguna clase), porque
+en `app/`, **118 ficheros de controlador — 121 clases** (recontados el 13 sep 2026 al
+entrar `CompetenciasController` y `DesempenosController`; el 5 sep eran 115 y 118 al entrar
+`PlantillaNotasController`, el 4 sep 114 y 117, y antes decían 113 y 116, y el trait
+`Concerns/ResuelveElUsuario.php` **no cuenta**: no declara ninguna clase, así que el
+directorio tiene 119 ficheros y 118 son controladores. **De los tres que entraron entre el
+5 y el 13 de septiembre sólo dos son de esta tanda**: el tercero es
+`SincronizacionController`, del 7 sep, que nadie recontó — que es exactamente por lo que
+este número se cuenta y no se supone), porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
-**580 rutas** (contadas con
-`route:list --json` el **13 sep 2026 en el árbol principal**; el 24 ago el de rutas se movió por primera vez,
+**599 rutas** (contadas con
+`route:list --json` el **13 sep 2026 en el árbol principal**, ya con las fases 2 y 3 dentro; el 24 ago el de rutas se movió por primera vez,
 de 539 a 542, con los tres endpoints que pidió `myvc_flutter`, el 28 a 543 con
 `PUT users/mi-docente`, que pidió Joseth para el panel de `app2`, el 31 a 544 con
 `GET grupos/{grupo_id}/alumnos-de/{que}`, que pidió el front para el modal de
@@ -115,7 +119,23 @@ excluida ahí igual que `actual` —dos exclusiones y por motivos distintos: aqu
 invariante de fila, ésta tiene **dueño**—. *Al darle dueño a una columna se repasan **todos** los
 caminos que escriben esa tabla, no sólo el que se está tocando.*
 **580 se contó con `route:list --json` en el árbol principal, no se sumó** — coincidió con
-579 + 1, que es la única forma de saber que coincidía. «El de rutas no se
+579 + 1, que es la única forma de saber que coincidía. Y ese mismo 13 sep a **599** de una
+vez, con **las fases 2 y 3** del mismo documento: **587–593** son las **siete de
+`competencias/`** —el CRUD del plan de área más `GET competencias/catalogo-men`, que trae
+los **Estándares Básicos del MEN empaquetados con el código** (523 enunciados, 173 KiB, 21
+comprimido) y que va **dentro de esa familia y no en una propia** porque una ruta sola sin
+hermanas entra en `familias-que-nunca-entran-en-el-candado.json` como «1 de 1», que es la
+forma exacta que tendría un agujero—; y **594–599** son las **doce de `desempenos/`**, que
+el plan daba por **ocho**: las cuatro que faltaban son las que el docente necesita para
+**añadir los suyos** (D14), y sin ellas el candado de esa decisión **no tiene nada que
+candar** y la pantalla del docente nace de sólo lectura. Es la §1.4 otra vez —un hueco que
+el documento no vio— y por eso **el plan pasa de 22 rutas a 26**, contado y no discutido.
+**599 se contó con `route:list --json` en el árbol principal**, después de fundir y con la
+suite entera en verde detrás: **2.179 = 2.115 + 33 + 31**, y ninguna prueba existente se
+movió.
+Una familia nueva entra **entera en un commit** por lo mismo que el catálogo del MEN no
+tiene familia propia: a trozos, el censo la recogería como «1 de 1» y la sacaría después —
+dos movimientos de una instantánea publicada para nada. «El de rutas no se
 mueve»
 sigue siendo la
 regla: una ruta nueva es una decisión, no un efecto secundario, y mueve este
