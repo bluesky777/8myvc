@@ -6,8 +6,67 @@ MySQL 8.0.46. Salió construyendo la **Fase 4** del
 la Fase 4**: es un fallo de datos que **ya está ocurriendo en los boletines de hoy**,
 sin rejilla, sin competencias y sin desempeños.
 
-**Nada de esto está arreglado.** Este documento sólo lo deja medido, con la consulta
-que lo saca, para que la decisión se tome con los números delante.
+> ## ✅ ARREGLADO el 13 sep 2026 en `bd02f66` — y con una regla que NO estaba en esta tabla
+>
+> Decisión de Joseth, con las cuatro salidas de la §5 delante. **La elegida es una quinta**:
+>
+> ```
+> porc_inicial <= nota  AND  nota < porc_final + 1
+> ```
+>
+> **No es la B.** Se parecen de lejos y la diferencia está donde hay que mirarlas, en el caso
+> raro: la B —*«hasta donde empieza la siguiente»*— **estira la banda de abajo por encima de un
+> hueco que el colegio haya dejado a propósito**, o sea inventa cobertura que nadie escribió; y
+> necesita **una regla aparte para la última banda**, porque no hay siguiente. La de `+1` es
+> **local a cada banda**: no inventa nada y no necesita remiendo en el techo. Ésa fue la
+> corrección que paró a `myvc-front-50` cuando iba a implementar la B.
+>
+> ### Y este documento contaba SEIS sitios: son TRECE
+>
+> Es la omisión que cambia el alcance, no el tamaño del parche. A los ocho de SQL —`Grupo` ×5,
+> `Unidad`, `Subunidad` ×2— **les faltaban cinco en PHP**: `EscalaDeValoracion::valoracion` y tres
+> copias literales en `PromovidosController`, `Informes\BolfinalesController`,
+> `Informes\BolfinalesPreescolarController` y `Informes\CertificadosPersonaController`.
+>
+> **Y esos cinco YA HACÍAN `round($nota)`.** O sea que **la opción A de la §5 no era una propuesta:
+> estaba en producción, en la mitad de los caminos**, y este documento la describía como algo por
+> decidir. La consecuencia es peor que cualquiera de las dos por separado: los ocho de SQL dejaban
+> la fila **sin nivel** y los cinco de PHP imprimían **SUPERIOR**, así que **el mismo alumno tenía
+> dos niveles según qué informe se imprimiera** — y ninguno de los dos era el que el colegio
+> escribió. Arreglar sólo el SQL lo habría dejado en pie **y más difícil de ver**, porque uno de
+> los dos lados dejaría de fallar.
+>
+> Por eso el arreglo va en los **trece** y quita el `round()` de los cinco.
+>
+> ### Lo que se midió con la regla puesta
+>
+> | | |
+> |---|---|
+> | huérfanas antes | **13** de 127.891 |
+> | huérfanas después | **9** |
+> | las cuatro del decimal | 45,5 · 45,005 · 45,05 → **ALTO** · 39,3 → **BÁSICO** |
+>
+> **Ninguna asciende**, que era la condición. Y **las nueve que quedan se quedan a propósito**: son
+> notas por encima del techo de la escala, o sea un dato malo y no un hueco de frontera — taparlas
+> aquí las escondería. Es lo que separa un arreglo de una alfombra.
+>
+> **El control del test da 2 de 11 y no 4**, y el detalle es preciso: con el código de antes sólo
+> caen 45,5 y 45,999 —los que el redondeo subía—; 45,005 y 39,3 **acertaban por accidente** porque
+> redondean hacia abajo. Los dos caminos fallaban en **subconjuntos distintos**, y un test escrito
+> mirando sólo el de PHP habría dado esto por dos casos raros en vez de por lo que era.
+>
+> **Y queda fichado sin arreglar**, porque es comportamiento vivo: **las cinco copias no devuelven
+> lo mismo cuando no casa ninguna banda** — el modelo da `(object)['desempenio' => '']` y las
+> cuatro de los controladores dan `[]`, un array, así que un `->desempenio` encima se come un
+> aviso de PHP. Dos reglas conviviendo sin que nadie las hubiera comparado nunca.
+>
+> `tests/Unit/LaBandaLlegaHastaElSiguienteEnteroTest` · `composer run pint` y `stan` en verde ·
+> **la suite entera no se había corrido al commitear**, por una ventana de silencio pedida por
+> otra sesión, y hace falta antes de desplegar: toca ocho consultas de informes.
+
+**Lo que este documento midió sigue siendo lo que vale**, y por eso no se reescribe: dejó el
+mecanismo, la población y las salidas con su precio, que es lo que permitió decidir en cinco
+minutos. Lo que le faltaba eran los cinco sitios de PHP.
 
 ---
 

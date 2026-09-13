@@ -480,12 +480,17 @@ class CertificadosPersonaController extends Controller {
 
 	public function valoracion($nota)
 	{
-		$nota = round($nota);
+		// **El `round()` que había aquí se retiró el 13 sep 2026, y no era inocuo.**
+		// `notas_finales.nota` es `decimal(7,4)` desde `2026_08_30_200000`, así que
+		// redondear subía un 45,5 a 46 y lo imprimía SUPERIOR donde el colegio había
+		// escrito que ALTO llega hasta 45 — y el camino de SQL, que no redondeaba, lo
+		// dejaba directamente **sin nivel**. Los trece sitios usan ahora la misma regla:
+		// la banda llega hasta justo antes del primer entero de la siguiente.
 
 		foreach ($this->escalas_val as $key => $escala_val) {
 			//Debugging::pin($escala_val->porc_inicial, $escala_val->porc_final, $nota);
 
-			if (($escala_val->porc_inicial <= $nota) &&  ($escala_val->porc_final >= $nota)) {
+			if (($escala_val->porc_inicial <= $nota) && ($nota < $escala_val->porc_final + 1)) {
 				return $escala_val;
 			}
 		}
