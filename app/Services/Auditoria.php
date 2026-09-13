@@ -173,6 +173,11 @@ final class Auditoria
         // consecuencia es la copia, no el original**.
         'competencia' => 'competencias',
 
+        // El plan de área: `PUT desempenos/plantilla/copiar` y `PUT desempenos/sembrar`,
+        // las dos escrituras masivas de la Fase 3. El CRUD de una en una tampoco,
+        // por el mismo motivo que arriba.
+        'desempeno' => 'desempenos',
+
         // 3 — asistencia y faltas.
         'ausencia' => 'ausencias',
 
