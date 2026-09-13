@@ -376,6 +376,21 @@ de más es legítimo. **Lo es.**
 > `Year::findOrFail` y `postStore` **rehidrata** con `Year::find(...)` después del `save()`. Las
 > dos traen las 70. **Tercera frase del día que es verdad con dos lecturas distintas**, después
 > del «los nombra uno a uno» del 422 y del «tres respuestas vivas» de los docs 22 y 23.
+>
+> > **Y una cuarta, de otra especie y con peor final — la aportó `myvc-front-50`
+> > diagnosticándose.** *«Omitir `forcedelete` ahorra un camino que candar»* es **cierto**;
+> > *«el rodeo se cierra por construcción»* es **falso**; soldadas en una frase suenan a una sola
+> > afirmación razonable. **No son dos lecturas de una frase: son dos frases, una verdadera y otra
+> > no, que se avalan la una a la otra.**
+> >
+> > **Y es la peor de las cuatro por su consecuencia**: las otras tres dejaban un número mal.
+> > Ésta dejaba **`destroy` abierto** — borrar y volver a crear devuelve la fila con
+> > `por_defecto = 0`, o sea libre, y el candado se salta **sin tocar ninguna ruta prohibida**. La
+> > §5.1.e del doc 28 ya lo midió sobre los nueve caminos de `unidades`: **precedente, no
+> > hipótesis**.
+> >
+> > La prueba que lo fija, y va en la Fase 3: **borrar un desempeño del colegio y volver a crearlo
+> > no puede devolver una fila libre.**
 
 > **La brecha son SEIS rutas que publican la fila entera y a las que nadie les mira el cuerpo**:
 > sus tests comprueban el `assertStatus`, no la forma. **Sin instantánea no hay rojo**, así que
