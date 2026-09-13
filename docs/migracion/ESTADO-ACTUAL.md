@@ -94,22 +94,47 @@
 > > | **1** — `years.modelo_evaluacion` + displaynames | **EN `main`** (`4e0033c`), suite `2115 passed` |
 > > | **2** — competencias + catálogo del MEN | **EN `main`**, 7 rutas |
 > > | **3** — desempeños: catálogo, siembra y los del docente | **EN `main`** (`644d0f3`), 12 rutas |
-> > | 4 — la rejilla premarcada | pendiente, **2 rutas** |
-> > | 5 — qué comparten los tres boletines *(medición)* | pendiente, 0 rutas |
-> > | 6 — el boletín nuevo | pendiente, **4 rutas** |
+> > | **4** — la rejilla premarcada | **EN `main`**, 2 rutas (en la familia `desempenos`) |
+> > | **5** — qué comparten los tres boletines *(medición)* | **EN `main`** (`3d6a509`), 0 rutas |
+> > | **6** — el boletín nuevo | **EN `main`**, **2 rutas** y no 4 |
 > >
-> > **El router está en 599**, contado con `route:list --json` en el árbol principal (lo movió
-> > `fc7eeaf`, que también recontó los 118 controladores). **599 − 579 = 20 = 1 + 7 + 12**, o sea
-> > exactamente lo que el plan había contado fase por fase, y quedan **6** — las 2 de la Fase 4 y
-> > las 4 de la Fase 6. Comprobado familia por familia: `competencias` **7** con el catálogo del
-> > MEN **dentro** de la familia, y `desempenos` **12** repartidas en 8 de catálogo
-> > (`desempenos/plantilla/*`, `GET desempenos`, `sembrar`) y 4 de los propios del docente.
+> > **LAS SIETE FASES ESTÁN CONSTRUIDAS.** Lo que queda del 35 no es código: es el despliegue, y
+> > los dos censos que sólo se pueden correr contra el servidor.
+> >
+> > **El router está en 603**, contado con `route:list --json` en el árbol principal.
+> > **603 − 579 = 24**, y el plan decía **26**: la diferencia es que **la Fase 6 necesitó DOS rutas
+> > y no las cuatro** que estimé «calcadas de `boletines3`». O sea que el plan se pasó por dos, y
+> > se dice — las seis que se fueron sumando desde las 20 originales salieron de huecos reales, y
+> > ésta sobraba.
+> >
+> > Comprobado familia por familia: `competencias` **7** con el catálogo del MEN **dentro** de la
+> > familia —la condición para no mover `familias-que-nunca-entran-en-el-candado.json`, que en
+> > efecto **no se ha movido en todo el día**—, `desempenos` **14** (12 de la Fase 3 más las 2 de
+> > la rejilla, que viven en esa familia) y `boletines-competencias` **2**.
 > >
 > > **Lo que fue la prueba del plan y no una casualidad**: la Fase 1 movió **12 instantáneas** y
 > > **tres se movieron solas** —`muestreo-years`, `-colegio`, `-trashed`—, que es exactamente la
 > > terna que §1.3 había predicho **antes de que existiera el código**, y `familias-que-nunca-...`
 > > **no se movió**, que era la otra predicción. Las otras seis las ensanchó el autor a mano, y
 > > tres son de ruta.
+> >
+> > ### Y un fallo VIVO que salió de construir la Fase 4, y no es del módulo
+> >
+> > **`notas_finales.nota` es `decimal(7,4)` y las bandas de `escalas_de_valoracion` siguen siendo
+> > `int`**, así que una nota en una frontera no casaba con ninguna: el boletín salía **sin nivel y
+> > en silencio**. Medido: **13 de 127.891** definitivas en `simonbolivar`, 4 exactamente por el
+> > decimal. Lo destapó `myvc-front-50` construyendo la rejilla; está medido en el
+> > **[36](36-la-nota-decimal-y-las-bandas-enteras.md)** y **arreglado en `bd02f66`**.
+> >
+> > **Eran TRECE sitios y el 36 contaba seis**: los ocho de SQL dejaban la fila sin nivel y los
+> > **cinco de PHP ya hacían `round()`**, o sea que imprimían SUPERIOR. **El mismo alumno tenía dos
+> > niveles según qué informe se imprimiera.** Regla única en los trece —`nota < porc_final + 1`—,
+> > las 13 huérfanas pasan a 9 y **ninguna asciende**; las nueve que quedan son notas por encima
+> > del techo, que es un dato malo y no un hueco.
+> >
+> > ⚠️ **La suite entera NO se ha corrido sobre ese arreglo** —ventana de silencio pedida por
+> > `myvc-horarios-8f` hasta las 18:35— y **hace falta antes de desplegar**: toca ocho consultas de
+> > informes.
 > >
 > > **Y una población que cambió de verdad** (`690ac87`): `por_defecto` cruza en
 > > `CensoDeInterruptoresTest` de *«no decide nada»* a *«alguien decide con ella»* —28/65 en vez
