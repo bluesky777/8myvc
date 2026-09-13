@@ -2,6 +2,7 @@
 
 namespace Tests\Contrato;
 
+use Fruitcake\Cors\CorsService;
 use Illuminate\Http\Request;
 use PHPUnit\Framework\Attributes\DataProvider;
 
@@ -91,7 +92,7 @@ class CorsDelEscritorioTest extends CasoDeContrato
         $peticion->headers->set('Access-Control-Request-Method', 'POST');
         $peticion->headers->set('Access-Control-Request-Headers', 'authorization,content-type');
 
-        $respuesta = (new \Fruitcake\Cors\CorsService(config('cors')))
+        $respuesta = (new CorsService(config('cors')))
             ->handlePreflightRequest($peticion);
 
         return $respuesta->headers->get('Access-Control-Allow-Origin');
