@@ -624,6 +624,23 @@ alumno con PIAR) y se lee con `<=>` a través de
 - Los **Estándares Básicos** y los **DBA** viajan **como fichero de datos con el
   código**, no como tabla sembrada en cada colegio: se actualizan con el despliegue y
   no hay que migrar dieciséis bases para corregir una errata del MEN.
+
+> **Y la ruta se pide POR MATERIA Y GRADO, no entera — esto faltaba y lo destapó el front.**
+> Este apartado especificaba `GET competencias/catalogo-men` sin decir **qué devuelve de una
+> vez**, y eso deja abierta la puerta de que devuelva el corpus completo: los EBC de seis áreas
+> por cinco conjuntos de grados, más los DBA grado a grado. **Nadie ha medido ese peso todavía**
+> —`myvc-front-50` lo está midiendo— y una ruta que puede crecer sin tope en un repositorio cuyos
+> informes ya tardan 24-63 s no es un detalle que se afine después.
+>
+> **Se cierra por diseño en vez de por medición**: la ruta lleva `materia_id` y `grado_id`, que
+> es **exactamente el alcance con el que se adopta**. El colegio adopta las competencias de
+> Matemáticas de 6.º, no las de todo el MEN, así que la llamada que hace falta es la pequeña. Con
+> eso **el tamaño del corpus deja de decidir nada del contrato** y la medición pasa a contestar
+> otra pregunta, que es la que importa: cuánto pesa en el despliegue, porque `app/` es copia real
+> en los dieciséis.
+>
+> Es la forma barata de la regla de siempre: **no hace falta medir para elegir bien cuando se
+> puede elegir algo cuyo coste no depende de lo que se mediría.**
 - **Adoptar copia**; el catálogo no manda sobre nada (regla 1 de la §4 del doc 28).
 - **Lenguaje, Matemáticas, Ciencias Naturales, Ciencias Sociales, Competencias
   Ciudadanas e Inglés** tienen contenido. **Religión, Artes, Ed. Física y Tecnología
