@@ -2013,8 +2013,17 @@ lo que hable del reparto del curso.
   desarrollo**. No lo bloquea nada de este plan y este plan no lo desbloquea.
 - **La Entrega 4 del doc 28** —tercer origen `{tipo:"plantilla"}` en `copiar` y sembrar
   al marcar— está aprobada (D18) y **es independiente de estas siete fases**: cero
-  rutas nuevas. Con D5 encima, al marcar se siembran **también los desempeños** del
-  grupo a nombre del alumno, así que su sitio natural es **detrás de la Fase 3**.
+  rutas nuevas. ~~Con D5 encima, al marcar se siembran **también los desempeños** del
+  grupo a nombre del alumno, así que su sitio natural es **detrás de la Fase 3**.~~
+
+  > **HECHA el 13 sep 2026**, y la frase tachada se retira con una medida delante. La
+  > **Fase 4** —que no existía cuando se escribió— ya resuelve eso por el otro lado:
+  > `DesempenosController::desempenosDeLaRejilla()` lee
+  > `d.alumno_id IS NULL OR d.alumno_id IN (marcados)`, o sea **suma** los del curso y
+  > los del marcado. Sembrarle los del grupo a su nombre le **duplicaría cada columna de
+  > la rejilla, y a todo el grupo**. Al marcar se siembra **la rejilla de notas** —unidades,
+  > subunidades y las notas que el alumno ya tenía— y **los desempeños no se tocan**. Ver
+  > la §6.3 del [19](19-boletin-independiente.md) y `test_marcar_no_siembra_desempenos`.
 - **La fase 0 de la Entrega 5** —sacar `nota × % / 100` de sus **18 sitios en 9
   ficheros** a un punto único— está aprobada y **se despliega sola** (D19). No cambia
   ni un resultado y se verifica con las instantáneas tal como están. **No depende de

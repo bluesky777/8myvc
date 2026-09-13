@@ -993,20 +993,33 @@ acepta y se ignora es el que hace creer que se copió otra cosa.
 
 Un tercer origen sigue siendo **un clic por alumno y por asignatura**. Un estudiante
 marcado tiene ~10 asignaturas, así que lo que quita trabajo es sembrar **en el
-momento de marcar**, en `PUT boletin-independiente/marcados`, con las mismas guardas
-que el sembrador del curso:
+momento de marcar**, con las mismas guardas que el sembrador del curso:
 
 - sólo asignatura+periodo del alumno con **cero unidades propias** (`alumno_id = él`);
-- sólo **periodos abiertos** — la regla 2 de §4, otra vez;
 - **no toca las del curso** (`alumno_id IS NULL`), que es lo que ya costó una
   asignatura al 110 % con 51 estudiantes;
 - se registra con `Auditoria`: son ~10 asignaturas × 4 unidades × 3 subunidades =
   **~120 filas por estudiante marcado**, y eso no puede pasar en silencio;
-- **la respuesta dice la población**: `{asignaturas_revisadas, sembradas,
-  saltadas_por_estructura_propia, saltadas_por_periodo_cerrado}`.
+- **la respuesta dice la población**.
 
 Con eso, marcar a un estudiante como independiente deja de ser el principio del
 trabajo y pasa a ser el final.
+
+> **Escrito el 13 sep 2026, y tres cosas de este párrafo no sobrevivieron a medirlas.**
+> Están aquí con su corrección al lado, porque una decisión sin su alternativa no se
+> puede revisar dentro de dos años. El detalle entero, en la §6.3 del
+> [19](19-boletin-independiente.md).
+>
+> | lo que decía | lo que es |
+> |---|---|
+> | *«en `PUT boletin-independiente/marcados`»* | **`marcados` no marca: es la lista del menú.** La única escritura de la marca es **`PUT boletin-independiente/periodo`**, desde que la decisión 7 la hizo por periodo. Medido contra el docker antes de escribir nada |
+> | *«sólo periodos abiertos — la regla 2 de §4»* | **se siembra también con el periodo cerrado.** La §2.4 del 19 decidió que marcar un periodo cerrado **se puede y se quiere** —es el colegio que cierra el periodo 2 y sólo entonces cae en que el alumno lo necesitaba aparte—, y no sembrar ahí dejaría la función inútil justo en su caso motivador. El camino de desmarcar ya sembraba con el periodo cerrado desde el 31 ago. La regla 2 gobierna `putSembrar()`, que reparte por el año entero sin que nadie lo pida; esto lo pide una persona, alumno a alumno. **Y por eso `saltadas_por_periodo_cerrado` NO existe**: un contador que no puede subir no dice si la regla corrió |
+> | *«los cuatro números»* | **son ocho**, y los ocho vienen siempre, ceros incluidos. Los cuatro de arriba no separaban «el curso no tiene rejilla que copiar» —que es la §9.1 y el único que el colegio tiene que mirar— de «ya tenía la suya», ni decían cuántas filas se escribieron. Son: `asignaturas_revisadas`, `asignaturas_sembradas`, `saltadas_porque_ya_tenia`, `saltadas_sin_rejilla_del_grupo`, `unidades`, `subunidades`, `notas_traidas` y `casillas_nuevas` |
+>
+> **Y lo que se copia es la rejilla del CURSO, no la plantilla del colegio.** Es la que el
+> alumno venía siguiendo hasta el momento de la marca, y es lo que hace que **se lleve sus
+> notas** en vez de empezar en blanco. La plantilla del colegio es el §a, y es una decisión
+> del docente asignatura a asignatura.
 
 #### c) Competencias propias: `alumno_id`, no una tabla aparte
 
@@ -1019,6 +1032,17 @@ trabajo y pasa a ser el final.
 > `desempenos.alumno_id NULL`, leído con `<=>` por `BoletinIndependiente::alcance()` igual que
 > `unidades`. Y §b **siembra también los desempeños** del grupo a nombre del alumno al marcarlo.
 > Queda abierta la escala del alumno PIAR dentro de un grupo numérico.
+>
+> > **13 sep 2026: esa última frase se retira, y con una medida delante.** La Fase 4 del doc 35
+> > —que no existía cuando se escribió— resolvió el mismo problema **por el otro lado**:
+> > `DesempenosController::desempenosDeLaRejilla()` lee
+> > `d.alumno_id IS NULL OR d.alumno_id IN (marcados)`, o sea **suma** los del curso y los del
+> > marcado, con este comentario suyo delante: *«sin esta rama, un alumno con boletín
+> > independiente abriría la rejilla sin ninguna columna»*. Con las dos cosas a la vez,
+> > copiarle los del grupo a su nombre le **duplicaría cada columna de la rejilla, y a todo el
+> > grupo**. Así que al marcar **los desempeños no se tocan**, y lo fija
+> > `test_marcar_no_siembra_desempenos`. Lo de escribirle desempeños **suyos** a un alumno PIAR
+> > sigue en pie: eso es el CRUD de `desempenos` con `alumno_id`, no una siembra automática.
 >
 > **Corrección del mismo día, tras la pregunta de Joseth.** *(1)* **`competencias.alumno_id` se
 > queda**, además de `desempenos.alumno_id`: el Decreto 1421/2017 manda que *«al finalizar cada año
