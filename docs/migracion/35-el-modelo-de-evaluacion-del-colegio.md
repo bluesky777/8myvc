@@ -136,18 +136,76 @@ de más es legítimo. **Lo es.**
 > cuenta un síntoma parecido al que te interesa es el peor de los tres casos**, porque no se
 > delata: contaba *menciones* y se leyó como *respuestas que cambian*.
 
+#### Y la segunda corrección, del mismo día: **se mueven tres instantáneas y la publican OCHO rutas**
+
+> **Lo destapó `8myvc-2e` encontrando dos caminos que este apartado no tenía, y el censo completo
+> —hecho aquí, sistemáticamente en vez de por inspección— da OCHO, no cinco ni tres.** Las dos
+> cifras son ciertas y **cuentan cosas distintas**, que es justo lo que esta sección venía
+> confundiendo desde que se escribió:
+>
+> | | |
+> |---|---|
+> | **exposición** — rutas cuya respuesta gana la columna | **8** |
+> | **cobertura** — instantáneas que se mueven | **3** |
+>
+> **Las ocho**, con su ruta, leídas de `HEAD` y no del árbol de trabajo:
+>
+> | método | cómo publica la fila entera | ruta | ¿instantánea? |
+> |---|---|---|---|
+> | `getIndex` | `SELECT y.*` crudo | `GET years` | **sí** |
+> | `getColegio` | `SELECT *` crudo | `GET years/colegio` | **sí** |
+> | `getTrashed` | `Year::onlyTrashed()->get()` | `GET years/trashed` | **sí** |
+> | `postStore` | `return $year` | `POST years/store` | no |
+> | `putGuardarCambios` | `return $year` | `PUT years/guardar-cambios` | no |
+> | `deleteDelete` | `return $year` | `DELETE years/delete/{id}` | no |
+> | `deleteDestroy` | `return $year` | `DELETE years/destroy/{id}` | no |
+> | `putRestore` | `return $year` | `PUT years/restore/{id}` | no |
+>
+> **La brecha son cinco rutas que publican la fila entera y a las que nadie les mira el cuerpo**:
+> sus tests comprueban el `assertStatus`, no la forma. **Sin instantánea no hay rojo**, así que
+> las tres verificaciones que hay en marcha —la mía por lectura y las dos suites— **miden todas lo
+> mismo y ninguna las vería**.
+>
+> **Por qué importa y no es una pedantería**: la Fase 1 necesita la cuenta de **cobertura** —son
+> tres instantáneas las que hay que regenerar— pero el siguiente que añada una columna a `years`
+> necesita la de **exposición**, y si lee *«los tres únicos caminos que publican la fila entera»*
+> se lleva una cifra que se queda corta en cinco. Es
+> [30](30-lo-que-reparte-una-columna-nueva.md) otra vez y por su lado ciego: **lo que reparte una
+> columna no es el número de instantáneas, es el número de sitios que devuelven la fila entera.**
+>
+> **Y un camino que NO publica, para cerrar la cuenta**: `Year::actual()`
+> (`app/Models/Year.php:130`) también hace `SELECT * FROM years`, pero sus tres llamadas
+> —`LoginController:507`, `AlumnosController:327` y `:1010`— usan sólo `->id`. Comprobado por
+> `8myvc-2e` en las tres. `datos()`, `datos_basicos()` y `de_un_profesor()` llevan proyecciones
+> nombradas.
+
+> ### Tres veces mal en un día, y el porqué vale más que las tres correcciones
+>
+> Esta sección ha dicho **~30**, luego **3**, y ha llamado a esos 3 *«los tres únicos caminos que
+> publican»* cuando son **8**. Los tres errores son **el mismo**: contar con un detector que mide
+> algo **parecido** a lo que interesa.
+>
+> - «menciona una columna de `years`» **≠** «la respuesta gana una clave» → salieron 30.
+> - «tiene instantánea» **≠** «publica la fila entera» → salieron 3.
+>
+> Y ninguno se delató, porque **los tres números eran creíbles**. Un número raro se comprueba
+> solo; **un número creíble sólo se comprueba si alguien vuelve a preguntarse qué se contó**. La
+> regla del repositorio —*el primer sitio donde mirar cuando el número sale raro es el detector*—
+> **tiene un agujero por ahí**: cuando el número no sale raro, nadie mira el detector. Lo que
+> cierra ese agujero no es desconfiar más, es **escribir al lado de la cifra qué población contó**,
+> que es lo que la tabla de arriba hace y lo que esta sección no hacía.
+
 **El mecanismo, que es lo que no cambia y hay que tener delante al escribir la Fase 1:**
 
 ```
-YearsController::getIndex   →  'SELECT y.*, i.nombre as logo FROM years y …'
-YearsController::getColegio →  'SELECT * FROM years WHERE deleted_at is null'
-YearsController::getTrashed →  Year::onlyTrashed()->get()
+comodín en SQL crudo     getIndex, getColegio
+Eloquent devuelto entero getTrashed, postStore, putGuardarCambios,
+                         deleteDelete, deleteDestroy, putRestore
 ```
 
-`modelo_evaluacion` y los tres `displayname` del desempeño **se reparten solos** por esos tres
-caminos, y por **dos** de las tres vías que censó [30](30-lo-que-reparte-una-columna-nueva.md):
-el comodín en SQL crudo y el modelo Eloquent devuelto entero. Es el mismo documento, escrito por
-`profesores.tono` nueve días antes.
+Son **dos** de las tres vías que censó [30](30-lo-que-reparte-una-columna-nueva.md) —falta el
+Query Builder, que ahí salió a cero—, y es el mismo documento, escrito por `profesores.tono`
+nueve días antes.
 
 > Lo que **sí** se conserva byte a byte, y ése es el test que hay que escribir: **con el enum en
 > `ponderado` y las tablas vacías, las unidades, las notas, las definitivas y los tres boletines
