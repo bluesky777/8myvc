@@ -1443,16 +1443,38 @@ poco al `diff`— sino en **campos de la respuesta**, y ahí el reparto es otro.
 
 Medido en la misma petición, tres veces y reproducible:
 
-| | estado | ms | consultas | bytes |
+| | estado | ms † | consultas | bytes |
 |---|---|---|---|---|
 | `boletines` | 200 | 1.406 – 1.877 | **1.061** | 25.007 |
 | `boletines2` | 200 | 1.024 – 1.503 | 924 | 39.013 |
 | `boletines3` | 200 | **15.531 – 15.572** | **762** | 25.980 |
 
+> **† Los ms son una cota POR ARRIBA, y la carga era nuestra.** Se tomaron el 13 sep 2026
+> **con una suite de PHPUnit de este mismo proyecto corriendo dentro del contenedor** —ese
+> día hubo varias, de 1.100 a 1.700 s—, así que la máquina no estaba limpia. Y no era «una
+> VM ajena»: la VM de `Virtualization.framework` que se lleva el 114 % **es el Docker de
+> este repo**. La diferencia no es de matiz — lo ajeno suena a mala suerte y no se puede
+> evitar; **lo propio es reproducible y evitable**, y le dice al que remida cómo tomar la
+> cifra limpia: con `pgrep -af phpunit` vacío.
+>
+> **Las otras dos columnas no son cotas: son exactas.** El número de consultas y los bytes
+> no dependen de la máquina, y son los que sostienen lo de abajo.
+
 > **El tercero tarda diez veces más haciendo TRESCIENTAS consultas menos.** El coste
 > de este boletín no está en el N+1 —que es lo que se supone cuando se lee «24–63 s»—
 > sino en **una** consulta: la de cuatro periodos de `Grupo::detailed_materias_notas_finales`.
 > Es el dato que decide dónde se optimiza, y dice que contar consultas aquí engaña.
+>
+> **Y esto aguanta aunque los ms sean sucios**, que es lo que hay que saber antes de
+> citarlos: los tres se tomaron **bajo la misma carga**, así que el ruido tiende a
+> cancelarse en el **cociente**; y el «diez veces» no se sostiene por la medida sino **por
+> mecanismo** —762 consultas contra 1.061, y una de ellas es la de cuatro periodos—. Lo
+> que **no** se puede citar a pelo es el **15.531 ms** como si fuera lo que ve un usuario:
+> eso hay que remedirlo con la máquina quieta.
+
+> **La regla, que vale para cualquier cifra de tiempo de este repo:** un **✓** contra un
+> umbral, medido con la máquina sucia, es **conservador y vale** —salió bien cargando de
+> más—; un **✕** **no concluye nada** y hay que repetirlo limpio.
 
 **«Llega ahí por accidente»** no es una forma de hablar: `Boletines3Controller:281`
 pasa **`true`** donde los otros pasan una cadena. La primera rama compara con `===` y
@@ -1712,15 +1734,20 @@ asignatura: `marcasDelAlumno` trae todas las celdas del grupo de una vez y
 `faltasPorAsignatura` agrega las ausencias en una. Pedido al docker, con
 `tools/probar-el-boletin-por-competencias-en-el-docker.php`:
 
-| | estado | ms | consultas | bytes |
+| | estado | ms † | consultas | bytes |
 |---|---|---|---|---|
 | `detailed-notas`, **1 alumno** | 200 | 155 | 307 | 12.825 |
 | `detailed-notas-group`, **37 alumnos** | 200 | 117 | **268** | 323.955 |
 
-Contra las **1.061 consultas y 1.406 ms** que la Fase 5 midió en una petición de **UN**
-alumno del primero. Y las dos cifras de arriba son de la **misma** cantidad de trabajo: la
-ruta de un alumno calcula el grupo entero igual, porque el puesto lo exige; lo que cambia
-es a quién se le devuelve.
+> **† Mismo día, mismo contenedor, misma advertencia que en la Fase 5**: los ms son una
+> **cota por arriba** y no se citan a pelo como «lo que tarda para un usuario». Las
+> consultas y los bytes sí son exactos.
+
+Contra las **1.061 consultas** que la Fase 5 midió en una petición de **UN** alumno del
+primero — y **la comparación que vale es ésa, la de consultas**, no la de milisegundos: es
+la que no depende de cómo estuviera la máquina. Y las dos filas de arriba son de la
+**misma** cantidad de trabajo: la ruta de un alumno calcula el grupo entero igual, porque
+el puesto lo exige; lo que cambia es a quién se le devuelve.
 
 **No recalcula definitivas.** `BoletinesController` sí lo hace —fase 3 del
 [10](10-definitivas.md)— y ahí está bien; un boletín nuevo que escribiera al abrirse

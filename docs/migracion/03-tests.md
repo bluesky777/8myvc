@@ -596,6 +596,18 @@ Y dos que no son pasos pero deciden el número:
 - **`COBERTURA_RUTAS` con un fichero por sesión.** `/tmp` del contenedor está
   compartido: compartirlo dio una vez *86 de 539 cuando eran 346*.
 
+Y una que gobierna **cualquier cifra de TIEMPO de este repo**, y no sólo las tandas:
+
+- **Con la máquina sucia, un ✓ vale y un ✕ no concluye nada.** Si una medida de tiempo se
+  toma con otra cosa corriendo —y aquí «otra cosa» suele ser **una suite nuestra dentro
+  del mismo contenedor**, no una VM ajena—, el número es una **cota por arriba**: pasar un
+  umbral así es **conservador** y se puede citar; **no** pasarlo no demuestra nada y hay
+  que repetirlo con `pgrep -af phpunit` vacío. Los **cocientes** entre medidas tomadas
+  bajo la misma carga aguantan mejor que las medidas sueltas, y lo que de verdad no
+  depende de la máquina —**número de consultas, bytes, filas**— es lo que conviene poner
+  delante de un argumento. Ejemplo vivo, con sus números: la §Fase 5 del
+  [35](35-el-modelo-de-evaluacion-del-colegio.md).
+
 ---
 
 ## Una herramienta de `tools/` contra la base de TESTS deja rastro, y el rojo sale lejos — 13 sep 2026
