@@ -121,7 +121,9 @@ cambie el modelo de evaluación del año** desde un `PUT` de dos campos.
 
 ### 1.5 · La rejilla premarcada no tenía qué premarcar — **desbloqueada el 13 sep (D23)**
 
-**Es el hallazgo que bloquea una fase entera, y sale de cruzar D5 con D6.**
+**Salió de cruzar D5 con D6, y bloqueó la Fase 4 durante unas horas.** El desajuste era real y
+lo sigue siendo; lo que no valía era el marco en que este apartado buscó la salida — ver el
+recuadro del final.
 
 D6 dice que la rejilla *«se abre con las casillas ya marcadas según
 `escalas_de_valoracion`»*, y señala la máquina que ya existe. La comprobé, y el
@@ -186,11 +188,15 @@ lleva nivel**. Así que no hay ninguna función que lleve de «este alumno sacó
 Cuatro cosas que salen de cruzar D23 con el esquema, y ninguna es cara:
 
 1. **La celda guarda el id del nivel Y su texto**, igual que `frase_id` guarda el id y `frase` el
-   texto. `escalas_de_valoracion` es **por año y editable** (`EscalasDeValoracionController:109`,
-   y `YearsController:234` las copia al año siguiente), así que una celda que guarde sólo el id
-   deja que renombrar «Básico» en 2028 **cambie un boletín impreso en 2026**. Es la regla 1 de la
-   §4 y es el mismo argumento que ya hizo D9 con `frase`. **Dos columnas anulables, no una**:
-   `escala_id` para pintar la casilla y `nivel` para lo que se imprime.
+   texto. `escalas_de_valoracion` es **por año y editable**, y las dos mitades están medidas:
+   `EscalasDeValoracionController` hace `UPDATE … SET desempenio=:desemp … WHERE id=:id` —o sea
+   que **renombrar un nivel reescribe la fila viva**, la misma que un boletín viejo leería por su
+   id— y `YearsController:228` copia las escalas al año siguiente con **`new` y `save()`**, o sea
+   **con ids nuevos**: las del año pasado siguen ahí, y siguen siendo editables. Una celda que
+   guarde sólo el id deja que renombrar «Básico» en 2028 **cambie un boletín impreso en 2026**.
+   Es la regla 1 de la §4 y el mismo argumento que ya hizo D9 con `frase`. Por eso el nivel gasta
+   **dos columnas y no una** —`escala_id` para pintar la casilla y `nivel` para lo que se
+   imprime—, que con `desempeno_id` hacen las **tres** de la migración de la Fase 4.
 2. **El premarcado NO sale de `deAsignaturaCalculada`.** Ese método cruza la escala **por
    unidad**; la rejilla es **por asignatura y periodo**. Lo que se reutiliza es **la forma** del
    cruce (`porc_inicial <= nota <= porc_final`, `year_id`), no el método: la nota de la que sale
