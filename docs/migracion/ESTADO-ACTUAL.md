@@ -88,9 +88,26 @@
 > día**; no queda nada bloqueado. **No hay una línea de código
 > nuevo**: este commit es el plan y estas dos correcciones.
 >
+> ### ✅ FASE 0 HECHA — 13 sep 2026, y el `ALTER` YA ESTÁ EN `main`
+>
+> `frases_asignatura.frase` es **`text`** desde `10a09a8`. Los dos ficheros de
+> `fix/frases-asignatura-text` —la migración `2026_09_05_100000_frase_del_boletin_en_text` y
+> `tests/Contrato/FraseLargaEnElBoletinTest`— están dentro de ese commit, que es **de
+> documentación y no los menciona**: otra sesión los recogió del índice mientras ésta los tenía
+> preparados. Se anota en vez de reescribirse, porque rehacer el historial debajo de otra sesión
+> rompe más de lo que ordena. **Lo que hay que retener para el despliegue: `10a09a8` trae una
+> migración dentro.**
+>
+> **`Tests: 2098 passed (18717 assertions)`**, con
+> `docker exec 8myvc-app-1 php artisan test` —las cuatro testsuites, grupo `barrido` excluido—,
+> 1.372,64 s, base reconstruida entera, árbol principal con el contenido de `main` @ `10a09a8`,
+> `git status` limpio al terminar. **No se compara con las 1.926 de la rama**: aquéllas son de
+> `ab23e2d`, 169 commits y siete migraciones antes.
+>
 > ### Lo que hay que saber sin abrirlo
 >
-> - **La Fase 0 no es «fusionar `fix/frases-asignatura-text`»: es rebasarla y volver a medir.** La
+> - **La Fase 0 era rebasar y volver a medir, no «fusionar `fix/frases-asignatura-text`»** — hecho,
+>   ver arriba. La
 >   rama está bien y hace lo que dice —tres commits, dos ficheros, ninguna instantánea tocada, y
 >   `frases_asignatura.frase` sigue `varchar(255)` en `main`—, pero su base es **`ab23e2d`, 169
 >   commits por detrás**, con **siete migraciones** en medio. Sus **1.926 verdes son ciertas y son

@@ -425,6 +425,42 @@ con `route:list --json`, **en el árbol donde se escriban** (§3).
 (decisión 12 del doc 28). Cada reimpresión de un boletín viejo seguirá saliendo
 cortada.
 
+> ## ✅ FASE 0 HECHA — 13 sep 2026. `Tests: 2098 passed (18717 assertions)`, y el número NO es el de la rama
+>
+> **La orden, porque una cifra de pruebas sin ella no dice de qué habla**:
+> `docker exec 8myvc-app-1 php artisan test` — las **cuatro** testsuites con el grupo `barrido`
+> excluido por `phpunit.xml`, no `--testsuite=Contrato`. **1.372,64 s**, en el árbol principal,
+> sobre la base reconstruida entera con `tools/construir-bd-test.sh` (22/22 migraciones, 102
+> tablas, 2.351 usuarios).
+>
+> **El hash**: el árbol tenía el contenido de `main` @ **`10a09a8`**. La corrida empezó con `main`
+> en `8e752a0` y terminó con `main` en `10a09a8`; ese commit **no toca una línea de código** —es
+> documentación más los dos ficheros del `ALTER`, que ya estaban en el árbol desde antes de
+> arrancar—, así que lo medido y lo commiteado son el mismo árbol de código. Se dice así y no
+> «sobre `main`» porque `main` se movió mientras se medía, que es exactamente el caso que la regla
+> del hash existe para cubrir.
+>
+> **2.098 no se compara con las 1.926 de `50399f6` / `12890ce`, y la diferencia no es una mejora:
+> son poblaciones distintas.** Aquélla corrió sobre `ab23e2d`, 169 commits y siete migraciones
+> antes; ésta lleva dentro todo lo que entró en medio —el alcance de la plantilla, `grupos_con_ih`,
+> las rúbricas—. La única lectura válida de las dos es *«las dos en verde en su árbol»*.
+>
+> **El árbol quedó limpio** (`git status --porcelain` vacío), que es la comprobación que la cifra
+> no da.
+>
+> ### Y cómo entraron los dos ficheros en `main`, porque el historial no lo cuenta
+>
+> **No hay un commit de la Fase 0.** Los dos ficheros —la migración y
+> `tests/Contrato/FraseLargaEnElBoletinTest`— están dentro de **`10a09a8`**, un commit de
+> documentación de otra sesión que los recogió del índice mientras esta sesión los tenía
+> preparados para commitear. Es la forma de fallar de dos sesiones en el mismo árbol, y se anota
+> en vez de reescribirse: **rehacer el historial debajo de otra sesión rompe más de lo que
+> ordena**.
+>
+> Lo que eso le cuesta al despliegue es que **el mensaje de `10a09a8` no menciona la migración que
+> lleva dentro**, y ése es justo el commit que alguien va a leer para decidir qué correr. Por eso
+> queda escrito aquí y en `DESPLIEGUE`: **`10a09a8` trae una migración.**
+
 > **Y una cosa que se vio al reconstruir la base y no estaba en el plan: esta migración va a
 > correr FUERA DE ORDEN en los colegios, y no pasa nada — pero hay que saberlo antes de verlo.**
 >
