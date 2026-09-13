@@ -891,8 +891,8 @@ class BoletinIndependientePeriodoTest extends CasoDeContrato
 
             $r->assertStatus(200);
 
-            // Los tres de siempre siguen ahí, con su nombre y su tipo: el front y
-            // `myvc_flutter` desplegados leen éstos y no pueden enterarse de nada.
+            // Los tres de siempre siguen ahí, con su nombre y su tipo: el front
+            // desplegado lee éstos y no puede enterarse de que hay un cuarto.
             $this->assertSame($e['alumno'], $r->json('alumno_id'));
             $this->assertSame($e['periodos'][2], $r->json('periodo_id'));
             $this->assertSame($aplica, $r->json('aplica'));

@@ -92,11 +92,18 @@ class BoletinIndependienteController extends Controller
      * ## `sembrado` se AÑADE y nada se quita: el cliente viejo no se entera
      *
      * Los tres campos de siempre —`alumno_id`, `periodo_id`, `aplica`— siguen ahí, con el
-     * mismo nombre, el mismo tipo y el mismo valor. `sembrado` es un cuarto, y los dos
-     * clientes desplegados que llaman a esta ruta (el front y `myvc_flutter`) leen los
-     * tres de antes. **Los ocho números vienen siempre, ceros incluidos**: un «0
-     * sembradas» tiene que poder distinguirse de «no revisó nada», y un bloque que
-     * omitiera los ceros los haría iguales.
+     * mismo nombre, el mismo tipo y el mismo valor. `sembrado` es un cuarto, y el cliente
+     * desplegado lee los tres de antes. **Los ocho números vienen siempre, ceros
+     * incluidos**: un «0 sembradas» tiene que poder distinguirse de «no revisó nada», y un
+     * bloque que omitiera los ceros los haría iguales.
+     *
+     * > **Y el cliente desplegado es UNO, no dos: el front.** Buscado el 13 sep 2026 en
+     * > `~/DESARROLLOS/myvc_flutter`: la app **no llama a ninguna ruta
+     * > `boletin-independiente/*`** —cero coincidencias en todo el repositorio fuera de
+     * > `docs/`, donde tiene un plan escrito y ningún código—. Se dice porque este módulo
+     * > sí comparte contrato con Flutter **por otro lado** (`sembrarLasNotasQueFaltan()`
+     * > existe justamente porque la app no llama a `/notas`), y de ahí a suponer que
+     * > también llama a ésta hay un paso que nadie había medido.
      *
      * ## `periodo_id` viene del CUERPO, y lo corrigió el front con razón
      *

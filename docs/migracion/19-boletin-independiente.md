@@ -879,9 +879,15 @@ cerró el mismo agujero por el otro lado. Lo fija `test_marcar_no_siembra_desemp
 #### El recuento se AÑADE, y los ceros son la mitad del contrato
 
 `sembrado` es un **cuarto campo**: los tres de siempre —`alumno_id`, `periodo_id`, `aplica`— siguen
-ahí con el mismo nombre, el mismo tipo y el mismo valor, así que **el front y `myvc_flutter`
-desplegados no se enteran**. Añadir es seguro; quitar o renombrar no lo sería, y esta ruta tiene dos
-clientes en producción.
+ahí con el mismo nombre, el mismo tipo y el mismo valor, así que **el front desplegado no se entera**.
+Añadir es seguro; quitar o renombrar no lo sería.
+
+> **Y el cliente es UNO, no dos.** Buscado el 13 sep 2026 en `~/DESARROLLOS/myvc_flutter`: la app
+> **no llama a ninguna ruta `boletin-independiente/*`** —cero coincidencias fuera de `docs/`, donde
+> tiene un plan escrito y ningún código, con su propia nota de *«no publicar antes del despliegue»*—.
+> Se mide y se dice porque este módulo **sí** comparte contrato con Flutter por otro lado —la §9.3
+> existe justamente porque la app no llama a `/notas` nunca— y de ahí a suponer que también llama a
+> ésta hay un paso que nadie había dado con una medida delante.
 
 **Los ocho números vienen siempre, también en cero, y también al desmarcar.** Un bloque que omitiera
 los campos que valen cero haría indistinguibles *«0 sembradas»* y *«no revisó nada»*, que es
