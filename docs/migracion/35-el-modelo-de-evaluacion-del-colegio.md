@@ -457,6 +457,19 @@ ningún fichero**: la rama ya estaba dentro por accidente, y lo que aporta es la
 —los cuatro commits de la rama, incluida la remedición con su orden, su hash y la comprobación
 del árbol limpio—, que sin él no estaría en `main` en ninguna parte.
 
+> **Lo que ese accidente NO rompe, comprobado antes de dejarlo estar: el despliegue no está
+> ciego.** La pregunta razonable es si una migración escondida en un commit de documentación se
+> le pasa a `docs/DESPLIEGUE.md`. **No**, y por cómo está escrito ese documento: la lista de
+> migraciones de una tanda **no se teclea, se le pregunta a git** —
+> `git diff --name-only <base>..main -- database/migrations/`—, y a ese comando **le da igual qué
+> commit trajo el fichero**. Comprobado hoy: sobre `9474b50..main` devuelve **nueve** ficheros y
+> `2026_09_05_100000_frase_del_boletin_en_text.php` está entre ellos.
+>
+> Lo que sí queda por hacer **el día del despliegue, no hoy**: esa migración todavía no tiene su
+> renglón en la tabla de «qué se cae si falta» de `DESPLIEGUE.md`. Las tablas de ese documento son
+> **lo que se midió el día de un despliegue y se remiden el día del siguiente**, así que se escribe
+> entonces y con el número contado, no ahora.
+
 > **La regla que sale de aquí, y vale para cualquier árbol donde trabaje más de una sesión:**
 > **se commitea con pathspec explícito** —`git commit -- <rutas>`—, o se mira `git status` antes.
 > `git add` de una carpeta **no acota el commit**. El síntoma no es un error: es un commit que
@@ -504,16 +517,48 @@ years + modelo_evaluacion  enum('ponderado','competencias') NOT NULL DEFAULT 'po
 `Autoriza::puedeEditarPlantillaNotas` dentro (§1.4). Los tres `displayname` entran en
 `putGuardarCambios`, sin ruta nueva.
 
-**Tres cosas que hay que tocar y que nadie pediría solas:**
+**CUATRO cosas que hay que tocar y que nadie pediría solas:**
 
 1. **`YearsController::postStore` copia las cuatro al crear el año siguiente.** Lo caza
    `CentinelaDeLasColumnasDelAnioNuevoTest`, que vigila que no se deje ninguna columna
-   de `years` — es la única de las tres que tiene ya quien la vigile.
+   de `years` — es la única de las cuatro que tiene ya quien la vigile.
 2. **`subunidad_displayname` deja de sugerir «Indicador»** en la pantalla de
    configuración (D15) **sin tocar el valor que cada colegio guardó**. Es un cambio del
    front; aquí sólo se anota para que nadie lo "arregle" en la base.
 3. **El enum no toca ni un cálculo.** Es la propiedad que no hay que perder: volver
    atrás es cambiar el enum.
+4. **⚠️ Y cerrar la puerta de al lado: `PUT years/toggle-cambiar-valor`.** Esta lista decía
+   «tres» y le faltaba ésta.
+
+> ### La puerta de al lado, que este apartado no vio y por poco deja a D24 en decorativa
+>
+> **Hallada el 13 sep 2026 por la sesión que escribió la Fase 1, y llegada por `8myvc-2e`.**
+>
+> `PUT years/toggle-cambiar-valor` (`routes/api/estructura.php`, `auth.personal`) es el «guardar
+> un campo suelto» de la rejilla de configuración y escribe **cualquier columna de `years` que
+> exista**, resolviéndola por `ColumnaSegura::exigir('years', $campo)`. Hasta hoy eso no era un
+> agujero, y su propio comentario lo justificaba: *«quien pasa `auth.personal` ya las escribe
+> todas por `years/guardar-cambios`»*.
+>
+> **`modelo_evaluacion` es la primera columna para la que esa frase es falsa**, y lo es **a
+> propósito**: D24 le dio ruta propia con `can_edit_plantilla_notas` dentro precisamente para
+> que no la cambie cualquier docente, así que **no** entra en las veintiuna de
+> `putGuardarCambios`. Sin cerrar esta puerta, la decisión se salta con un `PUT` de tres campos
+> **y no lo diría ningún test**: el de D24 comprobaría el 403 en la ruta nueva y pasaría en verde
+> mientras la columna se escribe por la vieja.
+>
+> Se cierra como ya estaba cerrada `actual` —un `abort(422)` con el nombre de la ruta que sí
+> vale—, y **son dos exclusiones por motivos distintos**, que conviene no confundir: `actual`
+> tiene un **invariante de fila** (uno solo encendido); `modelo_evaluacion` tiene **dueño**. La
+> lista crece por el segundo motivo cada vez que entre en `years` una columna que no pueda
+> escribir todo el personal.
+>
+> **Y la lección que vale más que el arreglo**, porque es de la familia de *«crear un rol no
+> regala permisos»*: **al darle dueño a una columna hay que repasar TODOS los caminos que
+> escriben esa tabla, no sólo el que se está tocando.** Este documento contó los dieciséis
+> `years/*` de escritura para decir que todos son `auth.personal` (§1.4) — y con esa misma lista
+> delante **no miró qué escribe cada uno**. Un guard nuevo sobre una ruta no cierra una columna:
+> la cierra el censo de quién más puede escribirla.
 
 **Tests de contrato:**
 
