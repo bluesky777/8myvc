@@ -216,8 +216,9 @@ ese endpoint multiplica también lo que no comprueba.
 > los colegios de Joseth ata el texto a un **rango de la definitiva**, no a una columna;
 > **(3)** la decisión 10 («nada de marcar de oficio») hay que releerla: todo el mercado asigna
 > por rango de nota con corrección del docente, y eso no es «todos alcanzan». Las tres
-> decisiones que abre están en su §5.4. Hasta que Joseth las tome, §5.2 y §5.3 son propuesta
-> **en revisión**.
+> decisiones que abre están en su §5.4. **Tomadas el 13 sep 2026**, junto con las seis abiertas de
+> §7: `myvc_front/DECISIONES-MODELO-DE-EVALUACION.md`, y el resumen está al principio de
+> «Abiertas». §5.2 y §5.3 dejan de estar en revisión y se leen **con esas decisiones encima**.
 
 Master2000 se define por **modelos de evaluación**, en plural: *«calificación
 numérica o descriptiva, **procesos**, **procesos con logros**, **logros con
@@ -1521,6 +1522,37 @@ se copian de año a año y **no lee nadie** (§3.2).
     así que es trabajo del día del despliegue y no de una noche de código.
 
 ### Abiertas
+
+> ## ✅ 13 sep 2026 — **las seis se cerraron**, y el modelo pasa a ser una ELECCIÓN del colegio
+>
+> Están en `myvc_front/DECISIONES-MODELO-DE-EVALUACION.md`, 22 decisiones tomadas por Joseth una a
+> una con sus alternativas delante. Lo que cambia para este documento:
+>
+> - **Lo de hoy no se sustituye: se queda como una opción.** `years.modelo_evaluacion
+>   enum('ponderado','competencias') DEFAULT 'ponderado'`. Gobierna **lo que se ve y lo que se
+>   escribe** —menú, si la columna sigue pidiendo el texto del logro, qué boletín se imprime por
+>   defecto— y **ningún cálculo**: volver atrás es cambiar el enum, sin recalcular una definitiva.
+> - **15** → `frases_asignatura.desempeno_id` anulable, y el texto se sigue copiando en `frase`. Era
+>   la única que bloqueaba la rejilla; la rejilla ya se puede escribir.
+> - **16** → las dos: tercer origen **y** sembrar al marcar (más los desempeños del grupo).
+> - **17** → sí, y la fase 0 se despliega sola.
+> - **18** → no: el promedio es sólo de subunidades.
+> - **19** → no por ahora; el desempeño sale en el boletín nuevo, no en los de siempre.
+> - **20** → contar sus filas en los quince antes de tocarlas.
+> - **9 (que estaba en revisión)** → se honra `grupos.caritas` imprimiendo el **desempeño en texto**;
+>   el icono, de adorno y nunca solo.
+> - **§5.2 y §5.3, que estaban «en revisión»** → el texto se llama **desempeño**, va por
+>   **asignatura + periodo** y se **siembra** desde `desempenos_por_defecto` (materia + grado +
+>   periodo), como `unidades_por_defecto` → `unidades`. `subunidades.indicador_id` se retira. La
+>   competencia es **padre opcional** y el programa la **sugiere** desde los Estándares Básicos y los
+>   DBA del MEN, empaquetados con el código, para que el colegio los adopte y edite.
+> - **Lo que queda por entrar sube de 18 rutas a 20**: el `GET` del catálogo del MEN y
+>   `PUT desempenos/sembrar` — la siembra es explícita y no se cuelga de un `GET`.
+>
+> Lo que sigue abierto de verdad: el nombre y la maqueta del boletín nuevo (ahora también espera la
+> medición de qué comparten los tres), los dos censos del día del despliegue, las materias que el MEN
+> no cubre, y la escala del alumno con PIAR dentro de un grupo numérico.
+
 
 15. **¿Cómo se ata una marca de indicador a `frases_asignatura`?** Es lo único que
     bloquea la rejilla de la Entrega 7(c), y sale de una contradicción del propio
