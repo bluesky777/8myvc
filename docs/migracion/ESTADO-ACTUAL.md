@@ -84,7 +84,8 @@
 >
 > **El plan del backend está en [35-el-modelo-de-evaluacion-del-colegio.md](35-el-modelo-de-evaluacion-del-colegio.md).**
 > Siete fases desplegables, **22 rutas** por entrar y **cinco migraciones** — una de ellas, el
-> `ALTER` a `text`, ya está escrita. **No hay una línea de código
+> `ALTER` a `text`, ya está escrita. **Las tres decisiones que el plan abría se cerraron el mismo
+> día**; no queda nada bloqueado. **No hay una línea de código
 > nuevo**: este commit es el plan y estas dos correcciones.
 >
 > ### Lo que hay que saber sin abrirlo
@@ -104,19 +105,21 @@
 >   decisiones no contaba, y la pregunta de quién puede llamarla: **los dieciséis `years/*` de
 >   escritura son `auth.personal`, o sea cualquier docente.**
 >
-> ### Lo que espera a Joseth, y sólo una bloquea
+> ### Las tres decisiones que abría — **CERRADAS el mismo 13 sep**, y ninguna fase queda bloqueada
 >
-> | | qué | bloquea |
-> |---|---|---|
-> | **D-A** | ¿quién cambia el modelo del año? Ruta propia con `can_edit_plantilla_notas` (propuesta) o dentro de `years/guardar-cambios`, donde lo toca cualquier docente | nada |
-> | **D-B** | los desempeños de «todos los grados» y los de 6.º, ¿acumulan o compiten? (propuesta: acumulan) | nada |
-> | **D-C** | **¿qué premarca la rejilla?** `escalas_de_valoracion` da un **nivel por alumno**; la rejilla necesita un **sí/no por texto**, y **no hay nada que lleve de lo uno a lo otro** | **la Fase 4 entera** |
+> | | qué decidió Joseth |
+> |---|---|
+> | **D24** | ¿quién cambia el modelo del año? **La propuesta entera**: `PUT years/modelo-evaluacion` con `can_edit_plantilla_notas` dentro |
+> | **D25** | los desempeños de «todos los grados» y los de 6.º **acumulan** — y es **deliberadamente lo contrario** que la plantilla, donde gana la más específica |
+> | **D23** | **la celda de la rejilla ES el nivel**: Superior/Alto/Básico/Bajo por cruce, premarcado por la nota |
 >
-> **D-C no es un detalle de implementación y por eso está aquí arriba.** La decisión 10 del doc 28
-> descartó marcar de oficio; la regla barata («se premarcan todos los del que aprobó») **es esa
-> forma otra vez**, con la única diferencia de que no escribe hasta que el docente guarda. La otra
-> salida —un nivel por desempeño— es lo que **D8 descartó** por multiplicar por cuatro la
-> escritura. Las dos están medidas en [35](35-el-modelo-de-evaluacion-del-colegio.md) §1.5.
+> **D23 es la que hay que leer, y no porque contradiga el hallazgo.** El desajuste era real —
+> `escalas_de_valoracion` da un nivel y la fila de `desempenos` no lleva ninguno — y sigue
+> siéndolo. Lo que estaba mal era **el marco**: el plan preguntó *«qué texto escoge el nivel»*
+> dando por supuesto que la celda era un **sí/no**, y con ese supuesto las dos únicas salidas eran
+> malas. La pregunta que sí tenía respuesta era *«¿por qué es binaria la celda?»*. **Cuesta tres
+> columnas anulables en `frases_asignatura`** —`desempeno_id`, `escala_id` y `nivel`— y desbloquea
+> la Fase 4 entera. Medido en [35](35-el-modelo-de-evaluacion-del-colegio.md) §1.5.
 >
 > ### Y una casilla vieja de este documento que ya no dice lo que hay
 >

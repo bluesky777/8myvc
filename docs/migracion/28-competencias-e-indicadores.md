@@ -28,7 +28,7 @@
 > [35](35-el-modelo-de-evaluacion-del-colegio.md) §1.9**: que el molde de `desempenos/sembrar`
 > tiene 21 tests y cero ejecuciones en un colegio, y —la que importa— que **esto NO explica un
 > censo de `por_defecto = 1` a cero**, porque esas filas las marca el sembrador viejo
-> (`UnidadesController:158`), que lleva años corriendo. Un cero ahí sigue siendo un dato sobre los
+> (`UnidadesController:184` y `:193`), que lleva años corriendo. Un cero ahí sigue siendo un dato sobre los
 > colegios.
 
 > **Lo que la Entrega 1 dejó fuera va dicho aquí arriba y no en una nota al pie**:
@@ -638,7 +638,13 @@ tablas, sobre **235 ficheros**, y sólo uno pone la marca a 1:
 
 | quién escribe | `por_defecto` | qué fila es |
 |---|---|---|
-| `UnidadesController:158` y `:167` — el sembrador | **`true`, literal** | la que copió la plantilla |
+| `UnidadesController:184` y `:193` — el sembrador | **`true`, literal** | la que copió la plantilla |
+
+> **Esos dos números eran `:158` y `:167` hasta el 13 sep 2026**, y los movió el alcance de la
+> Entrega 7(a) al meter `AlcanceDeLaPlantilla` en medio. Lo cazó `myvc-front-53` leyendo el
+> fichero en vez de la cita. **Una referencia a una línea envejece sin que nada se ponga rojo**:
+> `tools/secciones-citadas.py` vigila los §§ de `docs/`, y para los `fichero:línea` del propio
+> documento no hay nadie. Se recomprueba el día que se cita, que es lo que se hizo aquí.
 | `UnidadesController::postIndex` (Eloquent, no la toca) | 0 por defecto | la que montó el docente |
 | `BoletinIndependienteController:1440` y `:1456` | 0 por defecto | la copia de un independiente |
 

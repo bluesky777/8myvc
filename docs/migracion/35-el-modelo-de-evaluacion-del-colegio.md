@@ -8,6 +8,11 @@
 > decidir** para poder escribir la fase que lo necesita.
 >
 > **Nada de esto está construido.** No hay código nuevo en este commit.
+>
+> > **13 sep 2026, unas horas después: las tres decisiones que este plan abría YA ESTÁN
+> > CERRADAS** — D23, D24 y D25, §7.bis de `myvc_front/DECISIONES-MODELO-DE-EVALUACION.md`.
+> > **Ninguna fase queda bloqueada.** Dos salieron como se proponían aquí; la tercera **no salió
+> > por ninguna de las dos puertas que este documento planteaba** y es la que hay que leer: §1.5.
 
 > ## Lo que comprobé y lo que NO pude comprobar
 >
@@ -26,8 +31,9 @@
 
 ## 1. Siete correcciones al encargo, medidas
 
-Ninguna cambia una decisión de Joseth. Cinco cambian un número o un paso del plan, y
-dos —la 4 y la 5— **bloquean una fase** hasta que alguien decida.
+Ninguna cambia una decisión de Joseth. Cinco cambian un número o un paso del plan; la 4 y la
+5 abrieron una decisión cada una, **y Joseth las cerró el mismo 13 sep** (D23, D24 y D25,
+§7.bis del documento de decisiones). **Ya no queda nada bloqueado.**
 
 ### 1.1 · La base de rutas no es 577: `main` ya lleva dos más
 
@@ -102,7 +108,7 @@ cualquier docente.** Los dieciséis `years/*` de escritura son `auth.personal`, 
 excepción. Meter ahí `modelo_evaluacion` es dejar que **cualquier docente del colegio
 cambie el modelo de evaluación del año** desde un `PUT` de dos campos.
 
-**La propuesta, y es una decisión de Joseth** (§6, D-A):
+**La propuesta, ACEPTADA ENTERA por Joseth el 13 sep como D24**:
 
 - los **tres `displayname`** del desempeño van en `putGuardarCambios`, al lado de los
   seis que ya están, con su mismo guard: son rótulos, y el que puede renombrar
@@ -113,7 +119,7 @@ cambie el modelo de evaluación del año** desde un `PUT` de dos campos.
   colegio, el docente no lo toca. **Una ruta**, que el documento de decisiones no
   contaba.
 
-### 1.5 · La rejilla premarcada NO se puede escribir todavía: falta qué premarca
+### 1.5 · La rejilla premarcada no tenía qué premarcar — **desbloqueada el 13 sep (D23)**
 
 **Es el hallazgo que bloquea una fase entera, y sale de cruzar D5 con D6.**
 
@@ -137,30 +143,64 @@ propone D5 —`competencia_id NULL, tipo NULL, definicion, orden, por_defecto`�
 lleva nivel**. Así que no hay ninguna función que lleve de «este alumno sacó Alto» a
 «se le premarcan estos cuatro textos y estos seis no».
 
-Las salidas son dos, y **son dos decisiones distintas, no dos formas de la misma**:
+> ## ✅ CONTESTADA el 13 sep 2026 por Joseth — **D23, y no es ninguna de las dos salidas que
+> este apartado planteaba**. `myvc_front/DECISIONES-MODELO-DE-EVALUACION.md` §7.bis.
+>
+> **La celda ES el nivel.** Cada cruce alumno × desempeño guarda **Superior / Alto / Básico /
+> Bajo**, premarcado con el nivel que el alumno ya tiene por su nota. Con eso **el desajuste
+> desaparece por la raíz en vez de traducirse**: la máquina del rango produce un nivel y la celda
+> guarda un nivel, 1:1.
+>
+> El error de este apartado está en su propia tabla: dio por supuesto que la celda era un
+> **sí/no**, y de ahí salieron dos salidas que sólo se diferenciaban en cómo llegar de un nivel a
+> un booleano. **La pregunta correcta no era «qué texto escoge el nivel», era «por qué la celda
+> es binaria»** — y no lo era.
+>
+> Y no es un arreglo de conveniencia: es lo que **ya imprimen** los boletines de la investigación
+> §2.3 —Mutis, literal: *«los indicadores de desempeño y su correspondiente **nivel valorativo**
+> (Superior, Alto, Básico y Bajo)»*—. El «alcanzado / pendiente» de los otros colegios es el
+> **caso degenerado**: en la escala del 1290, **Bajo es pendiente**.
+
+**Las dos salidas que se plantearon, y se dejan escritas porque una sigue estando descartada:**
 
 | regla | qué cuesta | qué significa de verdad |
 |---|---|---|
-| **A · «alcanza quien aprobó»** — se premarcan **todos** los desempeños del alumno cuya nota cae en una escala con `perdido = 0` | cero esquema; una consulta a `notas_finales` por grupo y periodo | el docente abre la rejilla con **todo marcado para los que aprobaron** y su trabajo es **desmarcar** |
-| **B · el desempeño lleva su nivel** — una columna `escala_id` en `desempenos` y `desempenos_por_defecto`, y se premarca el texto cuyo nivel coincide | una columna más en las dos tablas, y el colegio escribe **un texto por nivel** | es lo que hacen SINAI y WebColegios — y es **justo lo que D8 descartó** («multiplica por cuatro el trabajo de escritura») |
+| **A · «alcanza quien aprobó»** — se premarcan **todos** los desempeños del alumno cuya nota cae en una escala con `perdido = 0` | cero esquema | el docente abre la rejilla con **todo marcado para los que aprobaron** y su trabajo es **desmarcar**: es *«todos alcanzan y el docente quita»*, o sea la decisión 10 |
+| **B · un texto por nivel** — el colegio escribe cuatro redacciones del mismo desempeño y se enseña la que toca | una columna, y **cuatro veces la escritura** | es lo que **D8 descartó**: *«un texto por nivel de la escala (lo más rico, y multiplica por cuatro el trabajo de escritura)»*, literal |
 
-**Hay que decir lo incómodo de A con todas las letras, porque es lo que hace que la
-decisión valga**: A es, en el resultado, *«todos alcanzan y el docente quita»* aplicado
-a los aprobados — que es lo que la decisión 10 del doc 28 descartó. Lo único que la
-separa es que **no escribe hasta que el docente guarda**, y eso es una defensa real
-pero más fina de lo que parece: un docente que pulse «guardar» sin mirar produce
-exactamente el boletín que la decisión 10 quería impedir.
+> **Una precisión, porque `myvc-front-53` la corrigió al revés y alguien va a reabrir B con
+> ella.** Su mensaje dice que *«D8 descartaba que cada desempeño llevara su dificultad y su
+> recomendación — una banda es otra cosa»*. Eso describe el **primero** de los dos descartados de
+> D8; el **segundo** es, palabra por palabra, *«un texto por nivel de la escala … multiplica por
+> cuatro el trabajo de escritura»*, que es exactamente la B de esta tabla y exactamente el motivo
+> que se le puso. Comprobado en su propio documento.
+>
+> **No cambia nada del resultado** —B sigue descartada, y por esa misma razón, que es la que
+> ellos vuelven a derivar—, y **no toca D23**: guardar el nivel **en la celda** no es escribir un
+> texto por nivel, así que D23 no roza D8 por ningún lado. Se anota sólo para que el día que
+> alguien diga *«D8 no descartaba esto»* no se reabra una decisión buena con una cita que no
+> dice lo que se le atribuye.
 
-**Recomiendo A**, por dos razones y no por la barata: (1) es la única que no reabre
-D8, y (2) la afirmación que hace es honesta si se escribe en la pantalla —*«marcados
-los que aprobaron; quite los que no»*— mientras que B promete una precisión que el
-colegio tendría que escribir cuatro veces para tener. Pero **es de Joseth**, porque
-cambia lo que un boletín afirma.
+#### Lo que D23 le cuesta a este backend, y no estaba en la decisión
 
-> Y hay una tercera cosa que **no** es una salida y conviene descartar por escrito:
-> premarcar con la nota de la **unidad** en vez de la definitiva. Cambia de qué nota
-> sale el nivel y no contesta la pregunta — sigue sin haber texto que ese nivel
-> escoja.
+Cuatro cosas que salen de cruzar D23 con el esquema, y ninguna es cara:
+
+1. **La celda guarda el id del nivel Y su texto**, igual que `frase_id` guarda el id y `frase` el
+   texto. `escalas_de_valoracion` es **por año y editable** (`EscalasDeValoracionController:109`,
+   y `YearsController:234` las copia al año siguiente), así que una celda que guarde sólo el id
+   deja que renombrar «Básico» en 2028 **cambie un boletín impreso en 2026**. Es la regla 1 de la
+   §4 y es el mismo argumento que ya hizo D9 con `frase`. **Dos columnas anulables, no una**:
+   `escala_id` para pintar la casilla y `nivel` para lo que se imprime.
+2. **El premarcado NO sale de `deAsignaturaCalculada`.** Ese método cruza la escala **por
+   unidad**; la rejilla es **por asignatura y periodo**. Lo que se reutiliza es **la forma** del
+   cruce (`porc_inicial <= nota <= porc_final`, `year_id`), no el método: la nota de la que sale
+   el nivel es la definitiva, y está en `notas_finales`. **Una consulta por grupo y periodo.**
+3. **Un alumno sin definitiva sale SIN nivel, no en «Bajo».** No tener nota y sacar 0 no son lo
+   mismo, y la diferencia acaba impresa en un boletín. La celda nace `NULL` y el docente la pone.
+4. **Las bandas pueden no cubrir la recta.** Nada obliga a que las `escalas_de_valoracion` de un
+   año sean contiguas: con 0-59 y 61-100, **un 60 no casa con ninguna**. Ese alumno sale `NULL`
+   también, y **la respuesta lo cuenta** —`sin_banda`— en vez de callárselo. Población, no `OK`:
+   un colegio con la escala mal montada tiene que poder verlo desde la respuesta.
 
 ### 1.6 · `desempenos_por_defecto` hereda el problema de precedencia que la plantilla ya resolvió
 
@@ -174,11 +214,17 @@ documento de decisiones no la contesta**. La diferencia con la plantilla es que 
 **es menos peligrosa**: los textos no suman 100, así que «se aplican las dos» es
 defendible y no produce ningún número raro. Pero se decide, no se deja al `ORDER BY`.
 
-**Propuesta** (§6, D-B): **acumulan, no compiten** — un desempeño de «Matemáticas,
+**ACEPTADA por Joseth el 13 sep como D25: acumulan, no compiten** — un desempeño de «Matemáticas,
 todos los grados» y otro de «Matemáticas, 6.º» se siembran **los dos**, ordenados por
 `orden`. Y **no se reutiliza `App\Support\AlcanceDeLaPlantilla`**: sus gradas existen
 para no mezclar repartos que suman 100, y aplicarlas aquí escondería textos que el
 colegio escribió.
+
+> **Y es deliberadamente lo contrario que la plantilla, donde gana la más específica.** La frase
+> es de `myvc-front-53` y hacía falta: quien lea las dos reglas seguidas sin ella va a dar por
+> hecho que una de las dos está mal. **Allí son porcentajes que compiten por el 100 %; aquí son
+> textos que conviven.** El día que alguien «unifique» las dos precedencias, esto es lo que hay
+> que releer.
 
 ### 1.7 · La rama del `ALTER` va 169 commits por detrás: 1.926 es cierto, y no es de este árbol
 
@@ -192,10 +238,23 @@ ficheros nuevos). Y `frases_asignatura.frase` **sigue siendo `varchar(255)`** en
 Lo que el mensaje del front no dice, y cambia el paso 1 del plan:
 
 ```
-base de la rama:  ab23e2d
-main hoy:         c0ed278   →  169 commits por delante
-migraciones que entraron en medio:  7
+merge-base:  ab23e2d
+main:        c0ed278  ->  169 commits por delante
+migraciones que entraron en main desde el merge-base:  7
 ```
+
+> **Y ese 169 ya envejeció mientras se escribía este documento**, que es la demostración más
+> barata de por qué la cifra se ancla al hash. `myvc-front-53` midió **171** una hora después y
+> tenía razón: `main` había avanzado **dos commits, los de este mismo fichero**. Las dos son
+> ciertas, y la que no caduca es el `merge-base`.
+>
+> **Y el segundo número tampoco discrepaba: contestaba otra pregunta.** Ellos midieron **ocho**
+> ficheros de migración y aquí hay **siete**. Ocho es `git diff main rama` — la **diferencia
+> simétrica**, que incluye la migración que trae la propia rama. Siete es `git diff base..main`:
+> las que entraron **en `main`** y hay que volver a atravesar. Las dos órdenes contestan bien; la
+> pregunta del plan es la segunda. Es la familia de *«el detector contesta lo que le preguntaron
+> y quien pregunta mal es uno»*, y aquí no se equivocó nadie — sólo hacía falta decir cuál era la
+> pregunta.
 
 El commit `50399f6` publica su cifra **bien**, con la orden y con el aviso de
 población: `Tests: 1926 passed (17317 assertions)`, 954 s, y de su puño *«1.926 no se
@@ -256,7 +315,7 @@ backend: falta el cliente.
 
 2. **Que no haya pantalla NO explica un censo de `por_defecto = 1` a cero**, y conviene fijarlo
    antes de que alguien archive ese número. Las filas que el censo cuenta **no las escribe la
-   pantalla nueva**: las marca el **sembrador viejo**, `UnidadesController:158` y `:167`, que lleva
+   pantalla nueva**: las marca el **sembrador viejo**, `UnidadesController:184` y `:193`, que lleva
    años copiando `unidades_por_defecto` → `unidades` con `por_defecto = true` literal. Lo que la
    pantalla nueva iba a facilitar es **llenar `unidades_por_defecto`**, que es lo que hoy se hace a
    mano. Así que un censo a cero dice **«ningún colegio tiene plantilla escrita a mano que alguien
@@ -482,19 +541,27 @@ presencia del campo**: los clientes mandan el objeto entero.
 
 ---
 
-### Fase 4 · La rejilla premarcada · **BLOQUEADA por la decisión D-C (§6)**
+### Fase 4 · La rejilla premarcada · **desbloqueada el 13 sep por D23**
 
 ```
 GET  desempenos/rejilla?asignatura_id=&periodo_id=
 PUT  desempenos/rejilla
      { asignatura_id, periodo_id,
-       marcas: [ {alumno_id, desempeno_id, si: true|false}, … ] }
+       celdas: [ {alumno_id, desempeno_id, escala_id | null}, … ] }
 ```
 
 ```
 2026_09_XX_400000_marca_del_desempeno
-frases_asignatura + desempeno_id int NULL
+
+frases_asignatura + desempeno_id int NULL       -- de qué casilla salió
+                  + escala_id    int NULL       -- qué nivel se le puso
+                  + nivel        varchar(255) NULL   -- y cómo se llamaba ese nivel ese día
 ```
+
+**La celda no es un sí/no: es el nivel** (D23). Y son **tres** columnas anulables y no una, por la
+razón de §1.5: el `id` pinta la casilla, el **texto** es lo que se imprime y lo que impide que
+renombrar una escala en 2028 cambie un boletín de 2026 — exactamente el papel que `frase` ya hace
+frente a `frase_id`.
 
 **Dos rutas y dos usos** —desempeños y preescolar (§5.7.c del doc 28)—, que es lo que
 hace que la decisión 10 y la Entrega 7 compartan pantalla en vez de duplicarla.
@@ -506,13 +573,19 @@ hace que la decisión 10 y la Entrega 7 compartan pantalla en vez de duplicarla.
   salió**.
 - **Una llamada, no ~300.** Es la medición que justifica la ruta:
   `FrasesAsignaturaController::postStore` guarda una frase por petición.
-- **Devuelve la población**: `{recibidas, marcadas, quitadas,
-  saltadas_por_periodo_cerrado, saltadas_por_no_ser_del_grupo}`.
+- **Devuelve la población**: `{recibidas, escritas, cambiadas, borradas,
+  saltadas_por_periodo_cerrado, saltadas_por_no_ser_del_grupo}`. Y el `GET` devuelve además
+  **`sin_banda`** — cuántos alumnos no casaron con ninguna escala (§1.5, punto 4).
 - **La comprobación que hoy falta entra aquí**: que el alumno esté en el grupo de la
   asignatura, que es justo lo que `postStore` no mira (§1.8). Código nuevo → **403 y
   422**, no 400.
 - **No escribe nada al abrir.** El `GET` premarca en memoria; la fila sólo existe
-  cuando el docente guarda.
+  cuando el docente guarda. **Es lo que mantiene en pie la decisión 10**: ningún boletín afirma
+  un nivel que nadie miró.
+- **El nivel premarcado sale de la definitiva, no de la unidad.** `notas_finales` cruzada con
+  `escalas_de_valoracion` por `porc_inicial`/`porc_final` y `year_id`: **una consulta por grupo y
+  periodo**. `Unidad::deAsignaturaCalculada` hace ese mismo cruce **por unidad** y por eso no
+  sirve aquí — se reutiliza la forma, no el método.
 
 **Tests de contrato:**
 
@@ -522,7 +595,13 @@ hace que la decisión 10 y la Entrega 7 compartan pantalla en vez de duplicarla.
 - Marcar en un **periodo cerrado** no escribe nada.
 - Marcar a un alumno **que no es del grupo** → 422, y no escribe.
 - Un desempeño marcado y luego **corregido en el catálogo** no cambia el texto ya
-  impreso — `frase` se copió.
+  impreso — `frase` se copió. **Y lo mismo renombrando la escala**: una celda puesta como
+  «Básico» sigue diciendo «Básico» después de que el colegio renombre esa fila de
+  `escalas_de_valoracion`. Es el test que justifica la tercera columna; sin él, alguien la quitará
+  por redundante.
+- **Un alumno sin definitiva abre la celda vacía, no en «Bajo»** — y un alumno cuya nota cae en un
+  hueco entre dos bandas, también, y **sale contado en `sin_banda`**. Los dos se ven rojos
+  montando una escala con un agujero, que es lo único que distingue el caso de una suposición.
 - El texto de un desempeño de **388 caracteres** viaja entero de ida y vuelta: es
   `FraseLargaEnElBoletinTest` aplicado a este camino, y **sin la Fase 0 se ve rojo**.
 
@@ -633,36 +712,37 @@ lo que hable del reparto del curso.
 
 ---
 
-## 6. Lo que necesito de Joseth, y qué se bloquea sin cada cosa
+## 6. Las tres decisiones — **cerradas el 13 sep 2026**
 
-Tres, y sólo la tercera para algo que no se puede escribir sin ella.
+Se hicieron y se contestaron el mismo día. Se dejan aquí con lo que se propuso al lado, porque
+**una decisión sin su alternativa no se puede revisar dentro de dos años**.
 
-**D-A · ¿Quién puede cambiar el modelo de evaluación del año?** (§1.4)
-Hoy los dieciséis `years/*` de escritura son `auth.personal`, o sea **cualquier
-docente**. Propongo ruta propia con `can_edit_plantilla_notas` dentro — una ruta más.
-La alternativa es meterlo en `years/guardar-cambios`: cero rutas, y cualquier docente
-puede cambiarle el modelo al colegio.
-*Bloquea:* nada — se puede escribir la Fase 1 con la propuesta y cambiar el guard
-después, pero cambiarlo después es un 403 nuevo sobre un endpoint vivo.
+| | qué se preguntó | qué decidió Joseth |
+|---|---|---|
+| **D24** | ¿quién puede cambiar el modelo de evaluación del año? | **la propuesta, entera**: `PUT years/modelo-evaluacion` con `auth.personal` en la ruta y `can_edit_plantilla_notas` dentro. El argumento fueron las **21 columnas nombradas** de `putGuardarCambios` y el `auth.personal` de los dieciséis `years/*` de escritura (§1.4) |
+| **D25** | los desempeños de «todos los grados» y los de 6.º, ¿acumulan o compiten? | **acumulan** — y va escrito que es **deliberadamente lo contrario** que la plantilla, donde gana la más específica (§1.6) |
+| **D23** | **¿qué premarca la rejilla?** | **ninguna de las dos salidas que se plantearon: la celda ES el nivel.** Superior/Alto/Básico/Bajo por cruce, premarcado por la nota. El desajuste se cierra por la raíz en vez de traducirse (§1.5) |
 
-**D-B · ¿Los desempeños de «todos los grados» y los de 6.º acumulan o compiten?** (§1.6)
-Propongo **acumulan**: los textos no suman 100, así que no producen ningún número raro,
-y las gradas de la plantilla existen para otra cosa.
-*Bloquea:* nada — pero si se decide después de sembrar en un colegio, cambiarlo mueve
-los textos ya sembrados.
+**D23 es la que conviene leer entera**, y no porque contradiga nada: porque **la pregunta estaba
+mal hecha aquí**. Este documento preguntó *«qué texto escoge el nivel»* dando por supuesto que la
+celda era un sí/no, y con ese supuesto sólo había dos salidas y las dos eran malas. La pregunta
+que sí tenía respuesta era *«¿por qué es binaria la celda?»*. **El hallazgo —que las dos piezas no
+encajaban— era correcto y sigue siéndolo; lo que estaba mal era el marco en que se buscó la
+salida.**
 
-**D-C · ¿Qué premarca la rejilla?** (§1.5) — **ésta sí bloquea.**
-La máquina del rango da un **nivel por alumno**; la rejilla necesita un **sí/no por
-texto**, y no hay nada que lleve de lo uno a lo otro. Regla **A** («se premarcan todos
-los del que aprobó», cero esquema, y hay que decir que el trabajo del docente es
-**desmarcar**) o regla **B** (una columna de nivel en los desempeños, que es lo que D8
-descartó). Recomiendo **A**.
-*Bloquea:* **la Fase 4 entera.** Las fases 0 a 3 se pueden escribir y desplegar sin
-esta decisión, y por eso la rejilla va la cuarta y no antes.
+### Lo que sigue abierto de verdad, y no lo desbloquea ninguna decisión
 
-Y dos que **no** bloquean código, porque son del día del despliegue (§7): el nombre y
-la maqueta del boletín nuevo, y la escala del alumno con PIAR dentro de un grupo
-numérico.
+- **El nombre y la maqueta del boletín nuevo** — espera además la medición de la Fase 5.
+- **Los dos censos del día del despliegue** (§7). No se pueden correr desde una sesión de
+  desarrollo.
+- **Las materias que el MEN no cubre**: Religión, Artes, Ed. Física y Tecnología **nacen vacías**,
+  y eso se dice en la pantalla.
+- **La escala del alumno con PIAR dentro de un grupo numérico**: se resuelve con texto (D17), pero
+  **qué** texto —la escala del grupo o una propia— no está decidido. Con D23 encima, la pregunta
+  se afila: la celda guarda un nivel de `escalas_de_valoracion`, que es **por año** y no por
+  grupo, así que un alumno con escala propia **no tiene hoy dónde guardarla**. No bloquea las
+  siete fases —la columna es anulable y el docente escribe el texto que quiera— pero es lo
+  primero que va a preguntar el colegio que tenga uno.
 
 ---
 
@@ -693,6 +773,8 @@ delante**: «X de 17, N de M».
   entregas y su precio. Lo que aquí se traza es **el orden**, no otra propuesta.
 - [30-lo-que-reparte-una-columna-nueva.md](30-lo-que-reparte-una-columna-nueva.md) —
   por qué §1.3 cuenta treinta instantáneas y no cero.
+- `myvc_front/DECISIONES-MODELO-DE-EVALUACION.md` **§7.bis** — D23, D24 y D25, las tres que
+  este documento abrió y que se cerraron el mismo día (commit `8bedcaf6` del front).
 - Medido el **13 sep 2026** sobre `main` en **`c0ed278`**, árbol principal, **sin
   contenedor levantado**: `frases_asignatura.frase` todavía `varchar(255)`
   (`mysql-schema.sql:1078`); `fix/frases-asignatura-text` en `50399f6`, base `ab23e2d`,
