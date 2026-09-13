@@ -327,9 +327,9 @@ de más es legítimo. **Lo es.**
 > | `getIndex` | `SELECT y.*` crudo | `GET years` | **sí** |
 > | `getColegio` | `SELECT *` crudo | `GET years/colegio` | **sí** |
 > | `getTrashed` | `Year::onlyTrashed()->get()` | `GET years/trashed` | **sí** |
-> | `postStore` | `return $year` | `POST years/store` | no |
-> | `putGuardarCambios` | `return $year` | `PUT years/guardar-cambios` | no |
-> | `deleteDelete` | `return $year` | `DELETE years/delete/{id}` | no |
+> | `postStore` | `return $year` | `POST years/store` | **sí** `years-store` |
+> | `putGuardarCambios` | `return $year` | `PUT years/guardar-cambios` | **sí** `years-guardar-cambios` |
+> | `deleteDelete` | `return $year` | `DELETE years/delete/{id}` | **sí** `years-delete` |
 > | `deleteDestroy` | `return $year` | `DELETE years/destroy/{id}` | no |
 > | `putRestore` | `return $year` | `PUT years/restore/{id}` | no |
 > | **`Perfiles\ImagesController:318`** | `return $year` | **`PUT myimages/cambiarlogocolegio`** | **no** |
@@ -427,7 +427,26 @@ de más es legítimo. **Lo es.**
 > > La prueba que lo fija, y va en la Fase 3: **borrar un desempeño del colegio y volver a crearlo
 > > no puede devolver una fila libre.**
 
-> **La brecha son SEIS rutas que publican la fila entera y a las que nadie les mira el cuerpo**:
+> ## ✅ 13 sep 2026 — **cubiertas las tres de 74**, decisión de Joseth
+>
+> `tests/Contrato/EscriturasDeYearsPublicanLaFilaTest` (`b428153`) le pone instantánea a
+> `POST years/store`, `PUT years/guardar-cambios` y `DELETE years/delete/{id}` — **las tres de
+> `auth.personal`, o sea las de más público**. Guardan la **forma**, no el cuerpo, y cada caso
+> lleva además su propia aserción: que la respuesta traiga
+> `si_recupera_materia_recup_indicador`, que no nombra ninguna proyección del proyecto, **así que
+> su presencia demuestra el `SELECT *` en vez de sugerirlo**.
+>
+> **Comprobado con un instrumento que no es el test**: `tools/lo-que-reparte-una-columna.py years`
+> pasa de decir **3** a decir **6**. Y `years-store` trae **75** claves y no 74 — `postStore`
+> cuelga además `$year->periodos`.
+>
+> **Siguen sin cubrir TRES**, y es la decisión que se tomó: `destroy`, `restore` y
+> `myimages/cambiarlogocolegio` llevan `esSuperusuario` o `esAdministrativo` **dentro** (11
+> personas), así que se dejaron fichadas. **Esto no decide si esas columnas deben viajar** —eso es
+> del colegio y sigue abierto—: hace que el día que se decida **se vea**, en vez de enterarse en el
+> cliente.
+
+> **Quedan TRES rutas que publican la fila entera y a las que nadie les mira el cuerpo**:
 > sus tests comprueban el `assertStatus`, no la forma. **Sin instantánea no hay rojo**, así que
 > las tres verificaciones que hay en marcha —la mía por lectura y las dos suites— **miden todas lo
 > mismo y ninguna las vería**.
