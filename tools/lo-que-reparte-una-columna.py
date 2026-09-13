@@ -72,6 +72,24 @@ O sea: un `3` aquí dice *«tres ficheros que regenerar»*. **No** dice *«tres
 respuestas afectadas»*. Para eso hay que leer los `return` del controlador, que
 es trabajo de ojo y no de script.
 
+**Y ese aviso está medido, no supuesto.** El mismo día apareció un **noveno**
+camino que publica la fila entera de `years` —`PUT myimages/cambiarlogocolegio`,
+`Perfiles/ImagesController::putCambiarlogocolegio`, que hace `Year::findOrFail`,
+`save()` y `return $year`—, y **no tiene instantánea**: las `myimages-*` que
+existen son de `index` y `store`. Una respuesta sin instantánea no produce ni
+fichero movido ni test rojo, así que es invisible **a la vez** para los tres
+métodos con los que se midió esto —este script, un barrido estático
+independiente y una suite entera corriendo— y por **la misma** razón, no por tres
+razones distintas.
+
+Lo que lo escondía merece quedarse escrito, porque es un error de acotación y no
+de detector: los tres censos miraron `YearsController` **porque la tabla se llama
+`years`**. El noveno vive en `Perfiles/`. Apareció barriendo los `return` que
+mencionan `$year` en **todo `app/`**, que es el corte bueno para la pregunta del
+contrato: no *«¿qué instantánea lleva la fila?»* sino ***«¿qué `return` devuelve
+un modelo o una fila cruda de esta tabla?»***. Son dos censos distintos y el
+segundo es el que decide el contrato. Hallazgo de `8myvc-c1`.
+
 Y una segunda ausencia: sólo ve lo que alguien decidió fotografiar. Una tabla sin
 una sola instantánea sale `0` y ese cero significa *«nadie mira esto»*, que es lo
 contrario de *«esto no se publica»*.
