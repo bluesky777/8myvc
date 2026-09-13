@@ -180,6 +180,41 @@ de más es legítimo. **Lo es.**
 > de la Fase 1**. *Un recuento afirma el corte; un reparto lo enseña* —la frase es de `2e`— y
 > esto es el caso extremo: **el reparto de la cola enseña que la pregunta estaba mal puesta.**
 >
+> ### ✅ La pata empírica: la corrida dirigida de `8myvc-c1`, y el diff que la cierra
+>
+> ```
+> Tests: 4 failed, 62 passed (433 assertions)
+> orden: php artisan test --filter='MuestreoDeLecturasTest|CentinelaDeLasColumnasDelAnioNuevoTest'
+> árbol: /app/.worktrees/c1 @ ee6453c + la sonda sin commitear   ·   13 sep 2026, 12:58
+> ```
+>
+> **Los tres rojos de instantánea son la terna**, y el cuarto es el centinela —que no es una
+> instantánea y por eso va aparte—. Lo que lo cierra no son los rojos sino **el diff de la
+> regeneración**:
+>
+> ```
+> añadidas: 4    quitadas: 0
+>   3 x  + 'sonda_c1' => 'int'     <- las tres instantáneas
+>   1 x  + 0 => 'sonda_c1'         <- el centinela, nombrando la columna
+> ```
+>
+> **Ni una línea que no sea la sonda.** Es la prueba que pide este repositorio: *el diff de la
+> regeneración son exactamente las claves esperadas y ninguna más* — un rojo dice que algo cambió,
+> el diff dice **qué**.
+>
+> > **Y su límite, dicho por quien la corrió: confirma, no descubre.** Su suite entera se quedó
+> > huérfana a mitad y la corrida que queda es **dirigida**, con `--filter` a dos clases. Un
+> > cuarto fichero que viviera fuera de ellas **no habría salido**. Por eso la pata empírica que
+> > vale es la de abajo —la Fase 1 real, con una columna de verdad y sin filtro— y ésta es **el
+> > control que la acompaña**.
+> >
+> > **Un delator nuevo, y va escrito porque el de siempre aquí no servía.** Aquella suite murió
+> > como ya está fichado —el `docker exec` se va y el `phpunit` de dentro sigue— pero **la tarea
+> > avisó de «completed, exit code 0»**, así que ni la duración ni el código de salida decían
+> > nada. **Lo delató que el fichero no tenía la línea `Tests:`**: se quedó congelado en 1.031
+> > tests de 142 ficheros y sin resumen. *Un resumen que falta es más fiable que un exit code que
+> > está.*
+
 > ### ✅ Y la Fase 1 real la confirmó al escribirse — 12 instantáneas, de las que **tres son la terna**
 >
 > `myvc-front-50` commiteó la Fase 1 (`4e0033c`) y movió **doce** instantáneas. Contadas aquí con
