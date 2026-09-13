@@ -251,6 +251,18 @@ de más es legítimo. **Lo es.**
 > redescubrió en un día, con tres cifras falsas por el camino y dos suites ajenas corriendo. Un
 > `grep getTrashed docs/migracion/` la daba en segundos.
 >
+> **Y aun así no es sólo un escarmiento, y la corrección es de `8myvc-2e`:** son **tres columnas
+> distintas** —`regla_nivelacion`, `horario_version_id` y ésta— que han llegado a **la misma
+> terna por tres caminos independientes y con meses de diferencia**. Eso no es una respuesta
+> copiada tres veces: es **la misma medición repetida tres veces con resultado idéntico**, que es
+> lo más cerca de una confirmación externa que va a tener esta sección.
+>
+> **Con un matiz que impide sacar de aquí la moraleja fácil**: ese `grep` habría dado también el
+> *«tres respuestas vivas»* de los dos documentos —la cuenta de exposición, equivocada— y se
+> habría heredado sin tocarla. O sea que *leer el repo primero* **habría dado el número bueno y el
+> malo a la vez**, sin nada que distinguiera uno de otro. Leer primero ahorra el trabajo; no exime
+> de preguntar **qué población contó** cada cifra que se hereda.
+>
 > **Lo que sí es nuevo, y conviene separarlo para no tirar el trabajo con el escarmiento**: los
 > dos documentos anteriores dicen **«tres respuestas vivas»**, que es la cuenta de **cobertura**
 > puesta donde va la de **exposición** — y son **ocho**. O sea que el repositorio tenía bien el
