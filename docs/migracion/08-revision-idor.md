@@ -238,6 +238,48 @@ más de trescientas, y a ese tamaño una lista a mano deja de leerse.
    la petición, no por lo que hace el método.** Antes de aplazar otra por «es una
    lectura de estructura», hay que mirar si lo es.
 
+5. **El tercer punto ciego: el guard está bien, la ruta está bien, y quien devuelve
+   de más es un AYUDANTE** — encontrado el 13 sep 2026 construyendo la Fase 6 del
+   [35](35-el-modelo-de-evaluacion-del-colegio.md).
+
+   `Grupo::alumnos($grupo_id, $requested_alumnos)` **no filtra por lo que se le pide**.
+   El parámetro se llama `$con_retirados`, y con la lista del front puesta entra por su
+   otra rama y devuelve **todos los matriculados vigentes del grupo MÁS** los retirados
+   que se pidan por `matricula_id`. Es un superconjunto, y **el filtro lo tiene que hacer
+   quien llama**.
+
+   Por qué es de este documento y no del 35: las rutas de boletín llevan `boletin.propio`,
+   que está bien puesto y **funciona** —deja pasar a un alumno cuando pide el suyo—. Un
+   llamante que se salte el filtro de después contesta **200 con el boletín del grupo
+   entero** a esa misma petición legítima: los treinta compañeros dentro de la cuenta de un
+   acudiente. **Ni el guard ni el inventario pueden verlo**: la ruta tiene su guard, el
+   identificador que recibe es el suyo, y el que sobra no viaja en la petición sino en la
+   respuesta.
+
+   Es el punto 4 un paso más allá. Allí la herramienta medía bien la cerradura y no miraba
+   **quién reparte las llaves**; aquí la cerradura y las llaves están bien y quien reparte
+   de más es **el método que arma la respuesta**.
+
+   **Censado el 13 sep 2026 con `grep -rn 'Grupo::alumnos(' app/`, no deducido: nueve
+   llamantes pasan el segundo argumento y LOS NUEVE FILTRAN.** No hay nada abierto hoy, y
+   eso se dice igual de claro que el riesgo. Ocho lo hacen con **la misma copia del mismo
+   `foreach` de cuatro líneas** —`BolfinalesController`, los tres de `Informes/Boletines*`,
+   `Informes/BolfinalesController`, `BolfinalesPreescolarController`,
+   `CertificadosPersonaController` y `NotasActualesAlumnosController`— y el noveno
+   —`BoletinPorCompetenciasController`— con un método propio. **Nueve copias de cuatro
+   líneas es la forma exacta que tiene «se arregló aquí y no llegó allí»**, y la primera
+   versión del noveno **no lo tenía y pasaba sus tests**.
+
+   El aviso vive donde lo va a leer quien llame: en el docblock de `Grupo::alumnos`
+   (`app/Models/Grupo.php`), con el censo dentro y con la orden que lo recuenta. **No se
+   arregla filtrando dentro del método**: la lista entera la necesitan los llamantes para
+   el **puesto**, que es una posición relativa al grupo. Separarlo son **dos métodos**, y
+   es entrega propia.
+
+   **Y lo que esto le pide a la herramienta** es lo mismo que el punto 4 y todavía no
+   existe: preguntarle a cada respuesta **cuántas personas distintas lleva dentro** frente
+   a cuántas se pidieron. Es una pregunta sobre el cuerpo, no sobre la firma.
+
 Volver a medir es una orden:
 
     docker exec 8myvc-app-1 php artisan route:list --json > /tmp/rutas.json

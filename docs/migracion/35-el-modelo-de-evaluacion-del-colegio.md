@@ -1817,26 +1817,89 @@ señaló que faltaba.
 #### Lo que se encontró y este plan no decía
 
 1. **Las cuatro rutas eran dos** (arriba).
-2. **El texto de la COMPETENCIA no está congelado en ninguna parte.** El argumento entero
-   de la tercera columna de la Fase 4 —el id pinta, el texto se imprime— vale un piso más
-   arriba y ahí **no hay dónde copiarlo**: la cabecera sale de `competencias.definicion`,
-   o sea el texto de hoy. **Renombrar una competencia en 2028 cambia la cabecera de un
-   boletín de 2026.** Taparlo es una cuarta columna en `frases_asignatura` y una entrega
-   propia; queda dicho aquí en vez de descubrirse dentro de dos años.
+2. **El texto de la COMPETENCIA no está congelado en ninguna parte — y es de los que no
+   duelen hasta que ya no tienen arreglo.**
+
+   La Fase 4 añadió **tres** columnas a `frases_asignatura` y la tercera, `nivel`, existe
+   por un argumento que está escrito entero en su migración: *«el `id` pinta la casilla y
+   el **texto** es lo que se imprime»*, porque `escalas_de_valoracion` es **por año y
+   editable** y sin la copia, renombrar «Básico» en 2028 cambiaría un boletín impreso en
+   2026. Es el mismo papel que `frase` hace frente a `frase_id`.
+
+   **Ese argumento vale un piso más arriba y ahí no hay dónde copiar nada.** La cabecera de
+   cada bloque sale de `competencias.definicion` leída **hoy**, porque `frases_asignatura`
+   guarda de qué desempeño salió la celda (`desempeno_id`) pero **no de qué competencia**,
+   y la competencia se alcanza saltando por `desempenos.competencia_id`, que también es
+   editable y borrable. O sea:
+
+   - **renombrar una competencia en 2028 cambia la cabecera de un boletín de 2026**;
+   - y **borrarla** deja el desempeño entre los sueltos —lo comprueba
+     `test_si_borran_la_competencia_su_desempeno_cae_entre_los_sueltos`—, que es lo menos
+     malo de las dos salidas posibles, pero **también cambia el papel de un año cerrado**.
+
+   **Por qué no se tapó aquí.** Es una **cuarta columna** en `frases_asignatura`
+   —`competencia` en texto, anulable, copiada al guardar la celda— y eso es una migración,
+   una escritura más en `PUT desempenos/rejilla` (que es de la Fase 4, no de ésta) y su
+   caso de contrato. **Entrega propia**, y no entra de rebote en un boletín que sólo lee.
+
+   **Por qué no se puede dejar para «cuando duela».** Lo que se pierde no se recupera: el
+   día que un colegio renombre una competencia, los boletines ya impresos de los años
+   anteriores **pasan a decir otra cosa y no hay de dónde sacar la que decían**. La columna
+   sólo sirve si está **antes** del primer renombrado. Está apuntada también en
+   *«Lo que sigue abierto de verdad»*, al final de este documento.
 3. **`FraseAsignatura::deAlumno` ya prefiere el texto de hoy** cuando la frase vino del
    catálogo: hace `IFNULL(f.frase, fa.frase)`, o sea que para las frases con `frase_id` el
    congelado **no gana**. Las celdas de la rejilla no tienen `frase_id`, así que la Fase 4
    está a salvo; las frases de catálogo llevan años así y **no es de este plan**. Este
    boletín reproduce ese `IFNULL` a propósito: cambiarlo aquí haría que la misma frase se
    imprimiera distinta en dos boletines del mismo alumno.
-4. **`Grupo::alumnos($grupo, $requested_alumnos)` devuelve un SUPERCONJUNTO.** Con el
-   segundo argumento no vacío entra por su otra rama, que trae **todos los matriculados
-   vigentes más** los retirados que se pidan por `matricula_id`. El filtro lo hace quien
-   llama, y los tres boletines de siempre lo hacen en un segundo `foreach` que se lee
-   como una copia inútil. **No lo es**: sin él, la ruta de un alumno contesta 200 con el
-   grupo entero — y como lleva `boletin.propio`, eso es el boletín de los treinta
-   compañeros dentro de la cuenta de un acudiente. La primera versión de este controlador
-   no lo tenía; hoy lleva caso propio.
+4. **`Grupo::alumnos($grupo, $requested_alumnos)` devuelve un SUPERCONJUNTO, y eso es un
+   riesgo de seguridad latente en nueve sitios.** Es el hallazgo más grave de esta fase y
+   **no es de esta fase**: estaba ahí antes y sigue estando.
+
+   El parámetro se llama `$con_retirados`, pero lo que el front le pasa es
+   `requested_alumnos` —a quién se quiere imprimir—, y el método **no filtra**: entra por
+   su otra rama y devuelve **todos los matriculados vigentes del grupo MÁS** los retirados
+   que se pidan por `matricula_id`. **El filtro lo tiene que hacer quien llama.**
+
+   **El modo de fallo es que no se rompe nada: sale de más.** Las rutas de boletín llevan
+   `boletin.propio`, que deja pasar a un alumno **cuando pide el suyo**; sin el filtro de
+   después, esa misma petición contesta **200 con el boletín del grupo entero** — los
+   treinta compañeros dentro de la cuenta de un acudiente, sin un error, sin una línea en
+   el log y sin que ninguna pantalla se vea rara. La primera versión de
+   `BoletinPorCompetenciasController` no lo tenía, y **pasaba sus tests**: lo único que lo
+   sacó fue leer `Grupo::alumnos` entero para entender por qué los tres de siempre llevan
+   un segundo `foreach` que parece una copia inútil.
+
+   **Censo del 13 sep 2026, con `grep -rn 'Grupo::alumnos(' app/` y no deducido: nueve
+   llamantes pasan el segundo argumento y LOS NUEVE FILTRAN.** No hay ninguno expuesto
+   hoy, y eso hay que decirlo igual de claro que el riesgo:
+
+   | llama | filtra en |
+   |---|---|
+   | `BolfinalesController:66` | `:169` |
+   | `Informes/BoletinesController:211` | `:268` |
+   | `Informes/Boletines2Controller:137` | `:193` |
+   | `Informes/Boletines3Controller:140` | `:202` |
+   | `Informes/BolfinalesController:286` | `:472` |
+   | `Informes/BolfinalesPreescolarController:92` | `:187` |
+   | `Informes/CertificadosPersonaController:106` | `:254` |
+   | `Informes/NotasActualesAlumnosController:90` | `:127` |
+   | `Informes/BoletinPorCompetenciasController:181` | `soloLosPedidos()` |
+
+   Ocho de los nueve lo hacen con **la misma copia del mismo `foreach` de cuatro líneas**,
+   y ésa es exactamente la forma que tiene en este repo «se arregló aquí y no llegó allí».
+   Hoy no falta en ninguno; **el día que falte en uno, ese uno responde 200**.
+
+   **El aviso se escribió donde lo va a leer el siguiente**: en el docblock de
+   `Grupo::alumnos` (`app/Models/Grupo.php`), con el censo dentro y con la orden que lo
+   recuenta. Un `.md` no lo lee quien va a llamar al método.
+
+   **Y no se «arregla» filtrando dentro del método**: la lista completa la necesitan los
+   llamantes para el **puesto**, que es una posición relativa al grupo —filtrar dentro le
+   daría el primer puesto a cualquiera que pida su propio boletín—. Si algún día se separa,
+   son **dos métodos** —el conjunto contra el que se compara y la lista que se imprime—, no
+   un `if` más. Eso es entrega propia y no se hizo aquí.
 5. **`EscalaDeValoracion::valoracion` redondea y nunca devuelve nada**
    (`return (object)['desempenio' => '']`), y el `left join` de
    `Grupo::detailed_materias_notafinal` **ni redondea ni rellena**. Los tres boletines de

@@ -102,8 +102,40 @@ class Grupo extends Model {
 	 * muerta se note nunca.** El que hace falta separa dos casos que sí se distinguen:
 	 * el que tiene estructura propia guardada y el que nunca ha tenido nada.
 	 *
+	 * ## `$con_retirados` DEVUELVE UN SUPERCONJUNTO, y el nombre no lo dice
+	 *
+	 * **Léase esto antes de llamar con el segundo argumento puesto.** El parámetro se
+	 * llama `$con_retirados`, pero lo que el frontend le pasa es `requested_alumnos` —la
+	 * lista de a quién se quiere imprimir—, y lo que este método hace con ella **no es
+	 * filtrar**: entra por la otra rama y devuelve **todos los matriculados vigentes del
+	 * grupo MÁS** los retirados que se pidan por `matricula_id`. Es un superconjunto de lo
+	 * que se pidió, y la lista se usa entera para lo que es relativo al grupo —el puesto—.
+	 *
+	 * **El filtro lo tiene que hacer quien llama, y si no lo hace no se rompe nada: sale
+	 * de más.** Ése es el modo de fallo, y en esta familia es de seguridad: las rutas de
+	 * boletín llevan `boletin.propio`, que deja pasar a un alumno **cuando pide el suyo**;
+	 * sin el filtro de después, esa misma petición contesta **200 con el boletín del grupo
+	 * entero** — o sea los treinta compañeros dentro de la cuenta de un acudiente. No es
+	 * teórico: la primera versión de `BoletinPorCompetenciasController` no lo tenía.
+	 *
+	 * Censados el 13 sep 2026 —**no deducidos**— con
+	 * `grep -rn 'Grupo::alumnos(' app/`: **nueve** llamantes pasan el segundo argumento y
+	 * **los nueve filtran** después. Ocho lo hacen con la misma copia del mismo `foreach`
+	 * —`if ($req_alumno['alumno_id'] == $alumno->alumno_id)`, en `BolfinalesController`,
+	 * los tres de `Informes/Boletines*`, `Informes/BolfinalesController`,
+	 * `BolfinalesPreescolarController`, `CertificadosPersonaController` y
+	 * `NotasActualesAlumnosController`— y el noveno con `soloLosPedidos()`. **Que sean
+	 * nueve copias de cuatro líneas es exactamente la forma que tiene «se arregló aquí y
+	 * no llegó allí»**: hoy no falta en ninguno, y el día que falte en uno, ese uno
+	 * responderá 200.
+	 *
+	 * Lo que NO se hace aquí es «arreglarlo» filtrando dentro: la lista completa la
+	 * necesitan los llamantes para el puesto, que es una posición relativa al grupo. Si
+	 * algún día se separa, son **dos métodos** —el conjunto contra el que se compara y la
+	 * lista que se imprime—, no un `if` más dentro de éste.
+	 *
 	 * @param  int|string  $grupo_id
-	 * @param  mixed  $con_retirados
+	 * @param  mixed  $con_retirados  `''` = los matriculados. Con `requested_alumnos`, un SUPERCONJUNTO: hay que filtrar después
 	 */
 	public static function alumnos($grupo_id, $con_retirados='', ?int $periodo_id = null)
 	{
