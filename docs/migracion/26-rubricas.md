@@ -25,6 +25,15 @@ decisión 4). Tres propiedades que gobiernan todo lo que sigue:
    recálculo de definitivas, y Flutter no se entera de nada (tareas §6.1).
 3. **Cinco tablas nuevas y una columna NULL.** Ni un `UPDATE` sobre datos existentes.
    Volver atrás es borrar cinco tablas y una columna (tareas §6.8).
+4. **Y el año nuevo NO las hereda** — decidido por Joseth el **13 sep 2026 (D27)**, que
+   es la propiedad que este documento no tenía y hacía falta para saber qué pasa en
+   enero. Una rúbrica es trabajo que un docente montó para evaluar **una asignatura
+   concreta de ESE año**: se queda en su año, como el libro rojo o las votaciones, y el
+   que quiera reusar una la vuelve a montar. No es lo mismo que `competencias`, que **sí**
+   se copia porque es el plan de área del colegio; el par y su porqué están en
+   [35](35-el-modelo-de-evaluacion-del-colegio.md) §2.bis y en el docblock de
+   `DATOS_DEL_ANIO` de `CentinelaDeLasTablasDelAnioNuevoTest`. Lo vigila ese centinela, no
+   un comentario.
 
 ## §2 — Las tablas
 
