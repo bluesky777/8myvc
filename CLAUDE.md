@@ -12,8 +12,15 @@ directorio tiene 119 ficheros y 118 son controladores. **De los tres que entraro
 `SincronizacionController`, del 7 sep, que nadie recontó — que es exactamente por lo que
 este número se cuenta y no se supone), porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
-**599 rutas** (contadas con
-`route:list --json` el **13 sep 2026 en el árbol principal**, ya con las fases 2 y 3 dentro; el 24 ago el de rutas se movió por primera vez,
+**603 rutas** (contadas con
+`route:list --json` el **13 sep 2026 por la noche en `.worktrees/f6`**, con las fases 2, 3, **4 y 6**
+del doc 35 dentro: las **599** del árbol principal, más las **dos** de la rejilla premarcada
+—`GET`/`PUT desempenos/rejilla`, Fase 4, que no son de esta sesión— y las **dos** del boletín por
+competencias —`PUT boletines-competencias/detailed-notas` y `…/detailed-notas-group`, Fase 6—.
+**Este número se contó, no se sumó**, y por eso dice en qué árbol: mientras `main` no tenga las dos
+ramas, allí dirá 599 o 601. El plan preveía **cuatro** para la Fase 6 y son dos — las otras dos no se
+podían calcar, y por qué está en la §Fase 6 del doc 35.
+El 24 ago el de rutas se movió por primera vez,
 de 539 a 542, con los tres endpoints que pidió `myvc_flutter`, el 28 a 543 con
 `PUT users/mi-docente`, que pidió Joseth para el panel de `app2`, el 31 a 544 con
 `GET grupos/{grupo_id}/alumnos-de/{que}`, que pidió el front para el modal de
@@ -155,6 +162,13 @@ el documento no vio— y por eso **el plan pasa de 22 rutas a 26**, contado y no
 **599 se contó con `route:list --json` en el árbol principal**, después de fundir y con la
 suite entera en verde detrás: **2.179 = 2.115 + 33 + 31**, y ninguna prueba existente se
 movió.
+
+> **Y los dos tramos de esa frase están mal numerados**, cosa que nadie había recontado: `587–593`
+> son siete y `594–599` son seis, o sea **trece**, y las dos familias suman **diecinueve** (7 de
+> `competencias/` + 12 de `desempenos/`). Con 580 antes de ellas, los tramos buenos son **581–587**
+> y **588–599**. El total —599— **estaba bien**; lo que estaba mal era el reparto, que es justo lo
+> que pasa cuando un tramo se escribe de memoria y el total se cuenta. *(Visto el 13 sep por la
+> noche construyendo la Fase 6.)*
 Una familia nueva entra **entera en un commit** por lo mismo que el catálogo del MEN no
 tiene familia propia: a trozos, el censo la recogería como «1 de 1» y la sacaría después —
 dos movimientos de una instantánea publicada para nada. «El de rutas no se
