@@ -120,10 +120,32 @@
 > y `POST login` en la raíz—, que es de lo que depende el front para decidir si enseña lo nuevo:
 > **si la clave no llega, el front se comporta como `ponderado`**. Comprobado contra el docker.
 >
-> **La ruta 580**, contada con `route:list --json` en el árbol principal. Diez instantáneas
+> **La ruta 580**, contada con `route:list --json` en el árbol principal. **DOCE** instantáneas
 > movidas: **3** por la columna sola (las que predecía §1.3), **6** porque este commit ensanchó a
 > mano el contexto de sesión —proyecciones nombradas, no un cuarto comodín— y **3** por la ruta.
 > `TOTAL_PUBLICAS` sigue en doce y el censo del candado no se movió.
+>
+> > **Aquí decía «diez», y era mío y era falso — dos veces en la misma frase.** El titular de
+> > `23d1d98` dice diez y su cuerpo dice «las otras siete»; el desglose correcto es **3 + 6 + 3 =
+> > 12**, o sea que ninguna de las dos cifras del encabezado cuadra con el reparto que va debajo
+> > de ella. **El reparto siempre estuvo bien**: lo que falló es que el titular se escribió antes
+> > que el desglose y nadie los restó. Contado ahora con
+> > `git show --name-only --format="" 4e0033c | grep -c "tests/Contrato/Snapshots/"` → **12**, y
+> > **no con `--stat`**, que trunca las rutas largas y hace desaparecer `Snapshots/` de algunas
+> > líneas: por ahí salió un 11 en otra sesión y por ahí salió mi diez.
+> >
+> > **Y la corrección que importa más que el número.** El titular de `23d1d98` —*«por qué se
+> > movieron DIEZ instantáneas y no tres»*— se lee como que §1.3 se equivocó, y **mi propio
+> > cuerpo demuestra lo contrario**: las tres que predijo se movieron **solas** y por la razón
+> > prevista. Las otras nueve las movió este commit a mano —seis proyecciones nombradas y tres
+> > de la ruta—, y eso no es un fallo del pronóstico: es trabajo que el pronóstico no estaba
+> > contando porque nadie se lo había pedido. Con varias sesiones citando ese documento, **lo
+> > que sobrevive de un commit es el titular**, así que la frase queda enderezada aquí:
+> > **§1.3 acertó, y la Fase 1 real es su confirmación.**
+> >
+> > Las seis proyecciones que hubo que ensanchar son **exactamente** las seis que `8myvc-c1`
+> > había medido una hora antes desde el otro lado, sin vernos. Dos mediciones separadas que
+> > coinciden no son dos avisos: son una cosa sabida.
 >
 > **Lo que se cerró de paso y no estaba en el plan**: `PUT years/toggle-cambiar-valor` escribía
 > **cualquier** columna de `years` con sólo `auth.personal`, así que D24 se saltaba con un `PUT`
