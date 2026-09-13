@@ -700,7 +700,41 @@ que ya aprendió tres cosas por las malas:
   `independientes_respetadas` —sube cuando había filas con dueño y se dejaron—, no uno
   que valdría cero siempre;
 - **se registra con `Auditoria`**: es una escritura masiva sobre el colegio entero;
-- **acumula por grado, no compite** (§1.6).
+- **acumula por grado, no compite** (§1.6);
+- y **el error nombra lo que el colegio puede arreglar**, que es donde el molde falla — abajo.
+
+> ### ⚠️ Lo que NO hay que calcar del sembrador de la plantilla: su 422 habla de destinos
+>
+> **Medido por `myvc-front-50` contra el docker y recontado aquí, que es como se confirma un
+> número.** `PlantillaNotasController::exigirRepartosCompletos` agrupa por una `clave` que se
+> construye con el **nivel y la materia de la asignatura DESTINO**
+> (`PlantillaNotasController:517-519`), no con la fila de plantilla que le toca. Y entonces:
+>
+> ```
+> pares (nivel, materia) distintos entre las asignaturas del año actual  ->  42
+> (base de desarrollo `simonbolivar`, año actual, asignaturas vivas)
+> ```
+>
+> **Una sola fila de plantilla al 70 % devuelve 42 entradas en el 422**, cada una diciendo
+> `{nivel_educativo_id, materia_id, unidades: 1, suma_porcentajes: 70}`: **cuarenta y dos maneras
+> de repetir el mismo hecho sobre una fila que el colegio ve una vez**. El `array_unique` está
+> puesto y no ayuda, porque deduplica destinos, no plantillas.
+>
+> No es un fallo de cálculo —el 422 llega cuando debe y el reparto está mal de verdad— sino de
+> **con qué vocabulario se lo cuenta al colegio**: quien abre esa pantalla ve **su plantilla**, y
+> el error le contesta en unidades de «asignaturas a las que iba a ir». La §5.1.d del doc 28 decía
+> *«el 422 los nombra uno a uno»* pensando en grupos de alcance, y la implementación acabó
+> nombrando grupos de destino. **Nadie lo notó porque la frase encaja con las dos lecturas.**
+>
+> **Lo que hereda la Fase 3, entonces, no es el código sino la advertencia**: `desempenos/sembrar`
+> nombra en su error **las filas de catálogo que están mal**, y da los destinos como **cuenta**
+> —«afecta a 42 combinaciones»— no como lista. Es la misma regla de «la respuesta dice la
+> población» aplicada al error: un número grande no informa más, informa menos.
+>
+> Y queda fichado, sin arreglarlo aquí: **el 422 de `plantilla-notas/sembrar` tiene el mismo
+> defecto hoy**, en un endpoint vivo. Cambiarlo es tocar un contrato ya escrito y merece su propia
+> decisión — pero el día que alguien abra esa pantalla y reciba cuarenta y dos renglones, esto
+> explica por qué.
 
 **El candado del docente** es la marca `por_defecto`, y **son cuatro caminos, no dos**:
 `update`, `destroy`, `forcedelete` y `orden`. Poner el candado sólo en `update` lo
