@@ -703,6 +703,69 @@ years + modelo_evaluacion  enum('ponderado','competencias') NOT NULL DEFAULT 'po
   displayname — que es lo que demuestra que la línea se trazó donde se quería.
 - Un año creado a partir de otro **hereda las cuatro columnas**.
 
+> ## ✅ FASE 1 HECHA — 13 sep 2026, commit `4e0033c`
+>
+> Migración `2026_09_13_100000_modelo_de_evaluacion_del_anio` (las cuatro columnas en **un solo
+> `ALTER`**), `Year::MODELOS_DE_EVALUACION`, `YearsController::putModeloEvaluacion`, los tres
+> rótulos en `putGuardarCambios`, las cuatro copiadas en `postStore`, el corte de la puerta de al
+> lado en `putToggleCambiarValor`, `ContextoDeUsuario` en sus cuatro ramas,
+> `PUT years/modelo-evaluacion` en `routes/api/estructura.php`, y
+> `tests/Contrato/ModeloDeEvaluacionDelAnioTest` con **17 casos**.
+>
+> ### El contrato, tal como contesta el docker — no leído del código
+>
+> ```
+> PUT /api/years/modelo-evaluacion          auth.token + auth.personal + can_edit_plantilla_notas
+> { "modelo_evaluacion": "ponderado"|"competencias", "year_id": <int, opcional> }
+>
+> 200 { year_id, modelo_evaluacion, anterior,
+>       desempeno_displayname, desempenos_displayname, genero_desempeno }
+> 403 sin el permiso · 422 valor fuera del enum · 404 año inexistente o en la papelera
+> ```
+>
+> Sin `year_id` escribe **el año de la sesión**. `anterior` viaja para que la pantalla pueda decir
+> «pasó de X a Y» sin abrir la auditoría, que se escribe con `Auditoria::registrar()->editar('year_config', …)`.
+>
+> **`modelo_evaluacion` viaja en la sesión**, que es de lo que depende el front para decidir si
+> enseña lo nuevo: `POST auth/login` (dentro de `usuario`), `GET auth/me` y `POST login` (en la
+> raíz), con `desempeno_displayname`, `desempenos_displayname` y `genero_desempeno` al lado.
+> Comprobado con el contenedor levantado, no deducido.
+>
+> ### La cuenta de instantáneas: **diez**, y las siete de más NO son el hallazgo que avisa §1.3
+>
+> Ésta es la parte que hay que leer, porque el recuadro de arriba dice *«una cuarta instantánea
+> que se mueva es el hallazgo»* y se movieron diez. **No hay ningún cuarto comodín.** El reparto:
+>
+> | | |
+> |---|---|
+> | **3** · la columna sola | `muestreo-years`, `-colegio`, `-trashed` — los tres caminos con comodín. **Exactamente lo que predecía §1.3** |
+> | **6** · a mano, y a propósito | los cuatro `login-contexto-*`, `muestreo-auth-me` y `muestreo-aplicacion-descargas-detailed`. Son **proyecciones nombradas**, y se movieron porque **este commit las ensanchó**: el front necesita `modelo_evaluacion` en la sesión |
+> | **3** · la ruta | `rutas`, `guards-por-ruta`, `guard-por-familia` |
+>
+> **La distinción que hay que conservar**: §1.3 avisa de una instantánea que se mueve **sola**,
+> porque eso significa un camino con comodín que nadie encontró. Una proyección nombrada que se
+> mueve porque alguien le añadió una columna **no dice nada nuevo sobre el esquema** — dice lo que
+> ese alguien escribió. Leer el diff sigue siendo obligatorio y **se leyó entero: 40 líneas, y no
+> hay una sola que no sea una de las cuatro claves o la ruta nueva.**
+>
+> `familias-que-nunca-entran-en-el-candado.json` **no se movió** (`years` pasa de 17 de 19 a 18 de
+> 20 con guard), `RutasPreLoginTest::TOTAL_PUBLICAS` sigue en **doce** y `AutenticacionTest::SIN_GUARD`
+> no se movió.
+>
+> ### El router: **580**, contado
+>
+> `route:list --json` en el **árbol principal** (`/app`): **580**, de ellas **579** bajo `api/`. La
+> 580 es `PUT years/modelo-evaluacion`. No se le sumó uno a 579: se contó, y se dice el árbol.
+>
+> ### Y una desviación del plan, dicha para que no se lea como descuido
+>
+> Este apartado pedía regenerar las instantáneas **en un commit aparte**. Van en el mismo, y el
+> motivo es que la otra mitad de la regla de la casa —*«se commitea en cuanto una fase pasa sus
+> pruebas»*— no se puede cumplir a la vez: un commit de código con las instantáneas viejas es un
+> commit **rojo** en `main`, y `main` es lo que corre en los dieciséis colegios. Lo que el commit
+> aparte compraba era que el diff se leyera; eso se compró de otra forma, escribiéndolo entero en
+> el mensaje.
+
 ---
 
 ### Fase 2 · Competencias, y el catálogo del MEN que las siembra

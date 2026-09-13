@@ -104,6 +104,35 @@
 > `git status` limpio al terminar. **No se compara con las 1.926 de la rama**: aquéllas son de
 > `ab23e2d`, 169 commits y siete migraciones antes.
 >
+> ### ✅ FASE 1 HECHA — 13 sep 2026, `4e0033c`. **El front ya puede llamar a la ruta**
+>
+> `years` tiene sus cuatro columnas —`modelo_evaluacion enum('ponderado','competencias')` más los
+> tres rótulos del desempeño— y el colegio las cambia desde:
+>
+> ```
+> PUT /api/years/modelo-evaluacion     auth.personal + can_edit_plantilla_notas DENTRO (D24)
+> { "modelo_evaluacion": "ponderado"|"competencias", "year_id": <opcional, por defecto el de la sesión> }
+> 200 { year_id, modelo_evaluacion, anterior, desempeno_displayname, desempenos_displayname, genero_desempeno }
+> 403 sin permiso · 422 fuera del enum · 404 año inexistente o en la papelera
+> ```
+>
+> **`modelo_evaluacion` viaja en la sesión** —`POST auth/login` dentro de `usuario`, `GET auth/me`
+> y `POST login` en la raíz—, que es de lo que depende el front para decidir si enseña lo nuevo:
+> **si la clave no llega, el front se comporta como `ponderado`**. Comprobado contra el docker.
+>
+> **La ruta 580**, contada con `route:list --json` en el árbol principal. Diez instantáneas
+> movidas: **3** por la columna sola (las que predecía §1.3), **6** porque este commit ensanchó a
+> mano el contexto de sesión —proyecciones nombradas, no un cuarto comodín— y **3** por la ruta.
+> `TOTAL_PUBLICAS` sigue en doce y el censo del candado no se movió.
+>
+> **Lo que se cerró de paso y no estaba en el plan**: `PUT years/toggle-cambiar-valor` escribía
+> **cualquier** columna de `years` con sólo `auth.personal`, así que D24 se saltaba con un `PUT`
+> de tres campos. Excluida ahí igual que `actual`.
+>
+> **Nada de esto recalcula ni borra (D3)**, y lo sujetan tres casos de
+> `ModeloDeEvaluacionDelAnioTest`: el censo alrededor del endpoint, las lecturas en los dos modos
+> y la definitiva llevada a punto fijo.
+>
 > ### Lo que hay que saber sin abrirlo
 >
 > - **La Fase 0 era rebasar y volver a medir, no «fusionar `fix/frases-asignatura-text`»** — hecho,

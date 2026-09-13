@@ -8,8 +8,8 @@ entrar `PlantillaNotasController`; el 4 sep eran 114 y 117, y antes decían 113 
 trait `Concerns/ResuelveElUsuario.php` **no cuenta**: es el fichero 116 del directorio y no
 declara ninguna clase), porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
-**579 rutas** (contadas con
-`route:list --json` el 5 sep 2026; el 24 ago el de rutas se movió por primera vez,
+**580 rutas** (contadas con
+`route:list --json` el **13 sep 2026 en el árbol principal**; el 24 ago el de rutas se movió por primera vez,
 de 539 a 542, con los tres endpoints que pidió `myvc_flutter`, el 28 a 543 con
 `PUT users/mi-docente`, que pidió Joseth para el panel de `app2`, el 31 a 544 con
 `GET grupos/{grupo_id}/alumnos-de/{que}`, que pidió el front para el modal de
@@ -96,7 +96,26 @@ cuentas a 45—, y **el quinto bloque, `profesores`, lo decide `esAdministrativo
 método**, que son 10 de esas 45: una huella del personal para quien no puede leer el personal
 sigue siendo información sobre personas. Cuando se omite **se dice**, en `omitidas`, porque
 un bloque ausente y un bloque que no se movió se leen igual desde el cliente.
-**579 se contó con `route:list --json` en `.worktrees/e5`, no se sumó.** «El de rutas no se
+**579 se contó con `route:list --json` en `.worktrees/e5`, no se sumó.** Y el 13 sep 2026 a
+**580** con **`PUT years/modelo-evaluacion`**, la **Fase 1** del modelo de evaluación
+(`docs/migracion/35-el-modelo-de-evaluacion-del-colegio.md` §2): el colegio elige entre
+`ponderado` —el de hoy— y `competencias`, y esa elección es **una columna de `years`**, o sea
+**por año**, porque un año cerrado conserva el suyo para siempre. Es ruta propia **por decisión de
+Joseth (D24)** y no una línea más en `years/guardar-cambios`, y las dos mitades del porqué valen
+para la próxima columna igual que para ésta: aquel método **nombra veintiuna columnas una a una**,
+así que la nueva no la escribiría nadie —`profesores.tono` visto antes de cometerlo—, y **los
+dieciséis `years/*` de escritura son `auth.personal`**, o sea que colgarla de cualquiera de ellos
+dejaría que **cualquier docente cambiara el modelo de evaluación del colegio entero**. Lleva
+`auth.personal` en la ruta y `can_edit_plantilla_notas` **dentro**, la forma de `plantilla-notas/`
+y **sin permisos nuevos**. Los tres `displayname` del desempeño **no** gastan ruta: van en
+`guardar-cambios` con las seis de unidad y subunidad, porque son rótulos.
+**Y la ruta sola no habría cerrado nada**: `PUT years/toggle-cambiar-valor` escribe **cualquier
+columna de `years` que exista** con sólo `auth.personal`, así que `modelo_evaluacion` quedó
+excluida ahí igual que `actual` —dos exclusiones y por motivos distintos: aquélla tiene un
+invariante de fila, ésta tiene **dueño**—. *Al darle dueño a una columna se repasan **todos** los
+caminos que escriben esa tabla, no sólo el que se está tocando.*
+**580 se contó con `route:list --json` en el árbol principal, no se sumó** — coincidió con
+579 + 1, que es la única forma de saber que coincidía. «El de rutas no se
 mueve»
 sigue siendo la
 regla: una ruta nueva es una decisión, no un efecto secundario, y mueve este
