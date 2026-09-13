@@ -17,8 +17,10 @@ este número se cuenta y no se supone), porque
 del doc 35 dentro: las **599** del árbol principal, más las **dos** de la rejilla premarcada
 —`GET`/`PUT desempenos/rejilla`, Fase 4, que no son de esta sesión— y las **dos** del boletín por
 competencias —`PUT boletines-competencias/detailed-notas` y `…/detailed-notas-group`, Fase 6—.
-**Este número se contó, no se sumó**, y por eso dice en qué árbol: mientras `main` no tenga las dos
-ramas, allí dirá 599 o 601. El plan preveía **cuatro** para la Fase 6 y son dos — las otras dos no se
+**Este número se contó, no se sumó**, y por eso dice en qué árbol. Medido en los dos el mismo rato,
+con la Fase 4 ya fundida en `main`: **el árbol principal responde 601 y esta línea suya decía 599**,
+o sea que la fusión de la rejilla no la recontó. No es un reproche: es exactamente para lo que esta
+línea dice en qué árbol se contó. El plan preveía **cuatro** para la Fase 6 y son dos — las otras dos no se
 podían calcar, y por qué está en la §Fase 6 del doc 35.
 El 24 ago el de rutas se movió por primera vez,
 de 539 a 542, con los tres endpoints que pidió `myvc_flutter`, el 28 a 543 con
