@@ -1312,6 +1312,21 @@ lo único donde aparecen las tablas nuevas:
 La línea que separa las dos primeras filas es **una sola pregunta**: *¿esto lo escribió
 el colegio para decir cómo evalúa, o lo produjo el año al vivirse?*
 
+**Y hay un par que se lee al revés, así que se deja aquí y no en dos sitios**:
+`competencias` **se copia** y `rubricas` **no**. Son las dos únicas tablas de este censo
+que hablan de *cómo se evalúa una materia*, están decididas en direcciones contrarias, y
+leídas seguidas parecen una contradicción. No lo son:
+
+| | a qué se engancha | de quién es | y por eso |
+|---|---|---|---|
+| **`competencias`** · **se copia** | a una **materia y un grado**, que en enero siguen existiendo igual | del **colegio**, o del jefe de área: es el plan de área, se escribe una vez | no copiarla obliga a reescribir el plan de área cada enero — que es **el fallo que pagó este centinela** el 13 sep 2026 |
+| **`rubricas`** · **no se copia** | a una **`asignatura_id`**, que el año nuevo vuelve a crear **con otro id** | de **un docente**, para evaluar **una asignatura concreta** de ESE año | sirvió para poner notas que ya están puestas; el que quiera reusar una la vuelve a montar (**D27**) |
+
+Es **la misma pregunta de arriba, contestada bien las dos veces**. El parecido engaña
+porque las dos son «texto de evaluación»; lo que las separa es **de quién son y a qué se
+enganchan** — y eso mismo está escrito en el docblock de `DATOS_DEL_ANIO` del centinela,
+que es donde lo va a leer quien llegue en enero por el rojo y no por este documento.
+
 > **`rubricas` era la única que no contestaba esa pregunta** — y la contestó Joseth el
 > **13 sep 2026** (D27): **no se copia. Se queda en su año.**
 >

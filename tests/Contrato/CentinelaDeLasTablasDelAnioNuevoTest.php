@@ -95,6 +95,34 @@ class CentinelaDeLasTablasDelAnioNuevoTest extends TestCase
      * horario subido **pasaron en un año concreto**, y copiarlos al siguiente no
      * sería ahorrarle trabajo a nadie — sería **fabricar historia que no ocurrió**.
      *
+     * ## El par que se lee al revés: `competencias` **sí** se copia y `rubricas` **no**
+     *
+     * Son las dos únicas tablas de este censo que hablan de **cómo se evalúa una
+     * materia**, están decididas en direcciones contrarias, y leídas seguidas
+     * parecen una contradicción. No lo son, y el sitio donde se ve la diferencia
+     * tiene que ser éste y no dos ficheros distintos:
+     *
+     *     competencias   SE COPIA      El plan de área. Lo escribe el colegio —o el
+     *                                  jefe de área— por **materia y grado**, una vez,
+     *                                  y vale para siempre. No copiarlo obliga a
+     *                                  reescribir el plan de área cada enero, que es
+     *                                  literalmente el fallo que pagó este fichero el
+     *                                  13 sep 2026.
+     *
+     *     rubricas       NO SE COPIA   La matriz criterios × niveles con la que **un
+     *                                  docente** evaluó **una asignatura concreta** de
+     *                                  ESE año. Cuelga de `asignatura_id` —que el año
+     *                                  nuevo vuelve a crear con otro id— y sirvió para
+     *                                  poner notas que ya están puestas. (D27.)
+     *
+     * O sea: **es la misma pregunta de arriba, contestada bien las dos veces.** La
+     * competencia es *lo que el colegio escribió para decir cómo evalúa*; la rúbrica
+     * es *lo que un docente usó para evaluar*, y sólo existe porque ese año se vivió.
+     * El parecido engaña porque las dos son «texto de evaluación»; lo que las separa
+     * es **de quién son y a qué se enganchan** — la competencia a una materia y un
+     * grado, que en enero siguen ahí; la rúbrica a una asignatura de un año que ya
+     * terminó.
+     *
      * **Sin el porqué escrito, un centinela se convierte en un `@ignore` que nadie
      * vuelve a mirar**, y ése —no el falso positivo— es el modo de fallo que hay
      * que evitar: una lista de nombres a secas hace que la salida barata ante un
@@ -139,7 +167,9 @@ class CentinelaDeLasTablasDelAnioNuevoTest extends TestCase
         'piars_grupos' => 'la caracterización del grupo de ESE año, y cuelga de un grupo que en el año nuevo tiene otro id',
 
         // **Decidida el 13 sep 2026 por Joseth (D27)**, después de haber estado
-        // declarada `SIN_DECIDIR` desde que se escribió este centinela. Una rúbrica
+        // declarada `SIN_DECIDIR` desde que se escribió este centinela. Y es la que
+        // se lee al revés que `competencias`, que **sí** se copia: el porqué de que
+        // las dos estén bien está arriba, en el docblock de esta constante. Una rúbrica
         // es la matriz criterios × niveles que **produce la nota de una subunidad**
         // (26 §1, decisión 4 de Joseth), y lo que la hacía dudosa era su segunda
         // cara: con `es_plantilla = 1` y `asignatura_id` en NULL es una **rúbrica de
