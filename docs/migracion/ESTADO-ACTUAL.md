@@ -155,6 +155,27 @@
 > `ModeloDeEvaluacionDelAnioTest`: el censo alrededor del endpoint, las lecturas en los dos modos
 > y la definitiva llevada a punto fijo.
 >
+> ### La suite entera de la Fase 1: `Tests: 2115 passed (18882 assertions)`
+>
+> `docker exec -e DB_TEST_DATABASE=simonbolivar_testing_f1 8myvc-app-1 php artisan test` —las
+> cuatro testsuites con el grupo `barrido` excluido—, **1.590,23 s**, cero fallos. Árbol principal
+> con el contenido de `main` @ `a208e80`; `05c82af` entró a mitad de corrida y es un
+> `array_values()` en un ayudante del test nuevo, semánticamente idéntico. `composer run stan`:
+> **[OK] No errors** sobre 609 ficheros, y `pint --test` en verde sobre los cinco ficheros de la
+> fase que entran en su alcance.
+>
+> **2.115 = 2.098 + 17**, y esa resta es lo único que hace comparables las dos cifras: los 17 son
+> exactamente los casos de `ModeloDeEvaluacionDelAnioTest`. Que cuadre a la unidad es lo que dice
+> que la Fase 1 **no movió ninguna prueba existente** — que es la afirmación que la fase necesita,
+> no el «2.115 en verde».
+>
+> **Y la base es propia, `simonbolivar_testing_f1`, y eso no es un detalle.** La primera corrida
+> contra la compartida **murió con SIGTERM** (`EXIT=143`) mientras otra sesión lanzaba
+> `--filter=CompetenciasTest` en el mismo contenedor. Dos suites contra la misma base dan
+> deadlocks —está escrito en `CLAUDE.md` y en 03— y aquí se cobró una corrida de veinte minutos.
+> Con cuatro sesiones vivas, **una base por sesión no es higiene: es la diferencia entre medir y
+> volver a empezar.**
+>
 > ### Lo que hay que saber sin abrirlo
 >
 > - **La Fase 0 era rebasar y volver a medir, no «fusionar `fix/frases-asignatura-text`»** — hecho,
