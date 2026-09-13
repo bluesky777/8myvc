@@ -65,18 +65,42 @@ use Illuminate\Support\Facades\Route;
 | **Un periodo cerrado sigue cerrado para todo el mundo**, con permiso y sin él: el
 | candado es una guarda *más*, nunca en lugar de la que ya estaba.
 |
-| Ninguna de las doce es pública ni debería serlo, así que esto **no** mueve
+| Ninguna de las catorce es pública ni debería serlo, así que esto **no** mueve
 | `RutasPreLoginTest::TOTAL_PUBLICAS` (siguen doce) ni `AutenticacionTest::SIN_GUARD`.
-| Y `desempenos` entra en el censo de familias con **12 de 12 con guard**, así que
-| `familias-que-nunca-entran-en-el-candado.json` no se mueve — **siempre que las doce
-| entren en el mismo commit**, que es por lo que van juntas.
+| Y `desempenos` entra en el censo de familias con **14 de 14 con guard**, así que
+| `familias-que-nunca-entran-en-el-candado.json` no se mueve — **siempre que las de
+| cada fase entren en el mismo commit**, que es por lo que van juntas.
+|
+| ## Y dos más, que son la Fase 4: la rejilla premarcada
+|
+| `GET desempenos/rejilla` y `PUT desempenos/rejilla`, con **D6 y D23** encima: la
+| casilla de la rejilla **ES el nivel**, se abre premarcada con el que al alumno le
+| toca por su definitiva y **no escribe nada hasta que el docente guarda**.
+|
+| Cuelgan de `desempenos/` y no de una familia propia por el motivo de
+| `competencias/catalogo-men`: una familia `rejilla/` con dos rutas entra en
+| `familias-que-nunca-entran-en-el-candado.json` como **«2 de 2»** —un renglón nuevo
+| en una instantánea publicada— y aquí no mueve nada, porque `desempenos` pasa de
+| **12 de 12** a **14 de 14** con guard. Es gratis elegir bien el nombre.
+|
+| Y cuelgan de ésta y no de `frases-asignatura/`, que es la tabla en la que
+| escriben, por lo que el docente ve: la rejilla es **la pantalla de los
+| desempeños**, y `frases_asignatura` es sólo dónde acaban guardados. La familia
+| vieja sigue con sus tres rutas intactas.
+|
+| **Escriben pero no piden `can_edit_plantilla_notas`**: son del docente, como las
+| cinco de arriba. Lo que piden es el **periodo abierto**, y lo piden igual que
+| aquéllas — `exigirPeriodoAbierto()`, 403, con permiso y sin él.
 |
 | ## El orden, que aquí tiene DOS trampas
 |
-| 1. `desempenos/orden` y `desempenos/sembrar` son literales de dos segmentos y van
-|    **antes** que `desempenos/{id}`. Con `PUT desempenos/{id}` declarado primero,
-|    `PUT desempenos/orden` entraría por ahí con `$id = 'orden'` y devolvería un 404
-|    que no se parece en nada a la causa.
+| 1. `desempenos/orden`, `desempenos/sembrar` y `desempenos/rejilla` son literales
+|    de dos segmentos y van **antes** que `desempenos/{id}`. Con `PUT desempenos/{id}`
+|    declarado primero, `PUT desempenos/orden` entraría por ahí con `$id = 'orden'` y
+|    devolvería un 404 que no se parece en nada a la causa. `GET desempenos/rejilla`
+|    no tiene ese problema —no hay `GET desempenos/{id}`— y se declara al lado del
+|    `PUT` de todas formas, porque separarlos es invitar a que el día que alguien
+|    añada el `GET {id}` sólo mueva uno.
 | 2. `desempenos/plantilla/orden` y `desempenos/plantilla/copiar` van **antes** que
 |    `desempenos/plantilla/{id}`, por lo mismo y un nivel más abajo.
 |
@@ -103,6 +127,10 @@ Route::get('desempenos', [DesempenosController::class, 'getIndex'])->middleware(
 Route::post('desempenos', [DesempenosController::class, 'postStore'])->middleware('auth.personal');
 
 Route::put('desempenos/orden', [DesempenosController::class, 'putOrden'])->middleware('auth.personal');
+
+// ── La rejilla premarcada (Fase 4) ───────────────────────────────────────────
+Route::get('desempenos/rejilla', [DesempenosController::class, 'getRejilla'])->middleware('auth.personal');
+Route::put('desempenos/rejilla', [DesempenosController::class, 'putRejilla'])->middleware('auth.personal');
 
 Route::put('desempenos/{id}', [DesempenosController::class, 'putUpdate'])->middleware('auth.personal');
 Route::delete('desempenos/{id}', [DesempenosController::class, 'deleteDestroy'])->middleware('auth.personal');
