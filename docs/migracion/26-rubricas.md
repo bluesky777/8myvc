@@ -13,7 +13,7 @@
 
 Una rúbrica es la matriz **criterios × niveles**, con un descriptor en cada celda, que
 **produce la nota de una subunidad** en vez de que el docente la invente (plan §1.3,
-decisión 4). Tres propiedades que gobiernan todo lo que sigue:
+decisión 4). Cuatro propiedades que gobiernan todo lo que sigue:
 
 1. **Produce la nota y nada más.** Definitivas, boletines, puestos y certificados **no
    saben que existe**: leen `notas.nota` como siempre. Por eso este carril no toca
