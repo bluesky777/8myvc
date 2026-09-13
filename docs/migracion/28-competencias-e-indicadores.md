@@ -1033,16 +1033,23 @@ trabajo y pasa a ser el final.
 > `unidades`. Y §b **siembra también los desempeños** del grupo a nombre del alumno al marcarlo.
 > Queda abierta la escala del alumno PIAR dentro de un grupo numérico.
 >
-> > **13 sep 2026: esa última frase se retira, y con una medida delante.** La Fase 4 del doc 35
-> > —que no existía cuando se escribió— resolvió el mismo problema **por el otro lado**:
-> > `DesempenosController::desempenosDeLaRejilla()` lee
-> > `d.alumno_id IS NULL OR d.alumno_id IN (marcados)`, o sea **suma** los del curso y los del
-> > marcado, con este comentario suyo delante: *«sin esta rama, un alumno con boletín
-> > independiente abriría la rejilla sin ninguna columna»*. Con las dos cosas a la vez,
-> > copiarle los del grupo a su nombre le **duplicaría cada columna de la rejilla, y a todo el
-> > grupo**. Así que al marcar **los desempeños no se tocan**, y lo fija
-> > `test_marcar_no_siembra_desempenos`. Lo de escribirle desempeños **suyos** a un alumno PIAR
-> > sigue en pie: eso es el CRUD de `desempenos` con `alumno_id`, no una siembra automática.
+> > **13 sep 2026: esa última frase se retira, y no por cara — porque su PREMISA es falsa.**
+> > Daba por hecho que `desempenos` se lee como `unidades`, y se leen **al revés**:
+> >
+> > ```
+> > unidades     u.alumno_id <=> :alcance                      EXCLUYE: o las suyas o las del grupo
+> > desempenos   d.alumno_id IS NULL OR d.alumno_id IN (…)     SUMA:    las del grupo Y las suyas
+> > ```
+> >
+> > El `OR` es de `DesempenosController::desempenosDeLaRejilla()` —la Fase 4 del doc 35, que no
+> > existía cuando se escribió esto— y cerró el mismo agujero por el otro lado, con su propio
+> > comentario: *«sin esta rama, un alumno con boletín independiente abriría la rejilla sin
+> > ninguna columna»*. Al marcado **le desaparecen las unidades del curso y no le desaparece
+> > ningún desempeño**, así que sembrárselos le **duplicaría cada columna de la rejilla, y a
+> > todo el grupo**. **Lo que decide es el operador de la lectura, no la columna.** Al marcar
+> > los desempeños no se tocan, y lo fija `test_marcar_no_siembra_desempenos`. Lo de escribirle
+> > desempeños **suyos** a un alumno PIAR sigue en pie: eso es el CRUD de `desempenos` con
+> > `alumno_id`, no una siembra automática.
 >
 > **Corrección del mismo día, tras la pregunta de Joseth.** *(1)* **`competencias.alumno_id` se
 > queda**, además de `desempenos.alumno_id`: el Decreto 1421/2017 manda que *«al finalizar cada año

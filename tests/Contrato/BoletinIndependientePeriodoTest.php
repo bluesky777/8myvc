@@ -913,17 +913,20 @@ class BoletinIndependientePeriodoTest extends CasoDeContrato
     /**
      * **Marcar NO siembra desempeños, y eso contradice a propósito la última línea de D18.**
      *
-     * El doc 35 §5 dice *«con D5, al marcar se siembran también los desempeños del grupo a
-     * nombre del alumno»*. Aquella frase se escribió **antes de que existiera la Fase 4**, y
-     * la Fase 4 resolvió el mismo problema por el otro lado:
-     * `DesempenosController::desempenosDeLaRejilla()` lee
-     * `d.alumno_id IS NULL OR d.alumno_id IN (marcados)` —o sea **suma** los del curso y los
-     * del marcado— con este comentario suyo delante: *«sin esta rama, un alumno con boletín
-     * independiente abriría la rejilla sin ninguna columna»*.
+     * El doc 35 §5 decía *«con D5, al marcar se siembran también los desempeños del grupo a
+     * nombre del alumno»*, y **su premisa es falsa en esa tabla**: `unidades` y `desempenos`
+     * se leen con semánticas **opuestas**, aunque la columna se llame igual en las dos.
      *
-     * Con las dos cosas a la vez, copiarle los del grupo a su nombre le **duplicaría cada
-     * columna de la rejilla, y a todo el grupo**. Este caso fija la decisión para que nadie
-     * «arregle» el módulo leyendo sólo el documento.
+     * ```
+     * unidades     u.alumno_id <=> :alcance                      EXCLUYE
+     * desempenos   d.alumno_id IS NULL OR d.alumno_id IN (…)     SUMA
+     * ```
+     *
+     * Al marcado le desaparecen las unidades del curso —por eso hay que dárselas, §9.1— y
+     * **no le desaparece ningún desempeño**. Sembrárselos le duplicaría cada columna de la
+     * rejilla, y a todo el grupo, porque las columnas son la unión y la rejilla es de la
+     * asignatura entera. Este caso fija la decisión para que nadie «arregle» el módulo
+     * leyendo sólo el documento.
      */
     public function test_marcar_no_siembra_desempenos(): void
     {

@@ -2233,18 +2233,31 @@ class BoletinIndependienteController extends Controller
      * que ya está guardada. Recalcular las trece asignaturas de un estudiante en la
      * petición de un clic sería pagar un coste para escribir el mismo número.
      *
-     * ## Y NO se siembran los desempeños, aunque el doc 35 lo diga
+     * ## Y NO se siembran los desempeños — **`unidades` y `desempenos` se leen con
+     * semánticas OPUESTAS**, y de ahí sale todo
      *
      * La última línea de D18 dice *«con D5, al marcar se siembran también los desempeños
-     * del grupo a nombre del alumno»*. **Medido el 13 sep 2026, eso haría daño**: la
-     * rejilla de la Fase 4 (`DesempenosController::desempenosDeLaRejilla`) lee
-     * `d.alumno_id IS NULL OR d.alumno_id IN (marcados)`, o sea **suma** los del curso y
-     * los del marcado, con este comentario suyo delante: *«sin esta rama, un alumno con
-     * boletín independiente abriría la rejilla sin ninguna columna»*. Copiarle los del
-     * grupo a su nombre le duplicaría **cada columna de la rejilla, y a todo el grupo**.
+     * del grupo a nombre del alumno»*. **Su premisa es falsa en esa tabla**, medido el 13
+     * sep 2026. Las dos columnas se llaman igual y se leen al revés:
      *
-     * Aquella frase se escribió antes de que existiera la Fase 4, y la Fase 4 resolvió el
-     * mismo problema por el otro lado. Los desempeños **no se tocan aquí**.
+     * ```
+     * unidades     u.alumno_id <=> :alcance                      EXCLUYE: o las suyas o las del grupo
+     * desempenos   d.alumno_id IS NULL OR d.alumno_id IN (…)     SUMA:    las del grupo Y las suyas
+     * ```
+     *
+     * Por eso las unidades **hay que dárselas**: al marcado le desaparece la rejilla del
+     * curso (§9.1). Y por eso los desempeños **no**: no le desaparece ninguno. Sembrárselos
+     * no le da columnas que le falten — **le duplica cada columna que ya tenía, y se las
+     * duplica a todo el grupo**, porque las columnas de la rejilla son la unión y la
+     * rejilla es de la asignatura entera.
+     *
+     * El `OR` es de `DesempenosController::desempenosDeLaRejilla()`, la Fase 4, que **no
+     * existía cuando se escribió aquella línea** y que cerró el mismo agujero por el otro
+     * lado; lleva su propio comentario diciendo que sin esa rama el marcado abriría la
+     * rejilla sin ninguna columna.
+     *
+     * **Lo que decide no es la columna, es el operador de la lectura.** Los desempeños no
+     * se tocan aquí. Cae la última línea de D18, no D18 entera.
      *
      * @return array<string, int> el recuento entero, ceros incluidos.
      */

@@ -867,14 +867,25 @@ de ese periodo. Cinco decisiones, con su porqué:
 | **no** recalcula definitivas | la rejilla copiada es la misma —misma definición, mismo porcentaje— con las mismas notas, así que la definitiva que saldría es la que ya está guardada. `copiar` sí recalcula, porque allí la estructura nueva puede no tener nada que ver |
 | **sí** siembra con el periodo cerrado | por la §2.4, que es la razón entera de que `periodo_id` venga del cuerpo. Y es lo que ya hacía el camino de desmarcar desde el 31 ago |
 
-**Y NO se siembran los desempeños, aunque D18 diga que sí.** Su última línea dice *«con D5, al marcar
-se siembran también los desempeños del grupo a nombre del alumno»*. **Medido el 13 sep: eso haría
-daño.** `DesempenosController::desempenosDeLaRejilla()` lee
-`d.alumno_id IS NULL OR d.alumno_id IN (marcados)` —o sea **suma** los del curso y los del marcado—,
-con este comentario suyo delante: *«sin esta rama, un alumno con boletín independiente abriría la
-rejilla sin ninguna columna»*. Copiarle los del grupo a su nombre le duplicaría **cada columna de la
-rejilla, y a todo el grupo**. Aquella frase se escribió antes de que existiera la Fase 4, y la Fase 4
-cerró el mismo agujero por el otro lado. Lo fija `test_marcar_no_siembra_desempenos`.
+**Y NO se siembran los desempeños, aunque D18 diga que sí — porque `unidades` y `desempenos` se leen
+con semánticas OPUESTAS.** No es que salga caro: es que **la premisa de esa línea es falsa en esa
+tabla**. Medido el 13 sep:
+
+```
+unidades     u.alumno_id <=> :alcance                      EXCLUYE: o las suyas o las del grupo
+desempenos   d.alumno_id IS NULL OR d.alumno_id IN (…)     SUMA:    las del grupo Y las suyas
+```
+
+Al marcado **le desaparecen las unidades del curso** —por eso hay que dárselas, y es la §9.1— y **no
+le desaparece ningún desempeño**. Así que sembrárselos no le da columnas que le falten: le duplica
+cada columna que ya tenía, **y se las duplica a todo el grupo**, porque las columnas de la rejilla
+son la unión y la rejilla es de la asignatura entera. El `OR` es de
+`DesempenosController::desempenosDeLaRejilla()` —la Fase 4, que no existía cuando se escribió aquella
+línea— y lleva su propio comentario: *«sin esta rama, un alumno con boletín independiente abriría la
+rejilla sin ninguna columna»*.
+
+**Lo que decide es el operador de la lectura, no la columna.** Cae la última línea de D18, no D18
+entera. Lo fija `test_marcar_no_siembra_desempenos`.
 
 #### El recuento se AÑADE, y los ceros son la mitad del contrato
 
