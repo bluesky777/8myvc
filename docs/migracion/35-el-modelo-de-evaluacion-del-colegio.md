@@ -353,14 +353,19 @@ de más es legítimo. **Lo es.**
 > **Y la mitad que faltaba: a quién alcanza cada una** — aportada por `8myvc-c1`, y es la que
 > convierte la cuenta en una decisión:
 >
-> | sin instantánea | quién puede llamarla |
-> |---|---|
-> | `POST years/store` | `auth.personal` — **45** |
-> | `PUT years/guardar-cambios` | `auth.personal` — **45** |
-> | `DELETE years/delete/{id}` | `auth.personal` — **45** |
-> | `DELETE years/destroy/{id}` | `esSuperusuario` dentro — **11** |
-> | `PUT years/restore/{id}` | `esSuperusuario` dentro — **11** |
-> | **`PUT myimages/cambiarlogocolegio`** | **`esAdministrativo` dentro — 11** |
+> | sin instantánea | quién puede llamarla | cuántos |
+> |---|---|---|
+> | `POST years/store` | `auth.personal` | **74** |
+> | `PUT years/guardar-cambios` | `auth.personal` | **74** |
+> | `DELETE years/delete/{id}` | `auth.personal` | **74** |
+> | `DELETE years/destroy/{id}` | `esSuperusuario` dentro | **11** |
+> | `PUT years/restore/{id}` | `esSuperusuario` dentro | **11** |
+> | **`PUT myimages/cambiarlogocolegio`** | `esAdministrativo` dentro | **11** |
+>
+> **74 y no 45** — contado hoy en la base de desarrollo con el criterio leído del middleware
+> (`ExigirPersonal::FUERA`, `tipo NOT IN ('Alumno','Acudiente')`): 53 `Profesor` + 21 `Usuario`
+> vivos, sobre **2.358** cuentas. El 45 venía de `CLAUDE.md` y **no se reproduce**; el recuadro de
+> debajo lo deja escrito como lo que es en vez de sustituirlo en silencio. **Son de UN colegio.**
 >
 > > **Esta tabla tenía cinco filas y sin instantánea son SEIS**: faltaba el noveno camino, que
 > > está en la tabla de arriba como «no» y en la nota de al lado, pero **no en la tabla que
@@ -369,8 +374,9 @@ de más es legítimo. **Lo es.**
 > > doce: *el cuerpo bien y el renglón que se lee, mal*. Añadida el 13 sep 2026.
 >
 > **Los dos que se encontraron primero son los dos mejor cerrados**, y los tres que nadie había
-> nombrado son los de más público: 45 personas y ninguna comprobación más allá del guard de la
-> ruta. *Lo que menos se mira no es lo más escondido: es lo que parece rutinario.*
+> nombrado son los de más público: **74** personas y ninguna comprobación más allá del guard de la
+> ruta —o sea **el doble de lo que decía este documento hace un rato**, lo que hace la pregunta
+> abierta más grande, no más pequeña—. *Lo que menos se mira no es lo más escondido: es lo que parece rutinario.*
 >
 > > **LAS CIFRAS DE ARRIBA ESTÁN REMEDIDAS EL 13 SEP 2026, Y EL `45` NO SE REPRODUCE.**
 > >
