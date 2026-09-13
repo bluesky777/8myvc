@@ -138,6 +138,29 @@ class CentinelaDeLasTablasDelAnioNuevoTest extends TestCase
         'piars_alumnos' => 'la valoración pedagógica y los ajustes acordados ESE año, con sus documentos',
         'piars_grupos' => 'la caracterización del grupo de ESE año, y cuelga de un grupo que en el año nuevo tiene otro id',
 
+        // **Decidida el 13 sep 2026 por Joseth (D27)**, después de haber estado
+        // declarada `SIN_DECIDIR` desde que se escribió este centinela. Una rúbrica
+        // es la matriz criterios × niveles que **produce la nota de una subunidad**
+        // (26 §1, decisión 4 de Joseth), y lo que la hacía dudosa era su segunda
+        // cara: con `es_plantilla = 1` y `asignatura_id` en NULL es una **rúbrica de
+        // biblioteca**, sin dueño y escrita para reusarse, y ésa tenía la misma
+        // pinta que `unidades_por_defecto`.
+        //
+        // **La respuesta fue que no: se quedan en su año.** Una rúbrica es trabajo
+        // que un docente montó para evaluar algo concreto de ESE año — igual que el
+        // libro rojo, los contratos o las votaciones, es lo que el año produjo al
+        // vivirse y no lo que el colegio escribió para decir cómo evalúa. El
+        // profesor que quiera reusar una **la vuelve a montar**, que es un coste
+        // suyo y de una vez, y no el de encontrarse en enero rúbricas con su firma
+        // que él no escribió ese año.
+        //
+        // Y de paso se cierra sola la parte cara, que era la que hacía de esto una
+        // entrega y no un `INSERT`: copiarlas son **cuatro tablas hijas**
+        // —`rubrica_criterios`, `rubrica_niveles`, `rubrica_descriptores` y el
+        // enganche de `subunidades`— con sus ids remapeados, y **ninguna de ellas
+        // lleva `year_id`**, o sea que este centinela ni siquiera las vigilaría.
+        'rubricas' => 'el trabajo que un docente montó para evaluar algo de ESE año; el que quiera reusar una la vuelve a montar (decidido por Joseth el 13 sep 2026, D27; 35 §2.bis)',
+
         // Con sus fechas, su `locked` y su `actual` dentro: una votación copiada
         // nacería abierta o cerrada según cómo acabó la del año pasado.
         'vt_votaciones' => 'la elección que se convocó ESE año, con sus fechas y su estado',
@@ -169,6 +192,18 @@ class CentinelaDeLasTablasDelAnioNuevoTest extends TestCase
     /**
      * Las que **todavía no se sabe**, y por eso tienen un test rojo esperándolas.
      *
+     * **Hoy está vacía, y eso es lo que se quería.** `rubricas` fue la única que
+     * llegó a aparcarse aquí, y se decidió el **13 sep 2026**: no se copia, va
+     * arriba en `DATOS_DEL_ANIO` con su motivo. O sea que
+     * `hay_tablas_por_anio_sin_decidir` está en verde **porque la pregunta se
+     * contestó**, no porque nadie la mire — que es la única forma de verde que
+     * vale aquí.
+     *
+     * **Y la lista se queda aunque esté vacía.** Borrarla al vaciarse sería quitar
+     * la salida honesta justo antes de la siguiente tabla que no se sepa
+     * clasificar, y entonces la única salida vuelve a ser escribirle a esa tabla un
+     * motivo que suene bien en una de las dos listas de arriba.
+     *
      * Ésta es la válvula que hace que las dos listas de arriba puedan decir la
      * verdad. Sin ella, la única salida ante una tabla que no se sabe clasificar
      * es escribirle un motivo que suene bien, y entonces la lista de excepciones
@@ -187,34 +222,9 @@ class CentinelaDeLasTablasDelAnioNuevoTest extends TestCase
      * @var array<string, string>
      */
     public const SIN_DECIDIR = [
-        // **La única que no encaja en ninguna de las dos listas de arriba.** Una
-        // rúbrica es la matriz criterios × niveles que **produce la nota de una
-        // subunidad** (26 §1, decisión 4 de Joseth), y tiene las dos caras a la vez:
-        //
-        //   - por un lado es **trabajo del docente sobre las asignaturas de SU
-        //     año**: `rubricas.asignatura_id` apunta a una asignatura que el año
-        //     nuevo vuelve a crear con **otro id**, y `subunidades.rubrica_id` la
-        //     engancha a la plantilla ya sembrada. Copiada tal cual sería una
-        //     rúbrica del año nuevo colgada de una asignatura del año viejo, que es
-        //     literalmente la referencia cruzada que `copiarElPlanDeArea` existe
-        //     para evitar;
-        //   - por otro, `es_plantilla = 1` con `asignatura_id` en NULL es **una
-        //     rúbrica de biblioteca**, sin dueño, escrita para reusarse — y ésa
-        //     tiene la misma cara que `unidades_por_defecto`: un colegio que monte
-        //     su biblioteca de rúbricas en 2026 la encontraría vacía en enero.
-        //
-        // Copiarlas no son diez líneas: son **cuatro tablas hijas**
-        // —`rubrica_criterios`, `rubrica_niveles`, `rubrica_descriptores` y el
-        // enganche de `subunidades`— con sus ids remapeados, y **ninguna de ellas
-        // lleva `year_id`**, o sea que este centinela no las vería. Y no hay hoy
-        // ninguna ruta que copie una rúbrica, ni de un año a otro ni dentro del
-        // mismo año, así que tampoco hay un camino que reusar.
-        //
-        // **Se deja sin decidir a propósito y no se copia a medias.** Lo que hay
-        // que preguntar es lo primero de todo: ¿son las de biblioteca
-        // (`es_plantilla = 1`) configuración del colegio? Si la respuesta es sí,
-        // esto es una entrega con su plan, no un `INSERT` más en `postStore`.
-        'rubricas' => 'mitad trabajo del docente (asignatura_id del año viejo) y mitad biblioteca (es_plantilla): ¿las de biblioteca son configuración del colegio? Pregunta para Joseth, 26 §1',
+        // Vacía. Lo que entra aquí es una tabla con `year_id` de la que **no se
+        // sabe** si el año nuevo la hereda, con la pregunta escrita entera y el
+        // nombre de quien la tiene que contestar — nunca un motivo provisional.
     ];
 
     #[Test]
@@ -347,6 +357,13 @@ class CentinelaDeLasTablasDelAnioNuevoTest extends TestCase
      * —la tabla pasa a copiarse o a `DATOS_DEL_ANIO`— y este test se pone verde
      * solo. **Ese paso es lo que lo hace la red de la decisión y no una queja
      * archivada.**
+     *
+     * **Y ya ocurrió, que es lo que lo saca de la teoría.** `rubricas` entró aquí
+     * el 13 sep 2026 con su pregunta escrita, Joseth la contestó el mismo día —no
+     * se copian: se quedan en su año (D27)— y la tabla se movió a
+     * `DATOS_DEL_ANIO`. Este test está verde desde entonces **por haberse
+     * contestado la pregunta**, y ésa es la diferencia con un `@ignore`: el verde
+     * de aquí tiene fecha y tiene autor.
      */
     #[Test]
     #[Group('rojo')]

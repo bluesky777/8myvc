@@ -1305,30 +1305,42 @@ lo único donde aparecen las tablas nuevas:
 | | tablas | por qué |
 |---|---|---|
 | **se copian** (10) | `escalas_de_valoracion` · `frases` · `unidades_por_defecto` · `requisitos_matricula` · `dis_configuraciones` · `dis_ordinales` · `grupos` · `periodos` · **`competencias`** · **`desempenos_por_defecto`** | son **lo que el colegio escribió para decir cómo evalúa**: se escriben una vez y valen para siempre, así que no copiarlas obliga a reescribirlas cada enero |
-| **datos del año** (9) | `auditoria` · `contratos` · `dis_libro_rojo` · `dis_procesos` · `horario_versiones` · `piars_actas_acuerdo` · `piars_alumnos` · `piars_grupos` · `vt_votaciones` | **pasaron en un año concreto**. Un proceso disciplinario, un PIAR firmado, una votación o un horario subido no son trabajo que ahorrarle al colegio: copiarlos sería **fabricar historia que no ocurrió** |
+| **datos del año** (10) | `auditoria` · `contratos` · `dis_libro_rojo` · `dis_procesos` · `horario_versiones` · `piars_actas_acuerdo` · `piars_alumnos` · `piars_grupos` · **`rubricas`** · `vt_votaciones` | **pasaron en un año concreto**. Un proceso disciplinario, un PIAR firmado, una votación o un horario subido no son trabajo que ahorrarle al colegio: copiarlos sería **fabricar historia que no ocurrió** |
 | **muertas** (3) | `default_unidades` · `df_alumnos` · `df_grupos` | ya censadas en el [05](05-codigo-muerto-y-roto.md), cero filas y ningún lector. Su excepción **se borra sola** el día que se borren las tablas |
-| **sin decidir** (1) | `rubricas` | abajo |
+| **sin decidir** (0) | — | `rubricas` era la única y **se decidió el 13 sep 2026** (abajo). La lista se queda vacía, no borrada |
 
 La línea que separa las dos primeras filas es **una sola pregunta**: *¿esto lo escribió
 el colegio para decir cómo evalúa, o lo produjo el año al vivirse?*
 
-> **`rubricas` es la única que no contesta esa pregunta**, y por eso no está en ninguna
-> de las dos listas. Tiene las dos caras a la vez: `rubricas.asignatura_id` la ata a una
+> **`rubricas` era la única que no contestaba esa pregunta** — y la contestó Joseth el
+> **13 sep 2026** (D27): **no se copia. Se queda en su año.**
+>
+> La duda era real y tenía dos caras. Por un lado `rubricas.asignatura_id` la ata a una
 > asignatura que el año nuevo vuelve a crear **con otro id** —copiarla tal cual sería la
-> referencia cruzada que `copiarElPlanDeArea` existe para evitar—, pero
+> referencia cruzada que `copiarElPlanDeArea` existe para evitar—; por otro,
 > `es_plantilla = 1` con `asignatura_id` en NULL es **una rúbrica de biblioteca**, sin
-> dueño y escrita para reusarse, y ésa tiene la misma cara que `unidades_por_defecto`.
+> dueño y escrita para reusarse, y ésa tenía la misma cara que `unidades_por_defecto`.
 >
-> **Y no es un `INSERT` más**: son cuatro tablas hijas —`rubrica_criterios`,
-> `rubrica_niveles`, `rubrica_descriptores` y el enganche de `subunidades`— con sus ids
-> remapeados, y **ninguna lleva `year_id`**, o sea que el centinela nuevo tampoco las
-> vería. No hay hoy ninguna ruta que copie una rúbrica, ni entre años ni dentro del
-> mismo año.
+> **La respuesta cae del mismo lado que el libro rojo, los contratos y las votaciones**:
+> una rúbrica es la matriz con la que un docente evaluó algo concreto de **ese** año, o
+> sea lo que el año produjo al vivirse, y no lo que el colegio escribió una vez para
+> decir cómo evalúa. **El profesor que quiera reusar una la vuelve a montar** — un coste
+> suyo y de una vez, frente al de encontrarse en enero rúbricas con su firma que él no
+> escribió ese año.
 >
-> Queda **declarada sin decidir y con un test rojo esperándola**
-> (`hay_tablas_por_anio_sin_decidir`, grupo `rojo`), que es como en esta casa una duda
-> deja de disfrazarse de decisión. La pregunta para Joseth es la primera de todas:
-> **¿son las rúbricas de biblioteca (`es_plantilla = 1`) configuración del colegio?**
+> Y de paso cierra la parte cara sin tener que pagarla: copiarlas **no era un `INSERT`
+> más** sino cuatro tablas hijas —`rubrica_criterios`, `rubrica_niveles`,
+> `rubrica_descriptores` y el enganche de `subunidades`— con sus ids remapeados, y
+> **ninguna lleva `year_id`**, o sea que el centinela nuevo ni siquiera las vigilaría.
+> No hay hoy ninguna ruta que copie una rúbrica, ni entre años ni dentro del mismo año.
+>
+> **Cómo se apagó el rojo importa tanto como la respuesta.** `rubricas` estuvo declarada
+> en `SIN_DECIDIR` con su pregunta escrita y un test del grupo `rojo` esperándola
+> (`hay_tablas_por_anio_sin_decidir`). Hoy ese test está verde **porque la tabla se movió
+> a `DATOS_DEL_ANIO` con el motivo de Joseth y la fecha**, no porque se haya silenciado la
+> comprobación: la lista `SIN_DECIDIR` sigue en el fichero, vacía, para la siguiente tabla
+> que no se sepa clasificar. Es el primer uso completo de esa válvula —pregunta, rojo,
+> respuesta, verde— y es lo que la separa de un `@ignore` con otro nombre.
 
 **Lo que la copia del plan de área tuvo que resolver y las otras nueve tablas no**: sus
 filas **se apuntan entre ellas**. El desempeño cuelga de la competencia
@@ -2023,7 +2035,7 @@ lo que hable del reparto del curso.
 
 ---
 
-## 6. Las tres decisiones — **cerradas el 13 sep 2026**
+## 6. Las cuatro decisiones — **cerradas el 13 sep 2026**
 
 Se hicieron y se contestaron el mismo día. Se dejan aquí con lo que se propuso al lado, porque
 **una decisión sin su alternativa no se puede revisar dentro de dos años**.
@@ -2033,6 +2045,7 @@ Se hicieron y se contestaron el mismo día. Se dejan aquí con lo que se propuso
 | **D24** | ¿quién puede cambiar el modelo de evaluación del año? | **la propuesta, entera**: `PUT years/modelo-evaluacion` con `auth.personal` en la ruta y `can_edit_plantilla_notas` dentro. El argumento fueron las **21 columnas nombradas** de `putGuardarCambios` y el `auth.personal` de los dieciséis `years/*` de escritura (§1.4) |
 | **D25** | los desempeños de «todos los grados» y los de 6.º, ¿acumulan o compiten? | **acumulan** — y va escrito que es **deliberadamente lo contrario** que la plantilla, donde gana la más específica (§1.6) |
 | **D23** | **¿qué premarca la rejilla?** | **ninguna de las dos salidas que se plantearon: la celda ES el nivel.** Superior/Alto/Básico/Bajo por cruce, premarcado por la nota. El desajuste se cierra por la raíz en vez de traducirse (§1.5) |
+| **D27** | ¿el año nuevo hereda las `rubricas`, al menos las de biblioteca (`es_plantilla = 1`)? | **no: se quedan en su año.** Una rúbrica es lo que el año produjo al vivirse —como el libro rojo, los contratos o las votaciones—, no configuración del colegio. **El profesor que quiera reusar una la vuelve a montar.** Era la única tabla en `SIN_DECIDIR`, y con esto esa lista queda vacía (§2.bis) |
 
 **D23 es la que conviene leer entera**, y no porque contradiga nada: porque **la pregunta estaba
 mal hecha aquí**. Este documento preguntó *«qué texto escoge el nivel»* dando por supuesto que la
@@ -2053,10 +2066,11 @@ salida.**
   de su competencia**, así que renombrar una competencia en 2028 cambia la cabecera de un
   boletín de 2026. Es exactamente el argumento de la tercera columna de la Fase 4, un piso
   más arriba, y **no lo desbloquea ninguna decisión**: es una entrega con su migración.
-- **¿Las rúbricas de biblioteca (`es_plantilla = 1`) son configuración del colegio?** Si lo
-  son, el año nuevo tiene que heredarlas y eso es una entrega con su plan —cuatro tablas
-  hijas y sus ids—, no una línea en `postStore`. Está declarada en la §2.bis y la vigila
-  un test del grupo `rojo`, no un comentario.
+- ~~**¿Las rúbricas de biblioteca (`es_plantilla = 1`) son configuración del colegio?**~~ —
+  **cerrada el 13 sep 2026: no** (D27). No se copian, y la entrega que habría hecho falta
+  —cuatro tablas hijas y sus ids remapeados— no se paga. `rubricas` pasó de `SIN_DECIDIR` a
+  `DATOS_DEL_ANIO` y `hay_tablas_por_anio_sin_decidir` se puso verde **por decisión, no por
+  silencio**.
 - **Los dos censos del día del despliegue** (§7). No se pueden correr desde una sesión de
   desarrollo.
 - **Las materias que el MEN no cubre**: Religión, Artes, Ed. Física y Tecnología **nacen vacías**,
