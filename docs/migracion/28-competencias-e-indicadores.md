@@ -974,6 +974,16 @@ trabajo y pasa a ser el final.
 
 #### c) Competencias propias: `alumno_id`, no una tabla aparte
 
+> **12 sep 2026 — el `alumno_id` cambia de tabla, no de idea.** Joseth preguntó cómo encaja el
+> independiente en el modelo revisado (competencia del grado → desempeño por asignatura y periodo →
+> asignación por alumno). Respuesta, medida en `myvc_front/INVESTIGACION-COMPETENCIAS-Y-DESEMPENOS.md`
+> §5.2-6: **la rejilla del independiente no se toca** (§a y §b siguen enteros), y lo que se le
+> escribe «propio» a un alumno PIAR **es el desempeño, no la competencia** — es lo que ajustan los
+> SIEE y el Decreto 1421. Así que **`competencias.alumno_id` se retira** y en su lugar va
+> `desempenos.alumno_id NULL`, leído con `<=>` por `BoletinIndependiente::alcance()` igual que
+> `unidades`. Y §b **siembra también los desempeños** del grupo a nombre del alumno al marcarlo.
+> Queda abierta la escala del alumno PIAR dentro de un grupo numérico (`grupos.caritas` es por grupo).
+
 La competencia normal es del **grado**, así que un independiente **ya recibe las de su
 grado sin que nadie haga nada** — que es lo correcto en el caso normal: sigue en 6.º.
 Lo que pidió Joseth es poder escribirle las **suyas**, y eso es exactamente la forma
