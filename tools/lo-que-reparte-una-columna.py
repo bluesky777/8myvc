@@ -15,12 +15,22 @@ afirmado que una columna nueva en `years` movía ~30 instantáneas, luego que 3,
 dos veces **por inspección**. Son 3, y el corte que lo demuestra es lo que esta
 herramienta imprime:
 
-    70 de 70 columnas  ->  3 instantáneas   (la fila entera: `SELECT *`)
-    36 de 70 columnas  -> 18 instantáneas   (`Year::datos()`, proyección nombrada)
-    0                  -> 104
+    70 de 71 columnas  ->   3 instantáneas   <- la fila entera (`SELECT *`)
+    36 de 71 columnas  ->  18 instantáneas   <- `Year::datos()`, proyección nombrada
+    19 de 71 columnas  ->   1
+    17 de 71 columnas  ->   7
+    16 de 71 columnas  ->   1
+       (y la cola, hasta 125)
 
-**Nada entre medias**, y por eso no hay umbral que interpretar: o la respuesta
-publica la fila o publica una lista de campos elegidos a mano.
+**Entre 36 y 70 no hay nada**, y ésa es toda la afirmación que hace falta: el corte
+no depende de dónde se ponga el umbral, porque en ese hueco no hay dónde ponerlo.
+
+Y **no** es «nada entre medias», que es como lo resumí yo el primer día y como se
+escribió en el doc 35 antes de corregirlo (`fff36a3`): abajo hay proyecciones de
+19, 17 y 16 columnas, perfectamente normales. La frase de más se coló porque di el
+**recuento** —«3 y 18»— en vez del reparto, y quien lo heredó no tenía con qué
+verlo. Por eso este script imprime el reparto entero aunque nadie lo pida: es la
+única parte de su salida que no se puede resumir mal.
 
 COMPROBADO CONTRA UN CASO REAL YA OCURRIDO, que es lo único que lo acredita
 --------------------------------------------------------------------------
