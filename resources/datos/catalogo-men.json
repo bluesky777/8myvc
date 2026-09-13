@@ -1,0 +1,4372 @@
+{
+  "version": "EBC-2006",
+  "fuente": "Ministerio de Educación Nacional de Colombia. Estándares Básicos de Competencias en Lenguaje, Matemáticas, Ciencias y Ciudadanas (Guía 3, 2006); Estándares Básicos de Competencias Ciudadanas (Guía 6, 2006); Estándares Básicos de Competencias en Lenguas Extranjeras: Inglés (Guía 22, 2006).",
+  "notas": [
+    "Transcripción literal de los PDF oficiales del MEN. Sólo se deshizo la partición silábica de fin de línea y las ligaturas tipográficas «fi»/«fl».",
+    "tipo=enunciado: es el «enunciado identificador» del MEN. Sólo Lenguaje, Ciencias Naturales, Ciencias Sociales y Competencias Ciudadanas lo publican.",
+    "tipo=eje: Matemáticas e Inglés NO publican enunciado identificador; su unidad de organización es el tipo de pensamiento y la habilidad. Es el título de la columna del cuadro original, al que sólo se le cambiaron las mayúsculas.",
+    "tipo=estandar: los estándares en viñeta de Matemáticas e Inglés, que son su grano más fino. No se adoptan por defecto: son demasiados para ser competencias.",
+    "Religión, Educación Artística, Educación Física y Tecnología no aparecen: el MEN no publica Estándares Básicos de Competencias para esas áreas. No es un fallo.",
+    "Los Estándares Básicos empiezan en 1.º: preescolar no tiene conjunto."
+  ],
+  "conjuntos": {
+    "1-3": {
+      "nombre": "1.º a 3.º",
+      "grados": [
+        1,
+        2,
+        3
+      ]
+    },
+    "4-5": {
+      "nombre": "4.º a 5.º",
+      "grados": [
+        4,
+        5
+      ]
+    },
+    "6-7": {
+      "nombre": "6.º a 7.º",
+      "grados": [
+        6,
+        7
+      ]
+    },
+    "8-9": {
+      "nombre": "8.º a 9.º",
+      "grados": [
+        8,
+        9
+      ]
+    },
+    "10-11": {
+      "nombre": "10.º a 11.º",
+      "grados": [
+        10,
+        11
+      ]
+    }
+  },
+  "areas": [
+    {
+      "clave": "lenguaje",
+      "nombre": "Lenguaje",
+      "documento": "Estándares Básicos de Competencias del Lenguaje (MEN, Guía 3, 2006)",
+      "materias": [
+        "lengua castellana",
+        "lenguaje",
+        "espanol",
+        "castellano",
+        "humanidades",
+        "taller de lectura",
+        "comprension lectora",
+        "plan lector",
+        "dimension comunicativa",
+        "lectura critica"
+      ],
+      "competencias": [
+        {
+          "codigo": "LEN-1-3-PT-1",
+          "conjunto": "1-3",
+          "grupo": "Producción textual",
+          "tipo": "enunciado",
+          "definicion": "Produzco textos orales que responden a distintos propósitos comunicativos."
+        },
+        {
+          "codigo": "LEN-1-3-PT-2",
+          "conjunto": "1-3",
+          "grupo": "Producción textual",
+          "tipo": "enunciado",
+          "definicion": "Produzco textos escritos que responden a diversas necesidades comunicativas."
+        },
+        {
+          "codigo": "LEN-1-3-CIT-1",
+          "conjunto": "1-3",
+          "grupo": "Comprensión e interpretación textual",
+          "tipo": "enunciado",
+          "definicion": "Comprendo textos que tienen diferentes formatos y finalidades."
+        },
+        {
+          "codigo": "LEN-1-3-LITE-1",
+          "conjunto": "1-3",
+          "grupo": "Literatura",
+          "tipo": "enunciado",
+          "definicion": "Comprendo textos literarios para propiciar el desarrollo de mi capacidad creativa y lúdica."
+        },
+        {
+          "codigo": "LEN-1-3-MCSS-1",
+          "conjunto": "1-3",
+          "grupo": "Medios de comunicación y otros sistemas simbólicos",
+          "tipo": "enunciado",
+          "definicion": "Reconozco los medios de comunicación masiva y caracterizo la información que difunden."
+        },
+        {
+          "codigo": "LEN-1-3-MCSS-2",
+          "conjunto": "1-3",
+          "grupo": "Medios de comunicación y otros sistemas simbólicos",
+          "tipo": "enunciado",
+          "definicion": "Comprendo la información que circula a través de algunos sistemas de comunicación no verbal."
+        },
+        {
+          "codigo": "LEN-1-3-EC-1",
+          "conjunto": "1-3",
+          "grupo": "Ética de la comunicación",
+          "tipo": "enunciado",
+          "definicion": "Identifico los principales elementos y roles de la comunicación para enriquecer procesos comunicativos auténticos."
+        },
+        {
+          "codigo": "LEN-4-5-PT-1",
+          "conjunto": "4-5",
+          "grupo": "Producción textual",
+          "tipo": "enunciado",
+          "definicion": "Produzco textos orales, en situaciones comunicativas que permiten evidenciar el uso significativo de la entonación y la pertinencia articulatoria."
+        },
+        {
+          "codigo": "LEN-4-5-PT-2",
+          "conjunto": "4-5",
+          "grupo": "Producción textual",
+          "tipo": "enunciado",
+          "definicion": "Produzco textos escritos que responden a diversas necesidades comunicativas y que siguen un procedimiento estratégico para su elaboración."
+        },
+        {
+          "codigo": "LEN-4-5-CIT-1",
+          "conjunto": "4-5",
+          "grupo": "Comprensión e interpretación textual",
+          "tipo": "enunciado",
+          "definicion": "Comprendo diversos tipos de texto, utilizando algunas estrategias de búsqueda, organización y almacenamiento de la información."
+        },
+        {
+          "codigo": "LEN-4-5-LITE-1",
+          "conjunto": "4-5",
+          "grupo": "Literatura",
+          "tipo": "enunciado",
+          "definicion": "Elaboro hipótesis de lectura acerca de las relaciones entre los elementos constitutivos de un texto literario, y entre éste y el contexto."
+        },
+        {
+          "codigo": "LEN-4-5-MCSS-1",
+          "conjunto": "4-5",
+          "grupo": "Medios de comunicación y otros sistemas simbólicos",
+          "tipo": "enunciado",
+          "definicion": "Caracterizo los medios de comunicación masiva y selecciono la información que emiten, para utilizarla en la creación de nuevos textos."
+        },
+        {
+          "codigo": "LEN-4-5-MCSS-2",
+          "conjunto": "4-5",
+          "grupo": "Medios de comunicación y otros sistemas simbólicos",
+          "tipo": "enunciado",
+          "definicion": "Caracterizo el funcionamiento de algunos códigos no verbales con miras a su uso en situaciones comunicativas auténticas."
+        },
+        {
+          "codigo": "LEN-4-5-EC-1",
+          "conjunto": "4-5",
+          "grupo": "Ética de la comunicación",
+          "tipo": "enunciado",
+          "definicion": "Conozco y analizo los elementos, roles, relaciones y reglas básicas de la comunicación, para inferir las intenciones y expectativas de mis interlocutores y hacer más eficaces mis procesos comunicativos."
+        },
+        {
+          "codigo": "LEN-6-7-PT-1",
+          "conjunto": "6-7",
+          "grupo": "Producción textual",
+          "tipo": "enunciado",
+          "definicion": "Conozco y utilizo algunas estrategias argumentativas que posibilitan la construcción de textos orales en situaciones comunicativas auténticas."
+        },
+        {
+          "codigo": "LEN-6-7-PT-2",
+          "conjunto": "6-7",
+          "grupo": "Producción textual",
+          "tipo": "enunciado",
+          "definicion": "Produzco textos escritos que responden a necesidades específicas de comunicación, a procedimientos sistemáticos de elaboración y establezco nexos intertextuales y extratextuales."
+        },
+        {
+          "codigo": "LEN-6-7-CIT-1",
+          "conjunto": "6-7",
+          "grupo": "Comprensión e interpretación textual",
+          "tipo": "enunciado",
+          "definicion": "Comprendo e interpreto diversos tipos de texto, para establecer sus relaciones internas y su clasificación en una tipología textual."
+        },
+        {
+          "codigo": "LEN-6-7-LITE-1",
+          "conjunto": "6-7",
+          "grupo": "Literatura",
+          "tipo": "enunciado",
+          "definicion": "Reconozco la tradición oral como fuente de la conformación y desarrollo de la literatura."
+        },
+        {
+          "codigo": "LEN-6-7-LITE-2",
+          "conjunto": "6-7",
+          "grupo": "Literatura",
+          "tipo": "enunciado",
+          "definicion": "Comprendo obras literarias de diferentes géneros, propiciando así el desarrollo de mi capacidad crítica y creativa."
+        },
+        {
+          "codigo": "LEN-6-7-MCSS-1",
+          "conjunto": "6-7",
+          "grupo": "Medios de comunicación y otros sistemas simbólicos",
+          "tipo": "enunciado",
+          "definicion": "Caracterizo los medios de comunicación masiva y selecciono la información que emiten para clasificarla y almacenarla."
+        },
+        {
+          "codigo": "LEN-6-7-MCSS-2",
+          "conjunto": "6-7",
+          "grupo": "Medios de comunicación y otros sistemas simbólicos",
+          "tipo": "enunciado",
+          "definicion": "Relaciono de manera intertextual obras que emplean el lenguaje no verbal y obras que emplean el lenguaje verbal."
+        },
+        {
+          "codigo": "LEN-6-7-EC-1",
+          "conjunto": "6-7",
+          "grupo": "Ética de la comunicación",
+          "tipo": "enunciado",
+          "definicion": "Reconozco, en situaciones comunicativas auténticas, la diversidad y el encuentro de culturas, con el fin de afianzar mis actitudes de respeto y tolerancia."
+        },
+        {
+          "codigo": "LEN-8-9-PT-1",
+          "conjunto": "8-9",
+          "grupo": "Producción textual",
+          "tipo": "enunciado",
+          "definicion": "Produzco textos orales de tipo argumentativo para exponer mis ideas y llegar a acuerdos en los que prime el respeto por mi interlocutor y la valoración de los contextos comunicativos."
+        },
+        {
+          "codigo": "LEN-8-9-PT-2",
+          "conjunto": "8-9",
+          "grupo": "Producción textual",
+          "tipo": "enunciado",
+          "definicion": "Produzco textos escritos que evidencian el conocimiento que he alcanzado acerca del funcionamiento de la lengua en situaciones de comunicación y el uso de las estrategias de producción textual."
+        },
+        {
+          "codigo": "LEN-8-9-CIT-1",
+          "conjunto": "8-9",
+          "grupo": "Comprensión e interpretación textual",
+          "tipo": "enunciado",
+          "definicion": "Comprendo e interpreto textos, teniendo en cuenta el funcionamiento de la lengua en situaciones de comunicación, el uso de estrategias de lectura y el papel del interlocutor y del contexto."
+        },
+        {
+          "codigo": "LEN-8-9-LITE-1",
+          "conjunto": "8-9",
+          "grupo": "Literatura",
+          "tipo": "enunciado",
+          "definicion": "Determino en las obras literarias latinoamericanas, elementos textuales que dan cuenta de sus características estéticas, históricas y sociológicas, cuando sea pertinente."
+        },
+        {
+          "codigo": "LEN-8-9-MCSS-1",
+          "conjunto": "8-9",
+          "grupo": "Medios de comunicación y otros sistemas simbólicos",
+          "tipo": "enunciado",
+          "definicion": "Retomo crítica y selectivamente la información que circula a través de los medios de comunicación masiva, para confrontarla con la que proviene de otras fuentes."
+        },
+        {
+          "codigo": "LEN-8-9-MCSS-2",
+          "conjunto": "8-9",
+          "grupo": "Medios de comunicación y otros sistemas simbólicos",
+          "tipo": "enunciado",
+          "definicion": "Comprendo los factores sociales y culturales que determinan algunas manifestaciones del lenguaje no verbal."
+        },
+        {
+          "codigo": "LEN-8-9-EC-1",
+          "conjunto": "8-9",
+          "grupo": "Ética de la comunicación",
+          "tipo": "enunciado",
+          "definicion": "Reflexiono en forma crítica acerca de los actos comunicativos y explico los componentes del proceso de comunicación, con énfasis en los agentes, los discursos, los contextos y el funcionamiento de la lengua, en tanto sistema de signos, símbolos y reglas de uso."
+        },
+        {
+          "codigo": "LEN-10-11-PT-1",
+          "conjunto": "10-11",
+          "grupo": "Producción textual",
+          "tipo": "enunciado",
+          "definicion": "Produzco textos argumentativos que evidencian mi conocimiento de la lengua y el control sobre el uso que hago de ella en contextos comunicativos orales y escritos."
+        },
+        {
+          "codigo": "LEN-10-11-CIT-1",
+          "conjunto": "10-11",
+          "grupo": "Comprensión e interpretación textual",
+          "tipo": "enunciado",
+          "definicion": "Comprendo e interpreto textos con actitud crítica y capacidad argumentativa."
+        },
+        {
+          "codigo": "LEN-10-11-LITE-1",
+          "conjunto": "10-11",
+          "grupo": "Literatura",
+          "tipo": "enunciado",
+          "definicion": "Analizo crítica y creativamente diferentes manifestaciones literarias del contexto universal."
+        },
+        {
+          "codigo": "LEN-10-11-MCSS-1",
+          "conjunto": "10-11",
+          "grupo": "Medios de comunicación y otros sistemas simbólicos",
+          "tipo": "enunciado",
+          "definicion": "Interpreto en forma crítica la información difundida por los medios de comunicación masiva."
+        },
+        {
+          "codigo": "LEN-10-11-MCSS-2",
+          "conjunto": "10-11",
+          "grupo": "Medios de comunicación y otros sistemas simbólicos",
+          "tipo": "enunciado",
+          "definicion": "Retomo críticamente los lenguajes no verbales para desarrollar procesos comunicativos intencionados."
+        },
+        {
+          "codigo": "LEN-10-11-EC-1",
+          "conjunto": "10-11",
+          "grupo": "Ética de la comunicación",
+          "tipo": "enunciado",
+          "definicion": "Expreso respeto por la diversidad cultural y social del mundo contemporáneo, en las situaciones comunicativas en las que intervengo."
+        }
+      ]
+    },
+    {
+      "clave": "matematicas",
+      "nombre": "Matemáticas",
+      "documento": "Estándares Básicos de Competencias en Matemáticas (MEN, Guía 3, 2006)",
+      "materias": [
+        "matematicas",
+        "matematica",
+        "aritmetica",
+        "geometria",
+        "algebra",
+        "trigonometria",
+        "calculo",
+        "estadistica",
+        "estadisticas",
+        "pensamiento logico"
+      ],
+      "competencias": [
+        {
+          "codigo": "MAT-1-3-PNSN-E",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "eje",
+          "definicion": "Pensamiento numérico y sistemas numéricos"
+        },
+        {
+          "codigo": "MAT-1-3-PESG-E",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento espacial y sistemas geométricos",
+          "tipo": "eje",
+          "definicion": "Pensamiento espacial y sistemas geométricos"
+        },
+        {
+          "codigo": "MAT-1-3-PMSM-E",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento métrico y sistemas de medidas",
+          "tipo": "eje",
+          "definicion": "Pensamiento métrico y sistemas de medidas"
+        },
+        {
+          "codigo": "MAT-1-3-PASD-E",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "eje",
+          "definicion": "Pensamiento aleatorio y sistemas de datos"
+        },
+        {
+          "codigo": "MAT-1-3-PVSAA-E",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento variacional y sistemas algebraicos y analíticos",
+          "tipo": "eje",
+          "definicion": "Pensamiento variacional y sistemas algebraicos y analíticos"
+        },
+        {
+          "codigo": "MAT-4-5-PNSN-E",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "eje",
+          "definicion": "Pensamiento numérico y sistemas numéricos"
+        },
+        {
+          "codigo": "MAT-4-5-PESG-E",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento espacial y sistemas geométricos",
+          "tipo": "eje",
+          "definicion": "Pensamiento espacial y sistemas geométricos"
+        },
+        {
+          "codigo": "MAT-4-5-PMSM-E",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento métrico y sistemas de medidas",
+          "tipo": "eje",
+          "definicion": "Pensamiento métrico y sistemas de medidas"
+        },
+        {
+          "codigo": "MAT-4-5-PASD-E",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "eje",
+          "definicion": "Pensamiento aleatorio y sistemas de datos"
+        },
+        {
+          "codigo": "MAT-4-5-PVSAA-E",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento variacional y sistemas algebraicos y analíticos",
+          "tipo": "eje",
+          "definicion": "Pensamiento variacional y sistemas algebraicos y analíticos"
+        },
+        {
+          "codigo": "MAT-6-7-PNSN-E",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "eje",
+          "definicion": "Pensamiento numérico y sistemas numéricos"
+        },
+        {
+          "codigo": "MAT-6-7-PESG-E",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento espacial y sistemas geométricos",
+          "tipo": "eje",
+          "definicion": "Pensamiento espacial y sistemas geométricos"
+        },
+        {
+          "codigo": "MAT-6-7-PMSM-E",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento métrico y sistemas de medidas",
+          "tipo": "eje",
+          "definicion": "Pensamiento métrico y sistemas de medidas"
+        },
+        {
+          "codigo": "MAT-6-7-PASD-E",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "eje",
+          "definicion": "Pensamiento aleatorio y sistemas de datos"
+        },
+        {
+          "codigo": "MAT-6-7-PVSAA-E",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento variacional y sistemas algebraicos y analíticos",
+          "tipo": "eje",
+          "definicion": "Pensamiento variacional y sistemas algebraicos y analíticos"
+        },
+        {
+          "codigo": "MAT-8-9-PNSN-E",
+          "conjunto": "8-9",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "eje",
+          "definicion": "Pensamiento numérico y sistemas numéricos"
+        },
+        {
+          "codigo": "MAT-8-9-PESG-E",
+          "conjunto": "8-9",
+          "grupo": "Pensamiento espacial y sistemas geométricos",
+          "tipo": "eje",
+          "definicion": "Pensamiento espacial y sistemas geométricos"
+        },
+        {
+          "codigo": "MAT-8-9-PMSM-E",
+          "conjunto": "8-9",
+          "grupo": "Pensamiento métrico y sistemas de medidas",
+          "tipo": "eje",
+          "definicion": "Pensamiento métrico y sistemas de medidas"
+        },
+        {
+          "codigo": "MAT-8-9-PASD-E",
+          "conjunto": "8-9",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "eje",
+          "definicion": "Pensamiento aleatorio y sistemas de datos"
+        },
+        {
+          "codigo": "MAT-8-9-PVSAA-E",
+          "conjunto": "8-9",
+          "grupo": "Pensamiento variacional y sistemas algebraicos y analíticos",
+          "tipo": "eje",
+          "definicion": "Pensamiento variacional y sistemas algebraicos y analíticos"
+        },
+        {
+          "codigo": "MAT-10-11-PNSN-E",
+          "conjunto": "10-11",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "eje",
+          "definicion": "Pensamiento numérico y sistemas numéricos"
+        },
+        {
+          "codigo": "MAT-10-11-PESG-E",
+          "conjunto": "10-11",
+          "grupo": "Pensamiento espacial y sistemas geométricos",
+          "tipo": "eje",
+          "definicion": "Pensamiento espacial y sistemas geométricos"
+        },
+        {
+          "codigo": "MAT-10-11-PMSM-E",
+          "conjunto": "10-11",
+          "grupo": "Pensamiento métrico y sistemas de medidas",
+          "tipo": "eje",
+          "definicion": "Pensamiento métrico y sistemas de medidas"
+        },
+        {
+          "codigo": "MAT-10-11-PASD-E",
+          "conjunto": "10-11",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "eje",
+          "definicion": "Pensamiento aleatorio y sistemas de datos"
+        },
+        {
+          "codigo": "MAT-10-11-PVSAA-E",
+          "conjunto": "10-11",
+          "grupo": "Pensamiento variacional y sistemas algebraicos y analíticos",
+          "tipo": "eje",
+          "definicion": "Pensamiento variacional y sistemas algebraicos y analíticos"
+        },
+        {
+          "codigo": "MAT-1-3-PNSN-1",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Reconozco significados del número en diferentes contextos (medición, conteo, comparación, codificación, localización entre otros)."
+        },
+        {
+          "codigo": "MAT-1-3-PNSN-2",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Describo, comparo y cuantifico situaciones con números, en diferentes contextos y con diversas representaciones."
+        },
+        {
+          "codigo": "MAT-1-3-PNSN-3",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Describo situaciones que requieren el uso de medidas relativas."
+        },
+        {
+          "codigo": "MAT-1-3-PNSN-4",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Describo situaciones de medición utilizando fracciones comunes."
+        },
+        {
+          "codigo": "MAT-1-3-PNSN-5",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Uso representaciones –principalmente concretas y pictóricas– para explicar el valor de posición en el sistema de numeración decimal."
+        },
+        {
+          "codigo": "MAT-1-3-PNSN-6",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Uso representaciones –principalmente concretas y pictóricas– para realizar equivalencias de un número en las diferentes unidades del sistema decimal."
+        },
+        {
+          "codigo": "MAT-1-3-PNSN-7",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Reconozco propiedades de los números (ser par, ser impar, etc.) y relaciones entre ellos (ser mayor que, ser menor que, ser múltiplo de, ser divisible por, etc.) en diferentes contextos."
+        },
+        {
+          "codigo": "MAT-1-3-PNSN-8",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Resuelvo y formulo problemas en situaciones aditivas de composición y de transformación."
+        },
+        {
+          "codigo": "MAT-1-3-PNSN-9",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Resuelvo y formulo problemas en situaciones de variación proporcional."
+        },
+        {
+          "codigo": "MAT-1-3-PNSN-10",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Uso diversas estrategias de cálculo (especialmente cálculo mental) y de estimación para resolver problemas en situaciones aditivas y multiplicativas."
+        },
+        {
+          "codigo": "MAT-1-3-PNSN-11",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Identifico, si a la luz de los datos de un problema, los resultados obtenidos son o no razonables."
+        },
+        {
+          "codigo": "MAT-1-3-PNSN-12",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Identifico regularidades y propiedades de los números utilizando diferentes instrumentos de cálculo (calculadoras, ábacos, bloques multibase, etc.)."
+        },
+        {
+          "codigo": "MAT-1-3-PESG-1",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento espacial y sistemas geométricos",
+          "tipo": "estandar",
+          "definicion": "Diferencio atributos y propiedades de objetos tridimensionales."
+        },
+        {
+          "codigo": "MAT-1-3-PESG-2",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento espacial y sistemas geométricos",
+          "tipo": "estandar",
+          "definicion": "Dibujo y describo cuerpos o figuras tridimensionales en distintas posiciones y tamaños."
+        },
+        {
+          "codigo": "MAT-1-3-PESG-3",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento espacial y sistemas geométricos",
+          "tipo": "estandar",
+          "definicion": "Reconozco nociones de horizontalidad, verticalidad, paralelismo y perpendicularidad en distintos contextos y su condición relativa con respecto a diferentes sistemas de referencia."
+        },
+        {
+          "codigo": "MAT-1-3-PESG-4",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento espacial y sistemas geométricos",
+          "tipo": "estandar",
+          "definicion": "Represento el espacio circundante para establecer relaciones espaciales."
+        },
+        {
+          "codigo": "MAT-1-3-PESG-5",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento espacial y sistemas geométricos",
+          "tipo": "estandar",
+          "definicion": "Reconozco y aplico traslaciones y giros sobre una figura."
+        },
+        {
+          "codigo": "MAT-1-3-PESG-6",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento espacial y sistemas geométricos",
+          "tipo": "estandar",
+          "definicion": "Reconozco y valoro simetrías en distintos aspectos del arte y el diseño."
+        },
+        {
+          "codigo": "MAT-1-3-PESG-7",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento espacial y sistemas geométricos",
+          "tipo": "estandar",
+          "definicion": "Reconozco congruencia y semejanza entre figuras (ampliar, reducir)."
+        },
+        {
+          "codigo": "MAT-1-3-PESG-8",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento espacial y sistemas geométricos",
+          "tipo": "estandar",
+          "definicion": "Realizo construcciones y diseños utilizando cuerpos y figuras geométricas tridimensionales y dibujos o figuras geométricas bidimensionales."
+        },
+        {
+          "codigo": "MAT-1-3-PESG-9",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento espacial y sistemas geométricos",
+          "tipo": "estandar",
+          "definicion": "Desarrollo habilidades para relacionar dirección, distancia y posición en el espacio."
+        },
+        {
+          "codigo": "MAT-1-3-PMSM-1",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento métrico y sistemas de medidas",
+          "tipo": "estandar",
+          "definicion": "Reconozco en los objetos propiedades o atributos que se puedan medir (longitud, área, volumen, capacidad, peso y masa) y, en los eventos, su duración."
+        },
+        {
+          "codigo": "MAT-1-3-PMSM-2",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento métrico y sistemas de medidas",
+          "tipo": "estandar",
+          "definicion": "Comparo y ordeno objetos respecto a atributos medibles."
+        },
+        {
+          "codigo": "MAT-1-3-PMSM-3",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento métrico y sistemas de medidas",
+          "tipo": "estandar",
+          "definicion": "Realizo y describo procesos de medición con patrones arbitrarios y algunos estandarizados, de acuerdo al contexto."
+        },
+        {
+          "codigo": "MAT-1-3-PMSM-4",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento métrico y sistemas de medidas",
+          "tipo": "estandar",
+          "definicion": "Analizo y explico sobre la pertinencia de patrones e instrumentos en procesos de medición."
+        },
+        {
+          "codigo": "MAT-1-3-PMSM-5",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento métrico y sistemas de medidas",
+          "tipo": "estandar",
+          "definicion": "Realizo estimaciones de medidas requeridas en la resolución de problemas relativos particularmente a la vida social, económica y de las ciencias."
+        },
+        {
+          "codigo": "MAT-1-3-PMSM-6",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento métrico y sistemas de medidas",
+          "tipo": "estandar",
+          "definicion": "Reconozco el uso de las magnitudes y sus unidades de medida en situaciones aditivas y multiplicativas."
+        },
+        {
+          "codigo": "MAT-1-3-PASD-1",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Clasifico y organizo datos de acuerdo a cualidades y atributos y los presento en tablas."
+        },
+        {
+          "codigo": "MAT-1-3-PASD-2",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Interpreto cualitativamente datos referidos a situaciones del entorno escolar."
+        },
+        {
+          "codigo": "MAT-1-3-PASD-3",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Describo situaciones o eventos a partir de un conjunto de datos."
+        },
+        {
+          "codigo": "MAT-1-3-PASD-4",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Represento datos relativos a mi entorno usando objetos concretos, pictogramas y diagramas de barras."
+        },
+        {
+          "codigo": "MAT-1-3-PASD-5",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Identifico regularidades y tendencias en un conjunto de datos."
+        },
+        {
+          "codigo": "MAT-1-3-PASD-6",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Explico –desde mi experiencia– la posibilidad o imposibilidad de ocurrencia de eventos cotidianos."
+        },
+        {
+          "codigo": "MAT-1-3-PASD-7",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Predigo si la posibilidad de ocurrencia de un evento es mayor que la de otro."
+        },
+        {
+          "codigo": "MAT-1-3-PASD-8",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Resuelvo y formulo preguntas que requieran para su solución coleccionar y analizar datos del entorno próximo."
+        },
+        {
+          "codigo": "MAT-1-3-PVSAA-1",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento variacional y sistemas algebraicos y analíticos",
+          "tipo": "estandar",
+          "definicion": "Reconozco y describo regularidades y patrones en distintos contextos (numérico, geométrico, musical, entre otros)."
+        },
+        {
+          "codigo": "MAT-1-3-PVSAA-2",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento variacional y sistemas algebraicos y analíticos",
+          "tipo": "estandar",
+          "definicion": "Describo cualitativamente situaciones de cambio y variación utilizando el lenguaje natural, dibujos y gráficas."
+        },
+        {
+          "codigo": "MAT-1-3-PVSAA-3",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento variacional y sistemas algebraicos y analíticos",
+          "tipo": "estandar",
+          "definicion": "Reconozco y genero equivalencias entre expresiones numéricas y describo cómo cambian los símbolos aunque el valor siga igual."
+        },
+        {
+          "codigo": "MAT-1-3-PVSAA-4",
+          "conjunto": "1-3",
+          "grupo": "Pensamiento variacional y sistemas algebraicos y analíticos",
+          "tipo": "estandar",
+          "definicion": "Construyo secuencias numéricas y geométricas utilizando propiedades de los números y de las figuras geométricas."
+        },
+        {
+          "codigo": "MAT-4-5-PNSN-1",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Interpreto las fracciones en diferentes contextos: situaciones de medición, relaciones parte todo, cociente, razones y proporciones."
+        },
+        {
+          "codigo": "MAT-4-5-PNSN-2",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Identifico y uso medidas relativas en distintos contextos."
+        },
+        {
+          "codigo": "MAT-4-5-PNSN-3",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Utilizo la notación decimal para expresar fracciones en diferentes contextos y relaciono estas dos notaciones con la de los porcentajes."
+        },
+        {
+          "codigo": "MAT-4-5-PNSN-4",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Justifico el valor de posición en el sistema de numeración decimal en relación con el conteo recurrente de unidades."
+        },
+        {
+          "codigo": "MAT-4-5-PNSN-5",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Resuelvo y formulo problemas cuya estrategia de solución requiera de las relaciones y propiedades de los números naturales y sus operaciones."
+        },
+        {
+          "codigo": "MAT-4-5-PNSN-6",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Resuelvo y formulo problemas en situaciones aditivas de composición, transformación, comparación e igualación."
+        },
+        {
+          "codigo": "MAT-4-5-PNSN-7",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Resuelvo y formulo problemas en situaciones de proporcionalidad directa, inversa y producto de medidas."
+        },
+        {
+          "codigo": "MAT-4-5-PNSN-8",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Identifico la potenciación y la radicación en contextos matemáticos y no matemáticos."
+        },
+        {
+          "codigo": "MAT-4-5-PNSN-9",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Modelo situaciones de dependencia mediante la proporcionalidad directa e inversa."
+        },
+        {
+          "codigo": "MAT-4-5-PNSN-10",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Uso diversas estrategias de cálculo y de estimación para resolver problemas en situaciones aditivas y multiplicativas."
+        },
+        {
+          "codigo": "MAT-4-5-PNSN-11",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Identifico, en el contexto de una situación, la necesidad de un cálculo exacto o aproximado y lo razonable de los resultados obtenidos."
+        },
+        {
+          "codigo": "MAT-4-5-PNSN-12",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Justifico regularidades y propiedades de los números, sus relaciones y operaciones."
+        },
+        {
+          "codigo": "MAT-4-5-PESG-1",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento espacial y sistemas geométricos",
+          "tipo": "estandar",
+          "definicion": "Comparo y clasifico objetos tridimensionales de acuerdo con componentes (caras, lados) y propiedades."
+        },
+        {
+          "codigo": "MAT-4-5-PESG-2",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento espacial y sistemas geométricos",
+          "tipo": "estandar",
+          "definicion": "Comparo y clasifico figuras bidimensionales de acuerdo con sus componentes (ángulos, vértices) y características."
+        },
+        {
+          "codigo": "MAT-4-5-PESG-3",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento espacial y sistemas geométricos",
+          "tipo": "estandar",
+          "definicion": "Identifico, represento y utilizo ángulos en giros, aberturas, inclinaciones, figuras, puntas y esquinas en situaciones estáticas y dinámicas."
+        },
+        {
+          "codigo": "MAT-4-5-PESG-4",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento espacial y sistemas geométricos",
+          "tipo": "estandar",
+          "definicion": "Utilizo sistemas de coordenadas para especificar localizaciones y describir relaciones espaciales."
+        },
+        {
+          "codigo": "MAT-4-5-PESG-5",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento espacial y sistemas geométricos",
+          "tipo": "estandar",
+          "definicion": "Identifico y justifico relaciones de congruencia y semejanza entre figuras."
+        },
+        {
+          "codigo": "MAT-4-5-PESG-6",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento espacial y sistemas geométricos",
+          "tipo": "estandar",
+          "definicion": "Construyo y descompongo figuras y sólidos a partir de condiciones dadas."
+        },
+        {
+          "codigo": "MAT-4-5-PESG-7",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento espacial y sistemas geométricos",
+          "tipo": "estandar",
+          "definicion": "Conjeturo y verifico los resultados de aplicar transformaciones a figuras en el plano para construir diseños."
+        },
+        {
+          "codigo": "MAT-4-5-PESG-8",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento espacial y sistemas geométricos",
+          "tipo": "estandar",
+          "definicion": "Construyo objetos tridimensionales a partir de representaciones bidimensionales y puedo realizar el proceso contrario en contextos de arte, diseño y arquitectura."
+        },
+        {
+          "codigo": "MAT-4-5-PMSM-1",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento métrico y sistemas de medidas",
+          "tipo": "estandar",
+          "definicion": "Diferencio y ordeno, en objetos y eventos, propiedades o atributos que se puedan medir (longitudes, distancias, áreas de superficies, volúmenes de cuerpos sólidos, volúmenes de líquidos y capacidades de recipientes; pesos y masa de cuerpos sólidos; duración de eventos o procesos; amplitud de ángulos)."
+        },
+        {
+          "codigo": "MAT-4-5-PMSM-2",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento métrico y sistemas de medidas",
+          "tipo": "estandar",
+          "definicion": "Selecciono unidades, tanto convencionales como estandarizadas, apropiadas para diferentes mediciones."
+        },
+        {
+          "codigo": "MAT-4-5-PMSM-3",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento métrico y sistemas de medidas",
+          "tipo": "estandar",
+          "definicion": "Utilizo y justifico el uso de la estimación para resolver problemas relativos a la vida social, económica y de las ciencias, utilizando rangos de variación."
+        },
+        {
+          "codigo": "MAT-4-5-PMSM-4",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento métrico y sistemas de medidas",
+          "tipo": "estandar",
+          "definicion": "Utilizo diferentes procedimientos de cálculo para hallar el área de la superficie exterior y el volumen de algunos cuerpos sólidos."
+        },
+        {
+          "codigo": "MAT-4-5-PMSM-5",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento métrico y sistemas de medidas",
+          "tipo": "estandar",
+          "definicion": "Justifico relaciones de dependencia del área y volumen, respecto a las dimensiones de figuras y sólidos."
+        },
+        {
+          "codigo": "MAT-4-5-PMSM-6",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento métrico y sistemas de medidas",
+          "tipo": "estandar",
+          "definicion": "Reconozco el uso de algunas magnitudes (longitud, área, volumen, capacidad, peso y masa, duración, rapidez, temperatura) y de algunas de las unidades que se usan para medir cantidades de la magnitud respectiva en situaciones aditivas y multiplicativas."
+        },
+        {
+          "codigo": "MAT-4-5-PMSM-7",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento métrico y sistemas de medidas",
+          "tipo": "estandar",
+          "definicion": "Describo y argumento relaciones entre el perímetro y el área de figuras diferentes, cuando se fija una de estas medidas."
+        },
+        {
+          "codigo": "MAT-4-5-PASD-1",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Represento datos usando tablas y gráficas (pictogramas, gráficas de barras, diagramas de líneas, diagramas circulares)."
+        },
+        {
+          "codigo": "MAT-4-5-PASD-2",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Comparo diferentes representaciones del mismo conjunto de datos."
+        },
+        {
+          "codigo": "MAT-4-5-PASD-3",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Interpreto información presentada en tablas y gráficas. (pictogramas, gráficas de barras, diagramas de líneas, diagramas circulares)."
+        },
+        {
+          "codigo": "MAT-4-5-PASD-4",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Conjeturo y pongo a prueba predicciones acerca de la posibilidad de ocurrencia de eventos."
+        },
+        {
+          "codigo": "MAT-4-5-PASD-5",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Describo la manera como parecen distribuirse los distintos datos de un conjunto de ellos y la comparo con la manera como se distribuyen en otros conjuntos de datos."
+        },
+        {
+          "codigo": "MAT-4-5-PASD-6",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Uso e interpreto la media (o promedio) y la mediana y comparo lo que indican."
+        },
+        {
+          "codigo": "MAT-4-5-PASD-7",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Resuelvo y formulo problemas a partir de un conjunto de datos provenientes de observaciones, consultas o experimentos."
+        },
+        {
+          "codigo": "MAT-4-5-PVSAA-1",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento variacional y sistemas algebraicos y analíticos",
+          "tipo": "estandar",
+          "definicion": "Describo e interpreto variaciones representadas en gráficos."
+        },
+        {
+          "codigo": "MAT-4-5-PVSAA-2",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento variacional y sistemas algebraicos y analíticos",
+          "tipo": "estandar",
+          "definicion": "Predigo patrones de variación en una secuencia numérica, geométrica o gráfica."
+        },
+        {
+          "codigo": "MAT-4-5-PVSAA-3",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento variacional y sistemas algebraicos y analíticos",
+          "tipo": "estandar",
+          "definicion": "Represento y relaciono patrones numéricos con tablas y reglas verbales."
+        },
+        {
+          "codigo": "MAT-4-5-PVSAA-4",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento variacional y sistemas algebraicos y analíticos",
+          "tipo": "estandar",
+          "definicion": "Analizo y explico relaciones de dependencia entre cantidades que varían en el tiempo con cierta regularidad en situaciones económicas, sociales y de las ciencias naturales."
+        },
+        {
+          "codigo": "MAT-4-5-PVSAA-5",
+          "conjunto": "4-5",
+          "grupo": "Pensamiento variacional y sistemas algebraicos y analíticos",
+          "tipo": "estandar",
+          "definicion": "Construyo igualdades y desigualdades numéricas como representación de relaciones entre distintos datos."
+        },
+        {
+          "codigo": "MAT-6-7-PNSN-1",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Resuelvo y formulo problemas en contextos de medidas relativas y de variaciones en las medidas."
+        },
+        {
+          "codigo": "MAT-6-7-PNSN-2",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Utilizo números racionales, en sus distintas expresiones (fracciones, razones, decimales o porcentajes) para resolver problemas en contextos de medida."
+        },
+        {
+          "codigo": "MAT-6-7-PNSN-3",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Justifico la extensión de la representación polinomial decimal usual de los números naturales a la representación decimal usual de los números racionales, utilizando las propiedades del sistema de numeración decimal."
+        },
+        {
+          "codigo": "MAT-6-7-PNSN-4",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Reconozco y generalizo propiedades de las relaciones entre números racionales (simétrica, transitiva, etc.) y de las operaciones entre ellos (conmutativa, asociativa, etc.) en diferentes contextos."
+        },
+        {
+          "codigo": "MAT-6-7-PNSN-5",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Resuelvo y formulo problemas utilizando propiedades básicas de la teoría de números, como las de la igualdad, las de las distintas formas de la desigualdad y las de la adición, sustracción, multiplicación, división y potenciación."
+        },
+        {
+          "codigo": "MAT-6-7-PNSN-6",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Justifico procedimientos aritméticos utilizando las relaciones y propiedades de las operaciones."
+        },
+        {
+          "codigo": "MAT-6-7-PNSN-7",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Formulo y resuelvo problemas en situaciones aditivas y multiplicativas, en diferentes contextos y dominios numéricos."
+        },
+        {
+          "codigo": "MAT-6-7-PNSN-8",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Resuelvo y formulo problemas cuya solución requiere de la potenciación o radicación."
+        },
+        {
+          "codigo": "MAT-6-7-PNSN-9",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Justifico el uso de representaciones y procedimientos en situaciones de proporcionalidad directa e inversa."
+        },
+        {
+          "codigo": "MAT-6-7-PNSN-10",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Justifico la pertinencia de un cálculo exacto o aproximado en la solución de un problema y lo razonable o no de las respuestas obtenidas."
+        },
+        {
+          "codigo": "MAT-6-7-PNSN-11",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Establezco conjeturas sobre propiedades y relaciones de los números, utilizando calculadoras o computadores."
+        },
+        {
+          "codigo": "MAT-6-7-PNSN-12",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Justifico la elección de métodos e instrumentos de cálculo en la resolución de problemas."
+        },
+        {
+          "codigo": "MAT-6-7-PNSN-13",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Reconozco argumentos combinatorios como herramienta para interpretación de situaciones diversas de conteo."
+        },
+        {
+          "codigo": "MAT-6-7-PESG-1",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento espacial y sistemas geométricos",
+          "tipo": "estandar",
+          "definicion": "Represento objetos tridimensionales desde diferentes posiciones y vistas."
+        },
+        {
+          "codigo": "MAT-6-7-PESG-2",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento espacial y sistemas geométricos",
+          "tipo": "estandar",
+          "definicion": "Identifico y describo figuras y cuerpos generados por cortes rectos y transversales de objetos tridimensionales."
+        },
+        {
+          "codigo": "MAT-6-7-PESG-3",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento espacial y sistemas geométricos",
+          "tipo": "estandar",
+          "definicion": "Clasifico polígonos en relación con sus propiedades."
+        },
+        {
+          "codigo": "MAT-6-7-PESG-4",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento espacial y sistemas geométricos",
+          "tipo": "estandar",
+          "definicion": "Predigo y comparo los resultados de aplicar transformaciones rígidas (traslaciones, rotaciones, reflexiones) y homotecias (ampliaciones y reducciones) sobre figuras bidimensionales en situaciones matemáticas y en el arte."
+        },
+        {
+          "codigo": "MAT-6-7-PESG-5",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento espacial y sistemas geométricos",
+          "tipo": "estandar",
+          "definicion": "Resuelvo y formulo problemas que involucren relaciones y propiedades de semejanza y congruencia usando representaciones visuales."
+        },
+        {
+          "codigo": "MAT-6-7-PESG-6",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento espacial y sistemas geométricos",
+          "tipo": "estandar",
+          "definicion": "Resuelvo y formulo problemas usando modelos geométricos."
+        },
+        {
+          "codigo": "MAT-6-7-PESG-7",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento espacial y sistemas geométricos",
+          "tipo": "estandar",
+          "definicion": "Identifico características de localización de objetos en sistemas de representación cartesiana y geográfica."
+        },
+        {
+          "codigo": "MAT-6-7-PMSM-1",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento métrico y sistemas de medidas",
+          "tipo": "estandar",
+          "definicion": "Utilizo técnicas y herramientas para la construcción de figuras planas y cuerpos con medidas dadas."
+        },
+        {
+          "codigo": "MAT-6-7-PMSM-2",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento métrico y sistemas de medidas",
+          "tipo": "estandar",
+          "definicion": "Resuelvo y formulo problemas que involucren factores escalares (diseño de maquetas, mapas)."
+        },
+        {
+          "codigo": "MAT-6-7-PMSM-3",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento métrico y sistemas de medidas",
+          "tipo": "estandar",
+          "definicion": "Calculo áreas y volúmenes a través de composición y descomposición de figuras y cuerpos."
+        },
+        {
+          "codigo": "MAT-6-7-PMSM-4",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento métrico y sistemas de medidas",
+          "tipo": "estandar",
+          "definicion": "Identifico relaciones entre distintas unidades utilizadas para medir cantidades de la misma magnitud."
+        },
+        {
+          "codigo": "MAT-6-7-PMSM-5",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento métrico y sistemas de medidas",
+          "tipo": "estandar",
+          "definicion": "Resuelvo y formulo problemas que requieren técnicas de estimación."
+        },
+        {
+          "codigo": "MAT-6-7-PASD-1",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Comparo e interpreto datos provenientes de diversas fuentes (prensa, revistas, televisión, experimentos, consultas, entrevistas)."
+        },
+        {
+          "codigo": "MAT-6-7-PASD-2",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Reconozco la relación entre un conjunto de datos y su representación."
+        },
+        {
+          "codigo": "MAT-6-7-PASD-3",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Interpreto, produzco y comparo representaciones gráficas adecuadas para presentar diversos tipos de datos. (diagramas de barras, diagramas circulares.)"
+        },
+        {
+          "codigo": "MAT-6-7-PASD-4",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Uso medidas de tendencia central (media, mediana, moda) para interpretar comportamiento de un conjunto de datos."
+        },
+        {
+          "codigo": "MAT-6-7-PASD-5",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Uso modelos (diagramas de árbol, por ejemplo) para discutir y predecir posibilidad de ocurrencia de un evento."
+        },
+        {
+          "codigo": "MAT-6-7-PASD-6",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Conjeturo acerca del resultado de un experimento aleatorio usando proporcionalidad y nociones básicas de probabilidad."
+        },
+        {
+          "codigo": "MAT-6-7-PASD-7",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Resuelvo y formulo problemas a partir de un conjunto de datos presentados en tablas, diagramas de barras, diagramas circulares."
+        },
+        {
+          "codigo": "MAT-6-7-PASD-8",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Predigo y justifico razonamientos y conclusiones usando información estadística."
+        },
+        {
+          "codigo": "MAT-6-7-PVSAA-1",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento variacional y sistemas algebraicos y analíticos",
+          "tipo": "estandar",
+          "definicion": "Describo y represento situaciones de variación relacionando diferentes representaciones (diagramas, expresiones verbales generalizadas y tablas)."
+        },
+        {
+          "codigo": "MAT-6-7-PVSAA-2",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento variacional y sistemas algebraicos y analíticos",
+          "tipo": "estandar",
+          "definicion": "Reconozco el conjunto de valores de cada una de las cantidades variables ligadas entre sí en situaciones concretas de cambio (variación)."
+        },
+        {
+          "codigo": "MAT-6-7-PVSAA-3",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento variacional y sistemas algebraicos y analíticos",
+          "tipo": "estandar",
+          "definicion": "Analizo las propiedades de correlación positiva y negativa entre variables, de variación lineal o de proporcionalidad directa y de proporcionalidad inversa en contextos aritméticos y geométricos."
+        },
+        {
+          "codigo": "MAT-6-7-PVSAA-4",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento variacional y sistemas algebraicos y analíticos",
+          "tipo": "estandar",
+          "definicion": "Utilizo métodos informales (ensayo y error, complementación) en la solución de ecuaciones."
+        },
+        {
+          "codigo": "MAT-6-7-PVSAA-5",
+          "conjunto": "6-7",
+          "grupo": "Pensamiento variacional y sistemas algebraicos y analíticos",
+          "tipo": "estandar",
+          "definicion": "Identifico las características de las diversas gráficas cartesianas (de puntos, continuas, formadas por segmentos, etc.) en relación con la situación que representan."
+        },
+        {
+          "codigo": "MAT-8-9-PNSN-1",
+          "conjunto": "8-9",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Utilizo números reales en sus diferentes representaciones y en diversos contextos."
+        },
+        {
+          "codigo": "MAT-8-9-PNSN-2",
+          "conjunto": "8-9",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Resuelvo problemas y simplifico cálculos usando propiedades y relaciones de los números reales y de las relaciones y operaciones entre ellos."
+        },
+        {
+          "codigo": "MAT-8-9-PNSN-3",
+          "conjunto": "8-9",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Utilizo la notación científica para representar medidas de cantidades de diferentes magnitudes."
+        },
+        {
+          "codigo": "MAT-8-9-PNSN-4",
+          "conjunto": "8-9",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Identifico y utilizo la potenciación, la radicación y la logaritmación para representar situaciones matemáticas y no matemáticas y para resolver problemas."
+        },
+        {
+          "codigo": "MAT-8-9-PESG-1",
+          "conjunto": "8-9",
+          "grupo": "Pensamiento espacial y sistemas geométricos",
+          "tipo": "estandar",
+          "definicion": "Conjeturo y verifico propiedades de congruencias y semejanzas entre figuras bidimensionales y entre objetos tridimensionales en la solución de problemas."
+        },
+        {
+          "codigo": "MAT-8-9-PESG-2",
+          "conjunto": "8-9",
+          "grupo": "Pensamiento espacial y sistemas geométricos",
+          "tipo": "estandar",
+          "definicion": "Reconozco y contrasto propiedades y relaciones geométricas utilizadas en demostración de teoremas básicos (Pitágoras y Tales)."
+        },
+        {
+          "codigo": "MAT-8-9-PESG-3",
+          "conjunto": "8-9",
+          "grupo": "Pensamiento espacial y sistemas geométricos",
+          "tipo": "estandar",
+          "definicion": "Aplico y justifico criterios de congruencias y semejanza entre triángulos en la resolución y formulación de problemas."
+        },
+        {
+          "codigo": "MAT-8-9-PESG-4",
+          "conjunto": "8-9",
+          "grupo": "Pensamiento espacial y sistemas geométricos",
+          "tipo": "estandar",
+          "definicion": "Uso representaciones geométricas para resolver y formular problemas en las matemáticas y en otras disciplinas."
+        },
+        {
+          "codigo": "MAT-8-9-PMSM-1",
+          "conjunto": "8-9",
+          "grupo": "Pensamiento métrico y sistemas de medidas",
+          "tipo": "estandar",
+          "definicion": "Generalizo procedimientos de cálculo válidos para encontrar el área de regiones planas y el volumen de sólidos."
+        },
+        {
+          "codigo": "MAT-8-9-PMSM-2",
+          "conjunto": "8-9",
+          "grupo": "Pensamiento métrico y sistemas de medidas",
+          "tipo": "estandar",
+          "definicion": "Selecciono y uso técnicas e instrumentos para medir longitudes, áreas de superficies, volúmenes y ángulos con niveles de precisión apropiados."
+        },
+        {
+          "codigo": "MAT-8-9-PMSM-3",
+          "conjunto": "8-9",
+          "grupo": "Pensamiento métrico y sistemas de medidas",
+          "tipo": "estandar",
+          "definicion": "Justifico la pertinencia de utilizar unidades de medida estandarizadas en situaciones tomadas de distintas ciencias."
+        },
+        {
+          "codigo": "MAT-8-9-PASD-1",
+          "conjunto": "8-9",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Reconozco cómo diferentes maneras de presentación de información pueden originar distintas interpretaciones."
+        },
+        {
+          "codigo": "MAT-8-9-PASD-2",
+          "conjunto": "8-9",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Interpreto analítica y críticamente información estadística proveniente de diversas fuentes (prensa, revistas, televisión, experimentos, consultas, entrevistas."
+        },
+        {
+          "codigo": "MAT-8-9-PASD-3",
+          "conjunto": "8-9",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Interpreto y utilizo conceptos de media, mediana y moda y explicito sus diferencias en distribuciones de distinta dispersión y asimetría."
+        },
+        {
+          "codigo": "MAT-8-9-PASD-4",
+          "conjunto": "8-9",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Selecciono y uso algunos métodos estadísticos adecuados al tipo de problema, de información y al nivel de la escala en la que esta se representa (nominal, ordinal, de intervalo o de razón)."
+        },
+        {
+          "codigo": "MAT-8-9-PASD-5",
+          "conjunto": "8-9",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Comparo resultados de experimentos aleatorios con los resultados previstos por un modelo matemático probabilístico."
+        },
+        {
+          "codigo": "MAT-8-9-PASD-6",
+          "conjunto": "8-9",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Resuelvo y formulo problemas seleccionando información relevante en conjuntos de datos provenientes de fuentes diversas. (prensa, revistas, televisión, experimentos, consultas, entrevistas)."
+        },
+        {
+          "codigo": "MAT-8-9-PASD-7",
+          "conjunto": "8-9",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Reconozco tendencias que se presentan en conjuntos de variables relacionadas."
+        },
+        {
+          "codigo": "MAT-8-9-PASD-8",
+          "conjunto": "8-9",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Calculo probabilidad de eventos simples usando métodos diversos (listados, diagramas de árbol, técnicas de conteo)."
+        },
+        {
+          "codigo": "MAT-8-9-PASD-9",
+          "conjunto": "8-9",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Uso conceptos básicos de probabilidad (espacio muestral, evento, independencia, etc.)."
+        },
+        {
+          "codigo": "MAT-8-9-PVSAA-1",
+          "conjunto": "8-9",
+          "grupo": "Pensamiento variacional y sistemas algebraicos y analíticos",
+          "tipo": "estandar",
+          "definicion": "Identifico relaciones entre propiedades de las gráficas y propiedades de las ecuaciones algebraicas."
+        },
+        {
+          "codigo": "MAT-8-9-PVSAA-2",
+          "conjunto": "8-9",
+          "grupo": "Pensamiento variacional y sistemas algebraicos y analíticos",
+          "tipo": "estandar",
+          "definicion": "Construyo expresiones algebraicas equivalentes a una expresión algebraica dada."
+        },
+        {
+          "codigo": "MAT-8-9-PVSAA-3",
+          "conjunto": "8-9",
+          "grupo": "Pensamiento variacional y sistemas algebraicos y analíticos",
+          "tipo": "estandar",
+          "definicion": "Uso procesos inductivos y lenguaje algebraico para formular y poner a prueba conjeturas."
+        },
+        {
+          "codigo": "MAT-8-9-PVSAA-4",
+          "conjunto": "8-9",
+          "grupo": "Pensamiento variacional y sistemas algebraicos y analíticos",
+          "tipo": "estandar",
+          "definicion": "Modelo situaciones de variación con funciones polinómicas."
+        },
+        {
+          "codigo": "MAT-8-9-PVSAA-5",
+          "conjunto": "8-9",
+          "grupo": "Pensamiento variacional y sistemas algebraicos y analíticos",
+          "tipo": "estandar",
+          "definicion": "Identifico diferentes métodos para solucionar sistemas de ecuaciones lineales."
+        },
+        {
+          "codigo": "MAT-8-9-PVSAA-6",
+          "conjunto": "8-9",
+          "grupo": "Pensamiento variacional y sistemas algebraicos y analíticos",
+          "tipo": "estandar",
+          "definicion": "Analizo los procesos infinitos que subyacen en las notaciones decimales."
+        },
+        {
+          "codigo": "MAT-8-9-PVSAA-7",
+          "conjunto": "8-9",
+          "grupo": "Pensamiento variacional y sistemas algebraicos y analíticos",
+          "tipo": "estandar",
+          "definicion": "Identifico y utilizo diferentes maneras de definir y medir la pendiente de una curva que representa en el plano cartesiano situaciones de variación."
+        },
+        {
+          "codigo": "MAT-8-9-PVSAA-8",
+          "conjunto": "8-9",
+          "grupo": "Pensamiento variacional y sistemas algebraicos y analíticos",
+          "tipo": "estandar",
+          "definicion": "Identifico la relación entre los cambios en los parámetros de la representación algebraica de una familia de funciones y los cambios en las gráficas que las representan."
+        },
+        {
+          "codigo": "MAT-8-9-PVSAA-9",
+          "conjunto": "8-9",
+          "grupo": "Pensamiento variacional y sistemas algebraicos y analíticos",
+          "tipo": "estandar",
+          "definicion": "Analizo en representaciones gráficas cartesianas los comportamientos de cambio de funciones específicas pertenecientes a familias de funciones polinómicas, racionales, exponenciales y logarítmicas."
+        },
+        {
+          "codigo": "MAT-10-11-PNSN-1",
+          "conjunto": "10-11",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Analizo representaciones decimales de los números reales para diferenciar entre racionales e irracionales."
+        },
+        {
+          "codigo": "MAT-10-11-PNSN-2",
+          "conjunto": "10-11",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Reconozco la densidad e incompletitud de los números racionales a través de métodos numéricos, geométricos y algebraicos."
+        },
+        {
+          "codigo": "MAT-10-11-PNSN-3",
+          "conjunto": "10-11",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Comparo y contrasto las propiedades de los números (naturales, enteros, racionales y reales) y las de sus relaciones y operaciones para construir, manejar y utilizar apropiadamente los distintos sistemas numéricos."
+        },
+        {
+          "codigo": "MAT-10-11-PNSN-4",
+          "conjunto": "10-11",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Utilizo argumentos de la teoría de números para justificar relaciones que involucran números naturales."
+        },
+        {
+          "codigo": "MAT-10-11-PNSN-5",
+          "conjunto": "10-11",
+          "grupo": "Pensamiento numérico y sistemas numéricos",
+          "tipo": "estandar",
+          "definicion": "Establezco relaciones y diferencias entre diferentes notaciones de números reales para decidir sobre su uso en una situación dada."
+        },
+        {
+          "codigo": "MAT-10-11-PESG-1",
+          "conjunto": "10-11",
+          "grupo": "Pensamiento espacial y sistemas geométricos",
+          "tipo": "estandar",
+          "definicion": "Identifico en forma visual, gráfica y algebraica algunas propiedades de las curvas que se observan en los bordes obtenidos por cortes longitudinales, diagonales y transversales en un cilindro y en un cono."
+        },
+        {
+          "codigo": "MAT-10-11-PESG-2",
+          "conjunto": "10-11",
+          "grupo": "Pensamiento espacial y sistemas geométricos",
+          "tipo": "estandar",
+          "definicion": "Identifico características de localización de objetos geométricos en sistemas de representación cartesiana y otros (polares, cilíndricos y esféricos) y en particular de las curvas y figuras cónicas."
+        },
+        {
+          "codigo": "MAT-10-11-PESG-3",
+          "conjunto": "10-11",
+          "grupo": "Pensamiento espacial y sistemas geométricos",
+          "tipo": "estandar",
+          "definicion": "Resuelvo problemas en los que se usen las propiedades geométricas de figuras cónicas por medio de transformaciones de las representaciones algebraicas de esas figuras."
+        },
+        {
+          "codigo": "MAT-10-11-PESG-4",
+          "conjunto": "10-11",
+          "grupo": "Pensamiento espacial y sistemas geométricos",
+          "tipo": "estandar",
+          "definicion": "Uso argumentos geométricos para resolver y formular problemas en contextos matemáticos y en otras ciencias."
+        },
+        {
+          "codigo": "MAT-10-11-PESG-5",
+          "conjunto": "10-11",
+          "grupo": "Pensamiento espacial y sistemas geométricos",
+          "tipo": "estandar",
+          "definicion": "Describo y modelo fenómenos periódicos del mundo real usando relaciones y funciones trigonométricas."
+        },
+        {
+          "codigo": "MAT-10-11-PESG-6",
+          "conjunto": "10-11",
+          "grupo": "Pensamiento espacial y sistemas geométricos",
+          "tipo": "estandar",
+          "definicion": "Reconozco y describo curvas y o lugares geométricos."
+        },
+        {
+          "codigo": "MAT-10-11-PMSM-1",
+          "conjunto": "10-11",
+          "grupo": "Pensamiento métrico y sistemas de medidas",
+          "tipo": "estandar",
+          "definicion": "Diseño estrategias para abordar situaciones de medición que requieran grados de precisión específicos."
+        },
+        {
+          "codigo": "MAT-10-11-PMSM-2",
+          "conjunto": "10-11",
+          "grupo": "Pensamiento métrico y sistemas de medidas",
+          "tipo": "estandar",
+          "definicion": "Resuelvo y formulo problemas que involucren magnitudes cuyos valores medios se suelen definir indirectamente como razones entre valores de otras magnitudes, como la velocidad media, la aceleración media y la densidad media."
+        },
+        {
+          "codigo": "MAT-10-11-PMSM-3",
+          "conjunto": "10-11",
+          "grupo": "Pensamiento métrico y sistemas de medidas",
+          "tipo": "estandar",
+          "definicion": "Justifico resultados obtenidos mediante procesos de aproximación sucesiva, rangos de variación y límites en situaciones de medición."
+        },
+        {
+          "codigo": "MAT-10-11-PASD-1",
+          "conjunto": "10-11",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Interpreto y comparo resultados de estudios con información estadística provenientes de medios de comunicación."
+        },
+        {
+          "codigo": "MAT-10-11-PASD-2",
+          "conjunto": "10-11",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Justifico o refuto inferencias basadas en razonamientos estadísticos a partir de resultados de estudios publicados en los medios o diseñados en el ámbito escolar."
+        },
+        {
+          "codigo": "MAT-10-11-PASD-3",
+          "conjunto": "10-11",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Diseño experimentos aleatorios (de las ciencias físicas, naturales o sociales) para estudiar un problema o pregunta."
+        },
+        {
+          "codigo": "MAT-10-11-PASD-4",
+          "conjunto": "10-11",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Describo tendencias que se observan en conjuntos de variables relacionadas."
+        },
+        {
+          "codigo": "MAT-10-11-PASD-5",
+          "conjunto": "10-11",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Interpreto nociones básicas relacionadas con el manejo de información como población, muestra, variable aleatoria, distribución de frecuencias, parámetros y estadígrafos)."
+        },
+        {
+          "codigo": "MAT-10-11-PASD-6",
+          "conjunto": "10-11",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Uso comprensivamente algunas medidas de centralización, localización, dispersión y correlación (percentiles, cuartiles, centralidad, distancia, rango, varianza, covarianza y normalidad)."
+        },
+        {
+          "codigo": "MAT-10-11-PASD-7",
+          "conjunto": "10-11",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Interpreto conceptos de probabilidad condicional e independencia de eventos."
+        },
+        {
+          "codigo": "MAT-10-11-PASD-8",
+          "conjunto": "10-11",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Resuelvo y planteo problemas usando conceptos básicos de conteo y probabilidad (combinaciones, permutaciones, espacio muestral, muestreo aleatorio, muestreo con remplazo)."
+        },
+        {
+          "codigo": "MAT-10-11-PASD-9",
+          "conjunto": "10-11",
+          "grupo": "Pensamiento aleatorio y sistemas de datos",
+          "tipo": "estandar",
+          "definicion": "Propongo inferencias a partir del estudio de muestras probabilísticas."
+        },
+        {
+          "codigo": "MAT-10-11-PVSAA-1",
+          "conjunto": "10-11",
+          "grupo": "Pensamiento variacional y sistemas algebraicos y analíticos",
+          "tipo": "estandar",
+          "definicion": "Utilizo las técnicas de aproximación en procesos infinitos numéricos."
+        },
+        {
+          "codigo": "MAT-10-11-PVSAA-2",
+          "conjunto": "10-11",
+          "grupo": "Pensamiento variacional y sistemas algebraicos y analíticos",
+          "tipo": "estandar",
+          "definicion": "Interpreto la noción de derivada como razón de cambio y como valor de la pendiente de la tangente a una curva y desarrollo métodos para hallar las derivadas de algunas funciones básicas en contextos matemáticos y no matemáticos."
+        },
+        {
+          "codigo": "MAT-10-11-PVSAA-3",
+          "conjunto": "10-11",
+          "grupo": "Pensamiento variacional y sistemas algebraicos y analíticos",
+          "tipo": "estandar",
+          "definicion": "Analizo las relaciones y propiedades entre las expresiones algebraicas y las gráficas de funciones polinómicas y racionales y de sus derivadas."
+        },
+        {
+          "codigo": "MAT-10-11-PVSAA-4",
+          "conjunto": "10-11",
+          "grupo": "Pensamiento variacional y sistemas algebraicos y analíticos",
+          "tipo": "estandar",
+          "definicion": "Modelo situaciones de variación periódica con funciones trigonométricas e interpreto y utilizo sus derivadas."
+        }
+      ]
+    },
+    {
+      "clave": "ciencias-naturales",
+      "nombre": "Ciencias Naturales",
+      "documento": "Estándares Básicos de Competencias en Ciencias Naturales (MEN, Guía 3, 2006)",
+      "materias": [
+        "ciencias naturales",
+        "ciencias naturales y educacion ambiental",
+        "biologia",
+        "quimica",
+        "fisica",
+        "educacion ambiental",
+        "ciencias"
+      ],
+      "competencias": [
+        {
+          "codigo": "CNA-1-3-EV-1",
+          "conjunto": "1-3",
+          "grupo": "Entorno vivo",
+          "tipo": "enunciado",
+          "definicion": "Me identifico como un ser vivo que comparte algunas características con otros seres vivos y que se relaciona con ellos en un entorno en el que todos nos desarrollamos."
+        },
+        {
+          "codigo": "CNA-1-3-EF-1",
+          "conjunto": "1-3",
+          "grupo": "Entorno físico",
+          "tipo": "enunciado",
+          "definicion": "Reconozco en el entorno fenómenos físicos que me afectan y desarrollo habilidades para aproximarme a ellos."
+        },
+        {
+          "codigo": "CNA-1-3-CTS-1",
+          "conjunto": "1-3",
+          "grupo": "Ciencia, tecnología y sociedad",
+          "tipo": "enunciado",
+          "definicion": "Valoro la utilidad de algunos objetos y técnicas desarrollados por el ser humano y reconozco que somos agentes de cambio en el entorno y en la sociedad."
+        },
+        {
+          "codigo": "CNA-4-5-EV-1",
+          "conjunto": "4-5",
+          "grupo": "Entorno vivo",
+          "tipo": "enunciado",
+          "definicion": "Identifico estructuras de los seres vivos que les permiten desarrollarse en un entorno y que puedo utilizar como criterios de clasificación."
+        },
+        {
+          "codigo": "CNA-4-5-EF-1",
+          "conjunto": "4-5",
+          "grupo": "Entorno físico",
+          "tipo": "enunciado",
+          "definicion": "Me ubico en el universo y en la Tierra e identifico características de la materia, fenómenos físicos y manifestaciones de la energía en el entorno."
+        },
+        {
+          "codigo": "CNA-4-5-CTS-1",
+          "conjunto": "4-5",
+          "grupo": "Ciencia, tecnología y sociedad",
+          "tipo": "enunciado",
+          "definicion": "Identifico transformaciones en mi entorno a partir de la aplicación de algunos principios físicos, químicos y biológicos que permiten el desarrollo de tecnologías."
+        },
+        {
+          "codigo": "CNA-6-7-EV-1",
+          "conjunto": "6-7",
+          "grupo": "Entorno vivo",
+          "tipo": "enunciado",
+          "definicion": "Identifico condiciones de cambio y de equilibrio en los seres vivos y en los ecosistemas."
+        },
+        {
+          "codigo": "CNA-6-7-EF-1",
+          "conjunto": "6-7",
+          "grupo": "Entorno físico",
+          "tipo": "enunciado",
+          "definicion": "Establezco relaciones entre las características macroscópicas y microscópicas de la materia y las propiedades físicas y químicas de las sustancias que la constituyen."
+        },
+        {
+          "codigo": "CNA-6-7-CTS-1",
+          "conjunto": "6-7",
+          "grupo": "Ciencia, tecnología y sociedad",
+          "tipo": "enunciado",
+          "definicion": "Evalúo el potencial de los recursos naturales, la forma como se han utilizado en desarrollos tecnológicos y las consecuencias de la acción del ser humano sobre ellos."
+        },
+        {
+          "codigo": "CNA-8-9-EV-1",
+          "conjunto": "8-9",
+          "grupo": "Entorno vivo",
+          "tipo": "enunciado",
+          "definicion": "Explico la variabilidad en las poblaciones y la diversidad biológica como consecuencia de estrategias de reproducción, cambios genéticos y selección natural."
+        },
+        {
+          "codigo": "CNA-8-9-EF-1",
+          "conjunto": "8-9",
+          "grupo": "Entorno físico",
+          "tipo": "enunciado",
+          "definicion": "Explico condiciones de cambio y conservación en diversos sistemas, teniendo en cuenta transferencia y transporte de energía y su interacción con la materia."
+        },
+        {
+          "codigo": "CNA-8-9-CTS-1",
+          "conjunto": "8-9",
+          "grupo": "Ciencia, tecnología y sociedad",
+          "tipo": "enunciado",
+          "definicion": "Identifico aplicaciones de algunos conocimientos sobre la herencia y la reproducción al mejoramiento de la calidad de vida de las poblaciones."
+        },
+        {
+          "codigo": "CNA-8-9-CTS-2",
+          "conjunto": "8-9",
+          "grupo": "Ciencia, tecnología y sociedad",
+          "tipo": "enunciado",
+          "definicion": "Identifico aplicaciones comerciales e industriales del transporte de energía y de las interacciones de la materia."
+        },
+        {
+          "codigo": "CNA-10-11-EV-1",
+          "conjunto": "10-11",
+          "grupo": "Entorno vivo",
+          "tipo": "enunciado",
+          "definicion": "Explico la diversidad biológica como consecuencia de cambios ambientales, genéticos y de relaciones dinámicas dentro de los ecosistemas."
+        },
+        {
+          "codigo": "CNA-10-11-EF-1",
+          "conjunto": "10-11",
+          "grupo": "Entorno físico",
+          "tipo": "enunciado",
+          "definicion": "Relaciono la estructura de las moléculas orgánicas e inorgánicas con sus propiedades físicas y químicas y su capacidad de cambio químico."
+        },
+        {
+          "codigo": "CNA-10-11-EF-2",
+          "conjunto": "10-11",
+          "grupo": "Entorno físico",
+          "tipo": "enunciado",
+          "definicion": "Explico las fuerzas entre objetos como interacciones debidas a la carga eléctrica y a la masa."
+        },
+        {
+          "codigo": "CNA-10-11-EF-3",
+          "conjunto": "10-11",
+          "grupo": "Entorno físico",
+          "tipo": "enunciado",
+          "definicion": "Utilizo modelos biológicos, físicos y químicos para explicar la transformación y conservación de la energía."
+        },
+        {
+          "codigo": "CNA-10-11-CTS-1",
+          "conjunto": "10-11",
+          "grupo": "Ciencia, tecnología y sociedad",
+          "tipo": "enunciado",
+          "definicion": "Identifico aplicaciones de diferentes modelos biológicos, químicos y físicos en procesos industriales y en el desarrollo tecnológico; analizo críticamente las implicaciones de sus usos."
+        }
+      ]
+    },
+    {
+      "clave": "ciencias-sociales",
+      "nombre": "Ciencias Sociales",
+      "documento": "Estándares Básicos de Competencias en Ciencias Sociales (MEN, Guía 3, 2006)",
+      "materias": [
+        "ciencias sociales",
+        "sociales",
+        "historia",
+        "geografia",
+        "ciencias economicas",
+        "economia"
+      ],
+      "competencias": [
+        {
+          "codigo": "CSO-1-3-RHC-1",
+          "conjunto": "1-3",
+          "grupo": "Relaciones con la historia y las culturas",
+          "tipo": "enunciado",
+          "definicion": "Me reconozco como ser social e histórico, miembro de un país con diversas etnias y culturas, con un legado que genera identidad nacional."
+        },
+        {
+          "codigo": "CSO-1-3-REA-1",
+          "conjunto": "1-3",
+          "grupo": "Relaciones espaciales y ambientales",
+          "tipo": "enunciado",
+          "definicion": "Reconozco la interacción entre el ser humano y el paisaje en diferentes contextos e identifico las acciones económicas y las consecuencias que resultan de esta relación."
+        },
+        {
+          "codigo": "CSO-1-3-REP-1",
+          "conjunto": "1-3",
+          "grupo": "Relaciones ético-políticas",
+          "tipo": "enunciado",
+          "definicion": "Me identifico como un ser humano único, miembro de diversas organizaciones sociales y políticas necesarias para el bienestar y el desarrollo personal y comunitario; reconozco que las normas son acuerdos básicos que buscan la convivencia pacífica en la diversidad."
+        },
+        {
+          "codigo": "CSO-4-5-RHC-1",
+          "conjunto": "4-5",
+          "grupo": "Relaciones con la historia y las culturas",
+          "tipo": "enunciado",
+          "definicion": "Reconozco que tanto los individuos como las organizaciones sociales se transforman con el tiempo, construyen un legado y dejan huellas que permanecen en las sociedades actuales."
+        },
+        {
+          "codigo": "CSO-4-5-REA-1",
+          "conjunto": "4-5",
+          "grupo": "Relaciones espaciales y ambientales",
+          "tipo": "enunciado",
+          "definicion": "Reconozco algunas características físicas y culturales de mi entorno, su interacción y las consecuencias sociales, políticas y económicas que resultan de ellas."
+        },
+        {
+          "codigo": "CSO-4-5-REP-1",
+          "conjunto": "4-5",
+          "grupo": "Relaciones ético-políticas",
+          "tipo": "enunciado",
+          "definicion": "Reconozco la utilidad de las organizaciones político-administrativas y sus cambios a través del tiempo como resultado de acuerdos y conflictos."
+        },
+        {
+          "codigo": "CSO-6-7-RHC-1",
+          "conjunto": "6-7",
+          "grupo": "Relaciones con la historia y las culturas",
+          "tipo": "enunciado",
+          "definicion": "Reconozco y valoro la presencia de diversos legados culturales –de diferentes épocas y regiones– para el desarrollo de la humanidad."
+        },
+        {
+          "codigo": "CSO-6-7-REA-1",
+          "conjunto": "6-7",
+          "grupo": "Relaciones espaciales y ambientales",
+          "tipo": "enunciado",
+          "definicion": "Analizo cómo diferentes culturas producen, transforman y distribuyen recursos, bienes y servicios de acuerdo con las características físicas de su entorno."
+        },
+        {
+          "codigo": "CSO-6-7-REP-1",
+          "conjunto": "6-7",
+          "grupo": "Relaciones ético-políticas",
+          "tipo": "enunciado",
+          "definicion": "Reconozco algunos de los sistemas políticos que se establecieron en diferentes épocas y culturas y las principales ideas que buscan legitimarlos."
+        },
+        {
+          "codigo": "CSO-8-9-RHC-1",
+          "conjunto": "8-9",
+          "grupo": "Relaciones con la historia y las culturas",
+          "tipo": "enunciado",
+          "definicion": "Identifico el potencial de diversos legados sociales, políticos, económicos y culturales como fuentes de identidad, promotores del desarrollo y fuentes de cooperación y conflicto en Colombia."
+        },
+        {
+          "codigo": "CSO-8-9-REA-1",
+          "conjunto": "8-9",
+          "grupo": "Relaciones espaciales y ambientales",
+          "tipo": "enunciado",
+          "definicion": "Reconozco y analizo la interacción permanente entre el espacio geográfico y el ser humano y evalúo críticamente los avances y limitaciones de esta relación."
+        },
+        {
+          "codigo": "CSO-8-9-REP-1",
+          "conjunto": "8-9",
+          "grupo": "Relaciones ético-políticas",
+          "tipo": "enunciado",
+          "definicion": "Analizo críticamente los elementos constituyentes de la democracia, los derechos de las personas y la identidad en Colombia."
+        },
+        {
+          "codigo": "CSO-10-11-RHC-1",
+          "conjunto": "10-11",
+          "grupo": "Relaciones con la historia y las culturas",
+          "tipo": "enunciado",
+          "definicion": "Identifico algunas características culturales y sociales de los procesos de transformación que se generaron a partir del desarrollo político y económico de Colombia y el mundo a lo largo del siglo XX."
+        },
+        {
+          "codigo": "CSO-10-11-REA-1",
+          "conjunto": "10-11",
+          "grupo": "Relaciones espaciales y ambientales",
+          "tipo": "enunciado",
+          "definicion": "Identifico y tomo posición frente a las principales causas y consecuencias políticas, económicas, sociales y ambientales de la aplicación de las diferentes teorías y modelos económicos en el siglo XX y formulo hipótesis que me permitan explicar la situación de Colombia en este contexto."
+        },
+        {
+          "codigo": "CSO-10-11-REP-1",
+          "conjunto": "10-11",
+          "grupo": "Relaciones ético-políticas",
+          "tipo": "enunciado",
+          "definicion": "Comprendo que el ejercicio político es el resultado de esfuerzos por resolver conflictos y tensiones que surgen en las relaciones de poder entre los Estados y en el interior de ellos mismos."
+        }
+      ]
+    },
+    {
+      "clave": "competencias-ciudadanas",
+      "nombre": "Competencias Ciudadanas",
+      "documento": "Estándares Básicos de Competencias Ciudadanas (MEN, Guía 6, 2006)",
+      "materias": [
+        "competencias ciudadanas",
+        "ciudadanas",
+        "catedra de la paz",
+        "constitucion",
+        "democracia",
+        "ciencias politicas",
+        "etica",
+        "valores humanos",
+        "urbanidad",
+        "civica",
+        "convivencia",
+        "dimension etica"
+      ],
+      "competencias": [
+        {
+          "codigo": "CIU-1-3-CP-1",
+          "conjunto": "1-3",
+          "grupo": "Convivencia y paz",
+          "tipo": "enunciado",
+          "definicion": "Comprendo la importancia de valores básicos de la convivencia ciudadana como la solidaridad, el cuidado, el buen trato y el respeto por mí mismo y por los demás, y los practico en mi contexto cercano (hogar, salón de clase, recreo, etc.)."
+        },
+        {
+          "codigo": "CIU-1-3-PRD-1",
+          "conjunto": "1-3",
+          "grupo": "Participación y responsabilidad democrática",
+          "tipo": "enunciado",
+          "definicion": "Participo, en mi contexto cercano (con mi familia y compañeros), en la construcción de acuerdos básicos sobre normas para el logro de metas comunes y las cumplo."
+        },
+        {
+          "codigo": "CIU-1-3-PIVD-1",
+          "conjunto": "1-3",
+          "grupo": "Pluralidad, identidad y valoración de las diferencias",
+          "tipo": "enunciado",
+          "definicion": "Identifico y respeto las diferencias y semejanzas entre los demás y yo, y rechazo situaciones de exclusión o discriminación en mi familia, con mis amigas y amigos y en mi salón."
+        },
+        {
+          "codigo": "CIU-4-5-CP-1",
+          "conjunto": "4-5",
+          "grupo": "Convivencia y paz",
+          "tipo": "enunciado",
+          "definicion": "Asumo, de manera pacífica y constructiva, los conflictos cotidianos en mi vida escolar y familiar y contribuyo a la protección de los derechos de las niñas y los niños."
+        },
+        {
+          "codigo": "CIU-4-5-PRD-1",
+          "conjunto": "4-5",
+          "grupo": "Participación y responsabilidad democrática",
+          "tipo": "enunciado",
+          "definicion": "Participo constructivamente en procesos democráticos en mi salón y en el medio escolar."
+        },
+        {
+          "codigo": "CIU-4-5-PIVD-1",
+          "conjunto": "4-5",
+          "grupo": "Pluralidad, identidad y valoración de las diferencias",
+          "tipo": "enunciado",
+          "definicion": "Reconozco y rechazo las situaciones de exclusión o discriminación en mi medio escolar."
+        },
+        {
+          "codigo": "CIU-6-7-CP-1",
+          "conjunto": "6-7",
+          "grupo": "Convivencia y paz",
+          "tipo": "enunciado",
+          "definicion": "Contribuyo, de manera constructiva, a la convivencia en mi medio escolar y en mi comunidad (barrio o vereda)."
+        },
+        {
+          "codigo": "CIU-6-7-PRD-1",
+          "conjunto": "6-7",
+          "grupo": "Participación y responsabilidad democrática",
+          "tipo": "enunciado",
+          "definicion": "Identifico y rechazo las situaciones en las que se vulneran los derechos fundamentales y utilizo formas y mecanismos de participación democrática en mi medio escolar."
+        },
+        {
+          "codigo": "CIU-6-7-PIVD-1",
+          "conjunto": "6-7",
+          "grupo": "Pluralidad, identidad y valoración de las diferencias",
+          "tipo": "enunciado",
+          "definicion": "Identifico y rechazo las diversas formas de discriminación en mi medio escolar y en mi comunidad, y analizo críticamente las razones que pueden favorecer estas discriminaciones."
+        },
+        {
+          "codigo": "CIU-8-9-CP-1",
+          "conjunto": "8-9",
+          "grupo": "Convivencia y paz",
+          "tipo": "enunciado",
+          "definicion": "Construyo relaciones pacíficas que contribuyen a la convivencia cotidiana en mi comunidad y municipio."
+        },
+        {
+          "codigo": "CIU-8-9-PRD-1",
+          "conjunto": "8-9",
+          "grupo": "Participación y responsabilidad democrática",
+          "tipo": "enunciado",
+          "definicion": "Participo o lidero iniciativas democráticas en mi medio escolar o en mi comunidad, con criterios de justicia, solidaridad y equidad, y en defensa de los derechos civiles y políticos."
+        },
+        {
+          "codigo": "CIU-8-9-PIVD-1",
+          "conjunto": "8-9",
+          "grupo": "Pluralidad, identidad y valoración de las diferencias",
+          "tipo": "enunciado",
+          "definicion": "Rechazo las situaciones de discriminación y exclusión social en el país; comprendo sus posibles causas y las consecuencias negativas para la sociedad."
+        },
+        {
+          "codigo": "CIU-10-11-CP-1",
+          "conjunto": "10-11",
+          "grupo": "Convivencia y paz",
+          "tipo": "enunciado",
+          "definicion": "Participo constructivamente en iniciativas o proyectos a favor de la no-violencia en el nivel local o global."
+        },
+        {
+          "codigo": "CIU-10-11-PRD-1",
+          "conjunto": "10-11",
+          "grupo": "Participación y responsabilidad democrática",
+          "tipo": "enunciado",
+          "definicion": "Conozco y sé usar los mecanismos constitucionales de participación que permiten expresar mis opiniones y participar en la toma de decisiones políticas tanto a nivel local como a nivel nacional."
+        },
+        {
+          "codigo": "CIU-10-11-PIVD-1",
+          "conjunto": "10-11",
+          "grupo": "Pluralidad, identidad y valoración de las diferencias",
+          "tipo": "enunciado",
+          "definicion": "Expreso rechazo ante toda forma de discriminación o exclusión social y hago uso de los mecanismos democráticos para la superación de la discriminación y el respeto a la diversidad."
+        }
+      ]
+    },
+    {
+      "clave": "ingles",
+      "nombre": "Inglés",
+      "documento": "Estándares Básicos de Competencias en Lenguas Extranjeras: Inglés (MEN, Guía 22, 2006)",
+      "materias": [
+        "ingles",
+        "english",
+        "lengua extranjera",
+        "idioma extranjero",
+        "bilinguismo"
+      ],
+      "competencias": [
+        {
+          "codigo": "ING-1-3-ESCU-E",
+          "conjunto": "1-3",
+          "grupo": "Escucha",
+          "tipo": "eje",
+          "definicion": "Escucha",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-LECT-E",
+          "conjunto": "1-3",
+          "grupo": "Lectura",
+          "tipo": "eje",
+          "definicion": "Lectura",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-ESCR-E",
+          "conjunto": "1-3",
+          "grupo": "Escritura",
+          "tipo": "eje",
+          "definicion": "Escritura",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-MONO-E",
+          "conjunto": "1-3",
+          "grupo": "Monólogos",
+          "tipo": "eje",
+          "definicion": "Monólogos",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-CONV-E",
+          "conjunto": "1-3",
+          "grupo": "Conversación",
+          "tipo": "eje",
+          "definicion": "Conversación",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-4-5-ESCU-E",
+          "conjunto": "4-5",
+          "grupo": "Escucha",
+          "tipo": "eje",
+          "definicion": "Escucha",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-LECT-E",
+          "conjunto": "4-5",
+          "grupo": "Lectura",
+          "tipo": "eje",
+          "definicion": "Lectura",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-ESCR-E",
+          "conjunto": "4-5",
+          "grupo": "Escritura",
+          "tipo": "eje",
+          "definicion": "Escritura",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-MONO-E",
+          "conjunto": "4-5",
+          "grupo": "Monólogos",
+          "tipo": "eje",
+          "definicion": "Monólogos",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-CONV-E",
+          "conjunto": "4-5",
+          "grupo": "Conversación",
+          "tipo": "eje",
+          "definicion": "Conversación",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-6-7-ESCU-E",
+          "conjunto": "6-7",
+          "grupo": "Escucha",
+          "tipo": "eje",
+          "definicion": "Escucha",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-6-7-LECT-E",
+          "conjunto": "6-7",
+          "grupo": "Lectura",
+          "tipo": "eje",
+          "definicion": "Lectura",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-6-7-ESCR-E",
+          "conjunto": "6-7",
+          "grupo": "Escritura",
+          "tipo": "eje",
+          "definicion": "Escritura",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-6-7-MONO-E",
+          "conjunto": "6-7",
+          "grupo": "Monólogos",
+          "tipo": "eje",
+          "definicion": "Monólogos",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-6-7-CONV-E",
+          "conjunto": "6-7",
+          "grupo": "Conversación",
+          "tipo": "eje",
+          "definicion": "Conversación",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-8-9-ESCU-E",
+          "conjunto": "8-9",
+          "grupo": "Escucha",
+          "tipo": "eje",
+          "definicion": "Escucha",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-LECT-E",
+          "conjunto": "8-9",
+          "grupo": "Lectura",
+          "tipo": "eje",
+          "definicion": "Lectura",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-ESCR-E",
+          "conjunto": "8-9",
+          "grupo": "Escritura",
+          "tipo": "eje",
+          "definicion": "Escritura",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-MONO-E",
+          "conjunto": "8-9",
+          "grupo": "Monólogos",
+          "tipo": "eje",
+          "definicion": "Monólogos",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-CONV-E",
+          "conjunto": "8-9",
+          "grupo": "Conversación",
+          "tipo": "eje",
+          "definicion": "Conversación",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-10-11-ESCU-E",
+          "conjunto": "10-11",
+          "grupo": "Escucha",
+          "tipo": "eje",
+          "definicion": "Escucha",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-LECT-E",
+          "conjunto": "10-11",
+          "grupo": "Lectura",
+          "tipo": "eje",
+          "definicion": "Lectura",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-ESCR-E",
+          "conjunto": "10-11",
+          "grupo": "Escritura",
+          "tipo": "eje",
+          "definicion": "Escritura",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-MONO-E",
+          "conjunto": "10-11",
+          "grupo": "Monólogos",
+          "tipo": "eje",
+          "definicion": "Monólogos",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-CONV-E",
+          "conjunto": "10-11",
+          "grupo": "Conversación",
+          "tipo": "eje",
+          "definicion": "Conversación",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-1-3-ESCU-1",
+          "conjunto": "1-3",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Reconozco cuando me hablan en inglés y reacciono de manera verbal y no verbal.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-ESCU-2",
+          "conjunto": "1-3",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Entiendo cuando me saludan y se despiden de mí.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-ESCU-3",
+          "conjunto": "1-3",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Sigo instrucciones relacionadas con actividades de clase y recreativas propuestas por mi profesor.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-ESCU-4",
+          "conjunto": "1-3",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Comprendo canciones, rimas y rondas infantiles, y lo demuestro con gestos y movimientos.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-ESCU-5",
+          "conjunto": "1-3",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Demuestro comprensión de preguntas sencillas sobre mí, mi familia y mi entorno.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-ESCU-6",
+          "conjunto": "1-3",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Comprendo descripciones cortas y sencillas de objetos y lugares conocidos.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-ESCU-7",
+          "conjunto": "1-3",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Identifico a las personas que participan en una conversación.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-ESCU-8",
+          "conjunto": "1-3",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Sigo la secuencia de un cuento corto apoyado en imágenes.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-ESCU-9",
+          "conjunto": "1-3",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Entiendo la idea general de una historia contada por mi profesor cuando se apoya en movimientos, gestos y cambios de voz.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-ESCU-10",
+          "conjunto": "1-3",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Reconozco que hay otras personas como yo que se comunican en inglés.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-ESCU-11",
+          "conjunto": "1-3",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Comprendo secuencias relacionadas con hábitos y rutinas.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-LECT-1",
+          "conjunto": "1-3",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Identifico palabras relacionadas entre sí sobre temas que me son familiares.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-LECT-2",
+          "conjunto": "1-3",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Reconozco palabras y frases cortas en inglés en libros, objetos, juguetes, propagandas y lugares de mi escuela.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-LECT-3",
+          "conjunto": "1-3",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Relaciono ilustraciones con oraciones simples.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-LECT-4",
+          "conjunto": "1-3",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Reconozco y sigo instrucciones sencillas, si están ilustradas.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-LECT-5",
+          "conjunto": "1-3",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Puedo predecir una historia a partir del título, las ilustraciones y las palabras clave.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-LECT-6",
+          "conjunto": "1-3",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Sigo la secuencia de una historia sencilla.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-LECT-7",
+          "conjunto": "1-3",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Utilizo diagramas para organizar la información de cuentos cortos leídos en clase.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-LECT-8",
+          "conjunto": "1-3",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Disfruto la lectura como una actividad de esparcimiento que me ayuda a descubrir el mundo.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-ESCR-1",
+          "conjunto": "1-3",
+          "grupo": "Escritura",
+          "tipo": "estandar",
+          "definicion": "Copio y transcribo palabras que comprendo y que uso con frecuencia en el salón de clase.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-ESCR-2",
+          "conjunto": "1-3",
+          "grupo": "Escritura",
+          "tipo": "estandar",
+          "definicion": "Escribo el nombre de lugares y elementos que reconozco en una ilustración.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-ESCR-3",
+          "conjunto": "1-3",
+          "grupo": "Escritura",
+          "tipo": "estandar",
+          "definicion": "Respondo brevemente a las preguntas “qué, quién, cuándo y dónde”, si se refieren a mi familia, mis amigos o mi colegio.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-ESCR-4",
+          "conjunto": "1-3",
+          "grupo": "Escritura",
+          "tipo": "estandar",
+          "definicion": "Escribo información personal en formatos sencillos.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-ESCR-5",
+          "conjunto": "1-3",
+          "grupo": "Escritura",
+          "tipo": "estandar",
+          "definicion": "Escribo mensajes de invitación y felicitación usando formatos sencillos.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-ESCR-6",
+          "conjunto": "1-3",
+          "grupo": "Escritura",
+          "tipo": "estandar",
+          "definicion": "Demuestro conocimiento de las estructuras básicas del inglés.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-MONO-1",
+          "conjunto": "1-3",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Recito y canto rimas, poemas y trabalenguas que comprendo, con ritmo y entonación adecuados.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-MONO-2",
+          "conjunto": "1-3",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Expreso mis sentimientos y estados de ánimo.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-MONO-3",
+          "conjunto": "1-3",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Menciono lo que me gusta y lo que no me gusta.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-MONO-4",
+          "conjunto": "1-3",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Describo lo que estoy haciendo.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-MONO-5",
+          "conjunto": "1-3",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Nombro algunas cosas que puedo hacer y que no puedo hacer.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-MONO-6",
+          "conjunto": "1-3",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Describo lo que hacen algunos miembros de mi comunidad.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-MONO-7",
+          "conjunto": "1-3",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Uso gestos y movimientos corporales para hacerme entender mejor.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-MONO-8",
+          "conjunto": "1-3",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Describo algunas características de mí mismo, de otras personas, de animales, de lugares y del clima.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-MONO-9",
+          "conjunto": "1-3",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Participo en representaciones cortas; memorizo y comprendo los parlamentos.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-CONV-1",
+          "conjunto": "1-3",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Respondo a saludos y a despedidas.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-CONV-2",
+          "conjunto": "1-3",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Respondo a preguntas sobre cómo me siento.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-CONV-3",
+          "conjunto": "1-3",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Uso expresiones cotidianas para expresar mis necesidades inmediatas en el aula.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-CONV-4",
+          "conjunto": "1-3",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Utilizo el lenguaje no verbal cuando no puedo responder verbalmente a preguntas sobre mis preferencias. Por ejemplo, asintiendo o negando con la cabeza.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-CONV-5",
+          "conjunto": "1-3",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Expreso e indico necesidades personales básicas relacionadas con el aula.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-CONV-6",
+          "conjunto": "1-3",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Respondo a preguntas sobre personas, objetos y lugares de mi entorno.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-CONV-7",
+          "conjunto": "1-3",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Pido que me repitan el mensaje cuando no lo comprendo.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-CONV-8",
+          "conjunto": "1-3",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Participo activamente en juegos de palabras y rondas.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-1-3-CONV-9",
+          "conjunto": "1-3",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Refuerzo con gestos lo que digo para hacerme entender.",
+          "nivel": "A1",
+          "nivel_nombre": "Principiante"
+        },
+        {
+          "codigo": "ING-4-5-ESCU-1",
+          "conjunto": "4-5",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Sigo atentamente lo que dicen mi profesor y mis compañeros durante un juego o una actividad.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-ESCU-2",
+          "conjunto": "4-5",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Participo en juegos y actividades siguiendo instrucciones simples.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-ESCU-3",
+          "conjunto": "4-5",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Identifico los nombres de los personajes y los eventos principales de un cuento leído por el profesor y apoyado en imágenes, videos o cualquier tipo de material visual.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-ESCU-4",
+          "conjunto": "4-5",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Reconozco algunos estados de ánimo a través del tono o volumen de voz en una historia leída por el profesor o en una grabación.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-ESCU-5",
+          "conjunto": "4-5",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Identifico de quién me hablan a partir de su descripción física.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-ESCU-6",
+          "conjunto": "4-5",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Comprendo información personal proporcionada por mis compañeros y mi profesor.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-ESCU-7",
+          "conjunto": "4-5",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Identifico objetos, personas y acciones que me son conocidas en un texto descriptivo corto leído por el profesor.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-ESCU-8",
+          "conjunto": "4-5",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Identifico la secuencia de las acciones y las asocio con los momentos del día, cuando alguien describe su rutina diaria.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-ESCU-9",
+          "conjunto": "4-5",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Memorizo y sigo el ritmo de canciones populares de países angloparlantes.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-LECT-1",
+          "conjunto": "4-5",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Asocio un dibujo con su descripción escrita.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-LECT-2",
+          "conjunto": "4-5",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Comprendo descripciones cortas sobre personas, lugares y acciones conocidas.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-LECT-3",
+          "conjunto": "4-5",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Ubico en un texto corto los lugares y momentos en que suceden las acciones.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-LECT-4",
+          "conjunto": "4-5",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Identifico las acciones en una secuencia corta de eventos.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-LECT-5",
+          "conjunto": "4-5",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Utilizo gráficas para representar la información más relevante de un texto.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-LECT-6",
+          "conjunto": "4-5",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Utilizo el diccionario como apoyo a la comprensión de textos.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-LECT-7",
+          "conjunto": "4-5",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Identifico elementos culturales como nombres propios y lugares, en textos sencillos.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-LECT-8",
+          "conjunto": "4-5",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Leo y entiendo textos auténticos y sencillos sobre acontecimientos concretos asociados a tradiciones culturales que conozco (cumpleaños, navidad, etc.).",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-LECT-9",
+          "conjunto": "4-5",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Reconozco, en un texto narrativo corto, aspectos como qué, quién, cuándo y dónde.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-LECT-10",
+          "conjunto": "4-5",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Participo en juegos de búsqueda de palabras desconocidas.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-ESCR-1",
+          "conjunto": "4-5",
+          "grupo": "Escritura",
+          "tipo": "estandar",
+          "definicion": "Escribo sobre temas de mi interés.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-ESCR-2",
+          "conjunto": "4-5",
+          "grupo": "Escritura",
+          "tipo": "estandar",
+          "definicion": "Escribo descripciones y narraciones cortas basadas en una secuencia de ilustraciones.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-ESCR-3",
+          "conjunto": "4-5",
+          "grupo": "Escritura",
+          "tipo": "estandar",
+          "definicion": "Escribo tarjetas con mensajes cortos de felicitación o invitación.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-ESCR-4",
+          "conjunto": "4-5",
+          "grupo": "Escritura",
+          "tipo": "estandar",
+          "definicion": "Describo los rasgos personales de gente de mi entorno.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-ESCR-5",
+          "conjunto": "4-5",
+          "grupo": "Escritura",
+          "tipo": "estandar",
+          "definicion": "Enlazo frases y oraciones usando conectores que expresan secuencia y adición.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-ESCR-6",
+          "conjunto": "4-5",
+          "grupo": "Escritura",
+          "tipo": "estandar",
+          "definicion": "Escribo textos cortos que describen mi estado de ánimo y mis preferencias.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-ESCR-7",
+          "conjunto": "4-5",
+          "grupo": "Escritura",
+          "tipo": "estandar",
+          "definicion": "Uso adecuadamente estructuras y patrones gramaticales de uso frecuente.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-ESCR-8",
+          "conjunto": "4-5",
+          "grupo": "Escritura",
+          "tipo": "estandar",
+          "definicion": "Verifico la ortografía de las palabras que escribo con frecuencia.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-ESCR-9",
+          "conjunto": "4-5",
+          "grupo": "Escritura",
+          "tipo": "estandar",
+          "definicion": "Escribo pequeñas historias que me imagino.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-MONO-1",
+          "conjunto": "4-5",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Me describo a mí o a otra persona conocida, con frases simples y cortas, teniendo en cuenta su edad y sus características físicas.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-MONO-2",
+          "conjunto": "4-5",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Uso oraciones cortas para decir lo que puedo o no puedo hacer.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-MONO-3",
+          "conjunto": "4-5",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Deletreo palabras que me son conocidas.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-MONO-4",
+          "conjunto": "4-5",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Expreso en una palabra o frase corta, cómo me siento.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-MONO-5",
+          "conjunto": "4-5",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Digo un texto corto memorizado en una dramatización, ayudándome con gestos.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-MONO-6",
+          "conjunto": "4-5",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Describo con oraciones simples el clima y determino la ropa necesaria, según corresponda.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-MONO-7",
+          "conjunto": "4-5",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Recito un trabalenguas sencillo o una rima, o canto el coro de una canción.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-MONO-8",
+          "conjunto": "4-5",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Hablo de las actividades que realizo habitualmente.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-MONO-9",
+          "conjunto": "4-5",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Busco oportunidades para usar lo que sé en inglés.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-MONO-10",
+          "conjunto": "4-5",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Puedo hablar de cantidades y contar objetos hasta mil.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-CONV-1",
+          "conjunto": "4-5",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Respondo a preguntas personales como nombre, edad, nacionalidad y dirección, con apoyo de repeticiones cuando sea necesario.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-CONV-2",
+          "conjunto": "4-5",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Puedo saludar de acuerdo con la hora del día, de forma natural y apropiada.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-CONV-3",
+          "conjunto": "4-5",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Saludo cortésmente de acuerdo con la edad y rango del interlocutor.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-CONV-4",
+          "conjunto": "4-5",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Solicito a mi profesor y a mis compañeros que me aclaren una duda o me expliquen algo sobre lo que hablamos.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-CONV-5",
+          "conjunto": "4-5",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Pido y acepto disculpas de forma simple y cortés.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-CONV-6",
+          "conjunto": "4-5",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Sigo y doy instrucciones básicas cuando participo en juegos conocidos.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-CONV-7",
+          "conjunto": "4-5",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Mantengo una conversación simple en inglés con un compañero cuando desarrollo una actividad de aula.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-CONV-8",
+          "conjunto": "4-5",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Pregunto y respondo sobre las características físicas de objetos familiares.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-CONV-9",
+          "conjunto": "4-5",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Respondo preguntas sobre mis gustos y preferencias.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-4-5-CONV-10",
+          "conjunto": "4-5",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Puedo cortésmente llamar la atención de mi profesor con una frase corta.",
+          "nivel": "A2.1",
+          "nivel_nombre": "Básico 1"
+        },
+        {
+          "codigo": "ING-6-7-ESCU-1",
+          "conjunto": "6-7",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Comprendo información básica sobre temas relacionados con mis actividades cotidianas y con mi entorno.",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-6-7-ESCU-2",
+          "conjunto": "6-7",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Comprendo preguntas y expresiones orales que se refieren a mí, a mi familia, mis amigos y mi entorno.",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-6-7-ESCU-3",
+          "conjunto": "6-7",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Comprendo mensajes cortos y simples relacionados con mi entorno y mis intereses personales y académicos.",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-6-7-ESCU-4",
+          "conjunto": "6-7",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Comprendo y sigo instrucciones puntuales cuando éstas se presentan en forma clara y con vocabulario conocido.",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-6-7-ESCU-5",
+          "conjunto": "6-7",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Comprendo una descripción oral sobre una situación, persona, lugar u objeto.",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-6-7-ESCU-6",
+          "conjunto": "6-7",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Identifico el tema general y los detalles relevantes en conversaciones, informaciones radiales o exposiciones orales.",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-6-7-ESCU-7",
+          "conjunto": "6-7",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Comprendo la idea general en una descripción y en una narración.",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-6-7-LECT-1",
+          "conjunto": "6-7",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Comprendo instrucciones escritas para llevar a cabo actividades cotidianas, personales y académicas.",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-6-7-LECT-2",
+          "conjunto": "6-7",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Comprendo textos literarios, académicos y de interés general, escritos con un lenguaje sencillo.",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-6-7-LECT-3",
+          "conjunto": "6-7",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Puedo extraer información general y específica de un texto corto y escrito en un lenguaje sencillo.",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-6-7-LECT-4",
+          "conjunto": "6-7",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Comprendo relaciones establecidas por palabras como *and* (adición), *but* (contraste), *first, second*... (orden temporal), en enunciados sencillos.",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-6-7-LECT-5",
+          "conjunto": "6-7",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Valoro la lectura como un hábito importante de enriquecimiento personal y académico.",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-6-7-LECT-6",
+          "conjunto": "6-7",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Identifico el significado adecuado de las palabras en el diccionario según el contexto.",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-6-7-LECT-7",
+          "conjunto": "6-7",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Aplico estrategias de lectura relacionadas con el propósito de la misma.",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-6-7-LECT-8",
+          "conjunto": "6-7",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Identifico en textos sencillos, elementos culturales como costumbres y celebraciones.",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-6-7-LECT-9",
+          "conjunto": "6-7",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Identifico la acción, los personajes y el entorno en textos narrativos.",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-6-7-ESCR-1",
+          "conjunto": "6-7",
+          "grupo": "Escritura",
+          "tipo": "estandar",
+          "definicion": "Describo con frases cortas personas, lugares, objetos o hechos relacionados con temas y situaciones que me son familiares.",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-6-7-ESCR-2",
+          "conjunto": "6-7",
+          "grupo": "Escritura",
+          "tipo": "estandar",
+          "definicion": "Escribo mensajes cortos y con diferentes propósitos relacionados con situaciones, objetos o personas de mi entorno inmediato.",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-6-7-ESCR-3",
+          "conjunto": "6-7",
+          "grupo": "Escritura",
+          "tipo": "estandar",
+          "definicion": "Completo información personal básica en formatos y documentos sencillos.",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-6-7-ESCR-4",
+          "conjunto": "6-7",
+          "grupo": "Escritura",
+          "tipo": "estandar",
+          "definicion": "Escribo un texto corto relativo a mí, a mi familia, mis amigos, mi entorno o sobre hechos que me son familiares.",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-6-7-ESCR-5",
+          "conjunto": "6-7",
+          "grupo": "Escritura",
+          "tipo": "estandar",
+          "definicion": "Escribo textos cortos en los que expreso contraste, adición, causa y efecto entre ideas.",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-6-7-ESCR-6",
+          "conjunto": "6-7",
+          "grupo": "Escritura",
+          "tipo": "estandar",
+          "definicion": "Utilizo vocabulario adecuado para darle coherencia a mis escritos.",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-6-7-MONO-1",
+          "conjunto": "6-7",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Describo con oraciones simples a una persona, lugar u objeto que me son familiares aunque, si lo requiero, me apoyo en apuntes o en mi profesor.",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-6-7-MONO-2",
+          "conjunto": "6-7",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Doy instrucciones orales sencillas en situaciones escolares, familiares y de mi entorno cercano.",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-6-7-MONO-3",
+          "conjunto": "6-7",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Establezco comparaciones entre personajes, lugares y objetos.",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-6-7-MONO-4",
+          "conjunto": "6-7",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Expreso de manera sencilla lo que me gusta y me disgusta respecto a algo.",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-6-7-MONO-5",
+          "conjunto": "6-7",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Narro o describo de forma sencilla hechos y actividades que me son familiares.",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-6-7-MONO-6",
+          "conjunto": "6-7",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Hago exposiciones muy breves, de contenido predecible y aprendido.",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-6-7-MONO-7",
+          "conjunto": "6-7",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Describo con oraciones simples mi rutina diaria y la de otras personas.",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-6-7-CONV-1",
+          "conjunto": "6-7",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Respondo con frases cortas a preguntas sencillas sobre temas que me son familiares.",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-6-7-CONV-2",
+          "conjunto": "6-7",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Solicito explicaciones sobre situaciones puntuales en mi escuela, mi familia y mi entorno cercano.",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-6-7-CONV-3",
+          "conjunto": "6-7",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Participo en situaciones comunicativas cotidianas tales como pedir favores, disculparme y agradecer.",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-6-7-CONV-4",
+          "conjunto": "6-7",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Utilizo códigos no verbales como gestos y entonación, entre otros.",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-6-7-CONV-5",
+          "conjunto": "6-7",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Formulo preguntas sencillas sobre temas que me son familiares apoyándome en gestos y repetición.",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-6-7-CONV-6",
+          "conjunto": "6-7",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Hago propuestas a mis compañeros sobre qué hacer, dónde, cuándo o cómo.",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-6-7-CONV-7",
+          "conjunto": "6-7",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Inicio, mantengo y cierro una conversación sencilla sobre un tema conocido.",
+          "nivel": "A2.2",
+          "nivel_nombre": "Básico 2"
+        },
+        {
+          "codigo": "ING-8-9-ESCU-1",
+          "conjunto": "8-9",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Sigo las instrucciones dadas en clase para realizar actividades académicas.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-ESCU-2",
+          "conjunto": "8-9",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Entiendo lo que me dicen el profesor y mis compañeros en interacciones cotidianas dentro del aula, sin necesidad de repetición.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-ESCU-3",
+          "conjunto": "8-9",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Identifico ideas generales y específicas en textos orales, si tengo conocimiento del tema y del vocabulario utilizado.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-ESCU-4",
+          "conjunto": "8-9",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Reconozco los elementos de enlace de un texto oral para identificar su secuencia.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-ESCU-5",
+          "conjunto": "8-9",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Muestro una actitud respetuosa y tolerante al escuchar a otros.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-ESCU-6",
+          "conjunto": "8-9",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Identifico diferentes roles de los hablantes que participan en conversaciones de temas relacionados con mis intereses.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-ESCU-7",
+          "conjunto": "8-9",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Utilizo mi conocimiento general del mundo para comprender lo que escucho.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-ESCU-8",
+          "conjunto": "8-9",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Infiero información específica a partir de un texto oral.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-ESCU-9",
+          "conjunto": "8-9",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Identifico la información clave en conversaciones breves tomadas de la vida real, si están acompañadas por imágenes.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-ESCU-10",
+          "conjunto": "8-9",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Reconozco el propósito de diferentes tipos de textos que presentan mis compañeros en clase.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-LECT-1",
+          "conjunto": "8-9",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Identifico iniciación, nudo y desenlace en una narración.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-LECT-2",
+          "conjunto": "8-9",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Reconozco el propósito de una descripción en textos narrativos de mediana extensión.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-LECT-3",
+          "conjunto": "8-9",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Identifico puntos a favor y en contra en un texto argumentativo sobre temas con los que estoy familiarizado.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-LECT-4",
+          "conjunto": "8-9",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Comprendo relaciones de adición, contraste, orden temporal y espacial y causa-efecto entre enunciados sencillos.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-LECT-5",
+          "conjunto": "8-9",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Identifico la recurrencia de ideas en un mismo texto.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-LECT-6",
+          "conjunto": "8-9",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Identifico relaciones de significado expresadas en textos sobre temas que me son familiares.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-LECT-7",
+          "conjunto": "8-9",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Represento, en forma gráfica, la información que encuentro en textos que comparan y contrastan objetos, animales y personas.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-LECT-8",
+          "conjunto": "8-9",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Valoro la lectura como una actividad importante para todas las áreas de mi vida.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-LECT-9",
+          "conjunto": "8-9",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Comprendo la información implícita en textos relacionados con temas de mi interés.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-LECT-10",
+          "conjunto": "8-9",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Diferencio la estructura organizativa de textos descriptivos, narrativos y argumentativos.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-LECT-11",
+          "conjunto": "8-9",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Identifico elementos culturales presentes en textos sencillos.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-ESCR-1",
+          "conjunto": "8-9",
+          "grupo": "Escritura",
+          "tipo": "estandar",
+          "definicion": "Escribo narraciones sobre experiencias personales y hechos a mi alrededor.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-ESCR-2",
+          "conjunto": "8-9",
+          "grupo": "Escritura",
+          "tipo": "estandar",
+          "definicion": "Escribo mensajes en diferentes formatos sobre temas de mi interés.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-ESCR-3",
+          "conjunto": "8-9",
+          "grupo": "Escritura",
+          "tipo": "estandar",
+          "definicion": "Diligencio efectivamente formatos con información personal.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-ESCR-4",
+          "conjunto": "8-9",
+          "grupo": "Escritura",
+          "tipo": "estandar",
+          "definicion": "Contesto, en forma escrita, preguntas relacionadas con textos que he leido.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-ESCR-5",
+          "conjunto": "8-9",
+          "grupo": "Escritura",
+          "tipo": "estandar",
+          "definicion": "Produzco textos sencillos con diferentes funciones (describir, narrar, argumentar) sobre temas personales y relacionados con otras asignaturas.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-ESCR-6",
+          "conjunto": "8-9",
+          "grupo": "Escritura",
+          "tipo": "estandar",
+          "definicion": "Parafraseo información que leo como parte de mis actividades académicas.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-ESCR-7",
+          "conjunto": "8-9",
+          "grupo": "Escritura",
+          "tipo": "estandar",
+          "definicion": "Organizo párrafos coherentes cortos, teniendo en cuenta elementos formales del lenguaje como ortografía y puntuación.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-ESCR-8",
+          "conjunto": "8-9",
+          "grupo": "Escritura",
+          "tipo": "estandar",
+          "definicion": "Uso planes representados en mapas o diagramas para desarrollar mis escritos.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-ESCR-9",
+          "conjunto": "8-9",
+          "grupo": "Escritura",
+          "tipo": "estandar",
+          "definicion": "Ejemplifico mis puntos de vista sobre los temas que escribo.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-ESCR-10",
+          "conjunto": "8-9",
+          "grupo": "Escritura",
+          "tipo": "estandar",
+          "definicion": "Edito mis escritos en clase, teniendo en cuenta reglas de ortografía, adecuación del vocabulario y estructuras gramaticales.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-MONO-1",
+          "conjunto": "8-9",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Hago presentaciones cortas y ensayadas sobre temas cotidianos y personales.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-MONO-2",
+          "conjunto": "8-9",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Narro historias cortas enlazando mis ideas de manera apropiada.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-MONO-3",
+          "conjunto": "8-9",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Expreso mi opinión sobre asuntos de interés general para mí y mis compañeros. — [1, 2. 3]",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-MONO-4",
+          "conjunto": "8-9",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Explico y justifico brevemente mis planes y acciones.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-MONO-5",
+          "conjunto": "8-9",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Hago descripciones sencillas sobre diversos asuntos cotidianos de mi entorno.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-MONO-6",
+          "conjunto": "8-9",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Hago exposiciones ensayadas y breves sobre algún tema académico de mi interés.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-MONO-7",
+          "conjunto": "8-9",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Expreso mis opiniones, gustos y preferencias sobre temas que he trabajado en clase, utilizando estrategias para monitorear mi pronunciación.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-MONO-8",
+          "conjunto": "8-9",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Uso un plan para exponer temas relacionados con el entorno académico de otras asignaturas.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-CONV-1",
+          "conjunto": "8-9",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Participo en una conversación cuando mi interlocutor me da el tiempo para pensar mis respuestas.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-CONV-2",
+          "conjunto": "8-9",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Converso con mis compañeros y mi profesor sobre experiencias pasadas y planes futuros.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-CONV-3",
+          "conjunto": "8-9",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Me arriesgo a participar en una conversación con mis compañeros y mi profesor.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-CONV-4",
+          "conjunto": "8-9",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Me apoyo en mis conocimientos generales del mundo para participar en una conversación.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-CONV-5",
+          "conjunto": "8-9",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Interactúo con mis compañeros y profesor para tomar decisiones sobre temas específicos que conozco.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-CONV-6",
+          "conjunto": "8-9",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Uso lenguaje formal o informal en juegos de rol improvisados, según el contexto.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-CONV-7",
+          "conjunto": "8-9",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Monitoreo la toma de turnos entre los participantes en discusiones sobre temas preparados con anterioridad.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-8-9-CONV-8",
+          "conjunto": "8-9",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Demuestro que reconozco elementos de la cultura extranjera y los relaciono con mi cultura.",
+          "nivel": "B1.1",
+          "nivel_nombre": "Pre intermedio 1"
+        },
+        {
+          "codigo": "ING-10-11-ESCU-1",
+          "conjunto": "10-11",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Entiendo instrucciones para ejecutar acciones cotidianas.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-ESCU-2",
+          "conjunto": "10-11",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Identifico la idea principal de un texto oral cuando tengo conocimiento previo del tema.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-ESCU-3",
+          "conjunto": "10-11",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Identifico conectores en una situación de habla para comprender su sentido.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-ESCU-4",
+          "conjunto": "10-11",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Identifico personas, situaciones, lugares y el tema en conversaciones sencillas.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-ESCU-5",
+          "conjunto": "10-11",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Identifico el propósito de un texto oral.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-ESCU-6",
+          "conjunto": "10-11",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Muestro una actitud respetuosa y tolerante cuando escucho a otros.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-ESCU-7",
+          "conjunto": "10-11",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Utilizo estrategias adecuadas al propósito y al tipo de texto (activación de conocimientos previos, apoyo en el lenguaje corporal y gestual, uso de imágenes) para comprender lo que escucho.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-ESCU-8",
+          "conjunto": "10-11",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Comprendo el sentido general del texto oral aunque no entienda todas sus palabras.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-ESCU-9",
+          "conjunto": "10-11",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Me apoyo en el lenguaje corporal y gestual del hablante para comprender mejor lo que dice.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-ESCU-10",
+          "conjunto": "10-11",
+          "grupo": "Escucha",
+          "tipo": "estandar",
+          "definicion": "Utilizo las imágenes e información del contexto de habla para comprender mejor lo que escucho.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-LECT-1",
+          "conjunto": "10-11",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Identifico palabras clave dentro del texto que me permiten comprender su sentido general.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-LECT-2",
+          "conjunto": "10-11",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Identifico el punto de vista del autor.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-LECT-3",
+          "conjunto": "10-11",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Asumo una posición crítica frente al punto de vista del autor.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-LECT-4",
+          "conjunto": "10-11",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Identifico los valores de otras culturas y eso me permite construir mi interpretación de su identidad.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-LECT-5",
+          "conjunto": "10-11",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Valoro la lectura como un medio para adquirir información de diferentes disciplinas que amplían mi conocimiento.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-LECT-6",
+          "conjunto": "10-11",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Utilizo variedad de estrategias de comprensión de lectura adecuadas al propósito y al tipo de texto.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-LECT-7",
+          "conjunto": "10-11",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Analizo textos descriptivos, narrativos y argumentativos con el fin de comprender las ideas principales y específicas.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-LECT-8",
+          "conjunto": "10-11",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Hago inferencias a partir de la información en un texto.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-LECT-9",
+          "conjunto": "10-11",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "En un texto identifico los elementos que me permiten apreciar los valores de la cultura angloparlante.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-LECT-10",
+          "conjunto": "10-11",
+          "grupo": "Lectura",
+          "tipo": "estandar",
+          "definicion": "Comprendo variedad de textos informativos provenientes de diferentes fuentes.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-ESCR-1",
+          "conjunto": "10-11",
+          "grupo": "Escritura",
+          "tipo": "estandar",
+          "definicion": "Estructuro mis textos teniendo en cuenta elementos formales del lenguaje como la puntuación, la ortografía, la sintaxis, la coherencia y la cohesión.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-ESCR-2",
+          "conjunto": "10-11",
+          "grupo": "Escritura",
+          "tipo": "estandar",
+          "definicion": "Planeo, reviso y edito mis escritos con la ayuda de mis compañeros y del profesor.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-ESCR-3",
+          "conjunto": "10-11",
+          "grupo": "Escritura",
+          "tipo": "estandar",
+          "definicion": "Expreso valores de mi cultura a través de los textos que escribo.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-ESCR-4",
+          "conjunto": "10-11",
+          "grupo": "Escritura",
+          "tipo": "estandar",
+          "definicion": "Escribo diferentes tipos de textos de mediana longitud y con una estructura sencilla (cartas, notas, mensajes, correos electrónicos, etc.).",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-ESCR-5",
+          "conjunto": "10-11",
+          "grupo": "Escritura",
+          "tipo": "estandar",
+          "definicion": "Escribo resúmenes e informes que demuestran mi conocimiento sobre temas de otras disciplinas.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-ESCR-6",
+          "conjunto": "10-11",
+          "grupo": "Escritura",
+          "tipo": "estandar",
+          "definicion": "Escribo textos de diferentes tipos teniendo en cuenta a mi posible lector.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-ESCR-7",
+          "conjunto": "10-11",
+          "grupo": "Escritura",
+          "tipo": "estandar",
+          "definicion": "Valoro la escritura como un medio de expresión de mis ideas y pensamientos, quién soy y qué sé del mundo.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-ESCR-8",
+          "conjunto": "10-11",
+          "grupo": "Escritura",
+          "tipo": "estandar",
+          "definicion": "Escribo textos a través de los cuales explico mis preferencias, decisiones o actuaciones.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-ESCR-9",
+          "conjunto": "10-11",
+          "grupo": "Escritura",
+          "tipo": "estandar",
+          "definicion": "Escribo textos expositivos sobre temas de mi interés.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-MONO-1",
+          "conjunto": "10-11",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Narro en forma detallada experiencias, hechos o historias de mi interés y del interés de mi audiencia.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-MONO-2",
+          "conjunto": "10-11",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Hago presentaciones orales sobre temas de mi interés y relacionados con el currículo escolar.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-MONO-3",
+          "conjunto": "10-11",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Utilizo un vocabulario apropiado para expresar mis ideas con claridad sobre temas del currículo y de mi interés.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-MONO-4",
+          "conjunto": "10-11",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Puedo expresarme con la seguridad y confianza propios de mi personalidad.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-MONO-5",
+          "conjunto": "10-11",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Utilizo elementos metalingüísticos como gestos y entonación para hacer más comprensible lo que digo.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-MONO-6",
+          "conjunto": "10-11",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Sustento mis opiniones, planes y proyectos.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-MONO-7",
+          "conjunto": "10-11",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Uso estrategias como el parafraseo para compensar dificultades en la comunicación.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-MONO-8",
+          "conjunto": "10-11",
+          "grupo": "Monólogos",
+          "tipo": "estandar",
+          "definicion": "Opino sobre los estilos de vida de la gente de otras culturas, apoyándome en textos escritos y orales previamente estudiados.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-CONV-1",
+          "conjunto": "10-11",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Participo espontáneamente en conversaciones sobre temas de mi interés utilizando un lenguaje claro y sencillo.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-CONV-2",
+          "conjunto": "10-11",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Respondo preguntas teniendo en cuenta a mi interlocutor y el contexto.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-CONV-3",
+          "conjunto": "10-11",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Utilizo una pronunciación inteligible para lograr una comunicación efectiva.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-CONV-4",
+          "conjunto": "10-11",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Uso mis conocimientos previos para participar en una conversación.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-CONV-5",
+          "conjunto": "10-11",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Describo en forma oral mis ambiciones, sueños y esperanzas utilizando un lenguaje claro y sencillo.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-CONV-6",
+          "conjunto": "10-11",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Uso lenguaje funcional para discutir alternativas, hacer recomendaciones y negociar acuerdos en debates preparados con anterioridad.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        },
+        {
+          "codigo": "ING-10-11-CONV-7",
+          "conjunto": "10-11",
+          "grupo": "Conversación",
+          "tipo": "estandar",
+          "definicion": "Utilizo estrategias que me permiten iniciar, mantener y cerrar una conversación sencilla sobre temas de mi interés, de una forma natural.",
+          "nivel": "B1.2",
+          "nivel_nombre": "Pre intermedio 2"
+        }
+      ]
+    }
+  ],
+  "areas_sin_estandares": [
+    {
+      "clave": "religion",
+      "nombre": "Educación Religiosa",
+      "materias": [
+        "religion",
+        "religiosa",
+        "escautismo",
+        "espiritual"
+      ]
+    },
+    {
+      "clave": "artistica",
+      "nombre": "Educación Artística",
+      "materias": [
+        "artistica",
+        "artes",
+        "musica",
+        "danza",
+        "teatro",
+        "dibujo",
+        "dimension estetica"
+      ]
+    },
+    {
+      "clave": "educacion-fisica",
+      "nombre": "Educación Física, Recreación y Deportes",
+      "materias": [
+        "educacion fisica",
+        "recreacion",
+        "deportes",
+        "deporte",
+        "dimension corporal"
+      ]
+    },
+    {
+      "clave": "tecnologia",
+      "nombre": "Tecnología e Informática",
+      "materias": [
+        "tecnologia",
+        "informatica",
+        "sistemas",
+        "computacion",
+        "programacion",
+        "hardware",
+        "software"
+      ]
+    },
+    {
+      "clave": "filosofia",
+      "nombre": "Filosofía",
+      "materias": [
+        "filosofia"
+      ]
+    },
+    {
+      "clave": "otras",
+      "nombre": "Otras áreas del colegio",
+      "materias": [
+        "contabilidad",
+        "investigacion",
+        "emprendimiento",
+        "educacion complementaria",
+        "dimension cognitiva",
+        "dimension afectiva",
+        "dimension actitudinal"
+      ]
+    }
+  ]
+}

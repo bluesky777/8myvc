@@ -167,6 +167,12 @@ final class Auditoria
         'unidad' => 'unidades',
         'subunidad' => 'subunidades',
 
+        // 2.bis — el plan de área: lo que el colegio escribe una vez y se copia.
+        // Sólo se graba `PUT competencias/copiar`, que es una escritura masiva;
+        // el CRUD de una en una no, por lo mismo que la plantilla: **lo que tiene
+        // consecuencia es la copia, no el original**.
+        'competencia' => 'competencias',
+
         // 3 — asistencia y faltas.
         'ausencia' => 'ausencias',
 

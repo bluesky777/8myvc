@@ -127,6 +127,10 @@
         "total": 1,
         "con_guard": 0
     },
+    "competencias": {
+        "total": 7,
+        "con_guard": 7
+    },
     "comportamiento": {
         "total": 4,
         "con_guard": 3
