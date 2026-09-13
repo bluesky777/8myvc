@@ -2040,8 +2040,37 @@ lo que hable del reparto del curso.
   desarrollo**. No lo bloquea nada de este plan y este plan no lo desbloquea.
 - **La Entrega 4 del doc 28** —tercer origen `{tipo:"plantilla"}` en `copiar` y sembrar
   al marcar— está aprobada (D18) y **es independiente de estas siete fases**: cero
-  rutas nuevas. Con D5 encima, al marcar se siembran **también los desempeños** del
-  grupo a nombre del alumno, así que su sitio natural es **detrás de la Fase 3**.
+  rutas nuevas.
+
+  > ### ⚠️ La última línea de D18 NO se puede cumplir, y no por coste: haría daño
+  >
+  > **Medido el 13 sep 2026 por `myvc-front-50` y verificado aquí en el código.** D18 pide que al
+  > marcar a un alumno se le copien **también los desempeños del grupo** a su nombre, «igual que
+  > las unidades». **No es igual, y la diferencia está en cómo se leen las dos tablas:**
+  >
+  > ```
+  > unidades      u.alumno_id <=> :alcance                        <- EXCLUYE: o las suyas o las del grupo
+  > desempenos    d.alumno_id IS NULL OR d.alumno_id IN (…)       <- SUMA: las del grupo Y las suyas
+  > ```
+  >
+  > (`DesempenosController::desempenosDeLaRejilla`, el filtro que arma antes del `SELECT`.)
+  >
+  > Con la lectura aditiva, copiarle al alumno los desempeños del grupo **duplica cada columna de
+  > la rejilla** — y no sólo las suyas: la rejilla es por asignatura, así que el grupo entero vería
+  > cada columna dos veces. **La premisa de D18 era que la lectura excluía, y en esta tabla no.**
+  >
+  > Su agente no la siguió, le puso un test y lo dejó escrito en el código. **Se anota aquí con el
+  > porqué delante y no se borra**: una decisión retirada sin su motivo se vuelve a pedir dentro de
+  > seis meses y parece un olvido en vez de una imposibilidad.
+  >
+  > **Lo que sí se cumplió de D18**, y por eso la decisión no cae entera: el tercer origen
+  > `origen.tipo: "plantilla"` en `POST boletin-independiente/copiar` —llamando a
+  > `AlcanceDeLaPlantilla` y no reescribiendo su precedencia— y que **marcar siembre la rejilla de
+  > notas**. Lo que no se hace es lo de los desempeños.
+
+  ~~Con D5 encima, al marcar se siembran **también los desempeños** del
+  grupo a nombre del alumno~~ — **retirado por el recuadro de arriba**; lo demás de D18 sigue
+  entero y su sitio natural es **detrás de la Fase 3**.
 - **La fase 0 de la Entrega 5** —sacar `nota × % / 100` de sus **18 sitios en 9
   ficheros** a un punto único— está aprobada y **se despliega sola** (D19). No cambia
   ni un resultado y se verifica con las instantáneas tal como están. **No depende de
