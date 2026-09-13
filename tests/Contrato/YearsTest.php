@@ -485,6 +485,13 @@ class YearsTest extends CasoDeContrato
             'rector_id', 'secretario_id', 'tesorero_id', 'telefono', 'celular', 'website',
             'website_myvc', 'unidad_displayname', 'unidades_displayname', 'genero_unidad',
             'subunidad_displayname', 'subunidades_displayname', 'genero_subunidad',
+            // Los tres del desempeño, desde el 13 sep 2026 (35 §2, Fase 1). Van en
+            // esta lista y no en otra porque son **exactamente el mismo riesgo** que
+            // las seis de arriba: se imprimen en el boletín de todos los alumnos, y
+            // el cliente que llama a esta ruta manda el objeto `year` entero — así
+            // que un colegio con `myvc_front` viejo mandaría veintiún campos de
+            // veinticuatro y perdería el vocabulario que eligió.
+            'desempeno_displayname', 'desempenos_displayname', 'genero_desempeno',
             'alumnos_can_see_notas', 'msg_when_students_blocked',
             'compromiso_familiar_label'] as $columna) {
             $this->assertSame($antes->$columna, $despues->$columna,
@@ -668,15 +675,27 @@ class YearsTest extends CasoDeContrato
     }
 
     /**
-     * La otra mitad, que **no** cambia: el conmutador sigue escribiendo cualquier
-     * otra columna de `years`, y sigue sin dejar pasar un nombre que no lo sea.
+     * La otra mitad, que **casi** no cambia: el conmutador sigue escribiendo
+     * cualquier otra columna de `years`, y sigue sin dejar pasar un nombre que no lo
+     * sea.
      *
      * No es lo que promete el nombre de la ruta —es un «guardar campo» genérico,
-     * como `asignaturas/toggle-dia`—, pero no es un agujero: quien pasa
+     * como `asignaturas/toggle-dia`—, pero no era un agujero: quien pasa
      * `auth.personal` ya escribe esas mismas columnas por `years/guardar-cambios`.
      * Se fija para que el arreglo del `actual` no se lea como «esta ruta está
      * limitada»: no lo está, y el día que alguien apoye un permiso en eso se
      * llevará una sorpresa.
+     *
+     * > **Y ese día llegó el 13 sep 2026, así que la frase de arriba ya no vale
+     * > entera.** `years.modelo_evaluacion` es la primera columna de esta tabla que
+     * > **no** la escribe todo el personal: D24 le dio ruta propia con
+     * > `can_edit_plantilla_notas` dentro, y por eso está excluida aquí igual que
+     * > `actual`. O sea que las excepciones de este conmutador ya son **dos y por
+     * > motivos distintos** —`actual` tiene un invariante de fila, `modelo_evaluacion`
+     * > tiene dueño— y quien añada una columna de `years` que no pueda escribir
+     * > cualquier docente tiene que acordarse de esta lista. Su caso vive en
+     * > `ModeloDeEvaluacionDelAnioTest::el_generico_de_years_no_puede_escribir_el_modelo`,
+     * > que es donde se mira la fila además del código.
      */
     public function test_el_conmutador_generico_escribe_las_demas_columnas(): void
     {

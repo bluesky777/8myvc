@@ -406,6 +406,7 @@
         "PUT api/votos/update/{id}",
         "PUT api/years/alumnos-can-see-notas",
         "PUT api/years/guardar-cambios",
+        "PUT api/years/modelo-evaluacion",
         "PUT api/years/mostrar-todas-materias",
         "PUT api/years/profes-can-edit-alumnos",
         "PUT api/years/restore/{id}",

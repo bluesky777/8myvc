@@ -116,6 +116,38 @@ Route::get('sincronizacion/huella', [SincronizacionController::class, 'getHuella
 Route::put('years/alumnos-can-see-notas', [YearsController::class, 'putAlumnosCanSeeNotas'])->middleware('auth.personal');
 Route::get('years/colegio', [YearsController::class, 'getColegio']);
 Route::put('years/guardar-cambios', [YearsController::class, 'putGuardarCambios'])->middleware('auth.personal');
+// **El modelo de evaluación del año**, Fase 1 de
+// docs/migracion/35-el-modelo-de-evaluacion-del-colegio.md §2. Ruta propia por
+// decisión de Joseth del 13 sep 2026 (**D24**), y las dos mitades del porqué:
+//
+// 1. `putGuardarCambios` nombra **veintiuna columnas una a una**, así que una
+//    columna nueva metida ahí **no la podría escribir nadie** —ni el superusuario—
+//    y saldría `'ponderado'` en los dieciséis colegios para siempre. Es
+//    `profesores.tono` otra vez, visto antes de cometerlo.
+// 2. Y **los dieciséis `years/*` de escritura son `auth.personal`**, o sea que
+//    colgarla de cualquiera de ellos dejaría que **cualquier docente cambiara el
+//    modelo de evaluación del colegio entero** desde un `PUT` de dos campos.
+//
+// Por eso: `auth.personal` **en la ruta** —cierra la puerta a alumnos y acudientes
+// antes de tocar el controlador— y `Autoriza::puedeEditarPlantillaNotas` **dentro
+// del método**, que es la forma de `plantilla-notas/` y con el mismo permiso
+// (`can_edit_plantilla_notas`): **cero permisos nuevos** (D13).
+//
+// **Los tres rótulos del desempeño NO pasan por aquí**: van en
+// `years/guardar-cambios`, con las seis de unidad y subunidad y con su mismo guard.
+// Son vocabulario, y quien puede renombrar «Subunidad» puede renombrar «Desempeño».
+// **Cero rutas** por esa mitad.
+//
+// Va detrás de `guardar-cambios` y delante de `mostrar-todas-materias` para no
+// romper el orden alfabético del bloque. Es un segmento literal, así que no la
+// puede tapar ningún `{id}` —los cuatro de esta familia van detrás de un literal
+// distinto— y no debe añadirse ninguna `PUT years/{algo}` que pudiera tragársela.
+//
+// No es pública ni debe serlo: **no mueve `RutasPreLoginTest::TOTAL_PUBLICAS`
+// (siguen doce) ni `AutenticacionTest::SIN_GUARD`**. Y la familia `years` ya tiene
+// muchas hermanas con guard, así que tampoco mueve
+// `familias-que-nunca-entran-en-el-candado.json`.
+Route::put('years/modelo-evaluacion', [YearsController::class, 'putModeloEvaluacion'])->middleware('auth.personal');
 Route::put('years/mostrar-todas-materias', [YearsController::class, 'putMostrarTodasMaterias'])->middleware('auth.personal');
 Route::put('years/profes-can-edit-alumnos', [YearsController::class, 'putProfesCanEditAlumnos'])->middleware('auth.personal');
 Route::put('years/set-actual', [YearsController::class, 'putSetActual'])->middleware('auth.personal');
