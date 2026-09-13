@@ -95,10 +95,32 @@ sitio donde puede dejar de medir lo que dice— es que **se calcula sobre lo que
 lectura y no sobre la tabla**: en el docker, `asignaturas` tiene 1.459 filas y la lectura
 devuelve 134, así que una huella de la tabla se movería con lo que el cliente no ve y podría
 no moverse con lo que sí. El guard es `auth.personal` **aunque cuatro de las cinco lecturas
-se conformen con `auth.token`** —no le quita nada a nadie y baja la superficie de 2.328
-cuentas a 45—, y **el quinto bloque, `profesores`, lo decide `esAdministrativo` dentro del
-método**, que son 10 de esas 45: una huella del personal para quien no puede leer el personal
-sigue siendo información sobre personas. Cuando se omite **se dice**, en `omitidas`, porque
+se conformen con `auth.token`** —no le quita nada a nadie y baja la superficie de **2.358
+cuentas a 74**—, y **el quinto bloque, `profesores`, lo decide `esAdministrativo` dentro del
+método**, que son **11** de esas 74: una huella del personal para quien no puede leer el personal
+sigue siendo información sobre personas.
+
+> **Ese par decía «2.328 a 45» y «10 de esas 45» hasta el 13 sep 2026, y NINGUNO de los tres se
+> reproducía.** Remedidos ese día en la base de desarrollo con el criterio leído del middleware
+> —`ExigirPersonal::FUERA`, o sea `tipo NOT IN ('Alumno','Acudiente')`— y no supuesto: **2.358**
+> cuentas vivas, **74** de personal (53 `Profesor` + 21 `Usuario`) y **11** superusuarios.
+> **El argumento no se mueve** —74 sigue siendo despreciable frente a 2.358— y por eso se corrigen
+> las cifras y no la decisión. De dónde salió el 45 **no se sabe**: no es la base de tests (71),
+> no es `profesores` (47), y no envejeció —sólo hay tres cuentas de personal creadas en 2026—.
+>
+> **Y se dejan con la orden que las recuenta, que es lo que impide que vuelva a pasar**, porque
+> una cifra sin su forma de rehacerla envejece sin que nada se ponga rojo:
+>
+> ```sql
+> SELECT COUNT(*) FROM users WHERE deleted_at IS NULL;                    -- 2.358
+> SELECT COUNT(*) FROM users WHERE deleted_at IS NULL
+>        AND tipo NOT IN ('Alumno','Acudiente');                          -- 74
+> SELECT COUNT(*) FROM users WHERE deleted_at IS NULL AND is_superuser=1; -- 11
+> ```
+>
+> **Son de UN colegio**, el de la copia de desarrollo, no de los dieciséis. Y `esAdministrativo`
+> es `is_superuser || isSecretario`: hoy coincide con los 11 **porque el rol `Secretario` no tiene
+> titulares**, no por definición — el colegio que nombre uno lo descubre. Cuando se omite **se dice**, en `omitidas`, porque
 un bloque ausente y un bloque que no se movió se leen igual desde el cliente.
 **579 se contó con `route:list --json` en `.worktrees/e5`, no se sumó.** Y el 13 sep 2026 a
 **580** con **`PUT years/modelo-evaluacion`**, la **Fase 1** del modelo de evaluación
@@ -332,6 +354,7 @@ leyendo el código. Cada una lleva su uso en la cabecera.
 | `deriva-del-horario.php` | si las siete columnas de día siguen cuadrando con la versión oficial — **sin versión publicada sale `2`, NO MEDIDO**, porque ahí un `0` diría lo mismo que un año perfecto |
 | `ensayo-de-la-tanda.sh` | si la tanda de migraciones corre entera sobre una copia de un colegio de verdad y cuánto tarda — y **audita la comprobación de `DESPLIEGUE.md`**, que la saca del documento con `grep` en vez de copiarla |
 | `comprobar-el-horario.php` | si el módulo de horario **llegó** a un colegio: `200` con `total: 0` no es lo mismo que `404` ni que `500`, y desde la pantalla los tres son una rejilla vacía |
+| `lo-que-reparte-una-columna.py` | qué instantáneas se mueven el día que una tabla gane una columna — **cobertura, no exposición**: son los ficheros que hay que regenerar, no las respuestas que ganan la columna |
 
 Y una que **no** está en `tools/` y contesta la pregunta contraria:
 `tests/Barrido/SuperficieDeUnTokenTest.php` golpea la API entera con un token y
