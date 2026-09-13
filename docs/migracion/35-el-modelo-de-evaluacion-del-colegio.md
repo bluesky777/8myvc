@@ -725,14 +725,34 @@ cumple eso va junto aunque sea más trabajo.
 | **0** | el `ALTER` a `text`, remedido | 0 | 1 (ya escrita) | 0 |
 | **1** | el colegio elige su modelo y le pone nombre | **1** | 1 | **3** |
 | **2** | competencias, con el catálogo del MEN | 7 | 1 | 0 |
-| **3** | desempeños: catálogo, siembra y los propios del docente | 8 | 1 | 0 |
+| **3** | desempeños: catálogo, siembra y los propios del docente | **12** | 1 | 0 |
 | **4** | la rejilla premarcada | 2 | 1 | 0 |
 | **5** | qué comparten los tres boletines *(medición, sin código)* | 0 | 0 | 0 |
 | **6** | el boletín nuevo | 4 | 0 | 0 |
 
-**Total: 22 rutas**, no 20 — las 20 del documento de decisiones más
-`PUT years/modelo-evaluacion` (§1.4) y menos ninguna. Se cuentan el día que entren,
-con `route:list --json`, **en el árbol donde se escriban** (§3).
+**Total: 26 rutas**, no 20 ni 22. Las 20 del documento de decisiones, **+1**
+`PUT years/modelo-evaluacion` (§1.4), **+1** el `GET desempenos` de la planilla y **+4** los
+desempeños propios del docente que exige D14 (Fase 3). **Las seis salieron de huecos que el
+documento no vio al escribirlo, no de ampliar el encargo** — y las tres veces por la misma forma:
+una capacidad decidida que no tenía por dónde ejercerse. Se cuentan el día que entren, con
+`route:list --json`, **en el árbol donde se escriban** (§3).
+
+> ### La deuda que abre la Fase 2 y no cierra nadie: `competencias` no se copia al año siguiente
+>
+> `competencias` es **por año**, igual que la plantilla. Tal como queda la Fase 2, **al crear el
+> año siguiente no se copia**, así que el colegio reescribe su plan de área cada enero. Es la
+> §1.bis del doc 28 **exacta** —las subunidades por defecto sin copiar durante años, sin un error
+> en ningún log—: no rompe nada hasta enero, y en enero no hay nada que lo explique.
+>
+> **Se dice aquí que la abre la Fase 2, no que «ya existía»**: la tabla no existe todavía. Quien
+> la crea, crea la deuda.
+>
+> **Dónde va, decidido aquí para que no se caiga entre dos ramas**: es **entrega propia sobre
+> `main`**, después de fundir `feat/competencias`, y **no dentro de la Fase 2**. El motivo es de
+> fontanería y es bueno: toca `YearsController`, que la Fase 1 ya cambió en `main`, y la rama de
+> competencias sale de un commit anterior — editarlo allí es fabricar un conflicto. Va junta con
+> **el centinela de las tablas que se copian al crear un año**, que este documento ya pedía en la
+> Fase 3 y que es lo único que impide que vuelva a pasar con la siguiente tabla por año.
 
 ---
 
@@ -1055,9 +1075,29 @@ Es el par que ya funciona en este sistema: `unidades_por_defecto` → `unidades`
 `por_defecto` significa aquí **lo mismo** que en `unidades`: «esta fila la sembró el
 colegio» — que es lo que hace cumplir D14 sin inventar nada.
 
-**8 rutas**: `GET`/`POST`/`PUT {id}`/`DELETE {id}`/`PUT orden`/`PUT copiar` sobre el
-catálogo, **`PUT desempenos/sembrar`** y `GET desempenos` de una asignatura+periodo
-(lo que lee la planilla).
+**12 rutas**, en dos grupos que **no son el mismo endpoint con otro permiso, porque no son la
+misma tabla**:
+
+- **8 sobre el catálogo del colegio** (`desempenos_por_defecto`): `GET`, `POST`, `PUT {id}`,
+  `DELETE {id}`, `PUT orden`, `PUT copiar`, **`PUT desempenos/sembrar`** y `GET desempenos` de una
+  asignatura+periodo, que es lo que lee la planilla.
+- **4 sobre los del docente** (`desempenos`, la tabla sembrada): `POST`, `PUT {id}`,
+  `DELETE {id}` y `PUT orden`.
+
+> **Este apartado decía 8 y se le había olvidado la mitad de D14.** Escribía *«y lo que el docente
+> sí puede: añadir los suyos»* **sin darle ni una ruta por donde hacerlo** — o sea una capacidad
+> declarada que **no podría ejercer nadie**. Es la forma de `profesores.tono` por tercera vez en
+> este documento (§1.4 y §1.9 son las otras dos), y esta vez la vio `myvc-front-50` al ir a
+> escribirla.
+>
+> Y no se arregla reusando las ocho con un permiso distinto dentro: el catálogo vive en
+> `desempenos_por_defecto` —materia + grado + periodo— y lo del docente en `desempenos`
+> —asignatura + periodo—. **Un `POST` no puede escribir en una tabla o en otra según quién llame**
+> sin convertirse en dos endpoints disfrazados de uno.
+>
+> **Sin esas cuatro, la rejilla del docente es de sólo lectura**: si al área se le olvidó un
+> desempeño, el periodo se pierde. Que es literalmente lo que D14 dice que separa una pantalla que
+> se usa de una que se abandona.
 
 > **`PUT desempenos/sembrar` es explícito y no cuelga de un `GET`.** El `GET` que
 > escribe —`UnidadesController::getDeAsignaturaPeriodo`— está fichado en
@@ -1113,8 +1153,18 @@ que ya aprendió tres cosas por las malas:
 > decisión — pero el día que alguien abra esa pantalla y reciba cuarenta y dos renglones, esto
 > explica por qué.
 
-**El candado del docente** es la marca `por_defecto`, y **son cuatro caminos, no dos**:
-`update`, `destroy`, `forcedelete` y `orden`. Poner el candado sólo en `update` lo
+**El candado del docente** es la marca `por_defecto`, y **son TRES caminos aquí, no los nueve de
+`unidades`**: `update`, `destroy` y `orden`. No hay `forcedelete` ni `restore` en esta familia
+porque no se han pedido.
+
+> ⚠️ **Y el porqué importa más que el número, porque la razón fácil es falsa.** No es que
+> *«sin `forcedelete` el rodeo de borrar-y-volver-a-crear se cierre por construcción»*: **no se
+> cierra**. `destroy` es un borrado lógico, así que un docente que pudiera borrar volvería a crear
+> la fila **con `alumno_id` nuevo y `por_defecto = 0`**, o sea libre — exactamente el rodeo de la
+> §5.1.e del doc 28. **Lo que lo cierra es candar `destroy`**, no omitir `forcedelete`.
+>
+> Omitir `forcedelete` **ahorra un camino que candar**, que es otra cosa y también vale. Pero
+> escrito como «se cierra solo» invita a dejar `destroy` abierto, que es justo el agujero. Poner el candado sólo en `update` lo
 deja decorativo por el rodeo de siempre —borrar y volver a crear—, que es lo que la
 §5.1.e del doc 28 midió con los nueve caminos de `unidades`. Y compara **valores, no
 presencia del campo**: los clientes mandan el objeto entero.
@@ -1269,8 +1319,9 @@ eso `show_competencias_bol` se retiró).
 
 ## 3. La cuenta de rutas, y cómo se cuenta
 
-**22**, no 20: las 20 del documento de decisiones, más `PUT years/modelo-evaluacion`
-(§1.4) y más el `GET desempenos` de la planilla, que la §5.3 del doc 28 daba por
+**26**, no 20: las 20 del documento de decisiones, más `PUT years/modelo-evaluacion`
+(§1.4), más el `GET desempenos` de la planilla, más **las cuatro de los desempeños propios del
+docente** que exige D14 (Fase 3), que la §5.3 del doc 28 daba por
 incluido en «6 calcadas» y no lo está.
 
 Sobre una base que **hay que contar**, no heredar: `CLAUDE.md` dice 579 y el doc 28
